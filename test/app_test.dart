@@ -458,4 +458,34 @@ void main() {
     await settle(t);
     expect(rig.voice.spoken.last, contains('ভালো আছি'));
   });
+
+  testWidgets('chat asks what to do first; রিমাইন্ডার makes a plain sentence a reminder', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    expect(rig.voice.spoken.last, contains('কী করতে চান'));
+    await t.tap(find.widgetWithText(ActionChip, 'রিমাইন্ডার'));
+    await settle(t);
+    expect(find.textContaining(': রিমাইন্ডার'), findsOneWidget);
+    rig.voice.say('কাল সকাল ১০টায় ডাক্তারের কাছে যাওয়া');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('দেব — ঠিক আছে?'));
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    final r = rig.brain.data.reminders.single;
+    expect(r.date, DateTime(2026, 10, 10));
+    expect(r.hour, 10);
+  });
+
+  testWidgets('chat: a subject that matches nothing opens a new category', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    rig.voice.say('দোকানের মাল');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('নতুন বিভাগ খুললাম'));
+    rig.voice.say('চাল ২০ বস্তা এসেছে');
+    await settle(t);
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    expect(rig.brain.data.notes.single.category, 'দোকানের মাল');
+  });
 }

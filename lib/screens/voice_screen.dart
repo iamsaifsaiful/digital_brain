@@ -61,7 +61,24 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
     super.initState();
     _typing = widget.startTyping;
     WidgetsBinding.instance.addObserver(this);
-    if (!_typing) WidgetsBinding.instance.addPostFrameCallback((_) => _listen());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _begin());
+  }
+
+  /// "কী করতে চান — লেনদেন, রিমাইন্ডার…?", then listen.
+  Future<void> _begin({bool again = false}) async {
+    if (!mounted) return;
+    final voice = BrainScope.read(context).services.voice;
+    await _stopListening();
+    final say = again ? _chat.chooseTopic() : _chat.greet();
+    if (!mounted) return;
+    setState(() => _speaking = !voice.muted);
+    try {
+      await voice.speakAndWait(say);
+    } finally {
+      if (mounted) setState(() => _speaking = false);
+    }
+    _silences = 0;
+    if (mounted && !_typing && !_listening && !_away) unawaited(_listen());
   }
 
   /// Leaving the app (a call, the home button, screen off) stops the
@@ -318,11 +335,34 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
                     ),
                     const SizedBox(width: 12),
                     Expanded(child: Text('কথা বলুন', style: display(20, color: Colors.white))),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(border: Border.all(color: const Color(0xFF3A4842)), borderRadius: BorderRadius.circular(999)),
-                      child: Text(brain.aiOn ? 'AI চালু' : 'ভাষা: বাংলা', style: body(13, color: C.onDarkMuted)),
-                    ),
+                    if (_chat.topic != null)
+                      Flexible(
+                        child: Material(
+                          color: C.dark2,
+                          borderRadius: BorderRadius.circular(999),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(999),
+                            onTap: _busy ? null : () => _begin(again: true),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                Flexible(
+                                  child: Text('বিষয়: ${_chat.topicLabel}',
+                                      style: body(13, color: C.mint, weight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.swap_horiz_rounded, size: 16, color: C.mint),
+                              ]),
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(border: Border.all(color: const Color(0xFF3A4842)), borderRadius: BorderRadius.circular(999)),
+                        child: Text(brain.aiOn ? 'AI চালু' : 'ভাষা: বাংলা', style: body(13, color: C.onDarkMuted)),
+                      ),
                   ],
                 ),
               ),
@@ -331,8 +371,8 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
                   controller: _scroll,
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                   children: [
-                    if (msgs.isEmpty) _intro(),
                     for (final m in msgs) _bubble(m),
+                    if (!msgs.any((m) => m.fromUser)) _intro(),
                     if (_listening && _live.isNotEmpty) _userBubble(_live, live: true),
                     if (_chat.thinking) _status(const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: C.mint)), 'ভাবছি…'),
                     if (_error != null)
@@ -374,8 +414,6 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 8),
-          Text('বলুন, কী করতে হবে — একটার পর একটা।', style: display(22, color: Colors.white)),
-          const SizedBox(height: 6),
           Text('অনেক কথা একসাথে বললেও আমি আসল তথ্যগুলো আলাদা করে রাখব। থামাতে “থামো” বলুন।',
               style: body(14, color: const Color(0xFFA9B5AF))),
           const SizedBox(height: 18),

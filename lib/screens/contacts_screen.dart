@@ -76,6 +76,11 @@ class _ContactsScreenState extends State<ContactsScreen> {
                                       icon: const Icon(Icons.call_outlined, size: 20, color: C.green),
                                     ),
                                     IconButton(
+                                      tooltip: 'WhatsApp',
+                                      onPressed: () => brain.services.launcher.open(Via.whatsapp, c.phone),
+                                      icon: const Icon(Icons.chat_outlined, size: 20, color: Color(0xFF128C4A)),
+                                    ),
+                                    IconButton(
                                       tooltip: 'নম্বর কপি করুন',
                                       onPressed: () async {
                                         await brain.services.files.copy(c.phone);

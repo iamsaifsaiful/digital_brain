@@ -16,7 +16,23 @@ import '../ui/yes_no.dart' show pickSpokenOption;
 import 'brain.dart';
 
 /// What the chat is waiting to hear.
-enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName }
+enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime }
+
+/// What the user said they want to talk about at the start.
+enum Topic {
+  ledger('লেনদেন'),
+  reminder('রিমাইন্ডার'),
+  task('কাজের তালিকা'),
+  note('নোট'),
+  call('ফোন ও মেসেজ'),
+  custom('');
+
+  const Topic(this.label);
+  final String label;
+}
+
+/// A reminder whose time is still to be asked.
+final _noTime = DateTime(2000);
 
 /// A button under the latest question; tapping it is the same as saying
 /// [answer].
@@ -109,8 +125,129 @@ class ChatController extends ChangeNotifier {
 
   bool _warnedExact = false;
 
+  /// The subject chosen at the start ("লেনদেন", "রিমাইন্ডার", or a new
+  /// category of the user's own); null = anything.
+  Topic? topic;
+  String customTopic = '';
+  String _pendingTitle = '';
+
+  String get topicLabel => topic == null ? '' : (topic == Topic.custom ? customTopic : topic!.label);
+
+  static const _topicChoices = [
+    ChatChoice('লেনদেন', 'লেনদেন'),
+    ChatChoice('রিমাইন্ডার', 'রিমাইন্ডার'),
+    ChatChoice('কাজের তালিকা', 'কাজের তালিকা'),
+    ChatChoice('ফোন ও মেসেজ', 'ফোন ও মেসেজ'),
+    ChatChoice('নোট', 'নোট'),
+    ChatChoice('অন্য কিছু', 'অন্য কিছু'),
+  ];
+
+  /// The opening question. Returns what to say aloud.
+  String greet() {
+    const q = 'কী করতে চান — লেনদেন, রিমাইন্ডার, কাজের তালিকা, ফোন-মেসেজ, নাকি অন্য কিছু? বিষয়টা বলুন, অথবা সরাসরি বলে ফেলুন।';
+    final out = <String>[];
+    _ask(out, q, ChatWait.topic, choices: _topicChoices);
+    notifyListeners();
+    return out.join(' ');
+  }
+
+  /// Ask for the subject again (the topic pill was tapped).
+  String chooseTopic() {
+    _reset();
+    _queue.clear();
+    topic = null;
+    customTopic = '';
+    return greet();
+  }
+
+  /// A known subject in a short answer, or null.
+  Topic? _topicWord(String t) {
+    final n = normalize(t);
+    bool has(List<String> ks) => ks.any((k) => n.contains(normalize(k)));
+    if (has(['লেনদেন', 'টাকা', 'হিসাব', 'বাকি', 'ধার', 'দেনা', 'পাওনা', 'ledger', 'taka'])) return Topic.ledger;
+    if (has(['রিমাইন্ডার', 'মনে করানো', 'মনে করাবে', 'অ্যালার্ম', 'এলার্ম', 'alarm', 'reminder'])) return Topic.reminder;
+    if (has(['কাজের তালিকা', 'কাজের লিস্ট', 'কাজ', 'টু ডু', 'todo', 'লিস্ট', 'তালিকা', 'task'])) return Topic.task;
+    if (has(['ফোন', 'মেসেজ', 'ম্যাসেজ', 'কল', 'হোয়াটসঅ্যাপ', 'whatsapp', 'sms', 'এসএমএস'])) return Topic.call;
+    if (has(['নোট', 'মনে রাখা', 'note'])) return Topic.note;
+    return null;
+  }
+
+  /// "দোকানের মাল নিয়ে" → "দোকানের মাল".
+  String _categoryName(String t) {
+    final c = tidy(cutWords(t, const ['বিষয়ে', 'বিষয়', 'নিয়ে', 'সম্পর্কে', 'ব্যাপারে', 'বিভাগ', 'বিভাগে', 'ক্যাটাগরি', 'নতুন', 'একটা', 'খোলো', 'খুলুন', 'চাই']));
+    return c.isEmpty ? t.trim() : c;
+  }
+
+  void _setTopic(Topic tp, List<String> out, {String name = ''}) {
+    topic = tp;
+    customTopic = name;
+    wait = ChatWait.none;
+    choices = const [];
+    final String say;
+    switch (tp) {
+      case Topic.ledger:
+        say = 'ঠিক আছে, লেনদেন। বলুন — যেমন “সজীবকে ৫০০ টাকা দিলাম” বা “করিম ৫০০ টাকার মাল বাকিতে নিল”।';
+      case Topic.reminder:
+        say = 'ঠিক আছে, রিমাইন্ডার। কী, আর কখন মনে করাব বলুন — যেমন “কাল সকাল ১০টায় মিটিং”।';
+      case Topic.task:
+        say = 'ঠিক আছে, কাজের তালিকা। কী কী করতে হবে বলুন, একটা একটা করে।';
+      case Topic.call:
+        say = 'ঠিক আছে। কাকে ফোন বা মেসেজ দেব বলুন — যেমন “রহিমকে ফোন দাও”।';
+      case Topic.note:
+        say = 'ঠিক আছে, নোট। কী মনে রাখব বলুন।';
+      case Topic.custom:
+        final exists = brain.data.noteCategories.any((c) => normalize(c) == normalize(name));
+        say = exists ? 'ঠিক আছে, ‘$name’ বিভাগে আছি। এখন যা বলবেন, এখানে রাখব।' : 'ঠিক আছে, ‘$name’ নামে নতুন বিভাগ খুললাম। এখন যা বলবেন, এই বিভাগে রাখব।';
+    }
+    _say(out, say);
+    _history.add(AiTurn.app('[ব্যবহারকারী এখন ‘$topicLabel’ বিষয়ে বলবেন]'));
+  }
+
+  /// Fits what was understood to the chosen subject: in রিমাইন্ডার a plain
+  /// sentence is a reminder, in a new category it is a note there, and so on.
+  List<Command> _applyTopic(List<Command> cmds, String said) {
+    final tp = topic;
+    if (tp == null) return cmds;
+    final asking = isQuestionText(said);
+    bool plain(Command c) => c is NotUnderstood || (c is SearchQuery && !asking) || (c is NoteAdd && c.category == null) || c is TaskAdd;
+    return [
+      for (final c in cmds)
+        switch (tp) {
+          Topic.custom when c is NoteAdd => NoteAdd(c.transcript, text: c.text, fromStatement: c.fromStatement, category: customTopic),
+          Topic.custom when c is NotUnderstood || (c is SearchQuery && !asking) =>
+            NoteAdd(said, text: said.trim(), fromStatement: true, category: customTopic),
+          Topic.note when c is NotUnderstood || (c is SearchQuery && !asking) => NoteAdd(said, text: said.trim(), fromStatement: true),
+          Topic.reminder when plain(c) => _reminderFrom(c is TaskAdd ? c.title : said),
+          Topic.task when plain(c) && c is! TaskAdd => _taskFrom(said),
+          Topic.ledger when plain(c) && c is! TaskAdd && findAmount(normalize(said)) != null =>
+            LedgerAdd(said, person: '', amount: findAmount(normalize(said))!, options: LedgerKind.values, allowExpense: true),
+          Topic.call when c is NotUnderstood || c is SearchQuery || c is NoteAdd => CallPerson(said,
+              person: spokenName(said, [for (final x in brain.data.contacts) x.name]),
+              via: normalize(said).contains(normalize('হোয়াটসঅ্যাপ'))
+                  ? Via.whatsapp
+                  : (normalize(said).contains(normalize('মেসেজ')) ? Via.sms : Via.call)),
+          _ => c,
+        },
+    ];
+  }
+
+  ReminderAdd _reminderFrom(String said) {
+    final w = parseWhen(said, _now);
+    var title = tidy(withoutWhen(said));
+    if (title.isEmpty) title = said.trim();
+    return ReminderAdd(said, title: title, at: w?.at ?? _noTime);
+  }
+
+  TaskAdd _taskFrom(String said) {
+    final w = parseWhen(said, _now);
+    var title = w != null && w.hasDay ? tidy(withoutWhen(said)) : said.trim();
+    if (title.isEmpty) title = said.trim();
+    return TaskAdd(said, title: title, due: w != null && w.hasDay ? w.day : null);
+  }
+
   /// Short listening (yes/no) is enough for the next answer.
-  bool get expectsShortAnswer => const {ChatWait.yesNo, ChatWait.amount, ChatWait.name, ChatWait.callee, ChatWait.phone, ChatWait.contactName}.contains(wait);
+  bool get expectsShortAnswer =>
+      const {ChatWait.yesNo, ChatWait.amount, ChatWait.name, ChatWait.callee, ChatWait.phone, ChatWait.contactName, ChatWait.topic, ChatWait.topicName}.contains(wait);
 
   /// Opens the dialer / SMS app / WhatsApp prepared by the last answer.
   Future<void> launchPending() async {
@@ -149,7 +286,8 @@ class ChatController extends ChangeNotifier {
 
     thinking = brain.aiOn;
     notifyListeners();
-    final (cmds, problem) = await brain.understandAll(t, history: List.of(_history));
+    final (understood, problem) = await brain.understandAll(t, history: List.of(_history));
+    final cmds = _applyTopic(understood, t);
     thinking = false;
     if (problem != null) messages.add(ChatMessage.app(problem, info: true));
 
@@ -305,6 +443,11 @@ class ChatController extends ChangeNotifier {
         final due = c.due == null ? '' : ' (${sayWhen(c.due!, _now, withTime: false)})';
         _ask(out, '“${c.title}”$due — কাজের তালিকায় তুলে রাখি?', ChatWait.yesNo, choices: _yesNoChoices);
       case ReminderAdd():
+        if (c.at == _noTime) {
+          _pendingTitle = c.title;
+          _ask(out, '“${c.title}” — কখন মনে করাব? যেমন “কাল সকাল ১০টায়” বা “এক ঘণ্টা পরে”।', ChatWait.reminderTime);
+          return;
+        }
         if (!c.at.isAfter(_now)) {
           _say(out, 'ওই সময়টা তো পার হয়ে গেছে। কখন মনে করাব, আরেকবার বলবেন?');
           await _done(out);
@@ -496,6 +639,47 @@ class ChatController extends ChangeNotifier {
         _person = n;
         wait = ChatWait.none;
         await _nextLedgerStep(out);
+        return true;
+      case ChatWait.topic:
+        final n = normalize(t);
+        if (n == normalize('অন্য কিছু') || n == normalize('অন্যান্য') || n == normalize('অন্য')) {
+          _ask(out, 'কোন বিষয়ে? নামটা বলুন — নতুন বিভাগ খুলে দেব।', ChatWait.topicName);
+          return true;
+        }
+        final tp = _topicWord(t);
+        final count = words(n).length;
+        final c = Parser(ledger: brain.data.ledger, tasks: brain.data.tasks, contacts: brain.data.contacts, now: _now).parse(t);
+        final actionable = !(c is NotUnderstood || c is SearchQuery || c is NoteAdd);
+        if (tp != null && (count <= 2 || (!actionable && count <= 3))) {
+          _setTopic(tp, out);
+          return true;
+        }
+        // A whole request instead of a subject: just do it.
+        if (actionable || count > 3) {
+          wait = ChatWait.none;
+          choices = const [];
+          return false;
+        }
+        // Words that match no subject: a new category of the user's own.
+        _setTopic(Topic.custom, out, name: _categoryName(t));
+        return true;
+      case ChatWait.topicName:
+        final tp = _topicWord(t);
+        if (tp != null && words(normalize(t)).length <= 2) {
+          _setTopic(tp, out);
+        } else {
+          _setTopic(Topic.custom, out, name: _categoryName(t));
+        }
+        return true;
+      case ChatWait.reminderTime:
+        final w = parseWhen(t, _now);
+        if (w == null) {
+          if (_looksNew(t)) return false;
+          _say(out, 'সময়টা ধরতে পারিনি। যেমন বলুন “কাল সকাল ১০টায়” বা “৩০ মিনিট পরে”।');
+          return true;
+        }
+        wait = ChatWait.none;
+        await _start(ReminderAdd(t, title: _pendingTitle, at: w.at), out);
         return true;
       case ChatWait.callee:
         final n = spokenName(t, [for (final c in brain.data.contacts) c.name, ...knownPeople(brain.data.ledger)]);
