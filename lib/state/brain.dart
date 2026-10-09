@@ -1,6 +1,10 @@
 import 'package:flutter/widgets.dart';
 
+import '../logic/ai_map.dart';
+import '../logic/ledger.dart';
+import '../logic/parser.dart';
 import '../models/models.dart';
+import '../services/ai.dart';
 import '../services/data_store.dart';
 import '../services/files.dart';
 import '../services/lock.dart';
@@ -15,14 +19,19 @@ class Services {
     required this.voice,
     required this.notifier,
     required this.files,
+    AiBrain? ai,
     DateTime Function()? clock,
-  }) : now = clock ?? DateTime.now;
+  })  : ai = ai ?? FakeAi(),
+        now = clock ?? DateTime.now;
 
   final DataStore store;
   final LockService lock;
   final Voice voice;
   final Notifier notifier;
   final FileBridge files;
+
+  /// Claude, when the user has set an API key (see আরও).
+  final AiBrain ai;
   final DateTime Function() now;
 }
 
@@ -61,7 +70,46 @@ class Brain extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool get aiOn => services.ai.key.trim().isNotEmpty;
+
+  Future<void> setAiKey(String key) async {
+    services.ai.key = key.trim();
+    if (key.trim().isEmpty) {
+      await services.lock.keys.delete('claude_api_key');
+    } else {
+      await services.lock.keys.write('claude_api_key', key.trim());
+    }
+    notifyListeners();
+  }
+
+  AiContext aiContext() => AiContext(
+        now: services.now(),
+        people: knownPeople(data.ledger).take(60).toList(),
+        categories: data.noteCategories,
+      );
+
+  /// What the user meant. The rules always run (offline, instant); when AI
+  /// is on, Claude's reading is used instead — except for anything secret,
+  /// which never leaves the phone. Returns the command and, if AI failed, a
+  /// message to show.
+  Future<(Command, String?)> understand(String said) async {
+    final rules = Parser(ledger: data.ledger).parse(said);
+    if (!aiOn) return (rules, null);
+    if (rules is VaultQuery || mentionsSecret(said)) return (rules, null);
+    if (rules is SmallTalk && (rules.kind == Talk.time || rules.kind == Talk.date)) return (rules, null);
+    try {
+      final r = await services.ai.route(said, aiContext());
+      if (r == null) return (rules, null);
+      return (commandFromAi(said, r, data.ledger) ?? rules, null);
+    } on AiError catch (e) {
+      return (rules, '${e.message} নিজের নিয়মে বুঝে নিলাম।');
+    }
+  }
+
   Future<void> load() async {
+    try {
+      services.ai.key = await services.lock.keys.read('claude_api_key') ?? '';
+    } catch (_) {}
     try {
       services.voice.muted = (await services.lock.keys.read('speak_on')) == 'false';
       services.voice.preferredVoice = await services.lock.keys.read('tts_voice');

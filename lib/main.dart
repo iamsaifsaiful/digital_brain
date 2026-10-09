@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'app.dart';
+import 'services/ai.dart';
 import 'services/crypto.dart';
 import 'services/data_store.dart';
 import 'services/files.dart';
@@ -21,6 +22,7 @@ Future<void> main() async {
     voice: DeviceVoice(),
     notifier: NotificationService(),
     files: DeviceFiles(),
+    ai: ClaudeAi(),
   );
   await services.notifier.init();
   final brain = Brain(services);

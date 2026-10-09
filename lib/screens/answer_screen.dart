@@ -54,7 +54,10 @@ class _AnswerScreenState extends State<AnswerScreen> {
     super.didChangeDependencies();
     final brain = BrainScope.of(context);
     final cmd = widget.command;
-    if (cmd is NoteAdd && _category == null) _category = guessCategory(brain.data, cmd.text);
+    if (cmd is NoteAdd && _category == null) {
+      final ai = cmd.category;
+      _category = ai == null ? guessCategory(brain.data, cmd.text) : CategoryGuess(ai, isNew: !brain.data.noteCategories.contains(ai));
+    }
     _answer = _build(brain);
   }
 
@@ -243,6 +246,8 @@ class _AnswerScreenState extends State<AnswerScreen> {
             ),
         ]);
       case LedgerAdd():
+      case AiReply():
+        return _Answer(cmd.text);
       case LedgerSet():
       case NotUnderstood():
         return _Answer('দুঃখিত, ঠিক বুঝতে পারিনি। একটু অন্যভাবে আরেকবার বলবেন?');
@@ -385,7 +390,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                 children: [
-                  Bubble(label: isNote || cmd is SmallTalk ? 'আপনি বললেন' : 'আপনি জিজ্ঞেস করলেন', text: cmd.transcript.trim()),
+                  Bubble(label: isNote || cmd is SmallTalk || cmd is AiReply ? 'আপনি বললেন' : 'আপনি জিজ্ঞেস করলেন', text: cmd.transcript.trim()),
                   const SizedBox(height: 16),
                   Panel(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),

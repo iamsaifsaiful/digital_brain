@@ -1,3 +1,4 @@
+import 'package:digital_brain/logic/ai_map.dart';
 import 'package:digital_brain/logic/bn.dart';
 import 'package:digital_brain/logic/categories.dart';
 import 'package:digital_brain/logic/csv.dart';
@@ -443,6 +444,35 @@ void main() {
       expect(d.person, 'সজীব');
       expect(d.kind, LedgerKind.lent);
       expect((Parser(ledger: const []).parse('তুমি কে?') as SmallTalk).kind, Talk.whoAreYou);
+    });
+  });
+
+  group('AI answers mapped to app commands', () {
+    final ledger = [e('ইসমাইল', LedgerKind.lent, 100, DateTime(2026, 10, 1))];
+    test('each action', () {
+      final a = commandFromAi('x', {'action': 'ledger_add', 'person': 'সজীব', 'amount': 500, 'kind': 'lent'}, ledger) as LedgerAdd;
+      expect(a.kind, LedgerKind.lent);
+      expect(a.person, 'সজীব');
+      final b = commandFromAi('x', {'action': 'ledger_add', 'person': '', 'amount': 1200, 'kind': 'unclear'}, ledger) as LedgerAdd;
+      expect(b.needsChoice, isTrue);
+      expect(b.person, '');
+      final c = commandFromAi('x', {'action': 'ledger_set', 'person': 'ইসমাইলের', 'balance': 5000}, ledger) as LedgerSet;
+      expect(c.person, 'ইসমাইল');
+      expect(c.balance, 5000);
+      expect(commandFromAi('x', {'action': 'chat', 'reply': 'ভালো আছি'}, ledger), isA<AiReply>());
+      final n = commandFromAi('x', {'action': 'note_add', 'text': 'ছাদের কোড ৪৫৬৭', 'category': 'বাসা'}, ledger) as NoteAdd;
+      expect(n.category, 'বাসা');
+      final v = commandFromAi('x', {'action': 'vault_query', 'terms': ['Facebook']}, ledger) as VaultQuery;
+      expect(v.terms, ['facebook']);
+      expect(commandFromAi('x', {'action': 'nonsense'}, ledger), isNull);
+      expect(commandFromAi('x', {'action': 'chat'}, ledger), isNull);
+    });
+
+    test('secrets are detected so they stay on the phone', () {
+      expect(mentionsSecret('ফেসবুক পাসওয়ার্ড abc123 রাখো'), isTrue);
+      expect(mentionsSecret('আমার ATM পিন 1234'), isTrue);
+      expect(mentionsSecret('বাসার wifi এর নাম কী'), isTrue);
+      expect(mentionsSecret('সজীবকে ৫০০ টাকা দিলাম'), isFalse);
     });
   });
 }

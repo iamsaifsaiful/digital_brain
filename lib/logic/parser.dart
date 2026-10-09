@@ -63,9 +63,18 @@ class ReminderQuery extends Command {
 /// Something to remember. [fromStatement]: the user just said a fact
 /// ("ছাদের দরজার কোড ৪৫৬৭") that matched nothing else.
 class NoteAdd extends Command {
-  const NoteAdd(super.transcript, {required this.text, this.fromStatement = false});
+  const NoteAdd(super.transcript, {required this.text, this.fromStatement = false, this.category});
   final String text;
   final bool fromStatement;
+
+  /// Category suggested by the AI (else the app guesses).
+  final String? category;
+}
+
+/// The AI's own answer (conversation or general knowledge).
+class AiReply extends Command {
+  const AiReply(super.transcript, {required this.text});
+  final String text;
 }
 
 class SearchQuery extends Command {
@@ -757,4 +766,16 @@ String spokenName(String heard, List<String> known) {
       .map((x) => stripTo(stripPossessive(x)))
       .join(' ');
   return original.trim();
+}
+
+/// Sentences about passwords, PINs, OTPs or card numbers never leave the
+/// phone (they are not sent to the AI).
+bool mentionsSecret(String said) {
+  final t = normalize(said);
+  if (_hasAny(t, _vaultWords)) return true;
+  if (_hasAny(t, ['wi-fi', 'wifi', 'ওয়াইফাই', 'ওয়াই-ফাই', 'ওয়াই ফাই', 'ওটিপি', 'otp', 'সিভিভি', 'cvv', 'কার্ড নম্বর', 'কার্ডের নম্বর', 'card number'])) {
+    return true;
+  }
+  final w = words(t);
+  return w.contains('পিন') || w.contains('pin');
 }

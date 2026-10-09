@@ -13,7 +13,7 @@ import '../ui/pin.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 
-const appVersion = '1.2.2';
+const appVersion = '1.3.0';
 
 /// Security, encrypted backup, voice and reports.
 class MoreScreen extends StatefulWidget {
@@ -169,6 +169,67 @@ class _MoreScreenState extends State<MoreScreen> {
     );
   }
 
+  Future<void> _setAiKey() async {
+    final brain = BrainScope.read(context);
+    final c = TextEditingController(text: brain.services.ai.key);
+    String? status;
+    bool testing = false;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text('Claude API key', style: display(20)),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('platform.claude.com → API Keys থেকে একটা key বানিয়ে এখানে বসান (sk-ant- দিয়ে শুরু)।',
+                  style: body(14, color: C.muted, height: 1.5)),
+              const SizedBox(height: 10),
+              TextField(
+                controller: c,
+                obscureText: true,
+                autocorrect: false,
+                enableSuggestions: false,
+                decoration: const InputDecoration(labelText: 'API key'),
+              ),
+              if (status != null) ...[
+                const SizedBox(height: 10),
+                Text(status!, style: body(14, height: 1.5, color: status!.startsWith('✓') ? C.greenDark : C.red)),
+              ],
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('বাতিল')),
+            TextButton(
+              onPressed: testing
+                  ? null
+                  : () async {
+                      final key = c.text.trim();
+                      if (key.isEmpty) return;
+                      setD(() {
+                        testing = true;
+                        status = 'পরীক্ষা করছি…';
+                      });
+                      final old = brain.services.ai.key;
+                      brain.services.ai.key = key;
+                      try {
+                        final r = await brain.services.ai.route('হ্যালো, তুমি কেমন আছো?', brain.aiContext());
+                        final reply = r?['reply'];
+                        status = '✓ কাজ করছে! AI বলল: ${reply ?? 'ঠিক আছে'}';
+                        await brain.setAiKey(key);
+                      } catch (e) {
+                        brain.services.ai.key = old;
+                        status = '$e';
+                      }
+                      if (ctx.mounted) setD(() => testing = false);
+                    },
+              child: const Text('পরীক্ষা করে রাখুন'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _pickVoice() async {
     final brain = BrainScope.read(context);
     final list = await brain.services.voice.voices();
@@ -271,6 +332,41 @@ class _MoreScreenState extends State<MoreScreen> {
       children: [
         Text('আরও', style: display(26, weight: 700)),
         const SizedBox(height: 14),
+        Panel(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              const Icon(Icons.auto_awesome_outlined, color: C.purple),
+              const SizedBox(width: 8),
+              Expanded(child: Text('AI সহকারী (Claude)', style: body(16, weight: FontWeight.w600))),
+              Pill(brain.aiOn ? 'চালু' : 'বন্ধ', fg: brain.aiOn ? C.greenDark : C.muted2, bg: brain.aiOn ? C.greenTint : C.line2),
+            ]),
+            const SizedBox(height: 6),
+            Text(
+              'AI চালু থাকলে আঞ্চলিক ভাষা, বাংলা-ইংরেজি মেশানো কথা আর সাধারণ প্রশ্নও বোঝে, উত্তর দেয় মানুষের মতো করে। '
+              'আপনার বলা বাক্য আর ধার-দেনার মানুষের নামগুলো Anthropic-এ পাঠানো হয়; পাসওয়ার্ড, ভল্ট, PIN বা নোটের লেখা কখনো পাঠানো হয় না। '
+              'ইন্টারনেট না থাকলে অ্যাপ নিজের নিয়মে চলে।',
+              style: body(13, color: C.muted, height: 1.55),
+            ),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(
+                child: PrimaryButton(
+                  label: brain.aiOn ? 'key বদলান' : 'API key বসান',
+                  icon: Icons.key_rounded,
+                  height: 46,
+                  color: C.purple,
+                  onPressed: _setAiKey,
+                ),
+              ),
+              if (brain.aiOn) ...[
+                const SizedBox(width: 8),
+                Expanded(child: SecondaryButton(label: 'বন্ধ করুন', height: 46, onPressed: () => brain.setAiKey(''))),
+              ],
+            ]),
+          ]),
+        ),
+        const SizedBox(height: 12),
         Panel(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

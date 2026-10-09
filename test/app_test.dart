@@ -1,5 +1,6 @@
 import 'package:digital_brain/app.dart';
 import 'package:digital_brain/models/models.dart';
+import 'package:digital_brain/services/ai.dart';
 import 'package:digital_brain/services/crypto.dart';
 import 'package:digital_brain/services/data_store.dart';
 import 'package:digital_brain/services/files.dart';
@@ -27,6 +28,7 @@ class Rig {
     notifier = FakeNotifier();
     files = FakeFiles();
     biometrics = FakeBiometrics(has: false);
+    ai = FakeAi();
     final store = DataStore(keys: keys, blob: MemoryBlobStore());
     services = Services(
       store: store,
@@ -34,6 +36,7 @@ class Rig {
       voice: voice,
       notifier: notifier,
       files: files,
+      ai: ai,
       clock: () => DateTime(2026, 10, 9, 15, 53),
     );
     brain = Brain(services);
@@ -41,6 +44,7 @@ class Rig {
   }
 
   late final FakeVoice voice;
+  late final FakeAi ai;
   late final FakeNotifier notifier;
   late final FakeFiles files;
   late final FakeBiometrics biometrics;
@@ -64,7 +68,7 @@ Future<void> enterPin(WidgetTester t, String pin) async {
 }
 
 /// Starts the app, sets the PIN 1234 and lands on home.
-Future<Rig> start(WidgetTester t, {AppData? data}) async {
+Future<Rig> start(WidgetTester t, {AppData? data, AiRoute? ai}) async {
   t.view.physicalSize = const Size(1170, 2532);
   t.view.devicePixelRatio = 3.0;
   addTearDown(t.view.reset);
@@ -73,6 +77,10 @@ Future<Rig> start(WidgetTester t, {AppData? data}) async {
   await t.pumpWidget(DigitalBrainApp(brain: rig.brain));
   await rig.brain.load();
   if (data != null) rig.brain.data = data;
+  if (ai != null) {
+    rig.ai.key = 'test-key';
+    rig.ai.answer = ai;
+  }
   await settle(t);
   expect(find.text('একটি ৪ অঙ্কের PIN ঠিক করুন'), findsOneWidget);
   await enterPin(t, '1234');
@@ -264,5 +272,47 @@ void main() {
     expect(e.person, 'করিম');
     expect(e.amount, 1200);
     expect(e.kind, LedgerKind.lent);
+  });
+
+  testWidgets('with AI on, Claude\'s reply is spoken', (t) async {
+    final rig = await start(t, ai: {'action': 'chat', 'reply': 'জি, আলহামদুলিল্লাহ ভালো আছি! আপনার কী খবর?'});
+    await t.tap(find.text('যেকোনো কিছু জিজ্ঞেস করুন'));
+    await settle(t);
+    rig.voice.say('কিরে দোস্ত, কী অবস্থা তোর');
+    await settle(t);
+    expect(rig.ai.asked, ['কিরে দোস্ত, কী অবস্থা তোর']);
+    expect(rig.voice.spoken.last, 'জি, আলহামদুলিল্লাহ ভালো আছি! আপনার কী খবর?');
+  });
+
+  testWidgets('with AI on, a money sentence the AI understood goes to confirm', (t) async {
+    final rig = await start(t, ai: {'action': 'ledger_add', 'person': 'জামাল', 'amount': 1500, 'kind': 'lent'});
+    await t.tap(find.text('যেকোনো কিছু জিজ্ঞেস করুন'));
+    await settle(t);
+    rig.voice.say('জামাইল্লারে দেড় হাজার টেয়া হাওলাত দিছি');
+    await settle(t);
+    expect(find.text('ঠিক বুঝেছি তো?'), findsOneWidget);
+    rig.voice.say('হ');
+    await settle(t);
+    expect(rig.brain.data.ledger.single.person, 'জামাল');
+    expect(rig.brain.data.ledger.single.amount, 1500);
+  });
+
+  testWidgets('password questions never go to the AI', (t) async {
+    final rig = await start(t, ai: {'action': 'chat', 'reply': 'x'});
+    await t.tap(find.text('যেকোনো কিছু জিজ্ঞেস করুন'));
+    await settle(t);
+    rig.voice.say('ফেসবুকের পাসওয়ার্ড দেখাও');
+    await settle(t);
+    expect(rig.ai.asked, isEmpty);
+  });
+
+  testWidgets('AI failure falls back to the rules', (t) async {
+    final rig = await start(t, ai: {'action': 'chat', 'reply': 'x'});
+    rig.ai.error = const AiError('ইন্টারনেট সংযোগ পাওয়া যায়নি।');
+    await t.tap(find.text('যেকোনো কিছু জিজ্ঞেস করুন'));
+    await settle(t);
+    rig.voice.say('আমি সজীবকে ৫০০ টাকা দিলাম');
+    await settle(t);
+    expect(find.text('ঠিক বুঝেছি তো?'), findsOneWidget);
   });
 }

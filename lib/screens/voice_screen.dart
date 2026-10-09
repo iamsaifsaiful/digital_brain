@@ -29,6 +29,7 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
   bool _listening = false;
   bool _typing = false;
   bool _handled = false;
+  bool _thinking = false;
 
   static const _examples = [
     'সজীবকে ৫০০ টাকা দিলাম',
@@ -100,8 +101,13 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
     if (_handled) return;
     _handled = true;
     final brain = BrainScope.read(context);
-    final cmd = Parser(ledger: brain.data.ledger).parse(said);
     final nav = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    if (brain.aiOn) setState(() => _thinking = true);
+    final (cmd, problem) = await brain.understand(said);
+    if (!mounted) return;
+    setState(() => _thinking = false);
+    if (problem != null) messenger.showSnackBar(SnackBar(content: Text(problem)));
     switch (cmd) {
       case LedgerAdd():
         unawaited(nav.pushReplacement(MaterialPageRoute(builder: (_) => ConfirmScreen(command: cmd))));
@@ -231,6 +237,12 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
                           ),
                         const SizedBox(height: 20),
                         if (_listening) _Wave(animation: _wave),
+                        if (_thinking)
+                          Row(children: [
+                            const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: C.mint)),
+                            const SizedBox(width: 10),
+                            Text('ভাবছি…', style: body(15, color: C.mint, weight: FontWeight.w600)),
+                          ]),
                         if (_error != null) ...[
                           const SizedBox(height: 8),
                           Text(_error!, style: body(16, color: C.peach, weight: FontWeight.w600, height: 1.5)),
