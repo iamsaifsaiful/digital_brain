@@ -13,7 +13,7 @@ import '../ui/pin.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 
-const appVersion = '1.2.1';
+const appVersion = '1.2.2';
 
 /// Security, encrypted backup, voice and reports.
 class MoreScreen extends StatefulWidget {

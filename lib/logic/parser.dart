@@ -104,7 +104,49 @@ String normalize(String s) {
   t = t.replaceAll(RegExp(r'\s+'), ' ').trim();
   if (t.isEmpty) return t;
   // Everyday and regional speech → the standard forms the rules know.
-  return t.split(' ').map(_standardWord).join(' ');
+  final mapped = t.split(' ').map(_standardWord).toList();
+  return _joinParticles(mapped).join(' ');
+}
+
+const _englishKe = {'smoke', 'spoke', 'brake', 'stroke', 'awake', 'mistake', 'snake', 'shake', 'strike', 'handshake', 'remake', 'intake', 'stake'};
+
+/// Speech engines and typists often split "সজীব কে", "sajib ke",
+/// "abc er": glue the particle back to the name ("সজীবকে", "abcএর").
+/// "টিয়া" after a number is Noakhali speech for টাকা.
+List<String> _joinParticles(List<String> ws) {
+  const keep = {'তুমি', 'আপনি', 'তুই', 'সে', 'উনি', 'ও', 'কে', 'এ', 'এটা', 'ওটা', 'আমি', 'আমার', 'কী', 'কি'};
+  final out = <String>[];
+  for (var i = 0; i < ws.length; i++) {
+    final w = ws[i];
+    final prev = out.isEmpty ? null : out.last;
+    final prevIsNumber = prev != null && (RegExp(r'^\d').hasMatch(prev) || const {'হাজার', 'লাখ', 'লক্ষ', 'শ', 'শো', 'শত'}.contains(prev));
+    if (w == fold('টিয়া') && prevIsNumber) {
+      out.add('টাকা');
+      continue;
+    }
+    if (prev != null && !keep.contains(prev) && !RegExp(r'^\d').hasMatch(prev)) {
+      if (w == 'কে' || w == 'ke') {
+        out[out.length - 1] = '$prevকে';
+        continue;
+      }
+      if (w == 'এর' || w == 'er' || w == 'r') {
+        out[out.length - 1] = '$prevএর';
+        continue;
+      }
+    }
+    // Banglish name endings before কাছে/থেকে/সাথে: "rahimer kache" → "rahimএর কাছে".
+    final next = i + 1 < ws.length ? ws[i + 1] : '';
+    if (RegExp(r'^[a-z]{3,}er$').hasMatch(w) && (next == 'কাছে' || next == 'থেকে' || next == 'সাথে')) {
+      out.add('${w.substring(0, w.length - 2)}এর');
+      continue;
+    }
+    if (RegExp(r'^[a-z]{3,}ke$').hasMatch(w) && !_colloquial.containsKey(w) && !_englishKe.contains(w)) {
+      out.add('${w.substring(0, w.length - 2)}কে');
+      continue;
+    }
+    out.add(w);
+  }
+  return out;
 }
 
 String _standardWord(String w) {
@@ -156,6 +198,24 @@ const _colloquialRaw = <String, String>{
   'কও': 'বলো', 'কন': 'বলো', 'কওতো': 'বলো', 'কইয়া': 'বলে', 'দেহাও': 'দেখাও', 'দেহান': 'দেখান', 'দেখাওতো': 'দেখাও',
   'ক্যামন': 'কেমন', 'কেমুন': 'কেমন', 'কিরাম': 'কেমন', 'কিমুন': 'কেমন', 'কেমনে': 'কীভাবে', 'ক্যামনে': 'কীভাবে',
   'কারে': 'কাকে', 'তারে': 'তাকে', 'ওরে': 'ওকে', 'হেরে': 'তাকে', 'আছস': 'আছিস', 'আছো্': 'আছো', 'আসো': 'আছো', 'আসেন': 'আছেন', 'আছুইন': 'আছেন', 'আছোনি': 'আছো', 'নাই': 'নেই', 'নাইক্কা': 'নেই',
+  // Noakhali, Chattogram, Sylhet, Rajshahi, Barishal
+  'টেয়া': 'টাকা', 'টেঁয়া': 'টাকা', 'ট্যায়া': 'টাকা', 'টিঁয়া': 'টাকা', 'হাইছি': 'পেয়েছি', 'হাইসি': 'পেয়েছি', 'হাইমু': 'পাব',
+  'দিয়্যি': 'দিয়েছি', 'দিইয়ি': 'দিয়েছি', 'দিলাইছি': 'দিয়েছি', 'দিলাইসি': 'দিয়েছি', 'দিনু': 'দিলাম', 'লিনু': 'নিলাম',
+  'লিছি': 'নিয়েছি', 'লিসি': 'নিয়েছি', 'পানু': 'পেলাম', 'গইজ্জি': 'করেছি', 'গরিলাম': 'করলাম', 'তুঁই': 'তুমি', 'মোগো': 'আমাদের',
+  'আঁরা': 'আমরা', 'হিতে': 'সে', 'ইতা': 'এটা', 'হেইডা': 'সেটা', 'এইডা': 'এটা', 'কিচ্ছু': 'কিছু', 'কুনু': 'কোনো',
+  // Banglish (Bengali typed or spoken in English letters) and English words
+  'taka': 'টাকা', 'tk': 'টাকা', 'tak': 'টাকা', 'takar': 'টাকার', 'dilam': 'দিলাম', 'disi': 'দিয়েছি', 'dichi': 'দিয়েছি',
+  'diyechi': 'দিয়েছি', 'dise': 'দিয়েছে', 'diche': 'দিয়েছে', 'diyeche': 'দিয়েছে', 'dilo': 'দিল', 'nilam': 'নিলাম', 'nisi': 'নিয়েছি',
+  'nichi': 'নিয়েছি', 'niyechi': 'নিয়েছি', 'pelam': 'পেলাম', 'paisi': 'পেয়েছি', 'paichi': 'পেয়েছি', 'peyechi': 'পেয়েছি',
+  'pabo': 'পাব', 'pamu': 'পাব', 'pai': 'পাই', 'pay': 'শোধ', 'paid': 'শোধ', 'payment': 'শোধ', 'debo': 'দেব', 'dibo': 'দেব', 'dimu': 'দেব',
+  'ferot': 'ফেরত', 'ferat': 'ফেরত', 'return': 'ফেরত', 'back': 'ফেরত', 'dhar': 'ধার', 'loan': 'ধার', 'lend': 'ধার', 'lent': 'ধার',
+  'borrow': 'ধার', 'borrowed': 'ধার', 'shodh': 'শোধ', 'kache': 'কাছে', 'kase': 'কাছে', 'theke': 'থেকে', 'theika': 'থেকে',
+  'ami': 'আমি', 'amake': 'আমাকে', 'amare': 'আমাকে', 'amar': 'আমার', 'koto': 'কত', 'kato': 'কত', 'kar': 'কার', 'kake': 'কাকে',
+  'kare': 'কাকে', 'mone': 'মনে', 'rakho': 'রাখো', 'rakhen': 'রাখেন', 'rakh': 'রাখ', 'kemon': 'কেমন', 'kemun': 'কেমন', 'acho': 'আছো',
+  'aso': 'আছো', 'achen': 'আছেন', 'asen': 'আছেন', 'tumi': 'তুমি', 'apni': 'আপনি', 'ki': 'কী', 'kii': 'কী', 'koi': 'কোথায়',
+  'dekhao': 'দেখাও', 'bolo': 'বলো', 'na': 'না', 'ha': 'হ্যাঁ', 'haa': 'হ্যাঁ', 'hae': 'হ্যাঁ', 'hmm': 'হুম', 'dhonnobad': 'ধন্যবাদ',
+  'remind': 'মনে করাও', 'reminder': 'রিমাইন্ডার', 'note': 'নোট', 'date': 'তারিখ', 'kobe': 'কবে', 'hisab': 'হিসাব', 'hishab': 'হিসাব',
+  'pawna': 'পাওনা', 'paona': 'পাওনা', 'dena': 'দেনা', 'baki': 'বাকি',
   // misc
   'কইরা': 'করে', 'কইরে': 'করে', 'রাইখা': 'রেখে', 'রাখছি': 'রেখেছি', 'রাখসি': 'রেখেছি', 'হইছে': 'হয়েছে', 'হইসে': 'হয়েছে',
   'গেছে্': 'গেছে', 'ভালা': 'ভালো', 'ভাল': 'ভালো', 'বালা': 'ভালো',
@@ -263,6 +323,10 @@ String resolvePerson(String raw, List<String> known) {
     for (final k in known) {
       if (personKey(k) == personKey(c)) return k;
     }
+  }
+  // A new name typed in English letters: "rahim" → "Rahim".
+  if (RegExp(r'^[a-z]').hasMatch(raw)) {
+    return raw.split(' ').map((p) => p.isEmpty ? p : p[0].toUpperCase() + p.substring(1)).join(' ');
   }
   return raw;
 }

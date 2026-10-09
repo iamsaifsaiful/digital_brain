@@ -417,4 +417,32 @@ void main() {
       expect(spokenName('রহিমের সাথে', const ['রহিম']), 'রহিম');
     });
   });
+
+  group('Revision 2: regional words and Banglish', () {
+    test('Noakhali টিয়া / টেয়া', () {
+      final a = Parser(ledger: const []).parse('ইসমাইলের কাছে আমি ৫ হাজার টিয়া পামু') as LedgerSet;
+      expect(a.balance, 5000);
+      final b = Parser(ledger: const []).parse('রহিমরে ৫০০ টেয়া দিসি') as LedgerAdd;
+      expect(b.person, 'রহিম');
+      expect(b.kind, LedgerKind.lent);
+      expect(normalize('একটা টিয়া পাখি'), contains('টিয়া'.replaceAll('য়', 'য়')));
+    });
+
+    test('Bengali written in English letters, and mixed', () {
+      final a = Parser(ledger: const []).parse('Sajib ke 500 taka dilam') as LedgerAdd;
+      expect(a.person, 'Sajib');
+      expect(a.amount, 500);
+      expect(a.kind, LedgerKind.lent);
+      final b = Parser(ledger: const []).parse('rahimer kache ami 2000 taka pai') as LedgerSet;
+      expect(b.person, 'Rahim');
+      expect(b.balance, 2000);
+      final c = Parser(ledger: const []).parse('ABC er password ki') as VaultQuery;
+      expect(c.terms, ['abc']);
+      expect((Parser(ledger: const []).parse('tumi kemon acho') as SmallTalk).kind, Talk.howAreYou);
+      final d = Parser(ledger: const []).parse('সজীব কে ৩০০ টাকা loan দিলাম') as LedgerAdd;
+      expect(d.person, 'সজীব');
+      expect(d.kind, LedgerKind.lent);
+      expect((Parser(ledger: const []).parse('তুমি কে?') as SmallTalk).kind, Talk.whoAreYou);
+    });
+  });
 }
