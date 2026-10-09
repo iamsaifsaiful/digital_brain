@@ -1,0 +1,364 @@
+/// Everything the app stores. All of it lives in one encrypted file
+/// (see services/data_store.dart).
+library;
+
+import 'dart:math';
+
+String newId() {
+  final r = Random.secure();
+  final t = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
+  final n = List.generate(6, (_) => r.nextInt(36).toRadixString(36)).join();
+  return '$t$n';
+}
+
+DateTime? _date(Object? v) => v is String ? DateTime.tryParse(v) : null;
+
+// ───────────────────────── Ledger ─────────────────────────
+
+/// What happened, from the user's side.
+enum LedgerKind {
+  /// I gave a loan: they owe me more.
+  lent('ধার দিলাম', 'আমি দিলাম, পরে পাব'),
+
+  /// I borrowed: I owe them more.
+  borrowed('ধার নিলাম', 'আমি নিলাম, পরে দেব'),
+
+  /// They paid me back: they owe me less.
+  received('ফেরত পেলাম', 'আমার পাওনা থেকে'),
+
+  /// I paid them back: I owe them less.
+  repaid('শোধ করলাম', 'আমার দেনা থেকে');
+
+  const LedgerKind(this.label, this.hint);
+  final String label;
+  final String hint;
+
+  /// Effect on "they owe me" (positive) for an amount.
+  int signed(int amount) => switch (this) {
+        LedgerKind.lent || LedgerKind.repaid => amount,
+        LedgerKind.borrowed || LedgerKind.received => -amount,
+      };
+
+  /// Money leaving my pocket?
+  bool get outflow => this == LedgerKind.lent || this == LedgerKind.repaid;
+
+  static LedgerKind parse(Object? v) =>
+      LedgerKind.values.firstWhere((k) => k.name == v, orElse: () => LedgerKind.lent);
+}
+
+class LedgerEntry {
+  LedgerEntry({
+    String? id,
+    required this.person,
+    required this.kind,
+    required this.amount,
+    required this.date,
+    this.note = '',
+    DateTime? createdAt,
+  })  : id = id ?? newId(),
+        createdAt = createdAt ?? DateTime.now();
+
+  final String id;
+  final String person;
+  final LedgerKind kind;
+
+  /// Whole taka, always positive.
+  final int amount;
+  final DateTime date;
+  final String note;
+  final DateTime createdAt;
+
+  LedgerEntry copyWith({String? person, LedgerKind? kind, int? amount, DateTime? date, String? note}) => LedgerEntry(
+        id: id,
+        person: person ?? this.person,
+        kind: kind ?? this.kind,
+        amount: amount ?? this.amount,
+        date: date ?? this.date,
+        note: note ?? this.note,
+        createdAt: createdAt,
+      );
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'person': person,
+        'kind': kind.name,
+        'amount': amount,
+        'date': date.toIso8601String(),
+        'note': note,
+        'createdAt': createdAt.toIso8601String(),
+      };
+
+  factory LedgerEntry.fromJson(Map<String, Object?> j) => LedgerEntry(
+        id: j['id'] as String?,
+        person: (j['person'] as String?) ?? '',
+        kind: LedgerKind.parse(j['kind']),
+        amount: (j['amount'] as num?)?.toInt() ?? 0,
+        date: _date(j['date']) ?? DateTime.now(),
+        note: (j['note'] as String?) ?? '',
+        createdAt: _date(j['createdAt']),
+      );
+}
+
+// ───────────────────────── Vault ─────────────────────────
+
+enum VaultKind {
+  website('ওয়েবসাইট'),
+  app('অ্যাপ'),
+  wifi('Wi-Fi'),
+  bank('ব্যাংক'),
+  email('ইমেইল'),
+  other('অন্যান্য');
+
+  const VaultKind(this.label);
+  final String label;
+
+  static VaultKind parse(Object? v) => VaultKind.values.firstWhere((k) => k.name == v, orElse: () => VaultKind.other);
+}
+
+class VaultItem {
+  VaultItem({
+    String? id,
+    required this.name,
+    this.kind = VaultKind.website,
+    this.address = '',
+    this.username = '',
+    this.email = '',
+    this.password = '',
+    this.note = '',
+    DateTime? updatedAt,
+  })  : id = id ?? newId(),
+        updatedAt = updatedAt ?? DateTime.now();
+
+  final String id;
+  final String name;
+  final VaultKind kind;
+
+  /// Web address, or the network name for Wi-Fi.
+  final String address;
+  final String username;
+  final String email;
+  final String password;
+  final String note;
+  final DateTime updatedAt;
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'name': name,
+        'kind': kind.name,
+        'address': address,
+        'username': username,
+        'email': email,
+        'password': password,
+        'note': note,
+        'updatedAt': updatedAt.toIso8601String(),
+      };
+
+  factory VaultItem.fromJson(Map<String, Object?> j) => VaultItem(
+        id: j['id'] as String?,
+        name: (j['name'] as String?) ?? '',
+        kind: VaultKind.parse(j['kind']),
+        address: (j['address'] as String?) ?? '',
+        username: (j['username'] as String?) ?? '',
+        email: (j['email'] as String?) ?? '',
+        password: (j['password'] as String?) ?? '',
+        note: (j['note'] as String?) ?? '',
+        updatedAt: _date(j['updatedAt']),
+      );
+}
+
+// ───────────────────────── Contacts ─────────────────────────
+
+class Contact {
+  Contact({String? id, required this.name, this.phone = '', this.email = '', this.note = '', DateTime? updatedAt})
+      : id = id ?? newId(),
+        updatedAt = updatedAt ?? DateTime.now();
+
+  final String id;
+  final String name;
+  final String phone;
+  final String email;
+  final String note;
+  final DateTime updatedAt;
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'name': name,
+        'phone': phone,
+        'email': email,
+        'note': note,
+        'updatedAt': updatedAt.toIso8601String(),
+      };
+
+  factory Contact.fromJson(Map<String, Object?> j) => Contact(
+        id: j['id'] as String?,
+        name: (j['name'] as String?) ?? '',
+        phone: (j['phone'] as String?) ?? '',
+        email: (j['email'] as String?) ?? '',
+        note: (j['note'] as String?) ?? '',
+        updatedAt: _date(j['updatedAt']),
+      );
+}
+
+// ───────────────────────── Notes ─────────────────────────
+
+class Note {
+  Note({String? id, required this.title, this.body = '', DateTime? updatedAt})
+      : id = id ?? newId(),
+        updatedAt = updatedAt ?? DateTime.now();
+
+  final String id;
+  final String title;
+  final String body;
+  final DateTime updatedAt;
+
+  Map<String, Object?> toJson() => {'id': id, 'title': title, 'body': body, 'updatedAt': updatedAt.toIso8601String()};
+
+  factory Note.fromJson(Map<String, Object?> j) => Note(
+        id: j['id'] as String?,
+        title: (j['title'] as String?) ?? '',
+        body: (j['body'] as String?) ?? '',
+        updatedAt: _date(j['updatedAt']),
+      );
+}
+
+// ───────────────────────── Reminders ─────────────────────────
+
+enum Repeat {
+  none('একবার'),
+  monthly('প্রতি মাসে'),
+  yearly('প্রতি বছর');
+
+  const Repeat(this.label);
+  final String label;
+
+  static Repeat parse(Object? v) => Repeat.values.firstWhere((k) => k.name == v, orElse: () => Repeat.none);
+}
+
+class Reminder {
+  Reminder({
+    String? id,
+    required this.title,
+    required this.date,
+    this.hour = 10,
+    this.minute = 0,
+    this.daysBefore = 1,
+    this.repeat = Repeat.none,
+    this.note = '',
+    this.vaultId,
+  }) : id = id ?? newId();
+
+  final String id;
+  final String title;
+
+  /// The day itself (the due date, renewal date, appointment day…).
+  final DateTime date;
+
+  /// Time of day the notification shows.
+  final int hour;
+  final int minute;
+
+  /// Notify this many days before [date] (0 = on the day).
+  final int daysBefore;
+  final Repeat repeat;
+  final String note;
+
+  /// A linked vault item (e.g. the domain panel login).
+  final String? vaultId;
+
+  /// The next date this reminder is about, on or after [now]'s day.
+  DateTime nextDate(DateTime now) {
+    final today = DateTime(now.year, now.month, now.day);
+    final start = DateTime(date.year, date.month, date.day);
+    if (repeat == Repeat.none) return start;
+    // Count from the original date each time, so the 31st stays the 31st
+    // (or the month's last day) instead of drifting after February.
+    final step = repeat == Repeat.monthly ? 1 : 12;
+    var d = start;
+    for (var k = 1; d.isBefore(today) && k < 1200; k++) {
+      d = _addMonths(start, k * step);
+    }
+    return d;
+  }
+
+  /// When the phone should notify for the next occurrence.
+  DateTime notifyAt(DateTime now) {
+    final d = nextDate(now).subtract(Duration(days: daysBefore));
+    return DateTime(d.year, d.month, d.day, hour, minute);
+  }
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'title': title,
+        'date': date.toIso8601String(),
+        'hour': hour,
+        'minute': minute,
+        'daysBefore': daysBefore,
+        'repeat': repeat.name,
+        'note': note,
+        'vaultId': vaultId,
+      };
+
+  factory Reminder.fromJson(Map<String, Object?> j) => Reminder(
+        id: j['id'] as String?,
+        title: (j['title'] as String?) ?? '',
+        date: _date(j['date']) ?? DateTime.now(),
+        hour: (j['hour'] as num?)?.toInt() ?? 10,
+        minute: (j['minute'] as num?)?.toInt() ?? 0,
+        daysBefore: (j['daysBefore'] as num?)?.toInt() ?? 1,
+        repeat: Repeat.parse(j['repeat']),
+        note: (j['note'] as String?) ?? '',
+        vaultId: j['vaultId'] as String?,
+      );
+}
+
+DateTime _addMonths(DateTime d, int months) {
+  final y = d.year + (d.month - 1 + months) ~/ 12;
+  final m = (d.month - 1 + months) % 12 + 1;
+  final last = DateTime(y, m + 1, 0).day;
+  return DateTime(y, m, min(d.day, last));
+}
+
+// ───────────────────────── Everything ─────────────────────────
+
+class AppData {
+  AppData({
+    List<LedgerEntry>? ledger,
+    List<VaultItem>? vault,
+    List<Contact>? contacts,
+    List<Note>? notes,
+    List<Reminder>? reminders,
+  })  : ledger = ledger ?? [],
+        vault = vault ?? [],
+        contacts = contacts ?? [],
+        notes = notes ?? [],
+        reminders = reminders ?? [];
+
+  final List<LedgerEntry> ledger;
+  final List<VaultItem> vault;
+  final List<Contact> contacts;
+  final List<Note> notes;
+  final List<Reminder> reminders;
+
+  static const schema = 1;
+
+  Map<String, Object?> toJson() => {
+        'schema': schema,
+        'ledger': ledger.map((e) => e.toJson()).toList(),
+        'vault': vault.map((e) => e.toJson()).toList(),
+        'contacts': contacts.map((e) => e.toJson()).toList(),
+        'notes': notes.map((e) => e.toJson()).toList(),
+        'reminders': reminders.map((e) => e.toJson()).toList(),
+      };
+
+  factory AppData.fromJson(Map<String, Object?> j) {
+    List<T> list<T>(String key, T Function(Map<String, Object?>) f) =>
+        ((j[key] as List?) ?? const []).whereType<Map>().map((m) => f(m.cast<String, Object?>())).toList();
+    return AppData(
+      ledger: list('ledger', LedgerEntry.fromJson),
+      vault: list('vault', VaultItem.fromJson),
+      contacts: list('contacts', Contact.fromJson),
+      notes: list('notes', Note.fromJson),
+      reminders: list('reminders', Reminder.fromJson),
+    );
+  }
+}

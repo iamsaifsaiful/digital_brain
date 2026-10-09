@@ -1,0 +1,386 @@
+/// Understands what the user said (or typed) in Bengali.
+///
+/// Version 1 works from sentence patterns, not AI: it recognises the usual
+/// ways people say they gave, took, got back or paid back money, and the
+/// usual ways of asking for a balance, a login, a date or a note. When the
+/// meaning of a money sentence is not clear it never guesses: it returns the
+/// choices so the app can ask.
+library;
+
+import '../models/models.dart';
+import 'bn.dart';
+import 'ledger.dart';
+
+sealed class Command {
+  const Command(this.transcript);
+  final String transcript;
+}
+
+/// A money event to confirm. [kind] is null when the user must choose
+/// between [options]; [suggested] is the likeliest one.
+class LedgerAdd extends Command {
+  const LedgerAdd(super.transcript,
+      {required this.person, required this.amount, this.kind, this.options = const [], this.suggested, this.allowExpense = false});
+  final String person;
+  final int amount;
+  final LedgerKind? kind;
+  final List<LedgerKind> options;
+  final LedgerKind? suggested;
+
+  /// Offer "অন্য খরচ, হিসাবে রাখব না" as a choice too.
+  final bool allowExpense;
+
+  bool get needsChoice => kind == null;
+}
+
+enum LedgerAsk { all, receivable, payable, person }
+
+class LedgerQuery extends Command {
+  const LedgerQuery(super.transcript, {required this.ask, this.person});
+  final LedgerAsk ask;
+  final String? person;
+}
+
+class VaultQuery extends Command {
+  const VaultQuery(super.transcript, {required this.terms, this.wifiOnly = false});
+  final List<String> terms;
+  final bool wifiOnly;
+}
+
+class ReminderQuery extends Command {
+  const ReminderQuery(super.transcript, {required this.terms});
+  final List<String> terms;
+}
+
+class NoteAdd extends Command {
+  const NoteAdd(super.transcript, {required this.text});
+  final String text;
+}
+
+class SearchQuery extends Command {
+  const SearchQuery(super.transcript, {required this.terms});
+  final List<String> terms;
+}
+
+class NotUnderstood extends Command {
+  const NotUnderstood(super.transcript);
+}
+
+// ───────────────────────── Text helpers ─────────────────────────
+
+/// Writes য়, ড়, ঢ় one way (letter + nukta) and drops zero-width joiners,
+/// since keyboards and speech engines spell them differently.
+String fold(String s) => s
+    .replaceAll('\u09DF', '\u09AF\u09BC')
+    .replaceAll('\u09DC', '\u09A1\u09BC')
+    .replaceAll('\u09DD', '\u09A2\u09BC')
+    .replaceAll(RegExp('[\u200B-\u200D\uFEFF]'), '');
+
+/// Lower-case, ASCII digits, no punctuation, single spaces.
+String normalize(String s) {
+  var t = fold(asciiDigits(s)).toLowerCase();
+  t = t.replaceAllMapped(RegExp(r'(\d),(\d)'), (m) => '${m[1]}${m[2]}');
+  t = t.replaceAll(RegExp(r'[।?!,;:"“”‘’()\[\]]'), ' ');
+  t = t.replaceAll('৳', ' ');
+  return t.replaceAll(RegExp(r'\s+'), ' ').trim();
+}
+
+List<String> words(String normalized) => normalized.isEmpty ? const [] : normalized.split(' ');
+
+const _vowelSigns = 'ািীুূৃেৈোৌ';
+
+/// Removes a Bengali possessive ending: সজীবের → সজীব, রনির → রনি,
+/// wi-fi-এর → wi-fi.
+String stripPossessive(String w) {
+  for (final suf in ['-এর', '-র', 'এর', 'ের']) {
+    if (w.endsWith(suf) && w.length > suf.length + 1) return w.substring(0, w.length - suf.length);
+  }
+  if (w.endsWith('র') && w.length > 2 && _vowelSigns.contains(w[w.length - 2])) {
+    return w.substring(0, w.length - 1);
+  }
+  return w;
+}
+
+/// Removes "কে" (to): সজীবকে → সজীব.
+String stripTo(String w) {
+  for (final suf in ['-কে', 'কে']) {
+    if (w.endsWith(suf) && w.length > suf.length + 1) return w.substring(0, w.length - suf.length);
+  }
+  return w;
+}
+
+/// Ending a search word might carry: টা, টি, তে, গুলো, এর, কে.
+String stem(String w) {
+  var s = w;
+  for (final suf in ['গুলো', 'টার', 'টা', 'টি', 'তে']) {
+    if (s.endsWith(suf) && s.length > suf.length + 1) {
+      s = s.substring(0, s.length - suf.length);
+      break;
+    }
+  }
+  return stripTo(stripPossessive(s));
+}
+
+const _numberWordsRaw = {
+  'এক': 1, 'দুই': 2, 'দু': 2, 'তিন': 3, 'চার': 4, 'পাঁচ': 5, 'ছয়': 6, 'সাত': 7, 'আট': 8, 'দশ': 10, 'বিশ': 20, 'ত্রিশ': 30, 'চল্লিশ': 40, 'পঞ্চাশ': 50, 'একশ': 100, 'একশো': 100, 'দেড়': 1.5, 'আড়াই': 2.5,
+};
+
+final Map<String, num> _numberWords = {for (final e in _numberWordsRaw.entries) fold(e.key): e.value};
+
+/// The amount in a sentence, in whole taka. Understands "৫০০", "১,০০০",
+/// "২ হাজার", "দেড় হাজার", "পাঁচশো", "৩ লাখ".
+int? findAmount(String normalized) {
+  final w = words(normalized);
+  for (var i = 0; i < w.length; i++) {
+    num? base;
+    final digits = RegExp(r'^(\d+(?:\.\d+)?)').firstMatch(w[i]);
+    if (digits != null) {
+      base = num.parse(digits[1]!);
+      // "500টাকা" or "500/-": the number is still the amount.
+    } else {
+      base = _numberWords[w[i]];
+      if (base == null) {
+        // পাঁচশো / পাঁচশ / দুইশো
+        final m = RegExp(r'^(.+?)(শো|শ|শত)$').firstMatch(w[i]);
+        if (m != null && _numberWords[m[1]] != null) base = _numberWords[m[1]]! * 100;
+      }
+    }
+    if (base == null) continue;
+    final next = i + 1 < w.length ? w[i + 1] : '';
+    final mult = switch (next) {
+      'হাজার' => 1000,
+      'লাখ' || 'লক্ষ' => 100000,
+      'শো' || 'শ' || 'শত' => 100,
+      _ => 1,
+    };
+    final v = (base * mult).round();
+    if (v > 0) return v;
+  }
+  return null;
+}
+
+bool _hasAny(String text, List<String> keys) => keys.any((k) => text.contains(fold(k)));
+
+const _give1 = ['দিলাম', 'দিয়েছি', 'দিছি', 'দিয়েছিলাম', 'দিচ্ছি'];
+const _take1 = ['নিলাম', 'নিয়েছি', 'নিছি', 'নিয়েছিলাম'];
+const _got1 = ['পেলাম', 'পেয়েছি', 'পাইছি', 'পেয়েছিলাম'];
+const _give3 = ['দিল', 'দিলো', 'দিয়েছে', 'দিয়েছেন', 'দিলেন', 'দিছে', 'দিয়েছিল'];
+const _loanWords = ['ধার', 'কর্জ', 'লোন', 'loan'];
+const _returnWords = ['ফেরত', 'শোধ', 'পরিশোধ'];
+final List<String> _honorifics = [for (final h in _honorificsRaw) fold(h)];
+const _honorificsRaw = ['ভাই', 'ভাইয়া', 'ভাইয়া', 'আপা', 'আপু', 'চাচা', 'মামা', 'খালা', 'কাকা', 'দাদা', 'স্যার', 'সাহেব', 'বোন'];
+final Set<String> _notNames = {for (final w in _notNamesRaw) fold(w)};
+const _notNamesRaw = {
+  'আমি', 'আমাকে', 'আমার', 'আজ', 'আজকে', 'গতকাল', 'কাল', 'এইমাত্র', 'এখন', 'টাকা', 'তাকে', 'ওকে', 'উনাকে', 'তাঁকে',
+  'আরো', 'আরও', 'মোট', 'আবার', 'কাছ', 'কাছে', 'থেকে', 'ধার', 'ফেরত', 'শোধ',
+};
+
+bool _looksLikeName(String w) => w.isNotEmpty && !_notNames.contains(w) && !RegExp(r'^\d').hasMatch(w) && findAmount(w) == null;
+
+/// Matches [raw] to a known person (case-insensitive, also trying the
+/// possessive/"to" endings), or returns it cleaned up.
+String resolvePerson(String raw, List<String> known) {
+  final cands = {raw, stripPossessive(raw), stripTo(raw), stripTo(stripPossessive(raw))};
+  for (final c in cands) {
+    for (final k in known) {
+      if (personKey(k) == personKey(c)) return k;
+    }
+  }
+  return raw;
+}
+
+/// The name right before position [i] (and an honorific with it).
+String? _nameEndingAt(List<String> w, int i, String Function(String) strip) {
+  if (i < 0 || i >= w.length) return null;
+  final head = strip(w[i]);
+  if (!_looksLikeName(head)) return null;
+  if (_honorifics.contains(head) && i > 0 && _looksLikeName(w[i - 1])) return '${w[i - 1]} $head';
+  return head;
+}
+
+// ───────────────────────── The parser ─────────────────────────
+
+class Parser {
+  Parser({required this.ledger});
+
+  /// Current entries, to resolve names and judge which meaning is likely.
+  final List<LedgerEntry> ledger;
+
+  Command parse(String said) {
+    final text = normalize(said);
+    if (text.isEmpty) return NotUnderstood(said);
+    final w = words(text);
+
+    // "মনে রাখো: …" → a note.
+    final noteMatch = RegExp(r'^(মনে রাখো|মনে রেখো|মনে রাখ|নোট রাখো|নোট করো|নোট কর|লিখে রাখো|লিখে রাখ)\s*(যে)?\s*(.*)$').firstMatch(text);
+    if (noteMatch != null && (noteMatch[3] ?? '').trim().isNotEmpty) {
+      // Keep the user's own spelling and digits.
+      final original = said.trim().replaceFirst(RegExp(r'^\S+\s+\S+\s*[:ঃ,-]?\s*(যে\s+)?'), '');
+      return NoteAdd(said, text: original.isEmpty ? noteMatch[3]!.trim() : original);
+    }
+
+    final amount = findAmount(text);
+    final known = knownPeople(ledger);
+
+    // A question about money.
+    final isQuestion = _hasAny(text, ['কত', 'কাকে', 'কার কাছে', 'কে কে', 'হিসাব', 'কবে']) &&
+        _hasAny(text, ['পাওনা', 'পাব', 'পাবো', 'পাবে', 'পাই', 'দেনা', 'দিতে হবে', 'দেব', 'দেবো', 'বাকি', 'ধার', 'হিসাব', 'লেনদেন']);
+    if (isQuestion) return _ledgerQuestion(said, text, w, known);
+
+    // Vault: logins, passwords, Wi-Fi.
+    final wifi = _hasAny(text, ['wi-fi', 'wifi', 'ওয়াইফাই', 'ওয়াইফাই', 'ওয়াই-ফাই', 'ওয়াই ফাই']);
+    if (wifi || _hasAny(text, ['পাসওয়ার্ড', 'পাসওয়ার্ড', 'password', 'লগইন', 'login', 'ইউজারনেম', 'username', 'পিন নম্বর'])) {
+      return VaultQuery(said, terms: wifi ? const [] : searchTerms(text), wifiOnly: wifi);
+    }
+
+    // Dates and reminders.
+    if (_hasAny(text, ['মনে করিয়ে', 'মনে করিয়ে', 'মনে করাও', 'রিমাইন্ডার', 'তারিখ', 'কবে', 'মেয়াদ', 'মেয়াদ'])) {
+      return ReminderQuery(said, terms: searchTerms(text));
+    }
+
+    // A money event.
+    if (amount != null) {
+      final add = _ledgerEvent(said, text, w, amount, known);
+      if (add != null) return add;
+    }
+
+    final terms = searchTerms(text);
+    if (terms.isEmpty) return NotUnderstood(said);
+    return SearchQuery(said, terms: terms);
+  }
+
+  LedgerAdd? _ledgerEvent(String said, String text, List<String> w, int amount, List<String> known) {
+    final loan = _hasAny(text, _loanWords);
+    final ret = _hasAny(text, _returnWords);
+
+    // 1) "সজীব আমাকে ৩০০ টাকা ফেরত দিয়েছে" — they gave me.
+    final ami = w.indexOf('আমাকে');
+    if (ami > 0 && _hasAny(text, [..._give3, ..._give1])) {
+      final raw = _nameEndingAt(w, ami - 1, (s) => s);
+      if (raw != null) {
+        final person = resolvePerson(raw, known);
+        if (ret) return LedgerAdd(said, person: person, amount: amount, kind: LedgerKind.received);
+        if (loan) return LedgerAdd(said, person: person, amount: amount, kind: LedgerKind.borrowed);
+        final owesMe = balanceWith(ledger, person) > 0;
+        return LedgerAdd(said,
+            person: person,
+            amount: amount,
+            options: const [LedgerKind.received, LedgerKind.borrowed],
+            suggested: owesMe ? LedgerKind.received : LedgerKind.borrowed);
+      }
+    }
+
+    // 2) "রহিমের কাছ থেকে ১,০০০ টাকা ধার নিয়েছি" — I took / got from them.
+    var from = -1;
+    for (var i = 0; i < w.length; i++) {
+      if (w[i] == 'থেকে' || w[i] == 'হতে') {
+        from = i;
+        break;
+      }
+    }
+    if (from > 0 && _hasAny(text, [..._take1, ..._got1])) {
+      var at = from - 1;
+      if (w[at] == 'কাছ' || w[at] == 'কাছে') at--;
+      final raw = _nameEndingAt(w, at, stripPossessive);
+      if (raw != null) {
+        final person = resolvePerson(raw, known);
+        final got = _hasAny(text, _got1);
+        if (loan) return LedgerAdd(said, person: person, amount: amount, kind: LedgerKind.borrowed);
+        if (ret) return LedgerAdd(said, person: person, amount: amount, kind: LedgerKind.received);
+        final owesMe = balanceWith(ledger, person) > 0;
+        if (!owesMe) {
+          // Taking money from someone who owes me nothing is a loan.
+          return LedgerAdd(said, person: person, amount: amount, kind: LedgerKind.borrowed);
+        }
+        return LedgerAdd(said,
+            person: person,
+            amount: amount,
+            options: const [LedgerKind.received, LedgerKind.borrowed],
+            suggested: got ? LedgerKind.received : LedgerKind.borrowed);
+      }
+    }
+
+    // 3) "সজীবকে ৫০০ টাকা দিলাম" — I gave them.
+    if (_hasAny(text, _give1) || _hasAny(text, ['দিলাম', 'দিয়েছি'])) {
+      for (var i = 0; i < w.length; i++) {
+        final t = w[i];
+        if (t == 'আমাকে' || !(t.endsWith('কে'))) continue;
+        final raw = _nameEndingAt(w, i, stripTo);
+        if (raw == null) continue;
+        final person = resolvePerson(raw, known);
+        if (loan) return LedgerAdd(said, person: person, amount: amount, kind: LedgerKind.lent);
+        if (ret) return LedgerAdd(said, person: person, amount: amount, kind: LedgerKind.repaid);
+        final iOwe = balanceWith(ledger, person) < 0;
+        if (iOwe) {
+          return LedgerAdd(said,
+              person: person,
+              amount: amount,
+              options: const [LedgerKind.repaid, LedgerKind.lent],
+              suggested: LedgerKind.repaid,
+              allowExpense: true);
+        }
+        return LedgerAdd(said, person: person, amount: amount, kind: LedgerKind.lent);
+      }
+    }
+
+    // 4) A name and an amount, but no clear direction: ask.
+    if (_hasAny(text, [..._give1, ..._give3, ..._take1, ..._got1, ..._loanWords, ..._returnWords, 'টাকা'])) {
+      for (final k in known) {
+        if (text.contains(personKey(k))) {
+          return LedgerAdd(said,
+              person: k, amount: amount, options: LedgerKind.values, suggested: null, allowExpense: true);
+        }
+      }
+    }
+    return null;
+  }
+
+  LedgerQuery _ledgerQuestion(String said, String text, List<String> w, List<String> known) {
+    // "সজীবের কাছে আমার কত পাওনা?" / "রহিমকে কত দিতে হবে?"
+    for (var i = 0; i < w.length; i++) {
+      String? raw;
+      if (i + 1 < w.length && (w[i + 1] == 'কাছে' || w[i + 1] == 'সাথে' || w[i + 1] == 'সঙ্গে')) {
+        raw = _nameEndingAt(w, i, stripPossessive);
+      } else if (w[i].endsWith('কে') && w[i] != 'আমাকে' && w[i] != 'কাকে') {
+        raw = _nameEndingAt(w, i, stripTo);
+      } else if (w[i].endsWith('ের') || w[i].endsWith('এর')) {
+        raw = _nameEndingAt(w, i, stripPossessive);
+      }
+      if (raw == null || raw == 'কার' || raw == 'কা') continue;
+      final person = resolvePerson(raw, known);
+      if (known.any((k) => personKey(k) == personKey(person))) {
+        return LedgerQuery(said, ask: LedgerAsk.person, person: person);
+      }
+    }
+    if (text.contains('কাকে') || _hasAny(text, ['দিতে হবে', 'দেনা', 'দেব', 'দেবো'])) {
+      return LedgerQuery(said, ask: LedgerAsk.payable);
+    }
+    if (text.contains('কার কাছে') || _hasAny(text, ['পাব', 'পাবো', 'পাওনা'])) {
+      return LedgerQuery(said, ask: LedgerAsk.receivable);
+    }
+    return LedgerQuery(said, ask: LedgerAsk.all);
+  }
+}
+
+final Set<String> _stopWords = {for (final w in _stopWordsRaw) fold(w)};
+
+const _stopWordsRaw = {
+  'আমার', 'আমি', 'আমাকে', 'এর', 'কী', 'কি', 'কোন', 'কোনটা', 'দেখাও', 'দেখান', 'দেখা', 'বলো', 'বলুন', 'বল',
+  'তথ্য', 'নাম', 'করার', 'করা', 'করে', 'তারিখ', 'মনে', 'করিয়ে', 'করাও', 'দাও', 'দিন', 'দেবে', 'দিও', 'কবে',
+  'কত', 'লগইন', 'login', 'পাসওয়ার্ড', 'password', 'ইউজারনেম', 'username', 'রিমাইন্ডার', 'খুঁজে', 'খুঁজো',
+  'খোঁজো', 'খুঁজুন', 'বের', 'আছে', 'ছিল', 'টা', 'টি', 'একটু', 'প্লিজ', 'please', 'show', 'the', 'my', 'of',
+  'what', 'is', 'হবে', 'হয়', 'জন্য', 'আর', 'ও', 'যে', 'সেই', 'এই', 'ওই', 'নম্বর', 'নাম্বার', 'ওয়েবসাইট',
+  'সাইট', 'অ্যাপ', 'অ্যাপের', 'মেয়াদ', 'শেষ', 'হওয়ার', 'দিনটা',
+};
+
+/// The words worth searching for in a sentence.
+List<String> searchTerms(String normalized) {
+  final out = <String>[];
+  for (final raw in words(normalized)) {
+    if (_stopWords.contains(raw)) continue;
+    final s = stem(raw);
+    if (s.length < 2 || _stopWords.contains(s)) continue;
+    if (!out.contains(s)) out.add(s);
+  }
+  return out;
+}
