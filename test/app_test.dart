@@ -244,4 +244,25 @@ void main() {
     await settle(t);
     expect(rig.voice.spoken.last, 'ছাদের দরজার কোড ৪৫৬৭।');
   });
+
+  testWidgets('money without a name: asks whom, then the kind, then saves to ধার-দেনা', (t) async {
+    final rig = await start(t);
+    await t.tap(find.text('যেকোনো কিছু জিজ্ঞেস করুন'));
+    await settle(t);
+    rig.voice.say('বিদ্যুৎ বিল ১২০০ টাকা দিলাম');
+    await settle(t);
+    expect(find.text('কার সাথে লেনদেন?'), findsOneWidget);
+    expect(rig.brain.data.notes, isEmpty);
+    rig.voice.say('করিম');
+    await settle(t);
+    rig.voice.say('হ্যাঁ'); // the likely kind: ধার দিলাম
+    await settle(t);
+    expect(find.text('ঠিক বুঝেছি তো?'), findsOneWidget);
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    final e = rig.brain.data.ledger.single;
+    expect(e.person, 'করিম');
+    expect(e.amount, 1200);
+    expect(e.kind, LedgerKind.lent);
+  });
 }

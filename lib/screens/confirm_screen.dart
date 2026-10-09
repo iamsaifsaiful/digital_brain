@@ -31,6 +31,12 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
   String? _picked; // in the clarify step: a kind name or 'expense'
   bool _saving = false;
   late final SpokenQuestion _q;
+  final _nameCtl = TextEditingController();
+  final _amountCtl = TextEditingController();
+
+  /// Money was mentioned but not with whom / how much: ask that first.
+  bool get _needName => _person.trim().isEmpty;
+  bool get _needAmount => !_needName && _amount <= 0;
 
   @override
   void initState() {
@@ -44,11 +50,37 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
   @override
   void dispose() {
     _q.dispose();
+    _nameCtl.dispose();
+    _amountCtl.dispose();
     super.dispose();
   }
 
   void _speakQuestion() {
-    _q.ask(_kind != null ? confirmQuestion(_kind!, _person, _amount) : _clarifyQuestion());
+    if (_needName) {
+      _q.ask('টাকার লেনদেন ধার-দেনার খাতায় রাখি। কার সাথে লেনদেন হলো? নামটা বলেন।');
+    } else if (_needAmount) {
+      _q.ask('কত টাকা?');
+    } else {
+      _q.ask(_kind != null ? confirmQuestion(_kind!, _person, _amount) : _clarifyQuestion());
+    }
+  }
+
+  void _setName(String name) {
+    final n = name.trim();
+    if (n.isEmpty) return;
+    _q.stop();
+    setState(() => _person = n);
+    _speakQuestion();
+  }
+
+  void _setAmount(int? a) {
+    if (a == null || a <= 0) {
+      setState(() => _q.hint = 'টাকার অঙ্কটা ধরতে পারিনি। আবার বলেন, বা লিখে দিন।');
+      return;
+    }
+    _q.stop();
+    setState(() => _amount = a);
+    _speakQuestion();
   }
 
   /// A spoken answer: হ্যাঁ saves; না keeps the screen for changes; in the
@@ -56,6 +88,24 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
   /// likely one.
   void _onAnswer(String heard) {
     if (_saving || !mounted) return;
+    if (_needName) {
+      if (widget.command.allowExpense && pickSpokenOption(heard, const [], allowExpense: true) == 'expense') {
+        _picked = 'expense';
+        _proceed();
+        return;
+      }
+      final n = spokenName(heard, knownPeople(BrainScope.read(context).data.ledger));
+      if (n.isEmpty) {
+        setState(() => _q.hint = 'নামটা ধরতে পারিনি। আবার বলেন, বা লিখে দিন।');
+      } else {
+        _setName(n);
+      }
+      return;
+    }
+    if (_needAmount) {
+      _setAmount(findAmount(normalize(heard)));
+      return;
+    }
     if (_kind == null) {
       final pick = pickSpokenOption(heard, [for (final o in widget.command.options) o.name], allowExpense: widget.command.allowExpense);
       final yn = yesNo(heard);
@@ -205,14 +255,21 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            TopBar(title: _kind == null ? 'একটু জানতে চাই' : 'ঠিক বুঝেছি তো?', close: true),
+            TopBar(title: _needName || _needAmount || _kind == null ? 'একটু জানতে চাই' : 'ঠিক বুঝেছি তো?', close: true),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                 children: [
                   Bubble(label: 'আপনি বললেন', text: widget.command.transcript.trim()),
                   const SizedBox(height: 16),
-                  if (_kind == null) ..._clarify(brain) else ..._details(brain, now),
+                  if (_needName)
+                    ..._askName(brain)
+                  else if (_needAmount)
+                    ..._askAmount()
+                  else if (_kind == null)
+                    ..._clarify(brain)
+                  else
+                    ..._details(brain, now),
                 ],
               ),
             ),
@@ -220,7 +277,11 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
               child: Column(
                 children: [
-                  if (_kind == null)
+                  if (_needName)
+                    PrimaryButton(label: 'এগিয়ে যান', onPressed: () => _setName(_nameCtl.text))
+                  else if (_needAmount)
+                    PrimaryButton(label: 'এগিয়ে যান', onPressed: () => _setAmount(int.tryParse(asciiDigits(_amountCtl.text).replaceAll(RegExp(r'[,\s৳]'), ''))))
+                  else if (_kind == null)
                     PrimaryButton(
                       label: _picked == null ? 'একটি বেছে নিন' : 'এগিয়ে যান',
                       onPressed: _picked == null ? null : _proceed,
@@ -244,7 +305,13 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
                   const SizedBox(height: 10),
                   ListeningStrip(
                     q: _q,
-                    prompt: _kind == null ? 'বলেও বেছে নিতে পারেন — যেমন “শোধ” বা “নতুন ধার”' : 'মুখে “হ্যাঁ” বা “না” বললেও হবে',
+                    prompt: _needName
+                        ? 'নামটা মুখে বলেও দিতে পারেন'
+                        : _needAmount
+                            ? 'অঙ্কটা মুখে বলেও দিতে পারেন'
+                            : _kind == null
+                                ? 'বলেও বেছে নিতে পারেন — যেমন “শোধ” বা “নতুন ধার”'
+                                : 'মুখে “হ্যাঁ” বা “না” বললেও হবে',
                   ),
                 ],
               ),
@@ -254,6 +321,57 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
       ),
     );
   }
+
+  List<Widget> _askName(Brain brain) {
+    final known = knownPeople(brain.data.ledger).take(8).toList();
+    return [
+      Text('কার সাথে লেনদেন?', style: display(26)),
+      const SizedBox(height: 6),
+      Text(
+        _amount > 0
+            ? '${taka(_amount)}-এর কথা বললেন। টাকার সব লেনদেন ধার-দেনার খাতায় থাকে — কার সাথে, সেটা জানালে লিখে রাখব।'
+            : 'টাকার সব লেনদেন ধার-দেনার খাতায় থাকে — কার সাথে, সেটা জানালে লিখে রাখব।',
+        style: body(15, color: C.muted, height: 1.5),
+      ),
+      const SizedBox(height: 14),
+      TextField(
+        controller: _nameCtl,
+        textInputAction: TextInputAction.done,
+        onSubmitted: _setName,
+        onTap: _q.stop,
+        decoration: const InputDecoration(labelText: 'নাম'),
+      ),
+      if (known.isNotEmpty) ...[
+        const SizedBox(height: 10),
+        Wrap(spacing: 6, runSpacing: 6, children: [
+          for (final k in known)
+            ActionChip(label: Text(k, style: body(14)), backgroundColor: C.surface, side: const BorderSide(color: C.border), onPressed: () => _setName(k)),
+        ]),
+      ],
+      if (widget.command.allowExpense) ...[
+        const SizedBox(height: 12),
+        TextButton(
+          onPressed: () {
+            _picked = 'expense';
+            _proceed();
+          },
+          child: Text('কারও সাথে নয়, নিজের খরচ', style: body(14, weight: FontWeight.w600, color: C.muted2)),
+        ),
+      ],
+    ];
+  }
+
+  List<Widget> _askAmount() => [
+        Text('কত টাকা?', style: display(26)),
+        const SizedBox(height: 14),
+        TextField(
+          controller: _amountCtl,
+          keyboardType: TextInputType.number,
+          onTap: _q.stop,
+          style: display(22),
+          decoration: const InputDecoration(labelText: 'পরিমাণ (৳)'),
+        ),
+      ];
 
   List<Widget> _clarify(Brain brain) {
     final bal = balanceWith(brain.data.ledger, _person);

@@ -305,7 +305,11 @@ class Parser {
     if (noteMatch != null && (noteMatch[3] ?? '').trim().isNotEmpty) {
       // Keep the user's own spelling and digits.
       final original = said.trim().replaceFirst(RegExp(r'^\S+\s+\S+\s*[:ঃ,-]?\s*(যে\s+)?'), '');
-      return NoteAdd(said, text: original.isEmpty ? noteMatch[3]!.trim() : original);
+      final noteText = original.isEmpty ? noteMatch[3]!.trim() : original;
+      // Money always goes to ধার-দেনা, even when said as "মনে রাখো …".
+      final inner = parse(noteText);
+      if (inner is LedgerAdd || inner is LedgerSet) return inner;
+      return NoteAdd(said, text: noteText);
     }
 
     final amount = findAmount(text);
@@ -338,6 +342,17 @@ class Parser {
     if (amount != null) {
       final add = _ledgerEvent(said, text, w, amount, known);
       if (add != null) return add;
+    }
+
+    // Anything else about money (টাকা) also belongs in ধার-দেনা, never in a
+    // note category. Missing person or amount: the app asks for them.
+    final money = _hasAny(text, ['টাকা']) || said.contains('৳') || w.contains('tk');
+    if (money && !asking) {
+      if (amount == null) {
+        final add = _ledgerEvent(said, text, w, 0, known);
+        if (add != null) return add;
+      }
+      return _moneyEvent(said, text, w, amount ?? 0, known);
     }
 
     final terms = searchTerms(text);
@@ -383,6 +398,33 @@ class Parser {
       }
     }
     return null;
+  }
+
+  /// A money sentence the patterns could not place: find whatever person
+  /// is named (maybe none) and let the user choose the kind.
+  LedgerAdd _moneyEvent(String said, String text, List<String> w, int amount, List<String> known) {
+    String? person;
+    for (final k in known) {
+      if (text.contains(normalize(k))) person = k;
+    }
+    for (var i = 0; i < w.length && person == null; i++) {
+      String? raw;
+      if (w[i].endsWith('কে') && w[i] != 'আমাকে' && w[i] != 'কাকে') raw = _nameEndingAt(w, i, stripTo);
+      if (raw == null && i + 1 < w.length && (w[i + 1] == 'কাছে' || w[i + 1] == 'কাছ' || w[i + 1] == 'থেকে')) {
+        raw = _nameEndingAt(w, i, stripPossessive);
+      }
+      if (raw != null && raw.length >= 2) person = resolvePerson(raw, known);
+    }
+    LedgerKind? likely;
+    final loan = _hasAny(text, _loanWords), ret = _hasAny(text, _returnWords);
+    if (_hasAny(text, _give1)) {
+      likely = ret ? LedgerKind.repaid : LedgerKind.lent;
+    } else if (_hasAny(text, [..._take1, ...(loan ? _got1 : const <String>[])])) {
+      likely = LedgerKind.borrowed;
+    } else if (_hasAny(text, [..._got1, ..._give3])) {
+      likely = ret ? LedgerKind.received : null;
+    }
+    return LedgerAdd(said, person: person ?? '', amount: amount, options: LedgerKind.values, suggested: likely, allowExpense: true);
   }
 
   LedgerAdd? _ledgerEvent(String said, String text, List<String> w, int amount, List<String> known) {
@@ -631,4 +673,24 @@ String stripGreeting(String text, {bool keepCase = false}) {
   }
   if (i == 0) return text;
   return parts.sublist(i).join(' ').trim();
+}
+
+/// A name said in answer to "কার সাথে?": "রহিম", "রহিম ভাই", "ওনার নাম
+/// করিম" → the name, matched to someone already in the ledger if possible.
+String spokenName(String heard, List<String> known) {
+  const filler = {'নাম', 'ওনার', 'উনার', 'তার', 'তাঁর', 'ওর', 'হলো', 'হল', 'হচ্ছে', 'হইলো', 'জি', 'জ্বি', 'আচ্ছা', 'মানে', 'তো', 'এর', 'সাথে', 'সঙ্গে', 'লেনদেন'};
+  final fillers = {for (final f in filler) fold(f)};
+  final ws = words(normalize(heard)).where((x) => !fillers.contains(x)).toList();
+  if (ws.isEmpty) return '';
+  final joined = ws.take(3).join(' ');
+  for (final k in known) {
+    if (normalize(k) == joined || ws.any((x) => normalize(k) == stripTo(stripPossessive(x)))) return k;
+  }
+  // Keep the user's own spelling for a new name.
+  final original = heard.trim().replaceAll(RegExp(r'[।?!,.]'), '').split(RegExp(r'\s+'))
+      .where((x) => !fillers.contains(fold(x.toLowerCase())))
+      .take(3)
+      .map((x) => stripTo(stripPossessive(x)))
+      .join(' ');
+  return original.trim();
 }

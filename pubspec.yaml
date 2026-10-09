@@ -1,7 +1,7 @@
 name: digital_brain
 description: Digital Brain — আপনার ব্যক্তিগত স্মৃতি ও নিরাপদ তথ্যভান্ডার। ভয়েসে বা লিখে পাসওয়ার্ড, যোগাযোগ, ধার-দেনা, নোট ও রিমাইন্ডার রাখুন।
 publish_to: 'none'
-version: 1.2.0+4
+version: 1.2.1+5
 
 environment:
   sdk: '>=3.6.0 <4.0.0'

@@ -393,4 +393,28 @@ void main() {
       expect(speakableNumbers('কোড ৪৫৬৭'), 'কোড ৪৫৬৭');
     });
   });
+
+  group('Revision 2: every money sentence goes to ধার-দেনা', () {
+    test('money without a person still goes to the ledger, never a note', () {
+      final a = Parser(ledger: const []).parse('বিদ্যুৎ বিল ১২০০ টাকা দিলাম') as LedgerAdd;
+      expect(a.person, '');
+      expect(a.amount, 1200);
+      expect(a.needsChoice, isTrue);
+      expect(a.suggested, LedgerKind.lent);
+      expect(Parser(ledger: const []).parse('আজ বাজারে ৫০০ টাকা খরচ হলো'), isA<LedgerAdd>());
+      expect(Parser(ledger: const []).parse('রহিমকে কিছু টাকা ধার দিলাম'), isA<LedgerAdd>());
+    });
+
+    test('"মনে রাখো" with money is still a ledger entry', () {
+      final c = Parser(ledger: const []).parse('মনে রাখো রহিমকে ৫০০ টাকা দিলাম') as LedgerAdd;
+      expect(c.person, 'রহিম');
+      expect(c.kind, LedgerKind.lent);
+    });
+
+    test('a spoken name', () {
+      expect(spokenName('করিম', const []), 'করিম');
+      expect(spokenName('ওনার নাম করিম', const []), 'করিম');
+      expect(spokenName('রহিমের সাথে', const ['রহিম']), 'রহিম');
+    });
+  });
 }
