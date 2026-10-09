@@ -41,21 +41,17 @@ class C {
   static const peach = Color(0xFFF8B88E);
 }
 
-const bodyFont = 'Hind';
-const displayFont = 'Anek';
+const bodyFont = 'Noto';
+const displayFont = 'Noto';
 
-/// Anek Bangla is a variable font: pick the weight through its axis.
-TextStyle display(double size, {double weight = 600, Color color = C.ink, double? height}) => TextStyle(
-      fontFamily: displayFont,
-      fontSize: size,
-      height: height ?? 1.15,
-      color: color,
-      fontWeight: weight >= 650 ? FontWeight.w700 : FontWeight.w600,
-      fontVariations: [FontVariation('wght', weight), const FontVariation('wdth', 100)],
-    );
+FontWeight _w(double weight) => weight >= 650 ? FontWeight.w700 : (weight >= 550 ? FontWeight.w600 : FontWeight.w500);
+
+/// Headings and amounts.
+TextStyle display(double size, {double weight = 600, Color color = C.ink, double? height}) =>
+    TextStyle(fontFamily: displayFont, fontSize: size, height: height ?? 1.25, color: color, fontWeight: _w(weight));
 
 TextStyle body(double size, {FontWeight weight = FontWeight.w400, Color color = C.ink, double? height}) =>
-    TextStyle(fontFamily: bodyFont, fontSize: size, fontWeight: weight, color: color, height: height ?? 1.4);
+    TextStyle(fontFamily: bodyFont, fontSize: size, fontWeight: weight, color: color, height: height ?? 1.45);
 
 ThemeData buildTheme() {
   final base = ThemeData(

@@ -13,13 +13,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Real fonts, so text measures like on a phone.
 Future<void> loadFonts() async {
-  final hind = FontLoader('Hind');
+  final noto = FontLoader('Noto');
   for (final w in ['Regular', 'Medium', 'SemiBold', 'Bold']) {
-    hind.addFont(rootBundle.load('assets/fonts/HindSiliguri-$w.ttf'));
+    noto.addFont(rootBundle.load('assets/fonts/NotoSansBengali-$w.ttf'));
   }
-  await hind.load();
-  final anek = FontLoader('Anek')..addFont(rootBundle.load('assets/fonts/AnekBangla.ttf'));
-  await anek.load();
+  await noto.load();
 }
 
 class Rig {
@@ -109,7 +107,8 @@ void main() {
     expect(find.text('ঠিক বুঝেছি তো?'), findsOneWidget);
     expect(rig.voice.spoken.last, 'আপনি সজীবকে ৫০০ টাকা ধার দিয়েছেন। সেভ করব?');
 
-    await t.tap(find.text('হ্যাঁ, সেভ করুন'));
+    // Answer by voice.
+    rig.voice.say('হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.ledger.single.amount, 500);
     expect(rig.brain.data.ledger.single.kind, LedgerKind.lent);
@@ -180,8 +179,49 @@ void main() {
     await settle(t);
     rig.voice.say('মনে রাখো: গাড়ির কাগজ আলমারিতে');
     await settle(t);
-    await t.tap(find.text('নোট রাখুন'));
+    await t.tap(find.text('হ্যাঁ, রাখুন'));
     await settle(t);
     expect(rig.brain.data.notes.single.body, 'গাড়ির কাগজ আলমারিতে');
+    expect(rig.brain.data.notes.single.category, 'যানবাহন');
+  });
+
+  testWidgets('a fact that matches nothing goes to a new category, by spoken yes', (t) async {
+    final rig = await start(t);
+    await t.tap(find.text('যেকোনো কিছু জিজ্ঞেস করুন'));
+    await settle(t);
+    rig.voice.say('ছাদের দরজার কোড ৪৫৬৭');
+    await settle(t);
+    expect(find.textContaining('নতুন বিভাগ খুলে রাখব'), findsOneWidget);
+    rig.voice.say('জি রাখো');
+    await settle(t);
+    expect(rig.brain.data.notes.single.category, 'ছাদ');
+  });
+
+  testWidgets('"ইসমাইলের কাছে আমি ৫ হাজার টাকা পাই" asks, then adds on হ্যাঁ', (t) async {
+    final rig = await start(t);
+    await t.tap(find.text('যেকোনো কিছু জিজ্ঞেস করুন'));
+    await settle(t);
+    rig.voice.say('ইসমাইলের কাছে আমি ৫ হাজার টাকা পাই');
+    await settle(t);
+    expect(find.text('নতুন হিসাব যোগ করব?'), findsOneWidget);
+    expect(rig.voice.spoken.last, contains('ইসমাইল নামে নতুন হিসাব খুলে রাখব'));
+    expect(rig.brain.data.ledger, isEmpty);
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    final e = rig.brain.data.ledger.single;
+    expect(e.person, 'ইসমাইল');
+    expect(e.amount, 5000);
+    expect(e.kind, LedgerKind.lent);
+  });
+
+  testWidgets('asking for a saved login by its Bengali spelling finds it', (t) async {
+    final rig = await start(t,
+        data: AppData(vault: [VaultItem(name: 'ABC ওয়েবসাইট', username: 'saif_admin', password: 'p')]));
+    await t.tap(find.text('যেকোনো কিছু জিজ্ঞেস করুন'));
+    await settle(t);
+    rig.voice.say('এবিসির পাসওয়ার্ড দেখাও');
+    await settle(t);
+    expect(find.text('ABC ওয়েবসাইট'), findsOneWidget);
+    expect(rig.voice.spoken.last, contains('তথ্য পেয়েছি'));
   });
 }

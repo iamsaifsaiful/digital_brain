@@ -1,4 +1,5 @@
 import '../models/models.dart';
+import 'match.dart';
 import 'parser.dart';
 
 /// One thing found by a search.
@@ -33,14 +34,17 @@ class PersonHit extends Hit {
 }
 
 /// How many of [terms] appear in [fields]. Field text goes through the same
-/// normalising as the terms, so "ABC ওয়েবসাইট" matches "abc".
+/// normalising as the terms, and words also match across Bengali/English
+/// spellings ("ফেসবুক" finds "Facebook", "এবিসি" finds "ABC").
 int score(List<String> terms, List<String> fields) {
   if (terms.isEmpty) return 0;
   final hay = normalize(fields.join(' '));
+  final hayWords = {...words(hay), ...words(hay).map(stem)}.where((w) => w.isNotEmpty).toList();
   var s = 0;
   for (final raw in terms) {
     final t = normalize(raw);
-    if (t.length >= 2 && hay.contains(t)) s++;
+    if (t.length < 2) continue;
+    if (hay.contains(t) || hayWords.any((w) => wordsMatch(t, w))) s++;
   }
   return s;
 }
@@ -74,7 +78,7 @@ List<Hit> searchAll(AppData d, List<String> terms) {
     if (s > 0) out.add(ContactHit(c, s));
   }
   for (final n in d.notes) {
-    final s = score(terms, [n.title, n.body]);
+    final s = score(terms, [n.title, n.body, n.category]);
     if (s > 0) out.add(NoteHit(n, s));
   }
   for (final r in d.reminders) {

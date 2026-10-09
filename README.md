@@ -41,4 +41,4 @@ Locally: `bash tool/setup_platforms.sh && flutter pub get && flutter run`.
 
 Play Store upload key and signing, iOS build (needs a Mac/Xcode and an Apple Developer account), sync between devices, PDF/Excel reports, multiple currencies.
 
-Fonts: Hind Siliguri and Anek Bangla (SIL Open Font License, licences in `assets/fonts/`).
+Font: Noto Sans Bengali (SIL Open Font License, licence in `assets/fonts/`).

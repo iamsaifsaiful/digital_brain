@@ -1,6 +1,8 @@
 import 'package:digital_brain/logic/bn.dart';
+import 'package:digital_brain/logic/categories.dart';
 import 'package:digital_brain/logic/csv.dart';
 import 'package:digital_brain/logic/ledger.dart';
+import 'package:digital_brain/logic/match.dart';
 import 'package:digital_brain/logic/parser.dart';
 import 'package:digital_brain/logic/password.dart';
 import 'package:digital_brain/logic/phrases.dart';
@@ -255,6 +257,86 @@ void main() {
       expect(back.reminders.single.repeat, Repeat.yearly);
       expect(back.contacts.single.name, 'করিম');
       expect(back.notes.single.body, 'লেখা');
+    });
+  });
+
+  group('Revision 1: stated balances, yes/no, statements', () {
+    test('"ইসমাইলের কাছে আমি ৫ হাজার টাকা পাই" → he owes me 5000', () {
+      final c = Parser(ledger: const []).parse('ইসমাইলের কাছে আমি ৫ হাজার টাকা পাই') as LedgerSet;
+      expect(c.person, 'ইসমাইল');
+      expect(c.balance, 5000);
+    });
+
+    test('I owe: two ways of saying it', () {
+      final a = Parser(ledger: const []).parse('ইসমাইল আমার কাছে ২০০০ টাকা পায়') as LedgerSet;
+      expect(a.person, 'ইসমাইল');
+      expect(a.balance, -2000);
+      final b = Parser(ledger: const []).parse('রহিমকে আমার ১০০০ টাকা দিতে হবে') as LedgerSet;
+      expect(b.person, 'রহিম');
+      expect(b.balance, -1000);
+    });
+
+    test('past events are still events, questions still questions', () {
+      expect(Parser(ledger: const []).parse('আমি সজীবকে ৫০০ টাকা দিলাম'), isA<LedgerAdd>());
+      expect(Parser(ledger: const []).parse('ইসমাইলের কাছে আমি কত টাকা পাই?'), isA<LedgerQuery>());
+    });
+
+    test('spoken yes / no', () {
+      for (final y in ['হ্যাঁ', 'হ্যা', 'জি রাখো', 'ঠিক আছে', 'ok', 'আচ্ছা করো', 'হুম']) {
+        expect(yesNo(y), isTrue, reason: y);
+      }
+      for (final n in ['না', 'না না', 'দরকার নেই', 'বাতিল', 'থাক']) {
+        expect(yesNo(n), isFalse, reason: n);
+      }
+      expect(yesNo('আকাশ নীল'), isNull);
+    });
+
+    test('a plain fact becomes a note to file', () {
+      final c = Parser(ledger: const []).parse('ছাদের দরজার কোড ৪৫৬৭') as NoteAdd;
+      expect(c.fromStatement, isTrue);
+      expect(isQuestionText('ছাদের দরজার কোড কত?'), isTrue);
+      expect(isQuestionText('ছাদের দরজার কোড ৪৫৬৭'), isFalse);
+    });
+
+    test('categories: existing match, known topic, or new', () {
+      final empty = AppData();
+      final car = guessCategory(empty, 'আমার গাড়ির নম্বর ঢাকা মেট্রো গ ১২-৩৪৫৬');
+      expect(car.name, 'যানবাহন');
+      expect(car.isNew, isTrue);
+      final roof = guessCategory(empty, 'ছাদের দরজার কোড ৪৫৬৭');
+      expect(roof.name, 'ছাদ');
+      expect(roof.isNew, isTrue);
+      final withRoof = AppData(notes: [Note(title: 'ছাদের দরজার কোড', body: 'ছাদের দরজার কোড ৪৫৬৭', category: 'ছাদ')]);
+      final again = guessCategory(withRoof, 'ছাদের চাবি নিচের ড্রয়ারে');
+      expect(again.name, 'ছাদ');
+      expect(again.isNew, isFalse);
+      expect(withRoof.noteCategories, ['ছাদ']);
+    });
+  });
+
+  group('Revision 1: finding logins however they are spoken', () {
+    test('Bengali spelling matches the English name', () {
+      expect(skeleton('ফেসবুক'), skeleton('facebook'));
+      expect(wordsMatch('ফেসবুক', 'facebook'), isTrue);
+      expect(wordsMatch('এবিসি', 'abc'), isTrue);
+      expect(wordsMatch('জিমেইল', 'gmail'), isTrue);
+      expect(wordsMatch('ইউটিউব', 'YouTube'), isTrue);
+      expect(wordsMatch('ফেসবুক', 'gmail'), isFalse);
+      expect(spelledLetters('এবিসি'), 'abc');
+      expect(spelledLetters('আমি'), isNull);
+    });
+
+    test('vault questions find the saved login', () {
+      final d = AppData(vault: [
+        VaultItem(name: 'Facebook', kind: VaultKind.website, password: 'x'),
+        VaultItem(name: 'ABC ওয়েবসাইট', kind: VaultKind.website, password: 'y'),
+      ]);
+      final q1 = Parser(ledger: const []).parse('ফেসবুকের পাসওয়ার্ড কী?') as VaultQuery;
+      expect(searchVault(d, q1.terms).single.name, 'Facebook');
+      final q2 = Parser(ledger: const []).parse('এবিসির পাসওয়ার্ড দেখাও') as VaultQuery;
+      expect(searchVault(d, q2.terms).first.name, 'ABC ওয়েবসাইট');
+      final q3 = Parser(ledger: const []).parse('আমার ফেসবুক পাসওয়াড টা বলো');
+      expect(q3, isA<VaultQuery>());
     });
   });
 }

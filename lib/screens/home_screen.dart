@@ -95,9 +95,14 @@ class HomeScreen extends StatelessWidget {
                 () => push(const ContactsScreen())),
             _Tile('ধার-দেনা', '${bnDigits(balances(d.ledger).length)} জনের সাথে', Icons.swap_horiz_rounded, C.green, C.greenTint,
                 () => ShellTabs.goTo(context, ShellTab.ledger)),
-            _Tile('নোট', '${bnDigits(d.notes.length)}টি', Icons.description_outlined, C.ochre, C.ochreTint, () => push(const NotesScreen())),
+            _Tile('নোট', '${bnDigits(d.notes.where((n) => n.category == defaultNoteCategory).length)}টি', Icons.description_outlined, C.ochre,
+                C.ochreTint, () => push(const NotesScreen(category: defaultNoteCategory))),
             _Tile('রিমাইন্ডার', '${bnDigits(soon.length)}টি সামনে', Icons.notifications_none_rounded, C.orange, C.orangeTint,
                 () => push(const RemindersScreen())),
+            // Categories the app made from things the user said.
+            for (final c in d.noteCategories.where((c) => c != defaultNoteCategory))
+              _Tile(c, '${bnDigits(d.notes.where((n) => n.category == c).length)}টি', Icons.folder_outlined, C.ochre, C.ochreTint,
+                  () => push(NotesScreen(category: c))),
           ];
           return Wrap(
             spacing: 8,

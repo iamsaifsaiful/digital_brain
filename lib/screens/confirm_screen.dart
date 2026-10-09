@@ -8,6 +8,7 @@ import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import '../ui/yes_no.dart';
 import 'person_screen.dart';
 import 'voice_screen.dart';
 
@@ -29,22 +30,62 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
   late DateTime _date;
   String? _picked; // in the clarify step: a kind name or 'expense'
   bool _saving = false;
+  late final SpokenQuestion _q;
 
   @override
   void initState() {
     super.initState();
     final brain = BrainScope.read(context);
     _date = dayOnly(brain.services.now());
+    _q = SpokenQuestion(voice: brain.services.voice, onAnswer: _onAnswer);
     WidgetsBinding.instance.addPostFrameCallback((_) => _speakQuestion());
   }
 
+  @override
+  void dispose() {
+    _q.dispose();
+    super.dispose();
+  }
+
   void _speakQuestion() {
-    final voice = BrainScope.read(context).services.voice;
-    if (_kind != null) {
-      voice.speak(confirmQuestion(_kind!, _person, _amount));
-    } else {
-      voice.speak(_clarifyQuestion());
+    _q.ask(_kind != null ? confirmQuestion(_kind!, _person, _amount) : _clarifyQuestion());
+  }
+
+  /// A spoken answer: হ্যাঁ saves; না keeps the screen for changes; in the
+  /// clarify step a named choice ("শোধ", "নতুন ধার", "খরচ") or হ্যাঁ for the
+  /// likely one.
+  void _onAnswer(String heard) {
+    if (_saving || !mounted) return;
+    if (_kind == null) {
+      final pick = pickSpokenOption(heard, [for (final o in widget.command.options) o.name], allowExpense: widget.command.allowExpense);
+      final yn = yesNo(heard);
+      final choice = pick ?? (yn == true ? widget.command.suggested?.name : null);
+      if (choice == null) {
+        setState(() => _q.hint = 'বুঝিনি। একটি বেছে নিন, বা বলুন — যেমন “শোধ” বা “নতুন ধার”।');
+        return;
+      }
+      setState(() => _picked = choice);
+      _proceed();
+      return;
     }
+    switch (yesNo(heard)) {
+      case true:
+        _save();
+      case false:
+        setState(() => _q.hint = 'ঠিক আছে, সেভ করিনি। “বদলান” চেপে ঠিক করুন বা বাতিল করুন।');
+      case null:
+        setState(() => _q.hint = 'বুঝিনি। “হ্যাঁ” বা “না” বলুন, অথবা বোতাম চাপুন।');
+    }
+  }
+
+  void _proceed() {
+    if (_picked == 'expense') {
+      toast(context, 'ঠিক আছে, এটা ধার-দেনার খাতায় রাখা হলো না।');
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() => _kind = LedgerKind.values.byName(_picked!));
+    _speakQuestion();
   }
 
   String _clarifyQuestion() {
@@ -55,6 +96,8 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
   }
 
   Future<void> _save() async {
+    if (_saving) return;
+    _q.stop();
     final brain = BrainScope.read(context);
     final kind = _kind!;
     setState(() => _saving = true);
@@ -68,6 +111,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
   }
 
   Future<void> _editPerson() async {
+    _q.stop();
     final c = TextEditingController(text: _person);
     final known = knownPeople(BrainScope.read(context).data.ledger);
     final r = await showDialog<String>(
@@ -96,6 +140,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
   }
 
   Future<void> _editAmount() async {
+    _q.stop();
     final c = TextEditingController(text: '$_amount');
     final r = await showDialog<int>(
       context: context,
@@ -120,12 +165,14 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
   }
 
   Future<void> _editDate() async {
+    _q.stop();
     final now = BrainScope.read(context).services.now();
     final d = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(2000), lastDate: now.add(const Duration(days: 3650)));
     if (d != null) setState(() => _date = d);
   }
 
   Future<void> _editKind() async {
+    _q.stop();
     final r = await showModalBottomSheet<LedgerKind>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -172,17 +219,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
                   if (_kind == null)
                     PrimaryButton(
                       label: _picked == null ? 'একটি বেছে নিন' : 'এগিয়ে যান',
-                      onPressed: _picked == null
-                          ? null
-                          : () {
-                              if (_picked == 'expense') {
-                                toast(context, 'ঠিক আছে, এটা ধার-দেনার খাতায় রাখা হলো না।');
-                                Navigator.of(context).pop();
-                                return;
-                              }
-                              setState(() => _kind = LedgerKind.values.byName(_picked!));
-                              _speakQuestion();
-                            },
+                      onPressed: _picked == null ? null : _proceed,
                     )
                   else
                     PrimaryButton(label: 'হ্যাঁ, সেভ করুন', icon: Icons.check_rounded, onPressed: _saving ? null : _save),
@@ -200,10 +237,11 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
                       Expanded(child: SecondaryButton(label: 'বাতিল', onPressed: () => Navigator.of(context).pop())),
                     ],
                   ),
-                  if (_kind != null) ...[
-                    const SizedBox(height: 8),
-                    Text('ভুল থাকলে “বদলান” চেপে ঠিক করুন', style: body(13, color: C.muted)),
-                  ],
+                  const SizedBox(height: 10),
+                  ListeningStrip(
+                    q: _q,
+                    prompt: _kind == null ? 'বলেও বেছে নিতে পারেন — যেমন “শোধ” বা “নতুন ধার”' : 'মুখে “হ্যাঁ” বা “না” বললেও হবে',
+                  ),
                 ],
               ),
             ),
@@ -250,7 +288,10 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
           sub: c.$3,
           likely: c.$4,
           selected: _picked == c.$1,
-          onTap: () => setState(() => _picked = c.$1),
+          onTap: () {
+            _q.stop();
+            setState(() => _picked = c.$1);
+          },
         ),
         const SizedBox(height: 10),
       ],

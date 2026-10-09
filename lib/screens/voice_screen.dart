@@ -7,6 +7,7 @@ import '../logic/parser.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import 'answer_screen.dart';
+import 'balance_set_screen.dart';
 import 'confirm_screen.dart';
 
 /// Listens (or takes typed text), works out what was meant and opens the
@@ -35,6 +36,7 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
     'ডোমেইন রিনিউ করার তারিখটা মনে করিয়ে দাও',
     'আমার Wi-Fi-এর নাম কী?',
     'ABC ওয়েবসাইটের লগইন তথ্য দেখাও',
+    'ইসমাইলের কাছে আমি ৫ হাজার টাকা পাই',
     'মনে রাখো: গাড়ির কাগজ আলমারির উপরের তাকে',
   ];
 
@@ -103,6 +105,8 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
     switch (cmd) {
       case LedgerAdd():
         unawaited(nav.pushReplacement(MaterialPageRoute(builder: (_) => ConfirmScreen(command: cmd))));
+      case LedgerSet():
+        unawaited(nav.pushReplacement(MaterialPageRoute(builder: (_) => BalanceSetScreen(command: cmd))));
       case NotUnderstood():
         _handled = false;
         setState(() => _error = 'ঠিক বুঝতে পারিনি। নিচের মতো করে বলে দেখুন।');

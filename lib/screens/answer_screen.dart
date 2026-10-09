@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
+import '../logic/categories.dart';
 import '../logic/ledger.dart';
 import '../logic/parser.dart';
 import '../logic/phrases.dart';
@@ -10,6 +11,7 @@ import '../state/brain.dart';
 import '../ui/pin.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import '../ui/yes_no.dart';
 import 'new_item_screen.dart';
 import 'person_screen.dart';
 import 'reminders_screen.dart';
@@ -40,20 +42,82 @@ class _Answer {
 class _AnswerScreenState extends State<AnswerScreen> {
   late _Answer _answer;
   bool _noteSaved = false;
+  CategoryGuess? _category;
+  late final SpokenQuestion _q;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _answer = _build(BrainScope.of(context));
+    final brain = BrainScope.of(context);
+    final cmd = widget.command;
+    if (cmd is NoteAdd && _category == null) _category = guessCategory(brain.data, cmd.text);
+    _answer = _build(brain);
   }
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _speak());
+    _q = SpokenQuestion(voice: BrainScope.read(context).services.voice, onAnswer: _onAnswer);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.command is NoteAdd) {
+        _q.ask(_answer.text);
+      } else {
+        _speak();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _q.dispose();
+    super.dispose();
   }
 
   void _speak() => BrainScope.read(context).services.voice.speak(_answer.text);
+
+  void _onAnswer(String heard) {
+    final cmd = widget.command;
+    if (cmd is! NoteAdd || _noteSaved) return;
+    switch (yesNo(heard)) {
+      case true:
+        _saveNote(cmd);
+      case false:
+        _q.stop();
+        toast(context, 'ঠিক আছে, রাখা হয়নি');
+        Navigator.of(context).pop();
+      case null:
+        setState(() => _q.hint = 'বুঝিনি। “হ্যাঁ” বা “না” বলুন, অথবা বোতাম চাপুন।');
+    }
+  }
+
+  Future<void> _changeCategory() async {
+    _q.stop();
+    final brain = BrainScope.read(context);
+    final c = TextEditingController();
+    final existing = brain.data.noteCategories;
+    final r = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('কোন বিভাগে রাখব?', style: display(20)),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final e in {...existing, defaultNoteCategory}) ActionChip(label: Text(e), onPressed: () => Navigator.pop(ctx, e)),
+          ]),
+          const SizedBox(height: 12),
+          TextField(controller: c, decoration: const InputDecoration(labelText: 'অথবা নতুন বিভাগের নাম')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('বাতিল')),
+          TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: const Text('ঠিক আছে')),
+        ],
+      ),
+    );
+    if (r == null || r.isEmpty || !mounted) return;
+    setState(() {
+      _category = CategoryGuess(r, isNew: !existing.contains(r));
+      _answer = _build(brain);
+    });
+  }
 
   void _push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
 
@@ -70,7 +134,16 @@ class _AnswerScreenState extends State<AnswerScreen> {
       case LedgerQuery():
         return _ledger(d, cmd);
       case VaultQuery():
-        final found = searchVault(d, cmd.terms, wifiOnly: cmd.wifiOnly);
+        var found = searchVault(d, cmd.terms, wifiOnly: cmd.wifiOnly);
+        if (found.isEmpty && d.vault.isNotEmpty) {
+          // Nothing matched by name: show what is there, so the user can pick.
+          final all = [...d.vault]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+          final intro = cmd.terms.isEmpty && !cmd.wifiOnly
+              ? 'আপনার রাখা লগইনগুলো এখানে। যেটা দরকার সেটা খুলুন — খুলতে আঙুলের ছাপ বা PIN লাগবে।'
+              : 'নাম দিয়ে ঠিক মেলেনি। আপনার রাখা লগইনগুলো থেকে বেছে নিন — খুলতে আঙুলের ছাপ বা PIN লাগবে।';
+          found = all;
+          return _Answer(intro, secure: true, items: [for (final v in found) _vaultRow(v)]);
+        }
         if (found.isEmpty) {
           return _Answer(
             cmd.wifiOnly ? 'কোনো Wi-Fi-এর তথ্য রাখা নেই।' : 'এমন কোনো লগইন তথ্য পাইনি।',
@@ -87,16 +160,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
         final text = found.length == 1
             ? '${possessive(first.name)} তথ্য পেয়েছি। এটা সুরক্ষিত — আঙুলের ছাপ দিয়ে খুলুন, তারপর স্ক্রিনে দেখুন।'
             : '${bnDigits(found.length)}টি মিলেছে। যেটা দরকার সেটা খুলুন — খুলতে আঙুলের ছাপ বা PIN লাগবে।';
-        return _Answer(text, secure: true, items: [
-          for (final v in found)
-            ListRow(
-              leading: _VaultIcon(kind: v.kind),
-              title: v.name,
-              subtitle: v.kind.label,
-              trailing: const Icon(Icons.lock_outline_rounded, color: C.muted),
-              onTap: () => _openVault(v),
-            ),
-        ]);
+        return _Answer(text, secure: true, items: [for (final v in found) _vaultRow(v)]);
       case ReminderQuery():
         final found = searchReminders(d, cmd.terms);
         if (found.isEmpty) {
@@ -122,8 +186,36 @@ class _AnswerScreenState extends State<AnswerScreen> {
             ),
         ]);
       case NoteAdd():
-        return _Answer('এটা নোট হিসেবে রাখব?', items: [
-          Padding(padding: const EdgeInsets.all(16), child: Text(cmd.text, style: body(17, height: 1.5))),
+        final cat = _category ?? const CategoryGuess(defaultNoteCategory, isNew: false);
+        final question = _noteSaved
+            ? '‘${cat.name}’ বিভাগে রাখা হয়েছে।'
+            : cmd.fromStatement
+                ? (cat.isNew
+                    ? 'এটা আগের কোনো তথ্যের সাথে মেলেনি। ‘${cat.name}’ নামে নতুন বিভাগ খুলে রাখব?'
+                    : 'এটা ‘${cat.name}’ বিভাগে রাখব?')
+                : (cat.isNew ? '‘${cat.name}’ নামে নতুন বিভাগে নোট হিসেবে রাখব?' : '‘${cat.name}’ বিভাগে নোট হিসেবে রাখব?');
+        return _Answer(question, items: [
+          Padding(padding: const EdgeInsets.fromLTRB(4, 12, 4, 8), child: Text(cmd.text, style: body(17, height: 1.5))),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                Text('বিভাগ:', style: body(14, color: C.muted)),
+                ActionChip(
+                  avatar: const Icon(Icons.folder_outlined, size: 18, color: C.ochre),
+                  label: Text(cat.name, style: body(14, weight: FontWeight.w600)),
+                  backgroundColor: C.ochreTint,
+                  side: BorderSide.none,
+                  onPressed: _noteSaved ? null : _changeCategory,
+                ),
+                if (cat.isNew && !_noteSaved) const Pill('নতুন বিভাগ', fg: C.ochre, bg: C.ochreTint),
+                if (!_noteSaved) TextButton(onPressed: _changeCategory, child: Text('বদলান', style: body(14, weight: FontWeight.w600, color: C.green))),
+              ],
+            ),
+          ),
         ]);
       case SearchQuery():
         final hits = searchAll(d, cmd.terms);
@@ -134,10 +226,19 @@ class _AnswerScreenState extends State<AnswerScreen> {
         }
         return _Answer('${bnDigits(hits.length)}টি জিনিস পেয়েছি।', secure: hits.any((h) => h is VaultHit), items: [for (final h in hits.take(12)) _hitRow(h, now)]);
       case LedgerAdd():
+      case LedgerSet():
       case NotUnderstood():
         return _Answer('ঠিক বুঝতে পারিনি।');
     }
   }
+
+  Widget _vaultRow(VaultItem v) => ListRow(
+        leading: _VaultIcon(kind: v.kind),
+        title: v.name,
+        subtitle: v.kind.label,
+        trailing: const Icon(Icons.lock_outline_rounded, color: C.muted),
+        onTap: () => _openVault(v),
+      );
 
   Widget _hitRow(Hit h, DateTime now) => switch (h) {
         VaultHit(:final item) => ListRow(
@@ -217,14 +318,16 @@ class _AnswerScreenState extends State<AnswerScreen> {
   }
 
   Future<void> _saveNote(NoteAdd n) async {
+    if (_noteSaved) return;
+    _q.stop();
     final brain = BrainScope.read(context);
-    final words = n.text.split(RegExp(r'\s+'));
-    final title = words.take(5).join(' ') + (words.length > 5 ? '…' : '');
-    await brain.saveNote(Note(title: title, body: n.text));
-    await brain.services.voice.speak('নোট রাখা হয়েছে।');
+    final cat = _category?.name ?? defaultNoteCategory;
+    _noteSaved = true;
+    await brain.saveNote(Note(title: noteTitleFrom(n.text), body: n.text, category: cat));
+    brain.services.voice.speak('‘$cat’ বিভাগে রাখা হয়েছে।');
     if (!mounted) return;
-    setState(() => _noteSaved = true);
-    toast(context, 'নোট রাখা হয়েছে');
+    setState(() => _answer = _build(brain));
+    toast(context, '‘$cat’ বিভাগে রাখা হয়েছে');
   }
 
   @override
@@ -273,10 +376,14 @@ class _AnswerScreenState extends State<AnswerScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
               child: isNote && !_noteSaved
-                  ? Row(children: [
-                      Expanded(child: SecondaryButton(label: 'বাতিল', height: 56, onPressed: () => Navigator.of(context).pop())),
-                      const SizedBox(width: 10),
-                      Expanded(child: PrimaryButton(label: 'নোট রাখুন', icon: Icons.check_rounded, onPressed: () => _saveNote(cmd))),
+                  ? Column(children: [
+                      Row(children: [
+                        Expanded(child: SecondaryButton(label: 'না', height: 56, onPressed: () => _onAnswer('না'))),
+                        const SizedBox(width: 10),
+                        Expanded(flex: 2, child: PrimaryButton(label: 'হ্যাঁ, রাখুন', icon: Icons.check_rounded, onPressed: () => _saveNote(cmd))),
+                      ]),
+                      const SizedBox(height: 10),
+                      ListeningStrip(q: _q),
                     ])
                   : Row(children: [
                       Expanded(child: SecondaryButton(label: 'আবার শুনুন', icon: Icons.volume_up_outlined, height: 56, onPressed: _speak)),

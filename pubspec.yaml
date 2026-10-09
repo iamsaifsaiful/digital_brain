@@ -1,7 +1,7 @@
 name: digital_brain
 description: Digital Brain — আপনার ব্যক্তিগত স্মৃতি ও নিরাপদ তথ্যভান্ডার। ভয়েসে বা লিখে পাসওয়ার্ড, যোগাযোগ, ধার-দেনা, নোট ও রিমাইন্ডার রাখুন।
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: '>=3.6.0 <4.0.0'
@@ -29,18 +29,15 @@ flutter:
   uses-material-design: true
 
   fonts:
-    # Hind Siliguri for text, Anek Bangla (variable) for headings and money.
-    # Both OFL, from Google Fonts; licences in assets/fonts/.
-    - family: Hind
+    # Noto Sans Bengali: the standard, clear Bengali look (same family Android
+    # uses), with digits that are easy to tell apart. OFL, licence in assets/fonts/.
+    - family: Noto
       fonts:
-        - asset: assets/fonts/HindSiliguri-Regular.ttf
+        - asset: assets/fonts/NotoSansBengali-Regular.ttf
           weight: 400
-        - asset: assets/fonts/HindSiliguri-Medium.ttf
+        - asset: assets/fonts/NotoSansBengali-Medium.ttf
           weight: 500
-        - asset: assets/fonts/HindSiliguri-SemiBold.ttf
+        - asset: assets/fonts/NotoSansBengali-SemiBold.ttf
           weight: 600
-        - asset: assets/fonts/HindSiliguri-Bold.ttf
+        - asset: assets/fonts/NotoSansBengali-Bold.ttf
           weight: 700
-    - family: Anek
-      fonts:
-        - asset: assets/fonts/AnekBangla.ttf

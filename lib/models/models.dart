@@ -201,22 +201,30 @@ class Contact {
 
 // ───────────────────────── Notes ─────────────────────────
 
+/// The category manual notes go to.
+const defaultNoteCategory = 'নোট';
+
+/// A note or any other remembered piece of information. [category] groups
+/// them ("নোট", or one the app created such as "যানবাহন").
 class Note {
-  Note({String? id, required this.title, this.body = '', DateTime? updatedAt})
+  Note({String? id, required this.title, this.body = '', this.category = defaultNoteCategory, DateTime? updatedAt})
       : id = id ?? newId(),
         updatedAt = updatedAt ?? DateTime.now();
 
   final String id;
   final String title;
   final String body;
+  final String category;
   final DateTime updatedAt;
 
-  Map<String, Object?> toJson() => {'id': id, 'title': title, 'body': body, 'updatedAt': updatedAt.toIso8601String()};
+  Map<String, Object?> toJson() =>
+      {'id': id, 'title': title, 'body': body, 'category': category, 'updatedAt': updatedAt.toIso8601String()};
 
   factory Note.fromJson(Map<String, Object?> j) => Note(
         id: j['id'] as String?,
         title: (j['title'] as String?) ?? '',
         body: (j['body'] as String?) ?? '',
+        category: ((j['category'] as String?) ?? '').trim().isEmpty ? defaultNoteCategory : (j['category'] as String).trim(),
         updatedAt: _date(j['updatedAt']),
       );
 }
@@ -340,6 +348,13 @@ class AppData {
   final List<Reminder> reminders;
 
   static const schema = 1;
+
+  /// Note categories in use: "নোট" first, then the others by name.
+  List<String> get noteCategories {
+    final set = <String>{for (final n in notes) n.category};
+    final others = set.where((c) => c != defaultNoteCategory).toList()..sort();
+    return [if (set.contains(defaultNoteCategory)) defaultNoteCategory, ...others];
+  }
 
   Map<String, Object?> toJson() => {
         'schema': schema,

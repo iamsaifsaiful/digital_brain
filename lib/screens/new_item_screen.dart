@@ -23,8 +23,11 @@ enum ItemCategory {
 
 /// Add something new, or edit an existing password, contact, note or reminder.
 class NewItemScreen extends StatefulWidget {
-  const NewItemScreen({super.key, this.category, this.presetTitle, this.vault, this.contact, this.note, this.reminder});
+  const NewItemScreen({super.key, this.category, this.presetTitle, this.vault, this.contact, this.note, this.reminder, this.noteCategory});
   final ItemCategory? category;
+
+  /// For a new note: the category to put it in.
+  final String? noteCategory;
   final String? presetTitle;
   final VaultItem? vault;
   final Contact? contact;
@@ -48,6 +51,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
   final _d = TextEditingController(); // email
   final _pw = TextEditingController();
   final _noteText = TextEditingController();
+  final _noteCat = TextEditingController(text: defaultNoteCategory);
   bool _pwVisible = false;
 
   VaultKind _vaultKind = VaultKind.website;
@@ -73,6 +77,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
     final now = BrainScope.read(context).services.now();
     _date = dayOnly(now).add(const Duration(days: 7));
     _a.text = w.presetTitle ?? '';
+    if (w.noteCategory != null) _noteCat.text = w.noteCategory!;
     if (w.vault != null) {
       final v = w.vault!;
       _a.text = v.name;
@@ -91,6 +96,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
     } else if (w.note != null) {
       _a.text = w.note!.title;
       _b.text = w.note!.body;
+      _noteCat.text = w.note!.category;
     } else if (w.reminder != null) {
       final r = w.reminder!;
       _a.text = r.title;
@@ -106,7 +112,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
 
   @override
   void dispose() {
-    for (final c in [_a, _b, _c, _d, _pw, _noteText]) {
+    for (final c in [_a, _b, _c, _d, _pw, _noteText, _noteCat]) {
       c.dispose();
     }
     super.dispose();
@@ -145,7 +151,8 @@ class _NewItemScreenState extends State<NewItemScreen> {
         ));
         done = 'যোগাযোগ রাখা হয়েছে';
       case ItemCategory.note:
-        await brain.saveNote(Note(id: widget.note?.id, title: _a.text.trim(), body: _b.text.trim(), updatedAt: now));
+        final cat = _noteCat.text.trim().isEmpty ? defaultNoteCategory : _noteCat.text.trim();
+        await brain.saveNote(Note(id: widget.note?.id, title: _a.text.trim(), body: _b.text.trim(), category: cat, updatedAt: now));
         done = 'নোট রাখা হয়েছে';
       case ItemCategory.reminder:
         await brain.saveReminder(Reminder(
@@ -359,6 +366,18 @@ class _NewItemScreenState extends State<NewItemScreen> {
 
   List<Widget> _noteForm() => [
         TextFormField(controller: _a, decoration: const InputDecoration(labelText: 'শিরোনাম', hintText: 'যেমন: বাজারের তালিকা'), validator: _required),
+        _gap,
+        TextFormField(controller: _noteCat, decoration: const InputDecoration(labelText: 'বিভাগ', hintText: 'যেমন: নোট, যানবাহন, স্বাস্থ্য')),
+        const SizedBox(height: 8),
+        Wrap(spacing: 6, runSpacing: 6, children: [
+          for (final c in {defaultNoteCategory, ...BrainScope.of(context).data.noteCategories})
+            ActionChip(
+              label: Text(c, style: body(13)),
+              backgroundColor: _noteCat.text.trim() == c ? C.ochreTint : C.surface,
+              side: const BorderSide(color: C.border),
+              onPressed: () => setState(() => _noteCat.text = c),
+            ),
+        ]),
         _gap,
         TextFormField(
           controller: _b,

@@ -18,6 +18,7 @@ abstract class Voice {
     required void Function(String words) onWords,
     required void Function(String words) onDone,
     required void Function(String message) onError,
+    bool short = false,
   });
 
   /// Stops and keeps what was heard (onDone fires).
@@ -26,7 +27,12 @@ abstract class Voice {
   /// Stops and throws away what was heard.
   Future<void> cancel();
 
+  /// Starts speaking and returns at once.
   Future<void> speak(String text);
+
+  /// Speaks and returns when the sentence is finished (used before
+  /// listening for a spoken "হ্যাঁ" / "না").
+  Future<void> speakAndWait(String text);
   Future<void> stopSpeaking();
 
   /// When true, [speak] stays silent (the "answer aloud" setting is off).
@@ -79,7 +85,7 @@ class DeviceVoice extends Voice {
         }
       }
       await _tts.setSpeechRate(0.45);
-      await _tts.awaitSpeakCompletion(false);
+      await _tts.awaitSpeakCompletion(true);
     } catch (e) {
       debugPrint('TTS setup failed: $e');
     }
@@ -104,9 +110,9 @@ class DeviceVoice extends Voice {
 
   void _handleStatus(String status) {
     if (status == 'done' || status == 'notListening') {
-      // Give the final result a moment to arrive.
+      // The final result normally arrives first; if not, wait only a moment.
       _guard?.cancel();
-      _guard = Timer(const Duration(milliseconds: 700), _finish);
+      _guard = Timer(const Duration(milliseconds: 250), _finish);
     }
   }
 
@@ -122,6 +128,7 @@ class DeviceVoice extends Voice {
     required void Function(String words) onWords,
     required void Function(String words) onDone,
     required void Function(String message) onError,
+    bool short = false,
   }) async {
     if (!await init()) {
       onError('এই ফোনে ভয়েস চালু করা যায়নি। লিখে যোগ করুন।');
@@ -141,11 +148,12 @@ class DeviceVoice extends Voice {
         },
         listenOptions: SpeechListenOptions(
           localeId: _locale,
-          listenFor: const Duration(seconds: 40),
-          pauseFor: const Duration(seconds: 4),
+          listenFor: Duration(seconds: short ? 8 : 40),
+          // Stop about 1.6 s after the user stops talking (was 4 s).
+          pauseFor: Duration(milliseconds: short ? 1300 : 1600),
           partialResults: true,
           cancelOnError: true,
-          listenMode: ListenMode.dictation,
+          listenMode: ListenMode.confirmation,
         ),
       );
     } catch (e) {
@@ -155,13 +163,19 @@ class DeviceVoice extends Voice {
     }
   }
 
+  /// "বলা শেষ": act on what was heard right away; the recogniser is stopped
+  /// in the background.
   @override
   Future<void> stop() async {
+    _guard?.cancel();
+    if (_last.trim().isNotEmpty) {
+      _finish();
+    } else {
+      _guard = Timer(const Duration(milliseconds: 400), _finish);
+    }
     try {
       await _stt.stop();
     } catch (_) {}
-    _guard?.cancel();
-    _guard = Timer(const Duration(milliseconds: 900), _finish);
   }
 
   @override
@@ -176,7 +190,14 @@ class DeviceVoice extends Voice {
   @override
   Future<void> speak(String text) async {
     if (muted) return;
+    unawaited(speakAndWait(text));
+  }
+
+  @override
+  Future<void> speakAndWait(String text) async {
+    if (muted) return;
     try {
+      await init();
       await _tts.stop();
       await _tts.speak(text);
     } catch (e) {
@@ -207,6 +228,7 @@ class FakeVoice extends Voice {
     required void Function(String words) onWords,
     required void Function(String words) onDone,
     required void Function(String message) onError,
+    bool short = false,
   }) async {
     if (!available) {
       onError('ভয়েস নেই');
@@ -231,6 +253,9 @@ class FakeVoice extends Voice {
   Future<void> speak(String text) async {
     if (!muted) spoken.add(text);
   }
+
+  @override
+  Future<void> speakAndWait(String text) => speak(text);
 
   @override
   Future<void> stopSpeaking() async {}

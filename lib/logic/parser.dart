@@ -33,6 +33,14 @@ class LedgerAdd extends Command {
   bool get needsChoice => kind == null;
 }
 
+/// "ইসমাইলের কাছে আমি ৫ হাজার টাকা পাই": the user states a balance.
+/// [balance] > 0: they owe me; < 0: I owe them.
+class LedgerSet extends Command {
+  const LedgerSet(super.transcript, {required this.person, required this.balance});
+  final String person;
+  final int balance;
+}
+
 enum LedgerAsk { all, receivable, payable, person }
 
 class LedgerQuery extends Command {
@@ -52,9 +60,12 @@ class ReminderQuery extends Command {
   final List<String> terms;
 }
 
+/// Something to remember. [fromStatement]: the user just said a fact
+/// ("ছাদের দরজার কোড ৪৫৬৭") that matched nothing else.
 class NoteAdd extends Command {
-  const NoteAdd(super.transcript, {required this.text});
+  const NoteAdd(super.transcript, {required this.text, this.fromStatement = false});
   final String text;
+  final bool fromStatement;
 }
 
 class SearchQuery extends Command {
@@ -221,6 +232,13 @@ class Parser {
 
     final amount = findAmount(text);
     final known = knownPeople(ledger);
+    final asking = isQuestionText(said);
+
+    // "ইসমাইলের কাছে আমি ৫ হাজার টাকা পাই" — a stated balance.
+    if (amount != null && !asking) {
+      final set = _statedBalance(said, text, w, amount, known);
+      if (set != null) return set;
+    }
 
     // A question about money.
     final isQuestion = _hasAny(text, ['কত', 'কাকে', 'কার কাছে', 'কে কে', 'হিসাব', 'কবে']) &&
@@ -229,7 +247,7 @@ class Parser {
 
     // Vault: logins, passwords, Wi-Fi.
     final wifi = _hasAny(text, ['wi-fi', 'wifi', 'ওয়াইফাই', 'ওয়াইফাই', 'ওয়াই-ফাই', 'ওয়াই ফাই']);
-    if (wifi || _hasAny(text, ['পাসওয়ার্ড', 'পাসওয়ার্ড', 'password', 'লগইন', 'login', 'ইউজারনেম', 'username', 'পিন নম্বর'])) {
+    if (wifi || _hasAny(text, _vaultWords)) {
       return VaultQuery(said, terms: wifi ? const [] : searchTerms(text), wifiOnly: wifi);
     }
 
@@ -246,7 +264,47 @@ class Parser {
 
     final terms = searchTerms(text);
     if (terms.isEmpty) return NotUnderstood(said);
+    // A plain fact, not a question: keep it (in a matching or new category).
+    if (!asking && w.length >= 3) return NoteAdd(said, text: said.trim(), fromStatement: true);
     return SearchQuery(said, terms: terms);
+  }
+
+  /// "X-এর কাছে আমি N টাকা পাই / আমার N টাকা পাওনা" → they owe me N.
+  /// "X আমার কাছে N টাকা পায় / X-কে আমার N টাকা দিতে হবে / X-এর কাছে আমার
+  /// N টাকা দেনা" → I owe them N.
+  LedgerSet? _statedBalance(String said, String text, List<String> w, int amount, List<String> known) {
+    final iOweWords = _hasAny(text, ['দেনা', 'ঋণ', 'দিতে হবে', 'দেব', 'দেবো', 'দিব', 'দিবো', 'দিতে বাকি']);
+    final owedWords = _hasAny(text, ['পাই', 'পাব', 'পাবো', 'পাওনা', 'পাবে', 'পাবেন', 'পায়', 'পান']);
+    if (!iOweWords && !owedWords) return null;
+    final me = w.contains('আমি') || w.contains('আমার');
+    if (!me) return null;
+
+    // "X আমার কাছে N টাকা পায়/পাবে": X is owed by me.
+    final amar = w.indexOf('আমার');
+    if (amar > 0 && amar + 1 < w.length && w[amar + 1] == 'কাছে' && owedWords) {
+      final raw = _nameEndingAt(w, amar - 1, (x) => x);
+      if (raw != null) return LedgerSet(said, person: resolvePerson(raw, known), balance: -amount);
+    }
+
+    // "X-এর কাছে আমি/আমার …"
+    for (var i = 0; i + 1 < w.length; i++) {
+      if (w[i + 1] != 'কাছে' || w[i] == 'আমার') continue;
+      final raw = _nameEndingAt(w, i, stripPossessive);
+      if (raw == null) continue;
+      final person = resolvePerson(raw, known);
+      if (iOweWords && !_hasAny(text, ['পাই', 'পাব', 'পাবো'])) return LedgerSet(said, person: person, balance: -amount);
+      if (owedWords) return LedgerSet(said, person: person, balance: amount);
+    }
+
+    // "X-কে আমার/আমি N টাকা দিতে হবে / দেব"
+    if (iOweWords && !_hasAny(text, _give1)) {
+      for (var i = 0; i < w.length; i++) {
+        if (!w[i].endsWith('কে') || w[i] == 'আমাকে' || w[i] == 'কাকে') continue;
+        final raw = _nameEndingAt(w, i, stripTo);
+        if (raw != null) return LedgerSet(said, person: resolvePerson(raw, known), balance: -amount);
+      }
+    }
+    return null;
   }
 
   LedgerAdd? _ledgerEvent(String said, String text, List<String> w, int amount, List<String> known) {
@@ -326,10 +384,23 @@ class Parser {
     // 4) A name and an amount, but no clear direction: ask.
     if (_hasAny(text, [..._give1, ..._give3, ..._take1, ..._got1, ..._loanWords, ..._returnWords, 'টাকা'])) {
       for (final k in known) {
-        if (text.contains(personKey(k))) {
-          return LedgerAdd(said,
-              person: k, amount: amount, options: LedgerKind.values, suggested: null, allowExpense: true);
+        if (text.contains(normalize(k))) {
+          return LedgerAdd(said, person: k, amount: amount, options: LedgerKind.values, allowExpense: true);
         }
+      }
+      // Someone new: "X-কে …", "X-এর কাছে/থেকে …", or a name first. Only
+      // when a money verb is there ("বিদ্যুৎ বিল ১২০০ টাকা" is not a loan).
+      if (!_hasAny(text, [..._give1, ..._give3, ..._take1, ..._got1, ..._loanWords, ..._returnWords])) return null;
+      String? raw;
+      for (var i = 0; i < w.length && raw == null; i++) {
+        if (w[i].endsWith('কে') && w[i] != 'আমাকে' && w[i] != 'কাকে') raw = _nameEndingAt(w, i, stripTo);
+        if (raw == null && i + 1 < w.length && (w[i + 1] == 'কাছে' || w[i + 1] == 'কাছ' || w[i + 1] == 'থেকে')) {
+          raw = _nameEndingAt(w, i, stripPossessive);
+        }
+      }
+      if (raw == null && (loan || ret) && w.isNotEmpty && _looksLikeName(w.first)) raw = w.first;
+      if (raw != null && raw.length >= 2) {
+        return LedgerAdd(said, person: raw, amount: amount, options: LedgerKind.values, allowExpense: true);
       }
     }
     return null;
@@ -383,4 +454,43 @@ List<String> searchTerms(String normalized) {
     if (!out.contains(s)) out.add(s);
   }
   return out;
+}
+
+const _vaultWordsRaw = [
+  'পাসওয়ার্ড', 'পাসওয়াড', 'পাসোয়ার্ড', 'পাসওর্ড', 'পাস ওয়ার্ড', 'password', 'pass', 'লগইন', 'লগ ইন', 'লগিন', 'login',
+  'ইউজারনেম', 'ইউজার নেম', 'username', 'পিন নম্বর', 'পিন কোড', 'আইডি পাস', 'সাইন ইন',
+];
+final List<String> _vaultWords = [for (final v in _vaultWordsRaw) fold(v)];
+
+/// Does the sentence ask something (rather than state a fact)?
+bool isQuestionText(String said) {
+  if (said.contains('?') || said.contains('？')) return true;
+  final w = words(normalize(said));
+  const q = [
+    'কী', 'কি', 'কত', 'কোথায়', 'কোথায়', 'কবে', 'কে', 'কার', 'কাকে', 'কোন', 'কোনটা', 'কেমন', 'কিভাবে', 'কীভাবে',
+    'দেখাও', 'দেখান', 'দেখা', 'বলো', 'বলুন', 'বল', 'খুঁজে', 'খোঁজো', 'খুঁজো', 'বের', 'what', 'where', 'when', 'show', 'find',
+  ];
+  final qs = {for (final x in q) fold(x)};
+  return w.any(qs.contains);
+}
+
+const _yesRaw = [
+  'হ্যাঁ', 'হ্যা', 'হাঁ', 'হা', 'জি', 'জ্বি', 'জী', 'হুম', 'হুঁ', 'ঠিক', 'আচ্ছা', 'অবশ্যই', 'নিশ্চয়ই', 'একদম', 'সঠিক',
+  'করো', 'কর', 'করেন', 'করুন', 'রাখো', 'রাখ', 'রাখেন', 'রাখুন', 'সেভ', 'যোগ', 'দাও', 'দিন', 'চলবে', 'হবে', 'হ্যাঁ।',
+  'ok', 'okay', 'ওকে', 'yes', 'yeah', 'yep', 'sure', 'save', 'right',
+];
+const _noRaw = ['না', 'নাহ', 'নো', 'no', 'nope', 'বাতিল', 'থাক', 'ভুল', 'cancel', 'নয়'];
+
+final Set<String> _yes = {for (final x in _yesRaw) fold(x)};
+final Set<String> _no = {for (final x in _noRaw) fold(x)};
+
+/// A spoken answer: true for হ্যাঁ and its kin ("জি", "ঠিক আছে", "রাখো",
+/// "ok"…), false for না/বাতিল/থাক/"দরকার নেই", null when unclear.
+bool? yesNo(String said) {
+  final t = normalize(said);
+  if (t.isEmpty) return null;
+  final w = words(t);
+  if (w.any(_no.contains) || _hasAny(t, ['দরকার নেই', 'লাগবে না', 'রেখো না', 'রাখো না', 'করো না', 'চাই না'])) return false;
+  if (w.any(_yes.contains) || _hasAny(t, ['ঠিক আছে', 'সেভ করো', 'যোগ করো'])) return true;
+  return null;
 }
