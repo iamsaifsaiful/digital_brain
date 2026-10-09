@@ -139,10 +139,10 @@ class DeviceVoice extends Voice {
           onWords(_last);
           if (r.finalResult) _finish();
         },
-        localeId: _locale,
-        listenFor: const Duration(seconds: 40),
-        pauseFor: const Duration(seconds: 4),
         listenOptions: SpeechListenOptions(
+          localeId: _locale,
+          listenFor: const Duration(seconds: 40),
+          pauseFor: const Duration(seconds: 4),
           partialResults: true,
           cancelOnError: true,
           listenMode: ListenMode.dictation,

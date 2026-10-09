@@ -66,8 +66,7 @@ Future<Uint8List> open(List<int> sealed, List<int> key) async {
   } on SecretBoxAuthenticationError {
     throw const WrongKey();
   } on ArgumentError {
-    throw const WrongKey();
-  } on RangeError {
+    // Includes RangeError (data too short to be a sealed box).
     throw const WrongKey();
   }
 }
