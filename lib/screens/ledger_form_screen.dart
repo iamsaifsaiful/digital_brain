@@ -85,7 +85,7 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
           child: Column(
             children: [
               TopBar(
-                title: widget.entry == null ? 'ধার-দেনা যোগ' : 'লেনদেন সংশোধন',
+                title: widget.entry == null ? 'লেনদেন যোগ' : 'লেনদেন সংশোধন',
                 trailing: [
                   if (widget.entry == null)
                     TextButton.icon(

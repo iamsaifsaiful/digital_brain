@@ -253,7 +253,7 @@ void main() {
     expect(rig.voice.spoken.last, 'ছাদের দরজার কোড ৪৫৬৭।');
   });
 
-  testWidgets('money without a name: asks whom, then the kind, then saves to ধার-দেনা', (t) async {
+  testWidgets('money without a name: asks whom, then the kind, then saves to লেনদেন', (t) async {
     final rig = await start(t);
     await t.tap(find.text('যেকোনো কিছু জিজ্ঞেস করুন'));
     await settle(t);

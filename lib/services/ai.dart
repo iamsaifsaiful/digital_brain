@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http;
 typedef AiRoute = Map<String, Object?>;
 
 /// What the app tells the AI besides the sentence. Never passwords, vault
-/// items or note text: only names in the ধার-দেনা book and category names.
+/// items or note text: only names in the লেনদেন (money) book and category names.
 class AiContext {
   const AiContext({required this.now, this.people = const [], this.categories = const []});
   final DateTime now;
@@ -141,7 +141,7 @@ Names: write the person's name in Bengali script as said, without endings (স�
 
 reply (chat only): warm, natural Bangladeshi Bengali the way a polite friend talks, short (1–3 sentences), address the user as আপনি, no English unless the user used it. For general-knowledge questions answer briefly and correctly; if you are not sure, say so. Never ask for or repeat passwords or PINs. Today is $date.
 
-Known people in the ধার-দেনা book: ${ctx.people.isEmpty ? '(none)' : ctx.people.join(', ')}
+Known people in the লেনদেন (money) book: ${ctx.people.isEmpty ? '(none)' : ctx.people.join(', ')}
 User's note categories: ${ctx.categories.isEmpty ? '(none)' : ctx.categories.join(', ')}''';
 }
 

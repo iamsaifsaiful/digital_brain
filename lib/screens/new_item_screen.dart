@@ -12,7 +12,7 @@ import 'voice_screen.dart';
 enum ItemCategory {
   password('পাসওয়ার্ড', C.blue),
   contact('যোগাযোগ', C.purple),
-  ledger('ধার-দেনা', C.green),
+  ledger('লেনদেন', C.green),
   note('নোট', C.ochre),
   reminder('রিমাইন্ডার', C.orange);
 
@@ -353,10 +353,10 @@ class _NewItemScreenState extends State<NewItemScreen> {
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(18)),
           child: Column(children: [
-            Text('ধার-দেনার জন্য আলাদা ফর্ম আছে — কাকে দিলেন, কার থেকে নিলেন, আর এখন কত বাকি, সব হিসাব করে দেখায়।', style: body(16, height: 1.5)),
+            Text('টাকার লেনদেনের জন্য আলাদা ফর্ম আছে — কাকে দিলেন, কার থেকে নিলেন, আর এখন কত বাকি, সব হিসাব করে দেখায়।', style: body(16, height: 1.5)),
             const SizedBox(height: 12),
             PrimaryButton(
-              label: 'ধার-দেনার ফর্ম খুলুন',
+              label: 'লেনদেনের ফর্ম খুলুন',
               height: 48,
               onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const LedgerFormScreen())),
             ),

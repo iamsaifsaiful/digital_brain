@@ -103,7 +103,7 @@ class _BottomNav extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               item(ShellTab.home, Icons.home_outlined, Icons.home_rounded, 'হোম'),
-              item(ShellTab.ledger, Icons.swap_horiz_rounded, Icons.swap_horiz_rounded, 'ধার-দেনা'),
+              item(ShellTab.ledger, Icons.swap_horiz_rounded, Icons.swap_horiz_rounded, 'লেনদেন'),
               Expanded(
                 child: Semantics(
                   button: true,

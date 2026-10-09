@@ -14,7 +14,7 @@ Every build on `main` publishes a release:
 ## What it does
 
 - **Voice, in Bengali**: “সজীবকে ৫০০ টাকা দিলাম”, “সজীবের কাছে আমার কত টাকা পাওনা?”, “ডোমেইন রিনিউ করার তারিখটা মনে করিয়ে দাও”, “আমার Wi-Fi-এর নাম কী?”, “মনে রাখো: …”. Money sentences are confirmed before saving; unclear ones ask (debt repaid, new loan, or other spending).
-- **ধার-দেনা**: balance per person, running history, edit/delete with undo, CSV report.
+- **লেনদেন**: balance per person, running history, edit/delete with undo, CSV report.
 - **Vault**: website/app/Wi-Fi/bank/email logins. Opening one needs fingerprint or PIN; passwords hide again after 30 s, copied passwords leave the clipboard after 30 s, and they are never read aloud.
 - **Contacts, notes, reminders** (one-off, monthly, yearly; phone notification N days before).
 - **Security**: 4-digit app PIN (salted PBKDF2), fingerprint unlock, auto-lock (immediately / 30 s / 1 min / 5 min), wait after 5 wrong PINs, screenshots blocked (FLAG_SECURE), Android cloud backup off.

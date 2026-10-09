@@ -133,7 +133,7 @@ class _BalanceSetScreenState extends State<BalanceSetScreen> {
                           Expanded(
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               Text(_person, style: display(22)),
-                              Text(_isNew ? 'ধার-দেনায় নতুন ব্যক্তি' : 'আগে থেকে হিসাব আছে', style: body(14, color: C.muted)),
+                              Text(_isNew ? 'লেনদেনে নতুন ব্যক্তি' : 'আগে থেকে হিসাব আছে', style: body(14, color: C.muted)),
                             ]),
                           ),
                         ]),

@@ -57,7 +57,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
 
   void _speakQuestion() {
     if (_needName) {
-      _q.ask('টাকার লেনদেন ধার-দেনার খাতায় রাখি। কার সাথে লেনদেন হলো? নামটা বলেন।');
+      _q.ask('টাকার হিসাব লেনদেনের খাতায় রাখি। কার সাথে লেনদেন হলো? নামটা বলেন।');
     } else if (_needAmount) {
       _q.ask('কত টাকা?');
     } else {
@@ -130,7 +130,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
 
   void _proceed() {
     if (_picked == 'expense') {
-      toast(context, 'ঠিক আছে, এটা ধার-দেনার খাতায় রাখা হলো না।');
+      toast(context, 'ঠিক আছে, এটা লেনদেনের খাতায় রাখা হলো না।');
       Navigator.of(context).pop();
       return;
     }
@@ -329,8 +329,8 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
       const SizedBox(height: 6),
       Text(
         _amount > 0
-            ? '${taka(_amount)}-এর কথা বললেন। টাকার সব লেনদেন ধার-দেনার খাতায় থাকে — কার সাথে, সেটা জানালে লিখে রাখব।'
-            : 'টাকার সব লেনদেন ধার-দেনার খাতায় থাকে — কার সাথে, সেটা জানালে লিখে রাখব।',
+            ? '${taka(_amount)}-এর কথা বললেন। টাকার সব হিসাব লেনদেনের খাতায় থাকে — কার সাথে, সেটা জানালে লিখে রাখব।'
+            : 'টাকার সব হিসাব লেনদেনের খাতায় থাকে — কার সাথে, সেটা জানালে লিখে রাখব।',
         style: body(15, color: C.muted, height: 1.5),
       ),
       const SizedBox(height: 14),
@@ -392,7 +392,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
       };
       choices.add((k.name, title, sub, k == widget.command.suggested));
     }
-    if (widget.command.allowExpense) choices.add(('expense', 'অন্য খরচ', 'ধার-দেনার খাতায় যোগ হবে না', false));
+    if (widget.command.allowExpense) choices.add(('expense', 'অন্য খরচ', 'লেনদেনের খাতায় যোগ হবে না', false));
 
     return [
       Text('এটা কোন ধরনের লেনদেন?', style: display(26)),

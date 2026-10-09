@@ -156,7 +156,7 @@ class _MoreScreenState extends State<MoreScreen> {
   Future<void> _csv() async {
     final brain = BrainScope.read(context);
     if (brain.data.ledger.isEmpty) {
-      toast(context, 'ধার-দেনার কোনো লেনদেন নেই');
+      toast(context, 'এখনো কোনো লেনদেন নেই');
       return;
     }
     final csv = ledgerCsv(brain.data.ledger);
@@ -165,7 +165,7 @@ class _MoreScreenState extends State<MoreScreen> {
       Uint8List.fromList(utf8.encode(csv)),
       'dhar-dena-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.csv',
       'text/csv',
-      'ধার-দেনার হিসাব',
+      'লেনদেনের হিসাব',
     );
   }
 
@@ -344,7 +344,7 @@ class _MoreScreenState extends State<MoreScreen> {
             const SizedBox(height: 6),
             Text(
               'AI চালু থাকলে আঞ্চলিক ভাষা, বাংলা-ইংরেজি মেশানো কথা আর সাধারণ প্রশ্নও বোঝে, উত্তর দেয় মানুষের মতো করে। '
-              'আপনার বলা বাক্য আর ধার-দেনার মানুষের নামগুলো Anthropic-এ পাঠানো হয়; পাসওয়ার্ড, ভল্ট, PIN বা নোটের লেখা কখনো পাঠানো হয় না। '
+              'আপনার বলা বাক্য আর লেনদেনের মানুষের নামগুলো Anthropic-এ পাঠানো হয়; পাসওয়ার্ড, ভল্ট, PIN বা নোটের লেখা কখনো পাঠানো হয় না। '
               'ইন্টারনেট না থাকলে অ্যাপ নিজের নিয়মে চলে।',
               style: body(13, color: C.muted, height: 1.55),
             ),
@@ -447,7 +447,7 @@ class _MoreScreenState extends State<MoreScreen> {
             ListRow(
               padding: const EdgeInsets.symmetric(vertical: 10),
               leading: const Icon(Icons.table_view_outlined, color: C.ink),
-              title: 'ধার-দেনার রিপোর্ট (CSV)',
+              title: 'লেনদেনের রিপোর্ট (CSV)',
               subtitle: 'Excel বা Google Sheets-এ খোলা যায়',
               trailing: const Icon(Icons.ios_share_rounded, color: C.muted),
               onTap: _csv,

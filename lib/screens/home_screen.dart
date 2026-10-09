@@ -93,7 +93,7 @@ class HomeScreen extends StatelessWidget {
                 () => ShellTabs.goTo(context, ShellTab.vault)),
             _Tile('যোগাযোগ', '${bnDigits(d.contacts.length)} জন', Icons.person_outline_rounded, C.purple, C.purpleTint,
                 () => push(const ContactsScreen())),
-            _Tile('ধার-দেনা', '${bnDigits(balances(d.ledger).length)} জনের সাথে', Icons.swap_horiz_rounded, C.green, C.greenTint,
+            _Tile('লেনদেন', '${bnDigits(balances(d.ledger).length)} জনের সাথে', Icons.swap_horiz_rounded, C.green, C.greenTint,
                 () => ShellTabs.goTo(context, ShellTab.ledger)),
             _Tile('নোট', '${bnDigits(d.notes.where((n) => n.category == defaultNoteCategory).length)}টি', Icons.description_outlined, C.ochre,
                 C.ochreTint, () => push(const NotesScreen(category: defaultNoteCategory))),
@@ -167,7 +167,7 @@ class HomeScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('ধার-দেনা', style: body(13, color: C.onDarkMuted)),
+                        Text('লেনদেন', style: body(13, color: C.onDarkMuted)),
                         Text.rich(
                           TextSpan(children: [
                             const TextSpan(text: 'পাবেন '),

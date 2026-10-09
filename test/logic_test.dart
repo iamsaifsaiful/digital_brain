@@ -395,7 +395,7 @@ void main() {
     });
   });
 
-  group('Revision 2: every money sentence goes to ধার-দেনা', () {
+  group('Revision 2: every money sentence goes to লেনদেন', () {
     test('money without a person still goes to the ledger, never a note', () {
       final a = Parser(ledger: const []).parse('বিদ্যুৎ বিল ১২০০ টাকা দিলাম') as LedgerAdd;
       expect(a.person, '');

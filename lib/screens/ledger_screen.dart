@@ -12,7 +12,7 @@ import 'person_screen.dart';
 import 'transactions_screen.dart';
 import '../logic/parser.dart';
 
-/// The ধার-দেনা tab: totals, people and recent transactions.
+/// The লেনদেন tab: totals, people and recent transactions.
 class LedgerScreen extends StatelessWidget {
   const LedgerScreen({super.key});
 
@@ -34,7 +34,7 @@ class LedgerScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('ধার-দেনা', style: display(26, weight: 700)),
+                  Text('লেনদেন', style: display(26, weight: 700)),
                   Text(people.isEmpty ? 'এখনো কোনো হিসাব নেই' : '${bnDigits(people.length)} জনের সাথে হিসাব', style: body(14, color: C.muted)),
                 ],
               ),

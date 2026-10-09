@@ -379,7 +379,7 @@ class Parser {
       // Keep the user's own spelling and digits.
       final original = said.trim().replaceFirst(RegExp(r'^\S+\s+\S+\s*[:ঃ,-]?\s*(যে\s+)?'), '');
       final noteText = original.isEmpty ? noteMatch[3]!.trim() : original;
-      // Money always goes to ধার-দেনা, even when said as "মনে রাখো …".
+      // Money always goes to লেনদেন, even when said as "মনে রাখো …".
       final inner = parse(noteText);
       if (inner is LedgerAdd || inner is LedgerSet) return inner;
       return NoteAdd(said, text: noteText);
@@ -417,7 +417,7 @@ class Parser {
       if (add != null) return add;
     }
 
-    // Anything else about money (টাকা) also belongs in ধার-দেনা, never in a
+    // Anything else about money (টাকা) also belongs in লেনদেন, never in a
     // note category. Missing person or amount: the app asks for them.
     final money = _hasAny(text, ['টাকা']) || said.contains('৳') || w.contains('tk');
     if (money && !asking) {

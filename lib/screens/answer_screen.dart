@@ -245,9 +245,9 @@ class _AnswerScreenState extends State<AnswerScreen> {
               onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const VoiceScreen())),
             ),
         ]);
-      case LedgerAdd():
       case AiReply():
         return _Answer(cmd.text);
+      case LedgerAdd():
       case LedgerSet():
       case NotUnderstood():
         return _Answer('দুঃখিত, ঠিক বুঝতে পারিনি। একটু অন্যভাবে আরেকবার বলবেন?');
@@ -306,7 +306,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
         PersonHit(:final person) => ListRow(
             leading: Avatar(name: person),
             title: person,
-            subtitle: 'ধার-দেনা',
+            subtitle: 'লেনদেন',
             onTap: () => _push(PersonScreen(person: person)),
           ),
       };
