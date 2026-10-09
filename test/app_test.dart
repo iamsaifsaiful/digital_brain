@@ -427,4 +427,35 @@ void main() {
     expect(rig.brain.data.contacts.single.name, 'রহিম');
     expect(rig.brain.data.contacts.single.phone, '01712345678');
   });
+
+  testWidgets('ফোন ও মেসেজ: a tile on home opens the list with call, SMS and WhatsApp', (t) async {
+    final rig = await start(t, data: AppData(contacts: [Contact(name: 'রহিম', phone: '01712345678')]));
+    await t.tap(find.text('ফোন ও মেসেজ'));
+    await settle(t);
+    await t.tap(find.byTooltip('ফোন দিন'));
+    await settle(t);
+    final l = rig.services.launcher as FakeLauncher;
+    expect(l.opened.single.toString(), 'tel:01712345678');
+    await t.tap(find.byTooltip('WhatsApp'));
+    await settle(t);
+    await t.enterText(find.byType(TextField).last, 'আসছি');
+    await t.tap(find.text('খুলুন'));
+    await settle(t);
+    expect(l.opened.last.toString(), startsWith('https://wa.me/8801712345678'));
+  });
+
+  testWidgets('chat keeps listening through silence, then rests the mic', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    for (var i = 0; i < 4; i++) {
+      rig.voice.say('');
+      await settle(t);
+    }
+    expect(find.textContaining('মাইক বন্ধ রাখলাম'), findsOneWidget);
+    await t.tap(find.text('বলুন'));
+    await settle(t);
+    rig.voice.say('তুমি কেমন আছো?');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('ভালো আছি'));
+  });
 }

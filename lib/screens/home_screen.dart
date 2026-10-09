@@ -7,6 +7,7 @@ import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import 'calls_screen.dart';
 import 'contacts_screen.dart';
 import 'home_shell.dart';
 import 'new_item_screen.dart';
@@ -129,6 +130,8 @@ class HomeScreen extends StatelessWidget {
           final w = (box.maxWidth - 16) / 3;
           final tiles = [
             _Tile('কাজের তালিকা', '${bnDigits(open.length)}টি বাকি', Icons.checklist_rounded, C.green, C.greenTint, () => push(const TasksScreen())),
+            _Tile('ফোন ও মেসেজ', '${bnDigits(d.contacts.where((c) => c.phone.isNotEmpty).length)}টি নম্বর', Icons.call_outlined, C.blue, C.blueTint,
+                () => push(const CallsScreen())),
             _Tile('পাসওয়ার্ড', '${bnDigits(d.vault.length)}টি · লক করা', Icons.key_rounded, C.blue, C.blueTint,
                 () => ShellTabs.goTo(context, ShellTab.vault)),
             _Tile('যোগাযোগ', '${bnDigits(d.contacts.length)} জন', Icons.person_outline_rounded, C.purple, C.purpleTint,

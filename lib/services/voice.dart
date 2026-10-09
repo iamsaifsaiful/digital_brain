@@ -76,6 +76,7 @@ class DeviceVoice extends Voice {
   bool _finished = true;
   bool _restarting = false;
   bool _short = false;
+  bool _retried = false;
   Duration _silence = sentenceSilence;
   DateTime _turnStarted = DateTime.now();
   void Function(String)? _onWords;
@@ -191,6 +192,23 @@ class DeviceVoice extends Voice {
       _quiet ??= Timer(_silence, _finish);
       return;
     }
+    // Nothing said yet: silence is not a failure, the turn just ends empty
+    // (the chat listens again). A busy recogniser gets one more try.
+    if (e.errorMsg == 'error_no_match' || e.errorMsg == 'error_speech_timeout') {
+      _finish();
+      return;
+    }
+    if ((e.errorMsg == 'error_busy' || e.errorMsg == 'error_client' || e.errorMsg == 'error_recognizer_busy') && !_retried) {
+      _retried = true;
+      Future<void>.delayed(const Duration(milliseconds: 600), () async {
+        if (_finished) return;
+        try {
+          await _stt.cancel();
+        } catch (_) {}
+        if (!_finished) await _startSession();
+      });
+      return;
+    }
     final msg = switch (e.errorMsg) {
       'error_no_match' || 'error_speech_timeout' => 'কিছু শুনতে পাইনি। আবার বলুন।',
       'error_network' || 'error_network_timeout' || 'error_server' => 'ইন্টারনেট সংযোগ লাগবে। লিখেও যোগ করতে পারেন।',
@@ -218,6 +236,11 @@ class DeviceVoice extends Voice {
           _restarting = false;
           if (!_finished) await _startSession();
         });
+      } else if (_words.isEmpty && !_restarting) {
+        // Some phones end a silent session without any error: end the turn
+        // (empty) so the app never waits forever.
+        _quiet?.cancel();
+        _quiet = Timer(const Duration(milliseconds: 1500), _finish);
       }
     }
   }
@@ -283,6 +306,15 @@ class DeviceVoice extends Voice {
     await stopSpeaking();
     _quiet?.cancel();
     _quiet = null;
+    // A session left over from before (the recogniser was not released)
+    // would make the new one fail silently.
+    if (_stt.isListening) {
+      try {
+        await _stt.cancel();
+      } catch (_) {}
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+    _retried = false;
     _committed = '';
     _current = '';
     _finished = false;
@@ -332,7 +364,10 @@ class DeviceVoice extends Voice {
     try {
       await init();
       await _tts.stop();
-      await _tts.speak(text);
+      // Some speech engines never report "done": do not wait forever, or
+      // the conversation would stop listening.
+      final limit = Duration(milliseconds: (4000 + text.length * 110).clamp(4000, 90000));
+      await _tts.speak(text).timeout(limit, onTimeout: () => null);
     } catch (e) {
       debugPrint('speak failed: $e');
     }

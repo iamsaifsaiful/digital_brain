@@ -26,7 +26,7 @@ class VoiceScreen extends StatefulWidget {
   State<VoiceScreen> createState() => _VoiceScreenState();
 }
 
-class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStateMixin {
+class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _wave = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
   late final ChatController _chat = ChatController(BrainScope.read(context))..addListener(_changed);
   final _text = TextEditingController();
@@ -60,11 +60,28 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
   void initState() {
     super.initState();
     _typing = widget.startTyping;
+    WidgetsBinding.instance.addObserver(this);
     if (!_typing) WidgetsBinding.instance.addPostFrameCallback((_) => _listen());
+  }
+
+  /// Leaving the app (a call, the home button, screen off) stops the
+  /// microphone; coming back picks the conversation up again.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) return;
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      if (_listening) _stopListening();
+    } else if (state == AppLifecycleState.resumed) {
+      if (!_away && !_typing && !_chat.ended && !_busy && !_listening && !_speaking && (ModalRoute.of(context)?.isCurrent ?? false)) {
+        _silences = 0;
+        _listen();
+      }
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _gen++;
     _chat
       ..removeListener(_changed)
@@ -116,11 +133,15 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
           _live = '';
         });
         if (w.trim().isEmpty) {
+          // Quiet for a while: keep listening a few rounds, then rest the
+          // microphone until the user taps it.
           _silences++;
-          if (_silences < 2) {
-            _listen();
+          if (_silences < 4) {
+            Future<void>.delayed(const Duration(milliseconds: 250), () {
+              if (mounted && gen == _gen) _listen();
+            });
           } else {
-            setState(() => _error = 'কিছু শুনতে পাইনি। কথা বলতে মাইক চাপুন।');
+            setState(() => _error = 'অনেকক্ষণ কিছু শুনিনি, তাই মাইক বন্ধ রাখলাম। বলতে চাইলে নিচের মাইক চাপুন।');
           }
         } else {
           _silences = 0;
@@ -130,10 +151,16 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
       onError: (m) {
         if (!mounted || gen != _gen) return;
         _wave.stop();
-        setState(() {
-          _listening = false;
-          _error = m;
-        });
+        setState(() => _listening = false);
+        // A passing hiccup: try again on its own a couple of times.
+        _silences++;
+        if (_silences < 3 && !m.contains('অনুমতি') && !m.contains('চালু')) {
+          Future<void>.delayed(const Duration(milliseconds: 900), () {
+            if (mounted && gen == _gen) _listen();
+          });
+        } else {
+          setState(() => _error = '$m মাইক চাপলে আবার শুনব।');
+        }
       },
     );
   }
@@ -158,18 +185,28 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
       _busy = true;
       _error = null;
     });
-    final say = await _chat.hear(said);
+    var say = '';
+    try {
+      say = await _chat.hear(said);
+    } catch (e) {
+      debugPrint('chat failed: $e');
+      say = 'দুঃখিত, একটু সমস্যা হলো। আরেকবার বলবেন?';
+      _chat.addInfo(say);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
     if (!mounted) return;
-    setState(() {
-      _busy = false;
-      _speaking = say.isNotEmpty && !voice.muted;
-    });
-    if (say.isNotEmpty) await voice.speakAndWait(say);
+    setState(() => _speaking = say.isNotEmpty && !voice.muted);
+    try {
+      if (say.isNotEmpty) await voice.speakAndWait(say);
+    } finally {
+      if (mounted) setState(() => _speaking = false);
+    }
     if (!mounted) return;
-    setState(() => _speaking = false);
     if (_chat.pendingLaunch != null) await _chat.launchPending();
     if (!mounted) return;
-    if (!_typing && !_chat.ended && !_listening) unawaited(_listen());
+    _silences = 0;
+    if (!_typing && !_chat.ended && !_listening && !_away) unawaited(_listen());
   }
 
   void _toggleTyping() {
@@ -520,6 +557,10 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
             _Wave(animation: _wave),
             const SizedBox(height: 4),
             Text(_live.isEmpty ? 'শুনছি… বলা শেষ হলে ২ সেকেন্ড থামুন' : 'শুনছি…', style: body(13, color: const Color(0xFFA9B5AF))),
+            const SizedBox(height: 8),
+          ],
+          if (!_listening && !_speaking && !_busy && !_chat.thinking) ...[
+            Text('মাইক বন্ধ আছে — চাপলে আবার শুনব', style: body(13, color: C.mint, weight: FontWeight.w600)),
             const SizedBox(height: 8),
           ],
           Row(
