@@ -9,13 +9,14 @@ import '../logic/phrases.dart';
 import '../logic/plan.dart';
 import '../logic/search.dart';
 import '../logic/talk.dart';
+import '../logic/when.dart';
 import '../models/models.dart';
 import '../services/ai.dart';
 import '../ui/yes_no.dart' show pickSpokenOption;
 import 'brain.dart';
 
 /// What the chat is waiting to hear.
-enum ChatWait { none, yesNo, name, amount, kind }
+enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName }
 
 /// A button under the latest question; tapping it is the same as saying
 /// [answer].
@@ -25,7 +26,7 @@ class ChatChoice {
   final String answer;
 }
 
-enum LinkKind { person, editEntry, notes, reminders }
+enum LinkKind { person, editEntry, notes, reminders, tasks, contacts }
 
 /// "খাতা দেখুন" and similar, under an app message.
 class ChatLink {
@@ -96,8 +97,29 @@ class ChatController extends ChangeNotifier {
   CategoryGuess? _cat;
   LedgerEntry? _setEntry;
 
+  // A call or message being set up.
+  CallPerson? _call;
+  String _callee = '';
+  String _phone = '';
+  String _text = '';
+
+  /// Set when the dialer/SMS/WhatsApp should open once the app has
+  /// finished speaking; the screen calls [launchPending].
+  (Via, String, String)? pendingLaunch;
+
+  bool _warnedExact = false;
+
   /// Short listening (yes/no) is enough for the next answer.
-  bool get expectsShortAnswer => wait == ChatWait.yesNo || wait == ChatWait.amount || wait == ChatWait.name;
+  bool get expectsShortAnswer => const {ChatWait.yesNo, ChatWait.amount, ChatWait.name, ChatWait.callee, ChatWait.phone, ChatWait.contactName}.contains(wait);
+
+  /// Opens the dialer / SMS app / WhatsApp prepared by the last answer.
+  Future<void> launchPending() async {
+    final p = pendingLaunch;
+    pendingLaunch = null;
+    if (p == null) return;
+    final ok = await brain.services.launcher.open(p.$1, p.$2, text: p.$3);
+    if (!ok) addInfo('এই ফোনে এটা খোলার মতো অ্যাপ পাওয়া গেল না।');
+  }
 
   DateTime get _now => brain.services.now();
   static const _yesNoChoices = [ChatChoice('না', 'না'), ChatChoice('হ্যাঁ', 'হ্যাঁ')];
@@ -139,9 +161,20 @@ class ChatController extends ChangeNotifier {
 
     for (final c in others) {
       if (c is NotUnderstood && (saves.isNotEmpty || others.length > 1)) continue;
+      if (c is TaskDone) {
+        _taskDone(c, out);
+        tags.add('[কাজ শেষ হিসেবে দাগ দেওয়া হলো]');
+        continue;
+      }
+      if (c is CallPerson) {
+        _startCall(c, out);
+        tags.add('[ফোন/মেসেজের ব্যবস্থা করছে]');
+        continue;
+      }
       final text = answerText(brain.data, c, _now) ?? '';
       _say(out, text, vault: _vaultFor(c), links: _linksFor(c));
       tags.add(c is AiReply || c is SmallTalk || c is NotUnderstood ? text : '[অ্যাপ নিজের রাখা তথ্য থেকে উত্তর দিল]');
+      if (c is SmallTalk && c.kind == Talk.whatCanYouDo) _say(out, _skills, speak: false);
       if (c is SmallTalk && c.kind == Talk.bye) ended = true;
     }
     if (saves.length == 1) {
@@ -190,6 +223,7 @@ class ChatController extends ChangeNotifier {
       if (p != null) return [ChatLink(LinkKind.person, '${possessive(p.name)} খাতা দেখুন', person: p.name)];
     }
     if (c is ReminderQuery && searchReminders(d, c.terms).isNotEmpty) return const [ChatLink(LinkKind.reminders, 'রিমাইন্ডার দেখুন')];
+    if (c is TaskQuery || c is Briefing) return const [ChatLink(LinkKind.tasks, 'কাজের তালিকা')];
     return const [];
   }
 
@@ -219,6 +253,7 @@ class ChatController extends ChangeNotifier {
     wait = ChatWait.none;
     choices = const [];
     _current = null;
+    _call = null;
     _askingAll = false;
     _allYes = false;
     _savedInBatch = 0;
@@ -265,9 +300,109 @@ class ChatController extends ChangeNotifier {
           ChatWait.yesNo,
           choices: _yesNoChoices,
         );
+      case TaskAdd():
+        if (_allYes) return _saveCurrent(out);
+        final due = c.due == null ? '' : ' (${sayWhen(c.due!, _now, withTime: false)})';
+        _ask(out, '“${c.title}”$due — কাজের তালিকায় তুলে রাখি?', ChatWait.yesNo, choices: _yesNoChoices);
+      case ReminderAdd():
+        if (!c.at.isAfter(_now)) {
+          _say(out, 'ওই সময়টা তো পার হয়ে গেছে। কখন মনে করাব, আরেকবার বলবেন?');
+          await _done(out);
+          return;
+        }
+        if (_allYes) return _saveCurrent(out);
+        final again = c.repeat == Repeat.none ? '' : ', ${c.repeat.label}';
+        _ask(out, '${sayWhen(c.at, _now)}-এ “${c.title}” মনে করিয়ে দেব$again — ঠিক আছে?', ChatWait.yesNo, choices: _yesNoChoices);
+      case ContactAdd():
+        if (c.name.trim().isEmpty) {
+          _ask(out, 'নম্বরটা কার নামে রাখব?', ChatWait.contactName);
+          return;
+        }
+        if (_allYes) return _saveCurrent(out);
+        final old = findContact(brain.data, c.name);
+        _ask(
+          out,
+          old != null && old.phone.isNotEmpty && old.phone != c.phone
+              ? '${possessive(old.name)} আগের নম্বর ${bnDigits(old.phone)}। নতুন নম্বর ${bnDigits(c.phone)} দিয়ে বদলে দিই?'
+              : '${possessive(c.name)} নম্বর ${bnDigits(c.phone)} — রেখে দিই?',
+          ChatWait.yesNo,
+          choices: _yesNoChoices,
+        );
       default:
         await _done(out);
     }
+  }
+
+  static const _skills = 'আমি যা যা পারি: কাজের তালিকা রাখা (“কাল ব্যাংকে যেতে হবে”), সময় ধরে মনে করানো (“বিকেল ৪টায় মিটিংয়ের কথা মনে করিয়ে দিও”), '
+      'ফোন বা মেসেজ (“রহিমকে ফোন দাও”, “করিমকে মেসেজ দাও যে মাল পাঠিয়েছি”), নম্বর রাখা, কাস্টমারের বাকি আর ধার-দেনার হিসাব '
+      '(“করিম ৫০০ টাকার মাল বাকিতে নিল”), নোট, পাসওয়ার্ড, আর “আজ আমার কী কী আছে?” বললে সারাদিনের সারাংশ।';
+
+  void _taskDone(TaskDone c, List<String> out) {
+    final open = brain.data.tasks.where((t) => !t.done);
+    final found = matchTasks(open, c.terms);
+    if (found.isEmpty) {
+      _say(out, 'এমন কোনো বাকি কাজ তালিকায় পেলাম না।', links: const [ChatLink(LinkKind.tasks, 'কাজের তালিকা')]);
+      return;
+    }
+    final t = found.first;
+    brain.setTaskDone(t, true);
+    final left = brain.data.tasks.where((x) => !x.done && x.id != t.id).length;
+    _say(out, 'বাহ! “${t.title}” শেষ হিসেবে দাগ দিলাম।${left > 0 ? ' আর ${bnDigits(left)}টা কাজ বাকি।' : ' সব কাজ শেষ!'}',
+        links: const [ChatLink(LinkKind.tasks, 'কাজের তালিকা')]);
+  }
+
+  void _startCall(CallPerson c, List<String> out) {
+    _call = c;
+    _callee = c.person.trim();
+    _phone = c.phone;
+    _text = c.text.trim();
+    _nextCallStep(out);
+  }
+
+  void _nextCallStep(List<String> out) {
+    final c = _call!;
+    if (_phone.isEmpty) {
+      if (_callee.isEmpty) {
+        _ask(out, c.via == Via.call ? 'কাকে ফোন দেব? নামটা বলুন।' : 'কাকে পাঠাব? নামটা বলুন।', ChatWait.callee, choices: [
+          for (final x in brain.data.contacts.where((x) => x.phone.isNotEmpty).take(4)) ChatChoice(x.name, x.name),
+        ]);
+        return;
+      }
+      final contact = findContact(brain.data, _callee);
+      if (contact != null && contact.phone.isNotEmpty) {
+        _callee = contact.name;
+        _phone = contact.phone;
+      } else {
+        _ask(out, '${possessive(_callee)} নম্বর তো রাখা নেই। নম্বরটা বলবেন? রেখে দেব, পরের বার আর লাগবে না।', ChatWait.phone);
+        return;
+      }
+    }
+    if (c.via != Via.call && _text.isEmpty) {
+      _ask(out, 'কী লিখব? বলুন।', ChatWait.message);
+      return;
+    }
+    final who = _callee.isEmpty ? bnDigits(_phone) : _callee;
+    final say = switch (c.via) {
+      Via.call => '${toPerson(who)} ফোন দিচ্ছি। কল বোতাম চাপলেই কথা বলতে পারবেন।',
+      Via.sms => '${toPerson(who)} মেসেজ লিখে দিলাম — “$_text”। পাঠাতে শুধু Send চাপুন।',
+      Via.whatsapp => 'WhatsApp-এ ${toPerson(who)} লিখে দিলাম — “$_text”। Send চাপলেই যাবে।',
+    };
+    _say(out, say);
+    pendingLaunch = (c.via, _phone, _text);
+    ended = true;
+    _call = null;
+    _history.add(AiTurn.app('[${c.via == Via.call ? 'ফোন' : 'মেসেজ'} খোলা হলো: $who]'));
+  }
+
+  Future<void> _savePhone(String name, String phone) async {
+    final old = findContact(brain.data, name);
+    await brain.saveContact(Contact(
+      id: old?.id,
+      name: old?.name ?? name,
+      phone: phone,
+      email: old?.email ?? '',
+      note: old?.note ?? '',
+    ));
   }
 
   Future<void> _nextLedgerStep(List<String> out) async {
@@ -362,6 +497,48 @@ class ChatController extends ChangeNotifier {
         wait = ChatWait.none;
         await _nextLedgerStep(out);
         return true;
+      case ChatWait.callee:
+        final n = spokenName(t, [for (final c in brain.data.contacts) c.name, ...knownPeople(brain.data.ledger)]);
+        if (n.isEmpty) {
+          if (_looksNew(t)) return false;
+          _say(out, 'নামটা ধরতে পারিনি। আবার বলুন।');
+          return true;
+        }
+        _callee = n;
+        wait = ChatWait.none;
+        choices = const [];
+        _nextCallStep(out);
+        return true;
+      case ChatWait.phone:
+        final ph = findPhone(t);
+        if (ph == null) {
+          if (_looksNew(t) && findAmount(normalize(t)) == null) return false;
+          _say(out, 'নম্বরটা ধরতে পারিনি। আবার বলুন — ১১ সংখ্যার মোবাইল নম্বর।');
+          return true;
+        }
+        _phone = ph;
+        wait = ChatWait.none;
+        if (_callee.isNotEmpty) {
+          await _savePhone(_callee, ph);
+          messages.add(ChatMessage.app('${possessive(_callee)} নম্বর যোগাযোগে রেখে দিলাম।', info: true));
+        }
+        _nextCallStep(out);
+        return true;
+      case ChatWait.message:
+        _text = t;
+        wait = ChatWait.none;
+        _nextCallStep(out);
+        return true;
+      case ChatWait.contactName:
+        final c = _current;
+        final n = spokenName(t, [for (final x in brain.data.contacts) x.name, ...knownPeople(brain.data.ledger)]);
+        if (n.isEmpty || c is! ContactAdd) {
+          _say(out, 'নামটা ধরতে পারিনি। আবার বলুন।');
+          return true;
+        }
+        wait = ChatWait.none;
+        await _start(ContactAdd(c.transcript, name: n, phone: c.phone), out);
+        return true;
       case ChatWait.amount:
         final a = findAmount(normalize(t));
         if (a == null || a <= 0) {
@@ -419,6 +596,32 @@ class ChatController extends ChangeNotifier {
         _say(out, quiet ? 'রাখলাম: ${c.text} (‘$cat’)' : 'ঠিক আছে, ‘$cat’ বিভাগে রেখে দিলাম।',
             links: const [ChatLink(LinkKind.notes, 'নোট দেখুন')], speak: !quiet);
         _history.add(AiTurn.app('[নোট রাখা হলো, বিভাগ: $cat]'));
+      case TaskAdd():
+        await brain.saveTask(Task(title: c.title, due: c.due));
+        _say(out, quiet ? 'কাজ: ${c.title}' : 'ঠিক আছে, কাজের তালিকায় তুললাম।',
+            links: const [ChatLink(LinkKind.tasks, 'কাজের তালিকা')], speak: !quiet);
+        _history.add(AiTurn.app('[কাজের তালিকায় রাখা হলো]'));
+      case ReminderAdd():
+        await brain.saveReminder(Reminder(
+          title: c.title,
+          date: DateTime(c.at.year, c.at.month, c.at.day),
+          hour: c.at.hour,
+          minute: c.at.minute,
+          daysBefore: 0,
+          repeat: c.repeat,
+        ));
+        _say(out, quiet ? 'মনে করাব: ${c.title}' : 'ঠিক আছে, ${sayWhen(c.at, _now)}-এ মনে করিয়ে দেব।',
+            links: const [ChatLink(LinkKind.reminders, 'রিমাইন্ডার দেখুন')], speak: !quiet);
+        _history.add(AiTurn.app('[রিমাইন্ডার রাখা হলো]'));
+        if (!_warnedExact && !await brain.services.notifier.exactAllowed()) {
+          _warnedExact = true;
+          messages.add(ChatMessage.app('ঠিক মিনিটে বাজাতে “আরও” → “ঠিক সময়ে রিমাইন্ডার” চালু করে নিন।', info: true));
+        }
+      case ContactAdd():
+        await _savePhone(c.name, c.phone);
+        _say(out, quiet ? 'নম্বর: ${c.name}' : 'ঠিক আছে, ${possessive(c.name)} নম্বর রেখে দিলাম।',
+            links: const [ChatLink(LinkKind.contacts, 'যোগাযোগ দেখুন')], speak: !quiet);
+        _history.add(AiTurn.app('[নম্বর রাখা হলো: ${c.name}]'));
       default:
         break;
     }

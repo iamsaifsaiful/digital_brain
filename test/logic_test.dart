@@ -8,9 +8,11 @@ import 'package:digital_brain/logic/parser.dart';
 import 'package:digital_brain/logic/password.dart';
 import 'package:digital_brain/logic/phrases.dart';
 import 'package:digital_brain/logic/plan.dart';
+import 'package:digital_brain/logic/when.dart';
 import 'package:digital_brain/logic/search.dart';
 import 'package:digital_brain/logic/talk.dart';
 import 'package:digital_brain/models/models.dart';
+import 'package:digital_brain/services/launcher.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 LedgerEntry e(String p, LedgerKind k, int a, DateTime d) => LedgerEntry(person: p, kind: k, amount: a, date: d);
@@ -528,6 +530,115 @@ void main() {
       expect(x.amount, 2000);
       expect(entryToReach(l, 'রহিম', 1000, now), isNull);
       expect(entryToReach(const [], 'ইসমাইল', -500, now)!.kind, LedgerKind.borrowed);
+    });
+  });
+
+  group('assistant: when', () {
+    final now = DateTime(2026, 10, 9, 15, 53); // Friday
+    test('day and time words', () {
+      expect(parseWhen('কাল সকাল ১০টায় মিটিং', now)!.at, DateTime(2026, 10, 10, 10, 0));
+      expect(parseWhen('৩০ মিনিট পরে চা', now)!.at, DateTime(2026, 10, 9, 16, 23));
+      expect(parseWhen('আধা ঘণ্টা পরে', now)!.at, DateTime(2026, 10, 9, 16, 23));
+      expect(parseWhen('বিকেল ৪টায় মিটিং', now)!.at, DateTime(2026, 10, 9, 16, 0));
+      expect(parseWhen('৪টায় মিটিং', now)!.at, DateTime(2026, 10, 9, 16, 0));
+      expect(parseWhen('রাত সাড়ে ৯টায়', now)!.at, DateTime(2026, 10, 9, 21, 30));
+      expect(parseWhen('১০:৩০টায় ব্যাংক', now)!.at, DateTime(2026, 10, 10, 10, 30));
+      final sat = parseWhen('শনিবার দোকানে যাব', now)!;
+      expect(sat.day, DateTime(2026, 10, 10));
+      expect(sat.hasTime, isFalse);
+      expect(parseWhen('১৫ তারিখে ভাড়া', now)!.day, DateTime(2026, 10, 15));
+      expect(parseWhen('৩ নভেম্বর', now)!.day, DateTime(2026, 11, 3));
+    });
+
+    test('a past time today moves to tomorrow; counts are not times', () {
+      expect(parseWhen('সকাল ১০টায় ফোন', now)!.at, DateTime(2026, 10, 10, 10, 0));
+      expect(parseWhen('৩টা ডিম কিনতে হবে', now), isNull);
+      expect(parseWhen('এমনি কথা', now), isNull);
+    });
+  });
+
+  group('assistant: commands', () {
+    final now = DateTime(2026, 10, 9, 15, 53);
+    Command parse(String s, {List<Task> tasks = const [], List<Contact> contacts = const []}) =>
+        Parser(ledger: const [], tasks: tasks, contacts: contacts, now: now).parse(s);
+
+    test('a timed reminder', () {
+      final r = parse('কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও') as ReminderAdd;
+      expect(r.at, DateTime(2026, 10, 10, 10, 0));
+      expect(fold(r.title), fold('মিটিংয়ের কথা'));
+      final soon = parse('৩০ মিনিট পরে চা খাওয়ার কথা মনে করিয়ে দিও') as ReminderAdd;
+      expect(soon.at, DateTime(2026, 10, 9, 16, 23));
+      final monthly = parse('প্রতি মাসের ৫ তারিখে দোকান ভাড়ার কথা মনে করিয়ে দিও') as ReminderAdd;
+      expect(monthly.repeat, Repeat.monthly);
+      // No time: still a question about a saved date.
+      expect(parse('ডোমেইন রিনিউ করার তারিখটা মনে করিয়ে দাও'), isA<ReminderQuery>());
+    });
+
+    test('to-dos', () {
+      final t = parse('কাল ব্যাংকে যেতে হবে') as TaskAdd;
+      expect(fold(t.title), fold('ব্যাংকে যেতে হবে'));
+      expect(t.due, DateTime(2026, 10, 10));
+      expect((parse('বাজারের লিস্টে ডিম রাখো') as TaskAdd).title, 'বাজার: ডিম');
+      expect(parse('কাজের তালিকা দেখাও'), isA<TaskQuery>());
+      expect(parse('আজ আমার কী কী আছে?'), isA<Briefing>());
+      expect(parse('আজকে কী কী করতে হবে?'), isA<Briefing>());
+      expect(parse('তুমি কী কী করতে পারো?'), isA<SmallTalk>());
+      final bank = Task(title: 'ব্যাংকে যেতে হবে');
+      expect(parse('ব্যাংকের কাজ হয়ে গেছে', tasks: [bank]), isA<TaskDone>());
+      expect(matchTasks([bank], (parse('ব্যাংকের কাজ হয়ে গেছে', tasks: [bank]) as TaskDone).terms).single, bank);
+      // Money still goes to লেনদেন.
+      expect(parse('রহিমকে আমার ৫০০ টাকা দিতে হবে'), isA<LedgerSet>());
+    });
+
+    test('calls, messages and numbers', () {
+      final c = parse('রহিমকে ফোন দাও') as CallPerson;
+      expect(c.person, 'রহিম');
+      expect(c.via, Via.call);
+      final m = parse('করিমকে মেসেজ দাও যে মাল পাঠিয়েছি') as CallPerson;
+      expect(m.via, Via.sms);
+      expect(fold(m.text), fold('মাল পাঠিয়েছি'));
+      expect((parse('হোয়াটসঅ্যাপে করিমকে লিখে পাঠাও আমি আসছি') as CallPerson).via, Via.whatsapp);
+      expect(parse('রহিমকে ফোন করতে হবে'), isA<TaskAdd>());
+      final n = parse('রহিমের নম্বর ০১৭১২-৩৪৫৬৭৮ রাখো') as ContactAdd;
+      expect(n.name, 'রহিম');
+      expect(n.phone, '01712345678');
+      expect(findPhone('+8801812345678'), '+8801812345678');
+      expect(launchUri(Via.whatsapp, '01712345678', text: 'আসছি').toString(), startsWith('https://wa.me/8801712345678?text='));
+      expect(launchUri(Via.call, '01712-345678').toString(), 'tel:01712345678');
+    });
+
+    test('shop credit (বাকি)', () {
+      final c = parse('করিম ৫০০ টাকার মাল বাকিতে নিল') as LedgerAdd;
+      expect(c.person, 'করিম');
+      expect(c.amount, 500);
+      expect(c.kind, LedgerKind.lent);
+      expect((parse('করিম বাকির ৩০০ টাকা দিয়ে গেল') as LedgerAdd).kind, LedgerKind.received);
+      expect((parse('দোকান থেকে ২০০০ টাকার মাল বাকিতে নিলাম') as LedgerAdd).kind, LedgerKind.borrowed);
+    });
+
+    test('the AI\'s assistant actions', () {
+      final c = commandsFromAi('x', {
+        'reply': 'আচ্ছা',
+        'items': [
+          {'action': 'reminder_add', 'text': 'মিটিং', 'date': '2026-10-10', 'time': '16:30'},
+          {'action': 'call', 'person': 'রহিম', 'via': 'whatsapp', 'text': 'আসছি'},
+          {'action': 'task_add', 'text': 'রিপোর্ট জমা', 'date': '2026-10-12'},
+          {'action': 'contact_add', 'person': 'করিম', 'phone': '01812345678'},
+          {'action': 'briefing'},
+        ],
+      }, const []);
+      expect((c[0] as ReminderAdd).at, DateTime(2026, 10, 10, 16, 30));
+      expect((c[1] as CallPerson).via, Via.whatsapp);
+      expect((c[2] as TaskAdd).due, DateTime(2026, 10, 12));
+      expect((c[3] as ContactAdd).phone, '01812345678');
+      expect(c[4], isA<Briefing>());
+    });
+
+    test('tasks survive saving', () {
+      final d = AppData(tasks: [Task(title: 'দুধ কেনা', due: DateTime(2026, 10, 9))]);
+      final back = AppData.fromJson(d.toJson());
+      expect(back.tasks.single.title, 'দুধ কেনা');
+      expect(back.tasks.single.due, DateTime(2026, 10, 9));
     });
   });
 }

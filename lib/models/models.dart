@@ -328,6 +328,54 @@ DateTime _addMonths(DateTime d, int months) {
 
 // ───────────────────────── Everything ─────────────────────────
 
+/// How to reach someone: a call, an SMS or WhatsApp.
+enum Via { call, sms, whatsapp }
+
+// ───────────────────────── Tasks ─────────────────────────
+
+/// A to-do: "কাল ব্যাংকে যেতে হবে", "দুধ কিনতে হবে".
+class Task {
+  Task({String? id, required this.title, this.due, this.done = false, DateTime? createdAt, this.doneAt})
+      : id = id ?? newId(),
+        createdAt = createdAt ?? DateTime.now();
+
+  final String id;
+  final String title;
+
+  /// The day it is for (null = any time).
+  final DateTime? due;
+  final bool done;
+  final DateTime createdAt;
+  final DateTime? doneAt;
+
+  Task copyWith({String? title, DateTime? due, bool clearDue = false, bool? done, DateTime? doneAt}) => Task(
+        id: id,
+        title: title ?? this.title,
+        due: clearDue ? null : (due ?? this.due),
+        done: done ?? this.done,
+        createdAt: createdAt,
+        doneAt: (done ?? this.done) ? (doneAt ?? this.doneAt ?? DateTime.now()) : null,
+      );
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'title': title,
+        'due': due?.toIso8601String(),
+        'done': done,
+        'createdAt': createdAt.toIso8601String(),
+        'doneAt': doneAt?.toIso8601String(),
+      };
+
+  factory Task.fromJson(Map<String, Object?> j) => Task(
+        id: j['id'] as String?,
+        title: (j['title'] as String?) ?? '',
+        due: _date(j['due']),
+        done: j['done'] == true,
+        createdAt: _date(j['createdAt']),
+        doneAt: _date(j['doneAt']),
+      );
+}
+
 class AppData {
   AppData({
     List<LedgerEntry>? ledger,
@@ -335,7 +383,9 @@ class AppData {
     List<Contact>? contacts,
     List<Note>? notes,
     List<Reminder>? reminders,
-  })  : ledger = ledger ?? [],
+    List<Task>? tasks,
+  })  : tasks = tasks ?? [],
+        ledger = ledger ?? [],
         vault = vault ?? [],
         contacts = contacts ?? [],
         notes = notes ?? [],
@@ -346,6 +396,7 @@ class AppData {
   final List<Contact> contacts;
   final List<Note> notes;
   final List<Reminder> reminders;
+  final List<Task> tasks;
 
   static const schema = 1;
 
@@ -363,6 +414,7 @@ class AppData {
         'contacts': contacts.map((e) => e.toJson()).toList(),
         'notes': notes.map((e) => e.toJson()).toList(),
         'reminders': reminders.map((e) => e.toJson()).toList(),
+        'tasks': tasks.map((e) => e.toJson()).toList(),
       };
 
   factory AppData.fromJson(Map<String, Object?> j) {
@@ -374,6 +426,7 @@ class AppData {
       contacts: list('contacts', Contact.fromJson),
       notes: list('notes', Note.fromJson),
       reminders: list('reminders', Reminder.fromJson),
+      tasks: list('tasks', Task.fromJson),
     );
   }
 }

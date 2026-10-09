@@ -79,7 +79,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       brain: brain,
       child: MaterialApp(
         navigatorKey: _nav,
-        title: 'Digital Brain',
+        title: 'My Assistant',
         debugShowCheckedModeBanner: false,
         theme: buildTheme(),
         home: const _Gate(),

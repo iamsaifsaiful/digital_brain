@@ -9,6 +9,7 @@ import 'parser.dart';
 import 'phrases.dart';
 import 'search.dart';
 import 'talk.dart';
+import 'when.dart';
 
 /// Logins to show for a vault question: the matches, or (when nothing
 /// matched by name) all of them so the user can pick.
@@ -98,15 +99,64 @@ String ledgerAnswer(AppData d, LedgerQuery q) {
 }
 
 /// "ক, খ, আর গ" (at most four, then "আরও N জন").
-String nameList(List<String> parts) {
+String nameList(List<String> parts, {String unit = 'জন'}) {
   final shown = parts.take(4).toList();
   final more = parts.length - shown.length;
   final head = shown.length > 1 ? '${shown.sublist(0, shown.length - 1).join(', ')}, আর ${shown.last}' : shown.join();
-  return more > 0 ? '$head, এবং আরও ${bnDigits(more)} জন' : head;
+  return more > 0 ? '$head, এবং আরও ${bnDigits(more)} $unit' : head;
+}
+
+/// Open to-dos: overdue and today's first, then undated, then later ones.
+List<Task> openTasksOf(AppData d, DateTime now) {
+  final today = dayOnly(now);
+  final open = d.tasks.where((t) => !t.done).toList();
+  int rank(Task t) => t.due == null ? 1 : (t.due!.isAfter(today) ? 2 : 0);
+  open.sort((a, b) {
+    final r = rank(a).compareTo(rank(b));
+    if (r != 0) return r;
+    return (a.due ?? a.createdAt).compareTo(b.due ?? b.createdAt);
+  });
+  return open;
+}
+
+/// "ব্যাংকে যাওয়া (আজ)", "রিপোর্ট জমা (১২ অক্টোবর)".
+String taskLabel(Task t, DateTime now) {
+  if (t.due == null) return t.title;
+  final diff = dayOnly(t.due!).difference(dayOnly(now)).inDays;
+  final when = diff < 0 ? 'দেরি হয়ে গেছে' : sayWhen(t.due!, now, withTime: false);
+  return '${t.title} ($when)';
+}
+
+String taskAnswer(AppData d, DateTime now) {
+  final open = openTasksOf(d, now);
+  if (open.isEmpty) return 'এখন কোনো কাজ বাকি নেই। নতুন কাজ বললে তালিকায় তুলে রাখব।';
+  return '${bnDigits(open.length)}টা কাজ বাকি — ${nameList([for (final t in open) taskLabel(t, now)], unit: 'টা')}।';
+}
+
+/// "আজ আমার কী কী আছে?" — the day at a glance.
+String briefingAnswer(AppData d, DateTime now) {
+  final today = dayOnly(now);
+  final parts = <String>['আজ ${weekdayName(now)}, ${bnDigits(now.day)} ${bnMonths[now.month - 1]}।'];
+  final dueNow = openTasksOf(d, now).where((t) => t.due == null || !t.due!.isAfter(today)).toList();
+  if (dueNow.isNotEmpty) {
+    parts.add('কাজ বাকি ${bnDigits(dueNow.length)}টা — ${nameList([for (final t in dueNow) t.title], unit: 'টা')}।');
+  }
+  final rems = [...d.reminders]..sort((a, b) => a.notifyAt(now).compareTo(b.notifyAt(now)));
+  final todays = rems.where((r) => dayOnly(r.nextDate(now)) == today).toList();
+  final tomorrows = rems.where((r) => dayOnly(r.nextDate(now)) == today.add(const Duration(days: 1))).toList();
+  if (todays.isNotEmpty) {
+    parts.add('আজ মনে রাখার: ${nameList([for (final r in todays) r.daysBefore == 0 ? '${bnTime(r.hour, r.minute)} ${r.title}' : r.title], unit: 'টা')}।');
+  }
+  if (tomorrows.isNotEmpty) parts.add('কাল আছে: ${nameList([for (final r in tomorrows) r.title], unit: 'টা')}।');
+  final t = totals(d.ledger);
+  if (t.receivable > 0) parts.add('পাওনা আছে মোট ${bnNumber(t.receivable)} টাকা।');
+  if (t.payable > 0) parts.add('আপনাকে দিতে হবে মোট ${bnNumber(t.payable)} টাকা।');
+  if (parts.length == 1) parts.add('আজ তেমন কিছু রাখা নেই — কোনো কাজ বা মনে করানোর কথা নেই। কিছু থাকলে বলুন, লিখে রাখি।');
+  return parts.join(' ');
 }
 
 /// The answer to a question or a bit of conversation. Null for commands
-/// that save something (those are confirmed instead).
+/// that save or do something (those are confirmed or done instead).
 String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       LedgerQuery() => ledgerAnswer(d, cmd),
       VaultQuery() => vaultAnswer(d, cmd),
@@ -114,6 +164,28 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       SearchQuery() => searchAnswer(d, cmd, now),
       SmallTalk() => talkReply(cmd.kind, now),
       AiReply() => cmd.text,
+      TaskQuery() => taskAnswer(d, now),
+      Briefing() => briefingAnswer(d, now),
       NotUnderstood() => 'দুঃখিত, ঠিক বুঝতে পারিনি। একটু অন্যভাবে আরেকবার বলবেন?',
-      LedgerAdd() || LedgerSet() || NoteAdd() => null,
+      LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TaskDone() || ReminderAdd() || ContactAdd() || CallPerson() => null,
     };
+
+/// The saved contact for a spoken name ("রহিম", "রহিম ভাই", "Rahim").
+Contact? findContact(AppData d, String name) {
+  final n = normalize(name);
+  if (n.isEmpty) return null;
+  for (final c in d.contacts) {
+    if (normalize(c.name) == n) return c;
+  }
+  for (final c in d.contacts) {
+    final cw = words(normalize(c.name));
+    final nw = words(n);
+    if (nw.isNotEmpty && cw.isNotEmpty && (cw.first == nw.first || cw.contains(n))) return c;
+  }
+  final terms = searchTerms(n);
+  if (terms.isEmpty) return null;
+  for (final h in searchAll(d, terms)) {
+    if (h is ContactHit) return h.contact;
+  }
+  return null;
+}

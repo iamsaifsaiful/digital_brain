@@ -6,6 +6,7 @@ import 'services/ai.dart';
 import 'services/crypto.dart';
 import 'services/data_store.dart';
 import 'services/files.dart';
+import 'services/launcher.dart';
 import 'services/lock.dart';
 import 'services/notifications.dart';
 import 'services/voice.dart';
@@ -23,6 +24,7 @@ Future<void> main() async {
     notifier: NotificationService(),
     files: DeviceFiles(),
     ai: ClaudeAi(),
+    launcher: DeviceLauncher(),
   );
   await services.notifier.init();
   final brain = Brain(services);

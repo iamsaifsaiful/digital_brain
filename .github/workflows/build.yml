@@ -66,5 +66,5 @@ jobs:
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk digital-brain-armv7.apk
           VERSION=$(grep '^version:' pubspec.yaml | sed -E 's/version: *([^+]+).*/\1/')
           TAG="v${VERSION}-build.${{ github.run_number }}"
-          NOTE="Digital Brain ${VERSION} (build ${{ github.run_number }}) · commit ${GITHUB_SHA::7}. বেশিরভাগ ফোনে digital-brain.apk; খুব পুরনো ফোনে ইনস্টল না হলে digital-brain-armv7.apk।"
-          gh release create "$TAG" digital-brain.apk digital-brain-armv7.apk --title "Digital Brain $VERSION (build ${{ github.run_number }})" --notes "$NOTE" --latest
+          NOTE="My Assistant ${VERSION} (build ${{ github.run_number }}) · commit ${GITHUB_SHA::7}. বেশিরভাগ ফোনে digital-brain.apk; খুব পুরনো ফোনে ইনস্টল না হলে digital-brain-armv7.apk।"
+          gh release create "$TAG" digital-brain.apk digital-brain-armv7.apk --title "My Assistant $VERSION (build ${{ github.run_number }})" --notes "$NOTE" --latest

@@ -4,6 +4,7 @@ import 'package:digital_brain/services/ai.dart';
 import 'package:digital_brain/services/crypto.dart';
 import 'package:digital_brain/services/data_store.dart';
 import 'package:digital_brain/services/files.dart';
+import 'package:digital_brain/services/launcher.dart';
 import 'package:digital_brain/services/lock.dart';
 import 'package:digital_brain/services/notifications.dart';
 import 'package:digital_brain/services/voice.dart';
@@ -93,7 +94,7 @@ Future<Rig> start(WidgetTester t, {AppData? data, AiRoute? ai}) async {
 void main() {
   testWidgets('first run: choose a PIN, then home', (t) async {
     final rig = await start(t);
-    expect(find.text('Digital Brain'), findsOneWidget);
+    expect(find.text('My Assistant'), findsOneWidget);
     expect(await rig.services.lock.hasPin(), isTrue);
 
     // Lock and unlock again with a wrong, then the right PIN.
@@ -357,5 +358,73 @@ void main() {
     await settle(t);
     expect(rig.voice.spoken.last, 'আচ্ছা, সজীবকে ৫০০ টাকা ধার দিলেন, তাই তো? লিখে রাখি?');
     expect(find.textContaining('নিজের নিয়মে বুঝে নিলাম'), findsOneWidget);
+  });
+
+  testWidgets('assistant: a to-do by voice, the day at a glance, then ticked off', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    rig.voice.say('আজকে ব্যাংকে যেতে হবে');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('তুলে রাখি?'));
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    expect(rig.brain.data.tasks.single.due, DateTime(2026, 10, 9));
+    rig.voice.say('আজ আমার কী কী আছে?');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('কাজ বাকি ১টা'));
+    rig.voice.say('ব্যাংকের কাজ হয়ে গেছে');
+    await settle(t);
+    expect(rig.brain.data.tasks.single.done, isTrue);
+    expect(rig.voice.spoken.last, contains('দাগ দিলাম'));
+  });
+
+  testWidgets('assistant: a timed reminder is scheduled', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    rig.voice.say('কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('দেব — ঠিক আছে?'));
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    final r = rig.brain.data.reminders.single;
+    expect(r.date, DateTime(2026, 10, 10));
+    expect(r.hour, 10);
+    expect(r.daysBefore, 0);
+    expect(rig.notifier.scheduled.single.at, DateTime(2026, 10, 10, 10, 0));
+  });
+
+  testWidgets('assistant: "রহিমকে ফোন দাও" opens the dialer with the saved number', (t) async {
+    final rig = await start(t, data: AppData(contacts: [Contact(name: 'রহিম', phone: '01712345678')]));
+    await openChat(t);
+    rig.voice.say('রহিমকে ফোন দাও');
+    await settle(t);
+    final l = rig.services.launcher as FakeLauncher;
+    expect(l.opened.single.toString(), 'tel:01712345678');
+    expect(rig.voice.spoken.last, contains('ফোন দিচ্ছি'));
+  });
+
+  testWidgets('assistant: a message to someone new asks the number, keeps it, then opens SMS', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    rig.voice.say('করিমকে মেসেজ দাও যে মাল পাঠিয়েছি');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('নম্বর তো রাখা নেই'));
+    rig.voice.say('০১৮১২৩৪৫৬৭৮');
+    await settle(t);
+    expect(rig.brain.data.contacts.single.phone, '01812345678');
+    final l = rig.services.launcher as FakeLauncher;
+    expect(l.opened.single.scheme, 'sms');
+    expect(Uri.decodeComponent(l.opened.single.toString()), contains('মাল'));
+  });
+
+  testWidgets('assistant: a phone number said is kept in যোগাযোগ', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    rig.voice.say('রহিমের নম্বর ০১৭১২৩৪৫৬৭৮ রাখো');
+    await settle(t);
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    expect(rig.brain.data.contacts.single.name, 'রহিম');
+    expect(rig.brain.data.contacts.single.phone, '01712345678');
   });
 }

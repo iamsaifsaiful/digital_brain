@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../logic/answers.dart';
 import '../logic/bn.dart';
 import '../logic/ledger.dart';
 import '../models/models.dart';
@@ -11,6 +12,7 @@ import 'home_shell.dart';
 import 'new_item_screen.dart';
 import 'notes_screen.dart';
 import 'reminders_screen.dart';
+import 'tasks_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -23,6 +25,9 @@ class HomeScreen extends StatelessWidget {
     final t = totals(d.ledger);
     final upcoming = [...d.reminders]..sort((a, b) => a.nextDate(now).compareTo(b.nextDate(now)));
     final soon = upcoming.where((r) => !r.nextDate(now).isBefore(dayOnly(now))).take(3).toList();
+    final open = openTasksOf(d, now);
+    final todayTasks = open.where((x) => x.due == null || !x.due!.isAfter(dayOnly(now))).toList();
+    final todayRems = d.reminders.where((r) => dayOnly(r.nextDate(now)) == dayOnly(now)).length;
 
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
 
@@ -42,7 +47,7 @@ class HomeScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Digital Brain', style: display(22, weight: 700)),
+                  Text('My Assistant', style: display(22, weight: 700)),
                   Text('${weekdayName(now)}, ${bnDigits(now.day)} ${bnMonths[now.month - 1]}', style: body(13, color: C.muted)),
                 ],
               ),
@@ -68,7 +73,7 @@ class HomeScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('যেকোনো কিছু জিজ্ঞেস করুন', style: body(16, weight: FontWeight.w500)),
-                        Text('“আমার Wi-Fi-এর নাম কী?”', style: body(13, color: C.muted)),
+                        Text('“কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও”', style: body(13, color: C.muted)),
                       ],
                     ),
                   ),
@@ -83,12 +88,47 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 12),
+        Material(
+          color: C.greenSoft,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: C.greenTint)),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: () => push(const TasksScreen()),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+              child: Row(children: [
+                const Icon(Icons.today_outlined, color: C.green),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('আজকের দিন', style: body(15, weight: FontWeight.w600)),
+                    Text(
+                      todayTasks.isEmpty && todayRems == 0
+                          ? 'আজ কোনো কাজ বা রিমাইন্ডার নেই'
+                          : [
+                              if (todayTasks.isNotEmpty) '${bnDigits(todayTasks.length)}টা কাজ বাকি',
+                              if (todayRems > 0) '${bnDigits(todayRems)}টা রিমাইন্ডার',
+                            ].join(' · '),
+                      style: body(13, color: C.muted),
+                    ),
+                    if (todayTasks.isNotEmpty)
+                      Text(todayTasks.take(2).map((x) => '• ${x.title}').join('  '),
+                          style: body(13, color: C.greenDark), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ]),
+                ),
+                const Icon(Icons.chevron_right_rounded, color: C.muted),
+              ]),
+            ),
+          ),
+        ),
         const SizedBox(height: 18),
         Text('আপনার তথ্য', style: display(19)),
         const SizedBox(height: 8),
         LayoutBuilder(builder: (context, box) {
           final w = (box.maxWidth - 16) / 3;
           final tiles = [
+            _Tile('কাজের তালিকা', '${bnDigits(open.length)}টি বাকি', Icons.checklist_rounded, C.green, C.greenTint, () => push(const TasksScreen())),
             _Tile('পাসওয়ার্ড', '${bnDigits(d.vault.length)}টি · লক করা', Icons.key_rounded, C.blue, C.blueTint,
                 () => ShellTabs.goTo(context, ShellTab.vault)),
             _Tile('যোগাযোগ', '${bnDigits(d.contacts.length)} জন', Icons.person_outline_rounded, C.purple, C.purpleTint,

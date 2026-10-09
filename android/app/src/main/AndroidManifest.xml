@@ -8,6 +8,8 @@
     <!-- Date reminders. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- "৩০ মিনিট পরে মনে করিয়ে দিও": ring on time, not a few minutes late. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <!--
       allowBackup is off: the data file is encrypted with a key that only this
@@ -15,7 +17,7 @@
       unreadable file. People use the app's encrypted backup instead.
     -->
     <application
-        android:label="Digital Brain"
+        android:label="My Assistant"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
@@ -62,6 +64,27 @@
         </intent>
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <!-- "রহিমকে ফোন দাও / মেসেজ দাও": the dialer, SMS app and WhatsApp. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="tel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="sms" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="sms" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
         </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />

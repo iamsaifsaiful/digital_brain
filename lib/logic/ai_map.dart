@@ -88,6 +88,40 @@ Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> le
     case 'chat':
       final reply = _str(r['reply']);
       return reply.isEmpty ? null : AiReply(said, text: reply);
+    case 'task_add':
+      final title = _str(r['text']);
+      if (title.isEmpty) return null;
+      return TaskAdd(said, title: title, due: _day(r['date']));
+    case 'task_done':
+      final t = _terms(r['terms']);
+      return t.isEmpty ? null : TaskDone(said, terms: t);
+    case 'task_query':
+      return TaskQuery(said);
+    case 'briefing':
+      return Briefing(said);
+    case 'reminder_add':
+      final day = _day(r['date']);
+      final time = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(_str(r['time']));
+      if (day == null && time == null) return null;
+      final now = DateTime.now();
+      final d = day ?? DateTime(now.year, now.month, now.day);
+      final at = DateTime(d.year, d.month, d.day, time == null ? 9 : int.parse(time[1]!), time == null ? 0 : int.parse(time[2]!));
+      final title = _str(r['text']);
+      return ReminderAdd(said,
+          title: title.isEmpty ? 'মনে করানো' : title, at: at, repeat: Repeat.values.where((x) => x.name == _str(r['repeat'])).firstOrNull ?? Repeat.none);
+    case 'contact_add':
+      final phone = findPhone(_str(r['phone'])) ?? findPhone(said);
+      if (phone == null) return null;
+      return ContactAdd(said, name: _str(r['person']), phone: phone);
+    case 'call':
+      final via = Via.values.where((v) => v.name == _str(r['via'])).firstOrNull ?? Via.call;
+      return CallPerson(said, person: person(), via: via, text: via == Via.call ? '' : _str(r['text']), phone: findPhone(_str(r['phone'])) ?? '');
   }
   return null;
+}
+
+DateTime? _day(Object? v) {
+  final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(_str(v));
+  if (m == null) return null;
+  return DateTime(int.parse(m[1]!), int.parse(m[2]!), int.parse(m[3]!));
 }

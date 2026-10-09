@@ -1,7 +1,7 @@
 name: digital_brain
-description: Digital Brain — আপনার ব্যক্তিগত স্মৃতি ও নিরাপদ তথ্যভান্ডার। ভয়েসে বা লিখে পাসওয়ার্ড, যোগাযোগ, ধার-দেনা, নোট ও রিমাইন্ডার রাখুন।
+description: My Assistant — আপনার ব্যক্তিগত সহকারী। কাজের তালিকা, রিমাইন্ডার, ফোন-মেসেজ, বাকি ও লেনদেন, নোট আর পাসওয়ার্ড — মুখে বলুন বা লিখুন।
 publish_to: 'none'
-version: 1.4.0+8
+version: 1.5.0+9
 
 environment:
   sdk: '>=3.6.0 <4.0.0'
@@ -20,6 +20,7 @@ dependencies:
   share_plus: ^11.0.0
   speech_to_text: ^7.0.0
   timezone: ^0.11.0
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:

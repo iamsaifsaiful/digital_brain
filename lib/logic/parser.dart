@@ -10,6 +10,7 @@ library;
 import '../models/models.dart';
 import 'bn.dart';
 import 'ledger.dart';
+import 'when.dart';
 
 sealed class Command {
   const Command(this.transcript);
@@ -75,6 +76,53 @@ class NoteAdd extends Command {
 class AiReply extends Command {
   const AiReply(super.transcript, {required this.text});
   final String text;
+}
+
+/// "কাল ব্যাংকে যেতে হবে" → a to-do.
+class TaskAdd extends Command {
+  const TaskAdd(super.transcript, {required this.title, this.due});
+  final String title;
+  final DateTime? due;
+}
+
+/// "ব্যাংকের কাজটা হয়ে গেছে" → tick the matching to-do.
+class TaskDone extends Command {
+  const TaskDone(super.transcript, {required this.terms});
+  final List<String> terms;
+}
+
+/// "আজ কী কী কাজ আছে?"
+class TaskQuery extends Command {
+  const TaskQuery(super.transcript);
+}
+
+/// "কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও".
+class ReminderAdd extends Command {
+  const ReminderAdd(super.transcript, {required this.title, required this.at, this.repeat = Repeat.none});
+  final String title;
+  final DateTime at;
+  final Repeat repeat;
+}
+
+/// "রহিমের নম্বর ০১৭১২৩৪৫৬৭৮ রাখো".
+class ContactAdd extends Command {
+  const ContactAdd(super.transcript, {required this.name, required this.phone});
+  final String name;
+  final String phone;
+}
+
+/// "রহিমকে ফোন দাও", "রহিমকে মেসেজ দাও যে আমি আসছি".
+class CallPerson extends Command {
+  const CallPerson(super.transcript, {required this.person, this.via = Via.call, this.text = '', this.phone = ''});
+  final String person;
+  final Via via;
+  final String text;
+  final String phone;
+}
+
+/// "আজ আমার কী কী আছে?" — today's to-dos, reminders and dues.
+class Briefing extends Command {
+  const Briefing(super.transcript);
 }
 
 class SearchQuery extends Command {
@@ -352,14 +400,24 @@ String? _nameEndingAt(List<String> w, int i, String Function(String) strip) {
 // ───────────────────────── The parser ─────────────────────────
 
 class Parser {
-  Parser({required this.ledger});
+  Parser({required this.ledger, this.tasks = const [], this.contacts = const [], DateTime? now}) : now = now ?? DateTime.now();
 
   /// Current entries, to resolve names and judge which meaning is likely.
   final List<LedgerEntry> ledger;
 
+  /// To-dos, so "ব্যাংকের কাজ হয়ে গেছে" can find the one meant.
+  final List<Task> tasks;
+  final List<Contact> contacts;
+  final DateTime now;
+
   Command parse(String said) {
     var text = normalize(said);
     if (text.isEmpty) return NotUnderstood(said);
+
+    // "আজ আমার কী কী আছে?", "কাজের তালিকা দেখাও" (before small talk:
+    // "আজ কী কী করতে হবে" is not "what can you do").
+    final day = _dayQuestion(said, text);
+    if (day != null) return day;
 
     // Conversation first ("তুমি কেমন আছো?" is not a search).
     final talk = smallTalk(text);
@@ -381,9 +439,13 @@ class Parser {
       final noteText = original.isEmpty ? noteMatch[3]!.trim() : original;
       // Money always goes to লেনদেন, even when said as "মনে রাখো …".
       final inner = parse(noteText);
-      if (inner is LedgerAdd || inner is LedgerSet) return inner;
+      if (inner is LedgerAdd || inner is LedgerSet || inner is TaskAdd || inner is ReminderAdd || inner is ContactAdd) return inner;
       return NoteAdd(said, text: noteText);
     }
+
+    // Calls, messages, phone numbers, timed reminders, ticking off to-dos.
+    final act = _assistant(said, text, w);
+    if (act != null) return act;
 
     final amount = findAmount(text);
     final known = knownPeople(ledger);
@@ -426,6 +488,12 @@ class Parser {
         if (add != null) return add;
       }
       return _moneyEvent(said, text, w, amount ?? 0, known);
+    }
+
+    // "কাল ব্যাংকে যেতে হবে", "বাজারের লিস্টে ডিম রাখো" → a to-do.
+    if (!asking) {
+      final task = _taskAdd(said, text, w);
+      if (task != null) return task;
     }
 
     final terms = searchTerms(text);
@@ -503,6 +571,26 @@ class Parser {
   LedgerAdd? _ledgerEvent(String said, String text, List<String> w, int amount, List<String> known) {
     final loan = _hasAny(text, _loanWords);
     final ret = _hasAny(text, _returnWords);
+
+    // Shops and suppliers: "করিম ৫০০ টাকার মাল বাকিতে নিল" (they owe me),
+    // "করিম বাকির ৩০০ টাকা দিয়ে গেল" (paid me), "দোকান থেকে বাকিতে নিলাম"
+    // (I owe), "করিমের বাকি দিলাম" (I paid what I owed).
+    final onCreditWord = w.any((x) => x.startsWith(normalize('বাকিতে')));
+    final dues = onCreditWord || w.any((x) => x == normalize('বাকি') || x == normalize('বাকির') || x == normalize('বাকিটা'));
+    if (dues) {
+      LedgerKind? kind;
+      if (onCreditWord && _hasNorm(text, ['নিলাম', 'নিয়েছি', 'নিছি', 'কিনলাম', 'কিনেছি', 'আনলাম', 'এনেছি'])) {
+        kind = LedgerKind.borrowed;
+      } else if (onCreditWord || _hasNorm(text, ['নিল', 'নিলো', 'নিয়েছে', 'নিছে', 'নিয়ে গেল', 'নিয়ে গেছে', 'রাখল', 'রাখলো', 'রাখছে', 'রইল', 'রইলো'])) {
+        kind = LedgerKind.lent;
+      } else if (_hasNorm(text, ['দিলাম', 'দিয়েছি', 'দিছি', 'শোধ করলাম', 'পরিশোধ করলাম', 'শোধ করেছি', 'শোধ করে দিলাম'])) {
+        kind = LedgerKind.repaid;
+      } else if (_hasNorm(text, ['দিল', 'দিলো', 'দিয়েছে', 'দিয়ে গেল', 'দিয়ে গেছে', 'দিছে', 'শোধ', 'পরিশোধ'])) {
+        kind = LedgerKind.received;
+      }
+      final person = kind == null ? '' : _anyName(w, known);
+      if (kind != null && person.isNotEmpty) return LedgerAdd(said, person: person, amount: amount, kind: kind);
+    }
 
     // 1) "সজীব আমাকে ৩০০ টাকা ফেরত দিয়েছে" — they gave me.
     final ami = w.indexOf('আমাকে');
@@ -599,6 +687,128 @@ class Parser {
     return null;
   }
 
+  /// Whoever is named: a known person, "X-কে", "X-এর", or a name first.
+  String _anyName(List<String> w, List<String> known) {
+    for (final k in known) {
+      if (w.join(' ').contains(normalize(k))) return k;
+    }
+    for (var i = 0; i < w.length; i++) {
+      if (w[i].endsWith('কে') && w[i] != 'আমাকে' && w[i] != 'কাকে') {
+        final raw = _nameEndingAt(w, i, stripTo);
+        if (raw != null && raw.length >= 2) return resolvePerson(raw, known);
+      }
+    }
+    if (w.isNotEmpty) {
+      final first = stripPossessive(w.first);
+      if (_looksLikeName(first) && first.length >= 2 && !RegExp(r'\d').hasMatch(first)) return resolvePerson(first, known);
+    }
+    return '';
+  }
+
+  // ── The assistant: to-dos, reminders, calls, phone numbers ──
+
+  Command? _dayQuestion(String said, String text) {
+    final asking = isQuestionText(said) || _hasNorm(text, ['দেখাও', 'দেখান', 'বলো', 'বলুন', 'শোনাও', 'শোনান']);
+    if (_hasNorm(text, _briefingKeys)) return Briefing(said);
+    if (_hasNorm(text, _taskListKeys) && (asking || !_hasNorm(text, _addVerbs))) return TaskQuery(said);
+    return null;
+  }
+
+  Command? _assistant(String said, String text, List<String> w) {
+    final asking = isQuestionText(said);
+    final phone = findPhone(said);
+    final via = _via(text);
+
+    // "রহিমকে ফোন দাও", "রহিমকে মেসেজ দাও যে আমি আসছি", "০১৭… নম্বরে ফোন দাও".
+    if (via != null) {
+      return CallPerson(said, person: _personIn(w), via: via, text: via == Via.call ? '' : messageText(said), phone: phone ?? '');
+    }
+
+    // "রহিমের নম্বর ০১৭১২৩৪৫৬৭৮" → keep it in যোগাযোগ.
+    if (phone != null && !asking && !text.contains(normalize('টাকা'))) {
+      return ContactAdd(said, name: _contactName(w), phone: phone);
+    }
+
+    // "কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও", "৩০ মিনিট পরে চা খাওয়ার কথা বলো".
+    if (!asking && _hasNorm(text, _remindKeys)) {
+      final when = parseWhen(said, now);
+      if (when != null) {
+        final repeat = _hasNorm(text, ['প্রতি মাসে', 'প্রতিমাসে', 'মাসে মাসে', 'every month'])
+            ? Repeat.monthly
+            : _hasNorm(text, ['প্রতি বছর', 'প্রতিবছর', 'বছরে বছরে', 'every year'])
+                ? Repeat.yearly
+                : Repeat.none;
+        var title = tidy(cutWords(withoutWhen(said), [..._remindKeys, ..._fillers, 'প্রতি মাসে', 'প্রতিমাসে', 'প্রতি বছর', 'প্রতিবছর']));
+        if (title.isEmpty) title = 'মনে করানো';
+        return ReminderAdd(said, title: title, at: when.at, repeat: repeat);
+      }
+    }
+
+    // "ব্যাংকের কাজটা হয়ে গেছে" — only when it matches a to-do.
+    final money = text.contains(normalize('টাকা')) || findAmount(text) != null;
+    if (!money && _hasNorm(text, _doneKeys)) {
+      final terms = searchTerms(normalize(cutWords(said, [..._doneKeys, 'কাজটা', 'কাজ টা', 'কাজটি', 'কাজ', 'টা'])));
+      if (terms.isNotEmpty && matchTasks(tasks.where((t) => !t.done), terms).isNotEmpty) return TaskDone(said, terms: terms);
+    }
+    return null;
+  }
+
+  TaskAdd? _taskAdd(String said, String text, List<String> w) {
+    final listed = _hasNorm(text, _taskListKeys) || _hasNorm(text, ['লিস্টে', 'তালিকায়']);
+    final mustDo = RegExp(r'\S(তে|তেই) (হবে|লাগবে)( |$)').hasMatch(text) || RegExp(r'\S (করা|কেনা|যাওয়া|আনা|দেওয়া|নেওয়া) (লাগবে|দরকার)( |$)').hasMatch(text);
+    if (!listed && !mustDo) return null;
+    final bazar = _hasNorm(text, ['বাজারের লিস্টে', 'বাজারের তালিকায়', 'বাজারের লিস্ট', 'বাজারের তালিকা']);
+    var title = tidy(cutWords(withoutWhen(said), [
+      ..._taskListKeys, 'বাজারের লিস্টে', 'বাজারের তালিকায়', 'লিস্টে', 'তালিকায়', 'কাজের', ..._addVerbs, ..._fillers,
+    ]));
+    if (title.isEmpty) return null;
+    if (bazar) title = 'বাজার: $title';
+    final when = parseWhen(said, now);
+    return TaskAdd(said, title: title, due: when != null && when.hasDay ? when.day : null);
+  }
+
+  Via? _via(String text) {
+    final wa = _hasNorm(text, ['হোয়াটসঅ্যাপ', 'হোয়াটসঅ্যাপে', 'হোয়াটসঅ্যাপে', 'হোয়াটসএপ', 'হোয়াটসএপে', 'হোয়াটস্যাপ', 'ওয়াটসঅ্যাপ', 'whatsapp']);
+    final sms = _phraseIn(text, _smsKeys);
+    final call = _phraseIn(text, _callKeys);
+    if (wa && (sms || call || _hasNorm(text, ['পাঠাও', 'দাও', 'করো', 'দেন', 'পাঠান']))) return Via.whatsapp;
+    if (sms) return Via.sms;
+    if (call) return Via.call;
+    return null;
+  }
+
+  /// "রহিমকে", "রহিম ভাইকে", "রহিমের নম্বরে".
+  String _personIn(List<String> w) {
+    final known = {...knownPeople(ledger), for (final c in contacts) c.name}.toList();
+    const pronouns = {'আমাকে', 'তাকে', 'ওকে', 'উনাকে', 'ওনাকে', 'তাঁকে', 'কাকে', 'সবাইকে'};
+    for (var i = 0; i < w.length; i++) {
+      if (w[i].endsWith('কে') && !pronouns.contains(w[i])) {
+        final raw = _nameEndingAt(w, i, stripTo);
+        if (raw != null && raw.length >= 2) return resolvePerson(raw, known);
+      }
+      if (i + 1 < w.length && {'নম্বরে', 'নাম্বারে', 'মোবাইলে', 'ফোনে'}.contains(w[i + 1])) {
+        final raw = _nameEndingAt(w, i, stripPossessive);
+        if (raw != null && raw.length >= 2) return resolvePerson(raw, known);
+      }
+    }
+    return '';
+  }
+
+  String _contactName(List<String> w) {
+    final known = {...knownPeople(ledger), for (final c in contacts) c.name}.toList();
+    for (var i = 0; i + 1 < w.length; i++) {
+      if ({'নম্বর', 'নাম্বার', 'ফোন', 'মোবাইল', 'নং', 'number'}.contains(w[i + 1])) {
+        final raw = _nameEndingAt(w, i, stripPossessive);
+        if (raw != null && raw.length >= 2) return resolvePerson(raw, known);
+      }
+    }
+    if (w.isNotEmpty && _looksLikeName(w.first) && !RegExp(r'\d').hasMatch(w.first)) {
+      final raw = stripPossessive(w.first);
+      if (raw.length >= 2 && !{'নম্বর', 'নাম্বার', 'ফোন', 'মোবাইল', 'নতুন'}.contains(raw)) return resolvePerson(raw, known);
+    }
+    return '';
+  }
+
   LedgerQuery _ledgerQuestion(String said, String text, List<String> w, List<String> known) {
     // "সজীবের কাছে আমার কত পাওনা?" / "রহিমকে কত দিতে হবে?"
     for (var i = 0; i < w.length; i++) {
@@ -624,6 +834,101 @@ class Parser {
     }
     return LedgerQuery(said, ask: LedgerAsk.all);
   }
+}
+
+bool _hasNorm(String text, List<String> keys) => keys.any((k) {
+      final n = normalize(k);
+      return n.isNotEmpty && text.contains(n);
+    });
+
+/// A phrase as whole words ("ফোন কর" must not match "ফোন করতে হবে").
+bool _phraseIn(String text, List<String> keys) {
+  final padded = ' $text ';
+  return keys.any((k) {
+    final n = normalize(k);
+    return n.isNotEmpty && padded.contains(' $n ');
+  });
+}
+
+const _briefingKeys = [
+  'আজ আমার কী কী আছে', 'আজকে আমার কী কী আছে', 'আজ আমার কি কি আছে', 'আজকে আমার কি কি আছে', 'আজ কী কী আছে', 'আজকে কী কী আছে',
+  'আজ কি কি আছে', 'আজকে কি কি আছে', 'আজ আমার কী আছে', 'আজকে কী আছে', 'আজ কী আছে', 'আজকে কি আছে', 'আজ কি আছে',
+  'আজকের প্ল্যান', 'আজকের পরিকল্পনা', 'আজকের সারাংশ', 'দিনের সারাংশ', 'সারাদিনের কাজ', 'আজকের শিডিউল', 'শিডিউল কী', 'শিডিউল কি',
+  'briefing', 'ব্রিফিং', 'আজ কী করতে হবে', 'আজকে কী করতে হবে', 'আজ কি করতে হবে', 'আজকে কি করতে হবে', 'আজকের কাজ', 'আজকে কী কাজ',
+  'আজ কী কাজ', 'আজকে কি কাজ', 'আজ কি কাজ', 'today schedule', 'my day', 'আজ কী কী করতে হবে', 'আজকে কী কী করতে হবে',
+  'আজ কি কি করতে হবে', 'আজকে কি কি করতে হবে', 'আজ কী কী কাজ', 'আজকে কী কী কাজ', 'আজ কি কি কাজ', 'আজকে কি কি কাজ',
+];
+const _taskListKeys = [
+  'কাজের তালিকা', 'কাজের লিস্ট', 'কী কী কাজ', 'কি কি কাজ', 'কোন কোন কাজ', 'বাকি কাজ', 'কাজ বাকি', 'টু ডু', 'টুডু', 'todo', 'to do',
+  'বাজারের লিস্ট', 'বাজারের তালিকা', 'লিস্টে কী', 'লিস্টে কি', 'তালিকায় কী', 'তালিকায় কি',
+];
+const _addVerbs = [
+  'রাখো', 'রাখ', 'রেখো', 'রাখেন', 'রাখুন', 'যোগ করো', 'যোগ কর', 'যোগ করেন', 'যোগ করুন', 'লেখো', 'লিখো', 'লিখে রাখো', 'লিখে রাখ',
+  'লিখে রেখো', 'লিখে রাখেন', 'add', 'মনে রাখো', 'তুলে রাখো', 'ঢুকাও',
+];
+const _fillers = ['আমাকে', 'আমারে', 'প্লিজ', 'একটু', 'please', 'তো'];
+const _remindKeys = [
+  'মনে করিয়ে দিও', 'মনে করিয়ে দিবা', 'মনে করিয়ে দেবে', 'মনে করিয়ে দিবে', 'মনে করিয়ে দাও', 'মনে করিয়ে দিয়ো', 'মনে করিয়ে দিবেন',
+  'মনে করিয়ে দিন', 'মনে করিয়ে দেবেন', 'মনে করিয়ে দিও তো', 'মনে করিয়ে', 'মনে করাবে', 'মনে করাবা', 'মনে করাইও', 'মনে করাইয়া দিও',
+  'রিমাইন্ডার দাও', 'রিমাইন্ডার দিও', 'রিমাইন্ডার সেট করো', 'রিমাইন্ডার রাখো', 'রিমাইন্ডার', 'অ্যালার্ম দাও', 'অ্যালার্ম দিও',
+  'অ্যালার্ম সেট করো', 'এলার্ম দাও', 'এলার্ম দিও', 'remind me', 'remind', 'alarm', 'জানিয়ে দিও', 'জানিয়ে দিবা', 'জানাবে', 'ডেকে দিও',
+  'ডেকে দিবা', 'কথা বলো', 'কথা বলবা', 'কথা বলবে', 'কথা বলিও', 'বলে দিও', 'বলে দিবা',
+];
+const _doneKeys = [
+  'হয়ে গেছে', 'হয়ে গিয়েছে', 'হয়েছে', 'করে ফেলেছি', 'করে ফেলছি', 'করেছি', 'করছি', 'সেরে ফেলেছি', 'সেরেছি', 'শেষ করেছি', 'শেষ হয়েছে',
+  'শেষ হয়ে গেছে', 'কেনা হয়েছে', 'কেনা হয়ে গেছে', 'কিনে ফেলেছি', 'কিনেছি', 'কিনছি', 'done', 'সম্পন্ন', 'কমপ্লিট', 'complete', 'হয়ে গেলো',
+  'দিয়ে দিয়েছি', 'দিয়ে দিছি', 'গেছিলাম', 'গিয়েছিলাম', 'গিয়েছি', 'আনা হয়েছে', 'এনেছি',
+];
+const _callKeys = [
+  'ফোন দাও', 'ফোন দেও', 'ফোন দে', 'ফোন করো', 'ফোন কর', 'ফোন করেন', 'ফোন দেন', 'ফোন লাগাও', 'ফোন দিন', 'ফোন করুন', 'ফোন দিও',
+  'কল দাও', 'কল দেও', 'কল করো', 'কল কর', 'কল দেন', 'কল করেন', 'কল দিন', 'কল করুন', 'কল লাগাও', 'কল দিও', 'call', 'call koro',
+  'call dao', 'phone dao', 'phone koro', 'ফোন দাওতো', 'কল দাওতো',
+];
+const _smsKeys = [
+  'মেসেজ দাও', 'মেসেজ পাঠাও', 'মেসেজ করো', 'মেসেজ দেন', 'মেসেজ দিন', 'মেসেজ কর', 'মেসেজ পাঠান', 'মেসেজ দিও', 'ম্যাসেজ দাও',
+  'ম্যাসেজ পাঠাও', 'ম্যাসেজ করো', 'ম্যাসেজ দেন', 'এসএমএস দাও', 'এসএমএস পাঠাও', 'এসএমএস করো', 'sms', 'sms koro', 'sms dao',
+  'টেক্সট করো', 'টেক্সট দাও', 'টেক্সট পাঠাও', 'বার্তা পাঠাও', 'message', 'message dao', 'message koro', 'লিখে পাঠাও',
+];
+
+/// A Bangladeshi mobile number in [said] ("০১৭১২-৩৪৫৬৭৮", "+8801712345678").
+String? findPhone(String said) {
+  final t = asciiDigits(fold(said));
+  final m = RegExp(r'(?<!\d)(\+?88)?0?1[3-9]\d{2}[\s-]?\d{6}(?!\d)').firstMatch(t);
+  if (m == null) return null;
+  var p = m[0]!.replaceAll(RegExp(r'[\s-]'), '');
+  if (p.startsWith('1')) p = '0$p';
+  return p;
+}
+
+/// The words after "যে" or after "মেসেজ দাও": "রহিমকে মেসেজ দাও যে আমি আসছি" → "আমি আসছি".
+String messageText(String said) {
+  final f = fold(said.trim());
+  final ye = RegExp('(^|\\s)${fold('যে')}\\s+').firstMatch(f);
+  if (ye != null) return tidy(f.substring(ye.end));
+  var cut = -1;
+  for (final k in [..._smsKeys, 'হোয়াটসঅ্যাপে', 'হোয়াটসঅ্যাপে', 'whatsapp', 'পাঠাও', 'লেখো']) {
+    final kk = fold(k).toLowerCase();
+    final i = f.toLowerCase().indexOf(kk);
+    if (i >= 0 && i + kk.length > cut) cut = i + kk.length;
+  }
+  if (cut < 0 || cut >= f.length) return '';
+  return tidy(f.substring(cut));
+}
+
+/// To-dos whose title shares a word with [terms], best first.
+List<Task> matchTasks(Iterable<Task> tasks, List<String> terms) {
+  final scored = <(Task, int)>[];
+  for (final t in tasks) {
+    final title = normalize(t.title);
+    final tw = words(title).map(stem).toSet();
+    var n = 0;
+    for (final x in terms) {
+      if (x.length >= 2 && (tw.contains(x) || title.contains(x))) n++;
+    }
+    if (n > 0) scored.add((t, n));
+  }
+  scored.sort((a, b) => b.$2.compareTo(a.$2));
+  return [for (final s in scored) s.$1];
 }
 
 final Set<String> _stopWords = {for (final w in _stopWordsRaw) fold(w)};
@@ -723,7 +1028,7 @@ Talk? smallTalk(String text) {
   if (w.length <= 3 && _hasPhrase(text, ['সালাম', 'আসসালামু', 'আস্সালামু'])) return Talk.salam;
   if (w.length <= 3 && _hasPhrase(text, ['শুভ সকাল', 'শুভ সন্ধ্যা', 'শুভ দুপুর', 'শুভ বিকেল', 'গুড মর্নিং', 'good morning'])) return Talk.greeting;
   final greet = {for (final g in _greetings) fold(g)};
-  if (w.isNotEmpty && w.every((x) => greet.contains(x) || x == 'ডিজিটাল' || x == 'ব্রেইন' || x == 'brain' || x == 'digital')) {
+  if (w.isNotEmpty && w.every((x) => greet.contains(x) || x == 'ডিজিটাল' || x == 'ব্রেইন' || x == 'brain' || x == 'digital' || x == 'অ্যাসিস্ট্যান্ট' || x == 'এসিস্ট্যান্ট' || x == 'assistant' || x == 'সহকারী')) {
     return Talk.greeting;
   }
   return null;

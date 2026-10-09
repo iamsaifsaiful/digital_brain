@@ -9,9 +9,11 @@ import '../state/chat.dart';
 import '../ui/pin.dart';
 import '../ui/theme.dart';
 import 'confirm_screen.dart';
+import 'contacts_screen.dart';
 import 'notes_screen.dart';
 import 'person_screen.dart';
 import 'reminders_screen.dart';
+import 'tasks_screen.dart';
 import 'vault_item_screen.dart';
 
 /// A conversation by voice (or typing): the app answers, then listens
@@ -44,11 +46,14 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
   int _silences = 0;
 
   static const _examples = [
-    'সজীবকে ৫০০ টাকা দিলাম',
+    'আজ আমার কী কী আছে?',
+    'কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও',
+    'কাল ব্যাংকে যেতে হবে',
+    'রহিমকে ফোন দাও',
+    'করিম ৫০০ টাকার মাল বাকিতে নিল',
     'আমি কার কাছে কত টাকা পাব?',
-    'মনে রাখো: গাড়ির কাগজ আলমারির উপরের তাকে',
-    'ডোমেইন রিনিউ কবে?',
-    'তুমি কেমন আছো?',
+    'মনে রাখো: গাড়ির কাগজ আলমারিতে',
+    'তুমি কী কী পারো?',
   ];
 
   @override
@@ -162,6 +167,8 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
     if (say.isNotEmpty) await voice.speakAndWait(say);
     if (!mounted) return;
     setState(() => _speaking = false);
+    if (_chat.pendingLaunch != null) await _chat.launchPending();
+    if (!mounted) return;
     if (!_typing && !_chat.ended && !_listening) unawaited(_listen());
   }
 
@@ -227,6 +234,10 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
         _open(const NotesScreen());
       case LinkKind.reminders:
         _open(const RemindersScreen());
+      case LinkKind.tasks:
+        _open(const TasksScreen());
+      case LinkKind.contacts:
+        _open(const ContactsScreen());
       case LinkKind.editEntry:
         _chat.dropPending();
         _open(ConfirmScreen(command: l.entry!)).then((r) {
@@ -326,7 +337,7 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 8),
-          Text('যেকোনো কিছু বলুন — একটার পর একটা।', style: display(22, color: Colors.white)),
+          Text('বলুন, কী করতে হবে — একটার পর একটা।', style: display(22, color: Colors.white)),
           const SizedBox(height: 6),
           Text('অনেক কথা একসাথে বললেও আমি আসল তথ্যগুলো আলাদা করে রাখব। থামাতে “থামো” বলুন।',
               style: body(14, color: const Color(0xFFA9B5AF))),

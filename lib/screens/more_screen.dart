@@ -13,7 +13,7 @@ import '../ui/pin.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 
-const appVersion = '1.4.0';
+const appVersion = '1.5.0';
 
 /// Security, encrypted backup, voice and reports.
 class MoreScreen extends StatefulWidget {
@@ -109,7 +109,7 @@ class _MoreScreenState extends State<MoreScreen> {
       final bytes = await Backup.export(brain.data, pass);
       final now = brain.services.now();
       final name = 'digital-brain-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.dbrain';
-      await brain.services.files.shareFile(bytes, name, 'application/octet-stream', 'Digital Brain এনক্রিপ্টেড ব্যাকআপ');
+      await brain.services.files.shareFile(bytes, name, 'application/octet-stream', 'My Assistant এনক্রিপ্টেড ব্যাকআপ');
       await brain.services.lock.keys.write('last_backup', now.toIso8601String());
       _lastBackup = now.toIso8601String();
     } catch (e) {
@@ -143,7 +143,7 @@ class _MoreScreenState extends State<MoreScreen> {
       await brain.replaceAll(restored);
       if (mounted) toast(context, 'ব্যাকআপ ফিরিয়ে আনা হয়েছে');
     } on NotABackup {
-      if (mounted) toast(context, 'এটা Digital Brain-এর ব্যাকআপ ফাইল নয়');
+      if (mounted) toast(context, 'এটা My Assistant-এর ব্যাকআপ ফাইল নয়');
     } on WrongKey {
       if (mounted) toast(context, 'পাসওয়ার্ড মেলেনি, অথবা ফাইলটি নষ্ট');
     } catch (e) {
@@ -234,7 +234,7 @@ class _MoreScreenState extends State<MoreScreen> {
     final brain = BrainScope.read(context);
     final list = await brain.services.voice.voices();
     if (!mounted) return;
-    const sample = 'আসসালামু আলাইকুম! আমি Digital Brain। আপনার কথা মনে রাখি, আর দরকারের সময় বলে দিই।';
+    const sample = 'আসসালামু আলাইকুম! আমি আপনার সহকারী। বলুন, কী করে দিতে পারি?';
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -344,7 +344,7 @@ class _MoreScreenState extends State<MoreScreen> {
             const SizedBox(height: 6),
             Text(
               'AI চালু থাকলে আঞ্চলিক ভাষা, বাংলা-ইংরেজি মেশানো কথা আর সাধারণ প্রশ্নও বোঝে, উত্তর দেয় মানুষের মতো করে। '
-              'আপনার বলা বাক্য আর লেনদেনের মানুষের নামগুলো Anthropic-এ পাঠানো হয়; পাসওয়ার্ড, ভল্ট, PIN বা নোটের লেখা কখনো পাঠানো হয় না। '
+              'আপনার বলা বাক্য আর লেনদেনের মানুষের নামগুলো Anthropic-এ পাঠানো হয়; পাসওয়ার্ড, ভল্ট, PIN, নোট বা কাজের তালিকার লেখা কখনো পাঠানো হয় না। '
               'ইন্টারনেট না থাকলে অ্যাপ নিজের নিয়মে চলে।',
               style: body(13, color: C.muted, height: 1.55),
             ),
@@ -446,6 +446,19 @@ class _MoreScreenState extends State<MoreScreen> {
             const Divider(),
             ListRow(
               padding: const EdgeInsets.symmetric(vertical: 10),
+              leading: const Icon(Icons.alarm_on_outlined, color: C.ink),
+              title: 'ঠিক সময়ে রিমাইন্ডার',
+              subtitle: '“৩০ মিনিট পরে মনে করিয়ে দিও” যেন ঠিক মিনিটে বাজে — ফোনের অনুমতি চালু করুন',
+              trailing: const Icon(Icons.chevron_right_rounded, color: C.muted),
+              onTap: () async {
+                await brain.services.notifier.requestExact();
+                await brain.refreshNotices();
+                if (context.mounted) toast(context, 'অনুমতি চালু থাকলে রিমাইন্ডার ঠিক সময়ে বাজবে');
+              },
+            ),
+            const Divider(),
+            ListRow(
+              padding: const EdgeInsets.symmetric(vertical: 10),
               leading: const Icon(Icons.table_view_outlined, color: C.ink),
               title: 'লেনদেনের রিপোর্ট (CSV)',
               subtitle: 'Excel বা Google Sheets-এ খোলা যায়',
@@ -468,8 +481,8 @@ class _MoreScreenState extends State<MoreScreen> {
         const SizedBox(height: 20),
         Center(
           child: TextButton(
-            onPressed: () => showLicensePage(context: context, applicationName: 'Digital Brain', applicationVersion: appVersion),
-            child: Text('Digital Brain ${bnDigits(appVersion)} · লাইসেন্স', style: body(13, color: C.muted)),
+            onPressed: () => showLicensePage(context: context, applicationName: 'My Assistant', applicationVersion: appVersion),
+            child: Text('My Assistant ${bnDigits(appVersion)} · লাইসেন্স', style: body(13, color: C.muted)),
           ),
         ),
       ],

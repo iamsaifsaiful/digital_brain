@@ -33,12 +33,12 @@ List<PlannedNotice> plannedNotices(List<Reminder> reminders, DateTime now) {
     final at = r.notifyAt(now);
     if (!at.isAfter(now)) continue;
     final day = r.nextDate(now);
-    final when = r.daysBefore == 0 ? 'আজ' : '${fullDate(day)} (${bnDigits(r.daysBefore)} দিন পর)';
+    final when = r.daysBefore == 0 ? 'আজ ${bnTime(r.hour, r.minute)}' : '${fullDate(day)} (${bnDigits(r.daysBefore)} দিন পর)';
     out.add(PlannedNotice(
       id: stableId('rem:${r.id}'),
       at: at,
       title: r.title,
-      body: r.note.trim().isEmpty ? 'তারিখ: $when' : 'তারিখ: $when · ${r.note.trim()}',
+      body: r.note.trim().isEmpty ? 'সময়: $when' : 'সময়: $when · ${r.note.trim()}',
       payload: 'reminder:${r.id}',
     ));
   }
@@ -50,6 +50,10 @@ abstract class Notifier {
   Future<void> init();
   Future<void> requestPermission();
   Future<void> schedule(List<PlannedNotice> notices);
+
+  /// Can notifications ring on the exact minute? (Android 14 asks the user.)
+  Future<bool> exactAllowed();
+  Future<void> requestExact();
 }
 
 class NotificationService implements Notifier {
@@ -99,17 +103,37 @@ class NotificationService implements Notifier {
     } catch (_) {}
   }
 
+  AndroidFlutterLocalNotificationsPlugin? get _android =>
+      _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+
+  @override
+  Future<bool> exactAllowed() async {
+    try {
+      return await _android?.canScheduleExactNotifications() ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<void> requestExact() async {
+    try {
+      await _android?.requestExactAlarmsPermission();
+    } catch (_) {}
+  }
+
   @override
   Future<void> schedule(List<PlannedNotice> notices) async {
     if (!_ready) return;
     try {
+      final exact = await exactAllowed();
       await _plugin.cancelAllPendingNotifications();
       for (final n in notices) {
         await _plugin.zonedSchedule(
           id: n.id,
           scheduledDate: tz.TZDateTime.from(n.at, tz.UTC),
           notificationDetails: _details,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          androidScheduleMode: exact ? AndroidScheduleMode.exactAllowWhileIdle : AndroidScheduleMode.inexactAllowWhileIdle,
           title: n.title,
           body: n.body,
           payload: n.payload,
@@ -135,4 +159,10 @@ class FakeNotifier implements Notifier {
 
   @override
   Future<void> schedule(List<PlannedNotice> notices) async => scheduled = notices;
+
+  @override
+  Future<bool> exactAllowed() async => true;
+
+  @override
+  Future<void> requestExact() async {}
 }

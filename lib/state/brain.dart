@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../logic/ai_map.dart';
+import '../logic/answers.dart';
 import '../logic/ledger.dart';
 import '../logic/parser.dart';
 import '../logic/plan.dart';
@@ -8,6 +9,7 @@ import '../models/models.dart';
 import '../services/ai.dart';
 import '../services/data_store.dart';
 import '../services/files.dart';
+import '../services/launcher.dart';
 import '../services/lock.dart';
 import '../services/notifications.dart';
 import '../services/voice.dart';
@@ -21,8 +23,10 @@ class Services {
     required this.notifier,
     required this.files,
     AiBrain? ai,
+    Launcher? launcher,
     DateTime Function()? clock,
   })  : ai = ai ?? FakeAi(),
+        launcher = launcher ?? FakeLauncher(),
         now = clock ?? DateTime.now;
 
   final DataStore store;
@@ -33,6 +37,9 @@ class Services {
 
   /// Claude, when the user has set an API key (see আরও).
   final AiBrain ai;
+
+  /// Dialer, SMS and WhatsApp.
+  final Launcher launcher;
   final DateTime Function() now;
 }
 
@@ -102,7 +109,7 @@ class Brain extends ChangeNotifier {
   /// (never empty). [history] is the conversation so far, already cleaned
   /// of anything private.
   Future<(List<Command>, String?)> understandAll(String said, {List<AiTurn> history = const []}) async {
-    final rules = parseAll(said, data.ledger);
+    final rules = parseAll(said, data.ledger, tasks: data.tasks, contacts: data.contacts, now: services.now());
     if (!aiOn) return (rules, null);
     if (mentionsSecret(said) || rules.any((c) => c is VaultQuery)) return (rules, null);
     if (rules.length == 1 && rules.first is SmallTalk && {Talk.time, Talk.date}.contains((rules.first as SmallTalk).kind)) {
@@ -163,6 +170,9 @@ class Brain extends ChangeNotifier {
     notifyListeners();
     await services.store.save(data);
   }
+
+  /// Schedules the phone's notifications again (after a permission change).
+  Future<void> refreshNotices() => _reschedule();
 
   Future<void> _reschedule() => services.notifier.schedule(plannedNotices(data.reminders, services.now()));
 
@@ -243,6 +253,20 @@ class Brain extends ChangeNotifier {
     await _save();
     await _reschedule();
   }
+
+  Future<void> saveTask(Task t) async {
+    _upsert(data.tasks, t, (x) => x.id);
+    await _save();
+  }
+
+  Future<void> deleteTask(String id) async {
+    data.tasks.removeWhere((e) => e.id == id);
+    await _save();
+  }
+
+  Future<void> setTaskDone(Task t, bool done) => saveTask(t.copyWith(done: done, doneAt: done ? services.now() : null));
+
+  List<Task> openTasks() => openTasksOf(data, services.now());
 
   /// Replaces everything with a restored backup.
   Future<void> replaceAll(AppData restored) async {

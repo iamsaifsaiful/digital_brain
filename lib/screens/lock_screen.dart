@@ -43,7 +43,7 @@ class _LockScreenState extends State<LockScreen> {
 
   Future<void> _biometric() async {
     final brain = BrainScope.read(context);
-    final ok = await brain.services.lock.tryBiometrics('Digital Brain খুলতে আঙুলের ছাপ দিন');
+    final ok = await brain.services.lock.tryBiometrics('My Assistant খুলতে আঙুলের ছাপ দিন');
     if (ok && mounted) brain.unlock();
   }
 
@@ -118,9 +118,9 @@ class _LockScreenState extends State<LockScreen> {
                           child: const Icon(Icons.psychology_outlined, color: Colors.white, size: 42),
                         ),
                         const SizedBox(height: 12),
-                        Text('Digital Brain', style: display(30, weight: 700, color: Colors.white)),
+                        Text('My Assistant', style: display(30, weight: 700, color: Colors.white)),
                         const SizedBox(height: 4),
-                        Text('আপনার ব্যক্তিগত স্মৃতি ও নিরাপদ তথ্যভান্ডার',
+                        Text('আপনার ব্যক্তিগত সহকারী',
                             style: body(14, color: const Color(0xFFA9B5AF)), textAlign: TextAlign.center),
                       ],
                     ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
 import '../logic/parser.dart';
+import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
@@ -68,14 +69,21 @@ class _ContactsScreenState extends State<ContactsScreen> {
                             subtitle: [if (c.phone.isNotEmpty) bnDigits(c.phone), if (c.note.isNotEmpty) c.note].join(' · '),
                             trailing: c.phone.isEmpty
                                 ? null
-                                : IconButton(
-                                    tooltip: 'নম্বর কপি করুন',
-                                    onPressed: () async {
-                                      await brain.services.files.copy(c.phone);
-                                      if (context.mounted) toast(context, 'নম্বর কপি হয়েছে');
-                                    },
-                                    icon: const Icon(Icons.copy_rounded, size: 20, color: C.muted),
-                                  ),
+                                : Row(mainAxisSize: MainAxisSize.min, children: [
+                                    IconButton(
+                                      tooltip: 'ফোন দিন',
+                                      onPressed: () => brain.services.launcher.open(Via.call, c.phone),
+                                      icon: const Icon(Icons.call_outlined, size: 20, color: C.green),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'নম্বর কপি করুন',
+                                      onPressed: () async {
+                                        await brain.services.files.copy(c.phone);
+                                        if (context.mounted) toast(context, 'নম্বর কপি হয়েছে');
+                                      },
+                                      icon: const Icon(Icons.copy_rounded, size: 20, color: C.muted),
+                                    ),
+                                  ]),
                             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewItemScreen(contact: c))),
                           ),
                       ]),
