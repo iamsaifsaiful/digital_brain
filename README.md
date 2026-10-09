@@ -13,6 +13,7 @@ Every build on `main` publishes a release:
 
 ## What it does
 
+- **Chat by voice**: one tap starts a conversation — the app answers aloud, then listens again (say “থামো” to stop). A long message with several things in it is split into the separate facts, listed, and saved on one “হ্যাঁ”. Follow-up questions (whom? how much? which kind?) are asked in the chat.
 - **Voice, in Bengali**: “সজীবকে ৫০০ টাকা দিলাম”, “সজীবের কাছে আমার কত টাকা পাওনা?”, “ডোমেইন রিনিউ করার তারিখটা মনে করিয়ে দাও”, “আমার Wi-Fi-এর নাম কী?”, “মনে রাখো: …”. Money sentences are confirmed before saving; unclear ones ask (debt repaid, new loan, or other spending).
 - **লেনদেন**: balance per person, running history, edit/delete with undo, CSV report.
 - **Vault**: website/app/Wi-Fi/bank/email logins. Opening one needs fingerprint or PIN; passwords hide again after 30 s, copied passwords leave the clipboard after 30 s, and they are never read aloud.
@@ -27,6 +28,7 @@ Everything is in one file on the phone, encrypted with AES-256-GCM. The 256-bit 
 ## Code
 
 - `lib/logic/` — Bengali parser (`parser.dart`), ledger maths, phrases spoken by the app, search, CSV, password generator.
+- `lib/state/chat.dart` — the conversation (follow-up questions, saving several facts at once).
 - `lib/services/` — encryption and data file, PIN/biometric lock, voice (speech_to_text + flutter_tts), notifications, files/clipboard.
 - `lib/screens/` — the screens from the design canvas.
 - `test/` — logic, storage/crypto and widget tests (real fonts loaded).

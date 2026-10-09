@@ -22,6 +22,33 @@ List<String> _terms(Object? v) {
   return out;
 }
 
+/// Everything the AI found in one message: one command per item, plus its
+/// reply when there is nothing else to say. Empty when the answer is not
+/// usable (the rules are used instead). Also reads the older one-item shape
+/// ({action: …}).
+List<Command> commandsFromAi(String said, Map<String, Object?> r, List<LedgerEntry> ledger) {
+  final reply = _str(r['reply']);
+  final items = r['items'];
+  if (items is! List) {
+    final c = commandFromAi(said, r, ledger);
+    return c == null ? const [] : [c];
+  }
+  final out = <Command>[];
+  var chatted = false;
+  for (final it in items) {
+    if (it is! Map) continue;
+    final item = it.cast<String, Object?>();
+    if (_str(item['action']) == 'chat') {
+      chatted = true;
+      continue;
+    }
+    final c = commandFromAi(said, item, ledger);
+    if (c != null) out.add(c);
+  }
+  if ((out.isEmpty || chatted) && reply.isNotEmpty) out.insert(0, AiReply(said, text: reply));
+  return out;
+}
+
 /// Null when the AI's answer is not usable (the rules are used instead).
 Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> ledger) {
   final known = knownPeople(ledger);

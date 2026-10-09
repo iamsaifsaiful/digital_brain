@@ -7,6 +7,7 @@ import 'package:digital_brain/logic/match.dart';
 import 'package:digital_brain/logic/parser.dart';
 import 'package:digital_brain/logic/password.dart';
 import 'package:digital_brain/logic/phrases.dart';
+import 'package:digital_brain/logic/plan.dart';
 import 'package:digital_brain/logic/search.dart';
 import 'package:digital_brain/logic/talk.dart';
 import 'package:digital_brain/models/models.dart';
@@ -473,6 +474,60 @@ void main() {
       expect(mentionsSecret('আমার ATM পিন 1234'), isTrue);
       expect(mentionsSecret('বাসার wifi এর নাম কী'), isTrue);
       expect(mentionsSecret('সজীবকে ৫০০ টাকা দিলাম'), isFalse);
+    });
+  });
+
+  group('chat: several things in one message', () {
+    test('two money events joined by আর are split', () {
+      final c = parseAll('সজীবকে ৫০০ টাকা ধার দিলাম আর রহিমের কাছ থেকে ২০০ টাকা ধার নিলাম', const []);
+      expect(c, hasLength(2));
+      expect((c[0] as LedgerAdd).person, 'সজীব');
+      expect((c[1] as LedgerAdd).amount, 200);
+    });
+
+    test('"রহিম আর করিমকে" stays one sentence', () {
+      final c = parseAll('রহিম আর করিমকে ৫০০ টাকা দিলাম', const []);
+      expect(c, hasLength(1));
+    });
+
+    test('separate sentences each count', () {
+      final c = parseAll('তুমি কেমন আছো? সজীবকে ৫০০ টাকা দিলাম।', const []);
+      expect(c, hasLength(2));
+      expect(c.first, isA<SmallTalk>());
+      expect(c.last, isA<LedgerAdd>());
+    });
+
+    test('one sentence is parsed as before', () {
+      expect(parseAll('মনে রাখো: গাড়ির কাগজ আলমারিতে', const []).single, isA<NoteAdd>());
+    });
+
+    test('the AI\'s list of items becomes commands', () {
+      final c = commandsFromAi('x', {
+        'reply': 'আচ্ছা',
+        'items': [
+          {'action': 'ledger_add', 'person': 'জামাল', 'amount': 1500, 'kind': 'lent'},
+          {'action': 'note_add', 'text': 'ছাদের কোড ৪৫৬৭', 'category': 'বাসা'},
+        ],
+      }, const []);
+      expect(c, hasLength(2));
+      expect(summaryLine(c[0]), 'জামালকে ১,৫০০ টাকা ধার দিলেন');
+      expect(summaryLine(c[1]), 'ছাদের কোড ৪৫৬৭');
+    });
+
+    test('no items: the AI reply is the answer', () {
+      final c = commandsFromAi('x', {'reply': 'ভালো আছি', 'items': []}, const []);
+      expect((c.single as AiReply).text, 'ভালো আছি');
+      expect(commandsFromAi('x', {'reply': '', 'items': []}, const []), isEmpty);
+    });
+
+    test('a stated balance gives the entry that reaches it', () {
+      final now = DateTime(2026, 10, 9);
+      final l = [e('রহিম', LedgerKind.lent, 1000, now)];
+      final x = entryToReach(l, 'রহিম', 3000, now)!;
+      expect(x.kind, LedgerKind.lent);
+      expect(x.amount, 2000);
+      expect(entryToReach(l, 'রহিম', 1000, now), isNull);
+      expect(entryToReach(const [], 'ইসমাইল', -500, now)!.kind, LedgerKind.borrowed);
     });
   });
 }

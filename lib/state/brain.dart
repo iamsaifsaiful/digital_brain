@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../logic/ai_map.dart';
 import '../logic/ledger.dart';
 import '../logic/parser.dart';
+import '../logic/plan.dart';
 import '../models/models.dart';
 import '../services/ai.dart';
 import '../services/data_store.dart';
@@ -93,14 +94,25 @@ class Brain extends ChangeNotifier {
   /// which never leaves the phone. Returns the command and, if AI failed, a
   /// message to show.
   Future<(Command, String?)> understand(String said) async {
-    final rules = Parser(ledger: data.ledger).parse(said);
+    final (cmds, problem) = await understandAll(said);
+    return (cmds.first, problem);
+  }
+
+  /// Like [understand], for a chat: a long message may hold several things
+  /// (never empty). [history] is the conversation so far, already cleaned
+  /// of anything private.
+  Future<(List<Command>, String?)> understandAll(String said, {List<AiTurn> history = const []}) async {
+    final rules = parseAll(said, data.ledger);
     if (!aiOn) return (rules, null);
-    if (rules is VaultQuery || mentionsSecret(said)) return (rules, null);
-    if (rules is SmallTalk && (rules.kind == Talk.time || rules.kind == Talk.date)) return (rules, null);
+    if (mentionsSecret(said) || rules.any((c) => c is VaultQuery)) return (rules, null);
+    if (rules.length == 1 && rules.first is SmallTalk && {Talk.time, Talk.date}.contains((rules.first as SmallTalk).kind)) {
+      return (rules, null);
+    }
     try {
-      final r = await services.ai.route(said, aiContext());
+      final r = await services.ai.route(said, aiContext(), history: history);
       if (r == null) return (rules, null);
-      return (commandFromAi(said, r, data.ledger) ?? rules, null);
+      final cmds = commandsFromAi(said, r, data.ledger);
+      return (cmds.isEmpty ? rules : cmds, null);
     } on AiError catch (e) {
       return (rules, '${e.message} নিজের নিয়মে বুঝে নিলাম।');
     }

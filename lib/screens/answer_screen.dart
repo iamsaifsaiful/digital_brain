@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../logic/answers.dart';
 import '../logic/bn.dart';
 import '../logic/categories.dart';
 import '../logic/ledger.dart';
 import '../logic/parser.dart';
-import '../logic/phrases.dart';
 import '../logic/search.dart';
 import '../logic/talk.dart';
 import '../models/models.dart';
@@ -141,37 +141,22 @@ class _AnswerScreenState extends State<AnswerScreen> {
       case LedgerQuery():
         return _ledger(d, cmd);
       case VaultQuery():
-        var found = searchVault(d, cmd.terms, wifiOnly: cmd.wifiOnly);
-        if (found.isEmpty && d.vault.isNotEmpty) {
-          // Nothing matched by name: show what is there, so the user can pick.
-          final all = [...d.vault]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-          final intro = cmd.terms.isEmpty && !cmd.wifiOnly
-              ? 'এই যে আপনার রাখা লগইনগুলো। কোনটা লাগবে ছুঁয়ে খুলুন — আঙুলের ছাপ বা PIN লাগবে।'
-              : 'নাম দিয়ে ঠিক মেলাতে পারিনি। আপনার রাখা লগইনগুলো নিচে আছে, কোনটা লাগবে দেখে নিন।';
-          found = all;
-          return _Answer(intro, secure: true, items: [for (final v in found) _vaultRow(v)]);
+        final text = vaultAnswer(d, cmd);
+        if (d.vault.isEmpty) {
+          return _Answer(text, actions: [
+            PrimaryButton(
+              label: 'নতুন পাসওয়ার্ড যোগ করুন',
+              icon: Icons.add_rounded,
+              onPressed: () => _push(NewItemScreen(category: ItemCategory.password, presetTitle: cmd.terms.join(' '))),
+            ),
+          ]);
         }
-        if (found.isEmpty) {
-          return _Answer(
-            cmd.wifiOnly ? 'Wi-Fi-এর কোনো তথ্য এখনো রাখা হয়নি। চাইলে এখনই রেখে দিতে পারেন।' : 'এখনো কোনো পাসওয়ার্ড রাখা হয়নি। চাইলে এখনই রেখে দিতে পারেন।',
-            actions: [
-              PrimaryButton(
-                label: 'নতুন পাসওয়ার্ড যোগ করুন',
-                icon: Icons.add_rounded,
-                onPressed: () => _push(NewItemScreen(category: ItemCategory.password, presetTitle: cmd.terms.join(' '))),
-              ),
-            ],
-          );
-        }
-        final first = found.first;
-        final text = found.length == 1
-            ? '${possessive(first.name)} তথ্য পেয়েছি! তবে পাসওয়ার্ড গোপন জিনিস, তাই জোরে বলব না। আঙুলের ছাপ দিয়ে খুলুন, স্ক্রিনে দেখাব।'
-            : '${bnDigits(found.length)}টা মিলেছে। কোনটা লাগবে ছুঁয়ে খুলুন — আঙুলের ছাপ বা PIN লাগবে।';
-        return _Answer(text, secure: true, items: [for (final v in found) _vaultRow(v)]);
+        return _Answer(text, secure: true, items: [for (final v in vaultAnswerItems(d, cmd)) _vaultRow(v)]);
       case ReminderQuery():
         final found = searchReminders(d, cmd.terms);
+        final text = reminderAnswer(d, cmd, now);
         if (found.isEmpty) {
-          return _Answer('এমন কোনো তারিখ তো লেখা নেই। নতুন করে মনে করিয়ে দেওয়ার ব্যবস্থা করব?', actions: [
+          return _Answer(text, actions: [
             PrimaryButton(
               label: 'নতুন রিমাইন্ডার',
               icon: Icons.add_rounded,
@@ -179,11 +164,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
             ),
           ]);
         }
-        final r = found.first;
-        final day = r.nextDate(now);
-        final left = dayOnly(day).difference(dayOnly(now)).inDays;
-        final when = left == 0 ? 'মানে আজকেই' : (left == 1 ? 'মানে কালকেই' : (left > 0 ? 'আর ${bnDigits(left)} দিন আছে' : '${bnDigits(-left)} দিন আগে চলে গেছে'));
-        return _Answer('${r.title} ${weekdayName(day)}, ${bnDigits(day.day)} ${bnMonths[day.month - 1]}। $when।', items: [
+        return _Answer(text, items: [
           for (final x in found)
             ListRow(
               leading: DateBlock(top: bnDigits(x.nextDate(now).day), bottom: bnMonthsShort[x.nextDate(now).month - 1]),
@@ -226,16 +207,13 @@ class _AnswerScreenState extends State<AnswerScreen> {
         ]);
       case SearchQuery():
         final hits = searchAll(d, cmd.terms);
+        final text = searchAnswer(d, cmd, now);
         if (hits.isEmpty) {
-          return _Answer('এ নিয়ে আমার কাছে কিছু লেখা নেই। চাইলে এখনই রেখে দিতে পারেন।', actions: [
+          return _Answer(text, actions: [
             PrimaryButton(label: 'নতুন তথ্য যোগ করুন', icon: Icons.add_rounded, onPressed: () => _push(const NewItemScreen())),
           ]);
         }
-        // Say the best match itself, not just "found N things".
-        final best = hits.first;
-        final tied = hits.where((h) => h.score == best.score).length;
-        final lead = tied > 1 ? 'কয়েকটা মিলেছে। সবচেয়ে কাছেরটা হলো — ' : '';
-        return _Answer('$lead${_hitAnswer(d, best, now)}', secure: best is VaultHit, items: [for (final h in hits.take(12)) _hitRow(h, now)]);
+        return _Answer(text, secure: hits.first is VaultHit, items: [for (final h in hits.take(12)) _hitRow(h, now)]);
       case SmallTalk():
         return _Answer(talkReply(cmd.kind, now), actions: [
           if (cmd.kind == Talk.whatCanYouDo || cmd.kind == Talk.greeting || cmd.kind == Talk.whoAreYou)
@@ -252,21 +230,6 @@ class _AnswerScreenState extends State<AnswerScreen> {
       case NotUnderstood():
         return _Answer('দুঃখিত, ঠিক বুঝতে পারিনি। একটু অন্যভাবে আরেকবার বলবেন?');
     }
-  }
-
-  /// One found thing, as a spoken answer.
-  String _hitAnswer(AppData d, Hit h, DateTime now) {
-    String end(String t) => RegExp(r'[।?!.]$').hasMatch(t.trim()) ? t.trim() : '${t.trim()}।';
-    return switch (h) {
-      NoteHit(:final note) => end(note.body.trim().isEmpty ? note.title : note.body),
-      ContactHit(:final contact) => contact.phone.isEmpty
-          ? end('${contact.name}${contact.note.isEmpty ? '' : ' — ${contact.note}'}')
-          : end('${possessive(contact.name)} নম্বর ${bnDigits(contact.phone)}'),
-      ReminderHit(:final reminder) => end(
-          '${reminder.title} ${weekdayName(reminder.nextDate(now))}, ${bnDigits(reminder.nextDate(now).day)} ${bnMonths[reminder.nextDate(now).month - 1]}'),
-      PersonHit(:final person) => end(owesText(person, balanceWith(d.ledger, person))),
-      VaultHit(:final item) => '${possessive(item.name)} তথ্য পেয়েছি! তবে এটা গোপন জিনিস, তাই জোরে বলব না। আঙুলের ছাপ দিয়ে খুলুন, স্ক্রিনে দেখাব।',
-    };
   }
 
   Widget _vaultRow(VaultItem v) => ListRow(
@@ -324,44 +287,24 @@ class _AnswerScreenState extends State<AnswerScreen> {
       );
     }
 
+    final text = ledgerAnswer(d, q);
     switch (q.ask) {
       case LedgerAsk.person:
         final p = balanceOf(d.ledger, q.person!);
-        if (p == null) return _Answer('${possessive(q.person!)} সাথে তো কোনো হিসাব লেখা নেই।');
-        final hist = runningFor(d.ledger, p.name);
-        final last = hist.isEmpty ? null : hist.last.$1;
-        final lastText = last == null ? '' : ' শেষ লেনদেন ছিল ${bnDigits(last.date.day)} ${bnMonths[last.date.month - 1]}।';
-        return _Answer('${owesText(p.name, p.balance)}।$lastText', items: [row(p, '${bnDigits(p.count)}টি লেনদেন')]);
+        return _Answer(text, items: [if (p != null) row(p, '${bnDigits(p.count)}টি লেনদেন')]);
       case LedgerAsk.receivable:
-        final owe = all.where((p) => p.balance > 0).toList();
-        if (owe.isEmpty) return _Answer('এখন কারও কাছে আপনার কিছু পাওনা নেই।');
-        final sum = owe.fold<int>(0, (s, p) => s + p.balance);
-        final who = _nameList([for (final p in owe) '${possessive(p.name)} কাছে ${bnNumber(p.balance)}']);
-        return _Answer('সব মিলিয়ে আপনি ${bnNumber(sum)} টাকা পাবেন — $who।', items: [
-          for (final p in owe) row(p, p.last == null ? '' : 'শেষ লেনদেন ${shortDate(p.last!)}'),
+        return _Answer(text, items: [
+          for (final p in all.where((p) => p.balance > 0)) row(p, p.last == null ? '' : 'শেষ লেনদেন ${shortDate(p.last!)}'),
         ]);
       case LedgerAsk.payable:
-        final iOwe = all.where((p) => p.balance < 0).toList();
-        if (iOwe.isEmpty) return _Answer('কাউকে কিছু দিতে হবে না, সব শোধ!');
-        final sum = iOwe.fold<int>(0, (s, p) => s - p.balance);
-        final who = _nameList([for (final p in iOwe) '${toPerson(p.name)} ${bnNumber(-p.balance)}']);
-        return _Answer('সব মিলিয়ে আপনাকে ${bnNumber(sum)} টাকা দিতে হবে — $who।', items: [
-          for (final p in iOwe) row(p, p.last == null ? '' : 'শেষ লেনদেন ${shortDate(p.last!)}'),
+        return _Answer(text, items: [
+          for (final p in all.where((p) => p.balance < 0)) row(p, p.last == null ? '' : 'শেষ লেনদেন ${shortDate(p.last!)}'),
         ]);
       case LedgerAsk.all:
-        final t = totals(d.ledger);
-        return _Answer('আপনি পাবেন মোট ${bnNumber(t.receivable)} টাকা, আর আপনাকে দিতে হবে ${bnNumber(t.payable)} টাকা।', items: [
+        return _Answer(text, items: [
           for (final p in all.where((p) => p.balance != 0)) row(p, p.balance > 0 ? 'পাবেন' : 'দেবেন'),
         ]);
     }
-  }
-
-  /// "ক, খ, আর গ" (at most four, then "আরও N জন").
-  String _nameList(List<String> parts) {
-    final shown = parts.take(4).toList();
-    final more = parts.length - shown.length;
-    final head = shown.length > 1 ? '${shown.sublist(0, shown.length - 1).join(', ')}, আর ${shown.last}' : shown.join();
-    return more > 0 ? '$head, এবং আরও ${bnDigits(more)} জন' : head;
   }
 
   Future<void> _saveNote(NoteAdd n) async {

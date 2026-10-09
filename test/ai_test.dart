@@ -65,4 +65,34 @@ void main() {
     final broke = ClaudeAi(client: MockClient((_) async => res(400, {'error': {'message': 'Your credit balance is too low'}})))..key = 'k';
     await expectLater(broke.route('x', ctx), throwsA(isA<AiError>().having((e) => e.message, 'message', contains('ক্রেডিট'))));
   });
+
+  test('the conversation so far is sent as alternating turns', () {
+    final m = messagesFor('আর ওর নম্বর?', const [
+      AiTurn.app('[শুরু]'), // dropped: must start with the user
+      AiTurn.user('সজীবকে ৫০০ দিলাম'),
+      AiTurn.app('[রাখার আগে জিজ্ঞেস করছে]'),
+      AiTurn.user('হ্যাঁ'),
+    ]);
+    expect([for (final x in m) x['role']], ['user', 'assistant', 'user', 'assistant', 'user']);
+    expect(m.first['content'], 'সজীবকে ৫০০ দিলাম');
+    expect(m.last['content'], 'আর ওর নম্বর?');
+  });
+
+  test('history goes into the request', () async {
+    late Map<String, dynamic> sent;
+    final ai = ClaudeAi(
+      client: MockClient((req) async {
+        sent = jsonDecode(req.body) as Map<String, dynamic>;
+        return res(200, {
+          'content': [
+            {'type': 'tool_use', 'id': 't', 'name': 'route', 'input': {'reply': 'জি', 'items': []}},
+          ],
+        });
+      }),
+    )..key = 'k';
+    await ai.route('আরও কিছু?', ctx, history: const [AiTurn.user('হ্যালো'), AiTurn.app('জি বলুন')]);
+    expect((sent['messages'] as List), hasLength(3));
+    final tool = (sent['tools'] as List).single as Map;
+    expect(((tool['input_schema'] as Map)['properties'] as Map).keys, containsAll(['reply', 'items']));
+  });
 }

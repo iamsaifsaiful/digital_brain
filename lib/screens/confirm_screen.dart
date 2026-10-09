@@ -9,8 +9,6 @@ import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import '../ui/yes_no.dart';
-import 'person_screen.dart';
-import 'voice_screen.dart';
 
 /// "ঠিক বুঝেছি তো?" — shows what was understood from a money sentence and
 /// saves only after the user agrees. When the meaning was unclear it first
@@ -161,7 +159,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
     await brain.services.voice.speak(savedSentence(kind, _person, _amount, after));
     if (!mounted) return;
     toast(context, 'লিখে রাখলাম। ${balanceSentence(_person, after)}');
-    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => PersonScreen(person: _person.trim())));
+    Navigator.of(context).pop('লিখে রাখলাম: ${describe(kind, _person.trim(), _amount)}। ${balanceSentence(_person.trim(), after)}');
   }
 
   Future<void> _editPerson() async {
@@ -295,7 +293,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
                         child: SecondaryButton(
                           label: 'আবার বলুন',
                           icon: Icons.mic_none_rounded,
-                          onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const VoiceScreen())),
+                          onPressed: () => Navigator.of(context).pop(),
                         ),
                       ),
                       const SizedBox(width: 10),

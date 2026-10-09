@@ -1,4 +1,5 @@
 import '../models/models.dart';
+import 'bn.dart';
 
 /// Key used to treat "Sajib", " sajib " and "SAJIB" as the same person.
 String personKey(String name) => name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
@@ -137,4 +138,26 @@ String balanceWords(String person, int balance) {
   if (balance > 0) return 'পাবেন';
   if (balance < 0) return 'দেবেন';
   return 'হিসাব শূন্য';
+}
+
+/// The entry that brings [person]'s balance to [target] ("ইসমাইলের কাছে আমি
+/// ৫ হাজার টাকা পাই"). Null when the book already says that.
+LedgerEntry? entryToReach(Iterable<LedgerEntry> entries, String person, int target, DateTime now) {
+  final p = balanceOf(entries, person);
+  final current = p?.balance ?? 0;
+  final d = target - current;
+  if (d == 0) return null;
+  final LedgerKind kind;
+  if (d > 0) {
+    kind = current < 0 && d <= -current ? LedgerKind.repaid : LedgerKind.lent;
+  } else {
+    kind = current > 0 && -d <= current ? LedgerKind.received : LedgerKind.borrowed;
+  }
+  return LedgerEntry(
+    person: p?.name ?? person.trim(),
+    kind: kind,
+    amount: d.abs(),
+    date: dayOnly(now),
+    note: p == null ? 'শুরুর হিসাব' : 'হিসাব মিলানো: মোট ${taka(target)} ${target >= 0 ? 'পাবেন' : 'দেবেন'}',
+  );
 }
