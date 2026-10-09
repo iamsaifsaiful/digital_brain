@@ -13,7 +13,7 @@ import '../ui/pin.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 
-const appVersion = '1.1.1';
+const appVersion = '1.2.0';
 
 /// Security, encrypted backup, voice and reports.
 class MoreScreen extends StatefulWidget {
@@ -169,6 +169,76 @@ class _MoreScreenState extends State<MoreScreen> {
     );
   }
 
+  Future<void> _pickVoice() async {
+    final brain = BrainScope.read(context);
+    final list = await brain.services.voice.voices();
+    if (!mounted) return;
+    const sample = 'আসসালামু আলাইকুম! আমি Digital Brain। আপনার কথা মনে রাখি, আর দরকারের সময় বলে দিই।';
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.7),
+          child: StatefulBuilder(
+            builder: (ctx, setSheet) {
+              final current = brain.services.voice.preferredVoice;
+              if (list.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                  child: Text(
+                    'ফোনে কোনো বাংলা কণ্ঠ পাওয়া যায়নি। Play Store থেকে “Speech Services by Google” হালনাগাদ করে, ফোনের Settings › ভাষা › Text-to-speech থেকে বাংলা (বাংলাদেশ) কণ্ঠ ডাউনলোড করে নিন।',
+                    style: body(15, height: 1.6),
+                  ),
+                );
+              }
+              return ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                    child: Text('▶ চেপে শুনুন, পছন্দ হলে বেছে নিন। “ইন্টারনেট” লেখাগুলো সাধারণত বেশি স্বাভাবিক শোনায়।',
+                        style: body(14, color: C.muted, height: 1.5)),
+                  ),
+                  ListTile(
+                    leading: Icon(current == null ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded, color: C.green),
+                    title: const Text('নিজে থেকে সেরাটা বেছে নাও'),
+                    onTap: () async {
+                      await brain.setVoice(null);
+                      setSheet(() {});
+                    },
+                  ),
+                  for (var i = 0; i < list.length; i++)
+                    ListTile(
+                      leading: Icon(current == list[i].name ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded, color: C.green),
+                      title: Text('কণ্ঠ ${bnDigits(i + 1)}${list[i].locale.toLowerCase().contains('bd') ? ' · বাংলাদেশ' : ' · ভারত'}'),
+                      subtitle: Text(list[i].online ? 'ইন্টারনেট লাগে, বেশি স্বাভাবিক' : 'ইন্টারনেট ছাড়াও চলে'),
+                      trailing: IconButton(
+                        tooltip: 'শুনুন',
+                        icon: const Icon(Icons.play_circle_outline_rounded, color: C.green),
+                        onPressed: () async {
+                          await brain.services.voice.useVoice(list[i]);
+                          await brain.services.voice.speakAndWait(sample);
+                          // Back to the saved choice.
+                          await brain.services.voice.useVoice(list.where((v) => v.name == current).firstOrNull);
+                        },
+                      ),
+                      onTap: () async {
+                        await brain.setVoice(list[i]);
+                        brain.services.voice.speak(sample);
+                        setSheet(() {});
+                      },
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _changePin() async {
     if (!await verifyUser(context, reason: 'PIN বদলাতে আগে যাচাই করুন')) return;
     if (!mounted) return;
@@ -268,6 +338,15 @@ class _MoreScreenState extends State<MoreScreen> {
           padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
           child: Column(children: [
             switchRow('উত্তর কণ্ঠে শোনাও', 'পাসওয়ার্ড কখনো জোরে পড়া হয় না', brain.speakOn, (v) => brain.setSpeakOn(v)),
+            const Divider(),
+            ListRow(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              leading: const Icon(Icons.record_voice_over_outlined, color: C.ink),
+              title: 'কণ্ঠ বেছে নিন',
+              subtitle: 'ফোনে থাকা বাংলা কণ্ঠগুলো শুনে পছন্দেরটা রাখুন',
+              trailing: const Icon(Icons.chevron_right_rounded, color: C.muted),
+              onTap: _pickVoice,
+            ),
             const Divider(),
             ListRow(
               padding: const EdgeInsets.symmetric(vertical: 10),

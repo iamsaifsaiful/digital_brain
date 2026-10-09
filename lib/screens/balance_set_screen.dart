@@ -42,7 +42,7 @@ class _BalanceSetScreenState extends State<BalanceSetScreen> {
     _q = SpokenQuestion(voice: brain.services.voice, onAnswer: _onAnswer);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_diff == 0) {
-        brain.services.voice.speak('${balanceSentence(_person, _current).replaceFirst('এখন ', 'আপনার খাতায় ')} হিসাব মিলে আছে।');
+        brain.services.voice.speak('খাতায় তো এটাই লেখা আছে — ${owesText(_person, _current)}। নতুন করে কিছু লাগবে না।');
       } else {
         _q.ask(_question());
       }
@@ -59,9 +59,9 @@ class _BalanceSetScreenState extends State<BalanceSetScreen> {
 
   String _question() {
     if (_isNew) {
-      return 'ধার-দেনায় $_person নামে কেউ নেই। $_person নামে নতুন হিসাব খুলে রাখব যে ${_owes(_target)}?';
+      return '$_person নামে তো কারও হিসাব নেই। নতুন করে খুলে লিখে রাখি যে ${_owes(_target)}?';
     }
-    return 'আপনার খাতায় এখন ${_owes(_current)}। মোট হিসাব মিলিয়ে রাখব যে ${_owes(_target)}?';
+    return 'খাতায় এখন লেখা আছে, ${_owes(_current)}। মিলিয়ে লিখে রাখি যে ${_owes(_target)}?';
   }
 
   /// The entry that brings the balance from [_current] to [_target].
@@ -88,7 +88,7 @@ class _BalanceSetScreenState extends State<BalanceSetScreen> {
         _save();
       case false:
         _q.stop();
-        toast(context, 'ঠিক আছে, কিছু যোগ করা হয়নি');
+        toast(context, 'আচ্ছা, কিছু লিখিনি');
         Navigator.of(context).pop();
       case null:
         setState(() => _q.hint = 'বুঝিনি। “হ্যাঁ” বা “না” বলুন, অথবা বোতাম চাপুন।');
@@ -101,9 +101,9 @@ class _BalanceSetScreenState extends State<BalanceSetScreen> {
     setState(() => _saving = true);
     final brain = BrainScope.read(context);
     await brain.saveEntry(_entry(brain.services.now()));
-    brain.services.voice.speak('রাখা হয়েছে। ${balanceSentence(_person, _target)}');
+    brain.services.voice.speak('ঠিক আছে, লিখে রাখলাম। ${balanceSentence(_person, _target)}');
     if (!mounted) return;
-    toast(context, 'রাখা হয়েছে। ${balanceSentence(_person, _target)}');
+    toast(context, 'লিখে রাখলাম। ${balanceSentence(_person, _target)}');
     Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => PersonScreen(person: _person)));
   }
 

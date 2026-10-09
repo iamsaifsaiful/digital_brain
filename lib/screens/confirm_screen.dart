@@ -61,7 +61,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
       final yn = yesNo(heard);
       final choice = pick ?? (yn == true ? widget.command.suggested?.name : null);
       if (choice == null) {
-        setState(() => _q.hint = 'বুঝিনি। একটি বেছে নিন, বা বলুন — যেমন “শোধ” বা “নতুন ধার”।');
+        setState(() => _q.hint = 'ঠিক ধরতে পারিনি। একটা বেছে নিন, বা বলেন — যেমন “শোধ” বা “নতুন ধার”।');
         return;
       }
       setState(() => _picked = choice);
@@ -72,9 +72,9 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
       case true:
         _save();
       case false:
-        setState(() => _q.hint = 'ঠিক আছে, সেভ করিনি। “বদলান” চেপে ঠিক করুন বা বাতিল করুন।');
+        setState(() => _q.hint = 'আচ্ছা, লিখিনি। কিছু ভুল থাকলে “বদলান” চেপে ঠিক করে নিন।');
       case null:
-        setState(() => _q.hint = 'বুঝিনি। “হ্যাঁ” বা “না” বলুন, অথবা বোতাম চাপুন।');
+        setState(() => _q.hint = 'ঠিক ধরতে পারিনি। “হ্যাঁ” বা “না” বলেন, অথবা বোতাম চাপুন।');
     }
   }
 
@@ -90,9 +90,13 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
 
   String _clarifyQuestion() {
     final o = widget.command.options;
-    if (o.contains(LedgerKind.repaid) && widget.command.allowExpense) return 'এটা কি আগের দেনা শোধ, নতুন ধার, নাকি অন্য খরচ?';
-    if (o.contains(LedgerKind.received) && o.contains(LedgerKind.borrowed)) return 'এটা কি আগের পাওনা ফেরত, নাকি নতুন ধার নিলেন?';
-    return 'এটা কোন ধরনের লেনদেন?';
+    if (o.contains(LedgerKind.repaid) && widget.command.allowExpense) {
+      return 'একটু বুঝিয়ে বলেন — এটা কি আগের দেনা শোধ করলেন, নাকি নতুন করে ধার দিলেন? নাকি অন্য কোনো খরচ?';
+    }
+    if (o.contains(LedgerKind.received) && o.contains(LedgerKind.borrowed)) {
+      return 'একটু বুঝিয়ে বলেন — উনি কি আগের টাকা ফেরত দিলেন, নাকি আপনি নতুন করে ধার নিলেন?';
+    }
+    return 'একটু বুঝিয়ে বলেন — এটা কোন ধরনের লেনদেন?';
   }
 
   Future<void> _save() async {
@@ -106,7 +110,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
     await brain.saveEntry(LedgerEntry(person: _person.trim(), kind: kind, amount: _amount, date: _date, note: ''));
     await brain.services.voice.speak(savedSentence(kind, _person, _amount, after));
     if (!mounted) return;
-    toast(context, 'সেভ হয়েছে। ${balanceSentence(_person, after)}');
+    toast(context, 'লিখে রাখলাম। ${balanceSentence(_person, after)}');
     Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => PersonScreen(person: _person.trim())));
   }
 
@@ -277,8 +281,8 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
       const SizedBox(height: 6),
       Text(
         bal == 0
-            ? 'নিশ্চিত না হয়ে কিছু সেভ করব না।'
-            : 'নিশ্চিত না হয়ে কিছু সেভ করব না। ${balanceSentence(_person, bal).replaceFirst('এখন ', '')}',
+            ? 'ঠিক না জেনে কিছু লিখব না।'
+            : 'ঠিক না জেনে কিছু লিখব না। খাতায় এখন ${owesText(_person, bal)}।',
         style: body(15, color: C.muted, height: 1.5),
       ),
       const SizedBox(height: 14),

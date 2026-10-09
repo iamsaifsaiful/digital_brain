@@ -37,6 +37,24 @@ abstract class Voice {
 
   /// When true, [speak] stays silent (the "answer aloud" setting is off).
   bool muted = false;
+
+  /// Name of the Bengali voice the user picked (null: choose the best).
+  String? preferredVoice;
+
+  /// Bengali voices installed on the phone, best first.
+  Future<List<VoiceOption>> voices();
+
+  /// Switches to [v] (null: back to the automatic choice).
+  Future<void> useVoice(VoiceOption? v);
+}
+
+class VoiceOption {
+  const VoiceOption({required this.name, required this.locale, required this.online});
+  final String name;
+  final String locale;
+
+  /// Google's higher-quality voices that stream from the internet.
+  final bool online;
 }
 
 /// How long the user must stay quiet before the app treats the sentence as
@@ -101,10 +119,61 @@ class DeviceVoice extends Voice {
           break;
         }
       }
-      await _tts.setSpeechRate(0.45);
+      // 0.5 is Android's normal speed in flutter_tts (it doubles the value).
+      await _tts.setSpeechRate(0.5);
+      await _tts.setPitch(1.0);
       await _tts.awaitSpeakCompletion(true);
+      final list = await voices();
+      VoiceOption? pick;
+      for (final v in list) {
+        if (v.name == preferredVoice) pick = v;
+      }
+      pick ??= list.firstOrNull;
+      if (pick != null) await _apply(pick);
     } catch (e) {
       debugPrint('TTS setup failed: $e');
+    }
+  }
+
+  @override
+  Future<List<VoiceOption>> voices() async {
+    try {
+      final raw = await _tts.getVoices;
+      final out = <VoiceOption>[];
+      for (final v in (raw as List? ?? const [])) {
+        if (v is! Map) continue;
+        final name = '${v['name'] ?? ''}';
+        final locale = '${v['locale'] ?? ''}';
+        if (!locale.toLowerCase().startsWith('bn') && !name.toLowerCase().startsWith('bn')) continue;
+        final online = name.contains('network') || '${v['network_required']}' == '1' || '${v['network_required']}' == 'true';
+        out.add(VoiceOption(name: name, locale: locale, online: online));
+      }
+      // Bangladesh first, then the natural-sounding online voices.
+      int rank(VoiceOption v) => (v.locale.toLowerCase().contains('bd') ? 0 : 2) + (v.online ? 0 : 1);
+      out.sort((a, b) => rank(a).compareTo(rank(b)));
+      return out;
+    } catch (e) {
+      debugPrint('voices failed: $e');
+      return const [];
+    }
+  }
+
+  Future<void> _apply(VoiceOption v) async {
+    try {
+      await _tts.setVoice({'name': v.name, 'locale': v.locale});
+    } catch (e) {
+      debugPrint('setVoice failed: $e');
+    }
+  }
+
+  @override
+  Future<void> useVoice(VoiceOption? v) async {
+    preferredVoice = v?.name;
+    if (v != null) {
+      await _apply(v);
+    } else {
+      final list = await voices();
+      if (list.isNotEmpty) await _apply(list.first);
     }
   }
 
@@ -320,6 +389,14 @@ class FakeVoice extends Voice {
 
   @override
   Future<void> speakAndWait(String text) => speak(text);
+
+  @override
+  Future<List<VoiceOption>> voices() async => const [];
+
+  @override
+  Future<void> useVoice(VoiceOption? v) async {
+    preferredVoice = v?.name;
+  }
 
   @override
   Future<void> stopSpeaking() async {}

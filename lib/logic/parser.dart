@@ -77,6 +77,14 @@ class NotUnderstood extends Command {
   const NotUnderstood(super.transcript);
 }
 
+enum Talk { greeting, salam, howAreYou, imFine, whoAreYou, whatCanYouDo, thanks, bye, time, date }
+
+/// Conversation, not data: "তুমি কেমন আছো?", "ধন্যবাদ", "আজ কত তারিখ?".
+class SmallTalk extends Command {
+  const SmallTalk(super.transcript, {required this.kind});
+  final Talk kind;
+}
+
 // ───────────────────────── Text helpers ─────────────────────────
 
 /// Writes য়, ড়, ঢ় one way (letter + nukta) and drops zero-width joiners,
@@ -93,8 +101,67 @@ String normalize(String s) {
   t = t.replaceAllMapped(RegExp(r'(\d),(\d)'), (m) => '${m[1]}${m[2]}');
   t = t.replaceAll(RegExp(r'[।?!,;:"“”‘’()\[\]]'), ' ');
   t = t.replaceAll('৳', ' ');
-  return t.replaceAll(RegExp(r'\s+'), ' ').trim();
+  t = t.replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (t.isEmpty) return t;
+  // Everyday and regional speech → the standard forms the rules know.
+  return t.split(' ').map(_standardWord).join(' ');
 }
+
+String _standardWord(String w) {
+  final m = _colloquial[w];
+  if (m != null) return m;
+  // Dhaka "-রে" for "-কে": "সজীবরে" → "সজীবকে". Only after a name-like
+  // stem (3+ letters, not ending in a vowel sign), so "করে", "পরে",
+  // "বাজারে" stay as they are.
+  if (w.endsWith('রে') && w.length >= 5) {
+    final base = w.substring(0, w.length - 2);
+    final last = base[base.length - 1];
+    if (!'ািীুূৃেৈোৌ্'.contains(last) && !RegExp(r'[a-z0-9]').hasMatch(last)) return '$baseকে';
+  }
+  return w;
+}
+
+/// How people in Bangladesh actually say it (Dhaka speech, and common
+/// Chattogram, Sylhet, Barishal, Noakhali, Mymensingh forms) → standard
+/// Bengali. Word for word, so names are left alone.
+const _colloquialRaw = <String, String>{
+  // money
+  'টেকা': 'টাকা', 'ট্যাকা': 'টাকা', 'টাহা': 'টাকা', 'টেহা': 'টাকা', 'ট্যাহা': 'টাকা',
+  // me / my / I
+  'আমারে': 'আমাকে', 'মোরে': 'আমাকে', 'আঁরে': 'আমাকে', 'আমারেও': 'আমাকে', 'মুই': 'আমি', 'আঁই': 'আমি',
+  'মোর': 'আমার', 'আঁর': 'আমার', 'আমাগো': 'আমাদের',
+  // gave (I)
+  'দিসি': 'দিয়েছি', 'দিছি': 'দিয়েছি', 'দিছিলাম': 'দিয়েছিলাম', 'দিসিলাম': 'দিয়েছিলাম', 'দিলুম': 'দিলাম', 'দিলাম্': 'দিলাম',
+  'দিয়া': 'দিয়ে', 'দিইছি': 'দিয়েছি', 'দিসিলাম্': 'দিয়েছিলাম', 'দিলাম্ম': 'দিলাম', 'দিচি': 'দিয়েছি', 'দিছিম': 'দিয়েছি',
+  // gave (they)
+  'দিসে': 'দিয়েছে', 'দিছে': 'দিয়েছে', 'দিসেন': 'দিয়েছেন', 'দিছেন': 'দিয়েছেন', 'দিছিল': 'দিয়েছিল', 'দিসিল': 'দিয়েছিল',
+  'দিছে্': 'দিয়েছে', 'দিল্': 'দিল', 'দিসো': 'দিয়েছে', 'দিছো': 'দিয়েছে',
+  // took / brought (a loan)
+  'নিসি': 'নিয়েছি', 'নিছি': 'নিয়েছি', 'নিলুম': 'নিলাম', 'নিছিলাম': 'নিয়েছিলাম', 'নিসিলাম': 'নিয়েছিলাম', 'নিচি': 'নিয়েছি',
+  'আনছি': 'নিয়েছি', 'আনসি': 'নিয়েছি', 'আনলাম': 'নিলাম', 'আনছিলাম': 'নিয়েছিলাম', 'করছি': 'করেছি', 'করসি': 'করেছি',
+  // got
+  'পাইছি': 'পেয়েছি', 'পাইসি': 'পেয়েছি', 'পাইলাম': 'পেলাম', 'পেলুম': 'পেলাম', 'পাইছিলাম': 'পেয়েছিলাম',
+  // will get / will give / owed
+  'পামু': 'পাব', 'পাইমু': 'পাব', 'পাইবো': 'পাব', 'পাইব': 'পাব', 'পাইতাম': 'পাব', 'দিমু': 'দেব', 'দিবাম': 'দেব', 'দিম': 'দেব',
+  'লাগবো': 'লাগবে', 'লাগব': 'লাগবে', 'হইবো': 'হবে', 'হইব': 'হবে', 'অইবো': 'হবে', 'দেওন': 'দিতে', 'দেয়া': 'দিতে',
+  // loan / return
+  'হাওলাত': 'ধার', 'হাওলাদ': 'ধার', 'হাওলাতি': 'ধার', 'উধার': 'ধার', 'করজ': 'কর্জ', 'ফিরত': 'ফেরত', 'ফেরৎ': 'ফেরত', 'ফেরতে': 'ফেরত',
+  'ফিরাইয়া': 'ফেরত', 'ফিরায়া': 'ফেরত', 'ফিরাইয়্যা': 'ফেরত',
+  // from / near
+  'থেইকা': 'থেকে', 'থাইকা': 'থেকে', 'থিকা': 'থেকে', 'থেকা': 'থেকে', 'তুন': 'থেকে', 'থুন': 'থেকে', 'থন': 'থেকে', 'তে্থে': 'থেকে',
+  'ধারে': 'কাছে', 'কাছত': 'কাছে', 'কাছো': 'কাছে', 'কাসে': 'কাছে',
+  // questions and asking
+  'কতো': 'কত', 'কত্ত': 'কত', 'কিতা': 'কী', 'কিডা': 'কী', 'কিয়া': 'কী', 'কেরে': 'কেন', 'কই': 'কোথায়', 'কোনহানে': 'কোথায়',
+  'কুনখানে': 'কোথায়', 'কোনখানে': 'কোথায়', 'কোন্ডে': 'কোথায়', 'কডে': 'কোথায়', 'কেডা': 'কে', 'কেঠা': 'কে', 'হেতে': 'সে',
+  'কও': 'বলো', 'কন': 'বলো', 'কওতো': 'বলো', 'কইয়া': 'বলে', 'দেহাও': 'দেখাও', 'দেহান': 'দেখান', 'দেখাওতো': 'দেখাও',
+  'ক্যামন': 'কেমন', 'কেমুন': 'কেমন', 'কিরাম': 'কেমন', 'কিমুন': 'কেমন', 'কেমনে': 'কীভাবে', 'ক্যামনে': 'কীভাবে',
+  'কারে': 'কাকে', 'তারে': 'তাকে', 'ওরে': 'ওকে', 'হেরে': 'তাকে', 'আছস': 'আছিস', 'আছো্': 'আছো', 'আসো': 'আছো', 'আসেন': 'আছেন', 'আছুইন': 'আছেন', 'আছোনি': 'আছো', 'নাই': 'নেই', 'নাইক্কা': 'নেই',
+  // misc
+  'কইরা': 'করে', 'কইরে': 'করে', 'রাইখা': 'রেখে', 'রাখছি': 'রেখেছি', 'রাখসি': 'রেখেছি', 'হইছে': 'হয়েছে', 'হইসে': 'হয়েছে',
+  'গেছে্': 'গেছে', 'ভালা': 'ভালো', 'ভাল': 'ভালো', 'বালা': 'ভালো',
+};
+
+final Map<String, String> _colloquial = {for (final e in _colloquialRaw.entries) fold(e.key): fold(e.value)};
 
 List<String> words(String normalized) => normalized.isEmpty ? const [] : normalized.split(' ');
 
@@ -176,7 +243,7 @@ const _give1 = ['দিলাম', 'দিয়েছি', 'দিছি', 'দ
 const _take1 = ['নিলাম', 'নিয়েছি', 'নিছি', 'নিয়েছিলাম'];
 const _got1 = ['পেলাম', 'পেয়েছি', 'পাইছি', 'পেয়েছিলাম'];
 const _give3 = ['দিল', 'দিলো', 'দিয়েছে', 'দিয়েছেন', 'দিলেন', 'দিছে', 'দিয়েছিল'];
-const _loanWords = ['ধার', 'কর্জ', 'লোন', 'loan'];
+const _loanWords = ['ধার', 'কর্জ', 'লোন', 'loan', 'ঋণ'];
 const _returnWords = ['ফেরত', 'শোধ', 'পরিশোধ'];
 final List<String> _honorifics = [for (final h in _honorificsRaw) fold(h)];
 const _honorificsRaw = ['ভাই', 'ভাইয়া', 'ভাইয়া', 'আপা', 'আপু', 'চাচা', 'মামা', 'খালা', 'কাকা', 'দাদা', 'স্যার', 'সাহেব', 'বোন'];
@@ -218,8 +285,19 @@ class Parser {
   final List<LedgerEntry> ledger;
 
   Command parse(String said) {
-    final text = normalize(said);
+    var text = normalize(said);
     if (text.isEmpty) return NotUnderstood(said);
+
+    // Conversation first ("তুমি কেমন আছো?" is not a search).
+    final talk = smallTalk(text);
+    if (talk != null) return SmallTalk(said, kind: talk);
+    // "হ্যালো, সজীবকে ৫০০ টাকা দিলাম": drop the greeting and go on.
+    final rest = stripGreeting(text);
+    if (rest != text) {
+      if (rest.isEmpty) return SmallTalk(said, kind: Talk.greeting);
+      text = rest;
+      said = stripGreeting(said.trim(), keepCase: true);
+    }
     final w = words(text);
 
     // "মনে রাখো: …" → a note.
@@ -273,7 +351,7 @@ class Parser {
   /// "X আমার কাছে N টাকা পায় / X-কে আমার N টাকা দিতে হবে / X-এর কাছে আমার
   /// N টাকা দেনা" → I owe them N.
   LedgerSet? _statedBalance(String said, String text, List<String> w, int amount, List<String> known) {
-    final iOweWords = _hasAny(text, ['দেনা', 'ঋণ', 'দিতে হবে', 'দেব', 'দেবো', 'দিব', 'দিবো', 'দিতে বাকি']);
+    final iOweWords = _hasAny(text, ['দেনা', 'ঋণ', 'দিতে হবে', 'দেব', 'দেবো', 'দিব', 'দিবো', 'দিতে বাকি', 'দিতে লাগবে', 'দেওয়া লাগবে']);
     final owedWords = _hasAny(text, ['পাই', 'পাব', 'পাবো', 'পাওনা', 'পাবে', 'পাবেন', 'পায়', 'পান']);
     if (!iOweWords && !owedWords) return null;
     final me = w.contains('আমি') || w.contains('আমার');
@@ -475,11 +553,12 @@ bool isQuestionText(String said) {
 }
 
 const _yesRaw = [
+  'হ', 'হো', 'হঁ', 'জে', 'জ্বে', 'জ্বী', 'আইচ্ছা', 'আচ্চা', 'ঠিকাছে', 'ঠিকআছে', 'রাইখা', 'রাখেন', 'দেন', 'করেন', 'অক্কে', 'ওক্কে',
   'হ্যাঁ', 'হ্যা', 'হাঁ', 'হা', 'জি', 'জ্বি', 'জী', 'হুম', 'হুঁ', 'ঠিক', 'আচ্ছা', 'অবশ্যই', 'নিশ্চয়ই', 'একদম', 'সঠিক',
   'করো', 'কর', 'করেন', 'করুন', 'রাখো', 'রাখ', 'রাখেন', 'রাখুন', 'সেভ', 'যোগ', 'দাও', 'দিন', 'চলবে', 'হবে', 'হ্যাঁ।',
   'ok', 'okay', 'ওকে', 'yes', 'yeah', 'yep', 'sure', 'save', 'right',
 ];
-const _noRaw = ['না', 'নাহ', 'নো', 'no', 'nope', 'বাতিল', 'থাক', 'ভুল', 'cancel', 'নয়'];
+const _noRaw = ['না', 'নাহ', 'নো', 'no', 'nope', 'বাতিল', 'থাক', 'থাউক', 'থাকুক', 'ভুল', 'cancel', 'নয়', 'নাগো', 'নারে', 'নাহি'];
 
 final Set<String> _yes = {for (final x in _yesRaw) fold(x)};
 final Set<String> _no = {for (final x in _noRaw) fold(x)};
@@ -490,7 +569,66 @@ bool? yesNo(String said) {
   final t = normalize(said);
   if (t.isEmpty) return null;
   final w = words(t);
-  if (w.any(_no.contains) || _hasAny(t, ['দরকার নেই', 'লাগবে না', 'রেখো না', 'রাখো না', 'করো না', 'চাই না'])) return false;
+  if (w.any(_no.contains) || _hasAny(t, ['দরকার নেই', 'লাগবে না', 'রেখো না', 'রাখো না', 'করো না', 'চাই না', 'বাদ দাও', 'বাদ দেন', 'বাদ দে', 'রাখার দরকার'])) return false;
   if (w.any(_yes.contains) || _hasAny(t, ['ঠিক আছে', 'সেভ করো', 'যোগ করো'])) return true;
   return null;
+}
+
+bool _hasPhrase(String text, List<String> ps) => ps.any((p) => text.contains(fold(p)));
+
+/// Recognises conversation. [text] is normalized.
+Talk? smallTalk(String text) {
+  final w = words(text);
+  if (_hasPhrase(text, ['কেমন আছ', 'কেমন আছেন', 'কেমন আছিস', 'কি অবস্থা', 'কী অবস্থা', 'কী খবর', 'কি খবর', 'how are you'])) {
+    return Talk.howAreYou;
+  }
+  bool seq(String a, String b) {
+    for (var i = 0; i + 1 < w.length; i++) {
+      if (w[i] == fold(a) && w[i + 1] == fold(b)) return true;
+    }
+    return false;
+  }
+
+  if (seq('তুমি', 'কে') || seq('আপনি', 'কে') || seq('তুই', 'কে') || _hasPhrase(text, ['তোমার নাম কী', 'তোমার নাম কি', 'আপনার নাম কী', 'আপনার নাম কি', 'who are you', 'your name'])) {
+    return Talk.whoAreYou;
+  }
+  if (_hasPhrase(text, [
+    'কী করতে পার', 'কি করতে পার', 'কী কী পার', 'কি কি পার', 'কী কী করতে', 'কি কি করতে', 'কীভাবে ব্যবহার', 'কিভাবে ব্যবহার',
+    'কী বলতে পারি', 'কি বলতে পারি', 'কী জিজ্ঞেস করতে', 'কি জিজ্ঞেস করতে', 'what can you do',
+  ]) || (w.length <= 3 && _hasPhrase(text, ['সাহায্য', 'help']))) {
+    return Talk.whatCanYouDo;
+  }
+  if (_hasPhrase(text, ['কয়টা বাজে', 'কটা বাজে', 'কয়টা বাজে', 'এখন সময় কত', 'সময় কত', 'what time'])) return Talk.time;
+  if (_hasPhrase(text, ['আজ কত তারিখ', 'আজকে কত তারিখ', 'আজকের তারিখ', 'আজ কী বার', 'আজ কি বার', 'আজকে কী বার', 'আজকে কি বার', 'আজ কোন বার'])) {
+    return Talk.date;
+  }
+  if (w.length <= 5 && _hasPhrase(text, ['ধন্যবাদ', 'থ্যাংক', 'থ্যাঙ্ক', 'thank', 'শুকরিয়া'])) return Talk.thanks;
+  if (w.length <= 4 && _hasPhrase(text, ['বিদায়', 'আল্লাহ হাফেজ', 'খোদা হাফেজ', 'bye', 'পরে কথা হবে', 'শুভ রাত্রি'])) return Talk.bye;
+  if (w.length <= 4 && _hasPhrase(text, ['ভালো আছি', 'ভাল আছি', 'আমি ভালো', 'ঠিক আছি', 'আলহামদুলিল্লাহ'])) return Talk.imFine;
+  if (w.length <= 3 && _hasPhrase(text, ['সালাম', 'আসসালামু', 'আস্সালামু'])) return Talk.salam;
+  if (w.length <= 3 && _hasPhrase(text, ['শুভ সকাল', 'শুভ সন্ধ্যা', 'শুভ দুপুর', 'শুভ বিকেল', 'গুড মর্নিং', 'good morning'])) return Talk.greeting;
+  final greet = {for (final g in _greetings) fold(g)};
+  if (w.isNotEmpty && w.every((x) => greet.contains(x) || x == 'ডিজিটাল' || x == 'ব্রেইন' || x == 'brain' || x == 'digital')) {
+    return Talk.greeting;
+  }
+  return null;
+}
+
+/// Greeting words that can be dropped from the start of a sentence. Not
+/// "শুভ" (a common name) — "শুভ সকাল" is recognised as a phrase instead.
+const _greetings = [
+  'হ্যালো', 'হেলো', 'হাই', 'hello', 'hi', 'hey', 'নমস্কার', 'আসসালামু', 'আলাইকুম', 'আসসালামুয়ালাইকুম', 'আস্সালামু', 'সালাম',
+  'শোনো', 'শুনুন', 'শোন', 'এই',
+];
+
+/// Removes greeting words at the start: "হ্যালো সজীবকে…" → "সজীবকে…".
+String stripGreeting(String text, {bool keepCase = false}) {
+  final greet = {for (final g in _greetings) fold(g)};
+  final parts = text.split(RegExp(r'\s+'));
+  var i = 0;
+  while (i < parts.length && greet.contains(normalize(parts[i]))) {
+    i++;
+  }
+  if (i == 0) return text;
+  return parts.sublist(i).join(' ').trim();
 }

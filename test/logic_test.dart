@@ -7,6 +7,7 @@ import 'package:digital_brain/logic/parser.dart';
 import 'package:digital_brain/logic/password.dart';
 import 'package:digital_brain/logic/phrases.dart';
 import 'package:digital_brain/logic/search.dart';
+import 'package:digital_brain/logic/talk.dart';
 import 'package:digital_brain/models/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -207,9 +208,8 @@ void main() {
     });
 
     test('sentences from the idea', () {
-      expect(confirmQuestion(LedgerKind.lent, 'সজীব', 500), 'আপনি সজীবকে ৫০০ টাকা ধার দিয়েছেন। সেভ করব?');
-      expect(savedSentence(LedgerKind.received, 'সজীব', 300, 200),
-          'সজীব আপনাকে ৩০০ টাকা ফেরত দিয়েছেন। এখন সজীবের কাছে আপনার ২০০ টাকা পাওনা।');
+      expect(confirmQuestion(LedgerKind.lent, 'সজীব', 500), 'আচ্ছা, সজীবকে ৫০০ টাকা ধার দিলেন, তাই তো? লিখে রাখি?');
+      expect(savedSentence(LedgerKind.received, 'সজীব', 300, 200), 'ঠিক আছে, লিখে রাখলাম। এখন সজীবের কাছে আপনার ২০০ টাকা পাওনা আছে।');
       expect(balanceSentence('রহিম', -1000), 'এখন রহিমকে আপনার ১,০০০ টাকা দিতে হবে।');
     });
   });
@@ -337,6 +337,60 @@ void main() {
       expect(searchVault(d, q2.terms).first.name, 'ABC ওয়েবসাইট');
       final q3 = Parser(ledger: const []).parse('আমার ফেসবুক পাসওয়াড টা বলো');
       expect(q3, isA<VaultQuery>());
+    });
+  });
+
+  group('Revision 2: everyday Bangladeshi speech and conversation', () {
+    test('colloquial and regional money sentences', () {
+      final a = Parser(ledger: const []).parse('সজীব আমারে ৩০০ ট্যাকা ফেরত দিসে') as LedgerAdd;
+      expect(a.person, 'সজীব');
+      expect(a.amount, 300);
+      expect(a.kind, LedgerKind.received);
+      final b = Parser(ledger: const []).parse('রহিমের থেইকা ১০০০ টেকা হাওলাত আনছি') as LedgerAdd;
+      expect(b.person, 'রহিম');
+      expect(b.kind, LedgerKind.borrowed);
+      final c = Parser(ledger: const []).parse('ইসমাইলের কাছে মুই ৫ হাজার টেকা পামু') as LedgerSet;
+      expect(c.person, 'ইসমাইল');
+      expect(c.balance, 5000);
+      final d = Parser(ledger: const []).parse('সজীবরে ৫০০ টাকা দিছি') as LedgerAdd;
+      expect(d.person, 'সজীব');
+      expect(d.kind, LedgerKind.lent);
+      expect(normalize('কাজ করে দিলাম'), 'কাজ করে দিলাম');
+    });
+
+    test('colloquial yes / no', () {
+      expect(yesNo('হ'), isTrue);
+      expect(yesNo('হ, রাইখা দাও'), isTrue);
+      expect(yesNo('আইচ্ছা'), isTrue);
+      expect(yesNo('থাউক'), isFalse);
+      expect(yesNo('বাদ দেন'), isFalse);
+    });
+
+    test('conversation is not a search', () {
+      Talk? k(String s) => (Parser(ledger: const []).parse(s) as SmallTalk).kind;
+      expect(k('তুমি কেমন আছো?'), Talk.howAreYou);
+      expect(k('কেমুন আছেন'), Talk.howAreYou);
+      expect(k('আসসালামু আলাইকুম'), Talk.salam);
+      expect(k('ধন্যবাদ'), Talk.thanks);
+      expect(k('আজ কত তারিখ?'), Talk.date);
+      expect(k('এখন কয়টা বাজে'), Talk.time);
+      expect(k('তুমি কী কী করতে পারো?'), Talk.whatCanYouDo);
+      expect(k('তুমি কে'), Talk.whoAreYou);
+      expect(k('হ্যালো'), Talk.greeting);
+      expect(talkReply(Talk.date, DateTime(2026, 10, 9)), 'আজ শুক্রবার, ৯ অক্টোবর।');
+    });
+
+    test('a greeting before a request is dropped, a name is not', () {
+      final c = Parser(ledger: const []).parse('হ্যালো, সজীবকে ৫০০ টাকা দিলাম') as LedgerAdd;
+      expect(c.person, 'সজীব');
+      expect(c.transcript, 'সজীবকে ৫০০ টাকা দিলাম');
+      final d = Parser(ledger: const []).parse('শুভ আমাকে ৩০০ টাকা ফেরত দিসে') as LedgerAdd;
+      expect(d.person, 'শুভ');
+    });
+
+    test('phone numbers are read digit by digit', () {
+      expect(speakableNumbers('করিমের নম্বর ০১৭১১২২৩৩৪৪।'), 'করিমের নম্বর ০ ১ ৭ ১ ১ ২ ২ ৩ ৩ ৪ ৪।');
+      expect(speakableNumbers('কোড ৪৫৬৭'), 'কোড ৪৫৬৭');
     });
   });
 }

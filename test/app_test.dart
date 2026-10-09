@@ -105,14 +105,14 @@ void main() {
     rig.voice.say('আমি সজীবকে ৫০০ টাকা দিলাম');
     await settle(t);
     expect(find.text('ঠিক বুঝেছি তো?'), findsOneWidget);
-    expect(rig.voice.spoken.last, 'আপনি সজীবকে ৫০০ টাকা ধার দিয়েছেন। সেভ করব?');
+    expect(rig.voice.spoken.last, 'আচ্ছা, সজীবকে ৫০০ টাকা ধার দিলেন, তাই তো? লিখে রাখি?');
 
     // Answer by voice.
     rig.voice.say('হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.ledger.single.amount, 500);
     expect(rig.brain.data.ledger.single.kind, LedgerKind.lent);
-    expect(rig.voice.spoken.last, contains('এখন সজীবের কাছে আপনার ৫০০ টাকা পাওনা।'));
+    expect(rig.voice.spoken.last, contains('এখন সজীবের কাছে আপনার ৫০০ টাকা পাওনা আছে।'));
     expect(find.text('লেনদেনের ইতিহাস'), findsOneWidget);
   });
 
@@ -145,7 +145,7 @@ void main() {
     rig.voice.say('সজীবের কাছে আমার কত টাকা পাওনা?');
     await settle(t);
     expect(find.text('প্রশ্ন ও উত্তর'), findsOneWidget);
-    expect(rig.voice.spoken.last, startsWith('সজীবের কাছে আপনার ২০০ টাকা পাওনা।'));
+    expect(rig.voice.spoken.last, startsWith('সজীবের কাছে আপনার ২০০ টাকা পাওনা আছে।'));
   });
 
   testWidgets('save a password, open it, reveal it', (t) async {
@@ -191,7 +191,7 @@ void main() {
     await settle(t);
     rig.voice.say('ছাদের দরজার কোড ৪৫৬৭');
     await settle(t);
-    expect(find.textContaining('নতুন বিভাগ খুলে রাখব'), findsOneWidget);
+    expect(find.textContaining('নতুন বিভাগ খুলে রেখে দিই'), findsOneWidget);
     rig.voice.say('জি রাখো');
     await settle(t);
     expect(rig.brain.data.notes.single.category, 'ছাদ');
@@ -204,7 +204,7 @@ void main() {
     rig.voice.say('ইসমাইলের কাছে আমি ৫ হাজার টাকা পাই');
     await settle(t);
     expect(find.text('নতুন হিসাব যোগ করব?'), findsOneWidget);
-    expect(rig.voice.spoken.last, contains('ইসমাইল নামে নতুন হিসাব খুলে রাখব'));
+    expect(rig.voice.spoken.last, contains('ইসমাইল নামে তো কারও হিসাব নেই'));
     expect(rig.brain.data.ledger, isEmpty);
     rig.voice.say('হ্যাঁ');
     await settle(t);
@@ -223,5 +223,25 @@ void main() {
     await settle(t);
     expect(find.text('ABC ওয়েবসাইট'), findsOneWidget);
     expect(rig.voice.spoken.last, contains('তথ্য পেয়েছি'));
+  });
+
+  testWidgets('"তুমি কেমন আছো?" gets a friendly reply, not "no data"', (t) async {
+    final rig = await start(t);
+    await t.tap(find.text('যেকোনো কিছু জিজ্ঞেস করুন'));
+    await settle(t);
+    rig.voice.say('তুমি কেমন আছো?');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('ভালো আছি'));
+    expect(find.textContaining('কিছু লেখা নেই'), findsNothing);
+  });
+
+  testWidgets('asking for a remembered fact says the fact itself', (t) async {
+    final rig = await start(t,
+        data: AppData(notes: [Note(title: 'ছাদের দরজার কোড ৪৫৬৭', body: 'ছাদের দরজার কোড ৪৫৬৭', category: 'ছাদ')]));
+    await t.tap(find.text('যেকোনো কিছু জিজ্ঞেস করুন'));
+    await settle(t);
+    rig.voice.say('ছাদের দরজার কোড কত?');
+    await settle(t);
+    expect(rig.voice.spoken.last, 'ছাদের দরজার কোড ৪৫৬৭।');
   });
 }

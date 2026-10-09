@@ -6,6 +6,7 @@ import '../logic/ledger.dart';
 import '../logic/parser.dart';
 import '../logic/phrases.dart';
 import '../logic/search.dart';
+import '../logic/talk.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/pin.dart';
@@ -28,7 +29,10 @@ class AnswerScreen extends StatefulWidget {
 }
 
 class _Answer {
-  _Answer(this.text, {this.items = const [], this.secure = false, this.actions = const []});
+  _Answer(this.text, {this.items = const [], this.secure = false, this.actions = const [], String? say}) : say = say ?? speakableNumbers(text);
+
+  /// What is spoken (phone numbers read digit by digit).
+  final String say;
 
   /// Shown and spoken.
   final String text;
@@ -60,7 +64,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
     _q = SpokenQuestion(voice: BrainScope.read(context).services.voice, onAnswer: _onAnswer);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.command is NoteAdd) {
-        _q.ask(_answer.text);
+        _q.ask(_answer.say);
       } else {
         _speak();
       }
@@ -73,7 +77,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
     super.dispose();
   }
 
-  void _speak() => BrainScope.read(context).services.voice.speak(_answer.text);
+  void _speak() => BrainScope.read(context).services.voice.speak(_answer.say);
 
   void _onAnswer(String heard) {
     final cmd = widget.command;
@@ -139,14 +143,14 @@ class _AnswerScreenState extends State<AnswerScreen> {
           // Nothing matched by name: show what is there, so the user can pick.
           final all = [...d.vault]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
           final intro = cmd.terms.isEmpty && !cmd.wifiOnly
-              ? 'আপনার রাখা লগইনগুলো এখানে। যেটা দরকার সেটা খুলুন — খুলতে আঙুলের ছাপ বা PIN লাগবে।'
-              : 'নাম দিয়ে ঠিক মেলেনি। আপনার রাখা লগইনগুলো থেকে বেছে নিন — খুলতে আঙুলের ছাপ বা PIN লাগবে।';
+              ? 'এই যে আপনার রাখা লগইনগুলো। কোনটা লাগবে ছুঁয়ে খুলুন — আঙুলের ছাপ বা PIN লাগবে।'
+              : 'নাম দিয়ে ঠিক মেলাতে পারিনি। আপনার রাখা লগইনগুলো নিচে আছে, কোনটা লাগবে দেখে নিন।';
           found = all;
           return _Answer(intro, secure: true, items: [for (final v in found) _vaultRow(v)]);
         }
         if (found.isEmpty) {
           return _Answer(
-            cmd.wifiOnly ? 'কোনো Wi-Fi-এর তথ্য রাখা নেই।' : 'এমন কোনো লগইন তথ্য পাইনি।',
+            cmd.wifiOnly ? 'Wi-Fi-এর কোনো তথ্য এখনো রাখা হয়নি। চাইলে এখনই রেখে দিতে পারেন।' : 'এখনো কোনো পাসওয়ার্ড রাখা হয়নি। চাইলে এখনই রেখে দিতে পারেন।',
             actions: [
               PrimaryButton(
                 label: 'নতুন পাসওয়ার্ড যোগ করুন',
@@ -158,13 +162,13 @@ class _AnswerScreenState extends State<AnswerScreen> {
         }
         final first = found.first;
         final text = found.length == 1
-            ? '${possessive(first.name)} তথ্য পেয়েছি। এটা সুরক্ষিত — আঙুলের ছাপ দিয়ে খুলুন, তারপর স্ক্রিনে দেখুন।'
-            : '${bnDigits(found.length)}টি মিলেছে। যেটা দরকার সেটা খুলুন — খুলতে আঙুলের ছাপ বা PIN লাগবে।';
+            ? '${possessive(first.name)} তথ্য পেয়েছি! তবে পাসওয়ার্ড গোপন জিনিস, তাই জোরে বলব না। আঙুলের ছাপ দিয়ে খুলুন, স্ক্রিনে দেখাব।'
+            : '${bnDigits(found.length)}টা মিলেছে। কোনটা লাগবে ছুঁয়ে খুলুন — আঙুলের ছাপ বা PIN লাগবে।';
         return _Answer(text, secure: true, items: [for (final v in found) _vaultRow(v)]);
       case ReminderQuery():
         final found = searchReminders(d, cmd.terms);
         if (found.isEmpty) {
-          return _Answer('এমন কোনো তারিখ রাখা নেই। নতুন রিমাইন্ডার যোগ করবেন?', actions: [
+          return _Answer('এমন কোনো তারিখ তো লেখা নেই। নতুন করে মনে করিয়ে দেওয়ার ব্যবস্থা করব?', actions: [
             PrimaryButton(
               label: 'নতুন রিমাইন্ডার',
               icon: Icons.add_rounded,
@@ -175,8 +179,8 @@ class _AnswerScreenState extends State<AnswerScreen> {
         final r = found.first;
         final day = r.nextDate(now);
         final left = dayOnly(day).difference(dayOnly(now)).inDays;
-        final when = left == 0 ? 'আজই' : (left > 0 ? 'আর ${bnDigits(left)} দিন বাকি' : '${bnDigits(-left)} দিন আগে পার হয়েছে');
-        return _Answer('${r.title}: ${weekdayName(day)}, ${fullDate(day)}। $when।', items: [
+        final when = left == 0 ? 'মানে আজকেই' : (left == 1 ? 'মানে কালকেই' : (left > 0 ? 'আর ${bnDigits(left)} দিন আছে' : '${bnDigits(-left)} দিন আগে চলে গেছে'));
+        return _Answer('${r.title} ${weekdayName(day)}, ${bnDigits(day.day)} ${bnMonths[day.month - 1]}। $when।', items: [
           for (final x in found)
             ListRow(
               leading: DateBlock(top: bnDigits(x.nextDate(now).day), bottom: bnMonthsShort[x.nextDate(now).month - 1]),
@@ -188,12 +192,12 @@ class _AnswerScreenState extends State<AnswerScreen> {
       case NoteAdd():
         final cat = _category ?? const CategoryGuess(defaultNoteCategory, isNew: false);
         final question = _noteSaved
-            ? '‘${cat.name}’ বিভাগে রাখা হয়েছে।'
+            ? 'ঠিক আছে, ‘${cat.name}’ বিভাগে রেখে দিলাম।'
             : cmd.fromStatement
                 ? (cat.isNew
-                    ? 'এটা আগের কোনো তথ্যের সাথে মেলেনি। ‘${cat.name}’ নামে নতুন বিভাগ খুলে রাখব?'
-                    : 'এটা ‘${cat.name}’ বিভাগে রাখব?')
-                : (cat.isNew ? '‘${cat.name}’ নামে নতুন বিভাগে নোট হিসেবে রাখব?' : '‘${cat.name}’ বিভাগে নোট হিসেবে রাখব?');
+                    ? 'এটা আগের কোনো কিছুর সাথে মেলে না। ‘${cat.name}’ নামে নতুন বিভাগ খুলে রেখে দিই?'
+                    : 'এটা ‘${cat.name}’ বিভাগে রেখে দিই?')
+                : (cat.isNew ? '‘${cat.name}’ নামে নতুন বিভাগ খুলে লিখে রাখি?' : '‘${cat.name}’ বিভাগে লিখে রাখি?');
         return _Answer(question, items: [
           Padding(padding: const EdgeInsets.fromLTRB(4, 12, 4, 8), child: Text(cmd.text, style: body(17, height: 1.5))),
           Padding(
@@ -220,16 +224,44 @@ class _AnswerScreenState extends State<AnswerScreen> {
       case SearchQuery():
         final hits = searchAll(d, cmd.terms);
         if (hits.isEmpty) {
-          return _Answer('এ নিয়ে কিছু রাখা নেই। নতুন তথ্য হিসেবে যোগ করতে পারেন।', actions: [
+          return _Answer('এ নিয়ে আমার কাছে কিছু লেখা নেই। চাইলে এখনই রেখে দিতে পারেন।', actions: [
             PrimaryButton(label: 'নতুন তথ্য যোগ করুন', icon: Icons.add_rounded, onPressed: () => _push(const NewItemScreen())),
           ]);
         }
-        return _Answer('${bnDigits(hits.length)}টি জিনিস পেয়েছি।', secure: hits.any((h) => h is VaultHit), items: [for (final h in hits.take(12)) _hitRow(h, now)]);
+        // Say the best match itself, not just "found N things".
+        final best = hits.first;
+        final tied = hits.where((h) => h.score == best.score).length;
+        final lead = tied > 1 ? 'কয়েকটা মিলেছে। সবচেয়ে কাছেরটা হলো — ' : '';
+        return _Answer('$lead${_hitAnswer(d, best, now)}', secure: best is VaultHit, items: [for (final h in hits.take(12)) _hitRow(h, now)]);
+      case SmallTalk():
+        return _Answer(talkReply(cmd.kind, now), actions: [
+          if (cmd.kind == Talk.whatCanYouDo || cmd.kind == Talk.greeting || cmd.kind == Talk.whoAreYou)
+            PrimaryButton(
+              label: 'বলে শুরু করুন',
+              icon: Icons.mic_none_rounded,
+              onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const VoiceScreen())),
+            ),
+        ]);
       case LedgerAdd():
       case LedgerSet():
       case NotUnderstood():
-        return _Answer('ঠিক বুঝতে পারিনি।');
+        return _Answer('দুঃখিত, ঠিক বুঝতে পারিনি। একটু অন্যভাবে আরেকবার বলবেন?');
     }
+  }
+
+  /// One found thing, as a spoken answer.
+  String _hitAnswer(AppData d, Hit h, DateTime now) {
+    String end(String t) => RegExp(r'[।?!.]$').hasMatch(t.trim()) ? t.trim() : '${t.trim()}।';
+    return switch (h) {
+      NoteHit(:final note) => end(note.body.trim().isEmpty ? note.title : note.body),
+      ContactHit(:final contact) => contact.phone.isEmpty
+          ? end('${contact.name}${contact.note.isEmpty ? '' : ' — ${contact.note}'}')
+          : end('${possessive(contact.name)} নম্বর ${bnDigits(contact.phone)}'),
+      ReminderHit(:final reminder) => end(
+          '${reminder.title} ${weekdayName(reminder.nextDate(now))}, ${bnDigits(reminder.nextDate(now).day)} ${bnMonths[reminder.nextDate(now).month - 1]}'),
+      PersonHit(:final person) => end(owesText(person, balanceWith(d.ledger, person))),
+      VaultHit(:final item) => '${possessive(item.name)} তথ্য পেয়েছি! তবে এটা গোপন জিনিস, তাই জোরে বলব না। আঙুলের ছাপ দিয়ে খুলুন, স্ক্রিনে দেখাব।',
+    };
   }
 
   Widget _vaultRow(VaultItem v) => ListRow(
@@ -290,31 +322,41 @@ class _AnswerScreenState extends State<AnswerScreen> {
     switch (q.ask) {
       case LedgerAsk.person:
         final p = balanceOf(d.ledger, q.person!);
-        if (p == null) return _Answer('${possessive(q.person!)} সাথে কোনো হিসাব নেই।');
+        if (p == null) return _Answer('${possessive(q.person!)} সাথে তো কোনো হিসাব লেখা নেই।');
         final hist = runningFor(d.ledger, p.name);
         final last = hist.isEmpty ? null : hist.last.$1;
-        final lastText = last == null ? '' : ' শেষ লেনদেন ${shortDate(last.date)}: ${last.kind.label} ${taka(last.amount)}।';
-        return _Answer('${balanceSentence(p.name, p.balance).replaceFirst('এখন ', '')}$lastText', items: [row(p, '${bnDigits(p.count)}টি লেনদেন')]);
+        final lastText = last == null ? '' : ' শেষ লেনদেন ছিল ${bnDigits(last.date.day)} ${bnMonths[last.date.month - 1]}।';
+        return _Answer('${owesText(p.name, p.balance)}।$lastText', items: [row(p, '${bnDigits(p.count)}টি লেনদেন')]);
       case LedgerAsk.receivable:
         final owe = all.where((p) => p.balance > 0).toList();
-        if (owe.isEmpty) return _Answer('এখন কারো কাছে আপনার কোনো পাওনা নেই।');
+        if (owe.isEmpty) return _Answer('এখন কারও কাছে আপনার কিছু পাওনা নেই।');
         final sum = owe.fold<int>(0, (s, p) => s + p.balance);
-        return _Answer('আপনি ${bnDigits(owe.length)} জনের কাছে মোট ${bnNumber(sum)} টাকা পাবেন।', items: [
+        final who = _nameList([for (final p in owe) '${possessive(p.name)} কাছে ${bnNumber(p.balance)}']);
+        return _Answer('সব মিলিয়ে আপনি ${bnNumber(sum)} টাকা পাবেন — $who।', items: [
           for (final p in owe) row(p, p.last == null ? '' : 'শেষ লেনদেন ${shortDate(p.last!)}'),
         ]);
       case LedgerAsk.payable:
         final iOwe = all.where((p) => p.balance < 0).toList();
-        if (iOwe.isEmpty) return _Answer('এখন কাউকে আপনার কিছু দিতে হবে না।');
+        if (iOwe.isEmpty) return _Answer('কাউকে কিছু দিতে হবে না, সব শোধ!');
         final sum = iOwe.fold<int>(0, (s, p) => s - p.balance);
-        return _Answer('আপনাকে ${bnDigits(iOwe.length)} জনকে মোট ${bnNumber(sum)} টাকা দিতে হবে।', items: [
+        final who = _nameList([for (final p in iOwe) '${toPerson(p.name)} ${bnNumber(-p.balance)}']);
+        return _Answer('সব মিলিয়ে আপনাকে ${bnNumber(sum)} টাকা দিতে হবে — $who।', items: [
           for (final p in iOwe) row(p, p.last == null ? '' : 'শেষ লেনদেন ${shortDate(p.last!)}'),
         ]);
       case LedgerAsk.all:
         final t = totals(d.ledger);
-        return _Answer('আপনি মোট ${bnNumber(t.receivable)} টাকা পাবেন, আর ${bnNumber(t.payable)} টাকা দেবেন।', items: [
+        return _Answer('আপনি পাবেন মোট ${bnNumber(t.receivable)} টাকা, আর আপনাকে দিতে হবে ${bnNumber(t.payable)} টাকা।', items: [
           for (final p in all.where((p) => p.balance != 0)) row(p, p.balance > 0 ? 'পাবেন' : 'দেবেন'),
         ]);
     }
+  }
+
+  /// "ক, খ, আর গ" (at most four, then "আরও N জন").
+  String _nameList(List<String> parts) {
+    final shown = parts.take(4).toList();
+    final more = parts.length - shown.length;
+    final head = shown.length > 1 ? '${shown.sublist(0, shown.length - 1).join(', ')}, আর ${shown.last}' : shown.join();
+    return more > 0 ? '$head, এবং আরও ${bnDigits(more)} জন' : head;
   }
 
   Future<void> _saveNote(NoteAdd n) async {
@@ -324,10 +366,10 @@ class _AnswerScreenState extends State<AnswerScreen> {
     final cat = _category?.name ?? defaultNoteCategory;
     _noteSaved = true;
     await brain.saveNote(Note(title: noteTitleFrom(n.text), body: n.text, category: cat));
-    brain.services.voice.speak('‘$cat’ বিভাগে রাখা হয়েছে।');
+    brain.services.voice.speak('ঠিক আছে, ‘$cat’ বিভাগে রেখে দিলাম।');
     if (!mounted) return;
     setState(() => _answer = _build(brain));
-    toast(context, '‘$cat’ বিভাগে রাখা হয়েছে');
+    toast(context, '‘$cat’ বিভাগে রেখে দিলাম');
   }
 
   @override
@@ -343,7 +385,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                 children: [
-                  Bubble(label: isNote ? 'আপনি বললেন' : 'আপনি জিজ্ঞেস করলেন', text: cmd.transcript.trim()),
+                  Bubble(label: isNote || cmd is SmallTalk ? 'আপনি বললেন' : 'আপনি জিজ্ঞেস করলেন', text: cmd.transcript.trim()),
                   const SizedBox(height: 16),
                   Panel(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),

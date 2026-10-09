@@ -51,9 +51,20 @@ class Brain extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setVoice(VoiceOption? v) async {
+    await services.voice.useVoice(v);
+    if (v == null) {
+      await services.lock.keys.delete('tts_voice');
+    } else {
+      await services.lock.keys.write('tts_voice', v.name);
+    }
+    notifyListeners();
+  }
+
   Future<void> load() async {
     try {
       services.voice.muted = (await services.lock.keys.read('speak_on')) == 'false';
+      services.voice.preferredVoice = await services.lock.keys.read('tts_voice');
     } catch (_) {}
     try {
       data = await services.store.load();
