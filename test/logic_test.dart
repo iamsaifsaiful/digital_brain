@@ -1,5 +1,6 @@
 import 'package:digital_brain/logic/ai_map.dart';
 import 'package:digital_brain/logic/bn.dart';
+import 'package:digital_brain/logic/cash.dart';
 import 'package:digital_brain/logic/categories.dart';
 import 'package:digital_brain/logic/csv.dart';
 import 'package:digital_brain/logic/ledger.dart';
@@ -13,6 +14,7 @@ import 'package:digital_brain/logic/search.dart';
 import 'package:digital_brain/logic/talk.dart';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/services/launcher.dart';
+import 'package:digital_brain/services/notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 LedgerEntry e(String p, LedgerKind k, int a, DateTime d) => LedgerEntry(person: p, kind: k, amount: a, date: d);
@@ -400,12 +402,16 @@ void main() {
 
   group('Revision 2: every money sentence goes to লেনদেন', () {
     test('money without a person still goes to the ledger, never a note', () {
-      final a = Parser(ledger: const []).parse('বিদ্যুৎ বিল ১২০০ টাকা দিলাম') as LedgerAdd;
+      final a = Parser(ledger: const []).parse('১২০০ টাকা ধার দিলাম') as LedgerAdd;
       expect(a.person, '');
       expect(a.amount, 1200);
       expect(a.needsChoice, isTrue);
       expect(a.suggested, LedgerKind.lent);
-      expect(Parser(ledger: const []).parse('আজ বাজারে ৫০০ টাকা খরচ হলো'), isA<LedgerAdd>());
+      // Own spending stays in লেনদেন too, in আয়-ব্যয়.
+      final bill = Parser(ledger: const []).parse('বিদ্যুৎ বিল ১২০০ টাকা দিলাম') as CashAdd;
+      expect(bill.kind, CashKind.expense);
+      expect(bill.category, 'বিল');
+      expect((Parser(ledger: const []).parse('আজ বাজারে ৫০০ টাকা খরচ হলো') as CashAdd).category, 'বাজার');
       expect(Parser(ledger: const []).parse('রহিমকে কিছু টাকা ধার দিলাম'), isA<LedgerAdd>());
     });
 
@@ -639,6 +645,89 @@ void main() {
       final back = AppData.fromJson(d.toJson());
       expect(back.tasks.single.title, 'দুধ কেনা');
       expect(back.tasks.single.due, DateTime(2026, 10, 9));
+    });
+  });
+
+  group('revision 3: money in parts, repeating reminders', () {
+    final now = DateTime(2026, 10, 9, 15, 53);
+    Command parse(String s) => Parser(ledger: const [], now: now).parse(s);
+
+    test('own income and spending', () {
+      final pay = parse('বেতন পেলাম ৩০ হাজার টাকা') as CashAdd;
+      expect(pay.kind, CashKind.income);
+      expect(pay.amount, 30000);
+      expect(pay.category, 'বেতন');
+      expect(parse('এই মাসে কত খরচ হলো?'), isA<CashQuery>());
+      expect(parse('রহিমকে ৫০০ টাকা দিলাম'), isA<LedgerAdd>());
+    });
+
+    test('project money', () {
+      final c = parse('রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো') as CashAdd;
+      expect(c.project, 'রহিম ভবন');
+      expect(c.kind, CashKind.income);
+      expect(c.amount, 50000);
+      final out = parse('রহিম ভবন প্রজেক্টে রড কিনলাম ২০ হাজার টাকা') as CashAdd;
+      expect(out.kind, CashKind.expense);
+      final q = parse('রহিম ভবন প্রজেক্টে কত টাকা আছে?') as CashQuery;
+      expect(q.project, 'রহিম ভবন');
+    });
+
+    test('sums by month and project; loans split', () {
+      final d = AppData(
+        cash: [
+          CashEntry(kind: CashKind.income, amount: 30000, category: 'বেতন', date: DateTime(2026, 10, 1)),
+          CashEntry(kind: CashKind.expense, amount: 500, category: 'বাজার', date: DateTime(2026, 10, 5)),
+          CashEntry(kind: CashKind.expense, amount: 1200, category: 'বিল', date: DateTime(2026, 10, 6)),
+          CashEntry(kind: CashKind.expense, amount: 999, category: 'বাজার', date: DateTime(2026, 9, 6)),
+          CashEntry(kind: CashKind.income, amount: 50000, date: DateTime(2026, 10, 2), projectId: 'p1'),
+          CashEntry(kind: CashKind.expense, amount: 20000, date: DateTime(2026, 10, 3), projectId: 'p1'),
+        ],
+        projects: [Project(id: 'p1', name: 'রহিম ভবন')],
+        ledger: [
+          e('সজীব', LedgerKind.lent, 1000, now),
+          e('সজীব', LedgerKind.received, 400, now),
+          e('রহিম', LedgerKind.borrowed, 2000, now),
+          e('রহিম', LedgerKind.repaid, 500, now),
+        ],
+      );
+      final m = monthSums(d.cash, now);
+      expect(m.income, 30000);
+      expect(m.expense, 1700);
+      expect(m.balance, 28300);
+      expect(m.topExpenses.first.key, 'বিল');
+      expect(projectSums(d.cash, 'p1').balance, 30000);
+      expect(openProjectsBalance(d), 30000);
+      final l = loanSummary(d.ledger);
+      expect([l.lent, l.received, l.receivable], [1000, 400, 600]);
+      expect([l.borrowed, l.repaid, l.payable], [2000, 500, 1500]);
+      final back = AppData.fromJson(d.toJson());
+      expect(back.cash, hasLength(6));
+      expect(back.projects.single.name, 'রহিম ভবন');
+    });
+
+    test('every 5/10/30 minutes, hourly, daily', () {
+      final r = parse('প্রতি ৩০ মিনিটে পানি খাওয়ার কথা মনে করিয়ে দিও') as ReminderAdd;
+      expect(r.repeat, Repeat.every30);
+      expect(r.at, DateTime(2026, 10, 9, 16, 23));
+      expect(fold(r.title), fold('পানি খাওয়ার কথা'));
+      expect((parse('১০ মিনিট পর পর চুলার কথা মনে করিয়ে দিও') as ReminderAdd).repeat, Repeat.every10);
+      expect((parse('ঘণ্টায় ঘণ্টায় হাঁটার কথা মনে করিয়ে দিও') as ReminderAdd).repeat, Repeat.hourly);
+      final daily = parse('প্রতিদিন রাত ১০টায় ওষুধ খাওয়ার কথা মনে করিয়ে দিও') as ReminderAdd;
+      expect(daily.repeat, Repeat.daily);
+      expect(daily.at, DateTime(2026, 10, 9, 22, 0));
+      expect(Repeat.everyMinutes(15), Repeat.every10);
+      expect(Repeat.everyMinutes(45), Repeat.hourly);
+    });
+
+    test('a short repeat rings on its own times', () {
+      final r = Reminder(title: 'পানি', date: DateTime(2026, 10, 9), hour: 15, minute: 0, daysBefore: 0, repeat: Repeat.every30);
+      expect(r.notifyAt(now), DateTime(2026, 10, 9, 16, 0));
+      final n = plannedNotices([r], now).single;
+      expect(n.every, const Duration(minutes: 30));
+      expect(n.at, DateTime(2026, 10, 9, 15, 0));
+      final d = Reminder(title: 'ওষুধ', date: DateTime(2026, 10, 1), hour: 22, minute: 0, daysBefore: 0, repeat: Repeat.daily);
+      expect(d.notifyAt(now), DateTime(2026, 10, 9, 22, 0));
+      expect(plannedNotices([d], now).single.daily, isTrue);
     });
   });
 }

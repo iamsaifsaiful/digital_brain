@@ -169,12 +169,14 @@ Item actions:
 - task_add: something the user has to do ("কাল ব্যাংকে যেতে হবে", "সাপ্লায়ারকে অর্ডার দিতে হবে", "বাজারের লিস্টে ডিম রাখো"). text: the task, short (for a shopping list start with "বাজার: "). date: YYYY-MM-DD if a day was said.
 - task_done: the user finished a to-do ("ব্যাংকের কাজ হয়ে গেছে"). terms: key words of the task.
 - task_query: asks for the to-do list.
-- reminder_add: remind at a time ("কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও", "৩০ মিনিট পরে চা খাওয়ার কথা বলো", "প্রতি মাসের ৫ তারিখে দোকান ভাড়া"). text: what to remind, short. date: YYYY-MM-DD. time: HH:MM 24-hour (Bangladesh time; "৪টায়" with no সকাল means 16:00). repeat: none, monthly or yearly. Work out relative times from the current time below.
+- reminder_add: remind at a time ("কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও", "৩০ মিনিট পরে চা খাওয়ার কথা বলো", "প্রতি মাসের ৫ তারিখে দোকান ভাড়া"). text: what to remind, short. date: YYYY-MM-DD. time: HH:MM 24-hour (Bangladesh time; "৪টায়" with no সকাল means 16:00). repeat: none, every5/every10/every30/hourly ("প্রতি ৫/১০/৩০ মিনিটে", "ঘণ্টায় ঘণ্টায়" — then date/time is the first ring, default now plus the interval), daily, monthly or yearly. Work out relative times from the current time below.
 - contact_add: a phone number to keep. person, phone (as said, digits).
 - call: call or message someone ("রহিমকে ফোন দাও", "করিমকে মেসেজ দাও যে মাল পাঠিয়েছি", "হোয়াটসঅ্যাপে লিখে দাও…"). person, via (call, sms, whatsapp), text: the message to send, written cleanly in the user's words, phone if a number was said.
 - briefing: "আজ আমার কী কী আছে?", "আজকের প্ল্যান" — today's overview.
+- cash_add: the user's own income or spending that nobody owes back ("বাজারে ৫০০ টাকা খরচ হলো", "বিদ্যুৎ বিল ১২০০ দিলাম", "বেতন পেলাম ৩০ হাজার"), or money in/out of a project ("রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো", "প্রজেক্টে মিস্ত্রির মজুরি ৫০০০"). kind: income or expense. amount. category: a short Bengali খাত (বাজার, খাবার, যাতায়াত, বাসা ভাড়া, বিল, মোবাইল, চিকিৎসা, শিক্ষা, কেনাকাটা, মজুরি, বেতন, বিক্রি…). project: the project name, only for project money.
+- cash_query: asks about own income/spending/savings ("এই মাসে কত খরচ হলো?") or a project's money (project: the name).
 - chat: conversation, greetings, how-are-you, thanks, or a general-knowledge or work question (put the answer in reply). For business questions (pricing, profit margin, VAT basics, how to write a message to a customer…) give short, practical help.
-Every sentence that mentions money owed between the user and a person (customer's বাকি, loans, advances, payments) is ledger_add / ledger_set / ledger_query, never note_add or task_add. A customer taking goods on credit ("করিম ৫০০ টাকার মাল বাকিতে নিল") is lent; a customer paying their বাকি is received; buying from a supplier on credit is borrowed; paying the supplier is repaid.
+Money owed between the user and a person (loans, credit) is ledger_*; the user's own spending/income or project money is cash_add. Every sentence that mentions money owed between the user and a person (customer's বাকি, loans, advances, payments) is ledger_add / ledger_set / ledger_query, never note_add or task_add. A customer taking goods on credit ("করিম ৫০০ টাকার মাল বাকিতে নিল") is lent; a customer paying their বাকি is received; buying from a supplier on credit is borrowed; paying the supplier is repaid.
 
 Names: write the person's name in Bengali script as said, without endings (সজীবকে → সজীব, রহিমের → রহিম). If it matches one of the known people, use that exact spelling. Names in English letters stay in English with a capital letter.
 
@@ -191,14 +193,14 @@ const _item = {
       'type': 'string',
       'enum': [
         'ledger_add', 'ledger_set', 'ledger_query', 'vault_query', 'reminder_query', 'note_add', 'search', 'chat', //
-        'task_add', 'task_done', 'task_query', 'reminder_add', 'contact_add', 'call', 'briefing',
+        'task_add', 'task_done', 'task_query', 'reminder_add', 'contact_add', 'call', 'briefing', 'cash_add', 'cash_query',
       ],
     },
     'person': {'type': 'string', 'description': 'Person name without case endings'},
     'amount': {'type': 'integer', 'description': 'Whole taka, 0 if not said'},
     'kind': {
       'type': 'string',
-      'enum': ['lent', 'borrowed', 'received', 'repaid', 'unclear'],
+      'enum': ['lent', 'borrowed', 'received', 'repaid', 'unclear', 'income', 'expense'],
     },
     'balance': {'type': 'integer', 'description': 'ledger_set: + they owe the user, - the user owes them'},
     'ask': {
@@ -215,13 +217,14 @@ const _item = {
     'time': {'type': 'string', 'description': 'HH:MM, 24-hour'},
     'repeat': {
       'type': 'string',
-      'enum': ['none', 'monthly', 'yearly'],
+      'enum': ['none', 'every5', 'every10', 'every30', 'hourly', 'daily', 'monthly', 'yearly'],
     },
     'via': {
       'type': 'string',
       'enum': ['call', 'sms', 'whatsapp'],
     },
     'phone': {'type': 'string'},
+    'project': {'type': 'string', 'description': 'cash_add/cash_query: project name ("" if a project was meant but not named)'},
     'category': {'type': 'string', 'description': 'note_add: category'},
   },
   'required': ['action'],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../logic/answers.dart';
 import '../logic/bn.dart';
+import '../logic/cash.dart';
 import '../logic/ledger.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
@@ -24,6 +25,7 @@ class HomeScreen extends StatelessWidget {
     final d = brain.data;
     final now = brain.services.now();
     final t = totals(d.ledger);
+    final month = monthSums(d.cash, now);
     final upcoming = [...d.reminders]..sort((a, b) => a.nextDate(now).compareTo(b.nextDate(now)));
     final soon = upcoming.where((r) => !r.nextDate(now).isBefore(dayOnly(now))).take(3).toList();
     final open = openTasksOf(d, now);
@@ -203,29 +205,34 @@ class HomeScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(18),
             onTap: () => ShellTabs.goTo(context, ShellTab.ledger),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('লেনদেন', style: body(13, color: C.onDarkMuted)),
-                        Text.rich(
-                          TextSpan(children: [
-                            const TextSpan(text: 'পাবেন '),
-                            TextSpan(text: taka(t.receivable), style: display(16, color: C.mint)),
-                            const TextSpan(text: ' · দেবেন '),
-                            TextSpan(text: taka(t.payable), style: display(16, color: C.peach)),
-                          ]),
-                          style: body(15, color: Colors.white),
-                        ),
-                      ],
-                    ),
-                  ),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Expanded(child: Text('টাকার হিসাব', style: body(14, weight: FontWeight.w600, color: C.onDarkMuted))),
                   const Icon(Icons.chevron_right_rounded, color: Colors.white),
-                ],
-              ),
+                ]),
+                const SizedBox(height: 8),
+                Wrap(spacing: 0, runSpacing: 10, children: [
+                  for (final m in [
+                    ('মোট পাওনা', t.receivable, C.mint),
+                    ('মোট দেনা', t.payable, C.peach),
+                    ('এই মাসের খরচ', month.expense, C.peach),
+                    (month.balance >= 0 ? 'এই মাসের সঞ্চয়' : 'এই মাসের ঘাটতি', month.balance.abs(), Colors.white),
+                    if (d.projects.any((p) => !p.closed)) ('প্রজেক্টে অবশিষ্ট', openProjectsBalance(d), Colors.white),
+                  ])
+                    FractionallySizedBox(
+                      widthFactor: 0.5,
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(m.$1, style: body(12, color: C.onDarkMuted)),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(taka(m.$2), style: display(18, weight: 700, color: m.$3)),
+                        ),
+                      ]),
+                    ),
+                ]),
+              ]),
             ),
           ),
         ),

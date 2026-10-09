@@ -244,7 +244,7 @@ void main() {
   testWidgets('chat: money without a name asks whom, then the kind, then saves', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('বিদ্যুৎ বিল ১২০০ টাকা দিলাম');
+    rig.voice.say('১২০০ টাকা ধার দিলাম');
     await settle(t);
     expect(rig.voice.spoken.last, contains('কার সাথে লেনদেন হলো'));
     expect(rig.brain.data.notes, isEmpty);
@@ -487,5 +487,60 @@ void main() {
     rig.voice.say('হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.notes.single.category, 'দোকানের মাল');
+  });
+
+  testWidgets('own spending goes to আয়-ব্যয় with its খাত', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    rig.voice.say('বাজারে ৫০০ টাকা খরচ হলো');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('খরচ হিসেবে লিখি'));
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    final c = rig.brain.data.cash.single;
+    expect(c.category, 'বাজার');
+    expect(c.amount, 500);
+    expect(rig.voice.spoken.last, contains('এই মাসে মোট খরচ'));
+    expect(rig.brain.data.ledger, isEmpty);
+  });
+
+  testWidgets('project money: a new project, money in, money out, what is left', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    rig.voice.say('রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('নতুন প্রজেক্ট খুলে'));
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    expect(rig.brain.data.projects.single.name, 'রহিম ভবন');
+    rig.voice.say('রহিম ভবন প্রজেক্টে রড কিনলাম ২০ হাজার টাকা');
+    await settle(t);
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('৩০,০০০'));
+    expect(rig.brain.data.cash.every((e) => e.projectId == rig.brain.data.projects.single.id), isTrue);
+  });
+
+  testWidgets('a reminder every 30 minutes is scheduled as a repeat', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    rig.voice.say('প্রতি ৩০ মিনিটে পানি খাওয়ার কথা মনে করিয়ে দিও');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('প্রথমবার'));
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    expect(rig.brain.data.reminders.single.repeat, Repeat.every30);
+    expect(rig.notifier.scheduled.single.every, const Duration(minutes: 30));
+  });
+
+  testWidgets('লেনদেন tab has ধার-দেনা, আয়-ব্যয় and প্রজেক্ট', (t) async {
+    await start(t, data: AppData(cash: [CashEntry(kind: CashKind.expense, amount: 500, category: 'বাজার', date: DateTime(2026, 10, 5))]));
+    await t.tap(find.text('লেনদেন').last);
+    await settle(t);
+    expect(find.text('ধার দেওয়া'), findsOneWidget);
+    expect(find.text('ঋণ নেওয়া'), findsOneWidget);
+    await t.tap(find.text('আয়-ব্যয়'.replaceAll('য়', 'য়')).first);
+    await settle(t);
+    expect(find.text('বাজার'), findsWidgets);
   });
 }

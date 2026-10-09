@@ -226,6 +226,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
       case AiReply():
         return _Answer(cmd.text);
       case TaskQuery():
+      case CashQuery():
       case Briefing():
         return _Answer(answerText(d, cmd, now) ?? '');
       case LedgerAdd():
@@ -235,6 +236,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
       case ReminderAdd():
       case ContactAdd():
       case CallPerson():
+      case CashAdd():
       case NotUnderstood():
         return _Answer('দুঃখিত, ঠিক বুঝতে পারিনি। একটু অন্যভাবে আরেকবার বলবেন?');
     }

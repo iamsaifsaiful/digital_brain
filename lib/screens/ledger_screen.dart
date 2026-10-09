@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
+import '../logic/cash.dart';
 import '../logic/ledger.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
@@ -8,22 +9,37 @@ import '../ui/widgets.dart';
 import 'answer_screen.dart';
 import 'home_shell.dart';
 import 'ledger_form_screen.dart';
+import 'money_screens.dart';
 import 'person_screen.dart';
 import 'transactions_screen.dart';
 import '../logic/parser.dart';
 
-/// The লেনদেন tab: totals, people and recent transactions.
-class LedgerScreen extends StatelessWidget {
+/// Which part of লেনদেন is open.
+enum MoneyPart { loans, cash, projects }
+
+/// The লেনদেন tab: ধার-দেনা (people), আয়-ব্যয় (monthly) and প্রজেক্ট,
+/// each with its own totals so they never mix.
+class LedgerScreen extends StatefulWidget {
   const LedgerScreen({super.key});
+
+  @override
+  State<LedgerScreen> createState() => _LedgerScreenState();
+}
+
+class _LedgerScreenState extends State<LedgerScreen> {
+  MoneyPart _part = MoneyPart.loans;
 
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final entries = brain.data.ledger;
-    final t = totals(entries);
     final people = balances(entries);
-    final recent = newestFirst(entries).take(4).toList();
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
+    final sub = switch (_part) {
+      MoneyPart.loans => people.isEmpty ? 'এখনো কোনো হিসাব নেই' : '${bnDigits(people.length)} জনের সাথে হিসাব',
+      MoneyPart.cash => 'নিজের মাসিক আয়, খরচ আর সঞ্চয়',
+      MoneyPart.projects => '${bnDigits(brain.data.projects.where((p) => !p.closed).length)}টি চলমান প্রজেক্ট',
+    };
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
@@ -35,30 +51,63 @@ class LedgerScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('লেনদেন', style: display(26, weight: 700)),
-                  Text(people.isEmpty ? 'এখনো কোনো হিসাব নেই' : '${bnDigits(people.length)} জনের সাথে হিসাব', style: body(14, color: C.muted)),
+                  Text(sub, style: body(14, color: C.muted)),
                 ],
               ),
             ),
-            RoundIconButton(icon: Icons.search_rounded, tooltip: 'সব লেনদেন', onPressed: () => push(const TransactionsScreen())),
-            const SizedBox(width: 8),
-            RoundIconButton(icon: Icons.add_rounded, tooltip: 'লিখে যোগ করুন', dark: true, onPressed: () => push(const LedgerFormScreen())),
+            if (_part == MoneyPart.loans) ...[
+              RoundIconButton(icon: Icons.search_rounded, tooltip: 'সব লেনদেন', onPressed: () => push(const TransactionsScreen())),
+              const SizedBox(width: 8),
+              RoundIconButton(icon: Icons.add_rounded, tooltip: 'লিখে যোগ করুন', dark: true, onPressed: () => push(const LedgerFormScreen())),
+            ],
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: SegmentedButton<MoneyPart>(
+            showSelectedIcon: false,
+            segments: [
+              ButtonSegment(value: MoneyPart.loans, label: Text('ধার-দেনা', style: body(13))),
+              ButtonSegment(value: MoneyPart.cash, label: Text('আয়-ব্যয়', style: body(13))),
+              ButtonSegment(value: MoneyPart.projects, label: Text('প্রজেক্ট', style: body(13))),
+            ],
+            selected: {_part},
+            onSelectionChanged: (v) => setState(() => _part = v.first),
+          ),
+        ),
+        const SizedBox(height: 14),
+        ...switch (_part) {
+          MoneyPart.loans => _loans(context, brain, push),
+          MoneyPart.cash => [const CashView()],
+          MoneyPart.projects => [const ProjectsView()],
+        },
+      ],
+    );
+  }
+
+  List<Widget> _loans(BuildContext context, Brain brain, void Function(Widget) push) {
+    final entries = brain.data.ledger;
+    final t = totals(entries);
+    final people = balances(entries);
+    final recent = newestFirst(entries).take(4).toList();
+    final loans = loanSummary(entries);
+    return [
         Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(color: C.ink, borderRadius: BorderRadius.circular(24)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(t.net >= 0 ? 'সব মিলিয়ে আপনি পাবেন' : 'সব মিলিয়ে আপনি দেবেন', style: body(14, color: C.onDarkMuted)),
-              Text(taka(t.net), style: display(44, weight: 700, color: Colors.white, height: 1.1)),
+              _LoanLine(title: 'ধার দেওয়া', a: ('মোট দিয়েছেন', loans.lent), b: ('ফেরত পেয়েছেন', loans.received), c: ('পাওনা আছে', loans.receivable), color: C.mint),
+              const Divider(color: Color(0xFF34443D), height: 24),
+              _LoanLine(title: 'ঋণ নেওয়া', a: ('মোট নিয়েছেন', loans.borrowed), b: ('শোধ করেছেন', loans.repaid), c: ('দেওয়া বাকি', loans.payable), color: C.peach),
               const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(
                     child: _Tile(
-                      label: 'পাওনা',
+                      label: 'পাওনার তালিকা',
                       dot: const Color(0xFF5FD3AE),
                       amount: taka(t.receivable),
                       amountColor: C.mint,
@@ -69,7 +118,7 @@ class LedgerScreen extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: _Tile(
-                      label: 'দেনা',
+                      label: 'দেনার তালিকা',
                       dot: const Color(0xFFF6A06B),
                       amount: taka(t.payable),
                       amountColor: C.peach,
@@ -124,7 +173,7 @@ class LedgerScreen extends StatelessWidget {
             onAction: () => push(const LedgerFormScreen()),
           )
         else ...[
-          SectionTitle('মানুষ'),
+          const SectionTitle('মানুষ'),
           Panel(
             child: Rows(children: [
               for (final p in people)
@@ -158,8 +207,33 @@ class LedgerScreen extends StatelessWidget {
             ]),
           ),
         ],
-      ],
-    );
+    ];
+  }
+}
+
+class _LoanLine extends StatelessWidget {
+  const _LoanLine({required this.title, required this.a, required this.b, required this.c, required this.color});
+  final String title;
+  final (String, int) a, b, c;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget cell((String, int) x, {bool strong = false}) => Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(x.$1, style: body(12, color: C.onDarkMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(taka(x.$2), style: display(strong ? 20 : 16, weight: 700, color: strong ? color : Colors.white)),
+            ),
+          ]),
+        );
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(title, style: body(14, weight: FontWeight.w600, color: color)),
+      const SizedBox(height: 6),
+      Row(children: [cell(a), cell(b), cell(c, strong: true)]),
+    ]);
   }
 }
 

@@ -13,7 +13,7 @@ import '../ui/pin.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 
-const appVersion = '1.6.0';
+const appVersion = '1.7.0';
 
 /// Security, encrypted backup, voice and reports.
 class MoreScreen extends StatefulWidget {
@@ -99,7 +99,7 @@ class _MoreScreenState extends State<MoreScreen> {
     return r;
   }
 
-  Future<void> _backup() async {
+  Future<void> _backup({bool toPhone = true}) async {
     final brain = BrainScope.read(context);
     if (!await verifyUser(context, reason: 'ব্যাকআপ নিতে যাচাই করুন')) return;
     final pass = await _askPassword(create: true);
@@ -108,8 +108,17 @@ class _MoreScreenState extends State<MoreScreen> {
     try {
       final bytes = await Backup.export(brain.data, pass);
       final now = brain.services.now();
-      final name = 'digital-brain-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.dbrain';
-      await brain.services.files.shareFile(bytes, name, 'application/octet-stream', 'My Assistant এনক্রিপ্টেড ব্যাকআপ');
+      final name = 'my-assistant-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.dbrain';
+      if (toPhone) {
+        final saved = await brain.services.files.saveFile(bytes, name);
+        if (!saved) {
+          if (mounted) toast(context, 'সেভ করা হয়নি');
+          return;
+        }
+        if (mounted) toast(context, 'ব্যাকআপ ফোনে সেভ হয়েছে: $name');
+      } else {
+        await brain.services.files.shareFile(bytes, name, 'application/octet-stream', 'My Assistant এনক্রিপ্টেড ব্যাকআপ');
+      }
       await brain.services.lock.keys.write('last_backup', now.toIso8601String());
       _lastBackup = now.toIso8601String();
     } catch (e) {
@@ -134,7 +143,8 @@ class _MoreScreenState extends State<MoreScreen> {
         context,
         title: 'ব্যাকআপ ফিরিয়ে আনবেন?',
         text: 'ব্যাকআপে আছে: ${bnDigits(restored.vault.length)}টি পাসওয়ার্ড, ${bnDigits(restored.contacts.length)} জন যোগাযোগ, '
-            '${bnDigits(restored.ledger.length)}টি লেনদেন, ${bnDigits(restored.notes.length)}টি নোট, ${bnDigits(restored.reminders.length)}টি রিমাইন্ডার।\n\n'
+            '${bnDigits(restored.ledger.length)}টি ধার-দেনা, ${bnDigits(restored.cash.length)}টি আয়-ব্যয়, ${bnDigits(restored.notes.length)}টি নোট, '
+            '${bnDigits(restored.reminders.length)}টি রিমাইন্ডার, ${bnDigits(restored.tasks.length)}টি কাজ।\n\n'
             'এখনকার সব তথ্য এর বদলে যাবে।',
         yes: 'ফিরিয়ে আনুন',
         danger: true,
@@ -419,13 +429,21 @@ class _MoreScreenState extends State<MoreScreen> {
               Text(last == null ? 'এখনো নেওয়া হয়নি' : 'শেষ: ${shortDate(last)}', style: body(13, color: C.muted)),
             ]),
             const SizedBox(height: 6),
-            Text('সব তথ্য একটি ফাইলে, আলাদা পাসওয়ার্ড দিয়ে তালাবদ্ধ। নতুন ফোনে সেই পাসওয়ার্ড দিয়ে ফিরিয়ে আনা যায়।',
-                style: body(14, color: C.muted, height: 1.5)),
+            Text('সব তথ্য একটি ফাইলে, আপনার দেওয়া পাসওয়ার্ড দিয়ে তালাবদ্ধ।', style: body(14, color: C.muted, height: 1.5)),
+            const SizedBox(height: 6),
+            Text(
+              '১. “ফোনে সেভ করুন” চেপে পাসওয়ার্ড দিন, তারপর Download (বা যেকোনো ফোল্ডার) বেছে Save চাপুন।\n'
+              '২. চাইলে “শেয়ার” চেপে Google Drive, WhatsApp বা ইমেইলে নিজের কাছে পাঠিয়ে রাখুন — ফোন হারালেও থাকবে।\n'
+              '৩. নতুন ফোনে অ্যাপ খুলে “ফিরিয়ে আনুন” চাপুন, সেই ফাইলটা বেছে নিন, আর একই পাসওয়ার্ড দিন।',
+              style: body(13, color: C.muted2, height: 1.6),
+            ),
             const SizedBox(height: 12),
+            PrimaryButton(label: 'ফোনে সেভ করুন', icon: Icons.save_alt_rounded, height: 48, onPressed: _busy ? null : () => _backup()),
+            const SizedBox(height: 8),
             Row(children: [
-              Expanded(child: PrimaryButton(label: 'ব্যাকআপ নিন', icon: Icons.download_rounded, height: 48, onPressed: _busy ? null : _backup)),
+              Expanded(child: SecondaryButton(label: 'শেয়ার', icon: Icons.ios_share_rounded, onPressed: _busy ? null : () => _backup(toPhone: false))),
               const SizedBox(width: 8),
-              Expanded(child: SecondaryButton(label: 'ফিরিয়ে আনুন', icon: Icons.upload_rounded, onPressed: _busy ? null : _restore)),
+              Expanded(child: SecondaryButton(label: 'ফিরিয়ে আনুন', icon: Icons.restore_rounded, onPressed: _busy ? null : _restore)),
             ]),
           ]),
         ),
@@ -443,6 +461,8 @@ class _MoreScreenState extends State<MoreScreen> {
               trailing: const Icon(Icons.chevron_right_rounded, color: C.muted),
               onTap: _pickVoice,
             ),
+            const Divider(),
+            switchRow('রিমাইন্ডার না দেখা পর্যন্ত বাজবে', 'অ্যালার্মের মতো, ফোন পকেটে থাকলেও শোনা যায়', brain.alarmInsistent, (v) => brain.setAlarmInsistent(v)),
             const Divider(),
             ListRow(
               padding: const EdgeInsets.symmetric(vertical: 10),

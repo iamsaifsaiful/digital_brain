@@ -1,12 +1,13 @@
 name: digital_brain
 description: My Assistant — আপনার ব্যক্তিগত সহকারী। কাজের তালিকা, রিমাইন্ডার, ফোন-মেসেজ, বাকি ও লেনদেন, নোট আর পাসওয়ার্ড — মুখে বলুন বা লিখুন।
 publish_to: 'none'
-version: 1.6.0+11
+version: 1.7.0+12
 
 environment:
   sdk: '>=3.6.0 <4.0.0'
 
 dependencies:
+  clock: ^1.1.1
   flutter:
     sdk: flutter
   cryptography: ^2.7.0

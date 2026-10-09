@@ -10,6 +10,7 @@ library;
 import '../models/models.dart';
 import 'bn.dart';
 import 'ledger.dart';
+import 'cash.dart';
 import 'when.dart';
 
 sealed class Command {
@@ -118,6 +119,23 @@ class CallPerson extends Command {
   final Via via;
   final String text;
   final String phone;
+}
+
+/// Money in or out that nobody owes: "বাজারে ৫০০ টাকা খরচ হলো",
+/// "বেতন পেলাম ৩০ হাজার", or a project's ("রহিম ভবন প্রজেক্টে ৫০ হাজার
+/// টাকা এলো"; [project] is the name, "" when not said).
+class CashAdd extends Command {
+  const CashAdd(super.transcript, {required this.kind, required this.amount, this.category = 'অন্যান্য', this.project});
+  final CashKind kind;
+  final int amount;
+  final String category;
+  final String? project;
+}
+
+/// "এই মাসে কত খরচ হলো?", "রহিম ভবন প্রজেক্টে কত টাকা আছে?"
+class CashQuery extends Command {
+  const CashQuery(super.transcript, {this.project});
+  final String? project;
 }
 
 /// "আজ আমার কী কী আছে?" — today's to-dos, reminders and dues.
@@ -451,6 +469,10 @@ class Parser {
     final known = knownPeople(ledger);
     final asking = isQuestionText(said);
 
+    // Projects and own income/spending.
+    final cash = _cashSentence(said, text, w, amount, asking);
+    if (cash != null) return cash;
+
     // "ইসমাইলের কাছে আমি ৫ হাজার টাকা পাই" — a stated balance.
     if (amount != null && !asking) {
       final set = _statedBalance(said, text, w, amount, known);
@@ -486,6 +508,11 @@ class Parser {
       if (amount == null) {
         final add = _ledgerEvent(said, text, w, 0, known);
         if (add != null) return add;
+      }
+      // No one owes anything: own spending or income ("বিদ্যুৎ বিল ১২০০ টাকা দিলাম").
+      final kind = cashKindOf(text);
+      if (kind != null && amount != null && amount > 0 && !_hasAny(text, [..._loanWords, ..._returnWords])) {
+        return CashAdd(said, kind: kind, amount: amount, category: categoryFor(text, kind));
       }
       return _moneyEvent(said, text, w, amount ?? 0, known);
     }
@@ -705,6 +732,52 @@ class Parser {
     return '';
   }
 
+  /// "রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো", "এই মাসে কত খরচ হলো?",
+  /// "বাজারে ৫০০ টাকা খরচ হলো".
+  Command? _cashSentence(String said, String text, List<String> w, int? amount, bool asking) {
+    final projectAt = w.indexWhere((x) => _projectWords.any((p) => x.startsWith(p)));
+    if (projectAt >= 0) {
+      final name = _projectName(w, projectAt);
+      if (asking) return CashQuery(said, project: name);
+      if (amount != null && amount > 0) {
+        final kind = cashKindOf(text) ?? CashKind.expense;
+        return CashAdd(said, kind: kind, amount: amount, category: categoryFor(text, kind), project: name);
+      }
+      return null;
+    }
+    if (asking && _hasNorm(text, ['খরচ', 'আয়', 'ইনকাম', 'সঞ্চয়', 'সেভিংস', 'জমলো', 'জমেছে']) && !_hasNorm(text, ['পাওনা', 'দেনা', 'ধার', 'বাকি'])) {
+      return CashQuery(said);
+    }
+    // Spending/income words with an amount and nobody named as owing:
+    // "বাজারে ৫০০ টাকা খরচ হলো", "বেতন পেলাম ৩০ হাজার".
+    if (!asking && amount != null && amount > 0 && _hasNorm(text, ['খরচ', 'কিনলাম', 'কিনেছি', 'বেতন', 'আয়', 'ইনকাম', 'বিক্রি', 'রিচার্জ', 'বিল'])) {
+      final namedPerson = w.any((x) => x.endsWith('কে') && !{'আমাকে', 'কাকে'}.contains(x)) ||
+          w.any((x) => x == 'কাছে' || x == 'কাছ' || x == 'থেকে') ||
+          _hasAny(text, [..._loanWords, ..._returnWords]);
+      if (!namedPerson) {
+        final kind = cashKindOf(text) ?? CashKind.expense;
+        return CashAdd(said, kind: kind, amount: amount, category: categoryFor(text, kind));
+      }
+    }
+    return null;
+  }
+
+  /// The one or two words before "প্রজেক্টে": "রহিম ভবন প্রজেক্টে" → "রহিম ভবন".
+  String _projectName(List<String> w, int at) {
+    const skip = {'আজ', 'আজকে', 'আমার', 'আমাদের', 'এই', 'ওই', 'নতুন', 'সেই', 'কাল', 'গতকাল'};
+    final parts = <String>[];
+    for (var i = at - 1; i >= 0 && parts.length < 2; i--) {
+      final x = w[i];
+      if (skip.contains(x) || RegExp(r'^\d').hasMatch(x) || findAmount(x) != null) break;
+      parts.insert(0, x);
+    }
+    if (parts.isEmpty && at + 1 < w.length) {
+      final next = stripPossessive(w[at + 1]);
+      if (_looksLikeName(next) && !RegExp(r'^\d').hasMatch(next)) parts.add(next);
+    }
+    return resolvePerson(parts.join(' '), const []);
+  }
+
   // ── The assistant: to-dos, reminders, calls, phone numbers ──
 
   Command? _dayQuestion(String said, String text) {
@@ -731,16 +804,36 @@ class Parser {
 
     // "কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও", "৩০ মিনিট পরে চা খাওয়ার কথা বলো".
     if (!asking && _hasNorm(text, _remindKeys)) {
+      final every = everyMinutes(text);
+      final daily = _hasNorm(text, const ['প্রতিদিন', 'প্রতি দিন', 'রোজ', 'প্রত্যেকদিন', 'প্রত্যেক দিন', 'দৈনিক', 'daily', 'every day']);
       final when = parseWhen(said, now);
-      if (when != null) {
-        final repeat = _hasNorm(text, ['প্রতি মাসে', 'প্রতিমাসে', 'মাসে মাসে', 'every month'])
-            ? Repeat.monthly
-            : _hasNorm(text, ['প্রতি বছর', 'প্রতিবছর', 'বছরে বছরে', 'every year'])
-                ? Repeat.yearly
-                : Repeat.none;
-        var title = tidy(cutWords(withoutWhen(said), [..._remindKeys, ..._fillers, 'প্রতি মাসে', 'প্রতিমাসে', 'প্রতি বছর', 'প্রতিবছর']));
+      Repeat repeat = Repeat.none;
+      DateTime? at = when?.at;
+      if (every != null) {
+        repeat = Repeat.everyMinutes(every);
+        // "প্রতি ৩০ মিনিটে" with no start time: first ring one interval from now.
+        if (when == null || (!when.hasTime && !when.hasDay)) {
+          final first = now.add(Duration(minutes: repeat.minutes));
+          at = DateTime(first.year, first.month, first.day, first.hour, first.minute);
+        }
+      } else if (daily) {
+        repeat = Repeat.daily;
+        at ??= DateTime(now.year, now.month, now.day, 9);
+        if (!at.isAfter(now)) at = at.add(const Duration(days: 1));
+      } else if (_hasNorm(text, const ['প্রতি মাসে', 'প্রতিমাসে', 'মাসে মাসে', 'প্রতি মাসের', 'every month'])) {
+        repeat = Repeat.monthly;
+      } else if (_hasNorm(text, const ['প্রতি বছর', 'প্রতিবছর', 'বছরে বছরে', 'প্রতি বছরের', 'every year'])) {
+        repeat = Repeat.yearly;
+      }
+      if (at != null) {
+        var title = withoutWhen(said).replaceAll(_everyPattern, ' ');
+        title = tidy(cutWords(title, [
+          ..._remindKeys, ..._fillers, 'প্রতি মাসে', 'প্রতিমাসে', 'প্রতি মাসের', 'প্রতি বছর', 'প্রতিবছর', 'প্রতি বছরের', 'প্রতিদিন', 'প্রতি দিন',
+          'রোজ', 'প্রত্যেকদিন', 'দৈনিক', 'প্রতি ঘণ্টায়', 'প্রতি ঘন্টায়', 'ঘণ্টায় ঘণ্টায়', 'ঘন্টায় ঘন্টায়', 'পর পর', 'পরপর', 'অন্তর', 'প্রতি',
+        ]));
+        if (title.startsWith('পর ')) title = title.substring(3).trim();
         if (title.isEmpty) title = 'মনে করানো';
-        return ReminderAdd(said, title: title, at: when.at, repeat: repeat);
+        return ReminderAdd(said, title: title, at: at, repeat: repeat);
       }
     }
 
@@ -836,6 +929,8 @@ class Parser {
   }
 }
 
+final List<String> _projectWords = [for (final p in ['প্রজেক্ট', 'প্রকল্প', 'project', 'প্রোজেক্ট']) normalize(p)];
+
 bool _hasNorm(String text, List<String> keys) => keys.any((k) {
       final n = normalize(k);
       return n.isNotEmpty && text.contains(n);
@@ -889,6 +984,29 @@ const _smsKeys = [
   'ম্যাসেজ পাঠাও', 'ম্যাসেজ করো', 'ম্যাসেজ দেন', 'এসএমএস দাও', 'এসএমএস পাঠাও', 'এসএমএস করো', 'sms', 'sms koro', 'sms dao',
   'টেক্সট করো', 'টেক্সট দাও', 'টেক্সট পাঠাও', 'বার্তা পাঠাও', 'message', 'message dao', 'message koro', 'লিখে পাঠাও',
 ];
+
+final _everyPattern = RegExp(fold('(প্রতি|প্রত্যেক)?\\s*(আধা|আধ|[০-৯0-9]+)\\s*(মিনিট|ঘণ্টা|ঘন্টা)\\S*(\\s*(পর পর|পরপর|অন্তর|পরে পরে))?'));
+
+/// "প্রতি ৩০ মিনিটে", "১০ মিনিট পর পর", "ঘণ্টায় ঘণ্টায়", "প্রতি আধা ঘণ্টায়"
+/// → minutes; null when the sentence has no such repeat. [text] is normalized.
+int? everyMinutes(String text) {
+  final t = ' $text ';
+  int unit(String u) => u.startsWith(normalize('মিনিট')) || u.startsWith('min') ? 1 : 60;
+  final a = RegExp('(?:প্রতি|প্রত্যেক|every)\\s*(\\d+|${normalize('আধা')}|${normalize('আধ')})\\s*(${normalize('মিনিট')}|${normalize('ঘণ্টা')}|${normalize('ঘন্টা')}|min|hour)')
+      .firstMatch(t);
+  final b = RegExp('(\\d+|${normalize('আধা')}|${normalize('আধ')})\\s*(${normalize('মিনিট')}|${normalize('ঘণ্টা')}|${normalize('ঘন্টা')})\\S*\\s*(?:পর পর|পরপর|অন্তর|পরে পরে)')
+      .firstMatch(t);
+  final m = a ?? b;
+  if (m != null) {
+    final n = m[1]!;
+    final count = n == normalize('আধা') || n == normalize('আধ') ? 0 : int.tryParse(n) ?? 1;
+    final u = unit(m[2]!);
+    final minutes = count == 0 ? 30 : count * u;
+    return minutes > 0 ? minutes : null;
+  }
+  if (_hasNorm(text, const ['প্রতি ঘণ্টায়', 'প্রতি ঘন্টায়', 'প্রতি ঘণ্টা', 'প্রতি ঘন্টা', 'ঘণ্টায় ঘণ্টায়', 'ঘন্টায় ঘন্টায়', 'every hour', 'hourly'])) return 60;
+  return null;
+}
 
 /// A Bangladeshi mobile number in [said] ("০১৭১২-৩৪৫৬৭৮", "+8801712345678").
 String? findPhone(String said) {

@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../logic/ai_map.dart';
 import '../logic/answers.dart';
+import '../logic/cash.dart';
 import '../logic/ledger.dart';
 import '../logic/parser.dart';
 import '../logic/plan.dart';
@@ -78,6 +79,16 @@ class Brain extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Reminders keep ringing until seen.
+  bool get alarmInsistent => services.notifier.insistent;
+
+  Future<void> setAlarmInsistent(bool on) async {
+    services.notifier.insistent = on;
+    await services.lock.keys.write('alarm_insistent', on ? 'true' : 'false');
+    notifyListeners();
+    await _reschedule();
+  }
+
   bool get aiOn => services.ai.key.trim().isNotEmpty;
 
   Future<void> setAiKey(String key) async {
@@ -131,6 +142,7 @@ class Brain extends ChangeNotifier {
     } catch (_) {}
     try {
       services.voice.muted = (await services.lock.keys.read('speak_on')) == 'false';
+      services.notifier.insistent = (await services.lock.keys.read('alarm_insistent')) != 'false';
       services.voice.preferredVoice = await services.lock.keys.read('tts_voice');
     } catch (_) {}
     try {
@@ -267,6 +279,37 @@ class Brain extends ChangeNotifier {
   Future<void> setTaskDone(Task t, bool done) => saveTask(t.copyWith(done: done, doneAt: done ? services.now() : null));
 
   List<Task> openTasks() => openTasksOf(data, services.now());
+
+  Future<void> saveCash(CashEntry e) async {
+    _upsert(data.cash, e, (x) => x.id);
+    await _save();
+  }
+
+  Future<void> deleteCash(String id) async {
+    data.cash.removeWhere((e) => e.id == id);
+    await _save();
+  }
+
+  Future<void> saveProject(Project p) async {
+    _upsert(data.projects, p, (x) => x.id);
+    await _save();
+  }
+
+  /// Removes a project and its entries.
+  Future<void> deleteProject(String id) async {
+    data.projects.removeWhere((e) => e.id == id);
+    data.cash.removeWhere((e) => e.projectId == id);
+    await _save();
+  }
+
+  /// The project called [name], made if there is none yet.
+  Future<Project> projectNamed(String name) async {
+    final p = projectByName(data, name);
+    if (p != null) return p;
+    final created = Project(name: name.trim(), createdAt: services.now());
+    await saveProject(created);
+    return created;
+  }
 
   /// Replaces everything with a restored backup.
   Future<void> replaceAll(AppData restored) async {

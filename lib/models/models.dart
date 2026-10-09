@@ -233,11 +233,23 @@ class Note {
 
 enum Repeat {
   none('একবার'),
+  every5('প্রতি ৫ মিনিটে', minutes: 5),
+  every10('প্রতি ১০ মিনিটে', minutes: 10),
+  every30('প্রতি ৩০ মিনিটে', minutes: 30),
+  hourly('প্রতি ঘণ্টায়', minutes: 60),
+  daily('প্রতিদিন'),
   monthly('প্রতি মাসে'),
   yearly('প্রতি বছর');
 
-  const Repeat(this.label);
+  const Repeat(this.label, {this.minutes = 0});
   final String label;
+
+  /// For the short repeats (every 5 minutes … every hour); 0 otherwise.
+  final int minutes;
+  bool get isInterval => minutes > 0;
+
+  /// The nearest short repeat for "every N minutes".
+  static Repeat everyMinutes(int m) => m <= 7 ? every5 : (m <= 19 ? every10 : (m <= 44 ? every30 : hourly));
 
   static Repeat parse(Object? v) => Repeat.values.firstWhere((k) => k.name == v, orElse: () => Repeat.none);
 }
@@ -278,6 +290,15 @@ class Reminder {
     final today = DateTime(now.year, now.month, now.day);
     final start = DateTime(date.year, date.month, date.day);
     if (repeat == Repeat.none) return start;
+    if (repeat.isInterval) {
+      final n = notifyAt(now);
+      return DateTime(n.year, n.month, n.day);
+    }
+    if (repeat == Repeat.daily) {
+      if (start.isAfter(today)) return start;
+      final at = DateTime(today.year, today.month, today.day, hour, minute);
+      return at.isBefore(now) ? today.add(const Duration(days: 1)) : today;
+    }
     // Count from the original date each time, so the 31st stays the 31st
     // (or the month's last day) instead of drifting after February.
     final step = repeat == Repeat.monthly ? 1 : 12;
@@ -290,9 +311,19 @@ class Reminder {
 
   /// When the phone should notify for the next occurrence.
   DateTime notifyAt(DateTime now) {
-    final d = nextDate(now).subtract(Duration(days: daysBefore));
+    if (repeat.isInterval) {
+      final at = anchor;
+      if (at.isAfter(now)) return at;
+      final step = repeat.minutes;
+      final passed = now.difference(at).inMinutes ~/ step + 1;
+      return at.add(Duration(minutes: passed * step));
+    }
+    final d = nextDate(now).subtract(Duration(days: repeat == Repeat.daily ? 0 : daysBefore));
     return DateTime(d.year, d.month, d.day, hour, minute);
   }
+
+  /// The first moment it rings (date + time).
+  DateTime get anchor => DateTime(date.year, date.month, date.day, hour, minute);
 
   Map<String, Object?> toJson() => {
         'id': id,
@@ -327,6 +358,76 @@ DateTime _addMonths(DateTime d, int months) {
 }
 
 // ───────────────────────── Everything ─────────────────────────
+
+// ───────────────────────── Income & spending ─────────────────────────
+
+enum CashKind {
+  income('আয়'),
+  expense('খরচ');
+
+  const CashKind(this.label);
+  final String label;
+}
+
+/// Money in or out that is not owed by anyone: monthly spending and
+/// income, or a project's receipts and costs ([projectId] set).
+class CashEntry {
+  CashEntry({String? id, required this.kind, required this.amount, this.category = 'অন্যান্য', this.note = '', required this.date, this.projectId})
+      : id = id ?? newId();
+
+  final String id;
+  final CashKind kind;
+  final int amount;
+
+  /// খাত: বাজার, ভাড়া, বেতন…
+  final String category;
+  final String note;
+  final DateTime date;
+  final String? projectId;
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'kind': kind.name,
+        'amount': amount,
+        'category': category,
+        'note': note,
+        'date': date.toIso8601String(),
+        'projectId': projectId,
+      };
+
+  factory CashEntry.fromJson(Map<String, Object?> j) => CashEntry(
+        id: j['id'] as String?,
+        kind: CashKind.values.firstWhere((k) => k.name == j['kind'], orElse: () => CashKind.expense),
+        amount: (j['amount'] as num?)?.toInt() ?? 0,
+        category: ((j['category'] as String?) ?? '').trim().isEmpty ? 'অন্যান্য' : (j['category'] as String).trim(),
+        note: (j['note'] as String?) ?? '',
+        date: _date(j['date']) ?? DateTime.now(),
+        projectId: j['projectId'] as String?,
+      );
+}
+
+/// A piece of work with its own money: "রহিম ভবন", "অফিস সাজানো".
+class Project {
+  Project({String? id, required this.name, DateTime? createdAt, this.closed = false})
+      : id = id ?? newId(),
+        createdAt = createdAt ?? DateTime.now();
+
+  final String id;
+  final String name;
+  final DateTime createdAt;
+  final bool closed;
+
+  Project copyWith({String? name, bool? closed}) => Project(id: id, name: name ?? this.name, createdAt: createdAt, closed: closed ?? this.closed);
+
+  Map<String, Object?> toJson() => {'id': id, 'name': name, 'createdAt': createdAt.toIso8601String(), 'closed': closed};
+
+  factory Project.fromJson(Map<String, Object?> j) => Project(
+        id: j['id'] as String?,
+        name: (j['name'] as String?) ?? '',
+        createdAt: _date(j['createdAt']),
+        closed: j['closed'] == true,
+      );
+}
 
 /// How to reach someone: a call, an SMS or WhatsApp.
 enum Via { call, sms, whatsapp }
@@ -384,7 +485,11 @@ class AppData {
     List<Note>? notes,
     List<Reminder>? reminders,
     List<Task>? tasks,
+    List<CashEntry>? cash,
+    List<Project>? projects,
   })  : tasks = tasks ?? [],
+        cash = cash ?? [],
+        projects = projects ?? [],
         ledger = ledger ?? [],
         vault = vault ?? [],
         contacts = contacts ?? [],
@@ -397,6 +502,8 @@ class AppData {
   final List<Note> notes;
   final List<Reminder> reminders;
   final List<Task> tasks;
+  final List<CashEntry> cash;
+  final List<Project> projects;
 
   static const schema = 1;
 
@@ -415,6 +522,8 @@ class AppData {
         'notes': notes.map((e) => e.toJson()).toList(),
         'reminders': reminders.map((e) => e.toJson()).toList(),
         'tasks': tasks.map((e) => e.toJson()).toList(),
+        'cash': cash.map((e) => e.toJson()).toList(),
+        'projects': projects.map((e) => e.toJson()).toList(),
       };
 
   factory AppData.fromJson(Map<String, Object?> j) {
@@ -427,6 +536,8 @@ class AppData {
       notes: list('notes', Note.fromJson),
       reminders: list('reminders', Reminder.fromJson),
       tasks: list('tasks', Task.fromJson),
+      cash: list('cash', CashEntry.fromJson),
+      projects: list('projects', Project.fromJson),
     );
   }
 }

@@ -12,6 +12,10 @@ abstract class FileBridge {
   /// Opens the share sheet with [bytes] saved as [fileName].
   Future<void> shareFile(Uint8List bytes, String fileName, String mime, String text);
 
+  /// Asks where to keep the file (Download or any folder) and writes it
+  /// there. True when saved, false when the user cancelled.
+  Future<bool> saveFile(Uint8List bytes, String fileName);
+
   /// Lets the user pick a file; null when they cancel.
   Future<Uint8List?> pickFile();
 
@@ -21,6 +25,13 @@ abstract class FileBridge {
 
 class DeviceFiles implements FileBridge {
   Timer? _clear;
+  static const _channel = MethodChannel('my_assistant/files');
+
+  @override
+  Future<bool> saveFile(Uint8List bytes, String fileName) async {
+    final ok = await _channel.invokeMethod<bool>('saveFile', {'bytes': bytes, 'name': fileName});
+    return ok ?? false;
+  }
 
   @override
   Future<void> shareFile(Uint8List bytes, String fileName, String mime, String text) async {
@@ -67,6 +78,16 @@ class FakeFiles implements FileBridge {
 
   @override
   Future<Uint8List?> pickFile() async => toPick;
+
+  Uint8List? saved;
+  String? savedName;
+
+  @override
+  Future<bool> saveFile(Uint8List bytes, String fileName) async {
+    saved = bytes;
+    savedName = fileName;
+    return true;
+  }
 
   @override
   Future<void> copy(String text, {Duration? clearAfter}) async => copied = text;

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../logic/answers.dart';
 import '../logic/bn.dart';
+import '../logic/cash.dart';
 import '../logic/categories.dart';
 import '../logic/ledger.dart';
 import '../logic/parser.dart';
@@ -16,7 +17,7 @@ import '../ui/yes_no.dart' show pickSpokenOption;
 import 'brain.dart';
 
 /// What the chat is waiting to hear.
-enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime }
+enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, project }
 
 /// What the user said they want to talk about at the start.
 enum Topic {
@@ -42,7 +43,7 @@ class ChatChoice {
   final String answer;
 }
 
-enum LinkKind { person, editEntry, notes, reminders, tasks, contacts }
+enum LinkKind { person, editEntry, notes, reminders, tasks, contacts, cash }
 
 /// "খাতা দেখুন" and similar, under an app message.
 class ChatLink {
@@ -362,6 +363,7 @@ class ChatController extends ChangeNotifier {
     }
     if (c is ReminderQuery && searchReminders(d, c.terms).isNotEmpty) return const [ChatLink(LinkKind.reminders, 'রিমাইন্ডার দেখুন')];
     if (c is TaskQuery || c is Briefing) return const [ChatLink(LinkKind.tasks, 'কাজের তালিকা')];
+    if (c is CashQuery) return const [ChatLink(LinkKind.cash, 'আয়-ব্যয় দেখুন')];
     return const [];
   }
 
@@ -455,7 +457,36 @@ class ChatController extends ChangeNotifier {
         }
         if (_allYes) return _saveCurrent(out);
         final again = c.repeat == Repeat.none ? '' : ', ${c.repeat.label}';
-        _ask(out, '${sayWhen(c.at, _now)}-এ “${c.title}” মনে করিয়ে দেব$again — ঠিক আছে?', ChatWait.yesNo, choices: _yesNoChoices);
+        final time = bnTime(c.at.hour, c.at.minute);
+        final q = c.repeat.isInterval
+            ? '${c.repeat.label} “${c.title}” মনে করিয়ে দেব, প্রথমবার $time-এ — ঠিক আছে?'
+            : c.repeat == Repeat.daily
+                ? 'প্রতিদিন $time-এ “${c.title}” মনে করিয়ে দেব — ঠিক আছে?'
+                : '${sayWhen(c.at, _now)}-এ “${c.title}” মনে করিয়ে দেব$again — ঠিক আছে?';
+        _ask(out, q, ChatWait.yesNo, choices: _yesNoChoices);
+      case CashAdd():
+        if (c.amount <= 0) {
+          _ask(out, 'কত টাকা?', ChatWait.amount);
+          return;
+        }
+        if (c.project != null && c.project!.trim().isEmpty) {
+          final open = brain.data.projects.where((p) => !p.closed).toList();
+          if (open.length == 1) {
+            return _start(CashAdd(c.transcript, kind: c.kind, amount: c.amount, category: c.category, project: open.first.name), out);
+          }
+          _ask(out, 'কোন প্রজেক্টে লিখব? নামটা বলুন।', ChatWait.project, choices: [for (final p in open.take(5)) ChatChoice(p.name, p.name)]);
+          return;
+        }
+        if (_allYes) return _saveCurrent(out);
+        final inOut = c.kind == CashKind.income ? 'আয়' : 'খরচ';
+        final String q;
+        if (c.project != null) {
+          final exists = projectByName(brain.data, c.project!) != null;
+          q = '${exists ? '' : 'নতুন প্রজেক্ট খুলে '}‘${c.project}’ প্রজেক্টে ${bnNumber(c.amount)} টাকা $inOut হিসেবে লিখি?';
+        } else {
+          q = '$inOut হিসেবে লিখি — ${c.category}, ${bnNumber(c.amount)} টাকা?';
+        }
+        _ask(out, q, ChatWait.yesNo, choices: _yesNoChoices);
       case ContactAdd():
         if (c.name.trim().isEmpty) {
           _ask(out, 'নম্বরটা কার নামে রাখব?', ChatWait.contactName);
@@ -479,6 +510,13 @@ class ChatController extends ChangeNotifier {
   static const _skills = 'আমি যা যা পারি: কাজের তালিকা রাখা (“কাল ব্যাংকে যেতে হবে”), সময় ধরে মনে করানো (“বিকেল ৪টায় মিটিংয়ের কথা মনে করিয়ে দিও”), '
       'ফোন বা মেসেজ (“রহিমকে ফোন দাও”, “করিমকে মেসেজ দাও যে মাল পাঠিয়েছি”), নম্বর রাখা, কাস্টমারের বাকি আর ধার-দেনার হিসাব '
       '(“করিম ৫০০ টাকার মাল বাকিতে নিল”), নোট, পাসওয়ার্ড, আর “আজ আমার কী কী আছে?” বললে সারাদিনের সারাংশ।';
+
+  /// "নিজের খরচ": a money sentence with no one owing becomes spending.
+  Future<void> _asOwnSpending(List<String> out) async {
+    final src = _src!;
+    final amount = _amount > 0 ? _amount : src.amount;
+    await _start(CashAdd(src.transcript, kind: CashKind.expense, amount: amount, category: categoryFor(normalize(src.transcript), CashKind.expense)), out);
+  }
 
   void _taskDone(TaskDone c, List<String> out) {
     final open = brain.data.tasks.where((t) => !t.done);
@@ -554,7 +592,7 @@ class ChatController extends ChangeNotifier {
       final known = knownPeople(brain.data.ledger).take(4);
       _ask(out, 'টাকার হিসাব লেনদেনের খাতায় রাখি। কার সাথে লেনদেন হলো? নামটা বলেন।', ChatWait.name, choices: [
         for (final k in known) ChatChoice(k, k),
-        if (src.allowExpense) const ChatChoice('নিজের খরচ, রাখব না', 'অন্য খরচ'),
+        if (src.allowExpense) const ChatChoice('নিজের খরচ', 'অন্য খরচ'),
       ]);
       return;
     }
@@ -626,8 +664,9 @@ class ChatController extends ChangeNotifier {
         return true;
       case ChatWait.name:
         if (_src!.allowExpense && pickSpokenOption(t, const [], allowExpense: true) == 'expense') {
-          _say(out, 'ঠিক আছে, এটা লেনদেনের খাতায় রাখলাম না।');
-          await _done(out);
+          wait = ChatWait.none;
+          choices = const [];
+          await _asOwnSpending(out);
           return true;
         }
         if (_looksNew(t) && findAmount(normalize(t)) != null) return false;
@@ -730,9 +769,24 @@ class ChatController extends ChangeNotifier {
           _say(out, 'টাকার অঙ্কটা ধরতে পারিনি। আবার বলেন।');
           return true;
         }
-        _amount = a;
         wait = ChatWait.none;
+        final cur = _current;
+        if (cur is CashAdd) {
+          await _start(CashAdd(cur.transcript, kind: cur.kind, amount: a, category: cur.category, project: cur.project), out);
+          return true;
+        }
+        _amount = a;
         await _nextLedgerStep(out);
+        return true;
+      case ChatWait.project:
+        final cur = _current;
+        wait = ChatWait.none;
+        choices = const [];
+        if (cur is! CashAdd) return false;
+        var name = tidy(cutWords(t, const ['প্রজেক্ট', 'প্রজেক্টে', 'প্রজেক্টের', 'প্রকল্প', 'প্রকল্পে', 'নামে', 'নাম']));
+        if (name.isEmpty) name = t.trim();
+        final known = projectByName(brain.data, name);
+        await _start(CashAdd(cur.transcript, kind: cur.kind, amount: cur.amount, category: cur.category, project: known?.name ?? name), out);
         return true;
       case ChatWait.kind:
         final src = _src!;
@@ -747,8 +801,7 @@ class ChatController extends ChangeNotifier {
         wait = ChatWait.none;
         choices = const [];
         if (choice == 'expense') {
-          _say(out, 'ঠিক আছে, এটা লেনদেনের খাতায় রাখলাম না।');
-          await _done(out);
+          await _asOwnSpending(out);
           return true;
         }
         _kind = LedgerKind.values.byName(choice);
@@ -794,13 +847,33 @@ class ChatController extends ChangeNotifier {
           daysBefore: 0,
           repeat: c.repeat,
         ));
-        _say(out, quiet ? 'মনে করাব: ${c.title}' : 'ঠিক আছে, ${sayWhen(c.at, _now)}-এ মনে করিয়ে দেব।',
+        _say(out, quiet ? 'মনে করাব: ${c.title}' : (c.repeat.isInterval || c.repeat == Repeat.daily ? 'ঠিক আছে, ${c.repeat.label} মনে করিয়ে দেব।' : 'ঠিক আছে, ${sayWhen(c.at, _now)}-এ মনে করিয়ে দেব।'),
             links: const [ChatLink(LinkKind.reminders, 'রিমাইন্ডার দেখুন')], speak: !quiet);
         _history.add(AiTurn.app('[রিমাইন্ডার রাখা হলো]'));
         if (!_warnedExact && !await brain.services.notifier.exactAllowed()) {
           _warnedExact = true;
           messages.add(ChatMessage.app('ঠিক মিনিটে বাজাতে “আরও” → “ঠিক সময়ে রিমাইন্ডার” চালু করে নিন।', info: true));
         }
+      case CashAdd():
+        Project? project;
+        if (c.project != null) project = await brain.projectNamed(c.project!);
+        await brain.saveCash(CashEntry(
+          kind: c.kind,
+          amount: c.amount,
+          category: c.category,
+          note: c.transcript.trim(),
+          date: _now,
+          projectId: project?.id,
+        ));
+        final String done;
+        if (project != null) {
+          done = 'লিখলাম। ‘${project.name}’ প্রজেক্টে এখন হাতে আছে ${bnNumber(projectSums(brain.data.cash, project.id).balance)} টাকা।';
+        } else {
+          final m = monthSums(brain.data.cash, _now);
+          done = c.kind == CashKind.expense ? 'লিখলাম। এই মাসে মোট খরচ ${bnNumber(m.expense)} টাকা।' : 'লিখলাম। এই মাসে মোট আয় ${bnNumber(m.income)} টাকা।';
+        }
+        _say(out, quiet ? 'লিখলাম: ${summaryLine(c)}' : done, links: const [ChatLink(LinkKind.cash, 'আয়-ব্যয় দেখুন')], speak: !quiet);
+        _history.add(AiTurn.app('[লেখা হলো: ${summaryLine(c)}]'));
       case ContactAdd():
         await _savePhone(c.name, c.phone);
         _say(out, quiet ? 'নম্বর: ${c.name}' : 'ঠিক আছে, ${possessive(c.name)} নম্বর রেখে দিলাম।',

@@ -3,6 +3,7 @@
 library;
 
 import '../models/models.dart';
+import 'cash.dart';
 import 'ledger.dart';
 import 'parser.dart';
 
@@ -102,17 +103,31 @@ Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> le
     case 'reminder_add':
       final day = _day(r['date']);
       final time = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(_str(r['time']));
-      if (day == null && time == null) return null;
+      final repeat = Repeat.values.where((x) => x.name == _str(r['repeat'])).firstOrNull ?? Repeat.none;
       final now = DateTime.now();
+      final title = _str(r['text']);
+      if (day == null && time == null) {
+        if (!repeat.isInterval) return null;
+        final first = now.add(Duration(minutes: repeat.minutes));
+        return ReminderAdd(said, title: title.isEmpty ? 'মনে করানো' : title, at: DateTime(first.year, first.month, first.day, first.hour, first.minute), repeat: repeat);
+      }
       final d = day ?? DateTime(now.year, now.month, now.day);
       final at = DateTime(d.year, d.month, d.day, time == null ? 9 : int.parse(time[1]!), time == null ? 0 : int.parse(time[2]!));
-      final title = _str(r['text']);
-      return ReminderAdd(said,
-          title: title.isEmpty ? 'মনে করানো' : title, at: at, repeat: Repeat.values.where((x) => x.name == _str(r['repeat'])).firstOrNull ?? Repeat.none);
+      return ReminderAdd(said, title: title.isEmpty ? 'মনে করানো' : title, at: at, repeat: repeat);
     case 'contact_add':
       final phone = findPhone(_str(r['phone'])) ?? findPhone(said);
       if (phone == null) return null;
       return ContactAdd(said, name: _str(r['person']), phone: phone);
+    case 'cash_add':
+      final amount = _int(r['amount']).abs();
+      if (amount <= 0) return null;
+      final kind = _str(r['kind']) == 'income' ? CashKind.income : CashKind.expense;
+      final cat = _str(r['category']);
+      final project = r.containsKey('project') && r['project'] != null ? _str(r['project']) : null;
+      return CashAdd(said, kind: kind, amount: amount, category: cat.isEmpty ? categoryFor(normalize(said), kind) : cat, project: project);
+    case 'cash_query':
+      final project = r.containsKey('project') && r['project'] != null ? _str(r['project']) : null;
+      return CashQuery(said, project: project);
     case 'call':
       final via = Via.values.where((v) => v.name == _str(r['via'])).firstOrNull ?? Via.call;
       return CallPerson(said, person: person(), via: via, text: via == Via.call ? '' : _str(r['text']), phone: findPhone(_str(r['phone'])) ?? '');

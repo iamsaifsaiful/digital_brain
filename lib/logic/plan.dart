@@ -8,11 +8,12 @@ import 'parser.dart';
 import 'phrases.dart';
 
 /// Saves something (needs a yes first)?
-bool isSave(Command c) => c is LedgerAdd || c is LedgerSet || c is NoteAdd || c is TaskAdd || c is ReminderAdd || c is ContactAdd;
+bool isSave(Command c) => c is LedgerAdd || c is LedgerSet || c is NoteAdd || c is TaskAdd || c is ReminderAdd || c is ContactAdd || c is CashAdd;
 
 bool _complete(Command c) => switch (c) {
       LedgerAdd() => c.person.trim().isNotEmpty && c.amount > 0,
       LedgerSet() || TaskAdd() || ReminderAdd() || ContactAdd() || NoteAdd() => true,
+      CashAdd() => c.amount > 0,
       _ => false,
     };
 
@@ -60,5 +61,8 @@ String summaryLine(Command c) => switch (c) {
       TaskAdd() => 'কাজ: ${c.title}${c.due == null ? '' : ' (${bnDigits(c.due!.day)} ${bnMonths[c.due!.month - 1]})'}',
       ReminderAdd() => 'মনে করানো: ${c.title} — ${bnDigits(c.at.day)} ${bnMonths[c.at.month - 1]}, ${bnTime(c.at.hour, c.at.minute)}',
       ContactAdd() => 'নম্বর: ${c.name.isEmpty ? '' : '${c.name} — '}${bnDigits(c.phone)}',
+      CashAdd() => c.project != null
+          ? '${c.project!.isEmpty ? 'প্রজেক্ট' : '‘${c.project}’ প্রজেক্ট'} — ${c.kind == CashKind.income ? 'এসেছে' : 'খরচ'} ${bnNumber(c.amount)} টাকা'
+          : '${c.kind.label}: ${c.category} — ${bnNumber(c.amount)} টাকা',
       _ => c.transcript,
     };

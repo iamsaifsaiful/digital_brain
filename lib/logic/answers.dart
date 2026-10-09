@@ -4,6 +4,7 @@ library;
 
 import '../models/models.dart';
 import 'bn.dart';
+import 'cash.dart';
 import 'ledger.dart';
 import 'parser.dart';
 import 'phrases.dart';
@@ -133,6 +134,27 @@ String taskAnswer(AppData d, DateTime now) {
   return '${bnDigits(open.length)}টা কাজ বাকি — ${nameList([for (final t in open) taskLabel(t, now)], unit: 'টা')}।';
 }
 
+/// "এই মাসে কত খরচ হলো?" / "রহিম ভবন প্রজেক্টে কত আছে?"
+String cashAnswer(AppData d, CashQuery q, DateTime now) {
+  final name = q.project;
+  if (name != null) {
+    final p = projectByName(d, name);
+    if (p == null) {
+      return d.projects.isEmpty
+          ? 'এখনো কোনো প্রজেক্ট খোলা হয়নি। বলুন, যেমন “রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো”।'
+          : '${name.isEmpty ? 'কোন প্রজেক্ট' : '‘$name’ নামে প্রজেক্ট'} খুঁজে পাইনি। আছে: ${nameList([for (final x in d.projects) x.name], unit: 'টা')}।';
+    }
+    final s = projectSums(d.cash, p.id);
+    return '‘${p.name}’ প্রজেক্টে এসেছে ${bnNumber(s.income)} টাকা, খরচ হয়েছে ${bnNumber(s.expense)} টাকা, হাতে আছে ${bnNumber(s.balance)} টাকা।';
+  }
+  final s = monthSums(d.cash, now);
+  if (s.income == 0 && s.expense == 0) return 'এই মাসে এখনো কোনো আয় বা খরচ লেখা হয়নি। বলুন, যেমন “বাজারে ৫০০ টাকা খরচ হলো”।';
+  final top = s.topExpenses;
+  final most = top.isEmpty ? '' : ' সবচেয়ে বেশি খরচ ${top.first.key} খাতে — ${bnNumber(top.first.value)} টাকা।';
+  return 'এই মাসে আয় ${bnNumber(s.income)} টাকা, খরচ ${bnNumber(s.expense)} টাকা, '
+      '${s.balance >= 0 ? 'সঞ্চয় ${bnNumber(s.balance)} টাকা' : 'আয়ের চেয়ে ${bnNumber(-s.balance)} টাকা বেশি খরচ'}।$most';
+}
+
 /// "আজ আমার কী কী আছে?" — the day at a glance.
 String briefingAnswer(AppData d, DateTime now) {
   final today = dayOnly(now);
@@ -151,6 +173,8 @@ String briefingAnswer(AppData d, DateTime now) {
   final t = totals(d.ledger);
   if (t.receivable > 0) parts.add('পাওনা আছে মোট ${bnNumber(t.receivable)} টাকা।');
   if (t.payable > 0) parts.add('আপনাকে দিতে হবে মোট ${bnNumber(t.payable)} টাকা।');
+  final month = monthSums(d.cash, now);
+  if (month.expense > 0) parts.add('এই মাসে খরচ হয়েছে ${bnNumber(month.expense)} টাকা।');
   if (parts.length == 1) parts.add('আজ তেমন কিছু রাখা নেই — কোনো কাজ বা মনে করানোর কথা নেই। কিছু থাকলে বলুন, লিখে রাখি।');
   return parts.join(' ');
 }
@@ -165,9 +189,10 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       SmallTalk() => talkReply(cmd.kind, now),
       AiReply() => cmd.text,
       TaskQuery() => taskAnswer(d, now),
+      CashQuery() => cashAnswer(d, cmd, now),
       Briefing() => briefingAnswer(d, now),
       NotUnderstood() => 'দুঃখিত, ঠিক বুঝতে পারিনি। একটু অন্যভাবে আরেকবার বলবেন?',
-      LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TaskDone() || ReminderAdd() || ContactAdd() || CallPerson() => null,
+      LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TaskDone() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() => null,
     };
 
 /// The saved contact for a spoken name ("রহিম", "রহিম ভাই", "Rahim").

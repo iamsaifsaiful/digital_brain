@@ -10,6 +10,7 @@ import '../ui/pin.dart';
 import '../ui/theme.dart';
 import 'confirm_screen.dart';
 import 'contacts_screen.dart';
+import 'money_screens.dart';
 import 'notes_screen.dart';
 import 'person_screen.dart';
 import 'reminders_screen.dart';
@@ -292,6 +293,8 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
         _open(const TasksScreen());
       case LinkKind.contacts:
         _open(const ContactsScreen());
+      case LinkKind.cash:
+        _open(const CashPage());
       case LinkKind.editEntry:
         _chat.dropPending();
         _open(ConfirmScreen(command: l.entry!)).then((r) {
