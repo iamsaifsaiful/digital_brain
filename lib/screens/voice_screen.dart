@@ -193,6 +193,10 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
                             const SizedBox(width: 12),
                             Text('শুনছি…', style: body(15, color: C.mint, weight: FontWeight.w600)),
                           ]),
+                        if (_listening) ...[
+                          const SizedBox(height: 6),
+                          Text('বলা শেষ হলে ২ সেকেন্ড থামুন, অথবা নিচের বোতাম চাপুন', style: body(13, color: const Color(0xFFA9B5AF))),
+                        ],
                         if (_typing)
                           Text('লিখে জিজ্ঞেস করুন বা যোগ করুন', style: body(15, color: C.mint, weight: FontWeight.w600)),
                         const SizedBox(height: 16),
