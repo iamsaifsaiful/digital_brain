@@ -174,7 +174,7 @@ When? parseWhen(String said, DateTime now) {
   var at = DateTime(d.year, d.month, d.day, hour ?? 9, minute ?? 0);
   if (hasTime && !at.isAfter(now) && !explicitToday && day == null) {
     d = d.add(const Duration(days: 1));
-    at = DateTime(d.year, d.month, d.day, hour ?? 9, minute ?? 0);
+    at = DateTime(d.year, d.month, d.day, hour, minute ?? 0);
   }
   return When(at, hasTime: hasTime, hasDay: day != null);
 }
@@ -210,7 +210,7 @@ String withoutWhen(String said) {
     'আজ', 'আজকে', 'আজকেই', 'কাল', 'কালকে', 'আগামীকাল', 'কালকেই', 'পরশু', 'পরশুদিন',
     'ভোর', 'ভোরে', 'সকাল', 'সকালে', 'দুপুর', 'দুপুরে', 'বিকাল', 'বিকালে', 'বিকেল', 'বিকেলে', 'সন্ধ্যা', 'সন্ধ্যায়',
     'রাত', 'রাতে', 'today', 'tomorrow',
-    for (final d in bnWeekdays) ...[d, '${d}ে', '$dের'],
+    for (final d in bnWeekdays) ...[d, '$dে', '$dের'],
   ]);
   return s;
 }
