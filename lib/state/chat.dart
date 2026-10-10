@@ -683,7 +683,7 @@ class ChatController extends ChangeNotifier {
         );
         return;
       } else {
-        _ask(out, '“$_callee” নামে যোগাযোগে কাউকে পেলাম না। নম্বরটা বলবেন? রেখে দেব, পরের বার আর লাগবে না।', ChatWait.phone);
+        _ask(out, '${possessive(_callee)} নম্বর তো রাখা নেই। নম্বরটা বলবেন? রেখে দেব, পরের বার আর লাগবে না।', ChatWait.phone);
         return;
       }
     }

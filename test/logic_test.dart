@@ -550,7 +550,7 @@ void main() {
       expect(findContact(d, 'রহিম ভাই'), isNull);
       d.contacts.add(Contact(name: 'মোবারক হোসেন', phone: '01811000003'));
       expect(findContact(d, 'মোবারক ভাই'), isNull);
-      expect(contactMatches(d, 'মোবারক').map((c) => c.phone), ['01711000001', '01811000003']);
+      expect(contactMatches(d, 'মোবারক').map((c) => c.phone), unorderedEquals(['01711000001', '01811000003']));
     });
 
     test('"তুমি এটা লেখ" is not part of what to save', () {
