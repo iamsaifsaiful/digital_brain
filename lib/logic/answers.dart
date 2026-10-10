@@ -6,6 +6,7 @@ import '../models/models.dart';
 import 'bn.dart';
 import 'cash.dart';
 import 'ledger.dart';
+import 'match.dart';
 import 'parser.dart';
 import 'phrases.dart';
 import 'search.dart';
@@ -196,21 +197,101 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
     };
 
 /// The saved contact for a spoken name ("রহিম", "রহিম ভাই", "Rahim").
+/// Respect words around a name ("ভাই", "আপা", "Bhai", "Sir"…). They are
+/// left out when matching, so "মোবারক ভাই" does not match every "… Bhai".
+final _respect = {
+  for (final w in const [
+    'ভাই', 'ভাইয়া', 'ভাইয়া', 'ভাইজান', 'ভাইসাব', 'ভাবি', 'ভাবী', 'আপা', 'আপু', 'বোন', 'স্যার', 'সাহেব', 'সাব', 'দাদা', 'দিদি',
+    'জনাব', 'মিস্টার', 'ডাক্তার', 'ডা', 'ডাঃ', 'মোঃ', 'মো', 'মোহাম্মদ', 'মুহাম্মদ', 'মোহাম্মাদ', 'হাজী', 'আলহাজ্ব',
+    'bhai', 'vai', 'bhaiya', 'vaiya', 'bhaia', 'bro', 'apa', 'apu', 'sir', 'saheb', 'sahab', 'shaheb', 'dada', 'didi', 'mr', 'mrs', 'ms',
+    'dr', 'md', 'mohammad', 'muhammad', 'mohammed', 'mohd', 'haji', 'alhaj',
+  ])
+    fold(w.toLowerCase()),
+};
+
+List<String> _nameWords(String name) {
+  final ws = name
+      .toLowerCase()
+      .replaceAll(RegExp(r'[।?!,.;:()\-_/]'), ' ')
+      .split(RegExp(r'\s+'))
+      .where((w) => w.isNotEmpty)
+      .map((w) => fold(w))
+      .toList();
+  return [for (final w in ws) RegExp(r'[ঀ-৿]').hasMatch(w) ? stripTo(stripPossessive(w)) : w];
+}
+
+/// The words of a name that tell people apart (respect words left out,
+/// unless there is nothing else: "মামা").
+List<String> nameCore(String name) {
+  final ws = _nameWords(name);
+  final core = ws.where((w) => !_respect.contains(w)).toList();
+  return core.isEmpty ? ws : core;
+}
+
+bool _sameWord(String a, String b) {
+  if (a == b) return true;
+  final sa = skeleton(a), sb = skeleton(b);
+  if (sa.length >= 2 && sa == sb) return true;
+  return sa.length >= 4 && sb.length >= 4 && wordsMatch(a, b) && (sa.length - sb.length).abs() <= 1;
+}
+
+/// Everyone in যোগাযোগ whose name has every word of [name] (in Bengali or
+/// English letters: "মোবারক" = "Mobarak"), closest first. Two or more means
+/// the app must ask which one — it never guesses between people.
+List<Contact> contactMatches(AppData d, String name) {
+  final q = nameCore(name);
+  if (q.isEmpty) return const [];
+  final scored = <(Contact, int)>[];
+  for (final c in d.contacts) {
+    final cw = nameCore(c.name);
+    if (cw.isEmpty) continue;
+    final used = <int>{};
+    var exact = 0;
+    var ok = true;
+    for (final w in q) {
+      var hit = -1;
+      for (var i = 0; i < cw.length; i++) {
+        if (used.contains(i)) continue;
+        if (cw[i] == w) {
+          hit = i;
+          exact++;
+          break;
+        }
+      }
+      if (hit < 0) {
+        for (var i = 0; i < cw.length; i++) {
+          if (!used.contains(i) && _sameWord(w, cw[i])) {
+            hit = i;
+            break;
+          }
+        }
+      }
+      if (hit < 0) {
+        ok = false;
+        break;
+      }
+      used.add(hit);
+    }
+    if (!ok) continue;
+    // Closer: more words spelled the same, fewer extra words in the name.
+    scored.add((c, exact * 10 - (cw.length - q.length)));
+  }
+  scored.sort((a, b) => b.$2.compareTo(a.$2));
+  // The same number saved twice is one person.
+  final seen = <String>{};
+  return [
+    for (final (c, _) in scored)
+      if (seen.add(phoneKey(c.phone).isEmpty ? c.id : phoneKey(c.phone))) c,
+  ];
+}
+
+/// The one contact [name] means, or null when there is none or more than
+/// one (then ask).
 Contact? findContact(AppData d, String name) {
   final n = normalize(name);
   if (n.isEmpty) return null;
-  for (final c in d.contacts) {
-    if (normalize(c.name) == n) return c;
-  }
-  for (final c in d.contacts) {
-    final cw = words(normalize(c.name));
-    final nw = words(n);
-    if (nw.isNotEmpty && cw.isNotEmpty && (cw.first == nw.first || cw.contains(n))) return c;
-  }
-  final terms = searchTerms(n);
-  if (terms.isEmpty) return null;
-  for (final h in searchAll(d, terms)) {
-    if (h is ContactHit) return h.contact;
-  }
-  return null;
+  final exact = d.contacts.where((c) => normalize(c.name) == n).toList();
+  if (exact.length == 1) return exact.single;
+  final m = contactMatches(d, name);
+  return m.length == 1 ? m.single : null;
 }

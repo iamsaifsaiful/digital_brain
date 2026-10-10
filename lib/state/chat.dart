@@ -120,6 +120,9 @@ class ChatController extends ChangeNotifier {
   String _phone = '';
   String _text = '';
 
+  /// Several people fit the name said: the user picks one before any call.
+  List<Contact> _calleeChoices = const [];
+
   /// Set when the dialer/SMS/WhatsApp should open once the app has
   /// finished speaking; the screen calls [launchPending].
   (Via, String, String)? pendingLaunch;
@@ -398,6 +401,7 @@ class ChatController extends ChangeNotifier {
     choices = const [];
     _current = null;
     _call = null;
+    _calleeChoices = const [];
     _askingAll = false;
     _allYes = false;
     _savedInBatch = 0;
@@ -554,11 +558,23 @@ class ChatController extends ChangeNotifier {
         return;
       }
       final contact = findContact(brain.data, _callee);
+      final many = contact != null ? const <Contact>[] : contactMatches(brain.data, _callee).where((x) => x.phone.isNotEmpty).toList();
       if (contact != null && contact.phone.isNotEmpty) {
         _callee = contact.name;
         _phone = contact.phone;
+      } else if (many.length > 1) {
+        // Never guess between people: ask which one.
+        _calleeChoices = many.take(6).toList();
+        final names = _calleeChoices.map((x) => x.name).toList();
+        _ask(
+          out,
+          '“$_callee” নামে ${bnDigits(many.length)} জন আছেন — ${nameList(names.take(4).toList(), unit: 'জন')}। কাকে ${c.via == Via.call ? 'ফোন দেব' : 'পাঠাব'}?',
+          ChatWait.callee,
+          choices: [for (final x in _calleeChoices) ChatChoice('${x.name} · ${showPhone(x.phone)}', '${x.name} ${x.phone}')],
+        );
+        return;
       } else {
-        _ask(out, '${possessive(_callee)} নম্বর তো রাখা নেই। নম্বরটা বলবেন? রেখে দেব, পরের বার আর লাগবে না।', ChatWait.phone);
+        _ask(out, '“$_callee” নামে যোগাযোগে কাউকে পেলাম না। নম্বরটা বলবেন? রেখে দেব, পরের বার আর লাগবে না।', ChatWait.phone);
         return;
       }
     }
@@ -567,6 +583,7 @@ class ChatController extends ChangeNotifier {
       return;
     }
     final who = _callee.isEmpty ? bnDigits(_phone) : _callee;
+    if (_callee.isNotEmpty) _say(out, '$_callee · ${showPhone(_phone)}', speak: false);
     final say = switch (c.via) {
       Via.call => '${toPerson(who)} ফোন দিচ্ছি। কল বোতাম চাপলেই কথা বলতে পারবেন।',
       Via.sms => '${toPerson(who)} মেসেজ লিখে দিলাম — “$_text”। পাঠাতে শুধু Send চাপুন।',
@@ -577,6 +594,32 @@ class ChatController extends ChangeNotifier {
     ended = true;
     _call = null;
     _history.add(AiTurn.app('[${c.via == Via.call ? 'ফোন' : 'মেসেজ'} খোলা হলো: $who]'));
+  }
+
+  /// Which of [_calleeChoices] the answer means: a tapped choice or a number
+  /// ("…৩৪৪"), "প্রথম জন / দ্বিতীয়টা", or a fuller name that fits only one.
+  Contact? _pickCallee(String said) {
+    final list = _calleeChoices;
+    final digits = asciiDigits(said).replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length >= 3) {
+      final hits = list.where((x) => asciiDigits(x.phone).replaceAll(RegExp(r'[^0-9]'), '').endsWith(digits.length > 10 ? digits.substring(digits.length - 10) : digits)).toList();
+      if (hits.length == 1) return hits.single;
+    }
+    final n = normalize(said);
+    const order = [
+      ['প্রথম', '১ম', 'এক নম্বর', 'একনম্বর', 'first', '1st'],
+      ['দ্বিতীয়', '২য়', 'দুই নম্বর', 'দুইনম্বর', 'second', '2nd'],
+      ['তৃতীয়', '৩য়', 'তিন নম্বর', 'third', '3rd'],
+      ['চতুর্থ', '৪র্থ', 'চার নম্বর', 'fourth'],
+      ['পঞ্চম', '৫ম', 'পাঁচ নম্বর', 'fifth'],
+      ['ষষ্ঠ', '৬ষ্ঠ', 'ছয় নম্বর', 'sixth'],
+    ];
+    for (var i = 0; i < order.length && i < list.length; i++) {
+      if (order[i].any((w) => n.contains(normalize(w)))) return list[i];
+    }
+    if (n == normalize('শেষ জন') || n == normalize('শেষেরটা')) return list.last;
+    final narrowed = contactMatches(AppData(contacts: list), said);
+    return narrowed.length == 1 ? narrowed.single : null;
   }
 
   Future<void> _savePhone(String name, String phone) async {
@@ -725,6 +768,21 @@ class ChatController extends ChangeNotifier {
         await _start(ReminderAdd(t, title: _pendingTitle, at: w.at), out);
         return true;
       case ChatWait.callee:
+        if (_calleeChoices.isNotEmpty) {
+          final picked = _pickCallee(t);
+          if (picked == null) {
+            if (_looksNew(t)) return false;
+            _say(out, 'কোন জন, বুঝতে পারিনি। নামটা পুরো বলুন, বা নিচ থেকে বেছে নিন।');
+            return true;
+          }
+          _callee = picked.name;
+          _phone = picked.phone;
+          _calleeChoices = const [];
+          wait = ChatWait.none;
+          choices = const [];
+          _nextCallStep(out);
+          return true;
+        }
         final n = spokenName(t, [for (final c in brain.data.contacts) c.name, ...knownPeople(brain.data.ledger)]);
         if (n.isEmpty) {
           if (_looksNew(t)) return false;

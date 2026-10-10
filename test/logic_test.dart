@@ -538,6 +538,20 @@ void main() {
       expect(c, hasLength(1));
     });
 
+    test('calling: respect words do not pick a person, scripts match, two of a name are both returned', () {
+      final d = AppData(contacts: [
+        Contact(name: 'Mobarak Bhai', phone: '01711000001'),
+        Contact(name: 'Ibne Sina Mostafiz Bhai', phone: '01711000002'),
+      ]);
+      expect(findContact(d, 'মোবারক ভাই')!.phone, '01711000001');
+      expect(findContact(d, 'মোবারক ভাইকে')!.phone, '01711000001');
+      expect(findContact(d, 'মোস্তাফিজ ভাই')!.phone, '01711000002');
+      expect(findContact(d, 'রহিম ভাই'), isNull);
+      d.contacts.add(Contact(name: 'মোবারক হোসেন', phone: '01811000003'));
+      expect(findContact(d, 'মোবারক ভাই'), isNull);
+      expect(contactMatches(d, 'মোবারক').map((c) => c.phone), ['01711000001', '01811000003']);
+    });
+
     test('"তুমি এটা লেখ" is not part of what to save', () {
       final c = parseAll('তুমি এটা লেখ, আমি রবিনকে ৫ হাজার টাকা দিছি', const []);
       expect(c.single, isA<LedgerAdd>());

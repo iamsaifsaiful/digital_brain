@@ -626,4 +626,22 @@ void main() {
     await rig.brain.setAlarmSound('content://settings/system/alarm_alert', '');
     expect(rig.notifier.soundUri, isNull);
   });
+
+  testWidgets('two people with the name: asks which one, then calls the one chosen', (t) async {
+    final rig = await start(t,
+        data: AppData(contacts: [
+          Contact(name: 'মোবারক ভাই', phone: '01711000001'),
+          Contact(name: 'মোবারক হোসেন', phone: '01811000003'),
+          Contact(name: 'ইবনে সিনা মোস্তাফিজ ভাই', phone: '01911000002'),
+        ]));
+    await openChat(t);
+    rig.voice.say('মোবারককে ফোন দাও');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('২ জন আছেন'));
+    final l = rig.services.launcher as FakeLauncher;
+    expect(l.opened, isEmpty);
+    rig.voice.say('দ্বিতীয় জন');
+    await settle(t);
+    expect(l.opened.single.toString(), 'tel:01811000003');
+  });
 }
