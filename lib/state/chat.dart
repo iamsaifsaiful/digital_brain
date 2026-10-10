@@ -454,8 +454,8 @@ class ChatController extends ChangeNotifier {
     final d = brain.data;
     List<Command> rules(String s) => parseAll(s, d.ledger, tasks: d.tasks, contacts: d.contacts, now: _now);
     bool acts(Command c) => (isSave(c) && c is! NoteAdd) || c is CallPerson;
-    final alone = rules(t);
-    if (alone.any((c) => acts(c) || c is SmallTalk || c is LedgerQuery || c is CashQuery || c is TaskQuery || c is Briefing)) return t;
+    // Only a fragment that means nothing by itself is joined.
+    if (!rules(t).every((c) => c is NotUnderstood || c is SearchQuery || c is NoteAdd)) return t;
     final both = '$prev $t';
     return rules(both).any(acts) ? both : t;
   }

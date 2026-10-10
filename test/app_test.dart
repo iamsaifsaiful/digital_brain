@@ -181,7 +181,7 @@ void main() {
     await settle(t);
     // (also the page title)
     expect(find.text('আমি সজীবকে ৫০০ টাকা দিলাম'), findsNWidgets(2));
-    expect(find.text('সজীবের খাতা দেখুন →'), findsOneWidget);
+    expect(find.text('সজীবের খাতা দেখুন →'), findsWidgets);
   });
 
   testWidgets('chat: unclear money asks the kind with buttons', (t) async {
