@@ -1,7 +1,7 @@
 name: digital_brain
 description: My Assistant — আপনার ব্যক্তিগত সহকারী। কাজের তালিকা, রিমাইন্ডার, ফোন-মেসেজ, বাকি ও লেনদেন, নোট আর পাসওয়ার্ড — মুখে বলুন বা লিখুন।
 publish_to: 'none'
-version: 2.5.1+22
+version: 2.5.2+23
 
 environment:
   sdk: '>=3.6.0 <4.0.0'

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -52,6 +53,17 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   final _scroll = ScrollController();
 
   List<SavedChat> _past = const [];
+
+  /// Questions asked often, as one-tap chips above the text box; the user
+  /// can add their own and remove any (kept in `quick_questions`).
+  List<String> _questions = defaultQuestions;
+  static const defaultQuestions = [
+    'আজকের কাজের লিস্ট দাও',
+    'আমার মোট পাওনা কত?',
+    'আমি কাকে কত দেব?',
+    'এই মাসে কত খরচ হলো?',
+    'আজ আমার কী কী আছে?',
+  ];
   String _chatId = '';
   int _savedCount = 0;
   Future<void> _saving = Future.value();
@@ -102,8 +114,111 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
 
   Future<void> _loadPast() async {
     final p = await _archive.load();
-    if (mounted) setState(() => _past = p);
+    List<String>? q;
+    try {
+      final raw = await _brain.services.lock.keys.read('quick_questions');
+      if (raw != null) q = [for (final x in jsonDecode(raw) as List) '$x'];
+    } catch (_) {}
+    if (mounted) {
+      setState(() {
+        _past = p;
+        if (q != null) _questions = q;
+      });
+    }
   }
+
+  Future<void> _saveQuestions(List<String> q) async {
+    setState(() => _questions = q);
+    await _brain.services.lock.keys.write('quick_questions', jsonEncode(q));
+  }
+
+  Future<void> _addQuestion() async {
+    final c = TextEditingController();
+    final q = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('নতুন প্রশ্ন', style: body(18, weight: FontWeight.w600)),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('যে প্রশ্ন প্রায়ই করেন, লিখে রাখুন — এক চাপে জিজ্ঞেস করা যাবে।', style: body(14, color: C.muted, height: 1.4)),
+          const SizedBox(height: 10),
+          TextField(
+            controller: c,
+            autofocus: true,
+            style: body(16),
+            decoration: const InputDecoration(hintText: 'যেমন: রহিমের কাছে কত পাব?'),
+            onSubmitted: (v) => Navigator.pop(ctx, v),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('বাদ দিন')),
+          TextButton(onPressed: () => Navigator.pop(ctx, c.text), child: Text('রাখুন', style: body(15, weight: FontWeight.w600, color: C.green))),
+        ],
+      ),
+    );
+    c.dispose();
+    final t = q?.trim() ?? '';
+    if (t.isEmpty || _questions.contains(t) || !mounted) return;
+    await _saveQuestions([..._questions, t]);
+  }
+
+  Future<void> _removeQuestion(String q) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('প্রশ্নটা সরাবেন?', style: body(18, weight: FontWeight.w600)),
+        content: Text('“$q”', style: body(15, color: C.muted)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('না')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('সরান', style: body(15, weight: FontWeight.w600, color: C.red))),
+        ],
+      ),
+    );
+    if (ok == true && mounted) await _saveQuestions([..._questions.where((x) => x != q)]);
+  }
+
+  /// One-tap questions just above the text box.
+  Widget _questionRow() => SizedBox(
+        height: 44,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+          children: [
+            for (final q in _questions)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Material(
+                  color: C.ground,
+                  shape: const StadiumBorder(),
+                  child: InkWell(
+                    customBorder: const StadiumBorder(),
+                    onTap: _busy ? null : () => _send(q),
+                    onLongPress: () => _removeQuestion(q),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      child: Center(child: Text(q, style: body(14, color: C.muted2))),
+                    ),
+                  ),
+                ),
+              ),
+            Material(
+              color: C.surface,
+              shape: const StadiumBorder(side: BorderSide(color: C.inputBorder)),
+              child: InkWell(
+                customBorder: const StadiumBorder(),
+                onTap: _addQuestion,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.add_rounded, size: 18, color: C.green),
+                    const SizedBox(width: 4),
+                    Text('প্রশ্ন যোগ', style: body(14, weight: FontWeight.w600, color: C.green)),
+                  ]),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
 
   void _changed() {
     if (!mounted) return;
@@ -481,7 +596,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
               : Column(children: [
                   _topBar(),
                   Expanded(child: _chat.started ? _conversation() : _welcome(brain)),
-                  if (_chat.choices.isNotEmpty) _choiceRow(),
+                  if (_chat.choices.isNotEmpty) _choiceRow() else _questionRow(),
                   _composer(),
                 ]),
         ),

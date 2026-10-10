@@ -593,7 +593,7 @@ void main() {
   testWidgets('+ যোগ করুন on the home makes a reminder that rings at the chosen time', (t) async {
     final rig = await start(t);
     // Today's list is on the home itself.
-    await t.scrollUntilVisible(find.text('যোগ করুন'), 200);
+    await t.scrollUntilVisible(find.text('যোগ করুন'), 200, scrollable: find.byType(Scrollable).first);
     await t.tap(find.text('যোগ করুন'));
     await settle(t);
     await t.enterText(find.byType(TextField).last, 'ক্লায়েন্ট মিটিং');
@@ -747,5 +747,13 @@ void main() {
     rig.voice.say('হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.ledger.single.phone, '01711223344');
+  });
+
+  testWidgets('a common question is one tap above the text box', (t) async {
+    final rig = await start(t, data: AppData(ledger: [LedgerEntry(person: 'রহিম', kind: LedgerKind.lent, amount: 500, date: DateTime(2026, 10, 5))]));
+    await t.tap(find.text('আমার মোট পাওনা কত?'));
+    await settle(t);
+    expect(find.textContaining('৫০০'), findsWidgets);
+    expect(rig.brain.data.ledger, hasLength(1));
   });
 }

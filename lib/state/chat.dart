@@ -207,7 +207,7 @@ class ChatController extends ChangeNotifier {
   bool _startsList(String t) {
     if (isQuestionText(t)) return false;
     final n = normalize(t);
-    if (const ['দেখাও', 'দেখান', 'দেখি', 'বলো', 'বলুন', 'শোনাও', 'কী', 'কি', 'কত', 'বাকি'].any((w) => words(n).contains(normalize(w)))) return false;
+    if (const ['দেখাও', 'দেখান', 'দেখি', 'বলো', 'বলুন', 'শোনাও', 'দাও', 'দিন', 'দেন', 'দিবা', 'কী', 'কি', 'কত', 'বাকি'].any((w) => words(n).contains(normalize(w)))) return false;
     final tp = _topicWord(t);
     final dayless = tidy(cutWords(t, const ['আজকের', 'আজ', 'কালকের', 'কাল', 'আগামীকালের', 'সারাদিনের', 'পুরো দিনের', 'সারা দিনের', 'আমার', 'আমাদের', 'দিনের', 'এখন', 'নতুন']));
     if (tp != Topic.task || words(normalize(dayless)).length > 3 || _topicWord(dayless) != Topic.task) return false;
