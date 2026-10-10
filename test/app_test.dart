@@ -470,7 +470,7 @@ void main() {
   testWidgets('chat asks what to do first; রিমাইন্ডার makes a plain sentence a reminder', (t) async {
     final rig = await start(t);
     await openChat(t);
-    expect(find.textContaining('কী করতে চান'), findsOneWidget);
+    expect(find.widgetWithText(ActionChip, 'রিমাইন্ডার'), findsOneWidget);
     expect(rig.voice.spoken.last, 'জি, বলুন।');
     await t.tap(find.widgetWithText(ActionChip, 'রিমাইন্ডার'));
     await settle(t);
@@ -716,5 +716,16 @@ void main() {
     expect(rig.brain.data.vault.single.name, 'ফেসবুক');
     expect(rig.brain.data.vault.single.password, '12239939');
     expect(rig.ai.asked, isEmpty);
+  });
+
+  testWidgets('money typed to a name in যোগাযোগ: the number is found and shown before saving', (t) async {
+    final rig = await start(t, data: AppData(contacts: [Contact(name: 'Robin Bhai', phone: '01711223344')]));
+    await openChat(t);
+    rig.voice.say('রবিনকে ৫০০০ টাকা ধার দিলাম');
+    await settle(t);
+    expect(find.textContaining('০১৭১১-২২৩৩৪৪'), findsOneWidget);
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    expect(rig.brain.data.ledger.single.phone, '01711223344');
   });
 }

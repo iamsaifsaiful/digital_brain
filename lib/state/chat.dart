@@ -17,7 +17,7 @@ import '../ui/yes_no.dart' show pickSpokenOption;
 import 'brain.dart';
 
 /// What the chat is waiting to hear.
-enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, project, collect }
+enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, project, collect, whichPerson }
 
 /// What the user said they want to talk about at the start.
 enum Topic {
@@ -110,6 +110,14 @@ class ChatController extends ChangeNotifier {
   String _person = '';
   int _amount = 0;
   LedgerKind? _kind;
+
+  /// The person's number for a ধার-দেনা entry, found in the book or in
+  /// যোগাযোগ, and shown before saving.
+  String _ledgerPhone = '';
+  bool _phoneChecked = false;
+
+  /// Same-name people to choose from: (name, phone).
+  List<(String, String)> _personChoices = const [];
   LedgerAdd? _src;
   CategoryGuess? _cat;
   LedgerEntry? _setEntry;
@@ -512,6 +520,7 @@ class ChatController extends ChangeNotifier {
     _current = null;
     _call = null;
     _calleeChoices = const [];
+    _personChoices = const [];
     _askingAll = false;
     _allYes = false;
     _savedInBatch = 0;
@@ -527,6 +536,8 @@ class ChatController extends ChangeNotifier {
         _person = c.person.trim();
         _amount = c.amount;
         _kind = c.kind;
+        _ledgerPhone = '';
+        _phoneChecked = false;
         await _nextLedgerStep(out);
       case LedgerSet():
         _setEntry = entryToReach(brain.data.ledger, c.person, c.balance, _now);
@@ -718,10 +729,15 @@ class ChatController extends ChangeNotifier {
   /// Which of [_calleeChoices] the answer means: a tapped choice or a number
   /// ("…৩৪৪"), "প্রথম জন / দ্বিতীয়টা", or a fuller name that fits only one.
   Contact? _pickCallee(String said) {
-    final list = _calleeChoices;
+    final i = _pickIndex(said, [for (final c in _calleeChoices) (c.name, c.phone)]);
+    return i == null ? null : _calleeChoices[i];
+  }
+
+  int? _pickIndex(String said, List<(String, String)> list) {
     final digits = asciiDigits(said).replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.length >= 3) {
-      final hits = list.where((x) => asciiDigits(x.phone).replaceAll(RegExp(r'[^0-9]'), '').endsWith(digits.length > 10 ? digits.substring(digits.length - 10) : digits)).toList();
+      final tail = digits.length > 10 ? digits.substring(digits.length - 10) : digits;
+      final hits = [for (var i = 0; i < list.length; i++) if (asciiDigits(list[i].$2).replaceAll(RegExp(r'[^0-9]'), '').endsWith(tail)) i];
       if (hits.length == 1) return hits.single;
     }
     final n = normalize(said);
@@ -734,11 +750,12 @@ class ChatController extends ChangeNotifier {
       ['ষষ্ঠ', '৬ষ্ঠ', 'ছয় নম্বর', 'sixth'],
     ];
     for (var i = 0; i < order.length && i < list.length; i++) {
-      if (order[i].any((w) => n.contains(normalize(w)))) return list[i];
+      if (order[i].any((w) => n.contains(normalize(w)))) return i;
     }
-    if (n == normalize('শেষ জন') || n == normalize('শেষেরটা')) return list.last;
-    final narrowed = contactMatches(AppData(contacts: list), said);
-    return narrowed.length == 1 ? narrowed.single : null;
+    if (n == normalize('শেষ জন') || n == normalize('শেষেরটা')) return list.length - 1;
+    final people = [for (final o in list) Contact(name: o.$1, phone: o.$2)];
+    final narrowed = contactMatches(AppData(contacts: people), said);
+    return narrowed.length == 1 ? people.indexOf(narrowed.single) : null;
   }
 
   VaultItem? _vaultNamed(String name) {
@@ -774,6 +791,30 @@ class ChatController extends ChangeNotifier {
       _ask(out, '${toPerson(_person)} নিয়ে কত টাকার কথা? অঙ্কটা বলেন।', ChatWait.amount);
       return;
     }
+    if (!_phoneChecked) {
+      _phoneChecked = true;
+      // Whose number? First the people already in the book with this name,
+      // then যোগাযোগ. One fits: use it. Several: ask which.
+      final inBook = peopleNamed(brain.data.ledger, _person).where((p) => p.phone.isNotEmpty).toList();
+      final options = inBook.isNotEmpty
+          ? [for (final p in inBook) (p.name, p.phone)]
+          : [for (final c in contactMatches(brain.data, _person).where((c) => c.phone.isNotEmpty)) (c.name, c.phone)];
+      if (options.length == 1) {
+        _ledgerPhone = options.single.$2;
+      } else if (options.length > 1) {
+        _personChoices = options.take(6).toList();
+        _ask(
+          out,
+          '“$_person” নামে ${bnDigits(options.length)} জন আছেন। কার সাথে লেনদেন?',
+          ChatWait.whichPerson,
+          choices: [
+            for (final o in _personChoices) ChatChoice('${o.$1} · ${showPhone(o.$2)}', '${o.$1} ${o.$2}'),
+            const ChatChoice('নতুন মানুষ', 'নতুন মানুষ'),
+          ],
+        );
+        return;
+      }
+    }
     if (_kind == null) {
       final opts = src.options.isEmpty ? LedgerKind.values : src.options;
       _ask(out, _clarifyQuestion(opts, src.allowExpense), ChatWait.kind, choices: [
@@ -783,7 +824,10 @@ class ChatController extends ChangeNotifier {
       return;
     }
     if (_allYes) return _saveCurrent(out);
-    _ask(out, confirmQuestion(_kind!, _person, _amount), ChatWait.yesNo, choices: _yesNoChoices, links: [
+    _ask(out, confirmQuestion(_kind!, _person, _amount), ChatWait.yesNo,
+        choices: _yesNoChoices,
+        facts: [if (_ledgerPhone.isNotEmpty) '$_person · ${showPhone(_ledgerPhone)}'],
+        links: [
       ChatLink(LinkKind.editEntry, 'তারিখ বা অঙ্ক বদলান',
           entry: LedgerAdd(src.transcript, person: _person, amount: _amount, kind: _kind)),
     ]);
@@ -808,6 +852,23 @@ class ChatController extends ChangeNotifier {
     switch (wait) {
       case ChatWait.none:
         return false;
+      case ChatWait.whichPerson:
+        if (normalize(t).contains(normalize('নতুন'))) {
+          _ledgerPhone = '';
+        } else {
+          final i = _pickIndex(t, _personChoices);
+          if (i == null) {
+            if (_looksNew(t)) return false;
+            _say(out, 'কোন জন, বুঝতে পারিনি। নিচ থেকে বেছে নিন, বা নম্বরের শেষ কয়েকটা অঙ্ক বলুন।');
+            return true;
+          }
+          _ledgerPhone = _personChoices[i].$2;
+        }
+        _personChoices = const [];
+        wait = ChatWait.none;
+        choices = const [];
+        await _nextLedgerStep(out);
+        return true;
       case ChatWait.collect:
         if (_isFinish(t)) {
           if (_collected.isEmpty) {
@@ -1030,7 +1091,8 @@ class ChatController extends ChangeNotifier {
       case LedgerAdd():
         final kind = _kind!;
         final after = balanceAfter(brain.data.ledger, _person, kind, _amount);
-        await brain.saveEntry(LedgerEntry(person: _person, kind: kind, amount: _amount, date: dayOnly(_now), note: ''));
+        await brain.saveEntry(LedgerEntry(person: _person, phone: _ledgerPhone, kind: kind, amount: _amount, date: dayOnly(_now), note: ''),
+            guessPhone: _ledgerPhone.isEmpty);
         _say(out, quiet ? 'লিখলাম: ${describe(kind, _person, _amount)}।' : savedSentence(kind, _person, _amount, after),
             links: [ChatLink(LinkKind.person, '${possessive(_person)} খাতা দেখুন', person: _person)], speak: !quiet);
         _history.add(AiTurn.app('[লিখে রাখা হলো: ${describe(kind, _person, _amount)}]'));

@@ -9,6 +9,8 @@ import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'alarm_screens.dart';
+import 'calls_screen.dart';
+import 'help_screen.dart';
 import 'home_shell.dart';
 import 'plan_screens.dart';
 
@@ -53,6 +55,7 @@ class HomeScreen extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         const AskBar(),
+        const _StartTips(),
         const SizedBox(height: 12),
         Material(
           color: C.surface,
@@ -265,4 +268,85 @@ class _AskBarState extends State<AskBar> {
           ),
         ]),
       );
+}
+
+/// First steps for a new user, until they hide it.
+class _StartTips extends StatefulWidget {
+  const _StartTips();
+
+  @override
+  State<_StartTips> createState() => _StartTipsState();
+}
+
+class _StartTipsState extends State<_StartTips> {
+  bool? _hidden;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final v = await BrainScope.read(context).services.lock.keys.read('tips_done');
+      if (mounted) setState(() => _hidden = v == 'true');
+    });
+  }
+
+  Future<void> _hide() async {
+    await BrainScope.read(context).services.lock.keys.write('tips_done', 'true');
+    if (mounted) setState(() => _hidden = true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hidden != false) return const SizedBox.shrink();
+    final brain = BrainScope.of(context);
+    final hasContacts = brain.data.contacts.isNotEmpty;
+    void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
+
+    Widget step(String n, String title, String sub, {bool done = false, String? action, VoidCallback? onTap}) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              width: 26,
+              height: 26,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: done ? C.green : C.surface, shape: BoxShape.circle, border: Border.all(color: C.green)),
+              child: done
+                  ? const Icon(Icons.check_rounded, color: Colors.white, size: 16)
+                  : Text(n, style: body(13, weight: FontWeight.w700, color: C.green, height: 1)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, style: body(15, weight: FontWeight.w600)),
+                Text(sub, style: body(13, color: C.muted, height: 1.4)),
+              ]),
+            ),
+            if (action != null && !done)
+              TextButton(onPressed: onTap, child: Text(action, style: body(14, weight: FontWeight.w600, color: C.green))),
+          ]),
+        );
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Panel(
+        color: C.greenSoft,
+        borderColor: C.greenTint,
+        padding: const EdgeInsets.fromLTRB(14, 10, 8, 6),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('শুরু করার ৪টা ধাপ', style: body(16, weight: FontWeight.w700, color: C.greenDark)),
+          const SizedBox(height: 4),
+          step('১', 'ফোনবুকের সব নম্বর এক ক্লিকে আনুন', 'নাম বললেই ফোন, মেসেজ আর হিসাবে নম্বর নিজে থেকে বসে যাবে',
+              done: hasContacts, action: 'আনুন', onTap: () => importFromPhone(context)),
+          step('২', 'রিমাইন্ডার যেন ঠিক সময়ে বাজে', 'ফোনের দুই-একটা সেটিং এক চাপে ঠিক করে নিন',
+              action: 'দেখুন', onTap: () => push(const ReminderCheckScreen())),
+          step('৩', 'মুখে বলুন বা উপরে লিখুন', '“রবিনকে ৫০০০ টাকা দিলাম”, “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”, “আজকের কাজের তালিকা”'),
+          step('৪', 'কী কী করা যায়, দেখে নিন', 'সব সুবিধা আর কী বললে কী হয়', action: 'দেখুন', onTap: () => push(const HelpScreen())),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(onPressed: _hide, child: Text('বুঝেছি, লুকিয়ে রাখো', style: body(13, color: C.muted))),
+          ),
+        ]),
+      ),
+    );
+  }
 }
