@@ -590,9 +590,10 @@ void main() {
     expect(rig.brain.data.ledger.last.phone, '01819876543');
   });
 
-  testWidgets('+ যোগ করুন on আজ makes a reminder that rings at the chosen time', (t) async {
+  testWidgets('+ যোগ করুন on the home makes a reminder that rings at the chosen time', (t) async {
     final rig = await start(t);
-    await openMenu(t, 'আজ');
+    // Today's list is on the home itself.
+    await t.scrollUntilVisible(find.text('যোগ করুন'), 200);
     await t.tap(find.text('যোগ করুন'));
     await settle(t);
     await t.enterText(find.byType(TextField).last, 'ক্লায়েন্ট মিটিং');

@@ -1,109 +1,87 @@
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
-import '../logic/cash.dart';
-import '../logic/ledger.dart';
 import '../models/models.dart';
 import '../services/notifications.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
-import '../ui/widgets.dart';
 import 'alarm_screens.dart';
 import 'calls_screen.dart';
 import 'help_screen.dart';
-import 'home_shell.dart';
-import 'ledger_screen.dart';
 import 'plan_screens.dart';
 
-/// "আজ": what needs doing today, in time order — the first thing a busy
-/// person wants to see. Money is one tap away in the strip at the top.
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+/// What needs doing — late, today, tomorrow — shown on the home under the
+/// greeting, in the same light style as the chat.
+class TodaySections extends StatelessWidget {
+  const TodaySections({super.key});
 
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final d = brain.data;
     final now = brain.services.now();
-    final t = totals(d.ledger);
-    final month = monthSums(d.cash, now);
     final plan = planOf(d, now);
     final tomorrow = dayOnly(now).add(const Duration(days: 1));
     final tomorrowItems = plan.ahead.where((i) => dayOnly(i.sort) == tomorrow).toList();
-    void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-      children: [
-        TabTitle('আজ', sub: '${weekdayName(now)}, ${bnDigits(now.day)} ${bnMonths[now.month - 1]}'),
-        const _StartTips(),
-        const SizedBox(height: 12),
-        Material(
-          color: C.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: C.line)),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: () => push(const MenuPage(child: MoneyScreen())),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-              child: Row(children: [
-                Expanded(child: Figure(label: 'পাওনা', amount: taka(t.receivable), color: C.green, size: 17)),
-                Expanded(child: Figure(label: 'দেনা', amount: taka(t.payable), color: C.orange, size: 17)),
-                Expanded(child: Figure(label: 'এ মাসে খরচ', amount: taka(month.expense), size: 17)),
-                const Icon(Icons.chevron_right_rounded, color: C.muted),
-              ]),
+    Widget box(List<Widget> rows, {Color color = C.ground}) => Container(
+          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(16)),
+          clipBehavior: Clip.antiAlias,
+          child: Column(children: [
+            for (final (i, r) in rows.indexed) ...[
+              if (i > 0) const Divider(height: 1, indent: 14, endIndent: 14, color: C.line),
+              r,
+            ],
+          ]),
+        );
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (plan.overdue.isNotEmpty) ...[
+        _Heading('দেরি হয়ে গেছে · ${bnDigits(plan.overdue.length)}', color: C.orange),
+        box(color: C.orangeTint, [
+          for (final i in plan.overdue)
+            PlanRow(
+              item: i,
+              withDay: true,
+              trailing: TextButton(
+                onPressed: () => brain.saveTask(i.task!.copyWith(due: tomorrow)),
+                child: Text('কাল করব', style: body(13, weight: FontWeight.w600, color: C.green)),
+              ),
             ),
-          ),
-        ),
-        if (d.reminders.isNotEmpty) const AlarmBanner(),
-        if (plan.overdue.isNotEmpty) ...[
-          _Heading('দেরি হয়ে গেছে · ${bnDigits(plan.overdue.length)}', color: C.orange),
-          Panel(
-            borderColor: const Color(0xFFF3D9C2),
-            child: Rows(children: [
-              for (final i in plan.overdue)
-                PlanRow(
-                  item: i,
-                  withDay: true,
-                  trailing: TextButton(
-                    onPressed: () => brain.saveTask(i.task!.copyWith(due: tomorrow)),
-                    child: Text('কাল করব', style: body(13, weight: FontWeight.w600, color: C.green)),
-                  ),
-                ),
-            ]),
-          ),
-        ],
-        _Heading('আজ · ${bnDigits(plan.today.length)}',
-            action: TextButton.icon(
-              onPressed: () => showAddSheet(context),
-              icon: const Icon(Icons.add_rounded, size: 18, color: C.green),
-              label: Text('যোগ করুন', style: body(14, weight: FontWeight.w600, color: C.green)),
-            )),
-        if (plan.today.isEmpty)
-          Panel(
-            padding: const EdgeInsets.all(16),
-            child: Text('আজ কিছু রাখা নেই। “যোগ করুন” চাপুন, বা চ্যাটে লিখুন — যেমন “বিকেল ৪টায় মিটিং মনে করিয়ে দিও”।', style: body(14, color: C.muted, height: 1.5)),
-          )
-        else
-          Panel(child: Rows(children: [for (final i in plan.today) PlanRow(item: i)])),
-        if (tomorrowItems.isNotEmpty) ...[
-          _Heading('কাল, ${weekdayName(tomorrow)}'),
-          Panel(child: Rows(children: [for (final i in tomorrowItems) PlanRow(item: i)])),
-        ],
-        const SizedBox(height: 12),
-        Center(
-          child: TextButton(
-            onPressed: () => push(const AllTasksScreen()),
-            child: Text('সব কাজ ও রিমাইন্ডার দেখুন', style: body(14, weight: FontWeight.w600, color: C.green)),
-          ),
-        ),
+        ]),
       ],
-    );
+      _Heading('আজ · ${weekdayName(now)}, ${bnDigits(now.day)} ${bnMonths[now.month - 1]}',
+          action: TextButton.icon(
+            onPressed: () => showAddSheet(context),
+            icon: const Icon(Icons.add_rounded, size: 18, color: C.green),
+            label: Text('যোগ করুন', style: body(14, weight: FontWeight.w600, color: C.green)),
+          )),
+      if (plan.today.isEmpty)
+        box([
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Text('আজ কিছু রাখা নেই। নিচে লিখুন বা বলুন — যেমন “বিকেল ৪টায় মিটিং মনে করিয়ে দিও”।', style: body(14, color: C.muted, height: 1.5)),
+          ),
+        ])
+      else
+        box([for (final i in plan.today) PlanRow(item: i)]),
+      if (tomorrowItems.isNotEmpty) ...[
+        _Heading('কাল, ${weekdayName(tomorrow)}'),
+        box([for (final i in tomorrowItems) PlanRow(item: i)]),
+      ],
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton(
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AllTasksScreen())),
+          child: Text('সব কাজ ও রিমাইন্ডার দেখুন →', style: body(14, weight: FontWeight.w600, color: C.green)),
+        ),
+      ),
+    ]);
   }
 }
 
 class _Heading extends StatelessWidget {
-  const _Heading(this.text, {this.color = C.muted2, this.action});
+  const _Heading(this.text, {this.color = C.muted, this.action});
   final String text;
   final Color color;
   final Widget? action;
@@ -112,7 +90,7 @@ class _Heading extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: EdgeInsets.fromLTRB(2, 18, 0, action == null ? 8 : 0),
         child: Row(children: [
-          Expanded(child: Text(text, style: body(15, weight: FontWeight.w600, color: color))),
+          Expanded(child: Text(text, style: body(13, weight: FontWeight.w600, color: color))),
           if (action != null) action!,
         ]),
       );
@@ -192,14 +170,14 @@ List<Reminder> upcomingReminders(AppData d, DateTime now) =>
     ([...d.reminders]..sort((a, b) => a.nextDate(now).compareTo(b.nextDate(now)))).where((r) => !r.nextDate(now).isBefore(dayOnly(now))).toList();
 
 /// First steps for a new user, until they hide it.
-class _StartTips extends StatefulWidget {
-  const _StartTips();
+class StartTips extends StatefulWidget {
+  const StartTips({super.key});
 
   @override
-  State<_StartTips> createState() => _StartTipsState();
+  State<StartTips> createState() => _StartTipsState();
 }
 
-class _StartTipsState extends State<_StartTips> {
+class _StartTipsState extends State<StartTips> {
   bool? _hidden;
 
   @override
@@ -249,9 +227,8 @@ class _StartTipsState extends State<_StartTips> {
 
     return Padding(
       padding: const EdgeInsets.only(top: 12),
-      child: Panel(
-        color: C.greenSoft,
-        borderColor: C.greenTint,
+      child: Container(
+        decoration: BoxDecoration(color: C.greenSoft, borderRadius: BorderRadius.circular(16)),
         padding: const EdgeInsets.fromLTRB(14, 10, 8, 6),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('শুরু করার ৪টা ধাপ', style: body(16, weight: FontWeight.w700, color: C.greenDark)),
@@ -260,7 +237,7 @@ class _StartTipsState extends State<_StartTips> {
               done: hasContacts, action: 'আনুন', onTap: () => importFromPhone(context)),
           step('২', 'রিমাইন্ডার যেন ঠিক সময়ে বাজে', 'ফোনের দুই-একটা সেটিং এক চাপে ঠিক করে নিন',
               action: 'দেখুন', onTap: () => push(const ReminderCheckScreen())),
-          step('৩', 'চ্যাটে বলুন বা লিখুন', '“রবিনকে ৫০০০ টাকা দিলাম”, “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”, “আজকের কাজের তালিকা”'),
+          step('৩', 'নিচে বলুন বা লিখুন', '“রবিনকে ৫০০০ টাকা দিলাম”, “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”, “আজকের কাজের তালিকা”'),
           step('৪', 'কী কী করা যায়, দেখে নিন', 'সব সুবিধা আর কী বললে কী হয়', action: 'দেখুন', onTap: () => push(const HelpScreen())),
           Align(
             alignment: Alignment.centerRight,

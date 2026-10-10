@@ -574,64 +574,44 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
           ),
         );
 
-    return LayoutBuilder(
-      builder: (context, box) => SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: box.maxHeight - 12),
-          child: IntrinsicHeight(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const SizedBox(height: 24),
-              const _Mark(size: 44),
-              const SizedBox(height: 14),
-              Text(_hello(now), style: display(28, weight: 700, height: 1.2)),
-              Text('আজ কী করে দেব?', style: body(18, color: C.muted, height: 1.4)),
-              const SizedBox(height: 20),
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                glance('আজ', left == 0 ? 'কিছু বাকি নেই' : '${bnDigits(left)}টা কাজ বাকি',
-                    next == null ? 'সব দেখুন' : 'পরেরটা ${bnTime(next.sort.hour, next.sort.minute)}',
-                    subColor: C.green, flex: 1.25, onTap: () => _open(const MenuPage(child: HomeScreen()))),
-                const SizedBox(width: 8),
-                glance('পাওনা', taka(t.receivable), owing == 0 ? 'কারো কাছে নেই' : '${bnDigits(owing)} জনের কাছে',
-                    color: C.green, onTap: () => _open(const MenuPage(child: MoneyScreen(initial: MoneyPart.loans)))),
-                const SizedBox(width: 8),
-                glance('এ মাসে খরচ', taka(month.expense), 'ব্যালেন্স ${month.balance < 0 ? '-' : ''}${taka(month.balance)}',
-                    onTap: () => _open(const MenuPage(child: MoneyScreen()))),
-              ]),
-              if (d.reminders.isNotEmpty) const AlarmBanner(),
-              if (d.contacts.isEmpty) ...[
-                const SizedBox(height: 12),
-                Material(
-                  color: C.greenSoft,
-                  borderRadius: BorderRadius.circular(14),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
-                    child: Row(children: [
-                      const Icon(Icons.contacts_outlined, color: C.green, size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(child: Text('ফোনবুকের সব নম্বর এক চাপে আনুন — নাম বললেই ফোন আর হিসাব', style: body(13, color: C.greenDark, height: 1.4))),
-                      TextButton(onPressed: () => importFromPhone(context), child: Text('আনুন', style: body(14, weight: FontWeight.w600, color: C.green))),
-                    ]),
-                  ),
-                ),
-              ],
-              const Spacer(),
-              const SizedBox(height: 20),
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                suggestion(_suggestions[0]),
-                const SizedBox(width: 8),
-                suggestion(_suggestions[1]),
-              ]),
-              const SizedBox(height: 8),
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                suggestion(_suggestions[2]),
-                const SizedBox(width: 8),
-                suggestion(_suggestions[3]),
-              ]),
-            ]),
-          ),
-        ),
-      ),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      children: [
+        const SizedBox(height: 20),
+        const Align(alignment: Alignment.centerLeft, child: _Mark(size: 44)),
+        const SizedBox(height: 14),
+        Text(_hello(now), style: display(28, weight: 700, height: 1.2)),
+        Text('আজ কী করে দেব?', style: body(18, color: C.muted, height: 1.4)),
+        const SizedBox(height: 20),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          glance('আজ', left == 0 ? 'কিছু বাকি নেই' : '${bnDigits(left)}টা কাজ বাকি',
+              next == null ? 'সব দেখুন' : 'পরেরটা ${bnTime(next.sort.hour, next.sort.minute)}',
+              subColor: C.green, flex: 1.25, onTap: () => _open(const AllTasksScreen())),
+          const SizedBox(width: 8),
+          glance('পাওনা', taka(t.receivable), owing == 0 ? 'কারো কাছে নেই' : '${bnDigits(owing)} জনের কাছে',
+              color: C.green, onTap: () => _open(const MenuPage(child: MoneyScreen(initial: MoneyPart.loans)))),
+          const SizedBox(width: 8),
+          glance('এ মাসে খরচ', taka(month.expense), 'ব্যালেন্স ${month.balance < 0 ? '-' : ''}${taka(month.balance)}',
+              onTap: () => _open(const MenuPage(child: MoneyScreen()))),
+        ]),
+        const StartTips(),
+        if (d.reminders.isNotEmpty) const AlarmBanner(),
+        const TodaySections(),
+        const SizedBox(height: 8),
+        Text('এভাবে বলতে বা লিখতে পারেন', style: body(13, weight: FontWeight.w600, color: C.muted)),
+        const SizedBox(height: 8),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          suggestion(_suggestions[0]),
+          const SizedBox(width: 8),
+          suggestion(_suggestions[1]),
+        ]),
+        const SizedBox(height: 8),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          suggestion(_suggestions[2]),
+          const SizedBox(width: 8),
+          suggestion(_suggestions[3]),
+        ]),
+      ],
     );
   }
 
@@ -1100,7 +1080,22 @@ class _Menu extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            item(Icons.calendar_today_outlined, 'আজ', const MenuPage(child: HomeScreen()), note: left == 0 ? null : '${bnDigits(left)} বাকি'),
+            InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: onNew,
+              child: SizedBox(
+                height: 46,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(children: [
+                    const Icon(Icons.home_outlined, size: 21, color: C.muted2),
+                    const SizedBox(width: 14),
+                    Expanded(child: Text('হোম', style: body(16))),
+                    if (left > 0) Text('আজ ${bnDigits(left)} বাকি', style: body(12, color: C.muted)),
+                  ]),
+                ),
+              ),
+            ),
             item(Icons.notifications_none_rounded, 'কাজ ও রিমাইন্ডার', const AllTasksScreen()),
             item(Icons.account_balance_wallet_outlined, 'হিসাব', const MenuPage(child: MoneyScreen()),
                 note: t.receivable == 0 ? null : 'পাওনা ${taka(t.receivable)}'),
