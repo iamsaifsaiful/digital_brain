@@ -16,6 +16,7 @@ import 'package:digital_brain/logic/talk.dart';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/services/launcher.dart';
 import 'package:digital_brain/services/notifications.dart';
+import 'package:digital_brain/services/voice.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 LedgerEntry e(String p, LedgerKind k, int a, DateTime d) => LedgerEntry(person: p, kind: k, amount: a, date: d);
@@ -843,5 +844,12 @@ void main() {
     expect(a, contains('বাজার'));
     expect(a, isNot(contains('মিটিং')));
     expect(reminderAnswer(AppData(), q, now), contains('আজ কোনো রিমাইন্ডার নেই'));
+  });
+
+  test('"দেব" is spoken as "দেবো", not as another word', () {
+    expect(forSpeech('কাল সকালে মনে করিয়ে দেব — ঠিক আছে?'), 'কাল সকালে মনে করিয়ে দেবো — ঠিক আছে?');
+    expect(forSpeech('আমি করব, রাখব।'), 'আমি করবো, রাখবো।');
+    expect(forSpeech('দেবেন না, সব ঠিক'), 'দেবেন না, সব ঠিক');
+    expect(forSpeech('• বাজার'), ' বাজার');
   });
 }

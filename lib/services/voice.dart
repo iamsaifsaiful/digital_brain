@@ -368,7 +368,7 @@ class DeviceVoice extends Voice {
       // Some speech engines never report "done": do not wait forever, or
       // the conversation would stop listening.
       final limit = Duration(milliseconds: (4000 + text.length * 110).clamp(4000, 90000));
-      await _tts.speak(text).timeout(limit, onTimeout: () => null);
+      await _tts.speak(forSpeech(text)).timeout(limit, onTimeout: () => null);
     } catch (e) {
       debugPrint('speak failed: $e');
     }
@@ -437,3 +437,15 @@ class FakeVoice extends Voice {
   @override
   Future<void> stopSpeaking() async {}
 }
+
+/// Future "I will" verbs written without ও-কার ("দেব", "করব") are read by
+/// the speech engine as other words ("দেব" = god). Spoken with ও-কার they
+/// sound right: দেবো, করবো. List bullets are not read out.
+const _futureVerbs = [
+  'দেব', 'নেব', 'করব', 'রাখব', 'পাব', 'বলব', 'যাব', 'আনব', 'খুলব', 'শুনব', 'দেখব', 'পাঠাব', 'লিখব', 'জানাব', 'করাব',
+  'বাজাব', 'খাব', 'থাকব', 'ধরব', 'ফেলব', 'চাইব', 'তুলব', 'বসাব', 'মেলাব', 'খুঁজব', 'বোঝাব', 'চালাব', 'ঘুমাব', 'উঠব', 'ফিরব', 'দিব', 'নিব',
+];
+final _futureRe = RegExp('(?<=^|[\\s,।!?;:“”"(])(${_futureVerbs.join('|')})(?=\$|[\\s,।!?;:“”")—-])');
+
+String forSpeech(String text) =>
+    text.replaceAll('•', '').replaceAllMapped(_futureRe, (m) => '${m[1]}ো');
