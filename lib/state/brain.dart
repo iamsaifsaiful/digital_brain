@@ -140,7 +140,64 @@ class Brain extends ChangeNotifier {
         people: knownPeople(data.ledger).take(60).toList(),
         categories: data.noteCategories,
         money: moneySummary(),
+        records: aiShareData ? recordsSummary() : '',
       );
+
+  /// The user lets the AI see their reminders, tasks and notes (never
+  /// passwords, PINs or anything secret), so it can answer about them.
+  bool aiShareData = true;
+
+  Future<void> setAiShareData(bool on) async {
+    aiShareData = on;
+    await services.lock.keys.write('ai_share_data', on ? 'true' : 'false');
+    notifyListeners();
+  }
+
+  /// Reminders, to-dos and notes as plain lines for the AI. Anything that
+  /// looks like a password or code is left out; vault items never appear.
+  String recordsSummary() {
+    final now = services.now();
+    String d2(int n) => n.toString().padLeft(2, '0');
+    String day(DateTime d) => '${d.year}-${d2(d.month)}-${d2(d.day)}';
+    final lines = <String>[];
+    final rem = [...data.reminders]..sort((a, b) => a.nextDate(now).compareTo(b.nextDate(now)));
+    if (rem.isNotEmpty) {
+      lines.add('Reminders (next date, time, repeat):');
+      for (final r in rem.take(50)) {
+        final next = r.nextDate(now);
+        final passed = r.repeat == Repeat.none && DateTime(next.year, next.month, next.day, r.hour, r.minute).isBefore(now);
+        lines.add('- ${r.title} — ${day(next)} ${d2(r.hour)}:${d2(r.minute)}'
+            '${r.repeat == Repeat.none ? '' : ' (repeats: ${r.repeat.name})'}${passed ? ' (already rang)' : ''}');
+      }
+    } else {
+      lines.add('Reminders: none saved.');
+    }
+    final open = data.tasks.where((t) => !t.done).toList();
+    if (open.isNotEmpty) {
+      lines.add('Open to-dos:');
+      for (final t in open.take(60)) {
+        lines.add('- ${t.title}${t.due == null ? '' : ' (day: ${day(t.due!)})'}');
+      }
+    } else {
+      lines.add('Open to-dos: none.');
+    }
+    final doneToday = data.tasks.where((t) => t.done && t.doneAt != null && dayOnly(t.doneAt!) == dayOnly(now)).toList();
+    if (doneToday.isNotEmpty) lines.add('Done today: ${doneToday.take(20).map((t) => t.title).join('; ')}');
+    final notes = ([...data.notes]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt)))
+        .where((n) => !mentionsSecret('${n.title} ${n.body}'))
+        .take(40)
+        .toList();
+    if (notes.isNotEmpty) {
+      lines.add('Notes (category: text):');
+      for (final n in notes) {
+        final text = (n.body.trim().isEmpty ? n.title : n.body).replaceAll('\n', ' ').trim();
+        lines.add('- ${n.category}: ${text.length > 160 ? '${text.substring(0, 160)}…' : text}');
+      }
+    }
+    lines.add('Contacts saved: ${data.contacts.length} (numbers stay on the phone; the app looks them up).');
+    lines.add('Passwords saved: ${data.vault.length} (never shown to you; the app opens them with fingerprint/PIN).');
+    return lines.join('\n');
+  }
 
   /// Money facts the AI may use to answer and advise (amounts and names only).
   String moneySummary() {
@@ -214,6 +271,7 @@ class Brain extends ChangeNotifier {
     try {
       services.ai.key = await services.lock.keys.read('claude_api_key') ?? '';
       services.ai.quality = (await services.lock.keys.read('ai_quality')) == 'fast' ? AiQuality.fast : AiQuality.best;
+      aiShareData = (await services.lock.keys.read('ai_share_data')) != 'false';
     } catch (_) {}
     try {
       services.voice.muted = (await services.lock.keys.read('speak_on')) == 'false';

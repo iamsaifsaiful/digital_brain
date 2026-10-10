@@ -21,6 +21,11 @@ Future<void> loadFonts() async {
     hind.addFont(rootBundle.load('assets/fonts/HindSiliguri-$w.ttf'));
   }
   await hind.load();
+  final noto = FontLoader('NotoBengali');
+  for (final w in ['Regular', 'Medium', 'SemiBold', 'Bold']) {
+    noto.addFont(rootBundle.load('assets/fonts/NotoSansBengali-$w.ttf'));
+  }
+  await noto.load();
 }
 
 class Rig {
@@ -755,5 +760,22 @@ void main() {
     await settle(t);
     expect(find.textContaining('৫০০'), findsWidgets);
     expect(rig.brain.data.ledger, hasLength(1));
+  });
+
+  testWidgets('with AI on, a question about saved reminders is answered by the AI from the records', (t) async {
+    final rig = await start(t,
+        data: AppData(reminders: [Reminder(title: 'বাজার', date: DateTime(2026, 10, 9), hour: 18, minute: 20)]),
+        ai: {
+          'reply': 'আজ ১টা রিমাইন্ডার আছে:\n• সন্ধ্যা ৬টা ২০ — বাজার',
+          'items': [
+            {'action': 'reminder_query', 'terms': ['আজ']},
+          ],
+        });
+    await t.enterText(find.byType(TextField).first, 'আজ কোন রিমাইন্ডার আছে?');
+    await t.testTextInput.receiveAction(TextInputAction.send);
+    await settle(t);
+    expect(rig.ai.contexts.last.records, contains('বাজার'));
+    expect(find.textContaining('• সন্ধ্যা ৬টা ২০ — বাজার'), findsOneWidget);
+    expect(find.textContaining('তারিখ তো লেখা নেই'), findsNothing);
   });
 }

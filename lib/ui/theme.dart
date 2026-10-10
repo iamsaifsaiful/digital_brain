@@ -44,27 +44,31 @@ class C {
   static const alarm = Color(0xFF0B3B30);
 }
 
-const bodyFont = 'Hind';
-const displayFont = 'Hind';
+/// Noto Sans Bengali for Bengali (clear, familiar digits); Hind Siliguri
+/// fills in English letters and punctuation that Noto's Bengali font lacks.
+const bodyFont = 'NotoBengali';
+const displayFont = 'NotoBengali';
+const fontFallback = ['Hind'];
 
 FontWeight _w(double weight) => weight >= 650 ? FontWeight.w700 : (weight >= 550 ? FontWeight.w600 : FontWeight.w500);
 
 /// Headings and amounts.
 TextStyle display(double size, {double weight = 600, Color color = C.ink, double? height}) =>
-    TextStyle(fontFamily: displayFont, fontSize: size, height: height ?? 1.25, color: color, fontWeight: _w(weight));
+    TextStyle(fontFamily: displayFont, fontFamilyFallback: fontFallback, fontSize: size, height: height ?? 1.25, color: color, fontWeight: _w(weight));
 
 TextStyle body(double size, {FontWeight weight = FontWeight.w400, Color color = C.ink, double? height}) =>
-    TextStyle(fontFamily: bodyFont, fontSize: size, fontWeight: weight, color: color, height: height ?? 1.45);
+    TextStyle(fontFamily: bodyFont, fontFamilyFallback: fontFallback, fontSize: size, fontWeight: weight, color: color, height: height ?? 1.45);
 
 ThemeData buildTheme() {
   final base = ThemeData(
     useMaterial3: true,
     fontFamily: bodyFont,
+    fontFamilyFallback: fontFallback,
     scaffoldBackgroundColor: C.ground,
     colorScheme: ColorScheme.fromSeed(seedColor: C.green, primary: C.green, surface: C.ground),
   );
   return base.copyWith(
-    textTheme: base.textTheme.apply(fontFamily: bodyFont, bodyColor: C.ink, displayColor: C.ink),
+    textTheme: base.textTheme.apply(fontFamily: bodyFont, fontFamilyFallback: fontFallback, bodyColor: C.ink, displayColor: C.ink),
     appBarTheme: const AppBarTheme(backgroundColor: C.ground, foregroundColor: C.ink, elevation: 0, scrolledUnderElevation: 0),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,

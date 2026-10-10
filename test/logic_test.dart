@@ -829,4 +829,19 @@ void main() {
       expect(plannedNotices([d], now).single.daily, isTrue);
     });
   });
+
+  test('"আজ কোন রিমাইন্ডার আছে?" lists today\'s reminders, or says there are none', () {
+    final now = DateTime(2026, 10, 10, 18, 0);
+    final d = AppData(reminders: [
+      Reminder(title: 'বাজার', date: DateTime(2026, 10, 10), hour: 18, minute: 20),
+      Reminder(title: 'মিটিং', date: DateTime(2026, 10, 11), hour: 10),
+    ]);
+    final q = Parser(ledger: const [], now: now).parse('আজ কোন রিমাইন্ডার আছে?');
+    expect(q, isA<ReminderQuery>());
+    final a = reminderAnswer(d, q as ReminderQuery, now);
+    expect(a, contains('১টা রিমাইন্ডার'));
+    expect(a, contains('বাজার'));
+    expect(a, isNot(contains('মিটিং')));
+    expect(reminderAnswer(AppData(), q, now), contains('আজ কোনো রিমাইন্ডার নেই'));
+  });
 }

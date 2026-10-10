@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../logic/ai_map.dart' show answeredByAi;
 import '../logic/answers.dart';
 import '../logic/bn.dart';
 import '../logic/cash.dart';
@@ -481,8 +482,18 @@ class ChatController extends ChangeNotifier {
     _lastSaidAt = _now;
     final tags = <String>[];
 
+    // The AI answered a question about the user's things in its own words:
+    // say that, with the app's links (e.g. "রহিমের খাতা দেখুন").
+    final aiAnswer = brain.aiShareData && others.whereType<AiReply>().isNotEmpty && others.any(answeredByAi);
+    final aiLinks = aiAnswer ? [for (final c in others.where(answeredByAi)) ..._linksFor(c)] : const <ChatLink>[];
     for (final c in others) {
       if (c is NotUnderstood && (saves.isNotEmpty || others.length > 1)) continue;
+      if (aiAnswer && answeredByAi(c)) continue;
+      if (aiAnswer && c is AiReply) {
+        _say(out, c.text, links: aiLinks);
+        tags.add(c.text);
+        continue;
+      }
       if (c is TaskDone) {
         _taskDone(c, out);
         tags.add('[কাজ শেষ হিসেবে দাগ দেওয়া হলো]');
@@ -1208,7 +1219,7 @@ class ChatController extends ChangeNotifier {
         await brain.saveTask(Task(title: c.title, due: c.due));
         _say(out, quiet ? 'কাজ: ${c.title}' : 'ঠিক আছে, কাজের তালিকায় তুললাম।',
             links: const [ChatLink(LinkKind.tasks, 'কাজের তালিকা')], speak: !quiet);
-        _history.add(AiTurn.app('[কাজের তালিকায় রাখা হলো]'));
+        _history.add(AiTurn.app('[কাজের তালিকায় রাখা হলো: ${c.title}]'));
       case ReminderAdd():
         await brain.saveReminder(Reminder(
           title: c.title,
@@ -1220,7 +1231,7 @@ class ChatController extends ChangeNotifier {
         ));
         _say(out, quiet ? 'মনে করাব: ${c.title}' : (c.repeat.isInterval || c.repeat == Repeat.daily ? 'ঠিক আছে, ${c.repeat.label} মনে করিয়ে দেব।' : 'ঠিক আছে, ${sayWhen(c.at, _now)}-এ মনে করিয়ে দেব।'),
             links: const [ChatLink(LinkKind.reminders, 'রিমাইন্ডার দেখুন')], speak: !quiet);
-        _history.add(AiTurn.app('[রিমাইন্ডার রাখা হলো]'));
+        _history.add(AiTurn.app('[রিমাইন্ডার রাখা হলো: ${summaryLine(c)}]'));
         if (!_warnedExact && !await brain.services.notifier.exactAllowed()) {
           _warnedExact = true;
           messages.add(ChatMessage.app('ঠিক মিনিটে বাজাতে “আরও” → “ঠিক সময়ে রিমাইন্ডার” চালু করে নিন।', info: true));

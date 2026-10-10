@@ -10,7 +10,7 @@ typedef AiRoute = Map<String, Object?>;
 /// What the app tells the AI besides the sentence. Never passwords, vault
 /// items or note text: only names in the লেনদেন (money) book and category names.
 class AiContext {
-  const AiContext({required this.now, this.people = const [], this.categories = const [], this.money = ''});
+  const AiContext({required this.now, this.people = const [], this.categories = const [], this.money = '', this.records = ''});
   final DateTime now;
   final List<String> people;
   final List<String> categories;
@@ -19,6 +19,11 @@ class AiContext {
   /// and spending, projects) so the AI can answer and advise in its own
   /// words. Never passwords, notes, tasks or phone numbers.
   final String money;
+
+  /// The user's reminders, to-dos and notes (when they allow it), so
+  /// questions about them are answered from the real records. Never
+  /// passwords or vault items.
+  final String records;
 }
 
 /// Which Claude model reads the user's words.
@@ -215,7 +220,7 @@ Item actions:
 - ledger_set: the user states a balance ("ইসমাইলের কাছে আমি ৫ হাজার টাকা পাই"). balance > 0: they owe the user; < 0: the user owes them.
 - ledger_query: asks about balances. ask: person (fill person), receivable (who owes me), payable (whom I owe), all.
 - vault_query: asks for a password/login/Wi-Fi. terms: the site/app name words. wifi true for Wi-Fi.
-- reminder_query: ONLY a question about reminders or dates already saved ("গাড়ির কাগজের মেয়াদ কবে?"). A request to be reminded is always reminder_add.
+- reminder_query: ONLY a question about reminders or dates already saved ("আজ কোন রিমাইন্ডার আছে?", "গাড়ির কাগজের মেয়াদ কবে?"). A request to be reminded is always reminder_add.
 - note_add: a fact to remember that is not about money ("ছাদের দরজার কোড ৪৫৬৭", "মনে রাখো …"). text: the fact as one short, clean Bengali sentence (keep numbers exactly). category: a short Bengali category; reuse one of the user's categories when it fits.
 - search: asks for something the user saved earlier (a note, a contact's number, anything). terms: the key words.
 - task_add: something the user has to do ("কাল ব্যাংকে যেতে হবে", "সাপ্লায়ারকে অর্ডার দিতে হবে", "বাজারের লিস্টে ডিম রাখো"). text: the task, short (for a shopping list start with "বাজার: "). date: YYYY-MM-DD if a day was said.
@@ -232,18 +237,22 @@ Money owed between the user and a person (loans, credit) is ledger_*; the user's
 
 Names: write the person's name in Bengali script as said, without endings (সজীবকে → সজীব, রহিমের → রহিম). If it matches one of the known people, use that exact spelling. Names in English letters stay in English with a capital letter.
 
-reply: always fill it. It is read aloud, so write it as natural spoken Bangladeshi Bengali the way a smart, polite human assistant talks: আপনি, plain words, no lists, no markdown, no emoji, no English unless the user used it. Make it tidy: one clear point per sentence, the answer first, no repeating the question, no filler like "অবশ্যই!" at the start.
+reply: always fill it. It is shown in the chat and read aloud, so write it as natural spoken Bangladeshi Bengali the way a smart, polite human assistant talks: আপনি, plain words, no markdown or emoji (a "• " list only when listing several of the user's items), no English unless the user used it. Make it tidy: one clear point per sentence, the answer first, no repeating the question, no filler like "অবশ্যই!" at the start.
 - When there are items to save, only acknowledge in a few words ("আচ্ছা, বুঝেছি।") — the app reads back the details and asks before saving, so do not repeat them.
 - Questions and advice (chat): answer properly and helpfully in 2–4 short sentences; give the actual answer, a number, or concrete steps. For money questions or advice ("খরচ কোথায় কমাব?", "কে সবচেয়ে বেশি বাকি রেখেছে?", "সব মিলিয়ে কত পাব?") use the money summary below, do the arithmetic, and never invent figures that are not there.
 - If the message is unclear or a needed detail is missing and you cannot guess it sensibly from the earlier turns, use chat and ask ONE short question instead of guessing.
 - Speech-to-text mishears words: work out what the user most likely meant from context (a name close to a known person is that person; "পাচশো" = 500).
+- Questions about the user's own things (reminders, to-dos, notes, money, "আজ কী কী আছে", "কাল কী করতে হবে", "রহিমের কাছে কত পাব"): think it through and answer them yourself in reply from the records below — they are complete and current, including what was saved a moment ago. Check dates against today's date, count correctly, and list every matching item, one per line starting with "• " (time first, e.g. "• সন্ধ্যা ৬টা ২০ — বাজার"). If nothing matches, say exactly that ("আজ কোনো রিমাইন্ডার নেই") and offer to add one. Never say something is missing without checking the records. Still add the matching query item (reminder_query, task_query, briefing, ledger_query, cash_query) so the app can show a link.
+- Write times the Bangladeshi way: সকাল/দুপুর/বিকেল/সন্ধ্যা/রাত + Bengali digits ("সন্ধ্যা ৬টা ২০")।
 - If you are not sure of a general-knowledge fact, say so briefly. Never ask for or repeat passwords or PINs.
 Now is $date $time (Asia/Dhaka), ${_weekdays[d.weekday - 1]}.
 
 Known people in the লেনদেন (money) book: ${ctx.people.isEmpty ? '(none)' : ctx.people.join(', ')}
 User's note categories: ${ctx.categories.isEmpty ? '(none)' : ctx.categories.join(', ')}
 Money summary (from the app, accurate):
-${ctx.money.isEmpty ? '(nothing yet)' : ctx.money}''';
+${ctx.money.isEmpty ? '(nothing yet)' : ctx.money}
+User's records (from the app, complete and up to date):
+${ctx.records.isEmpty ? '(the user has not allowed the AI to see reminders, to-dos and notes; for such questions add the query item and keep the reply to a few words — the app answers from the phone)' : ctx.records}''';
 }
 
 const _item = {
@@ -314,6 +323,7 @@ class FakeAi implements AiBrain {
   AiError? error;
   final asked = <String>[];
   final histories = <List<AiTurn>>[];
+  final contexts = <AiContext>[];
 
   @override
   String key = '';
@@ -323,6 +333,7 @@ class FakeAi implements AiBrain {
     if (key.isEmpty) return null;
     asked.add(said);
     histories.add(history);
+    contexts.add(ctx);
     if (error != null) throw error!;
     return answer;
   }

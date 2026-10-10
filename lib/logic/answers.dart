@@ -37,9 +37,30 @@ String vaultAnswer(AppData d, VaultQuery q) {
   return '${bnDigits(found.length)}টা মিলেছে। কোনটা লাগবে ছুঁয়ে খুলুন — আঙুলের ছাপ বা PIN লাগবে।';
 }
 
+/// "• সন্ধ্যা ৬টা ২০ — বাজার" lines for reminders.
+String _reminderLines(Iterable<Reminder> rs, DateTime now, {bool withDay = false}) => [
+      for (final r in rs)
+        '• ${withDay ? '${sayWhen(r.nextDate(now), now, withTime: false)} ' : ''}${bnTime(r.hour, r.minute)} — ${r.title}',
+    ].join('\n');
+
 String reminderAnswer(AppData d, ReminderQuery q, DateTime now) {
+  // "আজ কোন রিমাইন্ডার আছে?", "কালকের রিমাইন্ডার": every one on that day.
+  final w = parseWhen(q.transcript, now);
+  final sorted = [...d.reminders]
+    ..sort((a, b) => DateTime(a.nextDate(now).year, a.nextDate(now).month, a.nextDate(now).day, a.hour, a.minute)
+        .compareTo(DateTime(b.nextDate(now).year, b.nextDate(now).month, b.nextDate(now).day, b.hour, b.minute)));
+  if (w != null && w.hasDay) {
+    final onDay = sorted.where((r) => dayOnly(r.nextDate(now)) == w.day).toList();
+    final dayText = sayWhen(w.day, now, withTime: false);
+    if (onDay.isEmpty) return '$dayText কোনো রিমাইন্ডার নেই। রাখতে চাইলে বলুন — যেমন “সন্ধ্যা ৭টায় মিটিং মনে করিয়ে দিও”।';
+    return '$dayText ${bnDigits(onDay.length)}টা রিমাইন্ডার আছে:\n${_reminderLines(onDay, now)}';
+  }
   final found = searchReminders(d, q.terms);
-  if (found.isEmpty) return 'এমন কোনো তারিখ তো লেখা নেই। নতুন করে মনে করিয়ে দেওয়ার ব্যবস্থা করব?';
+  if (found.isEmpty) {
+    final upcoming = sorted.where((r) => !r.nextDate(now).isBefore(dayOnly(now))).take(5).toList();
+    if (upcoming.isEmpty) return 'এখনো কোনো রিমাইন্ডার রাখা নেই। রাখতে চাইলে বলুন — যেমন “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”।';
+    return 'ঠিক এই নামে কিছু পেলাম না। সামনের রিমাইন্ডারগুলো:\n${_reminderLines(upcoming, now, withDay: true)}';
+  }
   final r = found.first;
   final day = r.nextDate(now);
   final left = dayOnly(day).difference(dayOnly(now)).inDays;

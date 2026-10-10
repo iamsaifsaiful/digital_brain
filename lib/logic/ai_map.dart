@@ -46,9 +46,14 @@ List<Command> commandsFromAi(String said, Map<String, Object?> r, List<LedgerEnt
     final c = commandFromAi(said, item, ledger);
     if (c != null) out.add(c);
   }
-  if ((out.isEmpty || chatted) && reply.isNotEmpty) out.insert(0, AiReply(said, text: reply));
+  // A question about the user's own things: the AI has the records and
+  // answers in its own words; the query stays only for its link.
+  if ((out.isEmpty || chatted || out.any(answeredByAi)) && reply.isNotEmpty) out.insert(0, AiReply(said, text: reply));
   return out;
 }
+
+/// Questions the AI answers itself (from the records it was given).
+bool answeredByAi(Command c) => c is ReminderQuery || c is TaskQuery || c is Briefing || c is LedgerQuery || c is CashQuery;
 
 /// Null when the AI's answer is not usable (the rules are used instead).
 Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> ledger) {
