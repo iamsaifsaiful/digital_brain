@@ -25,6 +25,10 @@ class ShellTabs extends InheritedWidget {
 void openVoice(BuildContext context) =>
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const VoiceScreen(), fullscreenDialog: true));
 
+/// Something typed on a screen: the chat opens with it already answered.
+void openChatWith(BuildContext context, String text) =>
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => VoiceScreen(firstMessage: text), fullscreenDialog: true));
+
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 

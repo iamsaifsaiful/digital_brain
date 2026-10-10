@@ -193,7 +193,7 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       CashQuery() => cashAnswer(d, cmd, now),
       Briefing() => briefingAnswer(d, now),
       NotUnderstood() => 'দুঃখিত, ঠিক বুঝতে পারিনি। একটু অন্যভাবে আরেকবার বলবেন?',
-      LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TaskDone() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() => null,
+      LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TaskDone() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() || VaultAdd() => null,
     };
 
 /// The saved contact for a spoken name ("রহিম", "রহিম ভাই", "Rahim").

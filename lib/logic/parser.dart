@@ -57,6 +57,15 @@ class VaultQuery extends Command {
   final bool wifiOnly;
 }
 
+/// "ফেসবুকের পাসওয়ার্ড ১২২৩৯৯৩৯": keep a login in the vault. Never sent to
+/// the AI and never read aloud.
+class VaultAdd extends Command {
+  const VaultAdd(super.transcript, {required this.name, required this.password, this.wifi = false});
+  final String name;
+  final String password;
+  final bool wifi;
+}
+
 class ReminderQuery extends Command {
   const ReminderQuery(super.transcript, {required this.terms});
   final List<String> terms;
@@ -468,6 +477,13 @@ class Parser {
     final amount = findAmount(text);
     final known = knownPeople(ledger);
     final asking = isQuestionText(said);
+
+    // "ফেসবুকের পাসওয়ার্ড ১২২৩৯৯৩৯": a login to keep (before any money rule
+    // reads the digits as an amount).
+    if (!asking && _hasAny(text, _vaultWords)) {
+      final add = vaultAddFrom(said);
+      if (add != null) return add;
+    }
 
     // Projects and own income/spending.
     final cash = _cashSentence(said, text, w, amount, asking);
@@ -1234,4 +1250,25 @@ final _tailWrite = RegExp('[\\s,।]+(?:$_youWords\\s+)?(?:$_thisWords\\s+)?(?:�
     write = true;
   }
   return (t.trim(), write);
+}
+
+final _pwSentence = RegExp(
+    r'^(.+?)\s*(?:এর|ের|র)?\s+(?:wi-?fi\s+|ওয়াইফাই\s+|ওয়াই-?ফাই\s+)?(?:পাসওয়ার্ড|পাসওয়ার্ড|পাসওয়াড|পাসোয়ার্ড|পাস ওয়ার্ড|password|pass|পিন|pin)\s*(?:হলো|হল|হচ্ছে|হইলো|টা|টা হলো|is|:|=|-|–)?\s*(\S+)\s*(?:রাখো|রাখ|লিখে রাখো|সেভ করো|সেভ কর|রেখে দাও)?[।.!]?\s*$',
+    caseSensitive: false);
+
+/// "ফেসবুকের পাসওয়ার্ড ১২২৩৯৯৩৯" / "অফিসের ওয়াইফাই পাসওয়ার্ড abcd1234" →
+/// a login to keep; null for questions and anything else.
+VaultAdd? vaultAddFrom(String said) {
+  final m = _pwSentence.firstMatch(said.trim());
+  if (m == null) return null;
+  final value = m[2]!.trim();
+  final v = fold(value.toLowerCase());
+  const notValues = ['কত', 'কী', 'কি', 'কোনটা', 'কোথায়', 'দেখাও', 'বলো', 'বল', 'দাও', 'লাগবে', 'দরকার', 'ভুলে', 'মনে', 'নেই', 'খুলো', 'কেমন'];
+  if (notValues.any((w) => v == fold(w)) || value.length < 3) return null;
+  var name = m[1]!.trim().replaceAll(RegExp(r'^(?:আমার|আমাদের)\s+'), '');
+  name = name.split(RegExp(r'\s+')).map((w) => stripPossessive(w)).join(' ').trim();
+  if (name.isEmpty) return null;
+  final wifi = RegExp(r'wi-?fi|ওয়াইফাই|ওয়াই-?ফাই', caseSensitive: false).hasMatch(said);
+  // Spoken digits come in Bengali; a typed password keeps its letters as typed.
+  return VaultAdd(said, name: name, password: asciiDigits(value), wifi: wifi);
 }

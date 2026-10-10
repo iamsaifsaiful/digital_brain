@@ -579,7 +579,7 @@ void main() {
     final rig = await start(t);
     await t.tap(find.text('যোগ করুন'));
     await settle(t);
-    await t.enterText(find.byType(TextField).first, 'ক্লায়েন্ট মিটিং');
+    await t.enterText(find.byType(TextField).last, 'ক্লায়েন্ট মিটিং');
     await t.tap(find.text('রাখুন'));
     await settle(t);
     final r = rig.brain.data.reminders.single;
@@ -694,5 +694,27 @@ void main() {
     await t.tap(find.text('রাখুন'));
     await settle(t);
     expect(rig.notifier.soundUri, 'content://media/internal/audio/media/7');
+  });
+
+  testWidgets('typed on আজ: understood like speech, and a typed password goes to the vault', (t) async {
+    final rig = await start(t);
+    await t.enterText(find.byType(TextField).first, 'রবিনকে ৫০০০ টাকা ধার দিলাম');
+    await t.testTextInput.receiveAction(TextInputAction.send);
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('তাই তো'));
+    await t.enterText(find.byType(TextField).last, 'হ্যাঁ');
+    await t.testTextInput.receiveAction(TextInputAction.send);
+    await settle(t);
+    expect(rig.brain.data.ledger.single.amount, 5000);
+    await t.enterText(find.byType(TextField).last, 'ফেসবুকের পাসওয়ার্ড ১২২৩৯৯৩৯');
+    await t.testTextInput.receiveAction(TextInputAction.send);
+    await settle(t);
+    expect(rig.voice.spoken.join(' '), isNot(contains('১২২৩৯৯৩৯')));
+    await t.enterText(find.byType(TextField).last, 'হ্যাঁ');
+    await t.testTextInput.receiveAction(TextInputAction.send);
+    await settle(t);
+    expect(rig.brain.data.vault.single.name, 'ফেসবুক');
+    expect(rig.brain.data.vault.single.password, '12239939');
+    expect(rig.ai.asked, isEmpty);
   });
 }

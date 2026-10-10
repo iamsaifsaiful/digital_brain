@@ -19,8 +19,11 @@ import 'vault_item_screen.dart';
 /// A conversation by voice (or typing): the app answers, then listens
 /// again, until the user closes it or says "থামো".
 class VoiceScreen extends StatefulWidget {
-  const VoiceScreen({super.key, this.startTyping = false});
+  const VoiceScreen({super.key, this.startTyping = false, this.firstMessage});
   final bool startTyping;
+
+  /// Typed on the আজ screen: answered straight away, no opening question.
+  final String? firstMessage;
 
   @override
   State<VoiceScreen> createState() => _VoiceScreenState();
@@ -61,7 +64,9 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
     super.initState();
     _typing = widget.startTyping;
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _begin());
+    final first = widget.firstMessage?.trim() ?? '';
+    if (first.isNotEmpty) _typing = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) => first.isEmpty ? _begin() : _send(first));
   }
 
   /// "কী করতে চান — লেনদেন, রিমাইন্ডার…?", then listen.
@@ -617,18 +622,38 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
           if (_listening) ...[
             _Wave(animation: _wave),
             const SizedBox(height: 4),
-            Text(_live.isEmpty ? 'শুনছি… বলা শেষ হলে ২ সেকেন্ড থামুন' : 'শুনছি…', style: body(13, color: const Color(0xFFA9B5AF))),
+            Text(
+                _chat.collecting
+                    ? 'বলে যান… শেষ হলে বলুন “শেষ”'
+                    : (_live.isEmpty ? 'শুনছি… বলা শেষ হলে একটু থামুন' : 'শুনছি… আরও বলতে পারেন'),
+                style: body(13, color: const Color(0xFFA9B5AF))),
             const SizedBox(height: 8),
           ],
           if (!_listening && !_speaking && !_busy && !_chat.thinking) ...[
             Text('মাইক বন্ধ আছে — চাপলে আবার শুনব', style: body(13, color: C.mint, weight: FontWeight.w600)),
             const SizedBox(height: 8),
           ],
+          // Always there: type instead of speaking — it is understood the same way.
+          Material(
+            color: C.dark2,
+            borderRadius: BorderRadius.circular(22),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(22),
+              onTap: _toggleTyping,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(children: [
+                  const Icon(Icons.keyboard_alt_outlined, color: C.onDarkMuted, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text('এখানে লিখুন…', style: body(16, color: const Color(0xFF8A9690)))),
+                ]),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: _RoundAction(icon: Icons.keyboard_alt_outlined, label: 'লিখে বলুন', onTap: _toggleTyping),
-              ),
+              const Expanded(child: SizedBox()),
               Semantics(
                 button: true,
                 label: label,
@@ -665,36 +690,6 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
       ),
     );
   }
-}
-
-class _RoundAction extends StatelessWidget {
-  const _RoundAction({required this.icon, required this.label, required this.onTap});
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-        button: true,
-        label: label,
-        excludeSemantics: true,
-        child: GestureDetector(
-          onTap: onTap,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: const BoxDecoration(color: C.dark2, shape: BoxShape.circle),
-                child: Icon(icon, color: Colors.white, size: 22),
-              ),
-              const SizedBox(height: 4),
-              Text(label, style: body(13, color: C.onDarkMuted)),
-            ],
-          ),
-        ),
-      );
 }
 
 class _Wave extends AnimatedWidget {

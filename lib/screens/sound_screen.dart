@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../services/notifications.dart';
@@ -20,6 +22,7 @@ class _SoundScreenState extends State<SoundScreen> {
   String _chosenTitle = '';
   String? _playing;
   Notifier? _n;
+  Timer? _stopTimer;
 
   static const _alarmTone = 'content://settings/system/alarm_alert';
 
@@ -41,6 +44,7 @@ class _SoundScreenState extends State<SoundScreen> {
 
   @override
   void dispose() {
+    _stopTimer?.cancel();
     _n?.stopSound();
     super.dispose();
   }
@@ -55,7 +59,8 @@ class _SoundScreenState extends State<SoundScreen> {
     await n.playSound(uri);
     setState(() => _playing = uri);
     // The phone stops the preview after 8 seconds.
-    Future<void>.delayed(const Duration(seconds: 8), () {
+    _stopTimer?.cancel();
+    _stopTimer = Timer(const Duration(seconds: 8), () {
       if (mounted && _playing == uri) setState(() => _playing = null);
     });
   }

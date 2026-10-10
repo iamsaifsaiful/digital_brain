@@ -52,6 +52,8 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
+        const AskBar(),
+        const SizedBox(height: 12),
         Material(
           color: C.surface,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: C.line)),
@@ -204,3 +206,63 @@ class _AlarmBannerState extends State<_AlarmBanner> with WidgetsBindingObserver 
 /// Reminders from today on, soonest first.
 List<Reminder> upcomingReminders(AppData d, DateTime now) =>
     ([...d.reminders]..sort((a, b) => a.nextDate(now).compareTo(b.nextDate(now)))).where((r) => !r.nextDate(now).isBefore(dayOnly(now))).toList();
+
+/// Type or speak, right on আজ: whatever is typed is understood exactly like
+/// speech ("রবিনকে ৫০০০ টাকা দিলাম", "রবিনের কাছে কত পাব?").
+class AskBar extends StatefulWidget {
+  const AskBar({super.key});
+
+  @override
+  State<AskBar> createState() => _AskBarState();
+}
+
+class _AskBarState extends State<AskBar> {
+  final _c = TextEditingController();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  void _send() {
+    final t = _c.text.trim();
+    if (t.isEmpty) return;
+    _c.clear();
+    FocusScope.of(context).unfocus();
+    openChatWith(context, t);
+  }
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.fromLTRB(14, 4, 6, 4),
+        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(28), border: Border.all(color: C.inputBorder)),
+        child: Row(children: [
+          Expanded(
+            child: TextField(
+              controller: _c,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => _send(),
+              minLines: 1,
+              maxLines: 3,
+              style: body(16),
+              decoration: InputDecoration(
+                isDense: true,
+                filled: false,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                hintText: 'লিখুন বা বলুন — যেমন “রবিনকে ৫০০০ টাকা দিলাম”',
+                hintStyle: body(14, color: C.muted),
+              ),
+            ),
+          ),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _c,
+            builder: (context, v, _) => v.text.trim().isEmpty
+                ? CircleAction(icon: Icons.mic_none_rounded, tooltip: 'বলুন', fg: Colors.white, bg: C.green, size: 44, onPressed: () => openVoice(context))
+                : CircleAction(icon: Icons.arrow_upward_rounded, tooltip: 'পাঠান', fg: Colors.white, bg: C.ink, size: 44, onPressed: _send),
+          ),
+        ]),
+      );
+}

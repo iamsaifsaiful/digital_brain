@@ -553,6 +553,17 @@ void main() {
       expect(contactMatches(d, 'মোবারক').map((c) => c.phone), unorderedEquals(['01711000001', '01811000003']));
     });
 
+    test('"ফেসবুকের পাসওয়ার্ড ১২২৩৯৯৩৯" saves a login; asking for it does not', () {
+      final a = Parser(ledger: const []).parse('ফেসবুকের পাসওয়ার্ড ১২২৩৯৯৩৯') as VaultAdd;
+      expect(a.name, 'ফেসবুক');
+      expect(a.password, '12239939');
+      final w = Parser(ledger: const []).parse('অফিসের ওয়াইফাই পাসওয়ার্ড Shop@2024') as VaultAdd;
+      expect(w.wifi, isTrue);
+      expect(w.password, 'Shop@2024');
+      expect(Parser(ledger: const []).parse('ফেসবুকের পাসওয়ার্ড কত?'), isA<VaultQuery>());
+      expect(Parser(ledger: const []).parse('ফেসবুকের পাসওয়ার্ড দেখাও'), isA<VaultQuery>());
+    });
+
     test('"তুমি এটা লেখ" is not part of what to save', () {
       final c = parseAll('তুমি এটা লেখ, আমি রবিনকে ৫ হাজার টাকা দিছি', const []);
       expect(c.single, isA<LedgerAdd>());

@@ -237,6 +237,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
       case ContactAdd():
       case CallPerson():
       case CashAdd():
+      case VaultAdd():
       case NotUnderstood():
         return _Answer('দুঃখিত, ঠিক বুঝতে পারিনি। একটু অন্যভাবে আরেকবার বলবেন?');
     }

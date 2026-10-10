@@ -368,7 +368,8 @@ class ChatController extends ChangeNotifier {
     messages.add(ChatMessage.user(t));
     notifyListeners();
     final out = <String>[];
-    if (_isStop(t)) {
+    // "শেষ" ends a list being collected; it is not "stop listening".
+    if (_isStop(t) && !(collecting && _isFinish(t))) {
       if (wait != ChatWait.none) _dropPending();
       ended = true;
       _say(out, 'ঠিক আছে, থামলাম। দরকার হলে মাইক চাপবেন।');
@@ -604,6 +605,15 @@ class ChatController extends ChangeNotifier {
           q = '$inOut হিসেবে লিখি — ${c.category}, ${bnNumber(c.amount)} টাকা?';
         }
         _ask(out, q, ChatWait.yesNo, choices: _yesNoChoices);
+      case VaultAdd():
+        if (_allYes) return _saveCurrent(out);
+        final old = _vaultNamed(c.name);
+        _ask(
+          out,
+          old != null ? '‘${old.name}’-এর পাসওয়ার্ড আগে থেকেই রাখা আছে। নতুনটা দিয়ে বদলে দিই?' : '‘${c.name}’-এর পাসওয়ার্ড ভল্টে তালাবদ্ধ করে রাখি?',
+          ChatWait.yesNo,
+          choices: _yesNoChoices,
+        );
       case ContactAdd():
         if (c.name.trim().isEmpty) {
           _ask(out, 'নম্বরটা কার নামে রাখব?', ChatWait.contactName);
@@ -729,6 +739,14 @@ class ChatController extends ChangeNotifier {
     if (n == normalize('শেষ জন') || n == normalize('শেষেরটা')) return list.last;
     final narrowed = contactMatches(AppData(contacts: list), said);
     return narrowed.length == 1 ? narrowed.single : null;
+  }
+
+  VaultItem? _vaultNamed(String name) {
+    final n = normalize(name);
+    for (final v in brain.data.vault) {
+      if (normalize(v.name) == n) return v;
+    }
+    return null;
   }
 
   Future<void> _savePhone(String name, String phone) async {
@@ -1069,6 +1087,22 @@ class ChatController extends ChangeNotifier {
         }
         _say(out, quiet ? 'লিখলাম: ${summaryLine(c)}' : done, links: const [ChatLink(LinkKind.cash, 'আয়-ব্যয় দেখুন')], speak: !quiet);
         _history.add(AiTurn.app('[লেখা হলো: ${summaryLine(c)}]'));
+      case VaultAdd():
+        final old = _vaultNamed(c.name);
+        await brain.saveVault(VaultItem(
+          id: old?.id,
+          name: old?.name ?? c.name,
+          kind: old?.kind ?? (c.wifi ? VaultKind.wifi : VaultKind.website),
+          address: old?.address ?? '',
+          username: old?.username ?? '',
+          email: old?.email ?? '',
+          password: c.password,
+          note: old?.note ?? '',
+          updatedAt: _now,
+        ));
+        // Never read the password back, not even to the AI.
+        _say(out, quiet ? 'ভল্টে: ${c.name}' : 'রেখে দিলাম, তালাবদ্ধ। দেখতে আঙুলের ছাপ বা PIN লাগবে।', speak: !quiet);
+        _history.add(AiTurn.app('[একটা লগইন ভল্টে রাখা হলো]'));
       case ContactAdd():
         await _savePhone(c.name, c.phone);
         _say(out, quiet ? 'নম্বর: ${c.name}' : 'ঠিক আছে, ${possessive(c.name)} নম্বর রেখে দিলাম।',
