@@ -117,17 +117,12 @@ class _CallsScreenState extends State<CallsScreen> {
     Widget row(int i) {
       final c = list[i];
       final first = i == 0, last = i == list.length - 1;
-      return Container(
-        decoration: BoxDecoration(
-          color: C.surface,
-          border: Border(
-            left: const BorderSide(color: C.line),
-            right: const BorderSide(color: C.line),
-            top: first ? const BorderSide(color: C.line) : BorderSide.none,
-            bottom: BorderSide(color: last ? C.line : C.line2),
-          ),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(first ? 16 : 0), bottom: Radius.circular(last ? 16 : 0)),
-        ),
+      // One white card for the whole list, drawn row by row (the list is
+      // built lazily, so it stays fast with thousands of numbers).
+      return Material(
+        color: C.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(first ? 16 : 0), bottom: Radius.circular(last ? 16 : 0)),
+        clipBehavior: Clip.antiAlias,
         child: ListRow(
           leading: Avatar(name: c.name, fg: C.purple, bg: C.purpleTint),
           title: c.name,
@@ -135,7 +130,7 @@ class _CallsScreenState extends State<CallsScreen> {
           trailing: c.phone.isEmpty ? null : _actions(c.phone, c.name),
           onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewItemScreen(contact: c))),
         ),
-      );
+      ).withDivider(!last);
     }
 
     return Scaffold(
@@ -252,4 +247,8 @@ class _ContactPickerState extends State<_ContactPicker> {
       ]),
     );
   }
+}
+
+extension on Widget {
+  Widget withDivider(bool show) => show ? Column(mainAxisSize: MainAxisSize.min, children: [this, Container(height: 1, color: C.line2)]) : this;
 }
