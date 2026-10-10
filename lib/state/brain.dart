@@ -139,7 +139,40 @@ class Brain extends ChangeNotifier {
         now: services.now(),
         people: knownPeople(data.ledger).take(60).toList(),
         categories: data.noteCategories,
+        money: moneySummary(),
       );
+
+  /// Money facts the AI may use to answer and advise (amounts and names only).
+  String moneySummary() {
+    final now = services.now();
+    final lines = <String>[];
+    final owed = balances(data.ledger).where((p) => p.balance != 0).take(40).toList();
+    if (owed.isNotEmpty) {
+      final t = totals(data.ledger);
+      lines.add('Loans: others owe the user ${t.receivable} taka in total, the user owes ${t.payable} taka.');
+      lines.add(owed.map((p) => '${p.name}: ${p.balance > 0 ? 'owes the user' : 'the user owes'} ${p.balance.abs()}').join('; '));
+    }
+    final m = monthSums(data.cash, now);
+    if (m.income > 0 || m.expense > 0) {
+      lines.add('This month: income ${m.income}, spending ${m.expense}, balance ${m.balance}.'
+          '${m.topExpenses.isEmpty ? '' : ' Spending by category: ${m.topExpenses.take(10).map((e) => '${e.key} ${e.value}').join(', ')}.'}');
+    }
+    final prev = monthSums(data.cash, DateTime(now.year, now.month - 1));
+    if (prev.income > 0 || prev.expense > 0) lines.add('Last month: income ${prev.income}, spending ${prev.expense}.');
+    for (final p in data.projects.where((p) => !p.closed).take(10)) {
+      final s = projectSums(data.cash, p.id);
+      lines.add('Project ${p.name}: received ${s.income}, spent ${s.expense}, left ${s.balance}.');
+    }
+    return lines.join('\n');
+  }
+
+  bool get aiBest => services.ai.quality == AiQuality.best;
+
+  Future<void> setAiBest(bool on) async {
+    services.ai.quality = on ? AiQuality.best : AiQuality.fast;
+    await services.lock.keys.write('ai_quality', on ? 'best' : 'fast');
+    notifyListeners();
+  }
 
   /// What the user meant. The rules always run (offline, instant); when AI
   /// is on, Claude's reading is used instead — except for anything secret,
@@ -174,6 +207,7 @@ class Brain extends ChangeNotifier {
   Future<void> load() async {
     try {
       services.ai.key = await services.lock.keys.read('claude_api_key') ?? '';
+      services.ai.quality = (await services.lock.keys.read('ai_quality')) == 'fast' ? AiQuality.fast : AiQuality.best;
     } catch (_) {}
     try {
       services.voice.muted = (await services.lock.keys.read('speak_on')) == 'false';

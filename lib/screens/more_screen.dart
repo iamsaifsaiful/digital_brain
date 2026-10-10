@@ -14,7 +14,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'alarm_screens.dart';
 
-const appVersion = '2.1.0';
+const appVersion = '2.2.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -375,6 +375,9 @@ class _MoreScreenState extends State<MoreScreen> {
           child: Rows(children: [
             linkRow(Icons.auto_awesome_outlined, 'AI সহকারী (Claude)',
                 sub: brain.aiOn ? 'চালু আছে' : 'বন্ধ · নিজের API key দিয়ে চালু করা যায়', subColor: brain.aiOn ? C.green : C.muted, onTap: _setAiKey),
+            if (brain.aiOn)
+              switchRow(Icons.psychology_outlined, 'সবচেয়ে ভালো বোঝা (Sonnet)', 'বন্ধ করলে দ্রুত ও সস্তা Haiku — তবে কম বোঝে', brain.aiBest,
+                  (v) => brain.setAiBest(v)),
             linkRow(Icons.table_view_outlined, 'ধার-দেনার রিপোর্ট (CSV)', sub: 'Excel বা Google Sheets-এ খোলা যায়', onTap: _csv,
                 trailing: const Icon(Icons.ios_share_rounded, color: C.muted)),
             linkRow(Icons.info_outline_rounded, 'লাইসেন্স ও সংস্করণ',
@@ -384,7 +387,7 @@ class _MoreScreenState extends State<MoreScreen> {
         ),
         if (brain.aiOn) ...[
           const SizedBox(height: 8),
-          Text('AI চালু থাকলে আপনার বলা বাক্য আর লেনদেনের মানুষের নাম Anthropic-এ যায়; পাসওয়ার্ড, ভল্ট, PIN, নোট বা কাজের লেখা কখনো যায় না।',
+          Text('AI চালু থাকলে আপনার বলা বাক্য, লেনদেনের মানুষের নাম আর টাকার হিসাবের সারাংশ Anthropic-এ যায়, যাতে ঠিকঠাক উত্তর আর পরামর্শ দিতে পারে; পাসওয়ার্ড, ভল্ট, PIN, ফোন নম্বর, নোট বা কাজের লেখা কখনো যায় না।',
               style: body(12, color: C.muted, height: 1.5)),
         ],
       ],

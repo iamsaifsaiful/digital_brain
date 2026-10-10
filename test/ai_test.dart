@@ -56,7 +56,7 @@ void main() {
     )..key = 'k';
     final r = await ai.route('ছাদের কোড', ctx);
     expect(r!['action'], 'search');
-    expect(models, ClaudeAi.models);
+    expect(models, ClaudeAi.models.take(2).toList());
   });
 
   test('errors become Bengali messages', () async {
@@ -94,5 +94,14 @@ void main() {
     expect((sent['messages'] as List), hasLength(3));
     final tool = (sent['tools'] as List).single as Map;
     expect(((tool['input_schema'] as Map)['properties'] as Map).keys, containsAll(['reply', 'items']));
+  });
+
+  test('the best model is used by default and the money summary goes in the instructions', () {
+    final ai = ClaudeAi();
+    expect(ai.quality, AiQuality.best);
+    expect(ClaudeAi.models.first, startsWith('claude-sonnet'));
+    final p = systemPrompt(AiContext(now: DateTime(2026, 10, 9), money: 'রহিম: owes the user 4000'));
+    expect(p, contains('রহিম: owes the user 4000'));
+    expect(p, contains('ask ONE short question'));
   });
 }

@@ -312,7 +312,11 @@ class ChatController extends ChangeNotifier {
       }
       final text = answerText(brain.data, c, _now) ?? '';
       _say(out, text, vault: _vaultFor(c), links: _linksFor(c));
-      tags.add(c is AiReply || c is SmallTalk || c is NotUnderstood ? text : '[অ্যাপ নিজের রাখা তথ্য থেকে উত্তর দিল]');
+      // Money answers are kept in the AI's view of the conversation so a
+      // follow-up ("তাহলে সব মিলিয়ে কত?") makes sense; saved notes, tasks
+      // and logins are not.
+      final shareable = c is AiReply || c is SmallTalk || c is NotUnderstood || c is LedgerQuery || c is CashQuery;
+      tags.add(shareable ? text : '[অ্যাপ নিজের রাখা তথ্য থেকে উত্তর দিল]');
       if (c is SmallTalk && c.kind == Talk.whatCanYouDo) _say(out, _skills, speak: false);
       if (c is SmallTalk && c.kind == Talk.bye) ended = true;
     }

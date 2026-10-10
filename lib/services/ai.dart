@@ -10,10 +10,24 @@ typedef AiRoute = Map<String, Object?>;
 /// What the app tells the AI besides the sentence. Never passwords, vault
 /// items or note text: only names in the লেনদেন (money) book and category names.
 class AiContext {
-  const AiContext({required this.now, this.people = const [], this.categories = const []});
+  const AiContext({required this.now, this.people = const [], this.categories = const [], this.money = ''});
   final DateTime now;
   final List<String> people;
   final List<String> categories;
+
+  /// A short summary of the money book (who owes what, this month's income
+  /// and spending, projects) so the AI can answer and advise in its own
+  /// words. Never passwords, notes, tasks or phone numbers.
+  final String money;
+}
+
+/// Which Claude model reads the user's words.
+enum AiQuality {
+  /// Sonnet: understands far better (dialects, long mixed sentences); costs more.
+  best,
+
+  /// Haiku: quicker and cheaper.
+  fast,
 }
 
 /// One earlier turn of the conversation, as the AI may see it. App turns
@@ -45,9 +59,12 @@ abstract class AiBrain {
   /// The key in use (empty = AI off).
   String get key;
   set key(String value);
+
+  AiQuality get quality;
+  set quality(AiQuality value);
 }
 
-/// Claude Haiku over the Messages API.
+/// Claude over the Messages API.
 class ClaudeAi implements AiBrain {
   ClaudeAi({http.Client? client}) : _client = client ?? http.Client();
 
@@ -56,8 +73,21 @@ class ClaudeAi implements AiBrain {
   @override
   String key = '';
 
-  /// Newest first; the next one is tried if a model is not available.
-  static const models = ['claude-haiku-5-5', 'claude-haiku-4-5'];
+  AiQuality _quality = AiQuality.best;
+
+  @override
+  AiQuality get quality => _quality;
+
+  @override
+  set quality(AiQuality value) {
+    _quality = value;
+    _model = 0;
+  }
+
+  /// Best first; the next one is tried if a model is not available.
+  static const models = ['claude-sonnet-5-5', 'claude-sonnet-4-5', 'claude-haiku-5-5', 'claude-haiku-4-5'];
+  static const fastModels = ['claude-haiku-5-5', 'claude-haiku-4-5'];
+  List<String> get _models => _quality == AiQuality.best ? models : fastModels;
   int _model = 0;
 
   static const _endpoint = 'https://api.anthropic.com/v1/messages';
@@ -66,7 +96,7 @@ class ClaudeAi implements AiBrain {
   Future<AiRoute?> route(String said, AiContext ctx, {List<AiTurn> history = const []}) async {
     if (key.trim().isEmpty) return null;
     while (true) {
-      final res = await _post(said, ctx, models[_model], history);
+      final res = await _post(said, ctx, _models[_model], history);
       if (res.statusCode == 200) {
         final body = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, Object?>;
         for (final block in (body['content'] as List? ?? const [])) {
@@ -77,7 +107,7 @@ class ClaudeAi implements AiBrain {
         throw const AiError('AI-এর উত্তর বুঝতে পারিনি।');
       }
       final err = _errorText(res);
-      if (res.statusCode == 404 && _model + 1 < models.length) {
+      if (res.statusCode == 404 && _model + 1 < _models.length) {
         _model++;
         continue;
       }
@@ -108,7 +138,7 @@ class ClaudeAi implements AiBrain {
               'messages': messagesFor(said, history),
             }),
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(Duration(seconds: _quality == AiQuality.best ? 30 : 20));
     } on TimeoutException {
       throw const AiError('ইন্টারনেট ধীর, AI সময়মতো উত্তর দেয়নি।');
     } catch (e) {
@@ -180,10 +210,18 @@ Money owed between the user and a person (loans, credit) is ledger_*; the user's
 
 Names: write the person's name in Bengali script as said, without endings (সজীবকে → সজীব, রহিমের → রহিম). If it matches one of the known people, use that exact spelling. Names in English letters stay in English with a capital letter.
 
-reply: always fill it. Warm, natural Bangladeshi Bengali the way a polite friend talks, short (1–2 sentences), address the user as আপনি, no English unless the user used it. When there are items to save, just acknowledge briefly ("আচ্ছা, বুঝেছি।") — the app itself will read back and confirm the details. For general-knowledge questions answer briefly and correctly; if you are not sure, say so. Never ask for or repeat passwords or PINs. Now is $date $time (Asia/Dhaka), ${_weekdays[d.weekday - 1]}.
+reply: always fill it. It is read aloud, so write it as natural spoken Bangladeshi Bengali the way a smart, polite human assistant talks: আপনি, plain words, no lists, no markdown, no emoji, no English unless the user used it. Make it tidy: one clear point per sentence, the answer first, no repeating the question, no filler like "অবশ্যই!" at the start.
+- When there are items to save, only acknowledge in a few words ("আচ্ছা, বুঝেছি।") — the app reads back the details and asks before saving, so do not repeat them.
+- Questions and advice (chat): answer properly and helpfully in 2–4 short sentences; give the actual answer, a number, or concrete steps. For money questions or advice ("খরচ কোথায় কমাব?", "কে সবচেয়ে বেশি বাকি রেখেছে?", "সব মিলিয়ে কত পাব?") use the money summary below, do the arithmetic, and never invent figures that are not there.
+- If the message is unclear or a needed detail is missing and you cannot guess it sensibly from the earlier turns, use chat and ask ONE short question instead of guessing.
+- Speech-to-text mishears words: work out what the user most likely meant from context (a name close to a known person is that person; "পাচশো" = 500).
+- If you are not sure of a general-knowledge fact, say so briefly. Never ask for or repeat passwords or PINs.
+Now is $date $time (Asia/Dhaka), ${_weekdays[d.weekday - 1]}.
 
 Known people in the লেনদেন (money) book: ${ctx.people.isEmpty ? '(none)' : ctx.people.join(', ')}
-User's note categories: ${ctx.categories.isEmpty ? '(none)' : ctx.categories.join(', ')}''';
+User's note categories: ${ctx.categories.isEmpty ? '(none)' : ctx.categories.join(', ')}
+Money summary (from the app, accurate):
+${ctx.money.isEmpty ? '(nothing yet)' : ctx.money}''';
 }
 
 const _item = {
@@ -246,6 +284,10 @@ const _tool = {
 /// For tests and when AI is off.
 class FakeAi implements AiBrain {
   FakeAi({this.answer, this.error});
+
+  @override
+  AiQuality quality = AiQuality.best;
+
   AiRoute? answer;
   AiError? error;
   final asked = <String>[];
