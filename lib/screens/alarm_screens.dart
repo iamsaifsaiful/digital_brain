@@ -148,6 +148,9 @@ class _ReminderCheckScreenState extends State<ReminderCheckScreen> with WidgetsB
   AlarmHealth? _h;
   bool _autostartDone = false;
 
+  /// The battery page was opened; when back, check it took.
+  bool _batteryTried = false;
+
   @override
   void initState() {
     super.initState();
@@ -172,11 +175,43 @@ class _ReminderCheckScreenState extends State<ReminderCheckScreen> with WidgetsB
     final h = await brain.services.notifier.health();
     final done = (await brain.services.lock.keys.read('autostart_done')) == 'true';
     await brain.refreshNotices();
-    if (mounted) {
-      setState(() {
-        _h = h;
-        _autostartDone = done;
-      });
+    if (!mounted) return;
+    setState(() {
+      _h = h;
+      _autostartDone = done;
+    });
+    if (_batteryTried && !h.batteryFree) {
+      _batteryTried = false;
+      await _batteryHelp();
+    }
+  }
+
+  /// Some phones (Xiaomi, Oppo, Vivo, Realme…) keep their own battery switch
+  /// that Android never reports, so the tick can't turn green by itself.
+  Future<void> _batteryHelp() async {
+    final brain = BrainScope.read(context);
+    final r = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('ব্যাটারি সেটিং', style: display(20)),
+        content: Text(
+          'ফোন এখনো জানাচ্ছে না যে অনুমতি দেওয়া হয়েছে। অনেক ফোনে অ্যাপের নিজের পাতায় যেতে হয়:\n\n'
+          'App info › Battery (বা Battery saver) › “No restrictions / Unrestricted / সীমাবদ্ধতা নেই” বেছে নিন।\n\n'
+          'করে থাকলে “করেছি” চাপুন।',
+          style: body(15, height: 1.55),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, 'open'), child: const Text('পাতাটা খুলুন')),
+          TextButton(onPressed: () => Navigator.pop(ctx, 'done'), child: const Text('করেছি')),
+        ],
+      ),
+    );
+    if (r == 'open') {
+      _batteryTried = true;
+      await brain.services.notifier.openAppSettings();
+    } else if (r == 'done') {
+      await brain.confirmBattery();
+      await _load();
     }
   }
 
@@ -238,7 +273,13 @@ class _ReminderCheckScreenState extends State<ReminderCheckScreen> with WidgetsB
                           title: 'ব্যাটারি সেভিং থেকে বাদ',
                           sub: h.batteryFree ? 'বাদ দেওয়া আছে' : 'ফোন অ্যাপটিকে ঘুম পাড়িয়ে রিমাইন্ডার থামাতে পারে',
                           fix: 'বাদ দিন',
-                          onFix: n.fixBattery,
+                          onFix: () async {
+                            _batteryTried = true;
+                            await n.fixBattery();
+                            // Some phones answer in place, with no return to the app.
+                            await Future<void>.delayed(const Duration(seconds: 2));
+                            if (mounted) await _load();
+                          },
                         ),
                         if (!h.fullScreenOn)
                           _CheckRow(

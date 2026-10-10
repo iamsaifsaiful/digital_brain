@@ -1202,3 +1202,36 @@ bool mentionsSecret(String said) {
   final w = words(t);
   return w.contains('পিন') || w.contains('pin');
 }
+
+// ───────────────────────── Words said to the assistant ─────────────────────────
+
+const _writeVerbs = r'(?:লিখে\s*(?:রাখো|রাখ|রাখবা|রাখেন|রাখুন|রেখো|নাও|নেও|নিও|নেন|দাও|দেও)|লেখো|লেখ|লিখো|লিখ|লেখেন|লিখুন|লিখবা|নোট\s*(?:করো|কর|করেন|করুন|রাখো|নাও)|সেভ\s*(?:করো|কর|করেন|করুন)|টুকে\s*রাখো|টুকে\s*রাখ)';
+const _callWords = r'(?:শোনো|শোন|শুনো|শুনেন|শুনুন|হ্যালো|দোস্ত)';
+const _youWords = r'(?:তুমি|তুই|আপনি)';
+const _thisWords = r'(?:এটা|এইটা|এটাও|এইটাও|এটাই|এগুলো|এগুলা|এইগুলা|এইগুলো|একটা কথা|একটা জিনিস|এই কথাটা|কথাটা|নিচেরটা)';
+
+final _leadCall = RegExp('^\\s*(?:$_callWords[\\s,।!:;]+)+');
+final _leadWrite = RegExp(
+    '^\\s*(?:$_youWords\\s+)?(?:$_thisWords\\s+)?(?:একটু\\s+)?$_writeVerbs(?=[\\s,।!:;\\-–]|\$)\\s*(?:যে(?=[\\s,।]|\$))?[\\s,।!:;\\-–]*');
+final _tailWrite = RegExp('[\\s,।]+(?:$_youWords\\s+)?(?:$_thisWords\\s+)?(?:একটু\\s+)?$_writeVerbs[\\s।!]*\$');
+
+/// Takes off the words that only tell the assistant to listen or write —
+/// "তুমি এটা লেখ, আমি রবিনকে ৫ হাজার দিছি" → "আমি রবিনকে ৫ হাজার দিছি" — so
+/// they are never read back as part of what was said. The flag is true when
+/// a "write it down" verb was removed.
+(String, bool) stripAddress(String said) {
+  var t = said.replaceAll('‌', '').replaceAll('‍', '');
+  t = t.replaceFirst(_leadCall, '');
+  var write = false;
+  final m = _leadWrite.firstMatch(t);
+  if (m != null) {
+    t = t.substring(m.end);
+    write = true;
+  }
+  final tail = _tailWrite.firstMatch(t);
+  if (tail != null && tail.start > 0) {
+    t = t.substring(0, tail.start);
+    write = true;
+  }
+  return (t.trim(), write);
+}

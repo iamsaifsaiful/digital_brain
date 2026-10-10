@@ -7,6 +7,7 @@ import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import 'calls_screen.dart';
 import 'voice_screen.dart';
 
 String _tail(String s) => s.length <= 3 ? s : s.substring(s.length - 3);
@@ -69,6 +70,16 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
     Navigator.of(context).pop();
   }
 
+  /// From যোগাযোগ (bringing the phone book first if it is empty).
+  Future<void> _pick() async {
+    final c = await pickContact(context);
+    if (c == null || !mounted) return;
+    setState(() {
+      _person.text = c.name;
+      _phone.text = c.phone;
+    });
+  }
+
   Future<void> _pickDate() async {
     final now = BrainScope.read(context).services.now();
     final d = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(2000), lastDate: now.add(const Duration(days: 3650)));
@@ -87,7 +98,6 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
     // Two "রহিম"? Show both with their numbers to pick from.
     final namesake = person.isEmpty ? <PersonBalance>[] : peopleNamed(others, person);
     final ambiguous = namesake.length > 1 || (namesake.length == 1 && namesake.first.phone.isNotEmpty && phoneKey(phone) != phoneKey(namesake.first.phone));
-    final contacts = [...brain.data.contacts.where((c) => c.phone.trim().isNotEmpty)]..sort((a, b) => a.name.compareTo(b.name));
     final after = amount == null ? before : before + _kind.signed(amount);
 
     return Scaffold(
@@ -154,7 +164,10 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
                     TextFormField(
                       controller: _person,
                       textCapitalization: TextCapitalization.words,
-                      decoration: InputDecoration(labelText: _kind == LedgerKind.lent || _kind == LedgerKind.repaid ? 'কাকে' : 'কার কাছ থেকে'),
+                      decoration: InputDecoration(
+                        labelText: _kind == LedgerKind.lent || _kind == LedgerKind.repaid ? 'কাকে' : 'কার কাছ থেকে',
+                        suffixIcon: IconButton(tooltip: 'যোগাযোগ থেকে বেছে নিন', icon: const Icon(Icons.person_search_outlined), onPressed: _pick),
+                      ),
                       validator: (v) => (v ?? '').trim().isEmpty ? 'নাম লিখুন' : null,
                     ),
                     if (known.isNotEmpty && person.isEmpty) ...[
@@ -199,32 +212,11 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
                       decoration: InputDecoration(
                         labelText: 'মোবাইল নম্বর',
                         hintText: 'একই নামের মানুষ আলাদা রাখতে',
-                        suffixIcon: contacts.isEmpty
-                            ? null
-                            : IconButton(
-                                tooltip: 'যোগাযোগ থেকে নিন',
-                                icon: const Icon(Icons.contacts_outlined),
-                                onPressed: () async {
-                                  final c = await showModalBottomSheet<Contact>(
-                                    context: context,
-                                    isScrollControlled: true,
-                                    builder: (ctx) => SafeArea(
-                                      child: ConstrainedBox(
-                                        constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.7),
-                                        child: ListView(shrinkWrap: true, children: [
-                                          for (final c in contacts)
-                                            ListTile(title: Text(c.name), subtitle: Text(showPhone(c.phone)), onTap: () => Navigator.pop(ctx, c)),
-                                        ]),
-                                      ),
-                                    ),
-                                  );
-                                  if (c == null) return;
-                                  setState(() {
-                                    if (_person.text.trim().isEmpty) _person.text = c.name;
-                                    _phone.text = c.phone;
-                                  });
-                                },
-                              ),
+                        suffixIcon: IconButton(
+                          tooltip: 'যোগাযোগ বা ফোনবুক থেকে নিন',
+                          icon: const Icon(Icons.contacts_outlined),
+                          onPressed: _pick,
+                        ),
                       ),
                       validator: (v) {
                         final d = phoneKey(v ?? '');

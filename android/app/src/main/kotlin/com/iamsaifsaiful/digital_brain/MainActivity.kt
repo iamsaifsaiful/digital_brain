@@ -1,7 +1,11 @@
 package com.iamsaifsaiful.digital_brain
 
 import android.app.Activity
+import android.Manifest
 import android.app.NotificationManager
+import android.content.pm.PackageManager
+import android.media.RingtoneManager
+import android.provider.ContactsContract
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -30,6 +34,8 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterFragmentActivity() {
     private var pendingBytes: ByteArray? = null
     private var pendingResult: MethodChannel.Result? = null
+    private var soundResult: MethodChannel.Result? = null
+    private var contactsResult: MethodChannel.Result? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
@@ -108,6 +114,76 @@ class MainActivity : FlutterFragmentActivity() {
         tryStart(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
     }
 
+    /** Android's own sound picker (alarm tones, ringtones, and on many phones the user's own files). */
+    private fun pickSound(current: String?, result: MethodChannel.Result) {
+        soundResult?.success(null)
+        soundResult = result
+        val i = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+            putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALL)
+            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "রিমাইন্ডারের রিংটোন")
+            putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+            putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+            putExtra(RingtoneManager.EXTRA_RINGTONE_DEFAULT_URI, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))
+            if (current != null) putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(current))
+        }
+        try {
+            startActivityForResult(i, SOUND_REQUEST)
+        } catch (e: Exception) {
+            soundResult = null
+            result.error("no_picker", e.message, null)
+        }
+    }
+
+    /** Every name and number in the phone book (read on a background thread). */
+    private fun readContacts(result: MethodChannel.Result) {
+        Thread {
+            val out = ArrayList<Map<String, String>>()
+            try {
+                contentResolver.query(
+                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                    arrayOf(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER),
+                    null, null, null
+                )?.use { c ->
+                    while (c.moveToNext()) {
+                        val name = c.getString(0) ?: ""
+                        val number = c.getString(1) ?: ""
+                        if (number.isNotBlank()) out.add(mapOf("name" to name, "phone" to number))
+                    }
+                }
+                runOnUiThread { result.success(out) }
+            } catch (e: Exception) {
+                runOnUiThread { result.error("read", e.message, null) }
+            }
+        }.start()
+    }
+
+    private fun contactsChannel(call: io.flutter.plugin.common.MethodCall, result: MethodChannel.Result) {
+        if (call.method != "readAll") {
+            result.notImplemented()
+            return
+        }
+        if (checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+            readContacts(result)
+            return
+        }
+        contactsResult?.success(null)
+        contactsResult = result
+        requestPermissions(arrayOf(Manifest.permission.READ_CONTACTS), CONTACTS_REQUEST)
+    }
+
+    @Deprecated("Uses the platform permission callback")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != CONTACTS_REQUEST) return
+        val result = contactsResult ?: return
+        contactsResult = null
+        if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            readContacts(result)
+        } else {
+            result.success(null)
+        }
+    }
+
     private fun alarmChannel(call: io.flutter.plugin.common.MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "status" -> {
@@ -128,6 +204,11 @@ class MainActivity : FlutterFragmentActivity() {
                 result.success(null)
             }
             "showOverLock" -> { setOverLock(call.arguments == true); result.success(null) }
+            "openAppSettings" -> {
+                tryStart(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+                result.success(null)
+            }
+            "pickSound" -> pickSound(call.arguments as? String, result)
             "dismissShown" -> {
                 val id = call.argument<Int>("id")
                 val tag = call.argument<String>("tag")
@@ -145,6 +226,9 @@ class MainActivity : FlutterFragmentActivity() {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/alarm").setMethodCallHandler { call, result ->
             alarmChannel(call, result)
+        }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/contacts").setMethodCallHandler { call, result ->
+            contactsChannel(call, result)
         }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/files").setMethodCallHandler { call, result ->
             if (call.method != "saveFile") {
@@ -178,6 +262,23 @@ class MainActivity : FlutterFragmentActivity() {
     @Deprecated("Uses the platform result callback")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == SOUND_REQUEST) {
+            val r = soundResult ?: return
+            soundResult = null
+            @Suppress("DEPRECATION")
+            val uri: Uri? = data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            if (resultCode != Activity.RESULT_OK || uri == null) {
+                r.success(null)
+                return
+            }
+            val title = try {
+                RingtoneManager.getRingtone(this, uri)?.getTitle(this) ?: ""
+            } catch (e: Exception) {
+                ""
+            }
+            r.success(mapOf("uri" to uri.toString(), "title" to title))
+            return
+        }
         if (requestCode != SAVE_REQUEST) return
         val result = pendingResult ?: return
         val bytes = pendingBytes
@@ -198,5 +299,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     companion object {
         private const val SAVE_REQUEST = 4711
+        private const val SOUND_REQUEST = 4712
+        private const val CONTACTS_REQUEST = 4713
     }
 }

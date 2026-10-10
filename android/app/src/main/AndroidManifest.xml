@@ -8,6 +8,8 @@
     <!-- Date reminders. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- "ফোনবুক থেকে সব নম্বর আনুন": read once when the user taps it; never uploaded. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
     <!--
       Reminders are this app's core job, so they ring like an alarm clock, on
       the exact minute. USE_EXACT_ALARM is granted without asking on Android

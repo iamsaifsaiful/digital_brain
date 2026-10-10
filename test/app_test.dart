@@ -7,6 +7,7 @@ import 'package:digital_brain/services/files.dart';
 import 'package:digital_brain/services/launcher.dart';
 import 'package:digital_brain/services/lock.dart';
 import 'package:digital_brain/services/notifications.dart';
+import 'package:digital_brain/services/phonebook.dart';
 import 'package:digital_brain/services/voice.dart';
 import 'package:digital_brain/state/brain.dart';
 import 'package:flutter/material.dart';
@@ -30,6 +31,7 @@ class Rig {
     files = FakeFiles();
     biometrics = FakeBiometrics(has: false);
     ai = FakeAi();
+    phonebook = FakePhonebook();
     final store = DataStore(keys: keys, blob: MemoryBlobStore());
     services = Services(
       store: store,
@@ -38,6 +40,7 @@ class Rig {
       notifier: notifier,
       files: files,
       ai: ai,
+      phonebook: phonebook,
       clock: () => DateTime(2026, 10, 9, 15, 53),
     );
     brain = Brain(services);
@@ -46,6 +49,7 @@ class Rig {
 
   late final FakeVoice voice;
   late final FakeAi ai;
+  late final FakePhonebook phonebook;
   late final FakeNotifier notifier;
   late final FakeFiles files;
   late final FakeBiometrics biometrics;
@@ -592,5 +596,34 @@ void main() {
     await settle(t);
     expect(rig.notifier.rung, ['ওষুধ খাওয়া']);
     expect(find.text('হয়ে গেছে, বন্ধ করো'), findsNothing);
+  });
+
+  testWidgets('ফোনবুক থেকে আনুন brings every number once, skipping repeats', (t) async {
+    final rig = await start(t, data: AppData(contacts: [Contact(name: 'রহিম', phone: '01712345678')]));
+    rig.phonebook.contacts = const [
+      PhoneContact('Rahim Office', '+880 1712-345678'),
+      PhoneContact('করিম', '০১৮১১-২২৩৩৪৪'),
+      PhoneContact('করিম ভাই', '01811223344'),
+      PhoneContact('Service', '121'),
+    ];
+    await t.tap(find.text('তথ্য').last);
+    await settle(t);
+    await t.tap(find.text('যোগাযোগ'));
+    await settle(t);
+    await t.tap(find.text('ফোনবুক থেকে নতুন নম্বর আনুন'));
+    await settle(t);
+    expect(rig.brain.data.contacts.map((c) => c.phone), ['01712345678', '01811223344']);
+    expect(find.textContaining('১ জনের নম্বর আনা হলো'), findsOneWidget);
+    // Asked again: nothing new.
+    expect(await rig.brain.importPhonebook(), (0, 3));
+  });
+
+  testWidgets('a chosen ringtone is used for every reminder', (t) async {
+    final rig = await start(t, data: AppData(reminders: [Reminder(title: 'ওষুধ', date: DateTime(2026, 10, 9), hour: 16)]));
+    await rig.brain.setAlarmSound('content://media/internal/audio/media/7', 'Morning');
+    expect(rig.notifier.soundUri, 'content://media/internal/audio/media/7');
+    expect(rig.brain.alarmSoundTitle, 'Morning');
+    await rig.brain.setAlarmSound('content://settings/system/alarm_alert', '');
+    expect(rig.notifier.soundUri, isNull);
   });
 }

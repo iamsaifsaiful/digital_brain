@@ -538,6 +538,18 @@ void main() {
       expect(c, hasLength(1));
     });
 
+    test('"তুমি এটা লেখ" is not part of what to save', () {
+      final c = parseAll('তুমি এটা লেখ, আমি রবিনকে ৫ হাজার টাকা দিছি', const []);
+      expect(c.single, isA<LedgerAdd>());
+      expect((c.single as LedgerAdd).person, 'রবিন');
+      expect((c.single as LedgerAdd).amount, 5000);
+      expect(stripAddress('শোনো, এটা লিখে রাখো যে করিমের দোকান বন্ধ').$1, 'করিমের দোকান বন্ধ');
+      expect(stripAddress('রবিনকে ৫০০ টাকা দিলাম, এটা লিখে রাখো').$1, 'রবিনকে ৫০০ টাকা দিলাম');
+      expect(stripAddress('লেখাপড়ার খরচ ৫০০ টাকা').$1, 'লেখাপড়ার খরচ ৫০০ টাকা');
+      expect(stripAddress('এই মাসে কত খরচ হলো').$1, 'এই মাসে কত খরচ হলো');
+      expect(parseAll('লিখে রাখো যে করিমের দোকান বন্ধ', const []).single, isA<NoteAdd>());
+    });
+
     test('separate sentences each count', () {
       final c = parseAll('তুমি কেমন আছো? সজীবকে ৫০০ টাকা দিলাম।', const []);
       expect(c, hasLength(2));

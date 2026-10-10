@@ -14,6 +14,7 @@ import '../services/files.dart';
 import '../services/launcher.dart';
 import '../services/lock.dart';
 import '../services/notifications.dart';
+import '../services/phonebook.dart';
 import '../services/voice.dart';
 
 /// Everything the screens need from outside Flutter.
@@ -26,9 +27,11 @@ class Services {
     required this.files,
     AiBrain? ai,
     Launcher? launcher,
+    Phonebook? phonebook,
     DateTime Function()? clock,
   })  : ai = ai ?? FakeAi(),
         launcher = launcher ?? FakeLauncher(),
+        phonebook = phonebook ?? FakePhonebook(),
         now = clock ?? DateTime.now;
 
   final DataStore store;
@@ -42,6 +45,9 @@ class Services {
 
   /// Dialer, SMS and WhatsApp.
   final Launcher launcher;
+
+  /// The phone's own contacts.
+  final Phonebook phonebook;
   final DateTime Function() now;
 }
 
@@ -90,6 +96,33 @@ class Brain extends ChangeNotifier {
     await _reschedule();
   }
 
+  /// The ringtone's name ('' = the phone's alarm tone).
+  String alarmSoundTitle = '';
+
+  /// A ringtone the user picked; null goes back to the alarm tone.
+  Future<void> setAlarmSound(String? uri, String title) async {
+    if (uri == null || uri == 'content://settings/system/alarm_alert') {
+      services.notifier.soundUri = null;
+      alarmSoundTitle = '';
+      await services.lock.keys.delete('alarm_sound');
+      await services.lock.keys.delete('alarm_sound_title');
+    } else {
+      services.notifier.soundUri = uri;
+      alarmSoundTitle = title;
+      await services.lock.keys.write('alarm_sound', uri);
+      await services.lock.keys.write('alarm_sound_title', title);
+    }
+    notifyListeners();
+    await _reschedule();
+  }
+
+  /// "করেছি": the phone's own battery page now says no restrictions.
+  Future<void> confirmBattery() async {
+    services.notifier.batteryConfirmed = true;
+    await services.lock.keys.write('battery_done', 'true');
+    notifyListeners();
+  }
+
   bool get aiOn => services.ai.key.trim().isNotEmpty;
 
   Future<void> setAiKey(String key) async {
@@ -128,7 +161,8 @@ class Brain extends ChangeNotifier {
       return (rules, null);
     }
     try {
-      final r = await services.ai.route(said, aiContext(), history: history);
+      final clean = stripAddress(said).$1;
+      final r = await services.ai.route(clean.isEmpty ? said : clean, aiContext(), history: history);
       if (r == null) return (rules, null);
       final cmds = commandsFromAi(said, r, data.ledger);
       return (cmds.isEmpty ? rules : cmds, null);
@@ -144,6 +178,9 @@ class Brain extends ChangeNotifier {
     try {
       services.voice.muted = (await services.lock.keys.read('speak_on')) == 'false';
       services.notifier.insistent = (await services.lock.keys.read('alarm_insistent')) != 'false';
+      services.notifier.soundUri = await services.lock.keys.read('alarm_sound');
+      alarmSoundTitle = await services.lock.keys.read('alarm_sound_title') ?? '';
+      services.notifier.batteryConfirmed = (await services.lock.keys.read('battery_done')) == 'true';
       services.voice.preferredVoice = await services.lock.keys.read('tts_voice');
     } catch (_) {}
     try {
@@ -256,6 +293,31 @@ class Brain extends ChangeNotifier {
   Future<void> saveContact(Contact c) async {
     _upsert(data.contacts, c, (x) => x.id);
     await _save();
+  }
+
+  /// Brings every number from the phone book, leaving out numbers already
+  /// kept (and repeats inside the phone book). Returns (added, left out), or
+  /// null when the user did not allow reading contacts.
+  Future<(int, int)?> importPhonebook() async {
+    final list = await services.phonebook.readAll();
+    if (list == null) return null;
+    final seen = <String>{for (final c in data.contacts) phoneKey(c.phone)}..remove('');
+    var added = 0, skipped = 0;
+    final now = services.now();
+    for (final pc in list) {
+      final number = asciiDigits(pc.phone).replaceAll(RegExp(r'[^0-9+]'), '');
+      final k = phoneKey(number);
+      if (k.length < 6) continue;
+      if (!seen.add(k)) {
+        skipped++;
+        continue;
+      }
+      final name = pc.name.trim().isEmpty ? bnDigits(number) : pc.name.trim();
+      data.contacts.add(Contact(name: name, phone: number, updatedAt: now));
+      added++;
+    }
+    if (added > 0) await _save();
+    return (added, skipped);
   }
 
   Future<void> deleteContact(String id) async {

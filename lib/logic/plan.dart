@@ -27,8 +27,21 @@ final _joiners = RegExp(r'\s+(?:আর|এবং|তারপর|তার প�
 List<Command> parseAll(String said, List<LedgerEntry> ledger,
     {List<Task> tasks = const [], List<Contact> contacts = const [], DateTime? now}) {
   final p = Parser(ledger: ledger, tasks: tasks, contacts: contacts, now: now);
+  // "তুমি এটা লেখ, …": the instruction is not part of what to save.
+  final (rest, write) = stripAddress(said);
+  if (rest.isNotEmpty && rest != said.trim()) {
+    final cmds = parseAll(rest, ledger, tasks: tasks, contacts: contacts, now: now);
+    final plain = cmds.length == 1 && (cmds.first is NotUnderstood || cmds.first is SmallTalk || (cmds.first is NoteAdd && (cmds.first as NoteAdd).fromStatement));
+    // "লিখে রাখো যে করিমের দোকান বন্ধ" is still a note.
+    if (write && plain) return [p.parse('মনে রাখো: $rest')];
+    return cmds;
+  }
   final whole = p.parse(said);
-  final sentences = said.split(_sentenceEnd).map((x) => x.trim()).where((x) => x.isNotEmpty).toList();
+  final sentences = said
+      .split(_sentenceEnd)
+      .map((x) => stripAddress(x).$1)
+      .where((x) => x.isNotEmpty)
+      .toList();
   final out = <Command>[];
   for (final s in sentences) {
     final parts = s.split(_joiners).map((x) => x.trim()).where((x) => x.isNotEmpty).toList();

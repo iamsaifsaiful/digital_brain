@@ -42,27 +42,30 @@ class PlannedNotice {
   final String body;
   final String reminderId;
 
-  String get payload => noticePayload(reminderId, title, body, every != null);
+  String payload([String? sound]) => noticePayload(reminderId, title, body, every != null, sound: sound);
 }
 
 /// What a notification carries, so a snooze can ring again with the same
 /// words even when the app is closed.
-String noticePayload(String reminderId, String title, String body, bool repeating) =>
-    jsonEncode({'r': reminderId, 't': title, 'b': body, 'x': repeating});
+String noticePayload(String reminderId, String title, String body, bool repeating, {String? sound}) =>
+    jsonEncode({'r': reminderId, 't': title, 'b': body, 'x': repeating, if (sound != null) 's': sound});
 
 class NoticeInfo {
-  const NoticeInfo(this.reminderId, this.title, this.body, this.repeating);
+  const NoticeInfo(this.reminderId, this.title, this.body, this.repeating, {this.sound});
   final String reminderId;
   final String title;
   final String body;
   final bool repeating;
+
+  /// The chosen ringtone (null = the phone's alarm tone).
+  final String? sound;
 
   static NoticeInfo? parse(String? p) {
     if (p == null || p.isEmpty) return null;
     if (p.startsWith('reminder:')) return NoticeInfo(p.substring(9), '', '', false);
     try {
       final j = jsonDecode(p) as Map<String, dynamic>;
-      return NoticeInfo('${j['r'] ?? ''}', '${j['t'] ?? ''}', '${j['b'] ?? ''}', j['x'] == true);
+      return NoticeInfo('${j['r'] ?? ''}', '${j['t'] ?? ''}', '${j['b'] ?? ''}', j['x'] == true, sound: j['s'] as String?);
     } catch (_) {
       return null;
     }
@@ -180,6 +183,16 @@ abstract class Notifier {
   /// Keep ringing until the notification is seen (like an alarm).
   bool insistent = true;
 
+  /// The ringtone the user chose (null = the phone's alarm tone).
+  String? soundUri;
+
+  /// The user said they set "no restrictions" in the phone's own battery
+  /// page (some phones never report it to apps).
+  bool batteryConfirmed = false;
+
+  /// Android's sound picker: (uri, title), or null if cancelled.
+  Future<(String, String)?> pickSound();
+
   /// Can notifications ring on the exact minute? (Android 14 asks the user.)
   Future<bool> exactAllowed();
   Future<void> requestExact();
@@ -189,6 +202,7 @@ abstract class Notifier {
   Future<void> openAutostart();
   Future<void> requestFullScreen();
   Future<void> openNotificationSettings();
+  Future<void> openAppSettings();
 
   /// Rings once, [after] from now (a snooze or the "test" button).
   Future<void> ringOnce(String reminderId, String title, String body, Duration after);
@@ -201,14 +215,19 @@ abstract class Notifier {
 }
 
 const _channelId = 'reminder_alarm';
+const _alarmTone = 'content://settings/system/alarm_alert';
+
+/// Android never changes a channel's sound after it is made, so each
+/// ringtone gets its own channel.
+String channelFor(String? sound) => sound == null ? _channelId : '${_channelId}_${stableId(sound)}';
 const _platform = MethodChannel('my_assistant/alarm');
 
 /// Rings like an alarm (the alarm tone on the alarm volume, with
 /// vibration), so it is heard with the phone in a pocket. Android never
 /// changes a channel's sound after it is made.
-NotificationDetails _details({required bool insistent, required bool repeating}) => NotificationDetails(
+NotificationDetails _details({required bool insistent, required bool repeating, String? sound}) => NotificationDetails(
       android: AndroidNotificationDetails(
-        _channelId,
+        channelFor(sound),
         'রিমাইন্ডার (অ্যালার্ম)',
         channelDescription: 'সময়মতো মনে করানো — অ্যালার্মের মতো বাজে',
         icon: 'ic_stat_reminder',
@@ -216,7 +235,7 @@ NotificationDetails _details({required bool insistent, required bool repeating})
         importance: Importance.max,
         priority: Priority.max,
         playSound: true,
-        sound: const UriAndroidNotificationSound('content://settings/system/alarm_alert'),
+        sound: UriAndroidNotificationSound(sound ?? _alarmTone),
         audioAttributesUsage: AudioAttributesUsage.alarm,
         enableVibration: true,
         vibrationPattern: Int64List.fromList([0, 700, 400, 700, 400, 700]),
@@ -251,14 +270,14 @@ Future<void> onNoticeActionInBackground(NotificationResponse r) async {
     tzdata.initializeTimeZones();
     final plugin = FlutterLocalNotificationsPlugin();
     await plugin.initialize(settings: const InitializationSettings(android: AndroidInitializationSettings('ic_stat_reminder')));
-    await _ring(plugin, info.reminderId, info.title, info.body, const Duration(minutes: 10), insistent: true);
+    await _ring(plugin, info.reminderId, info.title, info.body, const Duration(minutes: 10), insistent: true, sound: info.sound);
   } catch (e) {
     debugPrint('Snooze failed: $e');
   }
 }
 
 Future<void> _ring(FlutterLocalNotificationsPlugin plugin, String reminderId, String title, String body, Duration after,
-    {required bool insistent}) async {
+    {required bool insistent, String? sound}) async {
   final android = plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
   var exact = false;
   try {
@@ -267,11 +286,11 @@ Future<void> _ring(FlutterLocalNotificationsPlugin plugin, String reminderId, St
   await plugin.zonedSchedule(
     id: snoozeId(reminderId),
     scheduledDate: tz.TZDateTime.from(clock.now().add(after), tz.UTC),
-    notificationDetails: _details(insistent: insistent, repeating: false),
+    notificationDetails: _details(insistent: insistent, repeating: false, sound: sound),
     androidScheduleMode: exact ? AndroidScheduleMode.alarmClock : AndroidScheduleMode.inexactAllowWhileIdle,
     title: title,
     body: body.isEmpty ? 'আবার মনে করাচ্ছি' : body,
-    payload: noticePayload(reminderId, title, body, false),
+    payload: noticePayload(reminderId, title, body, false, sound: sound),
   );
 }
 
@@ -284,6 +303,27 @@ class NotificationService implements Notifier {
 
   @override
   bool insistent = true;
+
+  @override
+  String? soundUri;
+
+  @override
+  bool batteryConfirmed = false;
+
+  @override
+  Future<(String, String)?> pickSound() async {
+    try {
+      final r = await _platform.invokeMapMethod<String, Object?>('pickSound', soundUri);
+      if (r == null || r['uri'] == null) return null;
+      final uri = '${r['uri']}';
+      // "Default alarm" from the picker is the same as not choosing one.
+      if (uri == _alarmTone) return (_alarmTone, '');
+      return (uri, '${r['title'] ?? ''}');
+    } catch (e) {
+      debugPrint('Sound picker failed: $e');
+      return null;
+    }
+  }
 
   void _onResponse(NotificationResponse r) {
     final info = NoticeInfo.parse(r.payload);
@@ -360,7 +400,7 @@ class NotificationService implements Notifier {
     return AlarmHealth(
       notificationsOn: notificationsOn,
       exactOn: await exactAllowed(),
-      batteryFree: p['batteryFree'] != false,
+      batteryFree: p['batteryFree'] != false || batteryConfirmed,
       fullScreenOn: p['fullScreen'] != false,
       brand: '${p['brand'] ?? ''}'.toLowerCase(),
       hasAutostart: p['hasAutostart'] == true,
@@ -392,13 +432,16 @@ class NotificationService implements Notifier {
   Future<void> openNotificationSettings() => _call('openNotificationSettings');
 
   @override
+  Future<void> openAppSettings() => _call('openAppSettings');
+
+  @override
   Future<void> showOverLock(bool on) => _call('showOverLock', on);
 
   @override
   Future<void> ringOnce(String reminderId, String title, String body, Duration after) async {
     if (!_ready) return;
     try {
-      await _ring(_plugin, reminderId, title, body, after, insistent: insistent);
+      await _ring(_plugin, reminderId, title, body, after, insistent: insistent, sound: soundUri);
     } catch (e) {
       debugPrint('Could not ring: $e');
     }
@@ -436,8 +479,13 @@ class NotificationService implements Notifier {
         if (info != null && p.id == snoozeId(info.reminderId) && (live.contains(info.reminderId) || info.reminderId == 'test')) continue;
         await _plugin.cancel(id: p.id);
       }
+      // Channels of ringtones no longer used.
       try {
         await _android?.deleteNotificationChannel(channelId: 'reminders');
+        final keep = channelFor(soundUri);
+        for (final c in await _android?.getNotificationChannels() ?? const <AndroidNotificationChannel>[]) {
+          if (c.id.startsWith(_channelId) && c.id != keep) await _android?.deleteNotificationChannel(channelId: c.id);
+        }
       } catch (_) {}
       for (final n in notices) {
         final every = n.every;
@@ -449,11 +497,11 @@ class NotificationService implements Notifier {
             () => _plugin.periodicallyShowWithDuration(
               id: n.id,
               repeatDurationInterval: every,
-              notificationDetails: _details(insistent: insistent, repeating: true),
+              notificationDetails: _details(insistent: insistent, repeating: true, sound: soundUri),
               title: n.title,
               body: n.body,
               androidScheduleMode: repeatMode,
-              payload: n.payload,
+              payload: n.payload(soundUri),
             ),
           );
           continue;
@@ -461,11 +509,11 @@ class NotificationService implements Notifier {
         await _plugin.zonedSchedule(
           id: n.id,
           scheduledDate: tz.TZDateTime.from(n.at, tz.UTC),
-          notificationDetails: _details(insistent: insistent && !n.early, repeating: false),
+          notificationDetails: _details(insistent: insistent && !n.early, repeating: false, sound: soundUri),
           androidScheduleMode: mode,
           title: n.title,
           body: n.body,
-          payload: n.payload,
+          payload: n.payload(soundUri),
           matchDateTimeComponents: switch (n.repeat) {
             NoticeRepeat.none => null,
             NoticeRepeat.daily => DateTimeComponents.time,
@@ -484,9 +532,19 @@ class FakeNotifier implements Notifier {
   List<PlannedNotice> scheduled = [];
   final rung = <String>[];
   AlarmHealth state = AlarmHealth.unknown;
+  (String, String)? picked;
 
   @override
   bool insistent = true;
+
+  @override
+  String? soundUri;
+
+  @override
+  bool batteryConfirmed = false;
+
+  @override
+  Future<(String, String)?> pickSound() async => picked;
 
   @override
   final tapped = ValueNotifier<NoticeTap?>(null);
@@ -520,6 +578,9 @@ class FakeNotifier implements Notifier {
 
   @override
   Future<void> openNotificationSettings() async {}
+
+  @override
+  Future<void> openAppSettings() async {}
 
   @override
   Future<void> ringOnce(String reminderId, String title, String body, Duration after) async => rung.add(title);
