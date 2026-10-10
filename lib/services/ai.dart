@@ -90,24 +90,41 @@ class ClaudeAi implements AiBrain {
   List<String> get _models => _quality == AiQuality.best ? models : fastModels;
   int _model = 0;
 
+  /// Models that refuse a forced tool (Sonnet 5.5 and newer): ask with
+  /// tool_choice "auto" and read a plain-text answer as the reply.
+  final _autoChoice = <String>{'claude-sonnet-5-5'};
+
+  /// Models that refused the thinking/effort settings: send without them.
+  final _plain = <String>{};
+
   static const _endpoint = 'https://api.anthropic.com/v1/messages';
 
   @override
   Future<AiRoute?> route(String said, AiContext ctx, {List<AiTurn> history = const []}) async {
     if (key.trim().isEmpty) return null;
     while (true) {
-      final res = await _post(said, ctx, _models[_model], history);
+      final model = _models[_model];
+      final res = await _post(said, ctx, model, history);
       if (res.statusCode == 200) {
         final body = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, Object?>;
+        final text = StringBuffer();
         for (final block in (body['content'] as List? ?? const [])) {
           if (block is Map && block['type'] == 'tool_use' && block['input'] is Map) {
             return (block['input'] as Map).cast<String, Object?>();
           }
+          if (block is Map && block['type'] == 'text' && block['text'] is String) text.write(block['text']);
         }
+        // Answered in words instead of the tool: a plain reply.
+        if (text.toString().trim().isNotEmpty) return {'reply': text.toString().trim(), 'items': const []};
         throw const AiError('AI-এর উত্তর বুঝতে পারিনি।');
       }
       final err = _errorText(res);
-      if (res.statusCode == 404 && _model + 1 < _models.length) {
+      final low = err.toLowerCase();
+      if (res.statusCode == 400 && low.contains('tool_choice') && _autoChoice.add(model)) continue;
+      if (res.statusCode == 400 && (low.contains('thinking') || low.contains('effort') || low.contains('output_config')) && _plain.add(model)) {
+        continue;
+      }
+      if ((res.statusCode == 404 || (res.statusCode == 400 && low.contains('model'))) && _model + 1 < _models.length) {
         _model++;
         continue;
       }
@@ -132,9 +149,14 @@ class ClaudeAi implements AiBrain {
             body: jsonEncode({
               'model': model,
               'max_tokens': 1200,
-              'system': systemPrompt(ctx),
+              'system': _autoChoice.contains(model)
+                  ? '${systemPrompt(ctx)}\n\nAlways answer by calling the `route` tool exactly once; never answer in plain text.'
+                  : systemPrompt(ctx),
               'tools': [_tool],
-              'tool_choice': {'type': 'tool', 'name': 'route'},
+              'tool_choice': _autoChoice.contains(model) ? {'type': 'auto'} : {'type': 'tool', 'name': 'route'},
+              // Quick, chat-like answers: no long thinking before replying.
+              if (_autoChoice.contains(model) && !_plain.contains(model)) 'thinking': {'type': 'between_tools'},
+              if (_autoChoice.contains(model) && !_plain.contains(model)) 'output_config': {'effort': 'low'},
               'messages': messagesFor(said, history),
             }),
           )

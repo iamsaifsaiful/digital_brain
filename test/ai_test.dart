@@ -28,7 +28,9 @@ void main() {
     final r = await ai.route('কেমন আছো', ctx);
     expect(r!['reply'], 'ভালো আছি');
     expect(sent['model'], ClaudeAi.models.first);
-    expect(sent['tool_choice'], {'type': 'tool', 'name': 'route'});
+    // Sonnet 5.5 refuses a forced tool: asked with auto, little thinking.
+    expect(sent['tool_choice'], {'type': 'auto'});
+    expect(sent['thinking'], {'type': 'between_tools'});
     expect((sent['messages'] as List).single['content'], 'কেমন আছো');
     expect(sent['system'], contains('সজীব'));
     expect(headers['x-api-key'], 'sk-ant-test');
@@ -103,5 +105,30 @@ void main() {
     final p = systemPrompt(AiContext(now: DateTime(2026, 10, 9), money: 'রহিম: owes the user 4000'));
     expect(p, contains('রহিম: owes the user 4000'));
     expect(p, contains('ask ONE short question'));
+  });
+
+  test('a forced-tool refusal is retried with auto; a plain-text answer becomes the reply', () async {
+    final sent = <Map<String, dynamic>>[];
+    final ai = ClaudeAi(
+      client: MockClient((req) async {
+        final b = jsonDecode(req.body) as Map<String, dynamic>;
+        sent.add(b);
+        if ((b['tool_choice'] as Map)['type'] == 'tool') {
+          return res(400, {'error': {'message': 'tool_choice: type "tool" and "any" are not supported for this model.'}});
+        }
+        return res(200, {
+          'content': [
+            {'type': 'thinking', 'thinking': '…'},
+            {'type': 'text', 'text': 'জি, ভালো আছি।'},
+          ],
+        });
+      }),
+    )
+      ..key = 'k'
+      ..quality = AiQuality.fast;
+    final r = await ai.route('কেমন আছো', ctx);
+    expect(r!['reply'], 'জি, ভালো আছি।');
+    expect(sent.first['tool_choice'], {'type': 'tool', 'name': 'route'});
+    expect(sent.last['tool_choice'], {'type': 'auto'});
   });
 }
