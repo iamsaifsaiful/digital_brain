@@ -76,15 +76,17 @@ void main() {
   });
 
   group('Notifications', () {
-    test('one per upcoming reminder, none for the past', () {
+    test('each upcoming reminder rings on its day (plus the early notice), none for the past', () {
       final now = DateTime(2026, 10, 9, 15);
       final list = plannedNotices([
         Reminder(title: 'ডোমেইন রিনিউ', date: DateTime(2026, 10, 14), daysBefore: 1, hour: 10),
         Reminder(title: 'পুরনো', date: DateTime(2026, 9, 1)),
       ], now);
-      expect(list, hasLength(1));
-      expect(list.single.at, DateTime(2026, 10, 13, 10));
-      expect(list.single.title, 'ডোমেইন রিনিউ');
+      expect(list, hasLength(2));
+      final main = list.firstWhere((n) => !n.early);
+      expect(main.at, DateTime(2026, 10, 14, 10));
+      expect(main.title, 'ডোমেইন রিনিউ');
+      expect(list.firstWhere((n) => n.early).at, DateTime(2026, 10, 13, 10));
     });
   });
 }

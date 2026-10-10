@@ -6,6 +6,7 @@ import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import 'alarm_screens.dart';
 import 'ledger_form_screen.dart';
 import 'voice_screen.dart';
 
@@ -57,7 +58,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
   VaultKind _vaultKind = VaultKind.website;
   late DateTime _date;
   TimeOfDay _time = const TimeOfDay(hour: 10, minute: 0);
-  int _daysBefore = 1;
+  int _daysBefore = 0;
   Repeat _repeat = Repeat.none;
   String? _vaultLink;
 
@@ -75,7 +76,14 @@ class _NewItemScreenState extends State<NewItemScreen> {
                     ? ItemCategory.reminder
                     : (w.category ?? ItemCategory.password);
     final now = BrainScope.read(context).services.now();
-    _date = dayOnly(now).add(const Duration(days: 7));
+    // A new reminder starts at the next whole hour today (tomorrow 9am late at night).
+    if (now.hour >= 22) {
+      _date = dayOnly(now).add(const Duration(days: 1));
+      _time = const TimeOfDay(hour: 9, minute: 0);
+    } else {
+      _date = dayOnly(now);
+      _time = TimeOfDay(hour: now.hour + 1, minute: 0);
+    }
     _a.text = w.presetTitle ?? '';
     if (w.noteCategory != null) _noteCat.text = w.noteCategory!;
     if (w.vault != null) {
@@ -155,6 +163,11 @@ class _NewItemScreenState extends State<NewItemScreen> {
         await brain.saveNote(Note(id: widget.note?.id, title: _a.text.trim(), body: _b.text.trim(), category: cat, updatedAt: now));
         done = 'নোট রাখা হয়েছে';
       case ItemCategory.reminder:
+        final at = DateTime(_date.year, _date.month, _date.day, _time.hour, _time.minute);
+        if (_repeat == Repeat.none && !at.isAfter(now)) {
+          toast(context, 'এই সময় পার হয়ে গেছে — তারিখ বা সময় বদলান');
+          return;
+        }
         await brain.saveReminder(Reminder(
           id: widget.reminder?.id,
           title: _a.text.trim(),
@@ -172,7 +185,9 @@ class _NewItemScreenState extends State<NewItemScreen> {
     }
     if (!mounted) return;
     toast(context, done);
-    Navigator.of(context).pop();
+    final nav = Navigator.of(context);
+    if (_cat == ItemCategory.reminder) await checkAlarmsAfterSave(context);
+    nav.pop();
   }
 
   Future<void> _delete() async {
@@ -420,12 +435,12 @@ class _NewItemScreenState extends State<NewItemScreen> {
       _gap,
       DropdownButtonFormField<int>(
         initialValue: _daysBefore,
-        decoration: const InputDecoration(labelText: 'কত আগে মনে করাবে'),
+        decoration: const InputDecoration(labelText: 'আগাম মনে করানো', helperText: 'নির্দিষ্ট দিনে তো বাজবেই; চাইলে কিছু দিন আগেও একবার'),
         items: [
           for (final d in const [0, 1, 2, 3, 7, 15, 30])
-            DropdownMenuItem(value: d, child: Text(d == 0 ? 'সেদিনই' : '${bnDigits(d)} দিন আগে', style: body(16))),
+            DropdownMenuItem(value: d, child: Text(d == 0 ? 'লাগবে না' : '${bnDigits(d)} দিন আগেও', style: body(16))),
         ],
-        onChanged: (v) => setState(() => _daysBefore = v ?? 1),
+        onChanged: (v) => setState(() => _daysBefore = v ?? 0),
       ),
       _gap,
       Text('বারবার?', style: body(14, weight: FontWeight.w600, color: C.muted)),

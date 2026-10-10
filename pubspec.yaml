@@ -1,7 +1,7 @@
 name: digital_brain
 description: My Assistant — আপনার ব্যক্তিগত সহকারী। কাজের তালিকা, রিমাইন্ডার, ফোন-মেসেজ, বাকি ও লেনদেন, নোট আর পাসওয়ার্ড — মুখে বলুন বা লিখুন।
 publish_to: 'none'
-version: 1.7.0+12
+version: 2.0.0+13
 
 environment:
   sdk: '>=3.6.0 <4.0.0'
@@ -32,15 +32,15 @@ flutter:
   uses-material-design: true
 
   fonts:
-    # Noto Sans Bengali: the standard, clear Bengali look (same family Android
-    # uses), with digits that are easy to tell apart. OFL, licence in assets/fonts/.
-    - family: Noto
+    # Hind Siliguri: clean, modern Bengali with clear digits (the font the
+    # new design uses). OFL, licence in assets/fonts/.
+    - family: Hind
       fonts:
-        - asset: assets/fonts/NotoSansBengali-Regular.ttf
+        - asset: assets/fonts/HindSiliguri-Regular.ttf
           weight: 400
-        - asset: assets/fonts/NotoSansBengali-Medium.ttf
+        - asset: assets/fonts/HindSiliguri-Medium.ttf
           weight: 500
-        - asset: assets/fonts/NotoSansBengali-SemiBold.ttf
+        - asset: assets/fonts/HindSiliguri-SemiBold.ttf
           weight: 600
-        - asset: assets/fonts/NotoSansBengali-Bold.ttf
+        - asset: assets/fonts/HindSiliguri-Bold.ttf
           weight: 700

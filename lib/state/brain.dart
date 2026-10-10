@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../logic/ai_map.dart';
 import '../logic/answers.dart';
+import '../logic/bn.dart';
 import '../logic/cash.dart';
 import '../logic/ledger.dart';
 import '../logic/parser.dart';
@@ -186,7 +187,14 @@ class Brain extends ChangeNotifier {
   /// Schedules the phone's notifications again (after a permission change).
   Future<void> refreshNotices() => _reschedule();
 
-  Future<void> _reschedule() => services.notifier.schedule(plannedNotices(data.reminders, services.now()));
+  Future<void> _scheduling = Future.value();
+
+  /// One after another (never two at once), and never before the data is
+  /// read: an empty list would cancel every reminder on the phone.
+  Future<void> _reschedule() {
+    if (!loaded || loadError != null) return Future.value();
+    return _scheduling = _scheduling.then((_) => services.notifier.schedule(plannedNotices(data.reminders, services.now()))).catchError((_) {});
+  }
 
   // ── Generic upsert / remove ──
 
@@ -199,8 +207,20 @@ class Brain extends ChangeNotifier {
     }
   }
 
-  Future<void> saveEntry(LedgerEntry e) async {
-    _upsert(data.ledger, e, (x) => x.id);
+  /// Saves a ধার-দেনা entry. Said without a number ("রহিমকে ৫০০ দিলাম"), it
+  /// goes to the রহিম used most recently. A new number is also kept in
+  /// যোগাযোগ, so the person can be called from either place.
+  Future<void> saveEntry(LedgerEntry e, {bool guessPhone = true}) async {
+    var x = e;
+    if (guessPhone && phoneKey(x.phone).isEmpty) {
+      final p = balanceOf(data.ledger.where((o) => o.id != x.id), x.person);
+      if (p != null && p.phone.isNotEmpty) x = x.copyWith(phone: p.phone);
+    }
+    _upsert(data.ledger, x, (y) => y.id);
+    final pk = phoneKey(x.phone);
+    if (pk.isNotEmpty && !data.contacts.any((c) => phoneKey(c.phone) == pk)) {
+      data.contacts.add(Contact(name: x.person.trim(), phone: asciiDigits(x.phone.trim()), note: 'লেনদেন', updatedAt: services.now()));
+    }
     await _save();
   }
 

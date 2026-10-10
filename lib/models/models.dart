@@ -54,12 +54,17 @@ class LedgerEntry {
     required this.amount,
     required this.date,
     this.note = '',
+    this.phone = '',
     DateTime? createdAt,
   })  : id = id ?? newId(),
         createdAt = createdAt ?? DateTime.now();
 
   final String id;
   final String person;
+
+  /// The person's mobile number, so two people with the same name
+  /// ("রহিম মিস্ত্রি" and "রহিম অফিস") keep separate accounts. May be empty.
+  final String phone;
   final LedgerKind kind;
 
   /// Whole taka, always positive.
@@ -68,9 +73,10 @@ class LedgerEntry {
   final String note;
   final DateTime createdAt;
 
-  LedgerEntry copyWith({String? person, LedgerKind? kind, int? amount, DateTime? date, String? note}) => LedgerEntry(
+  LedgerEntry copyWith({String? person, String? phone, LedgerKind? kind, int? amount, DateTime? date, String? note}) => LedgerEntry(
         id: id,
         person: person ?? this.person,
+        phone: phone ?? this.phone,
         kind: kind ?? this.kind,
         amount: amount ?? this.amount,
         date: date ?? this.date,
@@ -85,12 +91,14 @@ class LedgerEntry {
         'amount': amount,
         'date': date.toIso8601String(),
         'note': note,
+        if (phone.isNotEmpty) 'phone': phone,
         'createdAt': createdAt.toIso8601String(),
       };
 
   factory LedgerEntry.fromJson(Map<String, Object?> j) => LedgerEntry(
         id: j['id'] as String?,
         person: (j['person'] as String?) ?? '',
+        phone: (j['phone'] as String?) ?? '',
         kind: LedgerKind.parse(j['kind']),
         amount: (j['amount'] as num?)?.toInt() ?? 0,
         date: _date(j['date']) ?? DateTime.now(),
@@ -261,7 +269,7 @@ class Reminder {
     required this.date,
     this.hour = 10,
     this.minute = 0,
-    this.daysBefore = 1,
+    this.daysBefore = 0,
     this.repeat = Repeat.none,
     this.note = '',
     this.vaultId,
@@ -309,7 +317,9 @@ class Reminder {
     return d;
   }
 
-  /// When the phone should notify for the next occurrence.
+  /// When it rings next: the day itself at the set time. (A reminder always
+  /// rings on its own day; [daysBefore] only adds an early notice, see
+  /// [earlyAt].) For a one-time reminder this may be in the past.
   DateTime notifyAt(DateTime now) {
     if (repeat.isInterval) {
       final at = anchor;
@@ -318,8 +328,27 @@ class Reminder {
       final passed = now.difference(at).inMinutes ~/ step + 1;
       return at.add(Duration(minutes: passed * step));
     }
-    final d = nextDate(now).subtract(Duration(days: repeat == Repeat.daily ? 0 : daysBefore));
-    return DateTime(d.year, d.month, d.day, hour, minute);
+    final d = nextDate(now);
+    final at = DateTime(d.year, d.month, d.day, hour, minute);
+    if (at.isAfter(now) || repeat == Repeat.none || repeat == Repeat.daily) return at;
+    // Today's monthly/yearly time has passed: the following one.
+    final step = repeat == Repeat.monthly ? 1 : 12;
+    final start = DateTime(date.year, date.month, date.day);
+    for (var k = 1; k < 1200; k++) {
+      final n = _addMonths(start, k * step);
+      final t = DateTime(n.year, n.month, n.day, hour, minute);
+      if (t.isAfter(now)) return t;
+    }
+    return at;
+  }
+
+  /// The early notice ("২ দিন আগে মনে করাও") before the next ring, if one
+  /// is set and still ahead.
+  DateTime? earlyAt(DateTime now) {
+    if (daysBefore <= 0 || repeat.isInterval || repeat == Repeat.daily) return null;
+    final main = notifyAt(now);
+    final e = DateTime(main.year, main.month, main.day - daysBefore, hour, minute);
+    return e.isAfter(now) ? e : null;
   }
 
   /// The first moment it rings (date + time).
@@ -343,7 +372,7 @@ class Reminder {
         date: _date(j['date']) ?? DateTime.now(),
         hour: (j['hour'] as num?)?.toInt() ?? 10,
         minute: (j['minute'] as num?)?.toInt() ?? 0,
-        daysBefore: (j['daysBefore'] as num?)?.toInt() ?? 1,
+        daysBefore: (j['daysBefore'] as num?)?.toInt() ?? 0,
         repeat: Repeat.parse(j['repeat']),
         note: (j['note'] as String?) ?? '',
         vaultId: j['vaultId'] as String?,

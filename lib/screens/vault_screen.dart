@@ -46,11 +46,20 @@ class _VaultScreenState extends State<VaultScreen> {
       children: [
         Row(
           children: [
+            if (Navigator.of(context).canPop())
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: IconButton(
+                  tooltip: 'ফিরে যান',
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(Icons.chevron_left_rounded, size: 30),
+                ),
+              ),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('ভল্ট', style: display(26, weight: 700)),
+                  Text('গোপন তথ্য', style: display(24, weight: 700)),
                   Row(children: [
                     const Icon(Icons.lock_rounded, size: 14, color: C.greenDark),
                     const SizedBox(width: 4),
@@ -80,7 +89,7 @@ class _VaultScreenState extends State<VaultScreen> {
           ]),
         ],
         const SizedBox(height: 12),
-        const InfoBanner(text: 'পাসওয়ার্ড দেখতে আঙুলের ছাপ বা PIN লাগে। ভয়েসে কখনো জোরে পড়া হয় না।'),
+        const InfoBanner(text: 'শুধু এই ফোনে, তালাবদ্ধ অবস্থায় থাকে। দেখতে আঙুলের ছাপ বা PIN লাগে। AI-তে কখনো যায় না, জোরে পড়াও হয় না।'),
         const SizedBox(height: 12),
         if (all.isEmpty)
           EmptyState(
@@ -135,4 +144,12 @@ class _KindIcon extends StatelessWidget {
       child: Icon(l.icon, color: l.fg, size: 20),
     );
   }
+}
+
+/// গোপন তথ্য as its own page (from তথ্য).
+class VaultPage extends StatelessWidget {
+  const VaultPage({super.key});
+
+  @override
+  Widget build(BuildContext context) => const Scaffold(body: SafeArea(child: VaultScreen()));
 }

@@ -8,8 +8,19 @@
     <!-- Date reminders. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- "৩০ মিনিট পরে মনে করিয়ে দিও": ring on time, not a few minutes late. -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!--
+      Reminders are this app's core job, so they ring like an alarm clock, on
+      the exact minute. USE_EXACT_ALARM is granted without asking on Android
+      13+; older phones use SCHEDULE_EXACT_ALARM.
+    -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Lights up a locked phone with the alarm page when a reminder rings. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!-- Asks once to be left out of battery saving, which stops reminders on many phones. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <!--
       allowBackup is off: the data file is encrypted with a key that only this
@@ -43,6 +54,8 @@
 
         <!-- Shows scheduled reminders, and restores them after a restart. -->
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <!-- The reminder's buttons ("১০ মিনিট পরে", "হয়ে গেছে"). -->
+        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

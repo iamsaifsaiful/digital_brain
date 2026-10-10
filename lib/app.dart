@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'screens/home_shell.dart';
 import 'screens/lock_screen.dart';
-import 'screens/reminders_screen.dart';
+import 'screens/alarm_screens.dart';
 import 'state/brain.dart';
 import 'ui/theme.dart';
 
@@ -27,6 +27,8 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
     WidgetsBinding.instance.addObserver(this);
     brain.addListener(_onBrain);
     brain.services.notifier.tapped.addListener(_onNotificationTap);
+    // Opened by a reminder before this page existed.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onNotificationTap());
   }
 
   @override
@@ -40,10 +42,9 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
   /// When the app locks, close every open page so nothing shows behind the lock.
   void _onBrain() {
     if (_wasUnlocked && !brain.unlocked) {
-      _nav.currentState?.popUntil((r) => r.isFirst);
-    }
-    if (!_wasUnlocked && brain.unlocked) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _onNotificationTap());
+      // A ringing reminder's page stays open (it shows nothing private);
+      // the pages under it close when it does.
+      if (!_alarmOpen) _nav.currentState?.popUntil((r) => r.isFirst);
     }
     _wasUnlocked = brain.unlocked;
   }
@@ -56,6 +57,9 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       final left = _leftAt;
       _leftAt = null;
       if (left != null && brain.unlocked) _maybeLock(left);
+      // Rings set while the app was away (or lost to a phone restart) are
+      // put back every time the app comes to the front.
+      brain.refreshNotices();
     }
   }
 
@@ -64,13 +68,21 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
     if (brain.services.now().difference(left).inSeconds >= secs) brain.lockNow();
   }
 
-  void _onNotificationTap() {
-    final p = brain.services.notifier.tapped.value;
-    if (p == null || !brain.unlocked) return;
+  bool _alarmOpen = false;
+
+  /// A reminder rang and was opened (or lit up the locked screen): the big
+  /// alarm page, even before the PIN — it shows only the title and time.
+  Future<void> _onNotificationTap() async {
+    final t = brain.services.notifier.tapped.value;
+    final nav = _nav.currentState;
+    if (t == null || nav == null || _alarmOpen) return;
     brain.services.notifier.tapped.value = null;
-    if (p.startsWith('reminder:')) {
-      _nav.currentState?.push(MaterialPageRoute(builder: (_) => RemindersScreen(highlightId: p.substring(9))));
-    }
+    _alarmOpen = true;
+    await nav.push(MaterialPageRoute(builder: (_) => AlarmScreen(info: t.info), fullscreenDialog: true));
+    _alarmOpen = false;
+    if (!brain.unlocked) nav.popUntil((r) => r.isFirst);
+    // Another one rang meanwhile.
+    if (brain.services.notifier.tapped.value != null) _onNotificationTap();
   }
 
   @override

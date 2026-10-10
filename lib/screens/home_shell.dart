@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import '../ui/theme.dart';
 import 'home_screen.dart';
 import 'ledger_screen.dart';
+import 'library_screen.dart';
 import 'more_screen.dart';
-import 'vault_screen.dart';
 import 'voice_screen.dart';
 
-enum ShellTab { home, ledger, vault, more }
+/// আজ · হিসাব · (বলুন) · তথ্য · আমি — what a busy person checks most is
+/// first, and speaking is always one tap in the middle.
+enum ShellTab { home, money, library, me }
 
 /// Lets a page switch the bottom tab (e.g. the home tiles).
 class ShellTabs extends InheritedWidget {
@@ -49,7 +51,7 @@ class _HomeShellState extends State<HomeShell> {
             bottom: false,
             child: IndexedStack(
               index: _tab.index,
-              children: const [HomeScreen(), LedgerScreen(), VaultScreen(), MoreScreen()],
+              children: const [HomeScreen(), MoneyScreen(), LibraryScreen(), MoreScreen()],
             ),
           ),
           bottomNavigationBar: _BottomNav(current: _tab, onTab: _go, onMic: () => openVoice(context)),
@@ -102,8 +104,8 @@ class _BottomNav extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              item(ShellTab.home, Icons.home_outlined, Icons.home_rounded, 'হোম'),
-              item(ShellTab.ledger, Icons.swap_horiz_rounded, Icons.swap_horiz_rounded, 'লেনদেন'),
+              item(ShellTab.home, Icons.calendar_today_outlined, Icons.calendar_today_rounded, 'আজ'),
+              item(ShellTab.money, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, 'হিসাব'),
               Expanded(
                 child: Semantics(
                   button: true,
@@ -115,8 +117,8 @@ class _BottomNav extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 56,
-                          height: 56,
+                          width: 58,
+                          height: 58,
                           decoration: BoxDecoration(
                             color: C.green,
                             shape: BoxShape.circle,
@@ -129,8 +131,8 @@ class _BottomNav extends StatelessWidget {
                   ),
                 ),
               ),
-              item(ShellTab.vault, Icons.lock_outline_rounded, Icons.lock_rounded, 'ভল্ট'),
-              item(ShellTab.more, Icons.more_horiz_rounded, Icons.more_horiz_rounded, 'আরও'),
+              item(ShellTab.library, Icons.folder_open_outlined, Icons.folder_rounded, 'তথ্য'),
+              item(ShellTab.me, Icons.person_outline_rounded, Icons.person_rounded, 'আমি'),
             ],
           ),
         ),

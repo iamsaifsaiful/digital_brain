@@ -14,7 +14,7 @@ String initialOf(String name) {
 
 /// White rounded card with a hairline border.
 class Panel extends StatelessWidget {
-  const Panel({super.key, required this.child, this.padding = EdgeInsets.zero, this.color = C.surface, this.borderColor = C.line, this.radius = 20});
+  const Panel({super.key, required this.child, this.padding = EdgeInsets.zero, this.color = C.surface, this.borderColor = C.line, this.radius = 16});
   final Widget child;
   final EdgeInsetsGeometry padding;
   final Color color;
@@ -103,7 +103,7 @@ class SectionTitle extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Expanded(child: Text(title, style: display(19))),
+            Expanded(child: Text(title, style: body(15, weight: FontWeight.w600, color: C.muted2))),
             if (action != null)
               TextButton(
                 onPressed: onAction,
@@ -116,7 +116,7 @@ class SectionTitle extends StatelessWidget {
 }
 
 class PrimaryButton extends StatelessWidget {
-  const PrimaryButton({super.key, required this.label, required this.onPressed, this.icon, this.color = C.green, this.height = 56});
+  const PrimaryButton({super.key, required this.label, required this.onPressed, this.icon, this.color = C.green, this.height = 52});
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
@@ -133,7 +133,7 @@ class PrimaryButton extends StatelessWidget {
             backgroundColor: color,
             disabledBackgroundColor: C.disabled,
             disabledForegroundColor: C.muted,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -202,7 +202,7 @@ class RoundIconButton extends StatelessWidget {
       );
 }
 
-/// Standard top bar: back button, title, optional trailing widgets.
+/// Standard top bar: back chevron, title, optional trailing widgets.
 class TopBar extends StatelessWidget {
   const TopBar({super.key, required this.title, this.trailing = const [], this.close = false, this.onBack});
   final String title;
@@ -212,20 +212,146 @@ class TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        padding: const EdgeInsets.fromLTRB(8, 8, 12, 4),
         child: Row(
           children: [
-            RoundIconButton(
-              icon: close ? Icons.close_rounded : Icons.arrow_back_ios_new_rounded,
+            IconButton(
               tooltip: close ? 'বন্ধ করুন' : 'ফিরে যান',
               onPressed: onBack ?? () => Navigator.of(context).maybePop(),
+              icon: Icon(close ? Icons.close_rounded : Icons.chevron_left_rounded, size: close ? 24 : 30, color: C.ink),
             ),
-            const SizedBox(width: 12),
-            Expanded(child: Text(title, style: display(22), overflow: TextOverflow.ellipsis)),
+            const SizedBox(width: 2),
+            Expanded(child: Text(title, style: display(21, weight: 700), overflow: TextOverflow.ellipsis)),
             ...trailing,
           ],
         ),
       );
+}
+
+/// Big page title for a main tab ("আজ", "হিসাব"…).
+class TabTitle extends StatelessWidget {
+  const TabTitle(this.title, {super.key, this.sub, this.trailing});
+  final String title;
+  final String? sub;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (sub != null) Text(sub!, style: body(13, color: C.muted)),
+              Text(title, style: display(26, weight: 700, height: 1.2)),
+            ]),
+          ),
+          if (trailing != null) trailing!,
+        ],
+      );
+}
+
+/// Grey pill with 2–4 choices; the chosen one is white (iOS-style tabs).
+class SegTabs<T> extends StatelessWidget {
+  const SegTabs({super.key, required this.items, required this.value, required this.onChanged});
+  final List<(T, String)> items;
+  final T value;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(color: C.chip, borderRadius: BorderRadius.circular(12)),
+        child: Row(children: [
+          for (final (v, label) in items)
+            Expanded(
+              child: Semantics(
+                selected: v == value,
+                button: true,
+                child: GestureDetector(
+                  onTap: () => onChanged(v),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    height: 38,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: v == value ? C.surface : Colors.transparent,
+                      borderRadius: BorderRadius.circular(9),
+                      boxShadow: v == value ? const [BoxShadow(color: Color(0x14111827), blurRadius: 2, offset: Offset(0, 1))] : null,
+                    ),
+                    child: Text(label,
+                        style: body(14, weight: v == value ? FontWeight.w600 : FontWeight.w400, color: v == value ? C.ink : C.muted2), maxLines: 1),
+                  ),
+                ),
+              ),
+            ),
+        ]),
+      );
+}
+
+/// Dark rounded "+ যোগ করুন" button floating at the bottom right.
+class AddButton extends StatelessWidget {
+  const AddButton({super.key, required this.label, required this.onPressed, this.icon = Icons.add_rounded});
+  final String label;
+  final VoidCallback onPressed;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => FloatingActionButton.extended(
+        heroTag: null,
+        onPressed: onPressed,
+        backgroundColor: C.ink,
+        foregroundColor: Colors.white,
+        elevation: 3,
+        shape: const StadiumBorder(),
+        icon: Icon(icon),
+        label: Text(label, style: body(15, weight: FontWeight.w600, color: Colors.white)),
+      );
+}
+
+/// Small round button (call, SMS, WhatsApp…).
+class CircleAction extends StatelessWidget {
+  const CircleAction({super.key, required this.icon, required this.tooltip, required this.onPressed, this.fg = C.green, this.bg = C.greenTint, this.size = 40});
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final Color fg;
+  final Color bg;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+        message: tooltip,
+        child: Material(
+          color: bg,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onPressed,
+            child: SizedBox(width: size, height: size, child: Icon(icon, size: size * 0.48, color: fg)),
+          ),
+        ),
+      );
+}
+
+/// Label over a big amount (and an optional line under it).
+class Figure extends StatelessWidget {
+  const Figure({super.key, required this.label, required this.amount, this.color = C.ink, this.size = 20, this.sub});
+  final String label;
+  final String amount;
+  final Color color;
+  final double size;
+  final String? sub;
+
+  @override
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        Text(label, style: body(13, color: C.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(amount, style: display(size, weight: 700, color: color, height: 1.25)),
+        ),
+        if (sub != null) Text(sub!, style: body(12, color: C.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
+      ]);
 }
 
 /// "You said …" (dark, right) or the app's answer (white, left).

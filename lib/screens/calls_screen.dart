@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
+import '../logic/ledger.dart' show showPhone;
 import '../logic/parser.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
@@ -51,21 +52,17 @@ class _CallsScreenState extends State<CallsScreen> {
   }
 
   Widget _actions(String phone, String name) => Row(mainAxisSize: MainAxisSize.min, children: [
-        IconButton(
-          tooltip: 'ফোন দিন',
-          onPressed: () => _go(Via.call, phone, name),
-          icon: const Icon(Icons.call_rounded, color: C.green),
-        ),
-        IconButton(
-          tooltip: 'মেসেজ (SMS)',
-          onPressed: () => _go(Via.sms, phone, name),
-          icon: const Icon(Icons.sms_outlined, color: C.blue),
-        ),
-        IconButton(
-          tooltip: 'WhatsApp',
-          onPressed: () => _go(Via.whatsapp, phone, name),
-          icon: const Icon(Icons.chat_outlined, color: Color(0xFF128C4A)),
-        ),
+        CircleAction(icon: Icons.call_rounded, tooltip: 'ফোন দিন', size: 38, onPressed: () => _go(Via.call, phone, name)),
+        const SizedBox(width: 6),
+        CircleAction(icon: Icons.sms_outlined, tooltip: 'মেসেজ (SMS)', size: 38, fg: C.blue, bg: C.blueTint, onPressed: () => _go(Via.sms, phone, name)),
+        const SizedBox(width: 6),
+        CircleAction(
+            icon: Icons.chat_outlined,
+            tooltip: 'WhatsApp',
+            size: 38,
+            fg: const Color(0xFF128C4A),
+            bg: const Color(0xFFE3F6EA),
+            onPressed: () => _go(Via.whatsapp, phone, name)),
       ]);
 
   @override
@@ -74,13 +71,13 @@ class _CallsScreenState extends State<CallsScreen> {
     final q = normalize(_q);
     final typed = findPhone(_q);
     final all = [...brain.data.contacts]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-    final withPhone = all.where((c) => c.phone.isNotEmpty).where((c) => q.isEmpty || normalize('${c.name} ${c.phone} ${c.note}').contains(q)).toList();
+    final withPhone = all.where((c) => q.isEmpty || normalize('${c.name} ${c.phone} ${c.note}').contains(q)).toList();
 
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            TopBar(title: 'ফোন ও মেসেজ', trailing: [
+            TopBar(title: 'যোগাযোগ', trailing: [
               RoundIconButton(
                 icon: Icons.person_add_alt_1_outlined,
                 tooltip: 'নতুন নম্বর রাখুন',
@@ -131,6 +128,10 @@ class _CallsScreenState extends State<CallsScreen> {
                     ),
                     const SizedBox(height: 12),
                   ],
+                  if (all.isNotEmpty) ...[
+                    Text('ধার-দেনার মানুষ আর যোগাযোগ একই — নম্বর একবার রাখলেই দুই জায়গায় পাবেন।', style: body(13, color: C.muted)),
+                    const SizedBox(height: 10),
+                  ],
                   if (all.isEmpty)
                     EmptyState(
                       icon: Icons.contact_phone_outlined,
@@ -148,8 +149,9 @@ class _CallsScreenState extends State<CallsScreen> {
                           ListRow(
                             leading: Avatar(name: c.name, fg: C.purple, bg: C.purpleTint),
                             title: c.name,
-                            subtitle: bnDigits(c.phone),
-                            trailing: _actions(c.phone, c.name),
+                            subtitle: [if (c.note.trim().isNotEmpty) c.note.trim(), if (c.phone.isNotEmpty) showPhone(c.phone)].join(' · '),
+                            trailing: c.phone.isEmpty ? null : _actions(c.phone, c.name),
+                            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewItemScreen(contact: c))),
                           ),
                       ]),
                     ),

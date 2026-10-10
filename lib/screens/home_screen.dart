@@ -1,21 +1,19 @@
 import 'package:flutter/material.dart';
 
-import '../logic/answers.dart';
 import '../logic/bn.dart';
 import '../logic/cash.dart';
 import '../logic/ledger.dart';
 import '../models/models.dart';
+import '../services/notifications.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
-import 'calls_screen.dart';
-import 'contacts_screen.dart';
+import 'alarm_screens.dart';
 import 'home_shell.dart';
-import 'new_item_screen.dart';
-import 'notes_screen.dart';
-import 'reminders_screen.dart';
-import 'tasks_screen.dart';
+import 'plan_screens.dart';
 
+/// "আজ": what needs doing today, in time order — the first thing a busy
+/// person wants to see. Money is one tap away in the strip at the top.
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -26,214 +24,91 @@ class HomeScreen extends StatelessWidget {
     final now = brain.services.now();
     final t = totals(d.ledger);
     final month = monthSums(d.cash, now);
-    final upcoming = [...d.reminders]..sort((a, b) => a.nextDate(now).compareTo(b.nextDate(now)));
-    final soon = upcoming.where((r) => !r.nextDate(now).isBefore(dayOnly(now))).take(3).toList();
-    final open = openTasksOf(d, now);
-    final todayTasks = open.where((x) => x.due == null || !x.due!.isAfter(dayOnly(now))).toList();
-    final todayRems = d.reminders.where((r) => dayOnly(r.nextDate(now)) == dayOnly(now)).length;
-
+    final plan = planOf(d, now);
+    final tomorrow = dayOnly(now).add(const Duration(days: 1));
+    final tomorrowItems = plan.ahead.where((i) => dayOnly(i.sort) == tomorrow).toList();
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       children: [
-        Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(color: C.green, borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.psychology_outlined, color: Colors.white, size: 24),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('My Assistant', style: display(22, weight: 700)),
-                  Text('${weekdayName(now)}, ${bnDigits(now.day)} ${bnMonths[now.month - 1]}', style: body(13, color: C.muted)),
-                ],
-              ),
-            ),
-            RoundIconButton(icon: Icons.lock_outline_rounded, tooltip: 'এখনই লক করুন', onPressed: brain.lockNow),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Material(
-          color: C.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: C.inputBorder)),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: () => openVoice(context),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
-              child: Row(
-                children: [
-                  const Icon(Icons.search_rounded, color: C.muted),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('যেকোনো কিছু জিজ্ঞেস করুন', style: body(16, weight: FontWeight.w500)),
-                        Text('“কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও”', style: body(13, color: C.muted)),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: const BoxDecoration(color: C.green, shape: BoxShape.circle),
-                    child: const Icon(Icons.mic_none_rounded, color: Colors.white, size: 22),
-                  ),
-                ],
+        TabTitle(
+          'আজ',
+          sub: '${weekdayName(now)}, ${bnDigits(now.day)} ${bnMonths[now.month - 1]}',
+          trailing: Semantics(
+            button: true,
+            label: 'আমি',
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => ShellTabs.goTo(context, ShellTab.me),
+              child: Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(color: C.greenTint, shape: BoxShape.circle),
+                child: const Icon(Icons.person_outline_rounded, color: C.green),
               ),
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         Material(
-          color: C.greenSoft,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: C.greenTint)),
+          color: C.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: C.line)),
           child: InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: () => push(const TasksScreen()),
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => ShellTabs.goTo(context, ShellTab.money),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+              padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
               child: Row(children: [
-                const Icon(Icons.today_outlined, color: C.green),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('আজকের দিন', style: body(15, weight: FontWeight.w600)),
-                    Text(
-                      todayTasks.isEmpty && todayRems == 0
-                          ? 'আজ কোনো কাজ বা রিমাইন্ডার নেই'
-                          : [
-                              if (todayTasks.isNotEmpty) '${bnDigits(todayTasks.length)}টা কাজ বাকি',
-                              if (todayRems > 0) '${bnDigits(todayRems)}টা রিমাইন্ডার',
-                            ].join(' · '),
-                      style: body(13, color: C.muted),
-                    ),
-                    if (todayTasks.isNotEmpty)
-                      Text(todayTasks.take(2).map((x) => '• ${x.title}').join('  '),
-                          style: body(13, color: C.greenDark), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ]),
-                ),
+                Expanded(child: Figure(label: 'পাওনা', amount: taka(t.receivable), color: C.green, size: 17)),
+                Expanded(child: Figure(label: 'দেনা', amount: taka(t.payable), color: C.orange, size: 17)),
+                Expanded(child: Figure(label: 'এ মাসে খরচ', amount: taka(month.expense), size: 17)),
                 const Icon(Icons.chevron_right_rounded, color: C.muted),
               ]),
             ),
           ),
         ),
-        const SizedBox(height: 18),
-        Text('আপনার তথ্য', style: display(19)),
-        const SizedBox(height: 8),
-        LayoutBuilder(builder: (context, box) {
-          final w = (box.maxWidth - 16) / 3;
-          final tiles = [
-            _Tile('কাজের তালিকা', '${bnDigits(open.length)}টি বাকি', Icons.checklist_rounded, C.green, C.greenTint, () => push(const TasksScreen())),
-            _Tile('ফোন ও মেসেজ', '${bnDigits(d.contacts.where((c) => c.phone.isNotEmpty).length)}টি নম্বর', Icons.call_outlined, C.blue, C.blueTint,
-                () => push(const CallsScreen())),
-            _Tile('পাসওয়ার্ড', '${bnDigits(d.vault.length)}টি · লক করা', Icons.key_rounded, C.blue, C.blueTint,
-                () => ShellTabs.goTo(context, ShellTab.vault)),
-            _Tile('যোগাযোগ', '${bnDigits(d.contacts.length)} জন', Icons.person_outline_rounded, C.purple, C.purpleTint,
-                () => push(const ContactsScreen())),
-            _Tile('লেনদেন', '${bnDigits(balances(d.ledger).length)} জনের সাথে', Icons.swap_horiz_rounded, C.green, C.greenTint,
-                () => ShellTabs.goTo(context, ShellTab.ledger)),
-            _Tile('নোট', '${bnDigits(d.notes.where((n) => n.category == defaultNoteCategory).length)}টি', Icons.description_outlined, C.ochre,
-                C.ochreTint, () => push(const NotesScreen(category: defaultNoteCategory))),
-            _Tile('রিমাইন্ডার', '${bnDigits(soon.length)}টি সামনে', Icons.notifications_none_rounded, C.orange, C.orangeTint,
-                () => push(const RemindersScreen())),
-            // Categories the app made from things the user said.
-            for (final c in d.noteCategories.where((c) => c != defaultNoteCategory))
-              _Tile(c, '${bnDigits(d.notes.where((n) => n.category == c).length)}টি', Icons.folder_outlined, C.ochre, C.ochreTint,
-                  () => push(NotesScreen(category: c))),
-          ];
-          return Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final tile in tiles) SizedBox(width: w, child: _CategoryTile(tile: tile)),
-              SizedBox(
-                width: w,
-                height: 104,
-                child: Material(
-                  color: Colors.transparent,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Color(0xFF9AA39E), width: 1.5)),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () => push(const NewItemScreen()),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.add_rounded, color: C.green, size: 26),
-                        Text('নতুন তথ্য', style: body(14, weight: FontWeight.w600, color: C.green)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        }),
-        const SizedBox(height: 18),
-        SectionTitle('সামনের তারিখ', action: 'সব দেখুন', onAction: () => push(const RemindersScreen())),
-        if (soon.isEmpty)
+        if (d.reminders.isNotEmpty) const _AlarmBanner(),
+        if (plan.overdue.isNotEmpty) ...[
+          _Heading('দেরি হয়ে গেছে · ${bnDigits(plan.overdue.length)}', color: C.orange),
           Panel(
-            padding: const EdgeInsets.all(16),
-            child: Text('কোনো তারিখ রাখা নেই। বলুন: “১৪ অক্টোবর ডোমেইন রিনিউ” বা নতুন তথ্য থেকে রিমাইন্ডার যোগ করুন।',
-                style: body(14, color: C.muted, height: 1.5)),
-          )
-        else
-          Panel(
+            borderColor: const Color(0xFFF3D9C2),
             child: Rows(children: [
-              for (final r in soon)
-                ListRow(
-                  leading: DateBlock(top: bnDigits(r.nextDate(now).day), bottom: bnMonthsShort[r.nextDate(now).month - 1]),
-                  title: r.title,
-                  subtitle: weekdayName(r.nextDate(now)),
-                  trailing: Pill(daysLeftLabel(r.nextDate(now), now), fg: C.orangeDark, bg: C.orangeTint),
-                  onTap: () => push(RemindersScreen(highlightId: r.id)),
+              for (final i in plan.overdue)
+                PlanRow(
+                  item: i,
+                  withDay: true,
+                  trailing: TextButton(
+                    onPressed: () => brain.saveTask(i.task!.copyWith(due: tomorrow)),
+                    child: Text('কাল করব', style: body(13, weight: FontWeight.w600, color: C.green)),
+                  ),
                 ),
             ]),
           ),
-        const SizedBox(height: 16),
-        Material(
-          color: C.ink,
-          borderRadius: BorderRadius.circular(18),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: () => ShellTabs.goTo(context, ShellTab.ledger),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Expanded(child: Text('টাকার হিসাব', style: body(14, weight: FontWeight.w600, color: C.onDarkMuted))),
-                  const Icon(Icons.chevron_right_rounded, color: Colors.white),
-                ]),
-                const SizedBox(height: 8),
-                Wrap(spacing: 0, runSpacing: 10, children: [
-                  for (final m in [
-                    ('মোট পাওনা', t.receivable, C.mint),
-                    ('মোট দেনা', t.payable, C.peach),
-                    ('এই মাসের খরচ', month.expense, C.peach),
-                    (month.balance >= 0 ? 'এই মাসের সঞ্চয়' : 'এই মাসের ঘাটতি', month.balance.abs(), Colors.white),
-                    if (d.projects.any((p) => !p.closed)) ('প্রজেক্টে অবশিষ্ট', openProjectsBalance(d), Colors.white),
-                  ])
-                    FractionallySizedBox(
-                      widthFactor: 0.5,
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(m.$1, style: body(12, color: C.onDarkMuted)),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(taka(m.$2), style: display(18, weight: 700, color: m.$3)),
-                        ),
-                      ]),
-                    ),
-                ]),
-              ]),
-            ),
+        ],
+        _Heading('আজ · ${bnDigits(plan.today.length)}',
+            action: TextButton.icon(
+              onPressed: () => showAddSheet(context),
+              icon: const Icon(Icons.add_rounded, size: 18, color: C.green),
+              label: Text('যোগ করুন', style: body(14, weight: FontWeight.w600, color: C.green)),
+            )),
+        if (plan.today.isEmpty)
+          Panel(
+            padding: const EdgeInsets.all(16),
+            child: Text('আজ কিছু রাখা নেই। নিচের মাইক চেপে বলুন — যেমন “বিকেল ৪টায় মিটিং মনে করিয়ে দিও”।', style: body(14, color: C.muted, height: 1.5)),
+          )
+        else
+          Panel(child: Rows(children: [for (final i in plan.today) PlanRow(item: i)])),
+        if (tomorrowItems.isNotEmpty) ...[
+          _Heading('কাল, ${weekdayName(tomorrow)}'),
+          Panel(child: Rows(children: [for (final i in tomorrowItems) PlanRow(item: i)])),
+        ],
+        const SizedBox(height: 12),
+        Center(
+          child: TextButton(
+            onPressed: () => push(const AllTasksScreen()),
+            child: Text('সব কাজ ও রিমাইন্ডার দেখুন', style: body(14, weight: FontWeight.w600, color: C.green)),
           ),
         ),
       ],
@@ -241,54 +116,89 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class _Tile {
-  const _Tile(this.label, this.sub, this.icon, this.fg, this.bg, this.onTap);
-  final String label;
-  final String sub;
-  final IconData icon;
-  final Color fg;
-  final Color bg;
-  final VoidCallback onTap;
-}
-
-class _CategoryTile extends StatelessWidget {
-  const _CategoryTile({required this.tile});
-  final _Tile tile;
+class _Heading extends StatelessWidget {
+  const _Heading(this.text, {this.color = C.muted2, this.action});
+  final String text;
+  final Color color;
+  final Widget? action;
 
   @override
-  Widget build(BuildContext context) => Material(
-        color: C.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: C.line)),
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.fromLTRB(2, 18, 0, action == null ? 8 : 0),
+        child: Row(children: [
+          Expanded(child: Text(text, style: body(15, weight: FontWeight.w600, color: color))),
+          if (action != null) action!,
+        ]),
+      );
+}
+
+/// Shown on "আজ" while something on this phone may stop reminders.
+class _AlarmBanner extends StatefulWidget {
+  const _AlarmBanner();
+
+  @override
+  State<_AlarmBanner> createState() => _AlarmBannerState();
+}
+
+class _AlarmBannerState extends State<_AlarmBanner> with WidgetsBindingObserver {
+  AlarmHealth? _h;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _load();
+  }
+
+  Future<void> _load() async {
+    final h = await BrainScope.read(context).services.notifier.health();
+    if (mounted) setState(() => _h = h);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final h = _h;
+    if (h == null || h.allGood) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Material(
+        color: C.orangeTint,
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: tile.onTap,
-          child: SizedBox(
-            height: 104,
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(color: tile.bg, borderRadius: BorderRadius.circular(11)),
-                    child: Icon(tile.icon, color: tile.fg, size: 20),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tile.label, style: body(14, weight: FontWeight.w600, height: 1.2), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      Text(tile.sub, style: body(12, color: C.muted, height: 1.2), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ],
-                  ),
-                ],
+          borderRadius: BorderRadius.circular(14),
+          onTap: () async {
+            await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReminderCheckScreen()));
+            _load();
+          },
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+            child: Row(children: [
+              const Icon(Icons.notifications_off_outlined, color: C.orange),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('রিমাইন্ডার নাও বাজতে পারে', style: body(15, weight: FontWeight.w600, color: C.orangeDark)),
+                  Text('ফোনের একটা সেটিং বন্ধ আছে — চেপে ঠিক করুন', style: body(13, color: C.orangeDark)),
+                ]),
               ),
-            ),
+              const Icon(Icons.chevron_right_rounded, color: C.orangeDark),
+            ]),
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 /// Reminders from today on, soonest first.

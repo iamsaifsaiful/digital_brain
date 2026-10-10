@@ -83,6 +83,26 @@ void main() {
       expect(balanceAfter(entries, 'রহিম', LedgerKind.repaid, 500), -500);
     });
 
+    test('same name, different numbers: two accounts', () {
+      final l = [
+        LedgerEntry(person: 'রহিম', phone: '01712345678', kind: LedgerKind.lent, amount: 4000, date: DateTime(2026, 10, 1)),
+        LedgerEntry(person: 'রহিম', phone: '+8801819876543', kind: LedgerKind.borrowed, amount: 3000, date: DateTime(2026, 10, 2)),
+      ];
+      expect(balances(l), hasLength(2));
+      expect(peopleNamed(l, 'রহিম'), hasLength(2));
+      expect(balanceWith(l, 'রহিম', phone: '০১৭১২৩৪৫৬৭৮'), 4000);
+      expect(balanceWith(l, 'রহিম', phone: '01819876543'), -3000);
+      // Without a number: the most recent রহিম.
+      expect(balanceWith(l, 'রহিম'), -3000);
+      // An old name-only entry joins the only numbered রহিম.
+      final one = [
+        LedgerEntry(person: 'করিম', kind: LedgerKind.lent, amount: 100, date: DateTime(2026, 9, 1)),
+        LedgerEntry(person: 'করিম', phone: '01711223344', kind: LedgerKind.lent, amount: 200, date: DateTime(2026, 10, 1)),
+      ];
+      expect(balances(one).single.balance, 300);
+      expect(showPhone('01711223344'), '০১৭১১-২২৩৩৪৪');
+    });
+
     test('csv has every entry and no password', () {
       final csv = ledgerCsv(entries);
       expect(csv.split('\n').where((l) => l.contains('সজীব')).length, greaterThanOrEqualTo(4));
@@ -231,9 +251,29 @@ void main() {
       expect(once.nextDate(now), DateTime(2026, 9, 1));
     });
 
-    test('notify time is days before, at the set hour', () {
+    test('a reminder rings on its own day; days-before only adds an early notice', () {
       final r = Reminder(title: 'ডোমেইন', date: DateTime(2026, 10, 14), daysBefore: 1, hour: 10);
-      expect(r.notifyAt(DateTime(2026, 10, 9)), DateTime(2026, 10, 13, 10));
+      expect(r.notifyAt(DateTime(2026, 10, 9)), DateTime(2026, 10, 14, 10));
+      expect(r.earlyAt(DateTime(2026, 10, 9)), DateTime(2026, 10, 13, 10));
+      expect(r.earlyAt(DateTime(2026, 10, 13, 11)), isNull);
+      // Today, later: it still rings today (the old form skipped these).
+      final today = Reminder(title: 'মিটিং', date: DateTime(2026, 10, 9), hour: 16);
+      expect(today.daysBefore, 0);
+      expect(plannedNotices([today], DateTime(2026, 10, 9, 15)).single.at, DateTime(2026, 10, 9, 16));
+    });
+
+    test('a monthly reminder whose time passed today rings next month', () {
+      final m = Reminder(title: 'ভাড়া', date: DateTime(2026, 9, 9), hour: 10, repeat: Repeat.monthly);
+      expect(m.notifyAt(DateTime(2026, 10, 9, 15)), DateTime(2026, 11, 9, 10));
+      final n = plannedNotices([m], DateTime(2026, 10, 9, 15)).single;
+      expect(n.repeat, NoticeRepeat.monthly);
+    });
+
+    test('a notice carries its words, so a snooze rings with them', () {
+      final i = NoticeInfo.parse(noticePayload('r1', 'ওষুধ', 'রাত ১০টা', false))!;
+      expect(i.reminderId, 'r1');
+      expect(i.title, 'ওষুধ');
+      expect(NoticeInfo.parse('reminder:abc')!.reminderId, 'abc');
     });
   });
 

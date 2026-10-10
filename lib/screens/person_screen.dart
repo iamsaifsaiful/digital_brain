@@ -9,39 +9,56 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'ledger_form_screen.dart';
 
-/// One person's account: balance, totals and every transaction.
+/// One person's account: who (name and mobile), the balance, a reminder
+/// message to send, and every transaction.
 class PersonScreen extends StatefulWidget {
-  const PersonScreen({super.key, required this.person});
+  const PersonScreen({super.key, this.person = '', this.accountKey});
   final String person;
+
+  /// The account (see accountKeys); when null, the most recent with [person]'s name.
+  final String? accountKey;
 
   @override
   State<PersonScreen> createState() => _PersonScreenState();
 }
 
 class _PersonScreenState extends State<PersonScreen> {
-  late String _person = widget.person;
+  late String? _key = widget.accountKey;
 
   void _push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
 
-  Future<void> _rename(Brain brain) async {
-    final c = TextEditingController(text: _person);
-    final r = await showDialog<String>(
+  PersonBalance? _account(Brain brain) {
+    final k = _key;
+    final p = k != null ? accountByKey(brain.data.ledger, k) : balanceOf(brain.data.ledger, widget.person);
+    return p;
+  }
+
+  /// Changes the name and/or number on every entry of this account.
+  Future<void> _edit(Brain brain, PersonBalance p) async {
+    final name = TextEditingController(text: p.name);
+    final phone = TextEditingController(text: p.phone);
+    final r = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('নাম বদলান', style: display(20)),
-        content: TextField(controller: c, autofocus: true, decoration: const InputDecoration(labelText: 'নাম')),
+        title: Text('নাম ও নম্বর', style: display(20)),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: name, autofocus: true, decoration: const InputDecoration(labelText: 'নাম')),
+          const SizedBox(height: 10),
+          TextField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'মোবাইল নম্বর')),
+        ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('বাতিল')),
-          TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: const Text('সেভ করুন')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('সেভ করুন')),
         ],
       ),
     );
-    if (r == null || r.isEmpty || r == _person) return;
-    final k = personKey(_person);
-    for (final e in [...brain.data.ledger]) {
-      if (personKey(e.person) == k) await brain.saveEntry(e.copyWith(person: r));
+    if (r != true || name.text.trim().isEmpty) return;
+    final newPhone = asciiDigits(phone.text.trim());
+    for (final (e, _) in runningForKey(brain.data.ledger, p.key)) {
+      await brain.saveEntry(e.copyWith(person: name.text.trim(), phone: newPhone), guessPhone: false);
     }
-    setState(() => _person = r);
+    if (!mounted) return;
+    setState(() => _key = phoneKey(newPhone).isNotEmpty ? 'p:${phoneKey(newPhone)}' : 'n:${personKey(name.text.trim())}');
   }
 
   Future<void> _rowMenu(Brain brain, LedgerEntry e) async {
@@ -63,68 +80,113 @@ class _PersonScreenState extends State<PersonScreen> {
     if (r == 'delete') await deleteEntryWithUndo(context, brain, e);
   }
 
+  Future<void> _open(Brain brain, Via via, String phone, {String text = ''}) async {
+    final ok = await brain.services.launcher.open(via, phone, text: text);
+    if (!ok && mounted) toast(context, via == Via.whatsapp ? 'WhatsApp খোলা গেল না' : 'খোলা গেল না');
+  }
+
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
-    final p = balanceOf(brain.data.ledger, _person);
-    final rows = runningFor(brain.data.ledger, _person).reversed.toList();
-    final bal = p?.balance ?? 0;
+    final p = _account(brain);
+    if (p == null) {
+      return Scaffold(
+        body: SafeArea(
+          child: Column(children: [
+            const TopBar(title: ''),
+            Padding(padding: const EdgeInsets.all(20), child: Text('এই নামে কোনো লেনদেন নেই।', style: body(15, color: C.muted))),
+          ]),
+        ),
+      );
+    }
+    _key ??= p.key;
+    final rows = runningForKey(brain.data.ledger, p.key).reversed.toList();
+    final bal = p.balance;
     final (fg, bg) = balanceColors(bal);
-    final given = (p?.lentTotal ?? 0) + (p?.repaidTotal ?? 0);
-    final got = (p?.receivedTotal ?? 0) + (p?.borrowedTotal ?? 0);
+    final given = p.lentTotal + p.repaidTotal;
+    final got = p.receivedTotal + p.borrowedTotal;
+    final sameName = peopleNamed(brain.data.ledger, p.name).length > 1;
+    final reminderText = bal > 0
+        ? 'আসসালামু আলাইকুম ${p.name} ভাই, আপনার কাছে আমার ${taka(bal)} বাকি আছে। সুবিধামতো দিয়ে দিলে উপকার হয়। ধন্যবাদ।'
+        : '';
 
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
             TopBar(title: '', trailing: [
-              RoundIconButton(icon: Icons.edit_outlined, tooltip: 'নাম বদলান', onPressed: p == null ? null : () => _rename(brain)),
+              TextButton.icon(
+                onPressed: () => _edit(brain, p),
+                icon: const Icon(Icons.edit_outlined, size: 18, color: C.green),
+                label: Text('নাম/নম্বর', style: body(14, weight: FontWeight.w600, color: C.green)),
+              ),
             ]),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                 children: [
                   Row(children: [
-                    Avatar(name: _person, fg: fg, bg: bg, size: 56),
+                    Avatar(name: p.name, fg: fg, bg: bg, size: 56),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(_person, style: display(28, weight: 700)),
-                        if (p != null && p.first != null)
-                          Text('${shortDate(p.first!)} থেকে · ${bnDigits(p.count)}টি লেনদেন', style: body(14, color: C.muted)),
+                        Text(p.name, style: display(26, weight: 700)),
+                        if (p.phone.isNotEmpty)
+                          Text(showPhone(p.phone), style: body(15, color: C.muted2))
+                        else
+                          InkWell(
+                            onTap: () => _edit(brain, p),
+                            child: Text(sameName ? 'একই নামে আরেকজন আছেন — নম্বর যোগ করুন' : '+ মোবাইল নম্বর যোগ করুন',
+                                style: body(14, weight: FontWeight.w600, color: sameName ? C.orange : C.green)),
+                          ),
                       ]),
                     ),
                   ]),
+                  if (p.phone.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Row(children: [
+                      for (final (via, icon, label) in const [
+                        (Via.call, Icons.call_outlined, 'ফোন'),
+                        (Via.sms, Icons.sms_outlined, 'SMS'),
+                        (Via.whatsapp, Icons.chat_outlined, 'WhatsApp'),
+                      ]) ...[
+                        if (via != Via.call) const SizedBox(width: 8),
+                        Expanded(child: SecondaryButton(label: label, icon: icon, height: 44, onPressed: () => _open(brain, via, p.phone))),
+                      ],
+                    ]),
+                  ],
                   const SizedBox(height: 16),
-                  Container(
+                  Panel(
                     padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(balanceHeading(_person, bal), style: body(14, weight: FontWeight.w600, color: bal < 0 ? C.orangeDark : C.greenDark)),
-                      Text(taka(bal), style: display(40, weight: 700, color: bal == 0 ? C.muted2 : fg, height: 1.15)),
-                      Text('মোট দিয়েছেন ${taka(given)} · পেয়েছেন ${taka(got)}', style: body(14, color: C.muted2)),
+                      Text(balanceHeading(p.name, bal), style: body(14, weight: FontWeight.w600, color: bal < 0 ? C.orangeDark : C.greenDark)),
+                      Text(taka(bal.abs()), style: display(36, weight: 700, color: bal == 0 ? C.muted2 : fg, height: 1.2)),
+                      const SizedBox(height: 4),
+                      Text('দিয়েছেন ${taka(given)} · পেয়েছেন ${taka(got)}', style: body(14, color: C.muted)),
                     ]),
                   ),
-                  const SizedBox(height: 12),
-                  Row(children: [
-                    Expanded(
-                      child: SecondaryButton(
-                        label: bal < 0 ? 'শোধ করলাম' : 'আরও দিলাম',
-                        icon: bal < 0 ? Icons.check_rounded : Icons.add_rounded,
-                        onPressed: () => _push(LedgerFormScreen(person: _person, kind: bal < 0 ? LedgerKind.repaid : LedgerKind.lent)),
-                      ),
+                  if (bal > 0 && p.phone.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Panel(
+                      color: C.greenSoft,
+                      borderColor: C.greenTint,
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('তাগাদা পাঠান', style: body(15, weight: FontWeight.w600)),
+                        Text('“${taka(bal)} বাকি আছে” — লেখা তৈরি থাকবে, আপনি শুধু Send চাপবেন', style: body(13, color: C.muted)),
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          Expanded(child: SecondaryButton(label: 'SMS', icon: Icons.sms_outlined, height: 42, onPressed: () => _open(brain, Via.sms, p.phone, text: reminderText))),
+                          const SizedBox(width: 8),
+                          Expanded(
+                              child: SecondaryButton(
+                                  label: 'WhatsApp', icon: Icons.chat_outlined, height: 42, onPressed: () => _open(brain, Via.whatsapp, p.phone, text: reminderText))),
+                        ]),
+                      ]),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: SecondaryButton(
-                        label: bal < 0 ? 'আরও নিলাম' : 'ফেরত পেলাম',
-                        icon: bal < 0 ? Icons.add_rounded : Icons.check_rounded,
-                        onPressed: () => _push(LedgerFormScreen(person: _person, kind: bal < 0 ? LedgerKind.borrowed : LedgerKind.received)),
-                      ),
-                    ),
-                  ]),
+                  ],
                   const SizedBox(height: 18),
-                  const SectionTitle('লেনদেনের ইতিহাস'),
+                  const SectionTitle('ইতিহাস'),
                   if (rows.isEmpty)
                     Panel(padding: const EdgeInsets.all(16), child: Text('এই নামে কোনো লেনদেন নেই।', style: body(14, color: C.muted)))
                   else
@@ -134,30 +196,42 @@ class _PersonScreenState extends State<PersonScreen> {
                           InkWell(
                             onTap: () => _rowMenu(brain, e),
                             child: Padding(
-                              padding: const EdgeInsets.fromLTRB(14, 12, 4, 12),
+                              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                               child: Row(children: [
-                                DateBlock(top: bnDigits(e.date.day), bottom: bnMonthsShort[e.date.month - 1]),
-                                const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                    Text('${e.kind.label} ${taka(e.amount)}', style: body(15, weight: FontWeight.w600)),
-                                    Text(
-                                      after == 0 ? 'হিসাব শূন্য' : 'বাকি ${taka(after)} ${after > 0 ? 'পাবেন' : 'দেবেন'}',
-                                      style: body(13, weight: FontWeight.w600, color: balanceColor(after)),
-                                    ),
-                                    if (e.note.isNotEmpty) Text(e.note, style: body(13, color: C.muted)),
+                                    Text(e.kind.label, style: body(15, weight: FontWeight.w600)),
+                                    Text([shortDate(e.date), if (e.note.isNotEmpty) e.note].join(' · '), style: body(13, color: C.muted)),
                                   ]),
                                 ),
-                                IconButton(
-                                  tooltip: 'সংশোধন বা মুছুন',
-                                  onPressed: () => _rowMenu(brain, e),
-                                  icon: const Icon(Icons.more_vert_rounded, color: C.muted),
-                                ),
+                                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                                  Text(taka(e.amount), style: display(16, weight: 700, color: e.kind.outflow ? C.ink : C.green)),
+                                  Text(after == 0 ? 'হিসাব শূন্য' : '${after > 0 ? 'পাওনা' : 'দেনা'} ${taka(after.abs())}', style: body(12, color: C.muted)),
+                                ]),
                               ]),
                             ),
                           ),
                       ]),
                     ),
+                  const SizedBox(height: 16),
+                  Row(children: [
+                    Expanded(
+                      child: PrimaryButton(
+                        label: bal < 0 ? 'শোধ করলাম' : 'টাকা পেলাম',
+                        height: 50,
+                        onPressed: () => _push(LedgerFormScreen(person: p.name, phone: p.phone, kind: bal < 0 ? LedgerKind.repaid : LedgerKind.received)),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: PrimaryButton(
+                        label: bal < 0 ? 'আরও নিলাম' : 'আরও দিলাম',
+                        height: 50,
+                        color: C.ink,
+                        onPressed: () => _push(LedgerFormScreen(person: p.name, phone: p.phone, kind: bal < 0 ? LedgerKind.borrowed : LedgerKind.lent)),
+                      ),
+                    ),
+                  ]),
                 ],
               ),
             ),

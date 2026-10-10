@@ -4,12 +4,52 @@ import 'bn.dart';
 /// Key used to treat "Sajib", " sajib " and "SAJIB" as the same person.
 String personKey(String name) => name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
 
+/// The last 10 digits of a mobile number, so "+8801711…", "01711…" and
+/// "০১৭১১…" are the same person.
+String phoneKey(String phone) {
+  final d = asciiDigits(phone).replaceAll(RegExp(r'[^0-9]'), '');
+  return d.length > 10 ? d.substring(d.length - 10) : d;
+}
+
+/// "01711223344" → "০১৭১১-২২৩৩৪৪".
+String showPhone(String phone) {
+  final d = asciiDigits(phone).replaceAll(RegExp(r'[^0-9+]'), '');
+  final s = d.length == 11 && d.startsWith('01') ? '${d.substring(0, 5)}-${d.substring(5)}' : d;
+  return bnDigits(s);
+}
+
+/// Which account each entry belongs to. An account is a mobile number, or —
+/// for entries written without one — the name. A name-only entry joins the
+/// numbered account of the same name when there is exactly one.
+Map<String, String> accountKeys(Iterable<LedgerEntry> entries) {
+  final numbered = <String, Set<String>>{};
+  for (final e in entries) {
+    final pk = phoneKey(e.phone);
+    if (pk.isNotEmpty) numbered.putIfAbsent(personKey(e.person), () => {}).add('p:$pk');
+  }
+  return {
+    for (final e in entries)
+      e.id: () {
+        final pk = phoneKey(e.phone);
+        if (pk.isNotEmpty) return 'p:$pk';
+        final same = numbered[personKey(e.person)];
+        return same != null && same.length == 1 ? same.first : 'n:${personKey(e.person)}';
+      }(),
+  };
+}
+
 /// One person's running account.
 class PersonBalance {
-  PersonBalance(this.name);
+  PersonBalance(this.name, this.key);
 
   /// The name as most recently written.
   String name;
+
+  /// The account (see [accountKeys]).
+  final String key;
+
+  /// Their mobile number, if one was written.
+  String phone = '';
 
   /// Positive: they owe me. Negative: I owe them.
   int balance = 0;
@@ -41,10 +81,13 @@ List<LedgerEntry> newestFirst(Iterable<LedgerEntry> entries) => chronological(en
 
 /// Every person with their current balance, biggest amounts first.
 List<PersonBalance> balances(Iterable<LedgerEntry> entries) {
+  final keys = accountKeys(entries);
   final map = <String, PersonBalance>{};
   for (final e in chronological(entries)) {
-    final p = map.putIfAbsent(personKey(e.person), () => PersonBalance(e.person.trim()));
+    final k = keys[e.id]!;
+    final p = map.putIfAbsent(k, () => PersonBalance(e.person.trim(), k));
     p.name = e.person.trim();
+    if (e.phone.trim().isNotEmpty) p.phone = e.phone.trim();
     p.balance += e.kind.signed(e.amount);
     switch (e.kind) {
       case LedgerKind.lent:
@@ -64,20 +107,40 @@ List<PersonBalance> balances(Iterable<LedgerEntry> entries) {
   return l;
 }
 
-PersonBalance? balanceOf(Iterable<LedgerEntry> entries, String person) {
+/// Everyone written under [person]'s name (two "রহিম" with different
+/// numbers are two accounts), most recently used first.
+List<PersonBalance> peopleNamed(Iterable<LedgerEntry> entries, String person) {
   final k = personKey(person);
+  return balances(entries).where((p) => personKey(p.name) == k).toList()
+    ..sort((a, b) => (b.last ?? DateTime(0)).compareTo(a.last ?? DateTime(0)));
+}
+
+/// [person]'s account: the one with [phone] if given, otherwise the one
+/// with that name used most recently.
+PersonBalance? balanceOf(Iterable<LedgerEntry> entries, String person, {String phone = ''}) {
+  final pk = phoneKey(phone);
+  if (pk.isNotEmpty) {
+    for (final p in balances(entries)) {
+      if (p.key == 'p:$pk') return p;
+    }
+  }
+  final named = peopleNamed(entries, person);
+  return named.isEmpty ? null : named.first;
+}
+
+PersonBalance? accountByKey(Iterable<LedgerEntry> entries, String key) {
   for (final p in balances(entries)) {
-    if (personKey(p.name) == k) return p;
+    if (p.key == key) return p;
   }
   return null;
 }
 
 /// Current balance with one person (0 when unknown).
-int balanceWith(Iterable<LedgerEntry> entries, String person) => balanceOf(entries, person)?.balance ?? 0;
+int balanceWith(Iterable<LedgerEntry> entries, String person, {String phone = ''}) => balanceOf(entries, person, phone: phone)?.balance ?? 0;
 
 /// What adding [kind]/[amount] would change the balance to.
-int balanceAfter(Iterable<LedgerEntry> entries, String person, LedgerKind kind, int amount) =>
-    balanceWith(entries, person) + kind.signed(amount);
+int balanceAfter(Iterable<LedgerEntry> entries, String person, LedgerKind kind, int amount, {String phone = ''}) =>
+    balanceWith(entries, person, phone: phone) + kind.signed(amount);
 
 class LedgerTotals {
   const LedgerTotals({required this.receivable, required this.payable, required this.owingPeople, required this.owedPeople});
@@ -112,11 +175,17 @@ LedgerTotals totals(Iterable<LedgerEntry> entries) {
 }
 
 /// Entries with one person, oldest first, with the balance after each.
-List<(LedgerEntry, int)> runningFor(Iterable<LedgerEntry> entries, String person) {
-  final k = personKey(person);
+List<(LedgerEntry, int)> runningFor(Iterable<LedgerEntry> entries, String person, {String phone = ''}) {
+  final p = balanceOf(entries, person, phone: phone);
+  return p == null ? const [] : runningForKey(entries, p.key);
+}
+
+/// One account's entries, oldest first, with the balance after each.
+List<(LedgerEntry, int)> runningForKey(Iterable<LedgerEntry> entries, String key) {
+  final keys = accountKeys(entries);
   var bal = 0;
   final out = <(LedgerEntry, int)>[];
-  for (final e in chronological(entries.where((e) => personKey(e.person) == k))) {
+  for (final e in chronological(entries.where((e) => keys[e.id] == key))) {
     bal += e.kind.signed(e.amount);
     out.add((e, bal));
   }
@@ -155,6 +224,7 @@ LedgerEntry? entryToReach(Iterable<LedgerEntry> entries, String person, int targ
   }
   return LedgerEntry(
     person: p?.name ?? person.trim(),
+    phone: p?.phone ?? '',
     kind: kind,
     amount: d.abs(),
     date: dayOnly(now),

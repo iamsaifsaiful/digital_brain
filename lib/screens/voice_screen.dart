@@ -9,12 +9,11 @@ import '../state/chat.dart';
 import '../ui/pin.dart';
 import '../ui/theme.dart';
 import 'confirm_screen.dart';
-import 'contacts_screen.dart';
+import 'calls_screen.dart';
 import 'money_screens.dart';
 import 'notes_screen.dart';
 import 'person_screen.dart';
-import 'reminders_screen.dart';
-import 'tasks_screen.dart';
+import 'plan_screens.dart';
 import 'vault_item_screen.dart';
 
 /// A conversation by voice (or typing): the app answers, then listens
@@ -288,11 +287,11 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
       case LinkKind.notes:
         _open(const NotesScreen());
       case LinkKind.reminders:
-        _open(const RemindersScreen());
+        _open(const AllTasksScreen());
       case LinkKind.tasks:
-        _open(const TasksScreen());
+        _open(const AllTasksScreen());
       case LinkKind.contacts:
-        _open(const ContactsScreen());
+        _open(const CallsScreen());
       case LinkKind.cash:
         _open(const CashPage());
       case LinkKind.editEntry:

@@ -15,11 +15,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Real fonts, so text measures like on a phone.
 Future<void> loadFonts() async {
-  final noto = FontLoader('Noto');
+  final hind = FontLoader('Hind');
   for (final w in ['Regular', 'Medium', 'SemiBold', 'Bold']) {
-    noto.addFont(rootBundle.load('assets/fonts/NotoSansBengali-$w.ttf'));
+    hind.addFont(rootBundle.load('assets/fonts/HindSiliguri-$w.ttf'));
   }
-  await noto.load();
+  await hind.load();
 }
 
 class Rig {
@@ -87,14 +87,14 @@ Future<Rig> start(WidgetTester t, {AppData? data, AiRoute? ai}) async {
   await enterPin(t, '1234');
   expect(find.text('PIN টি আবার দিন'), findsOneWidget);
   await enterPin(t, '1234');
-  expect(find.text('আপনার তথ্য'), findsOneWidget);
+  expect(find.text('সব কাজ ও রিমাইন্ডার দেখুন'), findsOneWidget);
   return rig;
 }
 
 void main() {
   testWidgets('first run: choose a PIN, then home', (t) async {
     final rig = await start(t);
-    expect(find.text('My Assistant'), findsOneWidget);
+    expect(find.text('হিসাব'), findsOneWidget);
     expect(await rig.services.lock.hasPin(), isTrue);
 
     // Lock and unlock again with a wrong, then the right PIN.
@@ -104,12 +104,14 @@ void main() {
     await enterPin(t, '9999');
     expect(find.textContaining('PIN মেলেনি'), findsOneWidget);
     await enterPin(t, '1234');
-    expect(find.text('আপনার তথ্য'), findsOneWidget);
+    expect(find.text('সব কাজ ও রিমাইন্ডার দেখুন'), findsOneWidget);
   });
 
   testWidgets('save a password, open it, reveal it', (t) async {
     final rig = await start(t);
-    await t.tap(find.text('ভল্ট').last);
+    await t.tap(find.text('তথ্য').last);
+    await settle(t);
+    await t.tap(find.text('পাসওয়ার্ড'));
     await settle(t);
     await t.tap(find.text('পাসওয়ার্ড যোগ করুন'));
     await settle(t);
@@ -133,7 +135,7 @@ void main() {
   });
 
   Future<void> openChat(WidgetTester t) async {
-    await t.tap(find.text('যেকোনো কিছু জিজ্ঞেস করুন'));
+    await t.tap(find.byIcon(Icons.mic_none_rounded).last);
     await settle(t);
     expect(find.text('কথা বলুন'), findsOneWidget);
   }
@@ -428,9 +430,11 @@ void main() {
     expect(rig.brain.data.contacts.single.phone, '01712345678');
   });
 
-  testWidgets('ফোন ও মেসেজ: a tile on home opens the list with call, SMS and WhatsApp', (t) async {
+  testWidgets('যোগাযোগ: from তথ্য, each person has call, SMS and WhatsApp', (t) async {
     final rig = await start(t, data: AppData(contacts: [Contact(name: 'রহিম', phone: '01712345678')]));
-    await t.tap(find.text('ফোন ও মেসেজ'));
+    await t.tap(find.text('তথ্য').last);
+    await settle(t);
+    await t.tap(find.text('যোগাযোগ'));
     await settle(t);
     await t.tap(find.byTooltip('ফোন দিন'));
     await settle(t);
@@ -533,14 +537,60 @@ void main() {
     expect(rig.notifier.scheduled.single.every, const Duration(minutes: 30));
   });
 
-  testWidgets('লেনদেন tab has ধার-দেনা, আয়-ব্যয় and প্রজেক্ট', (t) async {
+  testWidgets('হিসাব tab opens on আয়-ব্যয়, then ধার-দেনা and প্রজেক্ট', (t) async {
     await start(t, data: AppData(cash: [CashEntry(kind: CashKind.expense, amount: 500, category: 'বাজার', date: DateTime(2026, 10, 5))]));
-    await t.tap(find.text('লেনদেন').last);
+    await t.tap(find.text('হিসাব').last);
     await settle(t);
-    expect(find.text('ধার দেওয়া'), findsOneWidget);
-    expect(find.text('ঋণ নেওয়া'), findsOneWidget);
-    await t.tap(find.text('আয়-ব্যয়'.replaceAll('য়', 'য়')).first);
-    await settle(t);
+    expect(find.text('এই মাসের ব্যালেন্স'), findsOneWidget);
     expect(find.text('বাজার'), findsWidgets);
+    await t.tap(find.text('ধার-দেনা'));
+    await settle(t);
+    expect(find.text('আমি পাব'), findsOneWidget);
+    expect(find.text('আমি দেব'), findsOneWidget);
+  });
+
+  testWidgets('two people with the same name stay apart by their numbers', (t) async {
+    final rig = await start(t,
+        data: AppData(ledger: [
+          LedgerEntry(person: 'রহিম', phone: '01712345678', kind: LedgerKind.lent, amount: 4000, date: DateTime(2026, 10, 1)),
+          LedgerEntry(person: 'রহিম', phone: '01819876543', kind: LedgerKind.borrowed, amount: 4000, date: DateTime(2026, 10, 2)),
+        ]));
+    await t.tap(find.text('হিসাব').last);
+    await settle(t);
+    await t.tap(find.text('ধার-দেনা'));
+    await settle(t);
+    expect(find.text('রহিম'), findsNWidgets(2));
+    expect(find.textContaining('০১৭১২-৩৪৫৬৭৮'), findsOneWidget);
+    expect(find.textContaining('০১৮১৯-৮৭৬৫৪৩'), findsOneWidget);
+    // A number given once is in যোগাযোগ too.
+    await rig.brain.saveEntry(LedgerEntry(person: 'করিম', phone: '01711223344', kind: LedgerKind.lent, amount: 100, date: DateTime(2026, 10, 9)));
+    expect(rig.brain.data.contacts.single.phone, '01711223344');
+    // Said by voice without a number: the রহিম used most recently.
+    await rig.brain.saveEntry(LedgerEntry(person: 'রহিম', kind: LedgerKind.repaid, amount: 1000, date: DateTime(2026, 10, 9)));
+    expect(rig.brain.data.ledger.last.phone, '01819876543');
+  });
+
+  testWidgets('+ যোগ করুন on আজ makes a reminder that rings at the chosen time', (t) async {
+    final rig = await start(t);
+    await t.tap(find.text('যোগ করুন'));
+    await settle(t);
+    await t.enterText(find.byType(TextField).first, 'ক্লায়েন্ট মিটিং');
+    await t.tap(find.text('রাখুন'));
+    await settle(t);
+    final r = rig.brain.data.reminders.single;
+    expect(r.hour, 16);
+    expect(r.date, DateTime(2026, 10, 9));
+    expect(rig.notifier.scheduled.single.at, DateTime(2026, 10, 9, 16, 0));
+  });
+
+  testWidgets('a ringing reminder opens the alarm page; snooze rings again', (t) async {
+    final rig = await start(t, data: AppData(reminders: [Reminder(id: 'r1', title: 'ওষুধ খাওয়া', date: DateTime(2026, 10, 9), hour: 16)]));
+    rig.notifier.tapped.value = const NoticeTap(NoticeInfo('r1', 'ওষুধ খাওয়া', '', false));
+    await settle(t);
+    expect(find.text('হয়ে গেছে, বন্ধ করো'), findsOneWidget);
+    await t.tap(find.text('১০ মিনিট'));
+    await settle(t);
+    expect(rig.notifier.rung, ['ওষুধ খাওয়া']);
+    expect(find.text('হয়ে গেছে, বন্ধ করো'), findsNothing);
   });
 }

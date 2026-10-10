@@ -7,29 +7,35 @@ import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 
-/// Three figures on the dark card: "এসেছে / খরচ / অবশিষ্ট".
-class MoneyCard extends StatelessWidget {
-  const MoneyCard({super.key, required this.items});
+/// White card: one big figure ("এই মাসের ব্যালেন্স") and two under it.
+class SummaryCard extends StatelessWidget {
+  const SummaryCard({super.key, required this.title, required this.amount, required this.items, this.negative = false});
+  final String title;
+  final int amount;
+
+  /// Shows the big figure with a minus, in amber.
+  final bool negative;
   final List<(String, int, Color)> items;
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-        decoration: BoxDecoration(color: C.ink, borderRadius: BorderRadius.circular(22)),
-        child: Row(children: [
-          for (final (i, it) in items.indexed) ...[
-            if (i > 0) Container(width: 1, height: 44, color: const Color(0xFF34443D), margin: const EdgeInsets.symmetric(horizontal: 10)),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(it.$1, style: body(13, color: C.onDarkMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(taka(it.$2), style: display(22, weight: 700, color: it.$3)),
-                ),
-              ]),
-            ),
-          ],
+  Widget build(BuildContext context) => Panel(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: body(14, color: C.muted)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text('${negative ? '−' : ''}${taka(amount)}', style: display(34, weight: 700, color: negative ? C.orange : C.ink, height: 1.2)),
+          ),
+          const SizedBox(height: 10),
+          const Divider(height: 1),
+          const SizedBox(height: 10),
+          Row(children: [
+            for (final (i, it) in items.indexed) ...[
+              if (i > 0) const SizedBox(width: 12),
+              Expanded(child: Figure(label: it.$1, amount: taka(it.$2), color: it.$3, size: 18)),
+            ],
+          ]),
         ]),
       );
 }
@@ -76,29 +82,30 @@ class _CashViewState extends State<CashView> {
         ),
       ]),
       const SizedBox(height: 6),
-      MoneyCard(items: [
-        ('মাসের আয়', sums.income, C.mint),
-        ('মাসের খরচ', sums.expense, C.peach),
-        (sums.balance >= 0 ? 'সঞ্চয়' : 'ঘাটতি', sums.balance.abs(), Colors.white),
-      ]),
+      SummaryCard(
+        title: isThisMonth ? 'এই মাসের ব্যালেন্স' : 'মাসের ব্যালেন্স',
+        amount: sums.balance.abs(),
+        negative: sums.balance < 0,
+        items: [('আয়', sums.income, C.green), ('খরচ', sums.expense, C.orange)],
+      ),
       const SizedBox(height: 12),
       Row(children: [
         Expanded(
           child: PrimaryButton(
-            label: 'খরচ যোগ',
-            icon: Icons.remove_circle_outline_rounded,
+            label: 'আয়',
+            icon: Icons.add_rounded,
             height: 48,
-            color: C.orange,
-            onPressed: () => _push(const CashFormScreen(kind: CashKind.expense)),
+            onPressed: () => _push(const CashFormScreen(kind: CashKind.income)),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
           child: PrimaryButton(
-            label: 'আয় যোগ',
-            icon: Icons.add_circle_outline_rounded,
+            label: 'খরচ',
+            icon: Icons.add_rounded,
             height: 48,
-            onPressed: () => _push(const CashFormScreen(kind: CashKind.income)),
+            color: C.ink,
+            onPressed: () => _push(const CashFormScreen(kind: CashKind.expense)),
           ),
         ),
       ]),
@@ -136,7 +143,7 @@ class _CashViewState extends State<CashView> {
           text: 'বাজার, ভাড়া, বিল, বেতন — নিজের আয় আর খরচ এখানে রাখুন। মাস শেষে কত জমলো, এক নজরে দেখবেন।',
         )
       else ...[
-        const SectionTitle('এই মাসের হিসাব'),
+        SectionTitle(isThisMonth ? 'এই মাসের হিসাব' : 'মাসের হিসাব'),
         Panel(child: Rows(children: [for (final e in entries) cashRow(context, e)])),
       ],
     ]);
@@ -234,13 +241,14 @@ class ProjectsView extends StatelessWidget {
     }
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      MoneyCard(items: [
-        ('মোট এসেছে', inTotal, C.mint),
-        ('মোট খরচ', outTotal, C.peach),
-        ('অবশিষ্ট', inTotal - outTotal, Colors.white),
-      ]),
+      SummaryCard(
+        title: 'চলমান প্রজেক্টে হাতে আছে',
+        amount: (inTotal - outTotal).abs(),
+        negative: inTotal < outTotal,
+        items: [('মোট এসেছে', inTotal, C.green), ('মোট খরচ', outTotal, C.orange)],
+      ),
       const SizedBox(height: 12),
-      PrimaryButton(label: 'নতুন প্রজেক্ট', icon: Icons.add_rounded, height: 48, onPressed: create),
+      PrimaryButton(label: 'নতুন প্রজেক্ট', icon: Icons.add_rounded, height: 48, color: C.ink, onPressed: create),
       const SizedBox(height: 8),
       Text('মুখেও বলা যায়: “রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো”, “রহিম ভবন প্রজেক্টে রড কিনলাম ২০ হাজার”',
           style: body(13, color: C.muted)),
@@ -313,29 +321,30 @@ class ProjectScreen extends StatelessWidget {
           ]),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
-              MoneyCard(items: [
-                ('মোট এসেছে', s.income, C.mint),
-                ('মোট খরচ', s.expense, C.peach),
-                (s.balance >= 0 ? 'অবশিষ্ট' : 'বেশি খরচ', s.balance.abs(), Colors.white),
-              ]),
+              SummaryCard(
+                title: s.balance >= 0 ? 'হাতে আছে' : 'বেশি খরচ হয়েছে',
+                amount: s.balance.abs(),
+                negative: s.balance < 0,
+                items: [('মোট এসেছে', s.income, C.green), ('মোট খরচ', s.expense, C.orange)],
+              ),
               const SizedBox(height: 12),
               Row(children: [
                 Expanded(
                   child: PrimaryButton(
-                    label: 'খরচ',
-                    icon: Icons.remove_circle_outline_rounded,
+                    label: 'টাকা এলো',
+                    icon: Icons.add_rounded,
                     height: 48,
-                    color: C.orange,
-                    onPressed: () => push(CashFormScreen(kind: CashKind.expense, projectId: p.id)),
+                    onPressed: () => push(CashFormScreen(kind: CashKind.income, projectId: p.id)),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: PrimaryButton(
-                    label: 'টাকা এলো',
-                    icon: Icons.add_circle_outline_rounded,
+                    label: 'খরচ',
+                    icon: Icons.add_rounded,
                     height: 48,
-                    onPressed: () => push(CashFormScreen(kind: CashKind.income, projectId: p.id)),
+                    color: C.ink,
+                    onPressed: () => push(CashFormScreen(kind: CashKind.expense, projectId: p.id)),
                   ),
                 ),
               ]),
@@ -433,14 +442,10 @@ class _CashFormScreenState extends State<CashFormScreen> {
           ]),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 24), children: [
-              SegmentedButton<CashKind>(
-                showSelectedIcon: false,
-                segments: [
-                  ButtonSegment(value: CashKind.expense, label: Text('খরচ', style: body(14))),
-                  ButtonSegment(value: CashKind.income, label: Text(_projectId == null ? 'আয়' : 'টাকা এলো', style: body(14))),
-                ],
-                selected: {_kind},
-                onSelectionChanged: (v) => setState(() => _kind = v.first),
+              SegTabs<CashKind>(
+                items: [(CashKind.expense, 'খরচ'), (CashKind.income, _projectId == null ? 'আয়' : 'টাকা এলো')],
+                value: _kind,
+                onChanged: (v) => setState(() => _kind = v),
               ),
               const SizedBox(height: 14),
               TextField(
@@ -489,7 +494,7 @@ class _CashFormScreenState extends State<CashFormScreen> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-            child: PrimaryButton(label: 'সেভ করুন', icon: Icons.check_rounded, onPressed: _save),
+            child: PrimaryButton(label: 'রাখুন', icon: Icons.check_rounded, onPressed: _save),
           ),
         ]),
       ),
