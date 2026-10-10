@@ -4,6 +4,8 @@ import android.app.Activity
 import android.Manifest
 import android.app.NotificationManager
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.Ringtone
 import android.media.RingtoneManager
 import android.provider.ContactsContract
 import android.content.ComponentName
@@ -36,6 +38,8 @@ class MainActivity : FlutterFragmentActivity() {
     private var pendingResult: MethodChannel.Result? = null
     private var soundResult: MethodChannel.Result? = null
     private var contactsResult: MethodChannel.Result? = null
+    private var preview: Ringtone? = null
+    private val stopPreview = Runnable { preview?.stop() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
@@ -134,6 +138,51 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    /** The phone's alarm tones, ringtones and notification sounds, for the app's own picker. */
+    private fun listSounds(result: MethodChannel.Result) {
+        Thread {
+            val out = ArrayList<Map<String, String>>()
+            for ((type, kind) in listOf(RingtoneManager.TYPE_ALARM to "alarm", RingtoneManager.TYPE_RINGTONE to "ringtone", RingtoneManager.TYPE_NOTIFICATION to "notification")) {
+                try {
+                    val m = RingtoneManager(this)
+                    m.setType(type)
+                    val c = m.cursor
+                    while (c.moveToNext()) {
+                        val title = c.getString(RingtoneManager.TITLE_COLUMN_INDEX) ?: continue
+                        val uri = m.getRingtoneUri(c.position) ?: continue
+                        out.add(mapOf("uri" to uri.toString(), "title" to title, "kind" to kind))
+                    }
+                } catch (e: Exception) {
+                }
+            }
+            runOnUiThread { result.success(out) }
+        }.start()
+    }
+
+    /** Plays a sound for 8 seconds on the alarm volume, as a reminder would. */
+    private fun playSound(uri: String?) {
+        window.decorView.removeCallbacks(stopPreview)
+        preview?.stop()
+        if (uri == null) return
+        try {
+            val r = RingtoneManager.getRingtone(this, Uri.parse(uri)) ?: return
+            r.audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+            r.play()
+            preview = r
+            window.decorView.postDelayed(stopPreview, 8000)
+        } catch (e: Exception) {
+        }
+    }
+
+    override fun onPause() {
+        window.decorView.removeCallbacks(stopPreview)
+        preview?.stop()
+        super.onPause()
+    }
+
     /** Every name and number in the phone book (read on a background thread). */
     private fun readContacts(result: MethodChannel.Result) {
         Thread {
@@ -209,6 +258,16 @@ class MainActivity : FlutterFragmentActivity() {
                 result.success(null)
             }
             "pickSound" -> pickSound(call.arguments as? String, result)
+            "listSounds" -> listSounds(result)
+            "playSound" -> {
+                playSound(call.arguments as? String)
+                result.success(null)
+            }
+            "stopSound" -> {
+                window.decorView.removeCallbacks(stopPreview)
+                preview?.stop()
+                result.success(null)
+            }
             "dismissShown" -> {
                 val id = call.argument<Int>("id")
                 val tag = call.argument<String>("tag")

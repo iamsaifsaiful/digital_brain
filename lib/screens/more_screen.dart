@@ -13,8 +13,10 @@ import '../ui/pin.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'alarm_screens.dart';
+import 'help_screen.dart';
+import 'sound_screen.dart';
 
-const appVersion = '2.2.2';
+const appVersion = '2.3.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -199,50 +201,7 @@ class _MoreScreenState extends State<MoreScreen> {
     );
   }
 
-  Future<void> _pickRingtone() async {
-    final brain = BrainScope.read(context);
-    final n = brain.services.notifier;
-    final r = await showModalBottomSheet<String>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          ListTile(
-            leading: const Icon(Icons.library_music_outlined, color: C.green),
-            title: const Text('রিংটোন বেছে নিন'),
-            subtitle: const Text('ফোনের অ্যালার্ম, রিংটোন বা নিজের রাখা গান'),
-            onTap: () => Navigator.pop(ctx, 'pick'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.play_circle_outline_rounded, color: C.green),
-            title: const Text('শুনে দেখুন'),
-            subtitle: const Text('৫ সেকেন্ড পরে রিমাইন্ডারের মতো বাজবে'),
-            onTap: () => Navigator.pop(ctx, 'test'),
-          ),
-          if (brain.alarmSoundTitle.isNotEmpty)
-            ListTile(
-              leading: const Icon(Icons.restore_rounded),
-              title: const Text('ফোনের অ্যালার্ম টোনে ফিরে যান'),
-              onTap: () => Navigator.pop(ctx, 'reset'),
-            ),
-        ]),
-      ),
-    );
-    if (!mounted) return;
-    switch (r) {
-      case 'pick':
-        final s = await n.pickSound();
-        if (s == null || !mounted) return;
-        await brain.setAlarmSound(s.$1, s.$2);
-        if (mounted) toast(context, s.$2.isEmpty ? 'ফোনের অ্যালার্ম টোনে বাজবে' : 'রিমাইন্ডার এখন “${s.$2}” দিয়ে বাজবে');
-      case 'test':
-        await n.requestPermission();
-        await n.ringOnce('test', 'রিংটোন পরীক্ষা', 'রিমাইন্ডার এভাবেই বাজবে', const Duration(seconds: 5));
-        if (mounted) toast(context, '৫ সেকেন্ড পরে বাজবে');
-      case 'reset':
-        await brain.setAlarmSound(null, '');
-        if (mounted) toast(context, 'ফোনের অ্যালার্ম টোনে বাজবে');
-    }
-  }
+  Future<void> _pickRingtone() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SoundScreen()));
 
   Future<void> _changePin() async {
     if (!await verifyUser(context, reason: 'PIN বদলাতে আগে যাচাই করুন')) return;
@@ -318,6 +277,10 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
         ),
         const SizedBox(height: 12),
+        Panel(
+          child: linkRow(Icons.lightbulb_outline_rounded, 'অ্যাপ দিয়ে কী কী করা যায়', sub: 'সব সুবিধা, আর মাইকে কী বলবেন', onTap: () => push(const HelpScreen())),
+        ),
+        const SizedBox(height: 10),
         Panel(child: linkRow(Icons.notifications_active_outlined, 'রিমাইন্ডার ঠিকমতো বাজবে তো?', sub: 'ফোনের সেটিং দেখে নিন, ১ মিনিটে পরীক্ষা করুন', onTap: () => push(const ReminderCheckScreen()))),
         const SizedBox(height: 16),
         const SectionTitle('তথ্য নিরাপদ রাখা'),

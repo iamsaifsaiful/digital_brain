@@ -470,7 +470,8 @@ void main() {
   testWidgets('chat asks what to do first; রিমাইন্ডার makes a plain sentence a reminder', (t) async {
     final rig = await start(t);
     await openChat(t);
-    expect(rig.voice.spoken.last, contains('কী করতে চান'));
+    expect(find.textContaining('কী করতে চান'), findsOneWidget);
+    expect(rig.voice.spoken.last, 'জি, বলুন।');
     await t.tap(find.widgetWithText(ActionChip, 'রিমাইন্ডার'));
     await settle(t);
     expect(find.textContaining(': রিমাইন্ডার'), findsOneWidget);
@@ -643,5 +644,55 @@ void main() {
     rig.voice.say('দ্বিতীয় জন');
     await settle(t);
     expect(l.opened.single.toString(), 'tel:01811000003');
+  });
+
+  testWidgets('a day\'s list over several breaths is kept until "শেষ", then saved on one yes', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    rig.voice.say('আজকের কাজের তালিকা');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('একটা একটা করে'));
+    final spokenBefore = rig.voice.spoken.length;
+    rig.voice.say('সকালে ঘুম থেকে উঠে স্কুলে যাবো');
+    await settle(t);
+    rig.voice.say('বিকেলে বাজার করব তারপর ব্যাংকে যাবো');
+    await settle(t);
+    expect(rig.voice.spoken.length, spokenBefore);
+    expect(rig.brain.data.tasks, isEmpty);
+    rig.voice.say('শেষ');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('৩টা কাজ পেলাম'));
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    expect(rig.brain.data.tasks, hasLength(3));
+    expect(rig.brain.data.tasks.every((x) => x.due == DateTime(2026, 10, 9)), isTrue);
+  });
+
+  testWidgets('a sentence ending in "আর" waits for the rest', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    rig.voice.say('রবিনকে ৫০০ টাকা ধার দিলাম আর');
+    await settle(t);
+    final before = rig.voice.spoken.length;
+    expect(rig.brain.data.ledger, isEmpty);
+    rig.voice.say('করিমকে ২০০ টাকা ধার দিলাম');
+    await settle(t);
+    expect(rig.voice.spoken.length, before + 1);
+    expect(rig.voice.spoken.last, contains('২টা জিনিস পেলাম'));
+  });
+
+  testWidgets('ringtones can be heard before choosing', (t) async {
+    final rig = await start(t);
+    await t.tap(find.text('আমি').last);
+    await settle(t);
+    await t.scrollUntilVisible(find.text('রিমাইন্ডারের রিংটোন'), 200);
+    await t.tap(find.text('রিমাইন্ডারের রিংটোন'));
+    await settle(t);
+    await t.tap(find.text('Morning'));
+    await settle(t);
+    expect(rig.notifier.played, ['content://media/internal/audio/media/7']);
+    await t.tap(find.text('রাখুন'));
+    await settle(t);
+    expect(rig.notifier.soundUri, 'content://media/internal/audio/media/7');
   });
 }

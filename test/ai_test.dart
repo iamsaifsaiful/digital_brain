@@ -28,9 +28,9 @@ void main() {
     final r = await ai.route('কেমন আছো', ctx);
     expect(r!['reply'], 'ভালো আছি');
     expect(sent['model'], ClaudeAi.models.first);
-    // Sonnet 5.5 refuses a forced tool: asked with auto, little thinking.
+    // Sonnet 5.5 refuses a forced tool: asked with auto, some thinking.
     expect(sent['tool_choice'], {'type': 'auto'});
-    expect(sent['thinking'], {'type': 'between_tools'});
+    expect(sent['output_config'], {'effort': 'medium'});
     expect((sent['messages'] as List).single['content'], 'কেমন আছো');
     expect(sent['system'], contains('সজীব'));
     expect(headers['x-api-key'], 'sk-ant-test');

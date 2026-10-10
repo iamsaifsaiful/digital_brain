@@ -59,7 +59,8 @@ class VoiceOption {
 
 /// How long the user must stay quiet before the app treats the sentence as
 /// finished. Short answers (হ্যাঁ / না) need less.
-const sentenceSilence = Duration(seconds: 2);
+/// The user may pause to think mid-sentence: only a longer quiet ends it.
+const sentenceSilence = Duration(milliseconds: 3200);
 const answerSilence = Duration(milliseconds: 1200);
 
 class DeviceVoice extends Voice {

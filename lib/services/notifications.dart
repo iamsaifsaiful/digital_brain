@@ -144,6 +144,16 @@ List<PlannedNotice> plannedNotices(List<Reminder> reminders, DateTime now) {
   return out;
 }
 
+/// A sound on the phone the user can choose for reminders.
+class SoundOption {
+  const SoundOption(this.uri, this.title, this.kind);
+  final String uri;
+  final String title;
+
+  /// alarm, ringtone or notification.
+  final String kind;
+}
+
 /// Why a reminder might not ring on this phone, and the fixes.
 class AlarmHealth {
   const AlarmHealth({
@@ -192,6 +202,11 @@ abstract class Notifier {
 
   /// Android's sound picker: (uri, title), or null if cancelled.
   Future<(String, String)?> pickSound();
+
+  /// The phone's own tones, for the app's picker (with preview).
+  Future<List<SoundOption>> sounds();
+  Future<void> playSound(String uri);
+  Future<void> stopSound();
 
   /// Can notifications ring on the exact minute? (Android 14 asks the user.)
   Future<bool> exactAllowed();
@@ -324,6 +339,26 @@ class NotificationService implements Notifier {
       return null;
     }
   }
+
+  @override
+  Future<List<SoundOption>> sounds() async {
+    try {
+      final r = await _platform.invokeListMethod<Object?>('listSounds') ?? const [];
+      return [
+        for (final m in r)
+          if (m is Map) SoundOption('${m['uri']}', '${m['title']}', '${m['kind']}'),
+      ];
+    } catch (e) {
+      debugPrint('No sound list: $e');
+      return const [];
+    }
+  }
+
+  @override
+  Future<void> playSound(String uri) => _call('playSound', uri);
+
+  @override
+  Future<void> stopSound() => _call('stopSound');
 
   void _onResponse(NotificationResponse r) {
     final info = NoticeInfo.parse(r.payload);
@@ -545,6 +580,18 @@ class FakeNotifier implements Notifier {
 
   @override
   Future<(String, String)?> pickSound() async => picked;
+
+  List<SoundOption> phoneSounds = const [SoundOption('content://media/internal/audio/media/7', 'Morning', 'alarm')];
+  final played = <String>[];
+
+  @override
+  Future<List<SoundOption>> sounds() async => phoneSounds;
+
+  @override
+  Future<void> playSound(String uri) async => played.add(uri);
+
+  @override
+  Future<void> stopSound() async {}
 
   @override
   final tapped = ValueNotifier<NoticeTap?>(null);

@@ -148,19 +148,19 @@ class ClaudeAi implements AiBrain {
             },
             body: jsonEncode({
               'model': model,
-              'max_tokens': 1200,
+              'max_tokens': 4000,
               'system': _autoChoice.contains(model)
                   ? '${systemPrompt(ctx)}\n\nAlways answer by calling the `route` tool exactly once; never answer in plain text.'
                   : systemPrompt(ctx),
               'tools': [_tool],
               'tool_choice': _autoChoice.contains(model) ? {'type': 'auto'} : {'type': 'tool', 'name': 'route'},
-              // Quick, chat-like answers: no long thinking before replying.
-              if (_autoChoice.contains(model) && !_plain.contains(model)) 'thinking': {'type': 'between_tools'},
-              if (_autoChoice.contains(model) && !_plain.contains(model)) 'output_config': {'effort': 'low'},
+              // Think a little before answering (to catch what the user really
+              // means), without the long thinking of hard tasks.
+              if (_autoChoice.contains(model) && !_plain.contains(model)) 'output_config': {'effort': 'medium'},
               'messages': messagesFor(said, history),
             }),
           )
-          .timeout(Duration(seconds: _quality == AiQuality.best ? 30 : 20));
+          .timeout(Duration(seconds: _quality == AiQuality.best ? 45 : 20));
     } on TimeoutException {
       throw const AiError('ইন্টারনেট ধীর, AI সময়মতো উত্তর দেয়নি।');
     } catch (e) {

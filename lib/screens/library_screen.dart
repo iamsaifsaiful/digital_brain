@@ -6,6 +6,7 @@ import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'calls_screen.dart';
+import 'help_screen.dart';
 import 'new_item_screen.dart';
 import 'notes_screen.dart';
 import 'plan_screens.dart';
@@ -97,6 +98,15 @@ class LibraryScreen extends StatelessWidget {
         ],
         const SizedBox(height: 14),
         Text('খুঁজতে মাইকে জিজ্ঞেস করুন: “রহিমের নম্বর কত?”, “গাড়ির কাগজ কোথায় রেখেছি?”', style: body(13, color: C.muted)),
+        const SizedBox(height: 6),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => push(const HelpScreen()),
+            icon: const Icon(Icons.lightbulb_outline_rounded, color: C.green),
+            label: Text('অ্যাপ দিয়ে কী কী করা যায়', style: body(14, weight: FontWeight.w600, color: C.green)),
+          ),
+        ),
       ],
     );
   }

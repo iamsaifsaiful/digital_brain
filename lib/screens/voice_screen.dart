@@ -149,7 +149,11 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
           _listening = false;
           _live = '';
         });
-        if (w.trim().isEmpty) {
+        if (w.trim().isEmpty && _chat.hasPending) {
+          // Went quiet after a list or a half sentence: now answer it.
+          _silences = 0;
+          unawaited(_flush());
+        } else if (w.trim().isEmpty) {
           // Quiet for a while: keep listening a few rounds, then rest the
           // microphone until the user taps it.
           _silences++;
@@ -196,7 +200,6 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
 
   Future<void> _send(String said) async {
     if (said.trim().isEmpty || _busy) return;
-    final voice = BrainScope.read(context).services.voice;
     await _stopListening();
     setState(() {
       _busy = true;
@@ -213,6 +216,24 @@ class _VoiceScreenState extends State<VoiceScreen> with SingleTickerProviderStat
       if (mounted) setState(() => _busy = false);
     }
     if (!mounted) return;
+    await _speakThenListen(say);
+  }
+
+  /// The list or half sentence the user left when they went quiet.
+  Future<void> _flush() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    var say = '';
+    try {
+      say = await _chat.flush();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+    if (mounted) await _speakThenListen(say);
+  }
+
+  Future<void> _speakThenListen(String say) async {
+    final voice = BrainScope.read(context).services.voice;
     setState(() => _speaking = say.isNotEmpty && !voice.muted);
     try {
       if (say.isNotEmpty) await voice.speakAndWait(say);

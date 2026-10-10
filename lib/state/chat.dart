@@ -17,7 +17,7 @@ import '../ui/yes_no.dart' show pickSpokenOption;
 import 'brain.dart';
 
 /// What the chat is waiting to hear.
-enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, project }
+enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, project, collect }
 
 /// What the user said they want to talk about at the start.
 enum Topic {
@@ -133,6 +133,17 @@ class ChatController extends ChangeNotifier {
   /// category of the user's own); null = anything.
   Topic? topic;
   String customTopic = '';
+
+  /// A list said over several breaths ("আজকের কাজের তালিকা… সকালে স্কুলে
+  /// যাবো… তারপর বাজার…"): kept quietly until the user says "শেষ" or
+  /// stops talking, then read back once.
+  final List<String> _collected = [];
+  DateTime? _collectDue;
+  bool get collecting => wait == ChatWait.collect;
+
+  /// The start of a sentence that ended in "আর…" / "তারপর…": joined with
+  /// what comes next instead of being answered half-way.
+  String _held = '';
   String _pendingTitle = '';
 
   String get topicLabel => topic == null ? '' : (topic == Topic.custom ? customTopic : topic!.label);
@@ -147,17 +158,21 @@ class ChatController extends ChangeNotifier {
   ];
 
   /// The opening question. Returns what to say aloud.
+  /// The opening: the full question on screen, but only a few words aloud
+  /// so the microphone opens at once and the user can just start talking.
   String greet() {
     const q = 'কী করতে চান — লেনদেন, রিমাইন্ডার, কাজের তালিকা, ফোন-মেসেজ, নাকি অন্য কিছু? বিষয়টা বলুন, অথবা সরাসরি বলে ফেলুন।';
-    final out = <String>[];
-    _ask(out, q, ChatWait.topic, choices: _topicChoices);
+    _ask(<String>[], q, ChatWait.topic, choices: _topicChoices);
     notifyListeners();
-    return out.join(' ');
+    return 'জি, বলুন।';
   }
 
   /// Ask for the subject again (the topic pill was tapped).
   String chooseTopic() {
     _reset();
+    _collected.clear();
+    _collectDue = null;
+    _held = '';
     _queue.clear();
     topic = null;
     customTopic = '';
@@ -194,7 +209,15 @@ class ChatController extends ChangeNotifier {
       case Topic.reminder:
         say = 'ঠিক আছে, রিমাইন্ডার। কী, আর কখন মনে করাব বলুন — যেমন “কাল সকাল ১০টায় মিটিং”।';
       case Topic.task:
-        say = 'ঠিক আছে, কাজের তালিকা। কী কী করতে হবে বলুন, একটা একটা করে।';
+        final due = _collectDue;
+        final dayWord = due == null
+            ? ''
+            : due == dayOnly(_now)
+                ? 'আজকের '
+                : due == dayOnly(_now).add(const Duration(days: 1))
+                    ? 'কালকের '
+                    : '${shortDate(due)}-এর ';
+        say = 'ঠিক আছে, $dayWordকাজের তালিকা। একটা একটা করে বলুন, যতক্ষণ খুশি — শেষ হলে বলুন “শেষ”।';
       case Topic.call:
         say = 'ঠিক আছে। কাকে ফোন বা মেসেজ দেব বলুন — যেমন “রহিমকে ফোন দাও”।';
       case Topic.note:
@@ -205,6 +228,78 @@ class ChatController extends ChangeNotifier {
     }
     _say(out, say);
     _history.add(AiTurn.app('[ব্যবহারকারী এখন ‘$topicLabel’ বিষয়ে বলবেন]'));
+    if (tp == Topic.task) {
+      _collected.clear();
+      wait = ChatWait.collect;
+    }
+  }
+
+  static final _finishWords = [
+    for (final w in const [
+      'শেষ', 'শেষ শেষ', 'ব্যস', 'বাস', 'এইটুকুই', 'এটুকুই', 'এইটুকু', 'আর নেই', 'আর না', 'আর কিছু না', 'আর কিছু নেই', 'হয়ে গেছে', 'হয়েছে',
+      'এটাই', 'এগুলোই', 'এই কয়টা', 'এই কয়টাই', 'এই কটা', 'রাখো', 'রেখে দাও', 'সেভ করো', 'সেভ কর', 'ডান', 'done', 'finish', 'শেষ করো', 'বলা শেষ',
+      'ঠিক আছে রাখো', 'এবার রাখো', 'লিস্ট শেষ', 'তালিকা শেষ',
+    ])
+      normalize(w),
+  ];
+
+  bool _isFinish(String t) {
+    final n = normalize(t.replaceAll(RegExp(r'[।?!,.]'), ''));
+    return _finishWords.contains(n) || (_finishWords.any((w) => n.endsWith(' $w')) && words(n).length <= 4);
+  }
+
+  /// One breath of a list: its separate items ("…যাবো, তারপর বাজার করব").
+  static List<String> _items(String t) => t
+      .split(RegExp(r'[,।;\n]+|\s+(?:আর|এবং|তারপর|তার পর|এরপর|এর পর|পরে|তারপরে)\s+'))
+      .map((x) => tidy(x.trim()))
+      .where((x) => words(normalize(x)).isNotEmpty)
+      .toList();
+
+  /// Something is waiting for more words (a list, or a half sentence).
+  bool get hasPending => (collecting && _collected.isNotEmpty) || _held.isNotEmpty;
+
+  /// The user went quiet: finish the list, or answer the half sentence.
+  Future<String> flush() async {
+    if (collecting && _collected.isNotEmpty) return finishCollecting();
+    if (_held.isEmpty) return '';
+    final h = _held;
+    _held = '';
+    final out = <String>[];
+    return _understand(h, out);
+  }
+
+  /// "শেষ" (or the user went quiet): read the whole list back once.
+  String finishCollecting() {
+    final out = <String>[];
+    _finishCollect(out);
+    notifyListeners();
+    return out.join(' ');
+  }
+
+  void _finishCollect(List<String> out) {
+    wait = ChatWait.none;
+    choices = const [];
+    final tasks = <Command>[];
+    for (final line in _collected) {
+      for (final item in _items(line)) {
+        final w = parseWhen(item, _now);
+        var title = w != null && w.hasDay ? tidy(withoutWhen(item)) : item;
+        if (title.isEmpty) title = item;
+        tasks.add(TaskAdd(item, title: title, due: w != null && w.hasDay ? w.day : _collectDue));
+      }
+    }
+    _collected.clear();
+    if (tasks.isEmpty) {
+      _say(out, 'কোনো কাজ পেলাম না। আবার বলবেন?');
+      return;
+    }
+    _queue
+      ..clear()
+      ..addAll(tasks);
+    _askingAll = true;
+    _ask(out, '${bnDigits(tasks.length)}টা কাজ পেলাম। সবগুলো তালিকায় রাখি?', ChatWait.yesNo,
+        choices: _yesNoChoices, facts: [for (final c in tasks) summaryLine(c)]);
+    _history.add(AiTurn.app('[কাজের তালিকা নিল, রাখার আগে জিজ্ঞেস করছে]'));
   }
 
   /// Fits what was understood to the chosen subject: in রিমাইন্ডার a plain
@@ -251,7 +346,7 @@ class ChatController extends ChangeNotifier {
 
   /// Short listening (yes/no) is enough for the next answer.
   bool get expectsShortAnswer =>
-      const {ChatWait.yesNo, ChatWait.amount, ChatWait.name, ChatWait.callee, ChatWait.phone, ChatWait.contactName, ChatWait.topic, ChatWait.topicName}.contains(wait);
+      const {ChatWait.yesNo, ChatWait.amount, ChatWait.name, ChatWait.callee, ChatWait.phone, ChatWait.contactName}.contains(wait);
 
   /// Opens the dialer / SMS app / WhatsApp prepared by the last answer.
   Future<void> launchPending() async {
@@ -288,6 +383,20 @@ class ChatController extends ChangeNotifier {
       _dropPending();
     }
 
+    // "…যাবো আর" / "প্রথমে…": the sentence is not finished — wait for the rest.
+    final whole = _held.isEmpty ? t : '$_held $t';
+    if (RegExp(r'(?:^|\s)(?:আর|এবং|তারপর|তার পর|এরপর|এর পর|আরও|আরো|আর হ্যাঁ|শোনো|মানে|যেমন)$').hasMatch(normalize(whole)) ||
+        RegExp(r'(?:^|\s)(?:আর|এবং|তারপর|তার পর|এরপর|এর পর|আরও|আরো|আর হ্যাঁ|শোনো|মানে|যেমন)$').hasMatch(whole.trim().replaceAll(RegExp(r'[।?!,.]+$'), ''))) {
+      _held = whole;
+      notifyListeners();
+      return '';
+    }
+    _held = '';
+    if (whole != t) return _understand(whole, out);
+    return _understand(t, out);
+  }
+
+  Future<String> _understand(String t, List<String> out) async {
     thinking = brain.aiOn;
     notifyListeners();
     final (understood, problem) = await brain.understandAll(t, history: List.of(_history));
@@ -681,6 +790,21 @@ class ChatController extends ChangeNotifier {
     switch (wait) {
       case ChatWait.none:
         return false;
+      case ChatWait.collect:
+        if (_isFinish(t)) {
+          if (_collected.isEmpty) {
+            wait = ChatWait.none;
+            _say(out, 'ঠিক আছে, কিছু রাখা হলো না।');
+          } else {
+            _finishCollect(out);
+          }
+          return true;
+        }
+        // A question or a money/call request in the middle: answer it normally.
+        if (isQuestionText(t) && _collected.isEmpty) return false;
+        _collected.add(t);
+        messages.add(ChatMessage.app('${bnDigits(_collected.length)}. $t', info: true));
+        return true;
       case ChatWait.yesNo:
         final yn = yesNo(t);
         if (yn == null) {
@@ -733,10 +857,19 @@ class ChatController extends ChangeNotifier {
           return true;
         }
         final tp = _topicWord(t);
+        // "আজকের কাজের তালিকা", "কালকের কাজ": a list is coming, not a question.
+        final dayless = tidy(cutWords(t, const ['আজকের', 'আজ', 'কালকের', 'কাল', 'আগামীকালের', 'সারাদিনের', 'পুরো দিনের', 'সারা দিনের', 'আমার', 'আমাদের', 'দিনের', 'এখন']));
+        if (tp == Topic.task && words(normalize(dayless)).length <= 3 && _topicWord(dayless) == Topic.task && !isQuestionText(t)) {
+          final w = parseWhen(t, _now);
+          _collectDue = w != null && w.hasDay ? w.day : (normalize(t).contains(normalize('কাল')) ? dayOnly(_now).add(const Duration(days: 1)) : dayOnly(_now));
+          _setTopic(Topic.task, out);
+          return true;
+        }
         final count = words(n).length;
         final c = Parser(ledger: brain.data.ledger, tasks: brain.data.tasks, contacts: brain.data.contacts, now: _now).parse(t);
         final actionable = !(c is NotUnderstood || c is SearchQuery || c is NoteAdd);
         if (tp != null && (count <= 2 || (!actionable && count <= 3))) {
+          _collectDue = null;
           _setTopic(tp, out);
           return true;
         }
