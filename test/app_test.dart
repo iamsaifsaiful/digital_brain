@@ -179,7 +179,8 @@ void main() {
     // Closing the voice view shows the whole conversation.
     await t.tap(find.byTooltip('বন্ধ করুন'));
     await settle(t);
-    expect(find.text('আমি সজীবকে ৫০০ টাকা দিলাম'), findsOneWidget);
+    // (also the page title)
+    expect(find.text('আমি সজীবকে ৫০০ টাকা দিলাম'), findsNWidgets(2));
     expect(find.text('সজীবের খাতা দেখুন →'), findsOneWidget);
   });
 
@@ -712,7 +713,7 @@ void main() {
     await t.enterText(find.byType(TextField).first, 'রবিনকে ৫০০০ টাকা ধার দিলাম');
     await t.testTextInput.receiveAction(TextInputAction.send);
     await settle(t);
-    expect(find.text('রবিনকে ৫০০০ টাকা ধার দিলাম'), findsOneWidget);
+    expect(find.text('রবিনকে ৫০০০ টাকা ধার দিলাম'), findsNWidgets(2));
     expect(find.textContaining('তাই তো'), findsOneWidget);
     await t.tap(find.widgetWithText(ActionChip, 'হ্যাঁ'));
     await settle(t);
