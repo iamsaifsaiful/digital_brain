@@ -197,7 +197,13 @@ class Brain extends ChangeNotifier {
       final clean = stripAddress(said).$1;
       final r = await services.ai.route(clean.isEmpty ? said : clean, aiContext(), history: history);
       if (r == null) return (rules, null);
-      final cmds = commandsFromAi(said, r, data.ledger);
+      var cmds = commandsFromAi(said, r, data.ledger);
+      // The rules plainly heard "remind me" but the AI read a question about
+      // saved reminders: a request wins over a search.
+      final ruleReminder = rules.whereType<ReminderAdd>().firstOrNull;
+      if (ruleReminder != null && cmds.any((c) => c is ReminderQuery) && !cmds.any((c) => c is ReminderAdd)) {
+        cmds = [for (final c in cmds) c is ReminderQuery ? ruleReminder : c];
+      }
       return (cmds.isEmpty ? rules : cmds, null);
     } on AiError catch (e) {
       return (rules, '${e.message} নিজের নিয়মে বুঝে নিলাম।');

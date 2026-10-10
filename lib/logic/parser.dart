@@ -112,7 +112,19 @@ class ReminderAdd extends Command {
   final String title;
   final DateTime at;
   final Repeat repeat;
+
+  /// No time was said yet ("ওষুধের রিমাইন্ডার দিও"): the chat asks when.
+  bool get needsTime => at.year <= 2000;
+
+  /// Only a time was said ("৬.২০-এ রিমাইন্ডার দিও"): the chat asks what for.
+  bool get needsTitle => title.trim().isEmpty || title == defaultReminderTitle;
 }
+
+/// [ReminderAdd.at] when the time is still to be asked.
+final noTimeYet = DateTime(2000);
+
+/// The title of a reminder when nothing but the time was said.
+const defaultReminderTitle = 'মনে করানো';
 
 /// "রহিমের নম্বর ০১৭১২৩৪৫৬৭৮ রাখো".
 class ContactAdd extends Command {
@@ -841,15 +853,18 @@ class Parser {
       } else if (_hasNorm(text, const ['প্রতি বছর', 'প্রতিবছর', 'বছরে বছরে', 'প্রতি বছরের', 'every year'])) {
         repeat = Repeat.yearly;
       }
-      if (at != null) {
+      // "ডোমেইন রিনিউর তারিখটা মনে করিয়ে দাও" asks for a saved date.
+      final askingDate = _hasNorm(text, const ['তারিখ', 'মেয়াদ', 'কবে']);
+      if (at != null || (_hasNorm(text, _remindAskKeys) && !askingDate)) {
         var title = withoutWhen(said).replaceAll(_everyPattern, ' ');
         title = tidy(cutWords(title, [
-          ..._remindKeys, ..._fillers, 'প্রতি মাসে', 'প্রতিমাসে', 'প্রতি মাসের', 'প্রতি বছর', 'প্রতিবছর', 'প্রতি বছরের', 'প্রতিদিন', 'প্রতি দিন',
+          ..._remindKeys, ..._remindAskKeys, ..._fillers, 'প্রতি মাসে', 'প্রতিমাসে', 'প্রতি মাসের', 'প্রতি বছর', 'প্রতিবছর', 'প্রতি বছরের', 'প্রতিদিন', 'প্রতি দিন',
           'রোজ', 'প্রত্যেকদিন', 'দৈনিক', 'প্রতি ঘণ্টায়', 'প্রতি ঘন্টায়', 'ঘণ্টায় ঘণ্টায়', 'ঘন্টায় ঘন্টায়', 'পর পর', 'পরপর', 'অন্তর', 'প্রতি',
         ]));
         if (title.startsWith('পর ')) title = title.substring(3).trim();
-        if (title.isEmpty) title = 'মনে করানো';
-        return ReminderAdd(said, title: title, at: at, repeat: repeat);
+        if (title.isEmpty) title = defaultReminderTitle;
+        // No time yet: the chat asks "কখন মনে করাব?".
+        return ReminderAdd(said, title: title, at: at ?? noTimeYet, repeat: repeat);
       }
     }
 
@@ -984,6 +999,13 @@ const _remindKeys = [
   'রিমাইন্ডার দাও', 'রিমাইন্ডার দিও', 'রিমাইন্ডার সেট করো', 'রিমাইন্ডার রাখো', 'রিমাইন্ডার', 'অ্যালার্ম দাও', 'অ্যালার্ম দিও',
   'অ্যালার্ম সেট করো', 'এলার্ম দাও', 'এলার্ম দিও', 'remind me', 'remind', 'alarm', 'জানিয়ে দিও', 'জানিয়ে দিবা', 'জানাবে', 'ডেকে দিও',
   'ডেকে দিবা', 'কথা বলো', 'কথা বলবা', 'কথা বলবে', 'কথা বলিও', 'বলে দিও', 'বলে দিবা',
+];
+/// Clearly asking for a reminder (even when the time is still missing).
+const _remindAskKeys = [
+  'মনে করিয়ে দিও', 'মনে করিয়ে দিবা', 'মনে করিয়ে দেবে', 'মনে করিয়ে দিবে', 'মনে করিয়ে দাও', 'মনে করিয়ে দিয়ো', 'মনে করিয়ে দিবেন',
+  'মনে করিয়ে দিন', 'মনে করিয়ে দেবেন', 'মনে করাবে', 'মনে করাবা', 'মনে করাইও', 'মনে করাইয়া দিও', 'রিমাইন্ডার দাও', 'রিমাইন্ডার দিও',
+  'রিমাইন্ডার দিবা', 'রিমাইন্ডার দিবে', 'রিমাইন্ডার দেবে', 'রিমাইন্ডার দিন', 'রিমাইন্ডার সেট করো', 'রিমাইন্ডার সেট কর', 'রিমাইন্ডার রাখো',
+  'অ্যালার্ম দাও', 'অ্যালার্ম দিও', 'অ্যালার্ম সেট করো', 'এলার্ম দাও', 'এলার্ম দিও', 'remind me', 'ডেকে দিও', 'ডেকে দিবা',
 ];
 const _doneKeys = [
   'হয়ে গেছে', 'হয়ে গিয়েছে', 'হয়েছে', 'করে ফেলেছি', 'করে ফেলছি', 'করেছি', 'করছি', 'সেরে ফেলেছি', 'সেরেছি', 'শেষ করেছি', 'শেষ হয়েছে',

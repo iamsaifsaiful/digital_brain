@@ -23,12 +23,14 @@ final _periods = <String, (int, int)>{
   _n('ভোর'): (6, 0), _n('ভোরে'): (6, 0), _n('সকাল'): (9, 0), _n('সকালে'): (9, 0), _n('সকালবেলা'): (9, 0),
   _n('দুপুর'): (13, 1), _n('দুপুরে'): (13, 1), _n('বিকাল'): (16, 2), _n('বিকালে'): (16, 2), _n('বিকেল'): (16, 2),
   _n('বিকেলে'): (16, 2), _n('সন্ধ্যা'): (19, 2), _n('সন্ধ্যায়'): (19, 2), _n('সন্ধ্যার'): (19, 2), _n('রাত'): (21, 3),
-  _n('রাতে'): (21, 3), _n('রাতের'): (21, 3),
+  _n('রাতে'): (21, 3), _n('রাতের'): (21, 3), 'am': (9, 0), 'pm': (16, 2),
 };
 
 final _hourWords = {for (final w in ['টা', 'টায়', 'টার', 'টাতে', 'টে', 'টাই', 'বাজে', 'ta', 'tay', 'baje']) _n(w)};
 final _minuteWords = {for (final w in ['মিনিট', 'মিনিটে', 'মিনিটের', 'min', 'minute', 'minutes']) _n(w)};
 final _hourUnitWords = {for (final w in ['ঘণ্টা', 'ঘন্টা', 'ঘণ্টার', 'ঘন্টার', 'ঘণ্টায়', 'hour', 'hours', 'ghonta']) _n(w)};
+/// What may follow a clock time: "৬.২০-এ", "৬.২০ তে", "৬টা ২০ মিনিটে".
+final _atWords = {for (final w in ['এ', 'য়', 'তে', 'টে', 'e', 'te']) _n(w), ..._minuteWords};
 final _afterWords = {for (final w in ['পরে', 'পর', 'বাদে', 'পরেই', 'later', 'pore']) _n(w)};
 final _weekdayStems = [for (final d in bnWeekdays) _n(d.replaceAll('বার', ''))];
 final _months = [for (final m in bnMonths) _n(m)];
@@ -38,7 +40,9 @@ int? _num(String w) => int.tryParse(w) ?? findAmount(w);
 /// The day/time in [said], or null when it has none. Past times today move
 /// to tomorrow unless "আজ" was said.
 When? parseWhen(String said, DateTime now) {
-  final w = words(normalize(said));
+  // "৬:২০" → "৬.২০" (normalize drops the colon).
+  final clockSaid = said.replaceAllMapped(RegExp(r'([0-9০-৯]{1,2})\s*:\s*([0-9০-৯]{2})'), (m) => '${m[1]}.${m[2]}');
+  final w = words(normalize(clockSaid));
   if (w.isEmpty) return null;
 
   // "৩০ মিনিট পরে", "২ ঘণ্টা পর", "আধা ঘণ্টা পরে", "দেড় ঘণ্টা পরে".
@@ -106,9 +110,27 @@ When? parseWhen(String said, DateTime now) {
   // The time: "সকাল ১০টায়", "সাড়ে ৪টায়", "১০:৩০টায়", "রাত ৯টা", or just "বিকেলে".
   int? hour, minute;
   (int, int)? period;
+  var clock = false;
   for (var i = 0; i < w.length; i++) {
     final p = _periods[w[i]];
     if (p != null) period ??= p;
+    // "৬.২০", "৬.২০-এ", "18.20": a clock time, never a count.
+    final ck = RegExp(r'^(\d{1,2})\.(\d{2})-?(.*)$').firstMatch(w[i]);
+    if (ck != null && hour == null) {
+      final h = int.parse(ck[1]!), mi = int.parse(ck[2]!);
+      final next = i + 1 < w.length ? w[i + 1] : '';
+      final money = {_n('টাকা'), _n('টাকার'), _n('লাখ'), _n('হাজার'), _n('কেজি'), _n('কোটি')}.contains(next);
+      if (h <= 23 && mi < 60 && !money && (ck[3]!.isEmpty || _hourWords.contains(ck[3]) || _atWords.contains(ck[3]))) {
+        hour = h;
+        minute = mi;
+        clock = true;
+        for (var j = i; j < w.length && j < i + 3; j++) {
+          final p2 = _periods[w[j]];
+          if (p2 != null) period ??= p2;
+        }
+        continue;
+      }
+    }
     final m = RegExp(r'^(\d{1,2})(.*)$').firstMatch(w[i]);
     if (m == null || hour != null) continue;
     var suffix = m[2]!;
@@ -126,13 +148,24 @@ When? parseWhen(String said, DateTime now) {
     }
     if (!_hourWords.contains(suffix) || h > 23) continue;
     final prev = i > 0 ? w[i - 1] : '';
+    // "৬টা ২০", "৬টা ২০ মিনিটে", "৬টা ২০-এ": minutes after the hour.
+    int? after;
+    if (mins == 0 && i + 1 < w.length) {
+      final am = RegExp(r'^(\d{1,2})-?(.*)$').firstMatch(w[i + 1]);
+      if (am != null && int.parse(am[1]!) < 60) {
+        final rest = am[2]!;
+        final follow = i + 2 < w.length ? w[i + 2] : '';
+        if (_atWords.contains(rest) || (rest.isEmpty && (_atWords.contains(follow) || follow.isEmpty))) after = int.parse(am[1]!);
+      }
+    }
     // A bare "৩টা" is usually a count ("৩টা ডিম"); it is a time only with
-    // সকাল/বিকেল… before it or "বাজে" after it.
+    // সকাল/বিকেল… before it, "বাজে" after it, or minutes after it.
     if (suffix == _n('টা')) {
       final before = (i > 0 && _periods.containsKey(w[i - 1])) || (i > 1 && _periods.containsKey(w[i - 2]));
       final bajeNext = i + 1 < w.length && w[i + 1] == _n('বাজে');
-      if (!before && !bajeNext) continue;
+      if (!before && !bajeNext && after == null) continue;
     }
+    if (after != null) mins = after;
     if (prev == _n('সাড়ে')) {
       mins = 30;
     } else if (prev == _n('সোয়া')) {
@@ -153,8 +186,9 @@ When? parseWhen(String said, DateTime now) {
   if (hour != null) {
     final kind = period?.$2;
     if (kind == null) {
-      // "৪টায় মিটিং" means 4 in the afternoon.
-      if (hour >= 1 && hour <= 6) hour += 12;
+      // "৪টায় মিটিং" means 4 in the afternoon. A clock time ("৬.২০") is
+      // the next time it comes round (see below).
+      if (!clock && hour >= 1 && hour <= 6) hour += 12;
     } else if (kind == 1) {
       if (hour >= 1 && hour <= 5) hour += 12;
     } else if (kind == 2) {
@@ -172,6 +206,11 @@ When? parseWhen(String said, DateTime now) {
   final hasTime = hour != null;
   var d = day ?? today;
   var at = DateTime(d.year, d.month, d.day, hour ?? 9, minute ?? 0);
+  // "৬.২০" said at 6 in the evening means 18:20 today, not 6:20 tomorrow.
+  if (hasTime && period == null && hour >= 1 && hour <= 8 && !at.isAfter(now) && (day == null || explicitToday)) {
+    final later = at.add(const Duration(hours: 12));
+    if (later.isAfter(now) && later.day == at.day) at = later;
+  }
   if (hasTime && !at.isAfter(now) && !explicitToday && day == null) {
     d = d.add(const Duration(days: 1));
     at = DateTime(d.year, d.month, d.day, hour, minute ?? 0);
@@ -202,7 +241,10 @@ final _timeBits = RegExp(
 /// মনে করিয়ে দিও" → "মিটিংয়ের কথা মনে করিয়ে দিও" (the caller cuts the rest).
 String withoutWhen(String said) {
   var s = fold(said);
+  s = s.replaceAll(RegExp(fold('[০-৯0-9]{1,2}\\s*[:.]\\s*[০-৯0-9]{2}(\\s*-?\\s*(এ|য়|তে|টায়|টা|টে|মিনিটে)(?=[\\s,।.!?]|\$))?')), ' ');
+  s = s.replaceAll(RegExp(fold('([০-৯0-9]{1,2}\\s*(টায়|টা|টে))\\s+[০-৯0-9]{1,2}\\s*-?\\s*(মিনিটে|মিনিট|এ|তে)?(?=[\\s,।.!?]|\$)')), ' ');
   s = s.replaceAll(_timeBits, ' ');
+  s = cutWords(s, const ['am', 'pm', 'AM', 'PM']);
   s = s.replaceAll(RegExp('[০-৯0-9]+\\s*(মিনিট|ঘণ্টা|ঘন্টা)\\S*\\s*(পরে|পর|বাদে)'), ' ');
   s = s.replaceAll(RegExp(fold('(আধা|আধ|দেড়|আড়াই)\\s*(ঘণ্টা|ঘন্টা)\\S*\\s*(পরে|পর|বাদে)')), ' ');
   s = s.replaceAll(RegExp('[০-৯0-9]{1,2}\\s*(${fold('তারিখ')}\\S*|${bnMonths.map(fold).join('|')})'), ' ');

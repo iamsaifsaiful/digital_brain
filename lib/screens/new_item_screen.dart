@@ -8,7 +8,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'alarm_screens.dart';
 import 'ledger_form_screen.dart';
-import 'voice_screen.dart';
+import 'home_shell.dart';
 
 enum ItemCategory {
   password('পাসওয়ার্ড', C.blue),
@@ -219,7 +219,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
                     RoundIconButton(icon: Icons.delete_outline_rounded, tooltip: 'মুছে ফেলুন', onPressed: _delete)
                   else
                     TextButton.icon(
-                      onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const VoiceScreen())),
+                      onPressed: () => openVoice(context),
                       style: TextButton.styleFrom(backgroundColor: C.greenTint, foregroundColor: C.greenDark, minimumSize: const Size(44, 40)),
                       icon: const Icon(Icons.mic_none_rounded, size: 18),
                       label: Text('বলে যোগ', style: body(14, weight: FontWeight.w600, color: C.greenDark)),

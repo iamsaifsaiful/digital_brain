@@ -17,7 +17,7 @@ import '../ui/yes_no.dart' show pickSpokenOption;
 import 'brain.dart';
 
 /// What the chat is waiting to hear.
-enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, project, collect, whichPerson }
+enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, project, collect, whichPerson }
 
 /// What the user said they want to talk about at the start.
 enum Topic {
@@ -31,9 +31,6 @@ enum Topic {
   const Topic(this.label);
   final String label;
 }
-
-/// A reminder whose time is still to be asked.
-final _noTime = DateTime(2000);
 
 /// A button under the latest question; tapping it is the same as saying
 /// [answer].
@@ -85,10 +82,17 @@ const _stopWords = ['থামো', 'থাম', 'থামেন', 'বন্�
 /// amount or a yes. Long messages are split into the separate facts in
 /// them, shown as a list and saved together on one yes.
 class ChatController extends ChangeNotifier {
-  ChatController(this.brain);
+  /// [restored]: an earlier conversation opened from the menu (shown, but
+  /// not sent to the AI again).
+  ChatController(this.brain, {List<ChatMessage> restored = const []}) {
+    messages.addAll(restored);
+  }
 
   final Brain brain;
   final messages = <ChatMessage>[];
+
+  /// The user has said something in this conversation.
+  bool get started => messages.any((m) => m.fromUser);
 
   /// The conversation as the AI may see it: the user's own sentences and
   /// tags in place of anything that came from saved data.
@@ -152,7 +156,18 @@ class ChatController extends ChangeNotifier {
   /// The start of a sentence that ended in "আর…" / "তারপর…": joined with
   /// what comes next instead of being answered half-way.
   String _held = '';
+
+  /// A reminder being completed: what, which day (if said), how often.
   String _pendingTitle = '';
+  DateTime? _pendingDay;
+  DateTime? _pendingAt;
+  Repeat _pendingRepeat = Repeat.none;
+
+  /// The last request that did not lead to anything to save (an answer, or
+  /// "didn't understand"), so a short follow-up like "আজ" or "সন্ধ্যায়"
+  /// can complete it.
+  String _lastSaid = '';
+  DateTime? _lastSaidAt;
 
   String get topicLabel => topic == null ? '' : (topic == Topic.custom ? customTopic : topic!.label);
 
@@ -185,6 +200,21 @@ class ChatController extends ChangeNotifier {
     topic = null;
     customTopic = '';
     return greet();
+  }
+
+  /// "আজকের কাজের তালিকা", "কালকের কাজের লিস্ট": the start of a list (not
+  /// "…দেখাও" or a question). Sets the day the list is for.
+  bool _startsList(String t) {
+    if (isQuestionText(t)) return false;
+    final n = normalize(t);
+    if (const ['দেখাও', 'দেখান', 'দেখি', 'বলো', 'বলুন', 'শোনাও', 'কী', 'কি', 'কত', 'বাকি'].any((w) => words(n).contains(normalize(w)))) return false;
+    final tp = _topicWord(t);
+    final dayless = tidy(cutWords(t, const ['আজকের', 'আজ', 'কালকের', 'কাল', 'আগামীকালের', 'সারাদিনের', 'পুরো দিনের', 'সারা দিনের', 'আমার', 'আমাদের', 'দিনের', 'এখন', 'নতুন']));
+    if (tp != Topic.task || words(normalize(dayless)).length > 3 || _topicWord(dayless) != Topic.task) return false;
+    if (!const ['তালিকা', 'লিস্ট', 'list', 'টু ডু', 'todo'].any((w) => n.contains(normalize(w)))) return false;
+    final w = parseWhen(t, _now);
+    _collectDue = w != null && w.hasDay ? w.day : (n.contains(normalize('কাল')) ? dayOnly(_now).add(const Duration(days: 1)) : dayOnly(_now));
+    return true;
   }
 
   /// A known subject in a short answer, or null.
@@ -287,6 +317,8 @@ class ChatController extends ChangeNotifier {
   void _finishCollect(List<String> out) {
     wait = ChatWait.none;
     choices = const [];
+    // The list is done: what comes next is understood as usual again.
+    if (topic == Topic.task) topic = null;
     final tasks = <Command>[];
     for (final line in _collected) {
       for (final item in _items(line)) {
@@ -342,7 +374,7 @@ class ChatController extends ChangeNotifier {
     final w = parseWhen(said, _now);
     var title = tidy(withoutWhen(said));
     if (title.isEmpty) title = said.trim();
-    return ReminderAdd(said, title: title, at: w?.at ?? _noTime);
+    return ReminderAdd(said, title: title, at: w?.at ?? noTimeYet);
   }
 
   TaskAdd _taskFrom(String said) {
@@ -392,6 +424,14 @@ class ChatController extends ChangeNotifier {
       _dropPending();
     }
 
+    // "আজকের কাজের তালিকা": a list is coming, said over several breaths.
+    if (_held.isEmpty && _startsList(t)) {
+      _history.add(AiTurn.user(t));
+      _setTopic(Topic.task, out);
+      notifyListeners();
+      return out.join(' ');
+    }
+
     // "…যাবো আর" / "প্রথমে…": the sentence is not finished — wait for the rest.
     final whole = _held.isEmpty ? t : '$_held $t';
     if (RegExp(r'(?:^|\s)(?:আর|এবং|তারপর|তার পর|এরপর|এর পর|আরও|আরো|আর হ্যাঁ|শোনো|মানে|যেমন)$').hasMatch(normalize(whole)) ||
@@ -401,11 +441,28 @@ class ChatController extends ChangeNotifier {
       return '';
     }
     _held = '';
-    if (whole != t) return _understand(whole, out);
-    return _understand(t, out);
+    return _understand(_withContext(whole), out, shown: whole);
   }
 
-  Future<String> _understand(String t, List<String> out) async {
+  /// A short follow-up ("আজ", "সন্ধ্যায়", "৫০০", "রহিম") that means
+  /// nothing alone but completes the previous request: the two together.
+  String _withContext(String t) {
+    final prev = _lastSaid;
+    final at = _lastSaidAt;
+    if (prev.isEmpty || at == null || _now.difference(at).inMinutes > 10) return t;
+    if (words(normalize(t)).length > 4 || isQuestionText(t) || mentionsSecret(t)) return t;
+    final d = brain.data;
+    List<Command> rules(String s) => parseAll(s, d.ledger, tasks: d.tasks, contacts: d.contacts, now: _now);
+    bool acts(Command c) => (isSave(c) && c is! NoteAdd) || c is CallPerson;
+    final alone = rules(t);
+    if (alone.any((c) => acts(c) || c is SmallTalk || c is LedgerQuery || c is CashQuery || c is TaskQuery || c is Briefing)) return t;
+    final both = '$prev $t';
+    return rules(both).any(acts) ? both : t;
+  }
+
+  /// [t] is what is understood; [shown] is what the user actually said
+  /// this time (kept for the AI's view of the conversation).
+  Future<String> _understand(String t, List<String> out, {String? shown}) async {
     thinking = brain.aiOn;
     notifyListeners();
     final (understood, problem) = await brain.understandAll(t, history: List.of(_history));
@@ -416,7 +473,12 @@ class ChatController extends ChangeNotifier {
     final saves = cmds.where(isSave).toList();
     final others = cmds.where((c) => !isSave(c)).toList();
     final secret = mentionsSecret(t) || cmds.any((c) => c is VaultQuery);
-    _history.add(AiTurn.user(secret ? '[গোপন কিছু জানতে চাইলেন — ফোনেই উত্তর দেওয়া হলো]' : t));
+    _history.add(AiTurn.user(secret ? '[গোপন কিছু জানতে চাইলেন — ফোনেই উত্তর দেওয়া হলো]' : (shown ?? t)));
+    // Remember an unfinished request (nothing to save came of it) so the
+    // next short message can complete it.
+    final finished = saves.isNotEmpty || others.any((c) => c is CallPerson || c is TaskDone);
+    _lastSaid = secret || finished ? '' : t;
+    _lastSaidAt = _now;
     final tags = <String>[];
 
     for (final c in others) {
@@ -574,14 +636,23 @@ class ChatController extends ChangeNotifier {
         final due = c.due == null ? '' : ' (${sayWhen(c.due!, _now, withTime: false)})';
         _ask(out, '“${c.title}”$due — কাজের তালিকায় তুলে রাখি?', ChatWait.yesNo, choices: _yesNoChoices);
       case ReminderAdd():
-        if (c.at == _noTime) {
-          _pendingTitle = c.title;
-          _ask(out, '“${c.title}” — কখন মনে করাব? যেমন “কাল সকাল ১০টায়” বা “এক ঘণ্টা পরে”।', ChatWait.reminderTime);
+        _pendingTitle = c.title;
+        _pendingRepeat = c.repeat;
+        if (c.needsTime) {
+          _pendingDay = null;
+          final what = c.needsTitle ? '' : '“${c.title}” — ';
+          _ask(out, '$whatকখন মনে করাব? যেমন “আজ সন্ধ্যা ৭টায়”, “কাল সকাল ১০টায়” বা “এক ঘণ্টা পরে”।', ChatWait.reminderTime);
           return;
         }
         if (!c.at.isAfter(_now)) {
-          _say(out, 'ওই সময়টা তো পার হয়ে গেছে। কখন মনে করাব, আরেকবার বলবেন?');
-          await _done(out);
+          _pendingDay = null;
+          _ask(out, '${sayWhen(c.at, _now)} তো পার হয়ে গেছে। কখন মনে করাব?', ChatWait.reminderTime);
+          return;
+        }
+        if (c.needsTitle) {
+          _pendingAt = c.at;
+          _ask(out, '${sayWhen(c.at, _now)}-এ মনে করাব। কী বিষয়ে? বলুন, বা শুধু অ্যালার্ম চাইলে “শুধু অ্যালার্ম”।', ChatWait.reminderTitle,
+              choices: const [ChatChoice('শুধু অ্যালার্ম', 'শুধু অ্যালার্ম')]);
           return;
         }
         if (_allYes) return _saveCurrent(out);
@@ -937,10 +1008,7 @@ class ChatController extends ChangeNotifier {
         }
         final tp = _topicWord(t);
         // "আজকের কাজের তালিকা", "কালকের কাজ": a list is coming, not a question.
-        final dayless = tidy(cutWords(t, const ['আজকের', 'আজ', 'কালকের', 'কাল', 'আগামীকালের', 'সারাদিনের', 'পুরো দিনের', 'সারা দিনের', 'আমার', 'আমাদের', 'দিনের', 'এখন']));
-        if (tp == Topic.task && words(normalize(dayless)).length <= 3 && _topicWord(dayless) == Topic.task && !isQuestionText(t)) {
-          final w = parseWhen(t, _now);
-          _collectDue = w != null && w.hasDay ? w.day : (normalize(t).contains(normalize('কাল')) ? dayOnly(_now).add(const Duration(days: 1)) : dayOnly(_now));
+        if (_startsList(t)) {
           _setTopic(Topic.task, out);
           return true;
         }
@@ -973,11 +1041,39 @@ class ChatController extends ChangeNotifier {
         final w = parseWhen(t, _now);
         if (w == null) {
           if (_looksNew(t)) return false;
-          _say(out, 'সময়টা ধরতে পারিনি। যেমন বলুন “কাল সকাল ১০টায়” বা “৩০ মিনিট পরে”।');
+          _say(out, 'সময়টা ধরতে পারিনি। যেমন বলুন “সন্ধ্যা ৭টায়”, “৬.৩০-এ” বা “৩০ মিনিট পরে”।');
           return true;
         }
+        // "আজ" / "কাল" alone: keep the day and ask the hour.
+        if (!w.hasTime) {
+          _pendingDay = w.day;
+          _say(out, '${sayWhen(w.day, _now, withTime: false)} কয়টায়?');
+          return true;
+        }
+        var at = w.at;
+        final day = _pendingDay;
+        if (day != null && !w.hasDay) {
+          at = DateTime(day.year, day.month, day.day, at.hour, at.minute);
+          // "আজ" then "৬.২০": the evening one if the morning one has passed.
+          if (!at.isAfter(_now) && at.hour < 12 && at.add(const Duration(hours: 12)).isAfter(_now)) at = at.add(const Duration(hours: 12));
+        }
+        _pendingDay = null;
         wait = ChatWait.none;
-        await _start(ReminderAdd(t, title: _pendingTitle, at: w.at), out);
+        await _start(ReminderAdd(t, title: _pendingTitle, at: at, repeat: _pendingRepeat), out);
+        return true;
+      case ChatWait.reminderTitle:
+        final at = _pendingAt;
+        if (at == null) return false;
+        final n = normalize(t);
+        final bare = n.contains(normalize('শুধু অ্যালার্ম')) || n == normalize('অ্যালার্ম') || n == normalize('কিছু না') || yesNo(t) == true;
+        // A new full request instead of a subject.
+        if (!bare && words(n).length > 8) return false;
+        var title = bare ? 'অ্যালার্ম' : tidy(cutWords(t, const ['মনে করিয়ে দিও', 'মনে করিয়ে দিবা', 'মনে করাবে', 'এর কথা', 'কথা', 'বিষয়ে', 'জন্য', 'জন্যে']));
+        if (title.isEmpty) title = t.trim();
+        _pendingAt = null;
+        wait = ChatWait.none;
+        choices = const [];
+        await _start(ReminderAdd(t, title: title, at: at, repeat: _pendingRepeat), out);
         return true;
       case ChatWait.callee:
         if (_calleeChoices.isNotEmpty) {

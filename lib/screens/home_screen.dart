@@ -12,6 +12,7 @@ import 'alarm_screens.dart';
 import 'calls_screen.dart';
 import 'help_screen.dart';
 import 'home_shell.dart';
+import 'ledger_screen.dart';
 import 'plan_screens.dart';
 
 /// "আজ": what needs doing today, in time order — the first thing a busy
@@ -34,27 +35,7 @@ class HomeScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       children: [
-        TabTitle(
-          'আজ',
-          sub: '${weekdayName(now)}, ${bnDigits(now.day)} ${bnMonths[now.month - 1]}',
-          trailing: Semantics(
-            button: true,
-            label: 'আমি',
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: () => ShellTabs.goTo(context, ShellTab.me),
-              child: Container(
-                width: 42,
-                height: 42,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(color: C.greenTint, shape: BoxShape.circle),
-                child: const Icon(Icons.person_outline_rounded, color: C.green),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 14),
-        const AskBar(),
+        TabTitle('আজ', sub: '${weekdayName(now)}, ${bnDigits(now.day)} ${bnMonths[now.month - 1]}'),
         const _StartTips(),
         const SizedBox(height: 12),
         Material(
@@ -62,7 +43,7 @@ class HomeScreen extends StatelessWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: C.line)),
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
-            onTap: () => ShellTabs.goTo(context, ShellTab.money),
+            onTap: () => push(const MenuPage(child: MoneyScreen())),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
               child: Row(children: [
@@ -74,7 +55,7 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
         ),
-        if (d.reminders.isNotEmpty) const _AlarmBanner(),
+        if (d.reminders.isNotEmpty) const AlarmBanner(),
         if (plan.overdue.isNotEmpty) ...[
           _Heading('দেরি হয়ে গেছে · ${bnDigits(plan.overdue.length)}', color: C.orange),
           Panel(
@@ -101,7 +82,7 @@ class HomeScreen extends StatelessWidget {
         if (plan.today.isEmpty)
           Panel(
             padding: const EdgeInsets.all(16),
-            child: Text('আজ কিছু রাখা নেই। নিচের মাইক চেপে বলুন — যেমন “বিকেল ৪টায় মিটিং মনে করিয়ে দিও”।', style: body(14, color: C.muted, height: 1.5)),
+            child: Text('আজ কিছু রাখা নেই। “যোগ করুন” চাপুন, বা চ্যাটে লিখুন — যেমন “বিকেল ৪টায় মিটিং মনে করিয়ে দিও”।', style: body(14, color: C.muted, height: 1.5)),
           )
         else
           Panel(child: Rows(children: [for (final i in plan.today) PlanRow(item: i)])),
@@ -138,14 +119,14 @@ class _Heading extends StatelessWidget {
 }
 
 /// Shown on "আজ" while something on this phone may stop reminders.
-class _AlarmBanner extends StatefulWidget {
-  const _AlarmBanner();
+class AlarmBanner extends StatefulWidget {
+  const AlarmBanner({super.key});
 
   @override
-  State<_AlarmBanner> createState() => _AlarmBannerState();
+  State<AlarmBanner> createState() => _AlarmBannerState();
 }
 
-class _AlarmBannerState extends State<_AlarmBanner> with WidgetsBindingObserver {
+class _AlarmBannerState extends State<AlarmBanner> with WidgetsBindingObserver {
   AlarmHealth? _h;
 
   @override
@@ -209,66 +190,6 @@ class _AlarmBannerState extends State<_AlarmBanner> with WidgetsBindingObserver 
 /// Reminders from today on, soonest first.
 List<Reminder> upcomingReminders(AppData d, DateTime now) =>
     ([...d.reminders]..sort((a, b) => a.nextDate(now).compareTo(b.nextDate(now)))).where((r) => !r.nextDate(now).isBefore(dayOnly(now))).toList();
-
-/// Type or speak, right on আজ: whatever is typed is understood exactly like
-/// speech ("রবিনকে ৫০০০ টাকা দিলাম", "রবিনের কাছে কত পাব?").
-class AskBar extends StatefulWidget {
-  const AskBar({super.key});
-
-  @override
-  State<AskBar> createState() => _AskBarState();
-}
-
-class _AskBarState extends State<AskBar> {
-  final _c = TextEditingController();
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  void _send() {
-    final t = _c.text.trim();
-    if (t.isEmpty) return;
-    _c.clear();
-    FocusScope.of(context).unfocus();
-    openChatWith(context, t);
-  }
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.fromLTRB(14, 4, 6, 4),
-        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(28), border: Border.all(color: C.inputBorder)),
-        child: Row(children: [
-          Expanded(
-            child: TextField(
-              controller: _c,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => _send(),
-              minLines: 1,
-              maxLines: 3,
-              style: body(16),
-              decoration: InputDecoration(
-                isDense: true,
-                filled: false,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                hintText: 'লিখুন বা বলুন — যেমন “রবিনকে ৫০০০ টাকা দিলাম”',
-                hintStyle: body(14, color: C.muted),
-              ),
-            ),
-          ),
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: _c,
-            builder: (context, v, _) => v.text.trim().isEmpty
-                ? CircleAction(icon: Icons.mic_none_rounded, tooltip: 'বলুন', fg: Colors.white, bg: C.green, size: 44, onPressed: () => openVoice(context))
-                : CircleAction(icon: Icons.arrow_upward_rounded, tooltip: 'পাঠান', fg: Colors.white, bg: C.ink, size: 44, onPressed: _send),
-          ),
-        ]),
-      );
-}
 
 /// First steps for a new user, until they hide it.
 class _StartTips extends StatefulWidget {
@@ -339,7 +260,7 @@ class _StartTipsState extends State<_StartTips> {
               done: hasContacts, action: 'আনুন', onTap: () => importFromPhone(context)),
           step('২', 'রিমাইন্ডার যেন ঠিক সময়ে বাজে', 'ফোনের দুই-একটা সেটিং এক চাপে ঠিক করে নিন',
               action: 'দেখুন', onTap: () => push(const ReminderCheckScreen())),
-          step('৩', 'মুখে বলুন বা উপরে লিখুন', '“রবিনকে ৫০০০ টাকা দিলাম”, “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”, “আজকের কাজের তালিকা”'),
+          step('৩', 'চ্যাটে বলুন বা লিখুন', '“রবিনকে ৫০০০ টাকা দিলাম”, “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”, “আজকের কাজের তালিকা”'),
           step('৪', 'কী কী করা যায়, দেখে নিন', 'সব সুবিধা আর কী বললে কী হয়', action: 'দেখুন', onTap: () => push(const HelpScreen())),
           Align(
             alignment: Alignment.centerRight,

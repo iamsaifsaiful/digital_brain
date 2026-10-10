@@ -12,7 +12,8 @@ bool isSave(Command c) => c is LedgerAdd || c is LedgerSet || c is NoteAdd || c 
 
 bool _complete(Command c) => switch (c) {
       LedgerAdd() => c.person.trim().isNotEmpty && c.amount > 0,
-      LedgerSet() || TaskAdd() || ReminderAdd() || ContactAdd() || NoteAdd() || VaultAdd() => true,
+      ReminderAdd() => !c.needsTime,
+      LedgerSet() || TaskAdd() || ContactAdd() || NoteAdd() || VaultAdd() => true,
       CashAdd() => c.amount > 0,
       _ => false,
     };
@@ -72,7 +73,9 @@ String summaryLine(Command c) => switch (c) {
           : '${toPerson(c.person)} দেবেন ${bnNumber(-c.balance)} টাকা',
       NoteAdd() => c.text,
       TaskAdd() => 'কাজ: ${c.title}${c.due == null ? '' : ' (${bnDigits(c.due!.day)} ${bnMonths[c.due!.month - 1]})'}',
-      ReminderAdd() => 'মনে করানো: ${c.title} — ${bnDigits(c.at.day)} ${bnMonths[c.at.month - 1]}, ${bnTime(c.at.hour, c.at.minute)}',
+      ReminderAdd() => c.needsTime
+          ? 'মনে করানো: ${c.title} — সময় বলা বাকি'
+          : 'মনে করানো: ${c.title} — ${bnDigits(c.at.day)} ${bnMonths[c.at.month - 1]}, ${bnTime(c.at.hour, c.at.minute)}',
       VaultAdd() => 'ভল্টে: ${c.name}-এর পাসওয়ার্ড (••••)',
       ContactAdd() => 'নম্বর: ${c.name.isEmpty ? '' : '${c.name} — '}${bnDigits(c.phone)}',
       CashAdd() => c.project != null

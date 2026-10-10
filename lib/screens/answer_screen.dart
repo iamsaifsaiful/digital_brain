@@ -17,7 +17,7 @@ import 'new_item_screen.dart';
 import 'person_screen.dart';
 import 'reminders_screen.dart';
 import 'vault_item_screen.dart';
-import 'voice_screen.dart';
+import 'home_shell.dart';
 
 /// The answer to a question (or a note to keep), shown and spoken.
 class AnswerScreen extends StatefulWidget {
@@ -220,7 +220,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
             PrimaryButton(
               label: 'বলে শুরু করুন',
               icon: Icons.mic_none_rounded,
-              onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const VoiceScreen())),
+              onPressed: () => openVoice(context),
             ),
         ]);
       case AiReply():
@@ -393,7 +393,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
                         child: PrimaryButton(
                           label: 'আরেকটা প্রশ্ন',
                           icon: Icons.mic_none_rounded,
-                          onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const VoiceScreen())),
+                          onPressed: () => openVoice(context),
                         ),
                       ),
                     ]),

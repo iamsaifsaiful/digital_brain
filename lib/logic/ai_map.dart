@@ -105,15 +105,22 @@ Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> le
       final time = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(_str(r['time']));
       final repeat = Repeat.values.where((x) => x.name == _str(r['repeat'])).firstOrNull ?? Repeat.none;
       final now = DateTime.now();
-      final title = _str(r['text']);
+      final title = _str(r['text']).isEmpty ? defaultReminderTitle : _str(r['text']);
       if (day == null && time == null) {
-        if (!repeat.isInterval) return null;
+        // No time yet: the chat asks "কখন মনে করাব?".
+        if (!repeat.isInterval) return ReminderAdd(said, title: title, at: noTimeYet, repeat: repeat);
         final first = now.add(Duration(minutes: repeat.minutes));
-        return ReminderAdd(said, title: title.isEmpty ? 'মনে করানো' : title, at: DateTime(first.year, first.month, first.day, first.hour, first.minute), repeat: repeat);
+        return ReminderAdd(said, title: title, at: DateTime(first.year, first.month, first.day, first.hour, first.minute), repeat: repeat);
       }
       final d = day ?? DateTime(now.year, now.month, now.day);
-      final at = DateTime(d.year, d.month, d.day, time == null ? 9 : int.parse(time[1]!), time == null ? 0 : int.parse(time[2]!));
-      return ReminderAdd(said, title: title.isEmpty ? 'মনে করানো' : title, at: at, repeat: repeat);
+      var at = DateTime(d.year, d.month, d.day, time == null ? 9 : int.parse(time[1]!), time == null ? 0 : int.parse(time[2]!));
+      // Only a time was said and it has passed today: the next time it
+      // comes round ("৬.২০" at 18:00 = 18:20 today; 06:20 at 07:00 = tomorrow).
+      if (day == null && !at.isAfter(now)) {
+        final later = at.add(const Duration(hours: 12));
+        at = at.hour < 12 && later.isAfter(now) && later.day == at.day ? later : at.add(const Duration(days: 1));
+      }
+      return ReminderAdd(said, title: title, at: at, repeat: repeat);
     case 'contact_add':
       final phone = findPhone(_str(r['phone'])) ?? findPhone(said);
       if (phone == null) return null;

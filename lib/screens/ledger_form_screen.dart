@@ -8,7 +8,7 @@ import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'calls_screen.dart';
-import 'voice_screen.dart';
+import 'home_shell.dart';
 
 String _tail(String s) => s.length <= 3 ? s : s.substring(s.length - 3);
 
@@ -111,7 +111,7 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
                 trailing: [
                   if (widget.entry == null)
                     TextButton.icon(
-                      onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const VoiceScreen())),
+                      onPressed: () => openVoice(context),
                       style: TextButton.styleFrom(backgroundColor: C.greenTint, foregroundColor: C.greenDark, minimumSize: const Size(44, 40)),
                       icon: const Icon(Icons.mic_none_rounded, size: 18),
                       label: Text('বলে যোগ', style: body(14, weight: FontWeight.w600, color: C.greenDark)),

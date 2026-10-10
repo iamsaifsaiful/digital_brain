@@ -91,14 +91,22 @@ Future<Rig> start(WidgetTester t, {AppData? data, AiRoute? ai}) async {
   await enterPin(t, '1234');
   expect(find.text('PIN টি আবার দিন'), findsOneWidget);
   await enterPin(t, '1234');
-  expect(find.text('সব কাজ ও রিমাইন্ডার দেখুন'), findsOneWidget);
+  expect(find.text('আজ কী করে দেব?'), findsOneWidget);
   return rig;
+}
+
+/// Opens the left menu and taps [item].
+Future<void> openMenu(WidgetTester t, String item) async {
+  await t.tap(find.byTooltip('মেনু'));
+  await settle(t);
+  await t.tap(find.text(item).last);
+  await settle(t);
 }
 
 void main() {
   testWidgets('first run: choose a PIN, then home', (t) async {
     final rig = await start(t);
-    expect(find.text('হিসাব'), findsOneWidget);
+    expect(find.byTooltip('কথা বলুন'), findsOneWidget);
     expect(await rig.services.lock.hasPin(), isTrue);
 
     // Lock and unlock again with a wrong, then the right PIN.
@@ -108,15 +116,12 @@ void main() {
     await enterPin(t, '9999');
     expect(find.textContaining('PIN মেলেনি'), findsOneWidget);
     await enterPin(t, '1234');
-    expect(find.text('সব কাজ ও রিমাইন্ডার দেখুন'), findsOneWidget);
+    expect(find.text('আজ কী করে দেব?'), findsOneWidget);
   });
 
   testWidgets('save a password, open it, reveal it', (t) async {
     final rig = await start(t);
-    await t.tap(find.text('তথ্য').last);
-    await settle(t);
-    await t.tap(find.text('পাসওয়ার্ড'));
-    await settle(t);
+    await openMenu(t, 'পাসওয়ার্ড');
     await t.tap(find.text('পাসওয়ার্ড যোগ করুন'));
     await settle(t);
     await t.enterText(find.widgetWithText(TextFormField, 'ওয়েবসাইট বা অ্যাপের নাম'), 'ABC ওয়েবসাইট');
@@ -138,10 +143,11 @@ void main() {
     await settle(t);
   });
 
+  /// The mic on the home: the voice view opens and listens.
   Future<void> openChat(WidgetTester t) async {
-    await t.tap(find.byIcon(Icons.mic_none_rounded).last);
+    await t.tap(find.byTooltip('কথা বলুন'));
     await settle(t);
-    expect(find.text('কথা বলুন'), findsOneWidget);
+    expect(find.text('শুনছি…'), findsOneWidget);
   }
 
   Finder chip(String label) => find.widgetWithText(ActionChip, label);
@@ -152,7 +158,6 @@ void main() {
     rig.voice.say('আমি সজীবকে ৫০০ টাকা দিলাম');
     await settle(t);
     expect(rig.voice.spoken.last, 'আচ্ছা, সজীবকে ৫০০ টাকা ধার দিলেন, তাই তো? লিখে রাখি?');
-    expect(find.text('আমি সজীবকে ৫০০ টাকা দিলাম'), findsOneWidget);
 
     // Answer by voice; the chat keeps listening.
     rig.voice.say('হ্যাঁ');
@@ -169,7 +174,13 @@ void main() {
     rig.voice.say('তুমি কেমন আছো?');
     await settle(t);
     expect(rig.voice.spoken.last, contains('ভালো আছি'));
-    expect(find.text('কথা বলুন'), findsOneWidget);
+    expect(find.text('শুনছি…'), findsOneWidget);
+
+    // Closing the voice view shows the whole conversation.
+    await t.tap(find.byTooltip('বন্ধ করুন'));
+    await settle(t);
+    expect(find.text('আমি সজীবকে ৫০০ টাকা দিলাম'), findsOneWidget);
+    expect(find.text('সজীবের খাতা দেখুন →'), findsOneWidget);
   });
 
   testWidgets('chat: unclear money asks the kind with buttons', (t) async {
@@ -273,7 +284,7 @@ void main() {
     rig.voice.say('সজীবকে ৫০০ টাকা ধার দিলাম আর রহিমের কাছ থেকে ২০০ টাকা ধার নিলাম');
     await settle(t);
     expect(rig.voice.spoken.last, contains('২টা জিনিস পেলাম'));
-    expect(find.text('সজীবকে ৫০০ টাকা ধার দিলেন'), findsOneWidget);
+    expect(find.textContaining('সজীবকে ৫০০ টাকা ধার দিলেন'), findsOneWidget);
     rig.voice.say('হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.ledger, hasLength(2));
@@ -286,7 +297,8 @@ void main() {
     rig.voice.say('থামো');
     await settle(t);
     expect(rig.voice.spoken.last, contains('থামলাম'));
-    expect(find.text('বলুন'), findsOneWidget);
+    // Back to the conversation, the mic waiting to be tapped.
+    expect(find.byTooltip('কথা বলুন'), findsOneWidget);
   });
 
   testWidgets('with AI on, Claude\'s reply is spoken', (t) async {
@@ -323,8 +335,8 @@ void main() {
     await openChat(t);
     rig.voice.say('শোনো আজকে জামাইল্লারে দেড় হাজার টেয়া হাওলাত দিছি আর হ্যাঁ ছাদের দরজার কোডটা হইল চাইর পাঁচ ছয় সাত');
     await settle(t);
-    expect(find.text('জামালকে ১,৫০০ টাকা ধার দিলেন'), findsOneWidget);
-    expect(find.text('ছাদের দরজার কোড ৪৫৬৭'), findsOneWidget);
+    expect(find.textContaining('জামালকে ১,৫০০ টাকা ধার দিলেন'), findsOneWidget);
+    expect(find.textContaining('ছাদের দরজার কোড ৪৫৬৭'), findsOneWidget);
     rig.voice.say('হ');
     await settle(t);
     expect(rig.brain.data.ledger.single.person, 'জামাল');
@@ -436,10 +448,7 @@ void main() {
 
   testWidgets('যোগাযোগ: from তথ্য, each person has call, SMS and WhatsApp', (t) async {
     final rig = await start(t, data: AppData(contacts: [Contact(name: 'রহিম', phone: '01712345678')]));
-    await t.tap(find.text('তথ্য').last);
-    await settle(t);
-    await t.tap(find.text('যোগাযোগ'));
-    await settle(t);
+    await openMenu(t, 'যোগাযোগ');
     await t.tap(find.byTooltip('ফোন দিন'));
     await settle(t);
     final l = rig.services.launcher as FakeLauncher;
@@ -467,35 +476,42 @@ void main() {
     expect(rig.voice.spoken.last, contains('ভালো আছি'));
   });
 
-  testWidgets('chat asks what to do first; রিমাইন্ডার makes a plain sentence a reminder', (t) async {
+  testWidgets('"৫.৩০ এ রিমাইন্ডার দিও": today at 17:30, asks what for, then saves', (t) async {
     final rig = await start(t);
     await openChat(t);
-    expect(find.widgetWithText(ActionChip, 'রিমাইন্ডার'), findsOneWidget);
     expect(rig.voice.spoken.last, 'জি, বলুন।');
-    await t.tap(find.widgetWithText(ActionChip, 'রিমাইন্ডার'));
+    rig.voice.say('৫.৩০ এ রিমাইন্ডার দিও');
     await settle(t);
-    expect(find.textContaining(': রিমাইন্ডার'), findsOneWidget);
-    rig.voice.say('কাল সকাল ১০টায় ডাক্তারের কাছে যাওয়া');
+    expect(rig.voice.spoken.last, contains('কী বিষয়ে'));
+    rig.voice.say('ওষুধ খাওয়া');
     await settle(t);
     expect(rig.voice.spoken.last, contains('দেব — ঠিক আছে?'));
     rig.voice.say('হ্যাঁ');
     await settle(t);
     final r = rig.brain.data.reminders.single;
-    expect(r.date, DateTime(2026, 10, 10));
-    expect(r.hour, 10);
+    expect(r.date, DateTime(2026, 10, 9));
+    expect(r.hour, 17);
+    expect(r.minute, 30);
+    expect(r.title, contains('ওষুধ'));
   });
 
-  testWidgets('chat: a subject that matches nothing opens a new category', (t) async {
+  testWidgets('a reminder with no time asks when; "আজ" then "৬.২০" is this evening', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('দোকানের মাল');
+    rig.voice.say('বাজারের রিমাইন্ডার দিও');
     await settle(t);
-    expect(rig.voice.spoken.last, contains('নতুন বিভাগ খুললাম'));
-    rig.voice.say('চাল ২০ বস্তা এসেছে');
+    expect(rig.voice.spoken.last, contains('কখন মনে করাব'));
+    rig.voice.say('আজ');
     await settle(t);
+    expect(rig.voice.spoken.last, contains('কয়টায়'));
+    rig.voice.say('৬.২০');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('দেব — ঠিক আছে?'));
     rig.voice.say('হ্যাঁ');
     await settle(t);
-    expect(rig.brain.data.notes.single.category, 'দোকানের মাল');
+    final r = rig.brain.data.reminders.single;
+    expect(r.hour, 18);
+    expect(r.minute, 20);
   });
 
   testWidgets('own spending goes to আয়-ব্যয় with its খাত', (t) async {
@@ -544,8 +560,7 @@ void main() {
 
   testWidgets('হিসাব tab opens on আয়-ব্যয়, then ধার-দেনা and প্রজেক্ট', (t) async {
     await start(t, data: AppData(cash: [CashEntry(kind: CashKind.expense, amount: 500, category: 'বাজার', date: DateTime(2026, 10, 5))]));
-    await t.tap(find.text('হিসাব').last);
-    await settle(t);
+    await openMenu(t, 'হিসাব');
     expect(find.text('এই মাসের ব্যালেন্স'), findsOneWidget);
     expect(find.text('বাজার'), findsWidgets);
     await t.tap(find.text('ধার-দেনা'));
@@ -560,8 +575,7 @@ void main() {
           LedgerEntry(person: 'রহিম', phone: '01712345678', kind: LedgerKind.lent, amount: 4000, date: DateTime(2026, 10, 1)),
           LedgerEntry(person: 'রহিম', phone: '01819876543', kind: LedgerKind.borrowed, amount: 4000, date: DateTime(2026, 10, 2)),
         ]));
-    await t.tap(find.text('হিসাব').last);
-    await settle(t);
+    await openMenu(t, 'হিসাব');
     await t.tap(find.text('ধার-দেনা'));
     await settle(t);
     expect(find.text('রহিম'), findsNWidgets(2));
@@ -577,6 +591,7 @@ void main() {
 
   testWidgets('+ যোগ করুন on আজ makes a reminder that rings at the chosen time', (t) async {
     final rig = await start(t);
+    await openMenu(t, 'আজ');
     await t.tap(find.text('যোগ করুন'));
     await settle(t);
     await t.enterText(find.byType(TextField).last, 'ক্লায়েন্ট মিটিং');
@@ -607,10 +622,7 @@ void main() {
       PhoneContact('করিম ভাই', '01811223344'),
       PhoneContact('Service', '121'),
     ];
-    await t.tap(find.text('তথ্য').last);
-    await settle(t);
-    await t.tap(find.text('যোগাযোগ'));
-    await settle(t);
+    await openMenu(t, 'যোগাযোগ');
     await t.tap(find.text('ফোনবুক থেকে নতুন নম্বর আনুন'));
     await settle(t);
     expect(rig.brain.data.contacts.map((c) => c.phone), ['01712345678', '01811223344']);
@@ -683,8 +695,7 @@ void main() {
 
   testWidgets('ringtones can be heard before choosing', (t) async {
     final rig = await start(t);
-    await t.tap(find.text('আমি').last);
-    await settle(t);
+    await openMenu(t, 'আমি');
     await t.scrollUntilVisible(find.text('রিমাইন্ডারের রিংটোন'), 200);
     await t.tap(find.text('রিমাইন্ডারের রিংটোন'));
     await settle(t);
@@ -696,26 +707,33 @@ void main() {
     expect(rig.notifier.soundUri, 'content://media/internal/audio/media/7');
   });
 
-  testWidgets('typed on আজ: understood like speech, and a typed password goes to the vault', (t) async {
+  testWidgets('typed on the home: understood like speech, and a typed password goes to the vault', (t) async {
     final rig = await start(t);
     await t.enterText(find.byType(TextField).first, 'রবিনকে ৫০০০ টাকা ধার দিলাম');
     await t.testTextInput.receiveAction(TextInputAction.send);
     await settle(t);
-    expect(rig.voice.spoken.last, contains('তাই তো'));
-    await t.enterText(find.byType(TextField).last, 'হ্যাঁ');
-    await t.testTextInput.receiveAction(TextInputAction.send);
+    expect(find.text('রবিনকে ৫০০০ টাকা ধার দিলাম'), findsOneWidget);
+    expect(find.textContaining('তাই তো'), findsOneWidget);
+    await t.tap(find.widgetWithText(ActionChip, 'হ্যাঁ'));
     await settle(t);
     expect(rig.brain.data.ledger.single.amount, 5000);
     await t.enterText(find.byType(TextField).last, 'ফেসবুকের পাসওয়ার্ড ১২২৩৯৯৩৯');
     await t.testTextInput.receiveAction(TextInputAction.send);
     await settle(t);
-    expect(rig.voice.spoken.join(' '), isNot(contains('১২২৩৯৯৩৯')));
     await t.enterText(find.byType(TextField).last, 'হ্যাঁ');
     await t.testTextInput.receiveAction(TextInputAction.send);
     await settle(t);
     expect(rig.brain.data.vault.single.name, 'ফেসবুক');
     expect(rig.brain.data.vault.single.password, '12239939');
+    expect(rig.voice.spoken.join(' '), isNot(contains('১২২৩৯৯৩৯')));
     expect(rig.ai.asked, isEmpty);
+
+    // Kept in "আগের কথা", without the password.
+    await t.tap(find.byTooltip('মেনু'));
+    await settle(t);
+    expect(find.text('রবিনকে ৫০০০ টাকা ধার দিলাম'), findsWidgets);
+    final saved = await rig.services.lock.keys.read('chat_history');
+    expect(saved, isNot(contains('১২২৩৯৯৩৯')));
   });
 
   testWidgets('money typed to a name in যোগাযোগ: the number is found and shown before saving', (t) async {

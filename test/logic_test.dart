@@ -639,6 +639,17 @@ void main() {
       expect(parseWhen('৩টা ডিম কিনতে হবে', now), isNull);
       expect(parseWhen('এমনি কথা', now), isNull);
     });
+
+    test('clock times: ৬.২০, ৬:২০, ৬টা ২০ — the next one to come round', () {
+      final eve = DateTime(2026, 10, 10, 18, 18);
+      expect(parseWhen('৬.২০ এ রিমাইন্ডার দিও', eve)!.at, DateTime(2026, 10, 10, 18, 20));
+      expect(parseWhen('৬:২০ এ রিমাইন্ডার দিও', eve)!.at, DateTime(2026, 10, 10, 18, 20));
+      expect(parseWhen('6.20e', eve)!.at, DateTime(2026, 10, 10, 18, 20));
+      expect(parseWhen('৬টা ২০ মিনিটে মিটিং', eve)!.at, DateTime(2026, 10, 10, 18, 20));
+      expect(parseWhen('সকাল ৬.২০ এ', eve)!.at, DateTime(2026, 10, 11, 6, 20));
+      expect(parseWhen('আজ ৭.৪৫ এ', eve)!.at, DateTime(2026, 10, 10, 19, 45));
+      expect(parseWhen('৬.২০ টাকা', eve), isNull);
+    });
   });
 
   group('assistant: commands', () {
@@ -656,6 +667,16 @@ void main() {
       expect(monthly.repeat, Repeat.monthly);
       // No time: still a question about a saved date.
       expect(parse('ডোমেইন রিনিউ করার তারিখটা মনে করিয়ে দাও'), isA<ReminderQuery>());
+    });
+
+    test('a reminder with only a time, or with no time yet', () {
+      final p = Parser(ledger: const [], now: DateTime(2026, 10, 10, 18, 18));
+      final r = p.parse('৬.২০ এ রিমাইন্ডার দিও') as ReminderAdd;
+      expect(r.at, DateTime(2026, 10, 10, 18, 20));
+      expect(r.needsTitle, isTrue);
+      final later = p.parse('ওষুধ খাওয়ার রিমাইন্ডার দিও') as ReminderAdd;
+      expect(later.needsTime, isTrue);
+      expect(fold(later.title), contains(fold('ওষুধ')));
     });
 
     test('to-dos', () {
