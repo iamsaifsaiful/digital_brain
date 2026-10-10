@@ -599,6 +599,8 @@ void main() {
     final rig = await start(t);
     // Today's list is on the home itself.
     await t.scrollUntilVisible(find.text('যোগ করুন'), 200, scrollable: find.byType(Scrollable).first);
+    await t.ensureVisible(find.text('যোগ করুন'));
+    await settle(t);
     await t.tap(find.text('যোগ করুন'));
     await settle(t);
     await t.enterText(find.byType(TextField).last, 'ক্লায়েন্ট মিটিং');

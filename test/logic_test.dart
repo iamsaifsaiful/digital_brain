@@ -731,7 +731,7 @@ void main() {
           {'action': 'contact_add', 'person': 'করিম', 'phone': '01812345678'},
           {'action': 'briefing'},
         ],
-      }, const []);
+      }, const []).where((x) => x is! AiReply).toList();
       expect((c[0] as ReminderAdd).at, DateTime(2026, 10, 10, 16, 30));
       expect((c[1] as CallPerson).via, Via.whatsapp);
       expect((c[2] as TaskAdd).due, DateTime(2026, 10, 12));
