@@ -117,11 +117,13 @@ void main() {
     final rahim = [e('রহিম', LedgerKind.borrowed, 1000, DateTime(2026, 10, 5))];
     final sajib = [e('সজীব', LedgerKind.lent, 500, DateTime(2026, 10, 2))];
 
-    test('I gave → loan', () {
+    test('I gave: a loan only when said; a plain "দিলাম" asks (ধার first)', () {
       final c = Parser(ledger: const []).parse('আমি সজীবকে ৫০০ টাকা দিলাম।') as LedgerAdd;
       expect(c.person, 'সজীব');
       expect(c.amount, 500);
-      expect(c.kind, LedgerKind.lent);
+      expect(c.kind, isNull);
+      expect(c.suggested, LedgerKind.lent);
+      expect((Parser(ledger: const []).parse('আমি সজীবকে ৫০০ টাকা ধার দিলাম।') as LedgerAdd).kind, LedgerKind.lent);
     });
 
     test('they paid me back', () {
@@ -403,7 +405,7 @@ void main() {
       expect(c.balance, 5000);
       final d = Parser(ledger: const []).parse('সজীবরে ৫০০ টাকা দিছি') as LedgerAdd;
       expect(d.person, 'সজীব');
-      expect(d.kind, LedgerKind.lent);
+      expect(d.suggested, LedgerKind.lent);
       expect(normalize('কাজ করে দিলাম'), 'কাজ করে দিলাম');
     });
 
@@ -479,7 +481,7 @@ void main() {
       expect(a.balance, 5000);
       final b = Parser(ledger: const []).parse('রহিমরে ৫০০ টেয়া দিসি') as LedgerAdd;
       expect(b.person, 'রহিম');
-      expect(b.kind, LedgerKind.lent);
+      expect(b.amount, 500);
       expect(normalize('একটা টিয়া পাখি'), contains('টিয়া'.replaceAll('য়', 'য়')));
     });
 
