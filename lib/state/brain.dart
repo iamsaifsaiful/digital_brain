@@ -147,6 +147,24 @@ class Brain extends ChangeNotifier {
   /// passwords, PINs or anything secret), so it can answer about them.
   bool aiShareData = true;
 
+  /// What the assistant calls the user ("সাইফুল ভাই"); empty = no name.
+  String userName = '';
+
+  /// The place for sunrise, sunset and prayer times (see `bdPlaces`).
+  String district = 'ঢাকা';
+
+  Future<void> setUserName(String v) async {
+    userName = v.trim();
+    await services.lock.keys.write('user_name', userName);
+    notifyListeners();
+  }
+
+  Future<void> setDistrict(String v) async {
+    district = v;
+    await services.lock.keys.write('district', v);
+    notifyListeners();
+  }
+
   Future<void> setAiShareData(bool on) async {
     aiShareData = on;
     await services.lock.keys.write('ai_share_data', on ? 'true' : 'false');
@@ -272,6 +290,8 @@ class Brain extends ChangeNotifier {
       services.ai.key = await services.lock.keys.read('claude_api_key') ?? '';
       services.ai.quality = (await services.lock.keys.read('ai_quality')) == 'fast' ? AiQuality.fast : AiQuality.best;
       aiShareData = (await services.lock.keys.read('ai_share_data')) != 'false';
+      userName = await services.lock.keys.read('user_name') ?? '';
+      district = await services.lock.keys.read('district') ?? 'ঢাকা';
     } catch (_) {}
     try {
       services.voice.muted = (await services.lock.keys.read('speak_on')) == 'false';

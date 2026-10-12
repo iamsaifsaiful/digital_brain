@@ -1,6 +1,7 @@
 import 'package:digital_brain/logic/ai_map.dart';
 import 'package:digital_brain/logic/answers.dart';
 import 'package:digital_brain/logic/bn.dart';
+import 'package:digital_brain/logic/calendar_bd.dart';
 import 'package:digital_brain/logic/cash.dart';
 import 'package:digital_brain/logic/categories.dart';
 import 'package:digital_brain/logic/csv.dart';
@@ -851,5 +852,26 @@ void main() {
     expect(forSpeech('আমি করব, রাখব।'), 'আমি করবো, রাখবো।');
     expect(forSpeech('দেবেন না, সব ঠিক'), 'দেবেন না, সব ঠিক');
     expect(forSpeech('• বাজার'), ' বাজার');
+  });
+
+  test('Bangla date (revised calendar), season and holidays', () {
+    expect(banglaDate(DateTime(2026, 10, 13)).text, '২৮ আশ্বিন ১৪৩৩');
+    expect(banglaDate(DateTime(2026, 10, 13)).season, 'শরৎ');
+    expect(banglaDate(DateTime(2026, 10, 17)).text, '১ কার্তিক ১৪৩৩');
+    expect(banglaDate(DateTime(2026, 12, 16)).text, '১ পৌষ ১৪৩৩');
+    expect(banglaDate(DateTime(2027, 2, 21)).text, '৮ ফাল্গুন ১৪৩৩');
+    expect(banglaDate(DateTime(2027, 4, 14)).text, '১ বৈশাখ ১৪৩৪');
+    expect(banglaDate(DateTime(2026, 4, 13)).text, '৩০ চৈত্র ১৪৩২');
+    final run = upcomingHolidays(DateTime(2026, 10, 13), count: 1).single;
+    expect(run.start, DateTime(2026, 10, 20));
+    expect(run.days, 5);
+  });
+
+  test('sunrise and sunset in Dhaka', () {
+    final s = sunTimes(DateTime(2026, 10, 13), placeNamed('ঢাকা'));
+    expect(s.sunrise.hour * 60 + s.sunrise.minute, inInclusiveRange(5 * 60 + 50, 5 * 60 + 59));
+    expect(s.sunset.hour * 60 + s.sunset.minute, inInclusiveRange(17 * 60 + 30, 17 * 60 + 40));
+    expect(s.fajr.isBefore(s.sunrise), isTrue);
+    expect(s.asr.isAfter(s.dhuhr), isTrue);
   });
 }

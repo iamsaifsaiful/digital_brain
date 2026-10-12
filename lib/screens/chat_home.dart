@@ -5,8 +5,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
-import '../logic/cash.dart';
-import '../logic/ledger.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../state/chat.dart';
@@ -15,33 +13,27 @@ import '../ui/pin.dart';
 import '../ui/theme.dart';
 import 'calls_screen.dart';
 import 'confirm_screen.dart';
-import 'help_screen.dart';
-import 'home_screen.dart';
-import 'home_shell.dart';
 import 'ledger_form_screen.dart';
-import 'ledger_screen.dart';
-import 'library_screen.dart';
 import 'money_screens.dart';
-import 'more_screen.dart';
 import 'new_item_screen.dart';
 import 'notes_screen.dart';
 import 'person_screen.dart';
 import 'plan_screens.dart';
 import 'vault_item_screen.dart';
-import 'vault_screen.dart';
 
-/// The home: one conversation, like Claude or ChatGPT. Type or speak at
-/// the bottom; everything else is in the menu on the left.
+/// সহকারী: speak or type; it keeps, finds and answers. Opened from the
+/// green button in the middle of the bottom menu ([listen] starts the
+/// microphone), or with something already typed ([firstMessage]).
 class ChatHome extends StatefulWidget {
-  const ChatHome({super.key});
+  const ChatHome({super.key, this.listen = false, this.firstMessage});
+  final bool listen;
+  final String? firstMessage;
 
   @override
   State<ChatHome> createState() => ChatHomeState();
 }
 
 class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  /// The open home, so other pages can start talking ([openVoice]).
-  static ChatHomeState? current;
 
   final _scaffold = GlobalKey<ScaffoldState>();
   late final AnimationController _wave = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
@@ -90,14 +82,20 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   @override
   void initState() {
     super.initState();
-    current = this;
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadPast());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadPast();
+      final first = widget.firstMessage?.trim() ?? '';
+      if (first.isNotEmpty) {
+        _send(first);
+      } else if (widget.listen) {
+        startVoice();
+      }
+    });
   }
 
   @override
   void dispose() {
-    if (current == this) current = null;
     WidgetsBinding.instance.removeObserver(this);
     _gen++;
     _chat
@@ -498,11 +496,6 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     return r;
   }
 
-  void _menuOpen(Widget screen) {
-    Navigator.of(context).pop(); // the drawer
-    _open(screen);
-  }
-
   Future<void> _openVault(VaultItem v) async {
     _away = true;
     await _stopListening();
@@ -566,7 +559,6 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
 
   @override
   Widget build(BuildContext context) {
-    final brain = BrainScope.of(context);
     return PopScope(
       canPop: !_voice,
       onPopInvokedWithResult: (didPop, _) {
@@ -575,27 +567,12 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
       child: Scaffold(
         key: _scaffold,
         backgroundColor: C.surface,
-        drawer: _Menu(
-          brain: brain,
-          past: _past,
-          currentId: _chatId,
-          onNew: () {
-            Navigator.of(context).pop();
-            newChat();
-          },
-          onOpen: (w) => _menuOpen(w),
-          onPast: (c) {
-            Navigator.of(context).pop();
-            _openPast(c);
-          },
-          onDeletePast: _deletePast,
-        ),
         body: SafeArea(
           child: _voice
               ? _voiceView()
               : Column(children: [
                   _topBar(),
-                  Expanded(child: _chat.started ? _conversation() : _welcome(brain)),
+                  Expanded(child: _chat.started ? _conversation() : _welcome()),
                   if (_chat.choices.isNotEmpty) _choiceRow() else _questionRow(),
                   _composer(),
                 ]),
@@ -605,22 +582,24 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   }
 
   Widget _topBar() {
-    final title = _chat.started ? chatTitle(_chat.messages) : 'My Assistant';
+    final title = _chat.started ? chatTitle(_chat.messages) : 'সহকারী';
     return Container(
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(border: Border(bottom: BorderSide(color: _chat.started ? C.line2 : Colors.transparent))),
       child: Row(children: [
         IconButton(
-          tooltip: 'মেনু',
-          onPressed: () {
-            _focus.unfocus();
-            _scaffold.currentState?.openDrawer();
-          },
-          icon: const Icon(Icons.notes_rounded, size: 26, color: C.ink),
+          tooltip: 'ফিরে যান',
+          onPressed: () => Navigator.of(context).maybePop(),
+          icon: const Icon(Icons.chevron_left_rounded, size: 30, color: C.ink),
         ),
         Expanded(
-          child: Text(title, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(16, weight: FontWeight.w600)),
+          child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(17, weight: FontWeight.w600)),
+        ),
+        IconButton(
+          tooltip: 'আগের কথা',
+          onPressed: _showPast,
+          icon: const Icon(Icons.history_rounded, size: 24, color: C.ink),
         ),
         IconButton(
           tooltip: 'নতুন কথা',
@@ -631,46 +610,34 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     );
   }
 
-  String _hello(DateTime now) {
-    final h = now.hour;
-    if (h >= 4 && h < 11) return 'সুপ্রভাত';
-    if (h >= 11 && h < 15) return 'শুভ দুপুর';
-    if (h >= 15 && h < 18) return 'শুভ বিকেল';
-    if (h >= 18 && h < 22) return 'শুভ সন্ধ্যা';
-    return 'শুভ রাত';
+  Future<void> _showPast() async {
+    _focus.unfocus();
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: C.surface,
+      showDragHandle: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => _PastSheet(
+        past: _past,
+        currentId: _chatId,
+        onNew: () {
+          Navigator.of(ctx).pop();
+          newChat();
+        },
+        onPast: (c) {
+          Navigator.of(ctx).pop();
+          _openPast(c);
+        },
+        onDeletePast: (c) {
+          Navigator.of(ctx).pop();
+          _deletePast(c);
+        },
+      ),
+    );
   }
 
-  Widget _welcome(Brain brain) {
-    final d = brain.data;
-    final now = brain.services.now();
-    final plan = planOf(d, now);
-    final t = totals(d.ledger);
-    final month = monthSums(d.cash, now);
-    final owing = balances(d.ledger).where((p) => p.balance > 0).length;
-    final next = plan.today.where((i) => i.task == null || !i.task!.done).firstOrNull;
-    final left = plan.today.where((i) => i.task == null || !i.task!.done).length;
-
-    Widget glance(String label, String value, String sub, {Color? color, Color? subColor, double flex = 1, required VoidCallback onTap}) =>
-        Expanded(
-          flex: (flex * 100).round(),
-          child: Material(
-            color: C.ground,
-            borderRadius: BorderRadius.circular(14),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: onTap,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(label, style: body(12, color: C.muted, height: 1.3)),
-                  Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15, weight: FontWeight.w600, color: color ?? C.ink, height: 1.35)),
-                  Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: subColor ?? C.muted, height: 1.3)),
-                ]),
-              ),
-            ),
-          ),
-        );
-
+  Widget _welcome() {
     Widget suggestion((String, String) s) => Expanded(
           child: Material(
             color: C.surface,
@@ -689,31 +656,29 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
           ),
         );
 
+    Widget can(IconData icon, String text) => Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Row(children: [
+            Icon(icon, size: 19, color: C.green),
+            const SizedBox(width: 10),
+            Expanded(child: Text(text, style: body(14.5, color: C.muted2))),
+          ]),
+        );
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       children: [
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         const Align(alignment: Alignment.centerLeft, child: _Mark(size: 44)),
         const SizedBox(height: 14),
-        Text(_hello(now), style: display(28, weight: 700, height: 1.2)),
-        Text('আজ কী করে দেব?', style: body(18, color: C.muted, height: 1.4)),
+        Text('আপনার সহকারী', style: display(26, weight: 700, height: 1.2)),
+        Text('বলুন বা লিখুন — রেখে দেবো, খুঁজে দেবো, উত্তর দেবো', style: body(15.5, color: C.muted, height: 1.45)),
+        const SizedBox(height: 10),
+        can(Icons.bookmark_add_outlined, 'রাখা: টাকা, কাজ, রিমাইন্ডার, নোট, নম্বর, পাসওয়ার্ড'),
+        can(Icons.search_rounded, 'খোঁজা: “রহিমের নম্বর কত?”, “গাড়ির কাগজ কোথায়?”'),
+        can(Icons.chat_bubble_outline_rounded, 'জিজ্ঞেস করা: “আজ কী কী আছে?”, “এ মাসে কত খরচ হলো?”'),
         const SizedBox(height: 20),
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          glance('আজ', left == 0 ? 'কিছু বাকি নেই' : '${bnDigits(left)}টা কাজ বাকি',
-              next == null ? 'সব দেখুন' : 'পরেরটা ${bnTime(next.sort.hour, next.sort.minute)}',
-              subColor: C.green, flex: 1.25, onTap: () => _open(const AllTasksScreen())),
-          const SizedBox(width: 8),
-          glance('পাওনা', taka(t.receivable), owing == 0 ? 'কারো কাছে নেই' : '${bnDigits(owing)} জনের কাছে',
-              color: C.green, onTap: () => _open(const MenuPage(child: MoneyScreen(initial: MoneyPart.loans)))),
-          const SizedBox(width: 8),
-          glance('এ মাসে খরচ', taka(month.expense), 'ব্যালেন্স ${month.balance < 0 ? '-' : ''}${taka(month.balance)}',
-              onTap: () => _open(const MenuPage(child: MoneyScreen()))),
-        ]),
-        const StartTips(),
-        if (d.reminders.isNotEmpty) const AlarmBanner(),
-        const TodaySections(),
-        const SizedBox(height: 8),
-        Text('এভাবে বলতে বা লিখতে পারেন', style: body(13, weight: FontWeight.w600, color: C.muted)),
+        Text('যেমন বলতে পারেন', style: body(13, weight: FontWeight.w600, color: C.muted)),
         const SizedBox(height: 8),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           suggestion(_suggestions[0]),
@@ -1122,170 +1087,67 @@ class _Orb extends AnimatedWidget {
   }
 }
 
-/// The left menu: new chat, every page, earlier chats, and "আমি".
-class _Menu extends StatelessWidget {
-  const _Menu({
-    required this.brain,
-    required this.past,
-    required this.currentId,
-    required this.onNew,
-    required this.onOpen,
-    required this.onPast,
-    required this.onDeletePast,
-  });
+/// "আগের কথা": earlier conversations, kept only on this phone.
+class _PastSheet extends StatelessWidget {
+  const _PastSheet({required this.past, required this.currentId, required this.onNew, required this.onPast, required this.onDeletePast});
 
-  final Brain brain;
   final List<SavedChat> past;
   final String currentId;
   final VoidCallback onNew;
-  final void Function(Widget) onOpen;
   final void Function(SavedChat) onPast;
   final void Function(SavedChat) onDeletePast;
 
   @override
-  Widget build(BuildContext context) {
-    final d = brain.data;
-    final now = brain.services.now();
-    final plan = planOf(d, now);
-    final left = plan.today.where((i) => i.task == null || !i.task!.done).length;
-    final t = totals(d.ledger);
-
-    Widget item(IconData icon, String label, Widget page, {String? note}) => InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () => onOpen(page),
-          child: SizedBox(
-            height: 46,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(children: [
-                Icon(icon, size: 21, color: C.muted2),
-                const SizedBox(width: 14),
-                Expanded(child: Text(label, style: body(16))),
-                if (note != null) Text(note, style: body(12, color: C.muted)),
+  Widget build(BuildContext context) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(children: [
+                Expanded(child: Text('আগের কথা', style: body(17, weight: FontWeight.w600))),
+                TextButton.icon(
+                  onPressed: onNew,
+                  icon: const Icon(Icons.edit_square, size: 18, color: C.green),
+                  label: Text('নতুন কথা', style: body(14, weight: FontWeight.w600, color: C.green)),
+                ),
               ]),
-            ),
-          ),
-        );
-
-    return Drawer(
-      width: 304,
-      backgroundColor: C.surface,
-      shape: const RoundedRectangleBorder(),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Material(
-              color: C.ink,
-              shape: const StadiumBorder(),
-              child: InkWell(
-                customBorder: const StadiumBorder(),
-                onTap: onNew,
-                child: SizedBox(
-                  height: 46,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    child: Row(children: [
-                      const Icon(Icons.edit_square, size: 18, color: Colors.white),
-                      const SizedBox(width: 10),
-                      Text('নতুন কথা', style: body(15, weight: FontWeight.w600, color: Colors.white)),
-                    ]),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: onNew,
-              child: SizedBox(
-                height: 46,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(children: [
-                    const Icon(Icons.home_outlined, size: 21, color: C.muted2),
-                    const SizedBox(width: 14),
-                    Expanded(child: Text('হোম', style: body(16))),
-                    if (left > 0) Text('আজ ${bnDigits(left)} বাকি', style: body(12, color: C.muted)),
-                  ]),
-                ),
-              ),
-            ),
-            item(Icons.notifications_none_rounded, 'কাজ ও রিমাইন্ডার', const AllTasksScreen()),
-            item(Icons.account_balance_wallet_outlined, 'হিসাব', const MenuPage(child: MoneyScreen()),
-                note: t.receivable == 0 ? null : 'পাওনা ${taka(t.receivable)}'),
-            item(Icons.person_outline_rounded, 'যোগাযোগ', const CallsScreen()),
-            item(Icons.sticky_note_2_outlined, 'নোট', const NotesScreen()),
-            item(Icons.lock_outline_rounded, 'পাসওয়ার্ড', const VaultPage()),
-            item(Icons.folder_open_outlined, 'সব তথ্য ও বিভাগ', const MenuPage(child: LibraryScreen())),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 14, 12, 4),
-              child: Text('আগের কথা', style: body(12, weight: FontWeight.w600, color: C.muted)),
-            ),
-            Expanded(
-              child: past.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      child: Text('এখনো কিছু নেই। আগের কথাগুলো শুধু এই ফোনে থাকে।', style: body(13, color: C.muted, height: 1.4)),
-                    )
-                  : ListView(padding: EdgeInsets.zero, children: [
-                      for (final c in past)
-                        Material(
-                          color: c.id == currentId ? const Color(0xFFF3F4F6) : Colors.transparent,
+              const SizedBox(height: 4),
+              if (past.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text('এখনো কিছু নেই। আগের কথাগুলো শুধু এই ফোনে থাকে।', style: body(14, color: C.muted, height: 1.4)),
+                )
+              else
+                Flexible(
+                  child: ListView(shrinkWrap: true, children: [
+                    for (final c in past)
+                      Material(
+                        color: c.id == currentId ? const Color(0xFFF3F4F6) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        child: InkWell(
                           borderRadius: BorderRadius.circular(10),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(10),
-                            onTap: () => onPast(c),
-                            onLongPress: () => onDeletePast(c),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                              child: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, color: C.muted2)),
-                            ),
+                          onTap: () => onPast(c),
+                          onLongPress: () => onDeletePast(c),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                            child: Row(children: [
+                              const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: C.muted),
+                              const SizedBox(width: 10),
+                              Expanded(child: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14.5, color: C.muted2))),
+                              Text('${bnDigits(c.at.day)} ${bnMonthsShort[c.at.month - 1]}', style: body(12, color: C.muted)),
+                            ]),
                           ),
                         ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-                        child: Text('শুধু এই ফোনে থাকে · মুছতে চেপে ধরে রাখুন', style: body(12, color: const Color(0xFF9CA3AF))),
                       ),
-                    ]),
-            ),
-            const Divider(height: 1, color: C.line2),
-            InkWell(
-              onTap: () => onOpen(const MenuPage(child: MoreScreen())),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 10, 8, 6),
-                child: Row(children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    alignment: Alignment.center,
-                    decoration: const BoxDecoration(color: C.greenTint, shape: BoxShape.circle),
-                    child: const Icon(Icons.person_rounded, color: C.green, size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('আমি', style: body(15, weight: FontWeight.w600)),
-                      Text('প্ল্যান · ব্যাকআপ · সেটিংস', style: body(12, color: C.muted)),
-                    ]),
-                  ),
-                  const Icon(Icons.settings_outlined, color: C.muted, size: 20),
-                ]),
-              ),
-            ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: () => onOpen(const HelpScreen()),
-                icon: const Icon(Icons.lightbulb_outline_rounded, size: 18, color: C.green),
-                label: Text('কী কী করা যায়', style: body(13, weight: FontWeight.w600, color: C.green)),
-              ),
-            ),
-          ]),
+                  ]),
+                ),
+              const SizedBox(height: 6),
+              Text('শুধু এই ফোনে থাকে · মুছতে চেপে ধরে রাখুন', textAlign: TextAlign.center, style: body(12, color: const Color(0xFF9CA3AF))),
+            ]),
+          ),
         ),
-      ),
-    );
-  }
+      );
 }
 
 /// "+": forms for those who would rather not speak or type a sentence.

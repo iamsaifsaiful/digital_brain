@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
+import '../logic/calendar_bd.dart';
 import '../logic/csv.dart';
 import '../services/crypto.dart';
 import '../services/data_store.dart';
@@ -16,7 +17,7 @@ import 'alarm_screens.dart';
 import 'help_screen.dart';
 import 'sound_screen.dart';
 
-const appVersion = '2.6.1';
+const appVersion = '2.7.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -68,6 +69,42 @@ class _MoreScreenState extends State<MoreScreen> {
       'text/csv',
       'লেনদেনের হিসাব',
     );
+  }
+
+  Future<void> _setName() async {
+    final brain = BrainScope.read(context);
+    final c = TextEditingController(text: brain.userName);
+    final v = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('আপনাকে কী নামে ডাকবো?', style: body(18, weight: FontWeight.w600)),
+        content: TextField(controller: c, autofocus: true, style: body(16), decoration: const InputDecoration(hintText: 'যেমন: সাইফুল ভাই')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('বাদ দিন')),
+          TextButton(onPressed: () => Navigator.pop(ctx, c.text), child: Text('রাখুন', style: body(15, weight: FontWeight.w600, color: C.green))),
+        ],
+      ),
+    );
+    c.dispose();
+    if (v != null) await brain.setUserName(v);
+  }
+
+  Future<void> _setDistrict() async {
+    final brain = BrainScope.read(context);
+    final v = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text('আপনার জেলা/শহর', style: body(18, weight: FontWeight.w600)),
+        children: [
+          for (final p in bdPlaces)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, p.name),
+              child: Text(p.name, style: body(16, weight: p.name == brain.district ? FontWeight.w700 : FontWeight.w400, color: p.name == brain.district ? C.green : C.ink)),
+            ),
+        ],
+      ),
+    );
+    if (v != null) await brain.setDistrict(v);
   }
 
   Future<void> _setAiKey() async {
@@ -330,6 +367,14 @@ class _MoreScreenState extends State<MoreScreen> {
                 sub: brain.alarmSoundTitle.isEmpty ? 'ফোনের অ্যালার্ম টোন' : brain.alarmSoundTitle, onTap: _pickRingtone),
             switchRow(Icons.volume_up_outlined, 'উত্তর কণ্ঠে শোনাও', 'পাসওয়ার্ড কখনো জোরে পড়া হয় না', brain.speakOn, (v) => brain.setSpeakOn(v)),
             linkRow(Icons.record_voice_over_outlined, 'কণ্ঠ বেছে নিন', sub: 'ফোনে থাকা বাংলা কণ্ঠগুলো শুনে দেখুন', onTap: _pickVoice),
+          ]),
+        ),
+        const SizedBox(height: 16),
+        const SectionTitle('আপনি ও জায়গা'),
+        Panel(
+          child: Rows(children: [
+            linkRow(Icons.badge_outlined, 'আপনাকে কী নামে ডাকবো', sub: brain.userName.isEmpty ? 'নাম দিন — হোমে শুভেচ্ছায় দেখাবে' : brain.userName, onTap: _setName),
+            linkRow(Icons.place_outlined, 'আপনার জেলা/শহর', sub: '${brain.district} · সূর্যোদয়, সূর্যাস্ত ও নামাজের সময়', onTap: _setDistrict),
           ]),
         ),
         const SizedBox(height: 16),

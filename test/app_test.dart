@@ -96,22 +96,37 @@ Future<Rig> start(WidgetTester t, {AppData? data, AiRoute? ai}) async {
   await enterPin(t, '1234');
   expect(find.text('PIN টি আবার দিন'), findsOneWidget);
   await enterPin(t, '1234');
-  expect(find.text('আজ কী করে দেব?'), findsOneWidget);
+  expect(find.byTooltip('সহকারী'), findsOneWidget);
   return rig;
 }
 
-/// Opens the left menu and taps [item].
+/// Goes to a page the way a user would: হিসাব from the bottom menu, আমি
+/// from the home's profile button, the rest from সংরক্ষণ.
 Future<void> openMenu(WidgetTester t, String item) async {
-  await t.tap(find.byTooltip('মেনু'));
+  if (item == 'হিসাব') {
+    await t.tap(find.text('হিসাব').last);
+  } else if (item == 'আমি') {
+    await t.tap(find.byTooltip('আমি'));
+  } else {
+    await t.tap(find.text('সংরক্ষণ').last);
+    await settle(t);
+    await t.tap(find.text(item).last);
+  }
   await settle(t);
-  await t.tap(find.text(item).last);
+}
+
+/// The assistant, ready to type.
+Future<void> openTyping(WidgetTester t) async {
+  await t.tap(find.byTooltip('সহকারী'));
+  await settle(t);
+  await t.tap(find.byTooltip('লিখে বলুন'));
   await settle(t);
 }
 
 void main() {
   testWidgets('first run: choose a PIN, then home', (t) async {
     final rig = await start(t);
-    expect(find.byTooltip('কথা বলুন'), findsOneWidget);
+    expect(find.text('সব কিছু এক জায়গায়'), findsOneWidget);
     expect(await rig.services.lock.hasPin(), isTrue);
 
     // Lock and unlock again with a wrong, then the right PIN.
@@ -121,7 +136,7 @@ void main() {
     await enterPin(t, '9999');
     expect(find.textContaining('PIN মেলেনি'), findsOneWidget);
     await enterPin(t, '1234');
-    expect(find.text('আজ কী করে দেব?'), findsOneWidget);
+    expect(find.byTooltip('সহকারী'), findsOneWidget);
   });
 
   testWidgets('save a password, open it, reveal it', (t) async {
@@ -150,7 +165,7 @@ void main() {
 
   /// The mic on the home: the voice view opens and listens.
   Future<void> openChat(WidgetTester t) async {
-    await t.tap(find.byTooltip('কথা বলুন'));
+    await t.tap(find.byTooltip('সহকারী'));
     await settle(t);
     expect(find.text('শুনছি…'), findsOneWidget);
   }
@@ -716,8 +731,9 @@ void main() {
     expect(rig.notifier.soundUri, 'content://media/internal/audio/media/7');
   });
 
-  testWidgets('typed on the home: understood like speech, and a typed password goes to the vault', (t) async {
+  testWidgets('typed to the assistant: understood like speech, and a typed password goes to the vault', (t) async {
     final rig = await start(t);
+    await openTyping(t);
     await t.enterText(find.byType(TextField).first, 'রবিনকে ৫০০০ টাকা ধার দিলাম');
     await t.testTextInput.receiveAction(TextInputAction.send);
     await settle(t);
@@ -738,7 +754,7 @@ void main() {
     expect(rig.ai.asked, isEmpty);
 
     // Kept in "আগের কথা", without the password.
-    await t.tap(find.byTooltip('মেনু'));
+    await t.tap(find.byTooltip('আগের কথা'));
     await settle(t);
     expect(find.text('রবিনকে ৫০০০ টাকা ধার দিলাম'), findsWidgets);
     final saved = await rig.services.lock.keys.read('chat_history');
@@ -758,6 +774,7 @@ void main() {
 
   testWidgets('a common question is one tap above the text box', (t) async {
     final rig = await start(t, data: AppData(ledger: [LedgerEntry(person: 'রহিম', kind: LedgerKind.lent, amount: 500, date: DateTime(2026, 10, 5))]));
+    await openTyping(t);
     await t.tap(find.text('আমার মোট পাওনা কত?'));
     await settle(t);
     expect(find.textContaining('৫০০'), findsWidgets);
@@ -773,11 +790,52 @@ void main() {
             {'action': 'reminder_query', 'terms': ['আজ']},
           ],
         });
+    await openTyping(t);
     await t.enterText(find.byType(TextField).first, 'আজ কোন রিমাইন্ডার আছে?');
     await t.testTextInput.receiveAction(TextInputAction.send);
     await settle(t);
     expect(rig.ai.contexts.last.records, contains('বাজার'));
     expect(find.textContaining('• সন্ধ্যা ৬টা ২০ — বাজার'), findsOneWidget);
     expect(find.textContaining('তারিখ তো লেখা নেই'), findsNothing);
+  });
+
+  testWidgets('home shows both dates, sun times and the next holiday; the calendar opens', (t) async {
+    await start(t);
+    expect(find.text('২৪ আশ্বিন ১৪৩৩'), findsOneWidget);
+    expect(find.textContaining('সূর্যোদয়'), findsOneWidget);
+    expect(find.textContaining('দুর্গাপূজা'), findsOneWidget);
+    await t.scrollUntilVisible(find.text('বাংলা তারিখ'), 300, scrollable: find.byType(Scrollable).first);
+    await t.ensureVisible(find.text('বাংলা তারিখ'));
+    await settle(t);
+    await t.tap(find.text('বাংলা তারিখ'));
+    await settle(t);
+    expect(find.text('বাংলা তারিখ ও ছুটি'), findsOneWidget);
+    await t.scrollUntilVisible(find.text('মহান বিজয় দিবস'), 300, scrollable: find.byType(Scrollable).first);
+    expect(find.text('মহান বিজয় দিবস'), findsOneWidget);
+  });
+
+  testWidgets('search finds a contact and a note together', (t) async {
+    await start(t,
+        data: AppData(
+          contacts: [Contact(name: 'রহিম', phone: '01712345678')],
+          notes: [Note(title: 'রহিম ভবনের নকশা', body: 'রহিম ভবনের নকশা আলমারিতে', category: 'বাসা')],
+        ));
+    await t.tap(find.text('যেকোনো কিছু খুঁজুন…'));
+    await settle(t);
+    await t.enterText(find.byType(TextField).first, 'রহিম');
+    await settle(t);
+    expect(find.textContaining('যোগাযোগ ·'), findsOneWidget);
+    expect(find.textContaining('নোট ·'), findsOneWidget);
+  });
+
+  testWidgets('দিনলিপি shows today with the Bangla date, and the week', (t) async {
+    await start(t, data: AppData(reminders: [Reminder(title: 'ওষুধ', date: DateTime(2026, 10, 9), hour: 20)]));
+    await t.tap(find.text('দিনলিপি').last);
+    await settle(t);
+    expect(find.textContaining('২৪ আশ্বিন'), findsWidgets);
+    expect(find.text('ওষুধ'), findsWidgets);
+    await t.tap(find.text('সাপ্তাহিক'));
+    await settle(t);
+    expect(find.textContaining('শনিবার'), findsWidgets);
   });
 }
