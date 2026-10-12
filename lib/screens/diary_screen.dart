@@ -13,11 +13,13 @@ enum DiaryView { day, week, month }
 
 /// Does [r] ring on [day]?
 bool remindsOn(Reminder r, DateTime day) {
+  if (!r.enabled) return false;
   final start = dayOnly(r.date);
   final d = dayOnly(day);
   if (d.isBefore(start)) return false;
   return switch (r.repeat) {
     Repeat.none => d == start,
+    Repeat.weekly => r.ringDays.contains(d.weekday),
     Repeat.monthly => d.day == start.day,
     Repeat.yearly => d.month == start.month && d.day == start.day,
     _ => true, // daily and the short repeats

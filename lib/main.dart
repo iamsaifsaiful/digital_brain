@@ -19,7 +19,7 @@ Future<void> main() async {
 
   final keys = SecureKeyVault();
   final services = Services(
-    store: DataStore(keys: keys, blob: FileBlobStore()),
+    store: DataStore(keys: keys, blob: FileBlobStore(), docFiles: FileDocFiles()),
     lock: LockService(keys: keys, biometrics: DeviceBiometrics()),
     voice: DeviceVoice(),
     notifier: NotificationService(),

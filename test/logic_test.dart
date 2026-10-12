@@ -954,4 +954,42 @@ void main() {
       expect(voiceErrorMessage('anything'), contains('আবার চেষ্টা'));
     });
   });
+
+  group('alarms and documents', () {
+    final now = DateTime(2026, 10, 13, 18, 0); // Tuesday
+
+    test('a weekly alarm rings on its days; a switched-off one does not ring', () {
+      final r = Reminder(title: 'অফিস', date: DateTime(2026, 10, 13), hour: 7, repeat: Repeat.weekly, alarm: true,
+          weekdays: const [DateTime.saturday, DateTime.sunday, DateTime.monday, DateTime.tuesday, DateTime.wednesday, DateTime.thursday]);
+      expect(r.notifyAt(now), DateTime(2026, 10, 14, 7, 0)); // Wednesday morning
+      final fri = Reminder(title: 'জুমা', date: DateTime(2026, 10, 13), hour: 12, repeat: Repeat.weekly, weekdays: const [DateTime.friday]);
+      expect(fri.notifyAt(now), DateTime(2026, 10, 16, 12, 0));
+      final notices = plannedNotices([r, fri, r.copyWith(enabled: false)], now);
+      expect(notices.where((n) => n.reminderId == r.id), hasLength(6));
+      expect(notices.every((n) => n.repeat == NoticeRepeat.weekly), isTrue);
+      expect(notices.every((n) => n.at.isAfter(now)), isTrue);
+      final back = Reminder.fromJson(r.copyWith(enabled: false).toJson());
+      expect(back.enabled, isFalse);
+      expect(back.alarm, isTrue);
+      expect(back.weekdays, hasLength(6));
+    });
+
+    test('"প্রতি শুক্রবার সকাল ৯টায় বাজারের অ্যালার্ম দাও" is a weekly alarm', () {
+      final c = Parser(ledger: const [], now: now).parse('প্রতি শুক্রবার সকাল ৯টায় বাজারের অ্যালার্ম দাও') as ReminderAdd;
+      expect(c.repeat, Repeat.weekly);
+      expect(c.weekdays, [DateTime.friday]);
+      expect(c.alarm, isTrue);
+      expect(c.at, DateTime(2026, 10, 16, 9, 0));
+    });
+
+    test('documents survive saving', () {
+      final d = AppData(docs: [
+        Doc(title: 'পাসপোর্ট', folder: 'পাসপোর্ট', files: [DocFile(name: 'p1.jpg', mime: 'image/jpeg', size: 1200)], fields: const [DocField('নম্বর', 'A123')], expiry: DateTime(2030, 1, 5)),
+      ]);
+      final back = AppData.fromJson(d.toJson()).docs.single;
+      expect(back.files.single.isImage, isTrue);
+      expect(back.fields.single.value, 'A123');
+      expect(back.expiry, DateTime(2030, 1, 5));
+    });
+  });
 }

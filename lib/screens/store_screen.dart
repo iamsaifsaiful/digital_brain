@@ -4,6 +4,7 @@ import '../logic/bn.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import 'calls_screen.dart';
+import 'docs_screen.dart';
 import 'home_shell.dart';
 import 'library_screen.dart';
 import 'new_item_screen.dart';
@@ -75,11 +76,28 @@ class StoreScreen extends StatelessWidget {
           childAspectRatio: 1.35,
           children: [
             tile('নোট', '${bnDigits(d.notes.length)}টি', Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, () => push(const NotesScreen())),
+            tile('ডকুমেন্টস', '${bnDigits(d.docs.length)}টি · তালাবদ্ধ', Icons.folder_copy_outlined, C.blue, C.blueTint, () => push(const DocsScreen())),
             tile('পাসওয়ার্ড', '${bnDigits(d.vault.length)}টি · তালাবদ্ধ', Icons.lock_outline_rounded, C.ink, const Color(0xFFF1F2F4), () => push(const VaultPage())),
             tile('যোগাযোগ', '${bnDigits(d.contacts.length)} জন', Icons.call_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
-            tile('সব তথ্য ও বিভাগ', '${bnDigits(d.noteCategories.length)}টি বিভাগ', Icons.folder_open_outlined, C.blue, C.blueTint,
-                () => push(const MenuPage(child: LibraryScreen()))),
           ],
+        ),
+        const SizedBox(height: 10),
+        Material(
+          color: C.surface,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => push(const MenuPage(child: LibraryScreen())),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+              child: Row(children: [
+                const Icon(Icons.folder_open_outlined, color: C.muted2),
+                const SizedBox(width: 12),
+                Expanded(child: Text('সব তথ্য ও নিজের বিভাগ · ${bnDigits(d.noteCategories.length)}টি', style: body(15, weight: FontWeight.w500))),
+                const Icon(Icons.chevron_right_rounded, color: C.muted),
+              ]),
+            ),
+          ),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
@@ -126,10 +144,6 @@ class StoreScreen extends StatelessWidget {
                     ),
                   ],
                 ]),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 14, 4, 0),
-          child: Text('ডকুমেন্টস (ছবি ও ফাইল) পরের আপডেটে আসছে।', style: body(12.5, color: C.muted)),
         ),
       ],
     );

@@ -13,7 +13,7 @@ import '../logic/bn.dart';
 import '../models/models.dart';
 
 /// How a planned notice repeats on its own, without the app being opened.
-enum NoticeRepeat { none, daily, monthly, yearly }
+enum NoticeRepeat { none, daily, weekly, monthly, yearly }
 
 class PlannedNotice {
   const PlannedNotice({
@@ -100,6 +100,7 @@ int snoozeId(String reminderId) => stableId('snooze:$reminderId');
 List<PlannedNotice> plannedNotices(List<Reminder> reminders, DateTime now) {
   final out = <PlannedNotice>[];
   for (final r in reminders) {
+    if (!r.enabled) continue;
     final note = r.note.trim();
     String bodyFor(String when) => note.isEmpty ? when : '$when · $note';
     if (r.repeat.isInterval) {
@@ -111,6 +112,26 @@ List<PlannedNotice> plannedNotices(List<Reminder> reminders, DateTime now) {
         reminderId: r.id,
         every: Duration(minutes: r.repeat.minutes),
       ));
+      continue;
+    }
+    if (r.repeat == Repeat.weekly) {
+      // One repeating notice per weekday it rings on.
+      for (final wd in r.ringDays) {
+        final today = DateTime(now.year, now.month, now.day);
+        var at = DateTime(today.year, today.month, today.day, r.hour, r.minute).add(Duration(days: (wd - today.weekday) % 7));
+        final start = DateTime(r.date.year, r.date.month, r.date.day);
+        while (!at.isAfter(now) || DateTime(at.year, at.month, at.day).isBefore(start)) {
+          at = at.add(const Duration(days: 7));
+        }
+        out.add(PlannedNotice(
+          id: stableId('rem:${r.id}:w$wd'),
+          at: at,
+          title: r.title,
+          body: bodyFor('${bnWeekdays[wd - 1]} · ${bnTime(r.hour, r.minute)}'),
+          reminderId: r.id,
+          repeat: NoticeRepeat.weekly,
+        ));
+      }
       continue;
     }
     final at = r.notifyAt(now);
@@ -552,6 +573,7 @@ class NotificationService implements Notifier {
           matchDateTimeComponents: switch (n.repeat) {
             NoticeRepeat.none => null,
             NoticeRepeat.daily => DateTimeComponents.time,
+            NoticeRepeat.weekly => DateTimeComponents.dayOfWeekAndTime,
             NoticeRepeat.monthly => DateTimeComponents.dayOfMonthAndTime,
             NoticeRepeat.yearly => DateTimeComponents.dateAndTime,
           },

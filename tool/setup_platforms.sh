@@ -43,18 +43,21 @@ fi
 if ! grep -q 'myAssistantKeys' "$GRADLE_KTS"; then
   cat >> "$GRADLE_KTS" <<'KTS'
 
-val myAssistantKeys = java.util.Properties().apply {
-    val f = rootProject.file("key.properties")
-    if (f.exists()) f.inputStream().use { load(it) }
+val myAssistantKeys: Map<String, String> = rootProject.file("key.properties").let { f ->
+    if (f.exists()) {
+        f.readLines().filter { it.contains("=") }.associate { it.substringBefore("=").trim() to it.substringAfter("=").trim() }
+    } else {
+        emptyMap()
+    }
 }
-if (myAssistantKeys.getProperty("storeFile") != null) {
+if (myAssistantKeys["storeFile"] != null) {
     android {
         signingConfigs {
             create("release") {
-                storeFile = file(myAssistantKeys.getProperty("storeFile"))
-                storePassword = myAssistantKeys.getProperty("storePassword")
-                keyAlias = myAssistantKeys.getProperty("keyAlias")
-                keyPassword = myAssistantKeys.getProperty("keyPassword")
+                storeFile = file(myAssistantKeys.getValue("storeFile"))
+                storePassword = myAssistantKeys["storePassword"]
+                keyAlias = myAssistantKeys["keyAlias"]
+                keyPassword = myAssistantKeys["keyPassword"]
             }
         }
         buildTypes {

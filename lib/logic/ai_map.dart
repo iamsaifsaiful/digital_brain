@@ -125,7 +125,7 @@ Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> le
         final later = at.add(const Duration(hours: 12));
         at = at.hour < 12 && later.isAfter(now) && later.day == at.day ? later : at.add(const Duration(days: 1));
       }
-      return ReminderAdd(said, title: title, at: at, repeat: repeat);
+      return ReminderAdd(said, title: title, at: at, repeat: repeat, alarm: r['alarm'] == true, weekdays: repeat == Repeat.weekly ? [at.weekday] : const []);
     case 'contact_add':
       final phone = findPhone(_str(r['phone'])) ?? findPhone(said);
       if (phone == null) return null;

@@ -6,7 +6,9 @@ import '../logic/cash.dart';
 import '../logic/ledger.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
+import 'alarm_list_screen.dart';
 import 'calendar_screen.dart';
+import 'docs_screen.dart';
 import 'calls_screen.dart';
 import 'home_screen.dart';
 import 'home_shell.dart';
@@ -58,14 +60,18 @@ class HomePage extends StatelessWidget {
         );
 
     final shortcuts = <(String, IconData, Color, Color, VoidCallback)>[
+      ('অ্যালার্ম', Icons.alarm_rounded, C.orange, C.orangeTint, () => push(const AlarmsScreen())),
       ('রিমাইন্ডার', Icons.notifications_none_rounded, C.orange, C.orangeTint, () => push(const AllTasksScreen())),
       ('কাজের তালিকা', Icons.checklist_rounded, C.green, C.greenTint, () => goToTab(context, ShellTab.diary)),
       ('আয়-ব্যয়', Icons.account_balance_wallet_outlined, C.green, C.greenTint, () => goToTab(context, ShellTab.money, money: MoneyPart.cash)),
       ('লেনদেন', Icons.swap_horiz_rounded, const Color(0xFF0F766E), const Color(0xFFE6F6F4), () => goToTab(context, ShellTab.money, money: MoneyPart.loans)),
       ('নোট', Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, () => push(const NotesScreen())),
+      ('ডকুমেন্টস', Icons.folder_copy_outlined, C.blue, C.blueTint, () => push(const DocsScreen())),
       ('পাসওয়ার্ড', Icons.lock_outline_rounded, C.ink, const Color(0xFFF1F2F4), () => push(const VaultPage())),
       ('যোগাযোগ', Icons.call_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
       ('বাংলা তারিখ', Icons.eco_outlined, const Color(0xFF0F766E), const Color(0xFFE6F6F4), () => push(const CalendarScreen())),
+      ('ছুটির দিন', Icons.flag_outlined, const Color(0xFFBE123C), const Color(0xFFFFF1F2), () => push(const CalendarScreen())),
+      ('খুঁজুন', Icons.search_rounded, C.ink, const Color(0xFFF1F2F4), () => push(const SearchScreen())),
     ];
 
     return ListView(

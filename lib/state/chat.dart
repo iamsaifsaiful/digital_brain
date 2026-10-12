@@ -163,6 +163,8 @@ class ChatController extends ChangeNotifier {
   DateTime? _pendingDay;
   DateTime? _pendingAt;
   Repeat _pendingRepeat = Repeat.none;
+  bool _pendingAlarm = false;
+  List<int> _pendingDays = const [];
 
   /// The last request that did not lead to anything to save (an answer, or
   /// "didn't understand"), so a short follow-up like "আজ" or "সন্ধ্যায়"
@@ -650,6 +652,8 @@ class ChatController extends ChangeNotifier {
       case ReminderAdd():
         _pendingTitle = c.title;
         _pendingRepeat = c.repeat;
+        _pendingAlarm = c.alarm;
+        _pendingDays = c.weekdays;
         if (c.needsTime) {
           _pendingDay = null;
           final what = c.needsTitle ? '' : '“${c.title}” — ';
@@ -1071,7 +1075,7 @@ class ChatController extends ChangeNotifier {
         }
         _pendingDay = null;
         wait = ChatWait.none;
-        await _start(ReminderAdd(t, title: _pendingTitle, at: at, repeat: _pendingRepeat), out);
+        await _start(ReminderAdd(t, title: _pendingTitle, at: at, repeat: _pendingRepeat, alarm: _pendingAlarm, weekdays: _pendingDays), out);
         return true;
       case ChatWait.reminderTitle:
         final at = _pendingAt;
@@ -1085,7 +1089,7 @@ class ChatController extends ChangeNotifier {
         _pendingAt = null;
         wait = ChatWait.none;
         choices = const [];
-        await _start(ReminderAdd(t, title: title, at: at, repeat: _pendingRepeat), out);
+        await _start(ReminderAdd(t, title: title, at: at, repeat: _pendingRepeat, alarm: _pendingAlarm, weekdays: _pendingDays), out);
         return true;
       case ChatWait.callee:
         if (_calleeChoices.isNotEmpty) {
@@ -1229,6 +1233,8 @@ class ChatController extends ChangeNotifier {
           minute: c.at.minute,
           daysBefore: 0,
           repeat: c.repeat,
+          alarm: c.alarm,
+          weekdays: c.weekdays,
         ));
         _say(out, quiet ? 'মনে করাব: ${c.title}' : (c.repeat.isInterval || c.repeat == Repeat.daily ? 'ঠিক আছে, ${c.repeat.label} মনে করিয়ে দেব।' : 'ঠিক আছে, ${sayWhen(c.at, _now)}-এ মনে করিয়ে দেব।'),
             links: const [ChatLink(LinkKind.reminders, 'রিমাইন্ডার দেখুন')], speak: !quiet);

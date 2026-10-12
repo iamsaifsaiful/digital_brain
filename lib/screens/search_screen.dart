@@ -9,6 +9,7 @@ import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/pin.dart';
 import '../ui/theme.dart';
+import 'docs_screen.dart';
 import 'home_shell.dart';
 import 'new_item_screen.dart';
 import 'person_screen.dart';
@@ -89,7 +90,11 @@ class _SearchScreenState extends State<SearchScreen> {
     final reminders = [for (final h in hits) if (h is ReminderHit) h.reminder];
     final notes = [for (final h in hits) if (h is NoteHit) h.note];
     final vault = [for (final h in hits) if (h is VaultHit) h.item];
-    final total = contacts.length + people.length + reminders.length + notes.length + vault.length + tasks.length;
+    final nq = normalize(q);
+    final docs = q.isEmpty
+        ? const <Doc>[]
+        : d.docs.where((x) => normalize('${x.title} ${x.folder} ${x.fields.map((f) => '${f.label} ${f.value}').join(' ')}').contains(nq)).toList();
+    final total = contacts.length + people.length + reminders.length + notes.length + vault.length + tasks.length + docs.length;
 
     return Scaffold(
       body: SafeArea(
@@ -195,6 +200,14 @@ class _SearchScreenState extends State<SearchScreen> {
                     _group('নোট · ${bnDigits(notes.length)}', [
                       for (final n in notes.take(8))
                         _row(Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, n.title, '${n.category} · ${n.body.replaceAll('\n', ' ')}', () => _push(NewItemScreen(note: n))),
+                    ]),
+                  if (docs.isNotEmpty)
+                    _group('ডকুমেন্টস · ${bnDigits(docs.length)}', [
+                      for (final x in docs.take(6))
+                        _row(Icons.folder_copy_outlined, C.blue, C.blueTint, x.title, '${x.folder} · ${bnDigits(x.files.length)} পাতা', () async {
+                          final ok = await verifyUser(context, reason: '${x.title} — দেখতে যাচাই করুন');
+                          if (ok && context.mounted) _push(DocScreen(id: x.id, unlocked: true));
+                        }),
                     ]),
                   if (vault.isNotEmpty)
                     _group('পাসওয়ার্ড · ${bnDigits(vault.length)}', [

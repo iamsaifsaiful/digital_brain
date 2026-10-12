@@ -113,10 +113,16 @@ class TaskQuery extends Command {
 
 /// "কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও".
 class ReminderAdd extends Command {
-  const ReminderAdd(super.transcript, {required this.title, required this.at, this.repeat = Repeat.none});
+  const ReminderAdd(super.transcript, {required this.title, required this.at, this.repeat = Repeat.none, this.alarm = false, this.weekdays = const []});
   final String title;
   final DateTime at;
   final Repeat repeat;
+
+  /// "অ্যালার্ম দাও": shown on the অ্যালার্ম page.
+  final bool alarm;
+
+  /// For a weekly one: the days (DateTime.monday … sunday).
+  final List<int> weekdays;
 
   /// No time was said yet ("ওষুধের রিমাইন্ডার দিও"): the chat asks when.
   bool get needsTime => at.year <= 2000;
@@ -863,6 +869,19 @@ class Parser {
     return null;
   }
 
+  /// "প্রতি শুক্রবার", "প্রতি সপ্তাহে রবি আর বুধবার": the weekdays of a
+  /// weekly repeat (empty when it is not weekly).
+  List<int> _weeklyDays(String text) {
+    final weekly = text.contains(normalize('প্রতি সপ্তাহে')) || text.contains(normalize('সপ্তাহে সপ্তাহে')) || text.contains(normalize('প্রত্যেক'));
+    final days = <int>[];
+    for (var k = 0; k < 7; k++) {
+      final stem = normalize(bnWeekdays[k].replaceAll('বার', ''));
+      final every = text.contains('${normalize('প্রতি')} $stem') || text.contains('${normalize('প্রত্যেক')} $stem');
+      if ((weekly || every) && text.contains(stem)) days.add(k + 1);
+    }
+    return days;
+  }
+
   bool _contactList(String text) {
     if (findPhone(text) != null) return false;
     final numbers = _hasNorm(text, ['নম্বর', 'নাম্বার', 'কন্টাক্ট', 'contact', 'যোগাযোগ', 'number']);
@@ -894,6 +913,7 @@ class Parser {
     // "কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও", "৩০ মিনিট পরে চা খাওয়ার কথা বলো".
     if (!asking && _hasNorm(text, _remindKeys)) {
       final every = everyMinutes(text);
+      final weekDays = _weeklyDays(text);
       final daily = _hasNorm(text, const ['প্রতিদিন', 'প্রতি দিন', 'রোজ', 'প্রত্যেকদিন', 'প্রত্যেক দিন', 'দৈনিক', 'daily', 'every day']);
       final when = parseWhen(said, now);
       Repeat repeat = Repeat.none;
@@ -909,6 +929,16 @@ class Parser {
         repeat = Repeat.daily;
         at ??= DateTime(now.year, now.month, now.day, 9);
         if (!at.isAfter(now)) at = at.add(const Duration(days: 1));
+      } else if (weekDays.isNotEmpty) {
+        // "প্রতি শুক্রবার সকাল ৯টায়", "প্রতি সপ্তাহে রবি আর বুধবার"
+        repeat = Repeat.weekly;
+        if (at != null) {
+          var d = DateTime(now.year, now.month, now.day, at.hour, at.minute);
+          for (var i = 0; i < 8 && !(weekDays.contains(d.weekday) && d.isAfter(now)); i++) {
+            d = d.add(const Duration(days: 1));
+          }
+          at = d;
+        }
       } else if (_hasNorm(text, const ['প্রতি মাসে', 'প্রতিমাসে', 'মাসে মাসে', 'প্রতি মাসের', 'every month'])) {
         repeat = Repeat.monthly;
       } else if (_hasNorm(text, const ['প্রতি বছর', 'প্রতিবছর', 'বছরে বছরে', 'প্রতি বছরের', 'every year'])) {
@@ -923,9 +953,11 @@ class Parser {
           'রোজ', 'প্রত্যেকদিন', 'দৈনিক', 'প্রতি ঘণ্টায়', 'প্রতি ঘন্টায়', 'ঘণ্টায় ঘণ্টায়', 'ঘন্টায় ঘন্টায়', 'পর পর', 'পরপর', 'অন্তর', 'প্রতি',
         ]));
         if (title.startsWith('পর ')) title = title.substring(3).trim();
+        title = tidy(cutWords(title, [for (final d in bnWeekdays) ...[d, '$dে', '${d}ের'], 'সপ্তাহে', 'সপ্তাহে সপ্তাহে', 'প্রত্যেক', 'অ্যালার্ম', 'এলার্ম']));
         if (title.isEmpty) title = defaultReminderTitle;
         // No time yet: the chat asks "কখন মনে করাব?".
-        return ReminderAdd(said, title: title, at: at ?? noTimeYet, repeat: repeat);
+        final alarmWord = _hasNorm(text, const ['অ্যালার্ম', 'এলার্ম', 'alarm']);
+        return ReminderAdd(said, title: title, at: at ?? noTimeYet, repeat: repeat, alarm: alarmWord, weekdays: repeat == Repeat.weekly ? weekDays : const []);
       }
     }
 

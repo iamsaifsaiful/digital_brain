@@ -226,7 +226,7 @@ Item actions:
 - task_add: something the user has to do ("কাল ব্যাংকে যেতে হবে", "সাপ্লায়ারকে অর্ডার দিতে হবে", "বাজারের লিস্টে ডিম রাখো"). text: the task, short (for a shopping list start with "বাজার: "). date: YYYY-MM-DD if a day was said.
 - task_done: the user finished a to-do ("ব্যাংকের কাজ হয়ে গেছে"). terms: key words of the task.
 - task_query: asks for the to-do list.
-- reminder_add: remind at a time ("কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও", "৩০ মিনিট পরে চা খাওয়ার কথা বলো", "প্রতি মাসের ৫ তারিখে দোকান ভাড়া"). text: what to remind, short. date: YYYY-MM-DD. time: HH:MM 24-hour (Bangladesh time; "৪টায়" with no সকাল means 16:00). repeat: none, every5/every10/every30/hourly ("প্রতি ৫/১০/৩০ মিনিটে", "ঘণ্টায় ঘণ্টায়" — then date/time is the first ring, default now plus the interval), daily, monthly or yearly. Work out relative times from the current time below. A time without a day ("৬.২০-এ রিমাইন্ডার দিও", "৯টায় মনে করিয়ে দিও") is the next time it comes round from now: today if still ahead, using the evening reading when the morning one has passed (6:20 said at 18:05 = 18:20 today). Only a time and no subject: text "". No time at all: leave date and time empty — the app will ask.
+- reminder_add: remind at a time ("কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও", "৩০ মিনিট পরে চা খাওয়ার কথা বলো", "প্রতি মাসের ৫ তারিখে দোকান ভাড়া"). text: what to remind, short. date: YYYY-MM-DD. time: HH:MM 24-hour (Bangladesh time; "৪টায়" with no সকাল means 16:00). repeat: none, weekly (date = the first such weekday), every5/every10/every30/hourly ("প্রতি ৫/১০/৩০ মিনিটে", "ঘণ্টায় ঘণ্টায়" — then date/time is the first ring, default now plus the interval), daily, monthly or yearly. Work out relative times from the current time below. A time without a day ("৬.২০-এ রিমাইন্ডার দিও", "৯টায় মনে করিয়ে দিও") is the next time it comes round from now: today if still ahead, using the evening reading when the morning one has passed (6:20 said at 18:05 = 18:20 today). Only a time and no subject: text "". No time at all: leave date and time empty — the app will ask.
 - contact_add: a phone number to keep. person, phone (as said, digits).
 - call: call or message someone ("রহিমকে ফোন দাও", "করিমকে মেসেজ দাও যে মাল পাঠিয়েছি", "হোয়াটসঅ্যাপে লিখে দাও…"). person, via (call, sms, whatsapp), text: the message to send, written cleanly in the user's words, phone if a number was said.
 - briefing: "আজ আমার কী কী আছে?", "আজকের প্ল্যান" — today's overview.
@@ -292,8 +292,9 @@ const _item = {
     'time': {'type': 'string', 'description': 'HH:MM, 24-hour'},
     'repeat': {
       'type': 'string',
-      'enum': ['none', 'every5', 'every10', 'every30', 'hourly', 'daily', 'monthly', 'yearly'],
+      'enum': ['none', 'every5', 'every10', 'every30', 'hourly', 'daily', 'weekly', 'monthly', 'yearly'],
     },
+    'alarm': {'type': 'boolean', 'description': 'reminder_add: true when the user asked for an alarm (অ্যালার্ম)'},
     'via': {
       'type': 'string',
       'enum': ['call', 'sms', 'whatsapp'],

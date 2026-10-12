@@ -17,7 +17,7 @@ import 'alarm_screens.dart';
 import 'help_screen.dart';
 import 'sound_screen.dart';
 
-const appVersion = '2.7.1';
+const appVersion = '2.8.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {

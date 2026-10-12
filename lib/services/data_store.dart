@@ -50,13 +50,68 @@ class MemoryBlobStore implements BlobStore {
   Future<void> write(Uint8List b) async => bytes = b;
 }
 
+/// Where document pages (photos, PDFs) are kept, each already encrypted.
+abstract class DocFiles {
+  Future<Uint8List?> read(String id);
+  Future<void> write(String id, Uint8List sealed);
+  Future<void> delete(String id);
+}
+
+class FileDocFiles implements DocFiles {
+  Future<File> _f(String id) async {
+    final dir = Directory('${(await getApplicationSupportDirectory()).path}/docs');
+    if (!await dir.exists()) await dir.create(recursive: true);
+    return File('${dir.path}/$id.bin');
+  }
+
+  @override
+  Future<Uint8List?> read(String id) async {
+    final f = await _f(id);
+    return await f.exists() ? await f.readAsBytes() : null;
+  }
+
+  @override
+  Future<void> write(String id, Uint8List sealed) async => (await _f(id)).writeAsBytes(sealed, flush: true);
+
+  @override
+  Future<void> delete(String id) async {
+    final f = await _f(id);
+    if (await f.exists()) await f.delete();
+  }
+}
+
+class MemoryDocFiles implements DocFiles {
+  final files = <String, Uint8List>{};
+  @override
+  Future<Uint8List?> read(String id) async => files[id];
+  @override
+  Future<void> write(String id, Uint8List sealed) async => files[id] = sealed;
+  @override
+  Future<void> delete(String id) async => files.remove(id);
+}
+
 /// Loads and saves everything, encrypted with a random 256-bit key that
 /// only the phone's Keystore/Keychain holds.
 class DataStore {
-  DataStore({required this.keys, required this.blob});
+  DataStore({required this.keys, required this.blob, DocFiles? docFiles}) : docFiles = docFiles ?? MemoryDocFiles();
 
   final KeyVault keys;
   final BlobStore blob;
+  final DocFiles docFiles;
+
+  /// A document page, encrypted with the same key as the rest of the data.
+  Future<void> saveDocFile(String id, List<int> bytes) async {
+    final key = await _key();
+    await docFiles.write(id, await seal(bytes, key));
+  }
+
+  Future<Uint8List?> loadDocFile(String id) async {
+    final sealed = await docFiles.read(id);
+    if (sealed == null) return null;
+    return open(sealed, await _key());
+  }
+
+  Future<void> deleteDocFile(String id) => docFiles.delete(id);
 
   static const _keyName = 'data_key_v1';
   static final _magic = utf8.encode('DBRN1');

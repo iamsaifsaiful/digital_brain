@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart' as fs;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart' as sp;
 
@@ -21,6 +22,41 @@ abstract class FileBridge {
 
   /// Copies [text]; secrets are wiped from the clipboard after [clearAfter].
   Future<void> copy(String text, {Duration? clearAfter});
+
+  /// A photo from the camera or the gallery. With [shrink] the longest side
+  /// is kept within [maxSide] pixels and saved at high JPEG quality, so a
+  /// phone photo of a paper becomes a fraction of its size and stays sharp
+  /// enough to read.
+  Future<PickedDoc?> pickPhoto({required bool camera, bool shrink = true});
+
+  /// Any file (PDF, Word…), kept exactly as it is.
+  Future<PickedDoc?> pickDocument();
+}
+
+/// The longest side of a saved document photo: about 240 dpi for an A4
+/// page — small print stays readable.
+const maxSide = 2000;
+const photoQuality = 88;
+
+class PickedDoc {
+  const PickedDoc(this.bytes, this.name, this.mime);
+  final Uint8List bytes;
+  final String name;
+  final String mime;
+}
+
+String mimeFor(String name) {
+  final n = name.toLowerCase();
+  if (n.endsWith('.jpg') || n.endsWith('.jpeg')) return 'image/jpeg';
+  if (n.endsWith('.png')) return 'image/png';
+  if (n.endsWith('.webp')) return 'image/webp';
+  if (n.endsWith('.heic')) return 'image/heic';
+  if (n.endsWith('.pdf')) return 'application/pdf';
+  if (n.endsWith('.doc')) return 'application/msword';
+  if (n.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  if (n.endsWith('.xls')) return 'application/vnd.ms-excel';
+  if (n.endsWith('.xlsx')) return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  return 'application/octet-stream';
 }
 
 class DeviceFiles implements FileBridge {
@@ -47,6 +83,37 @@ class DeviceFiles implements FileBridge {
       final f = await fs.openFile();
       if (f == null) return null;
       return await f.readAsBytes();
+    } catch (e) {
+      debugPrint('pick failed: $e');
+      return null;
+    }
+  }
+
+  @override
+  Future<PickedDoc?> pickPhoto({required bool camera, bool shrink = true}) async {
+    try {
+      final x = await ImagePicker().pickImage(
+        source: camera ? ImageSource.camera : ImageSource.gallery,
+        maxWidth: shrink ? maxSide.toDouble() : null,
+        maxHeight: shrink ? maxSide.toDouble() : null,
+        imageQuality: shrink ? photoQuality : null,
+        requestFullMetadata: false,
+      );
+      if (x == null) return null;
+      final name = x.name.isEmpty ? 'photo.jpg' : x.name;
+      return PickedDoc(await x.readAsBytes(), name, x.mimeType ?? mimeFor(name));
+    } catch (e) {
+      debugPrint('photo failed: $e');
+      return null;
+    }
+  }
+
+  @override
+  Future<PickedDoc?> pickDocument() async {
+    try {
+      final f = await fs.openFile();
+      if (f == null) return null;
+      return PickedDoc(await f.readAsBytes(), f.name, f.mimeType ?? mimeFor(f.name));
     } catch (e) {
       debugPrint('pick failed: $e');
       return null;
@@ -91,4 +158,13 @@ class FakeFiles implements FileBridge {
 
   @override
   Future<void> copy(String text, {Duration? clearAfter}) async => copied = text;
+
+  PickedDoc? photo;
+  PickedDoc? document;
+
+  @override
+  Future<PickedDoc?> pickPhoto({required bool camera, bool shrink = true}) async => photo;
+
+  @override
+  Future<PickedDoc?> pickDocument() async => document;
 }

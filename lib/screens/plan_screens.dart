@@ -49,6 +49,7 @@ Plan planOf(AppData d, DateTime now) {
     }
   }
   for (final r in d.reminders) {
+    if (!r.enabled) continue;
     final at = r.notifyAt(now);
     if (r.repeat == Repeat.none && !at.isAfter(now)) {
       // Rang already: today's stay on "আজ" (greyed), older ones are done.

@@ -246,6 +246,7 @@ enum Repeat {
   every30('প্রতি ৩০ মিনিটে', minutes: 30),
   hourly('প্রতি ঘণ্টায়', minutes: 60),
   daily('প্রতিদিন'),
+  weekly('প্রতি সপ্তাহে'),
   monthly('প্রতি মাসে'),
   yearly('প্রতি বছর');
 
@@ -273,10 +274,41 @@ class Reminder {
     this.repeat = Repeat.none,
     this.note = '',
     this.vaultId,
+    this.alarm = false,
+    this.enabled = true,
+    this.weekdays = const [],
   }) : id = id ?? newId();
 
   final String id;
   final String title;
+
+  /// Set as an alarm (shown on the অ্যালার্ম page).
+  final bool alarm;
+
+  /// Switched off: kept, but does not ring.
+  final bool enabled;
+
+  /// For [Repeat.weekly]: the days it rings (DateTime.monday … sunday).
+  /// Empty: the weekday of [date].
+  final List<int> weekdays;
+
+  /// The days a weekly reminder rings.
+  Set<int> get ringDays => weekdays.isEmpty ? {date.weekday} : weekdays.toSet();
+
+  Reminder copyWith({String? title, DateTime? date, int? hour, int? minute, Repeat? repeat, bool? alarm, bool? enabled, List<int>? weekdays, String? note}) => Reminder(
+        id: id,
+        title: title ?? this.title,
+        date: date ?? this.date,
+        hour: hour ?? this.hour,
+        minute: minute ?? this.minute,
+        daysBefore: daysBefore,
+        repeat: repeat ?? this.repeat,
+        note: note ?? this.note,
+        vaultId: vaultId,
+        alarm: alarm ?? this.alarm,
+        enabled: enabled ?? this.enabled,
+        weekdays: weekdays ?? this.weekdays,
+      );
 
   /// The day itself (the due date, renewal date, appointment day…).
   final DateTime date;
@@ -307,6 +339,16 @@ class Reminder {
       final at = DateTime(today.year, today.month, today.day, hour, minute);
       return at.isBefore(now) ? today.add(const Duration(days: 1)) : today;
     }
+    if (repeat == Repeat.weekly) {
+      final from = start.isAfter(today) ? start : today;
+      for (var i = 0; i < 8; i++) {
+        final c = from.add(Duration(days: i));
+        if (!ringDays.contains(c.weekday)) continue;
+        if (c == today && DateTime(c.year, c.month, c.day, hour, minute).isBefore(now)) continue;
+        return c;
+      }
+      return from;
+    }
     // Count from the original date each time, so the 31st stays the 31st
     // (or the month's last day) instead of drifting after February.
     final step = repeat == Repeat.monthly ? 1 : 12;
@@ -330,7 +372,7 @@ class Reminder {
     }
     final d = nextDate(now);
     final at = DateTime(d.year, d.month, d.day, hour, minute);
-    if (at.isAfter(now) || repeat == Repeat.none || repeat == Repeat.daily) return at;
+    if (at.isAfter(now) || repeat == Repeat.none || repeat == Repeat.daily || repeat == Repeat.weekly) return at;
     // Today's monthly/yearly time has passed: the following one.
     final step = repeat == Repeat.monthly ? 1 : 12;
     final start = DateTime(date.year, date.month, date.day);
@@ -345,7 +387,7 @@ class Reminder {
   /// The early notice ("২ দিন আগে মনে করাও") before the next ring, if one
   /// is set and still ahead.
   DateTime? earlyAt(DateTime now) {
-    if (daysBefore <= 0 || repeat.isInterval || repeat == Repeat.daily) return null;
+    if (daysBefore <= 0 || repeat.isInterval || repeat == Repeat.daily || repeat == Repeat.weekly) return null;
     final main = notifyAt(now);
     final e = DateTime(main.year, main.month, main.day - daysBefore, hour, minute);
     return e.isAfter(now) ? e : null;
@@ -364,6 +406,9 @@ class Reminder {
         'repeat': repeat.name,
         'note': note,
         'vaultId': vaultId,
+        if (alarm) 'alarm': true,
+        if (!enabled) 'enabled': false,
+        if (weekdays.isNotEmpty) 'weekdays': weekdays,
       };
 
   factory Reminder.fromJson(Map<String, Object?> j) => Reminder(
@@ -376,6 +421,9 @@ class Reminder {
         repeat: Repeat.parse(j['repeat']),
         note: (j['note'] as String?) ?? '',
         vaultId: j['vaultId'] as String?,
+        alarm: j['alarm'] == true,
+        enabled: j['enabled'] != false,
+        weekdays: [for (final x in (j['weekdays'] as List? ?? const [])) if (x is num) x.toInt()],
       );
 }
 
@@ -506,6 +554,106 @@ class Task {
       );
 }
 
+// ───────────────────────── Documents ─────────────────────────
+
+/// One page or file of a document (a photo, a PDF…). The bytes are kept
+/// encrypted in their own file on the phone (see `DocFiles`).
+class DocFile {
+  DocFile({String? id, required this.name, required this.mime, required this.size}) : id = id ?? newId();
+  final String id;
+  final String name;
+  final String mime;
+
+  /// Bytes as kept (after shrinking a photo).
+  final int size;
+  bool get isImage => mime.startsWith('image/');
+
+  Map<String, Object?> toJson() => {'id': id, 'name': name, 'mime': mime, 'size': size};
+  factory DocFile.fromJson(Map<String, Object?> j) =>
+      DocFile(id: j['id'] as String?, name: (j['name'] as String?) ?? '', mime: (j['mime'] as String?) ?? 'application/octet-stream', size: (j['size'] as num?)?.toInt() ?? 0);
+}
+
+/// A field the user adds to a document ("NID নম্বর", "মেয়াদ").
+class DocField {
+  const DocField(this.label, this.value);
+  final String label;
+  final String value;
+  Map<String, Object?> toJson() => {'l': label, 'v': value};
+  factory DocField.fromJson(Map<String, Object?> j) => DocField((j['l'] as String?) ?? '', (j['v'] as String?) ?? '');
+}
+
+/// জাতীয় পরিচয়পত্র, পাসপোর্ট, জমির কাগজ, রসিদ…: photos/files plus notes.
+class Doc {
+  Doc({
+    String? id,
+    required this.title,
+    this.folder = 'অন্যান্য',
+    this.files = const [],
+    this.fields = const [],
+    this.expiry,
+    this.reminderId,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  })  : id = id ?? newId(),
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
+
+  final String id;
+  final String title;
+  final String folder;
+  final List<DocFile> files;
+  final List<DocField> fields;
+
+  /// When it runs out (passport, licence…), if known.
+  final DateTime? expiry;
+
+  /// The reminder made for [expiry].
+  final String? reminderId;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  int get size => files.fold(0, (a, f) => a + f.size);
+
+  Doc copyWith({String? title, String? folder, List<DocFile>? files, List<DocField>? fields, DateTime? expiry, bool clearExpiry = false, String? reminderId, bool clearReminder = false}) => Doc(
+        id: id,
+        title: title ?? this.title,
+        folder: folder ?? this.folder,
+        files: files ?? this.files,
+        fields: fields ?? this.fields,
+        expiry: clearExpiry ? null : (expiry ?? this.expiry),
+        reminderId: clearReminder ? null : (reminderId ?? this.reminderId),
+        createdAt: createdAt,
+        updatedAt: DateTime.now(),
+      );
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'title': title,
+        'folder': folder,
+        'files': [for (final f in files) f.toJson()],
+        'fields': [for (final f in fields) f.toJson()],
+        'expiry': expiry?.toIso8601String(),
+        'reminderId': reminderId,
+        'createdAt': createdAt.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
+      };
+
+  factory Doc.fromJson(Map<String, Object?> j) => Doc(
+        id: j['id'] as String?,
+        title: (j['title'] as String?) ?? '',
+        folder: (j['folder'] as String?) ?? 'অন্যান্য',
+        files: [for (final f in (j['files'] as List? ?? const [])) if (f is Map) DocFile.fromJson(f.cast<String, Object?>())],
+        fields: [for (final f in (j['fields'] as List? ?? const [])) if (f is Map) DocField.fromJson(f.cast<String, Object?>())],
+        expiry: _date(j['expiry']),
+        reminderId: j['reminderId'] as String?,
+        createdAt: _date(j['createdAt']),
+        updatedAt: _date(j['updatedAt']),
+      );
+}
+
+/// The folders offered from the start (the user can make more).
+const docFolders = ['জাতীয় পরিচয়পত্র', 'পাসপোর্ট', 'জমি ও বাড়ির কাগজ', 'বিল ও রসিদ', 'সার্টিফিকেট', 'চিকিৎসা', 'গাড়ি ও লাইসেন্স', 'অন্যান্য'];
+
 class AppData {
   AppData({
     List<LedgerEntry>? ledger,
@@ -516,7 +664,9 @@ class AppData {
     List<Task>? tasks,
     List<CashEntry>? cash,
     List<Project>? projects,
+    List<Doc>? docs,
   })  : tasks = tasks ?? [],
+        docs = docs ?? [],
         cash = cash ?? [],
         projects = projects ?? [],
         ledger = ledger ?? [],
@@ -533,6 +683,7 @@ class AppData {
   final List<Task> tasks;
   final List<CashEntry> cash;
   final List<Project> projects;
+  final List<Doc> docs;
 
   static const schema = 1;
 
@@ -553,6 +704,7 @@ class AppData {
         'tasks': tasks.map((e) => e.toJson()).toList(),
         'cash': cash.map((e) => e.toJson()).toList(),
         'projects': projects.map((e) => e.toJson()).toList(),
+        'docs': docs.map((e) => e.toJson()).toList(),
       };
 
   factory AppData.fromJson(Map<String, Object?> j) {
@@ -567,6 +719,7 @@ class AppData {
       tasks: list('tasks', Task.fromJson),
       cash: list('cash', CashEntry.fromJson),
       projects: list('projects', Project.fromJson),
+      docs: list('docs', Doc.fromJson),
     );
   }
 }

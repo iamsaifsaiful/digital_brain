@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/widgets.dart';
 
 import '../logic/ai_map.dart';
@@ -211,6 +213,10 @@ class Brain extends ChangeNotifier {
         final text = (n.body.trim().isEmpty ? n.title : n.body).replaceAll('\n', ' ').trim();
         lines.add('- ${n.category}: ${text.length > 160 ? '${text.substring(0, 160)}…' : text}');
       }
+    }
+    if (data.docs.isNotEmpty) {
+      lines.add('Documents kept (photos/files, opened on the phone): '
+          '${data.docs.take(40).map((x) => '${x.title} [${x.folder}]${x.expiry == null ? '' : ' expires ${day(x.expiry!)}'}').join('; ')}');
     }
     lines.add('Contacts saved: ${data.contacts.length} (numbers stay on the phone; the app looks them up).');
     lines.add('Passwords saved: ${data.vault.length} (never shown to you; the app opens them with fingerprint/PIN).');
@@ -453,6 +459,58 @@ class Brain extends ChangeNotifier {
   Future<void> deleteNote(String id) async {
     data.notes.removeWhere((e) => e.id == id);
     await _save();
+  }
+
+  // ── Documents ──
+
+  Future<void> saveDoc(Doc d) async {
+    _upsert(data.docs, d, (x) => x.id);
+    await _save();
+  }
+
+  /// Adds a page (photo or file) to [doc], or makes a new document.
+  Future<Doc> addDocPage(Doc? doc, PickedDoc f, {String folder = 'অন্যান্য', String? title}) async {
+    final file = DocFile(name: f.name, mime: f.mime, size: f.bytes.length);
+    await services.store.saveDocFile(file.id, f.bytes);
+    final base = doc ?? Doc(title: title ?? folder, folder: folder);
+    final d = base.copyWith(files: [...base.files, file]);
+    await saveDoc(d);
+    return d;
+  }
+
+  Future<Doc> removeDocPage(Doc d, DocFile f) async {
+    await services.store.deleteDocFile(f.id);
+    final next = d.copyWith(files: [for (final x in d.files) if (x.id != f.id) x]);
+    await saveDoc(next);
+    return next;
+  }
+
+  Future<Uint8List?> docBytes(DocFile f) => services.store.loadDocFile(f.id);
+
+  Future<void> deleteDoc(Doc d) async {
+    for (final f in d.files) {
+      await services.store.deleteDocFile(f.id);
+    }
+    data.docs.removeWhere((x) => x.id == d.id);
+    if (d.reminderId != null) data.reminders.removeWhere((r) => r.id == d.reminderId);
+    await _save();
+    await _reschedule();
+  }
+
+  /// "মেয়াদ শেষের আগে মনে করাও": a reminder a month before [Doc.expiry]
+  /// (and on the day), or none.
+  Future<Doc> setDocExpiry(Doc d, DateTime? expiry) async {
+    if (d.reminderId != null) data.reminders.removeWhere((r) => r.id == d.reminderId);
+    var next = d.copyWith(expiry: expiry, clearExpiry: expiry == null, clearReminder: true);
+    if (expiry != null) {
+      final r = Reminder(title: '${d.title} — মেয়াদ শেষ', date: expiry, hour: 10, daysBefore: 30);
+      data.reminders.add(r);
+      next = next.copyWith(reminderId: r.id);
+    }
+    _upsert(data.docs, next, (x) => x.id);
+    await _save();
+    await _reschedule();
+    return next;
   }
 
   Future<void> saveReminder(Reminder r) async {

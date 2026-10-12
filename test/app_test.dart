@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:digital_brain/app.dart';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/services/ai.dart';
@@ -860,5 +862,42 @@ void main() {
     await settle(t);
     expect(rig.voice.spoken.last, contains('কত টাকার'));
     expect(rig.brain.data.ledger, hasLength(2));
+  });
+
+  testWidgets('an alarm for office days rings six days a week', (t) async {
+    final rig = await start(t);
+    await t.scrollUntilVisible(find.text('অ্যালার্ম'), 300, scrollable: find.byType(Scrollable).first);
+    await t.ensureVisible(find.text('অ্যালার্ম'));
+    await settle(t);
+    await t.tap(find.text('অ্যালার্ম'));
+    await settle(t);
+    await t.tap(find.byTooltip('নতুন অ্যালার্ম'));
+    await settle(t);
+    await t.tap(find.text('অফিসের দিন'));
+    await settle(t);
+    await t.tap(find.text('অ্যালার্ম রাখুন'));
+    await settle(t);
+    final r = rig.brain.data.reminders.single;
+    expect(r.alarm, isTrue);
+    expect(r.repeat, Repeat.weekly);
+    expect(r.weekdays, hasLength(6));
+    expect(rig.notifier.scheduled, hasLength(6));
+  });
+
+  testWidgets('a document photo is kept encrypted in a folder', (t) async {
+    final rig = await start(t);
+    rig.files.photo = PickedDoc(Uint8List.fromList(List.generate(3000, (i) => i % 251)), 'nid.jpg', 'image/jpeg');
+    await t.tap(find.text('সংরক্ষণ').last);
+    await settle(t);
+    await t.tap(find.text('ডকুমেন্টস'));
+    await settle(t);
+    await t.tap(find.text('গ্যালারি'));
+    await settle(t);
+    await t.tap(find.text('জাতীয় পরিচয়পত্র').last);
+    await settle(t);
+    final d = rig.brain.data.docs.single;
+    expect(d.folder, 'জাতীয় পরিচয়পত্র');
+    expect(d.files.single.size, 3000);
+    expect((await rig.brain.docBytes(d.files.single))!.length, 3000);
   });
 }
