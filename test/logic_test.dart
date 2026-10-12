@@ -461,7 +461,9 @@ void main() {
     test('"মনে রাখো" with money is still a ledger entry', () {
       final c = Parser(ledger: const []).parse('মনে রাখো রহিমকে ৫০০ টাকা দিলাম') as LedgerAdd;
       expect(c.person, 'রহিম');
-      expect(c.kind, LedgerKind.lent);
+      // A plain "দিলাম" is not assumed to be a loan: the app asks.
+      expect(c.kind, isNull);
+      expect(c.options, contains(LedgerKind.lent));
     });
 
     test('a spoken name', () {
@@ -482,7 +484,7 @@ void main() {
     });
 
     test('Bengali written in English letters, and mixed', () {
-      final a = Parser(ledger: const []).parse('Sajib ke 500 taka dilam') as LedgerAdd;
+      final a = Parser(ledger: const []).parse('Sajib ke 500 taka dhar dilam') as LedgerAdd;
       expect(a.person, 'Sajib');
       expect(a.amount, 500);
       expect(a.kind, LedgerKind.lent);
@@ -873,5 +875,81 @@ void main() {
     expect(s.sunset.hour * 60 + s.sunset.minute, inInclusiveRange(17 * 60 + 30, 17 * 60 + 40));
     expect(s.fajr.isBefore(s.sunrise), isTrue);
     expect(s.asr.isAfter(s.dhuhr), isTrue);
+  });
+
+  group('voice examples (Bengali speech)', () {
+    final now = DateTime(2026, 10, 13, 18, 0);
+    final sajib = [
+      LedgerEntry(person: 'সজীব', kind: LedgerKind.lent, amount: 500, date: DateTime(2026, 10, 13)),
+      LedgerEntry(person: 'সজীব', kind: LedgerKind.received, amount: 300, date: DateTime(2026, 10, 13)),
+    ];
+
+    test('amounts said in words and in parts', () {
+      expect(findAmount(normalize('পাঁচশ টাকা')), 500);
+      expect(findAmount(normalize('তিনশ টাকা')), 300);
+      expect(findAmount(normalize('দেড় হাজার টাকা')), 1500);
+      expect(findAmount(normalize('দুই হাজার পাঁচশ টাকা')), 2500);
+      expect(findAmount(normalize('সাড়ে তিন হাজার')), 3500);
+      expect(findAmount(normalize('এক লাখ বিশ হাজার')), 120000);
+      expect(findAmount(normalize('2 হাজার 500 টাকা')), 2500);
+      expect(findAmount(normalize('৫০০ টাকা')), 500);
+      expect(findAmount(normalize('এটা ধার নয়')), isNull);
+    });
+
+    test('“সজীবকে পাঁচশ টাকা ধার দিয়েছি” is a loan of 500', () {
+      final c = Parser(ledger: const [], now: now).parse('সজীবকে পাঁচশ টাকা ধার দিয়েছি।') as LedgerAdd;
+      expect(c.person, 'সজীব');
+      expect(c.amount, 500);
+      expect(c.kind, LedgerKind.lent);
+    });
+
+    test('“সজীব আমাকে তিনশ টাকা ফেরত দিয়েছে” is money received back', () {
+      final c = Parser(ledger: [sajib.first], now: now).parse('সজীব আমাকে তিনশ টাকা ফেরত দিয়েছে।') as LedgerAdd;
+      expect(c.person, 'সজীব');
+      expect(c.amount, 300);
+      expect(c.kind, LedgerKind.received);
+    });
+
+    test('“সজীবের কাছে কত টাকা পাই?” asks, saves nothing, and the answer is 200', () {
+      final q = Parser(ledger: sajib, now: now).parse('সজীবের কাছে কত টাকা পাই?');
+      expect(q, isA<LedgerQuery>());
+      expect(isSave(q), isFalse);
+      expect(answerText(AppData(ledger: sajib), q, now), contains('২০০'));
+    });
+
+    test('“আজ বাজারে দেড় হাজার টাকা খরচ করেছি” is own spending of 1500', () {
+      final c = Parser(ledger: const [], now: now).parse('আজ বাজারে দেড় হাজার টাকা খরচ করেছি।') as CashAdd;
+      expect(c.kind, CashKind.expense);
+      expect(c.amount, 1500);
+    });
+
+    test('“সজীবকে টাকা দিয়েছি” has no amount and no assumed loan', () {
+      final c = Parser(ledger: const [], now: now).parse('সজীবকে টাকা দিয়েছি।') as LedgerAdd;
+      expect(c.amount, 0);
+      expect(c.kind, isNull);
+    });
+
+    test('“কাল সকাল দশটায় মিটিং মনে করিয়ে দিও” is a reminder at 10:00 tomorrow, not money', () {
+      final c = Parser(ledger: const [], now: now).parse('কাল সকাল দশটায় মিটিং মনে করিয়ে দিও।') as ReminderAdd;
+      expect(c.at, DateTime(2026, 10, 14, 10, 0));
+      expect(parseWhen('সাড়ে আটটায় ওষুধ', now)!.at, DateTime(2026, 10, 13, 20, 30));
+    });
+
+    test('“আমার সংরক্ষিত ফোন নম্বর দেখাও” is a look, not a save', () {
+      final c = Parser(ledger: const [], now: now).parse('আমার সংরক্ষিত ফোন নম্বর দেখাও।');
+      expect(c, isA<ContactsQuery>());
+      expect(isSave(c), isFalse);
+      expect(Parser(ledger: const [], now: now).parse('রহিমের নম্বর দেখাও'), isNot(isA<ContactsQuery>()));
+      final d = AppData(contacts: [Contact(name: 'রহিম', phone: '01712345678')]);
+      expect(answerText(d, c, now), contains('১ জনের নম্বর'));
+    });
+
+    test('recogniser errors become plain Bengali advice', () {
+      expect(voiceErrorMessage('error_permission'), contains('Microphone'));
+      expect(voiceErrorMessage('error_network'), contains('ইন্টারনেট'));
+      expect(voiceErrorMessage('error_language_not_supported'), contains('বাংলা'));
+      expect(voiceErrorMessage('error_audio_error'), contains('মাইক্রোফোন'));
+      expect(voiceErrorMessage('anything'), contains('আবার চেষ্টা'));
+    });
   });
 }

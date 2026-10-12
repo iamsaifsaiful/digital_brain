@@ -226,6 +226,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
       case AiReply():
         return _Answer(cmd.text);
       case TaskQuery():
+      case ContactsQuery():
       case CashQuery():
       case Briefing():
         return _Answer(answerText(d, cmd, now) ?? '');

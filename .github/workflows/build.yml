@@ -44,15 +44,30 @@ jobs:
           set -o pipefail
           flutter test --reporter expanded 2>&1 | tee test.log || { bash tool/annotate_failures.sh test.log "Tests failed"; exit 1; }
 
+      - name: Release signing key
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PW: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -n "$KS" ] && [ -n "$KS_PW" ]; then
+            echo "$KS" | base64 -d > android/app/release.jks
+            printf 'storeFile=release.jks\nstorePassword=%s\nkeyAlias=myassistant\nkeyPassword=%s\n' "$KS_PW" "$KS_PW" > android/key.properties
+            echo "Signing with the permanent release key."
+          else
+            echo "::warning::No release key secret: the APK gets a throwaway key and cannot update an older install."
+          fi
+
       - name: Build APK
         run: |
           set -o pipefail
-          flutter build apk --release --split-per-abi 2>&1 | tee build.log || { bash tool/annotate_failures.sh build.log "Build failed"; exit 1; }
+          # One APK for every phone (64-bit, 32-bit and x86), plus a smaller one per CPU type.
+          flutter build apk --release 2>&1 | tee build.log || { bash tool/annotate_failures.sh build.log "Build failed"; exit 1; }
+          flutter build apk --release --split-per-abi 2>&1 | tee -a build.log || { bash tool/annotate_failures.sh build.log "Build failed"; exit 1; }
 
       - uses: actions/upload-artifact@v4
         with:
           name: digital-brain-android
-          path: build/app/outputs/flutter-apk/*-release.apk
+          path: build/app/outputs/flutter-apk/*release.apk
 
       # Every build on main becomes a release, so the newest APK is always at
       # https://github.com/iamsaifsaiful/digital_brain/releases/latest/download/digital-brain.apk
@@ -61,10 +76,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Almost every phone from the last 7 years is arm64; older 32-bit phones use the armv7 file.
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk digital-brain.apk
+          # digital-brain.apk installs on every phone (Android 7.0+): many budget phones
+          # run 32-bit Android even on a 64-bit chip. The arm64 file is smaller.
+          cp build/app/outputs/flutter-apk/app-release.apk digital-brain.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk digital-brain-arm64.apk
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk digital-brain-armv7.apk
           VERSION=$(grep '^version:' pubspec.yaml | sed -E 's/version: *([^+]+).*/\1/')
           TAG="v${VERSION}-build.${{ github.run_number }}"
-          NOTE="My Assistant ${VERSION} (build ${{ github.run_number }}) · commit ${GITHUB_SHA::7}. বেশিরভাগ ফোনে digital-brain.apk; খুব পুরনো ফোনে ইনস্টল না হলে digital-brain-armv7.apk।"
-          gh release create "$TAG" digital-brain.apk digital-brain-armv7.apk --title "My Assistant $VERSION (build ${{ github.run_number }})" --notes "$NOTE" --latest
+          NOTE="My Assistant ${VERSION} (build ${{ github.run_number }}) · commit ${GITHUB_SHA::7}. digital-brain.apk সব ফোনে (Android 7.0+) চলে; digital-brain-arm64.apk ছোট, শুধু ৬৪-বিট ফোনে।"
+          gh release create "$TAG" digital-brain.apk digital-brain-arm64.apk digital-brain-armv7.apk --title "My Assistant $VERSION (build ${{ github.run_number }})" --notes "$NOTE" --latest

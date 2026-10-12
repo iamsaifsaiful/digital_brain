@@ -78,6 +78,19 @@ class DeviceVoice extends Voice {
   bool _restarting = false;
   bool _short = false;
   bool _retried = false;
+
+  /// Which listening turn is current. A restart scheduled by an older turn
+  /// (or by a session that was cancelled) must not start a second session.
+  int _turn = 0;
+
+  /// When the app last finished speaking: the microphone waits a moment so
+  /// it does not hear the end of the app's own voice.
+  DateTime _spokeAt = DateTime(2000);
+
+  /// The recogniser listed a Bengali language (null: it could not say —
+  /// Android 13+ lists only the offline languages).
+  bool? banglaListed;
+  String get localeInUse => _locale ?? '';
   Duration _silence = sentenceSilence;
   DateTime _turnStarted = DateTime.now();
   void Function(String)? _onWords;
@@ -93,7 +106,13 @@ class DeviceVoice extends Voice {
     try {
       _ready = await _stt.initialize(onError: _handleError, onStatus: _handleStatus);
       if (_ready) {
-        final locales = await _stt.locales();
+        // On Android 13+ the plugin asks only for the *offline* languages, and
+        // on some phones that call never answers: never wait more than 3 s.
+        var locales = <LocaleName>[];
+        try {
+          locales = await _stt.locales().timeout(const Duration(seconds: 3));
+        } catch (_) {}
+        banglaListed = locales.isEmpty ? null : locales.any((l) => l.localeId.toLowerCase().startsWith('bn'));
         String? pick(String id) {
           for (final l in locales) {
             if (l.localeId.toLowerCase().replaceAll('-', '_') == id) return l.localeId;
@@ -102,7 +121,9 @@ class DeviceVoice extends Voice {
         }
         _locale = pick('bn_bd') ?? pick('bn_in') ?? pick('bn');
         _locale ??= locales.where((l) => l.localeId.toLowerCase().startsWith('bn')).map((l) => l.localeId).firstOrNull;
-        _locale ??= 'bn_BD';
+        // Not listed (common: the online recogniser supports Bengali but
+        // only offline languages are listed): ask for Bangladesh Bengali.
+        _locale ??= 'bn-BD';
       }
       await _setupTts();
     } catch (e) {
@@ -187,55 +208,55 @@ class DeviceVoice extends Voice {
 
   void _handleError(SpeechRecognitionError e) {
     if (_finished) return;
+    final code = e.errorMsg;
     if (_words.isNotEmpty) {
-      // A pause after some words (error_no_match / speech_timeout on a
-      // restarted session): just let the quiet timer decide.
+      // A pause after some words (no_match / speech_timeout on a restarted
+      // session, or a dropped connection): keep what was heard and let the
+      // quiet timer end the turn.
       _quiet ??= Timer(_silence, _finish);
       return;
     }
     // Nothing said yet: silence is not a failure, the turn just ends empty
-    // (the chat listens again). A busy recogniser gets one more try.
-    if (e.errorMsg == 'error_no_match' || e.errorMsg == 'error_speech_timeout') {
+    // (the chat listens again).
+    if (code == 'error_no_match' || code == 'error_speech_timeout') {
       _finish();
       return;
     }
-    if ((e.errorMsg == 'error_busy' || e.errorMsg == 'error_client' || e.errorMsg == 'error_recognizer_busy') && !_retried) {
+    // A busy recogniser (often the previous session still closing) gets one
+    // more try for this turn.
+    if ((code == 'error_busy' || code == 'error_client') && !_retried) {
       _retried = true;
+      final turn = _turn;
       Future<void>.delayed(const Duration(milliseconds: 600), () async {
-        if (_finished) return;
+        if (_finished || turn != _turn) return;
         try {
           await _stt.cancel();
         } catch (_) {}
-        if (!_finished) await _startSession();
+        if (!_finished && turn == _turn) await _startSession(turn);
       });
       return;
     }
-    final msg = switch (e.errorMsg) {
-      'error_no_match' || 'error_speech_timeout' => 'কিছু শুনতে পাইনি। আবার বলুন।',
-      'error_network' || 'error_network_timeout' || 'error_server' => 'ইন্টারনেট সংযোগ লাগবে। লিখেও যোগ করতে পারেন।',
-      'error_audio' || 'error_insufficient_permissions' => 'মাইক্রোফোন ব্যবহারের অনুমতি দিন।',
-      'error_language_not_supported' || 'error_language_unavailable' => 'ফোনে বাংলা ভয়েস চালু নেই। Google অ্যাপের ভয়েস সেটিং থেকে বাংলা যোগ করুন।',
-      _ => 'শুনতে সমস্যা হয়েছে। আবার চেষ্টা করুন।',
-    };
     _finished = true;
     _quiet?.cancel();
-    _onError?.call(msg);
+    _onError?.call(voiceErrorMessage(code));
   }
 
   /// A session ended. If the user said something and the quiet time has not
   /// passed yet, listen again so a continued sentence is not lost.
   void _handleStatus(String status) {
     if (_finished) return;
-    if (status == 'done' || status == 'notListening') {
+    if (status == 'done' || status == 'doneNoResult' || status == 'notListening') {
       if (_current.isNotEmpty) {
         _committed = _words;
         _current = '';
       }
       if (_words.isNotEmpty && !_restarting && DateTime.now().difference(_turnStarted).inSeconds < 60) {
         _restarting = true;
+        final turn = _turn;
         Future<void>.delayed(const Duration(milliseconds: 120), () async {
+          if (turn != _turn) return;
           _restarting = false;
-          if (!_finished) await _startSession();
+          if (!_finished) await _startSession(turn);
         });
       } else if (_words.isEmpty && !_restarting) {
         // Some phones end a silent session without any error: end the turn
@@ -256,11 +277,13 @@ class DeviceVoice extends Voice {
     _onDone?.call(words);
   }
 
-  Future<void> _startSession() async {
+  Future<void> _startSession(int turn) async {
+    if (turn != _turn || _finished) return;
     try {
       await _stt.listen(
         onResult: (SpeechRecognitionResult r) {
-          if (_finished) return;
+          // Words from an older turn (a late callback) are never mixed in.
+          if (_finished || turn != _turn) return;
           final changed = r.recognizedWords != _current;
           _current = r.recognizedWords;
           if (changed && _words.isNotEmpty) {
@@ -284,11 +307,12 @@ class DeviceVoice extends Voice {
       );
     } catch (e) {
       debugPrint('listen failed: $e');
+      if (turn != _turn) return;
       if (_words.isNotEmpty) {
         _quiet ??= Timer(_silence, _finish);
       } else if (!_finished) {
         _finished = true;
-        _onError?.call('শুনতে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+        _onError?.call(voiceErrorMessage('$e'.contains('permission') ? 'error_permission' : 'error_unknown'));
       }
     }
   }
@@ -300,11 +324,20 @@ class DeviceVoice extends Voice {
     required void Function(String message) onError,
     bool short = false,
   }) async {
+    final turn = ++_turn;
     if (!await init()) {
-      onError('এই ফোনে ভয়েস চালু করা যায়নি। লিখে যোগ করুন।');
+      var permitted = true;
+      try {
+        permitted = await _stt.hasPermission;
+      } catch (_) {}
+      onError(voiceErrorMessage(permitted ? 'unavailable' : 'error_permission'));
       return;
     }
     await stopSpeaking();
+    // Let the app's own voice fade before the microphone opens.
+    final sinceSpoke = DateTime.now().difference(_spokeAt);
+    if (sinceSpoke < const Duration(milliseconds: 350)) await Future<void>.delayed(const Duration(milliseconds: 350) - sinceSpoke);
+    if (turn != _turn) return; // a newer listen() or cancel() came meanwhile
     _quiet?.cancel();
     _quiet = null;
     // A session left over from before (the recogniser was not released)
@@ -326,7 +359,7 @@ class DeviceVoice extends Voice {
     _onWords = onWords;
     _onDone = onDone;
     _onError = onError;
-    await _startSession();
+    await _startSession(turn);
   }
 
   /// "বলা শেষ": act on what was heard right away.
@@ -345,6 +378,7 @@ class DeviceVoice extends Voice {
 
   @override
   Future<void> cancel() async {
+    _turn++;
     _finished = true;
     _quiet?.cancel();
     _quiet = null;
@@ -371,6 +405,8 @@ class DeviceVoice extends Voice {
       await _tts.speak(forSpeech(text)).timeout(limit, onTimeout: () => null);
     } catch (e) {
       debugPrint('speak failed: $e');
+    } finally {
+      _spokeAt = DateTime.now();
     }
   }
 
@@ -381,6 +417,23 @@ class DeviceVoice extends Voice {
     } catch (_) {}
   }
 }
+
+/// A short Bengali message for a recogniser error code (the codes the
+/// speech_to_text plugin sends on Android).
+String voiceErrorMessage(String code) => switch (code) {
+      'error_no_match' || 'error_speech_timeout' => 'কিছু শুনতে পাইনি। আবার বলুন — মাইকের কাছে, একটু জোরে।',
+      'error_network' || 'error_network_timeout' || 'error_server' || 'error_server_disconnected' =>
+        'বাংলা শুনে বুঝতে ইন্টারনেট লাগে, সংযোগ পাওয়া যাচ্ছে না। নিচে লিখেও দিতে পারেন।',
+      'error_too_many_requests' => 'এই মুহূর্তে ফোনের ভয়েস সেবা ব্যস্ত। একটু পরে আবার চেষ্টা করুন।',
+      'error_permission' =>
+        'মাইক্রোফোনের অনুমতি দেওয়া নেই। ফোনের Settings → Apps → My Assistant → Permissions থেকে Microphone চালু করুন।',
+      'error_audio_error' => 'মাইক্রোফোন চালু করা গেল না — অন্য কোনো অ্যাপ (কল, রেকর্ডার) মাইক ব্যবহার করছে কি না দেখুন।',
+      'error_busy' || 'error_client' => 'ফোনের ভয়েস সেবা আগের কাজ শেষ করছে। মাইক আবার চাপুন।',
+      'error_language_not_supported' || 'error_language_unavailable' =>
+        'এই ফোনের ভয়েস সেবায় বাংলা চালু নেই। Google অ্যাপ → Settings → Voice → Languages থেকে “বাংলা (বাংলাদেশ)” যোগ করুন।',
+      'unavailable' => 'এই ফোনে কথা শুনে লেখার সেবা (Google ভয়েস) পাওয়া যায়নি। Google অ্যাপ চালু/হালনাগাদ করুন, অথবা লিখে দিন।',
+      _ => 'শুনতে সমস্যা হয়েছে। আবার চেষ্টা করুন, অথবা লিখে দিন।',
+    };
 
 /// For tests: say() feeds a sentence as if it was heard.
 class FakeVoice extends Voice {

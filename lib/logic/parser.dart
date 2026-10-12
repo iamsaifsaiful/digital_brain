@@ -101,6 +101,11 @@ class TaskDone extends Command {
   final List<String> terms;
 }
 
+/// "আমার সংরক্ষিত ফোন নম্বর দেখাও": the saved numbers — a look, not a save.
+class ContactsQuery extends Command {
+  const ContactsQuery(super.transcript);
+}
+
 /// "আজ কী কী কাজ আছে?"
 class TaskQuery extends Command {
   const TaskQuery(super.transcript);
@@ -356,38 +361,75 @@ String stem(String w) {
 }
 
 const _numberWordsRaw = {
-  'এক': 1, 'দুই': 2, 'দু': 2, 'তিন': 3, 'চার': 4, 'পাঁচ': 5, 'ছয়': 6, 'সাত': 7, 'আট': 8, 'দশ': 10, 'বিশ': 20, 'ত্রিশ': 30, 'চল্লিশ': 40, 'পঞ্চাশ': 50, 'একশ': 100, 'একশো': 100, 'দেড়': 1.5, 'আড়াই': 2.5,
+  'এক': 1, 'দুই': 2, 'দু': 2, 'তিন': 3, 'চার': 4, 'পাঁচ': 5, 'ছয়': 6, 'সাত': 7, 'আট': 8, 'দশ': 10,
+  'এগারো': 11, 'বারো': 12, 'তেরো': 13, 'চৌদ্দ': 14, 'পনেরো': 15, 'পনের': 15, 'ষোলো': 16, 'ষোল': 16, 'সতেরো': 17,
+  'আঠারো': 18, 'উনিশ': 19, 'বিশ': 20, 'কুড়ি': 20, 'পঁচিশ': 25, 'ত্রিশ': 30, 'তিরিশ': 30, 'চল্লিশ': 40, 'পঞ্চাশ': 50, 'ষাট': 60,
+  'সত্তর': 70, 'আশি': 80, 'নব্বই': 90, 'একশ': 100, 'একশো': 100, 'দেড়': 1.5, 'আড়াই': 2.5,
 };
 
 final Map<String, num> _numberWords = {for (final e in _numberWordsRaw.entries) fold(e.key): e.value};
 
 /// The amount in a sentence, in whole taka. Understands "৫০০", "১,০০০",
-/// "২ হাজার", "দেড় হাজার", "পাঁচশো", "৩ লাখ".
+/// "২ হাজার", "দেড় হাজার", "পাঁচশো", "৩ লাখ", "সাড়ে তিন হাজার" and
+/// amounts said in parts: "দুই হাজার পাঁচশ" = 2500, "এক লাখ বিশ হাজার".
 int? findAmount(String normalized) {
   final w = words(normalized);
-  for (var i = 0; i < w.length; i++) {
+
+  // One part: a number and its multiplier ("দুই হাজার", "পাঁচশ", "৫০০").
+  // Returns (value, multiplier, words used) or null.
+  (num, int, int)? part(int i) {
+    if (i >= w.length) return null;
+    var at = i;
+    var half = 0.0;
+    if (w[at] == fold('সাড়ে') && at + 1 < w.length) {
+      half = 0.5;
+      at++;
+    }
     num? base;
-    final digits = RegExp(r'^(\d+(?:\.\d+)?)').firstMatch(w[i]);
+    var mult = 1;
+    final digits = RegExp(r'^(\d+(?:\.\d+)?)').firstMatch(w[at]);
     if (digits != null) {
       base = num.parse(digits[1]!);
       // "500টাকা" or "500/-": the number is still the amount.
     } else {
-      base = _numberWords[w[i]];
+      base = _numberWords[w[at]];
       if (base == null) {
         // পাঁচশো / পাঁচশ / দুইশো
-        final m = RegExp(r'^(.+?)(শো|শ|শত)$').firstMatch(w[i]);
-        if (m != null && _numberWords[m[1]] != null) base = _numberWords[m[1]]! * 100;
+        final m = RegExp(r'^(.+?)(শো|শ|শত)$').firstMatch(w[at]);
+        if (m != null && _numberWords[m[1]] != null) {
+          base = _numberWords[m[1]]!;
+          mult = 100;
+        }
       }
     }
-    if (base == null) continue;
-    final next = i + 1 < w.length ? w[i + 1] : '';
-    final mult = switch (next) {
+    if (base == null) return null;
+    final next = at + 1 < w.length ? w[at + 1] : '';
+    final m2 = switch (next) {
       'হাজার' => 1000,
       'লাখ' || 'লক্ষ' => 100000,
+      'কোটি' => 10000000,
       'শো' || 'শ' || 'শত' => 100,
-      _ => 1,
+      _ => 0,
     };
-    final v = (base * mult).round();
+    if (m2 > 0) mult = m2;
+    return ((base + half) * mult, mult, at - i + 1 + (m2 > 0 ? 1 : 0));
+  }
+
+  for (var i = 0; i < w.length; i++) {
+    final first = part(i);
+    if (first == null) continue;
+    var total = first.$1;
+    var lastMult = first.$2;
+    var j = i + first.$3;
+    // Following smaller parts add up: "দুই হাজার" + "পাঁচশ".
+    while (lastMult > 1) {
+      final more = part(j);
+      if (more == null || more.$2 >= lastMult) break;
+      total += more.$1;
+      lastMult = more.$2;
+      j += more.$3;
+    }
+    final v = total.round();
     if (v > 0) return v;
   }
   return null;
@@ -457,6 +499,9 @@ class Parser {
     // "আজ কী কী করতে হবে" is not "what can you do").
     final day = _dayQuestion(said, text);
     if (day != null) return day;
+
+    // "আমার সংরক্ষিত ফোন নম্বরগুলো দেখাও" — show what is kept, save nothing.
+    if (_contactList(text)) return ContactsQuery(said);
 
     // Conversation first ("তুমি কেমন আছো?" is not a search).
     final talk = smallTalk(text);
@@ -713,7 +758,10 @@ class Parser {
               suggested: LedgerKind.repaid,
               allowExpense: true);
         }
-        return LedgerAdd(said, person: person, amount: amount, kind: LedgerKind.lent);
+        // A plain "দিলাম" may be a loan, paying back, or a payment that is
+        // not owed back: never guess, ask (ধার is offered first).
+        return LedgerAdd(said,
+            person: person, amount: amount, options: const [LedgerKind.lent, LedgerKind.repaid], suggested: LedgerKind.lent, allowExpense: true);
       }
     }
 
@@ -813,6 +861,19 @@ class Parser {
     if (_hasNorm(text, _briefingKeys)) return Briefing(said);
     if (_hasNorm(text, _taskListKeys) && (asking || !_hasNorm(text, _addVerbs))) return TaskQuery(said);
     return null;
+  }
+
+  bool _contactList(String text) {
+    if (findPhone(text) != null) return false;
+    final numbers = _hasNorm(text, ['নম্বর', 'নাম্বার', 'কন্টাক্ট', 'contact', 'যোগাযোগ', 'number']);
+    final show = _hasNorm(text, ['দেখাও', 'দেখান', 'দেখি', 'কী কী', 'কি কি', 'তালিকা', 'লিস্ট', 'কয়টা', 'কতগুলো', 'কত জন', 'কতজন', 'show']);
+    final all = _hasNorm(text, ['সব', 'সংরক্ষিত', 'রাখা', 'গুলো', 'গুলি', 'আমার', 'তালিকা', 'লিস্ট', 'সেভ']);
+    if (!numbers || !show || !all) return false;
+    // "রহিমের নম্বর দেখাও" asks for one person: that is a search.
+    final w = words(text);
+    const mine = {'আমার', 'আমাদের', 'সব', 'সবার'};
+    return !w.any((x) => (x.endsWith('ের') || x.endsWith('এর') || x.endsWith('র')) && !mine.contains(x) && x != normalize('সংরক্ষিত') &&
+        !x.startsWith(normalize('নম্বর')) && !x.startsWith(normalize('নাম্বার')) && !x.startsWith(normalize('যোগাযোগ')));
   }
 
   Command? _assistant(String said, String text, List<String> w) {

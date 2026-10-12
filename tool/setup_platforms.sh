@@ -37,6 +37,36 @@ dependencies {
 KTS
 fi
 
+# A permanent release key (from CI secrets, written to android/key.properties)
+# so every new APK installs over the old one. Without it the debug key is
+# used, which differs from build to build.
+if ! grep -q 'myAssistantKeys' "$GRADLE_KTS"; then
+  cat >> "$GRADLE_KTS" <<'KTS'
+
+val myAssistantKeys = java.util.Properties().apply {
+    val f = rootProject.file("key.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+if (myAssistantKeys.getProperty("storeFile") != null) {
+    android {
+        signingConfigs {
+            create("release") {
+                storeFile = file(myAssistantKeys.getProperty("storeFile"))
+                storePassword = myAssistantKeys.getProperty("storePassword")
+                keyAlias = myAssistantKeys.getProperty("keyAlias")
+                keyPassword = myAssistantKeys.getProperty("keyPassword")
+            }
+        }
+        buildTypes {
+            getByName("release") {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
+}
+KTS
+fi
+
 # Remove the sample test flutter create may add; this repo has its own tests.
 rm -f test/widget_test.dart
 

@@ -175,7 +175,7 @@ void main() {
   testWidgets('chat: say a loan, yes by voice, then keep talking', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('আমি সজীবকে ৫০০ টাকা দিলাম');
+    rig.voice.say('আমি সজীবকে ৫০০ টাকা ধার দিলাম');
     await settle(t);
     expect(rig.voice.spoken.last, 'আচ্ছা, সজীবকে ৫০০ টাকা ধার দিলেন, তাই তো? লিখে রাখি?');
 
@@ -200,7 +200,7 @@ void main() {
     await t.tap(find.byTooltip('বন্ধ করুন'));
     await settle(t);
     // (also the page title)
-    expect(find.text('আমি সজীবকে ৫০০ টাকা দিলাম'), findsNWidgets(2));
+    expect(find.text('আমি সজীবকে ৫০০ টাকা ধার দিলাম'), findsNWidgets(2));
     expect(find.text('সজীবের খাতা দেখুন →'), findsWidgets);
   });
 
@@ -393,7 +393,7 @@ void main() {
     final rig = await start(t, ai: {'action': 'chat', 'reply': 'x'});
     rig.ai.error = const AiError('ইন্টারনেট সংযোগ পাওয়া যায়নি।');
     await openChat(t);
-    rig.voice.say('আমি সজীবকে ৫০০ টাকা দিলাম');
+    rig.voice.say('আমি সজীবকে ৫০০ টাকা ধার দিলাম');
     await settle(t);
     expect(rig.voice.spoken.last, 'আচ্ছা, সজীবকে ৫০০ টাকা ধার দিলেন, তাই তো? লিখে রাখি?');
     expect(find.textContaining('নিজের নিয়মে বুঝে নিলাম'), findsOneWidget);
@@ -837,5 +837,28 @@ void main() {
     await t.tap(find.text('সাপ্তাহিক'));
     await settle(t);
     expect(find.textContaining('শনিবার'), findsWidgets);
+  });
+
+  testWidgets('voice: loan, money back, then a question that saves nothing; a missing amount is asked', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    rig.voice.say('সজীবকে পাঁচশ টাকা ধার দিয়েছি');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('৫০০'));
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    rig.voice.say('সজীব আমাকে তিনশ টাকা ফেরত দিয়েছে');
+    await settle(t);
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    expect(rig.brain.data.ledger.map((e) => e.kind), [LedgerKind.lent, LedgerKind.received]);
+    rig.voice.say('সজীবের কাছে কত টাকা পাই?');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('২০০'));
+    expect(rig.brain.data.ledger, hasLength(2));
+    rig.voice.say('সজীবকে টাকা দিয়েছি');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('কত টাকার'));
+    expect(rig.brain.data.ledger, hasLength(2));
   });
 }

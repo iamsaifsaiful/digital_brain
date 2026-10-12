@@ -562,6 +562,7 @@ class ChatController extends ChangeNotifier {
     if (c is ReminderQuery && searchReminders(d, c.terms).isNotEmpty) return const [ChatLink(LinkKind.reminders, 'রিমাইন্ডার দেখুন')];
     if (c is TaskQuery || c is Briefing) return const [ChatLink(LinkKind.tasks, 'কাজের তালিকা')];
     if (c is CashQuery) return const [ChatLink(LinkKind.cash, 'আয়-ব্যয় দেখুন')];
+    if (c is ContactsQuery) return const [ChatLink(LinkKind.contacts, 'যোগাযোগ দেখুন')];
     return const [];
   }
 

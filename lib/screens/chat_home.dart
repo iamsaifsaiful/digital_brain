@@ -719,11 +719,21 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
         ],
       );
 
+  /// The words were heard wrong: put them in the box to fix and send again.
+  void _editAgain(String text) {
+    _closeVoice();
+    _text.text = text;
+    _text.selection = TextSelection.collapsed(offset: text.length);
+    _focus.requestFocus();
+  }
+
   Widget _message(ChatMessage m) {
     if (m.fromUser) {
       return Align(
         alignment: Alignment.centerRight,
-        child: Container(
+        child: GestureDetector(
+          onTap: () => _editAgain(m.text),
+          child: Container(
           margin: const EdgeInsets.only(top: 6, bottom: 8, left: 56),
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
           decoration: const BoxDecoration(
@@ -736,6 +746,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
             ),
           ),
           child: Text(m.text, style: body(16, height: 1.45)),
+          ),
         ),
       );
     }
@@ -932,8 +943,16 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
             const SizedBox(height: 28),
             if (_listening && _live.isNotEmpty)
               Text(_live, textAlign: TextAlign.center, style: body(20, weight: FontWeight.w500, height: 1.5))
-            else if (lastUser >= 0 && !_listening && replies.isEmpty)
-              Text(msgs[lastUser].text, textAlign: TextAlign.center, style: body(18, color: C.muted, height: 1.5)),
+            else if (lastUser >= 0 && !_listening) ...[
+              Text('“${msgs[lastUser].text}”', textAlign: TextAlign.center, style: body(16, color: C.muted, height: 1.5)),
+              Center(
+                child: TextButton.icon(
+                  onPressed: () => _editAgain(msgs[lastUser].text),
+                  icon: const Icon(Icons.edit_outlined, size: 16, color: C.green),
+                  label: Text('ভুল শুনেছি? ঠিক করুন', style: body(13.5, weight: FontWeight.w600, color: C.green)),
+                ),
+              ),
+            ],
             if (!_listening || _live.isEmpty)
               for (final m in replies) ...[
                 if (m.info)

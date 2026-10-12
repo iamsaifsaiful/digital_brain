@@ -35,6 +35,23 @@ final _afterWords = {for (final w in ['পরে', 'পর', 'বাদে', '�
 final _weekdayStems = [for (final d in bnWeekdays) _n(d.replaceAll('বার', ''))];
 final _months = [for (final m in bnMonths) _n(m)];
 
+/// "দশটায়" → "10টায়": hours said as words, as speech engines often write them.
+final _hourNames = <String, int>{
+  for (final e in {
+    'এক': 1, 'দুই': 2, 'দু': 2, 'তিন': 3, 'চার': 4, 'পাঁচ': 5, 'ছয়': 6, 'ছ': 6, 'সাত': 7, 'আট': 8, 'নয়': 9, 'দশ': 10, 'এগারো': 11,
+    'এগার': 11, 'বারো': 12, 'বার': 12,
+  }.entries)
+    _n(e.key): e.value,
+};
+final _hourSuffix = RegExp('^(.+?)(${['টায়', 'টাতে', 'টার', 'টা', 'টে'].map(_n).join('|')})\$');
+
+String _hourWord(String x) {
+  final m = _hourSuffix.firstMatch(x);
+  if (m == null) return x;
+  final h = _hourNames[m[1]];
+  return h == null ? x : '$h${m[2]}';
+}
+
 int? _num(String w) => int.tryParse(w) ?? findAmount(w);
 
 /// The day/time in [said], or null when it has none. Past times today move
@@ -42,7 +59,7 @@ int? _num(String w) => int.tryParse(w) ?? findAmount(w);
 When? parseWhen(String said, DateTime now) {
   // "৬:২০" → "৬.২০" (normalize drops the colon).
   final clockSaid = said.replaceAllMapped(RegExp(r'([0-9০-৯]{1,2})\s*:\s*([0-9০-৯]{2})'), (m) => '${m[1]}.${m[2]}');
-  final w = words(normalize(clockSaid));
+  final w = [for (final x in words(normalize(clockSaid))) _hourWord(x)];
   if (w.isEmpty) return null;
 
   // "৩০ মিনিট পরে", "২ ঘণ্টা পর", "আধা ঘণ্টা পরে", "দেড় ঘণ্টা পরে".

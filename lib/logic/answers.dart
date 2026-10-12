@@ -201,6 +201,15 @@ String briefingAnswer(AppData d, DateTime now) {
   return parts.join(' ');
 }
 
+/// "আমার সংরক্ষিত ফোন নম্বর দেখাও": how many, and a few names (the
+/// numbers themselves are on the যোগাযোগ page).
+String contactsAnswer(AppData d) {
+  final n = d.contacts.length;
+  if (n == 0) return 'এখনো কোনো নম্বর রাখা নেই। “যোগাযোগ” পাতা থেকে ফোনবুকের সব নম্বর এক চাপে আনতে পারেন।';
+  final names = ([...d.contacts]..sort((a, b) => a.name.compareTo(b.name))).take(4).map((c) => c.name).toList();
+  return '${bnDigits(n)} জনের নম্বর রাখা আছে${n > names.length ? ' — যেমন ${nameList(names, unit: 'জন')}' : ' — ${nameList(names, unit: 'জন')}'}। সব দেখতে নিচে চাপুন।';
+}
+
 /// The answer to a question or a bit of conversation. Null for commands
 /// that save or do something (those are confirmed or done instead).
 String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
@@ -213,6 +222,7 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       TaskQuery() => taskAnswer(d, now),
       CashQuery() => cashAnswer(d, cmd, now),
       Briefing() => briefingAnswer(d, now),
+      ContactsQuery() => contactsAnswer(d),
       NotUnderstood() => 'দুঃখিত, ঠিক বুঝতে পারিনি। একটু অন্যভাবে আরেকবার বলবেন?',
       LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TaskDone() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() || VaultAdd() => null,
     };

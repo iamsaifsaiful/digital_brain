@@ -265,6 +265,8 @@ class Brain extends ChangeNotifier {
     final rules = parseAll(said, data.ledger, tasks: data.tasks, contacts: data.contacts, now: services.now());
     if (!aiOn) return (rules, null);
     if (mentionsSecret(said) || rules.any((c) => c is VaultQuery)) return (rules, null);
+    // Listing the saved numbers needs no AI (and numbers never go to it).
+    if (rules.length == 1 && rules.first is ContactsQuery) return (rules, null);
     if (rules.length == 1 && rules.first is SmallTalk && {Talk.time, Talk.date}.contains((rules.first as SmallTalk).kind)) {
       return (rules, null);
     }
