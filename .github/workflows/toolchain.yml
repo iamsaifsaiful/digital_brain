@@ -1,0 +1,38 @@
+name: Dev toolchain
+
+# Packs the Flutter SDK and the pub cache this project uses, so a
+# development machine without access to Flutter's download servers can run
+# `flutter analyze` and `flutter test` offline. Run by hand only.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter --version
+      - run: flutter config --no-analytics && flutter pub get
+      # Running the tests once downloads the host engine (flutter_tester).
+      - run: flutter test || true
+      - name: Pack
+        run: |
+          FR=$(dirname $(dirname $(which flutter)))
+          PC=${PUB_CACHE:-$HOME/.pub-cache}
+          echo "flutter=$FR pub=$PC"
+          tar -C "$(dirname $FR)" -cf - "$(basename $FR)" | zstd -T0 -10 > flutter-sdk.tar.zst
+          tar -C "$(dirname $PC)" -cf - "$(basename $PC)" | zstd -T0 -10 > pub-cache.tar.zst
+          echo "$(basename $FR) $(basename $PC)" > names.txt
+          ls -la *.zst
+      - name: Upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete toolchain -y --cleanup-tag || true
+          gh release create toolchain flutter-sdk.tar.zst pub-cache.tar.zst names.txt --title "Dev toolchain (not an app release)" --notes "Flutter SDK + pub cache for offline analyze/test." --prerelease --latest=false
