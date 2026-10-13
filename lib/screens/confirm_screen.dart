@@ -9,6 +9,7 @@ import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import '../ui/yes_no.dart';
+import '../logic/lang.dart';
 
 /// "ঠিক বুঝেছি তো?" — shows what was understood from a money sentence and
 /// saves only after the user agrees. When the meaning was unclear it first
@@ -55,9 +56,9 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
 
   void _speakQuestion() {
     if (_needName) {
-      _q.ask('টাকার হিসাব লেনদেনের খাতায় রাখি। কার সাথে লেনদেন হলো? নামটা বলেন।');
+      _q.ask(tr('টাকার হিসাব লেনদেনের খাতায় রাখি। কার সাথে লেনদেন হলো? নামটা বলেন।'));
     } else if (_needAmount) {
-      _q.ask('কত টাকা?');
+      _q.ask(tr('কত টাকা?'));
     } else {
       _q.ask(_kind != null ? confirmQuestion(_kind!, _person, _amount) : _clarifyQuestion());
     }
@@ -73,7 +74,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
 
   void _setAmount(int? a) {
     if (a == null || a <= 0) {
-      setState(() => _q.hint = 'টাকার অঙ্কটা ধরতে পারিনি। আবার বলেন, বা লিখে দিন।');
+      setState(() => _q.hint = tr('টাকার অঙ্কটা ধরতে পারিনি। আবার বলেন, বা লিখে দিন।'));
       return;
     }
     _q.stop();
@@ -94,7 +95,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
       }
       final n = spokenName(heard, knownPeople(BrainScope.read(context).data.ledger));
       if (n.isEmpty) {
-        setState(() => _q.hint = 'নামটা ধরতে পারিনি। আবার বলেন, বা লিখে দিন।');
+        setState(() => _q.hint = tr('নামটা ধরতে পারিনি। আবার বলেন, বা লিখে দিন।'));
       } else {
         _setName(n);
       }
@@ -109,7 +110,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
       final yn = yesNo(heard);
       final choice = pick ?? (yn == true ? widget.command.suggested?.name : null);
       if (choice == null) {
-        setState(() => _q.hint = 'ঠিক ধরতে পারিনি। একটা বেছে নিন, বা বলেন — যেমন “শোধ” বা “নতুন ধার”।');
+        setState(() => _q.hint = tr('ঠিক ধরতে পারিনি। একটা বেছে নিন, বা বলেন — যেমন “শোধ” বা “নতুন ধার”।'));
         return;
       }
       setState(() => _picked = choice);
@@ -120,15 +121,15 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
       case true:
         _save();
       case false:
-        setState(() => _q.hint = 'আচ্ছা, লিখিনি। কিছু ভুল থাকলে “বদলান” চেপে ঠিক করে নিন।');
+        setState(() => _q.hint = tr('আচ্ছা, লিখিনি। কিছু ভুল থাকলে “বদলান” চেপে ঠিক করে নিন।'));
       case null:
-        setState(() => _q.hint = 'ঠিক ধরতে পারিনি। “হ্যাঁ” বা “না” বলেন, অথবা বোতাম চাপুন।');
+        setState(() => _q.hint = tr('ঠিক ধরতে পারিনি। “হ্যাঁ” বা “না” বলেন, অথবা বোতাম চাপুন।'));
     }
   }
 
   void _proceed() {
     if (_picked == 'expense') {
-      toast(context, 'ঠিক আছে, এটা লেনদেনের খাতায় রাখা হলো না।');
+      toast(context, tr('ঠিক আছে, এটা লেনদেনের খাতায় রাখা হলো না।'));
       Navigator.of(context).pop();
       return;
     }
@@ -139,12 +140,12 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
   String _clarifyQuestion() {
     final o = widget.command.options;
     if (o.contains(LedgerKind.repaid) && widget.command.allowExpense) {
-      return 'একটু বুঝিয়ে বলেন — এটা কি আগের দেনা শোধ করলেন, নাকি নতুন করে ধার দিলেন? নাকি অন্য কোনো খরচ?';
+      return tr('একটু বুঝিয়ে বলেন — এটা কি আগের দেনা শোধ করলেন, নাকি নতুন করে ধার দিলেন? নাকি অন্য কোনো খরচ?');
     }
     if (o.contains(LedgerKind.received) && o.contains(LedgerKind.borrowed)) {
-      return 'একটু বুঝিয়ে বলেন — উনি কি আগের টাকা ফেরত দিলেন, নাকি আপনি নতুন করে ধার নিলেন?';
+      return tr('একটু বুঝিয়ে বলেন — উনি কি আগের টাকা ফেরত দিলেন, নাকি আপনি নতুন করে ধার নিলেন?');
     }
-    return 'একটু বুঝিয়ে বলেন — এটা কোন ধরনের লেনদেন?';
+    return tr('একটু বুঝিয়ে বলেন — এটা কোন ধরনের লেনদেন?');
   }
 
   Future<void> _save() async {
@@ -158,8 +159,8 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
     await brain.saveEntry(LedgerEntry(person: _person.trim(), kind: kind, amount: _amount, date: _date, note: ''));
     await brain.services.voice.speak(savedSentence(kind, _person, _amount, after));
     if (!mounted) return;
-    toast(context, 'লিখে রাখলাম। ${balanceSentence(_person, after)}');
-    Navigator.of(context).pop('লিখে রাখলাম: ${describe(kind, _person.trim(), _amount)}। ${balanceSentence(_person.trim(), after)}');
+    toast(context, trf('লিখে রাখলাম। {0}', [balanceSentence(_person, after)]));
+    Navigator.of(context).pop(trf('লিখে রাখলাম: {0}। {1}', [describe(kind, _person.trim(), _amount), balanceSentence(_person.trim(), after)]));
   }
 
   Future<void> _editPerson() async {
@@ -169,11 +170,11 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
     final r = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('কার সাথে', style: display(20)),
+        title: Text(tr('কার সাথে'), style: display(20)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: c, autofocus: true, decoration: const InputDecoration(labelText: 'নাম')),
+            TextField(controller: c, autofocus: true, decoration: InputDecoration(labelText: tr('নাম'))),
             if (known.isNotEmpty) ...[
               const SizedBox(height: 10),
               Wrap(spacing: 6, runSpacing: 6, children: [
@@ -183,8 +184,8 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('বাতিল')),
-          TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: const Text('ঠিক আছে')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: Text(tr('ঠিক আছে'))),
         ],
       ),
     );
@@ -197,18 +198,18 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
     final r = await showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('পরিমাণ', style: display(20)),
+        title: Text(tr('পরিমাণ'), style: display(20)),
         content: TextField(
           controller: c,
           autofocus: true,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(prefixText: '৳ ', labelText: 'টাকা'),
+          decoration: InputDecoration(prefixText: tr('৳ '), labelText: tr('টাকা')),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('বাতিল')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
           TextButton(
             onPressed: () => Navigator.pop(ctx, int.tryParse(asciiDigits(c.text).replaceAll(',', '').trim())),
-            child: const Text('ঠিক আছে'),
+            child: Text(tr('ঠিক আছে')),
           ),
         ],
       ),
@@ -235,7 +236,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
               ListTile(
                 title: Text(k.label, style: body(16, weight: FontWeight.w600)),
                 subtitle: Text(k.hint),
-                trailing: k == _kind ? const Icon(Icons.check_rounded, color: C.green) : null,
+                trailing: k == _kind ? Icon(Icons.check_rounded, color: C.green) : null,
                 onTap: () => Navigator.pop(ctx, k),
               ),
           ],
@@ -253,12 +254,12 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            TopBar(title: _needName || _needAmount || _kind == null ? 'একটু জানতে চাই' : 'ঠিক বুঝেছি তো?', close: true),
+            TopBar(title: _needName || _needAmount || _kind == null ? tr('একটু জানতে চাই') : tr('ঠিক বুঝেছি তো?'), close: true),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                 children: [
-                  Bubble(label: 'আপনি বললেন', text: widget.command.transcript.trim()),
+                  Bubble(label: tr('আপনি বললেন'), text: widget.command.transcript.trim()),
                   const SizedBox(height: 16),
                   if (_needName)
                     ..._askName(brain)
@@ -276,40 +277,40 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
               child: Column(
                 children: [
                   if (_needName)
-                    PrimaryButton(label: 'এগিয়ে যান', onPressed: () => _setName(_nameCtl.text))
+                    PrimaryButton(label: tr('এগিয়ে যান'), onPressed: () => _setName(_nameCtl.text))
                   else if (_needAmount)
-                    PrimaryButton(label: 'এগিয়ে যান', onPressed: () => _setAmount(int.tryParse(asciiDigits(_amountCtl.text).replaceAll(RegExp(r'[,\s৳]'), ''))))
+                    PrimaryButton(label: tr('এগিয়ে যান'), onPressed: () => _setAmount(int.tryParse(asciiDigits(_amountCtl.text).replaceAll(RegExp(r'[,\s৳]'), ''))))
                   else if (_kind == null)
                     PrimaryButton(
-                      label: _picked == null ? 'একটি বেছে নিন' : 'এগিয়ে যান',
+                      label: _picked == null ? tr('একটি বেছে নিন') : tr('এগিয়ে যান'),
                       onPressed: _picked == null ? null : _proceed,
                     )
                   else
-                    PrimaryButton(label: 'হ্যাঁ, সেভ করুন', icon: Icons.check_rounded, onPressed: _saving ? null : _save),
+                    PrimaryButton(label: tr('হ্যাঁ, সেভ করুন'), icon: Icons.check_rounded, onPressed: _saving ? null : _save),
                   const SizedBox(height: 10),
                   Row(
                     children: [
                       Expanded(
                         child: SecondaryButton(
-                          label: 'আবার বলুন',
+                          label: tr('আবার বলুন'),
                           icon: Icons.mic_none_rounded,
                           onPressed: () => Navigator.of(context).pop(),
                         ),
                       ),
                       const SizedBox(width: 10),
-                      Expanded(child: SecondaryButton(label: 'বাতিল', onPressed: () => Navigator.of(context).pop())),
+                      Expanded(child: SecondaryButton(label: tr('বাতিল'), onPressed: () => Navigator.of(context).pop())),
                     ],
                   ),
                   const SizedBox(height: 10),
                   ListeningStrip(
                     q: _q,
                     prompt: _needName
-                        ? 'নামটা মুখে বলেও দিতে পারেন'
+                        ? tr('নামটা মুখে বলেও দিতে পারেন')
                         : _needAmount
-                            ? 'অঙ্কটা মুখে বলেও দিতে পারেন'
+                            ? tr('অঙ্কটা মুখে বলেও দিতে পারেন')
                             : _kind == null
-                                ? 'বলেও বেছে নিতে পারেন — যেমন “শোধ” বা “নতুন ধার”'
-                                : 'মুখে “হ্যাঁ” বা “না” বললেও হবে',
+                                ? tr('বলেও বেছে নিতে পারেন — যেমন “শোধ” বা “নতুন ধার”')
+                                : tr('মুখে “হ্যাঁ” বা “না” বললেও হবে'),
                   ),
                 ],
               ),
@@ -323,12 +324,12 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
   List<Widget> _askName(Brain brain) {
     final known = knownPeople(brain.data.ledger).take(8).toList();
     return [
-      Text('কার সাথে লেনদেন?', style: display(26)),
+      Text(tr('কার সাথে লেনদেন?'), style: display(26)),
       const SizedBox(height: 6),
       Text(
         _amount > 0
-            ? '${taka(_amount)}-এর কথা বললেন। টাকার সব হিসাব লেনদেনের খাতায় থাকে — কার সাথে, সেটা জানালে লিখে রাখব।'
-            : 'টাকার সব হিসাব লেনদেনের খাতায় থাকে — কার সাথে, সেটা জানালে লিখে রাখব।',
+            ? trf('{0}-এর কথা বললেন। টাকার সব হিসাব লেনদেনের খাতায় থাকে — কার সাথে, সেটা জানালে লিখে রাখব।', [taka(_amount)])
+            : tr('টাকার সব হিসাব লেনদেনের খাতায় থাকে — কার সাথে, সেটা জানালে লিখে রাখব।'),
         style: body(15, color: C.muted, height: 1.5),
       ),
       const SizedBox(height: 14),
@@ -337,13 +338,13 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
         textInputAction: TextInputAction.done,
         onSubmitted: _setName,
         onTap: _q.stop,
-        decoration: const InputDecoration(labelText: 'নাম'),
+        decoration: InputDecoration(labelText: tr('নাম')),
       ),
       if (known.isNotEmpty) ...[
         const SizedBox(height: 10),
         Wrap(spacing: 6, runSpacing: 6, children: [
           for (final k in known)
-            ActionChip(label: Text(k, style: body(14)), backgroundColor: C.surface, side: const BorderSide(color: C.border), onPressed: () => _setName(k)),
+            ActionChip(label: Text(k, style: body(14)), backgroundColor: C.surface, side: BorderSide(color: C.border), onPressed: () => _setName(k)),
         ]),
       ],
       if (widget.command.allowExpense) ...[
@@ -353,21 +354,21 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
             _picked = 'expense';
             _proceed();
           },
-          child: Text('কারও সাথে নয়, নিজের খরচ', style: body(14, weight: FontWeight.w600, color: C.muted2)),
+          child: Text(tr('কারও সাথে নয়, নিজের খরচ'), style: body(14, weight: FontWeight.w600, color: C.muted2)),
         ),
       ],
     ];
   }
 
   List<Widget> _askAmount() => [
-        Text('কত টাকা?', style: display(26)),
+        Text(tr('কত টাকা?'), style: display(26)),
         const SizedBox(height: 14),
         TextField(
           controller: _amountCtl,
           keyboardType: TextInputType.number,
           onTap: _q.stop,
           style: display(22),
-          decoration: const InputDecoration(labelText: 'পরিমাণ (৳)'),
+          decoration: InputDecoration(labelText: tr('পরিমাণ (৳)')),
         ),
       ];
 
@@ -390,15 +391,15 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
       };
       choices.add((k.name, title, sub, k == widget.command.suggested));
     }
-    if (widget.command.allowExpense) choices.add(('expense', 'অন্য খরচ', 'লেনদেনের খাতায় যোগ হবে না', false));
+    if (widget.command.allowExpense) choices.add(('expense', tr('অন্য খরচ'), tr('লেনদেনের খাতায় যোগ হবে না'), false));
 
     return [
-      Text('এটা কোন ধরনের লেনদেন?', style: display(26)),
+      Text(tr('এটা কোন ধরনের লেনদেন?'), style: display(26)),
       const SizedBox(height: 6),
       Text(
         bal == 0
-            ? 'ঠিক না জেনে কিছু লিখব না।'
-            : 'ঠিক না জেনে কিছু লিখব না। খাতায় এখন ${owesText(_person, bal)}।',
+            ? tr('ঠিক না জেনে কিছু লিখব না।')
+            : trf('ঠিক না জেনে কিছু লিখব না। খাতায় এখন {0}।', [owesText(_person, bal)]),
         style: body(15, color: C.muted, height: 1.5),
       ),
       const SizedBox(height: 14),
@@ -439,7 +440,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
               TextButton(
                 onPressed: onEdit,
                 style: TextButton.styleFrom(minimumSize: const Size(56, 40)),
-                child: Text('বদলান', style: body(14, weight: FontWeight.w600, color: C.green)),
+                child: Text(tr('বদলান'), style: body(14, weight: FontWeight.w600, color: C.green)),
               ),
             ],
           ),
@@ -451,14 +452,14 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('যা বুঝলাম', style: body(14, weight: FontWeight.w600, color: C.muted)),
-            row('ধরন', Pill(kind.label, fg: kfg, bg: kbg), _editKind),
+            Text(tr('যা বুঝলাম'), style: body(14, weight: FontWeight.w600, color: C.muted)),
+            row(tr('ধরন'), Pill(kind.label, fg: kfg, bg: kbg), _editKind),
             const Divider(),
             row(personLabel, Text(_person, style: body(17, weight: FontWeight.w600)), _editPerson),
             const Divider(),
-            row('পরিমাণ', Text(taka(_amount), style: display(22, weight: 700)), _editAmount),
+            row(tr('পরিমাণ'), Text(taka(_amount), style: display(22, weight: 700)), _editAmount),
             const Divider(),
-            row('তারিখ', Text(dayOnly(_date) == dayOnly(now) ? 'আজ, ${shortDate(_date)}' : fullDate(_date), style: body(16, weight: FontWeight.w500)), _editDate),
+            row(tr('তারিখ'), Text(dayOnly(_date) == dayOnly(now) ? trf('আজ, {0}', [shortDate(_date)]) : fullDate(_date), style: body(16, weight: FontWeight.w500)), _editDate),
           ],
         ),
       ),
@@ -469,13 +470,13 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${possessive(_person)} হিসাব', style: body(14, weight: FontWeight.w600, color: after < 0 ? C.orangeDark : C.greenDark)),
+            Text(trf('{0} হিসাব', [possessive(_person)]), style: body(14, weight: FontWeight.w600, color: after < 0 ? C.orangeDark : C.greenDark)),
             const SizedBox(height: 8),
             Row(
               children: [
-                Flexible(child: _BalanceLabel(title: 'আগে ${balanceWords(_person, before)}', amount: before, strike: true)),
-                const Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Icon(Icons.arrow_forward_rounded, color: C.ink)),
-                Flexible(child: _BalanceLabel(title: 'এখন ${balanceWords(_person, after)}', amount: after, strike: false)),
+                Flexible(child: _BalanceLabel(title: trf('আগে {0}', [balanceWords(_person, before)]), amount: before, strike: true)),
+                Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Icon(Icons.arrow_forward_rounded, color: C.ink)),
+                Flexible(child: _BalanceLabel(title: trf('এখন {0}', [balanceWords(_person, after)]), amount: after, strike: false)),
               ],
             ),
           ],
@@ -534,7 +535,7 @@ class _Choice extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
-                  Icon(selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded, color: selected ? C.green : const Color(0xFF9AA39E)),
+                  Icon(selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded, color: selected ? C.green : C.muted),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
@@ -545,7 +546,7 @@ class _Choice extends StatelessWidget {
                           spacing: 8,
                           children: [
                             Text(title, style: body(17, weight: FontWeight.w600)),
-                            if (likely) const Pill('সম্ভবত'),
+                            if (likely) Pill(tr('সম্ভবত')),
                           ],
                         ),
                         Text(sub, style: body(14, color: C.muted)),

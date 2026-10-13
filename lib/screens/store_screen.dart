@@ -10,7 +10,10 @@ import 'library_screen.dart';
 import 'new_item_screen.dart';
 import 'notes_screen.dart';
 import 'search_screen.dart';
+import 'special_days_screen.dart';
+import 'store_more_screens.dart';
 import 'vault_screen.dart';
+import '../logic/lang.dart';
 
 /// সংরক্ষণ: notes, passwords, contacts and the user's own categories —
 /// everything kept for later, locked on this phone.
@@ -45,12 +48,12 @@ class StoreScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
-        Text('সংরক্ষণ', style: display(24, weight: 700)),
-        Text('আপনার সব দরকারি জিনিস, এই ফোনে তালাবদ্ধ', style: body(13.5, color: C.muted)),
+        Text(tr('সংরক্ষণ'), style: display(24, weight: 700)),
+        Text(tr('আপনার সব দরকারি জিনিস, এই ফোনে তালাবদ্ধ'), style: body(13.5, color: C.muted)),
         const SizedBox(height: 12),
         Material(
           color: C.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: const BorderSide(color: C.line)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: BorderSide(color: C.line)),
           child: InkWell(
             borderRadius: BorderRadius.circular(24),
             onTap: () => push(const SearchScreen()),
@@ -58,10 +61,10 @@ class StoreScreen extends StatelessWidget {
               height: 46,
               child: Row(children: [
                 const SizedBox(width: 16),
-                const Icon(Icons.search_rounded, color: C.muted, size: 20),
+                Icon(Icons.search_rounded, color: C.muted, size: 20),
                 const SizedBox(width: 10),
-                Expanded(child: Text('নোট, নম্বর, পাসওয়ার্ড খুঁজুন…', style: body(14.5, color: C.muted))),
-                IconButton(tooltip: 'বলে খুঁজুন', onPressed: () => openVoice(context), icon: const Icon(Icons.mic_none_rounded, color: C.green)),
+                Expanded(child: Text(tr('নোট, নম্বর, পাসওয়ার্ড খুঁজুন…'), style: body(14.5, color: C.muted))),
+                IconButton(tooltip: tr('বলে খুঁজুন'), onPressed: () => openVoice(context), icon: Icon(Icons.mic_none_rounded, color: C.green)),
               ]),
             ),
           ),
@@ -75,12 +78,41 @@ class StoreScreen extends StatelessWidget {
           crossAxisSpacing: 10,
           childAspectRatio: 1.35,
           children: [
-            tile('নোট', '${bnDigits(d.notes.length)}টি', Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, () => push(const NotesScreen())),
-            tile('ডকুমেন্টস', '${bnDigits(d.docs.length)}টি · তালাবদ্ধ', Icons.folder_copy_outlined, C.blue, C.blueTint, () => push(const DocsScreen())),
-            tile('পাসওয়ার্ড', '${bnDigits(d.vault.length)}টি · তালাবদ্ধ', Icons.lock_outline_rounded, C.ink, const Color(0xFFF1F2F4), () => push(const VaultPage())),
-            tile('যোগাযোগ', '${bnDigits(d.contacts.length)} জন', Icons.call_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
+            tile(tr('নোট'), trf('{0}টি', [bnDigits(d.notes.length)]), Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, () => push(const NotesScreen())),
+            tile(tr('ডকুমেন্টস'), trf('{0}টি · তালাবদ্ধ', [bnDigits(d.docs.length)]), Icons.folder_copy_outlined, C.blue, C.blueTint, () => push(const DocsScreen())),
+            tile(tr('পাসওয়ার্ড'), trf('{0}টি · তালাবদ্ধ', [bnDigits(d.vault.length)]), Icons.lock_outline_rounded, C.ink, C.soft, () => push(const VaultPage())),
+            tile(tr('যোগাযোগ'), trf('{0} জন', [bnDigits(d.contacts.length)]), Icons.call_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
           ],
         ),
+        const SizedBox(height: 10),
+        Row(children: [
+          for (final (label, icon, fg, bg, page) in [
+            (tr('জরুরি কার্ড'), Icons.emergency_outlined, C.rose, C.roseTint, const EmergencyScreen() as Widget),
+            (tr('কাগজের মেয়াদ'), Icons.event_busy_outlined, C.orange, C.orangeTint, const ExpiryScreen() as Widget),
+            (tr('ট্যাগ'), Icons.sell_outlined, C.green, C.greenTint, const TagsScreen() as Widget),
+            (tr('বিশেষ দিন'), Icons.cake_outlined, C.purple, C.purpleTint, const SpecialDaysScreen() as Widget),
+          ]) ...[
+            Expanded(
+              child: Material(
+                color: C.surface,
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => push(page),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                    child: Column(children: [
+                      Container(width: 38, height: 38, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: fg, size: 20)),
+                      const SizedBox(height: 6),
+                      Text(label, textAlign: TextAlign.center, maxLines: 2, style: body(12, weight: FontWeight.w500, height: 1.2)),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+            if (label != tr('বিশেষ দিন')) const SizedBox(width: 8),
+          ],
+        ]),
         const SizedBox(height: 10),
         Material(
           color: C.surface,
@@ -91,10 +123,10 @@ class StoreScreen extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
               child: Row(children: [
-                const Icon(Icons.folder_open_outlined, color: C.muted2),
+                Icon(Icons.folder_open_outlined, color: C.muted2),
                 const SizedBox(width: 12),
-                Expanded(child: Text('সব তথ্য ও নিজের বিভাগ · ${bnDigits(d.noteCategories.length)}টি', style: body(15, weight: FontWeight.w500))),
-                const Icon(Icons.chevron_right_rounded, color: C.muted),
+                Expanded(child: Text(trf('সব তথ্য ও নিজের বিভাগ · {0}টি', [bnDigits(d.noteCategories.length)]), style: body(15, weight: FontWeight.w500))),
+                Icon(Icons.chevron_right_rounded, color: C.muted),
               ]),
             ),
           ),
@@ -102,11 +134,11 @@ class StoreScreen extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
           child: Row(children: [
-            Expanded(child: Text('সম্প্রতি রাখা নোট', style: body(13, weight: FontWeight.w600, color: C.muted))),
+            Expanded(child: Text(tr('সম্প্রতি রাখা নোট'), style: body(13, weight: FontWeight.w600, color: C.muted))),
             TextButton.icon(
               onPressed: () => push(const NewItemScreen(category: ItemCategory.note)),
-              icon: const Icon(Icons.add_rounded, size: 18, color: C.green),
-              label: Text('নতুন', style: body(14, weight: FontWeight.w600, color: C.green)),
+              icon: Icon(Icons.add_rounded, size: 18, color: C.green),
+              label: Text(tr('নতুন'), style: body(14, weight: FontWeight.w600, color: C.green)),
             ),
           ]),
         ),
@@ -116,11 +148,11 @@ class StoreScreen extends StatelessWidget {
           child: recent.isEmpty
               ? Padding(
                   padding: const EdgeInsets.all(14),
-                  child: Text('এখনো কোনো নোট নেই। সহকারীকে বলুন — “মনে রাখো: গাড়ির কাগজ আলমারিতে”।', style: body(14, color: C.muted, height: 1.5)),
+                  child: Text(tr('এখনো কোনো নোট নেই। সহকারীকে বলুন — “মনে রাখো: গাড়ির কাগজ আলমারিতে”।'), style: body(14, color: C.muted, height: 1.5)),
                 )
               : Column(children: [
                   for (final (i, n) in recent.indexed) ...[
-                    if (i > 0) const Divider(height: 1, indent: 14, endIndent: 14, color: C.line),
+                    if (i > 0) Divider(height: 1, indent: 14, endIndent: 14, color: C.line),
                     InkWell(
                       onTap: () => push(NewItemScreen(note: n)),
                       child: Padding(
@@ -130,7 +162,7 @@ class StoreScreen extends StatelessWidget {
                               width: 40,
                               height: 40,
                               decoration: BoxDecoration(color: C.ochreTint, borderRadius: BorderRadius.circular(12)),
-                              child: const Icon(Icons.sticky_note_2_outlined, color: C.ochre, size: 20)),
+                              child: Icon(Icons.sticky_note_2_outlined, color: C.ochre, size: 20)),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -138,7 +170,7 @@ class StoreScreen extends StatelessWidget {
                               Text('${n.category} · ${n.body.replaceAll('\n', ' ')}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted)),
                             ]),
                           ),
-                          const Icon(Icons.chevron_right_rounded, color: C.muted),
+                          Icon(Icons.chevron_right_rounded, color: C.muted),
                         ]),
                       ),
                     ),

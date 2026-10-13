@@ -18,6 +18,7 @@ import 'person_screen.dart';
 import 'reminders_screen.dart';
 import 'vault_item_screen.dart';
 import 'home_shell.dart';
+import '../logic/lang.dart';
 
 /// The answer to a question (or a note to keep), shown and spoken.
 class AnswerScreen extends StatefulWidget {
@@ -90,10 +91,10 @@ class _AnswerScreenState extends State<AnswerScreen> {
         _saveNote(cmd);
       case false:
         _q.stop();
-        toast(context, 'ঠিক আছে, রাখা হয়নি');
+        toast(context, tr('ঠিক আছে, রাখা হয়নি'));
         Navigator.of(context).pop();
       case null:
-        setState(() => _q.hint = 'বুঝিনি। “হ্যাঁ” বা “না” বলুন, অথবা বোতাম চাপুন।');
+        setState(() => _q.hint = tr('বুঝিনি। “হ্যাঁ” বা “না” বলুন, অথবা বোতাম চাপুন।'));
     }
   }
 
@@ -105,17 +106,17 @@ class _AnswerScreenState extends State<AnswerScreen> {
     final r = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('কোন বিভাগে রাখব?', style: display(20)),
+        title: Text(tr('কোন বিভাগে রাখব?'), style: display(20)),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Wrap(spacing: 6, runSpacing: 6, children: [
             for (final e in {...existing, defaultNoteCategory}) ActionChip(label: Text(e), onPressed: () => Navigator.pop(ctx, e)),
           ]),
           const SizedBox(height: 12),
-          TextField(controller: c, decoration: const InputDecoration(labelText: 'অথবা নতুন বিভাগের নাম')),
+          TextField(controller: c, decoration: InputDecoration(labelText: tr('অথবা নতুন বিভাগের নাম'))),
         ]),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('বাতিল')),
-          TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: const Text('ঠিক আছে')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: Text(tr('ঠিক আছে'))),
         ],
       ),
     );
@@ -129,7 +130,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
   void _push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
 
   Future<void> _openVault(VaultItem v) async {
-    final ok = await verifyUser(context, reason: '${v.name} — তথ্য দেখতে যাচাই করুন');
+    final ok = await verifyUser(context, reason: trf('{0} — তথ্য দেখতে যাচাই করুন', [v.name]));
     if (ok && mounted) _push(VaultItemScreen(id: v.id));
   }
 
@@ -145,7 +146,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
         if (d.vault.isEmpty) {
           return _Answer(text, actions: [
             PrimaryButton(
-              label: 'নতুন পাসওয়ার্ড যোগ করুন',
+              label: tr('নতুন পাসওয়ার্ড যোগ করুন'),
               icon: Icons.add_rounded,
               onPressed: () => _push(NewItemScreen(category: ItemCategory.password, presetTitle: cmd.terms.join(' '))),
             ),
@@ -158,7 +159,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
         if (found.isEmpty) {
           return _Answer(text, actions: [
             PrimaryButton(
-              label: 'নতুন রিমাইন্ডার',
+              label: tr('নতুন রিমাইন্ডার'),
               icon: Icons.add_rounded,
               onPressed: () => _push(NewItemScreen(category: ItemCategory.reminder, presetTitle: cmd.terms.join(' '))),
             ),
@@ -167,7 +168,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
         return _Answer(text, items: [
           for (final x in found)
             ListRow(
-              leading: DateBlock(top: bnDigits(x.nextDate(now).day), bottom: bnMonthsShort[x.nextDate(now).month - 1]),
+              leading: DateBlock(top: bnDigits(x.nextDate(now).day), bottom: monthShort(x.nextDate(now).month)),
               title: x.title,
               subtitle: '${weekdayName(x.nextDate(now))} · ${daysLeftLabel(x.nextDate(now), now)}',
               onTap: () => _push(RemindersScreen(highlightId: x.id)),
@@ -176,12 +177,12 @@ class _AnswerScreenState extends State<AnswerScreen> {
       case NoteAdd():
         final cat = _category ?? const CategoryGuess(defaultNoteCategory, isNew: false);
         final question = _noteSaved
-            ? 'ঠিক আছে, ‘${cat.name}’ বিভাগে রেখে দিলাম।'
+            ? trf('ঠিক আছে, ‘{0}’ বিভাগে রেখে দিলাম।', [cat.name])
             : cmd.fromStatement
                 ? (cat.isNew
-                    ? 'এটা আগের কোনো কিছুর সাথে মেলে না। ‘${cat.name}’ নামে নতুন বিভাগ খুলে রেখে দিই?'
-                    : 'এটা ‘${cat.name}’ বিভাগে রেখে দিই?')
-                : (cat.isNew ? '‘${cat.name}’ নামে নতুন বিভাগ খুলে লিখে রাখি?' : '‘${cat.name}’ বিভাগে লিখে রাখি?');
+                    ? trf('এটা আগের কোনো কিছুর সাথে মেলে না। ‘{0}’ নামে নতুন বিভাগ খুলে রেখে দিই?', [cat.name])
+                    : trf('এটা ‘{0}’ বিভাগে রেখে দিই?', [cat.name]))
+                : (cat.isNew ? trf('‘{0}’ নামে নতুন বিভাগ খুলে লিখে রাখি?', [cat.name]) : trf('‘{0}’ বিভাগে লিখে রাখি?', [cat.name]));
         return _Answer(question, items: [
           Padding(padding: const EdgeInsets.fromLTRB(4, 12, 4, 8), child: Text(cmd.text, style: body(17, height: 1.5))),
           Padding(
@@ -191,16 +192,16 @@ class _AnswerScreenState extends State<AnswerScreen> {
               spacing: 8,
               runSpacing: 6,
               children: [
-                Text('বিভাগ:', style: body(14, color: C.muted)),
+                Text(tr('বিভাগ:'), style: body(14, color: C.muted)),
                 ActionChip(
-                  avatar: const Icon(Icons.folder_outlined, size: 18, color: C.ochre),
+                  avatar: Icon(Icons.folder_outlined, size: 18, color: C.ochre),
                   label: Text(cat.name, style: body(14, weight: FontWeight.w600)),
                   backgroundColor: C.ochreTint,
                   side: BorderSide.none,
                   onPressed: _noteSaved ? null : _changeCategory,
                 ),
-                if (cat.isNew && !_noteSaved) const Pill('নতুন বিভাগ', fg: C.ochre, bg: C.ochreTint),
-                if (!_noteSaved) TextButton(onPressed: _changeCategory, child: Text('বদলান', style: body(14, weight: FontWeight.w600, color: C.green))),
+                if (cat.isNew && !_noteSaved) Pill(tr('নতুন বিভাগ'), fg: C.ochre, bg: C.ochreTint),
+                if (!_noteSaved) TextButton(onPressed: _changeCategory, child: Text(tr('বদলান'), style: body(14, weight: FontWeight.w600, color: C.green))),
               ],
             ),
           ),
@@ -210,7 +211,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
         final text = searchAnswer(d, cmd, now);
         if (hits.isEmpty) {
           return _Answer(text, actions: [
-            PrimaryButton(label: 'নতুন তথ্য যোগ করুন', icon: Icons.add_rounded, onPressed: () => _push(const NewItemScreen())),
+            PrimaryButton(label: tr('নতুন তথ্য যোগ করুন'), icon: Icons.add_rounded, onPressed: () => _push(const NewItemScreen())),
           ]);
         }
         return _Answer(text, secure: hits.first is VaultHit, items: [for (final h in hits.take(12)) _hitRow(h, now)]);
@@ -218,7 +219,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
         return _Answer(talkReply(cmd.kind, now), actions: [
           if (cmd.kind == Talk.whatCanYouDo || cmd.kind == Talk.greeting || cmd.kind == Talk.whoAreYou)
             PrimaryButton(
-              label: 'বলে শুরু করুন',
+              label: tr('বলে শুরু করুন'),
               icon: Icons.mic_none_rounded,
               onPressed: () => openVoice(context),
             ),
@@ -239,8 +240,10 @@ class _AnswerScreenState extends State<AnswerScreen> {
       case CallPerson():
       case CashAdd():
       case VaultAdd():
+      case MemoryAdd():
+      case SpecialAdd():
       case NotUnderstood():
-        return _Answer('দুঃখিত, ঠিক বুঝতে পারিনি। একটু অন্যভাবে আরেকবার বলবেন?');
+        return _Answer(tr('দুঃখিত, ঠিক বুঝতে পারিনি। একটু অন্যভাবে আরেকবার বলবেন?'));
     }
   }
 
@@ -248,7 +251,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
         leading: _VaultIcon(kind: v.kind),
         title: v.name,
         subtitle: v.kind.label,
-        trailing: const Icon(Icons.lock_outline_rounded, color: C.muted),
+        trailing: Icon(Icons.lock_outline_rounded, color: C.muted),
         onTap: () => _openVault(v),
       );
 
@@ -256,24 +259,24 @@ class _AnswerScreenState extends State<AnswerScreen> {
         VaultHit(:final item) => ListRow(
             leading: _VaultIcon(kind: item.kind),
             title: item.name,
-            subtitle: 'পাসওয়ার্ড · ${item.kind.label}',
-            trailing: const Icon(Icons.lock_outline_rounded, color: C.muted),
+            subtitle: trf('পাসওয়ার্ড · {0}', [item.kind.label]),
+            trailing: Icon(Icons.lock_outline_rounded, color: C.muted),
             onTap: () => _openVault(item),
           ),
         ContactHit(:final contact) => ListRow(
             leading: Avatar(name: contact.name, fg: C.purple, bg: C.purpleTint),
             title: contact.name,
-            subtitle: contact.phone.isNotEmpty ? bnDigits(contact.phone) : 'যোগাযোগ',
+            subtitle: contact.phone.isNotEmpty ? bnDigits(contact.phone) : tr('যোগাযোগ'),
             onTap: () => _push(NewItemScreen(contact: contact)),
           ),
         NoteHit(:final note) => ListRow(
-            leading: const _SmallIcon(icon: Icons.description_outlined, fg: C.ochre, bg: C.ochreTint),
+            leading: _SmallIcon(icon: Icons.description_outlined, fg: C.ochre, bg: C.ochreTint),
             title: note.title,
             subtitle: note.body.replaceAll('\n', ' '),
             onTap: () => _push(NewItemScreen(note: note)),
           ),
         ReminderHit(:final reminder) => ListRow(
-            leading: DateBlock(top: bnDigits(reminder.nextDate(now).day), bottom: bnMonthsShort[reminder.nextDate(now).month - 1]),
+            leading: DateBlock(top: bnDigits(reminder.nextDate(now).day), bottom: monthShort(reminder.nextDate(now).month)),
             title: reminder.title,
             subtitle: daysLeftLabel(reminder.nextDate(now), now),
             onTap: () => _push(RemindersScreen(highlightId: reminder.id)),
@@ -281,7 +284,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
         PersonHit(:final person) => ListRow(
             leading: Avatar(name: person),
             title: person,
-            subtitle: 'লেনদেন',
+            subtitle: tr('লেনদেন'),
             onTap: () => _push(PersonScreen(person: person)),
           ),
       };
@@ -303,18 +306,18 @@ class _AnswerScreenState extends State<AnswerScreen> {
     switch (q.ask) {
       case LedgerAsk.person:
         final p = balanceOf(d.ledger, q.person!);
-        return _Answer(text, items: [if (p != null) row(p, '${bnDigits(p.count)}টি লেনদেন')]);
+        return _Answer(text, items: [if (p != null) row(p, trf('{0}টি লেনদেন', [bnDigits(p.count)]))]);
       case LedgerAsk.receivable:
         return _Answer(text, items: [
-          for (final p in all.where((p) => p.balance > 0)) row(p, p.last == null ? '' : 'শেষ লেনদেন ${shortDate(p.last!)}'),
+          for (final p in all.where((p) => p.balance > 0)) row(p, p.last == null ? '' : trf('শেষ লেনদেন {0}', [shortDate(p.last!)])),
         ]);
       case LedgerAsk.payable:
         return _Answer(text, items: [
-          for (final p in all.where((p) => p.balance < 0)) row(p, p.last == null ? '' : 'শেষ লেনদেন ${shortDate(p.last!)}'),
+          for (final p in all.where((p) => p.balance < 0)) row(p, p.last == null ? '' : trf('শেষ লেনদেন {0}', [shortDate(p.last!)])),
         ]);
       case LedgerAsk.all:
         return _Answer(text, items: [
-          for (final p in all.where((p) => p.balance != 0)) row(p, p.balance > 0 ? 'পাবেন' : 'দেবেন'),
+          for (final p in all.where((p) => p.balance != 0)) row(p, p.balance > 0 ? tr('পাবেন') : tr('দেবেন')),
         ]);
     }
   }
@@ -326,10 +329,10 @@ class _AnswerScreenState extends State<AnswerScreen> {
     final cat = _category?.name ?? defaultNoteCategory;
     _noteSaved = true;
     await brain.saveNote(Note(title: noteTitleFrom(n.text), body: n.text, category: cat));
-    brain.services.voice.speak('ঠিক আছে, ‘$cat’ বিভাগে রেখে দিলাম।');
+    brain.services.voice.speak(trf('ঠিক আছে, ‘{0}’ বিভাগে রেখে দিলাম।', [cat]));
     if (!mounted) return;
     setState(() => _answer = _build(brain));
-    toast(context, '‘$cat’ বিভাগে রেখে দিলাম');
+    toast(context, trf('‘{0}’ বিভাগে রেখে দিলাম', [cat]));
   }
 
   @override
@@ -340,12 +343,12 @@ class _AnswerScreenState extends State<AnswerScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const TopBar(title: 'প্রশ্ন ও উত্তর', close: true),
+            TopBar(title: tr('প্রশ্ন ও উত্তর'), close: true),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                 children: [
-                  Bubble(label: isNote || cmd is SmallTalk || cmd is AiReply ? 'আপনি বললেন' : 'আপনি জিজ্ঞেস করলেন', text: cmd.transcript.trim()),
+                  Bubble(label: isNote || cmd is SmallTalk || cmd is AiReply ? tr('আপনি বললেন') : tr('আপনি জিজ্ঞেস করলেন'), text: cmd.transcript.trim()),
                   const SizedBox(height: 16),
                   Panel(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
@@ -353,15 +356,15 @@ class _AnswerScreenState extends State<AnswerScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(children: [
-                          const Icon(Icons.volume_up_outlined, size: 18, color: C.green),
+                          Icon(Icons.volume_up_outlined, size: 18, color: C.green),
                           const SizedBox(width: 6),
-                          Text('অ্যাপ বলছে', style: body(13, weight: FontWeight.w600, color: C.green)),
+                          Text(tr('অ্যাপ বলছে'), style: body(13, weight: FontWeight.w600, color: C.green)),
                         ]),
                         const SizedBox(height: 8),
                         Text(_answer.text, style: display(22, height: 1.35)),
                         if (_answer.secure) ...[
                           const SizedBox(height: 6),
-                          Text('পাসওয়ার্ড কখনো জোরে পড়ে শোনানো হয় না।', style: body(13, color: C.muted)),
+                          Text(tr('পাসওয়ার্ড কখনো জোরে পড়ে শোনানো হয় না।'), style: body(13, color: C.muted)),
                         ],
                         const SizedBox(height: 8),
                         if (_answer.items.isNotEmpty) ...[
@@ -380,19 +383,19 @@ class _AnswerScreenState extends State<AnswerScreen> {
               child: isNote && !_noteSaved
                   ? Column(children: [
                       Row(children: [
-                        Expanded(child: SecondaryButton(label: 'না', height: 56, onPressed: () => _onAnswer('না'))),
+                        Expanded(child: SecondaryButton(label: tr('না'), height: 56, onPressed: () => _onAnswer(tr('না')))),
                         const SizedBox(width: 10),
-                        Expanded(flex: 2, child: PrimaryButton(label: 'হ্যাঁ, রাখুন', icon: Icons.check_rounded, onPressed: () => _saveNote(cmd))),
+                        Expanded(flex: 2, child: PrimaryButton(label: tr('হ্যাঁ, রাখুন'), icon: Icons.check_rounded, onPressed: () => _saveNote(cmd))),
                       ]),
                       const SizedBox(height: 10),
                       ListeningStrip(q: _q),
                     ])
                   : Row(children: [
-                      Expanded(child: SecondaryButton(label: 'আবার শুনুন', icon: Icons.volume_up_outlined, height: 56, onPressed: _speak)),
+                      Expanded(child: SecondaryButton(label: tr('আবার শুনুন'), icon: Icons.volume_up_outlined, height: 56, onPressed: _speak)),
                       const SizedBox(width: 10),
                       Expanded(
                         child: PrimaryButton(
-                          label: 'আরেকটা প্রশ্ন',
+                          label: tr('আরেকটা প্রশ্ন'),
                           icon: Icons.mic_none_rounded,
                           onPressed: () => openVoice(context),
                         ),

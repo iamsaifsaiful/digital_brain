@@ -6,6 +6,8 @@ import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
+import '../logic/lang.dart';
+
 /// Listening (speech to text) and speaking (text to speech), in Bengali.
 abstract class Voice {
   /// Asks for the microphone the first time. False when speech is not
@@ -399,6 +401,7 @@ class DeviceVoice extends Voice {
     try {
       await init();
       await _tts.stop();
+      await _useTtsLanguage(_mostlyLatin(text));
       // Some speech engines never report "done": do not wait forever, or
       // the conversation would stop listening.
       final limit = Duration(milliseconds: (4000 + text.length * 110).clamp(4000, 90000));
@@ -410,6 +413,25 @@ class DeviceVoice extends Voice {
     }
   }
 
+  bool _ttsEnglish = false;
+
+  /// English replies (English mode) are read with an English voice; Bangla with the Bangla one.
+  Future<void> _useTtsLanguage(bool english) async {
+    if (english == _ttsEnglish) return;
+    _ttsEnglish = english;
+    if (english) {
+      for (final l in ['en-IN', 'en-US', 'en-GB']) {
+        final ok = await _tts.isLanguageAvailable(l);
+        if (ok == true || ok == 1) {
+          await _tts.setLanguage(l);
+          return;
+        }
+      }
+    } else {
+      await _setupTts();
+    }
+  }
+
   @override
   Future<void> stopSpeaking() async {
     try {
@@ -418,21 +440,34 @@ class DeviceVoice extends Voice {
   }
 }
 
+/// More Latin letters than Bengali ones: an English reply.
+bool _mostlyLatin(String text) {
+  var latin = 0, bangla = 0;
+  for (final r in text.runes) {
+    if ((r >= 65 && r <= 90) || (r >= 97 && r <= 122)) {
+      latin++;
+    } else if (r >= 0x0980 && r <= 0x09FF) {
+      bangla++;
+    }
+  }
+  return latin > bangla * 2 && latin > 3;
+}
+
 /// A short Bengali message for a recogniser error code (the codes the
 /// speech_to_text plugin sends on Android).
 String voiceErrorMessage(String code) => switch (code) {
-      'error_no_match' || 'error_speech_timeout' => 'কিছু শুনতে পাইনি। আবার বলুন — মাইকের কাছে, একটু জোরে।',
+      'error_no_match' || 'error_speech_timeout' => tr('কিছু শুনতে পাইনি। আবার বলুন — মাইকের কাছে, একটু জোরে।'),
       'error_network' || 'error_network_timeout' || 'error_server' || 'error_server_disconnected' =>
-        'বাংলা শুনে বুঝতে ইন্টারনেট লাগে, সংযোগ পাওয়া যাচ্ছে না। নিচে লিখেও দিতে পারেন।',
-      'error_too_many_requests' => 'এই মুহূর্তে ফোনের ভয়েস সেবা ব্যস্ত। একটু পরে আবার চেষ্টা করুন।',
+        tr('বাংলা শুনে বুঝতে ইন্টারনেট লাগে, সংযোগ পাওয়া যাচ্ছে না। নিচে লিখেও দিতে পারেন।'),
+      'error_too_many_requests' => tr('এই মুহূর্তে ফোনের ভয়েস সেবা ব্যস্ত। একটু পরে আবার চেষ্টা করুন।'),
       'error_permission' =>
-        'মাইক্রোফোনের অনুমতি দেওয়া নেই। ফোনের Settings → Apps → My Assistant → Permissions থেকে Microphone চালু করুন।',
-      'error_audio_error' => 'মাইক্রোফোন চালু করা গেল না — অন্য কোনো অ্যাপ (কল, রেকর্ডার) মাইক ব্যবহার করছে কি না দেখুন।',
-      'error_busy' || 'error_client' => 'ফোনের ভয়েস সেবা আগের কাজ শেষ করছে। মাইক আবার চাপুন।',
+        tr('মাইক্রোফোনের অনুমতি দেওয়া নেই। ফোনের Settings → Apps → My Assistant → Permissions থেকে Microphone চালু করুন।'),
+      'error_audio_error' => tr('মাইক্রোফোন চালু করা গেল না — অন্য কোনো অ্যাপ (কল, রেকর্ডার) মাইক ব্যবহার করছে কি না দেখুন।'),
+      'error_busy' || 'error_client' => tr('ফোনের ভয়েস সেবা আগের কাজ শেষ করছে। মাইক আবার চাপুন।'),
       'error_language_not_supported' || 'error_language_unavailable' =>
-        'এই ফোনের ভয়েস সেবায় বাংলা চালু নেই। Google অ্যাপ → Settings → Voice → Languages থেকে “বাংলা (বাংলাদেশ)” যোগ করুন।',
-      'unavailable' => 'এই ফোনে কথা শুনে লেখার সেবা (Google ভয়েস) পাওয়া যায়নি। Google অ্যাপ চালু/হালনাগাদ করুন, অথবা লিখে দিন।',
-      _ => 'শুনতে সমস্যা হয়েছে। আবার চেষ্টা করুন, অথবা লিখে দিন।',
+        tr('এই ফোনের ভয়েস সেবায় বাংলা চালু নেই। Google অ্যাপ → Settings → Voice → Languages থেকে “বাংলা (বাংলাদেশ)” যোগ করুন।'),
+      'unavailable' => tr('এই ফোনে কথা শুনে লেখার সেবা (Google ভয়েস) পাওয়া যায়নি। Google অ্যাপ চালু/হালনাগাদ করুন, অথবা লিখে দিন।'),
+      _ => tr('শুনতে সমস্যা হয়েছে। আবার চেষ্টা করুন, অথবা লিখে দিন।'),
     };
 
 /// For tests: say() feeds a sentence as if it was heard.

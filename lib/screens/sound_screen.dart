@@ -6,6 +6,7 @@ import '../services/notifications.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import '../logic/lang.dart';
 
 /// "রিমাইন্ডারের রিংটোন": the phone's tones, each with a play button, so the
 /// user hears it before choosing.
@@ -70,7 +71,7 @@ class _SoundScreenState extends State<SoundScreen> {
     await brain.services.notifier.stopSound();
     await brain.setAlarmSound(_chosen == _alarmTone ? null : _chosen, _chosenTitle);
     if (!mounted) return;
-    toast(context, _chosen == _alarmTone ? 'ফোনের অ্যালার্ম টোনে বাজবে' : 'রিমাইন্ডার এখন “$_chosenTitle” দিয়ে বাজবে');
+    toast(context, _chosen == _alarmTone ? tr('ফোনের অ্যালার্ম টোনে বাজবে') : trf('রিমাইন্ডার এখন “{0}” দিয়ে বাজবে', [_chosenTitle]));
     Navigator.of(context).pop();
   }
 
@@ -108,7 +109,7 @@ class _SoundScreenState extends State<SoundScreen> {
             ]),
           ),
           IconButton(
-            tooltip: playing ? 'থামান' : 'শুনুন',
+            tooltip: playing ? tr('থামান') : tr('শুনুন'),
             onPressed: () => _play(uri),
             icon: Icon(playing ? Icons.stop_circle_outlined : Icons.play_circle_outline_rounded, color: C.green, size: 30),
           ),
@@ -124,22 +125,22 @@ class _SoundScreenState extends State<SoundScreen> {
     for (final s in l ?? const <SoundOption>[]) {
       groups.putIfAbsent(s.kind, () => []).add(s);
     }
-    const names = {'alarm': 'অ্যালার্ম টোন', 'ringtone': 'রিংটোন', 'notification': 'নোটিফিকেশন টোন'};
+    final names = {'alarm': tr('অ্যালার্ম টোন'), 'ringtone': tr('রিংটোন'), 'notification': tr('নোটিফিকেশন টোন')};
     final custom = _chosen != null && _chosen != _alarmTone && !(l ?? const []).any((s) => s.uri == _chosen);
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          const TopBar(title: 'রিমাইন্ডারের রিংটোন'),
+          TopBar(title: tr('রিমাইন্ডারের রিংটোন')),
           Expanded(
             child: l == null
                 ? const Center(child: CircularProgressIndicator())
                 : ListView(padding: const EdgeInsets.fromLTRB(20, 0, 20, 24), children: [
-                    Text('নাম চাপলে ৮ সেকেন্ড বাজিয়ে শোনাবে। শব্দ না এলে ফোনের অ্যালার্ম ভলিউম বাড়ান।', style: body(13, color: C.muted)),
+                    Text(tr('নাম চাপলে ৮ সেকেন্ড বাজিয়ে শোনাবে। শব্দ না এলে ফোনের অ্যালার্ম ভলিউম বাড়ান।'), style: body(13, color: C.muted)),
                     const SizedBox(height: 10),
                     Panel(
                       child: Rows(children: [
-                        _row(_alarmTone, 'ফোনের অ্যালার্ম টোন', sub: 'আগের মতো'),
-                        if (custom) _row(_chosen!, _chosenTitle.isEmpty ? 'নিজের বেছে নেওয়া' : _chosenTitle, sub: 'ফোন থেকে বেছে নেওয়া'),
+                        _row(_alarmTone, tr('ফোনের অ্যালার্ম টোন'), sub: tr('আগের মতো')),
+                        if (custom) _row(_chosen!, _chosenTitle.isEmpty ? tr('নিজের বেছে নেওয়া') : _chosenTitle, sub: tr('ফোন থেকে বেছে নেওয়া')),
                       ]),
                     ),
                     for (final k in const ['alarm', 'ringtone', 'notification'])
@@ -149,12 +150,12 @@ class _SoundScreenState extends State<SoundScreen> {
                         Panel(child: Rows(children: [for (final s in groups[k]!) _row(s.uri, s.title)])),
                       ],
                     const SizedBox(height: 14),
-                    SecondaryButton(label: 'নিজের গান বা অন্য শব্দ (ফোনের তালিকা)', icon: Icons.library_music_outlined, onPressed: _fromPhone),
+                    SecondaryButton(label: tr('নিজের গান বা অন্য শব্দ (ফোনের তালিকা)'), icon: Icons.library_music_outlined, onPressed: _fromPhone),
                   ]),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-            child: PrimaryButton(label: 'রাখুন', onPressed: _chosen == null ? null : _save),
+            child: PrimaryButton(label: tr('রাখুন'), onPressed: _chosen == null ? null : _save),
           ),
         ]),
       ),

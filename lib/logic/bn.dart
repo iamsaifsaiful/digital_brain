@@ -1,11 +1,14 @@
-/// Bengali digits, money and dates.
+/// Bengali digits, money and dates (English ones when the app is in English).
 library;
+
+import 'lang.dart';
 
 const _bnDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
 
 /// "1050" → "১০৫০".
 String bnDigits(Object value) {
   final s = value.toString();
+  if (isEn) return s;
   final b = StringBuffer();
   for (final r in s.runes) {
     final c = String.fromCharCode(r);
@@ -64,31 +67,48 @@ const bnMonthsShort = [
 const bnWeekdays = ['সোমবার', 'মঙ্গলবার', 'বুধবার', 'বৃহস্পতিবার', 'শুক্রবার', 'শনিবার', 'রবিবার'];
 const bnWeekdaysShort = ['সোম', 'মঙ্গল', 'বুধ', 'বৃহঃ', 'শুক্র', 'শনি', 'রবি'];
 
-String weekdayName(DateTime d) => bnWeekdays[d.weekday - 1];
-String weekdayShort(DateTime d) => bnWeekdaysShort[d.weekday - 1];
+const enMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const enMonthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const enWeekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const enWeekdaysShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+/// Month 1–12 → "অক্টোবর" / "October".
+String monthName(int month) => (isEn ? enMonths : bnMonths)[month - 1];
+String monthShort(int month) => (isEn ? enMonthsShort : bnMonthsShort)[month - 1];
+
+/// Weekday 1 (Monday) – 7 → "শুক্রবার" / "Friday".
+String dayName(int weekday) => (isEn ? enWeekdays : bnWeekdays)[weekday - 1];
+String dayShort(int weekday) => (isEn ? enWeekdaysShort : bnWeekdaysShort)[weekday - 1];
+
+String weekdayName(DateTime d) => dayName(d.weekday);
+String weekdayShort(DateTime d) => dayShort(d.weekday);
 
 /// "৯ অক্টোবর ২০২৬".
-String fullDate(DateTime d) => '${bnDigits(d.day)} ${bnMonths[d.month - 1]} ${bnDigits(d.year)}';
+String fullDate(DateTime d) => '${bnDigits(d.day)} ${monthName(d.month)} ${bnDigits(d.year)}';
 
 /// "৯ অক্টো".
-String shortDate(DateTime d) => '${bnDigits(d.day)} ${bnMonthsShort[d.month - 1]}';
+String shortDate(DateTime d) => '${bnDigits(d.day)} ${monthShort(d.month)}';
 
 /// "অক্টোবর ২০২৬".
-String monthTitle(DateTime d) => '${bnMonths[d.month - 1]} ${bnDigits(d.year)}';
+String monthTitle(DateTime d) => '${monthName(d.month)} ${bnDigits(d.year)}';
 
 DateTime dayOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
 /// "আজ", "গতকাল", "আগামীকাল" or "৯ অক্টো".
 String relativeDay(DateTime d, DateTime now) {
   final diff = dayOnly(d).difference(dayOnly(now)).inDays;
-  if (diff == 0) return 'আজ';
-  if (diff == -1) return 'গতকাল';
-  if (diff == 1) return 'আগামীকাল';
+  if (diff == 0) return bnEn('আজ', 'Today');
+  if (diff == -1) return bnEn('গতকাল', 'Yesterday');
+  if (diff == 1) return bnEn('আগামীকাল', 'Tomorrow');
   return shortDate(d);
 }
 
 /// "সকাল ১০টা", "বিকেল ৫:৩০".
 String bnTime(int hour, int minute) {
+  if (isEn) {
+    final h = hour % 12 == 0 ? 12 : hour % 12;
+    return '$h:${minute.toString().padLeft(2, '0')} ${hour < 12 ? 'AM' : 'PM'}';
+  }
   final String part;
   if (hour < 4) {
     part = 'রাত';
@@ -111,6 +131,12 @@ String bnTime(int hour, int minute) {
 /// Days from today until [d] ("আজ" when 0).
 String daysLeftLabel(DateTime d, DateTime now) {
   final diff = dayOnly(d).difference(dayOnly(now)).inDays;
+  if (isEn) {
+    if (diff < 0) return '${-diff} days ago';
+    if (diff == 0) return 'today';
+    if (diff == 1) return 'tomorrow';
+    return '$diff days left';
+  }
   if (diff < 0) return '${bnDigits(-diff)} দিন আগে';
   if (diff == 0) return 'আজ';
   if (diff == 1) return 'কাল';

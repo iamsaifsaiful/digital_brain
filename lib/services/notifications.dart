@@ -25,6 +25,7 @@ class PlannedNotice {
     this.every,
     this.repeat = NoticeRepeat.none,
     this.early = false,
+    this.gentle = false,
   });
   final int id;
   final DateTime at;
@@ -38,6 +39,9 @@ class PlannedNotice {
 
   /// The advance notice ("২ দিন আগে"), not the reminder itself.
   final bool early;
+
+  /// A summary or nudge from the assistant: a normal, quiet notification, not an alarm.
+  final bool gentle;
   final String title;
   final String body;
   final String reminderId;
@@ -248,6 +252,12 @@ abstract class Notifier {
 
   /// Lets the alarm page show over the lock screen (only while it is open).
   Future<void> showOverLock(bool on);
+
+  /// The emergency card on the lock screen (null removes it).
+  Future<void> showEmergency(String? text);
+
+  /// A mic in the notification panel, to talk to the assistant in one tap.
+  Future<void> showPanelMic(bool on, {String title, String body});
 }
 
 const _channelId = 'reminder_alarm';
@@ -292,6 +302,23 @@ NotificationDetails _details({required bool insistent, required bool repeating, 
                 AndroidNotificationAction('snooze', '১০ মিনিট পরে'),
                 AndroidNotificationAction('dismiss', 'হয়ে গেছে'),
               ],
+      ),
+    );
+
+/// The assistant's own notes (summaries, nudges): a normal notification sound, no alarm.
+NotificationDetails _gentleDetails(String body) => NotificationDetails(
+      android: AndroidNotificationDetails(
+        'assistant_notes',
+        'সহকারীর বার্তা',
+        channelDescription: 'সকাল-রাতের সারাংশ আর দরকারি কথা মনে করানো',
+        icon: 'ic_stat_reminder',
+        color: const Color(0xFF0E7A5F),
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+        category: AndroidNotificationCategory.reminder,
+        visibility: NotificationVisibility.private,
+        styleInformation: BigTextStyleInformation(body),
+        autoCancel: true,
       ),
     );
 
@@ -493,6 +520,79 @@ class NotificationService implements Notifier {
   @override
   Future<void> showOverLock(bool on) => _call('showOverLock', on);
 
+  static final _emergencyId = stableId('emergency-card');
+  static final _micId = stableId('panel-mic');
+
+  @override
+  Future<void> showEmergency(String? text) async {
+    if (!_ready) return;
+    try {
+      if (text == null) {
+        await _plugin.cancel(id: _emergencyId);
+        return;
+      }
+      await _plugin.show(
+        id: _emergencyId,
+        title: 'জরুরি তথ্য · Emergency',
+        body: text.replaceAll('\n', ' · '),
+        notificationDetails: NotificationDetails(
+          android: AndroidNotificationDetails(
+            'emergency_card',
+            'জরুরি তথ্য (লক স্ক্রিনে)',
+            channelDescription: 'রক্তের গ্রুপ, জরুরি নম্বর আর ওষুধ — বিপদে কেউ যেন দেখতে পারে',
+            icon: 'ic_stat_reminder',
+            importance: Importance.low,
+            priority: Priority.low,
+            ongoing: true,
+            autoCancel: false,
+            playSound: false,
+            enableVibration: false,
+            visibility: NotificationVisibility.public,
+            styleInformation: BigTextStyleInformation(text),
+          ),
+        ),
+        payload: noticePayload('emergency', '', '', false),
+      );
+    } catch (e) {
+      debugPrint('emergency card: $e');
+    }
+  }
+
+  @override
+  Future<void> showPanelMic(bool on, {String title = 'My Assistant', String body = 'চাপুন, তারপর বলুন'}) async {
+    if (!_ready) return;
+    try {
+      if (!on) {
+        await _plugin.cancel(id: _micId);
+        return;
+      }
+      await _plugin.show(
+        id: _micId,
+        title: title,
+        body: body,
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'quick_mic',
+            'দ্রুত মাইক',
+            channelDescription: 'নোটিফিকেশন প্যানেল থেকে এক চাপে সহকারীকে বলা',
+            icon: 'ic_stat_reminder',
+            importance: Importance.low,
+            priority: Priority.low,
+            ongoing: true,
+            autoCancel: false,
+            playSound: false,
+            enableVibration: false,
+            showWhen: false,
+            visibility: NotificationVisibility.private,
+          ),
+        ),
+        payload: noticePayload('quick:voice', '', '', false),
+      );
+    } catch (e) {
+      debugPrint('panel mic: $e');
+    }
+  }
+
   @override
   Future<void> ringOnce(String reminderId, String title, String body, Duration after) async {
     if (!_ready) return;
@@ -565,7 +665,7 @@ class NotificationService implements Notifier {
         await _plugin.zonedSchedule(
           id: n.id,
           scheduledDate: tz.TZDateTime.from(n.at, tz.UTC),
-          notificationDetails: _details(insistent: insistent && !n.early, repeating: false, sound: soundUri),
+          notificationDetails: n.gentle ? _gentleDetails(n.body) : _details(insistent: insistent && !n.early, repeating: false, sound: soundUri),
           androidScheduleMode: mode,
           title: n.title,
           body: n.body,
@@ -625,7 +725,13 @@ class FakeNotifier implements Notifier {
   Future<void> requestPermission() async {}
 
   @override
-  Future<void> schedule(List<PlannedNotice> notices) async => scheduled = notices;
+  Future<void> schedule(List<PlannedNotice> notices) async {
+    scheduled = [for (final n in notices) if (!n.gentle) n];
+    assistant = [for (final n in notices) if (n.gentle) n];
+  }
+
+  /// The summaries and nudges (kept apart from the reminders).
+  List<PlannedNotice> assistant = [];
 
   @override
   Future<bool> exactAllowed() async => state.exactOn;
@@ -659,4 +765,13 @@ class FakeNotifier implements Notifier {
 
   @override
   Future<void> showOverLock(bool on) async {}
+
+  String? emergency;
+  bool micOn = false;
+
+  @override
+  Future<void> showEmergency(String? text) async => emergency = text;
+
+  @override
+  Future<void> showPanelMic(bool on, {String title = '', String body = ''}) async => micOn = on;
 }

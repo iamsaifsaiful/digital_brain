@@ -7,6 +7,8 @@ import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import 'onboarding_screen.dart';
+import '../logic/lang.dart';
 
 /// কাজের তালিকা: to-dos said by voice or typed here.
 class TasksScreen extends StatefulWidget {
@@ -19,6 +21,9 @@ class TasksScreen extends StatefulWidget {
 class _TasksScreenState extends State<TasksScreen> {
   final _text = TextEditingController();
   bool _showDone = false;
+
+  /// The list shown ('' = the main to-do list, null = all).
+  String? _list;
 
   @override
   void dispose() {
@@ -34,7 +39,7 @@ class _TasksScreenState extends State<TasksScreen> {
     var title = when != null && when.hasDay ? tidy(withoutWhen(raw)) : raw;
     if (title.isEmpty) title = raw;
     _text.clear();
-    await brain.saveTask(Task(title: title, due: when != null && when.hasDay ? when.day : null));
+    await brain.saveTask(Task(title: title, due: when != null && when.hasDay ? when.day : null, list: _list ?? ''));
   }
 
   Future<void> _edit(Task t) async {
@@ -45,12 +50,12 @@ class _TasksScreenState extends State<TasksScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setD) => AlertDialog(
-          title: Text('কাজ', style: display(20)),
+          title: Text(tr('কাজ'), style: display(20)),
           content: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextField(controller: c, minLines: 1, maxLines: 3, decoration: const InputDecoration(labelText: 'কী করতে হবে')),
+            TextField(controller: c, minLines: 1, maxLines: 3, decoration: InputDecoration(labelText: tr('কী করতে হবে'))),
             const SizedBox(height: 10),
             Row(children: [
-              Expanded(child: Text(due == null ? 'তারিখ নেই' : fullDate(due!), style: body(15))),
+              Expanded(child: Text(due == null ? tr('তারিখ নেই') : fullDate(due!), style: body(15))),
               TextButton(
                 onPressed: () async {
                   final now = brain.services.now();
@@ -62,22 +67,22 @@ class _TasksScreenState extends State<TasksScreen> {
                   );
                   if (p != null) setD(() => due = p);
                 },
-                child: const Text('তারিখ'),
+                child: Text(tr('তারিখ')),
               ),
-              if (due != null) IconButton(tooltip: 'তারিখ মুছুন', onPressed: () => setD(() => due = null), icon: const Icon(Icons.close_rounded)),
+              if (due != null) IconButton(tooltip: tr('তারিখ মুছুন'), onPressed: () => setD(() => due = null), icon: const Icon(Icons.close_rounded)),
             ]),
           ]),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, 'delete'), child: Text('মুছুন', style: body(15, color: C.red))),
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('বাতিল')),
-            TextButton(onPressed: () => Navigator.pop(ctx, 'save'), child: const Text('সেভ')),
+            TextButton(onPressed: () => Navigator.pop(ctx, 'delete'), child: Text(tr('মুছুন'), style: body(15, color: C.red))),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
+            TextButton(onPressed: () => Navigator.pop(ctx, 'save'), child: Text(tr('সেভ'))),
           ],
         ),
       ),
     );
     if (r == 'delete') {
       await brain.deleteTask(t.id);
-      if (mounted) toast(context, 'কাজটা মুছে দিলাম');
+      if (mounted) toast(context, tr('কাজটা মুছে দিলাম'));
     } else if (r == 'save' && c.text.trim().isNotEmpty) {
       await brain.saveTask(t.copyWith(title: c.text.trim(), due: due, clearDue: due == null));
     }
@@ -87,8 +92,11 @@ class _TasksScreenState extends State<TasksScreen> {
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final now = brain.services.now();
-    final open = openTasksOf(brain.data, now);
-    final done = brain.data.tasks.where((t) => t.done).toList()..sort((a, b) => (b.doneAt ?? b.createdAt).compareTo(a.doneAt ?? a.createdAt));
+    final lists = {for (final t in brain.data.tasks) if (t.list.isNotEmpty) t.list}.toList()..sort();
+    if (_list != null && _list!.isNotEmpty && !lists.contains(_list)) _list = null;
+    bool inList(Task t) => _list == null || t.list == _list;
+    final open = openTasksOf(brain.data, now).where(inList).toList();
+    final done = brain.data.tasks.where((t) => t.done && inList(t)).toList()..sort((a, b) => (b.doneAt ?? b.createdAt).compareTo(a.doneAt ?? a.createdAt));
 
     Widget row(Task t) {
       final overdue = t.due != null && !t.done && dayOnly(t.due!).isBefore(dayOnly(now));
@@ -99,7 +107,7 @@ class _TasksScreenState extends State<TasksScreen> {
           onChanged: (v) => brain.setTaskDone(t, v ?? false),
         ),
         title: t.title,
-        subtitle: t.due == null ? null : (overdue ? 'দেরি হয়ে গেছে · ${shortDate(t.due!)}' : sayWhen(t.due!, now, withTime: false)),
+        subtitle: t.due == null ? (_list == null && t.list.isNotEmpty ? t.list : null) : (overdue ? trf('দেরি হয়ে গেছে · {0}', [shortDate(t.due!)]) : sayWhen(t.due!, now, withTime: false)),
         subtitleColor: overdue ? C.orange : C.muted,
         onTap: () => _edit(t),
       );
@@ -109,19 +117,58 @@ class _TasksScreenState extends State<TasksScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const TopBar(title: 'কাজের তালিকা'),
+            TopBar(title: tr('কাজের তালিকা'), trailing: [
+              IconButton(
+                tooltip: tr('তৈরি তালিকা'),
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TemplatesScreen())),
+                icon: const Icon(Icons.playlist_add_rounded),
+              ),
+            ]),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
                 children: [
+                  if (lists.isNotEmpty) ...[
+                    SizedBox(
+                      height: 40,
+                      child: ListView(scrollDirection: Axis.horizontal, children: [
+                        for (final (key, label) in [(null, tr('সব')), ('', tr('মূল তালিকা')), for (final l in lists) (l, l)])
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text(label),
+                              selected: _list == key,
+                              onSelected: (_) => setState(() => _list = key),
+                            ),
+                          ),
+                      ]),
+                    ),
+                    if (_list != null && _list!.isNotEmpty)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton.icon(
+                          onPressed: () async {
+                            final name = _list!;
+                            if (!await confirmDialog(context, title: tr('তালিকা মুছবেন?'), text: trf('‘{0}’-এর সব জিনিস মুছে যাবে।', [name]), yes: tr('মুছুন'), danger: true)) return;
+                            for (final t in [...brain.data.tasks.where((t) => t.list == name)]) {
+                              await brain.deleteTask(t.id);
+                            }
+                            setState(() => _list = null);
+                          },
+                          icon: Icon(Icons.delete_outline_rounded, size: 18, color: C.red),
+                          label: Text(tr('তালিকা মুছুন'), style: body(13, color: C.red)),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                  ],
                   if (open.isEmpty && done.isEmpty)
-                    const EmptyState(
+                    EmptyState(
                       icon: Icons.checklist_rounded,
-                      title: 'কোনো কাজ নেই',
-                      text: 'বলুন “কাল ব্যাংকে যেতে হবে” বা “বাজারের লিস্টে ডিম রাখো”, অথবা নিচে লিখে যোগ করুন।',
+                      title: tr('কোনো কাজ নেই'),
+                      text: tr('বলুন “কাল ব্যাংকে যেতে হবে” বা “বাজারের লিস্টে ডিম রাখো”, অথবা নিচে লিখে যোগ করুন।'),
                     )
                   else ...[
-                    Text(open.isEmpty ? 'সব কাজ শেষ!' : '${bnDigits(open.length)}টা কাজ বাকি', style: body(14, color: C.muted)),
+                    Text(open.isEmpty ? tr('সব কাজ শেষ!') : trf('{0}টা কাজ বাকি', [bnDigits(open.length)]), style: body(14, color: C.muted)),
                     const SizedBox(height: 8),
                     if (open.isNotEmpty) Panel(child: Rows(children: [for (final t in open) row(t)])),
                     if (done.isNotEmpty) ...[
@@ -129,7 +176,7 @@ class _TasksScreenState extends State<TasksScreen> {
                       TextButton.icon(
                         onPressed: () => setState(() => _showDone = !_showDone),
                         icon: Icon(_showDone ? Icons.expand_less_rounded : Icons.expand_more_rounded),
-                        label: Text('শেষ হয়েছে (${bnDigits(done.length)})'),
+                        label: Text(trf('শেষ হয়েছে ({0})', [bnDigits(done.length)])),
                       ),
                       if (_showDone) Panel(child: Rows(children: [for (final t in done.take(50)) row(t)])),
                     ],
@@ -145,12 +192,12 @@ class _TasksScreenState extends State<TasksScreen> {
                     controller: _text,
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _add(),
-                    decoration: const InputDecoration(hintText: 'নতুন কাজ, যেমন: কাল ব্যাংকে যেতে হবে'),
+                    decoration: InputDecoration(hintText: tr('নতুন কাজ, যেমন: কাল ব্যাংকে যেতে হবে')),
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton.filled(
-                  tooltip: 'যোগ করুন',
+                  tooltip: tr('যোগ করুন'),
                   style: IconButton.styleFrom(backgroundColor: C.green, minimumSize: const Size(52, 52)),
                   onPressed: _add,
                   icon: const Icon(Icons.add_rounded, color: Colors.white),

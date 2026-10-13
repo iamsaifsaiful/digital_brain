@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
 import '../logic/cash.dart';
+import '../logic/money_more.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import '../logic/lang.dart';
 
 /// White card: one big figure ("এই মাসের ব্যালেন্স") and two under it.
 class SummaryCard extends StatelessWidget {
@@ -70,29 +72,29 @@ class _CashViewState extends State<CashView> {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Row(children: [
         IconButton(
-          tooltip: 'আগের মাস',
+          tooltip: tr('আগের মাস'),
           onPressed: () => setState(() => _month = DateTime(m.year, m.month - 1)),
           icon: const Icon(Icons.chevron_left_rounded),
         ),
-        Expanded(child: Text('${bnMonths[m.month - 1]} ${bnDigits(m.year)}', textAlign: TextAlign.center, style: display(18))),
+        Expanded(child: Text('${monthName(m.month)} ${bnDigits(m.year)}', textAlign: TextAlign.center, style: display(18))),
         IconButton(
-          tooltip: 'পরের মাস',
+          tooltip: tr('পরের মাস'),
           onPressed: isThisMonth ? null : () => setState(() => _month = DateTime(m.year, m.month + 1)),
           icon: const Icon(Icons.chevron_right_rounded),
         ),
       ]),
       const SizedBox(height: 6),
       SummaryCard(
-        title: isThisMonth ? 'এই মাসের ব্যালেন্স' : 'মাসের ব্যালেন্স',
+        title: isThisMonth ? tr('এই মাসের ব্যালেন্স') : tr('মাসের ব্যালেন্স'),
         amount: sums.balance.abs(),
         negative: sums.balance < 0,
-        items: [('আয়', sums.income, C.green), ('খরচ', sums.expense, C.orange)],
+        items: [(tr('আয়'), sums.income, C.green), (tr('খরচ'), sums.expense, C.orange)],
       ),
       const SizedBox(height: 12),
       Row(children: [
         Expanded(
           child: PrimaryButton(
-            label: 'আয়',
+            label: tr('আয়'),
             icon: Icons.add_rounded,
             height: 48,
             onPressed: () => _push(const CashFormScreen(kind: CashKind.income)),
@@ -101,19 +103,19 @@ class _CashViewState extends State<CashView> {
         const SizedBox(width: 8),
         Expanded(
           child: PrimaryButton(
-            label: 'খরচ',
+            label: tr('খরচ'),
             icon: Icons.add_rounded,
             height: 48,
-            color: C.ink,
+            color: C.fill,
             onPressed: () => _push(const CashFormScreen(kind: CashKind.expense)),
           ),
         ),
       ]),
       const SizedBox(height: 8),
-      Text('মুখেও বলা যায়: “বাজারে ৫০০ টাকা খরচ হলো”, “বেতন পেলাম ৩০ হাজার”', style: body(13, color: C.muted)),
+      Text(tr('মুখেও বলা যায়: “বাজারে ৫০০ টাকা খরচ হলো”, “বেতন পেলাম ৩০ হাজার”'), style: body(13, color: C.muted)),
       const SizedBox(height: 16),
       if (top.isNotEmpty) ...[
-        const SectionTitle('খাত অনুযায়ী খরচ'),
+        SectionTitle(tr('খাত অনুযায়ী খরচ')),
         Panel(
           padding: const EdgeInsets.all(14),
           child: Column(children: [
@@ -137,13 +139,13 @@ class _CashViewState extends State<CashView> {
         const SizedBox(height: 16),
       ],
       if (entries.isEmpty)
-        const EmptyState(
+        EmptyState(
           icon: Icons.account_balance_wallet_outlined,
-          title: 'এই মাসে কিছু লেখা নেই',
-          text: 'বাজার, ভাড়া, বিল, বেতন — নিজের আয় আর খরচ এখানে রাখুন। মাস শেষে কত জমলো, এক নজরে দেখবেন।',
+          title: tr('এই মাসে কিছু লেখা নেই'),
+          text: tr('বাজার, ভাড়া, বিল, বেতন — নিজের আয় আর খরচ এখানে রাখুন। মাস শেষে কত জমলো, এক নজরে দেখবেন।'),
         )
       else ...[
-        SectionTitle(isThisMonth ? 'এই মাসের হিসাব' : 'মাসের হিসাব'),
+        SectionTitle(isThisMonth ? tr('এই মাসের হিসাব') : tr('মাসের হিসাব')),
         Panel(child: Rows(children: [for (final e in entries) cashRow(context, e)])),
       ],
     ]);
@@ -174,7 +176,7 @@ class CashPage extends StatelessWidget {
   Widget build(BuildContext context) => Scaffold(
         body: SafeArea(
           child: Column(children: [
-            const TopBar(title: 'আয়-ব্যয়'),
+            TopBar(title: tr('আয়-ব্যয়')),
             Expanded(child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: const [CashView()])),
           ]),
         ),
@@ -188,11 +190,11 @@ Future<String?> askProjectName(BuildContext context, {String initial = ''}) {
   return showDialog<String>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: Text(initial.isEmpty ? 'নতুন প্রজেক্ট' : 'প্রজেক্টের নাম', style: display(20)),
-      content: TextField(controller: c, autofocus: true, decoration: const InputDecoration(labelText: 'নাম, যেমন: রহিম ভবন')),
+      title: Text(initial.isEmpty ? tr('নতুন প্রজেক্ট') : tr('প্রজেক্টের নাম'), style: display(20)),
+      content: TextField(controller: c, autofocus: true, decoration: InputDecoration(labelText: tr('নাম, যেমন: রহিম ভবন'))),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('বাতিল')),
-        TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: const Text('ঠিক আছে')),
+        TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
+        TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: Text(tr('ঠিক আছে'))),
       ],
     ),
   );
@@ -228,13 +230,13 @@ class ProjectsView extends StatelessWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(color: C.blueTint, borderRadius: BorderRadius.circular(12)),
-          child: const Icon(Icons.work_outline_rounded, color: C.blue, size: 20),
+          child: Icon(Icons.work_outline_rounded, color: C.blue, size: 20),
         ),
         title: p.name,
-        subtitle: 'এসেছে ${taka(s.income)} · খরচ ${taka(s.expense)}',
+        subtitle: trf('এসেছে {0} · খরচ {1}', [taka(s.income), taka(s.expense)]),
         trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
           Text(taka(s.balance.abs()), style: display(16, color: s.balance >= 0 ? C.green : C.orange)),
-          Text(s.balance >= 0 ? 'অবশিষ্ট' : 'বেশি খরচ', style: body(12, color: C.muted)),
+          Text(s.balance >= 0 ? tr('অবশিষ্ট') : tr('বেশি খরচ'), style: body(12, color: C.muted)),
         ]),
         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProjectScreen(id: p.id))),
       );
@@ -242,31 +244,31 @@ class ProjectsView extends StatelessWidget {
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       SummaryCard(
-        title: 'চলমান প্রজেক্টে হাতে আছে',
+        title: tr('চলমান প্রজেক্টে হাতে আছে'),
         amount: (inTotal - outTotal).abs(),
         negative: inTotal < outTotal,
-        items: [('মোট এসেছে', inTotal, C.green), ('মোট খরচ', outTotal, C.orange)],
+        items: [(tr('মোট এসেছে'), inTotal, C.green), (tr('মোট খরচ'), outTotal, C.orange)],
       ),
       const SizedBox(height: 12),
-      PrimaryButton(label: 'নতুন প্রজেক্ট', icon: Icons.add_rounded, height: 48, color: C.ink, onPressed: create),
+      PrimaryButton(label: tr('নতুন প্রজেক্ট'), icon: Icons.add_rounded, height: 48, color: C.fill, onPressed: create),
       const SizedBox(height: 8),
-      Text('মুখেও বলা যায়: “রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো”, “রহিম ভবন প্রজেক্টে রড কিনলাম ২০ হাজার”',
+      Text(tr('মুখেও বলা যায়: “রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো”, “রহিম ভবন প্রজেক্টে রড কিনলাম ২০ হাজার”'),
           style: body(13, color: C.muted)),
       const SizedBox(height: 16),
       if (open.isEmpty && closed.isEmpty)
-        const EmptyState(
+        EmptyState(
           icon: Icons.work_outline_rounded,
-          title: 'কোনো প্রজেক্ট নেই',
-          text: 'বাড়ি বানানো, অফিসের কাজ, কোনো অর্ডার — প্রতিটার আলাদা আয়-ব্যয় রাখুন। কত এলো, কত গেল, কত থাকলো দেখবেন।',
+          title: tr('কোনো প্রজেক্ট নেই'),
+          text: tr('বাড়ি বানানো, অফিসের কাজ, কোনো অর্ডার — প্রতিটার আলাদা আয়-ব্যয় রাখুন। কত এলো, কত গেল, কত থাকলো দেখবেন।'),
         )
       else ...[
         if (open.isNotEmpty) ...[
-          const SectionTitle('চলমান প্রজেক্ট'),
+          SectionTitle(tr('চলমান প্রজেক্ট')),
           Panel(child: Rows(children: [for (final p in open) row(p)])),
         ],
         if (closed.isNotEmpty) ...[
           const SizedBox(height: 16),
-          const SectionTitle('শেষ হওয়া প্রজেক্ট'),
+          SectionTitle(tr('শেষ হওয়া প্রজেক্ট')),
           Panel(child: Rows(children: [for (final p in closed) row(p)])),
         ],
       ],
@@ -283,7 +285,7 @@ class ProjectScreen extends StatelessWidget {
     final brain = BrainScope.of(context);
     final p = brain.data.projects.where((x) => x.id == id).firstOrNull;
     if (p == null) {
-      return const Scaffold(body: SafeArea(child: Column(children: [TopBar(title: 'প্রজেক্ট')])));
+      return Scaffold(body: SafeArea(child: Column(children: [TopBar(title: tr('প্রজেক্ট'))])));
     }
     final s = projectSums(brain.data.cash, p.id);
     final entries = brain.data.cash.where((e) => e.projectId == p.id).toList()..sort((a, b) => b.date.compareTo(a.date));
@@ -298,7 +300,7 @@ class ProjectScreen extends StatelessWidget {
           await brain.saveProject(p.copyWith(closed: !p.closed));
         case 'delete':
           final ok = await confirmDialog(context,
-              title: 'প্রজেক্ট মুছবেন?', text: '‘${p.name}’ আর এর সব আয়-ব্যয় মুছে যাবে।', yes: 'মুছুন', danger: true);
+              title: tr('প্রজেক্ট মুছবেন?'), text: trf('‘{0}’ আর এর সব আয়-ব্যয় মুছে যাবে।', [p.name]), yes: tr('মুছুন'), danger: true);
           if (!ok) return;
           await brain.deleteProject(p.id);
           if (context.mounted) Navigator.of(context).pop();
@@ -310,28 +312,28 @@ class ProjectScreen extends StatelessWidget {
         child: Column(children: [
           TopBar(title: p.name, trailing: [
             PopupMenuButton<String>(
-              tooltip: 'আরও',
+              tooltip: tr('আরও'),
               onSelected: menu,
               itemBuilder: (_) => [
-                const PopupMenuItem(value: 'rename', child: Text('নাম বদলান')),
-                PopupMenuItem(value: 'close', child: Text(p.closed ? 'আবার চালু করুন' : 'প্রজেক্ট শেষ')),
-                const PopupMenuItem(value: 'delete', child: Text('মুছুন')),
+                PopupMenuItem(value: 'rename', child: Text(tr('নাম বদলান'))),
+                PopupMenuItem(value: 'close', child: Text(p.closed ? tr('আবার চালু করুন') : tr('প্রজেক্ট শেষ'))),
+                PopupMenuItem(value: 'delete', child: Text(tr('মুছুন'))),
               ],
             ),
           ]),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
               SummaryCard(
-                title: s.balance >= 0 ? 'হাতে আছে' : 'বেশি খরচ হয়েছে',
+                title: s.balance >= 0 ? tr('হাতে আছে') : tr('বেশি খরচ হয়েছে'),
                 amount: s.balance.abs(),
                 negative: s.balance < 0,
-                items: [('মোট এসেছে', s.income, C.green), ('মোট খরচ', s.expense, C.orange)],
+                items: [(tr('মোট এসেছে'), s.income, C.green), (tr('মোট খরচ'), s.expense, C.orange)],
               ),
               const SizedBox(height: 12),
               Row(children: [
                 Expanded(
                   child: PrimaryButton(
-                    label: 'টাকা এলো',
+                    label: tr('টাকা এলো'),
                     icon: Icons.add_rounded,
                     height: 48,
                     onPressed: () => push(CashFormScreen(kind: CashKind.income, projectId: p.id)),
@@ -340,29 +342,29 @@ class ProjectScreen extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: PrimaryButton(
-                    label: 'খরচ',
+                    label: tr('খরচ'),
                     icon: Icons.add_rounded,
                     height: 48,
-                    color: C.ink,
+                    color: C.fill,
                     onPressed: () => push(CashFormScreen(kind: CashKind.expense, projectId: p.id)),
                   ),
                 ),
               ]),
               const SizedBox(height: 16),
               if (s.byCategory.isNotEmpty) ...[
-                const SectionTitle('খাত অনুযায়ী খরচ'),
+                SectionTitle(tr('খাত অনুযায়ী খরচ')),
                 Panel(
                   child: Rows(children: [
                     for (final c in s.topExpenses)
-                      ListRow(leading: const Icon(Icons.label_outline_rounded, color: C.muted), title: c.key, trailing: Text(taka(c.value), style: display(15))),
+                      ListRow(leading: Icon(Icons.label_outline_rounded, color: C.muted), title: c.key, trailing: Text(taka(c.value), style: display(15))),
                   ]),
                 ),
                 const SizedBox(height: 16),
               ],
               if (entries.isEmpty)
-                const EmptyState(icon: Icons.receipt_long_outlined, title: 'এখনো কিছু লেখা নেই', text: 'টাকা এলে বা খরচ হলে উপরের বোতাম চাপুন, অথবা মুখে বলুন।')
+                EmptyState(icon: Icons.receipt_long_outlined, title: tr('এখনো কিছু লেখা নেই'), text: tr('টাকা এলে বা খরচ হলে উপরের বোতাম চাপুন, অথবা মুখে বলুন।'))
               else ...[
-                const SectionTitle('সব হিসাব'),
+                SectionTitle(tr('সব হিসাব')),
                 Panel(child: Rows(children: [for (final e in entries) cashRow(context, e)])),
               ],
             ]),
@@ -376,10 +378,13 @@ class ProjectScreen extends StatelessWidget {
 // ───────────────────────── Add / edit an entry ─────────────────────────
 
 class CashFormScreen extends StatefulWidget {
-  const CashFormScreen({super.key, this.entry, this.kind = CashKind.expense, this.projectId});
+  const CashFormScreen({super.key, this.entry, this.kind = CashKind.expense, this.projectId, this.category});
   final CashEntry? entry;
   final CashKind kind;
   final String? projectId;
+
+  /// A category to start with ("বিক্রি" from the shop page).
+  final String? category;
 
   @override
   State<CashFormScreen> createState() => _CashFormScreenState();
@@ -388,7 +393,8 @@ class CashFormScreen extends StatefulWidget {
 class _CashFormScreenState extends State<CashFormScreen> {
   late CashKind _kind = widget.entry?.kind ?? widget.kind;
   late final _amount = TextEditingController(text: widget.entry == null ? '' : '${widget.entry!.amount}');
-  late final _category = TextEditingController(text: widget.entry?.category ?? '');
+  late final _category = TextEditingController(text: widget.entry?.category ?? widget.category ?? '');
+  late String? _accountId = widget.entry?.accountId ?? BrainScope.read(context).data.accounts.firstOrNull?.id;
   late final _note = TextEditingController(text: widget.entry?.note ?? '');
   late DateTime _date = widget.entry?.date ?? BrainScope.read(context).services.now();
   late String? _projectId = widget.entry?.projectId ?? widget.projectId;
@@ -405,10 +411,10 @@ class _CashFormScreenState extends State<CashFormScreen> {
     final brain = BrainScope.read(context);
     final amount = int.tryParse(asciiDigits(_amount.text).replaceAll(',', '').trim()) ?? 0;
     if (amount <= 0) {
-      toast(context, 'টাকার অঙ্ক দিন');
+      toast(context, tr('টাকার অঙ্ক দিন'));
       return;
     }
-    final cat = _category.text.trim().isEmpty ? (_kind == CashKind.income ? 'অন্যান্য আয়' : 'অন্যান্য') : _category.text.trim();
+    final cat = _category.text.trim().isEmpty ? (_kind == CashKind.income ? tr('অন্যান্য আয়') : tr('অন্যান্য')) : _category.text.trim();
     await brain.saveCash(CashEntry(
       id: widget.entry?.id,
       kind: _kind,
@@ -417,13 +423,14 @@ class _CashFormScreenState extends State<CashFormScreen> {
       note: _note.text.trim(),
       date: _date,
       projectId: _projectId,
+      accountId: _accountId,
     ));
     if (mounted) Navigator.of(context).pop();
   }
 
   Future<void> _delete() async {
     final brain = BrainScope.read(context);
-    final ok = await confirmDialog(context, title: 'মুছবেন?', text: 'এই হিসাবটা মুছে যাবে।', yes: 'মুছুন', danger: true);
+    final ok = await confirmDialog(context, title: tr('মুছবেন?'), text: tr('এই হিসাবটা মুছে যাবে।'), yes: tr('মুছুন'), danger: true);
     if (!ok) return;
     await brain.deleteCash(widget.entry!.id);
     if (mounted) Navigator.of(context).pop();
@@ -437,13 +444,13 @@ class _CashFormScreenState extends State<CashFormScreen> {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: widget.entry == null ? (_kind == CashKind.income ? 'আয় যোগ' : 'খরচ যোগ') : 'হিসাব বদলান', trailing: [
-            if (widget.entry != null) IconButton(tooltip: 'মুছুন', onPressed: _delete, icon: const Icon(Icons.delete_outline_rounded, color: C.red)),
+          TopBar(title: widget.entry == null ? (_kind == CashKind.income ? tr('আয় যোগ') : tr('খরচ যোগ')) : tr('হিসাব বদলান'), trailing: [
+            if (widget.entry != null) IconButton(tooltip: tr('মুছুন'), onPressed: _delete, icon: Icon(Icons.delete_outline_rounded, color: C.red)),
           ]),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 24), children: [
               SegTabs<CashKind>(
-                items: [(CashKind.expense, 'খরচ'), (CashKind.income, _projectId == null ? 'আয়' : 'টাকা এলো')],
+                items: [(CashKind.expense, tr('খরচ')), (CashKind.income, _projectId == null ? tr('আয়') : tr('টাকা এলো'))],
                 value: _kind,
                 onChanged: (v) => setState(() => _kind = v),
               ),
@@ -453,10 +460,10 @@ class _CashFormScreenState extends State<CashFormScreen> {
                 keyboardType: TextInputType.number,
                 autofocus: widget.entry == null,
                 style: display(24),
-                decoration: const InputDecoration(labelText: 'টাকা', prefixText: '৳ '),
+                decoration: InputDecoration(labelText: tr('টাকা'), prefixText: tr('৳ ')),
               ),
               const SizedBox(height: 14),
-              TextField(controller: _category, decoration: const InputDecoration(labelText: 'খাত (যেমন: বাজার, ভাড়া, বেতন)')),
+              TextField(controller: _category, decoration: InputDecoration(labelText: tr('খাত (যেমন: বাজার, ভাড়া, বেতন)'))),
               const SizedBox(height: 8),
               Wrap(spacing: 6, runSpacing: 6, children: [
                 for (final c in cats.take(14))
@@ -467,34 +474,44 @@ class _CashFormScreenState extends State<CashFormScreen> {
                   ),
               ]),
               const SizedBox(height: 14),
-              TextField(controller: _note, minLines: 1, maxLines: 3, decoration: const InputDecoration(labelText: 'নোট (ইচ্ছামতো)')),
+              TextField(controller: _note, minLines: 1, maxLines: 3, decoration: InputDecoration(labelText: tr('নোট (ইচ্ছামতো)'))),
               const SizedBox(height: 14),
               ListRow(
-                leading: const Icon(Icons.event_outlined, color: C.ink),
+                leading: Icon(Icons.event_outlined, color: C.ink),
                 title: fullDate(_date),
-                subtitle: 'তারিখ',
-                trailing: const Icon(Icons.edit_calendar_outlined, color: C.muted),
+                subtitle: tr('তারিখ'),
+                trailing: Icon(Icons.edit_calendar_outlined, color: C.muted),
                 onTap: () async {
                   final now = brain.services.now();
                   final p = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(now.year - 5), lastDate: now);
                   if (p != null) setState(() => _date = DateTime(p.year, p.month, p.day, _date.hour, _date.minute));
                 },
               ),
-              if (projects.isNotEmpty) ...[
+              if (brain.data.accounts.isNotEmpty) ...[
                 const SizedBox(height: 14),
-                Text('কোথায় লিখব', style: body(14, color: C.muted)),
+                Text(_kind == CashKind.income ? tr('কোথায় এলো') : tr('কোথা থেকে গেল'), style: body(14, color: C.muted)),
                 const SizedBox(height: 6),
                 Wrap(spacing: 6, runSpacing: 6, children: [
-                  ChoiceChip(label: Text('নিজের মাসিক হিসাব', style: body(13)), selected: _projectId == null, onSelected: (_) => setState(() => _projectId = null)),
+                  for (final a in brain.data.accounts)
+                    ChoiceChip(label: Text(accountLabel(a), style: body(13)), selected: _accountId == a.id, onSelected: (_) => setState(() => _accountId = a.id)),
+                  ChoiceChip(label: Text(tr('বলা নেই'), style: body(13)), selected: _accountId == null, onSelected: (_) => setState(() => _accountId = null)),
+                ]),
+              ],
+              if (projects.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Text(tr('কোথায় লিখব'), style: body(14, color: C.muted)),
+                const SizedBox(height: 6),
+                Wrap(spacing: 6, runSpacing: 6, children: [
+                  ChoiceChip(label: Text(tr('নিজের মাসিক হিসাব'), style: body(13)), selected: _projectId == null, onSelected: (_) => setState(() => _projectId = null)),
                   for (final p in projects)
-                    ChoiceChip(label: Text('প্রজেক্ট: ${p.name}', style: body(13)), selected: _projectId == p.id, onSelected: (_) => setState(() => _projectId = p.id)),
+                    ChoiceChip(label: Text(trf('প্রজেক্ট: {0}', [p.name]), style: body(13)), selected: _projectId == p.id, onSelected: (_) => setState(() => _projectId = p.id)),
                 ]),
               ],
             ]),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-            child: PrimaryButton(label: 'রাখুন', icon: Icons.check_rounded, onPressed: _save),
+            child: PrimaryButton(label: tr('রাখুন'), icon: Icons.check_rounded, onPressed: _save),
           ),
         ]),
       ),

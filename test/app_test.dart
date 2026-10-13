@@ -12,6 +12,16 @@ import 'package:digital_brain/services/notifications.dart';
 import 'package:digital_brain/services/phonebook.dart';
 import 'package:digital_brain/services/voice.dart';
 import 'package:digital_brain/state/brain.dart';
+import 'package:digital_brain/ui/theme.dart';
+import 'package:digital_brain/screens/assistant_settings.dart';
+import 'package:digital_brain/screens/health_screens.dart';
+import 'package:digital_brain/screens/home_shell.dart';
+import 'package:digital_brain/screens/money_more_screens.dart';
+import 'package:digital_brain/screens/more_screen.dart';
+import 'package:digital_brain/screens/onboarding_screen.dart';
+import 'package:digital_brain/screens/search_screen.dart';
+import 'package:digital_brain/screens/special_days_screen.dart';
+import 'package:digital_brain/screens/store_more_screens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -85,6 +95,7 @@ Future<Rig> start(WidgetTester t, {AppData? data, AiRoute? ai}) async {
   t.view.devicePixelRatio = 3.0;
   addTearDown(t.view.reset);
   await loadFonts();
+  showOnboarding = false;
   final rig = Rig();
   await t.pumpWidget(DigitalBrainApp(brain: rig.brain));
   await rig.brain.load();
@@ -107,8 +118,8 @@ Future<Rig> start(WidgetTester t, {AppData? data, AiRoute? ai}) async {
 Future<void> openMenu(WidgetTester t, String item) async {
   if (item == 'হিসাব') {
     await t.tap(find.text('হিসাব').last);
-  } else if (item == 'আমি') {
-    await t.tap(find.byTooltip('আমি'));
+  } else if (item == 'আমি' || item == 'সেটিংস') {
+    await t.tap(find.byTooltip('সেটিংস'));
   } else {
     await t.tap(find.text('সংরক্ষণ').last);
     await settle(t);
@@ -121,8 +132,10 @@ Future<void> openMenu(WidgetTester t, String item) async {
 Future<void> openTyping(WidgetTester t) async {
   await t.tap(find.byTooltip('সহকারী'));
   await settle(t);
-  await t.tap(find.byTooltip('লিখে বলুন'));
-  await settle(t);
+  if (find.byTooltip('লিখে বলুন').evaluate().isNotEmpty) {
+    await t.tap(find.byTooltip('লিখে বলুন'));
+    await settle(t);
+  }
 }
 
 void main() {
@@ -167,7 +180,7 @@ void main() {
 
   /// The mic on the home: the voice view opens and listens.
   Future<void> openChat(WidgetTester t) async {
-    await t.tap(find.byTooltip('সহকারী'));
+    await t.tap(find.byTooltip('বলুন').first);
     await settle(t);
     expect(find.text('শুনছি…'), findsOneWidget);
   }
@@ -822,7 +835,7 @@ void main() {
           contacts: [Contact(name: 'রহিম', phone: '01712345678')],
           notes: [Note(title: 'রহিম ভবনের নকশা', body: 'রহিম ভবনের নকশা আলমারিতে', category: 'বাসা')],
         ));
-    await t.tap(find.text('যেকোনো কিছু খুঁজুন…'));
+    await t.tap(find.text('খুঁজুন, রাখুন বা জিজ্ঞেস করুন…'));
     await settle(t);
     await t.enterText(find.byType(TextField).first, 'রহিম');
     await settle(t);
@@ -899,5 +912,129 @@ void main() {
     expect(d.folder, 'জাতীয় পরিচয়পত্র');
     expect(d.files.single.size, 3000);
     expect((await rig.brain.docBytes(d.files.single))!.length, 3000);
+  });
+
+  testWidgets('v2.9: a birthday said in chat is saved yearly, and ফিরিয়ে নিন takes it back', (t) async {
+    final rig = await start(t);
+    await openTyping(t);
+    await t.enterText(find.byType(TextField).first, 'রহিমের জন্মদিন ১২ মার্চ');
+    await t.testTextInput.receiveAction(TextInputAction.send);
+    await settle(t);
+    expect(find.textContaining('মনে করিয়ে দেবো'), findsWidgets);
+    await t.tap(find.widgetWithText(ActionChip, 'হ্যাঁ'));
+    await settle(t);
+    final s = rig.brain.data.specialDays.single;
+    expect((s.person, s.month, s.day), ('রহিম', 3, 12));
+    final r = rig.brain.reminderById(s.reminderId!)!;
+    expect(r.repeat, Repeat.yearly);
+    expect(r.daysBefore, 1);
+    expect(find.text('ফিরিয়ে নিন'), findsOneWidget);
+    await t.tap(find.text('ফিরিয়ে নিন'));
+    await settle(t);
+    expect(rig.brain.data.specialDays, isEmpty);
+    expect(rig.brain.data.reminders, isEmpty);
+    expect(find.textContaining('ফিরিয়ে নিলাম'), findsOneWidget);
+  });
+
+  testWidgets('v2.9: "মনে রেখো রহিম আমার শ্যালক" goes to the assistant memory', (t) async {
+    final rig = await start(t);
+    await openTyping(t);
+    await t.enterText(find.byType(TextField).first, 'মনে রেখো রহিম আমার শ্যালক');
+    await t.testTextInput.receiveAction(TextInputAction.send);
+    await settle(t);
+    await t.tap(find.widgetWithText(ActionChip, 'হ্যাঁ'));
+    await settle(t);
+    expect(rig.brain.data.memories.single.text, contains('শ্যালক'));
+    expect(rig.brain.recordsSummary(), contains('শ্যালক'));
+  });
+
+  testWidgets('v2.9: settings switch the app to English and to dark, and back', (t) async {
+    final rig = await start(t);
+    await openMenu(t, 'সেটিংস');
+    expect(find.text('সেটিংস'), findsWidgets);
+    await t.tap(find.text('English'));
+    await settle(t);
+    expect(rig.brain.english, isTrue);
+    expect(find.text('Settings'), findsWidgets);
+    await t.tap(find.text('Dark'));
+    await settle(t);
+    expect(rig.brain.look, Look.dark);
+    expect(C.dark, isTrue);
+    expect(await rig.services.lock.keys.read('lang'), 'en');
+    await t.tap(find.text('বাংলা'));
+    await settle(t);
+    await t.tap(find.text('আলো'));
+    await settle(t);
+    expect(C.dark, isFalse);
+    expect(find.text('সেটিংস'), findsWidgets);
+  });
+
+  testWidgets('v2.9: first run asks what the user does; a shopkeeper gets the shop tools', (t) async {
+    showOnboarding = true;
+    addTearDown(() => showOnboarding = false);
+    t.view.physicalSize = const Size(1170, 2532);
+    t.view.devicePixelRatio = 3.0;
+    addTearDown(t.view.reset);
+    await loadFonts();
+    final rig = Rig();
+    await t.pumpWidget(DigitalBrainApp(brain: rig.brain));
+    await rig.brain.load();
+    await settle(t);
+    await enterPin(t, '1234');
+    await enterPin(t, '1234');
+    await settle(t);
+    expect(find.text('আপনি কী করেন?'), findsOneWidget);
+    await t.tap(find.text('ব্যবসায়ী / দোকানদার'));
+    await settle(t);
+    await t.tap(find.text('শুরু করি'));
+    await settle(t);
+    expect(rig.brain.persona, 'business');
+    expect(rig.brain.businessMode, isTrue);
+    expect(rig.brain.data.tasks.where((x) => x.list == 'মাসের বাজার'), isNotEmpty);
+    expect(rig.brain.quickQuestions.first, 'আজ কত বিক্রি হলো?');
+    await t.tap(find.text('হিসাব').last);
+    await settle(t);
+    expect(find.text('আজকের বিক্রি'), findsOneWidget);
+  });
+
+  testWidgets('v2.9: every new page opens, in Bangla and in English, light and dark', (t) async {
+    final now = DateTime(2026, 10, 9, 15, 53);
+    final rig = await start(t,
+        data: AppData(
+          specialDays: [SpecialDay(person: 'রহিম', month: 10, day: 10, phone: '01711111111')],
+          habits: [Habit(name: 'হাঁটা', done: ['2026-10-08'])],
+          medicines: [Medicine(name: 'নাপা', times: [540, 1260], stock: 8)],
+          accounts: [MoneyAccount(name: 'বিকাশ', kind: AccountKind.bkash, opening: 500), MoneyAccount(name: '', kind: AccountKind.cash)],
+          goals: [SavingsGoal(name: 'ঈদ', target: 10000, deadline: DateTime(2027, 3, 1))],
+          installments: [Installment(name: 'DPS', amount: 1000, start: DateTime(2026, 1))],
+          cash: [CashEntry(kind: CashKind.expense, amount: 500, category: 'বাজার', date: now), CashEntry(kind: CashKind.income, amount: 900, category: 'বিক্রি', date: now)],
+          ledger: [LedgerEntry(person: 'করিম', phone: '01722222222', kind: LedgerKind.lent, amount: 300, date: now)],
+          docs: [Doc(title: 'পাসপোর্ট', expiry: DateTime(2027, 6, 1))],
+          memories: [Memory(text: 'আমি চা খাই না')],
+          emergency: const EmergencyCard(name: 'সাইফুল', blood: 'B+', contacts: ['মা|01711111111|মা'], medicines: 'নাপা'),
+          tags: {'note:n1': ['গাড়ি']},
+          notes: [Note(id: 'n1', title: 'গাড়ির কাগজ', body: 'আলমারিতে')],
+        ));
+    final pages = <Widget>[
+      const SpecialDaysScreen(), const HabitsScreen(), const MedicinesScreen(), const AccountsScreen(), const ReportScreen(), const SavingsScreen(),
+      const SplitScreen(), const ZakatScreen(), const ShopScreen(), const ReceiptScreen(), const EmergencyScreen(), const EmergencyEditScreen(),
+      const TagsScreen(), const TagScreen(tag: 'গাড়ি'), const ExpiryScreen(), const TemplatesScreen(), const MemoryScreen(), const OnboardingScreen(fromSettings: true),
+      const MenuPage(child: MoreScreen()), const SearchScreen(initial: 'Rahim'),
+    ];
+    for (final (english, look) in [(false, Look.light), (true, Look.dark)]) {
+      await rig.brain.setEnglish(english);
+      await rig.brain.setLook(look);
+      await settle(t);
+      final nav = t.state<NavigatorState>(find.byType(Navigator).first);
+      for (final p in pages) {
+        nav.push(MaterialPageRoute(builder: (_) => p));
+        await settle(t, 6);
+        expect(t.takeException(), isNull, reason: '${p.runtimeType} ($english, $look)');
+        nav.pop();
+        await settle(t, 4);
+      }
+    }
+    await rig.brain.setEnglish(false);
+    await rig.brain.setLook(Look.light);
   });
 }

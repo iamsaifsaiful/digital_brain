@@ -6,9 +6,12 @@ library;
 import 'dart:math';
 
 import 'bn.dart';
+import 'lang.dart';
 
 const banglaMonths = ['বৈশাখ', 'জ্যৈষ্ঠ', 'আষাঢ়', 'শ্রাবণ', 'ভাদ্র', 'আশ্বিন', 'কার্তিক', 'অগ্রহায়ণ', 'পৌষ', 'মাঘ', 'ফাল্গুন', 'চৈত্র'];
 const banglaSeasons = ['গ্রীষ্ম', 'বর্ষা', 'শরৎ', 'হেমন্ত', 'শীত', 'বসন্ত'];
+const banglaMonthsEn = ['Boishakh', 'Joishtho', 'Asharh', 'Shrabon', 'Bhadro', 'Ashwin', 'Kartik', 'Ogrohayon', 'Poush', 'Magh', 'Falgun', 'Choitro'];
+const banglaSeasonsEn = ['Summer', 'Monsoon', 'Autumn', 'Late autumn', 'Winter', 'Spring'];
 
 class BanglaDate {
   const BanglaDate(this.year, this.month, this.day);
@@ -18,10 +21,10 @@ class BanglaDate {
   final int month;
   final int day;
 
-  String get monthName => banglaMonths[month];
+  String get monthName => isEn ? banglaMonthsEn[month] : banglaMonths[month];
 
   /// "শরৎ" — two months to a season.
-  String get season => banglaSeasons[month ~/ 2];
+  String get season => isEn ? banglaSeasonsEn[month ~/ 2] : banglaSeasons[month ~/ 2];
 
   /// "২৮ আশ্বিন ১৪৩৩".
   String get text => '${bnDigits(day)} $monthName ${bnDigits(year)}';
@@ -63,6 +66,9 @@ DateTime nextBanglaMonthStart(DateTime g) {
 class Place {
   const Place(this.name, this.lat, this.lon);
   final String name;
+
+  /// The name in the app's language.
+  String get label => tr(name);
   final double lat;
   final double lon;
 }
@@ -154,6 +160,9 @@ SunTimes sunTimes(DateTime day, Place p) {
 
 class Holiday {
   const Holiday(this.date, this.name, {this.executive = false, this.tentative = false});
+
+  /// The name in the app's language.
+  String get label => tr(name);
   final DateTime date;
   final String name;
 
@@ -215,6 +224,9 @@ bool isWeekend(DateTime d) => d.weekday == DateTime.friday || d.weekday == DateT
 /// A run of holidays together, e.g. দুর্গাপূজা 20–24 Oct with the weekend.
 class HolidayRun {
   const HolidayRun(this.start, this.end, this.name);
+
+  /// The name in the app's language.
+  String get label => tr(name);
   final DateTime start;
   final DateTime end;
   final String name;

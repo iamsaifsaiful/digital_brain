@@ -10,11 +10,14 @@ import '../state/brain.dart';
 import '../ui/pin.dart';
 import '../ui/theme.dart';
 import 'docs_screen.dart';
+import 'special_days_screen.dart';
+import '../logic/proactive.dart';
 import 'home_shell.dart';
 import 'new_item_screen.dart';
 import 'person_screen.dart';
 import 'plan_screens.dart';
 import 'vault_item_screen.dart';
+import '../logic/lang.dart';
 
 /// One box that finds anything: people and numbers, money, reminders,
 /// to-dos, notes and logins — typed or (through the assistant) spoken.
@@ -38,7 +41,7 @@ class _SearchScreenState extends State<SearchScreen> {
   void _push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
 
   Future<void> _openVault(VaultItem v) async {
-    final ok = await verifyUser(context, reason: '${v.name} — তথ্য দেখতে যাচাই করুন');
+    final ok = await verifyUser(context, reason: trf('{0} — তথ্য দেখতে যাচাই করুন', [v.name]));
     if (ok && mounted) _push(VaultItemScreen(id: v.id));
   }
 
@@ -49,7 +52,7 @@ class _SearchScreenState extends State<SearchScreen> {
           clipBehavior: Clip.antiAlias,
           child: Column(children: [
             for (final (i, r) in rows.indexed) ...[
-              if (i > 0) const Divider(height: 1, indent: 14, endIndent: 14, color: C.line),
+              if (i > 0) Divider(height: 1, indent: 14, endIndent: 14, color: C.line),
               r,
             ],
           ]),
@@ -69,7 +72,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 if (sub.isNotEmpty) Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted)),
               ]),
             ),
-            trailing ?? const Icon(Icons.chevron_right_rounded, color: C.muted),
+            trailing ?? Icon(Icons.chevron_right_rounded, color: C.muted),
           ]),
         ),
       );
@@ -90,11 +93,17 @@ class _SearchScreenState extends State<SearchScreen> {
     final reminders = [for (final h in hits) if (h is ReminderHit) h.reminder];
     final notes = [for (final h in hits) if (h is NoteHit) h.note];
     final vault = [for (final h in hits) if (h is VaultHit) h.item];
-    final nq = normalize(q);
-    final docs = q.isEmpty
+    List<String> tagsOf(String k) => d.tags[k] ?? const [];
+    final docs = useTerms.isEmpty
         ? const <Doc>[]
-        : d.docs.where((x) => normalize('${x.title} ${x.folder} ${x.fields.map((f) => '${f.label} ${f.value}').join(' ')}').contains(nq)).toList();
-    final total = contacts.length + people.length + reminders.length + notes.length + vault.length + tasks.length + docs.length;
+        : d.docs.where((x) => score(useTerms, [x.title, x.folder, ...tagsOf('doc:${x.id}'), for (final f in x.fields) '${f.label} ${f.value}']) > 0).toList();
+    // Notes found by a tag ("#গাড়ি" or just "গাড়ি").
+    final tagged = useTerms.isEmpty
+        ? const <Note>[]
+        : d.notes.where((n) => !notes.contains(n) && score(useTerms.map((t) => t.replaceAll('#', '')).toList(), tagsOf('note:${n.id}')) > 0).toList();
+    notes.addAll(tagged);
+    final specials = useTerms.isEmpty ? const <SpecialDay>[] : d.specialDays.where((x) => score(useTerms, [x.person, x.kind.bn, x.kind.en, x.note]) > 0).toList();
+    final total = contacts.length + people.length + reminders.length + notes.length + vault.length + tasks.length + docs.length + specials.length;
 
     return Scaffold(
       body: SafeArea(
@@ -102,21 +111,24 @@ class _SearchScreenState extends State<SearchScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(4, 8, 12, 4),
             child: Row(children: [
-              IconButton(tooltip: 'ফিরে যান', onPressed: () => Navigator.of(context).maybePop(), icon: const Icon(Icons.chevron_left_rounded, size: 30)),
+              IconButton(tooltip: tr('ফিরে যান'), onPressed: () => Navigator.of(context).maybePop(), icon: const Icon(Icons.chevron_left_rounded, size: 30)),
               Expanded(
                 child: Container(
                   height: 48,
                   padding: const EdgeInsets.only(left: 14, right: 4),
                   decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: C.green, width: 1.6)),
                   child: Row(children: [
-                    const Icon(Icons.search_rounded, color: C.muted, size: 20),
+                    Icon(Icons.search_rounded, color: C.muted, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextField(
                         controller: _q,
                         autofocus: widget.initial.isEmpty,
                         onChanged: (_) => setState(() {}),
-                        textInputAction: TextInputAction.search,
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (t) {
+                          if (t.trim().isNotEmpty) openChatWith(context, t.trim());
+                        },
                         style: body(16),
                         decoration: InputDecoration(
                           isDense: true,
@@ -124,16 +136,23 @@ class _SearchScreenState extends State<SearchScreen> {
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
-                          hintText: 'নাম, নম্বর, নোট, কাজ…',
+                          hintText: tr('খুঁজুন, রাখুন বা জিজ্ঞেস করুন…'),
                           hintStyle: body(15, color: C.muted),
                         ),
                       ),
                     ),
-                    IconButton(
-                      tooltip: 'বলে খুঁজুন',
-                      onPressed: () => openVoice(context),
-                      icon: const Icon(Icons.mic_none_rounded, color: C.green),
-                    ),
+                    if (q.isNotEmpty)
+                      IconButton(
+                        tooltip: tr('সহকারীকে পাঠান'),
+                        onPressed: () => openChatWith(context, q),
+                        icon: Icon(Icons.send_rounded, color: C.green),
+                      )
+                    else
+                      IconButton(
+                        tooltip: tr('বলে খুঁজুন'),
+                        onPressed: () => openVoice(context),
+                        icon: Icon(Icons.mic_none_rounded, color: C.green),
+                      ),
                   ]),
                 ),
               ),
@@ -146,7 +165,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 if (q.isEmpty)
                   Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Text('যা খুঁজবেন লিখুন — যেমন “রহিম”, “গাড়ির কাগজ”, “বিদ্যুৎ বিল”। মুখে জিজ্ঞেস করতে মাইক চাপুন।',
+                    child: Text(tr('যা খুঁজবেন লিখুন — যেমন “রহিম”, “গাড়ির কাগজ”। নিচে সাথে সাথে মিলে যাওয়া জিনিস দেখাবে। কিছু রাখতে বা জিজ্ঞেস করতে লিখে পাঠান (➤) — যেমন “রহিমকে ৫০০ টাকা দিলাম”।'),
                         textAlign: TextAlign.center, style: body(14, color: C.muted, height: 1.5)),
                   )
                 else ...[
@@ -160,10 +179,10 @@ class _SearchScreenState extends State<SearchScreen> {
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
                         child: Row(children: [
-                          const Icon(Icons.auto_awesome_rounded, color: C.green, size: 20),
+                          Icon(Icons.auto_awesome_rounded, color: C.green, size: 20),
                           const SizedBox(width: 10),
-                          Expanded(child: Text('সহকারীকে জিজ্ঞেস করুন: “$q”', style: body(14.5, weight: FontWeight.w500, color: C.greenDark))),
-                          const Icon(Icons.chevron_right_rounded, color: C.greenDark),
+                          Expanded(child: Text(trf('সহকারীকে জিজ্ঞেস করুন: “{0}”', [q]), style: body(14.5, weight: FontWeight.w500, color: C.greenDark))),
+                          Icon(Icons.chevron_right_rounded, color: C.greenDark),
                         ]),
                       ),
                     ),
@@ -171,48 +190,54 @@ class _SearchScreenState extends State<SearchScreen> {
                   if (total == 0)
                     Padding(
                       padding: const EdgeInsets.all(20),
-                      child: Text('“$q” নামে কিছু পাওয়া যায়নি।', textAlign: TextAlign.center, style: body(14, color: C.muted)),
+                      child: Text(trf('“{0}” নামে কিছু পাওয়া যায়নি।', [q]), textAlign: TextAlign.center, style: body(14, color: C.muted)),
                     ),
                   if (contacts.isNotEmpty)
-                    _group('যোগাযোগ · ${bnDigits(contacts.length)}', [
+                    _group(trf('যোগাযোগ · {0}', [bnDigits(contacts.length)]), [
                       for (final c in contacts.take(8))
                         _row(Icons.person_outline_rounded, C.purple, C.purpleTint, c.name, c.phone.isEmpty ? c.note : showPhone(c.phone), () {
                           if (c.phone.isNotEmpty) brain.services.launcher.open(Via.call, c.phone);
-                        }, trailing: c.phone.isEmpty ? null : const Icon(Icons.call_outlined, color: C.green)),
+                        }, trailing: c.phone.isEmpty ? null : Icon(Icons.call_outlined, color: C.green)),
                     ]),
                   if (people.isNotEmpty)
-                    _group('হিসাব · ${bnDigits(people.length)}', [
+                    _group(trf('হিসাব · {0}', [bnDigits(people.length)]), [
                       for (final p in people.take(6))
-                        _row(Icons.swap_horiz_rounded, const Color(0xFF0F766E), const Color(0xFFE6F6F4), p, owesText(p, balanceWith(d.ledger, p)),
+                        _row(Icons.swap_horiz_rounded, C.teal, C.tealTint, p, owesText(p, balanceWith(d.ledger, p)),
                             () => _push(PersonScreen(person: p))),
                     ]),
                   if (reminders.isNotEmpty || tasks.isNotEmpty)
-                    _group('রিমাইন্ডার ও কাজ', [
+                    _group(tr('রিমাইন্ডার ও কাজ'), [
                       for (final r in reminders.take(6))
                         _row(Icons.notifications_none_rounded, C.orange, C.orangeTint, r.title,
-                            '${weekdayName(r.nextDate(now))}, ${bnDigits(r.nextDate(now).day)} ${bnMonths[r.nextDate(now).month - 1]} · ${bnTime(r.hour, r.minute)}',
+                            '${weekdayName(r.nextDate(now))}, ${bnDigits(r.nextDate(now).day)} ${monthName(r.nextDate(now).month)} · ${bnTime(r.hour, r.minute)}',
                             () => _push(NewItemScreen(reminder: r))),
                       for (final t in tasks.take(6))
-                        _row(Icons.checklist_rounded, C.green, C.greenTint, t.title, t.done ? 'শেষ হয়েছে' : (t.due == null ? 'কাজ' : 'কাজ · ${bnDigits(t.due!.day)} ${bnMonths[t.due!.month - 1]}'),
+                        _row(Icons.checklist_rounded, C.green, C.greenTint, t.title, t.done ? tr('শেষ হয়েছে') : (t.due == null ? tr('কাজ') : trf('কাজ · {0} {1}', [bnDigits(t.due!.day), monthName(t.due!.month)])),
                             () => editTask(context, t)),
                     ]),
                   if (notes.isNotEmpty)
-                    _group('নোট · ${bnDigits(notes.length)}', [
+                    _group(trf('নোট · {0}', [bnDigits(notes.length)]), [
                       for (final n in notes.take(8))
                         _row(Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, n.title, '${n.category} · ${n.body.replaceAll('\n', ' ')}', () => _push(NewItemScreen(note: n))),
                     ]),
                   if (docs.isNotEmpty)
-                    _group('ডকুমেন্টস · ${bnDigits(docs.length)}', [
+                    _group(trf('ডকুমেন্টস · {0}', [bnDigits(docs.length)]), [
                       for (final x in docs.take(6))
-                        _row(Icons.folder_copy_outlined, C.blue, C.blueTint, x.title, '${x.folder} · ${bnDigits(x.files.length)} পাতা', () async {
-                          final ok = await verifyUser(context, reason: '${x.title} — দেখতে যাচাই করুন');
+                        _row(Icons.folder_copy_outlined, C.blue, C.blueTint, x.title, trf('{0} · {1} পাতা', [x.folder, bnDigits(x.files.length)]), () async {
+                          final ok = await verifyUser(context, reason: trf('{0} — দেখতে যাচাই করুন', [x.title]));
                           if (ok && context.mounted) _push(DocScreen(id: x.id, unlocked: true));
                         }),
                     ]),
+                  if (specials.isNotEmpty)
+                    _group(tr('বিশেষ দিন'), [
+                      for (final x in specials.take(6))
+                        _row(Icons.cake_outlined, C.purple, C.purpleTint, specialTitle(x, on: x.next(now)),
+                            '${bnDigits(x.next(now).day)} ${monthName(x.next(now).month)}', () => editSpecialDay(context, x)),
+                    ]),
                   if (vault.isNotEmpty)
-                    _group('পাসওয়ার্ড · ${bnDigits(vault.length)}', [
+                    _group(trf('পাসওয়ার্ড · {0}', [bnDigits(vault.length)]), [
                       for (final v in vault.take(6))
-                        _row(Icons.lock_outline_rounded, C.ink, const Color(0xFFF1F2F4), v.name, 'তালাবদ্ধ — খুলতে আঙুলের ছাপ বা PIN', () => _openVault(v)),
+                        _row(Icons.lock_outline_rounded, C.ink, C.soft, v.name, tr('তালাবদ্ধ — খুলতে আঙুলের ছাপ বা PIN'), () => _openVault(v)),
                     ]),
                 ],
               ],

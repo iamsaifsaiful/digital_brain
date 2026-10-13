@@ -8,6 +8,7 @@ import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'ledger_form_screen.dart';
+import '../logic/lang.dart';
 
 /// One person's account: who (name and mobile), the balance, a reminder
 /// message to send, and every transaction.
@@ -40,15 +41,15 @@ class _PersonScreenState extends State<PersonScreen> {
     final r = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('নাম ও নম্বর', style: display(20)),
+        title: Text(tr('নাম ও নম্বর'), style: display(20)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: name, autofocus: true, decoration: const InputDecoration(labelText: 'নাম')),
+          TextField(controller: name, autofocus: true, decoration: InputDecoration(labelText: tr('নাম'))),
           const SizedBox(height: 10),
-          TextField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'মোবাইল নম্বর')),
+          TextField(controller: phone, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: tr('মোবাইল নম্বর'))),
         ]),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('বাতিল')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('সেভ করুন')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('সেভ করুন'))),
         ],
       ),
     );
@@ -66,10 +67,10 @@ class _PersonScreenState extends State<PersonScreen> {
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          ListTile(leading: const Icon(Icons.edit_outlined), title: const Text('সংশোধন করুন'), onTap: () => Navigator.pop(ctx, 'edit')),
+          ListTile(leading: const Icon(Icons.edit_outlined), title: Text(tr('সংশোধন করুন')), onTap: () => Navigator.pop(ctx, 'edit')),
           ListTile(
-            leading: const Icon(Icons.delete_outline_rounded, color: C.red),
-            title: Text('মুছে ফেলুন', style: body(16, color: C.red)),
+            leading: Icon(Icons.delete_outline_rounded, color: C.red),
+            title: Text(tr('মুছে ফেলুন'), style: body(16, color: C.red)),
             onTap: () => Navigator.pop(ctx, 'delete'),
           ),
         ]),
@@ -82,7 +83,7 @@ class _PersonScreenState extends State<PersonScreen> {
 
   Future<void> _open(Brain brain, Via via, String phone, {String text = ''}) async {
     final ok = await brain.services.launcher.open(via, phone, text: text);
-    if (!ok && mounted) toast(context, via == Via.whatsapp ? 'WhatsApp খোলা গেল না' : 'খোলা গেল না');
+    if (!ok && mounted) toast(context, via == Via.whatsapp ? tr('WhatsApp খোলা গেল না') : tr('খোলা গেল না'));
   }
 
   @override
@@ -94,7 +95,7 @@ class _PersonScreenState extends State<PersonScreen> {
         body: SafeArea(
           child: Column(children: [
             const TopBar(title: ''),
-            Padding(padding: const EdgeInsets.all(20), child: Text('এই নামে কোনো লেনদেন নেই।', style: body(15, color: C.muted))),
+            Padding(padding: const EdgeInsets.all(20), child: Text(tr('এই নামে কোনো লেনদেন নেই।'), style: body(15, color: C.muted))),
           ]),
         ),
       );
@@ -107,7 +108,7 @@ class _PersonScreenState extends State<PersonScreen> {
     final got = p.receivedTotal + p.borrowedTotal;
     final sameName = peopleNamed(brain.data.ledger, p.name).length > 1;
     final reminderText = bal > 0
-        ? 'আসসালামু আলাইকুম ${p.name} ভাই, আপনার কাছে আমার ${taka(bal)} বাকি আছে। সুবিধামতো দিয়ে দিলে উপকার হয়। ধন্যবাদ।'
+        ? trf('আসসালামু আলাইকুম {0} ভাই, আপনার কাছে আমার {1} বাকি আছে। সুবিধামতো দিয়ে দিলে উপকার হয়। ধন্যবাদ।', [p.name, taka(bal)])
         : '';
 
     return Scaffold(
@@ -117,8 +118,8 @@ class _PersonScreenState extends State<PersonScreen> {
             TopBar(title: '', trailing: [
               TextButton.icon(
                 onPressed: () => _edit(brain, p),
-                icon: const Icon(Icons.edit_outlined, size: 18, color: C.green),
-                label: Text('নাম/নম্বর', style: body(14, weight: FontWeight.w600, color: C.green)),
+                icon: Icon(Icons.edit_outlined, size: 18, color: C.green),
+                label: Text(tr('নাম/নম্বর'), style: body(14, weight: FontWeight.w600, color: C.green)),
               ),
             ]),
             Expanded(
@@ -136,7 +137,7 @@ class _PersonScreenState extends State<PersonScreen> {
                         else
                           InkWell(
                             onTap: () => _edit(brain, p),
-                            child: Text(sameName ? 'একই নামে আরেকজন আছেন — নম্বর যোগ করুন' : '+ মোবাইল নম্বর যোগ করুন',
+                            child: Text(sameName ? tr('একই নামে আরেকজন আছেন — নম্বর যোগ করুন') : tr('+ মোবাইল নম্বর যোগ করুন'),
                                 style: body(14, weight: FontWeight.w600, color: sameName ? C.orange : C.green)),
                           ),
                       ]),
@@ -145,8 +146,8 @@ class _PersonScreenState extends State<PersonScreen> {
                   if (p.phone.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     Row(children: [
-                      for (final (via, icon, label) in const [
-                        (Via.call, Icons.call_outlined, 'ফোন'),
+                      for (final (via, icon, label) in [
+                        (Via.call, Icons.call_outlined, tr('ফোন')),
                         (Via.sms, Icons.sms_outlined, 'SMS'),
                         (Via.whatsapp, Icons.chat_outlined, 'WhatsApp'),
                       ]) ...[
@@ -162,7 +163,7 @@ class _PersonScreenState extends State<PersonScreen> {
                       Text(balanceHeading(p.name, bal), style: body(14, weight: FontWeight.w600, color: bal < 0 ? C.orangeDark : C.greenDark)),
                       Text(taka(bal.abs()), style: display(36, weight: 700, color: bal == 0 ? C.muted2 : fg, height: 1.2)),
                       const SizedBox(height: 4),
-                      Text('দিয়েছেন ${taka(given)} · পেয়েছেন ${taka(got)}', style: body(14, color: C.muted)),
+                      Text(trf('দিয়েছেন {0} · পেয়েছেন {1}', [taka(given), taka(got)]), style: body(14, color: C.muted)),
                     ]),
                   ),
                   if (bal > 0 && p.phone.isNotEmpty) ...[
@@ -172,8 +173,8 @@ class _PersonScreenState extends State<PersonScreen> {
                       borderColor: C.greenTint,
                       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('তাগাদা পাঠান', style: body(15, weight: FontWeight.w600)),
-                        Text('“${taka(bal)} বাকি আছে” — লেখা তৈরি থাকবে, আপনি শুধু Send চাপবেন', style: body(13, color: C.muted)),
+                        Text(tr('তাগাদা পাঠান'), style: body(15, weight: FontWeight.w600)),
+                        Text(trf('“{0} বাকি আছে” — লেখা তৈরি থাকবে, আপনি শুধু Send চাপবেন', [taka(bal)]), style: body(13, color: C.muted)),
                         const SizedBox(height: 8),
                         Row(children: [
                           Expanded(child: SecondaryButton(label: 'SMS', icon: Icons.sms_outlined, height: 42, onPressed: () => _open(brain, Via.sms, p.phone, text: reminderText))),
@@ -186,9 +187,9 @@ class _PersonScreenState extends State<PersonScreen> {
                     ),
                   ],
                   const SizedBox(height: 18),
-                  const SectionTitle('ইতিহাস'),
+                  SectionTitle(tr('ইতিহাস')),
                   if (rows.isEmpty)
-                    Panel(padding: const EdgeInsets.all(16), child: Text('এই নামে কোনো লেনদেন নেই।', style: body(14, color: C.muted)))
+                    Panel(padding: const EdgeInsets.all(16), child: Text(tr('এই নামে কোনো লেনদেন নেই।'), style: body(14, color: C.muted)))
                   else
                     Panel(
                       child: Rows(children: [
@@ -206,7 +207,7 @@ class _PersonScreenState extends State<PersonScreen> {
                                 ),
                                 Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                                   Text(taka(e.amount), style: display(16, weight: 700, color: e.kind.outflow ? C.ink : C.green)),
-                                  Text(after == 0 ? 'হিসাব শূন্য' : '${after > 0 ? 'পাওনা' : 'দেনা'} ${taka(after.abs())}', style: body(12, color: C.muted)),
+                                  Text(after == 0 ? tr('হিসাব শূন্য') : '${after > 0 ? 'পাওনা' : 'দেনা'} ${taka(after.abs())}', style: body(12, color: C.muted)),
                                 ]),
                               ]),
                             ),
@@ -217,7 +218,7 @@ class _PersonScreenState extends State<PersonScreen> {
                   Row(children: [
                     Expanded(
                       child: PrimaryButton(
-                        label: bal < 0 ? 'শোধ করলাম' : 'টাকা পেলাম',
+                        label: bal < 0 ? tr('শোধ করলাম') : tr('টাকা পেলাম'),
                         height: 50,
                         onPressed: () => _push(LedgerFormScreen(person: p.name, phone: p.phone, kind: bal < 0 ? LedgerKind.repaid : LedgerKind.received)),
                       ),
@@ -225,9 +226,9 @@ class _PersonScreenState extends State<PersonScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: PrimaryButton(
-                        label: bal < 0 ? 'আরও নিলাম' : 'আরও দিলাম',
+                        label: bal < 0 ? tr('আরও নিলাম') : tr('আরও দিলাম'),
                         height: 50,
-                        color: C.ink,
+                        color: C.fill,
                         onPressed: () => _push(LedgerFormScreen(person: p.name, phone: p.phone, kind: bal < 0 ? LedgerKind.borrowed : LedgerKind.lent)),
                       ),
                     ),
@@ -249,7 +250,7 @@ Future<void> deleteEntryWithUndo(BuildContext context, Brain brain, LedgerEntry 
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(
-      content: Text('${e.person}: ${e.kind.label} ${taka(e.amount)} মুছে ফেলা হয়েছে'),
-      action: SnackBarAction(label: 'ফিরিয়ে আনুন', textColor: C.mint, onPressed: () => brain.saveEntry(e)),
+      content: Text(trf('{0}: {1} {2} মুছে ফেলা হয়েছে', [e.person, e.kind.label, taka(e.amount)])),
+      action: SnackBarAction(label: tr('ফিরিয়ে আনুন'), textColor: C.mint, onPressed: () => brain.saveEntry(e)),
     ));
 }

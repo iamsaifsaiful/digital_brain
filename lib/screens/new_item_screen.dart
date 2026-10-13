@@ -9,17 +9,26 @@ import '../ui/widgets.dart';
 import 'alarm_screens.dart';
 import 'ledger_form_screen.dart';
 import 'home_shell.dart';
+import 'store_more_screens.dart';
+import '../logic/lang.dart';
 
 enum ItemCategory {
-  password('পাসওয়ার্ড', C.blue),
-  contact('যোগাযোগ', C.purple),
-  ledger('লেনদেন', C.green),
-  note('নোট', C.ochre),
-  reminder('রিমাইন্ডার', C.orange);
+  password('পাসওয়ার্ড'),
+  contact('যোগাযোগ'),
+  ledger('লেনদেন'),
+  note('নোট'),
+  reminder('রিমাইন্ডার');
 
-  const ItemCategory(this.label, this.color);
-  final String label;
-  final Color color;
+  const ItemCategory(this._label);
+  final String _label;
+  String get label => tr(_label);
+  Color get color => switch (this) {
+        ItemCategory.password => C.blue,
+        ItemCategory.contact => C.purple,
+        ItemCategory.ledger => C.green,
+        ItemCategory.note => C.ochre,
+        ItemCategory.reminder => C.orange,
+      };
 }
 
 /// Add something new, or edit an existing password, contact, note or reminder.
@@ -126,7 +135,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
     super.dispose();
   }
 
-  String? _required(String? v) => (v ?? '').trim().isEmpty ? 'এটা লিখুন' : null;
+  String? _required(String? v) => (v ?? '').trim().isEmpty ? tr('এটা লিখুন') : null;
 
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
@@ -147,7 +156,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
           updatedAt: now,
         ));
         brain.markVerified();
-        done = 'ভল্টে রাখা হয়েছে';
+        done = tr('ভল্টে রাখা হয়েছে');
       case ItemCategory.contact:
         await brain.saveContact(Contact(
           id: widget.contact?.id,
@@ -157,15 +166,15 @@ class _NewItemScreenState extends State<NewItemScreen> {
           note: _noteText.text.trim(),
           updatedAt: now,
         ));
-        done = 'যোগাযোগ রাখা হয়েছে';
+        done = tr('যোগাযোগ রাখা হয়েছে');
       case ItemCategory.note:
         final cat = _noteCat.text.trim().isEmpty ? defaultNoteCategory : _noteCat.text.trim();
         await brain.saveNote(Note(id: widget.note?.id, title: _a.text.trim(), body: _b.text.trim(), category: cat, updatedAt: now));
-        done = 'নোট রাখা হয়েছে';
+        done = tr('নোট রাখা হয়েছে');
       case ItemCategory.reminder:
         final at = DateTime(_date.year, _date.month, _date.day, _time.hour, _time.minute);
         if (_repeat == Repeat.none && !at.isAfter(now)) {
-          toast(context, 'এই সময় পার হয়ে গেছে — তারিখ বা সময় বদলান');
+          toast(context, tr('এই সময় পার হয়ে গেছে — তারিখ বা সময় বদলান'));
           return;
         }
         await brain.saveReminder(Reminder(
@@ -179,7 +188,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
           note: _noteText.text.trim(),
           vaultId: _vaultLink,
         ));
-        done = 'রিমাইন্ডার রাখা হয়েছে';
+        done = tr('রিমাইন্ডার রাখা হয়েছে');
       case ItemCategory.ledger:
         return;
     }
@@ -192,20 +201,20 @@ class _NewItemScreenState extends State<NewItemScreen> {
 
   Future<void> _delete() async {
     final brain = BrainScope.read(context);
-    final ok = await confirmDialog(context, title: 'মুছে ফেলবেন?', text: 'এটা আর ফেরত আনা যাবে না (ব্যাকআপ থেকে ছাড়া)।', yes: 'মুছুন', danger: true);
+    final ok = await confirmDialog(context, title: tr('মুছে ফেলবেন?'), text: tr('এটা আর ফেরত আনা যাবে না (ব্যাকআপ থেকে ছাড়া)।'), yes: tr('মুছুন'), danger: true);
     if (!ok) return;
     if (widget.vault != null) await brain.deleteVault(widget.vault!.id);
     if (widget.contact != null) await brain.deleteContact(widget.contact!.id);
     if (widget.note != null) await brain.deleteNote(widget.note!.id);
     if (widget.reminder != null) await brain.deleteReminder(widget.reminder!.id);
     if (!mounted) return;
-    toast(context, 'মুছে ফেলা হয়েছে');
+    toast(context, tr('মুছে ফেলা হয়েছে'));
     Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.editing ? '${_cat.label} বদলান' : 'নতুন তথ্য';
+    final title = widget.editing ? trf('{0} বদলান', [_cat.label]) : tr('নতুন তথ্য');
     return Scaffold(
       body: SafeArea(
         child: Form(
@@ -216,13 +225,13 @@ class _NewItemScreenState extends State<NewItemScreen> {
                 title: title,
                 trailing: [
                   if (widget.editing)
-                    RoundIconButton(icon: Icons.delete_outline_rounded, tooltip: 'মুছে ফেলুন', onPressed: _delete)
+                    RoundIconButton(icon: Icons.delete_outline_rounded, tooltip: tr('মুছে ফেলুন'), onPressed: _delete)
                   else
                     TextButton.icon(
                       onPressed: () => openVoice(context),
                       style: TextButton.styleFrom(backgroundColor: C.greenTint, foregroundColor: C.greenDark, minimumSize: const Size(44, 40)),
                       icon: const Icon(Icons.mic_none_rounded, size: 18),
-                      label: Text('বলে যোগ', style: body(14, weight: FontWeight.w600, color: C.greenDark)),
+                      label: Text(tr('বলে যোগ'), style: body(14, weight: FontWeight.w600, color: C.greenDark)),
                     ),
                 ],
               ),
@@ -231,7 +240,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                   children: [
                     if (!widget.editing) ...[
-                      Text('বিভাগ', style: body(14, weight: FontWeight.w600, color: C.muted)),
+                      Text(tr('বিভাগ'), style: body(14, weight: FontWeight.w600, color: C.muted)),
                       const SizedBox(height: 8),
                       Row(children: [
                         for (final c in ItemCategory.values)
@@ -257,7 +266,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
               if (_cat != ItemCategory.ledger)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  child: PrimaryButton(label: 'সেভ করুন', icon: Icons.check_rounded, onPressed: _save),
+                  child: PrimaryButton(label: tr('সেভ করুন'), icon: Icons.check_rounded, onPressed: _save),
                 ),
             ],
           ),
@@ -292,20 +301,20 @@ class _NewItemScreenState extends State<NewItemScreen> {
       const SizedBox(height: 14),
       TextFormField(
         controller: _a,
-        decoration: InputDecoration(labelText: _vaultKind == VaultKind.wifi ? 'নাম (যেমন: বাসার Wi-Fi)' : 'ওয়েবসাইট বা অ্যাপের নাম'),
+        decoration: InputDecoration(labelText: _vaultKind == VaultKind.wifi ? tr('নাম (যেমন: বাসার Wi-Fi)') : tr('ওয়েবসাইট বা অ্যাপের নাম')),
         validator: _required,
       ),
       _gap,
       TextFormField(
         controller: _b,
         keyboardType: _vaultKind == VaultKind.wifi ? TextInputType.text : TextInputType.url,
-        decoration: InputDecoration(labelText: _vaultKind == VaultKind.wifi ? 'নেটওয়ার্কের নাম (SSID)' : 'ঠিকানা (ঐচ্ছিক)'),
+        decoration: InputDecoration(labelText: _vaultKind == VaultKind.wifi ? tr('নেটওয়ার্কের নাম (SSID)') : tr('ঠিকানা (ঐচ্ছিক)')),
       ),
       if (_vaultKind != VaultKind.wifi) ...[
         _gap,
-        TextFormField(controller: _c, decoration: const InputDecoration(labelText: 'ইউজারনেম')),
+        TextFormField(controller: _c, decoration: InputDecoration(labelText: tr('ইউজারনেম'))),
         _gap,
-        TextFormField(controller: _d, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'ইমেইল (ঐচ্ছিক)')),
+        TextFormField(controller: _d, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: tr('ইমেইল (ঐচ্ছিক)'))),
       ],
       _gap,
       TextFormField(
@@ -314,9 +323,9 @@ class _NewItemScreenState extends State<NewItemScreen> {
         enableSuggestions: false,
         autocorrect: false,
         decoration: InputDecoration(
-          labelText: _vaultKind == VaultKind.bank ? 'পাসওয়ার্ড বা PIN' : 'পাসওয়ার্ড',
+          labelText: _vaultKind == VaultKind.bank ? tr('পাসওয়ার্ড বা PIN') : tr('পাসওয়ার্ড'),
           suffixIcon: IconButton(
-            tooltip: _pwVisible ? 'লুকান' : 'দেখুন',
+            tooltip: _pwVisible ? tr('লুকান') : tr('দেখুন'),
             onPressed: () => setState(() => _pwVisible = !_pwVisible),
             icon: Icon(_pwVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined),
           ),
@@ -343,24 +352,25 @@ class _NewItemScreenState extends State<NewItemScreen> {
             _pwVisible = true;
           }),
           icon: const Icon(Icons.auto_awesome_outlined, size: 18),
-          label: Text('শক্ত পাসওয়ার্ড বানান', style: body(14, weight: FontWeight.w600, color: C.green)),
+          label: Text(tr('শক্ত পাসওয়ার্ড বানান'), style: body(14, weight: FontWeight.w600, color: C.green)),
         ),
       ),
       _gap,
-      TextFormField(controller: _noteText, maxLines: 2, decoration: const InputDecoration(labelText: 'নোট (ঐচ্ছিক)', hintText: 'যেমন: ২-ধাপের যাচাই চালু')),
+      TextFormField(controller: _noteText, maxLines: 2, decoration: InputDecoration(labelText: tr('নোট (ঐচ্ছিক)'), hintText: tr('যেমন: ২-ধাপের যাচাই চালু'))),
       const SizedBox(height: 14),
-      const InfoBanner(text: 'ফোনের সুরক্ষিত চাবি দিয়ে এনক্রিপ্ট করে রাখা হবে। খুলতে আঙুলের ছাপ বা PIN লাগবে।'),
+      InfoBanner(text: tr('ফোনের সুরক্ষিত চাবি দিয়ে এনক্রিপ্ট করে রাখা হবে। খুলতে আঙুলের ছাপ বা PIN লাগবে।')),
     ];
   }
 
   List<Widget> _contactForm() => [
-        TextFormField(controller: _a, decoration: const InputDecoration(labelText: 'নাম', hintText: 'যেমন: ইলেকট্রিশিয়ান করিম'), validator: _required),
+        TextFormField(controller: _a, decoration: InputDecoration(labelText: tr('নাম'), hintText: tr('যেমন: ইলেকট্রিশিয়ান করিম')), validator: _required),
         _gap,
-        TextFormField(controller: _b, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'মোবাইল নম্বর')),
+        TextFormField(controller: _b, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: tr('মোবাইল নম্বর'))),
         _gap,
-        TextFormField(controller: _c, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'ইমেইল (ঐচ্ছিক)')),
+        TextFormField(controller: _c, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: tr('ইমেইল (ঐচ্ছিক)'))),
         _gap,
-        TextFormField(controller: _noteText, maxLines: 3, decoration: const InputDecoration(labelText: 'নোট', hintText: 'কোথায় পরিচয়, কী কাজে লাগে')),
+        TextFormField(controller: _noteText, maxLines: 3, decoration: InputDecoration(labelText: tr('নোট'), hintText: tr('কোথায় পরিচয়, কী কাজে লাগে'))),
+        if (widget.contact != null) ...[_gap, TagEditor(tagKey: 'contact:${widget.contact!.id}')],
       ];
 
   List<Widget> _ledgerLink() => [
@@ -368,10 +378,10 @@ class _NewItemScreenState extends State<NewItemScreen> {
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(18)),
           child: Column(children: [
-            Text('টাকার লেনদেনের জন্য আলাদা ফর্ম আছে — কাকে দিলেন, কার থেকে নিলেন, আর এখন কত বাকি, সব হিসাব করে দেখায়।', style: body(16, height: 1.5)),
+            Text(tr('টাকার লেনদেনের জন্য আলাদা ফর্ম আছে — কাকে দিলেন, কার থেকে নিলেন, আর এখন কত বাকি, সব হিসাব করে দেখায়।'), style: body(16, height: 1.5)),
             const SizedBox(height: 12),
             PrimaryButton(
-              label: 'লেনদেনের ফর্ম খুলুন',
+              label: tr('লেনদেনের ফর্ম খুলুন'),
               height: 48,
               onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const LedgerFormScreen())),
             ),
@@ -380,16 +390,16 @@ class _NewItemScreenState extends State<NewItemScreen> {
       ];
 
   List<Widget> _noteForm() => [
-        TextFormField(controller: _a, decoration: const InputDecoration(labelText: 'শিরোনাম', hintText: 'যেমন: বাজারের তালিকা'), validator: _required),
+        TextFormField(controller: _a, decoration: InputDecoration(labelText: tr('শিরোনাম'), hintText: tr('যেমন: বাজারের তালিকা')), validator: _required),
         _gap,
-        TextFormField(controller: _noteCat, decoration: const InputDecoration(labelText: 'বিভাগ', hintText: 'যেমন: নোট, যানবাহন, স্বাস্থ্য')),
+        TextFormField(controller: _noteCat, decoration: InputDecoration(labelText: tr('বিভাগ'), hintText: tr('যেমন: নোট, যানবাহন, স্বাস্থ্য'))),
         const SizedBox(height: 8),
         Wrap(spacing: 6, runSpacing: 6, children: [
           for (final c in {defaultNoteCategory, ...BrainScope.of(context).data.noteCategories})
             ActionChip(
               label: Text(c, style: body(13)),
               backgroundColor: _noteCat.text.trim() == c ? C.ochreTint : C.surface,
-              side: const BorderSide(color: C.border),
+              side: BorderSide(color: C.border),
               onPressed: () => setState(() => _noteCat.text = c),
             ),
         ]),
@@ -398,15 +408,16 @@ class _NewItemScreenState extends State<NewItemScreen> {
           controller: _b,
           minLines: 6,
           maxLines: 14,
-          decoration: const InputDecoration(labelText: 'লেখা', hintText: 'যা মনে রাখতে চান…', alignLabelWithHint: true),
+          decoration: InputDecoration(labelText: tr('লেখা'), hintText: tr('যা মনে রাখতে চান…'), alignLabelWithHint: true),
         ),
+        if (widget.note != null) ...[_gap, TagEditor(tagKey: 'note:${widget.note!.id}')],
       ];
 
   List<Widget> _reminderForm() {
     final brain = BrainScope.of(context);
     final vault = [...brain.data.vault]..sort((a, b) => a.name.compareTo(b.name));
     return [
-      TextFormField(controller: _a, decoration: const InputDecoration(labelText: 'কী মনে করাতে হবে', hintText: 'যেমন: ডোমেইন রিনিউ'), validator: _required),
+      TextFormField(controller: _a, decoration: InputDecoration(labelText: tr('কী মনে করাতে হবে'), hintText: tr('যেমন: ডোমেইন রিনিউ')), validator: _required),
       _gap,
       Row(children: [
         Expanded(
@@ -417,7 +428,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
               final d = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(now.year - 1), lastDate: DateTime(now.year + 30));
               if (d != null) setState(() => _date = d);
             },
-            child: InputDecorator(decoration: const InputDecoration(labelText: 'তারিখ'), child: Text(fullDate(_date), style: body(16), maxLines: 1, overflow: TextOverflow.ellipsis)),
+            child: InputDecorator(decoration: InputDecoration(labelText: tr('তারিখ')), child: Text(fullDate(_date), style: body(16), maxLines: 1, overflow: TextOverflow.ellipsis)),
           ),
         ),
         const SizedBox(width: 10),
@@ -428,22 +439,22 @@ class _NewItemScreenState extends State<NewItemScreen> {
               final t = await showTimePicker(context: context, initialTime: _time);
               if (t != null) setState(() => _time = t);
             },
-            child: InputDecorator(decoration: const InputDecoration(labelText: 'সময়'), child: Text(bnTime(_time.hour, _time.minute), style: body(16))),
+            child: InputDecorator(decoration: InputDecoration(labelText: tr('সময়')), child: Text(bnTime(_time.hour, _time.minute), style: body(16))),
           ),
         ),
       ]),
       _gap,
       DropdownButtonFormField<int>(
         initialValue: _daysBefore,
-        decoration: const InputDecoration(labelText: 'আগাম মনে করানো', helperText: 'নির্দিষ্ট দিনে তো বাজবেই; চাইলে কিছু দিন আগেও একবার'),
+        decoration: InputDecoration(labelText: tr('আগাম মনে করানো'), helperText: tr('নির্দিষ্ট দিনে তো বাজবেই; চাইলে কিছু দিন আগেও একবার')),
         items: [
           for (final d in const [0, 1, 2, 3, 7, 15, 30])
-            DropdownMenuItem(value: d, child: Text(d == 0 ? 'লাগবে না' : '${bnDigits(d)} দিন আগেও', style: body(16))),
+            DropdownMenuItem(value: d, child: Text(d == 0 ? tr('লাগবে না') : trf('{0} দিন আগেও', [bnDigits(d)]), style: body(16))),
         ],
         onChanged: (v) => setState(() => _daysBefore = v ?? 0),
       ),
       _gap,
-      Text('বারবার?', style: body(14, weight: FontWeight.w600, color: C.muted)),
+      Text(tr('বারবার?'), style: body(14, weight: FontWeight.w600, color: C.muted)),
       const SizedBox(height: 6),
       Wrap(spacing: 8, children: [
         for (final r in Repeat.values)
@@ -459,14 +470,14 @@ class _NewItemScreenState extends State<NewItemScreen> {
           ),
       ]),
       _gap,
-      TextFormField(controller: _noteText, decoration: const InputDecoration(labelText: 'নোট (ঐচ্ছিক)')),
+      TextFormField(controller: _noteText, decoration: InputDecoration(labelText: tr('নোট (ঐচ্ছিক)'))),
       if (vault.isNotEmpty) ...[
         _gap,
         DropdownButtonFormField<String?>(
           initialValue: vault.any((v) => v.id == _vaultLink) ? _vaultLink : null,
-          decoration: const InputDecoration(labelText: 'সাথে যুক্ত লগইন (ঐচ্ছিক)'),
+          decoration: InputDecoration(labelText: tr('সাথে যুক্ত লগইন (ঐচ্ছিক)')),
           items: [
-            DropdownMenuItem<String?>(value: null, child: Text('কিছু না', style: body(16))),
+            DropdownMenuItem<String?>(value: null, child: Text(tr('কিছু না'), style: body(16))),
             for (final v in vault) DropdownMenuItem<String?>(value: v.id, child: Text(v.name, style: body(16))),
           ],
           onChanged: (v) => setState(() => _vaultLink = v),

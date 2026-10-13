@@ -15,9 +15,12 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'alarm_screens.dart';
 import 'help_screen.dart';
+import 'assistant_settings.dart';
+import 'settings_parts.dart';
 import 'sound_screen.dart';
+import '../logic/lang.dart';
 
-const appVersion = '2.8.0';
+const appVersion = '2.9.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -58,7 +61,7 @@ class _MoreScreenState extends State<MoreScreen> {
   Future<void> _csv() async {
     final brain = BrainScope.read(context);
     if (brain.data.ledger.isEmpty) {
-      toast(context, 'এখনো কোনো লেনদেন নেই');
+      toast(context, tr('এখনো কোনো লেনদেন নেই'));
       return;
     }
     final csv = ledgerCsv(brain.data.ledger);
@@ -67,7 +70,7 @@ class _MoreScreenState extends State<MoreScreen> {
       Uint8List.fromList(utf8.encode(csv)),
       'dhar-dena-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.csv',
       'text/csv',
-      'লেনদেনের হিসাব',
+      tr('লেনদেনের হিসাব'),
     );
   }
 
@@ -77,11 +80,11 @@ class _MoreScreenState extends State<MoreScreen> {
     final v = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('আপনাকে কী নামে ডাকবো?', style: body(18, weight: FontWeight.w600)),
-        content: TextField(controller: c, autofocus: true, style: body(16), decoration: const InputDecoration(hintText: 'যেমন: সাইফুল ভাই')),
+        title: Text(tr('আপনাকে কী নামে ডাকবো?'), style: body(18, weight: FontWeight.w600)),
+        content: TextField(controller: c, autofocus: true, style: body(16), decoration: InputDecoration(hintText: tr('যেমন: সাইফুল ভাই'))),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('বাদ দিন')),
-          TextButton(onPressed: () => Navigator.pop(ctx, c.text), child: Text('রাখুন', style: body(15, weight: FontWeight.w600, color: C.green))),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাদ দিন'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, c.text), child: Text(tr('রাখুন'), style: body(15, weight: FontWeight.w600, color: C.green))),
         ],
       ),
     );
@@ -94,12 +97,12 @@ class _MoreScreenState extends State<MoreScreen> {
     final v = await showDialog<String>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: Text('আপনার জেলা/শহর', style: body(18, weight: FontWeight.w600)),
+        title: Text(tr('আপনার জেলা/শহর'), style: body(18, weight: FontWeight.w600)),
         children: [
           for (final p in bdPlaces)
             SimpleDialogOption(
               onPressed: () => Navigator.pop(ctx, p.name),
-              child: Text(p.name, style: body(16, weight: p.name == brain.district ? FontWeight.w700 : FontWeight.w400, color: p.name == brain.district ? C.green : C.ink)),
+              child: Text(p.label, style: body(16, weight: p.name == brain.district ? FontWeight.w700 : FontWeight.w400, color: p.name == brain.district ? C.green : C.ink)),
             ),
         ],
       ),
@@ -119,7 +122,7 @@ class _MoreScreenState extends State<MoreScreen> {
           title: Text('Claude API key', style: display(20)),
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('platform.claude.com → API Keys থেকে একটা key বানিয়ে এখানে বসান (sk-ant- দিয়ে শুরু)।',
+              Text(tr('platform.claude.com → API Keys থেকে একটা key বানিয়ে এখানে বসান (sk-ant- দিয়ে শুরু)।'),
                   style: body(14, color: C.muted, height: 1.5)),
               const SizedBox(height: 10),
               TextField(
@@ -136,7 +139,7 @@ class _MoreScreenState extends State<MoreScreen> {
             ]),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('বাতিল')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
             TextButton(
               onPressed: testing
                   ? null
@@ -145,14 +148,14 @@ class _MoreScreenState extends State<MoreScreen> {
                       if (key.isEmpty) return;
                       setD(() {
                         testing = true;
-                        status = 'পরীক্ষা করছি…';
+                        status = tr('পরীক্ষা করছি…');
                       });
                       final old = brain.services.ai.key;
                       brain.services.ai.key = key;
                       try {
-                        final r = await brain.services.ai.route('হ্যালো, তুমি কেমন আছো?', brain.aiContext());
+                        final r = await brain.services.ai.route(tr('হ্যালো, তুমি কেমন আছো?'), brain.aiContext());
                         final reply = r?['reply'];
-                        status = '✓ কাজ করছে! AI বলল: ${reply ?? 'ঠিক আছে'}';
+                        status = trf('✓ কাজ করছে! AI বলল: {0}', [reply ?? 'ঠিক আছে']);
                         await brain.setAiKey(key);
                       } catch (e) {
                         brain.services.ai.key = old;
@@ -160,7 +163,7 @@ class _MoreScreenState extends State<MoreScreen> {
                       }
                       if (ctx.mounted) setD(() => testing = false);
                     },
-              child: const Text('পরীক্ষা করে রাখুন'),
+              child: Text(tr('পরীক্ষা করে রাখুন')),
             ),
           ],
         ),
@@ -172,7 +175,7 @@ class _MoreScreenState extends State<MoreScreen> {
     final brain = BrainScope.read(context);
     final list = await brain.services.voice.voices();
     if (!mounted) return;
-    const sample = 'আসসালামু আলাইকুম! আমি আপনার সহকারী। বলুন, কী করে দিতে পারি?';
+    final sample = tr('আসসালামু আলাইকুম! আমি আপনার সহকারী। বলুন, কী করে দিতে পারি?');
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -186,7 +189,7 @@ class _MoreScreenState extends State<MoreScreen> {
                 return Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                   child: Text(
-                    'ফোনে কোনো বাংলা কণ্ঠ পাওয়া যায়নি। Play Store থেকে “Speech Services by Google” হালনাগাদ করে, ফোনের Settings › ভাষা › Text-to-speech থেকে বাংলা (বাংলাদেশ) কণ্ঠ ডাউনলোড করে নিন।',
+                    tr('ফোনে কোনো বাংলা কণ্ঠ পাওয়া যায়নি। Play Store থেকে “Speech Services by Google” হালনাগাদ করে, ফোনের Settings › ভাষা › Text-to-speech থেকে বাংলা (বাংলাদেশ) কণ্ঠ ডাউনলোড করে নিন।'),
                     style: body(15, height: 1.6),
                   ),
                 );
@@ -197,12 +200,12 @@ class _MoreScreenState extends State<MoreScreen> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                    child: Text('▶ চেপে শুনুন, পছন্দ হলে বেছে নিন। “ইন্টারনেট” লেখাগুলো সাধারণত বেশি স্বাভাবিক শোনায়।',
+                    child: Text(tr('▶ চেপে শুনুন, পছন্দ হলে বেছে নিন। “ইন্টারনেট” লেখাগুলো সাধারণত বেশি স্বাভাবিক শোনায়।'),
                         style: body(14, color: C.muted, height: 1.5)),
                   ),
                   ListTile(
                     leading: Icon(current == null ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded, color: C.green),
-                    title: const Text('নিজে থেকে সেরাটা বেছে নাও'),
+                    title: Text(tr('নিজে থেকে সেরাটা বেছে নাও')),
                     onTap: () async {
                       await brain.setVoice(null);
                       setSheet(() {});
@@ -211,11 +214,11 @@ class _MoreScreenState extends State<MoreScreen> {
                   for (var i = 0; i < list.length; i++)
                     ListTile(
                       leading: Icon(current == list[i].name ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded, color: C.green),
-                      title: Text('কণ্ঠ ${bnDigits(i + 1)}${list[i].locale.toLowerCase().contains('bd') ? ' · বাংলাদেশ' : ' · ভারত'}'),
-                      subtitle: Text(list[i].online ? 'ইন্টারনেট লাগে, বেশি স্বাভাবিক' : 'ইন্টারনেট ছাড়াও চলে'),
+                      title: Text(trf('কণ্ঠ {0}{1}', [bnDigits(i + 1), list[i].locale.toLowerCase().contains('bd') ? ' · বাংলাদেশ' : ' · ভারত'])),
+                      subtitle: Text(list[i].online ? tr('ইন্টারনেট লাগে, বেশি স্বাভাবিক') : tr('ইন্টারনেট ছাড়াও চলে')),
                       trailing: IconButton(
-                        tooltip: 'শুনুন',
-                        icon: const Icon(Icons.play_circle_outline_rounded, color: C.green),
+                        tooltip: tr('শুনুন'),
+                        icon: Icon(Icons.play_circle_outline_rounded, color: C.green),
                         onPressed: () async {
                           await brain.services.voice.useVoice(list[i]);
                           await brain.services.voice.speakAndWait(sample);
@@ -241,11 +244,11 @@ class _MoreScreenState extends State<MoreScreen> {
   Future<void> _pickRingtone() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SoundScreen()));
 
   Future<void> _changePin() async {
-    if (!await verifyUser(context, reason: 'PIN বদলাতে আগে যাচাই করুন')) return;
+    if (!await verifyUser(context, reason: tr('PIN বদলাতে আগে যাচাই করুন'))) return;
     if (!mounted) return;
     final lock = BrainScope.read(context).services.lock;
     final done = await showModalBottomSheet<bool>(context: context, isScrollControlled: true, builder: (_) => _NewPinSheet(lock: lock));
-    if (done == true && mounted) toast(context, 'নতুন PIN রাখা হয়েছে');
+    if (done == true && mounted) toast(context, tr('নতুন PIN রাখা হয়েছে'));
   }
 
   @override
@@ -272,22 +275,24 @@ class _MoreScreenState extends State<MoreScreen> {
           ]),
         );
 
-    Widget linkRow(IconData icon, String title, {String? sub, Color subColor = C.muted, VoidCallback? onTap, Widget? trailing}) => ListRow(
+    Widget linkRow(IconData icon, String title, {String? sub, Color? subColor, VoidCallback? onTap, Widget? trailing}) => ListRow(
           leading: Icon(icon, color: C.muted2, size: 22),
           title: title,
           subtitle: sub,
           subtitleColor: subColor,
-          trailing: trailing ?? const Icon(Icons.chevron_right_rounded, color: C.muted),
+          trailing: trailing ?? Icon(Icons.chevron_right_rounded, color: C.muted),
           onTap: onTap,
         );
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       children: [
-        const TabTitle('আমি'),
+        TabTitle(tr('সেটিংস')),
         const SizedBox(height: 14),
+        ProfileCard(onName: _setName, onPlace: _setDistrict),
+        const SizedBox(height: 12),
         Material(
-          color: C.ink,
+          color: C.fill,
           borderRadius: BorderRadius.circular(16),
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
@@ -305,7 +310,7 @@ class _MoreScreenState extends State<MoreScreen> {
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text('My Assistant Pro', style: body(16, weight: FontWeight.w700, color: Colors.white)),
-                    Text('AI সহকারী, বিজ্ঞাপন নেই — শীঘ্রই', style: body(13, color: C.mint)),
+                    Text(tr('AI সহকারী, বিজ্ঞাপন নেই — শীঘ্রই'), style: body(13, color: C.mint)),
                   ]),
                 ),
                 const Icon(Icons.chevron_right_rounded, color: C.onDarkMuted),
@@ -315,23 +320,29 @@ class _MoreScreenState extends State<MoreScreen> {
         ),
         const SizedBox(height: 12),
         Panel(
-          child: linkRow(Icons.lightbulb_outline_rounded, 'অ্যাপ দিয়ে কী কী করা যায়', sub: 'সব সুবিধা, আর মাইকে কী বলবেন', onTap: () => push(const HelpScreen())),
+          child: linkRow(Icons.lightbulb_outline_rounded, tr('অ্যাপ দিয়ে কী কী করা যায়'), sub: tr('সব সুবিধা, আর মাইকে কী বলবেন'), onTap: () => push(const HelpScreen())),
         ),
         const SizedBox(height: 10),
-        Panel(child: linkRow(Icons.notifications_active_outlined, 'রিমাইন্ডার ঠিকমতো বাজবে তো?', sub: 'ফোনের সেটিং দেখে নিন, ১ মিনিটে পরীক্ষা করুন', onTap: () => push(const ReminderCheckScreen()))),
+        Panel(child: linkRow(Icons.notifications_active_outlined, tr('রিমাইন্ডার ঠিকমতো বাজবে তো?'), sub: tr('ফোনের সেটিং দেখে নিন, ১ মিনিটে পরীক্ষা করুন'), onTap: () => push(const ReminderCheckScreen()))),
         const SizedBox(height: 16),
-        const SectionTitle('তথ্য নিরাপদ রাখা'),
+        SectionTitle(tr('চেহারা ও ভাষা')),
+        const LookSection(),
+        const SizedBox(height: 16),
+        SectionTitle(tr('সহকারী')),
+        const AssistantSection(),
+        const SizedBox(height: 16),
+        SectionTitle(tr('তথ্য নিরাপদ রাখা')),
         Panel(
           child: Rows(children: [
-            linkRow(Icons.cloud_download_outlined, 'ব্যাকআপ',
-                sub: last == null ? 'এখনো নেওয়া হয়নি' : 'শেষ ব্যাকআপ ${daysLeftLabel(last, now)}',
+            linkRow(Icons.cloud_download_outlined, tr('ব্যাকআপ'),
+                sub: last == null ? tr('এখনো নেওয়া হয়নি') : trf('শেষ ব্যাকআপ {0}', [daysLeftLabel(last, now)]),
                 subColor: backupOld ? C.orange : C.muted,
                 onTap: () => push(const BackupScreen())),
-            linkRow(Icons.lock_outline_rounded, 'PIN বদলান', onTap: _changePin),
+            linkRow(Icons.lock_outline_rounded, tr('PIN বদলান'), onTap: _changePin),
             switchRow(
               Icons.fingerprint_rounded,
-              'আঙুলের ছাপে খোলা',
-              _bioAvailable ? 'না হলে PIN লাগবে' : 'এই ফোনে আঙুলের ছাপ চালু নেই',
+              tr('আঙুলের ছাপে খোলা'),
+              _bioAvailable ? tr('না হলে PIN লাগবে') : tr('এই ফোনে আঙুলের ছাপ চালু নেই'),
               (_bioOn ?? false) && _bioAvailable,
               !_bioAvailable
                   ? null
@@ -343,10 +354,10 @@ class _MoreScreenState extends State<MoreScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('অ্যাপ বন্ধ করলে নিজে থেকে লক হবে', style: body(15)),
+                Text(tr('অ্যাপ বন্ধ করলে নিজে থেকে লক হবে'), style: body(15)),
                 const SizedBox(height: 8),
                 SegTabs<int>(
-                  items: const [(0, 'তখনই'), (30, '৩০ সে.'), (60, '১ মি.'), (300, '৫ মি.')],
+                  items: [(0, tr('তখনই')), (30, tr('৩০ সে.')), (60, tr('১ মি.')), (300, tr('৫ মি.'))],
                   value: _autoLock,
                   onChanged: (v) async {
                     await lock.setAutoLockSeconds(v);
@@ -358,40 +369,32 @@ class _MoreScreenState extends State<MoreScreen> {
           ]),
         ),
         const SizedBox(height: 16),
-        const SectionTitle('রিমাইন্ডার ও কণ্ঠ'),
+        SectionTitle(tr('রিমাইন্ডার ও কণ্ঠ')),
         Panel(
           child: Rows(children: [
-            switchRow(Icons.alarm_rounded, 'অ্যালার্মের মতো বাজবে', 'বন্ধ না করা পর্যন্ত, ফোন পকেটে থাকলেও শোনা যায়', brain.alarmInsistent,
+            switchRow(Icons.alarm_rounded, tr('অ্যালার্মের মতো বাজবে'), tr('বন্ধ না করা পর্যন্ত, ফোন পকেটে থাকলেও শোনা যায়'), brain.alarmInsistent,
                 (v) => brain.setAlarmInsistent(v)),
-            linkRow(Icons.music_note_outlined, 'রিমাইন্ডারের রিংটোন',
-                sub: brain.alarmSoundTitle.isEmpty ? 'ফোনের অ্যালার্ম টোন' : brain.alarmSoundTitle, onTap: _pickRingtone),
-            switchRow(Icons.volume_up_outlined, 'উত্তর কণ্ঠে শোনাও', 'পাসওয়ার্ড কখনো জোরে পড়া হয় না', brain.speakOn, (v) => brain.setSpeakOn(v)),
-            linkRow(Icons.record_voice_over_outlined, 'কণ্ঠ বেছে নিন', sub: 'ফোনে থাকা বাংলা কণ্ঠগুলো শুনে দেখুন', onTap: _pickVoice),
+            linkRow(Icons.music_note_outlined, tr('রিমাইন্ডারের রিংটোন'),
+                sub: brain.alarmSoundTitle.isEmpty ? tr('ফোনের অ্যালার্ম টোন') : brain.alarmSoundTitle, onTap: _pickRingtone),
+            switchRow(Icons.volume_up_outlined, tr('উত্তর কণ্ঠে শোনাও'), tr('পাসওয়ার্ড কখনো জোরে পড়া হয় না'), brain.speakOn, (v) => brain.setSpeakOn(v)),
+            linkRow(Icons.record_voice_over_outlined, tr('কণ্ঠ বেছে নিন'), sub: tr('ফোনে থাকা বাংলা কণ্ঠগুলো শুনে দেখুন'), onTap: _pickVoice),
           ]),
         ),
         const SizedBox(height: 16),
-        const SectionTitle('আপনি ও জায়গা'),
+        SectionTitle(tr('অন্যান্য')),
         Panel(
           child: Rows(children: [
-            linkRow(Icons.badge_outlined, 'আপনাকে কী নামে ডাকবো', sub: brain.userName.isEmpty ? 'নাম দিন — হোমে শুভেচ্ছায় দেখাবে' : brain.userName, onTap: _setName),
-            linkRow(Icons.place_outlined, 'আপনার জেলা/শহর', sub: '${brain.district} · সূর্যোদয়, সূর্যাস্ত ও নামাজের সময়', onTap: _setDistrict),
-          ]),
-        ),
-        const SizedBox(height: 16),
-        const SectionTitle('অন্যান্য'),
-        Panel(
-          child: Rows(children: [
-            linkRow(Icons.auto_awesome_outlined, 'AI সহকারী (Claude)',
-                sub: brain.aiOn ? 'চালু আছে' : 'বন্ধ · নিজের API key দিয়ে চালু করা যায়', subColor: brain.aiOn ? C.green : C.muted, onTap: _setAiKey),
+            linkRow(Icons.auto_awesome_outlined, tr('AI সহকারী (Claude)'),
+                sub: brain.aiOn ? tr('চালু আছে') : tr('বন্ধ · নিজের API key দিয়ে চালু করা যায়'), subColor: brain.aiOn ? C.green : C.muted, onTap: _setAiKey),
             if (brain.aiOn)
-              switchRow(Icons.psychology_outlined, 'সবচেয়ে ভালো বোঝা (Sonnet)', 'বন্ধ করলে দ্রুত ও সস্তা Haiku — তবে কম বোঝে', brain.aiBest,
+              switchRow(Icons.psychology_outlined, tr('সবচেয়ে ভালো বোঝা (Sonnet)'), tr('বন্ধ করলে দ্রুত ও সস্তা Haiku — তবে কম বোঝে'), brain.aiBest,
                   (v) => brain.setAiBest(v)),
             if (brain.aiOn)
-              switchRow(Icons.manage_search_rounded, 'AI আমার তথ্য দেখে উত্তর দিক', 'রিমাইন্ডার, কাজ, নোট ও হিসাব দেখে ঠিক উত্তর — পাসওয়ার্ড কখনো না',
+              switchRow(Icons.manage_search_rounded, tr('AI আমার তথ্য দেখে উত্তর দিক'), tr('রিমাইন্ডার, কাজ, নোট ও হিসাব দেখে ঠিক উত্তর — পাসওয়ার্ড কখনো না'),
                   brain.aiShareData, (v) => brain.setAiShareData(v)),
-            linkRow(Icons.table_view_outlined, 'ধার-দেনার রিপোর্ট (CSV)', sub: 'Excel বা Google Sheets-এ খোলা যায়', onTap: _csv,
-                trailing: const Icon(Icons.ios_share_rounded, color: C.muted)),
-            linkRow(Icons.info_outline_rounded, 'লাইসেন্স ও সংস্করণ',
+            linkRow(Icons.table_view_outlined, tr('ধার-দেনার রিপোর্ট (CSV)'), sub: tr('Excel বা Google Sheets-এ খোলা যায়'), onTap: _csv,
+                trailing: Icon(Icons.ios_share_rounded, color: C.muted)),
+            linkRow(Icons.info_outline_rounded, tr('লাইসেন্স ও সংস্করণ'),
                 sub: 'My Assistant ${bnDigits(appVersion)}',
                 onTap: () => showLicensePage(context: context, applicationName: 'My Assistant', applicationVersion: appVersion)),
           ]),
@@ -399,8 +402,8 @@ class _MoreScreenState extends State<MoreScreen> {
         if (brain.aiOn) ...[
           const SizedBox(height: 8),
           Text(brain.aiShareData
-                  ? 'AI চালু থাকলে আপনার বলা বাক্য, টাকার হিসাবের সারাংশ, রিমাইন্ডার, কাজ আর নোট Anthropic-এ যায়, যাতে আপনার জিনিস নিয়ে প্রশ্নের ঠিক উত্তর দিতে পারে; পাসওয়ার্ড, ভল্ট, PIN, ফোন নম্বর বা গোপন কোড থাকা নোট কখনো যায় না।'
-                  : 'AI চালু থাকলে আপনার বলা বাক্য, লেনদেনের মানুষের নাম আর টাকার হিসাবের সারাংশ Anthropic-এ যায়; পাসওয়ার্ড, ভল্ট, PIN, ফোন নম্বর, নোট বা কাজের লেখা যায় না।',
+                  ? tr('AI চালু থাকলে আপনার বলা বাক্য, টাকার হিসাবের সারাংশ, রিমাইন্ডার, কাজ আর নোট Anthropic-এ যায়, যাতে আপনার জিনিস নিয়ে প্রশ্নের ঠিক উত্তর দিতে পারে; পাসওয়ার্ড, ভল্ট, PIN, ফোন নম্বর বা গোপন কোড থাকা নোট কখনো যায় না।')
+                  : tr('AI চালু থাকলে আপনার বলা বাক্য, লেনদেনের মানুষের নাম আর টাকার হিসাবের সারাংশ Anthropic-এ যায়; পাসওয়ার্ড, ভল্ট, PIN, ফোন নম্বর, নোট বা কাজের লেখা যায় না।'),
               style: body(12, color: C.muted, height: 1.5)),
         ],
       ],
@@ -436,39 +439,39 @@ class _BackupScreenState extends State<BackupScreen> {
     final r = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(create ? 'ব্যাকআপের পাসওয়ার্ড' : 'ব্যাকআপের পাসওয়ার্ড দিন', style: display(20)),
+        title: Text(create ? tr('ব্যাকআপের পাসওয়ার্ড') : tr('ব্যাকআপের পাসওয়ার্ড দিন'), style: display(20)),
         content: Form(
           key: key,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             if (create)
-              Text('এই পাসওয়ার্ড ছাড়া ব্যাকআপ খোলা যাবে না। ভুলে গেলে কেউ উদ্ধার করতে পারবে না — কোথাও লিখে রাখুন।',
+              Text(tr('এই পাসওয়ার্ড ছাড়া ব্যাকআপ খোলা যাবে না। ভুলে গেলে কেউ উদ্ধার করতে পারবে না — কোথাও লিখে রাখুন।'),
                   style: body(14, color: C.muted, height: 1.5)),
             const SizedBox(height: 10),
             TextFormField(
               controller: a,
               obscureText: true,
               autofocus: true,
-              decoration: const InputDecoration(labelText: 'পাসওয়ার্ড'),
-              validator: (v) => create && (v ?? '').length < 8 ? 'অন্তত ৮ অক্ষর দিন' : ((v ?? '').isEmpty ? 'পাসওয়ার্ড দিন' : null),
+              decoration: InputDecoration(labelText: tr('পাসওয়ার্ড')),
+              validator: (v) => create && (v ?? '').length < 8 ? tr('অন্তত ৮ অক্ষর দিন') : ((v ?? '').isEmpty ? tr('পাসওয়ার্ড দিন') : null),
             ),
             if (create) ...[
               const SizedBox(height: 10),
               TextFormField(
                 controller: b,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'আবার দিন'),
-                validator: (v) => v != a.text ? 'দুটো মেলেনি' : null,
+                decoration: InputDecoration(labelText: tr('আবার দিন')),
+                validator: (v) => v != a.text ? tr('দুটো মেলেনি') : null,
               ),
             ],
           ]),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('বাতিল')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
           TextButton(
             onPressed: () {
               if (key.currentState!.validate()) Navigator.pop(ctx, a.text);
             },
-            child: const Text('ঠিক আছে'),
+            child: Text(tr('ঠিক আছে')),
           ),
         ],
       ),
@@ -478,7 +481,7 @@ class _BackupScreenState extends State<BackupScreen> {
 
   Future<void> _backup({bool toPhone = true}) async {
     final brain = BrainScope.read(context);
-    if (!await verifyUser(context, reason: 'ব্যাকআপ নিতে যাচাই করুন')) return;
+    if (!await verifyUser(context, reason: tr('ব্যাকআপ নিতে যাচাই করুন'))) return;
     final pass = await _askPassword(create: true);
     if (pass == null || !mounted) return;
     setState(() => _busy = true);
@@ -489,17 +492,17 @@ class _BackupScreenState extends State<BackupScreen> {
       if (toPhone) {
         final saved = await brain.services.files.saveFile(bytes, name);
         if (!saved) {
-          if (mounted) toast(context, 'সেভ করা হয়নি');
+          if (mounted) toast(context, tr('সেভ করা হয়নি'));
           return;
         }
-        if (mounted) toast(context, 'ব্যাকআপ ফোনে সেভ হয়েছে: $name');
+        if (mounted) toast(context, trf('ব্যাকআপ ফোনে সেভ হয়েছে: {0}', [name]));
       } else {
-        await brain.services.files.shareFile(bytes, name, 'application/octet-stream', 'My Assistant এনক্রিপ্টেড ব্যাকআপ');
+        await brain.services.files.shareFile(bytes, name, 'application/octet-stream', tr('My Assistant এনক্রিপ্টেড ব্যাকআপ'));
       }
       await brain.services.lock.keys.write('last_backup', now.toIso8601String());
       _lastBackup = now.toIso8601String();
     } catch (e) {
-      if (mounted) toast(context, 'ব্যাকআপ নেওয়া যায়নি: $e');
+      if (mounted) toast(context, trf('ব্যাকআপ নেওয়া যায়নি: {0}', [e]));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -507,7 +510,7 @@ class _BackupScreenState extends State<BackupScreen> {
 
   Future<void> _restore() async {
     final brain = BrainScope.read(context);
-    if (!await verifyUser(context, reason: 'ব্যাকআপ ফিরিয়ে আনতে যাচাই করুন')) return;
+    if (!await verifyUser(context, reason: tr('ব্যাকআপ ফিরিয়ে আনতে যাচাই করুন'))) return;
     final Uint8List? bytes = await brain.services.files.pickFile();
     if (bytes == null || !mounted) return;
     final pass = await _askPassword(create: false);
@@ -518,23 +521,20 @@ class _BackupScreenState extends State<BackupScreen> {
       if (!mounted) return;
       final ok = await confirmDialog(
         context,
-        title: 'ব্যাকআপ ফিরিয়ে আনবেন?',
-        text: 'ব্যাকআপে আছে: ${bnDigits(restored.vault.length)}টি পাসওয়ার্ড, ${bnDigits(restored.contacts.length)} জন যোগাযোগ, '
-            '${bnDigits(restored.ledger.length)}টি ধার-দেনা, ${bnDigits(restored.cash.length)}টি আয়-ব্যয়, ${bnDigits(restored.notes.length)}টি নোট, '
-            '${bnDigits(restored.reminders.length)}টি রিমাইন্ডার, ${bnDigits(restored.tasks.length)}টি কাজ।\n\n'
-            'এখনকার সব তথ্য এর বদলে যাবে।',
-        yes: 'ফিরিয়ে আনুন',
+        title: tr('ব্যাকআপ ফিরিয়ে আনবেন?'),
+        text: trf('ব্যাকআপে আছে: {0}টি পাসওয়ার্ড, {1} জন যোগাযোগ, {2}টি ধার-দেনা, {3}টি আয়-ব্যয়, {4}টি নোট, {5}টি রিমাইন্ডার, {6}টি কাজ।\n\nএখনকার সব তথ্য এর বদলে যাবে।', [bnDigits(restored.vault.length), bnDigits(restored.contacts.length), bnDigits(restored.ledger.length), bnDigits(restored.cash.length), bnDigits(restored.notes.length), bnDigits(restored.reminders.length), bnDigits(restored.tasks.length)]),
+        yes: tr('ফিরিয়ে আনুন'),
         danger: true,
       );
       if (!ok) return;
       await brain.replaceAll(restored);
-      if (mounted) toast(context, 'ব্যাকআপ ফিরিয়ে আনা হয়েছে');
+      if (mounted) toast(context, tr('ব্যাকআপ ফিরিয়ে আনা হয়েছে'));
     } on NotABackup {
-      if (mounted) toast(context, 'এটা My Assistant-এর ব্যাকআপ ফাইল নয়');
+      if (mounted) toast(context, tr('এটা My Assistant-এর ব্যাকআপ ফাইল নয়'));
     } on WrongKey {
-      if (mounted) toast(context, 'পাসওয়ার্ড মেলেনি, অথবা ফাইলটি নষ্ট');
+      if (mounted) toast(context, tr('পাসওয়ার্ড মেলেনি, অথবা ফাইলটি নষ্ট'));
     } catch (e) {
-      if (mounted) toast(context, 'ফিরিয়ে আনা যায়নি: $e');
+      if (mounted) toast(context, trf('ফিরিয়ে আনা যায়নি: {0}', [e]));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -548,7 +548,7 @@ class _BackupScreenState extends State<BackupScreen> {
               width: 26,
               height: 26,
               alignment: Alignment.center,
-              decoration: const BoxDecoration(color: C.ink, shape: BoxShape.circle),
+              decoration: BoxDecoration(color: C.fill, shape: BoxShape.circle),
               child: Text(n, style: body(13, weight: FontWeight.w700, color: Colors.white, height: 1)),
             ),
             const SizedBox(width: 10),
@@ -569,31 +569,31 @@ class _BackupScreenState extends State<BackupScreen> {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          const TopBar(title: 'ব্যাকআপ'),
+          TopBar(title: tr('ব্যাকআপ')),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
               InfoBanner(
                 text: last == null
-                    ? 'এখনো কোনো ব্যাকআপ নেওয়া হয়নি। ফোন হারালে বা বদলালে সব তথ্য হারিয়ে যাবে।'
-                    : 'শেষ ব্যাকআপ ${daysLeftLabel(last, now)} (${fullDate(last)})।${old ? ' এর পরের তথ্য ফোন হারালে হারিয়ে যাবে।' : ''}',
+                    ? tr('এখনো কোনো ব্যাকআপ নেওয়া হয়নি। ফোন হারালে বা বদলালে সব তথ্য হারিয়ে যাবে।')
+                    : trf('শেষ ব্যাকআপ {0} ({1})।{2}', [daysLeftLabel(last, now), fullDate(last), old ? ' এর পরের তথ্য ফোন হারালে হারিয়ে যাবে।' : '']),
                 icon: old ? Icons.warning_amber_rounded : Icons.check_circle_outline_rounded,
                 fg: old ? C.orangeDark : C.greenDark,
                 iconColor: old ? C.orange : C.green,
                 bg: old ? C.orangeTint : C.greenTint,
               ),
               const SizedBox(height: 12),
-              _step('১', 'ব্যাকআপ নিন', 'কাজ, হিসাব, যোগাযোগ, নোট, পাসওয়ার্ড — সব একটা ফাইলে, আপনার দেওয়া পাসওয়ার্ড দিয়ে তালাবদ্ধ।', [
+              _step(tr('১'), tr('ব্যাকআপ নিন'), tr('কাজ, হিসাব, যোগাযোগ, নোট, পাসওয়ার্ড — সব একটা ফাইলে, আপনার দেওয়া পাসওয়ার্ড দিয়ে তালাবদ্ধ।'), [
                 Row(children: [
-                  Expanded(child: PrimaryButton(label: 'ফোনে সেভ', icon: Icons.save_alt_rounded, height: 48, onPressed: _busy ? null : () => _backup())),
+                  Expanded(child: PrimaryButton(label: tr('ফোনে সেভ'), icon: Icons.save_alt_rounded, height: 48, onPressed: _busy ? null : () => _backup())),
                   const SizedBox(width: 8),
-                  Expanded(child: SecondaryButton(label: 'শেয়ার', icon: Icons.ios_share_rounded, onPressed: _busy ? null : () => _backup(toPhone: false))),
+                  Expanded(child: SecondaryButton(label: tr('শেয়ার'), icon: Icons.ios_share_rounded, onPressed: _busy ? null : () => _backup(toPhone: false))),
                 ]),
               ]),
               const SizedBox(height: 10),
-              _step('২', 'নিরাপদ জায়গায় রাখুন', '“শেয়ার” চেপে Google Drive বা নিজের WhatsApp-এ পাঠিয়ে রাখুন — ফোন হারালেও ফাইল থাকবে।', const []),
+              _step(tr('২'), tr('নিরাপদ জায়গায় রাখুন'), tr('“শেয়ার” চেপে Google Drive বা নিজের WhatsApp-এ পাঠিয়ে রাখুন — ফোন হারালেও ফাইল থাকবে।'), const []),
               const SizedBox(height: 10),
-              _step('৩', 'নতুন ফোনে ফিরিয়ে আনুন', 'অ্যাপ খুলে এখানে এসে ফাইলটা বেছে দিন, আর একই পাসওয়ার্ড দিন।', [
-                SecondaryButton(label: 'ফাইল থেকে ফিরিয়ে আনুন', icon: Icons.restore_rounded, onPressed: _busy ? null : _restore),
+              _step(tr('৩'), tr('নতুন ফোনে ফিরিয়ে আনুন'), tr('অ্যাপ খুলে এখানে এসে ফাইলটা বেছে দিন, আর একই পাসওয়ার্ড দিন।'), [
+                SecondaryButton(label: tr('ফাইল থেকে ফিরিয়ে আনুন'), icon: Icons.restore_rounded, onPressed: _busy ? null : _restore),
               ]),
             ]),
           ),
@@ -615,8 +615,8 @@ class ProScreen extends StatelessWidget {
             Container(
               width: 26,
               height: 26,
-              decoration: const BoxDecoration(color: C.greenTint, shape: BoxShape.circle),
-              child: const Icon(Icons.check_rounded, size: 16, color: C.green),
+              decoration: BoxDecoration(color: C.greenTint, shape: BoxShape.circle),
+              child: Icon(Icons.check_rounded, size: 16, color: C.green),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -635,12 +635,12 @@ class ProScreen extends StatelessWidget {
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 0, 20, 24), children: [
               Text('My Assistant Pro', style: display(28, weight: 700)),
-              Text('মুখে বলুন, বাকিটা সহকারী সামলাবে', style: body(15, color: C.muted2)),
+              Text(tr('মুখে বলুন, বাকিটা সহকারী সামলাবে'), style: body(15, color: C.muted2)),
               const SizedBox(height: 20),
-              point('যেকোনো কথা বুঝবে', 'AI দিয়ে লম্বা, এলোমেলো কথাও গুছিয়ে কাজ, হিসাব, রিমাইন্ডার করে'),
-              point('কোনো বিজ্ঞাপন নেই', 'কাজের মাঝে কিছু বাধা দেবে না'),
-              point('হিসাবের প্রশ্নের উত্তর', '“এই মাসে বাজারে কত গেল?” — সাথে সাথে বলে দেবে'),
-              point('গোপন তথ্য সবসময় ফোনেই', 'পাসওয়ার্ড, PIN, কার্ড — AI-তে কখনো যায় না'),
+              point(tr('যেকোনো কথা বুঝবে'), tr('AI দিয়ে লম্বা, এলোমেলো কথাও গুছিয়ে কাজ, হিসাব, রিমাইন্ডার করে')),
+              point(tr('কোনো বিজ্ঞাপন নেই'), tr('কাজের মাঝে কিছু বাধা দেবে না')),
+              point(tr('হিসাবের প্রশ্নের উত্তর'), tr('“এই মাসে বাজারে কত গেল?” — সাথে সাথে বলে দেবে')),
+              point(tr('গোপন তথ্য সবসময় ফোনেই'), tr('পাসওয়ার্ড, PIN, কার্ড — AI-তে কখনো যায় না')),
               const SizedBox(height: 8),
               Panel(
                 color: C.greenSoft,
@@ -649,16 +649,16 @@ class ProScreen extends StatelessWidget {
                 child: Row(children: [
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('বছরে ৳৯৯৯', style: body(17, weight: FontWeight.w700)),
-                      Text('মাসে মাত্র ৳৮৩ · অথবা মাসে ৳৯৯', style: body(13, color: C.green)),
+                      Text(tr('বছরে ৳৯৯৯'), style: body(17, weight: FontWeight.w700)),
+                      Text(tr('মাসে মাত্র ৳৮৩ · অথবা মাসে ৳৯৯'), style: body(13, color: C.green)),
                     ]),
                   ),
                 ]),
               ),
               const SizedBox(height: 14),
-              PrimaryButton(label: 'শীঘ্রই চালু হবে', color: C.ink, onPressed: null),
+              PrimaryButton(label: tr('শীঘ্রই চালু হবে'), color: C.fill, onPressed: null),
               const SizedBox(height: 8),
-              Text('এখন সব সুবিধা বিনামূল্যে ব্যবহার করুন। Pro চালু হলে অ্যাপেই জানিয়ে দেব।', textAlign: TextAlign.center, style: body(13, color: C.muted)),
+              Text(tr('এখন সব সুবিধা বিনামূল্যে ব্যবহার করুন। Pro চালু হলে অ্যাপেই জানিয়ে দেব।'), textAlign: TextAlign.center, style: body(13, color: C.muted)),
             ]),
           ),
         ]),
@@ -685,7 +685,7 @@ class _NewPinSheetState extends State<_NewPinSheet> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(_first == null ? 'নতুন PIN দিন' : 'নতুন PIN আবার দিন', style: display(20)),
+            Text(_first == null ? tr('নতুন PIN দিন') : tr('নতুন PIN আবার দিন'), style: display(20)),
             SizedBox(height: 28, child: _error == null ? null : Text(_error!, style: body(14, color: C.red, weight: FontWeight.w600))),
             PinPad(
               key: ValueKey(_k),
@@ -702,7 +702,7 @@ class _NewPinSheetState extends State<_NewPinSheet> {
                 if (pin != _first) {
                   setState(() {
                     _first = null;
-                    _error = 'মেলেনি, আবার শুরু করুন';
+                    _error = tr('মেলেনি, আবার শুরু করুন');
                     _k++;
                   });
                   return;

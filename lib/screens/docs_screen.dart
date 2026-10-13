@@ -9,6 +9,8 @@ import '../state/brain.dart';
 import '../ui/pin.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import '../logic/lang.dart';
+import 'store_more_screens.dart';
 
 /// "১.২ MB", "৮৪০ KB".
 String sizeText(int bytes) {
@@ -20,17 +22,19 @@ String sizeText(int bytes) {
 List<String> allDocFolders(AppData d) => [...docFolders, ...{for (final x in d.docs) x.folder}.where((f) => !docFolders.contains(f))];
 
 /// Adds a photo or file: asks the folder, keeps it encrypted, opens it.
-Future<void> addDocument(BuildContext context, {required int source, String? folder, Doc? into}) async {
+Future<void> addDocument(BuildContext context, {required int source, String? folder, Doc? into, PickedDoc? shared}) async {
   final brain = BrainScope.read(context);
   final shrink = await brain.services.lock.keys.read('doc_shrink') != 'false';
-  final PickedDoc? f = switch (source) {
-    0 => await brain.services.files.pickPhoto(camera: true, shrink: shrink),
-    1 => await brain.services.files.pickPhoto(camera: false, shrink: shrink),
-    _ => await brain.services.files.pickDocument(),
-  };
+  // [shared]: a photo or file sent from another app with Share.
+  final PickedDoc? f = shared ??
+      switch (source) {
+        0 => await brain.services.files.pickPhoto(camera: true, shrink: shrink),
+        1 => await brain.services.files.pickPhoto(camera: false, shrink: shrink),
+        _ => await brain.services.files.pickDocument(),
+      };
   if (f == null || !context.mounted) return;
   if (f.bytes.length > 25 * 1024 * 1024) {
-    toast(context, 'ফাইলটা অনেক বড় (${sizeText(f.bytes.length)}) — ২৫ MB পর্যন্ত রাখা যায়');
+    toast(context, trf('ফাইলটা অনেক বড় ({0}) — ২৫ MB পর্যন্ত রাখা যায়', [sizeText(f.bytes.length)]));
     return;
   }
   var target = folder ?? into?.folder;
@@ -38,7 +42,7 @@ Future<void> addDocument(BuildContext context, {required int source, String? fol
     target = await showDialog<String>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: Text('কোন ফোল্ডারে রাখবো?', style: body(18, weight: FontWeight.w600)),
+        title: Text(tr('কোন ফোল্ডারে রাখবো?'), style: body(18, weight: FontWeight.w600)),
         children: [
           for (final x in allDocFolders(brain.data))
             SimpleDialogOption(onPressed: () => Navigator.pop(ctx, x), child: Text(x, style: body(16))),
@@ -49,7 +53,7 @@ Future<void> addDocument(BuildContext context, {required int source, String? fol
   }
   final d = await brain.addDocPage(into, f, folder: target, title: target);
   if (!context.mounted) return;
-  toast(context, f.mime.startsWith('image/') ? 'ছবি রাখা হলো · ${sizeText(f.bytes.length)}' : 'ফাইল রাখা হলো · ${sizeText(f.bytes.length)}');
+  toast(context, f.mime.startsWith('image/') ? trf('ছবি রাখা হলো · {0}', [sizeText(f.bytes.length)]) : trf('ফাইল রাখা হলো · {0}', [sizeText(f.bytes.length)]));
   if (into == null) {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => DocScreen(id: d.id, unlocked: true)));
   }
@@ -85,14 +89,14 @@ class _DocsScreenState extends State<DocsScreen> {
   }
 
   Future<void> _open(Doc d) async {
-    final ok = await verifyUser(context, reason: '${d.title} — দেখতে যাচাই করুন');
+    final ok = await verifyUser(context, reason: trf('{0} — দেখতে যাচাই করুন', [d.title]));
     if (ok && mounted) await Navigator.of(context).push(MaterialPageRoute(builder: (_) => DocScreen(id: d.id, unlocked: true)));
   }
 
   Widget _addButton(IconData icon, String label, int source, {bool dark = false}) => Expanded(
         child: Material(
           color: dark ? C.green : C.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: dark ? BorderSide.none : const BorderSide(color: C.inputBorder)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: dark ? BorderSide.none : BorderSide(color: C.inputBorder)),
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
             onTap: () => addDocument(context, source: source, folder: widget.folder),
@@ -124,24 +128,24 @@ class _DocsScreenState extends State<DocsScreen> {
             child: Icon(x.files.any((f) => f.isImage) ? Icons.image_outlined : Icons.description_outlined, color: C.blue, size: 20),
           ),
           title: x.title,
-          subtitle: '${x.folder} · ${bnDigits(x.files.length)} পাতা · ${sizeText(x.size)}${x.expiry != null ? ' · মেয়াদ ${bnDigits(x.expiry!.day)} ${bnMonthsShort[x.expiry!.month - 1]} ${bnDigits(x.expiry!.year)}' : ''}',
+          subtitle: trf('{0} · {1} পাতা · {2}{3}', [x.folder, bnDigits(x.files.length), sizeText(x.size), x.expiry != null ? ' · মেয়াদ ${bnDigits(x.expiry!.day)} ${monthShort(x.expiry!.month)} ${bnDigits(x.expiry!.year)}' : '']),
           onTap: () => _open(x),
         );
 
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: folder ?? 'ডকুমেন্টস', trailing: const [Padding(padding: EdgeInsets.only(right: 8), child: Icon(Icons.lock_outline_rounded, color: C.green))]),
+          TopBar(title: folder ?? tr('ডকুমেন্টস'), trailing: [Padding(padding: EdgeInsets.only(right: 8), child: Icon(Icons.lock_outline_rounded, color: C.green))]),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
               children: [
                 Row(children: [
-                  _addButton(Icons.photo_camera_outlined, 'ছবি তুলুন', 0, dark: true),
+                  _addButton(Icons.photo_camera_outlined, tr('ছবি তুলুন'), 0, dark: true),
                   const SizedBox(width: 8),
-                  _addButton(Icons.photo_library_outlined, 'গ্যালারি', 1),
+                  _addButton(Icons.photo_library_outlined, tr('গ্যালারি'), 1),
                   const SizedBox(width: 8),
-                  _addButton(Icons.attach_file_rounded, 'ফাইল', 2),
+                  _addButton(Icons.attach_file_rounded, tr('ফাইল'), 2),
                 ]),
                 const SizedBox(height: 8),
                 Container(
@@ -150,8 +154,8 @@ class _DocsScreenState extends State<DocsScreen> {
                   child: Row(children: [
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('ছবি ছোট করে রাখুন', style: body(14.5, weight: FontWeight.w600)),
-                        Text(_shrink ? 'জায়গা কম লাগে, লেখা পরিষ্কার পড়া যায়' : 'ছবি আসল মাপেই থাকবে (অনেক জায়গা লাগে)',
+                        Text(tr('ছবি ছোট করে রাখুন'), style: body(14.5, weight: FontWeight.w600)),
+                        Text(_shrink ? tr('জায়গা কম লাগে, লেখা পরিষ্কার পড়া যায়') : tr('ছবি আসল মাপেই থাকবে (অনেক জায়গা লাগে)'),
                             style: body(12.5, color: C.muted)),
                       ]),
                     ),
@@ -159,7 +163,7 @@ class _DocsScreenState extends State<DocsScreen> {
                   ]),
                 ),
                 if (folder == null) ...[
-                  Padding(padding: const EdgeInsets.fromLTRB(4, 18, 4, 8), child: Text('ফোল্ডার', style: body(13, weight: FontWeight.w600, color: C.muted))),
+                  Padding(padding: const EdgeInsets.fromLTRB(4, 18, 4, 8), child: Text(tr('ফোল্ডার'), style: body(13, weight: FontWeight.w600, color: C.muted))),
                   GridView.count(
                     crossAxisCount: 3,
                     shrinkWrap: true,
@@ -182,11 +186,11 @@ class _DocsScreenState extends State<DocsScreen> {
                                   width: 36,
                                   height: 36,
                                   decoration: BoxDecoration(color: C.blueTint, borderRadius: BorderRadius.circular(11)),
-                                  child: const Icon(Icons.folder_outlined, color: C.blue, size: 20),
+                                  child: Icon(Icons.folder_outlined, color: C.blue, size: 20),
                                 ),
                                 const Spacer(),
                                 Text(f, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w600, height: 1.25)),
-                                Text('${bnDigits(d.docs.where((x) => x.folder == f).length)}টি', style: body(11.5, color: C.muted)),
+                                Text(trf('{0}টি', [bnDigits(d.docs.where((x) => x.folder == f).length)]), style: body(11.5, color: C.muted)),
                               ]),
                             ),
                           ),
@@ -196,12 +200,12 @@ class _DocsScreenState extends State<DocsScreen> {
                 ],
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
-                  child: Text(folder == null ? 'সম্প্রতি রাখা' : 'এই ফোল্ডারে · ${bnDigits(docs.length)}টি', style: body(13, weight: FontWeight.w600, color: C.muted)),
+                  child: Text(folder == null ? tr('সম্প্রতি রাখা') : trf('এই ফোল্ডারে · {0}টি', [bnDigits(docs.length)]), style: body(13, weight: FontWeight.w600, color: C.muted)),
                 ),
                 if (docs.isEmpty)
                   Panel(
                     padding: const EdgeInsets.all(16),
-                    child: Text('এখনো কিছু নেই। উপরের বোতাম চেপে কাগজের ছবি তুলুন বা ফাইল যোগ করুন। সব কিছু এই ফোনে তালাবদ্ধ থাকে।',
+                    child: Text(tr('এখনো কিছু নেই। উপরের বোতাম চেপে কাগজের ছবি তুলুন বা ফাইল যোগ করুন। সব কিছু এই ফোনে তালাবদ্ধ থাকে।'),
                         style: body(14, color: C.muted, height: 1.5)),
                   )
                 else
@@ -240,8 +244,8 @@ class _DocScreenState extends State<DocScreen> {
         title: Text(title, style: body(18, weight: FontWeight.w600)),
         content: TextField(controller: c, autofocus: true, style: body(16), decoration: InputDecoration(hintText: hint)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('বাদ দিন')),
-          TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: Text('রাখুন', style: body(15, weight: FontWeight.w600, color: C.green))),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাদ দিন'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: Text(tr('রাখুন'), style: body(15, weight: FontWeight.w600, color: C.green))),
         ],
       ),
     );
@@ -250,7 +254,7 @@ class _DocScreenState extends State<DocScreen> {
   }
 
   Future<void> _addField(Brain b, Doc d) async {
-    final label = await _ask('কী তথ্য?', '', hint: 'যেমন: NID নম্বর, পাসপোর্ট নম্বর');
+    final label = await _ask(tr('কী তথ্য?'), '', hint: tr('যেমন: NID নম্বর, পাসপোর্ট নম্বর'));
     if (label == null || label.isEmpty || !mounted) return;
     final value = await _ask(label, '');
     if (value == null || !mounted) return;
@@ -272,7 +276,7 @@ class _DocScreenState extends State<DocScreen> {
           foregroundColor: Colors.white,
           title: Text(d.title, style: body(16, color: Colors.white)),
           actions: [
-            IconButton(tooltip: 'পাঠান', onPressed: () => b.services.files.shareFile(bytes, f.name, f.mime, d.title), icon: const Icon(Icons.share_outlined)),
+            IconButton(tooltip: tr('পাঠান'), onPressed: () => b.services.files.shareFile(bytes, f.name, f.mime, d.title), icon: const Icon(Icons.share_outlined)),
           ],
         ),
         body: InteractiveViewer(maxScale: 6, child: Center(child: Image.memory(bytes))),
@@ -285,24 +289,24 @@ class _DocScreenState extends State<DocScreen> {
     final brain = BrainScope.of(context);
     final d = _doc(brain);
     if (d == null) {
-      return const Scaffold(body: SafeArea(child: Column(children: [TopBar(title: 'ডকুমেন্ট'), Expanded(child: Center(child: Text('মুছে ফেলা হয়েছে')))])));
+      return Scaffold(body: SafeArea(child: Column(children: [TopBar(title: tr('ডকুমেন্ট')), Expanded(child: Center(child: Text(tr('মুছে ফেলা হয়েছে'))))])));
     }
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
           TopBar(title: d.title, trailing: [
             IconButton(
-              tooltip: 'নাম বদলান',
+              tooltip: tr('নাম বদলান'),
               onPressed: () async {
-                final v = await _ask('নাম', d.title);
+                final v = await _ask(tr('নাম'), d.title);
                 if (v != null && v.isNotEmpty) await brain.saveDoc(d.copyWith(title: v));
               },
               icon: const Icon(Icons.edit_outlined),
             ),
             IconButton(
-              tooltip: 'মুছুন',
+              tooltip: tr('মুছুন'),
               onPressed: () async {
-                final ok = await confirmDialog(context, title: 'ডকুমেন্টটা মুছবেন?', text: '“${d.title}”-এর সব পাতা মুছে যাবে।', yes: 'মুছুন', danger: true);
+                final ok = await confirmDialog(context, title: tr('ডকুমেন্টটা মুছবেন?'), text: trf('“{0}”-এর সব পাতা মুছে যাবে।', [d.title]), yes: tr('মুছুন'), danger: true);
                 if (!ok || !context.mounted) return;
                 await brain.deleteDoc(d);
                 if (context.mounted) Navigator.of(context).pop();
@@ -316,26 +320,26 @@ class _DocScreenState extends State<DocScreen> {
               children: [
                 Row(children: [
                   ActionChip(
-                    avatar: const Icon(Icons.folder_outlined, size: 18, color: C.blue),
+                    avatar: Icon(Icons.folder_outlined, size: 18, color: C.blue),
                     label: Text(d.folder, style: body(13.5)),
                     onPressed: () async {
                       final f = await showDialog<String>(
                         context: context,
                         builder: (ctx) => SimpleDialog(
-                          title: Text('ফোল্ডার', style: body(18, weight: FontWeight.w600)),
+                          title: Text(tr('ফোল্ডার'), style: body(18, weight: FontWeight.w600)),
                           children: [
                             for (final x in allDocFolders(brain.data)) SimpleDialogOption(onPressed: () => Navigator.pop(ctx, x), child: Text(x, style: body(16))),
-                            SimpleDialogOption(onPressed: () => Navigator.pop(ctx, '+'), child: Text('+ নতুন ফোল্ডার', style: body(16, color: C.green))),
+                            SimpleDialogOption(onPressed: () => Navigator.pop(ctx, '+'), child: Text(tr('+ নতুন ফোল্ডার'), style: body(16, color: C.green))),
                           ],
                         ),
                       );
                       if (f == null) return;
-                      final name = f == '+' ? await _ask('নতুন ফোল্ডারের নাম', '') : f;
+                      final name = f == '+' ? await _ask(tr('নতুন ফোল্ডারের নাম'), '') : f;
                       if (name != null && name.isNotEmpty) await brain.saveDoc(d.copyWith(folder: name));
                     },
                   ),
                   const Spacer(),
-                  Text('${bnDigits(d.files.length)} পাতা · ${sizeText(d.size)}', style: body(12.5, color: C.muted)),
+                  Text(trf('{0} পাতা · {1}', [bnDigits(d.files.length), sizeText(d.size)]), style: body(12.5, color: C.muted)),
                 ]),
                 const SizedBox(height: 8),
                 GridView.count(
@@ -354,7 +358,7 @@ class _DocScreenState extends State<DocScreen> {
                         child: InkWell(
                           onTap: () => _view(brain, d, f),
                           onLongPress: () async {
-                            final ok = await confirmDialog(context, title: 'এই পাতাটা সরাবেন?', text: f.name, yes: 'সরান', danger: true);
+                            final ok = await confirmDialog(context, title: tr('এই পাতাটা সরাবেন?'), text: f.name, yes: tr('সরান'), danger: true);
                             if (ok) await brain.removeDocPage(d, f);
                           },
                           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -368,7 +372,7 @@ class _DocScreenState extends State<DocScreen> {
                                     )
                                   : Container(
                                       color: C.blueTint,
-                                      child: const Icon(Icons.description_outlined, color: C.blue, size: 40),
+                                      child: Icon(Icons.description_outlined, color: C.blue, size: 40),
                                     ),
                             ),
                             Padding(
@@ -381,7 +385,7 @@ class _DocScreenState extends State<DocScreen> {
                       ),
                     Material(
                       color: Colors.transparent,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: C.inputBorder)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: C.inputBorder)),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(14),
                         onTap: () async {
@@ -390,53 +394,55 @@ class _DocScreenState extends State<DocScreen> {
                             showDragHandle: true,
                             builder: (ctx) => SafeArea(
                               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                                ListTile(leading: const Icon(Icons.photo_camera_outlined), title: Text('ছবি তুলুন', style: body(16)), onTap: () => Navigator.pop(ctx, 0)),
-                                ListTile(leading: const Icon(Icons.photo_library_outlined), title: Text('গ্যালারি থেকে', style: body(16)), onTap: () => Navigator.pop(ctx, 1)),
-                                ListTile(leading: const Icon(Icons.attach_file_rounded), title: Text('ফাইল (PDF ইত্যাদি)', style: body(16)), onTap: () => Navigator.pop(ctx, 2)),
+                                ListTile(leading: const Icon(Icons.photo_camera_outlined), title: Text(tr('ছবি তুলুন'), style: body(16)), onTap: () => Navigator.pop(ctx, 0)),
+                                ListTile(leading: const Icon(Icons.photo_library_outlined), title: Text(tr('গ্যালারি থেকে'), style: body(16)), onTap: () => Navigator.pop(ctx, 1)),
+                                ListTile(leading: const Icon(Icons.attach_file_rounded), title: Text(tr('ফাইল (PDF ইত্যাদি)'), style: body(16)), onTap: () => Navigator.pop(ctx, 2)),
                               ]),
                             ),
                           );
                           if (src != null && context.mounted) await addDocument(context, source: src, into: d);
                         },
                         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          const Icon(Icons.add_rounded, color: C.green, size: 28),
-                          Text('পাতা যোগ', style: body(13.5, weight: FontWeight.w600, color: C.green)),
+                          Icon(Icons.add_rounded, color: C.green, size: 28),
+                          Text(tr('পাতা যোগ'), style: body(13.5, weight: FontWeight.w600, color: C.green)),
                         ]),
                       ),
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                TagEditor(tagKey: 'doc:${d.id}'),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
-                  child: Text('দরকারি তথ্য', style: body(13, weight: FontWeight.w600, color: C.muted)),
+                  child: Text(tr('দরকারি তথ্য'), style: body(13, weight: FontWeight.w600, color: C.muted)),
                 ),
                 Panel(
                   child: Rows(children: [
                     for (final (i, f) in d.fields.indexed)
                       ListRow(
-                        leading: const Icon(Icons.info_outline_rounded, color: C.blue),
+                        leading: Icon(Icons.info_outline_rounded, color: C.blue),
                         title: f.label,
                         subtitle: f.value,
                         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                           IconButton(
-                            tooltip: 'কপি',
+                            tooltip: tr('কপি'),
                             onPressed: () {
                               brain.services.files.copy(f.value);
-                              toast(context, 'কপি হয়েছে');
+                              toast(context, tr('কপি হয়েছে'));
                             },
-                            icon: const Icon(Icons.copy_rounded, size: 18, color: C.green),
+                            icon: Icon(Icons.copy_rounded, size: 18, color: C.green),
                           ),
                           IconButton(
-                            tooltip: 'সরান',
+                            tooltip: tr('সরান'),
                             onPressed: () => brain.saveDoc(d.copyWith(fields: [...d.fields]..removeAt(i))),
-                            icon: const Icon(Icons.close_rounded, size: 18, color: C.muted),
+                            icon: Icon(Icons.close_rounded, size: 18, color: C.muted),
                           ),
                         ]),
                       ),
                     ListRow(
-                      leading: const Icon(Icons.add_rounded, color: C.green),
-                      title: 'নতুন তথ্য যোগ করুন',
-                      subtitle: 'যেমন NID নম্বর, পাসপোর্ট নম্বর, দলিল নম্বর',
+                      leading: Icon(Icons.add_rounded, color: C.green),
+                      title: tr('নতুন তথ্য যোগ করুন'),
+                      subtitle: tr('যেমন NID নম্বর, পাসপোর্ট নম্বর, দলিল নম্বর'),
                       onTap: () => _addField(brain, d),
                     ),
                   ]),
@@ -444,12 +450,12 @@ class _DocScreenState extends State<DocScreen> {
                 const SizedBox(height: 10),
                 Panel(
                   child: ListRow(
-                    leading: const Icon(Icons.event_busy_outlined, color: C.orange),
-                    title: d.expiry == null ? 'মেয়াদ শেষের তারিখ' : 'মেয়াদ শেষ: ${bnDigits(d.expiry!.day)} ${bnMonths[d.expiry!.month - 1]} ${bnDigits(d.expiry!.year)}',
-                    subtitle: d.expiry == null ? 'দিলে এক মাস আগে আর শেষের দিন মনে করাবো' : 'এক মাস আগে আর শেষের দিন মনে করাবো',
+                    leading: Icon(Icons.event_busy_outlined, color: C.orange),
+                    title: d.expiry == null ? tr('মেয়াদ শেষের তারিখ') : trf('মেয়াদ শেষ: {0} {1} {2}', [bnDigits(d.expiry!.day), monthName(d.expiry!.month), bnDigits(d.expiry!.year)]),
+                    subtitle: d.expiry == null ? tr('দিলে এক মাস আগে আর শেষের দিন মনে করাবো') : tr('এক মাস আগে আর শেষের দিন মনে করাবো'),
                     trailing: d.expiry == null
                         ? null
-                        : IconButton(tooltip: 'মেয়াদ সরান', onPressed: () => brain.setDocExpiry(d, null), icon: const Icon(Icons.close_rounded, color: C.muted)),
+                        : IconButton(tooltip: tr('মেয়াদ সরান'), onPressed: () => brain.setDocExpiry(d, null), icon: Icon(Icons.close_rounded, color: C.muted)),
                     onTap: () async {
                       final now = brain.services.now();
                       final p = await showDatePicker(
@@ -463,7 +469,7 @@ class _DocScreenState extends State<DocScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                Text('ছবিতে চাপ দিলে বড় করে দেখা যায়, চেপে ধরে রাখলে সরানো যায়। সব পাতা এই ফোনে তালাবদ্ধ থাকে।', style: body(12.5, color: C.muted, height: 1.5)),
+                Text(tr('ছবিতে চাপ দিলে বড় করে দেখা যায়, চেপে ধরে রাখলে সরানো যায়। সব পাতা এই ফোনে তালাবদ্ধ থাকে।'), style: body(12.5, color: C.muted, height: 1.5)),
               ],
             ),
           ),

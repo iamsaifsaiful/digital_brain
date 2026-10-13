@@ -5,6 +5,10 @@ import '../services/lock.dart';
 import '../state/brain.dart';
 import '../ui/pin.dart';
 import '../ui/theme.dart';
+import '../logic/lang.dart';
+import '../models/models.dart';
+import '../ui/widgets.dart';
+import 'store_more_screens.dart';
 
 /// First run: choose a PIN. Every other time: unlock with fingerprint or PIN.
 class LockScreen extends StatefulWidget {
@@ -43,7 +47,7 @@ class _LockScreenState extends State<LockScreen> {
 
   Future<void> _biometric() async {
     final brain = BrainScope.read(context);
-    final ok = await brain.services.lock.tryBiometrics('My Assistant খুলতে আঙুলের ছাপ দিন');
+    final ok = await brain.services.lock.tryBiometrics(tr('My Assistant খুলতে আঙুলের ছাপ দিন'));
     if (ok && mounted) brain.unlock();
   }
 
@@ -63,7 +67,7 @@ class _LockScreenState extends State<LockScreen> {
           setState(() {
             _mode = _Mode.create;
             _first = '';
-            _message = 'দুইবারের PIN মেলেনি। আবার শুরু করুন।';
+            _message = tr('দুইবারের PIN মেলেনি। আবার শুরু করুন।');
             _padKey++;
           });
           return;
@@ -79,7 +83,7 @@ class _LockScreenState extends State<LockScreen> {
           case PinOk():
             brain.unlock();
           case PinWrong(:final triesLeft):
-            setState(() => _message = 'PIN মেলেনি। আর ${bnDigits(triesLeft)} বার চেষ্টা করা যাবে।');
+            setState(() => _message = trf('PIN মেলেনি। আর {0} বার চেষ্টা করা যাবে।', [bnDigits(triesLeft)]));
             clear();
           case PinLocked(:final until):
             setState(() => _message = lockedMessage(until, brain.services.now()));
@@ -93,12 +97,12 @@ class _LockScreenState extends State<LockScreen> {
   @override
   Widget build(BuildContext context) {
     final title = switch (_mode) {
-      _Mode.create => 'একটি ৪ অঙ্কের PIN ঠিক করুন',
-      _Mode.confirm => 'PIN টি আবার দিন',
-      _ => 'PIN দিন',
+      _Mode.create => tr('একটি ৪ অঙ্কের PIN ঠিক করুন'),
+      _Mode.confirm => tr('PIN টি আবার দিন'),
+      _ => tr('PIN দিন'),
     };
     return Scaffold(
-      backgroundColor: C.ink,
+      backgroundColor: C.night,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, box) => SingleChildScrollView(
@@ -120,7 +124,7 @@ class _LockScreenState extends State<LockScreen> {
                         const SizedBox(height: 12),
                         Text('My Assistant', style: display(30, weight: 700, color: Colors.white)),
                         const SizedBox(height: 4),
-                        Text('আপনার ব্যক্তিগত সহকারী',
+                        Text(tr('আপনার ব্যক্তিগত সহকারী'),
                             style: body(14, color: const Color(0xFFA9B5AF)), textAlign: TextAlign.center),
                       ],
                     ),
@@ -145,11 +149,37 @@ class _LockScreenState extends State<LockScreen> {
                           ),
                         ],
                       ),
+                    if (_mode == _Mode.unlock && !BrainScope.of(context).data.emergency.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: OutlinedButton.icon(
+                          onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => Scaffold(
+                              body: SafeArea(
+                                child: Column(children: [
+                                  TopBar(title: tr('জরুরি তথ্য')),
+                                  Expanded(
+                                    child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
+                                      EmergencyView(
+                                        card: BrainScope.read(context).data.emergency,
+                                        onCall: (p) => BrainScope.read(context).services.launcher.open(Via.call, p),
+                                      ),
+                                    ]),
+                                  ),
+                                ]),
+                              ),
+                            ),
+                          )),
+                          icon: const Icon(Icons.emergency_outlined, color: Color(0xFFFCA5A5)),
+                          label: Text(tr('জরুরি তথ্য'), style: body(15, weight: FontWeight.w600, color: const Color(0xFFFCA5A5))),
+                          style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0x66FCA5A5)), shape: const StadiumBorder()),
+                        ),
+                      ),
                     const SizedBox(height: 24),
                     Text(
                       _mode == _Mode.create || _mode == _Mode.confirm
-                          ? 'PIN শুধু এই ফোনে, এনক্রিপ্ট করে রাখা হয়। ভুলে গেলে তথ্য ফেরত আনা যাবে না — ব্যাকআপ রাখুন।'
-                          : 'কিছুক্ষণ ব্যবহার না করলে অ্যাপ নিজে থেকে লক হয়ে যায়',
+                          ? tr('PIN শুধু এই ফোনে, এনক্রিপ্ট করে রাখা হয়। ভুলে গেলে তথ্য ফেরত আনা যাবে না — ব্যাকআপ রাখুন।')
+                          : tr('কিছুক্ষণ ব্যবহার না করলে অ্যাপ নিজে থেকে লক হয়ে যায়'),
                       style: body(13, color: const Color(0xFFA9B5AF), height: 1.5),
                       textAlign: TextAlign.center,
                     ),

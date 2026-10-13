@@ -9,6 +9,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'new_item_screen.dart';
 import 'vault_item_screen.dart';
+import '../logic/lang.dart';
 
 /// Passwords and logins. Opening one needs a fingerprint or the PIN.
 class VaultScreen extends StatefulWidget {
@@ -23,7 +24,7 @@ class _VaultScreenState extends State<VaultScreen> {
   String _q = '';
 
   Future<void> _open(VaultItem v) async {
-    final ok = await verifyUser(context, reason: '${v.name} — তথ্য দেখতে যাচাই করুন');
+    final ok = await verifyUser(context, reason: trf('{0} — তথ্য দেখতে যাচাই করুন', [v.name]));
     if (ok && mounted) {
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => VaultItemScreen(id: v.id)));
     }
@@ -50,7 +51,7 @@ class _VaultScreenState extends State<VaultScreen> {
               Padding(
                 padding: const EdgeInsets.only(right: 4),
                 child: IconButton(
-                  tooltip: 'ফিরে যান',
+                  tooltip: tr('ফিরে যান'),
                   onPressed: () => Navigator.of(context).maybePop(),
                   icon: const Icon(Icons.chevron_left_rounded, size: 30),
                 ),
@@ -59,18 +60,18 @@ class _VaultScreenState extends State<VaultScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('গোপন তথ্য', style: display(24, weight: 700)),
+                  Text(tr('গোপন তথ্য'), style: display(24, weight: 700)),
                   Row(children: [
-                    const Icon(Icons.lock_rounded, size: 14, color: C.greenDark),
+                    Icon(Icons.lock_rounded, size: 14, color: C.greenDark),
                     const SizedBox(width: 4),
-                    Text('এনক্রিপ্ট করা · ${bnDigits(all.length)}টি তথ্য', style: body(13, weight: FontWeight.w600, color: C.greenDark)),
+                    Text(trf('এনক্রিপ্ট করা · {0}টি তথ্য', [bnDigits(all.length)]), style: body(13, weight: FontWeight.w600, color: C.greenDark)),
                   ]),
                 ],
               ),
             ),
             RoundIconButton(
               icon: Icons.add_rounded,
-              tooltip: 'নতুন পাসওয়ার্ড যোগ করুন',
+              tooltip: tr('নতুন পাসওয়ার্ড যোগ করুন'),
               dark: true,
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewItemScreen(category: ItemCategory.password))),
             ),
@@ -79,28 +80,28 @@ class _VaultScreenState extends State<VaultScreen> {
         const SizedBox(height: 14),
         TextField(
           onChanged: (v) => setState(() => _q = v),
-          decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'ওয়েবসাইট বা অ্যাপের নাম'),
+          decoration: InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: tr('ওয়েবসাইট বা অ্যাপের নাম')),
         ),
         if (kinds.length > 1) ...[
           const SizedBox(height: 10),
           Wrap(spacing: 8, runSpacing: 8, children: [
-            _chip('সব', _kind == null, () => setState(() => _kind = null)),
+            _chip(tr('সব'), _kind == null, () => setState(() => _kind = null)),
             for (final k in kinds) _chip(k.label, _kind == k, () => setState(() => _kind = k)),
           ]),
         ],
         const SizedBox(height: 12),
-        const InfoBanner(text: 'শুধু এই ফোনে, তালাবদ্ধ অবস্থায় থাকে। দেখতে আঙুলের ছাপ বা PIN লাগে। AI-তে কখনো যায় না, জোরে পড়াও হয় না।'),
+        InfoBanner(text: tr('শুধু এই ফোনে, তালাবদ্ধ অবস্থায় থাকে। দেখতে আঙুলের ছাপ বা PIN লাগে। AI-তে কখনো যায় না, জোরে পড়াও হয় না।')),
         const SizedBox(height: 12),
         if (all.isEmpty)
           EmptyState(
             icon: Icons.key_rounded,
-            title: 'প্রথম পাসওয়ার্ডটি রাখুন',
-            text: 'ওয়েবসাইট, অ্যাপ, Wi-Fi বা ব্যাংকের লগইন এখানে এনক্রিপ্ট করে রাখা হবে।',
-            action: 'পাসওয়ার্ড যোগ করুন',
+            title: tr('প্রথম পাসওয়ার্ডটি রাখুন'),
+            text: tr('ওয়েবসাইট, অ্যাপ, Wi-Fi বা ব্যাংকের লগইন এখানে এনক্রিপ্ট করে রাখা হবে।'),
+            action: tr('পাসওয়ার্ড যোগ করুন'),
             onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewItemScreen(category: ItemCategory.password))),
           )
         else if (list.isEmpty)
-          Panel(padding: const EdgeInsets.all(16), child: Text('কিছু মেলেনি।', style: body(14, color: C.muted)))
+          Panel(padding: const EdgeInsets.all(16), child: Text(tr('কিছু মেলেনি।'), style: body(14, color: C.muted)))
         else
           Panel(
             child: Rows(children: [
@@ -109,7 +110,7 @@ class _VaultScreenState extends State<VaultScreen> {
                   leading: _KindIcon(kind: v.kind),
                   title: v.name,
                   subtitle: v.address.isEmpty || v.kind == VaultKind.wifi ? v.kind.label : '${v.kind.label} · ${v.address}',
-                  trailing: Text('••••', style: body(18, color: const Color(0xFF9AA39E))),
+                  trailing: Text('••••', style: body(18, color: C.muted)),
                   onTap: () => _open(v),
                 ),
             ]),

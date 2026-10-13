@@ -13,6 +13,9 @@ abstract class FileBridge {
   /// Opens the share sheet with [bytes] saved as [fileName].
   Future<void> shareFile(Uint8List bytes, String fileName, String mime, String text);
 
+  /// Opens the share sheet with plain text (a receipt, a message).
+  Future<void> shareText(String text);
+
   /// Asks where to keep the file (Download or any folder) and writes it
   /// there. True when saved, false when the user cancelled.
   Future<bool> saveFile(Uint8List bytes, String fileName);
@@ -27,7 +30,7 @@ abstract class FileBridge {
   /// is kept within [maxSide] pixels and saved at high JPEG quality, so a
   /// phone photo of a paper becomes a fraction of its size and stays sharp
   /// enough to read.
-  Future<PickedDoc?> pickPhoto({required bool camera, bool shrink = true});
+  Future<PickedDoc?> pickPhoto({required bool camera, bool shrink = true, int side = maxSide});
 
   /// Any file (PDF, Word…), kept exactly as it is.
   Future<PickedDoc?> pickDocument();
@@ -78,6 +81,11 @@ class DeviceFiles implements FileBridge {
   }
 
   @override
+  Future<void> shareText(String text) async {
+    await sp.SharePlus.instance.share(sp.ShareParams(text: text));
+  }
+
+  @override
   Future<Uint8List?> pickFile() async {
     try {
       final f = await fs.openFile();
@@ -90,12 +98,13 @@ class DeviceFiles implements FileBridge {
   }
 
   @override
-  Future<PickedDoc?> pickPhoto({required bool camera, bool shrink = true}) async {
+  Future<PickedDoc?> pickPhoto({required bool camera, bool shrink = true, int side = maxSide}) async {
     try {
       final x = await ImagePicker().pickImage(
         source: camera ? ImageSource.camera : ImageSource.gallery,
-        maxWidth: shrink ? maxSide.toDouble() : null,
-        maxHeight: shrink ? maxSide.toDouble() : null,
+        preferredCameraDevice: side < maxSide ? CameraDevice.front : CameraDevice.rear,
+        maxWidth: shrink ? side.toDouble() : null,
+        maxHeight: shrink ? side.toDouble() : null,
         imageQuality: shrink ? photoQuality : null,
         requestFullMetadata: false,
       );
@@ -143,6 +152,11 @@ class FakeFiles implements FileBridge {
   @override
   Future<void> shareFile(Uint8List bytes, String fileName, String mime, String text) async => shared = bytes;
 
+  String? sharedText;
+
+  @override
+  Future<void> shareText(String text) async => sharedText = text;
+
   @override
   Future<Uint8List?> pickFile() async => toPick;
 
@@ -163,7 +177,7 @@ class FakeFiles implements FileBridge {
   PickedDoc? document;
 
   @override
-  Future<PickedDoc?> pickPhoto({required bool camera, bool shrink = true}) async => photo;
+  Future<PickedDoc?> pickPhoto({required bool camera, bool shrink = true, int side = maxSide}) async => photo;
 
   @override
   Future<PickedDoc?> pickDocument() async => document;

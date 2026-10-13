@@ -5,6 +5,7 @@ import '../logic/calendar_bd.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import 'home_page.dart' show holidayRange;
+import '../logic/lang.dart';
 
 /// বাংলা তারিখ, ঋতু, সূর্যোদয়-সূর্যাস্ত, নামাজের সময় আর সরকারি ছুটি।
 class CalendarScreen extends StatefulWidget {
@@ -18,7 +19,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   DateTime? _month;
   DateTime? _picked;
 
-  static const _red = Color(0xFFBE123C);
+  static final _red = C.rose;
 
   @override
   Widget build(BuildContext context) {
@@ -59,23 +60,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
           children: [
             Row(children: [
-              IconButton(tooltip: 'ফিরে যান', onPressed: () => Navigator.of(context).maybePop(), icon: const Icon(Icons.chevron_left_rounded, size: 30)),
-              Expanded(child: Text('বাংলা তারিখ ও ছুটি', style: display(21, weight: 700))),
+              IconButton(tooltip: tr('ফিরে যান'), onPressed: () => Navigator.of(context).maybePop(), icon: const Icon(Icons.chevron_left_rounded, size: 30)),
+              Expanded(child: Text(tr('বাংলা তারিখ ও ছুটি'), style: display(21, weight: 700))),
             ]),
             const SizedBox(height: 6),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
-                gradient: const LinearGradient(colors: [C.green, Color(0xFF0F766E)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                gradient: LinearGradient(colors: [C.green, C.teal], begin: Alignment.topLeft, end: Alignment.bottomRight),
               ),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(picked == today ? 'আজ বাংলা তারিখ' : 'বাংলা তারিখ', style: body(13, color: Colors.white70)),
+                      Text(picked == today ? tr('আজ বাংলা তারিখ') : tr('বাংলা তারিখ'), style: body(13, color: Colors.white70)),
                       Text(bd.text, style: display(26, weight: 700, color: Colors.white, height: 1.3)),
-                      Text('${weekdayName(picked)} · ${bnDigits(picked.day)} ${bnMonths[picked.month - 1]} ${bnDigits(picked.year)}',
+                      Text('${weekdayName(picked)} · ${bnDigits(picked.day)} ${monthName(picked.month)} ${bnDigits(picked.year)}',
                           style: body(13.5, color: Colors.white)),
                     ]),
                   ),
@@ -84,19 +85,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12)),
                     child: Column(children: [
                       const Icon(Icons.eco_outlined, color: Colors.white, size: 20),
-                      Text('${bd.season}কাল', style: body(12.5, weight: FontWeight.w600, color: Colors.white)),
+                      Text(trf('{0}কাল', [bd.season]), style: body(12.5, weight: FontWeight.w600, color: Colors.white)),
                     ]),
                   ),
                 ]),
                 const SizedBox(height: 12),
                 Row(children: [
-                  sunTile(Icons.wb_twilight, const Color(0xFFFDE68A), 'সূর্যোদয়', t(sun.sunrise)),
+                  sunTile(Icons.wb_twilight, const Color(0xFFFDE68A), tr('সূর্যোদয়'), t(sun.sunrise)),
                   const SizedBox(width: 8),
-                  sunTile(Icons.nights_stay_outlined, const Color(0xFFFDBA74), 'সূর্যাস্ত', t(sun.sunset)),
+                  sunTile(Icons.nights_stay_outlined, const Color(0xFFFDBA74), tr('সূর্যাস্ত'), t(sun.sunset)),
                 ]),
                 const SizedBox(height: 8),
                 Text(
-                    '${place.name} অনুযায়ী · জেলা “আমি” পাতায় বদলানো যায়${picked == today ? ' · ${bnDigits(toNext)} দিন পর ১ ${nextBd.monthName}${nextBd.month % 2 == 0 ? ', ${nextBd.season}কাল শুরু' : ''}' : ''}',
+                    trf('{0} অনুযায়ী · জেলা সেটিংসে বদলানো যায়{1}', [place.label, picked == today ? ' · ${bnDigits(toNext)} ${tr('দিন পর')} 1 ${nextBd.monthName}${nextBd.month % 2 == 0 ? ', ${trf('{0}কাল শুরু', [nextBd.season])}' : ''}' : '']),
                     style: body(12.5, color: Colors.white, height: 1.45)),
               ]),
             ),
@@ -107,10 +108,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
               child: Column(children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
-                  child: Text('নামাজের সময় (${place.name}, আনুমানিক)', style: body(12.5, color: C.muted)),
+                  child: Text(trf('নামাজের সময় ({0}, আনুমানিক)', [place.label]), style: body(12.5, color: C.muted)),
                 ),
                 Row(children: [
-                  for (final (n, d) in [('ফজর', sun.fajr), ('জোহর', sun.dhuhr), ('আসর', sun.asr), ('মাগরিব', sun.maghrib), ('এশা', sun.isha)])
+                  for (final (n, d) in [(tr('ফজর'), sun.fajr), (tr('জোহর'), sun.dhuhr), (tr('আসর'), sun.asr), (tr('মাগরিব'), sun.maghrib), (tr('এশা'), sun.isha)])
                     Expanded(
                       child: Column(children: [
                         Text(n, style: body(11.5, color: C.muted)),
@@ -126,31 +127,31 @@ class _CalendarScreenState extends State<CalendarScreen> {
             if (pickedHol != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text('${bnDigits(picked.day)} ${bnMonths[picked.month - 1]}: ${pickedHol.name}${pickedHol.executive ? ' (নির্বাহী আদেশে)' : ''}',
+                child: Text('${bnDigits(picked.day)} ${monthName(picked.month)}: ${pickedHol.label}${pickedHol.executive ? tr(' (নির্বাহী আদেশে)') : ''}',
                     style: body(14, weight: FontWeight.w600, color: _red)),
               ),
             Padding(
               padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
-              child: Text('সামনের সরকারি ছুটি', style: body(13, weight: FontWeight.w600, color: C.muted)),
+              child: Text(tr('সামনের সরকারি ছুটি'), style: body(13, weight: FontWeight.w600, color: C.muted)),
             ),
             Container(
               decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16)),
               child: Column(children: [
                 for (final (i, r) in upcomingHolidays(today, count: 6).indexed) ...[
-                  if (i > 0) const Divider(height: 1, indent: 14, endIndent: 14, color: C.line),
+                  if (i > 0) Divider(height: 1, indent: 14, endIndent: 14, color: C.line),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                     child: Row(children: [
                       Container(
                         width: 40,
                         height: 40,
-                        decoration: BoxDecoration(color: const Color(0xFFFFF1F2), borderRadius: BorderRadius.circular(12)),
-                        child: const Icon(Icons.flag_outlined, color: _red, size: 20),
+                        decoration: BoxDecoration(color: C.roseTint, borderRadius: BorderRadius.circular(12)),
+                        child: Icon(Icons.flag_outlined, color: _red, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(r.name, style: body(15, weight: FontWeight.w600)),
+                          Text(r.label, style: body(15, weight: FontWeight.w600)),
                           Text('${holidayRange(r)}${r.days > 1 ? ' · টানা ${bnDigits(r.days)} দিন' : ' · ${weekdayName(r.start)}'}',
                               style: body(12.5, color: C.muted)),
                         ]),
@@ -163,7 +164,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
-              child: Text('চাঁদ দেখার ওপর নির্ভর ছুটি এক-দুই দিন বদলাতে পারে।', style: body(12, color: C.muted)),
+              child: Text(tr('চাঁদ দেখার ওপর নির্ভর ছুটি এক-দুই দিন বদলাতে পারে।'), style: body(12, color: C.muted)),
             ),
           ],
         ),
@@ -171,12 +172,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  String _inDays(int n) => n <= 0 ? 'আজ' : (n == 1 ? 'কাল' : '${bnDigits(n)} দিন পর');
+  String _inDays(int n) => n <= 0 ? tr('আজ') : (n == 1 ? tr('কাল') : trf('{0} দিন পর', [bnDigits(n)]));
 
   Widget _monthGrid(DateTime month, DateTime today, DateTime picked) {
     final days = DateTime(month.year, month.month + 1, 0).day;
     final lead = (DateTime(month.year, month.month).weekday + 1) % 7; // Saturday first
-    const heads = ['শনি', 'রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহঃ', 'শুক্র'];
+    final heads = [tr('শনি'), tr('রবি'), tr('সোম'), tr('মঙ্গল'), tr('বুধ'), tr('বৃহঃ'), tr('শুক্র')];
     final first = banglaDate(DateTime(month.year, month.month));
     final last = banglaDate(DateTime(month.year, month.month, days));
     return Container(
@@ -184,14 +185,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
       decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16)),
       child: Column(children: [
         Row(children: [
-          IconButton(tooltip: 'আগের মাস', onPressed: () => setState(() => _month = DateTime(month.year, month.month - 1)), icon: const Icon(Icons.chevron_left_rounded)),
+          IconButton(tooltip: tr('আগের মাস'), onPressed: () => setState(() => _month = DateTime(month.year, month.month - 1)), icon: const Icon(Icons.chevron_left_rounded)),
           Expanded(
             child: Column(children: [
-              Text('${bnMonths[month.month - 1]} ${bnDigits(month.year)}', style: body(15, weight: FontWeight.w600)),
+              Text('${monthName(month.month)} ${bnDigits(month.year)}', style: body(15, weight: FontWeight.w600)),
               Text('${first.monthName} – ${last.monthName} ${bnDigits(last.year)}', style: body(12, color: C.muted)),
             ]),
           ),
-          IconButton(tooltip: 'পরের মাস', onPressed: () => setState(() => _month = DateTime(month.year, month.month + 1)), icon: const Icon(Icons.chevron_right_rounded)),
+          IconButton(tooltip: tr('পরের মাস'), onPressed: () => setState(() => _month = DateTime(month.year, month.month + 1)), icon: const Icon(Icons.chevron_right_rounded)),
         ]),
         Row(children: [
           for (final (i, h) in heads.indexed)
@@ -219,7 +220,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final isPicked = d == picked && !isToday;
     final hol = holidayOn(d) != null;
     final weekend = isWeekend(d);
-    final bg = isToday ? C.green : (hol ? const Color(0xFFFFF1F2) : Colors.transparent);
+    final bg = isToday ? C.green : (hol ? C.roseTint : Colors.transparent);
     final fg = isToday ? Colors.white : (hol || weekend ? _red : C.ink);
     return InkWell(
       borderRadius: BorderRadius.circular(10),

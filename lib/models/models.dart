@@ -4,6 +4,10 @@ library;
 
 import 'dart:math';
 
+import 'extras.dart';
+
+export 'extras.dart';
+
 String newId() {
   final r = Random.secure();
   final t = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
@@ -449,7 +453,7 @@ enum CashKind {
 /// Money in or out that is not owed by anyone: monthly spending and
 /// income, or a project's receipts and costs ([projectId] set).
 class CashEntry {
-  CashEntry({String? id, required this.kind, required this.amount, this.category = 'অন্যান্য', this.note = '', required this.date, this.projectId})
+  CashEntry({String? id, required this.kind, required this.amount, this.category = 'অন্যান্য', this.note = '', required this.date, this.projectId, this.accountId})
       : id = id ?? newId();
 
   final String id;
@@ -462,6 +466,9 @@ class CashEntry {
   final DateTime date;
   final String? projectId;
 
+  /// The account the money came into or went out of (see [MoneyAccount]); null = not said.
+  final String? accountId;
+
   Map<String, Object?> toJson() => {
         'id': id,
         'kind': kind.name,
@@ -470,6 +477,7 @@ class CashEntry {
         'note': note,
         'date': date.toIso8601String(),
         'projectId': projectId,
+        if (accountId != null) 'accountId': accountId,
       };
 
   factory CashEntry.fromJson(Map<String, Object?> j) => CashEntry(
@@ -480,6 +488,7 @@ class CashEntry {
         note: (j['note'] as String?) ?? '',
         date: _date(j['date']) ?? DateTime.now(),
         projectId: j['projectId'] as String?,
+        accountId: j['accountId'] as String?,
       );
 }
 
@@ -513,7 +522,7 @@ enum Via { call, sms, whatsapp }
 
 /// A to-do: "কাল ব্যাংকে যেতে হবে", "দুধ কিনতে হবে".
 class Task {
-  Task({String? id, required this.title, this.due, this.done = false, DateTime? createdAt, this.doneAt})
+  Task({String? id, required this.title, this.due, this.done = false, DateTime? createdAt, this.doneAt, this.list = ''})
       : id = id ?? newId(),
         createdAt = createdAt ?? DateTime.now();
 
@@ -526,13 +535,17 @@ class Task {
   final DateTime createdAt;
   final DateTime? doneAt;
 
-  Task copyWith({String? title, DateTime? due, bool clearDue = false, bool? done, DateTime? doneAt}) => Task(
+  /// The list it belongs to ("ঈদের কেনাকাটা"); '' = the main to-do list.
+  final String list;
+
+  Task copyWith({String? title, DateTime? due, bool clearDue = false, bool? done, DateTime? doneAt, String? list}) => Task(
         id: id,
         title: title ?? this.title,
         due: clearDue ? null : (due ?? this.due),
         done: done ?? this.done,
         createdAt: createdAt,
         doneAt: (done ?? this.done) ? (doneAt ?? this.doneAt ?? DateTime.now()) : null,
+        list: list ?? this.list,
       );
 
   Map<String, Object?> toJson() => {
@@ -542,6 +555,7 @@ class Task {
         'done': done,
         'createdAt': createdAt.toIso8601String(),
         'doneAt': doneAt?.toIso8601String(),
+        if (list.isNotEmpty) 'list': list,
       };
 
   factory Task.fromJson(Map<String, Object?> j) => Task(
@@ -551,6 +565,7 @@ class Task {
         done: j['done'] == true,
         createdAt: _date(j['createdAt']),
         doneAt: _date(j['doneAt']),
+        list: (j['list'] as String?) ?? '',
       );
 }
 
@@ -665,7 +680,26 @@ class AppData {
     List<CashEntry>? cash,
     List<Project>? projects,
     List<Doc>? docs,
+    List<SpecialDay>? specialDays,
+    List<Memory>? memories,
+    List<Habit>? habits,
+    List<Medicine>? medicines,
+    List<MoneyAccount>? accounts,
+    List<Transfer>? transfers,
+    List<SavingsGoal>? goals,
+    List<Installment>? installments,
+    Map<String, List<String>>? tags,
+    this.emergency = const EmergencyCard(),
   })  : tasks = tasks ?? [],
+        specialDays = specialDays ?? [],
+        memories = memories ?? [],
+        habits = habits ?? [],
+        medicines = medicines ?? [],
+        accounts = accounts ?? [],
+        transfers = transfers ?? [],
+        goals = goals ?? [],
+        installments = installments ?? [],
+        tags = tags ?? {},
         docs = docs ?? [],
         cash = cash ?? [],
         projects = projects ?? [],
@@ -684,8 +718,23 @@ class AppData {
   final List<CashEntry> cash;
   final List<Project> projects;
   final List<Doc> docs;
+  final List<SpecialDay> specialDays;
+  final List<Memory> memories;
+  final List<Habit> habits;
+  final List<Medicine> medicines;
+  final List<MoneyAccount> accounts;
+  final List<Transfer> transfers;
+  final List<SavingsGoal> goals;
+  final List<Installment> installments;
+
+  /// Tags on notes, documents and contacts, keyed "note:<id>", "doc:<id>", "contact:<id>".
+  final Map<String, List<String>> tags;
+  EmergencyCard emergency;
 
   static const schema = 1;
+
+  /// Every tag in use, by name.
+  List<String> get allTags => ({for (final l in tags.values) ...l}.toList()..sort());
 
   /// Note categories in use: "নোট" first, then the others by name.
   List<String> get noteCategories {
@@ -705,6 +754,16 @@ class AppData {
         'cash': cash.map((e) => e.toJson()).toList(),
         'projects': projects.map((e) => e.toJson()).toList(),
         'docs': docs.map((e) => e.toJson()).toList(),
+        'specialDays': specialDays.map((e) => e.toJson()).toList(),
+        'memories': memories.map((e) => e.toJson()).toList(),
+        'habits': habits.map((e) => e.toJson()).toList(),
+        'medicines': medicines.map((e) => e.toJson()).toList(),
+        'accounts': accounts.map((e) => e.toJson()).toList(),
+        'transfers': transfers.map((e) => e.toJson()).toList(),
+        'goals': goals.map((e) => e.toJson()).toList(),
+        'installments': installments.map((e) => e.toJson()).toList(),
+        'tags': {for (final e in tags.entries) if (e.value.isNotEmpty) e.key: e.value},
+        'emergency': emergency.toJson(),
       };
 
   factory AppData.fromJson(Map<String, Object?> j) {
@@ -720,6 +779,19 @@ class AppData {
       cash: list('cash', CashEntry.fromJson),
       projects: list('projects', Project.fromJson),
       docs: list('docs', Doc.fromJson),
+      specialDays: list('specialDays', SpecialDay.fromJson),
+      memories: list('memories', Memory.fromJson),
+      habits: list('habits', Habit.fromJson),
+      medicines: list('medicines', Medicine.fromJson),
+      accounts: list('accounts', MoneyAccount.fromJson),
+      transfers: list('transfers', Transfer.fromJson),
+      goals: list('goals', SavingsGoal.fromJson),
+      installments: list('installments', Installment.fromJson),
+      tags: {
+        for (final e in ((j['tags'] as Map?) ?? const {}).entries)
+          if (e.value is List) '${e.key}': [for (final t in e.value as List) '$t']
+      },
+      emergency: j['emergency'] is Map ? EmergencyCard.fromJson((j['emergency'] as Map).cast<String, Object?>()) : const EmergencyCard(),
     );
   }
 }

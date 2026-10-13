@@ -8,6 +8,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'new_item_screen.dart';
 import 'vault_item_screen.dart';
+import '../logic/lang.dart';
 
 /// Dates to remember, grouped: this month, later, past.
 class RemindersScreen extends StatelessWidget {
@@ -32,7 +33,7 @@ class RemindersScreen extends StatelessWidget {
     Widget row(Reminder r) {
       final d = r.nextDate(now);
       return ListRow(
-        leading: DateBlock(top: bnDigits(d.day), bottom: bnMonthsShort[d.month - 1]),
+        leading: DateBlock(top: bnDigits(d.day), bottom: monthShort(d.month)),
         title: r.title,
         subtitle: [
           weekdayShort(d),
@@ -56,28 +57,28 @@ class RemindersScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            const TopBar(title: 'তারিখ ও রিমাইন্ডার'),
+            TopBar(title: tr('তারিখ ও রিমাইন্ডার')),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
                 children: [
                   if (highlighted != null) _Highlight(reminder: highlighted, onEdit: () => edit(highlighted)),
                   if (all.isEmpty)
-                    const EmptyState(
+                    EmptyState(
                       icon: Icons.notifications_none_rounded,
-                      title: 'কোনো তারিখ রাখা নেই',
-                      text: 'বিল দেওয়ার দিন, মেয়াদ শেষ হওয়ার দিন বা অ্যাপয়েন্টমেন্ট রাখুন — সময়মতো মনে করিয়ে দেওয়া হবে।',
+                      title: tr('কোনো তারিখ রাখা নেই'),
+                      text: tr('বিল দেওয়ার দিন, মেয়াদ শেষ হওয়ার দিন বা অ্যাপয়েন্টমেন্ট রাখুন — সময়মতো মনে করিয়ে দেওয়া হবে।'),
                     ),
-                  ...group('এই মাসে', thisMonth),
-                  ...group('পরে', later),
-                  ...group('পার হয়ে গেছে', past),
+                  ...group(tr('এই মাসে'), thisMonth),
+                  ...group(tr('পরে'), later),
+                  ...group(tr('পার হয়ে গেছে'), past),
                 ],
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
               child: PrimaryButton(
-                label: 'নতুন রিমাইন্ডার',
+                label: tr('নতুন রিমাইন্ডার'),
                 icon: Icons.add_rounded,
                 onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewItemScreen(category: ItemCategory.reminder))),
               ),
@@ -123,11 +124,11 @@ class _Highlight extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Row(children: [
-            const Icon(Icons.notifications_none_rounded, size: 18, color: C.muted2),
+            Icon(Icons.notifications_none_rounded, size: 18, color: C.muted2),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                at.isAfter(now) ? 'মনে করাবে: ${shortDate(at)}, ${bnTime(at.hour, at.minute)}' : 'মনে করানোর সময় পার হয়েছে',
+                at.isAfter(now) ? trf('মনে করাবে: {0}, {1}', [shortDate(at), bnTime(at.hour, at.minute)]) : tr('মনে করানোর সময় পার হয়েছে'),
                 style: body(14, color: C.muted2),
               ),
             ),
@@ -136,17 +137,17 @@ class _Highlight extends StatelessWidget {
             TextButton.icon(
               style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(44, 40)),
               onPressed: () async {
-                final ok = await verifyUser(context, reason: '${v.name} — তথ্য দেখতে যাচাই করুন');
+                final ok = await verifyUser(context, reason: trf('{0} — তথ্য দেখতে যাচাই করুন', [v.name]));
                 if (ok && context.mounted) {
                   Navigator.of(context).push(MaterialPageRoute(builder: (_) => VaultItemScreen(id: v.id)));
                 }
               },
-              icon: const Icon(Icons.lock_outline_rounded, size: 16, color: C.green),
-              label: Text('সাথে যুক্ত: ${v.name}', style: body(14, weight: FontWeight.w600, color: C.green)),
+              icon: Icon(Icons.lock_outline_rounded, size: 16, color: C.green),
+              label: Text(trf('সাথে যুক্ত: {0}', [v.name]), style: body(14, weight: FontWeight.w600, color: C.green)),
             ),
           Align(
             alignment: Alignment.centerRight,
-            child: TextButton(onPressed: onEdit, child: Text('বদলান', style: body(14, weight: FontWeight.w600, color: C.green))),
+            child: TextButton(onPressed: onEdit, child: Text(tr('বদলান'), style: body(14, weight: FontWeight.w600, color: C.green))),
           ),
         ],
       ),

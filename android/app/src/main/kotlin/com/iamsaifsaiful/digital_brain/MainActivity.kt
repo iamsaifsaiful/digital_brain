@@ -16,6 +16,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.provider.OpenableColumns
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -40,16 +41,93 @@ class MainActivity : FlutterFragmentActivity() {
     private var contactsResult: MethodChannel.Result? = null
     private var preview: Ringtone? = null
     private val stopPreview = Runnable { preview?.stop() }
+    private var launchChannel: MethodChannel? = null
+
+    /** How the app was opened (a share, the assistant gesture, the widget mic), until Dart asks. */
+    private var firstLaunch: Map<String, Any>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         super.onCreate(savedInstanceState)
         if (isReminderIntent(intent)) setOverLock(true)
+        if (savedInstanceState == null) firstLaunch = launchOf(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         if (isReminderIntent(intent)) setOverLock(true)
         super.onNewIntent(intent)
+        val l = launchOf(intent)
+        if (l != null) launchChannel?.invokeMethod("launch", l)
+    }
+
+    /** A share, the phone's assist gesture or the widget mic, as a map for Dart (null for a plain start). */
+    private fun launchOf(i: Intent?): Map<String, Any>? {
+        if (i == null) return null
+        return when (i.action) {
+            Intent.ACTION_ASSIST, "android.intent.action.VOICE_COMMAND" -> mapOf("action" to "assist")
+            TodayWidget.VOICE -> mapOf("action" to "voice")
+            Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE -> {
+                val text = (i.getStringExtra(Intent.EXTRA_TEXT) ?: "") +
+                    (i.getStringExtra(Intent.EXTRA_SUBJECT)?.let { if (it.isNotBlank() && i.getStringExtra(Intent.EXTRA_TEXT) == null) it else "" } ?: "")
+                val uris = ArrayList<Uri>()
+                @Suppress("DEPRECATION")
+                if (i.action == Intent.ACTION_SEND) {
+                    (i.getParcelableExtra<Uri>(Intent.EXTRA_STREAM))?.let { uris.add(it) }
+                } else {
+                    i.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)?.let { uris.addAll(it) }
+                }
+                val files = ArrayList<Map<String, Any>>()
+                for (u in uris.take(10)) readShared(u)?.let { files.add(it) }
+                mapOf("action" to "share", "text" to text, "files" to files)
+            }
+            else -> null
+        }
+    }
+
+    /** A shared file's bytes, name and type (up to 25 MB). */
+    private fun readShared(u: Uri): Map<String, Any>? = try {
+        var name = "file"
+        var size = -1L
+        contentResolver.query(u, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { c ->
+            if (c.moveToFirst()) {
+                name = c.getString(0) ?: name
+                if (!c.isNull(1)) size = c.getLong(1)
+            }
+        }
+        if (size > 25L * 1024 * 1024) {
+            null
+        } else {
+            val bytes = contentResolver.openInputStream(u)?.use { it.readBytes() }
+            if (bytes == null || bytes.size > 25 * 1024 * 1024) null
+            else mapOf("name" to name, "mime" to (contentResolver.getType(u) ?: "application/octet-stream"), "bytes" to bytes)
+        }
+    } catch (e: Exception) {
+        null
+    }
+
+    private fun launchMethods(call: io.flutter.plugin.common.MethodCall, result: MethodChannel.Result) {
+        when (call.method) {
+            "initial" -> {
+                result.success(firstLaunch)
+                firstLaunch = null
+            }
+            "assistSettings" -> {
+                if (!tryStart(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)) &&
+                    !tryStart(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))) {
+                    tryStart(Intent(Settings.ACTION_SETTINGS))
+                }
+                result.success(null)
+            }
+            "widget" -> {
+                val args = call.arguments as? Map<*, *>
+                val e = getSharedPreferences(TodayWidget.PREFS, Context.MODE_PRIVATE).edit()
+                args?.forEach { (k, v) -> e.putString(k.toString(), v?.toString() ?: "") }
+                e.apply()
+                TodayWidget.refresh(this)
+                result.success(null)
+            }
+            else -> result.notImplemented()
+        }
     }
 
     /** Opened by a reminder (tap or the full-screen alarm). */
@@ -285,6 +363,9 @@ class MainActivity : FlutterFragmentActivity() {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/alarm").setMethodCallHandler { call, result ->
             alarmChannel(call, result)
+        }
+        launchChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/launch").also {
+            it.setMethodCallHandler { call, result -> launchMethods(call, result) }
         }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/contacts").setMethodCallHandler { call, result ->
             contactsChannel(call, result)

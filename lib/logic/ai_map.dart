@@ -88,6 +88,16 @@ Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> le
       final text = _str(r['text']).isEmpty ? said.trim() : _str(r['text']);
       final cat = _str(r['category']);
       return NoteAdd(said, text: text, fromStatement: true, category: cat.isEmpty ? null : cat);
+    case 'memory_add':
+      final text = _str(r['text']);
+      return text.isEmpty ? null : MemoryAdd(said, text: text);
+    case 'special_add':
+      final person = _str(r['person']);
+      final day = _day(r['date']);
+      if (person.isEmpty || day == null) return null;
+      final now = DateTime.now();
+      return SpecialAdd(said,
+          person: person, kind: SpecialKind.parse(_str(r['kind'])), month: day.month, day: day.day, year: day.year < now.year ? day.year : null);
     case 'search':
       final t = _terms(r['terms']);
       return t.isEmpty ? null : SearchQuery(said, terms: t);

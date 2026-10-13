@@ -6,14 +6,16 @@ import '../models/models.dart';
 import 'bn.dart';
 import 'parser.dart';
 import 'phrases.dart';
+import 'lang.dart';
 
 /// Saves something (needs a yes first)?
-bool isSave(Command c) => c is LedgerAdd || c is LedgerSet || c is NoteAdd || c is TaskAdd || c is ReminderAdd || c is ContactAdd || c is CashAdd || c is VaultAdd;
+bool isSave(Command c) =>
+    c is LedgerAdd || c is LedgerSet || c is NoteAdd || c is TaskAdd || c is ReminderAdd || c is ContactAdd || c is CashAdd || c is VaultAdd || c is MemoryAdd || c is SpecialAdd;
 
 bool _complete(Command c) => switch (c) {
       LedgerAdd() => c.person.trim().isNotEmpty && c.amount > 0,
       ReminderAdd() => !c.needsTime,
-      LedgerSet() || TaskAdd() || ContactAdd() || NoteAdd() || VaultAdd() => true,
+      LedgerSet() || TaskAdd() || ContactAdd() || NoteAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() => true,
       CashAdd() => c.amount > 0,
       _ => false,
     };
@@ -69,17 +71,19 @@ String summaryLine(Command c) => switch (c) {
           'লেনদেন',
         ].join(' — '),
       LedgerSet() => c.balance >= 0
-          ? '${possessive(c.person)} কাছে পাবেন ${bnNumber(c.balance)} টাকা'
-          : '${toPerson(c.person)} দেবেন ${bnNumber(-c.balance)} টাকা',
+          ? trf('{0} কাছে পাবেন {1} টাকা', [possessive(c.person), bnNumber(c.balance)])
+          : trf('{0} দেবেন {1} টাকা', [toPerson(c.person), bnNumber(-c.balance)]),
       NoteAdd() => c.text,
-      TaskAdd() => 'কাজ: ${c.title}${c.due == null ? '' : ' (${bnDigits(c.due!.day)} ${bnMonths[c.due!.month - 1]})'}',
+      MemoryAdd() => 'মনে রাখব: ${c.text}',
+      SpecialAdd() => '${c.kind.mark} ${c.person} — ${c.kind.bn}: ${bnDigits(c.day)} ${monthName(c.month)}',
+      TaskAdd() => 'কাজ: ${c.title}${c.due == null ? '' : ' (${bnDigits(c.due!.day)} ${monthName(c.due!.month)})'}',
       ReminderAdd() => c.needsTime
-          ? 'মনে করানো: ${c.title} — সময় বলা বাকি'
-          : 'মনে করানো: ${c.title} — ${bnDigits(c.at.day)} ${bnMonths[c.at.month - 1]}, ${bnTime(c.at.hour, c.at.minute)}',
+          ? trf('মনে করানো: {0} — সময় বলা বাকি', [c.title])
+          : trf('মনে করানো: {0} — {1} {2}, {3}', [c.title, bnDigits(c.at.day), monthName(c.at.month), bnTime(c.at.hour, c.at.minute)]),
       VaultAdd() => 'ভল্টে: ${c.name}-এর পাসওয়ার্ড (••••)',
       ContactAdd() => 'নম্বর: ${c.name.isEmpty ? '' : '${c.name} — '}${bnDigits(c.phone)}',
       CashAdd() => c.project != null
-          ? '${c.project!.isEmpty ? 'প্রজেক্ট' : '‘${c.project}’ প্রজেক্ট'} — ${c.kind == CashKind.income ? 'এসেছে' : 'খরচ'} ${bnNumber(c.amount)} টাকা'
-          : '${c.kind.label}: ${c.category} — ${bnNumber(c.amount)} টাকা',
+          ? trf('{0} — {1} {2} টাকা', [c.project!.isEmpty ? 'প্রজেক্ট' : '‘${c.project}’ প্রজেক্ট', c.kind == CashKind.income ? 'এসেছে' : 'খরচ', bnNumber(c.amount)])
+          : trf('{0}: {1} — {2} টাকা', [c.kind.label, c.category, bnNumber(c.amount)]),
       _ => c.transcript,
     };

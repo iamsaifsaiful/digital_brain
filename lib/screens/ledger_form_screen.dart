@@ -9,6 +9,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'calls_screen.dart';
 import 'home_shell.dart';
+import '../logic/lang.dart';
 
 String _tail(String s) => s.length <= 3 ? s : s.substring(s.length - 3);
 
@@ -66,7 +67,7 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
         : widget.entry!.copyWith(person: person, phone: phone, kind: _kind, amount: amount, date: _date, note: _note.text.trim());
     await brain.saveEntry(e, guessPhone: false);
     if (!mounted) return;
-    toast(context, 'সেভ হয়েছে। ${balanceSentence(person, after)}');
+    toast(context, trf('সেভ হয়েছে। {0}', [balanceSentence(person, after)]));
     Navigator.of(context).pop();
   }
 
@@ -107,14 +108,14 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
           child: Column(
             children: [
               TopBar(
-                title: widget.entry == null ? 'লেনদেন যোগ' : 'লেনদেন সংশোধন',
+                title: widget.entry == null ? tr('লেনদেন যোগ') : tr('লেনদেন সংশোধন'),
                 trailing: [
                   if (widget.entry == null)
                     TextButton.icon(
                       onPressed: () => openVoice(context),
                       style: TextButton.styleFrom(backgroundColor: C.greenTint, foregroundColor: C.greenDark, minimumSize: const Size(44, 40)),
                       icon: const Icon(Icons.mic_none_rounded, size: 18),
-                      label: Text('বলে যোগ', style: body(14, weight: FontWeight.w600, color: C.greenDark)),
+                      label: Text(tr('বলে যোগ'), style: body(14, weight: FontWeight.w600, color: C.greenDark)),
                     ),
                 ],
               ),
@@ -122,7 +123,7 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                   children: [
-                    Text('লেনদেনের ধরন', style: body(14, weight: FontWeight.w600, color: C.muted)),
+                    Text(tr('লেনদেনের ধরন'), style: body(14, weight: FontWeight.w600, color: C.muted)),
                     const SizedBox(height: 8),
                     GridView.count(
                       crossAxisCount: 2,
@@ -165,10 +166,10 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
                       controller: _person,
                       textCapitalization: TextCapitalization.words,
                       decoration: InputDecoration(
-                        labelText: _kind == LedgerKind.lent || _kind == LedgerKind.repaid ? 'কাকে' : 'কার কাছ থেকে',
-                        suffixIcon: IconButton(tooltip: 'যোগাযোগ থেকে বেছে নিন', icon: const Icon(Icons.person_search_outlined), onPressed: _pick),
+                        labelText: _kind == LedgerKind.lent || _kind == LedgerKind.repaid ? tr('কাকে') : tr('কার কাছ থেকে'),
+                        suffixIcon: IconButton(tooltip: tr('যোগাযোগ থেকে বেছে নিন'), icon: const Icon(Icons.person_search_outlined), onPressed: _pick),
                       ),
-                      validator: (v) => (v ?? '').trim().isEmpty ? 'নাম লিখুন' : null,
+                      validator: (v) => (v ?? '').trim().isEmpty ? tr('নাম লিখুন') : null,
                     ),
                     if (known.isNotEmpty && person.isEmpty) ...[
                       const SizedBox(height: 8),
@@ -177,7 +178,7 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
                           ActionChip(
                             label: Text(k.phone.isEmpty ? k.name : '${k.name} · …${_tail(showPhone(k.phone))}', style: body(14)),
                             backgroundColor: C.surface,
-                            side: const BorderSide(color: C.border),
+                            side: BorderSide(color: C.border),
                             onPressed: () {
                               _person.text = k.name;
                               _phone.text = k.phone;
@@ -187,7 +188,7 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
                     ],
                     if (ambiguous && phoneKey(phone).isEmpty) ...[
                       const SizedBox(height: 10),
-                      Text('“$person” নামে ${bnDigits(namesake.length)} জন আছেন — নম্বর দেখে বেছে নিন',
+                      Text(trf('“{0}” নামে {1} জন আছেন — নম্বর দেখে বেছে নিন', [person, bnDigits(namesake.length)]),
                           style: body(13, weight: FontWeight.w600, color: C.orangeDark)),
                       const SizedBox(height: 6),
                       Panel(
@@ -197,7 +198,7 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
                               leading: Avatar(name: n.name, size: 36, fg: balanceColors(n.balance).$1, bg: balanceColors(n.balance).$2),
                               title: n.name,
                               subtitle: [
-                                n.phone.isEmpty ? 'নম্বর নেই' : showPhone(n.phone),
+                                n.phone.isEmpty ? tr('নম্বর নেই') : showPhone(n.phone),
                                 if (n.balance != 0) '${n.balance > 0 ? 'পাব' : 'দেব'} ${taka(n.balance.abs())}',
                               ].join(' · '),
                               onTap: () => setState(() => _phone.text = n.phone.isEmpty ? '' : n.phone),
@@ -210,17 +211,17 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
                       controller: _phone,
                       keyboardType: TextInputType.phone,
                       decoration: InputDecoration(
-                        labelText: 'মোবাইল নম্বর',
-                        hintText: 'একই নামের মানুষ আলাদা রাখতে',
+                        labelText: tr('মোবাইল নম্বর'),
+                        hintText: tr('একই নামের মানুষ আলাদা রাখতে'),
                         suffixIcon: IconButton(
-                          tooltip: 'যোগাযোগ বা ফোনবুক থেকে নিন',
+                          tooltip: tr('যোগাযোগ বা ফোনবুক থেকে নিন'),
                           icon: const Icon(Icons.contacts_outlined),
                           onPressed: _pick,
                         ),
                       ),
                       validator: (v) {
                         final d = phoneKey(v ?? '');
-                        return d.isNotEmpty && d.length < 10 ? 'নম্বরটা পুরো লিখুন' : null;
+                        return d.isNotEmpty && d.length < 10 ? tr('নম্বরটা পুরো লিখুন') : null;
                       },
                     ),
                     const SizedBox(height: 14),
@@ -232,8 +233,8 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
                             controller: _amount,
                             keyboardType: TextInputType.number,
                             style: display(22),
-                            decoration: const InputDecoration(labelText: 'পরিমাণ (৳)'),
-                            validator: (_) => (_amountValue ?? 0) <= 0 ? 'টাকার পরিমাণ লিখুন' : null,
+                            decoration: InputDecoration(labelText: tr('পরিমাণ (৳)')),
+                            validator: (_) => (_amountValue ?? 0) <= 0 ? tr('টাকার পরিমাণ লিখুন') : null,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -242,7 +243,7 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
                             onTap: _pickDate,
                             borderRadius: BorderRadius.circular(14),
                             child: InputDecorator(
-                              decoration: const InputDecoration(labelText: 'তারিখ'),
+                              decoration: InputDecoration(labelText: tr('তারিখ')),
                               child: Text(fullDate(_date), style: body(16), maxLines: 1, overflow: TextOverflow.ellipsis),
                             ),
                           ),
@@ -252,7 +253,7 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: _note,
-                      decoration: const InputDecoration(labelText: 'নোট (ঐচ্ছিক)', hintText: 'কেন বা কীভাবে — যেমন “বিকাশে”'),
+                      decoration: InputDecoration(labelText: tr('নোট (ঐচ্ছিক)'), hintText: tr('কেন বা কীভাবে — যেমন “বিকাশে”')),
                     ),
                     const SizedBox(height: 14),
                     if (person.isNotEmpty && amount != null)
@@ -261,7 +262,7 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
                         decoration: BoxDecoration(color: after < 0 ? C.orangeTint : C.greenTint, borderRadius: BorderRadius.circular(14)),
                         child: Text.rich(
                           TextSpan(children: [
-                            TextSpan(text: 'সেভ করলে ${balanceHeading(person, after).replaceAll('আপনি ', '')}: '),
+                            TextSpan(text: trf('সেভ করলে {0}: ', [balanceHeading(person, after).replaceAll('আপনি ', '')])),
                             TextSpan(text: '${taka(before)} → ', style: display(17)),
                             TextSpan(text: taka(after), style: display(17, weight: 700, color: balanceColor(after))),
                           ]),
@@ -273,7 +274,7 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                child: PrimaryButton(label: 'সেভ করুন', icon: Icons.check_rounded, onPressed: _save),
+                child: PrimaryButton(label: tr('সেভ করুন'), icon: Icons.check_rounded, onPressed: _save),
               ),
             ],
           ),

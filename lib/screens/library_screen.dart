@@ -11,6 +11,7 @@ import 'new_item_screen.dart';
 import 'notes_screen.dart';
 import 'plan_screens.dart';
 import 'vault_screen.dart';
+import '../logic/lang.dart';
 
 /// "তথ্য": everything kept for later — people, notes, passwords, tasks —
 /// as big tiles, plus the user's own categories.
@@ -27,22 +28,22 @@ class LibraryScreen extends StatelessWidget {
     final recent = ([...d.notes]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt))).take(3).toList();
 
     final tiles = <_Tile>[
-      _Tile('যোগাযোগ', '${bnDigits(d.contacts.length)} জন', Icons.contact_phone_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
-      _Tile('নোট', '${bnDigits(d.notes.length)}টি', Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, () => push(const NotesScreen())),
-      _Tile('পাসওয়ার্ড', '${bnDigits(d.vault.length)}টি · তালাবদ্ধ', Icons.key_rounded, C.blue, C.blueTint, () => push(const VaultPage())),
-      _Tile('রিমাইন্ডার', '${bnDigits(d.reminders.length)}টি', Icons.notifications_none_rounded, C.green, C.greenTint,
+      _Tile(tr('যোগাযোগ'), trf('{0} জন', [bnDigits(d.contacts.length)]), Icons.contact_phone_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
+      _Tile(tr('নোট'), trf('{0}টি', [bnDigits(d.notes.length)]), Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, () => push(const NotesScreen())),
+      _Tile(tr('পাসওয়ার্ড'), trf('{0}টি · তালাবদ্ধ', [bnDigits(d.vault.length)]), Icons.key_rounded, C.blue, C.blueTint, () => push(const VaultPage())),
+      _Tile(tr('রিমাইন্ডার'), trf('{0}টি', [bnDigits(d.reminders.length)]), Icons.notifications_none_rounded, C.green, C.greenTint,
           () => push(const AllTasksScreen())),
-      _Tile('সব কাজ', '${bnDigits(d.tasks.where((t) => !t.done).length)}টি বাকি', Icons.checklist_rounded, C.green, C.greenTint,
+      _Tile(tr('সব কাজ'), trf('{0}টি বাকি', [bnDigits(d.tasks.where((t) => !t.done).length)]), Icons.checklist_rounded, C.green, C.greenTint,
           () => push(const AllTasksScreen())),
       for (final c in d.noteCategories.where((c) => c != defaultNoteCategory))
-        _Tile(c, 'নিজের বিভাগ · ${bnDigits(d.notes.where((n) => n.category == c).length)}', Icons.folder_outlined, C.orange, C.orangeTint,
+        _Tile(c, trf('নিজের বিভাগ · {0}', [bnDigits(d.notes.where((n) => n.category == c).length)]), Icons.folder_outlined, C.orange, C.orangeTint,
             () => push(NotesScreen(category: c))),
     ];
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       children: [
-        const TabTitle('তথ্য'),
+        TabTitle(tr('তথ্য')),
         const SizedBox(height: 14),
         LayoutBuilder(builder: (context, box) {
           final w = (box.maxWidth - 10) / 2;
@@ -53,13 +54,13 @@ class LibraryScreen extends StatelessWidget {
               height: 92,
               child: Material(
                 color: Colors.transparent,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: C.inputBorder, width: 1.2)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: C.inputBorder, width: 1.2)),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
                   onTap: () => push(const NewItemScreen()),
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    const Icon(Icons.add_rounded, color: C.green),
-                    Text('নতুন কিছু রাখুন', style: body(14, weight: FontWeight.w600, color: C.green)),
+                    Icon(Icons.add_rounded, color: C.green),
+                    Text(tr('নতুন কিছু রাখুন'), style: body(14, weight: FontWeight.w600, color: C.green)),
                   ]),
                 ),
               ),
@@ -69,7 +70,7 @@ class LibraryScreen extends StatelessWidget {
         if (plan.overdue.isNotEmpty) ...[
           const SizedBox(height: 14),
           InfoBanner(
-            text: '${bnDigits(plan.overdue.length)}টা কাজের দিন পার হয়ে গেছে — “সব কাজ” খুলে দেখুন।',
+            text: trf('{0}টা কাজের দিন পার হয়ে গেছে — “সব কাজ” খুলে দেখুন।', [bnDigits(plan.overdue.length)]),
             icon: Icons.schedule_rounded,
             fg: C.orangeDark,
             iconColor: C.orange,
@@ -78,7 +79,7 @@ class LibraryScreen extends StatelessWidget {
         ],
         if (recent.isNotEmpty) ...[
           const SizedBox(height: 18),
-          const SectionTitle('সাম্প্রতিক নোট'),
+          SectionTitle(tr('সাম্প্রতিক নোট')),
           Panel(
             child: Rows(children: [
               for (final n in recent)
@@ -87,7 +88,7 @@ class LibraryScreen extends StatelessWidget {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(color: C.ochreTint, borderRadius: BorderRadius.circular(12)),
-                    child: const Icon(Icons.sticky_note_2_outlined, color: C.ochre, size: 20),
+                    child: Icon(Icons.sticky_note_2_outlined, color: C.ochre, size: 20),
                   ),
                   title: n.title,
                   subtitle: n.body.replaceAll('\n', ' '),
@@ -97,14 +98,14 @@ class LibraryScreen extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 14),
-        Text('খুঁজতে মাইকে জিজ্ঞেস করুন: “রহিমের নম্বর কত?”, “গাড়ির কাগজ কোথায় রেখেছি?”', style: body(13, color: C.muted)),
+        Text(tr('খুঁজতে মাইকে জিজ্ঞেস করুন: “রহিমের নম্বর কত?”, “গাড়ির কাগজ কোথায় রেখেছি?”'), style: body(13, color: C.muted)),
         const SizedBox(height: 6),
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
             onPressed: () => push(const HelpScreen()),
-            icon: const Icon(Icons.lightbulb_outline_rounded, color: C.green),
-            label: Text('অ্যাপ দিয়ে কী কী করা যায়', style: body(14, weight: FontWeight.w600, color: C.green)),
+            icon: Icon(Icons.lightbulb_outline_rounded, color: C.green),
+            label: Text(tr('অ্যাপ দিয়ে কী কী করা যায়'), style: body(14, weight: FontWeight.w600, color: C.green)),
           ),
         ),
       ],
@@ -129,7 +130,7 @@ class _TileView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
         color: C.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: C.line)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: C.line)),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: tile.onTap,

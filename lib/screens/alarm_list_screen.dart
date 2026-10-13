@@ -6,33 +6,34 @@ import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'alarm_screens.dart';
+import '../logic/lang.dart';
 
 /// Short names, Saturday first (the Bangladesh week).
 const _dayOrder = [DateTime.saturday, DateTime.sunday, DateTime.monday, DateTime.tuesday, DateTime.wednesday, DateTime.thursday, DateTime.friday];
-const _dayShort = {
-  DateTime.saturday: 'শ',
-  DateTime.sunday: 'র',
-  DateTime.monday: 'সো',
-  DateTime.tuesday: 'ম',
-  DateTime.wednesday: 'বু',
-  DateTime.thursday: 'বৃ',
-  DateTime.friday: 'শু',
+final _dayShort = {
+  DateTime.saturday: tr('শ'),
+  DateTime.sunday: tr('র'),
+  DateTime.monday: tr('সো'),
+  DateTime.tuesday: tr('ম'),
+  DateTime.wednesday: tr('বু'),
+  DateTime.thursday: tr('বৃ'),
+  DateTime.friday: tr('শু'),
 };
 
 /// "প্রতিদিন", "শুক্রবার বাদে প্রতিদিন", "শুক্র, শনি", "একবার — কাল".
 String alarmDaysText(Reminder r, DateTime now) {
-  if (r.repeat == Repeat.daily) return 'প্রতিদিন';
+  if (r.repeat == Repeat.daily) return tr('প্রতিদিন');
   if (r.repeat == Repeat.weekly) {
     final days = r.ringDays;
-    if (days.length == 7) return 'প্রতিদিন';
-    if (days.length == 6) return '${bnWeekdays[_dayOrder.firstWhere((d) => !days.contains(d)) - 1]} বাদে প্রতিদিন';
+    if (days.length == 7) return tr('প্রতিদিন');
+    if (days.length == 6) return trf('{0} বাদে প্রতিদিন', [dayName(_dayOrder.firstWhere((d) => !days.contains(d)))]);
     return [for (final d in _dayOrder) if (days.contains(d)) weekdayShort(DateTime(2026, 10, 12 + (d - 1)))].join(', ');
   }
   if (r.repeat == Repeat.none) {
     final day = DateTime(r.date.year, r.date.month, r.date.day);
     final today = DateTime(now.year, now.month, now.day);
     final diff = day.difference(today).inDays;
-    return 'একবার — ${diff == 0 ? 'আজ' : diff == 1 ? 'কাল' : '${bnDigits(day.day)} ${bnMonthsShort[day.month - 1]}'}';
+    return trf('একবার — {0}', [diff == 0 ? 'আজ' : diff == 1 ? 'কাল' : '${bnDigits(day.day)} ${monthShort(day.month)}']);
   }
   return r.repeat.label;
 }
@@ -53,22 +54,22 @@ class AlarmsScreen extends StatelessWidget {
     String inText(DateTime at) {
       final m = at.difference(now).inMinutes;
       final h = m ~/ 60;
-      return h == 0 ? '${bnDigits(m)} মিনিট পর' : '${bnDigits(h)} ঘণ্টা ${bnDigits(m % 60)} মিনিট পর';
+      return h == 0 ? trf('{0} মিনিট পর', [bnDigits(m)]) : trf('{0} ঘণ্টা {1} মিনিট পর', [bnDigits(h), bnDigits(m % 60)]);
     }
 
     void open([Reminder? r]) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => AlarmEditScreen(alarm: r)));
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
-        tooltip: 'নতুন অ্যালার্ম',
-        backgroundColor: C.ink,
+        tooltip: tr('নতুন অ্যালার্ম'),
+        backgroundColor: C.fill,
         foregroundColor: Colors.white,
         onPressed: open,
         child: const Icon(Icons.add_rounded, size: 28),
       ),
       body: SafeArea(
         child: Column(children: [
-          const TopBar(title: 'অ্যালার্ম'),
+          TopBar(title: tr('অ্যালার্ম')),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
@@ -77,15 +78,15 @@ class AlarmsScreen extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                   decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(16)),
                   child: Row(children: [
-                    const Icon(Icons.alarm_rounded, color: C.green),
+                    Icon(Icons.alarm_rounded, color: C.green),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(next == null ? 'কোনো অ্যালার্ম চালু নেই' : 'পরের অ্যালার্ম ${inText(next.notifyAt(now))}',
+                        Text(next == null ? tr('কোনো অ্যালার্ম চালু নেই') : trf('পরের অ্যালার্ম {0}', [inText(next.notifyAt(now))]),
                             style: body(15, weight: FontWeight.w600, color: C.greenDark)),
                         Text(
                             next == null
-                                ? 'নিচের + চাপুন, বা সহকারীকে বলুন — “প্রতিদিন সকাল ৭টায় অ্যালার্ম দাও”'
+                                ? tr('নিচের + চাপুন, বা সহকারীকে বলুন — “প্রতিদিন সকাল ৭টায় অ্যালার্ম দাও”')
                                 : '${bnTime(next.hour, next.minute)} · ${next.title}',
                             style: body(13, color: C.greenDark)),
                       ]),
@@ -98,7 +99,7 @@ class AlarmsScreen extends StatelessWidget {
                 Center(
                   child: TextButton(
                     onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReminderCheckScreen())),
-                    child: Text('অ্যালার্ম ঠিকমতো বাজবে তো? দেখে নিন', style: body(14, weight: FontWeight.w600, color: C.green)),
+                    child: Text(tr('অ্যালার্ম ঠিকমতো বাজবে তো? দেখে নিন'), style: body(14, weight: FontWeight.w600, color: C.green)),
                   ),
                 ),
               ],
@@ -229,7 +230,7 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
     final brain = BrainScope.read(context);
     final now = brain.services.now();
     final today = DateTime(now.year, now.month, now.day);
-    final title = _name.text.trim().isEmpty ? 'অ্যালার্ম' : _name.text.trim();
+    final title = _name.text.trim().isEmpty ? tr('অ্যালার্ম') : _name.text.trim();
     final Repeat repeat;
     var date = today;
     if (_days.length == 7) {
@@ -256,12 +257,12 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
     if (!mounted) return;
     final at = r.notifyAt(now);
     final mins = at.difference(now).inMinutes;
-    toast(context, 'অ্যালার্ম রাখা হলো — ${mins < 60 ? '${bnDigits(mins)} মিনিট' : '${bnDigits(mins ~/ 60)} ঘণ্টা ${bnDigits(mins % 60)} মিনিট'} পর বাজবে');
+    toast(context, trf('অ্যালার্ম রাখা হলো — {0} পর বাজবে', [mins < 60 ? '${bnDigits(mins)} মিনিট' : '${bnDigits(mins ~/ 60)} ঘণ্টা ${bnDigits(mins % 60)} মিনিট']));
     Navigator.of(context).pop();
   }
 
   Future<void> _delete() async {
-    final ok = await confirmDialog(context, title: 'অ্যালার্মটা মুছবেন?', text: _name.text, yes: 'মুছুন', danger: true);
+    final ok = await confirmDialog(context, title: tr('অ্যালার্মটা মুছবেন?'), text: _name.text, yes: tr('মুছুন'), danger: true);
     if (!ok || !mounted) return;
     await BrainScope.read(context).deleteReminder(widget.alarm!.id);
     if (mounted) Navigator.of(context).pop();
@@ -270,19 +271,19 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
   @override
   Widget build(BuildContext context) {
     final presets = <(String, Set<int>)>[
-      ('একবার', <int>{}),
-      ('প্রতিদিন', _dayOrder.toSet()),
-      ('অফিসের দিন', _dayOrder.where((d) => d != DateTime.friday).toSet()),
-      ('ছুটির দিন', {DateTime.friday, DateTime.saturday}),
+      (tr('একবার'), <int>{}),
+      (tr('প্রতিদিন'), _dayOrder.toSet()),
+      (tr('অফিসের দিন'), _dayOrder.where((d) => d != DateTime.friday).toSet()),
+      (tr('ছুটির দিন'), {DateTime.friday, DateTime.saturday}),
     ];
     bool same(Set<int> a, Set<int> b) => a.length == b.length && a.containsAll(b);
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
           TopBar(
-            title: widget.alarm == null ? 'নতুন অ্যালার্ম' : 'অ্যালার্ম বদলান',
+            title: widget.alarm == null ? tr('নতুন অ্যালার্ম') : tr('অ্যালার্ম বদলান'),
             trailing: [
-              if (widget.alarm != null) IconButton(tooltip: 'মুছুন', onPressed: _delete, icon: const Icon(Icons.delete_outline_rounded)),
+              if (widget.alarm != null) IconButton(tooltip: tr('মুছুন'), onPressed: _delete, icon: const Icon(Icons.delete_outline_rounded)),
             ],
           ),
           Expanded(
@@ -305,14 +306,14 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
                 Center(child: Text(bnTime(_hour, _minute), style: body(15, weight: FontWeight.w600, color: C.green))),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 14, 4, 8),
-                  child: Text('কোন কোন দিন', style: body(13, weight: FontWeight.w600, color: C.muted)),
+                  child: Text(tr('কোন কোন দিন'), style: body(13, weight: FontWeight.w600, color: C.muted)),
                 ),
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   for (final d in _dayOrder)
                     Semantics(
                       button: true,
                       selected: _days.contains(d),
-                      label: bnWeekdays[d - 1],
+                      label: dayName(d),
                       child: InkWell(
                         customBorder: const CircleBorder(),
                         onTap: () => setState(() => _days.contains(d) ? _days.remove(d) : _days.add(d)),
@@ -320,7 +321,7 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
                           width: 42,
                           height: 42,
                           alignment: Alignment.center,
-                          decoration: BoxDecoration(shape: BoxShape.circle, color: _days.contains(d) ? C.green : const Color(0xFFF1F2F4)),
+                          decoration: BoxDecoration(shape: BoxShape.circle, color: _days.contains(d) ? C.green : C.soft),
                           child: Text(_dayShort[d]!, style: body(14, weight: FontWeight.w600, color: _days.contains(d) ? Colors.white : C.muted)),
                         ),
                       ),
@@ -343,17 +344,17 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
                 TextField(
                   controller: _name,
                   style: body(16),
-                  decoration: const InputDecoration(labelText: 'নাম (বাজলে এটা দেখাবে)', hintText: 'যেমন: ঘুম থেকে ওঠা'),
+                  decoration: InputDecoration(labelText: tr('নাম (বাজলে এটা দেখাবে)'), hintText: tr('যেমন: ঘুম থেকে ওঠা')),
                 ),
                 const SizedBox(height: 10),
-                Text('বাজলে পুরো স্ক্রিনে অ্যালার্ম আসবে, ফোন লক থাকলেও। ৫/১০ মিনিট বা ১ ঘণ্টা পরে আবার বাজানো যায়। রিংটোন “আমি” পাতা থেকে বদলানো যায়।',
+                Text(tr('বাজলে পুরো স্ক্রিনে অ্যালার্ম আসবে, ফোন লক থাকলেও। ৫/১০ মিনিট বা ১ ঘণ্টা পরে আবার বাজানো যায়। রিংটোন সেটিংস থেকে বদলানো যায়।'),
                     style: body(13, color: C.muted, height: 1.5)),
               ],
             ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-            child: PrimaryButton(label: 'অ্যালার্ম রাখুন', icon: Icons.alarm_add_rounded, onPressed: _save),
+            child: PrimaryButton(label: tr('অ্যালার্ম রাখুন'), icon: Icons.alarm_add_rounded, onPressed: _save),
           ),
         ]),
       ),

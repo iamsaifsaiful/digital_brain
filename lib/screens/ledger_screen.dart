@@ -8,8 +8,10 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'ledger_form_screen.dart';
 import 'money_screens.dart';
+import 'money_more_screens.dart';
 import 'person_screen.dart';
 import 'transactions_screen.dart';
+import '../logic/lang.dart';
 
 /// Which part of হিসাব is open. Ordered as people use them: own monthly
 /// money most often, then loans, then projects.
@@ -38,13 +40,16 @@ class MoneyScreenState extends State<MoneyScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       children: [
-        TabTitle('হিসাব',
+        TabTitle(tr('হিসাব'),
             trailing: _part == MoneyPart.loans
-                ? IconButton(tooltip: 'সব লেনদেন খুঁজুন', onPressed: () => push(const TransactionsScreen()), icon: const Icon(Icons.search_rounded))
+                ? IconButton(tooltip: tr('সব লেনদেন খুঁজুন'), onPressed: () => push(const TransactionsScreen()), icon: const Icon(Icons.search_rounded))
                 : null),
         const SizedBox(height: 12),
+        if (brain.businessMode) ...[const ShopTodayCard(), const SizedBox(height: 12)],
+        const MoneyTools(),
+        const SizedBox(height: 12),
         SegTabs<MoneyPart>(
-          items: const [(MoneyPart.cash, 'আয়-ব্যয়'), (MoneyPart.loans, 'ধার-দেনা'), (MoneyPart.projects, 'প্রজেক্ট')],
+          items: [(MoneyPart.cash, tr('আয়-ব্যয়')), (MoneyPart.loans, tr('ধার-দেনা')), (MoneyPart.projects, tr('প্রজেক্ট'))],
           value: _part,
           onChanged: show,
         ),
@@ -80,11 +85,11 @@ class MoneyScreenState extends State<MoneyScreen> {
           child: Panel(
             padding: const EdgeInsets.all(14),
             child: Figure(
-              label: 'আমি পাব',
+              label: tr('আমি পাব'),
               amount: taka(loans.receivable),
               color: C.green,
               size: 22,
-              sub: 'দিয়েছি ${taka(loans.lent)} · ফেরত ${taka(loans.received)}',
+              sub: trf('দিয়েছি {0} · ফেরত {1}', [taka(loans.lent), taka(loans.received)]),
             ),
           ),
         ),
@@ -93,30 +98,30 @@ class MoneyScreenState extends State<MoneyScreen> {
           child: Panel(
             padding: const EdgeInsets.all(14),
             child: Figure(
-              label: 'আমি দেব',
+              label: tr('আমি দেব'),
               amount: taka(loans.payable),
               color: C.orange,
               size: 22,
-              sub: 'নিয়েছি ${taka(loans.borrowed)} · শোধ ${taka(loans.repaid)}',
+              sub: trf('নিয়েছি {0} · শোধ {1}', [taka(loans.borrowed), taka(loans.repaid)]),
             ),
           ),
         ),
       ]),
       const SizedBox(height: 12),
-      PrimaryButton(label: 'নতুন লেনদেন', icon: Icons.add_rounded, color: C.ink, height: 48, onPressed: () => push(const LedgerFormScreen())),
+      PrimaryButton(label: tr('নতুন লেনদেন'), icon: Icons.add_rounded, color: C.fill, height: 48, onPressed: () => push(const LedgerFormScreen())),
       const SizedBox(height: 6),
-      Text('মুখেও বলা যায়: “রহিমকে ৫০০ টাকা ধার দিলাম”', style: body(13, color: C.muted)),
+      Text(tr('মুখেও বলা যায়: “রহিমকে ৫০০ টাকা ধার দিলাম”'), style: body(13, color: C.muted)),
       const SizedBox(height: 16),
       if (people.isEmpty)
         EmptyState(
           icon: Icons.swap_horiz_rounded,
-          title: 'কারো সাথে ধার-দেনা নেই',
-          text: 'কাউকে টাকা দিলে বা কারো কাছ থেকে নিলে এখানে রাখুন — নাম আর মোবাইল নম্বর দিয়ে, যাতে একই নামের দুজন গুলিয়ে না যায়।',
-          action: 'লিখে যোগ করুন',
+          title: tr('কারো সাথে ধার-দেনা নেই'),
+          text: tr('কাউকে টাকা দিলে বা কারো কাছ থেকে নিলে এখানে রাখুন — নাম আর মোবাইল নম্বর দিয়ে, যাতে একই নামের দুজন গুলিয়ে না যায়।'),
+          action: tr('লিখে যোগ করুন'),
           onAction: () => push(const LedgerFormScreen()),
         )
       else ...[
-        SectionTitle('মানুষ · ${bnDigits(people.length)}'),
+        SectionTitle(trf('মানুষ · {0}', [bnDigits(people.length)])),
         Panel(
           child: Rows(children: [
             for (final p in people)
@@ -124,13 +129,13 @@ class MoneyScreenState extends State<MoneyScreen> {
                 leading: Avatar(name: p.name, fg: balanceColors(p.balance).$1, bg: balanceColors(p.balance).$2),
                 title: p.name,
                 subtitle: [
-                  if (p.phone.isNotEmpty) showPhone(p.phone) else if (dupNames.contains(personKey(p.name))) 'নম্বর নেই — যোগ করুন',
+                  if (p.phone.isNotEmpty) showPhone(p.phone) else if (dupNames.contains(personKey(p.name))) tr('নম্বর নেই — যোগ করুন'),
                   if (p.last != null) daysLeftLabel(p.last!, now).replaceAll(' আগে', ''),
                 ].join(' · '),
                 subtitleColor: p.phone.isEmpty && dupNames.contains(personKey(p.name)) ? C.orange : C.muted,
                 trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                   Text(taka(p.balance), style: display(16, weight: 700, color: balanceColor(p.balance))),
-                  Text(p.balance == 0 ? 'শোধ' : (p.balance > 0 ? 'পাব' : 'দেব'), style: body(12, color: C.muted)),
+                  Text(p.balance == 0 ? tr('শোধ') : (p.balance > 0 ? tr('পাব') : tr('দেব')), style: body(12, color: C.muted)),
                 ]),
                 onTap: () => push(PersonScreen(person: p.name, accountKey: p.key)),
               ),

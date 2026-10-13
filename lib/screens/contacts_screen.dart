@@ -7,6 +7,7 @@ import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'new_item_screen.dart';
+import '../logic/lang.dart';
 
 class ContactsScreen extends StatefulWidget {
   const ContactsScreen({super.key});
@@ -30,10 +31,10 @@ class _ContactsScreenState extends State<ContactsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            TopBar(title: 'যোগাযোগ', trailing: [
+            TopBar(title: tr('যোগাযোগ'), trailing: [
               RoundIconButton(
                 icon: Icons.add_rounded,
-                tooltip: 'নতুন যোগাযোগ',
+                tooltip: tr('নতুন যোগাযোগ'),
                 dark: true,
                 onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewItemScreen(category: ItemCategory.contact))),
               ),
@@ -42,7 +43,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
               child: TextField(
                 onChanged: (v) => setState(() => _q = v),
-                decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'নাম, নম্বর বা নোট দিয়ে খুঁজুন'),
+                decoration: InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: tr('নাম, নম্বর বা নোট দিয়ে খুঁজুন')),
               ),
             ),
             Expanded(
@@ -52,13 +53,13 @@ class _ContactsScreenState extends State<ContactsScreen> {
                   if (brain.data.contacts.isEmpty)
                     EmptyState(
                       icon: Icons.person_outline_rounded,
-                      title: 'কোনো যোগাযোগ নেই',
-                      text: 'মিস্ত্রি, ডাক্তার, অফিসের লোক — যাদের নম্বর মাঝে মাঝে লাগে, এখানে নোটসহ রাখুন।',
-                      action: 'যোগাযোগ যোগ করুন',
+                      title: tr('কোনো যোগাযোগ নেই'),
+                      text: tr('মিস্ত্রি, ডাক্তার, অফিসের লোক — যাদের নম্বর মাঝে মাঝে লাগে, এখানে নোটসহ রাখুন।'),
+                      action: tr('যোগাযোগ যোগ করুন'),
                       onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewItemScreen(category: ItemCategory.contact))),
                     )
                   else if (list.isEmpty)
-                    Text('কিছু মেলেনি।', style: body(14, color: C.muted))
+                    Text(tr('কিছু মেলেনি।'), style: body(14, color: C.muted))
                   else
                     Panel(
                       child: Rows(children: [
@@ -71,9 +72,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
                                 ? null
                                 : Row(mainAxisSize: MainAxisSize.min, children: [
                                     IconButton(
-                                      tooltip: 'ফোন দিন',
+                                      tooltip: tr('ফোন দিন'),
                                       onPressed: () => brain.services.launcher.open(Via.call, c.phone),
-                                      icon: const Icon(Icons.call_outlined, size: 20, color: C.green),
+                                      icon: Icon(Icons.call_outlined, size: 20, color: C.green),
                                     ),
                                     IconButton(
                                       tooltip: 'WhatsApp',
@@ -81,12 +82,12 @@ class _ContactsScreenState extends State<ContactsScreen> {
                                       icon: const Icon(Icons.chat_outlined, size: 20, color: Color(0xFF128C4A)),
                                     ),
                                     IconButton(
-                                      tooltip: 'নম্বর কপি করুন',
+                                      tooltip: tr('নম্বর কপি করুন'),
                                       onPressed: () async {
                                         await brain.services.files.copy(c.phone);
-                                        if (context.mounted) toast(context, 'নম্বর কপি হয়েছে');
+                                        if (context.mounted) toast(context, tr('নম্বর কপি হয়েছে'));
                                       },
-                                      icon: const Icon(Icons.copy_rounded, size: 20, color: C.muted),
+                                      icon: Icon(Icons.copy_rounded, size: 20, color: C.muted),
                                     ),
                                   ]),
                             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewItemScreen(contact: c))),

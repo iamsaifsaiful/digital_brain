@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../logic/lang.dart';
+
 /// What the AI understood: the fields of the `route` tool (see [_tool]).
 typedef AiRoute = Map<String, Object?>;
 
@@ -121,7 +123,7 @@ class ClaudeAi implements AiBrain {
         }
         // Answered in words instead of the tool: a plain reply.
         if (text.toString().trim().isNotEmpty) return {'reply': text.toString().trim(), 'items': const []};
-        throw const AiError('AI-এর উত্তর বুঝতে পারিনি।');
+        throw AiError(tr('AI-এর উত্তর বুঝতে পারিনি।'));
       }
       final err = _errorText(res);
       final low = err.toLowerCase();
@@ -133,11 +135,11 @@ class ClaudeAi implements AiBrain {
         _model++;
         continue;
       }
-      if (res.statusCode == 401) throw const AiError('API key ঠিক নেই। “আরও” থেকে key দেখে নিন।');
-      if (res.statusCode == 429) throw const AiError('এই মুহূর্তে অনেক বেশি অনুরোধ হয়েছে। একটু পরে চেষ্টা করুন।');
-      if (err.toLowerCase().contains('credit')) throw const AiError('API অ্যাকাউন্টে ক্রেডিট শেষ। platform.claude.com থেকে ক্রেডিট যোগ করুন।');
+      if (res.statusCode == 401) throw AiError(tr('API key ঠিক নেই। সেটিংস থেকে key দেখে নিন।'));
+      if (res.statusCode == 429) throw AiError(tr('এই মুহূর্তে অনেক বেশি অনুরোধ হয়েছে। একটু পরে চেষ্টা করুন।'));
+      if (err.toLowerCase().contains('credit')) throw AiError(tr('API অ্যাকাউন্টে ক্রেডিট শেষ। platform.claude.com থেকে ক্রেডিট যোগ করুন।'));
       debugPrint('AI error ${res.statusCode}: $err');
-      throw AiError('AI সাড়া দেয়নি (${res.statusCode})।');
+      throw AiError(trf('AI সাড়া দেয়নি ({0})।', [res.statusCode]));
     }
   }
 
@@ -167,9 +169,9 @@ class ClaudeAi implements AiBrain {
           )
           .timeout(Duration(seconds: _quality == AiQuality.best ? 45 : 20));
     } on TimeoutException {
-      throw const AiError('ইন্টারনেট ধীর, AI সময়মতো উত্তর দেয়নি।');
+      throw AiError(tr('ইন্টারনেট ধীর, AI সময়মতো উত্তর দেয়নি।'));
     } catch (e) {
-      throw const AiError('ইন্টারনেট সংযোগ পাওয়া যায়নি।');
+      throw AiError(tr('ইন্টারনেট সংযোগ পাওয়া যায়নি।'));
     }
   }
 
@@ -232,6 +234,8 @@ Item actions:
 - briefing: "আজ আমার কী কী আছে?", "আজকের প্ল্যান" — today's overview.
 - cash_add: the user's own income or spending that nobody owes back ("বাজারে ৫০০ টাকা খরচ হলো", "বিদ্যুৎ বিল ১২০০ দিলাম", "বেতন পেলাম ৩০ হাজার"), or money in/out of a project ("রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো", "প্রজেক্টে মিস্ত্রির মজুরি ৫০০০"). kind: income or expense. amount. category: a short Bengali খাত (বাজার, খাবার, যাতায়াত, বাসা ভাড়া, বিল, মোবাইল, চিকিৎসা, শিক্ষা, কেনাকাটা, মজুরি, বেতন, বিক্রি…). project: the project name, only for project money.
 - cash_query: asks about own income/spending/savings ("এই মাসে কত খরচ হলো?") or a project's money (project: the name).
+- memory_add: something about the user or the people in their life that the assistant should keep in mind for later answers — habits, preferences, routine, relationships ("মনে রেখো আমি শুক্রবার অফিস করি না", "রহিম আমার শ্যালক", "আমি চা খাই না"). text: one short, clean Bengali sentence. Facts to look up later (codes, where something is kept) are note_add instead.
+- special_add: a day that comes every year — a birthday, wedding anniversary or death anniversary ("রহিমের জন্মদিন ১২ মার্চ", "আব্বার মৃত্যুবার্ষিকী ৩ জুন", "আমাদের বিবাহবার্ষিকী ৫ জানুয়ারি"). person: whose day (or "আমাদের"), kind: birthday, anniversary, deathday or other, date: YYYY-MM-DD (use the year if said, else the next time it comes).
 - chat: conversation, greetings, how-are-you, thanks, or a general-knowledge or work question (put the answer in reply). For business questions (pricing, profit margin, VAT basics, how to write a message to a customer…) give short, practical help.
 Money owed between the user and a person (loans, credit) is ledger_*; the user's own spending/income or project money is cash_add. Every sentence that mentions money owed between the user and a person (customer's বাকি, loans, advances, payments) is ledger_add / ledger_set / ledger_query, never note_add or task_add. A customer taking goods on credit ("করিম ৫০০ টাকার মাল বাকিতে নিল") is lent; a customer paying their বাকি is received; buying from a supplier on credit is borrowed; paying the supplier is repaid.
 
@@ -258,7 +262,7 @@ User's note categories: ${ctx.categories.isEmpty ? '(none)' : ctx.categories.joi
 Money summary (from the app, accurate):
 ${ctx.money.isEmpty ? '(nothing yet)' : ctx.money}
 User's records (from the app, complete and up to date):
-${ctx.records.isEmpty ? '(the user has not allowed the AI to see reminders, to-dos and notes; for such questions add the query item and keep the reply to a few words — the app answers from the phone)' : ctx.records}''';
+${ctx.records.isEmpty ? '(the user has not allowed the AI to see reminders, to-dos and notes; for such questions add the query item and keep the reply to a few words — the app answers from the phone)' : ctx.records}${isEn ? '\n\nLANGUAGE: the user has set the app to English. Write `reply` in clear, natural, polite English (names as the user said them; times like 6:20 PM; amounts like ৳500). The user may still speak Bengali; understand it as usual. Item fields (text, category, title) stay as described above.' : ''}''';
 }
 
 const _item = {
@@ -269,13 +273,14 @@ const _item = {
       'enum': [
         'ledger_add', 'ledger_set', 'ledger_query', 'vault_query', 'reminder_query', 'note_add', 'search', 'chat', //
         'task_add', 'task_done', 'task_query', 'reminder_add', 'contact_add', 'call', 'briefing', 'cash_add', 'cash_query',
+        'memory_add', 'special_add',
       ],
     },
     'person': {'type': 'string', 'description': 'Person name without case endings'},
     'amount': {'type': 'integer', 'description': 'Whole taka, 0 if not said'},
     'kind': {
       'type': 'string',
-      'enum': ['lent', 'borrowed', 'received', 'repaid', 'unclear', 'income', 'expense'],
+      'enum': ['lent', 'borrowed', 'received', 'repaid', 'unclear', 'income', 'expense', 'birthday', 'anniversary', 'deathday', 'other'],
     },
     'balance': {'type': 'integer', 'description': 'ledger_set: + they owe the user, - the user owes them'},
     'ask': {

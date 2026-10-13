@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../logic/parser.dart';
 import '../services/voice.dart';
 import 'theme.dart';
+import '../logic/lang.dart';
 
 /// Asks a question aloud, then listens for the spoken answer.
 ///
@@ -45,7 +46,7 @@ class SpokenQuestion extends ChangeNotifier {
         heard = w;
         notifyListeners();
         if (w.trim().isEmpty) {
-          hint = 'কিছু শুনিনি। বোতাম চাপুন, বা মাইক চেপে “হ্যাঁ” / “না” বলুন।';
+          hint = tr('কিছু শুনিনি। বোতাম চাপুন, বা মাইক চেপে “হ্যাঁ” / “না” বলুন।');
           notifyListeners();
         } else {
           onAnswer(w);
@@ -54,7 +55,7 @@ class SpokenQuestion extends ChangeNotifier {
       onError: (_) {
         if (_disposed) return;
         listening = false;
-        hint = 'বোতাম চাপুন, বা মাইক চেপে “হ্যাঁ” / “না” বলুন।';
+        hint = tr('বোতাম চাপুন, বা মাইক চেপে “হ্যাঁ” / “না” বলুন।');
         notifyListeners();
       },
     );
@@ -75,16 +76,17 @@ class SpokenQuestion extends ChangeNotifier {
 
 /// "শুনছি… হ্যাঁ বা না বলুন" strip with a mic button to listen again.
 class ListeningStrip extends StatelessWidget {
-  const ListeningStrip({super.key, required this.q, this.prompt = 'মুখে “হ্যাঁ” বা “না” বললেও হবে'});
+  const ListeningStrip({super.key, required this.q, String? prompt}) : _prompt = prompt;
   final SpokenQuestion q;
-  final String prompt;
+  final String? _prompt;
+  String get prompt => _prompt ?? tr('মুখে “হ্যাঁ” বা “না” বললেও হবে');
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: q,
         builder: (context, _) {
           final text = q.listening
-              ? (q.heard.isEmpty ? 'শুনছি… “হ্যাঁ” বা “না” বলুন' : '“${q.heard}”')
+              ? (q.heard.isEmpty ? tr('শুনছি… “হ্যাঁ” বা “না” বলুন') : '“${q.heard}”')
               : (q.hint ?? prompt);
           return Container(
             padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
@@ -99,7 +101,7 @@ class ListeningStrip extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(child: Text(text, style: body(14, color: q.listening ? C.greenDark : C.muted, weight: q.listening ? FontWeight.w600 : FontWeight.w400))),
                 IconButton(
-                  tooltip: q.listening ? 'শোনা বন্ধ করুন' : 'বলে উত্তর দিন',
+                  tooltip: q.listening ? tr('শোনা বন্ধ করুন') : tr('বলে উত্তর দিন'),
                   onPressed: q.listening ? q.stop : q.listen,
                   icon: Icon(q.listening ? Icons.stop_circle_outlined : Icons.mic_none_rounded, color: C.green),
                 ),

@@ -12,6 +12,10 @@ import 'package:digital_brain/logic/password.dart';
 import 'package:digital_brain/logic/phrases.dart';
 import 'package:digital_brain/logic/plan.dart';
 import 'package:digital_brain/logic/when.dart';
+import 'package:digital_brain/logic/lang.dart';
+import 'package:digital_brain/logic/money_more.dart';
+import 'package:digital_brain/logic/proactive.dart';
+import 'package:digital_brain/logic/templates.dart';
 import 'package:digital_brain/logic/search.dart';
 import 'package:digital_brain/logic/talk.dart';
 import 'package:digital_brain/models/models.dart';
@@ -990,6 +994,187 @@ void main() {
       expect(back.files.single.isImage, isTrue);
       expect(back.fields.single.value, 'A123');
       expect(back.expiry, DateTime(2030, 1, 5));
+    });
+  });
+
+  group('v2.9: assistant, days, money', () {
+    final now = DateTime(2026, 10, 13, 9, 30);
+    Command say(String t, [List<LedgerEntry> l = const []]) => Parser(ledger: l, now: now).parse(t);
+
+    test('special days: birthdays, anniversaries and death anniversaries are understood', () {
+      final b = say('রহিমের জন্মদিন ১২ মার্চ') as SpecialAdd;
+      expect(b.person, 'রহিম');
+      expect(b.kind, SpecialKind.birthday);
+      expect((b.month, b.day), (3, 12));
+      final a = say('আমাদের বিবাহবার্ষিকী ৫ জানুয়ারি ২০১৫') as SpecialAdd;
+      expect(a.kind, SpecialKind.anniversary);
+      expect(a.year, 2015);
+      final d = say('আব্বার মৃত্যুবার্ষিকী ৩ জুন') as SpecialAdd;
+      expect(d.person, 'আব্বা');
+      expect(d.kind, SpecialKind.deathday);
+      final n = say('মনে রাখো সুমির জন্মদিন ২২/৮') as SpecialAdd;
+      expect((n.person, n.month, n.day), ('সুমি', 8, 22));
+      // A question is not a new special day.
+      expect(say('রহিমের জন্মদিন কবে?'), isNot(isA<SpecialAdd>()));
+    });
+
+    test('a special day comes back every year and rings the day before', () {
+      final s = SpecialDay(person: 'রহিম', month: 3, day: 12, year: 1990);
+      expect(s.next(now), DateTime(2027, 3, 12));
+      expect(s.yearsOn(s.next(now)), 37);
+      expect(specialTitle(s, on: s.next(now)), 'রহিমের জন্মদিন (৩৭ বছর)');
+      final leap = SpecialDay(person: 'ক', month: 2, day: 29);
+      expect(leap.next(DateTime(2027, 1, 1)), DateTime(2027, 2, 28));
+      final ours = SpecialDay(person: 'আমাদের', kind: SpecialKind.anniversary, month: 1, day: 5);
+      expect(specialTitle(ours), 'আমাদের বিবাহবার্ষিকী');
+      final back = SpecialDay.fromJson(s.toJson());
+      expect((back.person, back.month, back.day, back.year), ('রহিম', 3, 12, 1990));
+    });
+
+    test('things about the user become memories, plain facts stay notes', () {
+      expect(say('মনে রেখো রহিম আমার শ্যালক'), isA<MemoryAdd>());
+      expect(say('মনে রাখো আমি শুক্রবার অফিস করি না'), isA<MemoryAdd>());
+      expect(say('মনে রাখো গাড়ির কাগজ আলমারিতে'), isA<NoteAdd>());
+      expect(say('মনে রাখো আমার গাড়ির নম্বর ঢাকা মেট্রো গ ১২'), isA<NoteAdd>());
+    });
+
+    test('"গত মাসে রহিমকে কত দিলাম?" sums only last month', () {
+      final l = [
+        e('রহিম', LedgerKind.lent, 2000, DateTime(2026, 9, 5)),
+        e('রহিম', LedgerKind.lent, 500, DateTime(2026, 9, 20)),
+        e('রহিম', LedgerKind.received, 300, DateTime(2026, 9, 25)),
+        e('রহিম', LedgerKind.lent, 1000, DateTime(2026, 10, 2)),
+      ];
+      final q = say('গত মাসে রহিমকে কত দিলাম?', l);
+      expect(q, isA<LedgerQuery>());
+      final a = ledgerAnswer(AppData(ledger: l), q as LedgerQuery, now);
+      expect(a, contains('২,৫০০'));
+      expect(a, contains('৩০০'));
+      expect(a, contains('৩ বার'));
+    });
+
+    test('morning summary and nudges are planned from the records', () {
+      final d = AppData(
+        reminders: [
+          Reminder(title: 'মিটিং', date: DateTime(2026, 10, 14), hour: 11),
+          Reminder(title: 'বিদ্যুৎ বিল', date: DateTime(2026, 10, 20), hour: 10),
+        ],
+        tasks: [Task(title: 'ব্যাংকে যাওয়া', due: DateTime(2026, 10, 13))],
+        ledger: [e('করিম', LedgerKind.lent, 800, DateTime(2026, 9, 1))],
+        docs: [Doc(title: 'পাসপোর্ট', expiry: DateTime(2027, 6, 1))],
+        medicines: [Medicine(name: 'নাপা', times: [540, 1260], stock: 6)],
+        specialDays: [SpecialDay(person: 'সুমি', month: 10, day: 14)],
+      );
+      final n = assistantNotices(d, now, const AssistantPrefs());
+      final morning = n.where((x) => x.reminderId == morningTag).toList();
+      expect(morning.first.at, DateTime(2026, 10, 14, 8, 0)); // today's 8:00 has passed
+      expect(morning.first.body, contains('মিটিং'));
+      expect(morning.first.body, contains('সুমি'));
+      final night = n.firstWhere((x) => x.reminderId == nightTag);
+      expect(night.at, DateTime(2026, 10, 13, 21, 0));
+      expect(night.title, contains('১টা কাজ'));
+      final due = n.firstWhere((x) => x.reminderId.startsWith(nudgeDue));
+      expect(due.at, DateTime(2026, 10, 31, 10, 0)); // 60 days after the last entry
+      expect(n.firstWhere((x) => x.reminderId.startsWith(nudgeBill)).at, DateTime(2026, 10, 18, 10, 0));
+      expect(n.firstWhere((x) => x.reminderId.startsWith(nudgeDoc)).at, DateTime(2026, 12, 1, 10, 0)); // six months before
+      expect(n.any((x) => x.reminderId.startsWith(nudgeMed)), isTrue); // 6 pills, 2 a day = 3 days
+      expect(n.every((x) => x.gentle && x.at.isAfter(now)), isTrue);
+      final off = assistantNotices(d, now, const AssistantPrefs(morningOn: false, nightOn: false, nudgesOn: false));
+      expect(off, isEmpty);
+    });
+
+    test('habits count days in a row; medicines count days left', () {
+      final h = Habit(name: 'হাঁটা', done: ['2026-10-10', '2026-10-11', '2026-10-12']);
+      expect(h.streak(now), 3);
+      expect(h.copyWith(done: [...h.done, '2026-10-13']).streak(now), 4);
+      expect(h.best(), 3);
+      final m = Medicine(name: 'নাপা', times: [540, 1260], dose: 1, stock: 9);
+      expect(m.daysLeft, 4);
+    });
+
+    test('accounts, transfers, the monthly report, splitting and zakat', () {
+      final bkash = MoneyAccount(id: 'b', name: '', kind: AccountKind.bkash, opening: 5000);
+      final cash = MoneyAccount(id: 'c', name: 'পকেট', kind: AccountKind.cash, opening: 1000);
+      final d = AppData(
+        accounts: [bkash, cash],
+        cash: [
+          CashEntry(kind: CashKind.expense, amount: 700, category: 'বাজার', date: DateTime(2026, 10, 2), accountId: 'c'),
+          CashEntry(kind: CashKind.expense, amount: 300, category: 'যাতায়াত', date: DateTime(2026, 10, 3)),
+          CashEntry(kind: CashKind.expense, amount: 400, category: 'বাজার', date: DateTime(2026, 9, 3)),
+          CashEntry(kind: CashKind.income, amount: 20000, category: 'বেতন', date: DateTime(2026, 10, 1), accountId: 'b'),
+        ],
+        transfers: [Transfer(from: 'b', to: 'c', amount: 2000, fee: 37, date: DateTime(2026, 10, 4))],
+      );
+      expect(accountBalance(d, bkash), 5000 + 20000 - 2000 - 37);
+      expect(accountBalance(d, cash), 1000 - 700 + 2000);
+      final r = monthReport(d, DateTime(2026, 10));
+      expect(r.expense, 1000);
+      expect(r.byCategory.first.key, 'বাজার');
+      expect(r.biggestRise!.key, 'বাজার');
+      expect(reportInsights(r).first, contains('বাজার'));
+      expect(splitAmounts(1000, 3), [334, 333, 333]);
+      const z = ZakatInput(cash: 100000, bank: 50000, debts: 10000, nisab: 80000);
+      expect(z.zakat, 3500);
+      expect(const ZakatInput(cash: 50000, nisab: 80000).due, isFalse);
+    });
+
+    test('a receipt adds up and shows what is still due', () {
+      final t = receiptText(shop: 'রহিম স্টোর', customer: 'করিম', lines: const [ReceiptLine('চাল', 5, 70), ReceiptLine('ডাল', 2, 120)], paid: 500, date: now, no: 7);
+      expect(t, contains('মোট: ৳৫৯০'));
+      expect(t, contains('বাকি: ৳৯০'));
+      expect(t, contains('#৭'));
+    });
+
+    test('everything new survives saving', () {
+      final d = AppData(
+        specialDays: [SpecialDay(person: 'রহিম', month: 3, day: 12)],
+        memories: [Memory(text: 'আমি চা খাই না')],
+        habits: [Habit(name: 'হাঁটা', done: ['2026-10-12'])],
+        medicines: [Medicine(name: 'নাপা', times: [540])],
+        accounts: [MoneyAccount(name: 'বিকাশ', kind: AccountKind.bkash, opening: 10)],
+        goals: [SavingsGoal(name: 'ঈদ', target: 20000, deposits: [GoalDeposit(500, now)])],
+        installments: [Installment(name: 'DPS', amount: 1000, start: DateTime(2026, 1), paid: ['2026-01'])],
+        tags: {'note:x': ['গাড়ি']},
+        emergency: const EmergencyCard(blood: 'B+', contacts: ['মা|01711111111|মা']),
+        tasks: [Task(title: 'সেমাই', list: 'ঈদের কেনাকাটা')],
+      );
+      final b = AppData.fromJson(d.toJson());
+      expect(b.specialDays.single.person, 'রহিম');
+      expect(b.memories.single.text, 'আমি চা খাই না');
+      expect(b.habits.single.done, ['2026-10-12']);
+      expect(b.medicines.single.times, [540]);
+      expect(b.accounts.single.kind, AccountKind.bkash);
+      expect(b.goals.single.saved, 500);
+      expect(b.installments.single.left, 11);
+      expect(b.tags['note:x'], ['গাড়ি']);
+      expect(b.emergency.blood, 'B+');
+      expect(b.tasks.single.list, 'ঈদের কেনাকাটা');
+      // Old files without the new parts still open.
+      expect(AppData.fromJson({'schema': 1}).specialDays, isEmpty);
+    });
+
+    test('every kind of user gets lists that exist', () {
+      for (final p in personas) {
+        for (final l in personaSetup(p.$1).lists) {
+          expect(listTemplates.any((t) => t.name == l), isTrue, reason: l);
+        }
+      }
+    });
+
+    test('English: dates, numbers and words switch, Bangla stays the default', () {
+      expect(isEn, isFalse);
+      isEn = true;
+      try {
+        expect(bnDigits(1050), '1050');
+        expect(fullDate(DateTime(2026, 10, 9)), '9 October 2026');
+        expect(bnTime(18, 20), '6:20 PM');
+        expect(tr('সেটিংস'), 'Settings');
+        expect(trf('{0}টি লেনদেন', [3]), '3 transactions');
+        expect(tr('এমন কোনো লেখা নেই যা অনুবাদ হয়নি'), 'এমন কোনো লেখা নেই যা অনুবাদ হয়নি');
+      } finally {
+        isEn = false;
+      }
+      expect(fullDate(DateTime(2026, 10, 9)), '৯ অক্টোবর ২০২৬');
     });
   });
 }

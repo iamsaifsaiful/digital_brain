@@ -4,12 +4,13 @@ import '../logic/bn.dart';
 import '../services/lock.dart';
 import '../state/brain.dart';
 import 'theme.dart';
+import '../logic/lang.dart';
 
-const pinLength = 4;
+final pinLength = 4;
 
 /// Dots plus a number pad. Calls [onComplete] once [pinLength] digits are in.
 class PinPad extends StatefulWidget {
-  const PinPad({super.key, required this.onComplete, this.dark = true, this.onBiometric, this.enabled = true});
+  PinPad({super.key, required this.onComplete, this.dark = true, this.onBiometric, this.enabled = true});
   final Future<void> Function(String pin, VoidCallback clear) onComplete;
   final bool dark;
   final VoidCallback? onBiometric;
@@ -70,7 +71,7 @@ class _PinPadState extends State<PinPad> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Semantics(
-          label: '${bnDigits(_pin.length)}টি অঙ্ক দেওয়া হয়েছে',
+          label: trf('{0}টি অঙ্ক দেওয়া হয়েছে', [bnDigits(_pin.length)]),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -108,7 +109,7 @@ class _PinPadState extends State<PinPad> {
                 child: widget.onBiometric == null
                     ? null
                     : IconButton(
-                        tooltip: 'আঙুলের ছাপে খুলুন',
+                        tooltip: tr('আঙুলের ছাপে খুলুন'),
                         onPressed: widget.onBiometric,
                         icon: Icon(Icons.fingerprint_rounded, size: 36, color: widget.dark ? C.mint : C.green),
                       ),
@@ -121,7 +122,7 @@ class _PinPadState extends State<PinPad> {
                 width: 68,
                 height: 68,
                 child: IconButton(
-                  tooltip: 'মুছুন',
+                  tooltip: tr('মুছুন'),
                   onPressed: _back,
                   icon: Icon(Icons.backspace_outlined, size: 26, color: widget.dark ? C.onDarkMuted : C.muted),
                 ),
@@ -136,14 +137,15 @@ class _PinPadState extends State<PinPad> {
 
 String lockedMessage(DateTime until, DateTime now) {
   final secs = until.difference(now).inSeconds.clamp(1, 99999);
-  if (secs < 60) return 'অনেকবার ভুল হয়েছে। ${bnDigits(secs)} সেকেন্ড পর আবার চেষ্টা করুন।';
-  return 'অনেকবার ভুল হয়েছে। ${bnDigits((secs / 60).ceil())} মিনিট পর আবার চেষ্টা করুন।';
+  if (secs < 60) return trf('অনেকবার ভুল হয়েছে। {0} সেকেন্ড পর আবার চেষ্টা করুন।', [bnDigits(secs)]);
+  return trf('অনেকবার ভুল হয়েছে। {0} মিনিট পর আবার চেষ্টা করুন।', [bnDigits((secs / 60).ceil())]);
 }
 
 /// Makes sure the person holding the phone is the owner before showing a
 /// secret: fingerprint first, PIN otherwise. A check within the last 30
 /// seconds counts.
-Future<bool> verifyUser(BuildContext context, {String reason = 'সুরক্ষিত তথ্য দেখতে যাচাই করুন'}) async {
+Future<bool> verifyUser(BuildContext context, {String? reason}) async {
+  reason ??= tr('সুরক্ষিত তথ্য দেখতে যাচাই করুন');
   final brain = BrainScope.read(context);
   if (brain.recentlyVerified()) return true;
   if (await brain.services.lock.tryBiometrics(reason)) {
@@ -154,7 +156,7 @@ Future<bool> verifyUser(BuildContext context, {String reason = 'সুরক্�
   final ok = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    builder: (c) => _PinSheet(reason: reason),
+    builder: (c) => _PinSheet(reason: reason!),
   );
   if (ok == true) {
     brain.markVerified();
@@ -183,7 +185,7 @@ class _PinSheetState extends State<_PinSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('PIN দিন', style: display(20)),
+            Text(tr('PIN দিন'), style: display(20)),
             const SizedBox(height: 4),
             Text(widget.reason, style: body(14, color: C.muted), textAlign: TextAlign.center),
             const SizedBox(height: 8),
@@ -198,7 +200,7 @@ class _PinSheetState extends State<_PinSheet> {
                   case PinOk():
                     Navigator.pop(context, true);
                   case PinWrong(:final triesLeft):
-                    setState(() => _error = 'PIN মেলেনি। আর ${bnDigits(triesLeft)} বার চেষ্টা করা যাবে।');
+                    setState(() => _error = trf('PIN মেলেনি। আর {0} বার চেষ্টা করা যাবে।', [bnDigits(triesLeft)]));
                     clear();
                   case PinLocked(:final until):
                     setState(() => _error = lockedMessage(until, brain.services.now()));

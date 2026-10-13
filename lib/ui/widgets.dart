@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/models.dart';
 import 'theme.dart';
+import '../logic/lang.dart';
 
 /// First letter (grapheme) of a name: "সজীব" → "স", "নাসরিন" → "না".
 String initialOf(String name) {
@@ -14,23 +15,22 @@ String initialOf(String name) {
 
 /// White rounded card with a hairline border.
 class Panel extends StatelessWidget {
-  const Panel({super.key, required this.child, this.padding = EdgeInsets.zero, this.color = C.surface, this.borderColor = C.line, this.radius = 16});
+  const Panel({super.key, required this.child, this.padding = EdgeInsets.zero, Color? color, Color? borderColor, this.radius = 16}) : _color = color, _borderColor = borderColor;
   final Widget child;
   final EdgeInsetsGeometry padding;
-  final Color color;
-  final Color borderColor;
+  final Color? _color;
+  Color get color => _color ?? C.surface;
+  final Color? _borderColor;
+  Color get borderColor => _borderColor ?? C.line;
   final double radius;
 
+  /// A Material, so list tiles and ink splashes inside show properly.
   @override
-  Widget build(BuildContext context) => Container(
-        padding: padding,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(radius),
-          border: Border.all(color: borderColor),
-        ),
+  Widget build(BuildContext context) => Material(
+        color: color,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius), side: BorderSide(color: borderColor)),
         clipBehavior: Clip.antiAlias,
-        child: child,
+        child: Padding(padding: padding, child: child),
       );
 }
 
@@ -52,10 +52,12 @@ class Rows extends StatelessWidget {
 }
 
 class Avatar extends StatelessWidget {
-  const Avatar({super.key, required this.name, this.fg = C.green, this.bg = C.greenTint, this.size = 40, this.square = false});
+  const Avatar({super.key, required this.name, Color? fg, Color? bg, this.size = 40, this.square = false}) : _fg = fg, _bg = bg;
   final String name;
-  final Color fg;
-  final Color bg;
+  final Color? _fg;
+  Color get fg => _fg ?? C.green;
+  final Color? _bg;
+  Color get bg => _bg ?? C.greenTint;
   final double size;
   final bool square;
 
@@ -78,10 +80,12 @@ class Avatar extends StatelessWidget {
 Color balanceColor(int balance) => balance < 0 ? C.orange : (balance > 0 ? C.green : C.muted);
 
 class Pill extends StatelessWidget {
-  const Pill(this.text, {super.key, this.fg = C.greenDark, this.bg = C.greenTint});
+  const Pill(this.text, {super.key, Color? fg, Color? bg}) : _fg = fg, _bg = bg;
   final String text;
-  final Color fg;
-  final Color bg;
+  final Color? _fg;
+  Color get fg => _fg ?? C.greenDark;
+  final Color? _bg;
+  Color get bg => _bg ?? C.greenTint;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -116,11 +120,12 @@ class SectionTitle extends StatelessWidget {
 }
 
 class PrimaryButton extends StatelessWidget {
-  const PrimaryButton({super.key, required this.label, required this.onPressed, this.icon, this.color = C.green, this.height = 52});
+  const PrimaryButton({super.key, required this.label, required this.onPressed, this.icon, Color? color, this.height = 52}) : _color = color;
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
-  final Color color;
+  final Color? _color;
+  Color get color => _color ?? C.green;
   final double height;
 
   @override
@@ -147,12 +152,14 @@ class PrimaryButton extends StatelessWidget {
 }
 
 class SecondaryButton extends StatelessWidget {
-  const SecondaryButton({super.key, required this.label, required this.onPressed, this.icon, this.fg = C.ink, this.borderColor = C.border, this.height = 48});
+  const SecondaryButton({super.key, required this.label, required this.onPressed, this.icon, Color? fg, Color? borderColor, this.height = 48}) : _fg = fg, _borderColor = borderColor;
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
-  final Color fg;
-  final Color borderColor;
+  final Color? _fg;
+  Color get fg => _fg ?? C.ink;
+  final Color? _borderColor;
+  Color get borderColor => _borderColor ?? C.border;
   final double height;
 
   @override
@@ -191,8 +198,8 @@ class RoundIconButton extends StatelessWidget {
   Widget build(BuildContext context) => Tooltip(
         message: tooltip,
         child: Material(
-          color: dark ? C.ink : C.surface,
-          shape: CircleBorder(side: BorderSide(color: dark ? C.ink : C.line)),
+          color: dark ? C.fill : C.surface,
+          shape: CircleBorder(side: BorderSide(color: dark ? C.fill : C.line)),
           child: InkWell(
             customBorder: const CircleBorder(),
             onTap: onPressed,
@@ -216,7 +223,7 @@ class TopBar extends StatelessWidget {
         child: Row(
           children: [
             IconButton(
-              tooltip: close ? 'বন্ধ করুন' : 'ফিরে যান',
+              tooltip: close ? tr('বন্ধ করুন') : tr('ফিরে যান'),
               onPressed: onBack ?? () => Navigator.of(context).maybePop(),
               icon: Icon(close ? Icons.close_rounded : Icons.chevron_left_rounded, size: close ? 24 : 30, color: C.ink),
             ),
@@ -299,7 +306,7 @@ class AddButton extends StatelessWidget {
   Widget build(BuildContext context) => FloatingActionButton.extended(
         heroTag: null,
         onPressed: onPressed,
-        backgroundColor: C.ink,
+        backgroundColor: C.fill,
         foregroundColor: Colors.white,
         elevation: 3,
         shape: const StadiumBorder(),
@@ -310,12 +317,14 @@ class AddButton extends StatelessWidget {
 
 /// Small round button (call, SMS, WhatsApp…).
 class CircleAction extends StatelessWidget {
-  const CircleAction({super.key, required this.icon, required this.tooltip, required this.onPressed, this.fg = C.green, this.bg = C.greenTint, this.size = 40});
+  const CircleAction({super.key, required this.icon, required this.tooltip, required this.onPressed, Color? fg, Color? bg, this.size = 40}) : _fg = fg, _bg = bg;
   final IconData icon;
   final String tooltip;
   final VoidCallback? onPressed;
-  final Color fg;
-  final Color bg;
+  final Color? _fg;
+  Color get fg => _fg ?? C.green;
+  final Color? _bg;
+  Color get bg => _bg ?? C.greenTint;
   final double size;
 
   @override
@@ -335,10 +344,11 @@ class CircleAction extends StatelessWidget {
 
 /// Label over a big amount (and an optional line under it).
 class Figure extends StatelessWidget {
-  const Figure({super.key, required this.label, required this.amount, this.color = C.ink, this.size = 20, this.sub});
+  const Figure({super.key, required this.label, required this.amount, Color? color, this.size = 20, this.sub}) : _color = color;
   final String label;
   final String amount;
-  final Color color;
+  final Color? _color;
+  Color get color => _color ?? C.ink;
   final double size;
   final String? sub;
 
@@ -393,12 +403,15 @@ class Bubble extends StatelessWidget {
 
 /// Coloured note with an icon.
 class InfoBanner extends StatelessWidget {
-  const InfoBanner({super.key, required this.text, this.icon = Icons.verified_user_outlined, this.fg = C.blueText, this.iconColor = C.blue, this.bg = C.blueTint});
+  const InfoBanner({super.key, required this.text, this.icon = Icons.verified_user_outlined, Color? fg, Color? iconColor, Color? bg}) : _fg = fg, _iconColor = iconColor, _bg = bg;
   final String text;
   final IconData icon;
-  final Color fg;
-  final Color iconColor;
-  final Color bg;
+  final Color? _fg;
+  Color get fg => _fg ?? C.blueText;
+  final Color? _iconColor;
+  Color get iconColor => _iconColor ?? C.blue;
+  final Color? _bg;
+  Color get bg => _bg ?? C.blueTint;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -417,7 +430,7 @@ class InfoBanner extends StatelessWidget {
 
 /// The speaker line: what the app says aloud.
 class SpokenLine extends StatelessWidget {
-  const SpokenLine(this.text, {super.key});
+  SpokenLine(this.text, {super.key});
   final String text;
 
   @override
@@ -427,7 +440,7 @@ class SpokenLine extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.volume_up_outlined, size: 22, color: C.green),
+            Icon(Icons.volume_up_outlined, size: 22, color: C.green),
             const SizedBox(width: 10),
             Expanded(child: Text('“$text”', style: body(15, height: 1.5))),
           ],
@@ -437,7 +450,7 @@ class SpokenLine extends StatelessWidget {
 
 /// Date tile: big day number with a small label underneath.
 class DateBlock extends StatelessWidget {
-  const DateBlock({super.key, required this.top, required this.bottom});
+  DateBlock({super.key, required this.top, required this.bottom});
   final String top;
   final String bottom;
 
@@ -457,28 +470,29 @@ class DateBlock extends StatelessWidget {
 
 /// Visual details for each kind of stored thing.
 class KindLook {
-  const KindLook(this.icon, this.fg, this.bg);
+  KindLook(this.icon, this.fg, this.bg);
   final IconData icon;
   final Color fg;
   final Color bg;
 }
 
 KindLook vaultLook(VaultKind k) => switch (k) {
-      VaultKind.website => const KindLook(Icons.language_rounded, C.blue, C.blueTint),
-      VaultKind.app => const KindLook(Icons.apps_rounded, C.purple, C.purpleTint),
-      VaultKind.wifi => const KindLook(Icons.wifi_rounded, C.green, C.greenTint),
-      VaultKind.bank => const KindLook(Icons.account_balance_outlined, C.ochre, C.ochreTint),
-      VaultKind.email => const KindLook(Icons.alternate_email_rounded, C.orange, C.orangeTint),
-      VaultKind.other => const KindLook(Icons.key_rounded, C.muted2, C.line2),
+      VaultKind.website => KindLook(Icons.language_rounded, C.blue, C.blueTint),
+      VaultKind.app => KindLook(Icons.apps_rounded, C.purple, C.purpleTint),
+      VaultKind.wifi => KindLook(Icons.wifi_rounded, C.green, C.greenTint),
+      VaultKind.bank => KindLook(Icons.account_balance_outlined, C.ochre, C.ochreTint),
+      VaultKind.email => KindLook(Icons.alternate_email_rounded, C.orange, C.orangeTint),
+      VaultKind.other => KindLook(Icons.key_rounded, C.muted2, C.line2),
     };
 
 /// A row that opens something: leading, title, subtitle, trailing.
 class ListRow extends StatelessWidget {
-  const ListRow({super.key, required this.leading, required this.title, this.subtitle, this.subtitleColor = C.muted, this.trailing, this.onTap, this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 12)});
+  ListRow({super.key, required this.leading, required this.title, this.subtitle, Color? subtitleColor, this.trailing, this.onTap, this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 12)}) : _subtitleColor = subtitleColor;
   final Widget leading;
   final String title;
   final String? subtitle;
-  final Color subtitleColor;
+  final Color? _subtitleColor;
+  Color get subtitleColor => _subtitleColor ?? C.muted;
   final Widget? trailing;
   final VoidCallback? onTap;
   final EdgeInsets padding;
@@ -512,7 +526,7 @@ class ListRow extends StatelessWidget {
 
 /// Shown when a list is empty.
 class EmptyState extends StatelessWidget {
-  const EmptyState({super.key, required this.icon, required this.title, required this.text, this.action, this.onAction});
+  EmptyState({super.key, required this.icon, required this.title, required this.text, this.action, this.onAction});
   final IconData icon;
   final String title;
   final String text;
@@ -527,7 +541,7 @@ class EmptyState extends StatelessWidget {
             Container(
               width: 64,
               height: 64,
-              decoration: const BoxDecoration(color: C.greenTint, shape: BoxShape.circle),
+              decoration: BoxDecoration(color: C.greenTint, shape: BoxShape.circle),
               child: Icon(icon, color: C.green, size: 30),
             ),
             const SizedBox(height: 12),
@@ -549,15 +563,16 @@ void toast(BuildContext context, String text) {
     ..showSnackBar(SnackBar(content: Text(text)));
 }
 
-Future<bool> confirmDialog(BuildContext context, {required String title, required String text, String yes = 'হ্যাঁ', bool danger = false}) async {
+Future<bool> confirmDialog(BuildContext context, {required String title, required String text, String? yes, bool danger = false}) async {
+  yes ??= tr('হ্যাঁ');
   final r = await showDialog<bool>(
     context: context,
     builder: (c) => AlertDialog(
       title: Text(title, style: display(20)),
       content: Text(text, style: body(15, height: 1.5)),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(c, false), child: Text('না', style: body(15, weight: FontWeight.w600, color: C.muted))),
-        TextButton(onPressed: () => Navigator.pop(c, true), child: Text(yes, style: body(15, weight: FontWeight.w600, color: danger ? C.red : C.green))),
+        TextButton(onPressed: () => Navigator.pop(c, false), child: Text(tr('না'), style: body(15, weight: FontWeight.w600, color: C.muted))),
+        TextButton(onPressed: () => Navigator.pop(c, true), child: Text(yes!, style: body(15, weight: FontWeight.w600, color: danger ? C.red : C.green))),
       ],
     ),
   );

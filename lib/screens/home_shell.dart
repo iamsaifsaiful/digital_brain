@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../state/brain.dart';
 import '../ui/theme.dart';
 import 'chat_home.dart';
 import 'diary_screen.dart';
 import 'home_page.dart';
 import 'ledger_screen.dart';
 import 'store_screen.dart';
+import '../logic/lang.dart';
 
 /// হোম · দিনলিপি · (সহকারী) · হিসাব · সংরক্ষণ — an organiser with the
 /// assistant always one tap away in the middle.
@@ -59,7 +61,8 @@ class HomeShellState extends State<HomeShell> {
             const SafeArea(bottom: false, child: StoreScreen()),
           ],
         ),
-        bottomNavigationBar: _Nav(current: _tab, onTab: go, onAssistant: () => openVoice(context)),
+        // On Home the mic sits in the bar right above, so the middle button opens the chat.
+        bottomNavigationBar: _Nav(current: _tab, onTab: go, onAssistant: () => _tab == ShellTab.home && !BrainScope.of(context).easyMode ? openAssistant(context) : openVoice(context)),
       ),
     );
   }
@@ -103,9 +106,9 @@ class MenuPage extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(6, 4, 0, 0),
                 child: IconButton(
-                  tooltip: 'ফিরে যান',
+                  tooltip: tr('ফিরে যান'),
                   onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.chevron_left_rounded, size: 30, color: C.ink),
+                  icon: Icon(Icons.chevron_left_rounded, size: 30, color: C.ink),
                 ),
               ),
             ),
@@ -147,20 +150,20 @@ class _Nav extends StatelessWidget {
     }
 
     return Container(
-      decoration: const BoxDecoration(color: C.surface, border: Border(top: BorderSide(color: C.line))),
+      decoration: BoxDecoration(color: C.surface, border: Border(top: BorderSide(color: C.line))),
       child: SafeArea(
         top: false,
         child: SizedBox(
           height: 76,
           child: Row(children: [
-            item(ShellTab.home, Icons.home_outlined, Icons.home_rounded, 'হোম'),
-            item(ShellTab.diary, Icons.event_note_outlined, Icons.event_note_rounded, 'দিনলিপি'),
+            item(ShellTab.home, Icons.home_outlined, Icons.home_rounded, tr('হোম')),
+            item(ShellTab.diary, Icons.event_note_outlined, Icons.event_note_rounded, tr('দিনলিপি')),
             Expanded(
               child: Tooltip(
-                message: 'সহকারী',
+                message: tr('সহকারী'),
                 child: Semantics(
                   button: true,
-                  label: 'সহকারী',
+                  label: tr('সহকারী'),
                   excludeSemantics: true,
                   child: GestureDetector(
                     onTap: onAssistant,
@@ -173,17 +176,18 @@ class _Nav extends StatelessWidget {
                           shape: BoxShape.circle,
                           boxShadow: [BoxShadow(color: C.green.withValues(alpha: 0.35), blurRadius: 12, offset: const Offset(0, 4))],
                         ),
-                        child: const Icon(Icons.mic_none_rounded, color: Colors.white, size: 26),
+                        child: Icon(current == ShellTab.home && !BrainScope.of(context).easyMode ? Icons.chat_bubble_outline_rounded : Icons.mic_none_rounded,
+                            color: Colors.white, size: current == ShellTab.home ? 23 : 26),
                       ),
                       const SizedBox(height: 1),
-                      Text('সহকারী', style: body(11.5, weight: FontWeight.w600, color: C.green, height: 1.2)),
+                      Text(tr('সহকারী'), style: body(11.5, weight: FontWeight.w600, color: C.green, height: 1.2)),
                     ]),
                   ),
                 ),
               ),
             ),
-            item(ShellTab.money, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, 'হিসাব'),
-            item(ShellTab.store, Icons.inventory_2_outlined, Icons.inventory_2_rounded, 'সংরক্ষণ'),
+            item(ShellTab.money, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, tr('হিসাব')),
+            item(ShellTab.store, Icons.inventory_2_outlined, Icons.inventory_2_rounded, tr('সংরক্ষণ')),
           ]),
         ),
       ),

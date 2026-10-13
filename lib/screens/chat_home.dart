@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -11,7 +10,9 @@ import '../state/chat.dart';
 import '../state/chat_archive.dart';
 import '../ui/pin.dart';
 import '../ui/theme.dart';
+import 'assistant_settings.dart';
 import 'calls_screen.dart';
+import 'special_days_screen.dart';
 import 'confirm_screen.dart';
 import 'ledger_form_screen.dart';
 import 'money_screens.dart';
@@ -20,6 +21,7 @@ import 'notes_screen.dart';
 import 'person_screen.dart';
 import 'plan_screens.dart';
 import 'vault_item_screen.dart';
+import '../logic/lang.dart';
 
 /// সহকারী: speak or type; it keeps, finds and answers. Opened from the
 /// green button in the middle of the bottom menu ([listen] starts the
@@ -48,14 +50,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
 
   /// Questions asked often, as one-tap chips above the text box; the user
   /// can add their own and remove any (kept in `quick_questions`).
-  List<String> _questions = defaultQuestions;
-  static const defaultQuestions = [
-    'আজকের কাজের লিস্ট দাও',
-    'আমার মোট পাওনা কত?',
-    'আমি কাকে কত দেব?',
-    'এই মাসে কত খরচ হলো?',
-    'আজ আমার কী কী আছে?',
-  ];
+  List<String> get _questions => _brain.quickQuestions;
   String _chatId = '';
   int _savedCount = 0;
   Future<void> _saving = Future.value();
@@ -72,11 +67,11 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   int _gen = 0;
   int _silences = 0;
 
-  static const _suggestions = [
-    ('টাকা দিলাম', 'রবিনকে ৫০০০ টাকা ধার দিলাম'),
-    ('মনে করাও', 'কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও'),
-    ('কাজের তালিকা', 'আজকের কাজের তালিকা'),
-    ('জিজ্ঞেস করুন', 'এই মাসে কত খরচ হলো?'),
+  static final _suggestions = [
+    (tr('টাকা দিলাম'), tr('রবিনকে ৫০০০ টাকা ধার দিলাম')),
+    (tr('মনে করাও'), tr('কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও')),
+    (tr('কাজের তালিকা'), tr('আজকের কাজের তালিকা')),
+    (tr('জিজ্ঞেস করুন'), tr('এই মাসে কত খরচ হলো?')),
   ];
 
   @override
@@ -97,6 +92,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _undoTimer?.cancel();
     _gen++;
     _chat
       ..removeListener(_changed)
@@ -112,44 +108,31 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
 
   Future<void> _loadPast() async {
     final p = await _archive.load();
-    List<String>? q;
-    try {
-      final raw = await _brain.services.lock.keys.read('quick_questions');
-      if (raw != null) q = [for (final x in jsonDecode(raw) as List) '$x'];
-    } catch (_) {}
-    if (mounted) {
-      setState(() {
-        _past = p;
-        if (q != null) _questions = q;
-      });
-    }
+    if (mounted) setState(() => _past = p);
   }
 
-  Future<void> _saveQuestions(List<String> q) async {
-    setState(() => _questions = q);
-    await _brain.services.lock.keys.write('quick_questions', jsonEncode(q));
-  }
+  Future<void> _saveQuestions(List<String> q) => _brain.setQuickQuestions(q);
 
   Future<void> _addQuestion() async {
     final c = TextEditingController();
     final q = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('নতুন প্রশ্ন', style: body(18, weight: FontWeight.w600)),
+        title: Text(tr('নতুন প্রশ্ন'), style: body(18, weight: FontWeight.w600)),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('যে প্রশ্ন প্রায়ই করেন, লিখে রাখুন — এক চাপে জিজ্ঞেস করা যাবে।', style: body(14, color: C.muted, height: 1.4)),
+          Text(tr('যে প্রশ্ন প্রায়ই করেন, লিখে রাখুন — এক চাপে জিজ্ঞেস করা যাবে।'), style: body(14, color: C.muted, height: 1.4)),
           const SizedBox(height: 10),
           TextField(
             controller: c,
             autofocus: true,
             style: body(16),
-            decoration: const InputDecoration(hintText: 'যেমন: রহিমের কাছে কত পাব?'),
+            decoration: InputDecoration(hintText: tr('যেমন: রহিমের কাছে কত পাব?')),
             onSubmitted: (v) => Navigator.pop(ctx, v),
           ),
         ]),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('বাদ দিন')),
-          TextButton(onPressed: () => Navigator.pop(ctx, c.text), child: Text('রাখুন', style: body(15, weight: FontWeight.w600, color: C.green))),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাদ দিন'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, c.text), child: Text(tr('রাখুন'), style: body(15, weight: FontWeight.w600, color: C.green))),
         ],
       ),
     );
@@ -163,11 +146,11 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('প্রশ্নটা সরাবেন?', style: body(18, weight: FontWeight.w600)),
+        title: Text(tr('প্রশ্নটা সরাবেন?'), style: body(18, weight: FontWeight.w600)),
         content: Text('“$q”', style: body(15, color: C.muted)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('না')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('সরান', style: body(15, weight: FontWeight.w600, color: C.red))),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('না'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('সরান'), style: body(15, weight: FontWeight.w600, color: C.red))),
         ],
       ),
     );
@@ -200,16 +183,16 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
               ),
             Material(
               color: C.surface,
-              shape: const StadiumBorder(side: BorderSide(color: C.inputBorder)),
+              shape: StadiumBorder(side: BorderSide(color: C.inputBorder)),
               child: InkWell(
                 customBorder: const StadiumBorder(),
                 onTap: _addQuestion,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.add_rounded, size: 18, color: C.green),
+                    Icon(Icons.add_rounded, size: 18, color: C.green),
                     const SizedBox(width: 4),
-                    Text('প্রশ্ন যোগ', style: body(14, weight: FontWeight.w600, color: C.green)),
+                    Text(tr('প্রশ্ন যোগ'), style: body(14, weight: FontWeight.w600, color: C.green)),
                   ]),
                 ),
               ),
@@ -276,11 +259,11 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('এই কথাটা মুছবেন?', style: body(18, weight: FontWeight.w600)),
+        title: Text(tr('এই কথাটা মুছবেন?'), style: body(18, weight: FontWeight.w600)),
         content: Text('“${c.title}”', style: body(15, color: C.muted)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('না')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('মুছুন', style: body(15, weight: FontWeight.w600, color: C.red))),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('না'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('মুছুন'), style: body(15, weight: FontWeight.w600, color: C.red))),
         ],
       ),
     );
@@ -307,7 +290,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     if (!_chat.started && _chat.wait == ChatWait.none) {
       setState(() => _speaking = !voice.muted);
       try {
-        await voice.speakAndWait('জি, বলুন।');
+        await voice.speakAndWait(tr('জি, বলুন।'));
       } finally {
         if (mounted) setState(() => _speaking = false);
       }
@@ -374,7 +357,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
               if (mounted && gen == _gen) _listen();
             });
           } else {
-            setState(() => _error = 'অনেকক্ষণ কিছু শুনিনি, তাই মাইক বন্ধ রাখলাম। বলতে চাইলে “বলুন” চাপুন।');
+            setState(() => _error = tr('অনেকক্ষণ কিছু শুনিনি, তাই মাইক বন্ধ রাখলাম। বলতে চাইলে “বলুন” চাপুন।'));
           }
         } else {
           _silences = 0;
@@ -391,7 +374,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
             if (mounted && gen == _gen) _listen();
           });
         } else {
-          setState(() => _error = '$m “বলুন” চাপলে আবার শুনব।');
+          setState(() => _error = trf('{0} “বলুন” চাপলে আবার শুনব।', [m]));
         }
       },
     );
@@ -437,7 +420,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
       say = await _chat.hear(said);
     } catch (e) {
       debugPrint('chat failed: $e');
-      say = 'দুঃখিত, একটু সমস্যা হলো। আরেকবার বলবেন?';
+      say = tr('দুঃখিত, একটু সমস্যা হলো। আরেকবার বলবেন?');
       _chat.addInfo(say);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -500,7 +483,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     _away = true;
     await _stopListening();
     if (!mounted) return;
-    final ok = await verifyUser(context, reason: '${v.name} — তথ্য দেখতে যাচাই করুন');
+    final ok = await verifyUser(context, reason: trf('{0} — তথ্য দেখতে যাচাই করুন', [v.name]));
     _away = false;
     if (ok && mounted) await _open(VaultItemScreen(id: v.id));
   }
@@ -518,6 +501,10 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
         _open(const CallsScreen());
       case LinkKind.cash:
         _open(const CashPage());
+      case LinkKind.special:
+        _open(const SpecialDaysScreen());
+      case LinkKind.memory:
+        _open(const MemoryScreen());
       case LinkKind.editEntry:
         _chat.dropPending();
         _open(ConfirmScreen(command: l.entry!)).then((r) {
@@ -582,27 +569,27 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   }
 
   Widget _topBar() {
-    final title = _chat.started ? chatTitle(_chat.messages) : 'সহকারী';
+    final title = _chat.started ? chatTitle(_chat.messages) : tr('সহকারী');
     return Container(
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(border: Border(bottom: BorderSide(color: _chat.started ? C.line2 : Colors.transparent))),
       child: Row(children: [
         IconButton(
-          tooltip: 'ফিরে যান',
+          tooltip: tr('ফিরে যান'),
           onPressed: () => Navigator.of(context).maybePop(),
-          icon: const Icon(Icons.chevron_left_rounded, size: 30, color: C.ink),
+          icon: Icon(Icons.chevron_left_rounded, size: 30, color: C.ink),
         ),
         Expanded(
           child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(17, weight: FontWeight.w600)),
         ),
         IconButton(
-          tooltip: 'আগের কথা',
+          tooltip: tr('আগের কথা'),
           onPressed: _showPast,
-          icon: const Icon(Icons.history_rounded, size: 24, color: C.ink),
+          icon: Icon(Icons.history_rounded, size: 24, color: C.ink),
         ),
         IconButton(
-          tooltip: 'নতুন কথা',
+          tooltip: tr('নতুন কথা'),
           onPressed: _chat.started ? newChat : null,
           icon: Icon(Icons.edit_square, size: 22, color: _chat.started ? C.ink : C.inputBorder),
         ),
@@ -641,7 +628,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     Widget suggestion((String, String) s) => Expanded(
           child: Material(
             color: C.surface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: C.line)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: C.line)),
             child: InkWell(
               borderRadius: BorderRadius.circular(14),
               onTap: () => _send(s.$2),
@@ -671,14 +658,14 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
         const SizedBox(height: 16),
         const Align(alignment: Alignment.centerLeft, child: _Mark(size: 44)),
         const SizedBox(height: 14),
-        Text('আপনার সহকারী', style: display(26, weight: 700, height: 1.2)),
-        Text('বলুন বা লিখুন — রেখে দেবো, খুঁজে দেবো, উত্তর দেবো', style: body(15.5, color: C.muted, height: 1.45)),
+        Text(tr('আপনার সহকারী'), style: display(26, weight: 700, height: 1.2)),
+        Text(tr('বলুন বা লিখুন — রেখে দেবো, খুঁজে দেবো, উত্তর দেবো'), style: body(15.5, color: C.muted, height: 1.45)),
         const SizedBox(height: 10),
-        can(Icons.bookmark_add_outlined, 'রাখা: টাকা, কাজ, রিমাইন্ডার, নোট, নম্বর, পাসওয়ার্ড'),
-        can(Icons.search_rounded, 'খোঁজা: “রহিমের নম্বর কত?”, “গাড়ির কাগজ কোথায়?”'),
-        can(Icons.chat_bubble_outline_rounded, 'জিজ্ঞেস করা: “আজ কী কী আছে?”, “এ মাসে কত খরচ হলো?”'),
+        can(Icons.bookmark_add_outlined, tr('রাখা: টাকা, কাজ, রিমাইন্ডার, নোট, নম্বর, পাসওয়ার্ড')),
+        can(Icons.search_rounded, tr('খোঁজা: “রহিমের নম্বর কত?”, “গাড়ির কাগজ কোথায়?”')),
+        can(Icons.chat_bubble_outline_rounded, tr('জিজ্ঞেস করা: “আজ কী কী আছে?”, “এ মাসে কত খরচ হলো?”')),
         const SizedBox(height: 20),
-        Text('যেমন বলতে পারেন', style: body(13, weight: FontWeight.w600, color: C.muted)),
+        Text(tr('যেমন বলতে পারেন'), style: body(13, weight: FontWeight.w600, color: C.muted)),
         const SizedBox(height: 8),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           suggestion(_suggestions[0]),
@@ -706,9 +693,9 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
               child: Row(children: [
                 const _Mark(size: 28),
                 const SizedBox(width: 10),
-                const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: C.green)),
+                SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: C.green)),
                 const SizedBox(width: 8),
-                Text('ভাবছি…', style: body(14, color: C.muted)),
+                Text(tr('ভাবছি…'), style: body(14, color: C.muted)),
               ]),
             ),
           if (_error != null)
@@ -736,8 +723,8 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
           child: Container(
           margin: const EdgeInsets.only(top: 6, bottom: 8, left: 56),
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-          decoration: const BoxDecoration(
-            color: Color(0xFFF3F4F6),
+          decoration: BoxDecoration(
+            color: C.soft,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(20),
               topRight: Radius.circular(20),
@@ -781,7 +768,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
               decoration: BoxDecoration(border: Border.all(color: C.line), borderRadius: BorderRadius.circular(16)),
               child: Column(children: [
                 for (final (i, f) in m.facts.indexed) ...[
-                  if (i > 0) const Divider(height: 1, color: C.line2),
+                  if (i > 0) Divider(height: 1, color: C.line2),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                     child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -811,16 +798,17 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                       child: Row(children: [
-                        const Icon(Icons.lock_outline_rounded, color: C.blue, size: 20),
+                        Icon(Icons.lock_outline_rounded, color: C.blue, size: 20),
                         const SizedBox(width: 10),
                         Expanded(child: Text(v.name, style: body(15, weight: FontWeight.w600))),
-                        Text('খুলুন', style: body(14, color: C.green, weight: FontWeight.w600)),
+                        Text(tr('খুলুন'), style: body(14, color: C.green, weight: FontWeight.w600)),
                       ]),
                     ),
                   ),
               ]),
             ),
           ],
+          if (m.undoable(DateTime.now())) _undoButton(m),
           if (m.links.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -828,7 +816,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
                 for (final l in m.links)
                   Material(
                     color: C.surface,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: C.line)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: C.line)),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16),
                       onTap: () => _link(l),
@@ -843,12 +831,32 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
         ],
       );
 
+  Timer? _undoTimer;
+
+  /// "ফিরিয়ে নিন" for a few seconds after something is saved.
+  Widget _undoButton(ChatMessage m) {
+    _undoTimer?.cancel();
+    final left = ChatMessage.undoFor - DateTime.now().difference(m.undoAt!);
+    _undoTimer = Timer(left.isNegative ? Duration.zero : left, () {
+      if (mounted) setState(() {});
+    });
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: OutlinedButton.icon(
+        onPressed: () => _chat.undo(m),
+        icon: Icon(Icons.undo_rounded, size: 18, color: C.orange),
+        label: Text(tr('ফিরিয়ে নিন'), style: body(14, weight: FontWeight.w600, color: C.orange)),
+        style: OutlinedButton.styleFrom(side: BorderSide(color: C.orange.withValues(alpha: 0.5)), shape: const StadiumBorder(), visualDensity: VisualDensity.compact),
+      ),
+    );
+  }
+
   Widget _chip(ChatChoice c) {
     final yes = c.answer == 'হ্যাঁ';
     return ActionChip(
       label: Text(c.label, style: body(15, weight: FontWeight.w600, color: yes ? Colors.white : C.ink)),
       backgroundColor: yes ? C.ink : C.surface,
-      side: yes ? BorderSide.none : const BorderSide(color: C.inputBorder),
+      side: yes ? BorderSide.none : BorderSide(color: C.inputBorder),
       shape: const StadiumBorder(),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       onPressed: _busy ? null : () => _send(c.answer),
@@ -878,7 +886,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
               boxShadow: const [BoxShadow(color: Color(0x0F111827), blurRadius: 10, offset: Offset(0, 2))],
             ),
             child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              _Round(icon: Icons.add_rounded, tooltip: 'দ্রুত যোগ', bg: const Color(0xFFF3F4F6), fg: C.ink, size: 40, onTap: _quickAdd),
+              _Round(icon: Icons.add_rounded, tooltip: tr('দ্রুত যোগ'), bg: C.soft, fg: C.ink, size: 40, onTap: _quickAdd),
               const SizedBox(width: 6),
               Expanded(
                 child: TextField(
@@ -896,8 +904,8 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
-                    hintText: 'লিখুন বা কথা বলুন…',
-                    hintStyle: body(16, color: const Color(0xFF9CA3AF)),
+                    hintText: tr('লিখুন বা কথা বলুন…'),
+                    hintStyle: body(16, color: C.muted),
                   ),
                 ),
               ),
@@ -905,15 +913,15 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
               ValueListenableBuilder<TextEditingValue>(
                 valueListenable: _text,
                 builder: (context, v, _) => v.text.trim().isEmpty
-                    ? _Round(icon: Icons.mic_none_rounded, tooltip: 'কথা বলুন', bg: C.green, fg: Colors.white, size: 44, onTap: startVoice)
-                    : _Round(icon: Icons.arrow_upward_rounded, tooltip: 'পাঠান', bg: C.ink, fg: Colors.white, size: 44, onTap: _busy ? null : _submitTyped),
+                    ? _Round(icon: Icons.mic_none_rounded, tooltip: tr('কথা বলুন'), bg: C.green, fg: Colors.white, size: 44, onTap: startVoice)
+                    : _Round(icon: Icons.arrow_upward_rounded, tooltip: tr('পাঠান'), bg: C.ink, fg: Colors.white, size: 44, onTap: _busy ? null : _submitTyped),
               ),
             ]),
           ),
           if (!_chat.started)
             Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: Text('হিসাব আর পাসওয়ার্ড শুধু আপনার ফোনেই থাকে', style: body(12, color: C.muted)),
+              child: Text(tr('হিসাব আর পাসওয়ার্ড শুধু আপনার ফোনেই থাকে'), style: body(12, color: C.muted)),
             ),
         ]),
       );
@@ -925,13 +933,13 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     final lastUser = msgs.lastIndexWhere((m) => m.fromUser);
     final replies = [for (final m in msgs.skip(lastUser + 1)) if (!m.fromUser) m];
     final status = _listening
-        ? 'শুনছি…'
+        ? tr('শুনছি…')
         : (_busy || _chat.thinking)
-            ? 'ভাবছি…'
+            ? tr('ভাবছি…')
             : _speaking
-                ? 'বলছি…'
-                : 'মাইক বন্ধ';
-    final hint = _chat.collecting ? 'বলে যান — তালিকা শেষ হলে “শেষ” বলুন।' : 'বলে যান — থামলে আমি বুঝে নেব।';
+                ? tr('বলছি…')
+                : tr('মাইক বন্ধ');
+    final hint = _chat.collecting ? tr('বলে যান — তালিকা শেষ হলে “শেষ” বলুন।') : tr('বলে যান — থামলে আমি বুঝে নেব।');
     return Column(children: [
       const SizedBox(height: 14),
       Text(status, style: body(14, color: C.muted)),
@@ -948,8 +956,8 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
               Center(
                 child: TextButton.icon(
                   onPressed: () => _editAgain(msgs[lastUser].text),
-                  icon: const Icon(Icons.edit_outlined, size: 16, color: C.green),
-                  label: Text('ভুল শুনেছি? ঠিক করুন', style: body(13.5, weight: FontWeight.w600, color: C.green)),
+                  icon: Icon(Icons.edit_outlined, size: 16, color: C.green),
+                  label: Text(tr('ভুল শুনেছি? ঠিক করুন'), style: body(13.5, weight: FontWeight.w600, color: C.green)),
                 ),
               ),
             ],
@@ -973,10 +981,11 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
                     Center(
                       child: TextButton.icon(
                         onPressed: () => _openVault(v),
-                        icon: const Icon(Icons.lock_outline_rounded, size: 18, color: C.blue),
+                        icon: Icon(Icons.lock_outline_rounded, size: 18, color: C.blue),
                         label: Text(v.name, style: body(15, weight: FontWeight.w600)),
                       ),
                     ),
+                  if (m.undoable(DateTime.now())) Center(child: _undoButton(m)),
                   if (m.links.isNotEmpty)
                     Wrap(alignment: WrapAlignment.center, children: [
                       for (final l in m.links)
@@ -1002,14 +1011,14 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
       Padding(
         padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          _Round(icon: Icons.keyboard_alt_outlined, tooltip: 'লিখে বলুন', bg: const Color(0xFFF3F4F6), fg: C.ink, size: 56, onTap: _typeInstead),
+          _Round(icon: Icons.keyboard_alt_outlined, tooltip: tr('লিখে বলুন'), bg: C.soft, fg: C.ink, size: 56, onTap: _typeInstead),
           const SizedBox(width: 24),
           Semantics(
             button: true,
-            label: _listening ? 'শেষ' : 'বলুন',
+            label: _listening ? tr('শেষ') : tr('বলুন'),
             excludeSemantics: true,
             child: Material(
-              color: C.ink,
+              color: C.fill,
               shape: const StadiumBorder(),
               child: InkWell(
                 customBorder: const StadiumBorder(),
@@ -1018,14 +1027,14 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
                   height: 56,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 30),
-                    child: Center(child: Text(_listening ? 'শেষ' : 'বলুন', style: body(17, weight: FontWeight.w600, color: Colors.white))),
+                    child: Center(child: Text(_listening ? tr('শেষ') : tr('বলুন'), style: body(17, weight: FontWeight.w600, color: Colors.white))),
                   ),
                 ),
               ),
             ),
           ),
           const SizedBox(width: 24),
-          _Round(icon: Icons.close_rounded, tooltip: 'বন্ধ করুন', bg: const Color(0xFFF3F4F6), fg: C.ink, size: 56, onTap: _closeVoice),
+          _Round(icon: Icons.close_rounded, tooltip: tr('বন্ধ করুন'), bg: C.soft, fg: C.ink, size: 56, onTap: _closeVoice),
         ]),
       ),
     ]);
@@ -1095,7 +1104,7 @@ class _Orb extends AnimatedWidget {
           child: Container(
             width: 170,
             height: 170,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: RadialGradient(center: Alignment(-0.3, -0.4), colors: [Color(0xFF34B48E), C.green, C.greenDark], stops: [0, 0.6, 1]),
             ),
@@ -1124,25 +1133,25 @@ class _PastSheet extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Row(children: [
-                Expanded(child: Text('আগের কথা', style: body(17, weight: FontWeight.w600))),
+                Expanded(child: Text(tr('আগের কথা'), style: body(17, weight: FontWeight.w600))),
                 TextButton.icon(
                   onPressed: onNew,
-                  icon: const Icon(Icons.edit_square, size: 18, color: C.green),
-                  label: Text('নতুন কথা', style: body(14, weight: FontWeight.w600, color: C.green)),
+                  icon: Icon(Icons.edit_square, size: 18, color: C.green),
+                  label: Text(tr('নতুন কথা'), style: body(14, weight: FontWeight.w600, color: C.green)),
                 ),
               ]),
               const SizedBox(height: 4),
               if (past.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Text('এখনো কিছু নেই। আগের কথাগুলো শুধু এই ফোনে থাকে।', style: body(14, color: C.muted, height: 1.4)),
+                  child: Text(tr('এখনো কিছু নেই। আগের কথাগুলো শুধু এই ফোনে থাকে।'), style: body(14, color: C.muted, height: 1.4)),
                 )
               else
                 Flexible(
                   child: ListView(shrinkWrap: true, children: [
                     for (final c in past)
                       Material(
-                        color: c.id == currentId ? const Color(0xFFF3F4F6) : Colors.transparent,
+                        color: c.id == currentId ? C.soft : Colors.transparent,
                         borderRadius: BorderRadius.circular(10),
                         child: InkWell(
                           borderRadius: BorderRadius.circular(10),
@@ -1151,10 +1160,10 @@ class _PastSheet extends StatelessWidget {
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
                             child: Row(children: [
-                              const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: C.muted),
+                              Icon(Icons.chat_bubble_outline_rounded, size: 18, color: C.muted),
                               const SizedBox(width: 10),
                               Expanded(child: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14.5, color: C.muted2))),
-                              Text('${bnDigits(c.at.day)} ${bnMonthsShort[c.at.month - 1]}', style: body(12, color: C.muted)),
+                              Text('${bnDigits(c.at.day)} ${monthShort(c.at.month)}', style: body(12, color: C.muted)),
                             ]),
                           ),
                         ),
@@ -1162,7 +1171,7 @@ class _PastSheet extends StatelessWidget {
                   ]),
                 ),
               const SizedBox(height: 6),
-              Text('শুধু এই ফোনে থাকে · মুছতে চেপে ধরে রাখুন', textAlign: TextAlign.center, style: body(12, color: const Color(0xFF9CA3AF))),
+              Text(tr('শুধু এই ফোনে থাকে · মুছতে চেপে ধরে রাখুন'), textAlign: TextAlign.center, style: body(12, color: C.muted)),
             ]),
           ),
         ),
@@ -1201,27 +1210,27 @@ class _QuickAddSheet extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('ফর্মে যোগ করুন', style: body(16, weight: FontWeight.w600)),
+          Text(tr('ফর্মে যোগ করুন'), style: body(16, weight: FontWeight.w600)),
           const SizedBox(height: 12),
           Row(children: [
-            Expanded(child: tile(0, Icons.notifications_none_rounded, 'কাজ / রিমাইন্ডার', C.orange, C.orangeTint)),
+            Expanded(child: tile(0, Icons.notifications_none_rounded, tr('কাজ / রিমাইন্ডার'), C.orange, C.orangeTint)),
             const SizedBox(width: 8),
-            Expanded(child: tile(1, Icons.swap_horiz_rounded, 'ধার-দেনা', C.green, C.greenTint)),
+            Expanded(child: tile(1, Icons.swap_horiz_rounded, tr('ধার-দেনা'), C.green, C.greenTint)),
             const SizedBox(width: 8),
-            Expanded(child: tile(2, Icons.account_balance_wallet_outlined, 'খরচ / আয়', C.green, C.greenTint)),
+            Expanded(child: tile(2, Icons.account_balance_wallet_outlined, tr('খরচ / আয়'), C.green, C.greenTint)),
           ]),
           const SizedBox(height: 8),
           Row(children: [
-            Expanded(child: tile(3, Icons.sticky_note_2_outlined, 'নোট', C.blue, C.blueTint)),
+            Expanded(child: tile(3, Icons.sticky_note_2_outlined, tr('নোট'), C.blue, C.blueTint)),
             const SizedBox(width: 8),
-            Expanded(child: tile(4, Icons.lock_outline_rounded, 'পাসওয়ার্ড', C.ink, const Color(0xFFF3F4F6))),
+            Expanded(child: tile(4, Icons.lock_outline_rounded, tr('পাসওয়ার্ড'), C.ink, C.soft)),
             const SizedBox(width: 8),
-            Expanded(child: tile(5, Icons.call_outlined, 'নম্বর রাখুন', C.ink, const Color(0xFFF3F4F6))),
+            Expanded(child: tile(5, Icons.call_outlined, tr('নম্বর রাখুন'), C.ink, C.soft)),
           ]),
           const SizedBox(height: 12),
           Material(
             color: C.surface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: C.line)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: C.line)),
             child: InkWell(
               borderRadius: BorderRadius.circular(16),
               onTap: () => Navigator.pop(context, 6),
@@ -1232,13 +1241,13 @@ class _QuickAddSheet extends StatelessWidget {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(10)),
-                    child: const Icon(Icons.download_rounded, color: C.green, size: 20),
+                    child: Icon(Icons.download_rounded, color: C.green, size: 20),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('ফোনবুক থেকে নম্বর আনুন', style: body(15, weight: FontWeight.w600)),
-                      Text('এক চাপে সব, একই নম্বর দুবার আসবে না', style: body(12, color: C.muted)),
+                      Text(tr('ফোনবুক থেকে নম্বর আনুন'), style: body(15, weight: FontWeight.w600)),
+                      Text(tr('এক চাপে সব, একই নম্বর দুবার আসবে না'), style: body(12, color: C.muted)),
                     ]),
                   ),
                 ]),
@@ -1246,7 +1255,7 @@ class _QuickAddSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          Text('টিপস: ফর্ম না খুলে সরাসরি লিখে বা বলেও দিতে পারেন — “বাজারে ৫০০ টাকা খরচ”।', style: body(13, color: C.muted, height: 1.5)),
+          Text(tr('টিপস: ফর্ম না খুলে সরাসরি লিখে বা বলেও দিতে পারেন — “বাজারে ৫০০ টাকা খরচ”।'), style: body(13, color: C.muted, height: 1.5)),
         ]),
       ),
     );

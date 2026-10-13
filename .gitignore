@@ -34,3 +34,4 @@ macos/
 web/
 windows/
 pubspec.lock
+test_shots/

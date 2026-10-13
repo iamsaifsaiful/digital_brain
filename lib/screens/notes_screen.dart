@@ -7,6 +7,7 @@ import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'new_item_screen.dart';
+import '../logic/lang.dart';
 
 /// Notes and everything else remembered, by category ("নোট", "যানবাহন"…).
 class NotesScreen extends StatefulWidget {
@@ -57,14 +58,14 @@ class _NotesScreenState extends State<NotesScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            TopBar(title: _cat ?? 'নোট ও অন্যান্য', trailing: [
-              RoundIconButton(icon: Icons.add_rounded, tooltip: 'নতুন নোট', dark: true, onPressed: _new),
+            TopBar(title: _cat ?? tr('নোট ও অন্যান্য'), trailing: [
+              RoundIconButton(icon: Icons.add_rounded, tooltip: tr('নতুন নোট'), dark: true, onPressed: _new),
             ]),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
               child: TextField(
                 onChanged: (v) => setState(() => _q = v),
-                decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'খুঁজুন'),
+                decoration: InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: tr('খুঁজুন')),
               ),
             ),
             if (cats.length > 1)
@@ -73,7 +74,7 @@ class _NotesScreenState extends State<NotesScreen> {
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  children: [chip('সব', null), for (final c in cats) chip(c, c)],
+                  children: [chip(tr('সব'), null), for (final c in cats) chip(c, c)],
                 ),
               ),
             Expanded(
@@ -83,13 +84,13 @@ class _NotesScreenState extends State<NotesScreen> {
                   if (brain.data.notes.isEmpty)
                     EmptyState(
                       icon: Icons.description_outlined,
-                      title: 'কোনো নোট নেই',
-                      text: 'বলুন “মনে রাখো: গাড়ির কাগজ আলমারির উপরের তাকে” — অ্যাপ ঠিক বিভাগে রেখে দেবে।',
-                      action: 'নোট লিখুন',
+                      title: tr('কোনো নোট নেই'),
+                      text: tr('বলুন “মনে রাখো: গাড়ির কাগজ আলমারির উপরের তাকে” — অ্যাপ ঠিক বিভাগে রেখে দেবে।'),
+                      action: tr('নোট লিখুন'),
                       onAction: _new,
                     )
                   else if (list.isEmpty)
-                    Text('কিছু মেলেনি।', style: body(14, color: C.muted))
+                    Text(tr('কিছু মেলেনি।'), style: body(14, color: C.muted))
                   else
                     for (final n in list) ...[
                       Panel(

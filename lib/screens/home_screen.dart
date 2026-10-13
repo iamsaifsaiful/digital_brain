@@ -9,6 +9,7 @@ import 'alarm_screens.dart';
 import 'calls_screen.dart';
 import 'help_screen.dart';
 import 'plan_screens.dart';
+import '../logic/lang.dart';
 
 /// What needs doing — late, today, tomorrow — shown on the home under the
 /// greeting, in the same light style as the chat.
@@ -24,12 +25,12 @@ class TodaySections extends StatelessWidget {
     final tomorrow = dayOnly(now).add(const Duration(days: 1));
     final tomorrowItems = plan.ahead.where((i) => dayOnly(i.sort) == tomorrow).toList();
 
-    Widget box(List<Widget> rows, {Color color = C.ground}) => Container(
-          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(16)),
+    Widget box(List<Widget> rows, {Color? color}) => Container(
+          decoration: BoxDecoration(color: color ?? C.ground, borderRadius: BorderRadius.circular(16)),
           clipBehavior: Clip.antiAlias,
           child: Column(children: [
             for (final (i, r) in rows.indexed) ...[
-              if (i > 0) const Divider(height: 1, indent: 14, endIndent: 14, color: C.line),
+              if (i > 0) Divider(height: 1, indent: 14, endIndent: 14, color: C.line),
               r,
             ],
           ]),
@@ -37,7 +38,7 @@ class TodaySections extends StatelessWidget {
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (plan.overdue.isNotEmpty) ...[
-        _Heading('দেরি হয়ে গেছে · ${bnDigits(plan.overdue.length)}', color: C.orange),
+        _Heading(trf('দেরি হয়ে গেছে · {0}', [bnDigits(plan.overdue.length)]), color: C.orange),
         box(color: C.orangeTint, [
           for (final i in plan.overdue)
             PlanRow(
@@ -45,35 +46,35 @@ class TodaySections extends StatelessWidget {
               withDay: true,
               trailing: TextButton(
                 onPressed: () => brain.saveTask(i.task!.copyWith(due: tomorrow)),
-                child: Text('কাল করব', style: body(13, weight: FontWeight.w600, color: C.green)),
+                child: Text(tr('কাল করব'), style: body(13, weight: FontWeight.w600, color: C.green)),
               ),
             ),
         ]),
       ],
-      _Heading('আজ · ${weekdayName(now)}, ${bnDigits(now.day)} ${bnMonths[now.month - 1]}',
+      _Heading(trf('আজ · {0}, {1} {2}', [weekdayName(now), bnDigits(now.day), monthName(now.month)]),
           action: TextButton.icon(
             onPressed: () => showAddSheet(context),
-            icon: const Icon(Icons.add_rounded, size: 18, color: C.green),
-            label: Text('যোগ করুন', style: body(14, weight: FontWeight.w600, color: C.green)),
+            icon: Icon(Icons.add_rounded, size: 18, color: C.green),
+            label: Text(tr('যোগ করুন'), style: body(14, weight: FontWeight.w600, color: C.green)),
           )),
       if (plan.today.isEmpty)
         box([
           Padding(
             padding: const EdgeInsets.all(14),
-            child: Text('আজ কিছু রাখা নেই। নিচে লিখুন বা বলুন — যেমন “বিকেল ৪টায় মিটিং মনে করিয়ে দিও”।', style: body(14, color: C.muted, height: 1.5)),
+            child: Text(tr('আজ কিছু রাখা নেই। নিচে লিখুন বা বলুন — যেমন “বিকেল ৪টায় মিটিং মনে করিয়ে দিও”।'), style: body(14, color: C.muted, height: 1.5)),
           ),
         ])
       else
         box([for (final i in plan.today) PlanRow(item: i)]),
       if (tomorrowItems.isNotEmpty) ...[
-        _Heading('কাল, ${weekdayName(tomorrow)}'),
+        _Heading(trf('কাল, {0}', [weekdayName(tomorrow)])),
         box([for (final i in tomorrowItems) PlanRow(item: i)]),
       ],
       Align(
         alignment: Alignment.centerLeft,
         child: TextButton(
           onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AllTasksScreen())),
-          child: Text('সব কাজ ও রিমাইন্ডার দেখুন →', style: body(14, weight: FontWeight.w600, color: C.green)),
+          child: Text(tr('সব কাজ ও রিমাইন্ডার দেখুন →'), style: body(14, weight: FontWeight.w600, color: C.green)),
         ),
       ),
     ]);
@@ -81,9 +82,10 @@ class TodaySections extends StatelessWidget {
 }
 
 class _Heading extends StatelessWidget {
-  const _Heading(this.text, {this.color = C.muted, this.action});
+  const _Heading(this.text, {Color? color, this.action}) : _color = color;
   final String text;
-  final Color color;
+  final Color? _color;
+  Color get color => _color ?? C.muted;
   final Widget? action;
 
   @override
@@ -148,15 +150,15 @@ class _AlarmBannerState extends State<AlarmBanner> with WidgetsBindingObserver {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
             child: Row(children: [
-              const Icon(Icons.notifications_off_outlined, color: C.orange),
+              Icon(Icons.notifications_off_outlined, color: C.orange),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('রিমাইন্ডার নাও বাজতে পারে', style: body(15, weight: FontWeight.w600, color: C.orangeDark)),
-                  Text('ফোনের একটা সেটিং বন্ধ আছে — চেপে ঠিক করুন', style: body(13, color: C.orangeDark)),
+                  Text(tr('রিমাইন্ডার নাও বাজতে পারে'), style: body(15, weight: FontWeight.w600, color: C.orangeDark)),
+                  Text(tr('ফোনের একটা সেটিং বন্ধ আছে — চেপে ঠিক করুন'), style: body(13, color: C.orangeDark)),
                 ]),
               ),
-              const Icon(Icons.chevron_right_rounded, color: C.orangeDark),
+              Icon(Icons.chevron_right_rounded, color: C.orangeDark),
             ]),
           ),
         ),
@@ -231,17 +233,17 @@ class _StartTipsState extends State<StartTips> {
         decoration: BoxDecoration(color: C.greenSoft, borderRadius: BorderRadius.circular(16)),
         padding: const EdgeInsets.fromLTRB(14, 10, 8, 6),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('শুরু করার ৪টা ধাপ', style: body(16, weight: FontWeight.w700, color: C.greenDark)),
+          Text(tr('শুরু করার ৪টা ধাপ'), style: body(16, weight: FontWeight.w700, color: C.greenDark)),
           const SizedBox(height: 4),
-          step('১', 'ফোনবুকের সব নম্বর এক ক্লিকে আনুন', 'নাম বললেই ফোন, মেসেজ আর হিসাবে নম্বর নিজে থেকে বসে যাবে',
-              done: hasContacts, action: 'আনুন', onTap: () => importFromPhone(context)),
-          step('২', 'রিমাইন্ডার যেন ঠিক সময়ে বাজে', 'ফোনের দুই-একটা সেটিং এক চাপে ঠিক করে নিন',
-              action: 'দেখুন', onTap: () => push(const ReminderCheckScreen())),
-          step('৩', 'নিচে বলুন বা লিখুন', '“রবিনকে ৫০০০ টাকা দিলাম”, “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”, “আজকের কাজের তালিকা”'),
-          step('৪', 'কী কী করা যায়, দেখে নিন', 'সব সুবিধা আর কী বললে কী হয়', action: 'দেখুন', onTap: () => push(const HelpScreen())),
+          step(tr('১'), tr('ফোনবুকের সব নম্বর এক ক্লিকে আনুন'), tr('নাম বললেই ফোন, মেসেজ আর হিসাবে নম্বর নিজে থেকে বসে যাবে'),
+              done: hasContacts, action: tr('আনুন'), onTap: () => importFromPhone(context)),
+          step(tr('২'), tr('রিমাইন্ডার যেন ঠিক সময়ে বাজে'), tr('ফোনের দুই-একটা সেটিং এক চাপে ঠিক করে নিন'),
+              action: tr('দেখুন'), onTap: () => push(const ReminderCheckScreen())),
+          step(tr('৩'), tr('নিচে বলুন বা লিখুন'), tr('“রবিনকে ৫০০০ টাকা দিলাম”, “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”, “আজকের কাজের তালিকা”')),
+          step(tr('৪'), tr('কী কী করা যায়, দেখে নিন'), tr('সব সুবিধা আর কী বললে কী হয়'), action: tr('দেখুন'), onTap: () => push(const HelpScreen())),
           Align(
             alignment: Alignment.centerRight,
-            child: TextButton(onPressed: _hide, child: Text('বুঝেছি, লুকিয়ে রাখো', style: body(13, color: C.muted))),
+            child: TextButton(onPressed: _hide, child: Text(tr('বুঝেছি, লুকিয়ে রাখো'), style: body(13, color: C.muted))),
           ),
         ]),
       ),

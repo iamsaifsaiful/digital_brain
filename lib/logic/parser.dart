@@ -180,6 +180,23 @@ class SearchQuery extends Command {
   final List<String> terms;
 }
 
+/// "রহিম আমার শ্যালক মনে রেখো", "মনে রাখো আমি শুক্রবার অফিস করি না":
+/// something about the user for the assistant to keep in mind.
+class MemoryAdd extends Command {
+  const MemoryAdd(super.transcript, {required this.text});
+  final String text;
+}
+
+/// "রহিমের জন্মদিন ১২ মার্চ", "আব্বার মৃত্যুবার্ষিকী ৩ জুন": a day every year.
+class SpecialAdd extends Command {
+  const SpecialAdd(super.transcript, {required this.person, required this.kind, required this.month, required this.day, this.year});
+  final String person;
+  final SpecialKind kind;
+  final int month;
+  final int day;
+  final int? year;
+}
+
 class NotUnderstood extends Command {
   const NotUnderstood(super.transcript);
 }
@@ -484,6 +501,116 @@ String? _nameEndingAt(List<String> w, int i, String Function(String) strip) {
   return head;
 }
 
+// ───────────────────────── Special days and memory ─────────────────────────
+
+const _monthWords = {
+  'জানুয়ারি': 1, 'জানুয়ারী': 1, 'জানু': 1, 'january': 1, 'jan': 1,
+  'ফেব্রুয়ারি': 2, 'ফেব্রুয়ারী': 2, 'ফেব্রু': 2, 'february': 2, 'feb': 2,
+  'মার্চ': 3, 'march': 3, 'mar': 3,
+  'এপ্রিল': 4, 'april': 4, 'apr': 4,
+  'মে': 5, 'may': 5,
+  'জুন': 6, 'june': 6, 'jun': 6,
+  'জুলাই': 7, 'july': 7, 'jul': 7,
+  'আগস্ট': 8, 'আগষ্ট': 8, 'august': 8, 'aug': 8,
+  'সেপ্টেম্বর': 9, 'সেপ্টে': 9, 'september': 9, 'sep': 9, 'sept': 9,
+  'অক্টোবর': 10, 'অক্টো': 10, 'october': 10, 'oct': 10,
+  'নভেম্বর': 11, 'নভে': 11, 'november': 11, 'nov': 11,
+  'ডিসেম্বর': 12, 'ডিসে': 12, 'december': 12, 'dec': 12,
+};
+
+final Map<String, int> _months = {for (final e in _monthWords.entries) fold(e.key): e.value};
+
+const _specialKinds = {
+  'জন্মদিন': SpecialKind.birthday, 'জন্ম দিন': SpecialKind.birthday, 'জন্মদিবস': SpecialKind.birthday, 'birthday': SpecialKind.birthday,
+  'বিবাহবার্ষিকী': SpecialKind.anniversary, 'বিবাহ বার্ষিকী': SpecialKind.anniversary, 'বিয়ের দিন': SpecialKind.anniversary,
+  'বিয়েবার্ষিকী': SpecialKind.anniversary, 'বিয়ে বার্ষিকী': SpecialKind.anniversary, 'anniversary': SpecialKind.anniversary,
+  'মৃত্যুবার্ষিকী': SpecialKind.deathday, 'মৃত্যু বার্ষিকী': SpecialKind.deathday, 'মৃত্যুদিবস': SpecialKind.deathday, 'মৃত্যুদিন': SpecialKind.deathday,
+  'মৃত্যু দিবস': SpecialKind.deathday, 'death anniversary': SpecialKind.deathday,
+};
+
+/// (day, month, year) written in [text] (already normalised): "১২ মার্চ",
+/// "১২ই মার্চ ১৯৯০", "12/3", "১২-০৩-১৯৯০".
+(int, int, int?)? dayMonthIn(String text) {
+  final num = RegExp(r'(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?').firstMatch(text);
+  if (num != null) {
+    final d = int.parse(num[1]!), m = int.parse(num[2]!);
+    var y = num[3] == null ? null : int.parse(num[3]!);
+    if (y != null && y < 100) y += y > 30 ? 1900 : 2000;
+    if (d >= 1 && d <= 31 && m >= 1 && m <= 12) return (d, m, y);
+  }
+  final w = text.split(' ');
+  for (var i = 0; i < w.length; i++) {
+    final m = _months[w[i]];
+    if (m == null) continue;
+    int? day;
+    for (final j in [i - 1, i + 1]) {
+      if (j < 0 || j >= w.length) continue;
+      final dm = RegExp(r'^(\d{1,2})(?:ই|শে|লা|রা|ঠা|তারিখ|th|st|nd|rd)?$').firstMatch(w[j]);
+      if (dm != null) {
+        day = int.parse(dm[1]!);
+        break;
+      }
+    }
+    if (day == null || day < 1 || day > 31) continue;
+    int? year;
+    for (final x in w) {
+      final ym = RegExp(r'^(19|20)\d\d(?:সালে?|সন)?$').firstMatch(x);
+      if (ym != null) year = int.parse(x.substring(0, 4));
+    }
+    return (day, m, year);
+  }
+  return null;
+}
+
+/// "রহিমের জন্মদিন ১২ মার্চ" → a [SpecialAdd]; questions ("কবে?") are not.
+SpecialAdd? specialDayIn(String said, String text) {
+  if (said.contains('?') || text.contains('কবে') || text.contains('when')) return null;
+  SpecialKind? kind;
+  var at = -1, len = 0;
+  for (final e in _specialKinds.entries) {
+    final k = fold(e.key);
+    final i = text.indexOf(k);
+    if (i >= 0 && (kind == null || k.length > len)) {
+      kind = e.value;
+      at = i;
+      len = k.length;
+    }
+  }
+  if (kind == null) return null;
+  final date = dayMonthIn(text);
+  if (date == null) return null;
+  final before = text.substring(0, at).trim().split(' ').where((x) => x.isNotEmpty).toList();
+  var person = '';
+  if (before.isNotEmpty) {
+    final last = before.last;
+    person = last == 'আমার' || last == 'আমাদের' ? last : stripPossessive(last);
+    if (before.length >= 2 && _honorifics.contains(person) && _looksLikeName(before[before.length - 2])) person = '${before[before.length - 2]} $person';
+  }
+  if (person.isEmpty || RegExp(r'^\d').hasMatch(person) || _months.containsKey(person)) person = kind == SpecialKind.anniversary ? 'আমাদের' : '';
+  if (person.isEmpty) return null;
+  // Keep the user's own spelling of the name.
+  final orig = RegExp(RegExp.escape(person), caseSensitive: false).firstMatch(said);
+  return SpecialAdd(said, person: orig?.group(0) ?? person, kind: kind, month: date.$2, day: date.$1, year: date.$3);
+}
+
+const _relations = [
+  'ভাই', 'বোন', 'শ্যালক', 'শালা', 'শালী', 'বাবা', 'আব্বা', 'মা', 'আম্মা', 'স্ত্রী', 'বউ', 'স্বামী', 'ছেলে', 'মেয়ে', 'বন্ধু', 'বস',
+  'ম্যানেজার', 'চাচা', 'মামা', 'খালা', 'ফুপু', 'দুলাভাই', 'ভাবি', 'শ্বশুর', 'শাশুড়ি', 'নানা', 'নানি', 'দাদা', 'দাদি', 'ভাগ্নে', 'ভাতিজা',
+  'কলিগ', 'সহকর্মী', 'ড্রাইভার', 'কাজের লোক', 'বাড়িওয়ালা', 'ডাক্তার', 'উকিল', 'পার্টনার', 'কাস্টমার',
+];
+
+/// Something about the user or their people, not a plain fact to look up:
+/// "রহিম আমার শ্যালক", "আমি শুক্রবার অফিস করি না", "আমি চা খাই না".
+bool isAboutMe(String text) {
+  final t = fold(text.toLowerCase());
+  if (RegExp(r'(^|\s)আমার\s+(' + _relations.map(fold).join('|') + r')(\s|$|।)').hasMatch(t) && !t.contains('নম্বর')) return true;
+  if (RegExp(r'(^|\s)আমি\s').hasMatch(t) &&
+      RegExp(r'(করি|করিনা|থাকি|খাই|পছন্দ|ভালোবাসি|পারি|যাই|উঠি|ঘুমাই|পড়ি|চাই)(\s|$|।|না)').hasMatch(t)) {
+    return true;
+  }
+  return false;
+}
+
 // ───────────────────────── The parser ─────────────────────────
 
 class Parser {
@@ -521,6 +648,10 @@ class Parser {
     }
     final w = words(text);
 
+    // "রহিমের জন্মদিন ১২ মার্চ" → a special day.
+    final special = specialDayIn(said, text);
+    if (special != null) return special;
+
     // "মনে রাখো: …" → a note.
     final noteMatch = RegExp(r'^(মনে রাখো|মনে রেখো|মনে রাখ|নোট রাখো|নোট করো|নোট কর|লিখে রাখো|লিখে রাখ)\s*(যে)?\s*(.*)$').firstMatch(text);
     if (noteMatch != null && (noteMatch[3] ?? '').trim().isNotEmpty) {
@@ -529,7 +660,8 @@ class Parser {
       final noteText = original.isEmpty ? noteMatch[3]!.trim() : original;
       // Money always goes to লেনদেন, even when said as "মনে রাখো …".
       final inner = parse(noteText);
-      if (inner is LedgerAdd || inner is LedgerSet || inner is TaskAdd || inner is ReminderAdd || inner is ContactAdd) return inner;
+      if (inner is LedgerAdd || inner is LedgerSet || inner is TaskAdd || inner is ReminderAdd || inner is ContactAdd || inner is SpecialAdd) return inner;
+      if (isAboutMe(noteText)) return MemoryAdd(said, text: noteText);
       return NoteAdd(said, text: noteText);
     }
 
@@ -560,7 +692,9 @@ class Parser {
 
     // A question about money.
     final isQuestion = _hasAny(text, ['কত', 'কাকে', 'কার কাছে', 'কে কে', 'হিসাব', 'কবে']) &&
-        _hasAny(text, ['পাওনা', 'পাব', 'পাবো', 'পাবে', 'পাই', 'দেনা', 'দিতে হবে', 'দেব', 'দেবো', 'বাকি', 'ধার', 'হিসাব', 'লেনদেন']);
+        (_hasAny(text, ['পাওনা', 'পাব', 'পাবো', 'পাবে', 'পাই', 'দেনা', 'দিতে হবে', 'দেব', 'দেবো', 'বাকি', 'ধার', 'হিসাব', 'লেনদেন']) ||
+            // "গত মাসে রহিমকে কত দিলাম?" — what passed between us, in a span of time.
+            (text.contains('কত') && _hasAny(text, [..._give1, ..._take1, ..._got1, 'ফেরত'])));
     if (isQuestion) return _ledgerQuestion(said, text, w, known);
 
     // Vault: logins, passwords, Wi-Fi.

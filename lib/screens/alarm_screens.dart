@@ -6,6 +6,7 @@ import '../services/notifications.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import '../logic/lang.dart';
 
 /// The big page a ringing reminder opens (also over the lock screen).
 /// Shows only the title and time — nothing private.
@@ -23,8 +24,8 @@ class _AlarmScreenState extends State<AlarmScreen> {
   Reminder? get _reminder => BrainScope.read(context).reminderById(widget.info.reminderId);
 
   String get _title {
-    final t = widget.info.title.replaceFirst('আগাম মনে করানো: ', '').trim();
-    return t.isNotEmpty ? t : (_reminder?.title ?? 'রিমাইন্ডার');
+    final t = widget.info.title.replaceFirst(tr('আগাম মনে করানো: '), '').trim();
+    return t.isNotEmpty ? t : (_reminder?.title ?? tr('রিমাইন্ডার'));
   }
 
   Future<void> _close({Duration? snooze, bool stop = false}) async {
@@ -40,9 +41,9 @@ class _AlarmScreenState extends State<AlarmScreen> {
     await n.showOverLock(false);
     if (!mounted) return;
     final msg = stop
-        ? 'আর বাজবে না'
+        ? tr('আর বাজবে না')
         : snooze != null
-            ? '${bnDigits(snooze.inMinutes >= 60 ? snooze.inHours : snooze.inMinutes)} ${snooze.inMinutes >= 60 ? 'ঘণ্টা' : 'মিনিট'} পরে আবার মনে করাব'
+            ? trf('{0} {1} পরে আবার মনে করাব', [bnDigits(snooze.inMinutes >= 60 ? snooze.inHours : snooze.inMinutes), snooze.inMinutes >= 60 ? 'ঘণ্টা' : 'মিনিট'])
             : null;
     Navigator.of(context).pop();
     if (msg != null) toast(context, msg);
@@ -72,7 +73,7 @@ class _AlarmScreenState extends State<AlarmScreen> {
                 child: const Icon(Icons.notifications_active_outlined, size: 42, color: C.mint),
               ),
               const SizedBox(height: 24),
-              Text('রিমাইন্ডার · $when', style: body(16, color: C.mint)),
+              Text(trf('রিমাইন্ডার · {0}', [when]), style: body(16, color: C.mint)),
               const SizedBox(height: 6),
               Text(_title, textAlign: TextAlign.center, style: display(32, weight: 700, color: Colors.white)),
               if ((r?.note ?? '').trim().isNotEmpty) ...[
@@ -81,24 +82,24 @@ class _AlarmScreenState extends State<AlarmScreen> {
               ],
               const Spacer(),
               if (repeating) ...[
-                _AlarmButton(label: 'ঠিক আছে', onTap: () => _close()),
+                _AlarmButton(label: tr('ঠিক আছে'), onTap: () => _close()),
                 const SizedBox(height: 12),
-                _AlarmButton(label: 'আর বাজাবে না', primary: true, onTap: () => _close(stop: true)),
+                _AlarmButton(label: tr('আর বাজাবে না'), primary: true, onTap: () => _close(stop: true)),
               ] else ...[
-                Text('পরে মনে করাও', style: body(14, color: const Color(0xFFCDE7DE))),
+                Text(tr('পরে মনে করাও'), style: body(14, color: const Color(0xFFCDE7DE))),
                 const SizedBox(height: 10),
                 Row(children: [
-                  for (final (d, label) in const [
-                    (Duration(minutes: 5), '৫ মিনিট'),
-                    (Duration(minutes: 10), '১০ মিনিট'),
-                    (Duration(hours: 1), '১ ঘণ্টা'),
+                  for (final (d, label) in [
+                    (Duration(minutes: 5), tr('৫ মিনিট')),
+                    (Duration(minutes: 10), tr('১০ মিনিট')),
+                    (Duration(hours: 1), tr('১ ঘণ্টা')),
                   ]) ...[
                     if (d != const Duration(minutes: 5)) const SizedBox(width: 10),
                     Expanded(child: _AlarmButton(label: label, onTap: () => _close(snooze: d))),
                   ],
                 ]),
                 const SizedBox(height: 12),
-                _AlarmButton(label: 'হয়ে গেছে, বন্ধ করো', primary: true, onTap: () => _close()),
+                _AlarmButton(label: tr('হয়ে গেছে, বন্ধ করো'), primary: true, onTap: () => _close()),
               ],
             ]),
           ),
@@ -193,16 +194,14 @@ class _ReminderCheckScreenState extends State<ReminderCheckScreen> with WidgetsB
     final r = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('ব্যাটারি সেটিং', style: display(20)),
+        title: Text(tr('ব্যাটারি সেটিং'), style: display(20)),
         content: Text(
-          'ফোন এখনো জানাচ্ছে না যে অনুমতি দেওয়া হয়েছে। অনেক ফোনে অ্যাপের নিজের পাতায় যেতে হয়:\n\n'
-          'App info › Battery (বা Battery saver) › “No restrictions / Unrestricted / সীমাবদ্ধতা নেই” বেছে নিন।\n\n'
-          'করে থাকলে “করেছি” চাপুন।',
+          tr('ফোন এখনো জানাচ্ছে না যে অনুমতি দেওয়া হয়েছে। অনেক ফোনে অ্যাপের নিজের পাতায় যেতে হয়:\n\nApp info › Battery (বা Battery saver) › “No restrictions / Unrestricted / সীমাবদ্ধতা নেই” বেছে নিন।\n\nকরে থাকলে “করেছি” চাপুন।'),
           style: body(15, height: 1.55),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, 'open'), child: const Text('পাতাটা খুলুন')),
-          TextButton(onPressed: () => Navigator.pop(ctx, 'done'), child: const Text('করেছি')),
+          TextButton(onPressed: () => Navigator.pop(ctx, 'open'), child: Text(tr('পাতাটা খুলুন'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, 'done'), child: Text(tr('করেছি'))),
         ],
       ),
     );
@@ -229,18 +228,18 @@ class _ReminderCheckScreenState extends State<ReminderCheckScreen> with WidgetsB
       'huawei' || 'honor' => 'Huawei / Honor',
       'infinix' || 'tecno' || 'itel' => 'Infinix / Tecno',
       'oneplus' => 'OnePlus',
-      final b => b.isEmpty ? 'এই ফোন' : b,
+      final b => b.isEmpty ? tr('এই ফোন') : b,
     };
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          const TopBar(title: 'রিমাইন্ডার ঠিকমতো বাজবে তো?'),
+          TopBar(title: tr('রিমাইন্ডার ঠিকমতো বাজবে তো?')),
           Expanded(
             child: h == null
                 ? const Center(child: CircularProgressIndicator())
                 : ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
                     Text(
-                      'কিছু ফোন ব্যাটারি বাঁচাতে অ্যাপের অ্যালার্ম থামিয়ে দেয়। নিচের সব কটিতে সবুজ টিক থাকলে রিমাইন্ডার ঠিক সময়ে বাজবে — ফোন লক থাকলেও।',
+                      tr('কিছু ফোন ব্যাটারি বাঁচাতে অ্যাপের অ্যালার্ম থামিয়ে দেয়। নিচের সব কটিতে সবুজ টিক থাকলে রিমাইন্ডার ঠিক সময়ে বাজবে — ফোন লক থাকলেও।'),
                       style: body(14, color: C.muted, height: 1.55),
                     ),
                     const SizedBox(height: 14),
@@ -248,9 +247,9 @@ class _ReminderCheckScreenState extends State<ReminderCheckScreen> with WidgetsB
                       child: Rows(children: [
                         _CheckRow(
                           ok: h.notificationsOn,
-                          title: 'নোটিফিকেশন চালু',
-                          sub: h.notificationsOn ? 'চালু আছে' : 'বন্ধ — রিমাইন্ডার দেখাতে পারবে না',
-                          fix: 'চালু করুন',
+                          title: tr('নোটিফিকেশন চালু'),
+                          sub: h.notificationsOn ? tr('চালু আছে') : tr('বন্ধ — রিমাইন্ডার দেখাতে পারবে না'),
+                          fix: tr('চালু করুন'),
                           onFix: () async {
                             await n.requestPermission();
                             final again = await n.health();
@@ -260,9 +259,9 @@ class _ReminderCheckScreenState extends State<ReminderCheckScreen> with WidgetsB
                         ),
                         _CheckRow(
                           ok: h.exactOn,
-                          title: 'ঠিক মিনিটে বাজানোর অনুমতি',
-                          sub: h.exactOn ? 'চালু আছে' : 'বন্ধ — রিমাইন্ডার দেরিতে আসতে পারে',
-                          fix: 'চালু করুন',
+                          title: tr('ঠিক মিনিটে বাজানোর অনুমতি'),
+                          sub: h.exactOn ? tr('চালু আছে') : tr('বন্ধ — রিমাইন্ডার দেরিতে আসতে পারে'),
+                          fix: tr('চালু করুন'),
                           onFix: () async {
                             await n.requestExact();
                             await _load();
@@ -270,9 +269,9 @@ class _ReminderCheckScreenState extends State<ReminderCheckScreen> with WidgetsB
                         ),
                         _CheckRow(
                           ok: h.batteryFree,
-                          title: 'ব্যাটারি সেভিং থেকে বাদ',
-                          sub: h.batteryFree ? 'বাদ দেওয়া আছে' : 'ফোন অ্যাপটিকে ঘুম পাড়িয়ে রিমাইন্ডার থামাতে পারে',
-                          fix: 'বাদ দিন',
+                          title: tr('ব্যাটারি সেভিং থেকে বাদ'),
+                          sub: h.batteryFree ? tr('বাদ দেওয়া আছে') : tr('ফোন অ্যাপটিকে ঘুম পাড়িয়ে রিমাইন্ডার থামাতে পারে'),
+                          fix: tr('বাদ দিন'),
                           onFix: () async {
                             _batteryTried = true;
                             await n.fixBattery();
@@ -284,24 +283,24 @@ class _ReminderCheckScreenState extends State<ReminderCheckScreen> with WidgetsB
                         if (!h.fullScreenOn)
                           _CheckRow(
                             ok: false,
-                            title: 'লক স্ক্রিনে বড় করে দেখানো',
-                            sub: 'চালু করলে ফোন লক থাকলেও পুরো পর্দায় রিমাইন্ডার আসবে',
-                            fix: 'চালু করুন',
+                            title: tr('লক স্ক্রিনে বড় করে দেখানো'),
+                            sub: tr('চালু করলে ফোন লক থাকলেও পুরো পর্দায় রিমাইন্ডার আসবে'),
+                            fix: tr('চালু করুন'),
                             onFix: n.requestFullScreen,
                           ),
                         if (h.hasAutostart)
                           _CheckRow(
                             ok: _autostartDone,
-                            title: '$brandName: অটো-স্টার্ট চালু',
+                            title: trf('{0}: অটো-স্টার্ট চালু', [brandName]),
                             sub: _autostartDone
-                                ? 'চালু করেছেন'
-                                : 'এই ফোনে “Autostart / Auto-launch / Background” থেকে My Assistant চালু করতে হয়, নইলে ফোন বন্ধ-চালুর পর রিমাইন্ডার আসে না',
-                            fix: 'খুলুন',
+                                ? tr('চালু করেছেন')
+                                : tr('এই ফোনে “Autostart / Auto-launch / Background” থেকে My Assistant চালু করতে হয়, নইলে ফোন বন্ধ-চালুর পর রিমাইন্ডার আসে না'),
+                            fix: tr('খুলুন'),
                             onFix: () async {
                               await n.openAutostart();
                               if (!context.mounted) return;
                               final yes = await confirmDialog(context,
-                                  title: 'চালু করেছেন?', text: 'খোলা পাতায় My Assistant-এর পাশের সুইচটা চালু করেছেন?', yes: 'হ্যাঁ, করেছি');
+                                  title: tr('চালু করেছেন?'), text: tr('খোলা পাতায় My Assistant-এর পাশের সুইচটা চালু করেছেন?'), yes: tr('হ্যাঁ, করেছি'));
                               if (yes) {
                                 await brain.services.lock.keys.write('autostart_done', 'true');
                                 await _load();
@@ -312,19 +311,19 @@ class _ReminderCheckScreenState extends State<ReminderCheckScreen> with WidgetsB
                     ),
                     const SizedBox(height: 18),
                     PrimaryButton(
-                      label: '১ মিনিট পরে পরীক্ষা করুন',
+                      label: tr('১ মিনিট পরে পরীক্ষা করুন'),
                       icon: Icons.alarm_rounded,
-                      color: C.ink,
+                      color: C.fill,
                       onPressed: () async {
                         await n.requestPermission();
-                        await n.ringOnce('test', 'পরীক্ষা: রিমাইন্ডার কাজ করছে ✓', 'এভাবেই সময়মতো বাজবে', const Duration(minutes: 1));
+                        await n.ringOnce('test', tr('পরীক্ষা: রিমাইন্ডার কাজ করছে ✓'), tr('এভাবেই সময়মতো বাজবে'), const Duration(minutes: 1));
                         if (context.mounted) {
-                          toast(context, '১ মিনিট পরে বাজবে। এখন ফোন লক করে রেখে দিন।');
+                          toast(context, tr('১ মিনিট পরে বাজবে। এখন ফোন লক করে রেখে দিন।'));
                         }
                       },
                     ),
                     const SizedBox(height: 8),
-                    Text('ফোন লক করে রাখুন। ১ মিনিট পরে বাজলে সব ঠিক আছে।', textAlign: TextAlign.center, style: body(13, color: C.muted)),
+                    Text(tr('ফোন লক করে রাখুন। ১ মিনিট পরে বাজলে সব ঠিক আছে।'), textAlign: TextAlign.center, style: body(13, color: C.muted)),
                   ]),
           ),
         ]),
@@ -377,9 +376,9 @@ Future<void> checkAlarmsAfterSave(BuildContext context) async {
   if (!context.mounted) return;
   final go = await confirmDialog(
     context,
-    title: 'রিমাইন্ডার যেন বাজে',
-    text: 'এই ফোনের কিছু সেটিং রিমাইন্ডার থামিয়ে দিতে পারে। এক মিনিটে ঠিক করে নেবেন?',
-    yes: 'ঠিক করি',
+    title: tr('রিমাইন্ডার যেন বাজে'),
+    text: tr('এই ফোনের কিছু সেটিং রিমাইন্ডার থামিয়ে দিতে পারে। এক মিনিটে ঠিক করে নেবেন?'),
+    yes: tr('ঠিক করি'),
   );
   if (go && context.mounted) {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReminderCheckScreen()));

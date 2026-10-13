@@ -9,6 +9,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'home_shell.dart';
 import 'new_item_screen.dart';
+import '../logic/lang.dart';
 
 /// ফোন ও মেসেজ: call, SMS or WhatsApp anyone saved, or a number typed in.
 /// The phone's own app opens ready; the user presses call or send there.
@@ -30,17 +31,17 @@ class _CallsScreenState extends State<CallsScreen> {
       final r = await showDialog<String>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: Text(via == Via.sms ? '$name-কে মেসেজ' : '$name-কে WhatsApp', style: display(19)),
+          title: Text(via == Via.sms ? trf('{0}-কে মেসেজ', [name]) : trf('{0}-কে WhatsApp', [name]), style: display(19)),
           content: TextField(
             controller: c,
             autofocus: true,
             minLines: 2,
             maxLines: 5,
-            decoration: const InputDecoration(hintText: 'কী লিখবেন? (খালি রাখলেও চলবে)'),
+            decoration: InputDecoration(hintText: tr('কী লিখবেন? (খালি রাখলেও চলবে)')),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('বাতিল')),
-            TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: const Text('খুলুন')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
+            TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: Text(tr('খুলুন'))),
           ],
         ),
       );
@@ -48,20 +49,20 @@ class _CallsScreenState extends State<CallsScreen> {
       text = r;
     }
     final ok = await brain.services.launcher.open(via, phone, text: text);
-    if (!ok && mounted) toast(context, 'এই ফোনে এটা খোলার মতো অ্যাপ পাওয়া গেল না');
+    if (!ok && mounted) toast(context, tr('এই ফোনে এটা খোলার মতো অ্যাপ পাওয়া গেল না'));
   }
 
   Widget _actions(String phone, String name) => Row(mainAxisSize: MainAxisSize.min, children: [
-        CircleAction(icon: Icons.call_rounded, tooltip: 'ফোন দিন', size: 38, onPressed: () => _go(Via.call, phone, name)),
+        CircleAction(icon: Icons.call_rounded, tooltip: tr('ফোন দিন'), size: 38, onPressed: () => _go(Via.call, phone, name)),
         const SizedBox(width: 6),
-        CircleAction(icon: Icons.sms_outlined, tooltip: 'মেসেজ (SMS)', size: 38, fg: C.blue, bg: C.blueTint, onPressed: () => _go(Via.sms, phone, name)),
+        CircleAction(icon: Icons.sms_outlined, tooltip: tr('মেসেজ (SMS)'), size: 38, fg: C.blue, bg: C.blueTint, onPressed: () => _go(Via.sms, phone, name)),
         const SizedBox(width: 6),
         CircleAction(
             icon: Icons.chat_outlined,
             tooltip: 'WhatsApp',
             size: 38,
             fg: const Color(0xFF128C4A),
-            bg: const Color(0xFFE3F6EA),
+            bg: C.waTint,
             onPressed: () => _go(Via.whatsapp, phone, name)),
       ]);
 
@@ -78,7 +79,7 @@ class _CallsScreenState extends State<CallsScreen> {
       Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: SecondaryButton(
-          label: all.isEmpty ? 'ফোনবুক থেকে সব নম্বর আনুন' : 'ফোনবুক থেকে নতুন নম্বর আনুন',
+          label: all.isEmpty ? tr('ফোনবুক থেকে সব নম্বর আনুন') : tr('ফোনবুক থেকে নতুন নম্বর আনুন'),
           icon: Icons.download_rounded,
           fg: C.green,
           borderColor: C.green,
@@ -88,9 +89,9 @@ class _CallsScreenState extends State<CallsScreen> {
       if (typed != null) ...[
         Panel(
           child: ListRow(
-            leading: const Icon(Icons.dialpad_rounded, color: C.ink),
+            leading: Icon(Icons.dialpad_rounded, color: C.ink),
             title: bnDigits(typed),
-            subtitle: 'এই নম্বরে',
+            subtitle: tr('এই নম্বরে'),
             trailing: _actions(typed, bnDigits(typed)),
           ),
         ),
@@ -99,18 +100,18 @@ class _CallsScreenState extends State<CallsScreen> {
       if (all.isEmpty)
         EmptyState(
           icon: Icons.contact_phone_outlined,
-          title: 'কোনো নম্বর রাখা নেই',
-          text: 'উপরের বোতাম চেপে ফোনের সব নম্বর এক বারে আনুন, অথবা বলুন “রহিমের নম্বর ০১৭… রাখো”।',
-          action: 'নিজে লিখে রাখুন',
+          title: tr('কোনো নম্বর রাখা নেই'),
+          text: tr('উপরের বোতাম চেপে ফোনের সব নম্বর এক বারে আনুন, অথবা বলুন “রহিমের নম্বর ০১৭… রাখো”।'),
+          action: tr('নিজে লিখে রাখুন'),
           onAction: addNew,
         )
       else ...[
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
-          child: Text('${bnDigits(all.length)} জন · ধার-দেনার মানুষ আর যোগাযোগ একই — নম্বর একবার রাখলেই দুই জায়গায় পাবেন।',
+          child: Text(trf('{0} জন · ধার-দেনার মানুষ আর যোগাযোগ একই — নম্বর একবার রাখলেই দুই জায়গায় পাবেন।', [bnDigits(all.length)]),
               style: body(13, color: C.muted)),
         ),
-        if (list.isEmpty && typed == null) Text('কিছু মেলেনি।', style: body(14, color: C.muted)),
+        if (list.isEmpty && typed == null) Text(tr('কিছু মেলেনি।'), style: body(14, color: C.muted)),
       ],
     ];
 
@@ -137,16 +138,16 @@ class _CallsScreenState extends State<CallsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            TopBar(title: 'যোগাযোগ', trailing: [
-              IconButton(tooltip: 'নতুন নম্বর রাখুন', onPressed: addNew, icon: const Icon(Icons.person_add_alt_1_outlined)),
-              IconButton(tooltip: 'মুখে বলুন', onPressed: () => openVoice(context), icon: const Icon(Icons.mic_none_rounded, color: C.green)),
+            TopBar(title: tr('যোগাযোগ'), trailing: [
+              IconButton(tooltip: tr('নতুন নম্বর রাখুন'), onPressed: addNew, icon: const Icon(Icons.person_add_alt_1_outlined)),
+              IconButton(tooltip: tr('মুখে বলুন'), onPressed: () => openVoice(context), icon: Icon(Icons.mic_none_rounded, color: C.green)),
             ]),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
               child: TextField(
                 onChanged: (v) => setState(() => _q = v),
                 keyboardType: TextInputType.text,
-                decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'নাম খুঁজুন, বা নম্বর লিখুন'),
+                decoration: InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: tr('নাম খুঁজুন, বা নম্বর লিখুন')),
               ),
             ),
             Expanded(
@@ -169,15 +170,15 @@ Future<void> importFromPhone(BuildContext context) async {
   final r = await brain.importPhonebook();
   if (!context.mounted) return;
   if (r == null) {
-    toast(context, 'ফোনবুক পড়ার অনুমতি দেওয়া হয়নি। আবার চাপলে অনুমতি চাইব।');
+    toast(context, tr('ফোনবুক পড়ার অনুমতি দেওয়া হয়নি। আবার চাপলে অনুমতি চাইব।'));
     return;
   }
   final (added, skipped) = r;
   toast(
     context,
     added == 0
-        ? 'নতুন কোনো নম্বর পাওয়া যায়নি${skipped > 0 ? ' — ${bnDigits(skipped)}টি আগেই ছিল' : ''}'
-        : '${bnDigits(added)} জনের নম্বর আনা হলো${skipped > 0 ? ' · ${bnDigits(skipped)}টি একই নম্বর বাদ দিলাম' : ''}',
+        ? trf('নতুন কোনো নম্বর পাওয়া যায়নি{0}', [skipped > 0 ? ' — ${bnDigits(skipped)}টি আগেই ছিল' : ''])
+        : trf('{0} জনের নম্বর আনা হলো{1}', [bnDigits(added), skipped > 0 ? ' · ${bnDigits(skipped)}টি একই নম্বর বাদ দিলাম' : '']),
   );
 }
 
@@ -186,7 +187,7 @@ Future<Contact?> pickContact(BuildContext context) async {
   final brain = BrainScope.read(context);
   if (!brain.data.contacts.any((c) => c.phone.trim().isNotEmpty)) {
     final ok = await confirmDialog(context,
-        title: 'ফোনবুক থেকে আনব?', text: 'যোগাযোগে এখনো কোনো নম্বর নেই। ফোনের সব নম্বর এক বারে নিয়ে আসি? একই নম্বর দুবার আসবে না।', yes: 'আনুন');
+        title: tr('ফোনবুক থেকে আনব?'), text: tr('যোগাযোগে এখনো কোনো নম্বর নেই। ফোনের সব নম্বর এক বারে নিয়ে আসি? একই নম্বর দুবার আসবে না।'), yes: tr('আনুন'));
     if (!ok || !context.mounted) return null;
     await importFromPhone(context);
     if (!context.mounted || !brain.data.contacts.any((c) => c.phone.trim().isNotEmpty)) return null;
@@ -224,12 +225,12 @@ class _ContactPickerState extends State<_ContactPicker> {
           child: TextField(
             autofocus: false,
             onChanged: (v) => setState(() => _q = v),
-            decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'নাম বা নম্বর খুঁজুন'),
+            decoration: InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: tr('নাম বা নম্বর খুঁজুন')),
           ),
         ),
         ListTile(
-          leading: const Icon(Icons.download_rounded, color: C.green),
-          title: Text('ফোনবুক থেকে নতুন নম্বর আনুন', style: body(15, weight: FontWeight.w600, color: C.green)),
+          leading: Icon(Icons.download_rounded, color: C.green),
+          title: Text(tr('ফোনবুক থেকে নতুন নম্বর আনুন'), style: body(15, weight: FontWeight.w600, color: C.green)),
           onTap: () => importFromPhone(context),
         ),
         const Divider(),

@@ -3,6 +3,7 @@ library;
 
 import '../models/models.dart';
 import 'bn.dart';
+import 'lang.dart';
 
 const _vowelEnd = 'ািীুূৃেৈোৌঅআইঈউঊঋএঐওঔ';
 
@@ -12,14 +13,14 @@ bool _latin(String s) => RegExp(r'[A-Za-z0-9]$').hasMatch(s);
 String possessive(String name) {
   final n = name.trim();
   if (n.isEmpty) return n;
-  if (_latin(n)) return '$n-এর';
-  return _vowelEnd.contains(n[n.length - 1]) ? '$nর' : '$nের';
+  if (_latin(n)) return trf('{0}-এর', [n]);
+  return _vowelEnd.contains(n[n.length - 1]) ? trf('{0}র', [n]) : trf('{0}ের', [n]);
 }
 
 /// সজীব → সজীবকে, Rahim → Rahim-কে.
 String toPerson(String name) {
   final n = name.trim();
-  return _latin(n) ? '$n-কে' : '$nকে';
+  return _latin(n) ? trf('{0}-কে', [n]) : trf('{0}কে', [n]);
 }
 
 String _amt(int a) => '${bnNumber(a)} টাকা';
@@ -37,9 +38,9 @@ String confirmQuestion(LedgerKind kind, String person, int amount) => 'আচ্
 
 /// "সজীবের কাছে আপনার ২০০ টাকা পাওনা আছে" (no full stop).
 String owesText(String person, int balance) {
-  if (balance > 0) return '${possessive(person)} কাছে আপনার ${_amt(balance)} পাওনা আছে';
-  if (balance < 0) return '${toPerson(person)} আপনার ${_amt(-balance)} দিতে হবে';
-  return '${possessive(person)} সাথে হিসাব একদম মিটে গেছে';
+  if (balance > 0) return trf('{0} কাছে আপনার {1} পাওনা আছে', [possessive(person), _amt(balance)]);
+  if (balance < 0) return trf('{0} আপনার {1} দিতে হবে', [toPerson(person), _amt(-balance)]);
+  return trf('{0} সাথে হিসাব একদম মিটে গেছে', [possessive(person)]);
 }
 
 /// "এখন সজীবের কাছে আপনার ২০০ টাকা পাওনা আছে।"
@@ -51,7 +52,7 @@ String savedSentence(LedgerKind kind, String person, int amount, int newBalance)
 
 /// "সজীবের কাছে আপনি পাবেন" / "সজীবকে আপনি দেবেন" heading for a balance card.
 String balanceHeading(String person, int balance) {
-  if (balance < 0) return '${toPerson(person)} আপনি দেবেন';
-  if (balance > 0) return '${possessive(person)} কাছে আপনি পাবেন';
-  return '${possessive(person)} সাথে হিসাব';
+  if (balance < 0) return trf('{0} আপনি দেবেন', [toPerson(person)]);
+  if (balance > 0) return trf('{0} কাছে আপনি পাবেন', [possessive(person)]);
+  return trf('{0} সাথে হিসাব', [possessive(person)]);
 }

@@ -10,6 +10,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'ledger_form_screen.dart';
 import 'person_screen.dart';
+import '../logic/lang.dart';
 
 enum _Filter {
   all('সব'),
@@ -17,8 +18,9 @@ enum _Filter {
   took('নিলাম'),
   back('ফেরত ও শোধ');
 
-  const _Filter(this.label);
-  final String label;
+  const _Filter(this._label);
+  final String _label;
+  String get label => tr(_label);
 
   bool keeps(LedgerKind k) => switch (this) {
         _Filter.all => true,
@@ -60,12 +62,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const TopBar(title: 'সব লেনদেন'),
+            TopBar(title: tr('সব লেনদেন')),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
               child: TextField(
                 onChanged: (v) => setState(() => _q = v),
-                decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'নাম বা পরিমাণ দিয়ে খুঁজুন'),
+                decoration: InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: tr('নাম বা পরিমাণ দিয়ে খুঁজুন')),
               ),
             ),
             SizedBox(
@@ -93,8 +95,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             ),
             Expanded(
               child: list.isEmpty
-                  ? ListView(children: const [
-                      EmptyState(icon: Icons.receipt_long_outlined, title: 'কিছু পাওয়া যায়নি', text: 'অন্য নাম দিয়ে খুঁজুন বা ফিল্টার বদলান।'),
+                  ? ListView(children: [
+                      EmptyState(icon: Icons.receipt_long_outlined, title: tr('কিছু পাওয়া যায়নি'), text: tr('অন্য নাম দিয়ে খুঁজুন বা ফিল্টার বদলান।')),
                     ])
                   : ListView(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -106,7 +108,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                           ),
                           const SizedBox(height: 16),
                         ],
-                        Text('বাঁ দিকে টানলে মুছে যায় · চাপলে সংশোধন', style: body(13, color: C.muted), textAlign: TextAlign.center),
+                        Text(tr('বাঁ দিকে টানলে মুছে যায় · চাপলে সংশোধন'), style: body(13, color: C.muted), textAlign: TextAlign.center),
                       ],
                     ),
             ),
@@ -130,7 +132,7 @@ class _MonthHeader extends StatelessWidget {
       child: Row(
         children: [
           Expanded(child: Text(monthTitle(entries.first.date), style: body(15, weight: FontWeight.w600))),
-          Flexible(child: Text('দিয়েছেন ${taka(gave)} · নিয়েছেন ${taka(took)}', style: body(13, color: C.muted), textAlign: TextAlign.right)),
+          Flexible(child: Text(trf('দিয়েছেন {0} · নিয়েছেন {1}', [taka(gave), taka(took)]), style: body(13, color: C.muted), textAlign: TextAlign.right)),
         ],
       ),
     );
@@ -160,7 +162,7 @@ class _EntryRow extends StatelessWidget {
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           const Icon(Icons.delete_outline_rounded, color: Colors.white),
           const SizedBox(width: 6),
-          Text('মুছুন', style: body(14, color: Colors.white, weight: FontWeight.w600)),
+          Text(tr('মুছুন'), style: body(14, color: Colors.white, weight: FontWeight.w600)),
         ]),
       ),
       onDismissed: (_) => deleteEntryWithUndo(context, brain, e),
@@ -176,7 +178,7 @@ class _EntryRow extends StatelessWidget {
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               ListTile(
                 leading: const Icon(Icons.person_outline_rounded),
-                title: Text('${possessive(e.person)} হিসাব দেখুন'),
+                title: Text(trf('{0} হিসাব দেখুন', [possessive(e.person)])),
                 onTap: () {
                   Navigator.pop(ctx);
                   Navigator.of(context).push(MaterialPageRoute(builder: (_) => PersonScreen(person: e.person)));
@@ -184,15 +186,15 @@ class _EntryRow extends StatelessWidget {
               ),
               ListTile(
                 leading: const Icon(Icons.edit_outlined),
-                title: const Text('সংশোধন করুন'),
+                title: Text(tr('সংশোধন করুন')),
                 onTap: () {
                   Navigator.pop(ctx);
                   Navigator.of(context).push(MaterialPageRoute(builder: (_) => LedgerFormScreen(entry: e)));
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.delete_outline_rounded, color: C.red),
-                title: Text('মুছে ফেলুন', style: body(16, color: C.red)),
+                leading: Icon(Icons.delete_outline_rounded, color: C.red),
+                title: Text(tr('মুছে ফেলুন'), style: body(16, color: C.red)),
                 onTap: () {
                   Navigator.pop(ctx);
                   deleteEntryWithUndo(context, brain, e);

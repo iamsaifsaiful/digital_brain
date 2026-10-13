@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
@@ -9,6 +10,7 @@ import '../logic/cash.dart';
 import '../logic/ledger.dart';
 import '../logic/parser.dart';
 import '../logic/plan.dart';
+import '../logic/proactive.dart';
 import '../models/models.dart';
 import '../services/ai.dart';
 import '../services/data_store.dart';
@@ -18,6 +20,12 @@ import '../services/lock.dart';
 import '../services/notifications.dart';
 import '../services/phonebook.dart';
 import '../services/voice.dart';
+import '../services/platform.dart';
+import '../logic/calendar_bd.dart';
+import '../ui/theme.dart' show Look;
+import '../logic/lang.dart';
+
+part 'brain_more.dart';
 
 /// Everything the screens need from outside Flutter.
 class Services {
@@ -167,6 +175,171 @@ class Brain extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── Look and language (সেটিংস › চেহারা, ভাষা) ──
+
+  /// Light, dark, or as the phone is.
+  Look look = Look.system;
+
+  /// The accent colour's key (see `accents`).
+  String accentKey = 'green';
+
+  /// The app's words in English instead of Bangla.
+  bool english = false;
+
+  /// Letter size: 1.0 normal, 1.15 large, 1.3 very large.
+  double letterSize = 1.0;
+
+  /// Easy mode: four big buttons, big letters, answers spoken aloud.
+  bool easyMode = false;
+
+  /// The user's photo for the profile (kept encrypted on the phone).
+  Uint8List? photo;
+
+  Future<void> _put(String key, String value) async {
+    try {
+      await services.lock.keys.write(key, value);
+    } catch (_) {}
+  }
+
+  Future<void> setLook(Look v) async {
+    look = v;
+    notifyListeners();
+    await _put('look', v.name);
+  }
+
+  Future<void> setAccent(String key) async {
+    accentKey = key;
+    notifyListeners();
+    await _put('accent', key);
+  }
+
+  Future<void> setEnglish(bool on) async {
+    english = on;
+    notifyListeners();
+    await _put('lang', on ? 'en' : 'bn');
+  }
+
+  Future<void> setLetterSize(double v) async {
+    letterSize = v;
+    notifyListeners();
+    await _put('letter_size', '$v');
+  }
+
+  Future<void> setEasyMode(bool on) async {
+    easyMode = on;
+    if (on && !speakOn) await setSpeakOn(true);
+    notifyListeners();
+    await _put('easy_mode', on ? 'true' : 'false');
+  }
+
+  Future<void> setPhoto(Uint8List? bytes) async {
+    photo = bytes;
+    notifyListeners();
+    if (bytes == null) {
+      await services.store.deleteDocFile(_photoId);
+    } else {
+      await services.store.saveDocFile(_photoId, bytes);
+    }
+  }
+
+  static const _photoId = 'me-profile-photo';
+
+  /// Read once at start, before the first screen, so it opens in the right look.
+  Future<void> loadLook() async {
+    try {
+      final keys = services.lock.keys;
+      final saved = await keys.read('look');
+      look = Look.values.firstWhere((l) => l.name == saved, orElse: () => Look.system);
+      accentKey = await keys.read('accent') ?? 'green';
+      english = (await keys.read('lang')) == 'en';
+      letterSize = double.tryParse(await keys.read('letter_size') ?? '') ?? 1.0;
+      easyMode = (await keys.read('easy_mode')) == 'true';
+    } catch (_) {}
+  }
+
+  // ── The assistant speaking first, and modes (সেটিংস › সহকারী) ──
+
+  bool morningOn = true;
+  int morningAt = 8 * 60;
+  bool nightOn = true;
+  int nightAt = 21 * 60;
+  bool nudgesOn = true;
+
+  /// Undone to-dos from past days move to today on their own.
+  bool carryOver = true;
+
+  /// "ব্যবসায়ী", "চাকরিজীবী", "ছাত্র/ছাত্রী", "গৃহিণী", "অন্য" ('' = not chosen yet).
+  String persona = '';
+
+  /// Shop tools in হিসাব: customer dues, today's sales, receipts.
+  bool businessMode = false;
+
+  /// A mic button in the notification panel.
+  bool panelMic = false;
+
+  /// One-tap questions above the chat box and on Home (the user's own list).
+  List<String> quickQuestions = defaultQuestions;
+  static const defaultQuestions = ['আজকের কাজের লিস্ট দাও', 'আমার মোট পাওনা কত?', 'আমি কাকে কত দেব?', 'এই মাসে কত খরচ হলো?', 'আজ আমার কী কী আছে?'];
+
+  Future<void> setQuickQuestions(List<String> q) async {
+    quickQuestions = q;
+    notifyListeners();
+    await _put('quick_questions', jsonEncode(q));
+  }
+
+  AssistantPrefs get assistantPrefs =>
+      AssistantPrefs(morningOn: morningOn, morningAt: morningAt, nightOn: nightOn, nightAt: nightAt, nudgesOn: nudgesOn, name: userName);
+
+  /// One switch or value from the assistant settings, saved and applied.
+  Future<void> setPref(String key, Object value) async {
+    switch (key) {
+      case 'morning_on':
+        morningOn = value as bool;
+      case 'morning_at':
+        morningAt = value as int;
+      case 'night_on':
+        nightOn = value as bool;
+      case 'night_at':
+        nightAt = value as int;
+      case 'nudges_on':
+        nudgesOn = value as bool;
+      case 'carry_over':
+        carryOver = value as bool;
+      case 'persona':
+        persona = value as String;
+      case 'business_mode':
+        businessMode = value as bool;
+      case 'panel_mic':
+        panelMic = value as bool;
+        await _showStanding();
+    }
+    notifyListeners();
+    await _put(key, '$value');
+    await _reschedule();
+  }
+
+  Future<void> _loadPrefs() async {
+    try {
+      final keys = services.lock.keys;
+      Future<bool> flag(String k, bool or) async {
+        final v = await keys.read(k);
+        return v == null ? or : v == 'true';
+      }
+
+      morningOn = await flag('morning_on', true);
+      nightOn = await flag('night_on', true);
+      nudgesOn = await flag('nudges_on', true);
+      carryOver = await flag('carry_over', true);
+      businessMode = await flag('business_mode', false);
+      panelMic = await flag('panel_mic', false);
+      morningAt = int.tryParse(await keys.read('morning_at') ?? '') ?? 8 * 60;
+      nightAt = int.tryParse(await keys.read('night_at') ?? '') ?? 21 * 60;
+      persona = await keys.read('persona') ?? '';
+      final q = await keys.read('quick_questions');
+      if (q != null) quickQuestions = [for (final x in jsonDecode(q) as List) '$x'];
+    } catch (_) {}
+  }
+
   Future<void> setAiShareData(bool on) async {
     aiShareData = on;
     await services.lock.keys.write('ai_share_data', on ? 'true' : 'false');
@@ -180,6 +353,23 @@ class Brain extends ChangeNotifier {
     String d2(int n) => n.toString().padLeft(2, '0');
     String day(DateTime d) => '${d.year}-${d2(d.month)}-${d2(d.day)}';
     final lines = <String>[];
+    final mem = data.memories.where((m) => !mentionsSecret(m.text)).take(40).toList();
+    if (mem.isNotEmpty) {
+      lines.add('What the user asked you to keep in mind about them (use it in answers):');
+      for (final m in mem) {
+        lines.add('- ${m.text}');
+      }
+    }
+    if (data.specialDays.isNotEmpty) {
+      final sd = [...data.specialDays]..sort((a, b) => a.next(now).compareTo(b.next(now)));
+      lines.add('Special days (next date): ${sd.take(30).map((x) => '${x.person} ${x.kind.name} ${day(x.next(now))}${x.year == null ? '' : ' (since ${x.year})'}').join('; ')}');
+    }
+    if (data.habits.isNotEmpty) {
+      lines.add('Habits (streak days, done today?): ${data.habits.map((h) => '${h.name} ${h.streak(now)} ${h.doneOn(now) ? 'yes' : 'no'}').join('; ')}');
+    }
+    if (data.medicines.isNotEmpty) {
+      lines.add('Medicines (times, days of stock left): ${data.medicines.map((m) => '${m.name} ${m.times.map((t) => '${d2(t ~/ 60)}:${d2(t % 60)}').join('/')} ${m.daysLeft ?? '-'}').join('; ')}');
+    }
     final rem = [...data.reminders]..sort((a, b) => a.nextDate(now).compareTo(b.nextDate(now)));
     if (rem.isNotEmpty) {
       lines.add('Reminders (next date, time, repeat):');
@@ -309,15 +499,22 @@ class Brain extends ChangeNotifier {
       services.notifier.batteryConfirmed = (await services.lock.keys.read('battery_done')) == 'true';
       services.voice.preferredVoice = await services.lock.keys.read('tts_voice');
     } catch (_) {}
+    await loadLook();
+    await _loadPrefs();
     try {
       data = await services.store.load();
       loadError = null;
+      try {
+        photo = await services.store.loadDocFile(_photoId);
+      } catch (_) {}
     } catch (e) {
       loadError = '$e';
     }
     loaded = true;
     notifyListeners();
+    await carryOverTasks();
     await _reschedule();
+    if (loadError == null) await _showStanding();
   }
 
   void unlock() {
@@ -347,8 +544,19 @@ class Brain extends ChangeNotifier {
     await services.store.save(data);
   }
 
-  /// Schedules the phone's notifications again (after a permission change).
-  Future<void> refreshNotices() => _reschedule();
+  /// Schedules the phone's notifications again (after a permission change,
+  /// and whenever the app comes back): yesterday's undone to-dos move to today first.
+  Future<void> refreshNotices() async {
+    await carryOverTasks();
+    await _reschedule();
+  }
+
+  /// The notifications that stay: the emergency card and the panel mic.
+  Future<void> _showStanding() async {
+    final c = data.emergency;
+    await services.notifier.showEmergency(c.onLockScreen && !c.isEmpty ? emergencyText(c) : null);
+    await services.notifier.showPanelMic(panelMic, title: 'My Assistant', body: tr('চাপুন, তারপর বলুন — রাখুন, খুঁজুন, জিজ্ঞেস করুন'));
+  }
 
   Future<void> _scheduling = Future.value();
 
@@ -356,7 +564,28 @@ class Brain extends ChangeNotifier {
   /// read: an empty list would cancel every reminder on the phone.
   Future<void> _reschedule() {
     if (!loaded || loadError != null) return Future.value();
-    return _scheduling = _scheduling.then((_) => services.notifier.schedule(plannedNotices(data.reminders, services.now()))).catchError((_) {});
+    final now = services.now();
+    final all = [...plannedNotices(data.reminders, now), ...assistantNotices(data, now, assistantPrefs)];
+    _updateWidget(now);
+    return _scheduling = _scheduling.then((_) => services.notifier.schedule(all)).catchError((_) {});
+  }
+
+  /// The home-screen widget: today's dates and the next few things.
+  void _updateWidget(DateTime now) {
+    final today = dayOnly(now);
+    final rem = [for (final r in data.reminders) if (remindsOn(r, today) && !r.repeat.isInterval) r]
+      ..sort((a, b) => (a.hour * 60 + a.minute).compareTo(b.hour * 60 + b.minute));
+    final upcoming = rem.where((r) => DateTime(today.year, today.month, today.day, r.hour, r.minute).isAfter(now)).toList();
+    final lines = [
+      for (final r in upcoming.take(3)) '⏰ ${bnTime(r.hour, r.minute)} ${r.title}',
+      for (final t in tasksLeft(data, today).take(3 - (upcoming.length > 3 ? 3 : upcoming.length))) '☐ ${t.title}',
+    ];
+    final bd = banglaDate(now);
+    AppPlatform.updateWidget({
+      'date': '${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)}',
+      'bangla': '${bd.text} · ${trf('{0}কাল', [bd.season])}',
+      'lines': lines.isEmpty ? tr('আজ কিছু রাখা নেই — মাইক চাপুন, তারপর বলুন') : lines.join('\n'),
+    });
   }
 
   // ── Generic upsert / remove ──

@@ -14,18 +14,22 @@ import 'home_screen.dart';
 import 'home_shell.dart';
 import 'ledger_screen.dart';
 import 'more_screen.dart';
+import 'settings_parts.dart';
+import 'assistant_bar.dart';
+import 'easy_home.dart';
 import 'notes_screen.dart';
 import 'plan_screens.dart';
 import 'search_screen.dart';
 import 'vault_screen.dart';
+import '../logic/lang.dart';
 
 String helloFor(DateTime now) {
   final h = now.hour;
-  if (h >= 4 && h < 11) return 'সুপ্রভাত';
-  if (h >= 11 && h < 15) return 'শুভ দুপুর';
-  if (h >= 15 && h < 18) return 'শুভ বিকেল';
-  if (h >= 18 && h < 22) return 'শুভ সন্ধ্যা';
-  return 'শুভ রাত';
+  if (h >= 4 && h < 11) return tr('সুপ্রভাত');
+  if (h >= 11 && h < 15) return tr('শুভ দুপুর');
+  if (h >= 15 && h < 18) return tr('শুভ বিকেল');
+  if (h >= 18 && h < 22) return tr('শুভ সন্ধ্যা');
+  return tr('শুভ রাত');
 }
 
 /// হোম: today at a glance — both dates, sun times, the coming holiday,
@@ -60,45 +64,51 @@ class HomePage extends StatelessWidget {
         );
 
     final shortcuts = <(String, IconData, Color, Color, VoidCallback)>[
-      ('অ্যালার্ম', Icons.alarm_rounded, C.orange, C.orangeTint, () => push(const AlarmsScreen())),
-      ('রিমাইন্ডার', Icons.notifications_none_rounded, C.orange, C.orangeTint, () => push(const AllTasksScreen())),
-      ('কাজের তালিকা', Icons.checklist_rounded, C.green, C.greenTint, () => goToTab(context, ShellTab.diary)),
-      ('আয়-ব্যয়', Icons.account_balance_wallet_outlined, C.green, C.greenTint, () => goToTab(context, ShellTab.money, money: MoneyPart.cash)),
-      ('লেনদেন', Icons.swap_horiz_rounded, const Color(0xFF0F766E), const Color(0xFFE6F6F4), () => goToTab(context, ShellTab.money, money: MoneyPart.loans)),
-      ('নোট', Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, () => push(const NotesScreen())),
-      ('ডকুমেন্টস', Icons.folder_copy_outlined, C.blue, C.blueTint, () => push(const DocsScreen())),
-      ('পাসওয়ার্ড', Icons.lock_outline_rounded, C.ink, const Color(0xFFF1F2F4), () => push(const VaultPage())),
-      ('যোগাযোগ', Icons.call_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
-      ('বাংলা তারিখ', Icons.eco_outlined, const Color(0xFF0F766E), const Color(0xFFE6F6F4), () => push(const CalendarScreen())),
-      ('ছুটির দিন', Icons.flag_outlined, const Color(0xFFBE123C), const Color(0xFFFFF1F2), () => push(const CalendarScreen())),
-      ('খুঁজুন', Icons.search_rounded, C.ink, const Color(0xFFF1F2F4), () => push(const SearchScreen())),
+      (tr('অ্যালার্ম'), Icons.alarm_rounded, C.orange, C.orangeTint, () => push(const AlarmsScreen())),
+      (tr('রিমাইন্ডার'), Icons.notifications_none_rounded, C.orange, C.orangeTint, () => push(const AllTasksScreen())),
+      (tr('কাজের তালিকা'), Icons.checklist_rounded, C.green, C.greenTint, () => goToTab(context, ShellTab.diary)),
+      (tr('আয়-ব্যয়'), Icons.account_balance_wallet_outlined, C.green, C.greenTint, () => goToTab(context, ShellTab.money, money: MoneyPart.cash)),
+      (tr('লেনদেন'), Icons.swap_horiz_rounded, C.teal, C.tealTint, () => goToTab(context, ShellTab.money, money: MoneyPart.loans)),
+      (tr('নোট'), Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, () => push(const NotesScreen())),
+      (tr('ডকুমেন্টস'), Icons.folder_copy_outlined, C.blue, C.blueTint, () => push(const DocsScreen())),
+      (tr('পাসওয়ার্ড'), Icons.lock_outline_rounded, C.ink, C.soft, () => push(const VaultPage())),
+      (tr('যোগাযোগ'), Icons.call_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
+      (tr('বাংলা তারিখ'), Icons.eco_outlined, C.teal, C.tealTint, () => push(const CalendarScreen())),
+      (tr('ছুটির দিন'), Icons.flag_outlined, C.rose, C.roseTint, () => push(const CalendarScreen())),
+      (tr('খুঁজুন'), Icons.search_rounded, C.ink, C.soft, () => push(const SearchScreen())),
     ];
 
-    return ListView(
+    if (brain.easyMode) return const EasyHome();
+
+    return Column(children: [
+      Expanded(
+        child: ListView(
       padding: EdgeInsets.zero,
       children: [
         Container(
           padding: EdgeInsets.fromLTRB(20, top + 14, 20, 18),
-          decoration: const BoxDecoration(color: C.green, borderRadius: BorderRadius.vertical(bottom: Radius.circular(28))),
+          decoration: BoxDecoration(color: C.green, borderRadius: BorderRadius.vertical(bottom: Radius.circular(28))),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('${helloFor(now)}${brain.userName.isEmpty ? '' : ','}', style: body(14, color: Colors.white70)),
-                  Text(brain.userName.isEmpty ? 'আজ কী করে দেবো?' : brain.userName,
+                  Text(brain.userName.isEmpty ? tr('আজ কী করে দেবো?') : brain.userName,
                       style: display(24, weight: 700, color: Colors.white, height: 1.25), maxLines: 1, overflow: TextOverflow.ellipsis),
                 ]),
               ),
+              IconButton(
+                tooltip: tr('সেটিংস'),
+                onPressed: () => push(const MenuPage(child: MoreScreen())),
+                icon: const Icon(Icons.settings_outlined, color: Colors.white),
+              ),
+              const SizedBox(width: 2),
               Tooltip(
-                message: 'আমি',
-                child: Material(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: () => push(const MenuPage(child: MoreScreen())),
-                    child: const SizedBox(width: 42, height: 42, child: Icon(Icons.person_outline_rounded, color: Colors.white)),
-                  ),
+                message: tr('প্রোফাইল'),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => push(const MenuPage(child: MoreScreen())),
+                  child: const UserPhoto(size: 44, onDark: true),
                 ),
               ),
             ]),
@@ -106,9 +116,9 @@ class HomePage extends StatelessWidget {
             InkWell(
               onTap: () => push(const CalendarScreen()),
               child: Row(children: [
-                dateChip('আজ', '${weekdayName(now)}, ${bnDigits(now.day)} ${bnMonths[now.month - 1]}'),
+                dateChip(tr('আজ'), '${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)}'),
                 const SizedBox(width: 10),
-                dateChip('বাংলা · ${bd.season}কাল', bd.text),
+                dateChip(trf('বাংলা · {0}কাল', [bd.season]), bd.text),
               ]),
             ),
             const SizedBox(height: 8),
@@ -118,47 +128,15 @@ class HomePage extends StatelessWidget {
                 Row(mainAxisSize: MainAxisSize.min, children: [
                   const Icon(Icons.wb_twilight, size: 17, color: Color(0xFFFDE68A)),
                   const SizedBox(width: 5),
-                  Text('সূর্যোদয় ${bnTime(sun.sunrise.hour, sun.sunrise.minute)}', style: body(13, color: Colors.white)),
+                  Text(trf('সূর্যোদয় {0}', [bnTime(sun.sunrise.hour, sun.sunrise.minute)]), style: body(13, color: Colors.white)),
                 ]),
                 Row(mainAxisSize: MainAxisSize.min, children: [
                   const Icon(Icons.nights_stay_outlined, size: 17, color: Color(0xFFFDBA74)),
                   const SizedBox(width: 5),
-                  Text('সূর্যাস্ত ${bnTime(sun.sunset.hour, sun.sunset.minute)}', style: body(13, color: Colors.white)),
+                  Text(trf('সূর্যাস্ত {0}', [bnTime(sun.sunset.hour, sun.sunset.minute)]), style: body(13, color: Colors.white)),
                 ]),
-                Text('· ${brain.district}', style: body(13, color: Colors.white70)),
+                Text('· ${tr(brain.district)}', style: body(13, color: Colors.white70)),
               ]),
-            ),
-            const SizedBox(height: 12),
-            Material(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(24),
-                onTap: () => push(const SearchScreen()),
-                child: SizedBox(
-                  height: 48,
-                  child: Row(children: [
-                    const SizedBox(width: 16),
-                    const Icon(Icons.search_rounded, color: C.muted, size: 21),
-                    const SizedBox(width: 10),
-                    Expanded(child: Text('যেকোনো কিছু খুঁজুন…', style: body(14.5, color: C.muted))),
-                    Tooltip(
-                      message: 'বলে খুঁজুন',
-                      child: InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: () => openVoice(context),
-                        child: Container(
-                          width: 38,
-                          height: 38,
-                          margin: const EdgeInsets.only(right: 5),
-                          decoration: const BoxDecoration(color: C.greenTint, shape: BoxShape.circle),
-                          child: const Icon(Icons.mic_none_rounded, color: C.green, size: 20),
-                        ),
-                      ),
-                    ),
-                  ]),
-                ),
-              ),
             ),
           ]),
         ),
@@ -167,7 +145,7 @@ class HomePage extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             if (next != null && daysTo <= 30)
               Material(
-                color: const Color(0xFFFFF1F2),
+                color: C.roseTint,
                 borderRadius: BorderRadius.circular(16),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
@@ -175,18 +153,18 @@ class HomePage extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
                     child: Row(children: [
-                      const Icon(Icons.flag_outlined, color: Color(0xFFBE123C)),
+                      Icon(Icons.flag_outlined, color: C.rose),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(daysTo == 0 ? 'আজ ছুটি — ${next.name}' : '${next.name} — ছুটি আসছে',
-                              style: body(15, weight: FontWeight.w600, color: const Color(0xFF9F1239))),
+                          Text(daysTo == 0 ? trf('আজ ছুটি — {0}', [next.label]) : trf('{0} — ছুটি আসছে', [next.label]),
+                              style: body(15, weight: FontWeight.w600, color: C.roseDark)),
                           Text(
-                              '${holidayRange(next)}${next.days > 1 ? ' · টানা ${bnDigits(next.days)} দিন' : ''}${daysTo > 0 ? ' · ${bnDigits(daysTo)} দিন পর' : ''}',
-                              style: body(13, color: const Color(0xFF9F1239))),
+                              '${holidayRange(next)}${next.days > 1 ? ' · ${trf('টানা {0} দিন', [bnDigits(next.days)])}' : ''}${daysTo > 0 ? ' · ${trf('{0} দিন পর', [bnDigits(daysTo)])}' : ''}',
+                              style: body(13, color: C.roseDark)),
                         ]),
                       ),
-                      const Icon(Icons.chevron_right_rounded, color: Color(0xFF9F1239)),
+                      Icon(Icons.chevron_right_rounded, color: C.roseDark),
                     ]),
                   ),
                 ),
@@ -204,17 +182,17 @@ class HomePage extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
                   child: Row(children: [
-                    _Figure('পাওনা', taka(t.receivable), C.green),
-                    _Figure('দেনা', taka(t.payable), C.orange),
-                    _Figure('এ মাসে খরচ', taka(month.expense), C.ink),
-                    const Icon(Icons.chevron_right_rounded, color: C.muted),
+                    _Figure(tr('পাওনা'), taka(t.receivable), C.green),
+                    _Figure(tr('দেনা'), taka(t.payable), C.orange),
+                    _Figure(tr('এ মাসে খরচ'), taka(month.expense), C.ink),
+                    Icon(Icons.chevron_right_rounded, color: C.muted),
                   ]),
                 ),
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
-              child: Text('সব কিছু এক জায়গায়', style: body(13, weight: FontWeight.w600, color: C.muted)),
+              child: Text(tr('সব কিছু এক জায়গায়'), style: body(13, weight: FontWeight.w600, color: C.muted)),
             ),
             Container(
               padding: const EdgeInsets.symmetric(vertical: 6),
@@ -246,7 +224,10 @@ class HomePage extends StatelessWidget {
           ]),
         ),
       ],
-    );
+        ),
+      ),
+      const AssistantBar(),
+    ]);
   }
 }
 
@@ -267,7 +248,7 @@ class _Figure extends StatelessWidget {
 
 /// "২০–২৪ অক্টোবর", or "১৬ ডিসেম্বর".
 String holidayRange(HolidayRun r) {
-  if (r.days == 1) return '${bnDigits(r.start.day)} ${bnMonths[r.start.month - 1]}';
-  if (r.start.month == r.end.month) return '${bnDigits(r.start.day)}–${bnDigits(r.end.day)} ${bnMonths[r.start.month - 1]}';
-  return '${bnDigits(r.start.day)} ${bnMonths[r.start.month - 1]} – ${bnDigits(r.end.day)} ${bnMonths[r.end.month - 1]}';
+  if (r.days == 1) return '${bnDigits(r.start.day)} ${monthName(r.start.month)}';
+  if (r.start.month == r.end.month) return '${bnDigits(r.start.day)}–${bnDigits(r.end.day)} ${monthName(r.start.month)}';
+  return '${bnDigits(r.start.day)} ${monthName(r.start.month)} – ${bnDigits(r.end.day)} ${monthName(r.end.month)}';
 }

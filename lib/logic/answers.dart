@@ -12,6 +12,7 @@ import 'phrases.dart';
 import 'search.dart';
 import 'talk.dart';
 import 'when.dart';
+import 'lang.dart';
 
 /// Logins to show for a vault question: the matches, or (when nothing
 /// matched by name) all of them so the user can pick.
@@ -25,16 +26,16 @@ String vaultAnswer(AppData d, VaultQuery q) {
   final found = searchVault(d, q.terms, wifiOnly: q.wifiOnly);
   if (found.isEmpty && d.vault.isNotEmpty) {
     return q.terms.isEmpty && !q.wifiOnly
-        ? 'এই যে আপনার রাখা লগইনগুলো। কোনটা লাগবে ছুঁয়ে খুলুন — আঙুলের ছাপ বা PIN লাগবে।'
-        : 'নাম দিয়ে ঠিক মেলাতে পারিনি। আপনার রাখা লগইনগুলো নিচে আছে, কোনটা লাগবে দেখে নিন।';
+        ? tr('এই যে আপনার রাখা লগইনগুলো। কোনটা লাগবে ছুঁয়ে খুলুন — আঙুলের ছাপ বা PIN লাগবে।')
+        : tr('নাম দিয়ে ঠিক মেলাতে পারিনি। আপনার রাখা লগইনগুলো নিচে আছে, কোনটা লাগবে দেখে নিন।');
   }
   if (found.isEmpty) {
-    return q.wifiOnly ? 'Wi-Fi-এর কোনো তথ্য এখনো রাখা হয়নি। চাইলে এখনই রেখে দিতে পারেন।' : 'এখনো কোনো পাসওয়ার্ড রাখা হয়নি। চাইলে এখনই রেখে দিতে পারেন।';
+    return q.wifiOnly ? tr('Wi-Fi-এর কোনো তথ্য এখনো রাখা হয়নি। চাইলে এখনই রেখে দিতে পারেন।') : tr('এখনো কোনো পাসওয়ার্ড রাখা হয়নি। চাইলে এখনই রেখে দিতে পারেন।');
   }
   if (found.length == 1) {
-    return '${possessive(found.first.name)} তথ্য পেয়েছি! তবে পাসওয়ার্ড গোপন জিনিস, তাই জোরে বলব না। আঙুলের ছাপ দিয়ে খুলুন, স্ক্রিনে দেখাব।';
+    return trf('{0} তথ্য পেয়েছি! তবে পাসওয়ার্ড গোপন জিনিস, তাই জোরে বলব না। আঙুলের ছাপ দিয়ে খুলুন, স্ক্রিনে দেখাব।', [possessive(found.first.name)]);
   }
-  return '${bnDigits(found.length)}টা মিলেছে। কোনটা লাগবে ছুঁয়ে খুলুন — আঙুলের ছাপ বা PIN লাগবে।';
+  return trf('{0}টা মিলেছে। কোনটা লাগবে ছুঁয়ে খুলুন — আঙুলের ছাপ বা PIN লাগবে।', [bnDigits(found.length)]);
 }
 
 /// "• সন্ধ্যা ৬টা ২০ — বাজার" lines for reminders.
@@ -52,29 +53,29 @@ String reminderAnswer(AppData d, ReminderQuery q, DateTime now) {
   if (w != null && w.hasDay) {
     final onDay = sorted.where((r) => dayOnly(r.nextDate(now)) == w.day).toList();
     final dayText = sayWhen(w.day, now, withTime: false);
-    if (onDay.isEmpty) return '$dayText কোনো রিমাইন্ডার নেই। রাখতে চাইলে বলুন — যেমন “সন্ধ্যা ৭টায় মিটিং মনে করিয়ে দিও”।';
-    return '$dayText ${bnDigits(onDay.length)}টা রিমাইন্ডার আছে:\n${_reminderLines(onDay, now)}';
+    if (onDay.isEmpty) return trf('{0} কোনো রিমাইন্ডার নেই। রাখতে চাইলে বলুন — যেমন “সন্ধ্যা ৭টায় মিটিং মনে করিয়ে দিও”।', [dayText]);
+    return trf('{0} {1}টা রিমাইন্ডার আছে:\n{2}', [dayText, bnDigits(onDay.length), _reminderLines(onDay, now)]);
   }
   final found = searchReminders(d, q.terms);
   if (found.isEmpty) {
     final upcoming = sorted.where((r) => !r.nextDate(now).isBefore(dayOnly(now))).take(5).toList();
-    if (upcoming.isEmpty) return 'এখনো কোনো রিমাইন্ডার রাখা নেই। রাখতে চাইলে বলুন — যেমন “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”।';
-    return 'ঠিক এই নামে কিছু পেলাম না। সামনের রিমাইন্ডারগুলো:\n${_reminderLines(upcoming, now, withDay: true)}';
+    if (upcoming.isEmpty) return tr('এখনো কোনো রিমাইন্ডার রাখা নেই। রাখতে চাইলে বলুন — যেমন “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”।');
+    return trf('ঠিক এই নামে কিছু পেলাম না। সামনের রিমাইন্ডারগুলো:\n{0}', [_reminderLines(upcoming, now, withDay: true)]);
   }
   final r = found.first;
   final day = r.nextDate(now);
   final left = dayOnly(day).difference(dayOnly(now)).inDays;
-  final when = left == 0 ? 'মানে আজকেই' : (left == 1 ? 'মানে কালকেই' : (left > 0 ? 'আর ${bnDigits(left)} দিন আছে' : '${bnDigits(-left)} দিন আগে চলে গেছে'));
-  return '${r.title} ${weekdayName(day)}, ${bnDigits(day.day)} ${bnMonths[day.month - 1]}। $when।';
+  final when = left == 0 ? tr('মানে আজকেই') : (left == 1 ? tr('মানে কালকেই') : (left > 0 ? trf('আর {0} দিন আছে', [bnDigits(left)]) : trf('{0} দিন আগে চলে গেছে', [bnDigits(-left)])));
+  return '${r.title} ${weekdayName(day)}, ${bnDigits(day.day)} ${monthName(day.month)}। $when।';
 }
 
 String searchAnswer(AppData d, SearchQuery q, DateTime now) {
   final hits = searchAll(d, q.terms);
-  if (hits.isEmpty) return 'এ নিয়ে আমার কাছে কিছু লেখা নেই। চাইলে এখনই রেখে দিতে পারেন।';
+  if (hits.isEmpty) return tr('এ নিয়ে আমার কাছে কিছু লেখা নেই। চাইলে এখনই রেখে দিতে পারেন।');
   // Say the best match itself, not just "found N things".
   final best = hits.first;
   final tied = hits.where((h) => h.score == best.score).length;
-  final lead = tied > 1 ? 'কয়েকটা মিলেছে। সবচেয়ে কাছেরটা হলো — ' : '';
+  final lead = tied > 1 ? tr('কয়েকটা মিলেছে। সবচেয়ে কাছেরটা হলো — ') : '';
   return '$lead${hitAnswer(d, best, now)}';
 }
 
@@ -87,46 +88,77 @@ String hitAnswer(AppData d, Hit h, DateTime now) {
         ? end('${contact.name}${contact.note.isEmpty ? '' : ' — ${contact.note}'}')
         : end('${possessive(contact.name)} নম্বর ${bnDigits(contact.phone)}'),
     ReminderHit(:final reminder) => end(
-        '${reminder.title} ${weekdayName(reminder.nextDate(now))}, ${bnDigits(reminder.nextDate(now).day)} ${bnMonths[reminder.nextDate(now).month - 1]}'),
+        '${reminder.title} ${weekdayName(reminder.nextDate(now))}, ${bnDigits(reminder.nextDate(now).day)} ${monthName(reminder.nextDate(now).month)}'),
     PersonHit(:final person) => end(owesText(person, balanceWith(d.ledger, person))),
     VaultHit(:final item) => '${possessive(item.name)} তথ্য পেয়েছি! তবে এটা গোপন জিনিস, তাই জোরে বলব না। আঙুলের ছাপ দিয়ে খুলুন, স্ক্রিনে দেখাব।',
   };
 }
 
-String ledgerAnswer(AppData d, LedgerQuery q) {
+String ledgerAnswer(AppData d, LedgerQuery q, [DateTime? now]) {
   final all = balances(d.ledger);
   switch (q.ask) {
     case LedgerAsk.person:
       final p = balanceOf(d.ledger, q.person!);
-      if (p == null) return '${possessive(q.person!)} সাথে তো কোনো হিসাব লেখা নেই।';
+      if (p == null) return trf('{0} সাথে তো কোনো হিসাব লেখা নেই।', [possessive(q.person!)]);
+      final period = periodIn(normalize(q.transcript), now ?? DateTime.now());
+      if (period != null) {
+        final (from, to, label) = period;
+        final inPeriod = [for (final (e, _) in runningFor(d.ledger, p.name)) if (!e.date.isBefore(from) && e.date.isBefore(to)) e];
+        if (inPeriod.isEmpty) return trf('{0} {1} সাথে কোনো লেনদেন হয়নি। {2}।', [label, possessive(p.name), owesText(p.name, p.balance)]);
+        int sum(LedgerKind k) => inPeriod.where((e) => e.kind == k).fold(0, (a, e) => a + e.amount);
+        final parts = [
+          if (sum(LedgerKind.lent) > 0) '${toPerson(p.name)} দিয়েছেন ${bnNumber(sum(LedgerKind.lent))} টাকা',
+          if (sum(LedgerKind.received) > 0) 'ফেরত পেয়েছেন ${bnNumber(sum(LedgerKind.received))} টাকা',
+          if (sum(LedgerKind.borrowed) > 0) '${possessive(p.name)} কাছ থেকে নিয়েছেন ${bnNumber(sum(LedgerKind.borrowed))} টাকা',
+          if (sum(LedgerKind.repaid) > 0) 'শোধ করেছেন ${bnNumber(sum(LedgerKind.repaid))} টাকা',
+        ];
+        return trf('{0} {1} ({2} বার)। এখন {3}।', [label, parts.join(', '), bnDigits(inPeriod.length), owesText(p.name, p.balance)]);
+      }
       final hist = runningFor(d.ledger, p.name);
       final last = hist.isEmpty ? null : hist.last.$1;
-      final lastText = last == null ? '' : ' শেষ লেনদেন ছিল ${bnDigits(last.date.day)} ${bnMonths[last.date.month - 1]}।';
+      final lastText = last == null ? '' : trf(' শেষ লেনদেন ছিল {0} {1}।', [bnDigits(last.date.day), monthName(last.date.month)]);
       return '${owesText(p.name, p.balance)}।$lastText';
     case LedgerAsk.receivable:
       final owe = all.where((p) => p.balance > 0).toList();
-      if (owe.isEmpty) return 'এখন কারও কাছে আপনার কিছু পাওনা নেই।';
+      if (owe.isEmpty) return tr('এখন কারও কাছে আপনার কিছু পাওনা নেই।');
       final sum = owe.fold<int>(0, (s, p) => s + p.balance);
       final who = nameList([for (final p in owe) '${possessive(p.name)} কাছে ${bnNumber(p.balance)}']);
-      return 'সব মিলিয়ে আপনি ${bnNumber(sum)} টাকা পাবেন — $who।';
+      return trf('সব মিলিয়ে আপনি {0} টাকা পাবেন — {1}।', [bnNumber(sum), who]);
     case LedgerAsk.payable:
       final iOwe = all.where((p) => p.balance < 0).toList();
-      if (iOwe.isEmpty) return 'কাউকে কিছু দিতে হবে না, সব শোধ!';
+      if (iOwe.isEmpty) return tr('কাউকে কিছু দিতে হবে না, সব শোধ!');
       final sum = iOwe.fold<int>(0, (s, p) => s - p.balance);
       final who = nameList([for (final p in iOwe) '${toPerson(p.name)} ${bnNumber(-p.balance)}']);
-      return 'সব মিলিয়ে আপনাকে ${bnNumber(sum)} টাকা দিতে হবে — $who।';
+      return trf('সব মিলিয়ে আপনাকে {0} টাকা দিতে হবে — {1}।', [bnNumber(sum), who]);
     case LedgerAsk.all:
       final t = totals(d.ledger);
-      return 'আপনি পাবেন মোট ${bnNumber(t.receivable)} টাকা, আর আপনাকে দিতে হবে ${bnNumber(t.payable)} টাকা।';
+      return trf('আপনি পাবেন মোট {0} টাকা, আর আপনাকে দিতে হবে {1} টাকা।', [bnNumber(t.receivable), bnNumber(t.payable)]);
   }
+}
+
+/// A span of time said in a question: "গত মাসে", "এই সপ্তাহে", "আজ"…
+/// (start inclusive, end exclusive, the words to repeat).
+(DateTime, DateTime, String)? periodIn(String text, DateTime now) {
+  final today = DateTime(now.year, now.month, now.day);
+  final weekStart = today.subtract(Duration(days: (today.weekday + 1) % 7));
+  bool has(List<String> w) => w.any((x) => text.contains(fold(x)));
+  if (has(['গত মাসে', 'গত মাসের', 'আগের মাসে', 'last month'])) return (DateTime(now.year, now.month - 1), DateTime(now.year, now.month), 'গত মাসে');
+  if (has(['এই মাসে', 'এ মাসে', 'এই মাসের', 'this month'])) return (DateTime(now.year, now.month), DateTime(now.year, now.month + 1), 'এই মাসে');
+  if (has(['গত সপ্তাহে', 'গত সপ্তাহের', 'last week'])) return (weekStart.subtract(const Duration(days: 7)), weekStart, 'গত সপ্তাহে');
+  if (has(['এই সপ্তাহে', 'এ সপ্তাহে', 'this week'])) return (weekStart, weekStart.add(const Duration(days: 7)), 'এই সপ্তাহে');
+  if (has(['গত বছর', 'last year'])) return (DateTime(now.year - 1), DateTime(now.year), 'গত বছর');
+  if (has(['এই বছর', 'এ বছর', 'this year'])) return (DateTime(now.year), DateTime(now.year + 1), 'এই বছর');
+  if (has(['গতকাল', 'yesterday'])) return (today.subtract(const Duration(days: 1)), today, 'গতকাল');
+  if (has(['আজকে', 'today']) || text.split(' ').contains('আজ')) return (today, today.add(const Duration(days: 1)), 'আজ');
+  return null;
 }
 
 /// "ক, খ, আর গ" (at most four, then "আরও N জন").
 String nameList(List<String> parts, {String unit = 'জন'}) {
   final shown = parts.take(4).toList();
   final more = parts.length - shown.length;
-  final head = shown.length > 1 ? '${shown.sublist(0, shown.length - 1).join(', ')}, আর ${shown.last}' : shown.join();
-  return more > 0 ? '$head, এবং আরও ${bnDigits(more)} $unit' : head;
+  final head = shown.length > 1 ? trf('{0}, আর {1}', [shown.sublist(0, shown.length - 1).join(', '), shown.last]) : shown.join();
+  return more > 0 ? trf('{0}, এবং আরও {1} {2}', [head, bnDigits(more), unit]) : head;
 }
 
 /// Open to-dos: overdue and today's first, then undated, then later ones.
@@ -146,14 +178,14 @@ List<Task> openTasksOf(AppData d, DateTime now) {
 String taskLabel(Task t, DateTime now) {
   if (t.due == null) return t.title;
   final diff = dayOnly(t.due!).difference(dayOnly(now)).inDays;
-  final when = diff < 0 ? 'দেরি হয়ে গেছে' : sayWhen(t.due!, now, withTime: false);
+  final when = diff < 0 ? tr('দেরি হয়ে গেছে') : sayWhen(t.due!, now, withTime: false);
   return '${t.title} ($when)';
 }
 
 String taskAnswer(AppData d, DateTime now) {
   final open = openTasksOf(d, now);
-  if (open.isEmpty) return 'এখন কোনো কাজ বাকি নেই। নতুন কাজ বললে তালিকায় তুলে রাখব।';
-  return '${bnDigits(open.length)}টা কাজ বাকি — ${nameList([for (final t in open) taskLabel(t, now)], unit: 'টা')}।';
+  if (open.isEmpty) return tr('এখন কোনো কাজ বাকি নেই। নতুন কাজ বললে তালিকায় তুলে রাখব।');
+  return trf('{0}টা কাজ বাকি — {1}।', [bnDigits(open.length), nameList([for (final t in open) taskLabel(t, now)], unit: 'টা')]);
 }
 
 /// "এই মাসে কত খরচ হলো?" / "রহিম ভবন প্রজেক্টে কত আছে?"
@@ -163,41 +195,40 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
     final p = projectByName(d, name);
     if (p == null) {
       return d.projects.isEmpty
-          ? 'এখনো কোনো প্রজেক্ট খোলা হয়নি। বলুন, যেমন “রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো”।'
-          : '${name.isEmpty ? 'কোন প্রজেক্ট' : '‘$name’ নামে প্রজেক্ট'} খুঁজে পাইনি। আছে: ${nameList([for (final x in d.projects) x.name], unit: 'টা')}।';
+          ? tr('এখনো কোনো প্রজেক্ট খোলা হয়নি। বলুন, যেমন “রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো”।')
+          : trf('{0} খুঁজে পাইনি। আছে: {1}।', [name.isEmpty ? 'কোন প্রজেক্ট' : '‘$name’ নামে প্রজেক্ট', nameList([for (final x in d.projects) x.name], unit: 'টা')]);
     }
     final s = projectSums(d.cash, p.id);
-    return '‘${p.name}’ প্রজেক্টে এসেছে ${bnNumber(s.income)} টাকা, খরচ হয়েছে ${bnNumber(s.expense)} টাকা, হাতে আছে ${bnNumber(s.balance)} টাকা।';
+    return trf('‘{0}’ প্রজেক্টে এসেছে {1} টাকা, খরচ হয়েছে {2} টাকা, হাতে আছে {3} টাকা।', [p.name, bnNumber(s.income), bnNumber(s.expense), bnNumber(s.balance)]);
   }
   final s = monthSums(d.cash, now);
-  if (s.income == 0 && s.expense == 0) return 'এই মাসে এখনো কোনো আয় বা খরচ লেখা হয়নি। বলুন, যেমন “বাজারে ৫০০ টাকা খরচ হলো”।';
+  if (s.income == 0 && s.expense == 0) return tr('এই মাসে এখনো কোনো আয় বা খরচ লেখা হয়নি। বলুন, যেমন “বাজারে ৫০০ টাকা খরচ হলো”।');
   final top = s.topExpenses;
-  final most = top.isEmpty ? '' : ' সবচেয়ে বেশি খরচ ${top.first.key} খাতে — ${bnNumber(top.first.value)} টাকা।';
-  return 'এই মাসে আয় ${bnNumber(s.income)} টাকা, খরচ ${bnNumber(s.expense)} টাকা, '
-      '${s.balance >= 0 ? 'সঞ্চয় ${bnNumber(s.balance)} টাকা' : 'আয়ের চেয়ে ${bnNumber(-s.balance)} টাকা বেশি খরচ'}।$most';
+  final most = top.isEmpty ? '' : trf(' সবচেয়ে বেশি খরচ {0} খাতে — {1} টাকা।', [top.first.key, bnNumber(top.first.value)]);
+  return trf('এই মাসে আয় {0} টাকা, খরচ {1} টাকা, {2}।{3}', [bnNumber(s.income), bnNumber(s.expense), s.balance >= 0 ? 'সঞ্চয় ${bnNumber(s.balance)} টাকা' : 'আয়ের চেয়ে ${bnNumber(-s.balance)} টাকা বেশি খরচ', most]);
 }
 
 /// "আজ আমার কী কী আছে?" — the day at a glance.
 String briefingAnswer(AppData d, DateTime now) {
   final today = dayOnly(now);
-  final parts = <String>['আজ ${weekdayName(now)}, ${bnDigits(now.day)} ${bnMonths[now.month - 1]}।'];
+  final parts = <String>['আজ ${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)}।'];
   final dueNow = openTasksOf(d, now).where((t) => t.due == null || !t.due!.isAfter(today)).toList();
   if (dueNow.isNotEmpty) {
-    parts.add('কাজ বাকি ${bnDigits(dueNow.length)}টা — ${nameList([for (final t in dueNow) t.title], unit: 'টা')}।');
+    parts.add(trf('কাজ বাকি {0}টা — {1}।', [bnDigits(dueNow.length), nameList([for (final t in dueNow) t.title], unit: 'টা')]));
   }
   final rems = [...d.reminders]..sort((a, b) => a.notifyAt(now).compareTo(b.notifyAt(now)));
   final todays = rems.where((r) => dayOnly(r.nextDate(now)) == today).toList();
   final tomorrows = rems.where((r) => dayOnly(r.nextDate(now)) == today.add(const Duration(days: 1))).toList();
   if (todays.isNotEmpty) {
-    parts.add('আজ মনে রাখার: ${nameList([for (final r in todays) r.daysBefore == 0 ? '${bnTime(r.hour, r.minute)} ${r.title}' : r.title], unit: 'টা')}।');
+    parts.add(trf('আজ মনে রাখার: {0}।', [nameList([for (final r in todays) r.daysBefore == 0 ? '${bnTime(r.hour, r.minute)} ${r.title}' : r.title], unit: 'টা')]));
   }
-  if (tomorrows.isNotEmpty) parts.add('কাল আছে: ${nameList([for (final r in tomorrows) r.title], unit: 'টা')}।');
+  if (tomorrows.isNotEmpty) parts.add(trf('কাল আছে: {0}।', [nameList([for (final r in tomorrows) r.title], unit: 'টা')]));
   final t = totals(d.ledger);
-  if (t.receivable > 0) parts.add('পাওনা আছে মোট ${bnNumber(t.receivable)} টাকা।');
-  if (t.payable > 0) parts.add('আপনাকে দিতে হবে মোট ${bnNumber(t.payable)} টাকা।');
+  if (t.receivable > 0) parts.add(trf('পাওনা আছে মোট {0} টাকা।', [bnNumber(t.receivable)]));
+  if (t.payable > 0) parts.add(trf('আপনাকে দিতে হবে মোট {0} টাকা।', [bnNumber(t.payable)]));
   final month = monthSums(d.cash, now);
-  if (month.expense > 0) parts.add('এই মাসে খরচ হয়েছে ${bnNumber(month.expense)} টাকা।');
-  if (parts.length == 1) parts.add('আজ তেমন কিছু রাখা নেই — কোনো কাজ বা মনে করানোর কথা নেই। কিছু থাকলে বলুন, লিখে রাখি।');
+  if (month.expense > 0) parts.add(trf('এই মাসে খরচ হয়েছে {0} টাকা।', [bnNumber(month.expense)]));
+  if (parts.length == 1) parts.add(tr('আজ তেমন কিছু রাখা নেই — কোনো কাজ বা মনে করানোর কথা নেই। কিছু থাকলে বলুন, লিখে রাখি।'));
   return parts.join(' ');
 }
 
@@ -205,15 +236,15 @@ String briefingAnswer(AppData d, DateTime now) {
 /// numbers themselves are on the যোগাযোগ page).
 String contactsAnswer(AppData d) {
   final n = d.contacts.length;
-  if (n == 0) return 'এখনো কোনো নম্বর রাখা নেই। “যোগাযোগ” পাতা থেকে ফোনবুকের সব নম্বর এক চাপে আনতে পারেন।';
+  if (n == 0) return tr('এখনো কোনো নম্বর রাখা নেই। “যোগাযোগ” পাতা থেকে ফোনবুকের সব নম্বর এক চাপে আনতে পারেন।');
   final names = ([...d.contacts]..sort((a, b) => a.name.compareTo(b.name))).take(4).map((c) => c.name).toList();
-  return '${bnDigits(n)} জনের নম্বর রাখা আছে${n > names.length ? ' — যেমন ${nameList(names, unit: 'জন')}' : ' — ${nameList(names, unit: 'জন')}'}। সব দেখতে নিচে চাপুন।';
+  return trf('{0} জনের নম্বর রাখা আছে{1}। সব দেখতে নিচে চাপুন।', [bnDigits(n), n > names.length ? ' — যেমন ${nameList(names, unit: 'জন')}' : ' — ${nameList(names, unit: 'জন')}']);
 }
 
 /// The answer to a question or a bit of conversation. Null for commands
 /// that save or do something (those are confirmed or done instead).
 String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
-      LedgerQuery() => ledgerAnswer(d, cmd),
+      LedgerQuery() => ledgerAnswer(d, cmd, now),
       VaultQuery() => vaultAnswer(d, cmd),
       ReminderQuery() => reminderAnswer(d, cmd, now),
       SearchQuery() => searchAnswer(d, cmd, now),
@@ -224,7 +255,7 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       Briefing() => briefingAnswer(d, now),
       ContactsQuery() => contactsAnswer(d),
       NotUnderstood() => 'দুঃখিত, ঠিক বুঝতে পারিনি। একটু অন্যভাবে আরেকবার বলবেন?',
-      LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TaskDone() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() || VaultAdd() => null,
+      LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TaskDone() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() => null,
     };
 
 /// The saved contact for a spoken name ("রহিম", "রহিম ভাই", "Rahim").
