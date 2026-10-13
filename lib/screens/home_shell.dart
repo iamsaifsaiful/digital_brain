@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../state/brain.dart';
 import '../ui/theme.dart';
+import 'assistant_bar.dart';
 import 'chat_home.dart';
 import 'diary_screen.dart';
 import 'home_page.dart';
@@ -9,8 +10,8 @@ import 'ledger_screen.dart';
 import 'store_screen.dart';
 import '../logic/lang.dart';
 
-/// হোম · দিনলিপি · (সহকারী) · হিসাব · সংরক্ষণ — an organiser with the
-/// assistant always one tap away in the middle.
+/// হোম · দিনলিপি · হিসাব · সংরক্ষণ — an organiser, with the assistant's
+/// box and mic at the bottom of every page.
 enum ShellTab { home, diary, money, store }
 
 class HomeShell extends StatefulWidget {
@@ -52,17 +53,23 @@ class HomeShellState extends State<HomeShell> {
         if (!didPop) go(ShellTab.home);
       },
       child: Scaffold(
-        body: IndexedStack(
-          index: _tab.index,
-          children: [
-            const HomePage(),
-            const SafeArea(bottom: false, child: DiaryScreen()),
-            SafeArea(bottom: false, child: MoneyScreen(key: _money)),
-            const SafeArea(bottom: false, child: StoreScreen()),
-          ],
-        ),
-        // On Home the mic sits in the bar right above, so the middle button opens the chat.
-        bottomNavigationBar: _Nav(current: _tab, onTab: go, onAssistant: () => _tab == ShellTab.home && !BrainScope.of(context).easyMode ? openAssistant(context) : openVoice(context)),
+        body: Column(children: [
+          Expanded(
+            child: IndexedStack(
+              index: _tab.index,
+              children: [
+                const HomePage(),
+                const SafeArea(bottom: false, child: DiaryScreen()),
+                SafeArea(bottom: false, child: MoneyScreen(key: _money)),
+                const SafeArea(bottom: false, child: StoreScreen()),
+              ],
+            ),
+          ),
+          // One box for every page: find, save or ask; the mic beside it.
+          // (Easy mode has its own big buttons.) In the body, so it rides above the keyboard.
+          if (!BrainScope.of(context).easyMode || _tab != ShellTab.home) AssistantBar(questions: _tab == ShellTab.home),
+        ]),
+        bottomNavigationBar: _Nav(current: _tab, onTab: go),
       ),
     );
   }
@@ -119,10 +126,9 @@ class MenuPage extends StatelessWidget {
 }
 
 class _Nav extends StatelessWidget {
-  const _Nav({required this.current, required this.onTab, required this.onAssistant});
+  const _Nav({required this.current, required this.onTab});
   final ShellTab current;
   final void Function(ShellTab) onTab;
-  final VoidCallback onAssistant;
 
   @override
   Widget build(BuildContext context) {
@@ -136,56 +142,31 @@ class _Nav extends StatelessWidget {
           excludeSemantics: true,
           child: InkWell(
             onTap: () => onTab(t),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Icon(on ? active : icon, size: 24, color: on ? C.green : C.muted),
-                const SizedBox(height: 2),
-                Text(label, style: body(11.5, weight: on ? FontWeight.w600 : FontWeight.w400, color: on ? C.green : C.muted, height: 1.2)),
-              ]),
-            ),
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 56,
+                height: 30,
+                decoration: BoxDecoration(color: on ? C.greenTint : Colors.transparent, borderRadius: BorderRadius.circular(15)),
+                child: Icon(on ? active : icon, size: 23, color: on ? C.greenDark : C.muted),
+              ),
+              const SizedBox(height: 3),
+              Text(label, style: body(12, weight: on ? FontWeight.w600 : FontWeight.w400, color: on ? C.greenDark : C.muted, height: 1.2)),
+            ]),
           ),
         ),
       );
     }
 
     return Container(
-      decoration: BoxDecoration(color: C.surface, border: Border(top: BorderSide(color: C.line))),
+      decoration: BoxDecoration(color: C.surface, border: Border(top: BorderSide(color: C.line2))),
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 76,
+          height: 64,
           child: Row(children: [
             item(ShellTab.home, Icons.home_outlined, Icons.home_rounded, tr('হোম')),
             item(ShellTab.diary, Icons.event_note_outlined, Icons.event_note_rounded, tr('দিনলিপি')),
-            Expanded(
-              child: Tooltip(
-                message: tr('সহকারী'),
-                child: Semantics(
-                  button: true,
-                  label: tr('সহকারী'),
-                  excludeSemantics: true,
-                  child: GestureDetector(
-                    onTap: onAssistant,
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: C.green,
-                          shape: BoxShape.circle,
-                          boxShadow: [BoxShadow(color: C.green.withValues(alpha: 0.35), blurRadius: 12, offset: const Offset(0, 4))],
-                        ),
-                        child: Icon(current == ShellTab.home && !BrainScope.of(context).easyMode ? Icons.chat_bubble_outline_rounded : Icons.mic_none_rounded,
-                            color: Colors.white, size: current == ShellTab.home ? 23 : 26),
-                      ),
-                      const SizedBox(height: 1),
-                      Text(tr('সহকারী'), style: body(11.5, weight: FontWeight.w600, color: C.green, height: 1.2)),
-                    ]),
-                  ),
-                ),
-              ),
-            ),
             item(ShellTab.money, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, tr('হিসাব')),
             item(ShellTab.store, Icons.inventory_2_outlined, Icons.inventory_2_rounded, tr('সংরক্ষণ')),
           ]),

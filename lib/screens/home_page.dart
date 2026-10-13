@@ -15,7 +15,6 @@ import 'home_shell.dart';
 import 'ledger_screen.dart';
 import 'more_screen.dart';
 import 'settings_parts.dart';
-import 'assistant_bar.dart';
 import 'easy_home.dart';
 import 'notes_screen.dart';
 import 'plan_screens.dart';
@@ -226,7 +225,6 @@ class HomePage extends StatelessWidget {
       ],
         ),
       ),
-      const AssistantBar(),
     ]);
   }
 }

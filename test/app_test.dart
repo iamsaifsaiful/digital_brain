@@ -109,7 +109,7 @@ Future<Rig> start(WidgetTester t, {AppData? data, AiRoute? ai}) async {
   await enterPin(t, '1234');
   expect(find.text('PIN টি আবার দিন'), findsOneWidget);
   await enterPin(t, '1234');
-  expect(find.byTooltip('সহকারী'), findsOneWidget);
+  expect(find.byTooltip('বলুন'), findsOneWidget);
   return rig;
 }
 
@@ -130,7 +130,11 @@ Future<void> openMenu(WidgetTester t, String item) async {
 
 /// The assistant, ready to type.
 Future<void> openTyping(WidgetTester t) async {
-  await t.tap(find.byTooltip('সহকারী'));
+  if (find.text('আগের কথা').evaluate().isEmpty) {
+    await t.tap(find.text('হোম').last);
+    await settle(t);
+  }
+  await t.tap(find.text('আগের কথা'));
   await settle(t);
   if (find.byTooltip('লিখে বলুন').evaluate().isNotEmpty) {
     await t.tap(find.byTooltip('লিখে বলুন'));
@@ -151,7 +155,7 @@ void main() {
     await enterPin(t, '9999');
     expect(find.textContaining('PIN মেলেনি'), findsOneWidget);
     await enterPin(t, '1234');
-    expect(find.byTooltip('সহকারী'), findsOneWidget);
+    expect(find.byTooltip('বলুন'), findsOneWidget);
   });
 
   testWidgets('save a password, open it, reveal it', (t) async {
@@ -835,9 +839,15 @@ void main() {
           contacts: [Contact(name: 'রহিম', phone: '01712345678')],
           notes: [Note(title: 'রহিম ভবনের নকশা', body: 'রহিম ভবনের নকশা আলমারিতে', category: 'বাসা')],
         ));
+    // Typing in the box at the bottom shows matches right above it…
     await t.tap(find.text('খুঁজুন, রাখুন বা জিজ্ঞেস করুন…'));
     await settle(t);
-    await t.enterText(find.byType(TextField).first, 'রহিম');
+    await t.enterText(find.byType(TextField).last, 'রহিম');
+    await settle(t);
+    expect(find.text('রহিম ভবনের নকশা'), findsOneWidget);
+    expect(find.textContaining('সহকারীকে বলুন'), findsOneWidget);
+    // …and the full results page groups them.
+    await t.tap(find.text('সব মিল দেখুন'));
     await settle(t);
     expect(find.textContaining('যোগাযোগ ·'), findsOneWidget);
     expect(find.textContaining('নোট ·'), findsOneWidget);

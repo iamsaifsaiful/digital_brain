@@ -24,7 +24,7 @@ import 'vault_item_screen.dart';
 import '../logic/lang.dart';
 
 /// সহকারী: speak or type; it keeps, finds and answers. Opened from the
-/// green button in the middle of the bottom menu ([listen] starts the
+/// mic beside the box at the bottom of every page ([listen] starts the
 /// microphone), or with something already typed ([firstMessage]).
 class ChatHome extends StatefulWidget {
   const ChatHome({super.key, this.listen = false, this.firstMessage});
