@@ -73,8 +73,23 @@ class VoiceOption {
 /// How long the user must stay quiet before the app treats the sentence as
 /// finished. Short answers (হ্যাঁ / না) need less.
 /// The user may pause to think mid-sentence: only a longer quiet ends it.
-const sentenceSilence = Duration(milliseconds: 3200);
-const answerSilence = Duration(milliseconds: 1200);
+const sentenceSilence = Duration(milliseconds: 2600);
+const answerSilence = Duration(milliseconds: 1100);
+
+/// A sentence that sounds finished needs only a short quiet.
+const finishedSilence = Duration(milliseconds: 1300);
+
+/// Last words of a finished sentence: a request, a statement, a question.
+const _finishedEndings = [
+  'দাও', 'দিও', 'দিয়ো', 'দেন', 'দিন', 'করো', 'করেন', 'করুন', 'রাখো', 'রাখেন', 'রাখুন', 'যাও', 'খোলো', 'দেখাও', 'বলো', 'বলেন', 'বলুন', 'শোনাও', 'থামো', 'পাঠাও',
+  'আছে', 'আছেন', 'হবে', 'লাগবে', 'দিবে', 'দেবে', 'হলো', 'হল', 'হয়েছে', 'গেছে', 'নেই', 'ছি', 'ছে', 'লাম', 'লেন', 'বো', 'বেন',
+  'কত', 'কী', 'কি', 'কবে', 'কখন', 'কোথায়', 'কেন', 'কেমন', 'ধন্যবাদ', 'চাই',
+];
+
+final _finishedEnds = [for (final e in _finishedEndings) echoToken(e)];
+
+/// Words after which the speaker is surely going on.
+final _open = {for (final w in const ['আর', 'এবং', 'কিন্তু', 'যে', 'তারপর', 'মানে', 'আবার', 'তো', 'বা', 'অথবা', 'and', 'but']) echoToken(w)};
 
 class DeviceVoice extends Voice {
   final _stt = SpeechToText();
@@ -117,7 +132,6 @@ class DeviceVoice extends Voice {
   /// voice from the user's), and whether it is still speaking.
   List<String> _echo = const [];
   bool _talking = false;
-  bool _echoSeen = false;
   void Function()? _onSaid;
 
   String get _heard => '$_committed $_current'.trim();
@@ -128,26 +142,45 @@ class DeviceVoice extends Voice {
   String _withoutEcho(String heard) {
     final raw = heard.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
     final toks = [for (final w in raw) echoToken(w)];
-    final echo = _echo.toSet();
-    var k = 0;
-    while (k < toks.length && echo.contains(toks[k])) {
-      k++;
+    // The longest start of what was heard that is a piece of the app's own
+    // sentence, word for word (the microphone hearing the speaker).
+    var run = 0;
+    for (var len = toks.length; len >= 1; len--) {
+      if (_isPieceOfEcho(toks.sublist(0, len))) {
+        run = len;
+        break;
+      }
     }
-    if (k == toks.length) {
-      // Only the app's own words so far.
-      if (k > 0 && _talking) _echoSeen = true;
-      return (_talking || _echoSeen || k >= 2) ? '' : heard;
-    }
-    // While it speaks, the recogniser may mishear the app's voice: only
-    // clear talk from the user (two new words, or a stop word) counts.
+    final rest = toks.sublist(run);
     if (_talking) {
-      final rest = toks.sublist(k);
+      // While it speaks, only clear talk from the user counts (two words
+      // that are not the app's, or a stop word); the rest is its own voice.
+      final echo = _echo.toSet();
       final fresh = rest.where((t) => !echo.contains(t)).length;
       final stop = rest.any(_stopTokens.contains);
-      if (!stop && (fresh < 2 || fresh < rest.length * 0.4)) return '';
+      if (!stop && fresh < 2) return '';
     }
-    if (k >= 2 || (k >= 1 && _echoSeen)) return raw.sublist(k).join(' ');
-    return heard;
+    if (run == toks.length) {
+      // All of it is the app's sentence: echo if two words or more; a single
+      // word ("হ্যাঁ", "কাল") after it finished speaking is the user's.
+      return run >= 2 ? '' : heard;
+    }
+    return run >= 2 ? raw.sublist(run).join(' ') : heard;
+  }
+
+  bool _isPieceOfEcho(List<String> piece) {
+    if (piece.isEmpty || piece.length > _echo.length) return false;
+    for (var i = 0; i + piece.length <= _echo.length; i++) {
+      var ok = true;
+      for (var j = 0; j < piece.length; j++) {
+        if (_echo[i + j] != piece[j]) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok) return true;
+    }
+    return false;
   }
 
   /// The app was talked over: stop speaking and listen.
@@ -276,7 +309,20 @@ class DeviceVoice extends Voice {
   /// (Re)starts the quiet timer: the turn ends when it fires.
   void _armQuietTimer() {
     _quiet?.cancel();
-    _quiet = Timer(_silence, _finish);
+    _quiet = Timer(_quietFor(_words), _finish);
+  }
+
+  /// How long to wait after the last word: short when the sentence sounds
+  /// finished ("…মনে করিয়ে দিও", "…কত?"), longer when it does not ("…আর",
+  /// "রহিমকে ৫০০ টাকা") so a pause to think does not cut it.
+  Duration _quietFor(String words) {
+    if (_short) return answerSilence;
+    final w = words.trim().split(RegExp(r'\s+')).where((x) => x.isNotEmpty).toList();
+    if (w.isEmpty) return _silence;
+    final last = echoToken(w.last);
+    if (_open.contains(last)) return sentenceSilence;
+    if (w.length >= 3 && _finishedEnds.any(last.endsWith)) return finishedSilence;
+    return _silence;
   }
 
   void _handleError(SpeechRecognitionError e) {
@@ -462,7 +508,6 @@ class DeviceVoice extends Voice {
     _onError = onError;
     final speaking = say != null && say.trim().isNotEmpty && !muted;
     _echo = speaking ? [for (final w in forSpeech(say).split(RegExp(r'\s+'))) if (w.isNotEmpty) echoToken(w)] : const [];
-    _echoSeen = false;
     _talking = speaking;
     _onSaid = onSaid;
     await _startSession(turn);
@@ -482,6 +527,8 @@ class DeviceVoice extends Voice {
       if (turn != _turn || !_talking) return;
       // Finished speaking: from now on the user has the full quiet time.
       _talking = false;
+      // Only the app's own voice was heard: forget it, so it is not joined to what the user says next.
+      if (_words.isEmpty) _committed = '';
       _turnStarted = DateTime.now();
       _onSaid?.call();
     }());

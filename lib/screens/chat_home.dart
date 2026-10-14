@@ -420,6 +420,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
       _error = null;
     });
     var say = '';
+    _chat.voiceMode = _voice;
     try {
       say = await _chat.hear(said);
     } catch (e) {

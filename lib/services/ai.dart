@@ -62,7 +62,8 @@ abstract class AiBrain {
   /// Understands [said] (with the last few turns of the conversation in
   /// [history]). Returns null when no key is set; throws [AiError] when the
   /// call fails.
-  Future<AiRoute?> route(String said, AiContext ctx, {List<AiTurn> history = const []});
+  /// [fast]: a spoken turn — the quick model, so the answer comes at once.
+  Future<AiRoute?> route(String said, AiContext ctx, {List<AiTurn> history = const [], bool fast = false});
 
   /// The key in use (empty = AI off).
   String get key;
@@ -108,11 +109,13 @@ class ClaudeAi implements AiBrain {
   static const _endpoint = 'https://api.anthropic.com/v1/messages';
 
   @override
-  Future<AiRoute?> route(String said, AiContext ctx, {List<AiTurn> history = const []}) async {
+  Future<AiRoute?> route(String said, AiContext ctx, {List<AiTurn> history = const [], bool fast = false}) async {
     if (key.trim().isEmpty) return null;
+    var fastAt = 0;
     while (true) {
-      final model = _models[_model];
-      final res = await _post(said, ctx, model, history);
+      final list = fast ? fastModels : _models;
+      final model = fast ? fastModels[fastAt.clamp(0, fastModels.length - 1)] : _models[_model];
+      final res = await _post(said, ctx, model, history, fast: fast || list == fastModels);
       if (res.statusCode == 200) {
         final body = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, Object?>;
         final text = StringBuffer();
@@ -132,9 +135,15 @@ class ClaudeAi implements AiBrain {
       if (res.statusCode == 400 && (low.contains('thinking') || low.contains('effort') || low.contains('output_config')) && _plain.add(model)) {
         continue;
       }
-      if ((res.statusCode == 404 || (res.statusCode == 400 && low.contains('model'))) && _model + 1 < _models.length) {
-        _model++;
-        continue;
+      if ((res.statusCode == 404 || (res.statusCode == 400 && low.contains('model')))) {
+        if (fast && fastAt + 1 < fastModels.length) {
+          fastAt++;
+          continue;
+        }
+        if (!fast && _model + 1 < _models.length) {
+          _model++;
+          continue;
+        }
       }
       if (res.statusCode == 401) throw AiError(tr('API key ঠিক নেই। সেটিংস থেকে key দেখে নিন।'));
       if (res.statusCode == 429) throw AiError(tr('এই মুহূর্তে অনেক বেশি অনুরোধ হয়েছে। একটু পরে চেষ্টা করুন।'));
@@ -144,7 +153,7 @@ class ClaudeAi implements AiBrain {
     }
   }
 
-  Future<http.Response> _post(String said, AiContext ctx, String model, List<AiTurn> history) async {
+  Future<http.Response> _post(String said, AiContext ctx, String model, List<AiTurn> history, {bool fast = false}) async {
     try {
       return await _client
           .post(
@@ -157,18 +166,23 @@ class ClaudeAi implements AiBrain {
             body: jsonEncode({
               'model': model,
               'max_tokens': 4000,
-              'system': _autoChoice.contains(model)
-                  ? '${systemPrompt(ctx)}\n\nAlways answer by calling the `route` tool exactly once; never answer in plain text.'
-                  : systemPrompt(ctx),
+              'system': [
+                {
+                  'type': 'text',
+                  'text': _autoChoice.contains(model) ? '${systemRules()}\nAlways answer by calling the `route` tool exactly once; never answer in plain text.\n' : systemRules(),
+                  'cache_control': {'type': 'ephemeral'},
+                },
+                {'type': 'text', 'text': systemContext(ctx)},
+              ],
               'tools': [_tool],
               'tool_choice': _autoChoice.contains(model) ? {'type': 'auto'} : {'type': 'tool', 'name': 'route'},
               // Think a little before answering (to catch what the user really
               // means), without the long thinking of hard tasks.
-              if (_autoChoice.contains(model) && !_plain.contains(model)) 'output_config': {'effort': 'medium'},
+              if (_autoChoice.contains(model) && !_plain.contains(model)) 'output_config': {'effort': fast ? 'low' : 'medium'},
               'messages': messagesFor(said, history),
             }),
           )
-          .timeout(Duration(seconds: _quality == AiQuality.best ? 45 : 20));
+          .timeout(Duration(seconds: fast ? 20 : (_quality == AiQuality.best ? 45 : 20)));
     } on TimeoutException {
       throw AiError(tr('ইন্টারনেট ধীর, AI সময়মতো উত্তর দেয়নি।'));
     } catch (e) {
@@ -206,12 +220,12 @@ List<Map<String, String>> messagesFor(String said, List<AiTurn> history) {
   return out;
 }
 
-/// The instructions sent with every sentence.
-String systemPrompt(AiContext ctx) {
-  final d = ctx.now;
-  final date = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-  final time = '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-  return '''
+/// The instructions sent with every sentence: the fixed rules (cached by
+/// the API, so they cost less and answer sooner) and today's context.
+String systemPrompt(AiContext ctx) => '${systemRules()}${systemContext(ctx)}';
+
+/// The fixed part of the instructions (the same for every message).
+String systemRules() => '''
 You are "My Assistant", a Bengali personal assistant app used in Bangladesh by busy people of every kind: shopkeepers and traders, business owners, office workers, doctors, teachers, drivers, farmers, freelancers, students and homemakers. Treat the user the way a capable human assistant would: take notes, keep their to-do list, set reminders, keep track of money owed (customers' বাকি, suppliers, loans, staff advances), keep phone numbers, call or message people for them, and answer questions. The user talks to it like a chat, turn after turn (speech-to-text, so expect mis-hearings and no punctuation) or types. Earlier turns are given for context: use them to understand short follow-ups ("ওকে আরও ২০০ দিলাম" = the same person as before; "আর ওর নম্বর?" etc.). Messages in [brackets] are the app's own notes, not the user's words. Think of the conversation as one thread: a short message ("আজ", "সন্ধ্যায়", "৫০০", "রহিম", "না, কাল", "ওটা বাদ দাও") almost always completes, answers or corrects the previous request or the app's last question — combine it with that request and act on the whole, never treat it as a new topic or say you found nothing. Work out what the latest message wants and call the `route` tool once.
 
 Understand every way people in Bangladesh talk: standard Bengali, Dhaka speech, regional dialects (Noakhali: টেয়া/টিয়া = টাকা; Chattogram: আঁই, গইজ্জি; Sylhet: কিতা, দিলাইছি; Barishal: মুই, মোরে; Rajshahi: দিনু, লিনু; Mymensingh…), Banglish in English letters ("Sajib ke 500 taka dilam"), and Bengali mixed with English words. Amounts may be in Bengali or English digits or words (দেড় হাজার, আড়াই শো, 2k).
@@ -260,6 +274,14 @@ reply: always fill it. It is shown in the chat and read aloud, so write it as na
 - "তুমি কী কী পারো?" / "এই অ্যাপে কী কী আছে?": answer from the app map below in 2–3 sentences and mention that any page can be opened by voice.
 - Write times the Bangladeshi way: সকাল/দুপুর/বিকেল/সন্ধ্যা/রাত + Bengali digits ("সন্ধ্যা ৬টা ২০")।
 - If you are not sure of a general-knowledge fact, say so briefly. Never ask for or repeat passwords or PINs.
+''';
+
+/// The part that changes: the time, the app map, the user's records.
+String systemContext(AiContext ctx) {
+  final d = ctx.now;
+  final date = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  final time = '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+  return '''
 Now is $date $time (Asia/Dhaka), ${_weekdays[d.weekday - 1]}.
 
 The app's parts (id: name — what it does), for `open` and for questions about the app:
@@ -352,9 +374,12 @@ class FakeAi implements AiBrain {
   @override
   String key = '';
 
+  final fastAsked = <bool>[];
+
   @override
-  Future<AiRoute?> route(String said, AiContext ctx, {List<AiTurn> history = const []}) async {
+  Future<AiRoute?> route(String said, AiContext ctx, {List<AiTurn> history = const [], bool fast = false}) async {
     if (key.isEmpty) return null;
+    fastAsked.add(fast);
     asked.add(said);
     histories.add(history);
     contexts.add(ctx);

@@ -32,7 +32,10 @@ void main() {
     expect(sent['tool_choice'], {'type': 'auto'});
     expect(sent['output_config'], {'effort': 'medium'});
     expect((sent['messages'] as List).single['content'], 'কেমন আছো');
-    expect(sent['system'], contains('সজীব'));
+    // The fixed rules are cached; the user's context comes after them.
+    final system = sent['system'] as List;
+    expect(system.first['cache_control'], {'type': 'ephemeral'});
+    expect(system.last['text'], contains('সজীব'));
     expect(headers['x-api-key'], 'sk-ant-test');
     expect(headers['anthropic-version'], '2023-06-01');
   });
@@ -130,5 +133,21 @@ void main() {
     expect(r!['reply'], 'জি, ভালো আছি।');
     expect(sent.first['tool_choice'], {'type': 'tool', 'name': 'route'});
     expect(sent.last['tool_choice'], {'type': 'auto'});
+  });
+
+  test('a spoken turn uses the quick model', () async {
+    late Map<String, Object?> sent;
+    final ai = ClaudeAi(
+      client: MockClient((req) async {
+        sent = jsonDecode(req.body) as Map<String, Object?>;
+        return http.Response(jsonEncode({
+          'content': [
+            {'type': 'tool_use', 'name': 'route', 'input': {'reply': 'জি', 'items': []}},
+          ],
+        }), 200, headers: {'content-type': 'application/json; charset=utf-8'});
+      }),
+    )..key = 'sk-ant-test';
+    await ai.route('কেমন আছো', AiContext(now: DateTime(2026, 10, 14)), fast: true);
+    expect(sent['model'], ClaudeAi.fastModels.first);
   });
 }

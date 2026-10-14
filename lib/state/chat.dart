@@ -125,6 +125,9 @@ class ChatController extends ChangeNotifier {
   /// after the reply and clears this.
   ChatLink? openNow;
 
+  /// The conversation is spoken: the quick AI model answers, so there is no wait.
+  bool voiceMode = false;
+
   ChatWait wait = ChatWait.none;
   List<ChatChoice> choices = const [];
   bool thinking = false;
@@ -546,7 +549,7 @@ class ChatController extends ChangeNotifier {
   Future<String> _understand(String t, List<String> out, {String? shown}) async {
     thinking = brain.aiOn;
     notifyListeners();
-    final (understood, problem) = await brain.understandAll(t, history: List.of(_history));
+    final (understood, problem) = await brain.understandAll(t, history: List.of(_history), fast: voiceMode);
     final cmds = _applyTopic(understood, t);
     thinking = false;
     if (problem != null) messages.add(ChatMessage.app(problem, info: true));

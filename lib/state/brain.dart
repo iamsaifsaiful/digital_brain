@@ -536,7 +536,7 @@ class Brain extends ChangeNotifier {
   /// Like [understand], for a chat: a long message may hold several things
   /// (never empty). [history] is the conversation so far, already cleaned
   /// of anything private.
-  Future<(List<Command>, String?)> understandAll(String said, {List<AiTurn> history = const []}) async {
+  Future<(List<Command>, String?)> understandAll(String said, {List<AiTurn> history = const [], bool fast = false}) async {
     final rules = parseAll(said, data.ledger, tasks: data.tasks, contacts: data.contacts, folders: folderHints, now: services.now());
     if (!aiOn) return (rules, null);
     // "নোট খোলো": opening a page needs no AI; blood group, allergies and
@@ -550,7 +550,7 @@ class Brain extends ChangeNotifier {
     }
     try {
       final clean = stripAddress(said).$1;
-      final r = await services.ai.route(clean.isEmpty ? said : clean, aiContext(), history: history);
+      final r = await services.ai.route(clean.isEmpty ? said : clean, aiContext(), history: history, fast: fast);
       if (r == null) return (rules, null);
       var cmds = commandsFromAi(said, r, data.ledger);
       // The rules plainly heard "remind me" but the AI read a question about
