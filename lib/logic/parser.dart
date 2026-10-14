@@ -711,6 +711,19 @@ class Parser {
       return ReminderQuery(said, terms: searchTerms(text));
     }
 
+    // "কাল রহিমকে ৫০০ টাকা দেবো": money promised for a day is a to-do, not a payment made.
+    if (!asking && amount != null) {
+      final when = parseWhen(said, now);
+      final promise = w.any((x) => const ['দেবো', 'দেব', 'দিবো', 'দিব', 'পাঠাবো', 'পাঠাব', 'শোধ করবো', 'শোধ করব', 'ফেরত দেবো'].map(normalize).contains(x));
+      if (when != null && when.hasDay && promise) {
+        // Day words only: withoutWhen would read "৫০০ টা(কা)" as a clock time.
+        final title = tidy(cutWords(said, ['আমি', 'আগামীকাল', 'আগামী কাল', 'কাল', 'আজকে', 'আজ', 'পরশু', 'সকালে', 'বিকেলে', 'রাতে', 'দুপুরে', 'সন্ধ্যায়', ..._fillers]))
+            .replaceAll(RegExp(r'[।.!]+$'), '')
+            .trim();
+        if (title.isNotEmpty) return when.hasTime && when.at.isAfter(now) ? ReminderAdd(said, title: title, at: when.at) : TaskAdd(said, title: title, due: when.day);
+      }
+    }
+
     // A money event.
     if (amount != null) {
       final add = _ledgerEvent(said, text, w, amount, known);
@@ -737,6 +750,10 @@ class Parser {
     if (!asking) {
       final task = _taskAdd(said, text, w);
       if (task != null) return task;
+      // "আমি কাল বাজারে যাবো", "পরশু ডাক্তারের অ্যাপয়েন্টমেন্ট আছে": a plan
+      // for a day is a to-do on that day (with a clock time, a reminder).
+      final plan = _plan(said, text, w);
+      if (plan != null) return plan;
     }
 
     final terms = searchTerms(text);
@@ -1107,6 +1124,24 @@ class Parser {
       if (terms.isNotEmpty && matchTasks(tasks.where((t) => !t.done), terms).isNotEmpty) return TaskDone(said, terms: terms);
     }
     return null;
+  }
+
+  static final _futureVerbs = {
+    for (final x in ['যাব', 'করব', 'দিব', 'নিব', 'আনব', 'কিনব', 'দেখব', 'বলব', 'আসব', 'খাব', 'পাঠাব', 'ধরব', 'তুলব', 'রাখব', 'ফিরব', 'ছাড়ব', 'ঘুরব', 'বসব', 'শুরু করব']) normalize(x),
+  };
+
+  Command? _plan(String said, String text, List<String> w) {
+    if (text.contains(normalize('টাকা')) || findAmount(normalize(withoutWhen(said))) != null) return null;
+    final when = parseWhen(said, now);
+    if (when == null || !when.hasDay) return null;
+    final future = w.any((x) => (x.endsWith(normalize('বো')) && x.length >= 3) || x.endsWith(normalize('বেন')) || (x.endsWith(normalize('বে')) && x.length >= 4) || _futureVerbs.contains(x)) ||
+        (w.isNotEmpty && (w.last == normalize('আছে') || w.last == normalize('আছেন')));
+    if (!future) return null;
+    var title = tidy(cutWords(withoutWhen(said), ['আমি', 'আমার', 'আমরা', 'আমাদের', ..._fillers]));
+    title = title.replaceAll(RegExp(r'[।.!]+$'), '').trim();
+    if (title.isEmpty) return null;
+    if (when.hasTime && when.at.isAfter(now)) return ReminderAdd(said, title: title, at: when.at);
+    return TaskAdd(said, title: title, due: when.day);
   }
 
   TaskAdd? _taskAdd(String said, String text, List<String> w) {

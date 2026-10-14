@@ -1280,4 +1280,21 @@ void main() {
       expect(Note.fromJson(Note(title: 'x', files: [DocFile(name: 'n.pdf', mime: 'application/pdf', size: 1)]).toJson()).files.single.name, 'n.pdf');
     });
   });
+
+  group('v2.10: plans for a day are to-dos', () {
+    final now = DateTime(2026, 10, 14, 10);
+    final p = Parser(ledger: const [], now: now);
+    test('“আমি কাল বাজারে যাবো” is saved as tomorrow\'s to-do; with a clock time, a reminder', () {
+      final a = p.parse('আমি কাল বাজারে যাবো') as TaskAdd;
+      expect((a.title, a.due), ('বাজারে যাবো', DateTime(2026, 10, 15)));
+      expect((p.parse('কাল ডাক্তারের অ্যাপয়েন্টমেন্ট আছে') as TaskAdd).due, DateTime(2026, 10, 15));
+      final r = p.parse('কাল সকাল ১০টায় ব্যাংকে যাবো') as ReminderAdd;
+      expect(r.at, DateTime(2026, 10, 15, 10));
+      // Money promised for a day is not a payment made.
+      final m = p.parse('কাল রহিমকে ৫০০ টাকা দেবো') as TaskAdd;
+      expect(m.title, 'রহিমকে ৫০০ টাকা দেবো');
+      expect(p.parse('রহিমকে ৫০০ টাকা দিলাম'), isA<LedgerAdd>());
+      expect(p.parse('আজ কী কী আছে'), isA<Briefing>());
+    });
+  });
 }
