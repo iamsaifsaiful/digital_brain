@@ -4,6 +4,7 @@ import '../logic/bn.dart';
 import '../logic/when.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
+import '../ui/early_picker.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'alarm_screens.dart';
@@ -211,6 +212,8 @@ class _AddSheetState extends State<_AddSheet> {
   DateTime? _picked;
   late TimeOfDay _time;
   Repeat _repeat = Repeat.none;
+  int _earlyDays = 0;
+  int _earlyMinutes = 0;
 
   static const _presets = [TimeOfDay(hour: 9, minute: 0), TimeOfDay(hour: 11, minute: 0), TimeOfDay(hour: 16, minute: 0), TimeOfDay(hour: 20, minute: 0)];
 
@@ -274,7 +277,8 @@ class _AddSheetState extends State<_AddSheet> {
       toast(context, tr('এই সময় পার হয়ে গেছে — অন্য সময় বেছে নিন'));
       return;
     }
-    await brain.saveReminder(Reminder(title: title, date: _dayDate(now), hour: _time.hour, minute: _time.minute, daysBefore: 0, repeat: _repeat));
+    await brain.saveReminder(Reminder(
+        title: title, date: _dayDate(now), hour: _time.hour, minute: _time.minute, daysBefore: _repeat.isInterval ? 0 : _earlyDays, minutesBefore: _repeat.isInterval ? 0 : _earlyMinutes, repeat: _repeat));
     if (!mounted) return;
     toast(context, trf('রাখা হলো · {0}', [_summary(now)]));
     Navigator.of(context).pop(true);
@@ -362,6 +366,33 @@ class _AddSheetState extends State<_AddSheet> {
             Wrap(spacing: 8, runSpacing: 8, children: [
               for (final r in Repeat.values) _chip(r.label, _repeat == r, () => setState(() => _repeat = r)),
             ]),
+            if (!_repeat.isInterval) ...[
+              const SizedBox(height: 6),
+              // Folded by default so the sheet stays short; opens to the choices.
+              Theme(
+                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: const EdgeInsets.only(bottom: 6),
+                  title: Text(
+                      _earlyDays == 0 && _earlyMinutes == 0
+                          ? tr('আগাম মনে করানো: লাগবে না')
+                          : trf('আগাম মনে করানো: {0} আগে', [beforeLabel(_earlyMinutes > 0 ? _earlyMinutes : _earlyDays * 1440)]),
+                      style: body(13, weight: FontWeight.w600, color: C.muted2)),
+                  children: [
+                    EarlyPicker(
+                days: _earlyDays,
+                minutes: _earlyMinutes,
+                showDays: _repeat == Repeat.none || _repeat == Repeat.monthly || _repeat == Repeat.yearly,
+                onChanged: (d, m) => setState(() {
+                  _earlyDays = d;
+                  _earlyMinutes = m;
+                }),
+              ),
+                  ],
+                ),
+              ),
+            ],
           ],
           const SizedBox(height: 18),
           Text(_summary(now), textAlign: TextAlign.center, style: body(13, color: past ? C.orange : C.muted, weight: past ? FontWeight.w600 : FontWeight.w400)),
@@ -424,8 +455,11 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
       _ListTab.done => [
           if (plan.finished.isEmpty)
             EmptyState(icon: Icons.history_rounded, title: tr('এখনো কিছু শেষ হয়নি'), text: tr('কাজে টিক দিলে বা রিমাইন্ডার বেজে গেলে এখানে আসবে।'))
-          else
-            Panel(child: Rows(children: [for (final i in plan.finished.take(60)) PlanRow(item: i, withDay: true)])),
+          else ...[
+            // Reminders whose time has gone by, apart from the finished to-dos.
+            if (plan.finished.any((i) => i.reminder != null)) section(tr('সময় পার হওয়া রিমাইন্ডার'), [for (final i in plan.finished.where((i) => i.reminder != null).take(60)) i], withDay: true),
+            if (plan.finished.any((i) => i.reminder == null)) section(tr('শেষ হওয়া কাজ'), [for (final i in plan.finished.where((i) => i.reminder == null).take(60)) i], withDay: true),
+          ],
         ],
     };
 
@@ -440,7 +474,7 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
               items: [
                 (_ListTab.open, trf('বাকি · {0}', [bnDigits(openCount)])),
                 (_ListTab.repeating, trf('বারবার · {0}', [bnDigits(plan.repeating.length)])),
-                (_ListTab.done, tr('শেষ')),
+                (_ListTab.done, tr('শেষ ও পার হওয়া')),
               ],
               value: _tab,
               onChanged: (v) => setState(() => _tab = v),

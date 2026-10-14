@@ -42,6 +42,7 @@ class HomePage extends StatelessWidget {
     final d = brain.data;
     final now = brain.services.now();
     final bd = banglaDate(now);
+    final hj = hijriDate(now, adjust: brain.number('hijri_adjust'));
     final sun = sunTimes(now, placeNamed(brain.district));
     final runs = upcomingHolidays(now, count: 1);
     final next = runs.isEmpty ? null : runs.first;
@@ -121,6 +122,15 @@ class HomePage extends StatelessWidget {
               ]),
             ),
             const SizedBox(height: 8),
+            InkWell(
+              onTap: () => push(const CalendarScreen()),
+              child: Row(children: [
+                const Icon(Icons.nightlight_round, size: 16, color: Color(0xFFFDE68A)),
+                const SizedBox(width: 6),
+                Flexible(child: Text(trf('হিজরি · {0}', [hj.text]), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13.5, weight: FontWeight.w500, color: Colors.white))),
+              ]),
+            ),
+            const SizedBox(height: 6),
             InkWell(
               onTap: () => push(const CalendarScreen()),
               child: Wrap(spacing: 14, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [

@@ -175,6 +175,7 @@ class ChatController extends ChangeNotifier {
   DateTime? _pendingAt;
   Repeat _pendingRepeat = Repeat.none;
   bool _pendingAlarm = false;
+  int _pendingBefore = 0;
   List<int> _pendingDays = const [];
 
   /// The last request that did not lead to anything to save (an answer, or
@@ -665,6 +666,7 @@ class ChatController extends ChangeNotifier {
         _pendingRepeat = c.repeat;
         _pendingAlarm = c.alarm;
         _pendingDays = c.weekdays;
+        _pendingBefore = c.minutesBefore;
         if (c.needsTime) {
           _pendingDay = null;
           final what = c.needsTitle ? '' : '“${c.title}” — ';
@@ -1094,7 +1096,7 @@ class ChatController extends ChangeNotifier {
         }
         _pendingDay = null;
         wait = ChatWait.none;
-        await _start(ReminderAdd(t, title: _pendingTitle, at: at, repeat: _pendingRepeat, alarm: _pendingAlarm, weekdays: _pendingDays), out);
+        await _start(ReminderAdd(t, title: _pendingTitle, at: at, repeat: _pendingRepeat, alarm: _pendingAlarm, weekdays: _pendingDays, minutesBefore: _pendingBefore), out);
         return true;
       case ChatWait.reminderTitle:
         final at = _pendingAt;
@@ -1108,7 +1110,7 @@ class ChatController extends ChangeNotifier {
         _pendingAt = null;
         wait = ChatWait.none;
         choices = const [];
-        await _start(ReminderAdd(t, title: title, at: at, repeat: _pendingRepeat, alarm: _pendingAlarm, weekdays: _pendingDays), out);
+        await _start(ReminderAdd(t, title: title, at: at, repeat: _pendingRepeat, alarm: _pendingAlarm, weekdays: _pendingDays, minutesBefore: _pendingBefore), out);
         return true;
       case ChatWait.callee:
         if (_calleeChoices.isNotEmpty) {
@@ -1256,8 +1258,10 @@ class ChatController extends ChangeNotifier {
           repeat: c.repeat,
           alarm: c.alarm,
           weekdays: c.weekdays,
+          minutesBefore: c.minutesBefore,
         ));
-        _say(out, quiet ? trf('মনে করাব: {0}', [c.title]) : (c.repeat.isInterval || c.repeat == Repeat.daily ? trf('ঠিক আছে, {0} মনে করিয়ে দেব।', [c.repeat.label]) : trf('ঠিক আছে, {0}-এ মনে করিয়ে দেব।', [sayWhen(c.at, _now)])),
+        final early = c.minutesBefore > 0 ? trf(' {0} আগেও একবার জানিয়ে দেব।', [beforeLabel(c.minutesBefore)]) : '';
+        _say(out, quiet ? trf('মনে করাব: {0}', [c.title]) : (c.repeat.isInterval || c.repeat == Repeat.daily ? trf('ঠিক আছে, {0} মনে করিয়ে দেব।', [c.repeat.label]) : trf('ঠিক আছে, {0}-এ মনে করিয়ে দেব।', [sayWhen(c.at, _now)])) + early,
             links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))], speak: !quiet);
         _history.add(AiTurn.app('[রিমাইন্ডার রাখা হলো: ${summaryLine(c)}]'));
         if (!_warnedExact && !await brain.services.notifier.exactAllowed()) {

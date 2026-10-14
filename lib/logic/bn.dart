@@ -142,3 +142,12 @@ String daysLeftLabel(DateTime d, DateTime now) {
   if (diff == 1) return 'কাল';
   return '${bnDigits(diff)} দিন বাকি';
 }
+
+/// 30 → "৩০ মিনিট", 60 → "১ ঘণ্টা", 90 → "১ ঘণ্টা ৩০ মিনিট", 1440 → "১ দিন".
+String beforeLabel(int minutes) {
+  if (minutes % 1440 == 0) return trf('{0} দিন', [bnDigits(minutes ~/ 1440)]);
+  final h = minutes ~/ 60, m = minutes % 60;
+  if (h == 0) return trf('{0} মিনিট', [bnDigits(m)]);
+  if (m == 0) return trf('{0} ঘণ্টা', [bnDigits(h)]);
+  return trf('{0} ঘণ্টা {1} মিনিট', [bnDigits(h), bnDigits(m)]);
+}

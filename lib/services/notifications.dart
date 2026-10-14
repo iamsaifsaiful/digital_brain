@@ -10,6 +10,7 @@ import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../logic/bn.dart';
+import '../logic/lang.dart';
 import '../models/models.dart';
 
 /// How a planned notice repeats on its own, without the app being opened.
@@ -135,6 +136,13 @@ List<PlannedNotice> plannedNotices(List<Reminder> reminders, DateTime now) {
           reminderId: r.id,
           repeat: NoticeRepeat.weekly,
         ));
+        if (r.minutesBefore > 0) {
+          var e = at.subtract(Duration(minutes: r.minutesBefore));
+          while (!e.isAfter(now)) {
+            e = e.add(const Duration(days: 7));
+          }
+          out.add(_minutesEarly(r, e, at, 'w$wd', NoticeRepeat.weekly));
+        }
       }
       continue;
     }
@@ -154,6 +162,22 @@ List<PlannedNotice> plannedNotices(List<Reminder> reminders, DateTime now) {
         },
       ));
     }
+    if (r.minutesBefore > 0) {
+      final rep = switch (r.repeat) {
+        Repeat.daily => NoticeRepeat.daily,
+        Repeat.monthly => NoticeRepeat.monthly,
+        Repeat.yearly => NoticeRepeat.yearly,
+        _ => NoticeRepeat.none,
+      };
+      var e = at.subtract(Duration(minutes: r.minutesBefore));
+      if (!e.isAfter(now) && rep == NoticeRepeat.daily) e = e.add(const Duration(days: 1));
+      if (!e.isAfter(now) && (rep == NoticeRepeat.monthly || rep == NoticeRepeat.yearly)) {
+        // This time's notice has passed: the one before the following ring.
+        final later = r.notifyAt(at.add(const Duration(minutes: 1)));
+        e = later.subtract(Duration(minutes: r.minutesBefore));
+      }
+      if (e.isAfter(now)) out.add(_minutesEarly(r, e, at, 'm', rep));
+    }
     final early = r.earlyAt(now);
     if (early != null) {
       out.add(PlannedNotice(
@@ -168,6 +192,17 @@ List<PlannedNotice> plannedNotices(List<Reminder> reminders, DateTime now) {
   }
   return out;
 }
+
+/// "৩০ মিনিট আগে": the early notice before a ring at [main].
+PlannedNotice _minutesEarly(Reminder r, DateTime at, DateTime main, String tag, NoticeRepeat repeat) => PlannedNotice(
+      id: stableId('rem:${r.id}:before:$tag'),
+      at: at,
+      title: '${tr('আগাম মনে করানো: ')}${r.title}',
+      body: trf('{0} পরে · {1}', [beforeLabel(r.minutesBefore), bnTime(r.hour, r.minute)]),
+      reminderId: r.id,
+      repeat: repeat,
+      early: true,
+    );
 
 /// A sound on the phone the user can choose for reminders.
 class SoundOption {

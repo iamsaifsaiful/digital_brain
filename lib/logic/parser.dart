@@ -113,8 +113,11 @@ class TaskQuery extends Command {
 
 /// "কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও".
 class ReminderAdd extends Command {
-  const ReminderAdd(super.transcript, {required this.title, required this.at, this.repeat = Repeat.none, this.alarm = false, this.weekdays = const []});
+  const ReminderAdd(super.transcript, {required this.title, required this.at, this.repeat = Repeat.none, this.alarm = false, this.weekdays = const [], this.minutesBefore = 0});
   final String title;
+
+  /// "৩০ মিনিট আগে মনে করিয়ে দিও": an early notice this many minutes before (0 = none).
+  final int minutesBefore;
   final DateTime at;
   final Repeat repeat;
 
@@ -1046,6 +1049,8 @@ class Parser {
 
     // "কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও", "৩০ মিনিট পরে চা খাওয়ার কথা বলো".
     if (!asking && _hasNorm(text, _remindKeys)) {
+      final (before, plain) = splitBefore(said);
+      said = plain;
       final every = everyMinutes(text);
       final weekDays = _weeklyDays(text);
       final daily = _hasNorm(text, const ['প্রতিদিন', 'প্রতি দিন', 'রোজ', 'প্রত্যেকদিন', 'প্রত্যেক দিন', 'দৈনিক', 'daily', 'every day']);
@@ -1091,7 +1096,7 @@ class Parser {
         if (title.isEmpty) title = defaultReminderTitle;
         // No time yet: the chat asks "কখন মনে করাব?".
         final alarmWord = _hasNorm(text, const ['অ্যালার্ম', 'এলার্ম', 'alarm']);
-        return ReminderAdd(said, title: title, at: at ?? noTimeYet, repeat: repeat, alarm: alarmWord, weekdays: repeat == Repeat.weekly ? weekDays : const []);
+        return ReminderAdd(said, title: title, at: at ?? noTimeYet, repeat: repeat, alarm: alarmWord, weekdays: repeat == Repeat.weekly ? weekDays : const [], minutesBefore: before);
       }
     }
 
@@ -1402,7 +1407,7 @@ Talk? smallTalk(String text) {
     return Talk.whatCanYouDo;
   }
   if (_hasPhrase(text, ['কয়টা বাজে', 'কটা বাজে', 'কয়টা বাজে', 'এখন সময় কত', 'সময় কত', 'what time'])) return Talk.time;
-  if (_hasPhrase(text, ['আজ কত তারিখ', 'আজকে কত তারিখ', 'আজকের তারিখ', 'আজ কী বার', 'আজ কি বার', 'আজকে কী বার', 'আজকে কি বার', 'আজ কোন বার'])) {
+  if (_hasPhrase(text, ['আজ কত তারিখ', 'আজকে কত তারিখ', 'আজকের তারিখ', 'আরবি তারিখ', 'আরবী তারিখ', 'হিজরি তারিখ', 'হিজরী তারিখ', 'চাঁদের তারিখ', 'বাংলা তারিখ', 'আরবি মাস', 'হিজরি সন', 'আজ কী বার', 'আজ কি বার', 'আজকে কী বার', 'আজকে কি বার', 'আজ কোন বার'])) {
     return Talk.date;
   }
   if (w.length <= 5 && _hasPhrase(text, ['ধন্যবাদ', 'থ্যাংক', 'থ্যাঙ্ক', 'thank', 'শুকরিয়া'])) return Talk.thanks;

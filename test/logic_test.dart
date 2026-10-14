@@ -432,7 +432,7 @@ void main() {
       expect(k('তুমি কী কী করতে পারো?'), Talk.whatCanYouDo);
       expect(k('তুমি কে'), Talk.whoAreYou);
       expect(k('হ্যালো'), Talk.greeting);
-      expect(talkReply(Talk.date, DateTime(2026, 10, 9)), 'আজ শুক্রবার, ৯ অক্টোবর।');
+      expect(talkReply(Talk.date, DateTime(2026, 10, 9)), startsWith('আজ শুক্রবার, ৯ অক্টোবর ২০২৬।'));
     });
 
     test('a greeting before a request is dropped, a name is not', () {
@@ -941,6 +941,27 @@ void main() {
       expect(parseWhen('সাড়ে আটটায় ওষুধ', now)!.at, DateTime(2026, 10, 13, 20, 30));
     });
 
+    test('“৩০ মিনিট আগে” / “১ ঘণ্টা আগে” adds an early notice; the main time is untouched', () {
+      final p = Parser(ledger: const [], now: now);
+      final a = p.parse('কাল সকাল ১০টায় মিটিং, ৩০ মিনিট আগে মনে করিয়ে দিও') as ReminderAdd;
+      expect(a.at, DateTime(2026, 10, 14, 10, 0));
+      expect(a.minutesBefore, 30);
+      expect(a.title, 'মিটিং');
+      final b = p.parse('বিকেল ৫টায় ডাক্তারের কাছে যাওয়া মনে করিয়ে দিও, এক ঘণ্টা আগে') as ReminderAdd;
+      expect(b.minutesBefore, 60);
+      expect(b.at.hour, 17);
+      expect((p.parse('কাল সকাল ৯টায় ফ্লাইট মনে করিয়ে দিও আড়াই ঘণ্টা আগে') as ReminderAdd).minutesBefore, 150);
+      // "৩০ মিনিট পরে" is still a time from now, not an early notice.
+      final c = p.parse('৩০ মিনিট পরে চা খাওয়ার কথা মনে করিয়ে দিও') as ReminderAdd;
+      expect(c.minutesBefore, 0);
+      // The notices: the early one 30 minutes before, every day for a daily one.
+      final r = Reminder(id: 'x', title: 'ওষুধ', date: DateTime(2026, 10, 13), hour: 21, repeat: Repeat.daily, minutesBefore: 30);
+      final ns = plannedNotices([r], now);
+      expect(ns.map((n) => n.at), containsAll([DateTime(2026, 10, 13, 21, 0), DateTime(2026, 10, 13, 20, 30)]));
+      expect(ns.firstWhere((n) => n.early).repeat, NoticeRepeat.daily);
+      expect(Reminder.fromJson(r.toJson()).minutesBefore, 30);
+    });
+
     test('“আমার সংরক্ষিত ফোন নম্বর দেখাও” is a look, not a save', () {
       final c = Parser(ledger: const [], now: now).parse('আমার সংরক্ষিত ফোন নম্বর দেখাও।');
       expect(c, isA<ContactsQuery>());
@@ -1175,6 +1196,21 @@ void main() {
         isEn = false;
       }
       expect(fullDate(DateTime(2026, 10, 9)), '৯ অক্টোবর ২০২৬');
+    });
+  });
+
+  group('v2.10: Hijri date, early notices', () {
+    test('Hijri date follows the Bangladesh calendar, with a correction', () {
+      final h = hijriDate(DateTime(2026, 10, 13), adjust: 0);
+      expect((h.year, h.month, h.day), (1448, 5, 1));
+      expect(h.text, '১ জমাদিউল আউয়াল ১৪৪৮ হিজরি');
+      expect(hijriDate(DateTime(2026, 8, 26), adjust: 0).dayMonth, '১২ রবিউল আউয়াল');
+      expect(hijriDate(DateTime(2026, 6, 26), adjust: 0).dayMonth, '১০ মহররম');
+      expect(hijriDate(DateTime(2026, 10, 13), adjust: -1).day, 29);
+      expect(hijriDate(DateTime(2027, 2, 10), adjust: 0).isRamadan, isTrue);
+      final c = Parser(ledger: const [], now: DateTime(2026, 10, 14, 9)).parse('আজ আরবি তারিখ কত?');
+      expect(c, isA<SmallTalk>());
+      expect(talkReply((c as SmallTalk).kind, DateTime(2026, 10, 14, 9)), allOf(contains('আরবি তারিখ'), contains('হিজরি'), contains('আশ্বিন')));
     });
   });
 }

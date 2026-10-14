@@ -300,6 +300,7 @@ const _item = {
       'enum': ['none', 'every5', 'every10', 'every30', 'hourly', 'daily', 'weekly', 'monthly', 'yearly'],
     },
     'alarm': {'type': 'boolean', 'description': 'reminder_add: true when the user asked for an alarm (অ্যালার্ম)'},
+    'before_minutes': {'type': 'integer', 'description': 'reminder_add: an extra early notice this many minutes before ("৩০ মিনিট আগে" 30, "১ ঘণ্টা আগে" 60, "১ দিন আগে" 1440); 0 or absent = none'},
     'via': {
       'type': 'string',
       'enum': ['call', 'sms', 'whatsapp'],

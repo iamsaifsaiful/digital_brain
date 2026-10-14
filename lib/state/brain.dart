@@ -290,6 +290,20 @@ class Brain extends ChangeNotifier {
   AssistantPrefs get assistantPrefs =>
       AssistantPrefs(morningOn: morningOn, morningAt: morningAt, nightOn: nightOn, nightAt: nightAt, nudgesOn: nudgesOn, name: userName);
 
+  /// The other settings (notification types, quiet hours, Hijri date
+  /// correction, prayer reminders…), as saved text. Read with [flag] / [number].
+  final Map<String, String> prefs = {};
+
+  /// Saved settings read at start into [prefs].
+  static const prefKeys = [
+    'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_haat', 'haat_day', 'n_health', 'n_festival', 'n_weekly',
+    'n_streak', 'n_comeback', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open',
+  ];
+
+  bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
+  int number(String key, [int or = 0]) => int.tryParse(prefs[key] ?? '') ?? or;
+  String text(String key, [String or = '']) => prefs[key] ?? or;
+
   /// One switch or value from the assistant settings, saved and applied.
   Future<void> setPref(String key, Object value) async {
     switch (key) {
@@ -312,6 +326,9 @@ class Brain extends ChangeNotifier {
       case 'panel_mic':
         panelMic = value as bool;
         await _showStanding();
+      default:
+        prefs[key] = '$value';
+        if (key == 'hijri_adjust') hijriAdjust = value as int;
     }
     notifyListeners();
     await _put(key, '$value');
@@ -335,6 +352,11 @@ class Brain extends ChangeNotifier {
       morningAt = int.tryParse(await keys.read('morning_at') ?? '') ?? 8 * 60;
       nightAt = int.tryParse(await keys.read('night_at') ?? '') ?? 21 * 60;
       persona = await keys.read('persona') ?? '';
+      for (final k in prefKeys) {
+        final v = await keys.read(k);
+        if (v != null) prefs[k] = v;
+      }
+      hijriAdjust = number('hijri_adjust');
       final q = await keys.read('quick_questions');
       if (q != null) quickQuestions = [for (final x in jsonDecode(q) as List) '$x'];
     } catch (_) {}

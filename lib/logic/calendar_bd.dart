@@ -260,3 +260,49 @@ List<HolidayRun> upcomingHolidays(DateTime today, {int count = 6}) {
   }
   return out;
 }
+
+// ───────────────────────── Hijri (Arabic) date ─────────────────────────
+
+const hijriMonths = ['মহররম', 'সফর', 'রবিউল আউয়াল', 'রবিউস সানি', 'জমাদিউল আউয়াল', 'জমাদিউস সানি', 'রজব', 'শাবান', 'রমজান', 'শাওয়াল', 'জিলকদ', 'জিলহজ'];
+const hijriMonthsEn = ['Muharram', 'Safar', 'Rabi al-Awwal', 'Rabi al-Thani', 'Jumada al-Awwal', 'Jumada al-Thani', 'Rajab', "Sha'ban", 'Ramadan', 'Shawwal', "Dhu al-Qa'dah", 'Dhu al-Hijjah'];
+
+/// The user's correction for the moon seen here (সেটিংস / ক্যালেন্ডার), in days.
+int hijriAdjust = 0;
+
+class HijriDate {
+  const HijriDate(this.year, this.month, this.day);
+  final int year;
+
+  /// 1 (Muharram) … 12 (Dhu al-Hijjah).
+  final int month;
+  final int day;
+
+  String get monthName => isEn ? hijriMonthsEn[month - 1] : hijriMonths[month - 1];
+
+  /// "২ জমাদিউল আউয়াল ১৪৪৮ হিজরি".
+  String get text => isEn ? '$day $monthName $year AH' : '${bnDigits(day)} $monthName ${bnDigits(year)} হিজরি';
+  String get dayMonth => '${bnDigits(day)} $monthName';
+  bool get isRamadan => month == 9;
+}
+
+/// The Hijri date of [d], by the arithmetic (tabular) calendar, moved by
+/// [adjust] days for the local moon sighting (সেটিংস: −২ … +২). In
+/// Bangladesh the months begin with the moon seen here, so a day either
+/// way is normal.
+HijriDate hijriDate(DateTime d, {int? adjust}) {
+  final g = DateTime.utc(d.year, d.month, d.day).add(Duration(days: adjust ?? hijriAdjust));
+  // Julian day number of the date.
+  final a = (14 - g.month) ~/ 12;
+  final y = g.year + 4800 - a;
+  final m = g.month + 12 * a - 3;
+  final jd = g.day + (153 * m + 2) ~/ 5 + 365 * y + y ~/ 4 - y ~/ 100 + y ~/ 400 - 32045;
+  var l = jd - 1948440 + 10632;
+  final n = (l - 1) ~/ 10631;
+  l = l - 10631 * n + 354;
+  final j = ((10985 - l) ~/ 5316) * ((50 * l) ~/ 17719) + (l ~/ 5670) * ((43 * l) ~/ 15238);
+  l = l - ((30 - j) ~/ 15) * ((17719 * j) ~/ 50) - (j ~/ 16) * ((15238 * j) ~/ 43) + 29;
+  final month = (24 * l) ~/ 709;
+  final day = l - (709 * month) ~/ 24;
+  final year = 30 * n + j - 30;
+  return HijriDate(year, month, day);
+}

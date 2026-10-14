@@ -4,6 +4,7 @@ import '../logic/bn.dart';
 import '../logic/password.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
+import '../ui/early_picker.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'alarm_screens.dart';
@@ -68,6 +69,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
   late DateTime _date;
   TimeOfDay _time = const TimeOfDay(hour: 10, minute: 0);
   int _daysBefore = 0;
+  int _minutesBefore = 0;
   Repeat _repeat = Repeat.none;
   String? _vaultLink;
 
@@ -120,6 +122,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
       _date = r.date;
       _time = TimeOfDay(hour: r.hour, minute: r.minute);
       _daysBefore = r.daysBefore;
+      _minutesBefore = r.minutesBefore;
       _repeat = r.repeat;
       _noteText.text = r.note;
       _vaultLink = r.vaultId;
@@ -183,7 +186,8 @@ class _NewItemScreenState extends State<NewItemScreen> {
           date: _date,
           hour: _time.hour,
           minute: _time.minute,
-          daysBefore: _daysBefore,
+          daysBefore: _minutesBefore > 0 ? 0 : _daysBefore,
+          minutesBefore: _minutesBefore,
           repeat: _repeat,
           note: _noteText.text.trim(),
           vaultId: _vaultLink,
@@ -444,14 +448,14 @@ class _NewItemScreenState extends State<NewItemScreen> {
         ),
       ]),
       _gap,
-      DropdownButtonFormField<int>(
-        initialValue: _daysBefore,
-        decoration: InputDecoration(labelText: tr('আগাম মনে করানো'), helperText: tr('নির্দিষ্ট দিনে তো বাজবেই; চাইলে কিছু দিন আগেও একবার')),
-        items: [
-          for (final d in const [0, 1, 2, 3, 7, 15, 30])
-            DropdownMenuItem(value: d, child: Text(d == 0 ? tr('লাগবে না') : trf('{0} দিন আগেও', [bnDigits(d)]), style: body(16))),
-        ],
-        onChanged: (v) => setState(() => _daysBefore = v ?? 0),
+      EarlyPicker(
+        days: _daysBefore,
+        minutes: _minutesBefore,
+        showDays: _repeat == Repeat.none || _repeat == Repeat.monthly || _repeat == Repeat.yearly,
+        onChanged: (d, m) => setState(() {
+          _daysBefore = d;
+          _minutesBefore = m;
+        }),
       ),
       _gap,
       Text(tr('বারবার?'), style: body(14, weight: FontWeight.w600, color: C.muted)),

@@ -281,10 +281,15 @@ class Reminder {
     this.alarm = false,
     this.enabled = true,
     this.weekdays = const [],
+    this.minutesBefore = 0,
   }) : id = id ?? newId();
 
   final String id;
   final String title;
+
+  /// An early notice this many minutes before each ring ("৩০ মিনিট আগে",
+  /// "১ ঘণ্টা আগে"); 0 = none. Works with every kind of repeat.
+  final int minutesBefore;
 
   /// Set as an alarm (shown on the অ্যালার্ম page).
   final bool alarm;
@@ -299,13 +304,14 @@ class Reminder {
   /// The days a weekly reminder rings.
   Set<int> get ringDays => weekdays.isEmpty ? {date.weekday} : weekdays.toSet();
 
-  Reminder copyWith({String? title, DateTime? date, int? hour, int? minute, Repeat? repeat, bool? alarm, bool? enabled, List<int>? weekdays, String? note}) => Reminder(
+  Reminder copyWith({String? title, DateTime? date, int? hour, int? minute, Repeat? repeat, bool? alarm, bool? enabled, List<int>? weekdays, String? note, int? daysBefore, int? minutesBefore}) => Reminder(
         id: id,
         title: title ?? this.title,
         date: date ?? this.date,
         hour: hour ?? this.hour,
         minute: minute ?? this.minute,
-        daysBefore: daysBefore,
+        daysBefore: daysBefore ?? this.daysBefore,
+        minutesBefore: minutesBefore ?? this.minutesBefore,
         repeat: repeat ?? this.repeat,
         note: note ?? this.note,
         vaultId: vaultId,
@@ -413,6 +419,7 @@ class Reminder {
         if (alarm) 'alarm': true,
         if (!enabled) 'enabled': false,
         if (weekdays.isNotEmpty) 'weekdays': weekdays,
+        if (minutesBefore > 0) 'minutesBefore': minutesBefore,
       };
 
   factory Reminder.fromJson(Map<String, Object?> j) => Reminder(
@@ -428,6 +435,7 @@ class Reminder {
         alarm: j['alarm'] == true,
         enabled: j['enabled'] != false,
         weekdays: [for (final x in (j['weekdays'] as List? ?? const [])) if (x is num) x.toInt()],
+        minutesBefore: (j['minutesBefore'] as num?)?.toInt() ?? 0,
       );
 }
 

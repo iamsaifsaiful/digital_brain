@@ -638,6 +638,8 @@ void main() {
     await t.tap(find.text('যোগ করুন'));
     await settle(t);
     await t.enterText(find.byType(TextField).last, 'ক্লায়েন্ট মিটিং');
+    await t.ensureVisible(find.text('রাখুন'));
+    await settle(t);
     await t.tap(find.text('রাখুন'));
     await settle(t);
     final r = rig.brain.data.reminders.single;

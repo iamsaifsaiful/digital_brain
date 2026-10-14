@@ -4,6 +4,7 @@ import '../logic/bn.dart';
 import '../logic/calendar_bd.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
+import '../ui/widgets.dart';
 import 'home_page.dart' show holidayRange;
 import '../logic/lang.dart';
 
@@ -29,6 +30,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final month = _month ?? DateTime(now.year, now.month);
     final picked = _picked ?? today;
     final bd = banglaDate(picked);
+    final hj = hijriDate(picked, adjust: brain.number('hijri_adjust'));
     final place = placeNamed(brain.district);
     final sun = sunTimes(picked, place);
     final nextStart = nextBanglaMonthStart(today);
@@ -78,6 +80,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       Text(bd.text, style: display(26, weight: 700, color: Colors.white, height: 1.3)),
                       Text('${weekdayName(picked)} · ${bnDigits(picked.day)} ${monthName(picked.month)} ${bnDigits(picked.year)}',
                           style: body(13.5, color: Colors.white)),
+                      const SizedBox(height: 2),
+                      Text(trf('হিজরি · {0}', [hj.text]), style: body(13.5, weight: FontWeight.w600, color: Colors.white)),
                     ]),
                   ),
                   Container(
@@ -97,7 +101,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ]),
                 const SizedBox(height: 8),
                 Text(
-                    trf('{0} অনুযায়ী · জেলা সেটিংসে বদলানো যায়{1}', [place.label, picked == today ? ' · ${bnDigits(toNext)} ${tr('দিন পর')} 1 ${nextBd.monthName}${nextBd.month % 2 == 0 ? ', ${trf('{0}কাল শুরু', [nextBd.season])}' : ''}' : '']),
+                    trf('{0} অনুযায়ী · জেলা সেটিংসে বদলানো যায়{1}', [place.label, picked == today ? ' · ${bnDigits(toNext)} ${tr('দিন পর')} ${bnDigits(1)} ${nextBd.monthName}${nextBd.month % 2 == 0 ? ', ${trf('{0}কাল শুরু', [nextBd.season])}' : ''}' : '']),
                     style: body(12.5, color: Colors.white, height: 1.45)),
               ]),
             ),
@@ -120,6 +124,44 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       ]),
                     ),
                 ]),
+              ]),
+            ),
+            if (hj.isRamadan) ...[
+              const SizedBox(height: 10),
+              Panel(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                child: Row(children: [
+                  Icon(Icons.nightlight_round, color: C.green),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(trf('রমজান · সেহরির শেষ সময় {0} · ইফতার {1} (আনুমানিক)', [bnTime(sun.fajr.hour, sun.fajr.minute), bnTime(sun.maghrib.hour, sun.maghrib.minute)]),
+                        style: body(14, weight: FontWeight.w500)),
+                  ),
+                ]),
+              ),
+            ],
+            const SizedBox(height: 10),
+            // The Hijri date follows the moon seen in Bangladesh: a day either way can be set here.
+            Panel(
+              padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+              child: Row(children: [
+                Expanded(
+                  child: Text(
+                      brain.number('hijri_adjust') == 0
+                          ? tr('হিজরি তারিখ চাঁদ দেখার ওপর এক দিন এদিক-ওদিক হতে পারে')
+                          : trf('হিজরি তারিখ {0} দিন সরানো আছে', [bnDigits(brain.number('hijri_adjust') > 0 ? '+${brain.number('hijri_adjust')}' : '${brain.number('hijri_adjust')}')]),
+                      style: body(12.5, color: C.muted)),
+                ),
+                IconButton(
+                  tooltip: tr('হিজরি তারিখ এক দিন পিছিয়ে দিন'),
+                  onPressed: brain.number('hijri_adjust') <= -2 ? null : () => brain.setPref('hijri_adjust', brain.number('hijri_adjust') - 1),
+                  icon: const Icon(Icons.remove_circle_outline_rounded),
+                ),
+                IconButton(
+                  tooltip: tr('হিজরি তারিখ এক দিন এগিয়ে দিন'),
+                  onPressed: brain.number('hijri_adjust') >= 2 ? null : () => brain.setPref('hijri_adjust', brain.number('hijri_adjust') + 1),
+                  icon: const Icon(Icons.add_circle_outline_rounded),
+                ),
               ]),
             ),
             const SizedBox(height: 10),

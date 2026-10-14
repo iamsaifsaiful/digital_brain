@@ -4,6 +4,8 @@ library;
 import 'dart:math';
 
 import 'bn.dart';
+import 'calendar_bd.dart';
+import 'lang.dart';
 import 'parser.dart' show Talk;
 
 final _rnd = Random();
@@ -25,7 +27,7 @@ String talkReply(Talk kind, DateTime now) => switch (kind) {
       Talk.thanks => _pick(['আপনাকেও ধন্যবাদ! আর কিছু লাগলে বলবেন।', 'কোনো ব্যাপার না! আর কিছু?']),
       Talk.bye => 'ঠিক আছে, ভালো থাকবেন! দরকার হলে আবার ডাকবেন।',
       Talk.time => 'এখন ${bnTime(now.hour, now.minute)}।',
-      Talk.date => 'আজ ${weekdayName(now)}, ${bnDigits(now.day)} ${bnMonths[now.month - 1]}।',
+      Talk.date => trf('আজ {0}, {1}। বাংলায় {2}; আরবি তারিখ {3}।', [weekdayName(now), fullDate(now), banglaDate(now).text, hijriDate(now).text]),
     };
 
 /// Phone numbers are read digit by digit ("০ ১ ৭ …"), not as one big number.

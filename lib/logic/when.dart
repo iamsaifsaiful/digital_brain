@@ -293,3 +293,30 @@ String tidy(String s) {
   if (t.startsWith(fold('যে '))) t = t.substring(3).trim();
   return t;
 }
+
+/// "৩০ মিনিট আগে", "১ ঘণ্টা আগে", "আধা ঘণ্টা আগে", "দেড় ঘণ্টা আগে", "২ দিন আগে"
+/// inside a reminder request: the early notice, in minutes, and the
+/// sentence without it (so the time and the title are read from the rest).
+(int, String) splitBefore(String said) {
+  final re = RegExp(r'(?:(\S+)\s+)?(মিনিট|মি\.|ঘণ্টা|ঘন্টা|দিন|minutes?|mins?|hours?|days?)\s*(?:খানেক\s*)?(?:আগে|আগেই|আগেও|before|early)', caseSensitive: false);
+  final m = re.firstMatch(said);
+  if (m == null) return (0, said);
+  final unit = m[2]!.toLowerCase();
+  final perUnit = unit.startsWith('দিন') || unit.startsWith('day') ? 1440 : (unit.startsWith('ঘ') || unit.startsWith('hour') ? 60 : 1);
+  final word = (m[1] ?? '').trim();
+  const halves = {'আধা': 0.5, 'আধ': 0.5, 'দেড়': 1.5, 'আড়াই': 2.5, 'সাড়ে': 0.5, 'half': 0.5};
+  double? count;
+  if (word.isEmpty) {
+    count = 1;
+  } else if (halves.containsKey(word)) {
+    count = halves[word];
+  } else {
+    final n = _num(normalize(word).replaceAll(RegExp(r'[^০-৯0-9ঀ-৿a-z]'), ''));
+    count = n?.toDouble();
+  }
+  if (count == null || count <= 0) return (0, said);
+  final minutes = (count * perUnit).round();
+  if (minutes <= 0 || minutes > 60 * 24 * 60) return (0, said);
+  final rest = said.replaceRange(m.start, m.end, ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+  return (minutes, rest);
+}
