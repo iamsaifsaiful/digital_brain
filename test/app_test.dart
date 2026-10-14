@@ -537,7 +537,7 @@ void main() {
   testWidgets('"৫.৩০ এ রিমাইন্ডার দিও": today at 17:30, asks what for, then saves', (t) async {
     final rig = await start(t);
     await openChat(t);
-    expect(rig.voice.spoken, isNot(contains('জি, বলুন।')), reason: 'the mic opens at once');
+    expect(rig.voice.spoken.last, 'আমি শুনছি', reason: 'said while the mic is already open');
     rig.voice.say('৫.৩০ এ রিমাইন্ডার দিও');
     await settle(t);
     expect(rig.voice.spoken.last, contains('কী বিষয়ে'));

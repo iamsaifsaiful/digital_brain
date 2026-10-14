@@ -5,6 +5,9 @@ import 'package:flutter/widgets.dart';
 
 import '../logic/ai_map.dart';
 import '../logic/app_map.dart';
+import '../logic/ask.dart';
+import '../logic/me.dart';
+import '../logic/phrases.dart' show possessive;
 import '../logic/answers.dart';
 import '../logic/bn.dart';
 import '../logic/cash.dart';
@@ -167,12 +170,14 @@ class Brain extends ChangeNotifier {
 
   Future<void> setUserName(String v) async {
     userName = v.trim();
+    askUserName = userName;
     await services.lock.keys.write('user_name', userName);
     notifyListeners();
   }
 
   Future<void> setDistrict(String v) async {
     district = v;
+    askPlace = v;
     await services.lock.keys.write('district', v);
     notifyListeners();
   }
@@ -397,6 +402,8 @@ class Brain extends ChangeNotifier {
         if (v != null) prefs[k] = v;
       }
       hijriAdjust = number('hijri_adjust');
+      askPlace = district;
+      askUserName = userName;
       final q = await keys.read('quick_questions');
       if (q != null) quickQuestions = [for (final x in jsonDecode(q) as List) '$x'];
     } catch (_) {}
@@ -525,8 +532,9 @@ class Brain extends ChangeNotifier {
   Future<(List<Command>, String?)> understandAll(String said, {List<AiTurn> history = const []}) async {
     final rules = parseAll(said, data.ledger, tasks: data.tasks, contacts: data.contacts, folders: folderHints, now: services.now());
     if (!aiOn) return (rules, null);
-    // "নোট খোলো": opening a page needs no AI.
-    if (rules.length == 1 && rules.first is OpenPlace) return (rules, null);
+    // "নোট খোলো": opening a page needs no AI; blood group, allergies and
+    // what photos are kept stay on the phone.
+    if (rules.length == 1 && (rules.first is OpenPlace || rules.first is ProfileQuery || rules.first is ProfileSet)) return (rules, null);
     if (mentionsSecret(said) || rules.any((c) => c is VaultQuery)) return (rules, null);
     // Listing the saved numbers needs no AI (and numbers never go to it).
     if (rules.length == 1 && rules.first is ContactsQuery) return (rules, null);
@@ -562,7 +570,9 @@ class Brain extends ChangeNotifier {
       services.ai.quality = (await services.lock.keys.read('ai_quality')) == 'fast' ? AiQuality.fast : AiQuality.best;
       aiShareData = (await services.lock.keys.read('ai_share_data')) != 'false';
       userName = await services.lock.keys.read('user_name') ?? '';
+      askUserName = userName;
       district = await services.lock.keys.read('district') ?? 'ঢাকা';
+      askPlace = district;
     } catch (_) {}
     try {
       services.voice.muted = (await services.lock.keys.read('speak_on')) == 'false';

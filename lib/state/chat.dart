@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../logic/lang.dart';
 import '../logic/ai_map.dart' show answeredByAi;
 import '../logic/app_map.dart';
+import '../logic/me.dart';
 import '../logic/answers.dart';
 import '../logic/bn.dart';
 import '../logic/cash.dart';
@@ -600,6 +601,21 @@ class ChatController extends ChangeNotifier {
     if (c is CashQuery) return [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন'))];
     if (c is ContactsQuery) return [ChatLink(LinkKind.contacts, tr('যোগাযোগ দেখুন'))];
     if (c is HealthQuery) return [ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন'))];
+    if (c is ProfileQuery) {
+      final text = normalize(c.transcript);
+      final kind = mentionsBlood(text) ? null : kindAsked(text);
+      if (kind == 'photos') {
+        return [
+          for (final x in photoDocs(d).take(4)) ChatLink(LinkKind.doc, trf('দেখুন: {0}', [x.title]), docId: x.id),
+          ChatLink(LinkKind.page, tr('ডকুমেন্টস খুলুন'), page: 'docs'),
+          if (d.notes.any((n) => n.files.any((f) => f.isImage))) ChatLink(LinkKind.notes, tr('নোট দেখুন')),
+        ];
+      }
+      if (kind == 'papers') return [ChatLink(LinkKind.page, tr('ডকুমেন্টস খুলুন'), page: 'docs')];
+      return [
+        whoseIn(text).isEmpty ? ChatLink(LinkKind.page, tr('জরুরি কার্ড দেখুন'), page: 'emergency') : ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন')),
+      ];
+    }
     if (c is SearchQuery) {
       final docs = [
         for (final h in searchAll(d, c.terms).whereType<DocHit>().take(4)) ChatLink(LinkKind.doc, trf('দেখুন: {0}', [h.doc.title]), docId: h.doc.id),
@@ -780,7 +796,8 @@ class ChatController extends ChangeNotifier {
         if (_allYes) return _saveCurrent(out);
         _ask(out, trf('“{0}” — এটা মনে রাখব, পরের উত্তরে কাজে লাগাব। ঠিক আছে?', [c.text]), ChatWait.yesNo, choices: _yesNoChoices);
       case HealthAdd():
-        // A reading is kept at once (it can be taken back with ফিরিয়ে নিন).
+      case ProfileSet():
+        // Kept at once (it can be taken back with ফিরিয়ে নিন).
         return _saveCurrent(out);
       case SpecialAdd():
         if (_allYes) return _saveCurrent(out);
@@ -1369,6 +1386,17 @@ class ChatController extends ChangeNotifier {
         if (level != null && level.$1 == Level.urgent) reply += tr(' খুব দরকার হলে ৯৯৯-এ ফোন করুন।');
         _say(out, reply, links: [ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন'))], speak: !quiet);
         _history.add(AiTurn.app('[স্বাস্থ্যের মাপ রাখা হলো: ${summaryLine(c)}]'));
+      case ProfileSet() when c.field == 'height':
+        final cm = double.parse(c.value);
+        final whose = await brain.setHeight(c.who, cm);
+        _say(out, trf('রেখে দিলাম — {0} উচ্চতা {1}। ওজন বললে BMI-ও বলে দিতে পারবো।', [whose, heightText(cm)]),
+            links: [ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন'))], speak: !quiet);
+        _history.add(AiTurn.app(tr('[উচ্চতা রাখা হলো]')));
+      case ProfileSet():
+        final whose = await brain.setBlood(c.who, c.value);
+        _say(out, trf('রেখে দিলাম — {0} রক্তের গ্রুপ {1}।', [whose, bloodSpoken(c.value)]),
+            links: [c.who.isEmpty ? ChatLink(LinkKind.page, tr('জরুরি কার্ড দেখুন'), page: 'emergency') : ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন'))], speak: !quiet);
+        _history.add(AiTurn.app(tr('[রক্তের গ্রুপ রাখা হলো]')));
       case SpecialAdd():
         await brain.saveSpecialDay(SpecialDay(person: c.person, kind: c.kind, month: c.month, day: c.day, year: c.year));
         _say(out, quiet ? trf('বিশেষ দিন: {0}', [c.person]) : tr('রেখে দিলাম। প্রতি বছর আগের দিন আর সেদিন সকাল ৯টায় মনে করিয়ে দেবো।'),

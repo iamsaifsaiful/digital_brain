@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../logic/me.dart' show bloodGroups;
+
 import '../logic/lang.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
@@ -128,6 +130,16 @@ class ProfileCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             InkWell(
+              onTap: () => pickBloodGroup(context),
+              child: Row(children: [
+                Icon(Icons.bloodtype_outlined, size: 16, color: C.rose),
+                const SizedBox(width: 4),
+                Text(brain.data.emergency.blood.isEmpty ? tr('রক্তের গ্রুপ দিন') : trf('রক্তের গ্রুপ {0}', [brain.data.emergency.blood]),
+                    style: body(14, color: brain.data.emergency.blood.isEmpty ? C.green : C.muted, weight: brain.data.emergency.blood.isEmpty ? FontWeight.w600 : FontWeight.w400)),
+              ]),
+            ),
+            const SizedBox(height: 4),
+            InkWell(
               onTap: () => changePhoto(context),
               child: Text(brain.photo == null ? tr('ছবি যোগ করুন') : tr('ছবি বদলান'), style: body(13.5, weight: FontWeight.w600, color: C.green)),
             ),
@@ -136,6 +148,33 @@ class ProfileCard extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// The user's blood group (kept on the emergency card; the assistant answers
+/// "আমার ব্লাড গ্রুপ কী?" from it).
+Future<void> pickBloodGroup(BuildContext context) async {
+  final brain = BrainScope.read(context);
+  final current = brain.data.emergency.blood;
+  final picked = await showModalBottomSheet<String>(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(tr('আপনার রক্তের গ্রুপ'), style: display(20, weight: 700)),
+          const SizedBox(height: 4),
+          Text(tr('জরুরি কার্ডে থাকবে; রক্তদাতা হলে মিলিয়ে দেখা যাবে।'), style: body(13.5, color: C.muted)),
+          const SizedBox(height: 14),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final g in [...bloodGroups, ''])
+              ChoiceChip(label: Text(g.isEmpty ? tr('জানি না') : g, style: body(16, weight: FontWeight.w600)), selected: current == g, onSelected: (_) => Navigator.pop(ctx, g)),
+          ]),
+        ]),
+      ),
+    ),
+  );
+  if (picked != null && picked != current) await brain.saveEmergency(brain.data.emergency.copyWith(blood: picked));
 }
 
 /// সেটিংস › চেহারা ও ভাষা: language, light/dark, accent colour, letter size, easy mode.

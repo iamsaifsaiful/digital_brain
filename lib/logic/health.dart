@@ -210,13 +210,13 @@ String healthAnswer(AppData d, String what, DateTime now, {String member = Famil
       return trf('আপনার BMI {0} — {1}। আপনার উচ্চতায় ({2}) সুস্থ ওজন {3}–{4} কেজি; এখন {5}।',
           [bnDigits(b.toStringAsFixed(1)), bmiLevel(b).$2, heightText(m.heightCm!), bnDigits(lo), bnDigits(hi), kg(w.a)]);
     case 'weight':
-      if (w == null) return tr('এখনো ওজন লেখা হয়নি। বলুন, যেমন “আজ ওজন ৬৮ কেজি”।');
+      if (w == null) return tr('ওজনের কোনো তথ্য নেই। বলুন, যেমন “আজ ওজন ৬৮ কেজি” — পরে যেকোনো সময় জিজ্ঞেস করলে হিসাব দেবো।');
       final ch = weightChange(d, member, now);
       final trend = ch == null || ch.abs() < 0.1 ? '' : (ch < 0 ? trf(' গত এক মাসে {0} কমেছে।', [kg(-ch)]) : trf(' গত এক মাসে {0} বেড়েছে।', [kg(ch)]));
       return trf('শেষ ওজন {0} ({1})।{2}', [kg(w.a), shortDate(w.at), trend]);
     case 'bp':
       final r = latest(d, member, HealthKind.bp);
-      if (r == null) return tr('এখনো প্রেশার লেখা হয়নি। মেপে বলুন, যেমন “প্রেশার ১৩০ বাই ৮৫”।');
+      if (r == null) return tr('প্রেশারের কোনো তথ্য নেই। মেপে বলুন, যেমন “প্রেশার ১৩০ বাই ৮৫” — পরে যেকোনো সময় জিজ্ঞেস করলে হিসাব দেবো।');
       final week = readings(d, member, HealthKind.bp).where((h) => h.at.isAfter(now.subtract(const Duration(days: 7)))).toList();
       final avg = week.length < 2
           ? ''
@@ -224,7 +224,7 @@ String healthAnswer(AppData d, String what, DateTime now, {String member = Famil
       return trf('শেষ মাপ {0} ({1}) — {2}।{3}', [readingText(r), shortDate(r.at), bpLevel(r.a, r.b ?? 0).$2, avg]);
     case 'sugar':
       final r = readings(d, member, HealthKind.sugar);
-      if (r.isEmpty) return tr('এখনো সুগার লেখা হয়নি। মেপে বলুন, যেমন “খালি পেটে সুগার ৬.৮”।');
+      if (r.isEmpty) return tr('সুগারের কোনো তথ্য নেই। মেপে বলুন, যেমন “খালি পেটে সুগার ৬.৮” — পরে যেকোনো সময় জিজ্ঞেস করলে হিসাব দেবো।');
       final f = r.lastWhere((h) => h.tag == 'fasting', orElse: () => r.last);
       final last = r.last;
       final parts = [

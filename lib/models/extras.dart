@@ -474,7 +474,7 @@ class EmergencyCard {
 /// Someone whose health the user keeps track of: themself ([meId]) or a
 /// family member (a parent's blood pressure, a child's vaccines).
 class FamilyMember {
-  FamilyMember({String? id, required this.name, this.relation = '', this.birth, this.sex = '', this.heightCm, this.nextCheckup, this.checkupReminderId, List<String>? vaccineReminders})
+  FamilyMember({String? id, required this.name, this.relation = '', this.birth, this.sex = '', this.heightCm, this.blood = '', this.nextCheckup, this.checkupReminderId, List<String>? vaccineReminders})
       : id = id ?? newId(),
         vaccineReminders = vaccineReminders ?? [];
   static const meId = 'me';
@@ -489,6 +489,9 @@ class FamilyMember {
   /// 'm', 'f' or '' (not said).
   final String sex;
   final double? heightCm;
+
+  /// Blood group ("B+"). The user's own is kept on the emergency card.
+  final String blood;
 
   /// The next doctor's check-up, with its reminder.
   final DateTime? nextCheckup;
@@ -507,7 +510,7 @@ class FamilyMember {
     return y;
   }
 
-  FamilyMember copyWith({String? name, String? relation, DateTime? birth, bool clearBirth = false, String? sex, double? heightCm, DateTime? nextCheckup, bool clearCheckup = false, String? checkupReminderId, bool clearCheckupReminder = false, List<String>? vaccineReminders}) =>
+  FamilyMember copyWith({String? name, String? relation, DateTime? birth, bool clearBirth = false, String? sex, double? heightCm, String? blood, DateTime? nextCheckup, bool clearCheckup = false, String? checkupReminderId, bool clearCheckupReminder = false, List<String>? vaccineReminders}) =>
       FamilyMember(
         id: id,
         name: name ?? this.name,
@@ -515,6 +518,7 @@ class FamilyMember {
         birth: clearBirth ? null : (birth ?? this.birth),
         sex: sex ?? this.sex,
         heightCm: heightCm ?? this.heightCm,
+        blood: blood ?? this.blood,
         nextCheckup: clearCheckup ? null : (nextCheckup ?? this.nextCheckup),
         checkupReminderId: clearCheckupReminder ? null : (checkupReminderId ?? this.checkupReminderId),
         vaccineReminders: vaccineReminders ?? this.vaccineReminders,
@@ -527,6 +531,7 @@ class FamilyMember {
         'birth': birth?.toIso8601String(),
         'sex': sex,
         'heightCm': heightCm,
+        if (blood.isNotEmpty) 'blood': blood,
         'nextCheckup': nextCheckup?.toIso8601String(),
         'checkupReminderId': checkupReminderId,
         if (vaccineReminders.isNotEmpty) 'vaccineReminders': vaccineReminders,
@@ -539,6 +544,7 @@ class FamilyMember {
         birth: _d(j['birth']),
         sex: _s(j['sex']),
         heightCm: (j['heightCm'] as num?)?.toDouble(),
+        blood: _s(j['blood']),
         nextCheckup: _d(j['nextCheckup']),
         checkupReminderId: j['checkupReminderId'] as String?,
         vaccineReminders: _ls(j['vaccineReminders']),

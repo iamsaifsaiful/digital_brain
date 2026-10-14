@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../logic/bn.dart';
 import '../logic/health.dart';
 import '../logic/lang.dart';
+import '../logic/me.dart' show bloodGroups;
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
@@ -128,7 +129,8 @@ class _HealthScreenState extends State<HealthScreen> {
                               if (age != null) trf('বয়স {0}', [bnDigits(age)]),
                               if (m.heightCm != null) heightText(m.heightCm!),
                               if (m.sex.isNotEmpty) m.sex == 'm' ? tr('পুরুষ') : tr('নারী'),
-                            ].join(' · ').ifEmpty(tr('বয়স, উচ্চতা দিন')),
+                              if ((m.isMe ? brain.data.emergency.blood : m.blood).isNotEmpty) trf('রক্ত {0}', [m.isMe ? brain.data.emergency.blood : m.blood]),
+                            ].join(' · ').ifEmpty(tr('বয়স, উচ্চতা, রক্তের গ্রুপ দিন')),
                             style: body(13.5, color: C.muted)),
                       ]),
                     ),
@@ -327,6 +329,7 @@ Future<FamilyMember?> editMember(BuildContext context, FamilyMember? m) async {
   final inch = TextEditingController(text: inchesAll == null ? '' : '${inchesAll % 12}');
   var birth = m?.birth;
   var sex = m?.sex ?? '';
+  var blood = m == null ? '' : (m.isMe ? brain.data.emergency.blood : m.blood);
   final now = brain.services.now();
   final saved = await showDialog<FamilyMember>(
     context: context,
@@ -361,6 +364,18 @@ Future<FamilyMember?> editMember(BuildContext context, FamilyMember? m) async {
               const SizedBox(width: 10),
               Expanded(child: TextField(controller: inch, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: tr('ইঞ্চি')))),
             ]),
+            const SizedBox(height: 14),
+            Text(tr('রক্তের গ্রুপ'), style: body(13, weight: FontWeight.w600, color: C.muted2)),
+            const SizedBox(height: 6),
+            Wrap(spacing: 6, runSpacing: 6, children: [
+              for (final g in [...bloodGroups, ''])
+                ChoiceChip(
+                  label: Text(g.isEmpty ? tr('জানি না') : g),
+                  selected: blood == g,
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (_) => setD(() => blood = g),
+                ),
+            ]),
           ]),
         ),
         actions: [
@@ -381,6 +396,7 @@ Future<FamilyMember?> editMember(BuildContext context, FamilyMember? m) async {
                     birth: birth,
                     sex: sex,
                     heightCm: h,
+                    blood: blood,
                   ));
             },
             child: Text(tr('রাখুন'), style: body(15, weight: FontWeight.w600, color: C.green)),
@@ -392,7 +408,10 @@ Future<FamilyMember?> editMember(BuildContext context, FamilyMember? m) async {
   for (final c in [name, relation, ft, inch]) {
     c.dispose();
   }
-  if (saved != null) await brain.saveMember(saved);
+  if (saved != null) {
+    await brain.saveMember(saved);
+    if (saved.isMe && blood != brain.data.emergency.blood) await brain.saveEmergency(brain.data.emergency.copyWith(blood: blood));
+  }
   return saved;
 }
 

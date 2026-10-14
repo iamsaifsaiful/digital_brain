@@ -290,11 +290,10 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     });
     _chat.ended = false;
     _silences = 0;
-    // The microphone opens at once (no spoken "জি, বলুন" first): people start
-    // talking as soon as they tap, and words said over the app's own voice
-    // were lost — they had to say it twice.
+    // "আমি শুনছি" is said while the microphone is already open: people start
+    // talking as soon as they tap, and talking over it stops it — nothing is lost.
     await voice.stopSpeaking();
-    if (mounted && _voice && !_listening && !_busy) unawaited(_listen());
+    if (mounted && _voice && !_listening && !_busy) unawaited(_listen(say: tr('আমি শুনছি')));
   }
 
   void _closeVoice() {
@@ -322,7 +321,8 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     }
   }
 
-  Future<void> _listen() async {
+  /// Listens; [say] is spoken meanwhile (the user may talk over it).
+  Future<void> _listen({String? say}) async {
     if (!mounted || _away || _busy || !_voice) return;
     final voice = _brain.services.voice;
     final gen = ++_gen;
@@ -330,10 +330,15 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
       _live = '';
       _error = null;
       _listening = true;
+      _speaking = say != null && !voice.muted;
     });
     unawaited(_wave.repeat());
     await voice.listen(
       short: _chat.expectsShortAnswer,
+      say: say,
+      onSaid: () {
+        if (mounted && _speaking) setState(() => _speaking = false);
+      },
       onWords: (w) {
         if (mounted && gen == _gen) setState(() => _live = w);
       },
@@ -383,7 +388,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     _gen++;
     _wave.stop();
     final was = _listening;
-    if (mounted) setState(() => _listening = false);
+    if (mounted) setState(() => _listening = _speaking = false);
     if (was) await _brain.services.voice.cancel();
   }
 
@@ -441,6 +446,14 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
 
   Future<void> _after(String say) async {
     final voice = _brain.services.voice;
+    // The usual case: answer aloud while already listening, so the user can
+    // cut in ("থামো", the next question) and every word is heard.
+    final plain = _chat.pendingLaunch == null && _chat.openNow == null && !_chat.ended;
+    if (_voice && say.isNotEmpty && plain && !_away) {
+      _silences = 0;
+      if (!_listening) await _listen(say: say);
+      return;
+    }
     if (_voice && say.isNotEmpty) {
       setState(() => _speaking = !voice.muted);
       try {
@@ -966,7 +979,9 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     final msgs = _chat.messages;
     final lastUser = msgs.lastIndexWhere((m) => m.fromUser);
     final replies = [for (final m in msgs.skip(lastUser + 1)) if (!m.fromUser) m];
-    final status = _listening
+    final status = _listening && _speaking
+        ? tr('বলছি — আপনি কথা বললেই থেমে শুনবো')
+        : _listening
         ? tr('শুনছি…')
         : (_busy || _chat.thinking)
             ? tr('ভাবছি…')

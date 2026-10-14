@@ -20,11 +20,18 @@ abstract class Voice {
 
   /// Starts listening. [onWords] gets the words so far; [onDone] the final
   /// sentence (may be empty); [onError] a short Bengali message.
+  ///
+  /// [say]: spoken while already listening (e.g. "আমি শুনছি", or the answer
+  /// itself). If the user starts talking over it, the app stops speaking
+  /// and hears everything; its own voice is not taken as the user's words.
+  /// [onSaid] fires when the app stops speaking (finished or interrupted).
   Future<void> listen({
     required void Function(String words) onWords,
     required void Function(String words) onDone,
     required void Function(String message) onError,
     bool short = false,
+    String? say,
+    void Function()? onSaid,
   });
 
   /// Stops and keeps what was heard (onDone fires).
@@ -106,7 +113,51 @@ class DeviceVoice extends Voice {
   void Function(String)? _onError;
   Timer? _quiet;
 
-  String get _words => '$_committed $_current'.trim();
+  /// What the app is saying while it listens (its words, to tell its own
+  /// voice from the user's), and whether it is still speaking.
+  List<String> _echo = const [];
+  bool _talking = false;
+  bool _echoSeen = false;
+  void Function()? _onSaid;
+
+  String get _heard => '$_committed $_current'.trim();
+
+  /// What the user said: the heard words without the app's own voice.
+  String get _words => _echo.isEmpty ? _heard : _withoutEcho(_heard);
+
+  String _withoutEcho(String heard) {
+    final raw = heard.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final toks = [for (final w in raw) echoToken(w)];
+    final echo = _echo.toSet();
+    var k = 0;
+    while (k < toks.length && echo.contains(toks[k])) {
+      k++;
+    }
+    if (k == toks.length) {
+      // Only the app's own words so far.
+      if (k > 0 && _talking) _echoSeen = true;
+      return (_talking || _echoSeen || k >= 2) ? '' : heard;
+    }
+    // While it speaks, the recogniser may mishear the app's voice: only
+    // clear talk from the user (two new words, or a stop word) counts.
+    if (_talking) {
+      final rest = toks.sublist(k);
+      final fresh = rest.where((t) => !echo.contains(t)).length;
+      final stop = rest.any(_stopTokens.contains);
+      if (!stop && (fresh < 2 || fresh < rest.length * 0.4)) return '';
+    }
+    if (k >= 2 || (k >= 1 && _echoSeen)) return raw.sublist(k).join(' ');
+    return heard;
+  }
+
+  /// The app was talked over: stop speaking and listen.
+  void _bargeIn() {
+    if (!_talking) return;
+    _talking = false;
+    unawaited(stopSpeaking());
+    _turnStarted = DateTime.now();
+    _onSaid?.call();
+  }
 
   @override
   Future<void> warmUp() async {
@@ -295,7 +346,7 @@ class DeviceVoice extends Voice {
 
   /// The first seconds of a turn, when an empty session is restarted
   /// instead of ending the turn.
-  bool get _inGrace => _words.isEmpty && DateTime.now().difference(_turnStarted) < (_short ? const Duration(seconds: 6) : const Duration(seconds: 9));
+  bool get _inGrace => _words.isEmpty && (_talking || DateTime.now().difference(_turnStarted) < (_short ? const Duration(seconds: 6) : const Duration(seconds: 9)));
 
   /// Opens a new session for the same turn after [delay] (once at a time).
   void _restart(Duration delay, {bool cancelFirst = false}) {
@@ -334,6 +385,7 @@ class DeviceVoice extends Voice {
           final changed = r.recognizedWords != _current;
           _current = r.recognizedWords;
           if (changed && _words.isNotEmpty) {
+            _bargeIn();
             _onWords?.call(_words);
             _armQuietTimer(); // new words: wait the full quiet time again
           }
@@ -370,6 +422,8 @@ class DeviceVoice extends Voice {
     required void Function(String words) onDone,
     required void Function(String message) onError,
     bool short = false,
+    String? say,
+    void Function()? onSaid,
   }) async {
     final turn = ++_turn;
     if (!await init()) {
@@ -406,7 +460,31 @@ class DeviceVoice extends Voice {
     _onWords = onWords;
     _onDone = onDone;
     _onError = onError;
+    final speaking = say != null && say.trim().isNotEmpty && !muted;
+    _echo = speaking ? [for (final w in forSpeech(say).split(RegExp(r'\s+'))) if (w.isNotEmpty) echoToken(w)] : const [];
+    _echoSeen = false;
+    _talking = speaking;
+    _onSaid = onSaid;
     await _startSession(turn);
+    if (!speaking) {
+      onSaid?.call();
+      return;
+    }
+    unawaited(() async {
+      try {
+        await _tts.stop();
+        await _useTtsLanguage(_mostlyLatin(say));
+        final limit = Duration(milliseconds: (4000 + say.length * 110).clamp(4000, 90000));
+        await _tts.speak(forSpeech(say)).timeout(limit, onTimeout: () => null);
+      } catch (e) {
+        debugPrint('speak failed: $e');
+      }
+      if (turn != _turn || !_talking) return;
+      // Finished speaking: from now on the user has the full quiet time.
+      _talking = false;
+      _turnStarted = DateTime.now();
+      _onSaid?.call();
+    }());
   }
 
   /// "বলা শেষ": act on what was heard right away.
@@ -426,6 +504,10 @@ class DeviceVoice extends Voice {
   @override
   Future<void> cancel() async {
     _turn++;
+    if (_talking) {
+      _talking = false;
+      unawaited(stopSpeaking());
+    }
     _finished = true;
     _quiet?.cancel();
     _quiet = null;
@@ -532,7 +614,11 @@ class FakeVoice extends Voice {
     required void Function(String words) onDone,
     required void Function(String message) onError,
     bool short = false,
+    String? say,
+    void Function()? onSaid,
   }) async {
+    if (say != null && say.trim().isNotEmpty && !muted) spoken.add(say);
+    onSaid?.call();
     if (!available) {
       onError('ভয়েস নেই');
       return;
@@ -583,3 +669,23 @@ final _futureRe = RegExp('(?<=^|[\\s,।!?;:“”"(])(${_futureVerbs.join('|')}
 
 String forSpeech(String text) =>
     text.replaceAll('•', '').replaceAllMapped(_futureRe, (m) => '${m[1]}ো');
+
+/// A word compared loosely (digits, punctuation and spelling variants
+/// aside), to tell the app's own voice from the user's.
+String echoToken(String w) {
+  const bnDigits = '০১২৩৪৫৬৭৮৯';
+  var t = w.toLowerCase();
+  for (var i = 0; i < 10; i++) {
+    t = t.replaceAll(bnDigits[i], '$i');
+  }
+  return t
+      .replaceAll('য়', 'য়')
+      .replaceAll('ড়', 'ড়')
+      .replaceAll(RegExp('[​-‍﻿]'), '')
+      .replaceAll(RegExp(r'[।?!,.;:"“”‘’()\[\]—–\-]'), '');
+}
+
+/// Said over the app's voice, these stop it even alone.
+final _stopTokens = {
+  for (final w in const ['থামো', 'থাম', 'থামেন', 'চুপ', 'স্টপ', 'stop', 'বন্ধ', 'হ্যাঁ', 'হ্যা', 'না', 'জি', 'ঠিক', 'আচ্ছা', 'ok', 'okay']) echoToken(w),
+};

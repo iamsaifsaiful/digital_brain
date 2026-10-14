@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../logic/app_map.dart';
+import '../logic/plan.dart' show summaryLine;
 import 'app_places.dart';
 
 import '../logic/answers.dart';
@@ -252,6 +253,10 @@ class _AnswerScreenState extends State<AnswerScreen> {
       case HealthAdd():
       case NotUnderstood():
         return _Answer(answerText(d, cmd, now) ?? '');
+      case ProfileQuery():
+        return _Answer(answerText(d, cmd, now) ?? '');
+      case ProfileSet():
+        return _Answer(summaryLine(cmd));
       case OpenPlace():
         final name = cmd.folder ?? tr(placeById(cmd.place)?.title ?? cmd.place);
         return _Answer(trf('{0} খুলছি।', [name]), actions: [

@@ -9,6 +9,8 @@ library;
 
 import '../models/models.dart';
 import 'app_map.dart';
+import 'ask.dart';
+import 'me.dart';
 import 'bn.dart';
 import 'ledger.dart';
 import 'cash.dart';
@@ -231,6 +233,23 @@ class OpenPlace extends Command {
   /// An [AppPlace] id ('docs' / 'notes' with a [folder]).
   final String place;
   final String? folder;
+}
+
+/// "আমার ব্লাড গ্রুপ বি পজিটিভ", "আম্মার রক্তের গ্রুপ ও+": a fact to keep.
+class ProfileSet extends Command {
+  const ProfileSet(super.transcript, {required this.field, required this.value, this.who = ''});
+
+  /// 'blood'.
+  final String field;
+  final String value;
+
+  /// A family member's name or relation ('' = the user).
+  final String who;
+}
+
+/// "আমার ব্লাড গ্রুপ কী?", "আমার কী কী ছবি আছে?" — answered from the phone.
+class ProfileQuery extends Command {
+  const ProfileQuery(super.transcript);
 }
 
 class NotUnderstood extends Command {
@@ -672,6 +691,9 @@ class Parser {
     final open = _open(said, text);
     if (open != null) return open;
 
+    // "নামাজের সময় কখন?", "কাল কী আছে?", "আমার ব্যালেন্স কত?", "কী কী ওষুধ চলছে?"
+    if (isQuestionText(said) && infoTopic(text) != null) return ProfileQuery(said);
+
     // "আজ আমার কী কী আছে?", "কাজের তালিকা দেখাও" (before small talk:
     // "আজ কী কী করতে হবে" is not "what can you do").
     final day = _dayQuestion(said, text);
@@ -694,6 +716,24 @@ class Parser {
 
     final opened = _open(said, text);
     if (opened != null) return opened;
+
+    // "আমার ব্লাড গ্রুপ বি পজিটিভ" (keep) / "আমার ব্লাড গ্রুপ কী?" (answer);
+    // "আমার কী কী ছবি আছে?" (what kind of things are kept).
+    if (mentionsBlood(text)) {
+      final g = bloodIn(text);
+      if (g != null && !isQuestionText(said)) return ProfileSet(said, field: 'blood', value: g, who: whoseIn(text));
+      return ProfileQuery(said);
+    }
+    if (kindAsked(text) != null && (isQuestionText(said) || _hasNorm(text, ['আছে']))) return ProfileQuery(said);
+    // "আমার উচ্চতা কত?", "আমার বয়স কত?", "আমার উচ্চতা ৫ ফুট ৬ ইঞ্চি".
+    final field = profileField(text);
+    if (field != null) {
+      if (field == 'height' && !isQuestionText(said)) {
+        final cm = heightIn(text);
+        if (cm != null) return ProfileSet(said, field: 'height', value: cm.toStringAsFixed(1), who: whoseIn(text));
+      }
+      if (isQuestionText(said)) return ProfileQuery(said);
+    }
 
     // "প্রেশার ১৪০ বাই ৯০", "আজ ওজন ৬৮ কেজি", "আমার বিএমআই কত?"
     final health = _health(said, text, w);
@@ -802,6 +842,16 @@ class Parser {
       // for a day is a to-do on that day (with a clock time, a reminder).
       final plan = _plan(said, text, w);
       if (plan != null) return plan;
+    }
+
+    // "প্রতিদিন রাত ১০টায় ওষুধ", "রাত ৯টায় ওষুধ খাওয়া": a clock time and a
+    // thing, said short — a reminder, even without "মনে করিয়ে দিও".
+    if (!asking && w.length <= 7 && !text.contains(normalize('মনে করিয়ে'))) {
+      final when = parseWhen(said, now);
+      if (when != null && when.hasTime) {
+        final r = parse('$said মনে করিয়ে দিও');
+        if (r is ReminderAdd && r.title.trim().isNotEmpty) return r;
+      }
     }
 
     final terms = searchTerms(text);
@@ -1484,6 +1534,7 @@ bool isQuestionText(String said) {
   const q = [
     'কী', 'কি', 'কত', 'কোথায়', 'কোথায়', 'কবে', 'কে', 'কার', 'কাকে', 'কোন', 'কোনটা', 'কেমন', 'কিভাবে', 'কীভাবে',
     'দেখাও', 'দেখান', 'দেখা', 'বলো', 'বলুন', 'বল', 'খুঁজে', 'খোঁজো', 'খুঁজো', 'বের', 'what', 'where', 'when', 'show', 'find',
+    'কখন', 'কটায়', 'কয়টা', 'কয়টি', 'কতগুলো', 'কতটা', 'কেন', 'কিসে', 'কিসের', 'কোনগুলো', 'কারা', 'how', 'which',
   ];
   final qs = {for (final x in q) fold(x)};
   return w.any(qs.contains);

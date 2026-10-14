@@ -1,6 +1,7 @@
 import 'package:digital_brain/logic/ai_map.dart';
 import 'package:digital_brain/logic/answers.dart';
 import 'package:digital_brain/logic/app_map.dart';
+import 'package:digital_brain/logic/me.dart';
 import 'package:digital_brain/logic/bn.dart';
 import 'package:digital_brain/logic/calendar_bd.dart';
 import 'package:digital_brain/logic/cash.dart';
@@ -1393,6 +1394,57 @@ void main() {
       expect(m, isNot(contains('সঞ্চয়')));
       final spentOnly = AppData(cash: [CashEntry(kind: CashKind.expense, amount: 500, category: 'বাজার', date: DateTime(2026, 10, 5))]);
       expect(cashAnswer(spentOnly, const CashQuery('খরচ'), now), allOf(contains('খরচ হয়েছে ৫০০'), isNot(contains('আয়'))));
+    });
+  });
+
+  group('answers that fit the question', () {
+    final now = DateTime(2026, 10, 14, 10);
+    Command parse(String t) => Parser(ledger: const [], now: now).parse(t);
+    String ask(AppData d, String t) => answerText(d, parse(t), now) ?? '';
+    test('blood group: said, kept, asked — for the user and family', () {
+      expect(bloodIn(normalize('আমার ব্লাড গ্রুপ বি পজিটিভ')), 'B+');
+      expect(bloodIn(normalize('ও নেগেটিভ')), 'O−');
+      expect(bloodIn(normalize('my blood group is AB+')), 'AB+');
+      final set = parse('আমার ব্লাড গ্রুপ বি পজিটিভ') as ProfileSet;
+      expect((set.field, set.value, set.who), ('blood', 'B+', ''));
+      final mum = parse('আম্মার রক্তের গ্রুপ ও নেগেটিভ') as ProfileSet;
+      expect((mum.value, mum.who), ('O−', 'আম্মা'));
+      expect(ask(AppData(), 'আমার ব্লাড গ্রুপ কি'), allOf(contains('কোনো তথ্য নেই'), contains('যুক্ত করতে পারেন')));
+      final d = AppData(emergency: const EmergencyCard(blood: 'B+'), members: [FamilyMember(name: 'রহিমা', relation: 'আম্মা', blood: 'O−')]);
+      expect(ask(d, 'আমার ব্লাড গ্রুপ কি'), contains('বি পজিটিভ'));
+      expect(ask(d, 'আম্মার রক্তের গ্রুপ কী'), contains('ও নেগেটিভ'));
+    });
+    test('height, age, photos: answered from what is kept', () {
+      final h = parse('আমার উচ্চতা ৫ ফুট ৬ ইঞ্চি') as ProfileSet;
+      expect(double.parse(h.value), closeTo(167.6, 0.1));
+      expect(ask(AppData(), 'আমার উচ্চতা কত'), allOf(contains('উচ্চতার কোনো তথ্য নেই'), isNot(contains('লেখা নেই'))));
+      final d = AppData(members: [FamilyMember(id: FamilyMember.meId, name: 'আমি', heightCm: 167.6, birth: DateTime(1990, 1, 1))]);
+      expect(ask(d, 'আমার উচ্চতা কত'), contains('৫ ফুট'));
+      expect(ask(d, 'আমার বয়স কত'), contains('৩৬'));
+      expect(ask(AppData(), 'আমার কোন ছবি আছে'), contains('কোনো ছবি রাখা নেই'));
+      final pics = AppData(docs: [Doc(title: 'ঈদের ছবি', folder: 'পরিবারের ছবি', files: [DocFile(name: 'a.jpg', mime: 'image/jpeg', size: 10)])]);
+      expect(ask(pics, 'আমার কোন ছবি আছে'), contains('ঈদের ছবি'));
+    });
+    test('everyday questions: prayer, sehri, tomorrow, money, medicines, expiry', () {
+      expect(ask(AppData(), 'নামাজের সময় কখন'), allOf(contains('ফজর'), contains('মাগরিব')));
+      expect(ask(AppData(), 'আজ সেহরি কখন'), contains('সেহরির শেষ সময়'));
+      final d = AppData(
+        medicines: [Medicine(name: 'নাপা', times: [540])],
+        accounts: [MoneyAccount(name: 'বিকাশ', kind: AccountKind.bkash, opening: 5000)],
+        docs: [Doc(title: 'পাসপোর্ট', folder: 'পাসপোর্ট', files: const [], expiry: DateTime(2028, 3, 12))],
+        reminders: [Reminder(title: 'ডাক্তার', date: DateTime(2026, 10, 15), hour: 17, minute: 0)],
+      );
+      expect(ask(d, 'কাল কি আছে'), contains('ডাক্তার'));
+      expect(ask(d, 'বিকাশে কত টাকা আছে'), contains('৫,০০০'));
+      expect(ask(d, 'আমার কী কী ওষুধ আছে'), contains('নাপা'));
+      expect(ask(d, 'আমার পাসপোর্টের মেয়াদ কবে'), contains('২০২৮'));
+      expect(ask(AppData(), 'রহিমের নম্বর কত'), contains('রহিমের নম্বরের কোনো তথ্য নেই'));
+      expect(parse('প্রতিদিন রাত ১০টায় ওষুধ'), isA<ReminderAdd>());
+      expect(parse('আমার কয়টা নোট আছে'), isNot(isA<NoteAdd>()));
+    });
+    test('the app\'s own voice is told apart from the user\'s words', () {
+      expect(echoToken('৫০০,'), '500');
+      expect(echoToken('শুনছি।'), 'শুনছি');
     });
   });
 }

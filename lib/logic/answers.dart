@@ -4,7 +4,9 @@ library;
 
 import '../models/models.dart';
 import 'app_map.dart';
+import 'ask.dart';
 import 'bn.dart';
+import 'me.dart';
 import 'cash.dart';
 import 'health.dart';
 import 'ledger.dart';
@@ -32,7 +34,9 @@ String vaultAnswer(AppData d, VaultQuery q) {
         : tr('নাম দিয়ে ঠিক মেলাতে পারিনি। আপনার রাখা লগইনগুলো নিচে আছে, কোনটা লাগবে দেখে নিন।');
   }
   if (found.isEmpty) {
-    return q.wifiOnly ? tr('Wi-Fi-এর কোনো তথ্য এখনো রাখা হয়নি। চাইলে এখনই রেখে দিতে পারেন।') : tr('এখনো কোনো পাসওয়ার্ড রাখা হয়নি। চাইলে এখনই রেখে দিতে পারেন।');
+    return q.wifiOnly
+        ? tr('Wi-Fi-এর কোনো তথ্য নেই। পাসওয়ার্ড ভল্টে তথ্যটি যুক্ত করতে পারেন — পরে জিজ্ঞেস করলে আঙুলের ছাপ নিয়ে দেখাবো।')
+        : tr('কোনো পাসওয়ার্ডের তথ্য নেই। পাসওয়ার্ড ভল্টে তথ্যটি যুক্ত করতে পারেন — পরে জিজ্ঞেস করলে আঙুলের ছাপ নিয়ে দেখাবো।');
   }
   if (found.length == 1) {
     return trf('{0} তথ্য পেয়েছি! তবে পাসওয়ার্ড গোপন জিনিস, তাই জোরে বলব না। আঙুলের ছাপ দিয়ে খুলুন, স্ক্রিনে দেখাব।', [possessive(found.first.name)]);
@@ -73,7 +77,19 @@ String reminderAnswer(AppData d, ReminderQuery q, DateTime now) {
 
 String searchAnswer(AppData d, SearchQuery q, DateTime now) {
   final hits = searchAll(d, q.terms);
-  if (hits.isEmpty) return tr('এ নিয়ে আমার কাছে কিছু লেখা নেই। চাইলে এখনই রেখে দিতে পারেন।');
+  if (hits.isEmpty) {
+    final p = placeMentioned(normalize(q.transcript));
+    if (p != null) return trf('এ বিষয়ে আলাদা কোনো তথ্য নেই। {0} পাতায় দেখতে নিচে চাপুন।', [tr(p.title)]);
+    // "রহিমের নম্বর কত?" with no such number: say whose, and how to add it.
+    final w = words(normalize(q.transcript));
+    if (w.any((x) => x.startsWith(normalize('নম্বর')) || x.startsWith(normalize('নাম্বার')))) {
+      final whose = w.firstWhere((x) => x != 'আমার' && stripPossessive(x) != x, orElse: () => '');
+      if (whose.isNotEmpty) {
+        return trf('{0} নম্বরের কোনো তথ্য নেই। বলুন “{0} নম্বর ০১৭… রাখো”, অথবা যোগাযোগ পাতা থেকে ফোনবুকের নম্বর আনুন — পরে নাম বললেই ফোন করে দেবো।', [whose]);
+      }
+    }
+    return tr('এ বিষয়ে কোনো তথ্য নেই। তথ্যটি যুক্ত করতে পারেন — বলুন “মনে রাখো: …” — পরে যেকোনো সময় জিজ্ঞেস করলে উত্তর দেবো।');
+  }
   // Say the best match itself, not just "found N things".
   final best = hits.first;
   // Several photos or papers: name them all, the buttons below open them.
@@ -108,7 +124,7 @@ String ledgerAnswer(AppData d, LedgerQuery q, [DateTime? now]) {
   switch (q.ask) {
     case LedgerAsk.person:
       final p = balanceOf(d.ledger, q.person!);
-      if (p == null) return trf('{0} সাথে তো কোনো হিসাব লেখা নেই।', [possessive(q.person!)]);
+      if (p == null) return trf('{0} সাথে কোনো লেনদেনের তথ্য নেই।', [possessive(q.person!)]);
       final period = periodIn(normalize(q.transcript), now ?? DateTime.now());
       if (period != null) {
         final (from, to, label) = period;
@@ -216,18 +232,18 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
           : trf('{0} খুঁজে পাইনি। আছে: {1}।', [name.isEmpty ? 'কোন প্রজেক্ট' : '‘$name’ নামে প্রজেক্ট', nameList([for (final x in d.projects) x.name], unit: 'টা')]);
     }
     final s = projectSums(d.cash, p.id);
-    if (s.income == 0 && s.expense == 0) return trf('‘{0}’ প্রজেক্টে এখনো কোনো টাকা আসা বা খরচ লেখা হয়নি।', [p.name]);
+    if (s.income == 0 && s.expense == 0) return trf('‘{0}’ প্রজেক্টে টাকা আসা বা খরচের কোনো তথ্য নেই।', [p.name]);
     if (s.income == 0) return trf('‘{0}’ প্রজেক্টে এ পর্যন্ত খরচ {1} টাকা।', [p.name, bnNumber(s.expense)]);
     if (s.expense == 0) return trf('‘{0}’ প্রজেক্টে এসেছে {1} টাকা, এখনো খরচ হয়নি।', [p.name, bnNumber(s.income)]);
     return trf('‘{0}’ প্রজেক্টে এসেছে {1} টাকা, খরচ {2} টাকা — {3}।',
         [p.name, bnNumber(s.income), bnNumber(s.expense), s.balance >= 0 ? trf('হাতে আছে {0} টাকা', [bnNumber(s.balance)]) : trf('আসার চেয়ে {0} টাকা বেশি খরচ', [bnNumber(-s.balance)])]);
   }
   final s = monthSums(d.cash, now);
-  if (s.income == 0 && s.expense == 0) return tr('এই মাসে এখনো কোনো আয় বা খরচ লেখা হয়নি। বলুন, যেমন “বাজারে ৫০০ টাকা খরচ হলো”।');
+  if (s.income == 0 && s.expense == 0) return tr('এই মাসের আয়-খরচের কোনো তথ্য নেই। বলুন, যেমন “বাজারে ৫০০ টাকা খরচ হলো” — পরে জিজ্ঞেস করলেই হিসাব দেবো।');
   final top = s.topExpenses;
   final most = top.isEmpty ? '' : trf(' সবচেয়ে বেশি খরচ {0} খাতে — {1} টাকা।', [top.first.key, bnNumber(top.first.value)]);
   if (s.income == 0) return trf('এই মাসে খরচ হয়েছে {0} টাকা।{1}', [bnNumber(s.expense), most]);
-  if (s.expense == 0) return trf('এই মাসে আয় {0} টাকা; এখনো কোনো খরচ লেখা হয়নি।', [bnNumber(s.income)]);
+  if (s.expense == 0) return trf('এই মাসে আয় {0} টাকা; খরচের কোনো তথ্য নেই।', [bnNumber(s.income)]);
   return trf('এই মাসে আয় {0} টাকা, খরচ {1} টাকা — {2}।{3}', [
     bnNumber(s.income),
     bnNumber(s.expense),
@@ -284,7 +300,8 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       ContactsQuery() => contactsAnswer(d),
       HealthQuery() => healthAnswer(d, cmd.what, now, member: cmd.member),
       NotUnderstood() => _notUnderstood(cmd),
-      OpenPlace() ||
+      ProfileQuery() => profileAnswer(d, cmd.transcript) ?? infoAnswer(d, cmd.transcript, now) ?? kindAnswer(d, kindAsked(normalize(cmd.transcript)) ?? 'papers'),
+      OpenPlace() || ProfileSet() ||
       LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TaskDone() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() || HealthAdd() => null,
     };
 

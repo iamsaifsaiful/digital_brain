@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
 import '../logic/lang.dart';
+import '../logic/me.dart' show bloodGroups;
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/forms.dart';
@@ -231,7 +232,6 @@ class ExpiryScreen extends StatelessWidget {
 
 // ───────────────────────── Emergency card ─────────────────────────
 
-const bloodGroups = ['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−'];
 
 /// The card itself, readable without the PIN.
 class EmergencyView extends StatelessWidget {

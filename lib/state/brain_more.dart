@@ -351,6 +351,33 @@ extension BrainHealth on Brain {
 
   FamilyMember personById(String id) => healthPeople.firstWhere((m) => m.id == id, orElse: () => healthPeople.first);
 
+  /// Keeps a blood group: the user's on the emergency card, a family
+  /// member's on their health page (a new member when not there yet).
+  /// Returns whose, ready for a sentence ("আপনার", "আম্মার").
+  Future<String> setBlood(String who, String group) async {
+    if (who.isEmpty) {
+      await saveEmergency(data.emergency.copyWith(blood: group));
+      return tr('আপনার');
+    }
+    final m = memberCalled(data, who) ?? FamilyMember(name: who, relation: who);
+    _upsert(data.members, m.copyWith(blood: group), (x) => x.id);
+    await _save();
+    return possessive(m.relation.isNotEmpty ? m.relation : m.name);
+  }
+
+  /// Keeps a height (cm): the user's own, or a family member's.
+  Future<String> setHeight(String who, double cm) async {
+    final FamilyMember m;
+    if (who.isEmpty) {
+      m = data.members.where((x) => x.isMe).firstOrNull ?? FamilyMember(id: FamilyMember.meId, name: userName.isEmpty ? tr('আমি') : userName);
+    } else {
+      m = memberCalled(data, who) ?? FamilyMember(name: who, relation: who);
+    }
+    _upsert(data.members, m.copyWith(heightCm: cm), (x) => x.id);
+    await _save();
+    return who.isEmpty ? tr('আপনার') : possessive(m.relation.isNotEmpty ? m.relation : m.name);
+  }
+
   Future<void> saveMember(FamilyMember m) async {
     _upsert(data.members, m, (x) => x.id);
     await _save();
