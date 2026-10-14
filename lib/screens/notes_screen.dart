@@ -4,6 +4,7 @@ import '../logic/bn.dart';
 import '../logic/parser.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
+import '../ui/note_parts.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'new_item_screen.dart';
@@ -102,9 +103,9 @@ class _NotesScreenState extends State<NotesScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(n.title, style: body(16, weight: FontWeight.w600)),
-                                if (n.body.isNotEmpty && n.body != n.title) ...[
+                                if ((n.body.isNotEmpty && n.body != n.title) || n.files.isNotEmpty) ...[
                                   const SizedBox(height: 4),
-                                  Text(n.body, style: body(14, color: C.muted2, height: 1.5), maxLines: 4, overflow: TextOverflow.ellipsis),
+                                  Text(isChecklist(n.body) || n.files.isNotEmpty ? notePreview(n) : n.body, style: body(14, color: C.muted2, height: 1.5), maxLines: 4, overflow: TextOverflow.ellipsis),
                                 ],
                                 const SizedBox(height: 6),
                                 Text(_cat == null ? '${n.category} · ${shortDate(n.updatedAt)}' : shortDate(n.updatedAt), style: body(12, color: C.muted)),

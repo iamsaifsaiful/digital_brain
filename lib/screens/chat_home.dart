@@ -18,6 +18,7 @@ import 'ledger_form_screen.dart';
 import 'money_screens.dart';
 import 'new_item_screen.dart';
 import 'notes_screen.dart';
+import 'docs_screen.dart';
 import 'person_screen.dart';
 import 'plan_screens.dart';
 import 'vault_item_screen.dart';
@@ -488,6 +489,15 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     if (ok && mounted) await _open(VaultItemScreen(id: v.id));
   }
 
+  Future<void> _openDoc(String id, String label) async {
+    _away = true;
+    await _stopListening();
+    if (!mounted) return;
+    final ok = await verifyUser(context, reason: trf('{0} — দেখতে যাচাই করুন', [label]));
+    _away = false;
+    if (ok && mounted) await _open(DocScreen(id: id, unlocked: true));
+  }
+
   void _link(ChatLink l) {
     switch (l.kind) {
       case LinkKind.person:
@@ -505,6 +515,8 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
         _open(const SpecialDaysScreen());
       case LinkKind.memory:
         _open(const MemoryScreen());
+      case LinkKind.doc:
+        _openDoc(l.docId!, l.label);
       case LinkKind.editEntry:
         _chat.dropPending();
         _open(ConfirmScreen(command: l.entry!)).then((r) {

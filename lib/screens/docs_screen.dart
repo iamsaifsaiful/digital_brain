@@ -10,6 +10,7 @@ import '../ui/pin.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import '../logic/lang.dart';
+import 'doc_upload.dart';
 import 'store_more_screens.dart';
 
 /// "১.২ MB", "৮৪০ KB".
@@ -21,43 +22,10 @@ String sizeText(int bytes) {
 /// All folders: the usual ones, then the user's own.
 List<String> allDocFolders(AppData d) => [...docFolders, ...{for (final x in d.docs) x.folder}.where((f) => !docFolders.contains(f))];
 
-/// Adds a photo or file: asks the folder, keeps it encrypted, opens it.
-Future<void> addDocument(BuildContext context, {required int source, String? folder, Doc? into, PickedDoc? shared}) async {
-  final brain = BrainScope.read(context);
-  final shrink = await brain.services.lock.keys.read('doc_shrink') != 'false';
-  // [shared]: a photo or file sent from another app with Share.
-  final PickedDoc? f = shared ??
-      switch (source) {
-        0 => await brain.services.files.pickPhoto(camera: true, shrink: shrink),
-        1 => await brain.services.files.pickPhoto(camera: false, shrink: shrink),
-        _ => await brain.services.files.pickDocument(),
-      };
-  if (f == null || !context.mounted) return;
-  if (f.bytes.length > 25 * 1024 * 1024) {
-    toast(context, trf('ফাইলটা অনেক বড় ({0}) — ২৫ MB পর্যন্ত রাখা যায়', [sizeText(f.bytes.length)]));
-    return;
-  }
-  var target = folder ?? into?.folder;
-  if (target == null) {
-    target = await showDialog<String>(
-      context: context,
-      builder: (ctx) => SimpleDialog(
-        title: Text(tr('কোন ফোল্ডারে রাখবো?'), style: body(18, weight: FontWeight.w600)),
-        children: [
-          for (final x in allDocFolders(brain.data))
-            SimpleDialogOption(onPressed: () => Navigator.pop(ctx, x), child: Text(x, style: body(16))),
-        ],
-      ),
-    );
-    if (target == null || !context.mounted) return;
-  }
-  final d = await brain.addDocPage(into, f, folder: target, title: target);
-  if (!context.mounted) return;
-  toast(context, f.mime.startsWith('image/') ? trf('ছবি রাখা হলো · {0}', [sizeText(f.bytes.length)]) : trf('ফাইল রাখা হলো · {0}', [sizeText(f.bytes.length)]));
-  if (into == null) {
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => DocScreen(id: d.id, unlocked: true)));
-  }
-}
+/// Adds photos or files (one or many), with a name and a few words about
+/// them; see [addDocuments].
+Future<void> addDocument(BuildContext context, {required int source, String? folder, Doc? into, PickedDoc? shared}) =>
+    addDocuments(context, source: source, folder: folder, into: into, shared: shared == null ? null : [shared]);
 
 /// ডকুমেন্টস: NID, passport, land papers, receipts… as photos and files,
 /// encrypted on this phone.
@@ -409,6 +377,31 @@ class _DocScreenState extends State<DocScreen> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 12),
+                Panel(
+                  child: ListRow(
+                    leading: Icon(Icons.notes_rounded, color: C.green),
+                    title: d.about.isEmpty ? tr('বিবরণ যোগ করুন') : d.about,
+                    subtitle: [
+                      if (d.people.isNotEmpty) d.people,
+                      if (d.place.isNotEmpty) d.place,
+                      if (d.taken != null) fullDate(d.taken!),
+                    ].join(' · ').isEmpty
+                        ? tr('কী আছে, কারা আছেন, কোথায়, কবে — পরে খুঁজতে কাজে লাগে')
+                        : [
+                            if (d.people.isNotEmpty) d.people,
+                            if (d.place.isNotEmpty) d.place,
+                            if (d.taken != null) fullDate(d.taken!),
+                          ].join(' · '),
+                    trailing: Icon(Icons.edit_outlined, color: C.muted, size: 20),
+                    onTap: () async {
+                      final info = await askDocInfo(context, const [], edit: d);
+                      if (info == null) return;
+                      await brain.saveDoc(info.doc);
+                      await brain.setTags('doc:${d.id}', info.tags);
+                    },
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TagEditor(tagKey: 'doc:${d.id}'),

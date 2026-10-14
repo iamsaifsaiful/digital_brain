@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
 import '../state/brain.dart';
+import '../ui/note_parts.dart';
 import '../ui/theme.dart';
 import 'calls_screen.dart';
 import 'docs_screen.dart';
@@ -167,7 +168,7 @@ class StoreScreen extends StatelessWidget {
                           Expanded(
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               Text(n.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15, weight: FontWeight.w600)),
-                              Text('${n.category} · ${n.body.replaceAll('\n', ' ')}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted)),
+                              Text('${n.category} · ${notePreview(n)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted)),
                             ]),
                           ),
                           Icon(Icons.chevron_right_rounded, color: C.muted),

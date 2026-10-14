@@ -43,14 +43,17 @@ class ChatChoice {
   final String answer;
 }
 
-enum LinkKind { person, editEntry, notes, reminders, tasks, contacts, cash, special, memory }
+enum LinkKind { person, editEntry, notes, reminders, tasks, contacts, cash, special, memory, doc }
 
 /// "খাতা দেখুন" and similar, under an app message.
 class ChatLink {
-  const ChatLink(this.kind, this.label, {this.person, this.entry});
+  const ChatLink(this.kind, this.label, {this.person, this.entry, this.docId});
   final LinkKind kind;
   final String label;
   final String? person;
+
+  /// For [LinkKind.doc]: the document to open (after fingerprint or PIN).
+  final String? docId;
   final LedgerAdd? entry;
 }
 
@@ -577,6 +580,11 @@ class ChatController extends ChangeNotifier {
     if (c is TaskQuery || c is Briefing) return [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))];
     if (c is CashQuery) return [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন'))];
     if (c is ContactsQuery) return [ChatLink(LinkKind.contacts, tr('যোগাযোগ দেখুন'))];
+    if (c is SearchQuery) {
+      return [
+        for (final h in searchAll(d, c.terms).whereType<DocHit>().take(4)) ChatLink(LinkKind.doc, trf('দেখুন: {0}', [h.doc.title]), docId: h.doc.id),
+      ];
+    }
     return const [];
   }
 

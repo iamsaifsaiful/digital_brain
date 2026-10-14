@@ -96,7 +96,7 @@ class _SearchScreenState extends State<SearchScreen> {
     List<String> tagsOf(String k) => d.tags[k] ?? const [];
     final docs = useTerms.isEmpty
         ? const <Doc>[]
-        : d.docs.where((x) => score(useTerms, [x.title, x.folder, ...tagsOf('doc:${x.id}'), for (final f in x.fields) '${f.label} ${f.value}']) > 0).toList();
+        : [for (final h in hits) if (h is DocHit) h.doc];
     // Notes found by a tag ("#গাড়ি" or just "গাড়ি").
     final tagged = useTerms.isEmpty
         ? const <Note>[]

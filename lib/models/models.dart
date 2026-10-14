@@ -219,7 +219,7 @@ const defaultNoteCategory = 'নোট';
 /// A note or any other remembered piece of information. [category] groups
 /// them ("নোট", or one the app created such as "যানবাহন").
 class Note {
-  Note({String? id, required this.title, this.body = '', this.category = defaultNoteCategory, DateTime? updatedAt})
+  Note({String? id, required this.title, this.body = '', this.category = defaultNoteCategory, DateTime? updatedAt, this.files = const []})
       : id = id ?? newId(),
         updatedAt = updatedAt ?? DateTime.now();
 
@@ -229,8 +229,17 @@ class Note {
   final String category;
   final DateTime updatedAt;
 
-  Map<String, Object?> toJson() =>
-      {'id': id, 'title': title, 'body': body, 'category': category, 'updatedAt': updatedAt.toIso8601String()};
+  /// Photos and files kept with the note (encrypted like documents).
+  final List<DocFile> files;
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'title': title,
+        'body': body,
+        'category': category,
+        'updatedAt': updatedAt.toIso8601String(),
+        if (files.isNotEmpty) 'files': [for (final f in files) f.toJson()],
+      };
 
   factory Note.fromJson(Map<String, Object?> j) => Note(
         id: j['id'] as String?,
@@ -238,6 +247,7 @@ class Note {
         body: (j['body'] as String?) ?? '',
         category: ((j['category'] as String?) ?? '').trim().isEmpty ? defaultNoteCategory : (j['category'] as String).trim(),
         updatedAt: _date(j['updatedAt']),
+        files: [for (final f in (j['files'] as List? ?? const [])) if (f is Map) DocFile.fromJson(f.cast<String, Object?>())],
       );
 }
 
@@ -617,6 +627,10 @@ class Doc {
     this.reminderId,
     DateTime? createdAt,
     DateTime? updatedAt,
+    this.about = '',
+    this.people = '',
+    this.place = '',
+    this.taken,
   })  : id = id ?? newId(),
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
@@ -632,12 +646,42 @@ class Doc {
 
   /// The reminder made for [expiry].
   final String? reminderId;
+
+  /// What it shows, in the user's words ("বিয়ের দিনের ছবি", "জমির খারিজ").
+  final String about;
+
+  /// Who is in it or whose paper it is.
+  final String people;
+
+  /// Where (a place, a shop, a city).
+  final String place;
+
+  /// When the photos were taken / the paper was made.
+  final DateTime? taken;
+
+  /// Everything the assistant searches in.
+  String get searchText => [title, folder, about, people, place, for (final f in fields) '${f.label} ${f.value}', if (taken != null) '${taken!.year}'].join(' ');
   final DateTime createdAt;
   final DateTime updatedAt;
 
   int get size => files.fold(0, (a, f) => a + f.size);
 
-  Doc copyWith({String? title, String? folder, List<DocFile>? files, List<DocField>? fields, DateTime? expiry, bool clearExpiry = false, String? reminderId, bool clearReminder = false}) => Doc(
+  Doc copyWith({
+    String? title,
+    String? folder,
+    List<DocFile>? files,
+    List<DocField>? fields,
+    DateTime? expiry,
+    bool clearExpiry = false,
+    String? reminderId,
+    bool clearReminder = false,
+    String? about,
+    String? people,
+    String? place,
+    DateTime? taken,
+    bool clearTaken = false,
+  }) =>
+      Doc(
         id: id,
         title: title ?? this.title,
         folder: folder ?? this.folder,
@@ -647,6 +691,10 @@ class Doc {
         reminderId: clearReminder ? null : (reminderId ?? this.reminderId),
         createdAt: createdAt,
         updatedAt: DateTime.now(),
+        about: about ?? this.about,
+        people: people ?? this.people,
+        place: place ?? this.place,
+        taken: clearTaken ? null : (taken ?? this.taken),
       );
 
   Map<String, Object?> toJson() => {
@@ -659,6 +707,10 @@ class Doc {
         'reminderId': reminderId,
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
+        if (about.isNotEmpty) 'about': about,
+        if (people.isNotEmpty) 'people': people,
+        if (place.isNotEmpty) 'place': place,
+        if (taken != null) 'taken': taken!.toIso8601String(),
       };
 
   factory Doc.fromJson(Map<String, Object?> j) => Doc(
@@ -671,11 +723,15 @@ class Doc {
         reminderId: j['reminderId'] as String?,
         createdAt: _date(j['createdAt']),
         updatedAt: _date(j['updatedAt']),
+        about: (j['about'] as String?) ?? '',
+        people: (j['people'] as String?) ?? '',
+        place: (j['place'] as String?) ?? '',
+        taken: _date(j['taken']),
       );
 }
 
 /// The folders offered from the start (the user can make more).
-const docFolders = ['জাতীয় পরিচয়পত্র', 'পাসপোর্ট', 'জমি ও বাড়ির কাগজ', 'বিল ও রসিদ', 'সার্টিফিকেট', 'চিকিৎসা', 'গাড়ি ও লাইসেন্স', 'অন্যান্য'];
+const docFolders = ['জাতীয় পরিচয়পত্র', 'পাসপোর্ট', 'জমি ও বাড়ির কাগজ', 'বিল ও রসিদ', 'সার্টিফিকেট', 'চিকিৎসা', 'প্রেসক্রিপশন', 'ওয়ারেন্টি ও গ্যারান্টি', 'গাড়ি ও লাইসেন্স', 'পরিবারের ছবি', 'অন্যান্য'];
 
 class AppData {
   AppData({

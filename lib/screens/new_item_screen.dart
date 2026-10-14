@@ -5,6 +5,7 @@ import '../logic/password.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/early_picker.dart';
+import '../ui/note_parts.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'alarm_screens.dart';
@@ -65,6 +66,24 @@ class _NewItemScreenState extends State<NewItemScreen> {
   final _noteCat = TextEditingController(text: defaultNoteCategory);
   bool _pwVisible = false;
 
+  /// The note's photos and files; [_added] are new ones (removed again if the
+  /// note is not saved), [_dropped] are taken off when it is.
+  List<DocFile> _files = [];
+  final _added = <DocFile>[];
+  final _dropped = <DocFile>[];
+  bool _saved = false;
+  Brain? _brain;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _brain = BrainScope.read(context);
+  }
+
+  /// The note as tick-box items instead of free text.
+  bool _list = false;
+  List<(bool, String)> _items = [];
+
   VaultKind _vaultKind = VaultKind.website;
   late DateTime _date;
   TimeOfDay _time = const TimeOfDay(hour: 10, minute: 0);
@@ -116,6 +135,11 @@ class _NewItemScreenState extends State<NewItemScreen> {
       _a.text = w.note!.title;
       _b.text = w.note!.body;
       _noteCat.text = w.note!.category;
+      _files = [...w.note!.files];
+      if (w.note!.body.trim().isNotEmpty && isChecklist(w.note!.body)) {
+        _list = true;
+        _items = checklistItems(w.note!.body);
+      }
     } else if (w.reminder != null) {
       final r = w.reminder!;
       _a.text = r.title;
@@ -135,7 +159,31 @@ class _NewItemScreenState extends State<NewItemScreen> {
     for (final c in [_a, _b, _c, _d, _pw, _noteText, _noteCat]) {
       c.dispose();
     }
+    // Left without saving: the newly added photos go too.
+    final brain = _brain;
+    if (!_saved && _added.isNotEmpty && brain != null) {
+      for (final f in _added) {
+        brain.dropFile(f);
+      }
+    }
     super.dispose();
+  }
+
+  Future<void> _addFiles(int source) async {
+    final brain = BrainScope.read(context);
+    final shrink = await brain.services.lock.keys.read('doc_shrink') != 'false';
+    final files = brain.services.files;
+    final picked = switch (source) {
+      0 => [if (await files.pickPhoto(camera: true, shrink: shrink) case final p?) p],
+      1 => await files.pickPhotos(shrink: shrink),
+      _ => await files.pickDocuments(),
+    };
+    for (final f in picked) {
+      if (f.bytes.length > 25 * 1024 * 1024) continue;
+      final kept = await brain.keepFile(f);
+      _added.add(kept);
+      if (mounted) setState(() => _files.add(kept));
+    }
   }
 
   String? _required(String? v) => (v ?? '').trim().isEmpty ? tr('এটা লিখুন') : null;
@@ -172,7 +220,12 @@ class _NewItemScreenState extends State<NewItemScreen> {
         done = tr('যোগাযোগ রাখা হয়েছে');
       case ItemCategory.note:
         final cat = _noteCat.text.trim().isEmpty ? defaultNoteCategory : _noteCat.text.trim();
-        await brain.saveNote(Note(id: widget.note?.id, title: _a.text.trim(), body: _b.text.trim(), category: cat, updatedAt: now));
+        final text = _list ? checklistBody(_items) : _b.text.trim();
+        await brain.saveNote(Note(id: widget.note?.id, title: _a.text.trim(), body: text, category: cat, updatedAt: now, files: _files));
+        for (final f in _dropped) {
+          await brain.dropFile(f);
+        }
+        _saved = true;
         done = tr('নোট রাখা হয়েছে');
       case ItemCategory.reminder:
         final at = DateTime(_date.year, _date.month, _date.day, _time.hour, _time.minute);
@@ -408,11 +461,38 @@ class _NewItemScreenState extends State<NewItemScreen> {
             ),
         ]),
         _gap,
-        TextFormField(
-          controller: _b,
-          minLines: 6,
-          maxLines: 14,
-          decoration: InputDecoration(labelText: tr('লেখা'), hintText: tr('যা মনে রাখতে চান…'), alignLabelWithHint: true),
+        SegTabs<bool>(
+          items: [(false, tr('লেখা')), (true, tr('টিক দেওয়ার তালিকা'))],
+          value: _list,
+          onChanged: (v) => setState(() {
+            if (v && !_list) _items = [for (final l in _b.text.split('\n')) if (l.trim().isNotEmpty) (false, l.trim())];
+            if (!v && _list) _b.text = [for (final (_, t) in _items) if (t.trim().isNotEmpty) t.trim()].join('\n');
+            _list = v;
+          }),
+        ),
+        const SizedBox(height: 10),
+        if (_list)
+          ChecklistEditor(key: const ValueKey('checklist'), items: _items, onChanged: (v) => _items = v)
+        else
+          TextFormField(
+            controller: _b,
+            minLines: 6,
+            maxLines: 14,
+            decoration: InputDecoration(labelText: tr('লেখা'), hintText: tr('যা মনে রাখতে চান…'), alignLabelWithHint: true),
+          ),
+        _gap,
+        AttachmentsEditor(
+          files: _files,
+          title: _a.text.trim().isEmpty ? tr('নোট') : _a.text.trim(),
+          onAdd: _addFiles,
+          onRemove: (f) async {
+            setState(() => _files.remove(f));
+            if (_added.remove(f)) {
+              await BrainScope.read(context).dropFile(f);
+            } else {
+              _dropped.add(f);
+            }
+          },
         ),
         if (widget.note != null) ...[_gap, TagEditor(tagKey: 'note:${widget.note!.id}')],
       ];

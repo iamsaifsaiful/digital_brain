@@ -946,12 +946,74 @@ void main() {
     await settle(t);
     await t.tap(find.text('গ্যালারি'));
     await settle(t);
-    await t.tap(find.text('জাতীয় পরিচয়পত্র').last);
+    // The form: a name, a folder and a few words.
+    await t.enterText(find.widgetWithText(TextField, 'নাম'), 'আমার NID');
+    await t.tap(find.widgetWithText(ChoiceChip, 'জাতীয় পরিচয়পত্র'));
+    await settle(t);
+    await t.ensureVisible(find.text('রাখুন').last);
+    await t.tap(find.text('রাখুন').last);
     await settle(t);
     final d = rig.brain.data.docs.single;
+    expect(d.title, 'আমার NID');
     expect(d.folder, 'জাতীয় পরিচয়পত্র');
     expect(d.files.single.size, 3000);
     expect((await rig.brain.docBytes(d.files.single))!.length, 3000);
+  });
+
+  testWidgets('v2.10: many photos at once, one group with a description, found again by asking', (t) async {
+    final rig = await start(t);
+    PickedDoc photo(String n) => PickedDoc(Uint8List.fromList(List.generate(500, (i) => i % 251)), n, 'image/jpeg');
+    rig.files.photos = [photo('1.jpg'), photo('2.jpg'), photo('3.jpg')];
+    await t.tap(find.text('সংরক্ষণ').last);
+    await settle(t);
+    await t.tap(find.text('ডকুমেন্টস'));
+    await settle(t);
+    await t.tap(find.text('গ্যালারি'));
+    await settle(t);
+    await t.tap(find.text('সবগুলো এক সাথে, একটা গ্রুপে'));
+    await settle(t);
+    await t.enterText(find.widgetWithText(TextField, 'নাম'), 'ভাইয়ের বিয়ে');
+    await t.enterText(find.widgetWithText(TextField, 'কী আছে (বিবরণ)'), 'গায়ে হলুদ আর বিয়ের দিনের ছবি');
+    await t.enterText(find.widgetWithText(TextField, 'কোথায়'), 'ফেনী');
+    await t.ensureVisible(find.text('রাখুন').last);
+    await t.tap(find.text('রাখুন').last);
+    await settle(t);
+    final d = rig.brain.data.docs.single;
+    expect(d.files, hasLength(3));
+    expect((d.about, d.place), ('গায়ে হলুদ আর বিয়ের দিনের ছবি', 'ফেনী'));
+    // Asked in the chat: the answer names it and a button opens it.
+    Navigator.of(t.element(find.byType(Scaffold).first)).popUntil((r) => r.isFirst);
+    await settle(t);
+    await openTyping(t);
+    await t.enterText(find.byType(TextField).first, 'বিয়ের ছবিগুলো দেখাও');
+    await t.testTextInput.receiveAction(TextInputAction.send);
+    await settle(t);
+    expect(find.textContaining('ভাইয়ের বিয়ে'), findsWidgets);
+    expect(find.textContaining('দেখুন: ভাইয়ের বিয়ে'), findsOneWidget);
+  });
+
+  testWidgets('v2.10: a note keeps photos and a tick-box list', (t) async {
+    final rig = await start(t);
+    PickedDoc photo(String n) => PickedDoc(Uint8List.fromList(List.generate(300, (i) => i % 251)), n, 'image/jpeg');
+    rig.files.photos = [photo('a.jpg'), photo('b.jpg')];
+    await openMenu(t, 'নোট');
+    await t.tap(find.byTooltip('নতুন নোট'));
+    await settle(t);
+    await t.enterText(find.widgetWithText(TextFormField, 'শিরোনাম'), 'বাজারের তালিকা');
+    await t.tap(find.text('টিক দেওয়ার তালিকা'));
+    await settle(t);
+    await t.enterText(find.byType(TextField).at(2), 'ডিম');
+    await t.ensureVisible(find.text('ছবি ও ফাইল'));
+    await t.tap(find.text('যোগ করুন').last);
+    await settle(t);
+    await t.tap(find.text('গ্যালারি থেকে (একাধিক)'));
+    await settle(t);
+    expect(find.text('ছবি ও ফাইল · ২'), findsOneWidget);
+    await t.tap(find.text('সেভ করুন').last);
+    await settle(t);
+    final n = rig.brain.data.notes.single;
+    expect(n.files, hasLength(2));
+    expect(n.body, '[ ] ডিম');
   });
 
   testWidgets('v2.9: a birthday said in chat is saved yearly, and ফিরিয়ে নিন takes it back', (t) async {

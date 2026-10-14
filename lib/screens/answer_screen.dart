@@ -14,6 +14,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import '../ui/yes_no.dart';
 import 'new_item_screen.dart';
+import 'docs_screen.dart';
 import 'person_screen.dart';
 import 'reminders_screen.dart';
 import 'vault_item_screen.dart';
@@ -286,6 +287,15 @@ class _AnswerScreenState extends State<AnswerScreen> {
             title: person,
             subtitle: tr('লেনদেন'),
             onTap: () => _push(PersonScreen(person: person)),
+          ),
+        DocHit(:final doc) => ListRow(
+            leading: _SmallIcon(icon: Icons.folder_copy_outlined, fg: C.blue, bg: C.blueTint),
+            title: doc.title,
+            subtitle: '${tr(doc.folder)} · ${bnDigits(doc.files.length)}',
+            onTap: () async {
+              final ok = await verifyUser(context, reason: trf('{0} — দেখতে যাচাই করুন', [doc.title]));
+              if (ok && mounted) _push(DocScreen(id: doc.id, unlocked: true));
+            },
           ),
       };
 

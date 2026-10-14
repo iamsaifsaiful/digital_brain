@@ -466,7 +466,10 @@ class Brain extends ChangeNotifier {
     }
     if (data.docs.isNotEmpty) {
       lines.add('Documents kept (photos/files, opened on the phone): '
-          '${data.docs.take(40).map((x) => '${x.title} [${x.folder}]${x.expiry == null ? '' : ' expires ${day(x.expiry!)}'}').join('; ')}');
+          '${data.docs.take(40).map((x) => '${x.title} [${x.folder}]'
+              '${x.about.isEmpty ? '' : ' — ${x.about}'}${x.people.isEmpty ? '' : ', people: ${x.people}'}${x.place.isEmpty ? '' : ', place: ${x.place}'}'
+              '${x.taken == null ? '' : ', date ${day(x.taken!)}'}, ${x.files.length} files'
+              '${x.expiry == null ? '' : ' expires ${day(x.expiry!)}'}').join('; ')}');
     }
     lines.add('Contacts saved: ${data.contacts.length} (numbers stay on the phone; the app looks them up).');
     lines.add('Passwords saved: ${data.vault.length} (never shown to you; the app opens them with fingerprint/PIN).');
@@ -747,8 +750,34 @@ class Brain extends ChangeNotifier {
   }
 
   Future<void> deleteNote(String id) async {
+    for (final n in data.notes.where((e) => e.id == id)) {
+      for (final f in n.files) {
+        await services.store.deleteDocFile(f.id);
+      }
+    }
     data.notes.removeWhere((e) => e.id == id);
     await _save();
+  }
+
+  /// Keeps a photo or file encrypted on the phone (for a note or a document).
+  Future<DocFile> keepFile(PickedDoc f) async {
+    final file = DocFile(name: f.name, mime: f.mime, size: f.bytes.length);
+    await services.store.saveDocFile(file.id, f.bytes);
+    return file;
+  }
+
+  Future<void> dropFile(DocFile f) => services.store.deleteDocFile(f.id);
+
+  /// Several photos or files at once: all in one document ([info] gives its
+  /// name, folder and description), returned saved.
+  Future<Doc> addDocGroup(List<PickedDoc> picked, Doc info) async {
+    final files = <DocFile>[...info.files];
+    for (final f in picked) {
+      files.add(await keepFile(f));
+    }
+    final d = info.copyWith(files: files);
+    await saveDoc(d);
+    return d;
   }
 
   // ── Documents ──

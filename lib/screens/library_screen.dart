@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../logic/bn.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
+import '../ui/note_parts.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'calls_screen.dart';
@@ -91,7 +92,7 @@ class LibraryScreen extends StatelessWidget {
                     child: Icon(Icons.sticky_note_2_outlined, color: C.ochre, size: 20),
                   ),
                   title: n.title,
-                  subtitle: n.body.replaceAll('\n', ' '),
+                  subtitle: notePreview(n),
                   onTap: () => push(NewItemScreen(note: n)),
                 ),
             ]),

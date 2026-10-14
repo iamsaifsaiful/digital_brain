@@ -1254,4 +1254,30 @@ void main() {
       expect(assistantNotices(AppData(), now, const AssistantPrefs(morningOn: false, nightOn: false, ramadan: true)).where((n) => n.reminderId.startsWith(nudgeRamadan)), isEmpty);
     });
   });
+
+  group('v2.10: photos and papers found by asking', () {
+    final now = DateTime(2026, 10, 14, 10);
+    final d = AppData(docs: [
+      Doc(id: 'p', title: 'রুমার পাসপোর্ট', folder: 'পাসপোর্ট', files: [DocFile(name: 'a.jpg', mime: 'image/jpeg', size: 10)]),
+      Doc(id: 'w', title: 'ভাইয়ের বিয়ে', folder: 'পরিবারের ছবি', about: 'গায়ে হলুদ আর বিয়ের দিনের ছবি', people: 'ভাইয়া, ভাবি', place: 'ফেনী', taken: DateTime(2025, 12, 20),
+          files: [for (var i = 0; i < 3; i++) DocFile(name: '$i.jpg', mime: 'image/jpeg', size: 10)]),
+      Doc(id: 'h', title: 'গায়ে হলুদ', folder: 'পরিবারের ছবি', about: 'বিয়ের আগের দিন', files: [DocFile(name: 'h.jpg', mime: 'image/jpeg', size: 10)]),
+    ]);
+    test('asking for a passport photo finds it, and the answer names it', () {
+      final c = Parser(ledger: const [], now: now).parse('আমার পাসপোর্টের ছবি দেখাও');
+      expect(c, isA<SearchQuery>());
+      expect(searchAll(d, (c as SearchQuery).terms).first, isA<DocHit>());
+      expect(answerText(d, c, now), contains('রুমার পাসপোর্ট'));
+    });
+    test('the description, people, place and year are searched too', () {
+      final c = Parser(ledger: const [], now: now).parse('বিয়ের ছবিগুলো দেখাও') as SearchQuery;
+      final docs = [for (final h in searchAll(d, c.terms)) if (h is DocHit) h.doc.id];
+      expect(docs, containsAll(['w', 'h']));
+      expect(answerText(d, c, now), contains('২টা মিলেছে'));
+      expect(searchAll(d, ['ফেনী']).whereType<DocHit>().single.doc.id, 'w');
+      expect(searchAll(d, ['2025']).whereType<DocHit>().single.doc.id, 'w');
+      expect(Doc.fromJson(d.docs[1].toJson()).people, 'ভাইয়া, ভাবি');
+      expect(Note.fromJson(Note(title: 'x', files: [DocFile(name: 'n.pdf', mime: 'application/pdf', size: 1)]).toJson()).files.single.name, 'n.pdf');
+    });
+  });
 }

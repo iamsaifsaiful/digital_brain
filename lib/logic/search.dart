@@ -28,6 +28,11 @@ class ReminderHit extends Hit {
   final Reminder reminder;
 }
 
+class DocHit extends Hit {
+  const DocHit(this.doc, super.score);
+  final Doc doc;
+}
+
 class PersonHit extends Hit {
   const PersonHit(this.person, super.score);
   final String person;
@@ -84,6 +89,10 @@ List<Hit> searchAll(AppData d, List<String> terms) {
   for (final r in d.reminders) {
     final s = score(terms, [r.title, r.note]);
     if (s > 0) out.add(ReminderHit(r, s));
+  }
+  for (final x in d.docs) {
+    final s = score(terms, [x.searchText, ...?d.tags['doc:${x.id}']]);
+    if (s > 0) out.add(DocHit(x, s));
   }
   final people = <String>{};
   for (final e in d.ledger) {

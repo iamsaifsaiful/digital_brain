@@ -70,6 +70,8 @@ class _AssistantBarState extends State<AssistantBar> {
           out.add((Icons.sticky_note_2_outlined, note.title, tr('নোট')));
         case VaultHit(:final item):
           out.add((Icons.lock_outline_rounded, item.name, tr('পাসওয়ার্ড')));
+        case DocHit(:final doc):
+          out.add((Icons.folder_copy_outlined, doc.title, tr('ডকুমেন্ট')));
       }
     }
     return out;

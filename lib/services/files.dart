@@ -34,6 +34,12 @@ abstract class FileBridge {
 
   /// Any file (PDF, Word…), kept exactly as it is.
   Future<PickedDoc?> pickDocument();
+
+  /// Several photos from the gallery at once (shrunk like [pickPhoto]).
+  Future<List<PickedDoc>> pickPhotos({bool shrink = true});
+
+  /// Several files at once, kept as they are.
+  Future<List<PickedDoc>> pickDocuments();
 }
 
 /// The longest side of a saved document photo: about 240 dpi for an A4
@@ -118,6 +124,35 @@ class DeviceFiles implements FileBridge {
   }
 
   @override
+  Future<List<PickedDoc>> pickPhotos({bool shrink = true}) async {
+    try {
+      final xs = await ImagePicker().pickMultiImage(
+        maxWidth: shrink ? maxSide.toDouble() : null,
+        maxHeight: shrink ? maxSide.toDouble() : null,
+        imageQuality: shrink ? photoQuality : null,
+        requestFullMetadata: false,
+      );
+      return [
+        for (final x in xs) PickedDoc(await x.readAsBytes(), x.name.isEmpty ? 'photo.jpg' : x.name, x.mimeType ?? mimeFor(x.name.isEmpty ? 'photo.jpg' : x.name)),
+      ];
+    } catch (e) {
+      debugPrint('photos failed: $e');
+      return const [];
+    }
+  }
+
+  @override
+  Future<List<PickedDoc>> pickDocuments() async {
+    try {
+      final fsx = await fs.openFiles();
+      return [for (final f in fsx) PickedDoc(await f.readAsBytes(), f.name, f.mimeType ?? mimeFor(f.name))];
+    } catch (e) {
+      debugPrint('pick failed: $e');
+      return const [];
+    }
+  }
+
+  @override
   Future<PickedDoc?> pickDocument() async {
     try {
       final f = await fs.openFile();
@@ -181,4 +216,14 @@ class FakeFiles implements FileBridge {
 
   @override
   Future<PickedDoc?> pickDocument() async => document;
+
+  /// What the gallery "returns" when several photos are picked.
+  List<PickedDoc> photos = [];
+  List<PickedDoc> documents = [];
+
+  @override
+  Future<List<PickedDoc>> pickPhotos({bool shrink = true}) async => photos.isNotEmpty ? photos : [if (photo != null) photo!];
+
+  @override
+  Future<List<PickedDoc>> pickDocuments() async => documents.isNotEmpty ? documents : [if (document != null) document!];
 }

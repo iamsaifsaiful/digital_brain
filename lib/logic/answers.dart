@@ -74,6 +74,11 @@ String searchAnswer(AppData d, SearchQuery q, DateTime now) {
   if (hits.isEmpty) return tr('এ নিয়ে আমার কাছে কিছু লেখা নেই। চাইলে এখনই রেখে দিতে পারেন।');
   // Say the best match itself, not just "found N things".
   final best = hits.first;
+  // Several photos or papers: name them all, the buttons below open them.
+  final docs = [for (final h in hits) if (h is DocHit) h.doc];
+  if (best is DocHit && docs.length > 1) {
+    return trf('{0}টা মিলেছে: {1}। নিচে চাপ দিয়ে দেখুন।', [bnDigits(docs.length), docs.take(5).map((x) => '“${x.title}”').join(', ')]);
+  }
   final tied = hits.where((h) => h.score == best.score).length;
   final lead = tied > 1 ? tr('কয়েকটা মিলেছে। সবচেয়ে কাছেরটা হলো — ') : '';
   return '$lead${hitAnswer(d, best, now)}';
@@ -91,6 +96,8 @@ String hitAnswer(AppData d, Hit h, DateTime now) {
         '${reminder.title} ${weekdayName(reminder.nextDate(now))}, ${bnDigits(reminder.nextDate(now).day)} ${monthName(reminder.nextDate(now).month)}'),
     PersonHit(:final person) => end(owesText(person, balanceWith(d.ledger, person))),
     VaultHit(:final item) => '${possessive(item.name)} তথ্য পেয়েছি! তবে এটা গোপন জিনিস, তাই জোরে বলব না। আঙুলের ছাপ দিয়ে খুলুন, স্ক্রিনে দেখাব।',
+    DocHit(:final doc) => trf('“{0}” পেয়েছি — {1}টা {2}, {3} ফোল্ডারে। নিচে চাপ দিয়ে দেখুন।',
+        [doc.title, bnDigits(doc.files.length), doc.files.every((f) => f.isImage) ? tr('ছবি') : tr('পাতা'), tr(doc.folder)]),
   };
 }
 
