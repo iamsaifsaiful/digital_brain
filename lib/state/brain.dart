@@ -287,8 +287,46 @@ class Brain extends ChangeNotifier {
     await _put('quick_questions', jsonEncode(q));
   }
 
-  AssistantPrefs get assistantPrefs =>
-      AssistantPrefs(morningOn: morningOn, morningAt: morningAt, nightOn: nightOn, nightAt: nightAt, nudgesOn: nudgesOn, name: userName);
+  AssistantPrefs get assistantPrefs => AssistantPrefs(
+        morningOn: morningOn,
+        morningAt: morningAt,
+        nightOn: nightOn,
+        nightAt: nightAt,
+        nudgesOn: nudgesOn,
+        name: userName,
+        quietOn: flag('quiet_on', true),
+        quietFrom: number('quiet_from', 22 * 60),
+        quietTo: number('quiet_to', 7 * 60),
+        dailyCap: number('daily_cap', 3),
+        jumuah: flag('n_jumuah', true),
+        haat: flag('n_haat'),
+        haatDay: number('haat_day', DateTime.saturday),
+        health: flag('n_health', true),
+        festival: flag('n_festival', true),
+        weekly: flag('n_weekly', true),
+        streak: flag('n_streak', true),
+        comeback: flag('n_comeback', true),
+        prayers: {for (final x in text('prayer_set').split(',')) if (x.trim().isNotEmpty) x.trim()},
+        ramadan: flag('n_ramadan'),
+        place: district,
+        lastOpen: DateTime.tryParse(text('last_open')),
+        donorNext: donorNextDate,
+      );
+
+  /// When the user may give blood again (3 months after the last time), if they are a donor.
+  DateTime? get donorNextDate {
+    final last = DateTime.tryParse(text('blood_last'));
+    if (last == null || !flag('donor_on')) return null;
+    return DateTime(last.year, last.month + 3, last.day);
+  }
+
+  /// The app was opened: the "অনেক দিন দেখা নেই" note moves three days on.
+  Future<void> markOpened() async {
+    final now = services.now();
+    final last = DateTime.tryParse(text('last_open'));
+    if (last != null && dayOnly(last) == dayOnly(now)) return;
+    await setPref('last_open', now.toIso8601String());
+  }
 
   /// The other settings (notification types, quiet hours, Hijri date
   /// correction, prayer reminders…), as saved text. Read with [flag] / [number].
@@ -535,6 +573,7 @@ class Brain extends ChangeNotifier {
     loaded = true;
     notifyListeners();
     await carryOverTasks();
+    if (loadError == null) await markOpened();
     await _reschedule();
     if (loadError == null) await _showStanding();
   }

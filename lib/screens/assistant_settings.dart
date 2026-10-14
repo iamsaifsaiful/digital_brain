@@ -8,6 +8,7 @@ import '../state/brain.dart';
 import '../ui/forms.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import 'notification_settings.dart';
 import 'onboarding_screen.dart';
 
 /// সেটিংস › সহকারী: summaries, nudges, memory, quick ways to open it.
@@ -35,17 +36,6 @@ class AssistantSection extends StatelessWidget {
           ]),
         );
 
-    Widget timeLink(int minutes, ValueChanged<int> set) => InkWell(
-          onTap: () async {
-            final m = await askTime(context, minutes);
-            if (m != null) set(m);
-          },
-          child: Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Text(trf('সময়: {0} · বদলান', [minutesText(minutes)]), style: body(13, weight: FontWeight.w600, color: C.green)),
-          ),
-        );
-
     Widget link(IconData icon, String title, String sub, VoidCallback onTap) => ListRow(
           leading: Icon(icon, color: C.muted2, size: 22),
           title: title,
@@ -56,12 +46,8 @@ class AssistantSection extends StatelessWidget {
 
     return Panel(
       child: Rows(children: [
-        sw(Icons.wb_sunny_outlined, tr('সকালের সারাংশ'), tr('আজকের রিমাইন্ডার, কাজ, ছুটি আর বিশেষ দিন'), brain.morningOn, (v) => brain.setPref('morning_on', v),
-            extra: brain.morningOn ? timeLink(brain.morningAt, (m) => brain.setPref('morning_at', m)) : null),
-        sw(Icons.nights_stay_outlined, tr('রাতের সারাংশ'), tr('কোন কাজ বাকি রইল — এক চাপে কালকে সরানো যায়'), brain.nightOn, (v) => brain.setPref('night_on', v),
-            extra: brain.nightOn ? timeLink(brain.nightAt, (m) => brain.setPref('night_at', m)) : null),
-        sw(Icons.tips_and_updates_outlined, tr('নিজে থেকে মনে করানো'), tr('পাওনা ৩০ দিন পার, বিলের শেষ দিন, কাগজের মেয়াদ, ওষুধ ফুরানো'), brain.nudgesOn,
-            (v) => brain.setPref('nudges_on', v)),
+        link(Icons.notifications_active_outlined, tr('নোটিফিকেশন'), tr('সারাংশ, নিজে থেকে মনে করানো, জুমা, নামাজ — আর চুপ থাকার সময়'),
+            () => push(const NotificationSettingsScreen())),
         sw(Icons.redo_rounded, tr('বাকি কাজ পরের দিনে'), tr('আগের দিনের না-হওয়া কাজ নিজে থেকে আজকের তালিকায় আসবে'), brain.carryOver, (v) => brain.setPref('carry_over', v)),
         link(Icons.psychology_alt_outlined, tr('সহকারীর স্মৃতি'),
             brain.data.memories.isEmpty ? tr('আপনার সম্পর্কে যা মনে রাখবে') : trf('{0}টি কথা মনে রাখা আছে', [bnDigits(brain.data.memories.length)]), () => push(const MemoryScreen())),

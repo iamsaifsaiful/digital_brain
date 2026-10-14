@@ -1213,4 +1213,41 @@ void main() {
       expect(talkReply((c as SmallTalk).kind, DateTime(2026, 10, 14, 9)), allOf(contains('আরবি তারিখ'), contains('হিজরি'), contains('আশ্বিন')));
     });
   });
+
+  group('v2.10: notification plan', () {
+    final now = DateTime(2026, 10, 14, 9, 0); // Wednesday
+    test('quiet hours move nudges to the morning; the daily cap keeps the most useful', () {
+      final d = AppData(
+        ledger: [for (final n in ['রহিম', 'করিম', 'সজীব', 'রনি']) LedgerEntry(person: n, kind: LedgerKind.lent, amount: 500, date: DateTime(2026, 9, 15))],
+        habits: [Habit(name: 'হাঁটা', done: ['2026-10-12', '2026-10-13'])],
+      );
+      final p = AssistantPrefs(morningOn: false, nightOn: false, dailyCap: 3, lastOpen: DateTime(2026, 10, 14), prayers: const {'fajr'});
+      final ns = assistantNotices(d, now, p);
+      // Four people owe for 30 days on 15 Oct: only three nudges that day (the cap), and the habit note today.
+      final dues = ns.where((n) => n.reminderId.startsWith(nudgeDue)).toList();
+      expect(dues.length, 3);
+      expect(dues.every((n) => n.at == DateTime(2026, 10, 15, 10)), isTrue);
+      expect(ns.where((n) => n.reminderId.startsWith(nudgeHabit)).single.at, DateTime(2026, 10, 14, 20));
+      // Fajr is in the quiet hours but was asked for, so it stays at its time.
+      final fajr = ns.where((n) => n.reminderId.startsWith(nudgePrayer)).first;
+      expect(fajr.at.hour, lessThan(6));
+      // Friday's note and the comeback note (3 days after the last open) are planned.
+      expect(ns.any((n) => n.reminderId == nudgeJumuah && n.at == DateTime(2026, 10, 16, 11)), isTrue);
+      expect(ns.any((n) => n.reminderId == nudgeBack && n.at == DateTime(2026, 10, 17, 10, 30)), isTrue);
+      // A nudge set inside the quiet hours waits for their end.
+      final late = assistantNotices(AppData(habits: [Habit(name: 'পড়া', done: ['2026-10-12', '2026-10-13'])]), now,
+          const AssistantPrefs(morningOn: false, nightOn: false, quietFrom: 19 * 60, quietTo: 7 * 60, jumuah: false, comeback: false, weekly: false, health: false, festival: false));
+      expect(late.single.at, DateTime(2026, 10, 15, 7));
+    });
+
+    test('Ramadan times only in Ramadan, and only when asked for', () {
+      final r = DateTime(2027, 2, 15, 9);
+      expect(hijriDate(r).isRamadan, isTrue);
+      final on = assistantNotices(AppData(), r, const AssistantPrefs(morningOn: false, nightOn: false, ramadan: true));
+      expect(on.where((n) => n.reminderId.startsWith(nudgeRamadan)).length, greaterThanOrEqualTo(3));
+      final off = assistantNotices(AppData(), r, const AssistantPrefs(morningOn: false, nightOn: false));
+      expect(off.where((n) => n.reminderId.startsWith(nudgeRamadan)), isEmpty);
+      expect(assistantNotices(AppData(), now, const AssistantPrefs(morningOn: false, nightOn: false, ramadan: true)).where((n) => n.reminderId.startsWith(nudgeRamadan)), isEmpty);
+    });
+  });
 }

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'logic/bn.dart';
 import 'logic/proactive.dart';
 import 'screens/docs_screen.dart';
+import 'screens/money_more_screens.dart';
+import 'screens/calendar_screen.dart';
 import 'screens/health_screens.dart';
 import 'screens/home_shell.dart';
 import 'screens/onboarding_screen.dart';
@@ -145,6 +147,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       // Rings set while the app was away (or lost to a phone restart) are
       // put back every time the app comes to the front.
       brain.refreshNotices();
+      if (brain.loaded && brain.loadError == null) brain.markOpened();
     }
   }
 
@@ -228,6 +231,18 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       push(const MedicinesScreen());
     } else if (id.startsWith(nudgeBill)) {
       push(const AllTasksScreen());
+    } else if (id.startsWith(nudgeHabit)) {
+      push(const HabitsScreen());
+    } else if (id.startsWith(nudgeWeek)) {
+      push(const ReportScreen());
+    } else if (id.startsWith(nudgeJumuah) || id.startsWith(nudgePrayer) || id.startsWith(nudgeRamadan)) {
+      push(const CalendarScreen());
+    } else if (id.startsWith(nudgeHaat)) {
+      push(const AllTasksScreen());
+    } else if (id.startsWith(nudgeDonor)) {
+      push(const EmergencyScreen());
+    } else if (id.startsWith(nudgeBack)) {
+      openAssistant(ctx);
     }
   }
 
