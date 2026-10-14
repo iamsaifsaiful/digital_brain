@@ -1101,7 +1101,11 @@ void main() {
       expect(n.any((x) => x.reminderId.startsWith(nudgeMed)), isTrue); // 6 pills, 2 a day = 3 days
       expect(n.every((x) => x.gentle && x.at.isAfter(now)), isTrue);
       final off = assistantNotices(d, now, const AssistantPrefs(morningOn: false, nightOn: false, nudgesOn: false));
-      expect(off, isEmpty);
+      expect(off.where((x) => [morningTag, nightTag, nudgeDue, nudgeBill, nudgeDoc, nudgeMed].any((t) => x.reminderId.startsWith(t))), isEmpty);
+      // Every kind switched off: nothing at all.
+      final none = assistantNotices(d, now,
+          const AssistantPrefs(morningOn: false, nightOn: false, nudgesOn: false, jumuah: false, health: false, festival: false, weekly: false, streak: false, comeback: false));
+      expect(none, isEmpty);
     });
 
     test('habits count days in a row; medicines count days left', () {
