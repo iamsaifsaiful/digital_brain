@@ -268,6 +268,7 @@ const enStrings = <String, String>{
   'অন্য অ্যাপ': 'other apps',
   'অন্য অ্যাপের কোনো মেসেজের তথ্য নেই। “মেসেজ” পাতায় অনুমতি দিয়ে অ্যাপগুলো বেছে দিন — তারপর WhatsApp, imo, Gmail-এর নতুন মেসেজ থেকে কাজের কথা বের করে দেবো।': 'There are no messages from other apps. Give permission on the Messages page and pick the apps — then I\'ll pull out what needs doing from new WhatsApp, imo and Gmail messages.',
   'অন্য অ্যাপের মেসেজ থেকে কাজ': 'Tasks from other apps’ messages',
+  'অন্য অ্যাপের মেসেজ পড়ার সুবিধা এই সংস্করণে নেই: Play Store-এর বাইরে থেকে নামানো অ্যাপ নোটিফিকেশন পড়তে চাইলে Google Play Protect সেটা ইনস্টলই করতে দেয় না। Play Store-এর সংস্করণে এটা থাকবে।': 'Reading other apps\' messages isn\'t in this version: Google Play Protect won\'t let an app downloaded outside the Play Store be installed if it reads notifications. The Play Store version will have it.',
   'অন্য কিছু': 'Something else',
   'অন্য খরচ': 'Other expense',
   'অন্য নাম দিয়ে খুঁজুন বা ফিল্টার বদলান।': 'Try another name or change the filter.',

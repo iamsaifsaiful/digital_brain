@@ -363,6 +363,13 @@ class MainActivity : FlutterFragmentActivity() {
     private fun inboxChannel(call: io.flutter.plugin.common.MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "access" -> result.success(MessageListener.hasAccess(this))
+            // Declared in the manifest? (Not in builds shared as an APK — Play Protect blocks those.)
+            "supported" -> result.success(try {
+                packageManager.getServiceInfo(ComponentName(this, MessageListener::class.java), 0)
+                true
+            } catch (e: Exception) {
+                false
+            })
             "openAccess" -> {
                 val i = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
                 if (Build.VERSION.SDK_INT >= 30) {

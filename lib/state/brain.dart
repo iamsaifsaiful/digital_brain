@@ -173,6 +173,9 @@ class Brain extends ChangeNotifier {
   /// What the assistant calls the user ("সাইফুল ভাই"); empty = no name.
   String userName = '';
 
+  /// This build can read other apps' messages (see [InboxSource.supported]).
+  bool inboxSupported = false;
+
   /// The place for sunrise, sunset and prayer times (see `bdPlaces`).
   String district = 'ঢাকা';
 
@@ -607,7 +610,9 @@ class Brain extends ChangeNotifier {
     if (loadError == null) await markOpened();
     await _reschedule();
     if (loadError == null) await _showStanding();
-    if (loadError == null) {
+    inboxSupported = await services.inbox.supported();
+    if (inboxSupported) notifyListeners();
+    if (loadError == null && inboxSupported) {
       await services.inbox.setApps([for (final n in inboxAppsOn) ...packagesOf(n)], on: inboxOn);
       await syncInbox();
     }

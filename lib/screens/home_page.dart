@@ -77,7 +77,7 @@ class HomePage extends StatelessWidget {
       (tr('যোগাযোগ'), Icons.call_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
       (tr('বাংলা তারিখ'), Icons.eco_outlined, C.teal, C.tealTint, () => push(const CalendarScreen())),
       (tr('স্বাস্থ্য'), Icons.favorite_border_rounded, C.rose, C.roseTint, () => push(const HealthScreen())),
-      (tr('মেসেজ থেকে কাজ'), Icons.mark_chat_unread_outlined, C.green, C.greenTint, () => push(const InboxScreen())),
+      if (brain.inboxSupported) (tr('মেসেজ থেকে কাজ'), Icons.mark_chat_unread_outlined, C.green, C.greenTint, () => push(const InboxScreen())),
     ];
     final inboxTodos = inboxTodo(d, now);
 

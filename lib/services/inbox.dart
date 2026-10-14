@@ -5,6 +5,10 @@ import '../models/models.dart';
 /// Messages from other apps, read from their notifications on the phone
 /// (Android's notification access). Nothing leaves the phone.
 abstract class InboxSource {
+  /// This build can read notifications at all (the APK shared outside the
+  /// Play Store leaves it out: Play Protect blocks installing it).
+  Future<bool> supported();
+
   /// The user has turned on notification access for the app.
   Future<bool> hasAccess();
 
@@ -60,6 +64,15 @@ List<String> packagesOf(String name) => [for (final e in inboxApps.entries) if (
 
 class DeviceInbox implements InboxSource {
   static const _ch = MethodChannel('my_assistant/inbox');
+
+  @override
+  Future<bool> supported() async {
+    try {
+      return await _ch.invokeMethod<bool>('supported') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
 
   @override
   Future<bool> hasAccess() async {
@@ -147,11 +160,14 @@ class DeviceInbox implements InboxSource {
 /// For tests (and phones without the feature).
 class FakeInbox implements InboxSource {
   bool access = false;
+  bool isSupported = true;
   final waiting = <InboxMessage>[];
   final sent = <(String, String)>[];
   List<String> apps = const [];
   bool on = true;
 
+  @override
+  Future<bool> supported() async => isSupported;
   @override
   Future<bool> hasAccess() async => access;
   @override

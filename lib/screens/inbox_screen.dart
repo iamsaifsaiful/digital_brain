@@ -76,7 +76,13 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
             child: RefreshIndicator(
               onRefresh: _refresh,
               child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 32), children: [
-                if (_access == false) _Setup(onDone: _refresh),
+                if (!brain.inboxSupported)
+                  InfoBanner(
+                    icon: Icons.info_outline_rounded,
+                    text: tr('অন্য অ্যাপের মেসেজ পড়ার সুবিধা এই সংস্করণে নেই: Play Store-এর বাইরে থেকে নামানো অ্যাপ নোটিফিকেশন পড়তে চাইলে Google Play Protect সেটা ইনস্টলই করতে দেয় না। Play Store-এর সংস্করণে এটা থাকবে।'),
+                  )
+                else if (_access == false)
+                  _Setup(onDone: _refresh),
                 if (_access == true && !brain.inboxOn)
                   InfoBanner(icon: Icons.pause_circle_outline_rounded, text: tr('মেসেজ পড়া বন্ধ রাখা আছে। উপরের ডান কোণের বোতাম থেকে চালু করুন।')),
                 if (_access == true && brain.data.inbox.isEmpty)
