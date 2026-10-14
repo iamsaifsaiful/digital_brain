@@ -301,7 +301,7 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       HealthQuery() => healthAnswer(d, cmd.what, now, member: cmd.member),
       NotUnderstood() => _notUnderstood(cmd),
       ProfileQuery() => profileAnswer(d, cmd.transcript) ?? infoAnswer(d, cmd.transcript, now) ?? kindAnswer(d, kindAsked(normalize(cmd.transcript)) ?? 'papers'),
-      OpenPlace() || ProfileSet() ||
+      OpenPlace() || ProfileSet() || ManageItem() ||
       LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TaskDone() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() || HealthAdd() => null,
     };
 

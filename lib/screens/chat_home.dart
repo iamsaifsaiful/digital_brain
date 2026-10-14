@@ -510,6 +510,32 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   /// A part of the app ("নোট খোলো"): a page on top of the chat, or a main tab
   /// (the chat closes).
   Future<void> _openPlace(ChatLink l) async {
+    // "বদলান: …" — the thing's own edit page.
+    if (l.page!.startsWith('edit:')) {
+      final d = _brain.data;
+      final id = l.folder ?? '';
+      if (l.page == 'edit:doc') {
+        await _openDoc(id, l.label);
+        return;
+      }
+      final Widget? w = switch (l.page) {
+        'edit:reminder' => d.reminders.where((x) => x.id == id).map((r) => NewItemScreen(reminder: r)).firstOrNull,
+        'edit:note' => d.notes.where((x) => x.id == id).map((n) => NewItemScreen(note: n)).firstOrNull,
+        'edit:contact' => d.contacts.where((x) => x.id == id).map((c) => NewItemScreen(contact: c)).firstOrNull,
+        'edit:ledger' => d.ledger.where((x) => x.id == id).map((e) => LedgerFormScreen(entry: e)).firstOrNull,
+        'edit:cash' => d.cash.where((x) => x.id == id).map((e) => CashFormScreen(entry: e)).firstOrNull,
+        _ => placePage(switch (l.page) {
+            'edit:task' => 'tasks',
+            'edit:special' => 'special',
+            'edit:medicine' => 'medicines',
+            'edit:habit' => 'habits',
+            'edit:memory' => 'memory',
+            _ => 'home',
+          }),
+      };
+      if (w != null) await _open(w);
+      return;
+    }
     final page = placePage(l.page!, folder: l.folder);
     if (page != null) {
       await _open(page);

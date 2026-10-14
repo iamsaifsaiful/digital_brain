@@ -127,7 +127,7 @@ List<(InboxMessage, InboxInsight)> inboxTodo(AppData d, DateTime now) => [
 String inboxAnswer(AppData d, String said, DateTime now) {
   final text = normalize(said);
   if (d.inbox.isEmpty) {
-    return tr('অন্য অ্যাপের কোনো বার্তার তথ্য নেই। “বার্তা” পাতায় অনুমতি দিয়ে অ্যাপগুলো বেছে দিন — তারপর WhatsApp, imo, Gmail-এর নতুন মেসেজ থেকে কাজের কথা বের করে দেবো।');
+    return tr('অন্য অ্যাপের কোনো মেসেজের তথ্য নেই। “মেসেজ” পাতায় অনুমতি দিয়ে অ্যাপগুলো বেছে দিন — তারপর WhatsApp, imo, Gmail-এর নতুন মেসেজ থেকে কাজের কথা বের করে দেবো।');
   }
   // One app ("হোয়াটসঅ্যাপে", "জিমেইলে").
   const appWords = {
@@ -152,7 +152,7 @@ String inboxAnswer(AppData d, String said, DateTime now) {
   }
   if (person != null) msgs = [for (final m in msgs) if (m.from == person) m];
   if (msgs.isEmpty) {
-    return person != null ? trf('{0}-এর কোনো বার্তার তথ্য নেই।', [person]) : trf('{0}-এর কোনো নতুন বার্তার তথ্য নেই।', [app ?? tr('অন্য অ্যাপ')]);
+    return person != null ? trf('{0}-এর কোনো মেসেজের তথ্য নেই।', [person]) : trf('{0}-এর কোনো নতুন মেসেজের তথ্য নেই।', [app ?? tr('অন্য অ্যাপ')]);
   }
   if (person != null) {
     final last = msgs.take(3).toList();
@@ -162,8 +162,8 @@ String inboxAnswer(AppData d, String said, DateTime now) {
   final fresh = msgs.where((m) => m.isNew && now.difference(m.at).inHours < 24).toList();
   final from = {for (final m in fresh) m.from.isNotEmpty ? m.from : m.chat}.take(4).toList();
   final head = fresh.isEmpty
-      ? tr('গত ২৪ ঘণ্টায় নতুন বার্তা নেই।')
-      : trf('গত ২৪ ঘণ্টায় {0}টা বার্তা — {1}।', [bnDigits(fresh.length), from.join(', ')]);
+      ? tr('গত ২৪ ঘণ্টায় নতুন মেসেজ নেই।')
+      : trf('গত ২৪ ঘণ্টায় {0}টা মেসেজ — {1}।', [bnDigits(fresh.length), from.join(', ')]);
   if (todo.isEmpty) return '$head ${tr('কাজের কিছু চোখে পড়েনি।')}';
   return trf('{0} কাজের কথা {1}টা:\n{2}', [head, bnDigits(todo.length), todo.take(4).map((i) => '• ${i.summary}').join('\n')]);
 }

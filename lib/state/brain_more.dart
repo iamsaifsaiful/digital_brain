@@ -471,6 +471,74 @@ extension BrainHealth on Brain {
     await _save();
   }
 
+  // ── Changing or removing by voice ──
+
+  /// Removes what [t] points at.
+  Future<void> deleteTarget(Target t) async {
+    switch (t.kind) {
+      case ItemKind.reminder:
+        await deleteReminder(t.id);
+      case ItemKind.task:
+        await deleteTask(t.id);
+      case ItemKind.note:
+        await deleteNote(t.id);
+      case ItemKind.ledger:
+        await deleteEntry(t.id);
+      case ItemKind.cash:
+        await deleteCash(t.id);
+      case ItemKind.contact:
+        await deleteContact(t.id);
+      case ItemKind.special:
+        final s = data.specialDays.where((x) => x.id == t.id).firstOrNull;
+        if (s != null) await deleteSpecialDay(s);
+      case ItemKind.medicine:
+        final m = data.medicines.where((x) => x.id == t.id).firstOrNull;
+        if (m != null) await deleteMedicine(m);
+      case ItemKind.habit:
+        final h = data.habits.where((x) => x.id == t.id).firstOrNull;
+        if (h != null) await deleteHabit(h);
+      case ItemKind.memory:
+        await deleteMemory(t.id);
+      case ItemKind.doc:
+        final x = data.docs.where((d) => d.id == t.id).firstOrNull;
+        if (x != null) await deleteDoc(x);
+    }
+  }
+
+  /// Applies a said change (new time, day or amount) to [t].
+  Future<void> applyChange(Target t, Change c) async {
+    switch (t.kind) {
+      case ItemKind.reminder:
+        final r = reminderById(t.id);
+        final at = c.at;
+        if (r != null && at != null) await saveReminder(r.copyWith(date: DateTime(at.year, at.month, at.day), hour: at.hour, minute: at.minute, enabled: true));
+      case ItemKind.task:
+        final task = data.tasks.where((x) => x.id == t.id).firstOrNull;
+        if (task != null && c.day != null) await saveTask(task.copyWith(due: c.day));
+      case ItemKind.ledger:
+        final e = data.ledger.where((x) => x.id == t.id).firstOrNull;
+        if (e != null && c.amount != null) await saveEntry(e.copyWith(amount: c.amount), guessPhone: false);
+      case ItemKind.cash:
+        final e = data.cash.where((x) => x.id == t.id).firstOrNull;
+        if (e != null && c.amount != null) {
+          await saveCash(CashEntry(id: e.id, kind: e.kind, amount: c.amount!, category: e.category, note: e.note, date: e.date, projectId: e.projectId, accountId: e.accountId));
+        }
+      default:
+        break;
+    }
+  }
+
+  Future<void> saveHealth(HealthLog h) async {
+    _upsert(data.health, h, (x) => x.id);
+    await _save();
+  }
+
+  /// Takes one message off the list (the app it came from is not touched).
+  Future<void> deleteInboxMessage(InboxMessage m) async {
+    data.inbox.removeWhere((x) => x.id == m.id);
+    await _save();
+  }
+
   Future<void> deleteHealth(String id) async {
     data.health.removeWhere((h) => h.id == id);
     await _save();

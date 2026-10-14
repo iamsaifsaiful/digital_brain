@@ -149,15 +149,16 @@ class AccountsScreen extends StatelessWidget {
     opening.dispose();
   }
 
-  Future<void> _transfer(BuildContext context) async {
+  /// A new move between accounts, or [old] changed.
+  Future<void> _transfer(BuildContext context, [Transfer? old]) async {
     final brain = BrainScope.read(context);
     final accs = brain.data.accounts;
     if (accs.length < 2) {
       toast(context, tr('টাকা সরাতে অন্তত দুটো অ্যাকাউন্ট লাগবে'));
       return;
     }
-    var from = accs[0].id, to = accs[1].id;
-    final amount = TextEditingController(), fee = TextEditingController();
+    var from = old?.from ?? accs[0].id, to = old?.to ?? accs[1].id;
+    final amount = TextEditingController(text: old == null ? '' : '${old.amount}'), fee = TextEditingController(text: old == null || old.fee == 0 ? '' : '${old.fee}');
     final ok = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -182,10 +183,8 @@ class AccountsScreen extends StatelessWidget {
     );
     final a = readInt(amount.text) ?? 0;
     if (ok == true && a > 0 && from != to) {
-      await brain.saveTransfer(Transfer(from: from, to: to, amount: a, fee: readInt(fee.text) ?? 0, date: brain.services.now()));
+      await brain.saveTransfer(Transfer(id: old?.id, from: from, to: to, amount: a, fee: readInt(fee.text) ?? 0, date: old?.date ?? brain.services.now(), note: old?.note ?? ''));
     }
-    amount.dispose();
-    fee.dispose();
   }
 
   @override
@@ -253,7 +252,11 @@ class AccountsScreen extends StatelessWidget {
                           subtitle: '${shortDate(t.date)}${t.fee > 0 ? trf(' · চার্জ {0}', [taka(t.fee)]) : ''}',
                           trailing: Text(taka(t.amount), style: body(15, weight: FontWeight.w600)),
                           onTap: () async {
-                            if (await confirmDialog(context, title: tr('মুছবেন?'), text: tr('এই টাকা সরানোর হিসাবটা মুছে যাবে।'), yes: tr('মুছুন'), danger: true)) {
+                            final pick = await editOrDelete(context);
+                            if (!context.mounted) return;
+                            if (pick == 'edit') await _transfer(context, t);
+                            if (pick == 'delete' &&
+                                await confirmDialog(context, title: tr('মুছবেন?'), text: tr('এই টাকা সরানোর হিসাবটা মুছে যাবে।'), yes: tr('মুছুন'), danger: true)) {
                               await brain.deleteTransfer(t.id);
                             }
                           },
@@ -652,6 +655,11 @@ class _SavingsScreenState extends State<SavingsScreen> {
                             label: Text(tr('জমা')),
                           ),
                         ),
+                        if (g.deposits.isNotEmpty)
+                          TextButton(
+                            onPressed: () => _deposits(context, g.id),
+                            child: Text(trf('জমার হিসাব · {0}টা — বদলান বা মুছুন', [bnDigits(g.deposits.length)])),
+                          ),
                       ]),
                     ),
                     const SizedBox(height: 10),
@@ -1112,4 +1120,57 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
       ),
     );
   }
+}
+
+/// A goal's deposits, each one changed or taken out.
+Future<void> _deposits(BuildContext context, String goalId) async {
+  final brain = BrainScope.read(context);
+  await showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (ctx) => ListenableBuilder(
+      listenable: brain,
+      builder: (ctx, _) {
+        final g = brain.data.goals.where((x) => x.id == goalId).firstOrNull;
+        if (g == null) return const SizedBox(height: 40);
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.7),
+            child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(20, 0, 20, 20), children: [
+              Text(trf('{0} — জমা', [g.name]), style: display(18, weight: 700)),
+              const SizedBox(height: 8),
+              for (var i = g.deposits.length - 1; i >= 0; i--)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(taka(g.deposits[i].amount), style: body(16, weight: FontWeight.w600)),
+                  subtitle: Text(shortDate(g.deposits[i].date), style: body(13, color: C.muted)),
+                  trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                    IconButton(
+                      tooltip: tr('বদলান'),
+                      icon: Icon(Icons.edit_outlined, color: C.muted2),
+                      onPressed: () async {
+                        final v = readInt(await askText(ctx, tr('কত জমালেন?'), initial: '${g.deposits[i].amount}', number: true));
+                        if (v == null || v <= 0) return;
+                        final list = [...g.deposits]..[i] = GoalDeposit(v, g.deposits[i].date);
+                        await brain.saveGoal(g.copyWith(deposits: list));
+                      },
+                    ),
+                    IconButton(
+                      tooltip: tr('মুছুন'),
+                      icon: Icon(Icons.delete_outline_rounded, color: C.muted2),
+                      onPressed: () async {
+                        if (!await confirmDialog(ctx, title: tr('মুছবেন?'), text: trf('{0} জমা মুছে যাবে।', [taka(g.deposits[i].amount)]), yes: tr('মুছুন'), danger: true)) return;
+                        final list = [...g.deposits]..removeAt(i);
+                        await brain.saveGoal(g.copyWith(deposits: list));
+                      },
+                    ),
+                  ]),
+                ),
+            ]),
+          ),
+        );
+      },
+    ),
+  );
 }

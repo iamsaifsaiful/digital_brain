@@ -15,11 +15,15 @@ String _tail(String s) => s.length <= 3 ? s : s.substring(s.length - 3);
 
 /// Add (or correct) a money transaction by typing.
 class LedgerFormScreen extends StatefulWidget {
-  const LedgerFormScreen({super.key, this.entry, this.person, this.phone, this.kind});
+  const LedgerFormScreen({super.key, this.entry, this.person, this.phone, this.kind, this.amount, this.note});
   final LedgerEntry? entry;
   final String? person;
   final String? phone;
   final LedgerKind? kind;
+
+  /// Filled in from a message.
+  final int? amount;
+  final String? note;
 
   @override
   State<LedgerFormScreen> createState() => _LedgerFormScreenState();
@@ -29,8 +33,8 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
   late LedgerKind _kind = widget.entry?.kind ?? widget.kind ?? LedgerKind.lent;
   late final _person = TextEditingController(text: widget.entry?.person ?? widget.person ?? '');
   late final _phone = TextEditingController(text: widget.entry?.phone ?? widget.phone ?? '');
-  late final _amount = TextEditingController(text: widget.entry == null ? '' : '${widget.entry!.amount}');
-  late final _note = TextEditingController(text: widget.entry?.note ?? '');
+  late final _amount = TextEditingController(text: widget.entry == null ? (widget.amount == null ? '' : '${widget.amount}') : '${widget.entry!.amount}');
+  late final _note = TextEditingController(text: widget.entry?.note ?? widget.note ?? '');
   late DateTime _date;
   DateTime? _due;
   final _form = GlobalKey<FormState>();

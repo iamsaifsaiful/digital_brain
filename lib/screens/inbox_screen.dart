@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
+import '../logic/parser.dart' show findAmount, normalize, CashAdd;
+import '../logic/when.dart' show parseWhen;
 import '../logic/inbox.dart';
 import '../logic/lang.dart';
 import '../logic/when.dart' show sayWhen;
@@ -11,8 +13,11 @@ import '../services/inbox.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import 'ledger_form_screen.dart';
+import 'money_screens.dart' show CashFormScreen;
+import 'new_item_screen.dart';
 
-/// বার্তা থেকে কাজ: new messages from WhatsApp, Telegram, imo, Gmail, SMS…
+/// মেসেজ থেকে কাজ: new messages from WhatsApp, Telegram, imo, Gmail, SMS…
 /// (read from their notifications, on the phone), with what needs doing
 /// pulled out — keep it as a reminder or to-do, note the money, or reply.
 class InboxScreen extends StatefulWidget {
@@ -64,7 +69,7 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('বার্তা থেকে কাজ'), trailing: [
+          TopBar(title: tr('মেসেজ থেকে কাজ'), trailing: [
             IconButton(tooltip: tr('কোন অ্যাপ পড়বে'), onPressed: () => _settings(context), icon: const Icon(Icons.tune_rounded)),
           ]),
           Expanded(
@@ -73,13 +78,13 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
               child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 32), children: [
                 if (_access == false) _Setup(onDone: _refresh),
                 if (_access == true && !brain.inboxOn)
-                  InfoBanner(icon: Icons.pause_circle_outline_rounded, text: tr('বার্তা পড়া বন্ধ রাখা আছে। উপরের ডান কোণের বোতাম থেকে চালু করুন।')),
+                  InfoBanner(icon: Icons.pause_circle_outline_rounded, text: tr('মেসেজ পড়া বন্ধ রাখা আছে। উপরের ডান কোণের বোতাম থেকে চালু করুন।')),
                 if (_access == true && brain.data.inbox.isEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 24),
                     child: EmptyState(
                       icon: Icons.mark_chat_unread_outlined,
-                      title: tr('এখনো কোনো বার্তা নেই'),
+                      title: tr('এখনো কোনো মেসেজ নেই'),
                       text: tr('অনুমতি দেওয়া আছে। WhatsApp, imo, Gmail-এ নতুন মেসেজ এলে এখানে দেখাবে, আর কাজের কথা আলাদা করে দেবো।'),
                     ),
                   ),
@@ -89,7 +94,7 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
                   const SizedBox(height: 8),
                 ],
                 if (all.isNotEmpty) ...[
-                  SectionTitle(tr('সব বার্তা')),
+                  SectionTitle(tr('সব মেসেজ')),
                   if (apps.length > 1)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
@@ -111,7 +116,7 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
                   ),
                 ],
                 const SizedBox(height: 16),
-                Text(tr('বার্তাগুলো শুধু এই ফোনে, তালাবদ্ধ অবস্থায় থাকে; কোনো সার্ভার বা AI-তে যায় না। OTP, পিন বা পাসওয়ার্ডের মেসেজ রাখা হয় না। ৩০ দিন পর নিজে থেকে মুছে যায়।'),
+                Text(tr('মেসেজগুলো শুধু এই ফোনে, তালাবদ্ধ অবস্থায় থাকে; কোনো সার্ভার বা AI-তে যায় না। OTP, পিন বা পাসওয়ার্ডের মেসেজ রাখা হয় না। ৩০ দিন পর নিজে থেকে মুছে যায়।'),
                     style: body(12.5, color: C.muted, height: 1.5)),
               ]),
             ),
@@ -133,11 +138,11 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tr('কোন অ্যাপের বার্তা পড়বে'), style: display(20, weight: 700)),
+              Text(tr('কোন অ্যাপের মেসেজ পড়বে'), style: display(20, weight: 700)),
               const SizedBox(height: 8),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text(tr('বার্তা পড়া চালু'), style: body(16)),
+                title: Text(tr('মেসেজ পড়া চালু'), style: body(16)),
                 value: brain.inboxOn,
                 onChanged: (v) async {
                   await brain.setInboxApps(on, on: v);
@@ -158,14 +163,14 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
               const SizedBox(height: 16),
               OutlinedButton.icon(
                 onPressed: () async {
-                  final ok = await confirmDialog(ctx, title: tr('সব বার্তা মুছবেন?'), text: tr('এখানে রাখা বার্তাগুলো মুছে যাবে। মূল অ্যাপে কিছু বদলাবে না।'), yes: tr('মুছুন'), danger: true);
+                  final ok = await confirmDialog(ctx, title: tr('সব মেসেজ মুছবেন?'), text: tr('এখানে রাখা মেসেজগুলো মুছে যাবে। মূল অ্যাপে কিছু বদলাবে না।'), yes: tr('মুছুন'), danger: true);
                   if (ok) {
                     await brain.clearInbox();
                     if (ctx.mounted) Navigator.pop(ctx);
                   }
                 },
                 icon: const Icon(Icons.delete_outline_rounded),
-                label: Text(tr('সব বার্তা মুছুন')),
+                label: Text(tr('সব মেসেজ মুছুন')),
               ),
               TextButton(onPressed: () => brain.services.inbox.openAccess(), child: Text(tr('ফোনের অনুমতির পাতা'))),
             ]),
@@ -309,6 +314,11 @@ class _TodoCard extends StatelessWidget {
               icon: const Icon(Icons.add_task_rounded, size: 18),
               label: Text(keep),
             ),
+          OutlinedButton.icon(
+            onPressed: () => addFromMessage(context, message),
+            icon: const Icon(Icons.playlist_add_rounded, size: 18),
+            label: Text(tr('অন্যভাবে রাখুন')),
+          ),
           // Bank and bKash notices cannot be answered.
           if (insight.kind != InboxKind.moneyIn && insight.kind != InboxKind.moneyOut)
             OutlinedButton.icon(
@@ -351,6 +361,14 @@ Future<void> showMessage(BuildContext context, InboxMessage m) async {
           ),
           const SizedBox(height: 14),
           Wrap(spacing: 8, runSpacing: 4, children: [
+            FilledButton.tonalIcon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                addFromMessage(context, m);
+              },
+              icon: const Icon(Icons.playlist_add_rounded, size: 18),
+              label: Text(tr('যুক্ত করুন')),
+            ),
             FilledButton.icon(
               onPressed: () {
                 Navigator.pop(ctx);
@@ -364,14 +382,14 @@ Future<void> showMessage(BuildContext context, InboxMessage m) async {
               icon: const Icon(Icons.open_in_new_rounded, size: 18),
               label: Text(trf('{0}-এ খুলুন', [m.appName])),
             ),
-            if (m.isNew)
-              TextButton(
-                onPressed: () {
-                  brain.setInboxState(m, 'dismissed');
-                  Navigator.pop(ctx);
-                },
-                child: Text(tr('বাদ দিন')),
-              ),
+            TextButton.icon(
+              onPressed: () {
+                brain.deleteInboxMessage(m);
+                Navigator.pop(ctx);
+              },
+              icon: Icon(Icons.delete_outline_rounded, size: 18, color: C.red),
+              label: Text(tr('মুছুন'), style: body(14, color: C.red)),
+            ),
           ]),
         ]),
       ),
@@ -386,7 +404,7 @@ Future<void> replyTo(BuildContext context, InboxMessage m) async {
   final can = await brain.services.inbox.canReply(m);
   if (!context.mounted) return;
   if (!can) {
-    toast(context, trf('এই বার্তার উত্তর এখান থেকে দেওয়া যাচ্ছে না — {0} খুলছি।', [m.appName]));
+    toast(context, trf('এই মেসেজের উত্তর এখান থেকে দেওয়া যাচ্ছে না — {0} খুলছি।', [m.appName]));
     await brain.services.inbox.openApp(m.app);
     return;
   }
@@ -417,4 +435,101 @@ Future<void> replyTo(BuildContext context, InboxMessage m) async {
   final ok = await brain.services.inbox.reply(m, text);
   if (ok) await brain.setInboxState(m, 'replied');
   if (context.mounted) toast(context, ok ? trf('{0}-এ উত্তর পাঠালাম।', [m.appName]) : tr('পাঠানো গেল না — মূল অ্যাপ থেকে দিন।'));
+}
+
+/// Keep anything from a message: a to-do, a reminder, income, spending,
+/// a loan or a customer's due, or a note — each opens its own form, filled
+/// in from the message, to check and save.
+Future<void> addFromMessage(BuildContext context, InboxMessage m) async {
+  final brain = BrainScope.read(context);
+  final now = brain.services.now();
+  final insight = insightOf(m, now);
+  final amount = findAmount(normalize(m.text));
+  final when = parseWhen(m.text, m.at);
+  final who = m.from.isNotEmpty ? m.from : m.chat;
+  final short = m.text.replaceAll(RegExp(r'\s+'), ' ').trim();
+  final title = short.length <= 60 ? '$who: $short' : '$who: ${short.substring(0, 60)}…';
+  final pick = await showModalBottomSheet<String>(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) => SafeArea(
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+          child: Text(tr('এই মেসেজ থেকে কী রাখবেন?'), style: display(18, weight: 700)),
+        ),
+        for (final (k, icon, label) in [
+          ('task', Icons.checklist_rounded, tr('কাজের তালিকায়')),
+          ('reminder', Icons.notifications_active_outlined, tr('রিমাইন্ডার')),
+          ('income', Icons.south_west_rounded, tr('আয়')),
+          ('expense', Icons.north_east_rounded, tr('খরচ')),
+          ('ledger', Icons.payments_outlined, tr('লেনদেন (ধার / বাকি / পাওনা)')),
+          ('note', Icons.sticky_note_2_outlined, tr('নোট')),
+        ])
+          ListTile(leading: Icon(icon, color: C.green), title: Text(label, style: body(16)), onTap: () => Navigator.pop(ctx, k)),
+      ]),
+    ),
+  );
+  if (pick == null || !context.mounted) return;
+  final before = _count(brain.data);
+  Future<void> push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
+  switch (pick) {
+    case 'task':
+      final t = await _askTask(context, title, when != null && when.hasDay ? dayOnly(when.at) : null);
+      if (t != null) await brain.saveTask(t);
+    case 'reminder':
+      await push(NewItemScreen(category: ItemCategory.reminder, presetTitle: title, presetAt: when != null && when.hasTime ? when.at : null));
+    case 'income' || 'expense':
+      await push(CashFormScreen(
+        kind: pick == 'income' ? CashKind.income : CashKind.expense,
+        amount: amount,
+        note: short,
+        date: m.at,
+        category: insight?.command is CashAdd ? (insight!.command as CashAdd).category : null,
+      ));
+    case 'ledger':
+      await push(LedgerFormScreen(person: who, amount: amount, note: short));
+    case 'note':
+      await push(NewItemScreen(category: ItemCategory.note, presetTitle: trf('{0} — {1}', [who, m.appName]), presetBody: m.text));
+  }
+  if (_count(brain.data) != before) {
+    await brain.setInboxState(m, 'saved');
+    if (context.mounted) toast(context, tr('রেখে দিলাম।'));
+  }
+}
+
+int _count(AppData d) => d.tasks.length + d.reminders.length + d.cash.length + d.ledger.length + d.notes.length;
+
+/// A to-do from a message: its words and a day, to check before saving.
+Future<Task?> _askTask(BuildContext context, String title, DateTime? due) async {
+  final c = TextEditingController(text: title);
+  var day = due;
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setD) => AlertDialog(
+        title: Text(tr('কাজের তালিকায় রাখুন'), style: display(18)),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          TextField(controller: c, minLines: 1, maxLines: 4, decoration: InputDecoration(labelText: tr('কাজ'))),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final now = DateTime.now();
+              final p = await showDatePicker(context: ctx, initialDate: day ?? now, firstDate: DateTime(now.year - 1), lastDate: DateTime(now.year + 5));
+              if (p != null) setD(() => day = p);
+            },
+            icon: const Icon(Icons.event_outlined, size: 18),
+            label: Text(day == null ? tr('তারিখ (ঐচ্ছিক)') : fullDate(day!)),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('বাতিল'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('রাখুন'), style: body(15, weight: FontWeight.w600, color: C.green))),
+        ],
+      ),
+    ),
+  );
+  final text = c.text.trim();
+  if (ok != true || text.isEmpty) return null;
+  return Task(title: text, due: day);
 }

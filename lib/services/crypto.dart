@@ -19,14 +19,43 @@ class SecureKeyVault implements KeyVault {
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device),
   );
 
-  @override
-  Future<String?> read(String key) => _s.read(key: key);
+  /// Everything read in one call at start (each separate read is a slow
+  /// trip to the phone's encrypted store — dozens of them made the app
+  /// slow to open), then kept in memory; writes go to both.
+  Future<Map<String, String>>? _all;
+
+  Future<Map<String, String>> _cache() => _all ??= () async {
+        try {
+          return Map<String, String>.of(await _s.readAll());
+        } catch (_) {
+          return <String, String>{};
+        }
+      }();
 
   @override
-  Future<void> write(String key, String value) => _s.write(key: key, value: value);
+  Future<String?> read(String key) async {
+    final all = await _cache();
+    if (all.containsKey(key)) return all[key];
+    // Not in the first read (e.g. it failed): ask the store itself.
+    if (all.isEmpty) {
+      final v = await _s.read(key: key);
+      if (v != null) all[key] = v;
+      return v;
+    }
+    return null;
+  }
 
   @override
-  Future<void> delete(String key) => _s.delete(key: key);
+  Future<void> write(String key, String value) async {
+    (await _cache())[key] = value;
+    await _s.write(key: key, value: value);
+  }
+
+  @override
+  Future<void> delete(String key) async {
+    (await _cache()).remove(key);
+    await _s.delete(key: key);
+  }
 }
 
 /// For tests.

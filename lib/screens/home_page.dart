@@ -77,7 +77,7 @@ class HomePage extends StatelessWidget {
       (tr('যোগাযোগ'), Icons.call_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
       (tr('বাংলা তারিখ'), Icons.eco_outlined, C.teal, C.tealTint, () => push(const CalendarScreen())),
       (tr('স্বাস্থ্য'), Icons.favorite_border_rounded, C.rose, C.roseTint, () => push(const HealthScreen())),
-      (tr('বার্তা'), Icons.mark_chat_unread_outlined, C.green, C.greenTint, () => push(const InboxScreen())),
+      (tr('মেসেজ থেকে কাজ'), Icons.mark_chat_unread_outlined, C.green, C.greenTint, () => push(const InboxScreen())),
     ];
     final inboxTodos = inboxTodo(d, now);
 
@@ -169,7 +169,7 @@ class HomePage extends StatelessWidget {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(trf('বার্তা থেকে {0}টা কাজ', [bnDigits(inboxTodos.length)]), style: body(15, weight: FontWeight.w600, color: C.greenDark)),
+                          Text(trf('মেসেজ থেকে {0}টা কাজ', [bnDigits(inboxTodos.length)]), style: body(15, weight: FontWeight.w600, color: C.greenDark)),
                           Text(inboxTodos.first.$2.summary, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, color: C.greenDark)),
                         ]),
                       ),
@@ -252,7 +252,7 @@ class HomePage extends StatelessWidget {
                           child: Icon(icon, color: fg, size: 22),
                         ),
                         const SizedBox(height: 6),
-                        Text(label, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, height: 1.2)),
+                        Text(label, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(12, height: 1.2)),
                       ]),
                     ),
                 ],

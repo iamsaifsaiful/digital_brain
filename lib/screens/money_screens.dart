@@ -454,7 +454,7 @@ class ProjectScreen extends StatelessWidget {
 // ───────────────────────── Add / edit an entry ─────────────────────────
 
 class CashFormScreen extends StatefulWidget {
-  const CashFormScreen({super.key, this.entry, this.kind = CashKind.expense, this.projectId, this.category});
+  const CashFormScreen({super.key, this.entry, this.kind = CashKind.expense, this.projectId, this.category, this.amount, this.note, this.date});
   final CashEntry? entry;
   final CashKind kind;
   final String? projectId;
@@ -462,17 +462,22 @@ class CashFormScreen extends StatefulWidget {
   /// A category to start with ("বিক্রি" from the shop page).
   final String? category;
 
+  /// Filled in from a message (bKash SMS…).
+  final int? amount;
+  final String? note;
+  final DateTime? date;
+
   @override
   State<CashFormScreen> createState() => _CashFormScreenState();
 }
 
 class _CashFormScreenState extends State<CashFormScreen> {
   late CashKind _kind = widget.entry?.kind ?? widget.kind;
-  late final _amount = TextEditingController(text: widget.entry == null ? '' : '${widget.entry!.amount}');
+  late final _amount = TextEditingController(text: widget.entry == null ? (widget.amount == null ? '' : '${widget.amount}') : '${widget.entry!.amount}');
   late final _category = TextEditingController(text: widget.entry?.category ?? widget.category ?? '');
   late String? _accountId = widget.entry?.accountId ?? BrainScope.read(context).data.accounts.firstOrNull?.id;
-  late final _note = TextEditingController(text: widget.entry?.note ?? '');
-  late DateTime _date = widget.entry?.date ?? BrainScope.read(context).services.now();
+  late final _note = TextEditingController(text: widget.entry?.note ?? widget.note ?? '');
+  late DateTime _date = widget.entry?.date ?? widget.date ?? BrainScope.read(context).services.now();
   late String? _projectId = widget.entry?.projectId ?? widget.projectId;
 
   @override

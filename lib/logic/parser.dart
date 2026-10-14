@@ -10,6 +10,7 @@ library;
 import '../models/models.dart';
 import 'app_map.dart';
 import 'ask.dart';
+import 'manage.dart';
 import 'me.dart';
 import 'bn.dart';
 import 'ledger.dart';
@@ -233,6 +234,13 @@ class OpenPlace extends Command {
   /// An [AppPlace] id ('docs' / 'notes' with a [folder]).
   final String place;
   final String? folder;
+}
+
+/// "মিটিংয়ের রিমাইন্ডার মুছে দাও", "রহিমের লেনদেনটা ৬০০ করে দাও": change or
+/// remove something saved ([action] 'delete' or 'edit').
+class ManageItem extends Command {
+  const ManageItem(super.transcript, {required this.action});
+  final String action;
 }
 
 /// "আমার ব্লাড গ্রুপ বি পজিটিভ", "আম্মার রক্তের গ্রুপ ও+": a fact to keep.
@@ -690,6 +698,12 @@ class Parser {
     // to-do list question: "কাজের তালিকা খোলো" opens the page).
     final open = _open(said, text);
     if (open != null) return open;
+
+    // "রিমাইন্ডারটা মুছে দাও", "রহিমের লেনদেন ৫০০ না ৬০০", "শেষটা ডিলিট করো".
+    final manage = manageAction(text);
+    if (manage != null && (kindNamed(text) != null || asksForLast(text) || manage == 'delete' || RegExp(r'\d+ না,? \d+').hasMatch(text))) {
+      return ManageItem(said, action: manage);
+    }
 
     // "নামাজের সময় কখন?", "কাল কী আছে?", "আমার ব্যালেন্স কত?", "কী কী ওষুধ চলছে?"
     if (isQuestionText(said) && infoTopic(text) != null) return ProfileQuery(said);

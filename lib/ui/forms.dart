@@ -86,3 +86,24 @@ class Bar extends StatelessWidget {
         child: LinearProgressIndicator(value: value.clamp(0, 1), minHeight: height, backgroundColor: C.chip, color: color ?? C.green),
       );
 }
+
+/// "বদলান" or "মুছুন" for a saved entry ('edit', 'delete', or null).
+Future<String?> editOrDelete(BuildContext context, {String? title}) => showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (title != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+              child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: display(17, weight: 700)),
+            ),
+          ListTile(leading: const Icon(Icons.edit_outlined), title: Text(tr('বদলান'), style: body(16)), onTap: () => Navigator.pop(ctx, 'edit')),
+          ListTile(
+            leading: Icon(Icons.delete_outline_rounded, color: C.red),
+            title: Text(tr('মুছুন'), style: body(16, color: C.red)),
+            onTap: () => Navigator.pop(ctx, 'delete'),
+          ),
+        ]),
+      ),
+    );

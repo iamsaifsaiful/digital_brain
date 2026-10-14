@@ -4,6 +4,7 @@ import '../logic/lang.dart';
 import '../logic/ai_map.dart' show answeredByAi;
 import '../logic/app_map.dart';
 import '../logic/ask.dart' show infoTopic;
+import '../logic/manage.dart';
 import '../logic/me.dart';
 import '../logic/answers.dart';
 import '../logic/bn.dart';
@@ -24,7 +25,7 @@ import '../ui/yes_no.dart' show pickSpokenOption;
 import 'brain.dart';
 
 /// What the chat is waiting to hear.
-enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, project, collect, whichPerson }
+enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, project, collect, whichPerson, whichItem }
 
 /// What the user said they want to talk about at the start.
 enum Topic {
@@ -137,9 +138,18 @@ class ChatController extends ChangeNotifier {
 
   Command? _current;
 
+  /// "…মুছে দাও" / "…বদলে দাও": the thing meant, the change, and the
+  /// choices when several match.
+  Target? _target;
+  Change _change = const Change();
+  List<Target> _targets = const [];
+
   /// The last thing saved, with the data before it — so "না, রিমাইন্ডার
   /// দাও" right after can turn a note into a reminder.
   (Command, String, DateTime)? _lastSave;
+
+  /// What existed before that save (so "শেষটা মুছে দাও" finds what it made).
+  Set<String> _idsBeforeSave = const {};
   final _queue = <Command>[];
   bool _askingAll = false;
   bool _allYes = false;
@@ -528,6 +538,71 @@ class ChatController extends ChangeNotifier {
     return true;
   }
 
+  /// "…মুছে দাও", "…বদলে দাও", "৫০০ না ৬০০": find what is meant, then ask.
+  Future<void> _manage(ManageItem c, List<String> out) async {
+    final text = normalize(c.transcript);
+    final last = _lastSave;
+    // "শেষটা মুছে দাও" / "শেষটা বদলাও": what the last save made.
+    var found = <Target>[];
+    if (asksForLast(text) && last != null && _now.difference(last.$3).inMinutes < 30) {
+      found = [for (final t in targetsIn(brain.data, _now)) if (!_idsBeforeSave.contains(t.id)) t].take(1).toList();
+    }
+    if (found.isEmpty) found = findTargets(brain.data, c.transcript, _now);
+    final verb = c.action == 'delete' ? tr('মুছবো') : tr('বদলাবো');
+    if (found.isEmpty) {
+      final kind = kindNamed(text);
+      _say(out, trf('কোনটা {0}, খুঁজে পেলাম না। নাম, তারিখ বা টাকার অঙ্ক বলে আরেকবার বলুন — যেমন “রহিমের ৫০০ টাকার লেনদেনটা মুছে দাও”।', [verb]),
+          links: [if (kind != null && _pageOf(kind) != null) ChatLink(LinkKind.page, trf('খুলুন: {0}', [tr(kind.bn)]), page: _pageOf(kind))]);
+      return;
+    }
+    _current = c;
+    if (found.length > 1) {
+      _targets = found;
+      _ask(out, trf('কয়েকটা মিলেছে — কোনটা {0}?', [verb]), ChatWait.whichItem,
+          facts: [for (var i = 0; i < found.length; i++) '${bnDigits(i + 1)}. ${found[i].label}'],
+          choices: [for (var i = 0; i < found.length; i++) ChatChoice(bnDigits(i + 1), '${i + 1}')]);
+      return;
+    }
+    await _confirmManage(found.single, out);
+  }
+
+  Future<void> _confirmManage(Target t, List<String> out) async {
+    final c = _current as ManageItem;
+    _target = t;
+    if (c.action == 'delete') {
+      _ask(out, trf('“{0}” মুছে দেবো?', [t.label]), ChatWait.yesNo, choices: _yesNoChoices);
+      return;
+    }
+    _change = changeIn(t, c.transcript, _now);
+    if (_change.isEmpty) {
+      // No new time or amount said: open it to change by hand.
+      final link = ChatLink(LinkKind.page, trf('বদলান: {0}', [t.label]), page: 'edit:${t.kind.name}', folder: t.id);
+      _say(out, trf('“{0}” — বদলানোর পাতা খুলছি।', [t.label]), links: [link]);
+      openNow = link;
+      _current = null;
+      wait = ChatWait.none;
+      return;
+    }
+    final now = _change.amount != null
+        ? trf('{0} টাকা', [bnNumber(_change.amount!)])
+        : (_change.at != null && t.kind == ItemKind.reminder ? sayWhen(_change.at!, _now) : sayWhen(_change.day!, _now, withTime: false));
+    _ask(out, trf('“{0}” বদলে {1} করে দেবো?', [t.label, now]), ChatWait.yesNo, choices: _yesNoChoices);
+  }
+
+  String? _pageOf(ItemKind k) => switch (k) {
+        ItemKind.reminder => 'reminders',
+        ItemKind.task => 'tasks',
+        ItemKind.note => 'notes',
+        ItemKind.ledger => 'ledger',
+        ItemKind.cash => 'money',
+        ItemKind.contact => 'contacts',
+        ItemKind.special => 'special',
+        ItemKind.medicine => 'medicines',
+        ItemKind.habit => 'habits',
+        ItemKind.memory => 'memory',
+        ItemKind.doc => 'docs',
+      };
+
   /// A short follow-up ("আজ", "সন্ধ্যায়", "৫০০", "রহিম") that means
   /// nothing alone but completes the previous request: the two together.
   String _withContext(String t) {
@@ -589,6 +664,11 @@ class ChatController extends ChangeNotifier {
         _say(out, trf('{0} খুলছি।', [name]), links: [link]);
         openNow = link;
         tags.add('[${p?.title ?? c.place} পাতা খুলে দিল]');
+        continue;
+      }
+      if (c is ManageItem) {
+        await _manage(c, out);
+        tags.add('[সংরক্ষিত কিছু বদলানো বা মোছার কথা হচ্ছে]');
         continue;
       }
       if (c is CallPerson) {
@@ -1090,6 +1170,19 @@ class ChatController extends ChangeNotifier {
     switch (wait) {
       case ChatWait.none:
         return false;
+      case ChatWait.whichItem:
+        final n = asciiDigits(t).replaceAll(RegExp(r'[^0-9]'), '');
+        var i = int.tryParse(n) == null ? null : int.parse(n) - 1;
+        i ??= _pickIndex(t, [for (final x in _targets) (x.label, '')]);
+        if (i == null || i < 0 || i >= _targets.length) {
+          if (_looksNew(t)) return false;
+          _say(out, tr('কোনটা — নম্বরটা বলুন, যেমন “১”।'));
+          return true;
+        }
+        wait = ChatWait.none;
+        choices = const [];
+        await _confirmManage(_targets[i], out);
+        return true;
       case ChatWait.whichPerson:
         if (normalize(t).contains(normalize('নতুন'))) {
           _ledgerPhone = '';
@@ -1352,7 +1445,10 @@ class ChatController extends ChangeNotifier {
     final quiet = _allYes;
     final snap = brain.snapshot();
     _batchSnap ??= snap;
-    if (c != null) _lastSave = (c, snap, _now);
+    if (c != null && c is! ManageItem) {
+      _lastSave = (c, snap, _now);
+      _idsBeforeSave = {for (final t in targetsIn(brain.data, _now)) t.id};
+    }
     switch (c) {
       case LedgerAdd():
         final kind = _kind!;
@@ -1463,6 +1559,19 @@ class ChatController extends ChangeNotifier {
         if (level != null && level.$1 == Level.urgent) reply += tr(' খুব দরকার হলে ৯৯৯-এ ফোন করুন।');
         _say(out, reply, links: [ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন'))], speak: !quiet);
         _history.add(AiTurn.app('[স্বাস্থ্যের মাপ রাখা হলো: ${summaryLine(c)}]'));
+      case ManageItem():
+        final t = _target;
+        if (t != null) {
+          if (c.action == 'delete') {
+            await brain.deleteTarget(t);
+            _say(out, trf('মুছে দিলাম — {0}।', [t.label]), speak: !quiet);
+          } else {
+            await brain.applyChange(t, _change);
+            _say(out, tr('বদলে দিলাম।'), speak: !quiet);
+          }
+        }
+        _target = null;
+        _change = const Change();
       case ProfileSet() when c.field == 'height':
         final cm = double.parse(c.value);
         final whose = await brain.setHeight(c.who, cm);

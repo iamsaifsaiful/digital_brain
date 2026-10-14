@@ -257,6 +257,8 @@ class _AnswerScreenState extends State<AnswerScreen> {
         return _Answer(answerText(d, cmd, now) ?? '');
       case ProfileSet():
         return _Answer(summaryLine(cmd));
+      case ManageItem():
+        return _Answer(tr('সহকারীর পাতায় বলুন — খুঁজে বদলে বা মুছে দেবো।'));
       case OpenPlace():
         final name = cmd.folder ?? tr(placeById(cmd.place)?.title ?? cmd.place);
         return _Answer(trf('{0} খুলছি।', [name]), actions: [

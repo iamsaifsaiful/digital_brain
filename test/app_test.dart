@@ -277,6 +277,44 @@ void main() {
     expect(rig.brain.data.reminders.where((x) => x.title.contains('ব্যাংক') && x.hour == 10), hasLength(1));
   });
 
+  testWidgets('change or remove saved things by typing or voice', (t) async {
+    final rig = await start(t);
+    await openTyping(t);
+    Future<void> type(String s) async {
+      await t.enterText(find.byType(TextField).first, s);
+      await t.testTextInput.receiveAction(TextInputAction.send);
+      await settle(t);
+    }
+
+    Future<void> yes() async {
+      await t.tap(find.widgetWithText(ActionChip, 'হ্যাঁ').last);
+      await settle(t);
+    }
+
+    await type('কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও');
+    await yes();
+    expect(rig.brain.data.reminders.single.hour, 10);
+    await type('মিটিংয়ের রিমাইন্ডারটা ৮টায় করে দাও');
+    expect(find.textContaining('বদলে'), findsWidgets);
+    await yes();
+    expect(rig.brain.data.reminders.single.hour, 8);
+    await type('রবিনকে ৫০০০ টাকা ধার দিলাম');
+    await yes();
+    expect(rig.brain.data.ledger.single.amount, 5000);
+    await type('রবিনের লেনদেনটা ৫০০০ না ৬০০০ হবে');
+    await yes();
+    expect(rig.brain.data.ledger.single.amount, 6000);
+    await type('মিটিংয়ের রিমাইন্ডার মুছে দাও');
+    expect(find.textContaining('মুছে দেবো?'), findsOneWidget);
+    await yes();
+    expect(rig.brain.data.reminders, isEmpty);
+    await type('শেষটা মুছে দাও');
+    expect(find.textContaining('রবিন'), findsWidgets);
+    await yes();
+    expect(rig.brain.data.ledger, isEmpty);
+    expect(rig.brain.data.reminders, isEmpty, reason: 'the earlier delete stays');
+  });
+
   testWidgets('chat: say a loan, yes by voice, then keep talking', (t) async {
     final rig = await start(t);
     await openChat(t);

@@ -35,12 +35,16 @@ enum ItemCategory {
 
 /// Add something new, or edit an existing password, contact, note or reminder.
 class NewItemScreen extends StatefulWidget {
-  const NewItemScreen({super.key, this.category, this.presetTitle, this.vault, this.contact, this.note, this.reminder, this.noteCategory});
+  const NewItemScreen({super.key, this.category, this.presetTitle, this.presetBody, this.presetAt, this.vault, this.contact, this.note, this.reminder, this.noteCategory});
   final ItemCategory? category;
 
   /// For a new note: the category to put it in.
   final String? noteCategory;
   final String? presetTitle;
+
+  /// A new note's text, or a new reminder's time (e.g. from a message).
+  final String? presetBody;
+  final DateTime? presetAt;
   final VaultItem? vault;
   final Contact? contact;
   final Note? note;
@@ -116,6 +120,12 @@ class _NewItemScreenState extends State<NewItemScreen> {
       _time = TimeOfDay(hour: now.hour + 1, minute: 0);
     }
     _a.text = w.presetTitle ?? '';
+    if (w.presetBody != null) _b.text = w.presetBody!;
+    final at = w.presetAt;
+    if (at != null && at.isAfter(now)) {
+      _date = dayOnly(at);
+      _time = TimeOfDay(hour: at.hour, minute: at.minute);
+    }
     if (w.noteCategory != null) _noteCat.text = w.noteCategory!;
     if (w.vault != null) {
       final v = w.vault!;

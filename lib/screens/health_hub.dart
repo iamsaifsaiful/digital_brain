@@ -417,12 +417,13 @@ Future<FamilyMember?> editMember(BuildContext context, FamilyMember? m) async {
 
 /// A reading typed in: weight, blood pressure (and pulse), blood sugar
 /// (before or after food, mmol/L or mg/dL), minutes walked, hours slept.
-Future<void> addReading(BuildContext context, String member, HealthKind kind) async {
+Future<void> addReading(BuildContext context, String member, HealthKind kind, {HealthLog? old}) async {
   final brain = BrainScope.read(context);
-  final a = TextEditingController();
-  final b = TextEditingController();
-  final c = TextEditingController();
-  var fasting = true;
+  String num(double? v) => v == null ? '' : (v == v.roundToDouble() ? '${v.round()}' : '$v');
+  final a = TextEditingController(text: num(old?.a));
+  final b = TextEditingController(text: num(old?.b));
+  final c = TextEditingController(text: num(old?.c));
+  var fasting = old == null || old.tag != 'after';
   double? n(TextEditingController t) => double.tryParse(asciiDigits(t.text.trim()));
   final ok = await showDialog<bool>(
     context: context,
@@ -461,21 +462,19 @@ Future<void> addReading(BuildContext context, String member, HealthKind kind) as
     ),
   );
   final va = n(a), vb = n(b), vc = n(c);
-  for (final t in [a, b, c]) {
-    t.dispose();
-  }
   if (ok != true || va == null || va <= 0) return;
   if (kind == HealthKind.bp && (vb == null || vb <= 0)) return;
   final log = HealthLog(
+    id: old?.id,
     member: member,
     kind: kind,
-    at: brain.services.now(),
+    at: old?.at ?? brain.services.now(),
     a: kind == HealthKind.sugar ? double.parse(toMmol(va).toStringAsFixed(1)) : va,
     b: kind == HealthKind.bp ? vb : null,
     c: kind == HealthKind.bp ? vc : null,
     tag: kind == HealthKind.sugar ? (fasting ? 'fasting' : 'after') : '',
   );
-  await brain.addHealth(log);
+  await (old == null ? brain.addHealth(log) : brain.saveHealth(log));
   final level = levelOf(log);
   if (context.mounted) {
     toast(context, level == null ? tr('রাখা হলো') : trf('রাখা হলো — {0}', [level.$2]));
@@ -526,6 +525,7 @@ class HealthKindScreen extends StatelessWidget {
                         title: readingText(h),
                         subtitle: '${shortDate(h.at)} · ${bnTime(h.at.hour, h.at.minute)}${levelOf(h) == null ? '' : ' · ${levelOf(h)!.$2}'}',
                         trailing: IconButton(tooltip: tr('মুছুন'), onPressed: () => brain.deleteHealth(h.id), icon: Icon(Icons.delete_outline_rounded, color: C.muted, size: 20)),
+                        onTap: () => addReading(context, member, kind, old: h),
                       ),
                   ]),
                 ),

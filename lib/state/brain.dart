@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import '../logic/ai_map.dart';
 import '../logic/app_map.dart';
 import '../logic/ask.dart';
+import '../logic/manage.dart';
 import '../logic/me.dart';
 import '../logic/phrases.dart' show possessive;
 import '../logic/answers.dart';
@@ -541,7 +542,7 @@ class Brain extends ChangeNotifier {
     if (!aiOn) return (rules, null);
     // "নোট খোলো": opening a page needs no AI; blood group, allergies and
     // what photos are kept stay on the phone.
-    if (rules.length == 1 && (rules.first is OpenPlace || rules.first is ProfileQuery || rules.first is ProfileSet)) return (rules, null);
+    if (rules.length == 1 && (rules.first is OpenPlace || rules.first is ProfileQuery || rules.first is ProfileSet || rules.first is ManageItem)) return (rules, null);
     if (mentionsSecret(said) || rules.any((c) => c is VaultQuery)) return (rules, null);
     // Listing the saved numbers needs no AI (and numbers never go to it).
     if (rules.length == 1 && rules.first is ContactsQuery) return (rules, null);

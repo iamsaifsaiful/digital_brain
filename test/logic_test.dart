@@ -1481,7 +1481,7 @@ void main() {
       expect(answerText(d, q, now), allOf(contains('৫,০০০'), contains('কাজের কথা')));
       expect(answerText(d, p.parse('রহিম কী লিখেছে?'), now), contains('পাঠাও'));
       expect(p.parse('করিমকে মেসেজ দাও যে কী লাগবে'), isA<CallPerson>());
-      expect(answerText(AppData(), q, now), contains('কোনো বার্তার তথ্য নেই'));
+      expect(answerText(AppData(), q, now), contains('কোনো মেসেজের তথ্য নেই'));
     });
   });
 
