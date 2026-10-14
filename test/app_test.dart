@@ -842,8 +842,14 @@ void main() {
     // Typing in the box at the bottom shows matches right above it…
     await t.tap(find.text('খুঁজুন, রাখুন বা জিজ্ঞেস করুন…'));
     await settle(t);
+    await t.enterText(find.byType(TextField).last, 'র');
+    await settle(t);
+    // The keyboard stays open after the first letter.
+    expect(t.widget<EditableText>(find.byType(EditableText).last).focusNode.hasFocus, isTrue);
+    expect(t.testTextInput.isVisible, isTrue);
     await t.enterText(find.byType(TextField).last, 'রহিম');
     await settle(t);
+    expect(t.widget<EditableText>(find.byType(EditableText).last).focusNode.hasFocus, isTrue);
     expect(find.text('রহিম ভবনের নকশা'), findsOneWidget);
     expect(find.textContaining('সহকারীকে বলুন'), findsOneWidget);
     // …and the full results page groups them.

@@ -103,8 +103,12 @@ class _AssistantBarState extends State<AssistantBar> {
 
     return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       // While typing: what matches, and "ask the assistant".
+      // Keys keep the box itself in place when the panel appears above it;
+      // without them the text field was rebuilt and the keyboard closed
+      // after the first letter.
       if (typing && _focus.hasFocus)
         Container(
+          key: const ValueKey('matches'),
           constraints: const BoxConstraints(maxHeight: 260),
           margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
           decoration: BoxDecoration(
@@ -141,6 +145,7 @@ class _AssistantBarState extends State<AssistantBar> {
           ),
         ),
       Container(
+        key: const ValueKey('box'),
         color: C.surface,
         padding: const EdgeInsets.fromLTRB(0, 10, 0, 8),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
