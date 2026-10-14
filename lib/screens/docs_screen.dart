@@ -158,7 +158,7 @@ class _DocsScreenState extends State<DocsScreen> {
                                   child: Icon(Icons.folder_outlined, color: C.blue, size: 20),
                                 ),
                                 const Spacer(),
-                                Text(f, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w600, height: 1.25)),
+                                Text(tr(f), maxLines: 2, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w600, height: 1.25)),
                                 Text(trf('{0}টি', [bnDigits(d.docs.where((x) => x.folder == f).length)]), style: body(11.5, color: C.muted)),
                               ]),
                             ),
@@ -290,14 +290,14 @@ class _DocScreenState extends State<DocScreen> {
                 Row(children: [
                   ActionChip(
                     avatar: Icon(Icons.folder_outlined, size: 18, color: C.blue),
-                    label: Text(d.folder, style: body(13.5)),
+                    label: Text(tr(d.folder), style: body(13.5)),
                     onPressed: () async {
                       final f = await showDialog<String>(
                         context: context,
                         builder: (ctx) => SimpleDialog(
                           title: Text(tr('ফোল্ডার'), style: body(18, weight: FontWeight.w600)),
                           children: [
-                            for (final x in allDocFolders(brain.data)) SimpleDialogOption(onPressed: () => Navigator.pop(ctx, x), child: Text(x, style: body(16))),
+                            for (final x in allDocFolders(brain.data)) SimpleDialogOption(onPressed: () => Navigator.pop(ctx, x), child: Text(tr(x), style: body(16))),
                             SimpleDialogOption(onPressed: () => Navigator.pop(ctx, '+'), child: Text(tr('+ নতুন ফোল্ডার'), style: body(16, color: C.green))),
                           ],
                         ),

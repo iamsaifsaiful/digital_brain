@@ -29,6 +29,9 @@ class BanglaDate {
   /// "২৮ আশ্বিন ১৪৩৩".
   String get text => '${bnDigits(day)} $monthName ${bnDigits(year)}';
   String get dayMonth => '${bnDigits(day)} $monthName';
+
+  /// "২ জমাদিউল আউয়াল ১৪৪৮" (after a "হিজরি" label).
+  String get short => '${bnDigits(day)} $monthName ${bnDigits(year)}';
 }
 
 bool _leap(int y) => (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
@@ -282,6 +285,9 @@ class HijriDate {
   /// "২ জমাদিউল আউয়াল ১৪৪৮ হিজরি".
   String get text => isEn ? '$day $monthName $year AH' : '${bnDigits(day)} $monthName ${bnDigits(year)} হিজরি';
   String get dayMonth => '${bnDigits(day)} $monthName';
+
+  /// "২ জমাদিউল আউয়াল ১৪৪৮" (after a "হিজরি" label).
+  String get short => '${bnDigits(day)} $monthName ${bnDigits(year)}';
   bool get isRamadan => month == 9;
 }
 

@@ -81,7 +81,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       Text('${weekdayName(picked)} · ${bnDigits(picked.day)} ${monthName(picked.month)} ${bnDigits(picked.year)}',
                           style: body(13.5, color: Colors.white)),
                       const SizedBox(height: 2),
-                      Text(trf('হিজরি · {0}', [hj.text]), style: body(13.5, weight: FontWeight.w600, color: Colors.white)),
+                      Text(trf('হিজরি · {0}', [hj.short]), style: body(13.5, weight: FontWeight.w600, color: Colors.white)),
                     ]),
                   ),
                   Container(

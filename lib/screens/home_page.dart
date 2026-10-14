@@ -127,7 +127,7 @@ class HomePage extends StatelessWidget {
               child: Row(children: [
                 const Icon(Icons.nightlight_round, size: 16, color: Color(0xFFFDE68A)),
                 const SizedBox(width: 6),
-                Flexible(child: Text(trf('হিজরি · {0}', [hj.text]), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13.5, weight: FontWeight.w500, color: Colors.white))),
+                Flexible(child: Text(trf('হিজরি · {0}', [hj.short]), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13.5, weight: FontWeight.w500, color: Colors.white))),
               ]),
             ),
             const SizedBox(height: 6),
