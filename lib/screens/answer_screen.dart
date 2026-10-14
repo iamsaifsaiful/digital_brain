@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../logic/answers.dart';
 import '../logic/bn.dart';
 import '../logic/categories.dart';
+import '../logic/health.dart';
 import '../logic/ledger.dart';
 import '../logic/parser.dart';
 import '../logic/search.dart';
@@ -232,6 +233,8 @@ class _AnswerScreenState extends State<AnswerScreen> {
       case CashQuery():
       case Briefing():
         return _Answer(answerText(d, cmd, now) ?? '');
+      case HealthQuery(:final what, :final member):
+        return _Answer(healthAnswer(d, what, now, member: member));
       case LedgerAdd():
       case LedgerSet():
       case TaskAdd():
@@ -243,6 +246,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
       case VaultAdd():
       case MemoryAdd():
       case SpecialAdd():
+      case HealthAdd():
       case NotUnderstood():
         return _Answer(tr('দুঃখিত, ঠিক বুঝতে পারিনি। একটু অন্যভাবে আরেকবার বলবেন?'));
     }

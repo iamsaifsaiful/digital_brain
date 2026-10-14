@@ -19,6 +19,7 @@ import 'money_screens.dart';
 import 'new_item_screen.dart';
 import 'notes_screen.dart';
 import 'docs_screen.dart';
+import 'health_hub.dart';
 import 'person_screen.dart';
 import 'plan_screens.dart';
 import 'vault_item_screen.dart';
@@ -517,6 +518,8 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
         _open(const MemoryScreen());
       case LinkKind.doc:
         _openDoc(l.docId!, l.label);
+      case LinkKind.health:
+        _open(const HealthScreen());
       case LinkKind.editEntry:
         _chat.dropPending();
         _open(ConfirmScreen(command: l.entry!)).then((r) {

@@ -340,3 +340,90 @@ String emergencyText(EmergencyCard c) {
   if (c.allergies.isNotEmpty) lines.add(trf('অ্যালার্জি: {0}', [c.allergies]));
   return lines.join('\n');
 }
+
+/// Health: people, readings, check-ups and the child vaccine card.
+extension BrainHealth on Brain {
+  /// The user and the family members, the user first.
+  List<FamilyMember> get healthPeople {
+    final me = data.members.where((m) => m.isMe).firstOrNull ?? FamilyMember(id: FamilyMember.meId, name: userName.isEmpty ? tr('আমি') : userName);
+    return [me, ...data.members.where((m) => !m.isMe)];
+  }
+
+  FamilyMember personById(String id) => healthPeople.firstWhere((m) => m.id == id, orElse: () => healthPeople.first);
+
+  Future<void> saveMember(FamilyMember m) async {
+    _upsert(data.members, m, (x) => x.id);
+    await _save();
+    await _vaccineReminders(m);
+  }
+
+  Future<void> deleteMember(FamilyMember m) async {
+    data.members.removeWhere((x) => x.id == m.id);
+    data.health.removeWhere((h) => h.member == m.id);
+    data.vaccines.removeWhere((k, _) => k.startsWith('${m.id}:'));
+    data.reminders.removeWhere((r) => m.vaccineReminders.contains(r.id) || r.id == m.checkupReminderId);
+    await _save();
+    await _reschedule();
+  }
+
+  Future<void> addHealth(HealthLog h) async {
+    data.health.add(h);
+    await _save();
+  }
+
+  Future<void> deleteHealth(String id) async {
+    data.health.removeWhere((h) => h.id == id);
+    await _save();
+  }
+
+  /// The next check-up: a reminder a day before and that morning.
+  Future<void> setCheckup(FamilyMember m, DateTime? day) async {
+    if (m.checkupReminderId != null) data.reminders.removeWhere((r) => r.id == m.checkupReminderId);
+    var next = m.copyWith(nextCheckup: day, clearCheckup: day == null, clearCheckupReminder: true);
+    if (day != null) {
+      final r = Reminder(title: trf('{0} — ডাক্তারের চেকআপ', [m.name]), date: dayOnly(day), hour: 9, daysBefore: 1);
+      data.reminders.add(r);
+      next = next.copyWith(checkupReminderId: r.id);
+    }
+    _upsert(data.members, next, (x) => x.id);
+    await _save();
+    await _reschedule();
+  }
+
+  /// Ticks (or unticks) a vaccine dose as given; the reminders follow.
+  Future<void> setDoseGiven(FamilyMember m, VaccineDose v, DateTime? on) async {
+    final key = '${m.id}:${v.key}';
+    if (on == null) {
+      data.vaccines.remove(key);
+    } else {
+      data.vaccines[key] = dayOnly(on).toIso8601String();
+    }
+    await _save();
+    await _vaccineReminders(m);
+  }
+
+  /// One reminder for each coming vaccine day (doses due together share it).
+  Future<void> _vaccineReminders(FamilyMember m) async {
+    data.reminders.removeWhere((r) => m.vaccineReminders.contains(r.id));
+    final ids = <String>[];
+    final today = dayOnly(services.now());
+    if (m.birth != null && !m.isMe) {
+      final byDay = <DateTime, List<String>>{};
+      for (final v in epiSchedule) {
+        if (givenOn(data, m, v) != null) continue;
+        final day = doseDay(m, v);
+        if (day.isBefore(today)) continue;
+        byDay.putIfAbsent(day, () => []).add(tr(v.name));
+      }
+      for (final e in byDay.entries) {
+        final r = Reminder(title: trf('{0}-এর টিকা: {1}', [m.name, e.value.join(', ')]), date: e.key, hour: 9, daysBefore: 1);
+        data.reminders.add(r);
+        ids.add(r.id);
+      }
+    }
+    final i = data.members.indexWhere((x) => x.id == m.id);
+    if (i >= 0) data.members[i] = data.members[i].copyWith(vaccineReminders: ids);
+    await _save();
+    await _reschedule();
+  }
+}

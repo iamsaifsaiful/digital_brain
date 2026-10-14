@@ -4,18 +4,19 @@ library;
 
 import '../models/models.dart';
 import 'bn.dart';
+import 'health.dart';
 import 'parser.dart';
 import 'phrases.dart';
 import 'lang.dart';
 
 /// Saves something (needs a yes first)?
 bool isSave(Command c) =>
-    c is LedgerAdd || c is LedgerSet || c is NoteAdd || c is TaskAdd || c is ReminderAdd || c is ContactAdd || c is CashAdd || c is VaultAdd || c is MemoryAdd || c is SpecialAdd;
+    c is LedgerAdd || c is LedgerSet || c is NoteAdd || c is TaskAdd || c is ReminderAdd || c is ContactAdd || c is CashAdd || c is VaultAdd || c is MemoryAdd || c is SpecialAdd || c is HealthAdd;
 
 bool _complete(Command c) => switch (c) {
       LedgerAdd() => c.person.trim().isNotEmpty && c.amount > 0,
       ReminderAdd() => !c.needsTime,
-      LedgerSet() || TaskAdd() || ContactAdd() || NoteAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() => true,
+      LedgerSet() || TaskAdd() || ContactAdd() || NoteAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() || HealthAdd() => true,
       CashAdd() => c.amount > 0,
       _ => false,
     };
@@ -85,5 +86,6 @@ String summaryLine(Command c) => switch (c) {
       CashAdd() => c.project != null
           ? trf('{0} — {1} {2} টাকা', [c.project!.isEmpty ? 'প্রজেক্ট' : '‘${c.project}’ প্রজেক্ট', c.kind == CashKind.income ? 'এসেছে' : 'খরচ', bnNumber(c.amount)])
           : trf('{0}: {1} — {2} টাকা', [c.kind.label, c.category, bnNumber(c.amount)]),
+      HealthAdd() => '${isEn ? c.kind.en : c.kind.bn}: ${readingText(HealthLog(kind: c.kind, at: DateTime(2000), a: c.a, b: c.b, c: c.c, tag: c.tag))}',
       _ => c.transcript,
     };

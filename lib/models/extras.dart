@@ -468,3 +468,135 @@ class EmergencyCard {
         onLockScreen: j['onLockScreen'] == true,
       );
 }
+
+// ───────────────────────── Health ─────────────────────────
+
+/// Someone whose health the user keeps track of: themself ([meId]) or a
+/// family member (a parent's blood pressure, a child's vaccines).
+class FamilyMember {
+  FamilyMember({String? id, required this.name, this.relation = '', this.birth, this.sex = '', this.heightCm, this.nextCheckup, this.checkupReminderId, List<String>? vaccineReminders})
+      : id = id ?? newId(),
+        vaccineReminders = vaccineReminders ?? [];
+  static const meId = 'me';
+
+  final String id;
+  final String name;
+
+  /// "আব্বা", "মেয়ে"…
+  final String relation;
+  final DateTime? birth;
+
+  /// 'm', 'f' or '' (not said).
+  final String sex;
+  final double? heightCm;
+
+  /// The next doctor's check-up, with its reminder.
+  final DateTime? nextCheckup;
+  final String? checkupReminderId;
+
+  /// Reminders made for the coming vaccine doses.
+  final List<String> vaccineReminders;
+
+  bool get isMe => id == meId;
+
+  int? ageOn(DateTime now) {
+    final b = birth;
+    if (b == null) return null;
+    var y = now.year - b.year;
+    if (now.month < b.month || (now.month == b.month && now.day < b.day)) y--;
+    return y;
+  }
+
+  FamilyMember copyWith({String? name, String? relation, DateTime? birth, bool clearBirth = false, String? sex, double? heightCm, DateTime? nextCheckup, bool clearCheckup = false, String? checkupReminderId, bool clearCheckupReminder = false, List<String>? vaccineReminders}) =>
+      FamilyMember(
+        id: id,
+        name: name ?? this.name,
+        relation: relation ?? this.relation,
+        birth: clearBirth ? null : (birth ?? this.birth),
+        sex: sex ?? this.sex,
+        heightCm: heightCm ?? this.heightCm,
+        nextCheckup: clearCheckup ? null : (nextCheckup ?? this.nextCheckup),
+        checkupReminderId: clearCheckupReminder ? null : (checkupReminderId ?? this.checkupReminderId),
+        vaccineReminders: vaccineReminders ?? this.vaccineReminders,
+      );
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'name': name,
+        'relation': relation,
+        'birth': birth?.toIso8601String(),
+        'sex': sex,
+        'heightCm': heightCm,
+        'nextCheckup': nextCheckup?.toIso8601String(),
+        'checkupReminderId': checkupReminderId,
+        if (vaccineReminders.isNotEmpty) 'vaccineReminders': vaccineReminders,
+      };
+
+  factory FamilyMember.fromJson(Map<String, Object?> j) => FamilyMember(
+        id: j['id'] as String?,
+        name: _s(j['name']),
+        relation: _s(j['relation']),
+        birth: _d(j['birth']),
+        sex: _s(j['sex']),
+        heightCm: (j['heightCm'] as num?)?.toDouble(),
+        nextCheckup: _d(j['nextCheckup']),
+        checkupReminderId: j['checkupReminderId'] as String?,
+        vaccineReminders: _ls(j['vaccineReminders']),
+      );
+}
+
+enum HealthKind {
+  weight('ওজন', 'Weight'),
+  bp('রক্তচাপ', 'Blood pressure'),
+  sugar('ডায়াবেটিস (সুগার)', 'Blood sugar'),
+  water('পানি', 'Water'),
+  exercise('হাঁটা/ব্যায়াম', 'Walk/exercise'),
+  sleep('ঘুম', 'Sleep');
+
+  const HealthKind(this.bn, this.en);
+  final String bn;
+  final String en;
+  static HealthKind parse(Object? v) => HealthKind.values.firstWhere((k) => k.name == v, orElse: () => HealthKind.weight);
+}
+
+/// One reading: weight (kg in [a]), blood pressure ([a]/[b], pulse [c]),
+/// blood sugar (mmol/L in [a], [tag] 'fasting' or 'after'), water (glasses),
+/// exercise (minutes) or sleep (hours).
+class HealthLog {
+  HealthLog({String? id, this.member = FamilyMember.meId, required this.kind, required this.at, required this.a, this.b, this.c, this.tag = '', this.note = ''}) : id = id ?? newId();
+  final String id;
+  final String member;
+  final HealthKind kind;
+  final DateTime at;
+  final double a;
+  final double? b;
+  final double? c;
+  final String tag;
+  final String note;
+
+  HealthLog copyWith({double? a}) => HealthLog(id: id, member: member, kind: kind, at: at, a: a ?? this.a, b: b, c: c, tag: tag, note: note);
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'member': member,
+        'kind': kind.name,
+        'at': at.toIso8601String(),
+        'a': a,
+        if (b != null) 'b': b,
+        if (c != null) 'c': c,
+        if (tag.isNotEmpty) 'tag': tag,
+        if (note.isNotEmpty) 'note': note,
+      };
+
+  factory HealthLog.fromJson(Map<String, Object?> j) => HealthLog(
+        id: j['id'] as String?,
+        member: _s(j['member'], FamilyMember.meId),
+        kind: HealthKind.parse(j['kind']),
+        at: _d(j['at']) ?? DateTime.now(),
+        a: (j['a'] as num?)?.toDouble() ?? 0,
+        b: (j['b'] as num?)?.toDouble(),
+        c: (j['c'] as num?)?.toDouble(),
+        tag: _s(j['tag']),
+        note: _s(j['note']),
+      );
+}

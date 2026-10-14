@@ -11,6 +11,7 @@ import 'calendar_screen.dart';
 import 'docs_screen.dart';
 import 'calls_screen.dart';
 import 'home_screen.dart';
+import 'health_hub.dart';
 import 'home_shell.dart';
 import 'ledger_screen.dart';
 import 'more_screen.dart';
@@ -74,7 +75,7 @@ class HomePage extends StatelessWidget {
       (tr('পাসওয়ার্ড'), Icons.lock_outline_rounded, C.ink, C.soft, () => push(const VaultPage())),
       (tr('যোগাযোগ'), Icons.call_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
       (tr('বাংলা তারিখ'), Icons.eco_outlined, C.teal, C.tealTint, () => push(const CalendarScreen())),
-      (tr('ছুটির দিন'), Icons.flag_outlined, C.rose, C.roseTint, () => push(const CalendarScreen())),
+      (tr('স্বাস্থ্য'), Icons.favorite_border_rounded, C.rose, C.roseTint, () => push(const HealthScreen())),
       (tr('খুঁজুন'), Icons.search_rounded, C.ink, C.soft, () => push(const SearchScreen())),
     ];
 

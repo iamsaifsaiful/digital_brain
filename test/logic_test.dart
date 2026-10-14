@@ -12,6 +12,7 @@ import 'package:digital_brain/logic/password.dart';
 import 'package:digital_brain/logic/phrases.dart';
 import 'package:digital_brain/logic/plan.dart';
 import 'package:digital_brain/logic/when.dart';
+import 'package:digital_brain/logic/health.dart';
 import 'package:digital_brain/logic/lang.dart';
 import 'package:digital_brain/logic/money_more.dart';
 import 'package:digital_brain/logic/proactive.dart';
@@ -1295,6 +1296,51 @@ void main() {
       expect(m.title, 'রহিমকে ৫০০ টাকা দেবো');
       expect(p.parse('রহিমকে ৫০০ টাকা দিলাম'), isA<LedgerAdd>());
       expect(p.parse('আজ কী কী আছে'), isA<Briefing>());
+    });
+  });
+
+  group('v2.10: health', () {
+    final now = DateTime(2026, 10, 14, 9);
+    test('BMI by the Asian cut-offs, healthy weight range, BP and sugar levels', () {
+      final b = bmiOf(70, 168);
+      expect(b, closeTo(24.8, 0.1));
+      expect(bmiLevel(b).$1, Level.watch); // 23–27.4 is "a little high" for South Asians
+      expect(bmiLevel(22.0).$1, Level.ok);
+      expect(healthyWeight(168), (53, 64));
+      expect(bpLevel(118, 76).$1, Level.ok);
+      expect(bpLevel(145, 92).$1, Level.high);
+      expect(bpLevel(185, 100).$1, Level.urgent);
+      expect(sugarLevel(5.2, fasting: true).$1, Level.ok);
+      expect(sugarLevel(7.4, fasting: true).$1, isNot(Level.ok));
+      expect(sugarLevel(toMmol(140), fasting: false).$1, Level.ok); // 140 mg/dL = 7.8 mmol/L boundary
+      expect(sugarLevel(2.5, fasting: false).$1, Level.urgent);
+    });
+    test('said aloud: weight, pressure, sugar, water — and questions about them', () {
+      final p = Parser(ledger: const [], now: now);
+      final w = p.parse('আজ ওজন ৬৮ কেজি') as HealthAdd;
+      expect((w.kind, w.a), (HealthKind.weight, 68.0));
+      final bp = p.parse('প্রেশার ১৪০ বাই ৯০') as HealthAdd;
+      expect((bp.kind, bp.a, bp.b), (HealthKind.bp, 140.0, 90.0));
+      final s = p.parse('খালি পেটে সুগার ৭.২') as HealthAdd;
+      expect((s.kind, s.a, s.tag), (HealthKind.sugar, 7.2, 'fasting'));
+      expect((p.parse('২ গ্লাস পানি খেলাম') as HealthAdd).kind, HealthKind.water);
+      expect(p.parse('আমার বিএমআই কত'), isA<HealthQuery>());
+      final d = AppData(
+        members: [FamilyMember(id: FamilyMember.meId, name: 'আমি', heightCm: 168)],
+        health: [
+          HealthLog(kind: HealthKind.weight, at: DateTime(2026, 9, 10), a: 72),
+          HealthLog(kind: HealthKind.weight, at: DateTime(2026, 10, 13), a: 70),
+        ],
+      );
+      expect(healthAnswer(d, 'bmi', now), allOf(contains('২৪.৮'), contains('৫৩–৬৪')));
+      expect(healthAnswer(d, 'weight', now), contains('কমেছে'));
+    });
+    test('a child\'s vaccine card follows the EPI days', () {
+      final baby = FamilyMember(name: 'আয়ান', birth: DateTime(2026, 9, 1));
+      expect(needsVaccineCard(baby, now), isTrue);
+      final penta1 = epiSchedule.firstWhere((v) => v.key == 'penta1');
+      expect(doseDay(baby, penta1), DateTime(2026, 10, 13));
+      expect(epiSchedule.where((v) => v.key.startsWith('mr')).length, 2);
     });
   });
 }

@@ -200,6 +200,29 @@ class SpecialAdd extends Command {
   final int? year;
 }
 
+/// "আজ ওজন ৬৮ কেজি", "প্রেশার ১৪০ বাই ৯০", "খালি পেটে সুগার ৭.২",
+/// "৩ গ্লাস পানি খেলাম", "৩০ মিনিট হাঁটলাম" — a health reading.
+class HealthAdd extends Command {
+  const HealthAdd(super.transcript, {required this.kind, required this.a, this.b, this.c, this.tag = '', this.member = 'me'});
+  final HealthKind kind;
+  final double a;
+  final double? b;
+  final double? c;
+  final String tag;
+
+  /// Whose (a family member's id, or 'me').
+  final String member;
+}
+
+/// "আমার বিএমআই কত?", "প্রেশার কেমন?", "গত মাসে ওজন কত কমল?"
+class HealthQuery extends Command {
+  const HealthQuery(super.transcript, {required this.what, this.member = 'me'});
+
+  /// 'bmi', or a [HealthKind] name.
+  final String what;
+  final String member;
+}
+
 class NotUnderstood extends Command {
   const NotUnderstood(super.transcript);
 }
@@ -650,6 +673,10 @@ class Parser {
       said = stripGreeting(said.trim(), keepCase: true);
     }
     final w = words(text);
+
+    // "প্রেশার ১৪০ বাই ৯০", "আজ ওজন ৬৮ কেজি", "আমার বিএমআই কত?"
+    final health = _health(said, text, w);
+    if (health != null) return health;
 
     // "রহিমের জন্মদিন ১২ মার্চ" → a special day.
     final special = specialDayIn(said, text);
@@ -1130,6 +1157,47 @@ class Parser {
     for (final x in ['যাব', 'করব', 'দিব', 'নিব', 'আনব', 'কিনব', 'দেখব', 'বলব', 'আসব', 'খাব', 'পাঠাব', 'ধরব', 'তুলব', 'রাখব', 'ফিরব', 'ছাড়ব', 'ঘুরব', 'বসব', 'শুরু করব']) normalize(x),
   };
 
+  /// Numbers in the sentence, with decimals ("৭.২" → 7.2), in order.
+  static List<double> _numbers(String said) => [
+        for (final m in RegExp(r'\d+(?:\.\d+)?').allMatches(asciiDigits(said).replaceAll(RegExp(r'(?<=\d),(?=\d{3})'), ''))) double.parse(m[0]!),
+      ];
+
+  Command? _health(String said, String text, List<String> w) {
+    bool has(List<String> keys) => _hasNorm(text, keys);
+    final asking = isQuestionText(said) || has(['কত', 'কেমন', 'দেখাও', 'দেখান', 'কমল', 'কমেছে', 'বাড়ল', 'বেড়েছে']);
+    final nums = _numbers(said);
+    final weight = has(['ওজন', 'weight']) || (has(['কেজি', 'kg']) && !has(['টাকা', 'চাল', 'ডাল', 'মাংস', 'মাছ', 'আলু', 'পেঁয়াজ']));
+    final bp = has(['প্রেশার', 'প্রেসার', 'রক্তচাপ', 'বিপি', 'bp', 'blood pressure']);
+    final sugar = has(['সুগার', 'ডায়াবেটিস', 'ডায়বেটিস', 'গ্লুকোজ', 'sugar', 'glucose']);
+    final bmi = has(['বিএমআই', 'bmi']);
+    if (bmi) return HealthQuery(said, what: 'bmi');
+    if (asking && nums.isEmpty) {
+      if (weight) return HealthQuery(said, what: HealthKind.weight.name);
+      if (bp) return HealthQuery(said, what: HealthKind.bp.name);
+      if (sugar) return HealthQuery(said, what: HealthKind.sugar.name);
+      return null;
+    }
+    if (has(['টাকা']) || nums.isEmpty) return null;
+    if (bp && nums.length >= 2 && nums[0] >= 60 && nums[0] <= 260 && nums[1] >= 30 && nums[1] <= 160) {
+      final pulse = nums.length >= 3 && has(['পালস', 'pulse', 'নাড়ি']) ? nums[2] : null;
+      return HealthAdd(said, kind: HealthKind.bp, a: nums[0], b: nums[1], c: pulse);
+    }
+    if (sugar && nums.first > 0 && nums.first < 600) {
+      final fasting = has(['খালি পেটে', 'খালিপেটে', 'ফাস্টিং', 'fasting', 'নাস্তার আগে', 'খাওয়ার আগে', 'খাবার আগে']);
+      return HealthAdd(said, kind: HealthKind.sugar, a: double.parse(toMmolValue(nums.first).toStringAsFixed(1)), tag: fasting ? 'fasting' : 'after');
+    }
+    if (weight && nums.first >= 2 && nums.first <= 300) return HealthAdd(said, kind: HealthKind.weight, a: nums.first);
+    if (has(['গ্লাস', 'glass']) && has(['পানি', 'water'])) return HealthAdd(said, kind: HealthKind.water, a: nums.first.clamp(1, 20).toDouble());
+    if (has(['হাঁটলাম', 'হাঁটছি', 'হেঁটেছি', 'ব্যায়াম', 'হাঁটা', 'দৌড়', 'exercise', 'walk']) && has(['মিনিট', 'ঘণ্টা', 'ঘন্টা'])) {
+      final minutes = has(['ঘণ্টা', 'ঘন্টা']) ? nums.first * 60 : nums.first;
+      if (minutes > 0 && minutes <= 600) return HealthAdd(said, kind: HealthKind.exercise, a: minutes);
+    }
+    if (has(['ঘুমিয়েছি', 'ঘুমালাম', 'ঘুম হয়েছে', 'ঘুমিয়েছিলাম', 'slept']) && has(['ঘণ্টা', 'ঘন্টা', 'hour']) && nums.first > 0 && nums.first <= 16) {
+      return HealthAdd(said, kind: HealthKind.sleep, a: nums.first);
+    }
+    return null;
+  }
+
   Command? _plan(String said, String text, List<String> w) {
     if (text.contains(normalize('টাকা')) || findAmount(normalize(withoutWhen(said))) != null) return null;
     final when = parseWhen(said, now);
@@ -1561,3 +1629,7 @@ VaultAdd? vaultAddFrom(String said) {
   // Spoken digits come in Bengali; a typed password keeps its letters as typed.
   return VaultAdd(said, name: name, password: asciiDigits(value), wifi: wifi);
 }
+
+
+/// mg/dL readings (above 35) as mmol/L.
+double toMmolValue(double v) => v > 35 ? v / 18 : v;

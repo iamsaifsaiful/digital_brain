@@ -6,6 +6,7 @@ import '../logic/answers.dart';
 import '../logic/bn.dart';
 import '../logic/cash.dart';
 import '../logic/categories.dart';
+import '../logic/health.dart';
 import '../logic/ledger.dart';
 import '../logic/parser.dart';
 import '../logic/phrases.dart';
@@ -43,7 +44,7 @@ class ChatChoice {
   final String answer;
 }
 
-enum LinkKind { person, editEntry, notes, reminders, tasks, contacts, cash, special, memory, doc }
+enum LinkKind { person, editEntry, notes, reminders, tasks, contacts, cash, special, memory, doc, health }
 
 /// "খাতা দেখুন" and similar, under an app message.
 class ChatLink {
@@ -580,6 +581,7 @@ class ChatController extends ChangeNotifier {
     if (c is TaskQuery || c is Briefing) return [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))];
     if (c is CashQuery) return [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন'))];
     if (c is ContactsQuery) return [ChatLink(LinkKind.contacts, tr('যোগাযোগ দেখুন'))];
+    if (c is HealthQuery) return [ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন'))];
     if (c is SearchQuery) {
       return [
         for (final h in searchAll(d, c.terms).whereType<DocHit>().take(4)) ChatLink(LinkKind.doc, trf('দেখুন: {0}', [h.doc.title]), docId: h.doc.id),
@@ -751,6 +753,9 @@ class ChatController extends ChangeNotifier {
       case MemoryAdd():
         if (_allYes) return _saveCurrent(out);
         _ask(out, trf('“{0}” — এটা মনে রাখব, পরের উত্তরে কাজে লাগাব। ঠিক আছে?', [c.text]), ChatWait.yesNo, choices: _yesNoChoices);
+      case HealthAdd():
+        // A reading is kept at once (it can be taken back with ফিরিয়ে নিন).
+        return _saveCurrent(out);
       case SpecialAdd():
         if (_allYes) return _saveCurrent(out);
         final when = '${bnDigits(c.day)} ${monthName(c.month)}${c.year == null ? '' : ' ${bnDigits(c.year!)}'}';
@@ -1323,6 +1328,20 @@ class ChatController extends ChangeNotifier {
         await brain.addMemory(c.text);
         _say(out, quiet ? trf('মনে রাখলাম: {0}', [c.text]) : tr('ঠিক আছে, মনে রাখলাম। সেটিংস › সহকারীর স্মৃতি থেকে দেখা বা মোছা যায়।'), speak: !quiet);
         _history.add(AiTurn.app('[মনে রাখা হলো: ${c.text}]'));
+      case HealthAdd():
+        final log = HealthLog(member: c.member, kind: c.kind, at: _now, a: c.a, b: c.b, c: c.c, tag: c.tag);
+        await brain.addHealth(log);
+        final level = levelOf(log);
+        final who = brain.personById(c.member);
+        var reply = trf('লিখে রাখলাম — {0}: {1}।', [isEn ? c.kind.en : c.kind.bn, readingText(log)]);
+        if (level != null) reply += ' ${level.$2}।';
+        if (c.kind == HealthKind.weight && who.heightCm != null) {
+          final b = bmiOf(c.a, who.heightCm!);
+          reply += trf(' BMI {0} — {1}।', [bnDigits(b.toStringAsFixed(1)), bmiLevel(b).$2]);
+        }
+        if (level != null && level.$1 == Level.urgent) reply += tr(' খুব দরকার হলে ৯৯৯-এ ফোন করুন।');
+        _say(out, reply, links: [ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন'))], speak: !quiet);
+        _history.add(AiTurn.app('[স্বাস্থ্যের মাপ রাখা হলো: ${summaryLine(c)}]'));
       case SpecialAdd():
         await brain.saveSpecialDay(SpecialDay(person: c.person, kind: c.kind, month: c.month, day: c.day, year: c.year));
         _say(out, quiet ? trf('বিশেষ দিন: {0}', [c.person]) : tr('রেখে দিলাম। প্রতি বছর আগের দিন আর সেদিন সকাল ৯টায় মনে করিয়ে দেবো।'),

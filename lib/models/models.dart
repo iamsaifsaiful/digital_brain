@@ -784,7 +784,13 @@ class AppData {
     List<Installment>? installments,
     Map<String, List<String>>? tags,
     this.emergency = const EmergencyCard(),
+    List<FamilyMember>? members,
+    List<HealthLog>? health,
+    Map<String, String>? vaccines,
   })  : tasks = tasks ?? [],
+        members = members ?? [],
+        health = health ?? [],
+        vaccines = vaccines ?? {},
         specialDays = specialDays ?? [],
         memories = memories ?? [],
         habits = habits ?? [],
@@ -825,6 +831,13 @@ class AppData {
   final Map<String, List<String>> tags;
   EmergencyCard emergency;
 
+  /// The people whose health is tracked (the user is [FamilyMember.meId]).
+  final List<FamilyMember> members;
+  final List<HealthLog> health;
+
+  /// Vaccine doses given: "<member id>:<dose key>" → the day (ISO).
+  final Map<String, String> vaccines;
+
   static const schema = 1;
 
   /// Every tag in use, by name.
@@ -858,6 +871,9 @@ class AppData {
         'installments': installments.map((e) => e.toJson()).toList(),
         'tags': {for (final e in tags.entries) if (e.value.isNotEmpty) e.key: e.value},
         'emergency': emergency.toJson(),
+        'members': members.map((e) => e.toJson()).toList(),
+        'health': health.map((e) => e.toJson()).toList(),
+        if (vaccines.isNotEmpty) 'vaccines': vaccines,
       };
 
   factory AppData.fromJson(Map<String, Object?> j) {
@@ -886,6 +902,9 @@ class AppData {
           if (e.value is List) '${e.key}': [for (final t in e.value as List) '$t']
       },
       emergency: j['emergency'] is Map ? EmergencyCard.fromJson((j['emergency'] as Map).cast<String, Object?>()) : const EmergencyCard(),
+      members: list('members', FamilyMember.fromJson),
+      health: list('health', HealthLog.fromJson),
+      vaccines: {for (final e in ((j['vaccines'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
     );
   }
 }

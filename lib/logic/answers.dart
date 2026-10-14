@@ -5,6 +5,7 @@ library;
 import '../models/models.dart';
 import 'bn.dart';
 import 'cash.dart';
+import 'health.dart';
 import 'ledger.dart';
 import 'match.dart';
 import 'parser.dart';
@@ -261,8 +262,9 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       CashQuery() => cashAnswer(d, cmd, now),
       Briefing() => briefingAnswer(d, now),
       ContactsQuery() => contactsAnswer(d),
+      HealthQuery() => healthAnswer(d, cmd.what, now, member: cmd.member),
       NotUnderstood() => 'দুঃখিত, ঠিক বুঝতে পারিনি। একটু অন্যভাবে আরেকবার বলবেন?',
-      LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TaskDone() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() => null,
+      LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TaskDone() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() || HealthAdd() => null,
     };
 
 /// The saved contact for a spoken name ("রহিম", "রহিম ভাই", "Rahim").
