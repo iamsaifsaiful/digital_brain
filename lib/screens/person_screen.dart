@@ -166,6 +166,17 @@ class _PersonScreenState extends State<PersonScreen> {
                       Text(trf('দিয়েছেন {0} · পেয়েছেন {1}', [taka(given), taka(got)]), style: body(14, color: C.muted)),
                     ]),
                   ),
+                  // The agreed pay-back day, while money is still out.
+                  if (bal != 0)
+                    for (final (e, _) in rows)
+                      if (e.due != null && !e.due!.isBefore(dayOnly(brain.services.now())) && ((bal > 0) == (e.kind == LedgerKind.lent)))
+                        Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: InfoBanner(
+                            icon: Icons.event_available_outlined,
+                            text: trf('{0} — {1} ({2})', [bal > 0 ? tr('ফেরত পাওয়ার কথা') : tr('শোধের কথা'), fullDate(e.due!), daysLeftLabel(e.due!, brain.services.now())]),
+                          ),
+                        ),
                   if (bal > 0 && p.phone.isNotEmpty) ...[
                     const SizedBox(height: 10),
                     Panel(

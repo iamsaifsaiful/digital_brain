@@ -890,6 +890,8 @@ class ChatController extends ChangeNotifier {
       phone: phone,
       email: old?.email ?? '',
       note: old?.note ?? '',
+      address: old?.address ?? '',
+      files: old?.files ?? const [],
     ));
   }
 

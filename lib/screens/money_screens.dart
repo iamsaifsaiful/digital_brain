@@ -200,6 +200,40 @@ Future<String?> askProjectName(BuildContext context, {String initial = ''}) {
   );
 }
 
+/// A new project or event: a name (or a ready one — ঈদ, বিয়ে…) and, if
+/// wanted, a budget. Returns (name, budget).
+Future<(String, int)?> askNewProject(BuildContext context) {
+  final name = TextEditingController();
+  final budget = TextEditingController();
+  return showDialog<(String, int)>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setD) => AlertDialog(
+        title: Text(tr('নতুন প্রজেক্ট বা ইভেন্ট'), style: display(20)),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Wrap(spacing: 6, runSpacing: 6, children: [
+              for (final t in [tr('ঈদের খরচ'), tr('বিয়ের আয়োজন'), tr('জন্মদিনের আয়োজন'), tr('কুরবানি'), tr('বাড়ি মেরামত'), tr('ভ্রমণ')])
+                ActionChip(label: Text(t), onPressed: () => setD(() => name.text = t)),
+            ]),
+            const SizedBox(height: 10),
+            TextField(controller: name, decoration: InputDecoration(labelText: tr('নাম, যেমন: রহিম ভবন'))),
+            const SizedBox(height: 10),
+            TextField(controller: budget, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: tr('বাজেট (ঐচ্ছিক)'), prefixText: '৳ ')),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, (name.text.trim(), int.tryParse(asciiDigits(budget.text).replaceAll(RegExp(r'[,\s]'), '')) ?? 0)),
+            child: Text(tr('ঠিক আছে')),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class ProjectsView extends StatelessWidget {
   const ProjectsView({super.key});
 
@@ -217,9 +251,13 @@ class ProjectsView extends StatelessWidget {
     }
 
     Future<void> create() async {
-      final name = await askProjectName(context);
-      if (name == null || name.isEmpty || !context.mounted) return;
-      final p = await brain.projectNamed(name);
+      final r = await askNewProject(context);
+      if (r == null || r.$1.isEmpty || !context.mounted) return;
+      var p = await brain.projectNamed(r.$1);
+      if (r.$2 > 0) {
+        p = p.copyWith(budget: r.$2);
+        await brain.saveProject(p);
+      }
       if (context.mounted) Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProjectScreen(id: p.id)));
     }
 
@@ -233,7 +271,7 @@ class ProjectsView extends StatelessWidget {
           child: Icon(Icons.work_outline_rounded, color: C.blue, size: 20),
         ),
         title: p.name,
-        subtitle: trf('এসেছে {0} · খরচ {1}', [taka(s.income), taka(s.expense)]),
+        subtitle: p.budget > 0 ? trf('বাজেট {0} · খরচ {1}', [taka(p.budget), taka(s.expense)]) : trf('এসেছে {0} · খরচ {1}', [taka(s.income), taka(s.expense)]),
         trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
           Text(taka(s.balance.abs()), style: display(16, color: s.balance >= 0 ? C.green : C.orange)),
           Text(s.balance >= 0 ? tr('অবশিষ্ট') : tr('বেশি খরচ'), style: body(12, color: C.muted)),
@@ -296,6 +334,20 @@ class ProjectScreen extends StatelessWidget {
         case 'rename':
           final name = await askProjectName(context, initial: p.name);
           if (name != null && name.isNotEmpty) await brain.saveProject(p.copyWith(name: name));
+        case 'budget':
+          final c = TextEditingController(text: p.budget > 0 ? '${p.budget}' : '');
+          final v = await showDialog<String>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text(tr('বাজেট'), style: display(20)),
+              content: TextField(controller: c, autofocus: true, keyboardType: TextInputType.number, decoration: const InputDecoration(prefixText: '৳ ')),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
+                TextButton(onPressed: () => Navigator.pop(ctx, c.text), child: Text(tr('ঠিক আছে'))),
+              ],
+            ),
+          );
+          if (v != null) await brain.saveProject(p.copyWith(budget: int.tryParse(asciiDigits(v).replaceAll(RegExp(r'[,\s]'), '')) ?? 0));
         case 'close':
           await brain.saveProject(p.copyWith(closed: !p.closed));
         case 'delete':
@@ -316,6 +368,7 @@ class ProjectScreen extends StatelessWidget {
               onSelected: menu,
               itemBuilder: (_) => [
                 PopupMenuItem(value: 'rename', child: Text(tr('নাম বদলান'))),
+                PopupMenuItem(value: 'budget', child: Text(p.budget > 0 ? tr('বাজেট বদলান') : tr('বাজেট ঠিক করুন'))),
                 PopupMenuItem(value: 'close', child: Text(p.closed ? tr('আবার চালু করুন') : tr('প্রজেক্ট শেষ'))),
                 PopupMenuItem(value: 'delete', child: Text(tr('মুছুন'))),
               ],
@@ -329,6 +382,29 @@ class ProjectScreen extends StatelessWidget {
                 negative: s.balance < 0,
                 items: [(tr('মোট এসেছে'), s.income, C.green), (tr('মোট খরচ'), s.expense, C.orange)],
               ),
+              if (p.budget > 0) ...[
+                const SizedBox(height: 10),
+                Panel(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(
+                        s.expense <= p.budget
+                            ? trf('বাজেট {0} · বাকি {1}', [taka(p.budget), taka(p.budget - s.expense)])
+                            : trf('বাজেট {0} · {1} বেশি খরচ', [taka(p.budget), taka(s.expense - p.budget)]),
+                        style: body(15, weight: FontWeight.w600, color: s.expense <= p.budget ? C.ink : C.orange)),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: (s.expense / p.budget).clamp(0, 1).toDouble(),
+                        minHeight: 10,
+                        color: s.expense <= p.budget ? C.green : C.orange,
+                        backgroundColor: C.chip,
+                      ),
+                    ),
+                  ]),
+                ),
+              ],
               const SizedBox(height: 12),
               Row(children: [
                 Expanded(

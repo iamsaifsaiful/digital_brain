@@ -672,17 +672,34 @@ class Brain extends ChangeNotifier {
       final p = balanceOf(data.ledger.where((o) => o.id != x.id), x.person);
       if (p != null && p.phone.isNotEmpty) x = x.copyWith(phone: p.phone);
     }
+    // A pay-back day: a reminder (a day before, and on the day at 10:00).
+    final old = data.ledger.where((y) => y.id == x.id).firstOrNull;
+    final oldRem = old?.reminderId ?? x.reminderId;
+    if (oldRem != null) data.reminders.removeWhere((r) => r.id == oldRem);
+    x = x.copyWith(clearReminder: true);
+    if (x.due != null && (x.kind == LedgerKind.lent || x.kind == LedgerKind.borrowed)) {
+      final title = x.kind == LedgerKind.lent
+          ? trf('{0} {1} ফেরত দেওয়ার দিন', [x.person, taka(x.amount)])
+          : trf('{0}-কে {1} শোধের দিন', [x.person, taka(x.amount)]);
+      final r = Reminder(title: title, date: dayOnly(x.due!), hour: 10, daysBefore: 1);
+      data.reminders.add(r);
+      x = x.copyWith(reminderId: r.id);
+    }
     _upsert(data.ledger, x, (y) => y.id);
     final pk = phoneKey(x.phone);
     if (pk.isNotEmpty && !data.contacts.any((c) => phoneKey(c.phone) == pk)) {
       data.contacts.add(Contact(name: x.person.trim(), phone: asciiDigits(x.phone.trim()), note: 'লেনদেন', updatedAt: services.now()));
     }
     await _save();
+    if (oldRem != null || x.reminderId != null) await _reschedule();
   }
 
   Future<void> deleteEntry(String id) async {
+    final rem = data.ledger.where((e) => e.id == id).firstOrNull?.reminderId;
     data.ledger.removeWhere((e) => e.id == id);
+    if (rem != null) data.reminders.removeWhere((r) => r.id == rem);
     await _save();
+    if (rem != null) await _reschedule();
   }
 
   Future<void> saveVault(VaultItem v) async {
@@ -740,6 +757,11 @@ class Brain extends ChangeNotifier {
   }
 
   Future<void> deleteContact(String id) async {
+    for (final c in data.contacts.where((e) => e.id == id)) {
+      for (final f in c.files) {
+        await services.store.deleteDocFile(f.id);
+      }
+    }
     data.contacts.removeWhere((e) => e.id == id);
     await _save();
   }

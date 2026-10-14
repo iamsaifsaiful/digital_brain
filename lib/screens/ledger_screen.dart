@@ -114,7 +114,7 @@ class MoneyScreenState extends State<MoneyScreen> {
       const SizedBox(height: 16),
       if (people.isEmpty)
         EmptyState(
-          icon: Icons.swap_horiz_rounded,
+          icon: Icons.payments_outlined,
           title: tr('কারো সাথে ধার-দেনা নেই'),
           text: tr('কাউকে টাকা দিলে বা কারো কাছ থেকে নিলে এখানে রাখুন — নাম আর মোবাইল নম্বর দিয়ে, যাতে একই নামের দুজন গুলিয়ে না যায়।'),
           action: tr('লিখে যোগ করুন'),

@@ -32,12 +32,14 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
   late final _amount = TextEditingController(text: widget.entry == null ? '' : '${widget.entry!.amount}');
   late final _note = TextEditingController(text: widget.entry?.note ?? '');
   late DateTime _date;
+  DateTime? _due;
   final _form = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
     _date = widget.entry?.date ?? dayOnly(BrainScope.read(context).services.now());
+    _due = widget.entry?.due;
     _person.addListener(() => setState(() {}));
     _phone.addListener(() => setState(() {}));
     _amount.addListener(() => setState(() {}));
@@ -63,13 +65,16 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
     final others = brain.data.ledger.where((e) => e.id != widget.entry?.id);
     final after = balanceWith(others, person, phone: phone) + _kind.signed(amount);
     final e = widget.entry == null
-        ? LedgerEntry(person: person, phone: phone, kind: _kind, amount: amount, date: _date, note: _note.text.trim())
-        : widget.entry!.copyWith(person: person, phone: phone, kind: _kind, amount: amount, date: _date, note: _note.text.trim());
+        ? LedgerEntry(person: person, phone: phone, kind: _kind, amount: amount, date: _date, note: _note.text.trim(), due: _hasDue ? _due : null)
+        : widget.entry!.copyWith(person: person, phone: phone, kind: _kind, amount: amount, date: _date, note: _note.text.trim(), due: _hasDue ? _due : null, clearDue: !_hasDue || _due == null);
     await brain.saveEntry(e, guessPhone: false);
     if (!mounted) return;
     toast(context, trf('সেভ হয়েছে। {0}', [balanceSentence(person, after)]));
     Navigator.of(context).pop();
   }
+
+  /// Only a loan (given or taken) has a pay-back day.
+  bool get _hasDue => _kind == LedgerKind.lent || _kind == LedgerKind.borrowed;
 
   /// From যোগাযোগ (bringing the phone book first if it is empty).
   Future<void> _pick() async {
@@ -250,6 +255,27 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
                         ),
                       ],
                     ),
+                    if (_hasDue) ...[
+                      const SizedBox(height: 14),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () async {
+                          final now = BrainScope.read(context).services.now();
+                          final d = await showDatePicker(
+                              context: context, initialDate: _due ?? now.add(const Duration(days: 30)), firstDate: dayOnly(now), lastDate: now.add(const Duration(days: 3650)));
+                          if (d != null) setState(() => _due = d);
+                        },
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: _kind == LedgerKind.lent ? tr('ফেরত পাওয়ার তারিখ (ঐচ্ছিক)') : tr('শোধের তারিখ (ঐচ্ছিক)'),
+                            helperText: tr('দিলে আগের দিন আর সেদিন সকালে মনে করাবো'),
+                            prefixIcon: const Icon(Icons.event_available_outlined, size: 20),
+                            suffixIcon: _due == null ? null : IconButton(tooltip: tr('তারিখ মুছুন'), onPressed: () => setState(() => _due = null), icon: const Icon(Icons.close_rounded)),
+                          ),
+                          child: Text(_due == null ? tr('তারিখ বেছে নিন') : fullDate(_due!), style: body(16, color: _due == null ? C.muted : C.ink)),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: _note,

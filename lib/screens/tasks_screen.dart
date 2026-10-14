@@ -144,9 +144,19 @@ class _TasksScreenState extends State<TasksScreen> {
                       ]),
                     ),
                     if (_list != null && _list!.isNotEmpty)
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton.icon(
+                      Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                        // Send the list to someone (WhatsApp, SMS…) — e.g. the shopping list to the family.
+                        TextButton.icon(
+                          onPressed: () {
+                            final name = _list!;
+                            final items = brain.data.tasks.where((t) => t.list == name).toList();
+                            final text = '$name\n${items.map((t) => '${t.done ? '☑' : '☐'} ${t.title}').join('\n')}';
+                            brain.services.files.shareText(text);
+                          },
+                          icon: Icon(Icons.share_outlined, size: 18, color: C.green),
+                          label: Text(tr('তালিকা পাঠান'), style: body(13, color: C.green)),
+                        ),
+                        TextButton.icon(
                           onPressed: () async {
                             final name = _list!;
                             if (!await confirmDialog(context, title: tr('তালিকা মুছবেন?'), text: trf('‘{0}’-এর সব জিনিস মুছে যাবে।', [name]), yes: tr('মুছুন'), danger: true)) return;
@@ -158,7 +168,7 @@ class _TasksScreenState extends State<TasksScreen> {
                           icon: Icon(Icons.delete_outline_rounded, size: 18, color: C.red),
                           label: Text(tr('তালিকা মুছুন'), style: body(13, color: C.red)),
                         ),
-                      ),
+                      ]),
                     const SizedBox(height: 8),
                   ],
                   if (open.isEmpty && done.isEmpty)

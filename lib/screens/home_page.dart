@@ -68,7 +68,7 @@ class HomePage extends StatelessWidget {
       (tr('রিমাইন্ডার'), Icons.notifications_none_rounded, C.orange, C.orangeTint, () => push(const AllTasksScreen())),
       (tr('কাজের তালিকা'), Icons.checklist_rounded, C.green, C.greenTint, () => goToTab(context, ShellTab.diary)),
       (tr('আয়-ব্যয়'), Icons.account_balance_wallet_outlined, C.green, C.greenTint, () => goToTab(context, ShellTab.money, money: MoneyPart.cash)),
-      (tr('লেনদেন'), Icons.swap_horiz_rounded, C.teal, C.tealTint, () => goToTab(context, ShellTab.money, money: MoneyPart.loans)),
+      (tr('লেনদেন'), Icons.payments_outlined, C.teal, C.tealTint, () => goToTab(context, ShellTab.money, money: MoneyPart.loans)),
       (tr('নোট'), Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, () => push(const NotesScreen())),
       (tr('ডকুমেন্টস'), Icons.folder_copy_outlined, C.blue, C.blueTint, () => push(const DocsScreen())),
       (tr('পাসওয়ার্ড'), Icons.lock_outline_rounded, C.ink, C.soft, () => push(const VaultPage())),

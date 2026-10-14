@@ -63,7 +63,7 @@ class _AssistantBarState extends State<AssistantBar> {
         case ContactHit(:final contact):
           out.add((Icons.person_outline_rounded, contact.name, tr('যোগাযোগ')));
         case PersonHit(:final person):
-          out.add((Icons.swap_horiz_rounded, person, tr('হিসাব')));
+          out.add((Icons.payments_outlined, person, tr('হিসাব')));
         case ReminderHit(:final reminder):
           out.add((Icons.notifications_none_rounded, reminder.title, tr('রিমাইন্ডার')));
         case NoteHit(:final note):

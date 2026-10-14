@@ -1227,7 +1227,7 @@ class _QuickAddSheet extends StatelessWidget {
           Row(children: [
             Expanded(child: tile(0, Icons.notifications_none_rounded, tr('কাজ / রিমাইন্ডার'), C.orange, C.orangeTint)),
             const SizedBox(width: 8),
-            Expanded(child: tile(1, Icons.swap_horiz_rounded, tr('ধার-দেনা'), C.green, C.greenTint)),
+            Expanded(child: tile(1, Icons.payments_outlined, tr('ধার-দেনা'), C.green, C.greenTint)),
             const SizedBox(width: 8),
             Expanded(child: tile(2, Icons.account_balance_wallet_outlined, tr('খরচ / আয়'), C.green, C.greenTint)),
           ]),

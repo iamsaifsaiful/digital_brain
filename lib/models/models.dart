@@ -60,8 +60,16 @@ class LedgerEntry {
     this.note = '',
     this.phone = '',
     DateTime? createdAt,
+    this.due,
+    this.reminderId,
   })  : id = id ?? newId(),
         createdAt = createdAt ?? DateTime.now();
+
+  /// When it is to be paid back (for a loan given or taken), if agreed.
+  final DateTime? due;
+
+  /// The reminder made for [due].
+  final String? reminderId;
 
   final String id;
   final String person;
@@ -77,7 +85,8 @@ class LedgerEntry {
   final String note;
   final DateTime createdAt;
 
-  LedgerEntry copyWith({String? person, String? phone, LedgerKind? kind, int? amount, DateTime? date, String? note}) => LedgerEntry(
+  LedgerEntry copyWith({String? person, String? phone, LedgerKind? kind, int? amount, DateTime? date, String? note, DateTime? due, bool clearDue = false, String? reminderId, bool clearReminder = false}) =>
+      LedgerEntry(
         id: id,
         person: person ?? this.person,
         phone: phone ?? this.phone,
@@ -86,6 +95,8 @@ class LedgerEntry {
         date: date ?? this.date,
         note: note ?? this.note,
         createdAt: createdAt,
+        due: clearDue ? null : (due ?? this.due),
+        reminderId: clearReminder ? null : (reminderId ?? this.reminderId),
       );
 
   Map<String, Object?> toJson() => {
@@ -97,6 +108,8 @@ class LedgerEntry {
         'note': note,
         if (phone.isNotEmpty) 'phone': phone,
         'createdAt': createdAt.toIso8601String(),
+        if (due != null) 'due': due!.toIso8601String(),
+        if (reminderId != null) 'reminderId': reminderId,
       };
 
   factory LedgerEntry.fromJson(Map<String, Object?> j) => LedgerEntry(
@@ -108,6 +121,8 @@ class LedgerEntry {
         date: _date(j['date']) ?? DateTime.now(),
         note: (j['note'] as String?) ?? '',
         createdAt: _date(j['createdAt']),
+        due: _date(j['due']),
+        reminderId: j['reminderId'] as String?,
       );
 }
 
@@ -181,7 +196,7 @@ class VaultItem {
 // ───────────────────────── Contacts ─────────────────────────
 
 class Contact {
-  Contact({String? id, required this.name, this.phone = '', this.email = '', this.note = '', DateTime? updatedAt})
+  Contact({String? id, required this.name, this.phone = '', this.email = '', this.note = '', DateTime? updatedAt, this.address = '', this.files = const []})
       : id = id ?? newId(),
         updatedAt = updatedAt ?? DateTime.now();
 
@@ -192,6 +207,12 @@ class Contact {
   final String note;
   final DateTime updatedAt;
 
+  /// Where they are (shop, house, office) — opens on the map.
+  final String address;
+
+  /// Photos and files kept with the contact (visiting card, papers).
+  final List<DocFile> files;
+
   Map<String, Object?> toJson() => {
         'id': id,
         'name': name,
@@ -199,6 +220,8 @@ class Contact {
         'email': email,
         'note': note,
         'updatedAt': updatedAt.toIso8601String(),
+        if (address.isNotEmpty) 'address': address,
+        if (files.isNotEmpty) 'files': [for (final f in files) f.toJson()],
       };
 
   factory Contact.fromJson(Map<String, Object?> j) => Contact(
@@ -208,6 +231,8 @@ class Contact {
         email: (j['email'] as String?) ?? '',
         note: (j['note'] as String?) ?? '',
         updatedAt: _date(j['updatedAt']),
+        address: (j['address'] as String?) ?? '',
+        files: [for (final f in (j['files'] as List? ?? const [])) if (f is Map) DocFile.fromJson(f.cast<String, Object?>())],
       );
 }
 
@@ -512,7 +537,7 @@ class CashEntry {
 
 /// A piece of work with its own money: "রহিম ভবন", "অফিস সাজানো".
 class Project {
-  Project({String? id, required this.name, DateTime? createdAt, this.closed = false})
+  Project({String? id, required this.name, DateTime? createdAt, this.closed = false, this.budget = 0})
       : id = id ?? newId(),
         createdAt = createdAt ?? DateTime.now();
 
@@ -521,15 +546,20 @@ class Project {
   final DateTime createdAt;
   final bool closed;
 
-  Project copyWith({String? name, bool? closed}) => Project(id: id, name: name ?? this.name, createdAt: createdAt, closed: closed ?? this.closed);
+  /// How much may be spent (an Eid or wedding budget); 0 = none set.
+  final int budget;
 
-  Map<String, Object?> toJson() => {'id': id, 'name': name, 'createdAt': createdAt.toIso8601String(), 'closed': closed};
+  Project copyWith({String? name, bool? closed, int? budget}) =>
+      Project(id: id, name: name ?? this.name, createdAt: createdAt, closed: closed ?? this.closed, budget: budget ?? this.budget);
+
+  Map<String, Object?> toJson() => {'id': id, 'name': name, 'createdAt': createdAt.toIso8601String(), 'closed': closed, if (budget > 0) 'budget': budget};
 
   factory Project.fromJson(Map<String, Object?> j) => Project(
         id: j['id'] as String?,
         name: (j['name'] as String?) ?? '',
         createdAt: _date(j['createdAt']),
         closed: j['closed'] == true,
+        budget: (j['budget'] as num?)?.toInt() ?? 0,
       );
 }
 

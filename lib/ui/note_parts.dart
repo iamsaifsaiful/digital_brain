@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../logic/bn.dart';
 import '../logic/lang.dart';
 import '../models/models.dart';
+import '../services/launcher.dart';
 import '../state/brain.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -238,4 +239,15 @@ String notePreview(Note n) {
       ? '☑ ${checklistProgress(n.body)} · ${checklistItems(n.body).where((i) => !i.$1).map((i) => i.$2).take(4).join(', ')}'
       : n.body.replaceAll('\n', ' ');
   return n.files.isEmpty ? text : '📎 ${bnDigits(n.files.length)}${text.isEmpty ? '' : ' · $text'}';
+}
+
+
+/// Shows a written address or place on the map.
+Future<void> openMap(BuildContext context, String place) async {
+  if (place.trim().isEmpty) {
+    toast(context, tr('আগে ঠিকানা লিখুন'));
+    return;
+  }
+  final ok = await BrainScope.read(context).services.launcher.openUrl(mapUri(place));
+  if (!ok && context.mounted) toast(context, tr('ম্যাপ খোলা গেল না'));
 }

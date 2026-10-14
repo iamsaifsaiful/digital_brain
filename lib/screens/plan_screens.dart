@@ -467,7 +467,9 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
       floatingActionButton: AddButton(label: tr('যোগ করুন'), onPressed: () => showAddSheet(context)),
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('কাজ ও রিমাইন্ডার')),
+          TopBar(title: tr('কাজ ও রিমাইন্ডার'), trailing: [
+            IconButton(tooltip: tr('বিলের রিমাইন্ডার'), onPressed: () => showBillPresets(context), icon: const Icon(Icons.receipt_long_outlined)),
+          ]),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
             child: SegTabs<_ListTab>(
@@ -485,4 +487,69 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
       ),
     );
   }
+}
+
+
+// ───────────────────────── Ready-made bill reminders ─────────────────────────
+
+/// Monthly bills most homes in Bangladesh pay, with a usual day of the month.
+const billPresets = [
+  ('বিদ্যুৎ বিল', 10),
+  ('বাসা ভাড়া', 5),
+  ('গ্যাস বিল', 10),
+  ('পানির বিল', 10),
+  ('ইন্টারনেট বিল', 5),
+  ('মোবাইল বিল', 1),
+  ('কিস্তি', 15),
+  ('গ্যাস সিলিন্ডার কেনা', 25),
+  ('ডিশ/ক্যাবল বিল', 5),
+  ('বাচ্চার স্কুলের বেতন', 10),
+];
+
+/// Ticks for the bills the user pays and the day each falls on: a monthly
+/// reminder for each (with a note two days before, see the nudges).
+Future<void> showBillPresets(BuildContext context) async {
+  final brain = BrainScope.read(context);
+  final have = {for (final r in brain.data.reminders) r.title};
+  final chosen = <String, int>{};
+  final saved = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setS) => SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(tr('মাসের বিলগুলো মনে করাবো'), style: display(19)),
+          const SizedBox(height: 4),
+          Text(tr('যেগুলো দেন টিক দিন, দিনটা ঠিক করে দিন। প্রতি মাসে সেদিন সকালে বাজবে, দুই দিন আগে একবার জানাবে।'), style: body(13, color: C.muted, height: 1.5)),
+          const SizedBox(height: 8),
+          for (final (name, day) in billPresets)
+            Row(children: [
+              Checkbox(
+                value: chosen.containsKey(name) || have.contains(name),
+                onChanged: have.contains(name) ? null : (v) => setS(() => v == true ? chosen[name] = day : chosen.remove(name)),
+              ),
+              Expanded(child: Text(tr(name) + (have.contains(name) ? tr(' (রাখা আছে)') : ''), style: body(15.5))),
+              if (chosen.containsKey(name))
+                DropdownButton<int>(
+                  value: chosen[name],
+                  items: [for (var d = 1; d <= 28; d++) DropdownMenuItem(value: d, child: Text(trf('{0} তারিখ', [bnDigits(d)])))],
+                  onChanged: (v) => setS(() => chosen[name] = v ?? day),
+                ),
+            ]),
+          const SizedBox(height: 10),
+          PrimaryButton(label: tr('রাখুন'), icon: Icons.check_rounded, onPressed: chosen.isEmpty ? null : () => Navigator.pop(ctx, true)),
+        ]),
+      ),
+    ),
+  );
+  if (saved != true) return;
+  final now = brain.services.now();
+  for (final e in chosen.entries) {
+    var date = DateTime(now.year, now.month, e.value);
+    if (DateTime(date.year, date.month, date.day, 10).isBefore(now)) date = DateTime(now.year, now.month + 1, e.value);
+    await brain.saveReminder(Reminder(title: tr(e.key), date: date, hour: 10, repeat: Repeat.monthly));
+  }
+  if (context.mounted) toast(context, trf('{0}টা বিলের রিমাইন্ডার রাখা হলো', [bnDigits(chosen.length)]));
 }

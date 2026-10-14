@@ -992,6 +992,22 @@ void main() {
     expect(find.textContaining('দেখুন: ভাইয়ের বিয়ে'), findsOneWidget);
   });
 
+  testWidgets('v2.10: a loan with a pay-back day gets a reminder; deleting the loan removes it', (t) async {
+    final rig = await start(t);
+    final e = LedgerEntry(person: 'রহিম', kind: LedgerKind.lent, amount: 5000, date: DateTime(2026, 10, 9), due: DateTime(2026, 11, 9));
+    await rig.brain.saveEntry(e);
+    final saved = rig.brain.data.ledger.single;
+    final r = rig.brain.reminderById(saved.reminderId!)!;
+    expect(r.title, contains('রহিম'));
+    expect((r.date, r.daysBefore), (DateTime(2026, 11, 9), 1));
+    expect(rig.notifier.scheduled.any((n) => n.reminderId == r.id), isTrue);
+    // A new date replaces the old reminder.
+    await rig.brain.saveEntry(saved.copyWith(due: DateTime(2026, 12, 1)));
+    expect(rig.brain.data.reminders.single.date, DateTime(2026, 12, 1));
+    await rig.brain.deleteEntry(saved.id);
+    expect(rig.brain.data.reminders, isEmpty);
+  });
+
   testWidgets('v2.10: a note keeps photos and a tick-box list', (t) async {
     final rig = await start(t);
     PickedDoc photo(String n) => PickedDoc(Uint8List.fromList(List.generate(300, (i) => i % 251)), n, 'image/jpeg');

@@ -336,6 +336,28 @@ class EmergencyScreen extends StatelessWidget {
                 ),
                 Text(tr('অ্যাপ লক থাকলেও লক পাতার “জরুরি তথ্য” বোতাম থেকে এটা দেখা যায়।'), style: body(12.5, color: C.muted, height: 1.5)),
               ],
+              const SizedBox(height: 18),
+              const DonorPanel(),
+              const SizedBox(height: 18),
+              SectionTitle(tr('জাতীয় জরুরি নম্বর')),
+              Panel(
+                child: Rows(children: [
+                  for (final (n, label, sub) in emergencyNumbers)
+                    ListRow(
+                      leading: Container(
+                        width: 54,
+                        height: 40,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(color: C.roseTint, borderRadius: BorderRadius.circular(10)),
+                        child: Text(bnDigits(n), style: display(15, weight: 700, color: C.rose)),
+                      ),
+                      title: tr(label),
+                      subtitle: tr(sub),
+                      trailing: Icon(Icons.call_rounded, color: C.green),
+                      onTap: () => brain.services.launcher.open(Via.call, n),
+                    ),
+                ]),
+              ),
             ]),
           ),
         ]),
@@ -458,3 +480,71 @@ Future<Contact?> pickContact(BuildContext context, List<Contact> contacts) => sh
         ),
       ),
     );
+
+
+/// Bangladesh's national helplines (fire service moved from 16163 to 102 in 2025).
+const emergencyNumbers = [
+  ('999', 'জাতীয় জরুরি সেবা', 'পুলিশ, ফায়ার সার্ভিস, অ্যাম্বুলেন্স — এক নম্বরে'),
+  ('102', 'ফায়ার সার্ভিস', 'আগুন বা দুর্ঘটনায় সরাসরি'),
+  ('109', 'নারী ও শিশু নির্যাতন প্রতিরোধ', 'হয়রানি বা নির্যাতনের শিকার হলে'),
+  ('1098', 'শিশু সহায়তা', 'বিপদে পড়া শিশুর জন্য'),
+  ('333', 'জাতীয় তথ্য ও সেবা', 'সরকারি তথ্য, বাল্যবিবাহ ও সামাজিক সমস্যা'),
+  ('16263', 'স্বাস্থ্য বাতায়ন', 'ডাক্তারের পরামর্শ, ২৪ ঘণ্টা'),
+  ('16430', 'সরকারি আইনি সহায়তা', 'বিনামূল্যে আইনি পরামর্শ'),
+  ('106', 'দুর্নীতি দমন কমিশন', 'দুর্নীতির অভিযোগ'),
+  ('1090', 'দুর্যোগের আগাম বার্তা', 'ঘূর্ণিঝড়, বন্যা, আবহাওয়া'),
+];
+
+/// "আমি রক্ত দিতে চাই": the user's own group, the last time they gave, and
+/// the day they can give again (a note comes that morning).
+class DonorPanel extends StatelessWidget {
+  const DonorPanel({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final blood = brain.data.emergency.blood;
+    final last = DateTime.tryParse(brain.text('blood_last'));
+    final next = last == null ? null : DateTime(last.year, last.month + 3, last.day);
+    final now = brain.services.now();
+    return Panel(
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(Icons.bloodtype_outlined, color: C.rose),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tr('আমি রক্ত দিতে আগ্রহী'), style: body(15, weight: FontWeight.w600)),
+              Text(blood.isEmpty ? tr('রক্তের গ্রুপ জরুরি কার্ডে লিখুন') : trf('আপনার গ্রুপ {0}', [blood]), style: body(12.5, color: C.muted)),
+            ]),
+          ),
+          Switch(value: brain.flag('donor_on'), onChanged: (v) => brain.setPref('donor_on', v)),
+        ]),
+        if (brain.flag('donor_on')) ...[
+          const SizedBox(height: 6),
+          InkWell(
+            onTap: () async {
+              final d = await showDatePicker(context: context, initialDate: last ?? now, firstDate: DateTime(now.year - 5), lastDate: now);
+              if (d != null) await brain.setPref('blood_last', d.toIso8601String());
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Text(last == null ? tr('শেষ কবে রক্ত দিয়েছেন? তারিখ দিন') : trf('শেষ রক্তদান: {0} · বদলান', [fullDate(last)]),
+                  style: body(14, weight: FontWeight.w600, color: C.green)),
+            ),
+          ),
+          if (next != null)
+            Text(
+                next.isAfter(now)
+                    ? trf('আবার দিতে পারবেন {0} থেকে ({1}) — সেদিন সকালে মনে করাবো।', [fullDate(next), daysLeftLabel(next, now)])
+                    : tr('এখন আবার রক্ত দিতে পারবেন।'),
+                style: body(13, color: C.muted2, height: 1.5)),
+          const SizedBox(height: 6),
+          Text(tr('আশপাশে কারো রক্ত লাগলে অ্যাপের মাধ্যমে খবর পাওয়ার ব্যবস্থা আসছে — শুধু আপনি রাজি থাকলে, আর বারবার বিরক্ত না করে।'),
+              style: body(12, color: C.muted, height: 1.5)),
+        ],
+      ]),
+    );
+  }
+}

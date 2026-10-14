@@ -202,7 +202,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   if (people.isNotEmpty)
                     _group(trf('হিসাব · {0}', [bnDigits(people.length)]), [
                       for (final p in people.take(6))
-                        _row(Icons.swap_horiz_rounded, C.teal, C.tealTint, p, owesText(p, balanceWith(d.ledger, p)),
+                        _row(Icons.payments_outlined, C.teal, C.tealTint, p, owesText(p, balanceWith(d.ledger, p)),
                             () => _push(PersonScreen(person: p))),
                     ]),
                   if (reminders.isNotEmpty || tasks.isNotEmpty)

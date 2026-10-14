@@ -64,6 +64,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
   final _pw = TextEditingController();
   final _noteText = TextEditingController();
   final _noteCat = TextEditingController(text: defaultNoteCategory);
+  final _address = TextEditingController();
   bool _pwVisible = false;
 
   /// The note's photos and files; [_added] are new ones (removed again if the
@@ -131,6 +132,8 @@ class _NewItemScreenState extends State<NewItemScreen> {
       _b.text = c.phone;
       _c.text = c.email;
       _noteText.text = c.note;
+      _address.text = c.address;
+      _files = [...c.files];
     } else if (w.note != null) {
       _a.text = w.note!.title;
       _b.text = w.note!.body;
@@ -156,7 +159,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
 
   @override
   void dispose() {
-    for (final c in [_a, _b, _c, _d, _pw, _noteText, _noteCat]) {
+    for (final c in [_a, _b, _c, _d, _pw, _noteText, _noteCat, _address]) {
       c.dispose();
     }
     // Left without saving: the newly added photos go too.
@@ -216,7 +219,13 @@ class _NewItemScreenState extends State<NewItemScreen> {
           email: _c.text.trim(),
           note: _noteText.text.trim(),
           updatedAt: now,
+          address: _address.text.trim(),
+          files: _files,
         ));
+        for (final f in _dropped) {
+          await brain.dropFile(f);
+        }
+        _saved = true;
         done = tr('যোগাযোগ রাখা হয়েছে');
       case ItemCategory.note:
         final cat = _noteCat.text.trim().isEmpty ? defaultNoteCategory : _noteCat.text.trim();
@@ -426,7 +435,30 @@ class _NewItemScreenState extends State<NewItemScreen> {
         _gap,
         TextFormField(controller: _c, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: tr('ইমেইল (ঐচ্ছিক)'))),
         _gap,
+        TextFormField(
+          controller: _address,
+          decoration: InputDecoration(
+            labelText: tr('ঠিকানা (ঐচ্ছিক)'),
+            hintText: tr('যেমন: মিরপুর ১০, ঢাকা'),
+            suffixIcon: IconButton(tooltip: tr('ম্যাপে দেখুন'), onPressed: () => openMap(context, _address.text), icon: const Icon(Icons.map_outlined)),
+          ),
+        ),
+        _gap,
         TextFormField(controller: _noteText, maxLines: 3, decoration: InputDecoration(labelText: tr('নোট'), hintText: tr('কোথায় পরিচয়, কী কাজে লাগে'))),
+        _gap,
+        AttachmentsEditor(
+          files: _files,
+          title: _a.text.trim().isEmpty ? tr('যোগাযোগ') : _a.text.trim(),
+          onAdd: _addFiles,
+          onRemove: (f) async {
+            setState(() => _files.remove(f));
+            if (_added.remove(f)) {
+              await BrainScope.read(context).dropFile(f);
+            } else {
+              _dropped.add(f);
+            }
+          },
+        ),
         if (widget.contact != null) ...[_gap, TagEditor(tagKey: 'contact:${widget.contact!.id}')],
       ];
 

@@ -6,6 +6,7 @@ import '../logic/bn.dart';
 import '../models/models.dart';
 import '../services/files.dart';
 import '../state/brain.dart';
+import '../ui/note_parts.dart' show openMap;
 import '../ui/pin.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
@@ -394,7 +395,11 @@ class _DocScreenState extends State<DocScreen> {
                             if (d.place.isNotEmpty) d.place,
                             if (d.taken != null) fullDate(d.taken!),
                           ].join(' · '),
-                    trailing: Icon(Icons.edit_outlined, color: C.muted, size: 20),
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      if (d.place.isNotEmpty)
+                        IconButton(tooltip: tr('ম্যাপে দেখুন'), onPressed: () => openMap(context, d.place), icon: Icon(Icons.map_outlined, color: C.green, size: 20)),
+                      Icon(Icons.edit_outlined, color: C.muted, size: 20),
+                    ]),
                     onTap: () async {
                       final info = await askDocInfo(context, const [], edit: d);
                       if (info == null) return;

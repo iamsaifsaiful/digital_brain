@@ -8,7 +8,13 @@ import '../models/models.dart';
 abstract class Launcher {
   /// False when no app could open it.
   Future<bool> open(Via via, String phone, {String text = ''});
+
+  /// A web or map link in its own app.
+  Future<bool> openUrl(Uri uri);
 }
+
+/// A place in Google Maps (the app if installed, else the browser).
+Uri mapUri(String place) => Uri.parse('https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(place.trim())}');
 
 /// "01712-345678" → "01712345678"; "+880 1712…" → "+8801712…".
 String cleanPhone(String phone) {
@@ -44,6 +50,16 @@ class DeviceLauncher implements Launcher {
       return false;
     }
   }
+
+  @override
+  Future<bool> openUrl(Uri uri) async {
+    try {
+      return await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      debugPrint('launch failed: $e');
+      return false;
+    }
+  }
 }
 
 class FakeLauncher implements Launcher {
@@ -53,6 +69,12 @@ class FakeLauncher implements Launcher {
   @override
   Future<bool> open(Via via, String phone, {String text = ''}) async {
     opened.add(launchUri(via, phone, text: text));
+    return works;
+  }
+
+  @override
+  Future<bool> openUrl(Uri uri) async {
+    opened.add(uri);
     return works;
   }
 }
