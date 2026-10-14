@@ -133,6 +133,10 @@ class ChatController extends ChangeNotifier {
   bool ended = false;
 
   Command? _current;
+
+  /// The last thing saved, with the data before it — so "না, রিমাইন্ডার
+  /// দাও" right after can turn a note into a reminder.
+  (Command, String, DateTime)? _lastSave;
   final _queue = <Command>[];
   bool _askingAll = false;
   bool _allYes = false;
@@ -446,6 +450,13 @@ class ChatController extends ChangeNotifier {
       notifyListeners();
       return out.join(' ');
     }
+    // "রিমাইন্ডার লিখে রাখো", "না, কাজের তালিকায় রাখো": about the previous
+    // message, which is kept that way instead.
+    final redirect = redirectOf(t);
+    if (redirect != null && await _redirect(redirect, t, out)) {
+      notifyListeners();
+      return out.join(' ');
+    }
     if (wait != ChatWait.none) {
       if (await _answer(t, out)) {
         notifyListeners();
@@ -472,6 +483,46 @@ class ChatController extends ChangeNotifier {
     }
     _held = '';
     return _understand(_withContext(whole), out, shown: whole);
+  }
+
+  Future<bool> _redirect(String kind, String said, List<String> out) async {
+    bool movable(Command c) => c is NoteAdd || c is TaskAdd || c is ReminderAdd || c is MemoryAdd;
+    String textOf(Command c) => switch (c) { NoteAdd(:final text) => text, MemoryAdd(:final text) => text, _ => c.transcript };
+    String kindOf(Command c) => switch (c) { ReminderAdd(:final alarm) => alarm ? 'alarm' : 'reminder', TaskAdd() => 'task', _ => 'note' };
+    String? src;
+    var moved = false;
+    final cur = _current;
+    final last = _lastSave;
+    if (wait != ChatWait.none && cur != null && movable(cur)) {
+      // Asked about the previous message ("নতুন বিভাগে রাখি?"): keep it the way said instead.
+      src = textOf(cur);
+      _dropPending();
+    } else if (last != null && movable(last.$1) && _now.difference(last.$3).inMinutes < 5) {
+      if (kindOf(last.$1) == kind) {
+        _say(out, tr('জি, ওটা সেভাবেই রাখা আছে।'));
+        return true;
+      }
+      await brain.restoreSnapshot(last.$2);
+      src = textOf(last.$1);
+      moved = true;
+    } else {
+      // The message before this one.
+      final users = [for (final m in messages) if (m.fromUser) m.text];
+      if (users.length >= 2) src = users[users.length - 2];
+    }
+    if (src == null || src.trim().isEmpty || redirectOf(src) != null) return false;
+    _lastSave = null;
+    _history.add(AiTurn.user(said));
+    final cmd = convertTo(kind, src, brain.data.ledger, _now);
+    if (moved) messages.add(ChatMessage.app(tr('আগেরটা সরিয়ে নিলাম।'), info: true));
+    final ready = (cmd is ReminderAdd && !cmd.needsTime && !cmd.needsTitle) || cmd is TaskAdd;
+    if (ready) {
+      _current = cmd;
+      await _saveCurrent(out);
+    } else {
+      await _start(cmd, out);
+    }
+    return true;
   }
 
   /// A short follow-up ("আজ", "সন্ধ্যায়", "৫০০", "রহিম") that means
@@ -1298,6 +1349,7 @@ class ChatController extends ChangeNotifier {
     final quiet = _allYes;
     final snap = brain.snapshot();
     _batchSnap ??= snap;
+    if (c != null) _lastSave = (c, snap, _now);
     switch (c) {
       case LedgerAdd():
         final kind = _kind!;

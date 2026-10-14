@@ -8,6 +8,7 @@ import 'bn.dart';
 import 'health.dart';
 import 'parser.dart';
 import 'phrases.dart';
+import 'when.dart';
 import 'lang.dart';
 
 /// Saves something (needs a yes first)?
@@ -65,6 +66,58 @@ List<Command> parseAll(String said, List<LedgerEntry> ledger,
 }
 
 /// One line for the "these are the things I found" list.
+/// "রিমাইন্ডার লিখে রাখো", "এটা কাজের তালিকায় রাখো", "নোট করে রাখো",
+/// "অ্যালার্ম দাও": an instruction about the previous message, with nothing
+/// of its own. 'reminder', 'alarm', 'task' or 'note' — null otherwise.
+String? redirectOf(String said) {
+  var t = ' ${normalize(said)} ';
+  String? kind;
+  const kinds = [
+    ('alarm', ['অ্যালার্ম', 'এলার্ম', 'alarm']),
+    ('reminder', ['রিমাইন্ডার', 'রিমাইন্ড', 'reminder', 'মনে করিয়ে', 'মনে করাবে', 'মনে করাবা', 'মনে করাও', 'জানিয়ে দিও', 'জানিয়ে দিবে', 'জানাবে']),
+    ('task', ['কাজের তালিকায়', 'কাজের তালিকা', 'কাজের লিস্টে', 'কাজে', 'কাজ হিসেবে', 'কাজ হিসাবে', 'টুডু', 'todo', 'to do']),
+    ('note', ['নোটে', 'নোট']),
+  ];
+  for (final (k, ws) in kinds) {
+    for (final w in [...ws]..sort((a, b) => b.length.compareTo(a.length))) {
+      final n = ' ${normalize(w)}';
+      if (t.contains(n)) {
+        kind ??= k;
+        t = t.replaceAll(n, ' ');
+      }
+    }
+  }
+  if (kind == null) return null;
+  const fillers = [
+    'এটা', 'এটাকে', 'এইটা', 'ওটা', 'ওটাকে', 'এটার', 'সেটা', 'এটাও', 'এই', 'ওই', 'হিসেবে', 'হিসাবে', 'হিসেবেই', 'লিখে', 'লেখো', 'লিখো', 'রাখো', 'রাখ', 'রাখুন', 'রাখেন', 'রেখো', 'রেখে', 'দাও', 'দিন', 'দিও', 'দেন', 'দাও না',
+    'করো', 'কর', 'করে', 'করুন', 'করেন', 'সেট', 'set', 'না', 'বরং', 'একটা', 'একটি', 'ভাই', 'প্লিজ', 'please', 'আর', 'তাহলে', 'তো', 'জি', 'হ্যাঁ', 'হ্যা', 'ঠিক', 'আছে', 'আমাকে', 'আমায়', 'যেন', 'দিয়ো',
+    'ওটার', 'সময়মতো', 'সময়মত', 'সময়', 'মতো', 'মত', 'দিবে', 'দেবে', 'দিবা', 'দিও', 'দেবো', 'রাখবে', 'রাখবা', 'চাই',
+  ];
+  final left = [for (final w in words(normalize(t))) if (!fillers.map(normalize).contains(w)) w];
+  return left.isEmpty ? kind : null;
+}
+
+/// The previous message ([said]) kept the way asked: a reminder (the chat
+/// asks the time if none was said), an alarm, a to-do or a note.
+Command convertTo(String kind, String said, List<LedgerEntry> ledger, DateTime now) {
+  final p = Parser(ledger: ledger, now: now);
+  final when = parseWhen(said, now);
+  final title = tidy(withoutWhen(said)).replaceAll(RegExp(r'[।.!?]+$'), '').trim();
+  switch (kind) {
+    case 'reminder' || 'alarm':
+      final r = p.parse('$said মনে করিয়ে দিও');
+      if (r is ReminderAdd) {
+        return ReminderAdd(said, title: r.title, at: r.at, repeat: r.repeat, weekdays: r.weekdays, minutesBefore: r.minutesBefore, alarm: kind == 'alarm' || r.alarm);
+      }
+      final at = when != null && when.hasTime ? when.at : noTimeYet;
+      return ReminderAdd(said, title: title.isEmpty ? said.trim() : title, at: at, alarm: kind == 'alarm');
+    case 'task':
+      return TaskAdd(said, title: title.isEmpty ? said.trim() : title, due: when != null && when.hasDay ? when.day : null);
+    default:
+      return NoteAdd(said, text: said.trim());
+  }
+}
+
 String summaryLine(Command c) => switch (c) {
       LedgerAdd(:final kind?) when c.person.trim().isNotEmpty && c.amount > 0 => describe(kind, c.person, c.amount),
       LedgerAdd() => [

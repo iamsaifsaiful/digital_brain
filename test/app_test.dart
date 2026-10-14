@@ -249,6 +249,34 @@ void main() {
     await settle(t);
   });
 
+  testWidgets('"আজ ইব্রাহিম ভাই আসার কথা সন্ধ্যা ৭টায়" is a reminder; "রিমাইন্ডার লিখে রাখো" keeps it', (t) async {
+    final rig = await start(t);
+    await openTyping(t);
+    Future<void> type(String s) async {
+      await t.enterText(find.byType(TextField).first, s);
+      await t.testTextInput.receiveAction(TextInputAction.send);
+      await settle(t);
+    }
+
+    await type('আজ ইব্রাহিম ভাই আসার কথা সন্ধ্যা ৭ টায়');
+    expect(find.textContaining('নতুন'), findsNothing);
+    await type('রিমাইন্ডার লিখে রাখো');
+    final r = rig.brain.data.reminders.single;
+    expect((r.hour, r.minute, r.date.day), (19, 0, 9));
+    expect(r.title, contains('ইব্রাহিম'));
+    expect(rig.brain.data.notes, isEmpty);
+
+    // A note saved, then "না, রিমাইন্ডার দাও": the note goes, a reminder comes.
+    await type('মনে রাখো: কাল সকাল ১০টায় ব্যাংকে চেক জমা');
+    if (find.widgetWithText(ActionChip, 'হ্যাঁ').evaluate().isNotEmpty) {
+      await t.tap(find.widgetWithText(ActionChip, 'হ্যাঁ').last);
+      await settle(t);
+    }
+    await type('না, রিমাইন্ডার দাও');
+    expect(rig.brain.data.notes.where((n) => n.body.contains('ব্যাংকে')), isEmpty);
+    expect(rig.brain.data.reminders.where((x) => x.title.contains('ব্যাংক') && x.hour == 10), hasLength(1));
+  });
+
   testWidgets('chat: say a loan, yes by voice, then keep talking', (t) async {
     final rig = await start(t);
     await openChat(t);

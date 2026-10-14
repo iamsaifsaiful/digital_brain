@@ -1277,8 +1277,14 @@ class Parser {
   Command? _plan(String said, String text, List<String> w) {
     if (text.contains(normalize('টাকা')) || findAmount(normalize(withoutWhen(said))) != null) return null;
     final when = parseWhen(said, now);
-    if (when == null || !when.hasDay) return null;
-    final future = w.any((x) => (x.endsWith(normalize('বো')) && x.length >= 3) || x.endsWith(normalize('বেন')) || (x.endsWith(normalize('বে')) && x.length >= 4) || _futureVerbs.contains(x)) ||
+    if (when == null || !(when.hasDay || when.hasTime)) return null;
+    // "আজ ইব্রাহিম ভাই আসার কথা সন্ধ্যা ৭টায়", "কাল ১০টায় মিটিং": an appointment.
+    final event = _hasNorm(text, [
+      'আসার কথা', 'যাওয়ার কথা', 'দেখা করার কথা', 'কথা আছে', 'কথা হয়েছে', 'মিটিং', 'দাওয়াত', 'অনুষ্ঠান', 'অ্যাপয়েন্টমেন্ট', 'এপয়েন্টমেন্ট', 'ক্লাস', 'পরীক্ষা',
+      'ফ্লাইট', 'ট্রেন', 'ইন্টারভিউ', 'প্রোগ্রাম', 'সাক্ষাৎ', 'আসবেন', 'আসবে', 'আসছেন', 'আসছে', 'আসবা',
+    ]);
+    if (!when.hasDay && !event) return null;
+    final future = event || w.any((x) => (x.endsWith(normalize('বো')) && x.length >= 3) || x.endsWith(normalize('বেন')) || (x.endsWith(normalize('বে')) && x.length >= 4) || _futureVerbs.contains(x)) ||
         (w.isNotEmpty && (w.last == normalize('আছে') || w.last == normalize('আছেন')));
     if (!future) return null;
     var title = tidy(cutWords(withoutWhen(said), ['আমি', 'আমার', 'আমরা', 'আমাদের', ..._fillers]));

@@ -1484,4 +1484,23 @@ void main() {
       expect(answerText(AppData(), q, now), contains('কোনো বার্তার তথ্য নেই'));
     });
   });
+
+  group('one conversation: a follow-up changes how the last message is kept', () {
+    final now = DateTime(2026, 10, 14, 17, 15);
+    test('an appointment with a time is a reminder', () {
+      final r = Parser(ledger: const [], now: now).parse('আজ ইব্রাহিম ভাই আসার কথা সন্ধ্যা ৭ টায়') as ReminderAdd;
+      expect((r.at.hour, r.title), (19, 'ইব্রাহিম ভাই আসার কথা'));
+    });
+    test('"রিমাইন্ডার লিখে রাখো", "এটা কাজের তালিকায় রাখো", "না, নোট করো" are instructions about the last message', () {
+      expect(redirectOf('রিমাইন্ডার লিখে রাখো'), 'reminder');
+      expect(redirectOf('এটা কাজের তালিকায় রাখো'), 'task');
+      expect(redirectOf('না, নোট করো'), 'note');
+      expect(redirectOf('অ্যালার্ম দাও'), 'alarm');
+      expect(redirectOf('কাল ১০টায় মিটিং মনে করিয়ে দিও'), isNull);
+      final c = convertTo('reminder', 'আজ ইব্রাহিম ভাই আসার কথা সন্ধ্যা ৭ টায়', const [], now) as ReminderAdd;
+      expect(c.at.hour, 19);
+      expect((convertTo('reminder', 'গ্যাস বিল দেওয়া', const [], now) as ReminderAdd).needsTime, isTrue);
+      expect(convertTo('task', 'কাল গ্যাস বিল দেওয়া', const [], now), isA<TaskAdd>());
+    });
+  });
 }
