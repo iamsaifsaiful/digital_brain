@@ -3,6 +3,7 @@
 library;
 
 import '../models/models.dart';
+import 'app_map.dart';
 import 'bn.dart';
 import 'cash.dart';
 import 'health.dart';
@@ -140,7 +141,15 @@ String ledgerAnswer(AppData d, LedgerQuery q, [DateTime? now]) {
       return trf('সব মিলিয়ে আপনাকে {0} টাকা দিতে হবে — {1}।', [bnNumber(sum), who]);
     case LedgerAsk.all:
       final t = totals(d.ledger);
-      return trf('আপনি পাবেন মোট {0} টাকা, আর আপনাকে দিতে হবে {1} টাকা।', [bnNumber(t.receivable), bnNumber(t.payable)]);
+      if (t.receivable == 0 && t.payable == 0) return tr('এখন কারও সাথে কোনো পাওনা-দেনা নেই, সব মিটে গেছে।');
+      if (t.payable == 0) return trf('আপনি মোট {0} টাকা পাবেন; আপনার কোনো দেনা নেই।', [bnNumber(t.receivable)]);
+      if (t.receivable == 0) return trf('আপনাকে মোট {0} টাকা দিতে হবে; কারও কাছে পাওনা নেই।', [bnNumber(t.payable)]);
+      final net = t.receivable - t.payable;
+      return trf('আপনি পাবেন {0} টাকা, দিতে হবে {1} টাকা — {2}।', [
+        bnNumber(t.receivable),
+        bnNumber(t.payable),
+        net == 0 ? tr('দুটো সমান') : (net > 0 ? trf('সব মিলিয়ে {0} টাকা আপনার পক্ষে', [bnNumber(net)]) : trf('সব মিলিয়ে {0} টাকা আপনার দেনা বেশি', [bnNumber(-net)])),
+      ]);
   }
 }
 
@@ -207,13 +216,24 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
           : trf('{0} খুঁজে পাইনি। আছে: {1}।', [name.isEmpty ? 'কোন প্রজেক্ট' : '‘$name’ নামে প্রজেক্ট', nameList([for (final x in d.projects) x.name], unit: 'টা')]);
     }
     final s = projectSums(d.cash, p.id);
-    return trf('‘{0}’ প্রজেক্টে এসেছে {1} টাকা, খরচ হয়েছে {2} টাকা, হাতে আছে {3} টাকা।', [p.name, bnNumber(s.income), bnNumber(s.expense), bnNumber(s.balance)]);
+    if (s.income == 0 && s.expense == 0) return trf('‘{0}’ প্রজেক্টে এখনো কোনো টাকা আসা বা খরচ লেখা হয়নি।', [p.name]);
+    if (s.income == 0) return trf('‘{0}’ প্রজেক্টে এ পর্যন্ত খরচ {1} টাকা।', [p.name, bnNumber(s.expense)]);
+    if (s.expense == 0) return trf('‘{0}’ প্রজেক্টে এসেছে {1} টাকা, এখনো খরচ হয়নি।', [p.name, bnNumber(s.income)]);
+    return trf('‘{0}’ প্রজেক্টে এসেছে {1} টাকা, খরচ {2} টাকা — {3}।',
+        [p.name, bnNumber(s.income), bnNumber(s.expense), s.balance >= 0 ? trf('হাতে আছে {0} টাকা', [bnNumber(s.balance)]) : trf('আসার চেয়ে {0} টাকা বেশি খরচ', [bnNumber(-s.balance)])]);
   }
   final s = monthSums(d.cash, now);
   if (s.income == 0 && s.expense == 0) return tr('এই মাসে এখনো কোনো আয় বা খরচ লেখা হয়নি। বলুন, যেমন “বাজারে ৫০০ টাকা খরচ হলো”।');
   final top = s.topExpenses;
   final most = top.isEmpty ? '' : trf(' সবচেয়ে বেশি খরচ {0} খাতে — {1} টাকা।', [top.first.key, bnNumber(top.first.value)]);
-  return trf('এই মাসে আয় {0} টাকা, খরচ {1} টাকা, {2}।{3}', [bnNumber(s.income), bnNumber(s.expense), s.balance >= 0 ? 'সঞ্চয় ${bnNumber(s.balance)} টাকা' : 'আয়ের চেয়ে ${bnNumber(-s.balance)} টাকা বেশি খরচ', most]);
+  if (s.income == 0) return trf('এই মাসে খরচ হয়েছে {0} টাকা।{1}', [bnNumber(s.expense), most]);
+  if (s.expense == 0) return trf('এই মাসে আয় {0} টাকা; এখনো কোনো খরচ লেখা হয়নি।', [bnNumber(s.income)]);
+  return trf('এই মাসে আয় {0} টাকা, খরচ {1} টাকা — {2}।{3}', [
+    bnNumber(s.income),
+    bnNumber(s.expense),
+    s.balance >= 0 ? trf('ব্যালেন্স {0} টাকা', [bnNumber(s.balance)]) : trf('আয়ের চেয়ে {0} টাকা বেশি খরচ হয়েছে', [bnNumber(-s.balance)]),
+    most,
+  ]);
 }
 
 /// "আজ আমার কী কী আছে?" — the day at a glance.
@@ -263,9 +283,16 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       Briefing() => briefingAnswer(d, now),
       ContactsQuery() => contactsAnswer(d),
       HealthQuery() => healthAnswer(d, cmd.what, now, member: cmd.member),
-      NotUnderstood() => 'দুঃখিত, ঠিক বুঝতে পারিনি। একটু অন্যভাবে আরেকবার বলবেন?',
+      NotUnderstood() => _notUnderstood(cmd),
+      OpenPlace() ||
       LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TaskDone() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() || HealthAdd() => null,
     };
+
+String _notUnderstood(NotUnderstood c) {
+  final p = placeMentioned(normalize(c.transcript));
+  if (p != null) return trf('ঠিক বুঝিনি। {0} দেখতে চাইলে নিচে চাপুন, বা বলুন “{0} খোলো”।', [tr(p.title)]);
+  return tr('ঠিক বুঝতে পারিনি। একটু অন্যভাবে বলবেন?');
+}
 
 /// The saved contact for a spoken name ("রহিম", "রহিম ভাই", "Rahim").
 /// Respect words around a name ("ভাই", "আপা", "Bhai", "Sir"…). They are

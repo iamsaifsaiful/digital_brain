@@ -14,6 +14,10 @@ abstract class Voice {
   /// available on this phone.
   Future<bool> init();
 
+  /// Gets the recogniser ready in the background (only when the microphone
+  /// is already allowed — never asks), so the first tap listens at once.
+  Future<void> warmUp() async {}
+
   /// Starts listening. [onWords] gets the words so far; [onDone] the final
   /// sentence (may be empty); [onError] a short Bengali message.
   Future<void> listen({
@@ -69,6 +73,8 @@ class DeviceVoice extends Voice {
   final _stt = SpeechToText();
   final _tts = FlutterTts();
   bool _ready = false;
+  Future<bool>? _initing;
+  Future<void>? _ttsSetup;
   String? _locale;
 
   // One "turn" of listening can span several recogniser sessions: Android
@@ -79,7 +85,7 @@ class DeviceVoice extends Voice {
   bool _finished = true;
   bool _restarting = false;
   bool _short = false;
-  bool _retried = false;
+  int _retries = 0;
 
   /// Which listening turn is current. A restart scheduled by an older turn
   /// (or by a session that was cancelled) must not start a second session.
@@ -103,8 +109,21 @@ class DeviceVoice extends Voice {
   String get _words => '$_committed $_current'.trim();
 
   @override
-  Future<bool> init() async {
-    if (_ready) return true;
+  Future<void> warmUp() async {
+    if (_ready) return;
+    try {
+      if (await _stt.hasPermission) await init();
+    } catch (_) {}
+  }
+
+  @override
+  Future<bool> init() {
+    if (_ready) return Future.value(true);
+    // A warm-up and a tap at the same moment share one start.
+    return _initing ??= _init().whenComplete(() => _initing = null);
+  }
+
+  Future<bool> _init() async {
     try {
       _ready = await _stt.initialize(onError: _handleError, onStatus: _handleStatus);
       if (_ready) {
@@ -127,7 +146,8 @@ class DeviceVoice extends Voice {
         // only offline languages are listed): ask for Bangladesh Bengali.
         _locale ??= 'bn-BD';
       }
-      await _setupTts();
+      // The voice is set up alongside: listening must not wait for it.
+      _ttsSetup ??= _setupTts();
     } catch (e) {
       debugPrint('Speech unavailable: $e');
       _ready = false;
@@ -218,24 +238,23 @@ class DeviceVoice extends Voice {
       _quiet ??= Timer(_silence, _finish);
       return;
     }
-    // Nothing said yet: silence is not a failure, the turn just ends empty
-    // (the chat listens again).
+    // Nothing heard yet. The recogniser often gives up within a second of
+    // opening (the user had not started yet, or the first session after the
+    // app opens) — that is why a sentence sometimes had to be said twice.
+    // Keep listening quietly for the first seconds of the turn.
     if (code == 'error_no_match' || code == 'error_speech_timeout') {
-      _finish();
+      if (_inGrace) {
+        _restart(const Duration(milliseconds: 150));
+      } else {
+        _finish();
+      }
       return;
     }
-    // A busy recogniser (often the previous session still closing) gets one
-    // more try for this turn.
-    if ((code == 'error_busy' || code == 'error_client') && !_retried) {
-      _retried = true;
-      final turn = _turn;
-      Future<void>.delayed(const Duration(milliseconds: 600), () async {
-        if (_finished || turn != _turn) return;
-        try {
-          await _stt.cancel();
-        } catch (_) {}
-        if (!_finished && turn == _turn) await _startSession(turn);
-      });
+    // A busy recogniser (often the previous session still closing) gets a
+    // couple more tries for this turn.
+    if ((code == 'error_busy' || code == 'error_client' || code == 'error_recognizer_busy') && _retries < 3) {
+      _retries++;
+      _restart(Duration(milliseconds: 300 * _retries), cancelFirst: true);
       return;
     }
     _finished = true;
@@ -261,12 +280,38 @@ class DeviceVoice extends Voice {
           if (!_finished) await _startSession(turn);
         });
       } else if (_words.isEmpty && !_restarting) {
-        // Some phones end a silent session without any error: end the turn
-        // (empty) so the app never waits forever.
-        _quiet?.cancel();
-        _quiet = Timer(const Duration(milliseconds: 1500), _finish);
+        if (_inGrace) {
+          // Ended before the user spoke: open again (see [_inGrace]).
+          _restart(const Duration(milliseconds: 150));
+        } else {
+          // Some phones end a silent session without any error: end the
+          // turn (empty) so the app never waits forever.
+          _quiet?.cancel();
+          _quiet = Timer(const Duration(milliseconds: 1500), _finish);
+        }
       }
     }
+  }
+
+  /// The first seconds of a turn, when an empty session is restarted
+  /// instead of ending the turn.
+  bool get _inGrace => _words.isEmpty && DateTime.now().difference(_turnStarted) < (_short ? const Duration(seconds: 6) : const Duration(seconds: 9));
+
+  /// Opens a new session for the same turn after [delay] (once at a time).
+  void _restart(Duration delay, {bool cancelFirst = false}) {
+    if (_restarting) return;
+    _restarting = true;
+    final turn = _turn;
+    Future<void>.delayed(delay, () async {
+      if (turn != _turn) return;
+      if (cancelFirst) {
+        try {
+          await _stt.cancel();
+        } catch (_) {}
+      }
+      _restarting = false;
+      if (!_finished && turn == _turn) await _startSession(turn);
+    });
   }
 
   void _finish() {
@@ -350,7 +395,7 @@ class DeviceVoice extends Voice {
       } catch (_) {}
       await Future<void>.delayed(const Duration(milliseconds: 200));
     }
-    _retried = false;
+    _retries = 0;
     _committed = '';
     _current = '';
     _finished = false;
@@ -400,6 +445,7 @@ class DeviceVoice extends Voice {
     if (muted) return;
     try {
       await init();
+      await _ttsSetup;
       await _tts.stop();
       await _useTtsLanguage(_mostlyLatin(text));
       // Some speech engines never report "done": do not wait forever, or

@@ -3,6 +3,7 @@
 library;
 
 import '../models/models.dart';
+import 'app_map.dart';
 import 'cash.dart';
 import 'ledger.dart';
 import 'parser.dart';
@@ -98,6 +99,11 @@ Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> le
       final now = DateTime.now();
       return SpecialAdd(said,
           person: person, kind: SpecialKind.parse(_str(r['kind'])), month: day.month, day: day.day, year: day.year < now.year ? day.year : null);
+    case 'open':
+      final page = _str(r['page']);
+      if (placeById(page) == null) return null;
+      final folder = _str(r['folder']);
+      return OpenPlace(said, place: page, folder: folder.isEmpty ? null : folder);
     case 'search':
       final t = _terms(r['terms']);
       return t.isEmpty ? null : SearchQuery(said, terms: t);

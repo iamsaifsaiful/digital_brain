@@ -32,6 +32,10 @@ class HomeShellState extends State<HomeShell> {
   void initState() {
     super.initState();
     current = this;
+    // The recogniser starts in the background, so the first mic tap listens at once.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) BrainScope.read(context).services.voice.warmUp();
+    });
   }
 
   @override

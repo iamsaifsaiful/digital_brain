@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../logic/lang.dart';
 import '../logic/ai_map.dart' show answeredByAi;
+import '../logic/app_map.dart';
 import '../logic/answers.dart';
 import '../logic/bn.dart';
 import '../logic/cash.dart';
@@ -44,14 +45,18 @@ class ChatChoice {
   final String answer;
 }
 
-enum LinkKind { person, editEntry, notes, reminders, tasks, contacts, cash, special, memory, doc, health }
+enum LinkKind { person, editEntry, notes, reminders, tasks, contacts, cash, special, memory, doc, health, page }
 
 /// "খাতা দেখুন" and similar, under an app message.
 class ChatLink {
-  const ChatLink(this.kind, this.label, {this.person, this.entry, this.docId});
+  const ChatLink(this.kind, this.label, {this.person, this.entry, this.docId, this.page, this.folder});
   final LinkKind kind;
   final String label;
   final String? person;
+
+  /// For [LinkKind.page]: an [AppPlace] id, and a paper folder or note category in it.
+  final String? page;
+  final String? folder;
 
   /// For [LinkKind.doc]: the document to open (after fingerprint or PIN).
   final String? docId;
@@ -113,6 +118,10 @@ class ChatController extends ChangeNotifier {
   /// The conversation as the AI may see it: the user's own sentences and
   /// tags in place of anything that came from saved data.
   final _history = <AiTurn>[];
+
+  /// A page the user asked to open ("নোট খোলো"): the chat screen opens it
+  /// after the reply and clears this.
+  ChatLink? openNow;
 
   ChatWait wait = ChatWait.none;
   List<ChatChoice> choices = const [];
@@ -471,7 +480,7 @@ class ChatController extends ChangeNotifier {
     if (prev.isEmpty || at == null || _now.difference(at).inMinutes > 10) return t;
     if (words(normalize(t)).length > 4 || isQuestionText(t) || mentionsSecret(t)) return t;
     final d = brain.data;
-    List<Command> rules(String s) => parseAll(s, d.ledger, tasks: d.tasks, contacts: d.contacts, now: _now);
+    List<Command> rules(String s) => parseAll(s, d.ledger, tasks: d.tasks, contacts: d.contacts, folders: brain.folderHints, now: _now);
     bool acts(Command c) => (isSave(c) && c is! NoteAdd) || c is CallPerson;
     // Only a fragment that means nothing by itself is joined.
     if (!rules(t).every((c) => c is NotUnderstood || c is SearchQuery || c is NoteAdd)) return t;
@@ -517,6 +526,15 @@ class ChatController extends ChangeNotifier {
         tags.add('[কাজ শেষ হিসেবে দাগ দেওয়া হলো]');
         continue;
       }
+      if (c is OpenPlace) {
+        final p = placeById(c.place);
+        final name = c.folder != null ? trf('‘{0}’ ফোল্ডার', [tr(c.folder!)]) : tr(p?.title ?? c.place);
+        final link = ChatLink(LinkKind.page, trf('খুলুন: {0}', [name]), page: c.place, folder: c.folder);
+        _say(out, trf('{0} খুলছি।', [name]), links: [link]);
+        openNow = link;
+        tags.add('[${p?.title ?? c.place} পাতা খুলে দিল]');
+        continue;
+      }
       if (c is CallPerson) {
         _startCall(c, out);
         tags.add('[ফোন/মেসেজের ব্যবস্থা করছে]');
@@ -529,7 +547,7 @@ class ChatController extends ChangeNotifier {
       // and logins are not.
       final shareable = c is AiReply || c is SmallTalk || c is NotUnderstood || c is LedgerQuery || c is CashQuery;
       tags.add(shareable ? text : tr('[অ্যাপ নিজের রাখা তথ্য থেকে উত্তর দিল]'));
-      if (c is SmallTalk && c.kind == Talk.whatCanYouDo) _say(out, _skills, speak: false);
+      if (c is SmallTalk && c.kind == Talk.whatCanYouDo) _say(out, capabilitiesList(), speak: false, links: [ChatLink(LinkKind.page, tr('কী কী করা যায় — বিস্তারিত'), page: 'help')]);
       if (c is SmallTalk && c.kind == Talk.bye) ended = true;
     }
     if (saves.length == 1) {
@@ -583,9 +601,15 @@ class ChatController extends ChangeNotifier {
     if (c is ContactsQuery) return [ChatLink(LinkKind.contacts, tr('যোগাযোগ দেখুন'))];
     if (c is HealthQuery) return [ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন'))];
     if (c is SearchQuery) {
-      return [
+      final docs = [
         for (final h in searchAll(d, c.terms).whereType<DocHit>().take(4)) ChatLink(LinkKind.doc, trf('দেখুন: {0}', [h.doc.title]), docId: h.doc.id),
       ];
+      if (docs.isNotEmpty) return docs;
+    }
+    // A part of the app was named ("ওষুধের কথা", "সঞ্চয়"): a way to it.
+    if (c is SearchQuery || c is NotUnderstood) {
+      final p = placeMentioned(normalize(c.transcript));
+      if (p != null) return [ChatLink(LinkKind.page, trf('খুলুন: {0}', [tr(p.title)]), page: p.id)];
     }
     return const [];
   }
@@ -646,7 +670,9 @@ class ChatController extends ChangeNotifier {
           return;
         }
         if (_allYes) return _saveCurrent(out);
-        String owes(int bal) => bal >= 0 ? trf('{0} কাছে আপনার {1} টাকা পাওনা', [possessive(c.person), bnNumber(bal)]) : trf('{0} আপনার {1} টাকা দিতে হবে', [toPerson(c.person), bnNumber(-bal)]);
+        String owes(int bal) => bal == 0
+            ? trf('{0} সাথে হিসাব মিটে গেছে', [possessive(c.person)])
+            : (bal > 0 ? trf('{0} কাছে আপনার {1} টাকা পাওনা', [possessive(c.person), bnNumber(bal)]) : trf('{0} আপনার {1} টাকা দিতে হবে', [toPerson(c.person), bnNumber(-bal)]));
         final known = balanceOf(brain.data.ledger, c.person);
         _ask(
           out,
@@ -765,10 +791,6 @@ class ChatController extends ChangeNotifier {
         await _done(out);
     }
   }
-
-  static const _skills = 'আমি যা যা পারি: কাজের তালিকা রাখা (“কাল ব্যাংকে যেতে হবে”), সময় ধরে মনে করানো (“বিকেল ৪টায় মিটিংয়ের কথা মনে করিয়ে দিও”), '
-      'ফোন বা মেসেজ (“রহিমকে ফোন দাও”, “করিমকে মেসেজ দাও যে মাল পাঠিয়েছি”), নম্বর রাখা, কাস্টমারের বাকি আর ধার-দেনার হিসাব '
-      '(“করিম ৫০০ টাকার মাল বাকিতে নিল”), নোট, পাসওয়ার্ড, আর “আজ আমার কী কী আছে?” বললে সারাদিনের সারাংশ।';
 
   /// "নিজের খরচ": a money sentence with no one owing becomes spending.
   Future<void> _asOwnSpending(List<String> out) async {
@@ -1065,7 +1087,7 @@ class ChatController extends ChangeNotifier {
           return true;
         }
         final count = words(n).length;
-        final c = Parser(ledger: brain.data.ledger, tasks: brain.data.tasks, contacts: brain.data.contacts, now: _now).parse(t);
+        final c = Parser(ledger: brain.data.ledger, tasks: brain.data.tasks, contacts: brain.data.contacts, folders: brain.folderHints, now: _now).parse(t);
         final actionable = !(c is NotUnderstood || c is SearchQuery || c is NoteAdd);
         if (tp != null && (count <= 2 || (!actionable && count <= 3))) {
           _collectDue = null;
@@ -1296,7 +1318,12 @@ class ChatController extends ChangeNotifier {
         ));
         final String done;
         if (project != null) {
-          done = trf('লিখলাম। ‘{0}’ প্রজেক্টে এখন হাতে আছে {1} টাকা।', [project.name, bnNumber(projectSums(brain.data.cash, project.id).balance)]);
+          final ps = projectSums(brain.data.cash, project.id);
+          done = ps.income == 0
+              ? trf('লিখলাম। ‘{0}’ প্রজেক্টে এ পর্যন্ত খরচ {1} টাকা।', [project.name, bnNumber(ps.expense)])
+              : (ps.balance >= 0
+                  ? trf('লিখলাম। ‘{0}’ প্রজেক্টে এখন হাতে আছে {1} টাকা।', [project.name, bnNumber(ps.balance)])
+                  : trf('লিখলাম। ‘{0}’ প্রজেক্টে আসার চেয়ে {1} টাকা বেশি খরচ হয়েছে।', [project.name, bnNumber(-ps.balance)]));
         } else {
           final m = monthSums(brain.data.cash, _now);
           done = c.kind == CashKind.expense ? trf('লিখলাম। এই মাসে মোট খরচ {0} টাকা।', [bnNumber(m.expense)]) : trf('লিখলাম। এই মাসে মোট আয় {0} টাকা।', [bnNumber(m.income)]);

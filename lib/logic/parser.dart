@@ -8,6 +8,7 @@
 library;
 
 import '../models/models.dart';
+import 'app_map.dart';
 import 'bn.dart';
 import 'ledger.dart';
 import 'cash.dart';
@@ -221,6 +222,15 @@ class HealthQuery extends Command {
   /// 'bmi', or a [HealthKind] name.
   final String what;
   final String member;
+}
+
+/// "নোট খোলো", "সেটিংসে যাও", "প্রেসক্রিপশন ফোল্ডার দেখাও": open a part of the app.
+class OpenPlace extends Command {
+  const OpenPlace(super.transcript, {required this.place, this.folder});
+
+  /// An [AppPlace] id ('docs' / 'notes' with a [folder]).
+  final String place;
+  final String? folder;
 }
 
 class NotUnderstood extends Command {
@@ -640,7 +650,10 @@ bool isAboutMe(String text) {
 // ───────────────────────── The parser ─────────────────────────
 
 class Parser {
-  Parser({required this.ledger, this.tasks = const [], this.contacts = const [], DateTime? now}) : now = now ?? DateTime.now();
+  Parser({required this.ledger, this.tasks = const [], this.contacts = const [], this.folders = const [], DateTime? now}) : now = now ?? DateTime.now();
+
+  /// The user's paper folders and note categories, so "অফিসের ফোল্ডার খোলো" finds them.
+  final List<FolderHint> folders;
 
   /// Current entries, to resolve names and judge which meaning is likely.
   final List<LedgerEntry> ledger;
@@ -653,6 +666,11 @@ class Parser {
   Command parse(String said) {
     var text = normalize(said);
     if (text.isEmpty) return NotUnderstood(said);
+
+    // "নোট খোলো", "সেটিংসে যাও", "প্রেসক্রিপশন ফোল্ডার দেখাও" (before the
+    // to-do list question: "কাজের তালিকা খোলো" opens the page).
+    final open = _open(said, text);
+    if (open != null) return open;
 
     // "আজ আমার কী কী আছে?", "কাজের তালিকা দেখাও" (before small talk:
     // "আজ কী কী করতে হবে" is not "what can you do").
@@ -673,6 +691,9 @@ class Parser {
       said = stripGreeting(said.trim(), keepCase: true);
     }
     final w = words(text);
+
+    final opened = _open(said, text);
+    if (opened != null) return opened;
 
     // "প্রেশার ১৪০ বাই ৯০", "আজ ওজন ৬৮ কেজি", "আমার বিএমআই কত?"
     final health = _health(said, text, w);
@@ -788,6 +809,11 @@ class Parser {
     // A plain fact, not a question: keep it (in a matching or new category).
     if (!asking && w.length >= 3) return NoteAdd(said, text: said.trim(), fromStatement: true);
     return SearchQuery(said, terms: terms);
+  }
+
+  OpenPlace? _open(String said, String text) {
+    final o = openRequest(text, folders: [...folders, for (final e in docFolderWords.entries) FolderHint('docs', e.key, e.value)]);
+    return o == null ? null : OpenPlace(said, place: o.$1, folder: o.$2?.name);
   }
 
   /// "X-এর কাছে আমি N টাকা পাই / আমার N টাকা পাওনা" → they owe me N.

@@ -14,6 +14,8 @@ import 'package:digital_brain/services/voice.dart';
 import 'package:digital_brain/state/brain.dart';
 import 'package:digital_brain/ui/theme.dart';
 import 'package:digital_brain/screens/assistant_settings.dart';
+import 'package:digital_brain/screens/chat_home.dart';
+import 'package:digital_brain/screens/notes_screen.dart';
 import 'package:digital_brain/screens/health_screens.dart';
 import 'package:digital_brain/screens/home_shell.dart';
 import 'package:digital_brain/screens/money_more_screens.dart';
@@ -190,6 +192,22 @@ void main() {
   }
 
   Finder chip(String label) => find.widgetWithText(ActionChip, label);
+
+  testWidgets('voice: "নোট খোলো" opens the notes page; "লেনদেন খোলো" the money tab', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    rig.voice.say('নোট খোলো');
+    await settle(t);
+    expect(find.byType(NotesScreen), findsOneWidget);
+    Navigator.of(t.element(find.byType(NotesScreen))).pop();
+    await settle(t);
+    rig.voice.say('তুমি কী কী পারো');
+    await settle(t);
+    expect(find.textContaining('• স্বাস্থ্য'), findsOneWidget);
+    rig.voice.say('লেনদেন খোলো');
+    await settle(t);
+    expect(find.byType(ChatHome), findsNothing);
+  });
 
   testWidgets('chat: say a loan, yes by voice, then keep talking', (t) async {
     final rig = await start(t);
@@ -519,7 +537,7 @@ void main() {
   testWidgets('"৫.৩০ এ রিমাইন্ডার দিও": today at 17:30, asks what for, then saves', (t) async {
     final rig = await start(t);
     await openChat(t);
-    expect(rig.voice.spoken.last, 'জি, বলুন।');
+    expect(rig.voice.spoken, isNot(contains('জি, বলুন।')), reason: 'the mic opens at once');
     rig.voice.say('৫.৩০ এ রিমাইন্ডার দিও');
     await settle(t);
     expect(rig.voice.spoken.last, contains('কী বিষয়ে'));

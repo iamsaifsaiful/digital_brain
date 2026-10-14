@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
 
 import '../logic/ai_map.dart';
+import '../logic/app_map.dart';
 import '../logic/answers.dart';
 import '../logic/bn.dart';
 import '../logic/cash.dart';
@@ -522,8 +523,10 @@ class Brain extends ChangeNotifier {
   /// (never empty). [history] is the conversation so far, already cleaned
   /// of anything private.
   Future<(List<Command>, String?)> understandAll(String said, {List<AiTurn> history = const []}) async {
-    final rules = parseAll(said, data.ledger, tasks: data.tasks, contacts: data.contacts, now: services.now());
+    final rules = parseAll(said, data.ledger, tasks: data.tasks, contacts: data.contacts, folders: folderHints, now: services.now());
     if (!aiOn) return (rules, null);
+    // "নোট খোলো": opening a page needs no AI.
+    if (rules.length == 1 && rules.first is OpenPlace) return (rules, null);
     if (mentionsSecret(said) || rules.any((c) => c is VaultQuery)) return (rules, null);
     // Listing the saved numbers needs no AI (and numbers never go to it).
     if (rules.length == 1 && rules.first is ContactsQuery) return (rules, null);
@@ -546,6 +549,12 @@ class Brain extends ChangeNotifier {
       return (rules, '${e.message} নিজের নিয়মে বুঝে নিলাম।');
     }
   }
+
+  /// The user's own paper folders and note categories, for "… ফোল্ডার খোলো".
+  List<FolderHint> get folderHints => [
+        for (final f in {for (final d in data.docs) d.folder}) if (!docFolderWords.containsKey(f)) FolderHint('docs', f),
+        for (final c in data.noteCategories) FolderHint('notes', c),
+      ];
 
   Future<void> load() async {
     try {

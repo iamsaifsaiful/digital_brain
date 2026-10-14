@@ -3,6 +3,7 @@ library;
 
 import 'dart:math';
 
+import 'app_map.dart';
 import 'bn.dart';
 import 'calendar_bd.dart';
 import 'lang.dart';
@@ -21,9 +22,8 @@ String talkReply(Talk kind, DateTime now) => switch (kind) {
       Talk.greeting => _pick(['জি, বলেন! কী করে দিতে পারি?', 'হ্যালো! বলেন, কী করতে পারি?']),
       Talk.salam => 'ওয়ালাইকুম আসসালাম! বলেন, কী করতে পারি?',
       Talk.whoAreYou =>
-        'আমি My Assistant, আপনার ব্যক্তিগত সহকারী। কাজের তালিকা, সময়মতো মনে করানো, ফোন-মেসেজ, বাকি ও লেনদেনের হিসাব, নোট আর পাসওয়ার্ড — আপনি বলবেন, আমি সামলাব।',
-      Talk.whatCanYouDo =>
-        'অনেক কিছুই পারি! যেমন বলুন — “কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও”, “কাল ব্যাংকে যেতে হবে”, “রহিমকে ফোন দাও”, “করিম ৫০০ টাকার মাল বাকিতে নিল”, অথবা “আজ আমার কী কী আছে?”।',
+        'আমি My Assistant, আপনার ব্যক্তিগত সহকারী। কাজ, রিমাইন্ডার, হিসাব, নোট, কাগজপত্র, স্বাস্থ্য — আপনি বলবেন, আমি সামলাবো।',
+      Talk.whatCanYouDo => capabilitiesSpoken(),
       Talk.thanks => _pick(['আপনাকেও ধন্যবাদ! আর কিছু লাগলে বলবেন।', 'কোনো ব্যাপার না! আর কিছু?']),
       Talk.bye => 'ঠিক আছে, ভালো থাকবেন! দরকার হলে আবার ডাকবেন।',
       Talk.time => 'এখন ${bnTime(now.hour, now.minute)}।',

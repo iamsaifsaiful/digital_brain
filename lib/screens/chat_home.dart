@@ -10,6 +10,7 @@ import '../state/chat.dart';
 import '../state/chat_archive.dart';
 import '../ui/pin.dart';
 import '../ui/theme.dart';
+import 'app_places.dart';
 import 'assistant_settings.dart';
 import 'calls_screen.dart';
 import 'special_days_screen.dart';
@@ -289,14 +290,10 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     });
     _chat.ended = false;
     _silences = 0;
-    if (!_chat.started && _chat.wait == ChatWait.none) {
-      setState(() => _speaking = !voice.muted);
-      try {
-        await voice.speakAndWait(tr('জি, বলুন।'));
-      } finally {
-        if (mounted) setState(() => _speaking = false);
-      }
-    }
+    // The microphone opens at once (no spoken "জি, বলুন" first): people start
+    // talking as soon as they tap, and words said over the app's own voice
+    // were lost — they had to say it twice.
+    await voice.stopSpeaking();
     if (mounted && _voice && !_listening && !_busy) unawaited(_listen());
   }
 
@@ -455,6 +452,12 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     if (!mounted) return;
     if (_chat.pendingLaunch != null) await _chat.launchPending();
     if (!mounted) return;
+    final place = _chat.openNow;
+    if (place != null) {
+      _chat.openNow = null;
+      await _openPlace(place);
+      return;
+    }
     _silences = 0;
     if (_voice && _chat.ended) setState(() => _voice = false);
     if (_voice && !_listening && !_away) unawaited(_listen());
@@ -490,6 +493,20 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     if (ok && mounted) await _open(VaultItemScreen(id: v.id));
   }
 
+  /// A part of the app ("নোট খোলো"): a page on top of the chat, or a main tab
+  /// (the chat closes).
+  Future<void> _openPlace(ChatLink l) async {
+    final page = placePage(l.page!, folder: l.folder);
+    if (page != null) {
+      await _open(page);
+      return;
+    }
+    _away = true;
+    await _stopListening();
+    unawaited(_brain.services.voice.stopSpeaking());
+    if (mounted) await openPlace(context, l.page!, folder: l.folder);
+  }
+
   Future<void> _openDoc(String id, String label) async {
     _away = true;
     await _stopListening();
@@ -520,6 +537,8 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
         _openDoc(l.docId!, l.label);
       case LinkKind.health:
         _open(const HealthScreen());
+      case LinkKind.page:
+        _openPlace(l);
       case LinkKind.editEntry:
         _chat.dropPending();
         _open(ConfirmScreen(command: l.entry!)).then((r) {

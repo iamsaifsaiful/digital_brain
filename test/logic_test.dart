@@ -1,5 +1,6 @@
 import 'package:digital_brain/logic/ai_map.dart';
 import 'package:digital_brain/logic/answers.dart';
+import 'package:digital_brain/logic/app_map.dart';
 import 'package:digital_brain/logic/bn.dart';
 import 'package:digital_brain/logic/calendar_bd.dart';
 import 'package:digital_brain/logic/cash.dart';
@@ -1341,6 +1342,57 @@ void main() {
       final penta1 = epiSchedule.firstWhere((v) => v.key == 'penta1');
       expect(doseDay(baby, penta1), DateTime(2026, 10, 13));
       expect(epiSchedule.where((v) => v.key.startsWith('mr')).length, 2);
+    });
+  });
+
+  group('the app map: open any part by voice, and sensible answers', () {
+    final now = DateTime(2026, 10, 14, 10);
+    Command parse(String t, {List<FolderHint> folders = const []}) => Parser(ledger: const [], folders: folders, now: now).parse(t);
+    test('"নোট খোলো", "সেটিংসে যাও", a folder — each opens its page', () {
+      expect((parse('নোট খোলো') as OpenPlace).place, 'notes');
+      expect((parse('সেটিংসে যাও') as OpenPlace).place, 'settings');
+      expect((parse('আমার ওষুধের পাতা খুলে দাও') as OpenPlace).place, 'medicines');
+      expect((parse('স্বাস্থ্যের পাতায় নিয়ে যাও') as OpenPlace).place, 'health');
+      expect((parse('কাজের তালিকা খোলো') as OpenPlace).place, 'tasks');
+      expect((parse('লেনদেন খোলো') as OpenPlace).place, 'ledger');
+      expect((parse('আয় ব্যয় খোলো') as OpenPlace).place, 'money');
+      expect((parse('open settings') as OpenPlace).place, 'settings');
+      final f = parse('প্রেসক্রিপশন ফোল্ডার দেখাও') as OpenPlace;
+      expect((f.place, f.folder), ('docs', 'প্রেসক্রিপশন'));
+      final mine = parse('দোকানের মাল খোলো', folders: const [FolderHint('notes', 'দোকানের মাল')]) as OpenPlace;
+      expect((mine.place, mine.folder), ('notes', 'দোকানের মাল'));
+    });
+    test('questions and requests are not mistaken for opening a page', () {
+      expect(parse('রিমাইন্ডার দেখাও'), isNot(isA<OpenPlace>()));
+      expect(parse('ফেসবুকের পাসওয়ার্ড খোলো'), isNot(isA<OpenPlace>()));
+      expect(parse('রহিমের হিসাব খোলো'), isNot(isA<OpenPlace>()));
+      expect(parse('আমার বিএমআই কত'), isA<HealthQuery>());
+      expect(parse('আমি কাল বাজারে যাবো'), isA<TaskAdd>());
+      expect(parse('রহিমকে ফোন দাও'), isA<CallPerson>());
+    });
+    test('every part has a page id, a name and what it does; the help list is complete', () {
+      expect({for (final p in appPlaces) p.id}.length, appPlaces.length);
+      for (final p in appPlaces) {
+        expect(p.title.isNotEmpty && p.what.isNotEmpty && p.words.isNotEmpty, isTrue, reason: p.id);
+      }
+      expect(capabilitiesList(), allOf(contains('স্বাস্থ্য'), contains('ডকুমেন্টস'), contains('পাসওয়ার্ড')));
+      expect(talkReply(Talk.whatCanYouDo, now), contains('খোলো'));
+    });
+    test('no zero amounts; income minus spending is the balance', () {
+      final owed = AppData(ledger: [e('সজীব', LedgerKind.lent, 1000, now)]);
+      final all = ledgerAnswer(owed, const LedgerQuery('হিসাব', ask: LedgerAsk.all), now);
+      expect(all, contains('১,০০০'));
+      expect(all, isNot(contains('০ টাকা দিতে')));
+      expect(ledgerAnswer(AppData(), const LedgerQuery('হিসাব', ask: LedgerAsk.all), now), contains('কোনো পাওনা-দেনা নেই'));
+      final d = AppData(cash: [
+        CashEntry(kind: CashKind.income, amount: 30000, category: 'বেতন', date: DateTime(2026, 10, 1)),
+        CashEntry(kind: CashKind.expense, amount: 1700, category: 'বাজার', date: DateTime(2026, 10, 5)),
+      ]);
+      final m = cashAnswer(d, const CashQuery('এই মাসে কত খরচ'), now);
+      expect(m, contains('ব্যালেন্স'));
+      expect(m, isNot(contains('সঞ্চয়')));
+      final spentOnly = AppData(cash: [CashEntry(kind: CashKind.expense, amount: 500, category: 'বাজার', date: DateTime(2026, 10, 5))]);
+      expect(cashAnswer(spentOnly, const CashQuery('খরচ'), now), allOf(contains('খরচ হয়েছে ৫০০'), isNot(contains('আয়'))));
     });
   });
 }

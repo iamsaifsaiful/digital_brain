@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../logic/app_map.dart';
+import 'app_places.dart';
+
 import '../logic/answers.dart';
 import '../logic/bn.dart';
 import '../logic/categories.dart';
@@ -248,7 +251,12 @@ class _AnswerScreenState extends State<AnswerScreen> {
       case SpecialAdd():
       case HealthAdd():
       case NotUnderstood():
-        return _Answer(tr('দুঃখিত, ঠিক বুঝতে পারিনি। একটু অন্যভাবে আরেকবার বলবেন?'));
+        return _Answer(answerText(d, cmd, now) ?? '');
+      case OpenPlace():
+        final name = cmd.folder ?? tr(placeById(cmd.place)?.title ?? cmd.place);
+        return _Answer(trf('{0} খুলছি।', [name]), actions: [
+          PrimaryButton(label: trf('খুলুন: {0}', [name]), icon: Icons.open_in_new_rounded, onPressed: () => openPlace(context, cmd.place, folder: cmd.folder)),
+        ]);
     }
   }
 

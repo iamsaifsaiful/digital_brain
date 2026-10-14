@@ -96,7 +96,7 @@ List<String> reportInsights(MonthReport r) {
   if (r.income > 0) {
     final saved = r.income - r.expense;
     out.add(saved >= 0
-        ? trf('আয়ের {0}% জমেছে ({1})।', [bnDigits((saved * 100 / r.income).round()), taka(saved)])
+        ? trf('মাসের ব্যালেন্স {0} — আয়ের {1}%।', [taka(saved), bnDigits((saved * 100 / r.income).round())])
         : trf('আয়ের চেয়ে {0} বেশি খরচ হয়েছে।', [taka(-saved)]));
   }
   return out;

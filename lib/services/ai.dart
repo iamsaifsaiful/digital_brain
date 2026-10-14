@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../logic/app_map.dart';
 import '../logic/lang.dart';
 
 /// What the AI understood: the fields of the `route` tool (see [_tool]).
@@ -236,6 +237,7 @@ Item actions:
 - cash_query: asks about own income/spending/savings ("এই মাসে কত খরচ হলো?") or a project's money (project: the name).
 - memory_add: something about the user or the people in their life that the assistant should keep in mind for later answers — habits, preferences, routine, relationships ("মনে রেখো আমি শুক্রবার অফিস করি না", "রহিম আমার শ্যালক", "আমি চা খাই না"). text: one short, clean Bengali sentence. Facts to look up later (codes, where something is kept) are note_add instead.
 - special_add: a day that comes every year — a birthday, wedding anniversary or death anniversary ("রহিমের জন্মদিন ১২ মার্চ", "আব্বার মৃত্যুবার্ষিকী ৩ জুন", "আমাদের বিবাহবার্ষিকী ৫ জানুয়ারি"). person: whose day (or "আমাদের"), kind: birthday, anniversary, deathday or other, date: YYYY-MM-DD (use the year if said, else the next time it comes).
+- open: the user wants to open or go to a part of the app ("নোট খোলো", "সেটিংসে যাও", "প্রেসক্রিপশন ফোল্ডার দেখাও", "স্বাস্থ্যের পাতায় নিয়ে যাও"). page: one id from the app map below. folder: a paper folder or note category when one was named (as the user's own folder/category name), else "". Asking ABOUT saved things ("কী কী রিমাইন্ডার আছে?") is the matching query, not open.
 - chat: conversation, greetings, how-are-you, thanks, or a general-knowledge or work question (put the answer in reply). For business questions (pricing, profit margin, VAT basics, how to write a message to a customer…) give short, practical help.
 Money owed between the user and a person (loans, credit) is ledger_*; the user's own spending/income or project money is cash_add. Every sentence that mentions money owed between the user and a person (customer's বাকি, loans, advances, payments) is ledger_add / ledger_set / ledger_query, never note_add or task_add. A customer taking goods on credit ("করিম ৫০০ টাকার মাল বাকিতে নিল") is lent; a customer paying their বাকি is received; buying from a supplier on credit is borrowed; paying the supplier is repaid.
 
@@ -253,9 +255,15 @@ reply: always fill it. It is shown in the chat and read aloud, so write it as na
 - If the message is unclear or a needed detail is missing and you cannot guess it sensibly from the earlier turns, use chat and ask ONE short question instead of guessing.
 - Speech-to-text mishears words: work out what the user most likely meant from context (a name close to a known person is that person; "পাচশো" = 500).
 - Questions about the user's own things (reminders, to-dos, notes, money, "আজ কী কী আছে", "কাল কী করতে হবে", "রহিমের কাছে কত পাব"): think it through and answer them yourself in reply from the records below — they are complete and current, including what was saved a moment ago. Check dates against today's date, count correctly, and list every matching item, one per line starting with "• " (time first, e.g. "• সন্ধ্যা ৬টা ২০ — বাজার"). If nothing matches, say exactly that ("আজ কোনো রিমাইন্ডার নেই") and offer to add one. Never say something is missing without checking the records. Still add the matching query item (reminder_query, task_query, briefing, ledger_query, cash_query) so the app can show a link.
+- Say only what is true, useful and asked. Never mention a zero or empty figure ("আপনাকে ০ টাকা দিতে হবে", "আয় ০ টাকা") — say there is none, or leave it out. Income minus spending is the "ব্যালেন্স" (never call it সঞ্চয় unless the user put money into savings). A negative result is "আয়ের চেয়ে X টাকা বেশি খরচ". No irrelevant extras, no advice nobody asked for, nothing illogical.
+- "তুমি কী কী পারো?" / "এই অ্যাপে কী কী আছে?": answer from the app map below in 2–3 sentences and mention that any page can be opened by voice.
 - Write times the Bangladeshi way: সকাল/দুপুর/বিকেল/সন্ধ্যা/রাত + Bengali digits ("সন্ধ্যা ৬টা ২০")।
 - If you are not sure of a general-knowledge fact, say so briefly. Never ask for or repeat passwords or PINs.
 Now is $date $time (Asia/Dhaka), ${_weekdays[d.weekday - 1]}.
+
+The app's parts (id: name — what it does), for `open` and for questions about the app:
+${appMapForAi()}
+Paper folders: ${docFolderWords.keys.join(', ')}
 
 Known people in the লেনদেন (money) book: ${ctx.people.isEmpty ? '(none)' : ctx.people.join(', ')}
 User's note categories: ${ctx.categories.isEmpty ? '(none)' : ctx.categories.join(', ')}
@@ -273,7 +281,7 @@ const _item = {
       'enum': [
         'ledger_add', 'ledger_set', 'ledger_query', 'vault_query', 'reminder_query', 'note_add', 'search', 'chat', //
         'task_add', 'task_done', 'task_query', 'reminder_add', 'contact_add', 'call', 'briefing', 'cash_add', 'cash_query',
-        'memory_add', 'special_add',
+        'memory_add', 'special_add', 'open',
       ],
     },
     'person': {'type': 'string', 'description': 'Person name without case endings'},
@@ -306,6 +314,8 @@ const _item = {
       'enum': ['call', 'sms', 'whatsapp'],
     },
     'phone': {'type': 'string'},
+    'page': {'type': 'string', 'description': 'open: an id from the app map'},
+    'folder': {'type': 'string', 'description': 'open: a paper folder or note category, if named'},
     'project': {'type': 'string', 'description': 'cash_add/cash_query: project name ("" if a project was meant but not named)'},
     'category': {'type': 'string', 'description': 'note_add: category'},
   },

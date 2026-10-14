@@ -3,6 +3,7 @@
 library;
 
 import '../models/models.dart';
+import 'app_map.dart';
 import 'bn.dart';
 import 'health.dart';
 import 'parser.dart';
@@ -29,12 +30,12 @@ final _joiners = RegExp(r'\s+(?:আর|এবং|তারপর|তার প�
 /// sentence, "… দিলাম আর … নিলাম" is split only when every part is a full
 /// money event, so "রহিম আর করিমকে ৫০০ টাকা দিলাম" stays one.
 List<Command> parseAll(String said, List<LedgerEntry> ledger,
-    {List<Task> tasks = const [], List<Contact> contacts = const [], DateTime? now}) {
-  final p = Parser(ledger: ledger, tasks: tasks, contacts: contacts, now: now);
+    {List<Task> tasks = const [], List<Contact> contacts = const [], List<FolderHint> folders = const [], DateTime? now}) {
+  final p = Parser(ledger: ledger, tasks: tasks, contacts: contacts, folders: folders, now: now);
   // "তুমি এটা লেখ, …": the instruction is not part of what to save.
   final (rest, write) = stripAddress(said);
   if (rest.isNotEmpty && rest != said.trim()) {
-    final cmds = parseAll(rest, ledger, tasks: tasks, contacts: contacts, now: now);
+    final cmds = parseAll(rest, ledger, tasks: tasks, contacts: contacts, folders: folders, now: now);
     final plain = cmds.length == 1 && (cmds.first is NotUnderstood || cmds.first is SmallTalk || (cmds.first is NoteAdd && (cmds.first as NoteAdd).fromStatement));
     // "লিখে রাখো যে করিমের দোকান বন্ধ" is still a note.
     if (write && plain) return [p.parse('মনে রাখো: $rest')];
