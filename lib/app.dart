@@ -244,6 +244,15 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       return;
     }
     brain.services.notifier.tapped.value = null;
+    // "আর বাজাবে না" pressed on the notification itself: stop it here and
+    // now — no page to open, nothing more to press.
+    if (t.action == 'stop') {
+      await brain.whenLoaded();
+      await brain.stopReminder(t.info.reminderId);
+      final ctx = _nav.currentContext;
+      if (ctx != null && ctx.mounted) toast(ctx, tr('আর বাজবে না'));
+      return;
+    }
     _alarmOpen = true;
     await nav.push(MaterialPageRoute(builder: (_) => AlarmScreen(info: t.info), fullscreenDialog: true));
     _alarmOpen = false;

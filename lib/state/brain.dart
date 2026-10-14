@@ -745,14 +745,40 @@ class Brain extends ChangeNotifier {
   Future<void> saveReminder(Reminder r) async {
     _upsert(data.reminders, r, (x) => x.id);
     await _save();
-    await services.notifier.requestPermission();
+    // Switched off while it rings (or with a snooze pending): quiet at once.
+    if (!r.enabled) await services.notifier.stopRinging(r.id);
+    if (r.enabled) await services.notifier.requestPermission();
     await _reschedule();
   }
 
   Future<void> deleteReminder(String id) async {
     data.reminders.removeWhere((e) => e.id == id);
     await _save();
+    await services.notifier.stopRinging(id);
     await _reschedule();
+  }
+
+  /// "আর বাজাবে না": an alarm is switched off (kept on the alarm page);
+  /// any other reminder is removed. Either way it never rings again.
+  Future<void> stopReminder(String id) async {
+    final r = reminderById(id);
+    if (r == null) {
+      await services.notifier.stopRinging(id);
+      await _reschedule();
+      return;
+    }
+    if (r.alarm) {
+      await saveReminder(r.copyWith(enabled: false));
+    } else {
+      await deleteReminder(id);
+    }
+  }
+
+  /// Done once the data has been read (a notification may open the app first).
+  Future<void> whenLoaded() async {
+    while (!loaded) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
   }
 
   Future<void> saveTask(Task t) async {

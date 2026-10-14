@@ -657,6 +657,28 @@ void main() {
     expect(find.text('হয়ে গেছে, বন্ধ করো'), findsNothing);
   });
 
+  testWidgets('"আর বাজাবে না" on the notification stops a repeating reminder for good; an alarm switched off goes quiet', (t) async {
+    final rig = await start(t,
+        data: AppData(reminders: [
+          Reminder(id: 'w', title: 'পানি খাওয়া', date: DateTime(2026, 10, 9), hour: 16, repeat: Repeat.every30),
+          Reminder(id: 'a', title: 'ঘুম থেকে ওঠা', date: DateTime(2026, 10, 10), hour: 6, repeat: Repeat.daily, alarm: true),
+        ]));
+    await rig.brain.refreshNotices();
+    expect(rig.notifier.scheduled.map((n) => n.reminderId), containsAll(['w', 'a']));
+    // The button on the notification: no alarm page, it simply stops.
+    rig.notifier.tapped.value = const NoticeTap(NoticeInfo('w', 'পানি খাওয়া', '', true), action: 'stop');
+    await settle(t);
+    expect(find.text('আর বাজাবে না'), findsNothing);
+    expect(rig.brain.reminderById('w'), isNull);
+    expect(rig.notifier.stopped, contains('w'));
+    expect(rig.notifier.scheduled.map((n) => n.reminderId), isNot(contains('w')));
+    // An alarm switched off: kept, silenced, not scheduled.
+    await rig.brain.saveReminder(rig.brain.reminderById('a')!.copyWith(enabled: false));
+    expect(rig.notifier.stopped, contains('a'));
+    expect(rig.notifier.scheduled.map((n) => n.reminderId), isNot(contains('a')));
+    expect(rig.brain.reminderById('a')!.enabled, isFalse);
+  });
+
   testWidgets('ফোনবুক থেকে আনুন brings every number once, skipping repeats', (t) async {
     final rig = await start(t, data: AppData(contacts: [Contact(name: 'রহিম', phone: '01712345678')]));
     rig.phonebook.contacts = const [

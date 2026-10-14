@@ -37,7 +37,7 @@ class _AlarmScreenState extends State<AlarmScreen> {
     if (snooze != null) {
       await n.ringOnce(widget.info.reminderId, _title, widget.info.body, snooze);
     }
-    if (stop) await brain.deleteReminder(widget.info.reminderId);
+    if (stop) await brain.stopReminder(widget.info.reminderId);
     await n.showOverLock(false);
     if (!mounted) return;
     final msg = stop

@@ -760,8 +760,11 @@ class FakeNotifier implements Notifier {
   @override
   Future<void> ringOnce(String reminderId, String title, String body, Duration after) async => rung.add(title);
 
+  /// Reminders silenced (see [stopRinging]).
+  final stopped = <String>[];
+
   @override
-  Future<void> stopRinging(String reminderId) async {}
+  Future<void> stopRinging(String reminderId) async => stopped.add(reminderId);
 
   @override
   Future<void> showOverLock(bool on) async {}
