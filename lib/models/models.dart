@@ -787,7 +787,9 @@ class AppData {
     List<FamilyMember>? members,
     List<HealthLog>? health,
     Map<String, String>? vaccines,
+    List<InboxMessage>? inbox,
   })  : tasks = tasks ?? [],
+        inbox = inbox ?? [],
         members = members ?? [],
         health = health ?? [],
         vaccines = vaccines ?? {},
@@ -838,6 +840,9 @@ class AppData {
   /// Vaccine doses given: "<member id>:<dose key>" → the day (ISO).
   final Map<String, String> vaccines;
 
+  /// Messages read from other apps' notifications (newest last).
+  final List<InboxMessage> inbox;
+
   static const schema = 1;
 
   /// Every tag in use, by name.
@@ -874,6 +879,7 @@ class AppData {
         'members': members.map((e) => e.toJson()).toList(),
         'health': health.map((e) => e.toJson()).toList(),
         if (vaccines.isNotEmpty) 'vaccines': vaccines,
+        if (inbox.isNotEmpty) 'inbox': inbox.map((e) => e.toJson()).toList(),
       };
 
   factory AppData.fromJson(Map<String, Object?> j) {
@@ -903,6 +909,7 @@ class AppData {
       },
       emergency: j['emergency'] is Map ? EmergencyCard.fromJson((j['emergency'] as Map).cast<String, Object?>()) : const EmergencyCard(),
       members: list('members', FamilyMember.fromJson),
+      inbox: list('inbox', InboxMessage.fromJson),
       health: list('health', HealthLog.fromJson),
       vaccines: {for (final e in ((j['vaccines'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
     );

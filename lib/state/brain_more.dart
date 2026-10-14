@@ -351,6 +351,79 @@ extension BrainHealth on Brain {
 
   FamilyMember personById(String id) => healthPeople.firstWhere((m) => m.id == id, orElse: () => healthPeople.first);
 
+  // ── Messages from other apps ──
+
+  /// The apps whose messages are read (names, e.g. "WhatsApp"); all by default.
+  List<String> get inboxAppsOn {
+    final raw = text('inbox_apps');
+    return raw.isEmpty ? inboxAppNames : [for (final x in raw.split(',')) if (x.trim().isNotEmpty) x.trim()];
+  }
+
+  bool get inboxOn => flag('inbox_on', true);
+
+  /// Saves the choice and tells the phone's listener.
+  Future<void> setInboxApps(List<String> names, {bool? on}) async {
+    await setPref('inbox_apps', names.join(','));
+    if (on != null) await setPref('inbox_on', on);
+    await services.inbox.setApps([for (final n in names) ...packagesOf(n)], on: inboxOn);
+  }
+
+  /// Moves newly seen messages into the (encrypted) data. Keeps the last
+  /// 400, and nothing older than 30 days.
+  Future<int> syncInbox() async {
+    final fresh = await services.inbox.take();
+    if (fresh.isEmpty) return 0;
+    final have = {for (final m in data.inbox) m.id};
+    var added = 0;
+    for (final m in fresh) {
+      if (have.add(m.id)) {
+        data.inbox.add(m);
+        added++;
+      }
+    }
+    if (added == 0) return 0;
+    final cutoff = services.now().subtract(const Duration(days: 30));
+    data.inbox
+      ..sort((a, b) => a.at.compareTo(b.at))
+      ..removeWhere((m) => m.at.isBefore(cutoff));
+    if (data.inbox.length > 400) data.inbox.removeRange(0, data.inbox.length - 400);
+    await _save();
+    return added;
+  }
+
+  Future<void> setInboxState(InboxMessage m, String state) async {
+    final i = data.inbox.indexWhere((x) => x.id == m.id);
+    if (i < 0) return;
+    data.inbox[i] = m.withState(state);
+    await _save();
+  }
+
+  /// Keeps what was found in a message (a to-do, a reminder, money in/out).
+  Future<String> acceptInsight(InboxMessage m, Command c) async {
+    final now = services.now();
+    String said;
+    switch (c) {
+      case ReminderAdd():
+        await saveReminder(Reminder(title: c.title, date: DateTime(c.at.year, c.at.month, c.at.day), hour: c.at.hour, minute: c.at.minute, daysBefore: 0, minutesBefore: c.minutesBefore));
+        said = trf('রিমাইন্ডার রাখলাম — {0}।', [sayWhen(c.at, now)]);
+      case TaskAdd():
+        await saveTask(Task(title: c.title, due: c.due));
+        said = tr('কাজের তালিকায় রাখলাম।');
+      case CashAdd():
+        await saveCash(CashEntry(kind: c.kind, amount: c.amount, category: c.category, note: c.transcript.trim(), date: m.at));
+        said = c.kind == CashKind.income ? tr('আয় হিসেবে লিখলাম।') : tr('খরচ হিসেবে লিখলাম।');
+      default:
+        said = '';
+    }
+    await setInboxState(m, 'saved');
+    return said;
+  }
+
+  Future<void> clearInbox() async {
+    data.inbox.clear();
+    await _save();
+  }
+
   /// Keeps a blood group: the user's on the emergency card, a family
   /// member's on their health page (a new member when not there yet).
   /// Returns whose, ready for a sentence ("আপনার", "আম্মার").

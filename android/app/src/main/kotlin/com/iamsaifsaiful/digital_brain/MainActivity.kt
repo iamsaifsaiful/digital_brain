@@ -359,6 +359,52 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    /** Messages from other apps (see [MessageListener]). */
+    private fun inboxChannel(call: io.flutter.plugin.common.MethodCall, result: MethodChannel.Result) {
+        when (call.method) {
+            "access" -> result.success(MessageListener.hasAccess(this))
+            "openAccess" -> {
+                val i = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                if (Build.VERSION.SDK_INT >= 30) {
+                    val d = Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
+                        .putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, ComponentName(this, MessageListener::class.java).flattenToString())
+                    if (!tryStart(d)) tryStart(i)
+                } else {
+                    tryStart(i)
+                }
+                result.success(null)
+            }
+            "appInfo" -> {
+                tryStart(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+                result.success(null)
+            }
+            "take" -> result.success(MessageListener.take(this))
+            "reply" -> {
+                val key = call.argument<String>("key") ?: ""
+                val text = call.argument<String>("text") ?: ""
+                result.success(text.isNotBlank() && MessageListener.reply(this, key, text))
+            }
+            "canReply" -> {
+                val key = call.argument<String>("key") ?: ""
+                result.success(synchronized(MessageListener.replies) { MessageListener.replies.containsKey(key) })
+            }
+            "setApps" -> {
+                val apps = call.argument<List<String>>("apps") ?: emptyList()
+                val on = call.argument<Boolean>("on") ?: true
+                getSharedPreferences(MessageListener.PREFS, Context.MODE_PRIVATE).edit()
+                    .putStringSet("apps", apps.toSet()).putBoolean("on", on).apply()
+                result.success(null)
+            }
+            "known" -> result.success(MessageListener.KNOWN.map { mapOf("id" to it.key, "name" to it.value) })
+            "openApp" -> {
+                val pkg = call.argument<String>("app") ?: ""
+                val i = packageManager.getLaunchIntentForPackage(pkg)
+                result.success(i != null && tryStart(i))
+            }
+            else -> result.notImplemented()
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/alarm").setMethodCallHandler { call, result ->
@@ -366,6 +412,9 @@ class MainActivity : FlutterFragmentActivity() {
         }
         launchChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/launch").also {
             it.setMethodCallHandler { call, result -> launchMethods(call, result) }
+        }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/inbox").setMethodCallHandler { call, result ->
+            inboxChannel(call, result)
         }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/contacts").setMethodCallHandler { call, result ->
             contactsChannel(call, result)

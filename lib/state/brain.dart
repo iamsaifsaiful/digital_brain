@@ -16,10 +16,12 @@ import '../logic/ledger.dart';
 import '../logic/parser.dart';
 import '../logic/plan.dart';
 import '../logic/proactive.dart';
+import '../logic/when.dart' show sayWhen;
 import '../models/models.dart';
 import '../services/ai.dart';
 import '../services/data_store.dart';
 import '../services/files.dart';
+import '../services/inbox.dart';
 import '../services/launcher.dart';
 import '../services/lock.dart';
 import '../services/notifications.dart';
@@ -43,8 +45,10 @@ class Services {
     AiBrain? ai,
     Launcher? launcher,
     Phonebook? phonebook,
+    InboxSource? inbox,
     DateTime Function()? clock,
   })  : ai = ai ?? FakeAi(),
+        inbox = inbox ?? FakeInbox(),
         launcher = launcher ?? FakeLauncher(),
         phonebook = phonebook ?? FakePhonebook(),
         now = clock ?? DateTime.now;
@@ -63,6 +67,9 @@ class Services {
 
   /// The phone's own contacts.
   final Phonebook phonebook;
+
+  /// Messages from other apps' notifications.
+  final InboxSource inbox;
   final DateTime Function() now;
 }
 
@@ -342,7 +349,7 @@ class Brain extends ChangeNotifier {
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_haat', 'haat_day', 'n_health', 'n_festival', 'n_weekly',
-    'n_streak', 'n_comeback', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open',
+    'n_streak', 'n_comeback', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'inbox_apps', 'inbox_on',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
@@ -599,6 +606,10 @@ class Brain extends ChangeNotifier {
     if (loadError == null) await markOpened();
     await _reschedule();
     if (loadError == null) await _showStanding();
+    if (loadError == null) {
+      await services.inbox.setApps([for (final n in inboxAppsOn) ...packagesOf(n)], on: inboxOn);
+      await syncInbox();
+    }
   }
 
   void unlock() {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:digital_brain/app.dart';
@@ -7,6 +8,7 @@ import 'package:digital_brain/services/crypto.dart';
 import 'package:digital_brain/services/data_store.dart';
 import 'package:digital_brain/services/files.dart';
 import 'package:digital_brain/services/launcher.dart';
+import 'package:digital_brain/services/inbox.dart';
 import 'package:digital_brain/services/lock.dart';
 import 'package:digital_brain/services/notifications.dart';
 import 'package:digital_brain/services/phonebook.dart';
@@ -14,7 +16,9 @@ import 'package:digital_brain/services/voice.dart';
 import 'package:digital_brain/state/brain.dart';
 import 'package:digital_brain/ui/theme.dart';
 import 'package:digital_brain/screens/assistant_settings.dart';
+import 'package:digital_brain/screens/app_places.dart';
 import 'package:digital_brain/screens/chat_home.dart';
+import 'package:digital_brain/screens/inbox_screen.dart';
 import 'package:digital_brain/screens/notes_screen.dart';
 import 'package:digital_brain/screens/health_screens.dart';
 import 'package:digital_brain/screens/home_shell.dart';
@@ -51,6 +55,7 @@ class Rig {
     biometrics = FakeBiometrics(has: false);
     ai = FakeAi();
     phonebook = FakePhonebook();
+    inbox = FakeInbox();
     final store = DataStore(keys: keys, blob: MemoryBlobStore());
     services = Services(
       store: store,
@@ -60,6 +65,7 @@ class Rig {
       files: files,
       ai: ai,
       phonebook: phonebook,
+      inbox: inbox,
       clock: () => DateTime(2026, 10, 9, 15, 53),
     );
     brain = Brain(services);
@@ -69,6 +75,7 @@ class Rig {
   late final FakeVoice voice;
   late final FakeAi ai;
   late final FakePhonebook phonebook;
+  late final FakeInbox inbox;
   late final FakeNotifier notifier;
   late final FakeFiles files;
   late final FakeBiometrics biometrics;
@@ -207,6 +214,39 @@ void main() {
     rig.voice.say('লেনদেন খোলো');
     await settle(t);
     expect(find.byType(ChatHome), findsNothing);
+  });
+
+  testWidgets('বার্তা থেকে কাজ: permission first, then the work found in messages', (t) async {
+    final rig = await start(t);
+    unawaited(openPlace(t.element(find.byType(HomeShell)), 'inbox'));
+    await settle(t);
+    expect(find.byType(InboxScreen), findsOneWidget);
+    expect(find.text('অনুমতি দিন'), findsOneWidget);
+    expect(find.textContaining('কোনো সার্ভার বা AI-তে যায় না'), findsWidgets);
+    rig.inbox.waiting.addAll([
+      InboxMessage(id: '1', app: 'com.whatsapp', appName: 'WhatsApp', chat: 'রহিম', from: 'রহিম', text: 'ভাই ৫০০০ টাকা পাঠাও, খুব দরকার', at: DateTime(2026, 10, 9, 15, 40), key: 'k1'),
+      InboxMessage(id: '2', app: 'com.whatsapp', appName: 'WhatsApp', chat: 'করিম', from: 'করিম', text: 'ঠিক আছে', at: DateTime(2026, 10, 9, 15, 41)),
+    ]);
+    await t.ensureVisible(find.text('অনুমতি দিন'));
+    await t.tap(find.text('অনুমতি দিন'));
+    await settle(t);
+    expect(rig.brain.data.inbox, hasLength(2));
+    expect(find.textContaining('টাকা চেয়েছেন'), findsOneWidget);
+    await t.tap(find.text('কাজে রাখুন').first);
+    await settle(t);
+    expect(rig.brain.data.tasks.single.title, contains('৫,০০০'));
+    expect(find.textContaining('টাকা চেয়েছেন'), findsNothing);
+    // Reply to a message from the list.
+    await t.tap(find.text('রহিম').first);
+    await settle(t);
+    await t.tap(find.text('উত্তর দিন').last);
+    await settle(t);
+    await t.tap(find.text('একটু পরে জানাচ্ছি।'));
+    await t.tap(find.text('পাঠান'));
+    await settle(t);
+    expect(rig.inbox.sent.single, ('1', 'একটু পরে জানাচ্ছি।'));
+    Navigator.of(t.element(find.byType(InboxScreen))).pop();
+    await settle(t);
   });
 
   testWidgets('chat: say a loan, yes by voice, then keep talking', (t) async {

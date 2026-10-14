@@ -11,6 +11,7 @@ import 'calendar_bd.dart';
 import 'lang.dart';
 import 'money_more.dart' show accountBalance;
 import 'cash.dart';
+import 'inbox.dart' show inboxAnswer;
 import 'parser.dart';
 import 'proactive.dart' show remindsOn, specialTitle;
 import 'when.dart';
@@ -19,7 +20,10 @@ import 'when.dart';
 String askPlace = 'ঢাকা';
 String askUserName = '';
 
-bool _has(String text, List<String> ws) => ws.any((w) => text.contains(normalize(w)));
+bool _has(String text, List<String> ws) => ws.any((w) {
+      final n = normalize(w);
+      return n.isNotEmpty && text.contains(n);
+    });
 
 const _prayers = [
   ('fajr', ['ফজর', 'ফজরের']),
@@ -43,6 +47,13 @@ String _t(DateTime d) {
 
 /// Which everyday question [text] (normalized) is, or null.
 String? infoTopic(String text) {
+  // "রহিম কী লিখেছে?", "করিম কী মেসেজ দিয়েছে?"
+  if (_has(text, ['কী লিখেছে', 'কি লিখেছে', 'কী লিখছে', 'কি লিখছে', 'কী মেসেজ দিয়েছে', 'কি মেসেজ দিয়েছে', 'কী পাঠিয়েছে', 'কি পাঠিয়েছে', 'কী বলেছে মেসেজে'])) return 'inbox';
+  if (_has(text, ['মেসেজ', 'মেসেজে', 'বার্তা', 'ম্যাসেজ', 'ইমেইল', 'মেইল', 'জিমেইল', 'message', 'mail', 'এসএমএস', 'sms']) ||
+      (_has(text, ['হোয়াটসঅ্যাপ', 'হোয়াটসআপ', 'টেলিগ্রাম', 'ইমো', 'মেসেঞ্জার', 'whatsapp', 'telegram', 'imo']) && _has(text, ['এসেছে', 'আসছে', 'লিখেছে', 'লিখছে', 'কী', 'কি', 'কে']))) {
+    final sending = _has(text, ['মেসেজ দাও', 'মেসেজ দিন', 'মেসেজ দেন', 'মেসেজ পাঠাও', 'মেসেজ পাঠান', 'লিখে দাও', 'লিখে পাঠাও', 'মেইল করো', 'মেইল পাঠাও', 'send']);
+    if (!sending && _has(text, ['এসেছে', 'আসছে', 'এলো', 'আসলো', 'লিখেছে', 'লিখছে', 'পাঠিয়েছে', 'নতুন', 'জরুরি', 'কী আছে', 'কি আছে', 'কোন', 'কয়টা', 'দেখাও', 'পড়ো', 'পড়ে শোনাও', 'শোনাও'])) return 'inbox';
+  }
   if (_has(text, ['সেহরি', 'সাহরি', 'সেহেরি'])) return 'sehri';
   if (_has(text, ['ইফতার'])) return 'iftar';
   if (_has(text, ['সূর্যোদয়', 'সূর্য ওঠে', 'সূর্য উঠবে', 'sunrise'])) return 'sunrise';
@@ -74,6 +85,8 @@ String? infoAnswer(AppData d, String said, DateTime now) {
   final tomorrow = sunTimes(now.add(const Duration(days: 1)), place);
   final where = _at(place.label);
   switch (topic) {
+    case 'inbox':
+      return inboxAnswer(d, said, now);
     case 'sehri':
       // The last time for sehri is the start of Fajr.
       final s = now.isBefore(today.fajr) ? today : tomorrow;

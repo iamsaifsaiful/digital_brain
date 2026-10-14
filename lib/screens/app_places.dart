@@ -8,6 +8,7 @@ import 'docs_screen.dart';
 import 'health_hub.dart';
 import 'health_screens.dart';
 import 'help_screen.dart';
+import 'inbox_screen.dart';
 import 'home_shell.dart';
 import 'ledger_screen.dart' show MoneyPart;
 import 'money_more_screens.dart';
@@ -33,6 +34,7 @@ Widget? placePage(String id, {String? folder}) => switch (id) {
       'docs' => DocsScreen(folder: folder),
       'vault' => const VaultScreen(),
       'contacts' => const CallsScreen(),
+      'inbox' => const InboxScreen(),
       'report' => const ReportScreen(),
       'accounts' => const AccountsScreen(),
       'savings' => const SavingsScreen(),

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../logic/lang.dart';
 import '../logic/ai_map.dart' show answeredByAi;
 import '../logic/app_map.dart';
+import '../logic/ask.dart' show infoTopic;
 import '../logic/me.dart';
 import '../logic/answers.dart';
 import '../logic/bn.dart';
@@ -612,6 +613,27 @@ class ChatController extends ChangeNotifier {
         ];
       }
       if (kind == 'papers') return [ChatLink(LinkKind.page, tr('ডকুমেন্টস খুলুন'), page: 'docs')];
+      if (!mentionsBlood(text)) {
+        // Everyday questions: the page where it is kept.
+        final page = switch (infoTopic(text) ?? profileField(text)) {
+          'inbox' => 'inbox',
+          'prayer' || 'sehri' || 'iftar' || 'sunrise' || 'sunset' => 'calendar',
+          'money' => 'accounts',
+          'savings' => 'savings',
+          'medicines' => 'medicines',
+          'habits' => 'habits',
+          'notes' => 'notes',
+          'special' => 'special',
+          'day' => 'tasks',
+          'expiry' => 'expiry',
+          'height' || 'age' || 'birth' => 'health',
+          'allergy' || 'illness' => 'emergency',
+          'name' => 'settings',
+          _ => null,
+        };
+        final p = page == null ? null : placeById(page);
+        if (p != null) return [ChatLink(LinkKind.page, trf('খুলুন: {0}', [tr(p.title)]), page: p.id)];
+      }
       return [
         whoseIn(text).isEmpty ? ChatLink(LinkKind.page, tr('জরুরি কার্ড দেখুন'), page: 'emergency') : ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন')),
       ];

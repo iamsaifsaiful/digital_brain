@@ -10,6 +10,7 @@ import 'home_shell.dart';
 import 'library_screen.dart';
 import 'new_item_screen.dart';
 import 'health_hub.dart';
+import 'inbox_screen.dart';
 import 'notes_screen.dart';
 import 'search_screen.dart';
 import 'special_days_screen.dart';
@@ -85,6 +86,7 @@ class StoreScreen extends StatelessWidget {
             tile(tr('পাসওয়ার্ড'), trf('{0}টি · তালাবদ্ধ', [bnDigits(d.vault.length)]), Icons.lock_outline_rounded, C.ink, C.soft, () => push(const VaultPage())),
             tile(tr('যোগাযোগ'), trf('{0} জন', [bnDigits(d.contacts.length)]), Icons.call_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
             tile(tr('স্বাস্থ্য'), tr('BMI, প্রেশার, সুগার, টিকা'), Icons.favorite_border_rounded, C.rose, C.roseTint, () => push(const HealthScreen())),
+            tile(tr('বার্তা থেকে কাজ'), tr('WhatsApp, imo, Gmail, SMS'), Icons.mark_chat_unread_outlined, C.green, C.greenTint, () => push(const InboxScreen())),
           ],
         ),
         const SizedBox(height: 10),

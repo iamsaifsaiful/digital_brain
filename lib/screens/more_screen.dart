@@ -20,7 +20,7 @@ import 'settings_parts.dart';
 import 'sound_screen.dart';
 import '../logic/lang.dart';
 
-const appVersion = '2.10.2';
+const appVersion = '2.11.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {

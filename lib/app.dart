@@ -147,7 +147,11 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       // Rings set while the app was away (or lost to a phone restart) are
       // put back every time the app comes to the front.
       brain.refreshNotices();
-      if (brain.loaded && brain.loadError == null) brain.markOpened();
+      if (brain.loaded && brain.loadError == null) {
+        brain.markOpened();
+        // Messages from WhatsApp, imo, Gmail… that came while away.
+        brain.syncInbox();
+      }
     }
   }
 

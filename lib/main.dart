@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'services/inbox.dart';
+
 import 'app.dart';
 import 'services/ai.dart';
 import 'services/crypto.dart';
@@ -27,6 +29,7 @@ Future<void> main() async {
     ai: ClaudeAi(),
     launcher: DeviceLauncher(),
     phonebook: DevicePhonebook(),
+    inbox: DeviceInbox(),
   );
   await services.notifier.init();
   final brain = Brain(services);

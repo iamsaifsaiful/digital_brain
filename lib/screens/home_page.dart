@@ -13,14 +13,15 @@ import 'calls_screen.dart';
 import 'home_screen.dart';
 import 'health_hub.dart';
 import 'home_shell.dart';
+import 'inbox_screen.dart';
 import 'ledger_screen.dart';
 import 'more_screen.dart';
 import 'settings_parts.dart';
 import 'easy_home.dart';
 import 'notes_screen.dart';
 import 'plan_screens.dart';
-import 'search_screen.dart';
 import 'vault_screen.dart';
+import '../logic/inbox.dart' show inboxTodo;
 import '../logic/lang.dart';
 
 String helloFor(DateTime now) {
@@ -76,8 +77,9 @@ class HomePage extends StatelessWidget {
       (tr('যোগাযোগ'), Icons.call_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
       (tr('বাংলা তারিখ'), Icons.eco_outlined, C.teal, C.tealTint, () => push(const CalendarScreen())),
       (tr('স্বাস্থ্য'), Icons.favorite_border_rounded, C.rose, C.roseTint, () => push(const HealthScreen())),
-      (tr('খুঁজুন'), Icons.search_rounded, C.ink, C.soft, () => push(const SearchScreen())),
+      (tr('বার্তা'), Icons.mark_chat_unread_outlined, C.green, C.greenTint, () => push(const InboxScreen())),
     ];
+    final inboxTodos = inboxTodo(d, now);
 
     if (brain.easyMode) return const EasyHome();
 
@@ -153,6 +155,31 @@ class HomePage extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (inboxTodos.isNotEmpty) ...[
+              Material(
+                color: C.greenTint,
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => push(const InboxScreen()),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+                    child: Row(children: [
+                      Icon(Icons.mark_chat_unread_outlined, color: C.green),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(trf('বার্তা থেকে {0}টা কাজ', [bnDigits(inboxTodos.length)]), style: body(15, weight: FontWeight.w600, color: C.greenDark)),
+                          Text(inboxTodos.first.$2.summary, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, color: C.greenDark)),
+                        ]),
+                      ),
+                      Icon(Icons.chevron_right_rounded, color: C.green),
+                    ]),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             if (next != null && daysTo <= 30)
               Material(
                 color: C.roseTint,
