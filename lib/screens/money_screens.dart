@@ -5,6 +5,7 @@ import '../logic/cash.dart';
 import '../logic/money_more.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
+import '../ui/forms.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import '../logic/lang.dart';
@@ -163,9 +164,39 @@ Widget cashRow(BuildContext context, CashEntry e) {
     ),
     title: e.category,
     subtitle: [shortDate(e.date), if (e.note.trim().isNotEmpty) e.note.trim()].join(' · '),
-    trailing: Text('${income ? '+' : '−'}${taka(e.amount)}', style: display(16, color: income ? C.green : C.orange)),
+    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+      Text('${income ? '+' : '−'}${taka(e.amount)}', style: display(16, color: income ? C.green : C.orange)),
+      IconButton(
+        tooltip: tr('বদলান বা মুছুন'),
+        visualDensity: VisualDensity.compact,
+        icon: Icon(Icons.more_vert_rounded, color: C.muted, size: 20),
+        onPressed: () => cashActions(context, e),
+      ),
+    ]),
     onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CashFormScreen(entry: e, kind: e.kind, projectId: e.projectId))),
   );
+}
+
+/// ⋮ on an income/expense: change it, or delete it (with a few seconds to take it back).
+Future<void> cashActions(BuildContext context, CashEntry e) async {
+  final brain = BrainScope.read(context);
+  final pick = await editOrDelete(context, title: '${e.category} · ${taka(e.amount)}');
+  if (!context.mounted) return;
+  if (pick == 'edit') {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => CashFormScreen(entry: e, kind: e.kind, projectId: e.projectId)));
+  } else if (pick == 'delete') {
+    final ok = await confirmDialog(context, title: tr('মুছবেন?'), text: trf('{0} — {1} মুছে যাবে।', [e.category, taka(e.amount)]), yes: tr('মুছুন'), danger: true);
+    if (!ok) return;
+    await brain.deleteCash(e.id);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(tr('মুছে দিলাম')),
+          action: SnackBarAction(label: tr('ফিরিয়ে আনুন'), onPressed: () => brain.saveCash(e)),
+        ));
+    }
+  }
 }
 
 /// আয়-ব্যয় as its own page (opened from the chat).

@@ -345,6 +345,27 @@ void main() {
     expect(find.textContaining('২৭ সেকেন্ড পর').evaluate().isNotEmpty || find.textContaining('২৮ সেকেন্ড পর').evaluate().isNotEmpty, isTrue);
   });
 
+  testWidgets('every income/expense has ⋮ to change or delete it', (t) async {
+    final rig = await start(t, data: AppData(cash: [CashEntry(kind: CashKind.expense, amount: 500, category: 'বাজার', date: DateTime(2026, 10, 9))]));
+    unawaited(openPlace(t.element(find.byType(HomeShell)), 'money'));
+    await settle(t);
+    final more = find.byTooltip('বদলান বা মুছুন');
+    expect(more, findsOneWidget);
+    await t.ensureVisible(more);
+    await t.drag(find.ancestor(of: more, matching: find.byType(Scrollable)).first, const Offset(0, -300));
+    await settle(t);
+    await t.tap(more);
+    await settle(t);
+    await t.tap(find.text('মুছুন').last);
+    await settle(t);
+    await t.tap(find.text('মুছুন').last);
+    await settle(t);
+    expect(rig.brain.data.cash, isEmpty);
+    await t.tap(find.text('ফিরিয়ে আনুন'));
+    await settle(t);
+    expect(rig.brain.data.cash.single.amount, 500);
+  });
+
   testWidgets('chat: say a loan, yes by voice, then keep talking', (t) async {
     final rig = await start(t);
     await openChat(t);
