@@ -84,6 +84,16 @@ class NotificationSettingsScreen extends StatelessWidget {
                 ]),
               ),
               const SizedBox(height: 16),
+              SectionTitle(tr('পরিকল্পনা ও খেয়াল')),
+              Panel(
+                child: Rows(children: [
+                  sw(Icons.event_note_outlined, tr('পরিকল্পনা জানতে চাওয়া'), tr('ছুটির আগের সন্ধ্যা, নতুন সপ্তাহ, নতুন মাস আর রাতে কালকের জন্য — চাপলেই মাইক খুলবে'), brain.flag('n_plan', true),
+                      (v) => brain.setPref('n_plan', v)),
+                  sw(Icons.lightbulb_outline_rounded, tr('নিজের তথ্য দেখে মনে করানো'), tr('আজকের খরচ লেখা হয়নি, কোনো খাতে খরচ বেশি, পরশু জন্মদিন, বেতন এলে সঞ্চয়, ঈদ-রমজান ১০ দিন আগে'),
+                      brain.flag('n_smart', true), (v) => brain.setPref('n_smart', v)),
+                ]),
+              ),
+              const SizedBox(height: 16),
               SectionTitle(tr('দিন ও উৎসব')),
               Panel(
                 child: Rows(children: [

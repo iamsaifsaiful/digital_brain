@@ -43,6 +43,8 @@ class AssistantPrefs {
     this.quietTo = 7 * 60,
     this.dailyCap = 3,
     this.jumuah = true,
+    this.plan = true,
+    this.smart = true,
     this.health = true,
     this.festival = true,
     this.weekly = true,
@@ -67,6 +69,15 @@ class AssistantPrefs {
   /// the user turned on do not count).
   final int dailyCap;
   final bool jumuah;
+
+  /// Asking about plans: the evening before a day off, a new week, a new
+  /// month, and at night for tomorrow (a tap opens the mic).
+  final bool plan;
+
+  /// Noticing from the user's own records: no spending written today, a
+  /// category spent more than last month, a special day the day after
+  /// tomorrow, salary in, Eid or Ramadan ten days away.
+  final bool smart;
   final bool health;
   final bool festival;
   final bool weekly;
@@ -110,6 +121,14 @@ const nudgeJumuah = 'nudge:jumuah';
 const nudgePrayer = 'nudge:prayer';
 const nudgeRamadan = 'nudge:ramadan';
 const nudgeDonor = 'nudge:donor';
+
+/// "What's the plan?" — tapped, the assistant opens listening.
+const nudgePlan = 'nudge:plan:';
+const nudgeNoCash = 'nudge:nocash';
+const nudgeSpend = 'nudge:spend';
+const nudgeDay2 = 'nudge:day2';
+const nudgeSalary = 'nudge:salary';
+const nudgeSoon = 'nudge:soon';
 
 /// One sentence for each month: what to watch for in Bangladesh's seasons.
 const healthTips = [
@@ -191,7 +210,7 @@ DateTime _at(DateTime day, int minutes) => DateTime(day.year, day.month, day.day
 /// waits for the morning) and no more than [AssistantPrefs.dailyCap] nudges
 /// a day, the most useful first.
 List<PlannedNotice> assistantNotices(AppData d, DateTime now, AssistantPrefs p) {
-  final all = [..._summaries(d, now, p), ..._nudges(d, now, p), ..._extras(d, now, p)];
+  final all = [..._summaries(d, now, p), ..._nudges(d, now, p), ..._extras(d, now, p), ..._plans(d, now, p), ..._noticed(d, now, p)];
   final kept = <PlannedNotice>[];
   final perDay = <String, int>{};
   // Most useful first, so the cap drops the least useful.
@@ -217,7 +236,7 @@ bool _chosenByUser(String tag) =>
     tag == morningTag || tag == nightTag || tag.startsWith(nudgePrayer) || tag.startsWith(nudgeRamadan) || tag.startsWith(nudgeDonor);
 
 int _rank(String tag) {
-  const order = [morningTag, nightTag, nudgePrayer, nudgeRamadan, nudgeDue, nudgeBill, nudgeMed, nudgeDoc, nudgeDonor, nudgeHabit, nudgeJumuah, nudgeWeek, nudgeFest, nudgeHealth, nudgeBack];
+  const order = [morningTag, nightTag, nudgePrayer, nudgeRamadan, nudgeDue, nudgeBill, nudgeMed, nudgeDoc, nudgeDonor, nudgeDay2, '${nudgePlan}eve', nudgeSoon, nudgeSalary, nudgeSpend, nudgeNoCash, nudgePlan, nudgeHabit, nudgeJumuah, nudgeWeek, nudgeFest, nudgeHealth, nudgeBack];
   for (var i = 0; i < order.length; i++) {
     if (tag.startsWith(order[i])) return i;
   }
@@ -482,4 +501,191 @@ String? _wishFor(String holiday) {
   if (holiday.contains('বড়দিন')) return tr('শুভ বড়দিন');
   if (holiday.contains('বুদ্ধ')) return tr('শুভ বুদ্ধপূর্ণিমা');
   return null;
+}
+
+
+/// A day off from [day] on: the run of Fridays, Saturdays and government
+/// holidays together, and the name of its main holiday (null for a plain weekend).
+(int, Holiday?) offRun(DateTime day) {
+  bool off(DateTime x) => holidayOn(x) != null || isWeekend(x);
+  var n = 0;
+  final hs = <Holiday>[];
+  for (var x = dayOnly(day); off(x) && n < 30; x = x.add(const Duration(days: 1))) {
+    n++;
+    final h = holidayOn(x);
+    if (h != null) hs.add(h);
+  }
+  final main = hs.where((h) => !h.name.endsWith('ছুটি')).firstOrNull ?? hs.firstOrNull;
+  return (n, main);
+}
+
+/// What is set for [day]: reminders that ring then and to-dos for that day.
+List<(int, String)> _dayItems(AppData d, DateTime day) {
+  final dd = dayOnly(day);
+  return [
+    for (final r in d.reminders)
+      if (remindsOn(r, dd) && !r.repeat.isInterval && !d.specialDays.any((s) => s.reminderId == r.id)) (r.hour * 60 + r.minute, r.title),
+    for (final t in d.tasks)
+      if (!t.done && t.due != null && dayOnly(t.due!) == dd) (24 * 60, t.title),
+  ]..sort((a, b) => a.$1.compareTo(b.$1));
+}
+
+/// Asking about plans (tapped: the assistant listens and writes it down).
+List<PlannedNotice> _plans(AppData d, DateTime now, AssistantPrefs p) {
+  final out = <PlannedNotice>[];
+  if (!p.plan) return out;
+  final today = dayOnly(now);
+  void add(String key, String day, DateTime at, String title, String body) {
+    if (!at.isAfter(now)) return;
+    out.add(PlannedNotice(id: stableId('$nudgePlan$key:$day'), at: at, title: title, body: body, reminderId: '$nudgePlan$key', gentle: true));
+  }
+
+  bool off(DateTime x) => holidayOn(x) != null || isWeekend(x);
+  final eves = <DateTime>{};
+
+  // The evening before a day off: Friday, or a holiday (with how many days).
+  for (var i = 0; i < 9; i++) {
+    final day = today.add(Duration(days: i));
+    if (!off(day) || off(day.subtract(const Duration(days: 1)))) continue;
+    final eve = day.subtract(const Duration(days: 1));
+    eves.add(eve);
+    final (n, h) = offRun(day);
+    final String title;
+    if (h != null) {
+      title = n > 1 ? trf('কাল থেকে {0} দিনের ছুটি — {1}', [bnDigits(n), h.label]) : trf('কাল ছুটি — {0}', [h.label]);
+    } else {
+      title = day.weekday == DateTime.friday ? (n > 1 ? tr('কাল থেকে সাপ্তাহিক ছুটি') : tr('কাল শুক্রবার, ছুটির দিন')) : tr('কাল ছুটির দিন');
+    }
+    final body = n > 2
+        ? tr('ছুটির দিনগুলোতে কী পরিকল্পনা? চাপুন আর বলুন — কাজের তালিকা আর রিমাইন্ডার করে দেবো।')
+        : tr('ছুটির দিনে কী কী করবেন ভাবছেন? চাপুন আর বলুন — লিখে রাখবো, সময়মতো মনে করাবো।');
+    add('eve', dayKey(eve), _at(eve, 20 * 60 + 30), title, body);
+  }
+
+  // Sunday morning: a new week.
+  for (var i = 0; i < 8; i++) {
+    final day = today.add(Duration(days: i));
+    if (day.weekday != DateTime.sunday || off(day) || day.day == 1) continue;
+    final week = [for (var k = 0; k < 7; k++) ..._dayItems(d, day.add(Duration(days: k)))];
+    add('week', dayKey(day), _at(day, 9 * 60 + 15), tr('নতুন সপ্তাহ শুরু'),
+        week.isEmpty
+            ? tr('এই সপ্তাহের বড় কাজগুলো কী? চাপুন আর বলুন — তালিকা করে দেবো।')
+            : trf('এই সপ্তাহে {0}টা কাজ/রিমাইন্ডার রাখা আছে। আর কিছু যোগ করবেন? চাপুন আর বলুন।', [bnDigits(week.length)]));
+    break;
+  }
+
+  // The 1st of the month: last month's spending, and this month's plan.
+  final first = DateTime(today.year, today.month + 1, 1);
+  for (final day in [DateTime(today.year, today.month, 1), first]) {
+    final last = DateTime(day.year, day.month - 1);
+    final spent = monthSumsOf(d, last);
+    add('month', dayKey(day), _at(day, 9 * 60 + 30), trf('নতুন মাস — {0}', [monthName(day.month)]),
+        spent > 0
+            ? trf('গত মাসে খরচ হয়েছিল {0}। এ মাসে কত খরচের মধ্যে থাকবেন, বড় কাজ কী কী — চাপুন আর বলুন।', [taka(spent)])
+            : tr('এ মাসের বড় কাজ, বিল আর খরচের পরিকল্পনা বলে রাখুন — চাপুন আর বলুন।'));
+  }
+
+  // At night: tomorrow, unless the evening-before-a-day-off one comes, or
+  // the night summary is already asking about today's leftovers.
+  for (var i = 0; i < 2; i++) {
+    final day = today.add(Duration(days: i));
+    if (eves.contains(day)) continue;
+    if (p.nightOn && tasksLeft(d, day).isNotEmpty) continue;
+    final tomorrow = day.add(const Duration(days: 1));
+    final items = _dayItems(d, tomorrow);
+    final at = _at(day, (p.nightOn ? p.nightAt : 21 * 60) + 5);
+    if (items.length >= 3) {
+      final f = items.first;
+      final firstText = f.$1 >= 24 * 60 ? f.$2 : '${bnTime(f.$1 ~/ 60, f.$1 % 60)} — ${f.$2}';
+      add('night', dayKey(day), at, trf('কাল {0}টা কাজ/রিমাইন্ডার আছে', [bnDigits(items.length)]), trf('প্রথমটা: {0}। আর কিছু যোগ করার থাকলে চাপুন আর বলুন।', [firstText]));
+    } else if (items.isEmpty) {
+      add('night', dayKey(day), at, tr('কালকের জন্য কিছু মনে রাখার আছে?'), tr('চাপুন আর বলুন — রিমাইন্ডার বা কাজের তালিকায় রেখে দেবো।'));
+    }
+  }
+  return out;
+}
+
+/// Personal spending in [month].
+int monthSumsOf(AppData d, DateTime month) =>
+    d.cash.where((e) => e.projectId == null && e.kind == CashKind.expense && e.date.year == month.year && e.date.month == month.month).fold(0, (a, e) => a + e.amount);
+
+/// Things noticed in the user's own records.
+List<PlannedNotice> _noticed(AppData d, DateTime now, AssistantPrefs p) {
+  final out = <PlannedNotice>[];
+  if (!p.smart) return out;
+  final today = dayOnly(now);
+  void add(String tag, String key, DateTime at, String title, String body) {
+    if (!at.isAfter(now)) return;
+    out.add(PlannedNotice(id: stableId('$tag:$key'), at: at, title: title, body: body, reminderId: tag, gentle: true));
+  }
+
+  // No spending written today (for someone who writes it down most days).
+  final personal = [for (final e in d.cash) if (e.projectId == null) e];
+  final recentDays = {for (final e in personal) if (!e.date.isBefore(today.subtract(const Duration(days: 14)))) dayKey(e.date)};
+  if (recentDays.length >= 3 && !personal.any((e) => dayOnly(e.date) == today)) {
+    add(nudgeNoCash, dayKey(today), _at(today, 21 * 60 + 15), tr('আজকের খরচ লেখা হয়নি'), tr('আজ কিছু খরচ হয়েছে? চাপুন আর বলুন, যেমন “বাজারে ৫০০ টাকা খরচ”।'));
+  }
+
+  // A category this month already well past all of last month.
+  final last = DateTime(today.year, today.month - 1);
+  final lastBy = <String, int>{};
+  for (final e in personal) {
+    if (e.kind == CashKind.expense && e.date.year == last.year && e.date.month == last.month) lastBy[e.category] = (lastBy[e.category] ?? 0) + e.amount;
+  }
+  final thisMonth = [for (final e in personal) if (e.kind == CashKind.expense && e.date.year == today.year && e.date.month == today.month) e]..sort((a, b) => a.date.compareTo(b.date));
+  final sum = <String, int>{};
+  final told = <String>{};
+  for (final e in thisMonth) {
+    sum[e.category] = (sum[e.category] ?? 0) + e.amount;
+    final before = lastBy[e.category] ?? 0;
+    final now0 = sum[e.category]!;
+    if (before <= 0 || told.contains(e.category) || now0 < before * 1.2 || now0 - before < 500) continue;
+    told.add(e.category);
+    add(nudgeSpend, '${monthKey(today)}:${e.category}', _at(dayOnly(e.date), 19 * 60 + 30), trf('এ মাসে {0}-এ খরচ বেশি', [tr(e.category)]),
+        trf('এ পর্যন্ত {0} — গত পুরো মাসে ছিল {1} ({2}% বেশি)।', [taka(now0), taka(before), bnDigits(((now0 - before) * 100 / before).round())]));
+  }
+
+  // A birthday or anniversary the day after tomorrow (its own reminder comes a day before).
+  for (final sd in d.specialDays) {
+    if (sd.daysBefore >= 2) continue;
+    final next = sd.next(today);
+    final at = _at(next.subtract(const Duration(days: 2)), 19 * 60);
+    add(nudgeDay2, '${sd.id}:${dayKey(next)}', at, trf('পরশু {0}', [specialTitle(sd, on: next)]),
+        sd.kind == SpecialKind.deathday
+            ? tr('দোয়া বা মিলাদের কোনো আয়োজন করবেন? চাপুন আর বলুন — রিমাইন্ডার করে দেবো।')
+            : tr('উপহার বা শুভেচ্ছার কিছু পরিকল্পনা? চাপুন আর বলুন — রিমাইন্ডার করে দেবো।'));
+  }
+
+  // Salary in: put some aside.
+  final salary = RegExp(r'বেতন|স্যালারি|salary', caseSensitive: false);
+  for (final e in personal) {
+    if (e.kind != CashKind.income || !(salary.hasMatch(e.category) || salary.hasMatch(e.note))) continue;
+    if (today.difference(dayOnly(e.date)).inDays > 1) continue;
+    final goal = d.goals.where((g) => g.deposits.fold<int>(0, (a, x) => a + x.amount) < g.target).firstOrNull;
+    final body = goal == null
+        ? tr('শুরুতেই একটা অংশ সঞ্চয়ে সরিয়ে রাখলে মাস শেষে চাপ কম থাকে। চাপুন, সঞ্চয়ের লক্ষ্য ঠিক করুন।')
+        : trf('‘{0}’ লক্ষ্যে এখনো {1} বাকি। এ মাসে কিছু জমা রাখবেন?', [goal.name, taka(goal.target - goal.deposits.fold<int>(0, (a, x) => a + x.amount))]);
+    var at = _at(dayOnly(e.date), 19 * 60);
+    if (!at.isAfter(now)) at = _at(dayOnly(e.date).add(const Duration(days: 1)), 10 * 60);
+    add(nudgeSalary, e.id, at, trf('বেতন এসেছে — {0}', [taka(e.amount)]), body);
+    break;
+  }
+
+  // Eid and Ramadan, ten days ahead.
+  for (final h in bdHolidays) {
+    if (h.name != 'ঈদুল ফিতর' && h.name != 'ঈদুল আজহা') continue;
+    final at = _at(dayOnly(h.date).subtract(const Duration(days: 10)), 10 * 60);
+    add(nudgeSoon, dayKey(h.date), at, trf('{0} আর ১০ দিন', [h.label]),
+        h.name == 'ঈদুল আজহা'
+            ? tr('কোরবানি, কেনাকাটা আর বাড়ি যাওয়ার পরিকল্পনা করবেন? চাপুন আর বলুন — তালিকা করে দেবো।')
+            : tr('ঈদের কেনাকাটা আর বাড়ি যাওয়ার তালিকা করবেন? চাপুন আর বলুন — তালিকা করে দেবো।'));
+  }
+  for (var i = 1; i < 60; i++) {
+    final day = today.add(Duration(days: i));
+    if (!hijriDate(day).isRamadan || hijriDate(day.subtract(const Duration(days: 1))).isRamadan) continue;
+    add(nudgeSoon, 'ramadan:${dayKey(day)}', _at(day.subtract(const Duration(days: 10)), 10 * 60), tr('রমজান আসছে ১০ দিন পর'),
+        tr('রমজানের বাজার, যাকাত আর সেহরি-ইফতারের সময় গুছিয়ে নেবেন? চাপুন আর বলুন।'));
+    break;
+  }
+  return out;
 }
