@@ -74,11 +74,21 @@ bool _has(String t, List<String> ws) => ws.any((w) {
     });
 
 /// 'delete' or 'edit' when [text] (normalized) asks to remove or change something saved.
+final _notWord = RegExp(' (${['না', 'নয়', 'নয়', 'নই'].map(normalize).join('|')}),? ');
+
+/// "৫০০ না ৬০০", "আগের পাঁচশ নয়, সাতশ হবে": an amount (in digits or
+/// words), "না/নয়", then the right one.
+bool isCorrection(String text) {
+  final parts = text.split(_notWord);
+  return parts.length == 2 && findAmount(parts.first) != null && findAmount(parts.last) != null;
+}
+
 String? manageAction(String text) {
   if (_has(text, _deleteWords)) return 'delete';
   if (_has(text, _editWords)) return 'edit';
   // "৫০০ না ৬০০ হবে", "রহিমের টাকাটা ৫০০ না, ৬০০": a correction.
-  if (RegExp(r'\d+ না,? \d+').hasMatch(text)) return 'edit';
+  if (RegExp(r'\d+ (না|নয়|নয়|নই),? \d+').hasMatch(text)) return 'edit';
+  if (isCorrection(text)) return 'edit';
   // "মিটিংয়ের রিমাইন্ডারটা ৮টায় করে দাও", "রহিমের লেনদেনটা ৬০০ করো": a saved
   // one ("…টা") given a new value.
   final named = RegExp('(${['রিমাইন্ডার', 'অ্যালার্ম', 'এলার্ম', 'লেনদেন', 'কাজ', 'নোট', 'খরচ', 'আয়', 'হিসাব'].map(normalize).join('|')})(টা|টি|টাকে|টার)( |\$)').hasMatch(text);
@@ -170,7 +180,7 @@ Change changeIn(Target t, String said, DateTime now) {
       if (w != null && w.hasDay) return Change(day: dayOnly(w.at));
     case ItemKind.ledger || ItemKind.cash:
       // "৫০০ না ৬০০": what comes after "না" is the right amount.
-      final parts = text.split(RegExp(r' না,? '));
+      final parts = text.split(_notWord);
       final amount = findAmount(parts.length >= 2 ? parts.last : text);
       if (amount != null && amount > 0 && amount != t.amount) return Change(amount: amount);
     default:

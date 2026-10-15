@@ -144,6 +144,18 @@ class DeviceVoice extends Voice {
   /// Other guesses for the whole sentence so far (see [Voice.lastAlternatives]).
   List<String> _alts = const [];
 
+  /// The words on screen are a partial guess; the recogniser has not given
+  /// its final (more accurate) text for them yet.
+  bool _partial = false;
+
+  /// The quiet time is over and the recogniser was asked for its final
+  /// text: the turn ends when it comes (or after a short wait).
+  bool _finalizing = false;
+
+  /// When the app itself last cancelled a recogniser session: an error that
+  /// session reports late must not end the next turn.
+  DateTime _cancelledAt = DateTime(2000);
+
   /// What the user said: the heard words without the app's own voice.
   String get _words => _echo.isEmpty ? _heard : _withoutEcho(_heard);
 
@@ -317,7 +329,19 @@ class DeviceVoice extends Voice {
   /// (Re)starts the quiet timer: the turn ends when it fires.
   void _armQuietTimer() {
     _quiet?.cancel();
-    _quiet = Timer(_quietFor(_words), _finish);
+    _quiet = Timer(_quietFor(_words), _settle);
+  }
+
+  /// The user went quiet. If the last words are only a partial guess, ask
+  /// the recogniser to finish and use its final text (partial guesses are
+  /// less accurate); never wait more than a moment for it.
+  void _settle() {
+    if (_finished) return;
+    if (!_partial || _finalizing) return _finish();
+    _finalizing = true;
+    _quiet?.cancel();
+    _quiet = Timer(const Duration(milliseconds: 900), _finish);
+    unawaited(_stt.stop().then((_) {}, onError: (_) {}));
   }
 
   /// How long to wait after the last word: short when the sentence sounds
@@ -336,6 +360,9 @@ class DeviceVoice extends Voice {
   void _handleError(SpeechRecognitionError e) {
     if (_finished) return;
     final code = e.errorMsg;
+    // The session the app itself just cancelled complaining late: not this turn's error.
+    if ((code == 'error_client' || code == 'error_busy' || code == 'error_recognizer_busy') && DateTime.now().difference(_cancelledAt) < const Duration(milliseconds: 700)) return;
+    if (_finalizing) return _finish();
     if (_words.isNotEmpty) {
       // A pause after some words (no_match / speech_timeout on a restarted
       // session, or a dropped connection): keep what was heard and let the
@@ -371,6 +398,18 @@ class DeviceVoice extends Voice {
   /// passed yet, listen again so a continued sentence is not lost.
   void _handleStatus(String status) {
     if (_finished) return;
+    // Asked to finish: the session ending is expected; keep what was heard.
+    if (_finalizing) {
+      if (status == 'done' || status == 'doneNoResult' || status == 'notListening') {
+        if (_current.isNotEmpty) {
+          _committed = _words;
+          _current = '';
+        }
+        _quiet?.cancel();
+        _quiet = Timer(const Duration(milliseconds: 250), _finish);
+      }
+      return;
+    }
     if (status == 'done' || status == 'doneNoResult' || status == 'notListening') {
       if (_current.isNotEmpty) {
         _committed = _words;
@@ -425,6 +464,7 @@ class DeviceVoice extends Voice {
     _quiet?.cancel();
     _quiet = null;
     final words = _words;
+    _cancelledAt = DateTime.now();
     lastHeard = words;
     lastAlternatives = _echo.isEmpty ? [for (final a in _alts) if (a != words) a] : const [];
     unawaited(_stt.cancel().then((_) {}, onError: (_) {}));
@@ -448,9 +488,12 @@ class DeviceVoice extends Voice {
             _onWords?.call(_words);
             _armQuietTimer(); // new words: wait the full quiet time again
           }
+          _partial = !r.finalResult;
           if (r.finalResult) {
             _committed = _words;
             _current = '';
+            // The final text the turn was waiting for.
+            if (_finalizing) _finish();
           }
         },
         listenOptions: SpeechListenOptions(
@@ -498,11 +541,25 @@ class DeviceVoice extends Voice {
     final sinceSpoke = DateTime.now().difference(_spokeAt);
     if (sinceSpoke < const Duration(milliseconds: 350)) await Future<void>.delayed(const Duration(milliseconds: 350) - sinceSpoke);
     if (turn != _turn) return; // a newer listen() or cancel() came meanwhile
+    // A short prompt ("আমি শুনছি") is said first and the microphone opens
+    // right after, so the app never hears its own voice. Only a longer
+    // answer is spoken while listening (the user may talk over it).
+    if (say != null && say.trim().isNotEmpty && !muted && say.trim().split(RegExp(r'\s+')).length <= 4) {
+      await speakAndWait(say);
+      // Let the last sound fade before the microphone opens.
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      if (turn != _turn) return;
+      onSaid?.call();
+      say = null;
+      onSaid = null;
+      _spokeAt = DateTime.now();
+    }
     _quiet?.cancel();
     _quiet = null;
     // A session left over from before (the recogniser was not released)
     // would make the new one fail silently.
     if (_stt.isListening) {
+      _cancelledAt = DateTime.now();
       try {
         await _stt.cancel();
       } catch (_) {}
@@ -512,6 +569,8 @@ class DeviceVoice extends Voice {
     _committed = '';
     _current = '';
     _alts = const [];
+    _partial = false;
+    _finalizing = false;
     _finished = false;
     _restarting = false;
     _short = short;
@@ -520,8 +579,9 @@ class DeviceVoice extends Voice {
     _onWords = onWords;
     _onDone = onDone;
     _onError = onError;
-    final speaking = say != null && say.trim().isNotEmpty && !muted;
-    _echo = speaking ? [for (final w in forSpeech(say).split(RegExp(r'\s+'))) if (w.isNotEmpty) echoToken(w)] : const [];
+    final talk = say;
+    final speaking = talk != null && talk.trim().isNotEmpty && !muted;
+    _echo = speaking ? [for (final w in forSpeech(talk).split(RegExp(r'\s+'))) if (w.isNotEmpty) echoToken(w)] : const [];
     _talking = speaking;
     _onSaid = onSaid;
     await _startSession(turn);
@@ -532,9 +592,9 @@ class DeviceVoice extends Voice {
     unawaited(() async {
       try {
         await _tts.stop();
-        await _useTtsLanguage(_mostlyLatin(say));
-        final limit = Duration(milliseconds: (4000 + say.length * 110).clamp(4000, 90000));
-        await _tts.speak(forSpeech(say)).timeout(limit, onTimeout: () => null);
+        await _useTtsLanguage(_mostlyLatin(talk));
+        final limit = Duration(milliseconds: (4000 + talk.length * 110).clamp(4000, 90000));
+        await _tts.speak(forSpeech(talk)).timeout(limit, onTimeout: () => null);
       } catch (e) {
         debugPrint('speak failed: $e');
       }
@@ -572,6 +632,7 @@ class DeviceVoice extends Voice {
     _finished = true;
     _quiet?.cancel();
     _quiet = null;
+    _cancelledAt = DateTime.now();
     try {
       await _stt.cancel();
     } catch (_) {}

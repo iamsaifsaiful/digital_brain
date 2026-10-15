@@ -162,6 +162,9 @@ class ChatController extends ChangeNotifier {
   /// The person's number for a ধার-দেনা entry, found in the book or in
   /// যোগাযোগ, and shown before saving.
   String _ledgerPhone = '';
+
+  /// The day a money event happened when said ("গতকাল"); null = today.
+  DateTime? _ledgerDate;
   bool _phoneChecked = false;
 
   /// Same-name people to choose from: (name, phone).
@@ -830,6 +833,7 @@ class ChatController extends ChangeNotifier {
         _person = c.person.trim();
         _amount = c.amount;
         _kind = c.kind;
+        _ledgerDate = c.date;
         _ledgerPhone = '';
         _phoneChecked = false;
         await _nextLedgerStep(out);
@@ -876,9 +880,14 @@ class ChatController extends ChangeNotifier {
         _pendingDays = c.weekdays;
         _pendingBefore = c.minutesBefore;
         if (c.needsTime) {
-          _pendingDay = null;
+          _pendingDay = c.day;
           final what = c.needsTitle ? '' : '“${c.title}” — ';
-          _ask(out, trf('{0}কখন মনে করাব? যেমন “আজ সন্ধ্যা ৭টায়”, “কাল সকাল ১০টায়” বা “এক ঘণ্টা পরে”।', [what]), ChatWait.reminderTime);
+          if (c.day != null) {
+            // "কাল মনে করিয়ে দিও": the day is known, only the hour is asked.
+            _ask(out, trf('{0}{1} কয়টায় মনে করাব?', [what, sayWhen(c.day!, _now, withTime: false)]), ChatWait.reminderTime);
+          } else {
+            _ask(out, trf('{0}কখন মনে করাব? যেমন “আজ সন্ধ্যা ৭টায়”, “কাল সকাল ১০টায়” বা “এক ঘণ্টা পরে”।', [what]), ChatWait.reminderTime);
+          }
           return;
         }
         if (!c.at.isAfter(_now)) {
@@ -1142,7 +1151,8 @@ class ChatController extends ChangeNotifier {
       return;
     }
     if (_allYes) return _saveCurrent(out);
-    _ask(out, confirmQuestion(_kind!, _person, _amount), ChatWait.yesNo,
+    final on = _ledgerDate == null ? '' : '${sayWhen(_ledgerDate!, _now, withTime: false).replaceFirst(RegExp(r'^কাল'), 'গতকাল')}: ';
+    _ask(out, '$on${confirmQuestion(_kind!, _person, _amount)}', ChatWait.yesNo,
         choices: _yesNoChoices,
         facts: [if (_ledgerPhone.isNotEmpty) '$_person · ${showPhone(_ledgerPhone)}'],
         links: [
@@ -1167,6 +1177,16 @@ class ChatController extends ChangeNotifier {
   /// Handles [t] as the answer to the waiting question. False when it is
   /// not an answer but something new.
   Future<bool> _answer(String t, List<String> out) async {
+    // "বাদ দাও", "থাক", "বাতিল": the question and what it was for are dropped.
+    if (wait != ChatWait.none && isCancel(t)) {
+      wait = ChatWait.none;
+      choices = const [];
+      _current = null;
+      _queue.clear();
+      _askingAll = false;
+      _say(out, tr('ঠিক আছে, বাদ দিলাম। কিছুই রাখা হয়নি।'));
+      return true;
+    }
     switch (wait) {
       case ChatWait.none:
         return false;
@@ -1216,6 +1236,20 @@ class ChatController extends ChangeNotifier {
         messages.add(ChatMessage.app('${bnDigits(_collected.length)}. $t', info: true));
         return true;
       case ChatWait.yesNo:
+        // "না, সাতশ" / "পাঁচশ না, সাতশ": not a no — the amount corrected; ask again.
+        final cur = _current;
+        final fixed = _correctedAmount(t);
+        if (fixed != null && !_askingAll && (cur is LedgerAdd || cur is CashAdd)) {
+          wait = ChatWait.none;
+          choices = const [];
+          if (cur is LedgerAdd) {
+            _amount = fixed;
+            await _nextLedgerStep(out);
+          } else if (cur is CashAdd) {
+            await _start(CashAdd(cur.transcript, kind: cur.kind, amount: fixed, category: cur.category, project: cur.project), out);
+          }
+          return true;
+        }
         final yn = yesNo(t);
         if (yn == null) {
           if (_looksNew(t)) return false;
@@ -1440,6 +1474,21 @@ class ChatController extends ChangeNotifier {
     }
   }
 
+  /// The new amount in a short correction ("না, ৭০০", "পাঁচশ না, সাতশ",
+  /// "৭০০ হবে"); null when the answer is something else.
+  int? _correctedAmount(String t) {
+    final n = normalize(t);
+    final ws = words(n);
+    if (ws.isEmpty || ws.length > 7) return null;
+    final parts = n.split(RegExp(' (${['না', 'নয়', 'নয়', 'নই'].map(normalize).join('|')}),? '));
+    final tail = parts.last;
+    final amount = findAmount(tail);
+    if (amount == null || amount <= 0) return null;
+    final startsNo = ws.first == normalize('না') || ws.first == normalize('না,');
+    final hobe = ws.contains(normalize('হবে'));
+    return (parts.length >= 2 || startsNo || hobe) ? amount : null;
+  }
+
   Future<void> _saveCurrent(List<String> out) async {
     final c = _current;
     final quiet = _allYes;
@@ -1453,7 +1502,7 @@ class ChatController extends ChangeNotifier {
       case LedgerAdd():
         final kind = _kind!;
         final after = balanceAfter(brain.data.ledger, _person, kind, _amount);
-        await brain.saveEntry(LedgerEntry(person: _person, phone: _ledgerPhone, kind: kind, amount: _amount, date: dayOnly(_now), note: ''),
+        await brain.saveEntry(LedgerEntry(person: _person, phone: _ledgerPhone, kind: kind, amount: _amount, date: _ledgerDate ?? dayOnly(_now), note: ''),
             guessPhone: _ledgerPhone.isEmpty);
         _say(out, quiet ? trf('লিখলাম: {0}।', [describe(kind, _person, _amount)]) : savedSentence(kind, _person, _amount, after),
             links: [ChatLink(LinkKind.person, trf('{0} খাতা দেখুন', [possessive(_person)]), person: _person)], speak: !quiet);

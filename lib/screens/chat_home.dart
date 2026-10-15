@@ -69,6 +69,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   /// Away on another screen: do not listen meanwhile.
   bool _away = false;
   int _gen = 0;
+  int _doneGen = -1;
   int _silences = 0;
 
   static final _suggestions = [
@@ -344,7 +345,9 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
         if (mounted && gen == _gen) setState(() => _live = w);
       },
       onDone: (w) {
-        if (!mounted || gen != _gen) return;
+        // One sentence is handled once, even if the recogniser reports it twice.
+        if (!mounted || gen != _gen || _doneGen == gen) return;
+        _doneGen = gen;
         _wave.stop();
         setState(() {
           _listening = false;

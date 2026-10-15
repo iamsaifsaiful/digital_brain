@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:digital_brain/app.dart';
 import 'package:digital_brain/logic/ai_safe.dart';
+import 'package:digital_brain/logic/ledger.dart';
 import 'package:digital_brain/logic/money_more.dart';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/services/ai.dart';
@@ -816,6 +817,46 @@ void main() {
     expect(find.byTooltip('রিমাইন্ডার দিন'), findsNothing); // now the ⏰ shows it is set
     nav.popUntil((r) => r.isFirst);
     await settle(t);
+  });
+
+  testWidgets('voice: lend, partly paid back, a correction, a repeated final result, "বাদ দাও", a day then the hour', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    int bal() => balanceWith(rig.brain.data.ledger, 'সজীব');
+    Future<void> say(String s) async {
+      rig.voice.say(s);
+      await settle(t);
+    }
+
+    await say('সজীবকে পাঁচশ টাকা ধার দিলাম');
+    // "না, সাতশ" to the question: the amount is corrected and asked again — nothing saved yet.
+    await say('না, সাতশ');
+    expect(rig.brain.data.ledger, isEmpty);
+    expect(rig.voice.spoken.last, contains('৭০০'));
+    await say('হ্যাঁ');
+    expect(bal(), 700);
+    // The recogniser reports the same final sentence twice: one entry.
+    rig.voice.say('সজীব সেই ধার থেকে তিনশ টাকা ফেরত দিল');
+    rig.voice.say('সজীব সেই ধার থেকে তিনশ টাকা ফেরত দিল');
+    await settle(t);
+    if (rig.brain.data.ledger.length == 1) await say('হ্যাঁ');
+    expect(rig.brain.data.ledger, hasLength(2));
+    expect(bal(), 400);
+    // A new loan, then "বাদ দাও": nothing kept.
+    await say('সজীবকে দুইশ টাকা ধার দিলাম');
+    await say('বাদ দাও');
+    expect(rig.brain.data.ledger, hasLength(2));
+    expect(rig.voice.spoken.last, contains('বাদ দিলাম'));
+    // "দিইনি": nothing written.
+    await say('সজীবকে টাকা দিইনি');
+    expect(rig.brain.data.ledger, hasLength(2));
+    // A day without an hour: the hour is asked, the day kept.
+    await say('কাল ডাক্তার দেখাতে মনে করিয়ে দিও');
+    expect(rig.voice.spoken.last, contains('কয়টায়'));
+    await say('বিকাল পাঁচটায়');
+    if (rig.brain.data.reminders.isEmpty) await say('হ্যাঁ');
+    final r = rig.brain.data.reminders.single;
+    expect((r.date, r.hour), (DateTime(2026, 10, 10), 17));
   });
 
   testWidgets('voice: an alarm said aloud is set as an alarm', (t) async {

@@ -26,8 +26,11 @@ sealed class Command {
 /// between [options]; [suggested] is the likeliest one.
 class LedgerAdd extends Command {
   const LedgerAdd(super.transcript,
-      {required this.person, required this.amount, this.kind, this.options = const [], this.suggested, this.allowExpense = false});
+      {required this.person, required this.amount, this.kind, this.options = const [], this.suggested, this.allowExpense = false, this.date});
   final String person;
+
+  /// The day it happened when said ("গতকাল", "কাল … দিছি", "১০ তারিখে"); null = today.
+  final DateTime? date;
   final int amount;
   final LedgerKind? kind;
   final List<LedgerKind> options;
@@ -117,8 +120,11 @@ class TaskQuery extends Command {
 
 /// "কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও".
 class ReminderAdd extends Command {
-  const ReminderAdd(super.transcript, {required this.title, required this.at, this.repeat = Repeat.none, this.alarm = false, this.weekdays = const [], this.minutesBefore = 0});
+  const ReminderAdd(super.transcript, {required this.title, required this.at, this.repeat = Repeat.none, this.alarm = false, this.weekdays = const [], this.minutesBefore = 0, this.day});
   final String title;
+
+  /// A day said without a time ("কাল মনে করিয়ে দিও"): the chat asks the hour for it.
+  final DateTime? day;
 
   /// "৩০ মিনিট আগে মনে করিয়ে দিও": an early notice this many minutes before (0 = none).
   final int minutesBefore;
@@ -264,7 +270,7 @@ class NotUnderstood extends Command {
   const NotUnderstood(super.transcript);
 }
 
-enum Talk { greeting, salam, howAreYou, imFine, whoAreYou, whatCanYouDo, thanks, bye, time, date }
+enum Talk { greeting, salam, howAreYou, imFine, whoAreYou, whatCanYouDo, thanks, bye, time, date, nothingDone, cancelled }
 
 /// Conversation, not data: "তুমি কেমন আছো?", "ধন্যবাদ", "আজ কত তারিখ?".
 class SmallTalk extends Command {
@@ -699,9 +705,12 @@ class Parser {
     final open = _open(said, text);
     if (open != null) return open;
 
+    // "বাদ দাও" alone, with nothing waiting: nothing to cancel, nothing deleted.
+    if (isCancel(said)) return SmallTalk(said, kind: Talk.cancelled);
+
     // "রিমাইন্ডারটা মুছে দাও", "রহিমের লেনদেন ৫০০ না ৬০০", "শেষটা ডিলিট করো".
     final manage = manageAction(text);
-    if (manage != null && (kindNamed(text) != null || asksForLast(text) || manage == 'delete' || RegExp(r'\d+ না,? \d+').hasMatch(text))) {
+    if (manage != null && (kindNamed(text) != null || asksForLast(text) || manage == 'delete' || RegExp(r'\d+ (না|নয়|নয়|নই),? \d+').hasMatch(text) || isCorrection(text))) {
       return ManageItem(said, action: manage);
     }
 
@@ -833,10 +842,20 @@ class Parser {
       }
     }
 
+    // "সজীবকে টাকা দিইনি", "সে ফেরত দেয়নি": nothing happened — never a transaction.
+    if (!asking && _negatedMoney(text)) return SmallTalk(said, kind: Talk.nothingDone);
+
+    // "সজীবের আর কোনো টাকা বাকি নেই": tell what the book says; settle only when asked.
+    if (!asking && _hasNorm(text, const ['বাকি নেই', 'পাওনা নেই', 'দেনা নেই', 'কিছু বাকি নেই', 'আর কিছু পাই না', 'আর কিছু পাবো না'])) {
+      for (final k in known) {
+        if (text.contains(normalize(k))) return LedgerQuery(said, ask: LedgerAsk.person, person: k);
+      }
+    }
+
     // A money event.
     if (amount != null) {
       final add = _ledgerEvent(said, text, w, amount, known);
-      if (add != null) return add;
+      if (add != null) return _dated(add, text);
     }
 
     // Anything else about money (টাকা) also belongs in লেনদেন, never in a
@@ -845,7 +864,7 @@ class Parser {
     if (money && !asking) {
       if (amount == null) {
         final add = _ledgerEvent(said, text, w, 0, known);
-        if (add != null) return add;
+        if (add != null) return _dated(add, text);
       }
       // No one owes anything: own spending or income ("বিদ্যুৎ বিল ১২০০ টাকা দিলাম").
       final kind = cashKindOf(text);
@@ -882,6 +901,53 @@ class Parser {
     return SearchQuery(said, terms: terms);
   }
 
+  /// "দিইনি", "দেইনি", "দেই নাই", "পাইনি", "নেইনি", "দেয়নি": a money verb said in the negative.
+  bool _negatedMoney(String text) {
+    final ws = words(text);
+    const neg = ['দিইনি', 'দেইনি', 'দিনি', 'দেইনাই', 'দেয়নি', 'দেয়নি', 'দেয়নাই', 'দেননি', 'দিলাম না', 'দিই নাই', 'দেই নাই', 'দেই নি', 'দেয় নাই', 'দেয় নি', 'দিল না', 'দিলো না',
+      'নিইনি', 'নেইনি', 'নেই নাই', 'নিলাম না', 'নেয়নি', 'নেয়নি', 'পাইনি', 'পাই নাই', 'পাইনাই', 'পেলাম না', 'করিনি', 'শোধ করিনি', 'শোধ করেনি', 'ফেরত দেয়নি'];
+    final money = ws.contains(normalize('টাকা')) || findAmount(text) != null || _hasAny(text, [..._loanWords, ..._returnWords]);
+    return money && _hasNorm(text, neg);
+  }
+
+  /// The day a money event happened, when one is said: "আজ", "গতকাল",
+  /// "কাল/পরশু" with a past verb (= yesterday / the day before), a weekday
+  /// (the last one), or "১০ তারিখে" (this month, or last month if still ahead).
+  LedgerAdd _dated(LedgerAdd a, String text) {
+    final ws = words(text);
+    final today = DateTime(now.year, now.month, now.day);
+    DateTime? d;
+    if (ws.contains(normalize('গতকাল')) || ws.contains(normalize('গতকালকে'))) {
+      d = today.subtract(const Duration(days: 1));
+    } else if (ws.contains(normalize('গত পরশু')) || text.contains(normalize('গত পরশু'))) {
+      d = today.subtract(const Duration(days: 2));
+    } else if (ws.contains(normalize('কাল')) || ws.contains(normalize('কালকে'))) {
+      d = today.subtract(const Duration(days: 1)); // a payment already made: yesterday
+    } else if (ws.contains(normalize('পরশু'))) {
+      d = today.subtract(const Duration(days: 2));
+    } else {
+      for (var k = 0; k < 7 && d == null; k++) {
+        final stem = normalize(bnWeekdays[k].replaceAll('বার', ''));
+        if (ws.any((x) => x.startsWith('$stem${normalize('বার')}'))) {
+          var back = (now.weekday - (k + 1)) % 7;
+          if (back == 0) back = 7;
+          d = today.subtract(Duration(days: back));
+        }
+      }
+      final m = RegExp(r'(\d{1,2}) ' + normalize('তারিখ')).firstMatch(text);
+      if (d == null && m != null) {
+        final day = int.parse(m[1]!);
+        if (day >= 1 && day <= 31) {
+          var c = DateTime(now.year, now.month, day);
+          if (c.isAfter(today)) c = DateTime(now.year, now.month - 1, day);
+          d = c;
+        }
+      }
+    }
+    if (d == null || d == today) return a;
+    return LedgerAdd(a.transcript, person: a.person, amount: a.amount, kind: a.kind, options: a.options, suggested: a.suggested, allowExpense: a.allowExpense, date: d);
+  }
+
   OpenPlace? _open(String said, String text) {
     final o = openRequest(text, folders: [...folders, for (final e in docFolderWords.entries) FolderHint('docs', e.key, e.value)]);
     return o == null ? null : OpenPlace(said, place: o.$1, folder: o.$2?.name);
@@ -894,7 +960,8 @@ class Parser {
     final iOweWords = _hasAny(text, ['দেনা', 'ঋণ', 'দিতে হবে', 'দেব', 'দেবো', 'দিব', 'দিবো', 'দিতে বাকি', 'দিতে লাগবে', 'দেওয়া লাগবে']);
     final owedWords = _hasAny(text, ['পাই', 'পাব', 'পাবো', 'পাওনা', 'পাবে', 'পাবেন', 'পায়', 'পান']);
     if (!iOweWords && !owedWords) return null;
-    final me = w.contains('আমি') || w.contains('আমার');
+    // "পাই", "পাবো", "দেবো" are said by the user about themself.
+    final me = w.contains('আমি') || w.contains('আমার') || w.any((x) => const ['পাই', 'পাব', 'পাবো'].map(normalize).contains(x));
     if (!me) return null;
 
     // "X আমার কাছে N টাকা পায়/পাবে": X is owed by me.
@@ -1031,8 +1098,9 @@ class Parser {
         final raw = _nameEndingAt(w, i, stripTo);
         if (raw == null) continue;
         final person = resolvePerson(raw, known);
-        if (loan) return LedgerAdd(said, person: person, amount: amount, kind: LedgerKind.lent);
+        // "সজীবকে ধার থেকে ২০০ টাকা ফেরত দিলাম": paying back wins over the word ধার.
         if (ret) return LedgerAdd(said, person: person, amount: amount, kind: LedgerKind.repaid);
+        if (loan) return LedgerAdd(said, person: person, amount: amount, kind: LedgerKind.lent);
         final iOwe = balanceWith(ledger, person) < 0;
         if (iOwe) {
           return LedgerAdd(said,
@@ -1047,6 +1115,20 @@ class Parser {
         return LedgerAdd(said,
             person: person, amount: amount, options: const [LedgerKind.lent, LedgerKind.repaid], suggested: LedgerKind.lent, allowExpense: true);
       }
+    }
+
+    // "সজীব সেই ধার থেকে ৩০০ টাকা ফেরত দিল", "করিম ৫০০ টাকা শোধ করেছে" —
+    // they paid me back (said about them, not "আমি").
+    if (ret && !w.contains(normalize('আমি')) && (_hasAny(text, _give3) || _hasNorm(text, const ['শোধ করল', 'শোধ করলো', 'শোধ করেছে', 'শোধ করছে', 'শোধ করে দিল', 'পরিশোধ করেছে', 'পরিশোধ করল']))) {
+      var person = '';
+      for (final k in known) {
+        if (text.contains(normalize(k))) {
+          person = k;
+          break;
+        }
+      }
+      if (person.isEmpty && w.isNotEmpty && _looksLikeName(w.first)) person = resolvePerson(w.first, known);
+      if (person.isNotEmpty) return LedgerAdd(said, person: person, amount: amount, kind: LedgerKind.received);
     }
 
     // 4) A name and an amount, but no clear direction: ask.
@@ -1291,9 +1373,15 @@ class Parser {
         ]));
         if (title.startsWith('পর ')) title = title.substring(3).trim();
         title = tidy(cutWords(title, [for (final d in bnWeekdays) ...[d, '$dে', '${d}ের'], 'সপ্তাহে', 'সপ্তাহে সপ্তাহে', 'প্রত্যেক', 'অ্যালার্ম', 'এলার্ম']));
+        // A time said in words ("আটটায়", "সাড়ে ছয়টায়") is not part of the title.
+        title = tidy([for (final x in title.split(RegExp(r'\s+'))) if (!_numberWord.hasMatch(normalize(x)) && !const ['সাড়ে', 'সোয়া', 'পৌনে'].contains(x)) x].join(' '));
         if (title.isEmpty) title = defaultReminderTitle;
         // No time yet: the chat asks "কখন মনে করাব?".
         final alarmWord = _hasNorm(text, const ['অ্যালার্ম', 'এলার্ম', 'alarm']);
+        // A day but no hour for a one-time reminder ("কাল মনে করিয়ে দিও"): ask the hour, keep the day.
+        if (repeat == Repeat.none && when != null && when.hasDay && !when.hasTime) {
+          return ReminderAdd(said, title: title, at: noTimeYet, alarm: alarmWord, minutesBefore: before, day: when.day);
+        }
         return ReminderAdd(said, title: title, at: at ?? noTimeYet, repeat: repeat, alarm: alarmWord, weekdays: repeat == Repeat.weekly ? weekDays : const [], minutesBefore: before);
       }
     }
@@ -1646,6 +1734,13 @@ final Set<String> _no = {for (final x in _noRaw) fold(x)};
 
 /// A spoken answer: true for হ্যাঁ and its kin ("জি", "ঠিক আছে", "রাখো",
 /// "ok"…), false for না/বাতিল/থাক/"দরকার নেই", null when unclear.
+/// "বাদ দাও", "থাক", "বাতিল করো", "cancel" — said alone.
+bool isCancel(String said) {
+  final t = normalize(said.replaceAll(RegExp(r'[।.!,]'), ' '));
+  const all = ['বাদ দাও', 'বাদ দেন', 'বাদ দিন', 'বাদ', 'থাক', 'থাক দরকার নেই', 'থাকুক', 'বাতিল', 'বাতিল করো', 'বাতিল করুন', 'বাতিল কর', 'cancel', 'না থাক', 'দরকার নেই', 'এটা বাদ দাও', 'ওটা বাদ দাও'];
+  return all.map(normalize).contains(t);
+}
+
 bool? yesNo(String said) {
   final t = normalize(said);
   if (t.isEmpty) return null;

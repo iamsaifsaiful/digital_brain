@@ -1679,4 +1679,59 @@ void main() {
       }
     });
   });
+
+  group('required examples: money meaning, negatives, corrections, dates', () {
+    final now = DateTime(2026, 10, 15, 21, 0);
+    final sajib = [LedgerEntry(person: 'সজীব', kind: LedgerKind.lent, amount: 500, date: DateTime(2026, 10, 14))];
+    Command one(String s, [List<LedgerEntry> l = const []]) => parseAll(s, l, now: now).first;
+
+    test('who gave whom', () {
+      expect((one('সজীবকে পাঁচশ টাকা ধার দিলাম') as LedgerAdd).kind, LedgerKind.lent);
+      expect((one('সজীবকে পাঁচশ টাকা ধার দিলাম') as LedgerAdd).amount, 500);
+      expect((one('সজীবের কাছ থেকে পাঁচশ টাকা ধার নিলাম') as LedgerAdd).kind, LedgerKind.borrowed);
+      final back = one('সজীব সেই ধার থেকে তিনশ টাকা ফেরত দিল', sajib) as LedgerAdd;
+      expect((back.person, back.amount, back.kind), ('সজীব', 300, LedgerKind.received));
+      expect((one('সজীব ধার থেকে দুইশ ফেরত দিয়েছে', sajib) as LedgerAdd).kind, LedgerKind.received);
+      expect((one('আমি সজীবকে ধার থেকে ২০০ টাকা ফেরত দিলাম', sajib) as LedgerAdd).kind, LedgerKind.repaid);
+      // "দিলাম" alone: never guessed, the app asks.
+      expect((one('সজীবকে পাঁচশ টাকা দিলাম') as LedgerAdd).needsChoice, isTrue);
+      expect(one('সজীবের কাছে কত পাই?', sajib), isA<LedgerQuery>());
+      expect(one('সজীবের কাছে ৫০০ টাকা পাই', sajib), isA<LedgerSet>());
+    });
+
+    test('amounts in words and digits are the same', () {
+      for (final (s, n) in [('রহিমকে পাঁচশ টাকা ধার দিলাম', 500), ('রহিমকে 500 taka ধার দিলাম', 500), ('রহিমকে ৫০০ টাকা ধার দিলাম', 500), ('রহিমকে দেড় হাজার টাকা ধার দিলাম', 1500), ('রহিমকে আড়াইশ টাকা ধার দিলাম', 250), ('রহিমকে সাড়ে তিন হাজার টাকা ধার দিলাম', 3500)]) {
+        expect((one(s) as LedgerAdd).amount, n, reason: s);
+      }
+    });
+
+    test('negatives are not transactions; "বাদ দাও" deletes nothing', () {
+      for (final s in ['সজীবকে টাকা দিইনি', 'সজীবকে ৫০০ টাকা দেইনি', 'সজীব টাকা ফেরত দেয়নি']) {
+        expect(one(s, sajib), isA<SmallTalk>(), reason: s);
+      }
+      expect((one('বাদ দাও') as SmallTalk).kind, Talk.cancelled);
+      expect(isCancel('থাক'), isTrue);
+      expect(isCancel('থাকার জায়গা'), isFalse);
+      // "নেই" about a balance: what the book says is shown, nothing settled or removed.
+      expect(one('সজীবের আর কোনো টাকা বাকি নেই', sajib), isA<LedgerQuery>());
+    });
+
+    test('a correction is an edit, not a new entry', () {
+      expect((one('আগের পাঁচশ নয়, সাতশ হবে', sajib) as ManageItem).action, 'edit');
+      expect((one('৫০০ না ৭০০ হবে', sajib) as ManageItem).action, 'edit');
+    });
+
+    test('days: a reminder asks the hour; money said with a past day keeps that day', () {
+      final r = one('কাল রাত আটটায় ওষুধ খেতে মনে করাইও') as ReminderAdd;
+      expect((r.at, r.title), (DateTime(2026, 10, 16, 20), 'ওষুধ খেতে'));
+      final noHour = one('কাল মনে করিয়ে দিও') as ReminderAdd;
+      expect(noHour.needsTime, isTrue);
+      expect(noHour.day, DateTime(2026, 10, 16));
+      expect((one('আধা ঘণ্টা পরে মনে করিয়ে দিও') as ReminderAdd).at, DateTime(2026, 10, 15, 21, 30));
+      expect((one('সজীবকে গতকাল পাঁচশ টাকা ধার দিছি') as LedgerAdd).date, DateTime(2026, 10, 14));
+      expect((one('কাল রহিমকে ৫০০ টাকা ধার দিলাম') as LedgerAdd).date, DateTime(2026, 10, 14));
+      expect((one('রহিমকে ৫০০ টাকা ধার দিলাম') as LedgerAdd).date, isNull);
+      expect((one('রহিমের কাছ থেকে ৫০০ টাকা ধার নিছি') as LedgerAdd).kind, LedgerKind.borrowed);
+    });
+  });
 }
