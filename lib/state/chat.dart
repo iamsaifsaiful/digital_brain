@@ -1505,6 +1505,8 @@ class ChatController extends ChangeNotifier {
           note: c.transcript.trim(),
           date: _now,
           projectId: project?.id,
+          // "বড় দোকানে ৫০০০ টাকা বিক্রি": the shop named in the sentence.
+          shopId: brain.data.shops.length < 2 ? null : brain.data.shops.where((x) => normalize(c.transcript).contains(normalize(x.name))).firstOrNull?.id,
         ));
         final String done;
         if (project != null) {

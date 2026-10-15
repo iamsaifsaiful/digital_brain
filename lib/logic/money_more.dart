@@ -126,9 +126,15 @@ List<PersonBalance> customersOwing(AppData d) => balances(d.ledger).where((p) =>
 /// A day's sales: income entries in the "বিক্রি" category.
 const salesCategory = 'বিক্রি';
 
-({int count, int total}) salesOn(AppData d, DateTime day) {
+/// Does an entry with [shopId] belong to [shop]? Entries without a shop go
+/// to the first shop (sales said by voice, older records).
+bool ofShop(AppData d, String? shopId, Shop shop) => shopId == shop.id || (shopId == null && d.shops.isNotEmpty && d.shops.first.id == shop.id);
+
+/// A day's sales — all shops, or one [shop].
+({int count, int total}) salesOn(AppData d, DateTime day, {Shop? shop}) {
   var n = 0, t = 0;
   for (final e in d.cash) {
+    if (shop != null && !ofShop(d, e.shopId, shop)) continue;
     if (e.kind == CashKind.income && e.category == salesCategory && dayOnly(e.date) == dayOnly(day) && e.projectId == null) {
       n++;
       t += e.amount;
@@ -164,3 +170,36 @@ String receiptText({required String shop, required String customer, required Lis
   b.write(tr('ধন্যবাদ, আবার আসবেন।'));
   return b.toString();
 }
+
+
+/// A shop's money in [month]: sales, its costs, and what is left.
+({int sales, int costs, int count}) shopMonth(AppData d, Shop shop, DateTime month) {
+  var sales = 0, costs = 0, n = 0;
+  for (final e in d.cash) {
+    if (e.projectId != null || e.date.year != month.year || e.date.month != month.month) continue;
+    if (e.kind == CashKind.income && e.category == salesCategory && ofShop(d, e.shopId, shop)) {
+      sales += e.amount;
+      n++;
+    } else if (e.kind == CashKind.expense && e.shopId == shop.id) {
+      costs += e.amount;
+    }
+  }
+  return (sales: sales, costs: costs, count: n);
+}
+
+/// Customers who owe [shop] (the first shop also keeps dues written without a shop).
+List<PersonBalance> shopCustomersOwing(AppData d, Shop shop) =>
+    balances(d.ledger.where((e) => ofShop(d, e.shopId, shop))).where((p) => p.balance > 0).toList()..sort((a, b) => b.balance.compareTo(a.balance));
+
+/// The next receipt number in [shop].
+int nextReceiptNo(AppData d, Shop shop) => d.receipts.where((r) => r.shopId == shop.id).fold(0, (m, r) => r.no > m ? r.no : m) + 1;
+
+/// A kept receipt as text (to send again).
+String receiptTextOf(Receipt r, Shop shop) => receiptText(
+      shop: shop.name,
+      customer: r.customer,
+      lines: [for (final x in r.items) ReceiptLine(x.$1, x.$2, x.$3)],
+      paid: r.paid,
+      date: r.date,
+      no: r.no,
+    );

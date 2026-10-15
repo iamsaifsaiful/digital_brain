@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:digital_brain/app.dart';
+import 'package:digital_brain/logic/money_more.dart';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/services/ai.dart';
 import 'package:digital_brain/services/crypto.dart';
@@ -20,6 +21,7 @@ import 'package:digital_brain/screens/app_places.dart';
 import 'package:digital_brain/screens/chat_home.dart';
 import 'package:digital_brain/screens/inbox_screen.dart';
 import 'package:digital_brain/screens/calendar_screen.dart';
+import 'package:digital_brain/screens/tasks_screen.dart';
 import 'package:digital_brain/ui/file_view.dart';
 import 'package:digital_brain/ui/pdf_export.dart';
 import 'package:digital_brain/screens/notes_screen.dart';
@@ -655,6 +657,62 @@ void main() {
     expect(r.hour, 10);
     expect(r.daysBefore, 0);
     expect(rig.notifier.scheduled.single.at, DateTime(2026, 10, 10, 10, 0));
+  });
+
+  testWidgets('shops: the first visit asks for the shop; several shops, each with its own sales', (t) async {
+    final rig = await start(t);
+    final nav = t.state<NavigatorState>(find.byType(Navigator).first);
+    unawaited(nav.push(MaterialPageRoute(builder: (_) => const ShopScreen())));
+    await settle(t);
+    expect(find.text('প্রথমে দোকানটা যোগ করুন'), findsOneWidget);
+    await t.tap(find.text('দোকান যোগ করুন'));
+    await settle(t);
+    await t.enterText(find.byKey(const Key('shop-name')), 'সাইফ স্টোর');
+    await t.enterText(find.byKey(const Key('shop-phone')), '01711000000');
+    await t.enterText(find.byKey(const Key('shop-address')), 'মিরপুর ১০');
+    await t.tap(find.text('রাখুন'));
+    await settle(t);
+    expect(rig.brain.data.shops.single.address, 'মিরপুর ১০');
+    final first = rig.brain.data.shops.single;
+    final second = Shop(name: 'সাইফ ফার্মেসি');
+    await rig.brain.saveShop(second);
+    final now = rig.brain.services.now();
+    await rig.brain.saveCash(CashEntry(kind: CashKind.income, amount: 700, category: 'বিক্রি', date: now)); // said by voice: the first shop
+    await rig.brain.saveCash(CashEntry(kind: CashKind.income, amount: 300, category: 'বিক্রি', date: now, shopId: second.id));
+    await settle(t);
+    expect(find.text('আমার দোকান'), findsOneWidget);
+    expect(find.text('৳১,০০০'), findsWidgets); // both shops today
+    await t.tap(find.text('সাইফ ফার্মেসি'));
+    await settle(t);
+    expect(find.byType(ShopDetailScreen), findsOneWidget);
+    expect(find.text('৳৩০০'), findsWidgets);
+    expect(salesOn(rig.brain.data, now, shop: first).total, 700);
+    nav.popUntil((r) => r.isFirst);
+    await settle(t);
+  });
+
+  testWidgets('tasks: the ⏰ beside a task sets its reminder, with how long before in a number and a unit', (t) async {
+    final rig = await start(t, data: AppData(tasks: [Task(title: 'গ্যাস বিল দেওয়া')]));
+    final nav = t.state<NavigatorState>(find.byType(Navigator).first);
+    unawaited(nav.push(MaterialPageRoute(builder: (_) => const TasksScreen())));
+    await settle(t);
+    await t.tap(find.byTooltip('রিমাইন্ডার দিন'));
+    await settle(t);
+    expect(find.text('কতক্ষণ আগে মনে করাবে?'), findsOneWidget);
+    await t.enterText(find.byKey(const Key('before-number')), '২');
+    await t.tap(find.byKey(const Key('before-unit')));
+    await settle(t);
+    await t.tap(find.text('ঘণ্টা আগে').last);
+    await settle(t);
+    await t.tap(find.text('সেভ করুন'));
+    await settle(t);
+    final r = rig.brain.data.reminders.single;
+    expect(r.title, 'গ্যাস বিল দেওয়া');
+    expect(r.minutesBefore, 120);
+    expect(rig.brain.data.tasks.single.reminderId, r.id);
+    expect(find.byTooltip('রিমাইন্ডার দিন'), findsNothing); // now the ⏰ shows it is set
+    nav.popUntil((r) => r.isFirst);
+    await settle(t);
   });
 
   testWidgets('voice: an alarm said aloud is set as an alarm', (t) async {

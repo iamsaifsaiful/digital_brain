@@ -22,6 +22,7 @@ import 'sound_screen.dart';
 import 'special_days_screen.dart';
 import 'store_more_screens.dart';
 import 'vault_screen.dart';
+import '../ui/pdf_export.dart';
 
 /// The page for a part of the app (see logic/app_map.dart), or null for the
 /// four main tabs (opened with [openPlace]).
@@ -73,6 +74,8 @@ Future<void> openPlace(BuildContext context, String id, {String? folder}) async 
       goToTab(context, ShellTab.money, money: MoneyPart.loans);
     case 'projects':
       goToTab(context, ShellTab.money, money: MoneyPart.projects);
+    case 'pdf':
+      await exportEverything(context);
     default:
       final page = placePage(id, folder: folder);
       if (page != null) await Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));

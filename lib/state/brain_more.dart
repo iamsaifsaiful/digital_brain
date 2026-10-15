@@ -521,7 +521,7 @@ extension BrainHealth on Brain {
       case ItemKind.cash:
         final e = data.cash.where((x) => x.id == t.id).firstOrNull;
         if (e != null && c.amount != null) {
-          await saveCash(CashEntry(id: e.id, kind: e.kind, amount: c.amount!, category: e.category, note: e.note, date: e.date, projectId: e.projectId, accountId: e.accountId));
+          await saveCash(CashEntry(id: e.id, kind: e.kind, amount: c.amount!, category: e.category, note: e.note, date: e.date, projectId: e.projectId, accountId: e.accountId, shopId: e.shopId));
         }
       default:
         break;

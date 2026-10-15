@@ -85,6 +85,7 @@ class _PickPartsState extends State<_PickParts> {
         ReportPart.ledger => Icons.handshake_outlined,
         ReportPart.projects => Icons.folder_open_rounded,
         ReportPart.accounts => Icons.savings_outlined,
+        ReportPart.shops => Icons.storefront_outlined,
         ReportPart.notes => Icons.sticky_note_2_outlined,
         ReportPart.contacts => Icons.contacts_outlined,
         ReportPart.docs => Icons.description_outlined,

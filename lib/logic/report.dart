@@ -25,6 +25,7 @@ enum ReportPart {
   ledger('ধার-দেনা', 'loans'),
   projects('আলাদা হিসাব', 'separate-accounts'),
   accounts('অ্যাকাউন্ট, সঞ্চয় ও কিস্তি', 'accounts'),
+  shops('দোকান', 'shops'),
   notes('নোট ও অন্যান্য', 'notes'),
   contacts('যোগাযোগ', 'contacts'),
   docs('ডকুমেন্টস', 'documents'),
@@ -40,7 +41,8 @@ enum ReportPart {
 /// Narrows a single part: one month of আয়-ব্যয়, one আলাদা হিসাব, one
 /// person's ধার-দেনা.
 class ReportScope {
-  const ReportScope({this.month, this.projectId, this.personKey});
+  const ReportScope({this.month, this.projectId, this.personKey, this.shopId});
+  final String? shopId;
   final DateTime? month;
   final String? projectId;
   final String? personKey;
@@ -100,6 +102,8 @@ Map<String, Object?> reportSpec(AppData d, Set<ReportPart> parts, DateTime now, 
         _projects(doc, d, scope.projectId);
       case ReportPart.accounts:
         _accounts(doc, d);
+      case ReportPart.shops:
+        _shops(doc, d, now, scope.shopId);
       case ReportPart.notes:
         _notes(doc, d);
       case ReportPart.contacts:
@@ -602,4 +606,48 @@ void _memories(_Doc doc, AppData d) {
     ],
     w: [2.2, 7],
   );
+}
+
+
+void _shops(_Doc doc, AppData d, DateTime now, String? onlyId) {
+  final shops = [for (final x in d.shops) if (onlyId == null || x.id == onlyId) x];
+  if (shops.isEmpty) return doc.none(tr('দোকান'));
+  for (final shop in shops) {
+    final m = shopMonth(d, shop, now);
+    doc.h2(shop.name);
+    if (shop.phone.isNotEmpty || shop.address.isNotEmpty) doc.p([if (shop.phone.isNotEmpty) shop.phone, if (shop.address.isNotEmpty) shop.address].join(' · '), muted: true);
+    doc.stats([
+      [trf('{0}-এর বিক্রি', [monthName(now.month)]), taka(m.sales), 'g'],
+      [tr('এ মাসের খরচ'), taka(m.costs), 'o'],
+      [tr('এ মাসে থাকল'), '${m.sales - m.costs < 0 ? '−' : ''}${taka(m.sales - m.costs)}', m.sales - m.costs < 0 ? 'o' : 'g'],
+    ]);
+    final entries = [for (final e in d.cash) if (e.projectId == null && ((e.kind == CashKind.income && e.category == salesCategory && ofShop(d, e.shopId, shop)) || (e.kind == CashKind.expense && e.shopId == shop.id))) e]
+      ..sort((a, b) => b.date.compareTo(a.date));
+    if (entries.isNotEmpty) {
+      doc.table(
+        [tr('তারিখ'), tr('ধরন'), tr('বিবরণ'), tr('টাকা')],
+        [
+          for (final e in entries.take(400))
+            [_d(e.date), e.kind == CashKind.income ? tr('বিক্রি') : tr(e.category), e.note, cell('${e.kind == CashKind.income ? '+' : '−'}${taka(e.amount)}', tone: e.kind == CashKind.income ? 'g' : 'o', bold: true)],
+        ],
+        w: [2.2, 2, 4, 2],
+        a: ['l', 'l', 'l', 'r'],
+      );
+    }
+    final rs = d.receipts.where((r) => r.shopId == shop.id).toList()..sort((a, b) => b.date.compareTo(a.date));
+    if (rs.isNotEmpty) {
+      doc.table(
+        [tr('রসিদ'), tr('তারিখ'), tr('গ্রাহক'), tr('মোট'), tr('বাকি')],
+        [
+          for (final r in rs) ['#${bnDigits(r.no)}', _d(r.date), r.customer.isEmpty ? '—' : r.customer, taka(r.total), r.due > 0 ? cell(taka(r.due), tone: 'o') : '—'],
+        ],
+        w: [1.2, 2.2, 3, 2, 1.8],
+        a: ['l', 'l', 'l', 'r', 'r'],
+      );
+    }
+    final owing = shopCustomersOwing(d, shop);
+    if (owing.isNotEmpty) {
+      doc.table([tr('কাস্টমার'), tr('বাকি')], [for (final p in owing) [p.name, cell(taka(p.balance), tone: 'o', bold: true)]], w: [5, 2], a: ['l', 'r']);
+    }
+  }
 }

@@ -652,3 +652,66 @@ class InboxMessage {
         state: _s(j['state']),
       );
 }
+
+// ───────────────────────── Shops ─────────────────────────
+
+/// One of the user's shops or businesses. The first one also takes the
+/// sales said without a shop ("আজ ৫০০০ টাকা বিক্রি হলো").
+class Shop {
+  Shop({String? id, required this.name, this.phone = '', this.address = '', DateTime? createdAt})
+      : id = id ?? newId(),
+        createdAt = createdAt ?? DateTime.now();
+  final String id;
+  final String name;
+  final String phone;
+  final String address;
+  final DateTime createdAt;
+
+  Shop copyWith({String? name, String? phone, String? address}) =>
+      Shop(id: id, name: name ?? this.name, phone: phone ?? this.phone, address: address ?? this.address, createdAt: createdAt);
+
+  Map<String, Object?> toJson() => {'id': id, 'name': name, if (phone.isNotEmpty) 'phone': phone, if (address.isNotEmpty) 'address': address, 'createdAt': createdAt.toIso8601String()};
+  factory Shop.fromJson(Map<String, Object?> j) => Shop(id: j['id'] as String?, name: _s(j['name']), phone: _s(j['phone']), address: _s(j['address']), createdAt: _d(j['createdAt']));
+}
+
+/// A receipt (memo) given in a shop.
+class Receipt {
+  Receipt({String? id, required this.shopId, required this.no, this.customer = '', this.phone = '', required this.items, required this.paid, required this.date}) : id = id ?? newId();
+  final String id;
+  final String shopId;
+  final int no;
+  final String customer;
+  final String phone;
+
+  /// (item, quantity, unit price).
+  final List<(String, int, int)> items;
+  final int paid;
+  final DateTime date;
+
+  int get total => items.fold(0, (s, x) => s + x.$2 * x.$3);
+  int get due => (total - paid).clamp(0, total);
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'shopId': shopId,
+        'no': no,
+        if (customer.isNotEmpty) 'customer': customer,
+        if (phone.isNotEmpty) 'phone': phone,
+        'items': [for (final x in items) {'i': x.$1, 'q': x.$2, 'p': x.$3}],
+        'paid': paid,
+        'date': date.toIso8601String(),
+      };
+  factory Receipt.fromJson(Map<String, Object?> j) => Receipt(
+        id: j['id'] as String?,
+        shopId: _s(j['shopId']),
+        no: _i(j['no']),
+        customer: _s(j['customer']),
+        phone: _s(j['phone']),
+        items: [
+          for (final x in (j['items'] as List? ?? const []))
+            if (x is Map) (_s(x['i']), _i(x['q'], 1), _i(x['p'])),
+        ],
+        paid: _i(j['paid']),
+        date: _d(j['date']) ?? DateTime.now(),
+      );
+}

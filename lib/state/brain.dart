@@ -979,6 +979,41 @@ class Brain extends ChangeNotifier {
     await _save();
   }
 
+  Future<void> saveShop(Shop s) async {
+    _upsert(data.shops, s, (x) => x.id);
+    await _save();
+  }
+
+  /// Removes a shop and its receipts. Its sales stay in আয়-ব্যয় (with the
+  /// first remaining shop, if any).
+  Future<void> deleteShop(String id) async {
+    data.shops.removeWhere((x) => x.id == id);
+    data.receipts.removeWhere((r) => r.shopId == id);
+    for (var i = 0; i < data.cash.length; i++) {
+      final e = data.cash[i];
+      if (e.shopId == id) {
+        data.cash[i] = CashEntry(id: e.id, kind: e.kind, amount: e.amount, category: e.category, note: e.note, date: e.date, projectId: e.projectId, accountId: e.accountId);
+      }
+    }
+    for (var i = 0; i < data.ledger.length; i++) {
+      final e = data.ledger[i];
+      if (e.shopId == id) {
+        data.ledger[i] = LedgerEntry(id: e.id, person: e.person, phone: e.phone, kind: e.kind, amount: e.amount, date: e.date, note: e.note, createdAt: e.createdAt, due: e.due, reminderId: e.reminderId);
+      }
+    }
+    await _save();
+  }
+
+  Future<void> deleteReceipt(String id) async {
+    data.receipts.removeWhere((r) => r.id == id);
+    await _save();
+  }
+
+  Future<void> saveReceipt(Receipt r) async {
+    _upsert(data.receipts, r, (x) => x.id);
+    await _save();
+  }
+
   Future<void> saveProject(Project p) async {
     _upsert(data.projects, p, (x) => x.id);
     await _save();

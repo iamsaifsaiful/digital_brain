@@ -487,8 +487,11 @@ class ProjectScreen extends StatelessWidget {
 // ───────────────────────── Add / edit an entry ─────────────────────────
 
 class CashFormScreen extends StatefulWidget {
-  const CashFormScreen({super.key, this.entry, this.kind = CashKind.expense, this.projectId, this.category, this.amount, this.note, this.date});
+  const CashFormScreen({super.key, this.entry, this.kind = CashKind.expense, this.projectId, this.category, this.amount, this.note, this.date, this.shopId});
   final CashEntry? entry;
+
+  /// A sale or cost of this shop.
+  final String? shopId;
   final CashKind kind;
   final String? projectId;
 
@@ -538,6 +541,7 @@ class _CashFormScreenState extends State<CashFormScreen> {
       date: _date,
       projectId: _projectId,
       accountId: _accountId,
+      shopId: widget.entry?.shopId ?? widget.shopId,
     ));
     if (mounted) Navigator.of(context).pop();
   }

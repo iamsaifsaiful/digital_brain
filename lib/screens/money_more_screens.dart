@@ -14,7 +14,9 @@ import '../ui/forms.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'money_screens.dart';
-import 'person_screen.dart';
+import 'shop_screens.dart';
+
+export 'shop_screens.dart' show ShopScreen, ShopDetailScreen;
 import '../ui/pdf_export.dart';
 
 void _push(BuildContext context, Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
@@ -74,8 +76,9 @@ class ShopTodayCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final now = brain.services.now();
-    final s = salesOn(brain.data, now);
-    final due = customersOwing(brain.data).fold(0, (a, p) => a + p.balance);
+    final d = brain.data;
+    final s = salesOn(d, now);
+    final due = d.shops.isEmpty ? customersOwing(d).fold(0, (a, p) => a + p.balance) : {for (final sh in d.shops) for (final p in shopCustomersOwing(d, sh)) p.key: p.balance}.values.fold(0, (a, b) => a + b);
     return Panel(
       padding: const EdgeInsets.all(14),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -90,11 +93,27 @@ class ShopTodayCard extends StatelessWidget {
               label: tr('বিক্রি'),
               icon: Icons.add_rounded,
               height: 44,
-              onPressed: () => _push(context, const CashFormScreen(kind: CashKind.income, category: salesCategory)),
+              onPressed: () async {
+                final shop = await pickShop(context);
+                if (shop == false || !context.mounted) return;
+                _push(context, CashFormScreen(kind: CashKind.income, category: salesCategory, shopId: (shop as Shop?)?.id));
+              },
             ),
           ),
           const SizedBox(width: 8),
-          Expanded(child: PrimaryButton(label: tr('রসিদ'), icon: Icons.receipt_long_outlined, height: 44, color: C.fill, onPressed: () => _push(context, const ReceiptScreen()))),
+          Expanded(
+            child: PrimaryButton(
+              label: tr('রসিদ'),
+              icon: Icons.receipt_long_outlined,
+              height: 44,
+              color: C.fill,
+              onPressed: () async {
+                final shop = await pickShop(context);
+                if (shop == false || !context.mounted) return;
+                _push(context, ReceiptScreen(shop: shop as Shop?));
+              },
+            ),
+          ),
         ]),
       ]),
     );
@@ -925,76 +944,6 @@ class _ZakatScreenState extends State<ZakatScreen> {
 
 // ───────────────────────── Shop ─────────────────────────
 
-class ShopScreen extends StatelessWidget {
-  const ShopScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final brain = BrainScope.of(context);
-    final d = brain.data;
-    final now = brain.services.now();
-    final owing = customersOwing(d);
-    final week = [for (var i = 6; i >= 0; i--) now.subtract(Duration(days: i))];
-    final sales = [for (final day in week) salesOn(d, day).total];
-    final maxS = sales.fold(1, math.max);
-    return Scaffold(
-      body: SafeArea(
-        child: Column(children: [
-          TopBar(title: tr('দোকান')),
-          Expanded(
-            child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
-              const ShopTodayCard(),
-              const SizedBox(height: 14),
-              SectionTitle(tr('গত ৭ দিনের বিক্রি')),
-              Panel(
-                padding: const EdgeInsets.all(14),
-                child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  for (final (i, v) in sales.indexed)
-                    Expanded(
-                      child: Column(children: [
-                        Text(v == 0 ? '' : bnNumber(v), style: body(10, color: C.muted), maxLines: 1, overflow: TextOverflow.clip),
-                        const SizedBox(height: 2),
-                        Container(height: 80.0 * v / maxS + 2, margin: const EdgeInsets.symmetric(horizontal: 4), decoration: BoxDecoration(color: i == 6 ? C.green : C.greenTint, borderRadius: BorderRadius.circular(4))),
-                        const SizedBox(height: 4),
-                        Text(weekdayShort(week[i]), style: body(11, color: C.muted)),
-                      ]),
-                    ),
-                ]),
-              ),
-              const SizedBox(height: 14),
-              SectionTitle(trf('কাস্টমারের বাকি · {0} জন', [bnDigits(owing.length)])),
-              if (owing.isEmpty)
-                Text(tr('কারো কাছে বাকি নেই। “করিম ৫০০ টাকার মাল বাকিতে নিল” বললেই খাতায় উঠবে।'), style: body(14, color: C.muted, height: 1.5))
-              else
-                Panel(
-                  child: Rows(children: [
-                    for (final p in owing)
-                      ListRow(
-                        leading: Avatar(name: p.name, fg: C.orange, bg: C.orangeTint),
-                        title: p.name,
-                        subtitle: [taka(p.balance), if (p.last != null) daysLeftLabel(p.last!, now)].join(' · '),
-                        trailing: p.phone.isEmpty
-                            ? Icon(Icons.chevron_right_rounded, color: C.muted)
-                            : TextButton(
-                                onPressed: () => brain.services.launcher.open(Via.whatsapp, p.phone, text: dueMessage(p.name, p.balance)),
-                                child: Text(tr('তাগাদা'), style: body(14, weight: FontWeight.w600, color: C.green)),
-                              ),
-                        onTap: () => _push(context, PersonScreen(person: p.name, accountKey: p.key)),
-                      ),
-                  ]),
-                ),
-              if (owing.any((p) => p.phone.isNotEmpty)) ...[
-                const SizedBox(height: 8),
-                Text(tr('“তাগাদা” চাপলে WhatsApp-এ মেসেজ তৈরি থাকবে, আপনি শুধু পাঠাবেন।'), style: body(12.5, color: C.muted)),
-              ],
-            ]),
-          ),
-        ]),
-      ),
-    );
-  }
-}
-
 /// The polite reminder sent to a customer who owes.
 String dueMessage(String name, int amount) =>
     trf('আসসালামু আলাইকুম {0} ভাই, আপনার কাছে আমার {1} বাকি আছে। সুবিধামতো দিয়ে দিলে উপকার হয়। ধন্যবাদ।', [name, taka(amount)]);
@@ -1002,7 +951,10 @@ String dueMessage(String name, int amount) =>
 /// A receipt (memo): items, total, paid; sent by WhatsApp; the sale and any
 /// due are recorded.
 class ReceiptScreen extends StatefulWidget {
-  const ReceiptScreen({super.key});
+  const ReceiptScreen({super.key, this.shop});
+
+  /// The shop it is given in (its name heads the receipt, and it is kept there).
+  final Shop? shop;
   @override
   State<ReceiptScreen> createState() => _ReceiptScreenState();
 }
@@ -1018,6 +970,10 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
   void initState() {
     super.initState();
     _addRow();
+    if (widget.shop != null) {
+      _shop.text = widget.shop!.name;
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final v = await BrainScope.read(context).services.lock.keys.read('shop_name');
       if (v != null && mounted) setState(() => _shop.text = v);
@@ -1055,16 +1011,33 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
     final paid = _paid.text.trim().isEmpty ? total : (readInt(_paid.text) ?? 0).clamp(0, total);
     final now = brain.services.now();
     final keys = brain.services.lock.keys;
-    final no = (int.tryParse(await keys.read('receipt_no') ?? '') ?? 0) + 1;
-    await keys.write('receipt_no', '$no');
-    if (_shop.text.trim().isNotEmpty) await keys.write('shop_name', _shop.text.trim());
+    final shop = widget.shop ?? brain.data.shops.firstOrNull;
+    final int no;
+    if (shop != null) {
+      no = nextReceiptNo(brain.data, shop);
+    } else {
+      no = (int.tryParse(await keys.read('receipt_no') ?? '') ?? 0) + 1;
+      await keys.write('receipt_no', '$no');
+      if (_shop.text.trim().isNotEmpty) await keys.write('shop_name', _shop.text.trim());
+    }
     final text = receiptText(shop: _shop.text, customer: _customer.text, lines: lines, paid: paid, date: now, no: no);
     // Record it: the paid part as a sale, the rest as the customer's due.
     if (paid > 0) {
-      await brain.saveCash(CashEntry(kind: CashKind.income, amount: paid, category: salesCategory, note: lines.map((l) => l.item).join(', '), date: now));
+      await brain.saveCash(CashEntry(kind: CashKind.income, amount: paid, category: salesCategory, note: lines.map((l) => l.item).join(', '), date: now, shopId: shop?.id));
     }
     if (total - paid > 0 && _customer.text.trim().isNotEmpty) {
-      await brain.saveEntry(LedgerEntry(person: _customer.text.trim(), phone: _phone.text.trim(), kind: LedgerKind.lent, amount: total - paid, date: dayOnly(now), note: trf('রসিদ #{0}', [no])));
+      await brain.saveEntry(LedgerEntry(person: _customer.text.trim(), phone: _phone.text.trim(), kind: LedgerKind.lent, amount: total - paid, date: dayOnly(now), note: trf('রসিদ #{0}', [no]), shopId: shop?.id));
+    }
+    if (shop != null) {
+      await brain.saveReceipt(Receipt(
+        shopId: shop.id,
+        no: no,
+        customer: _customer.text.trim(),
+        phone: _phone.text.trim(),
+        items: [for (final l in lines) (l.item, l.qty, l.price)],
+        paid: paid,
+        date: now,
+      ));
     }
     if (_phone.text.trim().isNotEmpty) {
       await brain.services.launcher.open(Via.whatsapp, _phone.text.trim(), text: text);
@@ -1084,8 +1057,10 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
           TopBar(title: tr('রসিদ / মেমো')),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
-              TextField(controller: _shop, decoration: InputDecoration(labelText: tr('দোকানের নাম'))),
-              const SizedBox(height: 10),
+              if (widget.shop == null) ...[
+                TextField(controller: _shop, decoration: InputDecoration(labelText: tr('দোকানের নাম'))),
+                const SizedBox(height: 10),
+              ],
               Row(children: [
                 Expanded(child: TextField(controller: _customer, decoration: InputDecoration(labelText: tr('গ্রাহকের নাম')))),
                 const SizedBox(width: 8),

@@ -62,8 +62,12 @@ class LedgerEntry {
     DateTime? createdAt,
     this.due,
     this.reminderId,
+    this.shopId,
   })  : id = id ?? newId(),
         createdAt = createdAt ?? DateTime.now();
+
+  /// A customer's due from this shop (see [Shop]); null = personal or the first shop.
+  final String? shopId;
 
   /// When it is to be paid back (for a loan given or taken), if agreed.
   final DateTime? due;
@@ -97,6 +101,7 @@ class LedgerEntry {
         createdAt: createdAt,
         due: clearDue ? null : (due ?? this.due),
         reminderId: clearReminder ? null : (reminderId ?? this.reminderId),
+        shopId: shopId,
       );
 
   Map<String, Object?> toJson() => {
@@ -110,6 +115,7 @@ class LedgerEntry {
         'createdAt': createdAt.toIso8601String(),
         if (due != null) 'due': due!.toIso8601String(),
         if (reminderId != null) 'reminderId': reminderId,
+        if (shopId != null) 'shopId': shopId,
       };
 
   factory LedgerEntry.fromJson(Map<String, Object?> j) => LedgerEntry(
@@ -123,6 +129,7 @@ class LedgerEntry {
         createdAt: _date(j['createdAt']),
         due: _date(j['due']),
         reminderId: j['reminderId'] as String?,
+        shopId: j['shopId'] as String?,
       );
 }
 
@@ -496,7 +503,7 @@ enum CashKind {
 /// Money in or out that is not owed by anyone: monthly spending and
 /// income, or a project's receipts and costs ([projectId] set).
 class CashEntry {
-  CashEntry({String? id, required this.kind, required this.amount, this.category = 'অন্যান্য', this.note = '', required this.date, this.projectId, this.accountId})
+  CashEntry({String? id, required this.kind, required this.amount, this.category = 'অন্যান্য', this.note = '', required this.date, this.projectId, this.accountId, this.shopId})
       : id = id ?? newId();
 
   final String id;
@@ -512,6 +519,9 @@ class CashEntry {
   /// The account the money came into or went out of (see [MoneyAccount]); null = not said.
   final String? accountId;
 
+  /// The shop (see [Shop]) a sale or shop cost belongs to; null = the first shop / not a shop.
+  final String? shopId;
+
   Map<String, Object?> toJson() => {
         'id': id,
         'kind': kind.name,
@@ -521,6 +531,7 @@ class CashEntry {
         'date': date.toIso8601String(),
         'projectId': projectId,
         if (accountId != null) 'accountId': accountId,
+        if (shopId != null) 'shopId': shopId,
       };
 
   factory CashEntry.fromJson(Map<String, Object?> j) => CashEntry(
@@ -532,6 +543,7 @@ class CashEntry {
         date: _date(j['date']) ?? DateTime.now(),
         projectId: j['projectId'] as String?,
         accountId: j['accountId'] as String?,
+        shopId: j['shopId'] as String?,
       );
 }
 
@@ -794,8 +806,12 @@ class AppData {
     List<HealthLog>? health,
     Map<String, String>? vaccines,
     List<InboxMessage>? inbox,
+    List<Shop>? shops,
+    List<Receipt>? receipts,
   })  : tasks = tasks ?? [],
         inbox = inbox ?? [],
+        shops = shops ?? [],
+        receipts = receipts ?? [],
         members = members ?? [],
         health = health ?? [],
         vaccines = vaccines ?? {},
@@ -849,6 +865,12 @@ class AppData {
   /// Messages read from other apps' notifications (newest last).
   final List<InboxMessage> inbox;
 
+  /// The user's shops (দোকান), first one first.
+  final List<Shop> shops;
+
+  /// Receipts made in the shops.
+  final List<Receipt> receipts;
+
   static const schema = 1;
 
   /// Every tag in use, by name.
@@ -886,6 +908,8 @@ class AppData {
         'health': health.map((e) => e.toJson()).toList(),
         if (vaccines.isNotEmpty) 'vaccines': vaccines,
         if (inbox.isNotEmpty) 'inbox': inbox.map((e) => e.toJson()).toList(),
+        if (shops.isNotEmpty) 'shops': shops.map((e) => e.toJson()).toList(),
+        if (receipts.isNotEmpty) 'receipts': receipts.map((e) => e.toJson()).toList(),
       };
 
   factory AppData.fromJson(Map<String, Object?> j) {
@@ -916,6 +940,8 @@ class AppData {
       emergency: j['emergency'] is Map ? EmergencyCard.fromJson((j['emergency'] as Map).cast<String, Object?>()) : const EmergencyCard(),
       members: list('members', FamilyMember.fromJson),
       inbox: list('inbox', InboxMessage.fromJson),
+      shops: list('shops', Shop.fromJson),
+      receipts: list('receipts', Receipt.fromJson),
       health: list('health', HealthLog.fromJson),
       vaccines: {for (final e in ((j['vaccines'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
     );

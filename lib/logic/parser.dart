@@ -731,6 +731,9 @@ class Parser {
     final opened = _open(said, text);
     if (opened != null) return opened;
 
+    // "পিডিএফ দাও", "সব তথ্যের PDF বানাও": the PDF picker.
+    if (_hasNorm(text, const ['পিডিএফ', 'pdf', 'পিডিএফে', 'পিডিএফ-এ']) && !isQuestionText(said)) return OpenPlace(said, place: 'pdf');
+
     // "কাল ভোর ৫টায় অ্যালার্ম দাও", "৬টায় ঘুম থেকে ডেকে দিও", "এলার্ম সেট করো ৭টা ৩০".
     final alarm = _alarm(said, text);
     if (alarm != null) return alarm;

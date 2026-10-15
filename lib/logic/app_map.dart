@@ -60,7 +60,8 @@ const appPlaces = <AppPlace>[
   AppPlace('savings', 'সঞ্চয় ও কিস্তি', ['সঞ্চয়', 'সেভিংস', 'কিস্তি', 'ডিপিএস', 'dps', 'savings'], 'সঞ্চয়ের লক্ষ্য, কিস্তি আর DPS-এর হিসাব, দেওয়ার দিনে মনে করানো।'),
   AppPlace('zakat', 'যাকাত', ['যাকাত', 'জাকাত', 'zakat'], 'সম্পদ লিখলে যাকাতের হিসাব করে দেয়।'),
   AppPlace('split', 'খরচ ভাগাভাগি', ['খরচ ভাগাভাগি', 'ভাগাভাগি', 'খরচ ভাগ', 'split'], 'কয়েকজনের খরচ ভাগ করে কে কাকে কত দেবে।'),
-  AppPlace('shop', 'দোকান', ['দোকানের হিসাব', 'দোকান', 'shop'], 'দোকানের বিক্রি, বাকি আর রসিদ।'),
+  AppPlace('shop', 'দোকান', ['দোকানের হিসাব', 'দোকান', 'shop', 'ব্যবসা', 'আমার দোকান'], 'একাধিক দোকান — প্রতিটার নাম, নম্বর, ঠিকানা; আলাদা বিক্রি, খরচ, কাস্টমারের বাকি আর রসিদ, উপরে সব দোকান মিলিয়ে।', ['দোকান খোলো']),
+  AppPlace('pdf', 'সবকিছু PDF আকারে', ['পিডিএফ', 'pdf', 'সব তথ্যের পিডিএফ', 'রিপোর্ট ডাউনলোড'], 'যা যা চান বেছে নিয়ে এক PDF-এ — ডাউনলোড, শেয়ার বা প্রিন্ট। প্রতিটা পাতার উপরেও PDF বোতাম আছে।', ['পিডিএফ দাও']),
   AppPlace('health', 'স্বাস্থ্য', ['স্বাস্থ্য', 'হেলথ', 'health', 'বিএমআই', 'bmi', 'প্রেশার', 'সুগার', 'ডায়াবেটিস', 'ওজন', 'টিকা', 'টিকার কার্ড', 'ভ্যাকসিন', 'vaccine'],
       'BMI, প্রেশার, সুগার, ওজন — গ্রাফসহ; পরিবারের প্রত্যেকের আলাদা; শিশুর টিকার কার্ড; ডাক্তারকে দেখানোর সারাংশ।', ['প্রেশার ১২০ বাই ৮০', 'আজ ওজন ৬৫ কেজি', 'আমার বিএমআই কত?']),
   AppPlace('medicines', 'ওষুধ', ['ওষুধ', 'ঔষধ', 'অষুধ', 'মেডিসিন', 'medicine', 'medicines'], 'কোন ওষুধ কখন খাবেন, সময়মতো মনে করানো; ফুরিয়ে এলে জানানো।', ['প্রতিদিন রাত ১০টায় ওষুধ']),
@@ -116,6 +117,9 @@ const docFolderWords = <String, List<String>>{
 // Endings a name may carry ("নোটে", "সেটিংসে", "ওষুধগুলো", "ডায়েরিতে").
 const _endings = ['গুলোতে', 'গুলো', 'গুলি', 'টাতে', 'টায়', 'টা', 'টি', 'তে', 'য়', 'এর', 'ের', 'র', 'এ', 'ে', 's'];
 
+/// Pages that "… দেখাও" simply opens.
+const _pagesToShow = {'shop', 'calendar', 'settings', 'help', 'notifications', 'sound', 'backup', 'accounts', 'savings', 'zakat', 'split', 'emergency', 'templates', 'pdf', 'alarms', 'inbox', 'health'};
+
 // Words that open a page.
 const _openVerbs = [
   'খুলে দাও', 'খুলে দেন', 'খুলে দিন', 'খুলে দে', 'খোলো', 'খোল', 'খুলো', 'খুলুন', 'খুলেন', 'খুলবে', 'ওপেন করো', 'ওপেন কর', 'ওপেন করেন', 'ওপেন', 'open', //
@@ -161,8 +165,12 @@ String _cutAll(String text, List<String> phrases) {
 /// note categories.
 (String, FolderHint?)? openRequest(String text, {List<FolderHint> folders = const []}) {
   final hasOpen = _openVerbs.any((v) => _cut(text, v) != null);
-  final hasShow = _showVerbs.any((v) => _cut(text, v) != null) && _containers.any((c) => _cut(text, c) != null);
-  if (!hasOpen && !hasShow) return null;
+  final showing = _showVerbs.any((v) => _cut(text, v) != null);
+  final hasShow = showing && _containers.any((c) => _cut(text, c) != null);
+  if (!hasOpen && !hasShow && !showing) return null;
+  // "দোকান দেখাও": a page with nothing to answer about it opens even
+  // with "দেখাও" alone ("রিমাইন্ডার দেখাও" is still a question).
+  final onlyPages = !hasOpen && !hasShow;
   // The thing named: a folder first (it is more specific), then a page.
   final candidates = <(String, FolderHint?, String)>[
     for (final f in folders)
@@ -174,7 +182,7 @@ String _cutAll(String text, List<String> phrases) {
     final rest = _cut(text, w);
     if (rest == null) continue;
     final left = _cutAll(rest, [..._openVerbs, ..._showVerbs, ..._containers, ..._fillers]);
-    if (left.isEmpty) return (id, folder);
+    if (left.isEmpty && (!onlyPages || _pagesToShow.contains(id))) return (id, folder);
     // Only the first (longest) name found counts.
     return null;
   }
