@@ -18,7 +18,18 @@ abstract class FileBridge {
 
   /// Asks where to keep the file (Download or any folder) and writes it
   /// there. True when saved, false when the user cancelled.
-  Future<bool> saveFile(Uint8List bytes, String fileName);
+  Future<bool> saveFile(Uint8List bytes, String fileName, {String? mime});
+
+  /// Opens the file in another app on the phone (a PDF reader, Word…).
+  /// False when no app can open it.
+  Future<bool> openWith(Uint8List bytes, String fileName, String mime);
+
+  /// A PDF opened for viewing: its id and number of pages (null: not readable).
+  Future<(int, int)?> pdfOpen(Uint8List bytes);
+
+  /// One page as a PNG, [width] pixels wide.
+  Future<Uint8List?> pdfPage(int id, int index, int width);
+  Future<void> pdfClose(int id);
 
   /// Lets the user pick a file; null when they cancel.
   Future<Uint8List?> pickFile();
@@ -73,9 +84,45 @@ class DeviceFiles implements FileBridge {
   static const _channel = MethodChannel('my_assistant/files');
 
   @override
-  Future<bool> saveFile(Uint8List bytes, String fileName) async {
-    final ok = await _channel.invokeMethod<bool>('saveFile', {'bytes': bytes, 'name': fileName});
+  Future<bool> saveFile(Uint8List bytes, String fileName, {String? mime}) async {
+    final ok = await _channel.invokeMethod<bool>('saveFile', {'bytes': bytes, 'name': fileName, if (mime != null) 'mime': mime});
     return ok ?? false;
+  }
+
+  @override
+  Future<bool> openWith(Uint8List bytes, String fileName, String mime) async {
+    try {
+      return await _channel.invokeMethod<bool>('openWith', {'bytes': bytes, 'name': fileName, 'mime': mime}) ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<(int, int)?> pdfOpen(Uint8List bytes) async {
+    try {
+      final r = await _channel.invokeMethod<Map<Object?, Object?>>('pdfOpen', {'bytes': bytes});
+      if (r == null) return null;
+      return ((r['id'] as num).toInt(), (r['pages'] as num).toInt());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<Uint8List?> pdfPage(int id, int index, int width) async {
+    try {
+      return await _channel.invokeMethod<Uint8List>('pdfPage', {'id': id, 'index': index, 'width': width});
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> pdfClose(int id) async {
+    try {
+      await _channel.invokeMethod<void>('pdfClose', {'id': id});
+    } catch (_) {}
   }
 
   @override
@@ -199,11 +246,29 @@ class FakeFiles implements FileBridge {
   String? savedName;
 
   @override
-  Future<bool> saveFile(Uint8List bytes, String fileName) async {
+  Future<bool> saveFile(Uint8List bytes, String fileName, {String? mime}) async {
     saved = bytes;
     savedName = fileName;
     return true;
   }
+
+  String? openedWith;
+  int pdfPages = 2;
+
+  @override
+  Future<bool> openWith(Uint8List bytes, String fileName, String mime) async {
+    openedWith = fileName;
+    return true;
+  }
+
+  @override
+  Future<(int, int)?> pdfOpen(Uint8List bytes) async => (1, pdfPages);
+
+  @override
+  Future<Uint8List?> pdfPage(int id, int index, int width) async => null;
+
+  @override
+  Future<void> pdfClose(int id) async {}
 
   @override
   Future<void> copy(String text, {Duration? clearAfter}) async => copied = text;

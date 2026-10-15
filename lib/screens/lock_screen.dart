@@ -24,6 +24,7 @@ class _LockScreenState extends State<LockScreen> {
   _Mode _mode = _Mode.loading;
   String _first = '';
   String? _message;
+  DateTime? _lockedUntil;
   bool _bioAvailable = false;
   int _padKey = 0;
 
@@ -83,10 +84,13 @@ class _LockScreenState extends State<LockScreen> {
           case PinOk():
             brain.unlock();
           case PinWrong(:final triesLeft):
-            setState(() => _message = trf('PIN মেলেনি। আর {0} বার চেষ্টা করা যাবে।', [bnDigits(triesLeft)]));
+            setState(() {
+              _lockedUntil = null;
+              _message = trf('PIN মেলেনি। আর {0} বার চেষ্টা করা যাবে।', [bnDigits(triesLeft)]);
+            });
             clear();
           case PinLocked(:final until):
-            setState(() => _message = lockedMessage(until, brain.services.now()));
+            setState(() => _lockedUntil = until);
             clear();
         }
       case _Mode.loading:
@@ -138,7 +142,9 @@ class _LockScreenState extends State<LockScreen> {
                           const SizedBox(height: 6),
                           SizedBox(
                             height: 44,
-                            child: _message == null
+                            child: _lockedUntil != null
+                                ? LockCountdown(key: ValueKey(_lockedUntil), until: _lockedUntil!, style: body(14, color: C.peach, weight: FontWeight.w600))
+                                : _message == null
                                 ? null
                                 : Text(_message!, style: body(14, color: C.peach, weight: FontWeight.w600), textAlign: TextAlign.center),
                           ),

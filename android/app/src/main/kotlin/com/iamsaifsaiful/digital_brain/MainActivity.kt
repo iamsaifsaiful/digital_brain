@@ -412,6 +412,104 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    // ── Looking at a kept PDF inside the app, or in another app ──
+
+    private class OpenPdf(val file: java.io.File, val fd: android.os.ParcelFileDescriptor, val renderer: android.graphics.pdf.PdfRenderer)
+
+    private val pdfs = HashMap<Int, OpenPdf>()
+    private var nextPdf = 1
+    private val pdfWorker = java.util.concurrent.Executors.newSingleThreadExecutor()
+
+    private fun fileViewChannel(call: io.flutter.plugin.common.MethodCall, result: MethodChannel.Result) {
+        when (call.method) {
+            "pdfOpen" -> {
+                val bytes = call.argument<ByteArray>("bytes")
+                if (bytes == null) {
+                    result.success(null)
+                    return
+                }
+                pdfWorker.execute {
+                    try {
+                        val dir = java.io.File(cacheDir, "view").apply { mkdirs() }
+                        val f = java.io.File(dir, "doc_${System.nanoTime()}.pdf")
+                        f.writeBytes(bytes)
+                        val fd = android.os.ParcelFileDescriptor.open(f, android.os.ParcelFileDescriptor.MODE_READ_ONLY)
+                        val r = android.graphics.pdf.PdfRenderer(fd)
+                        val id = synchronized(pdfs) { nextPdf++.also { pdfs[it] = OpenPdf(f, fd, r) } }
+                        runOnUiThread { result.success(mapOf("id" to id, "pages" to r.pageCount)) }
+                    } catch (e: Exception) {
+                        runOnUiThread { result.success(null) }
+                    }
+                }
+            }
+            "pdfPage" -> {
+                val id = call.argument<Int>("id") ?: 0
+                val index = call.argument<Int>("index") ?: 0
+                val width = (call.argument<Int>("width") ?: 1080).coerceIn(200, 2400)
+                pdfWorker.execute {
+                    val png = try {
+                        val doc = synchronized(pdfs) { pdfs[id] }
+                        if (doc == null) {
+                            null
+                        } else {
+                            val page = doc.renderer.openPage(index)
+                            try {
+                                val h = (width.toFloat() * page.height / page.width).toInt().coerceAtLeast(1)
+                                val bmp = android.graphics.Bitmap.createBitmap(width, h, android.graphics.Bitmap.Config.ARGB_8888)
+                                bmp.eraseColor(android.graphics.Color.WHITE)
+                                page.render(bmp, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                                val out = java.io.ByteArrayOutputStream()
+                                bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+                                bmp.recycle()
+                                out.toByteArray()
+                            } finally {
+                                page.close()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        null
+                    }
+                    runOnUiThread { result.success(png) }
+                }
+            }
+            "pdfClose" -> {
+                val id = call.argument<Int>("id") ?: 0
+                pdfWorker.execute {
+                    val doc = synchronized(pdfs) { pdfs.remove(id) }
+                    try {
+                        doc?.renderer?.close()
+                        doc?.fd?.close()
+                    } catch (_: Exception) {}
+                    doc?.file?.delete()
+                }
+                result.success(null)
+            }
+            "openWith" -> {
+                // A copy in the app's cache, offered to the phone's PDF/Word/… apps.
+                val bytes = call.argument<ByteArray>("bytes")
+                val name = (call.argument<String>("name") ?: "file").replace(Regex("[\\\\/:*?\"<>|]"), "_")
+                val mime = call.argument<String>("mime") ?: "application/octet-stream"
+                if (bytes == null) {
+                    result.success(false)
+                    return
+                }
+                try {
+                    val dir = java.io.File(cacheDir, "open").apply { mkdirs() }
+                    dir.listFiles()?.forEach { it.delete() }
+                    val f = java.io.File(dir, name)
+                    f.writeBytes(bytes)
+                    val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.files", f)
+                    val view = Intent(Intent.ACTION_VIEW).setDataAndType(uri, mime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    startActivity(Intent.createChooser(view, null).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+                    result.success(true)
+                } catch (e: Exception) {
+                    result.success(false)
+                }
+            }
+            else -> result.notImplemented()
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/alarm").setMethodCallHandler { call, result ->
@@ -428,7 +526,7 @@ class MainActivity : FlutterFragmentActivity() {
         }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/files").setMethodCallHandler { call, result ->
             if (call.method != "saveFile") {
-                result.notImplemented()
+                fileViewChannel(call, result)
                 return@setMethodCallHandler
             }
             val bytes = call.argument<ByteArray>("bytes")
@@ -442,7 +540,7 @@ class MainActivity : FlutterFragmentActivity() {
             pendingResult = result
             val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
-                type = "application/octet-stream"
+                type = call.argument<String>("mime") ?: "application/octet-stream"
                 putExtra(Intent.EXTRA_TITLE, name)
             }
             try {

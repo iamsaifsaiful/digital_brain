@@ -7,6 +7,7 @@ import '../logic/lang.dart';
 import '../models/models.dart';
 import '../services/launcher.dart';
 import '../state/brain.dart';
+import 'file_view.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -141,17 +142,7 @@ class _AttachmentsEditorState extends State<AttachmentsEditor> {
   Future<void> _view(Brain b, DocFile f) async {
     final bytes = await _bytes(b, f);
     if (bytes == null || !mounted) return;
-    if (!f.isImage) {
-      await b.services.files.shareFile(bytes, f.name, f.mime, widget.title);
-      return;
-    }
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => Scaffold(
-        backgroundColor: Colors.black,
-        appBar: AppBar(backgroundColor: Colors.black, foregroundColor: Colors.white, title: Text(widget.title, style: body(16, color: Colors.white))),
-        body: InteractiveViewer(maxScale: 6, child: Center(child: Image.memory(bytes))),
-      ),
-    ));
+    await viewFile(context, bytes, name: f.name, mime: f.mime, title: widget.title);
   }
 
   Future<void> _pick() async {

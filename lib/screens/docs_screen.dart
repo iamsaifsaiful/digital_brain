@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../ui/file_view.dart';
+
 import '../logic/bn.dart';
 import '../models/models.dart';
 import '../services/files.dart';
@@ -230,27 +232,12 @@ class _DocScreenState extends State<DocScreen> {
     await b.saveDoc(d.copyWith(fields: [...d.fields, DocField(label, value)]));
   }
 
+  /// A photo full screen, a PDF page by page, anything else in another app
+  /// — each can also be downloaded or shared.
   Future<void> _view(Brain b, Doc d, DocFile f) async {
     final bytes = await _bytes(b, f);
     if (bytes == null || !mounted) return;
-    if (!f.isImage) {
-      await b.services.files.shareFile(bytes, f.name, f.mime, d.title);
-      return;
-    }
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => Scaffold(
-        backgroundColor: Colors.black,
-        appBar: AppBar(
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          title: Text(d.title, style: body(16, color: Colors.white)),
-          actions: [
-            IconButton(tooltip: tr('পাঠান'), onPressed: () => b.services.files.shareFile(bytes, f.name, f.mime, d.title), icon: const Icon(Icons.share_outlined)),
-          ],
-        ),
-        body: InteractiveViewer(maxScale: 6, child: Center(child: Image.memory(bytes))),
-      ),
-    ));
+    await viewFile(context, bytes, name: f.name, mime: f.mime, title: d.title);
   }
 
   @override

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
@@ -135,6 +137,44 @@ class _PinPadState extends State<PinPad> {
   }
 }
 
+/// "অনেকবার ভুল হয়েছে। ২৮ সেকেন্ড পর…", counting down every second; then
+/// "এখন আবার PIN দিন".
+class LockCountdown extends StatefulWidget {
+  const LockCountdown({super.key, required this.until, required this.style});
+  final DateTime until;
+  final TextStyle style;
+
+  @override
+  State<LockCountdown> createState() => _LockCountdownState();
+}
+
+class _LockCountdownState extends State<LockCountdown> {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {});
+      if (!DateTime.now().isBefore(widget.until)) _tick?.cancel();
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final text = now.isBefore(widget.until) ? lockedMessage(widget.until, now) : tr('এখন আবার PIN দিন।');
+    return Text(text, style: widget.style, textAlign: TextAlign.center);
+  }
+}
+
 String lockedMessage(DateTime until, DateTime now) {
   final secs = until.difference(now).inSeconds.clamp(1, 99999);
   if (secs < 60) return trf('অনেকবার ভুল হয়েছে। {0} সেকেন্ড পর আবার চেষ্টা করুন।', [bnDigits(secs)]);
@@ -175,6 +215,7 @@ class _PinSheet extends StatefulWidget {
 
 class _PinSheetState extends State<_PinSheet> {
   String? _error;
+  DateTime? _lockedUntil;
 
   @override
   Widget build(BuildContext context) {
@@ -189,7 +230,11 @@ class _PinSheetState extends State<_PinSheet> {
             const SizedBox(height: 4),
             Text(widget.reason, style: body(14, color: C.muted), textAlign: TextAlign.center),
             const SizedBox(height: 8),
-            SizedBox(height: 22, child: _error == null ? null : Text(_error!, style: body(14, color: C.red, weight: FontWeight.w600), textAlign: TextAlign.center)),
+            SizedBox(
+                height: 22,
+                child: _lockedUntil != null
+                    ? LockCountdown(key: ValueKey(_lockedUntil), until: _lockedUntil!, style: body(14, color: C.red, weight: FontWeight.w600))
+                    : (_error == null ? null : Text(_error!, style: body(14, color: C.red, weight: FontWeight.w600), textAlign: TextAlign.center))),
             const SizedBox(height: 12),
             PinPad(
               dark: false,
@@ -200,10 +245,13 @@ class _PinSheetState extends State<_PinSheet> {
                   case PinOk():
                     Navigator.pop(context, true);
                   case PinWrong(:final triesLeft):
-                    setState(() => _error = trf('PIN মেলেনি। আর {0} বার চেষ্টা করা যাবে।', [bnDigits(triesLeft)]));
+                    setState(() {
+                      _lockedUntil = null;
+                      _error = trf('PIN মেলেনি। আর {0} বার চেষ্টা করা যাবে।', [bnDigits(triesLeft)]);
+                    });
                     clear();
                   case PinLocked(:final until):
-                    setState(() => _error = lockedMessage(until, brain.services.now()));
+                    setState(() => _lockedUntil = until);
                     clear();
                 }
               },

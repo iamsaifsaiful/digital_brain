@@ -19,6 +19,7 @@ import 'package:digital_brain/screens/assistant_settings.dart';
 import 'package:digital_brain/screens/app_places.dart';
 import 'package:digital_brain/screens/chat_home.dart';
 import 'package:digital_brain/screens/inbox_screen.dart';
+import 'package:digital_brain/ui/file_view.dart';
 import 'package:digital_brain/screens/notes_screen.dart';
 import 'package:digital_brain/screens/health_screens.dart';
 import 'package:digital_brain/screens/home_shell.dart';
@@ -313,6 +314,35 @@ void main() {
     await yes();
     expect(rig.brain.data.ledger, isEmpty);
     expect(rig.brain.data.reminders, isEmpty, reason: 'the earlier delete stays');
+  });
+
+  testWidgets('a kept PDF opens page by page, and can be downloaded or opened in another app', (t) async {
+    final rig = await start(t);
+    final nav = t.state<NavigatorState>(find.byType(Navigator).first);
+    unawaited(nav.push(MaterialPageRoute(builder: (_) => PdfViewScreen(bytes: Uint8List.fromList([37, 80, 68, 70]), name: 'রিপোর্ট.pdf', title: 'রিপোর্ট'))));
+    await settle(t);
+    expect(find.text('পাতা ১ / ২'), findsOneWidget);
+    await t.tap(find.byTooltip('ডাউনলোড করুন'));
+    await settle(t);
+    expect(rig.files.savedName, 'রিপোর্ট.pdf');
+    await t.tap(find.byTooltip('অন্য অ্যাপে খুলুন'));
+    await settle(t);
+    expect(rig.files.openedWith, 'রিপোর্ট.pdf');
+    nav.pop();
+    await settle(t);
+  });
+
+  testWidgets('after 4 wrong PINs the wait counts down every second', (t) async {
+    final rig = await start(t);
+    rig.brain.lockNow();
+    await settle(t);
+    for (var i = 0; i < 5; i++) {
+      await enterPin(t, '0000');
+    }
+    expect(find.textContaining('৩০ সেকেন্ড পর').evaluate().isNotEmpty || find.textContaining('২৯ সেকেন্ড পর').evaluate().isNotEmpty, isTrue);
+    await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 2100)));
+    await t.pump(const Duration(seconds: 1));
+    expect(find.textContaining('২৭ সেকেন্ড পর').evaluate().isNotEmpty || find.textContaining('২৮ সেকেন্ড পর').evaluate().isNotEmpty, isTrue);
   });
 
   testWidgets('chat: say a loan, yes by voice, then keep talking', (t) async {
