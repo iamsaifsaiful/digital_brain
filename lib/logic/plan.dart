@@ -138,7 +138,7 @@ String summaryLine(Command c) => switch (c) {
       VaultAdd() => 'ভল্টে: ${c.name}-এর পাসওয়ার্ড (••••)',
       ContactAdd() => 'নম্বর: ${c.name.isEmpty ? '' : '${c.name} — '}${bnDigits(c.phone)}',
       CashAdd() => c.project != null
-          ? trf('{0} — {1} {2} টাকা', [c.project!.isEmpty ? 'প্রজেক্ট' : '‘${c.project}’ প্রজেক্ট', c.kind == CashKind.income ? 'এসেছে' : 'খরচ', bnNumber(c.amount)])
+          ? trf('{0} — {1} {2} টাকা', [c.project!.isEmpty ? 'আলাদা হিসাব' : '‘${c.project}’ হিসাব', c.kind == CashKind.income ? 'এসেছে' : 'খরচ', bnNumber(c.amount)])
           : trf('{0}: {1} — {2} টাকা', [c.kind.label, c.category, bnNumber(c.amount)]),
       HealthAdd() => '${isEn ? c.kind.en : c.kind.bn}: ${readingText(HealthLog(kind: c.kind, at: DateTime(2000), a: c.a, b: c.b, c: c.c, tag: c.tag))}',
       ProfileSet() => c.field == 'height'

@@ -749,7 +749,7 @@ void main() {
     await openChat(t);
     rig.voice.say('রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো');
     await settle(t);
-    expect(rig.voice.spoken.last, contains('নতুন প্রজেক্ট খুলে'));
+    expect(rig.voice.spoken.last, contains('নতুন আলাদা হিসাব খুলে'));
     rig.voice.say('হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.projects.single.name, 'রহিম ভবন');

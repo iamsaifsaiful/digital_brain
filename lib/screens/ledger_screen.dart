@@ -49,7 +49,7 @@ class MoneyScreenState extends State<MoneyScreen> {
         const MoneyTools(),
         const SizedBox(height: 12),
         SegTabs<MoneyPart>(
-          items: [(MoneyPart.cash, tr('আয়-ব্যয়')), (MoneyPart.loans, tr('ধার-দেনা')), (MoneyPart.projects, tr('প্রজেক্ট'))],
+          items: [(MoneyPart.cash, tr('আয়-ব্যয়')), (MoneyPart.loans, tr('ধার-দেনা')), (MoneyPart.projects, tr('আলাদা হিসাব'))],
           value: _part,
           onChanged: show,
         ),

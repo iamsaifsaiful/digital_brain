@@ -221,7 +221,7 @@ Future<String?> askProjectName(BuildContext context, {String initial = ''}) {
   return showDialog<String>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: Text(initial.isEmpty ? tr('নতুন প্রজেক্ট') : tr('প্রজেক্টের নাম'), style: display(20)),
+      title: Text(initial.isEmpty ? tr('নতুন আলাদা হিসাব') : tr('হিসাবের নাম'), style: display(20)),
       content: TextField(controller: c, autofocus: true, decoration: InputDecoration(labelText: tr('নাম, যেমন: রহিম ভবন'))),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
@@ -240,7 +240,7 @@ Future<(String, int)?> askNewProject(BuildContext context) {
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setD) => AlertDialog(
-        title: Text(tr('নতুন প্রজেক্ট বা ইভেন্ট'), style: display(20)),
+        title: Text(tr('নতুন আলাদা হিসাব'), style: display(20)),
         content: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Wrap(spacing: 6, runSpacing: 6, children: [
@@ -313,13 +313,13 @@ class ProjectsView extends StatelessWidget {
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       SummaryCard(
-        title: tr('চলমান প্রজেক্টে হাতে আছে'),
+        title: tr('চলমান হিসাবগুলোতে হাতে আছে'),
         amount: (inTotal - outTotal).abs(),
         negative: inTotal < outTotal,
         items: [(tr('মোট এসেছে'), inTotal, C.green), (tr('মোট খরচ'), outTotal, C.orange)],
       ),
       const SizedBox(height: 12),
-      PrimaryButton(label: tr('নতুন প্রজেক্ট'), icon: Icons.add_rounded, height: 48, color: C.fill, onPressed: create),
+      PrimaryButton(label: tr('নতুন আলাদা হিসাব'), icon: Icons.add_rounded, height: 48, color: C.fill, onPressed: create),
       const SizedBox(height: 8),
       Text(tr('মুখেও বলা যায়: “রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো”, “রহিম ভবন প্রজেক্টে রড কিনলাম ২০ হাজার”'),
           style: body(13, color: C.muted)),
@@ -327,17 +327,17 @@ class ProjectsView extends StatelessWidget {
       if (open.isEmpty && closed.isEmpty)
         EmptyState(
           icon: Icons.work_outline_rounded,
-          title: tr('কোনো প্রজেক্ট নেই'),
+          title: tr('কোনো আলাদা হিসাব নেই'),
           text: tr('বাড়ি বানানো, অফিসের কাজ, কোনো অর্ডার — প্রতিটার আলাদা আয়-ব্যয় রাখুন। কত এলো, কত গেল, কত থাকলো দেখবেন।'),
         )
       else ...[
         if (open.isNotEmpty) ...[
-          SectionTitle(tr('চলমান প্রজেক্ট')),
+          SectionTitle(tr('চলমান হিসাব')),
           Panel(child: Rows(children: [for (final p in open) row(p)])),
         ],
         if (closed.isNotEmpty) ...[
           const SizedBox(height: 16),
-          SectionTitle(tr('শেষ হওয়া প্রজেক্ট')),
+          SectionTitle(tr('শেষ হওয়া হিসাব')),
           Panel(child: Rows(children: [for (final p in closed) row(p)])),
         ],
       ],
@@ -354,7 +354,7 @@ class ProjectScreen extends StatelessWidget {
     final brain = BrainScope.of(context);
     final p = brain.data.projects.where((x) => x.id == id).firstOrNull;
     if (p == null) {
-      return Scaffold(body: SafeArea(child: Column(children: [TopBar(title: tr('প্রজেক্ট'))])));
+      return Scaffold(body: SafeArea(child: Column(children: [TopBar(title: tr('আলাদা হিসাব'))])));
     }
     final s = projectSums(brain.data.cash, p.id);
     final entries = brain.data.cash.where((e) => e.projectId == p.id).toList()..sort((a, b) => b.date.compareTo(a.date));
@@ -383,7 +383,7 @@ class ProjectScreen extends StatelessWidget {
           await brain.saveProject(p.copyWith(closed: !p.closed));
         case 'delete':
           final ok = await confirmDialog(context,
-              title: tr('প্রজেক্ট মুছবেন?'), text: trf('‘{0}’ আর এর সব আয়-ব্যয় মুছে যাবে।', [p.name]), yes: tr('মুছুন'), danger: true);
+              title: tr('এই হিসাব মুছবেন?'), text: trf('‘{0}’ আর এর সব আয়-ব্যয় মুছে যাবে।', [p.name]), yes: tr('মুছুন'), danger: true);
           if (!ok) return;
           await brain.deleteProject(p.id);
           if (context.mounted) Navigator.of(context).pop();
@@ -400,7 +400,7 @@ class ProjectScreen extends StatelessWidget {
               itemBuilder: (_) => [
                 PopupMenuItem(value: 'rename', child: Text(tr('নাম বদলান'))),
                 PopupMenuItem(value: 'budget', child: Text(p.budget > 0 ? tr('বাজেট বদলান') : tr('বাজেট ঠিক করুন'))),
-                PopupMenuItem(value: 'close', child: Text(p.closed ? tr('আবার চালু করুন') : tr('প্রজেক্ট শেষ'))),
+                PopupMenuItem(value: 'close', child: Text(p.closed ? tr('আবার চালু করুন') : tr('হিসাব শেষ'))),
                 PopupMenuItem(value: 'delete', child: Text(tr('মুছুন'))),
               ],
             ),
@@ -616,7 +616,7 @@ class _CashFormScreenState extends State<CashFormScreen> {
                 Wrap(spacing: 6, runSpacing: 6, children: [
                   ChoiceChip(label: Text(tr('নিজের মাসিক হিসাব'), style: body(13)), selected: _projectId == null, onSelected: (_) => setState(() => _projectId = null)),
                   for (final p in projects)
-                    ChoiceChip(label: Text(trf('প্রজেক্ট: {0}', [p.name]), style: body(13)), selected: _projectId == p.id, onSelected: (_) => setState(() => _projectId = p.id)),
+                    ChoiceChip(label: Text(trf('হিসাব: {0}', [p.name]), style: body(13)), selected: _projectId == p.id, onSelected: (_) => setState(() => _projectId = p.id)),
                 ]),
               ],
             ]),

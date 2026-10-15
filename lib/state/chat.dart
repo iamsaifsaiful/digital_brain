@@ -911,7 +911,7 @@ class ChatController extends ChangeNotifier {
           if (open.length == 1) {
             return _start(CashAdd(c.transcript, kind: c.kind, amount: c.amount, category: c.category, project: open.first.name), out);
           }
-          _ask(out, tr('কোন প্রজেক্টে লিখব? নামটা বলুন।'), ChatWait.project, choices: [for (final p in open.take(5)) ChatChoice(p.name, p.name)]);
+          _ask(out, tr('কোন আলাদা হিসাবে লিখব? নামটা বলুন।'), ChatWait.project, choices: [for (final p in open.take(5)) ChatChoice(p.name, p.name)]);
           return;
         }
         if (_allYes) return _saveCurrent(out);
@@ -919,7 +919,7 @@ class ChatController extends ChangeNotifier {
         final String q;
         if (c.project != null) {
           final exists = projectByName(brain.data, c.project!) != null;
-          q = trf('{0}‘{1}’ প্রজেক্টে {2} টাকা {3} হিসেবে লিখি?', [exists ? '' : 'নতুন প্রজেক্ট খুলে ', c.project, bnNumber(c.amount), inOut]);
+          q = trf('{0}‘{1}’ হিসাবে {2} টাকা {3} হিসেবে লিখি?', [exists ? '' : 'নতুন আলাদা হিসাব খুলে ', c.project, bnNumber(c.amount), inOut]);
         } else {
           q = trf('{0} হিসেবে লিখি — {1}, {2} টাকা?', [inOut, c.category, bnNumber(c.amount)]);
         }
@@ -1510,10 +1510,10 @@ class ChatController extends ChangeNotifier {
         if (project != null) {
           final ps = projectSums(brain.data.cash, project.id);
           done = ps.income == 0
-              ? trf('লিখলাম। ‘{0}’ প্রজেক্টে এ পর্যন্ত খরচ {1} টাকা।', [project.name, bnNumber(ps.expense)])
+              ? trf('লিখলাম। ‘{0}’ হিসাবে এ পর্যন্ত খরচ {1} টাকা।', [project.name, bnNumber(ps.expense)])
               : (ps.balance >= 0
-                  ? trf('লিখলাম। ‘{0}’ প্রজেক্টে এখন হাতে আছে {1} টাকা।', [project.name, bnNumber(ps.balance)])
-                  : trf('লিখলাম। ‘{0}’ প্রজেক্টে আসার চেয়ে {1} টাকা বেশি খরচ হয়েছে।', [project.name, bnNumber(-ps.balance)]));
+                  ? trf('লিখলাম। ‘{0}’ হিসাবে এখন হাতে আছে {1} টাকা।', [project.name, bnNumber(ps.balance)])
+                  : trf('লিখলাম। ‘{0}’ হিসাবে আসার চেয়ে {1} টাকা বেশি খরচ হয়েছে।', [project.name, bnNumber(-ps.balance)]));
         } else {
           final m = monthSums(brain.data.cash, _now);
           done = c.kind == CashKind.expense ? trf('লিখলাম। এই মাসে মোট খরচ {0} টাকা।', [bnNumber(m.expense)]) : trf('লিখলাম। এই মাসে মোট আয় {0} টাকা।', [bnNumber(m.income)]);
