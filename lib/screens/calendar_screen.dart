@@ -63,7 +63,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           children: [
             Row(children: [
               IconButton(tooltip: tr('ফিরে যান'), onPressed: () => Navigator.of(context).maybePop(), icon: const Icon(Icons.chevron_left_rounded, size: 30)),
-              Expanded(child: Text(tr('বাংলা তারিখ ও ছুটি'), style: display(21, weight: 700))),
+              Expanded(child: Text(tr('ক্যালেন্ডার'), style: display(21, weight: 700))),
             ]),
             const SizedBox(height: 6),
             Container(

@@ -8,6 +8,7 @@ import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'onboarding_screen.dart';
+import 'plan_screens.dart' show TaskAlarmButton;
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
@@ -110,6 +111,7 @@ class _TasksScreenState extends State<TasksScreen> {
         title: t.title,
         subtitle: t.due == null ? (_list == null && t.list.isNotEmpty ? t.list : null) : (overdue ? trf('দেরি হয়ে গেছে · {0}', [shortDate(t.due!)]) : sayWhen(t.due!, now, withTime: false)),
         subtitleColor: overdue ? C.orange : C.muted,
+        trailing: t.done ? null : TaskAlarmButton(t),
         onTap: () => _edit(t),
       );
     }

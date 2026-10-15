@@ -731,6 +731,10 @@ class Parser {
     final opened = _open(said, text);
     if (opened != null) return opened;
 
+    // "কাল ভোর ৫টায় অ্যালার্ম দাও", "৬টায় ঘুম থেকে ডেকে দিও", "এলার্ম সেট করো ৭টা ৩০".
+    final alarm = _alarm(said, text);
+    if (alarm != null) return alarm;
+
     // "আমার ব্লাড গ্রুপ বি পজিটিভ" (keep) / "আমার ব্লাড গ্রুপ কী?" (answer);
     // "আমার কী কী ছবি আছে?" (what kind of things are kept).
     if (mentionsBlood(text)) {
@@ -1166,6 +1170,63 @@ class Parser {
         !x.startsWith(normalize('নম্বর')) && !x.startsWith(normalize('নাম্বার')) && !x.startsWith(normalize('যোগাযোগ')));
   }
 
+  /// An alarm said in any common way. A bare hour with no সকাল/রাত is the
+  /// next time that hour comes round (at 11 at night "৬টায়" is 6 in the
+  /// morning); with a day ("কাল ৬টায়") it is the morning.
+  Command? _alarm(String said, String text) {
+    final alarmWord = _hasNorm(text, _alarmWords);
+    final wake = _hasNorm(text, _wakeWords);
+    if (!alarmWord && !wake) return null;
+    // Asking about, showing, stopping or removing alarms is not setting one.
+    // Removing one by name is handled with the other changes ("মিটিংয়ের অ্যালার্মটা মুছে দাও").
+    if (_hasNorm(text, const ['মুছ', 'ডিলিট', 'delete', 'বাতিল'])) return null;
+    // Showing, asking about or switching off alarms: the অ্যালার্ম page.
+    if (_hasNorm(text, const ['বন্ধ', 'দেখাও', 'দেখান', 'তালিকা', 'লিস্ট', 'কয়টা', 'কয়টায়', 'কখন', 'কটায়', 'খোলো', 'খুলুন', 'অফ', 'off', 'চালু', 'গুলো', 'গুলি']) ||
+        (isQuestionText(said) && !_hasNorm(text, const ['দিবা', 'দেবে', 'দিবেন', 'পারবে', 'পারবা']))) {
+      return alarmWord ? OpenPlace(said, place: 'alarms') : null;
+    }
+    var (before, plain) = splitBefore(said);
+    // For an alarm a bare "৬টা" is a time, not a count.
+    plain = plain.replaceAllMapped(RegExp(r'([0-9০-৯]{1,2})\s*টা(?![য়য়র])'), (m) => '${m[1]}টায়');
+    final when = parseWhen(plain, now);
+    DateTime at = when?.at ?? noTimeYet;
+    final relative = _hasNorm(text, const ['মিনিট পর', 'মিনিট পরে', 'ঘণ্টা পর', 'ঘণ্টা পরে', 'ঘন্টা পর', 'ঘন্টা পরে', 'মিনিটের মধ্যে']);
+    final period = _hasNorm(text, const ['সকাল', 'ভোর', 'দুপুর', 'বিকাল', 'বিকেল', 'সন্ধ্যা', 'সন্ধা', 'রাত', 'am', 'pm', 'এএম', 'পিএম']);
+    if (when != null && when.hasTime && !relative && !period) {
+      final h12 = at.hour % 12;
+      if (when.hasDay) {
+        at = DateTime(at.year, at.month, at.day, h12 == 0 ? 12 : h12, at.minute);
+      } else {
+        final today = DateTime(now.year, now.month, now.day);
+        at = [
+          DateTime(today.year, today.month, today.day, h12, at.minute),
+          DateTime(today.year, today.month, today.day, h12 + 12, at.minute),
+          DateTime(today.year, today.month, today.day + 1, h12, at.minute),
+        ].firstWhere((c) => c.isAfter(now));
+      }
+    } else if (when != null && (!when.hasTime || !RegExp(r'[0-9০-৯]').hasMatch(normalize(plain)) && !words(normalize(plain)).any(_numberWord.hasMatch))) {
+      at = noTimeYet; // "কাল সকালে অ্যালার্ম দাও": the chat asks what time
+    }
+    final daily = _hasNorm(text, const ['প্রতিদিন', 'প্রতি দিন', 'রোজ', 'প্রত্যেকদিন', 'প্রত্যেক দিন', 'দৈনিক', 'daily', 'every day']);
+    final weekDays = _weeklyDays(text);
+    final repeat = daily ? Repeat.daily : (weekDays.isNotEmpty ? Repeat.weekly : Repeat.none);
+    if (repeat == Repeat.weekly && at.year > 2000) {
+      var d = DateTime(now.year, now.month, now.day, at.hour, at.minute);
+      for (var i = 0; i < 8 && !(weekDays.contains(d.weekday) && d.isAfter(now)); i++) {
+        d = d.add(const Duration(days: 1));
+      }
+      at = d;
+    }
+    // What it is for ("নামাজের অ্যালার্ম", "ওষুধ খাওয়ার এলার্ম"); otherwise just "অ্যালার্ম".
+    final rest = [
+      for (final x in words(normalize(withoutWhen(plain))))
+        if (!_alarmJunk.contains(x) && !RegExp(r'^[0-9০-৯]').hasMatch(x) && !_numberWord.hasMatch(x) && !_alarmWords.any((a) => x.startsWith(normalize(a))) && !RegExp(r'^[a-z]{1,4}$').hasMatch(x)) x,
+    ];
+    final title = wake ? 'ঘুম থেকে ওঠা' : (rest.isEmpty ? 'অ্যালার্ম' : tidy(cutWords(withoutWhen(plain), [..._alarmWords, ..._alarmVerbs, ..._wakeWords, ..._fillers])));
+    final clean = title.trim().isEmpty || words(normalize(title)).every((x) => _alarmJunk.contains(x) || RegExp(r'^[0-9০-৯]').hasMatch(x) || _numberWord.hasMatch(x)) ? 'অ্যালার্ম' : title;
+    return ReminderAdd(said, title: clean, at: at, repeat: repeat, alarm: true, weekdays: repeat == Repeat.weekly ? weekDays : const [], minutesBefore: before);
+  }
+
   Command? _assistant(String said, String text, List<String> w) {
     final asking = isQuestionText(said);
     final phone = findPhone(said);
@@ -1392,6 +1453,15 @@ class Parser {
 }
 
 final List<String> _projectWords = [for (final p in ['প্রজেক্ট', 'প্রকল্প', 'project', 'প্রোজেক্ট']) normalize(p)];
+
+const _alarmWords = ['অ্যালার্ম', 'এলার্ম', 'এ্যালার্ম', 'অ্যালার্ম', 'এলার্ম', 'alarm', 'অ্যালাম', 'এলাম্ব'];
+const _wakeWords = ['ঘুম থেকে ডেকে', 'ঘুম থেকে তুলে', 'ঘুম ভাঙিয়ে', 'ডেকে দিও', 'ডেকে দিবা', 'ডেকে দেবে', 'ডেকে দিবে', 'ডেকে দিয়ো', 'ডেকে তুলো', 'জাগিয়ে দিও', 'জাগিয়ে দিবা', 'জাগিয়ে দেবে', 'wake me'];
+const _alarmVerbs = ['সেট করো', 'সেট কর', 'সেট করে দাও', 'সেট করুন', 'সেট দাও', 'দিয়ে রাখো', 'দিয়ে রাখ', 'দিয়ে দাও', 'দিয়ে দিও', 'দাও', 'দিও', 'দিন', 'দেন', 'লাগাও', 'লাগিয়ে দাও', 'বাজাবে', 'বাজিয়ো', 'বাজিও', 'বাজাও', 'রাখো', 'একটা', 'set', 'koro', 'kore', 'dao', 'den', 'tay', 'te'];
+final _numberWord = RegExp('^(এক|দুই|দু|তিন|চার|পাঁচ|পাচ|ছয়|ছয়|ছ|সাত|আট|নয়|নয়|দশ|এগারো|এগার|বারো|বার)(টা|টায়|টায়|টার|টাতে|টাই)\$');
+final _alarmJunk = {
+  for (final x in const ['একটা', 'একটি', 'টা', 'সেট', 'কর', 'করো', 'করে', 'করুন', 'দাও', 'দিও', 'দিন', 'দেন', 'দিয়ে', 'রাখো', 'রাখ', 'লাগাও', 'লাগিয়ে', 'বাজাবে', 'বাজাও', 'বাজিও', 'আমাকে', 'আমার', 'জন্য', 'একটু', 'প্লিজ', 'please', 'সাড়ে', 'সোয়া', 'পৌনে', 'এ', 'য়', 'তে', 'টায়', 'টার', 'টাতে', 'বাজে', 'মিনিট', 'ঘণ্টা', 'পর', 'পরে', 'set', 'koro', 'tay', 'প্রতিদিন', 'রোজ', 'দৈনিক', 'প্রত্যেকদিন', 'প্রতি', 'দিন'])
+    normalize(x),
+};
 
 bool _hasNorm(String text, List<String> keys) => keys.any((k) {
       final n = normalize(k);

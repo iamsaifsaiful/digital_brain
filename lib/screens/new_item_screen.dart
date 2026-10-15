@@ -5,6 +5,7 @@ import '../logic/password.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/early_picker.dart';
+import '../ui/forms.dart';
 import '../ui/note_parts.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
@@ -35,8 +36,11 @@ enum ItemCategory {
 
 /// Add something new, or edit an existing password, contact, note or reminder.
 class NewItemScreen extends StatefulWidget {
-  const NewItemScreen({super.key, this.category, this.presetTitle, this.presetBody, this.presetAt, this.vault, this.contact, this.note, this.reminder, this.noteCategory});
+  const NewItemScreen({super.key, this.category, this.presetTitle, this.presetBody, this.presetAt, this.vault, this.contact, this.note, this.reminder, this.noteCategory, this.task});
   final ItemCategory? category;
+
+  /// A new reminder set from a task's ⏰: linked to the task when saved.
+  final Task? task;
 
   /// For a new note: the category to put it in.
   final String? noteCategory;
@@ -96,6 +100,11 @@ class _NewItemScreenState extends State<NewItemScreen> {
   int _minutesBefore = 0;
   Repeat _repeat = Repeat.none;
   String? _vaultLink;
+
+  /// "কতক্ষণ আগে": a number and its unit.
+  final _beforeN = TextEditingController();
+  BeforeUnit _beforeUnit = BeforeUnit.minute;
+  bool _showRepeat = false;
 
   @override
   void initState() {
@@ -161,6 +170,10 @@ class _NewItemScreenState extends State<NewItemScreen> {
       _daysBefore = r.daysBefore;
       _minutesBefore = r.minutesBefore;
       _repeat = r.repeat;
+      _showRepeat = r.repeat != Repeat.none;
+      final (n, u) = beforeOf(r.daysBefore, r.minutesBefore);
+      _beforeUnit = u;
+      if (n > 0) _beforeN.text = bnDigits(n);
       _noteText.text = r.note;
       _vaultLink = r.vaultId;
     }
@@ -169,7 +182,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
 
   @override
   void dispose() {
-    for (final c in [_a, _b, _c, _d, _pw, _noteText, _noteCat, _address]) {
+    for (final c in [_a, _b, _c, _d, _pw, _noteText, _noteCat, _address, _beforeN]) {
       c.dispose();
     }
     // Left without saving: the newly added photos go too.
@@ -252,8 +265,12 @@ class _NewItemScreenState extends State<NewItemScreen> {
           toast(context, tr('এই সময় পার হয়ে গেছে — তারিখ বা সময় বদলান'));
           return;
         }
+        final (days, minutes) = beforeIn(readInt(_beforeN.text) ?? 0, _usableUnit);
+        _daysBefore = days;
+        _minutesBefore = minutes;
+        final rid = widget.reminder?.id ?? newId();
         await brain.saveReminder(Reminder(
-          id: widget.reminder?.id,
+          id: rid,
           title: _a.text.trim(),
           date: _date,
           hour: _time.hour,
@@ -264,6 +281,11 @@ class _NewItemScreenState extends State<NewItemScreen> {
           note: _noteText.text.trim(),
           vaultId: _vaultLink,
         ));
+        final task = widget.task;
+        if (task != null) {
+          final now0 = brain.data.tasks.where((t) => t.id == task.id).firstOrNull ?? task;
+          await brain.saveTask(now0.copyWith(reminderId: rid));
+        }
         done = tr('রিমাইন্ডার রাখা হয়েছে');
       case ItemCategory.ledger:
         return;
@@ -539,11 +561,15 @@ class _NewItemScreenState extends State<NewItemScreen> {
         if (widget.note != null) ...[_gap, TagEditor(tagKey: 'note:${widget.note!.id}')],
       ];
 
+  /// Day units make no sense for a reminder that rings every day or every hour.
+  bool get _dayUnits => _repeat == Repeat.none || _repeat == Repeat.monthly || _repeat == Repeat.yearly;
+  BeforeUnit get _usableUnit => !_dayUnits && _beforeUnit.days ? BeforeUnit.hour : _beforeUnit;
+
   List<Widget> _reminderForm() {
     final brain = BrainScope.of(context);
     final vault = [...brain.data.vault]..sort((a, b) => a.name.compareTo(b.name));
     return [
-      TextFormField(controller: _a, decoration: InputDecoration(labelText: tr('কী মনে করাতে হবে'), hintText: tr('যেমন: ডোমেইন রিনিউ')), validator: _required),
+      TextFormField(controller: _a, decoration: InputDecoration(labelText: tr('কাজের নাম'), hintText: tr('যেমন: ডোমেইন রিনিউ')), validator: _required),
       _gap,
       Row(children: [
         Expanded(
@@ -570,31 +596,70 @@ class _NewItemScreenState extends State<NewItemScreen> {
         ),
       ]),
       _gap,
-      EarlyPicker(
-        days: _daysBefore,
-        minutes: _minutesBefore,
-        showDays: _repeat == Repeat.none || _repeat == Repeat.monthly || _repeat == Repeat.yearly,
-        onChanged: (d, m) => setState(() {
-          _daysBefore = d;
-          _minutesBefore = m;
-        }),
-      ),
-      _gap,
-      Text(tr('বারবার?'), style: body(14, weight: FontWeight.w600, color: C.muted)),
+      Text(tr('কতক্ষণ আগে মনে করাবে?'), style: body(14, weight: FontWeight.w600, color: C.muted)),
       const SizedBox(height: 6),
-      Wrap(spacing: 8, children: [
-        for (final r in Repeat.values)
-          ChoiceChip(
-            label: Text(r.label, style: body(14, color: r == _repeat ? Colors.white : C.ink)),
-            selected: r == _repeat,
-            showCheckmark: false,
-            selectedColor: C.ink,
-            backgroundColor: C.surface,
-            side: BorderSide(color: r == _repeat ? C.ink : C.border),
-            shape: const StadiumBorder(),
-            onSelected: (_) => setState(() => _repeat = r),
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(
+          flex: 2,
+          child: TextField(
+            key: const Key('before-number'),
+            controller: _beforeN,
+            keyboardType: TextInputType.number,
+            style: body(17),
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(hintText: tr('যেমন: ৩০')),
           ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          flex: 3,
+          child: DropdownButtonFormField<BeforeUnit>(
+            key: const Key('before-unit'),
+            initialValue: _usableUnit,
+            items: [
+              for (final u in BeforeUnit.values)
+                if (_dayUnits || !u.days) DropdownMenuItem(value: u, child: Text(trf('{0} আগে', [tr(u.label)]), style: body(16))),
+            ],
+            onChanged: (u) => setState(() => _beforeUnit = u ?? BeforeUnit.minute),
+          ),
+        ),
       ]),
+      const SizedBox(height: 4),
+      Text(
+          (readInt(_beforeN.text) ?? 0) > 0
+              ? trf('ঠিক সময়ে বাজবে, আর {0} {1} আগে একবার মনে করাবে।', [bnDigits(readInt(_beforeN.text)!), tr(_usableUnit.label)])
+              : tr('খালি রাখলে শুধু ঠিক সময়ে বাজবে।'),
+          style: body(12.5, color: C.muted)),
+      _gap,
+      InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => setState(() => _showRepeat = !_showRepeat),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(children: [
+            Icon(Icons.repeat_rounded, size: 20, color: C.muted),
+            const SizedBox(width: 8),
+            Expanded(child: Text(trf('কতবার: {0}', [tr(_repeat.label)]), style: body(15))),
+            Text(_showRepeat ? tr('লুকান') : tr('বদলান'), style: body(14, weight: FontWeight.w600, color: C.green)),
+          ]),
+        ),
+      ),
+      if (_showRepeat) ...[
+        const SizedBox(height: 6),
+        Wrap(spacing: 8, children: [
+          for (final r in Repeat.values)
+            ChoiceChip(
+              label: Text(tr(r.label), style: body(14, color: r == _repeat ? Colors.white : C.ink)),
+              selected: r == _repeat,
+              showCheckmark: false,
+              selectedColor: C.ink,
+              backgroundColor: C.surface,
+              side: BorderSide(color: r == _repeat ? C.ink : C.border),
+              shape: const StadiumBorder(),
+              onSelected: (_) => setState(() => _repeat = r),
+            ),
+        ]),
+      ],
       _gap,
       TextFormField(controller: _noteText, decoration: InputDecoration(labelText: tr('নোট (ঐচ্ছিক)'))),
       if (vault.isNotEmpty) ...[

@@ -134,9 +134,34 @@ class PlanRow extends StatelessWidget {
               ]),
             ),
           ),
-          if (trailing != null) trailing!,
+          if (trailing != null) trailing! else if (t != null && !t.done) TaskAlarmButton(t),
         ]),
       ),
+    );
+  }
+}
+
+/// The small ⏰ beside a task: set a reminder for it (or open the one set).
+class TaskAlarmButton extends StatelessWidget {
+  const TaskAlarmButton(this.task, {super.key});
+  final Task task;
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final r = task.reminderId == null ? null : brain.data.reminders.where((x) => x.id == task.reminderId).firstOrNull;
+    final now = brain.services.now();
+    final due = task.due;
+    final at = due == null ? null : DateTime(due.year, due.month, due.day, 9);
+    return IconButton(
+      tooltip: r == null ? tr('রিমাইন্ডার দিন') : trf('রিমাইন্ডার: {0}', [bnTime(r.hour, r.minute)]),
+      visualDensity: VisualDensity.compact,
+      icon: Icon(r == null ? Icons.alarm_add_outlined : Icons.alarm_on_rounded, size: 21, color: r == null ? C.muted : C.green),
+      onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => r != null
+            ? NewItemScreen(reminder: r)
+            : NewItemScreen(category: ItemCategory.reminder, presetTitle: task.title, presetAt: at != null && at.isAfter(now) ? at : null, task: task),
+      )),
     );
   }
 }

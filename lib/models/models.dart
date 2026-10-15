@@ -570,7 +570,7 @@ enum Via { call, sms, whatsapp }
 
 /// A to-do: "কাল ব্যাংকে যেতে হবে", "দুধ কিনতে হবে".
 class Task {
-  Task({String? id, required this.title, this.due, this.done = false, DateTime? createdAt, this.doneAt, this.list = ''})
+  Task({String? id, required this.title, this.due, this.done = false, DateTime? createdAt, this.doneAt, this.list = '', this.reminderId})
       : id = id ?? newId(),
         createdAt = createdAt ?? DateTime.now();
 
@@ -586,7 +586,10 @@ class Task {
   /// The list it belongs to ("ঈদের কেনাকাটা"); '' = the main to-do list.
   final String list;
 
-  Task copyWith({String? title, DateTime? due, bool clearDue = false, bool? done, DateTime? doneAt, String? list}) => Task(
+  /// The reminder set for it (the ⏰ beside the task).
+  final String? reminderId;
+
+  Task copyWith({String? title, DateTime? due, bool clearDue = false, bool? done, DateTime? doneAt, String? list, String? reminderId, bool clearReminder = false}) => Task(
         id: id,
         title: title ?? this.title,
         due: clearDue ? null : (due ?? this.due),
@@ -594,6 +597,7 @@ class Task {
         createdAt: createdAt,
         doneAt: (done ?? this.done) ? (doneAt ?? this.doneAt ?? DateTime.now()) : null,
         list: list ?? this.list,
+        reminderId: clearReminder ? null : (reminderId ?? this.reminderId),
       );
 
   Map<String, Object?> toJson() => {
@@ -604,6 +608,7 @@ class Task {
         'createdAt': createdAt.toIso8601String(),
         'doneAt': doneAt?.toIso8601String(),
         if (list.isNotEmpty) 'list': list,
+        if (reminderId != null) 'reminderId': reminderId,
       };
 
   factory Task.fromJson(Map<String, Object?> j) => Task(
@@ -614,6 +619,7 @@ class Task {
         createdAt: _date(j['createdAt']),
         doneAt: _date(j['doneAt']),
         list: (j['list'] as String?) ?? '',
+        reminderId: j['reminderId'] as String?,
       );
 }
 

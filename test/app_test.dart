@@ -19,6 +19,7 @@ import 'package:digital_brain/screens/assistant_settings.dart';
 import 'package:digital_brain/screens/app_places.dart';
 import 'package:digital_brain/screens/chat_home.dart';
 import 'package:digital_brain/screens/inbox_screen.dart';
+import 'package:digital_brain/screens/calendar_screen.dart';
 import 'package:digital_brain/ui/file_view.dart';
 import 'package:digital_brain/ui/pdf_export.dart';
 import 'package:digital_brain/screens/notes_screen.dart';
@@ -656,6 +657,29 @@ void main() {
     expect(rig.notifier.scheduled.single.at, DateTime(2026, 10, 10, 10, 0));
   });
 
+  testWidgets('voice: an alarm said aloud is set as an alarm', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    rig.voice.say('কাল সকাল ৬টায় এলার্ম দাও');
+    await settle(t);
+    if (rig.brain.data.reminders.isEmpty) {
+      rig.voice.say('হ্যাঁ');
+      await settle(t);
+    }
+    final r = rig.brain.data.reminders.single;
+    expect(r.alarm, isTrue);
+    expect(r.hour, 6);
+    expect(r.date, DateTime(2026, 10, 10));
+  });
+
+  testWidgets('voice: when the first guess makes no sense, the recogniser\'s next guess is used', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    rig.voice.say('সব জীবকে পাঁচ দশ', alternatives: ['সজীবকে ৫০০ টাকা ধার দিলাম']);
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('সজীবকে ৫০০ টাকা ধার দিলেন'));
+  });
+
   testWidgets('assistant: "রহিমকে ফোন দাও" opens the dialer with the saved number', (t) async {
     final rig = await start(t, data: AppData(contacts: [Contact(name: 'রহিম', phone: '01712345678')]));
     await openChat(t);
@@ -1052,12 +1076,12 @@ void main() {
     expect(find.text('২৪ আশ্বিন ১৪৩৩'), findsOneWidget);
     expect(find.textContaining('সূর্যোদয়'), findsOneWidget);
     expect(find.textContaining('দুর্গাপূজা'), findsOneWidget);
-    await t.scrollUntilVisible(find.text('বাংলা তারিখ'), 300, scrollable: find.byType(Scrollable).first);
-    await t.ensureVisible(find.text('বাংলা তারিখ'));
+    await t.scrollUntilVisible(find.text('ক্যালেন্ডার').first, 300, scrollable: find.byType(Scrollable).first);
+    await t.ensureVisible(find.text('ক্যালেন্ডার').first);
     await settle(t);
-    await t.tap(find.text('বাংলা তারিখ'));
+    await t.tap(find.text('ক্যালেন্ডার').first);
     await settle(t);
-    expect(find.text('বাংলা তারিখ ও ছুটি'), findsOneWidget);
+    expect(find.byType(CalendarScreen), findsOneWidget);
     await t.scrollUntilVisible(find.text('মহান বিজয় দিবস'), 300, scrollable: find.byType(Scrollable).first);
     expect(find.text('মহান বিজয় দিবস'), findsOneWidget);
   });

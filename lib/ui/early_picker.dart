@@ -97,3 +97,31 @@ class EarlyPicker extends StatelessWidget {
     ]);
   }
 }
+
+/// The units for "কতক্ষণ আগে": a number box beside a choice of these.
+enum BeforeUnit {
+  minute('মিনিট', 1, false),
+  hour('ঘণ্টা', 60, false),
+  day('দিন', 1, true),
+  month('মাস', 30, true),
+  year('বছর', 365, true);
+
+  const BeforeUnit(this.label, this.size, this.days);
+  final String label;
+
+  /// Minutes (for minute, hour) or days (for day, month, year) in one.
+  final int size;
+  final bool days;
+}
+
+/// (days, minutes) to keep on the reminder for [n] [unit]s; one is 0.
+(int, int) beforeIn(int n, BeforeUnit unit) => n <= 0 ? (0, 0) : (unit.days ? (n * unit.size, 0) : (0, n * unit.size));
+
+/// The number and unit to show for a reminder's early notice.
+(int, BeforeUnit) beforeOf(int days, int minutes) {
+  if (minutes > 0) return minutes % 60 == 0 ? (minutes ~/ 60, BeforeUnit.hour) : (minutes, BeforeUnit.minute);
+  if (days <= 0) return (0, BeforeUnit.minute);
+  if (days % 365 == 0) return (days ~/ 365, BeforeUnit.year);
+  if (days % 30 == 0) return (days ~/ 30, BeforeUnit.month);
+  return (days, BeforeUnit.day);
+}

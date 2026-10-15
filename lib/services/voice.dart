@@ -51,6 +51,11 @@ abstract class Voice {
   /// When true, [speak] stays silent (the "answer aloud" setting is off).
   bool muted = false;
 
+  /// The last sentence heard, and the recogniser's other guesses for it
+  /// (best first). When the first guess makes no sense, the app tries these.
+  String lastHeard = '';
+  List<String> lastAlternatives = const [];
+
   /// Name of the Bengali voice the user picked (null: choose the best).
   String? preferredVoice;
 
@@ -135,6 +140,9 @@ class DeviceVoice extends Voice {
   void Function()? _onSaid;
 
   String get _heard => '$_committed $_current'.trim();
+
+  /// Other guesses for the whole sentence so far (see [Voice.lastAlternatives]).
+  List<String> _alts = const [];
 
   /// What the user said: the heard words without the app's own voice.
   String get _words => _echo.isEmpty ? _heard : _withoutEcho(_heard);
@@ -417,6 +425,8 @@ class DeviceVoice extends Voice {
     _quiet?.cancel();
     _quiet = null;
     final words = _words;
+    lastHeard = words;
+    lastAlternatives = _echo.isEmpty ? [for (final a in _alts) if (a != words) a] : const [];
     unawaited(_stt.cancel().then((_) {}, onError: (_) {}));
     _onDone?.call(words);
   }
@@ -430,6 +440,9 @@ class DeviceVoice extends Voice {
           if (_finished || turn != _turn) return;
           final changed = r.recognizedWords != _current;
           _current = r.recognizedWords;
+          // The recogniser's other guesses for this part of the sentence.
+          final alts = [for (final a in r.alternates.skip(1)) if (a.recognizedWords.trim().isNotEmpty && a.recognizedWords != r.recognizedWords) a.recognizedWords];
+          if (alts.isNotEmpty || r.finalResult) _alts = [for (final a in alts.take(4)) '$_committed $a'.trim()];
           if (changed && _words.isNotEmpty) {
             _bargeIn();
             _onWords?.call(_words);
@@ -498,6 +511,7 @@ class DeviceVoice extends Voice {
     _retries = 0;
     _committed = '';
     _current = '';
+    _alts = const [];
     _finished = false;
     _restarting = false;
     _short = short;
@@ -674,7 +688,9 @@ class FakeVoice extends Voice {
     _onDone = onDone;
   }
 
-  void say(String words) {
+  void say(String words, {List<String> alternatives = const []}) {
+    lastHeard = words;
+    lastAlternatives = alternatives;
     _onWords?.call(words);
     _onDone?.call(words);
   }

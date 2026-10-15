@@ -1617,4 +1617,40 @@ void main() {
       expect(beforeEid.firstWhere((x) => x.title.contains('ঈদুল আজহা')).at, DateTime(2026, 5, 18, 10));
     });
   });
+
+  group('alarms by voice', () {
+    final night = DateTime(2026, 10, 15, 23, 0);
+    ReminderAdd alarm(String s) => parseAll(s, const [], now: night).single as ReminderAdd;
+
+    test('every common way of asking sets an alarm at the right time', () {
+      for (final (said, at) in [
+        ('কাল সকাল ৬টায় এলার্ম দাও', DateTime(2026, 10, 16, 6)),
+        ('৬টায় এলার্ম দাও', DateTime(2026, 10, 16, 6)), // at 11 pm, the next 6 o'clock
+        ('এলার্ম সেট কর ৭টা ৩০', DateTime(2026, 10, 16, 7, 30)),
+        ('সাড়ে ছয়টায় এলার্ম দাও', DateTime(2026, 10, 16, 6, 30)),
+        ('এলার্ম দিয়ে দাও ৬টা', DateTime(2026, 10, 16, 6)),
+        ('কাল ভোর ৪টা ৩০ এ এলার্ম দিয়ে রাখো', DateTime(2026, 10, 16, 4, 30)),
+        ('আমাকে ৬টায় ঘুম থেকে ডেকে দিও', DateTime(2026, 10, 16, 6)),
+        ('৩০ মিনিট পর এলার্ম দিও', DateTime(2026, 10, 15, 23, 30)),
+        ('alarm set koro 6 tay', DateTime(2026, 10, 16, 6)),
+        ('ওষুধ খাওয়ার এলার্ম রাত ১০টায়', DateTime(2026, 10, 16, 22)),
+      ]) {
+        final a = alarm(said);
+        expect(a.alarm, isTrue, reason: said);
+        expect(a.at, at, reason: said);
+      }
+      expect(alarm('সাড়ে ছয়টায় এলার্ম দাও').title, 'অ্যালার্ম');
+      expect(alarm('এলার্ম বাজাবে ৬টায়').title, 'অ্যালার্ম');
+      expect(alarm('ওষুধ খাওয়ার এলার্ম রাত ১০টায়').title, 'ওষুধ খাওয়ার');
+      expect(alarm('প্রতিদিন সকাল ৬টায় এলার্ম').repeat, Repeat.daily);
+      expect(alarm('একটা এলার্ম দাও').needsTime, isTrue);
+      expect(alarm('কাল সকালে এলার্ম দাও').needsTime, isTrue);
+    });
+
+    test('showing or switching off alarms opens the alarm page', () {
+      for (final s in ['এলার্ম গুলো দেখাও', 'কাল কয়টায় এলার্ম আছে?', 'এলার্ম বন্ধ করো']) {
+        expect((parseAll(s, const [], now: night).single as OpenPlace).place, 'alarms', reason: s);
+      }
+    });
+  });
 }

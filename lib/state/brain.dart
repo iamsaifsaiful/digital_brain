@@ -541,11 +541,27 @@ class Brain extends ChangeNotifier {
   /// (never empty). [history] is the conversation so far, already cleaned
   /// of anything private.
   Future<(List<Command>, String?)> understandAll(String said, {List<AiTurn> history = const [], bool fast = false}) async {
-    final rules = parseAll(said, data.ledger, tasks: data.tasks, contacts: data.contacts, folders: folderHints, now: services.now());
+    List<Command> parse(String t) => parseAll(t, data.ledger, tasks: data.tasks, contacts: data.contacts, folders: folderHints, now: services.now());
+    var rules = parse(said);
+    // Spoken: the recogniser's other guesses for the same sentence.
+    final voice = services.voice;
+    final alts = voice.lastHeard.trim() == said.trim() ? voice.lastAlternatives : const <String>[];
+    if (alts.isNotEmpty && _weak(rules)) {
+      for (final a in alts) {
+        final r = parse(a);
+        if (!_weak(r)) {
+          said = a;
+          rules = r;
+          break;
+        }
+      }
+    }
     if (!aiOn) return (rules, null);
     // "নোট খোলো": opening a page needs no AI; blood group, allergies and
     // what photos are kept stay on the phone.
     if (rules.length == 1 && (rules.first is OpenPlace || rules.first is ProfileQuery || rules.first is ProfileSet || rules.first is ManageItem)) return (rules, null);
+    // An alarm is understood on the phone at once (no waiting for the AI).
+    if (rules.length == 1 && rules.first is ReminderAdd && (rules.first as ReminderAdd).alarm) return (rules, null);
     if (mentionsSecret(said) || rules.any((c) => c is VaultQuery)) return (rules, null);
     // Listing the saved numbers needs no AI (and numbers never go to it).
     if (rules.length == 1 && rules.first is ContactsQuery) return (rules, null);
@@ -554,7 +570,10 @@ class Brain extends ChangeNotifier {
     }
     try {
       final clean = stripAddress(said).$1;
-      final r = await services.ai.route(clean.isEmpty ? said : clean, aiContext(), history: history, fast: fast);
+      var text = clean.isEmpty ? said : clean;
+      final others = [for (final a in alts) if (a.trim() != said.trim() && !mentionsSecret(a)) a];
+      if (others.isNotEmpty) text = '$text\n[speech recogniser also heard: ${others.take(3).join(' | ')}]';
+      final r = await services.ai.route(text, aiContext(), history: history, fast: fast);
       if (r == null) return (rules, null);
       var cmds = commandsFromAi(said, r, data.ledger);
       // The rules plainly heard "remind me" but the AI read a question about
@@ -568,6 +587,9 @@ class Brain extends ChangeNotifier {
       return (rules, '${e.message} নিজের নিয়মে বুঝে নিলাম।');
     }
   }
+
+  /// Rules that only half understood: nothing, a search, or a plain note.
+  static bool _weak(List<Command> c) => c.length == 1 && (c.first is NotUnderstood || c.first is SearchQuery || c.first is NoteAdd);
 
   /// The user's own paper folders and note categories, for "… ফোল্ডার খোলো".
   List<FolderHint> get folderHints => [
@@ -936,8 +958,11 @@ class Brain extends ChangeNotifier {
   }
 
   Future<void> deleteTask(String id) async {
+    // Its ⏰ reminder goes with it.
+    final rid = data.tasks.where((e) => e.id == id).firstOrNull?.reminderId;
     data.tasks.removeWhere((e) => e.id == id);
     await _save();
+    if (rid != null && data.reminders.any((r) => r.id == rid)) await deleteReminder(rid);
   }
 
   Future<void> setTaskDone(Task t, bool done) => saveTask(t.copyWith(done: done, doneAt: done ? services.now() : null));

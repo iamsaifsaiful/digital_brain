@@ -61,7 +61,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
         Row(children: [
           Expanded(child: Text(tr('দিনলিপি'), style: display(24, weight: 700))),
           IconButton(
-            tooltip: tr('বাংলা তারিখ ও ছুটি'),
+            tooltip: tr('ক্যালেন্ডার'),
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())),
             icon: Icon(Icons.calendar_month_outlined, color: C.ink),
           ),
