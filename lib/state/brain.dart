@@ -330,6 +330,7 @@ class Brain extends ChangeNotifier {
         place: district,
         lastOpen: DateTime.tryParse(text('last_open')),
         donorNext: donorNextDate,
+        lastBackup: DateTime.tryParse(text('last_backup')),
       );
 
   /// When the user may give blood again (3 months after the last time), if they are a donor.
@@ -354,7 +355,7 @@ class Brain extends ChangeNotifier {
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly',
-    'n_streak', 'n_comeback', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'inbox_apps', 'inbox_on',
+    'n_streak', 'n_comeback', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'inbox_apps', 'inbox_on', 'last_backup',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
@@ -667,6 +668,9 @@ class Brain extends ChangeNotifier {
 
   Future<void> _save() async {
     notifyListeners();
+    // The saved data could not be opened: never write over it (only a
+    // restore the user chose may replace it).
+    if (loadError != null) return;
     await services.store.save(data);
   }
 
@@ -1039,10 +1043,40 @@ class Brain extends ChangeNotifier {
   }
 
   /// Replaces everything with a restored backup.
-  Future<void> replaceAll(AppData restored) async {
+  /// Puts a backup in place of everything. The attached files are written
+  /// first; if anything fails before the new data is saved, the data on the
+  /// phone stays exactly as it was.
+  Future<void> replaceAll(AppData restored, {Map<String, Uint8List> files = const {}}) async {
+    if (loadError != null) await services.store.startOverKeepingOld();
+    for (final e in files.entries) {
+      await services.store.saveDocFile(e.key, e.value);
+    }
+    final before = data;
     data = restored;
-    await _save();
+    try {
+      await services.store.save(data);
+    } catch (_) {
+      data = before;
+      rethrow;
+    }
+    loadError = null;
+    try {
+      photo = await services.store.loadDocFile(_photoId);
+    } catch (_) {}
+    notifyListeners();
     await _reschedule();
+  }
+
+  /// Every attached photo and file, for the backup (ones that cannot be read are left out).
+  Future<Map<String, Uint8List>> backupFiles() async {
+    final out = <String, Uint8List>{};
+    for (final id in {...attachedFileIds(data), _photoId}) {
+      try {
+        final b = await services.store.loadDocFile(id);
+        if (b != null) out[id] = b;
+      } catch (_) {}
+    }
+    return out;
   }
 
   VaultItem? vaultById(String? id) {

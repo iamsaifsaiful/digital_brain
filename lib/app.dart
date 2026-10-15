@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'logic/bn.dart';
 import 'logic/proactive.dart';
+import 'screens/more_screen.dart' show BackupScreen;
 import 'screens/docs_screen.dart';
 import 'screens/money_more_screens.dart';
 import 'screens/calendar_screen.dart';
@@ -245,6 +246,8 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       push(const EmergencyScreen());
     } else if (id.startsWith(nudgeBack)) {
       openAssistant(ctx);
+    } else if (id.startsWith(nudgeBackup)) {
+      push(const BackupScreen());
     } else if (id.startsWith(nudgeSpend)) {
       push(const ReportScreen());
     } else if (id.startsWith(nudgeSalary)) {
@@ -332,9 +335,15 @@ class _LoadError extends StatelessWidget {
                 Text(tr('তথ্য খোলা যায়নি'), style: display(22)),
                 const SizedBox(height: 8),
                 Text(
-                  tr('এই ফোনের সুরক্ষিত চাবি দিয়ে তথ্যের ফাইল খোলা যাচ্ছে না। অ্যাপ নতুন করে ইনস্টল হলে বা ফোনের নিরাপত্তা বদলালে এমন হতে পারে। ব্যাকআপ থাকলে অ্যাপের ডেটা মুছে নতুন করে শুরু করে ব্যাকআপ ফিরিয়ে আনুন।'),
+                  tr('এই ফোনের সুরক্ষিত চাবি দিয়ে তথ্যের ফাইল খোলা যাচ্ছে না। অ্যাপ নতুন করে ইনস্টল হলে বা ফোনের নিরাপত্তা বদলালে এমন হতে পারে। পুরনো ফাইলটা মুছে ফেলা হয়নি। ব্যাকআপ থাকলে নিচ থেকে ফিরিয়ে আনুন — পুরনো ফাইলটা আলাদা করে রাখা থাকবে।'),
                   style: body(15, color: C.muted, height: 1.6),
                   textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BackupScreen())),
+                  icon: const Icon(Icons.restore_rounded),
+                  label: Text(tr('ব্যাকআপ থেকে ফিরিয়ে আনুন')),
                 ),
               ],
             ),

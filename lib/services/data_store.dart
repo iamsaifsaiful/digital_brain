@@ -119,9 +119,24 @@ class DataStore {
   Future<Uint8List> _key() async {
     final k = await keys.read(_keyName);
     if (k != null) return base64Decode(k);
+    // Data is there but its key is gone (reinstall, phone security reset):
+    // never make a new key over it — that would make the old data
+    // unreadable for good. The app shows the problem and offers a backup.
+    final existing = await blob.read();
+    if (existing != null && existing.length > _magic.length) throw const DataKeyMissing();
     final fresh = randomBytes(32);
     await keys.write(_keyName, base64Encode(fresh));
     return fresh;
+  }
+
+  /// After the user chose to restore a backup over data this phone cannot
+  /// open: the unreadable file is kept aside (never deleted) and a new key
+  /// is made for the restored data.
+  Future<void> startOverKeepingOld() async {
+    final old = await blob.read();
+    if (old != null && old.isNotEmpty) await docFiles.write('unreadable-data-${DateTime.now().millisecondsSinceEpoch}', old);
+    await blob.write(Uint8List(0));
+    await keys.write(_keyName, base64Encode(randomBytes(32)));
   }
 
   Future<AppData> load() async {
@@ -139,34 +154,73 @@ class DataStore {
   }
 }
 
-/// Backup files: "DBRNBK1" + salt(16) + iterations(4, big endian) + sealed JSON.
-/// The key comes from the backup password, so the file can be restored on a
-/// new phone and is useless without that password.
+/// Backup files: "DBRNBK" + version digit + salt(16) + iterations(4, big
+/// endian) + sealed JSON. The key comes from the backup password, so the file
+/// can be restored on a new phone and is useless without that password.
+/// Version 2 also carries every attached photo and file (documents, note and
+/// contact attachments, the profile photo); version 1 files still restore.
 class Backup {
-  static final _magic = utf8.encode('DBRNBK1');
+  static final _prefix = utf8.encode('DBRNBK');
+  static const version = 2;
   static const defaultIterations = 120000;
 
-  static Future<Uint8List> export(AppData data, String password, {int iterations = defaultIterations}) async {
+  static Future<Uint8List> export(AppData data, String password, {Map<String, Uint8List> files = const {}, int iterations = defaultIterations}) async {
     final salt = randomBytes(16);
     final key = await deriveKey(password, salt, iterations);
-    final sealed = await seal(utf8.encode(jsonEncode(data.toJson())), key);
+    final payload = {'v': version, 'data': data.toJson(), 'files': {for (final e in files.entries) e.key: base64Encode(e.value)}};
+    final sealed = await seal(utf8.encode(jsonEncode(payload)), key);
     final it = ByteData(4)..setUint32(0, iterations);
-    return Uint8List.fromList([..._magic, ...salt, ...it.buffer.asUint8List(), ...sealed]);
+    return Uint8List.fromList([..._prefix, ...utf8.encode('$version'), ...salt, ...it.buffer.asUint8List(), ...sealed]);
   }
 
-  /// Throws [NotABackup] or [WrongKey] (wrong password).
-  static Future<AppData> restore(Uint8List bytes, String password) async {
-    final head = _magic.length;
-    if (bytes.length < head + 20 || !sameBytes(bytes.sublist(0, head), _magic)) throw const NotABackup();
+  /// The data and attached files in a backup. Throws [NotABackup] (not a
+  /// backup, or damaged), [UnsupportedBackup] (made by a newer app) or
+  /// [WrongKey] (wrong password). Nothing is changed on the phone here.
+  static Future<(AppData, Map<String, Uint8List>)> restore(Uint8List bytes, String password) async {
+    final head = _prefix.length + 1;
+    if (bytes.length < head + 20 || !sameBytes(bytes.sublist(0, _prefix.length), _prefix)) throw const NotABackup();
+    final v = int.tryParse(String.fromCharCode(bytes[_prefix.length]));
+    if (v == null) throw const NotABackup();
+    if (v > version) throw const UnsupportedBackup();
     final salt = bytes.sublist(head, head + 16);
     final iterations = ByteData.sublistView(bytes, head + 16, head + 20).getUint32(0);
     if (iterations < 1000 || iterations > 5000000) throw const NotABackup();
     final key = await deriveKey(password, salt, iterations);
     final clear = await open(bytes.sublist(head + 20), key);
-    return AppData.fromJson((jsonDecode(utf8.decode(clear)) as Map).cast<String, Object?>());
+    try {
+      final j = (jsonDecode(utf8.decode(clear)) as Map).cast<String, Object?>();
+      if (v == 1) return (AppData.fromJson(j), <String, Uint8List>{});
+      final files = <String, Uint8List>{
+        for (final e in ((j['files'] as Map?) ?? const {}).entries) '${e.key}': base64Decode('${e.value}'),
+      };
+      return (AppData.fromJson((j['data'] as Map).cast<String, Object?>()), files);
+    } on WrongKey {
+      rethrow;
+    } catch (_) {
+      throw const NotABackup();
+    }
   }
 }
 
+/// Every attached file id in [d] (documents, note and contact attachments).
+Set<String> attachedFileIds(AppData d) => {
+      for (final x in d.docs) for (final f in x.files) f.id,
+      for (final n in d.notes) for (final f in n.files) f.id,
+      for (final c in d.contacts) for (final f in c.files) f.id,
+    };
+
 class NotABackup implements Exception {
   const NotABackup();
+}
+
+/// A backup made by a newer version of the app.
+class UnsupportedBackup implements Exception {
+  const UnsupportedBackup();
+}
+
+/// The data file is there but this phone no longer has its key.
+class DataKeyMissing implements Exception {
+  const DataKeyMissing();
+  @override
+  String toString() => 'DataKeyMissing';
 }

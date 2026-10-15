@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/services/crypto.dart';
@@ -31,16 +32,41 @@ void main() {
       expect(again.vault.single.password, 'super-secret-123');
 
       // Another phone (another key) cannot read it.
-      await expectLater(DataStore(keys: MemoryKeyVault(), blob: blob).load(), throwsA(isA<WrongKey>()));
+      await expectLater(DataStore(keys: MemoryKeyVault(), blob: blob).load(), throwsA(isA<DataKeyMissing>()));
+      // …and never writes a new key over it.
+      final other = DataStore(keys: MemoryKeyVault(), blob: blob);
+      await expectLater(other.save(AppData()), throwsA(isA<DataKeyMissing>()));
+      expect((await DataStore(keys: keys, blob: blob).load()).vault.single.password, 'super-secret-123');
     });
 
     test('backup restores with the right password only', () async {
       final data = AppData(notes: [Note(title: 'নোট', body: 'লেখা')]);
       final bytes = await Backup.export(data, 'my backup pass', iterations: 2000);
-      final back = await Backup.restore(bytes, 'my backup pass');
+      final (back, _) = await Backup.restore(bytes, 'my backup pass');
       expect(back.notes.single.body, 'লেখা');
       await expectLater(Backup.restore(bytes, 'wrong'), throwsA(isA<WrongKey>()));
       await expectLater(Backup.restore(utf8.encode('hello world, not a backup file'), 'x'), throwsA(isA<NotABackup>()));
+    });
+
+    test('a backup carries the attached files; old (v1) backups still restore; newer or damaged ones are refused', () async {
+      final data = AppData(docs: [Doc(title: 'NID', files: [DocFile(id: 'f1', name: 'nid.jpg', mime: 'image/jpeg', size: 3)])]);
+      final bytes = await Backup.export(data, 'pass1234', files: {'f1': Uint8List.fromList([1, 2, 3])}, iterations: 2000);
+      final (back, files) = await Backup.restore(bytes, 'pass1234');
+      expect(back.docs.single.files.single.id, 'f1');
+      expect(files['f1'], [1, 2, 3]);
+      // A version-1 file (made by older app versions).
+      final salt = randomBytes(16);
+      final key = await deriveKey('old pass', salt, 2000);
+      final sealed = await seal(utf8.encode(jsonEncode(AppData(notes: [Note(title: 'পুরনো')]).toJson())), key);
+      final v1 = Uint8List.fromList([...utf8.encode('DBRNBK1'), ...salt, 0, 0, 7, 208, ...sealed]);
+      final (old, oldFiles) = await Backup.restore(v1, 'old pass');
+      expect(old.notes.single.title, 'পুরনো');
+      expect(oldFiles, isEmpty);
+      // Made by a newer app.
+      final newer = Uint8List.fromList(bytes)..[6] = utf8.encode('9').first;
+      await expectLater(Backup.restore(newer, 'pass1234'), throwsA(isA<UnsupportedBackup>()));
+      // Cut short / damaged.
+      await expectLater(Backup.restore(Uint8List.fromList(bytes.sublist(0, bytes.length - 40)), 'pass1234'), throwsA(anyOf(isA<WrongKey>(), isA<NotABackup>())));
     });
   });
 

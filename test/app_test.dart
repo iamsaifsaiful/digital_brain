@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:digital_brain/app.dart';
@@ -54,8 +55,12 @@ Future<void> loadFonts() async {
 }
 
 class Rig {
-  Rig({AppData? data}) {
-    final keys = MemoryKeyVault();
+  /// A second app on the same storage with other [keys] (a phone that lost its key).
+  factory Rig.sharing(Rig other, {required MemoryKeyVault keys}) => Rig(keys: keys, blob: other.blob);
+
+  Rig({AppData? data, MemoryKeyVault? keys, MemoryBlobStore? blob}) {
+    final vault = keys ?? MemoryKeyVault();
+    this.blob = blob ?? MemoryBlobStore();
     voice = FakeVoice();
     notifier = FakeNotifier();
     files = FakeFiles();
@@ -63,10 +68,10 @@ class Rig {
     ai = FakeAi();
     phonebook = FakePhonebook();
     inbox = FakeInbox();
-    final store = DataStore(keys: keys, blob: MemoryBlobStore());
+    final store = DataStore(keys: vault, blob: this.blob);
     services = Services(
       store: store,
-      lock: LockService(keys: keys, biometrics: biometrics, iterations: 1000),
+      lock: LockService(keys: vault, biometrics: biometrics, iterations: 1000),
       voice: voice,
       notifier: notifier,
       files: files,
@@ -79,6 +84,7 @@ class Rig {
     if (data != null) brain.data = data;
   }
 
+  late final MemoryBlobStore blob;
   late final FakeVoice voice;
   late final FakeAi ai;
   late final FakePhonebook phonebook;
@@ -857,6 +863,39 @@ void main() {
     if (rig.brain.data.reminders.isEmpty) await say('হ্যাঁ');
     final r = rig.brain.data.reminders.single;
     expect((r.date, r.hour), (DateTime(2026, 10, 10), 17));
+  });
+
+  testWidgets('backup: files go along; a wrong password changes nothing; a clean install gets everything back; unreadable data is never overwritten', (t) async {
+    final rig = await start(t, data: AppData(
+      docs: [Doc(title: 'পাসপোর্ট', files: [DocFile(id: 'p1', name: 'p.jpg', mime: 'image/jpeg', size: 4)])],
+      ledger: [LedgerEntry(person: 'সজীব', kind: LedgerKind.lent, amount: 500, date: DateTime(2026, 10, 1))],
+    ));
+    await rig.brain.services.store.saveDocFile('p1', [9, 8, 7, 6]);
+    final bytes = await Backup.export(rig.brain.data, 'backup-pass', files: await rig.brain.backupFiles(), iterations: 2000);
+    // Wrong password: refused before anything is touched.
+    final before = jsonEncode(rig.brain.data.toJson());
+    await expectLater(Backup.restore(bytes, 'nope'), throwsA(isA<WrongKey>()));
+    expect(jsonEncode(rig.brain.data.toJson()), before);
+    // A new phone (new key, empty storage).
+    final fresh = Rig();
+    await fresh.brain.load();
+    final (data, files) = await Backup.restore(bytes, 'backup-pass');
+    await fresh.brain.replaceAll(data, files: files);
+    await fresh.brain.load();
+    expect(fresh.brain.data.ledger.single.amount, 500);
+    expect(await fresh.brain.services.store.loadDocFile('p1'), [9, 8, 7, 6]);
+    // This phone lost its key: the old file is not written over, even when something is saved.
+    final lost = Rig();
+    await lost.brain.services.store.save(AppData(notes: [Note(title: 'পুরনো')]));
+    final broken = Rig.sharing(lost, keys: MemoryKeyVault());
+    await broken.brain.load();
+    expect(broken.brain.loadError, isNotNull);
+    await broken.brain.saveTask(Task(title: 'নতুন'));
+    expect((await lost.brain.services.store.load()).notes.single.title, 'পুরনো');
+    // Restoring a backup there works, and keeps the unreadable file aside.
+    await broken.brain.replaceAll(data, files: files);
+    expect(broken.brain.loadError, isNull);
+    expect(broken.brain.data.ledger.single.amount, 500);
   });
 
   testWidgets('voice: an alarm said aloud is set as an alarm', (t) async {

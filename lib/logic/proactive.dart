@@ -55,7 +55,11 @@ class AssistantPrefs {
     this.place = 'ঢাকা',
     this.lastOpen,
     this.donorNext,
+    this.lastBackup,
   });
+
+  /// When the last backup was taken (null: never).
+  final DateTime? lastBackup;
   final bool morningOn;
 
   /// No nudges between these times (minutes after midnight); a nudge that
@@ -129,6 +133,7 @@ const nudgeSpend = 'nudge:spend';
 const nudgeDay2 = 'nudge:day2';
 const nudgeSalary = 'nudge:salary';
 const nudgeSoon = 'nudge:soon';
+const nudgeBackup = 'nudge:backup';
 
 /// One sentence for each month: what to watch for in Bangladesh's seasons.
 const healthTips = [
@@ -236,7 +241,7 @@ bool _chosenByUser(String tag) =>
     tag == morningTag || tag == nightTag || tag.startsWith(nudgePrayer) || tag.startsWith(nudgeRamadan) || tag.startsWith(nudgeDonor);
 
 int _rank(String tag) {
-  const order = [morningTag, nightTag, nudgePrayer, nudgeRamadan, nudgeDue, nudgeBill, nudgeMed, nudgeDoc, nudgeDonor, nudgeDay2, '${nudgePlan}eve', nudgeSoon, nudgeSalary, nudgeSpend, nudgeNoCash, nudgePlan, nudgeHabit, nudgeJumuah, nudgeWeek, nudgeFest, nudgeHealth, nudgeBack];
+  const order = [morningTag, nightTag, nudgePrayer, nudgeRamadan, nudgeDue, nudgeBill, nudgeMed, nudgeDoc, nudgeBackup, nudgeDonor, nudgeDay2, '${nudgePlan}eve', nudgeSoon, nudgeSalary, nudgeSpend, nudgeNoCash, nudgePlan, nudgeHabit, nudgeJumuah, nudgeWeek, nudgeFest, nudgeHealth, nudgeBack];
   for (var i = 0; i < order.length; i++) {
     if (tag.startsWith(order[i])) return i;
   }
@@ -356,6 +361,26 @@ List<PlannedNotice> _nudges(AppData d, DateTime now, AssistantPrefs p) {
       title: trf('{0}-এর মেয়াদ ৬ মাস পর শেষ', [x.title]),
       body: trf('মেয়াদ শেষ {0}। নবায়নের কাগজ গুছিয়ে রাখুন।', [fullDate(exp)]),
       reminderId: '$nudgeDoc${x.id}',
+      gentle: true,
+    ));
+  }
+
+  // No backup for a month (or never, once there is something to lose): Friday late morning.
+  final lastBackup = p.lastBackup;
+  final worth = d.ledger.length + d.notes.length + d.vault.length + d.docs.length + d.cash.length >= 10;
+  if (worth && (lastBackup == null || now.difference(lastBackup).inDays >= 30)) {
+    var day = today;
+    while (day.weekday != DateTime.friday) {
+      day = day.add(const Duration(days: 1));
+    }
+    var at = _at(day, 11 * 60 + 30);
+    if (!at.isAfter(now)) at = at.add(const Duration(days: 7));
+    out.add(PlannedNotice(
+      id: stableId('$nudgeBackup:${dayKey(at)}'),
+      at: at,
+      title: lastBackup == null ? tr('এখনো কোনো ব্যাকআপ নেই') : trf('{0} দিন ব্যাকআপ নেওয়া হয়নি', [bnDigits(now.difference(lastBackup).inDays)]),
+      body: tr('ফোন হারালে বা নষ্ট হলে তথ্য ফেরাতে ব্যাকআপ লাগবে। চাপুন — এক মিনিটে নিয়ে Google Drive বা অন্য কোথাও রেখে দিন।'),
+      reminderId: nudgeBackup,
       gentle: true,
     ));
   }

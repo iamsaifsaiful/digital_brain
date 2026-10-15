@@ -490,12 +490,16 @@ class _BackupScreenState extends State<BackupScreen> {
 
   Future<void> _backup({bool toPhone = true}) async {
     final brain = BrainScope.read(context);
+    if (brain.loadError != null) {
+      toast(context, tr('এই ফোনে তথ্য খোলা যায়নি, তাই এখন ব্যাকআপ নেওয়া যাবে না। আগের কোনো ব্যাকআপ ফিরিয়ে আনুন।'));
+      return;
+    }
     if (!await verifyUser(context, reason: tr('ব্যাকআপ নিতে যাচাই করুন'))) return;
     final pass = await _askPassword(create: true);
     if (pass == null || !mounted) return;
     setState(() => _busy = true);
     try {
-      final bytes = await Backup.export(brain.data, pass);
+      final bytes = await Backup.export(brain.data, pass, files: await brain.backupFiles());
       final now = brain.services.now();
       final name = 'my-assistant-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.dbrain';
       if (toPhone) {
@@ -508,7 +512,7 @@ class _BackupScreenState extends State<BackupScreen> {
       } else {
         await brain.services.files.shareFile(bytes, name, 'application/octet-stream', tr('My Assistant এনক্রিপ্টেড ব্যাকআপ'));
       }
-      await brain.services.lock.keys.write('last_backup', now.toIso8601String());
+      await brain.setPref('last_backup', now.toIso8601String());
       _lastBackup = now.toIso8601String();
     } catch (e) {
       if (mounted) toast(context, trf('ব্যাকআপ নেওয়া যায়নি: {0}', [e]));
@@ -526,22 +530,24 @@ class _BackupScreenState extends State<BackupScreen> {
     if (pass == null || !mounted) return;
     setState(() => _busy = true);
     try {
-      final restored = await Backup.restore(bytes, pass);
+      final (restored, files) = await Backup.restore(bytes, pass);
       if (!mounted) return;
       final ok = await confirmDialog(
         context,
         title: tr('ব্যাকআপ ফিরিয়ে আনবেন?'),
-        text: trf('ব্যাকআপে আছে: {0}টি পাসওয়ার্ড, {1} জন যোগাযোগ, {2}টি ধার-দেনা, {3}টি আয়-ব্যয়, {4}টি নোট, {5}টি রিমাইন্ডার, {6}টি কাজ।\n\nএখনকার সব তথ্য এর বদলে যাবে।', [bnDigits(restored.vault.length), bnDigits(restored.contacts.length), bnDigits(restored.ledger.length), bnDigits(restored.cash.length), bnDigits(restored.notes.length), bnDigits(restored.reminders.length), bnDigits(restored.tasks.length)]),
+        text: trf('ব্যাকআপে আছে: {0}টি পাসওয়ার্ড, {1} জন যোগাযোগ, {2}টি ধার-দেনা, {3}টি আয়-ব্যয়, {4}টি নোট, {5}টি রিমাইন্ডার, {6}টি কাজ, {7}টি ছবি/ফাইল।\n\nএখনকার সব তথ্য এর বদলে যাবে (মেশানো হবে না)। কিছু ব্যর্থ হলে এখনকার তথ্য যেমন আছে থাকবে।', [bnDigits(restored.vault.length), bnDigits(restored.contacts.length), bnDigits(restored.ledger.length), bnDigits(restored.cash.length), bnDigits(restored.notes.length), bnDigits(restored.reminders.length), bnDigits(restored.tasks.length), bnDigits(files.length)]),
         yes: tr('ফিরিয়ে আনুন'),
         danger: true,
       );
       if (!ok) return;
-      await brain.replaceAll(restored);
+      await brain.replaceAll(restored, files: files);
       if (mounted) toast(context, tr('ব্যাকআপ ফিরিয়ে আনা হয়েছে'));
     } on NotABackup {
-      if (mounted) toast(context, tr('এটা My Assistant-এর ব্যাকআপ ফাইল নয়'));
+      if (mounted) toast(context, tr('এটা My Assistant-এর ব্যাকআপ ফাইল নয়, অথবা ফাইলটি নষ্ট। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
+    } on UnsupportedBackup {
+      if (mounted) toast(context, tr('এই ব্যাকআপ অ্যাপের নতুন সংস্করণে বানানো। আগে অ্যাপ হালনাগাদ করুন। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
     } on WrongKey {
-      if (mounted) toast(context, tr('পাসওয়ার্ড মেলেনি, অথবা ফাইলটি নষ্ট'));
+      if (mounted) toast(context, tr('পাসওয়ার্ড মেলেনি, অথবা ফাইলটি নষ্ট। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
     } catch (e) {
       if (mounted) toast(context, trf('ফিরিয়ে আনা যায়নি: {0}', [e]));
     } finally {
