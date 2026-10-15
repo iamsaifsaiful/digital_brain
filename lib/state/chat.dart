@@ -1152,8 +1152,11 @@ class ChatController extends ChangeNotifier {
     }
     if (_allYes) return _saveCurrent(out);
     final on = _ledgerDate == null ? '' : '${sayWhen(_ledgerDate!, _now, withTime: false).replaceFirst(RegExp(r'^কাল'), 'গতকাল')}: ';
-    _ask(out, '$on${confirmQuestion(_kind!, _person, _amount)}', ChatWait.yesNo,
-        choices: _yesNoChoices,
+    // The recogniser also heard another amount: say so, and offer it.
+    final alt = _altAmount(src.transcript);
+    final unsure = alt == null ? '' : trf(' (“{0} টাকা”-ও শোনা গেছে — অঙ্কটা ঠিক আছে তো?)', [bnNumber(alt)]);
+    _ask(out, '$on${confirmQuestion(_kind!, _person, _amount)}$unsure', ChatWait.yesNo,
+        choices: [..._yesNoChoices, if (alt != null) ChatChoice(trf('{0} টাকা', [bnNumber(alt)]), 'না, $alt')],
         facts: [if (_ledgerPhone.isNotEmpty) '$_person · ${showPhone(_ledgerPhone)}'],
         links: [
       ChatLink(LinkKind.editEntry, tr('তারিখ বা অঙ্ক বদলান'),
@@ -1474,6 +1477,18 @@ class ChatController extends ChangeNotifier {
     }
   }
 
+  /// Another amount in the recogniser's other guesses for [said] (only
+  /// when it gave some; nothing is made up).
+  int? _altAmount(String said) {
+    final v = brain.services.voice;
+    if (v.lastHeard.trim().isEmpty || v.lastHeard.trim() != said.trim()) return null;
+    for (final a in v.lastAlternatives) {
+      final n = findAmount(normalize(a));
+      if (n != null && n > 0 && n != _amount) return n;
+    }
+    return null;
+  }
+
   /// The new amount in a short correction ("না, ৭০০", "পাঁচশ না, সাতশ",
   /// "৭০০ হবে"); null when the answer is something else.
   int? _correctedAmount(String t) {
@@ -1537,6 +1552,13 @@ class ChatController extends ChangeNotifier {
           minutesBefore: c.minutesBefore,
         ));
         final early = c.minutesBefore > 0 ? trf(' {0} আগেও একবার জানিয়ে দেব।', [beforeLabel(c.minutesBefore)]) : '';
+        // Saved, but the phone will not show it: say so instead of promising.
+        if (!(await brain.services.notifier.health()).notificationsOn) {
+          _say(out, trf('রিমাইন্ডারটা রাখা হয়েছে ({0}), কিন্তু এই ফোনে অ্যাপের নোটিফিকেশন বন্ধ — তাই এখন বাজবে না। ফোনের সেটিংস থেকে My Assistant-এর নোটিফিকেশন চালু করুন।', [sayWhen(c.at, _now)]),
+              links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
+          _history.add(AiTurn.app('[রিমাইন্ডার রাখা হলো, কিন্তু নোটিফিকেশন বন্ধ: ${summaryLine(c)}]'));
+          break;
+        }
         _say(out, quiet ? trf('মনে করাব: {0}', [c.title]) : (c.repeat.isInterval || c.repeat == Repeat.daily ? trf('ঠিক আছে, {0} মনে করিয়ে দেব।', [c.repeat.label]) : trf('ঠিক আছে, {0}-এ মনে করিয়ে দেব।', [sayWhen(c.at, _now)])) + early,
             links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))], speak: !quiet);
         _history.add(AiTurn.app('[রিমাইন্ডার রাখা হলো: ${summaryLine(c)}]'));

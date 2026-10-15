@@ -56,9 +56,38 @@ int? _num(String w) => int.tryParse(w) ?? findAmount(w);
 
 /// The day/time in [said], or null when it has none. Past times today move
 /// to tomorrow unless "আজ" was said.
+const _enHours = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+
+/// Times said in English inside Bengali speech ("eight pm-এ", "8 am",
+/// "seven thirty pm") as the Bengali the rest of the app reads
+/// ("রাত ৮টায়", "সকাল ৮টায়", "সন্ধ্যা ৭.৩০").
+String englishTimes(String s) {
+  String part(int h, bool pm) => pm
+      ? (h == 12 ? 'দুপুর' : (h <= 4 ? 'বিকাল' : (h <= 6 ? 'সন্ধ্যা' : 'রাত')))
+      : (h == 12 ? 'রাত' : (h <= 3 ? 'রাত' : 'সকাল'));
+  String out(int h, String mm, String p) {
+    final pm = p.startsWith('p');
+    final period = p.isEmpty ? '' : '${part(h, pm)} ';
+    return mm.isEmpty ? '$period$hটায়' : '$period$h.$mm';
+  }
+
+  final words = RegExp(r'\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)(?:\s+(thirty|fifteen|forty[- ]five))?\s*(a\.?m\.?|p\.?m\.?|o.?clock)(?:\s*-?\s*(?:এ|তে)(?![ঀ-৿]))?', caseSensitive: false);
+  final digits = RegExp(r'(?<![0-9০-৯.])([0-9]{1,2})(?:[.:]([0-9]{2}))?\s*(a\.?m\.?|p\.?m\.?)(?![a-z])(?:\s*-?\s*(?:এ|তে)(?![ঀ-৿]))?', caseSensitive: false);
+  return s.replaceAllMapped(words, (m) {
+    final h = _enHours.indexOf(m[1]!.toLowerCase()) + 1;
+    final mm = switch (m[2]?.toLowerCase()) { 'thirty' => '30', 'fifteen' => '15', null => '', _ => '45' };
+    final p = m[3]!.toLowerCase().replaceAll('.', '');
+    return out(h, mm, p.startsWith('o') ? '' : p);
+  }).replaceAllMapped(digits, (m) {
+    final h = int.parse(m[1]!);
+    if (h < 1 || h > 12) return m[0]!;
+    return out(h, m[2] ?? '', m[3]!.toLowerCase().replaceAll('.', ''));
+  });
+}
+
 When? parseWhen(String said, DateTime now) {
   // "৬:২০" → "৬.২০" (normalize drops the colon).
-  final clockSaid = said.replaceAllMapped(RegExp(r'([0-9০-৯]{1,2})\s*:\s*([0-9০-৯]{2})'), (m) => '${m[1]}.${m[2]}');
+  final clockSaid = englishTimes(said).replaceAllMapped(RegExp(r'([0-9০-৯]{1,2})\s*:\s*([0-9০-৯]{2})'), (m) => '${m[1]}.${m[2]}');
   final w = [for (final x in words(normalize(clockSaid))) _hourWord(x)];
   if (w.isEmpty) return null;
 

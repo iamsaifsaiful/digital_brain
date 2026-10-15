@@ -21,7 +21,7 @@ import 'sound_screen.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '2.12.3';
+const appVersion = '2.13.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -382,6 +382,8 @@ class _MoreScreenState extends State<MoreScreen> {
                 sub: brain.alarmSoundTitle.isEmpty ? tr('ফোনের অ্যালার্ম টোন') : brain.alarmSoundTitle, onTap: _pickRingtone),
             switchRow(Icons.volume_up_outlined, tr('উত্তর কণ্ঠে শোনাও'), tr('পাসওয়ার্ড কখনো জোরে পড়া হয় না'), brain.speakOn, (v) => brain.setSpeakOn(v)),
             linkRow(Icons.record_voice_over_outlined, tr('কণ্ঠ বেছে নিন'), sub: tr('ফোনে থাকা বাংলা কণ্ঠগুলো শুনে দেখুন'), onTap: _pickVoice),
+            switchRow(Icons.record_voice_over_rounded, tr('উত্তরের মাঝে কথা বলে থামানো'), tr('বন্ধ থাকলে অ্যাপ কথা শেষ করে তারপর শোনে — নিজের কথা ভুল করে ধরে না। চালু করলে লম্বা উত্তরের মাঝেই বলতে পারবেন (কিছু ফোনে ভুল ধরতে পারে)'),
+                brain.bargeIn, (v) => brain.setBargeIn(v)),
           ]),
         ),
         const SizedBox(height: 8),

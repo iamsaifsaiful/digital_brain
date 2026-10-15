@@ -32,7 +32,13 @@ abstract class Voice {
     bool short = false,
     String? say,
     void Function()? onSaid,
+    void Function()? onReady,
   });
+
+  /// Speak over the microphone: the user may interrupt a long answer by
+  /// talking. Off by default — the microphone opens after the app finishes
+  /// speaking, so it can never hear itself.
+  bool bargeIn = false;
 
   /// Stops and keeps what was heard (onDone fires).
   Future<void> stop();
@@ -131,6 +137,9 @@ class DeviceVoice extends Voice {
   void Function(String)? _onWords;
   void Function(String)? _onDone;
   void Function(String)? _onError;
+
+  /// The recogniser really started listening (not only asked to).
+  void Function()? _onReady;
   Timer? _quiet;
 
   /// What the app is saying while it listens (its words, to tell its own
@@ -398,6 +407,11 @@ class DeviceVoice extends Voice {
   /// passed yet, listen again so a continued sentence is not lost.
   void _handleStatus(String status) {
     if (_finished) return;
+    if (status == 'listening') {
+      final r = _onReady;
+      _onReady = null;
+      r?.call();
+    }
     // Asked to finish: the session ending is expected; keep what was heard.
     if (_finalizing) {
       if (status == 'done' || status == 'doneNoResult' || status == 'notListening') {
@@ -526,6 +540,7 @@ class DeviceVoice extends Voice {
     bool short = false,
     String? say,
     void Function()? onSaid,
+    void Function()? onReady,
   }) async {
     final turn = ++_turn;
     if (!await init()) {
@@ -544,7 +559,7 @@ class DeviceVoice extends Voice {
     // A short prompt ("আমি শুনছি") is said first and the microphone opens
     // right after, so the app never hears its own voice. Only a longer
     // answer is spoken while listening (the user may talk over it).
-    if (say != null && say.trim().isNotEmpty && !muted && say.trim().split(RegExp(r'\s+')).length <= 4) {
+    if (say != null && say.trim().isNotEmpty && !muted && (!bargeIn || say.trim().split(RegExp(r'\s+')).length <= 4)) {
       await speakAndWait(say);
       // Let the last sound fade before the microphone opens.
       await Future<void>.delayed(const Duration(milliseconds: 250));
@@ -579,12 +594,19 @@ class DeviceVoice extends Voice {
     _onWords = onWords;
     _onDone = onDone;
     _onError = onError;
+    _onReady = onReady;
     final talk = say;
     final speaking = talk != null && talk.trim().isNotEmpty && !muted;
     _echo = speaking ? [for (final w in forSpeech(talk).split(RegExp(r'\s+'))) if (w.isNotEmpty) echoToken(w)] : const [];
     _talking = speaking;
     _onSaid = onSaid;
     await _startSession(turn);
+    // Started without an error: listening now (some phones never report the status).
+    if (turn == _turn && !_finished) {
+      final r = _onReady;
+      _onReady = null;
+      r?.call();
+    }
     if (!speaking) {
       onSaid?.call();
       return;
@@ -738,9 +760,11 @@ class FakeVoice extends Voice {
     bool short = false,
     String? say,
     void Function()? onSaid,
+    void Function()? onReady,
   }) async {
     if (say != null && say.trim().isNotEmpty && !muted) spoken.add(say);
     onSaid?.call();
+    onReady?.call();
     if (!available) {
       onError('ভয়েস নেই');
       return;

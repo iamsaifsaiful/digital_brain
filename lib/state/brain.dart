@@ -522,6 +522,14 @@ class Brain extends ChangeNotifier {
     return lines.join('\n');
   }
 
+  bool get bargeIn => services.voice.bargeIn;
+
+  Future<void> setBargeIn(bool on) async {
+    services.voice.bargeIn = on;
+    await services.lock.keys.write('barge_in', on ? 'true' : 'false');
+    notifyListeners();
+  }
+
   bool get aiBest => services.ai.quality == AiQuality.best;
 
   Future<void> setAiBest(bool on) async {
@@ -613,6 +621,7 @@ class Brain extends ChangeNotifier {
     } catch (_) {}
     try {
       services.voice.muted = (await services.lock.keys.read('speak_on')) == 'false';
+      services.voice.bargeIn = (await services.lock.keys.read('barge_in')) == 'true';
       services.notifier.insistent = (await services.lock.keys.read('alarm_insistent')) != 'false';
       services.notifier.soundUri = await services.lock.keys.read('alarm_sound');
       alarmSoundTitle = await services.lock.keys.read('alarm_sound_title') ?? '';

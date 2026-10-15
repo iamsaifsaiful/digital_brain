@@ -898,6 +898,32 @@ void main() {
     expect(broken.brain.data.ledger.single.amount, 500);
   });
 
+  testWidgets('voice: when the recogniser also heard another amount, it is shown and can be picked', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    rig.voice.say('সজীবকে পাঁচশ টাকা ধার দিলাম', alternatives: ['সজীবকে সাতশ টাকা ধার দিলাম']);
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('৭০০ টাকা”-ও শোনা গেছে'));
+    rig.voice.say('না, 700');
+    await settle(t);
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    expect(rig.brain.data.ledger.single.amount, 700);
+  });
+
+  testWidgets('reminder: with notifications off the app says it will not ring instead of promising', (t) async {
+    final rig = await start(t);
+    rig.notifier.state = const AlarmHealth(notificationsOn: false, exactOn: true, batteryFree: true, fullScreenOn: true, brand: '', hasAutostart: false);
+    await openChat(t);
+    rig.voice.say('কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও');
+    await settle(t);
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    expect(rig.brain.data.reminders, hasLength(1));
+    expect(rig.voice.spoken.last, contains('নোটিফিকেশন বন্ধ'));
+    expect(rig.voice.spoken.last, isNot(contains('মনে করিয়ে দেব')));
+  });
+
   testWidgets('voice: an alarm said aloud is set as an alarm', (t) async {
     final rig = await start(t);
     await openChat(t);

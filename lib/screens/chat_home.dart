@@ -63,6 +63,9 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   String? _error;
   bool _voice = false;
   bool _listening = false;
+
+  /// The recogniser has really started (until then: "প্রস্তুত হচ্ছে…").
+  bool _ready = false;
   bool _speaking = false;
   bool _busy = false;
 
@@ -332,12 +335,16 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
       _live = '';
       _error = null;
       _listening = true;
+      _ready = false;
       _speaking = say != null && !voice.muted;
     });
     unawaited(_wave.repeat());
     await voice.listen(
       short: _chat.expectsShortAnswer,
       say: say,
+      onReady: () {
+        if (mounted && gen == _gen) setState(() => _ready = true);
+      },
       onSaid: () {
         if (mounted && _speaking) setState(() => _speaking = false);
       },
@@ -1049,7 +1056,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     final status = _listening && _speaking
         ? tr('বলছি — আপনি কথা বললেই থেমে শুনবো')
         : _listening
-        ? tr('শুনছি…')
+        ? (_ready ? tr('শুনছি…') : tr('প্রস্তুত হচ্ছে… একটু পরে বলুন'))
         : (_busy || _chat.thinking)
             ? tr('ভাবছি…')
             : _speaking

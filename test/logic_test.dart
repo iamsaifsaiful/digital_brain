@@ -1732,6 +1732,11 @@ void main() {
       expect((one('কাল রহিমকে ৫০০ টাকা ধার দিলাম') as LedgerAdd).date, DateTime(2026, 10, 14));
       expect((one('রহিমকে ৫০০ টাকা ধার দিলাম') as LedgerAdd).date, isNull);
       expect((one('রহিমের কাছ থেকে ৫০০ টাকা ধার নিছি') as LedgerAdd).kind, LedgerKind.borrowed);
+      // Mixed Bengali-English times.
+      final mixed = one('কাল eight pm-এ medicine reminder দাও') as ReminderAdd;
+      expect((mixed.at, mixed.title), (DateTime(2026, 10, 16, 20), 'medicine'));
+      expect((one('seven thirty pm এ মনে করিয়ে দিও ওষুধ') as ReminderAdd).at, DateTime(2026, 10, 16, 19, 30));
+      expect((one('কাল সকাল 8 am এ মিটিং মনে করিয়ে দিও') as ReminderAdd).at, DateTime(2026, 10, 16, 8));
     });
   });
 }

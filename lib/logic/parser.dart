@@ -697,6 +697,8 @@ class Parser {
   final DateTime now;
 
   Command parse(String said) {
+    // "কাল eight pm-এ …": English times read as Bengali ones (also for titles).
+    said = englishTimes(said);
     var text = normalize(said);
     if (text.isEmpty) return NotUnderstood(said);
 
@@ -1368,6 +1370,7 @@ class Parser {
       if (at != null || (_hasNorm(text, _remindAskKeys) && !askingDate)) {
         var title = withoutWhen(said).replaceAll(_everyPattern, ' ');
         title = tidy(cutWords(title, [
+          'reminder দাও', 'reminder দিও', 'reminder দিবা', 'রিমাইন্ডার দাও', 'রিমাইন্ডার দিও', 'রিমাইন্ডার দিবা', 'আগামী মাসের', 'আগামী মাসে',
           ..._remindKeys, ..._remindAskKeys, ..._fillers, 'প্রতি মাসে', 'প্রতিমাসে', 'প্রতি মাসের', 'প্রতি বছর', 'প্রতিবছর', 'প্রতি বছরের', 'প্রতিদিন', 'প্রতি দিন',
           'রোজ', 'প্রত্যেকদিন', 'দৈনিক', 'প্রতি ঘণ্টায়', 'প্রতি ঘন্টায়', 'ঘণ্টায় ঘণ্টায়', 'ঘন্টায় ঘন্টায়', 'পর পর', 'পরপর', 'অন্তর', 'প্রতি',
         ]));
