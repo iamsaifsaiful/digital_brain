@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../logic/ai_safe.dart';
 import '../logic/app_map.dart';
 import '../logic/lang.dart';
 
@@ -172,14 +173,14 @@ class ClaudeAi implements AiBrain {
                   'text': _autoChoice.contains(model) ? '${systemRules()}\nAlways answer by calling the `route` tool exactly once; never answer in plain text.\n' : systemRules(),
                   'cache_control': {'type': 'ephemeral'},
                 },
-                {'type': 'text', 'text': systemContext(ctx)},
+                {'type': 'text', 'text': redactForAi(systemContext(ctx))},
               ],
               'tools': [_tool],
               'tool_choice': _autoChoice.contains(model) ? {'type': 'auto'} : {'type': 'tool', 'name': 'route'},
               // Think a little before answering (to catch what the user really
               // means), without the long thinking of hard tasks.
               if (_autoChoice.contains(model) && !_plain.contains(model)) 'output_config': {'effort': fast ? 'low' : 'medium'},
-              'messages': messagesFor(said, history),
+              'messages': messagesFor(redactForAi(said), [for (final t in history) t.fromUser ? AiTurn.user(redactForAi(t.text)) : AiTurn.app(redactForAi(t.text))]),
             }),
           )
           .timeout(Duration(seconds: fast ? 20 : (_quality == AiQuality.best ? 45 : 20)));

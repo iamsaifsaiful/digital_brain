@@ -46,7 +46,7 @@ class DeviceLauncher implements Launcher {
     try {
       return await launchUrl(launchUri(via, phone, text: text), mode: LaunchMode.externalApplication);
     } catch (e) {
-      debugPrint('launch failed: $e');
+      debugPrint('launch failed');
       return false;
     }
   }
@@ -56,7 +56,7 @@ class DeviceLauncher implements Launcher {
     try {
       return await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (e) {
-      debugPrint('launch failed: $e');
+      debugPrint('launch failed');
       return false;
     }
   }

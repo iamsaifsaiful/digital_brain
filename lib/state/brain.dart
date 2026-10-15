@@ -31,6 +31,7 @@ import '../services/voice.dart';
 import '../services/platform.dart';
 import '../logic/calendar_bd.dart';
 import '../ui/theme.dart' show Look;
+import '../logic/inbox.dart' show secretMessage;
 import '../logic/lang.dart';
 
 part 'brain_more.dart';
@@ -161,7 +162,7 @@ class Brain extends ChangeNotifier {
   AiContext aiContext() => AiContext(
         now: services.now(),
         people: knownPeople(data.ledger).take(60).toList(),
-        categories: data.noteCategories,
+        categories: aiShareData ? data.noteCategories : const [],
         money: moneySummary(),
         records: aiShareData ? recordsSummary() : '',
       );
@@ -563,6 +564,8 @@ class Brain extends ChangeNotifier {
     // An alarm is understood on the phone at once (no waiting for the AI).
     if (rules.length == 1 && rules.first is ReminderAdd && (rules.first as ReminderAdd).alarm) return (rules, null);
     if (mentionsSecret(said) || rules.any((c) => c is VaultQuery)) return (rules, null);
+    // A phone number in the sentence: understood on the phone (numbers never go to the AI).
+    if (findPhone(said) != null) return (rules, null);
     // Listing the saved numbers needs no AI (and numbers never go to it).
     if (rules.length == 1 && rules.first is ContactsQuery) return (rules, null);
     if (rules.length == 1 && rules.first is SmallTalk && {Talk.time, Talk.date}.contains((rules.first as SmallTalk).kind)) {

@@ -59,6 +59,8 @@ class MessageListener : NotificationListenerService() {
 
         private val secret = Regex("(?i)(otp|one[ -]?time|verification|verify|passcode|password|pin\\b|code|কোড|ওটিপি|পিন|পাসওয়ার্ড|গোপন)")
         private val digits = Regex("\\b[0-9০-৯]{4,8}\\b")
+        /** A password or PIN mentioned at all (with or without digits). */
+        private val passwordWords = Regex("(?i)(password|পাসওয়ার্ড|\\bpin\\b|পিন|cvv|সিভিভি)")
         private val summary = Regex("(?i)^(\\d+|[০-৯]+)\\s*(new messages?|messages? from|টি নতুন|নতুন বার্তা|unread)|checking for new messages|backup|ব্যাকআপ|is typing|typing…|লিখছে")
 
         fun hasAccess(c: Context): Boolean {
@@ -185,7 +187,7 @@ class MessageListener : NotificationListenerService() {
             val t = text.trim()
             if (t.isEmpty() || summary.containsMatchIn(t) || summary.containsMatchIn(title)) continue
             // Never keep one-time codes, PINs or passwords.
-            if (secret.containsMatchIn(t) && digits.containsMatchIn(t)) continue
+            if ((secret.containsMatchIn(t) && digits.containsMatchIn(t)) || passwordWords.containsMatchIn(t)) continue
             val chat = conv ?: title
             val id = "$pkg|$chat|$from|$at|$t".hashCode().toString()
             if (!seen.add(id)) continue

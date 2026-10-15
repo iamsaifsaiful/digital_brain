@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:digital_brain/app.dart';
+import 'package:digital_brain/logic/ai_safe.dart';
 import 'package:digital_brain/logic/money_more.dart';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/services/ai.dart';
@@ -221,6 +222,38 @@ void main() {
     expect(find.byType(ChatHome), findsNothing);
   });
 
+  testWidgets('inbox: access turned off shows the setup again; codes and passwords are never kept; a build without the reader says so', (t) async {
+    final rig = await start(t);
+    rig.inbox.access = true;
+    rig.inbox.waiting.addAll([
+      InboxMessage(id: 'a', app: 'com.google.android.apps.messaging', appName: 'SMS', chat: 'bKash', from: 'bKash', text: 'Your OTP is 482913. Do not share.', at: DateTime(2026, 10, 9, 9)),
+      InboxMessage(id: 'b', app: 'com.whatsapp', appName: 'WhatsApp', chat: 'রহিম', from: 'রহিম', text: 'ওয়াইফাই পাসওয়ার্ড টা দাও', at: DateTime(2026, 10, 9, 9, 1)),
+      InboxMessage(id: 'c', app: 'com.whatsapp', appName: 'WhatsApp', chat: 'রহিম', from: 'রহিম', text: 'কাল বিকেলে দেখা হবে', at: DateTime(2026, 10, 9, 9, 2)),
+      InboxMessage(id: 'c', app: 'com.whatsapp', appName: 'WhatsApp', chat: 'রহিম', from: 'রহিম', text: 'কাল বিকেলে দেখা হবে', at: DateTime(2026, 10, 9, 9, 2)), // the same one twice
+    ]);
+    unawaited(openPlace(t.element(find.byType(HomeShell)), 'inbox'));
+    await settle(t);
+    expect([for (final m in rig.brain.data.inbox) m.id], ['c']);
+    Navigator.of(t.element(find.byType(InboxScreen))).pop();
+    await settle(t);
+    // Access taken away in the phone's settings: the page asks again.
+    rig.inbox.access = false;
+    unawaited(openPlace(t.element(find.byType(HomeShell)), 'inbox'));
+    await settle(t);
+    expect(find.text('অনুমতি দিন'), findsOneWidget);
+    Navigator.of(t.element(find.byType(InboxScreen))).pop();
+    await settle(t);
+    // This APK leaves the reader out (Play Protect): the page says so.
+    rig.inbox.isSupported = false;
+    await rig.brain.load();
+    unawaited(openPlace(t.element(find.byType(HomeShell)), 'inbox'));
+    await settle(t);
+    expect(find.textContaining('এই সংস্করণে নেই'), findsOneWidget);
+    expect(find.text('অনুমতি দিন'), findsNothing);
+    Navigator.of(t.element(find.byType(InboxScreen))).pop();
+    await settle(t);
+  });
+
   testWidgets('বার্তা থেকে কাজ: permission first, then the work found in messages', (t) async {
     final rig = await start(t);
     unawaited(openPlace(t.element(find.byType(HomeShell)), 'inbox'));
@@ -252,6 +285,56 @@ void main() {
     expect(rig.inbox.sent.single, ('1', 'একটু পরে জানাচ্ছি।'));
     Navigator.of(t.element(find.byType(InboxScreen))).pop();
     await settle(t);
+  });
+
+  testWidgets('AI privacy: off sends nothing; on, secrets, numbers and the vault never go', (t) async {
+    final data = AppData(
+      vault: [VaultItem(name: 'ব্যাংক', username: 'saif', password: 'Gopon#123')],
+      notes: [
+        Note(title: 'বাসা', body: 'বাসা মিরপুর ১০, রোড ৩'),
+        Note(title: 'ATM পিন', body: '4321'),
+        Note(title: 'রহিম', body: 'রহিমের নম্বর 01711223344, ইমেইল rahim@example.com'),
+      ],
+      docs: [Doc(title: 'NID 1990123456789', folder: 'পরিচয়পত্র')],
+      memories: [Memory(text: 'আমার ব্যাংকের পিন 9999')],
+    );
+    // AI off (no key): nothing is asked.
+    final rig = await start(t, data: data);
+    await openTyping(t);
+    Future<void> type(String s) async {
+      await t.enterText(find.byType(TextField).first, s);
+      await t.testTextInput.receiveAction(TextInputAction.send);
+      await settle(t);
+    }
+
+    await type('বাসার ঠিকানা কী?');
+    expect(rig.ai.asked, isEmpty);
+    // AI on.
+    rig.ai.key = 'test-key';
+    rig.ai.answer = {'reply': 'মিরপুর ১০, রোড ৩।', 'items': []};
+    await type('বাসার ঠিকানা কী?');
+    expect(rig.ai.asked, isNotEmpty);
+    final records = rig.ai.contexts.last.records;
+    expect(records, contains('মিরপুর'));
+    for (final secret in ['Gopon#123', '4321', '9999', 'saif']) {
+      expect(records, isNot(contains(secret)), reason: secret);
+    }
+    // What leaves the phone is also scrubbed of numbers and e-mails.
+    final wire = redactForAi(systemContext(rig.ai.contexts.last));
+    for (final n in ['01711223344', '1990123456789', 'rahim@example.com']) {
+      expect(wire, isNot(contains(n)), reason: n);
+    }
+    // A sentence with a phone number is understood on the phone.
+    final asked = rig.ai.asked.length;
+    await type('করিমের নম্বর 01811223344');
+    expect(rig.ai.asked.length, asked);
+    // "Let the AI see my things" off: no records, no note folders.
+    await rig.brain.setAiShareData(false);
+    final before = rig.ai.asked.length;
+    await type('আজ রাতে কী রান্না করা যায় বলো তো');
+    expect(rig.ai.asked.length, before + 1);
+    expect(rig.ai.contexts.last.records, isEmpty);
+    expect(rig.ai.contexts.last.categories, isEmpty);
   });
 
   testWidgets('typing a word or two shows sentences to pick; a tap puts one in the box', (t) async {

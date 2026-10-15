@@ -376,6 +376,8 @@ extension BrainHealth on Brain {
     final have = {for (final m in data.inbox) m.id};
     var added = 0;
     for (final m in fresh) {
+      // One-time codes, PINs and passwords are never kept.
+      if (secretMessage(m.text)) continue;
       if (have.add(m.id)) {
         data.inbox.add(m);
         added++;

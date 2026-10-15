@@ -125,6 +125,9 @@ class _MoreScreenState extends State<MoreScreen> {
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(tr('platform.claude.com → API Keys থেকে একটা key বানিয়ে এখানে বসান (sk-ant- দিয়ে শুরু)।'),
                   style: body(14, color: C.muted, height: 1.5)),
+              const SizedBox(height: 6),
+              Text(tr('key দিলে AI চালু হবে: আপনার বলা বা লেখা বাক্য আর হিসাবের সারাংশ Anthropic-এ যাবে (কী কী যায়, সেটিংসে নিচে লেখা আছে)। পাসওয়ার্ড, ভল্ট, PIN/OTP আর ফোন-কার্ড-NID নম্বর কখনো যায় না। key মুছে দিলেই AI বন্ধ। key এই ফোনে তালাবদ্ধ থাকে।'),
+                  style: body(13, color: C.muted, height: 1.5)),
               const SizedBox(height: 10),
               TextField(
                 controller: c,
@@ -381,6 +384,9 @@ class _MoreScreenState extends State<MoreScreen> {
             linkRow(Icons.record_voice_over_outlined, tr('কণ্ঠ বেছে নিন'), sub: tr('ফোনে থাকা বাংলা কণ্ঠগুলো শুনে দেখুন'), onTap: _pickVoice),
           ]),
         ),
+        const SizedBox(height: 8),
+        Text(tr('মুখে বললে কথাকে লেখায় রূপান্তর করে ফোনের নিজের ভয়েস সেবা (সাধারণত Google)। সেজন্য আপনার কণ্ঠ ইন্টারনেটে Google-এর কাছে যেতে পারে — AI বন্ধ থাকলেও। না চাইলে লিখে ব্যবহার করুন।'),
+            style: body(12, color: C.muted, height: 1.5)),
         const SizedBox(height: 16),
         SectionTitle(tr('অন্যান্য')),
         Panel(
@@ -405,8 +411,8 @@ class _MoreScreenState extends State<MoreScreen> {
         if (brain.aiOn) ...[
           const SizedBox(height: 8),
           Text(brain.aiShareData
-                  ? tr('AI চালু থাকলে আপনার বলা বাক্য, টাকার হিসাবের সারাংশ, রিমাইন্ডার, কাজ আর নোট Anthropic-এ যায়, যাতে আপনার জিনিস নিয়ে প্রশ্নের ঠিক উত্তর দিতে পারে; পাসওয়ার্ড, ভল্ট, PIN, ফোন নম্বর বা গোপন কোড থাকা নোট কখনো যায় না।')
-                  : tr('AI চালু থাকলে আপনার বলা বাক্য, লেনদেনের মানুষের নাম আর টাকার হিসাবের সারাংশ Anthropic-এ যায়; পাসওয়ার্ড, ভল্ট, PIN, ফোন নম্বর, নোট বা কাজের লেখা যায় না।'),
+                  ? tr('AI চালু থাকলে Anthropic-এ যায়: আপনার বলা বা লেখা বাক্য, টাকার হিসাবের সারাংশ (নাম ও অঙ্ক), রিমাইন্ডার, কাজ, নোট, ওষুধ ও অভ্যাসের নাম, বিশেষ দিন, ডকুমেন্টের নাম আর “মনে রেখো” কথাগুলো — যাতে আপনার জিনিস নিয়ে ঠিক উত্তর দিতে পারে। কখনো যায় না: পাসওয়ার্ড ও ভল্ট, PIN/OTP/পাসওয়ার্ড থাকা নোট, ফোন-কার্ড-NID নম্বর, ইমেইল, স্বাস্থ্যের মাপ আর অন্য অ্যাপের মেসেজ।')
+                  : tr('AI চালু থাকলে শুধু আপনার বলা বা লেখা বাক্য আর টাকার হিসাবের সারাংশ (নাম ও অঙ্ক) Anthropic-এ যায়। রিমাইন্ডার, কাজ, নোট, পাসওয়ার্ড, ভল্ট, ফোন-কার্ড-NID নম্বর বা অন্য অ্যাপের মেসেজ যায় না।'),
               style: body(12, color: C.muted, height: 1.5)),
         ],
       ],

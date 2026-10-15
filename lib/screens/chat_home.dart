@@ -1032,7 +1032,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
           if (!_chat.started)
             Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: Text(tr('হিসাব আর পাসওয়ার্ড শুধু আপনার ফোনেই থাকে'), style: body(12, color: C.muted)),
+              child: Text(_brain.aiOn ? tr('পাসওয়ার্ড ও নম্বর ফোনেই থাকে · AI চালু: আপনার কথা Anthropic-এ যায়') : tr('হিসাব আর পাসওয়ার্ড শুধু আপনার ফোনেই থাকে'), style: body(12, color: C.muted), textAlign: TextAlign.center),
             ),
         ]),
       );

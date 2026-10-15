@@ -167,3 +167,14 @@ String inboxAnswer(AppData d, String said, DateTime now) {
   if (todo.isEmpty) return '$head ${tr('কাজের কিছু চোখে পড়েনি।')}';
   return trf('{0} কাজের কথা {1}টা:\n{2}', [head, bnDigits(todo.length), todo.take(4).map((i) => '• ${i.summary}').join('\n')]);
 }
+
+
+/// A message that carries a one-time code, PIN or password: never kept
+/// (checked again on this side, after the phone's own filter).
+bool secretMessage(String text) {
+  final t = text.toLowerCase();
+  final code = RegExp(r'(^|[^0-9০-৯])[0-9০-৯]{4,8}([^0-9০-৯]|$)').hasMatch(t);
+  final codeWords = RegExp(r'otp|one[ -]?time|verification|verify|passcode|code|কোড|ওটিপি|যাচাই').hasMatch(t);
+  final secretWords = RegExp(r'password|পাসওয়ার্ড|পাসওয়ার্ড|\bpin\b|পিন|cvv|সিভিভি').hasMatch(t);
+  return secretWords || (code && codeWords) || (code && mentionsSecret(text));
+}

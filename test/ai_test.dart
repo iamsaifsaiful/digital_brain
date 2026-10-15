@@ -40,6 +40,29 @@ void main() {
     expect(headers['anthropic-version'], '2023-06-01');
   });
 
+  test('phone, card and ID numbers and e-mails never leave the phone', () async {
+    late String body;
+    final ai = ClaudeAi(
+      client: MockClient((req) async {
+        body = req.body;
+        return res(200, {
+          'content': [
+            {'type': 'tool_use', 'id': 't', 'name': 'route', 'input': {'reply': 'ঠিক আছে', 'items': []}},
+          ],
+        });
+      }),
+    )..key = 'sk-ant-test';
+    final c = AiContext(now: DateTime(2026, 10, 9), people: const ['রহিম'], categories: const [], records: 'রহিমের নম্বর ০১৭১১-২২৩৩৪৪ · NID 1990123456789 · কার্ড 4111 1111 1111 1111 · rahim@example.com · ৫০০০ টাকা');
+    await ai.route('আমার নম্বর +8801711223344, বাকি ১,০০,০০০ টাকা', c, history: const [AiTurn.user('ইমেইল saif@mail.com')]);
+    final decoded = jsonDecode(body).toString();
+    for (final n in ['০১৭১১-২২৩৩৪৪', '1990123456789', '4111 1111 1111 1111', 'rahim@example.com', '+8801711223344', 'saif@mail.com']) {
+      expect(decoded, isNot(contains(n)), reason: n);
+    }
+    // Ordinary amounts stay.
+    expect(decoded, contains('৫০০০'));
+    expect(decoded, contains('১,০০,০০০'));
+  });
+
   test('no key: AI is off', () async {
     final ai = ClaudeAi(client: MockClient((_) async => throw StateError('should not call')));
     expect(await ai.route('x', ctx), isNull);
