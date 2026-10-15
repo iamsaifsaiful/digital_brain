@@ -254,6 +254,26 @@ void main() {
     await settle(t);
   });
 
+  testWidgets('typing a word or two shows sentences to pick; a tap puts one in the box', (t) async {
+    final rig = await start(t);
+    await openTyping(t);
+    await t.enterText(find.byType(TextField).first, 'বিদ্যুৎ বিল');
+    await settle(t);
+    const s = 'প্রতি মাসের ১০ তারিখে বিদ্যুৎ বিল দেওয়ার কথা মনে করিয়ে দিও';
+    expect(find.byKey(const ValueKey('suggest:$s')), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey('suggest:$s')));
+    await settle(t);
+    expect(t.widget<TextField>(find.byType(TextField).first).controller!.text, s);
+    await t.testTextInput.receiveAction(TextInputAction.send);
+    await settle(t);
+    if (rig.brain.data.reminders.isEmpty) {
+      await t.enterText(find.byType(TextField).first, 'হ্যাঁ');
+      await t.testTextInput.receiveAction(TextInputAction.send);
+      await settle(t);
+    }
+    expect(rig.brain.data.reminders.single.repeat, Repeat.monthly);
+  });
+
   testWidgets('"আজ ইব্রাহিম ভাই আসার কথা সন্ধ্যা ৭টায়" is a reminder; "রিমাইন্ডার লিখে রাখো" keeps it', (t) async {
     final rig = await start(t);
     await openTyping(t);

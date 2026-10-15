@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../logic/suggest.dart';
 import '../logic/lang.dart';
 import '../logic/parser.dart';
 import '../logic/search.dart';
@@ -83,6 +84,7 @@ class _AssistantBarState extends State<AssistantBar> {
     final q = _text.text.trim();
     final typing = q.isNotEmpty;
     final matches = typing ? _matches(brain, q) : const <(IconData, String, String)>[];
+    final hints = typing ? suggestPrompts(q, brain.data, max: 3) : const <String>[];
 
     Widget chip(String label, VoidCallback onTap, {IconData? icon}) => Padding(
           padding: const EdgeInsets.only(right: 8),
@@ -142,6 +144,20 @@ class _AssistantBarState extends State<AssistantBar> {
                 leading: Icon(Icons.search_rounded, color: C.muted2, size: 21),
                 title: Text(tr('সব মিল দেখুন'), style: body(14, color: C.muted2)),
                 onTap: () => _openSearch(q),
+              ),
+            // What can be done with the typed words: a tap puts the sentence in the box.
+            for (final h in hints)
+              ListTile(
+                key: ValueKey('suggest:$h'),
+                dense: true,
+                leading: Icon(Icons.lightbulb_outline_rounded, color: C.ochre, size: 21),
+                title: Text(h.trim(), maxLines: 2, overflow: TextOverflow.ellipsis, style: body(15)),
+                trailing: Icon(Icons.north_west_rounded, color: C.muted, size: 18),
+                onTap: () {
+                  _text.text = h;
+                  _text.selection = TextSelection.collapsed(offset: h.length);
+                  setState(() {});
+                },
               ),
           ]),
           ),

@@ -22,6 +22,7 @@ import 'package:digital_brain/logic/proactive.dart';
 import 'package:digital_brain/logic/report.dart';
 import 'package:digital_brain/logic/templates.dart';
 import 'package:digital_brain/logic/search.dart';
+import 'package:digital_brain/logic/suggest.dart';
 import 'package:digital_brain/logic/talk.dart';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/services/launcher.dart';
@@ -1650,6 +1651,31 @@ void main() {
     test('showing or switching off alarms opens the alarm page', () {
       for (final s in ['এলার্ম গুলো দেখাও', 'কাল কয়টায় এলার্ম আছে?', 'এলার্ম বন্ধ করো']) {
         expect((parseAll(s, const [], now: night).single as OpenPlace).place, 'alarms', reason: s);
+      }
+    });
+  });
+
+  group('suggestions while typing', () {
+    final now = DateTime(2026, 10, 15, 21, 0);
+    final d = AppData(contacts: [Contact(name: 'রহিম', phone: '01711000000')], reminders: [Reminder(title: 'গ্যাস বিল', date: DateTime(2026, 10, 20))]);
+
+    test('a word or two gives full sentences the app understands', () {
+      for (final typed in ['বিদ্যুৎ বিল', 'রহি', 'নাপা', 'প্রেশার', 'চাল', 'ডাক্তার', 'রহিমের জন্মদিন', 'এলার্ম', 'বেতন', 'গ্যাস', 'পাসপোর্ট', 'ছাদ মেরামত', 'বিক্রি', 'ধার', 'দোকান']) {
+        final ps = suggestPrompts(typed, d);
+        expect(ps, isNotEmpty, reason: typed);
+        for (final p in ps) {
+          if (p.endsWith('যে ')) continue; // "রহিমকে মেসেজ দাও যে …" waits for the message
+          final c = parseAll(p, d.ledger, contacts: d.contacts, now: now);
+          expect(c.any((x) => x is NotUnderstood || x is SearchQuery), isFalse, reason: '$typed → $p');
+        }
+      }
+      expect(suggestPrompts('বিদ্যুৎ বিল', d).first, 'প্রতি মাসের ১০ তারিখে বিদ্যুৎ বিল দেওয়ার কথা মনে করিয়ে দিও');
+      expect(suggestPrompts('রহি', d).first, 'রহিমকে ৫০০ টাকা ধার দিলাম');
+    });
+
+    test('nothing for an empty box, a full request, a question or a secret', () {
+      for (final typed in ['', 'রহিমকে ৫০০ টাকা দিলাম', 'বিল কত?', 'ব্যাংকের পিন', 'এক দুই তিন চার পাঁচ']) {
+        expect(suggestPrompts(typed, d), isEmpty, reason: typed);
       }
     });
   });

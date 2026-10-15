@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../logic/suggest.dart';
 import '../logic/bn.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
@@ -948,9 +949,45 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
         ),
       );
 
+  /// Sentences for what is being typed ("বিদ্যুৎ বিল" → remind, spend, to-do…).
+  Widget _typingHints() => ValueListenableBuilder<TextEditingValue>(
+        valueListenable: _text,
+        builder: (context, v, _) {
+          final ps = _busy ? const <String>[] : suggestPrompts(v.text, _brain.data);
+          if (ps.isEmpty) return const SizedBox.shrink();
+          return SizedBox(
+            height: 46,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(bottom: 6),
+              children: [
+                for (final p in ps)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ActionChip(
+                      key: ValueKey('suggest:$p'),
+                      avatar: Icon(Icons.auto_awesome_outlined, size: 16, color: C.green),
+                      label: Text(p.trim(), style: body(14)),
+                      backgroundColor: C.surface,
+                      side: BorderSide(color: C.inputBorder),
+                      shape: const StadiumBorder(),
+                      onPressed: () {
+                        _text.text = p;
+                        _text.selection = TextSelection.collapsed(offset: p.length);
+                        _focus.requestFocus();
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      );
+
   Widget _composer() => Padding(
         padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
+          _typingHints(),
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
