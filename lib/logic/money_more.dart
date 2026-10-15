@@ -112,6 +112,62 @@ class ZakatInput {
   int get zakat => due ? (net * 0.025).round() : 0;
 }
 
+/// What the user entered on the যাকাত page last time (kept on the phone),
+/// for the parts the app cannot know: gold, silver, stock, other.
+class ZakatSaved {
+  const ZakatSaved({this.goldVori = 0, this.goldPrice = 0, this.silverVori = 0, this.silverPrice = 0, this.business = 0, this.other = 0});
+  final double goldVori;
+  final int goldPrice;
+  final double silverVori;
+  final int silverPrice;
+  final int business;
+  final int other;
+}
+
+/// The zakat parts the app works out from the user's own records:
+/// - cash: hand/mobile accounts (or, with no accounts, the income-expense
+///   balance — marked as an estimate);
+/// - bank: bank accounts, savings goals and DPS paid in;
+/// - receivable: what people owe the user;
+/// - debts: what the user owes people, plus loan instalments of the next 12 months.
+({int cash, bool cashEstimated, int bank, int receivable, int debts}) zakatFromRecords(AppData d, DateTime now) {
+  var cash = d.accounts.where((a) => a.kind != AccountKind.bank).fold(0, (s, a) => s + accountBalance(d, a));
+  var estimated = false;
+  if (d.accounts.isEmpty) {
+    final own = d.cash.where((e) => e.projectId == null);
+    final bal = own.fold<int>(0, (s, e) => s + (e.kind == CashKind.income ? e.amount : -e.amount));
+    if (bal > 0) {
+      cash = bal;
+      estimated = true;
+    }
+  }
+  final bank = d.accounts.where((a) => a.kind == AccountKind.bank).fold(0, (s, a) => s + accountBalance(d, a)) +
+      d.goals.fold<int>(0, (s, g) => s + g.saved) +
+      d.installments.where((i) => i.kind == InstallmentKind.dps).fold<int>(0, (s, i) => s + i.paidTotal);
+  final people = balances(d.ledger);
+  final receivable = people.fold(0, (s, p) => s + (p.balance > 0 ? p.balance : 0));
+  final loans = d.installments.where((i) => i.kind == InstallmentKind.loan).fold(0, (s, i) => s + (i.left < 12 ? i.left : 12) * i.amount);
+  final debts = people.fold(0, (s, p) => s + (p.balance < 0 ? -p.balance : 0)) + loans;
+  return (cash: cash < 0 ? 0 : cash, cashEstimated: estimated, bank: bank < 0 ? 0 : bank, receivable: receivable, debts: debts);
+}
+
+/// The whole zakat: the records plus what the user entered ([z]). The
+/// nisab is 52.5 ভরি of silver at the price entered (none entered: unknown).
+ZakatInput zakatAuto(AppData d, DateTime now, ZakatSaved z) {
+  final r = zakatFromRecords(d, now);
+  return ZakatInput(
+    cash: r.cash,
+    bank: r.bank,
+    gold: (z.goldVori * z.goldPrice).round(),
+    silver: (z.silverVori * z.silverPrice).round(),
+    business: z.business,
+    receivable: r.receivable,
+    other: z.other,
+    debts: r.debts,
+    nisab: (z.silverPrice * 52.5).round(),
+  );
+}
+
 /// Splitting [total] among [people]; the rounding taka goes to the first ones.
 List<int> splitAmounts(int total, int people) {
   if (people <= 0) return const [];

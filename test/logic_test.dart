@@ -1,5 +1,6 @@
 import 'package:digital_brain/logic/ai_map.dart';
 import 'package:digital_brain/logic/answers.dart';
+import 'package:digital_brain/logic/ask.dart';
 import 'package:digital_brain/logic/app_map.dart';
 import 'package:digital_brain/logic/me.dart';
 import 'package:digital_brain/logic/inbox.dart';
@@ -1737,6 +1738,41 @@ void main() {
       expect((mixed.at, mixed.title), (DateTime(2026, 10, 16, 20), 'medicine'));
       expect((one('seven thirty pm এ মনে করিয়ে দিও ওষুধ') as ReminderAdd).at, DateTime(2026, 10, 16, 19, 30));
       expect((one('কাল সকাল 8 am এ মিটিং মনে করিয়ে দিও') as ReminderAdd).at, DateTime(2026, 10, 16, 8));
+    });
+  });
+
+  group('zakat worked out from the records', () {
+    final now = DateTime(2026, 10, 16);
+    test('accounts, savings, DPS, dues and loan instalments are counted; gold and silver come from what was entered', () {
+      final d = AppData(
+        accounts: [MoneyAccount(name: 'বিকাশ', kind: AccountKind.bkash, opening: 20000), MoneyAccount(name: 'ব্যাংক', kind: AccountKind.bank, opening: 300000)],
+        goals: [SavingsGoal(name: 'হজ', target: 500000, deposits: [GoalDeposit(50000, DateTime(2026, 1, 1))])],
+        installments: [
+          Installment(name: 'DPS', kind: InstallmentKind.dps, amount: 5000, months: 60, start: DateTime(2025, 1, 1), paid: ['2025-01', '2025-02']),
+          Installment(name: 'গাড়ির লোন', kind: InstallmentKind.loan, amount: 10000, months: 24, start: DateTime(2026, 1, 1)),
+        ],
+        ledger: [
+          LedgerEntry(person: 'সজীব', kind: LedgerKind.lent, amount: 30000, date: DateTime(2026, 9, 1)),
+          LedgerEntry(person: 'করিম', kind: LedgerKind.borrowed, amount: 20000, date: DateTime(2026, 9, 1)),
+        ],
+      );
+      final r = zakatFromRecords(d, now);
+      expect((r.cash, r.bank, r.receivable, r.debts), (20000, 300000 + 50000 + 10000, 30000, 20000 + 12 * 10000));
+      final z = zakatAuto(d, now, const ZakatSaved(goldVori: 2, goldPrice: 150000, silverPrice: 2500));
+      expect(z.gold, 300000);
+      expect(z.nisab, 131250);
+      expect(z.net, 20000 + 360000 + 300000 + 30000 - 140000);
+      expect(z.zakat, (570000 * 0.025).round());
+      askZakat = const ZakatSaved(goldVori: 2, goldPrice: 150000, silverPrice: 2500);
+      expect(infoAnswer(d, 'আমার যাকাত কত?', now), contains('১৪,২৫০'));
+      askZakat = const ZakatSaved();
+      expect(infoAnswer(d, 'আমার যাকাত কত?', now), contains('রুপার দাম'));
+    });
+
+    test('no accounts: the income-expense balance is used and marked as an estimate', () {
+      final d = AppData(cash: [CashEntry(kind: CashKind.income, amount: 50000, date: now), CashEntry(kind: CashKind.expense, amount: 20000, date: now)]);
+      final r = zakatFromRecords(d, now);
+      expect((r.cash, r.cashEstimated), (30000, true));
     });
   });
 }

@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import '../logic/ai_map.dart';
 import '../logic/app_map.dart';
 import '../logic/ask.dart';
+import '../logic/money_more.dart' show ZakatSaved;
 import '../logic/manage.dart';
 import '../logic/me.dart';
 import '../logic/phrases.dart' show possessive;
@@ -355,7 +356,7 @@ class Brain extends ChangeNotifier {
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly',
-    'n_streak', 'n_comeback', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'inbox_apps', 'inbox_on', 'last_backup',
+    'n_streak', 'n_comeback', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'inbox_apps', 'inbox_on', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
@@ -414,6 +415,7 @@ class Brain extends ChangeNotifier {
         final v = await keys.read(k);
         if (v != null) prefs[k] = v;
       }
+      askZakat = zakatSaved;
       hijriAdjust = number('hijri_adjust');
       askPlace = district;
       askUserName = userName;
@@ -520,6 +522,23 @@ class Brain extends ChangeNotifier {
       lines.add('Project ${p.name}: received ${s.income}, spent ${s.expense}, left ${s.balance}.');
     }
     return lines.join('\n');
+  }
+
+  /// What the user entered on the যাকাত page (gold, silver, stock…).
+  ZakatSaved get zakatSaved => ZakatSaved(
+        goldVori: double.tryParse(text('zakat_gold_vori')) ?? 0,
+        goldPrice: number('zakat_gold_price'),
+        silverVori: double.tryParse(text('zakat_silver_vori')) ?? 0,
+        silverPrice: number('zakat_silver_price'),
+        business: number('zakat_business'),
+        other: number('zakat_other'),
+      );
+
+  /// Keeps one entered zakat value (no reschedule needed).
+  Future<void> setZakatValue(String key, String value) async {
+    prefs['zakat_$key'] = value;
+    askZakat = zakatSaved;
+    await _put('zakat_$key', value);
   }
 
   bool get bargeIn => services.voice.bargeIn;

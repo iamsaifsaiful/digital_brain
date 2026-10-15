@@ -6,7 +6,6 @@ import 'package:flutter/rendering.dart';
 
 import '../logic/bn.dart';
 import '../logic/lang.dart';
-import '../logic/ledger.dart';
 import '../logic/money_more.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
@@ -846,24 +845,21 @@ class ZakatScreen extends StatefulWidget {
 }
 
 class _ZakatScreenState extends State<ZakatScreen> {
-  final _f = {for (final k in ['cash', 'bank', 'gold', 'silver', 'business', 'receivable', 'other', 'debts', 'silverPrice']) k: TextEditingController()};
+  /// What the app cannot know: entered once, kept for next time.
+  final _f = {for (final k in ['gold_vori', 'gold_price', 'silver_vori', 'silver_price', 'business', 'other']) k: TextEditingController()};
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final brain = BrainScope.read(context);
-      final d = brain.data;
-      // Start from what the app already knows.
-      final cash = d.accounts.where((a) => a.kind != AccountKind.bank).fold(0, (s, a) => s + accountBalance(d, a));
-      final bank = d.accounts.where((a) => a.kind == AccountKind.bank).fold(0, (s, a) => s + accountBalance(d, a));
-      final owed = balances(d.ledger).fold(0, (s, p) => s + (p.balance > 0 ? p.balance : 0));
-      final iOwe = balances(d.ledger).fold(0, (s, p) => s + (p.balance < 0 ? -p.balance : 0));
-      final saved = d.goals.fold(0, (s, g) => s + g.saved);
-      if (cash > 0) _f['cash']!.text = '$cash';
-      if (bank + saved > 0) _f['bank']!.text = '${bank + saved}';
-      if (owed > 0) _f['receivable']!.text = '$owed';
-      if (iOwe > 0) _f['debts']!.text = '$iOwe';
+      final z = BrainScope.read(context).zakatSaved;
+      String n(num v) => v == 0 ? '' : (v is double && v != v.roundToDouble() ? '$v' : '${v.round()}');
+      _f['gold_vori']!.text = n(z.goldVori);
+      _f['gold_price']!.text = n(z.goldPrice);
+      _f['silver_vori']!.text = n(z.silverVori);
+      _f['silver_price']!.text = n(z.silverPrice);
+      _f['business']!.text = n(z.business);
+      _f['other']!.text = n(z.other);
       setState(() {});
     });
   }
@@ -876,32 +872,29 @@ class _ZakatScreenState extends State<ZakatScreen> {
     super.dispose();
   }
 
-  int _v(String k) => readInt(_f[k]!.text) ?? 0;
-
   @override
   Widget build(BuildContext context) {
-    // Nisab: the value of 52.5 tola (ভরি) of silver.
-    final silverPrice = _v('silverPrice');
-    final nisab = (silverPrice * 52.5).round();
-    final z = ZakatInput(
-      cash: _v('cash'),
-      bank: _v('bank'),
-      gold: _v('gold'),
-      silver: _v('silver'),
-      business: _v('business'),
-      receivable: _v('receivable'),
-      other: _v('other'),
-      debts: _v('debts'),
-      nisab: nisab,
-    );
-    Widget field(String k, String label, [String? hint]) => Padding(
+    final brain = BrainScope.of(context);
+    final now = brain.services.now();
+    final r = zakatFromRecords(brain.data, now);
+    final z = zakatAuto(brain.data, now, brain.zakatSaved);
+    Widget field(String k, String label, {String? hint, bool vori = false}) => Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: TextField(
             controller: _f[k],
-            keyboardType: TextInputType.number,
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(labelText: label, hintText: hint, prefixText: tr('৳ ')),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: (v) async {
+              await brain.setZakatValue(k, asciiDigits(v).replaceAll(',', '').trim());
+              if (mounted) setState(() {});
+            },
+            decoration: InputDecoration(labelText: label, hintText: hint, prefixText: vori ? null : tr('৳ '), suffixText: vori ? tr('ভরি') : null),
           ),
+        );
+    Widget fromApp(String label, int value, {String? note}) => ListRow(
+          leading: Icon(Icons.auto_awesome_outlined, color: C.green, size: 20),
+          title: label,
+          subtitle: note ?? tr('অ্যাপের হিসাব থেকে'),
+          trailing: Text(taka(value), style: body(16, weight: FontWeight.w600)),
         );
     return Scaffold(
       body: SafeArea(
@@ -909,31 +902,45 @@ class _ZakatScreenState extends State<ZakatScreen> {
           TopBar(title: tr('যাকাত হিসাব')),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
-              InfoBanner(text: tr('এক চান্দ্র বছর ধরে নিসাব পরিমাণ সম্পদ থাকলে মোট সম্পদের ২.৫% যাকাত। এটা আনুমানিক হিসাব — নিশ্চিত হতে আলেমের পরামর্শ নিন।'), icon: Icons.info_outline_rounded),
-              const SizedBox(height: 14),
-              field('cash', tr('হাতে নগদ ও মোবাইল ব্যাংকিং')),
-              field('bank', tr('ব্যাংকে জমা, সঞ্চয়, DPS')),
-              field('gold', tr('সোনার বর্তমান দাম')),
-              field('silver', tr('রুপার বর্তমান দাম')),
-              field('business', tr('ব্যবসার মাল (বিক্রয়মূল্যে)')),
-              field('receivable', tr('পাওনা টাকা (ফেরত পাওয়ার আশা আছে)')),
-              field('other', tr('অন্যান্য (শেয়ার, বন্ড…)')),
-              field('debts', tr('বাদ যাবে: এখনই শোধ করার দেনা')),
-              const SizedBox(height: 6),
-              field('silverPrice', tr('আজ ১ ভরি রুপার দাম'), tr('বাজারদর দেখে লিখুন')),
-              Text(nisab > 0 ? trf('নিসাব (৫২.৫ ভরি রুপা): {0}', [taka(nisab)]) : tr('নিসাব জানতে রুপার দাম লিখুন'), style: body(13, color: C.muted)),
-              const SizedBox(height: 14),
               Panel(
                 padding: const EdgeInsets.all(16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   Text(trf('যাকাতযোগ্য সম্পদ: {0}', [taka(math.max(0, z.net))]), style: body(15)),
                   const SizedBox(height: 6),
                   Text(
-                    nisab <= 0 ? tr('—') : (z.due ? trf('যাকাত: {0}', [taka(z.zakat)]) : tr('নিসাবের কম — যাকাত ফরজ নয়')),
-                    style: display(24, weight: 700, color: z.due ? C.green : C.muted2),
+                    z.nisab <= 0 ? tr('নিসাব জানতে নিচে আজকের রুপার দাম দিন') : (z.due ? trf('যাকাত: {0}', [taka(z.zakat)]) : tr('নিসাবের কম — যাকাত ফরজ নয়')),
+                    style: display(z.nisab <= 0 ? 17 : 24, weight: 700, color: z.due ? C.green : C.muted2),
                   ),
+                  if (z.nisab > 0) Text(trf('নিসাব (৫২.৫ ভরি রুপা): {0}', [taka(z.nisab)]), style: body(12.5, color: C.muted)),
                 ]),
               ),
+              const SizedBox(height: 14),
+              SectionTitle(tr('অ্যাপ নিজে হিসাব করেছে')),
+              Panel(
+                child: Rows(children: [
+                  fromApp(tr('হাতে নগদ ও মোবাইল ব্যাংকিং'), r.cash, note: r.cashEstimated ? tr('আয়-ব্যয়ের ব্যালেন্স থেকে আনুমানিক — অ্যাকাউন্ট যোগ করলে ঠিক হিসাব') : null),
+                  fromApp(tr('ব্যাংকে জমা, সঞ্চয়, DPS'), r.bank),
+                  fromApp(tr('পাওনা টাকা (ফেরত পাওয়ার আশা আছে)'), r.receivable),
+                  fromApp(tr('বাদ যাবে: দেনা ও সামনের ১২ মাসের লোনের কিস্তি'), r.debts),
+                ]),
+              ),
+              const SizedBox(height: 6),
+              Text(tr('এগুলো অ্যাকাউন্ট, সঞ্চয়, কিস্তি আর ধার-দেনা থেকে নিজে আসে; সেখানে বদলালে এখানেও বদলায়।'), style: body(12.5, color: C.muted, height: 1.4)),
+              const SizedBox(height: 16),
+              SectionTitle(tr('একবার লিখে দিন — মনে রাখবো')),
+              Row(children: [
+                Expanded(child: field('gold_vori', tr('সোনা'), vori: true)),
+                const SizedBox(width: 10),
+                Expanded(child: field('gold_price', tr('১ ভরি সোনার দাম'))),
+              ]),
+              Row(children: [
+                Expanded(child: field('silver_vori', tr('রুপা'), vori: true)),
+                const SizedBox(width: 10),
+                Expanded(child: field('silver_price', tr('১ ভরি রুপার দাম'), hint: tr('বাজারদর'))),
+              ]),
+              field('business', tr('ব্যবসার মাল (বিক্রয়মূল্যে)')),
+              field('other', tr('অন্যান্য (শেয়ার, বন্ড…)')),
+              InfoBanner(text: tr('এক চান্দ্র বছর ধরে নিসাব পরিমাণ সম্পদ থাকলে মোট সম্পদের ২.৫% যাকাত। এটা আনুমানিক হিসাব — নিশ্চিত হতে আলেমের পরামর্শ নিন। মুখেও জিজ্ঞেস করা যায়: “আমার যাকাত কত?”'), icon: Icons.info_outline_rounded),
             ]),
           ),
         ]),

@@ -9,7 +9,7 @@ import '../models/models.dart';
 import 'bn.dart';
 import 'calendar_bd.dart';
 import 'lang.dart';
-import 'money_more.dart' show accountBalance;
+import 'money_more.dart' show accountBalance, ZakatSaved, zakatAuto;
 import 'cash.dart';
 import 'inbox.dart' show inboxAnswer;
 import 'parser.dart';
@@ -19,6 +19,9 @@ import 'when.dart';
 /// The user's place (for prayer times) and name, set by the app.
 String askPlace = 'ঢাকা';
 String askUserName = '';
+
+/// What the user entered on the যাকাত page (set by the app).
+ZakatSaved askZakat = const ZakatSaved();
 
 bool _has(String text, List<String> ws) => ws.any((w) {
       final n = normalize(w);
@@ -64,6 +67,7 @@ String? infoTopic(String text) {
       !_has(text, ['প্রজেক্ট', 'প্রকল্প', 'project', 'কাছে', 'পাওনা', 'দেনা', 'পাবো', 'পাব', 'বাকি', 'এই মাসে', 'মাসের'])) {
     return 'money';
   }
+  if (_has(text, ['যাকাত', 'জাকাত', 'zakat'])) return 'zakat';
   if (_has(text, ['ওষুধ', 'ঔষধ', 'অষুধ', 'মেডিসিন'])) return 'medicines';
   if (_has(text, ['অভ্যাস', 'habit'])) return 'habits';
   if (_has(text, ['মেয়াদ', 'expiry', 'এক্সপায়ার'])) return 'expiry';
@@ -130,6 +134,13 @@ String? infoAnswer(AppData d, String said, DateTime now) {
       }
       return trf('এই মাসে আয় {0}, খরচ {1} টাকা — ব্যালেন্স {2} টাকা। কোন অ্যাকাউন্টে কত আছে জানতে অ্যাকাউন্ট পাতায় হিসাব যুক্ত করুন।',
           [bnNumber(m.income), bnNumber(m.expense), m.balance >= 0 ? bnNumber(m.balance) : trf('মাইনাস {0}', [bnNumber(-m.balance)])]);
+    case 'zakat':
+      final z = zakatAuto(d, now, askZakat);
+      if (z.nisab <= 0) {
+        return trf('আপনার হিসাব থেকে যাকাতযোগ্য সম্পদ এখন প্রায় {0} টাকা (নগদ, ব্যাংক-সঞ্চয়, পাওনা থেকে দেনা বাদে)। নিসাব জানতে আজকের রুপার দাম লাগবে — যাকাত পাতায় রুপার দাম আর সোনা-রুপার পরিমাণ দিন, তারপর জিজ্ঞেস করলেই যাকাত বলে দেবো।', [bnNumber(z.net < 0 ? 0 : z.net)]);
+      }
+      if (!z.due) return trf('আপনার যাকাতযোগ্য সম্পদ {0} টাকা — নিসাব {1} টাকার কম, তাই যাকাত ফরজ নয় (আনুমানিক হিসাব)।', [bnNumber(z.net < 0 ? 0 : z.net), bnNumber(z.nisab)]);
+      return trf('আপনার যাকাতযোগ্য সম্পদ {0} টাকা, যাকাত প্রায় {1} টাকা (২.৫%)। এটা আনুমানিক — নিশ্চিত হতে আলেমের পরামর্শ নিন।', [bnNumber(z.net), bnNumber(z.zakat)]);
     case 'savings':
       if (d.goals.isEmpty) {
         return tr('সঞ্চয়ের কোনো তথ্য নেই। “সঞ্চয় ও কিস্তি” পাতায় লক্ষ্য যুক্ত করতে পারেন — পরে জিজ্ঞেস করলেই কত জমল বলে দেবো।');

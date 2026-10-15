@@ -85,6 +85,11 @@ class C {
   // On the dark surfaces (alarm page, Pro card).
   static const dark2 = Color(0xFF1F2937);
   static const onDarkMuted = Color(0xFFD1D5DB);
+
+  /// Text on an [ink]-coloured fill (a selected chip, the user's bubble):
+  /// white in the light look, dark in the dark look where [ink] is light.
+  static Color get onInk => _p(0xFFFFFFFF, 0xFF111827);
+  static Color get onInkMuted => _p(0xFFD1D5DB, 0xFF4B5563);
   static const mint = Color(0xFFA7F3D0);
   static const peach = Color(0xFFFDBA74);
   static const alarm = Color(0xFF0B3B30);

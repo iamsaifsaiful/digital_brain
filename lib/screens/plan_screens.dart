@@ -311,7 +311,7 @@ class _AddSheetState extends State<_AddSheet> {
   }
 
   Widget _chip(String label, bool on, VoidCallback onTap) => ChoiceChip(
-        label: Text(label, style: body(14, color: on ? Colors.white : C.muted2)),
+        label: Text(label, style: body(14, color: on ? C.onInk : C.muted2)),
         selected: on,
         selectedColor: C.ink,
         backgroundColor: C.surface,

@@ -391,9 +391,9 @@ class Bubble extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: body(12, color: fromUser ? C.onDarkMuted : C.green, weight: fromUser ? FontWeight.w400 : FontWeight.w600)),
+                Text(label, style: body(12, color: fromUser ? C.onInkMuted : C.green, weight: fromUser ? FontWeight.w400 : FontWeight.w600)),
                 const SizedBox(height: 2),
-                Text('“$text”', style: body(17, color: fromUser ? Colors.white : C.ink)),
+                Text('“$text”', style: body(17, color: fromUser ? C.onInk : C.ink)),
               ],
             ),
           ),

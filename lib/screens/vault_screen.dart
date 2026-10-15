@@ -120,7 +120,7 @@ class _VaultScreenState extends State<VaultScreen> {
   }
 
   Widget _chip(String label, bool on, VoidCallback tap) => ChoiceChip(
-        label: Text(label, style: body(14, weight: on ? FontWeight.w600 : FontWeight.w400, color: on ? Colors.white : C.ink)),
+        label: Text(label, style: body(14, weight: on ? FontWeight.w600 : FontWeight.w400, color: on ? C.onInk : C.ink)),
         selected: on,
         showCheckmark: false,
         selectedColor: C.ink,

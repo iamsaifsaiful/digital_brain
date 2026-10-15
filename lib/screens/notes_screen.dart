@@ -44,7 +44,7 @@ class _NotesScreenState extends State<NotesScreen> {
       return Padding(
         padding: const EdgeInsets.only(right: 8),
         child: ChoiceChip(
-          label: Text(label, style: body(14, weight: on ? FontWeight.w600 : FontWeight.w400, color: on ? Colors.white : C.ink)),
+          label: Text(label, style: body(14, weight: on ? FontWeight.w600 : FontWeight.w400, color: on ? C.onInk : C.ink)),
           selected: on,
           showCheckmark: false,
           selectedColor: C.ink,

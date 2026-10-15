@@ -939,8 +939,17 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   Widget _chip(ChatChoice c) {
     final yes = c.answer == 'হ্যাঁ';
     return ActionChip(
-      label: Text(c.label, style: body(15, weight: FontWeight.w600, color: yes ? Colors.white : C.ink)),
-      backgroundColor: yes ? C.ink : C.surface,
+      label: Text(c.label, style: body(15, weight: FontWeight.w600, color: yes ? C.onInk : C.ink)),
+      // Explicit colours for every state: in the dark look the theme's own
+      // pressed/hover/disabled shades made the text unreadable.
+      color: WidgetStateProperty.resolveWith((states) {
+        final base = yes ? C.ink : C.surface;
+        if (states.contains(WidgetState.disabled)) return base.withValues(alpha: 0.55);
+        if (states.contains(WidgetState.pressed) || states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) {
+          return Color.lerp(base, yes ? C.surface : C.ink, 0.14);
+        }
+        return base;
+      }),
       side: yes ? BorderSide.none : BorderSide(color: C.inputBorder),
       shape: const StadiumBorder(),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

@@ -386,7 +386,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
       Wrap(spacing: 8, runSpacing: 8, children: [
         for (final k in VaultKind.values)
           ChoiceChip(
-            label: Text(k.label, style: body(14, color: k == _vaultKind ? Colors.white : C.ink, weight: k == _vaultKind ? FontWeight.w600 : FontWeight.w400)),
+            label: Text(k.label, style: body(14, color: k == _vaultKind ? C.onInk : C.ink, weight: k == _vaultKind ? FontWeight.w600 : FontWeight.w400)),
             selected: k == _vaultKind,
             showCheckmark: false,
             selectedColor: C.ink,
@@ -649,7 +649,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
         Wrap(spacing: 8, children: [
           for (final r in Repeat.values)
             ChoiceChip(
-              label: Text(tr(r.label), style: body(14, color: r == _repeat ? Colors.white : C.ink)),
+              label: Text(tr(r.label), style: body(14, color: r == _repeat ? C.onInk : C.ink)),
               selected: r == _repeat,
               showCheckmark: false,
               selectedColor: C.ink,

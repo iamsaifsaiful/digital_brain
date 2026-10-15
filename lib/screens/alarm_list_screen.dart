@@ -331,7 +331,7 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
                 Wrap(spacing: 8, runSpacing: 8, children: [
                   for (final (label, set) in presets)
                     ChoiceChip(
-                      label: Text(label, style: body(14, color: same(_days, set) ? Colors.white : C.muted2)),
+                      label: Text(label, style: body(14, color: same(_days, set) ? C.onInk : C.muted2)),
                       selected: same(_days, set),
                       selectedColor: C.ink,
                       backgroundColor: C.surface,

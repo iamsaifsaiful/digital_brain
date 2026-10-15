@@ -81,7 +81,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
-                        label: Text(f.label, style: body(14, weight: f == _filter ? FontWeight.w600 : FontWeight.w400, color: f == _filter ? Colors.white : C.ink)),
+                        label: Text(f.label, style: body(14, weight: f == _filter ? FontWeight.w600 : FontWeight.w400, color: f == _filter ? C.onInk : C.ink)),
                         selected: f == _filter,
                         showCheckmark: false,
                         selectedColor: C.ink,
