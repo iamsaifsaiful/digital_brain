@@ -151,6 +151,17 @@ Future<void> openMenu(WidgetTester t, String item) async {
 }
 
 /// The assistant, ready to type.
+/// Says [s] like a person: if the app is collecting a longer speech
+/// (the "বলা শেষ — পাঠান" button is up), finishes it with "বলা শেষ".
+Future<void> tell(WidgetTester t, Rig rig, String s, {List<String> alternatives = const []}) async {
+  rig.voice.say(s, alternatives: alternatives);
+  await settle(t);
+  if (find.byKey(const Key('speech-done')).evaluate().isNotEmpty) {
+    rig.voice.say('বলা শেষ');
+    await settle(t);
+  }
+}
+
 Future<void> openTyping(WidgetTester t) async {
   if (find.text('আগের কথা').evaluate().isEmpty) {
     await t.tap(find.text('হোম').last);
@@ -216,15 +227,15 @@ void main() {
   testWidgets('voice: "নোট খোলো" opens the notes page; "লেনদেন খোলো" the money tab', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('নোট খোলো');
+    await tell(t, rig, 'নোট খোলো');
     await settle(t);
     expect(find.byType(NotesScreen), findsOneWidget);
     Navigator.of(t.element(find.byType(NotesScreen))).pop();
     await settle(t);
-    rig.voice.say('তুমি কী কী পারো');
+    await tell(t, rig, 'তুমি কী কী পারো');
     await settle(t);
     expect(find.textContaining('• স্বাস্থ্য'), findsOneWidget);
-    rig.voice.say('লেনদেন খোলো');
+    await tell(t, rig, 'লেনদেন খোলো');
     await settle(t);
     expect(find.byType(ChatHome), findsNothing);
   });
@@ -512,23 +523,23 @@ void main() {
   testWidgets('chat: say a loan, yes by voice, then keep talking', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('আমি সজীবকে ৫০০ টাকা ধার দিলাম');
+    await tell(t, rig, 'আমি সজীবকে ৫০০ টাকা ধার দিলাম');
     await settle(t);
     expect(rig.voice.spoken.last, 'আচ্ছা, সজীবকে ৫০০ টাকা ধার দিলেন, তাই তো? লিখে রাখি?');
 
     // Answer by voice; the chat keeps listening.
-    rig.voice.say('হ্যাঁ');
+    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.ledger.single.amount, 500);
     expect(rig.brain.data.ledger.single.kind, LedgerKind.lent);
     expect(rig.voice.spoken.last, contains('এখন সজীবের কাছে আপনার ৫০০ টাকা পাওনা আছে।'));
     expect(find.text('সজীবের খাতা দেখুন →'), findsOneWidget);
 
-    rig.voice.say('সজীবের কাছে আমার কত টাকা পাওনা?');
+    await tell(t, rig, 'সজীবের কাছে আমার কত টাকা পাওনা?');
     await settle(t);
     expect(rig.voice.spoken.last, startsWith('সজীবের কাছে আপনার ৫০০ টাকা পাওনা আছে।'));
 
-    rig.voice.say('তুমি কেমন আছো?');
+    await tell(t, rig, 'তুমি কেমন আছো?');
     await settle(t);
     expect(rig.voice.spoken.last, contains('ভালো আছি'));
     expect(find.text('শুনছি…'), findsOneWidget);
@@ -545,7 +556,7 @@ void main() {
     final rig = await start(t,
         data: AppData(ledger: [LedgerEntry(person: 'রহিম', kind: LedgerKind.borrowed, amount: 1000, date: DateTime(2026, 10, 5))]));
     await openChat(t);
-    rig.voice.say('রহিমকে ৫০০ টাকা দিলাম');
+    await tell(t, rig, 'রহিমকে ৫০০ টাকা দিলাম');
     await settle(t);
     expect(chip('শোধ করলাম'), findsOneWidget);
     expect(rig.brain.data.ledger, hasLength(1));
@@ -561,7 +572,7 @@ void main() {
   testWidgets('chat: a note, saved on the হ্যাঁ button', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('মনে রাখো: গাড়ির কাগজ আলমারিতে');
+    await tell(t, rig, 'মনে রাখো: গাড়ির কাগজ আলমারিতে');
     await settle(t);
     await t.tap(chip('হ্যাঁ'));
     await settle(t);
@@ -572,10 +583,10 @@ void main() {
   testWidgets('chat: a fact that matches nothing goes to a new category, by spoken yes', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('ছাদের দরজার কোড ৪৫৬৭');
+    await tell(t, rig, 'ছাদের দরজার কোড ৪৫৬৭');
     await settle(t);
     expect(find.textContaining('নতুন বিভাগ খুলে রেখে দিই'), findsOneWidget);
-    rig.voice.say('জি রাখো');
+    await tell(t, rig, 'জি রাখো');
     await settle(t);
     expect(rig.brain.data.notes.single.category, 'ছাদ');
   });
@@ -583,11 +594,11 @@ void main() {
   testWidgets('chat: "ইসমাইলের কাছে আমি ৫ হাজার টাকা পাই" asks, then adds on হ্যাঁ', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('ইসমাইলের কাছে আমি ৫ হাজার টাকা পাই');
+    await tell(t, rig, 'ইসমাইলের কাছে আমি ৫ হাজার টাকা পাই');
     await settle(t);
     expect(rig.voice.spoken.last, contains('ইসমাইল নামে তো কারও হিসাব নেই'));
     expect(rig.brain.data.ledger, isEmpty);
-    rig.voice.say('হ্যাঁ');
+    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     final e = rig.brain.data.ledger.single;
     expect(e.person, 'ইসমাইল');
@@ -599,7 +610,7 @@ void main() {
     final rig = await start(t,
         data: AppData(vault: [VaultItem(name: 'ABC ওয়েবসাইট', username: 'saif_admin', password: 'Kp7#vR2!qz')]));
     await openChat(t);
-    rig.voice.say('এবিসির পাসওয়ার্ড দেখাও');
+    await tell(t, rig, 'এবিসির পাসওয়ার্ড দেখাও');
     await settle(t);
     expect(find.text('ABC ওয়েবসাইট'), findsOneWidget);
     expect(rig.voice.spoken.last, contains('তথ্য পেয়েছি'));
@@ -611,7 +622,7 @@ void main() {
     final rig = await start(t,
         data: AppData(notes: [Note(title: 'ছাদের দরজার কোড ৪৫৬৭', body: 'ছাদের দরজার কোড ৪৫৬৭', category: 'ছাদ')]));
     await openChat(t);
-    rig.voice.say('ছাদের দরজার কোড কত?');
+    await tell(t, rig, 'ছাদের দরজার কোড কত?');
     await settle(t);
     expect(rig.voice.spoken.last, 'ছাদের দরজার কোড ৪৫৬৭।');
   });
@@ -619,16 +630,16 @@ void main() {
   testWidgets('chat: money without a name asks whom, then the kind, then saves', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('১২০০ টাকা ধার দিলাম');
+    await tell(t, rig, '১২০০ টাকা ধার দিলাম');
     await settle(t);
     expect(rig.voice.spoken.last, contains('কার সাথে লেনদেন হলো'));
     expect(rig.brain.data.notes, isEmpty);
-    rig.voice.say('করিম');
+    await tell(t, rig, 'করিম');
     await settle(t);
-    rig.voice.say('হ্যাঁ'); // the likely kind: ধার দিলাম
+    await tell(t, rig, 'হ্যাঁ'); // the likely kind: ধার দিলাম
     await settle(t);
     expect(rig.voice.spoken.last, contains('তাই তো? লিখে রাখি?'));
-    rig.voice.say('হ্যাঁ');
+    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     final e = rig.brain.data.ledger.single;
     expect(e.person, 'করিম');
@@ -639,11 +650,11 @@ void main() {
   testWidgets('chat: two money events in one breath are listed and saved on one yes', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('সজীবকে ৫০০ টাকা ধার দিলাম আর রহিমের কাছ থেকে ২০০ টাকা ধার নিলাম');
+    await tell(t, rig, 'সজীবকে ৫০০ টাকা ধার দিলাম আর রহিমের কাছ থেকে ২০০ টাকা ধার নিলাম');
     await settle(t);
     expect(rig.voice.spoken.last, contains('২টা জিনিস পেলাম'));
     expect(find.textContaining('সজীবকে ৫০০ টাকা ধার দিলেন'), findsOneWidget);
-    rig.voice.say('হ্যাঁ');
+    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.ledger, hasLength(2));
     expect(rig.voice.spoken.last, contains('সব রেখে দিলাম'));
@@ -652,7 +663,7 @@ void main() {
   testWidgets('chat: "থামো" stops listening', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('থামো');
+    await tell(t, rig, 'থামো');
     await settle(t);
     expect(rig.voice.spoken.last, contains('থামলাম'));
     // Back to the conversation, the mic waiting to be tapped.
@@ -662,7 +673,7 @@ void main() {
   testWidgets('with AI on, Claude\'s reply is spoken', (t) async {
     final rig = await start(t, ai: {'action': 'chat', 'reply': 'জি, আলহামদুলিল্লাহ ভালো আছি! আপনার কী খবর?'});
     await openChat(t);
-    rig.voice.say('কিরে দোস্ত, কী অবস্থা তোর');
+    await tell(t, rig, 'কিরে দোস্ত, কী অবস্থা তোর');
     await settle(t);
     expect(rig.ai.asked, ['কিরে দোস্ত, কী অবস্থা তোর']);
     expect(rig.voice.spoken.last, 'জি, আলহামদুলিল্লাহ ভালো আছি! আপনার কী খবর?');
@@ -671,9 +682,9 @@ void main() {
   testWidgets('with AI on, the conversation so far goes along with the next sentence', (t) async {
     final rig = await start(t, ai: {'reply': 'ভালো আছি।', 'items': []});
     await openChat(t);
-    rig.voice.say('কেমন আছো');
+    await tell(t, rig, 'কেমন আছো');
     await settle(t);
-    rig.voice.say('আজকে আবহাওয়া কেমন');
+    await tell(t, rig, 'আজকে আবহাওয়া কেমন');
     await settle(t);
     expect(rig.ai.asked, hasLength(2));
     final h = rig.ai.histories.last;
@@ -691,11 +702,11 @@ void main() {
       ],
     });
     await openChat(t);
-    rig.voice.say('শোনো আজকে জামাইল্লারে দেড় হাজার টেয়া হাওলাত দিছি আর হ্যাঁ ছাদের দরজার কোডটা হইল চাইর পাঁচ ছয় সাত');
+    await tell(t, rig, 'শোনো আজকে জামাইল্লারে দেড় হাজার টেয়া হাওলাত দিছি আর হ্যাঁ ছাদের দরজার কোডটা হইল চাইর পাঁচ ছয় সাত');
     await settle(t);
     expect(find.textContaining('জামালকে ১,৫০০ টাকা ধার দিলেন'), findsOneWidget);
     expect(find.textContaining('ছাদের দরজার কোড ৪৫৬৭'), findsOneWidget);
-    rig.voice.say('হ');
+    await tell(t, rig, 'হ');
     await settle(t);
     expect(rig.brain.data.ledger.single.person, 'জামাল');
     expect(rig.brain.data.ledger.single.amount, 1500);
@@ -705,10 +716,10 @@ void main() {
   testWidgets('with AI on, a money sentence the AI understood is confirmed in the chat', (t) async {
     final rig = await start(t, ai: {'action': 'ledger_add', 'person': 'জামাল', 'amount': 1500, 'kind': 'lent'});
     await openChat(t);
-    rig.voice.say('জামাইল্লারে দেড় হাজার টেয়া হাওলাত দিছি');
+    await tell(t, rig, 'জামাইল্লারে দেড় হাজার টেয়া হাওলাত দিছি');
     await settle(t);
     expect(rig.voice.spoken.last, contains('তাই তো? লিখে রাখি?'));
-    rig.voice.say('হ');
+    await tell(t, rig, 'হ');
     await settle(t);
     expect(rig.brain.data.ledger.single.person, 'জামাল');
     expect(rig.brain.data.ledger.single.amount, 1500);
@@ -717,10 +728,10 @@ void main() {
   testWidgets('password questions never go to the AI', (t) async {
     final rig = await start(t, ai: {'action': 'chat', 'reply': 'x'});
     await openChat(t);
-    rig.voice.say('ফেসবুকের পাসওয়ার্ড দেখাও');
+    await tell(t, rig, 'ফেসবুকের পাসওয়ার্ড দেখাও');
     await settle(t);
     expect(rig.ai.asked, isEmpty);
-    rig.voice.say('কেমন আছো');
+    await tell(t, rig, 'কেমন আছো');
     await settle(t);
     // The earlier secret question is not passed on either.
     expect(rig.ai.histories.single.first.text, isNot(contains('ফেসবুক')));
@@ -730,7 +741,7 @@ void main() {
     final rig = await start(t, ai: {'action': 'chat', 'reply': 'x'});
     rig.ai.error = const AiError('ইন্টারনেট সংযোগ পাওয়া যায়নি।');
     await openChat(t);
-    rig.voice.say('আমি সজীবকে ৫০০ টাকা ধার দিলাম');
+    await tell(t, rig, 'আমি সজীবকে ৫০০ টাকা ধার দিলাম');
     await settle(t);
     expect(rig.voice.spoken.last, 'আচ্ছা, সজীবকে ৫০০ টাকা ধার দিলেন, তাই তো? লিখে রাখি?');
     expect(find.textContaining('নিজের নিয়মে বুঝে নিলাম'), findsOneWidget);
@@ -739,16 +750,16 @@ void main() {
   testWidgets('assistant: a to-do by voice, the day at a glance, then ticked off', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('আজকে ব্যাংকে যেতে হবে');
+    await tell(t, rig, 'আজকে ব্যাংকে যেতে হবে');
     await settle(t);
     expect(rig.voice.spoken.last, contains('তুলে রাখি?'));
-    rig.voice.say('হ্যাঁ');
+    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.tasks.single.due, DateTime(2026, 10, 9));
-    rig.voice.say('আজ আমার কী কী আছে?');
+    await tell(t, rig, 'আজ আমার কী কী আছে?');
     await settle(t);
     expect(rig.voice.spoken.last, contains('কাজ বাকি ১টা'));
-    rig.voice.say('ব্যাংকের কাজ হয়ে গেছে');
+    await tell(t, rig, 'ব্যাংকের কাজ হয়ে গেছে');
     await settle(t);
     expect(rig.brain.data.tasks.single.done, isTrue);
     expect(rig.voice.spoken.last, contains('দাগ দিলাম'));
@@ -757,10 +768,10 @@ void main() {
   testWidgets('assistant: a timed reminder is scheduled', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও');
+    await tell(t, rig, 'কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও');
     await settle(t);
     expect(rig.voice.spoken.last, contains('দেব — ঠিক আছে?'));
-    rig.voice.say('হ্যাঁ');
+    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     final r = rig.brain.data.reminders.single;
     expect(r.date, DateTime(2026, 10, 10));
@@ -830,7 +841,7 @@ void main() {
     await openChat(t);
     int bal() => balanceWith(rig.brain.data.ledger, 'সজীব');
     Future<void> say(String s) async {
-      rig.voice.say(s);
+      await tell(t, rig, s);
       await settle(t);
     }
 
@@ -842,8 +853,11 @@ void main() {
     await say('হ্যাঁ');
     expect(bal(), 700);
     // The recogniser reports the same final sentence twice: one entry.
+    // The recogniser reports the same final piece twice: kept once.
     rig.voice.say('সজীব সেই ধার থেকে তিনশ টাকা ফেরত দিল');
     rig.voice.say('সজীব সেই ধার থেকে তিনশ টাকা ফেরত দিল');
+    await settle(t);
+    rig.voice.say('বলা শেষ');
     await settle(t);
     if (rig.brain.data.ledger.length == 1) await say('হ্যাঁ');
     expect(rig.brain.data.ledger, hasLength(2));
@@ -901,12 +915,12 @@ void main() {
   testWidgets('voice: when the recogniser also heard another amount, it is shown and can be picked', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('সজীবকে পাঁচশ টাকা ধার দিলাম', alternatives: ['সজীবকে সাতশ টাকা ধার দিলাম']);
+    await tell(t, rig, 'সজীবকে পাঁচশ টাকা ধার দিলাম', alternatives: ['সজীবকে সাতশ টাকা ধার দিলাম']);
     await settle(t);
     expect(rig.voice.spoken.last, contains('৭০০ টাকা”-ও শোনা গেছে'));
-    rig.voice.say('না, 700');
+    await tell(t, rig, 'না, 700');
     await settle(t);
-    rig.voice.say('হ্যাঁ');
+    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.ledger.single.amount, 700);
   });
@@ -915,22 +929,85 @@ void main() {
     final rig = await start(t);
     rig.notifier.state = const AlarmHealth(notificationsOn: false, exactOn: true, batteryFree: true, fullScreenOn: true, brand: '', hasAutostart: false);
     await openChat(t);
-    rig.voice.say('কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও');
+    await tell(t, rig, 'কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও');
     await settle(t);
-    rig.voice.say('হ্যাঁ');
+    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.reminders, hasLength(1));
     expect(rig.voice.spoken.last, contains('নোটিফিকেশন বন্ধ'));
     expect(rig.voice.spoken.last, isNot(contains('মনে করিয়ে দেব')));
   });
 
+  testWidgets('long speech: pieces are kept on screen and sent together only when it is all said', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    String shown() => [for (final e in find.byType(RichText).evaluate()) (e.widget as RichText).text.toPlainText()].join('\n');
+    // Three pieces with pauses: all stay on screen, nothing is acted on.
+    rig.voice.say('আজ সজীবকে পাঁচশ টাকা ধার দিয়েছি।');
+    await settle(t);
+    rig.voice.say('আর বাজারে সাতশ টাকা খরচ হয়েছে।');
+    await settle(t);
+    rig.voice.say('শুক্রবার সজীবকে টাকা ফেরত দিতে বলতে মনে করিয়ে দিও।');
+    await settle(t);
+    for (final p in ['পাঁচশ টাকা ধার', 'সাতশ টাকা খরচ', 'শুক্রবার সজীবকে']) {
+      expect(shown(), contains(p), reason: p);
+    }
+    expect(rig.brain.data.ledger, isEmpty);
+    expect(t.state<ChatHomeState>(find.byType(ChatHome)).chat.messages.where((m) => m.fromUser), isEmpty);
+    // Quiet: the app asks, before the microphone opens again.
+    await t.pump(const Duration(milliseconds: 1600));
+    await settle(t);
+    expect(rig.voice.spoken.last, 'আর কিছু বলতে চান?');
+    // "হ্যাঁ, …": only the words after "হ্যাঁ" are added.
+    rig.voice.say('হ্যাঁ, আর রহিমকে দুইশ টাকা ধার দিয়েছি');
+    await settle(t);
+    expect(shown(), contains('আর রহিমকে দুইশ টাকা'));
+    expect(shown(), isNot(contains('হ্যাঁ, আর রহিমকে')));
+    await t.pump(const Duration(milliseconds: 1600));
+    await settle(t);
+    // Silence after the question: nothing happens by itself.
+    rig.voice.say('');
+    await settle(t);
+    expect(t.state<ChatHomeState>(find.byType(ChatHome)).chat.messages.where((m) => m.fromUser), isEmpty);
+    expect(find.byKey(const Key('speech-more')), findsOneWidget);
+    // "বলা শেষ — পাঠান", tapped twice: the whole speech goes once.
+    await t.tap(find.byKey(const Key('speech-done')));
+    await t.tap(find.byKey(const Key('speech-done')), warnIfMissed: false);
+    await settle(t);
+    final sent = t.state<ChatHomeState>(find.byType(ChatHome)).chat.messages.where((m) => m.fromUser).toList();
+    expect(sent, hasLength(1));
+    for (final p in ['পাঁচশ টাকা ধার', 'সাতশ টাকা খরচ', 'শুক্রবার', 'রহিমকে দুইশ']) {
+      expect(sent.single.text, contains(p), reason: p);
+    }
+  });
+
+  testWidgets('long speech: "বাতিল" drops it all; an unfinished speech comes back in the box', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    rig.voice.say('সজীবকে পাঁচশ টাকা ধার দিয়েছি');
+    await settle(t);
+    await t.pump(const Duration(milliseconds: 1600));
+    await settle(t);
+    rig.voice.say('পুরোটা বাদ দাও');
+    await settle(t);
+    expect(rig.brain.data.ledger, isEmpty);
+    expect(t.state<ChatHomeState>(find.byType(ChatHome)).chat.messages.where((m) => m.fromUser), isEmpty);
+    // Left unfinished (the app closed): next time it is in the box, not acted on.
+    await rig.brain.services.lock.keys.write('voice_draft', 'করিমকে তিনশ টাকা দিয়েছি');
+    Navigator.of(t.element(find.byType(ChatHome))).pop();
+    await settle(t);
+    await openTyping(t);
+    expect(t.widget<TextField>(find.byType(TextField).first).controller!.text, 'করিমকে তিনশ টাকা দিয়েছি');
+    expect(rig.brain.data.ledger, isEmpty);
+  });
+
   testWidgets('voice: an alarm said aloud is set as an alarm', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('কাল সকাল ৬টায় এলার্ম দাও');
+    await tell(t, rig, 'কাল সকাল ৬টায় এলার্ম দাও');
     await settle(t);
     if (rig.brain.data.reminders.isEmpty) {
-      rig.voice.say('হ্যাঁ');
+      await tell(t, rig, 'হ্যাঁ');
       await settle(t);
     }
     final r = rig.brain.data.reminders.single;
@@ -942,7 +1019,7 @@ void main() {
   testWidgets('voice: when the first guess makes no sense, the recogniser\'s next guess is used', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('সব জীবকে পাঁচ দশ', alternatives: ['সজীবকে ৫০০ টাকা ধার দিলাম']);
+    await tell(t, rig, 'সব জীবকে পাঁচ দশ', alternatives: ['সজীবকে ৫০০ টাকা ধার দিলাম']);
     await settle(t);
     expect(rig.voice.spoken.last, contains('সজীবকে ৫০০ টাকা ধার দিলেন'));
   });
@@ -950,7 +1027,7 @@ void main() {
   testWidgets('assistant: "রহিমকে ফোন দাও" opens the dialer with the saved number', (t) async {
     final rig = await start(t, data: AppData(contacts: [Contact(name: 'রহিম', phone: '01712345678')]));
     await openChat(t);
-    rig.voice.say('রহিমকে ফোন দাও');
+    await tell(t, rig, 'রহিমকে ফোন দাও');
     await settle(t);
     final l = rig.services.launcher as FakeLauncher;
     expect(l.opened.single.toString(), 'tel:01712345678');
@@ -960,10 +1037,10 @@ void main() {
   testWidgets('assistant: a message to someone new asks the number, keeps it, then opens SMS', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('করিমকে মেসেজ দাও যে মাল পাঠিয়েছি');
+    await tell(t, rig, 'করিমকে মেসেজ দাও যে মাল পাঠিয়েছি');
     await settle(t);
     expect(rig.voice.spoken.last, contains('নম্বর তো রাখা নেই'));
-    rig.voice.say('০১৮১২৩৪৫৬৭৮');
+    await tell(t, rig, '০১৮১২৩৪৫৬৭৮');
     await settle(t);
     expect(rig.brain.data.contacts.single.phone, '01812345678');
     final l = rig.services.launcher as FakeLauncher;
@@ -974,9 +1051,9 @@ void main() {
   testWidgets('assistant: a phone number said is kept in যোগাযোগ', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('রহিমের নম্বর ০১৭১২৩৪৫৬৭৮ রাখো');
+    await tell(t, rig, 'রহিমের নম্বর ০১৭১২৩৪৫৬৭৮ রাখো');
     await settle(t);
-    rig.voice.say('হ্যাঁ');
+    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.contacts.single.name, 'রহিম');
     expect(rig.brain.data.contacts.single.phone, '01712345678');
@@ -1001,13 +1078,13 @@ void main() {
     final rig = await start(t);
     await openChat(t);
     for (var i = 0; i < 4; i++) {
-      rig.voice.say('');
+      await tell(t, rig, '');
       await settle(t);
     }
     expect(find.textContaining('মাইক বন্ধ রাখলাম'), findsOneWidget);
     await t.tap(find.text('বলুন'));
     await settle(t);
-    rig.voice.say('তুমি কেমন আছো?');
+    await tell(t, rig, 'তুমি কেমন আছো?');
     await settle(t);
     expect(rig.voice.spoken.last, contains('ভালো আছি'));
   });
@@ -1016,13 +1093,13 @@ void main() {
     final rig = await start(t);
     await openChat(t);
     expect(rig.voice.spoken.last, 'আমি শুনছি', reason: 'said while the mic is already open');
-    rig.voice.say('৫.৩০ এ রিমাইন্ডার দিও');
+    await tell(t, rig, '৫.৩০ এ রিমাইন্ডার দিও');
     await settle(t);
     expect(rig.voice.spoken.last, contains('কী বিষয়ে'));
-    rig.voice.say('ওষুধ খাওয়া');
+    await tell(t, rig, 'ওষুধ খাওয়া');
     await settle(t);
     expect(rig.voice.spoken.last, contains('দেব — ঠিক আছে?'));
-    rig.voice.say('হ্যাঁ');
+    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     final r = rig.brain.data.reminders.single;
     expect(r.date, DateTime(2026, 10, 9));
@@ -1034,16 +1111,16 @@ void main() {
   testWidgets('a reminder with no time asks when; "আজ" then "৬.২০" is this evening', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('বাজারের রিমাইন্ডার দিও');
+    await tell(t, rig, 'বাজারের রিমাইন্ডার দিও');
     await settle(t);
     expect(rig.voice.spoken.last, contains('কখন মনে করাব'));
-    rig.voice.say('আজ');
+    await tell(t, rig, 'আজ');
     await settle(t);
     expect(rig.voice.spoken.last, contains('কয়টায়'));
-    rig.voice.say('৬.২০');
+    await tell(t, rig, '৬.২০');
     await settle(t);
     expect(rig.voice.spoken.last, contains('দেব — ঠিক আছে?'));
-    rig.voice.say('হ্যাঁ');
+    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     final r = rig.brain.data.reminders.single;
     expect(r.hour, 18);
@@ -1053,10 +1130,10 @@ void main() {
   testWidgets('own spending goes to আয়-ব্যয় with its খাত', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('বাজারে ৫০০ টাকা খরচ হলো');
+    await tell(t, rig, 'বাজারে ৫০০ টাকা খরচ হলো');
     await settle(t);
     expect(rig.voice.spoken.last, contains('খরচ হিসেবে লিখি'));
-    rig.voice.say('হ্যাঁ');
+    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     final c = rig.brain.data.cash.single;
     expect(c.category, 'বাজার');
@@ -1068,15 +1145,15 @@ void main() {
   testWidgets('project money: a new project, money in, money out, what is left', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো');
+    await tell(t, rig, 'রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো');
     await settle(t);
     expect(rig.voice.spoken.last, contains('নতুন আলাদা হিসাব খুলে'));
-    rig.voice.say('হ্যাঁ');
+    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.projects.single.name, 'রহিম ভবন');
-    rig.voice.say('রহিম ভবন প্রজেক্টে রড কিনলাম ২০ হাজার টাকা');
+    await tell(t, rig, 'রহিম ভবন প্রজেক্টে রড কিনলাম ২০ হাজার টাকা');
     await settle(t);
-    rig.voice.say('হ্যাঁ');
+    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     expect(rig.voice.spoken.last, contains('৩০,০০০'));
     expect(rig.brain.data.cash.every((e) => e.projectId == rig.brain.data.projects.single.id), isTrue);
@@ -1085,10 +1162,10 @@ void main() {
   testWidgets('a reminder every 30 minutes is scheduled as a repeat', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('প্রতি ৩০ মিনিটে পানি খাওয়ার কথা মনে করিয়ে দিও');
+    await tell(t, rig, 'প্রতি ৩০ মিনিটে পানি খাওয়ার কথা মনে করিয়ে দিও');
     await settle(t);
     expect(rig.voice.spoken.last, contains('প্রথমবার'));
-    rig.voice.say('হ্যাঁ');
+    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.reminders.single.repeat, Repeat.every30);
     expect(rig.notifier.scheduled.single.every, const Duration(minutes: 30));
@@ -1211,12 +1288,12 @@ void main() {
           Contact(name: 'ইবনে সিনা মোস্তাফিজ ভাই', phone: '01911000002'),
         ]));
     await openChat(t);
-    rig.voice.say('মোবারককে ফোন দাও');
+    await tell(t, rig, 'মোবারককে ফোন দাও');
     await settle(t);
     expect(rig.voice.spoken.last, contains('২ জন আছেন'));
     final l = rig.services.launcher as FakeLauncher;
     expect(l.opened, isEmpty);
-    rig.voice.say('দ্বিতীয় জন');
+    await tell(t, rig, 'দ্বিতীয় জন');
     await settle(t);
     expect(l.opened.single.toString(), 'tel:01811000003');
   });
@@ -1224,20 +1301,20 @@ void main() {
   testWidgets('a day\'s list over several breaths is kept until "শেষ", then saved on one yes', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('আজকের কাজের তালিকা');
+    await tell(t, rig, 'আজকের কাজের তালিকা');
     await settle(t);
     expect(rig.voice.spoken.last, contains('একটা একটা করে'));
     final spokenBefore = rig.voice.spoken.length;
-    rig.voice.say('সকালে ঘুম থেকে উঠে স্কুলে যাবো');
+    await tell(t, rig, 'সকালে ঘুম থেকে উঠে স্কুলে যাবো');
     await settle(t);
-    rig.voice.say('বিকেলে বাজার করব তারপর ব্যাংকে যাবো');
+    await tell(t, rig, 'বিকেলে বাজার করব তারপর ব্যাংকে যাবো');
     await settle(t);
     expect(rig.voice.spoken.length, spokenBefore);
     expect(rig.brain.data.tasks, isEmpty);
-    rig.voice.say('শেষ');
+    await tell(t, rig, 'শেষ');
     await settle(t);
     expect(rig.voice.spoken.last, contains('৩টা কাজ পেলাম'));
-    rig.voice.say('হ্যাঁ');
+    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.tasks, hasLength(3));
     expect(rig.brain.data.tasks.every((x) => x.due == DateTime(2026, 10, 9)), isTrue);
@@ -1246,11 +1323,11 @@ void main() {
   testWidgets('a sentence ending in "আর" waits for the rest', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('রবিনকে ৫০০ টাকা ধার দিলাম আর');
+    await tell(t, rig, 'রবিনকে ৫০০ টাকা ধার দিলাম আর');
     await settle(t);
     final before = rig.voice.spoken.length;
     expect(rig.brain.data.ledger, isEmpty);
-    rig.voice.say('করিমকে ২০০ টাকা ধার দিলাম');
+    await tell(t, rig, 'করিমকে ২০০ টাকা ধার দিলাম');
     await settle(t);
     expect(rig.voice.spoken.length, before + 1);
     expect(rig.voice.spoken.last, contains('২টা জিনিস পেলাম'));
@@ -1303,10 +1380,10 @@ void main() {
   testWidgets('money typed to a name in যোগাযোগ: the number is found and shown before saving', (t) async {
     final rig = await start(t, data: AppData(contacts: [Contact(name: 'Robin Bhai', phone: '01711223344')]));
     await openChat(t);
-    rig.voice.say('রবিনকে ৫০০০ টাকা ধার দিলাম');
+    await tell(t, rig, 'রবিনকে ৫০০০ টাকা ধার দিলাম');
     await settle(t);
     expect(find.textContaining('০১৭১১-২২৩৩৪৪'), findsOneWidget);
-    rig.voice.say('হ্যাঁ');
+    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.ledger.single.phone, '01711223344');
   });
@@ -1393,21 +1470,21 @@ void main() {
   testWidgets('voice: loan, money back, then a question that saves nothing; a missing amount is asked', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('সজীবকে পাঁচশ টাকা ধার দিয়েছি');
+    await tell(t, rig, 'সজীবকে পাঁচশ টাকা ধার দিয়েছি');
     await settle(t);
     expect(rig.voice.spoken.last, contains('৫০০'));
-    rig.voice.say('হ্যাঁ');
+    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
-    rig.voice.say('সজীব আমাকে তিনশ টাকা ফেরত দিয়েছে');
+    await tell(t, rig, 'সজীব আমাকে তিনশ টাকা ফেরত দিয়েছে');
     await settle(t);
-    rig.voice.say('হ্যাঁ');
+    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.ledger.map((e) => e.kind), [LedgerKind.lent, LedgerKind.received]);
-    rig.voice.say('সজীবের কাছে কত টাকা পাই?');
+    await tell(t, rig, 'সজীবের কাছে কত টাকা পাই?');
     await settle(t);
     expect(rig.voice.spoken.last, contains('২০০'));
     expect(rig.brain.data.ledger, hasLength(2));
-    rig.voice.say('সজীবকে টাকা দিয়েছি');
+    await tell(t, rig, 'সজীবকে টাকা দিয়েছি');
     await settle(t);
     expect(rig.voice.spoken.last, contains('কত টাকার'));
     expect(rig.brain.data.ledger, hasLength(2));

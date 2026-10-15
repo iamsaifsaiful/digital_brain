@@ -434,6 +434,17 @@ class ChatController extends ChangeNotifier {
     return TaskAdd(said, title: title, due: w != null && w.hasDay ? w.day : null);
   }
 
+  /// The chat asked something and waits for the answer.
+  bool get waiting => wait != ChatWait.none;
+
+  /// Said by voice and acted on at once, without collecting more speech:
+  /// a question, opening a page, small talk, stop or cancel.
+  bool quickRequest(String t) {
+    if (isQuestionText(t) || _isStop(t) || isCancel(t)) return true;
+    final c = parseAll(t, brain.data.ledger, tasks: brain.data.tasks, contacts: brain.data.contacts, now: _now);
+    return c.length == 1 && (c.first is OpenPlace || c.first is SmallTalk || c.first is ContactsQuery || c.first is CallPerson);
+  }
+
   /// Short listening (yes/no) is enough for the next answer.
   bool get expectsShortAnswer =>
       const {ChatWait.yesNo, ChatWait.amount, ChatWait.name, ChatWait.callee, ChatWait.phone, ChatWait.contactName}.contains(wait);

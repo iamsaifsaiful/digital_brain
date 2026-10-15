@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../logic/dictation.dart';
 import '../logic/suggest.dart';
 import '../logic/bn.dart';
 import '../models/models.dart';
@@ -46,6 +47,10 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   late final Brain _brain = BrainScope.read(context);
   late final ChatArchive _archive = ChatArchive(_brain.services.lock.keys);
   late ChatController _chat = _make();
+
+  /// The conversation (for tests).
+  @visibleForTesting
+  ChatController get chat => _chat;
   final _text = TextEditingController();
   final _focus = FocusNode();
   final _scroll = ScrollController();
@@ -66,6 +71,32 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
 
   /// The recogniser has really started (until then: "প্রস্তুত হচ্ছে…").
   bool _ready = false;
+
+  // ── Long speech, said in several breaths ──
+  // Each piece the recogniser finishes is kept in [_draft] (shown on screen,
+  // never replaced by the next piece). Nothing is acted on until the user
+  // says it is all ("বলা শেষ", or "না" to "আর কিছু বলতে চান?").
+
+  /// The pieces said so far, in order.
+  final _draft = <String>[];
+
+  /// "আর কিছু বলতে চান?" was asked; the next answer is about that.
+  bool _askingMore = false;
+
+  /// Stopped and waiting for a button ("আরও বলব" / "বলা শেষ").
+  bool _paused = false;
+
+  /// "শেষ" was tapped while listening: the last piece completes the speech.
+  bool _finishTap = false;
+
+  /// Quiet after a piece: asks "আর কিছু বলতে চান?" when it fires.
+  Timer? _moreTimer;
+
+  /// The whole speech was sent (guards a double tap).
+  bool _submitting = false;
+
+  /// The recogniser's other guesses for the last piece.
+  List<String> _pieceAlts = const [];
   bool _speaking = false;
   bool _busy = false;
 
@@ -86,8 +117,10 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       _loadPast();
+      await _restoreDraft();
+      if (!mounted) return;
       final first = widget.firstMessage?.trim() ?? '';
       if (first.isNotEmpty) {
         _send(first);
@@ -101,6 +134,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _undoTimer?.cancel();
+    _moreTimer?.cancel();
     _gen++;
     _chat
       ..removeListener(_changed)
@@ -327,7 +361,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   }
 
   /// Listens; [say] is spoken meanwhile (the user may talk over it).
-  Future<void> _listen({String? say}) async {
+  Future<void> _listen({String? say, bool? short}) async {
     if (!mounted || _away || _busy || !_voice) return;
     final voice = _brain.services.voice;
     final gen = ++_gen;
@@ -340,16 +374,26 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     });
     unawaited(_wave.repeat());
     await voice.listen(
-      short: _chat.expectsShortAnswer,
+      short: short ?? _chat.expectsShortAnswer,
       say: say,
       onReady: () {
-        if (mounted && gen == _gen) setState(() => _ready = true);
+        if (!mounted || gen != _gen) return;
+        setState(() => _ready = true);
+        // Collecting a long speech and the user is quiet: ask once more.
+        if (_draft.isNotEmpty && !_askingMore) {
+          _moreTimer?.cancel();
+          _moreTimer = Timer(const Duration(milliseconds: 1500), () {
+            if (mounted && gen == _gen && _listening && _live.trim().isEmpty) _askMore();
+          });
+        }
       },
       onSaid: () {
         if (mounted && _speaking) setState(() => _speaking = false);
       },
       onWords: (w) {
-        if (mounted && gen == _gen) setState(() => _live = w);
+        if (!mounted || gen != _gen) return;
+        if (w.trim().isNotEmpty) _moreTimer?.cancel();
+        setState(() => _live = w);
       },
       onDone: (w) {
         // One sentence is handled once, even if the recogniser reports it twice.
@@ -360,6 +404,22 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
           _listening = false;
           _live = '';
         });
+        _moreTimer?.cancel();
+        if (w.trim().isEmpty && (_askingMore || _draft.isNotEmpty)) {
+          // Quiet after the question (or while collecting): never taken as
+          // "yes" or "no" — stop and wait for a button.
+          if (_askingMore || _draft.isNotEmpty) {
+            if (_askingMore) {
+              setState(() {
+                _askingMore = false;
+                _paused = true;
+              });
+            } else {
+              _askMore();
+            }
+            return;
+          }
+        }
         if (w.trim().isEmpty && _chat.hasPending) {
           // Went quiet after a list or a half sentence: now answer it.
           _silences = 0;
@@ -376,7 +436,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
           }
         } else {
           _silences = 0;
-          _send(w);
+          _heardPiece(w);
         }
       },
       onError: (m) {
@@ -408,7 +468,10 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     if (_busy) return;
     if (_listening) {
       // Finish what was heard so far.
+      _finishTap = true;
       _brain.services.voice.stop();
+    } else if (_draft.isNotEmpty) {
+      _submitDraft();
     } else if (_chat.hasPending) {
       _flush();
     } else {
@@ -417,6 +480,136 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
       _chat.ended = false;
       _listen();
     }
+  }
+
+  /// A piece of speech the recogniser finished.
+  void _heardPiece(String w) {
+    final finishTap = _finishTap;
+    _finishTap = false;
+    // An answer the chat asked for, or a quick request, goes at once.
+    if (_draft.isEmpty && !_askingMore && (_chat.waiting || _chat.quickRequest(w))) {
+      _send(w);
+      return;
+    }
+    if (_askingMore) {
+      _askingMore = false;
+      final (kind, content) = continuationOf(w);
+      switch (kind) {
+        case Continue.finish:
+          _submitDraft();
+          return;
+        case Continue.cancel:
+          _dropDraft(tr('ঠিক আছে, পুরো কথাটা বাদ দিলাম।'));
+          return;
+        case Continue.more:
+          _keepListening();
+          return;
+        case Continue.content:
+          _addPiece(content);
+          if (finishTap) {
+            unawaited(_submitDraft());
+            return;
+          }
+          _keepListening();
+          return;
+      }
+    }
+    if (_draft.isNotEmpty && endsSpeech(w)) {
+      _submitDraft();
+      return;
+    }
+    _addPiece(w);
+    if (finishTap) {
+      unawaited(_submitDraft());
+      return;
+    }
+    _keepListening();
+  }
+
+  void _addPiece(String w) {
+    final v = _brain.services.voice;
+    // The recogniser's other guesses for this piece (used when the speech is one piece).
+    _pieceAlts = v.lastHeard.trim() == w.trim() ? v.lastAlternatives : const [];
+    setState(() {
+      _draft.add(w.trim());
+      _paused = false;
+    });
+    unawaited(_saveDraft());
+  }
+
+  void _keepListening() {
+    setState(() => _paused = false);
+    if (mounted && _voice && !_away) unawaited(_listen());
+  }
+
+  /// "আর কিছু বলতে চান?" — said before the microphone opens again, so the
+  /// question never becomes part of the speech.
+  Future<void> _askMore() async {
+    _moreTimer?.cancel();
+    if (!mounted || _draft.isEmpty || _askingMore) return;
+    await _stopListening();
+    if (!mounted) return;
+    setState(() => _askingMore = true);
+    await _listen(say: tr('আর কিছু বলতে চান?'), short: true);
+  }
+
+  /// "বলা শেষ": the whole speech, once.
+  Future<void> _submitDraft() async {
+    if (_submitting || _draft.isEmpty) return;
+    _submitting = true;
+    _moreTimer?.cancel();
+    final whole = assemble(_draft);
+    if (_draft.length == 1) {
+      final v = _brain.services.voice;
+      v.lastHeard = whole;
+      v.lastAlternatives = _pieceAlts;
+    }
+    setState(() {
+      _draft.clear();
+      _askingMore = false;
+      _paused = false;
+    });
+    unawaited(_saveDraft());
+    try {
+      await _send(whole);
+    } finally {
+      _submitting = false;
+    }
+  }
+
+  void _dropDraft(String say) {
+    _moreTimer?.cancel();
+    setState(() {
+      _draft.clear();
+      _askingMore = false;
+      _paused = false;
+    });
+    unawaited(_saveDraft());
+    _chat.addInfo(say);
+    unawaited(_brain.services.voice.speak(say));
+  }
+
+  /// The unfinished speech is kept (locked, on this phone) so a crash or a
+  /// closed app does not lose it; cleared once sent or dropped.
+  Future<void> _saveDraft() async {
+    try {
+      await _brain.services.lock.keys.write('voice_draft', _draft.join('\n'));
+    } catch (_) {}
+  }
+
+  /// Speech left unfinished last time (the app was closed or crashed): put
+  /// in the box to check and send — never acted on by itself.
+  Future<void> _restoreDraft() async {
+    try {
+      final keys = _brain.services.lock.keys;
+      final left = (await keys.read('voice_draft') ?? '').trim();
+      if (left.isEmpty || !mounted) return;
+      await keys.write('voice_draft', '');
+      final text = left.split('\n').join(' ');
+      _text.text = text;
+      _text.selection = TextSelection.collapsed(offset: text.length);
+      _chat.addInfo(tr('আগের বার বলা অসম্পূর্ণ কথাটা লেখার ঘরে রাখা আছে — দেখে পাঠান, বা মুছে দিন।'));
+    } catch (_) {}
   }
 
   /// Typed or spoken: answered, and spoken aloud only in the voice view.
@@ -1062,7 +1255,11 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     final msgs = _chat.messages;
     final lastUser = msgs.lastIndexWhere((m) => m.fromUser);
     final replies = [for (final m in msgs.skip(lastUser + 1)) if (!m.fromUser) m];
-    final status = _listening && _speaking
+    final status = _askingMore && !_listening
+        ? tr('আর কিছু বলতে চান?')
+        : _paused
+        ? tr('থেমে আছি — আরও বলবেন, নাকি বলা শেষ?')
+        : _listening && _speaking
         ? tr('বলছি — আপনি কথা বললেই থেমে শুনবো')
         : _listening
         ? (_ready ? tr('শুনছি…') : tr('প্রস্তুত হচ্ছে… একটু পরে বলুন'))
@@ -1081,7 +1278,51 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
           children: [
             Center(child: _Orb(animation: _wave, active: _listening || _speaking)),
             const SizedBox(height: 28),
-            if (_listening && _live.isNotEmpty)
+            if (_draft.isNotEmpty) ...[
+              // Everything said so far stays; what is being said now is lighter.
+              Text.rich(
+                TextSpan(children: [
+                  TextSpan(text: assemble(_draft), style: body(19, weight: FontWeight.w500, height: 1.55)),
+                  if (_listening && _live.trim().isNotEmpty) TextSpan(text: ' ${_live.trim()}', style: body(19, color: C.muted, height: 1.55)),
+                ]),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
+                if (!_listening)
+                  ActionChip(
+                    key: const Key('speech-more'),
+                    avatar: Icon(Icons.mic_none_rounded, size: 18, color: C.green),
+                    label: Text(tr('আরও বলব'), style: body(15, weight: FontWeight.w600)),
+                    onPressed: _busy ? null : () => setState(() {
+                      _askingMore = false;
+                      _keepListening();
+                    }),
+                  ),
+                ActionChip(
+                  key: const Key('speech-done'),
+                  avatar: Icon(Icons.send_rounded, size: 18, color: C.onInk),
+                  label: Text(tr('বলা শেষ — পাঠান'), style: body(15, weight: FontWeight.w600, color: C.onInk)),
+                  color: WidgetStatePropertyAll(C.ink),
+                  onPressed: _busy ? null : () async {
+                    if (_listening) {
+                      _finishTap = true;
+                      await _brain.services.voice.stop();
+                    } else {
+                      await _submitDraft();
+                    }
+                  },
+                ),
+                ActionChip(
+                  key: const Key('speech-cancel'),
+                  label: Text(tr('বাতিল'), style: body(15, color: C.red)),
+                  onPressed: _busy ? null : () async {
+                    await _stopListening();
+                    _dropDraft(tr('ঠিক আছে, পুরো কথাটা বাদ দিলাম।'));
+                  },
+                ),
+              ]),
+            ] else if (_listening && _live.isNotEmpty)
               Text(_live, textAlign: TextAlign.center, style: body(20, weight: FontWeight.w500, height: 1.5))
             else if (lastUser >= 0 && !_listening) ...[
               Text('“${msgs[lastUser].text}”', textAlign: TextAlign.center, style: body(16, color: C.muted, height: 1.5)),
@@ -1093,7 +1334,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
                 ),
               ),
             ],
-            if (!_listening || _live.isEmpty)
+            if (_draft.isEmpty && (!_listening || _live.isEmpty))
               for (final m in replies) ...[
                 if (m.info)
                   Padding(
@@ -1147,7 +1388,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
           const SizedBox(width: 24),
           Semantics(
             button: true,
-            label: _listening ? tr('শেষ') : tr('বলুন'),
+            label: _listening ? (_draft.isNotEmpty ? tr('বলা শেষ') : tr('শেষ')) : (_draft.isNotEmpty ? tr('পাঠান') : tr('বলুন')),
             excludeSemantics: true,
             child: Material(
               color: C.fill,
@@ -1159,7 +1400,9 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
                   height: 56,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 30),
-                    child: Center(child: Text(_listening ? tr('শেষ') : tr('বলুন'), style: body(17, weight: FontWeight.w600, color: Colors.white))),
+                    child: Center(
+                        child: Text(_listening ? (_draft.isNotEmpty ? tr('বলা শেষ') : tr('শেষ')) : (_draft.isNotEmpty ? tr('পাঠান') : tr('বলুন')),
+                            style: body(17, weight: FontWeight.w600, color: Colors.white))),
                   ),
                 ),
               ),

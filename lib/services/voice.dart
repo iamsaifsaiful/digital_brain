@@ -153,6 +153,10 @@ class DeviceVoice extends Voice {
   /// Other guesses for the whole sentence so far (see [Voice.lastAlternatives]).
   List<String> _alts = const [];
 
+  /// The partial text kept when a session ended before its final result;
+  /// that session's final text, arriving later, replaces it (never added twice).
+  String _keptOnEnd = '';
+
   /// The words on screen are a partial guess; the recogniser has not given
   /// its final (more accurate) text for them yet.
   bool _partial = false;
@@ -426,6 +430,7 @@ class DeviceVoice extends Voice {
     }
     if (status == 'done' || status == 'doneNoResult' || status == 'notListening') {
       if (_current.isNotEmpty) {
+        _keptOnEnd = _current.trim();
         _committed = _words;
         _current = '';
       }
@@ -492,6 +497,17 @@ class DeviceVoice extends Voice {
         onResult: (SpeechRecognitionResult r) {
           // Words from an older turn (a late callback) are never mixed in.
           if (_finished || turn != _turn) return;
+          // A session's final text arriving after the app already kept it
+          // (when the session ended first): not new words — never doubled.
+          if (r.finalResult && _current.isEmpty && _keptOnEnd.isNotEmpty && _committed.trimRight().endsWith(_keptOnEnd)) {
+            // The final text of that piece (maybe corrected) takes its place.
+            final base = _committed.trimRight();
+            _committed = '${base.substring(0, base.length - _keptOnEnd.length)} ${r.recognizedWords}'.trim();
+            _keptOnEnd = '';
+            _onWords?.call(_words);
+            return;
+          }
+          if (r.recognizedWords.trim().isNotEmpty) _keptOnEnd = '';
           final changed = r.recognizedWords != _current;
           _current = r.recognizedWords;
           // The recogniser's other guesses for this part of the sentence.
@@ -584,6 +600,7 @@ class DeviceVoice extends Voice {
     _committed = '';
     _current = '';
     _alts = const [];
+    _keptOnEnd = '';
     _partial = false;
     _finalizing = false;
     _finished = false;

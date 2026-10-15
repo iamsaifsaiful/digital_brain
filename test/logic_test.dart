@@ -9,6 +9,7 @@ import 'package:digital_brain/logic/calendar_bd.dart';
 import 'package:digital_brain/logic/cash.dart';
 import 'package:digital_brain/logic/categories.dart';
 import 'package:digital_brain/logic/csv.dart';
+import 'package:digital_brain/logic/dictation.dart';
 import 'package:digital_brain/logic/ledger.dart';
 import 'package:digital_brain/logic/match.dart';
 import 'package:digital_brain/logic/parser.dart';
@@ -1773,6 +1774,28 @@ void main() {
       final d = AppData(cash: [CashEntry(kind: CashKind.income, amount: 50000, date: now), CashEntry(kind: CashKind.expense, amount: 20000, date: now)]);
       final r = zakatFromRecords(d, now);
       expect((r.cash, r.cashEstimated), (30000, true));
+    });
+  });
+
+  group('long speech: the answer to "আর কিছু বলতে চান?"', () {
+    test('control words, words to add, corrections', () {
+      expect(continuationOf('না').$1, Continue.finish);
+      expect(continuationOf('না, আর কিছু নেই').$1, Continue.finish);
+      expect(continuationOf('এইটুকুই').$1, Continue.finish);
+      expect(continuationOf('বলা শেষ').$1, Continue.finish);
+      expect(continuationOf('এখন উত্তর দাও').$1, Continue.finish);
+      for (final s in ['হ্যাঁ', 'জি', 'আরও আছে', 'আরও বলব', 'একটু অপেক্ষা করো', 'আছে']) {
+        expect(continuationOf(s).$1, Continue.more, reason: s);
+      }
+      expect(continuationOf('হ্যাঁ, আর কাল বাজারে সাতশ টাকা খরচ হয়েছে'), (Continue.content, 'আর কাল বাজারে সাতশ টাকা খরচ হয়েছে'));
+      expect(continuationOf('হ্যাঁ, সজীবের কথাটাও লিখো'), (Continue.content, 'সজীবের কথাটাও লিখো'));
+      expect(continuationOf('না, পাঁচশ নয়, সাতশ হবে'), (Continue.content, 'পাঁচশ নয়, সাতশ হবে'));
+      expect(continuationOf('সজীবকে আরও দুইশ টাকা দিয়েছি'), (Continue.content, 'সজীবকে আরও দুইশ টাকা দিয়েছি'));
+      expect(continuationOf('পুরোটা বাদ দাও').$1, Continue.cancel);
+      // A "না" inside the speech does not end it.
+      expect(endsSpeech('সজীবকে টাকা দিইনি না'), isFalse);
+      expect(endsSpeech('বলা শেষ'), isTrue);
+      expect(assemble(['আজ সজীবকে পাঁচশ টাকা ধার দিয়েছি।', 'আর বাজারে সাতশ টাকা খরচ হয়েছে।', ' ']), 'আজ সজীবকে পাঁচশ টাকা ধার দিয়েছি। আর বাজারে সাতশ টাকা খরচ হয়েছে।');
     });
   });
 }
