@@ -10,6 +10,7 @@ import '../ui/widgets.dart';
 import 'alarm_screens.dart';
 import 'new_item_screen.dart';
 import '../logic/lang.dart';
+import '../ui/pdf_export.dart';
 
 /// One line in "আজ" / "কাজ ও রিমাইন্ডার": a task or a reminder's next ring.
 class PlanItem {
@@ -468,6 +469,7 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
       body: SafeArea(
         child: Column(children: [
           TopBar(title: tr('কাজ ও রিমাইন্ডার'), trailing: [
+            const PdfButton({ReportPart.tasks, ReportPart.reminders}),
             IconButton(tooltip: tr('বিলের রিমাইন্ডার'), onPressed: () => showBillPresets(context), icon: const Icon(Icons.receipt_long_outlined)),
           ]),
           Padding(

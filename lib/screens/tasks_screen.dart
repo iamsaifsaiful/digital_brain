@@ -9,6 +9,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'onboarding_screen.dart';
 import '../logic/lang.dart';
+import '../ui/pdf_export.dart';
 
 /// কাজের তালিকা: to-dos said by voice or typed here.
 class TasksScreen extends StatefulWidget {
@@ -118,6 +119,7 @@ class _TasksScreenState extends State<TasksScreen> {
         child: Column(
           children: [
             TopBar(title: tr('কাজের তালিকা'), trailing: [
+              const PdfButton({ReportPart.tasks}),
               IconButton(
                 tooltip: tr('তৈরি তালিকা'),
                 onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TemplatesScreen())),

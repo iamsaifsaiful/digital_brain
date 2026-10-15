@@ -15,6 +15,7 @@ import '../ui/widgets.dart';
 import '../logic/lang.dart';
 import 'doc_upload.dart';
 import 'store_more_screens.dart';
+import '../ui/pdf_export.dart';
 
 /// "১.২ MB", "৮৪০ KB".
 String sizeText(int bytes) {
@@ -106,7 +107,7 @@ class _DocsScreenState extends State<DocsScreen> {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: folder ?? tr('ডকুমেন্টস'), trailing: [Padding(padding: EdgeInsets.only(right: 8), child: Icon(Icons.lock_outline_rounded, color: C.green))]),
+          TopBar(title: folder ?? tr('ডকুমেন্টস'), trailing: [const PdfButton({ReportPart.docs}), Padding(padding: EdgeInsets.only(right: 8), child: Icon(Icons.lock_outline_rounded, color: C.green))]),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),

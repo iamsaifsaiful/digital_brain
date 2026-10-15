@@ -19,6 +19,7 @@ import 'assistant_settings.dart';
 import 'settings_parts.dart';
 import 'sound_screen.dart';
 import '../logic/lang.dart';
+import '../ui/pdf_export.dart';
 
 const appVersion = '2.12.1';
 
@@ -392,6 +393,8 @@ class _MoreScreenState extends State<MoreScreen> {
             if (brain.aiOn)
               switchRow(Icons.manage_search_rounded, tr('AI আমার তথ্য দেখে উত্তর দিক'), tr('রিমাইন্ডার, কাজ, নোট ও হিসাব দেখে ঠিক উত্তর — পাসওয়ার্ড কখনো না'),
                   brain.aiShareData, (v) => brain.setAiShareData(v)),
+            linkRow(Icons.picture_as_pdf_outlined, tr('সবকিছু PDF আকারে'), sub: tr('কাজ, হিসাব, নোট, স্বাস্থ্য… যা চান বেছে নিয়ে এক PDF-এ'), onTap: () => exportEverything(context),
+                trailing: Icon(Icons.download_rounded, color: C.muted)),
             linkRow(Icons.table_view_outlined, tr('ধার-দেনার রিপোর্ট (CSV)'), sub: tr('Excel বা Google Sheets-এ খোলা যায়'), onTap: _csv,
                 trailing: Icon(Icons.ios_share_rounded, color: C.muted)),
             linkRow(Icons.info_outline_rounded, tr('লাইসেন্স ও সংস্করণ'),

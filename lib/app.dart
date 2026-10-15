@@ -241,8 +241,6 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       push(const ReportScreen());
     } else if (id.startsWith(nudgeJumuah) || id.startsWith(nudgePrayer) || id.startsWith(nudgeRamadan)) {
       push(const CalendarScreen());
-    } else if (id.startsWith(nudgeHaat)) {
-      push(const AllTasksScreen());
     } else if (id.startsWith(nudgeDonor)) {
       push(const EmergencyScreen());
     } else if (id.startsWith(nudgeBack)) {

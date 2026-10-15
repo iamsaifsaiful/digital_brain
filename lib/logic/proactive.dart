@@ -43,8 +43,6 @@ class AssistantPrefs {
     this.quietTo = 7 * 60,
     this.dailyCap = 3,
     this.jumuah = true,
-    this.haat = false,
-    this.haatDay = DateTime.saturday,
     this.health = true,
     this.festival = true,
     this.weekly = true,
@@ -69,8 +67,6 @@ class AssistantPrefs {
   /// the user turned on do not count).
   final int dailyCap;
   final bool jumuah;
-  final bool haat;
-  final int haatDay;
   final bool health;
   final bool festival;
   final bool weekly;
@@ -111,7 +107,6 @@ const nudgeHealth = 'nudge:health';
 const nudgeFest = 'nudge:fest';
 const nudgeBack = 'nudge:back';
 const nudgeJumuah = 'nudge:jumuah';
-const nudgeHaat = 'nudge:haat';
 const nudgePrayer = 'nudge:prayer';
 const nudgeRamadan = 'nudge:ramadan';
 const nudgeDonor = 'nudge:donor';
@@ -222,7 +217,7 @@ bool _chosenByUser(String tag) =>
     tag == morningTag || tag == nightTag || tag.startsWith(nudgePrayer) || tag.startsWith(nudgeRamadan) || tag.startsWith(nudgeDonor);
 
 int _rank(String tag) {
-  const order = [morningTag, nightTag, nudgePrayer, nudgeRamadan, nudgeDue, nudgeBill, nudgeMed, nudgeDoc, nudgeDonor, nudgeHabit, nudgeJumuah, nudgeHaat, nudgeWeek, nudgeFest, nudgeHealth, nudgeBack];
+  const order = [morningTag, nightTag, nudgePrayer, nudgeRamadan, nudgeDue, nudgeBill, nudgeMed, nudgeDoc, nudgeDonor, nudgeHabit, nudgeJumuah, nudgeWeek, nudgeFest, nudgeHealth, nudgeBack];
   for (var i = 0; i < order.length; i++) {
     if (tag.startsWith(order[i])) return i;
   }
@@ -362,7 +357,7 @@ List<PlannedNotice> _nudges(AppData d, DateTime now, AssistantPrefs p) {
   return out;
 }
 
-/// The friendly extras: Friday, haat day, weekly round-up, a monthly
+/// The friendly extras: Friday, weekly round-up, a monthly
 /// health tip, festival wishes, habit streaks, a "we missed you" after a
 /// few quiet days, and — only if the user turned them on — prayer and
 /// Ramadan times.
@@ -390,13 +385,6 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
     final at = nextWeekday(DateTime.friday, 11 * 60);
     final dhuhr = sunTimes(at, place).dhuhr;
     add(nudgeJumuah, dayKey(at), at, tr('জুমা মোবারক!'), trf('আজ জুমার দিন। জোহর শুরু {0} — গোসল সেরে আগেভাগে মসজিদে যাওয়ার প্রস্তুতি নিন।', [bnTime(dhuhr.hour, dhuhr.minute)]));
-  }
-
-  if (p.haat) {
-    final at = nextWeekday(p.haatDay, 8 * 60);
-    final market = d.tasks.where((t) => !t.done && t.list.isNotEmpty && (t.list.contains('বাজার') || t.list.toLowerCase().contains('shop'))).length;
-    add(nudgeHaat, dayKey(at), at, tr('আজ হাটবার'),
-        market > 0 ? trf('বাজারের তালিকায় {0}টা জিনিস আছে — বের হওয়ার আগে দেখে নিন।', [bnDigits(market)]) : tr('কী কী কিনবেন, বলে রাখুন — তালিকা করে দেবো।'));
   }
 
   if (p.weekly) {

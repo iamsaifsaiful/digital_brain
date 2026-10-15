@@ -19,6 +19,7 @@ import 'package:digital_brain/logic/health.dart';
 import 'package:digital_brain/logic/lang.dart';
 import 'package:digital_brain/logic/money_more.dart';
 import 'package:digital_brain/logic/proactive.dart';
+import 'package:digital_brain/logic/report.dart';
 import 'package:digital_brain/logic/templates.dart';
 import 'package:digital_brain/logic/search.dart';
 import 'package:digital_brain/logic/talk.dart';
@@ -1501,6 +1502,61 @@ void main() {
       expect(c.at.hour, 19);
       expect((convertTo('reminder', 'গ্যাস বিল দেওয়া', const [], now) as ReminderAdd).needsTime, isTrue);
       expect(convertTo('task', 'কাল গ্যাস বিল দেওয়া', const [], now), isA<TaskAdd>());
+    });
+  });
+
+  group('PDF reports', () {
+    final now = DateTime(2026, 10, 15, 19, 40);
+    String text(Map<String, Object?> spec) => '$spec';
+    AppData data() => AppData(
+          vault: [VaultItem(name: 'ব্যাংক', username: 'saif', password: 'gopon123')],
+          notes: [Note(title: 'বাসার ঠিকানা', body: 'মিরপুর ১০'), Note(title: 'ATM পিন', body: '4321')],
+          ledger: [
+            LedgerEntry(person: 'রহিম', kind: LedgerKind.lent, amount: 500, date: DateTime(2026, 10, 1)),
+            LedgerEntry(person: 'করিম', kind: LedgerKind.borrowed, amount: 200, date: DateTime(2026, 10, 2)),
+          ],
+          cash: [
+            CashEntry(kind: CashKind.income, amount: 30000, category: 'বেতন', date: DateTime(2026, 10, 1)),
+            CashEntry(kind: CashKind.expense, amount: 1200, category: 'বাজার', note: 'চাল', date: DateTime(2026, 10, 3)),
+            CashEntry(kind: CashKind.expense, amount: 900, category: 'বাজার', date: DateTime(2026, 9, 20)),
+          ],
+          tasks: [Task(title: 'গ্যাস বিল দেওয়া')],
+        );
+
+    test('everything: each part has its heading, and secrets stay out', () {
+      final spec = reportSpec(data(), ReportPart.values.toSet(), now, userName: 'সাইফ');
+      final all = text(spec);
+      expect(spec['title'], 'সাইফের সব তথ্য');
+      for (final p in ReportPart.values) {
+        expect(all, contains("{t: h1, text: ${p.label}}"));
+      }
+      expect(all, isNot(contains('gopon123')));
+      expect(all, isNot(contains('4321')));
+      expect(all, contains('মিরপুর ১০'));
+      expect(all, contains('১টি নোট এই PDF-এ রাখা হয়নি'));
+      expect(all, contains('গ্যাস বিল দেওয়া'));
+    });
+
+    test('one person, one month, one part', () {
+      final d = data();
+      final key = balances(d.ledger).firstWhere((p) => p.name == 'রহিম').key;
+      final rahim = text(reportSpec(d, {ReportPart.ledger}, now, scope: ReportScope(personKey: key)));
+      expect(rahim, contains('রহিম'));
+      expect(rahim, isNot(contains('করিম')));
+      expect(rahim, contains('পাবেন ৳৫০০'));
+
+      final oct = reportSpec(d, {ReportPart.money}, now, scope: ReportScope(month: DateTime(2026, 10)));
+      expect(oct['title'], 'আয়-ব্যয়');
+      expect(text(oct), contains('চাল'));
+      expect(text(oct), contains('৳২৮,৮০০'));
+      expect(text(oct), isNot(contains('৯০০}')));
+
+      expect(reportFileName({ReportPart.money}, now), 'my-assistant-income-expense-20261015.pdf');
+      expect(reportFileName(ReportPart.values.toSet(), now), 'my-assistant-all-20261015.pdf');
+    });
+
+    test('an empty part says so instead of a blank page', () {
+      expect(text(reportSpec(AppData(), {ReportPart.contacts}, now)), contains('এখনো কিছু রাখা হয়নি'));
     });
   });
 }

@@ -9,6 +9,7 @@ import '../ui/forms.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import '../logic/lang.dart';
+import '../ui/pdf_export.dart';
 
 /// White card: one big figure ("এই মাসের ব্যালেন্স") and two under it.
 class SummaryCard extends StatelessWidget {
@@ -207,7 +208,7 @@ class CashPage extends StatelessWidget {
   Widget build(BuildContext context) => Scaffold(
         body: SafeArea(
           child: Column(children: [
-            TopBar(title: tr('আয়-ব্যয়')),
+            TopBar(title: tr('আয়-ব্যয়'), trailing: const [PdfButton({ReportPart.money})]),
             Expanded(child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: const [CashView()])),
           ]),
         ),
@@ -394,6 +395,7 @@ class ProjectScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(children: [
           TopBar(title: p.name, trailing: [
+            PdfButton(const {ReportPart.projects}, scope: ReportScope(projectId: p.id), title: p.name),
             PopupMenuButton<String>(
               tooltip: tr('আরও'),
               onSelected: menu,

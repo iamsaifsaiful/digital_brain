@@ -9,6 +9,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'ledger_form_screen.dart';
 import '../logic/lang.dart';
+import '../ui/pdf_export.dart';
 
 /// One person's account: who (name and mobile), the balance, a reminder
 /// message to send, and every transaction.
@@ -116,6 +117,7 @@ class _PersonScreenState extends State<PersonScreen> {
         child: Column(
           children: [
             TopBar(title: '', trailing: [
+              PdfButton(const {ReportPart.ledger}, scope: ReportScope(personKey: p.key), title: isEn ? 'Dealings with ${p.name}' : '${possessive(p.name)} সাথে লেনদেন'),
               TextButton.icon(
                 onPressed: () => _edit(brain, p),
                 icon: Icon(Icons.edit_outlined, size: 18, color: C.green),

@@ -9,6 +9,7 @@ import '../ui/widgets.dart';
 import 'new_item_screen.dart';
 import 'vault_item_screen.dart';
 import '../logic/lang.dart';
+import '../ui/pdf_export.dart';
 
 /// Dates to remember, grouped: this month, later, past.
 class RemindersScreen extends StatelessWidget {
@@ -57,7 +58,7 @@ class RemindersScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            TopBar(title: tr('তারিখ ও রিমাইন্ডার')),
+            TopBar(title: tr('তারিখ ও রিমাইন্ডার'), trailing: const [PdfButton({ReportPart.reminders})]),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),

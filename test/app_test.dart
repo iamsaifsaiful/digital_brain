@@ -20,6 +20,7 @@ import 'package:digital_brain/screens/app_places.dart';
 import 'package:digital_brain/screens/chat_home.dart';
 import 'package:digital_brain/screens/inbox_screen.dart';
 import 'package:digital_brain/ui/file_view.dart';
+import 'package:digital_brain/ui/pdf_export.dart';
 import 'package:digital_brain/screens/notes_screen.dart';
 import 'package:digital_brain/screens/health_screens.dart';
 import 'package:digital_brain/screens/home_shell.dart';
@@ -364,6 +365,35 @@ void main() {
     await t.tap(find.text('ফিরিয়ে আনুন'));
     await settle(t);
     expect(rig.brain.data.cash.single.amount, 500);
+  });
+
+  testWidgets('settings: everything as one PDF, shown with download', (t) async {
+    final rig = await start(t, data: AppData(tasks: [Task(title: 'ছাদ মেরামত')]));
+    unawaited(exportEverything(t.element(find.byType(HomeShell))));
+    await settle(t);
+    expect(find.text('সবকিছু PDF আকারে'), findsWidgets);
+    await t.tap(find.text('PDF তৈরি করুন'));
+    await settle(t);
+    expect('${rig.files.lastPdf}', contains('ছাদ মেরামত'));
+    expect(find.byType(PdfViewScreen), findsOneWidget);
+    await t.tap(find.byTooltip('ডাউনলোড করুন'));
+    await settle(t);
+    expect(rig.files.savedName, startsWith('my-assistant-all-'));
+    Navigator.of(t.element(find.byType(PdfViewScreen))).pop();
+    await settle(t);
+  });
+
+  testWidgets('a page\'s PDF button makes that page\'s report', (t) async {
+    final rig = await start(t, data: AppData(contacts: [Contact(name: 'জামাল', phone: '01711000000')]));
+    unawaited(openPlace(t.element(find.byType(HomeShell)), 'contacts'));
+    await settle(t);
+    await t.tap(find.byTooltip('PDF ডাউনলোড').first);
+    await settle(t);
+    final spec = '${rig.files.lastPdf}';
+    expect(spec, contains('জামাল'));
+    expect(spec, isNot(contains('কাজের তালিকা')));
+    Navigator.of(t.element(find.byType(PdfViewScreen))).pop();
+    await settle(t);
   });
 
   testWidgets('chat: say a loan, yes by voice, then keep talking', (t) async {

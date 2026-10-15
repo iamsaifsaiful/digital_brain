@@ -31,6 +31,9 @@ abstract class FileBridge {
   Future<Uint8List?> pdfPage(int id, int index, int width);
   Future<void> pdfClose(int id);
 
+  /// Lays out a report (see logic/report.dart) as an A4 PDF; null if it failed.
+  Future<Uint8List?> pdfMake(Map<String, Object?> spec);
+
   /// Lets the user pick a file; null when they cancel.
   Future<Uint8List?> pickFile();
 
@@ -113,6 +116,15 @@ class DeviceFiles implements FileBridge {
   Future<Uint8List?> pdfPage(int id, int index, int width) async {
     try {
       return await _channel.invokeMethod<Uint8List>('pdfPage', {'id': id, 'index': index, 'width': width});
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<Uint8List?> pdfMake(Map<String, Object?> spec) async {
+    try {
+      return await _channel.invokeMethod<Uint8List>('pdfMake', {'spec': spec});
     } catch (_) {
       return null;
     }
@@ -269,6 +281,15 @@ class FakeFiles implements FileBridge {
 
   @override
   Future<void> pdfClose(int id) async {}
+
+  /// The last report asked for, as sent to the phone.
+  Map<String, Object?>? lastPdf;
+
+  @override
+  Future<Uint8List?> pdfMake(Map<String, Object?> spec) async {
+    lastPdf = spec;
+    return Uint8List.fromList('%PDF-1.4 fake'.codeUnits);
+  }
 
   @override
   Future<void> copy(String text, {Duration? clearAfter}) async => copied = text;

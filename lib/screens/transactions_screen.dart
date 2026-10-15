@@ -11,6 +11,7 @@ import '../ui/widgets.dart';
 import 'ledger_form_screen.dart';
 import 'person_screen.dart';
 import '../logic/lang.dart';
+import '../ui/pdf_export.dart';
 
 enum _Filter {
   all('সব'),
@@ -62,7 +63,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            TopBar(title: tr('সব লেনদেন')),
+            TopBar(title: tr('সব লেনদেন'), trailing: const [PdfButton({ReportPart.ledger})]),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
               child: TextField(

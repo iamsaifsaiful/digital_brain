@@ -88,21 +88,6 @@ class NotificationSettingsScreen extends StatelessWidget {
               Panel(
                 child: Rows(children: [
                   sw(Icons.mosque_outlined, tr('জুমার দিন'), tr('শুক্রবার সকাল ১১টায় — জুমা মোবারক'), brain.flag('n_jumuah', true), (v) => brain.setPref('n_jumuah', v)),
-                  sw(Icons.storefront_outlined, tr('হাটবার'), tr('আপনার এলাকার হাটের দিন সকালে — সাথে বাজারের তালিকা'), brain.flag('n_haat'), (v) => brain.setPref('n_haat', v),
-                      extra: brain.flag('n_haat')
-                          ? Padding(
-                              padding: const EdgeInsets.only(top: 6),
-                              child: Wrap(spacing: 6, runSpacing: 6, children: [
-                                for (final d in [6, 7, 1, 2, 3, 4, 5])
-                                  ChoiceChip(
-                                    label: Text(dayShort(d)),
-                                    selected: brain.number('haat_day', DateTime.saturday) == d,
-                                    visualDensity: VisualDensity.compact,
-                                    onSelected: (_) => brain.setPref('haat_day', d),
-                                  ),
-                              ]),
-                            )
-                          : null),
                   sw(Icons.celebration_outlined, tr('উৎসবের শুভেচ্ছা'), tr('ঈদ, নববর্ষ, বিজয় দিবস — সেদিন সকালে'), brain.flag('n_festival', true), (v) => brain.setPref('n_festival', v)),
                   sw(Icons.health_and_safety_outlined, tr('মৌসুমি স্বাস্থ্য পরামর্শ'), tr('মাসে একবার — ডেঙ্গু, গরম, শীতের সময় কী করবেন'), brain.flag('n_health', true), (v) => brain.setPref('n_health', v)),
                   sw(Icons.waving_hand_outlined, tr('অনেক দিন না খুললে'), tr('৩ দিন অ্যাপ না খুললে শুধু একবার মনে করাবে'), brain.flag('n_comeback', true), (v) => brain.setPref('n_comeback', v)),

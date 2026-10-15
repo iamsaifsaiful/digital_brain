@@ -10,6 +10,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'docs_screen.dart';
 import 'health_screens.dart';
+import '../ui/pdf_export.dart';
 
 /// স্বাস্থ্য: the user's (and family's) profile and BMI, weight, blood
 /// pressure, blood sugar, water, walking and sleep, check-ups, reports, a
@@ -90,6 +91,7 @@ class _HealthScreenState extends State<HealthScreen> {
       body: SafeArea(
         child: Column(children: [
           TopBar(title: tr('স্বাস্থ্য'), trailing: [
+            const PdfButton({ReportPart.health}),
             IconButton(tooltip: tr('ডাক্তারকে দেখান'), onPressed: () => _push(DoctorSummaryScreen(member: m.id)), icon: const Icon(Icons.assignment_ind_outlined)),
           ]),
           SizedBox(

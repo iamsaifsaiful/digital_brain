@@ -10,6 +10,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'notification_settings.dart';
 import 'onboarding_screen.dart';
+import '../ui/pdf_export.dart';
 
 /// সেটিংস › সহকারী: summaries, nudges, memory, quick ways to open it.
 class AssistantSection extends StatelessWidget {
@@ -99,7 +100,7 @@ class MemoryScreen extends StatelessWidget {
       floatingActionButton: AddButton(label: tr('যোগ করুন'), onPressed: add),
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('সহকারীর স্মৃতি')),
+          TopBar(title: tr('সহকারীর স্মৃতি'), trailing: const [PdfButton({ReportPart.memories})]),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 100), children: [
               InfoBanner(

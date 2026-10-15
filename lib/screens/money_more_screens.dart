@@ -15,6 +15,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'money_screens.dart';
 import 'person_screen.dart';
+import '../ui/pdf_export.dart';
 
 void _push(BuildContext context, Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
 
@@ -205,6 +206,7 @@ class AccountsScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(children: [
           TopBar(title: tr('অ্যাকাউন্ট'), trailing: [
+            const PdfButton({ReportPart.accounts}),
             if (d.accounts.length >= 2) IconButton(tooltip: tr('টাকা সরান'), onPressed: () => _transfer(context), icon: const Icon(Icons.swap_horiz_rounded)),
           ]),
           Expanded(
@@ -318,6 +320,7 @@ class _ReportScreenState extends State<ReportScreen> {
       body: SafeArea(
         child: Column(children: [
           TopBar(title: tr('মাসের রিপোর্ট'), trailing: [
+            PdfButton(const {ReportPart.money}, scope: ReportScope(month: m), title: trf('আয়-ব্যয় · {0}', [monthTitle(m)]), fileExtra: monthKey(m)),
             if (r.expense > 0) IconButton(tooltip: tr('ছবি হিসেবে পাঠান'), onPressed: () => _share(r), icon: const Icon(Icons.ios_share_rounded)),
           ]),
           Row(children: [
@@ -612,7 +615,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
       floatingActionButton: AddButton(label: _tab == 0 ? tr('লক্ষ্য যোগ') : tr('কিস্তি যোগ'), onPressed: () => _tab == 0 ? _editGoal(null) : _editInst(null)),
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('সঞ্চয় ও কিস্তি')),
+          TopBar(title: tr('সঞ্চয় ও কিস্তি'), trailing: const [PdfButton({ReportPart.accounts})]),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
             child: SegTabs<int>(items: [(0, tr('সঞ্চয়ের লক্ষ্য')), (1, tr('কিস্তি ও DPS'))], value: _tab, onChanged: (v) => setState(() => _tab = v)),

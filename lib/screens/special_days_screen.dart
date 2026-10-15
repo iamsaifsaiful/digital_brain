@@ -8,6 +8,7 @@ import '../state/brain.dart';
 import '../ui/forms.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import '../ui/pdf_export.dart';
 
 /// বিশেষ দিন: birthdays, wedding anniversaries, death anniversaries —
 /// each reminded every year, the day before and on the day.
@@ -27,7 +28,7 @@ class SpecialDaysScreen extends StatelessWidget {
       floatingActionButton: AddButton(label: tr('বিশেষ দিন যোগ'), onPressed: () => editSpecialDay(context, null)),
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('বিশেষ দিন')),
+          TopBar(title: tr('বিশেষ দিন'), trailing: const [PdfButton({ReportPart.specialDays})]),
           Expanded(
             child: days.isEmpty
                 ? ListView(padding: const EdgeInsets.all(20), children: [

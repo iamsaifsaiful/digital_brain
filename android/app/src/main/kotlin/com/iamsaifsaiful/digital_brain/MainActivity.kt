@@ -472,6 +472,21 @@ class MainActivity : FlutterFragmentActivity() {
                     runOnUiThread { result.success(png) }
                 }
             }
+            "pdfMake" -> {
+                val spec = call.argument<Map<*, *>>("spec")
+                if (spec == null) {
+                    result.success(null)
+                    return
+                }
+                pdfWorker.execute {
+                    val bytes = try {
+                        PdfMaker(applicationContext).make(spec)
+                    } catch (e: Exception) {
+                        null
+                    }
+                    runOnUiThread { result.success(bytes) }
+                }
+            }
             "pdfClose" -> {
                 val id = call.argument<Int>("id") ?: 0
                 pdfWorker.execute {

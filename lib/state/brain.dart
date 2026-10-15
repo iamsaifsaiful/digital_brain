@@ -317,8 +317,6 @@ class Brain extends ChangeNotifier {
         quietTo: number('quiet_to', 7 * 60),
         dailyCap: number('daily_cap', 3),
         jumuah: flag('n_jumuah', true),
-        haat: flag('n_haat'),
-        haatDay: number('haat_day', DateTime.saturday),
         health: flag('n_health', true),
         festival: flag('n_festival', true),
         weekly: flag('n_weekly', true),
@@ -352,7 +350,7 @@ class Brain extends ChangeNotifier {
 
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
-    'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_haat', 'haat_day', 'n_health', 'n_festival', 'n_weekly',
+    'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_health', 'n_festival', 'n_weekly',
     'n_streak', 'n_comeback', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'inbox_apps', 'inbox_on',
   ];
 

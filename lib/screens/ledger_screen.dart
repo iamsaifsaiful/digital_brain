@@ -12,6 +12,7 @@ import 'money_more_screens.dart';
 import 'person_screen.dart';
 import 'transactions_screen.dart';
 import '../logic/lang.dart';
+import '../ui/pdf_export.dart';
 
 /// Which part of হিসাব is open. Ordered as people use them: own monthly
 /// money most often, then loans, then projects.
@@ -41,9 +42,15 @@ class MoneyScreenState extends State<MoneyScreen> {
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       children: [
         TabTitle(tr('হিসাব'),
-            trailing: _part == MoneyPart.loans
-                ? IconButton(tooltip: tr('সব লেনদেন খুঁজুন'), onPressed: () => push(const TransactionsScreen()), icon: const Icon(Icons.search_rounded))
-                : null),
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              PdfButton(switch (_part) {
+                MoneyPart.cash => const {ReportPart.money},
+                MoneyPart.loans => const {ReportPart.ledger},
+                MoneyPart.projects => const {ReportPart.projects},
+              }),
+              if (_part == MoneyPart.loans)
+                IconButton(tooltip: tr('সব লেনদেন খুঁজুন'), onPressed: () => push(const TransactionsScreen()), icon: const Icon(Icons.search_rounded)),
+            ])),
         const SizedBox(height: 12),
         if (brain.businessMode) ...[const ShopTodayCard(), const SizedBox(height: 12)],
         const MoneyTools(),

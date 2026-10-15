@@ -8,6 +8,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'new_item_screen.dart';
 import '../logic/lang.dart';
+import '../ui/pdf_export.dart';
 
 class ContactsScreen extends StatefulWidget {
   const ContactsScreen({super.key});
@@ -32,6 +33,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
         child: Column(
           children: [
             TopBar(title: tr('যোগাযোগ'), trailing: [
+              const PdfButton({ReportPart.contacts}),
               RoundIconButton(
                 icon: Icons.add_rounded,
                 tooltip: tr('নতুন যোগাযোগ'),

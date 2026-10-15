@@ -10,6 +10,7 @@ import '../ui/widgets.dart';
 import 'home_shell.dart';
 import 'new_item_screen.dart';
 import '../logic/lang.dart';
+import '../ui/pdf_export.dart';
 
 /// ফোন ও মেসেজ: call, SMS or WhatsApp anyone saved, or a number typed in.
 /// The phone's own app opens ready; the user presses call or send there.
@@ -139,6 +140,7 @@ class _CallsScreenState extends State<CallsScreen> {
         child: Column(
           children: [
             TopBar(title: tr('যোগাযোগ'), trailing: [
+              const PdfButton({ReportPart.contacts}),
               IconButton(tooltip: tr('নতুন নম্বর রাখুন'), onPressed: addNew, icon: const Icon(Icons.person_add_alt_1_outlined)),
               IconButton(tooltip: tr('মুখে বলুন'), onPressed: () => openVoice(context), icon: Icon(Icons.mic_none_rounded, color: C.green)),
             ]),

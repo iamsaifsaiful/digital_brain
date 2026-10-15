@@ -9,6 +9,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'new_item_screen.dart';
 import '../logic/lang.dart';
+import '../ui/pdf_export.dart';
 
 /// Notes and everything else remembered, by category ("নোট", "যানবাহন"…).
 class NotesScreen extends StatefulWidget {
@@ -60,6 +61,7 @@ class _NotesScreenState extends State<NotesScreen> {
         child: Column(
           children: [
             TopBar(title: _cat ?? tr('নোট ও অন্যান্য'), trailing: [
+              const PdfButton({ReportPart.notes}),
               RoundIconButton(icon: Icons.add_rounded, tooltip: tr('নতুন নোট'), dark: true, onPressed: _new),
             ]),
             Padding(

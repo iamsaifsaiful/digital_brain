@@ -7,6 +7,7 @@ import '../state/brain.dart';
 import '../ui/forms.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import '../ui/pdf_export.dart';
 
 /// Today's habits as tick chips (for দিনলিপি).
 class HabitStrip extends StatelessWidget {
@@ -109,7 +110,7 @@ class HabitsScreen extends StatelessWidget {
       floatingActionButton: AddButton(label: tr('অভ্যাস যোগ'), onPressed: () => _add(context)),
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('অভ্যাস')),
+          TopBar(title: tr('অভ্যাস'), trailing: const [PdfButton({ReportPart.health})]),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 100), children: [
               if (brain.data.habits.isEmpty)
@@ -176,7 +177,7 @@ class MedicinesScreen extends StatelessWidget {
       floatingActionButton: AddButton(label: tr('ওষুধ যোগ'), onPressed: () => editMedicine(context, null)),
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('ওষুধের সময়সূচি')),
+          TopBar(title: tr('ওষুধের সময়সূচি'), trailing: const [PdfButton({ReportPart.health})]),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 100), children: [
               if (brain.data.medicines.isEmpty)
