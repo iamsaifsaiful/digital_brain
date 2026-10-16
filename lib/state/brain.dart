@@ -18,12 +18,14 @@ import '../logic/ledger.dart';
 import '../logic/parser.dart';
 import '../logic/plan.dart';
 import '../logic/proactive.dart';
+import '../logic/pro.dart';
 import '../logic/when.dart' show sayWhen;
 import '../models/models.dart';
 import '../services/ai.dart';
 import '../services/data_store.dart';
 import '../services/files.dart';
 import '../services/inbox.dart';
+import '../services/google_account.dart';
 import '../services/launcher.dart';
 import '../services/lock.dart';
 import '../services/notifications.dart';
@@ -49,8 +51,14 @@ class Services {
     Launcher? launcher,
     Phonebook? phonebook,
     InboxSource? inbox,
+    GoogleAccount? google,
+    DriveStore? drive,
+    AccountServer? server,
     DateTime Function()? clock,
   })  : ai = ai ?? FakeAi(),
+        google = google ?? FakeGoogle(),
+        drive = drive ?? FakeDrive(),
+        server = server ?? AccountServer(),
         inbox = inbox ?? FakeInbox(),
         launcher = launcher ?? FakeLauncher(),
         phonebook = phonebook ?? FakePhonebook(),
@@ -73,12 +81,19 @@ class Services {
 
   /// Messages from other apps' notifications.
   final InboxSource inbox;
+
+  /// Google sign-in, the app's Drive folder, and our account server.
+  final GoogleAccount google;
+  final DriveStore drive;
+  final AccountServer server;
   final DateTime Function() now;
 }
 
 /// The data in memory, saved (encrypted) after every change.
 class Brain extends ChangeNotifier {
-  Brain(this.services);
+  Brain(this.services) {
+    askZakatLocked = !has(ProFeature.zakat);
+  }
 
   final Services services;
   AppData data = AppData();
@@ -148,7 +163,275 @@ class Brain extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool get aiOn => services.ai.key.trim().isNotEmpty;
+  /// The user's own API key works only in the downloaded APK. The Play app
+  /// has no key field: its AI will come through our server, for Pro.
+  bool get aiOn => !gated && services.ai.key.trim().isNotEmpty;
+
+  // ── Pro (sold only in the Play Store app; see logic/pro.dart) ──
+
+  /// Features are locked only in the Play app; the downloaded APK has all.
+  bool get gated => _gated;
+  bool _gated = playEdition;
+  set gated(bool v) {
+    _gated = v;
+    askZakatLocked = !has(ProFeature.zakat);
+    notifyListeners();
+  }
+
+  /// Pro (or the trial) lasts until this moment.
+  DateTime? proUntil;
+
+  /// 'trial', a plan id ('pro_yearly', 'pro_monthly'), or 'test' (preview).
+  String proKind = '';
+  bool trialUsed = false;
+
+  /// The first day the app was opened (no full-screen ad that day).
+  DateTime? firstUse;
+
+  bool get pro => !gated || (proUntil != null && services.now().isBefore(proUntil!));
+  bool get onTrial => gated && pro && proKind == 'trial';
+  bool get showAds => gated && !pro;
+
+  /// The preview draws sample ad spaces (real ads need AdMob).
+  bool adSamples = previewEdition;
+  bool has(ProFeature f) => pro;
+  bool get canAddShop => pro || data.shops.length < freeShops;
+  bool get canAddProject => pro || data.projects.where((p) => !p.closed).length < freeProjects;
+  bool get canAddVault => pro || data.vault.length < freeVaultItems;
+
+  /// The 7-day free trial, once.
+  Future<void> startTrial() async {
+    if (trialUsed || pro) return;
+    trialUsed = true;
+    await _setPro(services.now().add(const Duration(days: trialDays)), 'trial');
+    await services.server.startTrial(_idToken);
+  }
+
+  /// After Google Play confirms a purchase (in the preview, the test button).
+  Future<void> activatePro(ProPlan plan) => _setPro(services.now().add(Duration(days: plan.days)), plan.id);
+
+  /// The preview's test switch.
+  Future<void> setProForTest(bool on) => on ? _setPro(services.now().add(const Duration(days: 365)), 'test') : _setPro(null, '');
+
+  Future<void> _setPro(DateTime? until, String kind) async {
+    proUntil = until;
+    proKind = kind;
+    askZakatLocked = !has(ProFeature.zakat);
+    final keys = services.lock.keys;
+    try {
+      if (until == null) {
+        await keys.delete('pro_until');
+      } else {
+        await keys.write('pro_until', until.toIso8601String());
+      }
+      await keys.write('pro_kind', kind);
+      await keys.write('trial_used', trialUsed ? 'true' : 'false');
+    } catch (_) {}
+    notifyListeners();
+    await _reschedule();
+  }
+
+  Future<void> _loadPro() async {
+    final keys = services.lock.keys;
+    try {
+      proUntil = DateTime.tryParse(await keys.read('pro_until') ?? '');
+      proKind = await keys.read('pro_kind') ?? '';
+      trialUsed = (await keys.read('trial_used')) == 'true';
+      firstUse = DateTime.tryParse(await keys.read('first_use') ?? '');
+      if (firstUse == null) {
+        firstUse = services.now();
+        await keys.write('first_use', firstUse!.toIso8601String());
+      }
+    } catch (_) {}
+    askZakatLocked = !has(ProFeature.zakat);
+  }
+
+  // ── Google account and Drive backup (see services/google_account.dart) ──
+
+  String googleEmail = '';
+  String googleName = '';
+  bool get signedIn => googleEmail.isNotEmpty;
+
+  /// Automatic backup to the app's hidden Google Drive folder is on.
+  bool driveOn = false;
+  DateTime? lastDrive;
+  bool driveBusy = false;
+
+  /// Something changed since the last Drive backup.
+  bool _driveDirty = false;
+
+  /// This session's Google sign-in proof (for our server; never stored).
+  String _idToken = '';
+
+  static const _drivePrefix = 'my-assistant-backup';
+
+  Future<void> _loadAccount() async {
+    final keys = services.lock.keys;
+    try {
+      googleEmail = await keys.read('g_email') ?? '';
+      googleName = await keys.read('g_name') ?? '';
+      driveOn = (await keys.read('drive_on')) == 'true';
+      lastDrive = DateTime.tryParse(await keys.read('drive_last') ?? '');
+      _driveDirty = (await keys.read('drive_dirty')) == 'true';
+    } catch (_) {}
+  }
+
+  /// Google's account picker. Returns a message when it did not work.
+  Future<String?> signInGoogle({String appVersion = ''}) async {
+    try {
+      final u = await services.google.signIn();
+      if (u == null) return null;
+      googleEmail = u.email;
+      googleName = u.name;
+      _idToken = u.idToken;
+      final keys = services.lock.keys;
+      await keys.write('g_email', u.email);
+      await keys.write('g_name', u.name);
+      if (userName.isEmpty && u.name.trim().isNotEmpty) await setUserName(u.name.trim().split(' ').first);
+      final info = await services.server.login(u, appVersion: appVersion, edition: edition);
+      if (info != null) {
+        // The trial is once per Google account, on any phone.
+        if (info.trialUsed && !trialUsed) {
+          trialUsed = true;
+          await keys.write('trial_used', 'true');
+        }
+        final until = info.proUntil;
+        if (until != null && until.isAfter(services.now()) && (proUntil == null || until.isAfter(proUntil!))) {
+          await _setPro(until, info.proKind);
+        }
+      }
+      notifyListeners();
+      return null;
+    } on GoogleError catch (e) {
+      return e.message;
+    } catch (e) {
+      return 'Google লগইন হয়নি: $e';
+    }
+  }
+
+  /// Signs out: automatic Drive backup stops and its password is forgotten
+  /// on this phone. Backups already in Drive stay there.
+  Future<void> signOutGoogle() async {
+    await services.google.signOut();
+    googleEmail = '';
+    googleName = '';
+    _idToken = '';
+    driveOn = false;
+    final keys = services.lock.keys;
+    for (final k in ['g_email', 'g_name', 'drive_on', 'drive_pw']) {
+      await keys.delete(k);
+    }
+    notifyListeners();
+  }
+
+  /// Turns on automatic Drive backup, locked with [password]. The same
+  /// password can set a new PIN when the PIN is forgotten.
+  Future<String?> startDriveBackup(String password) async {
+    final keys = services.lock.keys;
+    await keys.write('drive_pw', password);
+    await services.lock.setRecovery(password);
+    driveOn = true;
+    await keys.write('drive_on', 'true');
+    notifyListeners();
+    return backupToDrive();
+  }
+
+  Future<void> stopDriveBackup() async {
+    driveOn = false;
+    await services.lock.keys.write('drive_on', 'false');
+    notifyListeners();
+  }
+
+  /// One backup to Drive now. The new file is uploaded first; only then are
+  /// the older ones deleted, so a failed upload never loses the last backup.
+  Future<String?> backupToDrive() async {
+    if (!signedIn) return 'আগে Google দিয়ে লগইন করুন';
+    if (loadError != null) return 'তথ্য খোলা যায়নি, তাই ব্যাকআপ নেওয়া হয়নি';
+    final keys = services.lock.keys;
+    final pw = await keys.read('drive_pw');
+    if (pw == null || pw.isEmpty) return 'ব্যাকআপ-পাসওয়ার্ড দেওয়া নেই';
+    if (driveBusy) return null;
+    driveBusy = true;
+    notifyListeners();
+    try {
+      final token = await services.google.driveToken();
+      final bytes = await Backup.export(data, pw, files: await backupFiles());
+      final now = services.now();
+      final stamp = now.toIso8601String().replaceAll(':', '-').split('.').first;
+      final id = await services.drive.upload(token, '$_drivePrefix-$stamp.dbk', bytes);
+      for (final f in await services.drive.list(token)) {
+        if (f.id != id && f.name.startsWith(_drivePrefix)) await services.drive.delete(token, f.id);
+      }
+      lastDrive = now;
+      _driveDirty = false;
+      await keys.write('drive_last', now.toIso8601String());
+      await keys.write('drive_dirty', 'false');
+      await setPref('last_backup', now.toIso8601String());
+      return null;
+    } on GoogleError catch (e) {
+      return e.message;
+    } catch (e) {
+      return 'Drive-এ ব্যাকআপ হয়নি: $e';
+    } finally {
+      driveBusy = false;
+      notifyListeners();
+    }
+  }
+
+  /// When the app goes to the background: a quiet backup if something
+  /// changed and the last one is at least 30 minutes old.
+  Future<void> autoDriveBackup() async {
+    if (!driveOn || !signedIn || !_driveDirty || driveBusy) return;
+    final last = lastDrive;
+    if (last != null && services.now().difference(last) < const Duration(minutes: 30)) return;
+    await backupToDrive();
+  }
+
+  /// This account's backups in Drive, newest first.
+  Future<List<DriveFile>> driveBackups() async {
+    final token = await services.google.driveToken();
+    return [for (final f in await services.drive.list(token)) if (f.name.startsWith(_drivePrefix)) f];
+  }
+
+  /// Opens a Drive backup with its password (nothing is replaced yet).
+  Future<(AppData, Map<String, Uint8List>)> openDriveBackup(DriveFile f, String password) async {
+    final token = await services.google.driveToken();
+    final bytes = await services.drive.download(token, f.id);
+    return Backup.restore(bytes, password);
+  }
+
+  /// After restoring from Drive: keep backing up with the same password.
+  Future<void> continueDriveBackup(String password) async {
+    final keys = services.lock.keys;
+    await keys.write('drive_pw', password);
+    await services.lock.setRecovery(password);
+    driveOn = true;
+    await keys.write('drive_on', 'true');
+    lastDrive = services.now();
+    await keys.write('drive_last', lastDrive!.toIso8601String());
+    notifyListeners();
+  }
+
+  int _adShown = 0, _adDone = 0;
+  String _adDay = '';
+
+  /// A task was finished (a payment or reminder saved). True when the free
+  /// app shows a full-screen ad now (see [fullAdDue]).
+  Future<bool> taskFinished() async {
+    if (!showAds) return false;
+    final now = services.now();
+    final today = '${now.year}-${now.month}-${now.day}';
+    if (_adDay != today) {
+      _adDay = today;
+      _adShown = 0;
+    }
+    _adDone++;
+    final first = firstUse == null || dayOnly(firstUse!) == dayOnly(now);
+    if (!fullAdDue(shown: _adShown, done: _adDone, firstDay: first)) return false;
+    _adShown++;
+    _adDone = 0;
+    return true;
+  }
 
   Future<void> setAiKey(String key) async {
     services.ai.key = key.trim();
@@ -320,7 +603,7 @@ class Brain extends ChangeNotifier {
         dailyCap: number('daily_cap', 3),
         jumuah: flag('n_jumuah', true),
         plan: flag('n_plan', true),
-        smart: flag('n_smart', true),
+        smart: flag('n_smart', true) && has(ProFeature.smartNudges),
         health: flag('n_health', true),
         festival: flag('n_festival', true),
         weekly: flag('n_weekly', true),
@@ -356,7 +639,7 @@ class Brain extends ChangeNotifier {
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly',
-    'n_streak', 'n_comeback', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'inbox_apps', 'inbox_on', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other',
+    'n_streak', 'n_comeback', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'inbox_apps', 'inbox_on', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'g_card_off',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
@@ -649,6 +932,8 @@ class Brain extends ChangeNotifier {
     } catch (_) {}
     await loadLook();
     await _loadPrefs();
+    await _loadPro();
+    await _loadAccount();
     try {
       data = await services.store.load();
       loadError = null;
@@ -700,6 +985,12 @@ class Brain extends ChangeNotifier {
     // restore the user chose may replace it).
     if (loadError != null) return;
     await services.store.save(data);
+    if (driveOn && !_driveDirty) {
+      _driveDirty = true;
+      try {
+        await services.lock.keys.write('drive_dirty', 'true');
+      } catch (_) {}
+    }
   }
 
   /// Schedules the phone's notifications again (after a permission change,

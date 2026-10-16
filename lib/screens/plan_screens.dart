@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../ui/pro_gate.dart';
+
 import '../logic/bn.dart';
 import '../logic/when.dart';
 import '../models/models.dart';
@@ -490,6 +492,7 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
     };
 
     return Scaffold(
+      bottomNavigationBar: const AdBar(),
       floatingActionButton: AddButton(label: tr('যোগ করুন'), onPressed: () => showAddSheet(context)),
       body: SafeArea(
         child: Column(children: [

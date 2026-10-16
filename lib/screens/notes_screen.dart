@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../ui/pro_gate.dart';
+
 import '../logic/bn.dart';
 import '../logic/parser.dart';
 import '../models/models.dart';
@@ -57,6 +59,7 @@ class _NotesScreenState extends State<NotesScreen> {
     }
 
     return Scaffold(
+      bottomNavigationBar: const AdBar(),
       body: SafeArea(
         child: Column(
           children: [

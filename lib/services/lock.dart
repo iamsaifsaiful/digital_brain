@@ -100,14 +100,31 @@ class LockService {
     await keys.delete('pin_wait_until');
   }
 
-  Future<PinResult> checkPin(String pin) async {
+  Future<PinResult> checkPin(String pin) => _check(pin, 'pin_salt', 'pin_iter', 'pin_hash');
+
+  /// The backup password, kept only as a hash: when the PIN is forgotten it
+  /// proves the owner and lets a new PIN be set. Wrong tries count with
+  /// wrong PINs, so it cannot be used to get round the waiting time.
+  Future<void> setRecovery(String password) async {
+    final salt = randomBytes(16);
+    final hash = await deriveKey(password, salt, iterations);
+    await keys.write('rec_salt', base64Encode(salt));
+    await keys.write('rec_iter', '$iterations');
+    await keys.write('rec_hash', base64Encode(hash));
+  }
+
+  Future<bool> hasRecovery() async => (await keys.read('rec_hash')) != null;
+
+  Future<PinResult> checkRecovery(String password) => _check(password, 'rec_salt', 'rec_iter', 'rec_hash');
+
+  Future<PinResult> _check(String secret, String saltKey, String iterKey, String hashKey) async {
     final waitUntil = DateTime.tryParse(await keys.read('pin_wait_until') ?? '');
     if (waitUntil != null && waitUntil.isAfter(_now())) return PinLocked(waitUntil);
 
-    final salt = base64Decode(await keys.read('pin_salt') ?? '');
-    final iter = int.tryParse(await keys.read('pin_iter') ?? '') ?? iterations;
-    final want = base64Decode(await keys.read('pin_hash') ?? '');
-    final got = await deriveKey(pin, salt, iter);
+    final salt = base64Decode(await keys.read(saltKey) ?? '');
+    final iter = int.tryParse(await keys.read(iterKey) ?? '') ?? iterations;
+    final want = base64Decode(await keys.read(hashKey) ?? '');
+    final got = await deriveKey(secret, salt, iter);
     if (want.isNotEmpty && sameBytes(want, got)) {
       await keys.delete('pin_failed');
       await keys.delete('pin_wait_until');

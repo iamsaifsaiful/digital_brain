@@ -18,10 +18,14 @@ import 'help_screen.dart';
 import 'assistant_settings.dart';
 import 'settings_parts.dart';
 import 'sound_screen.dart';
+import 'pro_screen.dart';
+import 'google_backup.dart';
+import '../logic/pro.dart';
+import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '2.13.1';
+const appVersion = '2.14.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -109,6 +113,13 @@ class _MoreScreenState extends State<MoreScreen> {
       ),
     );
     if (v != null) await brain.setDistrict(v);
+  }
+
+  String _proLine(Brain brain) {
+    if (!brain.gated) return tr('AI সহকারী, বিজ্ঞাপন নেই — শীঘ্রই');
+    if (brain.onTrial) return trf('ফ্রি ট্রায়াল চলছে — শেষ {0}', [shortDate(brain.proUntil!)]);
+    if (brain.pro) return tr('প্রো চালু আছে');
+    return brain.trialUsed ? tr('বিজ্ঞাপন ছাড়া, AI আর সব সুবিধা') : trf('{0} দিন ফ্রি চেষ্টা করুন', [bnDigits(trialDays)]);
   }
 
   Future<void> _setAiKey() async {
@@ -314,7 +325,7 @@ class _MoreScreenState extends State<MoreScreen> {
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text('My Assistant Pro', style: body(16, weight: FontWeight.w700, color: Colors.white)),
-                    Text(tr('AI সহকারী, বিজ্ঞাপন নেই — শীঘ্রই'), style: body(13, color: C.mint)),
+                    Text(_proLine(brain), style: body(13, color: C.mint)),
                   ]),
                 ),
                 const Icon(Icons.chevron_right_rounded, color: C.onDarkMuted),
@@ -338,9 +349,11 @@ class _MoreScreenState extends State<MoreScreen> {
         SectionTitle(tr('তথ্য নিরাপদ রাখা')),
         Panel(
           child: Rows(children: [
-            linkRow(Icons.cloud_download_outlined, tr('ব্যাকআপ'),
-                sub: last == null ? tr('এখনো নেওয়া হয়নি') : trf('শেষ ব্যাকআপ {0}', [daysLeftLabel(last, now)]),
-                subColor: backupOld ? C.orange : C.muted,
+            linkRow(Icons.cloud_download_outlined, tr('Google অ্যাকাউন্ট ও ব্যাকআপ'),
+                sub: brain.driveOn
+                    ? trf('{0} · Drive-এ অটো ব্যাকআপ চালু', [brain.googleEmail])
+                    : (last == null ? tr('এখনো নেওয়া হয়নি') : trf('শেষ ব্যাকআপ {0}', [daysLeftLabel(last, now)])),
+                subColor: backupOld && !brain.driveOn ? C.orange : C.muted,
                 onTap: () => push(const BackupScreen())),
             linkRow(Icons.lock_outline_rounded, tr('PIN বদলান'), onTap: _changePin),
             switchRow(
@@ -393,8 +406,14 @@ class _MoreScreenState extends State<MoreScreen> {
         SectionTitle(tr('অন্যান্য')),
         Panel(
           child: Rows(children: [
-            linkRow(Icons.auto_awesome_outlined, tr('AI সহকারী (Claude)'),
-                sub: brain.aiOn ? tr('চালু আছে') : tr('বন্ধ · নিজের API key দিয়ে চালু করা যায়'), subColor: brain.aiOn ? C.green : C.muted, onTap: _setAiKey),
+            if (brain.gated)
+              linkRow(Icons.auto_awesome_outlined, tr('AI সহকারী'),
+                  sub: brain.pro ? tr('প্রো-তে আছে · আমাদের সার্ভার চালু হলে কাজ করবে') : tr('প্রো সুবিধা · এখন অ্যাপ নিজের নিয়মে বোঝে'),
+                  onTap: () => push(const ProScreen()),
+                  trailing: brain.pro ? null : const ProMark())
+            else
+              linkRow(Icons.auto_awesome_outlined, tr('AI সহকারী (Claude)'),
+                  sub: brain.aiOn ? tr('চালু আছে') : tr('বন্ধ · নিজের API key দিয়ে চালু করা যায়'), subColor: brain.aiOn ? C.green : C.muted, onTap: _setAiKey),
             if (brain.aiOn)
               switchRow(Icons.psychology_outlined, tr('সবচেয়ে ভালো বোঝা (Sonnet)'), tr('বন্ধ করলে দ্রুত ও সস্তা Haiku — তবে কম বোঝে'), brain.aiBest,
                   (v) => brain.setAiBest(v)),
@@ -402,11 +421,13 @@ class _MoreScreenState extends State<MoreScreen> {
               switchRow(Icons.manage_search_rounded, tr('AI আমার তথ্য দেখে উত্তর দিক'), tr('রিমাইন্ডার, কাজ, নোট ও হিসাব দেখে ঠিক উত্তর — পাসওয়ার্ড কখনো না'),
                   brain.aiShareData, (v) => brain.setAiShareData(v)),
             linkRow(Icons.picture_as_pdf_outlined, tr('সবকিছু PDF আকারে'), sub: tr('কাজ, হিসাব, নোট, স্বাস্থ্য… যা চান বেছে নিয়ে এক PDF-এ'), onTap: () => exportEverything(context),
-                trailing: Icon(Icons.download_rounded, color: C.muted)),
+                trailing: brain.has(ProFeature.pdf) ? Icon(Icons.download_rounded, color: C.muted) : const ProMark()),
             linkRow(Icons.table_view_outlined, tr('ধার-দেনার রিপোর্ট (CSV)'), sub: tr('Excel বা Google Sheets-এ খোলা যায়'), onTap: _csv,
                 trailing: Icon(Icons.ios_share_rounded, color: C.muted)),
+            if (previewEdition)
+              switchRow(Icons.science_outlined, tr('পরীক্ষা: প্রো চালু'), tr('শুধু প্রিভিউতে — ফ্রি আর প্রো ইউজার কী দেখবে দুটোই দেখে নিন'), brain.pro, (v) => brain.setProForTest(v)),
             linkRow(Icons.info_outline_rounded, tr('লাইসেন্স ও সংস্করণ'),
-                sub: 'My Assistant ${bnDigits(appVersion)}',
+                sub: 'My Assistant ${bnDigits(appVersion)}${previewEdition ? ' · ${tr('প্লে স্টোর প্রিভিউ')}' : ''}',
                 onTap: () => showLicensePage(context: context, applicationName: 'My Assistant', applicationVersion: appVersion)),
           ]),
         ),
@@ -599,6 +620,10 @@ class _BackupScreenState extends State<BackupScreen> {
                 bg: old ? C.orangeTint : C.greenTint,
               ),
               const SizedBox(height: 12),
+              const GoogleBackupPanel(),
+              const SizedBox(height: 16),
+              Text(tr('অথবা নিজে ফাইল হিসেবে'), style: body(14, weight: FontWeight.w600, color: C.muted2)),
+              const SizedBox(height: 8),
               _step(tr('১'), tr('ব্যাকআপ নিন'), tr('কাজ, হিসাব, যোগাযোগ, নোট, পাসওয়ার্ড — সব একটা ফাইলে, আপনার দেওয়া পাসওয়ার্ড দিয়ে তালাবদ্ধ।'), [
                 Row(children: [
                   Expanded(child: PrimaryButton(label: tr('ফোনে সেভ'), icon: Icons.save_alt_rounded, height: 48, onPressed: _busy ? null : () => _backup())),
@@ -612,70 +637,6 @@ class _BackupScreenState extends State<BackupScreen> {
               _step(tr('৩'), tr('নতুন ফোনে ফিরিয়ে আনুন'), tr('অ্যাপ খুলে এখানে এসে ফাইলটা বেছে দিন, আর একই পাসওয়ার্ড দিন।'), [
                 SecondaryButton(label: tr('ফাইল থেকে ফিরিয়ে আনুন'), icon: Icons.restore_rounded, onPressed: _busy ? null : _restore),
               ]),
-            ]),
-          ),
-        ]),
-      ),
-    );
-  }
-}
-
-/// What Pro will give. Payments are not live yet, so it says so honestly.
-class ProScreen extends StatelessWidget {
-  const ProScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    Widget point(String title, String text) => Padding(
-          padding: const EdgeInsets.only(bottom: 14),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(
-              width: 26,
-              height: 26,
-              decoration: BoxDecoration(color: C.greenTint, shape: BoxShape.circle),
-              child: Icon(Icons.check_rounded, size: 16, color: C.green),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, style: body(15, weight: FontWeight.w600)),
-                Text(text, style: body(13, color: C.muted, height: 1.45)),
-              ]),
-            ),
-          ]),
-        );
-    return Scaffold(
-      backgroundColor: C.surface,
-      body: SafeArea(
-        child: Column(children: [
-          const TopBar(title: '', close: true),
-          Expanded(
-            child: ListView(padding: const EdgeInsets.fromLTRB(20, 0, 20, 24), children: [
-              Text('My Assistant Pro', style: display(28, weight: 700)),
-              Text(tr('মুখে বলুন, বাকিটা সহকারী সামলাবে'), style: body(15, color: C.muted2)),
-              const SizedBox(height: 20),
-              point(tr('যেকোনো কথা বুঝবে'), tr('AI দিয়ে লম্বা, এলোমেলো কথাও গুছিয়ে কাজ, হিসাব, রিমাইন্ডার করে')),
-              point(tr('কোনো বিজ্ঞাপন নেই'), tr('কাজের মাঝে কিছু বাধা দেবে না')),
-              point(tr('হিসাবের প্রশ্নের উত্তর'), tr('“এই মাসে বাজারে কত গেল?” — সাথে সাথে বলে দেবে')),
-              point(tr('গোপন তথ্য সবসময় ফোনেই'), tr('পাসওয়ার্ড, PIN, কার্ড — AI-তে কখনো যায় না')),
-              const SizedBox(height: 8),
-              Panel(
-                color: C.greenSoft,
-                borderColor: C.green,
-                padding: const EdgeInsets.all(14),
-                child: Row(children: [
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(tr('বছরে ৳৯৯৯'), style: body(17, weight: FontWeight.w700)),
-                      Text(tr('মাসে মাত্র ৳৮৩ · অথবা মাসে ৳৯৯'), style: body(13, color: C.green)),
-                    ]),
-                  ),
-                ]),
-              ),
-              const SizedBox(height: 14),
-              PrimaryButton(label: tr('শীঘ্রই চালু হবে'), color: C.fill, onPressed: null),
-              const SizedBox(height: 8),
-              Text(tr('এখন সব সুবিধা বিনামূল্যে ব্যবহার করুন। Pro চালু হলে অ্যাপেই জানিয়ে দেব।'), textAlign: TextAlign.center, style: body(13, color: C.muted)),
             ]),
           ),
         ]),

@@ -52,6 +52,95 @@ class _LockScreenState extends State<LockScreen> {
     if (ok && mounted) brain.unlock();
   }
 
+  /// "PIN ভুলে গেছেন?": the owner proves it is them with the fingerprint or
+  /// the backup password, then sets a new PIN. Nothing else opens the app,
+  /// so a phone in someone else's hands stays locked.
+  Future<void> _forgot() async {
+    final lock = BrainScope.read(context).services.lock;
+    final bio = await lock.biometricsOn() && await lock.biometrics.available();
+    final rec = await lock.hasRecovery();
+    if (!mounted) return;
+    final how = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 6, 22, 20),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(tr('PIN ভুলে গেছেন?'), style: display(20)),
+            const SizedBox(height: 8),
+            Text(tr('আপনিই মালিক — সেটা দেখিয়ে নতুন PIN ঠিক করুন। আপনার তথ্য যেমন আছে তেমনই থাকবে।'), style: body(14, color: C.muted, height: 1.5)),
+            const SizedBox(height: 14),
+            if (bio) ...[
+              PrimaryButton(key: const Key('forgot-bio'), label: tr('আঙুলের ছাপ দিয়ে'), icon: Icons.fingerprint_rounded, onPressed: () => Navigator.pop(ctx, 'bio')),
+              const SizedBox(height: 8),
+            ],
+            if (rec) ...[
+              SecondaryButton(key: const Key('forgot-password'), label: tr('ব্যাকআপ-পাসওয়ার্ড দিয়ে'), icon: Icons.password_rounded, onPressed: () => Navigator.pop(ctx, 'password')),
+              const SizedBox(height: 10),
+            ],
+            Text(
+                bio || rec
+                    ? tr('এগুলোর কোনোটা না পারলে: অ্যাপ মুছে আবার ইনস্টল করুন, একই Google অ্যাকাউন্টে লগইন করে ব্যাকআপ-পাসওয়ার্ড দিয়ে Drive-এর ব্যাকআপ ফিরিয়ে আনুন।')
+                    : tr('এই ফোনে আঙুলের ছাপ বা ব্যাকআপ-পাসওয়ার্ড চালু নেই, তাই PIN ছাড়া খোলা যাবে না — যাতে ফোন অন্যের হাতে গেলেও আপনার তথ্য নিরাপদ থাকে। Google Drive-এ ব্যাকআপ থাকলে: অ্যাপ মুছে আবার ইনস্টল করুন, একই Google অ্যাকাউন্টে লগইন করে ব্যাকআপ-পাসওয়ার্ড দিয়ে সব ফিরিয়ে আনুন।'),
+                style: body(13, color: C.muted, height: 1.5)),
+          ]),
+        ),
+      ),
+    );
+    if (how == null || !mounted) return;
+    var ok = false;
+    if (how == 'bio') {
+      ok = await lock.biometrics.authenticate(tr('নতুন PIN দিতে আঙুলের ছাপ দিন'));
+    } else {
+      final pw = await _askRecovery();
+      if (pw == null || !mounted) return;
+      final r = await lock.checkRecovery(pw);
+      if (!mounted) return;
+      switch (r) {
+        case PinOk():
+          ok = true;
+        case PinWrong(:final triesLeft):
+          setState(() => _message = trf('পাসওয়ার্ড মেলেনি। আর {0} বার চেষ্টা করা যাবে।', [bnDigits(triesLeft)]));
+        case PinLocked(:final until):
+          setState(() => _lockedUntil = until);
+      }
+    }
+    if (ok && mounted) {
+      setState(() {
+        _mode = _Mode.create;
+        _first = '';
+        _lockedUntil = null;
+        _message = tr('ঠিক আছে — এবার নতুন PIN ঠিক করুন');
+        _padKey++;
+      });
+    }
+  }
+
+  Future<String?> _askRecovery() async {
+    final c = TextEditingController();
+    final v = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('ব্যাকআপ-পাসওয়ার্ড'), style: display(19)),
+        content: TextField(
+          key: const Key('recovery-field'),
+          controller: c,
+          obscureText: true,
+          autofocus: true,
+          autocorrect: false,
+          enableSuggestions: false,
+          decoration: InputDecoration(labelText: tr('Google Drive ব্যাকআপের পাসওয়ার্ড')),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
+          TextButton(key: const Key('recovery-ok'), onPressed: () => Navigator.pop(ctx, c.text), child: Text(tr('যাচাই করুন'))),
+        ],
+      ),
+    );
+    // Not disposed here: the dialog's closing animation still uses it.
+    return v == null || v.isEmpty ? null : v;
+  }
+
   Future<void> _entered(String pin, VoidCallback clear) async {
     final brain = BrainScope.read(context);
     final lock = brain.services.lock;
@@ -153,6 +242,12 @@ class _LockScreenState extends State<LockScreen> {
                             onComplete: _entered,
                             onBiometric: _mode == _Mode.unlock && _bioAvailable ? _biometric : null,
                           ),
+                          if (_mode == _Mode.unlock)
+                            TextButton(
+                              key: const Key('forgot-pin'),
+                              onPressed: _forgot,
+                              child: Text(tr('PIN ভুলে গেছেন?'), style: body(14, weight: FontWeight.w600, color: C.mint)),
+                            ),
                         ],
                       ),
                     if (_mode == _Mode.unlock && !BrainScope.of(context).data.emergency.isEmpty)
@@ -184,7 +279,7 @@ class _LockScreenState extends State<LockScreen> {
                     const SizedBox(height: 24),
                     Text(
                       _mode == _Mode.create || _mode == _Mode.confirm
-                          ? tr('PIN শুধু এই ফোনে, এনক্রিপ্ট করে রাখা হয়। ভুলে গেলে তথ্য ফেরত আনা যাবে না — ব্যাকআপ রাখুন।')
+                          ? tr('PIN শুধু এই ফোনে, এনক্রিপ্ট করে রাখা হয়। ভুলে গেলে আঙুলের ছাপ বা Google Drive ব্যাকআপের পাসওয়ার্ড দিয়ে নতুন PIN দেওয়া যাবে।')
                           : tr('কিছুক্ষণ ব্যবহার না করলে অ্যাপ নিজে থেকে লক হয়ে যায়'),
                       style: body(13, color: const Color(0xFFA9B5AF), height: 1.5),
                       textAlign: TextAlign.center,

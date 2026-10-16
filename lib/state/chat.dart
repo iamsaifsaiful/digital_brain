@@ -16,6 +16,7 @@ import '../logic/parser.dart';
 import '../logic/phrases.dart';
 import '../logic/plan.dart';
 import '../logic/proactive.dart';
+import '../logic/pro.dart' show freeVaultItems;
 import '../logic/search.dart';
 import '../logic/talk.dart';
 import '../logic/when.dart';
@@ -1579,7 +1580,15 @@ class ChatController extends ChangeNotifier {
         }
       case CashAdd():
         Project? project;
-        if (c.project != null) project = await brain.projectNamed(c.project!);
+        String proNote = '';
+        if (c.project != null) {
+          if (projectByName(brain.data, c.project!) == null && !brain.canAddProject) {
+            // A second project is Pro: the entry still goes in, under the general account.
+            proNote = trf(' নতুন আলাদা হিসাব “{0}” খোলা প্রো সুবিধা (ফ্রিতে ১টা), তাই সাধারণ আয়-ব্যয়ে লিখলাম।', [c.project!]);
+          } else {
+            project = await brain.projectNamed(c.project!);
+          }
+        }
         await brain.saveCash(CashEntry(
           kind: c.kind,
           amount: c.amount,
@@ -1602,10 +1611,16 @@ class ChatController extends ChangeNotifier {
           final m = monthSums(brain.data.cash, _now);
           done = c.kind == CashKind.expense ? trf('লিখলাম। এই মাসে মোট খরচ {0} টাকা।', [bnNumber(m.expense)]) : trf('লিখলাম। এই মাসে মোট আয় {0} টাকা।', [bnNumber(m.income)]);
         }
-        _say(out, quiet ? trf('লিখলাম: {0}', [summaryLine(c)]) : done, links: [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন'))], speak: !quiet);
+        _say(out, quiet ? trf('লিখলাম: {0}', [summaryLine(c)]) : done + proNote,
+            links: [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন')), if (proNote.isNotEmpty) ChatLink(LinkKind.page, tr('প্রো দেখুন'), page: 'pro')], speak: !quiet);
         _history.add(AiTurn.app('[লেখা হলো: ${summaryLine(c)}]'));
       case VaultAdd():
         final old = _vaultNamed(c.name);
+        if (old == null && !brain.canAddVault) {
+          _say(out, trf('ফ্রিতে {0}টা পাসওয়ার্ড রাখা যায়, সেটা পূর্ণ হয়ে গেছে। প্রো নিলে যত খুশি রাখতে পারবেন — আগেরগুলো যেমন আছে থাকবে।', [bnDigits(freeVaultItems)]),
+              links: [ChatLink(LinkKind.page, tr('প্রো দেখুন'), page: 'pro')]);
+          break;
+        }
         await brain.saveVault(VaultItem(
           id: old?.id,
           name: old?.name ?? c.name,

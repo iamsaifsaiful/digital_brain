@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../logic/pro.dart';
+import '../ui/pro_gate.dart';
+
 import '../logic/bn.dart';
 import '../logic/password.dart';
 import '../models/models.dart';
@@ -221,6 +224,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
     String done;
     switch (_cat) {
       case ItemCategory.password:
+        if (widget.vault == null && !await needPro(context, ProFeature.vault, allowed: brain.canAddVault)) return;
         await brain.saveVault(VaultItem(
           id: widget.vault?.id,
           name: _a.text.trim(),
@@ -295,6 +299,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
     final nav = Navigator.of(context);
     if (_cat == ItemCategory.reminder) await checkAlarmsAfterSave(context);
     nav.pop();
+    if (widget.vault == null && _cat != ItemCategory.password && nav.mounted) await afterTaskDone(nav.context);
   }
 
   Future<void> _delete() async {

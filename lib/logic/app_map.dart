@@ -80,6 +80,7 @@ const appPlaces = <AppPlace>[
   AppPlace('notifications', 'নোটিফিকেশন', ['নোটিফিকেশন', 'notification', 'notifications', 'বিজ্ঞপ্তি'], 'কোন বার্তা আসবে, রাতে চুপ থাকা, দিনে কয়টা।'),
   AppPlace('sound', 'রিংটোন', ['রিংটোন', 'ringtone', 'সাউন্ড'], 'রিমাইন্ডার আর অ্যালার্মের শব্দ।'),
   AppPlace('backup', 'ব্যাকআপ', ['ব্যাকআপ', 'backup'], 'সব তথ্য একটা তালাবদ্ধ ফাইলে; ফোন বদলালে ফিরিয়ে আনা যায়।'),
+  AppPlace('pro', 'প্রো', ['প্রো ভার্সন', 'প্রো', 'pro', 'প্রিমিয়াম', 'premium', 'সাবস্ক্রিপশন'], 'AI সহকারী, বিজ্ঞাপন ছাড়া, একাধিক দোকান, PDF, যাকাতের নিজে-হিসাব আর আরও সুবিধা।', ['প্রো খোলো']),
   AppPlace('help', 'কী কী করা যায়', ['কী কী করা যায়', 'সাহায্য', 'হেল্প', 'help', 'গাইড'], 'অ্যাপের সব সুবিধা আর কী বললে কী হয়।'),
 ];
 
@@ -118,7 +119,7 @@ const docFolderWords = <String, List<String>>{
 const _endings = ['গুলোতে', 'গুলো', 'গুলি', 'টাতে', 'টায়', 'টা', 'টি', 'তে', 'য়', 'এর', 'ের', 'র', 'এ', 'ে', 's'];
 
 /// Pages that "… দেখাও" simply opens.
-const _pagesToShow = {'shop', 'calendar', 'settings', 'help', 'notifications', 'sound', 'backup', 'accounts', 'savings', 'zakat', 'split', 'emergency', 'templates', 'pdf', 'alarms', 'inbox', 'health'};
+const _pagesToShow = {'pro', 'shop', 'calendar', 'settings', 'help', 'notifications', 'sound', 'backup', 'accounts', 'savings', 'zakat', 'split', 'emergency', 'templates', 'pdf', 'alarms', 'inbox', 'health'};
 
 // Words that open a page.
 const _openVerbs = [

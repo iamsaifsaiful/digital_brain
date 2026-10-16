@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../ui/pro_gate.dart';
+
 import '../logic/bn.dart';
 import '../logic/ledger.dart';
 import '../logic/phrases.dart';
@@ -74,7 +76,9 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
     await brain.saveEntry(e, guessPhone: false);
     if (!mounted) return;
     toast(context, trf('সেভ হয়েছে। {0}', [balanceSentence(person, after)]));
-    Navigator.of(context).pop();
+    final nav = Navigator.of(context);
+    nav.pop();
+    if (nav.mounted) await afterTaskDone(nav.context);
   }
 
   /// Only a loan (given or taken) has a pay-back day.

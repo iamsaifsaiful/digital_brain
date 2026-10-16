@@ -41,6 +41,7 @@ const _icons = <String, IconData>{
   'notifications': Icons.notifications_outlined,
   'sound': Icons.music_note_outlined,
   'backup': Icons.cloud_download_outlined,
+  'pro': Icons.auto_awesome_outlined,
 };
 
 /// "অ্যাপ দিয়ে কী কী করা যায়": every part of the app, what it does, what to

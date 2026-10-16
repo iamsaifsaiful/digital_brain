@@ -141,6 +141,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
       _leftAt ??= brain.services.now();
+      if (brain.loaded) brain.autoDriveBackup();
     } else if (state == AppLifecycleState.resumed) {
       final left = _leftAt;
       _leftAt = null;

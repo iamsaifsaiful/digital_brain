@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../logic/pro.dart';
+import '../ui/pro_gate.dart';
+
 import '../logic/bn.dart';
 import '../logic/cash.dart';
 import '../logic/money_more.dart';
@@ -283,6 +286,7 @@ class ProjectsView extends StatelessWidget {
     }
 
     Future<void> create() async {
+      if (!await needPro(context, ProFeature.projects, allowed: brain.canAddProject) || !context.mounted) return;
       final r = await askNewProject(context);
       if (r == null || r.$1.isEmpty || !context.mounted) return;
       var p = await brain.projectNamed(r.$1);

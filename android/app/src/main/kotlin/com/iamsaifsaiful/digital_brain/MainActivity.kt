@@ -42,6 +42,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var preview: Ringtone? = null
     private val stopPreview = Runnable { preview?.stop() }
     private var launchChannel: MethodChannel? = null
+    private val google by lazy { GoogleAuth(this) }
 
     /** How the app was opened (a share, the assistant gesture, the widget mic), until Dart asks. */
     private var firstLaunch: Map<String, Any>? = null
@@ -536,6 +537,9 @@ class MainActivity : FlutterFragmentActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/inbox").setMethodCallHandler { call, result ->
             inboxChannel(call, result)
         }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/google").setMethodCallHandler { call, result ->
+            google.handle(call, result)
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/contacts").setMethodCallHandler { call, result ->
             contactsChannel(call, result)
         }
@@ -571,6 +575,7 @@ class MainActivity : FlutterFragmentActivity() {
     @Deprecated("Uses the platform result callback")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (google.onActivityResult(requestCode, data)) return
         if (requestCode == SOUND_REQUEST) {
             val r = soundResult ?: return
             soundResult = null

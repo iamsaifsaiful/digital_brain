@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../ui/pro_gate.dart';
+
 import '../logic/bn.dart';
 import '../logic/cash.dart';
 import '../logic/ledger.dart';
@@ -66,6 +68,7 @@ class MoneyScreenState extends State<MoneyScreen> {
           MoneyPart.loans => _loans(context, brain, push),
           MoneyPart.projects => [const ProjectsView()],
         },
+        const AdSlot(padding: EdgeInsets.only(top: 16)),
       ],
     );
   }

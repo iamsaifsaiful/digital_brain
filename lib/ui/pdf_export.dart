@@ -9,10 +9,14 @@ import 'widgets.dart';
 
 export '../logic/report.dart' show ReportPart, ReportScope;
 
+import '../logic/pro.dart';
+import 'pro_gate.dart';
+
 /// Makes the PDF and shows it, with ডাউনলোড, শেয়ার and অন্য অ্যাপে খুলুন
 /// on top (the same viewer as a kept PDF).
 Future<void> exportPdf(BuildContext context, Set<ReportPart> parts, {ReportScope scope = const ReportScope(), String? title, String? fileExtra}) async {
   if (parts.isEmpty) return;
+  if (!await needPro(context, ProFeature.pdf) || !context.mounted) return;
   final brain = BrainScope.read(context);
   final now = brain.services.now();
   final spec = reportSpec(brain.data, parts, now, userName: brain.userName, scope: scope, title: title);
@@ -59,6 +63,7 @@ class PdfButton extends StatelessWidget {
 
 /// সবকিছু PDF আকারে: pick the parts (all ticked), then make one PDF.
 Future<void> exportEverything(BuildContext context) async {
+  if (!await needPro(context, ProFeature.pdf) || !context.mounted) return;
   final picked = await showModalBottomSheet<Set<ReportPart>>(
     context: context,
     isScrollControlled: true,

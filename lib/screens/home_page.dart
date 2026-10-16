@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'google_backup.dart';
+
+import '../ui/pro_gate.dart';
+
 import '../logic/bn.dart';
 import '../logic/calendar_bd.dart';
 import '../logic/cash.dart';
@@ -206,6 +210,7 @@ class HomePage extends StatelessWidget {
                   ),
                 ),
               ),
+            const GoogleStartCard(),
             const StartTips(),
             if (d.reminders.isNotEmpty) const AlarmBanner(),
             const TodaySections(),
@@ -263,6 +268,7 @@ class HomePage extends StatelessWidget {
       ],
         ),
       ),
+      const AdSlot(padding: EdgeInsets.fromLTRB(16, 4, 16, 6)),
     ]);
   }
 }

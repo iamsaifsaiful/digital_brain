@@ -2,6 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../logic/pro.dart';
+import '../ui/pro_gate.dart';
+
 import '../logic/bn.dart';
 import '../logic/lang.dart';
 import '../logic/money_more.dart';
@@ -93,6 +96,7 @@ class ShopScreen extends StatelessWidget {
     final now = brain.services.now();
     final shops = d.shops;
     Future<void> add() async {
+      if (!await needPro(context, ProFeature.shops, allowed: brain.canAddShop) || !context.mounted) return;
       final s = await shopForm(context);
       if (s != null && context.mounted && shops.length > 1) _push(context, ShopDetailScreen(shopId: s.id));
     }

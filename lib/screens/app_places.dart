@@ -22,6 +22,10 @@ import 'sound_screen.dart';
 import 'special_days_screen.dart';
 import 'store_more_screens.dart';
 import 'vault_screen.dart';
+import 'pro_screen.dart';
+import '../logic/pro.dart';
+import '../state/brain.dart';
+import '../ui/pro_gate.dart';
 import '../ui/pdf_export.dart';
 
 /// The page for a part of the app (see logic/app_map.dart), or null for the
@@ -56,6 +60,7 @@ Widget? placePage(String id, {String? folder}) => switch (id) {
       'sound' => const SoundScreen(),
       'backup' => const BackupScreen(),
       'help' => const HelpScreen(),
+      'pro' => const ProScreen(),
       _ => null,
     };
 
@@ -77,6 +82,14 @@ Future<void> openPlace(BuildContext context, String id, {String? folder}) async 
     case 'pdf':
       await exportEverything(context);
     default:
+      final locked = switch (id) {
+        'zakat' => ProFeature.zakat,
+        'inbox' => ProFeature.inbox,
+        _ => null,
+      };
+      if (locked != null && !BrainScope.read(context).has(locked)) {
+        if (!await needPro(context, locked) || !context.mounted) return;
+      }
       final page = placePage(id, folder: folder);
       if (page != null) await Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
   }

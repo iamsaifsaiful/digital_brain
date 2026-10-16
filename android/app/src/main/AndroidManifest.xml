@@ -30,7 +30,7 @@
       unreadable file. People use the app's encrypted backup instead.
     -->
     <application
-        android:label="My Assistant"
+        android:label="${appLabel}"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"

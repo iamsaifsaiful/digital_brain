@@ -2,6 +2,9 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+
+import '../logic/pro.dart';
+import '../ui/pro_gate.dart';
 import 'package:flutter/rendering.dart';
 
 import '../logic/bn.dart';
@@ -27,14 +30,17 @@ class MoneyTools extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
-    Widget tile(String label, IconData icon, Color fg, Color bg, Widget page) => Padding(
+    Widget tile(String label, IconData icon, Color fg, Color bg, Widget page, {ProFeature? pro}) => Padding(
           padding: const EdgeInsets.only(right: 10),
           child: Material(
             color: C.surface,
             borderRadius: BorderRadius.circular(16),
             child: InkWell(
               borderRadius: BorderRadius.circular(16),
-              onTap: () => _push(context, page),
+              onTap: () async {
+                if (pro != null && !await needPro(context, pro)) return;
+                if (context.mounted) _push(context, page);
+              },
               child: Container(
                 width: 92,
                 padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
@@ -47,21 +53,22 @@ class MoneyTools extends StatelessWidget {
                     child: Icon(icon, color: fg, size: 22),
                   ),
                   const SizedBox(height: 6),
-                  Text(label, textAlign: TextAlign.center, maxLines: 2, style: body(12.5, weight: FontWeight.w500, height: 1.25)),
+                  Text(label, textAlign: TextAlign.center, maxLines: pro != null && !brain.has(pro) ? 1 : 2, overflow: TextOverflow.ellipsis, style: body(12.5, weight: FontWeight.w500, height: 1.25)),
+                  if (pro != null && !brain.has(pro)) ...[const SizedBox(height: 2), const ProMark()],
                 ]),
               ),
             ),
           ),
         );
     return SizedBox(
-      height: 104,
+      height: brain.has(ProFeature.zakat) ? 104 : 116,
       child: ListView(scrollDirection: Axis.horizontal, children: [
         if (brain.businessMode) tile(tr('দোকান'), Icons.storefront_outlined, C.orange, C.orangeTint, const ShopScreen()),
         tile(tr('অ্যাকাউন্ট'), Icons.account_balance_outlined, C.blue, C.blueTint, const AccountsScreen()),
         tile(tr('মাসের রিপোর্ট'), Icons.insert_chart_outlined_rounded, C.green, C.greenTint, const ReportScreen()),
         tile(tr('সঞ্চয় ও কিস্তি'), Icons.savings_outlined, C.purple, C.purpleTint, const SavingsScreen()),
         tile(tr('খরচ ভাগাভাগি'), Icons.call_split_rounded, C.teal, C.tealTint, const SplitScreen()),
-        tile(tr('যাকাত'), Icons.volunteer_activism_outlined, C.ochre, C.ochreTint, const ZakatScreen()),
+        tile(tr('যাকাত'), Icons.volunteer_activism_outlined, C.ochre, C.ochreTint, const ZakatScreen(), pro: ProFeature.zakat),
       ]),
     );
   }
@@ -335,6 +342,7 @@ class _ReportScreenState extends State<ReportScreen> {
     final slices = [...top, if (rest > 0) MapEntry(tr('অন্যান্য'), rest)];
 
     return Scaffold(
+      bottomNavigationBar: const AdBar(),
       body: SafeArea(
         child: Column(children: [
           TopBar(title: tr('মাসের রিপোর্ট'), trailing: [
@@ -1008,6 +1016,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
       ];
 
   Future<void> _send() async {
+    if (!await needPro(context, ProFeature.receipts) || !mounted) return;
     final brain = BrainScope.read(context);
     final lines = _lines;
     if (lines.isEmpty) {

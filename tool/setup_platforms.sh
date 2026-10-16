@@ -70,6 +70,35 @@ if (myAssistantKeys["storeFile"] != null) {
 KTS
 fi
 
+# Sign in with Google (Credential Manager) and Drive's app folder (GoogleAuth.kt).
+if ! grep -q 'identity.googleid' "$GRADLE_KTS"; then
+  cat >> "$GRADLE_KTS" <<'KTS'
+
+dependencies {
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
+}
+KTS
+fi
+
+# The app's name on the phone, and the Play Store preview: MY_ASSISTANT_PREVIEW=1
+# makes a separate app (".preview") that installs beside the real one, empty,
+# as a new Play Store user would get it.
+if ! grep -q 'MY_ASSISTANT_PREVIEW' "$GRADLE_KTS"; then
+  cat >> "$GRADLE_KTS" <<'KTS'
+
+android {
+    defaultConfig {
+        val preview = System.getenv("MY_ASSISTANT_PREVIEW") == "1"
+        manifestPlaceholders["appLabel"] = if (preview) "My Assistant Play প্রিভিউ" else "My Assistant"
+        if (preview) applicationIdSuffix = ".preview"
+    }
+}
+KTS
+fi
+
 # Remove the sample test flutter create may add; this repo has its own tests.
 rm -f test/widget_test.dart
 
