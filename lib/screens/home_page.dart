@@ -68,13 +68,13 @@ class HomePage extends StatelessWidget {
       (tr('কাজের তালিকা'), Icons.checklist_rounded, C.green, C.greenTint, () => goToTab(context, ShellTab.diary)),
       (tr('রিমাইন্ডার'), Icons.notifications_none_rounded, C.orange, C.orangeTint, () => push(const AllTasksScreen())),
       (tr('হিসাব'), Icons.account_balance_wallet_outlined, C.teal, C.tealTint, () => goToTab(context, ShellTab.money)),
-      (tr('ক্যালেন্ডার'), Icons.calendar_month_outlined, C.blue, C.blueTint, () => push(const CalendarScreen())),
-      (tr('নোট'), Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, () => push(const NotesScreen())),
       (tr('ডকুমেন্টস'), Icons.folder_copy_outlined, C.blue, C.blueTint, () => push(const DocsScreen())),
+      (tr('নোট'), Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, () => push(const NotesScreen())),
       (tr('যোগাযোগ'), Icons.call_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
       (tr('স্বাস্থ্য'), Icons.favorite_border_rounded, C.rose, C.roseTint, () => push(const HealthScreen())),
       (tr('অ্যালার্ম'), Icons.alarm_rounded, C.orange, C.orangeTint, () => push(const AlarmsScreen())),
       (tr('পাসওয়ার্ড'), Icons.lock_outline_rounded, C.muted2, C.soft, () => push(const VaultPage())),
+      (tr('ক্যালেন্ডার'), Icons.calendar_month_outlined, C.blue, C.blueTint, () => push(const CalendarScreen())),
       (tr('অনুরোধ'), Icons.bloodtype_outlined, C.rose, C.roseTint, () => push(const RequestsScreen())),
       (tr('প্রো ভার্সন'), Icons.workspace_premium_outlined, C.ochre, C.ochreTint, () => push(const ProScreen())),
     ];
@@ -84,11 +84,6 @@ class HomePage extends StatelessWidget {
     const shade = [Shadow(color: Color(0x66000000), blurRadius: 8)];
     final soft = Colors.white.withValues(alpha: 0.88);
     const horizon = 54.0;
-    final daytime = now.isAfter(sun.sunrise) && now.isBefore(sun.sunset);
-    final until = daytime
-        ? trf('সূর্যাস্তের আর {0}', [_span(sun.sunset.difference(now))])
-        : trf('সূর্যোদয়ের আর {0}', [_span((now.isBefore(sun.sunrise) ? sun.sunrise : sun.sunrise.add(const Duration(days: 1))).difference(now))]);
-
     Widget figure(String label, String value, Color color) => Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(label, style: body(12.5, color: C.muted)),
@@ -137,12 +132,6 @@ class HomePage extends StatelessWidget {
                           child: InkWell(customBorder: const CircleBorder(), onTap: () => goToTab(context, ShellTab.more), child: const UserPhoto(size: 44, onDark: true)),
                         ),
                       ]),
-                    ),
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: horizon + 6,
-                      child: Text(until, textAlign: TextAlign.center, style: body(12, weight: FontWeight.w600, color: Colors.white).copyWith(shadows: shade)),
                     ),
                     Positioned(left: 16, bottom: 14, child: _SunLabel(icon: Icons.wb_twilight, text: trf('সূর্যোদয় {0}', [bnTime(sun.sunrise.hour, sun.sunrise.minute)]))),
                     Positioned(right: 16, bottom: 14, child: _SunLabel(icon: Icons.nights_stay_outlined, text: trf('সূর্যাস্ত {0}', [bnTime(sun.sunset.hour, sun.sunset.minute)]))),
@@ -249,15 +238,6 @@ class HomePage extends StatelessWidget {
       const AdSlot(padding: EdgeInsets.fromLTRB(16, 4, 16, 6)),
     ]);
   }
-}
-
-/// "২ ঘণ্টা ১০ মিনিট"
-String _span(Duration d) {
-  final h = d.inHours;
-  final m = d.inMinutes % 60;
-  if (h == 0) return trf('{0} মিনিট', [bnDigits(m)]);
-  if (m == 0) return trf('{0} ঘণ্টা', [bnDigits(h)]);
-  return trf('{0} ঘণ্টা {1} মিনিট', [bnDigits(h), bnDigits(m)]);
 }
 
 class _SunLabel extends StatelessWidget {
