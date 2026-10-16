@@ -600,10 +600,11 @@ class _MembersPageState extends State<MembersPage> {
 // ── নোটিফিকেশন ──
 
 class NoticesPage extends StatefulWidget {
-  const NoticesPage({super.key, required this.api, required this.guard, required this.onSignOut});
+  const NoticesPage({super.key, required this.api, required this.guard, required this.onSignOut, required this.onFingerprint});
   final Api api;
   final Guard guard;
   final VoidCallback onSignOut;
+  final VoidCallback onFingerprint;
 
   @override
   State<NoticesPage> createState() => _NoticesPageState();
@@ -676,8 +677,11 @@ class _NoticesPageState extends State<NoticesPage> {
         PageHead('নোটিফিকেশন',
             sub: 'ফোনে নিয়মিত যা যায়',
             action: PopupMenuButton<int>(
-              itemBuilder: (_) => const [PopupMenuItem(value: 1, child: Text('লগআউট'))],
-              onSelected: (_) => widget.onSignOut(),
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 2, child: Text('আঙুলের ছাপে খোলা: চালু/বন্ধ')),
+                PopupMenuItem(value: 1, child: Text('লগআউট')),
+              ],
+              onSelected: (v) => v == 1 ? widget.onSignOut() : widget.onFingerprint(),
             )),
         Expanded(
           child: RefreshIndicator(

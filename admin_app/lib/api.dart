@@ -8,9 +8,9 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'package:local_auth/local_auth.dart';
 
 const apiBase = String.fromEnvironment('API_BASE', defaultValue: 'https://getmyassistant.app');
-const googleWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
 
 class ApiError implements Exception {
   const ApiError(this.message, {this.signedOut = false});
@@ -26,6 +26,8 @@ class ApiError implements Exception {
 abstract class SessionStore {
   Future<String?> read();
   Future<void> write(String? value);
+  Future<bool> readFlag(String key);
+  Future<void> writeFlag(String key, bool on);
 }
 
 class SecureSession implements SessionStore {
@@ -49,38 +51,57 @@ class SecureSession implements SessionStore {
       }
     } catch (_) {}
   }
+
+  @override
+  Future<bool> readFlag(String key) async {
+    try {
+      return await _s.read(key: key) == 'true';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<void> writeFlag(String key, bool on) async {
+    try {
+      await _s.write(key: key, value: on ? 'true' : 'false');
+    } catch (_) {}
+  }
 }
 
 class MemorySession implements SessionStore {
   String? value;
+  final flags = <String, bool>{};
   @override
   Future<String?> read() async => value;
   @override
   Future<void> write(String? v) async => value = v;
+  @override
+  Future<bool> readFlag(String key) async => flags[key] ?? false;
+  @override
+  Future<void> writeFlag(String key, bool on) async => flags[key] = on;
 }
 
-/// Google sign-in and Firebase token (Kotlin: GoogleAuth.kt, PushService.kt).
+/// Fingerprint (after the first sign-in with email and password) and the
+/// Firebase push token (Kotlin: PushService.kt).
 class Device {
-  static const _google = MethodChannel('my_assistant/google');
   static const _push = MethodChannel('my_assistant/push');
+  final _auth = LocalAuthentication();
 
-  /// The Google sign-in token, or null when cancelled.
-  Future<({String idToken, String email})?> signIn() async {
-    if (googleWebClientId.isEmpty) throw const ApiError('Google লগইনের সেটআপ এখনো বাকি');
+  Future<bool> canFingerprint() async {
     try {
-      final r = await _google.invokeMapMethod<String, Object?>('signIn', {'webClientId': googleWebClientId});
-      if (r == null) return null;
-      return (idToken: '${r['idToken'] ?? ''}', email: '${r['email'] ?? ''}');
-    } on PlatformException catch (e) {
-      if (e.code == 'cancelled') return null;
-      throw ApiError(e.code == 'setup' ? 'Google লগইনের সেটআপ এখনো বাকি' : 'Google লগইন হয়নি: ${e.message ?? e.code}');
+      return await _auth.isDeviceSupported() && (await _auth.getAvailableBiometrics()).isNotEmpty;
+    } catch (_) {
+      return false;
     }
   }
 
-  Future<void> signOut() async {
+  Future<bool> fingerprint(String reason) async {
     try {
-      await _google.invokeMethod<void>('signOut');
-    } catch (_) {}
+      return await _auth.authenticate(localizedReason: reason, biometricOnly: true, persistAcrossBackgrounding: true);
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<String?> pushToken() async {
@@ -108,18 +129,28 @@ class Api {
     return _session != null && _session!.isNotEmpty;
   }
 
-  /// Signs in with a Google token; only emails on the admin list get in.
-  Future<void> login(String idToken) async {
-    final r = await _call('POST', '/login', {'id_token': idToken, 'app_version': '1.0.0', 'edition': 'admin'}, false);
-    if (r['admin'] != true) throw const ApiError('এই ইমেইল অ্যাডমিন তালিকায় নেই। ওয়েবসাইটের My Assistant › সেটিংসে ইমেইলটা যোগ করুন।');
+  /// Email and password of an admin account on the website.
+  Future<String> login(String email, String password) async {
+    final r = await _call('POST', '/admin/login', {'email': email.trim(), 'password': password}, false);
     _session = '${r['session']}';
     await _store.write(_session);
+    return '${r['name'] ?? ''}';
   }
 
   Future<void> logout() async {
+    final s = _session;
     _session = null;
     await _store.write(null);
+    await _store.writeFlag('fingerprint', false);
+    if (s != null) {
+      try {
+        await _http.post(Uri.parse('$base/wp-json/my-assistant/v1/admin/logout'), headers: {'authorization': 'Bearer $s'}).timeout(const Duration(seconds: 8));
+      } catch (_) {}
+    }
   }
+
+  Future<bool> fingerprintOn() => _store.readFlag('fingerprint');
+  Future<void> setFingerprint(bool on) => _store.writeFlag('fingerprint', on);
 
   Future<void> sendPushToken(String token) => _send('POST', '/device', {'token': token});
 
@@ -162,12 +193,13 @@ class Api {
     } catch (_) {
       j = {};
     }
+    if (r.statusCode == 429) throw const ApiError('অনেকবার ভুল হয়েছে — ১৫ মিনিট পরে আবার চেষ্টা করুন');
     if (r.statusCode == 401 || r.statusCode == 403) {
       if (auth) {
         await logout();
         throw const ApiError('আবার লগইন করুন', signedOut: true);
       }
-      throw const ApiError('Google লগইন সার্ভারে মেলেনি — ওয়েবসাইটের সেটিংসে Client ID দেখুন');
+      throw const ApiError('ইমেইল বা পাসওয়ার্ড মেলেনি, অথবা এই অ্যাকাউন্ট অ্যাডমিন নয়');
     }
     if (r.statusCode == 409) throw ApiError('${j['message'] ?? 'আগেই করা হয়েছে'}');
     if (r.statusCode != 200) throw ApiError('সার্ভারে সমস্যা (${r.statusCode})');

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: My Assistant Accounts
  * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, ফ্রি ট্রায়াল আর প্রো। শুধু নাম, ইমেইল, ছবি আর প্রো-র তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.4.0
+ * Version: 1.5.0
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: My Assistant
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.4.0';
+const MA_ACC_VERSION = '1.5.0';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
 const MA_ACC_PER_PAGE = 20;
 
@@ -57,6 +57,14 @@ function ma_acc_install() {
     ma_ai_install();
     ma_pay_install();
     ma_note_install();
+    // Who may approve payments and manage members (the admin app signs in with these accounts).
+    if (!get_role('ma_admin')) {
+        add_role('ma_admin', 'My Assistant অ্যাডমিন', ['read' => true, 'ma_manage' => true]);
+    }
+    $owner = get_role('administrator');
+    if ($owner) {
+        $owner->add_cap('ma_manage');
+    }
     update_option('ma_acc_db_version', MA_ACC_VERSION);
 }
 
@@ -193,8 +201,7 @@ function ma_acc_login(WP_REST_Request $req) {
     $set = ma_ai_settings();
     // A session for this phone: AI and refreshing the plan without signing in again.
     return rest_ensure_response(ma_acc_answer($row) + [
-        'session' => ma_ai_new_session((int) $row['id'], $fields['edition'] === 'admin' ? 'admin' : 'member'),
-        'admin' => $fields['edition'] === 'admin' && in_array(strtolower($row['email']), ma_admin_emails(), true),
+        'session' => ma_ai_new_session((int) $row['id']),
         'ai' => $set['on'] && ma_ai_key() !== '',
         'ai_left' => max(0, $set['per_user'] - ma_ai_used((int) $row['id'])),
     ]);
@@ -236,7 +243,7 @@ function ma_acc_trial(WP_REST_Request $req) {
 // ── Admin: the page, and its actions (each with a nonce, back to the page with a message) ──
 
 add_action('admin_menu', function () {
-    add_menu_page('My Assistant', 'My Assistant', 'manage_options', 'my-assistant', 'ma_acc_admin', 'dashicons-groups', 80);
+    add_menu_page('My Assistant', 'My Assistant', 'ma_manage', 'my-assistant', 'ma_acc_admin', 'dashicons-groups', 80);
 });
 
 function ma_acc_back($msg, $type = 'ok', $extra = []) {
@@ -244,8 +251,9 @@ function ma_acc_back($msg, $type = 'ok', $extra = []) {
     exit;
 }
 
-function ma_acc_guard($action) {
-    if (!current_user_can('manage_options')) {
+/** Admins (role "My Assistant অ্যাডমিন", or site administrators) manage members and payments; only site administrators change settings. */
+function ma_acc_guard($action, $cap = 'ma_manage') {
+    if (!current_user_can($cap)) {
         wp_die('Not allowed', 403);
     }
     check_admin_referer($action);
@@ -258,7 +266,7 @@ function ma_acc_extend($row, $days) {
 }
 
 add_action('admin_post_ma_acc_settings', function () {
-    ma_acc_guard('ma_acc_settings');
+    ma_acc_guard('ma_acc_settings', 'manage_options');
     update_option(MA_ACC_OPTION_CLIENTS, sanitize_text_field(wp_unslash($_POST['client_ids'] ?? '')));
     ma_acc_back('সেটিংস রাখা হয়েছে।', 'ok', ['tab' => 'settings']);
 });
@@ -352,7 +360,7 @@ add_action('admin_post_ma_acc_export', function () {
 
 /** The admin page: reads the data, then draws it (admin-view.php). */
 function ma_acc_admin() {
-    if (!current_user_can('manage_options')) {
+    if (!current_user_can('ma_manage')) {
         return;
     }
     global $wpdb;
@@ -397,8 +405,8 @@ function ma_acc_admin() {
     $week = gmdate('Y-m-d H:i:s', time() - 7 * DAY_IN_SECONDS);
     $stats = [
         'total' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE google_sub NOT LIKE 'pending:%'"),
-        'pro' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE pro_until > '$now' AND pro_kind <> 'trial'"),
-        'trial' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE pro_until > '$now' AND pro_kind = 'trial'"),
+        'pro' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE pro_until > '$now' AND pro_kind <> 'trial' AND google_sub NOT LIKE 'pending:%'"),
+        'trial' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE pro_until > '$now' AND pro_kind = 'trial' AND google_sub NOT LIKE 'pending:%'"),
         'week' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE created_at > '$week' AND google_sub NOT LIKE 'pending:%'"),
         'active' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE last_seen > '$week' AND google_sub NOT LIKE 'pending:%'"),
     ];
@@ -441,6 +449,8 @@ function ma_acc_admin() {
         'endpoint' => rest_url('my-assistant/v1/login'),
         'ai' => ma_ai_settings() + ['source' => ma_ai_key_source(), 'tail' => substr(ma_ai_key(), -4)],
         'ai_stats' => ma_ai_today_stats(),
-        'push' => ['source' => ma_push_source(), 'admins' => (string) get_option('ma_admin_emails', '')],
+        'push' => ['source' => ma_push_source()],
+        'admins' => ma_admin_users(),
+        'can_settings' => current_user_can('manage_options'),
     ]);
 }

@@ -44,11 +44,24 @@ class FakeServer {
         {'id': '1', 'title': 'আজকের কাজের লিস্ট করেছেন?', 'body': 'চাপুন আর বলুন — কাল কী কী করবেন, লিখে রাখবো।', 'kind': 'daily', 'at_time': '21:00', 'active': '1'},
         {'id': '2', 'title': 'শুক্রবারের পরিকল্পনা', 'body': 'ছুটির দিনে কী কী করবেন?', 'kind': 'weekly', 'at_time': '20:30', 'active': '0'},
       ]};
-    } else if (p == '/login') {
-      body = {'session': 'c' * 64, 'admin': jsonDecode(r.body)['id_token'] == 'admin-token'};
+    } else if (p == '/admin/login') {
+      final j = jsonDecode(r.body);
+      if (j['email'] != 'boss@gmail.com' || j['password'] != 'long-password-123') return http.Response('{"code":"login"}', 401);
+      body = {'session': 'c' * 64, 'name': 'Boss'};
     }
     return http.Response.bytes(utf8.encode(jsonEncode(body)), 200);
   });
+}
+
+/// No fingerprint hardware and no Firebase in tests.
+class FakeDevice extends Device {
+  bool hasFingerprint = false;
+  @override
+  Future<bool> canFingerprint() async => hasFingerprint;
+  @override
+  Future<bool> fingerprint(String reason) async => true;
+  @override
+  Future<String?> pushToken() async => null;
 }
 
 Future<void> loadFonts() async {
@@ -72,7 +85,7 @@ Future<FakeServer> open(WidgetTester t, {bool signedIn = true}) async {
   await loadFonts();
   final server = FakeServer();
   final store = MemorySession()..value = signedIn ? 'c' * 64 : null;
-  await t.pumpWidget(AdminApp(api: Api(client: server.client, store: store, base: 'https://getmyassistant.app'), device: Device()));
+  await t.pumpWidget(AdminApp(api: Api(client: server.client, store: store, base: 'https://getmyassistant.app'), device: FakeDevice()));
   await settle(t);
   return server;
 }
@@ -121,19 +134,49 @@ void main() {
     await shot(t, 'notices');
   });
 
-  testWidgets('signed out: the sign-in page', (t) async {
-    await open(t, signedIn: false);
-    expect(find.text('Google দিয়ে লগইন'), findsOneWidget);
+  testWidgets('signed out: email and password, then in', (t) async {
+    final server = await open(t, signedIn: false);
+    expect(find.text('লগইন'), findsOneWidget);
     await shot(t, 'signin');
+    await t.enterText(find.byKey(const Key('email')), 'boss@gmail.com');
+    await t.enterText(find.byKey(const Key('password')), 'wrong-one');
+    await t.tap(find.byKey(const Key('sign-in')));
+    await settle(t);
+    expect(find.textContaining('মেলেনি'), findsOneWidget);
+    await t.enterText(find.byKey(const Key('password')), 'long-password-123');
+    await t.tap(find.byKey(const Key('sign-in')));
+    await settle(t);
+    await settle(t);
+    expect(find.text('২টা পেমেন্ট দেখার অপেক্ষায়'), findsOneWidget);
+    expect(server.calls.where((r) => r.url.path.endsWith('/admin/login')).length, 2);
   });
 
-  test('only admins get in', () async {
+  testWidgets('fingerprint lock when it is on', (t) async {
+    t.view.physicalSize = const Size(1170, 2532);
+    t.view.devicePixelRatio = 3.0;
+    addTearDown(t.view.reset);
+    await loadFonts();
+    final server = FakeServer();
+    final store = MemorySession()..value = 'c' * 64;
+    store.flags['fingerprint'] = true;
+    await t.pumpWidget(AdminApp(api: Api(client: server.client, store: store, base: 'https://x'), device: FakeDevice()));
+    await settle(t);
+    // FakeDevice says yes at once, so it opens.
+    expect(find.text('২টা পেমেন্ট দেখার অপেক্ষায়'), findsOneWidget);
+  });
+
+  test('only the session is kept; logout forgets it and the fingerprint', () async {
     final server = FakeServer();
     final store = MemorySession();
     final api = Api(client: server.client, store: store, base: 'https://x');
-    await expectLater(api.login('member-token'), throwsA(isA<ApiError>()));
+    await expectLater(api.login('boss@gmail.com', 'nope'), throwsA(isA<ApiError>()));
     expect(store.value, isNull);
-    await api.login('admin-token');
+    expect(await api.login('boss@gmail.com', 'long-password-123'), 'Boss');
     expect(store.value, 'c' * 64);
+    await api.setFingerprint(true);
+    expect(await api.fingerprintOn(), isTrue);
+    await api.logout();
+    expect(store.value, isNull);
+    expect(await api.fingerprintOn(), isFalse);
   });
 }

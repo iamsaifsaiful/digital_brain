@@ -46,7 +46,7 @@ jobs:
       - name: Build APK
         run: |
           set -o pipefail
-          flutter build apk --release --split-per-abi --dart-define=GOOGLE_WEB_CLIENT_ID=${{ vars.GOOGLE_WEB_CLIENT_ID }} 2>&1 | tee build.log || { bash ../tool/annotate_failures.sh build.log "Build failed"; exit 1; }
+          flutter build apk --release --split-per-abi 2>&1 | tee build.log || { bash ../tool/annotate_failures.sh build.log "Build failed"; exit 1; }
 
       - name: Publish pre-release
         env:

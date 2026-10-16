@@ -77,6 +77,7 @@ function ma_ai_settings() {
 }
 
 /** A new session for a member (60 days); only its hash is kept. */
+/** A session (members: 60 days; admins: 30). $user_id is ma_users.id, or the WordPress user for 'admin'. */
 function ma_ai_new_session($user_id, $app = 'member') {
     global $wpdb;
     $token = bin2hex(random_bytes(32));
@@ -85,7 +86,7 @@ function ma_ai_new_session($user_id, $app = 'member') {
         'user_id' => (int) $user_id,
         'token_hash' => hash('sha256', $token),
         'created_at' => $now,
-        'expires_at' => gmdate('Y-m-d H:i:s', time() + 60 * DAY_IN_SECONDS),
+        'expires_at' => gmdate('Y-m-d H:i:s', time() + ($app === 'admin' ? 30 : 60) * DAY_IN_SECONDS),
         'last_used' => $now,
         'app' => $app === 'admin' ? 'admin' : 'member',
     ]);
@@ -94,8 +95,8 @@ function ma_ai_new_session($user_id, $app = 'member') {
     return $token;
 }
 
-/** The member behind "Authorization: Bearer …", or null. */
-function ma_ai_member(WP_REST_Request $req) {
+/** The live session behind "Authorization: Bearer …" (member or admin), or null. */
+function ma_session_row(WP_REST_Request $req) {
     global $wpdb;
     $auth = (string) $req->get_header('authorization');
     if (!preg_match('/^Bearer\s+([a-f0-9]{64})$/i', trim($auth), $m)) {
@@ -106,10 +107,17 @@ function ma_ai_member(WP_REST_Request $req) {
         return null;
     }
     $wpdb->update(ma_ai_sessions_table(), ['last_used' => current_time('mysql', true)], ['id' => $s['id']]);
-    $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . ma_acc_table() . ' WHERE id = %d', $s['user_id']), ARRAY_A);
-    if ($row) {
-        $row['_app'] = $s['app'];
+    return $s;
+}
+
+/** The member (app user) behind the request, or null. Admin sessions are not members. */
+function ma_ai_member(WP_REST_Request $req) {
+    global $wpdb;
+    $s = ma_session_row($req);
+    if (!$s || $s['app'] !== 'member') {
+        return null;
     }
+    $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . ma_acc_table() . ' WHERE id = %d', $s['user_id']), ARRAY_A);
     if ($row) {
         $wpdb->update(ma_acc_table(), ['last_seen' => current_time('mysql', true)], ['id' => $row['id']]);
     }
@@ -222,7 +230,7 @@ function ma_ai_proxy(WP_REST_Request $req) {
 // ── Admin: the AI settings ──
 
 add_action('admin_post_ma_ai_settings', function () {
-    ma_acc_guard('ma_ai_settings');
+    ma_acc_guard('ma_ai_settings', 'manage_options');
     update_option('ma_ai_on', !empty($_POST['ai_on']) ? '1' : '0');
     update_option('ma_ai_per_user', max(1, min(500, (int) ($_POST['per_user'] ?? 50))));
     update_option('ma_ai_per_day', max(1, min(100000, (int) ($_POST['per_day'] ?? 2000))));

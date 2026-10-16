@@ -100,7 +100,7 @@ function ma_acc_render($v) {
                     <a class="<?php echo $tab === 'members' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'members']); ?>">সদস্য</a>
                     <a class="<?php echo $tab === 'payments' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'payments']); ?>">পেমেন্ট<?php if ($pending) : ?><i class="ma-badge"><?php echo esc_html(ma_acc_bn($pending)); ?></i><?php endif; ?></a>
                     <a class="<?php echo $tab === 'notices' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'notices']); ?>">নোটিফিকেশন</a>
-                    <a class="<?php echo $tab === 'settings' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'settings']); ?>">সেটিংস</a>
+                    <?php if (!empty($v['can_settings'])) : ?><a class="<?php echo $tab === 'settings' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'settings']); ?>">সেটিংস</a><?php endif; ?>
                 </nav>
             </div>
             <div class="ma-figures">
@@ -115,7 +115,7 @@ function ma_acc_render($v) {
             <div class="ma-toast <?php echo $v['msg_type'] === 'error' ? 'bad' : ''; ?>" role="status"><?php echo esc_html($v['msg']); ?></div>
         <?php endif; ?>
 
-        <?php if ($tab === 'settings') {
+        <?php if ($tab === 'settings' && !empty($v['can_settings'])) {
             ma_acc_render_settings($v);
         } elseif ($tab === 'payments') {
             ma_acc_render_payments($v);
@@ -562,19 +562,42 @@ function ma_acc_render_settings($v) {
             <button class="ma-btn" type="submit">রাখুন</button>
         </form>
     </section>
-    <?php $push = $v['push'] ?? ['source' => '', 'admins' => '']; ?>
+    <?php $push = $v['push'] ?? ['source' => '']; $post = esc_url(admin_url('admin-post.php')); ?>
+    <section class="ma-card pad">
+        <h2>অ্যাডমিন</h2>
+        <p class="muted ma-tip">এঁরা ইমেইল আর পাসওয়ার্ড দিয়ে অ্যাডমিন অ্যাপে (আর এই পাতায়) ঢুকতে পারবেন — পেমেন্ট অনুমোদন, সদস্য আর নোটিফিকেশন। সেটিংস বদলাতে পারবেন শুধু সাইটের মূল অ্যাডমিন। নতুন পেমেন্ট এলে সবার অ্যাডমিন অ্যাপে পুশ যাবে।</p>
+        <div class="ma-admins">
+            <?php foreach ($v['admins'] ?? [] as $a) : $site = user_can((int) $a->ID, 'manage_options'); ?>
+                <div class="ma-admin">
+                    <span class="ma-av" style="--h:<?php echo (int) ma_acc_hue($a->user_email); ?>"><?php echo esc_html(ma_acc_initials($a->display_name, $a->user_email)); ?></span>
+                    <div class="ma-who-text"><strong><?php echo esc_html($a->display_name); ?></strong><span><?php echo esc_html($a->user_email); ?></span></div>
+                    <?php if ($site) : ?>
+                        <span class="ma-pill pro">সাইটের মূল অ্যাডমিন</span>
+                    <?php else : ?>
+                        <form method="post" action="<?php echo $post; ?>" onsubmit="return confirm('এই অ্যাডমিনের অনুমতি তুলে নেবেন?')"><input type="hidden" name="action" value="ma_admin_remove"><input type="hidden" name="id" value="<?php echo (int) $a->ID; ?>"><?php wp_nonce_field('ma_admin_remove'); ?><button class="ma-btn small ghost" type="submit">সরান</button></form>
+                    <?php endif; ?>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <form method="post" action="<?php echo $post; ?>" class="ma-ai-row three" autocomplete="off">
+            <input type="hidden" name="action" value="ma_admin_add"><?php wp_nonce_field('ma_admin_add'); ?>
+            <label>নাম<input type="text" name="name" required></label>
+            <label>ইমেইল<input type="email" name="email" required autocomplete="off"></label>
+            <label>পাসওয়ার্ড (অন্তত ১০ অক্ষর)<input type="password" name="password" minlength="10" required autocomplete="new-password"></label>
+            <div><button class="ma-btn" type="submit">অ্যাডমিন যোগ করুন</button></div>
+        </form>
+    </section>
     <section class="ma-card pad">
         <div class="ma-ai-head">
             <div>
-                <h2>অ্যাডমিন অ্যাপ ও পুশ নোটিফিকেশন</h2>
-                <p class="muted">এই ইমেইলগুলো দিয়ে অ্যাডমিন অ্যাপে Google লগইন করা যাবে। নতুন পেমেন্ট এলে তাঁদের ফোনে পুশ যাবে, আর প্রো চালু হলে সদস্যের ফোনে। পুশ পাঠাতে Firebase-এর service account লাগে (ফ্রি)।</p>
+                <h2>পুশ নোটিফিকেশন (Firebase)</h2>
+                <p class="muted">নতুন পেমেন্ট এলে অ্যাডমিনদের ফোনে, আর প্রো চালু হলে সদস্যের ফোনে সাথে সাথে পুশ যায়। এর জন্য Firebase-এর service account লাগে (ফ্রি)।</p>
             </div>
             <span class="ma-pill <?php echo $push['source'] !== '' ? 'pro' : 'expired'; ?>"><?php echo $push['source'] !== '' ? 'পুশ চালু' : 'Firebase নেই'; ?></span>
         </div>
         <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
             <input type="hidden" name="action" value="ma_push_settings">
             <?php wp_nonce_field('ma_push_settings'); ?>
-            <label>অ্যাডমিনদের Google ইমেইল (কমা দিয়ে)<input type="text" name="admins" value="<?php echo esc_attr($push['admins']); ?>" placeholder="iamsaifsaiful@gmail.com, admin2@gmail.com" spellcheck="false"></label>
             <?php if ($push['source'] === 'config') : ?>
                 <p class="muted ma-tip">Firebase service account <code>wp-config.php</code> থেকে নেওয়া হচ্ছে।</p>
             <?php else : ?>
@@ -743,6 +766,12 @@ function ma_acc_styles() {
     .ma-dl{display:grid;grid-template-columns:120px 1fr;gap:8px 12px;margin:0;font-size:14px}
     .ma-dl dt{color:var(--mut)}
     .ma-dl dd{margin:0;font-weight:500;word-break:break-word}
+    .ma-admins{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;margin:8px 0 6px}
+    .ma-admin{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+    .ma-admin .ma-who-text{flex:1;min-width:0}
+    .ma-admin form{margin:0}
+    .ma-ai-row.three>div{display:flex;align-items:flex-end;padding-bottom:6px}
+    .ma label input[type=email]{height:42px}
     .ma-ai-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
     .ma-ai-head p{margin:4px 0 0;max-width:720px;line-height:1.6}
     .ma-ai-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0 4px}

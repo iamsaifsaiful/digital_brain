@@ -293,7 +293,7 @@ add_action('admin_post_ma_pay_review', function () {
 });
 
 add_action('admin_post_ma_pay_settings', function () {
-    ma_acc_guard('ma_pay_settings');
+    ma_acc_guard('ma_pay_settings', 'manage_options');
     update_option('ma_pay_yearly', max(1, (int) ($_POST['yearly'] ?? 999)));
     update_option('ma_pay_monthly', max(1, (int) ($_POST['monthly'] ?? 99)));
     update_option('ma_pay_methods', sanitize_textarea_field(wp_unslash($_POST['methods'] ?? '')));

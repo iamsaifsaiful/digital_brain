@@ -102,25 +102,20 @@ function ma_push_send(array $tokens, $title, $body, array $data = []) {
     return $sent;
 }
 
-/** Comma-separated Google emails that may use the admin app. */
-function ma_admin_emails() {
-    return array_values(array_filter(array_map(function ($e) {
-        return strtolower(trim($e));
-    }, explode(',', (string) get_option('ma_admin_emails', '')))));
+/** WordPress users who may use the admin app (role "My Assistant অ্যাডমিন" or site administrators). */
+function ma_admin_users() {
+    return get_users(['capability' => 'ma_manage', 'orderby' => 'display_name', 'fields' => ['ID', 'display_name', 'user_email']]);
 }
 
 function ma_push_admins($title, $body, array $data = []) {
     global $wpdb;
-    $admins = ma_admin_emails();
-    if (!$admins) {
-        return 0;
+    $rows = $wpdb->get_results('SELECT user_id, fcm_token FROM ' . ma_ai_sessions_table() . " WHERE app = 'admin' AND fcm_token <> '' AND expires_at > UTC_TIMESTAMP()", ARRAY_A);
+    $tokens = [];
+    foreach ($rows as $r) {
+        if (user_can((int) $r['user_id'], 'ma_manage')) {
+            $tokens[] = $r['fcm_token'];
+        }
     }
-    $in = implode(',', array_fill(0, count($admins), '%s'));
-    $tokens = $wpdb->get_col($wpdb->prepare(
-        'SELECT s.fcm_token FROM ' . ma_ai_sessions_table() . ' s JOIN ' . ma_acc_table() . " u ON u.id = s.user_id
-         WHERE s.app = 'admin' AND s.fcm_token <> '' AND s.expires_at > UTC_TIMESTAMP() AND LOWER(u.email) IN ($in)",
-        $admins
-    ));
     return ma_push_send($tokens, $title, $body, $data);
 }
 
@@ -144,7 +139,7 @@ add_action('rest_api_init', function () {
 /** The phone's Firebase token, kept with its session. */
 function ma_push_device(WP_REST_Request $req) {
     global $wpdb;
-    $row = ma_ai_member($req);
+    $row = ma_session_row($req);
     if (!$row) {
         return new WP_Error('session', 'sign in again', ['status' => 401]);
     }
@@ -161,11 +156,7 @@ function ma_push_device(WP_REST_Request $req) {
 }
 
 add_action('admin_post_ma_push_settings', function () {
-    ma_acc_guard('ma_push_settings');
-    $emails = array_filter(array_map(function ($e) {
-        return sanitize_email(trim($e));
-    }, explode(',', (string) wp_unslash($_POST['admins'] ?? ''))));
-    update_option('ma_admin_emails', implode(', ', $emails));
+    ma_acc_guard('ma_push_settings', 'manage_options');
     $json = trim((string) wp_unslash($_POST['fcm_account'] ?? ''));
     if (!empty($_POST['fcm_remove'])) {
         delete_option('ma_fcm_account');
@@ -178,11 +169,44 @@ add_action('admin_post_ma_push_settings', function () {
         update_option('ma_fcm_account', wp_json_encode($j), false);
         delete_transient('ma_fcm_token');
     }
-    ma_acc_back('অ্যাডমিন ও পুশের সেটিংস রাখা হয়েছে।', 'ok', ['tab' => 'settings']);
+    ma_acc_back('পুশের সেটিংস রাখা হয়েছে।', 'ok', ['tab' => 'settings']);
+});
+
+/** A new admin account (email + password) for the admin app and this page. */
+add_action('admin_post_ma_admin_add', function () {
+    ma_acc_guard('ma_admin_add', 'manage_options');
+    $email = sanitize_email(wp_unslash($_POST['email'] ?? ''));
+    $name = sanitize_text_field(wp_unslash($_POST['name'] ?? ''));
+    $pass = (string) wp_unslash($_POST['password'] ?? '');
+    if (!is_email($email) || strlen($pass) < 10) {
+        ma_acc_back('ঠিক ইমেইল আর অন্তত ১০ অক্ষরের পাসওয়ার্ড দিন।', 'error', ['tab' => 'settings']);
+    }
+    $existing = get_user_by('email', $email);
+    if ($existing) {
+        $existing->add_role('ma_admin');
+        ma_acc_back('এই ইমেইলের অ্যাকাউন্ট আগেই ছিল — অ্যাডমিন করা হলো (পাসওয়ার্ড বদলায়নি)।', 'ok', ['tab' => 'settings']);
+    }
+    $id = wp_insert_user(['user_login' => $email, 'user_email' => $email, 'user_pass' => $pass, 'display_name' => $name ?: $email, 'role' => 'ma_admin']);
+    if (is_wp_error($id)) {
+        ma_acc_back('অ্যাডমিন যোগ হয়নি: ' . $id->get_error_message(), 'error', ['tab' => 'settings']);
+    }
+    ma_acc_back('অ্যাডমিন যোগ হলো। এই ইমেইল আর পাসওয়ার্ড দিয়ে অ্যাডমিন অ্যাপে লগইন করা যাবে।', 'ok', ['tab' => 'settings']);
+});
+
+/** Takes the admin role away and ends their app sessions (site administrators stay). */
+add_action('admin_post_ma_admin_remove', function () {
+    ma_acc_guard('ma_admin_remove', 'manage_options');
+    global $wpdb;
+    $user = get_user_by('id', (int) ($_POST['id'] ?? 0));
+    if ($user) {
+        $user->remove_role('ma_admin');
+        $wpdb->delete(ma_ai_sessions_table(), ['user_id' => $user->ID, 'app' => 'admin']);
+    }
+    ma_acc_back('অ্যাডমিনের অনুমতি তুলে নেওয়া হলো, তাঁর অ্যাপ থেকেও লগআউট হলো।', 'ok', ['tab' => 'settings']);
 });
 
 add_action('admin_post_ma_push_test', function () {
-    ma_acc_guard('ma_push_test');
+    ma_acc_guard('ma_push_test', 'manage_options');
     $n = ma_push_admins('পরীক্ষা', 'My Assistant অ্যাডমিন অ্যাপে পুশ ঠিকমতো আসছে।', ['type' => 'test']);
     ma_acc_back($n ? 'পরীক্ষার পুশ গেছে ' . ma_acc_bn($n) . 'টা ফোনে।' : 'কোনো অ্যাডমিন ফোনে যায়নি — অ্যাডমিন অ্যাপে লগইন করা আছে আর Firebase ঠিক আছে কি না দেখুন।', $n ? 'ok' : 'error', ['tab' => 'settings']);
 });

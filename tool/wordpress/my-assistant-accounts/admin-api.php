@@ -10,13 +10,45 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-/** The admin behind the request, or null. */
+/** The admin behind the request (an admin-app session of a WordPress user who may manage), or null. */
 function ma_admin_of(WP_REST_Request $req) {
-    $row = ma_ai_member($req);
-    if (!$row || ($row['_app'] ?? '') !== 'admin' || !in_array(strtolower($row['email']), ma_admin_emails(), true)) {
+    $s = ma_session_row($req);
+    if (!$s || $s['app'] !== 'admin') {
         return null;
     }
-    return $row;
+    $user = get_user_by('id', (int) $s['user_id']);
+    if (!$user || !user_can($user, 'ma_manage')) {
+        return null;
+    }
+    return ['id' => $user->ID, 'email' => $user->user_email, 'name' => $user->display_name, 'session' => (int) $s['id']];
+}
+
+/**
+ * Email + password (a WordPress account with the admin role). Five wrong
+ * tries for an address or from a network wait 15 minutes.
+ */
+function ma_admin_login(WP_REST_Request $req) {
+    global $wpdb;
+    $email = strtolower(sanitize_email((string) $req->get_param('email')));
+    $pass = (string) $req->get_param('password');
+    $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : 'x';
+    $keys = ['ma_adm_fail_' . md5($email), 'ma_adm_fail_' . md5($ip)];
+    foreach ($keys as $k) {
+        if ((int) get_transient($k) >= 5) {
+            return new WP_Error('wait', 'too many tries', ['status' => 429]);
+        }
+    }
+    $user = $email !== '' && $pass !== '' ? wp_authenticate($email, $pass) : null;
+    if (!$user || is_wp_error($user) || !user_can($user, 'ma_manage')) {
+        foreach ($keys as $k) {
+            set_transient($k, (int) get_transient($k) + 1, 15 * MINUTE_IN_SECONDS);
+        }
+        return new WP_Error('login', 'wrong email or password', ['status' => 401]);
+    }
+    foreach ($keys as $k) {
+        delete_transient($k);
+    }
+    return ['session' => ma_ai_new_session($user->ID, 'admin'), 'name' => $user->display_name, 'email' => $user->user_email];
 }
 
 function ma_admin_route($path, $method, $cb) {
@@ -71,6 +103,23 @@ function ma_admin_payment_json($p) {
 }
 
 add_action('rest_api_init', function () {
+    register_rest_route('my-assistant/v1', '/admin/login', [
+        'methods' => 'POST',
+        'callback' => 'ma_admin_login',
+        'permission_callback' => '__return_true', // the password is the check
+    ]);
+
+    ma_admin_route('/logout', 'POST', function (WP_REST_Request $req) {
+        global $wpdb;
+        $wpdb->delete(ma_ai_sessions_table(), ['id' => ma_admin_of($req)['session']]);
+        return ['ok' => true];
+    });
+
+    ma_admin_route('/me', 'GET', function (WP_REST_Request $req) {
+        $a = ma_admin_of($req);
+        return ['name' => $a['name'], 'email' => $a['email']];
+    });
+
     ma_admin_route('/summary', 'GET', function () {
         global $wpdb;
         $t = ma_acc_table();
@@ -79,8 +128,8 @@ add_action('rest_api_init', function () {
         $ai = ma_ai_today_stats();
         return [
             'members' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $t WHERE google_sub NOT LIKE 'pending:%'"),
-            'pro' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $t WHERE pro_until > '$now' AND pro_kind <> 'trial'"),
-            'trial' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $t WHERE pro_until > '$now' AND pro_kind = 'trial'"),
+            'pro' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $t WHERE pro_until > '$now' AND pro_kind <> 'trial' AND google_sub NOT LIKE 'pending:%'"),
+            'trial' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $t WHERE pro_until > '$now' AND pro_kind = 'trial' AND google_sub NOT LIKE 'pending:%'"),
             'new_week' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $t WHERE created_at > '$week' AND google_sub NOT LIKE 'pending:%'"),
             'active_week' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $t WHERE last_seen > '$week' AND google_sub NOT LIKE 'pending:%'"),
             'pending_payments' => ma_pay_pending_count(),
