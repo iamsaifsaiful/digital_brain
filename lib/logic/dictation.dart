@@ -2,7 +2,7 @@
 /// চান?" means, and when a spoken piece ends the speech.
 library;
 
-import 'parser.dart' show normalize, words;
+import 'parser.dart' show fold, normalize, words;
 
 enum Continue {
   /// "না", "এইটুকুই", "বলা শেষ": the speech is complete — act on all of it.
@@ -22,6 +22,7 @@ String _n(String s) => normalize(s.replaceAll(RegExp(r'[।?!,.;:]'), ' ')).trim
 
 const _finishPhrases = [
   'না', 'নাহ', 'না না', 'না আর কিছু নেই', 'আর কিছু নেই', 'আর কিছু না', 'না আর না', 'এইটুকুই', 'এটুকুই', 'এই টুকুই', 'এতটুকুই', 'বলা শেষ', 'শেষ', 'আমার বলা শেষ', 'শেষ হয়েছে',
+  'বলতে চাই না', 'না বলতে চাই না', 'আর বলতে চাই না', 'আর নেই', 'না আর নেই', 'এই পর্যন্ত', 'এই পর্যন্তই', 'আর কিছু বলব না', 'আর কিছু বলার নেই', 'কিছু বলার নেই',
   'এখন উত্তর দাও', 'উত্তর দাও', 'পাঠাও', 'পাঠিয়ে দাও', 'ঠিক আছে পাঠাও', 'না এইটুকুই', 'no', 'thats all', "that's all", 'done',
 ];
 const _morePhrases = ['হ্যাঁ', 'হ্যা', 'হুম', 'জি', 'জ্বি', 'জি হ্যাঁ', 'আরও আছে', 'আরো আছে', 'আছে', 'আরও বলব', 'আরো বলব', 'আরও বলবো', 'আরো বলবো', 'একটু অপেক্ষা করো', 'অপেক্ষা করো', 'একটু থামো', 'দাঁড়াও', 'yes'];
@@ -34,6 +35,9 @@ const _yesLead = ['হ্যাঁ', 'হ্যা', 'জি', 'জ্বি', '
   final t = _n(said);
   if (t.isEmpty) return (Continue.more, '');
   if (_finishPhrases.map(_n).contains(t)) return (Continue.finish, '');
+  // "না, আর বলতে চাই না" / "আর কিছু বলার নেই".
+  final (before, done) = splitDoneTail(said);
+  if (done && (before.isEmpty || _finishPhrases.map(_n).contains(_n(before)))) return (Continue.finish, '');
   if (_cancelPhrases.map(_n).contains(t)) return (Continue.cancel, '');
   if (_morePhrases.map(_n).contains(t)) return (Continue.more, '');
   // "হ্যাঁ, আর কাল বাজারে ৭০০ টাকা খরচ" → the words after "হ্যাঁ".
@@ -55,12 +59,39 @@ const _yesLead = ['হ্যাঁ', 'হ্যা', 'জি', 'জ্বি', '
   return (Continue.content, raw);
 }
 
+/// "আর বলতে চাই না", "আর কিছু বলার নেই", "এই পর্যন্তই" at the END of a
+/// piece: the person is telling the app they are done talking — that is
+/// not something to save. Returns the words before it and whether such an
+/// ending was found. A leading "না" is part of it only when followed by
+/// "আর" ("…দিলাম, না আর বলতে চাই না"); "দিলাম না" alone is left alone.
+(String, bool) splitDoneTail(String said) {
+  final raw = fold(said.trim());
+  final m = _doneTail.firstMatch(raw);
+  if (m == null) return (raw, false);
+  final rest = raw.substring(0, m.start).replaceAll(RegExp(r'[\s,।;:—-]+$'), '').trim();
+  return (rest, true);
+}
+
+final _doneTail = RegExp(fold(
+  r'(?:^|[\s,।;:—-])'
+  r'(?:(?:না|নাহ|ব্যস|ব্যাস|বাস|আচ্ছা|ঠিক আছে)[\s,।]+)?'
+  r'(?:'
+  r'আর\s+(?:কিছু\s+)?(?:বলতে\s+চাই\s+না|বলতে\s+চাচ্ছি\s+না|বলব\s+না|বলবো\s+না|বলার\s+(?:নেই|নাই))|আর\s+কিছু\s+(?:নেই|নাই)'
+  r'|(?:আমার\s+)?বলা\s+শেষ(?:\s+হয়েছে|\s+হইছে)?|আমার\s+কথা\s+শেষ'
+  r'|এই\s*পর্যন্ত(?:ই)?|এইটুকুই|এটুকুই|এই\s+টুকুই|এতটুকুই'
+  r'|ব্যস|ব্যাস'
+  r')'
+  r'[\s,।!.]*$'),
+);
+
 /// A piece said while collecting that ends the speech by itself ("বলা শেষ",
 /// "এইটুকুই", "পাঠাও") — a bare "না" inside the speech does not.
 bool endsSpeech(String said) {
   final t = _n(said);
   const ends = ['বলা শেষ', 'আমার বলা শেষ', 'এইটুকুই', 'এটুকুই', 'এখন উত্তর দাও', 'পাঠাও', 'পাঠিয়ে দাও', 'শেষ'];
-  return ends.map(_n).contains(t);
+  if (ends.map(_n).contains(t)) return true;
+  final (before, done) = splitDoneTail(said);
+  return done && before.isEmpty;
 }
 
 /// The whole speech from its pieces, in order (a piece said twice on

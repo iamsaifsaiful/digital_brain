@@ -11,6 +11,7 @@ import '../logic/me.dart';
 import '../logic/answers.dart';
 import '../logic/bn.dart';
 import '../logic/cash.dart';
+import '../logic/dictation.dart' show splitDoneTail;
 import '../logic/categories.dart';
 import '../logic/health.dart';
 import '../logic/ledger.dart';
@@ -512,10 +513,15 @@ class ChatController extends ChangeNotifier {
 
   /// One thing the user said, typed or tapped. Returns what to say aloud.
   Future<String> hear(String said) async {
-    final t = said.trim();
-    if (t.isEmpty) return '';
+    final shown = said.trim();
+    if (shown.isEmpty) return '';
+    // "…, না আর বলতে চাই না": the closing words only say the person is done
+    // talking — they are not something to save or answer.
+    final (body, doneTail) = splitDoneTail(shown);
+    final t = doneTail && body.isNotEmpty ? body : shown;
+    if (doneTail) Trace.log('understood', 'closing words left out', {'kept': t});
     ended = false;
-    messages.add(ChatMessage.user(t));
+    messages.add(ChatMessage.user(shown));
     notifyListeners();
     final out = <String>[];
     // "শেষ" ends a list being collected; it is not "stop listening".
@@ -1444,10 +1450,13 @@ class ChatController extends ChangeNotifier {
         messages.add(ChatMessage.app('${bnDigits(_collected.length)}. $t', info: true));
         return true;
       case ChatWait.yesNo:
+        // "না, রেখো না": a plain no — checked first, so "রেখো" is never
+        // taken as a corrected name or kind.
+        final refused = refusesSave(t);
         // "না, সাতশ" / "পাঁচশ না, সাতশ": not a no — the amount corrected; ask again.
         final cur = _current;
         final fixed = _correctedAmount(t);
-        if (fixed != null && !_askingAll && (cur is LedgerAdd || cur is CashAdd)) {
+        if (!refused && fixed != null && !_askingAll && (cur is LedgerAdd || cur is CashAdd)) {
           wait = ChatWait.none;
           choices = const [];
           if (cur is LedgerAdd) {
@@ -1460,8 +1469,39 @@ class ChatController extends ChangeNotifier {
         }
         // "না, এগারোটায় করো", "না, করিমকে", "না, কাল": the waiting action
         // corrected — not a no. It is shown again with the change.
-        if (!_askingAll && await _editPending(t, out)) return true;
-        final yn = yesNo(t);
+        if (!refused && !_askingAll && await _editPending(t, out)) return true;
+        // "২ নম্বরটা রেখো না", "বলতে চাই না — ওটা রাখার মত কিছু না",
+        // "শুধু প্রথমটা রাখো": about some of the listed items, not all.
+        if (_askingAll && _queue.length > 1) {
+          final lines = [for (final c in _queue) summaryLine(c)];
+          final named = mentionedItems(t, lines);
+          if (named.isNotEmpty) {
+            final keepOnly = keepsOnly(t) || !dropsItem(t);
+            final keep = [for (var i = 0; i < _queue.length; i++) if (named.contains(i) == keepOnly) _queue[i]];
+            Trace.log('understood', 'some of the list', {'named': named.map((i) => i + 1).join(','), 'keep': keep.length});
+            _queue
+              ..clear()
+              ..addAll(keep);
+            if (keep.isEmpty) {
+              _askingAll = false;
+              wait = ChatWait.none;
+              choices = const [];
+              _say(out, tr('আচ্ছা, কিছুই রাখলাম না।'));
+              return true;
+            }
+            final dropped = lines.length - keep.length;
+            _ask(
+                out,
+                keep.length == 1
+                    ? trf('ঠিক আছে, {0}টা বাদ দিলাম। বাকিটা রেখে দিই?', [bnDigits(dropped)])
+                    : trf('ঠিক আছে, {0}টা বাদ দিলাম। বাকি {1}টা রেখে দিই?', [bnDigits(dropped), bnDigits(keep.length)]),
+                ChatWait.yesNo,
+                choices: _yesNoChoices,
+                facts: [for (final c in keep) summaryLine(c)]);
+            return true;
+          }
+        }
+        final yn = refused ? false : yesNo(t);
         if (yn == null) {
           if (_looksNew(t)) return false;
           _say(out, tr('ঠিক ধরতে পারিনি। “হ্যাঁ” বা “না” বলেন।'));

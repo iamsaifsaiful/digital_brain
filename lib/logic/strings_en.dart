@@ -1273,6 +1273,8 @@ const enStrings = <String, String>{
   'ঠিক আছে, {0} নম্বর রেখে দিলাম।': 'OK, saved {0}\'s number.',
   'ঠিক আছে, {0} মনে করিয়ে দেব।': 'OK, I\'ll remind you {0}.',
   'ঠিক আছে, {0}-এ মনে করিয়ে দেব।': 'OK, I\'ll remind you {0}.',
+  'ঠিক আছে, {0}টা বাদ দিলাম। বাকি {1}টা রেখে দিই?': 'OK, I left out {0}. Save the other {1}?',
+  'ঠিক আছে, {0}টা বাদ দিলাম। বাকিটা রেখে দিই?': 'OK, I left out {0}. Save the rest?',
   'ঠিক আছে, এটা লেনদেনের খাতায় রাখা হলো না।': 'OK, this wasn\'t added to the ledger.',
   'ঠিক আছে, কাজের তালিকায় তুললাম।': 'OK, added to the task list.',
   'ঠিক আছে, কিছু করছি না — যেমন আছে তেমনই থাকবে।': 'OK, I am not doing anything — it stays as it is.',

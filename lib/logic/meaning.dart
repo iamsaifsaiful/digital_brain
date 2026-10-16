@@ -218,3 +218,57 @@ String traceLine(Command c) => switch (c) {
       ManageItem(:final action) => 'বদল/মোছা: $action',
       _ => c.runtimeType.toString(),
     };
+
+/// Which of the listed items ("১. ইসমাইল — ৫,০০০ টাকা", "২. বলতে চাই না")
+/// a reply points at: by number ("২ নম্বরটা", "দ্বিতীয়টা", "শেষেরটা") or
+/// by repeating its words ("বলতে চাই না এটা রাখার মত কিছু না" → item 2).
+/// Empty when the reply names none, or names them all equally.
+List<int> mentionedItems(String said, List<String> lines) {
+  final t = _n(said);
+  if (lines.isEmpty || t.isEmpty) return const [];
+  final picked = <int>{};
+  const ordinals = [
+    ['প্রথম', 'এক নম্বর', '১ নম্বর', '1 নম্বর', 'এক নং', '১ নং'],
+    ['দ্বিতীয়', 'দুই নম্বর', '২ নম্বর', '2 নম্বর', 'দুই নং', '২ নং'],
+    ['তৃতীয়', 'তিন নম্বর', '৩ নম্বর', '3 নম্বর', 'তিন নং', '৩ নং'],
+    ['চতুর্থ', 'চার নম্বর', '৪ নম্বর', '4 নম্বর', 'চার নং', '৪ নং'],
+    ['পঞ্চম', 'পাঁচ নম্বর', '৫ নম্বর', '5 নম্বর', 'পাঁচ নং', '৫ নং'],
+  ];
+  for (var i = 0; i < lines.length && i < ordinals.length; i++) {
+    if (ordinals[i].any((o) => t.contains(_n(o)))) picked.add(i);
+  }
+  if (RegExp(fold(r'শেষের(?:টা|টি)|শেষটা|সবশেষের|লাস্টের')).hasMatch(t)) picked.add(lines.length - 1);
+  if (picked.isNotEmpty) return picked.toList()..sort();
+  // By their words: the item whose own words the reply repeats most.
+  const common = {'টাকা', 'লেনদেন', 'কাজ', 'নোট', 'রিমাইন্ডার', 'খরচ', 'আয়', 'আজ', 'আজকে', 'কাল', 'আর', 'এটা', 'ওটা', 'টা', 'না', 'হ্যাঁ'};
+  // Compared by stem: "সজীবের" / "সজীবকে", "মিটিংটা" / "মিটিং".
+  String stem(String w) {
+    final m = RegExp(fold(r'^(.{2,}?)(?:কেও|কে|দের|এর|ের|রে|টার|টা|টি|র)$')).firstMatch(w);
+    return m == null ? w : m.group(1)!;
+  }
+  final commonN = common.map(_n).toSet();
+  final mine = words(t).map(stem).toSet();
+  final scores = <int>[
+    for (final l in lines)
+      words(_n(l.replaceAll(RegExp(r'[—–:-]'), ' '))).where((w) => w.length > 1 && !RegExp(r'^\d').hasMatch(w) && !commonN.contains(w)).map(stem).toSet().where(mine.contains).length,
+  ];
+  final best = scores.fold(0, (a, b) => b > a ? b : a);
+  final top = [for (var i = 0; i < scores.length; i++) if (scores[i] == best) i];
+  // Two shared words, or one that only a single item has.
+  if (best == 0 || (best == 1 && top.length > 1)) return const [];
+  return top.length == lines.length ? const [] : top;
+}
+
+/// A reply about listed items that says "not this one": "না", "বাদ",
+/// "রেখো না", "লাগবে না", "রাখার মত কিছু না".
+bool dropsItem(String said) {
+  final t = _n(said);
+  return RegExp(fold(r'(?:^|\s)(?:না|নাহ|নয়|বাদ|বাতিল|মুছে|লাগবে না|দরকার নেই|দরকার নাই|রেখো না|রাখবে না|রাখবেন না|রাখার মত(?:ো)? কিছু না|ভুল)(?:\s|$)')).hasMatch(t) || t.endsWith(_n('রাখার মত কিছু')) || t.endsWith(_n('রাখার মতো কিছু'));
+}
+
+/// "শুধু ১ নম্বরটা রাখো": keep only the named ones.
+bool keepsOnly(String said) => RegExp(fold(r'(?:^|\s)(?:শুধু|কেবল|শুধুমাত্র)(?:\s|$)')).hasMatch(_n(said));
+
+/// "রেখো না", "লিখো না", "সেভ কোরো না": a plain refusal of what is waiting
+/// to be saved — never a name or a correction ("না, রেখো" is not a person).
+bool refusesSave(String said) => RegExp(fold(r'(?:^|\s)(?:রেখো|রেখ|রাখো|রাখবে|রাখবেন|রাখিস|লিখো|লিখ|লিখবে|লিখবেন|সেভ\s+(?:কোরো|করো|করবেন))\s+না(?:\s|$)')).hasMatch(_n(said));

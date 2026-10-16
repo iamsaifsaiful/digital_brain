@@ -529,8 +529,10 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
           _keepListening();
           return;
         case Continue.content:
-          _addPiece(content);
-          if (finishTap) {
+          // "হ্যাঁ, বাজারে ৭০০ টাকা, আর কিছু বলার নেই": add, then it is done.
+          final (body, done) = splitDoneTail(content);
+          if (body.isNotEmpty) _addPiece(body);
+          if (finishTap || done) {
             unawaited(_submitDraft());
             return;
           }
@@ -540,6 +542,19 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     }
     if (_draft.isNotEmpty && endsSpeech(w)) {
       _submitDraft();
+      return;
+    }
+    // "…৫০০০ টাকা দিলাম, না আর বলতে চাই না": the words before are kept and
+    // the whole speech goes at once — the closing words are not content.
+    final (body, done) = splitDoneTail(w);
+    if (done) {
+      Trace.log('speech', 'closing words heard', {'kept': body});
+      if (body.isNotEmpty) _addPiece(body);
+      if (_draft.isNotEmpty) {
+        unawaited(_submitDraft());
+      } else {
+        unawaited(_stopListening());
+      }
       return;
     }
     _addPiece(w);
@@ -620,7 +635,9 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   /// closed app does not lose it; cleared once sent or dropped.
   Future<void> _saveDraft() async {
     try {
-      await _brain.services.lock.keys.write('voice_draft', _draft.join('\n'));
+      final keys = _brain.services.lock.keys;
+      await keys.write('voice_draft', _draft.join('\n'));
+      await keys.write('voice_draft_at', _draft.isEmpty ? '' : DateTime.now().toIso8601String());
     } catch (_) {}
   }
 
@@ -631,10 +648,18 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
       final keys = _brain.services.lock.keys;
       final left = (await keys.read('voice_draft') ?? '').trim();
       if (left.isEmpty || !mounted) return;
+      final at = DateTime.tryParse(await keys.read('voice_draft_at') ?? '');
       await keys.write('voice_draft', '');
+      await keys.write('voice_draft_at', '');
+      // Only speech cut off a little while ago is worth bringing back; an
+      // old one would just be in the way.
+      if (at != null && DateTime.now().difference(at) > const Duration(minutes: 30)) return;
       final text = left.split('\n').join(' ');
       _text.text = text;
       _text.selection = TextSelection.collapsed(offset: text.length);
+      // Opened to talk: the box is not on screen, so a line about it would
+      // only cover the voice view. It waits quietly in the box.
+      if (widget.listen) return;
       _chat.addInfo(tr('আগের বার বলা অসম্পূর্ণ কথাটা লেখার ঘরে রাখা আছে — দেখে পাঠান, বা মুছে দিন।'));
     } catch (_) {}
   }
