@@ -62,7 +62,8 @@ jobs:
           set -o pipefail
           # One APK for every phone (64-bit, 32-bit and x86), plus a smaller one per CPU type.
           # Google sign-in and our server, when set up (repository variables).
-          DEFINES="--dart-define=GOOGLE_WEB_CLIENT_ID=${{ vars.GOOGLE_WEB_CLIENT_ID }} --dart-define=API_BASE=${{ vars.API_BASE }}"
+          # Google Web Client ID and the server address are in the code (not secret).
+          DEFINES=""
           flutter build apk --release $DEFINES 2>&1 | tee build.log || { bash tool/annotate_failures.sh build.log "Build failed"; exit 1; }
           flutter build apk --release --split-per-abi $DEFINES 2>&1 | tee -a build.log || { bash tool/annotate_failures.sh build.log "Build failed"; exit 1; }
 

@@ -42,7 +42,7 @@ jobs:
       - name: Build APK
         run: |
           set -o pipefail
-          DEFINES="--dart-define=EDITION=play_preview --dart-define=GOOGLE_WEB_CLIENT_ID=${{ vars.GOOGLE_WEB_CLIENT_ID }} --dart-define=API_BASE=${{ vars.API_BASE }}"
+          DEFINES="--dart-define=EDITION=play_preview"
           flutter build apk --release --split-per-abi $DEFINES 2>&1 | tee build.log || { bash tool/annotate_failures.sh build.log "Build failed"; exit 1; }
 
       - name: Publish pre-release

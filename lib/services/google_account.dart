@@ -22,7 +22,7 @@ import '../logic/server_notices.dart';
 
 /// The OAuth "Web client" ID from Google Cloud (passed at build time with
 /// `--dart-define=GOOGLE_WEB_CLIENT_ID=…`). Empty until it is set up.
-const googleWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
+const googleWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID', defaultValue: '611798531174-n31emvhp4bhvuh2he9rp9njirsi3ch47.apps.googleusercontent.com');
 
 /// Our server: the WordPress site (override with `--dart-define=API_BASE=…`).
 const apiBase = String.fromEnvironment('API_BASE', defaultValue: 'https://getmyassistant.app');
