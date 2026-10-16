@@ -9,7 +9,6 @@ import 'package:digital_brain/state/chat.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:digital_brain/screens/chat_home.dart';
-import 'package:flutter/material.dart';
 
 import 'app_test.dart' show start, settle;
 
