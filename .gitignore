@@ -22,7 +22,6 @@ android/app/build.gradle*
 android/build.gradle*
 android/settings.gradle*
 android/gradle.properties
-android/app/src/main/res/mipmap-*dpi/
 android/app/src/debug/
 android/app/src/profile/
 android/app/src/main/java/
