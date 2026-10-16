@@ -495,8 +495,19 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
 
   /// Quiet after speaking: "আর কিছু বলতে চান?".
   Future<void> _quietAfterSpeech() async {
-    // Quiet is not "done": the user is asked, and nothing is acted on until
-    // they say it is all (or tap a button).
+    // A whole question or request by itself ("আমি কার কাছে কত টাকা পাব?",
+    // "রহিমকে ৫০০ টাকা ধার দিলাম"): answered / shown for its one
+    // confirmation at once — asking "আর কিছু বলতে চান?" first is only in
+    // the way. Speech left open ("…আর", "খরচ হচ্ছে কোন") or not understood
+    // is asked about, and nothing is acted on until the user says it is all.
+    final whole = assemble(_draft);
+    // Said in one breath only: several pieces with pauses between are a
+    // longer speech, and the user is asked before it is acted on.
+    if (_draft.length == 1 && whole.isNotEmpty && _chat.isCompleteRequest(whole)) {
+      Trace.log('speech', 'complete — sent without asking for more', {'text': whole});
+      await _submitDraft();
+      return;
+    }
     await _askMore();
   }
 

@@ -1289,6 +1289,8 @@ const enStrings = <String, String>{
   'ঠিক আছে, ‘{0}’ বিভাগে আছি। এখন যা বলবেন, এখানে রাখব।': 'OK, I\'m in ‘{0}’. What you say now goes here.',
   'ঠিক আছে, ‘{0}’ বিভাগে রেখে দিলাম।': 'OK, saved in ‘{0}’.',
   'ঠিক আছে, “{0}” আবার বাকি কাজের তালিকায় রাখলাম।': 'OK, “{0}” is back on the to-do list.',
+  'ঠিক আছে। তাহলে এগুলো রেখে দিই — হ্যাঁ, নাকি না?': 'OK. So shall I save these — yes or no?',
+  'ঠিক আছে। তাহলে এটা রেখে দিই — হ্যাঁ, নাকি না?': 'OK. So shall I save this — yes or no?',
   'ঠিক এই নামে কিছু পেলাম না। সামনের রিমাইন্ডারগুলো:\n{0}': 'Nothing with that name. Upcoming reminders:\n{0}',
   'ঠিক করি': 'Fix now',
   'ঠিক ধরতে পারিনি। একটা বেছে নিন, বা বলেন — যেমন “শোধ” বা “নতুন ধার”।': 'I didn\'t quite get it. Pick one, or say — e.g. “শোধ” or “নতুন ধার”.',

@@ -114,23 +114,23 @@ void main() {
     await settle(t);
   }
 
-  testWidgets('scenario: "আর কিছু বলতে চান?" → "না, বলতে চাই না" → one preview → "হ্যাঁ, রাখো" → saved once', (t) async {
+  testWidgets('scenario: one breath → one preview at once → "না, বলতে চাই না" is not a no → "হ্যাঁ, রাখো" → saved once', (t) async {
     final rig = await start(t);
     final chat = await openVoice(t);
     rig.voice.say('ইসমাইলকে পাঁচ হাজার টাকা ধার দিয়েছি।');
     await settle(t);
     await quiet(t);
-    expect(rig.voice.spoken.last, 'আর কিছু বলতে চান?');
+    final preview = rig.voice.spoken.last;
+    expect(rig.voice.spoken, isNot(contains('আর কিছু বলতে চান?')));
+    expect(preview, allOf(contains('ইসমাইল'), contains('৫,০০০')));
+    expect(preview, isNot(contains('জিনিস পেলাম')));
+    expect(chat.wait, ChatWait.yesNo);
+    // "Nothing more to say" while the save waits: asked again, nothing dropped.
     rig.voice.say('না, বলতে চাই না।');
     await settle(t);
-    final sent = chat.messages.where((m) => m.fromUser).toList();
-    expect(sent.single.text, 'ইসমাইলকে পাঁচ হাজার টাকা ধার দিয়েছি।', reason: 'the control answer is not part of what was said');
-    final preview = rig.voice.spoken.last;
-    expect(preview, contains('ইসমাইল'));
-    expect(preview, contains('৫,০০০'));
-    expect(preview, isNot(contains('জিনিস পেলাম')));
-    expect(preview, isNot(contains('বলতে চাই না')));
+    expect(rig.voice.spoken.last, contains('রেখে দিই'));
     expect(chat.wait, ChatWait.yesNo);
+    expect(rig.brain.data.ledger, isEmpty);
     rig.voice.say('হ্যাঁ, রাখো');
     await settle(t);
     // The same "হ্যাঁ" arriving again (a repeated final result) does nothing more.
@@ -141,14 +141,30 @@ void main() {
     expect(chat.wait, ChatWait.none, reason: 'no second confirmation');
   });
 
+  testWidgets('scenario: speech in two breaths → "আর কিছু বলতে চান?" → "না, বলতে চাই না" → one preview', (t) async {
+    final rig = await start(t);
+    final chat = await openVoice(t);
+    rig.voice.say('ইসমাইলকে পাঁচ হাজার টাকা');
+    await settle(t);
+    rig.voice.say('ধার দিয়েছি');
+    await settle(t);
+    await quiet(t);
+    expect(rig.voice.spoken.last, 'আর কিছু বলতে চান?');
+    rig.voice.say('না, বলতে চাই না।');
+    await settle(t);
+    expect(chat.messages.where((m) => m.fromUser).single.text, 'ইসমাইলকে পাঁচ হাজার টাকা ধার দিয়েছি');
+    expect(rig.voice.spoken.last, allOf(contains('ইসমাইল'), contains('৫,০০০'), isNot(contains('বলতে চাই না'))));
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    expect(rig.brain.data.ledger.single.amount, 5000);
+  });
+
   testWidgets('scenario: the same preview, "না, রেখো না" → nothing saved', (t) async {
     final rig = await start(t);
     final chat = await openVoice(t);
     rig.voice.say('ইসমাইলকে পাঁচ হাজার টাকা ধার দিয়েছি।');
     await settle(t);
     await quiet(t);
-    rig.voice.say('না, বলতে চাই না।');
-    await settle(t);
     expect(chat.wait, ChatWait.yesNo);
     rig.voice.say('না, রেখো না');
     await settle(t);
@@ -187,5 +203,67 @@ void main() {
     expect(rig.brain.data.ledger.map((e) => e.person).toSet(), {'রহিম', 'করিম'});
     final r = await chat.hear('ইসমাইলকে ৫ হাজার টাকা ধার দিলাম ইসমাইলকে আজকে 5000 টাকা ধার দিলাম');
     expect(r, isNot(contains('জিনিস পেলাম')));
+  });
+
+  // Second recording (17 Oct): a whole question, then quiet — the app asked
+  // "আর কিছু বলতে চান?" instead of answering; "নার কিছু বলতে চাই না" (না আর,
+  // run together by the recogniser) was added to the question as words.
+  test('the recogniser\'s run-together "নার" and "নারে ভাই" are closing words too', () {
+    for (final (said, kept) in [
+      ('আমি কার কাছে কত টাকা পাব একটু বলতো নার কিছু বলতে চাই না', 'আমি কার কাছে কত টাকা পাব একটু বলতো'),
+      ('নারে ভাই আর কিছু বলতে চাই না', ''),
+      ('না রে ভাই, কিছু বলতে চাই না', ''),
+    ]) {
+      final (body, done) = splitDoneTail(said);
+      expect(done, isTrue, reason: said);
+      expect(body, kept, reason: said);
+    }
+    expect(splitDoneTail('আমি কিছু বলতে চাই না').$2, isFalse, reason: 'no "না"/"আর" before it: could be what they want noted');
+  });
+
+  testWidgets('a whole question in one breath is answered when the user goes quiet — no "আর কিছু বলতে চান?"', (t) async {
+    final rig = await start(t);
+    await rig.brain.saveEntry(LedgerEntry(person: 'শফিক ভাই', kind: LedgerKind.lent, amount: 5000, date: DateTime(2026, 10, 2)));
+    final chat = await openVoice(t);
+    rig.voice.say('আমি কার কাছে কত টাকা পাব একটু বলতো');
+    await settle(t);
+    await quiet(t);
+    expect(rig.voice.spoken, isNot(contains('আর কিছু বলতে চান?')));
+    expect(chat.messages.where((m) => m.fromUser).single.text, 'আমি কার কাছে কত টাকা পাব একটু বলতো');
+    expect(rig.voice.spoken.last, contains('৫,০০০'));
+    expect(chat.wait, ChatWait.none, reason: 'a question needs no confirmation');
+  });
+
+  testWidgets('a whole request in one breath goes straight to its one confirmation', (t) async {
+    final rig = await start(t);
+    final chat = await openVoice(t);
+    rig.voice.say('রহিমকে ৫০০ টাকা ধার দিলাম');
+    await settle(t);
+    await quiet(t);
+    expect(rig.voice.spoken, isNot(contains('আর কিছু বলতে চান?')));
+    expect(rig.voice.spoken.last, contains('লিখে রাখি'));
+    expect(chat.wait, ChatWait.yesNo);
+  });
+
+  testWidgets('left open ("…খরচ হচ্ছে কোন") the app asks for more instead of guessing', (t) async {
+    final rig = await start(t);
+    final chat = await openVoice(t);
+    rig.voice.say('আচ্ছা আমার এই মাসে খরচ হচ্ছে কোন');
+    await settle(t);
+    await quiet(t);
+    expect(rig.voice.spoken.last, 'আর কিছু বলতে চান?');
+    expect(chat.messages.where((m) => m.fromUser), isEmpty);
+  });
+
+  testWidgets('"নার কিছু বলতে চাই না" after a question: answered at once, the words are not part of it', (t) async {
+    final rig = await start(t);
+    await rig.brain.saveEntry(LedgerEntry(person: 'শফিক ভাই', kind: LedgerKind.lent, amount: 5000, date: DateTime(2026, 10, 2)));
+    final chat = await openVoice(t);
+    rig.voice.say('আমি কার কাছে কত টাকা পাব একটু বলতো');
+    await settle(t);
+    rig.voice.say('নার কিছু বলতে চাই না');
+    await settle(t);
+    expect(chat.messages.where((m) => m.fromUser).single.text, 'আমি কার কাছে কত টাকা পাব একটু বলতো');
+    expect(rig.voice.spoken.last, contains('৫,০০০'));
   });
 }

@@ -489,7 +489,8 @@ class ChatController extends ChangeNotifier {
   bool isCompleteRequest(String t) {
     final n = normalize(t);
     if (n.isEmpty) return false;
-    if (RegExp(r'(?:^|\s)(?:আর|এবং|তারপর|তার পর|এরপর|এর পর|আরও|আরো|মানে|যেমন|কিন্তু|যে)$').hasMatch(n)) return false;
+    // Left open: "…আর", "…তারপর", "খরচ হচ্ছে কোন" (কোন what?).
+    if (RegExp(fold(r'(?:^|\s)(?:আর|এবং|তারপর|তার পর|এরপর|এর পর|আরও|আরো|মানে|যেমন|কিন্তু|যে|কোন|কোনো|কোনটা|যদি|তাহলে|নাকি|অথবা|বা)$')).hasMatch(n)) return false;
     if (const ['তালিকা', 'লিস্ট', 'list'].any((w) => n.contains(normalize(w)))) return false;
     final c = parseAll(t, brain.data.ledger, tasks: brain.data.tasks, contacts: brain.data.contacts, folders: brain.folderHints, now: _now);
     return c.isNotEmpty && c.every((x) => x is! NotUnderstood && x is! SearchQuery && !(x is NoteAdd && x.fromStatement));
@@ -522,6 +523,16 @@ class ChatController extends ChangeNotifier {
     if (doneTail) Trace.log('understood', 'closing words left out', {'kept': t});
     ended = false;
     messages.add(ChatMessage.user(shown));
+    // Only closing words ("না, আর বলতে চাই না") while a save waits for its
+    // yes/no: that is "I have nothing more to say", not "don't save it".
+    if (doneTail && body.isEmpty && wait == ChatWait.yesNo) {
+      Trace.log('understood', 'closing words while a save waits — asked again', const {});
+      final out = <String>[];
+      _say(out, _askingAll ? tr('ঠিক আছে। তাহলে এগুলো রেখে দিই — হ্যাঁ, নাকি না?') : tr('ঠিক আছে। তাহলে এটা রেখে দিই — হ্যাঁ, নাকি না?'));
+      choices = _yesNoChoices;
+      notifyListeners();
+      return out.join(' ');
+    }
     notifyListeners();
     final out = <String>[];
     // "শেষ" ends a list being collected; it is not "stop listening".

@@ -1014,9 +1014,9 @@ void main() {
     await openChat(t);
     String shown() => [for (final e in find.byType(RichText).evaluate()) (e.widget as RichText).text.toPlainText()].join('\n');
     final chat = t.state<ChatHomeState>(find.byType(ChatHome)).chat;
-    rig.voice.say('এ মাসে কি আমার কোন লেনদেন আছে');
+    // Left open ("…কোন"): not answered at the recogniser's final result.
+    rig.voice.say('এ মাসে কি আমার কোন');
     await settle(t);
-    // A question too: not answered at the recogniser's first final result.
     expect(chat.messages.where((m) => m.fromUser), isEmpty);
     await t.pump(const Duration(milliseconds: 1600));
     await settle(t);
@@ -1024,8 +1024,8 @@ void main() {
     // "হ্যাঁ": keep listening — the speech so far stays.
     rig.voice.say('হ্যাঁ');
     await settle(t);
-    expect(shown(), contains('এ মাসে কি আমার কোন লেনদেন আছে'));
-    rig.voice.say('অন্যান্য লেনদেন');
+    expect(shown(), contains('এ মাসে কি আমার কোন'));
+    rig.voice.say('লেনদেন আছে অন্যান্য লেনদেন');
     await settle(t);
     expect(shown(), contains('অন্যান্য লেনদেন'));
     await t.pump(const Duration(milliseconds: 1600));
@@ -1044,10 +1044,10 @@ void main() {
     await openChat(t);
     rig.voice.say('সজীবকে পাঁচশ টাকা ধার দিয়েছি');
     await settle(t);
+    // Said in one breath and complete: straight to its one confirmation.
     await t.pump(const Duration(milliseconds: 1600));
     await settle(t);
-    rig.voice.say('না');
-    await settle(t);
+    expect(rig.voice.spoken, isNot(contains('আর কিছু বলতে চান?')));
     expect(rig.voice.spoken.where((s) => s.contains('লিখে রাখি')), hasLength(1));
     rig.voice.say('হ্যাঁ');
     await settle(t);
