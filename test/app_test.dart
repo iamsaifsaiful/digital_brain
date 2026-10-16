@@ -1421,7 +1421,7 @@ void main() {
 
   testWidgets('home shows both dates, sun times and the next holiday; the calendar opens', (t) async {
     await start(t);
-    expect(find.text('২৪ আশ্বিন ১৪৩৩'), findsOneWidget);
+    expect(find.textContaining('২৪ আশ্বিন ১৪৩৩'), findsOneWidget);
     expect(find.textContaining('সূর্যোদয়'), findsOneWidget);
     expect(find.textContaining('দুর্গাপূজা'), findsOneWidget);
     await t.scrollUntilVisible(find.text('ক্যালেন্ডার').first, 300, scrollable: find.byType(Scrollable).first);

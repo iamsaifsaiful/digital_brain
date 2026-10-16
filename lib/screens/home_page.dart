@@ -15,6 +15,7 @@ import 'calendar_screen.dart';
 import 'docs_screen.dart';
 import 'calls_screen.dart';
 import 'home_screen.dart';
+import 'home_sky.dart';
 import 'health_hub.dart';
 import 'home_shell.dart';
 import 'inbox_screen.dart';
@@ -57,6 +58,8 @@ class HomePage extends StatelessWidget {
     final daysTo = next == null ? 0 : DateTime(next.start.year, next.start.month, next.start.day).difference(today).inDays;
     final month = monthSums(d.cash, now);
     final left = tasksLeft(d, now).length;
+    final doneToday = [for (final t in d.tasks) if (t.done && t.doneAt != null && dayOnly(t.doneAt!) == today) t].length;
+    final allTasks = left + doneToday;
     final remindersToday = [for (final r in d.reminders) if (r.enabled && remindsOn(r, today) && DateTime(today.year, today.month, today.day, r.hour, r.minute).isAfter(now)) r]
       ..sort((a, b) => (a.hour * 60 + a.minute).compareTo(b.hour * 60 + b.minute));
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
@@ -83,101 +86,146 @@ class HomePage extends StatelessWidget {
 
     if (brain.easyMode) return const EasyHome();
 
-    Widget stat(Key key, IconData icon, Color color, String value, String label, VoidCallback onTap) => Expanded(
+    Widget stat(Key key, Widget lead, String value, String label, VoidCallback onTap) => Expanded(
           child: InkWell(
             key: key,
             borderRadius: BorderRadius.circular(14),
             onTap: onTap,
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
               child: Column(children: [
-                Icon(icon, color: color, size: 22),
-                const SizedBox(height: 4),
+                SizedBox(height: 34, child: Center(child: lead)),
+                const SizedBox(height: 6),
                 Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(17, weight: 700)),
                 Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: C.muted)),
               ]),
             ),
           ),
         );
+    Widget badge(IconData icon, Color fg, Color bg) => Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+          child: Icon(icon, color: fg, size: 19),
+        );
+
+    const shade = [Shadow(color: Color(0x66000000), blurRadius: 8)];
+    final white = Colors.white;
+    final soft = Colors.white.withValues(alpha: 0.88);
+    const horizon = 78.0;
+    final daytime = now.isAfter(sun.sunrise) && now.isBefore(sun.sunset);
+    final until = daytime
+        ? trf('সূর্যাস্তের আর {0}', [_span(sun.sunset.difference(now))])
+        : trf('সূর্যোদয়ের আর {0}', [_span((now.isBefore(sun.sunrise) ? sun.sunrise : sun.sunrise.add(const Duration(days: 1))).difference(now))]);
 
     return Column(children: [
       Expanded(
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            // The greeting, on the accent colour with two soft circles.
-            Container(
-              padding: EdgeInsets.fromLTRB(20, top + 16, 20, 52),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [C.green, Color.lerp(C.green, C.teal, 0.55)!], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
-              ),
-              child: Stack(clipBehavior: Clip.none, children: [
-                Positioned(right: -40, top: -50, child: _Bubble(size: 150)),
-                Positioned(left: -60, bottom: -70, child: _Bubble(size: 120)),
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(first.isEmpty ? helloFor(now) : '${helloFor(now)},', style: body(15, color: Colors.white.withValues(alpha: 0.85))),
-                        Text(first.isEmpty ? tr('আজ কী করে দেবো?') : first,
-                            maxLines: 1, overflow: TextOverflow.ellipsis, style: display(28, weight: 700, color: Colors.white, height: 1.2)),
-                      ]),
-                    ),
-                    Tooltip(
-                      message: tr('প্রোফাইল'),
-                      child: InkWell(customBorder: const CircleBorder(), onTap: () => goToTab(context, ShellTab.more), child: const UserPhoto(size: 48, onDark: true)),
-                    ),
-                  ]),
-                  const SizedBox(height: 16),
-                  InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () => push(const CalendarScreen()),
+            // The greeting, under today's sky: the sun where it is now.
+            SizedBox(
+              height: top + 318,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(28)),
+                child: HomeSky(
+                now: now,
+                sunrise: sun.sunrise,
+                sunset: sun.sunset,
+                horizon: horizon,
+                child: Stack(children: [
+                  Positioned(
+                    left: 20,
+                    right: 16,
+                    top: top + 14,
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)}', style: display(18, weight: 700, color: Colors.white)),
-                      const SizedBox(height: 2),
-                      Wrap(spacing: 6, children: [
-                        Text(bd.text, style: body(13.5, color: Colors.white.withValues(alpha: 0.9))),
-                        Text('·', style: body(13.5, color: Colors.white70)),
-                        Text(trf('{0}কাল', [bd.season]), style: body(13.5, color: Colors.white.withValues(alpha: 0.9))),
-                        Text('·', style: body(13.5, color: Colors.white70)),
-                        Text(hj.dayMonth, style: body(13.5, color: Colors.white.withValues(alpha: 0.9))),
+                      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(first.isEmpty ? helloFor(now) : '${helloFor(now)},', style: body(15, color: soft).copyWith(shadows: shade)),
+                            Text(first.isEmpty ? tr('আজ কী করে দেবো?') : first,
+                                maxLines: 1, overflow: TextOverflow.ellipsis, style: display(30, weight: 700, color: white, height: 1.15).copyWith(shadows: shade)),
+                          ]),
+                        ),
+                        Tooltip(
+                          message: tr('প্রোফাইল'),
+                          child: InkWell(customBorder: const CircleBorder(), onTap: () => goToTab(context, ShellTab.more), child: const UserPhoto(size: 46, onDark: true)),
+                        ),
                       ]),
                       const SizedBox(height: 10),
-                      Wrap(spacing: 8, runSpacing: 6, children: [
-                        _Chip(icon: Icons.wb_twilight, text: trf('সূর্যোদয় {0}', [bnTime(sun.sunrise.hour, sun.sunrise.minute)])),
-                        _Chip(icon: Icons.nights_stay_outlined, text: trf('সূর্যাস্ত {0}', [bnTime(sun.sunset.hour, sun.sunset.minute)])),
-                      ]),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () => push(const CalendarScreen()),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)}', style: display(17, weight: 700, color: white).copyWith(shadows: shade)),
+                          Text('${bd.text}, ${trf('{0}কাল', [bd.season])}', style: body(13.5, color: soft).copyWith(shadows: shade)),
+                          Text(hj.dayMonth, style: body(13.5, color: soft).copyWith(shadows: shade)),
+                        ]),
+                      ),
                     ]),
                   ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: horizon + 8,
+                    child: Text(until, textAlign: TextAlign.center, style: body(12.5, weight: FontWeight.w600, color: white).copyWith(shadows: shade)),
+                  ),
+                  Positioned(
+                    left: 18,
+                    bottom: 42,
+                    child: _SunLabel(icon: Icons.wb_twilight, text: trf('সূর্যোদয় {0}', [bnTime(sun.sunrise.hour, sun.sunrise.minute)])),
+                  ),
+                  Positioned(
+                    right: 18,
+                    bottom: 42,
+                    child: _SunLabel(icon: Icons.nights_stay_outlined, text: trf('সূর্যাস্ত {0}', [bnTime(sun.sunset.hour, sun.sunset.minute)])),
+                  ),
                 ]),
-              ]),
+                ),
+              ),
             ),
-            // What is waiting today, on a card that rises over the greeting.
+            // What is waiting today, on a card that rises over the fields.
             Transform.translate(
-              offset: const Offset(0, -34),
+              offset: const Offset(0, -36),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: C.surface,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: C.dark ? 0.35 : 0.08), blurRadius: 18, offset: const Offset(0, 6))],
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: C.dark ? 0.4 : 0.12), blurRadius: 24, offset: const Offset(0, 10))],
                   ),
                   child: Row(children: [
-                    stat(const Key('home-stat-tasks'), Icons.checklist_rounded, C.green, left == 0 ? tr('সব শেষ') : trf('{0}টা', [bnDigits(left)]), tr('আজকের কাজ'),
+                    stat(
+                        const Key('home-stat-tasks'),
+                        SizedBox(
+                          width: 34,
+                          height: 34,
+                          child: Stack(alignment: Alignment.center, children: [
+                            CircularProgressIndicator(
+                              value: allTasks == 0 ? 1 : doneToday / allTasks,
+                              strokeWidth: 3.5,
+                              strokeCap: StrokeCap.round,
+                              color: C.green,
+                              backgroundColor: C.greenTint,
+                            ),
+                            Icon(left == 0 ? Icons.check_rounded : Icons.checklist_rounded, size: 16, color: C.green),
+                          ]),
+                        ),
+                        left == 0 ? tr('সব শেষ') : trf('{0}টা বাকি', [bnDigits(left)]),
+                        tr('আজকের কাজ'),
                         () => goToTab(context, ShellTab.diary)),
-                    Container(width: 1, height: 40, color: C.line2),
+                    Container(width: 1, height: 44, color: C.line2),
                     stat(
                         const Key('home-stat-reminders'),
-                        Icons.notifications_none_rounded,
-                        C.orange,
+                        badge(Icons.notifications_none_rounded, C.orange, C.orangeTint),
                         remindersToday.isEmpty ? tr('নেই') : bnTime(remindersToday.first.hour, remindersToday.first.minute),
-                        remindersToday.isEmpty ? tr('আজ রিমাইন্ডার') : (remindersToday.length == 1 ? tr('পরের রিমাইন্ডার') : trf('পরেরটা · মোট {0}টা', [bnDigits(remindersToday.length)])),
+                        remindersToday.isEmpty ? tr('আজ রিমাইন্ডার') : (remindersToday.length == 1 ? tr('পরের রিমাইন্ডার') : trf('পরেরটা, মোট {0}টা', [bnDigits(remindersToday.length)])),
                         () => push(const AllTasksScreen())),
-                    Container(width: 1, height: 40, color: C.line2),
-                    stat(const Key('home-stat-spent'), Icons.account_balance_wallet_outlined, C.teal, taka(month.expense), tr('এ মাসে খরচ'), () => goToTab(context, ShellTab.money)),
+                    Container(width: 1, height: 44, color: C.line2),
+                    stat(const Key('home-stat-spent'), badge(Icons.account_balance_wallet_outlined, C.teal, C.tealTint), taka(month.expense), tr('এ মাসে খরচ'),
+                        () => goToTab(context, ShellTab.money)),
                   ]),
                 ),
               ),
@@ -257,30 +305,27 @@ class HomePage extends StatelessWidget {
   }
 }
 
-/// A soft white circle behind the greeting.
-class _Bubble extends StatelessWidget {
-  const _Bubble({required this.size});
-  final double size;
-
-  @override
-  Widget build(BuildContext context) => IgnorePointer(
-        child: Container(width: size, height: size, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.08))),
-      );
+/// "২ ঘণ্টা ১০ মিনিট"
+String _span(Duration d) {
+  final h = d.inHours;
+  final m = d.inMinutes % 60;
+  if (h == 0) return trf('{0} মিনিট', [bnDigits(m)]);
+  if (m == 0) return trf('{0} ঘণ্টা', [bnDigits(h)]);
+  return trf('{0} ঘণ্টা {1} মিনিট', [bnDigits(h), bnDigits(m)]);
 }
 
-class _Chip extends StatelessWidget {
-  const _Chip({required this.icon, required this.text});
+class _SunLabel extends StatelessWidget {
+  const _SunLabel({required this.icon, required this.text});
   final IconData icon;
   final String text;
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.fromLTRB(8, 4, 10, 4),
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(999)),
+        padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 15, color: const Color(0xFFFDE68A)),
-          const SizedBox(width: 5),
-          Text(text, style: body(12.5, weight: FontWeight.w500, color: Colors.white)),
+          Icon(icon, size: 14, color: const Color(0xFFFDE68A)),
+          const SizedBox(width: 4),
+          Text(text, style: body(12.5, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.92))),
         ]),
       );
 }
