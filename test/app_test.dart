@@ -567,9 +567,9 @@ void main() {
     expect(rig.brain.data.ledger, hasLength(1));
     await t.tap(chip('শোধ করলাম'));
     await settle(t);
-    expect(rig.voice.spoken.last, 'আচ্ছা, রহিমকে ৫০০ টাকা শোধ করলেন, তাই তো? লিখে রাখি?');
-    await t.tap(chip('হ্যাঁ'));
-    await settle(t);
+    // Choosing is the answer: saved at once, no second "লিখে রাখি?".
+    expect(rig.voice.spoken.last, isNot(contains('লিখে রাখি')));
+    expect(find.text('ফিরিয়ে নিন'), findsOneWidget);
     expect(rig.brain.data.ledger, hasLength(2));
     expect(rig.brain.data.ledger.last.kind, LedgerKind.repaid);
   });
@@ -989,10 +989,12 @@ void main() {
   testWidgets('long speech: "বাতিল" drops it all; an unfinished speech comes back in the box', (t) async {
     final rig = await start(t);
     await openChat(t);
-    rig.voice.say('সজীবকে পাঁচশ টাকা ধার দিয়েছি');
+    // Left open ("…আর"): the app waits, then asks "আর কিছু বলতে চান?".
+    rig.voice.say('সজীবকে পাঁচশ টাকা ধার দিয়েছি আর');
     await settle(t);
     await t.pump(const Duration(milliseconds: 1600));
     await settle(t);
+    expect(rig.voice.spoken.last, 'আর কিছু বলতে চান?');
     rig.voice.say('পুরোটা বাদ দাও');
     await settle(t);
     expect(rig.brain.data.ledger, isEmpty);
@@ -1004,6 +1006,24 @@ void main() {
     await openTyping(t);
     expect(t.widget<TextField>(find.byType(TextField).first).controller!.text, 'করিমকে তিনশ টাকা দিয়েছি');
     expect(rig.brain.data.ledger, isEmpty);
+  });
+
+  testWidgets('voice: one whole request goes after the quiet — one question, not two', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    rig.voice.say('সজীবকে পাঁচশ টাকা ধার দিয়েছি');
+    await settle(t);
+    await t.pump(const Duration(milliseconds: 1600));
+    await settle(t);
+    expect(rig.voice.spoken, isNot(contains('আর কিছু বলতে চান?')));
+    expect(rig.voice.spoken.last, contains('লিখে রাখি'));
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    expect(rig.brain.data.ledger, hasLength(1));
+    // The same "হ্যাঁ" heard again (a repeated callback): nothing more is saved.
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    expect(rig.brain.data.ledger, hasLength(1));
   });
 
   testWidgets('voice: an alarm said aloud is set as an alarm', (t) async {

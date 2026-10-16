@@ -15,6 +15,7 @@ import 'me.dart';
 import 'bn.dart';
 import 'ledger.dart';
 import 'cash.dart';
+import 'meaning.dart';
 import 'when.dart';
 
 sealed class Command {
@@ -104,8 +105,11 @@ class TaskAdd extends Command {
 
 /// "ব্যাংকের কাজটা হয়ে গেছে" → tick the matching to-do.
 class TaskDone extends Command {
-  const TaskDone(super.transcript, {required this.terms});
+  const TaskDone(super.transcript, {required this.terms, this.done = true});
   final List<String> terms;
+
+  /// False: "…এখনো শেষ হয়নি" — the to-do is still open.
+  final bool done;
 }
 
 /// "আমার সংরক্ষিত ফোন নম্বর দেখাও": the saved numbers — a look, not a save.
@@ -270,7 +274,7 @@ class NotUnderstood extends Command {
   const NotUnderstood(super.transcript);
 }
 
-enum Talk { greeting, salam, howAreYou, imFine, whoAreYou, whatCanYouDo, thanks, bye, time, date, nothingDone, cancelled }
+enum Talk { greeting, salam, howAreYou, imFine, whoAreYou, whatCanYouDo, thanks, bye, time, date, nothingDone, cancelled, wontDo }
 
 /// Conversation, not data: "তুমি কেমন আছো?", "ধন্যবাদ", "আজ কত তারিখ?".
 class SmallTalk extends Command {
@@ -294,6 +298,8 @@ String normalize(String s) {
   t = t.replaceAllMapped(RegExp(r'(\d),(\d)'), (m) => '${m[1]}${m[2]}');
   t = t.replaceAll(RegExp(r'[।?!,;:"“”‘’()\[\]]'), ' ');
   t = t.replaceAll('৳', ' ');
+  // Banglish clock times: "8tay" → "8টায়", "10ta" → "10টা".
+  t = t.replaceAllMapped(RegExp(r'(\d)(?:tay|tai|te)(?![a-z])'), (m) => '${m[1]}টায়').replaceAllMapped(RegExp(r'(\d)ta(?![a-z])'), (m) => '${m[1]}টা');
   t = t.replaceAll(RegExp(r'\s+'), ' ').trim();
   if (t.isEmpty) return t;
   // Everyday and regional speech → the standard forms the rules know.
@@ -409,6 +415,10 @@ const _colloquialRaw = <String, String>{
   'dekhao': 'দেখাও', 'bolo': 'বলো', 'na': 'না', 'ha': 'হ্যাঁ', 'haa': 'হ্যাঁ', 'hae': 'হ্যাঁ', 'hmm': 'হুম', 'dhonnobad': 'ধন্যবাদ',
   'remind': 'মনে করাও', 'reminder': 'রিমাইন্ডার', 'note': 'নোট', 'date': 'তারিখ', 'kobe': 'কবে', 'hisab': 'হিসাব', 'hishab': 'হিসাব',
   'pawna': 'পাওনা', 'paona': 'পাওনা', 'dena': 'দেনা', 'baki': 'বাকি',
+  'kal': 'কাল', 'kalke': 'কালকে', 'aj': 'আজ', 'aaj': 'আজ', 'ajke': 'আজকে', 'porshu': 'পরশু', 'sokal': 'সকাল', 'sokale': 'সকালে',
+  'dupur': 'দুপুর', 'dupure': 'দুপুরে', 'bikal': 'বিকাল', 'bikele': 'বিকেলে', 'sondha': 'সন্ধ্যা', 'sondhay': 'সন্ধ্যায়', 'rat': 'রাত',
+  'rate': 'রাতে', 'kotha': 'কথা', 'koriye': 'করিয়ে', 'dio': 'দিও', 'diyo': 'দিও', 'dao': 'দাও', 'dibe': 'দিবে', 'diba': 'দিবা',
+  'koro': 'করো', 'kor': 'কর',
   // misc
   'কইরা': 'করে', 'কইরে': 'করে', 'রাইখা': 'রেখে', 'রাখছি': 'রেখেছি', 'রাখসি': 'রেখেছি', 'হইছে': 'হয়েছে', 'হইসে': 'হয়েছে',
   'গেছে্': 'গেছে', 'ভালা': 'ভালো', 'ভাল': 'ভালো', 'বালা': 'ভালো',
@@ -534,7 +544,7 @@ const _take1 = ['নিলাম', 'নিয়েছি', 'নিছি', 'ন
 const _got1 = ['পেলাম', 'পেয়েছি', 'পাইছি', 'পেয়েছিলাম'];
 const _give3 = ['দিল', 'দিলো', 'দিয়েছে', 'দিয়েছেন', 'দিলেন', 'দিছে', 'দিয়েছিল'];
 const _loanWords = ['ধার', 'কর্জ', 'লোন', 'loan', 'ঋণ'];
-const _returnWords = ['ফেরত', 'শোধ', 'পরিশোধ'];
+const _returnWords = ['ফেরত', 'শোধ', 'পরিশোধ', 'ফিরিয়ে'];
 final List<String> _honorifics = [for (final h in _honorificsRaw) fold(h)];
 const _honorificsRaw = ['ভাই', 'ভাইয়া', 'ভাইয়া', 'আপা', 'আপু', 'চাচা', 'মামা', 'খালা', 'কাকা', 'দাদা', 'স্যার', 'সাহেব', 'বোন'];
 final Set<String> _notNames = {for (final w in _notNamesRaw) fold(w)};
@@ -702,6 +712,18 @@ class Parser {
     var text = normalize(said);
     if (text.isEmpty) return NotUnderstood(said);
 
+    // "রহিমকে পাঁচশ টাকা, না সাতশ টাকা দিলাম": the speaker changed their
+    // mind mid-sentence — the later value counts.
+    final fixed = applySelfCorrection(text);
+    if (fixed != text) {
+      final c = parse(fixed);
+      if (c is LedgerAdd || c is LedgerSet || c is CashAdd || c is ReminderAdd || c is TaskAdd) return c;
+    }
+
+    // "মুছে দিও না", "রিমাইন্ডার বন্ধ কোরো না": a request in the negative —
+    // nothing is done (never read as "মুছে দাও").
+    if (!isQuestionText(said) && negatedRequest(text)) return SmallTalk(said, kind: Talk.wontDo);
+
     // "নোট খোলো", "সেটিংসে যাও", "প্রেসক্রিপশন ফোল্ডার দেখাও" (before the
     // to-do list question: "কাজের তালিকা খোলো" opens the page).
     final open = _open(said, text);
@@ -711,7 +733,9 @@ class Parser {
     if (isCancel(said)) return SmallTalk(said, kind: Talk.cancelled);
 
     // "রিমাইন্ডারটা মুছে দাও", "রহিমের লেনদেন ৫০০ না ৬০০", "শেষটা ডিলিট করো".
-    final manage = manageAction(text);
+    var manage = manageAction(text);
+    // "অ্যালার্ম বন্ধ করো" with no name: the alarm/reminder page, to choose there.
+    if (manage == 'stop' && !namesSomething(text)) manage = null;
     if (manage != null && (kindNamed(text) != null || asksForLast(text) || manage == 'delete' || RegExp(r'\d+ (না|নয়|নয়|নই),? \d+').hasMatch(text) || isCorrection(text))) {
       return ManageItem(said, action: manage);
     }
@@ -814,7 +838,7 @@ class Parser {
     }
 
     // A question about money.
-    final isQuestion = _hasAny(text, ['কত', 'কাকে', 'কার কাছে', 'কে কে', 'হিসাব', 'কবে']) &&
+    final isQuestion = (asking && asksAboutOwing(text)) || _hasAny(text, ['কত', 'কাকে', 'কার কাছে', 'কে কে', 'হিসাব', 'কবে']) &&
         (_hasAny(text, ['পাওনা', 'পাব', 'পাবো', 'পাবে', 'পাই', 'দেনা', 'দিতে হবে', 'দেব', 'দেবো', 'বাকি', 'ধার', 'হিসাব', 'লেনদেন']) ||
             // "গত মাসে রহিমকে কত দিলাম?" — what passed between us, in a span of time.
             (text.contains('কত') && _hasAny(text, [..._give1, ..._take1, ..._got1, 'ফেরত'])));
@@ -959,6 +983,8 @@ class Parser {
   /// "X আমার কাছে N টাকা পায় / X-কে আমার N টাকা দিতে হবে / X-এর কাছে আমার
   /// N টাকা দেনা" → I owe them N.
   LedgerSet? _statedBalance(String said, String text, List<String> w, int amount, List<String> known) {
+    // "…ঋণ নিয়েছি", "…ধার দিলাম": something happened — an entry, not a stated balance.
+    if (verbPerson(text).me && !_hasAny(text, ['দিতে হবে', 'দিতে বাকি', 'দিতে লাগবে'])) return null;
     final iOweWords = _hasAny(text, ['দেনা', 'ঋণ', 'দিতে হবে', 'দেব', 'দেবো', 'দিব', 'দিবো', 'দিতে বাকি', 'দিতে লাগবে', 'দেওয়া লাগবে']);
     final owedWords = _hasAny(text, ['পাই', 'পাব', 'পাবো', 'পাওনা', 'পাবে', 'পাবেন', 'পায়', 'পান']);
     if (!iOweWords && !owedWords) return null;
@@ -1070,9 +1096,13 @@ class Parser {
         break;
       }
     }
+    // "X-এর কাছে ধার নিলাম" means the same as "X-এর কাছ থেকে".
+    if (from < 0 && w.contains('কাছে') && (_hasAny(text, _take1) || (loan && _hasAny(text, _got1))) && !w.contains(normalize('আমাকে'))) {
+      from = w.indexOf('কাছে') + 1;
+    }
     if (from > 0 && _hasAny(text, [..._take1, ..._got1])) {
       var at = from - 1;
-      if (w[at] == 'কাছ' || w[at] == 'কাছে') at--;
+      if (at < w.length && (w[at] == 'কাছ' || w[at] == 'কাছে')) at--;
       final raw = _nameEndingAt(w, at, stripPossessive);
       if (raw != null) {
         final person = resolvePerson(raw, known);
@@ -1092,8 +1122,15 @@ class Parser {
       }
     }
 
+    final person = verbPerson(text);
+    // "করিমের ধার ২০০ টাকা শোধ করলাম", "করিমের টাকা ফেরত দিয়ে দিলাম": I paid back.
+    if (ret && person.me && !w.contains(normalize('আমাকে')) && !w.any((x) => x.endsWith('কে') && x != normalize('আমাকে'))) {
+      final name = _anyName(w, known);
+      if (name.isNotEmpty) return LedgerAdd(said, person: name, amount: amount, kind: LedgerKind.repaid);
+    }
+
     // 3) "সজীবকে ৫০০ টাকা দিলাম" — I gave them.
-    if (_hasAny(text, _give1) || _hasAny(text, ['দিলাম', 'দিয়েছি'])) {
+    if (_hasAny(text, _give1) || _hasAny(text, ['দিলাম', 'দিয়েছি']) || (ret && person.me)) {
       for (var i = 0; i < w.length; i++) {
         final t = w[i];
         if (t == 'আমাকে' || !(t.endsWith('কে'))) continue;
@@ -1121,7 +1158,7 @@ class Parser {
 
     // "সজীব সেই ধার থেকে ৩০০ টাকা ফেরত দিল", "করিম ৫০০ টাকা শোধ করেছে" —
     // they paid me back (said about them, not "আমি").
-    if (ret && !w.contains(normalize('আমি')) && (_hasAny(text, _give3) || _hasNorm(text, const ['শোধ করল', 'শোধ করলো', 'শোধ করেছে', 'শোধ করছে', 'শোধ করে দিল', 'পরিশোধ করেছে', 'পরিশোধ করল']))) {
+    if (ret && !w.contains(normalize('আমি')) && person.other && !person.me) {
       var person = '';
       for (final k in known) {
         if (text.contains(normalize(k))) {
@@ -1131,6 +1168,30 @@ class Parser {
       }
       if (person.isEmpty && w.isNotEmpty && _looksLikeName(w.first)) person = resolvePerson(w.first, known);
       if (person.isNotEmpty) return LedgerAdd(said, person: person, amount: amount, kind: LedgerKind.received);
+    }
+
+    // "রহিম আরও ২০০ টাকা নিয়েছে", "করিম আমার কাছ থেকে ৫০০ টাকা ধার নিল" —
+    // someone else took money from me: a loan to them (or, when I owe
+    // them, maybe paying them back — then ask).
+    final theyTook = _hasNorm(text, const ['নিয়েছে', 'নিল', 'নিলো', 'নিছে', 'নিয়েছেন', 'নিলেন', 'নিয়ে গেছে', 'নিয়ে গেল', 'নিয়ে গেলো']) &&
+        !w.contains(normalize('আমি')) && !_hasAny(text, [..._take1, ..._give1]);
+    if (theyTook) {
+      var person = '';
+      for (final k in known) {
+        if (text.contains(normalize(k))) {
+          person = k;
+          break;
+        }
+      }
+      if (person.isEmpty && w.isNotEmpty) {
+        final first = stripPossessive(w.first);
+        if (_looksLikeName(first) && first.length >= 2 && !_notNames.contains(first)) person = resolvePerson(first, known);
+      }
+      if (person.isNotEmpty) {
+        if (ret) return LedgerAdd(said, person: person, amount: amount, kind: LedgerKind.repaid);
+        if (loan || balanceWith(ledger, person) >= 0) return LedgerAdd(said, person: person, amount: amount, kind: LedgerKind.lent);
+        return LedgerAdd(said, person: person, amount: amount, options: const [LedgerKind.repaid, LedgerKind.lent], suggested: LedgerKind.repaid, allowExpense: true);
+      }
     }
 
     // 4) A name and an amount, but no clear direction: ask.
@@ -1195,9 +1256,12 @@ class Parser {
     // Spending/income words with an amount and nobody named as owing:
     // "বাজারে ৫০০ টাকা খরচ হলো", "বেতন পেলাম ৩০ হাজার".
     if (!asking && amount != null && amount > 0 && _hasNorm(text, ['খরচ', 'কিনলাম', 'কিনেছি', 'বেতন', 'আয়', 'ইনকাম', 'বিক্রি', 'রিচার্জ', 'বিল'])) {
+      final known = knownPeople(ledger);
+      final bill = _hasNorm(text, const ['বিল']) && !known.any((k) => text.contains(normalize(k)));
       final namedPerson = w.any((x) => x.endsWith('কে') && !{'আমাকে', 'কাকে'}.contains(x)) ||
           w.any((x) => x == 'কাছে' || x == 'কাছ' || x == 'থেকে') ||
-          _hasAny(text, [..._loanWords, ..._returnWords]);
+          _hasAny(text, _loanWords) ||
+          (!bill && _hasAny(text, _returnWords));
       if (!namedPerson) {
         final kind = cashKindOf(text) ?? CashKind.expense;
         return CashAdd(said, kind: kind, amount: amount, category: categoryFor(text, kind));
@@ -1228,6 +1292,14 @@ class Parser {
     final asking = isQuestionText(said) || _hasNorm(text, ['দেখাও', 'দেখান', 'বলো', 'বলুন', 'শোনাও', 'শোনান']);
     if (_hasNorm(text, _briefingKeys)) return Briefing(said);
     if (_hasNorm(text, _taskListKeys) && (asking || !_hasNorm(text, _addVerbs))) return TaskQuery(said);
+    final w = words(text);
+    // A question about the day's plan, or about "my tasks", in any words.
+    if (isQuestionText(said) && w.any((x) => const ['পরিকল্পনা', 'প্ল্যান', 'শিডিউল', 'রুটিন'].map(normalize).contains(x)) && w.any((x) => const ['আজ', 'আজকের', 'আজকে', 'দিনের'].map(normalize).contains(x))) {
+      return Briefing(said);
+    }
+    if (isQuestionText(said) && w.any((x) => x == normalize('কাজগুলো') || x == normalize('কাজগুলি') || x == normalize('কাজসমূহ')) && !_hasNorm(text, _doneKeys) && findAmount(text) == null) {
+      return TaskQuery(said);
+    }
     return null;
   }
 
@@ -1330,7 +1402,8 @@ class Parser {
     }
 
     // "কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও", "৩০ মিনিট পরে চা খাওয়ার কথা বলো".
-    if (!asking && _hasNorm(text, _remindKeys)) {
+    final tellLater = _hasNorm(text, const ['কথা বলো', 'কথা বলবা', 'কথা বলবে', 'কথা বলিও', 'বলে দিও', 'বলে দিবা']) && (parseWhen(said, now)?.hasTime ?? false);
+    if ((!asking || tellLater) && _hasNorm(text, _remindKeys)) {
       final (before, plain) = splitBefore(said);
       said = plain;
       final every = everyMinutes(text);
@@ -1379,6 +1452,13 @@ class Parser {
         // A time said in words ("আটটায়", "সাড়ে ছয়টায়") is not part of the title.
         title = tidy([for (final x in title.split(RegExp(r'\s+'))) if (!_numberWord.hasMatch(normalize(x)) && !const ['সাড়ে', 'সোয়া', 'পৌনে'].contains(x)) x].join(' '));
         if (title.isEmpty) title = defaultReminderTitle;
+        // "মিটিংয়ের রিমাইন্ডার দাও": the title is "মিটিং", not "মিটিংয়ের".
+        final tw = title.split(' ');
+        if (tw.length <= 2 && RegExp(r'(য়ের|ের|এর)$').hasMatch(fold(tw.last)) && _hasNorm(text, const ['রিমাইন্ডার', 'reminder', 'অ্যালার্ম', 'এলার্ম'])) {
+          final last = fold(tw.last);
+          tw[tw.length - 1] = last.endsWith(fold('য়ের')) ? last.substring(0, last.length - fold('য়ের').length) : stripPossessive(last);
+          if (tw.last.trim().isNotEmpty) title = tw.join(' ');
+        }
         // No time yet: the chat asks "কখন মনে করাব?".
         final alarmWord = _hasNorm(text, const ['অ্যালার্ম', 'এলার্ম', 'alarm']);
         // A day but no hour for a one-time reminder ("কাল মনে করিয়ে দিও"): ask the hour, keep the day.
@@ -1391,7 +1471,12 @@ class Parser {
 
     // "ব্যাংকের কাজটা হয়ে গেছে" — only when it matches a to-do.
     final money = text.contains(normalize('টাকা')) || findAmount(text) != null;
-    if (!money && _hasNorm(text, _doneKeys)) {
+    // "রিপোর্টের কাজটা এখনো শেষ হয়নি": the opposite — still to do.
+    if (!money && !asking && saysNotDone(text)) {
+      final terms = searchTerms(normalize(cutWords(said, [..._doneKeys, 'হয়নি', 'হয় নি', 'হয় নাই', 'হয়নাই', 'করিনি', 'এখনো', 'এখনও', 'বাকি', 'শেষ', 'কাজটা', 'কাজ টা', 'কাজটি', 'কাজ', 'টা'])));
+      if (terms.isNotEmpty && matchTasks(tasks, terms).isNotEmpty) return TaskDone(said, terms: terms, done: false);
+    }
+    if (!money && _hasNorm(text, _doneKeys) && !saysNotDone(text)) {
       final terms = searchTerms(normalize(cutWords(said, [..._doneKeys, 'কাজটা', 'কাজ টা', 'কাজটি', 'কাজ', 'টা'])));
       if (terms.isNotEmpty && matchTasks(tasks.where((t) => !t.done), terms).isNotEmpty) return TaskDone(said, terms: terms);
     }
@@ -1481,7 +1566,7 @@ class Parser {
     final wa = _hasNorm(text, ['হোয়াটসঅ্যাপ', 'হোয়াটসঅ্যাপে', 'হোয়াটসঅ্যাপে', 'হোয়াটসএপ', 'হোয়াটসএপে', 'হোয়াটস্যাপ', 'ওয়াটসঅ্যাপ', 'whatsapp']);
     final sms = _phraseIn(text, _smsKeys);
     final call = _phraseIn(text, _callKeys);
-    if (wa && (sms || call || _hasNorm(text, ['পাঠাও', 'দাও', 'করো', 'দেন', 'পাঠান']))) return Via.whatsapp;
+    if (wa && (sms || call || _hasNorm(text, ['পাঠাও', 'দাও', 'করো', 'দেন', 'পাঠান', 'লেখো', 'লিখো', 'লিখে দাও', 'লিখে পাঠাও', 'জানাও', 'জানিয়ে দাও', 'বলো']))) return Via.whatsapp;
     if (sms) return Via.sms;
     if (call) return Via.call;
     return null;
@@ -1536,12 +1621,17 @@ class Parser {
         return LedgerQuery(said, ask: LedgerAsk.person, person: person);
       }
     }
-    if (text.contains('কাকে') || _hasAny(text, ['দিতে হবে', 'দেনা', 'দেব', 'দেবো'])) {
-      return LedgerQuery(said, ask: LedgerAsk.payable);
+    // "রহিম আমাকে কত দেবে?": a known name said plainly.
+    for (final k in known) {
+      if (w.contains(normalize(k))) return LedgerQuery(said, ask: LedgerAsk.person, person: k);
     }
-    if (text.contains('কার কাছে') || _hasAny(text, ['পাব', 'পাবো', 'পাওনা'])) {
-      return LedgerQuery(said, ask: LedgerAsk.receivable);
-    }
+    // Who gets the money in the sentence decides the direction ("কে আমার
+    // কাছে পাবে?" is what I owe; "কার কাছে পাই?" is what I am owed).
+    final mine = owedToMe(text);
+    if (mine == true) return LedgerQuery(said, ask: LedgerAsk.receivable);
+    if (mine == false) return LedgerQuery(said, ask: LedgerAsk.payable);
+    if (text.contains('কাকে')) return LedgerQuery(said, ask: LedgerAsk.payable);
+    if (text.contains('কার কাছে')) return LedgerQuery(said, ask: LedgerAsk.receivable);
     return LedgerQuery(said, ask: LedgerAsk.all);
   }
 }

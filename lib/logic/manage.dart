@@ -83,7 +83,11 @@ bool isCorrection(String text) {
   return parts.length == 2 && findAmount(parts.first) != null && findAmount(parts.last) != null;
 }
 
+/// "রিমাইন্ডারটা বন্ধ করো", "মিটিংয়ের অ্যালার্ম অফ করে দাও".
+const _stopWords = ['বন্ধ করো', 'বন্ধ কর', 'বন্ধ করে দাও', 'বন্ধ করে দিন', 'বন্ধ করুন', 'বন্ধ করেন', 'বন্ধ রাখো', 'অফ করো', 'অফ করে দাও', 'অফ করুন', 'off করো', 'থামাও', 'চুপ করাও'];
+
 String? manageAction(String text) {
+  if (_has(text, _stopWords) && kindNamed(text) == ItemKind.reminder) return 'stop';
   if (_has(text, _deleteWords)) return 'delete';
   if (_has(text, _editWords)) return 'edit';
   // "৫০০ না ৬০০ হবে", "রহিমের টাকাটা ৫০০ না, ৬০০": a correction.
@@ -106,10 +110,13 @@ ItemKind? kindNamed(String text) {
 
 bool asksForLast(String text) => _has(text, _lastWords);
 
+/// The request names a particular thing ("মিটিংয়ের রিমাইন্ডার"), not just a kind.
+bool namesSomething(String text) => _nameTerms(text, kindNamed(text)).isNotEmpty;
+
 /// Words of the request that name the thing (action, kind and filler words left out).
 List<String> _nameTerms(String text, ItemKind? kind) {
   var t = ' $text ';
-  for (final w in [..._deleteWords, ..._editWords, ..._lastWords, ...?kind?.words]..sort((a, b) => b.length.compareTo(a.length))) {
+  for (final w in [..._deleteWords, ..._editWords, ..._stopWords, ..._lastWords, ...?kind?.words]..sort((a, b) => b.length.compareTo(a.length))) {
     t = t.replaceAll(' ${normalize(w)}', ' ');
   }
   final rest = withoutWhen(t);

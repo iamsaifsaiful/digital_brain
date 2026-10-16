@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../logic/dictation.dart';
+import '../logic/parser.dart' show yesNo, words, normalize;
 import '../logic/suggest.dart';
 import '../logic/bn.dart';
 import '../models/models.dart';
@@ -94,6 +95,10 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
 
   /// The whole speech was sent (guards a double tap).
   bool _submitting = false;
+
+  /// When a choice (হ্যাঁ / না …) was last tapped: the same answer heard by
+  /// voice right after is the same answer, not a second one.
+  DateTime _tappedAt = DateTime(2000);
 
   /// The recogniser's other guesses for the last piece.
   List<String> _pieceAlts = const [];
@@ -383,7 +388,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
         if (_draft.isNotEmpty && !_askingMore) {
           _moreTimer?.cancel();
           _moreTimer = Timer(const Duration(milliseconds: 1500), () {
-            if (mounted && gen == _gen && _listening && _live.trim().isEmpty) _askMore();
+            if (mounted && gen == _gen && _listening && _live.trim().isEmpty) _quietAfterSpeech();
           });
         }
       },
@@ -415,7 +420,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
                 _paused = true;
               });
             } else {
-              _askMore();
+              _quietAfterSpeech();
             }
             return;
           }
@@ -482,10 +487,27 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     }
   }
 
+  /// Quiet after speaking: one whole request goes at once (its own single
+  /// confirmation follows); anything longer or unfinished gets "আর কিছু
+  /// বলতে চান?" first.
+  Future<void> _quietAfterSpeech() async {
+    if (_draft.length == 1 && _chat.isCompleteRequest(_draft.single)) {
+      await _stopListening();
+      await _submitDraft();
+      return;
+    }
+    await _askMore();
+  }
+
   /// A piece of speech the recogniser finished.
   void _heardPiece(String w) {
     final finishTap = _finishTap;
     _finishTap = false;
+    // "হ্যাঁ" heard just after the same answer was tapped: already answered.
+    if (yesNo(w) != null && words(normalize(w)).length <= 2 && DateTime.now().difference(_tappedAt) < const Duration(milliseconds: 2500)) {
+      _keepListening();
+      return;
+    }
     // An answer the chat asked for, or a quick request, goes at once.
     if (_draft.isEmpty && !_askingMore && (_chat.waiting || _chat.quickRequest(w))) {
       _send(w);
@@ -1146,7 +1168,12 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
       side: yes ? BorderSide.none : BorderSide(color: C.inputBorder),
       shape: const StadiumBorder(),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      onPressed: _busy ? null : () => _send(c.answer),
+      onPressed: _busy
+          ? null
+          : () {
+              _tappedAt = DateTime.now();
+              _send(c.answer);
+            },
     );
   }
 

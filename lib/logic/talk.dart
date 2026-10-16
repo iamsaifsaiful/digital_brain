@@ -29,6 +29,7 @@ String talkReply(Talk kind, DateTime now) => switch (kind) {
       Talk.time => 'এখন ${bnTime(now.hour, now.minute)}।',
       Talk.cancelled => 'ঠিক আছে। বাতিল করার মতো কিছু চলছিল না — কিছুই বদলাইনি।',
       Talk.nothingDone => 'ঠিক আছে, কোনো লেনদেন লিখলাম না। কিছু লেখার থাকলে বলুন।',
+      Talk.wontDo => 'ঠিক আছে, কিছু করছি না — যেমন আছে তেমনই থাকবে।',
       Talk.date => trf('আজ {0}, {1}। বাংলায় {2}; আরবি তারিখ {3}।', [weekdayName(now), fullDate(now), banglaDate(now).text, hijriDate(now).text]),
     };
 

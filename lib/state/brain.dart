@@ -1512,6 +1512,12 @@ class Brain extends ChangeNotifier {
     await _reschedule();
   }
 
+  /// "মিটিংয়ের রিমাইন্ডার বন্ধ করো": switched off, kept (turn on again from its page).
+  Future<void> switchOffReminder(String id) async {
+    final r = reminderById(id);
+    if (r != null) await saveReminder(r.copyWith(enabled: false));
+  }
+
   /// "আর বাজাবে না": an alarm is switched off (kept on the alarm page);
   /// any other reminder is removed. Either way it never rings again.
   Future<void> stopReminder(String id) async {

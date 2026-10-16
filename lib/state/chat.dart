@@ -5,6 +5,7 @@ import '../logic/ai_map.dart' show answeredByAi;
 import '../logic/app_map.dart';
 import '../logic/ask.dart' show infoTopic;
 import '../logic/manage.dart';
+import '../logic/meaning.dart';
 import '../logic/me.dart';
 import '../logic/answers.dart';
 import '../logic/bn.dart';
@@ -219,6 +220,30 @@ class ChatController extends ChangeNotifier {
   /// can complete it.
   String _lastSaid = '';
   DateTime? _lastSaidAt;
+
+  /// What the conversation is about right now: the person last written or
+  /// asked about (so "ও আরও দুইশ নিয়েছে" and "এখন মোট কত?" mean them), or
+  /// the user's own income/spending. Kept for this session only.
+  String _focusPerson = '';
+  bool _focusCash = false;
+  DateTime? _focusAt;
+
+  /// The user chose the kind of a money entry from the choices: that is
+  /// their consent — no second "লিখে রাখি?".
+  bool _chosen = false;
+
+  /// The command being saved right now, so a repeated "হ্যাঁ" (voice and a
+  /// tap together, or a callback fired twice) can never save it twice.
+  Command? _executing;
+  Command? _executed;
+
+  void _focusOn({String person = '', bool cash = false}) {
+    _focusPerson = person;
+    _focusCash = cash;
+    _focusAt = _now;
+  }
+
+  bool get _focusFresh => _focusAt != null && _now.difference(_focusAt!).inMinutes < 20;
 
   String get topicLabel => topic == null ? '' : (topic == Topic.custom ? customTopic : topic!.label);
 
@@ -446,6 +471,19 @@ class ChatController extends ChangeNotifier {
     return c.length == 1 && (c.first is OpenPlace || c.first is SmallTalk || c.first is ContactsQuery || c.first is CallPerson);
   }
 
+  /// A whole request by itself ("রহিমকে ৫০০ টাকা ধার দিলাম", "কাল ১০টায়
+  /// মিটিং মনে করিয়ে দিও"): when the user goes quiet after it, it is sent
+  /// at once — no "আর কিছু বলতে চান?" before the one confirmation. A plain
+  /// statement, a list or a sentence left open still waits for more.
+  bool isCompleteRequest(String t) {
+    final n = normalize(t);
+    if (n.isEmpty) return false;
+    if (RegExp(r'(?:^|\s)(?:আর|এবং|তারপর|তার পর|এরপর|এর পর|আরও|আরো|মানে|যেমন|কিন্তু|যে)$').hasMatch(n)) return false;
+    if (const ['তালিকা', 'লিস্ট', 'list'].any((w) => n.contains(normalize(w)))) return false;
+    final c = parseAll(t, brain.data.ledger, tasks: brain.data.tasks, contacts: brain.data.contacts, folders: brain.folderHints, now: _now);
+    return c.isNotEmpty && c.every((x) => x is! NotUnderstood && x is! SearchQuery && !(x is NoteAdd && x.fromStatement));
+  }
+
   /// Short listening (yes/no) is enough for the next answer.
   bool get expectsShortAnswer =>
       const {ChatWait.yesNo, ChatWait.amount, ChatWait.name, ChatWait.callee, ChatWait.phone, ChatWait.contactName}.contains(wait);
@@ -510,7 +548,67 @@ class ChatController extends ChangeNotifier {
       return '';
     }
     _held = '';
-    return _understand(_withContext(whole), out, shown: whole);
+    // "মুছে দিও না", "বন্ধ কোরো না": nothing is done — decided here, before
+    // the AI (if on) could read it as "মুছে দাও".
+    if (!isQuestionText(whole) && negatedRequest(normalize(whole))) {
+      _history.add(AiTurn.user(whole));
+      final text = talkReply(Talk.wontDo, _now);
+      _say(out, text);
+      _history.add(AiTurn.app(text));
+      _lastSaid = '';
+      notifyListeners();
+      return out.join(' ');
+    }
+    // "এখন মোট কত?" — the total of whatever was being talked about, read
+    // from the saved data (never worked out from the chat).
+    final total = _totalFromContext(whole);
+    if (total != null) {
+      _history.add(AiTurn.user(whole));
+      final text = answerText(brain.data, total, _now) ?? '';
+      _say(out, text, links: _linksFor(total));
+      _history.add(AiTurn.app(text));
+      notifyListeners();
+      return out.join(' ');
+    }
+    return _understand(_withContext(_resolvePronouns(whole)), out, shown: whole);
+  }
+
+  /// "এখন মোট কত?": the person talked about, or this month's spending.
+  /// Null when it is not such a question, or nothing is being talked about.
+  Command? _totalFromContext(String t) {
+    final n = normalize(t);
+    if (!asksTotal(n) || !_focusFresh) return null;
+    // A person or a subject named in the question itself wins.
+    final named = knownPeople(brain.data.ledger).where((k) => n.contains(normalize(k)));
+    if (named.isNotEmpty) return LedgerQuery(t, ask: LedgerAsk.person, person: named.first);
+    if (_focusPerson.isNotEmpty) return LedgerQuery(t, ask: LedgerAsk.person, person: _focusPerson);
+    if (_focusCash) return CashQuery(t);
+    return null;
+  }
+
+  /// "ও", "সে", "ওকে", "ওর" → the person being talked about, when there is
+  /// one and no one else is named. Otherwise the words stay as they are
+  /// (and the app asks whom it means).
+  String _resolvePronouns(String t) {
+    if (!_focusFresh || _focusPerson.isEmpty) return t;
+    final n = normalize(t);
+    final others = knownPeople(brain.data.ledger).where((k) => normalize(k) != normalize(_focusPerson) && n.contains(normalize(k)));
+    if (others.isNotEmpty) return t;
+    final parts = t.trim().split(RegExp(r'\s+'));
+    var changed = false;
+    for (var i = 0; i < parts.length; i++) {
+      final m = RegExp(r'^(.*?)([,।!?]*)$').firstMatch(parts[i])!;
+      final role = pronounRole(m[1]!, first: i == 0 || (i == 1 && normalize(parts[0]) == normalize('আর')));
+      if (role == null) continue;
+      parts[i] = switch (role) {
+            PronounRole.doer => _focusPerson,
+            PronounRole.to => toPerson(_focusPerson),
+            PronounRole.of => possessive(_focusPerson),
+          } +
+          m[2]!;
+      changed = true;
+    }
+    return changed ? parts.join(' ') : t;
   }
 
   Future<bool> _redirect(String kind, String said, List<String> out) async {
@@ -563,7 +661,8 @@ class ChatController extends ChangeNotifier {
       found = [for (final t in targetsIn(brain.data, _now)) if (!_idsBeforeSave.contains(t.id)) t].take(1).toList();
     }
     if (found.isEmpty) found = findTargets(brain.data, c.transcript, _now);
-    final verb = c.action == 'delete' ? tr('মুছবো') : tr('বদলাবো');
+    final verb = c.action == 'delete' ? tr('মুছবো') : (c.action == 'stop' ? tr('বন্ধ করবো') : tr('বদলাবো'));
+    if (c.action == 'stop') found = [for (final t in found) if (t.kind == ItemKind.reminder && (brain.data.reminders.where((r) => r.id == t.id).firstOrNull?.enabled ?? false)) t];
     if (found.isEmpty) {
       final kind = kindNamed(text);
       _say(out, trf('কোনটা {0}, খুঁজে পেলাম না। নাম, তারিখ বা টাকার অঙ্ক বলে আরেকবার বলুন — যেমন “রহিমের ৫০০ টাকার লেনদেনটা মুছে দাও”।', [verb]),
@@ -586,6 +685,10 @@ class ChatController extends ChangeNotifier {
     _target = t;
     if (c.action == 'delete') {
       _ask(out, trf('“{0}” মুছে দেবো?', [t.label]), ChatWait.yesNo, choices: _yesNoChoices);
+      return;
+    }
+    if (c.action == 'stop') {
+      _ask(out, trf('“{0}” বন্ধ করে দেবো? মুছবে না, পরে আবার চালু করা যাবে।', [t.label]), ChatWait.yesNo, choices: _yesNoChoices);
       return;
     }
     _change = changeIn(t, c.transcript, _now);
@@ -693,6 +796,8 @@ class ChatController extends ChangeNotifier {
       }
       final text = answerText(brain.data, c, _now) ?? '';
       _say(out, text, vault: _vaultFor(c), links: _linksFor(c));
+      if (c is LedgerQuery && c.ask == LedgerAsk.person && c.person != null) _focusOn(person: c.person!);
+      if (c is CashQuery) _focusOn(cash: true);
       // Money answers are kept in the AI's view of the conversation so a
       // follow-up ("তাহলে সব মিলিয়ে কত?") makes sense; saved notes, tasks
       // and logins are not.
@@ -839,6 +944,7 @@ class ChatController extends ChangeNotifier {
 
   Future<void> _start(Command c, List<String> out) async {
     _current = c;
+    _chosen = false;
     switch (c) {
       case LedgerAdd():
         _src = c;
@@ -994,6 +1100,22 @@ class ChatController extends ChangeNotifier {
   }
 
   void _taskDone(TaskDone c, List<String> out) {
+    if (!c.done) {
+      // "…এখনো শেষ হয়নি": still to do. Ticked by mistake: open it again.
+      final all = matchTasks(brain.data.tasks, c.terms);
+      if (all.isEmpty) {
+        _say(out, tr('এমন কোনো কাজ তালিকায় পেলাম না।'), links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
+        return;
+      }
+      final t = all.first;
+      if (t.done) {
+        brain.setTaskDone(t, false);
+        _say(out, trf('ঠিক আছে, “{0}” আবার বাকি কাজের তালিকায় রাখলাম।', [t.title]), links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
+      } else {
+        _say(out, trf('জি, “{0}” বাকি কাজের তালিকাতেই আছে — শেষ হলে বলবেন।', [t.title]), links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
+      }
+      return;
+    }
     final open = brain.data.tasks.where((t) => !t.done);
     final found = matchTasks(open, c.terms);
     if (found.isEmpty) {
@@ -1162,7 +1284,7 @@ class ChatController extends ChangeNotifier {
       ]);
       return;
     }
-    if (_allYes) return _saveCurrent(out);
+    if (_allYes || _chosen) return _saveCurrent(out);
     final on = _ledgerDate == null ? '' : '${sayWhen(_ledgerDate!, _now, withTime: false).replaceFirst(RegExp(r'^কাল'), 'গতকাল')}: ';
     // The recogniser also heard another amount: say so, and offer it.
     final alt = _altAmount(src.transcript);
@@ -1265,6 +1387,9 @@ class ChatController extends ChangeNotifier {
           }
           return true;
         }
+        // "না, এগারোটায় করো", "না, করিমকে", "না, কাল": the waiting action
+        // corrected — not a no. It is shown again with the change.
+        if (!_askingAll && await _editPending(t, out)) return true;
         final yn = yesNo(t);
         if (yn == null) {
           if (_looksNew(t)) return false;
@@ -1300,6 +1425,11 @@ class ChatController extends ChangeNotifier {
           return true;
         }
         if (_looksNew(t) && findAmount(normalize(t)) != null) return false;
+        // "হ্যাঁ" / "না" is not a name.
+        if (yesNo(t) != null && words(normalize(t)).length <= 2) {
+          _say(out, tr('কার সাথে লেনদেন — নামটা বলুন।'));
+          return true;
+        }
         final n = spokenName(t, knownPeople(brain.data.ledger));
         if (n.isEmpty) {
           _say(out, tr('নামটা ধরতে পারিনি। আবার বলেন।'));
@@ -1484,8 +1614,68 @@ class ChatController extends ChangeNotifier {
           return true;
         }
         _kind = LedgerKind.values.byName(choice);
+        // Picking the kind is the user's say-so: saved without asking again
+        // (it can still be taken back with "ফিরিয়ে নিন").
+        _chosen = pick != null;
         await _nextLedgerStep(out);
         return true;
+    }
+  }
+
+  /// A correction to the action waiting for "হ্যাঁ": a new time or day for a
+  /// reminder or to-do, a new person or kind for a money entry. True when it
+  /// was one (the action is shown again, changed); false otherwise.
+  Future<bool> _editPending(String t, List<String> out) async {
+    final n = normalize(t);
+    final ws = words(n);
+    if (ws.isEmpty || ws.length > 8) return false;
+    final lead = {'না', 'নাহ', 'উহু', 'না না', 'বরং', 'ওটা', 'না বরং'}.map(normalize).contains(ws.first) || ws.first == normalize('না,');
+    final cur = _current;
+    switch (cur) {
+      case ReminderAdd():
+        final w = parseWhen(t, _now);
+        if (w == null || (!w.hasTime && !w.hasDay)) return false;
+        if (!lead && !ws.any((x) => {'করো', 'করে', 'দাও', 'হবে', 'করুন', 'দিন'}.map(normalize).contains(x))) return false;
+        final old = cur.at.year > 2000 ? cur.at : (cur.day ?? dayOnly(_now));
+        var day = w.hasDay ? w.day : DateTime(old.year, old.month, old.day);
+        var hour = w.hasTime ? w.at.hour : old.hour;
+        final minute = w.hasTime ? w.at.minute : old.minute;
+        // "দশটায়, না এগারোটায়" in the morning stays in the morning.
+        if (w.hasTime && cur.at.year > 2000 && !RegExp(fold('সকাল|ভোর|দুপুর|বিকাল|বিকেল|সন্ধ্যা|রাত|am|pm')).hasMatch(n)) {
+          final h12 = hour % 12;
+          hour = cur.at.hour >= 12 ? h12 + 12 : h12;
+        }
+        if (!w.hasDay && cur.at.year <= 2000 && cur.day == null) day = dayOnly(_now);
+        final at = DateTime(day.year, day.month, day.day, hour, minute);
+        wait = ChatWait.none;
+        choices = const [];
+        await _start(ReminderAdd(cur.transcript, title: cur.title, at: at, repeat: cur.repeat, alarm: cur.alarm, weekdays: cur.weekdays, minutesBefore: cur.minutesBefore), out);
+        return true;
+      case TaskAdd():
+        final w = parseWhen(t, _now);
+        if (!lead || w == null || !w.hasDay) return false;
+        wait = ChatWait.none;
+        choices = const [];
+        await _start(TaskAdd(cur.transcript, title: cur.title, due: w.day), out);
+        return true;
+      case LedgerAdd():
+        if (!lead) return false;
+        final rest = tidy(cutWords(t, const ['না', 'নাহ', 'উহু', 'বরং']));
+        final kind = pickSpokenOption(rest, [for (final k in LedgerKind.values) k.name], allowExpense: false);
+        final name = ws.length <= 4 ? spokenName(rest, knownPeople(brain.data.ledger)) : '';
+        if (kind == null && (name.isEmpty || findAmount(normalize(rest)) != null)) return false;
+        if (kind != null) _kind = LedgerKind.values.byName(kind);
+        if (name.isNotEmpty && kind == null) {
+          _person = name;
+          _phoneChecked = false;
+          _ledgerPhone = '';
+        }
+        wait = ChatWait.none;
+        choices = const [];
+        await _nextLedgerStep(out);
+        return true;
+      default:
+        return false;
     }
   }
 
@@ -1518,6 +1708,18 @@ class ChatController extends ChangeNotifier {
 
   Future<void> _saveCurrent(List<String> out) async {
     final c = _current;
+    // Never the same action twice (a double "হ্যাঁ", a repeated callback).
+    if (c != null && (identical(c, _executing) || identical(c, _executed))) return;
+    _executing = c;
+    try {
+      await _saveOnce(c, out);
+      _executed = c;
+    } finally {
+      _executing = null;
+    }
+  }
+
+  Future<void> _saveOnce(Command? c, List<String> out) async {
     final quiet = _allYes;
     final snap = brain.snapshot();
     _batchSnap ??= snap;
@@ -1537,6 +1739,7 @@ class ChatController extends ChangeNotifier {
         _say(out, quiet ? trf('লিখলাম: {0}।', [describe(kind, _person, _amount)]) : savedSentence(kind, _person, _amount, after),
             links: [ChatLink(LinkKind.person, trf('{0} খাতা দেখুন', [possessive(_person)]), person: _person)], speak: !quiet);
         _history.add(AiTurn.app('[লিখে রাখা হলো: ${describe(kind, _person, _amount)}]'));
+        _focusOn(person: _person);
       case LedgerSet():
         final e = _setEntry!;
         await brain.saveEntry(e);
@@ -1620,6 +1823,7 @@ class ChatController extends ChangeNotifier {
         _say(out, quiet ? trf('লিখলাম: {0}', [summaryLine(c)]) : done + proNote,
             links: [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন')), if (proNote.isNotEmpty) ChatLink(LinkKind.page, tr('প্রো দেখুন'), page: 'pro')], speak: !quiet);
         _history.add(AiTurn.app('[লেখা হলো: ${summaryLine(c)}]'));
+        _focusOn(cash: c.project == null);
       case VaultAdd():
         final old = _vaultNamed(c.name);
         if (old == null && !brain.canAddVault) {
@@ -1670,6 +1874,9 @@ class ChatController extends ChangeNotifier {
           if (c.action == 'delete') {
             await brain.deleteTarget(t);
             _say(out, trf('মুছে দিলাম — {0}।', [t.label]), speak: !quiet);
+          } else if (c.action == 'stop') {
+            await brain.switchOffReminder(t.id);
+            _say(out, trf('বন্ধ করে দিলাম — {0}। রিমাইন্ডারের পাতা থেকে আবার চালু করা যাবে।', [t.label]), speak: !quiet);
           } else {
             await brain.applyChange(t, _change);
             _say(out, tr('বদলে দিলাম।'), speak: !quiet);

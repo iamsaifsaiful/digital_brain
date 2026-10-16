@@ -6,6 +6,7 @@ import '../models/models.dart';
 import 'app_map.dart';
 import 'bn.dart';
 import 'health.dart';
+import 'meaning.dart';
 import 'parser.dart';
 import 'phrases.dart';
 import 'when.dart';
@@ -70,6 +71,8 @@ List<Command> parseAll(String said, List<LedgerEntry> ledger,
 /// "অ্যালার্ম দাও": an instruction about the previous message, with nothing
 /// of its own. 'reminder', 'alarm', 'task' or 'note' — null otherwise.
 String? redirectOf(String said) {
+  // "রিমাইন্ডার বন্ধ কোরো না": a request in the negative moves nothing.
+  if (negatedRequest(normalize(said))) return null;
   var t = ' ${normalize(said)} ';
   String? kind;
   const kinds = [
