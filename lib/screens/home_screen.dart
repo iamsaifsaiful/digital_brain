@@ -12,8 +12,58 @@ import 'help_screen.dart';
 import 'plan_screens.dart';
 import '../logic/lang.dart';
 
-/// What needs doing — late, today, tomorrow — shown on the home under the
-/// greeting, in the same light style as the chat.
+/// A titled part of the home: a heading, maybe a link on the right, then
+/// its card.
+class HomeSection extends StatelessWidget {
+  const HomeSection({super.key, required this.title, this.action, this.onAction, this.trailing, required this.child});
+  final String title;
+  final String? action;
+  final VoidCallback? onAction;
+  final Widget? trailing;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 20),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          SizedBox(
+            height: 36,
+            child: Row(children: [
+              const SizedBox(width: 4),
+              Expanded(child: Text(title, style: display(16.5, weight: 700))),
+              if (trailing != null) trailing!,
+              if (action != null)
+                TextButton(
+                  onPressed: onAction,
+                  style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8), visualDensity: VisualDensity.compact),
+                  child: Text(action!, style: body(13.5, weight: FontWeight.w600, color: C.green)),
+                ),
+            ]),
+          ),
+          const SizedBox(height: 6),
+          child,
+        ]),
+      );
+}
+
+/// The plain white card every part of the home sits on.
+class HomeCard extends StatelessWidget {
+  const HomeCard({super.key, required this.child, this.padding = const EdgeInsets.all(14), this.onTap});
+  final Widget child;
+  final EdgeInsets padding;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: C.surface,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: C.line)),
+        child: InkWell(onTap: onTap, child: Padding(padding: padding, child: child)),
+      );
+}
+
+/// আজকের কাজ on the home: how many are done, what is late, today's
+/// to-dos and reminders, and tomorrow's.
 class TodaySections extends StatelessWidget {
   const TodaySections({super.key});
 
@@ -22,84 +72,97 @@ class TodaySections extends StatelessWidget {
     final brain = BrainScope.of(context);
     final d = brain.data;
     final now = brain.services.now();
+    final today = dayOnly(now);
     final plan = planOf(d, now);
-    final tomorrow = dayOnly(now).add(const Duration(days: 1));
+    final tomorrow = today.add(const Duration(days: 1));
     final tomorrowItems = plan.ahead.where((i) => dayOnly(i.sort) == tomorrow).toList();
+    final todoToday = [for (final i in plan.today) if (i.task != null) i].length;
+    final doneToday = [for (final t in d.tasks) if (t.done && t.doneAt != null && dayOnly(t.doneAt!) == today) t].length;
+    final all = todoToday + doneToday;
 
-    Widget box(List<Widget> rows, {Color? color}) => Container(
-          decoration: BoxDecoration(color: color ?? C.surface, borderRadius: BorderRadius.circular(18)),
-          clipBehavior: Clip.antiAlias,
-          child: Column(children: [
-            for (final (i, r) in rows.indexed) ...[
-              if (i > 0) Divider(height: 1, indent: 14, endIndent: 14, color: C.line),
-              r,
-            ],
-          ]),
+    Widget label(String text, {Color? color}) => Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 2),
+          child: Text(text, style: body(12.5, weight: FontWeight.w600, color: color ?? C.muted)),
         );
-
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (plan.overdue.isNotEmpty) ...[
-        _Heading(trf('দেরি হয়ে গেছে · {0}', [bnDigits(plan.overdue.length)]), color: C.orange),
-        box(color: C.orangeTint, [
-          for (final i in plan.overdue)
+    List<Widget> rows(List<PlanItem> items, {bool late = false}) => [
+          for (final (n, i) in items.indexed) ...[
+            if (n > 0) Divider(height: 1, indent: 14, endIndent: 14, color: C.line2),
             PlanRow(
               item: i,
-              withDay: true,
-              trailing: TextButton(
-                onPressed: () => brain.saveTask(i.task!.copyWith(due: tomorrow)),
-                child: Text(tr('কাল করব'), style: body(13, weight: FontWeight.w600, color: C.green)),
+              withDay: late,
+              trailing: late
+                  ? TextButton(
+                      onPressed: () => brain.saveTask(i.task!.copyWith(due: tomorrow)),
+                      child: Text(tr('কাল করব'), style: body(13, weight: FontWeight.w600, color: C.green)),
+                    )
+                  : null,
+            ),
+          ],
+        ];
+
+    return HomeSection(
+      title: tr('আজকের কাজ'),
+      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+        if (all > 0)
+          InkWell(
+            key: const Key('home-stat-tasks'),
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AllTasksScreen())),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              child: Text(todoToday == 0 ? tr('সব শেষ') : trf('{0}/{1} শেষ', [bnDigits(doneToday), bnDigits(all)]), style: body(13, color: C.muted)),
+            ),
+          ),
+        TextButton.icon(
+          onPressed: () => showAddSheet(context, remind: true),
+          style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8), visualDensity: VisualDensity.compact),
+          icon: Icon(Icons.add_rounded, size: 18, color: C.green),
+          label: Text(tr('যোগ করুন'), style: body(13.5, weight: FontWeight.w600, color: C.green)),
+        ),
+      ]),
+      child: HomeCard(
+        padding: EdgeInsets.zero,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          if (all > 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 2),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: LinearProgressIndicator(value: doneToday / all, minHeight: 5, color: C.green, backgroundColor: C.line2),
               ),
             ),
-        ]),
-      ],
-      _Heading(tr('আজকের তালিকা'), big: true,
-          action: TextButton.icon(
-            onPressed: () => showAddSheet(context, remind: true),
-            icon: Icon(Icons.add_rounded, size: 18, color: C.green),
-            label: Text(tr('যোগ করুন'), style: body(14, weight: FontWeight.w600, color: C.green)),
-          )),
-      if (plan.today.isEmpty)
-        box([
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Text(tr('আজ কিছু রাখা নেই। নিচে লিখুন বা বলুন — যেমন “বিকেল ৪টায় মিটিং মনে করিয়ে দিও”।'), style: body(14, color: C.muted, height: 1.5)),
+          if (plan.overdue.isNotEmpty) ...[
+            label(trf('দেরি হয়ে গেছে · {0}', [bnDigits(plan.overdue.length)]), color: C.orange),
+            ...rows(plan.overdue, late: true),
+            if (plan.today.isNotEmpty) label(tr('আজ')),
+          ],
+          if (plan.today.isEmpty && plan.overdue.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Text(tr('আজ কিছু রাখা নেই। নিচে লিখুন বা বলুন — যেমন “বিকেল ৪টায় মিটিং মনে করিয়ে দিও”।'), style: body(14, color: C.muted, height: 1.5)),
+            )
+          else
+            ...rows(plan.today),
+          if (tomorrowItems.isNotEmpty) ...[
+            Divider(height: 1, color: C.line),
+            label(trf('কাল, {0}', [weekdayName(tomorrow)])),
+            ...rows(tomorrowItems),
+          ],
+          Divider(height: 1, color: C.line),
+          InkWell(
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AllTasksScreen())),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(children: [
+                Expanded(child: Text(tr('সব কাজ ও রিমাইন্ডার দেখুন'), style: body(14, weight: FontWeight.w600, color: C.green))),
+                Icon(Icons.chevron_right_rounded, color: C.green),
+              ]),
+            ),
           ),
-        ])
-      else
-        box([for (final i in plan.today) PlanRow(item: i)]),
-      if (tomorrowItems.isNotEmpty) ...[
-        _Heading(trf('কাল, {0}', [weekdayName(tomorrow)])),
-        box([for (final i in tomorrowItems) PlanRow(item: i)]),
-      ],
-      Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AllTasksScreen())),
-          iconAlignment: IconAlignment.end,
-          icon: Icon(Icons.arrow_forward_rounded, size: 18, color: C.green),
-          label: Text(tr('সব কাজ ও রিমাইন্ডার দেখুন'), style: body(14, weight: FontWeight.w600, color: C.green)),
-        ),
-      ),
-    ]);
-  }
-}
-
-class _Heading extends StatelessWidget {
-  const _Heading(this.text, {Color? color, this.action, this.big = false}) : _color = color;
-  final String text;
-  final bool big;
-  final Color? _color;
-  Color get color => _color ?? C.muted;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.fromLTRB(4, big ? 22 : 18, 0, action == null ? 8 : 2),
-        child: Row(children: [
-          Expanded(child: Text(text, style: big ? display(18, weight: 700) : body(13, weight: FontWeight.w600, color: color))),
-          if (action != null) action!,
         ]),
-      );
+      ),
+    );
+  }
 }
 
 /// Shown on "আজ" while something on this phone may stop reminders.
@@ -219,74 +282,60 @@ class _StartTipsState extends State<StartTips> {
     if (_hidden != false) return const SizedBox.shrink();
     final brain = BrainScope.of(context);
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
-    final steps = <(String, String, IconData, Color, bool, VoidCallback)>[
-      ('contacts', tr('ফোনবুকের নম্বর আনুন'), Icons.contacts_outlined, const Color(0xFF7C3AED), brain.data.contacts.isNotEmpty, () => importFromPhone(context)),
-      ('alarm', tr('রিমাইন্ডার ঠিক সময়ে বাজুক'), Icons.notifications_active_outlined, const Color(0xFFEA580C), _seen.contains('alarm'), () => push(const ReminderCheckScreen())),
-      ('say', tr('নিচে বলুন বা লিখুন'), Icons.mic_none_rounded, const Color(0xFF059669), _seen.contains('say'),
-          () => toast(context, tr('যেমন: “রবিনকে ৫০০০ টাকা দিলাম”, “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”'))),
-      ('help', tr('কী কী করা যায়, দেখুন'), Icons.lightbulb_outline_rounded, const Color(0xFF2563EB), _seen.contains('help'), () => push(const HelpScreen())),
+    final steps = <(String, String, String, IconData, bool, VoidCallback)>[
+      ('contacts', tr('ফোনবুকের সব নম্বর এক ক্লিকে আনুন'), tr('নাম বললেই ফোন, মেসেজ আর হিসাবে নম্বর নিজে থেকে বসে যাবে'), Icons.contacts_outlined,
+          brain.data.contacts.isNotEmpty, () => importFromPhone(context)),
+      ('alarm', tr('রিমাইন্ডার যেন ঠিক সময়ে বাজে'), tr('ফোনের দুই-একটা সেটিং এক চাপে ঠিক করে নিন'), Icons.notifications_active_outlined, _seen.contains('alarm'),
+          () => push(const ReminderCheckScreen())),
+      ('say', tr('নিচে বলুন বা লিখুন'), tr('“রবিনকে ৫০০০ টাকা দিলাম”, “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”, “আজকের কাজের তালিকা”'), Icons.mic_none_rounded,
+          _seen.contains('say'), () => toast(context, tr('যেমন: “রবিনকে ৫০০০ টাকা দিলাম”, “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”'))),
+      ('help', tr('কী কী করা যায়, দেখে নিন'), tr('সব সুবিধা আর কী বললে কী হয়'), Icons.lightbulb_outline_rounded, _seen.contains('help'), () => push(const HelpScreen())),
     ];
     final done = steps.where((x) => x.$5).length;
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 8, 6, 14),
-        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(20)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Expanded(child: Text(tr('শুরু করার ৪টা ধাপ'), style: display(16, weight: 700))),
-            Text(trf('{0}/৪ হয়েছে', [bnDigits(done)]), style: body(12.5, weight: FontWeight.w600, color: C.green)),
-            IconButton(
-              tooltip: tr('বুঝেছি, লুকিয়ে রাখো'),
-              visualDensity: VisualDensity.compact,
-              onPressed: _hide,
-              icon: Icon(Icons.close_rounded, size: 20, color: C.muted),
+    return HomeSection(
+      title: tr('শুরু করার ৪টা ধাপ'),
+      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(trf('{0}/৪ হয়েছে', [bnDigits(done)]), style: body(13, color: C.muted)),
+        IconButton(
+          tooltip: tr('বুঝেছি, লুকিয়ে রাখো'),
+          visualDensity: VisualDensity.compact,
+          onPressed: _hide,
+          icon: Icon(Icons.close_rounded, size: 20, color: C.muted),
+        ),
+      ]),
+      child: HomeCard(
+        padding: EdgeInsets.zero,
+        child: Column(children: [
+          for (final (n, (k, title, sub, icon, ok, onTap)) in steps.indexed) ...[
+            if (n > 0) Divider(height: 1, indent: 62, color: C.line2),
+            InkWell(
+              key: Key('tip-$k'),
+              onTap: () {
+                _mark(k);
+                onTap();
+              },
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+                child: Row(children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(color: ok ? C.green : C.greenTint, shape: BoxShape.circle),
+                    child: Icon(ok ? Icons.check_rounded : icon, color: ok ? Colors.white : C.green, size: 18),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(title, style: body(14.5, weight: FontWeight.w600, color: ok ? C.muted : C.ink)),
+                      Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted, height: 1.4)),
+                    ]),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: C.muted),
+                ]),
+              ),
             ),
-          ]),
-          Padding(
-            padding: const EdgeInsets.only(right: 8, bottom: 12),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(99),
-              child: LinearProgressIndicator(value: done / 4, minHeight: 5, color: C.green, backgroundColor: C.greenTint),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Wrap(spacing: 10, runSpacing: 10, children: [
-              for (final (k, title, icon, color, ok, onTap) in steps)
-                SizedBox(
-                      width: (MediaQuery.of(context).size.width - 32 - 28 - 10) / 2,
-                      child: Material(
-                        color: color.withValues(alpha: C.dark ? 0.2 : 0.08),
-                        borderRadius: BorderRadius.circular(14),
-                        child: InkWell(
-                          key: Key('tip-$k'),
-                          borderRadius: BorderRadius.circular(14),
-                          onTap: () {
-                            _mark(k);
-                            onTap();
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: Row(children: [
-                              Container(
-                                width: 32,
-                                height: 32,
-                                decoration: BoxDecoration(color: ok ? C.green : color, shape: BoxShape.circle),
-                                child: Icon(ok ? Icons.check_rounded : icon, color: Colors.white, size: 18),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(title, maxLines: 2, style: body(13, weight: FontWeight.w600, height: 1.25, color: ok ? C.muted : C.ink)),
-                              ),
-                            ]),
-                          ),
-                        ),
-                      ),
-                    ),
-            ]),
-          ),
+          ],
         ]),
       ),
     );

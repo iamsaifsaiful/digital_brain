@@ -429,9 +429,10 @@ void main() {
     await rig.brain.setUserName('সাইফ');
     await rig.brain.saveCash(CashEntry(kind: CashKind.expense, amount: 250, category: 'বাজার', date: rig.brain.services.now()));
     await settle(t);
-    expect(find.text('সাইফ'), findsOneWidget);
-    expect(find.byKey(const Key('home-stat-tasks')), findsOneWidget);
-    expect(find.descendant(of: find.byKey(const Key('home-stat-spent')), matching: find.textContaining('২৫০')), findsOneWidget);
+    expect(find.textContaining(', সাইফ'), findsOneWidget);
+    expect(find.text('আজকের কাজ'), findsOneWidget);
+    expect(find.text('এ মাসের হিসাব'), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('home-stat-spent')), matching: find.textContaining('২৫০')), findsWidgets);
     await t.tap(find.byKey(const Key('home-stat-spent')));
     await settle(t);
     expect(find.text('অন্যান্য হিসাব'), findsOneWidget);

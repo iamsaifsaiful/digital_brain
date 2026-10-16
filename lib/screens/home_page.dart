@@ -7,7 +7,7 @@ import '../ui/pro_gate.dart';
 import '../logic/bn.dart';
 import '../logic/calendar_bd.dart';
 import '../logic/cash.dart';
-import '../logic/proactive.dart' show tasksLeft, remindsOn;
+import '../logic/ledger.dart' show totals;
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import 'alarm_list_screen.dart';
@@ -38,9 +38,9 @@ String helloFor(DateTime now) {
   return tr('শুভ রাত');
 }
 
-/// হোম: a warm welcome — the day (Bangla, English and Hijri dates, sun
-/// times), what is waiting today, every part of the app one tap away, then
-/// today's list.
+/// হোম, content first: a short greeting under today's sky, then what is
+/// to be done today, this month's money, what is coming, and every part of
+/// the app — on plain cards, colour only where it means something.
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -57,253 +57,191 @@ class HomePage extends StatelessWidget {
     final next = runs.isEmpty ? null : runs.first;
     final daysTo = next == null ? 0 : DateTime(next.start.year, next.start.month, next.start.day).difference(today).inDays;
     final month = monthSums(d.cash, now);
-    final left = tasksLeft(d, now).length;
-    final doneToday = [for (final t in d.tasks) if (t.done && t.doneAt != null && dayOnly(t.doneAt!) == today) t].length;
-    final allTasks = left + doneToday;
-    final remindersToday = [for (final r in d.reminders) if (r.enabled && remindsOn(r, today) && DateTime(today.year, today.month, today.day, r.hour, r.minute).isAfter(now)) r]
-      ..sort((a, b) => (a.hour * 60 + a.minute).compareTo(b.hour * 60 + b.minute));
+    final owe = totals(d.ledger);
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
     final top = MediaQuery.of(context).padding.top;
     final first = brain.userName.trim().isEmpty ? '' : brain.userName.trim().split(' ').first;
-
-    // Most used first: the day's work, then money, then the rest. Twelve,
-    // so the grid is full (মেসেজ থেকে কাজ lives in সংরক্ষণ).
-    final shortcuts = <(String, IconData, Color, Color, VoidCallback)>[
-      (tr('কাজের তালিকা'), Icons.checklist_rounded, const Color(0xFF34D399), const Color(0xFF059669), () => goToTab(context, ShellTab.diary)),
-      (tr('রিমাইন্ডার'), Icons.notifications_active_outlined, const Color(0xFFFBBF24), const Color(0xFFEA580C), () => push(const AllTasksScreen())),
-      (tr('হিসাব'), Icons.account_balance_wallet_outlined, const Color(0xFF2DD4BF), const Color(0xFF0F766E), () => goToTab(context, ShellTab.money)),
-      (tr('ক্যালেন্ডার'), Icons.calendar_month_outlined, const Color(0xFF60A5FA), const Color(0xFF2563EB), () => push(const CalendarScreen())),
-      (tr('নোট'), Icons.sticky_note_2_outlined, const Color(0xFFFCD34D), const Color(0xFFD97706), () => push(const NotesScreen())),
-      (tr('ডকুমেন্টস'), Icons.folder_copy_outlined, const Color(0xFF818CF8), const Color(0xFF4F46E5), () => push(const DocsScreen())),
-      (tr('যোগাযোগ'), Icons.call_outlined, const Color(0xFFC084FC), const Color(0xFF7C3AED), () => push(const CallsScreen())),
-      (tr('স্বাস্থ্য'), Icons.favorite_border_rounded, const Color(0xFFFB7185), const Color(0xFFE11D48), () => push(const HealthScreen())),
-      (tr('অ্যালার্ম'), Icons.alarm_rounded, const Color(0xFFFDBA74), const Color(0xFFEA580C), () => push(const AlarmsScreen())),
-      (tr('পাসওয়ার্ড'), Icons.lock_outline_rounded, const Color(0xFF64748B), const Color(0xFF1E293B), () => push(const VaultPage())),
-      (tr('অনুরোধ'), Icons.bloodtype_outlined, const Color(0xFFF87171), const Color(0xFFB91C1C), () => push(const RequestsScreen())),
-      (tr('প্রো ভার্সন'), Icons.workspace_premium_outlined, const Color(0xFFFCD34D), const Color(0xFFB45309), () => push(const ProScreen())),
-    ];
     final inboxTodos = inboxTodo(d, now);
+
+    // Most used first: the day's work, then money, then the rest.
+    final shortcuts = <(String, IconData, Color, Color, VoidCallback)>[
+      (tr('কাজের তালিকা'), Icons.checklist_rounded, C.green, C.greenTint, () => goToTab(context, ShellTab.diary)),
+      (tr('রিমাইন্ডার'), Icons.notifications_none_rounded, C.orange, C.orangeTint, () => push(const AllTasksScreen())),
+      (tr('হিসাব'), Icons.account_balance_wallet_outlined, C.teal, C.tealTint, () => goToTab(context, ShellTab.money)),
+      (tr('ক্যালেন্ডার'), Icons.calendar_month_outlined, C.blue, C.blueTint, () => push(const CalendarScreen())),
+      (tr('নোট'), Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, () => push(const NotesScreen())),
+      (tr('ডকুমেন্টস'), Icons.folder_copy_outlined, C.blue, C.blueTint, () => push(const DocsScreen())),
+      (tr('যোগাযোগ'), Icons.call_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
+      (tr('স্বাস্থ্য'), Icons.favorite_border_rounded, C.rose, C.roseTint, () => push(const HealthScreen())),
+      (tr('অ্যালার্ম'), Icons.alarm_rounded, C.orange, C.orangeTint, () => push(const AlarmsScreen())),
+      (tr('পাসওয়ার্ড'), Icons.lock_outline_rounded, C.muted2, C.soft, () => push(const VaultPage())),
+      (tr('অনুরোধ'), Icons.bloodtype_outlined, C.rose, C.roseTint, () => push(const RequestsScreen())),
+      (tr('প্রো ভার্সন'), Icons.workspace_premium_outlined, C.ochre, C.ochreTint, () => push(const ProScreen())),
+    ];
 
     if (brain.easyMode) return const EasyHome();
 
-    Widget stat(Key key, List<Color> colors, Widget lead, String value, String label, VoidCallback onTap) => Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: colors.last.withValues(alpha: C.dark ? 0.45 : 0.32), blurRadius: 16, offset: const Offset(0, 8))],
-            ),
-            child: Material(
-              borderRadius: BorderRadius.circular(20),
-              clipBehavior: Clip.antiAlias,
-              child: Ink(
-                decoration: BoxDecoration(gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight)),
-                child: InkWell(
-                  key: key,
-                  onTap: onTap,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      lead,
-                      const SizedBox(height: 10),
-                      Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(18, weight: 700, color: Colors.white)),
-                      Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: Colors.white.withValues(alpha: 0.88))),
-                    ]),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-    Widget badge(IconData icon) => Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), shape: BoxShape.circle),
-          child: Icon(icon, color: Colors.white, size: 19),
-        );
-
     const shade = [Shadow(color: Color(0x66000000), blurRadius: 8)];
-    final white = Colors.white;
     final soft = Colors.white.withValues(alpha: 0.88);
-    const horizon = 78.0;
+    const horizon = 54.0;
     final daytime = now.isAfter(sun.sunrise) && now.isBefore(sun.sunset);
     final until = daytime
         ? trf('সূর্যাস্তের আর {0}', [_span(sun.sunset.difference(now))])
         : trf('সূর্যোদয়ের আর {0}', [_span((now.isBefore(sun.sunrise) ? sun.sunrise : sun.sunrise.add(const Duration(days: 1))).difference(now))]);
+
+    Widget figure(String label, String value, Color color) => Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: body(12.5, color: C.muted)),
+            const SizedBox(height: 2),
+            Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(17, weight: 700, color: color)),
+          ]),
+        );
 
     return Column(children: [
       Expanded(
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            // The greeting, under today's sky: the sun where it is now.
+            // A short greeting under today's sky.
             SizedBox(
-              height: top + 318,
+              height: top + 236,
               child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(28)),
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
                 child: HomeSky(
-                now: now,
-                sunrise: sun.sunrise,
-                sunset: sun.sunset,
-                horizon: horizon,
-                child: Stack(children: [
-                  Positioned(
-                    left: 20,
-                    right: 16,
-                    top: top + 14,
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  now: now,
+                  sunrise: sun.sunrise,
+                  sunset: sun.sunset,
+                  horizon: horizon,
+                  arcHeight: 58,
+                  child: Stack(children: [
+                    Positioned(
+                      left: 20,
+                      right: 16,
+                      top: top + 12,
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Expanded(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(first.isEmpty ? helloFor(now) : '${helloFor(now)},', style: body(15, color: soft).copyWith(shadows: shade)),
-                            Text(first.isEmpty ? tr('আজ কী করে দেবো?') : first,
-                                maxLines: 1, overflow: TextOverflow.ellipsis, style: display(30, weight: 700, color: white, height: 1.15).copyWith(shadows: shade)),
-                          ]),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => push(const CalendarScreen()),
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(first.isEmpty ? helloFor(now) : '${helloFor(now)}, $first', maxLines: 1, overflow: TextOverflow.ellipsis,
+                                  style: display(24, weight: 700, color: Colors.white, height: 1.2).copyWith(shadows: shade)),
+                              const SizedBox(height: 4),
+                              Text('${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)}', style: body(14.5, weight: FontWeight.w600, color: Colors.white).copyWith(shadows: shade)),
+                              Text('${bd.text}, ${hj.dayMonth}', style: body(13, color: soft).copyWith(shadows: shade)),
+                            ]),
+                          ),
                         ),
                         Tooltip(
                           message: tr('প্রোফাইল'),
-                          child: InkWell(customBorder: const CircleBorder(), onTap: () => goToTab(context, ShellTab.more), child: const UserPhoto(size: 46, onDark: true)),
+                          child: InkWell(customBorder: const CircleBorder(), onTap: () => goToTab(context, ShellTab.more), child: const UserPhoto(size: 44, onDark: true)),
                         ),
                       ]),
-                      const SizedBox(height: 10),
-                      InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: () => push(const CalendarScreen()),
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text('${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)}', style: display(17, weight: 700, color: white).copyWith(shadows: shade)),
-                          Text('${bd.text}, ${trf('{0}কাল', [bd.season])}', style: body(13.5, color: soft).copyWith(shadows: shade)),
-                          Text(hj.dayMonth, style: body(13.5, color: soft).copyWith(shadows: shade)),
-                        ]),
-                      ),
-                    ]),
-                  ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: horizon + 8,
-                    child: Text(until, textAlign: TextAlign.center, style: body(12.5, weight: FontWeight.w600, color: white).copyWith(shadows: shade)),
-                  ),
-                  Positioned(
-                    left: 18,
-                    bottom: 42,
-                    child: _SunLabel(icon: Icons.wb_twilight, text: trf('সূর্যোদয় {0}', [bnTime(sun.sunrise.hour, sun.sunrise.minute)])),
-                  ),
-                  Positioned(
-                    right: 18,
-                    bottom: 42,
-                    child: _SunLabel(icon: Icons.nights_stay_outlined, text: trf('সূর্যাস্ত {0}', [bnTime(sun.sunset.hour, sun.sunset.minute)])),
-                  ),
-                ]),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: horizon + 6,
+                      child: Text(until, textAlign: TextAlign.center, style: body(12, weight: FontWeight.w600, color: Colors.white).copyWith(shadows: shade)),
+                    ),
+                    Positioned(left: 16, bottom: 14, child: _SunLabel(icon: Icons.wb_twilight, text: trf('সূর্যোদয় {0}', [bnTime(sun.sunrise.hour, sun.sunrise.minute)]))),
+                    Positioned(right: 16, bottom: 14, child: _SunLabel(icon: Icons.nights_stay_outlined, text: trf('সূর্যাস্ত {0}', [bnTime(sun.sunset.hour, sun.sunset.minute)]))),
+                  ]),
                 ),
-              ),
-            ),
-            // What is waiting today: three bright tiles standing on the fields.
-            Transform.translate(
-              offset: const Offset(0, -40),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: Row(children: [
-                  stat(
-                      const Key('home-stat-tasks'),
-                      const [Color(0xFF22C55E), Color(0xFF0F766E)],
-                      SizedBox(
-                        width: 34,
-                        height: 34,
-                        child: Stack(alignment: Alignment.center, children: [
-                          CircularProgressIndicator(
-                            value: allTasks == 0 ? 1 : doneToday / allTasks,
-                            strokeWidth: 3.5,
-                            strokeCap: StrokeCap.round,
-                            color: Colors.white,
-                            backgroundColor: Colors.white.withValues(alpha: 0.25),
-                          ),
-                          Icon(left == 0 ? Icons.check_rounded : Icons.checklist_rounded, size: 16, color: Colors.white),
-                        ]),
-                      ),
-                      left == 0 ? tr('সব শেষ') : trf('{0}টা বাকি', [bnDigits(left)]),
-                      tr('আজকের কাজ'),
-                      () => goToTab(context, ShellTab.diary)),
-                  const SizedBox(width: 10),
-                  stat(
-                      const Key('home-stat-reminders'),
-                      const [Color(0xFFFBBF24), Color(0xFFEA580C)],
-                      badge(Icons.notifications_active_outlined),
-                      remindersToday.isEmpty ? tr('নেই') : bnTime(remindersToday.first.hour, remindersToday.first.minute),
-                      remindersToday.isEmpty ? tr('আজ রিমাইন্ডার') : (remindersToday.length == 1 ? tr('পরের রিমাইন্ডার') : trf('পরেরটা, মোট {0}টা', [bnDigits(remindersToday.length)])),
-                      () => push(const AllTasksScreen())),
-                  const SizedBox(width: 10),
-                  stat(const Key('home-stat-spent'), const [Color(0xFF60A5FA), Color(0xFF4F46E5)], badge(Icons.account_balance_wallet_outlined), taka(month.expense), tr('এ মাসে খরচ'),
-                      () => goToTab(context, ShellTab.money)),
-                ]),
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-              child: Transform.translate(
-                offset: const Offset(0, -24),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  if (inboxTodos.isNotEmpty) ...[
-                    _Ticket(
-                      colors: const [Color(0xFF34D399), Color(0xFF059669)],
-                      block: const Icon(Icons.mark_chat_unread_outlined, color: Colors.white, size: 26),
-                      title: trf('মেসেজ থেকে {0}টা কাজ', [bnDigits(inboxTodos.length)]),
-                      text: inboxTodos.first.$2.summary,
-                      onTap: () => push(const InboxScreen()),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  if (next != null && daysTo <= 30) ...[
-                    _Ticket(
-                      colors: const [Color(0xFFFB7185), Color(0xFFBE123C)],
-                      block: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Text(bnDigits(next.start.day), style: display(22, weight: 700, color: Colors.white, height: 1.05)),
-                        Text(monthName(next.start.month), maxLines: 1, overflow: TextOverflow.clip, style: body(10.5, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.9), height: 1.1)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                const GoogleStartCard(),
+                if (d.reminders.isNotEmpty) const AlarmBanner(),
+                const TodaySections(),
+                HomeSection(
+                  title: tr('এ মাসের হিসাব'),
+                  action: tr('হিসাব খুলুন'),
+                  onAction: () => goToTab(context, ShellTab.money),
+                  child: HomeCard(
+                    key: const Key('home-stat-spent'),
+                    onTap: () => goToTab(context, ShellTab.money),
+                    child: Column(children: [
+                      Row(children: [
+                        figure(tr('আয়'), taka(month.income), C.green),
+                        figure(tr('খরচ'), taka(month.expense), C.red),
+                        figure(tr('হাতে থাকল'), taka(month.balance), C.ink),
                       ]),
-                      title: daysTo == 0 ? trf('আজ ছুটি — {0}', [next.label]) : next.label,
-                      text: '${holidayRange(next)}${next.days > 1 ? ', ${trf('টানা {0} দিন', [bnDigits(next.days)])}' : ''}',
-                      tag: daysTo > 0 ? trf('{0} দিন পর', [bnDigits(daysTo)]) : null,
-                      onTap: () => push(const CalendarScreen()),
+                      if (owe.receivable > 0 || owe.payable > 0) ...[
+                        Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: C.line)),
+                        Row(children: [
+                          if (owe.receivable > 0) figure(trf('পাবো, {0} জনের কাছে', [bnDigits(owe.owingPeople)]), taka(owe.receivable), C.green),
+                          if (owe.payable > 0) figure(trf('দেবো, {0} জনকে', [bnDigits(owe.owedPeople)]), taka(owe.payable), C.orange),
+                          if (owe.receivable == 0 || owe.payable == 0) const Spacer(),
+                        ]),
+                      ],
+                    ]),
+                  ),
+                ),
+                if (inboxTodos.isNotEmpty || (next != null && daysTo <= 30))
+                  HomeSection(
+                    title: tr('সামনে'),
+                    child: HomeCard(
+                      padding: EdgeInsets.zero,
+                      child: Column(children: [
+                        if (inboxTodos.isNotEmpty)
+                          _UpcomingRow(
+                            lead: Icon(Icons.mark_chat_unread_outlined, color: C.green, size: 22),
+                            tint: C.greenTint,
+                            title: trf('মেসেজ থেকে {0}টা কাজ', [bnDigits(inboxTodos.length)]),
+                            text: inboxTodos.first.$2.summary,
+                            onTap: () => push(const InboxScreen()),
+                          ),
+                        if (inboxTodos.isNotEmpty && next != null && daysTo <= 30) Divider(height: 1, indent: 72, color: C.line),
+                        if (next != null && daysTo <= 30)
+                          _UpcomingRow(
+                            lead: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Text(bnDigits(next.start.day), style: display(17, weight: 700, color: C.rose, height: 1.05)),
+                              Text(monthName(next.start.month), maxLines: 1, overflow: TextOverflow.clip, style: body(9.5, weight: FontWeight.w600, color: C.rose, height: 1.1)),
+                            ]),
+                            tint: C.roseTint,
+                            title: daysTo == 0 ? trf('আজ ছুটি — {0}', [next.label]) : next.label,
+                            text: '${holidayRange(next)}${next.days > 1 ? ', ${trf('টানা {0} দিন', [bnDigits(next.days)])}' : ''}',
+                            tag: daysTo > 0 ? trf('{0} দিন পর', [bnDigits(daysTo)]) : null,
+                            onTap: () => push(const CalendarScreen()),
+                          ),
+                      ]),
                     ),
-                    const SizedBox(height: 12),
-                  ],
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 8, 4, 12),
-                    child: Text(tr('সব কিছু এক জায়গায়'), style: display(18, weight: 700)),
                   ),
-                  GridView.count(
-                    crossAxisCount: 4,
-                    shrinkWrap: true,
-                    padding: EdgeInsets.zero,
-                    physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 6,
-                    childAspectRatio: 0.86,
-                    children: [
-                      for (final (label, icon, light, deep, onTap) in shortcuts)
-                        InkWell(
-                          borderRadius: BorderRadius.circular(18),
-                          onTap: onTap,
-                          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            Container(
-                              width: 58,
-                              height: 58,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(colors: [light, deep], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                                borderRadius: BorderRadius.circular(19),
-                                boxShadow: [BoxShadow(color: deep.withValues(alpha: C.dark ? 0.5 : 0.3), blurRadius: 10, offset: const Offset(0, 5))],
+                HomeSection(
+                  title: tr('সব কিছু এক জায়গায়'),
+                  child: HomeCard(
+                    padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+                    child: GridView.count(
+                      crossAxisCount: 4,
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      physics: const NeverScrollableScrollPhysics(),
+                      childAspectRatio: 0.92,
+                      children: [
+                        for (final (label, icon, fg, bg, onTap) in shortcuts)
+                          InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: onTap,
+                            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Container(
+                                width: 46,
+                                height: 46,
+                                decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
+                                child: Icon(icon, color: fg, size: 23),
                               ),
-                              child: Icon(icon, color: Colors.white, size: 27),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(label, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(12.5, weight: FontWeight.w500, height: 1.2)),
-                          ]),
-                        ),
-                    ],
+                              const SizedBox(height: 7),
+                              Text(label, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(12.5, height: 1.2)),
+                            ]),
+                          ),
+                      ],
+                    ),
                   ),
-                  const StartTips(),
-                  const GoogleStartCard(),
-                  if (d.reminders.isNotEmpty) const AlarmBanner(),
-                  const TodaySections(),
-                ]),
-              ),
+                ),
+                const StartTips(),
+              ]),
             ),
           ],
         ),
@@ -338,52 +276,34 @@ class _SunLabel extends StatelessWidget {
       );
 }
 
-/// A notice shaped like a ticket: a bright block on the left (the day of a
-/// holiday, or an icon), what it is, and how far away.
-class _Ticket extends StatelessWidget {
-  const _Ticket({required this.colors, required this.block, required this.title, required this.text, this.tag, required this.onTap});
-  final List<Color> colors;
-  final Widget block;
+/// One thing coming up: a small tinted square (a date or an icon), what it
+/// is, and how far away.
+class _UpcomingRow extends StatelessWidget {
+  const _UpcomingRow({required this.lead, required this.tint, required this.title, required this.text, this.tag, required this.onTap});
+  final Widget lead;
+  final Color tint;
   final String title;
   final String text;
   final String? tag;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Material(
-        color: C.surface,
-        borderRadius: BorderRadius.circular(18),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: Row(children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight), borderRadius: BorderRadius.circular(14)),
-                child: Center(child: block),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15.5, weight: FontWeight.w600)),
-                  const SizedBox(height: 2),
-                  Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, color: C.muted)),
-                ]),
-              ),
-              if (tag != null)
-                Container(
-                  margin: const EdgeInsets.only(left: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(color: colors.last.withValues(alpha: C.dark ? 0.28 : 0.1), borderRadius: BorderRadius.circular(999)),
-                  child: Text(tag!, style: body(12, weight: FontWeight.w600, color: C.dark ? colors.first : colors.last)),
-                )
-              else
-                Icon(Icons.chevron_right_rounded, color: C.muted),
-            ]),
-          ),
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+          child: Row(children: [
+            Container(width: 44, height: 44, decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(12)), child: Center(child: lead)),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15, weight: FontWeight.w600)),
+                Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, color: C.muted)),
+              ]),
+            ),
+            if (tag != null) Padding(padding: const EdgeInsets.only(left: 8), child: Text(tag!, style: body(12.5, weight: FontWeight.w600, color: C.muted)))
+            else Icon(Icons.chevron_right_rounded, color: C.muted),
+          ]),
         ),
       );
 }

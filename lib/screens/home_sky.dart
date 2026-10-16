@@ -28,13 +28,16 @@ SkyTime skyTimeFor(DateTime now, DateTime sunrise, DateTime sunset) {
 /// stars at night, over a horizon with palm trees. The sun rises to where
 /// it is now once, when the page opens.
 class HomeSky extends StatefulWidget {
-  const HomeSky({super.key, required this.now, required this.sunrise, required this.sunset, required this.horizon, required this.child});
+  const HomeSky({super.key, required this.now, required this.sunrise, required this.sunset, required this.horizon, this.arcHeight = 96, required this.child});
   final DateTime now;
   final DateTime sunrise;
   final DateTime sunset;
 
   /// Height of the land at the bottom.
   final double horizon;
+
+  /// How high the sun's path rises above the land.
+  final double arcHeight;
   final Widget child;
 
   @override
@@ -79,7 +82,7 @@ class _HomeSkyState extends State<HomeSky> with SingleTickerProviderStateMixin {
     return AnimatedBuilder(
       animation: _rise,
       builder: (context, child) => CustomPaint(
-        painter: _SkyPainter(time: time, progress: progress, rise: Curves.easeOutCubic.transform(_rise.value), horizon: widget.horizon),
+        painter: _SkyPainter(time: time, progress: progress, rise: Curves.easeOutCubic.transform(_rise.value), horizon: widget.horizon, arcHeight: widget.arcHeight),
         child: child,
       ),
       child: widget.child,
@@ -88,11 +91,12 @@ class _HomeSkyState extends State<HomeSky> with SingleTickerProviderStateMixin {
 }
 
 class _SkyPainter extends CustomPainter {
-  _SkyPainter({required this.time, required this.progress, required this.rise, required this.horizon});
+  _SkyPainter({required this.time, required this.progress, required this.rise, required this.horizon, required this.arcHeight});
   final SkyTime time;
   final double progress;
   final double rise;
   final double horizon;
+  final double arcHeight;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -121,7 +125,7 @@ class _SkyPainter extends CustomPainter {
     // The path across the sky.
     final cx = w / 2;
     final rx = w / 2 - 34;
-    final ry = math.min(96.0, ground * 0.42);
+    final ry = math.min(arcHeight, ground * 0.42);
     Offset at(double t) {
       final th = math.pi * (1 - t);
       return Offset(cx + rx * math.cos(th), ground - 6 - ry * math.sin(th));
