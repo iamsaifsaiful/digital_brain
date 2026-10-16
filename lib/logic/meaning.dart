@@ -198,3 +198,23 @@ PronounRole? pronounRole(String word, {required bool first}) {
   if ({'ওর', 'তার', 'উনার', 'ওনার', 'তাঁর', 'ওনাদের'}.map(_n).contains(w)) return PronounRole.of;
   return null;
 }
+
+/// What a command is, in one line, for the diagnostic trace (never a
+/// password or a vault secret).
+String traceLine(Command c) => switch (c) {
+      LedgerAdd(:final person, :final amount, :final kind) => 'লেনদেন যোগ: $person, $amount, ${kind?.name ?? 'ধরন জিজ্ঞেস'}',
+      LedgerQuery(:final ask, :final person) => 'লেনদেনের প্রশ্ন: ${ask.name}${person == null ? '' : ', $person'}',
+      MoneyListQuery(:final label, :final category, :final person) => 'লেনদেনের তালিকা: $label${category == null ? '' : ', খাত $category'}${person == null ? '' : ', $person'}',
+      Clarify(:final question) => 'জিজ্ঞেস: $question',
+      CashAdd(:final kind, :final amount, :final category) => 'আয়-খরচ যোগ: ${kind.name}, $amount, $category',
+      CashQuery() => 'আয়-খরচের প্রশ্ন',
+      ReminderAdd(:final title, :final at) => 'রিমাইন্ডার: $title, $at',
+      TaskAdd(:final title) => 'কাজ: $title',
+      TaskDone(:final done) => 'কাজ ${done ? 'শেষ' : 'বাকি'}',
+      VaultAdd(:final name) => 'পাসওয়ার্ড রাখা: $name',
+      VaultQuery() => 'পাসওয়ার্ড খোঁজা',
+      SearchQuery(:final terms) => 'খোঁজা: ${terms.join(' ')}',
+      SmallTalk(:final kind) => 'কথা: ${kind.name}',
+      ManageItem(:final action) => 'বদল/মোছা: $action',
+      _ => c.runtimeType.toString(),
+    };

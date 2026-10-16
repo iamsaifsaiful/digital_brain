@@ -22,6 +22,8 @@ import 'store_more_screens.dart' show DonorPanel;
 import 'feedback_screen.dart';
 import 'requests_screen.dart';
 import 'trash_screen.dart';
+import 'trace_screen.dart';
+import '../services/trace.dart';
 import 'pro_screen.dart';
 import 'google_backup.dart';
 import '../logic/pro.dart';
@@ -29,7 +31,7 @@ import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '2.18.0';
+const appVersion = '2.19.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -340,6 +342,8 @@ class _MoreScreenState extends State<MoreScreen> {
                 sub: brain.data.trash.isEmpty ? tr('যা মুছবেন, ৩০ দিন এখানে থাকবে') : trf('{0}টা — ৩০ দিনের মধ্যে ফিরিয়ে আনা যায়', [bnDigits(brain.data.trash.length)]),
                 onTap: () => push(const TrashScreen())),
             linkRow(Icons.notifications_active_outlined, tr('রিমাইন্ডার ঠিকমতো বাজবে তো?'), sub: tr('ফোনের সেটিং দেখে নিন, ১ মিনিটে পরীক্ষা করুন'), onTap: () => push(const ReminderCheckScreen())),
+            linkRow(Icons.bug_report_outlined, tr('সমস্যা খোঁজার লগ'),
+                sub: Trace.enabled ? tr('চালু — মাইক কী শুনল, কী বুঝল') : tr('বন্ধ — ভয়েসে সমস্যা হলে চালু করুন'), onTap: () => push(const TraceScreen())),
           ]),
         ),
         const SizedBox(height: 22),

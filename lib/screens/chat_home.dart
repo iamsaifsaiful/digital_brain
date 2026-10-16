@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../logic/dictation.dart';
+import '../services/trace.dart';
 import '../logic/parser.dart' show yesNo, words, normalize;
 import '../logic/suggest.dart';
 import '../logic/bn.dart';
@@ -151,7 +152,12 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     super.dispose();
   }
 
-  ChatController _make([List<ChatMessage> restored = const []]) => ChatController(_brain, restored: restored)..addListener(_changed);
+  ChatController _make([List<ChatMessage> restored = const []]) {
+    // A new conversation id for the trace (one conversation, many recogniser sessions).
+    Trace.conversation = 'c${DateTime.now().millisecondsSinceEpoch % 1000000}';
+    Trace.log('chat', 'conversation started', {'restored messages': restored.length});
+    return ChatController(_brain, restored: restored)..addListener(_changed);
+  }
 
   Future<void> _loadPast() async {
     final p = await _archive.load();
@@ -487,15 +493,10 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     }
   }
 
-  /// Quiet after speaking: one whole request goes at once (its own single
-  /// confirmation follows); anything longer or unfinished gets "আর কিছু
-  /// বলতে চান?" first.
+  /// Quiet after speaking: "আর কিছু বলতে চান?".
   Future<void> _quietAfterSpeech() async {
-    if (_draft.length == 1 && _chat.isCompleteRequest(_draft.single)) {
-      await _stopListening();
-      await _submitDraft();
-      return;
-    }
+    // Quiet is not "done": the user is asked, and nothing is acted on until
+    // they say it is all (or tap a button).
     await _askMore();
   }
 
@@ -516,6 +517,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     if (_askingMore) {
       _askingMore = false;
       final (kind, content) = continuationOf(w);
+      Trace.log('speech', 'answer to আর কিছু', {'heard': w, 'means': kind.name});
       switch (kind) {
         case Continue.finish:
           _submitDraft();
@@ -549,6 +551,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   }
 
   void _addPiece(String w) {
+    Trace.log('speech', 'piece kept', {'n': _draft.length + 1, 'piece': w, 'before': assemble(_draft)});
     final v = _brain.services.voice;
     // The recogniser's other guesses for this piece (used when the speech is one piece).
     _pieceAlts = v.lastHeard.trim() == w.trim() ? v.lastAlternatives : const [];
@@ -572,6 +575,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     await _stopListening();
     if (!mounted) return;
     setState(() => _askingMore = true);
+    Trace.log('speech', 'asked: আর কিছু বলতে চান?', {'so far': assemble(_draft)});
     await _listen(say: tr('আর কিছু বলতে চান?'), short: true);
   }
 
@@ -581,6 +585,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     _submitting = true;
     _moreTimer?.cancel();
     final whole = assemble(_draft);
+    Trace.log('speech', 'whole speech sent', {'pieces': _draft.length, 'text': whole});
     if (_draft.length == 1) {
       final v = _brain.services.voice;
       v.lastHeard = whole;
@@ -1329,7 +1334,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
                 ActionChip(
                   key: const Key('speech-done'),
                   avatar: Icon(Icons.send_rounded, size: 18, color: C.onInk),
-                  label: Text(tr('বলা শেষ — পাঠান'), style: body(15, weight: FontWeight.w600, color: C.onInk)),
+                  label: Text(tr('শেষ করেছি'), style: body(15, weight: FontWeight.w600, color: C.onInk)),
                   color: WidgetStatePropertyAll(C.ink),
                   onPressed: _busy ? null : () async {
                     if (_listening) {

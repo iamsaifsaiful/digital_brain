@@ -1,7 +1,10 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/widgets.dart';
+
+import '../services/trace.dart';
 
 import '../logic/ai_map.dart';
 import '../logic/app_map.dart';
@@ -817,7 +820,7 @@ class Brain extends ChangeNotifier {
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly',
-    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'inbox_apps', 'inbox_on', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'g_card_off',
+    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'inbox_apps', 'inbox_on', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'g_card_off', 'trace_on',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
@@ -876,6 +879,8 @@ class Brain extends ChangeNotifier {
         final v = await keys.read(k);
         if (v != null) prefs[k] = v;
       }
+      // The diagnostic trace: on in development builds, or when the user turned it on.
+      Trace.enabled = kDebugMode || prefs['trace_on'] == 'true';
       askZakat = zakatSaved;
       hijriAdjust = number('hijri_adjust');
       askPlace = district;
@@ -1047,6 +1052,9 @@ class Brain extends ChangeNotifier {
       }
     }
     if (!aiOn) return (rules, null);
+    // Money is counted from the saved book, never put into words by the AI
+    // (it could make up an amount); a question that needs a choice is asked.
+    if (rules.length == 1 && (rules.first is MoneyListQuery || rules.first is Clarify || rules.first is LedgerQuery || rules.first is CashQuery)) return (rules, null);
     // "নোট খোলো": opening a page needs no AI; blood group, allergies and
     // what photos are kept stay on the phone.
     if (rules.length == 1 && (rules.first is OpenPlace || rules.first is ProfileQuery || rules.first is ProfileSet || rules.first is ManageItem)) return (rules, null);

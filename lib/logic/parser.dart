@@ -16,6 +16,7 @@ import 'bn.dart';
 import 'ledger.dart';
 import 'cash.dart';
 import 'meaning.dart';
+import 'answers.dart' show periodIn;
 import 'when.dart';
 
 sealed class Command {
@@ -268,6 +269,31 @@ class ProfileSet extends Command {
 /// "আমার ব্লাড গ্রুপ কী?", "আমার কী কী ছবি আছে?" — answered from the phone.
 class ProfileQuery extends Command {
   const ProfileQuery(super.transcript);
+}
+
+/// "এ মাসে কী কী লেনদেন হলো?", "গত সপ্তাহের বাজারের খরচগুলো দেখাও": the
+/// money records of a time span — from the লেনদেন book and আয়-ব্যয় only,
+/// filtered by date, খাত and person.
+class MoneyListQuery extends Command {
+  const MoneyListQuery(super.transcript, {required this.from, required this.to, required this.label, this.category, this.person});
+  final DateTime from;
+  final DateTime to;
+
+  /// "এই মাসে", "গত সপ্তাহে".
+  final String label;
+
+  /// An আয়-ব্যয় খাত ("বাজার", "অন্যান্য"); null = all.
+  final String? category;
+
+  /// One person in the লেনদেন book; null = everyone.
+  final String? person;
+}
+
+/// The request can mean more than one thing: ask which, with ready answers.
+class Clarify extends Command {
+  const Clarify(super.transcript, {required this.question, required this.options});
+  final String question;
+  final List<(String, Command)> options;
 }
 
 class NotUnderstood extends Command {
@@ -740,6 +766,11 @@ class Parser {
       return ManageItem(said, action: manage);
     }
 
+    // "এ মাসে কী কী লেনদেন হলো?", "আমার কত টাকা?": money records by
+    // period, or a question that needs one more word from the user.
+    final moneyAsk = _moneyQuestion(said, text);
+    if (moneyAsk != null) return moneyAsk;
+
     // "নামাজের সময় কখন?", "কাল কী আছে?", "আমার ব্যালেন্স কত?", "কী কী ওষুধ চলছে?"
     if (isQuestionText(said) && infoTopic(text) != null) return ProfileQuery(said);
 
@@ -920,11 +951,68 @@ class Parser {
       }
     }
 
+    // A money question the rules could not place: never answered with a
+    // text match (a phone number, a note) — ask which money is meant.
+    if (asking && w.any((x) => const ['টাকা', 'টাকার', 'লেনদেন', 'খরচ', 'আয়', 'পাওনা', 'দেনা', 'হিসাব', 'ব্যালেন্স'].map(normalize).contains(x) || x.startsWith(normalize('লেনদেন')))) {
+      return Clarify(said, question: 'টাকার কোন হিসাব জানতে চান?', options: [
+        ('এ মাসের আয়-খরচ', CashQuery(said)),
+        ('মানুষের কাছে পাওনা', LedgerQuery(said, ask: LedgerAsk.receivable)),
+        ('আমার দেনা', LedgerQuery(said, ask: LedgerAsk.payable)),
+        ('এ মাসের সব লেনদেন', MoneyListQuery(said, from: DateTime(now.year, now.month), to: DateTime(now.year, now.month + 1), label: 'এই মাসে')),
+      ]);
+    }
     final terms = searchTerms(text);
     if (terms.isEmpty) return NotUnderstood(said);
     // A plain fact, not a question: keep it (in a matching or new category).
     if (!asking && w.length >= 3) return NoteAdd(said, text: said.trim(), fromStatement: true);
     return SearchQuery(said, terms: terms);
+  }
+
+  /// Money records for a span of time, or an unclear money question. Null
+  /// when the sentence is something else.
+  Command? _moneyQuestion(String said, String text) {
+    final w = words(text);
+    final asking = isQuestionText(said) || _hasNorm(text, const ['দেখাও', 'দেখান', 'তালিকা', 'লিস্ট', 'বলো', 'বলুন']);
+    if (!asking) return null;
+    final known = knownPeople(ledger);
+    // "আমার কত টাকা?" / "আমার কত টাকা আছে?": balance, income or what others
+    // owe? Ask instead of guessing.
+    const plain = {'আমার', 'কত', 'টাকা', 'আছে', 'এখন', 'মোট', 'সব', 'আচ্ছা', 'তো', 'আমি', 'হাতে', 'বলো', 'বলুন'};
+    if (w.contains(normalize('টাকা')) && w.contains(normalize('কত')) && w.every((x) => plain.map(normalize).contains(x)) && !w.contains(normalize('হাতে'))) {
+      final now = this.now;
+      return Clarify(said, question: 'কোনটা জানতে চান?', options: [
+        ('এ মাসের আয়-খরচ', CashQuery(said)),
+        ('মানুষের কাছে পাওনা', LedgerQuery(said, ask: LedgerAsk.receivable)),
+        ('আমার দেনা', LedgerQuery(said, ask: LedgerAsk.payable)),
+        ('এ মাসের সব লেনদেন', MoneyListQuery(said, from: DateTime(now.year, now.month), to: DateTime(now.year, now.month + 1), label: 'এই মাসে')),
+      ]);
+    }
+    final records = w.any((x) => x.startsWith(normalize('লেনদেন')) || x == normalize('আয়-ব্যয়') || x == normalize('আয়ব্যয়') || x == 'transaction' || x == 'transactions') ||
+        (w.any((x) => x == normalize('খরচগুলো') || x == normalize('আয়গুলো') || x == normalize('খরচের') && _hasNorm(text, const ['তালিকা', 'লিস্ট'])));
+    if (!records) return null;
+    // "আমার পাওনা লেনদেন কত?" is about who owes whom.
+    if (owedToMe(text) != null) return null;
+    String? person;
+    for (final k in known) {
+      if (text.contains(normalize(k))) person = k;
+    }
+    // "রহিমের সাথে লেনদেন কত?": one person's account (with its own periods).
+    if (person != null) return null;
+    final period = periodIn(text, now) ?? (DateTime(now.year, now.month), DateTime(now.year, now.month + 1), 'এই মাসে');
+    String? category;
+    for (final c in knownCategoryWords) {
+      if (w.contains(normalize(c)) || w.contains(normalize('$cের')) || w.contains(normalize('$cএর'))) category = c;
+    }
+    final other = w.contains(normalize('অন্যান্য'));
+    MoneyListQuery q({String? cat}) => MoneyListQuery(said, from: period.$1, to: period.$2, label: period.$3, category: cat, person: person);
+    // "অন্যান্য লেনদেন": the খাত "অন্যান্য", or all the others? Ask.
+    if (other && category == null) {
+      return Clarify(said, question: 'অন্যান্য খাতের লেনদেন, নাকি ${period.$3.replaceFirst('এই মাসে', 'এই মাসের').replaceFirst('গত মাসে', 'গত মাসের')} সব লেনদেন দেখতে চান?', options: [
+        ('অন্যান্য খাতের', q(cat: 'অন্যান্য')),
+        ('সব লেনদেন', q()),
+      ]);
+    }
+    return q(cat: category);
   }
 
   /// "দিইনি", "দেইনি", "দেই নাই", "পাইনি", "নেইনি", "দেয়নি": a money verb said in the negative.

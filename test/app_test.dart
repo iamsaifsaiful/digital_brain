@@ -19,6 +19,7 @@ import 'package:digital_brain/services/notifications.dart';
 import 'package:digital_brain/services/phonebook.dart';
 import 'package:digital_brain/services/voice.dart';
 import 'package:digital_brain/state/brain.dart';
+import 'package:digital_brain/state/chat.dart' show ChatWait;
 import 'package:digital_brain/ui/theme.dart';
 import 'package:digital_brain/screens/assistant_settings.dart';
 import 'package:digital_brain/screens/app_places.dart';
@@ -1008,19 +1009,48 @@ void main() {
     expect(rig.brain.data.ledger, isEmpty);
   });
 
-  testWidgets('voice: one whole request goes after the quiet — one question, not two', (t) async {
+  testWidgets('voice: quiet is not "done" — the app asks; "হ্যাঁ" listens on, "না" sends the whole speech once', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    String shown() => [for (final e in find.byType(RichText).evaluate()) (e.widget as RichText).text.toPlainText()].join('\n');
+    final chat = t.state<ChatHomeState>(find.byType(ChatHome)).chat;
+    rig.voice.say('এ মাসে কি আমার কোন লেনদেন আছে');
+    await settle(t);
+    // A question too: not answered at the recogniser's first final result.
+    expect(chat.messages.where((m) => m.fromUser), isEmpty);
+    await t.pump(const Duration(milliseconds: 1600));
+    await settle(t);
+    expect(rig.voice.spoken.last, 'আর কিছু বলতে চান?');
+    // "হ্যাঁ": keep listening — the speech so far stays.
+    rig.voice.say('হ্যাঁ');
+    await settle(t);
+    expect(shown(), contains('এ মাসে কি আমার কোন লেনদেন আছে'));
+    rig.voice.say('অন্যান্য লেনদেন');
+    await settle(t);
+    expect(shown(), contains('অন্যান্য লেনদেন'));
+    await t.pump(const Duration(milliseconds: 1600));
+    await settle(t);
+    expect(rig.voice.spoken.last, 'আর কিছু বলতে চান?');
+    // "না" is "that is all" — the whole speech is handled, once.
+    rig.voice.say('না');
+    await settle(t);
+    final sent = chat.messages.where((m) => m.fromUser).toList();
+    expect(sent.single.text, 'এ মাসে কি আমার কোন লেনদেন আছে অন্যান্য লেনদেন');
+    expect(chat.wait, ChatWait.clarify, reason: '"অন্যান্য" may be a খাত or "the rest": asked');
+  });
+
+  testWidgets('voice: an action is confirmed once and done once, even if "হ্যাঁ" comes twice', (t) async {
     final rig = await start(t);
     await openChat(t);
     rig.voice.say('সজীবকে পাঁচশ টাকা ধার দিয়েছি');
     await settle(t);
     await t.pump(const Duration(milliseconds: 1600));
     await settle(t);
-    expect(rig.voice.spoken, isNot(contains('আর কিছু বলতে চান?')));
-    expect(rig.voice.spoken.last, contains('লিখে রাখি'));
+    rig.voice.say('না');
+    await settle(t);
+    expect(rig.voice.spoken.where((s) => s.contains('লিখে রাখি')), hasLength(1));
     rig.voice.say('হ্যাঁ');
     await settle(t);
-    expect(rig.brain.data.ledger, hasLength(1));
-    // The same "হ্যাঁ" heard again (a repeated callback): nothing more is saved.
     rig.voice.say('হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.ledger, hasLength(1));
@@ -1361,6 +1391,8 @@ void main() {
     final rig = await start(t);
     await openMenu(t, 'আমি');
     await t.scrollUntilVisible(find.text('রিমাইন্ডারের রিংটোন'), 200);
+    await t.ensureVisible(find.text('রিমাইন্ডারের রিংটোন'));
+    await settle(t);
     await t.tap(find.text('রিমাইন্ডারের রিংটোন'));
     await settle(t);
     await t.tap(find.text('Morning'));
@@ -1667,6 +1699,7 @@ void main() {
     final rig = await start(t);
     await openMenu(t, 'সেটিংস');
     expect(find.text('সেটিংস'), findsWidgets);
+    await t.scrollUntilVisible(find.text('English'), 200, scrollable: find.byType(Scrollable).last);
     await t.ensureVisible(find.text('English'));
     await settle(t);
     await t.tap(find.text('English'));

@@ -106,3 +106,11 @@ List<Hit> searchAll(AppData d, List<String> terms) {
   out.sort((a, b) => b.score.compareTo(a.score));
   return out;
 }
+
+/// Hits that really answer [terms]: each must match at least half of the
+/// words asked (a single loose match — "মাসে" sounding like "Messi" — is not
+/// an answer to a longer question).
+List<Hit> relevantHits(AppData d, List<String> terms) {
+  final asked = terms.where((t) => normalize(t).length >= 2).length;
+  return [for (final h in searchAll(d, terms)) if (h.score * 2 >= asked) h];
+}

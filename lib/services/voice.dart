@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+
+import 'speech_join.dart';
+import 'trace.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
@@ -113,8 +116,7 @@ class DeviceVoice extends Voice {
   // One "turn" of listening can span several recogniser sessions: Android
   // ends a session at any short pause, so the app restarts it and joins the
   // words until the user has been quiet for [_silence].
-  String _committed = '';
-  String _current = '';
+  final _join = SpeechJoin();
   bool _finished = true;
   bool _restarting = false;
   bool _short = false;
@@ -148,14 +150,13 @@ class DeviceVoice extends Voice {
   bool _talking = false;
   void Function()? _onSaid;
 
-  String get _heard => '$_committed $_current'.trim();
+  String get _heard => _join.text;
 
   /// Other guesses for the whole sentence so far (see [Voice.lastAlternatives]).
   List<String> _alts = const [];
 
   /// The partial text kept when a session ended before its final result;
   /// that session's final text, arriving later, replaces it (never added twice).
-  String _keptOnEnd = '';
 
   /// The words on screen are a partial guess; the recogniser has not given
   /// its final (more accurate) text for them yet.
@@ -170,7 +171,8 @@ class DeviceVoice extends Voice {
   DateTime _cancelledAt = DateTime(2000);
 
   /// What the user said: the heard words without the app's own voice.
-  String get _words => _echo.isEmpty ? _heard : _withoutEcho(_heard);
+  String get _words => _clean(_heard);
+  String _clean(String heard) => _echo.isEmpty ? heard : _withoutEcho(heard);
 
   String _withoutEcho(String heard) {
     final raw = heard.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
@@ -419,21 +421,14 @@ class DeviceVoice extends Voice {
     // Asked to finish: the session ending is expected; keep what was heard.
     if (_finalizing) {
       if (status == 'done' || status == 'doneNoResult' || status == 'notListening') {
-        if (_current.isNotEmpty) {
-          _committed = _words;
-          _current = '';
-        }
+        _join.commitCurrent(_clean);
         _quiet?.cancel();
         _quiet = Timer(const Duration(milliseconds: 250), _finish);
       }
       return;
     }
     if (status == 'done' || status == 'doneNoResult' || status == 'notListening') {
-      if (_current.isNotEmpty) {
-        _keptOnEnd = _current.trim();
-        _committed = _words;
-        _current = '';
-      }
+      _join.sessionEnded(_clean);
       if (_words.isNotEmpty && !_restarting && DateTime.now().difference(_turnStarted).inSeconds < 60) {
         _restarting = true;
         final turn = _turn;
@@ -483,6 +478,7 @@ class DeviceVoice extends Voice {
     _quiet?.cancel();
     _quiet = null;
     final words = _words;
+    Trace.log('voice', 'turn done', {'turn': _turn, 'sessions': _join.session, 'words': words});
     _cancelledAt = DateTime.now();
     lastHeard = words;
     lastAlternatives = _echo.isEmpty ? [for (final a in _alts) if (a != words) a] : const [];
@@ -492,27 +488,16 @@ class DeviceVoice extends Voice {
 
   Future<void> _startSession(int turn) async {
     if (turn != _turn || _finished) return;
+    final sid = _join.newSession();
     try {
       await _stt.listen(
         onResult: (SpeechRecognitionResult r) {
           // Words from an older turn (a late callback) are never mixed in.
           if (_finished || turn != _turn) return;
-          // A session's final text arriving after the app already kept it
-          // (when the session ended first): not new words — never doubled.
-          if (r.finalResult && _current.isEmpty && _keptOnEnd.isNotEmpty && _committed.trimRight().endsWith(_keptOnEnd)) {
-            // The final text of that piece (maybe corrected) takes its place.
-            final base = _committed.trimRight();
-            _committed = '${base.substring(0, base.length - _keptOnEnd.length)} ${r.recognizedWords}'.trim();
-            _keptOnEnd = '';
-            _onWords?.call(_words);
-            return;
-          }
-          if (r.recognizedWords.trim().isNotEmpty) _keptOnEnd = '';
-          final changed = r.recognizedWords != _current;
-          _current = r.recognizedWords;
+          final changed = _join.result(sid, r.recognizedWords, isFinal: r.finalResult, clean: _clean);
           // The recogniser's other guesses for this part of the sentence.
           final alts = [for (final a in r.alternates.skip(1)) if (a.recognizedWords.trim().isNotEmpty && a.recognizedWords != r.recognizedWords) a.recognizedWords];
-          if (alts.isNotEmpty || r.finalResult) _alts = [for (final a in alts.take(4)) '$_committed $a'.trim()];
+          if (alts.isNotEmpty || r.finalResult) _alts = [for (final a in alts.take(4)) '${_join.committed} $a'.trim()];
           if (changed && _words.isNotEmpty) {
             _bargeIn();
             _onWords?.call(_words);
@@ -520,8 +505,6 @@ class DeviceVoice extends Voice {
           }
           _partial = !r.finalResult;
           if (r.finalResult) {
-            _committed = _words;
-            _current = '';
             // The final text the turn was waiting for.
             if (_finalizing) _finish();
           }
@@ -559,6 +542,7 @@ class DeviceVoice extends Voice {
     void Function()? onReady,
   }) async {
     final turn = ++_turn;
+    Trace.log('voice', 'listen', {'turn': turn, 'short': short});
     if (!await init()) {
       var permitted = true;
       try {
@@ -597,10 +581,8 @@ class DeviceVoice extends Voice {
       await Future<void>.delayed(const Duration(milliseconds: 200));
     }
     _retries = 0;
-    _committed = '';
-    _current = '';
+    _join.reset();
     _alts = const [];
-    _keptOnEnd = '';
     _partial = false;
     _finalizing = false;
     _finished = false;
@@ -641,7 +623,7 @@ class DeviceVoice extends Voice {
       // Finished speaking: from now on the user has the full quiet time.
       _talking = false;
       // Only the app's own voice was heard: forget it, so it is not joined to what the user says next.
-      if (_words.isEmpty) _committed = '';
+      if (_words.isEmpty) _join.committed = '';
       _turnStarted = DateTime.now();
       _onSaid?.call();
     }());

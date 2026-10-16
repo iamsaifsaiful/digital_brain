@@ -213,7 +213,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
           ),
         ]);
       case SearchQuery():
-        final hits = searchAll(d, cmd.terms);
+        final hits = relevantHits(d, cmd.terms);
         final text = searchAnswer(d, cmd, now);
         if (hits.isEmpty) {
           return _Answer(text, actions: [
@@ -236,7 +236,10 @@ class _AnswerScreenState extends State<AnswerScreen> {
       case ContactsQuery():
       case CashQuery():
       case Briefing():
+      case MoneyListQuery():
         return _Answer(answerText(d, cmd, now) ?? '');
+      case Clarify():
+        return _Answer(cmd.question);
       case HealthQuery(:final what, :final member):
         return _Answer(healthAnswer(d, what, now, member: member));
       case LedgerAdd():

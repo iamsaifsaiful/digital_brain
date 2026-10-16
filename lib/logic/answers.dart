@@ -76,7 +76,7 @@ String reminderAnswer(AppData d, ReminderQuery q, DateTime now) {
 }
 
 String searchAnswer(AppData d, SearchQuery q, DateTime now) {
-  final hits = searchAll(d, q.terms);
+  final hits = relevantHits(d, q.terms);
   if (hits.isEmpty) {
     final p = placeMentioned(normalize(q.transcript));
     if (p != null) return trf('এ বিষয়ে আলাদা কোনো তথ্য নেই। {0} পাতায় দেখতে নিচে চাপুন।', [tr(p.title)]);
@@ -296,6 +296,8 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       AiReply() => cmd.text,
       TaskQuery() => taskAnswer(d, now),
       CashQuery() => cashAnswer(d, cmd, now),
+      MoneyListQuery() => moneyListAnswer(d, cmd),
+      Clarify() => cmd.question,
       Briefing() => briefingAnswer(d, now),
       ContactsQuery() => contactsAnswer(d),
       HealthQuery() => healthAnswer(d, cmd.what, now, member: cmd.member),
@@ -304,6 +306,49 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       OpenPlace() || ProfileSet() || ManageItem() ||
       LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TaskDone() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() || HealthAdd() => null,
     };
+
+/// The money records of [q] (লেনদেন book and আয়-ব্যয়), newest first.
+/// Only these two are looked in — a phone number or a note is never an
+/// answer to a money question.
+({List<LedgerEntry> ledger, List<CashEntry> cash}) moneyRecords(AppData d, MoneyListQuery q) {
+  bool inSpan(DateTime x) => !x.isBefore(q.from) && x.isBefore(q.to);
+  final ledger = q.category != null
+      ? <LedgerEntry>[]
+      : [for (final e in d.ledger) if (inSpan(e.date) && (q.person == null || personKey(e.person) == personKey(q.person!))) e];
+  final cash = q.person != null
+      ? <CashEntry>[]
+      : [for (final e in d.cash) if (inSpan(e.date) && (q.category == null || e.category == q.category || (q.category == 'অন্যান্য' && e.category.trim().isEmpty))) e];
+  ledger.sort((a, b) => b.date.compareTo(a.date));
+  cash.sort((a, b) => b.date.compareTo(a.date));
+  return (ledger: ledger, cash: cash);
+}
+
+String moneyListAnswer(AppData d, MoneyListQuery q) {
+  final r = moneyRecords(d, q);
+  final what = q.category != null ? trf('‘{0}’ খাতে', [q.category!]) : (q.person != null ? trf('{0} সাথে', [possessive(q.person!)]) : '');
+  final n = r.ledger.length + r.cash.length;
+  if (n == 0) return trf('{0} {1} কোনো লেনদেন পাওয়া যায়নি।', [q.label, what]).replaceAll('  ', ' ');
+  final income = r.cash.where((e) => e.kind == CashKind.income).fold(0, (a, e) => a + e.amount);
+  final spent = r.cash.where((e) => e.kind == CashKind.expense).fold(0, (a, e) => a + e.amount);
+  final parts = [
+    if (income > 0) trf('আয় {0} টাকা', [bnNumber(income)]),
+    if (spent > 0) trf('খরচ {0} টাকা', [bnNumber(spent)]),
+    if (r.ledger.isNotEmpty) trf('ধার-দেনার {0}টা লেনদেন', [bnDigits(r.ledger.length)]),
+  ];
+  return trf('{0} {1} {2}টা লেনদেন — {3}।', [q.label, what, bnDigits(n), parts.join(', ')]).replaceAll('  ', ' ');
+}
+
+/// One line per record, for the list under the answer.
+List<String> moneyLines(AppData d, MoneyListQuery q, {int max = 8}) {
+  final r = moneyRecords(d, q);
+  final lines = <(DateTime, String)>[
+    for (final e in r.cash) (e.date, '${shortDate(e.date)} · ${e.kind == CashKind.income ? tr('আয়') : tr('খরচ')} · ${e.category} · ${taka(e.amount)}'),
+    for (final e in r.ledger) (e.date, '${shortDate(e.date)} · ${describe(e.kind, e.person, e.amount)}'),
+  ]..sort((a, b) => b.$1.compareTo(a.$1));
+  final shown = [for (final l in lines.take(max)) l.$2];
+  if (lines.length > max) shown.add(trf('আরও {0}টা…', [bnDigits(lines.length - max)]));
+  return shown;
+}
 
 String _notUnderstood(NotUnderstood c) {
   final p = placeMentioned(normalize(c.transcript));

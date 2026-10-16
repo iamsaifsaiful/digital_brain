@@ -6,6 +6,7 @@ import '../logic/app_map.dart';
 import '../logic/ask.dart' show infoTopic;
 import '../logic/manage.dart';
 import '../logic/meaning.dart';
+import '../services/trace.dart';
 import '../logic/me.dart';
 import '../logic/answers.dart';
 import '../logic/bn.dart';
@@ -27,7 +28,7 @@ import '../ui/yes_no.dart' show pickSpokenOption;
 import 'brain.dart';
 
 /// What the chat is waiting to hear.
-enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, project, collect, whichPerson, whichItem }
+enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, project, collect, whichPerson, whichItem, clarify }
 
 /// What the user said they want to talk about at the start.
 enum Topic {
@@ -236,6 +237,12 @@ class ChatController extends ChangeNotifier {
   /// tap together, or a callback fired twice) can never save it twice.
   Command? _executing;
   Command? _executed;
+
+  /// The answers offered by a clarifying question ("কোনটা জানতে চান?").
+  List<(String, Command)> _clarifyOptions = const [];
+
+  /// The last money list asked for, so "আর গত মাসে?" or "শুধু খরচ" follows it.
+  MoneyListQuery? _focusMoney;
 
   void _focusOn({String person = '', bool cash = false}) {
     _focusPerson = person;
@@ -465,10 +472,13 @@ class ChatController extends ChangeNotifier {
 
   /// Said by voice and acted on at once, without collecting more speech:
   /// a question, opening a page, small talk, stop or cancel.
+  /// A recogniser's final text is not the end of what the user wants to say
+  /// (people pause mid-question), so everything else is collected until the
+  /// user says it is all.
   bool quickRequest(String t) {
-    if (isQuestionText(t) || _isStop(t) || isCancel(t)) return true;
+    if (_isStop(t) || isCancel(t)) return true;
     final c = parseAll(t, brain.data.ledger, tasks: brain.data.tasks, contacts: brain.data.contacts, now: _now);
-    return c.length == 1 && (c.first is OpenPlace || c.first is SmallTalk || c.first is ContactsQuery || c.first is CallPerson);
+    return c.length == 1 && c.first is SmallTalk && words(normalize(t)).length <= 4;
   }
 
   /// A whole request by itself ("রহিমকে ৫০০ টাকা ধার দিলাম", "কাল ১০টায়
@@ -559,6 +569,15 @@ class ChatController extends ChangeNotifier {
       notifyListeners();
       return out.join(' ');
     }
+    // "আর গত মাসে?" right after a money list: the same list, another span.
+    final follow = _moneyFollowUp(whole);
+    if (follow != null) {
+      _history.add(AiTurn.user(whole));
+      Trace.log('understood', 'follow-up', {'text': whole, 'means': traceLine(follow)});
+      _answerMoney(follow, out);
+      notifyListeners();
+      return out.join(' ');
+    }
     // "এখন মোট কত?" — the total of whatever was being talked about, read
     // from the saved data (never worked out from the chat).
     final total = _totalFromContext(whole);
@@ -571,6 +590,19 @@ class ChatController extends ChangeNotifier {
       return out.join(' ');
     }
     return _understand(_withContext(_resolvePronouns(whole)), out, shown: whole);
+  }
+
+  MoneyListQuery? _moneyFollowUp(String t) {
+    final q = _focusMoney;
+    if (q == null || !_focusFresh) return null;
+    final n = normalize(t);
+    if (words(n).length > 5) return null;
+    final p = periodIn(n, _now);
+    if (p == null) return null;
+    // Only a span said ("আর গত মাসে?", "গত সপ্তাহের?"), nothing else asked.
+    final rest = words(n).where((x) => !const ['আর', 'আরও', 'তাহলে', 'গত', 'এই', 'এ', 'মাসে', 'মাসের', 'সপ্তাহে', 'সপ্তাহের', 'বছর', 'বছরের', 'আজ', 'আজকে', 'গতকাল', 'কী', 'কি', 'কত', 'দেখাও'].map(normalize).contains(x));
+    if (rest.isNotEmpty) return null;
+    return MoneyListQuery(t, from: p.$1, to: p.$2, label: p.$3, category: q.category, person: q.person);
   }
 
   /// "এখন মোট কত?": the person talked about, or this month's spending.
@@ -747,6 +779,7 @@ class ChatController extends ChangeNotifier {
     thinking = false;
     if (problem != null) messages.add(ChatMessage.app(problem, info: true));
 
+    Trace.log('understood', 'intent', {'text': t, 'commands': cmds.map(traceLine).join(' + '), 'ai': brain.aiOn});
     final saves = cmds.where(isSave).toList();
     final others = cmds.where((c) => !isSave(c)).toList();
     final secret = mentionsSecret(t) || cmds.any((c) => c is VaultQuery);
@@ -787,6 +820,18 @@ class ChatController extends ChangeNotifier {
       if (c is ManageItem) {
         await _manage(c, out);
         tags.add('[সংরক্ষিত কিছু বদলানো বা মোছার কথা হচ্ছে]');
+        continue;
+      }
+      if (c is Clarify) {
+        _clarifyOptions = c.options;
+        Trace.log('understood', 'needs a choice', {'question': c.question, 'options': c.options.map((o) => o.$1).join(' / ')});
+        _ask(out, tr(c.question), ChatWait.clarify, choices: [for (final o in c.options) ChatChoice(tr(o.$1), o.$1)]);
+        tags.add('[জিজ্ঞেস করল: ${c.question}]');
+        continue;
+      }
+      if (c is MoneyListQuery) {
+        _answerMoney(c, out);
+        tags.add(answerText(brain.data, c, _now) ?? '');
         continue;
       }
       if (c is CallPerson) {
@@ -841,7 +886,7 @@ class ChatController extends ChangeNotifier {
 
   List<VaultItem> _vaultFor(Command c) {
     if (c is VaultQuery) return vaultAnswerItems(brain.data, c);
-    if (c is SearchQuery) return [for (final h in searchAll(brain.data, c.terms).take(6)) if (h is VaultHit) h.item];
+    if (c is SearchQuery) return [for (final h in relevantHits(brain.data, c.terms).take(6)) if (h is VaultHit) h.item];
     return const [];
   }
 
@@ -894,7 +939,7 @@ class ChatController extends ChangeNotifier {
     }
     if (c is SearchQuery) {
       final docs = [
-        for (final h in searchAll(d, c.terms).whereType<DocHit>().take(4)) ChatLink(LinkKind.doc, trf('দেখুন: {0}', [h.doc.title]), docId: h.doc.id),
+        for (final h in relevantHits(d, c.terms).whereType<DocHit>().take(4)) ChatLink(LinkKind.doc, trf('দেখুন: {0}', [h.doc.title]), docId: h.doc.id),
       ];
       if (docs.isNotEmpty) return docs;
     }
@@ -921,6 +966,12 @@ class ChatController extends ChangeNotifier {
   }
 
   void _dropPending() {
+    // A question the app asked only to choose an answer: nothing was waiting to be saved.
+    if (wait == ChatWait.clarify) {
+      _clarifyOptions = const [];
+      _reset();
+      return;
+    }
     if (wait != ChatWait.none || _current != null || _queue.isNotEmpty) {
       messages.add(ChatMessage.app(tr('আগের প্রশ্নটা বাদ দিলাম, কিছু রাখা হয়নি।'), info: true));
     }
@@ -1327,6 +1378,26 @@ class ChatController extends ChangeNotifier {
     switch (wait) {
       case ChatWait.none:
         return false;
+      case ChatWait.clarify:
+        final i = _pickOption(t);
+        if (i == null) {
+          if (_looksNew(t)) return false;
+          _say(out, tr('কোনটা, ধরতে পারিনি — নিচ থেকে একটা বেছে নিন।'));
+          return true;
+        }
+        final pick = _clarifyOptions[i].$2;
+        wait = ChatWait.none;
+        choices = const [];
+        _clarifyOptions = const [];
+        Trace.log('understood', 'choice made', {'picked': traceLine(pick)});
+        if (pick is MoneyListQuery) {
+          _answerMoney(pick, out);
+        } else {
+          final text = answerText(brain.data, pick, _now) ?? '';
+          _say(out, text, links: _linksFor(pick));
+          if (pick is CashQuery) _focusOn(cash: true);
+        }
+        return true;
       case ChatWait.whichItem:
         final n = asciiDigits(t).replaceAll(RegExp(r'[^0-9]'), '');
         var i = int.tryParse(n) == null ? null : int.parse(n) - 1;
@@ -1620,6 +1691,53 @@ class ChatController extends ChangeNotifier {
         await _nextLedgerStep(out);
         return true;
     }
+  }
+
+  /// Which offered answer [t] means: its number, its order ("প্রথমটা"), or
+  /// the words of one option and no other.
+  int? _pickOption(String t) {
+    final n = normalize(t);
+    final idx = int.tryParse(asciiDigits(n).replaceAll(RegExp(r'[^0-9]'), ''));
+    if (idx != null && idx >= 1 && idx <= _clarifyOptions.length && words(n).length <= 2) return idx - 1;
+    final byOrder = _pickIndex(t, [for (final o in _clarifyOptions) (o.$1, '')]);
+    if (byOrder != null) return byOrder;
+    final said = words(n).map(stem).toSet();
+    var best = -1, bestScore = 0, tie = false;
+    for (var i = 0; i < _clarifyOptions.length; i++) {
+      final ws = words(normalize(_clarifyOptions[i].$1)).map(stem).where((x) => x.length >= 2).toSet();
+      final score = ws.intersection(said).length;
+      if (score > bestScore) {
+        best = i;
+        bestScore = score;
+        tie = false;
+      } else if (score == bestScore && score > 0) {
+        tie = true;
+      }
+    }
+    return bestScore > 0 && !tie ? best : null;
+  }
+
+  /// The money records of a span of time, from the saved book only: what was
+  /// found, a line for each, and a way to the page they are on.
+  void _answerMoney(MoneyListQuery q, List<String> out) {
+    final r = moneyRecords(brain.data, q);
+    Trace.log('data', 'money records', {
+      'from': q.from.toIso8601String().substring(0, 10),
+      'to (not incl.)': q.to.toIso8601String().substring(0, 10),
+      'category': q.category ?? '-',
+      'person': q.person ?? '-',
+      'sources': 'ledger, cash',
+      'found': '${r.ledger.length} ledger + ${r.cash.length} cash',
+      'records': [...r.ledger.map((e) => e.id), ...r.cash.map((e) => e.id)].take(12).join(','),
+    });
+    final text = moneyListAnswer(brain.data, q);
+    _say(out, text, facts: moneyLines(brain.data, q), links: [
+      if (r.cash.isNotEmpty || (r.ledger.isEmpty && q.person == null)) ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন')),
+      if (r.ledger.isNotEmpty && q.person != null) ChatLink(LinkKind.person, trf('{0} খাতা দেখুন', [possessive(q.person!)]), person: q.person),
+      if (r.ledger.isNotEmpty && q.person == null) ChatLink(LinkKind.page, tr('লেনদেন (ধার-দেনা) দেখুন'), page: 'ledger'),
+    ]);
+    _focusMoney = q;
+    _focusAt = _now;
   }
 
   /// A correction to the action waiting for "হ্যাঁ": a new time or day for a

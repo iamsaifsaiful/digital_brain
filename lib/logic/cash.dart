@@ -147,6 +147,9 @@ String categoryFor(String text, CashKind kind) {
   return kind == CashKind.income ? 'অন্যান্য আয়' : 'অন্যান্য';
 }
 
+/// The usual খাত names (spending and income), for reading them in questions.
+final List<String> knownCategoryWords = [..._expenseCats.keys, ..._incomeCats.keys];
+
 /// Every খাত the user has used, then the usual ones.
 List<String> knownCategories(AppData d, CashKind kind) {
   final used = <String>{for (final e in d.cash) if (e.kind == kind) e.category};
