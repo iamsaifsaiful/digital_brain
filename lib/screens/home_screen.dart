@@ -53,7 +53,7 @@ class TodaySections extends StatelessWidget {
       ],
       _Heading(trf('আজ · {0}, {1} {2}', [weekdayName(now), bnDigits(now.day), monthName(now.month)]),
           action: TextButton.icon(
-            onPressed: () => showAddSheet(context),
+            onPressed: () => showAddSheet(context, remind: true),
             icon: Icon(Icons.add_rounded, size: 18, color: C.green),
             label: Text(tr('যোগ করুন'), style: body(14, weight: FontWeight.w600, color: C.green)),
           )),

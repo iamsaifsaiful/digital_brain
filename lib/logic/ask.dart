@@ -23,9 +23,6 @@ String askUserName = '';
 /// What the user entered on the যাকাত page (set by the app).
 ZakatSaved askZakat = const ZakatSaved();
 
-/// The automatic zakat answer is a Pro feature in the Play app.
-bool askZakatLocked = false;
-
 bool _has(String text, List<String> ws) => ws.any((w) {
       final n = normalize(w);
       return n.isNotEmpty && text.contains(n);
@@ -138,9 +135,6 @@ String? infoAnswer(AppData d, String said, DateTime now) {
       return trf('এই মাসে আয় {0}, খরচ {1} টাকা — ব্যালেন্স {2} টাকা। কোন অ্যাকাউন্টে কত আছে জানতে অ্যাকাউন্ট পাতায় হিসাব যুক্ত করুন।',
           [bnNumber(m.income), bnNumber(m.expense), m.balance >= 0 ? bnNumber(m.balance) : trf('মাইনাস {0}', [bnNumber(-m.balance)])]);
     case 'zakat':
-      if (askZakatLocked) {
-        return tr('আপনার হিসাব থেকে যাকাত নিজে বের করে দেওয়া প্রো সুবিধা। প্রো নিলে জিজ্ঞেস করলেই বলে দেবো — দেখতে বলুন “প্রো খোলো”।');
-      }
       final z = zakatAuto(d, now, askZakat);
       if (z.nisab <= 0) {
         return trf('আপনার হিসাব থেকে যাকাতযোগ্য সম্পদ এখন প্রায় {0} টাকা (নগদ, ব্যাংক-সঞ্চয়, পাওনা থেকে দেনা বাদে)। নিসাব জানতে আজকের রুপার দাম লাগবে — যাকাত পাতায় রুপার দাম আর সোনা-রুপার পরিমাণ দিন, তারপর জিজ্ঞেস করলেই যাকাত বলে দেবো।', [bnNumber(z.net < 0 ? 0 : z.net)]);

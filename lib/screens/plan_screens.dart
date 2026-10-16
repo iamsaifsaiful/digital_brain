@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../logic/pro.dart';
 import '../ui/pro_gate.dart';
 
 import '../logic/bn.dart';
@@ -126,12 +127,7 @@ class PlanRow extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(item.title,
-                    style: body(16,
-                        weight: FontWeight.w500,
-                        color: (t?.done ?? false) || passed ? C.muted : C.ink),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis),
+                Text(item.title, style: body(16, weight: FontWeight.w500, color: (t?.done ?? false) || passed ? C.muted : C.ink), maxLines: 2, overflow: TextOverflow.ellipsis),
                 Text(passed ? trf('{0} · বেজেছে', [label]) : label, style: body(13, color: r != null && !passed ? C.green : C.muted)),
               ]),
             ),
@@ -214,12 +210,14 @@ Future<void> editTask(BuildContext context, Task t) async {
 
 /// "+ যোগ করুন": a task, or — with the switch on — a reminder that rings
 /// like an alarm. Choices are buttons, so most people never type a time.
-Future<void> showAddSheet(BuildContext context) async {
+/// Add a to-do. With [remind] the sheet starts as a reminder (a time that
+/// rings); otherwise as a plain to-do in the task list.
+Future<void> showAddSheet(BuildContext context, {bool remind = false, DateTime? day}) async {
   final saved = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    builder: (_) => const _AddSheet(),
+    builder: (_) => _AddSheet(remind: remind, day: day),
   );
   if (saved == true && context.mounted) await checkAlarmsAfterSave(context);
 }
@@ -227,7 +225,11 @@ Future<void> showAddSheet(BuildContext context) async {
 enum _Day { today, tomorrow, pick, any }
 
 class _AddSheet extends StatefulWidget {
-  const _AddSheet();
+  const _AddSheet({this.remind = false, this.day});
+  final bool remind;
+
+  /// The day it is for (from the diary or the calendar); today when null.
+  final DateTime? day;
 
   @override
   State<_AddSheet> createState() => _AddSheetState();
@@ -235,7 +237,7 @@ class _AddSheet extends StatefulWidget {
 
 class _AddSheetState extends State<_AddSheet> {
   final _title = TextEditingController();
-  bool _remind = true;
+  late bool _remind = widget.remind;
   _Day _day = _Day.today;
   DateTime? _picked;
   late TimeOfDay _time;
@@ -249,6 +251,18 @@ class _AddSheetState extends State<_AddSheet> {
   void initState() {
     super.initState();
     final now = BrainScope.read(context).services.now();
+    final day = widget.day;
+    if (day != null && dayOnly(day) != dayOnly(now)) {
+      final d = dayOnly(day);
+      if (d == dayOnly(now).add(const Duration(days: 1))) {
+        _day = _Day.tomorrow;
+      } else {
+        _day = _Day.pick;
+        _picked = d.isBefore(dayOnly(now)) ? dayOnly(now) : d;
+      }
+      _time = _presets.first;
+      return;
+    }
     // The first preset still ahead today; otherwise tomorrow morning.
     final next = _presets.where((p) => p.hour > now.hour).toList();
     if (next.isEmpty) {
@@ -305,8 +319,15 @@ class _AddSheetState extends State<_AddSheet> {
       toast(context, tr('এই সময় পার হয়ে গেছে — অন্য সময় বেছে নিন'));
       return;
     }
+    if (!await needPro(context, ProFeature.reminders, allowed: brain.canAddReminder) || !mounted) return;
     await brain.saveReminder(Reminder(
-        title: title, date: _dayDate(now), hour: _time.hour, minute: _time.minute, daysBefore: _repeat.isInterval ? 0 : _earlyDays, minutesBefore: _repeat.isInterval ? 0 : _earlyMinutes, repeat: _repeat));
+        title: title,
+        date: _dayDate(now),
+        hour: _time.hour,
+        minute: _time.minute,
+        daysBefore: _repeat.isInterval ? 0 : _earlyDays,
+        minutesBefore: _repeat.isInterval ? 0 : _earlyMinutes,
+        repeat: _repeat));
     if (!mounted) return;
     toast(context, trf('রাখা হলো · {0}', [_summary(now)]));
     Navigator.of(context).pop(true);
@@ -409,14 +430,14 @@ class _AddSheetState extends State<_AddSheet> {
                       style: body(13, weight: FontWeight.w600, color: C.muted2)),
                   children: [
                     EarlyPicker(
-                days: _earlyDays,
-                minutes: _earlyMinutes,
-                showDays: _repeat == Repeat.none || _repeat == Repeat.monthly || _repeat == Repeat.yearly,
-                onChanged: (d, m) => setState(() {
-                  _earlyDays = d;
-                  _earlyMinutes = m;
-                }),
-              ),
+                      days: _earlyDays,
+                      minutes: _earlyMinutes,
+                      showDays: _repeat == Repeat.none || _repeat == Repeat.monthly || _repeat == Repeat.yearly,
+                      onChanged: (d, m) => setState(() {
+                        _earlyDays = d;
+                        _earlyMinutes = m;
+                      }),
+                    ),
                   ],
                 ),
               ),
@@ -472,6 +493,7 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
           if (plan.overdue.isNotEmpty) section(tr('দেরি হয়ে গেছে'), plan.overdue, color: C.orange, withDay: true),
           if (plan.today.isNotEmpty) section(tr('আজ'), plan.today),
           if (plan.ahead.isNotEmpty) section(tr('সামনে'), plan.ahead, withDay: true),
+          const BillList(),
         ],
       _ListTab.repeating => [
           if (plan.repeating.isEmpty)
@@ -485,20 +507,21 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
             EmptyState(icon: Icons.history_rounded, title: tr('এখনো কিছু শেষ হয়নি'), text: tr('কাজে টিক দিলে বা রিমাইন্ডার বেজে গেলে এখানে আসবে।'))
           else ...[
             // Reminders whose time has gone by, apart from the finished to-dos.
-            if (plan.finished.any((i) => i.reminder != null)) section(tr('সময় পার হওয়া রিমাইন্ডার'), [for (final i in plan.finished.where((i) => i.reminder != null).take(60)) i], withDay: true),
-            if (plan.finished.any((i) => i.reminder == null)) section(tr('শেষ হওয়া কাজ'), [for (final i in plan.finished.where((i) => i.reminder == null).take(60)) i], withDay: true),
+            if (plan.finished.any((i) => i.reminder != null))
+              section(tr('সময় পার হওয়া রিমাইন্ডার'), [for (final i in plan.finished.where((i) => i.reminder != null).take(60)) i], withDay: true),
+            if (plan.finished.any((i) => i.reminder == null))
+              section(tr('শেষ হওয়া কাজ'), [for (final i in plan.finished.where((i) => i.reminder == null).take(60)) i], withDay: true),
           ],
         ],
     };
 
     return Scaffold(
       bottomNavigationBar: const AdBar(),
-      floatingActionButton: AddButton(label: tr('যোগ করুন'), onPressed: () => showAddSheet(context)),
+      floatingActionButton: AddButton(label: tr('যোগ করুন'), onPressed: () => showAddSheet(context, remind: true)),
       body: SafeArea(
         child: Column(children: [
           TopBar(title: tr('কাজ ও রিমাইন্ডার'), trailing: [
             const PdfButton({ReportPart.tasks, ReportPart.reminders}),
-            IconButton(tooltip: tr('বিলের রিমাইন্ডার'), onPressed: () => showBillPresets(context), icon: const Icon(Icons.receipt_long_outlined)),
           ]),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
@@ -519,7 +542,6 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
   }
 }
 
-
 // ───────────────────────── Ready-made bill reminders ─────────────────────────
 
 /// Monthly bills most homes in Bangladesh pay, with a usual day of the month.
@@ -535,6 +557,94 @@ const billPresets = [
   ('ডিশ/ক্যাবল বিল', 5),
   ('বাচ্চার স্কুলের বেতন', 10),
 ];
+
+/// "এ মাসের বিল": every common bill as a row on the reminders page — set
+/// ones show their day and when they come next; the rest are one tap away.
+class BillList extends StatelessWidget {
+  const BillList({super.key});
+
+  static Reminder? _find(Brain brain, String name) => brain.data.reminders.where((r) => r.repeat == Repeat.monthly && (r.title == name || r.title == tr(name))).firstOrNull;
+
+  Future<void> _set(BuildContext context, String name, int day) async {
+    final brain = BrainScope.read(context);
+    final old = _find(brain, name);
+    final picked = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(trf('{0} — মাসের কত তারিখে?', [tr(name)]), style: display(19)),
+            const SizedBox(height: 4),
+            Text(tr('প্রতি মাসে সেদিন সকাল ১০টায় বাজবে, দুই দিন আগে একবার জানাবে।'), style: body(13, color: C.muted)),
+            const SizedBox(height: 12),
+            Wrap(spacing: 6, runSpacing: 6, children: [
+              for (var d = 1; d <= 28; d++)
+                ChoiceChip(
+                  label: SizedBox(width: 26, child: Text(bnDigits(d), textAlign: TextAlign.center, style: body(15, weight: FontWeight.w600))),
+                  selected: (old?.date.day ?? day) == d,
+                  onSelected: (_) => Navigator.pop(ctx, d),
+                ),
+            ]),
+            if (old != null) ...[
+              const SizedBox(height: 12),
+              TextButton.icon(
+                onPressed: () => Navigator.pop(ctx, 0),
+                icon: Icon(Icons.notifications_off_outlined, color: C.red),
+                label: Text(tr('আর মনে করাতে হবে না'), style: body(15, color: C.red)),
+              ),
+            ],
+          ]),
+        ),
+      ),
+    );
+    if (picked == null || !context.mounted) return;
+    if (picked == 0) {
+      if (old != null) await brain.deleteReminder(old.id);
+      return;
+    }
+    if (old == null && !await needPro(context, ProFeature.reminders, allowed: brain.canAddReminder)) return;
+    final now = brain.services.now();
+    var date = DateTime(now.year, now.month, picked);
+    if (DateTime(date.year, date.month, date.day, 10).isBefore(now)) date = DateTime(now.year, now.month + 1, picked);
+    await brain.saveReminder(old == null ? Reminder(title: tr(name), date: date, hour: 10, repeat: Repeat.monthly) : old.copyWith(date: date, enabled: true));
+    if (context.mounted) toast(context, trf('{0}: প্রতি মাসের {1} তারিখে মনে করাবো', [tr(name), bnDigits(picked)]));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final now = brain.services.now();
+    final rows = [for (final (name, day) in billPresets) (name, day, _find(brain, name))]
+      // The ones already kept first, by the day they fall on.
+      ..sort((a, b) => (a.$3 == null ? 1 : 0).compareTo(b.$3 == null ? 1 : 0) != 0
+          ? (a.$3 == null ? 1 : 0).compareTo(b.$3 == null ? 1 : 0)
+          : (a.$3?.date.day ?? a.$2).compareTo(b.$3?.date.day ?? b.$2));
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      SectionTitle(tr('এ মাসের বিল মনে করানো')),
+      Panel(
+        child: Rows(children: [
+          for (final (name, day, r) in rows)
+            ListRow(
+              key: Key('bill-$name'),
+              leading: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(color: r == null ? C.soft : C.orangeTint, borderRadius: BorderRadius.circular(10)),
+                child: Icon(Icons.receipt_long_outlined, size: 20, color: r == null ? C.muted : C.orange),
+              ),
+              title: tr(name),
+              subtitle: r == null ? tr('চাপ দিয়ে তারিখ দিন') : trf('প্রতি মাসের {0} তারিখ · পরের বার {1}', [bnDigits(r.date.day), shortDate(r.nextDate(now))]),
+              subtitleColor: r == null ? C.muted : C.greenDark,
+              trailing: r == null ? Icon(Icons.add_circle_outline_rounded, color: C.green) : Icon(Icons.check_circle_rounded, color: C.green),
+              onTap: () => _set(context, name, day),
+            ),
+        ]),
+      ),
+    ]);
+  }
+}
 
 /// Ticks for the bills the user pays and the day each falls on: a monthly
 /// reminder for each (with a note two days before, see the nudges).
@@ -564,7 +674,9 @@ Future<void> showBillPresets(BuildContext context) async {
               if (chosen.containsKey(name))
                 DropdownButton<int>(
                   value: chosen[name],
-                  items: [for (var d = 1; d <= 28; d++) DropdownMenuItem(value: d, child: Text(trf('{0} তারিখ', [bnDigits(d)])))],
+                  items: [
+                    for (var d = 1; d <= 28; d++) DropdownMenuItem(value: d, child: Text(trf('{0} তারিখ', [bnDigits(d)])))
+                  ],
                   onChanged: (v) => setS(() => chosen[name] = v ?? day),
                 ),
             ]),

@@ -61,14 +61,14 @@ class MoneyTools extends StatelessWidget {
           ),
         );
     return SizedBox(
-      height: brain.has(ProFeature.zakat) ? 104 : 116,
+      height: 104,
       child: ListView(scrollDirection: Axis.horizontal, children: [
         if (brain.businessMode) tile(tr('দোকান'), Icons.storefront_outlined, C.orange, C.orangeTint, const ShopScreen()),
         tile(tr('অ্যাকাউন্ট'), Icons.account_balance_outlined, C.blue, C.blueTint, const AccountsScreen()),
         tile(tr('মাসের রিপোর্ট'), Icons.insert_chart_outlined_rounded, C.green, C.greenTint, const ReportScreen()),
         tile(tr('সঞ্চয় ও কিস্তি'), Icons.savings_outlined, C.purple, C.purpleTint, const SavingsScreen()),
         tile(tr('খরচ ভাগাভাগি'), Icons.call_split_rounded, C.teal, C.tealTint, const SplitScreen()),
-        tile(tr('যাকাত'), Icons.volunteer_activism_outlined, C.ochre, C.ochreTint, const ZakatScreen(), pro: ProFeature.zakat),
+        tile(tr('যাকাত'), Icons.volunteer_activism_outlined, C.ochre, C.ochreTint, const ZakatScreen()),
       ]),
     );
   }
@@ -350,7 +350,15 @@ class _ReportScreenState extends State<ReportScreen> {
             if (r.expense > 0) IconButton(tooltip: tr('ছবি হিসেবে পাঠান'), onPressed: () => _share(r), icon: const Icon(Icons.ios_share_rounded)),
           ]),
           Row(children: [
-            IconButton(tooltip: tr('আগের মাস'), onPressed: () => setState(() => _month = DateTime(m.year, m.month - 1)), icon: const Icon(Icons.chevron_left_rounded)),
+            IconButton(
+                tooltip: tr('আগের মাস'),
+                onPressed: () async {
+                  final prev = DateTime(m.year, m.month - 1);
+                  // Free: this month and the two before; older months are Pro.
+                  if (!await needPro(context, ProFeature.history, allowed: brain.canSeeMonth(prev)) || !mounted) return;
+                  setState(() => _month = prev);
+                },
+                icon: const Icon(Icons.chevron_left_rounded)),
             Expanded(child: Text(monthTitle(m), textAlign: TextAlign.center, style: display(18))),
             IconButton(
               tooltip: tr('পরের মাস'),

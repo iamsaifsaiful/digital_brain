@@ -170,6 +170,13 @@ class Api {
 
   Future<List<Map<String, dynamic>>> notices() async => ((await _send('GET', '/admin/notices'))['notices'] as List).cast<Map<String, dynamic>>();
 
+  /// Members' feature wishes and problems ('open', 'done' or 'all').
+  Future<List<Map<String, dynamic>>> feedback(String status) async =>
+      ((await _send('GET', '/admin/feedback?status=$status'))['feedback'] as List).cast<Map<String, dynamic>>();
+
+  /// 'read', 'done', 'new' or 'delete'.
+  Future<void> setFeedback(int id, String status) => _send('POST', '/admin/feedback/$id', {'status': status});
+
   Future<void> toggleNotice(int id) => _send('POST', '/admin/notices/$id/toggle');
 
   Future<int> pushNow(String title, String body, String audience) async =>

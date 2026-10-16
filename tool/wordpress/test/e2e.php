@@ -11,7 +11,7 @@ function check($ok, $what) { global $fail; echo ($ok ? "  ok   " : "  FAIL ") . 
 $r = activate_plugin('my-assistant-accounts/my-assistant-accounts.php');
 check(!is_wp_error($r), 'activates' . (is_wp_error($r) ? ': ' . $r->get_error_message() : ''));
 global $wpdb;
-foreach (['ma_users', 'ma_sessions', 'ma_ai_usage', 'ma_payments', 'ma_notices'] as $t) {
+foreach (['ma_users', 'ma_sessions', 'ma_ai_usage', 'ma_payments', 'ma_notices', 'ma_feedback'] as $t) {
     check($wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}$t") !== null, "table $t");
 }
 update_option('ma_acc_google_client_ids', 'web-client.apps.googleusercontent.com');
@@ -65,8 +65,9 @@ $u = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}ma_users WHERE email = 'rahim@
 check($u && $u['picture'] === 'https://lh3.googleusercontent.com/a/abc' && $u['name'] === 'রহিম উদ্দিন', 'member saved with name and photo');
 [$code, $d] = call('POST', '/ai', ['model' => 'claude-haiku-5-5', 'max_tokens' => 4000, 'messages' => [['role' => 'user', 'content' => 'হ্যালো']]], $ses);
 check($code === 402, 'AI needs Pro');
-[$code, $d] = call('POST', '/trial', [], $ses);
-check($code === 200 && $d['trial_used'] === true && !empty($d['pro_until']), 'trial starts with the session');
+[$code] = call('POST', '/trial', [], $ses);
+check($code === 404, 'no free trial any more');
+$wpdb->update($wpdb->prefix . 'ma_users', ['pro_until' => gmdate('Y-m-d H:i:s', time() + 30 * DAY_IN_SECONDS), 'pro_kind' => 'manual'], ['id' => $u['id']]);
 [$code, $d] = call('POST', '/ai', ['model' => 'claude-haiku-5-5', 'max_tokens' => 99999, 'messages' => [['role' => 'user', 'content' => 'হ্যালো']], 'metadata' => ['x' => 1]], $ses);
 check($code === 200 && ($d['content'][0]['text'] ?? '') === 'ঠিক আছে', 'AI answers through the server');
 $fwd = json_decode($sent['ai'][0]['body'], true);
@@ -87,7 +88,7 @@ $wpdb->insert($wpdb->prefix . 'ma_notices', ['title' => 'শুধু ফ্র�
 [$code, $d] = call('GET', '/notices');
 check($code === 200 && count($d['notices']) === 1, 'without a session: only "everyone"');
 [$code, $d] = call('GET', '/notices', [], $ses);
-check(count($d['notices']) === 1 && $d['notices'][0]['cond'] === 'no_tasks' && $d['notices'][0]['mic'] === true, 'trial member: everyone + trial (not free)');
+check(count($d['notices']) === 1 && $d['notices'][0]['cond'] === 'no_tasks' && $d['notices'][0]['mic'] === true, 'Pro member: everyone (not free)');
 
 echo "\npayments\n";
 $_POST = ['ma_pay_nonce' => wp_create_nonce('ma_pay_submit'), 'plan' => 'yearly', 'method' => array_key_first(ma_pay_methods()), 'email' => 'Karim@Gmail.com', 'trx' => 'bjk4-q9x2pl', 'sender' => '01712345678', 'name' => 'করিম', 'back' => home_url('/pro/')];
@@ -138,6 +139,30 @@ check($code === 200 && $d['sent'] === 1, 'push now to Pro members');
 [$code, $d] = call('GET', '/admin/members', ['q' => 'রহিম'], $boss);
 check(count($d['members']) === 1, 'search in Bangla');
 
+echo "\nfeedback\n";
+$sent['fcm'] = [];
+[$code] = call('POST', '/feedback', ['kind' => 'idea', 'text' => 'ক্যালেন্ডারে চাঁদের ছবি চাই', 'app_version' => '2.15.0']);
+check($code === 401, 'feedback needs a member session');
+[$code] = call('POST', '/feedback', ['kind' => 'idea', 'text' => 'ক্যালেন্ডারে চাঁদের ছবি চাই', 'app_version' => '2.15.0'], $boss);
+check($code === 401, 'an admin session cannot post feedback');
+[$code] = call('POST', '/feedback', ['kind' => 'idea', 'text' => 'হুম'], $ses);
+check($code === 400, 'too short refused');
+[$code, $d] = call('POST', '/feedback', ['kind' => 'problem', 'text' => "রিমাইন্ডার <b>বাজেনি</b>\nদুপুরে", 'app_version' => '2.15.0'], $ses);
+check($code === 200 && $d['ok'], 'feedback saved');
+$f = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}ma_feedback", ARRAY_A);
+check($f && $f['email'] === 'rahim@gmail.com' && $f['kind'] === 'problem' && !str_contains($f['body'], '<b>') && $f['status'] === 'new', 'kept with the member, tags stripped');
+check(count($sent['fcm']) === 1 && $sent['fcm'][0]['message']['token'] === 'boss-fcm-token-1234567890', 'admins pushed: ' . ($sent['fcm'][0]['message']['notification']['title'] ?? ''));
+[$code, $d] = call('GET', '/admin/feedback', [], $boss);
+check($code === 200 && count($d['feedback']) === 1 && $d['new'] === 1 && $d['feedback'][0]['kind_label'] === 'সমস্যা', 'admin app lists it');
+[$code] = call('POST', '/admin/feedback/' . $f['id'], ['status' => 'done'], $boss);
+[$c2, $d] = call('GET', '/admin/feedback', [], $boss);
+check($code === 200 && count($d['feedback']) === 0 && $d['new'] === 0, 'marked done: off the open list');
+[$code] = call('GET', '/admin/feedback', [], $ses);
+check($code === 403, 'members cannot read feedback');
+for ($i = 0; $i < 9; $i++) call('POST', '/feedback', ['kind' => 'idea', 'text' => 'আরও একটা কথা ' . $i], $ses);
+[$code] = call('POST', '/feedback', ['kind' => 'idea', 'text' => 'এগারো নম্বর কথা'], $ses);
+check($code === 429, 'at most 10 a day from one member');
+
 echo "\nlockout\n";
 $_SERVER['REMOTE_ADDR'] = '10.9.9.9';
 for ($i = 0; $i < 5; $i++) call('POST', '/admin/login', ['email' => 'boss@gmail.com', 'password' => 'nope' . $i]);
@@ -151,7 +176,7 @@ check(!user_can($bossId, 'ma_manage'), 'removed admin loses access');
 
 echo "\nadmin pages\n";
 wp_set_current_user(1);
-foreach (['members', 'payments', 'notices', 'settings'] as $tab) {
+foreach (['members', 'payments', 'notices', 'feedback', 'settings'] as $tab) {
     $_GET = ['page' => 'my-assistant', 'tab' => $tab];
     ob_start();
     ma_acc_admin();
@@ -163,4 +188,10 @@ ob_start();
 echo do_shortcode('[my_assistant_payment]');
 $form = ob_get_clean();
 check(str_contains($form, 'তথ্য জমা দিন') && str_contains($form, 'নগদ'), 'website form shortcode');
+$_GET = ['plan' => 'monthly'];
+$pro = do_shortcode('[my_assistant_pro]');
+file_put_contents(dirname(__FILE__) . '/page-pro.html', '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="margin:0;padding:24px 16px;background:#F6F7F9">' . $pro);
+check(str_contains($pro, 'ফ্রি আর প্রো-তে কী কী') && str_contains($pro, 'মাসিক প্রো কিনুন') && str_contains($pro, 'তথ্য জমা দিন'), 'Pro page: features, plans and the form');
+check((bool) preg_match('/value="monthly"\s+checked/', $pro), 'the plan chosen above is ticked in the form');
+check(!str_contains(do_shortcode('[my_assistant_pro form="no"]'), 'তথ্য জমা দিন'), 'form="no" leaves the form out');
 echo $fail ? "\n$fail FAILED\n" : "\nALL OK\n";

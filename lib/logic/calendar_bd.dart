@@ -267,6 +267,12 @@ List<HolidayRun> upcomingHolidays(DateTime today, {int count = 6}) {
 // ───────────────────────── Hijri (Arabic) date ─────────────────────────
 
 const hijriMonths = ['মহররম', 'সফর', 'রবিউল আউয়াল', 'রবিউস সানি', 'জমাদিউল আউয়াল', 'জমাদিউস সানি', 'রজব', 'শাবান', 'রমজান', 'শাওয়াল', 'জিলকদ', 'জিলহজ'];
+/// The months in Arabic, as written on Islamic calendars.
+const hijriMonthsAr = ['مُحَرَّم', 'صَفَر', 'رَبِيع الأَوَّل', 'رَبِيع الآخِر', 'جُمَادَى الأُولَى', 'جُمَادَى الآخِرَة', 'رَجَب', 'شَعْبَان', 'رَمَضَان', 'شَوَّال', 'ذُو القَعْدَة', 'ذُو الحِجَّة'];
+
+/// Arabic-Indic digits: 1448 → ١٤٤٨.
+String arDigits(Object n) => '$n'.replaceAllMapped(RegExp(r'[0-9]'), (m) => '٠١٢٣٤٥٦٧٨٩'[int.parse(m[0]!)]);
+
 const hijriMonthsEn = ['Muharram', 'Safar', 'Rabi al-Awwal', 'Rabi al-Thani', 'Jumada al-Awwal', 'Jumada al-Thani', 'Rajab', "Sha'ban", 'Ramadan', 'Shawwal', "Dhu al-Qa'dah", 'Dhu al-Hijjah'];
 
 /// The user's correction for the moon seen here (সেটিংস / ক্যালেন্ডার), in days.
@@ -289,6 +295,9 @@ class HijriDate {
   /// "২ জমাদিউল আউয়াল ১৪৪৮" (after a "হিজরি" label).
   String get short => '${bnDigits(day)} $monthName ${bnDigits(year)}';
   bool get isRamadan => month == 9;
+
+  /// "١٥ رَبِيع الآخِر ١٤٤٨".
+  String get arabic => '${arDigits(day)} ${hijriMonthsAr[month - 1]} ${arDigits(year)}';
 }
 
 /// The Hijri date of [d], by the arithmetic (tabular) calendar, moved by

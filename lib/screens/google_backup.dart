@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
+import '../logic/pro.dart';
+import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../services/crypto.dart' show WrongKey;
 import '../services/data_store.dart';
@@ -42,10 +44,10 @@ class _GoogleBackupPanelState extends State<GoogleBackupPanel> {
     await _run(() => brain.signInGoogle(appVersion: appVersion));
     if (!mounted || !brain.signedIn || _error != null) return;
     // A fresh phone: look for an earlier backup.
-    if (_looksEmpty(brain)) await _restore(fresh: true);
+    if (looksEmpty(brain)) await _restore(fresh: true);
   }
 
-  static bool _looksEmpty(Brain b) {
+  static bool looksEmpty(Brain b) {
     final d = b.data;
     return d.ledger.isEmpty && d.cash.isEmpty && d.notes.isEmpty && d.reminders.isEmpty && d.tasks.isEmpty && d.vault.isEmpty && d.contacts.isEmpty;
   }
@@ -55,93 +57,38 @@ class _GoogleBackupPanelState extends State<GoogleBackupPanel> {
     final pw = await askBackupPassword(context, create: true);
     if (pw == null || !mounted) return;
     await _run(() => brain.startDriveBackup(pw));
-    if (mounted && _error == null) toast(context, tr('Google Drive-এ ব্যাকআপ হয়েছে। এখন থেকে নিজে থেকেই হবে।'));
-  }
-
-  Future<void> _restore({bool fresh = false}) async {
-    final brain = BrainScope.read(context);
-    if (!fresh && !await verifyUser(context, reason: tr('ব্যাকআপ ফিরিয়ে আনতে যাচাই করুন'))) return;
-    List<DriveFile> list;
-    setState(() => _busy = true);
-    try {
-      list = await brain.driveBackups();
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _busy = false;
-          _error = e is GoogleError ? e.message : '$e';
-        });
-      }
-      return;
-    }
-    if (!mounted) return;
-    setState(() => _busy = false);
-    if (list.isEmpty) {
-      if (!fresh) toast(context, tr('এই Google অ্যাকাউন্টে কোনো ব্যাকআপ পাওয়া যায়নি'));
-      return;
-    }
-    final f = list.first;
-    final go = await confirmDialog(
-      context,
-      title: tr('আগের ব্যাকআপ পাওয়া গেছে'),
-      text: trf('{0}-এর ব্যাকআপ আছে ({1})। ফিরিয়ে আনবেন? ব্যাকআপ-পাসওয়ার্ড লাগবে।', [fullDate(f.time.toLocal()), _size(f.size)]),
-      yes: tr('ফিরিয়ে আনুন'),
-    );
-    if (!go || !mounted) return;
-    final pw = await askBackupPassword(context, create: false);
-    if (pw == null || !mounted) return;
-    setState(() => _busy = true);
-    try {
-      final (restored, files) = await brain.openDriveBackup(f, pw);
-      if (!mounted) return;
-      if (!_looksEmpty(brain)) {
-        final ok = await confirmDialog(
-          context,
-          title: tr('ব্যাকআপ ফিরিয়ে আনবেন?'),
-          text: trf('ব্যাকআপে আছে: {0}টি পাসওয়ার্ড, {1} জন যোগাযোগ, {2}টি ধার-দেনা, {3}টি আয়-ব্যয়, {4}টি নোট, {5}টি রিমাইন্ডার, {6}টি কাজ।\n\nএখনকার সব তথ্য এর বদলে যাবে (মেশানো হবে না)।',
-              [bnDigits(restored.vault.length), bnDigits(restored.contacts.length), bnDigits(restored.ledger.length), bnDigits(restored.cash.length), bnDigits(restored.notes.length), bnDigits(restored.reminders.length), bnDigits(restored.tasks.length)]),
-          yes: tr('ফিরিয়ে আনুন'),
-          danger: true,
-        );
-        if (!ok) return;
-      }
-      await brain.replaceAll(restored, files: files);
-      await brain.continueDriveBackup(pw);
-      if (mounted) toast(context, tr('ব্যাকআপ ফিরিয়ে আনা হয়েছে। Drive-এ অটো ব্যাকআপ চালু থাকল।'));
-    } on WrongKey {
-      if (mounted) toast(context, tr('পাসওয়ার্ড মেলেনি। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
-    } on NotABackup {
-      if (mounted) toast(context, tr('ফাইলটি নষ্ট। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
-    } on UnsupportedBackup {
-      if (mounted) toast(context, tr('এই ব্যাকআপ অ্যাপের নতুন সংস্করণে বানানো। আগে অ্যাপ হালনাগাদ করুন।'));
-    } on GoogleError catch (e) {
-      if (mounted) toast(context, e.message);
-    } catch (e) {
-      if (mounted) toast(context, trf('ফিরিয়ে আনা যায়নি: {0}', [e]));
-    } finally {
-      if (mounted) setState(() => _busy = false);
+    if (mounted && _error == null) {
+      toast(context, brain.has(ProFeature.autoBackup) ? tr('Google Drive-এ ব্যাকআপ হয়েছে। এখন থেকে নিজে থেকেই হবে।') : tr('Google Drive-এ ব্যাকআপ হয়েছে।'));
     }
   }
 
-  static String _size(int b) => b > 1024 * 1024 ? '${bnDigits((b / 1024 / 1024).toStringAsFixed(1))} MB' : '${bnDigits((b / 1024).ceil())} KB';
+  Future<void> _restore({bool fresh = false}) => restoreFromDrive(context, fresh: fresh, busy: (v) {
+        if (mounted) setState(() => _busy = v);
+      }, error: (e) {
+        if (mounted) setState(() => _error = e);
+      });
+
+  static String size(int b) => b > 1024 * 1024 ? '${bnDigits((b / 1024 / 1024).toStringAsFixed(1))} MB' : '${bnDigits((b / 1024).ceil())} KB';
 
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final now = brain.services.now();
     final busy = _busy || brain.driveBusy;
+    final auto = brain.has(ProFeature.autoBackup);
     return Panel(
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Icon(Icons.cloud_outlined, color: C.blue),
           const SizedBox(width: 10),
-          Expanded(child: Text(tr('Google Drive-এ অটো ব্যাকআপ'), style: body(16, weight: FontWeight.w700))),
+          Expanded(child: Text(tr('Google Drive-এ ব্যাকআপ'), style: body(16, weight: FontWeight.w700))),
           if (busy) const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
         ]),
         const SizedBox(height: 8),
         if (!brain.signedIn) ...[
-          Text(tr('Google দিয়ে লগইন করলে তথ্য নিজে থেকে আপনার Google Drive-এর অ্যাপের লুকানো ফোল্ডারে ব্যাকআপ হবে। নতুন ফোনে একই অ্যাকাউন্টে লগইন করলেই সব ফিরে আসবে। ব্যাকআপ আপনার পাসওয়ার্ডে তালাবদ্ধ — Google বা আমরা পড়তে পারি না।'),
+          Text(
+              tr('Google দিয়ে লগইন করলে তথ্য আপনার Google Drive-এর অ্যাপের লুকানো ফোল্ডারে ব্যাকআপ রাখা যাবে। নতুন ফোনে একই অ্যাকাউন্টে লগইন করলেই সব ফিরে আসবে। ব্যাকআপ আপনার পাসওয়ার্ডে তালাবদ্ধ — Google বা আমরা পড়তে পারি না।'),
               style: body(13, color: C.muted, height: 1.55)),
           const SizedBox(height: 12),
           PrimaryButton(key: const Key('google-sign-in'), label: tr('Google দিয়ে লগইন'), icon: Icons.login_rounded, height: 48, onPressed: busy ? null : _signIn),
@@ -169,19 +116,40 @@ class _GoogleBackupPanelState extends State<GoogleBackupPanel> {
             Text(tr('একটা ব্যাকআপ-পাসওয়ার্ড ঠিক করুন — এটা দিয়ে ব্যাকআপ তালাবদ্ধ থাকবে, আর PIN ভুলে গেলে নতুন PIN দিতেও এটা লাগবে।'),
                 style: body(13, color: C.muted, height: 1.55)),
             const SizedBox(height: 10),
-            PrimaryButton(key: const Key('drive-on'), label: tr('অটো ব্যাকআপ চালু করুন'), icon: Icons.cloud_upload_outlined, height: 48, onPressed: busy ? null : _turnOn),
+            PrimaryButton(key: const Key('drive-on'), label: tr('Drive-এ ব্যাকআপ নিন'), icon: Icons.cloud_upload_outlined, height: 48, onPressed: busy ? null : _turnOn),
           ] else ...[
             Text(
-                brain.lastDrive == null
-                    ? tr('চালু আছে · এখনো ব্যাকআপ হয়নি')
-                    : trf('চালু আছে · শেষ ব্যাকআপ {0}। কিছু বদলালে অ্যাপ বন্ধ করার সময় নিজে থেকে নতুন ব্যাকআপ হয়, পুরোনোটা মুছে যায়।', [daysLeftLabel(brain.lastDrive!, now)]),
-                style: body(13, color: C.greenDark, height: 1.5)),
+                auto
+                    ? (brain.lastDrive == null
+                        ? tr('অটো ব্যাকআপ চালু · এখনো ব্যাকআপ হয়নি')
+                        : trf('অটো ব্যাকআপ চালু · শেষ ব্যাকআপ {0}। কিছু বদলালে অ্যাপ বন্ধ করার সময় নিজে থেকে নতুন ব্যাকআপ হয়, পুরোনোটা মুছে যায়।',
+                            [daysLeftLabel(brain.lastDrive!, now)]))
+                    : (brain.lastDrive == null
+                        ? tr('এখনো ব্যাকআপ হয়নি')
+                        : trf('শেষ ব্যাকআপ {0}। নতুন কিছু রাখলে “এখনই ব্যাকআপ” চাপুন — নতুনটা রাখলে পুরোনোটা মুছে যায়।', [daysLeftLabel(brain.lastDrive!, now)])),
+                style: body(13, color: auto ? C.greenDark : C.muted2, height: 1.5)),
             const SizedBox(height: 10),
             Row(children: [
-              Expanded(child: SecondaryButton(label: tr('এখনই ব্যাকআপ'), icon: Icons.cloud_upload_outlined, onPressed: busy ? null : () => _run(brain.backupToDrive))),
-              const SizedBox(width: 8),
-              Expanded(child: SecondaryButton(label: tr('বন্ধ করুন'), onPressed: busy ? null : brain.stopDriveBackup)),
+              Expanded(
+                  child: PrimaryButton(
+                      key: const Key('drive-now'),
+                      label: tr('এখনই ব্যাকআপ'),
+                      icon: Icons.cloud_upload_outlined,
+                      height: 46,
+                      onPressed: busy ? null : () => _run(brain.backupToDrive))),
+              if (auto) ...[
+                const SizedBox(width: 8),
+                Expanded(child: SecondaryButton(label: tr('বন্ধ করুন'), onPressed: busy ? null : brain.stopDriveBackup)),
+              ],
             ]),
+            if (!auto && brain.gated)
+              ListRow(
+                leading: Icon(Icons.autorenew_rounded, color: C.green),
+                title: tr('নিজে থেকে ব্যাকআপ'),
+                subtitle: tr('কিছু বদলালেই নিজে থেকে Drive-এ — মনে রাখতে হবে না'),
+                trailing: const ProMark(),
+                onTap: () => needPro(context, ProFeature.autoBackup),
+              ),
           ],
           const SizedBox(height: 4),
           TextButton.icon(onPressed: busy ? null : () => _restore(), icon: const Icon(Icons.restore_rounded), label: Text(tr('Drive থেকে ফিরিয়ে আনুন'))),
@@ -207,8 +175,7 @@ Future<String?> askBackupPassword(BuildContext context, {required bool create}) 
       content: Form(
         key: key,
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          if (create)
-            Text(tr('এই পাসওয়ার্ড ছাড়া ব্যাকআপ খোলা যাবে না, কেউ উদ্ধারও করতে পারবে না — কোথাও লিখে রাখুন।'), style: body(14, color: C.muted, height: 1.5)),
+          if (create) Text(tr('এই পাসওয়ার্ড ছাড়া ব্যাকআপ খোলা যাবে না, কেউ উদ্ধারও করতে পারবে না — কোথাও লিখে রাখুন।'), style: body(14, color: C.muted, height: 1.5)),
           const SizedBox(height: 10),
           TextFormField(
             key: const Key('backup-pw'),
@@ -284,5 +251,78 @@ class GoogleStartCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Brings back this Google account's newest Drive backup (asks first, and
+/// for its password). [fresh]: a new phone right after sign-in — no PIN check.
+Future<void> restoreFromDrive(BuildContext context, {bool fresh = false, void Function(bool)? busy, void Function(String?)? error}) async {
+  final brain = BrainScope.read(context);
+  void setBusy(bool v) => busy?.call(v);
+  if (!fresh && !await verifyUser(context, reason: tr('ব্যাকআপ ফিরিয়ে আনতে যাচাই করুন'))) return;
+  List<DriveFile> list;
+  setBusy(true);
+  try {
+    list = await brain.driveBackups();
+  } catch (e) {
+    setBusy(false);
+    error?.call(e is GoogleError ? e.message : '$e');
+    return;
+  }
+  if (!context.mounted) return;
+  setBusy(false);
+  if (list.isEmpty) {
+    if (!fresh) toast(context, tr('এই Google অ্যাকাউন্টে কোনো ব্যাকআপ পাওয়া যায়নি'));
+    return;
+  }
+  final f = list.first;
+  final go = await confirmDialog(
+    context,
+    title: tr('আগের ব্যাকআপ পাওয়া গেছে'),
+    text: trf('{0}-এর ব্যাকআপ আছে ({1})। ফিরিয়ে আনবেন? ব্যাকআপ-পাসওয়ার্ড লাগবে।', [fullDate(f.time.toLocal()), _GoogleBackupPanelState.size(f.size)]),
+    yes: tr('ফিরিয়ে আনুন'),
+  );
+  if (!go || !context.mounted) return;
+  final pw = await askBackupPassword(context, create: false);
+  if (pw == null || !context.mounted) return;
+  setBusy(true);
+  try {
+    final (restored, files) = await brain.openDriveBackup(f, pw);
+    if (!context.mounted) return;
+    if (!_GoogleBackupPanelState.looksEmpty(brain)) {
+      final ok = await confirmDialog(
+        context,
+        title: tr('ব্যাকআপ ফিরিয়ে আনবেন?'),
+        text: trf(
+            'ব্যাকআপে আছে: {0}টি পাসওয়ার্ড, {1} জন যোগাযোগ, {2}টি ধার-দেনা, {3}টি আয়-ব্যয়, {4}টি নোট, {5}টি রিমাইন্ডার, {6}টি কাজ।\n\nএখনকার সব তথ্য এর বদলে যাবে (মেশানো হবে না)।',
+            [
+              bnDigits(restored.vault.length),
+              bnDigits(restored.contacts.length),
+              bnDigits(restored.ledger.length),
+              bnDigits(restored.cash.length),
+              bnDigits(restored.notes.length),
+              bnDigits(restored.reminders.length),
+              bnDigits(restored.tasks.length)
+            ]),
+        yes: tr('ফিরিয়ে আনুন'),
+        danger: true,
+      );
+      if (!ok) return;
+    }
+    await brain.replaceAll(restored, files: files);
+    await brain.continueDriveBackup(pw);
+    if (context.mounted) toast(context, tr('ব্যাকআপ ফিরিয়ে আনা হয়েছে।'));
+  } on WrongKey {
+    if (context.mounted) toast(context, tr('পাসওয়ার্ড মেলেনি। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
+  } on NotABackup {
+    if (context.mounted) toast(context, tr('ফাইলটি নষ্ট। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
+  } on UnsupportedBackup {
+    if (context.mounted) toast(context, tr('এই ব্যাকআপ অ্যাপের নতুন সংস্করণে বানানো। আগে অ্যাপ হালনাগাদ করুন।'));
+  } on GoogleError catch (e) {
+    if (context.mounted) toast(context, e.message);
+  } catch (e) {
+    if (context.mounted) toast(context, trf('ফিরিয়ে আনা যায়নি: {0}', [e]));
+  } finally {
+    setBusy(false);
   }
 }

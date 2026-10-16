@@ -333,18 +333,23 @@ class AccountServer {
     }
   }
 
-  /// The trial started (kept with the account, so a new install cannot
-  /// start it again). Returns the plan after it, or null.
-  Future<AccountInfo?> startTrial(String session) async {
-    if (!configured || session.isEmpty) return null;
+  /// A feature wish or a problem, written by the user, to our server
+  /// (seen by the admins). Returns a message when it did not go.
+  Future<String?> feedback(String session, {required String kind, required String text, required String appVersion}) async {
+    if (!configured) return 'সার্ভার যুক্ত নেই';
+    if (session.isEmpty) return 'আগে Google দিয়ে লগইন করুন';
     try {
       final r = await _http
-          .post(Uri.parse('$base/wp-json/my-assistant/v1/trial'), headers: {'Content-Type': 'application/json', 'authorization': 'Bearer $session'}, body: '{}')
-          .timeout(const Duration(seconds: 15));
-      if (r.statusCode != 200) return null;
-      return AccountInfo.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
+          .post(Uri.parse('$base/wp-json/my-assistant/v1/feedback'),
+              headers: {'Content-Type': 'application/json', 'authorization': 'Bearer $session'},
+              body: jsonEncode({'kind': kind, 'text': text, 'app_version': appVersion}))
+          .timeout(const Duration(seconds: 20));
+      if (r.statusCode == 200) return null;
+      if (r.statusCode == 401) return 'আবার Google দিয়ে লগইন করুন';
+      if (r.statusCode == 429) return 'আজ অনেকগুলো পাঠানো হয়েছে, কাল আবার চেষ্টা করুন';
+      return 'পাঠানো যায়নি (${r.statusCode})';
     } catch (_) {
-      return null;
+      return 'ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন';
     }
   }
 }

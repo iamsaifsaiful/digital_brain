@@ -72,7 +72,8 @@ Future<void> changePhoto(BuildContext context) async {
   if (context.mounted) toast(context, tr('প্রোফাইলের ছবি রাখা হলো'));
 }
 
-/// Top of the settings page: photo, name and place.
+/// Top of the settings page: photo, then name, place and blood group as
+/// separate full-width rows, each big enough for a thumb (no mis-taps).
 class ProfileCard extends StatelessWidget {
   const ProfileCard({super.key, required this.onName, required this.onPlace});
   final VoidCallback onName;
@@ -81,70 +82,75 @@ class ProfileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
-    return Panel(
-      padding: const EdgeInsets.all(16),
-      child: Row(children: [
-        Semantics(
-          button: true,
-          label: tr('প্রোফাইলের ছবি বদলান'),
+    final blood = brain.data.emergency.blood;
+    Widget row(Key key, IconData icon, Color color, String label, String value, VoidCallback onTap, {bool empty = false}) => Material(
+          color: Colors.transparent,
           child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: () => changePhoto(context),
-            child: Stack(clipBehavior: Clip.none, children: [
-              const UserPhoto(size: 72),
-              Positioned(
-                right: -2,
-                bottom: -2,
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(color: C.green, shape: BoxShape.circle, border: Border.all(color: C.surface, width: 2)),
-                  child: const Icon(Icons.photo_camera_rounded, size: 15, color: Colors.white),
-                ),
+            key: key,
+            onTap: onTap,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 56),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(children: [
+                  Icon(icon, size: 22, color: color),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      Text(label, style: body(12.5, color: C.muted)),
+                      Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15.5, weight: FontWeight.w600, color: empty ? C.green : C.ink)),
+                    ]),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: C.muted),
+                ]),
               ),
-            ]),
+            ),
           ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            InkWell(
-              onTap: onName,
-              child: Row(children: [
-                Flexible(
-                  child: Text(brain.userName.isEmpty ? tr('আপনার নাম দিন') : brain.userName,
-                      maxLines: 1, overflow: TextOverflow.ellipsis, style: display(20, weight: 700, color: brain.userName.isEmpty ? C.muted : C.ink)),
-                ),
-                const SizedBox(width: 6),
-                Icon(Icons.edit_outlined, size: 16, color: C.muted),
-              ]),
+        );
+    return Panel(
+      child: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Row(children: [
+            Semantics(
+              button: true,
+              label: tr('প্রোফাইলের ছবি বদলান'),
+              child: InkWell(
+                key: const Key('profile-photo'),
+                customBorder: const CircleBorder(),
+                onTap: () => changePhoto(context),
+                child: Stack(clipBehavior: Clip.none, children: [
+                  const UserPhoto(size: 72),
+                  Positioned(
+                    right: -2,
+                    bottom: -2,
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(color: C.green, shape: BoxShape.circle, border: Border.all(color: C.surface, width: 2)),
+                      child: const Icon(Icons.photo_camera_rounded, size: 15, color: Colors.white),
+                    ),
+                  ),
+                ]),
+              ),
             ),
-            const SizedBox(height: 4),
-            InkWell(
-              onTap: onPlace,
-              child: Row(children: [
-                Icon(Icons.place_outlined, size: 16, color: C.muted),
-                const SizedBox(width: 4),
-                Text(tr(brain.district), style: body(14, color: C.muted)),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(brain.userName.isEmpty ? tr('আপনার নাম দিন') : brain.userName,
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: display(20, weight: 700, color: brain.userName.isEmpty ? C.muted : C.ink)),
+                if (brain.signedIn) Text(brain.googleEmail, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, color: C.muted)),
               ]),
-            ),
-            const SizedBox(height: 4),
-            InkWell(
-              onTap: () => pickBloodGroup(context),
-              child: Row(children: [
-                Icon(Icons.bloodtype_outlined, size: 16, color: C.rose),
-                const SizedBox(width: 4),
-                Text(brain.data.emergency.blood.isEmpty ? tr('রক্তের গ্রুপ দিন') : trf('রক্তের গ্রুপ {0}', [brain.data.emergency.blood]),
-                    style: body(14, color: brain.data.emergency.blood.isEmpty ? C.green : C.muted, weight: brain.data.emergency.blood.isEmpty ? FontWeight.w600 : FontWeight.w400)),
-              ]),
-            ),
-            const SizedBox(height: 4),
-            InkWell(
-              onTap: () => changePhoto(context),
-              child: Text(brain.photo == null ? tr('ছবি যোগ করুন') : tr('ছবি বদলান'), style: body(13.5, weight: FontWeight.w600, color: C.green)),
             ),
           ]),
         ),
+        Divider(height: 1, color: C.line2),
+        row(const Key('profile-name'), Icons.badge_outlined, C.green, tr('নাম'), brain.userName.isEmpty ? tr('নাম দিন') : brain.userName, onName, empty: brain.userName.isEmpty),
+        Divider(height: 1, indent: 52, color: C.line2),
+        row(const Key('profile-place'), Icons.place_outlined, C.blue, tr('জেলা/শহর'), tr(brain.district), onPlace),
+        Divider(height: 1, indent: 52, color: C.line2),
+        row(const Key('profile-blood'), Icons.bloodtype_outlined, C.rose, tr('রক্তের গ্রুপ'), blood.isEmpty ? tr('রক্তের গ্রুপ দিন') : blood, () => pickBloodGroup(context),
+            empty: blood.isEmpty),
       ]),
     );
   }
@@ -233,6 +239,33 @@ class LookSection extends StatelessWidget {
                 ),
               ),
             ),
+          // Any colour the user likes.
+          Tooltip(
+            message: tr('নিজের রং'),
+            child: Semantics(
+              selected: brain.accentKey.startsWith('#'),
+              button: true,
+              label: tr('নিজের রং'),
+              child: InkWell(
+                key: const Key('accent-custom'),
+                customBorder: const CircleBorder(),
+                onTap: () => pickAccentColor(context),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: brain.accentKey.startsWith('#') ? accentFor(brain.accentKey).main : null,
+                    gradient: brain.accentKey.startsWith('#')
+                        ? null
+                        : const SweepGradient(colors: [Colors.red, Colors.orange, Colors.yellow, Colors.green, Colors.cyan, Colors.blue, Colors.purple, Colors.red]),
+                    border: Border.all(color: brain.accentKey.startsWith('#') ? C.ink : Colors.transparent, width: 2.5),
+                  ),
+                  child: Icon(brain.accentKey.startsWith('#') ? Icons.check_rounded : Icons.add_rounded, color: Colors.white, size: 22),
+                ),
+              ),
+            ),
+          ),
         ]),
         const SizedBox(height: 18),
         label(tr('লেখার আকার')),
@@ -254,4 +287,52 @@ class LookSection extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// সেটিংস › মূল রঙ › নিজের রং: any hue, lighter or deeper, seen before saving.
+Future<void> pickAccentColor(BuildContext context) async {
+  final brain = BrainScope.read(context);
+  final start = HSLColor.fromColor(accentFor(brain.accentKey).main);
+  var hue = start.hue;
+  var shade = start.lightness.clamp(0.22, 0.45);
+  final picked = await showModalBottomSheet<Color>(
+    context: context,
+    isScrollControlled: true,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setSheet) {
+        final color = customAccent(HSLColor.fromAHSL(1, hue, 0.75, shade).toColor()).main;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text(tr('নিজের রং বেছে নিন'), style: display(20, weight: 700)),
+              const SizedBox(height: 14),
+              Container(
+                height: 64,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(16)),
+                child: Text(tr('এমন দেখাবে'), style: body(17, weight: FontWeight.w600, color: Colors.white)),
+              ),
+              const SizedBox(height: 16),
+              Text(tr('রং'), style: body(14, color: C.muted)),
+              Container(
+                height: 14,
+                margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(7),
+                  gradient: LinearGradient(colors: [for (var h = 0; h <= 360; h += 30) HSLColor.fromAHSL(1, h.toDouble(), 0.75, 0.42).toColor()]),
+                ),
+              ),
+              Slider(key: const Key('hue'), value: hue, min: 0, max: 360, activeColor: color, onChanged: (v) => setSheet(() => hue = v)),
+              Text(tr('হালকা – গাঢ়'), style: body(14, color: C.muted)),
+              Slider(key: const Key('shade'), value: 0.67 - shade, min: 0.22, max: 0.45, activeColor: color, onChanged: (v) => setSheet(() => shade = 0.67 - v)),
+              const SizedBox(height: 8),
+              PrimaryButton(label: tr('এই রং রাখুন'), icon: Icons.check_rounded, color: color, onPressed: () => Navigator.pop(ctx, color)),
+            ]),
+          ),
+        );
+      },
+    ),
+  );
+  if (picked != null) await brain.setAccent(colorKey(picked));
 }

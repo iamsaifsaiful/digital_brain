@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: My Assistant Accounts
- * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, ফ্রি ট্রায়াল আর প্রো। শুধু নাম, ইমেইল, ছবি আর প্রো-র তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.5.0
+ * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, প্রো, পেমেন্ট, নোটিফিকেশন আর মতামত। শুধু নাম, ইমেইল, ছবি আর প্রো-র তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
+ * Version: 1.6.0
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: My Assistant
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.5.0';
+const MA_ACC_VERSION = '1.6.0';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
 const MA_ACC_PER_PAGE = 20;
 
@@ -23,6 +23,8 @@ require_once __DIR__ . '/payments.php';
 require_once __DIR__ . '/notices.php';
 require_once __DIR__ . '/push.php';
 require_once __DIR__ . '/admin-api.php';
+require_once __DIR__ . '/feedback.php';
+require_once __DIR__ . '/pro-page.php';
 
 /** The members table. */
 function ma_acc_table() {
@@ -57,6 +59,7 @@ function ma_acc_install() {
     ma_ai_install();
     ma_pay_install();
     ma_note_install();
+    ma_fb_install();
     // Who may approve payments and manage members (the admin app signs in with these accounts).
     if (!get_role('ma_admin')) {
         add_role('ma_admin', 'My Assistant অ্যাডমিন', ['read' => true, 'ma_manage' => true]);
@@ -99,11 +102,6 @@ add_action('rest_api_init', function () {
         'methods' => 'POST',
         'callback' => 'ma_acc_login',
         'permission_callback' => '__return_true', // checked with Google's token below
-    ]);
-    register_rest_route('my-assistant/v1', '/trial', [
-        'methods' => 'POST',
-        'callback' => 'ma_acc_trial',
-        'permission_callback' => '__return_true',
     ]);
 });
 
@@ -207,38 +205,6 @@ function ma_acc_login(WP_REST_Request $req) {
     ]);
 }
 
-function ma_acc_trial(WP_REST_Request $req) {
-    if (ma_acc_rate_limited()) {
-        return new WP_Error('busy', 'too many requests', ['status' => 429]);
-    }
-    // The phone's session, or a fresh Google sign-in token.
-    $row = ma_ai_member($req);
-    if (!$row) {
-        $c = ma_acc_verify($req->get_param('id_token'));
-        if (is_wp_error($c)) {
-            return $c;
-        }
-        $row = ma_acc_row($c['sub']);
-    }
-    global $wpdb;
-    if (!$row) {
-        return new WP_Error('no_user', 'log in first', ['status' => 404]);
-    }
-    if (empty($row['trial_started'])) {
-        $data = ['trial_started' => current_time('mysql', true)];
-        if (ma_acc_ts($row['pro_until']) < time()) {
-            $data['pro_until'] = gmdate('Y-m-d H:i:s', time() + 7 * DAY_IN_SECONDS);
-            $data['pro_kind'] = 'trial';
-        }
-        $wpdb->update(ma_acc_table(), $data, ['id' => $row['id']]);
-    }
-    $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . ma_acc_table() . ' WHERE id = %d', $row['id']), ARRAY_A);
-    $set = ma_ai_settings();
-    return rest_ensure_response(ma_acc_answer($row) + [
-        'ai' => $set['on'] && ma_ai_key() !== '',
-        'ai_left' => max(0, $set['per_user'] - ma_ai_used((int) $row['id'])),
-    ]);
-}
 
 // ── Admin: the page, and its actions (each with a nonce, back to the page with a message) ──
 
@@ -429,10 +395,21 @@ function ma_acc_admin() {
         }, ma_pay_methods())));
         $extra['plans'] = ma_pay_plans();
     }
+    if ($tab === 'feedback') {
+        $fst = sanitize_key($_GET['fst'] ?? 'open');
+        $ft = ma_fb_table();
+        $extra['fst'] = $fst;
+        $extra['feedback'] = match ($fst) {
+            'all' => $wpdb->get_results("SELECT * FROM $ft ORDER BY id DESC LIMIT 200", ARRAY_A),
+            'done' => $wpdb->get_results("SELECT * FROM $ft WHERE status = 'done' ORDER BY id DESC LIMIT 200", ARRAY_A),
+            default => $wpdb->get_results("SELECT * FROM $ft WHERE status <> 'done' ORDER BY id DESC LIMIT 200", ARRAY_A),
+        };
+    }
     if ($tab === 'notices') {
         $extra['notices'] = $wpdb->get_results('SELECT * FROM ' . ma_note_table() . ' ORDER BY active DESC, id DESC', ARRAY_A);
     }
     $extra['pending'] = ma_pay_pending_count();
+    $extra['fb_new'] = ma_fb_new_count();
 
     ma_acc_render($extra + [
         'tab' => $tab,

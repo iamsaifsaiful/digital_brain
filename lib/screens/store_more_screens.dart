@@ -337,8 +337,6 @@ class EmergencyScreen extends StatelessWidget {
                 Text(tr('অ্যাপ লক থাকলেও লক পাতার “জরুরি তথ্য” বোতাম থেকে এটা দেখা যায়।'), style: body(12.5, color: C.muted, height: 1.5)),
               ],
               const SizedBox(height: 18),
-              const DonorPanel(),
-              const SizedBox(height: 18),
               SectionTitle(tr('জাতীয় জরুরি নম্বর')),
               Panel(
                 child: Rows(children: [
@@ -516,7 +514,7 @@ class DonorPanel extends StatelessWidget {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(tr('আমি রক্ত দিতে আগ্রহী'), style: body(15, weight: FontWeight.w600)),
-              Text(blood.isEmpty ? tr('রক্তের গ্রুপ জরুরি কার্ডে লিখুন') : trf('আপনার গ্রুপ {0}', [blood]), style: body(12.5, color: C.muted)),
+              Text(blood.isEmpty ? tr('উপরে প্রোফাইলে রক্তের গ্রুপ দিন') : trf('আপনার গ্রুপ {0}', [blood]), style: body(12.5, color: C.muted)),
             ]),
           ),
           Switch(value: brain.flag('donor_on'), onChanged: (v) => brain.setPref('donor_on', v)),

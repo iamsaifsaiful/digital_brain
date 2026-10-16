@@ -83,7 +83,6 @@ Future<void> openPlace(BuildContext context, String id, {String? folder}) async 
       await exportEverything(context);
     default:
       final locked = switch (id) {
-        'zakat' => ProFeature.zakat,
         'inbox' => ProFeature.inbox,
         _ => null,
       };

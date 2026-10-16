@@ -228,8 +228,8 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
     final p = projectByName(d, name);
     if (p == null) {
       return d.projects.isEmpty
-          ? tr('এখনো কোনো আলাদা হিসাব খোলা হয়নি। বলুন, যেমন “রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো”।')
-          : trf('{0} খুঁজে পাইনি। আছে: {1}।', [name.isEmpty ? 'কোন আলাদা হিসাব' : '‘$name’ নামে আলাদা হিসাব', nameList([for (final x in d.projects) x.name], unit: 'টা')]);
+          ? tr('এখনো অন্যান্য কোনো হিসাব খোলা হয়নি। বলুন, যেমন “রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো”।')
+          : trf('{0} খুঁজে পাইনি। আছে: {1}।', [name.isEmpty ? 'কোন হিসাব' : '‘$name’ নামে হিসাব', nameList([for (final x in d.projects) x.name], unit: 'টা')]);
     }
     final s = projectSums(d.cash, p.id);
     if (s.income == 0 && s.expense == 0) return trf('‘{0}’ হিসাবে টাকা আসা বা খরচের কোনো তথ্য নেই।', [p.name]);

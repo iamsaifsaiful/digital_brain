@@ -18,6 +18,8 @@ import 'help_screen.dart';
 import 'assistant_settings.dart';
 import 'settings_parts.dart';
 import 'sound_screen.dart';
+import 'store_more_screens.dart' show DonorPanel;
+import 'feedback_screen.dart';
 import 'pro_screen.dart';
 import 'google_backup.dart';
 import '../logic/pro.dart';
@@ -25,7 +27,7 @@ import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '2.14.0';
+const appVersion = '2.15.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -117,9 +119,8 @@ class _MoreScreenState extends State<MoreScreen> {
 
   String _proLine(Brain brain) {
     if (!brain.gated) return tr('AI সহকারী, বিজ্ঞাপন নেই — শীঘ্রই');
-    if (brain.onTrial) return trf('ফ্রি ট্রায়াল চলছে — শেষ {0}', [shortDate(brain.proUntil!)]);
     if (brain.pro) return tr('প্রো চালু আছে');
-    return brain.trialUsed ? tr('বিজ্ঞাপন ছাড়া, AI আর সব সুবিধা') : trf('{0} দিন ফ্রি চেষ্টা করুন', [bnDigits(trialDays)]);
+    return tr('বিজ্ঞাপন ছাড়া, অটো ব্যাকআপ, AI আর আরও অনেক কিছু');
   }
 
   Future<void> _setAiKey() async {
@@ -345,13 +346,34 @@ class _MoreScreenState extends State<MoreScreen> {
         const SizedBox(height: 16),
         SectionTitle(tr('সহকারী')),
         const AssistantSection(),
+        // The downloaded APK runs AI on the user's own key (the Play app's AI comes with Pro).
+        if (!brain.gated) ...[
+          const SizedBox(height: 10),
+          Panel(
+            child: Rows(children: [
+              linkRow(Icons.auto_awesome_outlined, tr('AI সহকারী (Claude)'),
+                  sub: brain.aiOn ? tr('চালু আছে') : tr('বন্ধ · নিজের API key দিয়ে চালু করা যায়'), subColor: brain.aiOn ? C.green : C.muted, onTap: _setAiKey),
+              if (brain.aiOn)
+                switchRow(Icons.psychology_outlined, tr('সবচেয়ে ভালো বোঝা (Sonnet)'), tr('বন্ধ করলে দ্রুত ও সস্তা Haiku — তবে কম বোঝে'), brain.aiBest,
+                    (v) => brain.setAiBest(v)),
+              if (brain.aiOn)
+                switchRow(Icons.manage_search_rounded, tr('AI আমার তথ্য দেখে উত্তর দিক'), tr('রিমাইন্ডার, কাজ, নোট ও হিসাব দেখে ঠিক উত্তর — পাসওয়ার্ড কখনো না'),
+                    brain.aiShareData, (v) => brain.setAiShareData(v)),
+            ]),
+          ),
+        ],
+        const SizedBox(height: 16),
+        SectionTitle(tr('রক্তদান')),
+        const DonorPanel(),
         const SizedBox(height: 16),
         SectionTitle(tr('তথ্য নিরাপদ রাখা')),
         Panel(
           child: Rows(children: [
             linkRow(Icons.cloud_download_outlined, tr('Google অ্যাকাউন্ট ও ব্যাকআপ'),
                 sub: brain.driveOn
-                    ? trf('{0} · Drive-এ অটো ব্যাকআপ চালু', [brain.googleEmail])
+                    ? (brain.has(ProFeature.autoBackup)
+                        ? trf('{0} · Drive-এ অটো ব্যাকআপ চালু', [brain.googleEmail])
+                        : trf('{0} · শেষ Drive ব্যাকআপ {1}', [brain.googleEmail, brain.lastDrive == null ? tr('হয়নি') : daysLeftLabel(brain.lastDrive!, now)]))
                     : (last == null ? tr('এখনো নেওয়া হয়নি') : trf('শেষ ব্যাকআপ {0}', [daysLeftLabel(last, now)])),
                 subColor: backupOld && !brain.driveOn ? C.orange : C.muted,
                 onTap: () => push(const BackupScreen())),
@@ -406,25 +428,7 @@ class _MoreScreenState extends State<MoreScreen> {
         SectionTitle(tr('অন্যান্য')),
         Panel(
           child: Rows(children: [
-            if (brain.aiByServer)
-              linkRow(Icons.auto_awesome_outlined, tr('AI সহকারী'),
-                  sub: trf('চালু আছে (প্রো) · আজ আরও {0}টা প্রশ্ন', [bnDigits(brain.aiLeft)]), subColor: C.green, onTap: () => push(const ProScreen()))
-            else if (brain.gated)
-              linkRow(Icons.auto_awesome_outlined, tr('AI সহকারী'),
-                  sub: !brain.pro
-                      ? tr('প্রো সুবিধা · এখন অ্যাপ নিজের নিয়মে বোঝে')
-                      : (brain.signedIn ? tr('প্রো-তে আছে · সার্ভারে AI চালু হলে কাজ করবে') : tr('প্রো-তে আছে · চালু করতে Google দিয়ে লগইন করুন')),
-                  onTap: () => push(brain.pro && !brain.signedIn ? const BackupScreen() : const ProScreen()),
-                  trailing: brain.pro ? null : const ProMark())
-            else
-              linkRow(Icons.auto_awesome_outlined, tr('AI সহকারী (Claude)'),
-                  sub: brain.aiOn ? tr('চালু আছে') : tr('বন্ধ · নিজের API key দিয়ে চালু করা যায়'), subColor: brain.aiOn ? C.green : C.muted, onTap: _setAiKey),
-            if (brain.aiOn)
-              switchRow(Icons.psychology_outlined, tr('সবচেয়ে ভালো বোঝা (Sonnet)'), tr('বন্ধ করলে দ্রুত ও সস্তা Haiku — তবে কম বোঝে'), brain.aiBest,
-                  (v) => brain.setAiBest(v)),
-            if (brain.aiOn)
-              switchRow(Icons.manage_search_rounded, tr('AI আমার তথ্য দেখে উত্তর দিক'), tr('রিমাইন্ডার, কাজ, নোট ও হিসাব দেখে ঠিক উত্তর — পাসওয়ার্ড কখনো না'),
-                  brain.aiShareData, (v) => brain.setAiShareData(v)),
+            linkRow(Icons.forum_outlined, tr('মতামত বা সমস্যা জানান'), sub: tr('নতুন সুবিধা চাইলে বা কিছু ঠিকমতো না চললে লিখে পাঠান'), onTap: () => push(const FeedbackScreen())),
             linkRow(Icons.picture_as_pdf_outlined, tr('সবকিছু PDF আকারে'), sub: tr('কাজ, হিসাব, নোট, স্বাস্থ্য… যা চান বেছে নিয়ে এক PDF-এ'), onTap: () => exportEverything(context),
                 trailing: brain.has(ProFeature.pdf) ? Icon(Icons.download_rounded, color: C.muted) : const ProMark()),
             linkRow(Icons.table_view_outlined, tr('ধার-দেনার রিপোর্ট (CSV)'), sub: tr('Excel বা Google Sheets-এ খোলা যায়'), onTap: _csv,

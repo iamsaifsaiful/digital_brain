@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../logic/pro.dart';
+
 import '../ui/pro_gate.dart';
 
 import '../logic/bn.dart';
@@ -69,6 +71,8 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
     final amount = _amountValue!;
     final phone = asciiDigits(_phone.text.trim());
     final others = brain.data.ledger.where((e) => e.id != widget.entry?.id);
+    if (widget.entry == null && !await needPro(context, ProFeature.people, allowed: brain.canAddPerson(person))) return;
+    if (!mounted) return;
     final after = balanceWith(others, person, phone: phone) + _kind.signed(amount);
     final e = widget.entry == null
         ? LedgerEntry(person: person, phone: phone, kind: _kind, amount: amount, date: _date, note: _note.text.trim(), due: _hasDue ? _due : null)
@@ -276,13 +280,24 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
                         child: InputDecorator(
                           decoration: InputDecoration(
                             labelText: _kind == LedgerKind.lent ? tr('ফেরত পাওয়ার তারিখ (ঐচ্ছিক)') : tr('শোধের তারিখ (ঐচ্ছিক)'),
-                            helperText: tr('দিলে আগের দিন আর সেদিন সকালে মনে করাবো'),
+                            helperText: BrainScope.of(context).has(ProFeature.dueReminders)
+                                ? tr('দিলে আগের দিন আর সেদিন সকালে মনে করাবো')
+                                : tr('তারিখ লেখা থাকবে। সেদিন মনে করানো প্রো সুবিধা।'),
                             prefixIcon: const Icon(Icons.event_available_outlined, size: 20),
                             suffixIcon: _due == null ? null : IconButton(tooltip: tr('তারিখ মুছুন'), onPressed: () => setState(() => _due = null), icon: const Icon(Icons.close_rounded)),
                           ),
                           child: Text(_due == null ? tr('তারিখ বেছে নিন') : fullDate(_due!), style: body(16, color: _due == null ? C.muted : C.ink)),
                         ),
                       ),
+                      if (_due != null && !BrainScope.of(context).has(ProFeature.dueReminders))
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: () => needPro(context, ProFeature.dueReminders),
+                            icon: const ProMark(),
+                            label: Text(tr('সেদিন মনে করাক')),
+                          ),
+                        ),
                     ],
                     const SizedBox(height: 14),
                     TextFormField(

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../logic/pro.dart';
+import '../ui/pro_gate.dart';
+
 import '../logic/bn.dart';
 import '../logic/lang.dart';
 import '../models/models.dart';
@@ -49,6 +52,9 @@ Future<void> addDocuments(BuildContext context, {required int source, String? fo
     if (context.mounted) toast(context, trf('{0}টা পাতা যোগ হলো', [bnDigits(picked.length)]));
     return;
   }
+
+  // A new document past the free limit.
+  if (!await needPro(context, ProFeature.docs, allowed: brain.canAddDoc) || !context.mounted) return;
 
   var together = true;
   if (picked.length > 1) {

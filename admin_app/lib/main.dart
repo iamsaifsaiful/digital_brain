@@ -322,6 +322,7 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> with WidgetsBindingObserver {
   int _tab = 0;
   int _pending = 0;
+  int _feedback = 0;
   final _refresh = ValueNotifier(0);
 
   @override
@@ -358,9 +359,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      DashboardPage(api: widget.api, guard: guard, refresh: _refresh, onPending: (n) => setState(() => _pending = n), onOpenPayments: () => setState(() => _tab = 1)),
+      DashboardPage(api: widget.api, guard: guard, refresh: _refresh, onPending: (n) => setState(() => _pending = n), onFeedback: (n) => setState(() => _feedback = n), onOpenPayments: () => setState(() => _tab = 1)),
       PaymentsPage(api: widget.api, guard: guard, refresh: _refresh),
       MembersPage(api: widget.api, guard: guard),
+      FeedbackPage(api: widget.api, guard: guard, refresh: _refresh),
       NoticesPage(api: widget.api, guard: guard, onSignOut: widget.onSignedOut, onFingerprint: widget.onFingerprint),
     ];
     return Scaffold(
@@ -380,6 +382,11 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
             label: 'পেমেন্ট',
           ),
           const NavigationDestination(icon: Icon(Icons.group_outlined), selectedIcon: Icon(Icons.group_rounded), label: 'সদস্য'),
+          NavigationDestination(
+            icon: Badge(isLabelVisible: _feedback > 0, label: Text(bn(_feedback)), child: const Icon(Icons.forum_outlined)),
+            selectedIcon: Badge(isLabelVisible: _feedback > 0, label: Text(bn(_feedback)), child: const Icon(Icons.forum_rounded)),
+            label: 'মতামত',
+          ),
           const NavigationDestination(icon: Icon(Icons.campaign_outlined), selectedIcon: Icon(Icons.campaign_rounded), label: 'নোটিফিকেশন'),
         ],
       ),

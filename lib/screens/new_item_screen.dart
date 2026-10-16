@@ -269,6 +269,9 @@ class _NewItemScreenState extends State<NewItemScreen> {
           toast(context, tr('এই সময় পার হয়ে গেছে — তারিখ বা সময় বদলান'));
           return;
         }
+        final wasOn = widget.reminder?.enabled ?? false;
+        if (!wasOn && !await needPro(context, ProFeature.reminders, allowed: brain.canAddReminder)) return;
+        if (!mounted) return;
         final (days, minutes) = beforeIn(readInt(_beforeN.text) ?? 0, _usableUnit);
         _daysBefore = days;
         _minutesBefore = minutes;

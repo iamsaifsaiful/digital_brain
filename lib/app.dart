@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'logic/bn.dart';
 import 'logic/proactive.dart';
-import 'screens/more_screen.dart' show BackupScreen;
+import 'screens/more_screen.dart' show BackupScreen, MoreScreen;
+import 'screens/google_backup.dart' show restoreFromDrive;
 import 'screens/docs_screen.dart';
 import 'screens/money_more_screens.dart';
 import 'screens/calendar_screen.dart';
@@ -120,7 +121,8 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       if (!_alarmOpen) _nav.currentState?.popUntil((r) => r.isFirst);
     }
     if (!_wasUnlocked && brain.unlocked) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await _maybeRestore();
         _runPending();
         _maybeOnboard();
       });
@@ -129,6 +131,16 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
   }
 
   bool _onboarded = false;
+
+  /// Signed in with Google on the welcome page of a new install: bring back
+  /// that account's Drive backup (asked first, with its password).
+  Future<void> _maybeRestore() async {
+    if (!brain.offerRestore) return;
+    brain.offerRestore = false;
+    final ctx = _nav.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+    await restoreFromDrive(ctx, fresh: true);
+  }
 
   /// The first time after the PIN: "আপনি কী করেন?".
   void _maybeOnboard() {
@@ -245,7 +257,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
     } else if (id.startsWith(nudgeJumuah) || id.startsWith(nudgePrayer) || id.startsWith(nudgeRamadan)) {
       push(const CalendarScreen());
     } else if (id.startsWith(nudgeDonor)) {
-      push(const EmergencyScreen());
+      push(const MenuPage(child: MoreScreen()));
     } else if (id.startsWith(nudgeBack)) {
       openAssistant(ctx);
     } else if (id.startsWith(nudgeBackup)) {

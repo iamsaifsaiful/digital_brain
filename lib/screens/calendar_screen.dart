@@ -6,9 +6,16 @@ import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'home_page.dart' show holidayRange;
+import 'diary_screen.dart' show itemsOn;
+import 'plan_screens.dart' show showAddSheet, PlanRow;
+import 'special_days_screen.dart';
 import '../logic/lang.dart';
 
-/// বাংলা তারিখ, ঋতু, সূর্যোদয়-সূর্যাস্ত, নামাজের সময় আর সরকারি ছুটি।
+/// বাংলা তারিখ, ঋতু, সূর্যোদয়-সূর্যাস্ত, নামাজের সময় আর সরকারি ছুটি। The
+/// month shows Bangla or Arabic (Hijri) dates under each day; tapping a day
+/// shows what is on it and adds a to-do or reminder for it.
+enum CalSide { bangla, arabic }
+
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
 
@@ -19,6 +26,7 @@ class CalendarScreen extends StatefulWidget {
 class _CalendarScreenState extends State<CalendarScreen> {
   DateTime? _month;
   DateTime? _picked;
+  CalSide _side = CalSide.bangla;
 
   static final _red = C.rose;
 
@@ -82,6 +90,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           style: body(13.5, color: Colors.white)),
                       const SizedBox(height: 2),
                       Text(trf('হিজরি · {0}', [hj.short]), style: body(13.5, weight: FontWeight.w600, color: Colors.white)),
+                      Text(hj.arabic, textDirection: TextDirection.rtl, style: const TextStyle(fontSize: 15, color: Colors.white, height: 1.5)),
                     ]),
                   ),
                   Container(
@@ -165,7 +174,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ]),
             ),
             const SizedBox(height: 10),
+            SegTabs<CalSide>(
+              items: [(CalSide.bangla, tr('বাংলা তারিখ')), (CalSide.arabic, tr('আরবি (হিজরি) তারিখ'))],
+              value: _side,
+              onChanged: (v) => setState(() => _side = v),
+            ),
+            const SizedBox(height: 8),
             _monthGrid(month, today, picked),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
+              child: Text(tr('কোনো তারিখে চাপ দিলে সেদিনের কাজ দেখা যাবে, নতুন কাজ বা রিমাইন্ডারও রাখা যাবে।'), style: body(12, color: C.muted)),
+            ),
             if (pickedHol != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -222,6 +241,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final heads = [tr('শনি'), tr('রবি'), tr('সোম'), tr('মঙ্গল'), tr('বুধ'), tr('বৃহঃ'), tr('শুক্র')];
     final first = banglaDate(DateTime(month.year, month.month));
     final last = banglaDate(DateTime(month.year, month.month, days));
+    final adjust = BrainScope.of(context).number('hijri_adjust');
+    final hFirst = hijriDate(DateTime(month.year, month.month), adjust: adjust);
+    final hLast = hijriDate(DateTime(month.year, month.month, days), adjust: adjust);
     return Container(
       padding: const EdgeInsets.fromLTRB(6, 4, 6, 10),
       decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16)),
@@ -231,7 +253,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
           Expanded(
             child: Column(children: [
               Text('${monthName(month.month)} ${bnDigits(month.year)}', style: body(15, weight: FontWeight.w600)),
-              Text('${first.monthName} – ${last.monthName} ${bnDigits(last.year)}', style: body(12, color: C.muted)),
+              Text(
+                  _side == CalSide.bangla
+                      ? '${first.monthName} – ${last.monthName} ${bnDigits(last.year)}'
+                      : '${hFirst.monthName} – ${hLast.monthName} ${bnDigits(hLast.year)}',
+                  style: body(12, color: C.muted)),
             ]),
           ),
           IconButton(tooltip: tr('পরের মাস'), onPressed: () => setState(() => _month = DateTime(month.year, month.month + 1)), icon: const Icon(Icons.chevron_right_rounded)),
@@ -258,22 +284,108 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Widget _cell(DateTime d, DateTime today, DateTime picked) {
+    final brain = BrainScope.of(context);
     final isToday = d == today;
+    final busy = itemsOn(brain.data, d, brain.services.now()).isNotEmpty;
     final isPicked = d == picked && !isToday;
     final hol = holidayOn(d) != null;
     final weekend = isWeekend(d);
     final bg = isToday ? C.green : (hol ? C.roseTint : Colors.transparent);
     final fg = isToday ? Colors.white : (hol || weekend ? _red : C.ink);
     return InkWell(
+      key: Key('day-${d.year}-${d.month}-${d.day}'),
       borderRadius: BorderRadius.circular(10),
-      onTap: () => setState(() => _picked = d),
+      onTap: () {
+        setState(() => _picked = d);
+        _dayDetails(d);
+      },
       child: Container(
         decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10), border: isPicked ? Border.all(color: C.green, width: 1.5) : null),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Text(bnDigits(d.day), style: body(14.5, weight: FontWeight.w600, color: fg, height: 1.2)),
-          Text(bnDigits(banglaDate(d).day), style: body(10, color: isToday ? Colors.white70 : C.muted, height: 1.2)),
+          Text(
+              _side == CalSide.bangla ? bnDigits(banglaDate(d).day) : bnDigits(hijriDate(d, adjust: brain.number('hijri_adjust')).day),
+              style: body(10, color: isToday ? Colors.white70 : (_side == CalSide.arabic ? C.teal : C.muted), height: 1.2)),
+          Container(
+            width: 5,
+            height: 5,
+            margin: const EdgeInsets.only(top: 1),
+            decoration: BoxDecoration(shape: BoxShape.circle, color: busy ? (isToday ? Colors.white : C.orange) : Colors.transparent),
+          ),
         ]),
       ),
+    );
+  }
+
+  /// A day tapped: its dates, holiday, what is on it, and adding to it.
+  Future<void> _dayDetails(DateTime d) async {
+    final brain = BrainScope.read(context);
+    final now = brain.services.now();
+    final hol = holidayOn(d);
+    final hj = hijriDate(d, adjust: brain.number('hijri_adjust'));
+    final past = d.isBefore(dayOnly(now));
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        final items = itemsOn(BrainScope.of(ctx).data, d, now);
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.8),
+            child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(20, 0, 20, 20), children: [
+              Text('${weekdayName(d)}, ${bnDigits(d.day)} ${monthName(d.month)} ${bnDigits(d.year)}', style: display(20, weight: 700)),
+              Text('${banglaDate(d).text} · ${hj.dayMonth}', style: body(13.5, color: C.muted)),
+              if (hol != null) Text(trf('ছুটি: {0}', [hol.label]), style: body(14, weight: FontWeight.w600, color: _red)),
+              const SizedBox(height: 14),
+              if (items.isEmpty)
+                Text(tr('এই দিনে কিছু রাখা নেই।'), style: body(14.5, color: C.muted))
+              else
+                Panel(child: Rows(children: [for (final i in items) PlanRow(item: i)])),
+              const SizedBox(height: 16),
+              if (!past) ...[
+                Text(tr('এই দিনের জন্য'), style: body(13, weight: FontWeight.w600, color: C.muted2)),
+                const SizedBox(height: 8),
+                Row(children: [
+                  Expanded(
+                    child: PrimaryButton(
+                      key: const Key('cal-add-task'),
+                      label: tr('কাজ'),
+                      icon: Icons.checklist_rounded,
+                      height: 48,
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        await showAddSheet(context, day: d);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SecondaryButton(
+                      key: const Key('cal-add-reminder'),
+                      label: tr('রিমাইন্ডার'),
+                      icon: Icons.notifications_active_outlined,
+                      height: 48,
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        await showAddSheet(context, remind: true, day: d);
+                      },
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 4),
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SpecialDaysScreen()));
+                  },
+                  icon: Icon(Icons.cake_outlined, color: C.green),
+                  label: Text(tr('জন্মদিন বা বিশেষ দিন রাখুন')),
+                ),
+              ],
+            ]),
+          ),
+        );
+      },
     );
   }
 }

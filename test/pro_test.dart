@@ -1,4 +1,4 @@
-import 'package:digital_brain/logic/ask.dart';
+import 'package:digital_brain/logic/ask.dart' show infoAnswer;
 import 'package:digital_brain/logic/pro.dart';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/services/crypto.dart';
@@ -53,47 +53,61 @@ void main() {
       b.data = AppData(projects: [Project(name: 'বাড়ি', closed: true)]);
       expect(b.canAddProject, isTrue);
 
-      await b.startTrial();
-      expect(b.pro, isTrue);
-      expect(b.onTrial, isTrue);
-      expect(b.proUntil, DateTime(2026, 10, 9, 15, 53).add(const Duration(days: trialDays)));
-      expect(b.showAds, isFalse);
-
-      // The trial is once.
-      await b.setProForTest(false);
-      await b.startTrial();
-      expect(b.pro, isFalse);
-      expect(b.trialUsed, isTrue);
+      // New limits: 20 people in ধার-দেনা, 20 ringing reminders, 30 documents.
+      b.data = AppData(
+        ledger: [for (var i = 0; i < freeLedgerPeople; i++) LedgerEntry(person: 'মানুষ$i', kind: LedgerKind.lent, amount: 10, date: DateTime(2026, 10))],
+        reminders: [for (var i = 0; i < freeReminders; i++) Reminder(title: 'r$i', date: DateTime(2026, 11), hour: 9)],
+        docs: [for (var i = 0; i < freeDocs; i++) Doc(title: 'd$i')],
+      );
+      expect(b.canAddPerson('মানুষ3'), isTrue, reason: 'someone already there');
+      expect(b.canAddPerson('নতুন কেউ'), isFalse);
+      expect(b.canAddReminder, isFalse);
+      expect(b.canAddDoc, isFalse);
+      // Reports: this month and the two before.
+      expect(b.canSeeMonth(DateTime(2026, 8)), isTrue);
+      expect(b.canSeeMonth(DateTime(2026, 7)), isFalse);
+      expect(b.has(ProFeature.autoBackup), isFalse);
 
       await b.activatePro(proPlans.first);
       expect(b.pro, isTrue);
       expect(b.proKind, 'pro_yearly');
     });
 
-    test('zakat answer and smart notices are Pro; back to normal outside the Play app', () async {
+    test('zakat is free; smart notices, paper expiry and pay-back reminders are Pro', () async {
       final rig = Rig();
       final b = rig.brain;
       final now = DateTime(2026, 10, 9);
       b.gated = true;
-      expect(infoAnswer(b.data, 'আমার যাকাত কত?', now), contains('প্রো'));
-      expect(b.assistantPrefs.smart, isFalse);
-      await b.startTrial();
       expect(infoAnswer(b.data, 'আমার যাকাত কত?', now), isNot(contains('প্রো')));
+      expect(b.assistantPrefs.smart, isFalse);
+      expect(b.assistantPrefs.docAlerts, isFalse);
+      expect(b.assistantPrefs.dueAlerts, isFalse);
+      // Free: the date is kept, no reminder.
+      await b.saveEntry(LedgerEntry(person: 'রহিম', kind: LedgerKind.lent, amount: 500, date: DateTime(2026, 10, 9), due: DateTime(2026, 11, 1)));
+      final doc = Doc(title: 'পাসপোর্ট');
+      await b.saveDoc(doc);
+      await b.setDocExpiry(doc, DateTime(2027, 5, 1));
+      expect(b.data.reminders, isEmpty);
+      expect(b.data.ledger.single.due, DateTime(2026, 11, 1));
+      // Pro comes on: both reminders are made from what was written.
+      await b.activatePro(proPlans.last);
+      expect(b.data.reminders.length, 2);
+      expect(b.data.ledger.single.reminderId, isNotNull);
+      expect(b.data.docs.single.reminderId, isNotNull);
       expect(b.assistantPrefs.smart, isTrue);
-      b.gated = false;
-      expect(askZakatLocked, isFalse);
+      expect(b.assistantPrefs.docAlerts, isTrue);
     });
 
     test('Pro survives a restart', () async {
       final rig = Rig();
       rig.brain.gated = true;
       await rig.brain.load();
-      await rig.brain.startTrial();
+      await rig.brain.activatePro(proPlans.first);
       final again = Rig.sharing(rig, keys: rig.services.lock.keys as MemoryKeyVault);
       again.brain.gated = true;
       await again.brain.load();
       expect(again.brain.pro, isTrue);
-      expect(again.brain.trialUsed, isTrue);
+      expect(again.brain.proKind, 'pro_yearly');
     });
   });
 
@@ -206,10 +220,7 @@ void main() {
     await settle(t);
     expect(find.byType(ProScreen), findsOneWidget);
     final list = find.descendant(of: find.byType(ProScreen), matching: find.byType(Scrollable)).first;
-    await t.scrollUntilVisible(find.text('৭ দিন ফ্রি চালু করুন'), 300, scrollable: list);
-    await t.tap(find.text('৭ দিন ফ্রি চালু করুন'));
-    await settle(t);
-    expect(rig.brain.onTrial, isTrue);
+    expect(find.textContaining('ফ্রি চালু করুন'), findsNothing, reason: 'no trial');
     await t.scrollUntilVisible(find.text('ফ্রি ভার্সনে বিজ্ঞাপন কোথায় দেখাবে'), 300, scrollable: list);
     expect(find.textContaining('দিনে সর্বোচ্চ ২টা'), findsOneWidget);
   });
@@ -301,7 +312,6 @@ void main() {
       expect(b.aiOn, isTrue);
       // Pro given on the website shows up on the phone.
       expect(b.pro, isTrue);
-      expect(b.trialUsed, isTrue);
       expect(await rig.services.lock.keys.read('srv_session'), 'a' * 64);
 
       // The server ends Pro: AI goes off at the next refresh.

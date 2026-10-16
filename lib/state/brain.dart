@@ -96,9 +96,7 @@ class Services {
 
 /// The data in memory, saved (encrypted) after every change.
 class Brain extends ChangeNotifier {
-  Brain(this.services) {
-    askZakatLocked = !has(ProFeature.zakat);
-  }
+  Brain(this.services);
 
   final Services services;
   AppData data = AppData();
@@ -187,22 +185,19 @@ class Brain extends ChangeNotifier {
   bool _gated = playEdition;
   set gated(bool v) {
     _gated = v;
-    askZakatLocked = !has(ProFeature.zakat);
     notifyListeners();
   }
 
-  /// Pro (or the trial) lasts until this moment.
+  /// Pro lasts until this moment.
   DateTime? proUntil;
 
-  /// 'trial', a plan id ('pro_yearly', 'pro_monthly'), or 'test' (preview).
+  /// A plan id ('pro_yearly', 'pro_monthly'), 'web' (bought on the website) or 'test' (preview).
   String proKind = '';
-  bool trialUsed = false;
 
   /// The first day the app was opened (no full-screen ad that day).
   DateTime? firstUse;
 
   bool get pro => !gated || (proUntil != null && services.now().isBefore(proUntil!));
-  bool get onTrial => gated && pro && proKind == 'trial';
   bool get showAds => gated && !pro;
 
   /// The preview draws sample ad spaces (real ads need AdMob).
@@ -211,15 +206,27 @@ class Brain extends ChangeNotifier {
   bool get canAddShop => pro || data.shops.length < freeShops;
   bool get canAddProject => pro || data.projects.where((p) => !p.closed).length < freeProjects;
   bool get canAddVault => pro || data.vault.length < freeVaultItems;
+  bool get canAddDoc => pro || data.docs.length < freeDocs;
 
-  /// The 7-day free trial, once.
-  Future<void> startTrial() async {
-    if (trialUsed || pro) return;
-    trialUsed = true;
-    await _setPro(services.now().add(const Duration(days: trialDays)), 'trial');
-    final info = await services.server.startTrial(services.ai.session);
-    if (info != null) await _applyServer(info);
+  /// Reminders that still ring (the app's own ones — bills, papers, habits — count too).
+  int get activeReminders => data.reminders.where((r) => r.enabled && r.vaultId == null).length;
+  bool get canAddReminder => pro || activeReminders < freeReminders;
+
+  /// A new person in ধার-দেনা (someone already there is always fine).
+  bool canAddPerson(String name) {
+    if (pro) return true;
+    final key = personKey(name);
+    final people = {for (final e in data.ledger) personKey(e.person)};
+    return people.contains(key) || people.length < freeLedgerPeople;
   }
+
+  /// The first month of the reports a free user can open ([freeReportMonths] back).
+  DateTime get firstFreeMonth {
+    final n = services.now();
+    return DateTime(n.year, n.month - (freeReportMonths - 1));
+  }
+
+  bool canSeeMonth(DateTime m) => pro || !DateTime(m.year, m.month).isBefore(firstFreeMonth);
 
   /// After Google Play confirms a purchase (in the preview, the test button).
   Future<void> activatePro(ProPlan plan) => _setPro(services.now().add(Duration(days: plan.days)), plan.id);
@@ -228,9 +235,9 @@ class Brain extends ChangeNotifier {
   Future<void> setProForTest(bool on) => on ? _setPro(services.now().add(const Duration(days: 365)), 'test') : _setPro(null, '');
 
   Future<void> _setPro(DateTime? until, String kind) async {
+    final wasPro = pro;
     proUntil = until;
     proKind = kind;
-    askZakatLocked = !has(ProFeature.zakat);
     final keys = services.lock.keys;
     try {
       if (until == null) {
@@ -239,28 +246,62 @@ class Brain extends ChangeNotifier {
         await keys.write('pro_until', until.toIso8601String());
       }
       await keys.write('pro_kind', kind);
-      await keys.write('trial_used', trialUsed ? 'true' : 'false');
     } catch (_) {}
+    if (!wasPro && pro) await _addProReminders();
     notifyListeners();
     await _reschedule();
   }
+
+  /// Pro just came on: the pay-back days and paper expiries already written
+  /// get their reminders now.
+  Future<void> _addProReminders() async {
+    var changed = false;
+    final today = dayOnly(services.now());
+    for (var i = 0; i < data.ledger.length; i++) {
+      final x = data.ledger[i];
+      if (x.reminderId != null || x.due == null || x.due!.isBefore(today)) continue;
+      if (x.kind != LedgerKind.lent && x.kind != LedgerKind.borrowed) continue;
+      final r = _dueReminder(x);
+      data.reminders.add(r);
+      data.ledger[i] = x.copyWith(reminderId: r.id);
+      changed = true;
+    }
+    for (var i = 0; i < data.docs.length; i++) {
+      final d = data.docs[i];
+      if (d.reminderId != null || d.expiry == null || d.expiry!.isBefore(today)) continue;
+      final r = _expiryReminder(d);
+      data.reminders.add(r);
+      data.docs[i] = d.copyWith(reminderId: r.id);
+      changed = true;
+    }
+    if (changed) await _save();
+  }
+
+  Reminder _dueReminder(LedgerEntry x) => Reminder(
+      title: x.kind == LedgerKind.lent ? trf('{0} {1} ফেরত দেওয়ার দিন', [x.person, taka(x.amount)]) : trf('{0}-কে {1} শোধের দিন', [x.person, taka(x.amount)]),
+      date: dayOnly(x.due!),
+      hour: 10,
+      daysBefore: 1);
+
+  Reminder _expiryReminder(Doc d) => Reminder(title: '${d.title} — মেয়াদ শেষ', date: d.expiry!, hour: 10, daysBefore: 30);
 
   Future<void> _loadPro() async {
     final keys = services.lock.keys;
     try {
       proUntil = DateTime.tryParse(await keys.read('pro_until') ?? '');
       proKind = await keys.read('pro_kind') ?? '';
-      trialUsed = (await keys.read('trial_used')) == 'true';
       firstUse = DateTime.tryParse(await keys.read('first_use') ?? '');
       if (firstUse == null) {
         firstUse = services.now();
         await keys.write('first_use', firstUse!.toIso8601String());
       }
     } catch (_) {}
-    askZakatLocked = !has(ProFeature.zakat);
   }
 
   // ── Google account and Drive backup (see services/google_account.dart) ──
+
+  /// Signed in on the welcome page: after the PIN, look for a Drive backup.
+  bool offerRestore = false;
 
   String googleEmail = '';
   String googleName = '';
@@ -306,11 +347,6 @@ class Brain extends ChangeNotifier {
       final info = await services.server.login(u, appVersion: appVersion, edition: edition);
       if (info != null) await _applyServer(info);
       if (info != null) {
-        // The trial is once per Google account, on any phone.
-        if (info.trialUsed && !trialUsed) {
-          trialUsed = true;
-          await keys.write('trial_used', 'true');
-        }
         final until = info.proUntil;
         if (until != null && until.isAfter(services.now()) && (proUntil == null || until.isAfter(proUntil!))) {
           await _setPro(until, info.proKind);
@@ -477,7 +513,7 @@ class Brain extends ChangeNotifier {
   /// When the app goes to the background: a quiet backup if something
   /// changed and the last one is at least 30 minutes old.
   Future<void> autoDriveBackup() async {
-    if (!driveOn || !signedIn || !_driveDirty || driveBusy) return;
+    if (!driveOn || !has(ProFeature.autoBackup) || !signedIn || !_driveDirty || driveBusy) return;
     final last = lastDrive;
     if (last != null && services.now().difference(last) < const Duration(minutes: 30)) return;
     await backupToDrive();
@@ -507,6 +543,10 @@ class Brain extends ChangeNotifier {
     await keys.write('drive_last', lastDrive!.toIso8601String());
     notifyListeners();
   }
+
+  /// A feature wish or a problem to our server. Null when sent.
+  Future<String?> sendFeedback(String kind, String text, String appVersion) =>
+      services.server.feedback(services.ai.session, kind: kind, text: text, appVersion: appVersion);
 
   int _adShown = 0, _adDone = 0;
   String _adDay = '';
@@ -700,6 +740,8 @@ class Brain extends ChangeNotifier {
         jumuah: flag('n_jumuah', true),
         plan: flag('n_plan', true),
         smart: flag('n_smart', true) && has(ProFeature.smartNudges),
+        docAlerts: has(ProFeature.docAlerts),
+        dueAlerts: has(ProFeature.dueReminders),
         health: flag('n_health', true),
         festival: flag('n_festival', true),
         weekly: flag('n_weekly', true),
@@ -1162,11 +1204,9 @@ class Brain extends ChangeNotifier {
     final oldRem = old?.reminderId ?? x.reminderId;
     if (oldRem != null) data.reminders.removeWhere((r) => r.id == oldRem);
     x = x.copyWith(clearReminder: true);
-    if (x.due != null && (x.kind == LedgerKind.lent || x.kind == LedgerKind.borrowed)) {
-      final title = x.kind == LedgerKind.lent
-          ? trf('{0} {1} ফেরত দেওয়ার দিন', [x.person, taka(x.amount)])
-          : trf('{0}-কে {1} শোধের দিন', [x.person, taka(x.amount)]);
-      final r = Reminder(title: title, date: dayOnly(x.due!), hour: 10, daysBefore: 1);
+    // The day itself is kept for everyone; the reminder is Pro.
+    if (x.due != null && (x.kind == LedgerKind.lent || x.kind == LedgerKind.borrowed) && has(ProFeature.dueReminders)) {
+      final r = _dueReminder(x);
       data.reminders.add(r);
       x = x.copyWith(reminderId: r.id);
     }
@@ -1328,8 +1368,9 @@ class Brain extends ChangeNotifier {
   Future<Doc> setDocExpiry(Doc d, DateTime? expiry) async {
     if (d.reminderId != null) data.reminders.removeWhere((r) => r.id == d.reminderId);
     var next = d.copyWith(expiry: expiry, clearExpiry: expiry == null, clearReminder: true);
-    if (expiry != null) {
-      final r = Reminder(title: '${d.title} — মেয়াদ শেষ', date: expiry, hour: 10, daysBefore: 30);
+    // The date is kept for everyone; the reminder is Pro.
+    if (expiry != null && has(ProFeature.docAlerts)) {
+      final r = _expiryReminder(next);
       data.reminders.add(r);
       next = next.copyWith(reminderId: r.id);
     }

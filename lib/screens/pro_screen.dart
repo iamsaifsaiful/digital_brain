@@ -8,7 +8,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 
 /// My Assistant Pro: what it adds over the free app, the plans, and (in the
-/// Play app) buying or the free trial. In the downloaded APK everything is
+/// Play app) buying. In the downloaded APK everything is
 /// already open, so it only explains.
 class ProScreen extends StatefulWidget {
   const ProScreen({super.key});
@@ -78,7 +78,6 @@ class _ProScreenState extends State<ProScreen> {
         ? tr('এই অ্যাপে এখন সব সুবিধা খোলা — কিছুই তালাবদ্ধ নয়।')
         : brain.pro
             ? switch (brain.proKind) {
-                'trial' => trf('ফ্রি ট্রায়াল চলছে — শেষ {0}', [shortDate(until!)]),
                 'test' => tr('প্রো চালু (প্রিভিউ পরীক্ষা)'),
                 _ => trf('প্রো চালু — নবায়ন {0}', [shortDate(until!)]),
               }
@@ -105,21 +104,9 @@ class _ProScreenState extends State<ProScreen> {
                   const SizedBox(height: 10),
                 ],
                 const SizedBox(height: 4),
-                if (!brain.trialUsed) ...[
-                  PrimaryButton(
-                    label: trf('{0} দিন ফ্রি চালু করুন', [bnDigits(trialDays)]),
-                    icon: Icons.auto_awesome_rounded,
-                    onPressed: () async {
-                      await brain.startTrial();
-                      if (context.mounted) toast(context, trf('{0} দিনের ফ্রি ট্রায়াল চালু হলো', [bnDigits(trialDays)]));
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  SecondaryButton(label: tr('এখনই কিনুন'), onPressed: () => _buy(brain)),
-                ] else
-                  PrimaryButton(label: tr('প্রো নিন'), icon: Icons.auto_awesome_rounded, onPressed: () => _buy(brain)),
+                PrimaryButton(label: tr('প্রো নিন'), icon: Icons.auto_awesome_rounded, onPressed: () => _buy(brain)),
                 const SizedBox(height: 8),
-                Text(tr('পেমেন্ট Google Play দিয়ে (কার্ড)। ট্রায়ালে টাকা কাটে না; ট্রায়াল শেষে নিজে থেকে কিছু কেনা হবে না। যেকোনো সময় Play Store থেকে বাতিল করা যায়।'),
+                Text(tr('পেমেন্ট Google Play দিয়ে। যেকোনো সময় Play Store থেকে বাতিল করা যায়; বাতিল করলেও আপনার তথ্য যেমন আছে থাকবে।'),
                     textAlign: TextAlign.center, style: body(12, color: C.muted, height: 1.5)),
                 TextButton(
                   onPressed: () => toast(context, previewEdition ? tr('প্রিভিউ: আসল অ্যাপে Google Play থেকে আগের কেনা প্রো ফিরিয়ে আনবে') : tr('কোনো কেনা প্রো পাওয়া যায়নি')),
@@ -128,7 +115,7 @@ class _ProScreenState extends State<ProScreen> {
               ],
               const SizedBox(height: 18),
               SectionTitle(tr('সবসময় ফ্রি')),
-              Text(tr('লেনদেন ও বাকির হিসাব, কাজের তালিকা, রিমাইন্ডার ও অ্যালার্ম, নোট, ডকুমেন্ট, ভয়েসে সব কাজ, ক্যালেন্ডার ও নামাজের সময়, স্বাস্থ্য ও ওষুধ, অভ্যাস, সঞ্চয়, ১টা দোকান, ১টা আলাদা হিসাব, ১০টা পাসওয়ার্ড, ফোনে ব্যাকআপ। আপনার রাখা কোনো তথ্য কখনো তালাবদ্ধ হবে না।'),
+              Text(tr('মুখে বলে সব কাজ, আয়-ব্যয় ও ধার-দেনা (২০ জন), তাগাদার মেসেজ, কাজের তালিকা, ২০টা চালু রিমাইন্ডার, অ্যালার্ম, ক্যালেন্ডার ও নামাজের সময়, নোট, ৩০টা ডকুমেন্ট, পরিবারের সবার স্বাস্থ্য, শিশুর টিকা, ওষুধের রিমাইন্ডার, অভ্যাস, যাকাতের হিসাব, সঞ্চয়, ১টা দোকান, ১টা অন্যান্য হিসাব, ১০টা পাসওয়ার্ড, নিজে চাপলে Google Drive-এ ব্যাকআপ আর নতুন ফোনে সব ফিরিয়ে আনা। আপনার রাখা কোনো তথ্য কখনো তালাবদ্ধ হবে না।'),
                   style: body(14, color: C.muted2, height: 1.55)),
               if (sell) ...[
                 const SizedBox(height: 18),
@@ -154,7 +141,7 @@ class _ProScreenState extends State<ProScreen> {
                   color: C.orangeTint,
                   borderColor: C.orange,
                   padding: const EdgeInsets.all(14),
-                  child: Text(tr('এটা প্লে স্টোর ভার্সনের প্রিভিউ। কেনা বা ট্রায়ালে কোনো টাকা কাটে না। সেটিংসের “পরীক্ষা: প্রো চালু” সুইচ দিয়ে ফ্রি আর প্রো দুটোই দেখতে পারবেন।'),
+                  child: Text(tr('এটা প্লে স্টোর ভার্সনের প্রিভিউ। কেনায় কোনো টাকা কাটে না। সেটিংসের “পরীক্ষা: প্রো চালু” সুইচ দিয়ে ফ্রি আর প্রো দুটোই দেখতে পারবেন।'),
                       style: body(13, color: C.orangeDark, height: 1.5)),
                 ),
               ],

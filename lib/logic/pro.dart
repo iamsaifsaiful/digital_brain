@@ -25,11 +25,16 @@ bool get previewEdition => edition == 'play_preview';
 const freeShops = 1;
 const freeProjects = 1;
 const freeVaultItems = 10;
+const freeReminders = 20;
+const freeLedgerPeople = 20;
+const freeDocs = 30;
 
-/// Days of the free trial (once per user).
-const trialDays = 7;
+/// Reports: this month and the two before it.
+const freeReportMonths = 3;
 
-enum ProFeature { ai, noAds, shops, receipts, pdf, zakat, projects, vault, inbox, smartNudges, cloudBackup }
+/// No free trial: the free app is useful on its own, and Pro is bought
+/// when its tools are wanted.
+enum ProFeature { ai, noAds, autoBackup, docAlerts, dueReminders, history, reminders, people, docs, shops, receipts, pdf, projects, vault, inbox, smartNudges }
 
 class ProInfo {
   const ProInfo(this.title, this.what, {this.free = '', this.later = false});
@@ -48,15 +53,20 @@ class ProInfo {
 const proInfo = <ProFeature, ProInfo>{
   ProFeature.ai: ProInfo('AI সহকারী', 'লম্বা, এলোমেলো কথাও বোঝে; যেকোনো প্রশ্নের উত্তর — দিনে ৫০টা পর্যন্ত', free: 'অ্যাপ নিজের নিয়মে বোঝে'),
   ProFeature.noAds: ProInfo('কোনো বিজ্ঞাপন নেই', 'কাজের মাঝে কিছু বাধা দেবে না', free: 'নিচে ছোট বিজ্ঞাপন, দিনে সর্বোচ্চ ২টা পুরো পর্দার'),
+  ProFeature.autoBackup: ProInfo('Google Drive-এ অটো ব্যাকআপ', 'কিছু বদলালেই নিজে থেকে ব্যাকআপ — কিছু মনে রাখতে হবে না', free: 'নিজে চাপলে Drive-এ ব্যাকআপ; নতুন ফোনে ফিরিয়ে আনা সবসময় ফ্রি'),
+  ProFeature.docAlerts: ProInfo('কাগজের মেয়াদের খবর', 'পাসপোর্ট, লাইসেন্স, NID-এর মেয়াদ শেষের ৬ মাস আগে, ১ মাস আগে আর শেষের দিন জানায়', free: 'মেয়াদের তারিখ লেখা থাকে, নিজে দেখে নিতে হয়'),
+  ProFeature.dueReminders: ProInfo('ধার-দেনার রিমাইন্ডার', 'ফেরতের দিনে মনে করায়, অনেক দিন পাওনা পড়ে থাকলে তাগাদা দিতে বলে', free: 'তাগাদার মেসেজ নিজে পাঠানো যায়'),
+  ProFeature.history: ProInfo('পুরো ইতিহাস ও বছরের রিপোর্ট', 'যেকোনো মাসের রিপোর্ট, বছরের হিসাব আর গ্রাফ', free: 'এই মাস আর আগের ২ মাস'),
+  ProFeature.reminders: ProInfo('যত খুশি রিমাইন্ডার', 'চালু রিমাইন্ডারের কোনো সীমা নেই', free: 'একসাথে ২০টা চালু রিমাইন্ডার'),
+  ProFeature.people: ProInfo('যত খুশি ধার-দেনার মানুষ', 'যত জনের সাথে খুশি লেনদেন', free: '২০ জন'),
+  ProFeature.docs: ProInfo('যত খুশি ডকুমেন্ট', 'NID, পাসপোর্ট, দলিল — কোনো সীমা নেই', free: '৩০টা ডকুমেন্ট'),
   ProFeature.shops: ProInfo('একাধিক দোকান', 'যত খুশি দোকান, প্রতিটার আলাদা হিসাব, উপরে সব মিলিয়ে', free: '১টা দোকান'),
   ProFeature.receipts: ProInfo('রসিদ', 'কাস্টমারকে নম্বরসহ রসিদ — শেয়ার বা প্রিন্ট'),
   ProFeature.pdf: ProInfo('PDF রিপোর্ট', 'সবকিছু বা যেকোনো পাতা PDF-এ — ডাউনলোড, শেয়ার, প্রিন্ট'),
-  ProFeature.zakat: ProInfo('যাকাতের নিজে-হিসাব', 'হিসাব, ব্যাংক, সঞ্চয়, পাওনা-দেনা থেকে যাকাত বের করে; মুখে জিজ্ঞেস করলেই বলে'),
-  ProFeature.projects: ProInfo('আলাদা হিসাব (প্রকল্প)', 'বাড়ি, বিয়ে, ঈদ — যত খুশি আলাদা হিসাব আর বাজেট', free: '১টা আলাদা হিসাব'),
+  ProFeature.projects: ProInfo('অন্যান্য হিসাব', 'বাড়ি, বিয়ে, ঈদ — যত খুশি আলাদা হিসাব আর বাজেট', free: '১টা'),
   ProFeature.vault: ProInfo('পাসওয়ার্ড ভল্ট', 'যত খুশি পাসওয়ার্ড', free: '১০টা পাসওয়ার্ড'),
   ProFeature.inbox: ProInfo('মেসেজ থেকে কাজ', 'WhatsApp, SMS, বিকাশের মেসেজ থেকে নিজে হিসাব আর কাজ বানায়'),
   ProFeature.smartNudges: ProInfo('স্মার্ট খেয়াল', 'খরচ বেশি হলে, বেতন এলে, বিশেষ দিনের আগে — নিজে থেকে জানায়'),
-  ProFeature.cloudBackup: ProInfo('ক্লাউড ব্যাকআপ', 'ফোন হারালেও তথ্য ফেরত — তালাবদ্ধ অবস্থায়', later: true),
 };
 
 class ProPlan {
@@ -68,6 +78,7 @@ class ProPlan {
   final int days;
 }
 
+/// Two plans only: monthly and yearly.
 const proPlans = [
   ProPlan('pro_yearly', 'বছরে', '৳৯৯৯', 'মাসে মাত্র ৳৮৩ — ২ মাস ফ্রি', 365),
   ProPlan('pro_monthly', 'মাসে', '৳৯৯', 'যেকোনো সময় বন্ধ করা যায়', 30),

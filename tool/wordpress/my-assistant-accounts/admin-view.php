@@ -76,7 +76,8 @@ function ma_acc_url($args) {
 function ma_acc_render($v) {
     $labels = ma_acc_status_labels();
     $s = $v['stats'];
-    $tab = in_array($v['tab'], ['settings', 'payments', 'notices'], true) ? $v['tab'] : 'members';
+    $tab = in_array($v['tab'], ['settings', 'payments', 'notices', 'feedback'], true) ? $v['tab'] : 'members';
+    $fb_new = (int) ($v['fb_new'] ?? 0);
     $pending = (int) ($v['pending'] ?? 0);
     $paying_rate = $s['total'] ? round($s['pro'] * 100 / $s['total'], 1) : 0;
     ?>
@@ -100,13 +101,14 @@ function ma_acc_render($v) {
                     <a class="<?php echo $tab === 'members' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'members']); ?>">সদস্য</a>
                     <a class="<?php echo $tab === 'payments' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'payments']); ?>">পেমেন্ট<?php if ($pending) : ?><i class="ma-badge"><?php echo esc_html(ma_acc_bn($pending)); ?></i><?php endif; ?></a>
                     <a class="<?php echo $tab === 'notices' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'notices']); ?>">নোটিফিকেশন</a>
+                    <a class="<?php echo $tab === 'feedback' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'feedback']); ?>">মতামত<?php if ($fb_new) : ?><i class="ma-badge"><?php echo esc_html(ma_acc_bn($fb_new)); ?></i><?php endif; ?></a>
                     <?php if (!empty($v['can_settings'])) : ?><a class="<?php echo $tab === 'settings' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'settings']); ?>">সেটিংস</a><?php endif; ?>
                 </nav>
             </div>
             <div class="ma-figures">
                 <div class="ma-fig"><span>মোট সদস্য</span><strong><?php echo esc_html(ma_acc_bn(number_format($s['total']))); ?></strong><em>এই সপ্তাহে নতুন <?php echo esc_html(ma_acc_bn($s['week'])); ?></em></div>
                 <div class="ma-fig"><span>প্রো</span><strong><?php echo esc_html(ma_acc_bn(number_format($s['pro']))); ?></strong><em><?php echo esc_html(ma_acc_bn($paying_rate)); ?>% সদস্য প্রো নিয়েছেন</em></div>
-                <div class="ma-fig"><span>ট্রায়ালে আছেন</span><strong><?php echo esc_html(ma_acc_bn(number_format($s['trial']))); ?></strong><em>৭ দিনের ফ্রি চেষ্টা</em></div>
+                <div class="ma-fig"><span>নতুন মতামত</span><strong><?php echo esc_html(ma_acc_bn(number_format($fb_new))); ?></strong><em>অ্যাপ থেকে সদস্যদের লেখা</em></div>
                 <div class="ma-fig"><span>সক্রিয় (৭ দিনে)</span><strong><?php echo esc_html(ma_acc_bn(number_format($s['active']))); ?></strong><em>গত ৭ দিনে অ্যাপ খুলেছেন</em></div>
             </div>
         </header>
@@ -121,6 +123,8 @@ function ma_acc_render($v) {
             ma_acc_render_payments($v);
         } elseif ($tab === 'notices') {
             ma_acc_render_notices($v);
+        } elseif ($tab === 'feedback') {
+            ma_acc_render_feedback($v);
         } else {
             ma_acc_render_members($v, $labels);
         } ?>
@@ -439,10 +443,63 @@ function ma_acc_render_payments($v) {
             <label>মাধ্যম — প্রতি লাইনে একটা: <span class="ma-mono">নাম | নম্বর | কীভাবে পাঠাবেন</span>
                 <textarea name="methods" rows="6" spellcheck="false"><?php echo esc_textarea($v['methods_raw']); ?></textarea>
             </label>
-            <p class="muted ma-tip">ফর্মটা দেখাতে ওয়েবসাইটের একটা পাতায় লিখুন <code>[my_assistant_payment]</code>। Play Store-এর অ্যাপের ভেতরে এই পাতার লিংক বা উল্লেখ দেওয়া যাবে না — এটা Google-এর নিয়ম।</p>
+            <p class="muted ma-tip">ওয়েবসাইটের একটা পাতায় লিখুন <code>[my_assistant_pro]</code> — প্রো-র সব সুবিধা, দুই প্ল্যান আর তার নিচে পেমেন্ট ফর্ম একসাথে দেখাবে (শুধু ফর্ম চাইলে <code>[my_assistant_payment]</code>)। Play Store-এর অ্যাপের ভেতরে এই পাতার লিংক বা উল্লেখ দেওয়া যাবে না — এটা Google-এর নিয়ম।</p>
             <div class="ma-dialog-actions"><button type="button" class="ma-btn ghost" data-close>বাতিল</button><button class="ma-btn" type="submit">রাখুন</button></div>
         </form>
     </dialog>
+    <?php
+}
+
+function ma_acc_render_feedback($v) {
+    $post = esc_url(admin_url('admin-post.php'));
+    $kinds = ma_fb_kinds();
+    $tabs = ['open' => 'খোলা', 'done' => 'শেষ', 'all' => 'সব'];
+    ?>
+    <section class="ma-card">
+        <div class="ma-bar">
+            <div class="ma-bar-title"><h2>মতামত ও সমস্যা</h2><span class="ma-count">অ্যাপ থেকে</span></div>
+            <div class="ma-bar-actions">
+                <?php foreach ($tabs as $k => $l) : ?>
+                    <a class="ma-chip <?php echo $v['fst'] === $k ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'feedback', 'fst' => $k]); ?>"><?php echo esc_html($l); ?></a>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <p class="muted ma-pad">সদস্যরা অ্যাপের সেটিংস › “মতামত বা সমস্যা জানান” থেকে লেখেন। শুধু তাঁদের লেখা আর অ্যাপের সংস্করণ আসে — অন্য কোনো তথ্য না। নতুন এলে অ্যাডমিন অ্যাপে পুশ যায়।</p>
+        <?php if (!$v['feedback']) : ?>
+            <div class="ma-empty">
+                <div class="ma-empty-art" aria-hidden="true"><svg viewBox="0 0 24 24" width="34" height="34"><path fill="currentColor" d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2Zm0 2v11.2L7.2 14H20V6H4Z"/></svg></div>
+                <h3>এখানে এখনো কিছু নেই</h3>
+                <p>সদস্যরা নতুন সুবিধা চাইলে বা সমস্যা জানালে এখানে দেখা যাবে।</p>
+            </div>
+        <?php else : ?>
+            <div class="ma-fb">
+                <?php foreach ($v['feedback'] as $f) :
+                    $k = $kinds[$f['kind']] ?? $kinds['other'];
+                    ?>
+                    <article class="ma-fb-item <?php echo $f['status'] === 'new' ? 'new' : ''; ?>">
+                        <div class="ma-fb-head">
+                            <span class="ma-pill <?php echo esc_attr($k[1]); ?>"><?php echo esc_html($k[0]); ?></span>
+                            <?php if ($f['status'] === 'new') : ?><span class="ma-pill trial">নতুন</span><?php elseif ($f['status'] === 'done') : ?><span class="ma-pill pro">শেষ</span><?php endif; ?>
+                            <strong><?php echo esc_html($f['name'] !== '' ? $f['name'] : $f['email']); ?></strong>
+                            <span class="muted"><?php echo esc_html($f['email']); ?> · <?php echo esc_html(ma_acc_date($f['created_at'])); ?><?php echo $f['app_version'] !== '' ? ' · v' . esc_html($f['app_version']) : ''; ?></span>
+                        </div>
+                        <p class="ma-fb-text"><?php echo nl2br(esc_html($f['body'])); ?></p>
+                        <div class="ma-fb-ops">
+                            <a class="ma-btn small ghost" href="mailto:<?php echo esc_attr($f['email']); ?>?subject=<?php echo rawurlencode('My Assistant — আপনার মতামত'); ?>">ইমেইলে উত্তর</a>
+                            <?php foreach (['read' => 'পড়েছি', 'done' => 'শেষ', 'new' => 'আবার খুলুন'] as $st => $label) :
+                                if ($st === $f['status'] || ($st === 'new' && $f['status'] !== 'done') || ($st === 'read' && $f['status'] !== 'new')) {
+                                    continue;
+                                }
+                                ?>
+                                <form method="post" action="<?php echo $post; ?>"><input type="hidden" name="action" value="ma_fb_set"><input type="hidden" name="id" value="<?php echo (int) $f['id']; ?>"><input type="hidden" name="status" value="<?php echo esc_attr($st); ?>"><?php wp_nonce_field('ma_fb_set'); ?><button class="ma-btn small <?php echo $st === 'done' ? '' : 'ghost'; ?>" type="submit"><?php echo esc_html($label); ?></button></form>
+                            <?php endforeach; ?>
+                            <form method="post" action="<?php echo $post; ?>" onsubmit="return confirm('মুছে ফেলবেন?')"><input type="hidden" name="action" value="ma_fb_set"><input type="hidden" name="id" value="<?php echo (int) $f['id']; ?>"><input type="hidden" name="status" value="delete"><?php wp_nonce_field('ma_fb_set'); ?><button class="ma-icon danger" type="submit" title="মুছুন" aria-label="মুছুন"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M9 3h6a1 1 0 0 1 1 1v1h4a1 1 0 1 1 0 2h-1l-.9 12.1A2 2 0 0 1 16.1 21H7.9a2 2 0 0 1-2-1.9L5 7H4a1 1 0 0 1 0-2h4V4a1 1 0 0 1 1-1Zm-2 4 .9 12h8.2L17 7H7Z"/></svg></button></form>
+                        </div>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </section>
     <?php
 }
 
@@ -658,6 +715,13 @@ function ma_acc_styles() {
     .ma-mark{width:42px;height:42px;border-radius:13px;background:rgba(255,255,255,.16);display:grid;place-items:center;color:#fff}
     .ma-brand-name{font-size:20px;font-weight:700;line-height:1.2}
     .ma-brand-sub{font-size:13px;color:#C9EBDD}
+    .ma-fb{display:grid;gap:10px;padding:0 16px 16px}
+    .ma-fb-item{border:1px solid var(--line);border-radius:14px;padding:14px 16px;background:#fff}
+    .ma-fb-item.new{border-color:#A7D9C8;background:#F6FBF9}
+    .ma-fb-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px}
+    .ma-fb-text{margin:10px 0 12px;font-size:15px;line-height:1.65;white-space:normal}
+    .ma-fb-ops{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .ma-fb-ops form{margin:0}
     .ma-tabs{display:flex;gap:4px;background:rgba(0,0,0,.18);padding:4px;border-radius:12px}
     .ma-tabs a{color:#DDF2EA;text-decoration:none;font-weight:600;font-size:14px;padding:7px 16px;border-radius:9px;transition:background .15s}
     .ma-tabs a:hover{background:rgba(255,255,255,.1);color:#fff}

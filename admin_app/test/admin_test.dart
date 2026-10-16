@@ -20,12 +20,16 @@ class FakeServer {
     {'id': 2, 'created': _ago(const Duration(hours: 2)), 'email': 'ayesha.s@gmail.com', 'name': 'Ayesha Siddika', 'phone': '', 'plan': 'মাসিক', 'amount': 99, 'method': 'নগদ', 'sender': '01987654321', 'trx': '7NG2KD81QZ', 'note': 'তাড়াতাড়ি চালু করবেন', 'status': 'pending', 'reason': '', 'reviewed_by': '', 'reviewed': null},
   ];
 
+  final feedback = <Map<String, Object?>>[
+    {'id': 7, 'created': _ago(const Duration(minutes: 12)), 'email': 'rakib.hasan92@gmail.com', 'name': 'রাকিব হাসান', 'kind': 'problem', 'kind_label': 'সমস্যা', 'text': 'রাত ১০টার রিমাইন্ডার বাজেনি', 'version': '2.15.0', 'status': 'new'},
+  ];
+
   late final client = MockClient((r) async {
     calls.add(r);
     final p = r.url.path.replaceFirst('/wp-json/my-assistant/v1', '');
     Object body = {};
     if (p == '/admin/summary') {
-      body = {'members': 1284, 'pro': 96, 'trial': 41, 'new_week': 63, 'active_week': 712, 'pending_payments': payments.where((x) => x['status'] == 'pending').length, 'income_month': 18981, 'ai_today': 318};
+      body = {'members': 1284, 'pro': 96, 'trial': 41, 'new_week': 63, 'active_week': 712, 'pending_payments': payments.where((x) => x['status'] == 'pending').length, 'income_month': 18981, 'ai_today': 318, 'feedback_new': feedback.where((x) => x['status'] == 'new').length};
     } else if (p == '/admin/payments' && r.method == 'GET') {
       body = {'payments': payments.where((x) => x['status'] == r.url.queryParameters['status']).toList()};
     } else if (p.startsWith('/admin/payments/')) {
@@ -33,6 +37,11 @@ class FakeServer {
       final pay = payments.firstWhere((x) => x['id'] == id);
       pay['status'] = jsonDecode(r.body)['decision'] == 'approve' ? 'approved' : 'rejected';
       body = {'ok': true, 'message': 'অনুমোদন দেওয়া হলো, ${pay['email']}-এ প্রো চালু হলো।'};
+    } else if (p == '/admin/feedback') {
+      body = {'feedback': feedback.where((x) => r.url.queryParameters['status'] == 'all' || (r.url.queryParameters['status'] == 'done') == (x['status'] == 'done')).toList()};
+    } else if (p.startsWith('/admin/feedback/')) {
+      feedback.firstWhere((x) => x['id'] == int.parse(p.split('/').last))['status'] = jsonDecode(r.body)['status'];
+      body = {'ok': true};
     } else if (p == '/admin/members') {
       body = {'members': [
         {'id': 1, 'name': 'সাইফুল ইসলাম', 'email': 'saiful.islam@gmail.com', 'picture': '', 'status': 'pro', 'pro_until': '2027-08-12T00:00:00Z', 'joined': _ago(const Duration(days: 20)), 'last_seen': _ago(const Duration(hours: 1)), 'version': '2.14.0 play', 'note': ''},
@@ -132,6 +141,18 @@ void main() {
     await settle(t);
     expect(find.text('আজকের কাজের লিস্ট করেছেন?'), findsOneWidget);
     await shot(t, 'notices');
+  });
+
+  testWidgets('feedback: a member\'s problem is read and marked done', (t) async {
+    final server = await open(t);
+    await t.tap(find.text('মতামত').last);
+    await settle(t);
+    expect(find.text('রাত ১০টার রিমাইন্ডার বাজেনি'), findsOneWidget);
+    await shot(t, 'feedback');
+    await t.tap(find.widgetWithText(FilledButton, 'শেষ'));
+    await settle(t);
+    expect(server.feedback.single['status'], 'done');
+    expect(find.text('রাত ১০টার রিমাইন্ডার বাজেনি'), findsNothing);
   });
 
   testWidgets('signed out: email and password, then in', (t) async {

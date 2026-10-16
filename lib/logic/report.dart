@@ -23,7 +23,7 @@ enum ReportPart {
   reminders('তারিখ ও রিমাইন্ডার', 'reminders'),
   money('আয়-ব্যয়', 'income-expense'),
   ledger('ধার-দেনা', 'loans'),
-  projects('আলাদা হিসাব', 'separate-accounts'),
+  projects('অন্যান্য হিসাব', 'separate-accounts'),
   accounts('অ্যাকাউন্ট, সঞ্চয় ও কিস্তি', 'accounts'),
   shops('দোকান', 'shops'),
   notes('নোট ও অন্যান্য', 'notes'),
@@ -338,7 +338,7 @@ void _ledger(_Doc doc, AppData d, String? onlyKey) {
 
 void _projects(_Doc doc, AppData d, String? onlyId) {
   final ps = [for (final p in d.projects) if (onlyId == null || p.id == onlyId) p];
-  if (ps.isEmpty) return doc.none(tr('আলাদা হিসাব'));
+  if (ps.isEmpty) return doc.none(tr('অন্যান্য হিসাব'));
   if (onlyId == null && ps.length > 1) {
     doc.table(
       [tr('হিসাব'), tr('আয়'), tr('খরচ'), tr('বাকি')],

@@ -9,8 +9,13 @@ import '../logic/lang.dart';
 import '../models/models.dart';
 import '../ui/widgets.dart';
 import 'store_more_screens.dart';
+import 'more_screen.dart' show appVersion;
 
-/// First run: choose a PIN. Every other time: unlock with fingerprint or PIN.
+/// Off in tests, so they start straight at the PIN.
+bool googleFirst = true;
+
+/// First run: sign in with Google, then choose a PIN. Every other time:
+/// unlock with fingerprint or PIN.
 class LockScreen extends StatefulWidget {
   const LockScreen({super.key});
 
@@ -18,7 +23,7 @@ class LockScreen extends StatefulWidget {
   State<LockScreen> createState() => _LockScreenState();
 }
 
-enum _Mode { loading, create, confirm, unlock }
+enum _Mode { loading, google, create, confirm, unlock }
 
 class _LockScreenState extends State<LockScreen> {
   _Mode _mode = _Mode.loading;
@@ -27,6 +32,7 @@ class _LockScreenState extends State<LockScreen> {
   DateTime? _lockedUntil;
   bool _bioAvailable = false;
   int _padKey = 0;
+  bool _signing = false;
 
   @override
   void initState() {
@@ -35,16 +41,78 @@ class _LockScreenState extends State<LockScreen> {
   }
 
   Future<void> _start() async {
-    final lock = BrainScope.read(context).services.lock;
+    final brain = BrainScope.read(context);
+    final lock = brain.services.lock;
     final has = await lock.hasPin();
     final bio = has && await lock.biometricsOn() && await lock.biometrics.available();
     if (!mounted) return;
     setState(() {
-      _mode = has ? _Mode.unlock : _Mode.create;
+      _mode = has ? _Mode.unlock : (googleFirst && !brain.signedIn ? _Mode.google : _Mode.create);
       _bioAvailable = bio;
     });
     if (bio) _biometric();
   }
+
+  /// First step on a new phone: Google sign-in (the account, Pro bought on
+  /// the website, and the Drive backup come with it).
+  Future<void> _google() async {
+    final brain = BrainScope.read(context);
+    setState(() {
+      _signing = true;
+      _message = null;
+    });
+    final e = await brain.signInGoogle(appVersion: appVersion);
+    if (!mounted) return;
+    setState(() => _signing = false);
+    if (e != null) {
+      setState(() => _message = e);
+      return;
+    }
+    if (!brain.signedIn) return;
+    // Right after the PIN: bring back this account's backup, if it has one.
+    brain.offerRestore = true;
+    setState(() {
+      _mode = _Mode.create;
+      _padKey++;
+    });
+  }
+
+  Widget _googleStep() => Column(children: [
+        Text(tr('শুরু করতে Google দিয়ে লগইন করুন'), textAlign: TextAlign.center, style: body(18, color: Colors.white, weight: FontWeight.w600)),
+        const SizedBox(height: 10),
+        Text(tr('আপনার তথ্য Google Drive-এ তালাবদ্ধ ব্যাকআপ রাখা যাবে, ফোন বদলালেও সব ফিরে আসবে। এরপর একটা PIN ঠিক করবেন।'),
+            textAlign: TextAlign.center, style: body(14, color: const Color(0xFFC9D3CE), height: 1.55)),
+        const SizedBox(height: 22),
+        SizedBox(
+          width: double.infinity,
+          height: 54,
+          child: FilledButton.icon(
+            key: const Key('welcome-google'),
+            style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF1F2937), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+            onPressed: _signing ? null : _google,
+            icon: _signing
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('G', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF4285F4))),
+            label: Text(tr('Google দিয়ে লগইন'), style: body(16, weight: FontWeight.w600, color: const Color(0xFF1F2937))),
+          ),
+        ),
+        if (_message != null) ...[
+          const SizedBox(height: 12),
+          Text(_message!, textAlign: TextAlign.center, style: body(14, color: C.peach, weight: FontWeight.w600)),
+        ],
+        const SizedBox(height: 10),
+        TextButton(
+          key: const Key('welcome-later'),
+          onPressed: _signing
+              ? null
+              : () => setState(() {
+                    _mode = _Mode.create;
+                    _message = null;
+                    _padKey++;
+                  }),
+          child: Text(tr('এখন না, পরে করব'), style: body(14, color: const Color(0xFFA9B5AF))),
+        ),
+      ]);
 
   Future<void> _biometric() async {
     final brain = BrainScope.read(context);
@@ -182,7 +250,7 @@ class _LockScreenState extends State<LockScreen> {
             setState(() => _lockedUntil = until);
             clear();
         }
-      case _Mode.loading:
+      case _Mode.loading || _Mode.google:
         break;
     }
   }
@@ -224,6 +292,8 @@ class _LockScreenState extends State<LockScreen> {
                     const SizedBox(height: 28),
                     if (_mode == _Mode.loading)
                       const SizedBox(height: 300, child: Center(child: CircularProgressIndicator(color: C.mint)))
+                    else if (_mode == _Mode.google)
+                      _googleStep()
                     else
                       Column(
                         children: [
@@ -278,7 +348,9 @@ class _LockScreenState extends State<LockScreen> {
                       ),
                     const SizedBox(height: 24),
                     Text(
-                      _mode == _Mode.create || _mode == _Mode.confirm
+                      _mode == _Mode.google
+                          ? tr('Google বা আমরা আপনার ব্যাকআপ পড়তে পারি না — সেটা আপনার পাসওয়ার্ডে তালাবদ্ধ থাকে।')
+                          : _mode == _Mode.create || _mode == _Mode.confirm
                           ? tr('PIN শুধু এই ফোনে, এনক্রিপ্ট করে রাখা হয়। ভুলে গেলে আঙুলের ছাপ বা Google Drive ব্যাকআপের পাসওয়ার্ড দিয়ে নতুন PIN দেওয়া যাবে।')
                           : tr('কিছুক্ষণ ব্যবহার না করলে অ্যাপ নিজে থেকে লক হয়ে যায়'),
                       style: body(13, color: const Color(0xFFA9B5AF), height: 1.5),

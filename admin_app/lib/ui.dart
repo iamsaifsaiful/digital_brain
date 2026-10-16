@@ -169,12 +169,13 @@ class Empty extends StatelessWidget {
 // ── সারাংশ ──
 
 class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key, required this.api, required this.guard, required this.refresh, required this.onPending, required this.onOpenPayments});
+  const DashboardPage({super.key, required this.api, required this.guard, required this.refresh, required this.onPending, required this.onOpenPayments, this.onFeedback});
   final Api api;
   final Guard guard;
   final ValueNotifier<int> refresh;
   final ValueChanged<int> onPending;
   final VoidCallback onOpenPayments;
+  final ValueChanged<int>? onFeedback;
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -201,6 +202,7 @@ class _DashboardPageState extends State<DashboardPage> {
     if (s != null && mounted) {
       setState(() => _s = s);
       widget.onPending((s['pending_payments'] as num?)?.toInt() ?? 0);
+      widget.onFeedback?.call((s['feedback_new'] as num?)?.toInt() ?? 0);
     }
   }
 
@@ -239,7 +241,7 @@ class _DashboardPageState extends State<DashboardPage> {
             if (s == null)
               const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator(color: Colors.white)))
             else ...[
-              Row(children: [fig('মোট সদস্য', count(n('members')), 'এই সপ্তাহে নতুন ${bn(n('new_week'))}'), const SizedBox(width: 10), fig('প্রো', count(n('pro')), 'ট্রায়ালে ${bn(n('trial'))}')]),
+              Row(children: [fig('মোট সদস্য', count(n('members')), 'এই সপ্তাহে নতুন ${bn(n('new_week'))}'), const SizedBox(width: 10), fig('প্রো', count(n('pro')), 'নতুন মতামত ${bn(n('feedback_new'))}')]),
               const SizedBox(height: 10),
               Row(children: [fig('এই মাসে আয়', taka(n('income_month')), 'ওয়েবসাইটের পেমেন্ট'), const SizedBox(width: 10), fig('সক্রিয়', count(n('active_week')), 'গত ৭ দিনে · আজ AI ${bn(n('ai_today'))}')]),
             ],
@@ -647,7 +649,6 @@ class _NoticesPageState extends State<NoticesPage> {
               segments: const [
                 ButtonSegment(value: 'all', label: Text('সবাই')),
                 ButtonSegment(value: 'pro', label: Text('প্রো')),
-                ButtonSegment(value: 'trial', label: Text('ট্রায়াল')),
                 ButtonSegment(value: 'free', label: Text('ফ্রি')),
               ],
               selected: {aud},
@@ -722,5 +723,127 @@ class _NoticesPageState extends State<NoticesPage> {
         ),
       ]),
     );
+  }
+}
+
+// ── মতামত ──
+
+/// Members' feature wishes and problems, written in the app. Read, marked
+/// done, or answered by email. Nothing is kept on this phone.
+class FeedbackPage extends StatefulWidget {
+  const FeedbackPage({super.key, required this.api, required this.guard, required this.refresh});
+  final Api api;
+  final Guard guard;
+  final ValueNotifier<int> refresh;
+
+  @override
+  State<FeedbackPage> createState() => _FeedbackPageState();
+}
+
+class _FeedbackPageState extends State<FeedbackPage> {
+  String _status = 'open';
+  List<Map<String, dynamic>>? _list;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.refresh.addListener(_load);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    widget.refresh.removeListener(_load);
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final l = await widget.guard(() => widget.api.feedback(_status));
+    if (l != null && mounted) setState(() => _list = l);
+  }
+
+  Future<void> _set(Map<String, dynamic> f, String status) async {
+    await widget.guard(() => widget.api.setFeedback((f['id'] as num).toInt(), status));
+    await _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Palette.of(context);
+    final list = _list;
+    return Column(children: [
+      const PageHead('মতামত', sub: 'অ্যাপ থেকে সদস্যদের লেখা'),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        child: SizedBox(
+          width: double.infinity,
+          child: SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'open', label: Text('খোলা')),
+              ButtonSegment(value: 'done', label: Text('শেষ')),
+              ButtonSegment(value: 'all', label: Text('সব')),
+            ],
+            selected: {_status},
+            showSelectedIcon: false,
+            onSelectionChanged: (s) {
+              setState(() {
+                _status = s.first;
+                _list = null;
+              });
+              _load();
+            },
+          ),
+        ),
+      ),
+      Expanded(
+        child: RefreshIndicator(
+          onRefresh: _load,
+          child: list == null
+              ? ListView(children: const [Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))])
+              : list.isEmpty
+                  ? ListView(children: const [Empty(Icons.forum_outlined, 'এখানে কিছু নেই', 'সদস্যরা নতুন সুবিধা চাইলে বা সমস্যা জানালে পুশ নোটিফিকেশন আসবে।')])
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                      itemCount: list.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (context, i) {
+                        final f = list[i];
+                        final st = '${f['status']}';
+                        final kind = '${f['kind']}';
+                        return CardBox(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Row(children: [
+                              Pill('${f['kind_label']}', kind == 'problem' ? c.rose : c.green, kind == 'problem' ? c.roseTint : c.tint),
+                              const SizedBox(width: 6),
+                              if (st == 'new') Pill('নতুন', c.amber, c.amberTint) else if (st == 'done') Pill('শেষ', c.green, c.tint),
+                              const Spacer(),
+                              Text(ago('${f['created']}'), style: text(12.5, color: c.muted)),
+                            ]),
+                            const SizedBox(height: 10),
+                            SelectableText('${f['text']}', style: text(15.5, color: c.ink, height: 1.6)),
+                            const SizedBox(height: 8),
+                            Text('${'${f['name']}'.isEmpty ? f['email'] : f['name']} · ${f['email']}${'${f['version']}'.isEmpty ? '' : ' · v${f['version']}'}',
+                                style: text(13, color: c.muted)),
+                            const SizedBox(height: 10),
+                            Wrap(spacing: 8, runSpacing: 6, children: [
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  Clipboard.setData(ClipboardData(text: '${f['email']}'));
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ইমেইল কপি হয়েছে')));
+                                },
+                                icon: const Icon(Icons.copy_rounded, size: 18),
+                                label: const Text('ইমেইল কপি'),
+                              ),
+                              if (st == 'new') OutlinedButton(onPressed: () => _set(f, 'read'), child: const Text('পড়েছি')),
+                              if (st != 'done') FilledButton(onPressed: () => _set(f, 'done'), child: const Text('শেষ')),
+                              if (st == 'done') OutlinedButton(onPressed: () => _set(f, 'new'), child: const Text('আবার খুলুন')),
+                            ]),
+                          ]),
+                        );
+                      },
+                    ),
+        ),
+      ),
+    ]);
   }
 }

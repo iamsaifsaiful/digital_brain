@@ -225,7 +225,7 @@ Future<String?> askProjectName(BuildContext context, {String initial = ''}) {
   return showDialog<String>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: Text(initial.isEmpty ? tr('নতুন আলাদা হিসাব') : tr('হিসাবের নাম'), style: display(20)),
+      title: Text(initial.isEmpty ? tr('নতুন হিসাব') : tr('হিসাবের নাম'), style: display(20)),
       content: TextField(controller: c, autofocus: true, decoration: InputDecoration(labelText: tr('নাম, যেমন: রহিম ভবন'))),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
@@ -244,7 +244,7 @@ Future<(String, int)?> askNewProject(BuildContext context) {
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setD) => AlertDialog(
-        title: Text(tr('নতুন আলাদা হিসাব'), style: display(20)),
+        title: Text(tr('নতুন হিসাব'), style: display(20)),
         content: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Wrap(spacing: 6, runSpacing: 6, children: [
@@ -324,7 +324,7 @@ class ProjectsView extends StatelessWidget {
         items: [(tr('মোট এসেছে'), inTotal, C.green), (tr('মোট খরচ'), outTotal, C.orange)],
       ),
       const SizedBox(height: 12),
-      PrimaryButton(label: tr('নতুন আলাদা হিসাব'), icon: Icons.add_rounded, height: 48, color: C.fill, onPressed: create),
+      PrimaryButton(label: tr('নতুন হিসাব'), icon: Icons.add_rounded, height: 48, color: C.fill, onPressed: create),
       const SizedBox(height: 8),
       Text(tr('মুখেও বলা যায়: “রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো”, “রহিম ভবন প্রজেক্টে রড কিনলাম ২০ হাজার”'),
           style: body(13, color: C.muted)),
@@ -332,7 +332,7 @@ class ProjectsView extends StatelessWidget {
       if (open.isEmpty && closed.isEmpty)
         EmptyState(
           icon: Icons.work_outline_rounded,
-          title: tr('কোনো আলাদা হিসাব নেই'),
+          title: tr('অন্যান্য কোনো হিসাব নেই'),
           text: tr('বাড়ি বানানো, অফিসের কাজ, কোনো অর্ডার — প্রতিটার আলাদা আয়-ব্যয় রাখুন। কত এলো, কত গেল, কত থাকলো দেখবেন।'),
         )
       else ...[
@@ -359,7 +359,7 @@ class ProjectScreen extends StatelessWidget {
     final brain = BrainScope.of(context);
     final p = brain.data.projects.where((x) => x.id == id).firstOrNull;
     if (p == null) {
-      return Scaffold(body: SafeArea(child: Column(children: [TopBar(title: tr('আলাদা হিসাব'))])));
+      return Scaffold(body: SafeArea(child: Column(children: [TopBar(title: tr('অন্যান্য হিসাব'))])));
     }
     final s = projectSums(brain.data.cash, p.id);
     final entries = brain.data.cash.where((e) => e.projectId == p.id).toList()..sort((a, b) => b.date.compareTo(a.date));

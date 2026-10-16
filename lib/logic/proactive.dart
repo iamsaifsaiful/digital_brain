@@ -59,12 +59,18 @@ class AssistantPrefs {
     this.lastBackup,
     this.server = const [],
     this.news = true,
+    this.docAlerts = true,
+    this.dueAlerts = true,
   });
 
   /// Notifications from our website (see logic/server_notices.dart), and
   /// whether the user wants them (সেটিংস › নোটিফিকেশন).
   final List<ServerNotice> server;
   final bool news;
+
+  /// Pro: paper expiry notes, and the "money owed for a month" nudges.
+  final bool docAlerts;
+  final bool dueAlerts;
 
   /// When the last backup was taken (null: never).
   final DateTime? lastBackup;
@@ -325,7 +331,7 @@ List<PlannedNotice> _nudges(AppData d, DateTime now, AssistantPrefs p) {
 
   // Money owed for a month (then two, three…): once each time.
   final owed = balances(d.ledger).where((b) => b.balance > 0 && b.last != null).toList()..sort((a, b) => b.balance.compareTo(a.balance));
-  for (final b in owed.take(10)) {
+  for (final b in p.dueAlerts ? owed.take(10) : const <PersonBalance>[]) {
     final last = dayOnly(b.last!);
     for (var k = 1; k <= 6; k++) {
       final at = morningOf(last.add(Duration(days: 30 * k)));
@@ -363,7 +369,7 @@ List<PlannedNotice> _nudges(AppData d, DateTime now, AssistantPrefs p) {
   // Papers that run out: six months ahead (the reminder itself comes a month before).
   for (final x in d.docs) {
     final exp = x.expiry;
-    if (exp == null) continue;
+    if (exp == null || !p.docAlerts) continue;
     final at = morningOf(exp.subtract(const Duration(days: 182)));
     if (!at.isAfter(now)) continue;
     out.add(PlannedNotice(

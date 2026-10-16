@@ -22,6 +22,7 @@ import 'package:digital_brain/state/brain.dart';
 import 'package:digital_brain/ui/theme.dart';
 import 'package:digital_brain/screens/assistant_settings.dart';
 import 'package:digital_brain/screens/app_places.dart';
+import 'package:digital_brain/screens/lock_screen.dart' show googleFirst;
 import 'package:digital_brain/screens/chat_home.dart';
 import 'package:digital_brain/screens/inbox_screen.dart';
 import 'package:digital_brain/screens/calendar_screen.dart';
@@ -121,6 +122,7 @@ Future<Rig> start(WidgetTester t, {AppData? data, AiRoute? ai}) async {
   addTearDown(t.view.reset);
   await loadFonts();
   showOnboarding = false;
+  googleFirst = false;
   final rig = Rig();
   await t.pumpWidget(DigitalBrainApp(brain: rig.brain));
   await rig.brain.load();
@@ -144,7 +146,7 @@ Future<void> openMenu(WidgetTester t, String item) async {
   if (item == 'হিসাব') {
     await t.tap(find.text('হিসাব').last);
   } else if (item == 'আমি' || item == 'সেটিংস') {
-    await t.tap(find.byTooltip('সেটিংস'));
+    await t.tap(find.byTooltip('প্রোফাইল'));
   } else {
     await t.tap(find.text('সংরক্ষণ').last);
     await settle(t);
@@ -1069,12 +1071,11 @@ void main() {
     await settle(t);
     final l = rig.services.launcher as FakeLauncher;
     expect(l.opened.single.toString(), 'tel:01712345678');
+    // WhatsApp and SMS open straight away; the message is written there.
     await t.tap(find.byTooltip('WhatsApp'));
     await settle(t);
-    await t.enterText(find.byType(TextField).last, 'আসছি');
-    await t.tap(find.text('খুলুন'));
-    await settle(t);
     expect(l.opened.last.toString(), startsWith('https://wa.me/8801712345678'));
+    expect(find.text('খুলুন'), findsNothing);
   });
 
   testWidgets('chat keeps listening through silence, then rests the mic', (t) async {
@@ -1150,7 +1151,7 @@ void main() {
     await openChat(t);
     await tell(t, rig, 'রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো');
     await settle(t);
-    expect(rig.voice.spoken.last, contains('নতুন আলাদা হিসাব খুলে'));
+    expect(rig.voice.spoken.last, contains('নতুন হিসাব খুলে'));
     await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.projects.single.name, 'রহিম ভবন');

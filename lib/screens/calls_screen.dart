@@ -24,32 +24,11 @@ class CallsScreen extends StatefulWidget {
 class _CallsScreenState extends State<CallsScreen> {
   String _q = '';
 
+  /// Opens the phone's dialer, SMS or WhatsApp for this person straight
+  /// away — the message is written there.
   Future<void> _go(Via via, String phone, String name) async {
     final brain = BrainScope.read(context);
-    var text = '';
-    if (via != Via.call) {
-      final c = TextEditingController();
-      final r = await showDialog<String>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(via == Via.sms ? trf('{0}-কে মেসেজ', [name]) : trf('{0}-কে WhatsApp', [name]), style: display(19)),
-          content: TextField(
-            controller: c,
-            autofocus: true,
-            minLines: 2,
-            maxLines: 5,
-            decoration: InputDecoration(hintText: tr('কী লিখবেন? (খালি রাখলেও চলবে)')),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
-            TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: Text(tr('খুলুন'))),
-          ],
-        ),
-      );
-      if (r == null) return;
-      text = r;
-    }
-    final ok = await brain.services.launcher.open(via, phone, text: text);
+    final ok = await brain.services.launcher.open(via, phone);
     if (!ok && mounted) toast(context, tr('এই ফোনে এটা খোলার মতো অ্যাপ পাওয়া গেল না'));
   }
 

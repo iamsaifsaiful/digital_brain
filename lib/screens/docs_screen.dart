@@ -2,6 +2,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../logic/pro.dart';
+import '../ui/pro_gate.dart';
+
 import '../ui/file_view.dart';
 
 import '../logic/bn.dart';
@@ -438,9 +441,13 @@ class _DocScreenState extends State<DocScreen> {
                   child: ListRow(
                     leading: Icon(Icons.event_busy_outlined, color: C.orange),
                     title: d.expiry == null ? tr('মেয়াদ শেষের তারিখ') : trf('মেয়াদ শেষ: {0} {1} {2}', [bnDigits(d.expiry!.day), monthName(d.expiry!.month), bnDigits(d.expiry!.year)]),
-                    subtitle: d.expiry == null ? tr('দিলে এক মাস আগে আর শেষের দিন মনে করাবো') : tr('এক মাস আগে আর শেষের দিন মনে করাবো'),
+                    subtitle: !brain.has(ProFeature.docAlerts)
+                        ? tr('তারিখ লেখা থাকবে। মেয়াদ শেষের আগে মনে করানো প্রো সুবিধা।')
+                        : d.expiry == null
+                            ? tr('দিলে ৬ মাস আগে, এক মাস আগে আর শেষের দিন মনে করাবো')
+                            : tr('৬ মাস আগে, এক মাস আগে আর শেষের দিন মনে করাবো'),
                     trailing: d.expiry == null
-                        ? null
+                        ? (brain.has(ProFeature.docAlerts) ? null : const ProMark())
                         : IconButton(tooltip: tr('মেয়াদ সরান'), onPressed: () => brain.setDocExpiry(d, null), icon: Icon(Icons.close_rounded, color: C.muted)),
                     onTap: () async {
                       final now = brain.services.now();

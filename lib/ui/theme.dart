@@ -24,7 +24,29 @@ const accents = [
   Accent('amber', 'কমলা', 'Amber', Color(0xFFC2570C), Color(0xFF8F3F08), Color(0xFFFEF0E2), Color(0xFF45260F)),
 ];
 
-Accent accentFor(String key) => accents.firstWhere((a) => a.key == key, orElse: () => accents.first);
+/// A preset ('green'…) or the user's own colour ('#1D5FD8').
+Accent accentFor(String key) {
+  if (key.startsWith('#') && key.length == 7) {
+    final v = int.tryParse(key.substring(1), radix: 16);
+    if (v != null) return customAccent(Color(0xFF000000 | v));
+  }
+  return accents.firstWhere((a) => a.key == key, orElse: () => accents.first);
+}
+
+/// An accent made from any colour: kept dark enough for white letters on it.
+Accent customAccent(Color c) {
+  var h = HSLColor.fromColor(c);
+  if (h.lightness > 0.45) h = h.withLightness(0.45);
+  if (h.lightness < 0.22) h = h.withLightness(0.22);
+  if (h.saturation < 0.35) h = h.withSaturation(0.35);
+  final main = h.toColor();
+  final hex = (main.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase();
+  return Accent('#$hex', 'নিজের রং', 'Your colour', main, h.withLightness(h.lightness * 0.72).toColor(),
+      h.withLightness(0.95).withSaturation(h.saturation * 0.7).toColor(), Color.alphaBlend(main.withValues(alpha: 0.24), const Color(0xFF161B22)));
+}
+
+/// The colour as saved ('#RRGGBB').
+String colorKey(Color c) => '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
 
 /// Colours from the design canvas (v2: clean grey ground, white cards,
 /// one accent colour, amber for money going out), with a dark set.
@@ -35,52 +57,63 @@ class C {
 
   static Color _p(int light, int night) => Color(dark ? night : light);
 
-  static Color get ground => _p(0xFFF6F7F9, 0xFF0E1013);
-  static Color get surface => _p(0xFFFFFFFF, 0xFF1A1D22);
-  static Color get ink => _p(0xFF111827, 0xFFE8EAED);
-  static Color get muted => _p(0xFF6B7280, 0xFF9AA1AC);
-  static Color get muted2 => _p(0xFF374151, 0xFFC4C9D1);
-  static Color get line => _p(0xFFE5E7EB, 0xFF2B3038);
-  static Color get line2 => _p(0xFFF1F2F4, 0xFF23272E);
-  static Color get border => _p(0xFFE5E7EB, 0xFF2F343C);
-  static Color get inputBorder => _p(0xFFD1D5DB, 0xFF3A404A);
+  static Color get ground => _p(0xFFF6F7F9, 0xFF0B0F14);
+  static Color get surface => _p(0xFFFFFFFF, 0xFF161B22);
+  static Color get ink => _p(0xFF111827, 0xFFF0F3F6);
+  static Color get muted => _p(0xFF6B7280, 0xFF9DA7B3);
+  static Color get muted2 => _p(0xFF374151, 0xFFC9D1D9);
+  static Color get line => _p(0xFFE5E7EB, 0xFF2A313C);
+  static Color get line2 => _p(0xFFF1F2F4, 0xFF21262D);
+  static Color get border => _p(0xFFE5E7EB, 0xFF30363D);
+  static Color get inputBorder => _p(0xFFD1D5DB, 0xFF3D4550);
   static Color get disabled => _p(0xFFE5E7EB, 0xFF2F343C);
-  static Color get chip => _p(0xFFECEEF1, 0xFF262A31);
+  static Color get chip => _p(0xFFECEEF1, 0xFF21262D);
 
   /// A solid dark fill for buttons and cards with white text (dark in both looks).
-  static Color get fill => _p(0xFF111827, 0xFF2E3440);
+  static Color get fill => _p(0xFF111827, 0xFF2D333B);
 
   /// Always dark (lock screen, alarm page).
   static const night = Color(0xFF111827);
 
-  static Color get green => dark ? Color.lerp(accent.main, Colors.white, 0.18)! : accent.main;
-  static Color get greenDark => dark ? Color.lerp(accent.main, Colors.white, 0.45)! : accent.dark;
-  static Color get greenTint => dark ? accent.tintDark : accent.tint;
-  static Color get greenSoft => dark ? Color.lerp(accent.tintDark, const Color(0xFF1A1D22), 0.5)! : Color.lerp(accent.tint, Colors.white, 0.45)!;
+  /// In the dark look the accent glows: brighter and more saturated (not
+  /// washed out with white), with white letters still readable on it.
+  static Color get green => dark ? _glow(accent.main, 0.40) : accent.main;
+  static Color get greenDark => dark ? _glow(accent.main, 0.74) : accent.dark;
+  static Color get greenTint => dark ? Color.alphaBlend(_glow(accent.main, 0.45).withValues(alpha: 0.22), surface) : accent.tint;
+  static Color get greenSoft => dark ? Color.alphaBlend(_glow(accent.main, 0.45).withValues(alpha: 0.12), surface) : Color.lerp(accent.tint, Colors.white, 0.45)!;
+
+  static Color _glow(Color c, double lightness) {
+    final h = HSLColor.fromColor(c);
+    return h.withLightness(lightness).withSaturation((h.saturation * 1.15).clamp(0.0, 0.92)).toColor();
+  }
+
+  /// A colour's tint for its icon box: light in the light look, a glow over
+  /// the card in the dark look.
+  static Color _tint(int light, int night) => dark ? Color.alphaBlend(Color(night).withValues(alpha: 0.20), surface) : Color(light);
 
   static Color get orange => _p(0xFFB45309, 0xFFF59E0B);
   static Color get orangeDark => _p(0xFF92400E, 0xFFFBBF24);
-  static Color get orangeTint => _p(0xFFFEF3E2, 0xFF3A2A12);
+  static Color get orangeTint => _tint(0xFFFEF3E2, 0xFFF59E0B);
 
-  static Color get blue => _p(0xFF1D4ED8, 0xFF7AA2F7);
-  static Color get blueTint => _p(0xFFEEF2FF, 0xFF1B2440);
+  static Color get blue => _p(0xFF1D4ED8, 0xFF60A5FA);
+  static Color get blueTint => _tint(0xFFEEF2FF, 0xFF60A5FA);
   static Color get blueText => _p(0xFF1E3A8A, 0xFFB4C6F5);
 
-  static Color get purple => _p(0xFF6D28D9, 0xFFB79CF5);
-  static Color get purpleTint => _p(0xFFF3EEFF, 0xFF2A2140);
+  static Color get purple => _p(0xFF6D28D9, 0xFFA78BFA);
+  static Color get purpleTint => _tint(0xFFF3EEFF, 0xFFA78BFA);
 
   static Color get ochre => _p(0xFF92400E, 0xFFF0B060);
-  static Color get ochreTint => _p(0xFFFEF7E6, 0xFF35291A);
+  static Color get ochreTint => _tint(0xFFFEF7E6, 0xFFF0B060);
 
   static Color get red => _p(0xFFB91C1C, 0xFFF87171);
 
-  static Color get teal => _p(0xFF0F766E, 0xFF5EC9BC);
-  static Color get tealTint => _p(0xFFE6F6F4, 0xFF15302D);
+  static Color get teal => _p(0xFF0F766E, 0xFF2DD4BF);
+  static Color get tealTint => _tint(0xFFE6F6F4, 0xFF2DD4BF);
   static Color get rose => _p(0xFFBE123C, 0xFFFB7185);
   static Color get roseDark => _p(0xFF9F1239, 0xFFFDA4AF);
-  static Color get roseTint => _p(0xFFFFF1F2, 0xFF3A1820);
-  static Color get waTint => _p(0xFFE3F6EA, 0xFF14301F);
-  static Color get soft => _p(0xFFF3F4F6, 0xFF262A31);
+  static Color get roseTint => _tint(0xFFFFF1F2, 0xFFFB7185);
+  static Color get waTint => _tint(0xFFE3F6EA, 0xFF34D399);
+  static Color get soft => _p(0xFFF3F4F6, 0xFF1F252D);
 
   // On the dark surfaces (alarm page, Pro card).
   static const dark2 = Color(0xFF1F2937);

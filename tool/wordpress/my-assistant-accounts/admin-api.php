@@ -135,6 +135,7 @@ add_action('rest_api_init', function () {
             'pending_payments' => ma_pay_pending_count(),
             'income_month' => (int) $wpdb->get_var($wpdb->prepare('SELECT COALESCE(SUM(amount),0) FROM ' . ma_pay_table() . " WHERE status = 'approved' AND reviewed_at >= %s", gmdate('Y-m-01'))),
             'ai_today' => $ai['requests'],
+            'feedback_new' => ma_fb_new_count(),
         ];
     });
 

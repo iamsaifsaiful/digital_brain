@@ -136,8 +136,8 @@ function ma_pay_form() {
                 <ol class="ma-pay-steps">
                     <li><strong>প্ল্যান বেছে নিন</strong>
                         <div class="ma-pay-plans">
-                            <?php $first = true; foreach ($plans as $key => $pl) : ?>
-                                <label class="opt"><input type="radio" name="plan" value="<?php echo esc_attr($key); ?>" <?php checked($first); ?> required><span><b>৳<?php echo esc_html(ma_acc_bn($pl['price'])); ?></b><small><?php echo esc_html($pl['label']); ?> · <?php echo esc_html(ma_acc_bn($pl['days'])); ?> দিন</small></span></label>
+                            <?php $want = isset($_GET['plan']) ? sanitize_key($_GET['plan']) : ''; $first = true; foreach ($plans as $key => $pl) : ?>
+                                <label class="opt"><input type="radio" name="plan" value="<?php echo esc_attr($key); ?>" <?php checked(isset($plans[$want]) ? $key === $want : $first); ?> required><span><b>৳<?php echo esc_html(ma_acc_bn($pl['price'])); ?></b><small><?php echo esc_html($pl['label']); ?> · <?php echo esc_html(ma_acc_bn($pl['days'])); ?> দিন</small></span></label>
                             <?php $first = false; endforeach; ?>
                         </div>
                     </li>

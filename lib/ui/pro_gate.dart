@@ -5,7 +5,6 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../logic/bn.dart';
 import '../logic/lang.dart';
 import '../logic/pro.dart';
 import '../screens/pro_screen.dart';
@@ -17,7 +16,7 @@ Future<void> openPro(BuildContext context) => Navigator.of(context).push(Materia
 
 /// True when [feature] may be used now (or [allowed] is already true, e.g.
 /// still under the free limit). Otherwise explains it is Pro, offers the
-/// trial or the Pro page, and returns whether Pro is on afterwards.
+/// Pro page, and returns whether Pro is on afterwards.
 Future<bool> needPro(BuildContext context, ProFeature feature, {bool allowed = false}) async {
   final brain = BrainScope.read(context);
   if (allowed || brain.has(feature)) return true;
@@ -47,19 +46,9 @@ Future<bool> needPro(BuildContext context, ProFeature feature, {bool allowed = f
           const SizedBox(height: 6),
           Text(tr('আপনার রাখা তথ্য যেমন আছে তেমনই থাকবে — দেখা, বদলানো, মোছা সবসময় যাবে।'), style: body(13, color: C.muted, height: 1.45)),
           const SizedBox(height: 16),
-          if (!brain.trialUsed) ...[
-            PrimaryButton(
-              label: trf('{0} দিন ফ্রি চালু করুন', [bnDigits(trialDays)]),
-              icon: Icons.auto_awesome_rounded,
-              onPressed: () async {
-                await brain.startTrial();
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
-          SecondaryButton(
+          PrimaryButton(
             label: tr('প্রো দেখুন'),
+            icon: Icons.auto_awesome_rounded,
             onPressed: () async {
               Navigator.pop(ctx);
               await openPro(context);

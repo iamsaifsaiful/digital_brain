@@ -16,7 +16,7 @@ import '../logic/parser.dart';
 import '../logic/phrases.dart';
 import '../logic/plan.dart';
 import '../logic/proactive.dart';
-import '../logic/pro.dart' show freeVaultItems;
+import '../logic/pro.dart' show freeVaultItems, freeLedgerPeople, freeReminders;
 import '../logic/search.dart';
 import '../logic/talk.dart';
 import '../logic/when.dart';
@@ -932,7 +932,7 @@ class ChatController extends ChangeNotifier {
           if (open.length == 1) {
             return _start(CashAdd(c.transcript, kind: c.kind, amount: c.amount, category: c.category, project: open.first.name), out);
           }
-          _ask(out, tr('কোন আলাদা হিসাবে লিখব? নামটা বলুন।'), ChatWait.project, choices: [for (final p in open.take(5)) ChatChoice(p.name, p.name)]);
+          _ask(out, tr('কোন হিসাবে লিখব? নামটা বলুন।'), ChatWait.project, choices: [for (final p in open.take(5)) ChatChoice(p.name, p.name)]);
           return;
         }
         if (_allYes) return _saveCurrent(out);
@@ -940,7 +940,7 @@ class ChatController extends ChangeNotifier {
         final String q;
         if (c.project != null) {
           final exists = projectByName(brain.data, c.project!) != null;
-          q = trf('{0}‘{1}’ হিসাবে {2} টাকা {3} হিসেবে লিখি?', [exists ? '' : 'নতুন আলাদা হিসাব খুলে ', c.project, bnNumber(c.amount), inOut]);
+          q = trf('{0}‘{1}’ হিসাবে {2} টাকা {3} হিসেবে লিখি?', [exists ? '' : 'নতুন হিসাব খুলে ', c.project, bnNumber(c.amount), inOut]);
         } else {
           q = trf('{0} হিসেবে লিখি — {1}, {2} টাকা?', [inOut, c.category, bnNumber(c.amount)]);
         }
@@ -1526,6 +1526,9 @@ class ChatController extends ChangeNotifier {
       _idsBeforeSave = {for (final t in targetsIn(brain.data, _now)) t.id};
     }
     switch (c) {
+      case LedgerAdd() when !brain.canAddPerson(_person):
+        _say(out, trf('ফ্রিতে {0} জনের ধার-দেনা রাখা যায়, সেটা পূর্ণ হয়ে গেছে। প্রো নিলে যত খুশি মানুষ রাখতে পারবেন — আগের হিসাব যেমন আছে থাকবে।', [bnDigits(freeLedgerPeople)]),
+            links: [ChatLink(LinkKind.page, tr('প্রো দেখুন'), page: 'pro')]);
       case LedgerAdd():
         final kind = _kind!;
         final after = balanceAfter(brain.data.ledger, _person, kind, _amount);
@@ -1551,6 +1554,9 @@ class ChatController extends ChangeNotifier {
         _say(out, quiet ? trf('কাজ: {0}', [c.title]) : tr('ঠিক আছে, কাজের তালিকায় তুললাম।'),
             links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))], speak: !quiet);
         _history.add(AiTurn.app('[কাজের তালিকায় রাখা হলো: ${c.title}]'));
+      case ReminderAdd() when !brain.canAddReminder:
+        _say(out, trf('ফ্রিতে একসাথে {0}টা রিমাইন্ডার চালু রাখা যায়, সেটা পূর্ণ। পুরোনো কোনোটা বন্ধ বা মুছে দিন, অথবা প্রো নিলে যত খুশি রাখতে পারবেন।', [bnDigits(freeReminders)]),
+            links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন')), ChatLink(LinkKind.page, tr('প্রো দেখুন'), page: 'pro')]);
       case ReminderAdd():
         await brain.saveReminder(Reminder(
           title: c.title,
@@ -1584,7 +1590,7 @@ class ChatController extends ChangeNotifier {
         if (c.project != null) {
           if (projectByName(brain.data, c.project!) == null && !brain.canAddProject) {
             // A second project is Pro: the entry still goes in, under the general account.
-            proNote = trf(' নতুন আলাদা হিসাব “{0}” খোলা প্রো সুবিধা (ফ্রিতে ১টা), তাই সাধারণ আয়-ব্যয়ে লিখলাম।', [c.project!]);
+            proNote = trf(' নতুন হিসাব “{0}” খোলা প্রো সুবিধা (ফ্রিতে ১টা অন্যান্য হিসাব), তাই সাধারণ আয়-ব্যয়ে লিখলাম।', [c.project!]);
           } else {
             project = await brain.projectNamed(c.project!);
           }
