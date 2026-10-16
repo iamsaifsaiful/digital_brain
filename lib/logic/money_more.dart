@@ -4,7 +4,9 @@ library;
 import '../models/models.dart';
 import 'bn.dart';
 import 'lang.dart';
+import 'cash.dart' show categoryFor;
 import 'ledger.dart';
+import 'parser.dart' show normalize;
 
 /// What [a] holds now: what it started with, money in and out through it,
 /// and moves between the user's own accounts.
@@ -53,6 +55,13 @@ class MonthReport {
   }
 }
 
+/// The খাত a spending is counted under: its own, or — when it was left as
+/// অন্যান্য — one guessed from its note ("রিকশা" → যাতায়াত).
+String reportCategory(CashEntry e) {
+  if (e.kind != CashKind.expense || (e.category != 'অন্যান্য' && e.category.trim().isNotEmpty) || e.note.trim().isEmpty) return e.category.trim().isEmpty ? 'অন্যান্য' : e.category;
+  return categoryFor(normalize(e.note), CashKind.expense);
+}
+
 MonthReport monthReport(AppData d, DateTime month) {
   bool inMonth(DateTime x, DateTime m) => x.year == m.year && x.month == m.month;
   final last = DateTime(month.year, month.month - 1);
@@ -65,12 +74,12 @@ MonthReport monthReport(AppData d, DateTime month) {
         income += e.amount;
       } else {
         expense += e.amount;
-        cats[e.category] = (cats[e.category] ?? 0) + e.amount;
+        cats[reportCategory(e)] = (cats[reportCategory(e)] ?? 0) + e.amount;
         days[e.date.day] = (days[e.date.day] ?? 0) + e.amount;
       }
     } else if (inMonth(e.date, last) && e.kind == CashKind.expense) {
       lastExpense += e.amount;
-      lastCats[e.category] = (lastCats[e.category] ?? 0) + e.amount;
+      lastCats[reportCategory(e)] = (lastCats[reportCategory(e)] ?? 0) + e.amount;
     }
   }
   final sorted = cats.entries.toList()..sort((a, b) => b.value.compareTo(a.value));

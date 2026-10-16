@@ -10,6 +10,7 @@ import 'package:flutter/rendering.dart';
 import '../logic/bn.dart';
 import '../logic/lang.dart';
 import '../logic/money_more.dart';
+import '../logic/cash.dart' show knownCategories;
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/forms.dart';
@@ -336,10 +337,16 @@ class _ReportScreenState extends State<ReportScreen> {
     final m = _month ?? DateTime(now.year, now.month);
     final r = monthReport(brain.data, m);
     final insights = reportInsights(r);
-    final colors = [C.green, C.blue, C.orange, C.purple, C.teal, C.rose, C.ochre, C.muted];
-    final top = r.byCategory.take(7).toList();
-    final rest = r.byCategory.skip(7).fold(0, (a, e) => a + e.value);
+    final palette = [C.green, C.blue, C.orange, C.purple, C.teal, C.rose, C.ochre];
+    bool isOther(String k) => k == 'অন্যান্য' || k == tr('অন্যান্য');
+    final named = [for (final e in r.byCategory) if (!isOther(e.key)) e];
+    final top = named.take(7).toList();
+    final rest = r.byCategory.where((e) => isOther(e.key)).fold(0, (a, e) => a + e.value) + named.skip(7).fold(0, (a, e) => a + e.value);
     final slices = [...top, if (rest > 0) MapEntry(tr('অন্যান্য'), rest)];
+    // One colour per খাত, the same in the ring and the bars; অন্যান্য is grey.
+    final colorOf = <String, Color>{for (final (i, e) in top.indexed) e.key: palette[i % palette.length]};
+    Color colorFor(String k) => colorOf[k] ?? C.muted;
+    final colors = [for (final e in slices) colorFor(e.key)];
 
     return Scaffold(
       bottomNavigationBar: const AdBar(),
@@ -399,7 +406,7 @@ class _ReportScreenState extends State<ReportScreen> {
                                 Padding(
                                   padding: const EdgeInsets.symmetric(vertical: 2),
                                   child: Row(children: [
-                                    Container(width: 10, height: 10, decoration: BoxDecoration(color: colors[i % colors.length], shape: BoxShape.circle)),
+                                    Container(width: 10, height: 10, decoration: BoxDecoration(color: colors[i], shape: BoxShape.circle)),
                                     const SizedBox(width: 6),
                                     Expanded(child: Text(e.key, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13))),
                                     Text('${bnDigits((e.value * 100 / r.expense).round())}%', style: body(13, weight: FontWeight.w600)),
@@ -409,6 +416,25 @@ class _ReportScreenState extends State<ReportScreen> {
                           ),
                         ]),
                       ),
+                      if (_unsorted(r) >= 0.4) ...[
+                        const SizedBox(height: 12),
+                        Panel(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(trf('{0}% খরচের খাত লেখা নেই, তাই সেগুলো “অন্যান্য”-তে আছে।', [bnDigits((_unsorted(r) * 100).round())]), style: body(14.5, weight: FontWeight.w600)),
+                            const SizedBox(height: 4),
+                            Text(tr('কোনটা বাজার, কোনটা ভাড়া বা বিল — খাত দিয়ে দিলে গ্রাফে আলাদা রঙে ভাগ হয়ে দেখাবে।'), style: body(13.5, color: C.muted, height: 1.5)),
+                            const SizedBox(height: 10),
+                            FilledButton.icon(
+                              key: const Key('fix-categories'),
+                              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => FixCategoriesScreen(month: m))),
+                              style: FilledButton.styleFrom(backgroundColor: C.green, foregroundColor: Colors.white),
+                              icon: const Icon(Icons.category_outlined, size: 18),
+                              label: Text(tr('খাত ঠিক করুন'), style: body(14.5, weight: FontWeight.w600, color: Colors.white)),
+                            ),
+                          ]),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       if (insights.isNotEmpty)
                         Panel(
@@ -437,7 +463,7 @@ class _ReportScreenState extends State<ReportScreen> {
                                   Text(taka(e.value), style: body(14, weight: FontWeight.w600)),
                                 ]),
                                 const SizedBox(height: 4),
-                                Bar(value: e.value / r.byCategory.first.value, color: C.orange),
+                                Bar(value: e.value / r.byCategory.first.value, color: colorFor(e.key)),
                                 if ((r.lastByCategory[e.key] ?? 0) > 0)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 2),
@@ -457,6 +483,106 @@ class _ReportScreenState extends State<ReportScreen> {
                   ]),
                 ),
               ),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+/// How much of the month's spending is under অন্যান্য (0–1).
+double _unsorted(MonthReport r) {
+  if (r.expense == 0) return 0;
+  final other = r.byCategory.where((e) => e.key == 'অন্যান্য' || e.key == tr('অন্যান্য')).fold(0, (a, e) => a + e.value);
+  return other / r.expense;
+}
+
+/// The month's spending left under অন্যান্য, biggest first: tap one and
+/// pick its খাত, and the report shows it in its own colour.
+class FixCategoriesScreen extends StatelessWidget {
+  const FixCategoriesScreen({super.key, required this.month});
+  final DateTime month;
+
+  Future<void> _pick(BuildContext context, CashEntry e) async {
+    final brain = BrainScope.read(context);
+    final cats = [for (final c in knownCategories(brain.data, CashKind.expense)) if (c != 'অন্যান্য' && c != tr('অন্যান্য')) c];
+    final custom = TextEditingController();
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.of(ctx).viewInsets.bottom),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('${taka(e.amount)}${e.note.trim().isEmpty ? '' : ', ${e.note.trim()}'}', style: display(17, weight: 700)),
+          const SizedBox(height: 4),
+          Text(tr('কোন খাতের খরচ?'), style: body(14, color: C.muted)),
+          const SizedBox(height: 12),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final c in cats) ActionChip(label: Text(c, style: body(14)), onPressed: () => Navigator.pop(ctx, c)),
+          ]),
+          const SizedBox(height: 12),
+          TextField(
+            controller: custom,
+            textInputAction: TextInputAction.done,
+            decoration: InputDecoration(labelText: tr('নতুন খাত লিখুন')),
+            onSubmitted: (v) => Navigator.pop(ctx, v.trim().isEmpty ? null : v.trim()),
+          ),
+        ]),
+      ),
+    );
+    custom.dispose();
+    if (picked == null || picked.trim().isEmpty) return;
+    await brain.saveCash(CashEntry(
+      id: e.id,
+      kind: e.kind,
+      amount: e.amount,
+      category: picked.trim(),
+      note: e.note,
+      date: e.date,
+      projectId: e.projectId,
+      accountId: e.accountId,
+      shopId: e.shopId,
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final list = [
+      for (final e in brain.data.cash)
+        if (e.kind == CashKind.expense && e.projectId == null && e.date.year == month.year && e.date.month == month.month && reportCategory(e) == 'অন্যান্য') e
+    ]..sort((a, b) => b.amount.compareTo(a.amount));
+    return Scaffold(
+      body: SafeArea(
+        child: Column(children: [
+          TopBar(title: tr('খাত ঠিক করুন')),
+          Expanded(
+            child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
+              Text(tr('যে খরচগুলোর খাত লেখা নেই, বড়টা আগে। একটায় চাপ দিয়ে খাত বেছে নিন।'), style: body(13.5, color: C.muted2, height: 1.5)),
+              const SizedBox(height: 14),
+              if (list.isEmpty)
+                EmptyState(icon: Icons.check_circle_outline_rounded, title: tr('সব খরচের খাত দেওয়া আছে'), text: tr('রিপোর্টে এখন খাত ধরে আলাদা রঙে দেখাবে।'))
+              else
+                Panel(
+                  child: Rows(children: [
+                    for (final e in list)
+                      ListRow(
+                        key: Key('unsorted-${e.id}'),
+                        leading: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(color: C.orangeTint, borderRadius: BorderRadius.circular(12)),
+                          child: Icon(Icons.receipt_long_outlined, color: C.orange, size: 21),
+                        ),
+                        title: taka(e.amount),
+                        subtitle: [shortDate(e.date), if (e.note.trim().isNotEmpty) e.note.trim()].join(', '),
+                        trailing: Text(tr('খাত দিন'), style: body(14, weight: FontWeight.w600, color: C.green)),
+                        onTap: () => _pick(context, e),
+                      ),
+                  ]),
+                ),
             ]),
           ),
         ]),

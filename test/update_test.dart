@@ -6,6 +6,9 @@ import 'dart:typed_data';
 import 'package:digital_brain/app.dart';
 import 'package:digital_brain/logic/pro.dart';
 import 'package:digital_brain/models/models.dart';
+import 'package:digital_brain/state/brain.dart' show BrainScope;
+import 'package:digital_brain/screens/money_more_screens.dart' show ReportScreen;
+import 'package:digital_brain/logic/money_more.dart';
 import 'package:digital_brain/screens/lock_screen.dart' show googleFirst;
 import 'package:digital_brain/services/community.dart';
 import 'package:digital_brain/services/google_account.dart';
@@ -437,4 +440,29 @@ void main() {
     await settle(t);
     expect(find.text('অন্যান্য হিসাব'), findsOneWidget);
   });
+
+  testWidgets('report: spending without a খাত is split by its note, and can be given one', (t) async {
+    final rig = await start(t);
+    final b = rig.brain;
+    final now = b.services.now();
+    expect(reportCategory(CashEntry(kind: CashKind.expense, amount: 60, category: 'অন্যান্য', note: 'রিকশা ভাড়া', date: now)), 'যাতায়াত');
+    await b.saveCash(CashEntry(kind: CashKind.expense, amount: 9000, category: 'অন্যান্য', date: now));
+    await b.saveCash(CashEntry(kind: CashKind.expense, amount: 500, category: 'অন্যান্য', note: 'ওষুধ', date: now));
+    expect(monthReport(b.data, now).byCategory.map((e) => e.key), containsAll(['অন্যান্য', 'চিকিৎসা']));
+    await t.pumpWidget(BrainScope(brain: b, child: const MaterialApp(home: ReportScreen())));
+    await settle(t);
+    final fix = find.byKey(const Key('fix-categories'));
+    await t.ensureVisible(fix);
+    await settle(t);
+    await t.tap(fix);
+    await settle(t);
+    final big = b.data.cash.firstWhere((e) => e.amount == 9000);
+    await t.tap(find.byKey(Key('unsorted-${big.id}')));
+    await settle(t);
+    await t.tap(find.widgetWithText(ActionChip, 'বাসা ভাড়া'));
+    await settle(t);
+    expect(b.data.cash.firstWhere((e) => e.id == big.id).category, 'বাসা ভাড়া');
+    expect(find.text('সব খরচের খাত দেওয়া আছে'), findsOneWidget);
+  });
 }
+

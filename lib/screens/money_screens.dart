@@ -5,6 +5,7 @@ import '../ui/pro_gate.dart';
 
 import '../logic/bn.dart';
 import '../logic/cash.dart';
+import '../logic/parser.dart' show normalize;
 import '../logic/money_more.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
@@ -537,7 +538,8 @@ class _CashFormScreenState extends State<CashFormScreen> {
       toast(context, tr('টাকার অঙ্ক দিন'));
       return;
     }
-    final cat = _category.text.trim().isEmpty ? (_kind == CashKind.income ? tr('অন্যান্য আয়') : tr('অন্যান্য')) : _category.text.trim();
+    // No খাত picked: guess it from the note ("রিকশা" → যাতায়াত), else অন্যান্য.
+    final cat = _category.text.trim().isEmpty ? categoryFor(normalize(_note.text), _kind) : _category.text.trim();
     await brain.saveCash(CashEntry(
       id: widget.entry?.id,
       kind: _kind,
