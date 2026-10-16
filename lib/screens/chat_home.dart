@@ -493,22 +493,13 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     }
   }
 
-  /// Quiet after speaking: "আর কিছু বলতে চান?".
+  /// Quiet after speech that was left open.
   Future<void> _quietAfterSpeech() async {
-    // A whole question or request by itself ("আমি কার কাছে কত টাকা পাব?",
-    // "রহিমকে ৫০০ টাকা ধার দিলাম"): answered / shown for its one
-    // confirmation at once — asking "আর কিছু বলতে চান?" first is only in
-    // the way. Speech left open ("…আর", "খরচ হচ্ছে কোন") or not understood
-    // is asked about, and nothing is acted on until the user says it is all.
-    final whole = assemble(_draft);
-    // Said in one breath only: several pieces with pauses between are a
-    // longer speech, and the user is asked before it is acted on.
-    if (_draft.length == 1 && whole.isNotEmpty && _chat.isCompleteRequest(whole)) {
-      Trace.log('speech', 'complete — sent without asking for more', {'text': whole});
-      await _submitDraft();
-      return;
-    }
-    await _askMore();
+    // Quiet again after speech left open ("…আর"): the person has had time
+    // to go on, so what was said is acted on now — never a question first.
+    if (_draft.isEmpty) return;
+    Trace.log('speech', 'quiet — sent', {'text': assemble(_draft)});
+    await _submitDraft();
   }
 
   /// A piece of speech the recogniser finished.
@@ -555,6 +546,11 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
       _submitDraft();
       return;
     }
+    // "পুরোটা বাদ দাও" / "বাতিল" while speech is being collected: drop it all.
+    if (_draft.isNotEmpty && continuationOf(w).$1 == Continue.cancel) {
+      _dropDraft(tr('ঠিক আছে, পুরো কথাটা বাদ দিলাম।'));
+      return;
+    }
     // "…৫০০০ টাকা দিলাম, না আর বলতে চাই না": the words before are kept and
     // the whole speech goes at once — the closing words are not content.
     final (body, done) = splitDoneTail(w);
@@ -569,7 +565,10 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
       return;
     }
     _addPiece(w);
-    if (finishTap) {
+    // The recogniser ends a piece only after the person went quiet (longer
+    // when the sentence sounds unfinished). A whole sentence is acted on
+    // now; one left open ("…আর", "খরচ হচ্ছে কোন") waits for the rest.
+    if (finishTap || !leftOpen(assemble(_draft))) {
       unawaited(_submitDraft());
       return;
     }
@@ -593,24 +592,12 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     if (mounted && _voice && !_away) unawaited(_listen());
   }
 
-  /// "আর কিছু বলতে চান?" — said before the microphone opens again, so the
-  /// question never becomes part of the speech.
-  Future<void> _askMore() async {
-    _moreTimer?.cancel();
-    if (!mounted || _draft.isEmpty || _askingMore) return;
-    await _stopListening();
-    if (!mounted) return;
-    setState(() => _askingMore = true);
-    Trace.log('speech', 'asked: আর কিছু বলতে চান?', {'so far': assemble(_draft)});
-    await _listen(say: tr('আর কিছু বলতে চান?'), short: true);
-  }
-
   /// "বলা শেষ": the whole speech, once.
   Future<void> _submitDraft() async {
     if (_submitting || _draft.isEmpty) return;
     _submitting = true;
     _moreTimer?.cancel();
-    final whole = assemble(_draft);
+    final whole = withoutOpenEnd(assemble(_draft));
     Trace.log('speech', 'whole speech sent', {'pieces': _draft.length, 'text': whole});
     if (_draft.length == 1) {
       final v = _brain.services.voice;
@@ -1373,7 +1360,8 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
                   label: Text(tr('শেষ করেছি'), style: body(15, weight: FontWeight.w600, color: C.onInk)),
                   color: WidgetStatePropertyAll(C.ink),
                   onPressed: _busy ? null : () async {
-                    if (_listening) {
+                    if (_listening && _live.trim().isNotEmpty) {
+                      // Words still coming: take them, then send it all.
                       _finishTap = true;
                       await _brain.services.voice.stop();
                     } else {

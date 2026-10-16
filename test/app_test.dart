@@ -944,58 +944,52 @@ void main() {
     expect(rig.voice.spoken.last, isNot(contains('মনে করিয়ে দেব')));
   });
 
-  testWidgets('long speech: pieces are kept on screen and sent together only when it is all said', (t) async {
+  testWidgets('long speech: pieces left open ("…আর") are joined and the whole speech goes once, when it ends', (t) async {
     final rig = await start(t);
     await openChat(t);
     String shown() => [for (final e in find.byType(RichText).evaluate()) (e.widget as RichText).text.toPlainText()].join('\n');
-    // Three pieces with pauses: all stay on screen, nothing is acted on.
-    rig.voice.say('আজ সজীবকে পাঁচশ টাকা ধার দিয়েছি।');
+    final chat = t.state<ChatHomeState>(find.byType(ChatHome)).chat;
+    rig.voice.say('আজ সজীবকে পাঁচশ টাকা ধার দিয়েছি আর');
     await settle(t);
-    rig.voice.say('আর বাজারে সাতশ টাকা খরচ হয়েছে।');
+    expect(shown(), contains('পাঁচশ টাকা ধার'));
+    expect(chat.messages.where((m) => m.fromUser), isEmpty, reason: 'left open: nothing acted on yet');
+    rig.voice.say('বাজারে সাতশ টাকা খরচ হয়েছে');
     await settle(t);
-    rig.voice.say('শুক্রবার সজীবকে টাকা ফেরত দিতে বলতে মনে করিয়ে দিও।');
-    await settle(t);
-    for (final p in ['পাঁচশ টাকা ধার', 'সাতশ টাকা খরচ', 'শুক্রবার সজীবকে']) {
-      expect(shown(), contains(p), reason: p);
+    final sent = chat.messages.where((m) => m.fromUser).toList();
+    expect(sent, hasLength(1));
+    for (final p in ['পাঁচশ টাকা ধার', 'সাতশ টাকা খরচ']) {
+      expect(sent.single.text, contains(p), reason: p);
     }
-    expect(rig.brain.data.ledger, isEmpty);
-    expect(t.state<ChatHomeState>(find.byType(ChatHome)).chat.messages.where((m) => m.fromUser), isEmpty);
-    // Quiet: the app asks, before the microphone opens again.
-    await t.pump(const Duration(milliseconds: 1600));
+    expect(rig.voice.spoken.last, contains('২টা জিনিস পেলাম'));
+    expect(rig.voice.spoken, isNot(contains('আর কিছু বলতে চান?')));
+    expect(rig.brain.data.ledger, isEmpty, reason: 'one confirmation first');
+  });
+
+  testWidgets('long speech: "শেষ করেছি" tapped twice sends once; quiet after "…আর" sends it without asking', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    final chat = t.state<ChatHomeState>(find.byType(ChatHome)).chat;
+    rig.voice.say('রহিমকে দুইশ টাকা ধার দিয়েছি আর');
     await settle(t);
-    expect(rig.voice.spoken.last, 'আর কিছু বলতে চান?');
-    // "হ্যাঁ, …": only the words after "হ্যাঁ" are added.
-    rig.voice.say('হ্যাঁ, আর রহিমকে দুইশ টাকা ধার দিয়েছি');
-    await settle(t);
-    expect(shown(), contains('আর রহিমকে দুইশ টাকা'));
-    expect(shown(), isNot(contains('হ্যাঁ, আর রহিমকে')));
-    await t.pump(const Duration(milliseconds: 1600));
-    await settle(t);
-    // Silence after the question: nothing happens by itself.
-    rig.voice.say('');
-    await settle(t);
-    expect(t.state<ChatHomeState>(find.byType(ChatHome)).chat.messages.where((m) => m.fromUser), isEmpty);
-    expect(find.byKey(const Key('speech-more')), findsOneWidget);
-    // "বলা শেষ — পাঠান", tapped twice: the whole speech goes once.
     await t.tap(find.byKey(const Key('speech-done')));
     await t.tap(find.byKey(const Key('speech-done')), warnIfMissed: false);
     await settle(t);
-    final sent = t.state<ChatHomeState>(find.byType(ChatHome)).chat.messages.where((m) => m.fromUser).toList();
-    expect(sent, hasLength(1));
-    for (final p in ['পাঁচশ টাকা ধার', 'সাতশ টাকা খরচ', 'শুক্রবার', 'রহিমকে দুইশ']) {
-      expect(sent.single.text, contains(p), reason: p);
-    }
-  });
-
-  testWidgets('long speech: "বাতিল" drops it all; an unfinished speech comes back in the box', (t) async {
-    final rig = await start(t);
-    await openChat(t);
-    // Left open ("…আর"): the app waits, then asks "আর কিছু বলতে চান?".
+    expect(chat.messages.where((m) => m.fromUser).single.text, 'রহিমকে দুইশ টাকা ধার দিয়েছি');
+    await tell(t, rig, 'না'); // that one is not kept
+    await settle(t);
     rig.voice.say('সজীবকে পাঁচশ টাকা ধার দিয়েছি আর');
     await settle(t);
     await t.pump(const Duration(milliseconds: 1600));
     await settle(t);
-    expect(rig.voice.spoken.last, 'আর কিছু বলতে চান?');
+    expect(chat.messages.where((m) => m.fromUser).last.text, 'সজীবকে পাঁচশ টাকা ধার দিয়েছি');
+    expect(rig.voice.spoken, isNot(contains('আর কিছু বলতে চান?')));
+  });
+
+  testWidgets('long speech: "পুরোটা বাদ দাও" drops it all; an unfinished speech comes back in the box', (t) async {
+    final rig = await start(t);
+    await openChat(t);
+    rig.voice.say('সজীবকে পাঁচশ টাকা ধার দিয়েছি আর');
+    await settle(t);
     rig.voice.say('পুরোটা বাদ দাও');
     await settle(t);
     expect(rig.brain.data.ledger, isEmpty);
@@ -1009,34 +1003,19 @@ void main() {
     expect(rig.brain.data.ledger, isEmpty);
   });
 
-  testWidgets('voice: quiet is not "done" — the app asks; "হ্যাঁ" listens on, "না" sends the whole speech once', (t) async {
+  testWidgets('voice: speech left open ("…কোন") waits for the rest, then the whole question is handled once', (t) async {
     final rig = await start(t);
     await openChat(t);
-    String shown() => [for (final e in find.byType(RichText).evaluate()) (e.widget as RichText).text.toPlainText()].join('\n');
     final chat = t.state<ChatHomeState>(find.byType(ChatHome)).chat;
-    // Left open ("…কোন"): not answered at the recogniser's final result.
     rig.voice.say('এ মাসে কি আমার কোন');
     await settle(t);
     expect(chat.messages.where((m) => m.fromUser), isEmpty);
-    await t.pump(const Duration(milliseconds: 1600));
-    await settle(t);
-    expect(rig.voice.spoken.last, 'আর কিছু বলতে চান?');
-    // "হ্যাঁ": keep listening — the speech so far stays.
-    rig.voice.say('হ্যাঁ');
-    await settle(t);
-    expect(shown(), contains('এ মাসে কি আমার কোন'));
     rig.voice.say('লেনদেন আছে অন্যান্য লেনদেন');
-    await settle(t);
-    expect(shown(), contains('অন্যান্য লেনদেন'));
-    await t.pump(const Duration(milliseconds: 1600));
-    await settle(t);
-    expect(rig.voice.spoken.last, 'আর কিছু বলতে চান?');
-    // "না" is "that is all" — the whole speech is handled, once.
-    rig.voice.say('না');
     await settle(t);
     final sent = chat.messages.where((m) => m.fromUser).toList();
     expect(sent.single.text, 'এ মাসে কি আমার কোন লেনদেন আছে অন্যান্য লেনদেন');
     expect(chat.wait, ChatWait.clarify, reason: '"অন্যান্য" may be a খাত or "the rest": asked');
+    expect(rig.voice.spoken, isNot(contains('আর কিছু বলতে চান?')));
   });
 
   testWidgets('voice: an action is confirmed once and done once, even if "হ্যাঁ" comes twice', (t) async {
@@ -1377,7 +1356,7 @@ void main() {
   testWidgets('a sentence ending in "আর" waits for the rest', (t) async {
     final rig = await start(t);
     await openChat(t);
-    await tell(t, rig, 'রবিনকে ৫০০ টাকা ধার দিলাম আর');
+    rig.voice.say('রবিনকে ৫০০ টাকা ধার দিলাম আর');
     await settle(t);
     final before = rig.voice.spoken.length;
     expect(rig.brain.data.ledger, isEmpty);

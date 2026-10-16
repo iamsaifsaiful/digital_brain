@@ -148,6 +148,10 @@ class DeviceVoice extends Voice {
   /// voice from the user's), and whether it is still speaking.
   List<String> _echo = const [];
   bool _talking = false;
+
+  /// When the answer spoken while listening ended: the recogniser often
+  /// reports the speaker's last words a moment later.
+  DateTime _talkEndedAt = DateTime(2000);
   void Function()? _onSaid;
 
   String get _heard => _join.text;
@@ -187,6 +191,10 @@ class DeviceVoice extends Voice {
       }
     }
     final rest = toks.sublist(run);
+    // The microphone hearing the speaker, a little garbled ("…টাকা পাবেন"
+    // heard as "টাকা পাই"): a few words, each the app's own word or sharing
+    // its start, heard while it spoke or just after — not the user.
+    if ((_talking || DateTime.now().difference(_talkEndedAt) < const Duration(milliseconds: 2500)) && toks.length <= 4 && toks.every(_nearEcho)) return '';
     if (_talking) {
       // While it speaks, only clear talk from the user counts (two words
       // that are not the app's, or a stop word); the rest is its own voice.
@@ -201,6 +209,13 @@ class DeviceVoice extends Voice {
       return run >= 2 ? '' : heard;
     }
     return run >= 2 ? raw.sublist(run).join(' ') : heard;
+  }
+
+  bool _nearEcho(String t) {
+    if (_echo.contains(t)) return true;
+    final head = t.runes.take(2).toList();
+    if (head.length < 2) return false;
+    return _echo.any((e) => e.runes.length >= 3 && e.runes.take(2).toList().join(',') == head.join(','));
   }
 
   bool _isPieceOfEcho(List<String> piece) {
@@ -622,6 +637,7 @@ class DeviceVoice extends Voice {
       if (turn != _turn || !_talking) return;
       // Finished speaking: from now on the user has the full quiet time.
       _talking = false;
+      _talkEndedAt = DateTime.now();
       // Only the app's own voice was heard: forget it, so it is not joined to what the user says next.
       if (_words.isEmpty) _join.committed = '';
       _turnStarted = DateTime.now();

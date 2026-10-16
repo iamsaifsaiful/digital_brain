@@ -106,3 +106,30 @@ String assemble(List<String> pieces) => pieces.map((p) => p.trim()).where((p) =>
 
 /// Rough size check: very long speech is handled in parts by the caller.
 int wordCount(String s) => words(_n(s)).length;
+
+/// Speech the person has surely not finished: it ends on a joining word
+/// ("…আর", "…তারপর", "…কিন্তু") or a word that needs more ("খরচ হচ্ছে
+/// কোন", "…যদি"). Anything else is acted on when the person goes quiet —
+/// nobody is asked "আর কিছু বলতে চান?" after a whole sentence.
+bool leftOpen(String said) {
+  final w = words(_n(said));
+  if (w.isEmpty) return true;
+  const open = ['আর', 'এবং', 'কিন্তু', 'যে', 'তারপর', 'এরপর', 'মানে', 'আবার', 'বা', 'অথবা', 'নাকি', 'যদি', 'তাহলে', 'যেমন', 'কোন', 'কোনো', 'কোনটা', 'আরও', 'আরো', 'and', 'but', 'or'];
+  final last = w.last;
+  if (open.map(_n).contains(last)) return true;
+  if (w.length >= 2 && ['তার পর', 'এর পর'].map(_n).contains('${w[w.length - 2]} $last')) return true;
+  return false;
+}
+
+/// The speech is over (quiet, "শেষ করেছি", "আর বলতে চাই না"): a joining
+/// word left at the very end ("…ধার দিয়েছি আর") no longer means more is
+/// coming, so it is dropped before the speech is understood.
+String withoutOpenEnd(String said) {
+  var t = said.trim();
+  for (var i = 0; i < 3 && t.isNotEmpty && leftOpen(t); i++) {
+    final cut = t.replaceFirst(RegExp(r'[\s,।]*\S+[\s,।]*$'), '').trim();
+    if (cut.isEmpty) break;
+    t = cut;
+  }
+  return t;
+}

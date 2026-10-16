@@ -460,7 +460,17 @@ const _vowelSigns = 'ািীুূৃেৈোৌ';
 /// wi-fi-এর → wi-fi.
 String stripPossessive(String w) {
   for (final suf in ['-এর', '-র', 'এর', 'ের']) {
-    if (w.endsWith(suf) && w.length > suf.length + 1) return w.substring(0, w.length - suf.length);
+    if (w.endsWith(suf) && w.length > suf.length + 1) {
+      final base = w.substring(0, w.length - suf.length);
+      // "ভাইয়ের" → "ভাই", "মায়ের" → "মা": the য় only joins the ending.
+      for (final y in ['\u09DF', '\u09AF\u09BC']) {
+        if (base.endsWith(y) && base.length > y.length + 1) {
+          final before = base[base.length - y.length - 1];
+          if (_vowelSigns.contains(before) || 'অআইঈউঊএঐওঔ'.contains(before)) return base.substring(0, base.length - y.length);
+        }
+      }
+      return base;
+    }
   }
   if (w.endsWith('র') && w.length > 2 && _vowelSigns.contains(w[w.length - 2])) {
     return w.substring(0, w.length - 1);

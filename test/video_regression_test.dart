@@ -141,19 +141,16 @@ void main() {
     expect(chat.wait, ChatWait.none, reason: 'no second confirmation');
   });
 
-  testWidgets('scenario: speech in two breaths → "আর কিছু বলতে চান?" → "না, বলতে চাই না" → one preview', (t) async {
+  testWidgets('scenario: speech in two breaths ("…আর" then the rest) → one preview, no "বলতে চাই না" item', (t) async {
     final rig = await start(t);
     final chat = await openVoice(t);
-    rig.voice.say('ইসমাইলকে পাঁচ হাজার টাকা');
+    rig.voice.say('ইসমাইলকে পাঁচ হাজার টাকা ধার দিয়েছি আর');
     await settle(t);
-    rig.voice.say('ধার দিয়েছি');
-    await settle(t);
-    await quiet(t);
-    expect(rig.voice.spoken.last, 'আর কিছু বলতে চান?');
     rig.voice.say('না, বলতে চাই না।');
     await settle(t);
     expect(chat.messages.where((m) => m.fromUser).single.text, 'ইসমাইলকে পাঁচ হাজার টাকা ধার দিয়েছি');
     expect(rig.voice.spoken.last, allOf(contains('ইসমাইল'), contains('৫,০০০'), isNot(contains('বলতে চাই না'))));
+    expect(rig.voice.spoken, isNot(contains('আর কিছু বলতে চান?')));
     rig.voice.say('হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.ledger.single.amount, 5000);
@@ -245,14 +242,38 @@ void main() {
     expect(chat.wait, ChatWait.yesNo);
   });
 
-  testWidgets('left open ("…খরচ হচ্ছে কোন") the app asks for more instead of guessing', (t) async {
+  testWidgets('left open ("…খরচ হচ্ছে কোন"): waits; quiet again → sent as it is, never "আর কিছু বলতে চান?"', (t) async {
     final rig = await start(t);
     final chat = await openVoice(t);
     rig.voice.say('আচ্ছা আমার এই মাসে খরচ হচ্ছে কোন');
     await settle(t);
-    await quiet(t);
-    expect(rig.voice.spoken.last, 'আর কিছু বলতে চান?');
     expect(chat.messages.where((m) => m.fromUser), isEmpty);
+    rig.voice.say('খাতে বেশি');
+    await settle(t);
+    expect(chat.messages.where((m) => m.fromUser).single.text, 'আচ্ছা আমার এই মাসে খরচ হচ্ছে কোন খাতে বেশি');
+    expect(rig.voice.spoken, isNot(contains('আর কিছু বলতে চান?')));
+  });
+
+  testWidgets('the app\'s own answer heard back a little garbled ("…টাকা পাবেন" → "টাকা পাই") is not taken as speech', (t) async {
+    final rig = await start(t);
+    await rig.brain.saveEntry(LedgerEntry(person: 'শফিক ভাই', kind: LedgerKind.lent, amount: 5000, date: DateTime(2026, 10, 2)));
+    final chat = await openVoice(t);
+    rig.voice.say('শফিক ভাইয়ের কাছে আমি টোটাল কত টাকা পাই');
+    await settle(t);
+    expect(chat.messages.where((m) => m.fromUser), hasLength(1));
+    expect(rig.voice.spoken.last, contains('৫,০০০'));
+  });
+
+  testWidgets('"শফিক ভাইয়ের কাছে কত পাই" is about শফিক ভাই only', (t) async {
+    final rig = await start(t);
+    await rig.brain.saveEntry(LedgerEntry(person: 'শফিক ভাই', kind: LedgerKind.lent, amount: 5000, date: DateTime(2026, 10, 2)));
+    await rig.brain.saveEntry(LedgerEntry(person: 'রহিম', kind: LedgerKind.lent, amount: 700, date: DateTime(2026, 10, 3)));
+    final chat = ChatController(rig.brain);
+    final r = await chat.hear('ইয়া শফিক ভাইয়ের কাছে আমি টোটাল কত টাকা পাই');
+    expect(r, contains('৫,০০০'));
+    expect(r, isNot(contains('৭০০')));
+    // "আর কারো কাছে কি কোন টাকা পাই?": everyone.
+    expect(await chat.hear('আর কারো কাছে কি কোন টাকা পাই'), contains('৭০০'));
   });
 
   testWidgets('"নার কিছু বলতে চাই না" after a question: answered at once, the words are not part of it', (t) async {
