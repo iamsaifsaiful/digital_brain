@@ -95,6 +95,21 @@
                 android:resource="@xml/open_paths" />
         </provider>
 
+        <!-- Push from our server (Firebase Cloud Messaging): "প্রো চালু হয়েছে", news. -->
+        <service
+            android:name=".PushService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="ma_server" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_reminder" />
+
         <!-- Home-screen widget: today and a mic. -->
         <receiver
             android:name=".TodayWidget"

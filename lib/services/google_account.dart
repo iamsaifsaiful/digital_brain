@@ -304,6 +304,19 @@ class AccountServer {
 
   String get aiUrl => '$base/wp-json/my-assistant/v1/ai';
 
+  /// Tells the server where to send push for this phone.
+  Future<bool> device(String session, String token) async {
+    if (!configured || session.isEmpty) return false;
+    try {
+      final r = await _http
+          .post(Uri.parse('$base/wp-json/my-assistant/v1/device'), headers: {'Content-Type': 'application/json', 'authorization': 'Bearer $session'}, body: jsonEncode({'token': token}))
+          .timeout(const Duration(seconds: 15));
+      return r.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Notifications written on the website for this phone (everyone's, plus
   /// its plan's when signed in). Null when offline.
   Future<List<ServerNotice>?> notices(String session) async {

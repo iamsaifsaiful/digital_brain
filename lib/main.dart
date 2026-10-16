@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'services/google_account.dart';
+import 'services/push.dart';
 import 'services/inbox.dart';
 
 import 'app.dart';
@@ -34,6 +35,7 @@ Future<void> main() async {
     google: DeviceGoogle(),
     drive: HttpDrive(),
     server: AccountServer(),
+    push: DevicePush(),
   );
   await services.notifier.init();
   final brain = Brain(services);

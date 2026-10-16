@@ -537,6 +537,9 @@ class MainActivity : FlutterFragmentActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/inbox").setMethodCallHandler { call, result ->
             inboxChannel(call, result)
         }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/push").setMethodCallHandler { call, result ->
+            PushService.handle(this, call, result)
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/google").setMethodCallHandler { call, result ->
             google.handle(call, result)
         }

@@ -37,6 +37,8 @@ function ma_ai_install() {
         created_at datetime NOT NULL,
         expires_at datetime NOT NULL,
         last_used datetime NOT NULL,
+        app varchar(16) NOT NULL DEFAULT 'member',
+        fcm_token varchar(300) NOT NULL DEFAULT '',
         PRIMARY KEY  (id),
         UNIQUE KEY token_hash (token_hash),
         KEY user_id (user_id)
@@ -75,7 +77,7 @@ function ma_ai_settings() {
 }
 
 /** A new session for a member (60 days); only its hash is kept. */
-function ma_ai_new_session($user_id) {
+function ma_ai_new_session($user_id, $app = 'member') {
     global $wpdb;
     $token = bin2hex(random_bytes(32));
     $now = current_time('mysql', true);
@@ -85,6 +87,7 @@ function ma_ai_new_session($user_id) {
         'created_at' => $now,
         'expires_at' => gmdate('Y-m-d H:i:s', time() + 60 * DAY_IN_SECONDS),
         'last_used' => $now,
+        'app' => $app === 'admin' ? 'admin' : 'member',
     ]);
     // Old, expired sessions go.
     $wpdb->query($wpdb->prepare('DELETE FROM ' . ma_ai_sessions_table() . ' WHERE expires_at < %s', $now));
@@ -104,6 +107,9 @@ function ma_ai_member(WP_REST_Request $req) {
     }
     $wpdb->update(ma_ai_sessions_table(), ['last_used' => current_time('mysql', true)], ['id' => $s['id']]);
     $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . ma_acc_table() . ' WHERE id = %d', $s['user_id']), ARRAY_A);
+    if ($row) {
+        $row['_app'] = $s['app'];
+    }
     if ($row) {
         $wpdb->update(ma_acc_table(), ['last_seen' => current_time('mysql', true)], ['id' => $row['id']]);
     }

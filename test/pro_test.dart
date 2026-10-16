@@ -8,6 +8,7 @@ import 'package:digital_brain/screens/pro_screen.dart';
 import 'dart:convert';
 
 import 'package:digital_brain/services/ai.dart';
+import 'package:digital_brain/services/push.dart';
 import 'package:digital_brain/logic/server_notices.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -276,6 +277,7 @@ void main() {
         if (r.url.path.endsWith('/login')) {
           return http.Response(jsonEncode({'ok': true, 'trial_used': true, 'pro_until': '2026-11-01T00:00:00Z', 'pro_kind': 'manual', 'session': 'a' * 64, 'ai': true, 'ai_left': 50}), 200);
         }
+        if (r.url.path.endsWith('/device')) return http.Response('{"ok":true}', 200);
         if (r.url.path.endsWith('/me')) {
           return http.Response(jsonEncode({'ok': true, 'trial_used': true, 'pro_until': null, 'pro_kind': '', 'ai': true, 'ai_left': 0}), 200);
         }
@@ -287,7 +289,12 @@ void main() {
       b.gated = true;
       await b.load();
       expect(b.aiOn, isFalse);
+      (rig.services.push as FakePush).value = 'fcm-token-of-this-phone-123';
       expect(await b.signInGoogle(appVersion: '2.14.0'), isNull);
+      final device = calls.where((r) => r.url.path.endsWith('/device')).toList();
+      expect(device.length, 1, reason: 'push token sent once');
+      expect(jsonDecode(device.single.body)['token'], 'fcm-token-of-this-phone-123');
+      expect(device.single.headers['authorization'], 'Bearer ${'a' * 64}');
       expect(jsonDecode(calls.firstWhere((r) => r.url.path.endsWith('/login')).body)['id_token'], 'token-from-google');
       expect(rig.services.ai.session, 'a' * 64);
       expect(b.aiByServer, isTrue);

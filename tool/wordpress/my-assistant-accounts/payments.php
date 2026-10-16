@@ -35,6 +35,7 @@ function ma_pay_install() {
         reason varchar(300) NOT NULL DEFAULT '',
         reviewed_at datetime NULL DEFAULT NULL,
         reviewed_by bigint(20) unsigned NULL DEFAULT NULL,
+        reviewed_email varchar(190) NOT NULL DEFAULT '',
         PRIMARY KEY  (id),
         KEY status (status),
         KEY email (email),
@@ -230,6 +231,7 @@ function ma_pay_submit() {
         'trx' => substr($trx, 0, 64),
         'note' => substr(sanitize_textarea_field(wp_unslash($_POST['note'] ?? '')), 0, 500),
     ]);
+    ma_push_admins('নতুন পেমেন্ট — ৳' . $plans[$plan]['price'], $methods[$method]['name'] . ' · ' . $email, ['type' => 'payment', 'id' => (string) $wpdb->insert_id]);
     wp_mail(
         get_option('admin_email'),
         'My Assistant: নতুন পেমেন্ট — ' . $methods[$method]['name'] . ' ৳' . $plans[$plan]['price'],
@@ -242,38 +244,52 @@ add_action('admin_post_ma_pay_submit', 'ma_pay_submit');
 
 // ── Admin: approve or reject ──
 
-add_action('admin_post_ma_pay_review', function () {
-    ma_acc_guard('ma_pay_review');
+/**
+ * Approves (gives Pro to the payer's Google email and tells them) or
+ * rejects a payment. Used by the website admin page and the admin app.
+ * Returns [ok, message].
+ */
+function ma_pay_decide($id, $approve, $reason = '', $tell = true, $by = '') {
     global $wpdb;
-    $id = (int) ($_POST['id'] ?? 0);
     $p = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . ma_pay_table() . ' WHERE id = %d', $id), ARRAY_A);
     if (!$p || $p['status'] !== 'pending') {
-        ma_acc_back('এই পেমেন্ট আগেই দেখা হয়েছে।', 'error', ['tab' => 'payments']);
+        return [false, 'এই পেমেন্ট আগেই দেখা হয়েছে।'];
     }
     $now = current_time('mysql', true);
-    if (sanitize_key($_POST['decision'] ?? '') === 'approve') {
-        $plans = ma_pay_plans();
-        $days = $plans[$p['plan']]['days'] ?? 30;
-        $table = ma_acc_table();
-        $member = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE email = %s ORDER BY id LIMIT 1", $p['email']), ARRAY_A);
-        if ($member) {
-            $wpdb->update($table, ['pro_until' => ma_acc_extend($member, $days), 'pro_kind' => 'manual'], ['id' => $member['id']]);
-        } else {
-            $wpdb->insert($table, [
-                'google_sub' => 'pending:' . $p['email'], 'email' => $p['email'], 'name' => $p['name'], 'note' => $p['method'] . ' ' . $p['trx'],
-                'created_at' => $now, 'last_seen' => $now, 'pro_until' => gmdate('Y-m-d H:i:s', time() + $days * DAY_IN_SECONDS), 'pro_kind' => 'manual',
-            ]);
+    $who = ['reviewed_at' => $now, 'reviewed_by' => get_current_user_id() ?: null, 'reviewed_email' => substr((string) $by, 0, 190)];
+    if (!$approve) {
+        $reason = substr(sanitize_text_field($reason), 0, 300);
+        $wpdb->update(ma_pay_table(), ['status' => 'rejected', 'reason' => $reason] + $who, ['id' => $id]);
+        if ($tell) {
+            wp_mail($p['email'], 'My Assistant: পেমেন্ট মেলেনি', "আপনার জমা দেওয়া পেমেন্ট ({$p['method']}, TrxID {$p['trx']}) আমরা মেলাতে পারিনি।" . ($reason !== '' ? "\nকারণ: $reason" : '') . "\n\nভুল হয়ে থাকলে এই ইমেইলের উত্তর দিন।\n\n— My Assistant");
         }
-        $wpdb->update(ma_pay_table(), ['status' => 'approved', 'reviewed_at' => $now, 'reviewed_by' => get_current_user_id()], ['id' => $id]);
-        wp_mail($p['email'], 'My Assistant প্রো চালু হয়েছে', "আপনার পেমেন্ট ({$p['method']}, TrxID {$p['trx']}) পেয়েছি — ধন্যবাদ!\n\nঅ্যাপে এই ইমেইলের ({$p['email']}) Google অ্যাকাউন্টে লগইন করলেই প্রো চালু হবে। আগে থেকে লগইন করা থাকলে অ্যাপ খুললেই চালু হয়ে যাবে।\n\n— My Assistant");
-        ma_acc_back('অনুমোদন দেওয়া হলো, ' . $p['email'] . '-এ প্রো চালু হলো।', 'ok', ['tab' => 'payments']);
+        return [true, 'পেমেন্ট বাতিল করা হলো।'];
     }
-    $reason = substr(sanitize_text_field(wp_unslash($_POST['reason'] ?? '')), 0, 300);
-    $wpdb->update(ma_pay_table(), ['status' => 'rejected', 'reason' => $reason, 'reviewed_at' => $now, 'reviewed_by' => get_current_user_id()], ['id' => $id]);
-    if (!empty($_POST['tell'])) {
-        wp_mail($p['email'], 'My Assistant: পেমেন্ট মেলেনি', "আপনার জমা দেওয়া পেমেন্ট ({$p['method']}, TrxID {$p['trx']}) আমরা মেলাতে পারিনি।" . ($reason !== '' ? "\nকারণ: $reason" : '') . "\n\nভুল হয়ে থাকলে এই ইমেইলের উত্তর দিন।\n\n— My Assistant");
+    $plans = ma_pay_plans();
+    $days = $plans[$p['plan']]['days'] ?? 30;
+    $table = ma_acc_table();
+    $member = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE email = %s ORDER BY id LIMIT 1", $p['email']), ARRAY_A);
+    if ($member) {
+        $wpdb->update($table, ['pro_until' => ma_acc_extend($member, $days), 'pro_kind' => 'manual'], ['id' => $member['id']]);
+    } else {
+        $wpdb->insert($table, [
+            'google_sub' => 'pending:' . $p['email'], 'email' => $p['email'], 'name' => $p['name'], 'note' => $p['method'] . ' ' . $p['trx'],
+            'created_at' => $now, 'last_seen' => $now, 'pro_until' => gmdate('Y-m-d H:i:s', time() + $days * DAY_IN_SECONDS), 'pro_kind' => 'manual',
+        ]);
     }
-    ma_acc_back('পেমেন্ট বাতিল করা হলো।', 'ok', ['tab' => 'payments']);
+    $wpdb->update(ma_pay_table(), ['status' => 'approved'] + $who, ['id' => $id]);
+    wp_mail($p['email'], 'My Assistant প্রো চালু হয়েছে', "আপনার পেমেন্ট ({$p['method']}, TrxID {$p['trx']}) পেয়েছি — ধন্যবাদ!\n\nঅ্যাপে এই ইমেইলের ({$p['email']}) Google অ্যাকাউন্টে লগইন করলেই প্রো চালু হবে। আগে থেকে লগইন করা থাকলে অ্যাপ খুললেই চালু হয়ে যাবে।\n\n— My Assistant");
+    if ($member) {
+        ma_push_member((int) $member['id'], 'প্রো চালু হয়েছে 🎉', 'আপনার পেমেন্ট পেয়েছি — ধন্যবাদ! AI, বিজ্ঞাপন ছাড়া আর সব প্রো সুবিধা এখন চালু।', ['type' => 'pro']);
+    }
+    return [true, 'অনুমোদন দেওয়া হলো, ' . $p['email'] . '-এ প্রো চালু হলো।'];
+}
+
+add_action('admin_post_ma_pay_review', function () {
+    ma_acc_guard('ma_pay_review');
+    $user = wp_get_current_user();
+    [$ok, $msg] = ma_pay_decide((int) ($_POST['id'] ?? 0), sanitize_key($_POST['decision'] ?? '') === 'approve', wp_unslash($_POST['reason'] ?? ''), !empty($_POST['tell']), $user ? $user->user_email : '');
+    ma_acc_back($msg, $ok ? 'ok' : 'error', ['tab' => 'payments']);
 });
 
 add_action('admin_post_ma_pay_settings', function () {

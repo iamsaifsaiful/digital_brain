@@ -27,6 +27,7 @@ import '../services/data_store.dart';
 import '../services/files.dart';
 import '../services/inbox.dart';
 import '../services/google_account.dart';
+import '../services/push.dart';
 import '../services/launcher.dart';
 import '../services/lock.dart';
 import '../services/notifications.dart';
@@ -53,11 +54,13 @@ class Services {
     Phonebook? phonebook,
     InboxSource? inbox,
     GoogleAccount? google,
+    PushSource? push,
     DriveStore? drive,
     AccountServer? server,
     DateTime Function()? clock,
   })  : ai = ai ?? FakeAi(),
         google = google ?? FakeGoogle(),
+        push = push ?? FakePush(),
         drive = drive ?? FakeDrive(),
         server = server ?? AccountServer.off(),
         inbox = inbox ?? FakeInbox(),
@@ -87,6 +90,7 @@ class Services {
   final GoogleAccount google;
   final DriveStore drive;
   final AccountServer server;
+  final PushSource push;
   final DateTime Function() now;
 }
 
@@ -329,7 +333,9 @@ class Brain extends ChangeNotifier {
     if (info.session.isNotEmpty) {
       ai.session = info.session;
       await keys.write('srv_session', info.session);
+      await keys.delete('push_sent');
     }
+    await _sendPushToken();
     serverAi = info.ai;
     aiLeft = info.aiLeft;
     serverProUntil = info.proUntil;
@@ -345,6 +351,17 @@ class Brain extends ChangeNotifier {
       await _setPro(until, info.proKind);
     }
     notifyListeners();
+  }
+
+  /// The phone's push token to the server, when it is new for this session.
+  Future<void> _sendPushToken() async {
+    final session = services.ai.session;
+    if (session.isEmpty) return;
+    final token = await services.push.token();
+    if (token == null || token.isEmpty) return;
+    final keys = services.lock.keys;
+    if (await keys.read('push_sent') == token) return;
+    if (await services.server.device(session, token)) await keys.write('push_sent', token);
   }
 
   /// Asks the server for the plan now (on opening the app, at most every few hours).
@@ -363,7 +380,7 @@ class Brain extends ChangeNotifier {
 
   Future<void> refreshAccount({bool force = false}) async {
     final now = services.now();
-    if (!force && _refreshedAt != null && now.difference(_refreshedAt!) < const Duration(hours: 3)) return;
+    if (!force && _refreshedAt != null && now.difference(_refreshedAt!) < const Duration(minutes: 15)) return;
     _refreshedAt = now;
     final session = services.ai.session;
     final list = await services.server.notices(session);

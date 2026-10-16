@@ -562,6 +562,37 @@ function ma_acc_render_settings($v) {
             <button class="ma-btn" type="submit">রাখুন</button>
         </form>
     </section>
+    <?php $push = $v['push'] ?? ['source' => '', 'admins' => '']; ?>
+    <section class="ma-card pad">
+        <div class="ma-ai-head">
+            <div>
+                <h2>অ্যাডমিন অ্যাপ ও পুশ নোটিফিকেশন</h2>
+                <p class="muted">এই ইমেইলগুলো দিয়ে অ্যাডমিন অ্যাপে Google লগইন করা যাবে। নতুন পেমেন্ট এলে তাঁদের ফোনে পুশ যাবে, আর প্রো চালু হলে সদস্যের ফোনে। পুশ পাঠাতে Firebase-এর service account লাগে (ফ্রি)।</p>
+            </div>
+            <span class="ma-pill <?php echo $push['source'] !== '' ? 'pro' : 'expired'; ?>"><?php echo $push['source'] !== '' ? 'পুশ চালু' : 'Firebase নেই'; ?></span>
+        </div>
+        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+            <input type="hidden" name="action" value="ma_push_settings">
+            <?php wp_nonce_field('ma_push_settings'); ?>
+            <label>অ্যাডমিনদের Google ইমেইল (কমা দিয়ে)<input type="text" name="admins" value="<?php echo esc_attr($push['admins']); ?>" placeholder="iamsaifsaiful@gmail.com, admin2@gmail.com" spellcheck="false"></label>
+            <?php if ($push['source'] === 'config') : ?>
+                <p class="muted ma-tip">Firebase service account <code>wp-config.php</code> থেকে নেওয়া হচ্ছে।</p>
+            <?php else : ?>
+                <label>Firebase service account JSON <?php echo $push['source'] === 'saved' ? '(রাখা আছে — বদলাতে নতুনটা পেস্ট করুন)' : ''; ?>
+                    <textarea name="fcm_account" rows="3" spellcheck="false" placeholder='{"type": "service_account", "project_id": "…", …}'></textarea>
+                </label>
+                <?php if ($push['source'] === 'saved') : ?><label class="ma-check"><input type="checkbox" name="fcm_remove" value="1"> রাখা service account মুছে দিন</label><?php endif; ?>
+            <?php endif; ?>
+            <p class="muted ma-tip">Firebase Console › Project settings › Service accounts › “Generate new private key” — ফাইলটা খুলে পুরো লেখা এখানে পেস্ট করুন। আরও নিরাপদ: <code>define('MA_FCM_SERVICE_ACCOUNT', '/home/…/firebase.json');</code> wp-config.php-তে।</p>
+            <button class="ma-btn" type="submit">রাখুন</button>
+        </form>
+        <?php if ($push['source'] !== '') : ?>
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-top:10px">
+                <input type="hidden" name="action" value="ma_push_test"><?php wp_nonce_field('ma_push_test'); ?>
+                <button class="ma-btn ghost" type="submit">অ্যাডমিনদের ফোনে পরীক্ষার পুশ পাঠান</button>
+            </form>
+        <?php endif; ?>
+    </section>
     <div class="ma-grid">
         <section class="ma-card pad">
             <h2>Google লগইন</h2>

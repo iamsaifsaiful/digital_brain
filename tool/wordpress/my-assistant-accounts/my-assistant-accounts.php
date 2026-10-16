@@ -2,9 +2,9 @@
 /**
  * Plugin Name: My Assistant Accounts
  * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, ফ্রি ট্রায়াল আর প্রো। শুধু নাম, ইমেইল, ছবি আর প্রো-র তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.3.0
+ * Version: 1.4.0
  * Requires at least: 6.0
- * Requires PHP: 7.4
+ * Requires PHP: 8.0
  * Author: My Assistant
  * License: GPL-2.0-or-later
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.3.0';
+const MA_ACC_VERSION = '1.4.0';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
 const MA_ACC_PER_PAGE = 20;
 
@@ -21,6 +21,8 @@ require_once __DIR__ . '/admin-view.php';
 require_once __DIR__ . '/ai.php';
 require_once __DIR__ . '/payments.php';
 require_once __DIR__ . '/notices.php';
+require_once __DIR__ . '/push.php';
+require_once __DIR__ . '/admin-api.php';
 
 /** The members table. */
 function ma_acc_table() {
@@ -191,7 +193,8 @@ function ma_acc_login(WP_REST_Request $req) {
     $set = ma_ai_settings();
     // A session for this phone: AI and refreshing the plan without signing in again.
     return rest_ensure_response(ma_acc_answer($row) + [
-        'session' => ma_ai_new_session((int) $row['id']),
+        'session' => ma_ai_new_session((int) $row['id'], $fields['edition'] === 'admin' ? 'admin' : 'member'),
+        'admin' => $fields['edition'] === 'admin' && in_array(strtolower($row['email']), ma_admin_emails(), true),
         'ai' => $set['on'] && ma_ai_key() !== '',
         'ai_left' => max(0, $set['per_user'] - ma_ai_used((int) $row['id'])),
     ]);
@@ -438,5 +441,6 @@ function ma_acc_admin() {
         'endpoint' => rest_url('my-assistant/v1/login'),
         'ai' => ma_ai_settings() + ['source' => ma_ai_key_source(), 'tail' => substr(ma_ai_key(), -4)],
         'ai_stats' => ma_ai_today_stats(),
+        'push' => ['source' => ma_push_source(), 'admins' => (string) get_option('ma_admin_emails', '')],
     ]);
 }

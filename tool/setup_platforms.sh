@@ -79,9 +79,14 @@ dependencies {
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     implementation("com.google.android.gms:play-services-auth:21.2.0")
+    implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
+    implementation("com.google.firebase:firebase-messaging")
 }
 KTS
 fi
+
+# Firebase (push): its settings for this app's package, from google-services.json.
+python3 tool/firebase_values.py tool/google-services.json "com.iamsaifsaiful.digital_brain$([ "${MY_ASSISTANT_PREVIEW:-}" = 1 ] && echo .preview)" android/app/src/main/res/values/firebase.xml
 
 # The app's name on the phone, and the Play Store preview: MY_ASSISTANT_PREVIEW=1
 # makes a separate app (".preview") that installs beside the real one, empty,
