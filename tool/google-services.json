@@ -1,0 +1,97 @@
+{
+  "project_info": {
+    "project_number": "611798531174",
+    "project_id": "myassistant-7a0cd",
+    "storage_bucket": "myassistant-7a0cd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:611798531174:android:53b48801884e73691dc1a7",
+        "android_client_info": {
+          "package_name": "com.iamsaifsaiful.digital_brain"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "611798531174-n31emvhp4bhvuh2he9rp9njirsi3ch47.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBoRYtwOTYokk_fQWKCd4K3Sh6pSJvooUU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "611798531174-n31emvhp4bhvuh2he9rp9njirsi3ch47.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:611798531174:android:3eee723c300fe8ad1dc1a7",
+        "android_client_info": {
+          "package_name": "com.iamsaifsaiful.digital_brain.preview"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "611798531174-n31emvhp4bhvuh2he9rp9njirsi3ch47.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBoRYtwOTYokk_fQWKCd4K3Sh6pSJvooUU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "611798531174-n31emvhp4bhvuh2he9rp9njirsi3ch47.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:611798531174:android:a6254bb761443aa51dc1a7",
+        "android_client_info": {
+          "package_name": "com.iamsaifsaiful.my_assistant_admin"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "611798531174-n31emvhp4bhvuh2he9rp9njirsi3ch47.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBoRYtwOTYokk_fQWKCd4K3Sh6pSJvooUU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "611798531174-n31emvhp4bhvuh2he9rp9njirsi3ch47.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
