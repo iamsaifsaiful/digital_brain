@@ -1,0 +1,10 @@
+.dart_tool/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+android/.gradle/
+android/local.properties
+android/app/src/main/res/values/firebase.xml
+*.iml
+.idea/
+test/shots/
