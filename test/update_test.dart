@@ -9,6 +9,7 @@ import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/screens/lock_screen.dart' show googleFirst;
 import 'package:digital_brain/services/community.dart';
 import 'package:digital_brain/services/google_account.dart';
+import 'package:digital_brain/services/launcher.dart';
 import 'package:digital_brain/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -70,13 +71,13 @@ void main() {
     expect(find.text('একটি ৪ অঙ্কের PIN ঠিক করুন'), findsOneWidget);
   });
 
-  testWidgets('home menu: one হিসাব (no separate আয়-ব্যয়), settings inside the menu, most used first', (t) async {
+  testWidgets('home menu: one হিসাব (no separate আয়-ব্যয়), no settings (it is in আরও), most used first', (t) async {
     await start(t);
     final grid = find.byType(GridView);
     expect(find.descendant(of: grid, matching: find.text('আয়-ব্যয়')), findsNothing);
     expect(find.descendant(of: grid, matching: find.text('লেনদেন')), findsNothing);
     expect(find.descendant(of: grid, matching: find.text('হিসাব')), findsOneWidget);
-    expect(find.descendant(of: grid, matching: find.text('সেটিংস')), findsOneWidget);
+    expect(find.descendant(of: grid, matching: find.text('সেটিংস')), findsNothing, reason: 'settings live in আরও');
     expect(find.byTooltip('সেটিংস'), findsNothing, reason: 'no settings icon at the top');
     final first = t.getTopLeft(find.descendant(of: grid, matching: find.text('কাজের তালিকা')));
     final alarm = t.getTopLeft(find.descendant(of: grid, matching: find.text('অ্যালার্ম')));
@@ -336,5 +337,103 @@ void main() {
     expect(a.key, startsWith('#'));
     expect(HSLColor.fromColor(a.main).lightness, lessThanOrEqualTo(0.451));
     expect(accentFor('#zzzzzz').key, 'green');
+  });
+
+  testWidgets('মুছে ফেলা: a deleted note waits 30 days in আরও and comes back', (t) async {
+    final rig = await start(t);
+    final b = rig.brain;
+    await b.saveNote(Note(title: 'গেটের কোড', body: '৪৪২১'));
+    final id = b.data.notes.single.id;
+    await b.deleteNote(id);
+    expect(b.data.notes, isEmpty);
+    expect(b.data.trash.single.kind, 'notes');
+    // Saved and loaded again, it is still there.
+    expect(AppData.fromJson(jsonDecode(jsonEncode(b.data.toJson()))).trash.single.title, 'গেটের কোড');
+
+    await t.tap(find.text('আরও').last);
+    await settle(t);
+    final row = find.text('মুছে ফেলা');
+    await t.ensureVisible(row);
+    await settle(t);
+    await t.tap(row);
+    await settle(t);
+    expect(find.text('গেটের কোড'), findsOneWidget);
+    expect(find.textContaining('আর ৩০ দিন থাকবে'), findsOneWidget);
+    await t.tap(find.byKey(Key('restore-${b.data.trash.single.id}')));
+    await settle(t);
+    expect(b.data.notes.single.id, id);
+    expect(b.data.trash, isEmpty);
+  });
+
+  testWidgets('মুছে ফেলা: undo brings back the newest; a reminder comes back with its task; old ones go', (t) async {
+    final rig = await start(t);
+    final b = rig.brain;
+    final now = b.services.now();
+    await b.saveCash(CashEntry(kind: CashKind.expense, amount: 120, category: 'বাজার', date: now));
+    await b.deleteCash(b.data.cash.single.id);
+    expect(b.data.cash, isEmpty);
+    await b.undoLastDelete();
+    expect(b.data.cash.single.amount, 120);
+
+    b.data.trash.add(TrashItem(kind: 'notes', title: 'পুরনো', deletedAt: now.subtract(const Duration(days: 31)), items: [('notes', Note(title: 'পুরনো').toJson())]));
+    b.data.trash.add(TrashItem(kind: 'notes', title: 'নতুন', deletedAt: now.subtract(const Duration(days: 3)), items: [('notes', Note(title: 'নতুন').toJson())]));
+    await b.purgeTrash();
+    expect([for (final x in b.data.trash) x.title], ['নতুন']);
+  });
+
+  testWidgets('the delete notice goes away by itself', (t) async {
+    final rig = await start(t);
+    final b = rig.brain;
+    await b.saveCash(CashEntry(kind: CashKind.expense, amount: 50, category: 'বাজার', date: b.services.now()));
+    await settle(t);
+    await openMenu(t, 'হিসাব');
+    final more = find.byTooltip('বদলান বা মুছুন').first;
+    await t.ensureVisible(more);
+    await settle(t);
+    await t.tap(more);
+    await settle(t);
+    await t.tap(find.text('মুছুন').last);
+    await settle(t);
+    await t.tap(find.text('মুছুন').last);
+    await settle(t);
+    expect(b.data.cash, isEmpty);
+    final bar = find.byType(SnackBar);
+    expect(bar, findsOneWidget);
+    expect(t.widget<SnackBar>(bar).persist, isFalse);
+    await t.pump(const Duration(seconds: 6));
+    await settle(t);
+    expect(find.byType(SnackBar), findsNothing);
+  });
+
+  testWidgets('প্রো ভার্সন: features in brief, the website and Get Pro', (t) async {
+    final rig = await start(t);
+    await tapMenu(t, 'প্রো ভার্সন');
+    expect(find.text('সংক্ষেপে'), findsOneWidget);
+    final get = find.byKey(const Key('get-pro'));
+    await t.ensureVisible(get);
+    await settle(t);
+    expect(find.text('Get Pro'), findsWidgets);
+    await t.tap(get);
+    await settle(t);
+    final l = rig.services.launcher as FakeLauncher;
+    expect(l.opened.last.toString(), proWebPage);
+    await t.tap(find.text('বিস্তারিত').first);
+    await settle(t);
+    await t.tap(find.byKey(const Key('pro-website')));
+    await settle(t);
+    expect(l.opened.last.toString(), proWebPage);
+  });
+
+  testWidgets('home: a greeting, today in numbers, the menu', (t) async {
+    final rig = await start(t);
+    await rig.brain.setUserName('সাইফ');
+    await rig.brain.saveCash(CashEntry(kind: CashKind.expense, amount: 250, category: 'বাজার', date: rig.brain.services.now()));
+    await settle(t);
+    expect(find.text('সাইফ'), findsOneWidget);
+    expect(find.byKey(const Key('home-stat-tasks')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('home-stat-spent')), matching: find.textContaining('২৫০')), findsOneWidget);
+    await t.tap(find.byKey(const Key('home-stat-spent')));
+    await settle(t);
+    expect(find.text('অন্যান্য হিসাব'), findsOneWidget);
   });
 }

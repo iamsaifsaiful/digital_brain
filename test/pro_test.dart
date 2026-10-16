@@ -250,8 +250,12 @@ void main() {
     await tell(t, rig, 'প্রো খোলো');
     await settle(t);
     expect(find.byType(ProScreen), findsOneWidget);
-    final list = find.descendant(of: find.byType(ProScreen), matching: find.byType(Scrollable)).first;
     expect(find.textContaining('ফ্রি চালু করুন'), findsNothing, reason: 'no trial');
+    expect(find.byKey(const Key('get-pro')), findsOneWidget);
+    await t.tap(find.text('বিস্তারিত').first);
+    await settle(t);
+    expect(find.byKey(const Key('pro-website')), findsOneWidget);
+    final list = find.descendant(of: find.byType(ProScreen), matching: find.byType(Scrollable)).first;
     await t.scrollUntilVisible(find.text('ফ্রি ভার্সনে বিজ্ঞাপন কোথায় দেখাবে'), 300, scrollable: list);
     expect(find.textContaining('দিনে সর্বোচ্চ ২টা'), findsOneWidget);
   });

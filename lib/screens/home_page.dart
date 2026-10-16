@@ -7,7 +7,7 @@ import '../ui/pro_gate.dart';
 import '../logic/bn.dart';
 import '../logic/calendar_bd.dart';
 import '../logic/cash.dart';
-import '../logic/ledger.dart';
+import '../logic/proactive.dart' show tasksLeft, remindsOn;
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import 'alarm_list_screen.dart';
@@ -37,8 +37,9 @@ String helloFor(DateTime now) {
   return tr('শুভ রাত');
 }
 
-/// হোম: today at a glance — both dates, sun times, the coming holiday,
-/// what is due, money, and shortcuts to everything.
+/// হোম: a warm welcome — the day (Bangla, English and Hijri dates, sun
+/// times), what is waiting today, every part of the app one tap away, then
+/// today's list.
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -47,29 +48,22 @@ class HomePage extends StatelessWidget {
     final brain = BrainScope.of(context);
     final d = brain.data;
     final now = brain.services.now();
+    final today = dayOnly(now);
     final bd = banglaDate(now);
     final hj = hijriDate(now, adjust: brain.number('hijri_adjust'));
     final sun = sunTimes(now, placeNamed(brain.district));
     final runs = upcomingHolidays(now, count: 1);
     final next = runs.isEmpty ? null : runs.first;
-    final daysTo = next == null ? 0 : DateTime(next.start.year, next.start.month, next.start.day).difference(DateTime(now.year, now.month, now.day)).inDays;
-    final t = totals(d.ledger);
+    final daysTo = next == null ? 0 : DateTime(next.start.year, next.start.month, next.start.day).difference(today).inDays;
     final month = monthSums(d.cash, now);
+    final left = tasksLeft(d, now).length;
+    final remindersToday = [for (final r in d.reminders) if (r.enabled && remindsOn(r, today) && DateTime(today.year, today.month, today.day, r.hour, r.minute).isAfter(now)) r]
+      ..sort((a, b) => (a.hour * 60 + a.minute).compareTo(b.hour * 60 + b.minute));
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
     final top = MediaQuery.of(context).padding.top;
+    final first = brain.userName.trim().isEmpty ? '' : brain.userName.trim().split(' ').first;
 
-    Widget dateChip(String label, String value) => Expanded(
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(14)),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(label, style: body(12, color: Colors.white70, height: 1.3)),
-              Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15, weight: FontWeight.w600, color: Colors.white, height: 1.35)),
-            ]),
-          ),
-        );
-
-    // Most used first: the day's work, then money, then the rest; settings last.
+    // Most used first: the day's work, then money, then the rest.
     final shortcuts = <(String, IconData, Color, Color, VoidCallback)>[
       (tr('কাজের তালিকা'), Icons.checklist_rounded, C.green, C.greenTint, () => goToTab(context, ShellTab.diary)),
       (tr('রিমাইন্ডার'), Icons.notifications_none_rounded, C.orange, C.orangeTint, () => push(const AllTasksScreen())),
@@ -84,180 +78,178 @@ class HomePage extends StatelessWidget {
       (tr('অনুরোধ'), Icons.bloodtype_outlined, C.rose, C.roseTint, () => push(const RequestsScreen())),
       if (brain.inboxSupported) (tr('মেসেজ থেকে কাজ'), Icons.mark_chat_unread_outlined, C.green, C.greenTint, () => push(const InboxScreen())),
       (tr('প্রো ভার্সন'), Icons.workspace_premium_outlined, C.ochre, C.ochreTint, () => push(const ProScreen())),
-      (tr('সেটিংস'), Icons.settings_outlined, C.muted2, C.soft, () => goToTab(context, ShellTab.more)),
     ];
     final inboxTodos = inboxTodo(d, now);
 
     if (brain.easyMode) return const EasyHome();
 
+    Widget stat(Key key, IconData icon, Color color, String value, String label, VoidCallback onTap) => Expanded(
+          child: InkWell(
+            key: key,
+            borderRadius: BorderRadius.circular(14),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+              child: Column(children: [
+                Icon(icon, color: color, size: 22),
+                const SizedBox(height: 4),
+                Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(17, weight: 700)),
+                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: C.muted)),
+              ]),
+            ),
+          ),
+        );
+
     return Column(children: [
       Expanded(
         child: ListView(
-      padding: EdgeInsets.zero,
-      children: [
-        Container(
-          padding: EdgeInsets.fromLTRB(20, top + 14, 20, 18),
-          decoration: BoxDecoration(color: C.green, borderRadius: BorderRadius.vertical(bottom: Radius.circular(28))),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${helloFor(now)}${brain.userName.isEmpty ? '' : ','}', style: body(14, color: Colors.white70)),
-                  Text(brain.userName.isEmpty ? tr('আজ কী করে দেবো?') : brain.userName,
-                      style: display(24, weight: 700, color: Colors.white, height: 1.25), maxLines: 1, overflow: TextOverflow.ellipsis),
-                ]),
-              ),
-              Tooltip(
-                message: tr('প্রোফাইল'),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: () => goToTab(context, ShellTab.more),
-                  child: const UserPhoto(size: 44, onDark: true),
-                ),
-              ),
-            ]),
-            const SizedBox(height: 14),
-            InkWell(
-              onTap: () => push(const CalendarScreen()),
-              child: Row(children: [
-                dateChip(tr('আজ'), '${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)}'),
-                const SizedBox(width: 10),
-                dateChip(trf('বাংলা · {0}কাল', [bd.season]), bd.text),
-              ]),
-            ),
-            const SizedBox(height: 10),
-            InkWell(
-              onTap: () => push(const CalendarScreen()),
-              child: Wrap(spacing: 14, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.nightlight_round, size: 16, color: Color(0xFFFDE68A)),
-                  const SizedBox(width: 5),
-                  Text(hj.short, style: body(13, weight: FontWeight.w500, color: Colors.white)),
-                ]),
-                Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.wb_twilight, size: 16, color: Color(0xFFFDE68A)),
-                  const SizedBox(width: 5),
-                  Text(trf('সূর্যোদয় {0}', [bnTime(sun.sunrise.hour, sun.sunrise.minute)]), style: body(13, color: Colors.white)),
-                  const SizedBox(width: 10),
-                  const Icon(Icons.nights_stay_outlined, size: 16, color: Color(0xFFFDBA74)),
-                  const SizedBox(width: 5),
-                  Text(trf('সূর্যাস্ত {0}', [bnTime(sun.sunset.hour, sun.sunset.minute)]), style: body(13, color: Colors.white)),
-                ]),
-              ]),
-            ),
-          ]),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            if (inboxTodos.isNotEmpty) ...[
-              Material(
-                color: C.greenTint,
-                borderRadius: BorderRadius.circular(16),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () => push(const InboxScreen()),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-                    child: Row(children: [
-                      Icon(Icons.mark_chat_unread_outlined, color: C.green),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(trf('মেসেজ থেকে {0}টা কাজ', [bnDigits(inboxTodos.length)]), style: body(15, weight: FontWeight.w600, color: C.greenDark)),
-                          Text(inboxTodos.first.$2.summary, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, color: C.greenDark)),
-                        ]),
-                      ),
-                      Icon(Icons.chevron_right_rounded, color: C.green),
-                    ]),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-            ],
-            if (next != null && daysTo <= 30)
-              Material(
-                color: C.roseTint,
-                borderRadius: BorderRadius.circular(16),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () => push(const CalendarScreen()),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-                    child: Row(children: [
-                      Icon(Icons.flag_outlined, color: C.rose),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(daysTo == 0 ? trf('আজ ছুটি — {0}', [next.label]) : trf('{0} — ছুটি আসছে', [next.label]),
-                              style: body(15, weight: FontWeight.w600, color: C.roseDark)),
-                          Text(
-                              '${holidayRange(next)}${next.days > 1 ? ' · ${trf('টানা {0} দিন', [bnDigits(next.days)])}' : ''}${daysTo > 0 ? ' · ${trf('{0} দিন পর', [bnDigits(daysTo)])}' : ''}',
-                              style: body(13, color: C.roseDark)),
-                        ]),
-                      ),
-                      Icon(Icons.chevron_right_rounded, color: C.roseDark),
-                    ]),
-                  ),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
-              child: Text(tr('সব কিছু এক জায়গায়'), style: body(13, weight: FontWeight.w600, color: C.muted)),
-            ),
+          padding: EdgeInsets.zero,
+          children: [
+            // The greeting, on the accent colour with two soft circles.
             Container(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16)),
-              child: GridView.count(
-                crossAxisCount: 4,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                childAspectRatio: 0.95,
-                children: [
-                  for (final (label, icon, fg, bg, onTap) in shortcuts)
-                    InkWell(
-                      borderRadius: BorderRadius.circular(14),
-                      onTap: onTap,
-                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(13)),
-                          child: Icon(icon, color: fg, size: 22),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(label, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(12, height: 1.2)),
+              padding: EdgeInsets.fromLTRB(20, top + 16, 20, 52),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [C.green, Color.lerp(C.green, C.teal, 0.55)!], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+              ),
+              child: Stack(clipBehavior: Clip.none, children: [
+                Positioned(right: -40, top: -50, child: _Bubble(size: 150)),
+                Positioned(left: -60, bottom: -70, child: _Bubble(size: 120)),
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(first.isEmpty ? helloFor(now) : '${helloFor(now)},', style: body(15, color: Colors.white.withValues(alpha: 0.85))),
+                        Text(first.isEmpty ? tr('আজ কী করে দেবো?') : first,
+                            maxLines: 1, overflow: TextOverflow.ellipsis, style: display(28, weight: 700, color: Colors.white, height: 1.2)),
                       ]),
                     ),
-                ],
-              ),
+                    Tooltip(
+                      message: tr('প্রোফাইল'),
+                      child: InkWell(customBorder: const CircleBorder(), onTap: () => goToTab(context, ShellTab.more), child: const UserPhoto(size: 48, onDark: true)),
+                    ),
+                  ]),
+                  const SizedBox(height: 16),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => push(const CalendarScreen()),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)}', style: display(18, weight: 700, color: Colors.white)),
+                      const SizedBox(height: 2),
+                      Wrap(spacing: 6, children: [
+                        Text(bd.text, style: body(13.5, color: Colors.white.withValues(alpha: 0.9))),
+                        Text('·', style: body(13.5, color: Colors.white70)),
+                        Text(trf('{0}কাল', [bd.season]), style: body(13.5, color: Colors.white.withValues(alpha: 0.9))),
+                        Text('·', style: body(13.5, color: Colors.white70)),
+                        Text(hj.dayMonth, style: body(13.5, color: Colors.white.withValues(alpha: 0.9))),
+                      ]),
+                      const SizedBox(height: 10),
+                      Wrap(spacing: 8, runSpacing: 6, children: [
+                        _Chip(icon: Icons.wb_twilight, text: trf('সূর্যোদয় {0}', [bnTime(sun.sunrise.hour, sun.sunrise.minute)])),
+                        _Chip(icon: Icons.nights_stay_outlined, text: trf('সূর্যাস্ত {0}', [bnTime(sun.sunset.hour, sun.sunset.minute)])),
+                      ]),
+                    ]),
+                  ),
+                ]),
+              ]),
             ),
-            const SizedBox(height: 14),
-            const GoogleStartCard(),
-            const StartTips(),
-            if (d.reminders.isNotEmpty) const AlarmBanner(),
-            const TodaySections(),
-            const SizedBox(height: 6),
-            Material(
-              color: C.surface,
-              borderRadius: BorderRadius.circular(16),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: () => goToTab(context, ShellTab.money),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+            // What is waiting today, on a card that rises over the greeting.
+            Transform.translate(
+              offset: const Offset(0, -34),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: C.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: C.dark ? 0.35 : 0.08), blurRadius: 18, offset: const Offset(0, 6))],
+                  ),
                   child: Row(children: [
-                    _Figure(tr('পাওনা'), taka(t.receivable), C.green),
-                    _Figure(tr('দেনা'), taka(t.payable), C.orange),
-                    _Figure(tr('এ মাসে খরচ'), taka(month.expense), C.ink),
-                    Icon(Icons.chevron_right_rounded, color: C.muted),
+                    stat(const Key('home-stat-tasks'), Icons.checklist_rounded, C.green, left == 0 ? tr('সব শেষ') : trf('{0}টা', [bnDigits(left)]), tr('আজকের কাজ'),
+                        () => goToTab(context, ShellTab.diary)),
+                    Container(width: 1, height: 40, color: C.line2),
+                    stat(
+                        const Key('home-stat-reminders'),
+                        Icons.notifications_none_rounded,
+                        C.orange,
+                        remindersToday.isEmpty ? tr('নেই') : bnTime(remindersToday.first.hour, remindersToday.first.minute),
+                        remindersToday.isEmpty ? tr('আজ রিমাইন্ডার') : (remindersToday.length == 1 ? tr('পরের রিমাইন্ডার') : trf('পরেরটা · মোট {0}টা', [bnDigits(remindersToday.length)])),
+                        () => push(const AllTasksScreen())),
+                    Container(width: 1, height: 40, color: C.line2),
+                    stat(const Key('home-stat-spent'), Icons.account_balance_wallet_outlined, C.teal, taka(month.expense), tr('এ মাসে খরচ'), () => goToTab(context, ShellTab.money)),
                   ]),
                 ),
               ),
             ),
-          ]),
-        ),
-      ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              child: Transform.translate(
+                offset: const Offset(0, -20),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  if (inboxTodos.isNotEmpty) ...[
+                    _Banner(
+                      color: C.greenTint,
+                      fg: C.greenDark,
+                      icon: Icons.mark_chat_unread_outlined,
+                      title: trf('মেসেজ থেকে {0}টা কাজ', [bnDigits(inboxTodos.length)]),
+                      text: inboxTodos.first.$2.summary,
+                      onTap: () => push(const InboxScreen()),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  if (next != null && daysTo <= 30) ...[
+                    _Banner(
+                      color: C.roseTint,
+                      fg: C.roseDark,
+                      icon: Icons.flag_outlined,
+                      title: daysTo == 0 ? trf('আজ ছুটি — {0}', [next.label]) : trf('{0} — ছুটি আসছে', [next.label]),
+                      text:
+                          '${holidayRange(next)}${next.days > 1 ? ' · ${trf('টানা {0} দিন', [bnDigits(next.days)])}' : ''}${daysTo > 0 ? ' · ${trf('{0} দিন পর', [bnDigits(daysTo)])}' : ''}',
+                      onTap: () => push(const CalendarScreen()),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
+                    child: Text(tr('সব কিছু এক জায়গায়'), style: display(17, weight: 700)),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(4, 10, 4, 6),
+                    decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(20)),
+                    child: GridView.count(
+                      crossAxisCount: 4,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      childAspectRatio: 0.92,
+                      children: [
+                        for (final (label, icon, fg, bg, onTap) in shortcuts)
+                          InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: onTap,
+                            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Container(
+                                width: 50,
+                                height: 50,
+                                decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16)),
+                                child: Icon(icon, color: fg, size: 25),
+                              ),
+                              const SizedBox(height: 7),
+                              Text(label, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(12.5, weight: FontWeight.w500, height: 1.2)),
+                            ]),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const StartTips(),
+                  const SizedBox(height: 14),
+                  const GoogleStartCard(),
+                  if (d.reminders.isNotEmpty) const AlarmBanner(),
+                  const TodaySections(),
+                ]),
+              ),
+            ),
+          ],
         ),
       ),
       const AdSlot(padding: EdgeInsets.fromLTRB(16, 4, 16, 6)),
@@ -265,18 +257,66 @@ class HomePage extends StatelessWidget {
   }
 }
 
-class _Figure extends StatelessWidget {
-  const _Figure(this.label, this.value, this.color);
-  final String label;
-  final String value;
-  final Color color;
+/// A soft white circle behind the greeting.
+class _Bubble extends StatelessWidget {
+  const _Bubble({required this.size});
+  final double size;
 
   @override
-  Widget build(BuildContext context) => Expanded(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: body(12, color: C.muted)),
-          Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(16, weight: FontWeight.w600, color: color)),
+  Widget build(BuildContext context) => IgnorePointer(
+        child: Container(width: size, height: size, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.08))),
+      );
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.fromLTRB(8, 4, 10, 4),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(999)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 15, color: const Color(0xFFFDE68A)),
+          const SizedBox(width: 5),
+          Text(text, style: body(12.5, weight: FontWeight.w500, color: Colors.white)),
         ]),
+      );
+}
+
+/// A slim, tappable notice (a holiday coming, tasks from messages).
+class _Banner extends StatelessWidget {
+  const _Banner({required this.color, required this.fg, required this.icon, required this.title, required this.text, required this.onTap});
+  final Color color;
+  final Color fg;
+  final IconData icon;
+  final String title;
+  final String text;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: color,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+            child: Row(children: [
+              Icon(icon, color: fg),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(title, style: body(15, weight: FontWeight.w600, color: fg)),
+                  Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, color: fg)),
+                ]),
+              ),
+              Icon(Icons.chevron_right_rounded, color: fg),
+            ]),
+          ),
+        ),
       );
 }
 

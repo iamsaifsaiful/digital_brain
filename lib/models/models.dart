@@ -781,6 +781,46 @@ class Doc {
 /// The folders offered from the start (the user can make more).
 const docFolders = ['জাতীয় পরিচয়পত্র', 'পাসপোর্ট', 'জমি ও বাড়ির কাগজ', 'বিল ও রসিদ', 'সার্টিফিকেট', 'চিকিৎসা', 'প্রেসক্রিপশন', 'ওয়ারেন্টি ও গ্যারান্টি', 'গাড়ি ও লাইসেন্স', 'পরিবারের ছবি', 'অন্যান্য'];
 
+/// Something the user deleted, kept for [TrashItem.keepDays] days so it can
+/// be brought back (আরও › মুছে ফেলা). [items] are (list key in
+/// [AppData.toJson], the item's JSON) — the thing itself first, then what
+/// went with it (its reminder, a project's entries…). [files] are its
+/// attached files, kept on the phone until it is gone for good.
+class TrashItem {
+  TrashItem({String? id, required this.kind, required this.title, required this.deletedAt, required this.items, this.files = const []}) : id = id ?? newId();
+  final String id;
+
+  /// The list key of the main item ('notes', 'tasks', …).
+  final String kind;
+  final String title;
+  final DateTime deletedAt;
+  final List<(String, Map<String, Object?>)> items;
+  final List<String> files;
+
+  static const keepDays = 30;
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'kind': kind,
+        'title': title,
+        'deletedAt': deletedAt.toIso8601String(),
+        'items': [for (final (k, j) in items) {'k': k, 'j': j}],
+        if (files.isNotEmpty) 'files': files,
+      };
+
+  static TrashItem fromJson(Map<String, Object?> j) => TrashItem(
+        id: j['id'] as String?,
+        kind: '${j['kind'] ?? ''}',
+        title: '${j['title'] ?? ''}',
+        deletedAt: DateTime.tryParse('${j['deletedAt']}') ?? DateTime.now(),
+        items: [
+          for (final x in (j['items'] as List? ?? const []))
+            if (x is Map && x['j'] is Map) ('${x['k']}', (x['j'] as Map).cast<String, Object?>()),
+        ],
+        files: [for (final f in (j['files'] as List? ?? const [])) '$f'],
+      );
+}
+
 class AppData {
   AppData({
     List<LedgerEntry>? ledger,
@@ -808,7 +848,9 @@ class AppData {
     List<InboxMessage>? inbox,
     List<Shop>? shops,
     List<Receipt>? receipts,
+    List<TrashItem>? trash,
   })  : tasks = tasks ?? [],
+        trash = trash ?? [],
         inbox = inbox ?? [],
         shops = shops ?? [],
         receipts = receipts ?? [],
@@ -871,6 +913,9 @@ class AppData {
   /// Receipts made in the shops.
   final List<Receipt> receipts;
 
+  /// Deleted things, kept 30 days (newest last).
+  final List<TrashItem> trash;
+
   static const schema = 1;
 
   /// Every tag in use, by name.
@@ -910,6 +955,7 @@ class AppData {
         if (inbox.isNotEmpty) 'inbox': inbox.map((e) => e.toJson()).toList(),
         if (shops.isNotEmpty) 'shops': shops.map((e) => e.toJson()).toList(),
         if (receipts.isNotEmpty) 'receipts': receipts.map((e) => e.toJson()).toList(),
+        if (trash.isNotEmpty) 'trash': trash.map((e) => e.toJson()).toList(),
       };
 
   factory AppData.fromJson(Map<String, Object?> j) {
@@ -942,6 +988,7 @@ class AppData {
       inbox: list('inbox', InboxMessage.fromJson),
       shops: list('shops', Shop.fromJson),
       receipts: list('receipts', Receipt.fromJson),
+      trash: list('trash', TrashItem.fromJson),
       health: list('health', HealthLog.fromJson),
       vaccines: {for (final e in ((j['vaccines'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
     );

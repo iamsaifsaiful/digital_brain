@@ -21,9 +21,12 @@ bool get playEdition => edition == 'play' || edition == 'play_preview';
 /// The preview: no real payment; a test switch turns Pro on and off.
 bool get previewEdition => edition == 'play_preview';
 
-/// The website's Pro page (the shortcode [my_assistant_pro]). Shown only in
-/// the downloaded APK — never in the Play app (Google Play's payment rules).
+/// The website's Pro page (the shortcode [my_assistant_pro]), behind
+/// "Get Pro". Google Play's payment rules do not allow a Play Store app to
+/// send people to pay another way, so the Play Store build can turn the link
+/// off with `--dart-define=PRO_LINK=off`.
 const proWebPage = 'https://getmyassistant.app/pro/';
+const showProLink = String.fromEnvironment('PRO_LINK', defaultValue: 'on') != 'off';
 
 /// Free limits in the Play app.
 const freeShops = 1;

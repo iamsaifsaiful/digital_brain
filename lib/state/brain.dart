@@ -1126,6 +1126,7 @@ class Brain extends ChangeNotifier {
     notifyListeners();
     await carryOverTasks();
     if (loadError == null) await markOpened();
+    if (loadError == null) await purgeTrash();
     refreshAccount();
     await _reschedule();
     if (loadError == null) await _showStanding();
@@ -1257,8 +1258,81 @@ class Brain extends ChangeNotifier {
     if (oldRem != null || x.reminderId != null) await _reschedule();
   }
 
+  // ── মুছে ফেলা: deleted things kept 30 days ──
+
+  /// Keeps what is being deleted: [items] are (list key, JSON), the thing
+  /// itself first. Its [files] stay on the phone until it is gone for good.
+  void _trash(String title, List<(String, Map<String, Object?>)> items, {List<String> files = const []}) {
+    if (items.isEmpty) return;
+    data.trash.add(TrashItem(kind: items.first.$1, title: title, deletedAt: services.now(), items: items, files: files));
+  }
+
+  /// Brings a deleted thing back, with what went with it.
+  Future<void> restoreTrash(TrashItem t) async {
+    final j = data.toJson();
+    for (final (k, item) in t.items) {
+      final list = [...((j[k] as List?) ?? const [])]..removeWhere((x) => x is Map && x['id'] == item['id']);
+      list.add(item);
+      j[k] = list;
+    }
+    final keep = [for (final x in data.trash) if (x.id != t.id) x];
+    final next = AppData.fromJson(j);
+    next.trash
+      ..clear()
+      ..addAll(keep);
+    data = next;
+    await _save();
+    notifyListeners();
+    await _reschedule();
+  }
+
+  /// "ফিরিয়ে আনুন" right after deleting: the newest thing in মুছে ফেলা.
+  Future<void> undoLastDelete() async {
+    if (data.trash.isNotEmpty) await restoreTrash(data.trash.last);
+  }
+
+  /// Gone for good (with its files).
+  Future<void> forgetTrash(TrashItem t) async {
+    for (final f in t.files) {
+      await services.store.deleteDocFile(f);
+    }
+    data.trash.removeWhere((x) => x.id == t.id);
+    await _save();
+    notifyListeners();
+  }
+
+  Future<void> emptyTrash() async {
+    for (final t in [...data.trash]) {
+      for (final f in t.files) {
+        await services.store.deleteDocFile(f);
+      }
+    }
+    data.trash.clear();
+    await _save();
+    notifyListeners();
+  }
+
+  /// Things deleted more than 30 days ago go for good.
+  Future<void> purgeTrash() async {
+    final cutoff = services.now().subtract(const Duration(days: TrashItem.keepDays));
+    final old = [for (final t in data.trash) if (t.deletedAt.isBefore(cutoff)) t];
+    if (old.isEmpty) return;
+    for (final t in old) {
+      for (final f in t.files) {
+        await services.store.deleteDocFile(f);
+      }
+    }
+    data.trash.removeWhere((t) => old.contains(t));
+    await _save();
+  }
+
+  List<(String, Map<String, Object?>)> _remindersJson(Iterable<String?> ids) =>
+      [for (final r in data.reminders) if (ids.contains(r.id)) ('reminders', r.toJson())];
+
   Future<void> deleteEntry(String id) async {
-    final rem = data.ledger.where((e) => e.id == id).firstOrNull?.reminderId;
+    final e = data.ledger.where((e) => e.id == id).firstOrNull;
+    if (e != null) _trash('${e.person} · ${e.kind.label} ${taka(e.amount)}', [('ledger', e.toJson()), ..._remindersJson([e.reminderId])]);
+    final rem = e?.reminderId;
     data.ledger.removeWhere((e) => e.id == id);
     if (rem != null) data.reminders.removeWhere((r) => r.id == rem);
     await _save();
@@ -1271,6 +1345,9 @@ class Brain extends ChangeNotifier {
   }
 
   Future<void> deleteVault(String id) async {
+    for (final v in data.vault.where((e) => e.id == id)) {
+      _trash(v.name, [('vault', v.toJson())]);
+    }
     data.vault.removeWhere((e) => e.id == id);
     for (var i = 0; i < data.reminders.length; i++) {
       final r = data.reminders[i];
@@ -1320,10 +1397,9 @@ class Brain extends ChangeNotifier {
   }
 
   Future<void> deleteContact(String id) async {
+    // Its files stay until it is gone from মুছে ফেলা for good.
     for (final c in data.contacts.where((e) => e.id == id)) {
-      for (final f in c.files) {
-        await services.store.deleteDocFile(f.id);
-      }
+      _trash(c.name, [('contacts', c.toJson())], files: [for (final f in c.files) f.id]);
     }
     data.contacts.removeWhere((e) => e.id == id);
     await _save();
@@ -1336,9 +1412,7 @@ class Brain extends ChangeNotifier {
 
   Future<void> deleteNote(String id) async {
     for (final n in data.notes.where((e) => e.id == id)) {
-      for (final f in n.files) {
-        await services.store.deleteDocFile(f.id);
-      }
+      _trash(n.title.isEmpty ? n.body : n.title, [('notes', n.toJson())], files: [for (final f in n.files) f.id]);
     }
     data.notes.removeWhere((e) => e.id == id);
     await _save();
@@ -1392,9 +1466,7 @@ class Brain extends ChangeNotifier {
   Future<Uint8List?> docBytes(DocFile f) => services.store.loadDocFile(f.id);
 
   Future<void> deleteDoc(Doc d) async {
-    for (final f in d.files) {
-      await services.store.deleteDocFile(f.id);
-    }
+    _trash(d.title, [('docs', d.toJson()), ..._remindersJson([d.reminderId])], files: [for (final f in d.files) f.id]);
     data.docs.removeWhere((x) => x.id == d.id);
     if (d.reminderId != null) data.reminders.removeWhere((r) => r.id == d.reminderId);
     await _save();
@@ -1427,7 +1499,13 @@ class Brain extends ChangeNotifier {
     await _reschedule();
   }
 
-  Future<void> deleteReminder(String id) async {
+  /// [trash]: kept in মুছে ফেলা (not when it simply rang for the last time).
+  Future<void> deleteReminder(String id, {bool trash = true}) async {
+    if (trash) {
+      for (final r in data.reminders.where((e) => e.id == id)) {
+        _trash(r.title, [('reminders', r.toJson())]);
+      }
+    }
     data.reminders.removeWhere((e) => e.id == id);
     await _save();
     await services.notifier.stopRinging(id);
@@ -1446,7 +1524,7 @@ class Brain extends ChangeNotifier {
     if (r.alarm) {
       await saveReminder(r.copyWith(enabled: false));
     } else {
-      await deleteReminder(id);
+      await deleteReminder(id, trash: false);
     }
   }
 
@@ -1464,10 +1542,12 @@ class Brain extends ChangeNotifier {
 
   Future<void> deleteTask(String id) async {
     // Its ⏰ reminder goes with it.
-    final rid = data.tasks.where((e) => e.id == id).firstOrNull?.reminderId;
+    final t = data.tasks.where((e) => e.id == id).firstOrNull;
+    final rid = t?.reminderId;
+    if (t != null) _trash(t.title, [('tasks', t.toJson()), ..._remindersJson([rid])]);
     data.tasks.removeWhere((e) => e.id == id);
     await _save();
-    if (rid != null && data.reminders.any((r) => r.id == rid)) await deleteReminder(rid);
+    if (rid != null && data.reminders.any((r) => r.id == rid)) await deleteReminder(rid, trash: false);
   }
 
   Future<void> setTaskDone(Task t, bool done) => saveTask(t.copyWith(done: done, doneAt: done ? services.now() : null));
@@ -1480,6 +1560,9 @@ class Brain extends ChangeNotifier {
   }
 
   Future<void> deleteCash(String id) async {
+    for (final e in data.cash.where((e) => e.id == id)) {
+      _trash('${e.category} · ${taka(e.amount)}', [('cash', e.toJson())]);
+    }
     data.cash.removeWhere((e) => e.id == id);
     await _save();
   }
@@ -1526,6 +1609,9 @@ class Brain extends ChangeNotifier {
 
   /// Removes a project and its entries.
   Future<void> deleteProject(String id) async {
+    for (final p in data.projects.where((e) => e.id == id)) {
+      _trash(p.name, [('projects', p.toJson()), for (final c in data.cash) if (c.projectId == id) ('cash', c.toJson())]);
+    }
     data.projects.removeWhere((e) => e.id == id);
     data.cash.removeWhere((e) => e.projectId == id);
     await _save();

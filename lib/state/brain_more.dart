@@ -43,6 +43,7 @@ extension BrainMore on Brain {
   }
 
   Future<void> deleteSpecialDay(SpecialDay s) async {
+    _trash('${s.person} — ${s.kind.bn}', [('specialDays', s.toJson()), ..._remindersJson([s.reminderId])]);
     data.specialDays.removeWhere((x) => x.id == s.id);
     if (s.reminderId != null) data.reminders.removeWhere((r) => r.id == s.reminderId);
     await _save();
@@ -59,6 +60,9 @@ extension BrainMore on Brain {
   }
 
   Future<void> deleteMemory(String id) async {
+    for (final m in data.memories.where((m) => m.id == id)) {
+      _trash(m.text, [('memories', m.toJson())]);
+    }
     data.memories.removeWhere((m) => m.id == id);
     await _save();
   }
@@ -97,6 +101,7 @@ extension BrainMore on Brain {
   }
 
   Future<void> deleteHabit(Habit h) async {
+    _trash(h.name, [('habits', h.toJson()), ..._remindersJson([h.reminderId])]);
     data.habits.removeWhere((x) => x.id == h.id);
     if (h.reminderId != null) data.reminders.removeWhere((r) => r.id == h.reminderId);
     await _save();
@@ -148,6 +153,7 @@ extension BrainMore on Brain {
   }
 
   Future<void> deleteMedicine(Medicine m) async {
+    _trash(m.name, [('medicines', m.toJson()), ..._remindersJson(m.reminderIds)]);
     data.medicines.removeWhere((x) => x.id == m.id);
     data.reminders.removeWhere((r) => m.reminderIds.contains(r.id));
     await _save();
@@ -188,6 +194,9 @@ extension BrainMore on Brain {
   }
 
   Future<void> deleteGoal(String id) async {
+    for (final g in data.goals.where((x) => x.id == id)) {
+      _trash(g.name, [('goals', g.toJson())]);
+    }
     data.goals.removeWhere((x) => x.id == id);
     await _save();
   }
@@ -235,6 +244,7 @@ extension BrainMore on Brain {
   }
 
   Future<void> deleteInstallment(Installment i) async {
+    _trash(i.name, [('installments', i.toJson()), ..._remindersJson([i.reminderId])]);
     data.installments.removeWhere((x) => x.id == i.id);
     if (i.reminderId != null) data.reminders.removeWhere((r) => r.id == i.reminderId);
     await _save();
@@ -542,6 +552,9 @@ extension BrainHealth on Brain {
   }
 
   Future<void> deleteHealth(String id) async {
+    for (final h in data.health.where((h) => h.id == id)) {
+      _trash(tr('স্বাস্থ্যের মাপ'), [('health', h.toJson())]);
+    }
     data.health.removeWhere((h) => h.id == id);
     await _save();
   }

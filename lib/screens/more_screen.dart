@@ -21,6 +21,7 @@ import 'sound_screen.dart';
 import 'store_more_screens.dart' show DonorPanel;
 import 'feedback_screen.dart';
 import 'requests_screen.dart';
+import 'trash_screen.dart';
 import 'pro_screen.dart';
 import 'google_backup.dart';
 import '../logic/pro.dart';
@@ -28,7 +29,7 @@ import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '2.16.0';
+const appVersion = '2.17.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -333,7 +334,14 @@ class _MoreScreenState extends State<MoreScreen> {
           const SizedBox(height: 10),
         ],
         const SizedBox(height: 10),
-        Panel(child: linkRow(Icons.notifications_active_outlined, tr('রিমাইন্ডার ঠিকমতো বাজবে তো?'), sub: tr('ফোনের সেটিং দেখে নিন, ১ মিনিটে পরীক্ষা করুন'), onTap: () => push(const ReminderCheckScreen()))),
+        Panel(
+          child: Rows(children: [
+            linkRow(Icons.delete_outline_rounded, tr('মুছে ফেলা'),
+                sub: brain.data.trash.isEmpty ? tr('যা মুছবেন, ৩০ দিন এখানে থাকবে') : trf('{0}টা — ৩০ দিনের মধ্যে ফিরিয়ে আনা যায়', [bnDigits(brain.data.trash.length)]),
+                onTap: () => push(const TrashScreen())),
+            linkRow(Icons.notifications_active_outlined, tr('রিমাইন্ডার ঠিকমতো বাজবে তো?'), sub: tr('ফোনের সেটিং দেখে নিন, ১ মিনিটে পরীক্ষা করুন'), onTap: () => push(const ReminderCheckScreen())),
+          ]),
+        ),
         const SizedBox(height: 22),
         Text(tr('সেটিংস'), style: display(20, weight: 700)),
         const SizedBox(height: 16),

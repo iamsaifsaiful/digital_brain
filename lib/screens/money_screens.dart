@@ -196,8 +196,10 @@ Future<void> cashActions(BuildContext context, CashEntry e) async {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(
-          content: Text(tr('মুছে দিলাম')),
-          action: SnackBarAction(label: tr('ফিরিয়ে আনুন'), onPressed: () => brain.saveCash(e)),
+          content: Text(tr('মুছে দিলাম — ৩০ দিন “মুছে ফেলা”-তে থাকবে')),
+          persist: false,
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(label: tr('ফিরিয়ে আনুন'), onPressed: () => brain.undoLastDelete()),
         ));
     }
   }

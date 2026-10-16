@@ -264,6 +264,8 @@ Future<void> deleteEntryWithUndo(BuildContext context, Brain brain, LedgerEntry 
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(
       content: Text(trf('{0}: {1} {2} মুছে ফেলা হয়েছে', [e.person, e.kind.label, taka(e.amount)])),
-      action: SnackBarAction(label: tr('ফিরিয়ে আনুন'), textColor: C.mint, onPressed: () => brain.saveEntry(e)),
+      persist: false,
+      duration: const Duration(seconds: 5),
+      action: SnackBarAction(label: tr('ফিরিয়ে আনুন'), textColor: C.mint, onPressed: () => brain.undoLastDelete()),
     ));
 }
