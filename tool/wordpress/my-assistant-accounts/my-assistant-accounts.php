@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: My Assistant Accounts
- * Description: My Assistant অ্যাপের ইউজার অ্যাকাউন্ট — Google লগইন যাচাই, ফ্রি ট্রায়াল আর প্রো। শুধু নাম, ইমেইল আর প্রো-র তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.0.0
+ * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, ফ্রি ট্রায়াল আর প্রো। শুধু নাম, ইমেইল, ছবি আর প্রো-র তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
+ * Version: 1.1.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: My Assistant
@@ -13,10 +13,13 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.0.0';
+const MA_ACC_VERSION = '1.1.0';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
+const MA_ACC_PER_PAGE = 20;
 
-/** The users table. */
+require_once __DIR__ . '/admin-view.php';
+
+/** The members table. */
 function ma_acc_table() {
     global $wpdb;
     return $wpdb->prefix . 'ma_users';
@@ -30,9 +33,11 @@ function ma_acc_install() {
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
     dbDelta("CREATE TABLE $table (
         id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-        google_sub varchar(64) NOT NULL,
+        google_sub varchar(200) NOT NULL,
         email varchar(190) NOT NULL,
         name varchar(190) NOT NULL DEFAULT '',
+        picture varchar(500) NOT NULL DEFAULT '',
+        note varchar(500) NOT NULL DEFAULT '',
         created_at datetime NOT NULL,
         last_seen datetime NOT NULL,
         app_version varchar(32) NOT NULL DEFAULT '',
@@ -45,6 +50,30 @@ function ma_acc_install() {
         KEY email (email)
     ) $charset;");
     update_option('ma_acc_db_version', MA_ACC_VERSION);
+}
+
+// An update of the plugin brings new columns without re-activating.
+add_action('admin_init', function () {
+    if (get_option('ma_acc_db_version') !== MA_ACC_VERSION) {
+        ma_acc_install();
+    }
+});
+
+/** UTC "Y-m-d H:i:s" to a timestamp. */
+function ma_acc_ts($mysql) {
+    return $mysql ? strtotime($mysql . ' UTC') : 0;
+}
+
+/** free, trial, pro, expired (had Pro or a trial that ended), waiting (added by hand, not signed in yet). */
+function ma_acc_status($row) {
+    if (strpos((string) $row['google_sub'], 'pending:') === 0) {
+        return 'waiting';
+    }
+    $until = ma_acc_ts($row['pro_until'] ?? null);
+    if ($until > time()) {
+        return ($row['pro_kind'] ?? '') === 'trial' ? 'trial' : 'pro';
+    }
+    return $until ? 'expired' : 'free';
 }
 
 // ── REST API: /wp-json/my-assistant/v1/… ──
@@ -109,9 +138,15 @@ function ma_acc_answer($row) {
     return [
         'ok' => true,
         'trial_used' => !empty($row['trial_started']),
-        'pro_until' => $until ? gmdate('c', strtotime($until . ' UTC')) : null,
+        'pro_until' => $until ? gmdate('c', ma_acc_ts($until)) : null,
         'pro_kind' => (string) ($row['pro_kind'] ?? ''),
     ];
+}
+
+/** Only pictures from Google's own image host. */
+function ma_acc_picture($url) {
+    $url = esc_url_raw((string) $url);
+    return preg_match('#^https://[a-z0-9-]+\.googleusercontent\.com/#i', $url) ? substr($url, 0, 500) : '';
 }
 
 function ma_acc_login(WP_REST_Request $req) {
@@ -125,15 +160,26 @@ function ma_acc_login(WP_REST_Request $req) {
     global $wpdb;
     $table = ma_acc_table();
     $now = current_time('mysql', true);
-    $version = substr(sanitize_text_field((string) $req->get_param('app_version')), 0, 32);
-    $edition = substr(sanitize_key((string) $req->get_param('edition')), 0, 32);
-    $email = sanitize_email($c['email']);
-    $name = substr(sanitize_text_field($c['name'] ?? ''), 0, 190);
+    $fields = [
+        'email' => sanitize_email($c['email']),
+        'name' => substr(sanitize_text_field($c['name'] ?? ''), 0, 190),
+        'picture' => ma_acc_picture($c['picture'] ?? ''),
+        'last_seen' => $now,
+        'app_version' => substr(sanitize_text_field((string) $req->get_param('app_version')), 0, 32),
+        'edition' => substr(sanitize_key((string) $req->get_param('edition')), 0, 32),
+    ];
     $row = ma_acc_row($c['sub']);
+    if (!$row) {
+        // Added by hand before the first sign-in (e.g. paid by bKash): claim it.
+        $row = ma_acc_row('pending:' . strtolower($fields['email']));
+        if ($row) {
+            $fields['google_sub'] = $c['sub'];
+        }
+    }
     if ($row) {
-        $wpdb->update($table, ['email' => $email, 'name' => $name, 'last_seen' => $now, 'app_version' => $version, 'edition' => $edition], ['id' => $row['id']]);
+        $wpdb->update($table, $fields, ['id' => $row['id']]);
     } else {
-        $wpdb->insert($table, ['google_sub' => $c['sub'], 'email' => $email, 'name' => $name, 'created_at' => $now, 'last_seen' => $now, 'app_version' => $version, 'edition' => $edition]);
+        $wpdb->insert($table, $fields + ['google_sub' => $c['sub'], 'created_at' => $now]);
     }
     return rest_ensure_response(ma_acc_answer(ma_acc_row($c['sub'])));
 }
@@ -152,11 +198,9 @@ function ma_acc_trial(WP_REST_Request $req) {
         return new WP_Error('no_user', 'log in first', ['status' => 404]);
     }
     if (empty($row['trial_started'])) {
-        $now = current_time('mysql', true);
-        $until = gmdate('Y-m-d H:i:s', time() + 7 * DAY_IN_SECONDS);
-        $data = ['trial_started' => $now];
-        if (empty($row['pro_until']) || strtotime($row['pro_until'] . ' UTC') < time()) {
-            $data['pro_until'] = $until;
+        $data = ['trial_started' => current_time('mysql', true)];
+        if (ma_acc_ts($row['pro_until']) < time()) {
+            $data['pro_until'] = gmdate('Y-m-d H:i:s', time() + 7 * DAY_IN_SECONDS);
             $data['pro_kind'] = 'trial';
         }
         $wpdb->update(ma_acc_table(), $data, ['id' => $row['id']]);
@@ -164,83 +208,185 @@ function ma_acc_trial(WP_REST_Request $req) {
     return rest_ensure_response(ma_acc_answer(ma_acc_row($c['sub'])));
 }
 
-// ── Admin page: settings, users, and Pro given by hand (e.g. paid by bKash on the website) ──
+// ── Admin: the page, and its actions (each with a nonce, back to the page with a message) ──
 
 add_action('admin_menu', function () {
     add_menu_page('My Assistant', 'My Assistant', 'manage_options', 'my-assistant', 'ma_acc_admin', 'dashicons-groups', 80);
 });
 
+function ma_acc_back($msg, $type = 'ok', $extra = []) {
+    wp_safe_redirect(add_query_arg(array_merge(['page' => 'my-assistant', 'ma_msg' => rawurlencode($msg), 'ma_type' => $type], $extra), admin_url('admin.php')));
+    exit;
+}
+
+function ma_acc_guard($action) {
+    if (!current_user_can('manage_options')) {
+        wp_die('Not allowed', 403);
+    }
+    check_admin_referer($action);
+}
+
+/** Adds [days] of Pro from today, or from the end of the Pro already running. */
+function ma_acc_extend($row, $days) {
+    $base = max(time(), ma_acc_ts($row['pro_until'] ?? null));
+    return gmdate('Y-m-d H:i:s', $base + $days * DAY_IN_SECONDS);
+}
+
+add_action('admin_post_ma_acc_settings', function () {
+    ma_acc_guard('ma_acc_settings');
+    update_option(MA_ACC_OPTION_CLIENTS, sanitize_text_field(wp_unslash($_POST['client_ids'] ?? '')));
+    ma_acc_back('সেটিংস রাখা হয়েছে।', 'ok', ['tab' => 'settings']);
+});
+
+add_action('admin_post_ma_acc_add', function () {
+    ma_acc_guard('ma_acc_add');
+    global $wpdb;
+    $table = ma_acc_table();
+    $email = strtolower(sanitize_email(wp_unslash($_POST['email'] ?? '')));
+    $name = substr(sanitize_text_field(wp_unslash($_POST['name'] ?? '')), 0, 190);
+    $days = max(0, min(3660, (int) ($_POST['days'] ?? 0)));
+    $note = substr(sanitize_text_field(wp_unslash($_POST['note'] ?? '')), 0, 500);
+    if (!is_email($email)) {
+        ma_acc_back('ঠিক ইমেইল দিন।', 'error');
+    }
+    $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE email = %s ORDER BY id LIMIT 1", $email), ARRAY_A);
+    if ($row) {
+        $wpdb->update($table, ['pro_until' => $days ? ma_acc_extend($row, $days) : $row['pro_until'], 'pro_kind' => $days ? 'manual' : $row['pro_kind'], 'note' => $note ?: $row['note']], ['id' => $row['id']]);
+        ma_acc_back('এই ইমেইলের সদস্য আগেই ছিলেন — প্রো যোগ করা হলো।');
+    }
+    $now = current_time('mysql', true);
+    $wpdb->insert($table, [
+        'google_sub' => 'pending:' . $email,
+        'email' => $email,
+        'name' => $name,
+        'note' => $note,
+        'created_at' => $now,
+        'last_seen' => $now,
+        'pro_until' => $days ? gmdate('Y-m-d H:i:s', time() + $days * DAY_IN_SECONDS) : null,
+        'pro_kind' => $days ? 'manual' : '',
+    ]);
+    ma_acc_back('যোগ করা হলো। এই ইমেইলে অ্যাপে Google দিয়ে লগইন করলেই প্রো চালু হবে।');
+});
+
+add_action('admin_post_ma_acc_edit', function () {
+    ma_acc_guard('ma_acc_edit');
+    global $wpdb;
+    $table = ma_acc_table();
+    $id = (int) ($_POST['id'] ?? 0);
+    $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", $id), ARRAY_A);
+    if (!$row) {
+        ma_acc_back('সদস্য পাওয়া যায়নি।', 'error');
+    }
+    $mode = sanitize_key($_POST['mode'] ?? 'add');
+    $days = max(0, min(3660, (int) ($_POST['days'] ?? 0)));
+    $data = ['note' => substr(sanitize_text_field(wp_unslash($_POST['note'] ?? '')), 0, 500)];
+    if ($mode === 'stop') {
+        $data['pro_until'] = null;
+        $data['pro_kind'] = '';
+    } elseif ($days > 0) {
+        $data['pro_until'] = ma_acc_extend($row, $days);
+        $data['pro_kind'] = 'manual';
+    }
+    $wpdb->update($table, $data, ['id' => $id]);
+    ma_acc_back($mode === 'stop' ? 'প্রো বন্ধ করা হলো।' : 'রাখা হয়েছে। সদস্য অ্যাপে আবার লগইন করলে নতুন প্রো দেখাবে।');
+});
+
+add_action('admin_post_ma_acc_delete', function () {
+    ma_acc_guard('ma_acc_delete');
+    global $wpdb;
+    $wpdb->delete(ma_acc_table(), ['id' => (int) ($_POST['id'] ?? 0)]);
+    ma_acc_back('সদস্যের তথ্য মুছে ফেলা হলো। আবার লগইন করলে নতুন করে যোগ হবেন।');
+});
+
+/** Excel opens this CSV directly (UTF-8 with BOM keeps Bangla readable). */
+add_action('admin_post_ma_acc_export', function () {
+    ma_acc_guard('ma_acc_export');
+    global $wpdb;
+    $rows = $wpdb->get_results('SELECT * FROM ' . ma_acc_table() . ' ORDER BY created_at DESC', ARRAY_A);
+    nocache_headers();
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=my-assistant-members-' . gmdate('Y-m-d') . '.csv');
+    $out = fopen('php://output', 'w');
+    fwrite($out, "\xEF\xBB\xBF");
+    fputcsv($out, ['নাম', 'ইমেইল', 'অবস্থা', 'প্রো পর্যন্ত', 'ধরন', 'ট্রায়াল শুরু', 'যোগ দিয়েছেন', 'শেষ দেখা', 'সংস্করণ', 'নোট']);
+    $labels = ma_acc_status_labels();
+    foreach ($rows as $r) {
+        $cells = [$r['name'], $r['email'], $labels[ma_acc_status($r)][0], $r['pro_until'], $r['pro_kind'], $r['trial_started'], $r['created_at'], $r['last_seen'], trim($r['app_version'] . ' ' . $r['edition']), $r['note']];
+        // A cell starting with = + - @ would run as a formula in Excel.
+        fputcsv($out, array_map(function ($v) {
+            $v = (string) $v;
+            return preg_match('/^[=+\-@]/', $v) ? "'" . $v : $v;
+        }, $cells));
+    }
+    fclose($out);
+    exit;
+});
+
+/** The admin page: reads the data, then draws it (admin-view.php). */
 function ma_acc_admin() {
     if (!current_user_can('manage_options')) {
         return;
     }
     global $wpdb;
     $table = ma_acc_table();
-    $msg = '';
-    if (isset($_POST['ma_acc_save']) && check_admin_referer('ma_acc_settings')) {
-        $ids = sanitize_text_field(wp_unslash($_POST['client_ids'] ?? ''));
-        update_option(MA_ACC_OPTION_CLIENTS, $ids);
-        $msg = 'সেটিংস রাখা হয়েছে।';
+    $tab = sanitize_key($_GET['tab'] ?? 'members');
+    $q = sanitize_text_field(wp_unslash($_GET['q'] ?? ''));
+    $status = sanitize_key($_GET['status'] ?? '');
+    $page = max(1, (int) ($_GET['paged'] ?? 1));
+
+    $where = ['1=1'];
+    $args = [];
+    if ($q !== '') {
+        $where[] = '(name LIKE %s OR email LIKE %s)';
+        $like = '%' . $wpdb->esc_like($q) . '%';
+        $args[] = $like;
+        $args[] = $like;
     }
-    if (isset($_POST['ma_acc_pro']) && check_admin_referer('ma_acc_pro')) {
-        $email = sanitize_email(wp_unslash($_POST['email'] ?? ''));
-        $days = max(0, min(3660, (int) ($_POST['days'] ?? 0)));
-        $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE email = %s", $email), ARRAY_A);
-        if (!$row) {
-            $msg = 'এই ইমেইলে কোনো ইউজার নেই — আগে অ্যাপে Google দিয়ে লগইন করতে বলুন।';
-        } elseif ($days === 0) {
-            $wpdb->update($table, ['pro_until' => null, 'pro_kind' => ''], ['id' => $row['id']]);
-            $msg = 'প্রো বন্ধ করা হলো: ' . esc_html($email);
-        } else {
-            $base = (!empty($row['pro_until']) && strtotime($row['pro_until'] . ' UTC') > time()) ? strtotime($row['pro_until'] . ' UTC') : time();
-            $wpdb->update($table, ['pro_until' => gmdate('Y-m-d H:i:s', $base + $days * DAY_IN_SECONDS), 'pro_kind' => 'manual'], ['id' => $row['id']]);
-            $msg = 'প্রো দেওয়া হলো: ' . esc_html($email) . ' (' . $days . ' দিন)। অ্যাপে (সেটিংস › Google অ্যাকাউন্ট) লগআউট করে আবার লগইন করলে চালু হবে।';
-        }
+    $now = gmdate('Y-m-d H:i:s');
+    switch ($status) {
+        case 'pro':
+            $where[] = "pro_until > '$now' AND pro_kind <> 'trial' AND google_sub NOT LIKE 'pending:%'";
+            break;
+        case 'trial':
+            $where[] = "pro_until > '$now' AND pro_kind = 'trial'";
+            break;
+        case 'free':
+            $where[] = "pro_until IS NULL AND google_sub NOT LIKE 'pending:%'";
+            break;
+        case 'expired':
+            $where[] = "pro_until IS NOT NULL AND pro_until <= '$now'";
+            break;
+        case 'waiting':
+            $where[] = "google_sub LIKE 'pending:%'";
+            break;
     }
-    $total = (int) $wpdb->get_var("SELECT COUNT(*) FROM $table");
-    $pro = (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE pro_until > UTC_TIMESTAMP() AND pro_kind <> 'trial'");
-    $trial = (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE pro_until > UTC_TIMESTAMP() AND pro_kind = 'trial'");
-    $rows = $wpdb->get_results("SELECT email, name, created_at, last_seen, app_version, edition, trial_started, pro_until, pro_kind FROM $table ORDER BY last_seen DESC LIMIT 200", ARRAY_A);
-    ?>
-    <div class="wrap">
-        <h1>My Assistant — ইউজার</h1>
-        <?php if ($msg) : ?><div class="notice notice-info"><p><?php echo esc_html($msg); ?></p></div><?php endif; ?>
-        <p>মোট ইউজার: <strong><?php echo (int) $total; ?></strong> · প্রো: <strong><?php echo (int) $pro; ?></strong> · ট্রায়ালে: <strong><?php echo (int) $trial; ?></strong></p>
+    $sql_where = implode(' AND ', $where);
+    $count_sql = "SELECT COUNT(*) FROM $table WHERE $sql_where";
+    $list_sql = "SELECT * FROM $table WHERE $sql_where ORDER BY last_seen DESC LIMIT %d OFFSET %d";
+    $found = (int) ($args ? $wpdb->get_var($wpdb->prepare($count_sql, $args)) : $wpdb->get_var($count_sql));
+    $rows = $wpdb->get_results($wpdb->prepare($list_sql, array_merge($args, [MA_ACC_PER_PAGE, ($page - 1) * MA_ACC_PER_PAGE])), ARRAY_A);
 
-        <h2>সেটিংস</h2>
-        <form method="post">
-            <?php wp_nonce_field('ma_acc_settings'); ?>
-            <p><label>Google OAuth Web client ID (একাধিক হলে কমা দিয়ে)<br>
-                <input type="text" name="client_ids" class="large-text" value="<?php echo esc_attr(get_option(MA_ACC_OPTION_CLIENTS, '')); ?>"></label></p>
-            <p><button class="button button-primary" name="ma_acc_save" value="1">রাখুন</button></p>
-        </form>
+    $week = gmdate('Y-m-d H:i:s', time() - 7 * DAY_IN_SECONDS);
+    $stats = [
+        'total' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE google_sub NOT LIKE 'pending:%'"),
+        'pro' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE pro_until > '$now' AND pro_kind <> 'trial'"),
+        'trial' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE pro_until > '$now' AND pro_kind = 'trial'"),
+        'week' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE created_at > '$week' AND google_sub NOT LIKE 'pending:%'"),
+        'active' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE last_seen > '$week' AND google_sub NOT LIKE 'pending:%'"),
+    ];
 
-        <h2>হাতে প্রো দিন (যেমন ওয়েবসাইটে বিকাশে পেমেন্ট)</h2>
-        <form method="post">
-            <?php wp_nonce_field('ma_acc_pro'); ?>
-            <input type="email" name="email" placeholder="ইউজারের Google ইমেইল" required>
-            <input type="number" name="days" min="0" max="3660" value="365" style="width:90px"> দিন (০ = প্রো বন্ধ)
-            <button class="button" name="ma_acc_pro" value="1">দিন</button>
-        </form>
-
-        <h2>সাম্প্রতিক ২০০ জন</h2>
-        <table class="widefat striped">
-            <thead><tr><th>ইমেইল</th><th>নাম</th><th>যোগ দিয়েছেন</th><th>শেষ দেখা</th><th>সংস্করণ</th><th>ট্রায়াল</th><th>প্রো পর্যন্ত</th></tr></thead>
-            <tbody>
-            <?php foreach ($rows as $r) : ?>
-                <tr>
-                    <td><?php echo esc_html($r['email']); ?></td>
-                    <td><?php echo esc_html($r['name']); ?></td>
-                    <td><?php echo esc_html($r['created_at']); ?></td>
-                    <td><?php echo esc_html($r['last_seen']); ?></td>
-                    <td><?php echo esc_html($r['app_version'] . ' ' . $r['edition']); ?></td>
-                    <td><?php echo $r['trial_started'] ? esc_html($r['trial_started']) : '—'; ?></td>
-                    <td><?php echo $r['pro_until'] ? esc_html($r['pro_until'] . ' (' . $r['pro_kind'] . ')') : '—'; ?></td>
-                </tr>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
-        <p style="color:#666">সময় UTC-তে। এখানে শুধু নাম, ইমেইল আর প্রো-র তথ্য থাকে — ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো আসে না।</p>
-    </div>
-    <?php
+    ma_acc_render([
+        'tab' => $tab,
+        'q' => $q,
+        'status' => $status,
+        'page' => $page,
+        'pages' => max(1, (int) ceil($found / MA_ACC_PER_PAGE)),
+        'found' => $found,
+        'rows' => $rows,
+        'stats' => $stats,
+        'clients' => (string) get_option(MA_ACC_OPTION_CLIENTS, ''),
+        'msg' => isset($_GET['ma_msg']) ? sanitize_text_field(rawurldecode(wp_unslash($_GET['ma_msg']))) : '',
+        'msg_type' => sanitize_key($_GET['ma_type'] ?? 'ok'),
+        'endpoint' => rest_url('my-assistant/v1/login'),
+    ]);
 }
