@@ -66,47 +66,59 @@ class HomePage extends StatelessWidget {
     final top = MediaQuery.of(context).padding.top;
     final first = brain.userName.trim().isEmpty ? '' : brain.userName.trim().split(' ').first;
 
-    // Most used first: the day's work, then money, then the rest.
+    // Most used first: the day's work, then money, then the rest. Twelve,
+    // so the grid is full (মেসেজ থেকে কাজ lives in সংরক্ষণ).
     final shortcuts = <(String, IconData, Color, Color, VoidCallback)>[
-      (tr('কাজের তালিকা'), Icons.checklist_rounded, C.green, C.greenTint, () => goToTab(context, ShellTab.diary)),
-      (tr('রিমাইন্ডার'), Icons.notifications_none_rounded, C.orange, C.orangeTint, () => push(const AllTasksScreen())),
-      (tr('হিসাব'), Icons.account_balance_wallet_outlined, C.teal, C.tealTint, () => goToTab(context, ShellTab.money)),
-      (tr('ক্যালেন্ডার'), Icons.calendar_month_outlined, C.blue, C.blueTint, () => push(const CalendarScreen())),
-      (tr('নোট'), Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, () => push(const NotesScreen())),
-      (tr('ডকুমেন্টস'), Icons.folder_copy_outlined, C.blue, C.blueTint, () => push(const DocsScreen())),
-      (tr('যোগাযোগ'), Icons.call_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
-      (tr('স্বাস্থ্য'), Icons.favorite_border_rounded, C.rose, C.roseTint, () => push(const HealthScreen())),
-      (tr('অ্যালার্ম'), Icons.alarm_rounded, C.orange, C.orangeTint, () => push(const AlarmsScreen())),
-      (tr('পাসওয়ার্ড'), Icons.lock_outline_rounded, C.ink, C.soft, () => push(const VaultPage())),
-      (tr('অনুরোধ'), Icons.bloodtype_outlined, C.rose, C.roseTint, () => push(const RequestsScreen())),
-      if (brain.inboxSupported) (tr('মেসেজ থেকে কাজ'), Icons.mark_chat_unread_outlined, C.green, C.greenTint, () => push(const InboxScreen())),
-      (tr('প্রো ভার্সন'), Icons.workspace_premium_outlined, C.ochre, C.ochreTint, () => push(const ProScreen())),
+      (tr('কাজের তালিকা'), Icons.checklist_rounded, const Color(0xFF34D399), const Color(0xFF059669), () => goToTab(context, ShellTab.diary)),
+      (tr('রিমাইন্ডার'), Icons.notifications_active_outlined, const Color(0xFFFBBF24), const Color(0xFFEA580C), () => push(const AllTasksScreen())),
+      (tr('হিসাব'), Icons.account_balance_wallet_outlined, const Color(0xFF2DD4BF), const Color(0xFF0F766E), () => goToTab(context, ShellTab.money)),
+      (tr('ক্যালেন্ডার'), Icons.calendar_month_outlined, const Color(0xFF60A5FA), const Color(0xFF2563EB), () => push(const CalendarScreen())),
+      (tr('নোট'), Icons.sticky_note_2_outlined, const Color(0xFFFCD34D), const Color(0xFFD97706), () => push(const NotesScreen())),
+      (tr('ডকুমেন্টস'), Icons.folder_copy_outlined, const Color(0xFF818CF8), const Color(0xFF4F46E5), () => push(const DocsScreen())),
+      (tr('যোগাযোগ'), Icons.call_outlined, const Color(0xFFC084FC), const Color(0xFF7C3AED), () => push(const CallsScreen())),
+      (tr('স্বাস্থ্য'), Icons.favorite_border_rounded, const Color(0xFFFB7185), const Color(0xFFE11D48), () => push(const HealthScreen())),
+      (tr('অ্যালার্ম'), Icons.alarm_rounded, const Color(0xFFFDBA74), const Color(0xFFEA580C), () => push(const AlarmsScreen())),
+      (tr('পাসওয়ার্ড'), Icons.lock_outline_rounded, const Color(0xFF64748B), const Color(0xFF1E293B), () => push(const VaultPage())),
+      (tr('অনুরোধ'), Icons.bloodtype_outlined, const Color(0xFFF87171), const Color(0xFFB91C1C), () => push(const RequestsScreen())),
+      (tr('প্রো ভার্সন'), Icons.workspace_premium_outlined, const Color(0xFFFCD34D), const Color(0xFFB45309), () => push(const ProScreen())),
     ];
     final inboxTodos = inboxTodo(d, now);
 
     if (brain.easyMode) return const EasyHome();
 
-    Widget stat(Key key, Widget lead, String value, String label, VoidCallback onTap) => Expanded(
-          child: InkWell(
-            key: key,
-            borderRadius: BorderRadius.circular(14),
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-              child: Column(children: [
-                SizedBox(height: 34, child: Center(child: lead)),
-                const SizedBox(height: 6),
-                Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(17, weight: 700)),
-                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: C.muted)),
-              ]),
+    Widget stat(Key key, List<Color> colors, Widget lead, String value, String label, VoidCallback onTap) => Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [BoxShadow(color: colors.last.withValues(alpha: C.dark ? 0.45 : 0.32), blurRadius: 16, offset: const Offset(0, 8))],
+            ),
+            child: Material(
+              borderRadius: BorderRadius.circular(20),
+              clipBehavior: Clip.antiAlias,
+              child: Ink(
+                decoration: BoxDecoration(gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight)),
+                child: InkWell(
+                  key: key,
+                  onTap: onTap,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      lead,
+                      const SizedBox(height: 10),
+                      Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(18, weight: 700, color: Colors.white)),
+                      Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: Colors.white.withValues(alpha: 0.88))),
+                    ]),
+                  ),
+                ),
+              ),
             ),
           ),
         );
-    Widget badge(IconData icon, Color fg, Color bg) => Container(
+    Widget badge(IconData icon) => Container(
           width: 34,
           height: 34,
-          decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
-          child: Icon(icon, color: fg, size: 19),
+          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), shape: BoxShape.circle),
+          child: Icon(icon, color: Colors.white, size: 19),
         );
 
     const shade = [Shadow(color: Color(0x66000000), blurRadius: 8)];
@@ -184,113 +196,109 @@ class HomePage extends StatelessWidget {
                 ),
               ),
             ),
-            // What is waiting today, on a card that rises over the fields.
+            // What is waiting today: three bright tiles standing on the fields.
             Transform.translate(
-              offset: const Offset(0, -36),
+              offset: const Offset(0, -40),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: C.surface,
-                    borderRadius: BorderRadius.circular(22),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: C.dark ? 0.4 : 0.12), blurRadius: 24, offset: const Offset(0, 10))],
-                  ),
-                  child: Row(children: [
-                    stat(
-                        const Key('home-stat-tasks'),
-                        SizedBox(
-                          width: 34,
-                          height: 34,
-                          child: Stack(alignment: Alignment.center, children: [
-                            CircularProgressIndicator(
-                              value: allTasks == 0 ? 1 : doneToday / allTasks,
-                              strokeWidth: 3.5,
-                              strokeCap: StrokeCap.round,
-                              color: C.green,
-                              backgroundColor: C.greenTint,
-                            ),
-                            Icon(left == 0 ? Icons.check_rounded : Icons.checklist_rounded, size: 16, color: C.green),
-                          ]),
-                        ),
-                        left == 0 ? tr('সব শেষ') : trf('{0}টা বাকি', [bnDigits(left)]),
-                        tr('আজকের কাজ'),
-                        () => goToTab(context, ShellTab.diary)),
-                    Container(width: 1, height: 44, color: C.line2),
-                    stat(
-                        const Key('home-stat-reminders'),
-                        badge(Icons.notifications_none_rounded, C.orange, C.orangeTint),
-                        remindersToday.isEmpty ? tr('নেই') : bnTime(remindersToday.first.hour, remindersToday.first.minute),
-                        remindersToday.isEmpty ? tr('আজ রিমাইন্ডার') : (remindersToday.length == 1 ? tr('পরের রিমাইন্ডার') : trf('পরেরটা, মোট {0}টা', [bnDigits(remindersToday.length)])),
-                        () => push(const AllTasksScreen())),
-                    Container(width: 1, height: 44, color: C.line2),
-                    stat(const Key('home-stat-spent'), badge(Icons.account_balance_wallet_outlined, C.teal, C.tealTint), taka(month.expense), tr('এ মাসে খরচ'),
-                        () => goToTab(context, ShellTab.money)),
-                  ]),
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Row(children: [
+                  stat(
+                      const Key('home-stat-tasks'),
+                      const [Color(0xFF22C55E), Color(0xFF0F766E)],
+                      SizedBox(
+                        width: 34,
+                        height: 34,
+                        child: Stack(alignment: Alignment.center, children: [
+                          CircularProgressIndicator(
+                            value: allTasks == 0 ? 1 : doneToday / allTasks,
+                            strokeWidth: 3.5,
+                            strokeCap: StrokeCap.round,
+                            color: Colors.white,
+                            backgroundColor: Colors.white.withValues(alpha: 0.25),
+                          ),
+                          Icon(left == 0 ? Icons.check_rounded : Icons.checklist_rounded, size: 16, color: Colors.white),
+                        ]),
+                      ),
+                      left == 0 ? tr('সব শেষ') : trf('{0}টা বাকি', [bnDigits(left)]),
+                      tr('আজকের কাজ'),
+                      () => goToTab(context, ShellTab.diary)),
+                  const SizedBox(width: 10),
+                  stat(
+                      const Key('home-stat-reminders'),
+                      const [Color(0xFFFBBF24), Color(0xFFEA580C)],
+                      badge(Icons.notifications_active_outlined),
+                      remindersToday.isEmpty ? tr('নেই') : bnTime(remindersToday.first.hour, remindersToday.first.minute),
+                      remindersToday.isEmpty ? tr('আজ রিমাইন্ডার') : (remindersToday.length == 1 ? tr('পরের রিমাইন্ডার') : trf('পরেরটা, মোট {0}টা', [bnDigits(remindersToday.length)])),
+                      () => push(const AllTasksScreen())),
+                  const SizedBox(width: 10),
+                  stat(const Key('home-stat-spent'), const [Color(0xFF60A5FA), Color(0xFF4F46E5)], badge(Icons.account_balance_wallet_outlined), taka(month.expense), tr('এ মাসে খরচ'),
+                      () => goToTab(context, ShellTab.money)),
+                ]),
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
               child: Transform.translate(
-                offset: const Offset(0, -20),
+                offset: const Offset(0, -24),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   if (inboxTodos.isNotEmpty) ...[
-                    _Banner(
-                      color: C.greenTint,
-                      fg: C.greenDark,
-                      icon: Icons.mark_chat_unread_outlined,
+                    _Ticket(
+                      colors: const [Color(0xFF34D399), Color(0xFF059669)],
+                      block: const Icon(Icons.mark_chat_unread_outlined, color: Colors.white, size: 26),
                       title: trf('মেসেজ থেকে {0}টা কাজ', [bnDigits(inboxTodos.length)]),
                       text: inboxTodos.first.$2.summary,
                       onTap: () => push(const InboxScreen()),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                   ],
                   if (next != null && daysTo <= 30) ...[
-                    _Banner(
-                      color: C.roseTint,
-                      fg: C.roseDark,
-                      icon: Icons.flag_outlined,
-                      title: daysTo == 0 ? trf('আজ ছুটি — {0}', [next.label]) : trf('{0} — ছুটি আসছে', [next.label]),
-                      text:
-                          '${holidayRange(next)}${next.days > 1 ? ' · ${trf('টানা {0} দিন', [bnDigits(next.days)])}' : ''}${daysTo > 0 ? ' · ${trf('{0} দিন পর', [bnDigits(daysTo)])}' : ''}',
+                    _Ticket(
+                      colors: const [Color(0xFFFB7185), Color(0xFFBE123C)],
+                      block: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Text(bnDigits(next.start.day), style: display(22, weight: 700, color: Colors.white, height: 1.05)),
+                        Text(monthName(next.start.month), maxLines: 1, overflow: TextOverflow.clip, style: body(10.5, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.9), height: 1.1)),
+                      ]),
+                      title: daysTo == 0 ? trf('আজ ছুটি — {0}', [next.label]) : next.label,
+                      text: '${holidayRange(next)}${next.days > 1 ? ', ${trf('টানা {0} দিন', [bnDigits(next.days)])}' : ''}',
+                      tag: daysTo > 0 ? trf('{0} দিন পর', [bnDigits(daysTo)]) : null,
                       onTap: () => push(const CalendarScreen()),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                   ],
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
-                    child: Text(tr('সব কিছু এক জায়গায়'), style: display(17, weight: 700)),
+                    padding: const EdgeInsets.fromLTRB(4, 8, 4, 12),
+                    child: Text(tr('সব কিছু এক জায়গায়'), style: display(18, weight: 700)),
                   ),
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(4, 10, 4, 6),
-                    decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(20)),
-                    child: GridView.count(
-                      crossAxisCount: 4,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      childAspectRatio: 0.92,
-                      children: [
-                        for (final (label, icon, fg, bg, onTap) in shortcuts)
-                          InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: onTap,
-                            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                              Container(
-                                width: 50,
-                                height: 50,
-                                decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16)),
-                                child: Icon(icon, color: fg, size: 25),
+                  GridView.count(
+                    crossAxisCount: 4,
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: 6,
+                    childAspectRatio: 0.86,
+                    children: [
+                      for (final (label, icon, light, deep, onTap) in shortcuts)
+                        InkWell(
+                          borderRadius: BorderRadius.circular(18),
+                          onTap: onTap,
+                          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            Container(
+                              width: 58,
+                              height: 58,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(colors: [light, deep], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                                borderRadius: BorderRadius.circular(19),
+                                boxShadow: [BoxShadow(color: deep.withValues(alpha: C.dark ? 0.5 : 0.3), blurRadius: 10, offset: const Offset(0, 5))],
                               ),
-                              const SizedBox(height: 7),
-                              Text(label, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(12.5, weight: FontWeight.w500, height: 1.2)),
-                            ]),
-                          ),
-                      ],
-                    ),
+                              child: Icon(icon, color: Colors.white, size: 27),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(label, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(12.5, weight: FontWeight.w500, height: 1.2)),
+                          ]),
+                        ),
+                    ],
                   ),
                   const StartTips(),
-                  const SizedBox(height: 14),
                   const GoogleStartCard(),
                   if (d.reminders.isNotEmpty) const AlarmBanner(),
                   const TodaySections(),
@@ -330,35 +338,50 @@ class _SunLabel extends StatelessWidget {
       );
 }
 
-/// A slim, tappable notice (a holiday coming, tasks from messages).
-class _Banner extends StatelessWidget {
-  const _Banner({required this.color, required this.fg, required this.icon, required this.title, required this.text, required this.onTap});
-  final Color color;
-  final Color fg;
-  final IconData icon;
+/// A notice shaped like a ticket: a bright block on the left (the day of a
+/// holiday, or an icon), what it is, and how far away.
+class _Ticket extends StatelessWidget {
+  const _Ticket({required this.colors, required this.block, required this.title, required this.text, this.tag, required this.onTap});
+  final List<Color> colors;
+  final Widget block;
   final String title;
   final String text;
+  final String? tag;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) => Material(
-        color: color,
-        borderRadius: BorderRadius.circular(16),
+        color: C.surface,
+        borderRadius: BorderRadius.circular(18),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+            padding: const EdgeInsets.all(10),
             child: Row(children: [
-              Icon(icon, color: fg),
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight), borderRadius: BorderRadius.circular(14)),
+                child: Center(child: block),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title, style: body(15, weight: FontWeight.w600, color: fg)),
-                  Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, color: fg)),
+                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15.5, weight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, color: C.muted)),
                 ]),
               ),
-              Icon(Icons.chevron_right_rounded, color: fg),
+              if (tag != null)
+                Container(
+                  margin: const EdgeInsets.only(left: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(color: colors.last.withValues(alpha: C.dark ? 0.28 : 0.1), borderRadius: BorderRadius.circular(999)),
+                  child: Text(tag!, style: body(12, weight: FontWeight.w600, color: C.dark ? colors.first : colors.last)),
+                )
+              else
+                Icon(Icons.chevron_right_rounded, color: C.muted),
             ]),
           ),
         ),

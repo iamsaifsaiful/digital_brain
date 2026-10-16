@@ -5,6 +5,7 @@ import '../models/models.dart';
 import '../services/notifications.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
+import '../ui/widgets.dart' show toast;
 import 'alarm_screens.dart';
 import 'calls_screen.dart';
 import 'help_screen.dart';
@@ -26,7 +27,7 @@ class TodaySections extends StatelessWidget {
     final tomorrowItems = plan.ahead.where((i) => dayOnly(i.sort) == tomorrow).toList();
 
     Widget box(List<Widget> rows, {Color? color}) => Container(
-          decoration: BoxDecoration(color: color ?? C.ground, borderRadius: BorderRadius.circular(16)),
+          decoration: BoxDecoration(color: color ?? C.surface, borderRadius: BorderRadius.circular(18)),
           clipBehavior: Clip.antiAlias,
           child: Column(children: [
             for (final (i, r) in rows.indexed) ...[
@@ -51,7 +52,7 @@ class TodaySections extends StatelessWidget {
             ),
         ]),
       ],
-      _Heading(trf('আজ · {0}, {1} {2}', [weekdayName(now), bnDigits(now.day), monthName(now.month)]),
+      _Heading(tr('আজকের তালিকা'), big: true,
           action: TextButton.icon(
             onPressed: () => showAddSheet(context, remind: true),
             icon: Icon(Icons.add_rounded, size: 18, color: C.green),
@@ -72,9 +73,11 @@ class TodaySections extends StatelessWidget {
       ],
       Align(
         alignment: Alignment.centerLeft,
-        child: TextButton(
+        child: TextButton.icon(
           onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AllTasksScreen())),
-          child: Text(tr('সব কাজ ও রিমাইন্ডার দেখুন →'), style: body(14, weight: FontWeight.w600, color: C.green)),
+          iconAlignment: IconAlignment.end,
+          icon: Icon(Icons.arrow_forward_rounded, size: 18, color: C.green),
+          label: Text(tr('সব কাজ ও রিমাইন্ডার দেখুন'), style: body(14, weight: FontWeight.w600, color: C.green)),
         ),
       ),
     ]);
@@ -82,17 +85,18 @@ class TodaySections extends StatelessWidget {
 }
 
 class _Heading extends StatelessWidget {
-  const _Heading(this.text, {Color? color, this.action}) : _color = color;
+  const _Heading(this.text, {Color? color, this.action, this.big = false}) : _color = color;
   final String text;
+  final bool big;
   final Color? _color;
   Color get color => _color ?? C.muted;
   final Widget? action;
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.fromLTRB(2, 18, 0, action == null ? 8 : 0),
+        padding: EdgeInsets.fromLTRB(4, big ? 22 : 18, 0, action == null ? 8 : 2),
         child: Row(children: [
-          Expanded(child: Text(text, style: body(13, weight: FontWeight.w600, color: color))),
+          Expanded(child: Text(text, style: big ? display(18, weight: 700) : body(13, weight: FontWeight.w600, color: color))),
           if (action != null) action!,
         ]),
       );
@@ -181,13 +185,21 @@ class StartTips extends StatefulWidget {
 
 class _StartTipsState extends State<StartTips> {
   bool? _hidden;
+  Set<String> _seen = {};
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final v = await BrainScope.read(context).services.lock.keys.read('tips_done');
-      if (mounted) setState(() => _hidden = v == 'true');
+      final keys = BrainScope.read(context).services.lock.keys;
+      final v = await keys.read('tips_done');
+      final seen = (await keys.read('tips_seen')) ?? '';
+      if (mounted) {
+        setState(() {
+          _hidden = v == 'true';
+          _seen = {for (final x in seen.split(',')) if (x.isNotEmpty) x};
+        });
+      }
     });
   }
 
@@ -196,54 +208,84 @@ class _StartTipsState extends State<StartTips> {
     if (mounted) setState(() => _hidden = true);
   }
 
+  Future<void> _mark(String k) async {
+    if (_seen.contains(k)) return;
+    setState(() => _seen = {..._seen, k});
+    await BrainScope.read(context).services.lock.keys.write('tips_seen', _seen.join(','));
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_hidden != false) return const SizedBox.shrink();
     final brain = BrainScope.of(context);
-    final hasContacts = brain.data.contacts.isNotEmpty;
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
-
-    Widget step(String n, String title, String sub, {bool done = false, String? action, VoidCallback? onTap}) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(
-              width: 26,
-              height: 26,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(color: done ? C.green : C.surface, shape: BoxShape.circle, border: Border.all(color: C.green)),
-              child: done
-                  ? const Icon(Icons.check_rounded, color: Colors.white, size: 16)
-                  : Text(n, style: body(13, weight: FontWeight.w700, color: C.green, height: 1)),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, style: body(15, weight: FontWeight.w600)),
-                Text(sub, style: body(13, color: C.muted, height: 1.4)),
-              ]),
-            ),
-            if (action != null && !done)
-              TextButton(onPressed: onTap, child: Text(action, style: body(14, weight: FontWeight.w600, color: C.green))),
-          ]),
-        );
+    final steps = <(String, String, IconData, Color, bool, VoidCallback)>[
+      ('contacts', tr('ফোনবুকের নম্বর আনুন'), Icons.contacts_outlined, const Color(0xFF7C3AED), brain.data.contacts.isNotEmpty, () => importFromPhone(context)),
+      ('alarm', tr('রিমাইন্ডার ঠিক সময়ে বাজুক'), Icons.notifications_active_outlined, const Color(0xFFEA580C), _seen.contains('alarm'), () => push(const ReminderCheckScreen())),
+      ('say', tr('নিচে বলুন বা লিখুন'), Icons.mic_none_rounded, const Color(0xFF059669), _seen.contains('say'),
+          () => toast(context, tr('যেমন: “রবিনকে ৫০০০ টাকা দিলাম”, “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”'))),
+      ('help', tr('কী কী করা যায়, দেখুন'), Icons.lightbulb_outline_rounded, const Color(0xFF2563EB), _seen.contains('help'), () => push(const HelpScreen())),
+    ];
+    final done = steps.where((x) => x.$5).length;
 
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.only(top: 16),
       child: Container(
-        decoration: BoxDecoration(color: C.greenSoft, borderRadius: BorderRadius.circular(16)),
-        padding: const EdgeInsets.fromLTRB(14, 10, 8, 6),
+        padding: const EdgeInsets.fromLTRB(14, 8, 6, 14),
+        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(20)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(tr('শুরু করার ৪টা ধাপ'), style: body(16, weight: FontWeight.w700, color: C.greenDark)),
-          const SizedBox(height: 4),
-          step(tr('১'), tr('ফোনবুকের সব নম্বর এক ক্লিকে আনুন'), tr('নাম বললেই ফোন, মেসেজ আর হিসাবে নম্বর নিজে থেকে বসে যাবে'),
-              done: hasContacts, action: tr('আনুন'), onTap: () => importFromPhone(context)),
-          step(tr('২'), tr('রিমাইন্ডার যেন ঠিক সময়ে বাজে'), tr('ফোনের দুই-একটা সেটিং এক চাপে ঠিক করে নিন'),
-              action: tr('দেখুন'), onTap: () => push(const ReminderCheckScreen())),
-          step(tr('৩'), tr('নিচে বলুন বা লিখুন'), tr('“রবিনকে ৫০০০ টাকা দিলাম”, “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”, “আজকের কাজের তালিকা”')),
-          step(tr('৪'), tr('কী কী করা যায়, দেখে নিন'), tr('সব সুবিধা আর কী বললে কী হয়'), action: tr('দেখুন'), onTap: () => push(const HelpScreen())),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(onPressed: _hide, child: Text(tr('বুঝেছি, লুকিয়ে রাখো'), style: body(13, color: C.muted))),
+          Row(children: [
+            Expanded(child: Text(tr('শুরু করার ৪টা ধাপ'), style: display(16, weight: 700))),
+            Text(trf('{0}/৪ হয়েছে', [bnDigits(done)]), style: body(12.5, weight: FontWeight.w600, color: C.green)),
+            IconButton(
+              tooltip: tr('বুঝেছি, লুকিয়ে রাখো'),
+              visualDensity: VisualDensity.compact,
+              onPressed: _hide,
+              icon: Icon(Icons.close_rounded, size: 20, color: C.muted),
+            ),
+          ]),
+          Padding(
+            padding: const EdgeInsets.only(right: 8, bottom: 12),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(99),
+              child: LinearProgressIndicator(value: done / 4, minHeight: 5, color: C.green, backgroundColor: C.greenTint),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Wrap(spacing: 10, runSpacing: 10, children: [
+              for (final (k, title, icon, color, ok, onTap) in steps)
+                SizedBox(
+                      width: (MediaQuery.of(context).size.width - 32 - 28 - 10) / 2,
+                      child: Material(
+                        color: color.withValues(alpha: C.dark ? 0.2 : 0.08),
+                        borderRadius: BorderRadius.circular(14),
+                        child: InkWell(
+                          key: Key('tip-$k'),
+                          borderRadius: BorderRadius.circular(14),
+                          onTap: () {
+                            _mark(k);
+                            onTap();
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Row(children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(color: ok ? C.green : color, shape: BoxShape.circle),
+                                child: Icon(ok ? Icons.check_rounded : icon, color: Colors.white, size: 18),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(title, maxLines: 2, style: body(13, weight: FontWeight.w600, height: 1.25, color: ok ? C.muted : C.ink)),
+                              ),
+                            ]),
+                          ),
+                        ),
+                      ),
+                    ),
+            ]),
           ),
         ]),
       ),
