@@ -18,12 +18,13 @@ import 'home_screen.dart';
 import 'health_hub.dart';
 import 'home_shell.dart';
 import 'inbox_screen.dart';
-import 'more_screen.dart';
 import 'settings_parts.dart';
 import 'easy_home.dart';
 import 'notes_screen.dart';
 import 'plan_screens.dart';
 import 'vault_screen.dart';
+import 'requests_screen.dart';
+import 'pro_screen.dart';
 import '../logic/inbox.dart' show inboxTodo;
 import '../logic/lang.dart';
 
@@ -80,8 +81,10 @@ class HomePage extends StatelessWidget {
       (tr('স্বাস্থ্য'), Icons.favorite_border_rounded, C.rose, C.roseTint, () => push(const HealthScreen())),
       (tr('অ্যালার্ম'), Icons.alarm_rounded, C.orange, C.orangeTint, () => push(const AlarmsScreen())),
       (tr('পাসওয়ার্ড'), Icons.lock_outline_rounded, C.ink, C.soft, () => push(const VaultPage())),
+      (tr('অনুরোধ'), Icons.bloodtype_outlined, C.rose, C.roseTint, () => push(const RequestsScreen())),
       if (brain.inboxSupported) (tr('মেসেজ থেকে কাজ'), Icons.mark_chat_unread_outlined, C.green, C.greenTint, () => push(const InboxScreen())),
-      (tr('সেটিংস'), Icons.settings_outlined, C.muted2, C.soft, () => push(const MenuPage(child: MoreScreen()))),
+      (tr('প্রো ভার্সন'), Icons.workspace_premium_outlined, C.ochre, C.ochreTint, () => push(const ProScreen())),
+      (tr('সেটিংস'), Icons.settings_outlined, C.muted2, C.soft, () => goToTab(context, ShellTab.more)),
     ];
     final inboxTodos = inboxTodo(d, now);
 
@@ -108,7 +111,7 @@ class HomePage extends StatelessWidget {
                 message: tr('প্রোফাইল'),
                 child: InkWell(
                   customBorder: const CircleBorder(),
-                  onTap: () => push(const MenuPage(child: MoreScreen())),
+                  onTap: () => goToTab(context, ShellTab.more),
                   child: const UserPhoto(size: 44, onDark: true),
                 ),
               ),
@@ -122,30 +125,24 @@ class HomePage extends StatelessWidget {
                 dateChip(trf('বাংলা · {0}কাল', [bd.season]), bd.text),
               ]),
             ),
-            const SizedBox(height: 8),
-            InkWell(
-              onTap: () => push(const CalendarScreen()),
-              child: Row(children: [
-                const Icon(Icons.nightlight_round, size: 16, color: Color(0xFFFDE68A)),
-                const SizedBox(width: 6),
-                Flexible(child: Text(trf('হিজরি · {0}', [hj.short]), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13.5, weight: FontWeight.w500, color: Colors.white))),
-              ]),
-            ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 10),
             InkWell(
               onTap: () => push(const CalendarScreen()),
               child: Wrap(spacing: 14, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
                 Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.wb_twilight, size: 17, color: Color(0xFFFDE68A)),
+                  const Icon(Icons.nightlight_round, size: 16, color: Color(0xFFFDE68A)),
                   const SizedBox(width: 5),
-                  Text(trf('সূর্যোদয় {0}', [bnTime(sun.sunrise.hour, sun.sunrise.minute)]), style: body(13, color: Colors.white)),
+                  Text(hj.short, style: body(13, weight: FontWeight.w500, color: Colors.white)),
                 ]),
                 Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.nights_stay_outlined, size: 17, color: Color(0xFFFDBA74)),
+                  const Icon(Icons.wb_twilight, size: 16, color: Color(0xFFFDE68A)),
+                  const SizedBox(width: 5),
+                  Text(trf('সূর্যোদয় {0}', [bnTime(sun.sunrise.hour, sun.sunrise.minute)]), style: body(13, color: Colors.white)),
+                  const SizedBox(width: 10),
+                  const Icon(Icons.nights_stay_outlined, size: 16, color: Color(0xFFFDBA74)),
                   const SizedBox(width: 5),
                   Text(trf('সূর্যাস্ত {0}', [bnTime(sun.sunset.hour, sun.sunset.minute)]), style: body(13, color: Colors.white)),
                 ]),
-                Text('· ${tr(brain.district)}', style: body(13, color: Colors.white70)),
               ]),
             ),
           ]),
@@ -204,30 +201,8 @@ class HomePage extends StatelessWidget {
                   ),
                 ),
               ),
-            const GoogleStartCard(),
-            const StartTips(),
-            if (d.reminders.isNotEmpty) const AlarmBanner(),
-            const TodaySections(),
-            const SizedBox(height: 6),
-            Material(
-              color: C.surface,
-              borderRadius: BorderRadius.circular(16),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: () => goToTab(context, ShellTab.money),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-                  child: Row(children: [
-                    _Figure(tr('পাওনা'), taka(t.receivable), C.green),
-                    _Figure(tr('দেনা'), taka(t.payable), C.orange),
-                    _Figure(tr('এ মাসে খরচ'), taka(month.expense), C.ink),
-                    Icon(Icons.chevron_right_rounded, color: C.muted),
-                  ]),
-                ),
-              ),
-            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
+              padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
               child: Text(tr('সব কিছু এক জায়গায়'), style: body(13, weight: FontWeight.w600, color: C.muted)),
             ),
             Container(
@@ -255,6 +230,29 @@ class HomePage extends StatelessWidget {
                       ]),
                     ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            const GoogleStartCard(),
+            const StartTips(),
+            if (d.reminders.isNotEmpty) const AlarmBanner(),
+            const TodaySections(),
+            const SizedBox(height: 6),
+            Material(
+              color: C.surface,
+              borderRadius: BorderRadius.circular(16),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => goToTab(context, ShellTab.money),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+                  child: Row(children: [
+                    _Figure(tr('পাওনা'), taka(t.receivable), C.green),
+                    _Figure(tr('দেনা'), taka(t.payable), C.orange),
+                    _Figure(tr('এ মাসে খরচ'), taka(month.expense), C.ink),
+                    Icon(Icons.chevron_right_rounded, color: C.muted),
+                  ]),
+                ),
               ),
             ),
           ]),

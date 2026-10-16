@@ -453,6 +453,10 @@ function ma_acc_render_payments($v) {
 function ma_acc_render_feedback($v) {
     $post = esc_url(admin_url('admin-post.php'));
     $kinds = ma_fb_kinds();
+    if (!empty($v['thread'])) {
+        ma_acc_render_feedback_thread($v, $post, $kinds);
+        return;
+    }
     $tabs = ['open' => 'খোলা', 'done' => 'শেষ', 'all' => 'সব'];
     ?>
     <section class="ma-card">
@@ -464,7 +468,7 @@ function ma_acc_render_feedback($v) {
                 <?php endforeach; ?>
             </div>
         </div>
-        <p class="muted ma-pad">সদস্যরা অ্যাপের সেটিংস › “মতামত বা সমস্যা জানান” থেকে লেখেন। শুধু তাঁদের লেখা আর অ্যাপের সংস্করণ আসে — অন্য কোনো তথ্য না। নতুন এলে অ্যাডমিন অ্যাপে পুশ যায়।</p>
+        <p class="muted ma-pad">সদস্যরা অ্যাপের মতামত পাতা থেকে লেখেন, ছবি বা PDF দিতে পারেন। খুলে উত্তর দিন — সদস্যের ফোনে নোটিফিকেশন যাবে, তিনি আবার উত্তর দিতে পারবেন।</p>
         <?php if (!$v['feedback']) : ?>
             <div class="ma-empty">
                 <div class="ma-empty-art" aria-hidden="true"><svg viewBox="0 0 24 24" width="34" height="34"><path fill="currentColor" d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2Zm0 2v11.2L7.2 14H20V6H4Z"/></svg></div>
@@ -474,31 +478,75 @@ function ma_acc_render_feedback($v) {
         <?php else : ?>
             <div class="ma-fb">
                 <?php foreach ($v['feedback'] as $f) :
+                    $j = ma_fb_json($f);
                     $k = $kinds[$f['kind']] ?? $kinds['other'];
                     ?>
-                    <article class="ma-fb-item <?php echo $f['status'] === 'new' ? 'new' : ''; ?>">
+                    <a class="ma-fb-item <?php echo $f['status'] === 'new' ? 'new' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'feedback', 'fb' => (int) $f['id']]); ?>">
                         <div class="ma-fb-head">
                             <span class="ma-pill <?php echo esc_attr($k[1]); ?>"><?php echo esc_html($k[0]); ?></span>
                             <?php if ($f['status'] === 'new') : ?><span class="ma-pill trial">নতুন</span><?php elseif ($f['status'] === 'done') : ?><span class="ma-pill pro">শেষ</span><?php endif; ?>
                             <strong><?php echo esc_html($f['name'] !== '' ? $f['name'] : $f['email']); ?></strong>
-                            <span class="muted"><?php echo esc_html($f['email']); ?> · <?php echo esc_html(ma_acc_date($f['created_at'])); ?><?php echo $f['app_version'] !== '' ? ' · v' . esc_html($f['app_version']) : ''; ?></span>
+                            <span class="muted"><?php echo esc_html(ma_acc_date($f['updated_at'] ?: $f['created_at'])); ?> · <?php echo esc_html(ma_acc_bn($j['count'])); ?>টা বার্তা</span>
                         </div>
-                        <p class="ma-fb-text"><?php echo nl2br(esc_html($f['body'])); ?></p>
-                        <div class="ma-fb-ops">
-                            <a class="ma-btn small ghost" href="mailto:<?php echo esc_attr($f['email']); ?>?subject=<?php echo rawurlencode('My Assistant — আপনার মতামত'); ?>">ইমেইলে উত্তর</a>
-                            <?php foreach (['read' => 'পড়েছি', 'done' => 'শেষ', 'new' => 'আবার খুলুন'] as $st => $label) :
-                                if ($st === $f['status'] || ($st === 'new' && $f['status'] !== 'done') || ($st === 'read' && $f['status'] !== 'new')) {
-                                    continue;
-                                }
-                                ?>
-                                <form method="post" action="<?php echo $post; ?>"><input type="hidden" name="action" value="ma_fb_set"><input type="hidden" name="id" value="<?php echo (int) $f['id']; ?>"><input type="hidden" name="status" value="<?php echo esc_attr($st); ?>"><?php wp_nonce_field('ma_fb_set'); ?><button class="ma-btn small <?php echo $st === 'done' ? '' : 'ghost'; ?>" type="submit"><?php echo esc_html($label); ?></button></form>
-                            <?php endforeach; ?>
-                            <form method="post" action="<?php echo $post; ?>" onsubmit="return confirm('মুছে ফেলবেন?')"><input type="hidden" name="action" value="ma_fb_set"><input type="hidden" name="id" value="<?php echo (int) $f['id']; ?>"><input type="hidden" name="status" value="delete"><?php wp_nonce_field('ma_fb_set'); ?><button class="ma-icon danger" type="submit" title="মুছুন" aria-label="মুছুন"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M9 3h6a1 1 0 0 1 1 1v1h4a1 1 0 1 1 0 2h-1l-.9 12.1A2 2 0 0 1 16.1 21H7.9a2 2 0 0 1-2-1.9L5 7H4a1 1 0 0 1 0-2h4V4a1 1 0 0 1 1-1Zm-2 4 .9 12h8.2L17 7H7Z"/></svg></button></form>
-                        </div>
-                    </article>
+                        <p class="ma-fb-text"><?php echo esc_html(mb_substr($f['body'] !== '' ? $f['body'] : '📎 সংযুক্তি', 0, 220)); ?></p>
+                        <?php if ($j['last'] && $j['count'] > 1) : ?><p class="muted ma-fb-last"><?php echo $j['last']['from'] === 'admin' ? 'আমরা: ' : 'সদস্য: '; ?><?php echo esc_html(mb_substr($j['last']['text'], 0, 120)); ?></p><?php endif; ?>
+                    </a>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
+    </section>
+    <?php
+}
+
+function ma_acc_render_feedback_thread($v, $post, $kinds) {
+    $f = $v['thread'];
+    $k = $kinds[$f['kind']] ?? $kinds['other'];
+    ?>
+    <section class="ma-card">
+        <div class="ma-bar">
+            <div class="ma-bar-title">
+                <a class="ma-chip" href="<?php echo ma_acc_url(['tab' => 'feedback']); ?>">← সব মতামত</a>
+                <h2><?php echo esc_html($f['name'] !== '' ? $f['name'] : $f['email']); ?></h2>
+                <span class="ma-pill <?php echo esc_attr($k[1]); ?>"><?php echo esc_html($k[0]); ?></span>
+            </div>
+            <div class="ma-bar-actions">
+                <a class="ma-btn small ghost" href="mailto:<?php echo esc_attr($f['email']); ?>">ইমেইল</a>
+                <?php foreach ($f['status'] === 'done' ? ['new' => 'আবার খুলুন'] : ['done' => 'শেষ হিসেবে রাখুন'] as $st => $label) : ?>
+                    <form method="post" action="<?php echo $post; ?>"><input type="hidden" name="action" value="ma_fb_set"><input type="hidden" name="id" value="<?php echo (int) $f['id']; ?>"><input type="hidden" name="status" value="<?php echo esc_attr($st); ?>"><?php wp_nonce_field('ma_fb_set'); ?><button class="ma-btn small" type="submit"><?php echo esc_html($label); ?></button></form>
+                <?php endforeach; ?>
+                <form method="post" action="<?php echo $post; ?>" onsubmit="return confirm('পুরো কথোপকথন আর সংযুক্তি মুছে ফেলবেন?')"><input type="hidden" name="action" value="ma_fb_set"><input type="hidden" name="id" value="<?php echo (int) $f['id']; ?>"><input type="hidden" name="status" value="delete"><?php wp_nonce_field('ma_fb_set'); ?><button class="ma-icon danger" type="submit" title="মুছুন" aria-label="মুছুন"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M9 3h6a1 1 0 0 1 1 1v1h4a1 1 0 1 1 0 2h-1l-.9 12.1A2 2 0 0 1 16.1 21H7.9a2 2 0 0 1-2-1.9L5 7H4a1 1 0 0 1 0-2h4V4a1 1 0 0 1 1-1Zm-2 4 .9 12h8.2L17 7H7Z"/></svg></button></form>
+            </div>
+        </div>
+        <p class="muted ma-pad"><?php echo esc_html($f['email']); ?><?php echo $f['app_version'] !== '' ? ' · অ্যাপ v' . esc_html($f['app_version']) : ''; ?> · শুরু <?php echo esc_html(ma_acc_date($f['created_at'])); ?></p>
+        <div class="ma-chat">
+            <?php foreach ($v['thread_msgs'] as $m) :
+                $mine = $m['sender'] === 'admin';
+                ?>
+                <div class="ma-msg <?php echo $mine ? 'us' : 'them'; ?>">
+                    <?php if ($m['body'] !== '') : ?><div class="ma-msg-text"><?php echo nl2br(esc_html($m['body'])); ?></div><?php endif; ?>
+                    <?php if ($m['file_key'] !== '') :
+                        $url = wp_nonce_url(admin_url('admin-post.php?action=ma_fb_file&msg=' . (int) $m['id']), 'ma_fb_file');
+                        ?>
+                        <?php if (str_starts_with($m['file_mime'], 'image/')) : ?>
+                            <a href="<?php echo esc_url($url); ?>" target="_blank" rel="noopener"><img class="ma-msg-img" src="<?php echo esc_url($url); ?>" alt="<?php echo esc_attr($m['file_name']); ?>"></a>
+                        <?php else : ?>
+                            <a class="ma-msg-file" href="<?php echo esc_url($url); ?>" target="_blank" rel="noopener">📄 <?php echo esc_html($m['file_name']); ?> · <?php echo esc_html(size_format((int) $m['file_size'])); ?></a>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                    <div class="ma-msg-meta"><?php echo $mine ? esc_html($m['admin_name'] !== '' ? $m['admin_name'] : 'আমরা') : 'সদস্য'; ?> · <?php echo esc_html(ma_acc_date($m['created_at'])); ?></div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <form class="ma-reply" method="post" action="<?php echo $post; ?>" enctype="multipart/form-data">
+            <input type="hidden" name="action" value="ma_fb_reply"><input type="hidden" name="id" value="<?php echo (int) $f['id']; ?>">
+            <?php wp_nonce_field('ma_fb_reply'); ?>
+            <textarea name="text" rows="3" maxlength="2000" placeholder="উত্তর লিখুন…"></textarea>
+            <div class="ma-reply-row">
+                <label class="ma-btn small ghost">📎 ছবি বা PDF<input type="file" name="file" accept="image/jpeg,image/png,image/webp,application/pdf" hidden></label>
+                <span class="muted">৫ MB পর্যন্ত</span>
+                <button class="ma-btn" type="submit">উত্তর পাঠান</button>
+            </div>
+        </form>
     </section>
     <?php
 }
@@ -716,6 +764,20 @@ function ma_acc_styles() {
     .ma-brand-name{font-size:20px;font-weight:700;line-height:1.2}
     .ma-brand-sub{font-size:13px;color:#C9EBDD}
     .ma-fb{display:grid;gap:10px;padding:0 16px 16px}
+    a.ma-fb-item{display:block;color:inherit;text-decoration:none;transition:border-color .15s}
+    a.ma-fb-item:hover{border-color:var(--g)}
+    .ma-fb-last{margin:-6px 0 0;font-size:13.5px}
+    .ma-chat{display:flex;flex-direction:column;gap:10px;padding:8px 16px 16px;max-width:760px}
+    .ma-msg{max-width:78%;border-radius:16px;padding:10px 14px;line-height:1.6;font-size:15px}
+    .ma-msg.them{align-self:flex-start;background:#F3F4F6;border-bottom-left-radius:4px}
+    .ma-msg.us{align-self:flex-end;background:var(--gt);color:#064E3B;border-bottom-right-radius:4px}
+    .ma-msg-img{display:block;max-width:260px;max-height:260px;border-radius:10px;margin-top:6px}
+    .ma-msg-file{display:inline-block;margin-top:6px;font-weight:600;color:var(--gd)}
+    .ma-msg-meta{font-size:12px;color:var(--mut);margin-top:4px}
+    .ma-reply{border-top:1px solid var(--line);padding:14px 16px;display:grid;gap:10px;max-width:760px}
+    .ma-reply textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:inherit;font-size:15px}
+    .ma-reply-row{display:flex;align-items:center;gap:10px}
+    .ma-reply-row .ma-btn:last-child{margin-left:auto}
     .ma-fb-item{border:1px solid var(--line);border-radius:14px;padding:14px 16px;background:#fff}
     .ma-fb-item.new{border-color:#A7D9C8;background:#F6FBF9}
     .ma-fb-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px}

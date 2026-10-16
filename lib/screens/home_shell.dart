@@ -8,11 +8,13 @@ import 'diary_screen.dart';
 import 'home_page.dart';
 import 'ledger_screen.dart';
 import 'store_screen.dart';
+import 'more_screen.dart' show MoreScreen;
 import '../logic/lang.dart';
 
-/// হোম · দিনলিপি · হিসাব · সংরক্ষণ — an organiser, with the assistant's
-/// box and mic at the bottom of every page.
-enum ShellTab { home, diary, money, store }
+/// হোম · দিনলিপি · হিসাব · সংরক্ষণ · আরও — an organiser, with the
+/// assistant's box and mic at the bottom of every page. আরও holds the
+/// settings, requests, Pro and feedback.
+enum ShellTab { home, diary, money, store, more }
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -66,12 +68,13 @@ class HomeShellState extends State<HomeShell> {
                 const SafeArea(bottom: false, child: DiaryScreen()),
                 SafeArea(bottom: false, child: MoneyScreen(key: _money)),
                 const SafeArea(bottom: false, child: StoreScreen()),
+                const SafeArea(bottom: false, child: MoreScreen()),
               ],
             ),
           ),
           // One box for every page: find, save or ask; the mic beside it.
           // (Easy mode has its own big buttons.) In the body, so it rides above the keyboard.
-          if (!BrainScope.of(context).easyMode || _tab != ShellTab.home) AssistantBar(questions: _tab == ShellTab.home),
+          if ((!BrainScope.of(context).easyMode || _tab != ShellTab.home) && _tab != ShellTab.more) AssistantBar(questions: _tab == ShellTab.home),
         ]),
         bottomNavigationBar: _Nav(current: _tab, onTab: go),
       ),
@@ -136,6 +139,7 @@ class _Nav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final unread = BrainScope.of(context).feedbackUnread > 0;
     Widget item(ShellTab t, IconData icon, IconData active, String label) {
       final on = t == current;
       return Expanded(
@@ -152,7 +156,11 @@ class _Nav extends StatelessWidget {
                 width: 56,
                 height: 30,
                 decoration: BoxDecoration(color: on ? C.greenTint : Colors.transparent, borderRadius: BorderRadius.circular(15)),
-                child: Icon(on ? active : icon, size: 23, color: on ? C.greenDark : C.muted),
+                child: Badge(
+                  isLabelVisible: t == ShellTab.more && unread,
+                  smallSize: 9,
+                  child: Icon(on ? active : icon, size: 23, color: on ? C.greenDark : C.muted),
+                ),
               ),
               const SizedBox(height: 3),
               Text(label, style: body(12, weight: on ? FontWeight.w600 : FontWeight.w400, color: on ? C.greenDark : C.muted, height: 1.2)),
@@ -173,6 +181,7 @@ class _Nav extends StatelessWidget {
             item(ShellTab.diary, Icons.event_note_outlined, Icons.event_note_rounded, tr('দিনলিপি')),
             item(ShellTab.money, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, tr('হিসাব')),
             item(ShellTab.store, Icons.inventory_2_outlined, Icons.inventory_2_rounded, tr('সংরক্ষণ')),
+            item(ShellTab.more, Icons.menu_rounded, Icons.menu_open_rounded, tr('আরও')),
           ]),
         ),
       ),

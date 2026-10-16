@@ -17,6 +17,19 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'app_test.dart' show Rig, enterPin, settle, start, tell;
 
+/// Our server, pretended: sign-in gives a session and the account's backup key.
+AccountServer keyServer([String key = 'Kq3xY8vB2nLm9PzR4tW7sD1fG6hJ0aC5eU8iO2pQ9rS']) => AccountServer(
+    MockClient((r) async {
+      if (r.url.path.endsWith('/login') || r.url.path.endsWith('/me')) {
+        return http.Response(jsonEncode({'ok': true, 'session': 'd' * 64, 'backup_key': key}), 200);
+      }
+      return http.Response('{}', 200);
+    }),
+    'https://example.test');
+
+/// A Google user whose sign-in token our server accepts.
+FakeGoogle tokenGoogle([String email = 'test@gmail.com']) => FakeGoogle()..user = GoogleUser(id: '1', email: email, name: 'Test', idToken: 'google-token');
+
 Future<void> openChat(WidgetTester t) async {
   await t.tap(find.byTooltip('বলুন').first);
   await settle(t);
@@ -130,8 +143,8 @@ void main() {
   });
 
   group('Google Drive backup', () {
-    test('signs in, backs up, keeps only the newest; a failed upload keeps the old one', () async {
-      final rig = Rig();
+    test('signs in, backs up with the account key (no password), keeps only the newest; a failed upload keeps the old one', () async {
+      final rig = Rig(server: keyServer(), google: tokenGoogle());
       final b = rig.brain;
       await b.load();
       final drive = rig.services.drive as FakeDrive;
@@ -140,10 +153,9 @@ void main() {
       expect(b.googleEmail, 'test@gmail.com');
 
       b.data = AppData(notes: [Note(title: 'গাড়ির কাগজ', body: 'আলমারিতে')]);
-      expect(await b.startDriveBackup('backup-pass-1'), isNull);
+      expect(await b.startDriveBackup(), isNull);
       expect(drive.files.length, 1);
       expect(b.driveOn, isTrue);
-      expect(await rig.services.lock.hasRecovery(), isTrue);
       final first = drive.files.keys.single;
 
       expect(await b.backupToDrive(), isNull);
@@ -155,20 +167,31 @@ void main() {
       expect(await b.backupToDrive(), contains('আপলোড'));
       expect(drive.files.keys.single, kept);
 
-      // A new phone with the same account: the backup comes back with its password.
+      // A new phone with the same account: the server gives the same key, and the backup opens.
+      final other = Rig(server: keyServer(), google: tokenGoogle());
+      await other.brain.load();
+      await other.brain.signInGoogle();
+      other.services.drive as FakeDrive;
       final list = await b.driveBackups();
-      final (restored, _) = await b.openDriveBackup(list.single, 'backup-pass-1');
+      final bytes = drive.files[list.single.id]!.$2;
+      (other.services.drive as FakeDrive).files[list.single.id] = (list.single, bytes);
+      final (restored, _) = await other.brain.openDriveBackup(list.single);
       expect(restored.notes.single.title, 'গাড়ির কাগজ');
-      expect(() => b.openDriveBackup(list.single, 'wrong-pass'), throwsA(anything));
+      // Another account's key does not open it.
+      final stranger = Rig(server: keyServer('Zz9xY8vB2nLm9PzR4tW7sD1fG6hJ0aC5eU8iO2pQ9rS'), google: tokenGoogle('x@gmail.com'));
+      await stranger.brain.load();
+      await stranger.brain.signInGoogle();
+      (stranger.services.drive as FakeDrive).files[list.single.id] = (list.single, bytes);
+      await expectLater(stranger.brain.openDriveBackup(list.single), throwsA(anything));
     });
 
     test('backs up on leaving the app only when something changed', () async {
-      final rig = Rig();
+      final rig = Rig(server: keyServer(), google: tokenGoogle());
       final b = rig.brain;
       await b.load();
       final drive = rig.services.drive as FakeDrive;
       await b.signInGoogle();
-      await b.startDriveBackup('backup-pass-1');
+      await b.startDriveBackup();
       final id = drive.files.keys.single;
       await b.autoDriveBackup();
       expect(drive.files.keys.single, id, reason: 'nothing changed');
@@ -181,12 +204,20 @@ void main() {
       expect(drive.files.keys.single, isNot(id));
     });
 
-    test('sign-out stops automatic backup and forgets its password', () async {
-      final rig = Rig();
+    test('without the server there is no key, so no Drive backup', () async {
+      final rig = Rig(google: tokenGoogle());
+      await rig.brain.load();
+      await rig.brain.signInGoogle();
+      expect(await rig.brain.startDriveBackup(), contains('সার্ভারের'));
+      expect((rig.services.drive as FakeDrive).files, isEmpty);
+    });
+
+    test('sign-out stops automatic backup and forgets its key', () async {
+      final rig = Rig(server: keyServer(), google: tokenGoogle());
       final b = rig.brain;
       await b.load();
       await b.signInGoogle();
-      await b.startDriveBackup('backup-pass-1');
+      await b.startDriveBackup();
       await b.signOutGoogle();
       expect(b.signedIn, isFalse);
       expect(b.driveOn, isFalse);

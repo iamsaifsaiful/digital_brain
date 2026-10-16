@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
@@ -7,6 +9,7 @@ import '../logic/lang.dart';
 import '../services/crypto.dart' show WrongKey;
 import '../services/data_store.dart';
 import '../services/google_account.dart';
+import '../models/models.dart' show AppData;
 import '../state/brain.dart';
 import '../ui/pin.dart' show verifyUser;
 import '../ui/theme.dart';
@@ -54,9 +57,7 @@ class _GoogleBackupPanelState extends State<GoogleBackupPanel> {
 
   Future<void> _turnOn() async {
     final brain = BrainScope.read(context);
-    final pw = await askBackupPassword(context, create: true);
-    if (pw == null || !mounted) return;
-    await _run(() => brain.startDriveBackup(pw));
+    await _run(brain.startDriveBackup);
     if (mounted && _error == null) {
       toast(context, brain.has(ProFeature.autoBackup) ? tr('Google Drive-এ ব্যাকআপ হয়েছে। এখন থেকে নিজে থেকেই হবে।') : tr('Google Drive-এ ব্যাকআপ হয়েছে।'));
     }
@@ -88,7 +89,7 @@ class _GoogleBackupPanelState extends State<GoogleBackupPanel> {
         const SizedBox(height: 8),
         if (!brain.signedIn) ...[
           Text(
-              tr('Google দিয়ে লগইন করলে তথ্য আপনার Google Drive-এর অ্যাপের লুকানো ফোল্ডারে ব্যাকআপ রাখা যাবে। নতুন ফোনে একই অ্যাকাউন্টে লগইন করলেই সব ফিরে আসবে। ব্যাকআপ আপনার পাসওয়ার্ডে তালাবদ্ধ — Google বা আমরা পড়তে পারি না।'),
+              tr('Google দিয়ে লগইন করলে তথ্য আপনার Google Drive-এর অ্যাপের লুকানো ফোল্ডারে ব্যাকআপ রাখা যাবে। নতুন ফোনে একই অ্যাকাউন্টে লগইন করলেই সব ফিরে আসবে — কোনো পাসওয়ার্ড লাগবে না। ব্যাকআপ তালাবদ্ধ থাকে: Google একা বা আমরা একা খুলতে পারি না।'),
               style: body(13, color: C.muted, height: 1.55)),
           const SizedBox(height: 12),
           PrimaryButton(key: const Key('google-sign-in'), label: tr('Google দিয়ে লগইন'), icon: Icons.login_rounded, height: 48, onPressed: busy ? null : _signIn),
@@ -113,7 +114,7 @@ class _GoogleBackupPanelState extends State<GoogleBackupPanel> {
           ]),
           const SizedBox(height: 8),
           if (!brain.driveOn) ...[
-            Text(tr('একটা ব্যাকআপ-পাসওয়ার্ড ঠিক করুন — এটা দিয়ে ব্যাকআপ তালাবদ্ধ থাকবে, আর PIN ভুলে গেলে নতুন PIN দিতেও এটা লাগবে।'),
+            Text(tr('কোনো পাসওয়ার্ড লাগবে না। ব্যাকআপ তালাবদ্ধ থাকে, আর শুধু আপনার এই Google অ্যাকাউন্ট দিয়েই খোলা যায়।'),
                 style: body(13, color: C.muted, height: 1.55)),
             const SizedBox(height: 10),
             PrimaryButton(key: const Key('drive-on'), label: tr('Drive-এ ব্যাকআপ নিন'), icon: Icons.cloud_upload_outlined, height: 48, onPressed: busy ? null : _turnOn),
@@ -279,15 +280,25 @@ Future<void> restoreFromDrive(BuildContext context, {bool fresh = false, void Fu
   final go = await confirmDialog(
     context,
     title: tr('আগের ব্যাকআপ পাওয়া গেছে'),
-    text: trf('{0}-এর ব্যাকআপ আছে ({1})। ফিরিয়ে আনবেন? ব্যাকআপ-পাসওয়ার্ড লাগবে।', [fullDate(f.time.toLocal()), _GoogleBackupPanelState.size(f.size)]),
+    text: trf('{0}-এর ব্যাকআপ আছে ({1})। ফিরিয়ে আনবেন?', [fullDate(f.time.toLocal()), _GoogleBackupPanelState.size(f.size)]),
     yes: tr('ফিরিয়ে আনুন'),
   );
   if (!go || !context.mounted) return;
-  final pw = await askBackupPassword(context, create: false);
-  if (pw == null || !context.mounted) return;
   setBusy(true);
   try {
-    final (restored, files) = await brain.openDriveBackup(f, pw);
+    AppData restored;
+    Map<String, Uint8List> files;
+    try {
+      (restored, files) = await brain.openDriveBackup(f);
+    } on WrongKey {
+      // Made before backups were locked with the account's key: its old password opens it once.
+      setBusy(false);
+      if (!context.mounted) return;
+      final pw = await askBackupPassword(context, create: false);
+      if (pw == null || !context.mounted) return;
+      setBusy(true);
+      (restored, files) = await brain.openDriveBackup(f, password: pw);
+    }
     if (!context.mounted) return;
     if (!_GoogleBackupPanelState.looksEmpty(brain)) {
       final ok = await confirmDialog(
@@ -310,10 +321,10 @@ Future<void> restoreFromDrive(BuildContext context, {bool fresh = false, void Fu
       if (!ok) return;
     }
     await brain.replaceAll(restored, files: files);
-    await brain.continueDriveBackup(pw);
+    await brain.continueDriveBackup();
     if (context.mounted) toast(context, tr('ব্যাকআপ ফিরিয়ে আনা হয়েছে।'));
   } on WrongKey {
-    if (context.mounted) toast(context, tr('পাসওয়ার্ড মেলেনি। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
+    if (context.mounted) toast(context, tr('পুরোনো ব্যাকআপের পাসওয়ার্ড মেলেনি। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
   } on NotABackup {
     if (context.mounted) toast(context, tr('ফাইলটি নষ্ট। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
   } on UnsupportedBackup {

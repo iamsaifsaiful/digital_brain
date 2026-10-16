@@ -21,6 +21,10 @@ bool get playEdition => edition == 'play' || edition == 'play_preview';
 /// The preview: no real payment; a test switch turns Pro on and off.
 bool get previewEdition => edition == 'play_preview';
 
+/// The website's Pro page (the shortcode [my_assistant_pro]). Shown only in
+/// the downloaded APK — never in the Play app (Google Play's payment rules).
+const proWebPage = 'https://getmyassistant.app/pro/';
+
 /// Free limits in the Play app.
 const freeShops = 1;
 const freeProjects = 1;

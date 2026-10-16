@@ -59,7 +59,10 @@ class _GateState extends State<Gate> with WidgetsBindingObserver {
     if (state == AppLifecycleState.paused) _leftAt = DateTime.now();
     if (state == AppLifecycleState.resumed && _stage == _Stage.open && _leftAt != null && DateTime.now().difference(_leftAt!) > const Duration(minutes: 1)) {
       widget.api.fingerprintOn().then((on) {
-        if (on && mounted) setState(() => _stage = _Stage.locked);
+        if (on && mounted) {
+          setState(() => _stage = _Stage.locked);
+          WidgetsBinding.instance.addPostFrameCallback((_) => Future.delayed(const Duration(milliseconds: 350), _unlock));
+        }
       });
     }
   }
@@ -71,14 +74,29 @@ class _GateState extends State<Gate> with WidgetsBindingObserver {
     }
     if (await widget.api.fingerprintOn()) {
       setState(() => _stage = _Stage.locked);
-      await _unlock();
+      // Asked only once the page is on screen: a prompt started while the
+      // app is still opening can hang and block every later try.
+      WidgetsBinding.instance.addPostFrameCallback((_) => Future.delayed(const Duration(milliseconds: 350), _unlock));
     } else {
       _opened();
     }
   }
 
+  String? _problem;
+  bool _asking = false;
+
   Future<void> _unlock() async {
-    if (await widget.device.fingerprint('My Assistant অ্যাডমিন খুলতে আঙুলের ছাপ দিন')) _opened();
+    if (_asking || !mounted) return;
+    _asking = true;
+    final why = await widget.device.verify('My Assistant অ্যাডমিন খুলতে আঙুলের ছাপ দিন');
+    _asking = false;
+    if (!mounted) return;
+    if (why == null) {
+      _problem = null;
+      _opened();
+    } else {
+      setState(() => _problem = why.isEmpty ? null : why);
+    }
   }
 
   void _opened() {
@@ -109,7 +127,14 @@ class _GateState extends State<Gate> with WidgetsBindingObserver {
           ],
         ),
       );
-      if (yes == true && await widget.device.fingerprint('চালু করতে আঙুলের ছাপ দিন')) await widget.api.setFingerprint(true);
+      if (yes == true) {
+        final why = await widget.device.verify('চালু করতে আঙুলের ছাপ দিন');
+        if (why == null) {
+          await widget.api.setFingerprint(true);
+        } else if (why.isNotEmpty && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(why)));
+        }
+      }
     }
     _opened();
   }
@@ -125,7 +150,11 @@ class _GateState extends State<Gate> with WidgetsBindingObserver {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('এই ফোনে আঙুলের ছাপ চালু নেই')));
       return;
     }
-    if (!await widget.device.fingerprint(on ? 'বন্ধ করতে আঙুলের ছাপ দিন' : 'চালু করতে আঙুলের ছাপ দিন')) return;
+    final why = await widget.device.verify(on ? 'বন্ধ করতে আঙুলের ছাপ দিন' : 'চালু করতে আঙুলের ছাপ দিন');
+    if (why != null) {
+      if (why.isNotEmpty && mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(why)));
+      return;
+    }
     await widget.api.setFingerprint(!on);
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(on ? 'আঙুলের ছাপ বন্ধ' : 'আঙুলের ছাপে খোলা চালু')));
   }
@@ -134,7 +163,7 @@ class _GateState extends State<Gate> with WidgetsBindingObserver {
   Widget build(BuildContext context) => switch (_stage) {
         _Stage.loading => const Scaffold(body: Center(child: CircularProgressIndicator())),
         _Stage.signIn => SignIn(api: widget.api, onIn: _signedIn),
-        _Stage.locked => Locked(onUnlock: _unlock, onPassword: _out),
+        _Stage.locked => Locked(onUnlock: _unlock, onPassword: _out, problem: _problem),
         _Stage.open => Home(api: widget.api, onSignedOut: _out, onFingerprint: _toggleFingerprint),
       };
 }
@@ -278,9 +307,12 @@ class _SignInState extends State<SignIn> {
 }
 
 class Locked extends StatelessWidget {
-  const Locked({super.key, required this.onUnlock, required this.onPassword});
+  const Locked({super.key, required this.onUnlock, required this.onPassword, this.problem});
   final VoidCallback onUnlock;
   final VoidCallback onPassword;
+
+  /// Why the last try did not open (shown under the button).
+  final String? problem;
 
   @override
   Widget build(BuildContext context) => _Brand(children: [
@@ -304,6 +336,11 @@ class Locked extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         Center(child: Text('আঙুলের ছাপ দিন', style: text(16, color: Colors.white))),
+        if (problem != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(32, 12, 32, 0),
+            child: Text(problem!, key: const Key('unlock-problem'), textAlign: TextAlign.center, style: text(14, color: const Color(0xFFFDE68A), height: 1.5)),
+          ),
         const Spacer(),
         Center(child: TextButton(onPressed: onPassword, child: Text('পাসওয়ার্ড দিয়ে লগইন', style: text(15, weight: FontWeight.w600, color: Colors.white)))),
       ]);

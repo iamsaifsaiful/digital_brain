@@ -77,7 +77,7 @@ class C {
 
   /// In the dark look the accent glows: brighter and more saturated (not
   /// washed out with white), with white letters still readable on it.
-  static Color get green => dark ? _glow(accent.main, 0.40) : accent.main;
+  static Color get green => dark ? _glow(accent.main, 0.34) : accent.main;
   static Color get greenDark => dark ? _glow(accent.main, 0.74) : accent.dark;
   static Color get greenTint => dark ? Color.alphaBlend(_glow(accent.main, 0.45).withValues(alpha: 0.22), surface) : accent.tint;
   static Color get greenSoft => dark ? Color.alphaBlend(_glow(accent.main, 0.45).withValues(alpha: 0.12), surface) : Color.lerp(accent.tint, Colors.white, 0.45)!;
@@ -111,6 +111,8 @@ class C {
   static Color get tealTint => _tint(0xFFE6F6F4, 0xFF2DD4BF);
   static Color get rose => _p(0xFFBE123C, 0xFFFB7185);
   static Color get roseDark => _p(0xFF9F1239, 0xFFFDA4AF);
+  /// A rose fill that keeps white letters readable in both looks.
+  static Color get roseFill => _p(0xFFBE123C, 0xFFE11D48);
   static Color get roseTint => _tint(0xFFFFF1F2, 0xFFFB7185);
   static Color get waTint => _tint(0xFFE3F6EA, 0xFF34D399);
   static Color get soft => _p(0xFFF3F4F6, 0xFF1F252D);

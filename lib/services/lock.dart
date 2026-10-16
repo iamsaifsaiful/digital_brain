@@ -29,12 +29,24 @@ class DeviceBiometrics implements Biometrics {
 
   @override
   Future<bool> authenticate(String reason) async {
-    try {
-      return await _auth.authenticate(localizedReason: reason, biometricOnly: true, persistAcrossBackgrounding: true);
-    } catch (e) {
-      debugPrint('Biometric check failed: $e');
-      return false;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await _auth.authenticate(localizedReason: reason, biometricOnly: true, persistAcrossBackgrounding: true);
+      } on LocalAuthException catch (e) {
+        // A prompt left hanging from before blocks every later one: clear it and ask once more.
+        if (e.code == LocalAuthExceptionCode.authInProgress && attempt == 0) {
+          await _auth.stopAuthentication();
+          await Future<void>.delayed(const Duration(milliseconds: 400));
+          continue;
+        }
+        debugPrint('Biometric check failed: ${e.code.name}');
+        return false;
+      } catch (e) {
+        debugPrint('Biometric check failed: $e');
+        return false;
+      }
     }
+    return false;
   }
 }
 

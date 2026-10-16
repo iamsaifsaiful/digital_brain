@@ -21,8 +21,12 @@ class FakeServer {
   ];
 
   final feedback = <Map<String, Object?>>[
-    {'id': 7, 'created': _ago(const Duration(minutes: 12)), 'email': 'rakib.hasan92@gmail.com', 'name': 'রাকিব হাসান', 'kind': 'problem', 'kind_label': 'সমস্যা', 'text': 'রাত ১০টার রিমাইন্ডার বাজেনি', 'version': '2.15.0', 'status': 'new'},
+    {'id': 7, 'created': _ago(const Duration(minutes: 12)), 'updated': _ago(const Duration(minutes: 12)), 'email': 'rakib.hasan92@gmail.com', 'name': 'রাকিব হাসান', 'kind': 'problem', 'kind_label': 'সমস্যা', 'text': 'রাত ১০টার রিমাইন্ডার বাজেনি', 'version': '2.15.0', 'status': 'new', 'count': 1},
   ];
+  final messages = <Map<String, Object?>>[
+    {'id': 70, 'from': 'member', 'admin': '', 'text': 'রাত ১০টার রিমাইন্ডার বাজেনি', 'created': _ago(const Duration(minutes: 12)), 'file': {'name': 'screen.png', 'mime': 'image/png', 'size': 70}},
+  ];
+  final replies = <Map<String, dynamic>>[];
 
   late final client = MockClient((r) async {
     calls.add(r);
@@ -39,6 +43,15 @@ class FakeServer {
       body = {'ok': true, 'message': 'অনুমোদন দেওয়া হলো, ${pay['email']}-এ প্রো চালু হলো।'};
     } else if (p == '/admin/feedback') {
       body = {'feedback': feedback.where((x) => r.url.queryParameters['status'] == 'all' || (r.url.queryParameters['status'] == 'done') == (x['status'] == 'done')).toList()};
+    } else if (p == '/admin/feedback/file/70') {
+      body = {'name': 'screen.png', 'mime': 'image/png', 'data': 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='};
+    } else if (p == '/admin/feedback/7/reply') {
+      final j = jsonDecode(r.body) as Map<String, dynamic>;
+      replies.add(j);
+      messages.add({'id': 71, 'from': 'admin', 'admin': 'Boss', 'text': j['text'], 'created': _ago(Duration.zero), 'file': j['file'] == null ? null : {'name': j['file']['name'], 'mime': 'image/png', 'size': 1}});
+      body = {'ok': true};
+    } else if (p == '/admin/feedback/7' && r.method == 'GET') {
+      body = {'feedback': feedback.first, 'messages': messages};
     } else if (p.startsWith('/admin/feedback/')) {
       feedback.firstWhere((x) => x['id'] == int.parse(p.split('/').last))['status'] = jsonDecode(r.body)['status'];
       body = {'ok': true};
@@ -67,8 +80,9 @@ class FakeDevice extends Device {
   bool hasFingerprint = false;
   @override
   Future<bool> canFingerprint() async => hasFingerprint;
+  String? answer;
   @override
-  Future<bool> fingerprint(String reason) async => true;
+  Future<String?> verify(String reason) async => answer;
   @override
   Future<String?> pushToken() async => null;
 }
@@ -143,16 +157,22 @@ void main() {
     await shot(t, 'notices');
   });
 
-  testWidgets('feedback: a member\'s problem is read and marked done', (t) async {
+  testWidgets('feedback: open a conversation, see the screenshot, answer with text', (t) async {
     final server = await open(t);
     await t.tap(find.text('মতামত').last);
     await settle(t);
     expect(find.text('রাত ১০টার রিমাইন্ডার বাজেনি'), findsOneWidget);
     await shot(t, 'feedback');
-    await t.tap(find.widgetWithText(FilledButton, 'শেষ'));
+    await t.tap(find.text('রাত ১০টার রিমাইন্ডার বাজেনি'));
     await settle(t);
-    expect(server.feedback.single['status'], 'done');
-    expect(find.text('রাত ১০টার রিমাইন্ডার বাজেনি'), findsNothing);
+    expect(find.text('রাকিব হাসান'), findsOneWidget);
+    expect(server.calls.any((r) => r.url.path.endsWith('/admin/feedback/file/70')), isTrue, reason: 'the screenshot is fetched');
+    await t.enterText(find.byKey(const Key('admin-reply')), 'ফোনের ব্যাটারি সেটিং দেখুন');
+    await t.tap(find.byKey(const Key('admin-send')));
+    await settle(t);
+    expect(server.replies.single['text'], 'ফোনের ব্যাটারি সেটিং দেখুন');
+    expect(find.text('ফোনের ব্যাটারি সেটিং দেখুন'), findsOneWidget);
+    await shot(t, 'thread');
   });
 
   testWidgets('signed out: email and password, then in', (t) async {
@@ -180,9 +200,17 @@ void main() {
     final server = FakeServer();
     final store = MemorySession()..value = 'c' * 64;
     store.flags['fingerprint'] = true;
-    await t.pumpWidget(AdminApp(api: Api(client: server.client, store: store, base: 'https://x'), device: FakeDevice()));
+    final device = FakeDevice()..answer = 'ফোনে কোনো আঙুলের ছাপ রাখা নেই';
+    await t.pumpWidget(AdminApp(api: Api(client: server.client, store: store, base: 'https://x'), device: device));
     await settle(t);
-    // FakeDevice says yes at once, so it opens.
+    await t.pump(const Duration(milliseconds: 500));
+    await settle(t);
+    // The phone said why it could not: shown under the button, still locked.
+    expect(find.byKey(const Key('unlock-problem')), findsOneWidget);
+    expect(find.text('২টা পেমেন্ট দেখার অপেক্ষায়'), findsNothing);
+    device.answer = null;
+    await t.tap(find.byKey(const Key('unlock')));
+    await settle(t);
     expect(find.text('২টা পেমেন্ট দেখার অপেক্ষায়'), findsOneWidget);
   });
 

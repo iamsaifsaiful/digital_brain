@@ -1647,21 +1647,29 @@ void main() {
     final rig = await start(t);
     await openMenu(t, 'সেটিংস');
     expect(find.text('সেটিংস'), findsWidgets);
+    await t.ensureVisible(find.text('English'));
+    await settle(t);
     await t.tap(find.text('English'));
     await settle(t);
     expect(rig.brain.english, isTrue);
-    expect(find.text('Settings'), findsWidgets);
+    expect(find.text('Theme'), findsWidgets);
+    await t.ensureVisible(find.text('Dark'));
+    await settle(t);
     await t.tap(find.text('Dark'));
     await settle(t);
     expect(rig.brain.look, Look.dark);
     expect(C.dark, isTrue);
     expect(await rig.services.lock.keys.read('lang'), 'en');
+    await t.ensureVisible(find.text('বাংলা'));
+    await settle(t);
     await t.tap(find.text('বাংলা'));
+    await settle(t);
+    await t.ensureVisible(find.text('আলো'));
     await settle(t);
     await t.tap(find.text('আলো'));
     await settle(t);
     expect(C.dark, isFalse);
-    expect(find.text('সেটিংস'), findsWidgets);
+    expect(find.text('থিম'), findsWidgets);
   });
 
   testWidgets('v2.9: first run asks what the user does; a shopkeeper gets the shop tools', (t) async {

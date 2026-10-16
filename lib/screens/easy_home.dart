@@ -9,7 +9,6 @@ import 'calls_screen.dart';
 import 'diary_screen.dart';
 import 'home_page.dart';
 import 'home_shell.dart';
-import 'more_screen.dart';
 import 'plan_screens.dart';
 import 'settings_parts.dart';
 
@@ -62,7 +61,7 @@ class EasyHome extends StatelessWidget {
           ),
           InkWell(
             customBorder: const CircleBorder(),
-            onTap: () => push(const MenuPage(child: MoreScreen())),
+            onTap: () => goToTab(context, ShellTab.more),
             child: const UserPhoto(size: 56),
           ),
         ]),

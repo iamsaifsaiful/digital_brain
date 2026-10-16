@@ -1,0 +1,560 @@
+import 'package:flutter/material.dart';
+
+import '../logic/bn.dart';
+import '../logic/calendar_bd.dart' show bdPlaces;
+import '../logic/lang.dart';
+import '../logic/me.dart' show bloodGroups;
+import '../logic/when.dart' show sayWhen;
+import '../models/models.dart' show Via;
+import '../services/community.dart';
+import '../state/brain.dart';
+import '../ui/theme.dart';
+import '../ui/widgets.dart';
+import 'google_backup.dart' show GoogleBackupPanel;
+
+/// অনুরোধ: blood requests between members. Ask for blood, see the requests
+/// near you that your group can give to, say "আমি দিতে পারব", and see who
+/// said yes to yours. Only what is written here goes to our server.
+class RequestsScreen extends StatefulWidget {
+  const RequestsScreen({super.key, this.inTab = false});
+
+  /// Shown as a tab (no back arrow).
+  final bool inTab;
+
+  @override
+  State<RequestsScreen> createState() => _RequestsScreenState();
+}
+
+class _RequestsScreenState extends State<RequestsScreen> {
+  bool _mine = false;
+  bool _wholeDistrict = false;
+  DonorProfile? _donor;
+  List<BloodRequest>? _list;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    final brain = BrainScope.read(context);
+    if (!brain.signedIn) return;
+    final c = brain.community;
+    final (donor, e1) = _donor == null ? await c.donor() : (_donor!, null);
+    final (list, e2) = _mine
+        ? await c.requests(scope: 'mine')
+        : await c.requests(
+            scope: _wholeDistrict || !donor.on ? 'district' : 'near',
+            district: donor.on ? '' : brain.district,
+          );
+    if (!mounted) return;
+    setState(() {
+      _donor = donor;
+      _list = list;
+      _error = e2 ?? e1;
+    });
+  }
+
+  Future<void> _reload() async {
+    setState(() => _list = null);
+    await _load();
+  }
+
+  Future<void> _ask() async {
+    final told = await Navigator.of(context).push<int>(MaterialPageRoute(builder: (_) => AskBloodScreen(phone: _donor?.phone ?? '')));
+    if (told == null || !mounted) return;
+    toast(context, told == 0 ? tr('অনুরোধ রাখা হয়েছে') : trf('অনুরোধ রাখা হয়েছে — {0} জন দাতাকে জানানো হলো', [bnDigits(told)]));
+    setState(() => _mine = true);
+    await _reload();
+  }
+
+  Future<void> _donorSetup() async {
+    final d = await showModalBottomSheet<DonorProfile>(context: context, isScrollControlled: true, builder: (_) => _DonorSheet(current: _donor ?? const DonorProfile()));
+    if (d == null || !mounted) return;
+    setState(() => _donor = d);
+    await _reload();
+  }
+
+  Future<void> _accept(BloodRequest r) async {
+    final brain = BrainScope.read(context);
+    final phone = TextEditingController(text: _donor?.phone ?? '');
+    final note = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(trf('{0} রক্ত দিতে পারবেন?', [r.blood]), style: display(19)),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(tr('যিনি চেয়েছেন, তিনি আপনার নাম আর নম্বর দেখবেন এবং যোগাযোগ করবেন।'), style: body(14, color: C.muted2, height: 1.5)),
+          const SizedBox(height: 12),
+          TextField(key: const Key('accept-phone'), controller: phone, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: tr('আপনার মোবাইল নম্বর'))),
+          const SizedBox(height: 10),
+          TextField(controller: note, decoration: InputDecoration(labelText: tr('কিছু বলার থাকলে (ঐচ্ছিক)'), hintText: tr('যেমন: বিকেল ৪টায় আসতে পারব'))),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('বাতিল'))),
+          FilledButton(key: const Key('accept-yes'), onPressed: () => Navigator.pop(ctx, true), child: Text(tr('হ্যাঁ, দিতে পারব'))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final (_, e) = await brain.community.act(r.id, 'accept', phone: asciiDigits(phone.text.trim()), note: note.text.trim());
+    if (!mounted) return;
+    if (e != null) {
+      toast(context, e);
+      return;
+    }
+    toast(context, tr('ধন্যবাদ! যিনি চেয়েছেন, তাঁকে জানানো হয়েছে।'));
+    await _reload();
+  }
+
+  Future<void> _act(BloodRequest r, String what, {String status = 'done'}) async {
+    final (_, e) = await BrainScope.read(context).community.act(r.id, what, status: status);
+    if (!mounted) return;
+    if (e != null) toast(context, e);
+    await _reload();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final donor = _donor;
+    final list = _list;
+    final now = brain.services.now();
+    final content = !brain.signedIn
+        ? ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
+            Text(tr('রক্তের অনুরোধ দিতে বা দেখতে আগে Google দিয়ে লগইন করুন।'), style: body(15, color: C.muted2, height: 1.55)),
+            const SizedBox(height: 12),
+            const GoogleBackupPanel(),
+          ])
+        : RefreshIndicator(
+            onRefresh: _load,
+            child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 100), children: [
+              SegTabs<bool>(
+                items: [(false, tr('আশপাশের অনুরোধ')), (true, tr('আমার অনুরোধ'))],
+                value: _mine,
+                onChanged: (v) {
+                  setState(() => _mine = v);
+                  _reload();
+                },
+              ),
+              const SizedBox(height: 12),
+              if (!_mine) ...[
+                if (donor != null) _DonorCard(donor: donor, onTap: _donorSetup),
+                if (donor != null && donor.on)
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _wholeDistrict,
+                    onChanged: (v) {
+                      setState(() => _wholeDistrict = v);
+                      _reload();
+                    },
+                    title: Text(trf('{0}-এর সব অনুরোধ দেখুন', [tr(donor.district)]), style: body(14.5)),
+                    subtitle: Text(tr('বন্ধ থাকলে শুধু যেগুলোতে আপনি দিতে পারবেন'), style: body(12.5, color: C.muted)),
+                  ),
+                const SizedBox(height: 6),
+              ],
+              if (_error != null) Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(_error!, style: body(14, color: C.red))),
+              if (list == null)
+                const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
+              else if (list.isEmpty)
+                EmptyState(
+                  icon: Icons.bloodtype_outlined,
+                  title: _mine ? tr('আপনার কোনো অনুরোধ নেই') : tr('এখন কোনো অনুরোধ নেই'),
+                  text: _mine ? tr('রক্ত দরকার হলে নিচের “রক্ত চাই” চাপুন — আপনার জেলার দাতারা সাথে সাথে জানবেন।') : tr('কারো রক্ত লাগলে এখানে দেখাবে, আর দাতা হলে নোটিফিকেশনও পাবেন।'),
+                )
+              else
+                for (final r in list) ...[
+                  _RequestCard(
+                    request: r,
+                    now: now,
+                    onCall: (p) => brain.services.launcher.open(Via.call, p),
+                    onAccept: () => _accept(r),
+                    onWithdraw: () => _act(r, 'withdraw'),
+                    onDone: () => _act(r, 'close'),
+                    onCancel: () => _act(r, 'close', status: 'cancelled'),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+            ]),
+          );
+    return Scaffold(
+      floatingActionButton: brain.signedIn ? AddButton(key: const Key('blood-ask'), label: tr('রক্ত চাই'), icon: Icons.bloodtype_outlined, onPressed: _ask) : null,
+      body: SafeArea(
+        bottom: !widget.inTab,
+        child: Column(children: [
+          if (widget.inTab)
+            Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 4), child: TabTitle(tr('অনুরোধ')))
+          else
+            TopBar(title: tr('রক্তের অনুরোধ')),
+          Expanded(child: content),
+        ]),
+      ),
+    );
+  }
+}
+
+class _DonorCard extends StatelessWidget {
+  const _DonorCard({required this.donor, required this.onTap});
+  final DonorProfile donor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: donor.on ? C.roseTint : C.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: donor.on ? Colors.transparent : C.line)),
+        child: InkWell(
+          key: const Key('donor-card'),
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+            child: Row(children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: C.roseFill, shape: BoxShape.circle),
+                child: donor.on ? Text(bloodLabel(donor.blood), style: display(15, weight: 700, color: Colors.white)) : const Icon(Icons.volunteer_activism_outlined, color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(donor.on ? tr('আপনি রক্তদাতা') : tr('আমি রক্ত দিতে চাই'), style: body(15.5, weight: FontWeight.w700, color: donor.on ? C.roseDark : C.ink)),
+                  Text(
+                      donor.on
+                          ? '${tr(donor.district)}${donor.lastDonated == null ? '' : ' · ${trf('শেষ দিয়েছেন {0}', [shortDate(donor.lastDonated!)])}'} · ${tr('বদলান')}'
+                          : tr('দাতা হলে আপনার জেলায় কারো রক্ত লাগলে নোটিফিকেশন পাবেন'),
+                      style: body(13, color: donor.on ? C.roseDark : C.muted)),
+                ]),
+              ),
+              Icon(Icons.chevron_right_rounded, color: donor.on ? C.roseDark : C.muted),
+            ]),
+          ),
+        ),
+      );
+}
+
+class _RequestCard extends StatelessWidget {
+  const _RequestCard({required this.request, required this.now, required this.onCall, required this.onAccept, required this.onWithdraw, required this.onDone, required this.onCancel});
+  final BloodRequest request;
+  final DateTime now;
+  final void Function(String phone) onCall;
+  final VoidCallback onAccept;
+  final VoidCallback onWithdraw;
+  final VoidCallback onDone;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = request;
+    final urgent = r.open && r.needBy.difference(now).inHours < 24;
+    final state = switch (r.status) {
+      'done' => (tr('রক্ত পাওয়া গেছে'), C.green, C.greenTint),
+      'cancelled' => (tr('বাতিল'), C.muted2, C.soft),
+      'expired' => (tr('সময় পার হয়ে গেছে'), C.muted2, C.soft),
+      _ => urgent ? (tr('জরুরি'), C.rose, C.roseTint) : (tr('খোলা'), C.greenDark, C.greenTint),
+    };
+    return Panel(
+      key: Key('request-${r.id}'),
+      padding: const EdgeInsets.all(14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 56,
+            height: 56,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: C.roseFill, borderRadius: BorderRadius.circular(16)),
+            child: Text(r.blood, style: display(20, weight: 800, color: Colors.white)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(child: Text(trf('{0} ব্যাগ রক্ত দরকার', [bnDigits(r.bags)]), style: body(16, weight: FontWeight.w700))),
+                Pill(state.$1, fg: state.$2, bg: state.$3),
+              ]),
+              Text(r.hospital.isEmpty ? tr(r.district) : '${r.hospital}, ${tr(r.district)}', style: body(14, color: C.muted2)),
+              Text(trf('লাগবে: {0}', [sayWhen(r.needBy, now)]), style: body(13.5, weight: FontWeight.w600, color: urgent ? C.rose : C.muted2)),
+            ]),
+          ),
+        ]),
+        if (r.patient.isNotEmpty || r.note.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text([if (r.patient.isNotEmpty) trf('রোগী: {0}', [r.patient]), if (r.note.isNotEmpty) r.note].join(' · '), style: body(14, height: 1.5)),
+        ],
+        const SizedBox(height: 8),
+        if (!r.mine) ...[
+          Text(trf('চেয়েছেন {0}{1}', [r.by, r.accepted > 0 ? ' · ${trf('{0} জন রাজি', [bnDigits(r.accepted)])}' : '']), style: body(12.5, color: C.muted)),
+          const SizedBox(height: 10),
+          if (r.open)
+            Row(children: [
+              Expanded(
+                child: r.iAccepted
+                    ? SecondaryButton(label: tr('রাজি আছি · ফিরিয়ে নিন'), height: 46, onPressed: onWithdraw)
+                    : PrimaryButton(key: Key('accept-${r.id}'), label: tr('আমি দিতে পারব'), icon: Icons.volunteer_activism_outlined, height: 46, color: C.roseFill, onPressed: onAccept),
+              ),
+              const SizedBox(width: 8),
+              CircleAction(icon: Icons.call_rounded, tooltip: trf('ফোন দিন {0}', [bnDigits(r.phone)]), size: 46, onPressed: () => onCall(r.phone)),
+            ]),
+        ] else ...[
+          Text(r.donors.isEmpty ? tr('এখনো কেউ রাজি হননি — দাতারা নোটিফিকেশন পেয়েছেন।') : trf('{0} জন রক্ত দিতে রাজি:', [bnDigits(r.donors.length)]),
+              style: body(13.5, weight: FontWeight.w600, color: r.donors.isEmpty ? C.muted : C.greenDark)),
+          for (final d in r.donors)
+            ListRow(
+              leading: Avatar(name: d.name, fg: C.rose, bg: C.roseTint),
+              title: d.name,
+              subtitle: [bnDigits(d.phone), if (d.note.isNotEmpty) d.note].join(' · '),
+              trailing: CircleAction(icon: Icons.call_rounded, tooltip: tr('ফোন দিন'), onPressed: () => onCall(d.phone)),
+            ),
+          if (r.open) ...[
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(child: PrimaryButton(key: Key('done-${r.id}'), label: tr('রক্ত পেয়েছি'), icon: Icons.check_rounded, height: 46, onPressed: onDone)),
+              const SizedBox(width: 8),
+              Expanded(child: SecondaryButton(label: tr('বাতিল করুন'), height: 46, onPressed: onCancel)),
+            ]),
+          ],
+        ],
+      ]),
+    );
+  }
+}
+
+/// Becoming a donor (or stopping): group, district, last donation, number.
+class _DonorSheet extends StatefulWidget {
+  const _DonorSheet({required this.current});
+  final DonorProfile current;
+
+  @override
+  State<_DonorSheet> createState() => _DonorSheetState();
+}
+
+class _DonorSheetState extends State<_DonorSheet> {
+  late String _blood = widget.current.blood.isEmpty ? '' : bloodLabel(widget.current.blood);
+  late String _district = widget.current.district;
+  late DateTime? _last = widget.current.lastDonated;
+  late final _phone = TextEditingController(text: widget.current.phone);
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final brain = BrainScope.read(context);
+    if (_blood.isEmpty) _blood = brain.data.emergency.blood;
+    if (_district.isEmpty) _district = brain.district;
+    _last ??= DateTime.tryParse(brain.text('blood_last'));
+  }
+
+  @override
+  void dispose() {
+    _phone.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save(bool on) async {
+    final brain = BrainScope.read(context);
+    if (on && _blood.isEmpty) {
+      setState(() => _error = tr('রক্তের গ্রুপ বেছে নিন'));
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final (d, e) = await brain.community.setDonor(on: on, blood: _blood, district: _district, lastDonated: _last, phone: asciiDigits(_phone.text.trim()));
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (e != null) {
+      setState(() => _error = e);
+      return;
+    }
+    // The app's own donor reminder (next donation day) follows this.
+    await brain.setPref('donor_on', on);
+    if (_last != null) await brain.setPref('blood_last', _last!.toIso8601String());
+    if (on && brain.data.emergency.blood.isEmpty) await brain.saveEmergency(brain.data.emergency.copyWith(blood: _blood));
+    if (mounted) Navigator.pop(context, d);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final now = BrainScope.of(context).services.now();
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(tr('আমি রক্ত দিতে চাই'), style: display(20, weight: 700)),
+            const SizedBox(height: 4),
+            Text(tr('আপনার জেলায় কারো এই গ্রুপের রক্ত লাগলে নোটিফিকেশন পাবেন (দিনে ৩টার বেশি না; রক্ত দেওয়ার ৩ মাসের মধ্যে একটাও না)। শুধু গ্রুপ, জেলা, শেষ দেওয়ার দিন আর নম্বর সার্ভারে থাকে — নম্বর দেখবেন শুধু যাঁকে আপনি রাজি বলবেন।'),
+                style: body(13, color: C.muted, height: 1.5)),
+            const SizedBox(height: 14),
+            Text(tr('রক্তের গ্রুপ'), style: body(13, weight: FontWeight.w600, color: C.muted2)),
+            const SizedBox(height: 6),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final g in bloodGroups) ChoiceChip(label: Text(g, style: body(15, weight: FontWeight.w600)), selected: _blood == g, onSelected: (_) => setState(() => _blood = g)),
+            ]),
+            const SizedBox(height: 14),
+            DropdownButtonFormField<String>(
+              initialValue: bdPlaces.any((p) => p.name == _district) ? _district : bdPlaces.first.name,
+              decoration: InputDecoration(labelText: tr('জেলা')),
+              items: [for (final p in bdPlaces) DropdownMenuItem(value: p.name, child: Text(p.label))],
+              onChanged: (v) => setState(() => _district = v ?? _district),
+            ),
+            const SizedBox(height: 12),
+            InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () async {
+                final d = await showDatePicker(context: context, initialDate: _last ?? now, firstDate: DateTime(now.year - 5), lastDate: now);
+                if (d != null) setState(() => _last = d);
+              },
+              child: InputDecorator(
+                decoration: InputDecoration(labelText: tr('শেষ কবে রক্ত দিয়েছেন (ঐচ্ছিক)')),
+                child: Text(_last == null ? tr('জানা নেই / কখনো না') : fullDate(_last!), style: body(16)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: tr('মোবাইল নম্বর (রাজি হলে যাঁকে দেবেন, তিনি দেখবেন)'))),
+            if (_error != null) ...[const SizedBox(height: 10), Text(_error!, style: body(14, color: C.red))],
+            const SizedBox(height: 16),
+            PrimaryButton(key: const Key('donor-save'), label: widget.current.on ? tr('রাখুন') : tr('দাতা হিসেবে যুক্ত হোন'), color: C.roseFill, onPressed: _busy ? null : () => _save(true)),
+            if (widget.current.on) ...[
+              const SizedBox(height: 8),
+              TextButton(onPressed: _busy ? null : () => _save(false), child: Text(tr('দাতা থাকতে চাই না (তথ্য মুছে যাবে)'), style: body(14, color: C.red))),
+            ],
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// "রক্ত চাই": group, bags, where, by when, and a number to call. Returns
+/// how many donors were told, or null when not sent.
+class AskBloodScreen extends StatefulWidget {
+  const AskBloodScreen({super.key, this.phone = ''});
+  final String phone;
+
+  @override
+  State<AskBloodScreen> createState() => _AskBloodScreenState();
+}
+
+class _AskBloodScreenState extends State<AskBloodScreen> {
+  String _blood = '';
+  int _bags = 1;
+  late String _district;
+  late DateTime _need;
+  final _hospital = TextEditingController();
+  final _patient = TextEditingController();
+  final _note = TextEditingController();
+  late final _phone = TextEditingController(text: widget.phone);
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final brain = BrainScope.read(context);
+    _district = brain.district;
+    final now = brain.services.now();
+    _need = DateTime(now.year, now.month, now.day, 18).isAfter(now) ? DateTime(now.year, now.month, now.day, 18) : DateTime(now.year, now.month, now.day + 1, 10);
+  }
+
+  @override
+  void dispose() {
+    for (final c in [_hospital, _patient, _note, _phone]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    if (_blood.isEmpty) {
+      setState(() => _error = tr('কোন গ্রুপের রক্ত লাগবে, বেছে নিন'));
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final (told, e) = await BrainScope.read(context).community.ask(
+          blood: _blood,
+          bags: _bags,
+          district: _district,
+          hospital: _hospital.text.trim(),
+          needBy: _need,
+          phone: asciiDigits(_phone.text.trim()),
+          patient: _patient.text.trim(),
+          note: _note.text.trim(),
+        );
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _error = e;
+    });
+    if (e == null) Navigator.of(context).pop(told);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final now = BrainScope.of(context).services.now();
+    return Scaffold(
+      body: SafeArea(
+        child: Column(children: [
+          TopBar(title: tr('রক্ত চাই')),
+          Expanded(
+            child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
+              Text(tr('কোন গ্রুপ'), style: body(13, weight: FontWeight.w600, color: C.muted2)),
+              const SizedBox(height: 6),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                for (final g in bloodGroups)
+                  ChoiceChip(key: Key('ask-$g'), label: Text(g, style: body(16, weight: FontWeight.w700)), selected: _blood == g, onSelected: (_) => setState(() => _blood = g)),
+              ]),
+              const SizedBox(height: 16),
+              Row(children: [
+                Expanded(child: Text(tr('কত ব্যাগ'), style: body(15, weight: FontWeight.w600))),
+                IconButton.outlined(onPressed: _bags > 1 ? () => setState(() => _bags--) : null, icon: const Icon(Icons.remove_rounded)),
+                SizedBox(width: 44, child: Text(bnDigits(_bags), textAlign: TextAlign.center, style: display(20, weight: 700))),
+                IconButton.outlined(onPressed: _bags < 10 ? () => setState(() => _bags++) : null, icon: const Icon(Icons.add_rounded)),
+              ]),
+              const SizedBox(height: 14),
+              TextField(key: const Key('ask-hospital'), controller: _hospital, decoration: InputDecoration(labelText: tr('হাসপাতাল / কোথায়'), hintText: tr('যেমন: ঢাকা মেডিকেল কলেজ হাসপাতাল'))),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: bdPlaces.any((p) => p.name == _district) ? _district : bdPlaces.first.name,
+                decoration: InputDecoration(labelText: tr('জেলা')),
+                items: [for (final p in bdPlaces) DropdownMenuItem(value: p.name, child: Text(p.label))],
+                onChanged: (v) => setState(() => _district = v ?? _district),
+              ),
+              const SizedBox(height: 12),
+              InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () async {
+                  final d = await showDatePicker(context: context, initialDate: _need.isBefore(now) ? now : _need, firstDate: DateTime(now.year, now.month, now.day), lastDate: now.add(const Duration(days: 30)));
+                  if (d == null || !context.mounted) return;
+                  final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_need));
+                  setState(() => _need = DateTime(d.year, d.month, d.day, t?.hour ?? _need.hour, t?.minute ?? 0));
+                },
+                child: InputDecorator(decoration: InputDecoration(labelText: tr('কবে লাগবে')), child: Text(sayWhen(_need, now), style: body(16))),
+              ),
+              const SizedBox(height: 12),
+              TextField(key: const Key('ask-phone'), controller: _phone, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: tr('যোগাযোগের মোবাইল নম্বর'))),
+              const SizedBox(height: 12),
+              TextField(controller: _patient, decoration: InputDecoration(labelText: tr('রোগী (ঐচ্ছিক)'), hintText: tr('যেমন: আমার বাবা'))),
+              const SizedBox(height: 12),
+              TextField(controller: _note, maxLines: 2, decoration: InputDecoration(labelText: tr('বিস্তারিত (ঐচ্ছিক)'), hintText: tr('যেমন: অপারেশন, ওয়ার্ড ৩'))),
+              const SizedBox(height: 8),
+              Text(tr('আপনার জেলার যাঁরা দাতা আর এই গ্রুপে দিতে পারেন, তাঁরা নোটিফিকেশন পাবেন এবং আপনার নম্বর দেখবেন। একসাথে ৩টা পর্যন্ত অনুরোধ খোলা রাখা যায়।'),
+                  style: body(12.5, color: C.muted, height: 1.5)),
+              if (_error != null) ...[const SizedBox(height: 10), Text(_error!, style: body(14, color: C.red))],
+              const SizedBox(height: 16),
+              PrimaryButton(key: const Key('ask-send'), label: _busy ? tr('পাঠাচ্ছি…') : tr('অনুরোধ পাঠান'), icon: Icons.send_rounded, color: C.roseFill, onPressed: _busy ? null : _send),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+}

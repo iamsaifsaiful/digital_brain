@@ -20,6 +20,7 @@ import 'settings_parts.dart';
 import 'sound_screen.dart';
 import 'store_more_screens.dart' show DonorPanel;
 import 'feedback_screen.dart';
+import 'requests_screen.dart';
 import 'pro_screen.dart';
 import 'google_backup.dart';
 import '../logic/pro.dart';
@@ -27,7 +28,7 @@ import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '2.15.0';
+const appVersion = '2.16.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -117,11 +118,6 @@ class _MoreScreenState extends State<MoreScreen> {
     if (v != null) await brain.setDistrict(v);
   }
 
-  String _proLine(Brain brain) {
-    if (!brain.gated) return tr('AI সহকারী, বিজ্ঞাপন নেই — শীঘ্রই');
-    if (brain.pro) return tr('প্রো চালু আছে');
-    return tr('বিজ্ঞাপন ছাড়া, অটো ব্যাকআপ, AI আর আরও অনেক কিছু');
-  }
 
   Future<void> _setAiKey() async {
     final brain = BrainScope.read(context);
@@ -303,43 +299,43 @@ class _MoreScreenState extends State<MoreScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       children: [
-        TabTitle(tr('সেটিংস')),
+        TabTitle(tr('আরও')),
         const SizedBox(height: 14),
         ProfileCard(onName: _setName, onPlace: _setDistrict),
         const SizedBox(height: 12),
-        Material(
-          color: C.fill,
-          borderRadius: BorderRadius.circular(16),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: () => push(const ProScreen()),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-              child: Row(children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(color: C.green, borderRadius: BorderRadius.circular(12)),
-                  child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('My Assistant Pro', style: body(16, weight: FontWeight.w700, color: Colors.white)),
-                    Text(_proLine(brain), style: body(13, color: C.mint)),
-                  ]),
-                ),
-                const Icon(Icons.chevron_right_rounded, color: C.onDarkMuted),
-              ]),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Panel(
-          child: linkRow(Icons.lightbulb_outline_rounded, tr('অ্যাপ দিয়ে কী কী করা যায়'), sub: tr('সব সুবিধা, আর মাইকে কী বলবেন'), onTap: () => push(const HelpScreen())),
-        ),
+        // The things people come here for, as big tiles (two rows of two).
+        for (final row in [
+          [
+            _Tile(key: const Key('more-requests'), icon: Icons.bloodtype_outlined, fg: C.rose, bg: C.roseTint, title: tr('অনুরোধ'), sub: tr('রক্ত চাই / দিতে পারি'), onTap: () => push(const RequestsScreen())),
+            _Tile(
+                key: const Key('more-pro'),
+                icon: Icons.workspace_premium_outlined,
+                fg: C.ochre,
+                bg: C.ochreTint,
+                title: tr('প্রো ভার্সন'),
+                sub: brain.gated && brain.pro ? tr('চালু আছে') : tr('কী কী পাবেন'),
+                onTap: () => push(const ProScreen())),
+          ],
+          [
+            _Tile(
+                key: const Key('more-feedback'),
+                icon: Icons.forum_outlined,
+                fg: C.blue,
+                bg: C.blueTint,
+                title: tr('মতামত'),
+                sub: brain.feedbackUnread > 0 ? trf('{0}টা নতুন উত্তর', [bnDigits(brain.feedbackUnread)]) : tr('সমস্যা বা নতুন সুবিধা'),
+                badge: brain.feedbackUnread > 0,
+                onTap: () => push(const FeedbackScreen())),
+            _Tile(icon: Icons.lightbulb_outline_rounded, fg: C.green, bg: C.greenTint, title: tr('কী কী করা যায়'), sub: tr('সব সুবিধা, মাইকে কী বলবেন'), onTap: () => push(const HelpScreen())),
+          ],
+        ]) ...[
+          Row(children: [Expanded(child: SizedBox(height: 70, child: row[0])), const SizedBox(width: 10), Expanded(child: SizedBox(height: 70, child: row[1]))]),
+          const SizedBox(height: 10),
+        ],
         const SizedBox(height: 10),
         Panel(child: linkRow(Icons.notifications_active_outlined, tr('রিমাইন্ডার ঠিকমতো বাজবে তো?'), sub: tr('ফোনের সেটিং দেখে নিন, ১ মিনিটে পরীক্ষা করুন'), onTap: () => push(const ReminderCheckScreen()))),
+        const SizedBox(height: 22),
+        Text(tr('সেটিংস'), style: display(20, weight: 700)),
         const SizedBox(height: 16),
         SectionTitle(tr('চেহারা ও ভাষা')),
         const LookSection(),
@@ -365,6 +361,8 @@ class _MoreScreenState extends State<MoreScreen> {
         const SizedBox(height: 16),
         SectionTitle(tr('রক্তদান')),
         const DonorPanel(),
+        const SizedBox(height: 6),
+        Panel(child: linkRow(Icons.bloodtype_outlined, tr('রক্তের অনুরোধ'), sub: tr('কারো রক্ত লাগলে দেখুন, বা নিজে অনুরোধ দিন'), onTap: () => push(const RequestsScreen()))),
         const SizedBox(height: 16),
         SectionTitle(tr('তথ্য নিরাপদ রাখা')),
         Panel(
@@ -428,7 +426,6 @@ class _MoreScreenState extends State<MoreScreen> {
         SectionTitle(tr('অন্যান্য')),
         Panel(
           child: Rows(children: [
-            linkRow(Icons.forum_outlined, tr('মতামত বা সমস্যা জানান'), sub: tr('নতুন সুবিধা চাইলে বা কিছু ঠিকমতো না চললে লিখে পাঠান'), onTap: () => push(const FeedbackScreen())),
             linkRow(Icons.picture_as_pdf_outlined, tr('সবকিছু PDF আকারে'), sub: tr('কাজ, হিসাব, নোট, স্বাস্থ্য… যা চান বেছে নিয়ে এক PDF-এ'), onTap: () => exportEverything(context),
                 trailing: brain.has(ProFeature.pdf) ? Icon(Icons.download_rounded, color: C.muted) : const ProMark()),
             linkRow(Icons.table_view_outlined, tr('ধার-দেনার রিপোর্ট (CSV)'), sub: tr('Excel বা Google Sheets-এ খোলা যায়'), onTap: _csv,
@@ -699,6 +696,45 @@ class _NewPinSheetState extends State<_NewPinSheet> {
               },
             ),
           ]),
+        ),
+      );
+}
+
+/// A big square-ish shortcut at the top of আরও.
+class _Tile extends StatelessWidget {
+  const _Tile({super.key, required this.icon, required this.fg, required this.bg, required this.title, required this.sub, required this.onTap, this.badge = false});
+  final IconData icon;
+  final Color fg;
+  final Color bg;
+  final String title;
+  final String sub;
+  final VoidCallback onTap;
+  final bool badge;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: C.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: C.line)),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+            child: Row(children: [
+              Badge(
+                isLabelVisible: badge,
+                smallSize: 10,
+                child: Container(width: 40, height: 40, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: fg, size: 22)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15, weight: FontWeight.w700)),
+                  Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: badge ? C.greenDark : C.muted)),
+                ]),
+              ),
+            ]),
+          ),
         ),
       );
 }

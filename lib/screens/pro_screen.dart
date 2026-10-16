@@ -113,6 +113,38 @@ class _ProScreenState extends State<ProScreen> {
                   child: Text(tr('আগে কেনা প্রো ফিরিয়ে আনুন')),
                 ),
               ],
+              // The website's Pro page (details and paying by bKash, Nagad…). Only in the
+              // downloaded APK: Google Play does not allow a Play app to point to another way to pay.
+              if (!playEdition) ...[
+                const SizedBox(height: 6),
+                Material(
+                  color: C.greenTint,
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    key: const Key('pro-website'),
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => brain.services.launcher.openUrl(Uri.parse(proWebPage)),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+                      child: Row(children: [
+                        Icon(Icons.public_rounded, color: C.green),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(tr('বিস্তারিত আমাদের ওয়েবসাইটে'), style: body(15, weight: FontWeight.w700, color: C.greenDark)),
+                            Text(proWebPage.replaceFirst('https://', ''), style: body(13, color: C.greenDark)),
+                          ]),
+                        ),
+                        Icon(Icons.open_in_new_rounded, color: C.green),
+                      ]),
+                    ),
+                  ),
+                ),
+              ],
+              if (previewEdition) ...[
+                const SizedBox(height: 6),
+                Text(tr('ওয়েবসাইটের লিংক Play Store-এর অ্যাপে দেখানো হয় না — Google-এর নিয়ম। GitHub থেকে নামানো অ্যাপে লিংকটা থাকে।'), style: body(12, color: C.muted, height: 1.5)),
+              ],
               const SizedBox(height: 18),
               SectionTitle(tr('সবসময় ফ্রি')),
               Text(tr('মুখে বলে সব কাজ, আয়-ব্যয় ও ধার-দেনা (২০ জন), তাগাদার মেসেজ, কাজের তালিকা, ২০টা চালু রিমাইন্ডার, অ্যালার্ম, ক্যালেন্ডার ও নামাজের সময়, নোট, ৩০টা ডকুমেন্ট, পরিবারের সবার স্বাস্থ্য, শিশুর টিকা, ওষুধের রিমাইন্ডার, অভ্যাস, যাকাতের হিসাব, সঞ্চয়, ১টা দোকান, ১টা অন্যান্য হিসাব, ১০টা পাসওয়ার্ড, নিজে চাপলে Google Drive-এ ব্যাকআপ আর নতুন ফোনে সব ফিরিয়ে আনা। আপনার রাখা কোনো তথ্য কখনো তালাবদ্ধ হবে না।'),

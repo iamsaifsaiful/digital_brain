@@ -81,7 +81,16 @@ class MainActivity : FlutterFragmentActivity() {
                 for (u in uris.take(10)) readShared(u)?.let { files.add(it) }
                 mapOf("action" to "share", "text" to text, "files" to files)
             }
-            else -> null
+            else -> {
+                // A tap on a notification from our server: "push" (shown by the app)
+                // or "type" (shown by Firebase while the app was closed).
+                val type = i.getStringExtra("push") ?: i.getStringExtra("type")
+                if (type == "blood" || type == "feedback") {
+                    i.removeExtra("push")
+                    i.removeExtra("type")
+                    mapOf("action" to "push:$type")
+                } else null
+            }
         }
     }
 

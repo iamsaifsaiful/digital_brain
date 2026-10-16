@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/services.dart';
 
 import 'api.dart';
@@ -728,8 +729,9 @@ class _NoticesPageState extends State<NoticesPage> {
 
 // ── মতামত ──
 
-/// Members' feature wishes and problems, written in the app. Read, marked
-/// done, or answered by email. Nothing is kept on this phone.
+/// Members' feature wishes and problems, as conversations. Open one to read
+/// it, see photos, answer (with a photo or PDF) or mark it done. Nothing is
+/// kept on this phone.
 class FeedbackPage extends StatefulWidget {
   const FeedbackPage({super.key, required this.api, required this.guard, required this.refresh});
   final Api api;
@@ -762,8 +764,8 @@ class _FeedbackPageState extends State<FeedbackPage> {
     if (l != null && mounted) setState(() => _list = l);
   }
 
-  Future<void> _set(Map<String, dynamic> f, String status) async {
-    await widget.guard(() => widget.api.setFeedback((f['id'] as num).toInt(), status));
+  Future<void> _open(Map<String, dynamic> f) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => FeedbackThreadPage(api: widget.api, guard: widget.guard, id: (f['id'] as num).toInt())));
     await _load();
   }
 
@@ -810,34 +812,27 @@ class _FeedbackPageState extends State<FeedbackPage> {
                         final f = list[i];
                         final st = '${f['status']}';
                         final kind = '${f['kind']}';
+                        final last = f['last'] as Map?;
+                        final count = (f['count'] as num?)?.toInt() ?? 1;
                         return CardBox(
+                          onTap: () => _open(f),
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Row(children: [
                               Pill('${f['kind_label']}', kind == 'problem' ? c.rose : c.green, kind == 'problem' ? c.roseTint : c.tint),
                               const SizedBox(width: 6),
                               if (st == 'new') Pill('নতুন', c.amber, c.amberTint) else if (st == 'done') Pill('শেষ', c.green, c.tint),
                               const Spacer(),
-                              Text(ago('${f['created']}'), style: text(12.5, color: c.muted)),
+                              Text(ago('${f['updated'] ?? f['created']}'), style: text(12.5, color: c.muted)),
                             ]),
-                            const SizedBox(height: 10),
-                            SelectableText('${f['text']}', style: text(15.5, color: c.ink, height: 1.6)),
                             const SizedBox(height: 8),
-                            Text('${'${f['name']}'.isEmpty ? f['email'] : f['name']} · ${f['email']}${'${f['version']}'.isEmpty ? '' : ' · v${f['version']}'}',
-                                style: text(13, color: c.muted)),
-                            const SizedBox(height: 10),
-                            Wrap(spacing: 8, runSpacing: 6, children: [
-                              OutlinedButton.icon(
-                                onPressed: () {
-                                  Clipboard.setData(ClipboardData(text: '${f['email']}'));
-                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ইমেইল কপি হয়েছে')));
-                                },
-                                icon: const Icon(Icons.copy_rounded, size: 18),
-                                label: const Text('ইমেইল কপি'),
+                            Text('${'${f['name']}'.isEmpty ? f['email'] : f['name']}', style: text(15, weight: FontWeight.w700, color: c.ink)),
+                            Text('${f['text']}'.isEmpty ? '📎 সংযুক্তি' : '${f['text']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: text(14.5, color: c.ink, height: 1.5)),
+                            if (count > 1 && last != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text('${last['from'] == 'admin' ? 'আমরা' : 'সদস্য'}: ${last['text']} · ${bn(count)}টা বার্তা',
+                                    maxLines: 1, overflow: TextOverflow.ellipsis, style: text(13, color: c.muted)),
                               ),
-                              if (st == 'new') OutlinedButton(onPressed: () => _set(f, 'read'), child: const Text('পড়েছি')),
-                              if (st != 'done') FilledButton(onPressed: () => _set(f, 'done'), child: const Text('শেষ')),
-                              if (st == 'done') OutlinedButton(onPressed: () => _set(f, 'new'), child: const Text('আবার খুলুন')),
-                            ]),
                           ]),
                         );
                       },
@@ -845,5 +840,215 @@ class _FeedbackPageState extends State<FeedbackPage> {
         ),
       ),
     ]);
+  }
+}
+
+/// One conversation with a member.
+class FeedbackThreadPage extends StatefulWidget {
+  const FeedbackThreadPage({super.key, required this.api, required this.guard, required this.id, this.picker});
+  final Api api;
+  final Guard guard;
+  final int id;
+
+  /// Picks a photo or PDF: (name, bytes), or null. Tests pass their own.
+  final Future<(String, Uint8List)?> Function()? picker;
+
+  @override
+  State<FeedbackThreadPage> createState() => _FeedbackThreadPageState();
+}
+
+class _FeedbackThreadPageState extends State<FeedbackThreadPage> {
+  final _text = TextEditingController();
+  Map<String, dynamic>? _f;
+  List<Map<String, dynamic>> _msgs = const [];
+  (String, Uint8List)? _file;
+  bool _busy = false;
+  final _images = <int, Future<Uint8List?>>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final d = await widget.guard(() => widget.api.feedbackThread(widget.id));
+    if (d != null && mounted) {
+      setState(() {
+        _f = (d['feedback'] as Map).cast<String, dynamic>();
+        _msgs = (d['messages'] as List).cast<Map<String, dynamic>>();
+      });
+    }
+  }
+
+  Future<(String, Uint8List)?> _pick() async {
+    if (widget.picker != null) return widget.picker!();
+    const types = XTypeGroup(label: 'ছবি বা PDF', extensions: ['jpg', 'jpeg', 'png', 'webp', 'pdf'], mimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+    final x = await openFile(acceptedTypeGroups: [types]);
+    if (x == null) return null;
+    final bytes = await x.readAsBytes();
+    if (bytes.length > 5 * 1024 * 1024) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ফাইলটা অনেক বড় — ৫ MB পর্যন্ত')));
+      return null;
+    }
+    return (x.name, bytes);
+  }
+
+  Future<void> _send() async {
+    final t = _text.text.trim();
+    if (t.isEmpty && _file == null) return;
+    setState(() => _busy = true);
+    final ok = await widget.guard(() async {
+      await widget.api.replyFeedback(widget.id, t, fileName: _file?.$1, bytes: _file?.$2);
+      return true;
+    });
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (ok == true) {
+      _text.clear();
+      _file = null;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('উত্তর গেছে — সদস্যের ফোনে নোটিফিকেশন')));
+      await _load();
+    }
+  }
+
+  Future<void> _status(String st) async {
+    await widget.guard(() async {
+      await widget.api.setFeedback(widget.id, st);
+      return true;
+    });
+    if (!mounted) return;
+    if (st == 'delete') {
+      Navigator.of(context).pop();
+    } else {
+      await _load();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Palette.of(context);
+    final f = _f;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(f == null ? 'মতামত' : ('${f['name']}'.isEmpty ? '${f['email']}' : '${f['name']}'), style: text(18, weight: FontWeight.w700, color: c.ink)),
+        actions: [
+          if (f != null)
+            PopupMenuButton<String>(
+              onSelected: (v) async {
+                if (v == 'copy') {
+                  await Clipboard.setData(ClipboardData(text: '${f['email']}'));
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ইমেইল কপি হয়েছে')));
+                } else {
+                  await _status(v);
+                }
+              },
+              itemBuilder: (_) => [
+                PopupMenuItem(value: f['status'] == 'done' ? 'new' : 'done', child: Text(f['status'] == 'done' ? 'আবার খুলুন' : 'শেষ হিসেবে রাখুন')),
+                const PopupMenuItem(value: 'copy', child: Text('ইমেইল কপি')),
+                const PopupMenuItem(value: 'delete', child: Text('মুছে ফেলুন')),
+              ],
+            ),
+        ],
+      ),
+      body: Column(children: [
+        if (f != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+            child: Row(children: [
+              Pill('${f['kind_label']}', f['kind'] == 'problem' ? c.rose : c.green, f['kind'] == 'problem' ? c.roseTint : c.tint),
+              const SizedBox(width: 8),
+              Expanded(child: Text('${f['email']}${'${f['version']}'.isEmpty ? '' : ' · v${f['version']}'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: text(13, color: c.muted))),
+            ]),
+          ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _load,
+            child: ListView(padding: const EdgeInsets.fromLTRB(14, 6, 14, 14), children: [
+              for (final m in _msgs) _bubble(context, m),
+            ]),
+          ),
+        ),
+        if (_file != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+            child: Align(alignment: Alignment.centerLeft, child: InputChip(label: Text(_file!.$1), onDeleted: () => setState(() => _file = null))),
+          ),
+        SafeArea(
+          top: false,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(4, 6, 8, 8),
+            decoration: BoxDecoration(color: c.card, border: Border(top: BorderSide(color: c.line))),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              IconButton(
+                key: const Key('admin-attach'),
+                tooltip: 'ছবি বা PDF',
+                onPressed: _busy
+                    ? null
+                    : () async {
+                        final p = await _pick();
+                        if (p != null && mounted) setState(() => _file = p);
+                      },
+                icon: Icon(Icons.attach_file_rounded, color: c.muted),
+              ),
+              Expanded(
+                child: TextField(
+                  key: const Key('admin-reply'),
+                  controller: _text,
+                  minLines: 1,
+                  maxLines: 5,
+                  decoration: const InputDecoration(hintText: 'উত্তর লিখুন…', border: OutlineInputBorder(), isDense: true),
+                ),
+              ),
+              const SizedBox(width: 6),
+              IconButton.filled(key: const Key('admin-send'), onPressed: _busy ? null : _send, icon: const Icon(Icons.send_rounded)),
+            ]),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _bubble(BuildContext context, Map<String, dynamic> m) {
+    final c = Palette.of(context);
+    final us = m['from'] == 'admin';
+    final file = m['file'] as Map?;
+    final id = (m['id'] as num).toInt();
+    return Align(
+      alignment: us ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.fromLTRB(12, 9, 12, 7),
+        decoration: BoxDecoration(color: us ? c.tint : c.card, border: us ? null : Border.all(color: c.line), borderRadius: BorderRadius.circular(16)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if ('${m['text']}'.isNotEmpty) SelectableText('${m['text']}', style: text(15, color: c.ink, height: 1.5)),
+          if (file != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: '${file['mime']}'.startsWith('image/')
+                  ? FutureBuilder<Uint8List?>(
+                      future: _images.putIfAbsent(id, () => widget.guard(() => widget.api.feedbackFile(id))),
+                      builder: (_, snap) => snap.data == null
+                          ? const SizedBox(width: 120, height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+                          : ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.memory(snap.data!, width: 220, fit: BoxFit.cover)),
+                    )
+                  : Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.picture_as_pdf_outlined, color: c.brand),
+                      const SizedBox(width: 6),
+                      Flexible(child: Text('${file['name']} — ওয়েবসাইটের অ্যাডমিন পাতায় খুলুন', style: text(13.5, color: c.ink))),
+                    ]),
+            ),
+          const SizedBox(height: 2),
+          Text('${us ? ('${m['admin']}'.isEmpty ? 'আমরা' : m['admin']) : 'সদস্য'} · ${ago('${m['created']}')}', style: text(11.5, color: c.muted)),
+        ]),
+      ),
+    );
   }
 }

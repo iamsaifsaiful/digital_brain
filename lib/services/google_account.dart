@@ -234,7 +234,7 @@ class SessionExpired implements Exception {
 
 /// What our server says about the account.
 class AccountInfo {
-  const AccountInfo({this.proUntil, this.proKind = '', this.trialUsed = false, this.session = '', this.ai = false, this.aiLeft = 0});
+  const AccountInfo({this.proUntil, this.proKind = '', this.trialUsed = false, this.session = '', this.ai = false, this.aiLeft = 0, this.backupKey = '', this.feedbackUnread = 0});
   final DateTime? proUntil;
   final String proKind;
   final bool trialUsed;
@@ -246,6 +246,13 @@ class AccountInfo {
   final bool ai;
   final int aiLeft;
 
+  /// Locks this account's Drive backup (kept by our server, given only to
+  /// the member's own signed-in phone; the backup itself stays in Drive).
+  final String backupKey;
+
+  /// Answers to the user's feedback not opened yet.
+  final int feedbackUnread;
+
   static AccountInfo fromJson(Map<String, dynamic> j) => AccountInfo(
         proUntil: DateTime.tryParse('${j['pro_until'] ?? ''}'),
         proKind: '${j['pro_kind'] ?? ''}',
@@ -253,6 +260,8 @@ class AccountInfo {
         session: RegExp(r'^[a-f0-9]{64}$').hasMatch('${j['session'] ?? ''}') ? '${j['session']}' : '',
         ai: j['ai'] == true,
         aiLeft: (j['ai_left'] as num?)?.toInt() ?? 0,
+        feedbackUnread: (j['feedback_unread'] as num?)?.toInt() ?? 0,
+        backupKey: RegExp(r'^[A-Za-z0-9_-]{40,64}$').hasMatch('${j['backup_key'] ?? ''}') ? '${j['backup_key']}' : '',
       );
 }
 
@@ -333,23 +342,42 @@ class AccountServer {
     }
   }
 
-  /// A feature wish or a problem, written by the user, to our server
-  /// (seen by the admins). Returns a message when it did not go.
-  Future<String?> feedback(String session, {required String kind, required String text, required String appVersion}) async {
-    if (!configured) return 'সার্ভার যুক্ত নেই';
-    if (session.isEmpty) return 'আগে Google দিয়ে লগইন করুন';
+  /// One call to our server with this phone's session: the answer, or a
+  /// plain Bangla reason it did not work (see logic in services/community.dart).
+  Future<ServerReply> send(String method, String path, String session, [Map<String, Object?>? body]) async {
+    if (!configured) return const ServerReply(0, {}, 'সার্ভার যুক্ত নেই');
+    if (session.isEmpty) return const ServerReply(401, {}, 'আগে Google দিয়ে লগইন করুন');
     try {
-      final r = await _http
-          .post(Uri.parse('$base/wp-json/my-assistant/v1/feedback'),
-              headers: {'Content-Type': 'application/json', 'authorization': 'Bearer $session'},
-              body: jsonEncode({'kind': kind, 'text': text, 'app_version': appVersion}))
-          .timeout(const Duration(seconds: 20));
-      if (r.statusCode == 200) return null;
-      if (r.statusCode == 401) return 'আবার Google দিয়ে লগইন করুন';
-      if (r.statusCode == 429) return 'আজ অনেকগুলো পাঠানো হয়েছে, কাল আবার চেষ্টা করুন';
-      return 'পাঠানো যায়নি (${r.statusCode})';
+      final uri = Uri.parse('$base/wp-json/my-assistant/v1$path');
+      final headers = {'Content-Type': 'application/json', 'authorization': 'Bearer $session'};
+      final r = await (method == 'GET' ? _http.get(uri, headers: headers) : _http.post(uri, headers: headers, body: jsonEncode(body ?? const {})))
+          .timeout(const Duration(seconds: 40));
+      Map<String, dynamic> data = const {};
+      try {
+        final j = jsonDecode(utf8.decode(r.bodyBytes));
+        if (j is Map<String, dynamic>) data = j;
+      } catch (_) {}
+      if (r.statusCode == 200) return ServerReply(200, data, null);
+      return ServerReply(r.statusCode, data, switch (r.statusCode) {
+        401 => 'আবার Google দিয়ে লগইন করুন',
+        404 => 'খুঁজে পাওয়া গেল না',
+        409 => 'এটা আর খোলা নেই',
+        413 => 'ফাইলটা অনেক বড় — ৫ MB পর্যন্ত দেওয়া যায়',
+        415 => 'শুধু ছবি বা PDF দেওয়া যায়',
+        429 => 'আজ অনেকবার হয়ে গেছে — পরে আবার চেষ্টা করুন',
+        _ => 'হয়নি (${r.statusCode}) — আবার চেষ্টা করুন',
+      });
     } catch (_) {
-      return 'ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন';
+      return const ServerReply(0, {}, 'ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন');
     }
   }
+}
+
+/// What our server answered: [error] is null when it worked.
+class ServerReply {
+  const ServerReply(this.status, this.data, this.error);
+  final int status;
+  final Map<String, dynamic> data;
+  final String? error;
+  bool get ok => error == null;
 }

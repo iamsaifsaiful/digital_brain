@@ -124,9 +124,11 @@ class _LockScreenState extends State<LockScreen> {
   /// the backup password, then sets a new PIN. Nothing else opens the app,
   /// so a phone in someone else's hands stays locked.
   Future<void> _forgot() async {
-    final lock = BrainScope.read(context).services.lock;
+    final brain = BrainScope.read(context);
+    final lock = brain.services.lock;
     final bio = await lock.biometricsOn() && await lock.biometrics.available();
     final rec = await lock.hasRecovery();
+    final google = brain.signedIn;
     if (!mounted) return;
     final how = await showModalBottomSheet<String>(
       context: context,
@@ -142,14 +144,18 @@ class _LockScreenState extends State<LockScreen> {
               PrimaryButton(key: const Key('forgot-bio'), label: tr('আঙুলের ছাপ দিয়ে'), icon: Icons.fingerprint_rounded, onPressed: () => Navigator.pop(ctx, 'bio')),
               const SizedBox(height: 8),
             ],
+            if (google) ...[
+              SecondaryButton(key: const Key('forgot-google'), label: tr('একই Google অ্যাকাউন্ট দিয়ে'), icon: Icons.account_circle_outlined, onPressed: () => Navigator.pop(ctx, 'google')),
+              const SizedBox(height: 8),
+            ],
             if (rec) ...[
-              SecondaryButton(key: const Key('forgot-password'), label: tr('ব্যাকআপ-পাসওয়ার্ড দিয়ে'), icon: Icons.password_rounded, onPressed: () => Navigator.pop(ctx, 'password')),
+              SecondaryButton(key: const Key('forgot-password'), label: tr('পুরোনো ব্যাকআপ-পাসওয়ার্ড দিয়ে'), icon: Icons.password_rounded, onPressed: () => Navigator.pop(ctx, 'password')),
               const SizedBox(height: 10),
             ],
             Text(
-                bio || rec
-                    ? tr('এগুলোর কোনোটা না পারলে: অ্যাপ মুছে আবার ইনস্টল করুন, একই Google অ্যাকাউন্টে লগইন করে ব্যাকআপ-পাসওয়ার্ড দিয়ে Drive-এর ব্যাকআপ ফিরিয়ে আনুন।')
-                    : tr('এই ফোনে আঙুলের ছাপ বা ব্যাকআপ-পাসওয়ার্ড চালু নেই, তাই PIN ছাড়া খোলা যাবে না — যাতে ফোন অন্যের হাতে গেলেও আপনার তথ্য নিরাপদ থাকে। Google Drive-এ ব্যাকআপ থাকলে: অ্যাপ মুছে আবার ইনস্টল করুন, একই Google অ্যাকাউন্টে লগইন করে ব্যাকআপ-পাসওয়ার্ড দিয়ে সব ফিরিয়ে আনুন।'),
+                bio || rec || google
+                    ? tr('আপনার তথ্য যেমন আছে তেমনই থাকবে।')
+                    : tr('এই ফোনে আঙুলের ছাপ বা Google অ্যাকাউন্ট যুক্ত নেই, তাই PIN ছাড়া খোলা যাবে না — যাতে ফোন অন্যের হাতে গেলেও আপনার তথ্য নিরাপদ থাকে। Google Drive-এ ব্যাকআপ থাকলে: অ্যাপ মুছে আবার ইনস্টল করুন, একই Google অ্যাকাউন্টে লগইন করে সব ফিরিয়ে আনুন।'),
                 style: body(13, color: C.muted, height: 1.5)),
           ]),
         ),
@@ -159,6 +165,11 @@ class _LockScreenState extends State<LockScreen> {
     var ok = false;
     if (how == 'bio') {
       ok = await lock.biometrics.authenticate(tr('নতুন PIN দিতে আঙুলের ছাপ দিন'));
+    } else if (how == 'google') {
+      final why = await brain.confirmGoogleOwner();
+      if (!mounted) return;
+      ok = why == null;
+      if (why != null && why.isNotEmpty) setState(() => _message = why);
     } else {
       final pw = await _askRecovery();
       if (pw == null || !mounted) return;
@@ -349,9 +360,9 @@ class _LockScreenState extends State<LockScreen> {
                     const SizedBox(height: 24),
                     Text(
                       _mode == _Mode.google
-                          ? tr('Google বা আমরা আপনার ব্যাকআপ পড়তে পারি না — সেটা আপনার পাসওয়ার্ডে তালাবদ্ধ থাকে।')
+                          ? tr('ব্যাকআপ তালাবদ্ধ থাকে — Google একা বা আমরা একা খুলতে পারি না।')
                           : _mode == _Mode.create || _mode == _Mode.confirm
-                          ? tr('PIN শুধু এই ফোনে, এনক্রিপ্ট করে রাখা হয়। ভুলে গেলে আঙুলের ছাপ বা Google Drive ব্যাকআপের পাসওয়ার্ড দিয়ে নতুন PIN দেওয়া যাবে।')
+                          ? tr('PIN শুধু এই ফোনে, এনক্রিপ্ট করে রাখা হয়। ভুলে গেলে আঙুলের ছাপ বা একই Google অ্যাকাউন্ট দিয়ে নতুন PIN দেওয়া যাবে।')
                           : tr('কিছুক্ষণ ব্যবহার না করলে অ্যাপ নিজে থেকে লক হয়ে যায়'),
                       style: body(13, color: const Color(0xFFA9B5AF), height: 1.5),
                       textAlign: TextAlign.center,

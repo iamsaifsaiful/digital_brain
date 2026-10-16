@@ -23,6 +23,7 @@ import 'special_days_screen.dart';
 import 'store_more_screens.dart';
 import 'vault_screen.dart';
 import 'pro_screen.dart';
+import 'requests_screen.dart';
 import '../logic/pro.dart';
 import '../state/brain.dart';
 import '../ui/pro_gate.dart';
@@ -71,6 +72,10 @@ Future<void> openPlace(BuildContext context, String id, {String? folder}) async 
       goToTab(context, ShellTab.home);
     case 'diary':
       goToTab(context, ShellTab.diary);
+    case 'settings':
+      goToTab(context, ShellTab.more);
+    case 'requests':
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RequestsScreen()));
     case 'store':
       goToTab(context, ShellTab.store);
     case 'money':

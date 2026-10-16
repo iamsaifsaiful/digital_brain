@@ -23,6 +23,8 @@ import '../logic/server_notices.dart';
 import '../logic/when.dart' show sayWhen;
 import '../models/models.dart';
 import '../services/ai.dart';
+import '../services/community.dart';
+import '../services/crypto.dart' show WrongKey;
 import '../services/data_store.dart';
 import '../services/files.dart';
 import '../services/inbox.dart';
@@ -361,6 +363,25 @@ class Brain extends ChangeNotifier {
     }
   }
 
+  /// "PIN ভুলে গেছেন?" on a signed-in phone: the owner picks the same Google
+  /// account and our server checks Google's token. Null when it is them.
+  Future<String?> confirmGoogleOwner() async {
+    if (!signedIn) return 'এই ফোনে Google অ্যাকাউন্ট যুক্ত নেই';
+    try {
+      final u = await services.google.signIn();
+      if (u == null) return '';
+      if (u.email.toLowerCase() != googleEmail.toLowerCase()) return 'এটা অন্য Google অ্যাকাউন্ট — অ্যাপে যুক্ত অ্যাকাউন্টটা ($googleEmail) বেছে নিন';
+      final info = await services.server.login(u, appVersion: '', edition: edition);
+      if (info == null) return 'সার্ভারে যাচাই করা যায়নি — ইন্টারনেট দেখে আবার চেষ্টা করুন';
+      await _applyServer(info);
+      return null;
+    } on GoogleError catch (e) {
+      return e.message;
+    } catch (e) {
+      return 'যাচাই করা যায়নি: $e';
+    }
+  }
+
   /// What the server said: the session for AI, whether its AI is on, and the plan.
   Future<void> _applyServer(AccountInfo info) async {
     final keys = services.lock.keys;
@@ -374,6 +395,12 @@ class Brain extends ChangeNotifier {
     await _sendPushToken();
     serverAi = info.ai;
     aiLeft = info.aiLeft;
+    feedbackUnread = info.feedbackUnread;
+    // The Drive backup is locked with the account's key from our server (no password to remember).
+    if (info.backupKey.isNotEmpty && await keys.read('drive_pw') != info.backupKey) {
+      await keys.write('drive_pw', info.backupKey);
+      await keys.write('drive_key_server', 'true');
+    }
     serverProUntil = info.proUntil;
     await keys.write('srv_ai', serverAi ? 'true' : 'false');
     if (info.proUntil == null) {
@@ -450,18 +477,22 @@ class Brain extends ChangeNotifier {
     services.ai.session = '';
     serverAi = false;
     serverProUntil = null;
-    for (final k in ['g_email', 'g_name', 'drive_on', 'drive_pw', 'srv_session', 'srv_ai', 'srv_pro_until']) {
+    for (final k in ['g_email', 'g_name', 'drive_on', 'drive_pw', 'drive_key_server', 'srv_session', 'srv_ai', 'srv_pro_until']) {
       await keys.delete(k);
     }
     notifyListeners();
   }
 
-  /// Turns on automatic Drive backup, locked with [password]. The same
-  /// password can set a new PIN when the PIN is forgotten.
-  Future<String?> startDriveBackup(String password) async {
+  /// Turns on Drive backup. It is locked with this Google account's key from
+  /// our server, so there is no password to remember; the same account
+  /// opens it on a new phone.
+  Future<String?> startDriveBackup() async {
+    if (!signedIn) return 'আগে Google দিয়ে লগইন করুন';
     final keys = services.lock.keys;
-    await keys.write('drive_pw', password);
-    await services.lock.setRecovery(password);
+    if ((await keys.read('drive_key_server')) != 'true') {
+      await refreshAccount(force: true);
+      if ((await keys.read('drive_key_server')) != 'true') return 'সার্ভারের সাথে যোগাযোগ হয়নি — ইন্টারনেট দেখে আবার চেষ্টা করুন';
+    }
     driveOn = true;
     await keys.write('drive_on', 'true');
     notifyListeners();
@@ -481,7 +512,7 @@ class Brain extends ChangeNotifier {
     if (loadError != null) return 'তথ্য খোলা যায়নি, তাই ব্যাকআপ নেওয়া হয়নি';
     final keys = services.lock.keys;
     final pw = await keys.read('drive_pw');
-    if (pw == null || pw.isEmpty) return 'ব্যাকআপ-পাসওয়ার্ড দেওয়া নেই';
+    if (pw == null || pw.isEmpty || (await keys.read('drive_key_server')) != 'true') return 'সার্ভারের সাথে যোগাযোগ হয়নি — ইন্টারনেট দেখে আবার চেষ্টা করুন';
     if (driveBusy) return null;
     driveBusy = true;
     notifyListeners();
@@ -525,18 +556,19 @@ class Brain extends ChangeNotifier {
     return [for (final f in await services.drive.list(token)) if (f.name.startsWith(_drivePrefix)) f];
   }
 
-  /// Opens a Drive backup with its password (nothing is replaced yet).
-  Future<(AppData, Map<String, Uint8List>)> openDriveBackup(DriveFile f, String password) async {
+  /// Opens a Drive backup (nothing is replaced yet): with the account's key,
+  /// or [password] for a backup made before keys (WrongKey when neither fits).
+  Future<(AppData, Map<String, Uint8List>)> openDriveBackup(DriveFile f, {String? password}) async {
     final token = await services.google.driveToken();
     final bytes = await services.drive.download(token, f.id);
-    return Backup.restore(bytes, password);
+    final key = password ?? await services.lock.keys.read('drive_pw');
+    if (key == null || key.isEmpty) throw const WrongKey();
+    return Backup.restore(bytes, key);
   }
 
-  /// After restoring from Drive: keep backing up with the same password.
-  Future<void> continueDriveBackup(String password) async {
+  /// After restoring from Drive: keep backing up, now with the account's key.
+  Future<void> continueDriveBackup() async {
     final keys = services.lock.keys;
-    await keys.write('drive_pw', password);
-    await services.lock.setRecovery(password);
     driveOn = true;
     await keys.write('drive_on', 'true');
     lastDrive = services.now();
@@ -544,9 +576,15 @@ class Brain extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Feedback conversations and blood requests through our server.
+  late final community = Community(services.server, () => services.ai.session);
+
+  /// Answers from our team not opened yet (from the server, on refresh).
+  int feedbackUnread = 0;
+
   /// A feature wish or a problem to our server. Null when sent.
-  Future<String?> sendFeedback(String kind, String text, String appVersion) =>
-      services.server.feedback(services.ai.session, kind: kind, text: text, appVersion: appVersion);
+  Future<String?> sendFeedback(String kind, String text, String appVersion) async =>
+      (await community.startFeedback(kind: kind, text: text, appVersion: appVersion)).$2;
 
   int _adShown = 0, _adDone = 0;
   String _adDay = '';

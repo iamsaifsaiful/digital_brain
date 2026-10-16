@@ -2,7 +2,7 @@
 /**
  * Plugin Name: My Assistant Accounts
  * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, প্রো, পেমেন্ট, নোটিফিকেশন আর মতামত। শুধু নাম, ইমেইল, ছবি আর প্রো-র তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.6.0
+ * Version: 1.7.0
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: My Assistant
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.6.0';
+const MA_ACC_VERSION = '1.7.0';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
 const MA_ACC_PER_PAGE = 20;
 
@@ -25,6 +25,7 @@ require_once __DIR__ . '/push.php';
 require_once __DIR__ . '/admin-api.php';
 require_once __DIR__ . '/feedback.php';
 require_once __DIR__ . '/pro-page.php';
+require_once __DIR__ . '/blood.php';
 
 /** The members table. */
 function ma_acc_table() {
@@ -52,6 +53,7 @@ function ma_acc_install() {
         trial_started datetime NULL DEFAULT NULL,
         pro_until datetime NULL DEFAULT NULL,
         pro_kind varchar(32) NOT NULL DEFAULT '',
+        backup_key varchar(64) NOT NULL DEFAULT '',
         PRIMARY KEY  (id),
         UNIQUE KEY google_sub (google_sub),
         KEY email (email)
@@ -60,6 +62,7 @@ function ma_acc_install() {
     ma_pay_install();
     ma_note_install();
     ma_fb_install();
+    ma_bl_install();
     // Who may approve payments and manage members (the admin app signs in with these accounts).
     if (!get_role('ma_admin')) {
         add_role('ma_admin', 'My Assistant অ্যাডমিন', ['read' => true, 'ma_manage' => true]);
@@ -147,13 +150,31 @@ function ma_acc_row($sub) {
     return $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE google_sub = %s", $sub), ARRAY_A);
 }
 
+/**
+ * The key that locks this member's Google Drive backup: random, made once,
+ * given only to the member's own signed-in phone. The backup itself lives in
+ * the member's Google Drive and never comes here, so neither Google nor this
+ * server alone can open it.
+ */
+function ma_acc_backup_key($row) {
+    global $wpdb;
+    $key = (string) ($row['backup_key'] ?? '');
+    if (strlen($key) < 40 && !empty($row['id']) && strpos((string) $row['google_sub'], 'pending:') !== 0) {
+        $key = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+        $wpdb->update(ma_acc_table(), ['backup_key' => $key], ['id' => (int) $row['id']]);
+    }
+    return $key;
+}
+
 function ma_acc_answer($row) {
     $until = $row['pro_until'] ?? null;
     return [
+        'backup_key' => ma_acc_backup_key($row),
         'ok' => true,
         'trial_used' => !empty($row['trial_started']),
         'pro_until' => $until ? gmdate('c', ma_acc_ts($until)) : null,
         'pro_kind' => (string) ($row['pro_kind'] ?? ''),
+        'feedback_unread' => empty($row['id']) ? 0 : ma_fb_member_unread((int) $row['id']),
     ];
 }
 
@@ -396,6 +417,18 @@ function ma_acc_admin() {
         $extra['plans'] = ma_pay_plans();
     }
     if ($tab === 'feedback') {
+        $fbid = (int) ($_GET['fb'] ?? 0);
+        if ($fbid) {
+            $thread = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . ma_fb_table() . ' WHERE id = %d', $fbid), ARRAY_A);
+            if ($thread) {
+                if ($thread['status'] === 'new') {
+                    $wpdb->update(ma_fb_table(), ['status' => 'read'], ['id' => $fbid]);
+                    $thread['status'] = 'read';
+                }
+                $extra['thread'] = $thread;
+                $extra['thread_msgs'] = $wpdb->get_results($wpdb->prepare('SELECT * FROM ' . ma_fb_msgs_table() . ' WHERE feedback_id = %d ORDER BY id ASC', $fbid), ARRAY_A);
+            }
+        }
         $fst = sanitize_key($_GET['fst'] ?? 'open');
         $ft = ma_fb_table();
         $extra['fst'] = $fst;

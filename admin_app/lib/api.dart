@@ -88,21 +88,39 @@ class Device {
   static const _push = MethodChannel('my_assistant/push');
   final _auth = LocalAuthentication();
 
+  /// The phone can check its owner: fingerprint (or face), or failing that
+  /// the phone's own PIN/pattern.
   Future<bool> canFingerprint() async {
     try {
-      return await _auth.isDeviceSupported() && (await _auth.getAvailableBiometrics()).isNotEmpty;
+      return await _auth.isDeviceSupported();
     } catch (_) {
       return false;
     }
   }
 
-  Future<bool> fingerprint(String reason) async {
-    try {
-      return await _auth.authenticate(localizedReason: reason, biometricOnly: true, persistAcrossBackgrounding: true);
-    } catch (_) {
-      return false;
+  /// Asks for the fingerprint (the phone's own lock is offered too). Null
+  /// when it is the owner; otherwise why not, in Bangla ('' = cancelled).
+  Future<String?> verify(String reason) async {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final ok = await _auth.authenticate(localizedReason: reason, persistAcrossBackgrounding: true);
+        return ok ? null : '';
+      } on LocalAuthException catch (e) {
+        // A prompt left over from before (e.g. asked while the app was still opening): clear it and ask again.
+        if (e.code == LocalAuthExceptionCode.authInProgress && attempt == 0) {
+          await _auth.stopAuthentication();
+          await Future<void>.delayed(const Duration(milliseconds: 400));
+          continue;
+        }
+        return authProblem(e.code);
+      } catch (e) {
+        return 'আঙুলের ছাপ চালু করা গেল না ($e)';
+      }
     }
+    return 'আঙুলের ছাপ চালু করা গেল না, আবার চাপুন';
   }
+
+  Future<bool> fingerprint(String reason) async => await verify(reason) == null;
 
   Future<String?> pushToken() async {
     try {
@@ -177,6 +195,16 @@ class Api {
   /// 'read', 'done', 'new' or 'delete'.
   Future<void> setFeedback(int id, String status) => _send('POST', '/admin/feedback/$id', {'status': status});
 
+  /// One conversation: {feedback, messages}; opening it marks it read.
+  Future<Map<String, dynamic>> feedbackThread(int id) => _send('GET', '/admin/feedback/$id');
+
+  /// An answer (text and/or one photo or PDF, as base64); the member's phone is pushed.
+  Future<void> replyFeedback(int id, String text, {String? fileName, Uint8List? bytes}) =>
+      _send('POST', '/admin/feedback/$id/reply', {'text': text, if (bytes != null) 'file': {'name': fileName ?? 'file', 'data': base64Encode(bytes)}});
+
+  /// An attachment's bytes.
+  Future<Uint8List> feedbackFile(int messageId) async => base64Decode('${(await _send('GET', '/admin/feedback/file/$messageId'))['data']}');
+
   Future<void> toggleNotice(int id) => _send('POST', '/admin/notices/$id/toggle');
 
   Future<int> pushNow(String title, String body, String audience) async =>
@@ -213,3 +241,15 @@ class Api {
     return j;
   }
 }
+
+/// Why the fingerprint did not open the app, said plainly.
+String authProblem(LocalAuthExceptionCode code) => switch (code) {
+      LocalAuthExceptionCode.userCanceled || LocalAuthExceptionCode.systemCanceled => '',
+      LocalAuthExceptionCode.noBiometricsEnrolled => 'ফোনে কোনো আঙুলের ছাপ রাখা নেই — ফোনের Settings › Security থেকে যোগ করুন, অথবা ফোনের লক দিয়ে খুলুন',
+      LocalAuthExceptionCode.noCredentialsSet => 'ফোনে কোনো স্ক্রিন লক নেই — আগে ফোনের Settings থেকে PIN বা আঙুলের ছাপ চালু করুন',
+      LocalAuthExceptionCode.noBiometricHardware => 'এই ফোনে আঙুলের ছাপের সেন্সর নেই',
+      LocalAuthExceptionCode.temporaryLockout => 'অনেকবার ভুল হয়েছে — একটু পরে আবার চেষ্টা করুন, বা ফোনের লক দিয়ে খুলুন',
+      LocalAuthExceptionCode.biometricLockout => 'আঙুলের ছাপ বন্ধ হয়ে গেছে — ফোন একবার লক করে PIN দিয়ে খুলুন, তারপর আবার চেষ্টা করুন',
+      LocalAuthExceptionCode.timeout => 'সময় শেষ — আবার চাপুন',
+      _ => 'আঙুলের ছাপ চালু করা গেল না (${code.name}) — আবার চাপুন',
+    };

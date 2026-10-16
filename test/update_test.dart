@@ -1,11 +1,13 @@
 // v2.15: Google sign-in before the PIN, the menu, the diary, bills, the
 // calendar, contacts, feedback, the new free/Pro rules and the own colour.
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:digital_brain/app.dart';
 import 'package:digital_brain/logic/pro.dart';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/screens/lock_screen.dart' show googleFirst;
+import 'package:digital_brain/services/community.dart';
 import 'package:digital_brain/services/google_account.dart';
 import 'package:digital_brain/ui/theme.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'pro_test.dart' show keyServer, tokenGoogle;
 import 'app_test.dart' show Rig, enterPin, loadFonts, openMenu, settle, start;
 
 /// A shortcut in the home menu (scrolled into view first).
@@ -155,9 +158,9 @@ void main() {
     await t.tap(find.widgetWithText(ChoiceChip, 'B+'));
     await settle(t);
     expect(rig.brain.data.emergency.blood, 'B+');
+    expect(find.byKey(const Key('more-feedback')), findsOneWidget);
     final list = find.byType(Scrollable).first;
     await t.scrollUntilVisible(find.text('আমি রক্ত দিতে আগ্রহী'), 200, scrollable: list);
-    await t.scrollUntilVisible(find.text('মতামত বা সমস্যা জানান'), 200, scrollable: list);
     expect(find.text('AI সহকারী'), findsNothing);
   });
 
@@ -181,13 +184,12 @@ void main() {
   });
 
   test('free: Drive backup by hand only; Pro backs up by itself', () async {
-    final google = FakeGoogle()..user = const GoogleUser(id: '1', email: 'a@gmail.com', name: 'A');
-    final rig = Rig(google: google);
+    final rig = Rig(google: tokenGoogle(), server: keyServer());
     final b = rig.brain;
     await b.load();
     b.gated = true;
     await b.signInGoogle();
-    expect(await b.startDriveBackup('long-secret-1'), isNull);
+    expect(await b.startDriveBackup(), isNull);
     final drive = rig.services.drive as FakeDrive;
     expect(drive.files.length, 1);
     await b.saveNote(Note(title: 'নতুন', body: 'x', category: 'অন্যান্য'));
@@ -199,6 +201,134 @@ void main() {
     await b.activatePro(proPlans.last);
     await b.autoDriveBackup();
     expect(drive.files.keys.toSet(), isNot(before));
+  });
+
+  testWidgets('forgot PIN: the same Google account sets a new PIN; another account does not', (t) async {
+    t.view.physicalSize = const Size(1170, 2532);
+    t.view.devicePixelRatio = 3.0;
+    addTearDown(t.view.reset);
+    await loadFonts();
+    showOnboarding = false;
+    googleFirst = false;
+    final google = tokenGoogle('owner@gmail.com');
+    final rig = Rig(google: google, server: keyServer());
+    await t.pumpWidget(DigitalBrainApp(brain: rig.brain));
+    await rig.brain.load();
+    await settle(t);
+    await enterPin(t, '1234');
+    await enterPin(t, '1234');
+    await rig.brain.signInGoogle();
+    rig.brain.lockNow();
+    await settle(t);
+    // Someone picks a different account: refused.
+    google.user = const GoogleUser(id: '2', email: 'thief@gmail.com', name: 'X', idToken: 'other-token');
+    await t.tap(find.byKey(const Key('forgot-pin')));
+    await settle(t);
+    await t.tap(find.byKey(const Key('forgot-google')));
+    await settle(t);
+    expect(find.textContaining('অন্য Google অ্যাকাউন্ট'), findsOneWidget);
+    expect(find.text('ঠিক আছে — এবার নতুন PIN ঠিক করুন'), findsNothing);
+    // The owner's account: a new PIN.
+    google.user = const GoogleUser(id: '1', email: 'owner@gmail.com', name: 'O', idToken: 'google-token');
+    await t.tap(find.byKey(const Key('forgot-pin')));
+    await settle(t);
+    await t.tap(find.byKey(const Key('forgot-google')));
+    await settle(t);
+    expect(find.text('ঠিক আছে — এবার নতুন PIN ঠিক করুন'), findsOneWidget);
+    await enterPin(t, '5678');
+    await enterPin(t, '5678');
+    expect(rig.brain.unlocked, isTrue);
+  });
+
+  testWidgets('feedback: a conversation with our team, a reply and an attachment', (t) async {
+    final calls = <http.Request>[];
+    final msgs = <Map<String, Object?>>[
+      {'id': 1, 'from': 'member', 'admin': '', 'text': 'রিমাইন্ডার বাজেনি', 'created': '2026-10-09T08:00:00Z', 'file': null},
+      {'id': 2, 'from': 'admin', 'admin': 'Saif', 'text': 'ব্যাটারি সেটিং দেখুন', 'created': '2026-10-09T09:00:00Z', 'file': {'name': 'how.png', 'mime': 'image/png', 'size': 70}},
+    ];
+    final client = MockClient((r) async {
+      calls.add(r);
+      final p = r.url.path.replaceFirst('/wp-json/my-assistant/v1', '');
+      Object body = {};
+      if (p == '/login') body = {'ok': true, 'session': 'e' * 64, 'backup_key': 'Kq3xY8vB2nLm9PzR4tW7sD1fG6hJ0aC5eU8iO2pQ9rS', 'feedback_unread': 1};
+      if (p == '/feedback' && r.method == 'GET') {
+        body = {'feedback': [{'id': 5, 'kind': 'problem', 'kind_label': 'সমস্যা', 'text': 'রিমাইন্ডার বাজেনি', 'updated': '2026-10-09T09:00:00Z', 'status': 'read', 'unread': true, 'last': {'from': 'admin', 'text': 'ব্যাটারি সেটিং দেখুন'}, 'count': 2}]};
+      }
+      if (p == '/feedback/5') body = {'feedback': {'id': 5, 'kind': 'problem', 'kind_label': 'সমস্যা', 'text': 'রিমাইন্ডার বাজেনি', 'status': 'read', 'unread': false}, 'messages': msgs};
+      if (p == '/feedback/5/reply') {
+        final j = jsonDecode(r.body) as Map<String, dynamic>;
+        msgs.add({'id': 3, 'from': 'member', 'admin': '', 'text': j['text'], 'created': '2026-10-09T10:00:00Z', 'file': j['file'] == null ? null : {'name': j['file']['name'], 'mime': 'image/jpeg', 'size': 3}});
+        body = {'ok': true, 'id': 3};
+      }
+      return http.Response.bytes(utf8.encode(jsonEncode(body)), 200);
+    });
+    await start(t);
+    final server = AccountServer(client, 'https://example.test');
+    final c = Community(server, () => 'e' * 64);
+    final (threads, e) = await c.threads();
+    expect(e, isNull);
+    expect(threads.single.unread, isTrue);
+    expect(threads.single.lastFromUs, isTrue);
+    final (thread, list, e2) = await c.thread(5);
+    expect(e2, isNull);
+    expect(thread!.kindLabel, 'সমস্যা');
+    expect(list[1].fromUs, isTrue);
+    expect(list[1].file!.image, isTrue);
+    expect(await c.reply(5, 'ঠিক হয়েছে', file: OutgoingFile(Uint8List.fromList([1, 2, 3]), 'photo.jpg')), isNull);
+    final sent = jsonDecode(calls.last.body) as Map<String, dynamic>;
+    expect(sent['text'], 'ঠিক হয়েছে');
+    expect(sent['file']['name'], 'photo.jpg');
+    expect(sent['file']['data'], base64Encode([1, 2, 3]));
+    expect(calls.last.headers['authorization'], 'Bearer ${'e' * 64}');
+  });
+
+  test('blood requests: donor profile, ask, accept, close — through the server', () async {
+    final calls = <http.Request>[];
+    final client = MockClient((r) async {
+      calls.add(r);
+      final p = r.url.path.replaceFirst('/wp-json/my-assistant/v1', '');
+      Object body = {};
+      if (p == '/blood/donor') body = {'donor': {'on': true, 'blood': 'O-', 'district': 'ঢাকা', 'last_donated': null, 'phone': '01812345678'}};
+      if (p == '/blood/requests' && r.method == 'POST') body = {'ok': true, 'id': 9, 'notified': 4};
+      if (p == '/blood/requests' && r.method == 'GET') {
+        body = {'requests': [{'id': 9, 'mine': true, 'by': 'রহিম', 'blood': 'B+', 'bags': 2, 'district': 'ঢাকা', 'hospital': 'ঢাকা মেডিকেল', 'need_by': '2026-10-10T04:00:00Z', 'phone': '01712345678', 'status': 'open', 'accepted': 1, 'donors': [{'name': 'করিম', 'phone': '01812345678', 'note': 'বিকেলে'}]}]};
+      }
+      if (p.endsWith('/accept')) body = {'ok': true, 'request': {'id': 9, 'mine': false, 'blood': 'B+', 'bags': 2, 'district': 'ঢাকা', 'need_by': '2026-10-10T04:00:00Z', 'phone': '01712345678', 'status': 'open', 'i_accepted': true}};
+      return http.Response.bytes(utf8.encode(jsonEncode(body)), 200);
+    });
+    final c = Community(AccountServer(client, 'https://example.test'), () => 'e' * 64);
+    final (d, e) = await c.setDonor(on: true, blood: 'O−', district: 'ঢাকা', phone: '01812345678', lastDonated: DateTime(2026, 6, 1));
+    expect(e, isNull);
+    expect(d.on, isTrue);
+    final sentDonor = jsonDecode(calls.last.body) as Map<String, dynamic>;
+    expect(sentDonor['blood'], 'O-', reason: 'the server keeps ASCII groups');
+    expect(sentDonor['last_donated'], '2026-06-01');
+    final (told, e2) = await c.ask(blood: 'B+', bags: 2, district: 'ঢাকা', hospital: 'ঢাকা মেডিকেল', needBy: DateTime(2026, 10, 10, 10), phone: '01712345678');
+    expect(e2, isNull);
+    expect(told, 4);
+    final (mine, _) = await c.requests(scope: 'mine');
+    expect(mine.single.donors.single.phone, '01812345678');
+    expect(mine.single.blood, 'B+');
+    final (acc, e3) = await c.act(9, 'accept', phone: '01812345678');
+    expect(e3, isNull);
+    expect(acc!.iAccepted, isTrue);
+  });
+
+  testWidgets('আরও tab: settings content with requests, Pro and feedback; অনুরোধ and প্রো ভার্সন in the home menu', (t) async {
+    await start(t);
+    final grid = find.byType(GridView);
+    expect(find.descendant(of: grid, matching: find.text('অনুরোধ')), findsOneWidget);
+    expect(find.descendant(of: grid, matching: find.text('প্রো ভার্সন')), findsOneWidget);
+    await t.tap(find.text('আরও').last);
+    await settle(t);
+    expect(find.byKey(const Key('more-requests')), findsOneWidget);
+    expect(find.byKey(const Key('more-pro')), findsOneWidget);
+    expect(find.byKey(const Key('more-feedback')), findsOneWidget);
+    expect(find.text('সেটিংস'), findsWidgets);
+    await t.tap(find.byKey(const Key('more-requests')));
+    await settle(t);
+    expect(find.text('রক্তের অনুরোধ'), findsOneWidget);
+    expect(find.textContaining('Google দিয়ে লগইন করুন'), findsWidgets, reason: 'not signed in yet');
   });
 
   test('own colour: any colour becomes an accent dark enough for white letters', () {

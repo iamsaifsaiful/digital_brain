@@ -76,7 +76,9 @@ const appPlaces = <AppPlace>[
   AppPlace('templates', 'তৈরি তালিকা', ['তৈরি তালিকা', 'টেমপ্লেট', 'template', 'templates'], 'হজ, বিয়ে, নতুন বাসা, দেশে ফেরা — তৈরি কাজের তালিকা এক চাপে।'),
   AppPlace('store', 'সব কিছু', ['সব কিছু', 'সবকিছু', 'স্টোর', 'store'], 'অ্যাপের সব অংশ এক পাতায়।'),
   AppPlace('search', 'খুঁজুন', ['খোঁজার পাতা', 'সার্চ', 'search'], 'নোট, কাগজ, নম্বর, লেনদেন — সব জায়গায় একসাথে খোঁজা।'),
-  AppPlace('settings', 'সেটিংস', ['সেটিংস', 'সেটিং', 'সেটিংসে', 'settings', 'setting', 'রক্তদান', 'রক্ত দান', 'ব্লাড ডোনার', 'blood donor'],
+  AppPlace('requests', 'অনুরোধ (রক্ত)', ['অনুরোধ', 'রক্তের অনুরোধ', 'রক্ত চাই', 'রক্ত লাগবে', 'রক্তদান', 'রক্ত দান', 'ব্লাড', 'ব্লাড ডোনার', 'blood', 'blood donor', 'blood request'],
+      'রক্ত দরকার হলে অনুরোধ দিন — আপনার জেলার দাতারা জানবেন; দাতা হলে কারো রক্ত লাগলে খবর পাবেন, “আমি দিতে পারব” বলতে পারবেন।', ['রক্তের অনুরোধ খোলো']),
+  AppPlace('settings', 'সেটিংস', ['সেটিংস', 'সেটিং', 'সেটিংসে', 'settings', 'setting', 'আরও'],
       'প্রোফাইল (নাম, জেলা, রক্তের গ্রুপ), রক্তদান, ভাষা, থিম ও নিজের রং, সহজ মোড, তালা, ব্যাকআপ, মতামত পাঠানো।'),
   AppPlace('notifications', 'নোটিফিকেশন', ['নোটিফিকেশন', 'notification', 'notifications', 'বিজ্ঞপ্তি'], 'কোন বার্তা আসবে, রাতে চুপ থাকা, দিনে কয়টা।'),
   AppPlace('sound', 'রিংটোন', ['রিংটোন', 'ringtone', 'সাউন্ড'], 'রিমাইন্ডার আর অ্যালার্মের শব্দ।'),
@@ -120,7 +122,7 @@ const docFolderWords = <String, List<String>>{
 const _endings = ['গুলোতে', 'গুলো', 'গুলি', 'টাতে', 'টায়', 'টা', 'টি', 'তে', 'য়', 'এর', 'ের', 'র', 'এ', 'ে', 's'];
 
 /// Pages that "… দেখাও" simply opens.
-const _pagesToShow = {'pro', 'shop', 'calendar', 'settings', 'help', 'notifications', 'sound', 'backup', 'accounts', 'savings', 'zakat', 'split', 'emergency', 'templates', 'pdf', 'alarms', 'inbox', 'health'};
+const _pagesToShow = {'pro', 'requests', 'shop', 'calendar', 'settings', 'help', 'notifications', 'sound', 'backup', 'accounts', 'savings', 'zakat', 'split', 'emergency', 'templates', 'pdf', 'alarms', 'inbox', 'health'};
 
 // Words that open a page.
 const _openVerbs = [
