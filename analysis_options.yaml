@@ -3,6 +3,8 @@ include: package:flutter_lints/flutter.yaml
 analyzer:
   exclude:
     - build/**
+    # A separate app with its own settings and checks.
+    - admin_app/**
 
 linter:
   rules:
