@@ -22,8 +22,8 @@ import 'package:http/http.dart' as http;
 /// `--dart-define=GOOGLE_WEB_CLIENT_ID=…`). Empty until it is set up.
 const googleWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
 
-/// Our server, e.g. `https://example.com` (`--dart-define=API_BASE=…`).
-const apiBase = String.fromEnvironment('API_BASE');
+/// Our server: the WordPress site (override with `--dart-define=API_BASE=…`).
+const apiBase = String.fromEnvironment('API_BASE', defaultValue: 'https://getmyassistant.app');
 
 class GoogleUser {
   const GoogleUser({required this.id, required this.email, required this.name, this.photo = '', this.idToken = ''});
