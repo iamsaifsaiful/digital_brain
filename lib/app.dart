@@ -151,6 +151,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       brain.refreshNotices();
       if (brain.loaded && brain.loadError == null) {
         brain.markOpened();
+        brain.refreshAccount();
         // Messages from WhatsApp, imo, Gmail… that came while away.
         brain.syncInbox();
       }

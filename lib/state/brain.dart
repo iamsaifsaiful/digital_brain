@@ -19,6 +19,7 @@ import '../logic/parser.dart';
 import '../logic/plan.dart';
 import '../logic/proactive.dart';
 import '../logic/pro.dart';
+import '../logic/server_notices.dart';
 import '../logic/when.dart' show sayWhen;
 import '../models/models.dart';
 import '../services/ai.dart';
@@ -58,7 +59,7 @@ class Services {
   })  : ai = ai ?? FakeAi(),
         google = google ?? FakeGoogle(),
         drive = drive ?? FakeDrive(),
-        server = server ?? AccountServer(),
+        server = server ?? AccountServer.off(),
         inbox = inbox ?? FakeInbox(),
         launcher = launcher ?? FakeLauncher(),
         phonebook = phonebook ?? FakePhonebook(),
@@ -165,7 +166,15 @@ class Brain extends ChangeNotifier {
 
   /// The user's own API key works only in the downloaded APK. The Play app
   /// has no key field: its AI will come through our server, for Pro.
-  bool get aiOn => !gated && services.ai.key.trim().isNotEmpty;
+  bool get aiOn => (!gated && services.ai.key.trim().isNotEmpty) || aiByServer;
+
+  /// AI through our server: signed in, the server's AI is on, and the
+  /// server has this account as Pro or on trial (the server decides, not the phone).
+  bool get aiByServer => services.ai.session.isNotEmpty && serverAi && (serverProUntil?.isAfter(services.now()) ?? false);
+
+  bool serverAi = false;
+  int aiLeft = 0;
+  DateTime? serverProUntil;
 
   // ── Pro (sold only in the Play Store app; see logic/pro.dart) ──
 
@@ -204,7 +213,8 @@ class Brain extends ChangeNotifier {
     if (trialUsed || pro) return;
     trialUsed = true;
     await _setPro(services.now().add(const Duration(days: trialDays)), 'trial');
-    await services.server.startTrial(_idToken);
+    final info = await services.server.startTrial(services.ai.session);
+    if (info != null) await _applyServer(info);
   }
 
   /// After Google Play confirms a purchase (in the preview, the test button).
@@ -260,9 +270,6 @@ class Brain extends ChangeNotifier {
   /// Something changed since the last Drive backup.
   bool _driveDirty = false;
 
-  /// This session's Google sign-in proof (for our server; never stored).
-  String _idToken = '';
-
   static const _drivePrefix = 'my-assistant-backup';
 
   Future<void> _loadAccount() async {
@@ -273,6 +280,11 @@ class Brain extends ChangeNotifier {
       driveOn = (await keys.read('drive_on')) == 'true';
       lastDrive = DateTime.tryParse(await keys.read('drive_last') ?? '');
       _driveDirty = (await keys.read('drive_dirty')) == 'true';
+      services.ai.session = await keys.read('srv_session') ?? '';
+      serverAi = (await keys.read('srv_ai')) == 'true';
+      serverProUntil = DateTime.tryParse(await keys.read('srv_pro_until') ?? '');
+      final ai = services.ai;
+      if (ai is ClaudeAi) ai.proxy = services.server.aiUrl;
     } catch (_) {}
   }
 
@@ -283,12 +295,12 @@ class Brain extends ChangeNotifier {
       if (u == null) return null;
       googleEmail = u.email;
       googleName = u.name;
-      _idToken = u.idToken;
       final keys = services.lock.keys;
       await keys.write('g_email', u.email);
       await keys.write('g_name', u.name);
       if (userName.isEmpty && u.name.trim().isNotEmpty) await setUserName(u.name.trim().split(' ').first);
       final info = await services.server.login(u, appVersion: appVersion, edition: edition);
+      if (info != null) await _applyServer(info);
       if (info != null) {
         // The trial is once per Google account, on any phone.
         if (info.trialUsed && !trialUsed) {
@@ -309,16 +321,83 @@ class Brain extends ChangeNotifier {
     }
   }
 
+  /// What the server said: the session for AI, whether its AI is on, and the plan.
+  Future<void> _applyServer(AccountInfo info) async {
+    final keys = services.lock.keys;
+    final ai = services.ai;
+    if (ai is ClaudeAi) ai.proxy = services.server.aiUrl;
+    if (info.session.isNotEmpty) {
+      ai.session = info.session;
+      await keys.write('srv_session', info.session);
+    }
+    serverAi = info.ai;
+    aiLeft = info.aiLeft;
+    serverProUntil = info.proUntil;
+    await keys.write('srv_ai', serverAi ? 'true' : 'false');
+    if (info.proUntil == null) {
+      await keys.delete('srv_pro_until');
+    } else {
+      await keys.write('srv_pro_until', info.proUntil!.toIso8601String());
+    }
+    // Pro given on the website (or bought on another phone) shows up here too.
+    final until = info.proUntil;
+    if (gated && until != null && until.isAfter(services.now()) && (proUntil == null || until.isAfter(proUntil!))) {
+      await _setPro(until, info.proKind);
+    }
+    notifyListeners();
+  }
+
+  /// Asks the server for the plan now (on opening the app, at most every few hours).
+  DateTime? _refreshedAt;
+
+  /// Notifications written on our website (planned with the assistant's own).
+  List<ServerNotice> serverNoticeList = const [];
+
+  Future<void> _loadServerNotices() async {
+    try {
+      final raw = await services.lock.keys.read('srv_notices');
+      if (raw == null) return;
+      serverNoticeList = [...(jsonDecode(raw) as List).map(ServerNotice.fromJson).whereType<ServerNotice>()];
+    } catch (_) {}
+  }
+
+  Future<void> refreshAccount({bool force = false}) async {
+    final now = services.now();
+    if (!force && _refreshedAt != null && now.difference(_refreshedAt!) < const Duration(hours: 3)) return;
+    _refreshedAt = now;
+    final session = services.ai.session;
+    final list = await services.server.notices(session);
+    if (list != null) {
+      serverNoticeList = list;
+      try {
+        await services.lock.keys.write('srv_notices', jsonEncode([for (final n in list) n.toJson()]));
+      } catch (_) {}
+      await _reschedule();
+    }
+    if (session.isEmpty) return;
+    try {
+      final info = await services.server.me(session);
+      if (info != null) await _applyServer(info);
+    } on SessionExpired {
+      services.ai.session = '';
+      serverAi = false;
+      await services.lock.keys.delete('srv_session');
+      notifyListeners();
+    }
+  }
+
   /// Signs out: automatic Drive backup stops and its password is forgotten
   /// on this phone. Backups already in Drive stay there.
   Future<void> signOutGoogle() async {
     await services.google.signOut();
     googleEmail = '';
     googleName = '';
-    _idToken = '';
     driveOn = false;
     final keys = services.lock.keys;
-    for (final k in ['g_email', 'g_name', 'drive_on', 'drive_pw']) {
+    services.ai.session = '';
+    serverAi = false;
+    serverProUntil = null;
+    for (final k in ['g_email', 'g_name', 'drive_on', 'drive_pw', 'srv_session', 'srv_ai', 'srv_pro_until']) {
       await keys.delete(k);
     }
     notifyListeners();
@@ -610,6 +689,8 @@ class Brain extends ChangeNotifier {
         streak: flag('n_streak', true),
         comeback: flag('n_comeback', true),
         prayers: {for (final x in text('prayer_set').split(',')) if (x.trim().isNotEmpty) x.trim()},
+        server: serverNoticeList,
+        news: flag('n_news', true),
         ramadan: flag('n_ramadan'),
         place: district,
         lastOpen: DateTime.tryParse(text('last_open')),
@@ -639,7 +720,7 @@ class Brain extends ChangeNotifier {
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly',
-    'n_streak', 'n_comeback', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'inbox_apps', 'inbox_on', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'g_card_off',
+    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'inbox_apps', 'inbox_on', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'g_card_off',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
@@ -934,6 +1015,7 @@ class Brain extends ChangeNotifier {
     await _loadPrefs();
     await _loadPro();
     await _loadAccount();
+    await _loadServerNotices();
     try {
       data = await services.store.load();
       loadError = null;
@@ -947,6 +1029,7 @@ class Brain extends ChangeNotifier {
     notifyListeners();
     await carryOverTasks();
     if (loadError == null) await markOpened();
+    refreshAccount();
     await _reschedule();
     if (loadError == null) await _showStanding();
     inboxSupported = await services.inbox.supported();

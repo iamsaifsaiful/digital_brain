@@ -2,7 +2,7 @@
 /**
  * Plugin Name: My Assistant Accounts
  * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, ফ্রি ট্রায়াল আর প্রো। শুধু নাম, ইমেইল, ছবি আর প্রো-র তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.1.0
+ * Version: 1.3.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: My Assistant
@@ -13,11 +13,14 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.1.0';
+const MA_ACC_VERSION = '1.3.0';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
 const MA_ACC_PER_PAGE = 20;
 
 require_once __DIR__ . '/admin-view.php';
+require_once __DIR__ . '/ai.php';
+require_once __DIR__ . '/payments.php';
+require_once __DIR__ . '/notices.php';
 
 /** The members table. */
 function ma_acc_table() {
@@ -49,6 +52,9 @@ function ma_acc_install() {
         UNIQUE KEY google_sub (google_sub),
         KEY email (email)
     ) $charset;");
+    ma_ai_install();
+    ma_pay_install();
+    ma_note_install();
     update_option('ma_acc_db_version', MA_ACC_VERSION);
 }
 
@@ -181,19 +187,30 @@ function ma_acc_login(WP_REST_Request $req) {
     } else {
         $wpdb->insert($table, $fields + ['google_sub' => $c['sub'], 'created_at' => $now]);
     }
-    return rest_ensure_response(ma_acc_answer(ma_acc_row($c['sub'])));
+    $row = ma_acc_row($c['sub']);
+    $set = ma_ai_settings();
+    // A session for this phone: AI and refreshing the plan without signing in again.
+    return rest_ensure_response(ma_acc_answer($row) + [
+        'session' => ma_ai_new_session((int) $row['id']),
+        'ai' => $set['on'] && ma_ai_key() !== '',
+        'ai_left' => max(0, $set['per_user'] - ma_ai_used((int) $row['id'])),
+    ]);
 }
 
 function ma_acc_trial(WP_REST_Request $req) {
     if (ma_acc_rate_limited()) {
         return new WP_Error('busy', 'too many requests', ['status' => 429]);
     }
-    $c = ma_acc_verify($req->get_param('id_token'));
-    if (is_wp_error($c)) {
-        return $c;
+    // The phone's session, or a fresh Google sign-in token.
+    $row = ma_ai_member($req);
+    if (!$row) {
+        $c = ma_acc_verify($req->get_param('id_token'));
+        if (is_wp_error($c)) {
+            return $c;
+        }
+        $row = ma_acc_row($c['sub']);
     }
     global $wpdb;
-    $row = ma_acc_row($c['sub']);
     if (!$row) {
         return new WP_Error('no_user', 'log in first', ['status' => 404]);
     }
@@ -205,7 +222,12 @@ function ma_acc_trial(WP_REST_Request $req) {
         }
         $wpdb->update(ma_acc_table(), $data, ['id' => $row['id']]);
     }
-    return rest_ensure_response(ma_acc_answer(ma_acc_row($c['sub'])));
+    $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . ma_acc_table() . ' WHERE id = %d', $row['id']), ARRAY_A);
+    $set = ma_ai_settings();
+    return rest_ensure_response(ma_acc_answer($row) + [
+        'ai' => $set['on'] && ma_ai_key() !== '',
+        'ai_left' => max(0, $set['per_user'] - ma_ai_used((int) $row['id'])),
+    ]);
 }
 
 // ── Admin: the page, and its actions (each with a nonce, back to the page with a message) ──
@@ -294,7 +316,10 @@ add_action('admin_post_ma_acc_edit', function () {
 add_action('admin_post_ma_acc_delete', function () {
     ma_acc_guard('ma_acc_delete');
     global $wpdb;
-    $wpdb->delete(ma_acc_table(), ['id' => (int) ($_POST['id'] ?? 0)]);
+    $id = (int) ($_POST['id'] ?? 0);
+    $wpdb->delete(ma_acc_table(), ['id' => $id]);
+    $wpdb->delete(ma_ai_sessions_table(), ['user_id' => $id]);
+    $wpdb->delete(ma_ai_usage_table(), ['user_id' => $id]);
     ma_acc_back('সদস্যের তথ্য মুছে ফেলা হলো। আবার লগইন করলে নতুন করে যোগ হবেন।');
 });
 
@@ -375,7 +400,30 @@ function ma_acc_admin() {
         'active' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE last_seen > '$week' AND google_sub NOT LIKE 'pending:%'"),
     ];
 
-    ma_acc_render([
+    $extra = [];
+    if ($tab === 'payments') {
+        $pst = sanitize_key($_GET['pst'] ?? 'pending');
+        $pt = ma_pay_table();
+        $extra['pst'] = $pst;
+        $extra['payments'] = $pst === 'all'
+            ? $wpdb->get_results("SELECT * FROM $pt ORDER BY created_at DESC LIMIT 100", ARRAY_A)
+            : $wpdb->get_results($wpdb->prepare("SELECT * FROM $pt WHERE status = %s ORDER BY created_at DESC LIMIT 100", $pst), ARRAY_A);
+        $extra['pay_counts'] = [];
+        foreach ($wpdb->get_results("SELECT status, COUNT(*) n, COALESCE(SUM(amount),0) amt FROM $pt GROUP BY status", ARRAY_A) as $c) {
+            $extra['pay_counts'][$c['status']] = ['n' => (int) $c['n'], 'amt' => (int) $c['amt']];
+        }
+        $extra['pay_month'] = (int) $wpdb->get_var($wpdb->prepare("SELECT COALESCE(SUM(amount),0) FROM $pt WHERE status = 'approved' AND reviewed_at >= %s", gmdate('Y-m-01')));
+        $extra['methods_raw'] = (string) get_option('ma_pay_methods', implode("\n", array_map(function ($m) {
+            return $m['name'] . ' | ' . $m['number'] . ' | ' . $m['how'];
+        }, ma_pay_methods())));
+        $extra['plans'] = ma_pay_plans();
+    }
+    if ($tab === 'notices') {
+        $extra['notices'] = $wpdb->get_results('SELECT * FROM ' . ma_note_table() . ' ORDER BY active DESC, id DESC', ARRAY_A);
+    }
+    $extra['pending'] = ma_pay_pending_count();
+
+    ma_acc_render($extra + [
         'tab' => $tab,
         'q' => $q,
         'status' => $status,
@@ -388,5 +436,7 @@ function ma_acc_admin() {
         'msg' => isset($_GET['ma_msg']) ? sanitize_text_field(rawurldecode(wp_unslash($_GET['ma_msg']))) : '',
         'msg_type' => sanitize_key($_GET['ma_type'] ?? 'ok'),
         'endpoint' => rest_url('my-assistant/v1/login'),
+        'ai' => ma_ai_settings() + ['source' => ma_ai_key_source(), 'tail' => substr(ma_ai_key(), -4)],
+        'ai_stats' => ma_ai_today_stats(),
     ]);
 }

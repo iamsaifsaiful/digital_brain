@@ -91,6 +91,8 @@ class NotificationSettingsScreen extends StatelessWidget {
                       (v) => brain.setPref('n_plan', v)),
                   sw(Icons.lightbulb_outline_rounded, tr('নিজের তথ্য দেখে মনে করানো'), tr('আজকের খরচ লেখা হয়নি, কোনো খাতে খরচ বেশি, পরশু জন্মদিন, বেতন এলে সঞ্চয়, ঈদ-রমজান ১০ দিন আগে'),
                       brain.flag('n_smart', true), (v) => brain.setPref('n_smart', v)),
+                  sw(Icons.campaign_outlined, tr('অ্যাপের খবর ও পরামর্শ'), tr('My Assistant থেকে মাঝে মাঝে কাজের কথা মনে করানো আর নতুন সুবিধার খবর'), brain.flag('n_news', true),
+                      (v) => brain.setPref('n_news', v)),
                 ]),
               ),
               const SizedBox(height: 16),

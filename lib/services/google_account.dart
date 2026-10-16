@@ -18,6 +18,8 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
+import '../logic/server_notices.dart';
+
 /// The OAuth "Web client" ID from Google Cloud (passed at build time with
 /// `--dart-define=GOOGLE_WEB_CLIENT_ID=…`). Empty until it is set up.
 const googleWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
@@ -226,43 +228,110 @@ class FakeDrive implements DriveStore {
   Future<void> delete(String token, String id) async => files.remove(id);
 }
 
+class SessionExpired implements Exception {
+  const SessionExpired();
+}
+
 /// What our server says about the account.
 class AccountInfo {
-  const AccountInfo({this.proUntil, this.proKind = '', this.trialUsed = false});
+  const AccountInfo({this.proUntil, this.proKind = '', this.trialUsed = false, this.session = '', this.ai = false, this.aiLeft = 0});
   final DateTime? proUntil;
   final String proKind;
   final bool trialUsed;
+
+  /// This phone's session with the server ('' when not given).
+  final String session;
+
+  /// The server's AI is on (key set and switched on).
+  final bool ai;
+  final int aiLeft;
+
+  static AccountInfo fromJson(Map<String, dynamic> j) => AccountInfo(
+        proUntil: DateTime.tryParse('${j['pro_until'] ?? ''}'),
+        proKind: '${j['pro_kind'] ?? ''}',
+        trialUsed: j['trial_used'] == true,
+        session: RegExp(r'^[a-f0-9]{64}$').hasMatch('${j['session'] ?? ''}') ? '${j['session']}' : '',
+        ai: j['ai'] == true,
+        aiLeft: (j['ai_left'] as num?)?.toInt() ?? 0,
+      );
 }
 
 /// Our server (the WordPress plugin). Does nothing when [apiBase] is empty.
 class AccountServer {
-  AccountServer([http.Client? client]) : _http = client ?? http.Client();
-  final http.Client _http;
+  AccountServer([http.Client? client, String? base])
+      : _http = client ?? http.Client(),
+        base = base ?? apiBase;
 
-  bool get configured => apiBase.isNotEmpty;
+  /// No server (tests, and builds without one).
+  AccountServer.off()
+      : _http = http.Client(),
+        base = '';
+
+  final http.Client _http;
+  final String base;
+
+  bool get configured => base.isNotEmpty;
 
   Future<AccountInfo?> login(GoogleUser u, {required String appVersion, required String edition}) async {
     if (!configured || u.idToken.isEmpty) return null;
     try {
       final r = await _http
-          .post(Uri.parse('$apiBase/wp-json/my-assistant/v1/login'),
+          .post(Uri.parse('$base/wp-json/my-assistant/v1/login'),
               headers: {'Content-Type': 'application/json'}, body: jsonEncode({'id_token': u.idToken, 'app_version': appVersion, 'edition': edition}))
           .timeout(const Duration(seconds: 15));
       if (r.statusCode != 200) return null;
-      final j = jsonDecode(r.body) as Map<String, dynamic>;
-      return AccountInfo(proUntil: DateTime.tryParse('${j['pro_until'] ?? ''}'), proKind: '${j['pro_kind'] ?? ''}', trialUsed: j['trial_used'] == true);
+      return AccountInfo.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
     } catch (_) {
       return null;
     }
   }
 
-  /// The trial started (kept with the account, so a new install cannot start it again).
-  Future<void> startTrial(String idToken) async {
-    if (!configured || idToken.isEmpty) return;
+  /// The plan now (Pro given on the website shows up without signing in
+  /// again). Null when offline; [SessionExpired] when the server forgot us.
+  Future<AccountInfo?> me(String session) async {
+    if (!configured || session.isEmpty) return null;
     try {
-      await _http
-          .post(Uri.parse('$apiBase/wp-json/my-assistant/v1/trial'), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'id_token': idToken}))
+      final r = await _http.get(Uri.parse('$base/wp-json/my-assistant/v1/me'), headers: {'authorization': 'Bearer $session'}).timeout(const Duration(seconds: 15));
+      if (r.statusCode == 401) throw const SessionExpired();
+      if (r.statusCode != 200) return null;
+      return AccountInfo.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
+    } on SessionExpired {
+      rethrow;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String get aiUrl => '$base/wp-json/my-assistant/v1/ai';
+
+  /// Notifications written on the website for this phone (everyone's, plus
+  /// its plan's when signed in). Null when offline.
+  Future<List<ServerNotice>?> notices(String session) async {
+    if (!configured) return null;
+    try {
+      final r = await _http
+          .get(Uri.parse('$base/wp-json/my-assistant/v1/notices'), headers: {if (session.isNotEmpty) 'authorization': 'Bearer $session'})
           .timeout(const Duration(seconds: 15));
-    } catch (_) {}
+      if (r.statusCode != 200) return null;
+      final list = (jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>)['notices'] as List? ?? const [];
+      return [...list.take(30).map(ServerNotice.fromJson).whereType<ServerNotice>()];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// The trial started (kept with the account, so a new install cannot
+  /// start it again). Returns the plan after it, or null.
+  Future<AccountInfo?> startTrial(String session) async {
+    if (!configured || session.isEmpty) return null;
+    try {
+      final r = await _http
+          .post(Uri.parse('$base/wp-json/my-assistant/v1/trial'), headers: {'Content-Type': 'application/json', 'authorization': 'Bearer $session'}, body: '{}')
+          .timeout(const Duration(seconds: 15));
+      if (r.statusCode != 200) return null;
+      return AccountInfo.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
   }
 }

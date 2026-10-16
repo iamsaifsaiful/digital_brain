@@ -13,6 +13,7 @@ import 'calendar_bd.dart';
 import 'lang.dart';
 import 'ledger.dart';
 import 'phrases.dart';
+import 'server_notices.dart';
 
 /// Does [r] ring on [day]?
 bool remindsOn(Reminder r, DateTime day) {
@@ -56,7 +57,14 @@ class AssistantPrefs {
     this.lastOpen,
     this.donorNext,
     this.lastBackup,
+    this.server = const [],
+    this.news = true,
   });
+
+  /// Notifications from our website (see logic/server_notices.dart), and
+  /// whether the user wants them (সেটিংস › নোটিফিকেশন).
+  final List<ServerNotice> server;
+  final bool news;
 
   /// When the last backup was taken (null: never).
   final DateTime? lastBackup;
@@ -215,7 +223,10 @@ DateTime _at(DateTime day, int minutes) => DateTime(day.year, day.month, day.day
 /// waits for the morning) and no more than [AssistantPrefs.dailyCap] nudges
 /// a day, the most useful first.
 List<PlannedNotice> assistantNotices(AppData d, DateTime now, AssistantPrefs p) {
-  final all = [..._summaries(d, now, p), ..._nudges(d, now, p), ..._extras(d, now, p), ..._plans(d, now, p), ..._noticed(d, now, p)];
+  final all = [
+    ..._summaries(d, now, p), ..._nudges(d, now, p), ..._extras(d, now, p), ..._plans(d, now, p), ..._noticed(d, now, p),
+    if (p.news && p.nudgesOn) ...serverNotices(p.server, d, now, lastOpen: p.lastOpen),
+  ];
   final kept = <PlannedNotice>[];
   final perDay = <String, int>{};
   // Most useful first, so the cap drops the least useful.

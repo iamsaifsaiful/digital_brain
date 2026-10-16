@@ -406,10 +406,15 @@ class _MoreScreenState extends State<MoreScreen> {
         SectionTitle(tr('অন্যান্য')),
         Panel(
           child: Rows(children: [
-            if (brain.gated)
+            if (brain.aiByServer)
               linkRow(Icons.auto_awesome_outlined, tr('AI সহকারী'),
-                  sub: brain.pro ? tr('প্রো-তে আছে · আমাদের সার্ভার চালু হলে কাজ করবে') : tr('প্রো সুবিধা · এখন অ্যাপ নিজের নিয়মে বোঝে'),
-                  onTap: () => push(const ProScreen()),
+                  sub: trf('চালু আছে (প্রো) · আজ আরও {0}টা প্রশ্ন', [bnDigits(brain.aiLeft)]), subColor: C.green, onTap: () => push(const ProScreen()))
+            else if (brain.gated)
+              linkRow(Icons.auto_awesome_outlined, tr('AI সহকারী'),
+                  sub: !brain.pro
+                      ? tr('প্রো সুবিধা · এখন অ্যাপ নিজের নিয়মে বোঝে')
+                      : (brain.signedIn ? tr('প্রো-তে আছে · সার্ভারে AI চালু হলে কাজ করবে') : tr('প্রো-তে আছে · চালু করতে Google দিয়ে লগইন করুন')),
+                  onTap: () => push(brain.pro && !brain.signedIn ? const BackupScreen() : const ProScreen()),
                   trailing: brain.pro ? null : const ProMark())
             else
               linkRow(Icons.auto_awesome_outlined, tr('AI সহকারী (Claude)'),

@@ -5,7 +5,13 @@ import 'package:digital_brain/services/crypto.dart';
 import 'package:digital_brain/services/google_account.dart';
 import 'package:digital_brain/services/lock.dart';
 import 'package:digital_brain/screens/pro_screen.dart';
+import 'dart:convert';
+
+import 'package:digital_brain/services/ai.dart';
+import 'package:digital_brain/logic/server_notices.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'app_test.dart' show Rig, enterPin, settle, start, tell;
@@ -261,4 +267,108 @@ void main() {
     await settle(t);
     expect(find.textContaining('PDF রিপোর্ট — প্রো সুবিধা'), findsOneWidget);
   });
+
+  group('AI through our server (the key never in the app)', () {
+    test('sign-in gives a session; AI is on only while the server has the account as Pro', () async {
+      final calls = <http.Request>[];
+      final client = MockClient((r) async {
+        calls.add(r);
+        if (r.url.path.endsWith('/login')) {
+          return http.Response(jsonEncode({'ok': true, 'trial_used': true, 'pro_until': '2026-11-01T00:00:00Z', 'pro_kind': 'manual', 'session': 'a' * 64, 'ai': true, 'ai_left': 50}), 200);
+        }
+        if (r.url.path.endsWith('/me')) {
+          return http.Response(jsonEncode({'ok': true, 'trial_used': true, 'pro_until': null, 'pro_kind': '', 'ai': true, 'ai_left': 0}), 200);
+        }
+        return http.Response('{}', 404);
+      });
+      final google = FakeGoogle()..user = const GoogleUser(id: '1', email: 'a@gmail.com', name: 'A', idToken: 'token-from-google');
+      final rig = Rig(server: AccountServer(client), google: google);
+      final b = rig.brain;
+      b.gated = true;
+      await b.load();
+      expect(b.aiOn, isFalse);
+      expect(await b.signInGoogle(appVersion: '2.14.0'), isNull);
+      expect(jsonDecode(calls.firstWhere((r) => r.url.path.endsWith('/login')).body)['id_token'], 'token-from-google');
+      expect(rig.services.ai.session, 'a' * 64);
+      expect(b.aiByServer, isTrue);
+      expect(b.aiOn, isTrue);
+      // Pro given on the website shows up on the phone.
+      expect(b.pro, isTrue);
+      expect(b.trialUsed, isTrue);
+      expect(await rig.services.lock.keys.read('srv_session'), 'a' * 64);
+
+      // The server ends Pro: AI goes off at the next refresh.
+      await b.refreshAccount(force: true);
+      expect(calls.lastWhere((r) => r.url.path.endsWith('/me')).headers['authorization'], 'Bearer ${'a' * 64}');
+      expect(b.aiByServer, isFalse);
+
+      await b.signOutGoogle();
+      expect(rig.services.ai.session, isEmpty);
+      expect(await rig.services.lock.keys.read('srv_session'), isNull);
+    });
+
+    test('requests go to the server with the session, never with an API key', () async {
+      late http.Request sent;
+      final ai = ClaudeAi(client: MockClient((r) async {
+        sent = r;
+        return http.Response.bytes(utf8.encode(jsonEncode({'content': [{'type': 'tool_use', 'name': 'route', 'input': {'reply': 'ঠিক আছে', 'items': []}}]})), 200);
+      }));
+      expect(await ai.route('হ্যালো', AiContext(now: DateTime(2026, 10, 9))), isNull, reason: 'no key, no session');
+      ai.session = 'b' * 64;
+      ai.proxy = 'https://getmyassistant.app/wp-json/my-assistant/v1/ai';
+      final r = await ai.route('হ্যালো', AiContext(now: DateTime(2026, 10, 9)));
+      expect(r!['reply'], 'ঠিক আছে');
+      expect(sent.url.toString(), 'https://getmyassistant.app/wp-json/my-assistant/v1/ai');
+      expect(sent.headers['authorization'], 'Bearer ${'b' * 64}');
+      expect(sent.headers.containsKey('x-api-key'), isFalse);
+
+      final limited = ClaudeAi(client: MockClient((r) async => http.Response('{"code":"limit"}', 429)))
+        ..session = 'b' * 64
+        ..proxy = 'https://getmyassistant.app/wp-json/my-assistant/v1/ai';
+      await expectLater(limited.route('হ্যালো', AiContext(now: DateTime(2026, 10, 9))), throwsA(isA<AiError>().having((e) => e.message, 'message', contains('আজকের AI প্রশ্ন শেষ'))));
+    });
+  });
+
+  group('notifications from the website', () {
+    final now = DateTime(2026, 10, 16, 10); // a Friday
+    const daily = ServerNotice(id: 1, title: 'আজকের কাজের লিস্ট করেছেন?', kind: 'daily', time: '21:00', cond: 'no_tasks', mic: true);
+    test('daily, only on days without a to-do list; a tap opens the mic', () {
+      var out = serverNotices([daily], AppData(), now);
+      expect(out.length, 3);
+      expect(out.first.at, DateTime(2026, 10, 16, 21));
+      expect(out.first.reminderId, startsWith('nudge:plan:'));
+      final withTask = AppData(tasks: [Task(title: 'ব্যাংকে যাওয়া', due: DateTime(2026, 10, 16))]);
+      out = serverNotices([daily], withTask, now);
+      expect(out.map((n) => n.at.day), [17, 18]);
+    });
+    test('weekly, once, date range, unknown condition', () {
+      const weekly = ServerNotice(id: 2, title: 'শুক্রবারের পরিকল্পনা', kind: 'weekly', weekday: 6, time: '20:30');
+      expect(serverNotices([weekly], AppData(), now).single.at, DateTime(2026, 10, 17, 20, 30));
+      final once = ServerNotice(id: 3, title: 'নতুন সুবিধা', kind: 'once', time: '09:00', date: DateTime(2026, 10, 16));
+      expect(serverNotices([once], AppData(), now), isEmpty, reason: '9am already passed');
+      final ended = ServerNotice(id: 4, title: 'x', until: DateTime(2026, 10, 16));
+      expect(serverNotices([ended], AppData(), now).length, 1);
+      const future = ServerNotice(id: 5, title: 'x', cond: 'something_new');
+      expect(serverNotices([future], AppData(), now), isEmpty);
+    });
+    test('come down from the server, kept for offline, follow the switch', () async {
+      final client = MockClient((r) async {
+        if (r.url.path.endsWith('/notices')) {
+          return http.Response.bytes(utf8.encode(jsonEncode({'notices': [daily.toJson()]})), 200);
+        }
+        return http.Response('{}', 404);
+      });
+      final rig = Rig(server: AccountServer(client, 'https://getmyassistant.app'));
+      final b = rig.brain;
+      await b.load();
+      await settleAsync();
+      expect(b.serverNoticeList.single.title, 'আজকের কাজের লিস্ট করেছেন?');
+      expect(await rig.services.lock.keys.read('srv_notices'), contains('কাজের লিস্ট'));
+      expect(b.assistantPrefs.server, isNotEmpty);
+      await b.setPref('n_news', false);
+      expect(b.assistantPrefs.news, isFalse);
+    });
+  });
 }
+
+Future<void> settleAsync() => Future<void>.delayed(const Duration(milliseconds: 50));

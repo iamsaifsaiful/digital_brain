@@ -66,9 +66,14 @@ abstract class AiBrain {
   /// [fast]: a spoken turn — the quick model, so the answer comes at once.
   Future<AiRoute?> route(String said, AiContext ctx, {List<AiTurn> history = const [], bool fast = false});
 
-  /// The key in use (empty = AI off).
+  /// The key in use (empty = AI off, unless [session] is set).
   String get key;
   set key(String value);
+
+  /// Our server's session (Pro through getmyassistant.app): with no key of
+  /// the user's own, requests go through the server, which holds the key.
+  String get session;
+  set session(String value);
 
   AiQuality get quality;
   set quality(AiQuality value);
@@ -82,6 +87,14 @@ class ClaudeAi implements AiBrain {
 
   @override
   String key = '';
+
+  @override
+  String session = '';
+
+  /// The server's AI address (the app passes `$apiBase/wp-json/my-assistant/v1/ai`).
+  String proxy = '';
+
+  bool get _viaServer => key.trim().isEmpty && session.isNotEmpty && proxy.isNotEmpty;
 
   AiQuality _quality = AiQuality.best;
 
@@ -111,7 +124,7 @@ class ClaudeAi implements AiBrain {
 
   @override
   Future<AiRoute?> route(String said, AiContext ctx, {List<AiTurn> history = const [], bool fast = false}) async {
-    if (key.trim().isEmpty) return null;
+    if (key.trim().isEmpty && !_viaServer) return null;
     var fastAt = 0;
     while (true) {
       final list = fast ? fastModels : _models;
@@ -146,6 +159,19 @@ class ClaudeAi implements AiBrain {
           continue;
         }
       }
+      if (_viaServer) {
+        switch (res.statusCode) {
+          case 401:
+            throw AiError(tr('AI-এর জন্য আবার Google দিয়ে লগইন করুন (সেটিংস › Google অ্যাকাউন্ট)।'));
+          case 402:
+            throw AiError(tr('AI প্রো সুবিধা — প্রো বা ট্রায়াল চালু নেই।'));
+          case 429:
+            throw AiError(tr('আজকের AI প্রশ্ন শেষ। কাল আবার পাবেন।'));
+          case 503:
+          case 504:
+            throw AiError(tr('AI এই মুহূর্তে বন্ধ আছে।'));
+        }
+      }
       if (res.statusCode == 401) throw AiError(tr('API key ঠিক নেই। সেটিংস থেকে key দেখে নিন।'));
       if (res.statusCode == 429) throw AiError(tr('এই মুহূর্তে অনেক বেশি অনুরোধ হয়েছে। একটু পরে চেষ্টা করুন।'));
       if (err.toLowerCase().contains('credit')) throw AiError(tr('API অ্যাকাউন্টে ক্রেডিট শেষ। platform.claude.com থেকে ক্রেডিট যোগ করুন।'));
@@ -158,12 +184,14 @@ class ClaudeAi implements AiBrain {
     try {
       return await _client
           .post(
-            Uri.parse(_endpoint),
-            headers: {
-              'content-type': 'application/json',
-              'x-api-key': key.trim(),
-              'anthropic-version': '2023-06-01',
-            },
+            Uri.parse(_viaServer ? proxy : _endpoint),
+            headers: _viaServer
+                ? {'content-type': 'application/json', 'authorization': 'Bearer $session'}
+                : {
+                    'content-type': 'application/json',
+                    'x-api-key': key.trim(),
+                    'anthropic-version': '2023-06-01',
+                  },
             body: jsonEncode({
               'model': model,
               'max_tokens': 4000,
@@ -382,11 +410,14 @@ class FakeAi implements AiBrain {
   @override
   String key = '';
 
+  @override
+  String session = '';
+
   final fastAsked = <bool>[];
 
   @override
   Future<AiRoute?> route(String said, AiContext ctx, {List<AiTurn> history = const [], bool fast = false}) async {
-    if (key.isEmpty) return null;
+    if (key.isEmpty && session.isEmpty) return null;
     fastAsked.add(fast);
     asked.add(said);
     histories.add(history);

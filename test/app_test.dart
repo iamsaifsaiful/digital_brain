@@ -13,6 +13,7 @@ import 'package:digital_brain/services/data_store.dart';
 import 'package:digital_brain/services/files.dart';
 import 'package:digital_brain/services/launcher.dart';
 import 'package:digital_brain/services/inbox.dart';
+import 'package:digital_brain/services/google_account.dart';
 import 'package:digital_brain/services/lock.dart';
 import 'package:digital_brain/services/notifications.dart';
 import 'package:digital_brain/services/phonebook.dart';
@@ -58,7 +59,7 @@ class Rig {
   /// A second app on the same storage with other [keys] (a phone that lost its key).
   factory Rig.sharing(Rig other, {required MemoryKeyVault keys}) => Rig(keys: keys, blob: other.blob);
 
-  Rig({AppData? data, MemoryKeyVault? keys, MemoryBlobStore? blob}) {
+  Rig({AppData? data, MemoryKeyVault? keys, MemoryBlobStore? blob, AccountServer? server, GoogleAccount? google}) {
     final vault = keys ?? MemoryKeyVault();
     this.blob = blob ?? MemoryBlobStore();
     voice = FakeVoice();
@@ -78,6 +79,8 @@ class Rig {
       ai: ai,
       phonebook: phonebook,
       inbox: inbox,
+      server: server,
+      google: google,
       clock: () => DateTime(2026, 10, 9, 15, 53),
     );
     brain = Brain(services);
