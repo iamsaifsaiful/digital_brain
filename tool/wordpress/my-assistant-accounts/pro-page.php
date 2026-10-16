@@ -130,7 +130,7 @@ function ma_pro_page($atts = []) {
 
         <section class="ma-pro-sec">
             <h3>ফ্রি আর প্রো-তে কী কী</h3>
-            <p>আপনার রাখা কোনো তথ্য কখনো তালাবদ্ধ হয় না — প্রো শেষ হলেও সব দেখা, বদলানো আর মোছা যায়।</p>
+            <p>প্রো শেষ হলেও আপনার রাখা কোনো তথ্য আটকে যায় না — সব দেখা, বদলানো আর মোছা যায়।</p>
             <table class="ma-pro-table">
                 <thead><tr><th>সুবিধা</th><th>ফ্রি</th><th class="pro">প্রো</th></tr></thead>
                 <tbody>
@@ -156,18 +156,18 @@ function ma_pro_page($atts = []) {
 
         <section class="ma-pro-sec ma-pro-faq">
             <h3>প্রশ্ন ও উত্তর</h3>
-            <details><summary>কীভাবে টাকা দেব?</summary><p>বিকাশ, নগদ, রকেট বা ব্যাংক — নিচের ফর্মে দেওয়া যেকোনো নম্বরে টাকা পাঠিয়ে ট্রানজেকশন আইডি আর আপনার Google ইমেইল দিন।</p></details>
-            <details><summary>প্রো কখন চালু হবে?</summary><p>আমরা পেমেন্ট মিলিয়ে দেখে সাধারণত কয়েক ঘণ্টার মধ্যে চালু করি। চালু হলে ফোনে নোটিফিকেশন আর ইমেইল যাবে। অ্যাপে একই Google অ্যাকাউন্টে লগইন থাকলেই হবে।</p></details>
+            <details><summary>কীভাবে টাকা দেব?</summary><p>বিকাশ বা নগদে নিচের নম্বরে Send Money করে ট্রানজেকশন আইডি আর আপনার Google ইমেইল দিন।</p></details>
+            <details><summary>প্রো কখন চালু হবে?</summary><p>পেমেন্ট মিলিয়ে আমরা প্রো চালু করি — বেশির ভাগ সময় সাথে সাথেই। চালু হলে ফোনে নোটিফিকেশন আর ইমেইল যাবে। অ্যাপে একই Google অ্যাকাউন্টে লগইন থাকলেই হবে।</p></details>
             <details><summary>নতুন ফোনে কি প্রো থাকবে?</summary><p>হ্যাঁ। প্রো আপনার Google অ্যাকাউন্টের সাথে থাকে — যেকোনো ফোনে একই অ্যাকাউন্টে লগইন করলেই চালু।</p></details>
             <details><summary>মেয়াদ শেষ হলে কী হবে?</summary><p>অ্যাপ ফ্রি সংস্করণে ফিরে যাবে। আপনার সব তথ্য যেমন আছে থাকবে; শুধু প্রো সুবিধাগুলো বন্ধ হবে।</p></details>
             <div class="ma-pro-trust">
                 <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Zm-1 14-4-4 1.4-1.4L11 13.2l5.6-5.6L18 9l-7 7Z"/></svg>
-                <span>আপনার হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো আমাদের সার্ভারে আসে না — সব আপনার ফোনে আর আপনার নিজের Google Drive-এ, আপনার পাসওয়ার্ডে তালাবদ্ধ।</span>
+                <span>আপনার হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো আমাদের সার্ভারে আসে না — সব আপনার ফোনে এনক্রিপ্ট করা থাকে, আর ব্যাকআপ আপনার নিজের Google Drive-এ, তালাবদ্ধ অবস্থায়।</span>
             </div>
         </section>
 
         <?php if ($a['form'] !== 'no') : ?>
-            <section class="ma-pro-sec"><?php echo ma_pay_form(); ?></section>
+            <section class="ma-pro-sec"><?php echo ma_pay_form(['nav' => 'no', 'head' => 'no']); ?></section>
         <?php endif; ?>
     </div>
     <?php
