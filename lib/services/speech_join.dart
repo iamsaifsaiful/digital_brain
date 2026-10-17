@@ -28,6 +28,12 @@ class SpeechJoin {
   /// The last final text of each session (to drop a repeated final).
   final Map<int, String> _finals = {};
 
+  /// What was committed before each session's first final: some phones send
+  /// several finals in one session, each holding all the words so far
+  /// ("তুমি", "তুমি ২০২৭", "তুমি ২০২৭ সালের"); the later one replaces the
+  /// earlier instead of being added after it.
+  final Map<int, String> _before = {};
+
   String get text => '$committed $current'.trim();
 
   void reset() {
@@ -36,6 +42,7 @@ class SpeechJoin {
     _kept = '';
     _keptSession = -1;
     _finals.clear();
+    _before.clear();
   }
 
   /// A new recogniser session in the same turn; returns its id.
@@ -75,7 +82,18 @@ class SpeechJoin {
     final changed = words != current;
     current = words;
     if (isFinal) {
-      committed = clean(text);
+      final prev = _finals[sid];
+      final w = words.trim();
+      if (prev != null && prev.trim().isNotEmpty && (w.startsWith(prev.trim()) || prev.trim().startsWith(w))) {
+        // The same session's words again, grown (or the same): replace.
+        Trace.log('voice', 'cumulative final replaces the last', {'session': sid});
+        final longer = w.length >= prev.trim().length ? w : prev.trim();
+        committed = clean('${_before[sid] ?? ''} $longer'.trim());
+      } else {
+        _before.putIfAbsent(sid, () => committed);
+        if (prev != null) _before[sid] = committed; // a new sentence in the same session
+        committed = clean(text);
+      }
       current = '';
       _finals[sid] = words;
     }

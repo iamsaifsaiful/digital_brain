@@ -52,4 +52,18 @@ void main() {
     j.result(a, 'কাল সকাল দশটায় মিটিং', isFinal: true, clean: same);
     expect(j.text, 'কাল সকাল দশটায় মিটিং');
   });
+
+  test('a phone that sends a growing final again and again in one session: no doubling (recording 17 Oct)', () {
+    final j = SpeechJoin();
+    final a = j.newSession();
+    for (final w in ['তুমি', 'তুমি ২০২৭', 'তুমি ২০২৭ সালের', 'তুমি ২০২৭ সালের জানুয়ারি মাসের প্রথম তারিখে']) {
+      j.result(a, w, isFinal: false, clean: same);
+      j.result(a, w, isFinal: true, clean: same);
+    }
+    expect(j.text, 'তুমি ২০২৭ সালের জানুয়ারি মাসের প্রথম তারিখে');
+    final b = j.newSession();
+    j.result(b, 'চলে যেতে হবে', isFinal: true, clean: same);
+    j.result(b, 'চলে যেতে হবে এরকম একটা কাজের তালিকা লেখ', isFinal: true, clean: same);
+    expect(j.text, 'তুমি ২০২৭ সালের জানুয়ারি মাসের প্রথম তারিখে চলে যেতে হবে এরকম একটা কাজের তালিকা লেখ');
+  });
 }

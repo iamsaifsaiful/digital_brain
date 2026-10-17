@@ -11,6 +11,7 @@ import 'cash.dart';
 import 'health.dart';
 import 'ledger.dart';
 import 'match.dart';
+import 'meaning.dart' show tidySpeech;
 import 'parser.dart';
 import 'phrases.dart';
 import 'search.dart';
@@ -225,8 +226,20 @@ String taskLabel(Task t, DateTime now) {
   return '${t.title} ($when)';
 }
 
-String taskAnswer(AppData d, DateTime now) {
+String taskAnswer(AppData d, DateTime now, [String asked = '']) {
   final open = openTasksOf(d, now);
+  // "আজকের কাজের তালিকা", "৩১ অক্টোবরের কাজ": only that day's.
+  final w = asked.isEmpty ? null : parseWhen(tidySpeech(asked), now);
+  if (w != null && w.hasDay) {
+    final day = dayOnly(w.day);
+    final today = dayOnly(now);
+    final those = [for (final t in open) if (t.due != null && (dayOnly(t.due!) == day || (day == today && dayOnly(t.due!).isBefore(today)))) t];
+    final when = sayWhen(day, now, withTime: false);
+    final rest = open.length - those.length;
+    final more = rest > 0 ? trf(' তারিখ ছাড়া বা অন্য দিনের আরও {0}টা কাজ আছে।', [bnDigits(rest)]) : '';
+    if (those.isEmpty) return trf('{0} কোনো কাজ রাখা নেই।{1}', [when, more]);
+    return trf('{0} {1}টা কাজ — {2}।{3}', [when, bnDigits(those.length), nameList([for (final t in those) t.title], unit: 'টা'), more]);
+  }
   if (open.isEmpty) return tr('এখন কোনো কাজ বাকি নেই। নতুন কাজ বললে তালিকায় তুলে রাখব।');
   return trf('{0}টা কাজ বাকি — {1}।', [bnDigits(open.length), nameList([for (final t in open) taskLabel(t, now)], unit: 'টা')]);
 }
@@ -304,7 +317,7 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       SearchQuery() => searchAnswer(d, cmd, now),
       SmallTalk() => talkReply(cmd.kind, now),
       AiReply() => cmd.text,
-      TaskQuery() => taskAnswer(d, now),
+      TaskQuery(:final transcript) => taskAnswer(d, now, transcript),
       CashQuery() => cashAnswer(d, cmd, now),
       MoneyListQuery() => moneyListAnswer(d, cmd),
       Clarify() => cmd.question,

@@ -67,6 +67,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   Future<void> _saving = Future.value();
 
   String _live = '';
+  Timer? _quickTimer;
   String? _error;
   bool _voice = false;
   bool _listening = false;
@@ -405,6 +406,14 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
         if (!mounted || gen != _gen) return;
         if (w.trim().isNotEmpty) _moreTimer?.cancel();
         setState(() => _live = w);
+        // A plain "হ্যাঁ" / "না" to a question: answered at once, without
+        // waiting out the usual pause.
+        _quickTimer?.cancel();
+        if (_draft.isEmpty && _chat.wait == ChatWait.yesNo && words(normalize(w)).length <= 3 && yesNo(w) != null) {
+          _quickTimer = Timer(const Duration(milliseconds: 600), () {
+            if (mounted && gen == _gen && _listening && _live == w) unawaited(_brain.services.voice.stop());
+          });
+        }
       },
       onDone: (w) {
         // One sentence is handled once, even if the recogniser reports it twice.

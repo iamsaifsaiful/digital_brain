@@ -29,7 +29,7 @@ import '../ui/yes_no.dart' show pickSpokenOption;
 import 'brain.dart';
 
 /// What the chat is waiting to hear.
-enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, taskTitle, project, collect, whichPerson, whichItem, clarify }
+enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, taskTitle, taskDay, project, collect, whichPerson, whichItem, clarify }
 
 /// What the user said they want to talk about at the start.
 enum Topic {
@@ -158,6 +158,32 @@ class ChatController extends ChangeNotifier {
 
   /// The day of a to-do whose words are being asked for.
   DateTime? _pendingTaskDue;
+
+  /// A to-do said with a month but no day, and that month (1–12).
+  TaskAdd? _pendingTask;
+  int? _pendingMonth;
+
+  int? _monthOnly(String said) {
+    final s = fold(said);
+    for (var m = 0; m < 12; m++) {
+      final name = fold(bnMonths[m]);
+      final i = s.indexOf(name);
+      if (i < 0) continue;
+      final before = s.substring(0, i).trimRight();
+      if (RegExp(r'[০-৯0-9]\s*(?:শে|ই|লা|রা|ঠা)?$').hasMatch(before)) return null;
+      if (RegExp(fold(r'^\s*(?:মাসের\s+)?(?:[০-৯0-9]{1,2}|প্রথম|পহেলা|এক|শেষ)\s')).hasMatch(s.substring(i + name.length).replaceFirst(RegExp(fold(r'^(?:এর|ের)')), ''))) return null;
+      return m + 1;
+    }
+    return null;
+  }
+
+  String _withoutMonth(String title) {
+    var t = fold(title);
+    for (final m in bnMonths) {
+      t = t.replaceAll(RegExp('${fold(m)}(?:\\s*${fold('এর')}|${fold('ের')})?(?:\\s+${fold('মাসের')})?'), ' ');
+    }
+    return t.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
   bool _askingAll = false;
   bool _allYes = false;
   int _savedInBatch = 0;
@@ -294,7 +320,7 @@ class ChatController extends ChangeNotifier {
   bool _startsList(String t) {
     if (isQuestionText(t)) return false;
     final n = normalize(t);
-    if (const ['দেখাও', 'দেখান', 'দেখি', 'বলো', 'বলুন', 'শোনাও', 'দাও', 'দিন', 'দেন', 'দিবা', 'কী', 'কি', 'কত', 'বাকি'].any((w) => words(n).contains(normalize(w)))) return false;
+    if (const ['দেখাও', 'দেখান', 'দেখি', 'বলো', 'বলুন', 'শোনাও', 'দাও', 'দিন', 'দেন', 'দিবা', 'কী', 'কি', 'কত', 'বাকি', 'আছে', 'যে', 'টা'].any((w) => words(n).contains(normalize(w)))) return false;
     final tp = _topicWord(t);
     final dayless = tidy(cutWords(t, const ['আজকের', 'আজ', 'কালকের', 'কাল', 'আগামীকালের', 'সারাদিনের', 'পুরো দিনের', 'সারা দিনের', 'আমার', 'আমাদের', 'দিনের', 'এখন', 'নতুন']));
     if (tp != Topic.task || words(normalize(dayless)).length > 3 || _topicWord(dayless) != Topic.task) return false;
@@ -1061,6 +1087,14 @@ class ChatController extends ChangeNotifier {
           choices: _yesNoChoices,
         );
       case TaskAdd():
+        // "ডিসেম্বরের কাজের তালিকায় লেখ …": a month but no day — ask the day.
+        final month = c.due == null ? _monthOnly(c.transcript) : null;
+        if (month != null && c.title.trim().isNotEmpty) {
+          _pendingTask = TaskAdd(c.transcript, title: _withoutMonth(c.title), due: null);
+          _pendingMonth = month;
+          _ask(out, trf('{0}-এর কত তারিখে রাখব?', [bnMonths[month - 1]]), ChatWait.taskDay);
+          return;
+        }
         if (c.title.trim().isEmpty) {
           // "কালকের কাজের তালিকায় লেখ": the day is kept, what to write is asked.
           _pendingTaskDue = c.due;
@@ -1284,7 +1318,7 @@ class ChatController extends ChangeNotifier {
       final hits = [for (var i = 0; i < list.length; i++) if (asciiDigits(list[i].$2).replaceAll(RegExp(r'[^0-9]'), '').endsWith(tail)) i];
       if (hits.length == 1) return hits.single;
     }
-    final n = normalize(said);
+    final n = normalize(said.replaceAll('নাম্বার', 'নম্বর').replaceAll('নং', 'নম্বর'));
     const order = [
       ['প্রথম', '১ম', 'এক নম্বর', 'একনম্বর', 'first', '1st'],
       ['দ্বিতীয়', '২য়', 'দুই নম্বর', 'দুইনম্বর', 'second', '2nd'],
@@ -1564,6 +1598,18 @@ class ChatController extends ChangeNotifier {
             return true;
           }
         }
+        // A question about what waits ("কোন তারিখে তুলবা?"): answered, still waiting — never a yes.
+        if (!refused && isQuestionText(t) && yesNo(t) != false && _current != null && !_askingAll && RegExp(fold(r'(?:কোন\s+তারিখ|কবে|কখন|কয়টায়|কটায়|কোন\s+দিন|কোন\s+সময়)')).hasMatch(fold(t))) {
+          final cur1 = _current;
+          final info = cur1 is TaskAdd
+              ? (cur1.due == null ? tr('তারিখ ছাড়া রাখব। তারিখ চাইলে বলুন, যেমন “২০ তারিখে”।') : trf('{0} তারিখে রাখব।', [sayWhen(cur1.due!, _now, withTime: false)]))
+              : cur1 is ReminderAdd
+                  ? trf('{0}-এ মনে করাব।', [sayWhen(cur1.at, _now)])
+                  : '';
+          _say(out, '$info ${tr('রেখে দিই — হ্যাঁ, নাকি না?')}'.trim());
+          choices = _yesNoChoices;
+          return true;
+        }
         final yn = refused ? false : yesNo(t);
         if (yn == null) {
           if (_looksNew(t)) return false;
@@ -1687,6 +1733,23 @@ class ChatController extends ChangeNotifier {
         wait = ChatWait.none;
         choices = const [];
         await _start(ReminderAdd(t, title: title, at: at, repeat: _pendingRepeat, alarm: _pendingAlarm, weekdays: _pendingDays, minutesBefore: _pendingBefore), out);
+        return true;
+      case ChatWait.taskDay:
+        final dn = int.tryParse(asciiDigits(t).replaceAll(RegExp(r'[^0-9]'), ''));
+        final pend = _pendingTask;
+        if (pend == null || _pendingMonth == null) return false;
+        if (dn == null || dn < 1 || dn > 31) {
+          if (_looksNew(t)) return false;
+          _say(out, tr('কত তারিখ — সংখ্যাটা বলুন, যেমন “৩১ তারিখে”।'));
+          return true;
+        }
+        var day = DateTime(_now.year, _pendingMonth!, dn);
+        if (day.isBefore(dayOnly(_now))) day = DateTime(_now.year + 1, _pendingMonth!, dn);
+        _pendingTask = null;
+        _pendingMonth = null;
+        wait = ChatWait.none;
+        choices = const [];
+        await _start(TaskAdd(pend.transcript, title: pend.title, due: day), out);
         return true;
       case ChatWait.taskTitle:
         // The words to write, said next ("আমাকে পুকুরে চুন দিতে হবে").

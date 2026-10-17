@@ -771,7 +771,23 @@ class Parser {
     final mustDo = RegExp(r'\S(তে|তেই) (হবে|লাগবে)( |$)').hasMatch(text) || RegExp(r'\S (করা|কেনা|যাওয়া|আনা|দেওয়া|নেওয়া) (লাগবে|দরকার)( |$)').hasMatch(text);
     // A plain order to write ("… এটা লিখে রাখ") wins over a question word said with it.
     final orderToWrite = _hasNorm(text, ['লিখে রাখ', 'লিখে রাখো', 'লেখ যে', 'লিখো যে', 'তুলে রাখ', 'তুলে রাখো', 'তালিকায় রাখ', 'লিস্টে রাখ', 'লিস্টে রাখো']);
-    if ((!isQuestionText(said) || orderToWrite) && toList && (_hasNorm(text, _addVerbs) || mustDo)) {
+    // "৩০ অক্টোবর বিকেল চারটায় পড়ানো আছে, এটা একটু লিখে রাখো তো": a day or
+    // time and an order to write it down — a reminder (with a time) or a to-do.
+    final writeIt = RegExp(fold(r'[\s,।]*(?:এটা|এইটা|এটাকে)?\s*(?:একটু\s+)?(?:লিখে\s+(?:রাখো|রাখ|রাখেন|রেখো|দাও|দিও)|লেখো|লিখো|লিখে নাও)(?:\s+তো)?[\s,।!]*$')).firstMatch(fold(said));
+    if (writeIt != null && !_hasNorm(text, ['কাজের তালিকা', 'কাজের লিস্ট', 'নোট', 'পাসওয়ার্ড', 'নম্বর', 'নাম্বার']) && findAmount(normalize(withoutWhen(said))) == null) {
+      final when = parseWhen(said, now);
+      if (when != null && (when.hasDay || when.hasTime)) {
+        var body = fold(said).substring(0, writeIt.start);
+        body = body.replaceAll(RegExp(fold(r'(?:^|\s)(?:এক|দুই|দু|তিন|চার|পাঁচ|পাচ|ছয়|সাত|আট|নয়|দশ|এগারো|বারো)টায়(?=\s|$)')), ' ');
+        var title = tidy(cutWords(withoutWhen(body), ['আমার', 'আমাকে', 'যে', ..._fillers])).replaceAll(RegExp(r'[।.!,]+$'), '').trim();
+        if (title.isNotEmpty) {
+          if (when.hasTime && when.at.isAfter(now)) return ReminderAdd(said, title: title, at: when.at);
+          return TaskAdd(said, title: title, due: when.day);
+        }
+      }
+    }
+    final removing = _hasNorm(text, ['মুছে দাও', 'মুছে দিও', 'মুছে ফেলো', 'মুছো', 'বাদ দাও', 'বাদ দিয়ে দাও', 'ডিলিট', 'কেটে দাও']);
+    if (!removing && (!isQuestionText(said) || orderToWrite) && toList && (_hasNorm(text, _addVerbs) || mustDo)) {
       final t = _taskAdd(said, text, words(text));
       if (t != null) return t;
     }

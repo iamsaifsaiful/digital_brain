@@ -448,4 +448,62 @@ void main() {
       expect(chat.brain.data.tasks, isEmpty);
     });
   });
+
+  // Four more recordings (17 Oct, 10:30).
+  group('the third set of 17 Oct', () {
+    Future<(ChatController, List<String>)> talk(WidgetTester t, List<String> turns, {List<Task> tasks = const []}) async {
+      final rig = await start(t);
+      for (final x in tasks) {
+        await rig.brain.saveTask(x);
+      }
+      final chat = ChatController(rig.brain);
+      final out = <String>[];
+      for (final s in turns) {
+        out.add(await chat.hear(s));
+      }
+      return (chat, out);
+    }
+
+    testWidgets('"কাজ কর যে ৩০ অক্টোবর বিকেল চারটায় পড়ানো আছে এটা একটু লিখে রাখো তো": a reminder "পড়ানো আছে"', (t) async {
+      final (_, r) = await talk(t, ['কাজ কর যে ৩০ অক্টোবর বিকেল চারটায় পড়ানো আছে এটা একটু লিখে রাখো তো']);
+      expect(r.single, allOf(contains('৩০ অক্টোবর'), contains('৪টা'), contains('“পড়ানো আছে”')));
+    });
+
+    testWidgets('a year said with the date: "২০২৭ সালে … জানুয়ারি মাসের এক তারিখে" — title clean, 1 January', (t) async {
+      final (_, r) = await talk(t, ['আমি বললাম ২০২৭ সালে জানুয়ারি মাসের এক তারিখে আমার বাচ্চাকে নিয়ে স্কুলে যেতে হবে এটা কাজের তালিকাতে লিখে রাখ']);
+      expect(r.single, allOf(contains('“বাচ্চাকে নিয়ে স্কুলে যেতে হবে”'), contains('১ জানুয়ারি')));
+    });
+
+    testWidgets('"আমার ৩১ অক্টোবর এর কাজের তালিকা টা কি" / "আজকের কাজের তালিকা আছে": that day only', (t) async {
+      final tasks = [Task(title: 'সকালবেলা বাজারে যাইতে হবে', due: DateTime(2026, 10, 31)), Task(title: 'পুকুরে চুন দিতে হবে', due: DateTime(2026, 10, 10)), Task(title: 'বিল দিতে হবে', due: DateTime(2026, 10, 9))];
+      final (_, r) = await talk(t, ['আমার ৩১ অক্টোবর এর কাজের তালিকা টা কি', 'আমার আজকের যে কাজের তালিকা আছে'], tasks: tasks);
+      expect(r[0], allOf(contains('সকালবেলা বাজারে'), isNot(contains('পুকুরে'))));
+      expect(r[1], allOf(contains('বিল দিতে হবে'), isNot(contains('পুকুরে')), isNot(contains('বাজারে'))));
+    });
+
+    testWidgets('"ওই যে এক নাম্বারটা" picks the first; a question while a save waits is answered, not a yes', (t) async {
+      final (chat, r) = await talk(t, ['আচ্ছা এরপরে সোনাইমুড়ী যাইতে হবে সেটা মুছে দাও', 'ওই যে এক নাম্বারটা'], tasks: [Task(title: 'সোনা মরে যাইতে হবে'), Task(title: 'আগামীকালকে দশটায় সোনার মণি যাইতে হবে এটা একটা')]);
+      expect(r[0], contains('কোনটা'));
+      expect(r[1], contains('মুছে দেবো?'));
+      final (chat2, r2) = await talk(t, ['তুমি এক কাজ কর ২০ শে অক্টোবর এর কাজের তালিকাতে লেখ যে ঢাকায় যাইতে হবে', 'কোন তারিখে তুলবা ঢাকায় যেতে হবে']);
+      expect(r2[0], contains('২০ অক্টোবর'));
+      expect(r2[1], contains('২০ অক্টোবর'));
+      expect(chat2.brain.data.tasks, isEmpty, reason: 'the question is not a yes');
+      expect(chat2.wait, ChatWait.yesNo);
+      expect(chat.wait, ChatWait.yesNo);
+    });
+
+    testWidgets('"… কাজের তালিকা থেকে … মুছে দাও" deletes, never adds', (t) async {
+      final (chat, r) = await talk(t, ['আজকের কাজের তালিকা থেকে ঢাকায় যেতে হবে এটা মুছে দাও'], tasks: [Task(title: 'ঢাকায় যাইতে হবে', due: DateTime(2026, 10, 9))]);
+      expect(r.single, contains('মুছে দেবো?'));
+      expect(chat.brain.data.tasks, hasLength(1));
+    });
+
+    testWidgets('"ডিসেম্বর এর কাজের তালিকাতে লেখ রাত্রে পার্টি হবে": asks the day', (t) async {
+      final (chat, r) = await talk(t, ['ডিসেম্বর এর কাজের তালিকাতে লেখ রাত্রে পার্টি হবে', '৩১ তারিখে', 'হ্যাঁ']);
+      expect(r[0], contains('কত তারিখে'));
+      expect(r[1], allOf(contains('“রাত্রে পার্টি হবে”'), contains('৩১ ডিসেম্বর')));
+      expect(chat.brain.data.tasks.single.due, DateTime(2026, 12, 31));
+    });
+  });
 }
