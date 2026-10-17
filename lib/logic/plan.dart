@@ -34,6 +34,12 @@ final _joiners = RegExp(r'\s+(?:আর|এবং|তারপর|তার প�
 List<Command> parseAll(String said, List<LedgerEntry> ledger,
     {List<Task> tasks = const [], List<Contact> contacts = const [], List<FolderHint> folders = const [], DateTime? now}) {
   final p = Parser(ledger: ledger, tasks: tasks, contacts: contacts, folders: folders, now: now);
+  // "ইয়ার তুমি একটা কাজ করো তো …": the opening words are not part of it.
+  final tidied = tidySpeech(said);
+  if (tidied.isNotEmpty) said = tidied;
+  // "… এটা আমাকে কাজের তালিকায় লিখে রাখো": one to-do, said whole.
+  final first = p.parse(said);
+  if (first is TaskAdd && RegExp(fold(r'(?:কাজের\s+(?:লিস্ট|তালিকা)|টু\s*ডু)')).hasMatch(fold(said))) return [first];
   // "তুমি এটা লেখ, …": the instruction is not part of what to save.
   final (rest, write) = stripAddress(said);
   if (rest.isNotEmpty && rest != said.trim()) {

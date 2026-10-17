@@ -287,4 +287,101 @@ void main() {
     expect(chat.messages.where((m) => m.fromUser).single.text, 'আমি কার কাছে কত টাকা পাব একটু বলতো');
     expect(rig.voice.spoken.last, contains('৫,০০০'));
   });
+
+  // Five recordings (17 Oct, morning): requests with "তুমি একটা কাজ করো…",
+  // to-dos "… কাজের লিস্টে রাখ", "আগামীকালকে", talk to the assistant itself.
+  group('the recordings of 17 Oct', () {
+    Future<(ChatController, String)> ask(WidgetTester t, String s, {List<Contact> contacts = const []}) async {
+      final rig = await start(t);
+      for (final c in contacts) {
+        await rig.brain.saveContact(c);
+      }
+      final chat = ChatController(rig.brain);
+      return (chat, await chat.hear(s));
+    }
+
+    testWidgets('"… এটা একটা কাজের লিস্টে রাখ" is a to-do with its day, title without the filler', (t) async {
+      final (_, r) = await ask(t, 'আগামীকালকে সকাল দশটায় আমাকে সোনার মণি যাইতে হবে এটা একটা কাজের লিস্টে রাখ');
+      expect(r, contains('“সোনার মণি যাইতে হবে”'));
+      expect(r, contains('কাল'));
+      expect(r, contains('কাজের তালিকায়'));
+    });
+
+    testWidgets('"২০ তারিখে সিঙ্গাপুর যাইতে হবে এটা … কাজের তালিকায় লিখে রাখো" is a to-do, not a question about the 20th', (t) async {
+      for (final s in [
+        'তারপরে আমাকে ২০ তারিখে আমাকে সিঙ্গাপুর যাইতে হবে এটা একটা কাজের তালিকা তুলে রাখ',
+        'বললাম ২০ তারিখে আমাকে সিঙ্গাপুর যাইতে হবে এটা আমাকে কাজের তালিকায় লিখে রাখো',
+      ]) {
+        final rig = await start(t);
+        final chat = ChatController(rig.brain);
+        final r = await chat.hear(s);
+        expect(r, allOf(contains('“সিঙ্গাপুর যাইতে হবে”'), contains('২০ অক্টোবর'), contains('কাজের তালিকায়')), reason: s);
+        await chat.hear('হ্যাঁ');
+        expect(rig.brain.data.tasks.single.due, DateTime(2026, 10, 20), reason: s);
+      }
+    });
+
+    testWidgets('"তুমি এক কাজ করো আগামীকালকে সকাল দশটায় আমাকে একটা এলার্ম সেট করে দাও": an alarm, tomorrow 10:00', (t) async {
+      final (_, r) = await ask(t, 'তুমি এক কাজ করো আগামীকালকে সকাল দশটায় আমাকে একটা এলার্ম সেট করে দাও');
+      expect(r, contains('কাল'));
+      expect(r, contains('১০টা'));
+      expect(r, isNot(contains('তুমি')));
+      expect(r, isNot(contains('কাজ করো')));
+    });
+
+    testWidgets('"রিমাইন্ডার সেট করে দাও" with no subject: the app asks, the words are not the title', (t) async {
+      final (_, r) = await ask(t, 'তুমি একটা কাজ করো তো আমাকে আগামী কালকের একটা রিমাইন্ডার সেট করে দাও');
+      expect(r, isNot(contains('সেট করে দাও')));
+      expect(r, isNot(contains('তুমি')));
+    });
+
+    testWidgets('a whole new request while a save waits replaces it — never saved by the "দাও" in it', (t) async {
+      final rig = await start(t);
+      final chat = ChatController(rig.brain);
+      await chat.hear('আজ সন্ধ্যা ৭টায় মিটিং মনে করিয়ে দিও');
+      expect(chat.wait, ChatWait.yesNo);
+      final r = await chat.hear('আগামীকাল সকাল দশটায় আমাকে একটা এলার্ম সেট করে দাও');
+      expect(rig.brain.data.reminders, isEmpty, reason: 'the first one is not saved');
+      expect(r, contains('১০টা'));
+      await chat.hear('হ্যাঁ');
+      final saved = rig.brain.data.reminders.single;
+      expect((saved.date, saved.hour), (DateTime(2026, 10, 10), 10));
+    });
+
+    testWidgets('talk to the assistant itself is answered, never filed as a note', (t) async {
+      final rig = await start(t);
+      final chat = ChatController(rig.brain);
+      expect(await chat.hear('এই তুমি কি আমার কথা বুঝতেছো'), contains('বুঝছি'));
+      expect(rig.brain.bargeIn, isFalse);
+      final r = await chat.hear('আমি তোমার কথা বলার সময় আমি যদি কথা বলি তখন তুমি কথা বন্ধ করে আমার কথা মনোযোগ দিয়ে শুনবা');
+      expect(r, contains('থেমে'));
+      expect(rig.brain.bargeIn, isTrue, reason: 'the setting is turned on');
+      expect(await chat.hear('এটা এটা হল কোন প্রফেশনাল কিছু হইতেছে না বাজে'), contains('দুঃখিত'));
+      expect(await chat.hear('আমি তোমাকে একটা নির্দেশনা দিতেছি তুমি সেই নির্দেশনা না বুঝে'), contains('দুঃখিত'));
+      expect(rig.brain.data.notes, isEmpty);
+      expect(chat.wait, ChatWait.none, reason: 'no "নতুন বিভাগ খুলে রাখি?"');
+      expect(await chat.hear('কয়টা বাজে'), startsWith('এখন'), reason: '"বাজে" the time is not a complaint');
+    });
+
+    testWidgets('"… আমাদের যোগাযোগ নাম্বারে ইয়া রবিন হায়দারের নাম্বারটা কি বলতো" finds the number', (t) async {
+      final (_, r) = await ask(t, 'তুমি একটা কাজ কর আমাকে বল যে আমাদের যোগাযোগ নাম্বারে ইয়া রবিন হায়দারের নাম্বারটা কি বলতো', contacts: [Contact(name: 'রবিন হায়দার', phone: '01711000000')]);
+      expect(r, contains('রবিন হায়দার'));
+      expect(r.replaceAll(' ', ''), contains('০১৭১১০০০০০০'));
+    });
+
+    testWidgets('"আজকে আরবি কত তারিখে একটু বলতো" is the Hijri date; "কোন ছবি আছে কিনা" the kept photos', (t) async {
+      final (chat, r) = await ask(t, 'আচ্ছা একটা কাজ করো তো আজকে আরবি কত তারিখে একটু বলতো');
+      expect(r, contains('হিজরি'));
+      expect(await chat.hear('ঠিক আছে তাহলে একটা কাজ করো দেখতো আমার এখানে কোন ছবি আছে কিনা'), contains('ছবি রাখা নেই'));
+    });
+
+    test('openings and dangling words wait for the rest', () {
+      for (final s in ['তুমি একটা কাজ কর', 'যেটা হলো', 'তুমি এক কাজ করো আগামীকালকে সকাল দশটায় আমাকে', 'আচ্ছা একটা কাজ']) {
+        expect(leftOpen(s), isTrue, reason: s);
+      }
+      for (final s in ['তুমি এক কাজ করো আগামীকালকে সকাল দশটায় আমাকে একটা এলার্ম সেট করে দাও', 'শফিক ভাইয়ের কাছে কত টাকা পাই', 'আজকে আরবি কত তারিখ']) {
+        expect(leftOpen(s), isFalse, reason: s);
+      }
+    });
+  });
 }

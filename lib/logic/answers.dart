@@ -76,6 +76,16 @@ String reminderAnswer(AppData d, ReminderQuery q, DateTime now) {
 }
 
 String searchAnswer(AppData d, SearchQuery q, DateTime now) {
+  // "আমার এখানে কোন ছবি আছে কিনা?": the photos kept in ডকুমেন্টস, in general.
+  const photoWords = ['ছবি', 'ছবিগুলো', 'ছবিগুলা', 'ফটো', 'photo', 'photos', 'ছবিটবি'];
+  const general = ['এখানে', 'আমার', 'কোন', 'কোনো', 'কোনও', 'আছে', 'কিনা', 'কি', 'কী', 'দেখো', 'দেখতো', 'সব', 'কয়টা', 'কয়টা', 'কতগুলো', 'রাখা', 'অ্যাপে', 'এপে'];
+  final rest = [for (final t in q.terms) if (!photoWords.map(normalize).contains(normalize(t)) && !general.map(normalize).contains(normalize(t))) t];
+  if (rest.length < q.terms.length && rest.isEmpty) {
+    final withPhotos = [for (final x in d.docs) if (x.files.any((f) => f.isImage)) x];
+    if (withPhotos.isEmpty) return tr('এখনো কোনো ছবি রাখা নেই। ডকুমেন্টস পাতায় ছবি তুলে বা গ্যালারি থেকে রাখতে পারেন।');
+    final count = withPhotos.fold<int>(0, (a, x) => a + x.files.where((f) => f.isImage).length);
+    return trf('ডকুমেন্টসে {0}টা ছবি আছে — {1}। নিচে চাপ দিয়ে দেখুন।', [bnDigits(count), withPhotos.take(5).map((x) => '“${x.title}”').join(', ')]);
+  }
   final hits = relevantHits(d, q.terms);
   if (hits.isEmpty) {
     final p = placeMentioned(normalize(q.transcript));

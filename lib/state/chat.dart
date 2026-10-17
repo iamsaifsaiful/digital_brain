@@ -867,6 +867,8 @@ class ChatController extends ChangeNotifier {
       tags.add(shareable ? text : tr('[অ্যাপ নিজের রাখা তথ্য থেকে উত্তর দিল]'));
       if (c is SmallTalk && c.kind == Talk.whatCanYouDo) _say(out, capabilitiesList(), speak: false, links: [ChatLink(LinkKind.page, tr('কী কী করা যায় — বিস্তারিত'), page: 'help')]);
       if (c is SmallTalk && c.kind == Talk.bye) ended = true;
+      // "আমি কথা বললে তুমি থেমে শুনবা": the setting itself is turned on.
+      if (c is SmallTalk && c.kind == Talk.listenOverMe && !brain.bargeIn) await brain.setBargeIn(true);
     }
     if (saves.length == 1) {
       await _start(saves.single, out);
@@ -1481,6 +1483,18 @@ class ChatController extends ChangeNotifier {
         // "না, এগারোটায় করো", "না, করিমকে", "না, কাল": the waiting action
         // corrected — not a no. It is shown again with the change.
         if (!refused && !_askingAll && await _editPending(t, out)) return true;
+        // A whole new request instead of yes/no ("কাল সকাল ১০টায় একটা
+        // অ্যালার্ম সেট করে দাও"): the waiting one is dropped, never saved
+        // by a "দাও" in the new sentence — the new one is handled instead.
+        if (!refused && _looksNew(t) && yesNo(t) != false) {
+          final next = parseAll(t, brain.data.ledger, tasks: brain.data.tasks, contacts: brain.data.contacts, folders: brain.folderHints, now: _now);
+          final action = next.isNotEmpty && next.every((c) => c is ReminderAdd || c is TaskAdd || c is LedgerAdd || c is CashAdd || c is ContactAdd || c is HealthAdd || (c is NoteAdd && !c.fromStatement));
+          if (action) {
+            Trace.log('understood', 'new request while a save waited — the waiting one dropped', {'new': next.map(traceLine).join(' | ')});
+            _dropPending();
+            return false;
+          }
+        }
         // "২ নম্বরটা রেখো না", "বলতে চাই না — ওটা রাখার মত কিছু না",
         // "শুধু প্রথমটা রাখো": about some of the listed items, not all.
         if (_askingAll && _queue.length > 1) {

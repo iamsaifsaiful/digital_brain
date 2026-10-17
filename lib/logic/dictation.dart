@@ -2,6 +2,7 @@
 /// চান?" means, and when a spoken piece ends the speech.
 library;
 
+import 'meaning.dart' show onlyOpening;
 import 'parser.dart' show fold, normalize, words;
 
 enum Continue {
@@ -117,6 +118,12 @@ bool leftOpen(String said) {
   const open = ['আর', 'এবং', 'কিন্তু', 'যে', 'তারপর', 'এরপর', 'মানে', 'আবার', 'বা', 'অথবা', 'নাকি', 'যদি', 'তাহলে', 'যেমন', 'কোন', 'কোনো', 'কোনটা', 'আরও', 'আরো', 'and', 'but', 'or'];
   final last = w.last;
   if (open.map(_n).contains(last)) return true;
+  // "তুমি একটা কাজ করো", "যেটা হলো": only the opening so far.
+  if (onlyOpening(said)) return true;
+  // "… আগামীকালকে সকাল দশটায় আমাকে": who / when said, the what still to come.
+  const pending = ['আমাকে', 'আমারে', 'তোমাকে', 'আমার', 'তোমার', 'আমাদের', 'ওকে', 'তাকে', 'ওনাকে', 'কাল', 'কালকে', 'আগামীকাল', 'আগামীকালকে', 'আজ', 'আজকে', 'পরশু', 'সকাল', 'সকালে', 'বিকেলে', 'রাতে', 'দুপুরে', 'সন্ধ্যায়', 'হলো', 'হল', 'কাজ'];
+  if (pending.map(_n).contains(last)) return true;
+  if (RegExp(fold(r'টায়$')).hasMatch(last) && w.length <= 6) return true;
   if (w.length >= 2 && ['তার পর', 'এর পর'].map(_n).contains('${w[w.length - 2]} $last')) return true;
   return false;
 }

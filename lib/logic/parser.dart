@@ -300,7 +300,7 @@ class NotUnderstood extends Command {
   const NotUnderstood(super.transcript);
 }
 
-enum Talk { greeting, salam, howAreYou, imFine, whoAreYou, whatCanYouDo, thanks, bye, time, date, nothingDone, cancelled, wontDo }
+enum Talk { greeting, salam, howAreYou, imFine, whoAreYou, whatCanYouDo, thanks, bye, time, date, nothingDone, cancelled, wontDo, listenOverMe, understand, sorry }
 
 /// Conversation, not data: "তুমি কেমন আছো?", "ধন্যবাদ", "আজ কত তারিখ?".
 class SmallTalk extends Command {
@@ -745,8 +745,31 @@ class Parser {
   Command parse(String said) {
     // "কাল eight pm-এ …": English times read as Bengali ones (also for titles).
     said = englishTimes(said);
+    // "ইয়ার তুমি একটা কাজ করো তো …", "… একটু বলতো": how people open and
+    // close a request, not part of it; "আগামীকালকে" is "কাল".
+    final tidied = tidySpeech(said);
+    if (tidied.isNotEmpty) said = tidied;
     var text = normalize(said);
     if (text.isEmpty) return NotUnderstood(said);
+
+    // Said to the assistant about the assistant: never data to keep.
+    switch (aboutTheAssistant(said)) {
+      case AboutMe.listenWhenITalk:
+        return SmallTalk(said, kind: Talk.listenOverMe);
+      case AboutMe.doYouUnderstand:
+        return SmallTalk(said, kind: Talk.understand);
+      case AboutMe.complaint:
+        return SmallTalk(said, kind: Talk.sorry);
+      case null:
+        break;
+    }
+
+    // "… এটা একটা কাজের লিস্টে রাখ", "… কাজের তালিকায় লিখে রাখো": a to-do,
+    // even when it has a date ("২০ তারিখে") or a time in it.
+    if (!isQuestionText(said) && _hasNorm(text, ['কাজের লিস্ট', 'কাজের লিস্টে', 'কাজের তালিকা', 'কাজের তালিকায়', 'টুডু', 'টু ডু']) && _hasNorm(text, _addVerbs)) {
+      final t = _taskAdd(said, text, words(text));
+      if (t != null) return t;
+    }
 
     // "রহিমকে পাঁচশ টাকা, না সাতশ টাকা দিলাম": the speaker changed their
     // mind mid-sentence — the later value counts.
@@ -974,7 +997,10 @@ class Parser {
     final terms = searchTerms(text);
     if (terms.isEmpty) return NotUnderstood(said);
     // A plain fact, not a question: keep it (in a matching or new category).
-    if (!asking && w.length >= 3) return NoteAdd(said, text: said.trim(), fromStatement: true);
+    // Talk addressed to the assistant ("তুমি …", "তোমাকে …") is not a fact
+    // about the user's life to file away.
+    final toYou = w.any((x) => const ['তুমি', 'তোমার', 'তোমাকে', 'তুই', 'তোর', 'তোরে'].map(normalize).contains(x));
+    if (!asking && w.length >= 3 && !toYou) return NoteAdd(said, text: said.trim(), fromStatement: true);
     return SearchQuery(said, terms: terms);
   }
 
@@ -1651,9 +1677,14 @@ class Parser {
     final mustDo = RegExp(r'\S(তে|তেই) (হবে|লাগবে)( |$)').hasMatch(text) || RegExp(r'\S (করা|কেনা|যাওয়া|আনা|দেওয়া|নেওয়া) (লাগবে|দরকার)( |$)').hasMatch(text);
     if (!listed && !mustDo) return null;
     final bazar = _hasNorm(text, ['বাজারের লিস্টে', 'বাজারের তালিকায়', 'বাজারের লিস্ট', 'বাজারের তালিকা']);
-    var title = tidy(cutWords(withoutWhen(said), [
-      ..._taskListKeys, 'বাজারের লিস্টে', 'বাজারের তালিকায়', 'লিস্টে', 'তালিকায়', 'কাজের', ..._addVerbs, ..._fillers,
+    // "… এটা একটা কাজের লিস্টে রাখ": the words that only point at the list.
+    var body = said.replaceAll(RegExp(fold(r'[\s,।]*(?:এটা|এইটা|এটাকে|এইটাকে)(?:\s+(?:একটা|একটি|আমাকে|আমার))*(?=\s+(?:কাজের|লিস্টে|তালিকায়|তালিকা|লিস্ট))')), ' ');
+    // "দশটায়", "পাঁচটায়": a clock time said in words.
+    body = body.replaceAll(RegExp(fold(r'(?:^|\s)(?:এক|দুই|দু|তিন|চার|পাঁচ|পাচ|ছয়|সাত|আট|নয়|দশ|এগারো|বারো)টায়(?=\s|$)')), ' ');
+    var title = tidy(cutWords(withoutWhen(body), [
+      ..._taskListKeys, 'বাজারের লিস্টে', 'বাজারের তালিকায়', 'কাজের লিস্টে', 'কাজের তালিকায়', 'কাজের তালিকা', 'কাজের লিস্ট', 'লিস্টে', 'তালিকায়', 'তালিকা', 'লিস্ট', 'কাজের', ..._addVerbs, ..._fillers, 'আমার', 'একটা', 'যা',
     ]));
+    title = title.replaceAll(RegExp(r'[।.!,]+$'), '').trim();
     if (title.isEmpty) return null;
     if (bazar) title = 'বাজার: $title';
     final when = parseWhen(said, now);
@@ -1774,12 +1805,13 @@ const _taskListKeys = [
 const _addVerbs = [
   'রাখো', 'রাখ', 'রেখো', 'রাখেন', 'রাখুন', 'যোগ করো', 'যোগ কর', 'যোগ করেন', 'যোগ করুন', 'লেখো', 'লিখো', 'লিখে রাখো', 'লিখে রাখ',
   'লিখে রেখো', 'লিখে রাখেন', 'add', 'মনে রাখো', 'তুলে রাখো', 'ঢুকাও',
+  'তুলে রাখ', 'তুলে রাখেন', 'লিস্ট কর', 'লিস্ট করো', 'তালিকা কর', 'তালিকা করো', 'লিস্টে রাখ', 'লিস্টে রাখো', 'তালিকায় রাখ', 'তালিকায় রাখো',
 ];
 const _fillers = ['আমাকে', 'আমারে', 'প্লিজ', 'একটু', 'please', 'তো'];
 const _remindKeys = [
   'মনে করিয়ে দিও', 'মনে করিয়ে দিবা', 'মনে করিয়ে দেবে', 'মনে করিয়ে দিবে', 'মনে করিয়ে দাও', 'মনে করিয়ে দিয়ো', 'মনে করিয়ে দিবেন',
   'মনে করিয়ে দিন', 'মনে করিয়ে দেবেন', 'মনে করিয়ে দিও তো', 'মনে করিয়ে', 'মনে করাবে', 'মনে করাবা', 'মনে করাইও', 'মনে করাইয়া দিও',
-  'রিমাইন্ডার দাও', 'রিমাইন্ডার দিও', 'রিমাইন্ডার সেট করো', 'রিমাইন্ডার রাখো', 'রিমাইন্ডার', 'অ্যালার্ম দাও', 'অ্যালার্ম দিও',
+  'রিমাইন্ডার সেট করে দাও', 'রিমাইন্ডার সেট করে দিও', 'রিমাইন্ডার সেট করে দেন', 'রিমাইন্ডার সেট করেন', 'রিমাইন্ডার সেট কর', 'এলার্ম সেট করে দাও', 'অ্যালার্ম সেট করে দাও', 'রিমাইন্ডার দাও', 'রিমাইন্ডার দিও', 'রিমাইন্ডার সেট করো', 'রিমাইন্ডার রাখো', 'রিমাইন্ডার', 'অ্যালার্ম দাও', 'অ্যালার্ম দিও',
   'অ্যালার্ম সেট করো', 'এলার্ম দাও', 'এলার্ম দিও', 'remind me', 'remind', 'alarm', 'জানিয়ে দিও', 'জানিয়ে দিবা', 'জানাবে', 'ডেকে দিও',
   'ডেকে দিবা', 'কথা বলো', 'কথা বলবা', 'কথা বলবে', 'কথা বলিও', 'বলে দিও', 'বলে দিবা',
 ];
@@ -1787,7 +1819,7 @@ const _remindKeys = [
 const _remindAskKeys = [
   'মনে করিয়ে দিও', 'মনে করিয়ে দিবা', 'মনে করিয়ে দেবে', 'মনে করিয়ে দিবে', 'মনে করিয়ে দাও', 'মনে করিয়ে দিয়ো', 'মনে করিয়ে দিবেন',
   'মনে করিয়ে দিন', 'মনে করিয়ে দেবেন', 'মনে করাবে', 'মনে করাবা', 'মনে করাইও', 'মনে করাইয়া দিও', 'রিমাইন্ডার দাও', 'রিমাইন্ডার দিও',
-  'রিমাইন্ডার দিবা', 'রিমাইন্ডার দিবে', 'রিমাইন্ডার দেবে', 'রিমাইন্ডার দিন', 'রিমাইন্ডার সেট করো', 'রিমাইন্ডার সেট কর', 'রিমাইন্ডার রাখো',
+  'রিমাইন্ডার সেট করে দাও', 'রিমাইন্ডার সেট করে দিও', 'রিমাইন্ডার সেট করে দেন', 'রিমাইন্ডার সেট করেন', 'রিমাইন্ডার সেট কর', 'এলার্ম সেট করে দাও', 'অ্যালার্ম সেট করে দাও', 'রিমাইন্ডার দিবা', 'রিমাইন্ডার দিবে', 'রিমাইন্ডার দেবে', 'রিমাইন্ডার দিন', 'রিমাইন্ডার সেট করো', 'রিমাইন্ডার সেট কর', 'রিমাইন্ডার রাখো',
   'অ্যালার্ম দাও', 'অ্যালার্ম দিও', 'অ্যালার্ম সেট করো', 'এলার্ম দাও', 'এলার্ম দিও', 'remind me', 'ডেকে দিও', 'ডেকে দিবা',
 ];
 const _doneKeys = [

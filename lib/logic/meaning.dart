@@ -272,3 +272,70 @@ bool keepsOnly(String said) => RegExp(fold(r'(?:^|\s)(?:শুধু|কেব�
 /// "রেখো না", "লিখো না", "সেভ কোরো না": a plain refusal of what is waiting
 /// to be saved — never a name or a correction ("না, রেখো" is not a person).
 bool refusesSave(String said) => RegExp(fold(r'(?:^|\s)(?:রেখো|রেখ|রাখো|রাখবে|রাখবেন|রাখিস|লিখো|লিখ|লিখবে|লিখবেন|সেভ\s+(?:কোরো|করো|করবেন))\s+না(?:\s|$)')).hasMatch(_n(said));
+
+/// How people start and end a request when they talk to someone, which is
+/// not part of the request: "ইয়ার তুমি একটা কাজ করো তো …", "আমাকে বলো
+/// যে …", "যেটা হলো …", "… একটু বলতো", "… আরকি". Also everyday forms of
+/// day words ("আগামীকালকে" → "কাল") and "আরবি কত তারিখ" (the Hijri date).
+/// The words in between are left exactly as said.
+String tidySpeech(String said, {List<bool>? whole}) {
+  var s = fold(said.trim());
+  // Day words in their everyday forms.
+  s = s.replaceAllMapped(RegExp(fold(r'(^|[\s,।])(?:আগামী\s*কাল(?:কে|কের|ের)?|আগামীকাল(?:কে|কের|ের)?|কালকের)(?=$|[\s,।?!])')), (m) => '${m[1]}কাল');
+  s = s.replaceAllMapped(RegExp(fold(r'(^|[\s,।])পরশু\s*দিন(?:কে|ের)?(?=$|[\s,।?!])')), (m) => '${m[1]}পরশু');
+  s = s.replaceAll(RegExp(fold(r'আরব[িী]\s+(?:মাসের\s+)?কত\s+তারিখ\S*')), fold('আরবি তারিখ'));
+  // Hesitations ("ইয়া", "ইয়ে", "উম") and "in our contacts" carry nothing.
+  s = s.replaceAll(RegExp(fold(r'(?:^|(?<=[\s,।]))(?:ইয়া|ইয়ে|উম|উমম|আঁ|অ্যা)(?=$|[\s,।])')), ' ');
+  s = s.replaceAll(RegExp(fold(r'(?:আমাদের|আমার)\s+(?:যোগাযোগ|কন্টাক্ট|কনট্যাক্ট)(?:ের|এর|ে)?\s+(?:নাম্বারে|নম্বরে|লিস্টে|তালিকায়|থেকে|এ)?')), ' ');
+  s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
+  final lead = RegExp(fold(
+    r'^(?:'
+    r'(?:এই|ইয়া|ইয়ার|ইয়ার|আরে|ওই|ওই যে|শোনো|শোন|শুনো|শুনেন|শুনুন|হ্যালো|hello|ভাই|আচ্ছা|ঠিক আছে|তাহলে|মানে|বললাম|তারপরে|তারপর|এরপরে|এরপর|দেখো তো|দেখতো|দেখ তো)'
+    r'|(?:তুমি\s+|আপনি\s+)?(?:এক|একটা|একটি)\s+কাজ\s+(?:করো|কর|করেন|করুন|করবা|করবে)(?:\s+তো)?'
+    r'|(?:আমাকে\s+)?(?:একটু\s+)?(?:বলো|বল|বলেন|বলুন|জানাও)(?:\s+তো)?\s+যে'
+    r'|যেটা\s+(?:হলো|হল|হইলো)'
+    r')(?=$|[\s,।])[\s,।]*'));
+  for (var i = 0; i < 6; i++) {
+    final m = lead.firstMatch(s);
+    if (m == null) break;
+    if (m.end >= s.length) {
+      // Only the opening words so far ("তুমি একটা কাজ করো"): the request is still to come.
+      if (whole != null) whole[0] = true;
+      break;
+    }
+    s = s.substring(m.end);
+  }
+  final tail = RegExp(fold(r'[\s,।]+(?:আরকি|আর কি|(?:একটু\s+)?(?:বলতো|বলো তো|বল তো|বলেন তো|বলবা|জানাও তো))[\s,।?!]*$'));
+  final t = tail.firstMatch(s);
+  if (t != null && t.start > 0) s = s.substring(0, t.start);
+  return s.trim();
+}
+
+/// Said to the assistant about how it should behave, or about how it is
+/// doing — not data to keep: "আমি কথা বললে তুমি থেমে শুনবা", "তুমি কি
+/// আমার কথা বুঝতেছো?", "এটা বাজে হচ্ছে, প্রফেশনাল না".
+enum AboutMe { listenWhenITalk, doYouUnderstand, complaint }
+
+AboutMe? aboutTheAssistant(String said) {
+  final t = _n(said);
+  bool has(String p) => RegExp(fold(p)).hasMatch(t);
+  final toYou = has(r'(?:^|\s)(?:তুমি|তোমার|তোমাকে|তুই|তোর|আপনি|আপনার)(?:\s|$)');
+  if (toYou && has(r'(?:কথা\s+বন্ধ|চুপ\s+(?:হয়ে|হইয়া|কর|করে|থাক)|থেমে|থামবা|থামবে|থামো)') && has(r'(?:শুনবা|শুনবে|শুনবেন|শুনো|শোনো|শুনতে|মনোযোগ|কথা\s+বলি|কথা\s+বললে|বলবো|বলব|বললে)')) {
+    return AboutMe.listenWhenITalk;
+  }
+  if (toYou && has(r'(?:বুঝতেছো|বুঝতেছ|বুঝতেছেন|বুঝছো|বুঝছ|বুঝতে\s+পারছ|বুঝতে\s+পারছো|বুঝতে\s+পারছেন|বুঝো|বুঝেন)') && !has(r'(?:না\s+বুঝে|বুঝো\s+না|বুঝ না|বুঝতেছো\s+না|বোঝো\s+না)')) {
+    return AboutMe.doYouUnderstand;
+  }
+  if (has(r'(?:প্রফেশনাল|প্রোফেশনাল)\s+(?:কিছু\s+)?(?:না|নয়|হইতেছে না|হচ্ছে না|হতে পারে না)') || has(r'(?:একদম|খুবই|খুব|অনেক|কি|কী)\s+বাজে(?:\s|$)') || has(r'বাজে\s+(?:হইছে|হচ্ছে|হইতেছে|হয়েছে|লাগে|লাগতেছে|লাগছে|কাজ)') ||
+      has(r'(?:কিছুই|কিছু)\s+(?:বুঝো|বোঝো|বুঝতেছো|বুঝতেছ|বোঝ)\s+না') || has(r'না\s+বুঝে') || has(r'বিরক্তিকর') || has(r'(?:নির্দেশনা|কথা)\s+(?:দিতেছি|দিচ্ছি|বলতেছি|বলছি)\s+(?:তুমি|আর)')) {
+    return AboutMe.complaint;
+  }
+  return null;
+}
+
+/// Only the opening words of a request so far: "তুমি একটা কাজ করো", "যেটা হলো".
+bool onlyOpening(String said) {
+  final flag = [false];
+  tidySpeech(said, whole: flag);
+  return flag[0];
+}

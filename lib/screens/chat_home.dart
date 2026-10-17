@@ -393,7 +393,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
         // Collecting a long speech and the user is quiet: ask once more.
         if (_draft.isNotEmpty && !_askingMore) {
           _moreTimer?.cancel();
-          _moreTimer = Timer(const Duration(milliseconds: 1500), () {
+          _moreTimer = Timer(const Duration(milliseconds: 2200), () {
             if (mounted && gen == _gen && _listening && _live.trim().isEmpty) _quietAfterSpeech();
           });
         }
