@@ -75,6 +75,14 @@ class SpeechJoin {
       Trace.log('voice', 'repeated final ignored', {'session': sid});
       return false;
     }
+    // A new session that sends the whole long sentence again (some phones
+    // restart and repeat it): not said twice.
+    if (isFinal && _finals[sid] == null && words.trim().split(RegExp(r'\s+')).length >= 5 && committed.trim().endsWith(words.trim())) {
+      Trace.log('voice', 'whole sentence repeated by a new session — ignored', {'session': sid});
+      current = '';
+      _finals[sid] = words;
+      return false;
+    }
     if (words.trim().isNotEmpty) {
       _kept = '';
       _keptSession = -1;

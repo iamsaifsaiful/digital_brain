@@ -243,7 +243,8 @@ String taskAnswer(AppData d, DateTime now, [String asked = '']) {
   if (w != null && w.hasDay) {
     final day = dayOnly(w.day);
     final today = dayOnly(now);
-    final those = [for (final t in open) if (t.due != null && (dayOnly(t.due!) == day || (day == today && dayOnly(t.due!).isBefore(today)))) t];
+    // Today's list is what the কাজ page shows under "আজ": due today, late, or without a date.
+    final those = [for (final t in open) if (day == today ? (t.due == null || !dayOnly(t.due!).isAfter(today)) : (t.due != null && dayOnly(t.due!) == day)) t];
     final when = sayWhen(day, now, withTime: false);
     final rest = open.length - those.length;
     final more = rest > 0 ? trf(' তারিখ ছাড়া বা অন্য দিনের আরও {0}টা কাজ আছে।', [bnDigits(rest)]) : '';

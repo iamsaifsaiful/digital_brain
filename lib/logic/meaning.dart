@@ -291,7 +291,7 @@ String tidySpeech(String said, {List<bool>? whole}) {
   // "অক্টোবর", "জানুয়ারি মাসের প্রথম তারিখে" → "১ জানুয়ারি", "২৭ সালের" dropped.
   final months = bnMonths.map(fold).join('|');
   s = s.replaceAllMapped(RegExp(fold(r'([০-৯0-9]{1,2})\s*(?:শে|ই|লা|রা|ঠা)(?=$|[\s,।])')), (m) => m[1]!);
-  s = s.replaceAllMapped(RegExp('($months)(?:\\s*${fold('এর')}|${fold('ের')})(?=\$|[\\s,।])'), (m) => m[1]!);
+  s = s.replaceAllMapped(RegExp('($months)(?:\\s*${fold('এর')}|${fold('ের')}|${fold('তে')}|${fold('ে')})(?=\$|[\\s,।])'), (m) => m[1]!);
   s = s.replaceAllMapped(RegExp('($months)\\s+${fold('মাসের')}\\s+(?:${fold('প্রথম')}|${fold('পহেলা')}|${fold('এক')})\\s+${fold('তারিখ')}\\S*'), (m) => '১ ${m[1]}');
   s = s.replaceAllMapped(RegExp('($months)\\s+${fold('মাসের')}\\s+([০-৯0-9]{1,2})\\s+${fold('তারিখ')}\\S*'), (m) => '${m[2]} ${m[1]}');
   s = s.replaceAll(RegExp(fold(r'(?:[০-৯0-9]{2,4}|দুই\s+হাজার\s+\S+)\s+সাল(?:ের|ে|)\s+')), '');

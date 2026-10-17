@@ -66,4 +66,13 @@ void main() {
     j.result(b, 'চলে যেতে হবে এরকম একটা কাজের তালিকা লেখ', isFinal: true, clean: same);
     expect(j.text, 'তুমি ২০২৭ সালের জানুয়ারি মাসের প্রথম তারিখে চলে যেতে হবে এরকম একটা কাজের তালিকা লেখ');
   });
+
+  test('a new session that repeats the whole long sentence is not doubled', () {
+    final j = SpeechJoin();
+    final a = j.newSession();
+    j.result(a, 'আমার এখানে যতগুলো কাজ আছে সবকটা মুছে দাও', isFinal: true, clean: same);
+    final b = j.newSession();
+    j.result(b, 'আমার এখানে যতগুলো কাজ আছে সবকটা মুছে দাও', isFinal: true, clean: same);
+    expect(j.text, 'আমার এখানে যতগুলো কাজ আছে সবকটা মুছে দাও');
+  });
 }

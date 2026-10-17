@@ -794,6 +794,18 @@ class Parser {
         }
       }
     }
+    // "একটা কাজ যুক্ত করো যে আমাকে X" — the to-do is what follows "যে".
+    final addTask = RegExp(fold(r'(?:একটা|একটি)?\s*কাজ\s+(?:যুক্ত|যোগ|এড|অ্যাড)\s+(?:করো|কর|করেন|করুন|করে\s+দাও)\s+(?:যে\s+)?(.+)$')).firstMatch(fold(said));
+    if (addTask != null) {
+      var title = tidy(cutWords(withoutWhen(addTask[1]!), ['আমাকে', 'আমার', ..._fillers])).replaceAll(RegExp(r'[।.!,]+$'), '').trim();
+      final when = parseWhen(said, now);
+      if (title.isNotEmpty) return _maybeMonthly(said, text, TaskAdd(said, title: title, due: when != null && when.hasDay ? when.day : null));
+    }
+    // "৩১ শে জানুয়ারিতে যে কাজটা আছে সেটা মুছে দাও": that day's to-dos.
+    if (_hasNorm(text, ['কাজ', 'কাজটা', 'কাজগুলো', 'কাজের তালিকা']) && _hasNorm(text, ['মুছে', 'মুছো', 'বাদ দাও', 'বাদ দিয়ে', 'ডিলিট']) && !_hasNorm(text, ['নোট', 'রিমাইন্ডার', 'লেনদেন'])) {
+      final w0 = parseWhen(said, now);
+      if (w0 != null && w0.hasDay && RegExp(r'\d').hasMatch(normalize(said))) return TasksClear(said, day: dayOnly(w0.day));
+    }
     final removing = _hasNorm(text, ['মুছে দাও', 'মুছে দিও', 'মুছে ফেলো', 'মুছো', 'বাদ দাও', 'বাদ দিয়ে দাও', 'ডিলিট', 'কেটে দাও']);
     if (!removing && (!isQuestionText(said) || orderToWrite) && toList && (_hasNorm(text, _addVerbs) || mustDo)) {
       final t = _taskAdd(said, text, words(text));
@@ -1708,7 +1720,7 @@ class Parser {
     return TaskAdd(said, title: title, due: when.day);
   }
 
-  TaskAdd? _taskAdd(String said, String text, List<String> w) {
+  Command? _taskAdd(String said, String text, List<String> w) {
     final listed = _hasNorm(text, _taskListKeys) || _hasNorm(text, ['লিস্টে', 'তালিকায়']);
     final mustDo = RegExp(r'\S(তে|তেই) (হবে|লাগবে)( |$)').hasMatch(text) || RegExp(r'\S (করা|কেনা|যাওয়া|আনা|দেওয়া|নেওয়া) (লাগবে|দরকার)( |$)').hasMatch(text);
     if (!listed && !mustDo) return null;
@@ -1733,7 +1745,17 @@ class Parser {
     // "কালকের কাজের তালিকায় লেখ" and nothing yet: the chat asks what to write.
     if (title.isEmpty) return listed && _hasNorm(text, _addVerbs) ? TaskAdd(said, title: '', due: due) : null;
     if (bazar) title = 'বাজার: $title';
-    return TaskAdd(said, title: title, due: due);
+    return _maybeMonthly(said, text, TaskAdd(said, title: title, due: due));
+  }
+
+  /// "প্রতি মাসের ১ তারিখে … কাজ": a to-do that comes back every month is a
+  /// monthly reminder (9 in the morning, the day said).
+  Command _maybeMonthly(String said, String text, TaskAdd t) {
+    if (t.due == null || !_hasNorm(text, const ['প্রতি মাসে', 'প্রতিমাসে', 'প্রতি মাসের', 'প্রতিমাসের', 'মাসে মাসে'])) return t;
+    var at = DateTime(now.year, now.month, t.due!.day, 9);
+    if (!at.isAfter(now)) at = DateTime(now.year, now.month + 1, t.due!.day, 9);
+    final title = t.title.replaceAll(RegExp(fold(r'(?:^|\s)(?:প্রতি\s*মাসের|প্রতি\s*মাসে|প্রতিমাসের|প্রতিমাসে)(?=\s|$)')), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    return ReminderAdd(said, title: title, at: at, repeat: Repeat.monthly);
   }
 
   Via? _via(String text) {

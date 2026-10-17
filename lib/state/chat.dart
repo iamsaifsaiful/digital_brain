@@ -159,6 +159,9 @@ class ChatController extends ChangeNotifier {
   /// The day of a to-do whose words are being asked for.
   DateTime? _pendingTaskDue;
 
+  /// A to-do being turned into a monthly reminder: removed once that is saved.
+  String? _replaceTaskId;
+
   /// A to-do said with a month but no day, and that month (1–12).
   TaskAdd? _pendingTask;
   int? _pendingMonth;
@@ -583,6 +586,19 @@ class ChatController extends ChangeNotifier {
     // "রিমাইন্ডার লিখে রাখো", "না, কাজের তালিকায় রাখো": about the previous
     // message, which is kept that way instead.
     final redirect = redirectOf(t);
+    // "প্রতিমাসে যেন এই কাজটা রিপিট হয়": the to-do just saved comes back every month.
+    final lastTask = _lastSave?.$1;
+    if (wait == ChatWait.none && lastTask is TaskAdd && RegExp(fold(r'(?:প্রতি\s*মাসে|প্রতিমাসে|মাসে\s+মাসে)')).hasMatch(fold(t)) && RegExp(fold(r'(?:রিপিট|বারবার|আবার\s+আসে|ফিরে\s+আসে|প্রতিবার|হয়)')).hasMatch(fold(t))) {
+      final day = lastTask.due?.day ?? _now.day;
+      var at = DateTime(_now.year, _now.month, day, 9);
+      if (!at.isAfter(_now)) at = DateTime(_now.year, _now.month + 1, day, 9);
+      final task = brain.data.tasks.where((x) => x.title == lastTask.title && !x.done).lastOrNull;
+      _replaceTaskId = task?.id;
+      Trace.log('understood', 'the last to-do made monthly', const {});
+      await _start(ReminderAdd(t, title: lastTask.title, at: at, repeat: Repeat.monthly), out);
+      notifyListeners();
+      return out.join(' ');
+    }
     if (redirect != null && await _redirect(redirect, t, out)) {
       notifyListeners();
       return out.join(' ');
@@ -1609,7 +1625,18 @@ class ChatController extends ChangeNotifier {
         // by a "দাও" in the new sentence — the new one is handled instead.
         if (!refused && _looksNew(t) && yesNo(t) != false) {
           final next = parseAll(t, brain.data.ledger, tasks: brain.data.tasks, contacts: brain.data.contacts, folders: brain.folderHints, now: _now);
-          final action = next.isNotEmpty && next.every((c) => c is ReminderAdd || c is TaskAdd || c is LedgerAdd || c is CashAdd || c is ContactAdd || c is HealthAdd || (c is NoteAdd && !c.fromStatement));
+          final action = next.isNotEmpty && next.every((c) => c is ReminderAdd || c is TaskAdd || c is TasksClear || c is LedgerAdd || c is CashAdd || c is ContactAdd || c is HealthAdd || (c is NoteAdd && !c.fromStatement));
+          // The same request said again ("হ্যাঁ … সবকটা মুছে দাও"): that is a yes.
+          final cur2 = _current;
+          final same = next.length == 1 && cur2 != null && next.single.runtimeType == cur2.runtimeType &&
+              (cur2 is TasksClear ? (next.single as TasksClear).day == cur2.day : traceLine(next.single) == traceLine(cur2));
+          if (same) {
+            Trace.log('understood', 'the waiting request said again — taken as yes', const {});
+            wait = ChatWait.none;
+            choices = const [];
+            await _saveCurrent(out);
+            return true;
+          }
           if (action) {
             Trace.log('understood', 'new request while a save waited — the waiting one dropped', {'new': next.map(traceLine).join(' | ')});
             _dropPending();
@@ -2145,6 +2172,9 @@ class ChatController extends ChangeNotifier {
           _warnedExact = true;
           messages.add(ChatMessage.app(tr('ঠিক মিনিটে বাজাতে সেটিংস → “ঠিক সময়ে রিমাইন্ডার” চালু করে নিন।'), info: true));
         }
+        final rid = _replaceTaskId;
+        _replaceTaskId = null;
+        if (rid != null) await brain.deleteTask(rid);
       case CashAdd():
         Project? project;
         String proNote = '';

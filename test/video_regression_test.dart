@@ -550,4 +550,48 @@ void main() {
       expect(r.single, contains('দুঃখিত'));
     });
   });
+
+  // Three more recordings (17 Oct, 11:45).
+  group('the fifth set of 17 Oct', () {
+    Future<(ChatController, List<String>)> talk(WidgetTester t, List<String> turns, {List<Task> tasks = const []}) async {
+      final rig = await start(t);
+      for (final x in tasks) {
+        await rig.brain.saveTask(x);
+      }
+      final chat = ChatController(rig.brain);
+      final out = <String>[];
+      for (final s in turns) {
+        out.add(await chat.hear(s));
+      }
+      return (chat, out);
+    }
+
+    final some = [Task(title: 'সোনা মরে যাইতে হবে'), Task(title: 'বাচ্চাকে স্কুলে নিতে হবে', due: DateTime(2027, 1, 31)), Task(title: 'ঢাকায় যাইতে হবে', due: DateTime(2026, 10, 20))];
+
+    testWidgets('today\'s list is what the কাজ page shows under "আজ" (undated too)', (t) async {
+      final (_, r) = await talk(t, ['আমার আজকের কাজের তালিকা টা দাও তো'], tasks: some);
+      expect(r.single, allOf(contains('সোনা মরে যাইতে হবে'), isNot(contains('কোনো কাজ রাখা নেই'))));
+    });
+
+    testWidgets('"৩১ শে জানুয়ারিতে যে কাজটা আছে সেটা মুছে দাও": that day\'s, no list of six', (t) async {
+      final (chat, r) = await talk(t, ['তোমাকে বললাম এই যে ৩১ শে জানুয়ারিতে যে কাজটা আছে সেটা মুছে দাও বাদ দিয়ে দাও ডিলিট করে দাও', 'হ্যাঁ'], tasks: some);
+      expect(r[0], contains('১টা কাজ মুছে দেবো?'));
+      expect(chat.brain.data.tasks.map((x) => x.title), isNot(contains('বাচ্চাকে স্কুলে নিতে হবে')));
+      expect(chat.brain.data.tasks, hasLength(2));
+    });
+
+    testWidgets('the same delete-all said again while it waits is a yes', (t) async {
+      final (chat, _) = await talk(t, ['আমার এখানে যতগুলো কাজ আছে সবকটা মুছে দাও', 'হ্যাঁ বলছি আমার এখানে যতগুলো কাজ আছে সবকটা মুছে দাও'], tasks: some);
+      expect(chat.brain.data.tasks, isEmpty);
+    });
+
+    testWidgets('"প্রতি মাসের ১ তারিখে একটা কাজ যুক্ত করো যে …": a monthly reminder; "প্রতিমাসে যেন রিপিট হয়" makes the last to-do monthly', (t) async {
+      final (_, r) = await talk(t, ['আচ্ছা এখন একটা কাজ কর আমার প্রতি মাসের ১ তারিখে একটা কাজ যুক্ত করো যে আমাকে সোনায় মরে যাইতে হবে']);
+      expect(r.single, allOf(contains('১ নভেম্বর'), contains('প্রতি মাসে'), contains('“সোনায় মরে যাইতে হবে”')));
+      final (chat, r2) = await talk(t, ['একটা কাজ যুক্ত করো যে আমাকে সোনায় মরে যাইতে হবে', 'হ্যাঁ', 'আমি তো তোমাকে বললাম প্রতিমাসে যেন এই কাজটা রিপিট হয়', 'হ্যাঁ']);
+      expect(r2[2], contains('প্রতি মাসে'));
+      expect(chat.brain.data.tasks, isEmpty, reason: 'the to-do became the monthly reminder');
+      expect(chat.brain.data.reminders.single.repeat, Repeat.monthly);
+    });
+  });
 }
