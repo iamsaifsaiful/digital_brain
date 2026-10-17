@@ -766,7 +766,12 @@ class Parser {
 
     // "… এটা একটা কাজের লিস্টে রাখ", "… কাজের তালিকায় লিখে রাখো": a to-do,
     // even when it has a date ("২০ তারিখে") or a time in it.
-    if (!isQuestionText(said) && _hasNorm(text, ['কাজের লিস্ট', 'কাজের লিস্টে', 'কাজের তালিকা', 'কাজের তালিকায়', 'টুডু', 'টু ডু']) && _hasNorm(text, _addVerbs)) {
+    final toList = _hasNorm(text, ['কাজের লিস্ট', 'কাজের লিস্টে', 'কাজের তালিকা', 'কাজের তালিকায়', 'কাজের তালিকাতে', 'কাজের তালিকা তে', 'কাজের লিস্টের', 'টুডু', 'টু ডু']);
+    // "কাজের তালিকা: বোর্ডে এনআইডি যুক্ত করা লাগবে" — the list, then what to do.
+    final mustDo = RegExp(r'\S(তে|তেই) (হবে|লাগবে)( |$)').hasMatch(text) || RegExp(r'\S (করা|কেনা|যাওয়া|আনা|দেওয়া|নেওয়া) (লাগবে|দরকার)( |$)').hasMatch(text);
+    // A plain order to write ("… এটা লিখে রাখ") wins over a question word said with it.
+    final orderToWrite = _hasNorm(text, ['লিখে রাখ', 'লিখে রাখো', 'লেখ যে', 'লিখো যে', 'তুলে রাখ', 'তুলে রাখো', 'তালিকায় রাখ', 'লিস্টে রাখ', 'লিস্টে রাখো']);
+    if ((!isQuestionText(said) || orderToWrite) && toList && (_hasNorm(text, _addVerbs) || mustDo)) {
       final t = _taskAdd(said, text, words(text));
       if (t != null) return t;
     }
@@ -1681,14 +1686,23 @@ class Parser {
     var body = said.replaceAll(RegExp(fold(r'[\s,।]*(?:এটা|এইটা|এটাকে|এইটাকে)(?:\s+(?:একটা|একটি|আমাকে|আমার))*(?=\s+(?:কাজের|লিস্টে|তালিকায়|তালিকা|লিস্ট))')), ' ');
     // "দশটায়", "পাঁচটায়": a clock time said in words.
     body = body.replaceAll(RegExp(fold(r'(?:^|\s)(?:এক|দুই|দু|তিন|চার|পাঁচ|পাচ|ছয়|সাত|আট|নয়|দশ|এগারো|বারো)টায়(?=\s|$)')), ' ');
+    // "… কাজের তালিকাতে লেখ যে সকালবেলা বাজারে যাইতে হবে": the words after "যে".
+    final after = RegExp(fold(r'(?:লেখ|লেখো|লিখো|লিখ|লিখবা|লিখে\s+রাখো|লিখে\s+রাখ|রাখো|রাখ|তুলে\s+রাখো|তুলে\s+রাখ)\s+যে\s+(.+)$')).firstMatch(fold(body));
+    if (after != null) body = after[1]!;
+    // "… কাজের তালিকা তে পুকুরে চুন দিতে হবে এটা লিখে রাখ": what follows the
+    // list is the to-do (what came before it was talk).
+    final listAt = RegExp(fold(r'কাজের\s+(?:তালিকা(?:য়|তে|\s+তে)?|লিস্ট(?:ে|ের)?)\s+(.+)$')).firstMatch(fold(body));
+    if (after == null && listAt != null && RegExp(r'\S(তে|তেই) (হবে|লাগবে)( |$)|\S (করা|কেনা|যাওয়া|আনা|দেওয়া|নেওয়া) (লাগবে|দরকার)( |$)').hasMatch(normalize(listAt[1]!))) body = listAt[1]!;
     var title = tidy(cutWords(withoutWhen(body), [
-      ..._taskListKeys, 'বাজারের লিস্টে', 'বাজারের তালিকায়', 'কাজের লিস্টে', 'কাজের তালিকায়', 'কাজের তালিকা', 'কাজের লিস্ট', 'লিস্টে', 'তালিকায়', 'তালিকা', 'লিস্ট', 'কাজের', ..._addVerbs, ..._fillers, 'আমার', 'একটা', 'যা',
+      ..._taskListKeys, 'বাজারের লিস্টে', 'বাজারের তালিকায়', 'কাজের লিস্টে', 'কাজের তালিকাতে', 'কাজের তালিকা তে', 'কাজের তালিকায়', 'কাজের তালিকা', 'কাজের লিস্টের', 'কাজের লিস্ট', 'তালিকাতে', 'লিস্টে', 'তালিকায়', 'তালিকা', 'লিস্ট', 'কাজের', ..._addVerbs, ..._fillers, 'আমার', 'একটা', 'যা', 'জন্য',
     ]));
-    title = title.replaceAll(RegExp(r'[।.!,]+$'), '').trim();
-    if (title.isEmpty) return null;
-    if (bazar) title = 'বাজার: $title';
+    title = title.replaceAll(RegExp(r'[।.!,]+$'), '').trim().replaceFirst(RegExp(fold(r'^যে\s+')), '').replaceFirst(RegExp(fold(r'\s+(?:এটা|এইটা|এটাকে)$')), '').trim();
     final when = parseWhen(said, now);
-    return TaskAdd(said, title: title, due: when != null && when.hasDay ? when.day : null);
+    final due = when != null && when.hasDay ? when.day : null;
+    // "কালকের কাজের তালিকায় লেখ" and nothing yet: the chat asks what to write.
+    if (title.isEmpty) return listed && _hasNorm(text, _addVerbs) ? TaskAdd(said, title: '', due: due) : null;
+    if (bazar) title = 'বাজার: $title';
+    return TaskAdd(said, title: title, due: due);
   }
 
   Via? _via(String text) {
@@ -1806,6 +1820,7 @@ const _addVerbs = [
   'রাখো', 'রাখ', 'রেখো', 'রাখেন', 'রাখুন', 'যোগ করো', 'যোগ কর', 'যোগ করেন', 'যোগ করুন', 'লেখো', 'লিখো', 'লিখে রাখো', 'লিখে রাখ',
   'লিখে রেখো', 'লিখে রাখেন', 'add', 'মনে রাখো', 'তুলে রাখো', 'ঢুকাও',
   'তুলে রাখ', 'তুলে রাখেন', 'লিস্ট কর', 'লিস্ট করো', 'তালিকা কর', 'তালিকা করো', 'লিস্টে রাখ', 'লিস্টে রাখো', 'তালিকায় রাখ', 'তালিকায় রাখো',
+  'লেখ', 'লেখো', 'লিখ', 'লিখবা', 'লিখবে', 'লিখে দাও', 'লিখে দিও', 'এড করো', 'এড কর', 'অ্যাড করো', 'অ্যাড কর',
 ];
 const _fillers = ['আমাকে', 'আমারে', 'প্লিজ', 'একটু', 'please', 'তো'];
 const _remindKeys = [

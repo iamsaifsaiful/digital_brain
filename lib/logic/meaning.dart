@@ -1,3 +1,4 @@
+import 'bn.dart' show bnMonths;
 import 'parser.dart';
 
 // How a sentence is meant, judged from its parts — who does what to whom,
@@ -284,6 +285,17 @@ String tidySpeech(String said, {List<bool>? whole}) {
   s = s.replaceAllMapped(RegExp(fold(r'(^|[\s,।])(?:আগামী\s*কাল(?:কে|কের|ের)?|আগামীকাল(?:কে|কের|ের)?|কালকের)(?=$|[\s,।?!])')), (m) => '${m[1]}কাল');
   s = s.replaceAllMapped(RegExp(fold(r'(^|[\s,।])পরশু\s*দিন(?:কে|ের)?(?=$|[\s,।?!])')), (m) => '${m[1]}পরশু');
   s = s.replaceAll(RegExp(fold(r'আরব[িী]\s+(?:মাসের\s+)?কত\s+তারিখ\S*')), fold('আরবি তারিখ'));
+  // Dates as people say them: "৩১ শে অক্টোবর" → "৩১ অক্টোবর", "অক্টোবরের" →
+  // "অক্টোবর", "জানুয়ারি মাসের প্রথম তারিখে" → "১ জানুয়ারি", "২৭ সালের" dropped.
+  final months = bnMonths.map(fold).join('|');
+  s = s.replaceAllMapped(RegExp(fold(r'([০-৯0-9]{1,2})\s*(?:শে|ই|লা|রা|ঠা)(?=$|[\s,।])')), (m) => m[1]!);
+  s = s.replaceAllMapped(RegExp('($months)(?:\\s*${fold('এর')}|${fold('ের')})(?=\$|[\\s,।])'), (m) => m[1]!);
+  s = s.replaceAllMapped(RegExp('($months)\\s+${fold('মাসের')}\\s+(?:${fold('প্রথম')}|${fold('পহেলা')}|${fold('এক')})\\s+${fold('তারিখ')}\\S*'), (m) => '১ ${m[1]}');
+  s = s.replaceAllMapped(RegExp('($months)\\s+${fold('মাসের')}\\s+([০-৯0-9]{1,2})\\s+${fold('তারিখ')}\\S*'), (m) => '${m[2]} ${m[1]}');
+  s = s.replaceAll(RegExp(fold(r'(?:20)?[০-৯0-9]{2}\s+সালের\s+')), '');
+  // "৩১ অক্টোবরের জন্য", "আমার জন্য একটা রিমাইন্ডার": "for" carries nothing here.
+  s = s.replaceAllMapped(RegExp('($months)\\s+${fold('জন্য')}\\S*'), (m) => m[1]!);
+  s = s.replaceAll(RegExp(fold(r'(?:(?:তুমি|আপনি)\s+)?আমার\s+জন্য\S*\s+(?=(?:একটা|একটি|এক|রিমাইন্ডার|অ্যালার্ম|এলার্ম))')), '');
   // Hesitations ("ইয়া", "ইয়ে", "উম") and "in our contacts" carry nothing.
   s = s.replaceAll(RegExp(fold(r'(?:^|(?<=[\s,।]))(?:ইয়া|ইয়ে|উম|উমম|আঁ|অ্যা)(?=$|[\s,।])')), ' ');
   s = s.replaceAll(RegExp(fold(r'(?:আমাদের|আমার)\s+(?:যোগাযোগ|কন্টাক্ট|কনট্যাক্ট)(?:ের|এর|ে)?\s+(?:নাম্বারে|নম্বরে|লিস্টে|তালিকায়|থেকে|এ)?')), ' ');
@@ -292,6 +304,7 @@ String tidySpeech(String said, {List<bool>? whole}) {
     r'^(?:'
     r'(?:এই|ইয়া|ইয়ার|ইয়ার|আরে|ওই|ওই যে|শোনো|শোন|শুনো|শুনেন|শুনুন|হ্যালো|hello|ভাই|আচ্ছা|ঠিক আছে|তাহলে|মানে|বললাম|তারপরে|তারপর|এরপরে|এরপর|দেখো তো|দেখতো|দেখ তো)'
     r'|(?:তুমি\s+|আপনি\s+)?(?:এক|একটা|একটি)\s+কাজ\s+(?:করো|কর|করেন|করুন|করবা|করবে)(?:\s+তো)?'
+    r'|(?:আমি\s+)?(?:তোমাকে|তোমারে|আপনাকে)\s+(?:বলতেছি|বলছি|বলতেছিলাম|বলছিলাম|বললাম)(?:\s+যে)?'
     r'|(?:আমাকে\s+)?(?:একটু\s+)?(?:বলো|বল|বলেন|বলুন|জানাও)(?:\s+তো)?\s+যে'
     r'|যেটা\s+(?:হলো|হল|হইলো)'
     r')(?=$|[\s,।])[\s,।]*'));
@@ -327,7 +340,7 @@ AboutMe? aboutTheAssistant(String said) {
     return AboutMe.doYouUnderstand;
   }
   if (has(r'(?:প্রফেশনাল|প্রোফেশনাল)\s+(?:কিছু\s+)?(?:না|নয়|হইতেছে না|হচ্ছে না|হতে পারে না)') || has(r'(?:একদম|খুবই|খুব|অনেক|কি|কী)\s+বাজে(?:\s|$)') || has(r'বাজে\s+(?:হইছে|হচ্ছে|হইতেছে|হয়েছে|লাগে|লাগতেছে|লাগছে|কাজ)') ||
-      has(r'(?:কিছুই|কিছু)\s+(?:বুঝো|বোঝো|বুঝতেছো|বুঝতেছ|বোঝ)\s+না') || has(r'না\s+বুঝে') || has(r'বিরক্তিকর') || has(r'(?:নির্দেশনা|কথা)\s+(?:দিতেছি|দিচ্ছি|বলতেছি|বলছি)\s+(?:তুমি|আর)')) {
+      has(r'(?:কিছুই|কিছু)\s+(?:বুঝো|বোঝো|বুঝতেছো|বুঝতেছ|বোঝ)\s+না') || has(r'না\s+বুঝে') || has(r'বিরক্তিকর') || has(r'(?:সমন্বয়|মিলিয়ে)\s+(?:করার\s+)?(?:চেষ্টা\s+)?(?:করবা|করবে|করো|কর)') || has(r'লক্ষ্য\s+রাখবা\s+না') || has(r'(?:আমার\s+)?পুরো\s+কথা\s+(?:শোনো|শুনো|শুনবা|শোন)') || has(r'(?:নির্দেশনা|কথা)\s+(?:দিতেছি|দিচ্ছি|বলতেছি|বলছি)\s+(?:তুমি|আর)')) {
     return AboutMe.complaint;
   }
   return null;
@@ -338,4 +351,20 @@ bool onlyOpening(String said) {
   final flag = [false];
   tidySpeech(said, whole: flag);
   return flag[0];
+}
+
+/// "এটা তো বলি নাই", "এটা আমি বলিনি": what is waiting is not what was said.
+bool notWhatISaid(String said) => RegExp(fold(r'(?:^|\s)(?:বলি\s*নাই|বলি\s*নেই|বলি\s*নি|বলিনি|বলিনাই|বলি নাই|এটা\s+বলি\s+নাই|বলছি\s+না|কইনাই|কই নাই)(?:\s|$)')).hasMatch(_n(said));
+
+/// "হ্যাঁ, কিন্তু শুধু লিখবা ওয়াইফাই বিল দিতে হবে — এত কিছু প্রয়োজন নাই":
+/// the waiting item is right, only its words are to be shorter. Returns the
+/// new words, or null.
+String? onlyWrite(String said) {
+  final s = fold(said.trim());
+  final m = RegExp(fold(r'(?:শুধু|কেবল|খালি)\s+(?:তুমি\s+)?(?:লিখবা|লিখবে|লিখবেন|লেখো|লিখো|লিখ|লেখ|লিখে\s+রাখো|লিখে\s+রাখ|রাখবা|রাখো)\s+(?:যে\s+)?(.+)$')).firstMatch(s);
+  if (m == null) return null;
+  var t = m[1]!;
+  t = t.replaceAll(RegExp(fold(r'[\s,।]*(?:এত|এতো|এত্ত)\s+কিছু.*$')), '');
+  t = t.replaceAll(RegExp(r'[\s,।!.]+$'), '').trim();
+  return t.isEmpty ? null : t;
 }

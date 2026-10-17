@@ -384,4 +384,68 @@ void main() {
       }
     });
   });
+
+  // Eight more recordings (17 Oct): to-dos said with talk around them, dates
+  // as people say them, "শুধু লিখবা …", "এটা তো বলি নাই".
+  group('the second set of 17 Oct', () {
+    Future<(ChatController, List<String>)> talk(WidgetTester t, List<String> turns) async {
+      final rig = await start(t);
+      final chat = ChatController(rig.brain);
+      final out = <String>[];
+      for (final s in turns) {
+        out.add(await chat.hear(s));
+      }
+      return (chat, out);
+    }
+
+    testWidgets('"… কালকের কাজের তালিকায় লেখ" then the words: one to-do for tomorrow', (t) async {
+      final (chat, r) = await talk(t, ['আমি তোমাকে বলতেছি আমি তোমাকে বলতেছি আগামীকালকের কাজের তালিকায় লেখ', 'আমাকে পুকুরে চুন দিতে হবে']);
+      expect(r[0], contains('কী লিখব'));
+      expect(r[1], allOf(contains('“পুকুরে চুন দিতে হবে”'), contains('কাল')));
+      await chat.hear('হ্যাঁ');
+      expect(chat.brain.data.tasks.single.due, DateTime(2026, 10, 10));
+    });
+
+    testWidgets('a complaint and the to-do in one breath: the to-do is kept, the talk is not', (t) async {
+      final (_, r) = await talk(t, ['এটা কোন কিছু হইল তোমারে আমি বললাম যে আগামীকাল আগামীকাল আগামীকালকে তো রবিবার আসতে না শনিবার আগামীকালকের কাজের তালিকা তে পুকুরে চুন দিতে হবে এটা লিখে রাখ']);
+      expect(r.single, contains('“পুকুরে চুন দিতে হবে”'));
+      final (_, r2) = await talk(t, ['ভাই আমি তোমাকে কি নিতে চুনা দিলাম আর তুমি কি কি উত্তর দিতেছ আমি কি তোমাকে বলছি ৩১ অক্টোবর এর কাজের তালিকাতে লেখ যে সকালবেলা বাজারে যাইতে হবে']);
+      expect(r2.single, allOf(contains('“সকালবেলা বাজারে যাইতে হবে”'), contains('৩১ অক্টোবর')));
+      final (_, r3) = await talk(t, ['কাজের তালিকা বোর্ড এন আই ডি যুক্ত করা লাগবে']);
+      expect(r3.single, contains('“বোর্ড এন আই ডি যুক্ত করা লাগবে”'));
+    });
+
+    testWidgets('dates as people say them: "৩১ শে অক্টোবর", "অক্টোবরের জন্য", "২৭ সালের জানুয়ারি মাসের প্রথম তারিখে"', (t) async {
+      final (_, a) = await talk(t, ['৩১ শে অক্টোবর কাজের তালিকাতে লেখ যে সকালবেলা বাজারে যাইতে হবে']);
+      expect(a.single, contains('৩১ অক্টোবর'));
+      final (_, b) = await talk(t, ['৩১ অক্টোবরের জন্য একটা রিমাইন্ডার সেট করো তো', 'সকাল ৯ টায়']);
+      expect(b.join(' '), isNot(contains('“জন্য”')));
+      expect(b.last, contains('কী বিষয়ে'));
+      final (_, c) = await talk(t, ['তুমি এক কাজ কর ২৭ সালের জানুয়ারি মাসের প্রথম তারিখে আমার জন্য একটা রিমাইন্ডার সেট করো যে স্কুলে যাইতে হবে']);
+      expect(c.single, allOf(contains('“স্কুলে যাইতে হবে”'), contains('১ জানুয়ারি'), contains('কয়টায়')));
+    });
+
+    testWidgets('"হ্যাঁ কিন্তু শুধু লিখবা …" changes only the words; "এটা তো বলি নাই" is a no', (t) async {
+      final (chat, r) = await talk(t, [
+        'তুমি আমার জন্য একটা রিমাইন্ডার সেট করো তো যে প্রতিমাসের ৫ তারিখে আমাকে ওয়াইফাই বিল দিতে হবে',
+        'হ্যাঁ কিন্তু শুধু তুমি লিখবা ওয়াইফাই বিল এত কিছু প্রয়োজন নাই লেখা',
+      ]);
+      expect(r[0], allOf(contains('“ওয়াইফাই বিল দিতে হবে”'), contains('প্রতি মাসে')));
+      expect(r[1], contains('“ওয়াইফাই বিল”'));
+      expect(chat.wait, ChatWait.yesNo);
+      final (chat2, r2) = await talk(t, ['আমাকে সোনা মরে যাইতে হবে এটা একটা কাজের লিস্টে রাখো', 'এটা তো বলি নাই']);
+      expect(r2.last, 'আচ্ছা, রাখলাম না।');
+      expect(chat2.brain.data.tasks, isEmpty);
+      expect(chat2.brain.data.notes, isEmpty);
+    });
+
+    testWidgets('talk about how it should listen is answered, never saved', (t) async {
+      final (chat, r) = await talk(t, [
+        'তুমি আমার পুরো কথা শোনো মরে যেতে হবে',
+        'মেসেজের নির্দেশনা যত শেষ হয় নাই বা তুমি আগের মেসেজে আমাকে কোন ধরনের আউটপুট দাও নাই তো সেই ক্ষেত্রে পরের মেসেজের সাথে একটু সমন্বয় করার চেষ্টা করবা না',
+      ]);
+      expect(r, everyElement(contains('দুঃখিত')));
+      expect(chat.brain.data.tasks, isEmpty);
+    });
+  });
 }

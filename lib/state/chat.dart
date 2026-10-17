@@ -29,7 +29,7 @@ import '../ui/yes_no.dart' show pickSpokenOption;
 import 'brain.dart';
 
 /// What the chat is waiting to hear.
-enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, project, collect, whichPerson, whichItem, clarify }
+enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, taskTitle, project, collect, whichPerson, whichItem, clarify }
 
 /// What the user said they want to talk about at the start.
 enum Topic {
@@ -155,6 +155,9 @@ class ChatController extends ChangeNotifier {
   /// What existed before that save (so "শেষটা মুছে দাও" finds what it made).
   Set<String> _idsBeforeSave = const {};
   final _queue = <Command>[];
+
+  /// The day of a to-do whose words are being asked for.
+  DateTime? _pendingTaskDue;
   bool _askingAll = false;
   bool _allYes = false;
   int _savedInBatch = 0;
@@ -1058,10 +1061,22 @@ class ChatController extends ChangeNotifier {
           choices: _yesNoChoices,
         );
       case TaskAdd():
+        if (c.title.trim().isEmpty) {
+          // "কালকের কাজের তালিকায় লেখ": the day is kept, what to write is asked.
+          _pendingTaskDue = c.due;
+          final day = c.due == null ? '' : ' (${sayWhen(c.due!, _now, withTime: false)})';
+          _ask(out, trf('কাজের তালিকায়{0} কী লিখব?', [day]), ChatWait.taskTitle);
+          return;
+        }
         if (_allYes) return _saveCurrent(out);
         final due = c.due == null ? '' : ' (${sayWhen(c.due!, _now, withTime: false)})';
         _ask(out, trf('“{0}”{1} — কাজের তালিকায় তুলে রাখি?', [c.title, due]), ChatWait.yesNo, choices: _yesNoChoices);
       case ReminderAdd():
+        // Words that only said how or for whom: "যে …", "জন্য", "প্রতিমাসের".
+        final cleaned = _reminderTitle(c.title, c.repeat);
+        if (cleaned != c.title) {
+          return _start(ReminderAdd(c.transcript, title: cleaned, at: c.at, repeat: c.repeat, alarm: c.alarm, weekdays: c.weekdays, minutesBefore: c.minutesBefore, day: c.day), out);
+        }
         _pendingTitle = c.title;
         _pendingRepeat = c.repeat;
         _pendingAlarm = c.alarm;
@@ -1381,6 +1396,15 @@ class ChatController extends ChangeNotifier {
   /// A long new sentence instead of an answer.
   bool _looksNew(String t) => words(normalize(t)).length >= 4;
 
+  String _reminderTitle(String title, Repeat repeat) {
+    var t = title.trim();
+    t = t.replaceFirst(RegExp(fold(r'^(?:যে|জন্য|জন্যে|আমার\s+জন্য)\s+')), '');
+    if (repeat != Repeat.none) t = t.replaceAll(RegExp(fold(r'(?:^|\s)(?:প্রতিমাসের|প্রতি\s+মাসের|প্রতিমাসে|প্রতি\s+মাসে|প্রতিদিনের|প্রতি\s+সপ্তাহের)(?=\s|$)')), ' ');
+    t = t.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (t == 'জন্য' || t == 'জন্যে') return '';
+    return t;
+  }
+
   /// Handles [t] as the answer to the waiting question. False when it is
   /// not an answer but something new.
   Future<bool> _answer(String t, List<String> out) async {
@@ -1465,7 +1489,21 @@ class ChatController extends ChangeNotifier {
       case ChatWait.yesNo:
         // "না, রেখো না": a plain no — checked first, so "রেখো" is never
         // taken as a corrected name or kind.
-        final refused = refusesSave(t);
+        final refused = refusesSave(t) || notWhatISaid(t);
+        // "হ্যাঁ, কিন্তু শুধু লিখবা ওয়াইফাই বিল দিতে হবে": same item, fewer words.
+        final shorter = refused || _askingAll ? null : onlyWrite(t);
+        if (shorter != null && (_current is TaskAdd || _current is ReminderAdd)) {
+          final cur0 = _current;
+          wait = ChatWait.none;
+          choices = const [];
+          Trace.log('understood', 'only the words of the waiting item changed', const {});
+          if (cur0 is TaskAdd) {
+            await _start(TaskAdd(cur0.transcript, title: shorter, due: cur0.due), out);
+          } else if (cur0 is ReminderAdd) {
+            await _start(ReminderAdd(cur0.transcript, title: shorter, at: cur0.at, repeat: cur0.repeat, alarm: cur0.alarm, weekdays: cur0.weekdays, minutesBefore: cur0.minutesBefore, day: cur0.day), out);
+          }
+          return true;
+        }
         // "না, সাতশ" / "পাঁচশ না, সাতশ": not a no — the amount corrected; ask again.
         final cur = _current;
         final fixed = _correctedAmount(t);
@@ -1649,6 +1687,23 @@ class ChatController extends ChangeNotifier {
         wait = ChatWait.none;
         choices = const [];
         await _start(ReminderAdd(t, title: title, at: at, repeat: _pendingRepeat, alarm: _pendingAlarm, weekdays: _pendingDays, minutesBefore: _pendingBefore), out);
+        return true;
+      case ChatWait.taskTitle:
+        // The words to write, said next ("আমাকে পুকুরে চুন দিতে হবে").
+        if (isQuestionText(t) && _looksNew(t)) return false;
+        final said = tidySpeech(t);
+        final w = parseWhen(said, _now);
+        var title = tidy(cutWords(withoutWhen(said), const ['আমাকে', 'আমার', 'লিখে রাখো', 'লিখো', 'লেখো', 'লেখ', 'যে', 'এটা', 'একটা']));
+        title = title.replaceAll(RegExp(r'[।.!,]+$'), '').trim();
+        if (title.isEmpty) {
+          _say(out, tr('কী লিখব, শুনতে পাইনি। কাজটা বলুন — যেমন “বিদ্যুৎ বিল দিতে হবে”।'));
+          return true;
+        }
+        final due = w != null && w.hasDay ? w.day : _pendingTaskDue;
+        _pendingTaskDue = null;
+        wait = ChatWait.none;
+        choices = const [];
+        await _start(TaskAdd(t, title: title, due: due), out);
         return true;
       case ChatWait.callee:
         if (_calleeChoices.isNotEmpty) {
