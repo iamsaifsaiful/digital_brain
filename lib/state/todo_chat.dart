@@ -34,9 +34,9 @@ extension _TodoChat on ChatController {
         final focus = _focusTaskFresh ? hit.where((t) => t.id == _focusTaskId).toList() : const <Task>[];
         return focus.isNotEmpty ? focus : hit;
       }
-      final any = done ? tdMatch(all, r.terms, open: false) : const <Task>[];
-      if (any.isNotEmpty || !r.it) return any;
-      // "ওটার …" with words that name nothing: the one being talked about.
+      // Words that name no to-do are never taken as "the one just talked
+      // about" — another to-do must not be changed by mistake.
+      return done ? tdMatch(all, r.terms, open: false) : const <Task>[];
     }
     if (r.it) {
       final f = _focusTaskFresh && _focusTaskId != null ? _taskById(_focusTaskId!) : null;
@@ -125,8 +125,8 @@ extension _TodoChat on ChatController {
 
   /// Kept at once: "“ব্যাংকে যাওয়া” কাজটি কাল (শনিবার) রেখেছি।"
   Future<void> _saveTaskAdd(TaskAdd c, List<String> out, {required bool quiet}) async {
-    final note = c.by != null ? trf('শেষ সময় {0}', [sayWhen(c.by!, _now, withTime: false)]) : (c.condition ?? '');
-    final t = Task(title: c.title, due: c.due, span: c.span, repeat: c.repeat, urgent: c.urgent, note: note, createdAt: _now);
+    final deadline = c.by ?? (c.deadline ? c.due : null);
+    final t = Task(title: c.title, due: c.due, span: c.span, repeat: c.repeat, urgent: c.urgent, note: c.condition ?? '', deadline: deadline, createdAt: _now);
     await brain.saveTask(t);
     _focusTask(t);
     if (quiet) {
@@ -179,10 +179,15 @@ extension _TodoChat on ChatController {
         changed = await _taskDoneTodo(c, out);
       case TaskEdit():
         changed = await _taskEdit(c, out);
+      case ReminderSnooze():
+        changed = await _snooze(c, out);
       default:
         return;
     }
-    if (changed) _offerUndo(snap);
+    if (changed) {
+      _actions++;
+      _offerUndo(snap);
+    }
   }
 
   Future<bool> _taskDoneTodo(TaskDone c, List<String> out) async {
@@ -285,6 +290,10 @@ extension _TodoChat on ChatController {
       final skipped = t.due!;
       await brain.skipTaskOnce(t);
       final next = _taskById(t.id)!.due!;
+      // Its one-time reminder follows to the next time, never left on the skipped day.
+      final rid = t.reminderId;
+      final rem = rid == null ? null : brain.data.reminders.where((x) => x.id == rid && x.enabled && x.repeat == Repeat.none).firstOrNull;
+      if (rem != null) await brain.saveReminder(rem.copyWith(date: dayOnly(next)));
       _say(out, trf('{0} বাদ দিয়েছি; পরেরবার {1}।', [sayWhen(skipped, _now, withTime: false), sayWhen(next, _now, withTime: false)]), links: links);
       return true;
     }
@@ -393,14 +402,10 @@ extension _TodoChat on ChatController {
       at = DateTime(d.year, d.month, d.day, c.remindHour!, c.remindMinute);
       if (!at.isAfter(_now) && day0 == null) at = at.add(const Duration(days: 1));
     }
-    if (c.remindAmPm && at.hour >= 7 && at.hour <= 11) {
-      final h = at.hour;
-      final night = at.add(const Duration(hours: 12));
-      _clarifyOptions = [
-        (trf('সকাল {0}টা', [bnDigits(h)]), TaskEdit(c.transcript, ref: TaskRef(ids: [t.id]), remindAt: at)),
-        (trf('রাত {0}টা', [bnDigits(h)]), TaskEdit(c.transcript, ref: TaskRef(ids: [t.id]), remindAt: night)),
-      ];
-      _ask(out, trf('সকাল {0}টা, নাকি রাত {0}টা?', [bnDigits(h)]), ChatWait.clarify, choices: [for (final o in _clarifyOptions) ChatChoice(o.$1, o.$1)]);
+    if (c.remindAmPm) {
+      final r = ampmReadings(at, _now, daySaid: day0 != null || c.remindAt != null);
+      _clarifyOptions = [for (final x in r) (bnTime(x.hour, x.minute), TaskEdit(c.transcript, ref: TaskRef(ids: [t.id]), remindAt: x))];
+      _ask(out, trf('{0}, নাকি {1}?', [bnTime(r[0].hour, r[0].minute), bnTime(r[1].hour, r[1].minute)]), ChatWait.clarify, choices: [for (final o in _clarifyOptions) ChatChoice(o.$1, o.$1)]);
       return false;
     }
     if (!at.isAfter(_now)) {
@@ -423,6 +428,12 @@ extension _TodoChat on ChatController {
   Future<void> _setTaskReminder(Task t, DateTime at, List<String> out) async {
     final rid = t.reminderId;
     final old = rid == null ? null : brain.data.reminders.where((x) => x.id == rid).firstOrNull;
+    // A new reminder past the free limit: the to-do stays; said plainly.
+    if (old == null && !brain.canAddReminder) {
+      _say(out, trf('“{0}” কাজটি তালিকায় আছে, তবে রিমাইন্ডার চালু হয়নি — ফ্রিতে একসাথে {1}টা রিমাইন্ডার রাখা যায়। পুরোনো কোনোটা বন্ধ করুন, বা প্রো নিন।', [t.title, bnDigits(freeReminders)]),
+          links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন')), ChatLink(LinkKind.page, tr('প্রো দেখুন'), page: 'pro')]);
+      return;
+    }
     final Reminder r;
     if (old != null) {
       r = old.copyWith(date: dayOnly(at), hour: at.hour, minute: at.minute, enabled: true);
@@ -433,6 +444,12 @@ extension _TodoChat on ChatController {
     if (t.reminderId != r.id) await brain.saveTask(_taskById(t.id)!.copyWith(reminderId: r.id));
     _focusReminderId = r.id;
     _focusReminderAt = _now;
+    // Kept, but this phone will not show it: said, never promised.
+    if (!(await brain.services.notifier.health()).notificationsOn) {
+      _say(out, trf('“{0}”-এর রিমাইন্ডার রাখা হয়েছে ({1}), কিন্তু এই ফোনে অ্যাপের নোটিফিকেশন বন্ধ — তাই এখন বাজবে না। ফোনের সেটিংস থেকে My Assistant-এর নোটিফিকেশন চালু করুন।', [t.title, sayWhen(at, _now)]),
+          links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
+      return;
+    }
     final text = old == null ? trf('{0}-এ মনে করিয়ে দেব।', [sayWhen(at, _now)]) : trf('“{0}” রিমাইন্ডারটি {1}-এ করেছি।', [t.title, sayWhen(at, _now)]);
     _say(out, text, links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
     _history.add(AiTurn.app('[কাজের রিমাইন্ডার: ${t.title}]'));
@@ -605,6 +622,41 @@ extension _TodoChat on ChatController {
       await brain.saveReminder(rem!.copyWith(title: title));
     }
     _say(out, trf('ঠিক আছে, লেখা বদলে “{0}” করেছি।', [title]));
+    return true;
+  }
+
+  /// "দশ মিনিট পরে আবার মনে করিও": the reminder just set or just rung.
+  /// A repeating one keeps its series; a one-time copy rings later.
+  Future<bool> _snooze(ReminderSnooze c, List<String> out) async {
+    Reminder? r;
+    if (_focusReminderId != null && _focusReminderAt != null && _now.difference(_focusReminderAt!).inMinutes <= 60) {
+      r = brain.data.reminders.where((x) => x.id == _focusReminderId).firstOrNull;
+    }
+    if (r == null) {
+      final rung = [
+        for (final x in brain.data.reminders)
+          if (!x.repeat.isInterval)
+            (x, DateTime(x.date.year, x.date.month, x.date.day, x.hour, x.minute)),
+      ].where((e) => !e.$2.isAfter(_now) && _now.difference(e.$2).inHours < 3).toList()
+        ..sort((a, b) => b.$2.compareTo(a.$2));
+      r = rung.firstOrNull?.$1;
+    }
+    if (r == null) {
+      _say(out, tr('কোন রিমাইন্ডারটা আবার মনে করাব, ধরতে পারিনি — নাম বলে আরেকবার বলুন।'));
+      return false;
+    }
+    final at = _now.add(Duration(minutes: c.minutes));
+    final again = r.repeat == Repeat.none
+        ? r.copyWith(date: dayOnly(at), hour: at.hour, minute: at.minute, enabled: true)
+        : Reminder(title: r.title, date: dayOnly(at), hour: at.hour, minute: at.minute, daysBefore: 0);
+    await brain.saveReminder(again);
+    _focusReminderId = again.id;
+    _focusReminderAt = _now;
+    if (!(await brain.services.notifier.health()).notificationsOn) {
+      _say(out, trf('“{0}” {1}-এ রাখা হলো, কিন্তু এই ফোনে নোটিফিকেশন বন্ধ — তাই বাজবে না।', [r.title, sayWhen(at, _now)]));
+      return true;
+    }
+    _say(out, trf('ঠিক আছে, “{0}” {1} মিনিট পরে ({2}) আবার মনে করাব।', [r.title, bnDigits(c.minutes), bnTime(at.hour, at.minute)]), links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
     return true;
   }
 }

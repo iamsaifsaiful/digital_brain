@@ -523,7 +523,7 @@ int _tdScore(Task t, List<String> terms0) {
   var n = 0;
   for (final x in terms) {
     if (x.length < 2) continue;
-    if (tw.contains(x) || title.contains(x) || tw.any((w) => w.length >= 3 && x.length >= 3 && (w.startsWith(x) || x.startsWith(w))) || tw.any((w) => w.length >= 3 && x.length >= 3 && w == x)) n++;
+    if (tw.contains(x) || title.contains(x) || tw.any((w) => w.length >= 3 && x.length >= 3 && (w.startsWith(x) || x.startsWith(w))) || tw.any((w) => w.length >= 3 && x.length >= 3 && wordsMatch(x, w))) n++;
   }
   return n;
 }
@@ -746,12 +746,20 @@ TaskQuery? _tdQuery(String said, String f, DateTime now) {
 bool _tdNotMine(String said, String f) {
   if (mentionsSecret(said)) return true;
   if (_thas(f, r'(?<=\s)(?:টাকা|টাকার|টাকায়|৳|tk|taka|হাজার|লাখ)(?=\s)')) return true;
+  return _amountIn(f);
+}
+
+/// An amount of money in [f] — numbers that are days, weeks, list numbers,
+/// counts of to-dos or clock times do not count.
+bool _amountIn(String f) {
   var bare = f.replaceAll(_tre(r'(?<=\s)\S+\s+(?:দিন|সপ্তাহ|মাস|বছর)(?:\s+(?:পরে|পর|পরপর|পর\s+পর|বাদে|অন্তর))?(?=\s)'), ' ');
   bare = bare.replaceAll(_tre(r'(?<=\s)\S+\s*(?:নম্বর|নাম্বার|নং)(?=\s)'), ' ');
   bare = bare.replaceAll(_tre(r'(?<=\s)\S+(?:টা|টি)\s+কাজ'), ' ');
   bare = normalize(withoutWhen(bare));
   bare = bare.replaceAll(RegExp(r'(?<=^|\s)\d{1,2}(?=\s|$)'), ' ');
-  return findAmount(normalize(bare)) != null && RegExp(r'\d').hasMatch(bare);
+  final a = findAmount(normalize(bare));
+  // A number written in digits, or a sum said in words ("পাঁচশ", "দুই হাজার").
+  return a != null && (RegExp(r'\d').hasMatch(bare) || a >= 20);
 }
 
 /// The to-do commands in [said] (tidied already), or null when it is not
@@ -765,6 +773,10 @@ List<Command>? todoCommands(String said, List<Task> tasks, DateTime now) {
     for (final c in whole.split(_tre(r'[।!?\n]+|,\s*|;\s*|\s+(?:আর|এবং|তারপর|এরপর)\s+(?=\S)')))
       if (c.trim().isNotEmpty) c.trim(),
   ];
+  // "বৃহস্পতিবার করব, শুক্রবার জমা দেব": the day it is planned and the
+  // day it is due — one to-do with both, neither overwriting the other.
+  final pd = _planAndDeadline(whole, now);
+  if (pd != null) return [pd];
   // "বৃহস্পতিবার করব, তবে শুক্রবারের মধ্যে জমা দিতে হবে": one to-do.
   final oneThought = _thas(' ${_tf(whole)} ', r'\s(?:তবে|কিন্তু)\s.+মধ্যে');
   if (clauses.length >= 2 && !oneThought) {
@@ -808,7 +820,7 @@ Command? _tdOne(String said0, List<Task> tasks, DateTime now) {
   // rules (asked once, the right one found) — never read as something to do.
   if (_thas(f, r'(?<=\s)(?:মুছে\s+(?:দাও|দিও|ফেলো|দেন|দিন)|মুছো|ডিলিট|delete|কেটে\s+দাও|বাদ\s+(?:দাও|দিয়ে\s+দাও|দিও|দেন))(?=\s)') &&
       !_thas(f, r'(?:ভাবছিলাম|ভেবেছিলাম|চেয়েছিলাম|চাচ্ছিলাম)') && !_thas(f, r'(?<=\s)(?:এই|এ|এবারের)\s+' + _wdP + r'\s*(?:টা|টি)?\s+বাদ') && !_thas(f, r'^\s*(?:আগেরটা|আজ)\s+বাদ') &&
-      !_thas(f, r'(?<=\s)তারিখ(?:টা)?\s+(?:বাদ|মুছে|কেটে)')) {
+      !_thas(f, r'(?<=\s)তারিখ(?:টা)?\s+(?:বাদ|মুছে|কেটে)') && !_thas(f, r'(?<=\s)প্রতি\s+' + _wdP)) {
     return null;
   }
   // "বাজারের লিস্টে ডিম রাখো": a list of its own ("বাজার: ডিম"), not the to-dos.
@@ -829,8 +841,15 @@ Command? _tdOne(String said0, List<Task> tasks, DateTime now) {
   // Reminders that belong to a to-do.
   final remindWord = _thas(f, r'(?:রিমাইন্ডার|reminder|মনে\s+(?:করিও|করাইও|করিয়ো|করিয়ে\s+দিও|করিয়ে\s+দিবা|করাবে|করাবা|করিয়ে\s+দেবে)|জানাবে|জানিও|জানিয়ে\s+দিও)');
   final pointsAtTask = _thas(f, _deictic) || _thas(f, r'(?<=\s)\S+\s+কাজ(?:টা|টি|টার|টায়|টাকে)(?=\s)') || _tdOrdinal(f) != null;
+  // "দশ মিনিট পরে আবার মনে করিও": the reminder again, later.
+  final snooze = _tre(r'(?<=\s)(\S+)\s+(মিনিট|ঘণ্টা|ঘন্টা)\s+(?:পরে|পর|বাদে)\s+আবার\s+(?:মনে\s+(?:করিও|করাইও|করিয়ো|করিয়ে\s+দিও|করাবে)|জানাবে|জানিও|বাজাবে|বাজিও)').firstMatch(f);
+  if (snooze != null) {
+    final n = _tdNum(snooze[1]!) ?? (_tf(snooze[1]!) == _tf('আধা') ? 0 : 10);
+    final minutes = snooze[2] == _tf('মিনিট') ? n : (n == 0 ? 30 : n * 60);
+    if (minutes > 0) return ReminderSnooze(said, minutes: minutes);
+  }
   // "আর মনে করিও না": the reminder of the one being talked about.
-  if (_thas(f, r'^\s*(?:আর\s+)?(?:মনে\s+(?:করিও|করাইও|করাবে|করিয়ো|করিয়ে\s+দিও)\s+না|(?:রিমাইন্ডার|reminder)(?:টা)?\s+(?:বন্ধ|অফ|off)\s+করো(?:\s+(?:কাজ|task)\s+(?:থাকবে|থাকুক|থাক))?)\s*$')) {
+  if (_thas(f, r'^\s*(?:শুধু\s+)?(?:আর\s+)?(?:মনে\s+(?:করিও|করাইও|করাবে|করিয়ো|করিয়ে\s+দিও)\s+না|(?:রিমাইন্ডার|reminder)(?:টা)?\s+(?:বন্ধ|অফ|off)\s+করো(?:\s+(?:কাজ|task)\s+(?:থাকবে|থাকুক|থাক))?)\s*$')) {
     return TaskEdit(said, ref: TaskRef(it: true, said: said), stopReminder: true);
   }
   if (remindWord && pointsAtTask) {
@@ -887,9 +906,11 @@ Command? _tdOne(String said0, List<Task> tasks, DateTime now) {
     }
     final ref = _tdRef(f, said);
     if (ref.terms.isNotEmpty && ref.index == null) {
-      // Words that name no to-do: not about the list ("রহিমকে দিয়েছি").
+      // Words that name no to-do: not about the list ("রহিমকে দিয়েছি") —
+      // unless a to-do was named ("বিল দেওয়ার কাজটা শেষ"): then it is said
+      // that none is on the list, never filed as a note.
       final pool = notDone ? tasks : open;
-      if (tdMatch(pool, ref.terms, open: !notDone).isEmpty) return null;
+      if (tdMatch(pool, ref.terms, open: !notDone).isEmpty && !_thas(f, r'(?<=\s)\S+\s+কাজ(?:টা|টি|টার)?(?=\s)')) return null;
     }
     if (ref.isEmpty) {
       if (!_thas(f, r'(?:টিক|done|সম্পন্ন|কাজটা|ওটা|এটা)')) return null;
@@ -983,6 +1004,13 @@ TaskEdit? _tdEdit(String said, String f, List<Task> open, DateTime now) {
   }
   if (_thas(f, r'(?<=\s)(?:নিয়মিত|প্রতিদিনের|প্রতি\s+সপ্তাহের)\s+') && _thas(f, r'(?:পুরো\s+)?(?:বন্ধ\s+করো|বন্ধ\s+করে\s+দাও|মুছে\s+দাও|বাদ\s+দাও)') && named) {
     return TaskEdit(said, ref: ref, delete: true);
+  }
+  // "প্রতি শুক্রবারেরটা বন্ধ করো": the whole series (asked once), not one time.
+  final series = _tre(r'(?<=\s)প্রতি\s+' + _wdP + r'(?:টা|টি)?\s+(?:\S+\s+)?(?:পুরো\s+)?(?:বন্ধ\s+(?:করো|করে\s+দাও)|মুছে\s+দাও)').firstMatch(f);
+  if (series != null) {
+    final wd = _wdIndex(series[1]!);
+    final rep = [for (final t in open) if (t.repeat?.kind == 'weekly' && t.repeat!.weekdays.contains(wd)) t];
+    if (rep.length == 1) return TaskEdit(said, ref: TaskRef(ids: [rep.single.id], said: said), delete: true);
   }
 
   // A new day for it: "ডাক্তারকে ফোন করার কাজটা কাল রাখো", "কাজটা শুক্রবারে
@@ -1104,7 +1132,7 @@ int taskScore(Task t, List<String> terms) => _tdScore(t, terms);
 
 /// A reminder's words without the asking: "বিল দিতে মনে করিও" → "বিল দেওয়া".
 String reminderWords(String title) {
-  var s = ' ${_tf(title)} ';
+  var s = ' ${_tf(title).replaceAll(RegExp(r'[।!?,;:]'), ' ')} ';
   s = s.replaceAll(_tre(r'(?<=\s)(?:আমাকে\s+)?(?:একটু\s+)?মনে\s+(?:করিও|করাইও|করিয়ো|করিয়ে\s+দিও|করিয়ে\s+দিবা|করিয়ে\s+দেবে|করিয়ে\s+দিবে|করাবে|করাবা|করাও|করিয়ে\s+দাও|করিয়ে\s+দিয়ো)(?=\s|$)'), ' ');
   s = s.replaceAll(_tre(r'(?<=\s)(?:জানিয়ে\s+দিও|জানাবে|জানিও)(?=\s|$)'), ' ');
   final t = s.trim();
@@ -1125,3 +1153,25 @@ String withoutClockWords(String s) => ' ${_tf(s)} '
 
 /// A clock hour was said ("আটটায়", "৮.৩০"), not only "সকালে".
 bool saysClock(String s) => withoutClockWords(s) != ' ${_tf(s)} '.trim() || RegExp(r'[০-৯0-9]{1,2}\s*[:.]\s*[০-৯0-9]{2}').hasMatch(s) || RegExp(fold(r'(?:মিনিট|ঘণ্টা|ঘন্টা)')).hasMatch(fold(s));
+
+/// "রিপোর্ট বৃহস্পতিবার তৈরি করব, শুক্রবার জমা দেব": a planned day and a
+/// due day ("জমা", "পাঠাতে/দিতে হবে", "…-এর মধ্যে") in two parts.
+TaskAdd? _planAndDeadline(String whole, DateTime now) {
+  final m = _tre(r'^\s*(.+?)\s*(?:,|।|\s(?:তবে|কিন্তু|আর|এবং))\s*(.+)$').firstMatch(_tf(whole));
+  if (m == null) return null;
+  final a = ' ${m[1]} ', b = ' ${m[2]} ';
+  if (!_thas(b, r'(?:জমা|সাবমিট|submit|ডেডলাইন|deadline|মধ্যে|শেষ\s+(?:করতে|দিতে))')) return null;
+  if (!(_saysToDo(a) && _saysToDo(b))) return null;
+  final wa = _tdWhen(a, now), wb = _tdWhen(b, now);
+  if (wa.day == null || wb.day == null || wa.repeat != null) return null;
+  var last = wb.day!;
+  while (last.isBefore(wa.day!)) {
+    last = last.add(const Duration(days: 7));
+  }
+  // The to-do's words: what the first part names, else the second's.
+  final ta = todoTitle(wa.rest), tb = todoTitle(wb.rest);
+  final firstNamesIt = ta.split(' ').where((x) => x.isNotEmpty).length >= 2;
+  final title = firstNamesIt ? '$ta, ${tb.isEmpty ? '' : tb}'.replaceAll(RegExp(r',\s*$'), '') : (tb.isEmpty ? ta : tb);
+  if (title.isEmpty) return null;
+  return TaskAdd(whole, title: title, due: wa.day, by: last);
+}

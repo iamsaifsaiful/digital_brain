@@ -7,6 +7,7 @@ import 'app_map.dart';
 import 'cash.dart';
 import 'ledger.dart';
 import 'parser.dart';
+import 'when.dart' show ampmUnclear;
 
 int _int(Object? v) => v is num ? v.toInt() : int.tryParse('$v') ?? 0;
 String _str(Object? v) => v is String ? v.trim() : '';
@@ -47,14 +48,29 @@ List<Command> commandsFromAi(String said, Map<String, Object?> r, List<LedgerEnt
     final c = commandFromAi(said, item, ledger);
     if (c != null) out.add(c);
   }
-  // A question about the user's own things: the AI has the records and
-  // answers in its own words; the query stays only for its link.
-  if ((out.isEmpty || chatted || out.any(answeredByAi)) && reply.isNotEmpty) out.insert(0, AiReply(said, text: reply));
-  return out;
+  // The AI's words are used only for talk. Anything it asks the app to do
+  // or look up is done by the app, and what the app found or saved is what
+  // is said — the AI never says its own count, date or "saved".
+  if ((out.isEmpty || (chatted && out.every((c) => c is AiReply))) && reply.isNotEmpty) out.insert(0, AiReply(said, text: reply));
+  // The same checks as the rules' commands (money tense, part-of-day times).
+  final now = DateTime.now();
+  return [for (final c in out) checked(c, said, now)];
 }
 
-/// Questions the AI answers itself (from the records it was given).
-bool answeredByAi(Command c) => c is ReminderQuery || c is TaskQuery || c is Briefing || c is LedgerQuery || c is CashQuery;
+/// Questions the AI may answer in its own words: none. Every question about
+/// the user's things is answered from the app's own query result.
+bool answeredByAi(Command c) => false;
+
+TaskRef _ref(Map<String, Object?> r, String said) {
+  final idx = _int(r['index']);
+  if (idx != 0) return TaskRef(index: idx, said: said);
+  final t = _terms(r['terms']);
+  final it = _str(r['ref']) == 'it';
+  if (t.isNotEmpty) return TaskRef(terms: t, it: it, said: said);
+  return TaskRef(it: true, said: said);
+}
+
+TaskSpan _span(Object? v) => TaskSpan.values.where((s) => s.name == _str(v)).firstOrNull ?? TaskSpan.day;
 
 /// Null when the AI's answer is not usable (the rules are used instead).
 Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> ledger) {
@@ -113,12 +129,49 @@ Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> le
     case 'task_add':
       final title = _str(r['text']);
       if (title.isEmpty) return null;
-      return TaskAdd(said, title: title, due: _day(r['date']));
+      final deadline = _day(r['deadline']);
+      return TaskAdd(said, title: title, due: _day(r['date']), span: _span(r['span']), urgent: r['urgent'] == true, by: deadline, condition: _str(r['condition']).isEmpty ? null : _str(r['condition']));
     case 'task_done':
-      final t = _terms(r['terms']);
-      return t.isEmpty ? null : TaskDone(said, terms: t);
+      final ref = _ref(r, said);
+      return TaskDone(said, terms: ref.terms, ref: ref);
+    case 'task_reopen':
+      final ref = _ref(r, said);
+      return TaskDone(said, terms: ref.terms, ref: ref, done: false);
+    case 'task_edit':
+      final ref = _ref(r, said);
+      final title = _str(r['text']);
+      final shift = _int(r['shift_days']);
+      return TaskEdit(said,
+          ref: ref,
+          title: title.isEmpty ? null : title,
+          due: _day(r['date']),
+          span: r['date'] == null ? null : _span(r['span']),
+          clearDue: r['clear_date'] == true,
+          shiftDays: shift,
+          urgent: r['urgent'] is bool ? r['urgent'] as bool : null,
+          note: _str(r['note']).isEmpty ? null : _str(r['note']));
+    case 'task_delete':
+      return TaskEdit(said, ref: _ref(r, said), delete: true);
+    case 'task_skip_once':
+      return TaskEdit(said, ref: _ref(r, said), skipOnce: true);
+    case 'task_remind':
+      final ref = _ref(r, said);
+      final day = _day(r['date']);
+      final time = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(_str(r['time']));
+      if (time == null) return TaskEdit(said, ref: ref, remindNeedsTime: true, due: day);
+      final h = int.parse(time[1]!), m = int.parse(time[2]!);
+      if (day != null) return TaskEdit(said, ref: ref, remindAt: DateTime(day.year, day.month, day.day, h, m), remindAmPm: ampmUnclear(said));
+      return TaskEdit(said, ref: ref, remindHour: h, remindMinute: m, remindAmPm: ampmUnclear(said));
+    case 'reminder_stop':
+      return TaskEdit(said, ref: _ref(r, said), stopReminder: true);
+    case 'reminder_snooze':
+      final minutes = _int(r['minutes']);
+      return minutes <= 0 ? null : ReminderSnooze(said, minutes: minutes);
     case 'task_query':
-      return TaskQuery(said);
+      // The rules' reading of the same question (its day, week or words),
+      // so the AI path and the rules answer from the same list.
+      final local = todoCommands(said, const [], DateTime.now())?.whereType<TaskQuery>().firstOrNull;
+      return local ?? TaskQuery(said);
     case 'briefing':
       return Briefing(said);
     case 'reminder_add':

@@ -1302,7 +1302,7 @@ void main() {
       expect(r.at, DateTime(2026, 10, 15, 10));
       // Money promised for a day is not a payment made.
       final m = p.parse('কাল রহিমকে ৫০০ টাকা দেবো') as TaskAdd;
-      expect(m.title, 'রহিমকে ৫০০ টাকা দেবো');
+      expect(m.title, 'রহিমকে ৫০০ টাকা দেওয়া');
       expect(p.parse('রহিমকে ৫০০ টাকা দিলাম'), isA<LedgerAdd>());
       expect(p.parse('আজ কী কী আছে'), isA<Briefing>());
     });

@@ -675,6 +675,7 @@ class Task {
     this.urgent = false,
     this.note = '',
     this.repeat,
+    this.deadline,
   })  : id = id ?? newId(),
         createdAt = createdAt ?? DateTime.now();
 
@@ -707,6 +708,11 @@ class Task {
   /// Null for a one-time to-do.
   final TaskRepeat? repeat;
 
+  /// The last day for it, kept apart from the day it is planned for
+  /// ([due]): "বৃহস্পতিবার করব, শুক্রবারের মধ্যে জমা দিতে হবে". Moving the
+  /// planned day never changes it; being late never changes either.
+  final DateTime? deadline;
+
   /// The last day of its span (the due day itself for a one-day to-do).
   DateTime? get dueEnd {
     final d = due;
@@ -733,6 +739,8 @@ class Task {
     String? note,
     TaskRepeat? repeat,
     bool clearRepeat = false,
+    DateTime? deadline,
+    bool clearDeadline = false,
   }) =>
       Task(
         id: id,
@@ -748,6 +756,7 @@ class Task {
         urgent: urgent ?? this.urgent,
         note: note ?? this.note,
         repeat: clearRepeat ? null : (repeat ?? this.repeat),
+        deadline: clearDeadline ? null : (deadline ?? this.deadline),
       );
 
   Map<String, Object?> toJson() => {
@@ -763,6 +772,7 @@ class Task {
         if (urgent) 'urgent': true,
         if (note.isNotEmpty) 'note': note,
         if (repeat != null) 'repeat': repeat!.toJson(),
+        if (deadline != null) 'deadline': deadline!.toIso8601String(),
       };
 
   factory Task.fromJson(Map<String, Object?> j) => Task(
@@ -778,6 +788,7 @@ class Task {
         urgent: j['urgent'] == true,
         note: (j['note'] as String?) ?? '',
         repeat: TaskRepeat.fromJson(j['repeat']),
+        deadline: _date(j['deadline']),
       );
 }
 

@@ -1127,6 +1127,10 @@ void main() {
     expect(rig.voice.spoken.last, 'আমি শুনছি', reason: 'said while the mic is already open');
     await tell(t, rig, '৫.৩০ এ রিমাইন্ডার দিও');
     await settle(t);
+    // "৫.৩০" alone: morning or evening is asked, not decided by the clock.
+    expect(rig.voice.spoken.last, 'ভোর ৫:৩০, নাকি বিকেল ৫:৩০?');
+    await tell(t, rig, 'বিকেল');
+    await settle(t);
     expect(rig.voice.spoken.last, contains('কী বিষয়ে'));
     await tell(t, rig, 'ওষুধ খাওয়া');
     await settle(t);
@@ -1148,6 +1152,9 @@ void main() {
     await settle(t);
     expect(rig.voice.spoken.last, contains('কয়টায়'));
     await tell(t, rig, '৬.২০');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('নাকি'));
+    await tell(t, rig, 'সন্ধ্যা ৬:২০');
     await settle(t);
     expect(rig.voice.spoken.last, contains('মনে করিয়ে দেব'));
     final r = rig.brain.data.reminders.single;
@@ -1425,11 +1432,12 @@ void main() {
     expect(rig.brain.data.ledger, hasLength(1));
   });
 
-  testWidgets('with AI on, a question about saved reminders is answered by the AI from the records', (t) async {
-    final rig = await start(t,
+  testWidgets('with AI on, a question about saved reminders is answered from the app\'s own records, never the AI\'s count', (t) async {
+    await start(t,
         data: AppData(reminders: [Reminder(title: 'বাজার', date: DateTime(2026, 10, 9), hour: 18, minute: 20)]),
         ai: {
-          'reply': 'আজ ১টা রিমাইন্ডার আছে:\n• সন্ধ্যা ৬টা ২০ — বাজার',
+          // The AI miscounts on purpose: its words must not be what is said.
+          'reply': 'আজ ৩টা রিমাইন্ডার আছে',
           'items': [
             {'action': 'reminder_query', 'terms': ['আজ']},
           ],
@@ -1438,9 +1446,8 @@ void main() {
     await t.enterText(find.byType(TextField).first, 'আজ কোন রিমাইন্ডার আছে?');
     await t.testTextInput.receiveAction(TextInputAction.send);
     await settle(t);
-    expect(rig.ai.contexts.last.records, contains('বাজার'));
-    expect(find.textContaining('• সন্ধ্যা ৬টা ২০ — বাজার'), findsOneWidget);
-    expect(find.textContaining('তারিখ তো লেখা নেই'), findsNothing);
+    expect(find.textContaining('৩টা রিমাইন্ডার'), findsNothing);
+    expect(find.textContaining('বাজার'), findsWidgets);
   });
 
   testWidgets('home shows both dates, sun times and the next holiday; the calendar opens', (t) async {

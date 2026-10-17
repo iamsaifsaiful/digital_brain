@@ -307,7 +307,12 @@ String taskLine(Task t, DateTime now) {
       };
     }
   }
-  final bits = [if (when != null) when, if (t.urgent) tr('জরুরি')];
+  final dl = t.deadline;
+  final bits = [
+    if (when != null) when,
+    if (dl != null && (t.due == null || dayOnly(dl) != dayOnly(t.due!))) trf('শেষ সময় {0}', [sayWhen(dl, now, withTime: false)]),
+    if (t.urgent) tr('জরুরি'),
+  ];
   return bits.isEmpty ? t.title : '${t.title} (${bits.join(', ')})';
 }
 
@@ -476,7 +481,7 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       NotUnderstood() => _notUnderstood(cmd),
       ProfileQuery() => profileAnswer(d, cmd.transcript) ?? infoAnswer(d, cmd.transcript, now) ?? kindAnswer(d, kindAsked(normalize(cmd.transcript)) ?? 'papers'),
       OpenPlace() || ProfileSet() || ManageItem() ||
-      LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TasksClear() || TaskDone() || TaskEdit() || TaskRestore() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() || HealthAdd() => null,
+      LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TasksClear() || TaskDone() || TaskEdit() || TaskRestore() || ReminderSnooze() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() || HealthAdd() => null,
     };
 
 /// The money records of [q] (লেনদেন book and আয়-ব্যয়), newest first.

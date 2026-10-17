@@ -241,7 +241,11 @@ When? parseWhen(String said, DateTime now) {
       if (hour < 12) hour += 12;
     } else if (kind == 3) {
       if (hour >= 6 && hour < 12) hour += 12;
-      if (hour == 12) hour = 0;
+      if (hour == 12) {
+        hour = 0;
+        // "কাল রাত ১২টা": the night of that day — the next date at 00:00.
+        if (day != null) day = day.add(const Duration(days: 1));
+      }
     }
   } else if (period != null) {
     hour = period.$1;
@@ -266,6 +270,11 @@ When? parseWhen(String said, DateTime now) {
 
 /// "কাল (শনিবার) সকাল ১০টা" — how the app says a moment back.
 String sayWhen(DateTime at, DateTime now, {bool withTime = true}) {
+  // 00:00 belongs to the night before: "শনিবার দিবাগত রাত ১২টা".
+  if (withTime && at.hour == 0 && at.minute == 0) {
+    final eve = DateTime(at.year, at.month, at.day).subtract(const Duration(days: 1));
+    return '${sayWhen(eve, now, withTime: false)} দিবাগত রাত ১২টা';
+  }
   final today = DateTime(now.year, now.month, now.day);
   final day = DateTime(at.year, at.month, at.day);
   final diff = day.difference(today).inDays;
@@ -279,7 +288,7 @@ String sayWhen(DateTime at, DateTime now, {bool withTime = true}) {
 }
 
 final _timeBits = RegExp(
-    '(সাড়ে|সোয়া|পৌনে)?\\s*[০-৯0-9]{1,2}(\\s*[:.]\\s*[০-৯0-9]{2})?\\s*(টায়|টাতে|টার|টাই|টা|টে|বাজে)'
+    '(সাড়ে|সোয়া|পৌনে)?\\s*(?<![০-৯0-9])[০-৯0-9]{1,2}(\\s*[:.]\\s*[০-৯0-9]{2})?\\s*(টায়|টাতে|টার|টাই|টা|টে|বাজে)(?![ঀ-৿])'
         .replaceAll('ড়', 'ড়')
         .replaceAll('য়', 'য়'));
 
@@ -352,15 +361,53 @@ String tidy(String s) {
 
 /// "কাল আটটায়": an hour from 7 to 11 with no সকাল/রাত and no clock
 /// minutes — morning or night is the person's to say, not a guess.
+/// "চারটায়", "৬.২০-এ": a clock hour (1–12) with no ভোর/সকাল/দুপুর/বিকেল/
+/// সন্ধ্যা/রাত, no am/pm and not "N মিনিট পরে" — morning or evening is the
+/// person's to say. The time of day now never decides it.
 bool ampmUnclear(String said) {
-  final f = ' ${normalize(englishTimes(said))} ';
-  if (RegExp(fold(r'(?:ভোর|সকাল|দুপুর|বিকাল|বিকেল|সন্ধ্যা|রাত|am|pm|মিনিট\s+পর|ঘণ্টা\s+পর|ঘন্টা\s+পর)')).hasMatch(f)) return false;
+  final clockSaid = englishTimes(said).replaceAllMapped(RegExp(r'([0-9০-৯]{1,2})\s*:\s*([0-9০-৯]{2})'), (m) => '${m[1]}.${m[2]}');
+  final f = ' ${normalize(clockSaid)} ';
+  if (RegExp(fold(r'(?:ভোর|সকাল|দুপুর|বিকাল|বিকেল|সন্ধ্যা|সন্ধা|রাত|am|pm|মিনিট\s+পর|ঘণ্টা\s+পর|ঘন্টা\s+পর|মিনিটে|ঘণ্টায়)')).hasMatch(f)) return false;
   final w = [for (final x in words(f.trim())) _hourWord(x)];
   for (var i = 0; i < w.length; i++) {
-    final m = RegExp(fold(r'^(\d{1,2})(টায়|টাতে|টার|টা|টে)$')).firstMatch(w[i]);
+    final m = RegExp(fold(r'^(\d{1,2})(?:\.(\d{2}))?-?(টায়|টাতে|টার|টা|টে|এ|তে)?$')).firstMatch(w[i]);
     if (m == null) continue;
     final h = int.parse(m[1]!);
-    if (h >= 7 && h <= 11) return true;
+    if (h < 1 || h > 12) continue;
+    final hasClock = m[2] != null;
+    final next = i + 1 < w.length ? w[i + 1] : '';
+    // "৩টা ডিম" is a count; a time needs টায়/বাজে, a clock, or minutes.
+    if (!hasClock && m[3] == null) continue;
+    if (!hasClock && m[3] == fold('টা') && next != fold('বাজে') && !RegExp(r'^\d').hasMatch(next)) continue;
+    if (!hasClock && (m[3] == fold('এ') || m[3] == fold('তে'))) continue;
+    return true;
   }
   return false;
+}
+
+/// The two readings of an unclear hour, each the next time it comes round
+/// (unless [day] was said): ("ভোর ৪টা", 04:00) and ("বিকেল ৪টা", 16:00);
+/// for 12: noon and midnight.
+List<DateTime> ampmReadings(DateTime at, DateTime now, {bool daySaid = false}) {
+  final h12 = at.hour % 12 == 0 ? 12 : at.hour % 12;
+  final d = DateTime(at.year, at.month, at.day);
+  final am = DateTime(d.year, d.month, d.day, h12 == 12 ? 0 : h12, at.minute).add(Duration(days: h12 == 12 ? 1 : 0));
+  final pm = DateTime(d.year, d.month, d.day, h12 == 12 ? 12 : h12 + 12, at.minute);
+  DateTime ahead(DateTime x) => !daySaid && !x.isAfter(now) ? x.add(const Duration(days: 1)) : x;
+  return [ahead(am), ahead(pm)];
+}
+
+/// Only a part of the day was said ("কাল সকালে", "রাতে"), no clock hour:
+/// that part ("সকালে"), or null.
+String? partOnly(String said) {
+  final f = ' ${fold(said)} ';
+  final m = RegExp(fold(r'(?<=\s)(ভোরে|ভোর|সকালে|সকাল|সকালবেলা|দুপুরে|দুপুর|বিকেলে|বিকালে|বিকেল|সন্ধ্যায়|সন্ধ্যা|রাতে|রাত)(?=\s)')).firstMatch(f);
+  if (m == null) return null;
+  final hasClock = RegExp(fold(r'(?:[০-৯0-9]{1,2}\s*(?:টা|টায়|টাতে|টার|টে|[:.]\s*[০-৯0-9]{2})|(?:এক|দুই|দু|তিন|চার|পাঁচ|ছয়|সাত|আট|নয়|দশ|এগারো|এগার|বারো)(?:টা|টায়|টাতে|টার|টে)|মিনিট|ঘণ্টা|ঘন্টা)')).hasMatch(f);
+  if (hasClock) return null;
+  final p = m[1]!;
+  for (final (k, v) in [('ভোর', 'ভোরে'), ('সকাল', 'সকালে'), ('দুপুর', 'দুপুরে'), ('বিকেল', 'বিকেলে'), ('বিকাল', 'বিকেলে'), ('সন্ধ্যা', 'সন্ধ্যায়'), ('রাত', 'রাতে')]) {
+    if (p.startsWith(fold(k))) return v;
+  }
+  return p;
 }

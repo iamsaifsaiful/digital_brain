@@ -112,6 +112,8 @@ String bnTime(int hour, int minute) {
   final String part;
   if (hour < 4) {
     part = 'রাত';
+  } else if (hour < 6) {
+    part = 'ভোর';
   } else if (hour < 12) {
     part = 'সকাল';
   } else if (hour < 15) {

@@ -1052,6 +1052,10 @@ class Brain extends ChangeNotifier {
       }
     }
     if (!aiOn) return (rules, null);
+    // The to-do list and reminders are decided on the phone, by the same
+    // rules typed or spoken: when they found what is wanted, the AI is not
+    // asked (one reading, one action — never a second one from the AI).
+    if (rules.any(_decidedHere)) return (rules, null);
     // Money is counted from the saved book, never put into words by the AI
     // (it could make up an amount); a question that needs a choice is asked.
     if (rules.length == 1 && (rules.first is MoneyListQuery || rules.first is Clarify || rules.first is LedgerQuery || rules.first is CashQuery)) return (rules, null);
@@ -1087,6 +1091,10 @@ class Brain extends ChangeNotifier {
       return (rules, '${e.message} নিজের নিয়মে বুঝে নিলাম।');
     }
   }
+
+  /// To-do and reminder commands the rules settle by themselves.
+  static bool _decidedHere(Command c) =>
+      c is TaskAdd || c is TaskEdit || c is TaskDone || c is TaskQuery || c is TaskRestore || c is TasksClear || c is ReminderAdd || c is ReminderSnooze || c is Clarify;
 
   /// Rules that only half understood: nothing, a search, or a plain note.
   static bool _weak(List<Command> c) => c.length == 1 && (c.first is NotUnderstood || c.first is SearchQuery || c.first is NoteAdd);
@@ -1572,6 +1580,15 @@ class Brain extends ChangeNotifier {
       final now = services.now();
       final due = t.due ?? r.nextOnOrAfter(now);
       return saveTask(t.copyWith(done: false, doneAt: now, due: r.after(due)));
+    }
+    // Done: its own one-time reminder still ahead is turned off (it would
+    // only ring about something finished). Opened again: left off.
+    final rid = t.reminderId;
+    if (done && rid != null) {
+      final rem = reminderById(rid);
+      if (rem != null && rem.enabled && rem.repeat == Repeat.none && DateTime(rem.date.year, rem.date.month, rem.date.day, rem.hour, rem.minute).isAfter(services.now())) {
+        return saveTask(t.copyWith(done: true, doneAt: services.now())).then((_) => switchOffReminder(rid));
+      }
     }
     return saveTask(t.copyWith(done: done, doneAt: done ? services.now() : null));
   }

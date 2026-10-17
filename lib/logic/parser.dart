@@ -19,8 +19,11 @@ import 'meaning.dart';
 import 'answers.dart' show periodIn;
 import 'when.dart';
 import 'calendar_bd.dart' show hijriDate;
+import 'phrases.dart' show toPerson;
+import 'match.dart' show wordsMatch;
 
 part 'todo.dart';
+part 'aspect.dart';
 
 sealed class Command {
   const Command(this.transcript);
@@ -157,6 +160,13 @@ class TaskQuery extends Command {
   final TaskScope? scope;
 }
 
+/// "দশ মিনিট পরে আবার মনে করিও": the reminder that just rang (or was just
+/// set) again after [minutes].
+class ReminderSnooze extends Command {
+  const ReminderSnooze(super.transcript, {required this.minutes});
+  final int minutes;
+}
+
 /// "আজকের সব কাজ মুছে দাও", "কাজের তালিকার সবকটা ডিলিট করো": every open
 /// to-do (of [day], when one is said) — confirmed once, then removed (kept
 /// 30 days in মুছে ফেলা).
@@ -173,8 +183,12 @@ class TasksClear extends Command {
 
 /// "কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও".
 class ReminderAdd extends Command {
-  const ReminderAdd(super.transcript, {required this.title, required this.at, this.repeat = Repeat.none, this.alarm = false, this.weekdays = const [], this.minutesBefore = 0, this.day});
+  const ReminderAdd(super.transcript, {required this.title, required this.at, this.repeat = Repeat.none, this.alarm = false, this.weekdays = const [], this.minutesBefore = 0, this.day, this.part});
   final String title;
+
+  /// "কাল সকালে মনে করিও": only the part of the day was said — the hour is
+  /// asked ("সকালে কয়টায়?"), and an answer like "আটটায়" stays in it.
+  final String? part;
 
   /// A day said without a time ("কাল মনে করিয়ে দিও"): the chat asks the hour for it.
   final DateTime? day;
@@ -790,7 +804,11 @@ class Parser {
   final List<Contact> contacts;
   final DateTime now;
 
-  Command parse(String said) {
+  /// What [said] asks for, checked against the shared rules ([checked])
+  /// that every way in — these rules or the AI — goes through.
+  Command parse(String said) => checked(_parse(said), said, now);
+
+  Command _parse(String said) {
     // "কাল eight pm-এ …": English times read as Bengali ones (also for titles).
     said = englishTimes(said);
     // "ইয়ার তুমি একটা কাজ করো তো …", "… একটু বলতো": how people open and
@@ -816,6 +834,12 @@ class Parser {
     // moved, reminded — before any keyword rule can take a piece of it.
     final todo = todoCommands(said, tasks, now);
     if (todo != null && todo.isNotEmpty) return todo.first;
+
+    // Money said as a plan, a duty, a reminder or a condition ("শুক্রবার
+    // দেব", "ফেরত দিতে হবে", "দিতে মনে করিও", "বেতন পেলে দেব") is not a
+    // transaction: it never reaches the money book (aspect.dart).
+    final notYet = moneyNotNow(said, now);
+    if (notYet != null) return notYet;
 
     // "… এটা একটা কাজের লিস্টে রাখ", "… কাজের তালিকায় লিখে রাখো": a to-do,
     // even when it has a date ("২০ তারিখে") or a time in it.
@@ -1751,6 +1775,8 @@ class Parser {
 
   Command? _plan(String said, String text, List<String> w) {
     if (text.contains(normalize('টাকা')) || findAmount(normalize(withoutWhen(said))) != null) return null;
+    // "আজ সকাল ৮টায় মিটিং মনে করিও": a reminder request — never quietly a to-do.
+    if (aspectOf(said) == Aspect.remind) return null;
     final when = parseWhen(said, now);
     if (when == null || !(when.hasDay || when.hasTime)) return null;
     // "আজ ইব্রাহিম ভাই আসার কথা সন্ধ্যা ৭টায়", "কাল ১০টায় মিটিং": an appointment.
@@ -1929,7 +1955,7 @@ const _addVerbs = [
 const _fillers = ['আমাকে', 'আমারে', 'প্লিজ', 'একটু', 'please', 'তো'];
 const _remindKeys = [
   'মনে করিয়ে দিও', 'মনে করিয়ে দিবা', 'মনে করিয়ে দেবে', 'মনে করিয়ে দিবে', 'মনে করিয়ে দাও', 'মনে করিয়ে দিয়ো', 'মনে করিয়ে দিবেন',
-  'মনে করিয়ে দিন', 'মনে করিয়ে দেবেন', 'মনে করিয়ে দিও তো', 'মনে করিয়ে', 'মনে করাবে', 'মনে করাবা', 'মনে করাইও', 'মনে করাইয়া দিও',
+  'মনে করিয়ে দিন', 'মনে করিয়ে দেবেন', 'মনে করিয়ে দিও তো', 'মনে করিয়ে', 'মনে করাবে', 'মনে করাবা', 'মনে করাইও', 'মনে করিও', 'মনে করিয়ো', 'মনে করাইয়ো', 'মনে করাইয়া দিও',
   'রিমাইন্ডার সেট করে দাও', 'রিমাইন্ডার সেট করে দিও', 'রিমাইন্ডার সেট করে দেন', 'রিমাইন্ডার সেট করেন', 'রিমাইন্ডার সেট কর', 'এলার্ম সেট করে দাও', 'অ্যালার্ম সেট করে দাও', 'রিমাইন্ডার দাও', 'রিমাইন্ডার দিও', 'রিমাইন্ডার সেট করো', 'রিমাইন্ডার রাখো', 'রিমাইন্ডার', 'অ্যালার্ম দাও', 'অ্যালার্ম দিও',
   'অ্যালার্ম সেট করো', 'এলার্ম দাও', 'এলার্ম দিও', 'remind me', 'remind', 'alarm', 'জানিয়ে দিও', 'জানিয়ে দিবা', 'জানাবে', 'ডেকে দিও',
   'ডেকে দিবা', 'কথা বলো', 'কথা বলবা', 'কথা বলবে', 'কথা বলিও', 'বলে দিও', 'বলে দিবা',

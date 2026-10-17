@@ -72,7 +72,7 @@ const _bnMap = {
 };
 
 /// Consonant outline used to compare a Bengali spelling with an English
-/// one: "ফেসবুক" and "facebook" both give "fsbk".
+/// one: "ফেসবুক" and "facebook" both give "fsbk"; "মিটিং" and "meeting" "mtn".
 String skeleton(String word) {
   final w = fold(word.toLowerCase());
   final b = StringBuffer();
@@ -91,7 +91,7 @@ String skeleton(String word) {
     }
   } else {
     var s = w.replaceAll(RegExp(r'[^a-z]'), '');
-    for (final (a, r) in const [('ph', 'f'), ('ck', 'k'), ('sh', 's'), ('ch', 'c'), ('th', 't'), ('kh', 'k'), ('gh', 'g'), ('bh', 'b'), ('dh', 'd'), ('qu', 'k')]) {
+    for (final (a, r) in const [('ng', 'n'), ('ph', 'f'), ('ck', 'k'), ('sh', 's'), ('ch', 'c'), ('th', 't'), ('kh', 'k'), ('gh', 'g'), ('bh', 'b'), ('dh', 'd'), ('qu', 'k')]) {
       s = s.replaceAll(a, r);
     }
     s = s.replaceAllMapped(RegExp(r'c(?=[eiy])'), (_) => 's').replaceAll('c', 'k');
