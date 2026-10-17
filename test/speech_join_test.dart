@@ -29,7 +29,14 @@ void main() {
     expect(j.text, 'ঠিক আছে');
     final b = j.newSession();
     j.result(b, 'ঠিক আছে', isFinal: true, clean: same);
-    expect(j.text, 'ঠিক আছে ঠিক আছে', reason: 'said twice on purpose, in two sessions');
+    // Recordings (17 Oct): phones restart and send the last piece again — a
+    // repeat right after itself is the phone, not the person.
+    expect(j.text, 'ঠিক আছে');
+    final c = j.newSession();
+    j.result(c, 'আর একটা কথা', isFinal: true, clean: same);
+    final d = j.newSession();
+    j.result(d, 'ঠিক আছে', isFinal: true, clean: same);
+    expect(j.text, 'ঠিক আছে আর একটা কথা ঠিক আছে', reason: 'said again later, after other words: kept');
   });
 
   test('a late callback from an older session changes nothing', () {
@@ -74,5 +81,14 @@ void main() {
     final b = j.newSession();
     j.result(b, 'আমার এখানে যতগুলো কাজ আছে সবকটা মুছে দাও', isFinal: true, clean: same);
     expect(j.text, 'আমার এখানে যতগুলো কাজ আছে সবকটা মুছে দাও');
+  });
+
+  test('restarted sessions resending the sentence so far, grown (recording 17 Oct): no stutter', () {
+    final j = SpeechJoin();
+    for (final w in ['আমার', 'আমার', 'আমার', 'আমার আজকে', 'আমার আজকে কোন', 'আমার আজকে কোন কাজ আছে']) {
+      final s = j.newSession();
+      j.result(s, w, isFinal: true, clean: same);
+    }
+    expect(j.text, 'আমার আজকে কোন কাজ আছে');
   });
 }

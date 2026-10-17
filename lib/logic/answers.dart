@@ -11,6 +11,7 @@ import 'cash.dart';
 import 'health.dart';
 import 'ledger.dart';
 import 'match.dart';
+import 'day_plan.dart';
 import 'meaning.dart' show tidySpeech;
 import 'parser.dart';
 import 'phrases.dart';
@@ -241,15 +242,16 @@ String taskAnswer(AppData d, DateTime now, [String asked = '']) {
   }
   final w = asked.isEmpty ? null : parseWhen(tidySpeech(asked), now);
   if (w != null && w.hasDay) {
-    final day = dayOnly(w.day);
-    final today = dayOnly(now);
-    // Today's list is what the কাজ page shows under "আজ": due today, late, or without a date.
-    final those = [for (final t in open) if (day == today ? (t.due == null || !dayOnly(t.due!).isAfter(today)) : (t.due != null && dayOnly(t.due!) == day)) t];
-    final when = sayWhen(day, now, withTime: false);
-    final rest = open.length - those.length;
-    final more = rest > 0 ? trf(' তারিখ ছাড়া বা অন্য দিনের আরও {0}টা কাজ আছে।', [bnDigits(rest)]) : '';
-    if (those.isEmpty) return trf('{0} কোনো কাজ রাখা নেই।{1}', [when, more]);
-    return trf('{0} {1}টা কাজ — {2}।{3}', [when, bnDigits(those.length), nameList([for (final t in those) t.title], unit: 'টা'), more]);
+    // The same list the home's আজকের কাজ and the কাজ page show for that day:
+    // to-dos and reminders (one definition — they never disagree).
+    final items = planItemsOn(d, w.day, now);
+    final when = sayWhen(dayOnly(w.day), now, withTime: false);
+    if (items.isEmpty) {
+      final rest = open.length;
+      return trf('{0} কোনো কাজ বা রিমাইন্ডার নেই।{1}', [when, rest > 0 ? trf(' অন্য দিনের বা তারিখ ছাড়া {0}টা কাজ আছে।', [bnDigits(rest)]) : '']);
+    }
+    String label(PlanItem i) => i.reminder != null ? '${i.title} (${bnTime(i.sort.hour, i.sort.minute)})' : i.title;
+    return trf('{0} {1}টা — {2}।', [when, bnDigits(items.length), nameList([for (final i in items) label(i)], unit: 'টা')]);
   }
   if (open.isEmpty) return tr('এখন কোনো কাজ বাকি নেই। নতুন কাজ বললে তালিকায় তুলে রাখব।');
   return trf('{0}টা কাজ বাকি — {1}।', [bnDigits(open.length), nameList([for (final t in open) taskLabel(t, now)], unit: 'টা')]);

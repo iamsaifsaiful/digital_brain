@@ -37,6 +37,10 @@ List<Command> parseAll(String said, List<LedgerEntry> ledger,
   // "ইয়ার তুমি একটা কাজ করো তো …": the opening words are not part of it.
   final tidied = tidySpeech(said);
   if (tidied.isNotEmpty) said = tidied;
+  // "৮ নভেম্বর ঢাকায় যাব, ২২ নভেম্বর সিঙ্গাপুর যাব আর ২৯ তারিখে ফিরব —
+  // এগুলো কাজের তালিকায় যুক্ত করো": several dated to-dos in one breath.
+  final dated = datedTodos(said, p);
+  if (dated != null) return dated;
   // "… এটা আমাকে কাজের তালিকায় লিখে রাখো": one to-do, said whole.
   final first = p.parse(said);
   if (first is TaskAdd && RegExp(fold(r'(?:কাজের\s+(?:লিস্ট|তালিকা)|টু\s*ডু)')).hasMatch(fold(said))) return [first];
@@ -155,3 +159,38 @@ String summaryLine(Command c) => switch (c) {
           : trf('রক্তের গ্রুপ{0}: {1}', [c.who.isEmpty ? '' : ' (${c.who})', c.value]),
       _ => c.transcript,
     };
+
+
+/// Several to-dos, each with its own date, said together with an order to
+/// put them on the list. Split at every date ("৮ নভেম্বর", "২৯ তারিখে");
+/// a date without a month takes the month said before it. Null when the
+/// sentence is not such a list (one date or none, or no list order).
+List<Command>? datedTodos(String said, Parser p) {
+  final f = fold(said);
+  final order = RegExp(fold(r'[\s,।]*(?:(?:এগুলো|এগুলা|এগুলি|এসব|এই\s+সব|এই\s+কাজগুলো|সবগুলো|সব)\s+)?(?:আমার\s+)?(?:কাজের\s+(?:তালিকা|লিস্ট)\S*|টু\s*ডু\S*)(?:\s+\S+){0,4}[\s,।!]*$')).firstMatch(f);
+  if (order == null) return null;
+  if (!RegExp(fold(r'(?:যুক্ত|যোগ|রাখ|রেখ|লিখ|লেখ|তুলে|অ্যাড|এড|add)')).hasMatch(order[0]!)) return null;
+  final body = f.substring(0, order.start);
+  final months = bnMonths.map(fold).join('|');
+  final date = RegExp('(?:^|(?<=[\\s,।]))[০-৯0-9]{1,2}\\s+(?:(?:$months)|${fold('তারিখ')}\\S*)');
+  final at = date.allMatches(body).toList();
+  if (at.length < 2) return null;
+  final out = <Command>[];
+  String? month;
+  for (var i = 0; i < at.length; i++) {
+    final end = i + 1 < at.length ? at[i + 1].start : body.length;
+    // Words said before the first date belong to the first to-do.
+    var piece = body.substring(i == 0 ? 0 : at[i].start, end).trim();
+    piece = piece.replaceAll(RegExp(fold(r'[\s,।]*(?:এবং|আর|তারপর|তারপরে|এরপর|এরপরে|ও)[\s,।]*$')), '').trim();
+    final m = RegExp('($months)').firstMatch(at[i][0]!);
+    if (m != null) {
+      month = m[1];
+    } else if (month != null) {
+      piece = piece.replaceFirstMapped(RegExp('([০-৯0-9]{1,2})\\s+${fold('তারিখ')}\\S*'), (x) => '${x[1]} $month');
+    }
+    final c = p.parse('$piece — কাজের তালিকায় লিখে রাখো');
+    if (c is! TaskAdd || c.title.trim().isEmpty || c.due == null) return null;
+    out.add(c);
+  }
+  return out;
+}

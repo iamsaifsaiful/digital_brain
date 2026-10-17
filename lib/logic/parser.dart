@@ -772,6 +772,12 @@ class Parser {
         break;
     }
 
+    // "আজকে কোন কাজ আছে", "কালকের যে কাজগুলো আছে", "আমার কী কাজ বাকি":
+    // asking what is on the list. Decided by the shape of the sentence
+    // (to-do word + "আছে/বাকি" + a question word or a plural) before any
+    // add, reminder or search rule can take a piece of it.
+    if (asksForTasks(text)) return TaskQuery(said);
+
     // "… এটা একটা কাজের লিস্টে রাখ", "… কাজের তালিকায় লিখে রাখো": a to-do,
     // even when it has a date ("২০ তারিখে") or a time in it.
     final toList = _hasNorm(text, ['কাজের লিস্ট', 'কাজের লিস্টে', 'কাজের তালিকা', 'কাজের তালিকায়', 'কাজের তালিকাতে', 'কাজের তালিকা তে', 'কাজের লিস্টের', 'টুডু', 'টু ডু']);
@@ -1874,6 +1880,8 @@ const _addVerbs = [
   'লিখে রেখো', 'লিখে রাখেন', 'add', 'মনে রাখো', 'তুলে রাখো', 'ঢুকাও',
   'তুলে রাখ', 'তুলে রাখেন', 'লিস্ট কর', 'লিস্ট করো', 'তালিকা কর', 'তালিকা করো', 'লিস্টে রাখ', 'লিস্টে রাখো', 'তালিকায় রাখ', 'তালিকায় রাখো',
   'লেখ', 'লেখো', 'লিখ', 'লিখবা', 'লিখবে', 'লিখে দাও', 'লিখে দিও', 'এড করো', 'এড কর', 'অ্যাড করো', 'অ্যাড কর',
+  // "এগুলো কাজের তালিকায় যুক্ত করো": every form of "যুক্ত/যোগ করা".
+  'যুক্ত কর', 'যুক্ত করে', 'যোগ করে', 'ঢুকিয়ে', 'সেভ কর', 'তুলে দাও', 'তুলে দিও',
 ];
 const _fillers = ['আমাকে', 'আমারে', 'প্লিজ', 'একটু', 'please', 'তো'];
 const _remindKeys = [
@@ -1979,7 +1987,41 @@ const _stopWordsRaw = {
   'খোঁজো', 'খুঁজুন', 'বের', 'আছে', 'ছিল', 'টা', 'টি', 'একটু', 'প্লিজ', 'please', 'show', 'the', 'my', 'of',
   'what', 'is', 'হবে', 'হয়', 'জন্য', 'আর', 'ও', 'যে', 'সেই', 'এই', 'ওই', 'নম্বর', 'নাম্বার', 'ওয়েবসাইট',
   'সাইট', 'অ্যাপ', 'অ্যাপের', 'মেয়াদ', 'শেষ', 'হওয়ার', 'দিনটা',
+  // Words that never name a thing the user kept — by class, so a speech
+  // fragment ("আগামীকাল", "কিন্তু আমি", "আজকে কোন কাজ আছে") never turns
+  // into a search that fuzzy-matches a contact ("Khala", "Konate", "Kazi").
+  // Days and times of day:
+  'আজ', 'আজকে', 'আজকের', 'কাল', 'কালকে', 'কালকের', 'আগামীকাল', 'আগামীকালকে', 'আগামীকালের', 'গতকাল', 'গতকালকে', 'পরশু', 'পরশুদিন',
+  'সকাল', 'সকালে', 'দুপুর', 'দুপুরে', 'বিকাল', 'বিকেল', 'বিকেলে', 'সন্ধ্যা', 'সন্ধ্যায়', 'রাত', 'রাতে', 'এখন', 'তখন', 'পরে', 'আগে', 'দিনে',
+  // Joining words and openers:
+  'কিন্তু', 'এবং', 'তারপর', 'তারপরে', 'এরপর', 'তবে', 'তাহলে', 'নাকি', 'অথবা', 'বা', 'যদি', 'মানে', 'আবার', 'তো', 'তাই', 'কারণ', 'আচ্ছা', 'ঠিক',
+  'হ্যাঁ', 'হ্যা', 'জি', 'জ্বি', 'না', 'ভাই', 'আপা', 'ইয়ে', 'ইয়া', 'এইযে', 'শোনো', 'শুনো', 'যেটা', 'সেটা', 'এটা', 'ওটা', 'এগুলো', 'সেগুলো',
+  // People said as pronouns:
+  'তুমি', 'তোমার', 'তোমাকে', 'আপনি', 'আপনার', 'আপনাকে', 'আমরা', 'আমাদের', 'সে', 'তার', 'তাকে', 'ওর', 'ওকে', 'উনি', 'ওনার',
+  // The to-do list itself (asked about through the list, not a search):
+  'কাজ', 'কাজের', 'কাজগুলো', 'কাজগুলি', 'কাজগুলা', 'কাজটা', 'তালিকা', 'তালিকায়', 'লিস্ট', 'লিস্টে', 'বাকি', 'কোনো', 'কয়টা', 'কতগুলো', 'কোনগুলো',
+  // Plain verbs of saying, doing and being:
+  'করো', 'কর', 'করি', 'করিনি', 'করি নাই', 'বলি', 'বললাম', 'বলছি', 'বলতেছি', 'জিজ্ঞেস', 'চাই', 'যাও', 'যাব', 'দেখি', 'নেই', 'নাই', 'হলো', 'হল',
 };
+
+/// "আজকে কোন কাজ আছে", "কালকের যে কাজগুলো আছে", "কয়টা কাজ বাকি": a
+/// question about the to-do list. A statement ("কাল আমার একটা কাজ আছে,
+/// ব্যাংকে যেতে হবে") or an order to add/remove is not.
+bool asksForTasks(String text) {
+  final w = words(text);
+  final nouns = {for (final x in const ['কাজ', 'কাজগুলো', 'কাজগুলি', 'কাজগুলা', 'কাজসমূহ', 'টাস্ক', 'task', 'tasks']) normalize(x)};
+  final plural = {for (final x in const ['কাজগুলো', 'কাজগুলি', 'কাজগুলা', 'কাজসমূহ', 'tasks']) normalize(x)};
+  final be = {for (final x in const ['আছে', 'বাকি', 'রয়েছে', 'রয়েছে', 'নেই', 'নাই', 'পড়ে']) normalize(x)};
+  final ask = {for (final x in const ['কোন', 'কোনো', 'কী', 'কি', 'কয়টা', 'কয়টি', 'কয়টা', 'কতগুলো', 'কতগুলা', 'কত', 'কোনগুলো', 'কোনগুলা']) normalize(x)};
+  final at = w.indexWhere(nouns.contains);
+  if (at < 0) return false;
+  // "তোমার কি কোনো কাজ নেই?" is said to the assistant, not about the list.
+  if (w.any((x) => const ['তুমি', 'তোমার', 'তোমাকে', 'তোর', 'তুই'].map(normalize).contains(x))) return false;
+  if (!w.skip(at + 1).any(be.contains)) return false;
+  if (!w.any(ask.contains) && !w.any(plural.contains)) return false;
+  if (_hasNorm(text, _addVerbs) || _hasNorm(text, const ['মুছে', 'মুছো', 'বাদ দাও', 'বাদ দিয়ে', 'বাদ দিও', 'ডিলিট', 'কেটে দাও', 'শেষ করেছি', 'হয়ে গেছে', 'করে ফেলেছি'])) return false;
+  return findAmount(text) == null;
+}
 
 /// The words worth searching for in a sentence.
 List<String> searchTerms(String normalized) {

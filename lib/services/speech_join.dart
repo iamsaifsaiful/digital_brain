@@ -34,6 +34,12 @@ class SpeechJoin {
   /// earlier instead of being added after it.
   final Map<int, String> _before = {};
 
+  /// The last final piece of any session, and what was committed before it:
+  /// some phones restart the recogniser and send the sentence so far again,
+  /// grown ("আমার", "আমার আজকে", "আমার আজকে কোন কাজ আছে").
+  String _lastFinal = '';
+  String _lastBase = '';
+
   String get text => '$committed $current'.trim();
 
   void reset() {
@@ -43,6 +49,8 @@ class SpeechJoin {
     _keptSession = -1;
     _finals.clear();
     _before.clear();
+    _lastFinal = '';
+    _lastBase = '';
   }
 
   /// A new recogniser session in the same turn; returns its id.
@@ -75,6 +83,18 @@ class SpeechJoin {
       Trace.log('voice', 'repeated final ignored', {'session': sid});
       return false;
     }
+    // A new session whose final starts with the last piece (the phone sent
+    // the sentence so far again, grown): it takes that piece's place.
+    final w0 = words.trim();
+    if (isFinal && _finals[sid] == null && _lastFinal.isNotEmpty && w0.startsWith(_lastFinal) && committed.trim().endsWith(_lastFinal)) {
+      Trace.log('voice', 'new session repeats the last piece — replaced', {'session': sid});
+      final grew = w0 != _lastFinal;
+      if (grew) committed = clean('$_lastBase $w0'.trim());
+      current = '';
+      _finals[sid] = words;
+      _lastFinal = w0;
+      return grew;
+    }
     // A new session that sends the whole long sentence again (some phones
     // restart and repeat it): not said twice.
     if (isFinal && _finals[sid] == null && words.trim().split(RegExp(r'\s+')).length >= 5 && committed.trim().endsWith(words.trim())) {
@@ -104,6 +124,11 @@ class SpeechJoin {
       }
       current = '';
       _finals[sid] = words;
+      final c = committed.trim();
+      if (w.isNotEmpty && c.endsWith(w)) {
+        _lastFinal = w;
+        _lastBase = c.substring(0, c.length - w.length).trim();
+      }
     }
     return changed;
   }

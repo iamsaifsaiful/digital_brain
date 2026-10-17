@@ -594,4 +594,85 @@ void main() {
       expect(chat.brain.data.reminders.single.repeat, Repeat.monthly);
     });
   });
+
+  // 17 Oct, sixth set: questions about the day's to-dos answered with a
+  // contact's number ("কাজ" ~ "Kazi"), speech fragments ("আগামীকাল",
+  // "কিন্তু আমি") searched as names, and three dated to-dos in one breath
+  // answered as "নভেম্বরে কোনো কাজ নেই".
+  group('17 Oct sixth set', () {
+    Future<ChatController> withContacts(WidgetTester t) async {
+      final rig = await start(t);
+      rig.brain.data.contacts.addAll([
+        Contact(name: 'Kazi Nazrul', phone: '01700000000'),
+        Contact(name: 'Shilpu Khala', phone: '01800000000'),
+        Contact(name: 'Moussa Konate', phone: '01900000000'),
+      ]);
+      return ChatController(rig.brain);
+    }
+
+    testWidgets('a question about the day\'s to-dos lists the day, never a contact', (t) async {
+      final chat = await withContacts(t);
+      final now = DateTime(2026, 10, 9, 15, 53); // the test clock
+      chat.brain.data.tasks.add(Task(title: 'ব্যাংকে যাওয়া'));
+      chat.brain.data.tasks.add(Task(title: 'বাজার করা', due: DateTime(now.year, now.month, now.day + 1)));
+      for (final (said, has) in [
+        ('আজকে কোন কাজ আছে', 'ব্যাংকে যাওয়া'),
+        ('আমার আজকে কোন কাজ আছে', 'ব্যাংকে যাওয়া'),
+        ('আগামীকালকে আমার কোন কাজ আছে', 'বাজার করা'),
+        ('কালকের যে কাজগুলো আছে', 'বাজার করা'),
+      ]) {
+        final before = chat.messages.length;
+        await chat.hear(said);
+        final reply = chat.messages.skip(before).map((m) => m.text).join(' ');
+        expect(reply, contains(has), reason: said);
+        expect(reply, isNot(contains('নম্বর')), reason: said);
+        expect(chat.brain.data.tasks.length, 2, reason: '$said added nothing');
+      }
+    });
+
+    testWidgets('fragments are not searched as names', (t) async {
+      final chat = await withContacts(t);
+      for (final said in ['আগামীকাল', 'কিন্তু আমি', 'আজকে', 'তারপর কাল']) {
+        final before = chat.messages.length;
+        await chat.hear(said);
+        final reply = chat.messages.skip(before).map((m) => m.text).join(' ');
+        for (final n in ['Kazi', 'Khala', 'Konate', 'নম্বর']) {
+          expect(reply, isNot(contains(n)), reason: said);
+        }
+      }
+    });
+
+    testWidgets('a real name is still found', (t) async {
+      final chat = await withContacts(t);
+      await chat.hear('কাজী নজরুলের নম্বর কত');
+      expect(chat.messages.last.text, contains('Kazi Nazrul'));
+    });
+
+    testWidgets('several dated to-dos in one breath become one to-do each', (t) async {
+      final chat = await withContacts(t);
+      await chat.hear('নভেম্বর মাসে ৮ তারিখে ঢাকায় যাব নভেম্বর মাসের বাইশ তারিখে সিঙ্গাপুর যাব এবং ২৯ তারিখে ঢাকায় ব্যাক করব এগুলো কাজের তালিকায় যুক্ত করো');
+      await chat.hear('হ্যাঁ');
+      final tasks = chat.brain.data.tasks;
+      expect(tasks.map((x) => x.title).toList(), ['ঢাকায় যাব', 'সিঙ্গাপুর যাব', 'ঢাকায় ব্যাক করব']);
+      expect(tasks.map((x) => x.due!.day).toList(), [8, 22, 29]);
+      expect(tasks.every((x) => x.due!.month == 11), isTrue);
+    });
+
+    test('day numbers said as words read as dates', () {
+      expect(tidySpeech('নভেম্বর মাসের বাইশ তারিখে সিঙ্গাপুর যাব'), contains('২২ নভেম্বর'));
+      expect(tidySpeech('পঁচিশে ডিসেম্বর বাড়ি যাব'), contains('২৫ ডিসেম্বর'));
+      expect(tidySpeech('একত্রিশ তারিখে বিল দিতে হবে'), contains('৩১ তারিখে'));
+    });
+
+    test('a fragment ending on "আমি" waits for the rest', () {
+      expect(leftOpen('কিন্তু আমি'), isTrue);
+      expect(leftOpen('আজকে কোন কাজ আছে'), isFalse);
+    });
+
+    testWidgets('"জিজ্ঞেস করিনি" is a complaint, not a search', (t) async {
+      final chat = await withContacts(t);
+      await chat.hear('আমি তো তোমাকে জিজ্ঞেস করিনি');
+      expect(chat.messages.last.text, contains('দুঃখিত'));
+    });
+  });
 }
