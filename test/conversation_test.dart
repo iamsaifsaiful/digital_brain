@@ -58,18 +58,18 @@ void main() {
   testWidgets('"না, এগারোটায় করো" changes the waiting reminder; it is not a no', (t) async {
     final rig = await start(t);
     chat = ChatController(rig.brain);
+    // Set at once (complete request); "না, এগারোটায়" right after changes
+    // that same reminder — never a second one, never a "no".
     expect(await say('কাল সকাল দশটায় মিটিংয়ের রিমাইন্ডার দাও'), contains('১০টা'));
     final again = await say('না, এগারোটায় করো');
     expect(again, contains('১১টা'));
     expect(again, contains('মিটিং'));
-    expect(rig.brain.data.reminders, isEmpty, reason: 'still asked once, not saved yet');
-    await say('হ্যাঁ');
     final r = rig.brain.data.reminders.single;
     expect((r.title, r.hour, r.date), ('মিটিং', 11, DateTime(2026, 10, 10)));
     // A different day the same way.
     await say('পরশু বিকেল ৪টায় ব্যাংকে যাওয়ার কথা মনে করিয়ে দিও');
     await say('না, কাল করো');
-    await say('ঠিক আছে');
+    expect(rig.brain.data.reminders, hasLength(2));
     expect(rig.brain.data.reminders.last.date, DateTime(2026, 10, 10));
     expect(rig.brain.data.reminders.last.hour, 16);
   });
@@ -140,7 +140,7 @@ void main() {
     await rig.brain.saveTask(Task(title: 'রিপোর্ট জমা দেওয়া'));
     await say('রিপোর্ট জমা দেওয়ার কাজটা শেষ হয়েছে');
     expect(rig.brain.data.tasks.single.done, isTrue);
-    expect(await say('না না, রিপোর্ট জমা দেওয়া এখনো হয়নি'), contains('আবার বাকি'));
+    expect(await say('না না, রিপোর্ট জমা দেওয়া এখনো হয়নি'), contains('আবার অসমাপ্ত'));
     expect(rig.brain.data.tasks.single.done, isFalse);
   });
 

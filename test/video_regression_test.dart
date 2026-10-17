@@ -302,7 +302,7 @@ void main() {
 
     testWidgets('"… এটা একটা কাজের লিস্টে রাখ" is a to-do with its day, title without the filler', (t) async {
       final (_, r) = await ask(t, 'আগামীকালকে সকাল দশটায় আমাকে সোনার মণি যাইতে হবে এটা একটা কাজের লিস্টে রাখ');
-      expect(r, contains('“সোনার মণি যাইতে হবে”'));
+      expect(r, contains('“সোনার মণি যাওয়া”'));
       expect(r, contains('কাল'));
       expect(r, contains('কাজের তালিকায়'));
     });
@@ -315,7 +315,7 @@ void main() {
         final rig = await start(t);
         final chat = ChatController(rig.brain);
         final r = await chat.hear(s);
-        expect(r, allOf(contains('“সিঙ্গাপুর যাইতে হবে”'), contains('২০ অক্টোবর'), contains('কাজের তালিকায়')), reason: s);
+        expect(r, allOf(contains('“সিঙ্গাপুর যাওয়া”'), contains('২০ অক্টোবর'), contains('কাজের তালিকায়')), reason: s);
         await chat.hear('হ্যাঁ');
         expect(rig.brain.data.tasks.single.due, DateTime(2026, 10, 20), reason: s);
       }
@@ -338,14 +338,15 @@ void main() {
     testWidgets('a whole new request while a save waits replaces it — never saved by the "দাও" in it', (t) async {
       final rig = await start(t);
       final chat = ChatController(rig.brain);
+      // Complete requests are set at once; the next one is its own.
       await chat.hear('আজ সন্ধ্যা ৭টায় মিটিং মনে করিয়ে দিও');
-      expect(chat.wait, ChatWait.yesNo);
+      expect(chat.wait, ChatWait.none);
       final r = await chat.hear('আগামীকাল সকাল দশটায় আমাকে একটা এলার্ম সেট করে দাও');
-      expect(rig.brain.data.reminders, isEmpty, reason: 'the first one is not saved');
       expect(r, contains('১০টা'));
       await chat.hear('হ্যাঁ');
-      final saved = rig.brain.data.reminders.single;
-      expect((saved.date, saved.hour), (DateTime(2026, 10, 10), 10));
+      expect(rig.brain.data.reminders, hasLength(2), reason: 'a "হ্যাঁ" after them adds nothing');
+      final saved = rig.brain.data.reminders.last;
+      expect((saved.date, saved.hour, saved.alarm), (DateTime(2026, 10, 10), 10, true));
     });
 
     testWidgets('talk to the assistant itself is answered, never filed as a note', (t) async {
@@ -400,19 +401,20 @@ void main() {
 
     testWidgets('"… কালকের কাজের তালিকায় লেখ" then the words: one to-do for tomorrow', (t) async {
       final (chat, r) = await talk(t, ['আমি তোমাকে বলতেছি আমি তোমাকে বলতেছি আগামীকালকের কাজের তালিকায় লেখ', 'আমাকে পুকুরে চুন দিতে হবে']);
-      expect(r[0], contains('কী লিখব'));
-      expect(r[1], allOf(contains('“পুকুরে চুন দিতে হবে”'), contains('কাল')));
+      expect(r[0], contains('কোন কাজটি লিখে রাখব'));
+      // A to-do is written the way a list reads: "পুকুরে চুন দেওয়া".
+      expect(r[1], allOf(contains('“পুকুরে চুন দেওয়া”'), contains('কাল')));
       await chat.hear('হ্যাঁ');
       expect(chat.brain.data.tasks.single.due, DateTime(2026, 10, 10));
     });
 
     testWidgets('a complaint and the to-do in one breath: the to-do is kept, the talk is not', (t) async {
       final (_, r) = await talk(t, ['এটা কোন কিছু হইল তোমারে আমি বললাম যে আগামীকাল আগামীকাল আগামীকালকে তো রবিবার আসতে না শনিবার আগামীকালকের কাজের তালিকা তে পুকুরে চুন দিতে হবে এটা লিখে রাখ']);
-      expect(r.single, contains('“পুকুরে চুন দিতে হবে”'));
+      expect(r.single, contains('“পুকুরে চুন দেওয়া”'));
       final (_, r2) = await talk(t, ['ভাই আমি তোমাকে কি নিতে চুনা দিলাম আর তুমি কি কি উত্তর দিতেছ আমি কি তোমাকে বলছি ৩১ অক্টোবর এর কাজের তালিকাতে লেখ যে সকালবেলা বাজারে যাইতে হবে']);
-      expect(r2.single, allOf(contains('“সকালবেলা বাজারে যাইতে হবে”'), contains('৩১ অক্টোবর')));
+      expect(r2.single, allOf(contains('“সকালবেলা বাজারে যাওয়া”'), contains('৩১ অক্টোবর')));
       final (_, r3) = await talk(t, ['কাজের তালিকা বোর্ড এন আই ডি যুক্ত করা লাগবে']);
-      expect(r3.single, contains('“বোর্ড এন আই ডি যুক্ত করা লাগবে”'));
+      expect(r3.single, contains('“বোর্ড এন আই ডি যুক্ত করা”'));
     });
 
     testWidgets('dates as people say them: "৩১ শে অক্টোবর", "অক্টোবরের জন্য", "২৭ সালের জানুয়ারি মাসের প্রথম তারিখে"', (t) async {
@@ -422,7 +424,7 @@ void main() {
       expect(b.join(' '), isNot(contains('“জন্য”')));
       expect(b.last, contains('কী বিষয়ে'));
       final (_, c) = await talk(t, ['তুমি এক কাজ কর ২৭ সালের জানুয়ারি মাসের প্রথম তারিখে আমার জন্য একটা রিমাইন্ডার সেট করো যে স্কুলে যাইতে হবে']);
-      expect(c.single, allOf(contains('“স্কুলে যাইতে হবে”'), contains('১ জানুয়ারি'), contains('কয়টায়')));
+      expect(c.single, allOf(contains('“স্কুলে যাওয়া”'), contains('১ জানুয়ারি'), contains('কয়টায়')));
     });
 
     testWidgets('"হ্যাঁ কিন্তু শুধু লিখবা …" changes only the words; "এটা তো বলি নাই" is a no', (t) async {
@@ -430,10 +432,12 @@ void main() {
         'তুমি আমার জন্য একটা রিমাইন্ডার সেট করো তো যে প্রতিমাসের ৫ তারিখে আমাকে ওয়াইফাই বিল দিতে হবে',
         'হ্যাঁ কিন্তু শুধু তুমি লিখবা ওয়াইফাই বিল এত কিছু প্রয়োজন নাই লেখা',
       ]);
-      expect(r[0], allOf(contains('“ওয়াইফাই বিল দিতে হবে”'), contains('প্রতি মাসে')));
+      // Set at once; "শুধু লিখবা …" right after changes only its words.
+      expect(r[0], allOf(contains('“ওয়াইফাই বিল দেওয়া”'), contains('প্রতি মাসে')));
       expect(r[1], contains('“ওয়াইফাই বিল”'));
-      expect(chat.wait, ChatWait.yesNo);
+      expect(chat.brain.data.reminders.single.title, 'ওয়াইফাই বিল');
       final (chat2, r2) = await talk(t, ['আমাকে সোনা মরে যাইতে হবে এটা একটা কাজের লিস্টে রাখো', 'এটা তো বলি নাই']);
+      // Kept at once, then taken back by "এটা তো বলি নাই".
       expect(r2.last, 'আচ্ছা, রাখলাম না।');
       expect(chat2.brain.data.tasks, isEmpty);
       expect(chat2.brain.data.notes, isEmpty);
@@ -471,7 +475,7 @@ void main() {
 
     testWidgets('a year said with the date: "২০২৭ সালে … জানুয়ারি মাসের এক তারিখে" — title clean, 1 January', (t) async {
       final (_, r) = await talk(t, ['আমি বললাম ২০২৭ সালে জানুয়ারি মাসের এক তারিখে আমার বাচ্চাকে নিয়ে স্কুলে যেতে হবে এটা কাজের তালিকাতে লিখে রাখ']);
-      expect(r.single, allOf(contains('“বাচ্চাকে নিয়ে স্কুলে যেতে হবে”'), contains('১ জানুয়ারি')));
+      expect(r.single, allOf(contains('“বাচ্চাকে নিয়ে স্কুলে যাওয়া”'), contains('১ জানুয়ারি')));
     });
 
     testWidgets('"আমার ৩১ অক্টোবর এর কাজের তালিকা টা কি" / "আজকের কাজের তালিকা আছে": that day only', (t) async {
@@ -487,9 +491,9 @@ void main() {
       expect(r[1], contains('মুছে দেবো?'));
       final (chat2, r2) = await talk(t, ['তুমি এক কাজ কর ২০ শে অক্টোবর এর কাজের তালিকাতে লেখ যে ঢাকায় যাইতে হবে', 'কোন তারিখে তুলবা ঢাকায় যেতে হবে']);
       expect(r2[0], contains('২০ অক্টোবর'));
+      // Kept at once; the question about it is answered from the list.
       expect(r2[1], contains('২০ অক্টোবর'));
-      expect(chat2.brain.data.tasks, isEmpty, reason: 'the question is not a yes');
-      expect(chat2.wait, ChatWait.yesNo);
+      expect(chat2.brain.data.tasks, hasLength(1), reason: 'the question adds nothing');
       expect(chat.wait, ChatWait.yesNo);
     });
 
@@ -499,10 +503,12 @@ void main() {
       expect(chat.brain.data.tasks, hasLength(1));
     });
 
-    testWidgets('"ডিসেম্বর এর কাজের তালিকাতে লেখ রাত্রে পার্টি হবে": asks the day', (t) async {
-      final (chat, r) = await talk(t, ['ডিসেম্বর এর কাজের তালিকাতে লেখ রাত্রে পার্টি হবে', '৩১ তারিখে', 'হ্যাঁ']);
-      expect(r[0], contains('কত তারিখে'));
-      expect(r[1], allOf(contains('“রাত্রে পার্টি হবে”'), contains('৩১ ডিসেম্বর')));
+    testWidgets('"ডিসেম্বর এর কাজের তালিকাতে লেখ রাত্রে পার্টি হবে": kept for December, no day invented', (t) async {
+      final (chat, r) = await talk(t, ['ডিসেম্বর এর কাজের তালিকাতে লেখ রাত্রে পার্টি হবে', '৩১ তারিখে রাখো']);
+      expect(r[0], allOf(contains('“রাত্রে পার্টি”'), contains('ডিসেম্বর মাসে')));
+      // "৩১ তারিখে রাখো" right after: that day of its month (December).
+      expect(r[1], contains('৩১ ডিসেম্বর'));
+      expect((chat.brain.data.tasks.single.due, chat.brain.data.tasks.single.span), (DateTime(2026, 12, 31), TaskSpan.day));
       expect(chat.brain.data.tasks.single.due, DateTime(2026, 12, 31));
     });
   });
@@ -526,9 +532,9 @@ void main() {
 
     testWidgets('"এরাম একটা" is not part of the to-do; "X শব্দটা বাদ দিও" takes the word out and saves', (t) async {
       final (_, r) = await talk(t, ['আচ্ছা জানুয়ারি মাসের ৩১ তারিখে বাচ্চাকে স্কুলে নিতে হবে এরাম একটা কাজের তালিকা লেখ']);
-      expect(r.single, allOf(contains('“বাচ্চাকে স্কুলে নিতে হবে”'), contains('৩১ জানুয়ারি')));
+      expect(r.single, allOf(contains('“বাচ্চাকে স্কুলে নেওয়া”'), contains('৩১ জানুয়ারি')));
       final (chat, _) = await talk(t, ['জানুয়ারি মাসের ৩১ তারিখে বাচ্চাকে স্কুলে নিতে হবে কাজের তালিকায় লেখ', 'হ্যাঁ তুলে রাখ তবে নিতে শব্দটা বাদ দিও']);
-      expect(chat.brain.data.tasks.single.title, 'বাচ্চাকে স্কুলে হবে');
+      expect(chat.brain.data.tasks.single.title, 'বাচ্চাকে স্কুলে');
     });
 
     testWidgets('"জানুয়ারি মাসের কাজের তালিকা" lists that month only', (t) async {
@@ -586,12 +592,13 @@ void main() {
     });
 
     testWidgets('"প্রতি মাসের ১ তারিখে একটা কাজ যুক্ত করো যে …": a monthly reminder; "প্রতিমাসে যেন রিপিট হয়" makes the last to-do monthly', (t) async {
-      final (_, r) = await talk(t, ['আচ্ছা এখন একটা কাজ কর আমার প্রতি মাসের ১ তারিখে একটা কাজ যুক্ত করো যে আমাকে সোনায় মরে যাইতে হবে']);
-      expect(r.single, allOf(contains('১ নভেম্বর'), contains('প্রতি মাসে'), contains('“সোনায় মরে যাইতে হবে”')));
+      // A to-do that comes back every month (a repeating to-do).
+      final (c1, r) = await talk(t, ['আচ্ছা এখন একটা কাজ কর আমার প্রতি মাসের ১ তারিখে একটা কাজ যুক্ত করো যে আমাকে সোনায় মরে যাইতে হবে']);
+      expect(r.single, allOf(contains('১ নভেম্বর'), contains('প্রতি মাসের ১ তারিখে'), contains('“সোনায় মরে যাওয়া”')));
+      expect(c1.brain.data.tasks.single.repeat, const TaskRepeat.monthly(1));
       final (chat, r2) = await talk(t, ['একটা কাজ যুক্ত করো যে আমাকে সোনায় মরে যাইতে হবে', 'হ্যাঁ', 'আমি তো তোমাকে বললাম প্রতিমাসে যেন এই কাজটা রিপিট হয়', 'হ্যাঁ']);
-      expect(r2[2], contains('প্রতি মাসে'));
-      expect(chat.brain.data.tasks, isEmpty, reason: 'the to-do became the monthly reminder');
-      expect(chat.brain.data.reminders.single.repeat, Repeat.monthly);
+      expect(r2[2], contains('প্রতি মাসের'));
+      expect(chat.brain.data.tasks.single.repeat?.kind, 'monthly', reason: 'the same to-do now comes back every month');
     });
   });
 
@@ -653,7 +660,7 @@ void main() {
       await chat.hear('নভেম্বর মাসে ৮ তারিখে ঢাকায় যাব নভেম্বর মাসের বাইশ তারিখে সিঙ্গাপুর যাব এবং ২৯ তারিখে ঢাকায় ব্যাক করব এগুলো কাজের তালিকায় যুক্ত করো');
       await chat.hear('হ্যাঁ');
       final tasks = chat.brain.data.tasks;
-      expect(tasks.map((x) => x.title).toList(), ['ঢাকায় যাব', 'সিঙ্গাপুর যাব', 'ঢাকায় ব্যাক করব']);
+      expect(tasks.map((x) => x.title).toList(), ['ঢাকায় যাওয়া', 'সিঙ্গাপুর যাওয়া', 'ঢাকায় ব্যাক করা']);
       expect(tasks.map((x) => x.due!.day).toList(), [8, 22, 29]);
       expect(tasks.every((x) => x.due!.month == 11), isTrue);
     });

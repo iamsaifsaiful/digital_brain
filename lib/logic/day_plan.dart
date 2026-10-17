@@ -37,9 +37,12 @@ Plan planOf(AppData d, DateTime now) {
       continue;
     }
     final due = t.due == null ? null : dayOnly(t.due!);
-    if (due != null && due.isBefore(today)) {
-      overdue.add(PlanItem.task(t, due));
-    } else if (due == null || due == today) {
+    // A to-do of a whole week, month or year is late only after its span,
+    // and is "today's" all through it — never pinned to its first day.
+    final end = t.due == null ? null : dayOnly(t.dueEnd!);
+    if (end != null && end.isBefore(today)) {
+      overdue.add(PlanItem.task(t, due!));
+    } else if (due == null || due == today || (t.span != TaskSpan.day && !due.isAfter(today))) {
       todayL.add(PlanItem.task(t, today.add(const Duration(hours: 23, minutes: 59))));
     } else {
       ahead.add(PlanItem.task(t, due.add(const Duration(hours: 23, minutes: 59))));

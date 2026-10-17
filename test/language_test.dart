@@ -306,7 +306,8 @@ void main() {
         'কাল অফিসে রিপোর্ট পাঠানো লাগবে',
         'আগামীকাল চাচার বাসায় যাবো',
       ], (s, c) {
-        expect(c, anyOf(isA<TaskAdd>(), isA<ReminderAdd>()), reason: s);
+        // "শুক্রবার …" said on a Friday: today or next Friday is asked.
+        expect(c, anyOf(isA<TaskAdd>(), isA<ReminderAdd>(), predicate((x) => x is Clarify && x.options.every((o) => o.$2 is TaskAdd))), reason: s);
       });
     });
 

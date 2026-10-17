@@ -349,3 +349,18 @@ String tidy(String s) {
   final rest = said.replaceRange(m.start, m.end, ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
   return (minutes, rest);
 }
+
+/// "কাল আটটায়": an hour from 7 to 11 with no সকাল/রাত and no clock
+/// minutes — morning or night is the person's to say, not a guess.
+bool ampmUnclear(String said) {
+  final f = ' ${normalize(englishTimes(said))} ';
+  if (RegExp(fold(r'(?:ভোর|সকাল|দুপুর|বিকাল|বিকেল|সন্ধ্যা|রাত|am|pm|মিনিট\s+পর|ঘণ্টা\s+পর|ঘন্টা\s+পর)')).hasMatch(f)) return false;
+  final w = [for (final x in words(f.trim())) _hourWord(x)];
+  for (var i = 0; i < w.length; i++) {
+    final m = RegExp(fold(r'^(\d{1,2})(টায়|টাতে|টার|টা|টে)$')).firstMatch(w[i]);
+    if (m == null) continue;
+    final h = int.parse(m[1]!);
+    if (h >= 7 && h <= 11) return true;
+  }
+  return false;
+}

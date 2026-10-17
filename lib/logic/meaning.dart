@@ -281,6 +281,8 @@ bool refusesSave(String said) => RegExp(fold(r'(?:^|\s)(?:রেখো|রেখ
 /// The words in between are left exactly as said.
 String tidySpeech(String said, {List<bool>? whole}) {
   var s = fold(said.trim());
+  // Regional and mixed-language words, as standard Bengali (whole words).
+  s = _everydayWords(s);
   // Day words in their everyday forms.
   s = s.replaceAllMapped(RegExp(fold(r'(^|[\s,।])(?:আগামী\s*কাল(?:কে|কের|ের)?|আগামীকাল(?:কে|কের|ের)?|কালকের)(?=$|[\s,।?!])')), (m) => '${m[1]}কাল');
   s = s.replaceAllMapped(RegExp(fold(r'(^|[\s,।])পরশু\s*দিন(?:কে|ের)?(?=$|[\s,।?!])')), (m) => '${m[1]}পরশু');
@@ -309,7 +311,7 @@ String tidySpeech(String said, {List<bool>? whole}) {
   s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
   final lead = RegExp(fold(
     r'^(?:'
-    r'(?:এই|ইয়া|ইয়ার|ইয়ার|আরে|ওই|ওই যে|শোনো|শোন|শুনো|শুনেন|শুনুন|হ্যালো|hello|ভাই|আচ্ছা|ঠিক আছে|তাহলে|মানে|বললাম|তারপরে|তারপর|এরপরে|এরপর|দেখো তো|দেখতো|দেখ তো)'
+    r'(?:এই(?![\s,।]+(?:সপ্তাহ|মাস|বছর|শুক্র|শনি|রবি|সোম|মঙ্গল|বুধ|বৃহস্পতি|কাজ|তারিখ|দিন|বার|মাত্র|লিস্ট|তালিকা|রিমাইন্ডার))|ইয়া|ইয়ার|ইয়ার|আরে|ওই(?![\s,।]+(?:সপ্তাহ|মাস|বছর|কাজ|দিন|তারিখ))|ওই যে|শোনো|শোন|শুনো|শুনেন|শুনুন|হ্যালো|hello|ভাই|আচ্ছা|ঠিক আছে|তাহলে|মানে|বললাম|তারপরে|তারপর|এরপরে|এরপর|দেখো তো|দেখতো|দেখ তো)'
     r'|(?:তুমি\s+|আপনি\s+)?(?:এক|একটা|একটি)\s+কাজ\s+(?:করো|কর|করেন|করুন|করবা|করবে)(?:\s+তো)?'
     r'|(?:আমি\s+)?(?:তোমাকে|তোমারে|আপনাকে)\s+(?:বলতেছি|বলছি|বলতেছিলাম|বলছিলাম|বললাম)(?:\s+যে)?'
     r'|আমি\s+(?:বললাম|বলতেছি|বলছি)(?:\s+যে)?'
@@ -388,3 +390,49 @@ const _dayWords = {
 };
 final Map<String, String> _dayWordsFolded = {for (final k in _dayWords.keys) fold(k): k};
 String _bnNum(int n) => n.toString().split('').map((c) => '০১২৩৪৫৬৭৮৯'[int.parse(c)]).join();
+
+
+/// "কামডা" → "কাজটা", "যাইতে অইব" → "যেতে হবে", "করমু" → "করব",
+/// "task-টা tomorrow move করো" → "কাজটা কাল সরাও": the same meaning in
+/// the words the rest of the app reads. Only whole words change, so names
+/// stay as they are.
+String _everydayWords(String s) {
+  var t = s;
+  // English inside Bengali speech.
+  for (final (p, r) in [
+    (r'\badd\s+(?:a|one|new)?\s*task\b', 'একটা কাজ যোগ করো'),
+    (r'\btasks?\s*-?\s*(টা|টি|গুলো)', r'কাজ$1'),
+    (r'\btasks?\b', 'কাজ'),
+    (r'\bto-?do\s+list\b', 'কাজের তালিকা'),
+    (r'\btomorrow\b', 'কাল'),
+    (r'\btoday\b', 'আজ'),
+    (r'\bmove\s*(?:কর(?:ো|ে\s+দাও|ুন|েন)?)', 'সরাও'),
+    (r'\bdone\s*(?:কর(?:ো|ে\s+দাও|ুন|েন)?)', 'টিক দাও'),
+    (r'\bdelete\s*(?:কর(?:ো|ে\s+দাও|ুন|েন)?)', 'মুছে দাও'),
+    (r'\badd\s*(?:কর(?:ো|ে\s+দাও|ুন|েন))', 'যোগ করো'),
+    (r'\boff\s*(?:কর(?:ো|ে\s+দাও|ুন|েন)?)', 'বন্ধ করো'),
+    (r'\breminder\b', 'রিমাইন্ডার'),
+  ]) {
+    t = t.replaceAllMapped(RegExp(p, caseSensitive: false), (m) => r.contains(r'$1') ? r.replaceAll(r'$1', m[1] ?? '') : r);
+  }
+  const map = {
+    'কাম': 'কাজ', 'কামডা': 'কাজটা', 'কামটা': 'কাজটা', 'কামগুলা': 'কাজগুলো', 'কামগুলো': 'কাজগুলো', 'কামের': 'কাজের',
+    'অইব': 'হবে', 'অইবো': 'হবে', 'হইব': 'হবে', 'হইবো': 'হবে', 'অইবে': 'হবে', 'লাগব': 'লাগবে', 'লাগবো': 'লাগবে', 'লাগবু': 'লাগবে',
+    'যাইতে': 'যেতে', 'খাইতে': 'খেতে', 'দিতাম': 'দিতে', 'নিতাম': 'নিতে',
+    'করমু': 'করব', 'আনমু': 'আনব', 'যামু': 'যাব', 'খামু': 'খাব', 'দিমু': 'দেব', 'নিমু': 'নেব', 'কিনমু': 'কিনব', 'পাঠামু': 'পাঠাব',
+    'হইয়া': 'হয়ে', 'হইয়্যা': 'হয়ে', 'অইয়া': 'হয়ে', 'অয়': 'হয়', 'অইছে': 'হয়েছে', 'হইছে': 'হয়েছে', 'হইসে': 'হয়েছে',
+    'এইডা': 'এটা', 'ওইডা': 'ওটা', 'হেইডা': 'সেটা', 'হেডা': 'সেটা',
+  };
+  final folded = {for (final e in map.entries) fold(e.key): fold(e.value)};
+  t = t.replaceAllMapped(RegExp(r'[^\s,।?!.]+'), (m) {
+    final w = m[0]!;
+    final r = folded[w];
+    if (r != null) return r;
+    // "বিলডা", "আগেরডা", "কামডা": the Dhaka "-ডা" is "-টা" (not "ঠান্ডা", "সোডা").
+    if (w.length >= 4 && w.endsWith(fold('ডা')) && !RegExp(fold(r'(?:ন্|ণ্)ডা$')).hasMatch(w) && !const {'সোডা', 'ফোডা', 'কাডা'}.contains(w)) {
+      return '${w.substring(0, w.length - 2)}টা';
+    }
+    return w;
+  });
+  return t;
+}

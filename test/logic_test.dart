@@ -699,12 +699,14 @@ void main() {
 
     test('to-dos', () {
       final t = parse('কাল ব্যাংকে যেতে হবে') as TaskAdd;
-      expect(fold(t.title), fold('ব্যাংকে যেতে হবে'));
+      // Written the way a to-do reads: "ব্যাংকে যাওয়া".
+      expect(fold(t.title), fold('ব্যাংকে যাওয়া'));
       expect(t.due, DateTime(2026, 10, 10));
       expect((parse('বাজারের লিস্টে ডিম রাখো') as TaskAdd).title, 'বাজার: ডিম');
       expect(parse('কাজের তালিকা দেখাও'), isA<TaskQuery>());
       expect(parse('আজ আমার কী কী আছে?'), isA<Briefing>());
-      expect(parse('আজকে কী কী করতে হবে?'), isA<Briefing>());
+      // The day's to-dos (the same list home shows), or the whole briefing.
+      expect(parse('আজকে কী কী করতে হবে?'), anyOf(isA<Briefing>(), isA<TaskQuery>()));
       expect(parse('তুমি কী কী করতে পারো?'), isA<SmallTalk>());
       final bank = Task(title: 'ব্যাংকে যেতে হবে');
       expect(parse('ব্যাংকের কাজ হয়ে গেছে', tasks: [bank]), isA<TaskDone>());
@@ -1294,7 +1296,7 @@ void main() {
     final p = Parser(ledger: const [], now: now);
     test('“আমি কাল বাজারে যাবো” is saved as tomorrow\'s to-do; with a clock time, a reminder', () {
       final a = p.parse('আমি কাল বাজারে যাবো') as TaskAdd;
-      expect((a.title, a.due), ('বাজারে যাবো', DateTime(2026, 10, 15)));
+      expect((a.title, a.due), ('বাজারে যাওয়া', DateTime(2026, 10, 15)));
       expect((p.parse('কাল ডাক্তারের অ্যাপয়েন্টমেন্ট আছে') as TaskAdd).due, DateTime(2026, 10, 15));
       final r = p.parse('কাল সকাল ১০টায় ব্যাংকে যাবো') as ReminderAdd;
       expect(r.at, DateTime(2026, 10, 15, 10));

@@ -12,6 +12,7 @@ import '../logic/answers.dart';
 import '../logic/bn.dart';
 import '../logic/cash.dart';
 import '../logic/dictation.dart' show splitDoneTail;
+import '../logic/day_plan.dart' show planItemsOn;
 import '../logic/categories.dart';
 import '../logic/health.dart';
 import '../logic/ledger.dart';
@@ -28,8 +29,10 @@ import '../services/ai.dart';
 import '../ui/yes_no.dart' show pickSpokenOption;
 import 'brain.dart';
 
+part 'todo_chat.dart';
+
 /// What the chat is waiting to hear.
-enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, taskTitle, taskDay, project, collect, whichPerson, whichItem, clarify }
+enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, taskTitle, taskDay, project, collect, whichPerson, whichItem, clarify, whichTask, taskTime }
 
 /// What the user said they want to talk about at the start.
 enum Topic {
@@ -156,8 +159,9 @@ class ChatController extends ChangeNotifier {
   Set<String> _idsBeforeSave = const {};
   final _queue = <Command>[];
 
-  /// The day of a to-do whose words are being asked for.
+  /// The day of a to-do whose words are being asked for, and the rest of it.
   DateTime? _pendingTaskDue;
+  TaskAdd? _pendingTaskAdd;
 
   /// A to-do being turned into a monthly reminder: removed once that is saved.
   String? _replaceTaskId;
@@ -166,35 +170,34 @@ class ChatController extends ChangeNotifier {
   TaskAdd? _pendingTask;
   int? _pendingMonth;
 
+  /// The to-do being talked about ("ওটা", "কাজটা") and since when.
+  String? _focusTaskId;
+  DateTime? _focusTaskAt;
+
+  /// The to-dos the last answer named, in order ("দ্বিতীয়টা").
+  List<String> _shownTasks = const [];
+
+  /// A to-do request waiting for "কোনটা?" or "কয়টায়?", and the choices.
+  Command? _todoWaiting;
+  List<Task> _todoChoices = const [];
+
+  /// The reminder just set for a to-do ("না, এগারোটায়" changes it).
+  String? _focusReminderId;
+  DateTime? _focusReminderAt;
+
+  /// To-dos kept together in one breath, for one line at the end.
+  final _batchTaskTitles = <String>[];
+
   List<Task> _clearable(TasksClear c) {
     final today = dayOnly(_now);
+    if (c.ids.isNotEmpty) return [for (final t in brain.data.tasks) if (c.ids.contains(t.id)) t];
+    if (c.doneOnly) return [for (final t in brain.data.tasks) if (t.done) t];
     return [
       for (final t in brain.data.tasks)
         if (!t.done && (c.day == null || (t.due != null && (dayOnly(t.due!) == c.day || (c.day == today && dayOnly(t.due!).isBefore(today)))))) t,
     ];
   }
 
-  int? _monthOnly(String said) {
-    final s = fold(said);
-    for (var m = 0; m < 12; m++) {
-      final name = fold(bnMonths[m]);
-      final i = s.indexOf(name);
-      if (i < 0) continue;
-      final before = s.substring(0, i).trimRight();
-      if (RegExp(r'[০-৯0-9]\s*(?:শে|ই|লা|রা|ঠা)?$').hasMatch(before)) return null;
-      if (RegExp(fold(r'^\s*(?:মাসের\s+)?(?:[০-৯0-9]{1,2}|প্রথম|পহেলা|এক|শেষ)\s')).hasMatch(s.substring(i + name.length).replaceFirst(RegExp(fold(r'^(?:এর|ের)')), ''))) return null;
-      return m + 1;
-    }
-    return null;
-  }
-
-  String _withoutMonth(String title) {
-    var t = fold(title);
-    for (final m in bnMonths) {
-      t = t.replaceAll(RegExp('${fold(m)}(?:\\s*${fold('এর')}|${fold('ের')})?(?:\\s+${fold('মাসের')})?'), ' ');
-    }
-    return t.replaceAll(RegExp(r'\s+'), ' ').trim();
-  }
   bool _askingAll = false;
   bool _allYes = false;
   int _savedInBatch = 0;
@@ -330,6 +333,9 @@ class ChatController extends ChangeNotifier {
   /// "…দেখাও" or a question). Sets the day the list is for.
   bool _startsList(String t) {
     if (isQuestionText(t)) return false;
+    // "টু-ডু লিস্ট খোলো", "কাজের তালিকায় X রাখো": a request, not a list to dictate.
+    final asked = parseAll(t, brain.data.ledger, tasks: brain.data.tasks, now: _now);
+    if (asked.any((c) => c is OpenPlace || c is TaskEdit || c is TaskDone || (c is TaskAdd && c.title.isNotEmpty))) return false;
     final n = normalize(t);
     if (const ['দেখাও', 'দেখান', 'দেখি', 'বলো', 'বলুন', 'শোনাও', 'দাও', 'দিন', 'দেন', 'দিবা', 'কী', 'কি', 'কত', 'বাকি', 'আছে', 'যে', 'টা'].any((w) => words(n).contains(normalize(w)))) return false;
     final tp = _topicWord(t);
@@ -589,15 +595,19 @@ class ChatController extends ChangeNotifier {
     // "প্রতিমাসে যেন এই কাজটা রিপিট হয়": the to-do just saved comes back every month.
     final lastTask = _lastSave?.$1;
     if (wait == ChatWait.none && lastTask is TaskAdd && RegExp(fold(r'(?:প্রতি\s*মাসে|প্রতিমাসে|মাসে\s+মাসে)')).hasMatch(fold(t)) && RegExp(fold(r'(?:রিপিট|বারবার|আবার\s+আসে|ফিরে\s+আসে|প্রতিবার|হয়)')).hasMatch(fold(t))) {
-      final day = lastTask.due?.day ?? _now.day;
-      var at = DateTime(_now.year, _now.month, day, 9);
-      if (!at.isAfter(_now)) at = DateTime(_now.year, _now.month + 1, day, 9);
+      // The same to-do, now coming back on that day of every month.
       final task = brain.data.tasks.where((x) => x.title == lastTask.title && !x.done).lastOrNull;
-      _replaceTaskId = task?.id;
-      Trace.log('understood', 'the last to-do made monthly', const {});
-      await _start(ReminderAdd(t, title: lastTask.title, at: at, repeat: Repeat.monthly), out);
-      notifyListeners();
-      return out.join(' ');
+      if (task != null) {
+        final snap = brain.snapshot();
+        final r = TaskRepeat.monthly(task.due?.day ?? _now.day);
+        await brain.saveTask(task.copyWith(repeat: r, due: r.nextOnOrAfter(task.due ?? _now)));
+        _focusTask(task);
+        Trace.log('understood', 'the last to-do made monthly', const {});
+        _say(out, trf('ঠিক আছে, “{0}” প্রতি মাসের {1} তারিখে ফিরে আসবে।', [task.title, bnDigits(r.monthDay)]), links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
+        _offerUndo(snap);
+        notifyListeners();
+        return out.join(' ');
+      }
     }
     if (redirect != null && await _redirect(redirect, t, out)) {
       notifyListeners();
@@ -609,6 +619,31 @@ class ChatController extends ChangeNotifier {
         return out.join(' ');
       }
       _dropPending();
+    }
+    // "না, এগারোটায়" right after a to-do's reminder: that one, changed.
+    if (await _todoCorrection(t, out)) {
+      notifyListeners();
+      return out.join(' ');
+    }
+    // Right after a to-do or reminder was kept at once: "এটা তো বলি নাই"
+    // takes it back; "X শব্দটা বাদ দিও" / "শুধু লিখবা Y" change its words.
+    if (wait == ChatWait.none && await _afterSave(t, out)) {
+      notifyListeners();
+      return out.join(' ');
+    }
+    // "হ্যাঁ" right after something was kept at once: nothing more to do.
+    final lastSave = _lastSave;
+    if (wait == ChatWait.none && lastSave != null && _now.difference(lastSave.$3).inMinutes <= 2 && words(normalize(t)).isNotEmpty && words(normalize(t)).length <= 3 && words(normalize(t)).every((w) => yesNo(w) == true)) {
+      _say(out, tr('ঠিক আছে।'));
+      notifyListeners();
+      return out.join(' ');
+    }
+    // "না, পাঁচটায় নয়, ছয়টায়" with nothing just said to correct: asked,
+    // never saved as a reminder called "না, নয়".
+    if (wait == ChatWait.none && _onlyCorrection(t)) {
+      _say(out, tr('কোনটার সময় বদলাব? কাজ বা রিমাইন্ডারের নামসহ আরেকবার বলুন।'));
+      notifyListeners();
+      return out.join(' ');
     }
 
     // "আজকের কাজের তালিকা": a list is coming, said over several breaths.
@@ -630,7 +665,8 @@ class ChatController extends ChangeNotifier {
     _held = '';
     // "মুছে দিও না", "বন্ধ কোরো না": nothing is done — decided here, before
     // the AI (if on) could read it as "মুছে দাও".
-    if (!isQuestionText(whole) && negatedRequest(normalize(whole))) {
+    final todoHere = todoCommands(tidySpeech(whole), brain.data.tasks, _now);
+    if (!isQuestionText(whole) && negatedRequest(normalize(whole)) && !(todoHere?.any((c) => c is TaskEdit && c.stopReminder) ?? false)) {
       _history.add(AiTurn.user(whole));
       final text = talkReply(Talk.wontDo, _now);
       _say(out, text);
@@ -856,7 +892,7 @@ class ChatController extends ChangeNotifier {
     _history.add(AiTurn.user(secret ? tr('[গোপন কিছু জানতে চাইলেন — ফোনেই উত্তর দেওয়া হলো]') : (shown ?? t)));
     // Remember an unfinished request (nothing to save came of it) so the
     // next short message can complete it.
-    final finished = saves.isNotEmpty || others.any((c) => c is CallPerson || c is TaskDone);
+    final finished = saves.isNotEmpty || others.any((c) => c is CallPerson || c is TaskDone || c is TaskEdit || c is TaskRestore || c is TaskQuery);
     _lastSaid = secret || finished ? '' : t;
     _lastSaidAt = _now;
     final tags = <String>[];
@@ -873,11 +909,12 @@ class ChatController extends ChangeNotifier {
         tags.add(c.text);
         continue;
       }
-      if (c is TaskDone) {
-        _taskDone(c, out);
-        tags.add('[কাজ শেষ হিসেবে দাগ দেওয়া হলো]');
+      if (c is TaskDone || c is TaskEdit || c is TaskRestore) {
+        await _todo(c, out);
+        tags.add('[কাজের তালিকায় বদল]');
         continue;
       }
+      if (c is TaskQuery) _rememberShown(c);
       if (c is OpenPlace) {
         final p = placeById(c.place);
         final name = c.folder != null ? trf('‘{0}’ ফোল্ডার', [tr(c.folder!)]) : tr(p?.title ?? c.place);
@@ -925,6 +962,14 @@ class ChatController extends ChangeNotifier {
     }
     if (saves.length == 1) {
       await _start(saves.single, out);
+    } else if (saves.length > 1 && saves.every((c) => c is TaskAdd && c.title.trim().isNotEmpty)) {
+      // Several to-dos in one breath: all kept, said back in one line.
+      _queue
+        ..clear()
+        ..addAll(saves.skip(1));
+      _allYes = true;
+      _batchTaskTitles.clear();
+      await _start(saves.first, out);
     } else if (saves.length > 1) {
       _queue
         ..clear()
@@ -1038,6 +1083,13 @@ class ChatController extends ChangeNotifier {
   }
 
   void _dropPending() {
+    _todoWaiting = null;
+    _todoChoices = const [];
+    if (wait == ChatWait.whichTask || wait == ChatWait.taskTime) {
+      wait = ChatWait.none;
+      choices = const [];
+      return;
+    }
     // A question the app asked only to choose an answer: nothing was waiting to be saved.
     if (wait == ChatWait.clarify) {
       _clarifyOptions = const [];
@@ -1114,7 +1166,7 @@ class ChatController extends ChangeNotifier {
         final gone = _clearable(c);
         if (gone.isEmpty) {
           _current = null;
-          _say(out, c.day == null ? tr('কাজের তালিকায় মোছার মতো কোনো কাজ নেই।') : trf('{0} কোনো কাজ নেই — কিছু মুছিনি।', [sayWhen(c.day!, _now, withTime: false)]));
+          _say(out, c.doneOnly ? tr('শেষ করা কোনো কাজ তালিকায় নেই।') : c.day == null ? tr('কাজের তালিকায় মোছার মতো কোনো কাজ নেই।') : trf('{0} কোনো কাজ নেই — কিছু মুছিনি।', [sayWhen(c.day!, _now, withTime: false)]));
           return;
         }
         final today = dayOnly(_now);
@@ -1125,28 +1177,61 @@ class ChatController extends ChangeNotifier {
                 : c.day == today.add(const Duration(days: 1))
                     ? tr('কালকের')
                     : trf('{0}-এর', [shortDate(c.day!)]);
+        if (c.ids.length == 1) {
+          _ask(out, trf('“{0}” কাজটি মুছে দেব?', [gone.single.title]), ChatWait.yesNo, choices: _yesNoChoices);
+          return;
+        }
+        if (c.doneOnly) {
+          _ask(out, trf('শেষ করা {0}টা কাজ তালিকা থেকে মুছে দেব? ৩০ দিন “মুছে ফেলা”-তে থাকবে।', [bnDigits(gone.length)]), ChatWait.yesNo,
+              choices: _yesNoChoices, facts: [for (final t in gone.take(8)) t.title]);
+          return;
+        }
         _ask(out, trf('{0} সব — {1}টা কাজ মুছে দেবো?', [whose, bnDigits(gone.length)]), ChatWait.yesNo,
             choices: _yesNoChoices, facts: [for (final t in gone.take(8)) t.title]);
       case TaskAdd():
-        // "ডিসেম্বরের কাজের তালিকায় লেখ …": a month but no day — ask the day.
-        final month = c.due == null ? _monthOnly(c.transcript) : null;
-        if (month != null && c.title.trim().isNotEmpty) {
-          _pendingTask = TaskAdd(c.transcript, title: _withoutMonth(c.title), due: null);
-          _pendingMonth = month;
-          _ask(out, trf('{0}-এর কত তারিখে রাখব?', [bnMonths[month - 1]]), ChatWait.taskDay);
-          return;
-        }
         if (c.title.trim().isEmpty) {
-          // "কালকের কাজের তালিকায় লেখ": the day is kept, what to write is asked.
+          // "কাজ লিখে রাখো", "কালকের কাজের তালিকায় লেখ": what to write is asked.
           _pendingTaskDue = c.due;
+          _pendingTaskAdd = c;
           final day = c.due == null ? '' : ' (${sayWhen(c.due!, _now, withTime: false)})';
-          _ask(out, trf('কাজের তালিকায়{0} কী লিখব?', [day]), ChatWait.taskTitle);
+          _ask(out, trf('কোন কাজটি লিখে রাখব?{0}', [day]), ChatWait.taskTitle);
           return;
         }
-        if (_allYes) return _saveCurrent(out);
-        final due = c.due == null ? '' : ' (${sayWhen(c.due!, _now, withTime: false)})';
-        _ask(out, trf('“{0}”{1} — কাজের তালিকায় তুলে রাখি?', [c.title, due]), ChatWait.yesNo, choices: _yesNoChoices);
+        // "প্রতি মাসের ৩১ তারিখে": what a shorter month does is asked once.
+        final rep = c.repeat;
+        if (rep != null && rep.kind == 'monthly' && rep.monthDay >= 29 && !c.monthEndAsked && !_allYes) {
+          _current = null;
+          TaskAdd as(TaskRepeat r) => TaskAdd(c.transcript, title: c.title, due: r.nextOnOrAfter(_now), repeat: r, monthEndAsked: true);
+          _clarifyOptions = [
+            (tr('হ্যাঁ, মাসের শেষ দিনে'), as(TaskRepeat.monthly(rep.monthDay))),
+            (tr('না, সে মাসে বাদ যাবে'), as(TaskRepeat.monthly(rep.monthDay, strict: true))),
+          ];
+          _ask(out, trf('যে মাসে {0} তারিখ নেই, সে মাসের শেষ দিনে রাখব?', [bnDigits(rep.monthDay)]), ChatWait.clarify, choices: [for (final o in _clarifyOptions) ChatChoice(o.$1, o.$1)]);
+          return;
+        }
+        // Already on the list: said so, not kept twice.
+        final same = _sameTask(c);
+        if (same != null) {
+          _focusTask(same);
+          _say(out, trf('“{0}” আগেই কাজের তালিকায় আছে{1}।', [same.title, same.due == null ? '' : ' (${_whenOf(same)})']), links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))], speak: !_allYes);
+          await _done(out);
+          return;
+        }
+        // A to-do is kept at once (ফিরিয়ে নিন takes it back) — no "রাখি?".
+        return _saveCurrent(out);
       case ReminderAdd():
+        // "সকালে মনে করিও" right after a to-do: that to-do's reminder.
+        final bare = c.needsTitle || reminderWords(c.title).isEmpty;
+        final focus = _focusTaskFresh && _focusTaskId != null ? _taskById(_focusTaskId!) : null;
+        if (bare && focus != null && !c.alarm && c.repeat == Repeat.none) {
+          _current = null;
+          // "সকালে মনে করিও": the hour is asked, on the to-do's own day.
+          final edit = c.needsTime || !saysClock(c.transcript)
+              ? TaskEdit(c.transcript, ref: TaskRef(ids: [focus.id]), remindNeedsTime: true, due: RegExp(fold(r'(?:(?:^|\s)(?:আজ|আজকে|কাল|কালকে|পরশু)(?=\s|$)|\Sবার|তারিখ)')).hasMatch(fold(c.transcript)) ? (c.needsTime ? c.day : dayOnly(c.at)) : null, say: _partWord(c.transcript).isEmpty ? null : '{0} কয়টায় মনে করিয়ে দেব?')
+              : TaskEdit(c.transcript, ref: TaskRef(ids: [focus.id]), remindAt: c.at, remindAmPm: ampmUnclear(c.transcript));
+          await _todo(edit, out);
+          return;
+        }
         // Words that only said how or for whom: "যে …", "জন্য", "প্রতিমাসের".
         final cleaned = _reminderTitle(c.title, c.repeat);
         if (cleaned != c.title) {
@@ -1179,15 +1264,20 @@ class ChatController extends ChangeNotifier {
               choices: [ChatChoice(tr('শুধু অ্যালার্ম'), 'শুধু অ্যালার্ম')]);
           return;
         }
-        if (_allYes) return _saveCurrent(out);
-        final again = c.repeat == Repeat.none ? '' : ', ${c.repeat.label}';
-        final time = bnTime(c.at.hour, c.at.minute);
-        final q = c.repeat.isInterval
-            ? trf('{0} “{1}” মনে করিয়ে দেব, প্রথমবার {2}-এ — ঠিক আছে?', [c.repeat.label, c.title, time])
-            : c.repeat == Repeat.daily
-                ? trf('প্রতিদিন {0}-এ “{1}” মনে করিয়ে দেব — ঠিক আছে?', [time, c.title])
-                : trf('{0}-এ “{1}” মনে করিয়ে দেব{2} — ঠিক আছে?', [sayWhen(c.at, _now), c.title, again]);
-        _ask(out, q, ChatWait.yesNo, choices: _yesNoChoices);
+        // "কাল আটটায়": morning or night is asked, never guessed.
+        if (!c.alarm && !_allYes && c.at.hour >= 7 && c.at.hour <= 11 && ampmUnclear(c.transcript)) {
+          final h = c.at.hour;
+          ReminderAdd at(DateTime x) => ReminderAdd(c.transcript, title: c.title, at: x, repeat: c.repeat, alarm: c.alarm, weekdays: c.weekdays, minutesBefore: c.minutesBefore);
+          _current = null;
+          _clarifyOptions = [
+            (trf('সকাল {0}টা', [bnDigits(h)]), at(c.at)),
+            (trf('রাত {0}টা', [bnDigits(h)]), at(c.at.add(const Duration(hours: 12)))),
+          ];
+          _ask(out, trf('সকাল {0}টা, নাকি রাত {0}টা?', [bnDigits(h)]), ChatWait.clarify, choices: [for (final o in _clarifyOptions) ChatChoice(o.$1, o.$1)]);
+          return;
+        }
+        // Complete: set at once and said back with its time (ফিরিয়ে নিন undoes it).
+        return _saveCurrent(out);
       case CashAdd():
         if (c.amount <= 0) {
           _ask(out, tr('কত টাকা?'), ChatWait.amount);
@@ -1257,36 +1347,6 @@ class ChatController extends ChangeNotifier {
     final src = _src!;
     final amount = _amount > 0 ? _amount : src.amount;
     await _start(CashAdd(src.transcript, kind: CashKind.expense, amount: amount, category: categoryFor(normalize(src.transcript), CashKind.expense)), out);
-  }
-
-  void _taskDone(TaskDone c, List<String> out) {
-    if (!c.done) {
-      // "…এখনো শেষ হয়নি": still to do. Ticked by mistake: open it again.
-      final all = matchTasks(brain.data.tasks, c.terms);
-      if (all.isEmpty) {
-        _say(out, tr('এমন কোনো কাজ তালিকায় পেলাম না।'), links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
-        return;
-      }
-      final t = all.first;
-      if (t.done) {
-        brain.setTaskDone(t, false);
-        _say(out, trf('ঠিক আছে, “{0}” আবার বাকি কাজের তালিকায় রাখলাম।', [t.title]), links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
-      } else {
-        _say(out, trf('জি, “{0}” বাকি কাজের তালিকাতেই আছে — শেষ হলে বলবেন।', [t.title]), links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
-      }
-      return;
-    }
-    final open = brain.data.tasks.where((t) => !t.done);
-    final found = matchTasks(open, c.terms);
-    if (found.isEmpty) {
-      _say(out, tr('এমন কোনো বাকি কাজ তালিকায় পেলাম না।'), links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
-      return;
-    }
-    final t = found.first;
-    brain.setTaskDone(t, true);
-    final left = brain.data.tasks.where((x) => !x.done && x.id != t.id).length;
-    _say(out, trf('বাহ! “{0}” শেষ হিসেবে দাগ দিলাম।{1}', [t.title, left > 0 ? ' আর ${bnDigits(left)}টা কাজ বাকি।' : ' সব কাজ শেষ!']),
-        links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
   }
 
   void _startCall(CallPerson c, List<String> out) {
@@ -1472,7 +1532,9 @@ class ChatController extends ChangeNotifier {
   bool _looksNew(String t) => words(normalize(t)).length >= 4;
 
   String _reminderTitle(String title, Repeat repeat) {
-    var t = title.trim();
+    // "বিল দিতে মনে করিও" → "বিল দেওয়া".
+    final words0 = reminderWords(title);
+    var t = (words0.isEmpty ? title : words0).trim();
     t = t.replaceFirst(RegExp(fold(r'^(?:যে|জন্য|জন্যে|আমার\s+জন্য)\s+')), '');
     if (repeat != Repeat.none) t = t.replaceAll(RegExp(fold(r'(?:^|\s)(?:প্রতিমাসের|প্রতি\s+মাসের|প্রতিমাসে|প্রতি\s+মাসে|প্রতিদিনের|প্রতি\s+সপ্তাহের)(?=\s|$)')), ' ');
     t = t.replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -1496,6 +1558,9 @@ class ChatController extends ChangeNotifier {
     switch (wait) {
       case ChatWait.none:
         return false;
+      case ChatWait.whichTask:
+      case ChatWait.taskTime:
+        return _todoAnswer(t, out);
       case ChatWait.clarify:
         final i = _pickOption(t);
         if (i == null) {
@@ -1508,7 +1573,11 @@ class ChatController extends ChangeNotifier {
         choices = const [];
         _clarifyOptions = const [];
         Trace.log('understood', 'choice made', {'picked': traceLine(pick)});
-        if (pick is MoneyListQuery) {
+        if (isSave(pick)) {
+          await _start(pick, out);
+        } else if (pick is TaskDone || pick is TaskEdit || pick is TaskRestore) {
+          await _todo(pick, out);
+        } else if (pick is MoneyListQuery) {
           _answerMoney(pick, out);
         } else {
           final text = answerText(brain.data, pick, _now) ?? '';
@@ -1832,17 +1901,20 @@ class ChatController extends ChangeNotifier {
         if (isQuestionText(t) && _looksNew(t)) return false;
         final said = tidySpeech(t);
         final w = parseWhen(said, _now);
-        var title = tidy(cutWords(withoutWhen(said), const ['আমাকে', 'আমার', 'লিখে রাখো', 'লিখো', 'লেখো', 'লেখ', 'যে', 'এটা', 'একটা']));
+        var title = todoTitle(withoutWhen(said));
+        if (title.isEmpty) title = tidy(cutWords(withoutWhen(said), const ['আমাকে', 'আমার', 'লিখে রাখো', 'লিখো', 'লেখো', 'লেখ', 'যে', 'এটা', 'একটা']));
         title = title.replaceAll(RegExp(r'[।.!,]+$'), '').trim();
         if (title.isEmpty) {
           _say(out, tr('কী লিখব, শুনতে পাইনি। কাজটা বলুন — যেমন “বিদ্যুৎ বিল দিতে হবে”।'));
           return true;
         }
         final due = w != null && w.hasDay ? w.day : _pendingTaskDue;
+        final was = _pendingTaskAdd;
         _pendingTaskDue = null;
+        _pendingTaskAdd = null;
         wait = ChatWait.none;
         choices = const [];
-        await _start(TaskAdd(t, title: title, due: due), out);
+        await _start(TaskAdd(t, title: title, due: due, span: was?.span ?? TaskSpan.day, repeat: was?.repeat, deadline: was?.deadline ?? false), out);
         return true;
       case ChatWait.callee:
         if (_calleeChoices.isNotEmpty) {
@@ -2138,15 +2210,12 @@ class ChatController extends ChangeNotifier {
             links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
         _history.add(AiTurn.app('[${gone.length}টা কাজ মুছে দেওয়া হলো]'));
       case TaskAdd():
-        await brain.saveTask(Task(title: c.title, due: c.due));
-        _say(out, quiet ? trf('কাজ: {0}', [c.title]) : tr('ঠিক আছে, কাজের তালিকায় তুললাম।'),
-            links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))], speak: !quiet);
-        _history.add(AiTurn.app('[কাজের তালিকায় রাখা হলো: ${c.title}]'));
+        await _saveTaskAdd(c, out, quiet: quiet);
       case ReminderAdd() when !brain.canAddReminder:
         _say(out, trf('ফ্রিতে একসাথে {0}টা রিমাইন্ডার চালু রাখা যায়, সেটা পূর্ণ। পুরোনো কোনোটা বন্ধ বা মুছে দিন, অথবা প্রো নিলে যত খুশি রাখতে পারবেন।', [bnDigits(freeReminders)]),
             links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন')), ChatLink(LinkKind.page, tr('প্রো দেখুন'), page: 'pro')]);
       case ReminderAdd():
-        await brain.saveReminder(Reminder(
+        final saved = Reminder(
           title: c.title,
           date: DateTime(c.at.year, c.at.month, c.at.day),
           hour: c.at.hour,
@@ -2156,7 +2225,11 @@ class ChatController extends ChangeNotifier {
           alarm: c.alarm,
           weekdays: c.weekdays,
           minutesBefore: c.minutesBefore,
-        ));
+        );
+        await brain.saveReminder(saved);
+        // "না, এগারোটায়" right after changes this one.
+        _focusReminderId = saved.id;
+        _focusReminderAt = _now;
         final early = c.minutesBefore > 0 ? trf(' {0} আগেও একবার জানিয়ে দেব।', [beforeLabel(c.minutesBefore)]) : '';
         // Saved, but the phone will not show it: say so instead of promising.
         if (!(await brain.services.notifier.health()).notificationsOn) {
@@ -2165,7 +2238,9 @@ class ChatController extends ChangeNotifier {
           _history.add(AiTurn.app('[রিমাইন্ডার রাখা হলো, কিন্তু নোটিফিকেশন বন্ধ: ${summaryLine(c)}]'));
           break;
         }
-        _say(out, quiet ? trf('মনে করাব: {0}', [c.title]) : (c.repeat.isInterval || c.repeat == Repeat.daily ? trf('ঠিক আছে, {0} মনে করিয়ে দেব।', [c.repeat.label]) : trf('ঠিক আছে, {0}-এ মনে করিয়ে দেব।', [sayWhen(c.at, _now)])) + early,
+        final what = c.needsTitle ? '' : '“${c.title}” ';
+        final again = c.repeat == Repeat.none || c.repeat.isInterval || c.repeat == Repeat.daily ? '' : ', ${c.repeat.label}';
+        _say(out, quiet ? trf('মনে করাব: {0}', [c.title]) : (c.repeat.isInterval || c.repeat == Repeat.daily ? trf('ঠিক আছে, {0} {1}মনে করিয়ে দেব।', [c.repeat.label, what]) : trf('ঠিক আছে, {0}-এ {1}মনে করিয়ে দেব{2}।', [sayWhen(c.at, _now), what, again])) + early,
             links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))], speak: !quiet);
         _history.add(AiTurn.app('[রিমাইন্ডার রাখা হলো: ${summaryLine(c)}]'));
         if (!_warnedExact && !await brain.services.notifier.exactAllowed()) {
@@ -2335,7 +2410,11 @@ class ChatController extends ChangeNotifier {
       return;
     }
     if (_allYes) {
-      if (_savedInBatch > 0) {
+      if (_savedInBatch > 0 && _batchTaskTitles.length == _savedInBatch) {
+        _say(out, trf('{0}টা কাজ যোগ করেছি: {1}।', [bnDigits(_batchTaskTitles.length), nameList(_batchTaskTitles, unit: 'টা')]), links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
+        final snap = _batchSnap;
+        if (snap != null) _offerUndo(snap);
+      } else if (_savedInBatch > 0) {
         _say(out, tr('সব রেখে দিলাম। আর কিছু?'));
         final snap = _batchSnap;
         if (snap != null) _offerUndo(snap);
@@ -2343,6 +2422,7 @@ class ChatController extends ChangeNotifier {
       _batchSnap = null;
       _allYes = false;
       _savedInBatch = 0;
+      _batchTaskTitles.clear();
     }
   }
 }

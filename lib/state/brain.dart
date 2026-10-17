@@ -1564,7 +1564,24 @@ class Brain extends ChangeNotifier {
     if (rid != null && data.reminders.any((r) => r.id == rid)) await deleteReminder(rid, trash: false);
   }
 
-  Future<void> setTaskDone(Task t, bool done) => saveTask(t.copyWith(done: done, doneAt: done ? services.now() : null));
+  /// Ticks a to-do (or opens it again). A repeating one is never "done":
+  /// this time is recorded and it moves on to the next time it is due.
+  Future<void> setTaskDone(Task t, bool done) {
+    final r = t.repeat;
+    if (r != null && done) {
+      final now = services.now();
+      final due = t.due ?? r.nextOnOrAfter(now);
+      return saveTask(t.copyWith(done: false, doneAt: now, due: r.after(due)));
+    }
+    return saveTask(t.copyWith(done: done, doneAt: done ? services.now() : null));
+  }
+
+  /// "এই শুক্রবারটা বাদ দাও": one time of a repeating to-do is skipped.
+  Future<void> skipTaskOnce(Task t) {
+    final r = t.repeat;
+    if (r == null || t.due == null) return Future.value();
+    return saveTask(t.copyWith(due: r.after(t.due!)));
+  }
 
   List<Task> openTasks() => openTasksOf(data, services.now());
 

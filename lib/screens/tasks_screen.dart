@@ -101,7 +101,7 @@ class _TasksScreenState extends State<TasksScreen> {
     final done = brain.data.tasks.where((t) => t.done && inList(t)).toList()..sort((a, b) => (b.doneAt ?? b.createdAt).compareTo(a.doneAt ?? a.createdAt));
 
     Widget row(Task t) {
-      final overdue = t.due != null && !t.done && dayOnly(t.due!).isBefore(dayOnly(now));
+      final overdue = t.due != null && !t.done && dayOnly(t.dueEnd!).isBefore(dayOnly(now));
       return ListRow(
         leading: Checkbox(
           value: t.done,
@@ -109,7 +109,9 @@ class _TasksScreenState extends State<TasksScreen> {
           onChanged: (v) => brain.setTaskDone(t, v ?? false),
         ),
         title: t.title,
-        subtitle: t.due == null ? (_list == null && t.list.isNotEmpty ? t.list : null) : (overdue ? trf('দেরি হয়ে গেছে · {0}', [shortDate(t.due!)]) : sayWhen(t.due!, now, withTime: false)),
+        subtitle: t.due == null && t.repeat == null && !t.urgent && t.note.isEmpty
+            ? (_list == null && t.list.isNotEmpty ? t.list : null)
+            : (overdue ? trf('দেরি হয়ে গেছে · {0}', [shortDate(t.due!)]) : taskWhenText(t, now)),
         subtitleColor: overdue ? C.orange : C.muted,
         trailing: t.done ? null : TaskAlarmButton(t),
         onTap: () => _edit(t),

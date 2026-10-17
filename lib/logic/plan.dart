@@ -41,6 +41,9 @@ List<Command> parseAll(String said, List<LedgerEntry> ledger,
   // এগুলো কাজের তালিকায় যুক্ত করো": several dated to-dos in one breath.
   final dated = datedTodos(said, p);
   if (dated != null) return dated;
+  // To-do requests, one per clause ("বাজার করেছি, ওষুধ আনিনি").
+  final todo = todoCommands(englishTimes(said), tasks, p.now);
+  if (todo != null && todo.isNotEmpty) return todo;
   // "… এটা আমাকে কাজের তালিকায় লিখে রাখো": one to-do, said whole.
   final first = p.parse(said);
   if (first is TaskAdd && RegExp(fold(r'(?:কাজের\s+(?:লিস্ট|তালিকা)|টু\s*ডু)')).hasMatch(fold(said))) return [first];

@@ -18,6 +18,9 @@ import 'cash.dart';
 import 'meaning.dart';
 import 'answers.dart' show periodIn;
 import 'when.dart';
+import 'calendar_bd.dart' show hijriDate;
+
+part 'todo.dart';
 
 sealed class Command {
   const Command(this.transcript);
@@ -99,18 +102,46 @@ class AiReply extends Command {
 
 /// "কাল ব্যাংকে যেতে হবে" → a to-do.
 class TaskAdd extends Command {
-  const TaskAdd(super.transcript, {required this.title, this.due});
+  const TaskAdd(super.transcript, {required this.title, this.due, this.span = TaskSpan.day, this.repeat, this.deadline = false, this.condition, this.urgent = false, this.monthEndAsked = false, this.by});
   final String title;
+
+  /// "বৃহস্পতিবার করব, তবে শুক্রবারের মধ্যে জমা দিতে হবে": the last day,
+  /// beside the day it is planned for.
+  final DateTime? by;
+
+  /// "প্রতি মাসের ৩১ তারিখে": what a shorter month does was already asked.
+  final bool monthEndAsked;
+
+  /// The day — or with a wider [span], the first day of that week, month or year.
   final DateTime? due;
+  final TaskSpan span;
+  final TaskRepeat? repeat;
+
+  /// "শুক্রবারের মধ্যে": [due] is the last day for it.
+  final bool deadline;
+
+  /// "বেতন পেলে", "অফিস থেকে ফেরার পর": kept with it, never guessed into a date.
+  final String? condition;
+  final bool urgent;
 }
 
 /// "ব্যাংকের কাজটা হয়ে গেছে" → tick the matching to-do.
 class TaskDone extends Command {
-  const TaskDone(super.transcript, {required this.terms, this.done = true});
+  const TaskDone(super.transcript, {required this.terms, this.done = true, this.ref, this.partial = false, this.all = false, this.allToday = false});
   final List<String> terms;
 
   /// False: "…এখনো শেষ হয়নি" — the to-do is still open.
   final bool done;
+
+  /// Which one ("ওটা", "দ্বিতীয়টা", by its words); null = by [terms].
+  final TaskRef? ref;
+
+  /// "কাজটা অর্ধেক হয়েছে".
+  final bool partial;
+
+  /// "সব কাজ শেষ" — today's ([allToday]) or, when not said, asked.
+  final bool all;
+  final bool allToday;
 }
 
 /// "আমার সংরক্ষিত ফোন নম্বর দেখাও": the saved numbers — a look, not a save.
@@ -120,15 +151,24 @@ class ContactsQuery extends Command {
 
 /// "আজ কী কী কাজ আছে?"
 class TaskQuery extends Command {
-  const TaskQuery(super.transcript);
+  const TaskQuery(super.transcript, {this.scope});
+
+  /// What the question covers; null = the usual answer for its words.
+  final TaskScope? scope;
 }
 
 /// "আজকের সব কাজ মুছে দাও", "কাজের তালিকার সবকটা ডিলিট করো": every open
 /// to-do (of [day], when one is said) — confirmed once, then removed (kept
 /// 30 days in মুছে ফেলা).
 class TasksClear extends Command {
-  const TasksClear(super.transcript, {this.day});
+  const TasksClear(super.transcript, {this.day, this.doneOnly = false, this.ids = const []});
   final DateTime? day;
+
+  /// Just these to-dos ("বাজারের কাজটা মুছে দাও" after it was found).
+  final List<String> ids;
+
+  /// "শেষ করা কাজগুলো সরাও": only the ticked ones.
+  final bool doneOnly;
 }
 
 /// "কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও".
@@ -772,11 +812,10 @@ class Parser {
         break;
     }
 
-    // "আজকে কোন কাজ আছে", "কালকের যে কাজগুলো আছে", "আমার কী কাজ বাকি":
-    // asking what is on the list. Decided by the shape of the sentence
-    // (to-do word + "আছে/বাকি" + a question word or a plural) before any
-    // add, reminder or search rule can take a piece of it.
-    if (asksForTasks(text)) return TaskQuery(said);
+    // The to-do list, by what is wanted (todo.dart): asked, added, done,
+    // moved, reminded — before any keyword rule can take a piece of it.
+    final todo = todoCommands(said, tasks, now);
+    if (todo != null && todo.isNotEmpty) return todo.first;
 
     // "… এটা একটা কাজের লিস্টে রাখ", "… কাজের তালিকায় লিখে রাখো": a to-do,
     // even when it has a date ("২০ তারিখে") or a time in it.
@@ -838,6 +877,10 @@ class Parser {
     // "বাদ দাও" alone, with nothing waiting: nothing to cancel, nothing deleted.
     if (isCancel(said)) return SmallTalk(said, kind: Talk.cancelled);
 
+    // "শেষ করা কাজগুলো সরাও": only the ticked ones, asked once.
+    if (_hasNorm(text, ['শেষ করা কাজ', 'শেষ হওয়া কাজ', 'সম্পন্ন কাজ', 'করা হয়ে গেছে এমন কাজ', 'টিক দেওয়া কাজ']) && _hasNorm(text, ['সরাও', 'মুছে', 'মুছো', 'বাদ দাও', 'ডিলিট', 'ক্লিয়ার', 'সরিয়ে'])) {
+      return TasksClear(said, doneOnly: true);
+    }
     // "রিমাইন্ডারটা মুছে দাও", "রহিমের লেনদেন ৫০০ না ৬০০", "শেষটা ডিলিট করো".
     // "আজকের যতগুলো কাজ আছে সবগুলো বাদ দিয়ে দাও": all of them, not one.
     if (_hasNorm(text, ['সব', 'সবগুলো', 'সবগুলা', 'সবকটা', 'সবকটাকে', 'সবকয়টা', 'সবটা', 'যতগুলো', 'যতগুলা', 'সমস্ত']) &&

@@ -257,6 +257,141 @@ String taskAnswer(AppData d, DateTime now, [String asked = '']) {
   return trf('{0}টা কাজ বাকি — {1}।', [bnDigits(open.length), nameList([for (final t in open) taskLabel(t, now)], unit: 'টা')]);
 }
 
+/// The to-dos a question covers, in the order they are said and shown:
+/// urgent first, then late, then by date, then those without a date.
+List<Task> scopedTasks(AppData d, TaskScope s, DateTime now) {
+  final today = dayOnly(now);
+  bool touches(Task t, DateTime a, DateTime b) => t.due != null && !dayOnly(t.dueEnd!).isBefore(a) && !dayOnly(t.due!).isAfter(b);
+  Iterable<Task> pool;
+  if (s.doneOnly) {
+    final a = s.from ?? today, b = s.to ?? today;
+    pool = d.tasks.where((t) => t.doneAt != null && (t.done || t.repeat != null) && !dayOnly(t.doneAt!).isBefore(a) && !dayOnly(t.doneAt!).isAfter(b));
+  } else {
+    pool = d.tasks.where((t) => !t.done);
+    if (s.undated) {
+      pool = pool.where((t) => t.due == null);
+    } else if (s.overdue) {
+      pool = pool.where((t) => t.due != null && dayOnly(t.dueEnd!).isBefore(today));
+    } else if (s.future) {
+      pool = pool.where((t) => t.due != null && (dayOnly(t.due!).isAfter(today) || (t.span != TaskSpan.day && !dayOnly(t.dueEnd!).isBefore(today))));
+    } else if (s.from != null) {
+      pool = pool.where((t) => touches(t, s.from!, s.to ?? s.from!) || (s.withOverdue && t.due != null && dayOnly(t.dueEnd!).isBefore(today)));
+    }
+  }
+  if (s.about.isNotEmpty) pool = pool.where((t) => taskScore(t, s.about) > 0);
+  final out = pool.toList();
+  int rank(Task t) => t.due == null ? 2 : (dayOnly(t.dueEnd!).isBefore(today) ? 0 : 1);
+  out.sort((a, b) {
+    if (a.urgent != b.urgent) return a.urgent ? -1 : 1;
+    final r = rank(a).compareTo(rank(b));
+    if (r != 0) return r;
+    return (a.due ?? a.createdAt).compareTo(b.due ?? b.createdAt);
+  });
+  return out;
+}
+
+/// "রিপোর্ট পাঠানো (সোমবার, ১২ অক্টোবর)", "আলমারি গোছানো", with জরুরি.
+String taskLine(Task t, DateTime now) {
+  final today = dayOnly(now);
+  String? when;
+  if (t.due != null) {
+    final d = dayOnly(t.due!);
+    if (dayOnly(t.dueEnd!).isBefore(today)) {
+      when = tr('সময় পেরিয়ে গেছে');
+    } else {
+      when = switch (t.span) {
+        TaskSpan.week => d == _weekStartOf(today) ? tr('এই সপ্তাহে') : (d == _weekStartOf(today).add(const Duration(days: 7)) ? tr('আগামী সপ্তাহে') : trf('{0}-এর সপ্তাহে', [shortDate(d)])),
+        TaskSpan.month => d.year == today.year ? trf('{0} মাসে', [bnMonths[d.month - 1]]) : trf('{0} {1}', [bnMonths[d.month - 1], bnDigits(d.year)]),
+        TaskSpan.year => trf('{0} সালে', [bnDigits(d.year)]),
+        TaskSpan.day => sayWhen(d, now, withTime: false),
+      };
+    }
+  }
+  final bits = [if (when != null) when, if (t.urgent) tr('জরুরি')];
+  return bits.isEmpty ? t.title : '${t.title} (${bits.join(', ')})';
+}
+
+/// "প্রতি শুক্রবার", "প্রতি মাসের ১০ তারিখে", "২ দিন পরপর".
+String repeatLabel(TaskRepeat r) => switch (r.kind) {
+      'daily' => tr('প্রতিদিন'),
+      'weekly' => trf('প্রতি {0}', [nameList([for (final d in r.weekdays) dayName(d)], unit: 'দিন')]),
+      'monthly' => trf('প্রতি মাসের {0} তারিখে', [bnDigits(r.monthDay)]),
+      _ => trf('{0} দিন পরপর', [bnDigits(r.every)]),
+    };
+
+/// The line under a to-do on its page: when (a day, a week, a month…),
+/// how often, জরুরি, and its note.
+String? taskWhenText(Task t, DateTime now) {
+  final parts = <String>[];
+  if (t.repeat != null) parts.add(repeatLabel(t.repeat!));
+  final m = RegExp(r'\((.*)\)$').firstMatch(taskLine(t, now));
+  if (m != null) parts.add(m[1]!);
+  if (t.note.isNotEmpty) parts.add(t.note);
+  return parts.isEmpty ? null : parts.join(' · ');
+}
+
+DateTime _weekStartOf(DateTime d) => dayOnly(d).subtract(Duration(days: (d.weekday + 1) % 7));
+
+/// The answer to a to-do question, and the to-dos it named in order (so
+/// "দ্বিতীয়টা হয়ে গেছে" right after knows which one). Only what is on the
+/// list is said: an empty list is "no to-do kept", never "you are free".
+(String, List<Task>) taskScopeAnswer(AppData d, TaskScope s, DateTime now) {
+  final label = s.label;
+  final tasks = scopedTasks(d, s, now);
+  if (s.suggest) {
+    final open = scopedTasks(d, const TaskScope(), now);
+    if (open.isEmpty) return (tr('এখন কোনো কাজ বাকি নেই।'), const []);
+    final today = dayOnly(now);
+    final t = open.first;
+    final why = t.due != null && dayOnly(t.dueEnd!).isBefore(today)
+        ? tr('এর সময় পেরিয়ে গেছে')
+        : t.urgent
+            ? tr('এটা জরুরি হিসেবে রাখা')
+            : (t.due != null && dayOnly(t.due!) == today ? tr('এটা আজকের মধ্যে করার কথা') : tr('তালিকায় এটার তারিখ সবার আগে'));
+    return (trf('আমার পরামর্শ: “{0}” আগে করতে পারেন — {1}।', [t.title, why]), [t]);
+  }
+  if (s.soonest) {
+    final dated = [for (final t in scopedTasks(d, const TaskScope(), now)) if (t.due != null) t]..sort((a, b) => a.due!.compareTo(b.due!));
+    if (dated.isEmpty) return (tr('তারিখ দেওয়া কোনো বাকি কাজ নেই।'), const []);
+    return (trf('সবার আগে “{0}” — {1}।', [dated.first.title, taskLine(dated.first, now).replaceFirst('${dated.first.title} ', '').replaceAll(RegExp(r'^\(|\)$'), '')]), [dated.first]);
+  }
+  if (s.doneOnly) {
+    final when = label.isEmpty ? tr('আজ') : label;
+    if (tasks.isEmpty) return (trf('{0} এখনো কোনো কাজ শেষ হিসেবে দাগ দেওয়া হয়নি।', [when]), const []);
+    return (trf('{0} {1}টা কাজ শেষ করেছেন — {2}।', [when, bnDigits(tasks.length), nameList([for (final t in tasks) t.title], unit: 'টা')]), tasks);
+  }
+  // One day: the same list home and the কাজ page show for it (to-dos and reminders).
+  if (s.from != null && s.from == s.to && s.about.isEmpty && !s.withOverdue) {
+    final items = planItemsOn(d, s.from!, now);
+    final shown = [for (final i in items) if (i.task != null) i.task!];
+    final when = label.isEmpty ? sayWhen(s.from!, now, withTime: false) : label;
+    if (items.isEmpty) {
+      return (s.free ? trf('{0} এই অ্যাপের তালিকায় কোনো কাজ বা রিমাইন্ডার রাখা নেই।', [when]) : trf('{0} কোনো কাজ বা রিমাইন্ডার রাখা নেই।', [when]), const []);
+    }
+    String line(PlanItem i) => i.reminder != null ? '${i.title} (${bnTime(i.sort.hour, i.sort.minute)})' : taskLine(i.task!, now).replaceAll(' (${sayWhen(s.from!, now, withTime: false)})', '');
+    final head = s.free ? trf('{0} তালিকায় {1}টা রাখা আছে', [when, bnDigits(items.length)]) : trf('{0} {1}টা', [when, bnDigits(items.length)]);
+    return (trf('{0} — {1}।', [head, nameList([for (final i in items) line(i)], unit: 'টা')]), shown);
+  }
+  final what = s.about.isEmpty ? '' : trf('“{0}” নিয়ে ', [s.about.join(' ')]);
+  if (tasks.isEmpty) {
+    if (s.undated) return (tr('তারিখ ছাড়া কোনো কাজ রাখা নেই।'), const []);
+    if (s.overdue) return (tr('সময় পেরিয়ে গেছে এমন কোনো কাজ নেই।'), const []);
+    if (s.about.isNotEmpty) return (trf('{0}কোনো বাকি কাজ তালিকায় পেলাম না।', [what]), const []);
+    if (label.isEmpty) return (tr('এখন কোনো অসমাপ্ত কাজ নেই। নতুন কাজ বললে তালিকায় তুলে রাখব।'), const []);
+    return (s.free ? trf('{0} এই অ্যাপের তালিকায় কোনো কাজ রাখা নেই।', [label]) : trf('{0} কোনো কাজ রাখা নেই।', [label]), const []);
+  }
+  // "ওষুধ আনার কাজ রেখেছিলাম?": yes, and how it stands.
+  if (s.about.isNotEmpty && tasks.length == 1 && label.isEmpty) {
+    final t = tasks.first;
+    final when = taskLine(t, now).replaceFirst(t.title, '').trim().replaceAll(RegExp(r'^\(|\)$'), '');
+    return (trf('হ্যাঁ, “{0}” তালিকায় আছে{1} — এখনো বাকি।', [t.title, when.isEmpty ? '' : ' ($when)']), tasks);
+  }
+  final lead = label.isEmpty ? '' : '$label ';
+  final count = trf('{0}{1}{2}টা কাজ বাকি', [lead, what, bnDigits(tasks.length)]);
+  if (s.count && tasks.length > 4) return (trf('{0}। প্রথমগুলো — {1}।', [count, nameList([for (final t in tasks.take(3)) taskLine(t, now)], unit: 'টা')]), tasks);
+  return (trf('{0} — {1}।', [count, nameList([for (final t in tasks) taskLine(t, now)], unit: 'টা')]), tasks);
+}
+
 /// "এই মাসে কত খরচ হলো?" / "রহিম ভবন প্রজেক্টে কত আছে?"
 String cashAnswer(AppData d, CashQuery q, DateTime now) {
   final name = q.project;
@@ -330,6 +465,7 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       SearchQuery() => searchAnswer(d, cmd, now),
       SmallTalk() => talkReply(cmd.kind, now),
       AiReply() => cmd.text,
+      TaskQuery(:final scope?) => taskScopeAnswer(d, scope, now).$1,
       TaskQuery(:final transcript) => taskAnswer(d, now, transcript),
       CashQuery() => cashAnswer(d, cmd, now),
       MoneyListQuery() => moneyListAnswer(d, cmd),
@@ -340,7 +476,7 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       NotUnderstood() => _notUnderstood(cmd),
       ProfileQuery() => profileAnswer(d, cmd.transcript) ?? infoAnswer(d, cmd.transcript, now) ?? kindAnswer(d, kindAsked(normalize(cmd.transcript)) ?? 'papers'),
       OpenPlace() || ProfileSet() || ManageItem() ||
-      LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TasksClear() || TaskDone() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() || HealthAdd() => null,
+      LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TasksClear() || TaskDone() || TaskEdit() || TaskRestore() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() || HealthAdd() => null,
     };
 
 /// The money records of [q] (লেনদেন book and আয়-ব্যয়), newest first.

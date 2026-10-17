@@ -15,14 +15,19 @@ import '../ui/widgets.dart';
 import 'alarm_screens.dart';
 import 'new_item_screen.dart';
 import '../logic/lang.dart';
+import '../logic/answers.dart' show repeatLabel, taskWhenText;
 import '../ui/pdf_export.dart';
 
 /// "সকাল ১০টা", "প্রতি ঘণ্টায়", "যেকোনো সময়" — the left label of a row.
 String whenLabel(PlanItem i, DateTime now, {bool withDay = false}) {
   final r = i.reminder;
   if (r == null) {
-    final due = i.task!.due;
+    final task = i.task!;
+    final due = task.due;
+    if (task.repeat != null) return repeatLabel(task.repeat!);
     if (due == null) return tr('যেকোনো সময়');
+    // "এই সপ্তাহে", "ডিসেম্বর মাসে": the span, not its first day.
+    if (task.span != TaskSpan.day) return taskWhenText(task.copyWith(urgent: false, note: ''), now) ?? tr('যেকোনো সময়');
     return withDay ? relativeDay(due, now) : tr('যেকোনো সময়');
   }
   if (r.repeat.isInterval) return r.repeat.label;

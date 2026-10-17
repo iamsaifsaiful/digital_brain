@@ -580,19 +580,114 @@ enum Via { call, sms, whatsapp }
 
 // ───────────────────────── Tasks ─────────────────────────
 
+/// How wide a to-do's date is: "শুক্রবার" is one day, "আগামী সপ্তাহে"
+/// the whole week, "ডিসেম্বরে" the month, "পরের বছর" the year. [Task.due]
+/// is then the first day of that span — never a day the user did not say.
+enum TaskSpan { day, week, month, year }
+
+/// A to-do that comes back: every day, on some weekdays, on a day of each
+/// month, or every few days. [Task.due] is always the next time it is due.
+class TaskRepeat {
+  const TaskRepeat.daily() : kind = 'daily', weekdays = const [], monthDay = 0, every = 1, strict = false;
+  const TaskRepeat.weekly(this.weekdays) : kind = 'weekly', monthDay = 0, every = 1, strict = false;
+  const TaskRepeat.monthly(this.monthDay, {this.strict = false}) : kind = 'monthly', weekdays = const [], every = 1;
+  const TaskRepeat.everyDays(this.every) : kind = 'every', weekdays = const [], monthDay = 0, strict = false;
+
+  /// 'daily', 'weekly', 'monthly' or 'every' (every [every] days).
+  final String kind;
+
+  /// DateTime.monday … DateTime.sunday, for 'weekly'.
+  final List<int> weekdays;
+
+  /// 1–31, for 'monthly'. In a shorter month: its last day, or (when
+  /// [strict]) that month is skipped.
+  final int monthDay;
+  final bool strict;
+  final int every;
+
+  /// The first time it is due on or after [from].
+  DateTime nextOnOrAfter(DateTime from, {DateTime? anchor}) {
+    final d0 = DateTime(from.year, from.month, from.day);
+    switch (kind) {
+      case 'weekly':
+        for (var i = 0; i < 7; i++) {
+          final d = DateTime(d0.year, d0.month, d0.day + i);
+          if (weekdays.contains(d.weekday)) return d;
+        }
+        return d0;
+      case 'monthly':
+        DateTime? inMonth(int y, int m) {
+          final last = DateTime(y, m + 1, 0).day;
+          if (monthDay > last && strict) return null;
+          return DateTime(y, m, monthDay > last ? last : monthDay);
+        }
+        for (var k = 0; k < 14; k++) {
+          final c = inMonth(d0.year, d0.month + k);
+          if (c != null && !c.isBefore(d0)) return c;
+        }
+        return d0;
+      case 'every':
+        final a = anchor == null ? d0 : DateTime(anchor.year, anchor.month, anchor.day);
+        if (!a.isBefore(d0)) return a;
+        final gap = d0.difference(a).inDays;
+        final steps = (gap + every - 1) ~/ every;
+        return DateTime(a.year, a.month, a.day + steps * every);
+      default:
+        return d0;
+    }
+  }
+
+  /// The time after [due] (once that one is done or skipped).
+  DateTime after(DateTime due) => kind == 'every' ? DateTime(due.year, due.month, due.day + every) : nextOnOrAfter(DateTime(due.year, due.month, due.day + 1));
+
+  Map<String, Object?> toJson() => {'kind': kind, if (weekdays.isNotEmpty) 'weekdays': weekdays, if (monthDay > 0) 'monthDay': monthDay, if (strict) 'strict': true, if (every > 1) 'every': every};
+
+  static TaskRepeat? fromJson(Object? j) {
+    if (j is! Map) return null;
+    return switch (j['kind']) {
+      'daily' => const TaskRepeat.daily(),
+      'weekly' => TaskRepeat.weekly([for (final x in (j['weekdays'] as List? ?? const [])) if (x is int) x]),
+      'monthly' => TaskRepeat.monthly((j['monthDay'] as int?) ?? 1, strict: j['strict'] == true),
+      'every' => TaskRepeat.everyDays((j['every'] as int?) ?? 2),
+      _ => null,
+    };
+  }
+
+  @override
+  bool operator ==(Object o) => o is TaskRepeat && o.kind == kind && o.monthDay == monthDay && o.strict == strict && o.every == every && o.weekdays.join(',') == weekdays.join(',');
+
+  @override
+  int get hashCode => Object.hash(kind, monthDay, every, weekdays.join(','));
+}
+
 /// A to-do: "কাল ব্যাংকে যেতে হবে", "দুধ কিনতে হবে".
 class Task {
-  Task({String? id, required this.title, this.due, this.done = false, DateTime? createdAt, this.doneAt, this.list = '', this.reminderId})
-      : id = id ?? newId(),
+  Task({
+    String? id,
+    required this.title,
+    this.due,
+    this.done = false,
+    DateTime? createdAt,
+    this.doneAt,
+    this.list = '',
+    this.reminderId,
+    this.span = TaskSpan.day,
+    this.urgent = false,
+    this.note = '',
+    this.repeat,
+  })  : id = id ?? newId(),
         createdAt = createdAt ?? DateTime.now();
 
   final String id;
   final String title;
 
-  /// The day it is for (null = any time).
+  /// The day it is for (null = any time). With a wider [span], the first
+  /// day of that week, month or year.
   final DateTime? due;
   final bool done;
   final DateTime createdAt;
+
+  /// When it was ticked; for a repeating to-do, the last time it was done.
   final DateTime? doneAt;
 
   /// The list it belongs to ("ঈদের কেনাকাটা"); '' = the main to-do list.
@@ -601,15 +696,58 @@ class Task {
   /// The reminder set for it (the ⏰ beside the task).
   final String? reminderId;
 
-  Task copyWith({String? title, DateTime? due, bool clearDue = false, bool? done, DateTime? doneAt, String? list, String? reminderId, bool clearReminder = false}) => Task(
+  final TaskSpan span;
+
+  /// "এটা জরুরি": shown and said first.
+  final bool urgent;
+
+  /// More about it ("কাগজপত্র নিতে হবে").
+  final String note;
+
+  /// Null for a one-time to-do.
+  final TaskRepeat? repeat;
+
+  /// The last day of its span (the due day itself for a one-day to-do).
+  DateTime? get dueEnd {
+    final d = due;
+    if (d == null) return null;
+    return switch (span) {
+      TaskSpan.day => d,
+      TaskSpan.week => DateTime(d.year, d.month, d.day + 6),
+      TaskSpan.month => DateTime(d.year, d.month + 1, 0),
+      TaskSpan.year => DateTime(d.year, 12, 31),
+    };
+  }
+
+  Task copyWith({
+    String? title,
+    DateTime? due,
+    bool clearDue = false,
+    bool? done,
+    DateTime? doneAt,
+    String? list,
+    String? reminderId,
+    bool clearReminder = false,
+    TaskSpan? span,
+    bool? urgent,
+    String? note,
+    TaskRepeat? repeat,
+    bool clearRepeat = false,
+  }) =>
+      Task(
         id: id,
         title: title ?? this.title,
         due: clearDue ? null : (due ?? this.due),
         done: done ?? this.done,
         createdAt: createdAt,
-        doneAt: (done ?? this.done) ? (doneAt ?? this.doneAt ?? DateTime.now()) : null,
+        doneAt: (done ?? this.done) ? (doneAt ?? this.doneAt ?? DateTime.now()) : (repeat ?? this.repeat) != null ? (doneAt ?? this.doneAt) : null,
         list: list ?? this.list,
         reminderId: clearReminder ? null : (reminderId ?? this.reminderId),
+        // A new date said as a day ("কাল") is a day, unless a span comes with it.
+        span: clearDue ? TaskSpan.day : (span ?? (due != null ? TaskSpan.day : this.span)),
+        urgent: urgent ?? this.urgent,
+        note: note ?? this.note,
+        repeat: clearRepeat ? null : (repeat ?? this.repeat),
       );
 
   Map<String, Object?> toJson() => {
@@ -621,6 +759,10 @@ class Task {
         'doneAt': doneAt?.toIso8601String(),
         if (list.isNotEmpty) 'list': list,
         if (reminderId != null) 'reminderId': reminderId,
+        if (span != TaskSpan.day) 'span': span.name,
+        if (urgent) 'urgent': true,
+        if (note.isNotEmpty) 'note': note,
+        if (repeat != null) 'repeat': repeat!.toJson(),
       };
 
   factory Task.fromJson(Map<String, Object?> j) => Task(
@@ -632,6 +774,10 @@ class Task {
         doneAt: _date(j['doneAt']),
         list: (j['list'] as String?) ?? '',
         reminderId: j['reminderId'] as String?,
+        span: TaskSpan.values.where((s) => s.name == j['span']).firstOrNull ?? TaskSpan.day,
+        urgent: j['urgent'] == true,
+        note: (j['note'] as String?) ?? '',
+        repeat: TaskRepeat.fromJson(j['repeat']),
       );
 }
 

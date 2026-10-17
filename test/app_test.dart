@@ -423,8 +423,8 @@ void main() {
       await settle(t);
     }
 
+    // A complete reminder is set at once (ফিরিয়ে নিন undoes it).
     await type('কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও');
-    await yes();
     expect(rig.brain.data.reminders.single.hour, 10);
     await type('মিটিংয়ের রিমাইন্ডারটা ৮টায় করে দাও');
     expect(find.textContaining('বদলে'), findsWidgets);
@@ -758,17 +758,19 @@ void main() {
     await openChat(t);
     await tell(t, rig, 'আজকে ব্যাংকে যেতে হবে');
     await settle(t);
-    expect(rig.voice.spoken.last, contains('তুলে রাখি?'));
+    // Kept at once — no "তুলে রাখি?" for a plain to-do.
+    expect(rig.voice.spoken.last, contains('রেখেছি'));
+    expect(rig.brain.data.tasks.single.due, DateTime(2026, 10, 9));
     await tell(t, rig, 'হ্যাঁ');
     await settle(t);
-    expect(rig.brain.data.tasks.single.due, DateTime(2026, 10, 9));
+    expect(rig.brain.data.tasks, hasLength(1), reason: 'a "yes" after it adds nothing');
     await tell(t, rig, 'আজ আমার কী কী আছে?');
     await settle(t);
     expect(rig.voice.spoken.last, contains('কাজ বাকি ১টা'));
     await tell(t, rig, 'ব্যাংকের কাজ হয়ে গেছে');
     await settle(t);
     expect(rig.brain.data.tasks.single.done, isTrue);
-    expect(rig.voice.spoken.last, contains('দাগ দিলাম'));
+    expect(rig.voice.spoken.last, contains('সম্পন্ন করেছি'));
   });
 
   testWidgets('assistant: a timed reminder is scheduled', (t) async {
@@ -776,9 +778,8 @@ void main() {
     await openChat(t);
     await tell(t, rig, 'কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও');
     await settle(t);
-    expect(rig.voice.spoken.last, contains('দেব — ঠিক আছে?'));
-    await tell(t, rig, 'হ্যাঁ');
-    await settle(t);
+    // Complete: set at once and said back with its time.
+    expect(rig.voice.spoken.last, contains('মনে করিয়ে দেব'));
     final r = rig.brain.data.reminders.single;
     expect(r.date, DateTime(2026, 10, 10));
     expect(r.hour, 10);
@@ -936,8 +937,6 @@ void main() {
     rig.notifier.state = const AlarmHealth(notificationsOn: false, exactOn: true, batteryFree: true, fullScreenOn: true, brand: '', hasAutostart: false);
     await openChat(t);
     await tell(t, rig, 'কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও');
-    await settle(t);
-    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.reminders, hasLength(1));
     expect(rig.voice.spoken.last, contains('নোটিফিকেশন বন্ধ'));
@@ -1131,9 +1130,7 @@ void main() {
     expect(rig.voice.spoken.last, contains('কী বিষয়ে'));
     await tell(t, rig, 'ওষুধ খাওয়া');
     await settle(t);
-    expect(rig.voice.spoken.last, contains('দেব — ঠিক আছে?'));
-    await tell(t, rig, 'হ্যাঁ');
-    await settle(t);
+    expect(rig.voice.spoken.last, contains('মনে করিয়ে দেব'));
     final r = rig.brain.data.reminders.single;
     expect(r.date, DateTime(2026, 10, 9));
     expect(r.hour, 17);
@@ -1152,9 +1149,7 @@ void main() {
     expect(rig.voice.spoken.last, contains('কয়টায়'));
     await tell(t, rig, '৬.২০');
     await settle(t);
-    expect(rig.voice.spoken.last, contains('দেব — ঠিক আছে?'));
-    await tell(t, rig, 'হ্যাঁ');
-    await settle(t);
+    expect(rig.voice.spoken.last, contains('মনে করিয়ে দেব'));
     final r = rig.brain.data.reminders.single;
     expect(r.hour, 18);
     expect(r.minute, 20);
@@ -1197,9 +1192,7 @@ void main() {
     await openChat(t);
     await tell(t, rig, 'প্রতি ৩০ মিনিটে পানি খাওয়ার কথা মনে করিয়ে দিও');
     await settle(t);
-    expect(rig.voice.spoken.last, contains('প্রথমবার'));
-    await tell(t, rig, 'হ্যাঁ');
-    await settle(t);
+    expect(rig.voice.spoken.last, contains('প্রতি ৩০ মিনিটে'));
     expect(rig.brain.data.reminders.single.repeat, Repeat.every30);
     expect(rig.notifier.scheduled.single.every, const Duration(minutes: 30));
   });
