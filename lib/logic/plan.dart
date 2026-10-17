@@ -14,12 +14,12 @@ import 'lang.dart';
 
 /// Saves something (needs a yes first)?
 bool isSave(Command c) =>
-    c is LedgerAdd || c is LedgerSet || c is NoteAdd || c is TaskAdd || c is ReminderAdd || c is ContactAdd || c is CashAdd || c is VaultAdd || c is MemoryAdd || c is SpecialAdd || c is HealthAdd || c is ProfileSet;
+    c is LedgerAdd || c is LedgerSet || c is NoteAdd || c is TaskAdd || c is ReminderAdd || c is ContactAdd || c is CashAdd || c is VaultAdd || c is MemoryAdd || c is SpecialAdd || c is HealthAdd || c is ProfileSet || c is TasksClear;
 
 bool _complete(Command c) => switch (c) {
       LedgerAdd() => c.person.trim().isNotEmpty && c.amount > 0,
       ReminderAdd() => !c.needsTime,
-      LedgerSet() || TaskAdd() || ContactAdd() || NoteAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() || HealthAdd() || ProfileSet() => true,
+      LedgerSet() || TaskAdd() || TasksClear() || ContactAdd() || NoteAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() || HealthAdd() || ProfileSet() => true,
       CashAdd() => c.amount > 0,
       _ => false,
     };

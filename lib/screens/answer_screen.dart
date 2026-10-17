@@ -245,6 +245,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
       case LedgerAdd():
       case LedgerSet():
       case TaskAdd():
+      case TasksClear():
       case TaskDone():
       case ReminderAdd():
       case ContactAdd():

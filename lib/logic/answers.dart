@@ -229,6 +229,16 @@ String taskLabel(Task t, DateTime now) {
 String taskAnswer(AppData d, DateTime now, [String asked = '']) {
   final open = openTasksOf(d, now);
   // "আজকের কাজের তালিকা", "৩১ অক্টোবরের কাজ": only that day's.
+  // "জানুয়ারি মাসের কাজের তালিকা": that month's.
+  final said = fold(tidySpeech(asked));
+  for (var m = 0; m < 12 && asked.isNotEmpty; m++) {
+    final i = said.indexOf(fold(bnMonths[m]));
+    if (i < 0 || RegExp(r'[০-৯0-9]\s*$').hasMatch(said.substring(0, i))) continue;
+    final year = (m + 1 < now.month) ? now.year + 1 : now.year;
+    final those = [for (final t in open) if (t.due != null && t.due!.year == year && t.due!.month == m + 1) t];
+    if (those.isEmpty) return trf('{0} মাসে কোনো কাজ রাখা নেই।', [bnMonths[m]]);
+    return trf('{0} মাসে {1}টা কাজ — {2}।', [bnMonths[m], bnDigits(those.length), nameList([for (final t in those) '${t.title} (${shortDate(t.due!)})'], unit: 'টা')]);
+  }
   final w = asked.isEmpty ? null : parseWhen(tidySpeech(asked), now);
   if (w != null && w.hasDay) {
     final day = dayOnly(w.day);
@@ -327,7 +337,7 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       NotUnderstood() => _notUnderstood(cmd),
       ProfileQuery() => profileAnswer(d, cmd.transcript) ?? infoAnswer(d, cmd.transcript, now) ?? kindAnswer(d, kindAsked(normalize(cmd.transcript)) ?? 'papers'),
       OpenPlace() || ProfileSet() || ManageItem() ||
-      LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TaskDone() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() || HealthAdd() => null,
+      LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TasksClear() || TaskDone() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() || HealthAdd() => null,
     };
 
 /// The money records of [q] (লেনদেন book and আয়-ব্যয়), newest first.

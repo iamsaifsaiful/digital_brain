@@ -123,6 +123,14 @@ class TaskQuery extends Command {
   const TaskQuery(super.transcript);
 }
 
+/// "আজকের সব কাজ মুছে দাও", "কাজের তালিকার সবকটা ডিলিট করো": every open
+/// to-do (of [day], when one is said) — confirmed once, then removed (kept
+/// 30 days in মুছে ফেলা).
+class TasksClear extends Command {
+  const TasksClear(super.transcript, {this.day});
+  final DateTime? day;
+}
+
 /// "কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও".
 class ReminderAdd extends Command {
   const ReminderAdd(super.transcript, {required this.title, required this.at, this.repeat = Repeat.none, this.alarm = false, this.weekdays = const [], this.minutesBefore = 0, this.day});
@@ -813,6 +821,13 @@ class Parser {
     if (isCancel(said)) return SmallTalk(said, kind: Talk.cancelled);
 
     // "রিমাইন্ডারটা মুছে দাও", "রহিমের লেনদেন ৫০০ না ৬০০", "শেষটা ডিলিট করো".
+    // "আজকের যতগুলো কাজ আছে সবগুলো বাদ দিয়ে দাও": all of them, not one.
+    if (_hasNorm(text, ['সব', 'সবগুলো', 'সবগুলা', 'সবকটা', 'সবকটাকে', 'সবকয়টা', 'সবটা', 'যতগুলো', 'যতগুলা', 'সমস্ত']) &&
+        _hasNorm(text, ['কাজ', 'কাজের তালিকা', 'কাজের লিস্ট', 'টুডু']) &&
+        _hasNorm(text, ['মুছে', 'মুছো', 'বাদ দাও', 'বাদ দিয়ে', 'বাদ দিও', 'ডিলিট', 'কেটে দাও', 'ক্লিয়ার'])) {
+      final w0 = parseWhen(said, now);
+      return TasksClear(said, day: w0 != null && w0.hasDay ? dayOnly(w0.day) : null);
+    }
     var manage = manageAction(text);
     // "অ্যালার্ম বন্ধ করো" with no name: the alarm/reminder page, to choose there.
     if (manage == 'stop' && !namesSomething(text)) manage = null;
@@ -1712,7 +1727,7 @@ class Parser {
     var title = tidy(cutWords(withoutWhen(body), [
       ..._taskListKeys, 'বাজারের লিস্টে', 'বাজারের তালিকায়', 'কাজের লিস্টে', 'কাজের তালিকাতে', 'কাজের তালিকা তে', 'কাজের তালিকায়', 'কাজের তালিকা', 'কাজের লিস্টের', 'কাজের লিস্ট', 'তালিকাতে', 'লিস্টে', 'তালিকায়', 'তালিকা', 'লিস্ট', 'কাজের', ..._addVerbs, ..._fillers, 'আমার', 'একটা', 'যা', 'জন্য',
     ]));
-    title = title.replaceAll(RegExp(r'[।.!,]+$'), '').trim().replaceFirst(RegExp(fold(r'^যে\s+')), '').replaceFirst(RegExp(fold(r'\s+(?:এটা|এইটা|এটাকে)$')), '').trim();
+    title = title.replaceAll(RegExp(fold(r'\s+(?:এরকম|এরাম|এইরকম|এই রকম|এমন)(?:\s+(?:একটা|একটি))?(?=\s|$)')), ' ').replaceAll(RegExp(r'[।.!,]+$'), '').trim().replaceFirst(RegExp(fold(r'^যে\s+')), '').replaceFirst(RegExp(fold(r'\s+(?:এটা|এইটা|এটাকে)$')), '').trim();
     final when = parseWhen(said, now);
     final due = when != null && when.hasDay ? when.day : null;
     // "কালকের কাজের তালিকায় লেখ" and nothing yet: the chat asks what to write.

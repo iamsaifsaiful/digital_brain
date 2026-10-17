@@ -506,4 +506,48 @@ void main() {
       expect(chat.brain.data.tasks.single.due, DateTime(2026, 12, 31));
     });
   });
+
+  // Three more recordings (17 Oct, 11:00).
+  group('the fourth set of 17 Oct', () {
+    Future<(ChatController, List<String>)> talk(WidgetTester t, List<String> turns, {List<Task> tasks = const []}) async {
+      final rig = await start(t);
+      for (final x in tasks) {
+        await rig.brain.saveTask(x);
+      }
+      final chat = ChatController(rig.brain);
+      final out = <String>[];
+      for (final s in turns) {
+        out.add(await chat.hear(s));
+      }
+      return (chat, out);
+    }
+
+    final some = [Task(title: 'পুকুরে চুন দিতে হবে', due: DateTime(2026, 10, 9)), Task(title: 'নিজাম মামা আসবেন', due: DateTime(2026, 10, 9)), Task(title: 'সোনা মরে যাইতে হবে'), Task(title: 'স্কুলে যেতে হবে', due: DateTime(2027, 1, 1))];
+
+    testWidgets('"এরাম একটা" is not part of the to-do; "X শব্দটা বাদ দিও" takes the word out and saves', (t) async {
+      final (_, r) = await talk(t, ['আচ্ছা জানুয়ারি মাসের ৩১ তারিখে বাচ্চাকে স্কুলে নিতে হবে এরাম একটা কাজের তালিকা লেখ']);
+      expect(r.single, allOf(contains('“বাচ্চাকে স্কুলে নিতে হবে”'), contains('৩১ জানুয়ারি')));
+      final (chat, _) = await talk(t, ['জানুয়ারি মাসের ৩১ তারিখে বাচ্চাকে স্কুলে নিতে হবে কাজের তালিকায় লেখ', 'হ্যাঁ তুলে রাখ তবে নিতে শব্দটা বাদ দিও']);
+      expect(chat.brain.data.tasks.single.title, 'বাচ্চাকে স্কুলে হবে');
+    });
+
+    testWidgets('"জানুয়ারি মাসের কাজের তালিকা" lists that month only', (t) async {
+      final (_, r) = await talk(t, ['একটা কাজ কর আমাকে আমার জানুয়ারি মাসের কাজে তালিকা টা দাও তো'], tasks: some);
+      expect(r.single, allOf(contains('স্কুলে যেতে হবে'), isNot(contains('পুকুরে'))));
+    });
+
+    testWidgets('"আজকের যতগুলো কাজ আছে সবগুলো বাদ দিয়ে দাও": today\'s, confirmed once, all removed', (t) async {
+      final (chat, r) = await talk(t, ['হ্যাঁ আমি তো বলা শেষ করছি আমার আজকের যতগুলো কাজ আছে সবগুলো বাদ দিয়ে দাও', 'হ্যাঁ'], tasks: some);
+      expect(r[0], contains('আজকের সব — ২টা কাজ মুছে দেবো?'));
+      expect(chat.brain.data.tasks.map((x) => x.title), unorderedEquals(['সোনা মরে যাইতে হবে', 'স্কুলে যেতে হবে']));
+      final (chat2, r2) = await talk(t, ['আমার কাজের তালিকার মধ্যে যতগুলো কাজ আছে সবকটা মুছে দাও ডিলিট করে দাও', 'হ্যাঁ'], tasks: some);
+      expect(r2[0], contains('৪টা কাজ'));
+      expect(chat2.brain.data.tasks, isEmpty);
+    });
+
+    testWidgets('"তুমি আজকেরটা কেন দিতেছ" is a complaint, answered', (t) async {
+      final (_, r) = await talk(t, ['ভাই আমি তো জানো রে তুমি আজকেরটা কেন দিতেছ']);
+      expect(r.single, contains('দুঃখিত'));
+    });
+  });
 }

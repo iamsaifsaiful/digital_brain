@@ -163,6 +163,14 @@ class ChatController extends ChangeNotifier {
   TaskAdd? _pendingTask;
   int? _pendingMonth;
 
+  List<Task> _clearable(TasksClear c) {
+    final today = dayOnly(_now);
+    return [
+      for (final t in brain.data.tasks)
+        if (!t.done && (c.day == null || (t.due != null && (dayOnly(t.due!) == c.day || (c.day == today && dayOnly(t.due!).isBefore(today)))))) t,
+    ];
+  }
+
   int? _monthOnly(String said) {
     final s = fold(said);
     for (var m = 0; m < 12; m++) {
@@ -1086,6 +1094,23 @@ class ChatController extends ChangeNotifier {
           ChatWait.yesNo,
           choices: _yesNoChoices,
         );
+      case TasksClear():
+        final gone = _clearable(c);
+        if (gone.isEmpty) {
+          _current = null;
+          _say(out, c.day == null ? tr('কাজের তালিকায় মোছার মতো কোনো কাজ নেই।') : trf('{0} কোনো কাজ নেই — কিছু মুছিনি।', [sayWhen(c.day!, _now, withTime: false)]));
+          return;
+        }
+        final today = dayOnly(_now);
+        final whose = c.day == null
+            ? tr('কাজের তালিকার')
+            : c.day == today
+                ? tr('আজকের')
+                : c.day == today.add(const Duration(days: 1))
+                    ? tr('কালকের')
+                    : trf('{0}-এর', [shortDate(c.day!)]);
+        _ask(out, trf('{0} সব — {1}টা কাজ মুছে দেবো?', [whose, bnDigits(gone.length)]), ChatWait.yesNo,
+            choices: _yesNoChoices, facts: [for (final t in gone.take(8)) t.title]);
       case TaskAdd():
         // "ডিসেম্বরের কাজের তালিকায় লেখ …": a month but no day — ask the day.
         final month = c.due == null ? _monthOnly(c.transcript) : null;
@@ -1476,6 +1501,10 @@ class ChatController extends ChangeNotifier {
         }
         return true;
       case ChatWait.whichItem:
+        if (RegExp(fold(r'(?:^|\s)(?:সব|সবগুলো|সবকটা|সবকটাকে|যতগুলো)(?:\s|$)')).hasMatch(fold(t))) {
+          _dropPending();
+          return false;
+        }
         final n = asciiDigits(t).replaceAll(RegExp(r'[^0-9]'), '');
         var i = int.tryParse(n) == null ? null : int.parse(n) - 1;
         i ??= _pickIndex(t, [for (final x in _targets) (x.label, '')]);
@@ -1524,6 +1553,26 @@ class ChatController extends ChangeNotifier {
         // "না, রেখো না": a plain no — checked first, so "রেখো" is never
         // taken as a corrected name or kind.
         final refused = refusesSave(t) || notWhatISaid(t);
+        // "হ্যাঁ তুলে রাখ, তবে এরাম শব্দটা বাদ দিও": that word out, then as asked.
+        final drop = RegExp(fold(r'(\S+)\s+(?:শব্দটা|শব্দটি|কথাটা|শব্দ)\s+(?:বাদ|কেটে|মুছে)')).firstMatch(fold(t));
+        final curW = _current;
+        if (!refused && !_askingAll && drop != null && (curW is TaskAdd || curW is ReminderAdd)) {
+          final word = drop[1]!;
+          String cut(String s) => fold(s).replaceAll(RegExp('(?:^|\\s)${RegExp.escape(word)}(?=\\s|\$)'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+          final next = curW is TaskAdd
+              ? TaskAdd(curW.transcript, title: cut(curW.title), due: curW.due)
+              : ReminderAdd((curW as ReminderAdd).transcript, title: cut(curW.title), at: curW.at, repeat: curW.repeat, alarm: curW.alarm, weekdays: curW.weekdays, minutesBefore: curW.minutesBefore, day: curW.day);
+          wait = ChatWait.none;
+          choices = const [];
+          Trace.log('understood', 'a word taken out of the waiting item', const {});
+          _current = next;
+          if (yesNo(t.substring(0, t.length)) == true || RegExp(fold(r'(?:^|\s)(?:রাখ|রাখো|তুলে রাখ|হ্যাঁ)(?:\s|$)')).hasMatch(fold(t))) {
+            await _saveCurrent(out);
+          } else {
+            await _start(next, out);
+          }
+          return true;
+        }
         // "হ্যাঁ, কিন্তু শুধু লিখবা ওয়াইফাই বিল দিতে হবে": same item, fewer words.
         final shorter = refused || _askingAll ? null : onlyWrite(t);
         if (shorter != null && (_current is TaskAdd || _current is ReminderAdd)) {
@@ -2053,6 +2102,14 @@ class ChatController extends ChangeNotifier {
         _say(out, quiet ? trf('রাখলাম: {0} (‘{1}’)', [c.text, cat]) : trf('ঠিক আছে, ‘{0}’ বিভাগে রেখে দিলাম।', [cat]),
             links: [ChatLink(LinkKind.notes, tr('নোট দেখুন'))], speak: !quiet);
         _history.add(AiTurn.app('[নোট রাখা হলো, বিভাগ: $cat]'));
+      case TasksClear():
+        final gone = _clearable(c);
+        for (final t in gone) {
+          await brain.deleteTask(t.id);
+        }
+        _say(out, trf('মুছে দিলাম — {0}টা কাজ। ৩০ দিন “মুছে ফেলা” থেকে ফেরত আনা যাবে।', [bnDigits(gone.length)]),
+            links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
+        _history.add(AiTurn.app('[${gone.length}টা কাজ মুছে দেওয়া হলো]'));
       case TaskAdd():
         await brain.saveTask(Task(title: c.title, due: c.due));
         _say(out, quiet ? trf('কাজ: {0}', [c.title]) : tr('ঠিক আছে, কাজের তালিকায় তুললাম।'),
