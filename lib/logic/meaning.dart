@@ -1,4 +1,4 @@
-import 'bn.dart' show bnMonths;
+import 'bn.dart' show bnMonths, fixMonthSpellings;
 import 'parser.dart';
 
 // How a sentence is meant, judged from its parts — who does what to whom,
@@ -303,9 +303,7 @@ String tidySpeech(String said, {List<bool>? whole}) {
   // "অক্টোবর", "জানুয়ারি মাসের প্রথম তারিখে" → "১ জানুয়ারি", "২৭ সালের" dropped.
   // One spelling of each month ("ফেব্রুয়ারী" = "ফেব্রুয়ারি", "আগষ্ট" =
   // "আগস্ট"), its ending kept: every date rule after this knows it.
-  for (final (from, to) in _monthSpellings) {
-    s = s.replaceAll(RegExp('(?<=^|[\\s,।(])${fold(from)}'), fold(to));
-  }
+  s = fixMonthSpellings(s);
   final months = bnMonths.map(fold).join('|');
   // "বাইশ তারিখে", "পঁচিশে ডিসেম্বর": a day of the month said as a word is
   // the same date as "২২ তারিখে" — written as a number so every date rule
@@ -472,7 +470,4 @@ String meantInstead(String said) {
   return rest.split(RegExp(r'\s+')).length >= 2 ? rest : said;
 }
 
-const _monthSpellings = [
-  ('জানুয়ারী', 'জানুয়ারি'), ('জানুআরি', 'জানুয়ারি'), ('ফেব্রুয়ারী', 'ফেব্রুয়ারি'), ('ফেব্রুআরি', 'ফেব্রুয়ারি'), ('ফেবরুয়ারি', 'ফেব্রুয়ারি'),
-  ('আগষ্ট', 'আগস্ট'), ('সেপ্টেম্বার', 'সেপ্টেম্বর'), ('অক্টোবার', 'অক্টোবর'), ('নভেম্বার', 'নভেম্বর'), ('ডিসেম্বার', 'ডিসেম্বর'), ('জুলায়', 'জুলাই'),
-];
+

@@ -66,6 +66,10 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   if (calendarAsked(said)) return [SmallTalk(said, kind: calendarTodayOnly(said, p.now) ? Talk.date : Talk.calendar)];
   // "কিভাবে ডকুমেন্টস যুক্ত করব": how to — answered, never kept as a to-do.
   if (howToAsked(said) != null || abilityAsked(said) != null) return [ProfileQuery(said)];
+  // "আরও ১ জনের কাছে কত?" after a list of who owes: the whole list again.
+  if (RegExp(fold(r'আরও\s+\S+\s+জন')).hasMatch(fold(said)) && RegExp(fold(r'(?:কত|কে|কারা|কার|কাকে)')).hasMatch(fold(said))) {
+    return [LedgerQuery(said, ask: RegExp(fold(r'(?:কাছে|পাবো|পাব|পাওনা)')).hasMatch(fold(said)) ? LedgerAsk.receivable : LedgerAsk.payable)];
+  }
   // "আয়ের খাত গুলো কি কি", "কিভাবে ব্যয় হয়েছে?": this month by খাত.
   if (categoryAsked(said) != null) return [CashQuery(said)];
   // "আমার পাসপোর্ট দাও", "জাতীয় পরিচয় পত্র কোথায়": a paper kept in
@@ -314,9 +318,20 @@ List<Command>? lineTodos(String said, Parser p) {
   final out = <Command>[];
   DateTime? prev;
   final monthWord = RegExp(fold('(?:${bnMonths.join('|')})'));
-  for (final line in lines.skip(1)) {
+  // "২৯ তারিখে ঢাকায় যাবো। ৩১ তারিখে পার্টি।" on one line: two to-dos.
+  final items = [
+    for (final l in lines.skip(1))
+      for (final x in l.split(RegExp(r'\s*।\s*|\.\s+'))) if (x.trim().isNotEmpty) x.trim(),
+  ];
+  for (final line in items) {
     final c = p.parse('${tidySpeech(line)} — কাজের তালিকায় লিখে রাখো');
-    final title = c is TaskAdd && c.title.trim().isNotEmpty ? c.title : tidy(line);
+    var title = c is TaskAdd && c.title.trim().isNotEmpty ? c.title : tidy(line);
+    // "সকাল স্কুলে যাবো": the part of the day stays with it ("সকালে স্কুলে যাওয়া").
+    final part = RegExp(fold(r'^(সকাল|দুপুর|বিকাল|বিকেল|সন্ধ্যা|রাত|ভোর)(?:ে|য়|ের)?(?=\s)')).firstMatch(fold(line));
+    if (part != null && !fold(title).startsWith(part[1]!)) {
+      const said = {'সকাল': 'সকালে', 'দুপুর': 'দুপুরে', 'বিকাল': 'বিকালে', 'বিকেল': 'বিকেলে', 'সন্ধ্যা': 'সন্ধ্যায়', 'রাত': 'রাতে', 'ভোর': 'ভোরে'};
+      title = '${said[part[1]!] ?? part[1]!} $title';
+    }
     if (title.trim().isEmpty) continue;
     var own = c is TaskAdd ? c.due : null;
     // "১২ তারিখে ঢাকা, ১৭ তারিখে সিংগাপুর, ২৫ তারিখে ফেরা": a list goes

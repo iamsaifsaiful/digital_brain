@@ -79,11 +79,11 @@ List<Hit> searchAll(AppData d, List<String> terms) {
     if (s > 0) out.add(VaultHit(v, s));
   }
   for (final c in d.contacts) {
-    final s = score(terms, [c.name, c.phone, c.email, c.note]);
+    final s = score(terms, [c.name, c.phone, c.email, c.note, for (final f in c.files) f.text]);
     if (s > 0) out.add(ContactHit(c, s));
   }
   for (final n in d.notes) {
-    final s = score(terms, [n.title, n.body, n.category]);
+    final s = score(terms, [n.title, n.body, n.category, for (final f in n.files) f.text]);
     if (s > 0) out.add(NoteHit(n, s));
   }
   for (final r in d.reminders) {

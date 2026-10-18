@@ -153,3 +153,21 @@ String beforeLabel(int minutes) {
   if (m == 0) return trf('{0} ঘণ্টা', [bnDigits(h)]);
   return trf('{0} ঘণ্টা {1} মিনিট', [bnDigits(h), bnDigits(m)]);
 }
+
+/// Common spellings of the month names ("ফেব্রুয়ারী", "আগষ্ট"…), as the
+/// app writes them — so every date rule reads them.
+const monthSpellings = [
+  ('জানুয়ারী', 'জানুয়ারি'), ('জানুআরি', 'জানুয়ারি'), ('ফেব্রুয়ারী', 'ফেব্রুয়ারি'), ('ফেব্রুআরি', 'ফেব্রুয়ারি'), ('ফেবরুয়ারি', 'ফেব্রুয়ারি'),
+  ('আগষ্ট', 'আগস্ট'), ('সেপ্টেম্বার', 'সেপ্টেম্বর'), ('অক্টোবার', 'অক্টোবর'), ('নভেম্বার', 'নভেম্বর'), ('ডিসেম্বার', 'ডিসেম্বর'), ('জুলায়', 'জুলাই'),
+];
+
+String fixMonthSpellings(String s) {
+  var out = s;
+  for (final (from, to) in monthSpellings) {
+    out = out.replaceAll(RegExp('(?<=^|[\\s,।(০-৯0-9])${_fold(from)}'), _fold(to));
+    out = out.replaceAll(RegExp('(?<=^|[\\s,।(০-৯0-9])$from'), to);
+  }
+  return out;
+}
+
+String _fold(String s) => s.replaceAll('\u09DF', '\u09AF\u09BC').replaceAll('\u09DC', '\u09A1\u09BC').replaceAll('\u09DD', '\u09A2\u09BC');

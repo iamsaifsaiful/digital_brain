@@ -170,7 +170,7 @@ const _labels = [
   _Label(r'^\s*(?:full\s*)?name\b(?!\s*of)', 'নাম'),
   _Label(r'\bdate\s*of\s*birth\b|\bbirth\s*date\b|\bd\.?o\.?b\b', 'জন্মতারিখ', date: true),
   _Label(r'\b(?:nid|national\s*id|id)\s*(?:no|number|#)\b\.?', 'NID নম্বর', value: r'\d[\d ]{8,20}\d'),
-  _Label(r'\bpassport\s*(?:no|number|#)\b\.?', 'পাসপোর্ট নম্বর', value: r'[A-Z]{1,2}\s?\d{7}'),
+  _Label(r'\bpassport\s*(?:no|number|#)\b\.?', 'পাসপোর্ট নম্বর', value: r'[A-Z]{1,2}\s?\d{7,8}(?!\d)'),
   _Label(r'\bdate\s*of\s*issue\b|\bissue\s*date\b|\bissued\s*on\b|\bdate\s*of\s*issuance\b', 'ইস্যুর তারিখ', date: true),
   _Label(r'\b(?:driving\s*)?licen[cs]e\s*(?:no|number|#)\b\.?|\bd\.?l\.?\s*(?:no|number)\b\.?', 'লাইসেন্স নম্বর'),
   _Label(r'\bblood\s*group\b|\bblood\b', 'রক্তের গ্রুপ', value: r'(?:AB|A|B|O)\s?[+-]|(?:AB|A|B|O)\s?(?:positive|negative|pos|neg|\(\+\)|\(-\))'),

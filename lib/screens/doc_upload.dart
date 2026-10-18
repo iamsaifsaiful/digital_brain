@@ -17,7 +17,10 @@ import 'docs_screen.dart';
 /// What the user says about a photo, a group of photos or a file while
 /// keeping it, so the assistant can find it later ("বিয়ের ছবিগুলো দেখাও").
 class DocInfo {
-  const DocInfo(this.doc, this.tags, {this.sameForRest = false});
+  const DocInfo(this.doc, this.tags, {this.sameForRest = false, this.pageTexts = const []});
+
+  /// What each photo/page said when read in the form (null: not read there).
+  final List<String?> pageTexts;
 
   /// Name, folder, description, people, place and date (no files yet).
   final Doc doc;
@@ -92,7 +95,7 @@ Future<void> addDocuments(BuildContext context, {required int source, String? fo
   if (together) {
     final info = await askDocInfo(context, picked, folder: folder);
     if (info == null || !context.mounted) return;
-    var d = await brain.addDocGroup(picked, info.doc);
+    var d = await brain.addDocGroup(picked, info.doc, texts: info.pageTexts);
     if (info.doc.expiry != null) d = await brain.setDocExpiry(d, info.doc.expiry);
     if (info.tags.isNotEmpty) await brain.setTags('doc:${d.id}', info.tags);
     made.add(d);
@@ -107,10 +110,13 @@ Future<void> addDocuments(BuildContext context, {required int source, String? fo
         if (info.sameForRest) same = info;
       }
       final title = same != null && picked.length > 1 ? '${info.doc.title} ${bnDigits(i + 1)}' : info.doc.title;
+      // "Same for the rest": the facts and text were read from the first photo — not these.
+      final own = identical(info, same) && i > 0;
       var d = await brain.addDocGroup([picked[i]],
-          Doc(title: title, folder: info.doc.folder, about: info.doc.about, people: info.doc.people, place: info.doc.place, taken: info.doc.taken, fields: info.doc.fields, text: info.doc.text));
+          Doc(title: title, folder: info.doc.folder, about: info.doc.about, people: info.doc.people, place: info.doc.place, taken: info.doc.taken, fields: own ? const [] : info.doc.fields, text: own ? '' : info.doc.text),
+          texts: own ? const [] : info.pageTexts);
       // A date read from this photo (the same-for-rest answer keeps its own).
-      if (info.doc.expiry != null) d = await brain.setDocExpiry(d, info.doc.expiry);
+      if (!own && info.doc.expiry != null) d = await brain.setDocExpiry(d, info.doc.expiry);
       if (info.tags.isNotEmpty) await brain.setTags('doc:${d.id}', info.tags);
       made.add(d);
     }
@@ -235,7 +241,7 @@ class _DocInfoSheetState extends State<_DocInfoSheet> {
       text: _scan?.text,
     );
     final tags = [for (final t in _tags.text.split(RegExp(r'[,،;]'))) if (t.trim().isNotEmpty) t.trim()];
-    Navigator.of(context).pop(DocInfo(doc, tags, sameForRest: _same));
+    Navigator.of(context).pop(DocInfo(doc, tags, sameForRest: _same, pageTexts: _scan?.pages ?? const []));
   }
 
   @override

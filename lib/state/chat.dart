@@ -38,7 +38,7 @@ part 'menu_chat.dart';
 part 'bulk_chat.dart';
 
 /// What the chat is waiting to hear.
-enum ChatWait { none, bulk, batchTime, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, taskTitle, taskDay, project, collect, whichPerson, whichItem, clarify, whichTask, taskTime }
+enum ChatWait { none, bulk, batchTime, taskDate, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, taskTitle, taskDay, project, collect, whichPerson, whichItem, clarify, whichTask, taskTime }
 
 /// What the user said they want to talk about at the start.
 enum Topic {
@@ -224,6 +224,9 @@ class ChatController extends ChangeNotifier {
 
   /// The part of the day said for them ("দুপুরে"), the hour asked.
   String? _batchPart;
+
+  /// The to-do whose day is asked ("পার্টির তারিখ যুক্ত কর").
+  String? _dateTaskId;
 
   /// The turn of the last save (its next steps are offered only right after it).
   int _savedTurn = -1;
@@ -2030,6 +2033,19 @@ class ChatController extends ChangeNotifier {
         return _bulkAnswer(t, out);
       case ChatWait.batchTime:
         return _batchTimeAnswer(t, out);
+      case ChatWait.taskDate:
+        final w = parseWhen(tidySpeech(t), _now);
+        final task = _dateTaskId == null ? null : _taskById(_dateTaskId!);
+        if (task == null) return false;
+        if (w == null || !w.hasDay) {
+          if (_looksNew(t)) return false;
+          _say(out, tr('তারিখটা ধরতে পারিনি। যেমন বলুন “৩১ অক্টোবর” বা “শুক্রবার”।'));
+          return true;
+        }
+        wait = ChatWait.none;
+        _dateTaskId = null;
+        await _setTaskDay(task, dayOnly(w.day), out);
+        return true;
       case ChatWait.whichTask:
       case ChatWait.taskTime:
         return _todoAnswer(t, out);
@@ -2241,6 +2257,41 @@ class ChatController extends ChangeNotifier {
         }
         // "২ নম্বরটা রেখো না", "বলতে চাই না — ওটা রাখার মত কিছু না",
         // "শুধু প্রথমটা রাখো": about some of the listed items, not all.
+        if (_askingAll && _queue.isNotEmpty) {
+          final lines = [for (final c in _queue) summaryLine(c)];
+          final named = mentionedItems(t, lines);
+          final f = fold(normalize(t));
+          // "পেয়াজ এবং চা পাতার দাম ভুল উঠেছে", "এখনো ঠিক করতে পারো নাই":
+          // something is wrong in the list — never a yes, never a drop.
+          final complaint = RegExp(fold(r'(?:ভুল\s+(?:উঠেছে|উঠছে|হয়েছে|হইছে|আছে|লিখেছ|লিখছ|লেখা|ধরেছ|ধরছ)|পার(?:ো|লা|লে)?\s*(?:নাই|নেই)|পারোনি|পারো\s+নি|পারনি|পারো\s+না|ঠিক\s+হয়\s*(?:নাই|নেই)|ঠিক\s+হয়নি|হয়\s+(?:নাই|নেই)|এখনো\s+ভুল|দাম\s+ভুল|টাকা\s+ভুল)')).hasMatch(f);
+          final amount = findAmount(normalize(t));
+          // "পেয়াজ ৩০০ টাকা": that item's amount, said again.
+          if (named.length == 1 && amount != null && !dropsItem(t)) {
+            final i = named.single;
+            final c = _queue[i];
+            if (c is CashAdd || c is LedgerAdd) {
+              _queue[i] = c is CashAdd
+                  ? CashAdd(c.transcript, kind: c.kind, amount: amount, category: c.category, project: c.project)
+                  : LedgerAdd((c as LedgerAdd).transcript, person: c.person, amount: amount, kind: c.kind, options: c.options, suggested: c.suggested, allowExpense: c.allowExpense, date: c.date);
+              _ask(out, tr('ঠিক আছে, অঙ্কটা বদলে দিলাম। এখন এভাবে রেখে দিই?'), ChatWait.yesNo, choices: _yesNoChoices, facts: [for (final x in _queue) summaryLine(x)]);
+              return true;
+            }
+          }
+          if (complaint) {
+            // Every item the reply names by its own words ("পেয়াজ এবং চা পাতার").
+            final said = words(normalize(t)).toSet();
+            final items = [for (final c in _queue) cashItem(c.transcript)];
+            final hit = [
+              for (var i = 0; i < items.length; i++)
+                if (items[i].isNotEmpty && words(normalize(items[i])).any((w) => w.runes.length > 1 && said.any((x) => x.startsWith(w)))) i,
+            ];
+            final which = hit.isEmpty ? '' : '${nameList([for (final i in hit) items[i]], unit: 'টা')} — ';
+            final example = hit.isEmpty ? (items.firstWhere((x) => x.isNotEmpty, orElse: () => trf('{0} নম্বর', [bnDigits(1)]))) : items[hit.first];
+            _ask(out, trf('{0}ঠিক অঙ্কটা বলুন, যেমন “{1} ৩০০ টাকা”। ঠিক হলে তারপর রাখব — এখনো কিছু রাখিনি।', [which, example]), ChatWait.yesNo,
+                choices: _yesNoChoices, facts: lines);
+            return true;
+          }
+        }
         if (_askingAll && _queue.length > 1) {
           final lines = [for (final c in _queue) summaryLine(c)];
           final named = mentionedItems(t, lines);

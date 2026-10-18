@@ -7,8 +7,11 @@ import '../services/ocr.dart';
 /// What a paper's photos/pages say: the whole text, the facts found in it,
 /// and its last valid day — for the user to check before keeping.
 class DocScan {
-  const DocScan(this.text, this.fields, this.expiry);
+  const DocScan(this.text, this.fields, this.expiry, {this.pages = const []});
   final String text;
+
+  /// What each page said, in the order given (null: not read).
+  final List<String?> pages;
   final List<DocField> fields;
   final DocDate? expiry;
 
@@ -17,13 +20,19 @@ class DocScan {
 
 /// Reads up to [max] photos or PDFs on the phone.
 Future<DocScan> scanPages(TextReader reader, List<(Uint8List, String)> pages, DateTime now, {int max = 6}) async {
-  final texts = <String>[];
-  for (final (bytes, mime) in pages.where((p) => readable(p.$2)).take(max)) {
+  final each = <String?>[];
+  var read = 0;
+  for (final (bytes, mime) in pages) {
+    if (!readable(mime) || read >= max) {
+      each.add(null);
+      continue;
+    }
+    read++;
     final t = await reader.read(bytes, mime: mime);
-    if (t != null && t.trim().isNotEmpty) texts.add(t.trim());
+    each.add(t == null ? null : t.trim());
   }
-  final all = texts.join('\n');
-  return DocScan(all, docFieldsIn(all), docDateIn(all, now));
+  final all = [for (final t in each) if (t != null && t.isNotEmpty) t].join('\n');
+  return DocScan(all, docFieldsIn(all), docDateIn(all, now), pages: each);
 }
 
 /// [fields] added to [have], one per name: what is already there stays.

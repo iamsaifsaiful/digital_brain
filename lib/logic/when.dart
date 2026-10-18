@@ -85,7 +85,9 @@ String englishTimes(String s) {
   });
 }
 
-When? parseWhen(String said, DateTime now) {
+When? parseWhen(String said0, DateTime now) {
+  // "১৪ ফেব্রুয়ারী": the month in any common spelling.
+  final said = fixMonthSpellings(said0);
   // "৬:২০" → "৬.২০" (normalize drops the colon).
   final clockSaid = englishTimes(said).replaceAllMapped(RegExp(r'([0-9০-৯]{1,2})\s*:\s*([0-9০-৯]{2})'), (m) => '${m[1]}.${m[2]}');
   final w = [for (final x in words(normalize(clockSaid))) _hourWord(x)];

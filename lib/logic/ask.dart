@@ -28,6 +28,9 @@ ZakatSaved askZakat = const ZakatSaved();
 /// Today's market price, when the app has fetched it (see Brain.metalPriceToday).
 MetalPrice? todayMetal;
 
+/// The last try to fetch it failed (offline, or the server had none).
+bool metalUnavailable = false;
+
 bool _has(String text, List<String> ws) => ws.any((w) {
       final n = normalize(w);
       return n.isNotEmpty && text.contains(n);
@@ -79,7 +82,8 @@ String? infoTopic(String text) {
   if (_has(text, ['যাকাত', 'জাকাত', 'zakat'])) return 'zakat';
   if (_has(text, ['ওষুধ', 'ঔষধ', 'অষুধ', 'মেডিসিন'])) return 'medicines';
   if (_has(text, ['অভ্যাস', 'habit'])) return 'habits';
-  if (_has(text, ['মেয়াদ', 'expiry', 'এক্সপায়ার'])) return 'expiry';
+  // "মেয়াস", "মিয়াদ": the word as typed or heard.
+  if (_has(text, ['মেয়াদ', 'মেয়াস', 'মেয়াত', 'মিয়াদ', 'মেয়াদের', 'expiry', 'এক্সপায়ার'])) return 'expiry';
   if (_has(text, ['কয়টা নোট', 'কয়টি নোট', 'কতগুলো নোট', 'কত নোট', 'নোট কয়টা', 'নোট কতগুলো', 'কী কী নোট', 'কি কি নোট'])) return 'notes';
   if (_has(text, ['জন্মদিন', 'বিবাহবার্ষিকী', 'মৃত্যুবার্ষিকী', 'বিশেষ দিন']) && _has(text, ['সামনে', 'কার কার', 'কবে কবে', 'কী কী', 'কি কি', 'এই মাসে', 'আসছে'])) return 'special';
   final w = words(text);
@@ -168,7 +172,8 @@ String? infoAnswer(AppData d, String said, DateTime now) {
         return trf('আপনার যাকাতযোগ্য সম্পদ {0} টাকা, যাকাত প্রায় {1} টাকা (২.৫%){2}। এটা আনুমানিক — নিশ্চিত হতে আলেমের পরামর্শ নিন।', [bnNumber(z.net), bnNumber(z.zakat), by]);
       }
       if (z.nisab <= 0) {
-        return trf('আপনার হিসাব থেকে যাকাতযোগ্য সম্পদ এখন প্রায় {0} টাকা (নগদ, ব্যাংক-সঞ্চয়, পাওনা থেকে দেনা বাদে)। নিসাব জানতে আজকের রুপার দাম লাগবে — যাকাত পাতায় রুপার দাম আর সোনা-রুপার পরিমাণ দিন, তারপর জিজ্ঞেস করলেই যাকাত বলে দেবো।', [bnNumber(z.net < 0 ? 0 : z.net)]);
+        final why = metalUnavailable ? tr(' আজকের দাম ইন্টারনেট থেকে আনতে পারিনি (ইন্টারনেট বা সার্ভার সাড়া দেয়নি) — বাজুসের সাইটে (bajus.org) দেখে নিতে পারেন।') : '';
+        return trf('আপনার হিসাব থেকে যাকাতযোগ্য সম্পদ এখন প্রায় {0} টাকা (নগদ, ব্যাংক-সঞ্চয়, পাওনা থেকে দেনা বাদে)। নিসাব জানতে আজকের রুপার দাম লাগবে — যাকাত পাতায় রুপার দাম আর সোনা-রুপার পরিমাণ দিন, তারপর জিজ্ঞেস করলেই যাকাত বলে দেবো।', [bnNumber(z.net < 0 ? 0 : z.net)]) + why;
       }
       if (!z.due) return trf('আপনার যাকাতযোগ্য সম্পদ {0} টাকা — নিসাব {1} টাকার কম, তাই যাকাত ফরজ নয় (আনুমানিক হিসাব)।', [bnNumber(z.net < 0 ? 0 : z.net), bnNumber(z.nisab)]);
       return trf('আপনার যাকাতযোগ্য সম্পদ {0} টাকা, যাকাত প্রায় {1} টাকা (২.৫%)। এটা আনুমানিক — নিশ্চিত হতে আলেমের পরামর্শ নিন।', [bnNumber(z.net), bnNumber(z.zakat)]);

@@ -295,9 +295,10 @@ abstract class Notifier {
   Future<void> showPanelMic(bool on, {String title, String body});
 }
 
-// '_v2': made with vibration on every phone (Android never changes a channel
-// once made, so the older id is removed in [schedule]).
-const _channelId = 'reminder_alarm_v2';
+// '_v3': made fresh with vibration (Android never changes a channel once
+// made — and a phone may have turned vibration off on an older one — so the
+// older ids are removed in [schedule]).
+const _channelId = 'reminder_alarm_v3';
 const _alarmTone = 'content://settings/system/alarm_alert';
 
 /// Android never changes a channel's sound after it is made, so each
@@ -347,7 +348,7 @@ NotificationDetails _gentleDetails(String body) => NotificationDetails(
       android: AndroidNotificationDetails(
         // A new id: the old 'assistant_notes' channel was made without
         // vibration, and Android never changes a channel once made.
-        'assistant_notes_vibrate',
+        'assistant_notes_v3',
         'সহকারীর বার্তা',
         channelDescription: 'সকাল-রাতের সারাংশ আর দরকারি কথা মনে করানো',
         icon: 'ic_stat_reminder',
@@ -680,6 +681,7 @@ class NotificationService implements Notifier {
       try {
         await _android?.deleteNotificationChannel(channelId: 'reminders');
         await _android?.deleteNotificationChannel(channelId: 'assistant_notes');
+        await _android?.deleteNotificationChannel(channelId: 'assistant_notes_vibrate');
         for (final c in await _android?.getNotificationChannels() ?? const <AndroidNotificationChannel>[]) {
           if (c.id.startsWith('reminder_alarm') && !c.id.startsWith(_channelId)) await _android?.deleteNotificationChannel(channelId: c.id);
         }

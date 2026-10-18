@@ -3289,4 +3289,11 @@ const enStrings = <String, String>{
   'রেজিস্ট্রেশন নম্বর': 'Registration number',
   'চেসিস নম্বর': 'Chassis number',
   'ইঞ্জিন নম্বর': 'Engine number',
+  'তারিখটা ধরতে পারিনি। যেমন বলুন “৩১ অক্টোবর” বা “শুক্রবার”।': 'I didn\'t catch the date. Say e.g. “31 October” or “Friday”.',
+  'ঠিক আছে, অঙ্কটা বদলে দিলাম। এখন এভাবে রেখে দিই?': 'Done, I changed the amount. Keep them like this?',
+  '{0} নম্বর': 'number {0}',
+  '{0}ঠিক অঙ্কটা বলুন, যেমন “{1} ৩০০ টাকা”। ঠিক হলে তারপর রাখব — এখনো কিছু রাখিনি।': '{0}tell me the right amount, e.g. “{1} 300 taka”. I’ll keep them once it’s right — nothing is kept yet.',
+  '{0}টা কাজের রিমাইন্ডার — প্রতিটা নিজের দিনে, কয়টায় মনে করাব? যেমন “দুপুর ১২টায়”।': 'Reminders for {0} to-dos — each on its own day; at what time? E.g. “12 noon”.',
+  '“{0}” — কোন তারিখে রাখব? যেমন “৩১ অক্টোবর”।': '“{0}” — on which date? E.g. “31 October”.',
+  ' আজকের দাম ইন্টারনেট থেকে আনতে পারিনি (ইন্টারনেট বা সার্ভার সাড়া দেয়নি) — বাজুসের সাইটে (bajus.org) দেখে নিতে পারেন।': ' I couldn\'t get today\'s price (no internet, or the server didn\'t answer) — you can check it on bajus.org.',
 };

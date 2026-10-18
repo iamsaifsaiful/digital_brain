@@ -334,6 +334,14 @@ extension _BulkChat on ChatController {
       return;
     }
     if (c.op == 'remind' && c.time == null) {
+      // "এই দুটি কাজের রিমাইন্ডার দাও": the time is asked, and the answer
+      // ("দুপুর ১২ টায়") sets them — each on its own day.
+      if (set.domain == 'tasks') {
+        _batchTasks = (live, '', _turn);
+        _batchPart = null;
+        _ask(out, trf('{0}টা কাজের রিমাইন্ডার — প্রতিটা নিজের দিনে, কয়টায় মনে করাব? যেমন “দুপুর ১২টায়”।', [bnDigits(live.length)]), ChatWait.batchTime);
+        return;
+      }
       _say(out, tr('কয়টায় মনে করাব? সময়সহ বলুন — যেমন “এগুলোর রিমাইন্ডার সকাল ১০টায় দাও”।'));
       return;
     }

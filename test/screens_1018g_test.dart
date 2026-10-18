@@ -1,6 +1,5 @@
 // The seventh set of 18 Oct screenshots (2.28.0-b38), replayed word for word.
 import 'package:digital_brain/logic/answers.dart';
-import 'package:digital_brain/models/extras.dart';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/screens/doc_upload.dart';
 import 'package:digital_brain/screens/docs_screen.dart' show DocScreen;

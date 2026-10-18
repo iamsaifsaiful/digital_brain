@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/widgets.dart';
 
+import '../logic/doc_dates.dart';
+import 'doc_scan.dart' show mergeFields;
 import '../services/ocr.dart';
 import '../services/trace.dart';
 
@@ -1029,6 +1031,7 @@ class Brain extends ChangeNotifier {
       _metalAt = now;
       todayMetal = p;
     }
+    metalUnavailable = p == null && _metal == null;
     return p ?? _metal;
   }
 
@@ -1423,7 +1426,8 @@ class Brain extends ChangeNotifier {
     await _save();
   }
 
-  Future<void> saveContact(Contact c) async {
+  Future<void> saveContact(Contact c0) async {
+    final c = c0.files.isEmpty ? c0 : Contact(id: c0.id, name: c0.name, phone: c0.phone, email: c0.email, note: c0.note, updatedAt: c0.updatedAt, address: c0.address, files: _withReadText(c0.files));
     _upsert(data.contacts, c, (x) => x.id);
     await _save();
   }
@@ -1462,7 +1466,8 @@ class Brain extends ChangeNotifier {
     await _save();
   }
 
-  Future<void> saveNote(Note n) async {
+  Future<void> saveNote(Note n0) async {
+    final n = n0.files.isEmpty ? n0 : Note(id: n0.id, title: n0.title, body: n0.body, category: n0.category, updatedAt: n0.updatedAt, files: _withReadText(n0.files));
     _upsert(data.notes, n, (x) => x.id);
     await _save();
   }
@@ -1475,21 +1480,66 @@ class Brain extends ChangeNotifier {
     await _save();
   }
 
-  /// Keeps a photo or file encrypted on the phone (for a note or a document).
-  Future<DocFile> keepFile(PickedDoc f) async {
-    final file = DocFile(name: f.name, mime: f.mime, size: f.bytes.length);
+  /// Keeps a photo or file encrypted on the phone (for a note, a contact or
+  /// a document). Every photo or PDF is also read on the phone: [text] when
+  /// already read, else in the background — its words kept with it.
+  Future<DocFile> keepFile(PickedDoc f, {String? text}) async {
+    final file = DocFile(name: f.name, mime: f.mime, size: f.bytes.length, text: text ?? '');
     await services.store.saveDocFile(file.id, f.bytes);
+    if (text == null && readable(f.mime)) {
+      _reading = _reading.then((_) async {
+        final t = await services.ocr.read(f.bytes, mime: f.mime);
+        if (t != null && t.trim().isNotEmpty) await _keepFileText(file.id, t.trim());
+      });
+    }
     return file;
+  }
+
+  /// Reads in the background one after another (and tests can wait for it).
+  Future<void> _reading = Future.value();
+  Future<void> get readingDone => _reading;
+
+  /// What a kept file says, put with it wherever it is: a document also gets
+  /// the facts found in it (new ones only — never over what the user wrote)
+  /// and its expiry when it has none.
+  /// Text read for files not yet in a saved note/contact/document (the
+  /// form is still open): put in when it is saved.
+  final _fileTexts = <String, String>{};
+
+  List<DocFile> _withReadText(List<DocFile> fs) => [for (final f in fs) f.text.isEmpty && _fileTexts[f.id] != null ? f.withText(_fileTexts[f.id]!) : f];
+
+  Future<void> _keepFileText(String fileId, String text) async {
+    _fileTexts[fileId] = text;
+    List<DocFile> withIt(List<DocFile> fs) => [for (final f in fs) f.id == fileId ? f.withText(text) : f];
+    for (final d in [...data.docs]) {
+      if (!d.files.any((f) => f.id == fileId)) continue;
+      final files = withIt(d.files);
+      final all = [for (final f in files) if (f.text.isNotEmpty) f.text].join('\n');
+      var next = d.copyWith(files: files, text: all, fields: mergeFields(d.fields, docFieldsIn(all)));
+      _upsert(data.docs, next, (x) => x.id);
+      final exp = d.expiry == null ? docDateIn(all, services.now()) : null;
+      if (exp != null) next = await setDocExpiry(next, exp.date);
+    }
+    for (final (i, n) in [...data.notes].indexed) {
+      if (!n.files.any((f) => f.id == fileId)) continue;
+      data.notes[i] = Note(id: n.id, title: n.title, body: n.body, category: n.category, updatedAt: n.updatedAt, files: withIt(n.files));
+    }
+    for (final (i, c) in [...data.contacts].indexed) {
+      if (!c.files.any((f) => f.id == fileId)) continue;
+      data.contacts[i] = Contact(id: c.id, name: c.name, phone: c.phone, email: c.email, note: c.note, updatedAt: c.updatedAt, address: c.address, files: withIt(c.files));
+    }
+    await _save();
+    notifyListeners();
   }
 
   Future<void> dropFile(DocFile f) => services.store.deleteDocFile(f.id);
 
   /// Several photos or files at once: all in one document ([info] gives its
   /// name, folder and description), returned saved.
-  Future<Doc> addDocGroup(List<PickedDoc> picked, Doc info) async {
+  Future<Doc> addDocGroup(List<PickedDoc> picked, Doc info, {List<String?> texts = const []}) async {
     final files = <DocFile>[...info.files];
-    for (final f in picked) {
-      files.add(await keepFile(f));
+    for (final (i, f) in picked.indexed) {
+      files.add(await keepFile(f, text: i < texts.length ? texts[i] : null));
     }
     final d = info.copyWith(files: files);
     await saveDoc(d);
@@ -1498,7 +1548,8 @@ class Brain extends ChangeNotifier {
 
   // ── Documents ──
 
-  Future<void> saveDoc(Doc d) async {
+  Future<void> saveDoc(Doc d0) async {
+    final d = d0.files.isEmpty ? d0 : d0.copyWith(files: _withReadText(d0.files));
     _upsert(data.docs, d, (x) => x.id);
     await _save();
   }

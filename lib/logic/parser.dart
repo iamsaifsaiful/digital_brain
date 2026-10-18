@@ -638,6 +638,9 @@ int? findAmount(String normalized) {
     return ((base + half) * mult, mult, at - i + 1 + (m2 > 0 ? 1 : 0));
   }
 
+  // Every number said, with the word after it: "৩ কেজি ৩০০ টাকায়" is
+  // 300 taka — a quantity (কেজি, গ্রাম, টা…) is never the price.
+  final found = <(int, String)>[];
   for (var i = 0; i < w.length; i++) {
     final first = part(i);
     if (first == null) continue;
@@ -653,10 +656,17 @@ int? findAmount(String normalized) {
       j += more.$3;
     }
     final v = total.round();
-    if (v > 0) return v;
+    if (v > 0) found.add((v, j < w.length ? w[j] : ''));
+    i = j - 1;
   }
-  return null;
+  if (found.isEmpty) return null;
+  final taka = found.where((f) => _takaWord.hasMatch(f.$2)).firstOrNull;
+  if (taka != null) return taka.$1;
+  return (found.where((f) => !_unitWord.hasMatch(f.$2)).firstOrNull ?? found.first).$1;
 }
+
+final _takaWord = RegExp(fold(r'^(?:টাকা|টাকার|টাকায়|টাকাতে|টাকাই|টাকাও|tk|taka)$'));
+final _unitWord = RegExp(fold(r'^(?:কেজি|কেজির|কেজিতে|গ্রাম|গ্রামের|লিটার|লিটারের|পিস|পিচ|হালি|ডজন|মিটার|ফুট|গজ|বস্তা|প্যাকেট|বোতল|কার্টন|জোড়া|টা|টি|kg|g|gm|ltr|pcs)$'));
 
 bool _hasAny(String text, List<String> keys) => keys.any((k) => text.contains(fold(k)));
 
@@ -779,7 +789,20 @@ SpecialAdd? specialDayIn(String said, String text, {DateTime? now}) {
       len = k.length;
     }
   }
-  if (kind == null) return null;
+  if (kind == null) {
+    // "১৪ই ফেব্রুয়ারি বিশ্ব ভালোবাসা দিবস", "২৬ মার্চ স্বাধীনতা দিবস": a day
+    // of the year by its name — a yearly special day, never a note category.
+    final d = dayMonthIn(text);
+    if (d == null || !RegExp(fold(r'\S*দিবস(?:\s|$)')).hasMatch(text)) return null;
+    final name = [
+      for (final w in said.replaceAll(RegExp(r'[।,!.]'), ' ').split(RegExp(r'\s+')))
+        if (w.isNotEmpty && !RegExp(r'^[0-9০-৯]').hasMatch(w) && !_months.keys.any((m) => m.length > 2 && fold(normalize(w)).startsWith(m)) && !const ['তারিখ', 'তারিখে', 'আমার', 'হলো', 'হল', 'হচ্ছে'].contains(w)) w,
+    ].join(' ');
+    final cut = name.indexOf(RegExp(fold(r'দিবস')));
+    final title = (cut < 0 ? name : name.substring(0, cut + 4)).trim();
+    if (title.split(' ').length < 2) return null;
+    return SpecialAdd(said, person: title, kind: SpecialKind.other, month: d.$2, day: d.$1);
+  }
   var date = dayMonthIn(text);
   // "৩১ তারিখে তুবার জন্মদিন": a day of the month only — the next such day.
   // (Not when a month is named in any spelling: that month, never a guess.)

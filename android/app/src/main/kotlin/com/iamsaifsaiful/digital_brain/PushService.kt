@@ -36,15 +36,16 @@ class PushService : FirebaseMessagingService() {
     companion object {
         // Android never changes a channel after it is made: the vibrating
         // one has its own id; the old silent-vibration one is removed.
-        const val CHANNEL = "ma_server_vibrate"
+        const val CHANNEL = "ma_server_v3"
         const val OLD_CHANNEL = "ma_server"
+        val OLDER = listOf("ma_server_vibrate")
         val VIBRATE = longArrayOf(0, 400, 250, 400)
         const val PREFS = "ma_push"
 
         fun channel(context: Context) {
             if (Build.VERSION.SDK_INT < 26) return
             val nm = context.getSystemService(NotificationManager::class.java) ?: return
-            if (nm.getNotificationChannel(OLD_CHANNEL) != null) nm.deleteNotificationChannel(OLD_CHANNEL)
+            for (id in OLDER + OLD_CHANNEL) if (nm.getNotificationChannel(id) != null) nm.deleteNotificationChannel(id)
             if (nm.getNotificationChannel(CHANNEL) != null) return
             nm.createNotificationChannel(NotificationChannel(CHANNEL, "My Assistant থেকে", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "প্রো চালু হলে, আর মাঝে মাঝে অ্যাপের খবর"

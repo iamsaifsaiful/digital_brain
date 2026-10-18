@@ -250,13 +250,14 @@ String ledgerAnswer(AppData d, LedgerQuery q, [DateTime? now]) {
       final owe = all.where((p) => p.balance > 0).toList();
       if (owe.isEmpty) return tr('এখন কারও কাছে আপনার কিছু পাওনা নেই।');
       final sum = owe.fold<int>(0, (s, p) => s + p.balance);
-      final who = nameList([for (final p in owe) '${possessive(p.name)} কাছে ${bnNumber(p.balance)}']);
+      // Money owed is said in full (up to 10 people), never "আরও ১ জন".
+      final who = nameList([for (final p in owe) '${possessive(p.name)} কাছে ${bnNumber(p.balance)}'], max: 10);
       return trf('সব মিলিয়ে আপনি {0} টাকা পাবেন — {1}।', [bnNumber(sum), who]);
     case LedgerAsk.payable:
       final iOwe = all.where((p) => p.balance < 0).toList();
       if (iOwe.isEmpty) return tr('কাউকে কিছু দিতে হবে না, সব শোধ!');
       final sum = iOwe.fold<int>(0, (s, p) => s - p.balance);
-      final who = nameList([for (final p in iOwe) '${toPerson(p.name)} ${bnNumber(-p.balance)}']);
+      final who = nameList([for (final p in iOwe) '${toPerson(p.name)} ${bnNumber(-p.balance)}'], max: 10);
       return trf('সব মিলিয়ে আপনাকে {0} টাকা দিতে হবে — {1}।', [bnNumber(sum), who]);
     case LedgerAsk.all:
       final t = totals(d.ledger);
@@ -315,8 +316,8 @@ String weekdaysSaid(List<int> days) {
 }
 
 /// "ক, খ, আর গ" (at most four, then "আরও N জন").
-String nameList(List<String> parts, {String unit = 'জন'}) {
-  final shown = parts.take(4).toList();
+String nameList(List<String> parts, {String unit = 'জন', int max = 4}) {
+  final shown = parts.take(max).toList();
   final more = parts.length - shown.length;
   final head = shown.length > 1 ? trf('{0}, আর {1}', [shown.sublist(0, shown.length - 1).join(', '), shown.last]) : shown.join();
   return more > 0 ? trf('{0}, এবং আরও {1} {2}', [head, bnDigits(more), unit]) : head;

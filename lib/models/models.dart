@@ -831,18 +831,28 @@ class Task {
 /// One page or file of a document (a photo, a PDF…). The bytes are kept
 /// encrypted in their own file on the phone (see `DocFiles`).
 class DocFile {
-  DocFile({String? id, required this.name, required this.mime, required this.size}) : id = id ?? newId();
+  DocFile({String? id, required this.name, required this.mime, required this.size, this.text = ''}) : id = id ?? newId();
   final String id;
   final String name;
   final String mime;
 
   /// Bytes as kept (after shrinking a photo).
   final int size;
+
+  /// The printed text read from it on the phone (searchable); empty until
+  /// read, and for files kept before reading existed.
+  final String text;
   bool get isImage => mime.startsWith('image/');
 
-  Map<String, Object?> toJson() => {'id': id, 'name': name, 'mime': mime, 'size': size};
-  factory DocFile.fromJson(Map<String, Object?> j) =>
-      DocFile(id: j['id'] as String?, name: (j['name'] as String?) ?? '', mime: (j['mime'] as String?) ?? 'application/octet-stream', size: (j['size'] as num?)?.toInt() ?? 0);
+  DocFile withText(String t) => DocFile(id: id, name: name, mime: mime, size: size, text: t);
+
+  Map<String, Object?> toJson() => {'id': id, 'name': name, 'mime': mime, 'size': size, if (text.isNotEmpty) 't': text};
+  factory DocFile.fromJson(Map<String, Object?> j) => DocFile(
+      id: j['id'] as String?,
+      name: (j['name'] as String?) ?? '',
+      mime: (j['mime'] as String?) ?? 'application/octet-stream',
+      size: (j['size'] as num?)?.toInt() ?? 0,
+      text: (j['t'] as String?) ?? '');
 }
 
 /// A field the user adds to a document ("NID নম্বর", "মেয়াদ").
@@ -904,7 +914,7 @@ class Doc {
   final DateTime? taken;
 
   /// Everything the assistant searches in.
-  String get searchText => [title, folder, about, people, place, for (final f in fields) '${f.label} ${f.value}', if (taken != null) '${taken!.year}', text].join(' ');
+  String get searchText => [title, folder, about, people, place, for (final f in fields) '${f.label} ${f.value}', if (taken != null) '${taken!.year}', text, for (final f in files) f.text].join(' ');
   final DateTime createdAt;
   final DateTime updatedAt;
 

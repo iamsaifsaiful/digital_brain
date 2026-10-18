@@ -559,6 +559,7 @@ extension _TodoChat on ChatController {
   /// reminder was set: the same one, changed — never a new to-do.
   Future<bool> _todoCorrection(String t, List<String> out) async {
     if (await _taskDayFix(t, out)) return true;
+    if (await _taskDateAdd(t, out)) return true;
     final f = ' ${fold(t).replaceAll(RegExp(r'[।,!?]'), ' ')} ';
     if (!RegExp(fold(r'^\s*(?:না|নাহ|উহু|না\s+না)\s')).hasMatch(f) && !RegExp(fold(r'\s(?:নয়|না)\s+\S+\s*$')).hasMatch(f)) return false;
     // Only time words after the "না".
@@ -638,6 +639,37 @@ extension _TodoChat on ChatController {
         links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
     _offerUndo(snap);
     return true;
+  }
+
+  /// "পার্টির তারিখ যুক্ত কর" (with or without the date): that open to-do
+  /// gets its day — asked when not said. Never a note.
+  Future<bool> _taskDateAdd(String t, List<String> out) async {
+    final f = fold(normalize(t));
+    final m = RegExp(fold(r'^(.+?)\s+(?:তারিখ|দিন|ডেট)\s+(?:যুক্ত|যোগ|দাও|দিন|বসাও|লিখ|লেখ|ঠিক|সেট)')).firstMatch(f);
+    if (m == null) return false;
+    final name = m[1]!.replaceAll(RegExp(fold(r'(?:কাজের|কাজটার|কাজটির|এর|ের|র)$')), '').replaceAll(RegExp(fold(r'^(?:আমার|এই|ওই)\s+')), '').trim();
+    if (name.isEmpty) return false;
+    final open = [for (final x in brain.data.tasks) if (!x.done && fold(normalize(x.title)).contains(name)) x];
+    if (open.isEmpty) return false;
+    // The newest one by that name (the one just kept, usually).
+    open.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final task = open.first;
+    final w = parseWhen(tidySpeech(t), _now);
+    if (w != null && w.hasDay) {
+      await _setTaskDay(task, dayOnly(w.day), out);
+      return true;
+    }
+    _dateTaskId = task.id;
+    _ask(out, trf('“{0}” — কোন তারিখে রাখব? যেমন “৩১ অক্টোবর”।', [task.title]), ChatWait.taskDate);
+    return true;
+  }
+
+  Future<void> _setTaskDay(Task task, DateTime day, List<String> out) async {
+    final snap = brain.snapshot();
+    await brain.saveTask(task.copyWith(due: day, span: TaskSpan.day));
+    _focusTask(task);
+    _say(out, trf('ঠিক আছে, “{0}” {1} তারিখে রাখলাম।', [task.title, sayWhen(day, _now, withTime: false)]), links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
+    _offerUndo(snap);
   }
 
   /// A to-do answer was given: remember which ones were named, in order.
