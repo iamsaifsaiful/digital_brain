@@ -210,7 +210,7 @@ int? _tdNum(String w) {
 }
 
 /// The first day of the week (Saturday, as weeks are counted here).
-DateTime _weekStart(DateTime d) => dayOnly(d).subtract(Duration(days: (d.weekday + 1) % 7));
+DateTime _weekStart(DateTime d) => weekStartOf(d);
 
 // ───────────────────────── Verbs ─────────────────────────
 
@@ -398,6 +398,15 @@ _TdWhen _tdWhen(String said, DateTime now) {
       _ => DateTime(today.year, today.month + n, today.day),
     };
   });
+  // "আগামী সপ্তাহের বুধবার", "এই সপ্তাহের শনিবার": that exact day of the
+  // week (the app's week, from Saturday) — a day, not the whole week.
+  if (w.day == null) {
+    take(r'(?<=\s)(এই|এ|আগামী|পরের|সামনের)\s+সপ্তাহ(?:ের|এর)\s+' + _wdP + r'(?=\s)', (m) {
+      final next = _tf(m[1]!) != _tf('এই') && _tf(m[1]!) != _tf('এ');
+      final base = _weekStart(today).add(Duration(days: next ? 7 : 0));
+      w.day = base.add(Duration(days: (_wdIndex(m[2]!) - firstWeekday + 7) % 7));
+    });
+  }
   // Weeks.
   if (w.day == null) {
     take(r'(?<=\s)(?:এই|এ)\s+সপ্তাহ(?:ে|ের|এর)?(?:\s+মধ্যে)?(?=\s)', (_) {

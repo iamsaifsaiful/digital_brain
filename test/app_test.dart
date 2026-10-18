@@ -83,11 +83,14 @@ class Rig {
       inbox: inbox,
       server: server,
       google: google,
-      clock: () => DateTime(2026, 10, 9, 15, 53),
+      clock: () => nowAt,
     );
     brain = Brain(services);
     if (data != null) brain.data = data;
   }
+
+  /// The app's clock; a test may move it on (e.g. to let a question lapse).
+  DateTime nowAt = DateTime(2026, 10, 9, 15, 53);
 
   late final MemoryBlobStore blob;
   late final FakeVoice voice;

@@ -385,6 +385,54 @@ bool ampmUnclear(String said) {
   return false;
 }
 
+/// Was [hour] (0–23, as a reading put it) said only as a bare clock hour —
+/// "চারটায়" with no ভোর/বিকেল, am/pm or 24-hour form next to it? Looked up
+/// per mention, so in "ভোর ৪টায় ওষুধ, আর ৫টায় নামাজ" 4 is clear and 5 is
+/// open. With one time in the sentence, a part of the day anywhere in it
+/// counts ("কাল সকালে মিটিং, আটটায় মনে করিও"). False when the hour is not
+/// found as said (a relative time, a reading worked out elsewhere).
+bool hourOpen(String said, int hour) => hourState(said, hour) ?? false;
+
+/// As [hourOpen], but null when [hour] is not found in [said] at all.
+bool? hourState(String said, int hour) {
+  final h12 = hour % 12 == 0 ? 12 : hour % 12;
+  final clockSaid = englishTimes(said).replaceAllMapped(RegExp(r'([0-9০-৯]{1,2})\s*:\s*([0-9০-৯]{2})'), (m) => '${m[1]}.${m[2]}');
+  final f = ' ${normalize(clockSaid)} ';
+  if (RegExp(fold(r'(?:মিনিট\s+পর|ঘণ্টা\s+পর|ঘন্টা\s+পর|মিনিটে|ঘণ্টায়)')).hasMatch(f)) return null;
+  final part = RegExp(fold(r'^(?:ভোর|ভোরে|সকাল|সকালে|দুপুর|দুপুরে|বিকাল|বিকেল|বিকেলে|বিকালে|সন্ধ্যা|সন্ধ্যায়|সন্ধা|রাত|রাতে|রাতের|am|pm|a\.m|p\.m)$'));
+  final w = [for (final x in words(f.trim())) _hourWord(x)];
+  var mentions = 0;
+  var open = false;
+  var clear = false;
+  for (var i = 0; i < w.length; i++) {
+    final m = RegExp(fold(r'^(\d{1,2})(?:\.(\d{2}))?-?(টায়|টাতে|টার|টা|টে|এ|তে)?$')).firstMatch(w[i]);
+    if (m == null) continue;
+    final h = int.parse(m[1]!);
+    final hasClock = m[2] != null;
+    final next = i + 1 < w.length ? w[i + 1] : '';
+    if (!hasClock && m[3] == null && !part.hasMatch(next)) continue;
+    if (!hasClock && m[3] == fold('টা') && next != fold('বাজে') && !RegExp(r'^\d').hasMatch(next) && !part.hasMatch(next)) continue;
+    if (!hasClock && (m[3] == fold('এ') || m[3] == fold('তে'))) continue;
+    mentions++;
+    if (h != h12 && h != hour) continue;
+    if (h > 12 || h == 0) {
+      clear = true;
+      continue;
+    }
+    final near = (i > 0 && part.hasMatch(w[i - 1])) || (i > 1 && part.hasMatch(w[i - 2])) || part.hasMatch(next);
+    if (near) {
+      clear = true;
+    } else {
+      open = true;
+    }
+  }
+  if (clear) return false;
+  if (!open) return null;
+  // One time in the sentence and a part of the day said elsewhere in it.
+  if (mentions == 1 && RegExp(fold(r'(?:ভোর|সকাল|দুপুর|বিকাল|বিকেল|সন্ধ্যা|সন্ধা|রাত|am|pm)')).hasMatch(f)) return false;
+  return true;
+}
+
 /// The two readings of an unclear hour, each the next time it comes round
 /// (unless [day] was said): ("ভোর ৪টা", 04:00) and ("বিকেল ৪টা", 16:00);
 /// for 12: noon and midnight.

@@ -620,8 +620,8 @@ class Brain extends ChangeNotifier {
     notifyListeners();
   }
 
-  AiContext aiContext() => AiContext(
-        now: services.now(),
+  AiContext aiContext({DateTime? now}) => AiContext(
+        now: now ?? services.now(),
         people: knownPeople(data.ledger).take(60).toList(),
         categories: aiShareData ? data.noteCategories : const [],
         money: moneySummary(),
@@ -936,7 +936,16 @@ class Brain extends ChangeNotifier {
     if (open.isNotEmpty) {
       lines.add('Open to-dos:');
       for (final t in open.take(60)) {
-        lines.add('- ${t.title}${t.due == null ? '' : ' (day: ${day(t.due!)})'}');
+        // The span as kept: a week/month plan has no day of its own.
+        final when = t.due == null
+            ? ''
+            : switch (t.span) {
+                TaskSpan.day => ' (day: ${day(t.due!)})',
+                TaskSpan.week => ' (some day in the week starting ${day(t.due!)}; no day set)',
+                TaskSpan.month => ' (some time in ${t.due!.year}-${t.due!.month.toString().padLeft(2, '0')}; no day set)',
+                TaskSpan.year => ' (some time in ${t.due!.year}; no day set)',
+              };
+        lines.add('- ${t.title}$when${t.deadline == null ? '' : ' (deadline: ${day(t.deadline!)})'}');
       }
     } else {
       lines.add('Open to-dos: none.');
@@ -1036,7 +1045,10 @@ class Brain extends ChangeNotifier {
   /// (never empty). [history] is the conversation so far, already cleaned
   /// of anything private.
   Future<(List<Command>, String?)> understandAll(String said, {List<AiTurn> history = const [], bool fast = false}) async {
-    List<Command> parse(String t) => parseAll(t, data.ledger, tasks: data.tasks, contacts: data.contacts, folders: folderHints, now: services.now());
+    // One "now" for the whole message: the rules, the AI's context and the
+    // reading of its answer never disagree about today (e.g. at midnight).
+    final now = services.now();
+    List<Command> parse(String t) => parseAll(t, data.ledger, tasks: data.tasks, contacts: data.contacts, folders: folderHints, now: now);
     var rules = parse(said);
     // Spoken: the recogniser's other guesses for the same sentence.
     final voice = services.voice;
@@ -1077,9 +1089,9 @@ class Brain extends ChangeNotifier {
       var text = clean.isEmpty ? said : clean;
       final others = [for (final a in alts) if (a.trim() != said.trim() && !mentionsSecret(a)) a];
       if (others.isNotEmpty) text = '$text\n[speech recogniser also heard: ${others.take(3).join(' | ')}]';
-      final r = await services.ai.route(text, aiContext(), history: history, fast: fast);
+      final r = await services.ai.route(text, aiContext(now: now), history: history, fast: fast);
       if (r == null) return (rules, null);
-      var cmds = commandsFromAi(said, r, data.ledger);
+      var cmds = commandsFromAi(said, r, data.ledger, now: now);
       // The rules plainly heard "remind me" but the AI read a question about
       // saved reminders: a request wins over a search.
       final ruleReminder = rules.whereType<ReminderAdd>().firstOrNull;

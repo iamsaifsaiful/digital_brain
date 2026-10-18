@@ -18,6 +18,7 @@ import 'person_screen.dart';
 import 'plan_screens.dart';
 import 'vault_item_screen.dart';
 import '../logic/lang.dart';
+import '../logic/answers.dart' show taskWhen;
 
 /// One box that finds anything: people and numbers, money, reminders,
 /// to-dos, notes and logins — typed or (through the assistant) spoken.
@@ -212,7 +213,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             '${weekdayName(r.nextDate(now))}, ${bnDigits(r.nextDate(now).day)} ${monthName(r.nextDate(now).month)} · ${bnTime(r.hour, r.minute)}',
                             () => _push(NewItemScreen(reminder: r))),
                       for (final t in tasks.take(6))
-                        _row(Icons.checklist_rounded, C.green, C.greenTint, t.title, t.done ? tr('শেষ হয়েছে') : (t.due == null ? tr('কাজ') : trf('কাজ · {0} {1}', [bnDigits(t.due!.day), monthName(t.due!.month)])),
+                        _row(Icons.checklist_rounded, C.green, C.greenTint, t.title, t.done ? tr('শেষ হয়েছে') : (t.due == null ? tr('কাজ') : trf('কাজ · {0}', [taskWhen(t, now) ?? ''])),
                             () => editTask(context, t)),
                     ]),
                   if (notes.isNotEmpty)

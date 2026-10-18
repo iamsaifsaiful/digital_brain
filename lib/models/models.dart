@@ -580,6 +580,13 @@ enum Via { call, sms, whatsapp }
 
 // ───────────────────────── Tasks ─────────────────────────
 
+/// The first day of the app's week (Saturday, as weeks are counted in
+/// Bangladesh). One rule for the rules, the AI, the answers and the screens.
+const firstWeekday = DateTime.saturday;
+
+/// The first day of the week [d] is in.
+DateTime weekStartOf(DateTime d) => DateTime(d.year, d.month, d.day).subtract(Duration(days: (d.weekday - firstWeekday + 7) % 7));
+
 /// How wide a to-do's date is: "শুক্রবার" is one day, "আগামী সপ্তাহে"
 /// the whole week, "ডিসেম্বরে" the month, "পরের বছর" the year. [Task.due]
 /// is then the first day of that span — never a day the user did not say.
@@ -725,6 +732,32 @@ class Task {
     };
   }
 
+  static DateTime _d0(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  /// Planned for [day]: that day, or a week/month/year plan that holds it.
+  bool onDay(DateTime day) => due != null && !_d0(day).isBefore(_d0(due!)) && !_d0(day).isAfter(_d0(dueEnd!));
+
+  /// Its planned day or span meets [from]–[to] (both days counted).
+  bool touches(DateTime from, DateTime to) => due != null && !_d0(dueEnd!).isBefore(_d0(from)) && !_d0(due!).isAfter(_d0(to));
+
+  /// Really late, said as "দেরি হয়ে গেছে": its deadline has passed, or (no
+  /// deadline) the one day it was planned for has. A week, month or year
+  /// plan has no day that was promised — when its time is over it is
+  /// [windowPassed] (to look at again), never claimed late on a date.
+  bool lateAt(DateTime now) {
+    if (done) return false;
+    final today = _d0(now);
+    if (deadline != null) return _d0(deadline!).isBefore(today);
+    return due != null && span == TaskSpan.day && _d0(due!).isBefore(today);
+  }
+
+  /// A week/month/year plan whose time is over (no deadline was said).
+  bool windowPassed(DateTime now) => !done && deadline == null && due != null && span != TaskSpan.day && _d0(dueEnd!).isBefore(_d0(now));
+
+  /// Still open and its day or time has come: late, planned for today,
+  /// or a plan whose span holds today or is over.
+  bool dueBy(DateTime now) => !done && due != null && !_d0(due!).isAfter(_d0(now));
+
   Task copyWith({
     String? title,
     DateTime? due,
@@ -752,7 +785,8 @@ class Task {
         list: list ?? this.list,
         reminderId: clearReminder ? null : (reminderId ?? this.reminderId),
         // A new date said as a day ("কাল") is a day, unless a span comes with it.
-        span: clearDue ? TaskSpan.day : (span ?? (due != null ? TaskSpan.day : this.span)),
+        // The same date handed back (a form saved as it was) keeps the span.
+        span: clearDue ? TaskSpan.day : (span ?? (due != null && (this.due == null || _d0(due) != _d0(this.due!)) ? TaskSpan.day : this.span)),
         urgent: urgent ?? this.urgent,
         note: note ?? this.note,
         repeat: clearRepeat ? null : (repeat ?? this.repeat),

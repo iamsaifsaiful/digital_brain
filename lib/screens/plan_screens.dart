@@ -91,7 +91,8 @@ class TaskAlarmButton extends StatelessWidget {
     final r = task.reminderId == null ? null : brain.data.reminders.where((x) => x.id == task.reminderId).firstOrNull;
     final now = brain.services.now();
     final due = task.due;
-    final at = due == null ? null : DateTime(due.year, due.month, due.day, 9);
+    // Only a one-day to-do offers its own day; a week/month plan has none.
+    final at = due == null || task.span != TaskSpan.day ? null : DateTime(due.year, due.month, due.day, 9);
     return IconButton(
       tooltip: r == null ? tr('রিমাইন্ডার দিন') : trf('রিমাইন্ডার: {0}', [bnTime(r.hour, r.minute)]),
       visualDensity: VisualDensity.compact,

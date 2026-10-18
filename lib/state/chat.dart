@@ -177,6 +177,19 @@ class ChatController extends ChangeNotifier {
   /// The to-dos the last answer named, in order ("দ্বিতীয়টা").
   List<String> _shownTasks = const [];
 
+  /// When [_shownTasks] was shown: "দ্বিতীয়টা" means that list only while
+  /// it is fresh (30 minutes), never an older or re-sorted one.
+  DateTime? _shownAt;
+
+  /// The ids of the to-do list last said, in order (for tests).
+  @visibleForTesting
+  List<String> get debugShownTasks => _shownTasks;
+  bool get _shownFresh => _shownAt != null && _now.difference(_shownAt!).inMinutes <= 30;
+
+  /// When the app's open question was asked: an answer hours later is not
+  /// taken as its answer (see [hear]).
+  DateTime? _waitAt;
+
   /// A to-do request waiting for "কোনটা?" or "কয়টায়?", and the choices.
   Command? _todoWaiting;
   List<Task> _todoChoices = const [];
@@ -200,7 +213,10 @@ class ChatController extends ChangeNotifier {
     if (c.doneOnly) return [for (final t in brain.data.tasks) if (t.done) t];
     return [
       for (final t in brain.data.tasks)
-        if (!t.done && (c.day == null || (t.due != null && (dayOnly(t.due!) == c.day || (c.day == today && dayOnly(t.due!).isBefore(today)))))) t,
+        // A day's to-dos to remove: those planned for that one day (and,
+        // for today, late ones) — never a week or month plan that only
+        // passes through it.
+        if (!t.done && (c.day == null || (t.due != null && t.span == TaskSpan.day && (dayOnly(t.due!) == c.day || (c.day == today && dayOnly(t.due!).isBefore(today)))))) t,
     ];
   }
 
@@ -631,6 +647,12 @@ class ChatController extends ChangeNotifier {
     if (redirect != null && await _redirect(redirect, t, out)) {
       notifyListeners();
       return out.join(' ');
+    }
+    // A question left unanswered for over 30 minutes has lapsed: the words
+    // now are a new request, never a late "yes" or answer to it.
+    if (wait != ChatWait.none && _waitAt != null && _now.difference(_waitAt!).inMinutes > 30) {
+      Trace.log('understood', 'the open question had lapsed — dropped', const {});
+      _dropPending();
     }
     if (wait != ChatWait.none) {
       if (await _answer(t, out)) {
@@ -1103,6 +1125,7 @@ class ChatController extends ChangeNotifier {
       {List<ChatChoice> choices = const [], List<String> facts = const [], List<ChatLink> links = const []}) {
     _say(out, question, facts: facts, links: links);
     wait = w;
+    _waitAt = _now;
     this.choices = choices;
   }
 
@@ -1288,10 +1311,13 @@ class ChatController extends ChangeNotifier {
         // "চারটায়", "৬.২০-এ": morning or evening is asked — never decided
         // by the time it is now. (Asked before "it has passed", so a passed
         // morning reading is never the reason to pick the evening.)
-        if (!c.alarm && !_allYes && ampmUnclear(c.transcript)) {
-          final daySaid = parseWhen(c.transcript, _now)?.hasDay ?? false;
+        // Never skipped — not in a batch "সব রাখো", not for an alarm: an
+        // open hour is not handed to the scheduler.
+        if (c.ampmOpen) {
+          final daySaid = c.day != null || (parseWhen(c.transcript, _now)?.hasDay ?? false);
           final r = ampmReadings(c.at, _now, daySaid: daySaid);
-          ReminderAdd at(DateTime x) => ReminderAdd('${c.transcript} ${bnTime(x.hour, x.minute)}', title: c.title, at: x, repeat: c.repeat, alarm: c.alarm, weekdays: c.weekdays, minutesBefore: c.minutesBefore);
+          ReminderAdd at(DateTime x) => ReminderAdd('${c.transcript} ${bnTime(x.hour, x.minute)}',
+              title: c.title, at: x, repeat: c.repeat, alarm: c.alarm, weekdays: c.repeat == Repeat.weekly ? [x.weekday] : c.weekdays, minutesBefore: c.minutesBefore, ampmOpen: false);
           _current = null;
           _clarifyOptions = [for (final x in r) (bnTime(x.hour, x.minute), at(x))];
           _ask(out, trf('{0}, নাকি {1}?', [bnTime(r[0].hour, r[0].minute), bnTime(r[1].hour, r[1].minute)]), ChatWait.clarify,
@@ -1598,6 +1624,32 @@ class ChatController extends ChangeNotifier {
       case ChatWait.clarify:
         final i = _pickOption(t);
         if (i == null) {
+          // "ভোর ৪টা, নাকি বিকেল ৪টা?" — "না, চারটায় নয়, পাঁচটায়": the same
+          // reminder, at the new hour (asked again only if that is open too).
+          final first = _clarifyOptions.isEmpty ? null : _clarifyOptions.first.$2;
+          if (first is ReminderAdd && _clarifyOptions.every((o) => o.$2 is ReminderAdd)) {
+            final f = ' ${fold(t).replaceAll(RegExp(r'[।,!?]'), ' ')} ';
+            final last = f.replaceFirst(RegExp(fold(r'^\s*(?:না|নাহ|উহু|না\s+না)\s')), ' ').split(RegExp(fold(r'\s(?:নয়|না)\s'))).last.trim();
+            final w = parseWhen(last, _now);
+            if (w != null && w.hasTime) {
+              final daySaid = w.hasDay || (parseWhen(first.transcript, _now)?.hasDay ?? false);
+              final d = w.hasDay ? w.day : dayOnly(first.at);
+              wait = ChatWait.none;
+              choices = const [];
+              _clarifyOptions = const [];
+              await _start(
+                  ReminderAdd(last,
+                      title: first.title,
+                      at: DateTime(d.year, d.month, d.day, w.at.hour, w.at.minute),
+                      repeat: first.repeat,
+                      alarm: first.alarm,
+                      weekdays: first.weekdays,
+                      minutesBefore: first.minutesBefore,
+                      day: daySaid ? d : null),
+                  out);
+              return true;
+            }
+          }
           if (_looksNew(t)) return false;
           _say(out, tr('কোনটা, ধরতে পারিনি — নিচ থেকে একটা বেছে নিন।'));
           return true;
@@ -2253,6 +2305,9 @@ class ChatController extends ChangeNotifier {
       case ReminderAdd() when !brain.canAddReminder:
         _say(out, trf('ফ্রিতে একসাথে {0}টা রিমাইন্ডার চালু রাখা যায়, সেটা পূর্ণ। পুরোনো কোনোটা বন্ধ বা মুছে দিন, অথবা প্রো নিলে যত খুশি রাখতে পারবেন।', [bnDigits(freeReminders)]),
             links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন')), ChatLink(LinkKind.page, tr('প্রো দেখুন'), page: 'pro')]);
+      case ReminderAdd() when c.ampmOpen:
+        // Last guard before the scheduler: an hour still open is never set.
+        _say(out, trf('{0} — ভোর না বিকেল, তা ঠিক হয়নি, তাই রিমাইন্ডারটি রাখিনি। সময়টা আবার বলুন।', [c.title]));
       case ReminderAdd():
         final saved = Reminder(
           title: c.title,

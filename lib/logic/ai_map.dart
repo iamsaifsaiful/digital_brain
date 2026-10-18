@@ -7,7 +7,7 @@ import 'app_map.dart';
 import 'cash.dart';
 import 'ledger.dart';
 import 'parser.dart';
-import 'when.dart' show ampmUnclear;
+import 'when.dart' show hourState;
 
 int _int(Object? v) => v is num ? v.toInt() : int.tryParse('$v') ?? 0;
 String _str(Object? v) => v is String ? v.trim() : '';
@@ -29,12 +29,13 @@ List<String> _terms(Object? v) {
 /// reply when there is nothing else to say. Empty when the answer is not
 /// usable (the rules are used instead). Also reads the older one-item shape
 /// ({action: …}).
-List<Command> commandsFromAi(String said, Map<String, Object?> r, List<LedgerEntry> ledger) {
+List<Command> commandsFromAi(String said, Map<String, Object?> r, List<LedgerEntry> ledger, {DateTime? now}) {
+  final at = now ?? DateTime.now();
   final reply = _str(r['reply']);
   final items = r['items'];
   if (items is! List) {
-    final c = commandFromAi(said, r, ledger);
-    return c == null ? const [] : [c];
+    final c = commandFromAi(said, r, ledger, now: at);
+    return c == null ? const [] : [checked(c, said, at)];
   }
   final out = <Command>[];
   var chatted = false;
@@ -45,7 +46,7 @@ List<Command> commandsFromAi(String said, Map<String, Object?> r, List<LedgerEnt
       chatted = true;
       continue;
     }
-    final c = commandFromAi(said, item, ledger);
+    final c = commandFromAi(said, item, ledger, now: at);
     if (c != null) out.add(c);
   }
   // The AI's words are used only for talk. Anything it asks the app to do
@@ -53,8 +54,7 @@ List<Command> commandsFromAi(String said, Map<String, Object?> r, List<LedgerEnt
   // is said — the AI never says its own count, date or "saved".
   if ((out.isEmpty || (chatted && out.every((c) => c is AiReply))) && reply.isNotEmpty) out.insert(0, AiReply(said, text: reply));
   // The same checks as the rules' commands (money tense, part-of-day times).
-  final now = DateTime.now();
-  return [for (final c in out) checked(c, said, now)];
+  return [for (final c in out) checked(c, said, at)];
 }
 
 /// Questions the AI may answer in its own words: none. Every question about
@@ -70,11 +70,26 @@ TaskRef _ref(Map<String, Object?> r, String said) {
   return TaskRef(it: true, said: said);
 }
 
+/// The one way a span's date is kept, whatever day the AI wrote: the
+/// first day of the app's week, the 1st of the month, 1 January.
+DateTime? _spanStart(DateTime? d, TaskSpan span) => d == null
+    ? null
+    : switch (span) {
+        TaskSpan.day => d,
+        TaskSpan.week => weekStartOf(d),
+        TaskSpan.month => DateTime(d.year, d.month),
+        TaskSpan.year => DateTime(d.year),
+      };
+
 TaskSpan _span(Object? v) => TaskSpan.values.where((s) => s.name == _str(v)).firstOrNull ?? TaskSpan.day;
 
 /// Null when the AI's answer is not usable (the rules are used instead).
-Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> ledger) {
+Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> ledger, {DateTime? now}) {
+  final at0 = now ?? DateTime.now();
   final known = knownPeople(ledger);
+  // Morning or evening still open for [h]: from the user's own words where
+  // the hour is found in them; otherwise the AI's own `time_clear`.
+  bool open(int h) => hourState(said, h) ?? (r['time_clear'] == false && h >= 1 && h <= 12);
   String person() {
     final p = _str(r['person']);
     return p.isEmpty ? '' : resolvePerson(p, known);
@@ -112,7 +127,7 @@ Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> le
       final person = _str(r['person']);
       final day = _day(r['date']);
       if (person.isEmpty || day == null) return null;
-      final now = DateTime.now();
+      final now = at0;
       return SpecialAdd(said,
           person: person, kind: SpecialKind.parse(_str(r['kind'])), month: day.month, day: day.day, year: day.year < now.year ? day.year : null);
     case 'open':
@@ -130,7 +145,9 @@ Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> le
       final title = _str(r['text']);
       if (title.isEmpty) return null;
       final deadline = _day(r['deadline']);
-      return TaskAdd(said, title: title, due: _day(r['date']), span: _span(r['span']), urgent: r['urgent'] == true, by: deadline, condition: _str(r['condition']).isEmpty ? null : _str(r['condition']));
+      final span = _span(r['span']);
+      return TaskAdd(said,
+          title: title, due: _spanStart(_day(r['date']), span), span: span, urgent: r['urgent'] == true, by: deadline, condition: _str(r['condition']).isEmpty ? null : _str(r['condition']));
     case 'task_done':
       final ref = _ref(r, said);
       return TaskDone(said, terms: ref.terms, ref: ref);
@@ -144,7 +161,7 @@ Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> le
       return TaskEdit(said,
           ref: ref,
           title: title.isEmpty ? null : title,
-          due: _day(r['date']),
+          due: _spanStart(_day(r['date']), _span(r['span'])),
           span: r['date'] == null ? null : _span(r['span']),
           clearDue: r['clear_date'] == true,
           shiftDays: shift,
@@ -160,8 +177,8 @@ Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> le
       final time = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(_str(r['time']));
       if (time == null) return TaskEdit(said, ref: ref, remindNeedsTime: true, due: day);
       final h = int.parse(time[1]!), m = int.parse(time[2]!);
-      if (day != null) return TaskEdit(said, ref: ref, remindAt: DateTime(day.year, day.month, day.day, h, m), remindAmPm: ampmUnclear(said));
-      return TaskEdit(said, ref: ref, remindHour: h, remindMinute: m, remindAmPm: ampmUnclear(said));
+      if (day != null) return TaskEdit(said, ref: ref, remindAt: DateTime(day.year, day.month, day.day, h, m), remindAmPm: open(h));
+      return TaskEdit(said, ref: ref, remindHour: h, remindMinute: m, remindAmPm: open(h));
     case 'reminder_stop':
       return TaskEdit(said, ref: _ref(r, said), stopReminder: true);
     case 'reminder_snooze':
@@ -170,7 +187,7 @@ Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> le
     case 'task_query':
       // The rules' reading of the same question (its day, week or words),
       // so the AI path and the rules answer from the same list.
-      final local = todoCommands(said, const [], DateTime.now())?.whereType<TaskQuery>().firstOrNull;
+      final local = todoCommands(said, const [], at0)?.whereType<TaskQuery>().firstOrNull;
       return local ?? TaskQuery(said);
     case 'briefing':
       return Briefing(said);
@@ -178,24 +195,27 @@ Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> le
       final day = _day(r['date']);
       final time = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(_str(r['time']));
       final repeat = Repeat.values.where((x) => x.name == _str(r['repeat'])).firstOrNull ?? Repeat.none;
-      final now = DateTime.now();
+      final now = at0;
       final title = _str(r['text']).isEmpty ? defaultReminderTitle : _str(r['text']);
-      if (day == null && time == null) {
-        // No time yet: the chat asks "কখন মনে করাব?".
-        if (!repeat.isInterval) return ReminderAdd(said, title: title, at: noTimeYet, repeat: repeat);
-        final first = now.add(Duration(minutes: repeat.minutes));
-        return ReminderAdd(said, title: title, at: DateTime(first.year, first.month, first.day, first.hour, first.minute), repeat: repeat);
-      }
-      final d = day ?? DateTime(now.year, now.month, now.day);
-      var at = DateTime(d.year, d.month, d.day, time == null ? 9 : int.parse(time[1]!), time == null ? 0 : int.parse(time[2]!));
-      // Only a time was said and it has passed today: the next time it
-      // comes round ("৬.২০" at 18:00 = 18:20 today; 06:20 at 07:00 = tomorrow).
-      if (day == null && !at.isAfter(now)) {
-        final later = at.add(const Duration(hours: 12));
-        at = at.hour < 12 && later.isAfter(now) && later.day == at.day ? later : at.add(const Duration(days: 1));
-      }
       final before = _int(r['before_minutes']).clamp(0, 60 * 24 * 60);
-      return ReminderAdd(said, title: title, at: at, repeat: repeat, alarm: r['alarm'] == true, weekdays: repeat == Repeat.weekly ? [at.weekday] : const [], minutesBefore: before);
+      if (time == null) {
+        if (repeat.isInterval) {
+          final first = now.add(Duration(minutes: repeat.minutes));
+          return ReminderAdd(said, title: title, at: DateTime(first.year, first.month, first.day, first.hour, first.minute), repeat: repeat);
+        }
+        // No hour said: asked ("কাল কয়টায় মনে করাব?") — never a made-up 9:00.
+        return ReminderAdd(said, title: title, at: noTimeYet, repeat: repeat, day: day, alarm: r['alarm'] == true);
+      }
+      final h = int.parse(time[1]!), m = int.parse(time[2]!);
+      final d = day ?? DateTime(now.year, now.month, now.day);
+      var at = DateTime(d.year, d.month, d.day, h, m);
+      final ampm = open(h);
+      // Only a clear time and no day, already gone today: the next time it
+      // comes round (tomorrow, the same hour). Never moved by 12 hours — an
+      // open hour is asked, and a day that was said is never changed here.
+      if (day == null && !ampm && !at.isAfter(now)) at = at.add(const Duration(days: 1));
+      return ReminderAdd(said,
+          title: title, at: at, repeat: repeat, alarm: r['alarm'] == true, weekdays: repeat == Repeat.weekly ? [at.weekday] : const [], minutesBefore: before, ampmOpen: ampm);
     case 'contact_add':
       final phone = findPhone(_str(r['phone'])) ?? findPhone(said);
       if (phone == null) return null;

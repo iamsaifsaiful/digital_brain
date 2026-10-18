@@ -21,11 +21,13 @@ extension _TodoChat on ChatController {
     final pool = done ? all : all.where((t) => !t.done).toList();
     if (r.ids.isNotEmpty) return [for (final id in r.ids) ..._maybe(id)];
     if (r.index != null) {
-      final shown = [for (final id in _shownTasks) ..._maybe(id)];
-      final list = shown.isNotEmpty ? shown : openTasksOf(brain.data, _now);
-      if (list.isEmpty) return const [];
-      final i = r.index! < 0 ? list.length - 1 : r.index! - 1;
-      return i >= 0 && i < list.length ? [list[i]] : const [];
+      // The place in the list as it was shown (its ids, in that order) —
+      // never a list sorted again now. No fresh list: nothing is guessed.
+      if (!_shownFresh || _shownTasks.isEmpty) return const [];
+      final ids = _shownTasks;
+      final i = r.index! < 0 ? ids.length - 1 : r.index! - 1;
+      if (i < 0 || i >= ids.length) return const [];
+      return _maybe(ids[i]).where((t) => done || !t.done).toList();
     }
     if (r.terms.isNotEmpty) {
       final hit = tdMatch(pool, r.terms, open: !done);
@@ -41,7 +43,7 @@ extension _TodoChat on ChatController {
     if (r.it) {
       final f = _focusTaskFresh && _focusTaskId != null ? _taskById(_focusTaskId!) : null;
       if (f != null) return [f];
-      final shown = [for (final id in _shownTasks) ..._maybe(id)];
+      final shown = _shownFresh ? [for (final id in _shownTasks) ..._maybe(id)] : const <Task>[];
       if (shown.length == 1) return shown;
     }
     return const [];
@@ -63,7 +65,9 @@ extension _TodoChat on ChatController {
       }
       _todoWaiting = c;
       _todoChoices = open.take(6).toList();
-      _ask(out, tr('আপনি কোন কাজটির কথা বলছেন?'), ChatWait.whichTask, choices: [for (final t in _todoChoices) ChatChoice(t.title, t.title)]);
+      // "কাল রাখো" with no to-do being talked about: which one is asked.
+      final q = c is TaskEdit && c.due != null ? trf('কোন কাজটি {0} রাখব?', [sayWhen(c.due!, _now, withTime: false)]) : tr('আপনি কোন কাজটির কথা বলছেন?');
+      _ask(out, q, ChatWait.whichTask, choices: [for (final t in _todoChoices) ChatChoice(t.title, t.title)]);
       return null;
     }
     _todoWaiting = c;
@@ -394,6 +398,13 @@ extension _TodoChat on ChatController {
       _ask(out, q, ChatWait.taskTime);
       return false;
     }
+    // A plan for a coming week or month has no day to ring on: which day
+    // is asked — never its first day taken as the day.
+    if (c.remindAt == null && day0 == null && t.span != TaskSpan.day && t.due != null && dayOnly(t.due!).isAfter(dayOnly(_now))) {
+      _todoWaiting = TaskEdit(c.transcript, ref: TaskRef(ids: [t.id]), remindNeedsTime: true);
+      _ask(out, trf('“{0}” {1} রাখা, নির্দিষ্ট দিন নেই। কোন দিন কয়টায় মনে করাব?', [t.title, taskWhen(t, _now) ?? '']), ChatWait.taskTime);
+      return false;
+    }
     DateTime at;
     if (c.remindAt != null) {
       at = c.remindAt!;
@@ -511,7 +522,7 @@ extension _TodoChat on ChatController {
       final d0 = pending.due ?? (task.due != null && task.span == TaskSpan.day ? dayOnly(task.due!) : null);
       final at = w.hasDay || d0 == null ? w.at : DateTime(d0.year, d0.month, d0.day, w.at.hour, w.at.minute);
       final snap = brain.snapshot();
-      await _taskRemind(TaskEdit(pending.transcript, ref: TaskRef(ids: [task.id]), remindAt: at, remindAmPm: part.isEmpty && ampmUnclear(said)), task, out);
+      await _taskRemind(TaskEdit(pending.transcript, ref: TaskRef(ids: [task.id]), remindAt: at, remindAmPm: part.isEmpty && hourOpen(said, w.at.hour)), task, out);
       _offerUndo(snap);
       return true;
     }
@@ -539,8 +550,14 @@ extension _TodoChat on ChatController {
       if (r != null && (w.hasTime || w.hasDay)) {
         final d = w.hasDay ? w.day : r.date;
         var at = DateTime(d.year, d.month, d.day, w.hasTime ? w.at.hour : r.hour, w.hasTime ? w.at.minute : r.minute);
-        // "এগারোটায়" after "সকাল দশটা": still the morning.
-        if (w.hasTime && !RegExp(fold(r'(?:সকাল|দুপুর|বিকেল|বিকাল|সন্ধ্যা|রাত)')).hasMatch(fold(last)) && r.hour < 12 && at.hour >= 12 && at.hour - 12 >= 1) at = at.subtract(const Duration(hours: 12));
+        // A bare hour ("না, চারটায় নয়, পাঁচটায়") keeps the half of the day
+        // of the reminder being corrected: "বিকেল ৪টা" → বিকেল ৫টা,
+        // "সকাল ১০টা" → সকাল ১১টা. A part said with it decides instead.
+        if (w.hasTime && hourOpen(last, w.at.hour)) {
+          final h12 = w.at.hour % 12;
+          final pm = r.hour >= 12;
+          at = DateTime(at.year, at.month, at.day, pm ? h12 + 12 : h12, at.minute);
+        }
         final task = brain.data.tasks.where((x) => x.reminderId == _focusReminderId).firstOrNull;
         if (task != null) {
           await _setTaskReminder(task, at, out);
@@ -569,6 +586,7 @@ extension _TodoChat on ChatController {
     final s = q.scope;
     final list = s == null ? openTasksOf(brain.data, _now) : taskScopeAnswer(brain.data, s, _now).$2;
     _shownTasks = [for (final t in list) t.id];
+    _shownAt = _now;
     if (list.length == 1) _focusTask(list.single);
   }
 

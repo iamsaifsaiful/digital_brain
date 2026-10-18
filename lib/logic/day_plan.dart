@@ -39,9 +39,10 @@ Plan planOf(AppData d, DateTime now) {
     final due = t.due == null ? null : dayOnly(t.due!);
     // A to-do of a whole week, month or year is late only after its span,
     // and is "today's" all through it — never pinned to its first day.
-    final end = t.due == null ? null : dayOnly(t.dueEnd!);
-    if (end != null && end.isBefore(today)) {
-      overdue.add(PlanItem.task(t, due!));
+    // Late (its day or deadline passed) or a plan whose time is over: on
+    // the "time passed" list, with its own date kept as it was.
+    if (t.lateAt(now) || t.windowPassed(now)) {
+      overdue.add(PlanItem.task(t, due ?? dayOnly(t.deadline!)));
     } else if (due == null || due == today || (t.span != TaskSpan.day && !due.isAfter(today))) {
       todayL.add(PlanItem.task(t, today.add(const Duration(hours: 23, minutes: 59))));
     } else {
@@ -83,5 +84,7 @@ List<PlanItem> planItemsOn(AppData d, DateTime day, DateTime now) {
   final plan = planOf(d, now);
   final want = dayOnly(day);
   if (want == dayOnly(now)) return [...plan.overdue, ...plan.today];
-  return [for (final i in plan.ahead) if (dayOnly(i.sort) == want) i];
+  // A week/month/year plan is on every day of its span (said as the span,
+  // never as that day); a one-day to-do and a reminder on their own day.
+  return [for (final i in plan.ahead) if (i.task != null ? i.task!.onDay(want) : dayOnly(i.sort) == want) i];
 }

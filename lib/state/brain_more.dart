@@ -286,7 +286,9 @@ extension BrainMore on Brain {
   /// Moves a to-do to [day] (dragged in দিনলিপি, or "কাল করব").
   Future<void> moveTask(Task t, DateTime? day) => saveTask(day == null ? t.copyWith(clearDue: true) : t.copyWith(due: dayOnly(day)));
 
-  /// Undone to-dos from past days move to today. Returns how many moved.
+  /// Undone to-dos from past days are shown on today's list (the plan puts
+  /// them under "সময় পেরিয়েছে"); their own planned day, span and deadline
+  /// stay as they were — never rewritten to today. Returns how many.
   Future<int> carryOverTasks() async {
     if (!loaded || loadError != null) return 0;
     final today = dayOnly(services.now());
@@ -305,14 +307,10 @@ extension BrainMore on Brain {
     if (changed) await _save();
     if (!carryOver) return 0;
     var n = 0;
-    for (var i = 0; i < data.tasks.length; i++) {
-      final t = data.tasks[i];
-      if (!t.done && t.due != null && dayOnly(t.due!).isBefore(today)) {
-        data.tasks[i] = t.copyWith(due: today);
-        n++;
-      }
+    final now = services.now();
+    for (final t in data.tasks) {
+      if (t.lateAt(now) || t.windowPassed(now)) n++;
     }
-    if (n > 0) await _save();
     return n;
   }
 
@@ -323,7 +321,8 @@ extension BrainMore on Brain {
     var n = 0;
     for (var i = 0; i < data.tasks.length; i++) {
       final t = data.tasks[i];
-      if (!t.done && t.due != null && !dayOnly(t.due!).isAfter(today)) {
+      // One-day to-dos only: a week or month plan keeps its span.
+      if (!t.done && t.span == TaskSpan.day && t.repeat == null && t.due != null && !dayOnly(t.due!).isAfter(today)) {
         data.tasks[i] = t.copyWith(due: tomorrow);
         n++;
       }

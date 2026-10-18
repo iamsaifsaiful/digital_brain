@@ -183,8 +183,18 @@ class TasksClear extends Command {
 
 /// "কাল সকাল ১০টায় মিটিংয়ের কথা মনে করিয়ে দিও".
 class ReminderAdd extends Command {
-  const ReminderAdd(super.transcript, {required this.title, required this.at, this.repeat = Repeat.none, this.alarm = false, this.weekdays = const [], this.minutesBefore = 0, this.day, this.part});
+  const ReminderAdd(super.transcript,
+      {required this.title, required this.at, this.repeat = Repeat.none, this.alarm = false, this.weekdays = const [], this.minutesBefore = 0, this.day, this.part, bool? ampmOpen})
+      : _ampmOpen = ampmOpen;
   final String title;
+
+  final bool? _ampmOpen;
+
+  /// The hour of [at] is not settled yet: "চারটায়" was said with no ভোর/
+  /// বিকেল — [at] is only one of two readings, so it is asked and never
+  /// handed to the scheduler as it is. Set by whoever settled it (the
+  /// clarification's answer passes false); otherwise read from the words.
+  bool get ampmOpen => _ampmOpen ?? (!needsTime && !repeat.isInterval && hourOpen(transcript, at.hour));
 
   /// "কাল সকালে মনে করিও": only the part of the day was said — the hour is
   /// asked ("সকালে কয়টায়?"), and an answer like "আটটায়" stays in it.

@@ -27,7 +27,7 @@ List<PlanItem> itemsOn(AppData d, DateTime day, DateTime now) {
   ]..sort((a, b) => a.sort.compareTo(b.sort));
   final tasks = [
     for (final t in d.tasks)
-      if ((t.due != null && dayOnly(t.due!) == dd && (!t.done || (t.doneAt != null && dayOnly(t.doneAt!) == dd))) || (today && t.due == null && !t.done))
+      if ((t.onDay(dd) && (!t.done || (t.doneAt != null && dayOnly(t.doneAt!) == dd))) || (today && t.due == null && !t.done))
         PlanItem.task(t, DateTime(dd.year, dd.month, dd.day, 23, 59)),
   ];
   return [...rem, ...tasks];
@@ -47,7 +47,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
   DateTime? _picked;
 
   /// Saturday of the week holding [d] (the Bangladesh week starts then).
-  DateTime _weekStart(DateTime d) => dayOnly(d).subtract(Duration(days: (d.weekday + 1) % 7));
+  DateTime _weekStart(DateTime d) => weekStartOf(d);
 
   @override
   Widget build(BuildContext context) {

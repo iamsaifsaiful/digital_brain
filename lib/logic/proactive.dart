@@ -568,7 +568,7 @@ List<(int, String)> _dayItems(AppData d, DateTime day) {
     for (final r in d.reminders)
       if (remindsOn(r, dd) && !r.repeat.isInterval && !d.specialDays.any((s) => s.reminderId == r.id)) (r.hour * 60 + r.minute, r.title),
     for (final t in d.tasks)
-      if (!t.done && t.due != null && dayOnly(t.due!) == dd) (24 * 60, t.title),
+      if (!t.done && t.onDay(dd)) (24 * 60, t.title),
   ]..sort((a, b) => a.$1.compareTo(b.$1));
 }
 

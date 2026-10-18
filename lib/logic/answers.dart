@@ -185,7 +185,7 @@ String ledgerAnswer(AppData d, LedgerQuery q, [DateTime? now]) {
 /// (start inclusive, end exclusive, the words to repeat).
 (DateTime, DateTime, String)? periodIn(String text, DateTime now) {
   final today = DateTime(now.year, now.month, now.day);
-  final weekStart = today.subtract(Duration(days: (today.weekday + 1) % 7));
+  final weekStart = weekStartOf(today);
   bool has(List<String> w) => w.any((x) => text.contains(fold(x)));
   if (has(['গত মাসে', 'গত মাসের', 'আগের মাসে', 'last month'])) return (DateTime(now.year, now.month - 1), DateTime(now.year, now.month), 'গত মাসে');
   if (has(['এই মাসে', 'এ মাসে', 'এই মাসের', 'this month'])) return (DateTime(now.year, now.month), DateTime(now.year, now.month + 1), 'এই মাসে');
@@ -208,9 +208,8 @@ String nameList(List<String> parts, {String unit = 'জন'}) {
 
 /// Open to-dos: overdue and today's first, then undated, then later ones.
 List<Task> openTasksOf(AppData d, DateTime now) {
-  final today = dayOnly(now);
   final open = d.tasks.where((t) => !t.done).toList();
-  int rank(Task t) => t.due == null ? 1 : (t.due!.isAfter(today) ? 2 : 0);
+  int rank(Task t) => t.due == null ? 1 : (t.dueBy(now) ? 0 : 2);
   open.sort((a, b) {
     final r = rank(a).compareTo(rank(b));
     if (r != 0) return r;
@@ -220,12 +219,7 @@ List<Task> openTasksOf(AppData d, DateTime now) {
 }
 
 /// "ব্যাংকে যাওয়া (আজ)", "রিপোর্ট জমা (১২ অক্টোবর)".
-String taskLabel(Task t, DateTime now) {
-  if (t.due == null) return t.title;
-  final diff = dayOnly(t.due!).difference(dayOnly(now)).inDays;
-  final when = diff < 0 ? tr('দেরি হয়ে গেছে') : sayWhen(t.due!, now, withTime: false);
-  return '${t.title} ($when)';
-}
+String taskLabel(Task t, DateTime now) => taskLine(t, now);
 
 String taskAnswer(AppData d, DateTime now, [String asked = '']) {
   final open = openTasksOf(d, now);
@@ -236,9 +230,10 @@ String taskAnswer(AppData d, DateTime now, [String asked = '']) {
     final i = said.indexOf(fold(bnMonths[m]));
     if (i < 0 || RegExp(r'[০-৯0-9]\s*$').hasMatch(said.substring(0, i))) continue;
     final year = (m + 1 < now.month) ? now.year + 1 : now.year;
-    final those = [for (final t in open) if (t.due != null && t.due!.year == year && t.due!.month == m + 1) t];
+    // A week, month or year plan that covers the month counts too.
+    final those = [for (final t in open) if (t.touches(DateTime(year, m + 1), DateTime(year, m + 2, 0))) t];
     if (those.isEmpty) return trf('{0} মাসে কোনো কাজ রাখা নেই।', [bnMonths[m]]);
-    return trf('{0} মাসে {1}টা কাজ — {2}।', [bnMonths[m], bnDigits(those.length), nameList([for (final t in those) '${t.title} (${shortDate(t.due!)})'], unit: 'টা')]);
+    return trf('{0} মাসে {1}টা কাজ — {2}।', [bnMonths[m], bnDigits(those.length), nameList([for (final t in those) taskLine(t, now)], unit: 'টা')]);
   }
   final w = asked.isEmpty ? null : parseWhen(tidySpeech(asked), now);
   if (w != null && w.hasDay) {
@@ -261,7 +256,9 @@ String taskAnswer(AppData d, DateTime now, [String asked = '']) {
 /// urgent first, then late, then by date, then those without a date.
 List<Task> scopedTasks(AppData d, TaskScope s, DateTime now) {
   final today = dayOnly(now);
-  bool touches(Task t, DateTime a, DateTime b) => t.due != null && !dayOnly(t.dueEnd!).isBefore(a) && !dayOnly(t.due!).isAfter(b);
+  bool touches(Task t, DateTime a, DateTime b) => t.touches(a, b);
+  // Late (a day or deadline passed) or a plan whose time is over.
+  bool over(Task t) => t.lateAt(now) || t.windowPassed(now);
   Iterable<Task> pool;
   if (s.doneOnly) {
     final a = s.from ?? today, b = s.to ?? today;
@@ -271,16 +268,16 @@ List<Task> scopedTasks(AppData d, TaskScope s, DateTime now) {
     if (s.undated) {
       pool = pool.where((t) => t.due == null);
     } else if (s.overdue) {
-      pool = pool.where((t) => t.due != null && dayOnly(t.dueEnd!).isBefore(today));
+      pool = pool.where(over);
     } else if (s.future) {
       pool = pool.where((t) => t.due != null && (dayOnly(t.due!).isAfter(today) || (t.span != TaskSpan.day && !dayOnly(t.dueEnd!).isBefore(today))));
     } else if (s.from != null) {
-      pool = pool.where((t) => touches(t, s.from!, s.to ?? s.from!) || (s.withOverdue && t.due != null && dayOnly(t.dueEnd!).isBefore(today)));
+      pool = pool.where((t) => touches(t, s.from!, s.to ?? s.from!) || (s.withOverdue && over(t)));
     }
   }
   if (s.about.isNotEmpty) pool = pool.where((t) => taskScore(t, s.about) > 0);
   final out = pool.toList();
-  int rank(Task t) => t.due == null ? 2 : (dayOnly(t.dueEnd!).isBefore(today) ? 0 : 1);
+  int rank(Task t) => t.due == null && t.deadline == null ? 2 : (over(t) ? 0 : 1);
   out.sort((a, b) {
     if (a.urgent != b.urgent) return a.urgent ? -1 : 1;
     final r = rank(a).compareTo(rank(b));
@@ -293,27 +290,50 @@ List<Task> scopedTasks(AppData d, TaskScope s, DateTime now) {
 /// "রিপোর্ট পাঠানো (সোমবার, ১২ অক্টোবর)", "আলমারি গোছানো", with জরুরি.
 String taskLine(Task t, DateTime now) {
   final today = dayOnly(now);
-  String? when;
-  if (t.due != null) {
-    final d = dayOnly(t.due!);
-    if (dayOnly(t.dueEnd!).isBefore(today)) {
-      when = tr('সময় পেরিয়ে গেছে');
-    } else {
-      when = switch (t.span) {
-        TaskSpan.week => d == _weekStartOf(today) ? tr('এই সপ্তাহে') : (d == _weekStartOf(today).add(const Duration(days: 7)) ? tr('আগামী সপ্তাহে') : trf('{0}-এর সপ্তাহে', [shortDate(d)])),
-        TaskSpan.month => d.year == today.year ? trf('{0} মাসে', [bnMonths[d.month - 1]]) : trf('{0} {1}', [bnMonths[d.month - 1], bnDigits(d.year)]),
-        TaskSpan.year => trf('{0} সালে', [bnDigits(d.year)]),
-        TaskSpan.day => sayWhen(d, now, withTime: false),
-      };
-    }
-  }
+  final when = taskWhen(t, now);
   final dl = t.deadline;
   final bits = [
     if (when != null) when,
-    if (dl != null && (t.due == null || dayOnly(dl) != dayOnly(t.due!))) trf('শেষ সময় {0}', [sayWhen(dl, now, withTime: false)]),
+    if (dl != null && (t.due == null || dayOnly(dl) != dayOnly(t.due!) || t.span != TaskSpan.day))
+      dayOnly(dl).isBefore(today) ? trf('শেষ সময় ছিল {0} — পেরিয়ে গেছে', [shortDate(dl)]) : trf('শেষ সময় {0}', [sayWhen(dl, now, withTime: false)]),
     if (t.urgent) tr('জরুরি'),
   ];
   return bits.isEmpty ? t.title : '${t.title} (${bits.join(', ')})';
+}
+
+/// When a to-do is for, as it was said: "আগামীকাল", "এই সপ্তাহের যেকোনো
+/// দিন", "নভেম্বর মাসের যেকোনো সময়", "দেরি হয়ে গেছে — ছিল ১০ অক্টো";
+/// null without a date.
+String? taskWhen(Task t, DateTime now) {
+  final today = dayOnly(now);
+  String? when;
+  if (t.due != null) {
+    final d = dayOnly(t.due!);
+    // The span as it was said — a week or a month is never given a day.
+    final said = switch (t.span) {
+      TaskSpan.week => d == _weekStartOf(today)
+          ? tr('এই সপ্তাহের যেকোনো দিন')
+          : (d == _weekStartOf(today).add(const Duration(days: 7)) ? tr('আগামী সপ্তাহের যেকোনো দিন') : trf('{0}-এর সপ্তাহে, দিন ঠিক নেই', [shortDate(d)])),
+      TaskSpan.month => d.year == today.year ? trf('{0} মাসের যেকোনো সময়', [bnMonths[d.month - 1]]) : trf('{0} {1}-এর যেকোনো সময়', [bnMonths[d.month - 1], bnDigits(d.year)]),
+      TaskSpan.year => trf('{0} সালের যেকোনো সময়', [bnDigits(d.year)]),
+      TaskSpan.day => sayWhen(d, now, withTime: false),
+    };
+    if (t.lateAt(now) && t.deadline == null) {
+      // Late: said with the day it was planned for (kept as it was).
+      when = trf('দেরি হয়ে গেছে — ছিল {0}', [shortDate(d)]);
+    } else if (t.windowPassed(now)) {
+      // A plan for a week/month/year that is over: to look at again — not
+      // "late" on a date that was never said.
+      when = switch (t.span) {
+        TaskSpan.week => trf('{0}-এর সপ্তাহের পরিকল্পনা — সময় পেরিয়েছে', [shortDate(d)]),
+        TaskSpan.month => trf('{0} মাসের পরিকল্পনা — সময় পেরিয়েছে', [bnMonths[d.month - 1]]),
+        _ => trf('{0} সালের পরিকল্পনা — সময় পেরিয়েছে', [bnDigits(d.year)]),
+      };
+    } else {
+      when = said;
+    }
+  }
+  return when;
 }
 
 /// "প্রতি শুক্রবার", "প্রতি মাসের ১০ তারিখে", "২ দিন পরপর".
@@ -335,7 +355,7 @@ String? taskWhenText(Task t, DateTime now) {
   return parts.isEmpty ? null : parts.join(' · ');
 }
 
-DateTime _weekStartOf(DateTime d) => dayOnly(d).subtract(Duration(days: (d.weekday + 1) % 7));
+DateTime _weekStartOf(DateTime d) => weekStartOf(d);
 
 /// The answer to a to-do question, and the to-dos it named in order (so
 /// "দ্বিতীয়টা হয়ে গেছে" right after knows which one). Only what is on the
@@ -348,7 +368,7 @@ DateTime _weekStartOf(DateTime d) => dayOnly(d).subtract(Duration(days: (d.weekd
     if (open.isEmpty) return (tr('এখন কোনো কাজ বাকি নেই।'), const []);
     final today = dayOnly(now);
     final t = open.first;
-    final why = t.due != null && dayOnly(t.dueEnd!).isBefore(today)
+    final why = t.lateAt(now) || t.windowPassed(now)
         ? tr('এর সময় পেরিয়ে গেছে')
         : t.urgent
             ? tr('এটা জরুরি হিসেবে রাখা')

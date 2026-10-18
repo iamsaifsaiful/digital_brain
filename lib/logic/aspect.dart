@@ -38,7 +38,9 @@ String _af(String said) => ' ${fold(said).replaceAll(RegExp(r'[।!,;:"“”]')
 /// a past verb last.
 Aspect aspectOf(String said) {
   final f = _af(said);
-  if (said.contains('?') || _thas(f, r'(?<=\s)(?:কত|কী|কি|কে|কাকে|কার|কারা|কবে|কোথায়|কয়টা|কিনা|নাকি)(?=\s)')) return Aspect.question;
+  // "কে"/"কার" alone after a name is often the recogniser splitting
+  // "সজীবকে" ("সজীব কে ৩০০ টাকা দিলাম"): a question word only at the start.
+  if (said.contains('?') || _thas(f, r'(?<=\s)(?:কত|কী|কি|কাকে|কবে|কোথায়|কয়টা|কিনা|নাকি)(?=\s)') || _thas(f, r'^\s*(?:কে|কার|কারা)(?=\s)')) return Aspect.question;
   if (_thas(f, r'(?<=\s)\S+(?:িনি|ইনি)(?=\s)') ||
       _thas(f, r'(?<=\s)(?:দিই|দেই|দেয়|দিয়|নিই|নেই|নেয়|পাই|করি|দিলাম|নিলাম|পেলাম|করলাম|দেননি|দেয়নি)\s+(?:নাই|নি|না)(?=\s)')) {
     return Aspect.negated;
@@ -109,6 +111,13 @@ Command checked(Command c, String said, DateTime now) {
     case LedgerAdd() || LedgerSet() || CashAdd():
       final a = aspectOf(said);
       if (a == Aspect.negated) return SmallTalk(said, kind: Talk.nothingDone);
+      // "সজীবকে টাকা দিলে কত থাকবে?": a question — what is kept is shown,
+      // nothing is written.
+      if (a == Aspect.question) {
+        final person = switch (c) { LedgerAdd(:final person) => person, LedgerSet(:final person) => person, _ => '' };
+        if (c is CashAdd) return CashQuery(said);
+        return person.isEmpty ? LedgerQuery(said, ask: LedgerAsk.all) : LedgerQuery(said, ask: LedgerAsk.person, person: person);
+      }
       if (a == Aspect.future || a == Aspect.duty || a == Aspect.remind || a == Aspect.conditional) {
         return moneyNotNow(said, now) ?? c;
       }

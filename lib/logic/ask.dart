@@ -15,6 +15,7 @@ import 'inbox.dart' show inboxAnswer;
 import 'parser.dart';
 import 'proactive.dart' show remindsOn, specialTitle;
 import 'when.dart';
+import 'answers.dart' show taskLine;
 
 /// The user's place (for prayer times) and name, set by the app.
 String askPlace = 'ঢাকা';
@@ -178,13 +179,13 @@ String? infoAnswer(AppData d, String said, DateTime now) {
       final w = parseWhen(said, now);
       final day = w != null && w.hasDay ? dayOnly(w.day) : dayOnly(now.add(const Duration(days: 1)));
       final rems = [for (final r in d.reminders) if (remindsOn(r, day)) r]..sort((a, b) => (a.hour * 60 + a.minute).compareTo(b.hour * 60 + b.minute));
-      final tasks = [for (final t in d.tasks) if (!t.done && t.due != null && dayOnly(t.due!) == day) t];
+      final tasks = [for (final t in d.tasks) if (!t.done && t.onDay(day)) t];
       final specials = [for (final s in d.specialDays) if (dayOnly(s.next(day)) == day) s];
       final label = sayWhen(day, now, withTime: false);
       if (rems.isEmpty && tasks.isEmpty && specials.isEmpty) return trf('{0} কিছু রাখা নেই — কোনো রিমাইন্ডার বা কাজ নেই।', [label]);
       final lines = [
         for (final r in rems) '• ${bnTime(r.hour, r.minute)} — ${r.title}',
-        for (final t in tasks) '• ${tr('কাজ')}: ${t.title}',
+        for (final t in tasks) '• ${tr('কাজ')}: ${t.span == TaskSpan.day ? t.title : taskLine(t, now)}',
         for (final s in specials) '• ${specialTitle(s, on: day)}',
       ];
       return trf('{0}:\n{1}', [label, lines.join('\n')]);

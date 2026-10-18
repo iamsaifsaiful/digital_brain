@@ -17,6 +17,7 @@ import 'money_more.dart';
 import 'parser.dart' show mentionsSecret;
 import 'phrases.dart' show possessive;
 import 'proactive.dart' show specialTitle;
+import 'answers.dart' show taskWhen;
 
 enum ReportPart {
   tasks('কাজের তালিকা', 'tasks'),
@@ -164,10 +165,11 @@ void _tasks(_Doc doc, AppData d, DateTime now) {
         for (final t in ts)
           [
             t.title,
-            t.due == null ? '—' : _d(t.due!),
+            // A week/month plan is said as its span, never as its first day.
+            t.due == null ? '—' : (t.span == TaskSpan.day ? _d(t.due!) : (taskWhen(t, now) ?? _d(t.due!))),
             t.done
                 ? cell(t.doneAt == null ? tr('শেষ') : trf('শেষ ({0})', [shortDate(t.doneAt!)]), tone: 'g')
-                : (t.due != null && dayOnly(t.due!).isBefore(dayOnly(now)) ? cell(tr('সময় পেরিয়েছে'), tone: 'o', bold: true) : cell(tr('বাকি'), tone: 'o')),
+                : (t.lateAt(now) || t.windowPassed(now) ? cell(tr('সময় পেরিয়েছে'), tone: 'o', bold: true) : cell(tr('বাকি'), tone: 'o')),
           ],
       ],
       w: [5, 2.2, 1.8],
