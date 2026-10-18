@@ -1184,7 +1184,8 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     final m = _bottomActionsOf;
     if (m == null) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
+      // Raised a little above the chips (asked 18 Oct: "আরেকটু উপরে").
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
       child: Align(
         alignment: Alignment.centerRight,
         child: Wrap(alignment: WrapAlignment.end, spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
@@ -1247,7 +1248,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
 
   /// The answers to a question, low on the right by the thumb.
   Widget _choiceRow() => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 30),
         child: Align(
           alignment: Alignment.centerRight,
           child: Wrap(alignment: WrapAlignment.end, spacing: 8, runSpacing: 8, children: [for (final c in _ordered(_chat.choices)) _chip(c)]),
