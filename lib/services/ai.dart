@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../logic/ai_safe.dart';
 import '../logic/app_map.dart';
 import '../logic/lang.dart';
+import '../logic/parser.dart' show SelKind;
 
 /// What the AI understood: the fields of the `route` tool (see [_tool]).
 typedef AiRoute = Map<String, Object?>;
@@ -254,7 +255,7 @@ List<Map<String, String>> messagesFor(String said, List<AiTurn> history) {
 String systemPrompt(AiContext ctx) => '${systemRules()}${systemContext(ctx)}';
 
 /// Version of the fixed instructions below; change it with every edit to them.
-const aiRulesVersion = '2026-10-18.3';
+const aiRulesVersion = '2026-10-18.4';
 
 /// The fixed part of the instructions (the same for every message).
 String systemRules() => '''
@@ -292,6 +293,7 @@ Item actions:
 - memory_add: something about the user or the people in their life that the assistant should keep in mind for later answers — habits, preferences, routine, relationships ("মনে রেখো আমি শুক্রবার অফিস করি না", "রহিম আমার শ্যালক", "আমি চা খাই না"). text: one short, clean Bengali sentence. Facts to look up later (codes, where something is kept) are note_add instead.
 - special_add: a day that comes every year — a birthday, wedding anniversary or death anniversary ("রহিমের জন্মদিন ১২ মার্চ", "আব্বার মৃত্যুবার্ষিকী ৩ জুন", "আমাদের বিবাহবার্ষিকী ৫ জানুয়ারি"). person: whose day (or "আমাদের"), kind: birthday, anniversary, deathday or other, date: YYYY-MM-DD (use the year if said, else the next time it comes).
 - open: the user wants to open or go to a part of the app ("নোট খোলো", "সেটিংসে যাও", "প্রেসক্রিপশন ফোল্ডার দেখাও", "স্বাস্থ্যের পাতায় নিয়ে যাও"). page: one id from the app map below. folder: a paper folder or note category when one was named (as the user's own folder/category name), else "". Asking ABOUT saved things ("কী কী রিমাইন্ডার আছে?") is the matching query, not open.
+- bulk: several items of the list the app showed last ("এইগুলো সব মুছে দাও", "প্রথম দুটো কাল রাখো", "দ্বিতীয় আর চতুর্থটা শেষ", "দ্বিতীয়টা ছাড়া সব", "ব্যাংকেরটা থাকবে, বাকিগুলো বাদ"). op: delete, done, reopen, move (date), remind (time), reminder_off, urgent, not_done, restore, report. select.kind: all (that list), indexes, first/last (n), range (from, to), names, filter, rest, global (only when the user said every day/everything explicitly). Never ids; never say it is done — the app resolves the items on the list it showed, asks once before removing, and says what really changed. A plain "সব" after a list means that list, not the whole database. Negative ("মুছো না") or someone else's action ("ও এসব মুছে দেয়") is never bulk.
 - menu: other menus, by `domain` and `op` (only these; the app finds the saved records by their names and says itself what it did or could not do):
 ${[for (final e in voiceCaps.entries) if (e.value.ops.isNotEmpty) '  ${e.key}: ${[for (final o in e.value.ops.entries) '${o.key} (${o.value})'].join('; ')}'].join('\n')}
   Never for something not listed — use chat and say it is done on that page.
@@ -366,7 +368,7 @@ final _item = {
       'type': 'string',
       'enum': [
         'ledger_add', 'ledger_set', 'ledger_query', 'vault_query', 'reminder_query', 'note_add', 'search', 'chat', //
-        'task_add', 'task_done', 'task_reopen', 'task_edit', 'task_delete', 'task_skip_once', 'task_remind', 'task_query', 'menu', //
+        'task_add', 'task_done', 'task_reopen', 'task_edit', 'task_delete', 'task_skip_once', 'task_remind', 'task_query', 'menu', 'bulk', //
         'reminder_add', 'reminder_stop', 'reminder_snooze', 'contact_add', 'call', 'briefing', 'cash_add', 'cash_query',
         'memory_add', 'special_add', 'open',
       ],
@@ -422,6 +424,22 @@ final _item = {
     'shift_days': {'type': 'integer', 'description': 'task_edit: +N later, -N earlier'},
     'note': {'type': 'string', 'description': 'task_edit: an extra detail'},
     'minutes': {'type': 'integer', 'description': 'reminder_snooze: minutes from now'},
+    'list': {'type': 'string', 'enum': ['tasks', 'reminders', 'notes', 'medicines', 'habits', 'money', 'health'], 'description': 'bulk: which kind of list, if said'},
+    'select': {
+      'type': 'object',
+      'description': 'bulk: which items of the list the app showed last',
+      'properties': {
+        'kind': {'type': 'string', 'enum': SelKind.values.map((k) => k.name).toList()},
+        'indexes': {'type': 'array', 'items': {'type': 'integer'}, 'description': '1-based places; -1 = last'},
+        'n': {'type': 'integer', 'description': 'first/last: how many'},
+        'from': {'type': 'integer'},
+        'to': {'type': 'integer'},
+        'names': {'type': 'array', 'items': {'type': 'string'}},
+        'filter': {'type': 'string', 'enum': ['urgent', 'overdue', 'undated', 'open', 'done']},
+        'except_indexes': {'type': 'array', 'items': {'type': 'integer'}},
+        'except_names': {'type': 'array', 'items': {'type': 'string'}},
+      },
+    },
     'domain': {'type': 'string', 'enum': voiceCaps.keys.toList(), 'description': 'menu: which menu'},
     'op': {'type': 'string', 'description': 'menu: one op listed for that menu in the instructions'},
     'target': {'type': 'string', 'description': 'menu: a name as said (account, goal, medicine, habit, project, shop, person)'},

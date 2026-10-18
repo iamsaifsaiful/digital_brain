@@ -216,6 +216,27 @@ Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> le
       if (day == null && !ampm && !at.isAfter(now)) at = at.add(const Duration(days: 1));
       return ReminderAdd(said,
           title: title, at: at, repeat: repeat, alarm: r['alarm'] == true, weekdays: repeat == Repeat.weekly ? [at.weekday] : const [], minutesBefore: before, ampmOpen: ampm);
+    case 'bulk':
+      // Several items of the list the app showed last. Only a selection of
+      // places, a count, names or "all of it" — never ids; the app resolves
+      // them on the list it showed and asks before removing.
+      final op = _str(r['op']);
+      const ops = {'delete', 'done', 'reopen', 'move', 'remind', 'reminder_off', 'urgent', 'not_done', 'restore', 'report'};
+      if (!ops.contains(op)) return null;
+      final sel = _selection(r['select']);
+      if (sel == null) return null;
+      final day = _day(r['date']);
+      if (op == 'move' && day == null) return null;
+      final tm = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(_str(r['time']));
+      final h = tm == null ? null : int.parse(tm[1]!);
+      return BulkAction(said,
+          selection: sel,
+          op: op,
+          domain: const {'tasks', 'reminders', 'notes', 'medicines', 'habits', 'money', 'health'}.contains(_str(r['list'])) ? _str(r['list']) : '',
+          due: day,
+          time: h == null ? null : h * 60 + int.parse(tm![2]!),
+          ampmOpen: h != null && (hourState(said, h) ?? (r['time_clear'] == false && h >= 1 && h <= 12)),
+          day: DateTime(at0.year, at0.month, at0.day));
     case 'menu':
       // Only what the registry lists; names are resolved by the app, never ids.
       final domain = _str(r['domain']), op = _str(r['op']);
@@ -251,6 +272,34 @@ Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> le
       return CallPerson(said, person: person(), via: via, text: via == Via.call ? '' : _str(r['text']), phone: findPhone(_str(r['phone'])) ?? '');
   }
   return null;
+}
+
+/// The AI's `select`: {kind: all|indexes|first|last|range|names|filter|rest|global,
+/// indexes, n, from, to, names, filter, except_indexes, except_names}.
+Selection? _selection(Object? v) {
+  if (v is! Map) return null;
+  final kind = SelKind.values.where((k) => k.name == _str(v['kind'])).firstOrNull;
+  if (kind == null) return null;
+  List<int> ints(Object? x) => x is List ? [for (final e in x) if (e is num && e.toInt() != 0) e.toInt()] : const [];
+  List<List<String>> names(Object? x) => x is List ? [for (final e in x) if (e is String && e.trim().isNotEmpty) _terms([e])].where((t) => t.isNotEmpty).toList() : const [];
+  final sel = Selection(kind,
+      indexes: ints(v['indexes']),
+      n: _int(v['n']),
+      from: _int(v['from']),
+      to: _int(v['to']),
+      names: names(v['names']),
+      filter: const {'urgent', 'overdue', 'undated', 'open', 'done'}.contains(_str(v['filter'])) ? _str(v['filter']) : '',
+      exceptIdx: ints(v['except_indexes']),
+      exceptNames: names(v['except_names']));
+  final ok = switch (kind) {
+    SelKind.indexes => sel.indexes.isNotEmpty,
+    SelKind.first || SelKind.last => sel.n > 0,
+    SelKind.range => sel.from > 0 && sel.to > 0,
+    SelKind.names => sel.names.isNotEmpty,
+    SelKind.filter => sel.filter.isNotEmpty,
+    _ => true,
+  };
+  return ok ? sel : null;
 }
 
 DateTime? _day(Object? v) {

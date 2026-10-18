@@ -52,25 +52,53 @@ String _reminderLines(Iterable<Reminder> rs, DateTime now, {bool withDay = false
         '• ${withDay ? '${sayWhen(r.nextDate(now), now, withTime: false)} ' : ''}${bnTime(r.hour, r.minute)} — ${r.title}',
     ].join('\n');
 
-String reminderAnswer(AppData d, ReminderQuery q, DateTime now) {
-  // "আজ কোন রিমাইন্ডার আছে?", "কালকের রিমাইন্ডার": every one on that day.
+/// What a reminder question shows — one reading, used both for the answer
+/// and for the list a following "এগুলো সব মুছে দাও" points at, so the two
+/// can never disagree.
+/// kind: 'day' (every one on a day), 'all' (no name said — "আর কোন
+/// রিমাইন্ডার আছে?"), 'miss' (a name said, none matched: the upcoming ones
+/// shown instead), 'one' (the best match told).
+({String kind, List<Reminder> shown, List<Reminder> pool, int matching, DateTime? day}) reminderView(AppData d, ReminderQuery q, DateTime now) {
   final w = parseWhen(q.transcript, now);
   final sorted = [...d.reminders]
     ..sort((a, b) => DateTime(a.nextDate(now).year, a.nextDate(now).month, a.nextDate(now).day, a.hour, a.minute)
         .compareTo(DateTime(b.nextDate(now).year, b.nextDate(now).month, b.nextDate(now).day, b.hour, b.minute)));
   if (w != null && w.hasDay) {
     final onDay = sorted.where((r) => dayOnly(r.nextDate(now)) == w.day).toList();
-    final dayText = sayWhen(w.day, now, withTime: false);
-    if (onDay.isEmpty) return trf('{0} কোনো রিমাইন্ডার নেই। রাখতে চাইলে বলুন — যেমন “সন্ধ্যা ৭টায় মিটিং মনে করিয়ে দিও”।', [dayText]);
-    return trf('{0} {1}টা রিমাইন্ডার আছে:\n{2}', [dayText, bnDigits(onDay.length), _reminderLines(onDay, now)]);
+    return (kind: 'day', shown: onDay, pool: onDay, matching: onDay.length, day: w.day);
   }
-  final found = searchReminders(d, q.terms);
-  if (found.isEmpty) {
-    final upcoming = sorted.where((r) => !r.nextDate(now).isBefore(dayOnly(now))).take(5).toList();
-    if (upcoming.isEmpty) return tr('এখনো কোনো রিমাইন্ডার রাখা নেই। রাখতে চাইলে বলুন — যেমন “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”।');
-    return trf('ঠিক এই নামে কিছু পেলাম না। সামনের রিমাইন্ডারগুলো:\n{0}', [_reminderLines(upcoming, now, withDay: true)]);
+  final upcoming = sorted.where((r) => !r.nextDate(now).isBefore(dayOnly(now))).toList();
+  // Only words about reminders in general ("আর", "কোন", "সব", "বাকি"):
+  // the list itself is asked for — not a reminder by that name.
+  final named = [for (final t in q.terms) if (!_reminderGeneric.contains(t)) t];
+  if (named.isEmpty) return (kind: 'all', shown: upcoming.take(_reminderPage).toList(), pool: upcoming, matching: upcoming.length, day: null);
+  final found = searchReminders(d, named);
+  if (found.isEmpty) return (kind: 'miss', shown: upcoming.take(_reminderPage).toList(), pool: upcoming, matching: upcoming.length, day: null);
+  return (kind: 'one', shown: [found.first], pool: [found.first], matching: 1, day: null);
+}
+
+const _reminderPage = 10;
+final Set<String> _reminderGeneric = searchTerms(normalize('রিমাইন্ডার রিমাইন্ডারগুলো রিমাইন্ডারগুলা রিমাইন্ডারের রিমাইন্ডারগুলোর মনে করানো করিয়ে করাবে আর আরো আরও অন্য অন্যান্য বাকি বাকিগুলো সব সবগুলো সবগুলা সমস্ত আমার কোন কোনো কোনগুলো কী কি কয়টা কতগুলো কতটা আছে আছেন রাখা রাখছি রেখেছি দেওয়া দেয়া দেখাও দেখান বলো বলুন দাও দিন তালিকা লিস্ট সামনের সামনে পরের চলতি এখন এখনো তো সেট')).toSet();
+
+String reminderAnswer(AppData d, ReminderQuery q, DateTime now) {
+  // "আজ কোন রিমাইন্ডার আছে?", "কালকের রিমাইন্ডার": every one on that day.
+  final v = reminderView(d, q, now);
+  if (v.kind == 'day') {
+    final dayText = sayWhen(v.day!, now, withTime: false);
+    if (v.shown.isEmpty) return trf('{0} কোনো রিমাইন্ডার নেই। রাখতে চাইলে বলুন — যেমন “সন্ধ্যা ৭টায় মিটিং মনে করিয়ে দিও”।', [dayText]);
+    return trf('{0} {1}টা রিমাইন্ডার আছে:\n{2}', [dayText, bnDigits(v.shown.length), _reminderLines(v.shown, now)]);
   }
-  final r = found.first;
+  if (v.kind == 'all' || v.kind == 'miss') {
+    if (v.shown.isEmpty) return tr('এখনো কোনো রিমাইন্ডার রাখা নেই। রাখতে চাইলে বলুন — যেমন “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”।');
+    final lines = _reminderLines(v.shown, now, withDay: true);
+    final head = v.kind == 'miss'
+        ? tr('ঠিক এই নামে কিছু পেলাম না। সামনের রিমাইন্ডারগুলো:')
+        : (v.matching > v.shown.length
+            ? trf('সামনে {0}টা রিমাইন্ডার আছে — প্রথম {1}টা:', [bnDigits(v.matching), bnDigits(v.shown.length)])
+            : trf('সামনে {0}টা রিমাইন্ডার আছে:', [bnDigits(v.matching)]));
+    return '$head\n$lines';
+  }
+  final r = v.shown.first;
   final day = r.nextDate(now);
   final left = dayOnly(day).difference(dayOnly(now)).inDays;
   final when = left == 0 ? tr('মানে আজকেই') : (left == 1 ? tr('মানে কালকেই') : (left > 0 ? trf('আর {0} দিন আছে', [bnDigits(left)]) : trf('{0} দিন আগে চলে গেছে', [bnDigits(-left)])));
@@ -82,7 +110,8 @@ String searchAnswer(AppData d, SearchQuery q, DateTime now) {
   const photoWords = ['ছবি', 'ছবিগুলো', 'ছবিগুলা', 'ফটো', 'photo', 'photos', 'ছবিটবি'];
   const general = ['এখানে', 'আমার', 'কোন', 'কোনো', 'কোনও', 'আছে', 'কিনা', 'কি', 'কী', 'দেখো', 'দেখতো', 'সব', 'কয়টা', 'কয়টা', 'কতগুলো', 'রাখা', 'অ্যাপে', 'এপে'];
   final rest = [for (final t in q.terms) if (!photoWords.map(normalize).contains(normalize(t)) && !general.map(normalize).contains(normalize(t))) t];
-  if (rest.length < q.terms.length && rest.isEmpty) {
+  final askedPhotos = q.terms.any((t) => photoWords.map(normalize).contains(normalize(t)));
+  if (askedPhotos && rest.isEmpty) {
     final withPhotos = [for (final x in d.docs) if (x.files.any((f) => f.isImage)) x];
     if (withPhotos.isEmpty) return tr('এখনো কোনো ছবি রাখা নেই। ডকুমেন্টস পাতায় ছবি তুলে বা গ্যালারি থেকে রাখতে পারেন।');
     final count = withPhotos.fold<int>(0, (a, x) => a + x.files.where((f) => f.isImage).length);
@@ -501,7 +530,7 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       NotUnderstood() => _notUnderstood(cmd),
       ProfileQuery() => profileAnswer(d, cmd.transcript) ?? infoAnswer(d, cmd.transcript, now) ?? kindAnswer(d, kindAsked(normalize(cmd.transcript)) ?? 'papers'),
       OpenPlace() || ProfileSet() || ManageItem() ||
-      LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TasksClear() || TaskDone() || TaskEdit() || TaskRestore() || ReminderSnooze() || MenuAction() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() || HealthAdd() => null,
+      LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TasksClear() || TaskDone() || TaskEdit() || TaskRestore() || ReminderSnooze() || MenuAction() || BulkAction() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() || HealthAdd() => null,
     };
 
 /// The money records of [q] (লেনদেন book and আয়-ব্যয়), newest first.

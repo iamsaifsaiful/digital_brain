@@ -251,6 +251,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
       case TaskRestore():
       case ReminderSnooze():
       case MenuAction():
+      case BulkAction():
       case ReminderAdd():
       case ContactAdd():
       case CallPerson():

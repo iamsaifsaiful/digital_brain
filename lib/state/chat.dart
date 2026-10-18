@@ -19,6 +19,7 @@ import '../logic/ledger.dart';
 import '../logic/parser.dart';
 import '../logic/phrases.dart';
 import '../logic/plan.dart';
+import '../logic/match.dart' show wordsMatch;
 import '../logic/money_more.dart' show accountBalance, accountLabel, totalBalance, salesCategory;
 import '../ui/theme.dart' show Look;
 import '../logic/proactive.dart';
@@ -33,9 +34,10 @@ import 'brain.dart';
 
 part 'todo_chat.dart';
 part 'menu_chat.dart';
+part 'bulk_chat.dart';
 
 /// What the chat is waiting to hear.
-enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, taskTitle, taskDay, project, collect, whichPerson, whichItem, clarify, whichTask, taskTime }
+enum ChatWait { none, bulk, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, taskTitle, taskDay, project, collect, whichPerson, whichItem, clarify, whichTask, taskTime }
 
 /// What the user said they want to talk about at the start.
 enum Topic {
@@ -188,6 +190,31 @@ class ChatController extends ChangeNotifier {
   @visibleForTesting
   List<String> get debugShownTasks => _shownTasks;
   bool get _shownFresh => _shownAt != null && _now.difference(_shownAt!).inMinutes <= 30;
+
+  /// The lists shown (newest last) — what "এগুলো" means; see bulk_chat.dart.
+  final List<ResultSet> _sets = [];
+
+  /// Counts the user's turns (how long ago a list was shown).
+  int _turn = 0;
+
+  /// A change to several items waiting for its yes, and ones already done
+  /// (a repeated yes never runs it twice).
+  _BulkProposal? _pendingBulk;
+  final Set<String> _doneOps = {};
+  _BulkBatch? _lastBatch;
+
+  /// The items picked last ("বাকিগুলো" = the list without them).
+  List<String> _lastPicked = const [];
+
+  /// The reading "দ্বিতীয়টা ভুল" pointed at, waiting for its right value.
+  String? _healthFix;
+
+  /// The list a bulk choice ("দেখানো ৫টা, নাকি পাওয়া সব ২০টা?") is about.
+  ResultSet? _clarifySet;
+
+  /// The lists shown, for tests.
+  @visibleForTesting
+  List<ResultSet> get debugSets => _sets;
 
   /// When the app's open question was asked: an answer hours later is not
   /// taken as its answer (see [hear]).
@@ -596,6 +623,7 @@ class ChatController extends ChangeNotifier {
     final t = doneTail && body.isNotEmpty ? body : shown;
     if (doneTail) Trace.log('understood', 'closing words left out', {'kept': t});
     ended = false;
+    _turn++;
     // The same words again within seconds, right after they were acted on:
     // a repeated callback or a retry — never a second entry.
     final wall = DateTime.now();
@@ -663,6 +691,12 @@ class ChatController extends ChangeNotifier {
         return out.join(' ');
       }
       _dropPending();
+    }
+    // "এইগুলো সব মুছে দাও", "প্রথম দুটো কাল রাখো": several items of the
+    // list just shown — before any rule that reads one item or the database.
+    if (wait == ChatWait.none && await _bulk(t, out)) {
+      notifyListeners();
+      return out.join(' ');
     }
     // "না, এগারোটায়" right after a to-do's reminder: that one, changed.
     if (await _todoCorrection(t, out)) {
@@ -941,7 +975,7 @@ class ChatController extends ChangeNotifier {
     _history.add(AiTurn.user(secret ? tr('[গোপন কিছু জানতে চাইলেন — ফোনেই উত্তর দেওয়া হলো]') : (shown ?? t)));
     // Remember an unfinished request (nothing to save came of it) so the
     // next short message can complete it.
-    final finished = saves.isNotEmpty || others.any((c) => c is CallPerson || c is TaskDone || c is TaskEdit || c is TaskRestore || c is TaskQuery || c is ReminderSnooze || c is MenuAction);
+    final finished = saves.isNotEmpty || others.any((c) => c is CallPerson || c is TaskDone || c is TaskEdit || c is TaskRestore || c is TaskQuery || c is ReminderSnooze || c is MenuAction || c is BulkAction);
     _lastSaid = secret || finished ? '' : t;
     _lastSaidAt = _now;
     final tags = <String>[];
@@ -963,12 +997,20 @@ class ChatController extends ChangeNotifier {
         tags.add('[কাজের তালিকায় বদল]');
         continue;
       }
+      if (c is BulkAction) {
+        // From the AI: the same resolver and executor as the rules' own.
+        if (!await _bulkWith([c], t, out)) _say(out, tr('কোন তালিকার কথা বলছেন? আগে তালিকাটা দেখতে বলুন — যেমন “আজকের কাজ দাও”।'));
+        tags.add('[${c.op}: একসাথে কয়েকটা]');
+        continue;
+      }
       if (c is MenuAction) {
         await _menu(c, out);
         tags.add('[${c.domain}: ${c.op}]');
         continue;
       }
       if (c is TaskQuery) _rememberShown(c);
+      if (c is ReminderQuery) _rememberReminders(c);
+      if (c is ProfileQuery) _rememberTopic(c);
       if (c is OpenPlace) {
         final p = placeById(c.place);
         final name = c.folder != null ? trf('‘{0}’ ফোল্ডার', [tr(c.folder!)]) : tr(p?.title ?? c.place);
@@ -991,6 +1033,7 @@ class ChatController extends ChangeNotifier {
         continue;
       }
       if (c is MoneyListQuery) {
+        _rememberMoney(c);
         _answerMoney(c, out);
         tags.add(answerText(brain.data, c, _now) ?? '');
         continue;
@@ -1142,6 +1185,8 @@ class ChatController extends ChangeNotifier {
 
   void _dropPending() {
     _todoWaiting = null;
+    _pendingBulk = null;
+    _healthFix = null;
     _todoChoices = const [];
     if (wait == ChatWait.whichTask || wait == ChatWait.taskTime) {
       wait = ChatWait.none;
@@ -1618,6 +1663,7 @@ class ChatController extends ChangeNotifier {
   Future<bool> _answer(String t, List<String> out) async {
     // "বাদ দাও", "থাক", "বাতিল": the question and what it was for are dropped.
     if (wait != ChatWait.none && isCancel(t)) {
+      _pendingBulk = null;
       wait = ChatWait.none;
       choices = const [];
       _current = null;
@@ -1629,6 +1675,8 @@ class ChatController extends ChangeNotifier {
     switch (wait) {
       case ChatWait.none:
         return false;
+      case ChatWait.bulk:
+        return _bulkAnswer(t, out);
       case ChatWait.whichTask:
       case ChatWait.taskTime:
         return _todoAnswer(t, out);
@@ -1676,6 +1724,19 @@ class ChatController extends ChangeNotifier {
           await _todo(pick, out);
         } else if (pick is MenuAction) {
           await _menu(pick, out);
+        } else if (pick is BulkAction) {
+          final set = _clarifySet;
+          _clarifySet = null;
+          if (set != null) {
+            final (ids, why) = _resolve(pick.selection, set);
+            if (why != null) {
+              _say(out, why);
+            } else {
+              // The scope is now said: never the same question again.
+              final whole = ResultSet(domain: set.domain, label: set.label, ids: set.ids, matching: set.ids.length, shown: set.ids.length, source: set.source, at: set.at, turn: _turn);
+              await _bulkStart(pick, whole, ids, out);
+            }
+          }
         } else if (pick is MoneyListQuery) {
           _answerMoney(pick, out);
         } else {
@@ -1685,9 +1746,10 @@ class ChatController extends ChangeNotifier {
         }
         return true;
       case ChatWait.whichItem:
-        if (RegExp(fold(r'(?:^|\s)(?:সব|সবগুলো|সবকটা|সবকটাকে|যতগুলো)(?:\s|$)')).hasMatch(fold(t))) {
-          _dropPending();
-          return false;
+        // "সব" / "দুটোই": every one listed. One kind → one confirmation
+        // for the group; mixed kinds are not removed together.
+        if (RegExp(fold(r'(?:^|\s)(?:সব|সবগুলো|সবগুলা|সবকটা|সবকটাকে|যতগুলো|দুটোই|দুইটাই|দুটাই|সবই|সব\s+গুলো|সবগুলোই|তিনটাই|সবকয়টা)(?:\s|$|[।?!,])')).hasMatch(fold(t))) {
+          return _whichAll(out);
         }
         final n = asciiDigits(t).replaceAll(RegExp(r'[^0-9]'), '');
         var i = int.tryParse(n) == null ? null : int.parse(n) - 1;
@@ -1943,7 +2005,9 @@ class ChatController extends ChangeNotifier {
       case ChatWait.reminderTime:
         // "সকালে কয়টায়?" → "আটটায়": the morning, not asked again.
         final part = _pendingPart;
-        final t2 = part != null && ampmUnclear(t) ? '$part $t' : t;
+        // Whatever the clock words look like ("১১ টায়", "১১টা", "এগারোটায়"),
+        // a part of the day already said holds unless the answer names one.
+        final t2 = part != null && part != '?' && !saysDayPart(t) ? '$part $t' : t;
         final w = parseWhen(t2, _now);
         if (w == null) {
           if (_looksNew(t)) return false;

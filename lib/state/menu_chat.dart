@@ -220,6 +220,46 @@ extension _MenuChat on ChatController {
             links: _pageLink('savings'));
         _offerUndo(snap);
 
+      // ── Lists "এগুলো" can then point at ──
+      case ('medicine', 'list'):
+        if (d.medicines.isEmpty) {
+          _say(out, tr('ওষুধের তালিকায় কিছু নেই।'), links: _pageLink('medicines'));
+          return;
+        }
+        _rememberSet('medicines', '', [for (final m in d.medicines) m.id], source: c.transcript);
+        _say(out, trf('{0}টা ওষুধ:', [bnDigits(d.medicines.length)]), facts: [for (final m in d.medicines) '${m.name} — ${m.times.map((t) => bnTime(t ~/ 60, t % 60)).join(', ')}'], links: _pageLink('medicines'));
+      case ('habit', 'list'):
+        if (d.habits.isEmpty) {
+          _say(out, tr('কোনো অভ্যাস রাখা নেই।'), links: _pageLink('habits'));
+          return;
+        }
+        _rememberSet('habits', tr('আজকের'), [for (final h in d.habits) h.id], source: c.transcript);
+        _say(out, trf('{0}টা অভ্যাস:', [bnDigits(d.habits.length)]), facts: [for (final h in d.habits) '${h.name} — ${h.doneOn(_now) ? tr('আজ হয়েছে') : tr('আজ বাকি')}'], links: _pageLink('habits'));
+      case ('notes', 'list'):
+        final w = fold(c.text.replaceAll(RegExp(fold(r'(?:ের|এর|র)$')), ''));
+        final list = [for (final n in d.notes) if (w.isEmpty || fold(n.category).contains(w) || fold('${n.title} ${n.body}').contains(w)) n]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        if (list.isEmpty) {
+          _say(out, w.isEmpty ? tr('কোনো নোট নেই।') : trf('“{0}”-এর কোনো নোট নেই।', [c.text]), links: [ChatLink(LinkKind.notes, tr('নোট দেখুন'))]);
+          return;
+        }
+        _rememberSet('notes', c.text.isEmpty ? '' : '${c.text}', [for (final n in list) n.id], source: c.transcript);
+        _say(out, trf('{0}টা নোট:', [bnDigits(list.length)]), facts: [for (final n in list) n.title.isEmpty ? n.body : (n.body.isEmpty ? n.title : '${n.title} — ${n.body}')], links: [ChatLink(LinkKind.notes, tr('নোট দেখুন'))]);
+      case ('health', 'list'):
+        final m = c.target.isEmpty ? null : memberCalled(d, c.target.replaceAll(RegExp(fold(r'(?:য়ের|ের|এর|র)$')), ''));
+        if (c.target.isNotEmpty && m == null) {
+          _say(out, trf('“{0}” নামে পরিবারের কোনো সদস্য রাখা নেই।', [c.target]), links: [ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন'))]);
+          return;
+        }
+        final who = m?.id ?? 'me';
+        final logs = [for (final h in d.health) if (h.member == who) h]..sort((a, b) => b.at.compareTo(a.at));
+        final shown = logs.take(c.amount <= 0 ? 5 : c.amount).toList();
+        if (shown.isEmpty) {
+          _say(out, tr('কোনো মাপ রাখা নেই।'), links: [ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন'))]);
+          return;
+        }
+        _rememberSet('health', m == null ? tr('আপনার') : possessive(m.relation.isNotEmpty ? m.relation : m.name), [for (final h in shown) h.id], matching: logs.length, shown: shown.length, source: c.transcript);
+        _say(out, trf('শেষ {0}টা মাপ:', [bnDigits(shown.length)]), facts: [for (final h in shown) '${isEn ? h.kind.en : h.kind.bn}: ${readingText(h)} (${sayWhen(h.at, _now)})'], links: [ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন'))]);
+
       // ── Medicines ──
       case ('medicine', _):
         await _medicine(c, out, snap);

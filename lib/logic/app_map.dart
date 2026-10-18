@@ -255,10 +255,12 @@ const voiceCaps = <String, VoiceCap>{
     'paid': "this month's instalment/DPS paid", 'not_paid': 'said it is not paid (nothing written)', 'unpay': 'ticked paid by mistake',
   }),
   'medicine': VoiceCap(VoiceLevel.partial, {
+    'list': 'show the medicines (then "এগুলো…" points at them)',
     'dose': 'a dose taken (target medicine, part of day)', 'dose_not': 'not taken (nothing written)', 'dose_undo': 'ticked taken by mistake',
     'stock_add': 'amount more pills of target bought', 'stock_query': 'how long target lasts', 'reminder_off': "turn off target's reminders, keep it",
   }, notYet: ['ওষুধের সময় বা ডোজ কথায় বদলানো', 'নতুন ওষুধ কথায় যোগ করা']),
   'habit': VoiceCap(VoiceLevel.full, {
+    'list': "show the habits with today's ticks",
     'add': 'a new daily habit named target', 'tick': 'done on day (today if not said)', 'not_done': 'not done on day (untick if ticked)',
     'streak': 'days in a row for target', 'reminder_set': 'a daily reminder for target at time', 'reminder_off': "turn off target's reminder, keep the habit",
   }),
@@ -277,8 +279,8 @@ const voiceCaps = <String, VoiceCap>{
     'spend': 'spending in a span (day…until), category text', 'income': 'income in a span', 'net': 'income minus spending in a span',
     'recategorize': 'move the latest expense about target to category text', 'dupes': 'find two identical expenses; one removed if confirmed',
   }),
-  'notes': VoiceCap(VoiceLevel.partial, {'replace_word': 'in the latest note with word target, write text instead'}),
-  'health': VoiceCap(VoiceLevel.partial, {'none': 'nothing measured (nothing written)', 'fix_last': 'the last reading amount/10 was really amount2/10'},
+  'notes': VoiceCap(VoiceLevel.partial, {'list': 'show notes of a category or with words (text)', 'replace_word': 'in the latest note with word target, write text instead'}),
+  'health': VoiceCap(VoiceLevel.partial, {'list': "a family member's last readings (target, amount = how many)", 'none': 'nothing measured (nothing written)', 'fix_last': 'the last reading amount/10 was really amount2/10'},
       notYet: ['টিকা দেওয়া হয়েছে কথায় টিক দেওয়া', 'চেকআপের তারিখ কথায় বদলানো']),
   'zakat': VoiceCap(VoiceLevel.partial, {'price': 'the gold/silver price the user entered (text gold|silver)'}, notYet: ['যাকাতের সম্পদ কথায় লেখা']),
   'special': VoiceCap(VoiceLevel.partial, {'age': "a person's age from their birthday (only with a birth year)", 'month': "whose special days fall in a month"}),

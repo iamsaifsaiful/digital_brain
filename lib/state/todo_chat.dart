@@ -52,7 +52,10 @@ extension _TodoChat on ChatController {
   /// One to-do for [c], or null after asking which one (or saying none).
   Task? _oneTask(Command c, TaskRef r, List<String> out, {bool done = false}) {
     final found = _refTasks(r, done: done);
-    if (found.length == 1) return found.single;
+    if (found.length == 1) {
+      _lastPicked = [found.single.id];
+      return found.single;
+    }
     if (found.isEmpty) {
       if (r.terms.isNotEmpty) {
         _say(out, trf('“{0}” — এমন কোনো কাজ তালিকায় পেলাম না।', [r.terms.join(' ')]), links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
@@ -587,6 +590,11 @@ extension _TodoChat on ChatController {
     final list = s == null ? openTasksOf(brain.data, _now) : taskScopeAnswer(brain.data, s, _now).$2;
     _shownTasks = [for (final t in list) t.id];
     _shownAt = _now;
+    // The same list as a result set: "এগুলো সব …" means exactly these.
+    // On screen: up to 30 lines (the facts under the answer).
+    if (list.length > 1 || (s != null && list.isNotEmpty)) {
+      _rememberSet('tasks', _scopeLabel(q), _shownTasks, matching: list.length, shown: list.length > 30 ? 30 : list.length, source: q.transcript);
+    }
     if (list.length == 1) _focusTask(list.single);
   }
 
@@ -676,5 +684,23 @@ extension _TodoChat on ChatController {
     }
     _say(out, trf('ঠিক আছে, “{0}” {1} মিনিট পরে ({2}) আবার মনে করাব।', [r.title, bnDigits(c.minutes), bnTime(at.hour, at.minute)]), links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
     return true;
+  }
+
+  /// "আজকের", "অফিসের", "আগামীকালের" — said back in "আজকের এই ৫টা কাজ মুছে দেব?".
+  String _scopeLabel(TaskQuery q) {
+    final s = q.scope;
+    if (s == null) return '';
+    if (s.overdue) return tr('সময় পেরোনো');
+    if (s.undated) return tr('তারিখ ছাড়া');
+    if (s.about.isNotEmpty) return '${s.about.join(' ')}-এর';
+    final from = s.from;
+    if (from == null) return '';
+    final today = dayOnly(_now);
+    if (s.to == null || s.to == from) {
+      if (dayOnly(from) == today) return tr('আজকের');
+      if (dayOnly(from) == today.add(const Duration(days: 1))) return tr('আগামীকালের');
+      return '${sayWhen(from, _now, withTime: false)}-এর';
+    }
+    return s.label.isNotEmpty ? s.label : '';
   }
 }

@@ -1106,7 +1106,7 @@ class Brain extends ChangeNotifier {
 
   /// To-do and reminder commands the rules settle by themselves.
   static bool _decidedHere(Command c) =>
-      c is TaskAdd || c is TaskEdit || c is TaskDone || c is TaskQuery || c is TaskRestore || c is TasksClear || c is ReminderAdd || c is ReminderSnooze || c is Clarify || c is MenuAction;
+      c is TaskAdd || c is TaskEdit || c is TaskDone || c is TaskQuery || c is TaskRestore || c is TasksClear || c is ReminderAdd || c is ReminderSnooze || c is Clarify || c is MenuAction || c is BulkAction;
 
   /// Rules that only half understood: nothing, a search, or a plain note.
   static bool _weak(List<Command> c) => c.length == 1 && (c.first is NotUnderstood || c.first is SearchQuery || c.first is NoteAdd);

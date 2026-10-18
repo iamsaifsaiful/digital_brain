@@ -25,6 +25,7 @@ import 'match.dart' show wordsMatch;
 part 'todo.dart';
 part 'aspect.dart';
 part 'menus.dart';
+part 'selection.dart';
 
 sealed class Command {
   const Command(this.transcript);

@@ -234,6 +234,20 @@ Command? menuCommand(String said, AppData? d, DateTime now) {
     final p0 = d == null ? null : _named(f, knownPeople(d.ledger));
     return p0 == null ? LedgerQuery(said, ask: LedgerAsk.all) : LedgerQuery(said, ask: LedgerAsk.person, person: p0);
   }
+  // Lists that "এগুলো" can then point at (bulk_chat.dart).
+  // (Questions — "কী কী ওষুধ আছে?" — are answered by the question rules,
+  // which keep the same list too.)
+  final showing = _thas(f, r'(?:দেখাও|দেখান|দাও|দিন|বলো|বলুন)\s*$') && !isQuestionText(said);
+  if (showing && _thas(f, r'(?:ওষুধের\s+তালিকা|ওষুধগুলো|ওষুধগুলা|সব\s+ওষুধ)')) return MenuAction(said, domain: 'medicine', op: 'list');
+  if (showing && _thas(f, r'(?:অভ্যাসগুলো|অভ্যাসগুলা|অভ্যাসের\s+তালিকা|সব\s+অভ্যাস)')) return MenuAction(said, domain: 'habit', op: 'list');
+  final noteList = _tre(r'(?<=\s)(\S+?)(?:ের|এর|র)?\s+(?:নোট|নোটগুলো|নোটগুলা)\s+(?:দেখাও|দাও|বলো|দেখান)').firstMatch(f);
+  if (noteList != null) return MenuAction(said, domain: 'notes', op: 'list', text: _tf(noteList[1]!) == _tf('সব') ? '' : noteList[1]!);
+  final readings = _tre(r'^\s*(\S+?)(?:ের|এর|র)\s+(?:শেষ\s+)?(\S+?)(?:টা|টি)?\s+(?:মাপ|রিডিং)\S*\s+(?:দেখাও|দাও|বলো)').firstMatch(f);
+  if (readings != null) {
+    final who = readings[1]!;
+    final n0 = _countOf(readings[2]!) ?? 5;
+    return MenuAction(said, domain: 'health', op: 'list', target: _tf(who) == _tf('আমা') ? '' : who, amount: n0);
+  }
   // "আজ মাপিনি": nothing measured — nothing written.
   if (_thas(f, r'(?:মাপিনি|মাপা\s+হয়নি|মাপি\s+নাই|মাপা\s+হয়নাই)')) return MenuAction(said, domain: 'health', op: 'none');
   // "বেতন পাইনি", "টাকা আসেনি": it did not happen — nothing written.
