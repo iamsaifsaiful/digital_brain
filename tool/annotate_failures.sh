@@ -7,7 +7,7 @@ log="$1"
 title="$2"
 
 # Keep the lines that explain failures, with some context around them.
-details=$(grep -n -E -A12 'EXCEPTION CAUGHT|Expected:|Actual:|Which:|\[E\]|error •|warning •|Error:|FAILURE|What went wrong|Test failed|was thrown|overflowed' "$log" | head -n 220)
+details=$(grep -n -E -A12 '^e: |EXCEPTION CAUGHT|Expected:|Actual:|Which:|\[E\]|error •|warning •|Error:|FAILURE|What went wrong|Test failed|was thrown|overflowed' "$log" | head -n 220)
 if [ -z "$details" ]; then
   details=$(tail -n 120 "$log")
 fi
