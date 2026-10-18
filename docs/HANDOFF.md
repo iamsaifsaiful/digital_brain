@@ -4,6 +4,26 @@
 
 ---
 
+## 0. Starting in a new Claude account (read first)
+
+- The repo is the single source of truth: this file, `docs/voice-test-plan.md`, the commit messages (`git log`, detailed per release) and the tests.
+- Older history lives in the old account's claude.ai project "App Development" (`claude/digital-brain-*.md`, `claude/my-assistant-*.md`). That covers the release log since v1, the Pro/free plan decisions, the WordPress account server, the business model and the to-do intent design. The owner can copy those docs into the new account's project if deeper history is needed. Everything current is summarised here.
+- **Access:** connect GitHub with access to `iamsaifsaiful/digital_brain`, clone it, then `git checkout next-update`.
+- **Signing:** the owner must attach his signing-key file (from 13 Oct: the `.jks`, or its base64, and the password) before the first APK. Without it, only unsigned or CI-signed APKs can be made, and those do not install over his current app.
+- **Environment setup:**
+  - Flutter stable 3.47.x and Java 17.
+  - Run `bash tool/setup_platforms.sh` once, so the `android/` platform files match CI.
+  - Then `flutter pub get`.
+- Read sections 2, 4 and 9 before touching anything.
+
+## 1a. Business context (decided earlier by the owner)
+- **Free and Pro, with no trial.** Two plans: ৳99/month and ৳999/year.
+- **Pro includes:** AI, no ads, auto Drive backup, paper-expiry and loan pay-back reminders, full report history, shops, receipts, PDF, inbox, smart notices.
+- **Free limits:** 20 reminders on, 20 loan people, 30 documents, 10 passwords, 1 shop, 1 other account.
+- **Editions:** `EDITION` dart-define — `direct` (GitHub APK), `play`, `play_preview`. The owner tests the **play_preview** build, which is the separate app `.preview`.
+- **Server:** a WordPress plugin on the owner's site (`tool/wordpress/`) handles accounts, the AI proxy (the key stays on the server, never in the APK), payments by bKash on the website, push via FCM, feedback and blood requests. There is also an admin app in `admin_app/`.
+- **Rules first, AI only when needed.** Medicines, health data, vault items and messages never go to the AI.
+
 ## 1. What the app is
 
 - **My Assistant — আপনার ব্যক্তিগত সহকারী**: a Bengali voice-first personal assistant, built with Flutter and running on Android.
@@ -148,7 +168,10 @@ python3 tool/i18n_missing.py      # must print "0 missing"
   - The input is multi-line (↵ = new line; the round button sends).
   - `_actionRow` puts the last answer's buttons low on the right, by the thumb. `_choiceRow` does the same for yes/no, with "হ্যাঁ" at the right end.
 
-**Project docs:** if the claude.ai project "App Development" is attached, `claude/digital-brain-voice-menus.md` has the capability matrix and the change history.
+**Capability matrix by voice:**
+- Full: ধার-দেনা, আয়-ব্যয়, accounts, savings, DPS, habits, projects, calendar.
+- Partial: shop (no receipts), medicines (no new medicine or times), health (no vaccines), memory, notes, settings (no AI/lock/language), backup (no restore), trash, special days, zakat.
+- Page only: diary, blood requests, reading files (no OCR).
 
 ## 6. Signing key (important)
 
