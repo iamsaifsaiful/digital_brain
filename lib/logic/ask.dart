@@ -16,6 +16,8 @@ import 'parser.dart';
 import 'proactive.dart' show remindsOn, specialTitle;
 import 'when.dart';
 import 'weather.dart';
+import 'compass.dart' show qiblaSaid;
+import 'spend_health.dart';
 import 'answers.dart' show taskLine;
 import 'app_map.dart' show howToAsked, howToAnswer, abilityAsked, abilityAnswer;
 
@@ -60,11 +62,19 @@ String _t(DateTime d) {
   return t;
 }
 
+/// "খরচ কেমন হচ্ছে", "অপচয় কোথায়", "আয়ের কত ভাগ খরচ" ([text] normalized).
+bool spendingAsked(String text) =>
+    _has(text, ['অপ্রয়োজনীয় খরচ', 'অপ্রয়োজনে খরচ', 'অদরকারি খরচ', 'অপচয়', 'বাজে খরচ', 'আজেবাজে খরচ', 'খরচ বিশ্লেষণ', 'খরচের বিশ্লেষণ', 'খরচ কেমন হচ্ছে', 'খরচ কেমন চলছে', 'খরচের অবস্থা', 'খরচের ভাগ', 'আয়ের কত ভাগ', 'আয়ের কত শতাংশ', 'আয়ের কত পার্সেন্ট', 'আয়ের কত %', 'কিভাবে খরচ করা উচিত', 'কীভাবে খরচ করা উচিত', 'কোথায় বেশি খরচ হচ্ছে', 'কোথায় খরচ বেশি হচ্ছে', 'টাকা কোথায় যাচ্ছে']);
+
 /// Which everyday question [text] (normalized) is, or null.
 String? infoTopic(String text) {
   if (abilityAsked(text) != null) return 'ability';
   // "আজ তাপমাত্রা কত?", "আবহাওয়া কেমন", "বাইরে কি গরম?"
   if (_has(text, ['তাপমাত্রা', 'তাপমাত্রার', 'আবহাওয়া', 'আবহাওয়া', 'ওয়েদার', 'weather', 'temperature', 'কত ডিগ্রি'])) return 'weather';
+  // "আমার খরচ কেমন হচ্ছে?", "অপ্রয়োজনীয় খরচ কোথায়?", "আয়ের কত ভাগ কোথায় যাচ্ছে?"
+  if (spendingAsked(text)) return 'spending';
+  // "কিবলা কোন দিকে?", "কেবলা কোথায়"
+  if (_has(text, ['কিবলা', 'কেবলা', 'কিবলার', 'কেবলার', 'qibla']) && _has(text, ['দিক', 'কোথায়', 'কোন', 'কোনদিকে', 'কোন দিকে', 'which', 'where'])) return 'qibla';
   if (howToAsked(text) != null) return 'howto';
   // "রহিম কী লিখেছে?", "করিম কী মেসেজ দিয়েছে?"
   if (_has(text, ['কী লিখেছে', 'কি লিখেছে', 'কী লিখছে', 'কি লিখছে', 'কী মেসেজ দিয়েছে', 'কি মেসেজ দিয়েছে', 'কী পাঠিয়েছে', 'কি পাঠিয়েছে', 'কী বলেছে মেসেজে'])) return 'inbox';
@@ -124,6 +134,10 @@ String? infoAnswer(AppData d, String said, DateTime now) {
     case 'weather':
       final w = todayWeather;
       return w == null ? tr('এখন আবহাওয়ার খবর আনতে পারলাম না — ইন্টারনেট চালু আছে কিনা দেখে আবার জিজ্ঞেস করুন।') : w.said();
+    case 'spending':
+      return spendHealthSaid(spendHealth(d, now, days: text.contains(normalize('মাস')) ? 30 : 7));
+    case 'qibla':
+      return qiblaSaid(place.label, place.lat, place.lon);
     case 'ability':
       return abilityAnswer(abilityAsked(text)!);
     case 'howto':

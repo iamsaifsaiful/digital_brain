@@ -14,6 +14,8 @@ import 'lang.dart';
 import 'ledger.dart';
 import 'phrases.dart';
 import 'server_notices.dart';
+import 'spend_health.dart';
+import 'money_quotes.dart';
 
 /// Does [r] ring on [day]?
 bool remindsOn(Reminder r, DateTime day) {
@@ -61,7 +63,15 @@ class AssistantPrefs {
     this.news = true,
     this.docAlerts = true,
     this.dueAlerts = true,
+    this.quote = true,
+    this.homeFix = true,
   });
+
+  /// A thought about money each morning (see logic/money_quotes.dart).
+  final bool quote;
+
+  /// On days off: the things at home waiting to be fixed.
+  final bool homeFix;
 
   /// Notifications from our website (see logic/server_notices.dart), and
   /// whether the user wants them (সেটিংস › নোটিফিকেশন).
@@ -148,6 +158,8 @@ const nudgeDay2 = 'nudge:day2';
 const nudgeSalary = 'nudge:salary';
 const nudgeSoon = 'nudge:soon';
 const nudgeBackup = 'nudge:backup';
+const nudgeQuote = 'nudge:quote';
+const nudgeFix = 'nudge:fix';
 
 /// One sentence for each month: what to watch for in Bangladesh's seasons.
 const healthTips = [
@@ -255,7 +267,7 @@ List<PlannedNotice> assistantNotices(AppData d, DateTime now, AssistantPrefs p) 
 /// Summaries at the user's own times, and prayer/Ramadan times they asked
 /// for, are never held back or counted.
 bool _chosenByUser(String tag) =>
-    tag == morningTag || tag == nightTag || tag.startsWith(nudgePrayer) || tag.startsWith(nudgeRamadan) || tag.startsWith(nudgeDonor);
+    tag.startsWith(nudgeQuote) || tag.startsWith(nudgeFix) || tag == morningTag || tag == nightTag || tag.startsWith(nudgePrayer) || tag.startsWith(nudgeRamadan) || tag.startsWith(nudgeDonor);
 
 int _rank(String tag) {
   const order = [morningTag, nightTag, nudgePrayer, nudgeRamadan, nudgeDue, nudgeBill, nudgeMed, nudgeDoc, nudgeBackup, nudgeDonor, nudgeDay2, '${nudgePlan}eve', nudgeSoon, nudgeSalary, nudgeSpend, nudgeNoCash, nudgePlan, nudgeHabit, nudgeJumuah, nudgeWeek, nudgeFest, nudgeHealth, nudgeBack];
@@ -455,8 +467,10 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
     final spent = d.cash.where((c) => c.kind == CashKind.expense && c.projectId == null && !c.date.isBefore(from) && c.date.isBefore(dayOnly(at))).fold<int>(0, (a, c) => a + c.amount);
     final done = d.tasks.where((t) => t.done && t.doneAt != null && !t.doneAt!.isBefore(from)).length;
     final open = d.tasks.where((t) => !t.done).length;
+    final health = spendHealth(d, dayOnly(at).subtract(const Duration(days: 1)));
     final parts = <String>[
       if (spent > 0) trf('খরচ {0}', [taka(spent)]),
+      if (health.hasIncome && health.wants > 0) trf('শখের খরচ আয়ের {0}%', [bnDigits(health.pct(health.wants))]),
       if (done > 0) trf('{0}টা কাজ শেষ', [bnDigits(done)]),
       if (open > 0) trf('{0}টা বাকি', [bnDigits(open)]),
     ];
@@ -522,6 +536,29 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
       add('$nudgeRamadan:sehri', dayKey(day), sehri, tr('সেহরির সময়'), trf('সেহরির শেষ সময় {0} (আনুমানিক)।', [bnTime(t.fajr.hour, t.fajr.minute)]));
       final iftar = t.maghrib.subtract(const Duration(minutes: 10));
       add('$nudgeRamadan:iftar', dayKey(day), iftar, tr('ইফতারের সময় হয়ে আসছে'), trf('ইফতার {0}-এ (আনুমানিক)।', [bnTime(t.maghrib.hour, t.maghrib.minute)]));
+    }
+  }
+
+  if (p.quote) {
+    // Every morning, the day's thought about money.
+    for (var i = 0; i < 3; i++) {
+      final day = today.add(Duration(days: i));
+      final q = quoteFor(day);
+      add(nudgeQuote, dayKey(day), _at(day, 9 * 60 + 15), tr('আজকের অর্থ-কথা'), quoteText(q));
+    }
+  }
+
+  if (p.homeFix) {
+    // A day off (Friday, Saturday, a holiday), mid-morning: the things at home to fix.
+    final fixes = homeFixes(d);
+    if (fixes.isNotEmpty) {
+      for (var i = 0; i < 9; i++) {
+        final day = today.add(Duration(days: i));
+        if (holidayOn(day) == null && !isWeekend(day)) continue;
+        final names = fixes.take(3).map((t) => t.title).join(', ');
+        add(nudgeFix, dayKey(day), _at(day, 10 * 60), trf('আজ ছুটির দিন — ঘরের {0}টা জিনিস ঠিক করা বাকি', [bnDigits(fixes.length)]),
+            fixes.length > 3 ? trf('{0} আর আরও {1}টা। হয়ে গেলে টিক দিন।', [names, bnDigits(fixes.length - 3)]) : trf('{0}। হয়ে গেলে টিক দিন।', [names]));
+      }
     }
   }
 
@@ -646,6 +683,23 @@ List<PlannedNotice> _plans(AppData d, DateTime now, AssistantPrefs p) {
   }
   return out;
 }
+
+/// The list where things at home to fix are kept.
+const homeFixList = 'ঘরের মেরামত';
+
+/// "ফ্যান ঠিক করতে হবে", "বাথরুমের কল মেরামত", "মিস্ত্রি ডাকতে হবে".
+bool isHomeFix(String text) {
+  final t = text.toLowerCase();
+  final fix = RegExp(r'ঠিক\s*কর|ঠিক\s*করা|সারা(?:তে|নো|ই)|মেরামত|রিপেয়ার|repair|fix|মিস্ত্রি|মিস্ত্রী|ইলেকট্রিশিয়ান|প্লাম্বার|নষ্ট|ভাঙা|ভেঙে|লিক|চুইয়ে|রং\s*কর|বদলা(?:তে|নো)|পাল্টা(?:তে|নো)');
+  final thing = RegExp(r'ফ্যান|লাইট|বাল্ব|বাতি|সুইচ|সকেট|প্লাগ|পানির কল|কলের পানি|কলটা|কলের মুখ|ট্যাপ|পানির লাইন|পাইপ|বেসিন|কমোড|ফ্লাশ|বাথরুম|টয়লেট|রান্নাঘর|চুলা|গ্যাসের|দরজা|জানালা|জানলা|তালা|ছিটকিনি|ছাদ|দেয়াল|দেওয়াল|টাইলস|মেঝে|ফ্রিজ|টিভি|এসি|ওয়াশিং মেশিন|মোটর|পাম্প|ট্যাংক|ট্যাঙ্ক|খাট|চেয়ার|টেবিল|আলমারি|ওয়্যারিং|বিদ্যুতের তার|তারের|মিটার|আইপিএস|ইনভার্টার|গিজার|পর্দা|ঘর|বাসা|বাড়ি|ঘরের|বাসার|বাড়ির');
+  return fix.hasMatch(t) && thing.hasMatch(t);
+}
+
+/// The open to-dos for fixing things at home: on the list, or plainly so.
+List<Task> homeFixes(AppData d) => [
+      for (final t in d.tasks)
+        if (!t.done && (t.list == homeFixList || (t.due == null && isHomeFix(t.title)))) t
+    ];
 
 /// Personal spending in [month].
 int monthSumsOf(AppData d, DateTime month) =>

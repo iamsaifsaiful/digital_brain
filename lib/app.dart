@@ -261,7 +261,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
     } else if (id.startsWith(nudgeHabit)) {
       push(const HabitsScreen());
     } else if (id.startsWith(nudgeWeek)) {
-      push(const ReportScreen());
+      push(const SpendHealthScreen());
     } else if (id.startsWith(nudgeJumuah) || id.startsWith(nudgePrayer) || id.startsWith(nudgeRamadan)) {
       push(const CalendarScreen());
     } else if (id.startsWith(nudgeDonor)) {
@@ -270,6 +270,10 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       openAssistant(ctx);
     } else if (id.startsWith(nudgeBackup)) {
       push(const BackupScreen());
+    } else if (id.startsWith(nudgeQuote)) {
+      push(const SpendHealthScreen());
+    } else if (id.startsWith(nudgeFix)) {
+      push(const AllTasksScreen());
     } else if (id.startsWith(nudgeSpend)) {
       push(const ReportScreen());
     } else if (id.startsWith(nudgeSalary)) {

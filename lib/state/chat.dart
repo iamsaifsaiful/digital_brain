@@ -1461,6 +1461,8 @@ class ChatController extends ChangeNotifier {
           'ability' => 'docs',
           'money' => 'accounts',
           'savings' => 'savings',
+          'qibla' => 'compass',
+          'spending' => 'spending',
           'medicines' => 'medicines',
           'habits' => 'habits',
           'notes' => 'notes',

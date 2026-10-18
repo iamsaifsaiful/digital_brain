@@ -541,6 +541,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        io.flutter.plugin.common.EventChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/compass").setStreamHandler(Compass(this))
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/ocr").setMethodCallHandler { call, result -> TextReader.handle(call, result, cacheDir) }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/alarm").setMethodCallHandler { call, result ->
             alarmChannel(call, result)

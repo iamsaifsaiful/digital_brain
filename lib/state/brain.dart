@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import '../logic/doc_dates.dart';
 import 'doc_scan.dart' show mergeFields;
 import '../services/weather.dart';
+import '../services/compass.dart';
 import '../logic/weather.dart';
 import '../services/ocr.dart';
 import '../services/trace.dart';
@@ -69,10 +70,12 @@ class Services {
     AccountServer? server,
     TextReader? ocr,
     WeatherSource? weather,
+    CompassSource? compass,
     DateTime Function()? clock,
   })  : ai = ai ?? FakeAi(),
         ocr = ocr ?? FakeTextReader(),
         weather = weather ?? FakeWeather(),
+        compass = compass ?? FakeCompass(),
         google = google ?? FakeGoogle(),
         push = push ?? FakePush(),
         drive = drive ?? FakeDrive(),
@@ -93,6 +96,9 @@ class Services {
 
   /// Today's weather (temperature on the home page and in answers).
   final WeatherSource weather;
+
+  /// The phone's heading, for the compass page.
+  final CompassSource compass;
 
   /// Claude, when the user has set an API key (see আরও).
   final AiBrain ai;
@@ -811,6 +817,8 @@ class Brain extends ChangeNotifier {
         lastOpen: DateTime.tryParse(text('last_open')),
         donorNext: donorNextDate,
         lastBackup: DateTime.tryParse(text('last_backup')),
+        quote: flag('n_quote', true),
+        homeFix: flag('n_fix', true),
       );
 
   /// When the user may give blood again (3 months after the last time), if they are a donor.
@@ -834,7 +842,7 @@ class Brain extends ChangeNotifier {
 
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
-    'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly',
+    'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly', 'n_quote', 'n_fix',
     'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'inbox_apps', 'inbox_on', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'g_card_off', 'trace_on',
   ];
 

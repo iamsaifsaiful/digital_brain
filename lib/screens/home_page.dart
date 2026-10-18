@@ -12,6 +12,10 @@ import '../state/brain.dart';
 import '../ui/theme.dart';
 import 'alarm_list_screen.dart';
 import 'calendar_screen.dart';
+import 'compass_screen.dart';
+import 'spend_health_screen.dart';
+import '../logic/spend_health.dart';
+import '../logic/money_quotes.dart';
 import 'docs_screen.dart';
 import 'calls_screen.dart';
 import 'home_screen.dart';
@@ -62,6 +66,9 @@ class HomePage extends StatelessWidget {
     final top = MediaQuery.of(context).padding.top;
     final first = brain.userName.trim().isEmpty ? '' : brain.userName.trim().split(' ').first;
     final inboxTodos = inboxTodo(d, now);
+    final week = spendHealth(d, now);
+    final weekWarn = week.hasIncome && (week.pct(week.wants) > wantCap || week.spent > week.income);
+    final quote = quoteFor(now);
 
     // Most used first: the day's work, then money, then the rest.
     final shortcuts = <(String, IconData, Color, Color, VoidCallback)>[
@@ -75,6 +82,7 @@ class HomePage extends StatelessWidget {
       (tr('অ্যালার্ম'), Icons.alarm_rounded, C.orange, C.orangeTint, () => push(const AlarmsScreen())),
       (tr('পাসওয়ার্ড'), Icons.lock_outline_rounded, C.muted2, C.soft, () => push(const VaultPage())),
       (tr('ক্যালেন্ডার'), Icons.calendar_month_outlined, C.blue, C.blueTint, () => push(const CalendarScreen())),
+      (tr('কম্পাস'), Icons.explore_outlined, C.green, C.greenTint, () => push(const CompassScreen())),
       (tr('অনুরোধ'), Icons.bloodtype_outlined, C.rose, C.roseTint, () => push(const RequestsScreen())),
       (tr('প্রো ভার্সন'), Icons.workspace_premium_outlined, C.ochre, C.ochreTint, () => push(const ProScreen())),
     ];
@@ -168,6 +176,45 @@ class HomePage extends StatelessWidget {
                           if (owe.receivable == 0 || owe.payable == 0) const Spacer(),
                         ]),
                       ],
+                      if (week.spent > 0) ...[
+                        Padding(padding: const EdgeInsets.only(top: 12, bottom: 4), child: Divider(height: 1, color: C.line)),
+                        InkWell(
+                          key: const Key('home-spend-health'),
+                          onTap: () => push(const SpendHealthScreen()),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Row(children: [
+                              Icon(Icons.pie_chart_outline_rounded, size: 20, color: weekWarn ? C.orange : C.green),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  week.hasIncome
+                                      ? trf('এ সপ্তাহে আয়ের {0}% খরচ — শখের খাতে {1}%', [bnDigits(week.pct(week.spent)), bnDigits(week.pct(week.wants))])
+                                      : trf('এ সপ্তাহে খরচ {0} — কোথায় যাচ্ছে দেখুন', [taka(week.spent)]),
+                                  style: body(13.5, color: weekWarn ? C.orange : C.ink, weight: FontWeight.w500),
+                                ),
+                              ),
+                              Icon(Icons.chevron_right_rounded, color: C.muted),
+                            ]),
+                          ),
+                        ),
+                      ],
+                    ]),
+                  ),
+                ),
+                HomeSection(
+                  title: tr('আজকের অর্থ-কথা'),
+                  child: HomeCard(
+                    key: const Key('home-quote'),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Icon(Icons.format_quote_rounded, color: C.ochre, size: 26),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(tr(quote.text), style: body(15, height: 1.5, weight: FontWeight.w500)),
+                          if (quote.source.isNotEmpty) ...[const SizedBox(height: 4), Text('— ${tr(quote.source)}', style: body(12.5, color: C.muted))],
+                        ]),
+                      ),
                     ]),
                   ),
                 ),

@@ -102,6 +102,8 @@ class NotificationSettingsScreen extends StatelessWidget {
                   sw(Icons.mosque_outlined, tr('জুমার দিন'), tr('শুক্রবার সকাল ১১টায় — জুমা মোবারক'), brain.flag('n_jumuah', true), (v) => brain.setPref('n_jumuah', v)),
                   sw(Icons.celebration_outlined, tr('উৎসবের শুভেচ্ছা'), tr('ঈদ, নববর্ষ, বিজয় দিবস — সেদিন সকালে'), brain.flag('n_festival', true), (v) => brain.setPref('n_festival', v)),
                   sw(Icons.health_and_safety_outlined, tr('মৌসুমি স্বাস্থ্য পরামর্শ'), tr('মাসে একবার — ডেঙ্গু, গরম, শীতের সময় কী করবেন'), brain.flag('n_health', true), (v) => brain.setPref('n_health', v)),
+                  sw(Icons.format_quote_rounded, tr('আজকের অর্থ-কথা'), tr('প্রতিদিন সকাল ৯:১৫-এ টাকা-পয়সা নিয়ে একটা ভালো কথা'), brain.flag('n_quote', true), (v) => brain.setPref('n_quote', v)),
+                  sw(Icons.handyman_outlined, tr('ঘরের মেরামত'), tr('ছুটির দিন সকাল ১০টায় — ঘরের যা যা ঠিক করা বাকি'), brain.flag('n_fix', true), (v) => brain.setPref('n_fix', v)),
                   sw(Icons.waving_hand_outlined, tr('অনেক দিন না খুললে'), tr('৩ দিন অ্যাপ না খুললে শুধু একবার মনে করাবে'), brain.flag('n_comeback', true), (v) => brain.setPref('n_comeback', v)),
                 ]),
               ),

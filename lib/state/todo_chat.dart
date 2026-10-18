@@ -133,7 +133,11 @@ extension _TodoChat on ChatController {
   /// Kept at once: "“ব্যাংকে যাওয়া” কাজটি কাল (শনিবার) রেখেছি।"
   Future<void> _saveTaskAdd(TaskAdd c, List<String> out, {required bool quiet}) async {
     final deadline = c.by ?? (c.deadline ? c.due : null);
-    final t = Task(title: c.title, due: c.due, span: c.span, repeat: c.repeat, urgent: c.urgent, note: c.condition ?? '', deadline: deadline, createdAt: _now);
+    // "ফ্যানটা ঠিক করাতে হবে" with no day: the home-fix list, told on days off.
+    final fix = c.due == null && c.repeat == null && (isHomeFix(c.title) || isHomeFix(c.transcript));
+    // "বাথরুমের কলটা নষ্ট হয়ে গেছে, ঠিক করানো" → "বাথরুমের কলটা ঠিক করানো".
+    final title = fix ? c.title.replaceAll(RegExp(r'\s+(?:নষ্ট|ভেঙে|ভেঙ্গে)\s+(?:হয়ে|হয়ে)\s+(?:গেছে|গিয়েছে|গিয়েছে|আছে)\s*,?'), '').replaceAll(RegExp(r'\s+'), ' ').trim() : c.title;
+    final t = Task(title: title, due: c.due, span: c.span, repeat: c.repeat, urgent: c.urgent, note: c.condition ?? '', deadline: deadline, createdAt: _now, list: fix ? homeFixList : '');
     await brain.saveTask(t);
     _focusTask(t);
     // "আজ বাজারে যাবো রাত ৯টায়": a clear clock time said with it rings
@@ -149,6 +153,10 @@ extension _TodoChat on ChatController {
       text = trf('{0} “{1}” — নিয়মিত কাজ হিসেবে রেখেছি। প্রথমবার {2}।', [when, c.title, sayWhen(t.due!, _now, withTime: false)]);
     } else if (c.deadline && c.due != null) {
       text = trf('“{0}” — {1}-এর মধ্যে করার কাজ হিসেবে রেখেছি।', [c.title, sayWhen(c.due!, _now, withTime: false)]);
+    } else if (fix) {
+      text = brain.flag('n_fix', true)
+          ? trf('“{0}” ঘরের মেরামতের তালিকায় রাখলাম — ছুটির দিন সকালে মনে করিয়ে দেব।', [title])
+          : trf('“{0}” ঘরের মেরামতের তালিকায় রাখলাম।', [title]);
     } else if (c.due == null) {
       text = c.condition != null || RegExp(fold(r'(?:একদিন|সময়\s+করে|সুযোগ)')).hasMatch(fold(c.transcript))
           ? trf('“{0}” কাজটি তারিখ ছাড়া কাজের তালিকায় রেখেছি।', [c.title])

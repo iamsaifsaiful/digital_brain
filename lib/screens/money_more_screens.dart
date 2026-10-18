@@ -18,8 +18,10 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'money_screens.dart';
 import 'shop_screens.dart';
+import 'spend_health_screen.dart';
 
 export 'shop_screens.dart' show ShopScreen, ShopDetailScreen;
+export 'spend_health_screen.dart' show SpendHealthScreen;
 import '../ui/pdf_export.dart';
 
 void _push(BuildContext context, Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
@@ -66,6 +68,7 @@ class MoneyTools extends StatelessWidget {
       child: ListView(scrollDirection: Axis.horizontal, children: [
         if (brain.businessMode) tile(tr('দোকান'), Icons.storefront_outlined, C.orange, C.orangeTint, const ShopScreen()),
         tile(tr('অ্যাকাউন্ট'), Icons.account_balance_outlined, C.blue, C.blueTint, const AccountsScreen()),
+        tile(tr('খরচ বিশ্লেষণ'), Icons.pie_chart_outline_rounded, C.orange, C.orangeTint, const SpendHealthScreen()),
         tile(tr('মাসের রিপোর্ট'), Icons.insert_chart_outlined_rounded, C.green, C.greenTint, const ReportScreen()),
         tile(tr('সঞ্চয় ও কিস্তি'), Icons.savings_outlined, C.purple, C.purpleTint, const SavingsScreen()),
         tile(tr('খরচ ভাগাভাগি'), Icons.call_split_rounded, C.teal, C.tealTint, const SplitScreen()),

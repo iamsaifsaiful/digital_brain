@@ -1114,7 +1114,7 @@ void main() {
       expect(off.where((x) => [morningTag, nightTag, nudgeDue, nudgeBill, nudgeDoc, nudgeMed].any((t) => x.reminderId.startsWith(t))), isEmpty);
       // Every kind switched off: nothing at all.
       final none = assistantNotices(d, now,
-          const AssistantPrefs(morningOn: false, nightOn: false, nudgesOn: false, jumuah: false, health: false, festival: false, weekly: false, streak: false, comeback: false, plan: false, smart: false));
+          const AssistantPrefs(morningOn: false, nightOn: false, nudgesOn: false, jumuah: false, health: false, festival: false, weekly: false, streak: false, comeback: false, plan: false, smart: false, quote: false));
       expect(none, isEmpty);
     });
 
@@ -1250,7 +1250,7 @@ void main() {
       expect(ns.any((n) => n.reminderId == nudgeBack && n.at == DateTime(2026, 10, 17, 10, 30)), isTrue);
       // A nudge set inside the quiet hours waits for their end.
       final late = assistantNotices(AppData(habits: [Habit(name: 'পড়া', done: ['2026-10-12', '2026-10-13'])]), now,
-          const AssistantPrefs(morningOn: false, nightOn: false, quietFrom: 19 * 60, quietTo: 7 * 60, jumuah: false, comeback: false, weekly: false, health: false, festival: false, plan: false, smart: false));
+          const AssistantPrefs(morningOn: false, nightOn: false, quietFrom: 19 * 60, quietTo: 7 * 60, jumuah: false, comeback: false, weekly: false, health: false, festival: false, plan: false, smart: false, quote: false));
       expect(late.single.at, DateTime(2026, 10, 15, 7));
     });
 
@@ -1582,7 +1582,7 @@ void main() {
       // Thursday's evening question already covers tonight; Friday night asks about Saturday.
       expect(n.where((x) => x.reminderId == '${nudgePlan}night' && x.at.day == 15), isEmpty);
       expect(n.firstWhere((x) => x.reminderId == '${nudgePlan}night').title, 'কালকের জন্য কিছু মনে রাখার আছে?');
-      expect(assistantNotices(AppData(), now, const AssistantPrefs(morningOn: false, nightOn: false, nudgesOn: false, plan: false, smart: false, jumuah: false, health: false, festival: false, weekly: false, streak: false, comeback: false)), isEmpty);
+      expect(assistantNotices(AppData(), now, const AssistantPrefs(morningOn: false, nightOn: false, nudgesOn: false, plan: false, smart: false, jumuah: false, health: false, festival: false, weekly: false, streak: false, comeback: false, quote: false)), isEmpty);
     });
 
     test('a busy tomorrow is told at night, with the first thing', () {

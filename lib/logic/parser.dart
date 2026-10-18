@@ -1010,13 +1010,15 @@ class Parser {
 
     // "এ মাসে কী কী লেনদেন হলো?", "আমার কত টাকা?": money records by
     // period, or a question that needs one more word from the user.
+    // "আমার খরচ কেমন হচ্ছে?": shares of income, before the money questions.
+    if (spendingAsked(text)) return ProfileQuery(said);
     final moneyAsk = _moneyQuestion(said, text);
     if (moneyAsk != null) return moneyAsk;
 
     // "নামাজের সময় কখন?", "কাল কী আছে?", "আমার ব্যালেন্স কত?", "কী কী ওষুধ চলছে?"
     // "আজ নামাজের সময় দাও", "সেহরির সময় বলো": asked as a request.
     final topic = infoTopic(text);
-    if (topic != null && (isQuestionText(said) || (const {'weather', 'prayer', 'sehri', 'iftar', 'sunrise', 'sunset', 'ramadan', 'zakat', 'savings', 'expiry', 'notes', 'special'}.contains(topic) && asksToShow(text)))) {
+    if (topic != null && (isQuestionText(said) || (const {'weather', 'qibla', 'prayer', 'sehri', 'iftar', 'sunrise', 'sunset', 'ramadan', 'zakat', 'savings', 'expiry', 'notes', 'special'}.contains(topic) && asksToShow(text)))) {
       return ProfileQuery(said);
     }
 
