@@ -232,6 +232,14 @@ String healthAnswer(AppData d, String what, DateTime now, {String member = Famil
         if (!identical(f, last) && f.tag == 'fasting') trf('খালি পেটে শেষবার {0}', [mmolText(f.a)]),
       ];
       return '${parts.join('। ')}।';
+    case 'summary':
+      final parts = [
+        for (final k in const ['weight', 'bp', 'sugar'])
+          if (latest(d, member, HealthKind.values.byName(k)) != null) '${HealthKind.values.byName(k).bn}: ${healthAnswer(d, k, now, member: member)}',
+        if (m.heightCm != null && w != null) healthAnswer(d, 'bmi', now, member: member),
+      ];
+      if (parts.isEmpty) return tr('স্বাস্থ্যের কোনো মাপ এখনো রাখা নেই। বলুন, যেমন “আজ ওজন ৬৮ কেজি” বা “প্রেশার ১৩০ বাই ৮৫” — তারপর জিজ্ঞেস করলে অবস্থা বলে দেবো।');
+      return [tr('আপনার রাখা শেষ মাপগুলো:'), ...parts.map((x) => '• $x')].join('\n');
   }
   return tr('স্বাস্থ্য পাতায় সব মাপ দেখা যাবে।');
 }

@@ -64,7 +64,7 @@ const bulkOps = <String, Set<String>>{
   'medicines': {'reminder_off', 'show', 'reverse'},
   'habits': {'done', 'not_done', 'reminder_off', 'show', 'reverse'},
   'health': {'show', 'reverse', 'wrong', 'delete'},
-  'money': {'report', 'show', 'reverse'},
+  'money': {'report', 'show', 'reverse', 'delete'},
   // People's balances (ids are the people's account keys). "মুছে দাও" is
   // asked as a choice: settled (the history stays) or the records removed.
   'ledger': {'delete', 'settle', 'erase', 'show'},
@@ -245,19 +245,25 @@ extension _BulkChat on ChatController {
     }
     // "আমার সব রিমাইন্ডার বাদ দিয়ে দাও" with no reminders on screen: the
     // sentence names the whole list of its kind — that list, asked once.
-    if (first.selection.kind == SelKind.all && const {'reminders', 'notes', 'ledger'}.contains(first.domain) && first.op != 'show' &&
-        !_sets.any((s) => s.domain == first.domain && _setFresh(s)) && _thas2(t, r'(?:(?:^|\s)সব|সমস্ত|যতগুলো|সবগুলো|সবকটা|গুলো|গুলা)')) {
+    if (first.selection.kind == SelKind.all && const {'reminders', 'notes', 'ledger', 'money'}.contains(first.domain) && first.op != 'show' &&
+        !_sets.any((s) => s.domain == first.domain && _setFresh(s)) && _thas2(t, r'(?:(?:^|\s)সব|সকল|সমস্ত|যতগুলো|সবগুলো|সবকটা|গুলো|গুলা)')) {
       final owedToMe = !_thas2(t, r'(?:দেনা|ঋণ|ধার\s+নি)');
+      // "আমার সকল আয় বাদ দাও": the আয়-ব্যয় records of that kind (people's
+      // ধার-দেনা has its own words and its own question).
+      final income = _thas2(t, r'(?:আয়|ইনকাম|income)'), expense = _thas2(t, r'(?:খরচ|ব্যয়|expense)');
+      final cashKind = income == expense ? null : (income ? CashKind.income : CashKind.expense);
       final all = switch (first.domain) {
         'reminders' => [for (final r in brain.data.reminders) r.id],
         'notes' => [for (final n in brain.data.notes) n.id],
+        'money' => [for (final e in brain.data.cash) if (cashKind == null || e.kind == cashKind) e.id],
         _ => [for (final p in balances(brain.data.ledger)) if (owedToMe ? p.balance > 0 : p.balance < 0) p.key],
       };
+      final noun = first.domain == 'money' ? (cashKind == CashKind.income ? tr('আয়') : cashKind == CashKind.expense ? tr('খরচ') : tr('আয়-ব্যয়')) : _domainBn[first.domain] ?? '';
       if (all.isEmpty) {
-        _say(out, trf('কোনো {0} রাখা নেই — কিছু বদলাইনি।', [_domainBn[first.domain] ?? '']));
+        _say(out, trf('কোনো {0} রাখা নেই — কিছু বদলাইনি।', [noun]));
         return true;
       }
-      _rememberSet(first.domain, tr('সব'), all, source: t);
+      _rememberSet(first.domain, first.domain == 'money' ? noun : tr('সব'), all, source: t);
     }
     final set = _setFor(first);
     // "আম্মার শেষ তিনটা মাপ দেখাও": a new question, not about the list
@@ -358,7 +364,10 @@ extension _BulkChat on ChatController {
       // Removing several: asked once, with what and how many.
       _pendingBulk = _BulkProposal(c, set, live, 'op${_now.microsecondsSinceEpoch}');
       final what = _bulkWhat(set, live);
-      final q = set.label == tr('সব') && live.length == set.ids.length
+      final cashSum = set.domain == 'money' ? brain.data.cash.where((e) => live.contains(e.id)).fold<int>(0, (a, e) => a + e.amount) : 0;
+      final q = set.domain == 'money'
+          ? trf('{0}-এর {1}টা এন্ট্রি, মোট {2} টাকা — সব মুছে দেব? (মুছে ফেলা পাতায় ফেরত আনা যাবে)', [set.label, bnDigits(live.length), bnNumber(cashSum)])
+          : set.label == tr('সব') && live.length == set.ids.length
           ? trf('আপনার সব {0}টা {1} মুছে দেব?', [bnDigits(live.length), _domainBn[set.domain] ?? ''])
           : trf('{0} এই {1}টা {2} মুছে দেব?', [set.label.isEmpty ? '' : set.label, bnDigits(live.length), _domainBn[set.domain] ?? '']).trim();
       _ask(out, q, ChatWait.bulk,
@@ -394,6 +403,9 @@ extension _BulkChat on ChatController {
           'medicines' => d.medicines.where((x) => x.id == id).map((m) => m.name).firstOrNull ?? '',
           'habits' => d.habits.where((x) => x.id == id).map((h) => h.name).firstOrNull ?? '',
           'ledger' => balances(d.ledger).where((p) => p.key == id).map((p) => owesText(p.name, p.balance)).firstOrNull ?? '',
+          'money' => d.cash.where((x) => x.id == id).map((e) => '${e.kind == CashKind.income ? tr('আয়') : tr('খরচ')}: ${e.category} — ${bnNumber(e.amount)} ${tr('টাকা')} (${shortDate(e.date)})').firstOrNull ??
+              d.ledger.where((x) => x.id == id).map((e) => '${e.person} — ${bnNumber(e.amount)} ${tr('টাকা')}').firstOrNull ??
+              '',
           _ => id,
         },
     ];
@@ -479,6 +491,9 @@ extension _BulkChat on ChatController {
       }
     }
     final yn = yesNo(t);
+    // Something new said instead of an answer ("ফাউন্ডেশনের কাছে আমি ৬৪ হাজার
+    // টাকা পাবো"): nothing removed, and that is heard on its own.
+    if (yn == null && _looksNew(t)) return false;
     wait = ChatWait.none;
     choices = const [];
     _pendingBulk = null;
@@ -680,6 +695,14 @@ extension _BulkChat on ChatController {
           return mine.isNotEmpty;
         });
         _say(out, _outcome(trf('{0} জনের সব লেনদেন মুছে দিয়েছি', [bnDigits(ok)]), ok, ids.length, failed, skipped), links: [ChatLink(LinkKind.page, tr('লেনদেন'), page: 'ledger')]);
+      case ('money', 'delete'):
+        // Only আয়-ব্যয় records; a person's ধার-দেনা is never removed from here.
+        await each((id) async {
+          if (!d.cash.any((x) => x.id == id)) return false;
+          await brain.deleteCash(id);
+          return true;
+        });
+        _say(out, _outcome(trf('{0}টা {1}-এর এন্ট্রি মুছে দিয়েছি', [bnDigits(ok), set.label]), ok, ids.length, failed, skipped), links: [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন'))]);
       case ('money', 'report'):
         // Read-only: the PDF page with this list's span; nothing changes.
         _say(out, trf('এই {0}টা লেনদেনের PDF বানাতে PDF পাতা খুলছি — সেখানে সময়সীমা বেছে নিয়ে ডাউনলোড বা শেয়ার করুন।', [bnDigits(ids.length)]), links: [ChatLink(LinkKind.page, tr('PDF'), page: 'pdf')]);

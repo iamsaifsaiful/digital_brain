@@ -763,7 +763,7 @@ const _specialKinds = {
 }
 
 /// "রহিমের জন্মদিন ১২ মার্চ" → a [SpecialAdd]; questions ("কবে?") are not.
-SpecialAdd? specialDayIn(String said, String text) {
+SpecialAdd? specialDayIn(String said, String text, {DateTime? now}) {
   if (said.contains('?') || text.contains('কবে') || text.contains('when')) return null;
   SpecialKind? kind;
   var at = -1, len = 0;
@@ -777,7 +777,22 @@ SpecialAdd? specialDayIn(String said, String text) {
     }
   }
   if (kind == null) return null;
-  final date = dayMonthIn(text);
+  var date = dayMonthIn(text);
+  // "৩১ তারিখে তুবার জন্মদিন": a day of the month only — the next such day.
+  if (date == null && now != null) {
+    final dm = RegExp(r'(?:^|\s)(\d{1,2})(?:ই|শে|লা|রা|ঠা)?\s*' + fold('তারিখ')).firstMatch(text);
+    final day = dm == null ? null : int.parse(dm[1]!);
+    if (day != null && day >= 1 && day <= 31) {
+      for (var i = 0; i < 13; i++) {
+        final m = DateTime(now.year, now.month + i);
+        final last = DateTime(m.year, m.month + 1, 0).day;
+        if (day > last) continue;
+        if (i == 0 && day < now.day) continue;
+        date = (day, m.month, null);
+        break;
+      }
+    }
+  }
   if (date == null) return null;
   final before = text.substring(0, at).trim().split(' ').where((x) => x.isNotEmpty).toList();
   var person = '';
@@ -963,7 +978,11 @@ class Parser {
     if (moneyAsk != null) return moneyAsk;
 
     // "নামাজের সময় কখন?", "কাল কী আছে?", "আমার ব্যালেন্স কত?", "কী কী ওষুধ চলছে?"
-    if (isQuestionText(said) && infoTopic(text) != null) return ProfileQuery(said);
+    // "আজ নামাজের সময় দাও", "সেহরির সময় বলো": asked as a request.
+    final topic = infoTopic(text);
+    if (topic != null && (isQuestionText(said) || (const {'prayer', 'sehri', 'iftar', 'sunrise', 'sunset', 'ramadan', 'zakat', 'savings', 'expiry', 'notes', 'special'}.contains(topic) && asksToShow(text)))) {
+      return ProfileQuery(said);
+    }
 
     // "আজ আমার কী কী আছে?", "কাজের তালিকা দেখাও" (before small talk:
     // "আজ কী কী করতে হবে" is not "what can you do").
@@ -1018,7 +1037,7 @@ class Parser {
     if (health != null) return health;
 
     // "রহিমের জন্মদিন ১২ মার্চ" → a special day.
-    final special = specialDayIn(said, text);
+    final special = specialDayIn(said, text, now: now);
     if (special != null) return special;
 
     // "মনে রাখো: …" → a note.
@@ -1832,6 +1851,8 @@ class Parser {
       if (weight) return HealthQuery(said, what: HealthKind.weight.name);
       if (bp) return HealthQuery(said, what: HealthKind.bp.name);
       if (sugar) return HealthQuery(said, what: HealthKind.sugar.name);
+      // "আমার স্বাস্থ্যের অবস্থা কি", "শরীর কেমন": all the latest measures.
+      if (has(['স্বাস্থ্য', 'সাস্থ্য', 'শরীর', 'শরির', 'হেলথ', 'health']) && !has(['টাকা', 'বিমা', 'বীমা', 'কার্ড'])) return HealthQuery(said, what: 'summary');
       return null;
     }
     if (has(['টাকা']) || nums.isEmpty) return null;
@@ -2204,6 +2225,16 @@ const _vaultWordsRaw = [
 ];
 final List<String> _vaultWords = [for (final v in _vaultWordsRaw) fold(v)];
 
+/// "…দাও", "…বলো", "…দেখাও" at the end, with nothing to keep or set: a
+/// request to be told something ([text] normalized).
+bool asksToShow(String text) {
+  final w = words(text.trim());
+  if (w.isEmpty || !_showVerbs.contains(w.last)) return false;
+  return !_hasNorm(text, const ['মনে করি', 'রিমাইন্ডার', 'অ্যালার্ম', 'এলার্ম', 'রাখো', 'রাখুন', 'লিখে', 'লিখো', 'সেট', 'যোগ কর', 'যুক্ত কর', 'মুছ', 'বাদ']);
+}
+
+final _showVerbs = {for (final x in const ['দাও', 'দিন', 'দেন', 'দেখাও', 'দেখান', 'বলো', 'বলুন', 'বলেন', 'জানাও', 'জানান']) normalize(x)};
+
 /// Does the sentence ask something (rather than state a fact)?
 bool isQuestionText(String said) {
   if (said.contains('?') || said.contains('？')) return true;
@@ -2270,6 +2301,10 @@ Talk? smallTalk(String text) {
   ]) || (w.length <= 3 && _hasPhrase(text, ['সাহায্য', 'help']))) {
     return Talk.whatCanYouDo;
   }
+  // "এই এপ দিয়ে কি কি করা যায়?", "তুমি আমাকে কিভাবে হেল্প করতে পারো?"
+  final aboutApp = _hasPhrase(text, ['এপ', 'অ্যাপ', 'অ্যাপস', 'এপস', 'app', 'তুমি', 'তোমাকে', 'তোমার', 'আপনি', 'আপনাকে', 'সহকারী', 'অ্যাসিস্ট্যান্ট', 'assistant']);
+  final how = _hasPhrase(text, ['কি কি', 'কী কী', 'কিভাবে', 'কীভাবে', 'কি ভাবে', 'কী ভাবে', 'কেমনে', 'কোন কোন']);
+  if (aboutApp && how && _hasPhrase(text, ['করা যায়', 'করা যায়', 'করতে পার', 'হেল্প', 'সাহায্য', 'কাজে লাগ', 'কাজ কর', 'help'])) return Talk.whatCanYouDo;
   if (_hasPhrase(text, ['কয়টা বাজে', 'কটা বাজে', 'কয়টা বাজে', 'এখন সময় কত', 'সময় কত', 'what time'])) return Talk.time;
   if (_hasPhrase(text, ['আজ কত তারিখ', 'আজকে কত তারিখ', 'আজকের তারিখ', 'আরবি তারিখ', 'আরবী তারিখ', 'হিজরি তারিখ', 'হিজরী তারিখ', 'চাঁদের তারিখ', 'বাংলা তারিখ', 'আরবি মাস', 'হিজরি সন', 'আজ কী বার', 'আজ কি বার', 'আজকে কী বার', 'আজকে কি বার', 'আজ কোন বার'])) {
     return Talk.date;

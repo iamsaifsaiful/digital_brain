@@ -4,6 +4,7 @@ import '../logic/lang.dart';
 import '../logic/ai_map.dart' show answeredByAi;
 import '../logic/app_map.dart';
 import '../logic/ask.dart' show infoTopic;
+import '../logic/calendar_ask.dart' show calendarAsked;
 import '../logic/manage.dart';
 import '../logic/meaning.dart';
 import '../services/trace.dart';
@@ -159,6 +160,10 @@ class ChatController extends ChangeNotifier {
   /// The last thing saved, with the data before it — so "না, রিমাইন্ডার
   /// দাও" right after can turn a note into a reminder.
   (Command, String, DateTime)? _lastSave;
+
+  /// Notes kept in this conversation (id, words, when): "আগের কাজগুলো নোটে
+  /// কেন রাখছো? কাজের তালিকায় রাখো" moves these.
+  final _notesKept = <(String, String, DateTime)>[];
 
   /// What existed before that save (so "শেষটা মুছে দাও" finds what it made).
   Set<String> _idsBeforeSave = const {};
@@ -637,13 +642,14 @@ class ChatController extends ChangeNotifier {
   static List<ChatChoice> get _yesNoChoices => [ChatChoice(tr('না'), 'না'), ChatChoice(tr('হ্যাঁ'), 'হ্যাঁ')];
 
   /// One thing the user said, typed or tapped. Returns what to say aloud.
-  Future<String> hear(String said) async {
+  Future<String> hear(String said, {bool echo = true}) async {
     final shown = said.trim();
     if (shown.isEmpty) return '';
     // "…, না আর বলতে চাই না": the closing words only say the person is done
     // talking — they are not something to save or answer.
     final (body, doneTail) = splitDoneTail(shown);
-    final t = doneTail && body.isNotEmpty ? body : shown;
+    // "দেনা পাওনা বলি নাই, বলেছি অন্যান্য হিসাব": only what was meant is heard.
+    final t = meantInstead(doneTail && body.isNotEmpty ? body : shown);
     if (doneTail) Trace.log('understood', 'closing words left out', {'kept': t});
     ended = false;
     _turn++;
@@ -663,7 +669,7 @@ class ChatController extends ChangeNotifier {
     _actionsAtLast = _actions;
     _lastText = shown;
     _lastTextAt = wall;
-    messages.add(ChatMessage.user(shown));
+    if (echo) messages.add(ChatMessage.user(shown));
     // Only closing words ("না, আর বলতে চাই না") while a save waits for its
     // yes/no: that is "I have nothing more to say", not "don't save it".
     if (doneTail && body.isEmpty && wait == ChatWait.yesNo) {
@@ -704,6 +710,10 @@ class ChatController extends ChangeNotifier {
         return out.join(' ');
       }
     }
+    if (wait == ChatWait.none && await _notesToTasks(t, out)) {
+      notifyListeners();
+      return out.join(' ');
+    }
     if (redirect != null && await _redirect(redirect, t, out)) {
       notifyListeners();
       return out.join(' ');
@@ -715,7 +725,15 @@ class ChatController extends ChangeNotifier {
       _dropPending();
     }
     if (wait != ChatWait.none) {
-      if (await _answer(t, out)) {
+      // "না। ৬৪ হাজার টাকা যে ফাউন্ডেশনের কাছে পাবো তার নাম": the "no" answers
+      // the question; what follows is a new thing to hear.
+      final (answer, rest) = _answerAndRest(t);
+      if (await _answer(answer, out)) {
+        if (rest != null) {
+          notifyListeners();
+          final more = await hear(rest, echo: false);
+          return [...out, more].where((x) => x.isNotEmpty).join(' ');
+        }
         notifyListeners();
         return out.join(' ');
       }
@@ -865,17 +883,62 @@ class ChatController extends ChangeNotifier {
     return changed ? parts.join(' ') : t;
   }
 
+  /// A plain yes or no that a sentence of its own follows ("না। …", "হ্যাঁ, আর …"):
+  /// (the answer, the rest). The rest is null when there is none to hear.
+  (String, String?) _answerAndRest(String t) {
+    if (wait != ChatWait.yesNo) return (t, null);
+    final m = RegExp(fold(r'^\s*(না|নাহ|জি\s+না|হ্যাঁ|হ্যা|জি|জ্বি)\s*[।.,!]+\s*(.+)$')).firstMatch(fold(t));
+    if (m == null) return (t, null);
+    final rest = m[2]!.trim();
+    if (words(normalize(rest)).length < 3) return (t, null);
+    return (m[1]!, rest);
+  }
+
+  /// "আগের কাজ গুলো নোট এ কেন রাখছো? কাজের তালিকায় রাখা উচিত ছিল": the
+  /// notes this conversation kept become to-dos (one undo brings them back).
+  Future<bool> _notesToTasks(String t, List<String> out) async {
+    final f = ' ${fold(normalize(t))} ';
+    if (!RegExp(fold(r'(?<=\s)নোট')).hasMatch(f) || !RegExp(fold(r'(?:কাজের\s+(?:তালিকা|লিস্ট)|কাজ\s+হিসেবে|কাজ\s+হিসাবে|টুডু)')).hasMatch(f)) return false;
+    if (!RegExp(fold(r'(?:কেন|উচিত|ভুল|সরাও|সরিয়ে|নিয়ে\s+যাও|রাখো|রাখ|নাও|বদলাও)')).hasMatch(f)) return false;
+    var recent = [for (final n in _notesKept) if (_now.difference(n.$3).inMinutes <= 60 && brain.data.notes.any((x) => x.id == n.$1)) n];
+    // Kept in an earlier conversation today: the notes written in the last hours.
+    if (recent.isEmpty) {
+      recent = [for (final n in brain.data.notes) if (_now.difference(n.updatedAt).inHours < 6 && !_now.difference(n.updatedAt).isNegative) (n.id, n.body.isEmpty ? n.title : n.body, n.updatedAt)];
+    }
+    if (recent.isEmpty) {
+      _say(out, tr('সম্প্রতি কোনো নোট রাখা হয়নি যেটা কাজের তালিকায় সরাব। কাজটা বলুন — সরাসরি কাজের তালিকায় রাখব।'));
+      return true;
+    }
+    final snap = brain.snapshot();
+    final titles = <String>[];
+    for (final n in recent) {
+      final cmd = convertTo('task', n.$2, brain.data.ledger, _now);
+      if (cmd is! TaskAdd || cmd.title.trim().isEmpty) continue;
+      await brain.deleteNote(n.$1);
+      await brain.saveTask(Task(title: cmd.title, due: cmd.due, createdAt: _now, span: cmd.span));
+      titles.add(cmd.due == null ? cmd.title : '${cmd.title} (${sayWhen(cmd.due!, _now, withTime: false)})');
+      _notesKept.remove(n);
+    }
+    if (titles.isEmpty) return false;
+    _actions++;
+    _say(out, trf('ঠিক বলেছেন — ভুল জায়গায় রেখেছিলাম। {0}টা নোট কাজের তালিকায় সরিয়ে দিলাম।', [bnDigits(titles.length)]), facts: titles, links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
+    _offerUndo(snap);
+    return true;
+  }
+
   Future<bool> _redirect(String kind, String said, List<String> out) async {
     bool movable(Command c) => c is NoteAdd || c is TaskAdd || c is ReminderAdd || c is MemoryAdd;
     String textOf(Command c) => switch (c) { NoteAdd(:final text) => text, MemoryAdd(:final text) => text, _ => c.transcript };
     String kindOf(Command c) => switch (c) { ReminderAdd(:final alarm) => alarm ? 'alarm' : 'reminder', TaskAdd() => 'task', _ => 'note' };
     String? src;
+    Command? from;
     var moved = false;
     final cur = _current;
     final last = _lastSave;
     if (wait != ChatWait.none && cur != null && movable(cur)) {
       // Asked about the previous message ("নতুন বিভাগে রাখি?"): keep it the way said instead.
       src = textOf(cur);
+      from = cur;
       _dropPending();
     } else if (last != null && movable(last.$1) && _now.difference(last.$3).inMinutes < 5) {
       if (kindOf(last.$1) == kind) {
@@ -884,6 +947,7 @@ class ChatController extends ChangeNotifier {
       }
       await brain.restoreSnapshot(last.$2);
       src = textOf(last.$1);
+      from = last.$1;
       moved = true;
     } else {
       // The message before this one.
@@ -893,7 +957,11 @@ class ChatController extends ChangeNotifier {
     if (src == null || src.trim().isEmpty || redirectOf(src) != null) return false;
     _lastSave = null;
     _history.add(AiTurn.user(said));
-    final cmd = convertTo(kind, src, brain.data.ledger, _now);
+    // A reminder made a to-do ("মনে করানোর প্রয়োজন নেই, কাজের তালিকায় রাখো"):
+    // its own title and day — and no ring, which was the point.
+    final cmd = kind == 'task' && from is ReminderAdd && from.title.trim().isNotEmpty
+        ? TaskAdd(said, title: from.title, due: dayOnly(from.at))
+        : convertTo(kind, src, brain.data.ledger, _now);
     if (moved) messages.add(ChatMessage.app(tr('আগেরটা সরিয়ে নিলাম।'), info: true));
     final ready = (cmd is ReminderAdd && !cmd.needsTime && !cmd.needsTitle) || cmd is TaskAdd;
     if (ready) {
@@ -1019,6 +1087,7 @@ class ChatController extends ChangeNotifier {
     // say that, with the app's links (e.g. "রহিমের খাতা দেখুন").
     final aiAnswer = brain.aiShareData && others.whereType<AiReply>().isNotEmpty && others.any(answeredByAi);
     final aiLinks = aiAnswer ? [for (final c in others.where(answeredByAi)) ..._linksFor(c)] : const <ChatLink>[];
+    final answered = <String>{};
     for (final c in others) {
       if (c is NotUnderstood && (saves.isNotEmpty || others.length > 1)) continue;
       if (aiAnswer && answeredByAi(c)) continue;
@@ -1081,6 +1150,9 @@ class ChatController extends ChangeNotifier {
         continue;
       }
       final text = answerText(brain.data, c, _now) ?? '';
+      // Two parts of one message with the same answer ("এ বিষয়ে কোনো তথ্য
+      // নেই" twice): said once.
+      if (text.isNotEmpty && !answered.add(text)) continue;
       // A to-do answer shows every to-do it counted, so the screen and the
       // spoken count are the same list.
       final facts = c is TaskQuery && _shownTasks.length > 1 ? [for (final id in _shownTasks.take(30)) ..._maybe(id).map((t) => taskLine(t, _now))] : const <String>[];
@@ -1170,7 +1242,8 @@ class ChatController extends ChangeNotifier {
         // Everyday questions: the page where it is kept.
         final page = switch (infoTopic(text) ?? profileField(text)) {
           'inbox' => 'inbox',
-          'prayer' || 'sehri' || 'iftar' || 'sunrise' || 'sunset' => 'calendar',
+          'prayer' || 'sehri' || 'iftar' || 'sunrise' || 'sunset' || 'ramadan' => 'calendar',
+          'howto' => howToAsked(text)?.id,
           'money' => 'accounts',
           'savings' => 'savings',
           'medicines' => 'medicines',
@@ -1530,10 +1603,26 @@ class ChatController extends ChangeNotifier {
       } else if (many.length > 1) {
         // Never guess between people: ask which one.
         _calleeChoices = many.take(6).toList();
-        final names = _calleeChoices.map((x) => x.name).toList();
+        // The same name twice is told apart by the end of the number; the
+        // count said is the count named.
+        final counts = <String, int>{};
+        for (final x in _calleeChoices) {
+          counts[normalize(x.name)] = (counts[normalize(x.name)] ?? 0) + 1;
+        }
+        final names = [
+          for (final x in _calleeChoices)
+            (counts[normalize(x.name)] ?? 0) > 1 ? '${x.name} (…${bnDigits(phoneKey(x.phone).length > 4 ? phoneKey(x.phone).substring(phoneKey(x.phone).length - 4) : phoneKey(x.phone))})' : x.name,
+        ];
+        final more = many.length - names.length;
         _ask(
           out,
-          trf('“{0}” নামে {1} জন আছেন — {2}। কাকে {3}?', [_callee, bnDigits(many.length), nameList(names.take(4).toList(), unit: 'জন'), c.via == Via.call ? 'ফোন দেব' : 'পাঠাব']),
+          trf('“{0}” নামে {1} জন আছেন — {2}{3}। কাকে {4}?', [
+            _callee,
+            bnDigits(many.length),
+            nameList(names, unit: 'জন'),
+            more > 0 ? trf(', আরও {0} জন', [bnDigits(more)]) : '',
+            c.via == Via.call ? 'ফোন দেব' : 'পাঠাব',
+          ]),
           ChatWait.callee,
           choices: [for (final x in _calleeChoices) ChatChoice('${x.name} · ${showPhone(x.phone)}', '${x.name} ${x.phone}')],
         );
@@ -1710,7 +1799,12 @@ class ChatController extends ChangeNotifier {
   }
 
   /// A long new sentence instead of an answer.
-  bool _looksNew(String t) => words(normalize(t)).length >= 4;
+  /// Something new rather than an answer: a longer sentence, or a question
+  /// of its own ("রোজা কবে?").
+  bool _looksNew(String t) {
+    final n = words(normalize(t)).length;
+    return n >= 4 || (n >= 2 && isQuestionText(t) && yesNo(t) == null) || infoTopic(normalize(t)) != null;
+  }
 
   String _reminderTitle(String title, Repeat repeat) {
     // "বিল দিতে মনে করিও" → "বিল দেওয়া".
@@ -1973,7 +2067,9 @@ class ChatController extends ChangeNotifier {
           }
         }
         // A question about what waits ("কোন তারিখে তুলবা?"): answered, still waiting — never a yes.
-        if (!refused && isQuestionText(t) && yesNo(t) != false && _current != null && !_askingAll && RegExp(fold(r'(?:কোন\s+তারিখ|কবে|কখন|কয়টায়|কটায়|কোন\s+দিন|কোন\s+সময়)')).hasMatch(fold(t))) {
+        // "রোজা কবে?" names something else: a new question, not about this.
+        final aboutOther = infoTopic(normalize(t)) != null || calendarAsked(t) || words(normalize(t)).length > 6;
+        if (!refused && !aboutOther && isQuestionText(t) && yesNo(t) != false && (_current is TaskAdd || _current is ReminderAdd) && !_askingAll && RegExp(fold(r'(?:কোন\s+তারিখ|কবে|কখন|কয়টায়|কটায়|কোন\s+দিন|কোন\s+সময়)')).hasMatch(fold(t))) {
           final cur1 = _current;
           final info = cur1 is TaskAdd
               ? (cur1.due == null ? tr('তারিখ ছাড়া রাখব। তারিখ চাইলে বলুন, যেমন “২০ তারিখে”।') : trf('{0} তারিখে রাখব।', [sayWhen(cur1.due!, _now, withTime: false)]))
@@ -2452,7 +2548,9 @@ class ChatController extends ChangeNotifier {
         _history.add(AiTurn.app('[লিখে রাখা হলো: ${summaryLine(c)}]'));
       case NoteAdd():
         final cat = _cat?.name ?? defaultNoteCategory;
-        await brain.saveNote(Note(title: noteTitleFrom(c.text), body: c.text, category: cat));
+        final note = Note(title: noteTitleFrom(c.text), body: c.text, category: cat);
+        await brain.saveNote(note);
+        _notesKept.add((note.id, c.text, _now));
         _say(out, quiet ? trf('রাখলাম: {0} (‘{1}’)', [c.text, cat]) : trf('ঠিক আছে, ‘{0}’ বিভাগে রেখে দিলাম।', [cat]),
             links: [ChatLink(LinkKind.notes, tr('নোট দেখুন'))], speak: !quiet);
         _history.add(AiTurn.app('[নোট রাখা হলো, বিভাগ: $cat]'));

@@ -132,6 +132,36 @@ String searchAnswer(AppData d, SearchQuery q, DateTime now) {
   }
   final hits = relevantHits(d, q.terms);
   if (hits.isEmpty) {
+    // "তুবাকে জন্মদিনে কি দেওয়া যায়?": advice, not something kept — said
+    // honestly, with what is kept about it.
+    if (asksAdvice(q.transcript)) {
+      final t = normalize(q.transcript);
+      final day = d.specialDays.where((x) => x.person.trim().isNotEmpty && t.contains(normalize(x.person))).firstOrNull;
+      var known = '';
+      if (day != null) {
+        var next = DateTime(now.year, day.month, day.day);
+        if (next.isBefore(dayOnly(now))) next = DateTime(now.year + 1, day.month, day.day);
+        final left = next.difference(dayOnly(now)).inDays;
+        known = trf(' {0}-এর {1} {2}, {3} — আর {4} দিন।', [day.person, day.kind.bn, weekdayName(next), '${bnDigits(next.day)} ${monthName(next.month)}', bnDigits(left)]);
+      }
+      return trf('এটা পরামর্শের প্রশ্ন — আপনার রাখা তথ্যে এর উত্তর নেই, আর নিজে থেকে বানিয়ে বলব না। AI চালু থাকলে এমন প্রশ্নে আইডিয়া দিতে পারি।{0}', [known]);
+    }
+    // "নিহানের বেতন কোথায় যুক্ত করলে?": an আয়-ব্যয় record by what was said with it.
+    final cash = cashFound(d, q.terms);
+    if (cash.isNotEmpty) {
+      final e = cash.first;
+      final proj = e.projectId == null ? null : d.projects.where((p) => p.id == e.projectId).firstOrNull;
+      final where = proj == null ? tr('সাধারণ আয়-ব্যয়ে') : trf('‘{0}’ হিসাবে', [proj.name]);
+      return trf('{0}: {1} {2} টাকা, {3} লেখা আছে ({4}, খাত: {5})।{6}', [
+        e.note.length > 60 ? '${e.note.substring(0, 58)}…' : e.note,
+        e.kind == CashKind.income ? tr('আয়') : tr('খরচ'),
+        bnNumber(e.amount),
+        where,
+        shortDate(e.date),
+        e.category,
+        cash.length > 1 ? trf(' আরও {0}টা মিলেছে।', [bnDigits(cash.length - 1)]) : '',
+      ]);
+    }
     final p = placeMentioned(normalize(q.transcript));
     if (p != null) return trf('এ বিষয়ে আলাদা কোনো তথ্য নেই। {0} পাতায় দেখতে নিচে চাপুন।', [tr(p.title)]);
     // "রহিমের নম্বর কত?" with no such number: say whose, and how to add it.
@@ -154,6 +184,25 @@ String searchAnswer(AppData d, SearchQuery q, DateTime now) {
   final tied = hits.where((h) => h.score == best.score).length;
   final lead = tied > 1 ? tr('কয়েকটা মিলেছে। সবচেয়ে কাছেরটা হলো — ') : '';
   return '$lead${hitAnswer(d, best, now)}';
+}
+
+/// "কি দেওয়া যায়?", "কী করা উচিত?", "কোনটা ভালো হবে?": asking for advice.
+bool asksAdvice(String said) {
+  final t = ' ${normalize(said)} ';
+  return [
+    'কি দেওয়া যায়', 'কী দেওয়া যায়', 'কি দেয়া যায়', 'কী দেয়া যায়', 'কি দিতে পারি', 'কী দিতে পারি', 'কি গিফট', 'কী গিফট', 'কি উপহার', 'কী উপহার',
+    'কি করা উচিত', 'কী করা উচিত', 'কি করলে ভালো', 'কী করলে ভালো', 'কোনটা ভালো হবে', 'পরামর্শ দাও', 'পরামর্শ দিন', 'আইডিয়া দাও', 'সাজেস্ট',
+  ].any((p) => t.contains(normalize(p)));
+}
+
+/// আয়-ব্যয় records whose words (what was said, the খাত) match [terms],
+/// newest first. Words about the asking itself do not count.
+List<CashEntry> cashFound(AppData d, List<String> terms) {
+  const asking = ['কোথায়', 'কোথায়', 'যুক্ত', 'যোগ', 'করলে', 'করেছ', 'করেছো', 'রাখলে', 'রেখেছ', 'রেখেছো', 'লিখলে', 'লিখেছ', 'লিখেছো', 'কোন', 'কোনো', 'হিসাবে', 'হিসাব', 'টাকা'];
+  final own = [for (final t in terms) if (normalize(t).length >= 2 && !asking.map(normalize).contains(normalize(t))) t];
+  if (own.isEmpty) return const [];
+  final found = [for (final e in d.cash) if (score(own, [e.note, e.category]) * 2 >= own.length && score(own, [e.note]) > 0) e]..sort((a, b) => b.date.compareTo(a.date));
+  return found;
 }
 
 /// One found thing, as a spoken answer.
@@ -308,6 +357,8 @@ String taskAnswer(AppData d, DateTime now, [String asked = '']) {
     // to-dos and reminders (one definition — they never disagree).
     final items = planItemsOn(d, w.day, now);
     final when = sayWhen(dayOnly(w.day), now, withTime: false);
+    final part = dayPartAsked(asked);
+    if (part != null) return dayPartAnswer(d, items, part, when);
     if (items.isEmpty) {
       final rest = open.length;
       return trf('{0} কোনো কাজ বা রিমাইন্ডার নেই।{1}', [when, rest > 0 ? trf(' অন্য দিনের বা তারিখ ছাড়া {0}টা কাজ আছে।', [bnDigits(rest)]) : '']);
@@ -317,6 +368,46 @@ String taskAnswer(AppData d, DateTime now, [String asked = '']) {
   }
   if (open.isEmpty) return tr('এখন কোনো কাজ বাকি নেই। নতুন কাজ বললে তালিকায় তুলে রাখব।');
   return trf('{0}টা কাজ বাকি — {1}।', [bnDigits(open.length), nameList([for (final t in open) taskLabel(t, now)], unit: 'টা')]);
+}
+
+/// "সন্ধ্যায়", "সকালে", "রাতে" in a question about a day: (name, from hour, to hour).
+(String, int, int)? dayPartAsked(String said) {
+  final t = ' ${normalize(said)} ';
+  const parts = [
+    ('ভোরে', ['ভোর', 'ভোরে'], 4, 6),
+    ('সকালে', ['সকাল', 'সকালে'], 5, 12),
+    ('দুপুরে', ['দুপুর', 'দুপুরে'], 12, 15),
+    ('বিকেলে', ['বিকাল', 'বিকালে', 'বিকেল', 'বিকেলে'], 15, 18),
+    ('সন্ধ্যায়', ['সন্ধ্যা', 'সন্ধ্যায়', 'সন্ধা', 'সন্ধায়'], 17, 20),
+    ('রাতে', ['রাত', 'রাতে'], 19, 24),
+  ];
+  for (final (name, ws, a, b) in parts) {
+    if (ws.any((w) => t.contains(' ${normalize(w)} '))) return (name, a, b);
+  }
+  return null;
+}
+
+/// A day's items in one part of it: those with a time then, and the ones
+/// with no time said, told apart.
+String dayPartAnswer(AppData d, List<PlanItem> items, (String, int, int) part, String when) {
+  int? hourOf(PlanItem i) {
+    if (i.reminder != null) return i.sort.hour;
+    final rid = i.task?.reminderId;
+    final r = rid == null ? null : d.reminders.where((x) => x.id == rid).firstOrNull;
+    return r?.hour;
+  }
+  String label(PlanItem i) {
+    final h = hourOf(i);
+    final r = i.reminder ?? (i.task?.reminderId == null ? null : d.reminders.where((x) => x.id == i.task!.reminderId).firstOrNull);
+    return h == null || r == null ? i.title : '${i.title} (${bnTime(r.hour, r.minute)})';
+  }
+  final inPart = [for (final i in items) if (hourOf(i) case final h? when h >= part.$2 && h < part.$3) i];
+  final untimed = [for (final i in items) if (hourOf(i) == null) i];
+  final head = inPart.isEmpty
+      ? trf('{0} {1} সময় ধরা কোনো কাজ বা রিমাইন্ডার নেই।', [when, part.$1])
+      : trf('{0} {1} {2}টা — {3}।', [when, part.$1, bnDigits(inPart.length), nameList([for (final i in inPart) label(i)], unit: 'টা')]);
+  final rest = untimed.isEmpty ? '' : trf(' সময় ছাড়া {0} আরও {1}টা কাজ আছে — {2}।', [when, bnDigits(untimed.length), nameList([for (final i in untimed) i.title], unit: 'টা')]);
+  return '$head$rest';
 }
 
 /// The to-dos a question covers, in the order they are said and shown:
@@ -427,7 +518,7 @@ DateTime _weekStartOf(DateTime d) => weekStartOf(d);
 /// The answer to a to-do question, and the to-dos it named in order (so
 /// "দ্বিতীয়টা হয়ে গেছে" right after knows which one). Only what is on the
 /// list is said: an empty list is "no to-do kept", never "you are free".
-(String, List<Task>) taskScopeAnswer(AppData d, TaskScope s, DateTime now) {
+(String, List<Task>) taskScopeAnswer(AppData d, TaskScope s, DateTime now, [String asked = '']) {
   final label = s.label;
   final tasks = scopedTasks(d, s, now);
   if (s.suggest) {
@@ -457,6 +548,8 @@ DateTime _weekStartOf(DateTime d) => weekStartOf(d);
     final items = planItemsOn(d, s.from!, now);
     final shown = [for (final i in items) if (i.task != null) i.task!];
     final when = label.isEmpty ? sayWhen(s.from!, now, withTime: false) : label;
+    final part = dayPartAsked(asked);
+    if (part != null) return (dayPartAnswer(d, items, part, sayWhen(s.from!, now, withTime: false)), shown);
     if (items.isEmpty) {
       return (s.free ? trf('{0} এই অ্যাপের তালিকায় কোনো কাজ বা রিমাইন্ডার রাখা নেই।', [when]) : trf('{0} কোনো কাজ বা রিমাইন্ডার রাখা নেই।', [when]), const []);
     }
@@ -487,6 +580,21 @@ DateTime _weekStartOf(DateTime d) => weekStartOf(d);
 /// "এই মাসে কত খরচ হলো?" / "রহিম ভবন প্রজেক্টে কত আছে?"
 String cashAnswer(AppData d, CashQuery q, DateTime now) {
   final name = q.project;
+  // "অন্যান্য হিসাব দাও": every separate account at a glance.
+  if (name != null && name.isEmpty) {
+    if (d.projects.isEmpty) return tr('এখনো অন্যান্য কোনো হিসাব খোলা হয়নি। বলুন, যেমন “মৃত্তিকা ফাউন্ডেশন নামে অন্যান্য হিসাব খোলো”।');
+    final lines = [
+      for (final p in d.projects)
+        () {
+          final x = projectSums(d.cash, p.id);
+          final state = x.income == 0 && x.expense == 0
+              ? tr('এখনো কিছু লেখা নেই')
+              : trf('এসেছে {0}, খরচ {1} — হাতে {2} টাকা', [bnNumber(x.income), bnNumber(x.expense), bnNumber(x.balance)]);
+          return '• ${p.name}${p.closed ? tr(' (শেষ)') : ''} — $state';
+        }(),
+    ];
+    return [trf('অন্যান্য হিসাব {0}টা:', [bnDigits(d.projects.length)]), ...lines].join('\n');
+  }
   if (name != null) {
     final p = projectByName(d, name);
     if (p == null) {
@@ -506,7 +614,20 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
   final top = s.topExpenses;
   final most = top.isEmpty ? '' : trf(' সবচেয়ে বেশি খরচ {0} খাতে — {1} টাকা।', [top.first.key, bnNumber(top.first.value)]);
   if (s.income == 0) return trf('এই মাসে খরচ হয়েছে {0} টাকা।{1}', [bnNumber(s.expense), most]);
-  if (s.expense == 0) return trf('এই মাসে আয় {0} টাকা; খরচের কোনো তথ্য নেই।', [bnNumber(s.income)]);
+  // "এই মাসে কত খরচ হলো?" is about spending: that comes first.
+  final t = normalize(q.transcript);
+  final aboutSpend = RegExp(fold('(?:খরচ|ব্যয়)')).hasMatch(t) && !RegExp(fold('(?:আয়|ইনকাম)')).hasMatch(t);
+  if (s.expense == 0) {
+    return aboutSpend ? trf('এই মাসে খরচের কোনো তথ্য নেই (আয় লেখা আছে {0} টাকা)।', [bnNumber(s.income)]) : trf('এই মাসে আয় {0} টাকা; খরচের কোনো তথ্য নেই।', [bnNumber(s.income)]);
+  }
+  if (aboutSpend) {
+    return trf('এই মাসে খরচ হয়েছে {0} টাকা।{1} (আয় {2} টাকা — {3}।)', [
+      bnNumber(s.expense),
+      most,
+      bnNumber(s.income),
+      s.balance >= 0 ? trf('ব্যালেন্স {0} টাকা', [bnNumber(s.balance)]) : trf('আয়ের চেয়ে {0} টাকা বেশি খরচ হয়েছে', [bnNumber(-s.balance)]),
+    ]);
+  }
   return trf('এই মাসে আয় {0} টাকা, খরচ {1} টাকা — {2}।{3}', [
     bnNumber(s.income),
     bnNumber(s.expense),
@@ -557,7 +678,7 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       SearchQuery() => searchAnswer(d, cmd, now),
       SmallTalk() => cmd.kind == Talk.calendar ? calendarAnswer(cmd.transcript, now) : talkReply(cmd.kind, now),
       AiReply() => cmd.text,
-      TaskQuery(:final scope?) => taskScopeAnswer(d, scope, now).$1,
+      TaskQuery(:final scope?, :final transcript) => taskScopeAnswer(d, scope, now, transcript).$1,
       TaskQuery(:final transcript) => taskAnswer(d, now, transcript),
       CashQuery() => cashAnswer(d, cmd, now),
       MoneyListQuery() => moneyListAnswer(d, cmd),
@@ -677,11 +798,15 @@ List<Contact> contactMatches(AppData d, String name) {
   final fullAll = _nameWordsFull(name);
   final full = fullAll.length == _nameWords(name).length ? [for (var i = 0; i < fullAll.length; i++) if (!_respect.contains(_nameWords(name)[i])) fullAll[i]] : q;
   final scored = <(Contact, int)>[];
+  // How far each one sounds from what was said ("Robin" 0, "Rabbani" 3 for
+  // "রবিন"): a sound-alike is offered only when nothing closer is there.
+  final far = <String, int>{};
   for (final c in d.contacts) {
     final cw = nameCore(c.name);
     if (cw.isEmpty) continue;
     final used = <int>{};
     var exact = 0;
+    var dist = 0;
     var ok = true;
     for (var qi = 0; qi < q.length; qi++) {
       final w = q[qi];
@@ -710,18 +835,21 @@ List<Contact> contactMatches(AppData d, String name) {
         ok = false;
         break;
       }
+      if (cw[hit] != w) dist += soundDistance(wf, cw[hit]);
       used.add(hit);
     }
     if (!ok) continue;
+    far[c.id] = dist;
     // Closer: more words spelled the same, fewer extra words in the name.
     scored.add((c, exact * 10 - (cw.length - q.length)));
   }
   scored.sort((a, b) => b.$2.compareTo(a.$2));
+  final closest = far.values.fold<int?>(null, (m, x) => m == null || x < m ? x : m) ?? 0;
   // The same number saved twice is one person.
   final seen = <String>{};
   return [
     for (final (c, _) in scored)
-      if (seen.add(phoneKey(c.phone).isEmpty ? c.id : phoneKey(c.phone))) c,
+      if ((far[c.id] ?? 0) <= closest + 1 && seen.add(phoneKey(c.phone).isEmpty ? c.id : phoneKey(c.phone))) c,
   ];
 }
 

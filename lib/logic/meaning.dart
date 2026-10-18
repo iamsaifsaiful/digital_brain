@@ -451,3 +451,13 @@ String _everydayWords(String s) {
   });
   return t;
 }
+
+
+/// "আমি দেনা পাওনা বলি নাই, বলেছি, অন্যান্য হিসাব" → "অন্যান্য হিসাব": a
+/// correction of what was heard; only the words meant are left.
+String meantInstead(String said) {
+  final m = RegExp(fold(r'^.+?\s+(?:বলি\s*নাই|বলিনি|বলি\s+নি|বলিনাই|বলছি\s+না|বুঝাইনি|বোঝাইনি)\s*[,।;]?\s*(?:আমি\s+)?(?:বলেছি|বলছি|বলেছিলাম|বলতে\s+চেয়েছি|মানে|বুঝিয়েছি)\s*[,।:;]?\s*(.+)$')).firstMatch(fold(said));
+  if (m == null) return said;
+  final rest = m[1]!.trim();
+  return rest.split(RegExp(r'\s+')).length >= 2 ? rest : said;
+}

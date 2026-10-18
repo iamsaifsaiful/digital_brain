@@ -18,8 +18,14 @@ String trf(String bn, List<Object?> args) {
   for (var i = 0; i < args.length; i++) {
     s = s.replaceAll('{$i}', '${args[i]}');
   }
+  // A clock time put before "-এ"/"-এর": "৫টা" + "-এ" is said "৫টায়", and
+  // "৫টা" + "-এর" is "৫টার" (a time with minutes keeps "৫:৩০-এ").
+  if (!isEn) s = s.replaceAll(_taE, 'টায়').replaceAll(_taEr, 'টার');
   return s;
 }
+
+final _taE = RegExp(r'টা-এ(?![র\u0980-\u09FF])');
+final _taEr = RegExp(r'টা-এর(?![\u0980-\u09FF])');
 
 /// One of two words, by language.
 String bnEn(String bn, String en) => isEn ? en : bn;

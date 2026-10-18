@@ -87,7 +87,12 @@ String skeleton(String word) {
         continue;
       }
       final m = _bnMap[c];
-      if (m != null) b.write(m);
+      if (m != null) {
+        b.write(m);
+      } else if (RegExp(r'[অ-ঔা-ৌ]').hasMatch(c)) {
+        // A vowel keeps two same sounds apart: "শরীর" is s-r-r, not s-r.
+        b.write('.');
+      }
     }
   } else {
     var s = w.replaceAll(RegExp(r'[^a-z]'), '');
@@ -95,12 +100,53 @@ String skeleton(String word) {
       s = s.replaceAll(a, r);
     }
     s = s.replaceAllMapped(RegExp(r'c(?=[eiy])'), (_) => 's').replaceAll('c', 'k');
-    s = s.replaceAll('q', 'k').replaceAll('x', 'ks').replaceAll('v', 'b').replaceAll('z', 'j').replaceAll(RegExp('[aeiouwy]'), '');
+    s = s.replaceAll('q', 'k').replaceAll('x', 'ks').replaceAll('v', 'b').replaceAll('z', 'j');
+    // Doubled letters next to each other are one sound ("pp", "oo").
+    s = s.replaceAllMapped(RegExp(r'(.)\1+'), (m) => m[1]!).replaceAll(RegExp('[aeiouwy]+'), '.');
     b.write(s);
   }
-  // Collapse doubled letters ("pp" → "p").
-  return b.toString().replaceAllMapped(RegExp(r'(.)\1+'), (m) => m[1]!);
+  // Collapse doubled consonants written together ("pp", "ক্ক"); a vowel
+  // between them keeps both ("shoshur" is s-s-r, never "শরীর").
+  return b.toString().replaceAllMapped(RegExp(r'([^.])\1+'), (m) => m[1]!).replaceAll('.', '');
 }
+
+const _bnVowelSigns = {'া': 'a', 'ি': 'i', 'ী': 'i', 'ু': 'u', 'ূ': 'u', 'ে': 'e', 'ৈ': 'oi', 'ো': 'o', 'ৌ': 'ou', 'ৃ': 'ri'};
+const _bnVowels = {'অ': 'o', 'আ': 'a', 'ই': 'i', 'ঈ': 'i', 'উ': 'u', 'ঊ': 'u', 'এ': 'e', 'ঐ': 'oi', 'ও': 'o', 'ঔ': 'ou', 'ঋ': 'ri'};
+
+/// A rough Latin spelling with the vowels ("রবিন" → "robin"), to tell
+/// "Robin" from "Rabbani" when both have the same consonants.
+String roman(String word) {
+  final w = fold(word.toLowerCase());
+  if (!RegExp(r'[ঀ-৿]').hasMatch(w)) {
+    return w.replaceAll(RegExp(r'[^a-z]'), '').replaceAllMapped(RegExp(r'(.)\1+'), (m) => m[1]!).replaceAll('ph', 'f').replaceAll('sh', 's').replaceAll('w', 'o').replaceAll('y', 'i').replaceAll('ee', 'i').replaceAll('oo', 'u');
+  }
+  final b = StringBuffer();
+  for (var i = 0; i < w.length; i++) {
+    final c = w[i];
+    final next = i + 1 < w.length ? w[i + 1] : '';
+    if (c == 'য' && next == '়') {
+      b.write('y');
+      i++;
+      continue;
+    }
+    final v = _bnVowels[c] ?? _bnVowelSigns[c];
+    if (v != null) {
+      b.write(v);
+      continue;
+    }
+    final m = _bnMap[c];
+    if (m == null) continue;
+    b.write(m == 's' && (c == 'শ' || c == 'ষ') ? 's' : m);
+    // The vowel a consonant carries when nothing else is written, except at
+    // the end of the word or before a joined letter.
+    final carries = next.isNotEmpty && !_bnVowelSigns.containsKey(next) && next != '্' && next != '়' && next != 'ং' && i + 1 < w.length - 1;
+    if (carries) b.write('o');
+  }
+  return b.toString().replaceAll('y', 'i').replaceAllMapped(RegExp(r'(.)\1+'), (m) => m[1]!);
+}
+
+/// How far apart two spellings of a name sound (0 = the same).
+int soundDistance(String a, String b) => _lev(roman(a), roman(b));
 
 int _lev(String a, String b) {
   if (a == b) return 0;
@@ -115,6 +161,8 @@ int _lev(String a, String b) {
   return prev[b.length];
 }
 
+final _bengali = RegExp(r'[ঀ-৿]');
+
 /// Does search word [term] match the stored word [word]?
 bool wordsMatch(String term, String word) {
   final t = fold(term.toLowerCase());
@@ -124,9 +172,16 @@ bool wordsMatch(String term, String word) {
   final ct = canon(t);
   final cw = canon(w);
   if (ct == cw || (ct.length >= 3 && cw.contains(ct)) || (cw.length >= 3 && ct.contains(cw) && cw.length >= ct.length - 1)) return true;
+  // A known name ("ওয়েবসাইট" = "website") matches by that name only — its
+  // outline says nothing about other words ("অবস্থা").
+  if (ct != t || cw != w) return false;
   final st = skeleton(ct);
   final sw = skeleton(cw);
   if (st.length < 2 || sw.length < 2) return false;
-  if (st == sw) return true;
-  return st.length >= 4 && sw.length >= 4 && _lev(st, sw) <= 1;
+  // The outline is for one word written in two scripts ("ফেসবুক" ↔
+  // "facebook"). Two Bengali words with the same few consonants are
+  // usually different words ("অবস্থা" ↔ "ওয়েবসাইট"): only long outlines.
+  final cross = _bengali.hasMatch(ct) != _bengali.hasMatch(cw);
+  if (st == sw) return cross || st.length >= 4;
+  return st.length >= (cross ? 4 : 5) && sw.length >= (cross ? 4 : 5) && _lev(st, sw) <= 1;
 }

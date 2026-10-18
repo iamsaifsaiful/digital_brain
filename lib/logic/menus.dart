@@ -393,6 +393,19 @@ Command? menuCommand(String said, AppData? d, DateTime now) {
   if (_thas(f, r'(?:লেখা|অক্ষর|ফন্ট)\s+(?:একটু\s+)?(?:ছোট)')) return MenuAction(said, domain: 'settings', op: 'letters', text: 'smaller');
   if (_thas(f, r'(?<=\s)(?:ai|এআই|এ\s+আই)(?=\s)') && _thas(f, r'(?:বন্ধ|অফ|off|চালু|অন)') && !asking) return MenuAction(said, domain: 'settings', op: 'ai', text: _thas(f, r'(?:বন্ধ|অফ|off)') ? 'off' : 'on');
 
+  // "ফাউন্ডেশনের নাম মৃত্তিকা ফাউন্ডেশন", "রহিমের আসল নাম রহিম উদ্দিন":
+  // a person in the ধার-দেনা book gets their full name.
+  if (d != null && !asking && !negated && amount == null) {
+    final rn = _tre(r'^\s*(\S+(?:\s+\S+)?)(?:ের|এর|র)\s+(?:আসল\s+|পুরো\s+|সঠিক\s+|ঠিক\s+)?নাম\s+(?:হলো\s+|হল\s+|হচ্ছে\s+|বদলে\s+)?(.+?)(?:\s+(?:লেখো|লিখো|লিখে\s+রাখো|করো|কর|দাও|রাখো|হবে))?\s*$').firstMatch(f);
+    if (rn != null) {
+      final who = _named(' ${rn[1]} ', knownPeople(d.ledger));
+      final to = rn[2]!.trim();
+      if (who != null && to.isNotEmpty && words(to).length <= 5 && personKey(to) != personKey(who)) {
+        return MenuAction(said, domain: 'people', op: 'rename', target: who, text: _origWords(said, to));
+      }
+    }
+  }
+
   // ── Projects and the shop ──
   final biz = _business(said, f, d, now, amount, asking, negated, a);
   if (biz != null) return biz;
@@ -566,7 +579,36 @@ Command? _business(String said, String f, AppData? d, DateTime now, int? amount,
   // Projects (অন্যান্য হিসাব).
   final create = _tre(r'^\s*(.+?)\s+নামে\s+(?:একটা\s+|নতুন\s+)?(?:প্রজেক্ট|প্রকল্প|হিসাব)\s+(?:খোলো|খুলুন|খুলে\s+দাও|বানাও|শুরু\s+করো)').firstMatch(f);
   if (create != null) return MenuAction(said, domain: 'project', op: 'create', target: create[1]!.trim());
+  // The page itself named: "অন্যান্য হিসাব", "আলাদা হিসাব", "প্রজেক্ট".
+  final placeWord = _thas(f, r'(?:অন্যান্য\s+হিসাব|আলাদা\s+হিসাব|প্রজেক্ট|প্রকল্প|project)');
+  // "মৃত্তিকা ফাউন্ডেশন নামে অন্যান্য হিসাবে একটা বিভাগ লেখ": a new one,
+  // whichever order the words come in.
+  final named = _tre(r'^\s*(.+?)\s+নামে\s+(.+)$').firstMatch(f);
+  if (named != null && placeWord && _thas(' ${named[2]} ', r'(?<=\s)(?:খোলো|খোল|খুলুন|খুলে\s+দাও|বানাও|বানিয়ে\s+দাও|শুরু\s+করো|লেখ|লেখো|লিখো|লিখে\s+রাখো|যোগ\s+করো|যুক্ত\s+করো|তৈরি\s+করো|রাখো|করো|কর)(?=\s|$)')) {
+    final name = named[1]!.replaceAll(_tre(r'^\s*(?:(?:অন্যান্য|আলাদা)\s+হিসাব\S*|প্রজেক্ট\S*|প্রকল্প\S*)\s+'), '').trim();
+    if (name.isNotEmpty && words(name).length <= 5) return MenuAction(said, domain: 'project', op: 'create', target: _origWords(said, name));
+  }
   final proj = d == null ? null : _named(f, [for (final p in d.projects) if (!p.closed) p.name]);
+  // "অন্যান্য হিসাব দাও", "অন্যান্য হিসাবের সারাংশ": all of them at a glance.
+  final bare = words(f.trim()).length <= 3 && _thas(f, r'^\s*(?:আমার\s+)?(?:অন্যান্য|আলাদা)\s+হিসাব\S*\s*$');
+  // (Not "রহিম ভবন প্রজেক্টে কত আছে?": a name before it is that account.)
+  final unnamed = _thas(f, r'^\s*(?:আমার\s+|আমাদের\s+|সব\s+|সকল\s+)?(?:অন্যান্য\s+হিসাব|আলাদা\s+হিসাব|প্রজেক্ট|প্রকল্প|project)');
+  if (placeWord && unnamed && proj == null && amount == null && !negated && (bare || asking || _thas(f, r'(?:দেখাও|দেখান|দাও|দিন|বলো|বলুন|সারাংশ|সামারি|summary)\s*$') || _thas(f, r'(?:সারাংশ|সামারি)'))) {
+    return CashQuery(said, project: '');
+  }
+  // "নিহান ২০০০ টাকা বেতন দিয়েছে, এটা অন্যান্য হিসাবের ভেতরে শিক্ষার্থীদের
+  // বেতনে যুক্ত কর": money into that account (who gave it is the note).
+  final into = proj ?? (placeWord ? _tre(r'(?:অন্যান্য|আলাদা)\s+হিসাব\S*\s+(?:ভেতরে|ভিতরে|মধ্যে|মাঝে)?\s*(.+?)(?:এ|তে|য়|ে)?\s+(?:যুক্ত|যোগ|লেখ|লিখ|রাখ|জমা|অ্যাড)').firstMatch(f)?.group(1)?.trim() : null);
+  if (into != null && into.isNotEmpty && amount != null && !negated && !asking) {
+    final spent = _thas(f, r'(?:খরচ|কিনলাম|কিনেছি|দিলাম|দিয়েছি|পরিশোধ\s+করেছি|বিল)');
+    final got = _thas(f, r'(?:দিয়েছে|দিয়েছে|দিল|দিলো|এসেছে|এলো|পেয়েছি|পেলাম|জমা|বেতন|ফি|আয়|চাঁদা|অনুদান)');
+    final adding = _thas(f, r'(?:যুক্ত\s+কর|যোগ\s+কর|লেখ|লিখে\s+রাখ|রাখো|অ্যাড|তোলো)');
+    if ((spent || got) && (adding || proj != null)) {
+      final category = _thas(f, r'(?<=\s)বেতন') ? 'বেতন' : (spent ? 'অন্যান্য' : 'আয়');
+      return CashAdd(said, kind: spent && !got ? CashKind.expense : CashKind.income, amount: amount, category: category,
+          project: proj ?? _origWords(said, into));
+    }
+  }
   if (_thas(f, r'(?:প্রজেক্ট|প্রকল্প)\S*\s.*(?:শেষ|বন্ধ\s+করো|আর্কাইভ)') && !asking) return MenuAction(said, domain: 'project', op: 'close', target: proj ?? '');
   if (_thas(f, r'(?<=\s)বাজেট(?=\s)') && amount != null && !asking) return MenuAction(said, domain: 'project', op: 'budget', target: proj ?? '', amount: amount);
   if (proj != null) {
@@ -615,6 +657,18 @@ Command? _business(String said, String f, AppData? d, DateTime now, int? amount,
 }
 
 String _np(String s) => ' ${normalize(s)} ';
+
+/// [norm] (normalized words of [said]) as the user wrote them, so a name
+/// keeps its own spelling and case.
+String _origWords(String said, String norm) {
+  final want = words(normalize(norm));
+  final have = said.split(RegExp(r'\s+'));
+  for (var i = 0; i + want.length <= have.length; i++) {
+    final cut = have.sublist(i, i + want.length);
+    if (words(normalize(cut.join(' '))).join(' ') == want.join(' ')) return cut.join(' ').replaceAll(RegExp(r'[,।:;!?]+$'), '');
+  }
+  return norm;
+}
 
 Command? _cashQuestion(String said, String f, AppData? d, DateTime now, bool asking) {
   if (!asking && !_thas(f, r'(?:দেখাও|দেখান|বলো|বলুন)')) return null;

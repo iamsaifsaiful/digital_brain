@@ -125,7 +125,9 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      _loadPast();
+      await _loadPast();
+      if (!mounted) return;
+      _resumeRecent();
       await _restoreDraft();
       if (!mounted) return;
       final first = widget.firstMessage?.trim() ?? '';
@@ -163,6 +165,15 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   Future<void> _loadPast() async {
     final p = await _archive.load();
     if (mounted) setState(() => _past = p);
+  }
+
+  /// Coming back (after another app, the lock, or the back button) goes on
+  /// with the conversation of the last few hours instead of a blank page;
+  /// "নতুন কথা" still starts a clean one.
+  void _resumeRecent() {
+    final last = resumable(_past, _brain.services.now());
+    if (last == null || _chat.started) return;
+    _openPast(last);
   }
 
   Future<void> _saveQuestions(List<String> q) => _brain.setQuickQuestions(q);
@@ -1026,6 +1037,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
         controller: _scroll,
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         children: [
+          if (_past.any((c) => c.id != _chatId)) _pastButton(),
           for (final m in _chat.messages) _message(m),
           if (_chat.thinking || _busy)
             Padding(
@@ -1044,6 +1056,21 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
               child: Text(_error!, textAlign: TextAlign.center, style: body(13, color: C.orangeDark, height: 1.4)),
             ),
         ],
+      );
+
+  /// At the top of the conversation (where scrolling up ends): the way to
+  /// the earlier conversations.
+  Widget _pastButton() => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Center(
+          child: OutlinedButton.icon(
+            key: const Key('past-chats'),
+            onPressed: _showPast,
+            icon: Icon(Icons.history_rounded, size: 18, color: C.green),
+            label: Text(trf('আগের কথাগুলো ({0})', [bnDigits(_past.where((c) => c.id != _chatId).length)]), style: body(14, weight: FontWeight.w600, color: C.green)),
+            style: OutlinedButton.styleFrom(side: BorderSide(color: C.line2), shape: const StadiumBorder(), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6)),
+          ),
+        ),
       );
 
   /// The words were heard wrong: put them in the box to fix and send again.

@@ -203,6 +203,24 @@ AppPlace? placeMentioned(String text) {
   return null;
 }
 
+/// "কিভাবে ডকুমেন্টস যুক্ত করব?", "নোট কীভাবে রাখে?": how to do something
+/// in a part of the app — a question, never a to-do. The part, or null.
+AppPlace? howToAsked(String said) {
+  final text = ' ${normalize(said)} ';
+  bool any(List<String> ws) => ws.any((w) => text.contains(' ${normalize(w)}') || text.contains(normalize(w)));
+  if (!any(const ['কিভাবে', 'কীভাবে', 'কি ভাবে', 'কী ভাবে', 'কেমনে', 'কেমন করে', 'কি করে', 'কী করে', 'how to', 'how do'])) return null;
+  if (!any(const ['করব', 'করবো', 'করতে', 'করে', 'করা', 'রাখব', 'রাখবো', 'রাখতে', 'রাখে', 'দেখব', 'দেখবো', 'দেখতে', 'খুলব', 'খুলবো', 'খুলতে', 'যুক্ত', 'যোগ', 'দিব', 'দেব', 'দিতে', 'পাঠাব', 'পাঠাতে', 'বানাব', 'বানাতে', 'চালু', 'বন্ধ', 'মুছব', 'মুছতে', 'add', 'use'])) return null;
+  final p = placeMentioned(normalize(said));
+  // "তুমি কিভাবে হেল্প করতে পারো?" is about the assistant, not a page.
+  return p == null || p.id == 'help' ? null : p;
+}
+
+/// The answer to [howToAsked]: what is there, and how to get to it.
+String howToAnswer(AppPlace p) {
+  final say = p.say.isEmpty ? '' : trf(' আমাকে বলেও করা যায় — যেমন “{0}”।', [tr(p.say.first)]);
+  return trf('{0}: {1} নিচের বোতাম চেপে {0} পাতা খুলুন — সেখানে নতুন যোগ করা, দেখা আর বদলানো যায়।{2}', [tr(p.title), tr(p.what), say]);
+}
+
 /// "তুমি কী কী পারো?" — spoken: short; shown: one line per part.
 String capabilitiesSpoken() => tr(
     'অনেক কিছু পারি — কাজের তালিকা, সময়মতো মনে করানো, ফোন-মেসেজ, ধার-দেনা আর আয়-ব্যয়ের হিসাব, নোট, কাগজপত্র, পাসওয়ার্ড, স্বাস্থ্য আর বিশেষ দিন। যেকোনো পাতাও খুলে দিতে পারি — যেমন বলুন “নোট খোলো”। পুরো তালিকা নিচে দিলাম।');
@@ -265,6 +283,7 @@ const voiceCaps = <String, VoiceCap>{
     'streak': 'days in a row for target', 'reminder_set': 'a daily reminder for target at time', 'reminder_off': "turn off target's reminder, keep the habit",
   }),
   'memory': VoiceCap(VoiceLevel.full, {'forget': 'forget a kept fact about the user (text: its words)'}),
+  'people': VoiceCap(VoiceLevel.partial, {'rename': 'give person target in the ledger the name text (all their records)'}),
   'alarm': VoiceCap(VoiceLevel.full, {'all_off': 'turn off every alarm (asked once, not deleted)'}),
   'trash': VoiceCap(VoiceLevel.partial, {'restore': 'bring back the last deleted item of a kind (target: নোট, কাজ…)'}),
   'backup': VoiceCap(VoiceLevel.partial, {'when': 'when the last backup was', 'now': 'back up to Google Drive now', 'status': 'whether Google backup is on, and the last one'}, notYet: ['ব্যাকআপ থেকে ফিরিয়ে আনা (পাতায় দেখে করতে হয়)']),

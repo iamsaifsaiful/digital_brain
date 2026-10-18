@@ -16,6 +16,7 @@ import 'parser.dart';
 import 'proactive.dart' show remindsOn, specialTitle;
 import 'when.dart';
 import 'answers.dart' show taskLine;
+import 'app_map.dart' show howToAsked, howToAnswer;
 
 /// The user's place (for prayer times) and name, set by the app.
 String askPlace = 'ঢাকা';
@@ -51,6 +52,7 @@ String _t(DateTime d) {
 
 /// Which everyday question [text] (normalized) is, or null.
 String? infoTopic(String text) {
+  if (howToAsked(text) != null) return 'howto';
   // "রহিম কী লিখেছে?", "করিম কী মেসেজ দিয়েছে?"
   if (_has(text, ['কী লিখেছে', 'কি লিখেছে', 'কী লিখছে', 'কি লিখছে', 'কী মেসেজ দিয়েছে', 'কি মেসেজ দিয়েছে', 'কী পাঠিয়েছে', 'কি পাঠিয়েছে', 'কী বলেছে মেসেজে'])) return 'inbox';
   if (_has(text, ['মেসেজ', 'মেসেজে', 'বার্তা', 'ম্যাসেজ', 'ইমেইল', 'মেইল', 'জিমেইল', 'message', 'mail', 'এসএমএস', 'sms']) ||
@@ -58,6 +60,8 @@ String? infoTopic(String text) {
     final sending = _has(text, ['মেসেজ দাও', 'মেসেজ দিন', 'মেসেজ দেন', 'মেসেজ পাঠাও', 'মেসেজ পাঠান', 'লিখে দাও', 'লিখে পাঠাও', 'মেইল করো', 'মেইল পাঠাও', 'send']);
     if (!sending && _has(text, ['এসেছে', 'আসছে', 'এলো', 'আসলো', 'লিখেছে', 'লিখছে', 'পাঠিয়েছে', 'নতুন', 'জরুরি', 'কী আছে', 'কি আছে', 'কোন', 'কয়টা', 'দেখাও', 'পড়ো', 'পড়ে শোনাও', 'শোনাও'])) return 'inbox';
   }
+  // "রোজা কবে?", "রমজান কবে শুরু?": the coming Ramadan by the Hijri calendar.
+  if (_has(text, ['রোজা', 'রমজান', 'রমযান', 'রামাদান', 'ramadan']) && _has(text, ['কবে', 'কখন', 'শুরু', 'কত তারিখ', 'কয় তারিখ', 'কত দিন', 'কয়দিন', 'বাকি', 'কততম', 'কয়টা'])) return 'ramadan';
   if (_has(text, ['সেহরি', 'সাহরি', 'সেহেরি'])) return 'sehri';
   if (_has(text, ['ইফতার'])) return 'iftar';
   if (_has(text, ['সূর্যোদয়', 'সূর্য ওঠে', 'সূর্য উঠবে', 'sunrise'])) return 'sunrise';
@@ -103,6 +107,17 @@ String? infoAnswer(AppData d, String said, DateTime now) {
       final left = s.maghrib.difference(now);
       final soon = s == today && left.inMinutes < 180 ? trf(' — আর {0}', [_left(left)]) : '';
       return trf('{0} {1} ইফতার {2}{3} (আনুমানিক)।', [where, s == today ? tr('আজ') : tr('কাল'), _t(s.maghrib), soon]);
+    case 'howto':
+      return howToAnswer(howToAsked(text)!);
+    case 'ramadan':
+      final h = hijriDate(now);
+      if (h.isRamadan) return trf('এখন রমজান চলছে — আজ {0} রোজা (হিজরি হিসাবে; চাঁদ দেখার ওপর এক দিন এদিক-ওদিক হতে পারে)।', [bnDigits(h.day)]);
+      var day = DateTime(now.year, now.month, now.day);
+      for (var i = 0; i < 400 && !(hijriDate(day).isRamadan && hijriDate(day).day == 1); i++) {
+        day = day.add(const Duration(days: 1));
+      }
+      final left = day.difference(DateTime(now.year, now.month, now.day)).inDays;
+      return trf('পরের রমজান শুরু হতে পারে {0} {1} — আর {2} দিন। এটা হিজরি হিসাবে আনুমানিক; বাংলাদেশে চাঁদ দেখার ওপর এক দিন এদিক-ওদিক হতে পারে।', [weekdayName(day), fullDate(day), bnDigits(left)]);
     case 'sunrise':
       final s = now.isBefore(today.sunrise) ? today : tomorrow;
       return trf('{0} {1} সূর্যোদয় {2}।', [where, s == today ? tr('আজ') : tr('কাল'), _t(s.sunrise)]);

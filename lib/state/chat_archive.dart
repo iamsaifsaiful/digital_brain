@@ -91,8 +91,19 @@ class ChatArchive {
   Future<void> clear() => keys.delete(_key);
 }
 
+/// How many messages of one conversation are kept (the oldest go first).
+const keepMessages = 600;
+
+/// The conversation to go on with when the assistant opens again: the
+/// newest one, if it was used within [within].
+SavedChat? resumable(List<SavedChat> past, DateTime now, {Duration within = const Duration(hours: 12)}) {
+  if (past.isEmpty) return null;
+  final last = past.reduce((a, b) => b.at.isAfter(a.at) ? b : a);
+  return now.difference(last.at) <= within && last.messages.any((m) => m.fromUser) ? last : null;
+}
+
 /// What to keep of a conversation: no logins, no secret sentences, and at
-/// most the last 120 messages.
+/// most the last [keepMessages] messages.
 List<ChatMessage> keepable(List<ChatMessage> messages) {
   final out = <ChatMessage>[];
   for (final m in messages) {
@@ -102,7 +113,7 @@ List<ChatMessage> keepable(List<ChatMessage> messages) {
       out.add(ChatMessage.app(m.text, info: m.info, facts: m.facts));
     }
   }
-  return out.length > 120 ? out.sublist(out.length - 120) : out;
+  return out.length > keepMessages ? out.sublist(out.length - keepMessages) : out;
 }
 
 /// "রবিনকে ৫০০০ টাকা ধার দিলাম, আর কাল…" → a short title.

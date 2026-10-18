@@ -35,6 +35,11 @@ final _joiners = RegExp(r'\s+(?:আর|এবং|তারপর|তার প�
 List<Command> parseAll(String said, List<LedgerEntry> ledger,
     {List<Task> tasks = const [], List<Contact> contacts = const [], List<FolderHint> folders = const [], DateTime? now, AppData? data}) {
   final out = _parseAll(said, ledger, tasks: tasks, contacts: contacts, folders: folders, now: now, data: data);
+  // "আজ কয়েকটি কাজ আছে": a heading before the list — no to-do is called
+  // "কয়েকটি"; the list itself is asked for.
+  if (out.isNotEmpty && out.every((c) => (c is TaskAdd && onlyCount(c.title)) || (c is NoteAdd && onlyCount(c.text)))) {
+    return [AiReply(said, text: tr('কোন কোন কাজ? একটা একটা করে বলুন, বা এক লাইনে একটা করে লিখুন — সব কাজের তালিকায় রেখে দেব।'))];
+  }
   // A menu clearly named in a request nothing understood (or only a loose
   // note would keep): said plainly what voice cannot do there, nothing saved.
   if (out.length == 1 && (out.first is NotUnderstood || out.first is SearchQuery || (out.first is NoteAdd && (out.first as NoteAdd).fromStatement))) {
@@ -57,6 +62,8 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   if (tidied.isNotEmpty) said = tidied;
   // "এ মাসে কী কী ছুটি আছে?", "কাল কত তারিখ?": the calendar on the phone.
   if (calendarAsked(said)) return [SmallTalk(said, kind: calendarTodayOnly(said, p.now) ? Talk.date : Talk.calendar)];
+  // "কিভাবে ডকুমেন্টস যুক্ত করব": how to — answered, never kept as a to-do.
+  if (howToAsked(said) != null) return [ProfileQuery(said)];
   // "আমার পাসপোর্ট দাও", "জাতীয় পরিচয় পত্র কোথায়": a paper kept in
   // ডকুমেন্টস, by its name (spaces in it or not) — shown, never a new note.
   final doc = data == null ? null : docAsked(said, data);
@@ -83,7 +90,7 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   // আছে": something on those days, told — one to-do for each day.
   final onDays = eventOnDays(said, p);
   if (onDays != null) return onDays;
-  final dated = datedTodos(said, p);
+  final dated = datedTodos(said, p) ?? datedClauses(said, p);
   if (dated != null) return dated;
   // Money said in parts of different times: one command each.
   final money = moneyClauses(said, p);
@@ -134,6 +141,13 @@ String? redirectOf(String said) {
   // "রিমাইন্ডার বন্ধ কোরো না": a request in the negative moves nothing.
   if (negatedRequest(normalize(said))) return null;
   var t = ' ${normalize(said)} ';
+  // "মনে করানোর প্রয়োজন নেই, কাজের তালিকায় রাখো শুধু": the "no ring"
+  // part only says what it should not be.
+  for (final no in const ['মনে করানোর', 'মনে করানো', 'মনে করাতে', 'রিমাইন্ডারের', 'রিমাইন্ডার', 'অ্যালার্মের', 'এলার্মের']) {
+    for (final need in const ['প্রয়োজন নেই', 'প্রয়োজন নাই', 'দরকার নেই', 'দরকার নাই', 'লাগবে না', 'দিতে হবে না', 'দিও না', 'দিবা না']) {
+      t = t.replaceAll(' ${normalize('$no $need')}', ' ');
+    }
+  }
   String? kind;
   const kinds = [
     ('alarm', ['অ্যালার্ম', 'এলার্ম', 'alarm']),
@@ -154,7 +168,7 @@ String? redirectOf(String said) {
   const fillers = [
     'এটা', 'এটাকে', 'এইটা', 'ওটা', 'ওটাকে', 'এটার', 'সেটা', 'এটাও', 'এই', 'ওই', 'হিসেবে', 'হিসাবে', 'হিসেবেই', 'লিখে', 'লেখো', 'লিখো', 'রাখো', 'রাখ', 'রাখুন', 'রাখেন', 'রেখো', 'রেখে', 'দাও', 'দিন', 'দিও', 'দেন', 'দাও না',
     'করো', 'কর', 'করে', 'করুন', 'করেন', 'সেট', 'set', 'না', 'বরং', 'একটা', 'একটি', 'ভাই', 'প্লিজ', 'please', 'আর', 'তাহলে', 'তো', 'জি', 'হ্যাঁ', 'হ্যা', 'ঠিক', 'আছে', 'আমাকে', 'আমায়', 'যেন', 'দিয়ো',
-    'ওটার', 'সময়মতো', 'সময়মত', 'সময়', 'মতো', 'মত', 'দিবে', 'দেবে', 'দিবা', 'দিও', 'দেবো', 'রাখবে', 'রাখবা', 'চাই',
+    'ওটার', 'সময়মতো', 'সময়মত', 'সময়', 'মতো', 'মত', 'দিবে', 'দেবে', 'দিবা', 'দিও', 'দেবো', 'রাখবে', 'রাখবা', 'চাই', 'শুধু', 'শুধুই', 'কেবল', 'শুধুমাত্র',
   ];
   final left = [for (final w in words(normalize(t))) if (!fillers.map(normalize).contains(w)) w];
   return left.isEmpty ? kind : null;
@@ -312,6 +326,33 @@ List<Command>? lineTodos(String said, Parser p) {
 /// put them on the list. Split at every date ("৮ নভেম্বর", "২৯ তারিখে");
 /// a date without a month takes the month said before it. Null when the
 /// sentence is not such a list (one date or none, or no list order).
+/// A title that only counts ("কয়েকটি", "কিছু কাজ আছে"): nothing to do is named.
+bool onlyCount(String title) {
+  const filler = ['কয়েকটি', 'কয়েকটা', 'কয়েক', 'কিছু', 'অনেক', 'অনেকগুলো', 'বেশ', 'কয়টা', 'কয়টি', 'কতগুলো', 'কাজ', 'কাজও', 'আছে', 'আমার', 'আজ', 'আজকে', 'কাল', 'কালকে', 'এই', 'সপ্তাহে', 'মাসে', 'বছরে', 'টা', 'টি', 'গুলো', 'দুইটা', 'তিনটা', 'চারটা', 'পাঁচটা'];
+  final w = words(normalize(title));
+  return w.isNotEmpty && w.every((x) => filler.map(normalize).contains(x) || RegExp(r'^\d+(?:টা|টি)?$').hasMatch(x));
+}
+
+/// "২৪ তারিখে দাওয়াত, ৩১ তারিখে তুবার জন্মদিন, ৪ তারিখে মোস্তাফার
+/// জন্মদিন": several things, each starting with its own day — each read on
+/// its own (a to-do, a birthday…), never joined into one title.
+List<Command>? datedClauses(String said, Parser p) {
+  final months = bnMonths.map(fold).join('|');
+  final starts = RegExp('^\\s*[০-৯0-9]{1,2}(?:ই|শে|লা|রা|ঠা)?\\s+(?:(?:$months)|${fold('তারিখ')})\\S*\\s+\\S');
+  final parts = [
+    for (final x in fold(said).split(RegExp(fold(r'\s*[,،।;]\s*|\s+(?:এবং|আর|তারপর)\s+'))))
+      if (x.trim().isNotEmpty) x.trim(),
+  ];
+  if (parts.length < 2 || !parts.every(starts.hasMatch)) return null;
+  final out = <Command>[];
+  for (final x in parts) {
+    final c = p.parse(x);
+    if (c is NotUnderstood || c is SearchQuery || c is NoteAdd) return null;
+    out.add(c);
+  }
+  return out;
+}
+
 List<Command>? datedTodos(String said, Parser p) {
   final f = fold(said);
   final order = RegExp(fold(r'[\s,।]*(?:(?:এগুলো|এগুলা|এগুলি|এসব|এই\s+সব|এই\s+কাজগুলো|সবগুলো|সব)\s+)?(?:আমার\s+)?(?:কাজের\s+(?:তালিকা|লিস্ট)\S*|টু\s*ডু\S*)(?:\s+\S+){0,4}[\s,।!]*$')).firstMatch(f);
@@ -368,25 +409,29 @@ List<Command>? datedTodos(String said, Parser p) {
 /// the chat shows them all before saving. Null when [said] is not a list
 /// of own spending.
 List<Command>? spentInParts(String said, Parser p) {
-  final f = fold(said);
+  var f = fold(said);
+  // "বাজারে গিয়েছি ৫০০০ টাকা নিয়ে।": the money taken along is not spent —
+  // only what was bought after it is.
+  final carried = RegExp(fold(r'^[^।.!?]*?(?:[০-৯0-9][০-৯0-9,]*|হাজার|শ)\s*টাকা\s+(?:নিয়ে|সাথে\s+নিয়ে|হাতে\s+নিয়ে)(?:\s+(?:গিয়েছি|গিয়েছিলাম|গেলাম|গেছি|বের\s+হয়েছি|বের\s+হলাম))?[^।.!?]*[।.!]\s*')).firstMatch(f);
+  if (carried != null) f = f.substring(carried.end);
   final total = RegExp(fold(r'[,،]?\s*(?:মোট|সব\s+মিলিয়ে|টোটাল)\s+(.+?)\s*(?:টাকা)?\s*[।.]?\s*$')).firstMatch(f);
   final body = total == null ? f : f.substring(0, total.start);
-  final pieces = body.split(RegExp(fold(r'\s*[,،;]\s*|\s+(?:আর|এবং|ও)\s+'))).map((x) => x.trim()).where((x) => x.isNotEmpty).toList();
+  final pieces = body.split(RegExp(fold(r'\s*[,،;।]\s*|\s+(?:আর|এবং|ও)\s+'))).map((x) => x.trim()).where((x) => x.isNotEmpty).toList();
   if (pieces.length < 2) return null;
   // "আগের পাঁচশ নয়, সাতশ হবে": a correction, not a list.
   if (RegExp(fold(r'(?:^|\s)(?:না|নয়|নাহ|নয়)(?=\s|,|$)')).hasMatch(f) || RegExp(fold(r'(?:হবে|দেব|দেবো|করব|লাগবে)')).hasMatch(f)) return null;
   // Only a list of spending: said as spending ("খরচ", "মোট"), or short
   // "<where> <amount>" parts — never dated plans or people's names.
-  final spendSaid = RegExp(fold(r'(?:খরচ|ব্যয়|মোট|টোটাল|গেল|গেছে)')).hasMatch(f);
+  final spendSaid = RegExp(fold(r'(?:খরচ|ব্যয়|মোট|টোটাল|গেল|গেছে|কিনলাম|কিনেছি|কিনছি|কেনা|কিনে)')).hasMatch(f) || carried != null;
   if (!spendSaid && pieces.any((x) => words(normalize(x)).length > 3)) return null;
   final w = parseWhen(said, p.now);
-  if (w != null && w.hasDay && !RegExp(fold(r'(?:আজ|আজকে)')).hasMatch(f)) return null;
+  if (w != null && w.hasDay && !RegExp(fold(r'(?:আজ|আজকে)')).hasMatch(fold(said))) return null;
   final out = <CashAdd>[];
   for (final x in pieces) {
     final amount = findAmount(normalize(x));
     if (amount == null || amount <= 0) return null;
     // Each part names where it went ("বাজারে", "রিকশায়") — no person, no verb of owing.
-    final c = p.parse('$x টাকা খরচ হয়েছে');
+    final c = p.parse('${x.replaceAll(RegExp(fold(r'\s+(?:কিনলাম|কিনেছি|কিনছি|কিনে\s+আনলাম)$')), '')} টাকা খরচ হয়েছে');
     if (c is! CashAdd || c.kind != CashKind.expense) return null;
     out.add(CashAdd(said, kind: CashKind.expense, amount: amount, category: c.category));
   }

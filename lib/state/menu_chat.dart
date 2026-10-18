@@ -334,6 +334,32 @@ extension _MenuChat on ChatController {
             _offerUndo(snap);
         }
 
+      // ── People in the ধার-দেনা book ──
+      case ('people', 'rename'):
+        final key = personKey(c.target);
+        final mine = [for (final e in d.ledger) if (personKey(e.person) == key) e];
+        if (mine.isEmpty || c.text.trim().isEmpty) {
+          _say(out, trf('“{0}” নামে লেনদেনের খাতায় কেউ নেই — কিছু বদলাইনি।', [c.target]));
+          return;
+        }
+        final joined = d.ledger.any((e) => personKey(e.person) == personKey(c.text));
+        for (final e in mine) {
+          await brain.saveEntry(e.copyWith(person: c.text.trim()), guessPhone: false);
+        }
+        _actions++;
+        final left = balanceOf(brain.data.ledger, c.text.trim());
+        _say(
+            out,
+            trf('ঠিক আছে, “{0}”-এর নাম এখন “{1}” — {2}টা লেনদেন সহ।{3}{4}', [
+              c.target,
+              c.text.trim(),
+              bnDigits(mine.length),
+              joined ? tr(' এই নামে আগের হিসাবের সাথে এক হয়ে গেল।') : '',
+              left == null ? '' : ' ${owesText(left.name, left.balance)}।',
+            ]),
+            links: [ChatLink(LinkKind.person, trf('{0} খাতা দেখুন', [possessive(c.text.trim())]), person: c.text.trim())]);
+        _offerUndo(snap);
+
       // ── What to keep in mind ──
       case ('memory', 'forget'):
         final mems = d.memories;
