@@ -1652,9 +1652,14 @@ void main() {
       expect(alarm('কাল সকালে এলার্ম দাও').needsTime, isTrue);
     });
 
-    test('showing or switching off alarms opens the alarm page', () {
-      for (final s in ['এলার্ম গুলো দেখাও', 'কাল কয়টায় এলার্ম আছে?', 'এলার্ম বন্ধ করো']) {
+    test('switching alarms off opens the alarm page; asking about them is answered', () {
+      for (final s in ['এলার্ম বন্ধ করো', 'এলার্ম পাতা খোলো']) {
         expect((parseAll(s, const [], now: night).single as OpenPlace).place, 'alarms', reason: s);
+      }
+      // 18 Oct: "আমার কোন এলার্ম আছে?" opened the page instead of answering.
+      for (final s in ['এলার্ম গুলো দেখাও', 'কাল কয়টায় এলার্ম আছে?', 'আমার কোন এলার্ম আছে?', 'কখন আছে এলার্ম?']) {
+        final c = parseAll(s, const [], now: night).single;
+        expect(c is ReminderQuery && c.alarmsOnly, isTrue, reason: s);
       }
     });
   });

@@ -7,6 +7,7 @@ import 'app_map.dart';
 import 'ask.dart';
 import 'bn.dart';
 import 'me.dart';
+import 'calendar_ask.dart';
 import 'cash.dart';
 import 'health.dart';
 import 'ledger.dart';
@@ -60,7 +61,7 @@ String _reminderLines(Iterable<Reminder> rs, DateTime now, {bool withDay = false
 /// shown instead), 'one' (the best match told).
 ({String kind, List<Reminder> shown, List<Reminder> pool, int matching, DateTime? day}) reminderView(AppData d, ReminderQuery q, DateTime now) {
   final w = parseWhen(q.transcript, now);
-  final sorted = [...d.reminders]
+  final sorted = [for (final r in d.reminders) if (!q.alarmsOnly || r.alarm) r]
     ..sort((a, b) => DateTime(a.nextDate(now).year, a.nextDate(now).month, a.nextDate(now).day, a.hour, a.minute)
         .compareTo(DateTime(b.nextDate(now).year, b.nextDate(now).month, b.nextDate(now).day, b.hour, b.minute)));
   if (w != null && w.hasDay) {
@@ -72,17 +73,29 @@ String _reminderLines(Iterable<Reminder> rs, DateTime now, {bool withDay = false
   // the list itself is asked for — not a reminder by that name.
   final named = [for (final t in q.terms) if (!_reminderGeneric.contains(t)) t];
   if (named.isEmpty) return (kind: 'all', shown: upcoming.take(_reminderPage).toList(), pool: upcoming, matching: upcoming.length, day: null);
-  final found = searchReminders(d, named);
+  final found = [for (final r in searchReminders(d, named)) if (!q.alarmsOnly || r.alarm) r];
   if (found.isEmpty) return (kind: 'miss', shown: upcoming.take(_reminderPage).toList(), pool: upcoming, matching: upcoming.length, day: null);
   return (kind: 'one', shown: [found.first], pool: [found.first], matching: 1, day: null);
 }
 
 const _reminderPage = 10;
-final Set<String> _reminderGeneric = searchTerms(normalize('রিমাইন্ডার রিমাইন্ডারগুলো রিমাইন্ডারগুলা রিমাইন্ডারের রিমাইন্ডারগুলোর মনে করানো করিয়ে করাবে আর আরো আরও অন্য অন্যান্য বাকি বাকিগুলো সব সবগুলো সবগুলা সমস্ত আমার কোন কোনো কোনগুলো কী কি কয়টা কতগুলো কতটা আছে আছেন রাখা রাখছি রেখেছি দেওয়া দেয়া দেখাও দেখান বলো বলুন দাও দিন তালিকা লিস্ট সামনের সামনে পরের চলতি এখন এখনো তো সেট')).toSet();
+final Set<String> _reminderGeneric = searchTerms(normalize('অ্যালার্ম অ্যালার্মগুলো এলার্ম এলার্মগুলো alarm কখন কয়টায় কটায় বাজবে রিমাইন্ডার রিমাইন্ডারগুলো রিমাইন্ডারগুলা রিমাইন্ডারের রিমাইন্ডারগুলোর মনে করানো করিয়ে করাবে আর আরো আরও অন্য অন্যান্য বাকি বাকিগুলো সব সবগুলো সবগুলা সমস্ত আমার কোন কোনো কোনগুলো কী কি কয়টা কতগুলো কতটা আছে আছেন রাখা রাখছি রেখেছি দেওয়া দেয়া দেখাও দেখান বলো বলুন দাও দিন তালিকা লিস্ট সামনের সামনে পরের চলতি এখন এখনো তো সেট')).toSet();
 
 String reminderAnswer(AppData d, ReminderQuery q, DateTime now) {
   // "আজ কোন রিমাইন্ডার আছে?", "কালকের রিমাইন্ডার": every one on that day.
   final v = reminderView(d, q, now);
+  if (q.alarmsOnly) {
+    if (v.shown.isEmpty) {
+      return v.kind == 'day'
+          ? trf('{0} কোনো অ্যালার্ম নেই।', [sayWhen(v.day!, now, withTime: false)])
+          : tr('কোনো অ্যালার্ম রাখা নেই। রাখতে চাইলে বলুন — যেমন “কাল সকাল ৬টায় অ্যালার্ম দাও”।');
+    }
+    final lines = [
+      for (final r in v.shown)
+        '• ${r.repeat == Repeat.none ? sayWhen(r.nextDate(now), now, withTime: false) : (r.weekdays.isNotEmpty ? r.weekdays.map(dayName).join(', ') : tr(r.repeat.label))} ${bnTime(r.hour, r.minute)} — ${r.title}${r.enabled ? '' : tr(' (বন্ধ)')}'
+    ].join('\n');
+    return trf('{0}টা অ্যালার্ম আছে:\n{1}', [bnDigits(v.shown.length), lines]);
+  }
   if (v.kind == 'day') {
     final dayText = sayWhen(v.day!, now, withTime: false);
     if (v.shown.isEmpty) return trf('{0} কোনো রিমাইন্ডার নেই। রাখতে চাইলে বলুন — যেমন “সন্ধ্যা ৭টায় মিটিং মনে করিয়ে দিও”।', [dayText]);
@@ -225,6 +238,31 @@ String ledgerAnswer(AppData d, LedgerQuery q, [DateTime? now]) {
   if (has(['গতকাল', 'yesterday'])) return (today.subtract(const Duration(days: 1)), today, 'গতকাল');
   if (has(['আজকে', 'today']) || text.split(' ').contains('আজ')) return (today, today.add(const Duration(days: 1)), 'আজ');
   return null;
+}
+
+/// Weekdays said back: a run of three or more as "রবিবার থেকে
+/// বৃহস্পতিবার" (the week starting Saturday or Sunday as it falls), else
+/// "রবিবার ও বুধবার".
+String weekdaysSaid(List<int> days) {
+  final set = days.toSet();
+  if (set.length == 7) return tr('দিন');
+  // Find a start such that the days are one unbroken run from it.
+  for (final start in set) {
+    var n = 0;
+    var d = start;
+    while (set.contains(d) && n < 7) {
+      n++;
+      d = d % 7 + 1;
+    }
+    final prev = start == 1 ? 7 : start - 1;
+    if (n == set.length && !set.contains(prev) && n >= 3) {
+      final last = (start - 1 + n - 1) % 7 + 1;
+      return trf('{0} থেকে {1}', [dayName(start), dayName(last)]);
+    }
+  }
+  final order = [...set]..sort((a, b) => ((a + 1) % 7).compareTo((b + 1) % 7));
+  final names = [for (final x in order) dayName(x)];
+  return names.length == 1 ? names.single : '${names.sublist(0, names.length - 1).join(', ')} ${tr('ও')} ${names.last}';
 }
 
 /// "ক, খ, আর গ" (at most four, then "আরও N জন").
@@ -517,7 +555,7 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       VaultQuery() => vaultAnswer(d, cmd),
       ReminderQuery() => reminderAnswer(d, cmd, now),
       SearchQuery() => searchAnswer(d, cmd, now),
-      SmallTalk() => talkReply(cmd.kind, now),
+      SmallTalk() => cmd.kind == Talk.calendar ? calendarAnswer(cmd.transcript, now) : talkReply(cmd.kind, now),
       AiReply() => cmd.text,
       TaskQuery(:final scope?) => taskScopeAnswer(d, scope, now).$1,
       TaskQuery(:final transcript) => taskAnswer(d, now, transcript),
@@ -595,6 +633,13 @@ final _respect = {
     fold(w.toLowerCase()),
 };
 
+/// [_nameWords] without the possessive taken off — "হায়দার" stays
+/// "হায়দার" (its "র" is part of the name, not "-এর").
+List<String> _nameWordsFull(String name) => [
+      for (final w in name.toLowerCase().replaceAll(RegExp(r'[।?!,.;:()\-_/]'), ' ').split(RegExp(r'\s+')).where((w) => w.isNotEmpty).map((w) => fold(w)))
+        RegExp(r'[ঀ-৿]').hasMatch(w) ? stripTo(w) : w
+    ];
+
 List<String> _nameWords(String name) {
   final ws = name
       .toLowerCase()
@@ -627,6 +672,10 @@ bool _sameWord(String a, String b) {
 List<Contact> contactMatches(AppData d, String name) {
   final q = nameCore(name);
   if (q.isEmpty) return const [];
+  // The same words before a possessive was taken off, for the loose
+  // (sound-alike) match: "হায়দার" must not become "হায়দা" ≈ "Ahad".
+  final fullAll = _nameWordsFull(name);
+  final full = fullAll.length == _nameWords(name).length ? [for (var i = 0; i < fullAll.length; i++) if (!_respect.contains(_nameWords(name)[i])) fullAll[i]] : q;
   final scored = <(Contact, int)>[];
   for (final c in d.contacts) {
     final cw = nameCore(c.name);
@@ -634,7 +683,9 @@ List<Contact> contactMatches(AppData d, String name) {
     final used = <int>{};
     var exact = 0;
     var ok = true;
-    for (final w in q) {
+    for (var qi = 0; qi < q.length; qi++) {
+      final w = q[qi];
+      final wf = qi < full.length ? full[qi] : w;
       var hit = -1;
       for (var i = 0; i < cw.length; i++) {
         if (used.contains(i)) continue;
@@ -646,7 +697,10 @@ List<Contact> contactMatches(AppData d, String name) {
       }
       if (hit < 0) {
         for (var i = 0; i < cw.length; i++) {
-          if (!used.contains(i) && _sameWord(w, cw[i])) {
+          // Sound-alike only on the word as said; the shortened form only
+          // against a name written in Bengali letters.
+          final bn = RegExp(r'[ঀ-৿]').hasMatch(cw[i]);
+          if (!used.contains(i) && (_sameWord(wf, cw[i]) || (bn && _sameWord(w, cw[i])) || (wf != w && w.length > 2 && _sameWord(w, cw[i]) && skeleton(w).length >= 3))) {
             hit = i;
             break;
           }

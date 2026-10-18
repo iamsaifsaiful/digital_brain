@@ -86,7 +86,7 @@ class BulkAction extends Command {
   final DateTime? day;
 }
 
-const _collectiveP = r'(?:এইগুলো|এইগুলা|এই\s+গুলো|এই\s+গুলা|এগুলো|এগুলা|এগুলি|ওগুলো|ওগুলা|ওইগুলো|ওইগুলা|ঐগুলো|সেগুলো|সেগুলা|এসব|ওসব|এই\s+সব|ওই\s+সব|সবগুলো|সবগুলা|সবগুলি|সবকটা|সবকটি|সবকয়টা|সবক’টা|সব|সমস্ত|উপরেরগুলো|তালিকার\s+সব|যেগুলো\s+দেখালে|যেগুলো\s+বললে|এই\s+কাজগুলো|ওই\s+কাজগুলো|কাজগুলো|কাজগুলা|এই\s+(?:নোট|রিমাইন্ডার|ওষুধ|অভ্যাস)গুলো|(?:নোট|রিমাইন্ডার|ওষুধ|অভ্যাস)গুলো|(?:নোট|রিমাইন্ডার|ওষুধ|অভ্যাস)গুলোর)';
+const _collectiveP = r'(?:এইগুলো|এইগুলা|এই\s+গুলো|এই\s+গুলা|এগুলো|এগুলা|এগুলি|ওগুলো|ওগুলা|ওইগুলো|ওইগুলা|ঐগুলো|সেগুলো|সেগুলা|এসব|ওসব|এই\s+সব|ওই\s+সব|সবগুলো|সবগুলা|সবগুলি|সবকটা|সবকটি|সবকয়টা|সবক’টা|সব|সমস্ত|উপরেরগুলো|তালিকার\s+সব|যেগুলো\s+দেখালে|যেগুলো\s+বললে|এই\s+কাজগুলো|ওই\s+কাজগুলো|কাজগুলো|কাজগুলা|এই\s+(?:নোট|রিমাইন্ডার|ওষুধ|অভ্যাস)গুলো|(?:নোট|রিমাইন্ডার|ওষুধ|অভ্যাস)গুলো|(?:নোট|রিমাইন্ডার|ওষুধ|অভ্যাস)গুলোর|(?:টাকা|পাওনা|দেনা|ধার|ঋণ)গুলো|(?:টাকা|পাওনা|দেনা|ধার|ঋণ)গুলা)';
 
 const _ordWords = {'প্রথম': 1, 'দ্বিতীয়': 2, 'তৃতীয়': 3, 'চতুর্থ': 4, 'পঞ্চম': 5, 'ষষ্ঠ': 6, 'সপ্তম': 7, 'অষ্টম': 8, 'নবম': 9, 'দশম': 10};
 const _countWords = {'দু': 2, 'এক': 1, 'একটা': 1, 'দুই': 2, 'দুটো': 2, 'দুটা': 2, 'দুইটা': 2, 'দুটি': 2, 'তিন': 3, 'তিনটা': 3, 'তিনটি': 3, 'চার': 4, 'চারটা': 4, 'চারটি': 4, 'পাঁচ': 5, 'পাঁচটা': 5, 'পাঁচটি': 5, 'ছয়': 6, 'ছয়টা': 6, 'সাত': 7, 'সাতটা': 7};
@@ -135,6 +135,9 @@ List<int> _ordList(String f) {
 
 /// The selection in [f] (folded, padded) — null when the sentence points at
 /// no group (a single "দ্বিতীয়টা" stays with the one-item rules).
+/// First word of an except name meaning "that one" ("ফোনেরটা থাকবে").
+const exceptOne = '#one';
+
 Selection? selectionIn(String f) {
   // "দ্বিতীয়টা ছাড়া সব", "ব্যাংকেরটা থাকবে, বাকিগুলো বাদ", "সব মুছো, শুধু ব্যাংকেরটা থাকবে".
   final exceptIdx = <int>[];
@@ -152,7 +155,10 @@ Selection? selectionIn(String f) {
       exceptIdx.add(o);
     } else {
       final terms = searchTerms(normalize(w.replaceAll(_tre(r'(?:ের|এর|র)?(?:টা|টি|গুলো)$'), '').replaceAll(_tre(r'(?:কাজ|নোট)$'), '')));
-      if (terms.isNotEmpty) exceptNames.add(terms);
+      // "ফোনেরটা থাকবে" means one; "জন্মদিনের গুলো থাকবে" / "জন্মদিন
+      // ছাড়া" all by that name. The one-ness travels as a first mark.
+      final one = _thas(' $w ', r'(?:টা|টি)\s');
+      if (terms.isNotEmpty) exceptNames.add([if (one) exceptOne, ...terms]);
     }
     g = g.replaceRange(m.start, m.end, ' ');
   }
@@ -204,6 +210,8 @@ String _bulkDomain(String f) {
   if (_thas(f, r'(?:নোট|note)(?:গুলো|গুলা|দুটো|দুটা)?(?=\s)')) return 'notes';
   if (_thas(f, r'(?:ওষুধ|ঔষধ)')) return 'medicines';
   if (_thas(f, r'(?:অভ্যাস)')) return 'habits';
+  // "পাওনাগুলো", "সব দেনা", "ধারগুলো": the people's balances.
+  if (_thas(f, r'(?:পাওনা|দেনা|ধার|ঋণ)')) return 'ledger';
   if (_thas(f, r'(?:লেনদেন|খরচ|আয়)')) return 'money';
   if (_thas(f, r'(?:মাপ|প্রেশার|প্রেসার|সুগার|ওজন|রিডিং)')) return 'health';
   if (_thas(f, r'(?:কাজ|task|টাস্ক)')) return 'tasks';

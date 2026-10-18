@@ -330,7 +330,7 @@ void main() {
     await openTyping(t);
     Future<void> type(String s) async {
       await t.enterText(find.byType(TextField).first, s);
-      await t.testTextInput.receiveAction(TextInputAction.send);
+      await sendTyped(t);
       await settle(t);
     }
 
@@ -374,11 +374,11 @@ void main() {
     await t.tap(find.byKey(const ValueKey('suggest:$s')));
     await settle(t);
     expect(t.widget<TextField>(find.byType(TextField).first).controller!.text, s);
-    await t.testTextInput.receiveAction(TextInputAction.send);
+    await sendTyped(t);
     await settle(t);
     if (rig.brain.data.reminders.isEmpty) {
       await t.enterText(find.byType(TextField).first, 'হ্যাঁ');
-      await t.testTextInput.receiveAction(TextInputAction.send);
+      await sendTyped(t);
       await settle(t);
     }
     expect(rig.brain.data.reminders.single.repeat, Repeat.monthly);
@@ -389,7 +389,7 @@ void main() {
     await openTyping(t);
     Future<void> type(String s) async {
       await t.enterText(find.byType(TextField).first, s);
-      await t.testTextInput.receiveAction(TextInputAction.send);
+      await sendTyped(t);
       await settle(t);
     }
 
@@ -417,7 +417,7 @@ void main() {
     await openTyping(t);
     Future<void> type(String s) async {
       await t.enterText(find.byType(TextField).first, s);
-      await t.testTextInput.receiveAction(TextInputAction.send);
+      await sendTyped(t);
       await settle(t);
     }
 
@@ -1389,7 +1389,7 @@ void main() {
     final rig = await start(t);
     await openTyping(t);
     await t.enterText(find.byType(TextField).first, 'রবিনকে ৫০০০ টাকা ধার দিলাম');
-    await t.testTextInput.receiveAction(TextInputAction.send);
+    await sendTyped(t);
     await settle(t);
     expect(find.text('রবিনকে ৫০০০ টাকা ধার দিলাম'), findsNWidgets(2));
     expect(find.textContaining('তাই তো'), findsOneWidget);
@@ -1397,10 +1397,10 @@ void main() {
     await settle(t);
     expect(rig.brain.data.ledger.single.amount, 5000);
     await t.enterText(find.byType(TextField).last, 'ফেসবুকের পাসওয়ার্ড ১২২৩৯৯৩৯');
-    await t.testTextInput.receiveAction(TextInputAction.send);
+    await sendTyped(t);
     await settle(t);
     await t.enterText(find.byType(TextField).last, 'হ্যাঁ');
-    await t.testTextInput.receiveAction(TextInputAction.send);
+    await sendTyped(t);
     await settle(t);
     expect(rig.brain.data.vault.single.name, 'ফেসবুক');
     expect(rig.brain.data.vault.single.password, '12239939');
@@ -1447,7 +1447,7 @@ void main() {
         });
     await openTyping(t);
     await t.enterText(find.byType(TextField).first, 'আজ কোন রিমাইন্ডার আছে?');
-    await t.testTextInput.receiveAction(TextInputAction.send);
+    await sendTyped(t);
     await settle(t);
     expect(find.textContaining('৩টা রিমাইন্ডার'), findsNothing);
     expect(find.textContaining('বাজার'), findsWidgets);
@@ -1597,7 +1597,7 @@ void main() {
     await settle(t);
     await openTyping(t);
     await t.enterText(find.byType(TextField).first, 'বিয়ের ছবিগুলো দেখাও');
-    await t.testTextInput.receiveAction(TextInputAction.send);
+    await sendTyped(t);
     await settle(t);
     expect(find.textContaining('ভাইয়ের বিয়ে'), findsWidgets);
     expect(find.textContaining('দেখুন: ভাইয়ের বিয়ে'), findsOneWidget);
@@ -1647,7 +1647,7 @@ void main() {
     final rig = await start(t);
     await openTyping(t);
     await t.enterText(find.byType(TextField).first, 'রহিমের জন্মদিন ১২ মার্চ');
-    await t.testTextInput.receiveAction(TextInputAction.send);
+    await sendTyped(t);
     await settle(t);
     expect(find.textContaining('মনে করিয়ে দেবো'), findsWidgets);
     await t.tap(find.widgetWithText(ActionChip, 'হ্যাঁ'));
@@ -1669,7 +1669,7 @@ void main() {
     final rig = await start(t);
     await openTyping(t);
     await t.enterText(find.byType(TextField).first, 'মনে রেখো রহিম আমার শ্যালক');
-    await t.testTextInput.receiveAction(TextInputAction.send);
+    await sendTyped(t);
     await settle(t);
     await t.tap(find.widgetWithText(ActionChip, 'হ্যাঁ'));
     await settle(t);
@@ -1775,4 +1775,18 @@ void main() {
     await rig.brain.setEnglish(false);
     await rig.brain.setLook(Look.light);
   });
+}
+
+/// The chat box's ↵ makes a new line; the round "পাঠান" button sends.
+/// (Other boxes, like search, still send from the keyboard.)
+Future<void> sendTyped(WidgetTester t) async {
+  await t.pump();
+  final button = find.byTooltip('পাঠান');
+  if (button.evaluate().isNotEmpty) {
+    // Pressed as a finger would (a passing snack bar may cover it on screen).
+    t.widget<InkWell>(find.descendant(of: button.first, matching: find.byType(InkWell)).first).onTap!();
+    await t.pump();
+  } else {
+    await t.testTextInput.receiveAction(TextInputAction.send);
+  }
 }

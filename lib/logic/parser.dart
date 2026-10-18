@@ -84,8 +84,11 @@ class VaultAdd extends Command {
 }
 
 class ReminderQuery extends Command {
-  const ReminderQuery(super.transcript, {required this.terms});
+  const ReminderQuery(super.transcript, {required this.terms, this.alarmsOnly = false});
   final List<String> terms;
+
+  /// "আমার কোন এলার্ম আছে?", "কখন আছে এলার্ম?": the alarms only.
+  final bool alarmsOnly;
 }
 
 /// Something to remember. [fromStatement]: the user just said a fact
@@ -281,8 +284,13 @@ class MemoryAdd extends Command {
 
 /// "রহিমের জন্মদিন ১২ মার্চ", "আব্বার মৃত্যুবার্ষিকী ৩ জুন": a day every year.
 class SpecialAdd extends Command {
-  const SpecialAdd(super.transcript, {required this.person, required this.kind, required this.month, required this.day, this.year});
+  const SpecialAdd(super.transcript, {required this.person, required this.kind, required this.month, required this.day, this.year, this.hour, this.minute = 0});
   final String person;
+
+  /// "সকাল ১১টায় তুবার জন্মদিনের রিমাইন্ডার দাও": the time said for the
+  /// yearly ring (null = the usual 9 in the morning).
+  final int? hour;
+  final int minute;
   final SpecialKind kind;
   final int month;
   final int day;
@@ -374,7 +382,7 @@ class NotUnderstood extends Command {
   const NotUnderstood(super.transcript);
 }
 
-enum Talk { greeting, salam, howAreYou, imFine, whoAreYou, whatCanYouDo, thanks, bye, time, date, nothingDone, cancelled, wontDo, listenOverMe, understand, sorry }
+enum Talk { greeting, salam, howAreYou, imFine, whoAreYou, whatCanYouDo, thanks, bye, time, date, nothingDone, cancelled, wontDo, listenOverMe, understand, sorry, calendar }
 
 /// Conversation, not data: "তুমি কেমন আছো?", "ধন্যবাদ", "আজ কত তারিখ?".
 class SmallTalk extends Command {
@@ -782,7 +790,11 @@ SpecialAdd? specialDayIn(String said, String text) {
   if (person.isEmpty) return null;
   // Keep the user's own spelling of the name.
   final orig = RegExp(RegExp.escape(person), caseSensitive: false).firstMatch(said);
-  return SpecialAdd(said, person: orig?.group(0) ?? person, kind: kind, month: date.$2, day: date.$1, year: date.$3);
+  // A clock time said with a part of the day ("সকাল ১১টায়") is the ring
+  // time; a bare hour is left to the usual morning ring.
+  final w = parseWhen(said, DateTime(2000, 1, 1));
+  final timed = w != null && w.hasTime && !hourOpen(said, w.at.hour);
+  return SpecialAdd(said, person: orig?.group(0) ?? person, kind: kind, month: date.$2, day: date.$1, year: date.$3, hour: timed ? w.at.hour : null, minute: timed ? w.at.minute : 0);
 }
 
 const _relations = [
@@ -1047,6 +1059,10 @@ class Parser {
       if (set != null) return set;
     }
 
+    // "আয়-ব্যয়ের হিসাব দাও / চাই / কত?": the span's income and spending —
+    // never the people's balances (their "হিসাব" is a different book).
+    if (text.contains(normalize('আয়-ব্যয়')) && !_hasNorm(text, const ['তালিকা', 'লিস্ট', 'লেনদেন', 'পাওনা', 'দেনা', 'ধার'])) return CashQuery(said);
+
     // A question about money.
     final isQuestion = (asking && asksAboutOwing(text)) || _hasAny(text, ['কত', 'কাকে', 'কার কাছে', 'কে কে', 'হিসাব', 'কবে']) &&
         (_hasAny(text, ['পাওনা', 'পাব', 'পাবো', 'পাবে', 'পাই', 'দেনা', 'দিতে হবে', 'দেব', 'দেবো', 'বাকি', 'ধার', 'হিসাব', 'লেনদেন']) ||
@@ -1169,6 +1185,9 @@ class Parser {
         ('এ মাসের সব লেনদেন', MoneyListQuery(said, from: DateTime(now.year, now.month), to: DateTime(now.year, now.month + 1), label: 'এই মাসে')),
       ]);
     }
+    // "আয়-ব্যয়ের হিসাব দাও", "আয়-ব্যয় কত?": the summary of the span (this
+    // month unless said); a list only when one is asked for.
+    if (w.contains(normalize('আয়-ব্যয়')) && !_hasNorm(text, const ['তালিকা', 'লিস্ট', 'লেনদেন', 'গুলো']) && owedToMe(text) == null) return CashQuery(said);
     final records = w.any((x) => x.startsWith(normalize('লেনদেন')) || x == normalize('আয়-ব্যয়') || x == normalize('আয়ব্যয়') || x == 'transaction' || x == 'transactions') ||
         (w.any((x) => x == normalize('খরচগুলো') || x == normalize('আয়গুলো') || x == normalize('খরচের') && _hasNorm(text, const ['তালিকা', 'লিস্ট'])));
     if (!records) return null;
@@ -1576,6 +1595,19 @@ class Parser {
   /// "প্রতি শুক্রবার", "প্রতি সপ্তাহে রবি আর বুধবার": the weekdays of a
   /// weekly repeat (empty when it is not weekly).
   List<int> _weeklyDays(String text) {
+    // "রবিবার থেকে বৃহস্পতিবার", "শনি থেকে বুধ পর্যন্ত": every day of the
+    // range, in week order (wrapping past the week's end).
+    final stems = [for (var k = 0; k < 7; k++) normalize(bnWeekdays[k].replaceAll('বার', ''))];
+    final range = RegExp('(?:^|\\s)(${stems.join('|')})(?:${normalize('বার')})?(?:${normalize('ের')}|${normalize('এর')}|${normalize('দিন')})?\\s+${normalize('থেকে')}\\s+(?:${normalize('প্রতি')}\\s+)?(${stems.join('|')})(?:${normalize('বার')})?').firstMatch(text);
+    if (range != null) {
+      final a = stems.indexOf(range[1]!), b = stems.indexOf(range[2]!);
+      final out = <int>[];
+      for (var i = a;; i = (i + 1) % 7) {
+        out.add(i + 1);
+        if (i == b || out.length == 7) break;
+      }
+      return out;
+    }
     final weekly = text.contains(normalize('প্রতি সপ্তাহে')) || text.contains(normalize('সপ্তাহে সপ্তাহে')) || text.contains(normalize('প্রত্যেক'));
     final days = <int>[];
     for (var k = 0; k < 7; k++) {
@@ -1609,10 +1641,15 @@ class Parser {
     // Asking about, showing, stopping or removing alarms is not setting one.
     // Removing one by name is handled with the other changes ("মিটিংয়ের অ্যালার্মটা মুছে দাও").
     if (_hasNorm(text, const ['মুছ', 'ডিলিট', 'delete', 'বাতিল'])) return null;
-    // Showing, asking about or switching off alarms: the অ্যালার্ম page.
-    if (_hasNorm(text, const ['বন্ধ', 'দেখাও', 'দেখান', 'তালিকা', 'লিস্ট', 'কয়টা', 'কয়টায়', 'কখন', 'কটায়', 'খোলো', 'খুলুন', 'অফ', 'off', 'চালু', 'গুলো', 'গুলি']) ||
-        (isQuestionText(said) && !_hasNorm(text, const ['দিবা', 'দেবে', 'দিবেন', 'পারবে', 'পারবা']))) {
+    // Switching alarms off or on, or opening the page: the অ্যালার্ম page.
+    if (_hasNorm(text, const ['বন্ধ', 'খোলো', 'খুলুন', 'খুলে', 'অফ', 'off', 'চালু', 'পাতা', 'পেজ'])) {
       return alarmWord ? OpenPlace(said, place: 'alarms') : null;
+    }
+    // Asking about them ("আমার কোন এলার্ম আছে?", "কখন আছে এলার্ম?",
+    // "অ্যালার্মগুলো দেখাও"): answered here, from the alarms kept.
+    if (_hasNorm(text, const ['দেখাও', 'দেখান', 'তালিকা', 'লিস্ট', 'কয়টা', 'কয়টায়', 'কখন', 'কটায়', 'গুলো', 'গুলি', 'কতগুলো']) ||
+        (isQuestionText(said) && !_hasNorm(text, const ['দিবা', 'দেবে', 'দিবেন', 'পারবে', 'পারবা']))) {
+      return alarmWord ? ReminderQuery(said, terms: searchTerms(text), alarmsOnly: true) : null;
     }
     var (before, plain) = splitBefore(said);
     // For an alarm a bare "৬টা" is a time, not a count.
@@ -1651,7 +1688,12 @@ class Parser {
       for (final x in words(normalize(withoutWhen(plain))))
         if (!_alarmJunk.contains(x) && !RegExp(r'^[0-9০-৯]').hasMatch(x) && !_numberWord.hasMatch(x) && !_alarmWords.any((a) => x.startsWith(normalize(a))) && !RegExp(r'^[a-z]{1,4}$').hasMatch(x)) x,
     ];
-    final title = wake ? 'ঘুম থেকে ওঠা' : (rest.isEmpty ? 'অ্যালার্ম' : tidy(cutWords(withoutWhen(plain), [..._alarmWords, ..._alarmVerbs, ..._wakeWords, ..._fillers])));
+    var title = wake ? 'ঘুম থেকে ওঠা' : (rest.isEmpty ? 'অ্যালার্ম' : tidy(cutWords(withoutWhen(plain), [..._alarmWords, ..._alarmVerbs, ..._wakeWords, ..._fillers])));
+    // "প্রতি রবিবার থেকে বৃহস্পতিবার …, পড়ানো আছে আমার" → "পড়ানো".
+    title = tidy(title
+        .replaceAll(RegExp(fold(r'(?:^|(?<=\s))(?:প্রতি|থেকে|পর্যন্ত|প্রত্যেক)(?=\s|$|[,।])')), ' ')
+        .replaceAll(RegExp(fold(r'(?:\s+(?:আছে|আমার|আছে\s+আমার|আমার\s+আছে))+\s*[।.!]*\s*$')), '')
+        .replaceAll(RegExp(r'^[\s,।]+|[\s,।]+$'), ''));
     final clean = title.trim().isEmpty || words(normalize(title)).every((x) => _alarmJunk.contains(x) || RegExp(r'^[0-9০-৯]').hasMatch(x) || _numberWord.hasMatch(x)) ? 'অ্যালার্ম' : title;
     return ReminderAdd(said, title: clean, at: at, repeat: repeat, alarm: true, weekdays: repeat == Repeat.weekly ? weekDays : const [], minutesBefore: before);
   }
@@ -1874,7 +1916,19 @@ class Parser {
     const pronouns = {'আমাকে', 'তাকে', 'ওকে', 'উনাকে', 'ওনাকে', 'তাঁকে', 'কাকে', 'সবাইকে'};
     for (var i = 0; i < w.length; i++) {
       if (w[i].endsWith('কে') && !pronouns.contains(w[i])) {
-        final raw = _nameEndingAt(w, i, stripTo);
+        var raw = _nameEndingAt(w, i, stripTo);
+        // "রবিন হায়দারকে ফোন দাও": the whole name, not only its last word —
+        // at the start of the sentence, plain words (no ending, no day or
+        // time) before it are part of it.
+        if (raw != null && !raw.contains(' ') && i <= 2) {
+          var j = i - 1;
+          final more = <String>[];
+          while (j >= 0 && more.length < 2 && _looksLikeName(w[j]) && stripPossessive(w[j]) == w[j] && stripTo(w[j]) == w[j] && parseWhen(w[j], now) == null && !_honorifics.contains(w[j])) {
+            more.insert(0, w[j]);
+            j--;
+          }
+          if (j < 0 && more.isNotEmpty) raw = '${more.join(' ')} $raw';
+        }
         if (raw != null && raw.length >= 2) return resolvePerson(raw, known);
       }
       if (i + 1 < w.length && {'নম্বরে', 'নাম্বারে', 'মোবাইলে', 'ফোনে'}.contains(w[i + 1])) {

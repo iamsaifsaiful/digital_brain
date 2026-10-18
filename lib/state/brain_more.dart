@@ -20,7 +20,9 @@ extension BrainMore on Brain {
 
   /// Saves [s] with its yearly reminder (at 9 in the morning, and
   /// [SpecialDay.daysBefore] days before).
-  Future<SpecialDay> saveSpecialDay(SpecialDay s) async {
+  /// [hour]/[minute]: a ring time said for it; otherwise the time it
+  /// already rang at (an edit keeps it), or 9 in the morning.
+  Future<SpecialDay> saveSpecialDay(SpecialDay s, {int? hour, int minute = 0}) async {
     final now = services.now();
     final next = s.next(now);
     final old = s.reminderId == null ? null : reminderById(s.reminderId!);
@@ -28,7 +30,8 @@ extension BrainMore on Brain {
       id: old?.id,
       title: '${s.kind.mark} ${specialTitle(s)}',
       date: next,
-      hour: 9,
+      hour: hour ?? old?.hour ?? 9,
+      minute: hour != null ? minute : (old?.minute ?? 0),
       daysBefore: s.daysBefore,
       repeat: Repeat.yearly,
       note: s.note,

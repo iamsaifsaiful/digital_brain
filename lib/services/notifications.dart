@@ -295,7 +295,9 @@ abstract class Notifier {
   Future<void> showPanelMic(bool on, {String title, String body});
 }
 
-const _channelId = 'reminder_alarm';
+// '_v2': made with vibration on every phone (Android never changes a channel
+// once made, so the older id is removed in [schedule]).
+const _channelId = 'reminder_alarm_v2';
 const _alarmTone = 'content://settings/system/alarm_alert';
 
 /// Android never changes a channel's sound after it is made, so each
@@ -343,13 +345,17 @@ NotificationDetails _details({required bool insistent, required bool repeating, 
 /// The assistant's own notes (summaries, nudges): a normal notification sound, no alarm.
 NotificationDetails _gentleDetails(String body) => NotificationDetails(
       android: AndroidNotificationDetails(
-        'assistant_notes',
+        // A new id: the old 'assistant_notes' channel was made without
+        // vibration, and Android never changes a channel once made.
+        'assistant_notes_vibrate',
         'সহকারীর বার্তা',
         channelDescription: 'সকাল-রাতের সারাংশ আর দরকারি কথা মনে করানো',
         icon: 'ic_stat_reminder',
         color: const Color(0xFF0E7A5F),
-        importance: Importance.defaultImportance,
-        priority: Priority.defaultPriority,
+        importance: Importance.high,
+        priority: Priority.high,
+        enableVibration: true,
+        vibrationPattern: Int64List.fromList([0, 400, 250, 400]),
         category: AndroidNotificationCategory.reminder,
         visibility: NotificationVisibility.private,
         styleInformation: BigTextStyleInformation(body),
@@ -673,6 +679,10 @@ class NotificationService implements Notifier {
       // Channels of ringtones no longer used.
       try {
         await _android?.deleteNotificationChannel(channelId: 'reminders');
+        await _android?.deleteNotificationChannel(channelId: 'assistant_notes');
+        for (final c in await _android?.getNotificationChannels() ?? const <AndroidNotificationChannel>[]) {
+          if (c.id.startsWith('reminder_alarm') && !c.id.startsWith(_channelId)) await _android?.deleteNotificationChannel(channelId: c.id);
+        }
         final keep = channelFor(soundUri);
         for (final c in await _android?.getNotificationChannels() ?? const <AndroidNotificationChannel>[]) {
           if (c.id.startsWith(_channelId) && c.id != keep) await _android?.deleteNotificationChannel(channelId: c.id);

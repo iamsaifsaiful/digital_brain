@@ -122,7 +122,7 @@ const docFolderWords = <String, List<String>>{
 const _endings = ['গুলোতে', 'গুলো', 'গুলি', 'টাতে', 'টায়', 'টা', 'টি', 'তে', 'য়', 'এর', 'ের', 'র', 'এ', 'ে', 's'];
 
 /// Pages that "… দেখাও" simply opens.
-const _pagesToShow = {'pro', 'requests', 'shop', 'calendar', 'settings', 'help', 'notifications', 'sound', 'backup', 'accounts', 'savings', 'zakat', 'split', 'emergency', 'templates', 'pdf', 'alarms', 'inbox', 'health'};
+const _pagesToShow = {'pro', 'requests', 'shop', 'calendar', 'settings', 'help', 'notifications', 'sound', 'backup', 'accounts', 'savings', 'zakat', 'split', 'emergency', 'templates', 'pdf', 'inbox', 'health'};
 
 // Words that open a page.
 const _openVerbs = [

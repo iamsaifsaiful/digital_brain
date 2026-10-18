@@ -5,6 +5,7 @@ import 'dart:math';
 
 import 'app_map.dart';
 import 'bn.dart';
+import 'calendar_ask.dart';
 import 'calendar_bd.dart';
 import 'lang.dart';
 import 'parser.dart' show Talk;
@@ -33,6 +34,7 @@ String talkReply(Talk kind, DateTime now) => switch (kind) {
       Talk.listenOverMe => 'ঠিক আছে — এখন থেকে আমি কিছু বলার সময় আপনি কথা বললেই আমি থেমে আপনার কথা শুনব।',
       Talk.understand => 'জি, শুনছি আর বুঝছি। বলুন কী করতে হবে — যেমন “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”।',
       Talk.sorry => 'দুঃখিত, ঠিকমতো বুঝতে পারিনি। একটু সরাসরি বলবেন? যেমন “কাল ১০টায় অ্যালার্ম দাও” বা “শফিক ভাইয়ের কাছে কত পাই?”',
+      Talk.calendar => calendarAnswer('', now),
       Talk.date => trf('আজ {0}, {1}। বাংলায় {2}; আরবি তারিখ {3}।', [weekdayName(now), fullDate(now), banglaDate(now).text, hijriDate(now).text]),
     };
 

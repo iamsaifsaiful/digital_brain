@@ -235,6 +235,8 @@ final Map<String, String> _verbNoun = {
 /// The "doing it" form of one verb word, or null when it is not a verb
 /// form this knows: "করতে" / "করব" / "করমু" → "করা", "দিতে" / "দেব" →
 /// "দেওয়া", "গুছাব" → "গোছানো", "যাইতে" → "যাওয়া".
+final Set<String> _abNouns = {for (final n in const ['হিসাব', 'হিসেব', 'জবাব', 'কিতাব', 'নবাব', 'আসবাব', 'খিতাব', 'শরাব', 'কাবাব', 'সওয়াব', 'ছওয়াব', 'আদাব', 'গোলাব', 'খারাব', 'পারাব']) _tf(n)};
+
 String? _nounOfVerb(String w) {
   final x = _tf(w);
   for (final (suf, minRoot) in [('তে', 1), ('বো', 1), ('ব', 1), ('মু', 1), ('বেন', 1)]) {
@@ -245,7 +247,8 @@ String? _nounOfVerb(String w) {
     if (n != null) return n;
     // Any other "-ানো" verb ("ঝুলাতে", "ঝুলাব"): only the standard endings,
     // so "আসসালামু" is not a verb.
-    if (suf != 'মু' && suf != 'বেন' && root.length >= 3 && root.endsWith('া')) return '${root}নো';
+    // Nouns that only look like one ("হিসাব", "জবাব", "কিতাব") are not.
+    if (suf != 'মু' && suf != 'বেন' && root.length >= 3 && root.endsWith('া') && !_abNouns.contains(x)) return '${root}নো';
   }
   return null;
 }

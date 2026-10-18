@@ -218,7 +218,9 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
           children: [
-            for (final q in _questions)
+            // What fits next in this conversation first ("এগুলো সব মুছে দাও"
+            // after a list), then the user's own questions.
+            for (final q in [..._chat.followUps, ..._questions.where((x) => !_chat.followUps.contains(x))])
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: Material(
@@ -227,7 +229,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
                   child: InkWell(
                     customBorder: const StadiumBorder(),
                     onTap: _busy ? null : () => _send(q),
-                    onLongPress: () => _removeQuestion(q),
+                    onLongPress: _questions.contains(q) ? () => _removeQuestion(q) : null,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       child: Center(child: Text(q, style: body(14, color: C.muted2))),
@@ -1281,8 +1283,10 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
                   focusNode: _focus,
                   minLines: 1,
                   maxLines: 5,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => _submitTyped(),
+                  // The keyboard's ↵ starts a new line (a list of to-dos, one
+                  // per line); the round button beside the box sends.
+                  keyboardType: TextInputType.multiline,
+                  textInputAction: TextInputAction.newline,
                   style: body(16),
                   decoration: InputDecoration(
                     isDense: true,

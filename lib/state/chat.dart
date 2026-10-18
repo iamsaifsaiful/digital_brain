@@ -206,6 +206,20 @@ class ChatController extends ChangeNotifier {
   /// The items picked last ("বাকিগুলো" = the list without them).
   List<String> _lastPicked = const [];
 
+  /// The turn of the last thing said or answered that was not about a
+  /// shown list (see [_setFor]).
+  int _topicTurn = 0;
+
+  /// This turn acted on the list shown (a group change, one of its items
+  /// ticked or moved, the answer to its question): the topic stays.
+  bool _onList = false;
+
+  /// The turn of the last save (its next steps are offered only right after it).
+  int _savedTurn = -1;
+
+  /// One-tap next steps for the conversation now (see bulk_chat.dart).
+  List<String> get followUps => _followUps;
+
   /// The reading "দ্বিতীয়টা ভুল" pointed at, waiting for its right value.
   String? _healthFix;
 
@@ -624,6 +638,12 @@ class ChatController extends ChangeNotifier {
     if (doneTail) Trace.log('understood', 'closing words left out', {'kept': t});
     ended = false;
     _turn++;
+    // The turn before, if it was not about the list shown (a new request,
+    // a question, a reminder kept…), is a new topic: a bare "এগুলো" now no
+    // longer points at a list shown before it. A list shown by that turn
+    // itself still counts.
+    if (!_onList) _topicTurn = _turn - 1;
+    _onList = false;
     // The same words again within seconds, right after they were acted on:
     // a repeated callback or a retry — never a second entry.
     final wall = DateTime.now();
@@ -993,6 +1013,7 @@ class ChatController extends ChangeNotifier {
         continue;
       }
       if (c is TaskDone || c is TaskEdit || c is TaskRestore || c is ReminderSnooze) {
+        _onList = true;
         await _todo(c, out);
         tags.add('[কাজের তালিকায় বদল]');
         continue;
@@ -1010,6 +1031,7 @@ class ChatController extends ChangeNotifier {
       }
       if (c is TaskQuery) _rememberShown(c);
       if (c is ReminderQuery) _rememberReminders(c);
+      if (c is LedgerQuery) _rememberLedger(c);
       if (c is ProfileQuery) _rememberTopic(c);
       if (c is OpenPlace) {
         final p = placeById(c.place);
@@ -1452,7 +1474,9 @@ class ChatController extends ChangeNotifier {
         if (_allYes) return _saveCurrent(out);
         final when = '${bnDigits(c.day)} ${monthName(c.month)}${c.year == null ? '' : ' ${bnDigits(c.year!)}'}';
         final what = specialTitle(SpecialDay(person: c.person, kind: c.kind, month: c.month, day: c.day));
-        _ask(out, trf('{0}, {1} — প্রতি বছর আগের দিন আর সেদিন সকালে মনে করিয়ে দেবো?', [what, when]), ChatWait.yesNo, choices: _yesNoChoices);
+        _ask(out, c.hour == null
+            ? trf('{0}, {1} — প্রতি বছর আগের দিন আর সেদিন সকালে মনে করিয়ে দেবো?', [what, when])
+            : trf('{0}, {1} — প্রতি বছর আগের দিন আর সেদিন {2}-এ মনে করিয়ে দেবো?', [what, when, bnTime(c.hour!, c.minute)]), ChatWait.yesNo, choices: _yesNoChoices);
       default:
         await _done(out);
     }
@@ -1725,6 +1749,7 @@ class ChatController extends ChangeNotifier {
         } else if (pick is MenuAction) {
           await _menu(pick, out);
         } else if (pick is BulkAction) {
+          _onList = true;
           final set = _clarifySet;
           _clarifySet = null;
           if (set != null) {
@@ -2084,6 +2109,21 @@ class ChatController extends ChangeNotifier {
         await _start(TaskAdd(t, title: title, due: due, span: was?.span ?? TaskSpan.day, repeat: was?.repeat, deadline: was?.deadline ?? false), out);
         return true;
       case ChatWait.callee:
+        // "রবিন হায়দার বলেছি, আহাদ না" / "না, রবিন হায়দার": the name said
+        // again, a correction of the search — searched afresh, not a new topic.
+        final fix = RegExp(fold(r'^\s*(?:না[,\s]+)?(.+?)\s+(?:বলেছি|বলছি|বললাম|বলেছিলাম|বলছিলাম)\b')).firstMatch(fold(t)) ??
+            RegExp(fold(r'^\s*(?:না|নাহ|উহু)[,\s]+(.+?)\s*(?:কে)?\s*$')).firstMatch(fold(t));
+        if (fix != null && _call != null) {
+          final name = fix[1]!.replaceAll(RegExp(fold(r'(?:কে|কেই)$')), '').trim();
+          if (name.isNotEmpty && words(normalize(name)).length <= 3) {
+            _callee = name;
+            _calleeChoices = const [];
+            wait = ChatWait.none;
+            choices = const [];
+            _nextCallStep(out);
+            return true;
+          }
+        }
         if (_calleeChoices.isNotEmpty) {
           final picked = _pickCallee(t);
           if (picked == null) {
@@ -2342,6 +2382,7 @@ class ChatController extends ChangeNotifier {
     _batchSnap ??= snap;
     if (c != null && c is! ManageItem) {
       _lastSave = (c, snap, _now);
+      _savedTurn = _turn;
       _idsBeforeSave = {for (final t in targetsIn(brain.data, _now)) t.id};
     }
     switch (c) {
@@ -2411,7 +2452,11 @@ class ChatController extends ChangeNotifier {
         }
         final what = c.needsTitle ? '' : '“${c.title}” ';
         final again = c.repeat == Repeat.none || c.repeat.isInterval || c.repeat == Repeat.daily ? '' : ', ${c.repeat.label}';
-        _say(out, quiet ? trf('মনে করাব: {0}', [c.title]) : (c.repeat.isInterval || c.repeat == Repeat.daily ? trf('ঠিক আছে, {0} {1}মনে করিয়ে দেব।', [c.repeat.label, what]) : trf('ঠিক আছে, {0}-এ {1}মনে করিয়ে দেব{2}।', [sayWhen(c.at, _now), what, again])) + early,
+        // "রবিবার থেকে বৃহস্পতিবার": the days said back, not "প্রতি সপ্তাহে".
+        final days = c.repeat == Repeat.weekly && c.weekdays.length >= 2
+            ? trf('ঠিক আছে, প্রতি {0} {1}-এ {2}{3}।', [weekdaysSaid(c.weekdays), bnTime(c.at.hour, c.at.minute), what, c.alarm ? tr('অ্যালার্ম বাজবে') : tr('মনে করিয়ে দেব')])
+            : null;
+        _say(out, quiet ? trf('মনে করাব: {0}', [c.title]) : days != null ? days + early : (c.repeat.isInterval || c.repeat == Repeat.daily ? trf('ঠিক আছে, {0} {1}মনে করিয়ে দেব।', [c.repeat.label, what]) : trf('ঠিক আছে, {0}-এ {1}মনে করিয়ে দেব{2}।', [sayWhen(c.at, _now), what, again])) + early,
             links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))], speak: !quiet);
         _history.add(AiTurn.app('[রিমাইন্ডার রাখা হলো: ${summaryLine(c)}]'));
         if (!_warnedExact && !await brain.services.notifier.exactAllowed()) {
@@ -2530,8 +2575,8 @@ class ChatController extends ChangeNotifier {
             links: [c.who.isEmpty ? ChatLink(LinkKind.page, tr('জরুরি কার্ড দেখুন'), page: 'emergency') : ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন'))], speak: !quiet);
         _history.add(AiTurn.app(tr('[রক্তের গ্রুপ রাখা হলো]')));
       case SpecialAdd():
-        await brain.saveSpecialDay(SpecialDay(person: c.person, kind: c.kind, month: c.month, day: c.day, year: c.year));
-        _say(out, quiet ? trf('বিশেষ দিন: {0}', [c.person]) : tr('রেখে দিলাম। প্রতি বছর আগের দিন আর সেদিন সকাল ৯টায় মনে করিয়ে দেবো।'),
+        await brain.saveSpecialDay(SpecialDay(person: c.person, kind: c.kind, month: c.month, day: c.day, year: c.year), hour: c.hour, minute: c.minute);
+        _say(out, quiet ? trf('বিশেষ দিন: {0}', [c.person]) : trf('রেখে দিলাম। প্রতি বছর আগের দিন আর সেদিন {0}-এ মনে করিয়ে দেবো।', [bnTime(c.hour ?? 9, c.minute)]),
             links: [ChatLink(LinkKind.special, tr('বিশেষ দিনগুলো দেখুন'))], speak: !quiet);
         _history.add(AiTurn.app('[বিশেষ দিন রাখা হলো: ${summaryLine(c)}]'));
       default:

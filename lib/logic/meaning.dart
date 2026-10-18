@@ -281,8 +281,14 @@ bool refusesSave(String said) => RegExp(fold(r'(?:^|\s)(?:রেখো|রেখ
 /// The words in between are left exactly as said.
 String tidySpeech(String said, {List<bool>? whole}) {
   var s = fold(said.trim());
+  // "সব গুলো", "কত গুলো", "জন্মদিনের গুলো": the plural ending never stands
+  // alone — speech-to-text splits it off. Joined back, so every rule reads
+  // "সবগুলো" / "কতগুলো" the one way.
+  s = s.replaceAllMapped(RegExp(fold(r'([^\s,।?!])\s+(গুলো|গুলা|গুলি|গুলোর|গুলার|গুলোকে|গুলোতে|গুলোও|গুলোই)(?=$|[\s,।?!])')), (m) => '${m[1]}${m[2]}');
   // Regional and mixed-language words, as standard Bengali (whole words).
   s = _everydayWords(s);
+  // "আয় ব্যয়ের", "আয়-খরচের", "ইনকাম খরচ": one word, read the one way.
+  s = s.replaceAllMapped(RegExp(fold(r'(^|[\s,।])(?:আয়|ইনকাম)\s*[-–]?\s*(?:ব্যয়|খরচ|ব্যয়)(?:ের|এর|র)?(?=$|[\s,।?!])')), (m) => '${m[1]}${fold('আয়-ব্যয়')}');
   // Day words in their everyday forms.
   s = s.replaceAllMapped(RegExp(fold(r'(^|[\s,।])(?:আগামী\s*কাল(?:কে|কের|ের)?|আগামীকাল(?:কে|কের|ের)?|কালকের)(?=$|[\s,।?!])')), (m) => '${m[1]}কাল');
   s = s.replaceAllMapped(RegExp(fold(r'(^|[\s,।])পরশু\s*দিন(?:কে|ের)?(?=$|[\s,।?!])')), (m) => '${m[1]}পরশু');
