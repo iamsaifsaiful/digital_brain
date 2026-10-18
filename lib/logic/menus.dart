@@ -293,7 +293,10 @@ Command? menuCommand(String said, AppData? d, DateTime now) {
   // "একই খরচ দুইবার হয়েছে, একটা বাদ দাও": find the pair, ask once.
   if (_thas(f, r'(?:একই|একি)\s+(?:খরচ|আয়)') && _thas(f, r'(?:দুইবার|দুবার|২\s*বার|ডাবল)')) return MenuAction(said, domain: 'cash', op: 'dupes');
   // "রুপার দাম কত ধরে আছে?": the saved price, never today's guessed.
-  if (asking && _thas(f, r'(?:রুপা|রূপা|সোনা|স্বর্ণ)\S*\s+(?:দাম|মূল্য)')) return MenuAction(said, domain: 'zakat', op: 'price', text: _thas(f, r'(?:সোনা|স্বর্ণ)') ? 'gold' : 'silver');
+  // "আজকের সোনার দাম কত?", "রুপা সোনার দাম দাও", "ইন্টারনেট থেকে … দাম লিখতে পারো না?".
+  if ((asking || _thas(f, r'(?:দাও|দিন|দেন|বলো|বলুন|জানাও|দেখাও|লিখ|লেখ|আনো|আনুন)')) && _thas(f, r'(?:রুপা|রূপা|সোনা|স্বর্ণ)\S*\s+(?:\S+\s+)?(?:দাম|মূল্য|রেট)') && amount == null) {
+    return MenuAction(said, domain: 'zakat', op: 'price', text: _thas(f, r'(?:সোনা|স্বর্ণ)') ? 'gold' : 'silver');
+  }
 
   // ── Health readings said in words ("একশ ত্রিশ বাই পঁচাশি", "ছয় দশমিক আট").
   final health = _healthWords(said, f, d, now, negated);
@@ -588,7 +591,8 @@ Command? _business(String said, String f, AppData? d, DateTime now, int? amount,
     final name = named[1]!.replaceAll(_tre(r'^\s*(?:(?:অন্যান্য|আলাদা)\s+হিসাব\S*|প্রজেক্ট\S*|প্রকল্প\S*)\s+'), '').trim();
     if (name.isNotEmpty && words(name).length <= 5) return MenuAction(said, domain: 'project', op: 'create', target: _origWords(said, name));
   }
-  final proj = d == null ? null : _named(f, [for (final p in d.projects) if (!p.closed) p.name]);
+  // By its name as written, or with endings on its words ("বাড়ির মেরামতে").
+  final proj = d == null ? null : (_named(f, [for (final p in d.projects) if (!p.closed) p.name]) ?? projectMeant(d, said)?.name);
   // "অন্যান্য হিসাব দাও", "অন্যান্য হিসাবের সারাংশ": all of them at a glance.
   final bare = words(f.trim()).length <= 3 && _thas(f, r'^\s*(?:আমার\s+)?(?:অন্যান্য|আলাদা)\s+হিসাব\S*\s*$');
   // (Not "রহিম ভবন প্রজেক্টে কত আছে?": a name before it is that account.)
@@ -613,7 +617,7 @@ Command? _business(String said, String f, AppData? d, DateTime now, int? amount,
     final got = _thas(f, r'(?:দিয়েছে|দিয়েছে|দিল|দিলো|এসেছে|এলো|পেয়েছি|পেলাম|জমা|বেতন|ফি|আয়|চাঁদা|অনুদান)');
     final adding = _thas(f, r'(?:যুক্ত\s+কর|যোগ\s+কর|লেখ|লিখে\s+রাখ|রাখো|অ্যাড|তোলো)');
     if ((spent || got) && (adding || proj != null)) {
-      final category = _thas(f, r'(?<=\s)বেতন') ? 'বেতন' : (spent ? 'অন্যান্য' : 'আয়');
+      final category = _thas(f, r'(?<=\s)বেতন') ? 'বেতন' : (spent ? categoryFor(f, CashKind.expense) : 'আয়');
       return CashAdd(said, kind: spent && !got ? CashKind.expense : CashKind.income, amount: amount, category: category,
           project: proj ?? _origWords(said, into));
     }
@@ -622,6 +626,8 @@ Command? _business(String said, String f, AppData? d, DateTime now, int? amount,
   if (_thas(f, r'(?<=\s)বাজেট(?=\s)') && amount != null && !asking) return MenuAction(said, domain: 'project', op: 'budget', target: proj ?? '', amount: amount);
   if (proj != null) {
     if (asking && _thas(f, r'(?:খরচ|আয়|এসেছে|হিসাব)')) return CashQuery(said, project: proj);
+    // "শিক্ষার্থীদের বেতনের হিসাব দাও", "… হিসাব অন্যান্য হিসাবে": that account shown.
+    if (amount == null && !negated && _thas(f, r'হিস(?:া|ে)ব')) return CashQuery(said, project: proj);
     if (!negated && amount != null && a == Aspect.done && _thas(f, r'(?:এসেছে|এলো|পেয়েছি|পেলাম|জমা\s+হয়েছে|পেয়েছে)')) {
       return CashAdd(said, kind: CashKind.income, amount: amount, category: 'আয়', project: proj);
     }

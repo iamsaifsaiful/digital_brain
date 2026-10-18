@@ -4,12 +4,13 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/widgets.dart';
 
+import '../services/ocr.dart';
 import '../services/trace.dart';
 
 import '../logic/ai_map.dart';
 import '../logic/app_map.dart';
 import '../logic/ask.dart';
-import '../logic/money_more.dart' show ZakatSaved;
+import '../logic/money_more.dart' show ZakatSaved, MetalPrice;
 import '../logic/manage.dart';
 import '../logic/me.dart';
 import '../logic/phrases.dart' show possessive;
@@ -62,8 +63,10 @@ class Services {
     PushSource? push,
     DriveStore? drive,
     AccountServer? server,
+    TextReader? ocr,
     DateTime Function()? clock,
   })  : ai = ai ?? FakeAi(),
+        ocr = ocr ?? FakeTextReader(),
         google = google ?? FakeGoogle(),
         push = push ?? FakePush(),
         drive = drive ?? FakeDrive(),
@@ -78,6 +81,9 @@ class Services {
   final Voice voice;
   final Notifier notifier;
   final FileBridge files;
+
+  /// Reads the printed text in a photo, on the phone (a paper's expiry date).
+  final TextReader ocr;
 
   /// Claude, when the user has set an API key (see আরও).
   final AiBrain ai;
@@ -1008,6 +1014,29 @@ class Brain extends ChangeNotifier {
         business: number('zakat_business'),
         other: number('zakat_other'),
       );
+
+  MetalPrice? _metal;
+  DateTime? _metalAt;
+
+  /// Today's gold and silver price from the server (BAJUS), asked at most
+  /// every few hours; the last one known when offline, or null.
+  Future<MetalPrice?> metalPriceToday() async {
+    final now = services.now();
+    if (_metal != null && _metalAt != null && now.difference(_metalAt!).inHours < 6) return _metal;
+    final p = await services.server.metalPrice();
+    if (p != null) {
+      _metal = p;
+      _metalAt = now;
+      todayMetal = p;
+    }
+    return p ?? _metal;
+  }
+
+  /// Today's 22-carat prices into the যাকাত page (the user can still change them).
+  Future<void> useMetalPrice(MetalPrice p) async {
+    await setZakatValue('gold_price', '${p.gold22}');
+    await setZakatValue('silver_price', '${p.silver22}');
+  }
 
   /// Keeps one entered zakat value (no reschedule needed).
   Future<void> setZakatValue(String key, String value) async {

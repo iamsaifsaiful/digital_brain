@@ -5,7 +5,7 @@
 library;
 
 import 'lang.dart';
-import 'parser.dart' show normalize;
+import 'parser.dart' show normalize, fold, findAmount;
 
 class AppPlace {
   const AppPlace(this.id, this.title, this.words, this.what, [this.say = const []]);
@@ -215,6 +215,30 @@ AppPlace? howToAsked(String said) {
   return p == null || p.id == 'help' ? null : p;
 }
 
+/// "ডকুমেন্টসে ওয়ারেন্টি কার্ড রাখা যায়?", "ছবি থেকে ওয়ারেন্টির তারিখ নিতে
+/// পারবা?": can the app do this — answered from what it really does, never
+/// a search of the user's data. ('photo_date', 'warranty') or null.
+String? abilityAsked(String said) {
+  final t = ' ${fold(normalize(said))} ';
+  bool any(String re) => RegExp(fold(re)).hasMatch(t);
+  if (findAmount(normalize(said)) != null) return null;
+  final can = any(r'(?:পারবা|পারবে|পারবেন|পারো|পারেন|পারবি|পারব|যাবে|যায়|সম্ভব|সিস্টেম|ব্যবস্থা|অপশন|আছে\s*$|\?)') || said.contains('?');
+  if (!can) return null;
+  final photo = any(r'(?:ছবি|ফটো|স্ক্যান|ক্যামেরা|photo|scan)');
+  final date = any(r'(?:তারিখ|মেয়াদ|ওয়ারেন্টি|ওয়ারেন্টি|গ্যারান্টি|warranty|expiry|লেখা)');
+  final read = any(r'(?:নিতে|নেওয়া|নিবা|নেবে|পড়তে|পড়ে|পড়া|বের\s+করতে|তুলে)');
+  if (photo && date && read) return 'photo_date';
+  if (any(r'(?:ওয়ারেন্টি|ওয়ারেন্টি|গ্যারান্টি|warranty)') && any(r'(?:রাখা|রাখার|রাখতে|রাখব|রাখি|সিস্টেম|ব্যবস্থা|জায়গা|ফোল্ডার)')) return 'warranty';
+  return null;
+}
+
+String abilityAnswer(String id) => switch (id) {
+      'photo_date' => tr(
+          'পারি। ডকুমেন্টসে কাগজের ছবি যোগ করলে ছবির ছাপা লেখা ফোনেই পড়ে ওয়ারেন্টি বা মেয়াদ শেষের তারিখ খুঁজি — পেলে “মেয়াদ শেষ” ঘরে বসিয়ে দেখাই, আপনি মিলিয়ে নিয়ে রাখবেন। শুধু “১ বছর ওয়ারেন্টি” লেখা থাকলে কেনার তারিখ থেকে হিসাব করি। ইংরেজিতে ছাপা অক্ষর-অঙ্ক সবচেয়ে ভালো পড়া যায়; হাতের লেখা বা বাংলা অঙ্ক না-ও পড়তে পারি।'),
+      _ => tr(
+          'হ্যাঁ। ডকুমেন্টসে “ওয়ারেন্টি ও গ্যারান্টি” নামে আলাদা ফোল্ডার আছে — কার্ড বা রসিদের ছবি তুলে সেখানে রাখুন। ছবি থেকে ওয়ারেন্টি শেষের তারিখও পড়ে নিতে পারি; প্রো-তে মেয়াদ শেষের আগে মনে করিয়ে দিই।'),
+    };
+
 /// The answer to [howToAsked]: what is there, and how to get to it.
 String howToAnswer(AppPlace p) {
   final say = p.say.isEmpty ? '' : trf(' আমাকে বলেও করা যায় — যেমন “{0}”।', [tr(p.say.first)]);
@@ -301,7 +325,8 @@ const voiceCaps = <String, VoiceCap>{
   'notes': VoiceCap(VoiceLevel.partial, {'list': 'show notes of a category or with words (text)', 'replace_word': 'in the latest note with word target, write text instead'}),
   'health': VoiceCap(VoiceLevel.partial, {'list': "a family member's last readings (target, amount = how many)", 'none': 'nothing measured (nothing written)', 'fix_last': 'the last reading amount/10 was really amount2/10'},
       notYet: ['টিকা দেওয়া হয়েছে কথায় টিক দেওয়া', 'চেকআপের তারিখ কথায় বদলানো']),
-  'zakat': VoiceCap(VoiceLevel.partial, {'price': 'the gold/silver price the user entered (text gold|silver)'}, notYet: ['যাকাতের সম্পদ কথায় লেখা']),
+  'zakat': VoiceCap(VoiceLevel.partial, {'price': "today's gold/silver price from BAJUS through our server (text gold|silver)", 'set_price': "put today's 22-carat prices into the zakat page"},
+      notYet: ['যাকাতের সম্পদ কথায় লেখা']),
   'special': VoiceCap(VoiceLevel.partial, {'age': "a person's age from their birthday (only with a birth year)", 'month': "whose special days fall in a month"}),
   'diary': VoiceCap(VoiceLevel.openOnly, {}, notYet: ['ডায়েরিতে আলাদা লেখা রাখা']),
   'docs': VoiceCap(VoiceLevel.partial, {}, notYet: ['ফাইলের ভেতরের লেখা পড়া (OCR)', 'ফাইলের নাম বা মেয়াদ কথায় বদলানো']),

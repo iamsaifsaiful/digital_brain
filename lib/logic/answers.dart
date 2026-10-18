@@ -456,7 +456,10 @@ String taskLine(Task t, DateTime now) {
       dayOnly(dl).isBefore(today) ? trf('শেষ সময় ছিল {0} — পেরিয়ে গেছে', [shortDate(dl)]) : trf('শেষ সময় {0}', [sayWhen(dl, now, withTime: false)]),
     if (t.urgent) tr('জরুরি'),
   ];
-  return bits.isEmpty ? t.title : '${t.title} (${bits.join(', ')})';
+  if (bits.isEmpty) return t.title;
+  // Brackets are not nested: "কাল (সোমবার)" inside them reads "কাল, সোমবার".
+  final flat = [for (final b in bits) b.replaceAllMapped(RegExp(r'\s*\(([^()]*)\)'), (m) => ', ${m[1]}')];
+  return '${t.title} (${flat.join(', ')})';
 }
 
 /// When a to-do is for, as it was said: "আগামীকাল", "এই সপ্তাহের যেকোনো
@@ -592,10 +595,23 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
           final x = projectSums(d.cash, p.id);
           final state = x.income == 0 && x.expense == 0
               ? tr('এখনো কিছু লেখা নেই')
-              : trf('এসেছে {0}, খরচ {1} — হাতে {2} টাকা', [bnNumber(x.income), bnNumber(x.expense), bnNumber(x.balance)]);
+              : x.income == 0
+                  ? trf('খরচ {0} টাকা', [bnNumber(x.expense)])
+                  : trf('এসেছে {0}, খরচ {1} — হাতে {2} টাকা', [bnNumber(x.income), bnNumber(x.expense), bnNumber(x.balance)]);
           return '• ${p.name}${p.closed ? tr(' (শেষ)') : ''} — $state';
         }(),
     ];
+    // "অন্যান্য হিসাবের ভেতরের সব দাও": what is written in each, too.
+    final inside = RegExp(fold(r'(?:সব|সকল|ভেত|ভিত|বিস্তারিত|লেনদেন|এন্ট্রি)')).hasMatch(fold(normalize(q.transcript)));
+    if (inside) {
+      return [
+        trf('অন্যান্য হিসাব {0}টা:', [bnDigits(d.projects.length)]),
+        for (final p in d.projects) ...[
+          lines[d.projects.indexOf(p)],
+          ...projectEntryLines(d, p.id),
+        ],
+      ].join('\n');
+    }
     return [trf('অন্যান্য হিসাব {0}টা:', [bnDigits(d.projects.length)]), ...lines].join('\n');
   }
   if (name != null) {
@@ -607,10 +623,30 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
     }
     final s = projectSums(d.cash, p.id);
     if (s.income == 0 && s.expense == 0) return trf('‘{0}’ হিসাবে টাকা আসা বা খরচের কোনো তথ্য নেই।', [p.name]);
-    if (s.income == 0) return trf('‘{0}’ হিসাবে এ পর্যন্ত খরচ {1} টাকা।', [p.name, bnNumber(s.expense)]);
-    if (s.expense == 0) return trf('‘{0}’ হিসাবে এসেছে {1} টাকা, এখনো খরচ হয়নি।', [p.name, bnNumber(s.income)]);
-    return trf('‘{0}’ হিসাবে এসেছে {1} টাকা, খরচ {2} টাকা — {3}।',
-        [p.name, bnNumber(s.income), bnNumber(s.expense), s.balance >= 0 ? trf('হাতে আছে {0} টাকা', [bnNumber(s.balance)]) : trf('আসার চেয়ে {0} টাকা বেশি খরচ', [bnNumber(-s.balance)])]);
+    final String head;
+    if (s.income == 0) {
+      head = trf('‘{0}’ হিসাবে এ পর্যন্ত খরচ {1} টাকা।', [p.name, bnNumber(s.expense)]);
+    } else if (s.expense == 0) {
+      head = trf('‘{0}’ হিসাবে এসেছে {1} টাকা, এখনো খরচ হয়নি।', [p.name, bnNumber(s.income)]);
+    } else {
+      head = trf('‘{0}’ হিসাবে এসেছে {1} টাকা, খরচ {2} টাকা — {3}।',
+          [p.name, bnNumber(s.income), bnNumber(s.expense), s.balance >= 0 ? trf('হাতে আছে {0} টাকা', [bnNumber(s.balance)]) : trf('আসার চেয়ে {0} টাকা বেশি খরচ', [bnNumber(-s.balance)])]);
+    }
+    // "… হিসাব দাও": the entries too, not only the totals ("কত" asks only the sum).
+    final total = RegExp(fold(r'(?:কত|কতো)')).hasMatch(fold(normalize(q.transcript)));
+    return total ? head : [head, ...projectEntryLines(d, p.id)].join('\n');
+  }
+  // "আয়ের খাত গুলো কি কি", "কিভাবে ব্যয় হয়েছে?": this month by খাত.
+  final byCat = categoryAsked(q.transcript);
+  if (byCat != null) {
+    final m = monthSums(d.cash, now);
+    final rows = byCat == CashKind.income ? m.topIncome : m.topExpenses;
+    final total = byCat == CashKind.income ? m.income : m.expense;
+    if (rows.isEmpty) return byCat == CashKind.income ? tr('এই মাসে কোনো আয় লেখা নেই।') : tr('এই মাসে কোনো খরচ লেখা নেই।');
+    return [
+      trf(byCat == CashKind.income ? 'এই মাসে আয় {0} টাকা, {1}টা খাতে:' : 'এই মাসে খরচ {0} টাকা, {1}টা খাতে:', [bnNumber(total), bnDigits(rows.length)]),
+      for (final r in rows) trf('• {0} — {1} টাকা', [r.key, bnNumber(r.value)]),
+    ].join('\n');
   }
   final s = monthSums(d.cash, now);
   if (s.income == 0 && s.expense == 0) return tr('এই মাসের আয়-খরচের কোনো তথ্য নেই। বলুন, যেমন “বাজারে ৫০০ টাকা খরচ হলো” — পরে জিজ্ঞেস করলেই হিসাব দেবো।');
@@ -865,4 +901,43 @@ Contact? findContact(AppData d, String name) {
   if (exact.length == 1) return exact.single;
   final m = contactMatches(d, name);
   return m.length == 1 ? m.single : null;
+}
+
+/// Income or spending asked by খাত: "আয়ের খাত গুলো কি কি", "কিভাবে আয়
+/// হয়েছে?", "কোন কোন খাতে খরচ হলো". Null when not.
+CashKind? categoryAsked(String said) {
+  final f = ' ${fold(normalize(said))} ';
+  if (findAmount(normalize(said)) != null) return null;
+  if (!RegExp(fold(r'(?:কি|কী|কোন|কোনো|কিভাবে|কীভাবে|কি\s+ভাবে|কোথা|কিসে|দাও|দিন|দেখাও|দেখান|বলো|বলুন|লিস্ট|তালিকা)')).hasMatch(f) && !said.contains('?')) return null;
+  final how = RegExp(fold(r'(?:খাত|কিভাবে|কীভাবে|কি\s+ভাবে|কী\s+ভাবে|কোথা\s+থেকে|কোথায়\s+কোথায়|কিসে\s+কিসে|কোন\s+কোন\s+খাতে)')).hasMatch(f);
+  if (!how) return null;
+  final spend = RegExp(fold(r'(?:খরচ|ব্যয়)')).hasMatch(f);
+  final earn = RegExp(fold(r'(?:আয়|ইনকাম|আসছে|এসেছে)')).hasMatch(f);
+  if (spend == earn) return null;
+  return spend ? CashKind.expense : CashKind.income;
+}
+
+/// The entries of one অন্যান্য হিসাব, latest first (at most [max]).
+List<String> projectEntryLines(AppData d, String projectId, {int max = 8}) {
+  final es = [for (final e in d.cash) if (e.projectId == projectId) e]..sort((a, b) => b.date.compareTo(a.date));
+  return [
+    for (final e in es.take(max))
+      () {
+        final what = cashItem(e.note);
+        final label = what.isEmpty || normalize(what) == normalize(e.category) ? e.category : '${e.category} ($what)';
+        return trf('   – {0}: {1} — {2} টাকা', [e.kind == CashKind.income ? tr('এসেছে') : tr('খরচ'), label, bnNumber(e.amount)]);
+      }(),
+    if (es.length > max) trf('   – আরও {0}টা', [bnDigits(es.length - max)]),
+  ];
+}
+
+/// One note in a list: "title — text", but the text alone when the title is
+/// only its beginning ("৭ তারিখে হিরার জন্মদিন" twice reads once).
+String noteLine(Note n) {
+  final title = n.title.trim().replaceAll(RegExp(r'(?:…|\.\.\.)$'), '').trim();
+  final body = n.body.trim();
+  if (title.isEmpty) return body;
+  if (body.isEmpty) return n.title.trim();
+  if (normalize(body).startsWith(normalize(title))) return body;
+  return '${n.title.trim()} — $body';
 }

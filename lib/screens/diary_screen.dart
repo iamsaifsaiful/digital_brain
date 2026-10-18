@@ -27,8 +27,7 @@ List<PlanItem> itemsOn(AppData d, DateTime day, DateTime now) {
   ]..sort((a, b) => a.sort.compareTo(b.sort));
   final tasks = [
     for (final t in d.tasks)
-      if ((t.onDay(dd) && (!t.done || (t.doneAt != null && dayOnly(t.doneAt!) == dd))) || (today && t.due == null && !t.done))
-        PlanItem.task(t, DateTime(dd.year, dd.month, dd.day, 23, 59)),
+      if ((t.onDay(dd) && (!t.done || (t.doneAt != null && dayOnly(t.doneAt!) == dd))) || (today && t.due == null && !t.done)) PlanItem.task(t, DateTime(dd.year, dd.month, dd.day, 23, 59)),
   ];
   return [...rem, ...tasks];
 }
@@ -56,40 +55,45 @@ class _DiaryScreenState extends State<DiaryScreen> {
     final day = _picked ?? dayOnly(now);
     // "যোগ করুন" sits at the bottom, by the thumb, as on the other pages.
     return Stack(children: [
-      ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-        children: [
-          Row(children: [
-            Expanded(child: Text(tr('দিনলিপি'), style: display(24, weight: 700))),
-            IconButton(
-              tooltip: tr('ক্যালেন্ডার'),
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())),
-              icon: Icon(Icons.calendar_month_outlined, color: C.ink),
-            ),
-          ]),
-          const SizedBox(height: 10),
-          SegTabs<DiaryView>(
-            items: [(DiaryView.day, tr('দৈনিক')), (DiaryView.week, tr('সাপ্তাহিক')), (DiaryView.month, tr('মাসিক'))],
-            value: _view,
-            onChanged: (v) => setState(() => _view = v),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 38,
-            child: ListView(scrollDirection: Axis.horizontal, children: [
-              _tool(tr('অভ্যাস'), Icons.local_fire_department_outlined, const HabitsScreen()),
-              _tool(tr('ওষুধ'), Icons.medication_outlined, const MedicinesScreen()),
-              _tool(tr('বিশেষ দিন'), Icons.cake_outlined, const SpecialDaysScreen()),
-              _tool(tr('তৈরি তালিকা'), Icons.checklist_rtl_rounded, const TemplatesScreen()),
+      SwipeSwitch.tabs<DiaryView>(
+        values: DiaryView.values,
+        value: _view,
+        onChanged: (v) => setState(() => _view = v),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+          children: [
+            Row(children: [
+              Expanded(child: Text(tr('দিনলিপি'), style: display(24, weight: 700))),
+              IconButton(
+                tooltip: tr('ক্যালেন্ডার'),
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())),
+                icon: Icon(Icons.calendar_month_outlined, color: C.ink),
+              ),
             ]),
-          ),
-          const SizedBox(height: 12),
-          ...switch (_view) {
-            DiaryView.day => _dayView(brain, day, now),
-            DiaryView.week => _weekView(brain, day, now),
-            DiaryView.month => _monthView(brain, day, now),
-          },
-        ],
+            const SizedBox(height: 10),
+            SegTabs<DiaryView>(
+              items: [(DiaryView.day, tr('দৈনিক')), (DiaryView.week, tr('সাপ্তাহিক')), (DiaryView.month, tr('মাসিক'))],
+              value: _view,
+              onChanged: (v) => setState(() => _view = v),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 38,
+              child: ListView(scrollDirection: Axis.horizontal, children: [
+                _tool(tr('অভ্যাস'), Icons.local_fire_department_outlined, const HabitsScreen()),
+                _tool(tr('ওষুধ'), Icons.medication_outlined, const MedicinesScreen()),
+                _tool(tr('বিশেষ দিন'), Icons.cake_outlined, const SpecialDaysScreen()),
+                _tool(tr('তৈরি তালিকা'), Icons.checklist_rtl_rounded, const TemplatesScreen()),
+              ]),
+            ),
+            const SizedBox(height: 12),
+            ...switch (_view) {
+              DiaryView.day => _dayView(brain, day, now),
+              DiaryView.week => _weekView(brain, day, now),
+              DiaryView.month => _monthView(brain, day, now),
+            },
+          ],
+        ),
       ),
       Positioned(
         right: 16,
@@ -208,8 +212,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
         HabitStrip(day: day),
       ],
       if (dayOnly(day) == dayOnly(now) && brain.data.medicines.isNotEmpty) ...[
-        _label(tr('আজকের ওষুধ'),
-            action: TextButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MedicinesScreen())), child: Text(tr('সব')))),
+        _label(tr('আজকের ওষুধ'), action: TextButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MedicinesScreen())), child: Text(tr('সব')))),
         DoseStrip(day: day),
       ],
       _repeating(brain),
@@ -260,8 +263,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
       Row(children: [
         IconButton(tooltip: tr('আগের সপ্তাহ'), onPressed: () => setState(() => _picked = day.subtract(const Duration(days: 7))), icon: const Icon(Icons.chevron_left_rounded)),
         Expanded(
-          child: Text('${bnDigits(start.day)} ${monthShort(start.month)} – ${bnDigits(end.day)} ${monthShort(end.month)}',
-              textAlign: TextAlign.center, style: body(15, weight: FontWeight.w600)),
+          child: Text('${bnDigits(start.day)} ${monthShort(start.month)} – ${bnDigits(end.day)} ${monthShort(end.month)}', textAlign: TextAlign.center, style: body(15, weight: FontWeight.w600)),
         ),
         IconButton(tooltip: tr('পরের সপ্তাহ'), onPressed: () => setState(() => _picked = day.add(const Duration(days: 7))), icon: const Icon(Icons.chevron_right_rounded)),
       ]),
@@ -284,9 +286,8 @@ class _DiaryScreenState extends State<DiaryScreen> {
     final blocks = <Widget>[];
     for (var i = 0; i < days; i++) {
       final d = first.add(Duration(days: i));
-      final items = itemsOn(brain.data, d, now)
-          .where((x) => x.reminder == null || x.reminder!.repeat == Repeat.none || x.reminder!.repeat == Repeat.monthly || x.reminder!.repeat == Repeat.yearly)
-          .toList();
+      final items =
+          itemsOn(brain.data, d, now).where((x) => x.reminder == null || x.reminder!.repeat == Repeat.none || x.reminder!.repeat == Repeat.monthly || x.reminder!.repeat == Repeat.yearly).toList();
       final hol = holidayOn(d);
       if (items.isEmpty && hol == null) continue;
       blocks
@@ -299,8 +300,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
         Expanded(
           child: Column(children: [
             Text('${monthName(day.month)} ${bnDigits(day.year)}', style: body(16, weight: FontWeight.w600)),
-            Text('${banglaDate(first).monthName} – ${banglaDate(DateTime(day.year, day.month, days)).monthName} ${bnDigits(banglaDate(first).year)}',
-                style: body(12, color: C.muted)),
+            Text('${banglaDate(first).monthName} – ${banglaDate(DateTime(day.year, day.month, days)).monthName} ${bnDigits(banglaDate(first).year)}', style: body(12, color: C.muted)),
           ]),
         ),
         IconButton(tooltip: tr('পরের মাস'), onPressed: () => setState(() => _picked = DateTime(day.year, day.month + 1)), icon: const Icon(Icons.chevron_right_rounded)),

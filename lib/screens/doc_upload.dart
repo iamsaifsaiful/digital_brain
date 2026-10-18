@@ -4,6 +4,7 @@ import '../logic/pro.dart';
 import '../ui/pro_gate.dart';
 
 import '../logic/bn.dart';
+import '../logic/doc_dates.dart';
 import '../logic/lang.dart';
 import '../models/models.dart';
 import '../services/files.dart';
@@ -90,7 +91,8 @@ Future<void> addDocuments(BuildContext context, {required int source, String? fo
   if (together) {
     final info = await askDocInfo(context, picked, folder: folder);
     if (info == null || !context.mounted) return;
-    final d = await brain.addDocGroup(picked, info.doc);
+    var d = await brain.addDocGroup(picked, info.doc);
+    if (info.doc.expiry != null) d = await brain.setDocExpiry(d, info.doc.expiry);
     if (info.tags.isNotEmpty) await brain.setTags('doc:${d.id}', info.tags);
     made.add(d);
   } else {
@@ -104,7 +106,9 @@ Future<void> addDocuments(BuildContext context, {required int source, String? fo
         if (info.sameForRest) same = info;
       }
       final title = same != null && picked.length > 1 ? '${info.doc.title} ${bnDigits(i + 1)}' : info.doc.title;
-      final d = await brain.addDocGroup([picked[i]], Doc(title: title, folder: info.doc.folder, about: info.doc.about, people: info.doc.people, place: info.doc.place, taken: info.doc.taken));
+      var d = await brain.addDocGroup([picked[i]], Doc(title: title, folder: info.doc.folder, about: info.doc.about, people: info.doc.people, place: info.doc.place, taken: info.doc.taken));
+      // A date read from this photo (the same-for-rest answer keeps its own).
+      if (info.doc.expiry != null) d = await brain.setDocExpiry(d, info.doc.expiry);
       if (info.tags.isNotEmpty) await brain.setTags('doc:${d.id}', info.tags);
       made.add(d);
     }
@@ -146,13 +150,47 @@ class _DocInfoSheetState extends State<_DocInfoSheet> {
   final _tags = TextEditingController();
   late String _folder = widget.edit?.folder ?? widget.folder ?? 'অন্যান্য';
   late DateTime? _taken = widget.edit?.taken;
+  late DateTime? _expiry = widget.edit?.expiry;
   bool _same = false;
+
+  /// While the photo's printed text is read; then what was found in it.
+  bool _reading = false;
+  String _readNote = '';
 
   @override
   void initState() {
     super.initState();
     final e = widget.edit;
     if (e != null) _tags.text = BrainScope.read(context).tagsOf('doc:${e.id}').join(', ');
+    if (e == null) WidgetsBinding.instance.addPostFrameCallback((_) => _readPhotos());
+  }
+
+  /// The warranty or expiry date printed on the paper, read on the phone and
+  /// put in the date box for the user to check — never kept unseen.
+  Future<void> _readPhotos() async {
+    final photos = widget.files.where((f) => f.mime.startsWith('image/')).take(3).toList();
+    if (photos.isEmpty || !mounted) return;
+    final brain = BrainScope.read(context);
+    setState(() => _reading = true);
+    final texts = <String>[];
+    for (final f in photos) {
+      final t = await brain.services.ocr.read(f.bytes);
+      if (t != null && t.trim().isNotEmpty) texts.add(t);
+    }
+    if (!mounted) return;
+    final found = docDateIn(texts.join('\n'), brain.services.now());
+    setState(() {
+      _reading = false;
+      if (found != null && _expiry == null) {
+        _expiry = found.date;
+        _readNote = found.fromPeriod
+            ? trf('ছবি থেকে: কেনার তারিখ থেকে ওয়ারেন্টি হিসাব করে {0} — মিলিয়ে নিন।', [fullDate(found.date)])
+            : trf('ছবি থেকে পড়া: {0} — মিলিয়ে নিন।', [fullDate(found.date)]);
+        if (found.warranty && _folder == 'অন্যান্য') _folder = 'ওয়ারেন্টি ও গ্যারান্টি';
+      } else if (found == null) {
+        _readNote = texts.isEmpty ? '' : tr('ছবিতে মেয়াদ বা ওয়ারেন্টির তারিখ পরিষ্কার পাইনি — থাকলে নিজে দিন।');
+      }
+    });
   }
 
   @override
@@ -174,6 +212,8 @@ class _DocInfoSheetState extends State<_DocInfoSheet> {
       place: _place.text.trim(),
       taken: _taken,
       clearTaken: _taken == null,
+      expiry: _expiry,
+      clearExpiry: _expiry == null,
     );
     final tags = [for (final t in _tags.text.split(RegExp(r'[,،;]'))) if (t.trim().isNotEmpty) t.trim()];
     Navigator.of(context).pop(DocInfo(doc, tags, sameForRest: _same));
@@ -273,6 +313,23 @@ class _DocInfoSheetState extends State<_DocInfoSheet> {
             ),
             if (_taken != null) IconButton(tooltip: tr('তারিখ মুছুন'), onPressed: () => setState(() => _taken = null), icon: const Icon(Icons.close_rounded)),
           ]),
+          const SizedBox(height: 8),
+          // The last valid day (warranty, passport…): read from the photo when printed there.
+          Row(children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                key: const Key('doc-expiry'),
+                onPressed: () async {
+                  final p = await showDatePicker(context: context, initialDate: _expiry ?? now, firstDate: DateTime(now.year - 20), lastDate: DateTime(now.year + 40));
+                  if (p != null) setState(() => _expiry = p);
+                },
+                icon: _reading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.event_busy_outlined, size: 18),
+                label: Text(_reading ? tr('ছবি থেকে তারিখ পড়ছি…') : (_expiry == null ? tr('মেয়াদ / ওয়ারেন্টি শেষ (তারিখ)') : trf('মেয়াদ শেষ: {0}', [fullDate(_expiry!)]))),
+              ),
+            ),
+            if (_expiry != null) IconButton(tooltip: tr('তারিখ মুছুন'), onPressed: () => setState(() { _expiry = null; _readNote = ''; }), icon: const Icon(Icons.close_rounded)),
+          ]),
+          if (_readNote.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(_readNote, key: const Key('doc-read-note'), style: body(12.5, color: C.muted, height: 1.4))),
           const SizedBox(height: 12),
           field(_tags, tr('ট্যাগ (কমা দিয়ে)'), tr('যেমন: পরিবার, জরুরি'), icon: Icons.sell_outlined),
           if (widget.of > 1 && widget.index < widget.of - 1)

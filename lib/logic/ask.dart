@@ -9,14 +9,14 @@ import '../models/models.dart';
 import 'bn.dart';
 import 'calendar_bd.dart';
 import 'lang.dart';
-import 'money_more.dart' show accountBalance, ZakatSaved, zakatAuto;
+import 'money_more.dart' show accountBalance, ZakatSaved, zakatAuto, MetalPrice;
 import 'cash.dart';
 import 'inbox.dart' show inboxAnswer;
 import 'parser.dart';
 import 'proactive.dart' show remindsOn, specialTitle;
 import 'when.dart';
 import 'answers.dart' show taskLine;
-import 'app_map.dart' show howToAsked, howToAnswer;
+import 'app_map.dart' show howToAsked, howToAnswer, abilityAsked, abilityAnswer;
 
 /// The user's place (for prayer times) and name, set by the app.
 String askPlace = 'ঢাকা';
@@ -24,6 +24,9 @@ String askUserName = '';
 
 /// What the user entered on the যাকাত page (set by the app).
 ZakatSaved askZakat = const ZakatSaved();
+
+/// Today's market price, when the app has fetched it (see Brain.metalPriceToday).
+MetalPrice? todayMetal;
 
 bool _has(String text, List<String> ws) => ws.any((w) {
       final n = normalize(w);
@@ -52,6 +55,7 @@ String _t(DateTime d) {
 
 /// Which everyday question [text] (normalized) is, or null.
 String? infoTopic(String text) {
+  if (abilityAsked(text) != null) return 'ability';
   if (howToAsked(text) != null) return 'howto';
   // "রহিম কী লিখেছে?", "করিম কী মেসেজ দিয়েছে?"
   if (_has(text, ['কী লিখেছে', 'কি লিখেছে', 'কী লিখছে', 'কি লিখছে', 'কী মেসেজ দিয়েছে', 'কি মেসেজ দিয়েছে', 'কী পাঠিয়েছে', 'কি পাঠিয়েছে', 'কী বলেছে মেসেজে'])) return 'inbox';
@@ -107,6 +111,8 @@ String? infoAnswer(AppData d, String said, DateTime now) {
       final left = s.maghrib.difference(now);
       final soon = s == today && left.inMinutes < 180 ? trf(' — আর {0}', [_left(left)]) : '';
       return trf('{0} {1} ইফতার {2}{3} (আনুমানিক)।', [where, s == today ? tr('আজ') : tr('কাল'), _t(s.maghrib), soon]);
+    case 'ability':
+      return abilityAnswer(abilityAsked(text)!);
     case 'howto':
       return howToAnswer(howToAsked(text)!);
     case 'ramadan':
@@ -153,7 +159,14 @@ String? infoAnswer(AppData d, String said, DateTime now) {
       return trf('এই মাসে আয় {0}, খরচ {1} টাকা — ব্যালেন্স {2} টাকা। কোন অ্যাকাউন্টে কত আছে জানতে অ্যাকাউন্ট পাতায় হিসাব যুক্ত করুন।',
           [bnNumber(m.income), bnNumber(m.expense), m.balance >= 0 ? bnNumber(m.balance) : trf('মাইনাস {0}', [bnNumber(-m.balance)])]);
     case 'zakat':
-      final z = zakatAuto(d, now, askZakat);
+      // No price entered: today's BAJUS price, said as such.
+      final market = askZakat.silverPrice <= 0 && todayMetal != null;
+      final z = zakatAuto(d, now, askZakat.withPrices(todayMetal));
+      final by = market ? trf(' (আজকের বাজুস দামে — রুপা ২২ ক্যারেট ভরি {0} টাকা, {1} থেকে কার্যকর)', [bnNumber(todayMetal!.silver22), shortDate(todayMetal!.date)]) : '';
+      if (market && z.nisab > 0) {
+        if (!z.due) return trf('আপনার যাকাতযোগ্য সম্পদ {0} টাকা — নিসাব {1} টাকার কম, তাই যাকাত ফরজ নয় (আনুমানিক হিসাব){2}।', [bnNumber(z.net < 0 ? 0 : z.net), bnNumber(z.nisab), by]);
+        return trf('আপনার যাকাতযোগ্য সম্পদ {0} টাকা, যাকাত প্রায় {1} টাকা (২.৫%){2}। এটা আনুমানিক — নিশ্চিত হতে আলেমের পরামর্শ নিন।', [bnNumber(z.net), bnNumber(z.zakat), by]);
+      }
       if (z.nisab <= 0) {
         return trf('আপনার হিসাব থেকে যাকাতযোগ্য সম্পদ এখন প্রায় {0} টাকা (নগদ, ব্যাংক-সঞ্চয়, পাওনা থেকে দেনা বাদে)। নিসাব জানতে আজকের রুপার দাম লাগবে — যাকাত পাতায় রুপার দাম আর সোনা-রুপার পরিমাণ দিন, তারপর জিজ্ঞেস করলেই যাকাত বলে দেবো।', [bnNumber(z.net < 0 ? 0 : z.net)]);
       }

@@ -18,6 +18,7 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
+import '../logic/money_more.dart' show MetalPrice;
 import '../logic/server_notices.dart';
 
 /// The OAuth "Web client" ID from Google Cloud (passed at build time with
@@ -280,6 +281,18 @@ class AccountServer {
   final String base;
 
   bool get configured => base.isNotEmpty;
+
+  /// Today's gold and silver price (BAJUS), looked up and kept by the server. Null offline.
+  Future<MetalPrice?> metalPrice() async {
+    if (!configured) return null;
+    try {
+      final r = await _http.get(Uri.parse('$base/wp-json/my-assistant/v1/metal-price')).timeout(const Duration(seconds: 20));
+      if (r.statusCode != 200) return null;
+      return MetalPrice.fromJson(jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<AccountInfo?> login(GoogleUser u, {required String appVersion, required String edition}) async {
     if (!configured || u.idToken.isEmpty) return null;

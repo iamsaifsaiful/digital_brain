@@ -98,9 +98,8 @@ class TaskAlarmButton extends StatelessWidget {
       visualDensity: VisualDensity.compact,
       icon: Icon(r == null ? Icons.alarm_add_outlined : Icons.alarm_on_rounded, size: 21, color: r == null ? C.muted : C.green),
       onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => r != null
-            ? NewItemScreen(reminder: r)
-            : NewItemScreen(category: ItemCategory.reminder, presetTitle: task.title, presetAt: at != null && at.isAfter(now) ? at : null, task: task),
+        builder: (_) =>
+            r != null ? NewItemScreen(reminder: r) : NewItemScreen(category: ItemCategory.reminder, presetTitle: task.title, presetAt: at != null && at.isAfter(now) ? at : null, task: task),
       )),
     );
   }
@@ -366,9 +365,7 @@ class _AddSheetState extends State<_AddSheet> {
                   tilePadding: EdgeInsets.zero,
                   childrenPadding: const EdgeInsets.only(bottom: 6),
                   title: Text(
-                      _earlyDays == 0 && _earlyMinutes == 0
-                          ? tr('আগাম মনে করানো: লাগবে না')
-                          : trf('আগাম মনে করানো: {0} আগে', [beforeLabel(_earlyMinutes > 0 ? _earlyMinutes : _earlyDays * 1440)]),
+                      _earlyDays == 0 && _earlyMinutes == 0 ? tr('আগাম মনে করানো: লাগবে না') : trf('আগাম মনে করানো: {0} আগে', [beforeLabel(_earlyMinutes > 0 ? _earlyMinutes : _earlyDays * 1440)]),
                       style: body(13, weight: FontWeight.w600, color: C.muted2)),
                   children: [
                     EarlyPicker(
@@ -430,8 +427,7 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
 
     final List<Widget> body0 = switch (_tab) {
       _ListTab.open => [
-          if (openCount == 0)
-            EmptyState(icon: Icons.check_circle_outline_rounded, title: tr('কিছু বাকি নেই'), text: tr('নতুন কাজ বা রিমাইন্ডার নিচের বোতাম চেপে, বা মাইকে বলে রাখুন।')),
+          if (openCount == 0) EmptyState(icon: Icons.check_circle_outline_rounded, title: tr('কিছু বাকি নেই'), text: tr('নতুন কাজ বা রিমাইন্ডার নিচের বোতাম চেপে, বা মাইকে বলে রাখুন।')),
           if (plan.overdue.isNotEmpty) section(tr('দেরি হয়ে গেছে'), plan.overdue, color: C.orange, withDay: true),
           if (plan.today.isNotEmpty) section(tr('আজ'), plan.today),
           if (plan.ahead.isNotEmpty) section(tr('সামনে'), plan.ahead, withDay: true),
@@ -439,8 +435,7 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
         ],
       _ListTab.repeating => [
           if (plan.repeating.isEmpty)
-            EmptyState(
-                icon: Icons.repeat_rounded, title: tr('বারবার বাজে এমন কিছু নেই'), text: tr('“প্রতিদিন রাত ১০টায় ওষুধ” বা “প্রতি ৩০ মিনিটে পানি” — এমন রিমাইন্ডার এখানে থাকবে।'))
+            EmptyState(icon: Icons.repeat_rounded, title: tr('বারবার বাজে এমন কিছু নেই'), text: tr('“প্রতিদিন রাত ১০টায় ওষুধ” বা “প্রতি ৩০ মিনিটে পানি” — এমন রিমাইন্ডার এখানে থাকবে।'))
           else
             Panel(child: Rows(children: [for (final r in plan.repeating) PlanRow(item: PlanItem.reminder(r, r.notifyAt(now)), withDay: true)])),
         ],
@@ -449,10 +444,8 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
             EmptyState(icon: Icons.history_rounded, title: tr('এখনো কিছু শেষ হয়নি'), text: tr('কাজে টিক দিলে বা রিমাইন্ডার বেজে গেলে এখানে আসবে।'))
           else ...[
             // Reminders whose time has gone by, apart from the finished to-dos.
-            if (plan.finished.any((i) => i.reminder != null))
-              section(tr('সময় পার হওয়া রিমাইন্ডার'), [for (final i in plan.finished.where((i) => i.reminder != null).take(60)) i], withDay: true),
-            if (plan.finished.any((i) => i.reminder == null))
-              section(tr('শেষ হওয়া কাজ'), [for (final i in plan.finished.where((i) => i.reminder == null).take(60)) i], withDay: true),
+            if (plan.finished.any((i) => i.reminder != null)) section(tr('সময় পার হওয়া রিমাইন্ডার'), [for (final i in plan.finished.where((i) => i.reminder != null).take(60)) i], withDay: true),
+            if (plan.finished.any((i) => i.reminder == null)) section(tr('শেষ হওয়া কাজ'), [for (final i in plan.finished.where((i) => i.reminder == null).take(60)) i], withDay: true),
           ],
         ],
     };
@@ -477,7 +470,14 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
               onChanged: (v) => setState(() => _tab = v),
             ),
           ),
-          Expanded(child: ListView(padding: const EdgeInsets.fromLTRB(20, 0, 20, 96), children: body0)),
+          Expanded(
+            child: SwipeSwitch.tabs<_ListTab>(
+              values: _ListTab.values,
+              value: _tab,
+              onChanged: (v) => setState(() => _tab = v),
+              child: ListView(padding: const EdgeInsets.fromLTRB(20, 0, 20, 96), children: body0),
+            ),
+          ),
         ]),
       ),
     );
@@ -560,9 +560,8 @@ class BillList extends StatelessWidget {
     final now = brain.services.now();
     final rows = [for (final (name, day) in billPresets) (name, day, _find(brain, name))]
       // The ones already kept first, by the day they fall on.
-      ..sort((a, b) => (a.$3 == null ? 1 : 0).compareTo(b.$3 == null ? 1 : 0) != 0
-          ? (a.$3 == null ? 1 : 0).compareTo(b.$3 == null ? 1 : 0)
-          : (a.$3?.date.day ?? a.$2).compareTo(b.$3?.date.day ?? b.$2));
+      ..sort(
+          (a, b) => (a.$3 == null ? 1 : 0).compareTo(b.$3 == null ? 1 : 0) != 0 ? (a.$3 == null ? 1 : 0).compareTo(b.$3 == null ? 1 : 0) : (a.$3?.date.day ?? a.$2).compareTo(b.$3?.date.day ?? b.$2));
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       SectionTitle(tr('এ মাসের বিল মনে করানো')),
       Panel(

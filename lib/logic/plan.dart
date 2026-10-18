@@ -3,6 +3,8 @@
 library;
 
 import 'calendar_ask.dart';
+import 'cash.dart' show cashItem;
+import 'answers.dart' show categoryAsked;
 import '../models/models.dart';
 import 'app_map.dart';
 import 'bn.dart';
@@ -63,7 +65,9 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   // "এ মাসে কী কী ছুটি আছে?", "কাল কত তারিখ?": the calendar on the phone.
   if (calendarAsked(said)) return [SmallTalk(said, kind: calendarTodayOnly(said, p.now) ? Talk.date : Talk.calendar)];
   // "কিভাবে ডকুমেন্টস যুক্ত করব": how to — answered, never kept as a to-do.
-  if (howToAsked(said) != null) return [ProfileQuery(said)];
+  if (howToAsked(said) != null || abilityAsked(said) != null) return [ProfileQuery(said)];
+  // "আয়ের খাত গুলো কি কি", "কিভাবে ব্যয় হয়েছে?": this month by খাত.
+  if (categoryAsked(said) != null) return [CashQuery(said)];
   // "আমার পাসপোর্ট দাও", "জাতীয় পরিচয় পত্র কোথায়": a paper kept in
   // ডকুমেন্টস, by its name (spaces in it or not) — shown, never a new note.
   final doc = data == null ? null : docAsked(said, data);
@@ -218,7 +222,7 @@ String summaryLine(Command c) => switch (c) {
       ContactAdd() => 'নম্বর: ${c.name.isEmpty ? '' : '${c.name} — '}${bnDigits(c.phone)}',
       CashAdd() => c.project != null
           ? trf('{0} — {1} {2} টাকা', [c.project!.isEmpty ? 'অন্যান্য হিসাব' : '‘${c.project}’ হিসাব', c.kind == CashKind.income ? 'এসেছে' : 'খরচ', bnNumber(c.amount)])
-          : trf('{0}: {1} — {2} টাকা', [c.kind.label, c.category, bnNumber(c.amount)]),
+          : trf('{0}: {1} — {2} টাকা', [c.kind.label, _withItem(c.category, cashItem(c.transcript)), bnNumber(c.amount)]),
       HealthAdd() => '${isEn ? c.kind.en : c.kind.bn}: ${readingText(HealthLog(kind: c.kind, at: DateTime(2000), a: c.a, b: c.b, c: c.c, tag: c.tag))}',
       ProfileSet() => c.field == 'height'
           ? trf('উচ্চতা{0}: {1}', [c.who.isEmpty ? '' : ' (${c.who})', heightText(double.parse(c.value))])
@@ -493,11 +497,21 @@ List<Command>? spentInParts(String said, Parser p) {
     // Each part names where it went ("বাজারে", "রিকশায়") — no person, no verb of owing.
     final c = p.parse('${x.replaceAll(RegExp(fold(r'\s+(?:কিনলাম|কিনেছি|কিনছি|কিনে\s+আনলাম|দিছি|দিলাম|দিয়েছি|দিয়েছি)$')), '')} টাকা খরচ হয়েছে');
     if (c is! CashAdd || c.kind != CashKind.expense) return null;
-    out.add(CashAdd(said, kind: CashKind.expense, amount: amount, category: c.category));
+    // Each keeps its own words ("রুটি ২০ টাকার") — the note, and what the list shows.
+    out.add(CashAdd(x, kind: CashKind.expense, amount: amount, category: c.category));
   }
   if (total != null) {
     final t = findAmount(normalize(total[1]!));
     if (t == null) return null;
   }
   return out;
+}
+
+/// "খাবার (চা)": the খাত, and what it was, when that says more.
+String _withItem(String category, String item) {
+  // "নাহিয়ান বেতন" under বেতন: the খাত is not said twice.
+  final cat = words(normalize(category)).toSet();
+  final rest = [for (final w in item.split(' ')) if (!cat.contains(normalize(w))) w].join(' ');
+  if (rest.isEmpty || normalize(category).contains(normalize(rest))) return category;
+  return '$category ($rest)';
 }

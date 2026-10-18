@@ -120,14 +120,14 @@ Future<void> enterPin(WidgetTester t, String pin) async {
 }
 
 /// Starts the app, sets the PIN 1234 and lands on home.
-Future<Rig> start(WidgetTester t, {AppData? data, AiRoute? ai}) async {
+Future<Rig> start(WidgetTester t, {AppData? data, AiRoute? ai, AccountServer? server}) async {
   t.view.physicalSize = const Size(1170, 2532);
   t.view.devicePixelRatio = 3.0;
   addTearDown(t.view.reset);
   await loadFonts();
   showOnboarding = false;
   googleFirst = false;
-  final rig = Rig();
+  final rig = Rig(server: server);
   await t.pumpWidget(DigitalBrainApp(brain: rig.brain));
   await rig.brain.load();
   if (data != null) rig.brain.data = data;

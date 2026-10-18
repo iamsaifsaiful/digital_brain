@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../state/brain.dart';
 import '../ui/theme.dart';
+import '../ui/widgets.dart' show SwipeSwitch;
 import 'assistant_bar.dart';
 import 'chat_home.dart';
 import 'diary_screen.dart';
@@ -28,6 +29,7 @@ class HomeShellState extends State<HomeShell> {
   static HomeShellState? current;
 
   ShellTab _tab = ShellTab.home;
+  ShellTab get tabNow => _tab;
   final _money = GlobalKey<MoneyScreenState>();
 
   @override
@@ -61,15 +63,22 @@ class HomeShellState extends State<HomeShell> {
       child: Scaffold(
         body: Column(children: [
           Expanded(
-            child: IndexedStack(
-              index: _tab.index,
-              children: [
-                const HomePage(),
-                const SafeArea(bottom: false, child: DiaryScreen()),
-                SafeArea(bottom: false, child: MoneyScreen(key: _money)),
-                const SafeArea(bottom: false, child: StoreScreen()),
-                const SafeArea(bottom: false, child: MoreScreen()),
-              ],
+            // Swiping across the page moves to the next (or previous) tab.
+            child: SwipeSwitch.tabs<ShellTab>(
+              key: const Key('shell-swipe'),
+              values: ShellTab.values,
+              value: _tab,
+              onChanged: go,
+              child: IndexedStack(
+                index: _tab.index,
+                children: [
+                  const HomePage(),
+                  const SafeArea(bottom: false, child: DiaryScreen()),
+                  SafeArea(bottom: false, child: MoneyScreen(key: _money)),
+                  const SafeArea(bottom: false, child: StoreScreen()),
+                  const SafeArea(bottom: false, child: MoreScreen()),
+                ],
+              ),
             ),
           ),
           // One box for every page: find, save or ask; the mic beside it.

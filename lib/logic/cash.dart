@@ -16,9 +16,14 @@ class MoneySums {
 
   List<MapEntry<String, int>> get topExpenses => byCategory.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
 
+  /// Income per খাত, largest first.
+  final incomeByCategory = <String, int>{};
+  List<MapEntry<String, int>> get topIncome => incomeByCategory.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+
   void add(CashEntry e) {
     if (e.kind == CashKind.income) {
       income += e.amount;
+      incomeByCategory[e.category] = (incomeByCategory[e.category] ?? 0) + e.amount;
     } else {
       expense += e.amount;
       byCategory[e.category] = (byCategory[e.category] ?? 0) + e.amount;
@@ -95,7 +100,7 @@ LoanSummary loanSummary(Iterable<LedgerEntry> ledger) {
 
 const _expenseCats = <String, List<String>>{
   'বাজার': ['বাজার', 'মাছ', 'মাংস', 'সবজি', 'চাল', 'ডাল', 'মুদি', 'গ্রোসারি', 'ডিম', 'দুধ', 'মুরগি', 'গরুর', 'তেল', 'চিনি', 'আটা', 'পেঁয়াজ', 'আলু', 'ফল', 'সাবান', 'শ্যাম্পু'],
-  'খাবার': ['খাবার', 'নাস্তা', 'রেস্টুরেন্ট', 'লাঞ্চ', 'ডিনার', 'খেলাম', 'বিরিয়ানি', 'কফি', 'ফুচকা', 'হোটেল', 'পার্সেল খাবার', 'ফুডপান্ডা', 'foodpanda'],
+  'খাবার': ['খাবার', 'নাস্তা', 'চা', 'রুটি', 'পরোটা', 'সিংগাড়া', 'সিঙ্গাড়া', 'সিঙাড়া', 'সমুচা', 'পুরি', 'বিস্কুট', 'কেক', 'চটপটি', 'ঝালমুড়ি', 'জুস', 'কোক', 'পানি খেলাম', 'আইসক্রিম', 'ভাত', 'রেস্টুরেন্ট', 'লাঞ্চ', 'ডিনার', 'খেলাম', 'বিরিয়ানি', 'কফি', 'ফুচকা', 'হোটেল', 'পার্সেল খাবার', 'ফুডপান্ডা', 'foodpanda'],
   'যাতায়াত': ['রিকশা', 'রিক্সা', 'রিকসা', 'রিক্সা ভাড়া', 'বাস ভাড়া', 'সিএনজি', 'উবার', 'পাঠাও', 'ট্রেন', 'লঞ্চ', 'পেট্রোল', 'অকটেন', 'যাতায়াত', 'গাড়ি ভাড়া', 'ভাড়া গাড়ি'],
   'বাসা ভাড়া': ['বাসা ভাড়া', 'বাড়ি ভাড়া', 'ঘর ভাড়া', 'ফ্ল্যাট ভাড়া'],
   'দোকান ভাড়া': ['দোকান ভাড়া', 'অফিস ভাড়া'],
@@ -131,7 +136,32 @@ const _expenseWords = [
   'spent', 'cost', 'মজুরি', 'বাজার করলাম', 'বাজার করেছি', 'বাজার এনেছি', 'বাজার আনলাম', 'এনেছি', 'আনলাম',
 ];
 
-bool _has(String text, List<String> keys) => keys.any((k) => text.contains(normalize(k)));
+/// A key of two letters or fewer ("চা") is a word of its own, so "চাল",
+/// "চাকরি" or "চাবি" are not tea.
+bool _has(String text, List<String> keys) => keys.any((k) {
+      final n = normalize(k);
+      if (n.runes.length > 2) return text.contains(n);
+      return RegExp('(?:^|\\s)${RegExp.escape(n)}(?:\\s|\$)').hasMatch(text);
+    });
+
+/// What the money was for, in the user's words: "চা গেলাম ২০ টাকার" →
+/// "চা", "মাছ কিনলাম ১২৫০ টাকার" → "মাছ". Empty when nothing short is left.
+String cashItem(String said) {
+  final drop = {
+    for (final w in const [
+      'টাকা', 'টাকার', 'টাকায়', 'টাকাতে', 'টাকাই', 'হাজার', 'শত', 'আজ', 'আজকে', 'সকালে', 'দুপুরে', 'বিকালে', 'বিকেলে', 'রাতে', 'সন্ধ্যায়',
+      'গতকাল', 'কাল', 'কিনলাম', 'কিনেছি', 'কিনছি', 'কেনা', 'খরচ', 'করলাম', 'করেছি', 'হলো', 'হল', 'হয়েছে', 'দিলাম', 'দিছি', 'দিয়েছি',
+      'খেলাম', 'গেলাম', 'গেল', 'এনেছি', 'আনলাম', 'বাবদ', 'জন্য', 'জন্যে', 'আর', 'ও', 'এবং', 'মোট', 'যুক্ত', 'কর', 'করো', 'লেখ', 'লিখ',
+      'লিখো', 'রাখো', 'আমার', 'আমি', 'দিয়ে', 'একটা', 'একটু', 'প্রায়', 'মাত্র', 'দিয়েছে', 'দিয়েছে', 'দিল', 'দিলো', 'হিসেবে',
+      'হিসাবে', 'এসেছে', 'এলো', 'পেলাম', 'পেয়েছি', 'পেয়েছি', 'পাঠিয়েছে', 'পাঠিয়েছে', 'বাবদ', 'থেকে',
+    ])
+      normalize(w),
+  };
+  final t = normalize(said).replaceAll(RegExp(r'[0-9০-৯,.।:/-]+'), ' ');
+  final ws = [for (final w in t.split(RegExp(r'\s+'))) if (w.isNotEmpty && !drop.contains(w)) w];
+  if (ws.isEmpty || ws.length > 4) return '';
+  return ws.join(' ');
+}
 
 /// Income, spending, or neither (null) — [text] is normalized.
 CashKind? cashKindOf(String text) {

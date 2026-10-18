@@ -395,6 +395,8 @@ class _DocScreenState extends State<DocScreen> {
                       final info = await askDocInfo(context, const [], edit: d);
                       if (info == null) return;
                       await brain.saveDoc(info.doc);
+                      // A changed date moves its reminder too.
+                      if (info.doc.expiry != d.expiry) await brain.setDocExpiry(info.doc, info.doc.expiry);
                       await brain.setTags('doc:${d.id}', info.tags);
                     },
                   ),

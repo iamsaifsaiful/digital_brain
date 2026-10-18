@@ -85,7 +85,12 @@ class ShopTodayCard extends StatelessWidget {
     final now = brain.services.now();
     final d = brain.data;
     final s = salesOn(d, now);
-    final due = d.shops.isEmpty ? customersOwing(d).fold(0, (a, p) => a + p.balance) : {for (final sh in d.shops) for (final p in shopCustomersOwing(d, sh)) p.key: p.balance}.values.fold(0, (a, b) => a + b);
+    final due = d.shops.isEmpty
+        ? customersOwing(d).fold(0, (a, p) => a + p.balance)
+        : {
+            for (final sh in d.shops)
+              for (final p in shopCustomersOwing(d, sh)) p.key: p.balance
+          }.values.fold(0, (a, b) => a + b);
     return Panel(
       padding: const EdgeInsets.all(14),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -283,8 +288,7 @@ class AccountsScreen extends StatelessWidget {
                             final pick = await editOrDelete(context);
                             if (!context.mounted) return;
                             if (pick == 'edit') await _transfer(context, t);
-                            if (pick == 'delete' &&
-                                await confirmDialog(context, title: tr('মুছবেন?'), text: tr('এই টাকা সরানোর হিসাবটা মুছে যাবে।'), yes: tr('মুছুন'), danger: true)) {
+                            if (pick == 'delete' && await confirmDialog(context, title: tr('মুছবেন?'), text: tr('এই টাকা সরানোর হিসাবটা মুছে যাবে।'), yes: tr('মুছুন'), danger: true)) {
                               await brain.deleteTransfer(t.id);
                             }
                           },
@@ -293,8 +297,7 @@ class AccountsScreen extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 10),
-                Text(tr('আয়-ব্যয় লেখার সময় অ্যাকাউন্ট বেছে নিলে এখানে মিলবে। “টাকা সরান” (⇄) দিয়ে বিকাশ থেকে নগদে তোলা বা ব্যাংকে জমা রাখুন।'),
-                    style: body(13, color: C.muted, height: 1.5)),
+                Text(tr('আয়-ব্যয় লেখার সময় অ্যাকাউন্ট বেছে নিলে এখানে মিলবে। “টাকা সরান” (⇄) দিয়ে বিকাশ থেকে নগদে তোলা বা ব্যাংকে জমা রাখুন।'), style: body(13, color: C.muted, height: 1.5)),
               ],
             ]),
           ),
@@ -323,8 +326,7 @@ class _ReportScreenState extends State<ReportScreen> {
       final img = await boundary.toImage(pixelRatio: 2.5);
       final data = await img.toByteData(format: ui.ImageByteFormat.png);
       if (data == null) return;
-      await brain.services.files.shareFile(data.buffer.asUint8List(), 'report-${r.month.year}-${r.month.month}.png', 'image/png',
-          trf('{0} মাসের হিসাব — My Assistant', [monthTitle(r.month)]));
+      await brain.services.files.shareFile(data.buffer.asUint8List(), 'report-${r.month.year}-${r.month.month}.png', 'image/png', trf('{0} মাসের হিসাব — My Assistant', [monthTitle(r.month)]));
     } catch (_) {
       if (mounted) toast(context, tr('ছবি বানানো গেল না'));
     }
@@ -339,7 +341,10 @@ class _ReportScreenState extends State<ReportScreen> {
     final insights = reportInsights(r);
     final palette = [C.green, C.blue, C.orange, C.purple, C.teal, C.rose, C.ochre];
     bool isOther(String k) => k == 'অন্যান্য' || k == tr('অন্যান্য');
-    final named = [for (final e in r.byCategory) if (!isOther(e.key)) e];
+    final named = [
+      for (final e in r.byCategory)
+        if (!isOther(e.key)) e
+    ];
     final top = named.take(7).toList();
     final rest = r.byCategory.where((e) => isOther(e.key)).fold(0, (a, e) => a + e.value) + named.skip(7).fold(0, (a, e) => a + e.value);
     final slices = [...top, if (rest > 0) MapEntry(tr('অন্যান্য'), rest)];
@@ -506,7 +511,10 @@ class FixCategoriesScreen extends StatelessWidget {
 
   Future<void> _pick(BuildContext context, CashEntry e) async {
     final brain = BrainScope.read(context);
-    final cats = [for (final c in knownCategories(brain.data, CashKind.expense)) if (c != 'অন্যান্য' && c != tr('অন্যান্য')) c];
+    final cats = [
+      for (final c in knownCategories(brain.data, CashKind.expense))
+        if (c != 'অন্যান্য' && c != tr('অন্যান্য')) c
+    ];
     final custom = TextEditingController();
     final picked = await showModalBottomSheet<String>(
       context: context,
@@ -604,10 +612,15 @@ class _Donut extends CustomPainter {
     var start = -math.pi / 2;
     for (var i = 0; i < values.length; i++) {
       final sweep = values[i] / total * 2 * math.pi;
-      canvas.drawArc(rect.deflate(12), start, sweep, false, Paint()
-        ..color = colors[i % colors.length]
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 22);
+      canvas.drawArc(
+          rect.deflate(12),
+          start,
+          sweep,
+          false,
+          Paint()
+            ..color = colors[i % colors.length]
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 22);
       start += sweep;
     }
   }
@@ -775,98 +788,102 @@ class _SavingsScreenState extends State<SavingsScreen> {
       floatingActionButton: AddButton(label: _tab == 0 ? tr('লক্ষ্য যোগ') : tr('কিস্তি যোগ'), onPressed: () => _tab == 0 ? _editGoal(null) : _editInst(null)),
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('সঞ্চয় ও কিস্তি'), trailing: const [PdfButton({ReportPart.accounts})]),
+          TopBar(title: tr('সঞ্চয় ও কিস্তি'), trailing: const [
+            PdfButton({ReportPart.accounts})
+          ]),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
             child: SegTabs<int>(items: [(0, tr('সঞ্চয়ের লক্ষ্য')), (1, tr('কিস্তি ও DPS'))], value: _tab, onChanged: (v) => setState(() => _tab = v)),
           ),
           Expanded(
-            child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 100), children: [
-              if (_tab == 0) ...[
-                if (d.goals.isEmpty)
-                  EmptyState(icon: Icons.savings_outlined, title: tr('কোনো লক্ষ্য নেই'), text: tr('ঈদ, ভ্রমণ, নতুন কিছু কেনা — লক্ষ্য ঠিক করে একটু একটু জমান। কত জমলো আর মাসে কত রাখতে হবে, দেখাবে।'))
-                else
-                  for (final g in d.goals) ...[
-                    Panel(
-                      padding: const EdgeInsets.all(14),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                        Row(children: [
-                          Expanded(child: Text(g.name, style: body(16, weight: FontWeight.w600))),
-                          IconButton(tooltip: tr('বদলান'), onPressed: () => _editGoal(g), icon: Icon(Icons.edit_outlined, color: C.muted, size: 20)),
-                        ]),
-                        Text(trf('{0} জমেছে, লক্ষ্য {1}', [taka(g.saved), taka(g.target)]), style: body(14, color: C.muted2)),
-                        const SizedBox(height: 8),
-                        Bar(value: g.progress, height: 10),
-                        const SizedBox(height: 6),
-                        if (g.deadline != null)
-                          Text(
-                            g.saved >= g.target
-                                ? tr('লক্ষ্য পূরণ হয়েছে! 🎉')
-                                : trf('{0}-এর মধ্যে · মাসে {1} করে রাখলে হবে', [shortDate(g.deadline!), taka(g.perMonth(now) ?? 0)]),
-                            style: body(13, color: g.saved >= g.target ? C.green : C.muted),
-                          ),
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: FilledButton.icon(
-                            onPressed: () async {
-                              final v = readInt(await askText(context, tr('কত জমালেন?'), number: true));
-                              if (v != null && v > 0) await brain.addDeposit(g, v);
-                            },
-                            style: FilledButton.styleFrom(backgroundColor: C.green, shape: const StadiumBorder()),
-                            icon: const Icon(Icons.add_rounded, size: 18),
-                            label: Text(tr('জমা')),
-                          ),
-                        ),
-                        if (g.deposits.isNotEmpty)
-                          TextButton(
-                            onPressed: () => _deposits(context, g.id),
-                            child: Text(trf('জমার হিসাব · {0}টা — বদলান বা মুছুন', [bnDigits(g.deposits.length)])),
-                          ),
-                      ]),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-              ] else ...[
-                if (d.installments.isEmpty)
-                  EmptyState(
-                      icon: Icons.event_repeat_outlined,
-                      title: tr('কোনো কিস্তি নেই'),
-                      text: tr('DPS, লোনের কিস্তি, বীমার প্রিমিয়াম — প্রতি মাসে আগের দিন মনে করাবো, টিক দিলে কত বাকি দেখাবে।'))
-                else
-                  for (final i in d.installments) ...[
-                    Panel(
-                      padding: const EdgeInsets.all(14),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                        Row(children: [
-                          Expanded(
-                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(i.name, style: body(16, weight: FontWeight.w600)),
-                              Text('${isEn ? i.kind.en : i.kind.bn} · ${taka(i.amount)} · ${trf('প্রতি মাসের {0} তারিখ', [bnDigits(i.dayOfMonth)])}', style: body(13, color: C.muted)),
+            child: SwipeSwitch.tabs<int>(
+                values: const [0, 1],
+                value: _tab,
+                onChanged: (v) => setState(() => _tab = v),
+                child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 100), children: [
+                  if (_tab == 0) ...[
+                    if (d.goals.isEmpty)
+                      EmptyState(
+                          icon: Icons.savings_outlined, title: tr('কোনো লক্ষ্য নেই'), text: tr('ঈদ, ভ্রমণ, নতুন কিছু কেনা — লক্ষ্য ঠিক করে একটু একটু জমান। কত জমলো আর মাসে কত রাখতে হবে, দেখাবে।'))
+                    else
+                      for (final g in d.goals) ...[
+                        Panel(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                            Row(children: [
+                              Expanded(child: Text(g.name, style: body(16, weight: FontWeight.w600))),
+                              IconButton(tooltip: tr('বদলান'), onPressed: () => _editGoal(g), icon: Icon(Icons.edit_outlined, color: C.muted, size: 20)),
                             ]),
-                          ),
-                          IconButton(tooltip: tr('বদলান'), onPressed: () => _editInst(i), icon: Icon(Icons.edit_outlined, color: C.muted, size: 20)),
-                        ]),
-                        const SizedBox(height: 8),
-                        Bar(value: i.months == 0 ? 0 : i.paidCount / i.months, height: 10, color: C.purple),
-                        const SizedBox(height: 6),
-                        Text(trf('{0}/{1} কিস্তি দেওয়া ({2}) · বাকি {3}টি · শেষ {4}', [bnDigits(i.paidCount), bnDigits(i.months), taka(i.paidTotal), bnDigits(i.left), monthTitle(i.end)]),
-                            style: body(13, color: C.muted2)),
-                        const SizedBox(height: 8),
-                        Row(children: [
-                          FilledButton.icon(
-                            onPressed: () => brain.toggleInstallmentPaid(i, now),
-                            style: FilledButton.styleFrom(backgroundColor: i.paidFor(now) ? C.chip : C.purple, foregroundColor: i.paidFor(now) ? C.ink : Colors.white, shape: const StadiumBorder()),
-                            icon: Icon(i.paidFor(now) ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, size: 18),
-                            label: Text(i.paidFor(now) ? trf('{0} দেওয়া হয়েছে', [monthName(now.month)]) : trf('{0}-এর কিস্তি দিলাম', [monthName(now.month)])),
-                          ),
-                        ]),
-                      ]),
-                    ),
-                    const SizedBox(height: 10),
+                            Text(trf('{0} জমেছে, লক্ষ্য {1}', [taka(g.saved), taka(g.target)]), style: body(14, color: C.muted2)),
+                            const SizedBox(height: 8),
+                            Bar(value: g.progress, height: 10),
+                            const SizedBox(height: 6),
+                            if (g.deadline != null)
+                              Text(
+                                g.saved >= g.target ? tr('লক্ষ্য পূরণ হয়েছে! 🎉') : trf('{0}-এর মধ্যে · মাসে {1} করে রাখলে হবে', [shortDate(g.deadline!), taka(g.perMonth(now) ?? 0)]),
+                                style: body(13, color: g.saved >= g.target ? C.green : C.muted),
+                              ),
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: FilledButton.icon(
+                                onPressed: () async {
+                                  final v = readInt(await askText(context, tr('কত জমালেন?'), number: true));
+                                  if (v != null && v > 0) await brain.addDeposit(g, v);
+                                },
+                                style: FilledButton.styleFrom(backgroundColor: C.green, shape: const StadiumBorder()),
+                                icon: const Icon(Icons.add_rounded, size: 18),
+                                label: Text(tr('জমা')),
+                              ),
+                            ),
+                            if (g.deposits.isNotEmpty)
+                              TextButton(
+                                onPressed: () => _deposits(context, g.id),
+                                child: Text(trf('জমার হিসাব · {0}টা — বদলান বা মুছুন', [bnDigits(g.deposits.length)])),
+                              ),
+                          ]),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                  ] else ...[
+                    if (d.installments.isEmpty)
+                      EmptyState(
+                          icon: Icons.event_repeat_outlined, title: tr('কোনো কিস্তি নেই'), text: tr('DPS, লোনের কিস্তি, বীমার প্রিমিয়াম — প্রতি মাসে আগের দিন মনে করাবো, টিক দিলে কত বাকি দেখাবে।'))
+                    else
+                      for (final i in d.installments) ...[
+                        Panel(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                            Row(children: [
+                              Expanded(
+                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                  Text(i.name, style: body(16, weight: FontWeight.w600)),
+                                  Text('${isEn ? i.kind.en : i.kind.bn} · ${taka(i.amount)} · ${trf('প্রতি মাসের {0} তারিখ', [bnDigits(i.dayOfMonth)])}', style: body(13, color: C.muted)),
+                                ]),
+                              ),
+                              IconButton(tooltip: tr('বদলান'), onPressed: () => _editInst(i), icon: Icon(Icons.edit_outlined, color: C.muted, size: 20)),
+                            ]),
+                            const SizedBox(height: 8),
+                            Bar(value: i.months == 0 ? 0 : i.paidCount / i.months, height: 10, color: C.purple),
+                            const SizedBox(height: 6),
+                            Text(trf('{0}/{1} কিস্তি দেওয়া ({2}) · বাকি {3}টি · শেষ {4}', [bnDigits(i.paidCount), bnDigits(i.months), taka(i.paidTotal), bnDigits(i.left), monthTitle(i.end)]),
+                                style: body(13, color: C.muted2)),
+                            const SizedBox(height: 8),
+                            Row(children: [
+                              FilledButton.icon(
+                                onPressed: () => brain.toggleInstallmentPaid(i, now),
+                                style:
+                                    FilledButton.styleFrom(backgroundColor: i.paidFor(now) ? C.chip : C.purple, foregroundColor: i.paidFor(now) ? C.ink : Colors.white, shape: const StadiumBorder()),
+                                icon: Icon(i.paidFor(now) ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, size: 18),
+                                label: Text(i.paidFor(now) ? trf('{0} দেওয়া হয়েছে', [monthName(now.month)]) : trf('{0}-এর কিস্তি দিলাম', [monthName(now.month)])),
+                              ),
+                            ]),
+                          ]),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
                   ],
-              ],
-            ]),
+                ])),
           ),
         ]),
       ),
@@ -988,7 +1005,9 @@ class ZakatScreen extends StatefulWidget {
 
 class _ZakatScreenState extends State<ZakatScreen> {
   /// What the app cannot know: entered once, kept for next time.
-  final _f = {for (final k in ['gold_vori', 'gold_price', 'silver_vori', 'silver_price', 'business', 'other']) k: TextEditingController()};
+  final _f = {
+    for (final k in ['gold_vori', 'gold_price', 'silver_vori', 'silver_price', 'business', 'other']) k: TextEditingController()
+  };
 
   @override
   void initState() {
@@ -1012,6 +1031,30 @@ class _ZakatScreenState extends State<ZakatScreen> {
       c.dispose();
     }
     super.dispose();
+  }
+
+  bool _fetching = false;
+  String _priceNote = '';
+
+  Future<void> _todayPrice(Brain brain) async {
+    setState(() => _fetching = true);
+    final p = await brain.metalPriceToday();
+    if (!mounted) return;
+    if (p == null) {
+      setState(() {
+        _fetching = false;
+        _priceNote = tr('এখন আনতে পারলাম না (ইন্টারনেট বা সার্ভার সাড়া দেয়নি)। bajus.org-এ আজকের দাম দেখে নিজে লিখুন।');
+      });
+      return;
+    }
+    await brain.useMetalPrice(p);
+    if (!mounted) return;
+    setState(() {
+      _fetching = false;
+      _f['gold_price']!.text = '${p.gold22}';
+      _f['silver_price']!.text = '${p.silver22}';
+      _priceNote = trf('{0}, {1} থেকে কার্যকর — ২২ ক্যারেটের দাম বসানো হলো। গয়না অন্য ক্যারেটের হলে দাম বদলে নিন।', [p.source.isEmpty ? tr('বাজুস') : p.source, shortDate(p.date)]);
+    });
   }
 
   @override
@@ -1070,6 +1113,18 @@ class _ZakatScreenState extends State<ZakatScreen> {
               Text(tr('এগুলো অ্যাকাউন্ট, সঞ্চয়, কিস্তি আর ধার-দেনা থেকে নিজে আসে; সেখানে বদলালে এখানেও বদলায়।'), style: body(12.5, color: C.muted, height: 1.4)),
               const SizedBox(height: 16),
               SectionTitle(tr('একবার লিখে দিন — মনে রাখবো')),
+              // Today's market price, from BAJUS through our server — filled in, still editable.
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  key: const Key('zakat-today-price'),
+                  onPressed: _fetching ? null : () => _todayPrice(brain),
+                  icon: _fetching ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.sync_rounded, size: 18),
+                  label: Text(tr('আজকের দাম আনুন (বাজুস)')),
+                ),
+              ),
+              if (_priceNote.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(_priceNote, style: body(12.5, color: C.muted, height: 1.4))),
+              const SizedBox(height: 10),
               Row(children: [
                 Expanded(child: field('gold_vori', tr('সোনা'), vori: true)),
                 const SizedBox(width: 10),
@@ -1082,7 +1137,9 @@ class _ZakatScreenState extends State<ZakatScreen> {
               ]),
               field('business', tr('ব্যবসার মাল (বিক্রয়মূল্যে)')),
               field('other', tr('অন্যান্য (শেয়ার, বন্ড…)')),
-              InfoBanner(text: tr('এক চান্দ্র বছর ধরে নিসাব পরিমাণ সম্পদ থাকলে মোট সম্পদের ২.৫% যাকাত। এটা আনুমানিক হিসাব — নিশ্চিত হতে আলেমের পরামর্শ নিন। মুখেও জিজ্ঞেস করা যায়: “আমার যাকাত কত?”'), icon: Icons.info_outline_rounded),
+              InfoBanner(
+                  text: tr('এক চান্দ্র বছর ধরে নিসাব পরিমাণ সম্পদ থাকলে মোট সম্পদের ২.৫% যাকাত। এটা আনুমানিক হিসাব — নিশ্চিত হতে আলেমের পরামর্শ নিন। মুখেও জিজ্ঞেস করা যায়: “আমার যাকাত কত?”'),
+                  icon: Icons.info_outline_rounded),
             ]),
           ),
         ]),
@@ -1094,8 +1151,7 @@ class _ZakatScreenState extends State<ZakatScreen> {
 // ───────────────────────── Shop ─────────────────────────
 
 /// The polite reminder sent to a customer who owes.
-String dueMessage(String name, int amount) =>
-    trf('আসসালামু আলাইকুম {0} ভাই, আপনার কাছে আমার {1} বাকি আছে। সুবিধামতো দিয়ে দিলে উপকার হয়। ধন্যবাদ।', [name, taka(amount)]);
+String dueMessage(String name, int amount) => trf('আসসালামু আলাইকুম {0} ভাই, আপনার কাছে আমার {1} বাকি আছে। সুবিধামতো দিয়ে দিলে উপকার হয়। ধন্যবাদ।', [name, taka(amount)]);
 
 /// A receipt (memo): items, total, paid; sent by WhatsApp; the sale and any
 /// due are recorded.
@@ -1176,7 +1232,8 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
       await brain.saveCash(CashEntry(kind: CashKind.income, amount: paid, category: salesCategory, note: lines.map((l) => l.item).join(', '), date: now, shopId: shop?.id));
     }
     if (total - paid > 0 && _customer.text.trim().isNotEmpty) {
-      await brain.saveEntry(LedgerEntry(person: _customer.text.trim(), phone: _phone.text.trim(), kind: LedgerKind.lent, amount: total - paid, date: dayOnly(now), note: trf('রসিদ #{0}', [no]), shopId: shop?.id));
+      await brain.saveEntry(
+          LedgerEntry(person: _customer.text.trim(), phone: _phone.text.trim(), kind: LedgerKind.lent, amount: total - paid, date: dayOnly(now), note: trf('রসিদ #{0}', [no]), shopId: shop?.id));
     }
     if (shop != null) {
       await brain.saveReceipt(Receipt(
@@ -1223,9 +1280,13 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                   child: Row(children: [
                     Expanded(flex: 5, child: TextField(controller: r.$1, onChanged: (_) => setState(() {}), decoration: InputDecoration(hintText: tr('জিনিসের নাম'), isDense: true))),
                     const SizedBox(width: 6),
-                    Expanded(flex: 2, child: TextField(controller: r.$2, keyboardType: TextInputType.number, onChanged: (_) => setState(() {}), decoration: InputDecoration(hintText: tr('সংখ্যা'), isDense: true))),
+                    Expanded(
+                        flex: 2,
+                        child: TextField(controller: r.$2, keyboardType: TextInputType.number, onChanged: (_) => setState(() {}), decoration: InputDecoration(hintText: tr('সংখ্যা'), isDense: true))),
                     const SizedBox(width: 6),
-                    Expanded(flex: 3, child: TextField(controller: r.$3, keyboardType: TextInputType.number, onChanged: (_) => setState(() {}), decoration: InputDecoration(hintText: tr('দাম'), isDense: true))),
+                    Expanded(
+                        flex: 3,
+                        child: TextField(controller: r.$3, keyboardType: TextInputType.number, onChanged: (_) => setState(() {}), decoration: InputDecoration(hintText: tr('দাম'), isDense: true))),
                   ]),
                 ),
               TextButton.icon(onPressed: () => setState(_addRow), icon: const Icon(Icons.add_rounded), label: Text(tr('আরেকটা জিনিস'))),

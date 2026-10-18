@@ -243,7 +243,7 @@ extension _MenuChat on ChatController {
           return;
         }
         _rememberSet('notes', c.text.isEmpty ? '' : '${c.text}', [for (final n in list) n.id], source: c.transcript);
-        _say(out, trf('{0}টা নোট:', [bnDigits(list.length)]), facts: [for (final n in list) n.title.isEmpty ? n.body : (n.body.isEmpty ? n.title : '${n.title} — ${n.body}')], links: [ChatLink(LinkKind.notes, tr('নোট দেখুন'))]);
+        _say(out, trf('{0}টা নোট:', [bnDigits(list.length)]), facts: [for (final n in list) noteLine(n)], links: [ChatLink(LinkKind.notes, tr('নোট দেখুন'))]);
       case ('health', 'list'):
         final m = c.target.isEmpty ? null : memberCalled(d, c.target.replaceAll(RegExp(fold(r'(?:য়ের|ের|এর|র)$')), ''));
         if (c.target.isNotEmpty && m == null) {
@@ -597,11 +597,35 @@ extension _MenuChat on ChatController {
       case ('cash', _):
         _cashSpan(c, out);
       case ('zakat', 'price'):
+        // Today's price from a trusted source (BAJUS, through our server) —
+        // never made up; offline, said plainly where to see it.
+        final p = await brain.metalPriceToday();
         final z = brain.zakatSaved;
-        final price = c.text == 'gold' ? z.goldPrice : z.silverPrice;
-        final what = c.text == 'gold' ? tr('সোনা') : tr('রুপা');
-        _say(out, price <= 0 ? trf('{0}র দাম লেখা নেই। আজকের দাম আমি বানিয়ে বলব না — যাকাত পাতায় নিজে বাজারদর দিন।', [what]) : trf('যাকাত পাতায় {0}র দাম ধরা আছে ভরিপ্রতি {1} টাকা — আপনার লেখা দাম, আজকের বাজারদর নয়।', [what, bnNumber(price)]),
-            links: _pageLink('zakat'));
+        if (p == null) {
+          final price = c.text == 'gold' ? z.goldPrice : z.silverPrice;
+          final what = c.text == 'gold' ? tr('সোনা') : tr('রুপা');
+          final kept = price <= 0 ? '' : trf(' যাকাত পাতায় {0}র দাম ধরা আছে ভরিপ্রতি {1} টাকা (আপনার লেখা)।', [what, bnNumber(price)]);
+          _say(out, tr('এখন আজকের দাম আনতে পারলাম না (ইন্টারনেট বা সার্ভার সাড়া দেয়নি)। বাজুসের সাইটে (bajus.org) আজকের দাম দেখা যায়; আমি নিজে দাম বানিয়ে বলব না।') + kept,
+              links: _pageLink('zakat'));
+          return;
+        }
+        final head = trf('আজকের দাম — {0}, {1} থেকে কার্যকর। ', [p.source.isEmpty ? tr('বাজুস') : p.source, shortDate(p.date)]) + p.said();
+        if (z.goldPrice == p.gold22 && z.silverPrice == p.silver22) {
+          _say(out, '$head ${tr('যাকাত পাতায় এই দামই ধরা আছে।')}', links: _pageLink('zakat'));
+          return;
+        }
+        _clarifyOptions = [
+          (tr('হ্যাঁ, বসাও'), MenuAction(c.transcript, domain: 'zakat', op: 'set_price', amount: p.gold22, amount2: p.silver22)),
+          (tr('না'), SmallTalk(c.transcript, kind: Talk.cancelled)),
+        ];
+        _ask(out, '$head ${tr('যাকাতের হিসাবে ২২ ক্যারেটের দাম বসিয়ে দিই?')}', ChatWait.clarify, choices: [for (final o in _clarifyOptions) ChatChoice(o.$1, o.$1)]);
+      case ('zakat', 'set_price'):
+        final p = await brain.metalPriceToday();
+        if (p == null) return;
+        await brain.useMetalPrice(p);
+        _actions++;
+        _say(out, trf('বসিয়ে দিলাম — সোনা ভরি {0}, রুপা ভরি {1} টাকা। এখন “আমার যাকাত কত” জিজ্ঞেস করলে এই দামে হিসাব করব।', [bnNumber(p.gold22), bnNumber(p.silver22)]), links: _pageLink('zakat'));
+        _offerUndo(snap);
 
       // ── Health ──
       case ('health', 'none'):

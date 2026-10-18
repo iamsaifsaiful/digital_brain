@@ -660,6 +660,9 @@ int? findAmount(String normalized) {
 
 bool _hasAny(String text, List<String> keys) => keys.any((k) => text.contains(fold(k)));
 
+/// A verb said to "তুমি": "নিবা", "বলবা", "করবা", "করছো", "দিলা".
+final _youVerb = RegExp(fold(r'^(?:বল|নি|নে|কর|দি|দে|পার|রাখ|লিখ|লেখ|দেখ|খুঁজ|আন|জান|শুন|বুঝ|পাঠা|বানা|খা|যা|পড়)(?:বা|ছো|তেছো|তেছ|লা)$'));
+
 const _give1 = ['দিলাম', 'দিয়েছি', 'দিছি', 'দিয়েছিলাম', 'দিচ্ছি'];
 const _take1 = ['নিলাম', 'নিয়েছি', 'নিছি', 'নিয়েছিলাম'];
 const _got1 = ['পেলাম', 'পেয়েছি', 'পাইছি', 'পেয়েছিলাম'];
@@ -1197,7 +1200,8 @@ class Parser {
     // A plain fact, not a question: keep it (in a matching or new category).
     // Talk addressed to the assistant ("তুমি …", "তোমাকে …") is not a fact
     // about the user's life to file away.
-    final toYou = w.any((x) => const ['তুমি', 'তোমার', 'তোমাকে', 'তুই', 'তোর', 'তোরে'].map(normalize).contains(x));
+    // So is a verb said to "তুমি" without the word: "নিবা", "বলবা", "করছো".
+    final toYou = w.any((x) => const ['তুমি', 'তোমার', 'তোমাকে', 'তুই', 'তোর', 'তোরে'].map(normalize).contains(x)) || w.any(_youVerb.hasMatch);
     if (!asking && w.length >= 3 && !toYou) return NoteAdd(said, text: said.trim(), fromStatement: true);
     return SearchQuery(said, terms: terms);
   }
@@ -1375,6 +1379,19 @@ class Parser {
   LedgerAdd? _ledgerEvent(String said, String text, List<String> w, int amount, List<String> known) {
     final loan = _hasAny(text, _loanWords);
     final ret = _hasAny(text, _returnWords);
+
+    // "ইমরান আজ ১০ হাজার টাকা দিয়েছে": someone already in the book gave
+    // me money — paid back, or lent me more; never guessed as income.
+    if (amount > 0 && _hasAny(text, _give3) && !_hasAny(text, _give1) && !w.any((x) => x.endsWith('কে') && x.length > 2)) {
+      final giver = [...known]..sort((a, b) => b.length.compareTo(a.length));
+      final k = giver.where((k) => normalize(k).isNotEmpty && (text == normalize(k) || text.startsWith('${normalize(k)} '))).firstOrNull;
+      if (k != null) {
+        if (ret) return LedgerAdd(said, person: k, amount: amount, kind: LedgerKind.received);
+        if (loan) return LedgerAdd(said, person: k, amount: amount, kind: LedgerKind.borrowed);
+        final owesMe = balanceWith(ledger, k) > 0;
+        return LedgerAdd(said, person: k, amount: amount, options: const [LedgerKind.received, LedgerKind.borrowed], suggested: owesMe ? LedgerKind.received : LedgerKind.borrowed);
+      }
+    }
 
     // Shops and suppliers: "করিম ৫০০ টাকার মাল বাকিতে নিল" (they owe me),
     // "করিম বাকির ৩০০ টাকা দিয়ে গেল" (paid me), "দোকান থেকে বাকিতে নিলাম"
@@ -2421,7 +2438,19 @@ VaultAdd? vaultAddFrom(String said) {
   const notValues = ['কত', 'কী', 'কি', 'কোনটা', 'কোথায়', 'দেখাও', 'বলো', 'বল', 'দাও', 'লাগবে', 'দরকার', 'ভুলে', 'মনে', 'নেই', 'খুলো', 'কেমন'];
   if (notValues.any((w) => v == fold(w)) || value.length < 3) return null;
   var name = m[1]!.trim().replaceAll(RegExp(r'^(?:আমার|আমাদের)\s+'), '');
-  name = name.split(RegExp(r'\s+')).map((w) => stripPossessive(w)).join(' ').trim();
+  // "ওয়েবসাইট লিংক: getmyassistant.app এবং পাসওয়ার্ড …": the site is the name,
+  // not the words around it.
+  final site = RegExp(r'(?:https?://)?(?:www\.)?([a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)+)(?:/\S*)?', caseSensitive: false).firstMatch(name);
+  if (site != null) {
+    name = site[1]!.toLowerCase();
+  } else {
+    name = name
+        .replaceAll(RegExp(fold(r'[\s,:;।\-–]+(?:এবং|আর|ও|and)$')), '')
+        .replaceAll(RegExp(fold(r'^(?:ওয়েবসাইট|ওয়েব\s+সাইট|সাইট|লিংক|লিঙ্ক|ইউআরএল|url|website|link|app|অ্যাপ)(?:\s+(?:লিংক|লিঙ্ক|নাম))?\s*[:\-–]?\s*'), caseSensitive: false), '')
+        .replaceAll(RegExp(r'[\s,:;।\-–]+$'), '')
+        .trim();
+    name = name.split(RegExp(r'\s+')).map((w) => stripPossessive(w)).join(' ').trim();
+  }
   if (name.isEmpty) return null;
   final wifi = RegExp(r'wi-?fi|ওয়াইফাই|ওয়াই-?ফাই', caseSensitive: false).hasMatch(said);
   // Spoken digits come in Bengali; a typed password keeps its letters as typed.

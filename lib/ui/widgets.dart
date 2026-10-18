@@ -578,3 +578,54 @@ Future<bool> confirmDialog(BuildContext context, {required String title, require
   );
   return r ?? false;
 }
+
+/// Swiping across a tabbed page changes the tab: right to left is the next
+/// tab, left to right the one before. At the last (or first) tab the swipe
+/// goes on to the [SwipeSwitch] around this one, so the inner tabs of a page
+/// lead into the bottom tabs.
+class SwipeSwitch extends StatefulWidget {
+  const SwipeSwitch({super.key, required this.onStep, required this.child});
+
+  /// For tabs listed in order: steps [value] through [values].
+  static SwipeSwitch tabs<T>({Key? key, required List<T> values, required T value, required ValueChanged<T> onChanged, required Widget child}) =>
+      SwipeSwitch(
+        key: key,
+        onStep: (step) {
+          final i = values.indexOf(value) + step;
+          if (i < 0 || i >= values.length) return false;
+          onChanged(values[i]);
+          return true;
+        },
+        child: child,
+      );
+
+  /// +1 for the next tab, -1 for the one before; false when there is none.
+  final bool Function(int step) onStep;
+  final Widget child;
+
+  @override
+  State<SwipeSwitch> createState() => _SwipeSwitchState();
+}
+
+class _SwipeSwitchState extends State<SwipeSwitch> {
+  double _dx = 0;
+
+  void _step(int step) {
+    if (widget.onStep(step)) return;
+    context.findAncestorStateOfType<_SwipeSwitchState>()?._step(step);
+  }
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragStart: (_) => _dx = 0,
+        onHorizontalDragUpdate: (d) => _dx += d.delta.dx,
+        onHorizontalDragEnd: (d) {
+          final v = d.primaryVelocity ?? 0;
+          // A clear swipe: far enough, or quick enough.
+          if (_dx.abs() < 70 && v.abs() < 600) return;
+          _step((v.abs() >= 600 ? v : _dx) < 0 ? 1 : -1);
+        },
+        child: widget.child,
+      );
+}

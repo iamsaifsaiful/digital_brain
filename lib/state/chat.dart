@@ -941,7 +941,10 @@ class ChatController extends ChangeNotifier {
   /// it and said again as income, spending or into a separate account: that
   /// item is replaced and the list is asked again. Nothing is kept yet.
   bool _editQueued(String t, List<String> out) {
-    final said = [for (final w in words(normalize(t))) if (w.length >= 3) w];
+    // "খরচ মাত্র ১৫০ টাকা?" asks about the list; it changes nothing.
+    if (isQuestionText(t)) return false;
+    // An item is named by its words, never by an amount.
+    final said = [for (final w in words(normalize(t))) if (w.length >= 3 && !RegExp(r'^\d').hasMatch(w)) w];
     const common = {'অন্যান্য', 'হিসাবের', 'হিসাবে', 'হিসাব', 'ভেতরে', 'ভিতরে', 'যুক্ত', 'টাকা', 'যথাযথ', 'ভাবে', 'হয়নি', 'বেতন', 'বেতনে', 'আয়', 'খরচ', 'লিখ', 'লেখো', 'রাখো', 'করো'};
     int? at;
     for (var i = 0; i < _queue.length; i++) {
@@ -1051,6 +1054,10 @@ class ChatController extends ChangeNotifier {
     if (m == null) return (t, null);
     final rest = m[2]!.trim();
     if (words(normalize(rest)).length < 3) return (t, null);
+    // "না। অন্যান্য হিসাবের ভেতরে বাড়ির মেরামতে" while an expense waits: not
+    // a refusal — the place it goes, answered as one.
+    final cur = _current;
+    if (cur is CashAdd && cur.project == null && !_askingAll && (projectMeant(brain.data, rest) != null || projectPageNamed(rest))) return (rest, null);
     return (m[1]!, rest);
   }
 
@@ -1309,6 +1316,8 @@ class ChatController extends ChangeNotifier {
         tags.add('[ফোন/মেসেজের ব্যবস্থা করছে]');
         continue;
       }
+      // "আমার যাকাত কত" with no price entered: today's market price is fetched first.
+      if (c is ProfileQuery && infoTopic(normalize(c.transcript)) == 'zakat' && brain.zakatSaved.silverPrice <= 0) await brain.metalPriceToday();
       final text = answerText(brain.data, c, _now) ?? '';
       // Two parts of one message with the same answer ("এ বিষয়ে কোনো তথ্য
       // নেই" twice): said once.
@@ -1404,6 +1413,7 @@ class ChatController extends ChangeNotifier {
           'inbox' => 'inbox',
           'prayer' || 'sehri' || 'iftar' || 'sunrise' || 'sunset' || 'ramadan' => 'calendar',
           'howto' => howToAsked(text)?.id,
+          'ability' => 'docs',
           'money' => 'accounts',
           'savings' => 'savings',
           'medicines' => 'medicines',
@@ -1486,6 +1496,8 @@ class ChatController extends ChangeNotifier {
     _askingAll = false;
     _allYes = false;
     _savedInBatch = 0;
+    _batchLinks.clear();
+    _batchKind = null;
   }
 
   // ── Working through the things to save ──
@@ -1722,12 +1734,27 @@ class ChatController extends ChangeNotifier {
         if (_allYes) return _saveCurrent(out);
         final when = '${bnDigits(c.day)} ${monthName(c.month)}${c.year == null ? '' : ' ${bnDigits(c.year!)}'}';
         final what = specialTitle(SpecialDay(person: c.person, kind: c.kind, month: c.month, day: c.day));
+        // Already kept on another date ("১৫ নভেম্বর" from an earlier mishearing): that one moves.
+        final same = _sameSpecial(c);
+        if (same != null && (same.month != c.month || same.day != c.day)) {
+          _ask(out, trf('{0} আগে রাখা আছে {1} — {2} তারিখে বদলে দিই? রিমাইন্ডারও সাথে সরে যাবে।', [what, '${bnDigits(same.day)} ${monthName(same.month)}', when]), ChatWait.yesNo,
+              choices: _yesNoChoices);
+          return;
+        }
         _ask(out, c.hour == null
             ? trf('{0}, {1} — প্রতি বছর আগের দিন আর সেদিন সকালে মনে করিয়ে দেবো?', [what, when])
             : trf('{0}, {1} — প্রতি বছর আগের দিন আর সেদিন {2}-এ মনে করিয়ে দেবো?', [what, when, bnTime(c.hour!, c.minute)]), ChatWait.yesNo, choices: _yesNoChoices);
       default:
         await _done(out);
     }
+  }
+
+  /// A special day already kept for the same person and kind.
+  SpecialDay? _sameSpecial(SpecialAdd c) {
+    final title = normalize(specialTitle(SpecialDay(person: c.person, kind: c.kind, month: c.month, day: c.day)));
+    return brain.data.specialDays
+        .where((x) => x.kind == c.kind && (normalize(x.person) == normalize(c.person) || normalize(specialTitle(x)) == title || normalize(x.person) == title))
+        .firstOrNull;
   }
 
   /// "নিজের খরচ": a money sentence with no one owing becomes spending.
@@ -1765,21 +1792,21 @@ class ChatController extends ChangeNotifier {
         // The same name twice is told apart by the end of the number; the
         // count said is the count named.
         final counts = <String, int>{};
-        for (final x in _calleeChoices) {
+        for (final x in many) {
           counts[normalize(x.name)] = (counts[normalize(x.name)] ?? 0) + 1;
         }
+        // Everyone counted is in one list: the first few named, then "আরও N জন" once.
         final names = [
-          for (final x in _calleeChoices)
+          for (final x in many)
             (counts[normalize(x.name)] ?? 0) > 1 ? '${x.name} (…${bnDigits(phoneKey(x.phone).length > 4 ? phoneKey(x.phone).substring(phoneKey(x.phone).length - 4) : phoneKey(x.phone))})' : x.name,
         ];
-        final more = many.length - names.length;
         _ask(
           out,
           trf('“{0}” নামে {1} জন আছেন — {2}{3}। কাকে {4}?', [
             _callee,
             bnDigits(many.length),
             nameList(names, unit: 'জন'),
-            more > 0 ? trf(', আরও {0} জন', [bnDigits(more)]) : '',
+            '',
             c.via == Via.call ? 'ফোন দেব' : 'পাঠাব',
           ]),
           ChatWait.callee,
@@ -1906,6 +1933,11 @@ class ChatController extends ChangeNotifier {
         return;
       }
     }
+    if (_kind == null && _allYes && _batchKind != null && (src.options.isEmpty || src.options.contains(_batchKind))) {
+      // "তুবাকে ৫০০ দিলাম। ফারুককে ১০ হাজার।": one verb for all — answered once.
+      _kind = _batchKind;
+      _chosen = true;
+    }
     if (_kind == null) {
       final opts = src.options.isEmpty ? LedgerKind.values : src.options;
       _ask(out, _clarifyQuestion(opts, src.allowExpense), ChatWait.kind, choices: [
@@ -1951,7 +1983,8 @@ class ChatController extends ChangeNotifier {
     if (o.contains(LedgerKind.repaid) && allowExpense) {
       return tr('একটু বুঝিয়ে বলেন — এটা কি আগের দেনা শোধ করলেন, নাকি নতুন করে ধার দিলেন? নাকি অন্য কোনো খরচ?');
     }
-    if (o.contains(LedgerKind.received) && o.contains(LedgerKind.borrowed)) {
+    if (o.contains(LedgerKind.received) && o.contains(LedgerKind.borrowed) && !o.contains(LedgerKind.repaid)) {
+      if (_person.isNotEmpty) return trf('একটু বুঝিয়ে বলেন — {0} কি আগের টাকা ফেরত দিলেন, নাকি আপনি নতুন করে ধার নিলেন?', [_person]);
       return tr('একটু বুঝিয়ে বলেন — উনি কি আগের টাকা ফেরত দিলেন, নাকি আপনি নতুন করে ধার নিলেন?');
     }
     return tr('একটু বুঝিয়ে বলেন — এটা কোন ধরনের লেনদেন?');
@@ -2560,6 +2593,7 @@ class ChatController extends ChangeNotifier {
           return true;
         }
         _kind = LedgerKind.values.byName(choice);
+        if (_allYes) _batchKind = _kind;
         // Picking the kind is the user's say-so: saved without asking again
         // (it can still be taken back with "ফিরিয়ে নিন").
         _chosen = pick != null;
@@ -2732,14 +2766,14 @@ class ChatController extends ChangeNotifier {
         await brain.saveEntry(LedgerEntry(person: _person, phone: _ledgerPhone, kind: kind, amount: _amount, date: _ledgerDate ?? dayOnly(_now), note: ''),
             guessPhone: _ledgerPhone.isEmpty);
         _say(out, quiet ? trf('লিখলাম: {0}।', [describe(kind, _person, _amount)]) : savedSentence(kind, _person, _amount, after),
-            links: [ChatLink(LinkKind.person, trf('{0} খাতা দেখুন', [possessive(_person)]), person: _person)], speak: !quiet);
+            links: _linksFor1(quiet, [ChatLink(LinkKind.person, trf('{0} খাতা দেখুন', [possessive(_person)]), person: _person)]), speak: !quiet);
         _history.add(AiTurn.app('[লিখে রাখা হলো: ${describe(kind, _person, _amount)}]'));
         _focusOn(person: _person);
       case LedgerSet():
         final e = _setEntry!;
         await brain.saveEntry(e);
         _say(out, quiet ? trf('লিখলাম: {0}।', [summaryLine(c)]) : trf('ঠিক আছে, লিখে রাখলাম। {0}', [balanceSentence(e.person, c.balance)]),
-            links: [ChatLink(LinkKind.person, trf('{0} খাতা দেখুন', [possessive(e.person)]), person: e.person)], speak: !quiet);
+            links: _linksFor1(quiet, [ChatLink(LinkKind.person, trf('{0} খাতা দেখুন', [possessive(e.person)]), person: e.person)]), speak: !quiet);
         _history.add(AiTurn.app('[লিখে রাখা হলো: ${summaryLine(c)}]'));
       case NoteAdd():
         final cat = _cat?.name ?? defaultNoteCategory;
@@ -2839,7 +2873,7 @@ class ChatController extends ChangeNotifier {
           done = c.kind == CashKind.expense ? trf('লিখলাম। এই মাসে মোট খরচ {0} টাকা।', [bnNumber(m.expense)]) : trf('লিখলাম। এই মাসে মোট আয় {0} টাকা।', [bnNumber(m.income)]);
         }
         _say(out, quiet ? trf('লিখলাম: {0}', [summaryLine(c)]) : done + proNote,
-            links: [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন')), if (proNote.isNotEmpty) ChatLink(LinkKind.page, tr('প্রো দেখুন'), page: 'pro')], speak: !quiet);
+            links: _linksFor1(quiet, [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন')), if (proNote.isNotEmpty) ChatLink(LinkKind.page, tr('প্রো দেখুন'), page: 'pro')]), speak: !quiet);
         _history.add(AiTurn.app('[লেখা হলো: ${summaryLine(c)}]'));
         _focusOn(cash: c.project == null);
       case VaultAdd():
@@ -2914,9 +2948,17 @@ class ChatController extends ChangeNotifier {
             links: [c.who.isEmpty ? ChatLink(LinkKind.page, tr('জরুরি কার্ড দেখুন'), page: 'emergency') : ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন'))], speak: !quiet);
         _history.add(AiTurn.app(tr('[রক্তের গ্রুপ রাখা হলো]')));
       case SpecialAdd():
-        final saved = await brain.saveSpecialDay(SpecialDay(person: c.person, kind: c.kind, month: c.month, day: c.day, year: c.year), hour: c.hour, minute: c.minute);
+        // The same person's day of the same kind is one day: kept again, it moves.
+        final same = _sameSpecial(c);
+        final saved = await brain.saveSpecialDay(
+            same != null
+                ? same.copyWith(month: c.month, day: c.day, year: c.year ?? same.year)
+                : SpecialDay(person: c.person, kind: c.kind, month: c.month, day: c.day, year: c.year),
+            hour: c.hour,
+            minute: c.minute);
         _lastSpecial = (saved.id, _now);
-        _say(out, quiet ? trf('বিশেষ দিন: {0}', [c.person]) : trf('রেখে দিলাম। প্রতি বছর আগের দিন আর সেদিন {0}-এ মনে করিয়ে দেবো।', [bnTime(c.hour ?? 9, c.minute)]),
+        final moved = same != null ? trf('বদলে দিলাম — এখন {0} {1}। ', [bnDigits(c.day), monthName(c.month)]) : tr('রেখে দিলাম। ');
+        _say(out, quiet ? trf('বিশেষ দিন: {0}', [c.person]) : moved + trf('প্রতি বছর আগের দিন আর সেদিন {0}-এ মনে করিয়ে দেবো।', [bnTime(c.hour ?? 9, c.minute)]),
             links: [ChatLink(LinkKind.special, tr('বিশেষ দিনগুলো দেখুন'))], speak: !quiet);
         _history.add(AiTurn.app('[বিশেষ দিন রাখা হলো: ${summaryLine(c)}]'));
       default:
@@ -2933,6 +2975,21 @@ class ChatController extends ChangeNotifier {
 
   /// The data before the first save of a "সব হ্যাঁ" batch.
   String? _batchSnap;
+
+  /// The pages a batch's saves point to, offered once at its end.
+  final _batchLinks = <ChatLink>[];
+
+  /// [links] for one save: shown with it, or in a batch kept for the end.
+  List<ChatLink> _linksFor1(bool quiet, List<ChatLink> links) {
+    if (!quiet) return links;
+    for (final l in links) {
+      if (!_batchLinks.any((x) => x.label == l.label)) _batchLinks.add(l);
+    }
+    return const [];
+  }
+
+  /// A batch kept: one kind of answer the user gave (ধার দিলাম) for the rest of it.
+  LedgerKind? _batchKind;
 
   /// Puts "ফিরিয়ে নিন" under the last message (and takes it off older ones).
   void _offerUndo(String snap) {
@@ -2987,7 +3044,7 @@ class ChatController extends ChangeNotifier {
         _rememberSet('tasks', '', ids, source: _batchTaskTitles.first);
         _batchTasks = (ids, same ? _batchTaskTitles.first : '', _turn);
       } else if (_savedInBatch > 0) {
-        _say(out, tr('সব রেখে দিলাম। আর কিছু?'));
+        _say(out, tr('সব রেখে দিলাম। আর কিছু?'), links: [..._batchLinks]);
         final snap = _batchSnap;
         if (snap != null) _offerUndo(snap);
       }
@@ -2995,6 +3052,8 @@ class ChatController extends ChangeNotifier {
       _allYes = false;
       _savedInBatch = 0;
       _batchTaskTitles.clear();
+      _batchLinks.clear();
+      _batchKind = null;
     }
   }
 }

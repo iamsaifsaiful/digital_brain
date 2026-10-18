@@ -123,6 +123,40 @@ class ZakatInput {
 
 /// What the user entered on the যাকাত page last time (kept on the phone),
 /// for the parts the app cannot know: gold, silver, stock, other.
+/// Today's gold and silver price (taka per ভরি) as BAJUS set it, from our
+/// server — never made up in the app.
+class MetalPrice {
+  const MetalPrice({required this.date, required this.gold, required this.silver, this.source = '', this.sourceUrl = ''});
+
+  /// The day the rate took effect.
+  final DateTime date;
+  final Map<String, int> gold;
+  final Map<String, int> silver;
+  final String source;
+  final String sourceUrl;
+
+  int get gold22 => gold['22k'] ?? 0;
+  int get silver22 => silver['22k'] ?? 0;
+
+  static MetalPrice? fromJson(Map<String, dynamic> j) {
+    final d = DateTime.tryParse('${j['date'] ?? ''}');
+    Map<String, int> m(Object? x) => {if (x is Map) for (final e in x.entries) '${e.key}': (e.value as num?)?.round() ?? 0};
+    final p = MetalPrice(date: d ?? DateTime(2000), gold: m(j['gold']), silver: m(j['silver']), source: '${j['source'] ?? ''}', sourceUrl: '${j['source_url'] ?? ''}');
+    return d == null || p.gold22 <= 0 || p.silver22 <= 0 ? null : p;
+  }
+
+  Map<String, dynamic> toJson() => {'date': date.toIso8601String().substring(0, 10), 'gold': gold, 'silver': silver, 'source': source, 'source_url': sourceUrl};
+
+  /// "সোনা ২২ ক্যারেট ভরি ২,০৫,০০০ টাকা …" — every carat given.
+  String said() {
+    String part(Map<String, int> m) => [
+          for (final (k, label) in const [('22k', '২২ ক্যারেট'), ('21k', '২১ ক্যারেট'), ('18k', '১৮ ক্যারেট'), ('traditional', 'সনাতন')])
+            if ((m[k] ?? 0) > 0) '${tr(label)} ${bnNumber(m[k]!)}',
+        ].join(', ');
+    return trf('সোনা (ভরি): {0}। রুপা (ভরি): {1}।', [part(gold), part(silver)]);
+  }
+}
+
 class ZakatSaved {
   const ZakatSaved({this.goldVori = 0, this.goldPrice = 0, this.silverVori = 0, this.silverPrice = 0, this.business = 0, this.other = 0});
   final double goldVori;
@@ -131,6 +165,11 @@ class ZakatSaved {
   final int silverPrice;
   final int business;
   final int other;
+
+  /// The same, with today's market price where none was entered.
+  ZakatSaved withPrices(MetalPrice? p) => p == null
+      ? this
+      : ZakatSaved(goldVori: goldVori, goldPrice: goldPrice > 0 ? goldPrice : p.gold22, silverVori: silverVori, silverPrice: silverPrice > 0 ? silverPrice : p.silver22, business: business, other: other);
 }
 
 /// The zakat parts the app works out from the user's own records:

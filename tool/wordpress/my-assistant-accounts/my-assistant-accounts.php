@@ -26,6 +26,7 @@ require_once __DIR__ . '/admin-api.php';
 require_once __DIR__ . '/feedback.php';
 require_once __DIR__ . '/pro-page.php';
 require_once __DIR__ . '/blood.php';
+require_once __DIR__ . '/metal.php';
 
 /** The members table. */
 function ma_acc_table() {

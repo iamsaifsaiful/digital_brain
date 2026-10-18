@@ -95,8 +95,8 @@ void main() {
     final r = await say('আজ সারাদিনের আয় ব্যয়ের হিসাব-\n\n১. নাহিয়ান ২০০০ টাকা দিয়েছে বেতন হিসেবে\n২. রেমিট্যান্স এসেছে ১৫০০০ টাকা\n৩. শফিক ভাইকে দিলাম ৭০০০ টাকা\n৪. ৪৫০ টাকা বাজার এনেছি\n৫. সাইফুল মিয়াকে দিলাম ১০০ টাকা');
     expect(r, isNot(contains('এই মাসে')), reason: 'the heading is not a question');
     expect(r, contains('৫টা'));
-    expect(r, contains('আয়: বেতন — ২,০০০'));
-    expect(r, contains('খরচ: বাজার — ৪৫০'));
+    expect(r, contains('আয়: বেতন (নাহিয়ান) — ২,০০০'));
+    expect(r, contains('খরচ: বাজার — ৪৫০'), reason: 'বাজার এনেছি: the item is the খাত itself');
     expect(r, contains('সাইফুল মিয়া'));
     final e = await say('সব যথাযথ ভাবে হয় নাই। নাহিয়ানের বেতন অন্যান্য হিসাবের ভেতরে শিক্ষার্থীদের বেতনে যুক্ত কর');
     expect(e, contains('শিক্ষার্থীদের বেতন'));

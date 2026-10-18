@@ -20,13 +20,17 @@ update_option('ma_ai_key', 'sk-ant-test-0123456789abcdefghijkl');
 update_option('ma_fcm_account', wp_json_encode(['client_email' => 'x@y.iam.gserviceaccount.com', 'project_id' => 'my-assistant', 'private_key' => openssl_pkey_export(openssl_pkey_new(['private_key_bits' => 2048]), $pk) ? $pk : '']));
 
 // Google, Anthropic and Firebase, pretended.
-$sent = ['ai' => [], 'fcm' => [], 'mail' => []];
+$sent = ['ai' => [], 'fcm' => [], 'mail' => [], 'metal' => []];
 add_filter('pre_http_request', function ($pre, $args, $url) use (&$sent) {
     if (str_contains($url, 'tokeninfo')) {
         parse_str(parse_url($url, PHP_URL_QUERY), $q);
         $who = str_starts_with($q['id_token'], 'BOSS') ? ['sub' => 'g-boss', 'email' => 'boss@gmail.com', 'name' => 'Boss'] : ['sub' => 'g-rahim', 'email' => 'rahim@gmail.com', 'name' => 'রহিম উদ্দিন', 'picture' => 'https://lh3.googleusercontent.com/a/abc'];
         $aud = str_contains($q['id_token'], 'WRONGAUD') ? 'other.apps.googleusercontent.com' : 'web-client.apps.googleusercontent.com';
         return ['response' => ['code' => 200], 'body' => wp_json_encode($who + ['iss' => 'https://accounts.google.com', 'aud' => $aud, 'exp' => time() + 600, 'email_verified' => 'true']), 'headers' => [], 'cookies' => []];
+    }
+    if (str_contains($url, 'api.anthropic.com') && str_contains($args['body'], 'web_search')) {
+        $sent['metal'][] = json_decode($args['body'], true);
+        return ['response' => ['code' => 200], 'body' => wp_json_encode(['stop_reason' => 'end_turn', 'content' => [['type' => 'text', 'text' => $GLOBALS['metal_reply']]]]), 'headers' => [], 'cookies' => []];
     }
     if (str_contains($url, 'api.anthropic.com')) {
         $sent['ai'][] = $args;
@@ -297,4 +301,29 @@ file_put_contents(dirname(__FILE__) . '/page-pro.html', '<!doctype html><meta ch
 check(str_contains($pro, 'ফ্রি আর প্রো-তে কী কী') && str_contains($pro, 'মাসিক প্রো কিনুন') && str_contains($pro, 'তথ্য জমা দিন'), 'Pro page: features, plans and the form');
 check((bool) preg_match('/value="monthly"\s+checked/', $pro), 'the plan chosen above is ticked in the form');
 check(!str_contains(do_shortcode('[my_assistant_pro form="no"]'), 'তথ্য জমা দিন'), 'form="no" leaves the form out');
+echo "\ngold and silver price\n";
+$today = wp_date('Y-m-d');
+$GLOBALS['metal_reply'] = 'এই যে: {"effective_date":"' . $today . '","gold":{"22k":"1,000,000","21k":1,"18k":1,"traditional":1},"silver":{"22k":3500,"21k":3300,"18k":2800,"traditional":2100},"source_url":"https://www.bajus.org/gold-price"}';
+[$code] = call('GET', '/metal-price');
+check($code === 503, 'a price that makes no sense (gold not dearer by purity) is not given: ' . $code);
+check(count($sent['metal']) === 2, 'tried with both models: ' . count($sent['metal']));
+[$code] = call('GET', '/metal-price');
+check($code === 503 && count($sent['metal']) === 2, 'after a failure it waits before asking the web again');
+delete_transient('ma_metal_trying');
+$GLOBALS['metal_reply'] = '{"effective_date":"' . $today . '","gold":{"22k":"2,05,000","21k":195700,"18k":167700,"traditional":139400},"silver":{"22k":3965,"21k":3780,"18k":3240,"traditional":2433},"source_url":"https://www.bajus.org/gold-price"}';
+[$code, $d] = call('GET', '/metal-price');
+check($code === 200 && $d['gold']['22k'] === 205000 && $d['silver']['traditional'] === 2433 && $d['date'] === $today && $d['unit'] === 'vori', 'today\'s price, per vori, with its date');
+check(str_contains($d['source'], 'বাজুস') && $d['source_url'] === 'https://www.bajus.org/gold-price', 'says where it is from');
+$m = end($sent['metal']);
+check(($m['tools'][0]['type'] ?? '') === 'web_search_20250305' && !isset($m['system']), 'looked up with web search');
+$n = count($sent['metal']);
+[$code, $d2] = call('GET', '/metal-price');
+check($code === 200 && count($sent['metal']) === $n && $d2['gold']['22k'] === 205000, 'kept for everyone: no new lookup within hours');
+$k = get_option('ma_metal_price');
+$k['fetched'] = time() - 7 * HOUR_IN_SECONDS;
+update_option('ma_metal_price', $k, false);
+$GLOBALS['metal_reply'] = 'not found';
+[$code, $d3] = call('GET', '/metal-price');
+check($code === 200 && $d3['gold']['22k'] === 205000 && count($sent['metal']) === $n + 2, 'an old price is still given (with its date) when a new one is not found');
+
 echo $fail ? "\n$fail FAILED\n" : "\nALL OK\n";
