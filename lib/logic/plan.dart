@@ -57,6 +57,10 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   if (tidied.isNotEmpty) said = tidied;
   // "এ মাসে কী কী ছুটি আছে?", "কাল কত তারিখ?": the calendar on the phone.
   if (calendarAsked(said)) return [SmallTalk(said, kind: calendarTodayOnly(said, p.now) ? Talk.date : Talk.calendar)];
+  // "আমার পাসপোর্ট দাও", "জাতীয় পরিচয় পত্র কোথায়": a paper kept in
+  // ডকুমেন্টস, by its name (spaces in it or not) — shown, never a new note.
+  final doc = data == null ? null : docAsked(said, data);
+  if (doc != null) return [SearchQuery(said, terms: doc)];
   // The other menus first (menus.dart): "এই মাসের DPS দিয়েছি" is an
   // instalment, never a to-do ticked by a shared word.
   final menu = menuCommand(said, data, p.now);
@@ -75,6 +79,10 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   }
   // "৮ নভেম্বর ঢাকায় যাব, ২২ নভেম্বর সিঙ্গাপুর যাব আর ২৯ তারিখে ফিরব —
   // এগুলো কাজের তালিকায় যুক্ত করো": several dated to-dos in one breath.
+  // "রবিনের বোনের বিয়েতে ২৩ এবং ২৪ তারিখে দাওয়াত", "২৪ তারিখেও দাওয়াত
+  // আছে": something on those days, told — one to-do for each day.
+  final onDays = eventOnDays(said, p);
+  if (onDays != null) return onDays;
   final dated = datedTodos(said, p);
   if (dated != null) return dated;
   // Money said in parts of different times: one command each.
@@ -203,6 +211,66 @@ String summaryLine(Command c) => switch (c) {
     };
 
 
+/// Something happening on one or more days of the month, told as a fact
+/// ("২৩ এবং ২৪ তারিখে দাওয়াত", "২৪ তারিখেও দাওয়াত আছে"): a to-do for
+/// each day. Null for questions, money, orders and reminders (their own rules).
+List<Command>? eventOnDays(String said, Parser p) {
+  if (isQuestionText(said)) return null;
+  final f = ' ${fold(normalize(said))} ';
+  if (RegExp(fold(r'(?:টাকা|রিমাইন্ডার|মনে\s+করি|মনে\s+করা|এলার্ম|অ্যালার্ম|মুছ|বাদ\s+দাও|সরাও|রাখো|দেখাও|জন্মদিন|বার্ষিকী)')).hasMatch(f)) return null;
+  final months = bnMonths.map(fold).join('|');
+  final num = '[০-৯0-9]{1,2}';
+  final tarikh = fold('তারিখ');
+  final join = '(?:\\s*,\\s*|\\s+(?:${fold('এবং')}|${fold('আর')}|${fold('ও')})\\s+)';
+  // "২৩ এবং ২৪ তারিখে", "২৩ তারিখ এবং ২৪ তারিখ", "২৩ ও ২৪ অক্টোবর".
+  final m = RegExp('(?<=\\s)($num)(?:\\s+$tarikh\\S*)?((?:$join$num(?:\\s+$tarikh\\S*)?)*)\\s*(?:$tarikh\\S*|($months))?(?=\\s|,)').allMatches(f).where((x) => x[0]!.contains(tarikh) || x[3] != null).firstOrNull;
+  if (m == null) return null;
+  final nums = [for (final x in RegExp(num).allMatches(m[0]!)) int.parse(asciiDigits(x[0]!))];
+  if (nums.isEmpty || nums.any((n) => n < 1 || n > 31)) return null;
+  final today = DateTime(p.now.year, p.now.month, p.now.day);
+  final month = m[3] == null ? null : bnMonths.map(fold).toList().indexOf(m[3]!) + 1;
+  DateTime dayOf(int n) {
+    if (month != null) {
+      final d = DateTime(today.year, month, n);
+      return d.isBefore(today) ? DateTime(today.year + 1, month, n) : d;
+    }
+    final d = DateTime(today.year, today.month, n);
+    return d.isBefore(today) ? DateTime(today.year, today.month + 1, n) : d;
+  }
+  // What it is: the rest, without the told-words ("আছে", "দুই দিনেই", "না").
+  var rest = (f.substring(0, m.start) + f.substring(m.end))
+      .replaceAll(RegExp(fold(r'(?:^|\s)(?:না|আছে|আছেই|হবে|দুই\s+দিনেই|দুই\s+দিন|দুদিনই|দুদিন|দিনেই|ই|ও)(?=\s|$|[,।])')), ' ')
+      .replaceAll(RegExp(r'[,।.!]+'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  if (rest.isEmpty || RegExp(r'\S+').allMatches(rest).length > 8) return null;
+  // Only an event, not something to do ("২৩ তারিখে ঢাকায় যাব" is a to-do
+  // rule's own).
+  if (RegExp(fold(r'(?:বো|ব|মু|তে\s+হবে)(?:\s|$)')).hasMatch(' $rest ')) return null;
+  if (RegExp(fold(r'(?:কাজ|তালিকা|লিস্ট|লেখ|লিখ|যোগ|যুক্ত|(?:^|\s)(?:করতে|নিতে|যেতে|দিতে|আনতে|কিনতে|দেখতে|খেতে|পড়তে)(?:\s|$))')).hasMatch(' $rest ')) return null;
+  final title = rest.replaceFirst(RegExp(r'^\S'), rest[0]);
+  return [for (final n in nums.toSet()) TaskAdd(said, title: title, due: dayOf(n))];
+}
+
+/// The words of a kept paper's title when [said] only asks for that paper
+/// ("আমার পাসপোর্ট দাও"); null otherwise.
+List<String>? docAsked(String said, AppData d) {
+  if (d.docs.isEmpty) return null;
+  final f = ' ${fold(normalize(said))} ';
+  final ask = RegExp(fold(r'\s(?:দাও|দিন|দেন|দেখাও|দেখান|কোথায়|কই|বের\s+করো|খুঁজে\s+দাও|খোলো|খুলে\s+দাও)\s')).firstMatch(f);
+  if (ask == null) return null;
+  var rest = f.substring(0, ask.start).replaceAll(RegExp(fold(r'(?:^|\s)(?:আমার|আমাদের|আমাকে|একটু|টা|টি|কপি|ছবি)(?=\s|$)')), ' ').trim();
+  rest = rest.replaceAll(RegExp(fold(r'(?:টা|টি|খানা)$')), '');
+  if (rest.isEmpty || f.substring(ask.end).trim().isNotEmpty) return null;
+  final want = rest.replaceAll(RegExp(r'\s+'), '');
+  if (want.length < 3) return null;
+  for (final x in d.docs) {
+    final key = fold(normalize('${x.title} ${x.folder}')).replaceAll(RegExp(r'\s+'), '');
+    if (key.contains(want)) return searchTerms(normalize(x.title));
+  }
+  return null;
+}
+
 /// A list typed on several lines under a to-do heading — "কাজের তালিকা:",
 /// "কালকের কাজ", "টুডু" — one to-do per line ("-", "•", "১." in front
 /// dropped). A date written on a line is that to-do's; otherwise the
@@ -213,17 +281,29 @@ List<Command>? lineTodos(String said, Parser p) {
       if (x.trim().isNotEmpty) x.trim().replaceAll(RegExp(r'^(?:[-–—•*·▪]|[0-9০-৯]{1,2}\s*[.)।])\s*'), '').replaceAll(RegExp(r'[।.,;]+$'), '').trim()
   ].where((x) => x.isNotEmpty).toList();
   if (lines.length < 2) return null;
-  final head = RegExp(fold(r'^(?:আমার\s+)?(.*?)\s*(?:কাজের\s+(?:তালিকা|লিস্ট)\S*|কাজগুলো|কাজ|টু\s*ডু\S*|to-?do\S*)(?:\s+(?:রাখো|লিখে\s+রাখো|যোগ\s+করো|যুক্ত\s+করো|লেখো|লিখো))?\s*[:：\-—–]?\s*$'), caseSensitive: false).firstMatch(fold(lines.first));
-  if (head == null) return null;
-  final pre = tidySpeech(head[1]!);
-  final hw = pre.trim().isEmpty ? null : parseWhen(pre, p.now);
-  if (pre.trim().isNotEmpty && (hw == null || !hw.hasDay)) return null;
+  // The heading: "কাজের তালিকা:", "কালকের কাজ", "আমার এই বছরে কিছু কাজ
+  // আছে," — to-do words, maybe a when, nothing else to do in it.
+  final h = fold(tidySpeech(lines.first)).replaceAll(RegExp(r'[,:：\-—–।]+\s*$'), '').trim();
+  final isHead = RegExp(fold(r'(?:কাজের\s+(?:তালিকা|লিস্ট)\S*|(?:^|\s)কাজ(?:গুলো|গুলা)?(?:\s|$)|টু\s*ডু\S*|to-?do\S*)'), caseSensitive: false).hasMatch(h) &&
+      RegExp(r'\S+').allMatches(h).length <= 9 &&
+      !RegExp(fold(r'(?:মুছ|ডিলিট|বাদ\s+দাও|শেষ\s+হয়েছে|করেছি|হয়ে\s+গেছে|দেখাও|দাও\s*$|(?:^|\s)(?:কী|কি|কোন|কয়টা)(?:\s|$)|\?)')).hasMatch(h);
+  if (!isHead) return null;
+  final hw = parseWhen(h, p.now);
+  final yearPlan = RegExp(fold(r'(?:(?:এই|এ)\s+বছর|[০-৯0-9]{4}\s+সাল)')).hasMatch(h);
+  final yearOf = RegExp(fold(r'([০-৯0-9]{4})\s+সাল')).firstMatch(h);
   final out = <Command>[];
   for (final line in lines.skip(1)) {
     final c = p.parse('${tidySpeech(line)} — কাজের তালিকায় লিখে রাখো');
     final title = c is TaskAdd && c.title.trim().isNotEmpty ? c.title : tidy(line);
     if (title.trim().isEmpty) continue;
-    out.add(TaskAdd(said, title: title, due: (c is TaskAdd ? c.due : null) ?? hw?.day));
+    final own = c is TaskAdd ? c.due : null;
+    if (own == null && yearPlan) {
+      // "এই বছরে কিছু কাজ আছে": each a plan for the year.
+      final y = yearOf == null ? p.now.year : int.parse(asciiDigits(yearOf[1]!));
+      out.add(TaskAdd(said, title: title, due: DateTime(y, 1, 1), span: TaskSpan.year));
+    } else {
+      out.add(TaskAdd(said, title: title, due: own ?? (hw != null && hw.hasDay ? hw.day : null)));
+    }
   }
   return out.isEmpty ? null : out;
 }

@@ -75,7 +75,9 @@ String? infoTopic(String text) {
   if (_has(text, ['কয়টা নোট', 'কয়টি নোট', 'কতগুলো নোট', 'কত নোট', 'নোট কয়টা', 'নোট কতগুলো', 'কী কী নোট', 'কি কি নোট'])) return 'notes';
   if (_has(text, ['জন্মদিন', 'বিবাহবার্ষিকী', 'মৃত্যুবার্ষিকী', 'বিশেষ দিন']) && _has(text, ['সামনে', 'কার কার', 'কবে কবে', 'কী কী', 'কি কি', 'এই মাসে', 'আসছে'])) return 'special';
   final w = words(text);
-  final dayWord = w.any((x) => const ['কাল', 'কালকে', 'আগামীকাল', 'পরশু', 'পরশুদিন'].map(normalize).contains(x));
+  // A day by name, or a date ("৩১ ডিসেম্বর কী আছে?", "২৩ তারিখে কী আছে?").
+  final dayWord = w.any((x) => const ['কাল', 'কালকে', 'আগামীকাল', 'পরশু', 'পরশুদিন'].map(normalize).contains(x)) ||
+      RegExp('[০-৯0-9]{1,2}\\s+(?:${bnMonths.map(normalize).join('|')}|${normalize('তারিখ')})').hasMatch(text);
   if (dayWord && _has(text, ['কী আছে', 'কি আছে', 'কী কী', 'কি কি', 'কী কাজ', 'কি কাজ', 'কোনো কাজ', 'প্ল্যান', 'প্রোগ্রাম', 'শিডিউল', 'কী করতে হবে', 'কি করতে হবে'])) return 'day';
   return null;
 }
@@ -190,7 +192,12 @@ String? infoAnswer(AppData d, String said, DateTime now) {
       ];
       return trf('{0}:\n{1}', [label, lines.join('\n')]);
     case 'expiry':
-      final terms = searchTerms(text).where((t) => !_has(t, ['মেয়াদ', 'কবে', 'শেষ'])).toList();
+      // Only words that name a paper narrow it ("পাসপোর্টের মেয়াদ কবে?");
+      // the rest ("কোনটা", "দিকে", "আমার") ask about all of them.
+      final terms = [
+        for (final t in searchTerms(text))
+          if (!_has(t, ['মেয়াদ', 'কবে', 'শেষ']) && d.docs.any((x) => normalize('${x.title} ${x.folder}').contains(t))) t
+      ];
       final docs = [
         for (final x in d.docs)
           if (x.expiry != null && (terms.isEmpty || terms.any((t) => normalize('${x.title} ${x.folder}').contains(t)))) x,

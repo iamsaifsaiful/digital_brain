@@ -1077,7 +1077,9 @@ class Parser {
     }
 
     // Dates and reminders.
-    if (_hasAny(text, ['মনে করিয়ে', 'মনে করিয়ে', 'মনে করাও', 'রিমাইন্ডার', 'তারিখ', 'কবে', 'মেয়াদ', 'মেয়াদ'])) {
+    // ("২৩ তারিখে দাওয়াত আছে" tells a date — not a question about one.)
+    if (_hasAny(text, ['মনে করিয়ে', 'মনে করিয়ে', 'মনে করাও', 'রিমাইন্ডার', 'তারিখ', 'কবে', 'মেয়াদ', 'মেয়াদ']) &&
+        (asking || _hasAny(text, ['রিমাইন্ডার', 'মনে করাও', 'কবে', 'মনে করিয়ে', 'মনে করিয়ে']))) {
       return ReminderQuery(said, terms: searchTerms(text));
     }
 
@@ -1085,6 +1087,19 @@ class Parser {
     if (!asking && amount != null) {
       final when = parseWhen(said, now);
       final promise = w.any((x) => const ['দেবো', 'দেব', 'দিবো', 'দিব', 'পাঠাবো', 'পাঠাব', 'শোধ করবো', 'শোধ করব', 'ফেরত দেবো'].map(normalize).contains(x));
+      // "ইমরান আজ ১৫০০০ টাকা দিবে": someone else will pay — a plan to
+      // remember, not money that moved (and never "who?" asked again).
+      final theyWill = w.any((x) => const ['দিবে', 'দেবে', 'দিবেন', 'দেবেন', 'দিবা', 'পাঠাবে', 'পাঠাবেন', 'দিয়ে দিবে', 'ফেরত দিবে'].map(normalize).contains(x));
+      if (theyWill) {
+        final title = tidy(cutWords(said, ['আগামীকাল', 'আগামী কাল', 'কাল', 'আজকে', 'আজ', 'পরশু', ..._fillers]))
+            .replaceAll(RegExp(r'[।.!]+$'), '')
+            .trim();
+        if (title.isNotEmpty) {
+          return when != null && when.hasTime && when.at.isAfter(now) && !hourOpen(said, when.at.hour)
+              ? ReminderAdd(said, title: title, at: when.at)
+              : TaskAdd(said, title: title, due: when != null && when.hasDay ? when.day : null);
+        }
+      }
       if (when != null && when.hasDay && promise) {
         // Day words only: withoutWhen would read "৫০০ টা(কা)" as a clock time.
         final title = tidy(cutWords(said, ['আমি', 'আগামীকাল', 'আগামী কাল', 'কাল', 'আজকে', 'আজ', 'পরশু', 'সকালে', 'বিকেলে', 'রাতে', 'দুপুরে', 'সন্ধ্যায়', ..._fillers]))

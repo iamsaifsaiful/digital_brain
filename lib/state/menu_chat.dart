@@ -420,6 +420,18 @@ extension _MenuChat on ChatController {
         final local = DateTime.tryParse(brain.text('last_backup'));
         final last = [drive, local].whereType<DateTime>().fold<DateTime?>(null, (a, b) => a == null || b.isAfter(a) ? b : a);
         _say(out, last == null ? tr('এই ফোনে কোনো ব্যাকআপের খবর নেই।') : trf('শেষ ব্যাকআপ: {0}{1}।', [sayWhen(last, _now), drive != null && drive == last ? tr(' (Google Drive-এ)') : '']), links: _pageLink('backup'));
+      case ('backup', 'status'):
+        final drive = brain.lastDrive;
+        final local = DateTime.tryParse(brain.text('last_backup'));
+        final last = [drive, local].whereType<DateTime>().fold<DateTime?>(null, (a, b) => a == null || b.isAfter(a) ? b : a);
+        final lastText = last == null ? tr(' এখনো কোনো ব্যাকআপ হয়নি।') : trf(' শেষ ব্যাকআপ: {0}।', [sayWhen(last, _now)]);
+        if (!brain.signedIn) {
+          _say(out, tr('Google ব্যাকআপ চালু নেই — Google দিয়ে লগইন করা হয়নি। ব্যাকআপ পাতা থেকে লগইন করলে চালু হবে।') + lastText, links: _pageLink('backup'));
+        } else if (!brain.driveOn) {
+          _say(out, tr('Google-এ লগইন আছে, কিন্তু Drive-এ নিজে থেকে ব্যাকআপ বন্ধ।') + lastText, links: _pageLink('backup'));
+        } else {
+          _say(out, tr('Google ব্যাকআপ চালু আছে।') + lastText, links: _pageLink('backup'));
+        }
       case ('backup', 'now'):
         if (!brain.signedIn) {
           _say(out, tr('ব্যাকআপ নিতে আগে Google দিয়ে লগইন করতে হবে — কিছু পাঠানো হয়নি।'), links: _pageLink('backup'));

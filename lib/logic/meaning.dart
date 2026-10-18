@@ -285,8 +285,12 @@ String tidySpeech(String said, {List<bool>? whole}) {
   // alone — speech-to-text splits it off. Joined back, so every rule reads
   // "সবগুলো" / "কতগুলো" the one way.
   s = s.replaceAllMapped(RegExp(fold(r'([^\s,।?!])\s+(গুলো|গুলা|গুলি|গুলোর|গুলার|গুলোকে|গুলোতে|গুলোও|গুলোই)(?=$|[\s,।?!])')), (m) => '${m[1]}${m[2]}');
+  // "৯ টায়", "১১ টা": the clock ending written apart is joined ("৯টায়").
+  s = s.replaceAllMapped(RegExp(fold(r'([০-৯0-9])\s+(টায়|টা|টার|টাতে|টে|টার\s+দিকে)(?=$|[\s,।?!])')), (m) => '${m[1]}${m[2]}');
   // Regional and mixed-language words, as standard Bengali (whole words).
   s = _everydayWords(s);
+  // "সকল", "সমস্ত" are "সব" ("আমার কাজের সকল তালিকা দেখাও").
+  s = s.replaceAllMapped(RegExp(fold(r'(^|[\s,।])(?:সকল|সমস্ত)(?=$|[\s,।?!])')), (m) => '${m[1]}${fold('সব')}');
   // "আয় ব্যয়ের", "আয়-খরচের", "ইনকাম খরচ": one word, read the one way.
   s = s.replaceAllMapped(RegExp(fold(r'(^|[\s,।])(?:আয়|ইনকাম)\s*[-–]?\s*(?:ব্যয়|খরচ|ব্যয়)(?:ের|এর|র)?(?=$|[\s,।?!])')), (m) => '${m[1]}${fold('আয়-ব্যয়')}');
   // Day words in their everyday forms.
@@ -307,7 +311,12 @@ String tidySpeech(String said, {List<bool>? whole}) {
   s = s.replaceAllMapped(RegExp('($months)(?:\\s*${fold('এর')}|${fold('ের')}|${fold('তে')}|${fold('ে')})(?=\$|[\\s,।])'), (m) => m[1]!);
   s = s.replaceAllMapped(RegExp('($months)\\s+${fold('মাসের')}\\s+(?:${fold('প্রথম')}|${fold('পহেলা')}|${fold('এক')})\\s+${fold('তারিখ')}\\S*'), (m) => '১ ${m[1]}');
   s = s.replaceAllMapped(RegExp('($months)\\s+(?:${fold('মাসের')}|${fold('মাসে')}|${fold('মাসেই')})\\s+([০-৯0-9]{1,2})\\s+${fold('তারিখ')}\\S*'), (m) => '${m[2]} ${m[1]}');
-  s = s.replaceAll(RegExp(fold(r'(?:[০-৯0-9]{2,4}|দুই\s+হাজার\s+\S+)\s+সাল(?:ের|ে|)\s+')), '');
+  // "৩১ ডিসেম্বর ২০২৭ সালের": the year after a date is dropped (dates are
+  // read from the day and month). "২০৩১ সালে আমি কোটিপতি হবো" keeps it —
+  // a year on its own is the when.
+  s = s.replaceAllMapped(RegExp('($months)\\s+(?:[০-৯0-9]{2,4}|${fold('দুই')}\\s+${fold('হাজার')}\\s+\\S+)\\s+${fold('সাল')}(?:${fold('ের')}|${fold('ে')}|)\\s+'), (m) => '${m[1]} ');
+  // "২০২৭ সালের ৫ জানুয়ারি": a year right before a date, the same.
+  s = s.replaceAll(RegExp('(?:[০-৯0-9]{2,4}|${fold('দুই')}\\s+${fold('হাজার')}\\s+\\S+)\\s+${fold('সাল')}(?:${fold('ের')}|${fold('ে')}|)\\s+(?=[০-৯0-9]{1,2}\\s+(?:$months))'), '');
   // "৩১ অক্টোবরের জন্য", "আমার জন্য একটা রিমাইন্ডার": "for" carries nothing here.
   s = s.replaceAllMapped(RegExp('($months)\\s+${fold('জন্য')}\\S*'), (m) => m[1]!);
   s = s.replaceAll(RegExp(fold(r'(?:(?:তুমি|আপনি)\s+)?আমার\s+জন্য\S*\s+(?=(?:একটা|একটি|এক|রিমাইন্ডার|অ্যালার্ম|এলার্ম))')), '');

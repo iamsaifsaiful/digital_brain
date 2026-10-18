@@ -237,7 +237,14 @@ Command? menuCommand(String said, AppData? d, DateTime now) {
   // Lists that "এগুলো" can then point at (bulk_chat.dart).
   // (Questions — "কী কী ওষুধ আছে?" — are answered by the question rules,
   // which keep the same list too.)
-  final showing = _thas(f, r'(?:দেখাও|দেখান|দাও|দিন|বলো|বলুন)\s*$') && !isQuestionText(said);
+  // (Not isQuestionText: that counts "দেখাও" itself as asking.)
+  final realQuestion = said.contains('?') || _thas(f, r'(?<=\s)(?:কী|কি|কোন|কোনো|কয়টা|কতগুলো|কতগুলা)(?=\s)');
+  final showing = _thas(f, r'(?:দেখাও|দেখান|দাও|দিন|বলো|বলুন)\s*$') && !realQuestion;
+  // "আমার কোন নোট আছে?", "কী কী নোট আছে?": the notes, listed (no
+  // question rule answers this one; a search would pick one thing).
+  if (realQuestion && _thas(f, r'(?<=\s)(?:নোট|নোটগুলো|নোটগুলা)(?:\s+কী\s+কী|\s+কি\s+কি)?\s+(?:আছে|রাখা\s+আছে|কয়টা|কতগুলো)(?=\s)') && !_thas(f, r'(?<=\s)\S+(?:ের|এর)\s+নোট')) {
+    return MenuAction(said, domain: 'notes', op: 'list');
+  }
   if (showing && _thas(f, r'(?:ওষুধের\s+তালিকা|ওষুধগুলো|ওষুধগুলা|সব\s+ওষুধ)')) return MenuAction(said, domain: 'medicine', op: 'list');
   if (showing && _thas(f, r'(?:অভ্যাসগুলো|অভ্যাসগুলা|অভ্যাসের\s+তালিকা|সব\s+অভ্যাস)')) return MenuAction(said, domain: 'habit', op: 'list');
   final noteList = _tre(r'(?<=\s)(\S+?)(?:ের|এর|র)?\s+(?:নোট|নোটগুলো|নোটগুলা)\s+(?:দেখাও|দাও|বলো|দেখান)').firstMatch(f);
@@ -372,6 +379,8 @@ Command? menuCommand(String said, AppData? d, DateTime now) {
   // ── Backup ──
   if (_thas(f, r'(?:ব্যাকআপ|backup)')) {
     if (asking && _thas(f, r'(?:কবে|কখন|শেষ)')) return MenuAction(said, domain: 'backup', op: 'when');
+    // "গুগল ব্যাকআপ অন আছে?", "ব্যাকআপ চালু তো?": on or off, and the last one.
+    if (_thas(f, r'(?:অন|চালু|বন্ধ|অফ|on|off|হচ্ছে|হয়\s+তো|ঠিক\s+আছে|কাজ\s+করছে)') && (asking || _thas(f, r'(?:আছে|তো|কিনা)'))) return MenuAction(said, domain: 'backup', op: 'status');
     if (!asking && _thas(f, r'(?:নাও|নিন|করো|করুন|দাও)')) return MenuAction(said, domain: 'backup', op: 'now');
   }
 

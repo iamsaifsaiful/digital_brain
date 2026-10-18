@@ -70,6 +70,10 @@ const bulkOps = <String, Set<String>>{
   'ledger': {'delete', 'settle', 'erase', 'show'},
 };
 
+/// "কাজ" → "কাজের", "রিমাইন্ডার" → "রিমাইন্ডারের", "নোট" → "নোটের",
+/// "ওষুধ" → "ওষুধের"; a word ending in a vowel sign takes "র" ("মাপ" →).
+String _possBn(String w) => RegExp(r'[\u09BE-\u09CC]$').hasMatch(w) ? '$wর' : '$wের';
+
 const _domainBn = {'tasks': 'কাজ', 'reminders': 'রিমাইন্ডার', 'notes': 'নোট', 'medicines': 'ওষুধ', 'habits': 'অভ্যাস', 'health': 'মাপ', 'money': 'লেনদেন', 'ledger': 'হিসাব'};
 
 extension _BulkChat on ChatController {
@@ -198,6 +202,25 @@ extension _BulkChat on ChatController {
   /// Handles "এগুলো সব …" when a list was shown (or the whole list was
   /// named). False when [t] is not about several items of a list.
   Future<bool> _bulk(String t, List<String> out) async {
+    // "৩০ অক্টোবর এবং ৩১ ডিসেম্বরের রিমাইন্ডার বাদ দাও": those days' items,
+    // as one group — asked once.
+    final dated = datedBulk(tidySpeech(t), _now);
+    if (dated != null) {
+      final d = brain.data;
+      bool on(DateTime x) => dated.days.contains(DateTime(x.year, x.month, x.day));
+      final ids = dated.domain == 'reminders'
+          ? [for (final r in d.reminders) if ((!dated.alarms || r.alarm) && on(r.nextDate(_now))) r.id]
+          : [for (final x in d.tasks) if (!x.done && x.due != null && on(x.due!)) x.id];
+      final label = trf('{0}-এর', [dated.days.map((x) => '${bnDigits(x.day)} ${monthName(x.month)}').join(tr(' ও '))]);
+      if (ids.isEmpty) {
+        _say(out, trf('{0} কোনো {1} নেই — কিছু বদলাইনি।', [label, _domainBn[dated.domain] ?? '']));
+        return true;
+      }
+      _rememberSet(dated.domain, label, ids, source: t);
+      await _bulkStart(BulkAction(t, selection: const Selection(SelKind.all), op: dated.op, domain: dated.domain), _sets.last, ids, out);
+      _onList = true;
+      return true;
+    }
     var cmds = bulkCommands(tidySpeech(t), _now);
     if (cmds == null || cmds.isEmpty) {
       // One place in a list that is not the to-do list ("দ্বিতীয়টা ভুল"
@@ -262,7 +285,7 @@ extension _BulkChat on ChatController {
     final ops = bulkOps[set.domain] ?? const {};
     for (final c in cmds) {
       if (!ops.contains(c.op)) {
-        _say(out, trf('{0}র তালিকায় একসাথে এ কাজটা কথায় করা যায় না — {1}টা {2} যেমন ছিল আছে।', [_domainBn[set.domain] ?? set.domain, bnDigits(set.ids.length), _domainBn[set.domain] ?? '']));
+        _say(out, trf('{0} তালিকায় একসাথে এ কাজটা কথায় করা যায় না — {1}টা {2} যেমন ছিল আছে।', [_possBn(_domainBn[set.domain] ?? set.domain), bnDigits(set.ids.length), _domainBn[set.domain] ?? '']));
         return true;
       }
     }
@@ -565,7 +588,7 @@ extension _BulkChat on ChatController {
         final on = (await brain.services.notifier.health()).notificationsOn;
         _say(
             out,
-            _outcome(trf('{0}টা {1}র রিমাইন্ডার {2}-এ দিয়েছি', [bnDigits(ok), noun, bnTime(c.time! ~/ 60, c.time! % 60)]), ok, ids.length, failed, skipped) +
+            _outcome(trf('{0}টা {1} রিমাইন্ডার {2}-এ দিয়েছি', [bnDigits(ok), _possBn(noun), bnTime(c.time! ~/ 60, c.time! % 60)]), ok, ids.length, failed, skipped) +
                 (limited > 0 ? trf(' {0}টার রিমাইন্ডার চালু হয়নি — ফ্রিতে একসাথে {1}টা রাখা যায়।', [bnDigits(limited), bnDigits(freeReminders)]) : '') +
                 (on ? '' : tr(' তবে ফোনে অ্যাপের নোটিফিকেশন বন্ধ — এখন বাজবে না।')),
             links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
@@ -839,5 +862,62 @@ extension _BulkChat on ChatController {
       };
     }
     return const [];
+  }
+
+  static const _parts = ['ভোরে', 'সকালে', 'দুপুরে', 'বিকেলে', 'বিকালে', 'সন্ধ্যায়', 'সন্ধ্যায়', 'রাতে', 'ভোর', 'সকাল', 'দুপুর', 'বিকেল', 'বিকাল', 'সন্ধ্যা', 'রাত'];
+
+  Future<bool> _batchTimeFor(String t, List<String> out) async {
+    final b = _batchTasks;
+    if (b == null || b.$3 != _turn - 1) return false;
+    final f = normalize(tidySpeech(t));
+    final ws = words(f);
+    final part = ws.where((w) => _parts.map(normalize).contains(w)).firstOrNull;
+    final w = parseWhen(tidySpeech(t), _now);
+    final clock = w != null && w.hasTime && saysClock(tidySpeech(t));
+    if (part == null && !clock) return false;
+    // Only time words and the to-dos' own title words ("দুপুরে দাওয়াত",
+    // "রাত ৮টায় মনে করিও"): anything else is a new request.
+    final title = words(normalize(b.$2));
+    const filler = ['মনে', 'করিও', 'করিয়ে', 'করিয়ে', 'দিও', 'দাও', 'আছে', 'হবে', 'টা', 'টায়', 'টায়', 'ই', 'দুই', 'দিনই', 'দিনেই'];
+    final other = [
+      for (final x in ws)
+        if (!_parts.map(normalize).contains(x) && !title.contains(x) && !filler.map(normalize).contains(x) && !RegExp(r'^[0-9০-৯]').hasMatch(x) && !RegExp(fold(r'টা(?:য়|য়)?$')).hasMatch(fold(x))) x
+    ];
+    if (other.isNotEmpty) return false;
+    if (clock && !hourOpen(tidySpeech(t), w.at.hour)) {
+      await _batchRemindAt(w.at.hour * 60 + w.at.minute, out);
+      return true;
+    }
+    _batchPart = part;
+    final days = [for (final id in b.$1) if (_taskById(id)?.due != null) sayWhen(_taskById(id)!.due!, _now, withTime: false)];
+    _ask(out, trf('“{0}” — {1}, {2} কয়টায় মনে করাব?', [b.$2.isEmpty ? tr('কাজগুলো') : b.$2, nameList(days, unit: 'দিন'), part == null ? '' : tr(part)]), ChatWait.batchTime);
+    return true;
+  }
+
+  Future<bool> _batchTimeAnswer(String t, List<String> out) async {
+    final part = _batchPart;
+    final own = parseWhen(t, _now);
+    if (own == null || !own.hasTime) {
+      if (_looksNew(t)) {
+        wait = ChatWait.none;
+        _batchPart = null;
+        return false;
+      }
+      _say(out, tr('সময়টা ধরতে পারিনি। যেমন বলুন “১টায়” বা “দুপুর ১টায়”।'));
+      return true;
+    }
+    final w = part != null && !saysDayPart(t) ? parseWhen('$part $t', _now) : own;
+    wait = ChatWait.none;
+    _batchPart = null;
+    await _batchRemindAt(w!.at.hour * 60 + w.at.minute, out);
+    return true;
+  }
+
+  Future<void> _batchRemindAt(int minutes, List<String> out) async {
+    final b = _batchTasks!;
+    _batchTasks = null;
+    final set = _sets.where((s) => s.domain == 'tasks').lastOrNull;
+    if (set == null) return;
+    await _bulkStart(BulkAction('', selection: const Selection(SelKind.all), op: 'remind', domain: 'tasks', time: minutes), set, b.$1, out);
   }
 }

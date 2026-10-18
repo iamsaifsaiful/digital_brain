@@ -220,6 +220,30 @@ String _bulkDomain(String f) {
 
 /// What to do with them. Commands only ("মুছো", "মুছে দাও"), never a
 /// description ("ও এসব মুছে দেয়"). '' when there is no such verb.
+/// "৩০ অক্টোবর এবং ৩১ ডিসেম্বরের রিমাইন্ডার বাদ দাও", "কালকের সব
+/// কাজ মুছে দাও": the items of named days. Null unless days, a kind
+/// (reminders, alarms or to-dos) and a change are all said.
+({String domain, String op, List<DateTime> days, bool alarms})? datedBulk(String said, DateTime now) {
+  final f = ' ${_tf(normalize(said))} ';
+  final alarms = _thas(f, r'(?:অ্যালার্ম|এলার্ম|alarm)');
+  // (To-dos of a day have their own rules: "আজকের সব কাজ মুছে দাও".)
+  final domain = alarms || _thas(f, r'(?:রিমাইন্ডার|reminder|মনে\s+করানো)') ? 'reminders' : '';
+  if (domain.isEmpty) return null;
+  final op = _bulkOp(f);
+  if (!const {'delete', 'reminder_off', 'done'}.contains(op)) return null;
+  // Each part between "এবং/আর/ও/," read for its own day.
+  final days = <DateTime>[];
+  for (final part in f.split(_tre(r'\s+(?:এবং|আর|ও)\s+|,'))) {
+    final w = parseWhen(part, now);
+    if (w != null && w.hasDay) {
+      final d = DateTime(w.day.year, w.day.month, w.day.day);
+      if (!days.contains(d)) days.add(d);
+    }
+  }
+  if (days.isEmpty) return null;
+  return (domain: domain, op: op, days: days, alarms: alarms);
+}
+
 String _bulkOp(String f0) {
   // "শেষের তিনটা", "শেষ দুটো" choose items; they are not "done".
   final f = f0.replaceAll(_tre(r'(?<=\s)(?:শেষের|শেষ)\s+(?=\S+(?:টা|টি|টো|টোই|গুলো)?(?:\s|$))(?=(?:এক|দুই|দু|তিন|চার|পাঁচ|ছয়|সাত|[০-৯0-9]))'), ' ').replaceAll(_tre(r'(?<=\s)শেষেরটা'), ' ');

@@ -267,7 +267,7 @@ const voiceCaps = <String, VoiceCap>{
   'memory': VoiceCap(VoiceLevel.full, {'forget': 'forget a kept fact about the user (text: its words)'}),
   'alarm': VoiceCap(VoiceLevel.full, {'all_off': 'turn off every alarm (asked once, not deleted)'}),
   'trash': VoiceCap(VoiceLevel.partial, {'restore': 'bring back the last deleted item of a kind (target: নোট, কাজ…)'}),
-  'backup': VoiceCap(VoiceLevel.partial, {'when': 'when the last backup was', 'now': 'back up to Google Drive now'}, notYet: ['ব্যাকআপ থেকে ফিরিয়ে আনা (পাতায় দেখে করতে হয়)']),
+  'backup': VoiceCap(VoiceLevel.partial, {'when': 'when the last backup was', 'now': 'back up to Google Drive now', 'status': 'whether Google backup is on, and the last one'}, notYet: ['ব্যাকআপ থেকে ফিরিয়ে আনা (পাতায় দেখে করতে হয়)']),
   'settings': VoiceCap(VoiceLevel.partial, {'call_me': 'the name to call the user (text)', 'look': 'dark or light (text)', 'letters': 'bigger or smaller (text)'},
       notYet: ['AI চালু/বন্ধ', 'তালা ও PIN', 'ভাষা']),
   'project': VoiceCap(VoiceLevel.full, {'create': 'a new separate account named target', 'budget': 'budget amount for project target', 'close': 'mark project target finished (kept)'}),

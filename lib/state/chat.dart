@@ -37,7 +37,7 @@ part 'menu_chat.dart';
 part 'bulk_chat.dart';
 
 /// What the chat is waiting to hear.
-enum ChatWait { none, bulk, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, taskTitle, taskDay, project, collect, whichPerson, whichItem, clarify, whichTask, taskTime }
+enum ChatWait { none, bulk, batchTime, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, taskTitle, taskDay, project, collect, whichPerson, whichItem, clarify, whichTask, taskTime }
 
 /// What the user said they want to talk about at the start.
 enum Topic {
@@ -214,6 +214,12 @@ class ChatController extends ChangeNotifier {
   /// ticked or moved, the answer to its question): the topic stays.
   bool _onList = false;
 
+  /// To-dos just kept together (ids, their one title or '', the turn).
+  (List<String>, String, int)? _batchTasks;
+
+  /// The part of the day said for them ("দুপুরে"), the hour asked.
+  String? _batchPart;
+
   /// The turn of the last save (its next steps are offered only right after it).
   int _savedTurn = -1;
 
@@ -345,6 +351,9 @@ class ChatController extends ChangeNotifier {
   /// The user chose the kind of a money entry from the choices: that is
   /// their consent — no second "লিখে রাখি?".
   bool _chosen = false;
+
+  /// "ফেরত পেলাম" more than was owed was pointed out once for this entry.
+  bool _overWarned = false;
 
   /// The command being saved right now, so a repeated "হ্যাঁ" (voice and a
   /// tap together, or a callback fired twice) can never save it twice.
@@ -715,6 +724,12 @@ class ChatController extends ChangeNotifier {
     // "এইগুলো সব মুছে দাও", "প্রথম দুটো কাল রাখো": several items of the
     // list just shown — before any rule that reads one item or the database.
     if (wait == ChatWait.none && await _bulk(t, out)) {
+      notifyListeners();
+      return out.join(' ');
+    }
+    // "দুপুরে দাওয়াত" right after "২৩ ও ২৪ তারিখে দাওয়াত" was kept: a time
+    // for those to-dos — not a new reminder for tomorrow.
+    if (wait == ChatWait.none && await _batchTimeFor(t, out)) {
       notifyListeners();
       return out.join(' ');
     }
@@ -1245,6 +1260,7 @@ class ChatController extends ChangeNotifier {
   Future<void> _start(Command c, List<String> out) async {
     _current = c;
     _chosen = false;
+    _overWarned = false;
     switch (c) {
       case LedgerAdd():
         _src = c;
@@ -1620,8 +1636,14 @@ class ChatController extends ChangeNotifier {
       final options = inBook.isNotEmpty
           ? [for (final p in inBook) (p.name, p.phone)]
           : [for (final c in contactMatches(brain.data, _person).where((c) => c.phone.isNotEmpty)) (c.name, c.phone)];
+      // "ইমরান নাঈম ১৫০০০ টাকা…": the whole name said fits one of them.
+      final said = normalize(src.transcript);
+      final whole = options.where((o) => normalize(o.$1).contains(' ') && said.contains(normalize(o.$1))).toList();
       if (options.length == 1) {
         _ledgerPhone = options.single.$2;
+      } else if (whole.length == 1) {
+        _person = whole.single.$1;
+        _ledgerPhone = whole.single.$2;
       } else if (options.length > 1) {
         _personChoices = options.take(6).toList();
         _ask(
@@ -1643,6 +1665,25 @@ class ChatController extends ChangeNotifier {
         if (src.allowExpense) ChatChoice(tr('অন্য খরচ'), 'অন্য খরচ'),
       ]);
       return;
+    }
+    // "ফেরত পেলাম" / "শোধ করলাম" for more than was owed would turn the
+    // account around (a debt nobody had) — said plainly and asked once.
+    if (!_overWarned && !_allYes && (_kind == LedgerKind.received || _kind == LedgerKind.repaid)) {
+      final bal = balanceWith(brain.data.ledger, _person, phone: _ledgerPhone);
+      final owed = _kind == LedgerKind.received ? (bal > 0 ? bal : 0) : (bal < 0 ? -bal : 0);
+      if (_amount > owed) {
+        _overWarned = true;
+        final was = owed == 0
+            ? (_kind == LedgerKind.repaid ? tr('আপনার কোনো দেনা ছিল না') : tr('আগে কোনো পাওনা ছিল না'))
+            : (_kind == LedgerKind.repaid ? trf('দেনা ছিল {0} টাকা', [bnNumber(owed)]) : trf('পাওনা ছিল {0} টাকা', [bnNumber(owed)]));
+        _kind = null;
+        _ask(out, trf('{0} কাছে {1} — তাই {2} টাকা “ফেরত” লিখলে হিসাব উল্টে যাবে। আসলে কী হলো?', [possessive(_person), was, bnNumber(_amount)]), ChatWait.kind, choices: [
+          ChatChoice(LedgerKind.borrowed.label, LedgerKind.borrowed.label),
+          ChatChoice(LedgerKind.lent.label, LedgerKind.lent.label),
+          ChatChoice(LedgerKind.received.label, LedgerKind.received.label),
+        ]);
+        return;
+      }
     }
     if (_allYes || _chosen) return _saveCurrent(out);
     final on = _ledgerDate == null ? '' : '${sayWhen(_ledgerDate!, _now, withTime: false).replaceFirst(RegExp(r'^কাল'), 'গতকাল')}: ';
@@ -1701,6 +1742,8 @@ class ChatController extends ChangeNotifier {
         return false;
       case ChatWait.bulk:
         return _bulkAnswer(t, out);
+      case ChatWait.batchTime:
+        return _batchTimeAnswer(t, out);
       case ChatWait.whichTask:
       case ChatWait.taskTime:
         return _todoAnswer(t, out);
@@ -2032,7 +2075,10 @@ class ChatController extends ChangeNotifier {
         final part = _pendingPart;
         // Whatever the clock words look like ("১১ টায়", "১১টা", "এগারোটায়"),
         // a part of the day already said holds unless the answer names one.
-        final t2 = part != null && part != '?' && !saysDayPart(t) ? '$part $t' : t;
+        // Only an answer that is itself a clock time ("১১ টায়") takes the
+        // part said before — "আমার পাসপোর্ট দাও" is not "দুপুর" anything.
+        final own = parseWhen(t, _now);
+        final t2 = part != null && part != '?' && own != null && own.hasTime && !saysDayPart(t) ? '$part $t' : t;
         final w = parseWhen(t2, _now);
         if (w == null) {
           if (_looksNew(t)) return false;
@@ -2627,9 +2673,21 @@ class ChatController extends ChangeNotifier {
     }
     if (_allYes) {
       if (_savedInBatch > 0 && _batchTaskTitles.length == _savedInBatch) {
-        _say(out, trf('{0}টা কাজ যোগ করেছি: {1}।', [bnDigits(_batchTaskTitles.length), nameList(_batchTaskTitles, unit: 'টা')]), links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
+        // The same title on several days ("দাওয়াত" on 23 and 24): said once, with the days.
+        final same = _batchTaskTitles.toSet().length == 1 && _batchTaskTitles.length > 1;
+        final days = [for (final t in brain.data.tasks.reversed.take(_batchTaskTitles.length).toList().reversed) if (t.due != null) sayWhen(t.due!, _now, withTime: false)];
+        _say(
+            out,
+            same && days.length == _batchTaskTitles.length
+                ? trf('“{0}” — {1}, {2} দিনই কাজের তালিকায় রেখেছি।', [_batchTaskTitles.first, nameList(days, unit: 'দিন'), bnDigits(days.length)])
+                : trf('{0}টা কাজ যোগ করেছি: {1}।', [bnDigits(_batchTaskTitles.length), nameList(_batchTaskTitles, unit: 'টা')]),
+            links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
         final snap = _batchSnap;
         if (snap != null) _offerUndo(snap);
+        // "দুপুরে দাওয়াত" next: these to-dos, a time for them (see _batchTimeFor).
+        final ids = [for (final t in brain.data.tasks.reversed.take(_batchTaskTitles.length).toList().reversed) t.id];
+        _rememberSet('tasks', '', ids, source: _batchTaskTitles.first);
+        _batchTasks = (ids, same ? _batchTaskTitles.first : '', _turn);
       } else if (_savedInBatch > 0) {
         _say(out, tr('সব রেখে দিলাম। আর কিছু?'));
         final snap = _batchSnap;

@@ -136,6 +136,9 @@ extension _TodoChat on ChatController {
     final t = Task(title: c.title, due: c.due, span: c.span, repeat: c.repeat, urgent: c.urgent, note: c.condition ?? '', deadline: deadline, createdAt: _now);
     await brain.saveTask(t);
     _focusTask(t);
+    // "আজ বাজারে যাবো রাত ৯টায়": a clear clock time said with it rings
+    // then (a reminder linked to the to-do). A bare hour is left alone.
+    final ringAt = await _timeSaidWith(c, t);
     if (quiet) {
       _batchTaskTitles.add(c.title);
       return;
@@ -155,9 +158,27 @@ extension _TodoChat on ChatController {
     } else {
       text = trf('“{0}” কাজটি {1} কাজের তালিকায় রেখেছি।', [c.title, when]);
     }
+    final ring = ringAt == null ? '' : trf(' {0}-এ মনে করিয়ে দেব।', [bnTime(ringAt.hour, ringAt.minute)]);
     final cond = c.condition == null ? '' : trf(' “{0}” — এটা কখন হবে, অ্যাপ নিজে জানতে পারে না; হলে বলবেন, বা একটা সময় বললে মনে করিয়ে দেব।', [c.condition]);
-    _say(out, text + cond, links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
+    _say(out, text + ring + cond, links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
     _history.add(AiTurn.app('[কাজের তালিকায় রাখা হলো: ${c.title}]'));
+  }
+
+  /// The clock time said with a new to-do of one day, as a reminder linked
+  /// to it — only when the time is clear (a part of the day or 24-hour
+  /// form) and still ahead; null otherwise (nothing is set).
+  Future<DateTime?> _timeSaidWith(TaskAdd c, Task t) async {
+    if (c.repeat != null || c.span != TaskSpan.day || !brain.canAddReminder) return null;
+    final w = parseWhen(c.transcript, _now);
+    // A clock said ("রাত ৯টায়"), not only a part of the day ("কাল সকালে").
+    if (w == null || !w.hasTime || !saysClock(c.transcript) || hourOpen(c.transcript, w.at.hour)) return null;
+    final day = t.due ?? dayOnly(_now);
+    final at = DateTime(day.year, day.month, day.day, w.at.hour, w.at.minute);
+    if (!at.isAfter(_now)) return null;
+    final r = Reminder(title: t.title, date: dayOnly(at), hour: at.hour, minute: at.minute, daysBefore: 0);
+    await brain.saveReminder(r);
+    await brain.saveTask(t.copyWith(reminderId: r.id));
+    return at;
   }
 
   /// The same to-do, open, already on the list.

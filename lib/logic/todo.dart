@@ -455,6 +455,15 @@ _TdWhen _tdWhen(String said, DateTime now) {
       w.span = TaskSpan.year;
     });
   }
+  // "২০৩১ সালে", "২০২৭ সালের মধ্যে": that year.
+  if (w.day == null) {
+    take(r'(?<=\s)([০-৯0-9]{4})\s+সাল(?:ে|ের|)(?:\s+মধ্যে)?(?=\s)', (m) {
+      final y = int.parse(asciiDigits(m[1]!));
+      if (y < today.year || y > today.year + 60) return;
+      w.day = DateTime(y, 1, 1);
+      w.span = TaskSpan.year;
+    });
+  }
   if (w.day == null) {
     take(r'(?<=\s)(?:এই|এ)\s+বছর(?:ে|ের)?(?:\s+মধ্যে)?(?=\s)', (_) {
       w.day = DateTime(today.year, 1, 1);
@@ -606,6 +615,8 @@ bool _saysToDo(String f) {
   // "আজ আর অফিসে যাব না", "যেতে হবে না": nothing to do.
   if (_thas(f, r'(?<=\s)\S+(?:বো|ব|মু|তে\s+হবে|তে\s+লাগবে)\s+(?:না|নাই|নি)(?=\s)')) return false;
   if (_thas(f, r'(?<=\s)\S+তে\s+(?:হবে|হইবে|লাগবে|হয়)(?=\s)')) return true;
+  // "২০৩১ সালে আমি কোটিপতি হবো": a goal of one's own, for a time said.
+  if (_thas(f, r'(?<=\s)আমি\s+(?:\S+\s+){1,4}(?:হবো|হব|হইব|হমু)(?=\s)') && _thas(f, r'(?:সাল|বছর|মাস|তারিখ|[০-৯0-9])')) return true;
   if (_thas(f, r'(?<=\s)(?:করা|কেনা|আনা|দেওয়া|নেওয়া|যাওয়া|পাঠানো|জমা)\s+(?:লাগবে|দরকার|বাকি)(?=\s)')) return true;
   for (final w in words(normalize(f))) {
     if (RegExp(_tf(r'(?:বো|ব|মু)$')).hasMatch(w) && _nounOfVerb(w) != null) return true;
@@ -766,7 +777,9 @@ bool _tdNotMine(String said, String f) {
 /// An amount of money in [f] — numbers that are days, weeks, list numbers,
 /// counts of to-dos or clock times do not count.
 bool _amountIn(String f) {
-  var bare = f.replaceAll(_tre(r'(?<=\s)\S+\s+(?:দিন|সপ্তাহ|মাস|বছর)(?:\s+(?:পরে|পর|পরপর|পর\s+পর|বাদে|অন্তর))?(?=\s)'), ' ');
+  // "২০৩১ সালে": a year, not money.
+  var bare = f.replaceAll(_tre(r'(?<=\s)[০-৯0-9]{4}\s+সাল\S*'), ' ');
+  bare = bare.replaceAll(_tre(r'(?<=\s)\S+\s+(?:দিন|সপ্তাহ|মাস|বছর)(?:\s+(?:পরে|পর|পরপর|পর\s+পর|বাদে|অন্তর))?(?=\s)'), ' ');
   bare = bare.replaceAll(_tre(r'(?<=\s)\S+\s*(?:নম্বর|নাম্বার|নং)(?=\s)'), ' ');
   bare = bare.replaceAll(_tre(r'(?<=\s)\S+(?:টা|টি)\s+কাজ'), ' ');
   bare = normalize(withoutWhen(bare));
