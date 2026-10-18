@@ -580,16 +580,19 @@ Future<bool> confirmDialog(BuildContext context, {required String title, require
 }
 
 /// Swiping across a tabbed page changes the tab: right to left is the next
-/// tab, left to right the one before. At the last (or first) tab the swipe
-/// goes on to the [SwipeSwitch] around this one, so the inner tabs of a page
-/// lead into the bottom tabs.
+/// tab, left to right the one before. The page follows the finger a little
+/// while dragging, and the new tab slides in from the side it came from. At
+/// the last (or first) tab the swipe goes on to the [SwipeSwitch] around this
+/// one, so the inner tabs of a page lead into the bottom tabs.
 class SwipeSwitch extends StatefulWidget {
-  const SwipeSwitch({super.key, required this.onStep, required this.child});
+  const SwipeSwitch({super.key, required this.onStep, required this.child, this.pageKey, this.gestures = true});
 
-  /// For tabs listed in order: steps [value] through [values].
+  /// For tabs listed in order: steps [value] through [values], with the
+  /// slide between them.
   static SwipeSwitch tabs<T>({Key? key, required List<T> values, required T value, required ValueChanged<T> onChanged, required Widget child}) =>
       SwipeSwitch(
         key: key,
+        pageKey: value,
         onStep: (step) {
           final i = values.indexOf(value) + step;
           if (i < 0 || i >= values.length) return false;
@@ -603,29 +606,100 @@ class SwipeSwitch extends StatefulWidget {
   final bool Function(int step) onStep;
   final Widget child;
 
+  /// Which tab [child] shows: when it changes, the new one slides in.
+  final Object? pageKey;
+
+  /// False: only passes swipes on (the pages scroll by themselves).
+  final bool gestures;
+
   @override
   State<SwipeSwitch> createState() => _SwipeSwitchState();
 }
 
-class _SwipeSwitchState extends State<SwipeSwitch> {
+class _SwipeSwitchState extends State<SwipeSwitch> with SingleTickerProviderStateMixin {
   double _dx = 0;
 
-  void _step(int step) {
-    if (widget.onStep(step)) return;
-    context.findAncestorStateOfType<_SwipeSwitchState>()?._step(step);
-  }
+  /// The page's offset while dragging (a fraction of the finger's way, so
+  /// it feels held), springing back on release.
+  late final _pull = AnimationController.unbounded(vsync: this);
+
+  /// +1: the new tab comes from the right; -1: from the left.
+  int _dir = 1;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onHorizontalDragStart: (_) => _dx = 0,
-        onHorizontalDragUpdate: (d) => _dx += d.delta.dx,
-        onHorizontalDragEnd: (d) {
-          final v = d.primaryVelocity ?? 0;
-          // A clear swipe: far enough, or quick enough.
-          if (_dx.abs() < 70 && v.abs() < 600) return;
-          _step((v.abs() >= 600 ? v : _dx) < 0 ? 1 : -1);
-        },
-        child: widget.child,
-      );
+  void didUpdateWidget(SwipeSwitch old) {
+    super.didUpdateWidget(old);
+    // A tab chosen by tapping: slide from the side it is on.
+    if (old.pageKey != widget.pageKey && _pendingDir == null) _dir = 1;
+    if (_pendingDir != null) {
+      _dir = _pendingDir!;
+      _pendingDir = null;
+    }
+  }
+
+  int? _pendingDir;
+
+  @override
+  void dispose() {
+    _pull.dispose();
+    super.dispose();
+  }
+
+  /// Handled here (true) or by a SwipeSwitch around this one.
+  bool _step(int step) {
+    _pendingDir = step;
+    if (widget.onStep(step)) return true;
+    _pendingDir = null;
+    return context.findAncestorStateOfType<_SwipeSwitchState>()?._step(step) ?? false;
+  }
+
+  void _release() => _pull.animateTo(0, duration: const Duration(milliseconds: 220), curve: Curves.easeOutCubic);
+
+  @override
+  Widget build(BuildContext context) {
+    final page = widget.pageKey == null
+        ? widget.child
+        : AnimatedSwitcher(
+            duration: const Duration(milliseconds: 260),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            layoutBuilder: (current, previous) => Stack(alignment: Alignment.topCenter, children: [...previous, if (current != null) current]),
+            transitionBuilder: (child, anim) {
+              final incoming = child.key == ValueKey<Object?>(widget.pageKey);
+              final from = Offset((incoming ? 0.22 : -0.22) * _dir, 0);
+              return FadeTransition(
+                opacity: anim,
+                child: SlideTransition(position: Tween<Offset>(begin: from, end: Offset.zero).animate(anim), child: child),
+              );
+            },
+            child: KeyedSubtree(key: ValueKey<Object?>(widget.pageKey), child: widget.child),
+          );
+    final moving = AnimatedBuilder(
+      animation: _pull,
+      builder: (context, child) => Transform.translate(offset: Offset(_pull.value, 0), child: child),
+      child: page,
+    );
+    if (!widget.gestures) return moving;
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragStart: (_) {
+        _dx = 0;
+        _pull.stop();
+      },
+      onHorizontalDragUpdate: (d) {
+        _dx += d.delta.dx;
+        // Held: the page moves a third of the way, at most 72 px.
+        _pull.value = (_dx / 3).clamp(-72.0, 72.0);
+      },
+      onHorizontalDragEnd: (d) {
+        final v = d.primaryVelocity ?? 0;
+        _release();
+        // A clear swipe: far enough, or quick enough.
+        if (_dx.abs() < 70 && v.abs() < 600) return;
+        _step((v.abs() >= 600 ? v : _dx) < 0 ? 1 : -1);
+      },
+      onHorizontalDragCancel: _release,
+      child: moving,
+    );
+  }
 }

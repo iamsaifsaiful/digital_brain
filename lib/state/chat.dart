@@ -225,6 +225,10 @@ class ChatController extends ChangeNotifier {
   /// The part of the day said for them ("দুপুরে"), the hour asked.
   String? _batchPart;
 
+  /// Sentences said after a list command in the same message, heard next.
+  String? _bulkRest;
+  String? _afterWait;
+
   /// The to-do whose day is asked ("পার্টির তারিখ যুক্ত কর").
   String? _dateTaskId;
 
@@ -742,8 +746,12 @@ class ChatController extends ChangeNotifier {
     if (wait != ChatWait.none) {
       // "না। ৬৪ হাজার টাকা যে ফাউন্ডেশনের কাছে পাবো তার নাম": the "no" answers
       // the question; what follows is a new thing to hear.
-      final (answer, rest) = _answerAndRest(t);
+      final (answer, rest0) = _answerAndRest(t);
       if (await _answer(answer, out)) {
+        // A sentence left from the message that asked this, now heard.
+        final after = wait == ChatWait.none ? _afterWait : null;
+        if (after != null) _afterWait = null;
+        final rest = rest0 ?? after;
         if (rest != null) {
           notifyListeners();
           final more = await hear(rest, echo: false);
@@ -757,9 +765,19 @@ class ChatController extends ChangeNotifier {
     // "এইগুলো সব মুছে দাও", "প্রথম দুটো কাল রাখো": several items of the
     // list just shown — before any rule that reads one item or the database.
     if (wait == ChatWait.none && await _bulk(t, out)) {
+      final rest = _bulkRest;
+      _bulkRest = null;
+      if (rest != null && wait == ChatWait.none) {
+        notifyListeners();
+        final more = await hear(rest, echo: false);
+        return [...out, more].where((x) => x.isNotEmpty).join(' ');
+      }
+      // Asked first ("এই ৫টা মুছে দেব?"): the rest is heard after the answer.
+      if (rest != null) _afterWait = rest;
       notifyListeners();
       return out.join(' ');
     }
+    _bulkRest = null;
     // "দুপুরে দাওয়াত" right after "২৩ ও ২৪ তারিখে দাওয়াত" was kept: a time
     // for those to-dos — not a new reminder for tomorrow.
     if (wait == ChatWait.none && await _batchTimeFor(t, out)) {

@@ -3296,4 +3296,5 @@ const enStrings = <String, String>{
   '{0}টা কাজের রিমাইন্ডার — প্রতিটা নিজের দিনে, কয়টায় মনে করাব? যেমন “দুপুর ১২টায়”।': 'Reminders for {0} to-dos — each on its own day; at what time? E.g. “12 noon”.',
   '“{0}” — কোন তারিখে রাখব? যেমন “৩১ অক্টোবর”।': '“{0}” — on which date? E.g. “31 October”.',
   ' আজকের দাম ইন্টারনেট থেকে আনতে পারিনি (ইন্টারনেট বা সার্ভার সাড়া দেয়নি) — বাজুসের সাইটে (bajus.org) দেখে নিতে পারেন।': ' I couldn\'t get today\'s price (no internet, or the server didn\'t answer) — you can check it on bajus.org.',
+  'বুঝেছি — কাজগুলো আলাদা আলাদা হবে। আগের কথাটা আবার বলুন, শুরুতে দিন আর “কাজ”, তারপর কমা দিয়ে একেকটা কাজ — যেমন “১০ জানুয়ারি কাজ গুলো, রবিনকে কল করব, নাস্তা করব, মসজিদে যাবো”। প্রতিটা আলাদা কাজ হিসেবে রাখব।': 'Got it — they should be separate to-dos. Say it again: the day and “to-dos” first, then each to-do after a comma — e.g. “10 January to-dos, call Robin, have breakfast, go to the mosque”. Each will be kept on its own.',
 };

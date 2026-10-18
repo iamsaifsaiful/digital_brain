@@ -20,7 +20,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'pro_test.dart' show keyServer, tokenGoogle;
-import 'app_test.dart' show Rig, enterPin, loadFonts, openMenu, settle, start;
+import 'app_test.dart' show Rig, enterPin, loadFonts, openMenu, settle, start, vScroll;
 
 /// A shortcut in the home menu (scrolled into view first).
 Future<void> tapMenu(WidgetTester t, String label) async {
@@ -163,7 +163,7 @@ void main() {
     await settle(t);
     expect(rig.brain.data.emergency.blood, 'B+');
     expect(find.byKey(const Key('more-feedback')), findsOneWidget);
-    final list = find.byType(Scrollable).first;
+    final list = vScroll().first;
     await t.scrollUntilVisible(find.text('আমি রক্ত দিতে আগ্রহী'), 200, scrollable: list);
     expect(find.text('AI সহকারী'), findsNothing);
   });

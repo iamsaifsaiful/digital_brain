@@ -222,6 +222,19 @@ extension _BulkChat on ChatController {
       return true;
     }
     var cmds = bulkCommands(tidySpeech(t), _now);
+    // "৪নং থেকে ৮নং মুছে দাও। ৯নং এ রিমাইন্ডার যুক্ত কর": the first sentence
+    // on the list, the rest heard after it.
+    if (cmds == null) {
+      final parts = [for (final x in t.split(RegExp(r'\s*[।!]\s*'))) if (x.trim().isNotEmpty) x.trim()];
+      if (parts.length > 1) {
+        final first = bulkCommands(tidySpeech(parts.first), _now);
+        if (first != null && first.isNotEmpty) {
+          cmds = first;
+          t = parts.first;
+          _bulkRest = parts.skip(1).join('। ');
+        }
+      }
+    }
     if (cmds == null || cmds.isEmpty) {
       // One place in a list that is not the to-do list ("দ্বিতীয়টা ভুল"
       // after a health list): the same resolver. To-dos keep their own.

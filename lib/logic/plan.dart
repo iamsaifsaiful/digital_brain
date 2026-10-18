@@ -299,7 +299,17 @@ List<String>? docAsked(String said, AppData d) {
 /// "কালকের কাজ", "টুডু" — one to-do per line ("-", "•", "১." in front
 /// dropped). A date written on a line is that to-do's; otherwise the
 /// heading's day, if it named one. Null when it is not such a list.
-List<Command>? lineTodos(String said, Parser p) {
+List<Command>? lineTodos(String said0, Parser p) {
+  // "১০ই জানুয়ারি কাজ গুলো, ঘুম থেকে উঠে রবিনকে কল করব, ফ্রেশ হয়ে নাস্তা
+  // করব, …": the heading, then one to-do per comma — as if on lines.
+  var said = said0;
+  if (!said.contains('\n')) {
+    final m = RegExp(fold(r'^(.{0,40}?(?:কাজের\s+(?:তালিকা|লিস্ট)|কাজ\s*(?:গুলো|গুলা|গুলি)?))\s*(?:হলো|হল)?\s*[,:：\-–—]\s*(.+)$')).firstMatch(fold(said.trim()));
+    if (m != null) {
+      final parts = [for (final x in m[2]!.split(RegExp(r'\s*[,،;।]\s*'))) if (x.trim().isNotEmpty) x.trim()];
+      if (parts.length >= 2) said = [m[1]!, ...parts].join('\n');
+    }
+  }
   final lines = [
     for (final x in said.split(RegExp(r'\r?\n')))
       if (x.trim().isNotEmpty) x.trim().replaceAll(RegExp(r'^(?:[-–—•*·▪]|[0-9০-৯]{1,2}\s*[.)।])\s*'), '').replaceAll(RegExp(r'[।.,;]+$'), '').trim()

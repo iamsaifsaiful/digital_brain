@@ -45,11 +45,24 @@ class HomeShellState extends State<HomeShell> {
   @override
   void dispose() {
     if (current == this) current = null;
+    _pages.dispose();
     super.dispose();
   }
 
-  void go(ShellTab t, {MoneyPart? money}) {
+  /// The tabs side by side: a swipe drags the page along with the finger.
+  final _pages = PageController();
+
+  /// [slide]: moved there with the pages sliding (a swipe that went past an
+  /// inner tab's end); a tap on the bottom bar jumps.
+  void go(ShellTab t, {MoneyPart? money, bool slide = false}) {
     setState(() => _tab = t);
+    if (_pages.hasClients && (_pages.page?.round() ?? -1) != t.index) {
+      if (slide) {
+        _pages.animateToPage(t.index, duration: const Duration(milliseconds: 320), curve: Curves.easeOutCubic);
+      } else {
+        _pages.jumpToPage(t.index);
+      }
+    }
     if (money != null) WidgetsBinding.instance.addPostFrameCallback((_) => _money.currentState?.show(money));
   }
 
@@ -64,19 +77,28 @@ class HomeShellState extends State<HomeShell> {
         body: Column(children: [
           Expanded(
             // Swiping across the page moves to the next (or previous) tab.
-            child: SwipeSwitch.tabs<ShellTab>(
+            // A page with tabs of its own takes the swipe first and hands it
+            // on here at its last tab ([SwipeSwitch] without gestures).
+            child: SwipeSwitch(
               key: const Key('shell-swipe'),
-              values: ShellTab.values,
-              value: _tab,
-              onChanged: go,
-              child: IndexedStack(
-                index: _tab.index,
+              gestures: false,
+              onStep: (step) {
+                final i = _tab.index + step;
+                if (i < 0 || i >= ShellTab.values.length) return false;
+                go(ShellTab.values[i], slide: true);
+                return true;
+              },
+              child: PageView(
+                controller: _pages,
+                onPageChanged: (i) {
+                  if (_tab.index != i) setState(() => _tab = ShellTab.values[i]);
+                },
                 children: [
-                  const HomePage(),
-                  const SafeArea(bottom: false, child: DiaryScreen()),
-                  SafeArea(bottom: false, child: MoneyScreen(key: _money)),
-                  const SafeArea(bottom: false, child: StoreScreen()),
-                  const SafeArea(bottom: false, child: MoreScreen()),
+                  const _Kept(HomePage()),
+                  const _Kept(SafeArea(bottom: false, child: DiaryScreen())),
+                  _Kept(SafeArea(bottom: false, child: MoneyScreen(key: _money))),
+                  const _Kept(SafeArea(bottom: false, child: StoreScreen())),
+                  const _Kept(SafeArea(bottom: false, child: MoreScreen())),
                 ],
               ),
             ),
@@ -201,5 +223,25 @@ class _Nav extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// A tab page kept alive while another is shown (its scroll place and state stay).
+class _Kept extends StatefulWidget {
+  const _Kept(this.child);
+  final Widget child;
+
+  @override
+  State<_Kept> createState() => _KeptState();
+}
+
+class _KeptState extends State<_Kept> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

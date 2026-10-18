@@ -180,7 +180,8 @@ Selection? selectionIn(String f) {
   Selection withExcept(Selection s) => Selection(s.kind, indexes: s.indexes, n: s.n, from: s.from, to: s.to, names: s.names, filter: s.filter, exceptIdx: exceptIdx, exceptNames: exceptNames);
 
   // "এক থেকে তিন নম্বর", "১ থেকে ৩".
-  final range = _tre(r'(?<=\s)(\S+)\s+(?:থেকে|হতে)\s+(\S+?)(?:\s*(?:নম্বর|নাম্বার|নং))?(?:টা|টি|গুলো)?\s').firstMatch(g);
+  // "৪নং থেকে ৮নং": the number with its নং attached, too.
+  final range = _tre(r'(?<=\s)(\S+?)(?:\s*(?:নম্বর|নাম্বার|নং))?\s+(?:থেকে|হতে)\s+(\S+?)(?:\s*(?:নম্বর|নাম্বার|নং))?(?:টা|টি|গুলো)?\s').firstMatch(g);
   if (range != null) {
     final a = _ordOf(range[1]!) ?? _countOf(range[1]!), b = _ordOf(range[2]!) ?? _countOf(range[2]!);
     if (a != null && b != null && a > 0 && b > 0 && !_thas(g, r'(?:তারিখ|টায়|টাকা|মিনিট|ঘণ্টা)')) return withExcept(Selection(SelKind.range, from: a, to: b));

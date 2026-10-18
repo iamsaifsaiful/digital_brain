@@ -1372,7 +1372,7 @@ void main() {
   testWidgets('ringtones can be heard before choosing', (t) async {
     final rig = await start(t);
     await openMenu(t, 'আমি');
-    await t.scrollUntilVisible(find.text('রিমাইন্ডারের রিংটোন'), 200);
+    await t.scrollUntilVisible(find.text('রিমাইন্ডারের রিংটোন'), 200, scrollable: vScroll().first);
     await t.ensureVisible(find.text('রিমাইন্ডারের রিংটোন'));
     await settle(t);
     await t.tap(find.text('রিমাইন্ডারের রিংটোন'));
@@ -1790,3 +1790,6 @@ Future<void> sendTyped(WidgetTester t) async {
     await t.testTextInput.receiveAction(TextInputAction.send);
   }
 }
+
+/// The page's own up-down list (the tabs side by side are a scrollable too).
+Finder vScroll() => find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down);

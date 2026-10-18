@@ -180,4 +180,34 @@ void main() {
     expect(now.expiry, DateTime(2031, 5, 11));
     expect(now.files.last.text, contains('A01234567'));
   });
+
+  testWidgets('b43: "১০ই জানুয়ারি কাজ গুলো, …" is one to-do per comma, all on 10 January', (t) async {
+    await open(t);
+    final r = await say('১০ই জানুয়ারি কাজ গুলো, ঘুম থেকে উঠে রবিনকে কল করব, ফ্রেশ হয়ে নাস্তা করব, গোসল করে মসজিদে যাবো, দুপুরে দাওয়াতে যাবো, বিকালে সোনাইমুড়ী যাবো, রাতে ঢাকায় যাবো');
+    expect(data().tasks, hasLength(6), reason: r);
+    expect(data().tasks.every((x) => x.due == DateTime(2027, 1, 10)), isTrue);
+    expect(data().tasks.where((x) => x.title.startsWith('দুপুরে')), hasLength(1));
+    expect(data().reminders, isEmpty);
+  });
+
+  testWidgets('b43: "৪নং থেকে ৮নং মুছে দাও। ৯নং এ রিমাইন্ডার যুক্ত কর"', (t) async {
+    await open(t);
+    for (var i = 1; i <= 9; i++) {
+      data().tasks.add(Task(id: 't$i', title: 'কাজ $i', createdAt: DateTime(2026, 10, 1, 0, i)));
+    }
+    await say('আমার কাজের তালিকা দাও');
+    final r = await say('৪নং থেকে ৮নং মুছে দাও। ৯নং এ রিমাইন্ডার যুক্ত কর');
+    expect(r, isNot(contains('খুঁজে পেলাম না')));
+    expect(r, contains('৫টা'));
+    final y = await say('হ্যাঁ');
+    expect(data().tasks.map((x) => x.id), unorderedEquals(['t1', 't2', 't3', 't9']));
+    expect(y, contains('কাজ 9'), reason: 'the reminder part is heard after the yes');
+  });
+
+  testWidgets('b43: "এখানে অনেক গুলো কাজ, একটি না" is not a note', (t) async {
+    await open(t);
+    final r = await say('এখানে অনেক গুলো কাজ, একটি না');
+    expect(r, isNot(contains('বিভাগ')));
+    expect(r, contains('আলাদা'));
+  });
 }
