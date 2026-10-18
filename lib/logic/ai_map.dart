@@ -216,6 +216,22 @@ Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> le
       if (day == null && !ampm && !at.isAfter(now)) at = at.add(const Duration(days: 1));
       return ReminderAdd(said,
           title: title, at: at, repeat: repeat, alarm: r['alarm'] == true, weekdays: repeat == Repeat.weekly ? [at.weekday] : const [], minutesBefore: before, ampmOpen: ampm);
+    case 'menu':
+      // Only what the registry lists; names are resolved by the app, never ids.
+      final domain = _str(r['domain']), op = _str(r['op']);
+      if (voiceCaps[domain]?.ops.containsKey(op) != true) return null;
+      return MenuAction(said,
+          domain: domain,
+          op: op,
+          target: _str(r['target']),
+          target2: _str(r['target2']),
+          amount: _int(r['amount']).abs(),
+          amount2: _int(r['amount2']).abs(),
+          day: _day(r['date']),
+          until: _day(r['until']),
+          time: RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(_str(r['time'])) == null ? null : int.parse(_str(r['time']).split(':')[0]) * 60 + int.parse(_str(r['time']).split(':')[1].substring(0, 2)),
+          text: _str(r['text']),
+          part: r['time_clear'] == false ? '?' : '');
     case 'contact_add':
       final phone = findPhone(_str(r['phone'])) ?? findPhone(said);
       if (phone == null) return null;

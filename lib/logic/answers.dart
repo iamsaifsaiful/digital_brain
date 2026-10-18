@@ -501,7 +501,7 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       NotUnderstood() => _notUnderstood(cmd),
       ProfileQuery() => profileAnswer(d, cmd.transcript) ?? infoAnswer(d, cmd.transcript, now) ?? kindAnswer(d, kindAsked(normalize(cmd.transcript)) ?? 'papers'),
       OpenPlace() || ProfileSet() || ManageItem() ||
-      LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TasksClear() || TaskDone() || TaskEdit() || TaskRestore() || ReminderSnooze() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() || HealthAdd() => null,
+      LedgerAdd() || LedgerSet() || NoteAdd() || TaskAdd() || TasksClear() || TaskDone() || TaskEdit() || TaskRestore() || ReminderSnooze() || MenuAction() || ReminderAdd() || ContactAdd() || CallPerson() || CashAdd() || VaultAdd() || MemoryAdd() || SpecialAdd() || HealthAdd() => null,
     };
 
 /// The money records of [q] (লেনদেন book and আয়-ব্যয়), newest first.

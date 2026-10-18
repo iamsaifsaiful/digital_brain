@@ -19,6 +19,8 @@ import '../logic/ledger.dart';
 import '../logic/parser.dart';
 import '../logic/phrases.dart';
 import '../logic/plan.dart';
+import '../logic/money_more.dart' show accountBalance, accountLabel, totalBalance, salesCategory;
+import '../ui/theme.dart' show Look;
 import '../logic/proactive.dart';
 import '../logic/pro.dart' show freeVaultItems, freeLedgerPeople, freeReminders;
 import '../logic/search.dart';
@@ -30,6 +32,7 @@ import '../ui/yes_no.dart' show pickSpokenOption;
 import 'brain.dart';
 
 part 'todo_chat.dart';
+part 'menu_chat.dart';
 
 /// What the chat is waiting to hear.
 enum ChatWait { none, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, taskTitle, taskDay, project, collect, whichPerson, whichItem, clarify, whichTask, taskTime }
@@ -563,7 +566,7 @@ class ChatController extends ChangeNotifier {
     // Left open: "…আর", "…তারপর", "খরচ হচ্ছে কোন" (কোন what?).
     if (RegExp(fold(r'(?:^|\s)(?:আর|এবং|তারপর|তার পর|এরপর|এর পর|আরও|আরো|মানে|যেমন|কিন্তু|যে|কোন|কোনো|কোনটা|যদি|তাহলে|নাকি|অথবা|বা)$')).hasMatch(n)) return false;
     if (const ['তালিকা', 'লিস্ট', 'list'].any((w) => n.contains(normalize(w)))) return false;
-    final c = parseAll(t, brain.data.ledger, tasks: brain.data.tasks, contacts: brain.data.contacts, folders: brain.folderHints, now: _now);
+    final c = parseAll(t, brain.data.ledger, tasks: brain.data.tasks, contacts: brain.data.contacts, folders: brain.folderHints, now: _now, data: brain.data);
     return c.isNotEmpty && c.every((x) => x is! NotUnderstood && x is! SearchQuery && !(x is NoteAdd && x.fromStatement));
   }
 
@@ -707,7 +710,10 @@ class ChatController extends ChangeNotifier {
     // "মুছে দিও না", "বন্ধ কোরো না": nothing is done — decided here, before
     // the AI (if on) could read it as "মুছে দাও".
     final todoHere = todoCommands(tidySpeech(whole), brain.data.tasks, _now);
-    if (!isQuestionText(whole) && negatedRequest(normalize(whole)) && !(todoHere?.any((c) => c is TaskEdit && c.stopReminder) ?? false)) {
+    // "এই কথাটা আর মনে রেখো না", "হাঁটা বন্ধ না, reminder বন্ধ": a request
+    // the menus understand (a negative word inside it is part of it).
+    final menuHere = menuCommand(tidySpeech(whole), brain.data, _now);
+    if (!isQuestionText(whole) && negatedRequest(normalize(whole)) && !(todoHere?.any((c) => c is TaskEdit && c.stopReminder) ?? false) && menuHere is! MenuAction) {
       _history.add(AiTurn.user(whole));
       final text = talkReply(Talk.wontDo, _now);
       _say(out, text);
@@ -908,7 +914,7 @@ class ChatController extends ChangeNotifier {
     if (prev.isEmpty || at == null || _now.difference(at).inMinutes > 10) return t;
     if (words(normalize(t)).length > 4 || isQuestionText(t) || mentionsSecret(t)) return t;
     final d = brain.data;
-    List<Command> rules(String s) => parseAll(s, d.ledger, tasks: d.tasks, contacts: d.contacts, folders: brain.folderHints, now: _now);
+    List<Command> rules(String s) => parseAll(s, d.ledger, tasks: d.tasks, contacts: d.contacts, folders: brain.folderHints, now: _now, data: d);
     bool acts(Command c) => (isSave(c) && c is! NoteAdd) || c is CallPerson;
     // Only a fragment that means nothing by itself is joined.
     if (!rules(t).every((c) => c is NotUnderstood || c is SearchQuery || c is NoteAdd)) return t;
@@ -935,7 +941,7 @@ class ChatController extends ChangeNotifier {
     _history.add(AiTurn.user(secret ? tr('[গোপন কিছু জানতে চাইলেন — ফোনেই উত্তর দেওয়া হলো]') : (shown ?? t)));
     // Remember an unfinished request (nothing to save came of it) so the
     // next short message can complete it.
-    final finished = saves.isNotEmpty || others.any((c) => c is CallPerson || c is TaskDone || c is TaskEdit || c is TaskRestore || c is TaskQuery || c is ReminderSnooze);
+    final finished = saves.isNotEmpty || others.any((c) => c is CallPerson || c is TaskDone || c is TaskEdit || c is TaskRestore || c is TaskQuery || c is ReminderSnooze || c is MenuAction);
     _lastSaid = secret || finished ? '' : t;
     _lastSaidAt = _now;
     final tags = <String>[];
@@ -955,6 +961,11 @@ class ChatController extends ChangeNotifier {
       if (c is TaskDone || c is TaskEdit || c is TaskRestore || c is ReminderSnooze) {
         await _todo(c, out);
         tags.add('[কাজের তালিকায় বদল]');
+        continue;
+      }
+      if (c is MenuAction) {
+        await _menu(c, out);
+        tags.add('[${c.domain}: ${c.op}]');
         continue;
       }
       if (c is TaskQuery) _rememberShown(c);
@@ -1663,6 +1674,8 @@ class ChatController extends ChangeNotifier {
           await _start(pick, out);
         } else if (pick is TaskDone || pick is TaskEdit || pick is TaskRestore || pick is ReminderSnooze) {
           await _todo(pick, out);
+        } else if (pick is MenuAction) {
+          await _menu(pick, out);
         } else if (pick is MoneyListQuery) {
           _answerMoney(pick, out);
         } else {
@@ -1779,7 +1792,7 @@ class ChatController extends ChangeNotifier {
         // অ্যালার্ম সেট করে দাও"): the waiting one is dropped, never saved
         // by a "দাও" in the new sentence — the new one is handled instead.
         if (!refused && _looksNew(t) && yesNo(t) != false) {
-          final next = parseAll(t, brain.data.ledger, tasks: brain.data.tasks, contacts: brain.data.contacts, folders: brain.folderHints, now: _now);
+          final next = parseAll(t, brain.data.ledger, tasks: brain.data.tasks, contacts: brain.data.contacts, folders: brain.folderHints, now: _now, data: brain.data);
           final action = next.isNotEmpty && next.every((c) => c is ReminderAdd || c is TaskAdd || c is TasksClear || c is LedgerAdd || c is CashAdd || c is ContactAdd || c is HealthAdd || (c is NoteAdd && !c.fromStatement));
           // The same request said again ("হ্যাঁ … সবকটা মুছে দাও"): that is a yes.
           final cur2 = _current;

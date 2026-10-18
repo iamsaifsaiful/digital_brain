@@ -214,3 +214,76 @@ String capabilitiesList() => [
 
 /// The app's parts for the AI ("id: name — what").
 String appMapForAi() => [for (final p in appPlaces) '${p.id}: ${p.title} — ${p.what}'].join('\n');
+
+// ───────────────────────── What each menu can do by voice ─────────────────────────
+
+/// How far a menu can be used by voice: the page can be opened, its data
+/// asked about, and/or written. Read by the chat ("কী করতে পারো?"), by the
+/// AI's tool schema (the `menu` action may only name these ops) and by the
+/// executor (state/menu_chat.dart), so the three never disagree.
+enum VoiceLevel { full, partial, openOnly }
+
+class VoiceCap {
+  const VoiceCap(this.level, this.ops, {this.notYet = const []});
+  final VoiceLevel level;
+
+  /// The [MenuAction.op]s the executor carries out for this menu, with what
+  /// each does (shown to the AI).
+  final Map<String, String> ops;
+
+  /// What is asked for but cannot be done by voice yet (said plainly).
+  final List<String> notYet;
+}
+
+/// Menus beyond to-dos, reminders, notes, contacts and the money book (those
+/// have their own typed actions). Keys are [MenuAction.domain]s.
+const voiceCaps = <String, VoiceCap>{
+  'accounts': VoiceCap(VoiceLevel.full, {
+    'balance': 'how much is in all accounts, or in one (target)',
+    'transfer': 'money moved from target to target2 (amount; fee in amount2) — not income or spending',
+    'fee': 'a charge (amount) taken from account target',
+    'set_balance': 'the user states what is in account target now (amount) — asked once, never income',
+    'withdraw_spend': 'taken out of target (amount) and part spent (amount2, on text) from cash',
+  }),
+  'savings': VoiceCap(VoiceLevel.full, {
+    'goal_add': 'a saving goal named target of amount',
+    'deposit': 'amount put into goal target (happened)',
+    'withdraw': 'amount taken out of goal target (happened; not spending)',
+    'goal_left': 'how much is left for goal target (or all)',
+  }),
+  'installment': VoiceCap(VoiceLevel.full, {
+    'paid': "this month's instalment/DPS paid", 'not_paid': 'said it is not paid (nothing written)', 'unpay': 'ticked paid by mistake',
+  }),
+  'medicine': VoiceCap(VoiceLevel.partial, {
+    'dose': 'a dose taken (target medicine, part of day)', 'dose_not': 'not taken (nothing written)', 'dose_undo': 'ticked taken by mistake',
+    'stock_add': 'amount more pills of target bought', 'stock_query': 'how long target lasts', 'reminder_off': "turn off target's reminders, keep it",
+  }, notYet: ['ওষুধের সময় বা ডোজ কথায় বদলানো', 'নতুন ওষুধ কথায় যোগ করা']),
+  'habit': VoiceCap(VoiceLevel.full, {
+    'add': 'a new daily habit named target', 'tick': 'done on day (today if not said)', 'not_done': 'not done on day (untick if ticked)',
+    'streak': 'days in a row for target', 'reminder_set': 'a daily reminder for target at time', 'reminder_off': "turn off target's reminder, keep the habit",
+  }),
+  'memory': VoiceCap(VoiceLevel.full, {'forget': 'forget a kept fact about the user (text: its words)'}),
+  'alarm': VoiceCap(VoiceLevel.full, {'all_off': 'turn off every alarm (asked once, not deleted)'}),
+  'trash': VoiceCap(VoiceLevel.partial, {'restore': 'bring back the last deleted item of a kind (target: নোট, কাজ…)'}),
+  'backup': VoiceCap(VoiceLevel.partial, {'when': 'when the last backup was', 'now': 'back up to Google Drive now'}, notYet: ['ব্যাকআপ থেকে ফিরিয়ে আনা (পাতায় দেখে করতে হয়)']),
+  'settings': VoiceCap(VoiceLevel.partial, {'call_me': 'the name to call the user (text)', 'look': 'dark or light (text)', 'letters': 'bigger or smaller (text)'},
+      notYet: ['AI চালু/বন্ধ', 'তালা ও PIN', 'ভাষা']),
+  'project': VoiceCap(VoiceLevel.full, {'create': 'a new separate account named target', 'budget': 'budget amount for project target', 'close': 'mark project target finished (kept)'}),
+  'shop': VoiceCap(VoiceLevel.partial, {
+    'sale': 'a sale of amount at shop target (cash received)', 'credit_sale': 'goods of amount to person target, amount2 paid now — the rest owed',
+    'today': "a shop's sales and costs today", 'calc': 'quantity amount × unit price amount2 (nothing written)', 'profit': 'profit needs costs (nothing written)',
+  }, notYet: ['রসিদ কথায় বানানো বা খোলা', 'স্টক']),
+  'cash': VoiceCap(VoiceLevel.full, {
+    'spend': 'spending in a span (day…until), category text', 'income': 'income in a span', 'net': 'income minus spending in a span',
+    'recategorize': 'move the latest expense about target to category text', 'dupes': 'find two identical expenses; one removed if confirmed',
+  }),
+  'notes': VoiceCap(VoiceLevel.partial, {'replace_word': 'in the latest note with word target, write text instead'}),
+  'health': VoiceCap(VoiceLevel.partial, {'none': 'nothing measured (nothing written)', 'fix_last': 'the last reading amount/10 was really amount2/10'},
+      notYet: ['টিকা দেওয়া হয়েছে কথায় টিক দেওয়া', 'চেকআপের তারিখ কথায় বদলানো']),
+  'zakat': VoiceCap(VoiceLevel.partial, {'price': 'the gold/silver price the user entered (text gold|silver)'}, notYet: ['যাকাতের সম্পদ কথায় লেখা']),
+  'special': VoiceCap(VoiceLevel.partial, {'age': "a person's age from their birthday (only with a birth year)", 'month': "whose special days fall in a month"}),
+  'diary': VoiceCap(VoiceLevel.openOnly, {}, notYet: ['ডায়েরিতে আলাদা লেখা রাখা']),
+  'docs': VoiceCap(VoiceLevel.partial, {}, notYet: ['ফাইলের ভেতরের লেখা পড়া (OCR)', 'ফাইলের নাম বা মেয়াদ কথায় বদলানো']),
+  'requests': VoiceCap(VoiceLevel.openOnly, {}, notYet: ['রক্তের অনুরোধ কথায় লেখা বা প্রকাশ করা']),
+  'emergency': VoiceCap(VoiceLevel.partial, {'allergy_none': '"no allergy" said — not written as an allergy'}, notYet: ['জরুরি নম্বর ও অ্যালার্জি কথায় লেখা']),
+};

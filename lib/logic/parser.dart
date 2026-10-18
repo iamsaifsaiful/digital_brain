@@ -24,6 +24,7 @@ import 'match.dart' show wordsMatch;
 
 part 'todo.dart';
 part 'aspect.dart';
+part 'menus.dart';
 
 sealed class Command {
   const Command(this.transcript);
@@ -605,7 +606,7 @@ int? findAmount(String normalized) {
       base = _numberWords[w[at]];
       if (base == null) {
         // পাঁচশো / পাঁচশ / দুইশো
-        final m = RegExp(r'^(.+?)(শো|শ|শত)$').firstMatch(w[at]);
+        final m = RegExp(fold(r'^(.+?)(শো|শ|শত)(?:টা|টি|টাকা|টাকার|র|ের|এর)?$')).firstMatch(w[at]);
         if (m != null && _numberWords[m[1]] != null) {
           base = _numberWords[m[1]]!;
           mult = 100;
@@ -614,13 +615,16 @@ int? findAmount(String normalized) {
     }
     if (base == null) return null;
     final next = at + 1 < w.length ? w[at + 1] : '';
-    final m2 = switch (next) {
-      'হাজার' => 1000,
-      'লাখ' || 'লক্ষ' => 100000,
-      'কোটি' => 10000000,
-      'শো' || 'শ' || 'শত' => 100,
-      _ => 0,
-    };
+    // "এক হাজারের", "দুই লাখ টাকার": the multiplier with an ending.
+    final m2 = RegExp(fold(r'^হাজার(?:ের|এর|ে|টাকার|টাকা)?$')).hasMatch(next)
+        ? 1000
+        : RegExp(fold(r'^(?:লাখ|লক্ষ)(?:ের|এর|ে|টাকার|টাকা)?$')).hasMatch(next)
+            ? 100000
+            : RegExp(fold(r'^কোটি(?:র|তে|টাকার|টাকা)?$')).hasMatch(next)
+                ? 10000000
+                : (next == 'শো' || next == 'শ' || next == 'শত')
+                    ? 100
+                    : 0;
     if (m2 > 0) mult = m2;
     return ((base + half) * mult, mult, at - i + 1 + (m2 > 0 ? 1 : 0));
   }
@@ -801,7 +805,12 @@ bool isAboutMe(String text) {
 // ───────────────────────── The parser ─────────────────────────
 
 class Parser {
-  Parser({required this.ledger, this.tasks = const [], this.contacts = const [], this.folders = const [], DateTime? now}) : now = now ?? DateTime.now();
+  Parser({required this.ledger, this.tasks = const [], this.contacts = const [], this.folders = const [], DateTime? now, this.data}) : now = now ?? DateTime.now();
+
+  /// Everything saved (accounts, goals, medicines, habits, family…), so a
+  /// menu request is read against the user's own names. Null in tests that
+  /// pass only a ledger.
+  final AppData? data;
 
   /// The user's paper folders and note categories, so "অফিসের ফোল্ডার খোলো" finds them.
   final List<FolderHint> folders;
@@ -839,6 +848,11 @@ class Parser {
       case null:
         break;
     }
+
+    // The other menus (menus.dart): accounts, savings, medicines, habits,
+    // what to keep in mind, settings… read against the user's own names.
+    final menu = menuCommand(said, data, now);
+    if (menu != null) return menu;
 
     // The to-do list, by what is wanted (todo.dart): asked, added, done,
     // moved, reminded — before any keyword rule can take a piece of it.

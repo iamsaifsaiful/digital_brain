@@ -40,9 +40,17 @@ Aspect aspectOf(String said) {
   final f = _af(said);
   // "কে"/"কার" alone after a name is often the recogniser splitting
   // "সজীবকে" ("সজীব কে ৩০০ টাকা দিলাম"): a question word only at the start.
-  if (said.contains('?') || _thas(f, r'(?<=\s)(?:কত|কী|কি|কাকে|কবে|কোথায়|কয়টা|কিনা|নাকি)(?=\s)') || _thas(f, r'^\s*(?:কে|কার|কারা)(?=\s)')) return Aspect.question;
-  if (_thas(f, r'(?<=\s)\S+(?:িনি|ইনি)(?=\s)') ||
-      _thas(f, r'(?<=\s)(?:দিই|দেই|দেয়|দিয়|নিই|নেই|নেয়|পাই|করি|দিলাম|নিলাম|পেলাম|করলাম|দেননি|দেয়নি)\s+(?:নাই|নি|না)(?=\s)')) {
+  if (said.contains('?') ||
+      _thas(f, r'(?<=\s)(?:কত|কী|কি|কাকে|কবে|কোথায়|কয়টা|কিনা|নাকি|কারা)(?=\s)') ||
+      _thas(f, r'^\s*(?:কে|কার)(?=\s)') ||
+      _thas(f, r'(?<=\s)(?:কার\s+কার|কে\s+কে|কাকে\s+কাকে|কার\s+কাছে|কার\s+কাছ)(?=\s)')) {
+    return Aspect.question;
+  }
+  // "দিইনি", "পাইনি", "হয়নি", "খাইনি" — but not "চিনি", "তিনি", "পানি".
+  final notNeg = _tre(r'(?<=\s)(?:চিনি|তিনি|উনি|যিনি|ইনি|জিনি|পানি|খনি|ধ্বনি|বাণী|রানি|কাহিনি|কাহিনী)(?=\s)');
+  final g = f.replaceAll(notNeg, ' ');
+  if (_thas(g, r'(?<=\s)\S+(?:িনি|ইনি|য়নি|েনি|য়নাই|িনাই)(?=\s)') ||
+      _thas(g, r'(?<=\s)(?:দিই|দেই|দেয়|দিয়|নিই|নেই|নেয়|পাই|করি|দিলাম|নিলাম|পেলাম|করলাম|দেননি|দেয়নি|হয়|হয়)\s+(?:নাই|নি|না)(?=\s)')) {
     return Aspect.negated;
   }
   if (_thas(f, r'(?:মনে\s+(?:করিও|করাইও|করিয়ো|করিয়ে|করাবে|করাবা|করাও)|রিমাইন্ডার|reminder|জানিয়ে\s+দিও|জানাবে|জানিও)')) return Aspect.remind;
@@ -51,7 +59,7 @@ Aspect aspectOf(String said) {
   for (final w in words(normalize(f))) {
     if (RegExp(_tf(r'(?:বো|ব|মু)$')).hasMatch(w) && _nounOfVerb(w) != null) return Aspect.future;
   }
-  if (_thas(f, r'(?<=\s)\S+(?:েছি|েছিলাম|েছিল|িলাম|লাম|লুম|ছি|সি)(?=\s)') || _thas(f, r'(?<=\s)(?:দিলাম|নিলাম|পেলাম|করলাম|দিল|দিলো|নিল|পেল)(?=\s)')) return Aspect.done;
+  if (_thas(f, r'(?<=\s)\S+(?:েছি|েছিলাম|েছিল|েছে|িলাম|লাম|লুম|ছি|সি)(?=\s)') || _thas(f, r'(?<=\s)(?:দিলাম|নিলাম|পেলাম|করলাম|দিল|দিলো|নিল|পেল)(?=\s)')) return Aspect.done;
   return Aspect.unknown;
 }
 

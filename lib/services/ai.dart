@@ -254,7 +254,7 @@ List<Map<String, String>> messagesFor(String said, List<AiTurn> history) {
 String systemPrompt(AiContext ctx) => '${systemRules()}${systemContext(ctx)}';
 
 /// Version of the fixed instructions below; change it with every edit to them.
-const aiRulesVersion = '2026-10-18.2';
+const aiRulesVersion = '2026-10-18.3';
 
 /// The fixed part of the instructions (the same for every message).
 String systemRules() => '''
@@ -292,6 +292,9 @@ Item actions:
 - memory_add: something about the user or the people in their life that the assistant should keep in mind for later answers — habits, preferences, routine, relationships ("মনে রেখো আমি শুক্রবার অফিস করি না", "রহিম আমার শ্যালক", "আমি চা খাই না"). text: one short, clean Bengali sentence. Facts to look up later (codes, where something is kept) are note_add instead.
 - special_add: a day that comes every year — a birthday, wedding anniversary or death anniversary ("রহিমের জন্মদিন ১২ মার্চ", "আব্বার মৃত্যুবার্ষিকী ৩ জুন", "আমাদের বিবাহবার্ষিকী ৫ জানুয়ারি"). person: whose day (or "আমাদের"), kind: birthday, anniversary, deathday or other, date: YYYY-MM-DD (use the year if said, else the next time it comes).
 - open: the user wants to open or go to a part of the app ("নোট খোলো", "সেটিংসে যাও", "প্রেসক্রিপশন ফোল্ডার দেখাও", "স্বাস্থ্যের পাতায় নিয়ে যাও"). page: one id from the app map below. folder: a paper folder or note category when one was named (as the user's own folder/category name), else "". Asking ABOUT saved things ("কী কী রিমাইন্ডার আছে?") is the matching query, not open.
+- menu: other menus, by `domain` and `op` (only these; the app finds the saved records by their names and says itself what it did or could not do):
+${[for (final e in voiceCaps.entries) if (e.value.ops.isNotEmpty) '  ${e.key}: ${[for (final o in e.value.ops.entries) '${o.key} (${o.value})'].join('; ')}'].join('\n')}
+  Never for something not listed — use chat and say it is done on that page.
 - chat: conversation, greetings, how-are-you, thanks, or a general-knowledge or work question (put the answer in reply). For business questions (pricing, profit margin, VAT basics, how to write a message to a customer…) give short, practical help.
 Money: decide from the time and intent of the verb, never from money words (টাকা, ধার, ফেরত, পাওনা) alone.
 - It happened ("দিয়েছি", "দিলাম", "পেলাম", "কাল দিয়েছিলাম" = yesterday): with a person, ledger_add (loan, credit, repayment); the user's own income or spending, or project money, cash_add.
@@ -352,18 +355,18 @@ Known people in the লেনদেন (money) book: ${ctx.people.isEmpty ? '(no
 User's note categories: ${ctx.categories.isEmpty ? '(none)' : ctx.categories.join(', ')}
 Money summary (from the app, accurate):
 ${ctx.money.isEmpty ? '(nothing yet)' : ctx.money}
-User's records (from the app, complete and up to date):
+User's records (from the app; lists may be shortened — if something is not listed, add the matching query item and let the app answer from the phone):
 ${ctx.records.isEmpty ? '(the user has not allowed the AI to see reminders, to-dos and notes; for such questions add the query item and keep the reply to a few words — the app answers from the phone)' : ctx.records}${isEn ? '\n\nLANGUAGE: the user has set the app to English. Write `reply` in clear, natural, polite English (names as the user said them; times like 6:20 PM; amounts like ৳500). The user may still speak Bengali; understand it as usual. Item fields (text, category, title) stay as described above.' : ''}''';
 }
 
-const _item = {
+final _item = {
   'type': 'object',
   'properties': {
     'action': {
       'type': 'string',
       'enum': [
         'ledger_add', 'ledger_set', 'ledger_query', 'vault_query', 'reminder_query', 'note_add', 'search', 'chat', //
-        'task_add', 'task_done', 'task_reopen', 'task_edit', 'task_delete', 'task_skip_once', 'task_remind', 'task_query', //
+        'task_add', 'task_done', 'task_reopen', 'task_edit', 'task_delete', 'task_skip_once', 'task_remind', 'task_query', 'menu', //
         'reminder_add', 'reminder_stop', 'reminder_snooze', 'contact_add', 'call', 'briefing', 'cash_add', 'cash_query',
         'memory_add', 'special_add', 'open',
       ],
@@ -419,12 +422,18 @@ const _item = {
     'shift_days': {'type': 'integer', 'description': 'task_edit: +N later, -N earlier'},
     'note': {'type': 'string', 'description': 'task_edit: an extra detail'},
     'minutes': {'type': 'integer', 'description': 'reminder_snooze: minutes from now'},
+    'domain': {'type': 'string', 'enum': voiceCaps.keys.toList(), 'description': 'menu: which menu'},
+    'op': {'type': 'string', 'description': 'menu: one op listed for that menu in the instructions'},
+    'target': {'type': 'string', 'description': 'menu: a name as said (account, goal, medicine, habit, project, shop, person)'},
+    'target2': {'type': 'string', 'description': 'menu: a second name (where money moved to)'},
+    'amount2': {'type': 'integer', 'description': 'menu: a second amount (fee; paid part of a sale)'},
+    'until': {'type': 'string', 'description': 'menu: YYYY-MM-DD end of a span (not included)'},
     'time_clear': {'type': 'boolean', 'description': 'reminder_add/task_remind: false when only a bare hour was said ("চারটায়") — morning or evening still to be asked'},
   },
   'required': ['action'],
 };
 
-const _tool = {
+final _tool = {
   'name': 'route',
   'description': 'What the user wants: a short spoken reply and every separate fact or request found in the message.',
   'input_schema': {

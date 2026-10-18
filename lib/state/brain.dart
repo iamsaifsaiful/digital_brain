@@ -917,9 +917,9 @@ class Brain extends ChangeNotifier {
     if (data.habits.isNotEmpty) {
       lines.add('Habits (streak days, done today?): ${data.habits.map((h) => '${h.name} ${h.streak(now)} ${h.doneOn(now) ? 'yes' : 'no'}').join('; ')}');
     }
-    if (data.medicines.isNotEmpty) {
-      lines.add('Medicines (times, days of stock left): ${data.medicines.map((m) => '${m.name} ${m.times.map((t) => '${d2(t ~/ 60)}:${d2(t % 60)}').join('/')} ${m.daysLeft ?? '-'}').join('; ')}');
-    }
+    // Medicines are health data: they stay on the phone (questions about
+    // them are answered by the app itself).
+    if (data.medicines.isNotEmpty) lines.add('Medicines: kept on the phone only — for any medicine question add a menu/medicine item or reply "দেখছি।".');
     final rem = [...data.reminders]..sort((a, b) => a.nextDate(now).compareTo(b.nextDate(now)));
     if (rem.isNotEmpty) {
       lines.add('Reminders (next date, time, repeat):');
@@ -1048,7 +1048,7 @@ class Brain extends ChangeNotifier {
     // One "now" for the whole message: the rules, the AI's context and the
     // reading of its answer never disagree about today (e.g. at midnight).
     final now = services.now();
-    List<Command> parse(String t) => parseAll(t, data.ledger, tasks: data.tasks, contacts: data.contacts, folders: folderHints, now: now);
+    List<Command> parse(String t) => parseAll(t, data.ledger, tasks: data.tasks, contacts: data.contacts, folders: folderHints, now: now, data: data);
     var rules = parse(said);
     // Spoken: the recogniser's other guesses for the same sentence.
     final voice = services.voice;
@@ -1106,7 +1106,7 @@ class Brain extends ChangeNotifier {
 
   /// To-do and reminder commands the rules settle by themselves.
   static bool _decidedHere(Command c) =>
-      c is TaskAdd || c is TaskEdit || c is TaskDone || c is TaskQuery || c is TaskRestore || c is TasksClear || c is ReminderAdd || c is ReminderSnooze || c is Clarify;
+      c is TaskAdd || c is TaskEdit || c is TaskDone || c is TaskQuery || c is TaskRestore || c is TasksClear || c is ReminderAdd || c is ReminderSnooze || c is Clarify || c is MenuAction;
 
   /// Rules that only half understood: nothing, a search, or a plain note.
   static bool _weak(List<Command> c) => c.length == 1 && (c.first is NotUnderstood || c.first is SearchQuery || c.first is NoteAdd);

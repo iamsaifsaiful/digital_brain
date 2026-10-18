@@ -32,11 +32,39 @@ final _joiners = RegExp(r'\s+(?:আর|এবং|তারপর|তার প�
 /// sentence, "… দিলাম আর … নিলাম" is split only when every part is a full
 /// money event, so "রহিম আর করিমকে ৫০০ টাকা দিলাম" stays one.
 List<Command> parseAll(String said, List<LedgerEntry> ledger,
-    {List<Task> tasks = const [], List<Contact> contacts = const [], List<FolderHint> folders = const [], DateTime? now}) {
-  final p = Parser(ledger: ledger, tasks: tasks, contacts: contacts, folders: folders, now: now);
+    {List<Task> tasks = const [], List<Contact> contacts = const [], List<FolderHint> folders = const [], DateTime? now, AppData? data}) {
+  final out = _parseAll(said, ledger, tasks: tasks, contacts: contacts, folders: folders, now: now, data: data);
+  // A menu clearly named in a request nothing understood (or only a loose
+  // note would keep): said plainly what voice cannot do there, nothing saved.
+  if (out.length == 1 && (out.first is NotUnderstood || out.first is SearchQuery || (out.first is NoteAdd && (out.first as NoteAdd).fromStatement))) {
+    final u = menuUnsupported(said);
+    if (u != null) return [u];
+  }
+  return out;
+}
+
+List<Command> _parseAll(String said, List<LedgerEntry> ledger,
+    {List<Task> tasks = const [], List<Contact> contacts = const [], List<FolderHint> folders = const [], DateTime? now, AppData? data}) {
+  final p = Parser(ledger: ledger, tasks: tasks, contacts: contacts, folders: folders, now: now, data: data);
   // "ইয়ার তুমি একটা কাজ করো তো …": the opening words are not part of it.
   final tidied = tidySpeech(said);
   if (tidied.isNotEmpty) said = tidied;
+  // The other menus first (menus.dart): "এই মাসের DPS দিয়েছি" is an
+  // instalment, never a to-do ticked by a shared word.
+  final menu = menuCommand(said, data, p.now);
+  if (menu != null) return [menu];
+  // "বাজারে ৫০০, রিকশায় ৫০ আর ওষুধে ৩০০, মোট ৮৫০": the parts, and the
+  // total only as a check — never a fourth expense.
+  final parts = spentInParts(said, p);
+  if (parts != null) return parts;
+  // "রিপোর্টটা নোটে রাখো, পাঠানোর কাজ কাল দাও": a note, and a to-do about
+  // the same thing — two items; nothing is sent.
+  final nt = RegExp(fold(r'^(.+?)\s+নোটে\s+(?:রাখো|রাখ|লিখে\s+রাখো|তুলে\s+রাখো)[,\s]+(\S+?)(?:র|ের|এর)\s+কাজ(?:টা|টি)?\s+(.+)$')).firstMatch(fold(said));
+  if (nt != null) {
+    final obj = nt[1]!.replaceAll(RegExp(fold(r'(?:টা|টি|গুলো)$')), '').trim();
+    final w = parseWhen(nt[3]!, p.now);
+    return [NoteAdd(said, text: obj), TaskAdd(said, title: '$obj ${nt[2]}', due: w != null && w.hasDay ? dayOnly(w.day) : null)];
+  }
   // "৮ নভেম্বর ঢাকায় যাব, ২২ নভেম্বর সিঙ্গাপুর যাব আর ২৯ তারিখে ফিরব —
   // এগুলো কাজের তালিকায় যুক্ত করো": several dated to-dos in one breath.
   final dated = datedTodos(said, p);
@@ -53,7 +81,7 @@ List<Command> parseAll(String said, List<LedgerEntry> ledger,
   // "তুমি এটা লেখ, …": the instruction is not part of what to save.
   final (rest, write) = stripAddress(said);
   if (rest.isNotEmpty && rest != said.trim()) {
-    final cmds = parseAll(rest, ledger, tasks: tasks, contacts: contacts, folders: folders, now: now);
+    final cmds = _parseAll(rest, ledger, tasks: tasks, contacts: contacts, folders: folders, now: now, data: data);
     final plain = cmds.length == 1 && (cmds.first is NotUnderstood || cmds.first is SmallTalk || (cmds.first is NoteAdd && (cmds.first as NoteAdd).fromStatement));
     // "লিখে রাখো যে করিমের দোকান বন্ধ" is still a note.
     if (write && plain) return [p.parse('মনে রাখো: $rest')];
@@ -197,6 +225,41 @@ List<Command>? datedTodos(String said, Parser p) {
     final c = p.parse('$piece — কাজের তালিকায় লিখে রাখো');
     if (c is! TaskAdd || c.title.trim().isEmpty || c.due == null) return null;
     out.add(c);
+  }
+  return out;
+}
+
+/// "বাজারে ৫০০, রিকশায় ৫০ আর ওষুধে ৩০০, মোট ৮৫০": one own expense per
+/// part (each with its own amount and খাত); a spoken "মোট" is only a check
+/// against their sum — if it does not match, the parts are still kept and
+/// the chat shows them all before saving. Null when [said] is not a list
+/// of own spending.
+List<Command>? spentInParts(String said, Parser p) {
+  final f = fold(said);
+  final total = RegExp(fold(r'[,،]?\s*(?:মোট|সব\s+মিলিয়ে|টোটাল)\s+(.+?)\s*(?:টাকা)?\s*[।.]?\s*$')).firstMatch(f);
+  final body = total == null ? f : f.substring(0, total.start);
+  final pieces = body.split(RegExp(fold(r'\s*[,،;]\s*|\s+(?:আর|এবং|ও)\s+'))).map((x) => x.trim()).where((x) => x.isNotEmpty).toList();
+  if (pieces.length < 2) return null;
+  // "আগের পাঁচশ নয়, সাতশ হবে": a correction, not a list.
+  if (RegExp(fold(r'(?:^|\s)(?:না|নয়|নাহ|নয়)(?=\s|,|$)')).hasMatch(f) || RegExp(fold(r'(?:হবে|দেব|দেবো|করব|লাগবে)')).hasMatch(f)) return null;
+  // Only a list of spending: said as spending ("খরচ", "মোট"), or short
+  // "<where> <amount>" parts — never dated plans or people's names.
+  final spendSaid = RegExp(fold(r'(?:খরচ|ব্যয়|মোট|টোটাল|গেল|গেছে)')).hasMatch(f);
+  if (!spendSaid && pieces.any((x) => words(normalize(x)).length > 3)) return null;
+  final w = parseWhen(said, p.now);
+  if (w != null && w.hasDay && !RegExp(fold(r'(?:আজ|আজকে)')).hasMatch(f)) return null;
+  final out = <CashAdd>[];
+  for (final x in pieces) {
+    final amount = findAmount(normalize(x));
+    if (amount == null || amount <= 0) return null;
+    // Each part names where it went ("বাজারে", "রিকশায়") — no person, no verb of owing.
+    final c = p.parse('$x টাকা খরচ হয়েছে');
+    if (c is! CashAdd || c.kind != CashKind.expense) return null;
+    out.add(CashAdd(said, kind: CashKind.expense, amount: amount, category: c.category));
+  }
+  if (total != null) {
+    final t = findAmount(normalize(total[1]!));
+    if (t == null) return null;
   }
   return out;
 }
