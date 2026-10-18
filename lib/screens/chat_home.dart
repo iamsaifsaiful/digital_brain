@@ -899,7 +899,8 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
               : Column(children: [
                   _topBar(),
                   Expanded(child: _chat.started ? _conversation() : _welcome()),
-                  if (_chat.choices.isNotEmpty) _choiceRow() else _questionRow(),
+                  // The last answer's buttons sit low on the right, by the thumb.
+                  if (_chat.choices.isNotEmpty) _choiceRow() else ...[_actionRow(), _questionRow()],
                   _composer(),
                 ]),
         ),
@@ -1147,28 +1148,52 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
               ]),
             ),
           ],
-          if (m.undoable(DateTime.now())) _undoButton(m),
-          if (m.links.isNotEmpty)
+          // The newest answer's buttons are at the bottom right (see _actionRow).
+          if (!identical(m, _bottomActionsOf) && m.undoable(DateTime.now())) _undoButton(m),
+          if (!identical(m, _bottomActionsOf) && m.links.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Wrap(spacing: 8, runSpacing: 8, children: [
-                for (final l in m.links)
-                  Material(
-                    color: C.surface,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: C.line)),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: () => _link(l),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        child: Text('${l.label} →', style: body(13, weight: FontWeight.w500)),
-                      ),
-                    ),
-                  ),
-              ]),
+              child: Wrap(spacing: 8, runSpacing: 8, children: [for (final l in m.links) _linkButton(l)]),
             ),
         ],
       );
+
+  Widget _linkButton(ChatLink l) => Material(
+        color: C.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: C.line)),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => _link(l),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            child: Text('${l.label} →', style: body(14, weight: FontWeight.w600)),
+          ),
+        ),
+      );
+
+  /// The last answer, when it has buttons and nothing is asked: its
+  /// buttons are shown low on the right (by the thumb), not in the answer.
+  ChatMessage? get _bottomActionsOf {
+    if (_chat.choices.isNotEmpty) return null;
+    final m = _chat.messages.lastWhere((x) => !x.fromUser, orElse: () => ChatMessage.app(''));
+    if (m.text.isEmpty && m.links.isEmpty) return null;
+    return m.links.isNotEmpty || m.undoable(DateTime.now()) ? m : null;
+  }
+
+  Widget _actionRow() {
+    final m = _bottomActionsOf;
+    if (m == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Wrap(alignment: WrapAlignment.end, spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          for (final l in m.links) _linkButton(l),
+          if (m.undoable(DateTime.now())) _undoButton(m),
+        ]),
+      ),
+    );
+  }
 
   Timer? _undoTimer;
 
@@ -1180,7 +1205,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
       if (mounted) setState(() {});
     });
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: EdgeInsets.only(top: identical(m, _bottomActionsOf) ? 0 : 8),
       child: OutlinedButton.icon(
         onPressed: () => _chat.undo(m),
         icon: Icon(Icons.undo_rounded, size: 18, color: C.orange),
@@ -1217,13 +1242,15 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   }
 
   /// "হ্যাঁ" first, as in the design; other lists keep their order.
-  List<ChatChoice> _ordered(List<ChatChoice> cs) => [...cs.where((c) => c.answer == 'হ্যাঁ'), ...cs.where((c) => c.answer != 'হ্যাঁ')];
+  /// "হ্যাঁ" last: it sits at the right end, nearest the thumb.
+  List<ChatChoice> _ordered(List<ChatChoice> cs) => [...cs.where((c) => c.answer != 'হ্যাঁ'), ...cs.where((c) => c.answer == 'হ্যাঁ')];
 
+  /// The answers to a question, low on the right by the thumb.
   Widget _choiceRow() => Padding(
-        padding: const EdgeInsets.fromLTRB(54, 0, 16, 8),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
         child: Align(
-          alignment: Alignment.centerLeft,
-          child: Wrap(spacing: 8, runSpacing: 8, children: [for (final c in _ordered(_chat.choices)) _chip(c)]),
+          alignment: Alignment.centerRight,
+          child: Wrap(alignment: WrapAlignment.end, spacing: 8, runSpacing: 8, children: [for (final c in _ordered(_chat.choices)) _chip(c)]),
         ),
       );
 
