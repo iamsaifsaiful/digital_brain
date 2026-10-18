@@ -25,7 +25,9 @@ import io.flutter.plugin.common.MethodChannel
 /**
  * FlutterFragmentActivity is needed by local_auth (fingerprint dialog).
  * FLAG_SECURE keeps passwords out of screenshots, screen recordings and the
- * recent-apps preview.
+ * recent-apps preview. Only the test app (".preview", installed beside the
+ * real one for testing) allows screenshots, so problems can be shown; the
+ * real app and the Play Store app always block them.
  *
  * The "my_assistant/files" channel saves a backup file where the user
  * chooses (Download, Drive folder…) through Android's own save dialog.
@@ -48,7 +50,9 @@ class MainActivity : FlutterFragmentActivity() {
     private var firstLaunch: Map<String, Any>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        if (!packageName.endsWith(".preview")) {
+            window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        }
         super.onCreate(savedInstanceState)
         if (isReminderIntent(intent)) setOverLock(true)
         if (savedInstanceState == null) firstLaunch = launchOf(intent)
