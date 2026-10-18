@@ -85,6 +85,18 @@ dependencies {
 KTS
 fi
 
+# Reading a paper's printed date from its photo, on the phone (TextReader.kt;
+# the model comes from Play Services).
+if ! grep -q 'mlkit-text-recognition' "$GRADLE_KTS"; then
+  cat >> "$GRADLE_KTS" <<'KTS'
+
+dependencies {
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.0")
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
+}
+KTS
+fi
+
 # Firebase (push): its settings for this app's package, from google-services.json.
 python3 tool/firebase_values.py tool/google-services.json "com.iamsaifsaiful.digital_brain$([ "${MY_ASSISTANT_PREVIEW:-}" = 1 ] && echo .preview)" android/app/src/main/res/values/firebase.xml
 
