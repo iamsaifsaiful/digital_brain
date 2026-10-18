@@ -14,6 +14,7 @@ import 'services/launcher.dart';
 import 'services/lock.dart';
 import 'services/notifications.dart';
 import 'services/ocr.dart';
+import 'services/weather.dart';
 import 'services/phonebook.dart';
 import 'services/voice.dart';
 import 'state/brain.dart';
@@ -38,6 +39,7 @@ Future<void> main() async {
     server: AccountServer(),
     push: DevicePush(),
     ocr: DeviceTextReader(),
+    weather: OpenMeteo(),
   );
   await services.notifier.init();
   final brain = Brain(services);

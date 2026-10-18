@@ -265,34 +265,52 @@ class SegTabs<T> extends StatelessWidget {
   final ValueChanged<T> onChanged;
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(color: C.chip, borderRadius: BorderRadius.circular(12)),
-        child: Row(children: [
-          for (final (v, label) in items)
-            Expanded(
-              child: Semantics(
-                selected: v == value,
-                button: true,
-                child: GestureDetector(
-                  onTap: () => onChanged(v),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 160),
-                    height: 38,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: v == value ? C.surface : Colors.transparent,
-                      borderRadius: BorderRadius.circular(9),
-                      boxShadow: v == value ? const [BoxShadow(color: Color(0x14111827), blurRadius: 2, offset: Offset(0, 1))] : null,
-                    ),
-                    child: Text(label,
-                        style: body(14, weight: v == value ? FontWeight.w600 : FontWeight.w400, color: v == value ? C.ink : C.muted2), maxLines: 1),
-                  ),
+  Widget build(BuildContext context) {
+    final at = items.indexWhere((x) => x.$1 == value);
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(color: C.chip, borderRadius: BorderRadius.circular(12)),
+      child: SizedBox(
+        height: 38,
+        child: Stack(children: [
+          // The white thumb glides to the chosen tab.
+          if (at >= 0)
+            AnimatedAlign(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment(items.length == 1 ? 0 : -1 + 2 * at / (items.length - 1), 0),
+              child: FractionallySizedBox(
+                widthFactor: 1 / items.length,
+                heightFactor: 1,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(9), boxShadow: const [BoxShadow(color: Color(0x14111827), blurRadius: 2, offset: Offset(0, 1))]),
                 ),
               ),
             ),
+          Row(children: [
+            for (final (v, label) in items)
+              Expanded(
+                child: Semantics(
+                  selected: v == value,
+                  button: true,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onChanged(v),
+                    child: Center(
+                      child: AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 200),
+                        style: body(14, weight: v == value ? FontWeight.w600 : FontWeight.w400, color: v == value ? C.ink : C.muted2),
+                        child: Text(label, maxLines: 1),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ]),
         ]),
-      );
+      ),
+    );
+  }
 }
 
 /// Dark rounded "+ যোগ করুন" button floating at the bottom right.

@@ -229,6 +229,10 @@ class ChatController extends ChangeNotifier {
   String? _bulkRest;
   String? _afterWait;
 
+  /// What was just refused ("না"), in case it is asked for again another
+  /// way: "অন্যান্য হিসাবে … বিভাগ খুলে এগুলো রাখবে".
+  (List<Command>, DateTime)? _refused;
+
   /// The to-do whose day is asked ("পার্টির তারিখ যুক্ত কর").
   String? _dateTaskId;
 
@@ -783,6 +787,25 @@ class ChatController extends ChangeNotifier {
     if (wait == ChatWait.none && await _batchTimeFor(t, out)) {
       notifyListeners();
       return out.join(' ');
+    }
+    // "না" to money just offered, then "অন্যান্য হিসাবে শিক্ষার্থীদের বেতন
+    // সংক্রান্ত বিভাগ খুলে এগুলো রাখবে": the same items, into that account.
+    if (wait == ChatWait.none && await _refusedIntoProject(t, out)) {
+      notifyListeners();
+      return out.join(' ');
+    }
+    // "হ্যা, সকাল ৯টায়" right after a reminder was kept at that time: a
+    // yes to it — never a second reminder.
+    final last = _lastSave;
+    if (wait == ChatWait.none && last != null && last.$1 is ReminderAdd && _now.difference(last.$3).inMinutes <= 5 && yesNo(t.split(RegExp(r'[,।]')).first) == true) {
+      final r = last.$1 as ReminderAdd;
+      final w = parseWhen(t, _now);
+      final leftover = words(normalize(withoutWhen(withoutClockWords(t)))).where((x) => yesNo(x) != true);
+      if (w != null && w.hasTime && w.at.hour == r.at.hour && w.at.minute == r.at.minute && leftover.isEmpty) {
+        _say(out, r.repeat == Repeat.daily ? trf('হ্যাঁ, প্রতিদিন {0}-এ রাখা আছে।', [bnTime(r.at.hour, r.at.minute)]) : trf('হ্যাঁ, {0}-এ রাখা আছে।', [sayWhen(r.at, _now)]));
+        notifyListeners();
+        return out.join(' ');
+      }
     }
     // "না, এগারোটায়" right after a to-do's reminder: that one, changed.
     if (await _todoCorrection(t, out)) {
@@ -1339,6 +1362,7 @@ class ChatController extends ChangeNotifier {
       }
       // "আমার যাকাত কত" with no price entered: today's market price is fetched first.
       if (c is ProfileQuery && infoTopic(normalize(c.transcript)) == 'zakat' && brain.zakatSaved.silverPrice <= 0) await brain.metalPriceToday();
+      if (c is ProfileQuery && infoTopic(normalize(c.transcript)) == 'weather') await brain.refreshWeather();
       final text = answerText(brain.data, c, _now) ?? '';
       // Two parts of one message with the same answer ("এ বিষয়ে কোনো তথ্য
       // নেই" twice): said once.
@@ -1648,6 +1672,17 @@ class ChatController extends ChangeNotifier {
         if (cleaned != c.title) {
           return _start(ReminderAdd(c.transcript, title: cleaned, at: c.at, repeat: c.repeat, alarm: c.alarm, weekdays: c.weekdays, minutesBefore: c.minutesBefore, day: c.day, part: c.part), out);
         }
+        // "রেস্টুরেন্টে খেতে যাওয়ার রিমাইন্ডার দাও, রাত ৮টায়": an open to-do
+        // by that name, with a day — its reminder, on its own day.
+        final named = c.alarm || c.repeat != Repeat.none || c.needsTitle ? null : _openTaskNamed(c.title);
+        if (named != null && named.due != null && named.span == TaskSpan.day && !(parseWhen(tidySpeech(c.transcript), _now)?.hasDay ?? false)) {
+          _current = null;
+          final edit = c.needsTime
+              ? TaskEdit(c.transcript, ref: TaskRef(ids: [named.id]), remindNeedsTime: true)
+              : TaskEdit(c.transcript, ref: TaskRef(ids: [named.id]), remindHour: c.at.hour, remindMinute: c.at.minute, remindAmPm: ampmUnclear(c.transcript));
+          await _todo(edit, out);
+          return;
+        }
         _pendingTitle = c.title;
         _pendingRepeat = c.repeat;
         _pendingAlarm = c.alarm;
@@ -1768,6 +1803,48 @@ class ChatController extends ChangeNotifier {
       default:
         await _done(out);
     }
+  }
+
+  Future<bool> _refusedIntoProject(String t, List<String> out) async {
+    final r = _refused;
+    if (r == null || _now.difference(r.$2).inMinutes > 15) return false;
+    final f = ' ${fold(normalize(t))} ';
+    if (!RegExp(fold(r'(?<=\s)(?:এগুলো|এগুলা|ওগুলো|সেগুলো|এটা|ওটা|সেটা|এইগুলো|এসব)(?:ও|কে)?(?=\s)')).hasMatch(f)) return false;
+    if (!RegExp(fold(r'(?:রাখ|লিখ|লেখ|যুক্ত|যোগ|তোল)')).hasMatch(f)) return false;
+    final cash = r.$1.whereType<CashAdd>().toList();
+    if (cash.isEmpty) return false;
+    final p = projectMeant(brain.data, t);
+    var name = p?.name;
+    if (name == null) {
+      // "অন্যান্য হিসাবে <X> সংক্রান্ত/নামে বিভাগ খুলে": a new account named X.
+      final m = RegExp(fold(r'(?:অন্যান্য|আলাদা)\s+হিস(?:া|ে)ব\S*\s+(.+?)\s+(?:সংক্রান্ত|নামে|নামের)?\s*(?:বিভাগ|হিসাব|প্রজেক্ট|ফোল্ডার)')).firstMatch(fold(normalize(t)));
+      name = m == null ? null : m[1]!.trim();
+    }
+    if (name == null || name.isEmpty) return false;
+    _refused = null;
+    final again = [
+      for (final c in r.$1)
+        c is CashAdd ? CashAdd(c.transcript, kind: c.kind, amount: c.amount, category: c.category, project: name) : c,
+    ];
+    _queue
+      ..clear()
+      ..addAll(again);
+    if (again.length == 1) {
+      await _start(_queue.removeAt(0), out);
+      return true;
+    }
+    _askingAll = true;
+    _ask(out, trf('ঠিক আছে — ‘{0}’ হিসাবে। এভাবে রেখে দিই?', [name]), ChatWait.yesNo, choices: _yesNoChoices, facts: [for (final c in again) summaryLine(c)]);
+    return true;
+  }
+
+  /// The one open to-do [title] names ("…যাওয়ার" is "…যাওয়া"), or null.
+  Task? _openTaskNamed(String title) {
+    String key(String x) => fold(normalize(x)).replaceAll(RegExp(fold(r'(?:ের|এর|র)$')), '').trim();
+    final k = key(title);
+    if (k.length < 3) return null;
+    final hits = [for (final t in brain.data.tasks) if (!t.done && key(t.title) == k) t];
+    return hits.length == 1 ? hits.single : null;
   }
 
   /// A special day already kept for the same person and kind.
@@ -2378,6 +2455,7 @@ class ChatController extends ChangeNotifier {
             _savedInBatch = 0;
             await _done(out);
           } else {
+            _refused = ([..._queue], _now);
             _queue.clear();
             _say(out, tr('আচ্ছা, কিছুই রাখলাম না।'));
           }
@@ -2386,6 +2464,8 @@ class ChatController extends ChangeNotifier {
         if (yn) {
           await _saveCurrent(out);
         } else {
+          final cur3 = _current;
+          if (cur3 != null) _refused = ([cur3], _now);
           _say(out, tr('আচ্ছা, রাখলাম না।'));
           await _done(out);
         }
@@ -2898,7 +2978,12 @@ class ChatController extends ChangeNotifier {
         final days = c.repeat == Repeat.weekly && c.weekdays.length >= 2
             ? trf('ঠিক আছে, প্রতি {0} {1}-এ {2}{3}।', [weekdaysSaid(c.weekdays), bnTime(c.at.hour, c.at.minute), what, c.alarm ? tr('অ্যালার্ম বাজবে') : tr('মনে করিয়ে দেব')])
             : null;
-        _say(out, quiet ? trf('মনে করাব: {0}', [c.title]) : days != null ? days + early : (c.repeat.isInterval || c.repeat == Repeat.daily ? trf('ঠিক আছে, {0} {1}মনে করিয়ে দেব।', [c.repeat.label, what]) : trf('ঠিক আছে, {0}-এ {1}মনে করিয়ে দেব{2}।', [sayWhen(c.at, _now), what, again])) + early,
+        _say(out, quiet ? trf('মনে করাব: {0}', [c.title]) : days != null ? days + early : (c.repeat == Repeat.daily
+                    // "প্রতিদিন সকাল ৯টায়": the time is said back, so it is seen as kept.
+                    ? (c.alarm && (c.needsTitle || fold(normalize(c.title)) == fold(normalize('অ্যালার্ম')))
+                        ? trf('ঠিক আছে, প্রতিদিন {0}-এ অ্যালার্ম বাজবে।', [bnTime(c.at.hour, c.at.minute)])
+                        : trf('ঠিক আছে, প্রতিদিন {0}-এ {1}মনে করিয়ে দেব।', [bnTime(c.at.hour, c.at.minute), what]))
+                    : c.repeat.isInterval ? trf('ঠিক আছে, {0} {1}মনে করিয়ে দেব।', [c.repeat.label, what]) : trf('ঠিক আছে, {0}-এ {1}মনে করিয়ে দেব{2}।', [sayWhen(c.at, _now), what, again])) + early,
             links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))], speak: !quiet);
         _history.add(AiTurn.app('[রিমাইন্ডার রাখা হলো: ${summaryLine(c)}]'));
         if (!_warnedExact && !await brain.services.notifier.exactAllowed()) {

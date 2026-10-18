@@ -564,7 +564,8 @@ extension _TodoChat on ChatController {
     if (!RegExp(fold(r'^\s*(?:না|নাহ|উহু|না\s+না)\s')).hasMatch(f) && !RegExp(fold(r'\s(?:নয়|না)\s+\S+\s*$')).hasMatch(f)) return false;
     // Only time words after the "না".
     final rest = f.replaceFirst(RegExp(fold(r'^\s*(?:না|নাহ|উহু|না\s+না)\s')), ' ');
-    final last = rest.split(RegExp(fold(r'\s(?:নয়|না)\s'))).last;
+    // "জানুয়ারির ১ তারিখে" → "১ জানুয়ারি": the date in the app's own words.
+    final last = tidySpeech(rest.split(RegExp(fold(r'\s(?:নয়|না)\s'))).last);
     final w = parseWhen(last, _now);
     if (w == null) return false;
     final leftover = words(normalize(withoutWhen(withoutClockWords(last)))).where((x) => !const ['টায়', 'করো', 'দাও', 'রাখো', 'হবে', 'করব', 'বরং'].map(normalize).contains(x));

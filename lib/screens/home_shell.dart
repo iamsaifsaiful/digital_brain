@@ -107,7 +107,7 @@ class HomeShellState extends State<HomeShell> {
           // (Easy mode has its own big buttons.) In the body, so it rides above the keyboard.
           if ((!BrainScope.of(context).easyMode || _tab != ShellTab.home) && _tab != ShellTab.more) AssistantBar(questions: _tab == ShellTab.home),
         ]),
-        bottomNavigationBar: _Nav(current: _tab, onTab: go),
+        bottomNavigationBar: _Nav(current: _tab, onTab: go, pages: _pages),
       ),
     );
   }
@@ -170,56 +170,80 @@ class MenuPage extends StatelessWidget {
 }
 
 class _Nav extends StatelessWidget {
-  const _Nav({required this.current, required this.onTab});
+  const _Nav({required this.current, required this.onTab, required this.pages});
   final ShellTab current;
   final void Function(ShellTab) onTab;
+
+  /// The tab pages: the highlight slides along with them while swiping.
+  final PageController pages;
 
   @override
   Widget build(BuildContext context) {
     final unread = BrainScope.of(context).feedbackUnread > 0;
-    Widget item(ShellTab t, IconData icon, IconData active, String label) {
-      final on = t == current;
-      return Expanded(
-        child: Semantics(
-          selected: on,
-          button: true,
-          label: label,
-          excludeSemantics: true,
-          child: InkWell(
-            onTap: () => onTab(t),
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                width: 56,
-                height: 30,
-                decoration: BoxDecoration(color: on ? C.greenTint : Colors.transparent, borderRadius: BorderRadius.circular(15)),
-                child: Badge(
-                  isLabelVisible: t == ShellTab.more && unread,
-                  smallSize: 9,
-                  child: Icon(on ? active : icon, size: 23, color: on ? C.greenDark : C.muted),
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(label, style: body(12, weight: on ? FontWeight.w600 : FontWeight.w400, color: on ? C.greenDark : C.muted, height: 1.2)),
-            ]),
-          ),
-        ),
-      );
-    }
-
+    const tabs = [
+      (ShellTab.home, Icons.home_outlined, Icons.home_rounded, 'হোম'),
+      (ShellTab.diary, Icons.event_note_outlined, Icons.event_note_rounded, 'দিনলিপি'),
+      (ShellTab.money, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, 'হিসাব'),
+      (ShellTab.store, Icons.inventory_2_outlined, Icons.inventory_2_rounded, 'সংরক্ষণ'),
+      (ShellTab.more, Icons.menu_rounded, Icons.menu_open_rounded, 'আরও'),
+    ];
     return Container(
       decoration: BoxDecoration(color: C.surface, border: Border(top: BorderSide(color: C.line2))),
       child: SafeArea(
         top: false,
         child: SizedBox(
           height: 64,
-          child: Row(children: [
-            item(ShellTab.home, Icons.home_outlined, Icons.home_rounded, tr('হোম')),
-            item(ShellTab.diary, Icons.event_note_outlined, Icons.event_note_rounded, tr('দিনলিপি')),
-            item(ShellTab.money, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, tr('হিসাব')),
-            item(ShellTab.store, Icons.inventory_2_outlined, Icons.inventory_2_rounded, tr('সংরক্ষণ')),
-            item(ShellTab.more, Icons.menu_rounded, Icons.menu_open_rounded, tr('আরও')),
-          ]),
+          child: LayoutBuilder(builder: (context, box) {
+            final w = box.maxWidth / tabs.length;
+            return AnimatedBuilder(
+              animation: pages,
+              builder: (context, _) {
+                // Where the pages are now (between two tabs while swiping).
+                final at = pages.hasClients && pages.position.haveDimensions ? (pages.page ?? current.index.toDouble()) : current.index.toDouble();
+                return Stack(children: [
+                  // One highlight that glides from tab to tab with the page.
+                  Positioned(
+                    left: at * w + (w - 56) / 2,
+                    top: 9,
+                    child: Container(width: 56, height: 30, decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(15))),
+                  ),
+                  Row(children: [
+                    for (final (i, (t, icon, active, label)) in tabs.indexed)
+                      () {
+                        // 1 on its own tab, fading to 0 one tab away.
+                        final near = (1 - (at - i).abs()).clamp(0.0, 1.0);
+                        final color = Color.lerp(C.muted, C.greenDark, near)!;
+                        return Expanded(
+                          child: Semantics(
+                            selected: t == current,
+                            button: true,
+                            label: tr(label),
+                            excludeSemantics: true,
+                            child: InkWell(
+                              highlightColor: Colors.transparent,
+                              onTap: () => onTab(t),
+                              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                SizedBox(
+                                  width: 56,
+                                  height: 30,
+                                  child: Badge(
+                                    isLabelVisible: t == ShellTab.more && unread,
+                                    smallSize: 9,
+                                    child: Icon(near > 0.5 ? active : icon, size: 23, color: color),
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(tr(label), style: body(12, weight: near > 0.5 ? FontWeight.w600 : FontWeight.w400, color: color, height: 1.2)),
+                              ]),
+                            ),
+                          ),
+                        );
+                      }(),
+                  ]),
+                ]);
+              },
+            );
+          }),
         ),
       ),
     );

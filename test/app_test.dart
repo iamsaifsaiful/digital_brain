@@ -693,7 +693,7 @@ void main() {
     await openChat(t);
     await tell(t, rig, 'কেমন আছো');
     await settle(t);
-    await tell(t, rig, 'আজকে আবহাওয়া কেমন');
+    await tell(t, rig, 'তোমার প্রিয় রং কোনটা');
     await settle(t);
     expect(rig.ai.asked, hasLength(2));
     final h = rig.ai.histories.last;

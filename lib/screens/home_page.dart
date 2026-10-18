@@ -133,6 +133,8 @@ class HomePage extends StatelessWidget {
                         ),
                       ]),
                     ),
+                    // The temperature now, under the profile photo (tap: the full weather).
+                    Positioned(right: 16, top: top + 64, child: const _WeatherLabel()),
                     Positioned(left: 16, bottom: 14, child: _SunLabel(icon: Icons.wb_twilight, text: trf('সূর্যোদয় {0}', [bnTime(sun.sunrise.hour, sun.sunrise.minute)]))),
                     Positioned(right: 16, bottom: 14, child: _SunLabel(icon: Icons.nights_stay_outlined, text: trf('সূর্যাস্ত {0}', [bnTime(sun.sunset.hour, sun.sunset.minute)]))),
                   ]),
@@ -237,6 +239,46 @@ class HomePage extends StatelessWidget {
       ),
       const AdSlot(padding: EdgeInsets.fromLTRB(16, 4, 16, 6)),
     ]);
+  }
+}
+
+/// "২৮° · আংশিক মেঘলা" on the sky; fetched when the home opens (kept 30
+/// minutes), nothing shown while offline.
+class _WeatherLabel extends StatefulWidget {
+  const _WeatherLabel();
+
+  @override
+  State<_WeatherLabel> createState() => _WeatherLabelState();
+}
+
+class _WeatherLabelState extends State<_WeatherLabel> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) BrainScope.read(context).refreshWeather();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final w = BrainScope.of(context).weatherNow;
+    if (w == null) return const SizedBox.shrink();
+    return Tooltip(
+      message: w.said(),
+      triggerMode: TooltipTriggerMode.tap,
+      showDuration: const Duration(seconds: 5),
+      child: Container(
+        key: const Key('home-temp'),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(color: const Color(0x33000000), borderRadius: BorderRadius.circular(14)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(w.code >= 51 ? Icons.water_drop_outlined : (w.code >= 3 ? Icons.cloud_outlined : Icons.wb_sunny_outlined), size: 15, color: const Color(0xFFFDE68A)),
+          const SizedBox(width: 5),
+          Text('${w.short} · ${w.sky}', style: body(13, weight: FontWeight.w600, color: Colors.white)),
+        ]),
+      ),
+    );
   }
 }
 

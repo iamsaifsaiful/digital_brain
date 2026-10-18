@@ -712,8 +712,15 @@ String? _nameEndingAt(List<String> w, int i, String Function(String) strip) {
   final head = strip(w[i]);
   if (!_looksLikeName(head)) return null;
   if (_honorifics.contains(head) && i > 0 && _looksLikeName(w[i - 1])) return '${w[i - 1]} $head';
+  // "আব্দুর রহমান", "মোঃ করিম", "শেখ জামাল": a name of two words.
+  if (i > 0 && _namePrefixes.contains(fold(w[i - 1]))) return '${w[i - 1]} $head';
   return head;
 }
+
+final Set<String> _namePrefixes = {
+  for (final x in const ['আব্দুর', 'আবদুর', 'আব্দুল', 'আবদুল', 'মোঃ', 'মো', 'মোহাম্মদ', 'মুহাম্মদ', 'মোহাম্মাদ', 'শেখ', 'সৈয়দ', 'কাজী', 'মীর', 'হাজী', 'মাওলানা', 'ডাঃ', 'ডা'])
+    fold(normalize(x)),
+};
 
 // ───────────────────────── Special days and memory ─────────────────────────
 
@@ -1009,7 +1016,7 @@ class Parser {
     // "নামাজের সময় কখন?", "কাল কী আছে?", "আমার ব্যালেন্স কত?", "কী কী ওষুধ চলছে?"
     // "আজ নামাজের সময় দাও", "সেহরির সময় বলো": asked as a request.
     final topic = infoTopic(text);
-    if (topic != null && (isQuestionText(said) || (const {'prayer', 'sehri', 'iftar', 'sunrise', 'sunset', 'ramadan', 'zakat', 'savings', 'expiry', 'notes', 'special'}.contains(topic) && asksToShow(text)))) {
+    if (topic != null && (isQuestionText(said) || (const {'weather', 'prayer', 'sehri', 'iftar', 'sunrise', 'sunset', 'ramadan', 'zakat', 'savings', 'expiry', 'notes', 'special'}.contains(topic) && asksToShow(text)))) {
       return ProfileQuery(said);
     }
 

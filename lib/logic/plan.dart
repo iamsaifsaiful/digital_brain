@@ -3,7 +3,7 @@
 library;
 
 import 'calendar_ask.dart';
-import 'cash.dart' show cashItem;
+import 'cash.dart' show cashItem, projectMeant;
 import 'answers.dart' show categoryAsked;
 import '../models/models.dart';
 import 'app_map.dart';
@@ -76,6 +76,10 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   // ডকুমেন্টস, by its name (spaces in it or not) — shown, never a new note.
   final doc = data == null ? null : docAsked(said, data);
   if (doc != null) return [SearchQuery(said, terms: doc)];
+  // "শিক্ষার্থীদের মাঝে, মাহি ২০০০ টাকা দিছে, আখি ৫০০ টাকা, …": several
+  // people each gave; the other sentences read on their own.
+  final gave = peopleGave(said, p);
+  if (gave != null) return gave;
   // The other menus first (menus.dart): "এই মাসের DPS দিয়েছি" is an
   // instalment, never a to-do ticked by a shared word.
   final menu = menuCommand(said, data, p.now);
@@ -225,7 +229,11 @@ String summaryLine(Command c) => switch (c) {
       VaultAdd() => 'ভল্টে: ${c.name}-এর পাসওয়ার্ড (••••)',
       ContactAdd() => 'নম্বর: ${c.name.isEmpty ? '' : '${c.name} — '}${bnDigits(c.phone)}',
       CashAdd() => c.project != null
-          ? trf('{0} — {1} {2} টাকা', [c.project!.isEmpty ? 'অন্যান্য হিসাব' : '‘${c.project}’ হিসাব', c.kind == CashKind.income ? 'এসেছে' : 'খরচ', bnNumber(c.amount)])
+          ? trf('{0} — {1} {2} টাকা', [
+              c.project!.isEmpty ? 'অন্যান্য হিসাব' : '‘${c.project}’ হিসাব',
+              c.kind == CashKind.income ? 'এসেছে' : 'খরচ',
+              bnNumber(c.amount),
+            ]) + (cashItem(c.transcript).isEmpty ? '' : ' (${cashItem(c.transcript)})')
           : trf('{0}: {1} — {2} টাকা', [c.kind.label, _withItem(c.category, cashItem(c.transcript)), bnNumber(c.amount)]),
       HealthAdd() => '${isEn ? c.kind.en : c.kind.bn}: ${readingText(HealthLog(kind: c.kind, at: DateTime(2000), a: c.a, b: c.b, c: c.c, tag: c.tag))}',
       ProfileSet() => c.field == 'height'
@@ -539,4 +547,72 @@ String _withItem(String category, String item) {
   final rest = [for (final w in item.split(' ')) if (!cat.contains(normalize(w))) w].join(' ');
   if (rest.isEmpty || normalize(category).contains(normalize(rest))) return category;
   return '$category ($rest)';
+}
+
+/// "আমার শিক্ষার্থীদের মাঝে, মাহি ২০০০ টাকা দিছে, আখি ৫০০ টাকা, ফয়সাল ১০০০
+/// টাকা।": one "দিছে" for several people — each one's money in. Someone
+/// already in the লেনদেন book is asked as before (paid back or lent); the
+/// rest is income — into the separate account the words point to
+/// ("শিক্ষার্থীদের" → "শিক্ষার্থীদের বেতন"). Null when it is not such a list.
+List<Command>? peopleGave(String said, Parser p) {
+  final sentences = [for (final x in said.split(RegExp(r'\s*[।!]\s*'))) if (x.trim().isNotEmpty) x.trim()];
+  final give3 = RegExp(fold(r'(?:^|\s)(?:দিছে|দিয়েছে|দিয়েছে|দিল|দিলো|দিয়েছেন|দিয়েছেন|পাঠিয়েছে|পাঠিয়েছে|দিয়ে\s+গেছে)(?=[\s,।]|$)'));
+  final out = <Command>[];
+  var found = false;
+  for (final s in sentences) {
+    final parts = [for (final x in s.split(RegExp(r'\s*[,،;]\s*'))) if (x.trim().isNotEmpty) x.trim()];
+    final f0 = fold(s);
+    if (!found && give3.hasMatch(f0) && parts.length >= 2) {
+      final context = <String>[];
+      final items = <(String, String, int)>[];
+      var ok = true;
+      for (final x in parts) {
+        final amount = findAmount(normalize(x));
+        if (amount == null) {
+          if (items.isEmpty) {
+            context.add(x);
+            continue;
+          }
+          ok = false;
+          break;
+        }
+        // "<name> <amount> টাকা (দিছে)": one or two words of name first.
+        final m = RegExp(fold(r'^(\S+(?:\s+\S+)?)\s+[০-৯0-9][০-৯0-9,]*\s*(?:হাজার\s+)?টাকা(?:\s+\S+)?$')).firstMatch(fold(x));
+        if (m == null || RegExp(r'^[০-৯0-9]').hasMatch(m[1]!)) {
+          ok = false;
+          break;
+        }
+        items.add((x.substring(0, m[1]!.length).trim(), x, amount));
+      }
+      if (ok && items.length >= 2) {
+        found = true;
+        final ctx = fold(context.join(' '));
+        final salary = RegExp(fold(r'(?:শিক্ষার্থী|ছাত্র|ছাত্রী|স্টুডেন্ট|টিউশন|বেতন)')).hasMatch(fold(s));
+        String? project;
+        final d = p.data;
+        if (d != null) {
+          for (final pr in d.projects.where((x) => !x.closed)) {
+            final first = words(normalize(pr.name)).where((w) => w.length >= 4).firstOrNull;
+            if (first != null && (ctx.contains(fold(first)) || projectMeant(d, s)?.id == pr.id)) {
+              project = pr.name;
+              break;
+            }
+          }
+        }
+        for (final (name, text, amount) in items) {
+          final c = p.parse(give3.hasMatch(fold(text)) ? text : '$text দিয়েছে');
+          if (c is LedgerAdd && p.ledger.any((e) => normalize(e.person) == normalize(name))) {
+            out.add(c);
+          } else {
+            out.add(CashAdd('$name ${bnNumber(amount)} টাকা', kind: CashKind.income, amount: amount, category: salary ? 'বেতন' : 'অন্যান্য আয়', project: project));
+          }
+        }
+        continue;
+      }
+    }
+    final c = p.parse(s);
+    if (c is NotUnderstood) continue;
+    out.add(c);
+  }
+  return found ? out : null;
 }

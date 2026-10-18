@@ -15,6 +15,7 @@ import 'inbox.dart' show inboxAnswer;
 import 'parser.dart';
 import 'proactive.dart' show remindsOn, specialTitle;
 import 'when.dart';
+import 'weather.dart';
 import 'answers.dart' show taskLine;
 import 'app_map.dart' show howToAsked, howToAnswer, abilityAsked, abilityAnswer;
 
@@ -27,6 +28,9 @@ ZakatSaved askZakat = const ZakatSaved();
 
 /// Today's market price, when the app has fetched it (see Brain.metalPriceToday).
 MetalPrice? todayMetal;
+
+/// The weather now, when the app has fetched it (see Brain.refreshWeather).
+Weather? todayWeather;
 
 /// The last try to fetch it failed (offline, or the server had none).
 bool metalUnavailable = false;
@@ -59,6 +63,8 @@ String _t(DateTime d) {
 /// Which everyday question [text] (normalized) is, or null.
 String? infoTopic(String text) {
   if (abilityAsked(text) != null) return 'ability';
+  // "আজ তাপমাত্রা কত?", "আবহাওয়া কেমন", "বাইরে কি গরম?"
+  if (_has(text, ['তাপমাত্রা', 'তাপমাত্রার', 'আবহাওয়া', 'আবহাওয়া', 'ওয়েদার', 'weather', 'temperature', 'কত ডিগ্রি'])) return 'weather';
   if (howToAsked(text) != null) return 'howto';
   // "রহিম কী লিখেছে?", "করিম কী মেসেজ দিয়েছে?"
   if (_has(text, ['কী লিখেছে', 'কি লিখেছে', 'কী লিখছে', 'কি লিখছে', 'কী মেসেজ দিয়েছে', 'কি মেসেজ দিয়েছে', 'কী পাঠিয়েছে', 'কি পাঠিয়েছে', 'কী বলেছে মেসেজে'])) return 'inbox';
@@ -115,6 +121,9 @@ String? infoAnswer(AppData d, String said, DateTime now) {
       final left = s.maghrib.difference(now);
       final soon = s == today && left.inMinutes < 180 ? trf(' — আর {0}', [_left(left)]) : '';
       return trf('{0} {1} ইফতার {2}{3} (আনুমানিক)।', [where, s == today ? tr('আজ') : tr('কাল'), _t(s.maghrib), soon]);
+    case 'weather':
+      final w = todayWeather;
+      return w == null ? tr('এখন আবহাওয়ার খবর আনতে পারলাম না — ইন্টারনেট চালু আছে কিনা দেখে আবার জিজ্ঞেস করুন।') : w.said();
     case 'ability':
       return abilityAnswer(abilityAsked(text)!);
     case 'howto':

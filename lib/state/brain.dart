@@ -6,6 +6,8 @@ import 'package:flutter/widgets.dart';
 
 import '../logic/doc_dates.dart';
 import 'doc_scan.dart' show mergeFields;
+import '../services/weather.dart';
+import '../logic/weather.dart';
 import '../services/ocr.dart';
 import '../services/trace.dart';
 
@@ -66,9 +68,11 @@ class Services {
     DriveStore? drive,
     AccountServer? server,
     TextReader? ocr,
+    WeatherSource? weather,
     DateTime Function()? clock,
   })  : ai = ai ?? FakeAi(),
         ocr = ocr ?? FakeTextReader(),
+        weather = weather ?? FakeWeather(),
         google = google ?? FakeGoogle(),
         push = push ?? FakePush(),
         drive = drive ?? FakeDrive(),
@@ -86,6 +90,9 @@ class Services {
 
   /// Reads the printed text in a photo, on the phone (a paper's expiry date).
   final TextReader ocr;
+
+  /// Today's weather (temperature on the home page and in answers).
+  final WeatherSource weather;
 
   /// Claude, when the user has set an API key (see আরও).
   final AiBrain ai;
@@ -1016,6 +1023,26 @@ class Brain extends ChangeNotifier {
         business: number('zakat_business'),
         other: number('zakat_other'),
       );
+
+  Weather? _weather;
+
+  /// The weather last fetched for the user's district (kept 30 minutes).
+  Weather? get weatherNow => _weather;
+
+  /// Fetches it when older than 30 minutes; the last one when offline.
+  Future<Weather?> refreshWeather() async {
+    final now = services.now();
+    final place = placeNamed(district);
+    final w = _weather;
+    if (w != null && w.place == place.name && now.difference(w.at).inMinutes < 30) return w;
+    final got = await services.weather.now(place.lat, place.lon, place.name, now);
+    if (got != null) {
+      _weather = got;
+      todayWeather = got;
+      notifyListeners();
+    }
+    return got ?? w;
+  }
 
   MetalPrice? _metal;
   DateTime? _metalAt;
