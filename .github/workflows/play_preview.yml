@@ -39,6 +39,19 @@ jobs:
           set -o pipefail
           flutter analyze --no-fatal-infos 2>&1 | tee analyze.log || { bash tool/annotate_failures.sh analyze.log "Analyze failed"; exit 1; }
 
+      - name: Release signing key
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PW: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -n "$KS" ] && [ -n "$KS_PW" ]; then
+            echo "$KS" | base64 -d > android/app/release.jks
+            printf 'storeFile=release.jks\nstorePassword=%s\nkeyAlias=myassistant\nkeyPassword=%s\n' "$KS_PW" "$KS_PW" > android/key.properties
+            echo "Signing with the permanent release key."
+          else
+            echo "::warning::No release key secret: the APK gets a throwaway key and cannot update an older install."
+          fi
+
       - name: Build APK
         run: |
           set -o pipefail
