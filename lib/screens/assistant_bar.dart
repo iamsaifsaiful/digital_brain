@@ -220,6 +220,15 @@ class _AssistantBarState extends State<AssistantBar> {
                         visualDensity: VisualDensity.compact,
                         onPressed: _text.clear,
                         icon: Icon(Icons.close_rounded, color: C.muted, size: 20),
+                      )
+                    else
+                      // The earlier conversations, one tap from the box.
+                      IconButton(
+                        key: const Key('home-past-chats'),
+                        tooltip: tr('আগের কথাগুলো'),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => openPastChats(context),
+                        icon: Icon(Icons.history_rounded, color: C.green, size: 24),
                       ),
                   ]),
                 ),

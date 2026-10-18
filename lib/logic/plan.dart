@@ -306,11 +306,20 @@ List<Command>? lineTodos(String said, Parser p) {
   final yearPlan = RegExp(fold(r'(?:(?:এই|এ)\s+বছর|[০-৯0-9]{4}\s+সাল)')).hasMatch(h);
   final yearOf = RegExp(fold(r'([০-৯0-9]{4})\s+সাল')).firstMatch(h);
   final out = <Command>[];
+  DateTime? prev;
+  final monthWord = RegExp(fold('(?:${bnMonths.join('|')})'));
   for (final line in lines.skip(1)) {
     final c = p.parse('${tidySpeech(line)} — কাজের তালিকায় লিখে রাখো');
     final title = c is TaskAdd && c.title.trim().isNotEmpty ? c.title : tidy(line);
     if (title.trim().isEmpty) continue;
-    final own = c is TaskAdd ? c.due : null;
+    var own = c is TaskAdd ? c.due : null;
+    // "১২ তারিখে ঢাকা, ১৭ তারিখে সিংগাপুর, ২৫ তারিখে ফেরা": a list goes
+    // forward — a bare day before the one above is in the next month.
+    if (own != null && prev != null && own.isBefore(prev) && !monthWord.hasMatch(fold(line))) {
+      final next = DateTime(own.year, own.month + 1, own.day);
+      if (next.day == own.day && !next.isBefore(prev)) own = next;
+    }
+    if (own != null) prev = own;
     if (own == null && yearPlan) {
       // "এই বছরে কিছু কাজ আছে": each a plan for the year.
       final y = yearOf == null ? p.now.year : int.parse(asciiDigits(yearOf[1]!));

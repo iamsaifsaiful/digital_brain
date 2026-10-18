@@ -563,7 +563,10 @@ DateTime _weekStartOf(DateTime d) => weekStartOf(d);
     if (s.overdue) return (tr('সময় পেরিয়ে গেছে এমন কোনো কাজ নেই।'), const []);
     if (s.about.isNotEmpty) return (trf('{0}কোনো বাকি কাজ তালিকায় পেলাম না।', [what]), const []);
     if (label.isEmpty) return (tr('এখন কোনো অসমাপ্ত কাজ নেই। নতুন কাজ বললে তালিকায় তুলে রাখব।'), const []);
-    return (s.free ? trf('{0} এই অ্যাপের তালিকায় কোনো কাজ রাখা নেই।', [label]) : trf('{0} কোনো কাজ রাখা নেই।', [label]), const []);
+    // "এই মাসে কি কি কাজ আছে?" with only to-dos without a date: said, not hidden.
+    final loose = [for (final t in openTasksOf(d, now)) if (t.due == null && t.deadline == null) t];
+    final also = loose.isEmpty ? '' : trf(' তবে তারিখ ছাড়া {0}টা কাজ আছে — {1}।', [bnDigits(loose.length), nameList([for (final t in loose.take(8)) t.title], unit: 'টা')]);
+    return ((s.free ? trf('{0} এই অ্যাপের তালিকায় কোনো কাজ রাখা নেই।', [label]) : trf('{0} কোনো কাজ রাখা নেই।', [label])) + also, loose);
   }
   // "ওষুধ আনার কাজ রেখেছিলাম?": yes, and how it stands.
   if (s.about.isNotEmpty && tasks.length == 1 && label.isEmpty) {

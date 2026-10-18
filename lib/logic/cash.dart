@@ -155,3 +155,22 @@ List<String> knownCategories(AppData d, CashKind kind) {
   final used = <String>{for (final e in d.cash) if (e.kind == kind) e.category};
   return {...used, ...(kind == CashKind.income ? _incomeCats.keys : _expenseCats.keys)}.toList();
 }
+
+
+/// The separate account (অন্যান্য হিসাব) [said] names. Null when none is
+/// named — then the user is asked which one, even if there is only one.
+Project? projectMeant(AppData d, String said) {
+  final t = ' ${normalize(said)} ';
+  final open = [for (final p in d.projects) if (!p.closed) p];
+  // "বাড়ির মেরামত এ" names "বাড়ি মেরামত": each word of the name, with any ending.
+  final said0 = words(normalize(said));
+  bool names(Project p) {
+    final ws = words(normalize(p.name));
+    return ws.isNotEmpty && ws.every((w) => said0.any((x) => x.startsWith(w) && x.length - w.length <= 3));
+  }
+  final named = [for (final p in open) if (t.contains(normalize(p.name)) || names(p)) p];
+  return named.length == 1 ? named.single : null;
+}
+
+/// Only the page is named ("অন্যান্য হিসাবে রাখো"), not which account.
+bool projectPageNamed(String said) => RegExp(r'(?:অন্যান্য|আলাদা)\s+হিস(?:া|ে)ব|প্রজেক্ট|প্রকল্প').hasMatch(fold(normalize(said)));

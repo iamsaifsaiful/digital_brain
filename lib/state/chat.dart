@@ -710,6 +710,14 @@ class ChatController extends ChangeNotifier {
         return out.join(' ');
       }
     }
+    if (wait == ChatWait.none && await _cashToProject(t, out)) {
+      notifyListeners();
+      return out.join(' ');
+    }
+    if (wait == ChatWait.none && _aboutJustKept(t, out)) {
+      notifyListeners();
+      return out.join(' ');
+    }
     if (wait == ChatWait.none && await _notesToTasks(t, out)) {
       notifyListeners();
       return out.join(' ');
@@ -881,6 +889,69 @@ class ChatController extends ChangeNotifier {
       changed = true;
     }
     return changed ? parts.join(' ') : t;
+  }
+
+  /// "অন্যান্য হিসাবের বাড়ির মেরামত এ লিখ" right after an expense was kept
+  /// in the general আয়-ব্যয়: that entry moves into the account (no second one).
+  Future<bool> _cashToProject(String t, List<String> out) async {
+    final last = _lastSave;
+    if (last == null || last.$1 is! CashAdd || _now.difference(last.$3).inMinutes > 10) return false;
+    final c = last.$1 as CashAdd;
+    if (findAmount(normalize(t)) != null) return false;
+    if (!RegExp(fold(r'(?:লেখ|লিখ|রাখ|সরাও|নাও|যোগ|যুক্ত|দাও|মাঝে|ভেতরে|মধ্যে)')).hasMatch(fold(t))) return false;
+    final p = projectMeant(brain.data, t);
+    if (p == null && !projectPageNamed(t)) return false;
+    final e = brain.data.cash.where((x) => x.amount == c.amount && x.kind == c.kind && x.projectId == null && dayOnly(x.date) == dayOnly(_now)).lastOrNull;
+    if (e == null) return false;
+    if (p == null) {
+      // Only "অন্যান্য হিসাবে": which account is asked first.
+      _moveCashId = e.id;
+      final open = brain.data.projects.where((x) => !x.closed).toList();
+      _ask(out, trf('{0} টাকার “{1}” অন্যান্য হিসাবের কোনটায় সরাব? বেছে নিন, বা নতুন নাম বলুন।', [bnNumber(e.amount), e.category]), ChatWait.project,
+          choices: [for (final x in open.take(5)) ChatChoice(x.name, x.name)]);
+      return true;
+    }
+    return _moveCash(e, p, out);
+  }
+
+  /// The expense being moved by "অন্যান্য হিসাবে রাখো" while its account is asked.
+  String? _moveCashId;
+
+  Future<bool> _moveCash(CashEntry e, Project p, List<String> out) async {
+    final snap = brain.snapshot();
+    await brain.saveCash(CashEntry(id: e.id, kind: e.kind, amount: e.amount, category: e.category, note: e.note, date: e.date, projectId: p.id, accountId: e.accountId, shopId: e.shopId));
+    _actions++;
+    final ps = projectSums(brain.data.cash, p.id);
+    final state = ps.income == 0
+        ? trf('‘{0}’-এ এ পর্যন্ত খরচ {1} টাকা।', [p.name, bnNumber(ps.expense)])
+        : ps.balance >= 0
+            ? trf('‘{0}’-এ এখন হাতে আছে {1} টাকা।', [p.name, bnNumber(ps.balance)])
+            : trf('‘{0}’-এ আসার চেয়ে {1} টাকা বেশি খরচ হয়েছে।', [p.name, bnNumber(-ps.balance)]);
+    _say(out, trf('ঠিক আছে, {0} টাকার “{1}” এখন ‘{2}’ হিসাবে — সাধারণ আয়-ব্যয় থেকে সরিয়েছি। {3}', [bnNumber(e.amount), e.category, p.name, state]),
+        links: [ChatLink(LinkKind.page, tr('অন্যান্য হিসাব'), page: 'projects')]);
+    _offerUndo(snap);
+    return true;
+  }
+
+  /// "তারিখ সহ যুক্ত করেছো?", "কাজ গুলো তারিখ সহ যুক্ত করা দরকার ছিল":
+  /// about the to-dos just kept — they are shown as kept, with their days;
+  /// never a new to-do, a search or a tick.
+  bool _aboutJustKept(String t, List<String> out) {
+    final f = ' ${fold(normalize(t))} ';
+    if (!RegExp(fold(r'(?:তারিখ|সময়|দিন)')).hasMatch(f)) return false;
+    if (!RegExp(fold(r'(?:করেছ|রেখেছ|দিয়েছ|দিছ|লিখেছ|রাখছ|দাও\s*নি|দেও\s*নি|দাও\s+নাই|দেও\s+নাই|দরকার\s+ছিল|উচিত\s+ছিল|দেওয়া\s+হয়নি|দেয়া\s+হয়নি|কই|কোথায়)')).hasMatch(f)) return false;
+    if (findAmount(normalize(t)) != null || RegExp(r'\d').hasMatch(f)) return false;
+    final kept = [for (final x in brain.data.tasks) if (!x.done && !_now.difference(x.createdAt).isNegative && _now.difference(x.createdAt).inMinutes <= 15) x];
+    if (kept.isEmpty) return false;
+    final dated = kept.where((x) => x.due != null).length;
+    final head = dated == kept.length
+        ? trf('জি, {0}টা কাজই তারিখসহ রেখেছি:', [bnDigits(kept.length)])
+        : dated == 0
+            ? trf('এই {0}টা কাজ তারিখ ছাড়া রাখা আছে। তারিখ বলুন — যেমন “প্রথমটা ১২ তারিখে” — বসিয়ে দেব।', [bnDigits(kept.length)])
+            : trf('{0}টার তারিখ আছে, {1}টার নেই:', [bnDigits(dated), bnDigits(kept.length - dated)]);
+    _say(out, head, facts: [for (final x in kept) taskLine(x, _now)], links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
+    _rememberSet('tasks', '', [for (final x in kept) x.id], source: t);
+    return true;
   }
 
   /// A plain yes or no that a sentence of its own follows ("না। …", "হ্যাঁ, আর …"):
@@ -1511,11 +1582,10 @@ class ChatController extends ChangeNotifier {
           return;
         }
         if (c.project != null && c.project!.trim().isEmpty) {
+          // Which account (folder) is always asked; a new name opens a new one.
           final open = brain.data.projects.where((p) => !p.closed).toList();
-          if (open.length == 1) {
-            return _start(CashAdd(c.transcript, kind: c.kind, amount: c.amount, category: c.category, project: open.first.name), out);
-          }
-          _ask(out, tr('কোন হিসাবে লিখব? নামটা বলুন।'), ChatWait.project, choices: [for (final p in open.take(5)) ChatChoice(p.name, p.name)]);
+          _ask(out, open.isEmpty ? tr('কোন নামে অন্যান্য হিসাব খুলে লিখব? নামটা বলুন।') : tr('অন্যান্য হিসাবের কোনটায় লিখব? বেছে নিন, বা নতুন নাম বলুন।'), ChatWait.project,
+              choices: [for (final p in open.take(5)) ChatChoice(p.name, p.name)]);
           return;
         }
         if (_allYes) return _saveCurrent(out);
@@ -2080,6 +2150,16 @@ class ChatController extends ChangeNotifier {
           choices = _yesNoChoices;
           return true;
         }
+        // "এটা অন্যান্য হিসাবের মাঝে রাখো" while an expense waits: that one,
+        // into the separate account — never a plain yes.
+        final cur2 = _current;
+        if (cur2 is CashAdd && cur2.project == null && !_askingAll && (projectMeant(brain.data, t) != null || projectPageNamed(t))) {
+          final p = projectMeant(brain.data, t);
+          wait = ChatWait.none;
+          choices = const [];
+          await _start(CashAdd(cur2.transcript, kind: cur2.kind, amount: cur2.amount, category: cur2.category, project: p?.name ?? ''), out);
+          return true;
+        }
         final yn = refused ? false : yesNo(t);
         if (yn == null) {
           if (_looksNew(t)) return false;
@@ -2342,6 +2422,20 @@ class ChatController extends ChangeNotifier {
         final cur = _current;
         wait = ChatWait.none;
         choices = const [];
+        final moving = _moveCashId;
+        _moveCashId = null;
+        if (moving != null) {
+          final e = brain.data.cash.where((x) => x.id == moving).firstOrNull;
+          if (e == null) return false;
+          var name = tidy(cutWords(t, const ['প্রজেক্ট', 'প্রজেক্টে', 'প্রজেক্টের', 'প্রকল্প', 'প্রকল্পে', 'নামে', 'নাম', 'হিসাবে', 'হিসাব']));
+          if (name.isEmpty) name = t.trim();
+          final p = projectByName(brain.data, name) ?? (brain.canAddProject ? await brain.projectNamed(name) : null);
+          if (p == null) {
+            _say(out, tr('নতুন অন্যান্য হিসাব খোলা প্রো সুবিধা — খরচটা যেমন ছিল আছে।'));
+            return true;
+          }
+          return _moveCash(e, p, out);
+        }
         if (cur is! CashAdd) return false;
         var name = tidy(cutWords(t, const ['প্রজেক্ট', 'প্রজেক্টে', 'প্রজেক্টের', 'প্রকল্প', 'প্রকল্পে', 'নামে', 'নাম']));
         if (name.isEmpty) name = t.trim();
@@ -2778,7 +2872,11 @@ class ChatController extends ChangeNotifier {
             out,
             same && days.length == _batchTaskTitles.length
                 ? trf('“{0}” — {1}, {2} দিনই কাজের তালিকায় রেখেছি।', [_batchTaskTitles.first, nameList(days, unit: 'দিন'), bnDigits(days.length)])
-                : trf('{0}টা কাজ যোগ করেছি: {1}।', [bnDigits(_batchTaskTitles.length), nameList(_batchTaskTitles, unit: 'টা')]),
+                : trf('{0}টা কাজ যোগ করেছি:', [bnDigits(_batchTaskTitles.length)]),
+            // Each with its day, so what was kept is seen, not guessed.
+            facts: same && days.length == _batchTaskTitles.length
+                ? const []
+                : [for (final t in brain.data.tasks.reversed.take(_batchTaskTitles.length).toList().reversed) taskLine(t, _now)],
             links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
         final snap = _batchSnap;
         if (snap != null) _offerUndo(snap);

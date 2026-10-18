@@ -34,8 +34,11 @@ import '../logic/lang.dart';
 /// mic beside the box at the bottom of every page ([listen] starts the
 /// microphone), or with something already typed ([firstMessage]).
 class ChatHome extends StatefulWidget {
-  const ChatHome({super.key, this.listen = false, this.firstMessage});
+  const ChatHome({super.key, this.listen = false, this.firstMessage, this.showPast = false});
   final bool listen;
+
+  /// Opened from the home's history button: the earlier conversations first.
+  final bool showPast;
   final String? firstMessage;
 
   @override
@@ -131,7 +134,9 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
       await _restoreDraft();
       if (!mounted) return;
       final first = widget.firstMessage?.trim() ?? '';
-      if (first.isNotEmpty) {
+      if (widget.showPast) {
+        unawaited(_showPast());
+      } else if (first.isNotEmpty) {
         _send(first);
       } else if (widget.listen) {
         startVoice();

@@ -558,6 +558,7 @@ extension _TodoChat on ChatController {
   /// "না, এগারোটায়" / "না, কাল নয়, পরশু" right after a to-do or its
   /// reminder was set: the same one, changed — never a new to-do.
   Future<bool> _todoCorrection(String t, List<String> out) async {
+    if (await _taskDayFix(t, out)) return true;
     final f = ' ${fold(t).replaceAll(RegExp(r'[।,!?]'), ' ')} ';
     if (!RegExp(fold(r'^\s*(?:না|নাহ|উহু|না\s+না)\s')).hasMatch(f) && !RegExp(fold(r'\s(?:নয়|না)\s+\S+\s*$')).hasMatch(f)) return false;
     // Only time words after the "না".
@@ -603,6 +604,40 @@ extension _TodoChat on ChatController {
       return true;
     }
     return false;
+  }
+
+  /// "যেকোন দিন কেন রাখবা, বলেছি ৬ তারিখ … সে তারিখে লেখো": the to-do just
+  /// kept, on the day said (a day of the month alone is in the to-do's own
+  /// month). Nothing else is ticked or added.
+  Future<bool> _taskDayFix(String t, List<String> out) async {
+    final id = _focusTaskId;
+    if (id == null || !_focusTaskFresh || _now.difference(_focusTaskAt!).inMinutes > 10) return false;
+    final f = ' ${fold(normalize(t))} ';
+    final fixing = RegExp(fold(r'(?:বলেছি|বললাম|বলছি|কেন\s+রাখ|কেন\s+দিল|কেন\s+লিখ|যেকোন|যে\s+কোন|ভুল|সে\s+তারিখ|ওই\s+তারিখ|সেই\s+তারিখ|তারিখে\s+(?:লেখ|লিখ|রাখ|দাও|করো))')).hasMatch(f);
+    if (!fixing) return false;
+    final task = _taskById(id);
+    if (task == null) return false;
+    final months = bnMonths.map(fold).join('|');
+    final dm = RegExp(r'(?:^|\s)(\d{1,2})\s*' + fold('তারিখ')).firstMatch(f);
+    DateTime? day;
+    if (dm != null && !RegExp('(?:$months)').hasMatch(f) && task.due != null) {
+      final n = int.parse(dm[1]!);
+      final base = task.due!;
+      final d = DateTime(base.year, base.month, n);
+      if (d.month == base.month) day = d;
+    }
+    if (day == null) {
+      final w = parseWhen(tidySpeech(t), _now);
+      if (w != null && w.hasDay) day = dayOnly(w.day);
+    }
+    if (day == null) return false;
+    final snap = brain.snapshot();
+    await brain.saveTask(task.copyWith(due: day, span: TaskSpan.day));
+    _focusTask(task);
+    _say(out, task.reminderId == null ? trf('ঠিক আছে, “{0}” {1} তারিখে রাখলাম — রিমাইন্ডার ছাড়া।', [task.title, sayWhen(day, _now, withTime: false)]) : trf('ঠিক আছে, “{0}” {1} তারিখে রাখলাম।', [task.title, sayWhen(day, _now, withTime: false)]),
+        links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
+    _offerUndo(snap);
+    return true;
   }
 
   /// A to-do answer was given: remember which ones were named, in order.

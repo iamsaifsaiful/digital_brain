@@ -100,6 +100,12 @@ void openAssistant(BuildContext context) {
   Navigator.of(context).push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => const ChatHome()));
 }
 
+/// The assistant with the list of earlier conversations open.
+void openPastChats(BuildContext context) {
+  Navigator.of(context).popUntil((r) => r.isFirst);
+  Navigator.of(context).push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => const ChatHome(showPast: true)));
+}
+
 /// Something typed on another page: the assistant answers it.
 void openChatWith(BuildContext context, String text) {
   Navigator.of(context).popUntil((r) => r.isFirst);

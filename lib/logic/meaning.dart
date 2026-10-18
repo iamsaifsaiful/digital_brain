@@ -311,6 +311,8 @@ String tidySpeech(String said, {List<bool>? whole}) {
   s = s.replaceAllMapped(RegExp('($months)(?:\\s*${fold('এর')}|${fold('ের')}|${fold('তে')}|${fold('ে')})(?=\$|[\\s,।])'), (m) => m[1]!);
   s = s.replaceAllMapped(RegExp('($months)\\s+${fold('মাসের')}\\s+(?:${fold('প্রথম')}|${fold('পহেলা')}|${fold('এক')})\\s+${fold('তারিখ')}\\S*'), (m) => '১ ${m[1]}');
   s = s.replaceAllMapped(RegExp('($months)\\s+(?:${fold('মাসের')}|${fold('মাসে')}|${fold('মাসেই')})\\s+([০-৯0-9]{1,2})\\s+${fold('তারিখ')}\\S*'), (m) => '${m[2]} ${m[1]}');
+  // "ডিসেম্বরের ৬ তারিখে" (the "-এর" already gone): "৬ ডিসেম্বর", not the 6th of this month.
+  s = s.replaceAllMapped(RegExp('(^|[\\s,।])($months)\\s+([০-৯0-9]{1,2})\\s+${fold('তারিখ')}\\S*'), (m) => '${m[1]}${m[3]} ${m[2]}');
   // "৩১ ডিসেম্বর ২০২৭ সালের": the year after a date is dropped (dates are
   // read from the day and month). "২০৩১ সালে আমি কোটিপতি হবো" keeps it —
   // a year on its own is the when.
@@ -457,7 +459,9 @@ String _everydayWords(String s) {
 /// correction of what was heard; only the words meant are left.
 String meantInstead(String said) {
   final m = RegExp(fold(r'^.+?\s+(?:বলি\s*নাই|বলিনি|বলি\s+নি|বলিনাই|বলছি\s+না|বুঝাইনি|বোঝাইনি)\s*[,।;]?\s*(?:আমি\s+)?(?:বলেছি|বলছি|বলেছিলাম|বলতে\s+চেয়েছি|মানে|বুঝিয়েছি)\s*[,।:;]?\s*(.+)$')).firstMatch(fold(said));
-  if (m == null) return said;
-  final rest = m[1]!.trim();
+  // "ব্যয়ে লিখতে বলি নাই, অন্যান্য হিসাবের বাড়ির মেরামত এ লিখ".
+  final m2 = m ?? RegExp(fold(r'^.+?\s+(?:লিখতে|রাখতে|করতে|দিতে)\s+(?:বলি\s*নাই|বলিনি|বলি\s+নি|বলিনাই)\s*[,।;]\s*(.+)$')).firstMatch(fold(said));
+  if (m2 == null) return said;
+  final rest = m2[1]!.trim();
   return rest.split(RegExp(r'\s+')).length >= 2 ? rest : said;
 }

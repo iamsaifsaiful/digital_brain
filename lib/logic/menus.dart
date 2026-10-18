@@ -580,7 +580,7 @@ Command? _business(String said, String f, AppData? d, DateTime now, int? amount,
   final create = _tre(r'^\s*(.+?)\s+নামে\s+(?:একটা\s+|নতুন\s+)?(?:প্রজেক্ট|প্রকল্প|হিসাব)\s+(?:খোলো|খুলুন|খুলে\s+দাও|বানাও|শুরু\s+করো)').firstMatch(f);
   if (create != null) return MenuAction(said, domain: 'project', op: 'create', target: create[1]!.trim());
   // The page itself named: "অন্যান্য হিসাব", "আলাদা হিসাব", "প্রজেক্ট".
-  final placeWord = _thas(f, r'(?:অন্যান্য\s+হিসাব|আলাদা\s+হিসাব|প্রজেক্ট|প্রকল্প|project)');
+  final placeWord = _thas(f, r'(?:অন্যান্য\s+হিস(?:া|ে)ব|আলাদা\s+হিস(?:া|ে)ব|প্রজেক্ট|প্রকল্প|project)');
   // "মৃত্তিকা ফাউন্ডেশন নামে অন্যান্য হিসাবে একটা বিভাগ লেখ": a new one,
   // whichever order the words come in.
   final named = _tre(r'^\s*(.+?)\s+নামে\s+(.+)$').firstMatch(f);
@@ -598,7 +598,16 @@ Command? _business(String said, String f, AppData? d, DateTime now, int? amount,
   }
   // "নিহান ২০০০ টাকা বেতন দিয়েছে, এটা অন্যান্য হিসাবের ভেতরে শিক্ষার্থীদের
   // বেতনে যুক্ত কর": money into that account (who gave it is the note).
-  final into = proj ?? (placeWord ? _tre(r'(?:অন্যান্য|আলাদা)\s+হিসাব\S*\s+(?:ভেতরে|ভিতরে|মধ্যে|মাঝে)?\s*(.+?)(?:এ|তে|য়|ে)?\s+(?:যুক্ত|যোগ|লেখ|লিখ|রাখ|জমা|অ্যাড)').firstMatch(f)?.group(1)?.trim() : null);
+  var into = proj ?? (placeWord ? _tre(r'(?:অন্যান্য|আলাদা)\s+হিস(?:া|ে)ব\S*\s+(?:ভেতরে|ভিতরে|মধ্যে|মাঝে)?\s*(.+?)(?:এ|তে|য়|ে)?\s+(?:যুক্ত|যোগ|লেখ|লিখ|রাখ|জমা|অ্যাড)').firstMatch(f)?.group(1)?.trim() : null);
+  // "অন্যান্য হিসেবে যুক্ত কর, মিস্ত্রীর বিল ২৭০০ টাকা": no name said — the
+  // chat asks which account (folder) it goes in, even when there is one.
+  // ("রহিম ভবন প্রজেক্টে ৫০ হাজার এলো" names its account: not this.)
+  final nameBefore = _tre(r'(\S+)\s+(?:প্রজেক্ট|প্রকল্প|project)').allMatches(f).any((m) => !const ['আমার', 'এই', 'ওই', 'সেই', 'কোন', 'কোনো', 'একটা', 'নতুন'].contains(m[1]));
+  if ((into == null || into.isEmpty || words(into).any((w) => const ['যুক্ত', 'যোগ', 'লেখ', 'লিখ', 'রাখ', 'কর', 'করো'].contains(w))) && placeWord && !nameBefore && amount != null && !negated && !asking) {
+    final spentHere = !_thas(f, r'(?:এসেছে|এলো|পেয়েছি|পেলাম|দিয়েছে|জমা|আয়|চাঁদা|অনুদান)');
+    final what = _thas(f, r'(?<=\s)বিল') ? 'বিল' : (spentHere ? 'অন্যান্য' : 'আয়');
+    return CashAdd(said, kind: spentHere ? CashKind.expense : CashKind.income, amount: amount, category: what, project: '');
+  }
   if (into != null && into.isNotEmpty && amount != null && !negated && !asking) {
     final spent = _thas(f, r'(?:খরচ|কিনলাম|কিনেছি|দিলাম|দিয়েছি|পরিশোধ\s+করেছি|বিল)');
     final got = _thas(f, r'(?:দিয়েছে|দিয়েছে|দিল|দিলো|এসেছে|এলো|পেয়েছি|পেলাম|জমা|বেতন|ফি|আয়|চাঁদা|অনুদান)');
@@ -671,7 +680,9 @@ String _origWords(String said, String norm) {
 }
 
 Command? _cashQuestion(String said, String f, AppData? d, DateTime now, bool asking) {
-  if (!asking && !_thas(f, r'(?:দেখাও|দেখান|বলো|বলুন)')) return null;
+  if (!asking && !_thas(f, r'(?:দেখাও|দেখান|বলো|বলুন|দাও|দিন)\s*$')) return null;
+  // "বেতনের আয় ৫০০০ টাকা লিখে দাও" keeps money; it does not ask.
+  if (!asking && (findAmount(normalize(withoutWhen(said))) != null || _thas(f, r'(?:লিখে|লেখো|রাখো|যোগ|যুক্ত)'))) return null;
   final spend = _thas(f, r'(?:খরচ|ব্যয়|ব্যয়)');
   final income = _thas(f, r'(?:আয়|আয়|ইনকাম|উপার্জন)');
   if (!spend && !income) return null;
@@ -695,7 +706,9 @@ Command? _cashQuestion(String said, String f, AppData? d, DateTime now, bool ask
     (from, to, label) = (DateTime(now.year), DateTime(now.year + 1), 'এই বছর');
   }
   final net = spend && income && _thas(f, r'(?:বাদে|বাদ\s+দিয়ে|থাকে|থাকল|বাকি)');
-  if (from == null && !net) return null;
+  // "আয়ের হিসাব দাও": income alone, this month (spending alone keeps its own summary).
+  final incomeOnly = income && !spend && !asking;
+  if (from == null && !net && !incomeOnly) return null;
   from ??= DateTime(now.year, now.month);
   to ??= DateTime(now.year, now.month + 1);
   if (label.isEmpty) label = 'এই মাসে';
@@ -707,7 +720,7 @@ Command? _cashQuestion(String said, String f, AppData? d, DateTime now, bool ask
     final cats = {for (final c in d.cash) c.category};
     cat = _named(f, cats.where((c) => c != 'অন্যান্য')) ?? '';
   }
-  if (thisMonth && cat.isEmpty && !net) return null;
+  if (thisMonth && cat.isEmpty && !net && !incomeOnly) return null;
   return MenuAction(said, domain: 'cash', op: net ? 'net' : (income && !spend ? 'income' : 'spend'), day: from, until: to, text: cat, target: label);
 }
 

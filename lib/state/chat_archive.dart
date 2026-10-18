@@ -118,7 +118,10 @@ List<ChatMessage> keepable(List<ChatMessage> messages) {
 
 /// "রবিনকে ৫০০০ টাকা ধার দিলাম, আর কাল…" → a short title.
 String chatTitle(List<ChatMessage> messages) {
-  final first = messages.where((m) => m.fromUser).firstOrNull;
+  // "হ্যাঁ", "না", "দাও" say nothing about the conversation: the first
+  // message that does.
+  final users = messages.where((m) => m.fromUser).toList();
+  final first = users.where((m) => words(normalize(m.text)).length >= 2 && yesNo(m.text) == null).firstOrNull ?? users.firstOrNull;
   if (first == null) return 'নতুন কথা';
   final t = redactSecret(first.text).replaceAll(RegExp(r'\s+'), ' ').trim();
   return t.length > 42 ? '${t.substring(0, 40)}…' : t;
