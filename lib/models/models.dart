@@ -870,6 +870,7 @@ class Doc {
     this.people = '',
     this.place = '',
     this.taken,
+    this.text = '',
   })  : id = id ?? newId(),
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
@@ -878,6 +879,10 @@ class Doc {
   final String title;
   final String folder;
   final List<DocFile> files;
+
+  /// The printed text read from its photos/pages on the phone (searchable;
+  /// empty until read). Older saved documents simply have none.
+  final String text;
   final List<DocField> fields;
 
   /// When it runs out (passport, licence…), if known.
@@ -899,7 +904,7 @@ class Doc {
   final DateTime? taken;
 
   /// Everything the assistant searches in.
-  String get searchText => [title, folder, about, people, place, for (final f in fields) '${f.label} ${f.value}', if (taken != null) '${taken!.year}'].join(' ');
+  String get searchText => [title, folder, about, people, place, for (final f in fields) '${f.label} ${f.value}', if (taken != null) '${taken!.year}', text].join(' ');
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -919,6 +924,7 @@ class Doc {
     String? place,
     DateTime? taken,
     bool clearTaken = false,
+    String? text,
   }) =>
       Doc(
         id: id,
@@ -934,6 +940,7 @@ class Doc {
         people: people ?? this.people,
         place: place ?? this.place,
         taken: clearTaken ? null : (taken ?? this.taken),
+        text: text ?? this.text,
       );
 
   Map<String, Object?> toJson() => {
@@ -950,6 +957,7 @@ class Doc {
         if (people.isNotEmpty) 'people': people,
         if (place.isNotEmpty) 'place': place,
         if (taken != null) 'taken': taken!.toIso8601String(),
+        if (text.isNotEmpty) 'text': text,
       };
 
   factory Doc.fromJson(Map<String, Object?> j) => Doc(
@@ -966,6 +974,7 @@ class Doc {
         people: (j['people'] as String?) ?? '',
         place: (j['place'] as String?) ?? '',
         taken: _date(j['taken']),
+        text: (j['text'] as String?) ?? '',
       );
 }
 

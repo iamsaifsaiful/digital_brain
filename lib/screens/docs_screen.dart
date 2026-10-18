@@ -9,6 +9,8 @@ import '../ui/file_view.dart';
 
 import '../logic/bn.dart';
 import '../models/models.dart';
+import '../services/ocr.dart';
+import '../state/doc_scan.dart';
 import '../services/files.dart';
 import '../state/brain.dart';
 import '../ui/note_parts.dart' show openMap;
@@ -236,6 +238,76 @@ class _DocScreenState extends State<DocScreen> {
     await b.saveDoc(d.copyWith(fields: [...d.fields, DocField(label, value)]));
   }
 
+  bool _reading = false;
+
+  /// Reads this paper's photos/pages on the phone and offers what it found —
+  /// its facts and last valid day — to be added after a look.
+  Future<void> _readDoc(Brain b, Doc d) async {
+    setState(() => _reading = true);
+    final pages = <(Uint8List, String)>[];
+    for (final f in d.files.where((f) => readable(f.mime)).take(6)) {
+      final bytes = await _bytes(b, f);
+      if (bytes != null) pages.add((bytes, f.mime));
+    }
+    final scan = await scanPages(b.services.ocr, pages, b.services.now());
+    if (!mounted) return;
+    setState(() => _reading = false);
+    if (scan.empty) {
+      toast(context, pages.isEmpty ? tr('পড়ার মতো ছবি বা PDF নেই।') : tr('ছবি থেকে কোনো লেখা পড়া গেল না — আলো ভালো রেখে সোজা করে আবার ছবি তুলুন।'));
+      return;
+    }
+    final fresh = [for (final f in scan.fields) if (!d.fields.any((h) => h.label == f.label)) f];
+    final keep = {for (final f in fresh) f.label};
+    final expiry = d.expiry == null ? scan.expiry?.date : null;
+    var useExpiry = expiry != null;
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, set) => SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+            Text(tr('ছবি থেকে যা পেলাম'), style: display(19)),
+            const SizedBox(height: 4),
+            Text(fresh.isEmpty && expiry == null ? tr('নতুন কোনো তথ্য পাইনি — যা পাওয়া গেছে, আগেই রাখা আছে। পুরো লেখা নিচে।') : tr('মিলিয়ে নিন — যেটা ভুল, টিক তুলে দিন।'),
+                style: body(13, color: C.muted)),
+            for (final f in fresh)
+              CheckboxListTile(
+                key: Key('read-field-${f.label}'),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                value: keep.contains(f.label),
+                onChanged: (v) => set(() => v == true ? keep.add(f.label) : keep.remove(f.label)),
+                title: Text(f.label, style: body(13, color: C.muted)),
+                subtitle: Text(f.value, style: body(15.5, weight: FontWeight.w600, color: C.ink)),
+              ),
+            if (expiry != null)
+              CheckboxListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                value: useExpiry,
+                onChanged: (v) => set(() => useExpiry = v ?? false),
+                title: Text(tr('মেয়াদ শেষ'), style: body(13, color: C.muted)),
+                subtitle: Text(fullDate(expiry), style: body(15.5, weight: FontWeight.w600, color: C.ink)),
+              ),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: Text(tr('পুরো লেখা'), style: body(14, weight: FontWeight.w600)),
+              children: [SelectableText(scan.text, style: body(13.5, height: 1.5))],
+            ),
+            const SizedBox(height: 8),
+            PrimaryButton(key: const Key('read-add'), label: tr('রাখুন'), icon: Icons.check_rounded, onPressed: () => Navigator.pop(ctx, true)),
+          ]),
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    var next = d.copyWith(fields: mergeFields(d.fields, [for (final f in fresh) if (keep.contains(f.label)) f]), text: scan.text);
+    await b.saveDoc(next);
+    if (useExpiry && expiry != null) next = await b.setDocExpiry(next, expiry);
+  }
+
   /// A photo full screen, a PDF page by page, anything else in another app
   /// — each can also be downloaded or shared.
   Future<void> _view(Brain b, Doc d, DocFile f) async {
@@ -429,6 +501,16 @@ class _DocScreenState extends State<DocScreen> {
                             icon: Icon(Icons.close_rounded, size: 18, color: C.muted),
                           ),
                         ]),
+                      ),
+                    if (d.files.any((f) => readable(f.mime)))
+                      ListRow(
+                        key: const Key('doc-read'),
+                        leading: _reading
+                            ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))
+                            : Icon(Icons.document_scanner_outlined, color: C.green),
+                        title: _reading ? tr('ছবি থেকে লেখা পড়ছি…') : tr('ছবি থেকে তথ্য পড়ুন'),
+                        subtitle: tr('নম্বর, নাম, জন্মতারিখ, মেয়াদ — ফোনেই পড়ে বসিয়ে দেবো, আপনি মিলিয়ে নেবেন'),
+                        onTap: _reading ? null : () => _readDoc(brain, d),
                       ),
                     ListRow(
                       leading: Icon(Icons.add_rounded, color: C.green),

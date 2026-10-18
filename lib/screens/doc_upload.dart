@@ -4,10 +4,11 @@ import '../logic/pro.dart';
 import '../ui/pro_gate.dart';
 
 import '../logic/bn.dart';
-import '../logic/doc_dates.dart';
 import '../logic/lang.dart';
 import '../models/models.dart';
 import '../services/files.dart';
+import '../services/ocr.dart';
+import '../state/doc_scan.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
@@ -106,7 +107,8 @@ Future<void> addDocuments(BuildContext context, {required int source, String? fo
         if (info.sameForRest) same = info;
       }
       final title = same != null && picked.length > 1 ? '${info.doc.title} ${bnDigits(i + 1)}' : info.doc.title;
-      var d = await brain.addDocGroup([picked[i]], Doc(title: title, folder: info.doc.folder, about: info.doc.about, people: info.doc.people, place: info.doc.place, taken: info.doc.taken));
+      var d = await brain.addDocGroup([picked[i]],
+          Doc(title: title, folder: info.doc.folder, about: info.doc.about, people: info.doc.people, place: info.doc.place, taken: info.doc.taken, fields: info.doc.fields, text: info.doc.text));
       // A date read from this photo (the same-for-rest answer keeps its own).
       if (info.doc.expiry != null) d = await brain.setDocExpiry(d, info.doc.expiry);
       if (info.tags.isNotEmpty) await brain.setTags('doc:${d.id}', info.tags);
@@ -165,32 +167,47 @@ class _DocInfoSheetState extends State<_DocInfoSheet> {
     if (e == null) WidgetsBinding.instance.addPostFrameCallback((_) => _readPhotos());
   }
 
-  /// The warranty or expiry date printed on the paper, read on the phone and
-  /// put in the date box for the user to check — never kept unseen.
+  /// The paper's printed text, read on the phone: its facts (number, dates…)
+  /// and last valid day put in for the user to check — never kept unseen.
+  DocScan? _scan;
+  final _keep = <String>{};
+
   Future<void> _readPhotos() async {
-    final photos = widget.files.where((f) => f.mime.startsWith('image/')).take(3).toList();
-    if (photos.isEmpty || !mounted) return;
+    if (!widget.files.any((f) => readable(f.mime)) || !mounted) return;
     final brain = BrainScope.read(context);
     setState(() => _reading = true);
-    final texts = <String>[];
-    for (final f in photos) {
-      final t = await brain.services.ocr.read(f.bytes);
-      if (t != null && t.trim().isNotEmpty) texts.add(t);
-    }
+    final scan = await scanPages(brain.services.ocr, [for (final f in widget.files) (f.bytes, f.mime)], brain.services.now());
     if (!mounted) return;
-    final found = docDateIn(texts.join('\n'), brain.services.now());
     setState(() {
       _reading = false;
+      _scan = scan;
+      _keep.addAll(scan.fields.map((f) => f.label));
+      final found = scan.expiry;
       if (found != null && _expiry == null) {
         _expiry = found.date;
         _readNote = found.fromPeriod
             ? trf('ছবি থেকে: কেনার তারিখ থেকে ওয়ারেন্টি হিসাব করে {0} — মিলিয়ে নিন।', [fullDate(found.date)])
             : trf('ছবি থেকে পড়া: {0} — মিলিয়ে নিন।', [fullDate(found.date)]);
-        if (found.warranty && _folder == 'অন্যান্য') _folder = 'ওয়ারেন্টি ও গ্যারান্টি';
-      } else if (found == null) {
-        _readNote = texts.isEmpty ? '' : tr('ছবিতে মেয়াদ বা ওয়ারেন্টির তারিখ পরিষ্কার পাইনি — থাকলে নিজে দিন।');
+      } else if (found == null && !scan.empty) {
+        _readNote = tr('ছবিতে মেয়াদ বা ওয়ারেন্টির তারিখ পরিষ্কার পাইনি — থাকলে নিজে দিন।');
+      }
+      if (_folder == 'অন্যান্য') _folder = _folderFor(scan) ?? _folder;
+      if (_title.text.trim().isEmpty && _folder != 'অন্যান্য') {
+        final name = scan.fields.where((f) => f.label == tr('নাম')).firstOrNull?.value;
+        if (name != null) _people.text = _people.text.isEmpty ? name : _people.text;
       }
     });
+  }
+
+  /// The folder the text points to, when it is plain.
+  String? _folderFor(DocScan s) {
+    final t = s.text.toLowerCase();
+    if (s.fields.any((f) => f.label == tr('পাসপোর্ট নম্বর')) || t.contains('passport')) return 'পাসপোর্ট';
+    if (s.fields.any((f) => f.label == tr('NID নম্বর')) || t.contains('national id')) return 'জাতীয় পরিচয়পত্র';
+    if (s.expiry?.warranty ?? false) return 'ওয়ারেন্টি ও গ্যারান্টি';
+    if (RegExp(r'driving\s*licen').hasMatch(t)) return 'গাড়ি ও লাইসেন্স';
+    if (RegExp(r'invoice|cash\s*memo|receipt').hasMatch(t)) return 'বিল ও রসিদ';
+    return null;
   }
 
   @override
@@ -214,6 +231,8 @@ class _DocInfoSheetState extends State<_DocInfoSheet> {
       clearTaken: _taken == null,
       expiry: _expiry,
       clearExpiry: _expiry == null,
+      fields: mergeFields(base.fields, [for (final f in _scan?.fields ?? const <DocField>[]) if (_keep.contains(f.label)) f]),
+      text: _scan?.text,
     );
     final tags = [for (final t in _tags.text.split(RegExp(r'[,،;]'))) if (t.trim().isNotEmpty) t.trim()];
     Navigator.of(context).pop(DocInfo(doc, tags, sameForRest: _same));
@@ -330,6 +349,21 @@ class _DocInfoSheetState extends State<_DocInfoSheet> {
             if (_expiry != null) IconButton(tooltip: tr('তারিখ মুছুন'), onPressed: () => setState(() { _expiry = null; _readNote = ''; }), icon: const Icon(Icons.close_rounded)),
           ]),
           if (_readNote.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(_readNote, key: const Key('doc-read-note'), style: body(12.5, color: C.muted, height: 1.4))),
+          // The facts read from the paper: kept as its details, each can be left out.
+          if ((_scan?.fields ?? const []).isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(tr('ছবি থেকে পাওয়া তথ্য — মিলিয়ে নিন'), style: body(13, weight: FontWeight.w600, color: C.muted2)),
+            for (final f in _scan!.fields)
+              CheckboxListTile(
+                key: Key('doc-field-${f.label}'),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                value: _keep.contains(f.label),
+                onChanged: (v) => setState(() => v == true ? _keep.add(f.label) : _keep.remove(f.label)),
+                title: Text(f.label, style: body(13, color: C.muted)),
+                subtitle: Text(f.value, style: body(15.5, weight: FontWeight.w600, color: C.ink)),
+              ),
+          ],
           const SizedBox(height: 12),
           field(_tags, tr('ট্যাগ (কমা দিয়ে)'), tr('যেমন: পরিবার, জরুরি'), icon: Icons.sell_outlined),
           if (widget.of > 1 && widget.index < widget.of - 1)

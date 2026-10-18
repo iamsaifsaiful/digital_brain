@@ -3,6 +3,7 @@ import 'package:digital_brain/logic/answers.dart';
 import 'package:digital_brain/models/extras.dart';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/screens/doc_upload.dart';
+import 'package:digital_brain/screens/docs_screen.dart' show DocScreen;
 import 'package:digital_brain/screens/home_shell.dart';
 import 'package:digital_brain/screens/money_more_screens.dart' show ZakatScreen;
 import 'package:digital_brain/services/files.dart';
@@ -293,6 +294,62 @@ void main() {
     await t.tap(find.text('রাখুন').last);
     await settle(t);
     expect(got!.doc.expiry, isNull);
+  });
+
+  testWidgets('every paper is read: its facts are offered as details, kept after a look', (t) async {
+    await open(t);
+    (rig.brain.services.ocr as FakeTextReader).text =
+        'PASSPORT\nPassport No.\nA01234567\nDate of Issue 12 MAY 2021\nDate of Expiry 11 MAY 2031\nP<BGDISLAM<<MD<SAIFUL<<<<<<<<<<<<<<<<<<<<<<<\nA012345674BGD9001057M3105115<<<<<<<<<<<<<<02';
+    final ctx = t.element(find.byType(HomeShell));
+    final png = base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
+    DocInfo? got;
+    unawaited(askDocInfo(ctx, [PickedDoc(png, 'p.jpg', 'image/jpeg')]).then((v) => got = v));
+    await settle(t);
+    expect(find.byKey(const Key('doc-field-পাসপোর্ট নম্বর')), findsOneWidget);
+    // One left out after a look.
+    await t.ensureVisible(find.byKey(const Key('doc-field-ইস্যুর তারিখ')));
+    await t.tap(find.byKey(const Key('doc-field-ইস্যুর তারিখ')));
+    await settle(t);
+    await t.ensureVisible(find.text('রাখুন').last);
+    await t.tap(find.text('রাখুন').last);
+    await settle(t);
+    final f = {for (final x in got!.doc.fields) x.label: x.value};
+    expect(f['পাসপোর্ট নম্বর'], 'A01234567');
+    expect(f['নাম'], 'MD SAIFUL ISLAM');
+    expect(f.containsKey('ইস্যুর তারিখ'), isFalse);
+    expect(got!.doc.folder, 'পাসপোর্ট');
+    expect(got!.doc.expiry, DateTime(2031, 5, 11));
+    expect(got!.doc.text, contains('A01234567'));
+  });
+
+  testWidgets('a paper kept earlier: "ছবি থেকে তথ্য পড়ুন" reads it and adds what is checked', (t) async {
+    await open(t);
+    final png = base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
+    final d = await rig.brain.addDocGroup([PickedDoc(png, 'nid.jpg', 'image/jpeg')], Doc(title: 'আমার NID', folder: 'জাতীয় পরিচয়পত্র', fields: const [DocField('নাম', 'সাইফুল')]));
+    (rig.brain.services.ocr as FakeTextReader).text = 'National ID Card\nName\nMD SAIFUL ISLAM\nDate of Birth 05 Jan 1990\nID NO: 1234 567 890';
+    Navigator.of(t.element(find.byType(HomeShell))).push(MaterialPageRoute(builder: (_) => DocScreen(id: d.id, unlocked: true)));
+    await settle(t);
+    await t.ensureVisible(find.byKey(const Key('doc-read')));
+    await t.tap(find.byKey(const Key('doc-read')));
+    await settle(t);
+    expect(find.byKey(const Key('read-field-NID নম্বর')), findsOneWidget);
+    expect(find.byKey(const Key('read-field-নাম')), findsNothing, reason: 'the name the user wrote stays; not offered again');
+    await t.ensureVisible(find.byKey(const Key('read-add')));
+    await t.tap(find.byKey(const Key('read-add')));
+    await settle(t);
+    final now = rig.brain.data.docs.single;
+    final f = {for (final x in now.fields) x.label: x.value};
+    expect(f['নাম'], 'সাইফুল');
+    expect(f['NID নম্বর'], '1234567890');
+    expect(f['জন্মতারিখ'], '৫ জানুয়ারি ১৯৯০');
+  });
+
+  test('a paper kept before this version still loads; its read text is saved and searched', () {
+    final old = Doc.fromJson({'id': 'd1', 'title': 'পাসপোর্ট', 'folder': 'পাসপোর্ট'});
+    expect(old.text, '');
+    final read = Doc.fromJson(old.copyWith(text: 'A01234567').toJson());
+    expect(read.text, 'A01234567');
+    expect(read.searchText, contains('A01234567'));
   });
 
   testWidgets('১০. the যাকাত page brings today\'s price on a tap', (t) async {

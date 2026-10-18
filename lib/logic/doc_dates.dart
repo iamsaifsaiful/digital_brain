@@ -4,7 +4,9 @@
 /// when nothing clear is there, nothing is guessed.
 library;
 
-import 'bn.dart' show asciiDigits;
+import '../models/models.dart' show DocField;
+import 'bn.dart' show asciiDigits, fullDate, bnDigits;
+import 'lang.dart';
 
 class DocDate {
   const DocDate(this.date, {required this.warranty, required this.fromPeriod});
@@ -144,3 +146,126 @@ DocDate? docDateIn(String text, DateTime now) {
 
 /// "১ বছর" etc. in [text] — used only to say why a date was chosen.
 bool hasPeriod(String text) => _period.hasMatch(asciiDigits(text).toLowerCase());
+
+// ───────────────────────── The useful facts on a paper ─────────────────────────
+
+/// One kind of fact printed on papers: how its label is written, and the
+/// name the app gives it.
+class _Label {
+  const _Label(this.pattern, this.name, {this.date = false, this.value});
+  final String pattern;
+  final String name;
+  final bool date;
+
+  /// What the value must look like (a number, a blood group…), if anything.
+  final String? value;
+}
+
+const _labels = [
+  _Label(r"(?:father'?s?|fathers)\s*name|\bfather\b", 'পিতা'),
+  _Label(r"(?:mother'?s?|mothers)\s*name|\bmother\b", 'মাতা'),
+  _Label(r"(?:husband'?s?|spouse'?s?|wife'?s?)\s*name|\bhusband\b|\bspouse\b", 'স্বামী/স্ত্রী'),
+  _Label(r'\bsurname\b', 'নামের শেষাংশ'),
+  _Label(r'\bgiven\s*names?\b', 'নামের প্রথমাংশ'),
+  _Label(r'^\s*(?:full\s*)?name\b(?!\s*of)', 'নাম'),
+  _Label(r'\bdate\s*of\s*birth\b|\bbirth\s*date\b|\bd\.?o\.?b\b', 'জন্মতারিখ', date: true),
+  _Label(r'\b(?:nid|national\s*id|id)\s*(?:no|number|#)\b\.?', 'NID নম্বর', value: r'\d[\d ]{8,20}\d'),
+  _Label(r'\bpassport\s*(?:no|number|#)\b\.?', 'পাসপোর্ট নম্বর', value: r'[A-Z]{1,2}\s?\d{7}'),
+  _Label(r'\bdate\s*of\s*issue\b|\bissue\s*date\b|\bissued\s*on\b|\bdate\s*of\s*issuance\b', 'ইস্যুর তারিখ', date: true),
+  _Label(r'\b(?:driving\s*)?licen[cs]e\s*(?:no|number|#)\b\.?|\bd\.?l\.?\s*(?:no|number)\b\.?', 'লাইসেন্স নম্বর'),
+  _Label(r'\bblood\s*group\b|\bblood\b', 'রক্তের গ্রুপ', value: r'(?:AB|A|B|O)\s?[+-]|(?:AB|A|B|O)\s?(?:positive|negative|pos|neg|\(\+\)|\(-\))'),
+  _Label(r'\bimei\s*(?:no|number|1|2)?\b\.?', 'IMEI', value: r'\d{15}'),
+  _Label(r'\b(?:serial|s/n|sl)\s*(?:no|number|#)?\b\.?', 'সিরিয়াল নম্বর'),
+  _Label(r'\bmodel\s*(?:no|name|number)?\b\.?', 'মডেল'),
+  _Label(r'\b(?:invoice|bill|memo|receipt|cash\s*memo)\s*(?:no|number|#)\b\.?', 'রসিদ / ইনভয়েস নম্বর'),
+  _Label(r'\b(?:invoice|bill|purchase|sale|sold)\s*date\b|\bdate\s*of\s*(?:purchase|sale)\b', 'কেনার তারিখ', date: true),
+  _Label(r'\btin\b\s*(?:no|number)?', 'TIN', value: r'\d{9,12}'),
+  _Label(r'\b(?:a/c|account)\s*(?:no|number|#)\b\.?', 'অ্যাকাউন্ট নম্বর'),
+  _Label(r'\bpolicy\s*(?:no|number|#)\b\.?', 'পলিসি নম্বর'),
+  _Label(r'\b(?:reg(?:istration)?)\s*(?:no|number|#)\b\.?', 'রেজিস্ট্রেশন নম্বর'),
+  _Label(r'\bchassis\s*(?:no|number)?\b\.?', 'চেসিস নম্বর'),
+  _Label(r'\bengine\s*(?:no|number)?\b\.?', 'ইঞ্জিন নম্বর'),
+  _Label(r'\b(?:mobile|phone|cell|contact)\s*(?:no|number)?\b\.?', 'ফোন', value: r'\+?\d[\d\- ]{9,15}\d'),
+];
+
+/// The useful facts printed on a paper — name, NID or passport number,
+/// dates of birth and issue, serial/IMEI, invoice number… — read from the
+/// text its photo gave, each with the app's own name for it. Only what is
+/// printed beside its label (or in a passport's machine-readable lines);
+/// nothing guessed. The expiry date is not here: see [docDateIn].
+List<DocField> docFieldsIn(String text) {
+  final out = <DocField>[];
+  void add(String label, String value) {
+    final v = value.trim().replaceAll(RegExp(r'\s+'), ' ').replaceAll(RegExp(r'^[:\-–.#\s]+|[,;:\-–.\s]+$'), '');
+    if (v.isEmpty || v.length > 60 || out.any((f) => f.label == label)) return;
+    out.add(DocField(label, v));
+  }
+
+  final t = asciiDigits(text);
+  _passportMrz(t, add);
+  final lines = [for (final l in t.split(RegExp(r'\r?\n'))) l.trim()];
+  for (var i = 0; i < lines.length; i++) {
+    final line = lines[i];
+    for (final l in _labels) {
+      final m = RegExp(l.pattern, caseSensitive: false).firstMatch(line);
+      if (m == null) continue;
+      // The value: after the label on its line, else the next line.
+      var rest = line.substring(m.end).replaceFirst(RegExp(r'^\s*[:\-–.#/]*\s*'), '');
+      if (rest.isEmpty && i + 1 < lines.length) rest = lines[i + 1];
+      if (rest.isEmpty) continue;
+      // Another label's words are not this one's value.
+      if (_labels.any((o) => o != l && RegExp(o.pattern, caseSensitive: false).hasMatch(rest) && RegExp(o.pattern, caseSensitive: false).firstMatch(rest)!.start == 0)) continue;
+      if (l.date) {
+        final d = _dates(rest.toLowerCase()).where((f) => !f.monthOnly).firstOrNull;
+        if (d != null) add(tr(l.name), fullDate(d.date));
+      } else if (l.value != null) {
+        final v = RegExp(l.value!, caseSensitive: false).firstMatch(rest);
+        if (v != null) add(tr(l.name), v[0]!.toUpperCase().replaceAll(RegExp(r'(?<=\d) (?=\d)'), ''));
+      } else {
+        add(tr(l.name), rest);
+      }
+      break;
+    }
+  }
+  // "1 Year Warranty": said as it is printed.
+  final w = RegExp(r'(?:warrant\w*|guarant\w*)[^\n\d]{0,20}(\d{1,2})\s*\+?\s*(years?|yrs?|months?|mon|mths?|days?)\b|(\d{1,2})\s*\+?\s*(years?|yrs?|months?|mon|mths?|days?)\s*(?:of\s+)?(?:warrant|guarant)', caseSensitive: false).firstMatch(t);
+  if (w != null) {
+    final n = int.parse(w[1] ?? w[3]!);
+    final u = (w[2] ?? w[4]!).toLowerCase();
+    add(tr('ওয়ারেন্টি'), u.startsWith('y') ? trf('{0} বছর', [bnDigits(n)]) : u.startsWith('d') ? trf('{0} দিন', [bnDigits(n)]) : trf('{0} মাস', [bnDigits(n)]));
+  }
+  // A lone 15-digit number on a phone's box or receipt is its IMEI.
+  if (!out.any((f) => f.label == 'IMEI')) {
+    final imei = RegExp(r'(?<!\d)\d{15}(?!\d)').firstMatch(t);
+    if (imei != null && RegExp(r'imei', caseSensitive: false).hasMatch(t)) add('IMEI', imei[0]!);
+  }
+  return out;
+}
+
+/// A passport's two machine-readable lines (P<BGD…): name, number, birth
+/// date — read even when the printed labels were not.
+void _passportMrz(String t, void Function(String, String) add) {
+  final rows = [for (final l in t.split(RegExp(r'\r?\n'))) l.replaceAll(' ', '').toUpperCase().replaceAll('«', '<')];
+  for (var i = 0; i + 1 < rows.length; i++) {
+    final a = rows[i], b = rows[i + 1];
+    final head = RegExp(r'^P[A-Z<]([A-Z<]{3})([A-Z<]+)$').firstMatch(a);
+    if (head == null || b.length < 28) continue;
+    final m = RegExp(r'^([A-Z0-9<]{9})\d([A-Z<]{3})(\d{6})\d([MF<])(\d{6})').firstMatch(b);
+    if (m == null) continue;
+    final names = head[2]!.split('<<');
+    final surname = names.first.replaceAll('<', ' ').trim();
+    final given = names.length > 1 ? names[1].replaceAll('<', ' ').trim() : '';
+    if (given.isNotEmpty || surname.isNotEmpty) add(tr('নাম'), [given, surname].where((x) => x.isNotEmpty).join(' '));
+    add(tr('পাসপোর্ট নম্বর'), m[1]!.replaceAll('<', ''));
+    DateTime? ymd(String s, {required bool past}) {
+      final y = int.parse(s.substring(0, 2)), mo = int.parse(s.substring(2, 4)), d = int.parse(s.substring(4, 6));
+      final now = DateTime.now().year % 100;
+      final year = past ? (y > now ? 1900 + y : 2000 + y) : 2000 + y;
+      return _make(year, mo, d);
+    }
+
+    final dob = ymd(m[3]!, past: true);
+    if (dob != null) add(tr('জন্মতারিখ'), fullDate(dob));
+    return;
+  }
+}

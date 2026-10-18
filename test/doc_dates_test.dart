@@ -28,4 +28,35 @@ void main() {
     expect(read('Warranty card\nModel X'), isNull);
     expect(read('Warranty 2 years\nDate 01/01/2026\nDelivery 05/01/2026'), DateTime(2028, 1, 1), reason: 'the date by a purchase word');
   });
+
+  Map<String, String> fields(String s) => {for (final f in docFieldsIn(s)) f.label: f.value};
+
+  test('a national ID card: name, number, date of birth', () {
+    final f = fields('Government of the People\'s Republic of Bangladesh\nNational ID Card\nName\nMD SAIFUL ISLAM\nDate of Birth 05 Jan 1990\nID NO: 1234 567 890');
+    expect(f['নাম'], 'MD SAIFUL ISLAM');
+    expect(f['জন্মতারিখ'], '৫ জানুয়ারি ১৯৯০');
+    expect(f['NID নম্বর'], '1234567890');
+  });
+
+  test('a passport: from the printed labels and the machine lines', () {
+    final f = fields('PASSPORT\nPassport No.\nA01234567\nDate of Issue 12 MAY 2021\nDate of Expiry 11 MAY 2031\nP<BGDISLAM<<MD<SAIFUL<<<<<<<<<<<<<<<<<<<<<<<\nA012345674BGD9001057M3105115<<<<<<<<<<<<<<02');
+    expect(f['পাসপোর্ট নম্বর'], 'A01234567');
+    expect(f['নাম'], 'MD SAIFUL ISLAM');
+    expect(f['জন্মতারিখ'], '৫ জানুয়ারি ১৯৯০');
+    expect(f['ইস্যুর তারিখ'], '১২ মে ২০২১');
+    expect(f.containsKey('মেয়াদ শেষ'), isFalse, reason: 'the expiry has its own place');
+  });
+
+  test('a phone receipt: invoice, model, IMEI, purchase date, warranty', () {
+    final f = fields('SAMSUNG BRAND SHOP\nInvoice No: INV-20931\nInvoice Date: 12/05/2026\nModel: Galaxy A35\nIMEI 1: 356789012345678\nWarranty: 1 Year');
+    expect(f['রসিদ / ইনভয়েস নম্বর'], 'INV-20931');
+    expect(f['কেনার তারিখ'], '১২ মে ২০২৬');
+    expect(f['মডেল'], 'Galaxy A35');
+    expect(f['IMEI'], '356789012345678');
+    expect(f['ওয়ারেন্টি'], '১ বছর');
+  });
+
+  test('nothing labelled: nothing made up', () {
+    expect(docFieldsIn('Happy birthday!\nLove, Rina'), isEmpty);
+  });
 }
