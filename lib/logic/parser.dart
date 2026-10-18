@@ -667,7 +667,7 @@ const _give3 = ['দিল', 'দিলো', 'দিয়েছে', 'দিয
 const _loanWords = ['ধার', 'কর্জ', 'লোন', 'loan', 'ঋণ'];
 const _returnWords = ['ফেরত', 'শোধ', 'পরিশোধ', 'ফিরিয়ে'];
 final List<String> _honorifics = [for (final h in _honorificsRaw) fold(h)];
-const _honorificsRaw = ['ভাই', 'ভাইয়া', 'ভাইয়া', 'আপা', 'আপু', 'চাচা', 'মামা', 'খালা', 'কাকা', 'দাদা', 'স্যার', 'সাহেব', 'বোন'];
+const _honorificsRaw = ['ভাই', 'ভাইয়া', 'ভাইয়া', 'আপা', 'আপু', 'চাচা', 'মামা', 'খালা', 'কাকা', 'দাদা', 'স্যার', 'সাহেব', 'বোন', 'মিয়া', 'মিঞা', 'মিয়াঁ', 'ভাবি', 'ভাবী', 'চাচী', 'চাচি', 'মামী', 'মামি', 'খালু', 'ফুফু', 'নানা', 'নানি', 'দাদি', 'হুজুর', 'মাস্টার', 'ভাইজান'];
 final Set<String> _notNames = {for (final w in _notNamesRaw) fold(w)};
 const _notNamesRaw = {
   'আমি', 'আমাকে', 'আমার', 'আজ', 'আজকে', 'গতকাল', 'কাল', 'এইমাত্র', 'এখন', 'টাকা', 'তাকে', 'ওকে', 'উনাকে', 'তাঁকে',
@@ -779,7 +779,9 @@ SpecialAdd? specialDayIn(String said, String text, {DateTime? now}) {
   if (kind == null) return null;
   var date = dayMonthIn(text);
   // "৩১ তারিখে তুবার জন্মদিন": a day of the month only — the next such day.
-  if (date == null && now != null) {
+  // (Not when a month is named in any spelling: that month, never a guess.)
+  final monthSaid = text.split(' ').any((w) => _months.keys.any((m) => m.length > 2 && w.startsWith(m)));
+  if (date == null && now != null && !monthSaid) {
     final dm = RegExp(r'(?:^|\s)(\d{1,2})(?:ই|শে|লা|রা|ঠা)?\s*' + fold('তারিখ')).firstMatch(text);
     final day = dm == null ? null : int.parse(dm[1]!);
     if (day != null && day >= 1 && day <= 31) {
@@ -1578,7 +1580,7 @@ class Parser {
     }
     // Spending/income words with an amount and nobody named as owing:
     // "বাজারে ৫০০ টাকা খরচ হলো", "বেতন পেলাম ৩০ হাজার".
-    if (!asking && amount != null && amount > 0 && _hasNorm(text, ['খরচ', 'কিনলাম', 'কিনেছি', 'বেতন', 'আয়', 'ইনকাম', 'বিক্রি', 'রিচার্জ', 'বিল'])) {
+    if (!asking && amount != null && amount > 0 && _hasNorm(text, ['খরচ', 'কিনলাম', 'কিনেছি', 'বেতন', 'আয়', 'ইনকাম', 'বিক্রি', 'রিচার্জ', 'বিল', 'বাজার এনেছি', 'বাজার করেছি', 'বাজার করলাম', 'বাজার আনলাম', 'রেমিট্যান্স'])) {
       final known = knownPeople(ledger);
       final bill = _hasNorm(text, const ['বিল']) && !known.any((k) => text.contains(normalize(k)));
       final namedPerson = w.any((x) => x.endsWith('কে') && !{'আমাকে', 'কাকে'}.contains(x)) ||
@@ -2170,7 +2172,7 @@ const _stopWordsRaw = {
   'কত', 'লগইন', 'login', 'পাসওয়ার্ড', 'password', 'ইউজারনেম', 'username', 'রিমাইন্ডার', 'খুঁজে', 'খুঁজো',
   'খোঁজো', 'খুঁজুন', 'বের', 'আছে', 'ছিল', 'টা', 'টি', 'একটু', 'প্লিজ', 'please', 'show', 'the', 'my', 'of',
   'what', 'is', 'হবে', 'হয়', 'জন্য', 'আর', 'ও', 'যে', 'সেই', 'এই', 'ওই', 'নম্বর', 'নাম্বার', 'ওয়েবসাইট',
-  'সাইট', 'অ্যাপ', 'অ্যাপের', 'মেয়াদ', 'শেষ', 'হওয়ার', 'দিনটা', 'বর্তমানে', 'বর্তমান', 'এখনকার', 'চালু', 'সবগুলো', 'গুলো',
+  'সাইট', 'অ্যাপ', 'অ্যাপের', 'মেয়াদ', 'শেষ', 'হওয়ার', 'দিনটা', 'বর্তমানে', 'বর্তমান', 'এখনকার', 'চালু', 'সবগুলো', 'গুলো', 'কিসের', 'কিসে', 'কীসের', 'কোথায়', 'কেন', 'কেমন',
   // Words that never name a thing the user kept — by class, so a speech
   // fragment ("আগামীকাল", "কিন্তু আমি", "আজকে কোন কাজ আছে") never turns
   // into a search that fuzzy-matches a contact ("Khala", "Konate", "Kazi").

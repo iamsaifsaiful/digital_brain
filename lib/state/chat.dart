@@ -714,6 +714,10 @@ class ChatController extends ChangeNotifier {
       notifyListeners();
       return out.join(' ');
     }
+    if (wait == ChatWait.none && await _specialFix(t, out)) {
+      notifyListeners();
+      return out.join(' ');
+    }
     if (wait == ChatWait.none && _aboutJustKept(t, out)) {
       notifyListeners();
       return out.join(' ');
@@ -929,6 +933,91 @@ class ChatController extends ChangeNotifier {
             : trf('‘{0}’-এ আসার চেয়ে {1} টাকা বেশি খরচ হয়েছে।', [p.name, bnNumber(-ps.balance)]);
     _say(out, trf('ঠিক আছে, {0} টাকার “{1}” এখন ‘{2}’ হিসাবে — সাধারণ আয়-ব্যয় থেকে সরিয়েছি। {3}', [bnNumber(e.amount), e.category, p.name, state]),
         links: [ChatLink(LinkKind.page, tr('অন্যান্য হিসাব'), page: 'projects')]);
+    _offerUndo(snap);
+    return true;
+  }
+
+  /// One item of the list waiting for "সবগুলো রেখে দিই?" named by a word of
+  /// it and said again as income, spending or into a separate account: that
+  /// item is replaced and the list is asked again. Nothing is kept yet.
+  bool _editQueued(String t, List<String> out) {
+    final said = [for (final w in words(normalize(t))) if (w.length >= 3) w];
+    const common = {'অন্যান্য', 'হিসাবের', 'হিসাবে', 'হিসাব', 'ভেতরে', 'ভিতরে', 'যুক্ত', 'টাকা', 'যথাযথ', 'ভাবে', 'হয়নি', 'বেতন', 'বেতনে', 'আয়', 'খরচ', 'লিখ', 'লেখো', 'রাখো', 'করো'};
+    int? at;
+    for (var i = 0; i < _queue.length; i++) {
+      final c = _queue[i];
+      if (c is! CashAdd && c is! LedgerAdd) continue;
+      final item = words(normalize(c.transcript));
+      final hit = said.any((w) => !common.contains(w) && item.any((x) => x.length >= 3 && (w.startsWith(x) || x.startsWith(w)) && (w.length - x.length).abs() <= 3));
+      if (!hit) continue;
+      if (at != null) return false; // two items named: not clear which
+      at = i;
+    }
+    if (at == null) return false;
+    final c = _queue[at];
+    final amount = c is CashAdd ? c.amount : (c as LedgerAdd).amount;
+    final f = fold(normalize(t));
+    final p = projectMeant(brain.data, t);
+    final toProject = p != null || projectPageNamed(t);
+    final income = RegExp(fold(r'(?:আয়|বেতন|এসেছে|পেয়েছি|পেলাম|দিয়েছে|ইনকাম)')).hasMatch(f);
+    final spend = RegExp(fold(r'(?:খরচ|ব্যয়)')).hasMatch(f);
+    if (!toProject && !income && !spend) return false;
+    final kind = spend && !income ? CashKind.expense : (income ? CashKind.income : (c is CashAdd ? c.kind : CashKind.income));
+    final category = RegExp(fold('বেতন')).hasMatch(f) ? 'বেতন' : (c is CashAdd ? c.category : (kind == CashKind.income ? 'অন্যান্য আয়' : 'অন্যান্য'));
+    _queue[at] = CashAdd(c.transcript, kind: kind, amount: amount, category: category, project: toProject ? (p?.name ?? '') : null);
+    _ask(out, tr('ঠিক আছে, ওটা বদলে দিলাম। এখন এভাবে রেখে দিই?'), ChatWait.yesNo, choices: _yesNoChoices, facts: [for (final x in _queue) summaryLine(x)]);
+    return true;
+  }
+
+  /// The special day kept last in this conversation (id, when).
+  (String, DateTime)? _lastSpecial;
+
+  /// "আমি বললাম ফেব্রুয়ারী, তুমি নভেম্বর কেন করছো?", "এটা ১৫ ফেব্রুয়ারী
+  /// হবে": the special day just kept (or the one named) gets that date —
+  /// its yearly reminder moves with it. Nothing new is kept.
+  Future<bool> _specialFix(String t, List<String> out) async {
+    final n = normalize(tidySpeech(t));
+    final f = ' ${fold(n)} ';
+    // About that day, not a new thing: "এটা …", "আমি বললাম …", "… কেন", "ভুল".
+    final pointing = RegExp(fold(r'(?:বললাম|বলেছি|বলছি|কেন|ভুল|ঠিক\s+কর|(?<=\s)(?:এটা|ওটা|সেটা|এইটা|এটার)(?=\s))')).hasMatch(f);
+    final changing = RegExp(fold(r'(?<=\s)(?:হবে|করো|কর|লেখো|রাখো)(?=\s)')).hasMatch(f);
+    if (!pointing && !changing) return false;
+    final date = dayMonthIn(n);
+    // Months as words of their own ("মে" inside "রহিমের" is not May).
+    final ws = words(n);
+    var monthOnly = date == null ? [for (var i = 0; i < bnMonths.length; i++) if (ws.contains(normalize(bnMonths[i]))) i + 1] : const <int>[];
+    if (date == null && monthOnly.isEmpty) return false;
+    SpecialDay? target;
+    final last = _lastSpecial;
+    if (last != null && _now.difference(last.$2).inMinutes <= 60) target = brain.data.specialDays.where((x) => x.id == last.$1).firstOrNull;
+    final named = [for (final x in brain.data.specialDays) if (n.contains(normalize(x.kind.bn)) || (x.person.length > 1 && n.contains(normalize(x.person)) && x.person != 'আমার')) x];
+    if (named.length == 1) target = named.single;
+    if (target == null || (!pointing && named.length != 1)) return false;
+    // "আমি বললাম ফেব্রুয়ারী, তুমি নভেম্বর কেন করছো?": the month that is
+    // not the one kept is the one meant.
+    if (monthOnly.length > 1) {
+      // The month right after "বললাম/বলেছি" is what was said; otherwise the one not kept.
+      final said = RegExp(fold('(?:বললাম|বলেছি|বলছি|বলেছিলাম)')).firstMatch(n);
+      int? pos(int m) {
+        final i = n.indexOf(' ${normalize(bnMonths[m - 1])}', said?.end ?? 0);
+        return i < 0 ? null : i;
+      }
+      final after = said == null ? <int>[] : ([for (final m in monthOnly) if (pos(m) != null) m]..sort((a, b) => pos(a)!.compareTo(pos(b)!)));
+      monthOnly = after.isNotEmpty ? [after.first] : [for (final m in monthOnly) if (m != target.month) m];
+    }
+    if (date == null && monthOnly.length != 1) return false;
+    final month = date?.$2 ?? monthOnly.single;
+    final day = date?.$1 ?? target.day;
+    if (month == target.month && day == target.day) {
+      _say(out, trf('{0} — {1} {2}, এভাবেই রাখা আছে।', [specialTitle(target), bnDigits(day), monthName(month)]));
+      return true;
+    }
+    if (DateTime(2024, month, day).month != month) return false;
+    final snap = brain.snapshot();
+    await brain.saveSpecialDay(target.copyWith(month: month, day: day));
+    _lastSpecial = (target.id, _now);
+    _actions++;
+    _say(out, trf('দুঃখিত, ভুল হয়েছিল। {0} এখন {1} {2} — রিমাইন্ডারও সেদিনে সরিয়েছি।', [specialTitle(target), bnDigits(day), monthName(month)]), links: [ChatLink(LinkKind.special, tr('বিশেষ দিনগুলো দেখুন'))]);
     _offerUndo(snap);
     return true;
   }
@@ -2051,6 +2140,18 @@ class ChatController extends ChangeNotifier {
           }
           return true;
         }
+        // "সব যথাযথ হয় নাই। নাহিয়ানের বেতন অন্যান্য হিসাবের … শিক্ষার্থীদের
+        // বেতনে যুক্ত কর": one item of the list waiting, changed; asked again.
+        if (_askingAll && _editQueued(t, out)) return true;
+        // "খরচ মাত্র ১৫০ টাকা?" about the list waiting: what the list holds, still waiting.
+        if (_askingAll && isQuestionText(t) && RegExp(fold(r'(?:খরচ|আয়|টাকা|মোট)')).hasMatch(fold(t)) && yesNo(t) == null) {
+          final spent = _queue.whereType<CashAdd>().where((c) => c.kind == CashKind.expense).fold<int>(0, (a, c) => a + c.amount);
+          final got = _queue.whereType<CashAdd>().where((c) => c.kind == CashKind.income).fold<int>(0, (a, c) => a + c.amount);
+          _say(out, trf('এই তালিকায় মোট খরচ {0} টাকা{1} — নিচে আলাদা করে দিলাম। রেখে দিই? কোনোটা ভুল হলে বলুন, বদলে দেব।', [bnNumber(spent), got > 0 ? trf(', আয় {0} টাকা', [bnNumber(got)]) : '']),
+              facts: [for (final x in _queue) summaryLine(x)]);
+          choices = _yesNoChoices;
+          return true;
+        }
         // "হ্যাঁ, কিন্তু শুধু লিখবা ওয়াইফাই বিল দিতে হবে": same item, fewer words.
         final shorter = refused || _askingAll ? null : onlyWrite(t);
         if (shorter != null && (_current is TaskAdd || _current is ReminderAdd)) {
@@ -2813,7 +2914,8 @@ class ChatController extends ChangeNotifier {
             links: [c.who.isEmpty ? ChatLink(LinkKind.page, tr('জরুরি কার্ড দেখুন'), page: 'emergency') : ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন'))], speak: !quiet);
         _history.add(AiTurn.app(tr('[রক্তের গ্রুপ রাখা হলো]')));
       case SpecialAdd():
-        await brain.saveSpecialDay(SpecialDay(person: c.person, kind: c.kind, month: c.month, day: c.day, year: c.year), hour: c.hour, minute: c.minute);
+        final saved = await brain.saveSpecialDay(SpecialDay(person: c.person, kind: c.kind, month: c.month, day: c.day, year: c.year), hour: c.hour, minute: c.minute);
+        _lastSpecial = (saved.id, _now);
         _say(out, quiet ? trf('বিশেষ দিন: {0}', [c.person]) : trf('রেখে দিলাম। প্রতি বছর আগের দিন আর সেদিন {0}-এ মনে করিয়ে দেবো।', [bnTime(c.hour ?? 9, c.minute)]),
             links: [ChatLink(LinkKind.special, tr('বিশেষ দিনগুলো দেখুন'))], speak: !quiet);
         _history.add(AiTurn.app('[বিশেষ দিন রাখা হলো: ${summaryLine(c)}]'));

@@ -182,6 +182,7 @@ bool wordsMatch(String term, String word) {
   // "facebook"). Two Bengali words with the same few consonants are
   // usually different words ("অবস্থা" ↔ "ওয়েবসাইট"): only long outlines.
   final cross = _bengali.hasMatch(ct) != _bengali.hasMatch(cw);
-  if (st == sw) return cross || st.length >= 4;
+  // Two consonants say little ("কিস" ~ "kechia"): the vowels must agree too.
+  if (st == sw) return cross ? (st.length >= 3 || soundDistance(ct, cw) <= 1) : st.length >= 4;
   return st.length >= (cross ? 4 : 5) && sw.length >= (cross ? 4 : 5) && _lev(st, sw) <= 1;
 }

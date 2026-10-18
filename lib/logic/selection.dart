@@ -144,15 +144,26 @@ Selection? selectionIn(String f) {
   final exceptNames = <List<String>>[];
   var g = f;
   for (final re in [
-    _tre(r'(?<=\s)(\S+(?:\s+\S+)?)\s+(?:ছাড়া|বাদে|বাদ\s+দিয়ে)\s+(?=(?:সব|বাকি|অন্য))'),
+    // "রবিনের বোনের বিয়ের দাওয়াতের কাজ রেখে বাকিগুলো বাদ দাও": a longer
+    // name, from the start of the sentence (or a comma) up to "রেখে/ছাড়া".
+    _tre(r'(?:^|,)\s*(?:শুধু|কেবল|খালি)?\s*(\S+(?:\s+\S+){0,6}?)\s+(?:রেখে|ছাড়া|বাদে|বাদ\s+দিয়ে)\s+(?=(?:সব|বাকি|অন্য))'),
+    _tre(r'(?<=\s)(\S+(?:\s+\S+)?)\s+(?:ছাড়া|বাদে|বাদ\s+দিয়ে|রেখে)\s+(?=(?:সব|বাকি|অন্য))'),
+    // "রবিনের বোনের বিয়ের দাওয়াত থাকবে শুধু", "শুধু ব্যাংকেরটা থাকবে".
+    _tre(r'(?:^|,)\s*(?:শুধু|কেবল|খালি)?\s*(\S+(?:\s+\S+){0,6}?)\s+(?:থাকবে|থাকুক|রাখো\s+না|বাদ\s+থাকবে|থাক)(?=[\s,])'),
     _tre(r'(?<=\s)(?:শুধু|কেবল|খালি)?\s*(\S+(?:\s+\S+)?)\s+(?:থাকবে|থাকুক|রাখো\s+না|বাদ\s+থাকবে|থাক)(?=[\s,])'),
   ]) {
     final m = re.firstMatch(g);
     if (m == null) continue;
     final w = m[1]!.trim();
     final o = _ordOf(w);
+    // "৩ নং ৪নং", "২ আর ৩ নম্বর": several places.
+    final wd = asciiDigits(w);
+    final nums = [for (final x in _tre(r'([0-9]+)\s*(?:নং|নম্বর|নাম্বার)?').allMatches(wd)) int.parse(x[1]!)];
+    final onlyNums = nums.isNotEmpty && _tre(r'^(?:\s*[0-9]+\s*(?:নং|নম্বর|নাম্বার)?(?:টা|টি)?\s*(?:,|আর|ও|এবং)?)+\s*$').hasMatch(wd);
     if (o != null) {
       exceptIdx.add(o);
+    } else if (onlyNums) {
+      exceptIdx.addAll(nums);
     } else {
       final terms = searchTerms(normalize(w.replaceAll(_tre(r'(?:ের|এর|র)?(?:টা|টি|গুলো)$'), '').replaceAll(_tre(r'(?:কাজ|নোট)$'), '')));
       // "ফোনেরটা থাকবে" means one; "জন্মদিনের গুলো থাকবে" / "জন্মদিন
@@ -161,6 +172,9 @@ Selection? selectionIn(String f) {
       if (terms.isNotEmpty) exceptNames.add([if (one) exceptOne, ...terms]);
     }
     g = g.replaceRange(m.start, m.end, ' ');
+    // One name said once is enough: the shorter forms after it would only
+    // find a piece of the same words.
+    if (exceptIdx.isNotEmpty || exceptNames.isNotEmpty) break;
   }
   final hasRest = _thas(g, r'(?<=\s)(?:বাকিগুলো|বাকিগুলা|বাকি\s+সব|বাকি\s+সবগুলো|অন্যগুলো|অন্য\s+সব|বাকিগুলোর)(?=\s)');
   Selection withExcept(Selection s) => Selection(s.kind, indexes: s.indexes, n: s.n, from: s.from, to: s.to, names: s.names, filter: s.filter, exceptIdx: exceptIdx, exceptNames: exceptNames);
@@ -316,8 +330,13 @@ List<BulkAction>? bulkCommands(String said, DateTime now) {
   if (op.isEmpty && dayFix != null) op = _bulkOp(' $dayFix ');
   if (op.isEmpty && dayFix != null) op = _bulkOp(full.replaceAll(',', ' '));
   // "উল্টো ক্রমে দেখাও": the whole list, in the other order.
-  final sel = selectionIn(f) ?? (op == 'reverse' ? const Selection(SelKind.all) : null);
+  var sel = selectionIn(f) ?? (op == 'reverse' ? const Selection(SelKind.all) : null);
   if (sel == null) return null;
+  // "রবিনের বোনের বিয়ের দাওয়াত থাকবে শুধু": only that stays — the rest go.
+  if (op.isEmpty && sel.hasExcept && _thas(f, r'(?<=\s)(?:শুধু|কেবল|খালি)(?=\s)') && _thas(f, r'(?<=\s)(?:থাকবে|থাকুক|থাক)(?=\s)')) {
+    op = 'delete';
+    sel = Selection(SelKind.all, exceptIdx: sel.exceptIdx, exceptNames: sel.exceptNames);
+  }
   if (op.isEmpty) return null;
   final domain = _bulkDomain(fo);
   DateTime? due;

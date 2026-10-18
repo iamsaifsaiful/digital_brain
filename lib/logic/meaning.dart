@@ -301,6 +301,11 @@ String tidySpeech(String said, {List<bool>? whole}) {
   s = s.replaceAll(RegExp(fold(r'আরব[িী]\s+(?:মাসের\s+)?কত\s+তারিখ\S*')), fold('আরবি তারিখ'));
   // Dates as people say them: "৩১ শে অক্টোবর" → "৩১ অক্টোবর", "অক্টোবরের" →
   // "অক্টোবর", "জানুয়ারি মাসের প্রথম তারিখে" → "১ জানুয়ারি", "২৭ সালের" dropped.
+  // One spelling of each month ("ফেব্রুয়ারী" = "ফেব্রুয়ারি", "আগষ্ট" =
+  // "আগস্ট"), its ending kept: every date rule after this knows it.
+  for (final (from, to) in _monthSpellings) {
+    s = s.replaceAll(RegExp('(?<=^|[\\s,।(])${fold(from)}'), fold(to));
+  }
   final months = bnMonths.map(fold).join('|');
   // "বাইশ তারিখে", "পঁচিশে ডিসেম্বর": a day of the month said as a word is
   // the same date as "২২ তারিখে" — written as a number so every date rule
@@ -308,7 +313,8 @@ String tidySpeech(String said, {List<bool>? whole}) {
   s = s.replaceAllMapped(RegExp('(^|[\\s,।])(${_dayWords.keys.map(fold).join('|')})(?:${fold('শে')}|${fold('ে')}|${fold('এ')})?(?=\\s+(?:${fold('তারিখ')}|$months))'),
       (m) => '${m[1]}${_bnNum(_dayWords[_dayWordsFolded[m[2]]]!)}');
   s = s.replaceAllMapped(RegExp(fold(r'([০-৯0-9]{1,2})\s*(?:শে|ই|লা|রা|ঠা)(?=$|[\s,।])')), (m) => m[1]!);
-  s = s.replaceAllMapped(RegExp('($months)(?:\\s*${fold('এর')}|${fold('ের')}|${fold('তে')}|${fold('ে')})(?=\$|[\\s,।])'), (m) => m[1]!);
+  // (A month only as a word of its own: "মে" inside "রহিমের" is not May.)
+  s = s.replaceAllMapped(RegExp('(?<=^|[\\s,।(])($months)(?:\\s*${fold('এর')}|${fold('ের')}|${fold('তে')}|${fold('ে')}|${fold('র')}|${fold('তেই')})(?=\$|[\\s,।])'), (m) => m[1]!);
   s = s.replaceAllMapped(RegExp('($months)\\s+${fold('মাসের')}\\s+(?:${fold('প্রথম')}|${fold('পহেলা')}|${fold('এক')})\\s+${fold('তারিখ')}\\S*'), (m) => '১ ${m[1]}');
   s = s.replaceAllMapped(RegExp('($months)\\s+(?:${fold('মাসের')}|${fold('মাসে')}|${fold('মাসেই')})\\s+([০-৯0-9]{1,2})\\s+${fold('তারিখ')}\\S*'), (m) => '${m[2]} ${m[1]}');
   // "ডিসেম্বরের ৬ তারিখে" (the "-এর" already gone): "৬ ডিসেম্বর", not the 6th of this month.
@@ -465,3 +471,8 @@ String meantInstead(String said) {
   final rest = m2[1]!.trim();
   return rest.split(RegExp(r'\s+')).length >= 2 ? rest : said;
 }
+
+const _monthSpellings = [
+  ('জানুয়ারী', 'জানুয়ারি'), ('জানুআরি', 'জানুয়ারি'), ('ফেব্রুয়ারী', 'ফেব্রুয়ারি'), ('ফেব্রুআরি', 'ফেব্রুয়ারি'), ('ফেবরুয়ারি', 'ফেব্রুয়ারি'),
+  ('আগষ্ট', 'আগস্ট'), ('সেপ্টেম্বার', 'সেপ্টেম্বর'), ('অক্টোবার', 'অক্টোবর'), ('নভেম্বার', 'নভেম্বর'), ('ডিসেম্বার', 'ডিসেম্বর'), ('জুলায়', 'জুলাই'),
+];

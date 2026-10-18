@@ -3211,4 +3211,9 @@ const enStrings = <String, String>{
   '‘{0}’-এ এ পর্যন্ত খরচ {1} টাকা।': '‘{0}’ has spent {1} taka so far.',
   '‘{0}’-এ এখন হাতে আছে {1} টাকা।': '‘{0}’ now has {1} taka in hand.',
   '‘{0}’-এ আসার চেয়ে {1} টাকা বেশি খরচ হয়েছে।': '‘{0}’ has spent {1} taka more than came in.',
+  'এই তালিকায় মোট খরচ {0} টাকা{1} — নিচে আলাদা করে দিলাম। রেখে দিই? কোনোটা ভুল হলে বলুন, বদলে দেব।': "This list spends {0} taka in all{1} — each one is below. Keep them? Tell me if one is wrong and I'll change it.",
+  ', আয় {0} টাকা': ", income {0} taka",
+  'ঠিক আছে, ওটা বদলে দিলাম। এখন এভাবে রেখে দিই?': "Done, I changed that one. Keep them like this?",
+  'দুঃখিত, ভুল হয়েছিল। {0} এখন {1} {2} — রিমাইন্ডারও সেদিনে সরিয়েছি।': "Sorry, that was wrong. {0} is now {1} {2} — the reminder moved too.",
+  '{0} — {1} {2}, এভাবেই রাখা আছে।': "{0} — {1} {2}, already kept that way.",
 };
