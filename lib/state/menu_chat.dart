@@ -235,6 +235,25 @@ extension _MenuChat on ChatController {
         }
         _rememberSet('habits', tr('আজকের'), [for (final h in d.habits) h.id], source: c.transcript);
         _say(out, trf('{0}টা অভ্যাস:', [bnDigits(d.habits.length)]), facts: [for (final h in d.habits) '${h.name} — ${h.doneOn(_now) ? tr('আজ হয়েছে') : tr('আজ বাকি')}'], links: _pageLink('habits'));
+      case ('project', 'csv'):
+        // One account's entries (or the general ones), the kind asked only.
+        final p = c.target.isEmpty ? null : projectByName(d, c.target);
+        if (c.target.isNotEmpty && p == null) {
+          _say(out, trf('‘{0}’ নামে কোনো হিসাব নেই — কোনো ফাইল বানাইনি।', [c.target]));
+          return;
+        }
+        final kind = c.text == 'expense' ? CashKind.expense : (c.text == 'income' ? CashKind.income : null);
+        final es = [for (final e in d.cash) if (e.projectId == p?.id && (kind == null || e.kind == kind)) e];
+        if (es.isEmpty) {
+          _say(out, tr('এই হিসাবে এমন কোনো লেনদেন নেই — কোনো ফাইল বানাইনি।'));
+          return;
+        }
+        final total = es.fold<int>(0, (s, e) => s + (kind == null && e.kind == CashKind.income ? 0 : e.amount));
+        final name = '${p?.name ?? tr('আয়-ব্যয়')}${kind == CashKind.expense ? '-খরচ' : (kind == CashKind.income ? '-আয়' : '')}.csv';
+        await brain.services.files.shareFile(Uint8List.fromList(utf8.encode(cashCsv(es, kind: kind))), name, 'text/csv', name);
+        _say(out, kind == null
+            ? trf('{0}টা লেনদেনের CSV বানিয়েছি — পাঠানোর জন্য খুলে দিলাম।', [bnDigits(es.length)])
+            : trf('{0}টা {1}, মোট {2} টাকা — CSV বানিয়ে পাঠানোর জন্য খুলে দিলাম।', [bnDigits(es.length), kind == CashKind.expense ? tr('খরচ') : tr('আয়'), bnNumber(total)]));
       case ('notes', 'read'):
         // By its words (title first); none said — the newest. Read as data.
         final ws = words(normalize(c.text)).where((x) => x.runes.length > 1).toList();
@@ -260,7 +279,7 @@ extension _MenuChat on ChatController {
           _say(out, w.isEmpty ? tr('কোনো নোট নেই।') : trf('“{0}”-এর কোনো নোট নেই।', [c.text]), links: [ChatLink(LinkKind.notes, tr('নোট দেখুন'))]);
           return;
         }
-        _rememberSet('notes', c.text.isEmpty ? '' : '${c.text}', [for (final n in list) n.id], source: c.transcript);
+        _rememberSet('notes', c.text.isEmpty ? '' : c.text, [for (final n in list) n.id], source: c.transcript);
         _say(out, trf('{0}টা নোট:', [bnDigits(list.length)]), facts: [for (final n in list) noteLine(n)], links: [ChatLink(LinkKind.notes, tr('নোট দেখুন'))]);
       case ('health', 'list'):
         final m = c.target.isEmpty ? null : memberCalled(d, c.target.replaceAll(RegExp(fold(r'(?:য়ের|ের|এর|র)$')), ''));

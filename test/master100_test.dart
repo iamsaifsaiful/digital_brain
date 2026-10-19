@@ -4,8 +4,12 @@
 // reply. Cases that need a phone (speech, microphone, OCR on real images,
 // the dialer, biometrics, backup keys) are not here — they are listed as
 // not run in docs/master100-2026-10-19.md.
+import 'package:digital_brain/logic/ai_map.dart';
+import 'package:digital_brain/logic/parser.dart';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/state/chat.dart';
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'app_test.dart' show Rig, start;
@@ -784,7 +788,7 @@ void main() {
     }
 
     testWidgets('R1 "শুধু নোট করে রাখো" wins over an AI money item', (t) async {
-      await withAi(t, AppData(), {'type': 'ledger_add', 'person': 'ইমরান', 'amount': 10000, 'kind': 'received'});
+      await withAi(t, AppData(), {'action': 'ledger_add', 'person': 'ইমরান', 'amount': 10000, 'kind': 'received'});
       await say('ইমরান আজ ১০ হাজার টাকা দিয়েছে, এটা শুধু নোট করে রাখো।');
       await yes();
       expect(data().ledger, isEmpty);
@@ -792,24 +796,22 @@ void main() {
       expect(data().notes, hasLength(1));
     });
 
-    testWidgets('R2 a name the user did not say is never written to (AI "corrected" রহম → রহিম)', (t) async {
-      await withAi(t, AppData(ledger: [LedgerEntry(person: 'রহিম', kind: LedgerKind.lent, amount: 500, date: DateTime(2026, 10, 1))]),
-          {'type': 'ledger_add', 'person': 'করিম', 'amount': 300, 'kind': 'lent'});
-      await say('সোহেলকে ৩০০ টাকা ধার দিলাম');
-      await yes();
-      expect(data().ledger.where((e) => e.person == 'করিম'), isEmpty);
+    test('R2 (code) an AI item naming someone the user did not say is dropped — the rules read it', () {
+      final ledger = [LedgerEntry(person: 'রহিম', kind: LedgerKind.lent, amount: 500, date: DateTime(2026, 10, 1))];
+      expect(commandFromAi('সোহেলকে ৩০০ টাকা ধার দিলাম', {'action': 'ledger_add', 'person': 'রহিম', 'amount': 300, 'kind': 'lent'}, ledger), isNull);
+      // The name the user said is kept.
+      final ok = commandFromAi('রহিমকে ৩০০ টাকা ধার দিলাম', {'action': 'ledger_add', 'person': 'রহিম', 'amount': 300, 'kind': 'lent'}, ledger);
+      expect((ok as LedgerAdd).person, 'রহিম');
     });
 
-    testWidgets('R3 "দিতে হবে" from the AI as a balance never overwrites it', (t) async {
-      await withAi(t, AppData(ledger: [LedgerEntry(person: 'রহিম', kind: LedgerKind.borrowed, amount: 500, date: DateTime(2026, 10, 1))]),
-          {'type': 'ledger_set', 'person': 'রহিম', 'balance': -1000});
-      await say('রহিমকে কাল ১০০০ টাকা দিতে হবে');
-      await yes();
-      expect(owed('রহিম'), -500);
+    test('R3 (code) "দিতে হবে" from the AI as a balance is not taken; "এখন মোট" is', () {
+      final ledger = [LedgerEntry(person: 'রহিম', kind: LedgerKind.borrowed, amount: 500, date: DateTime(2026, 10, 1))];
+      expect(commandFromAi('রহিমকে কাল ১০০০ টাকা দিতে হবে', {'action': 'ledger_set', 'person': 'রহিম', 'balance': -1000}, ledger), isNull);
+      expect(commandFromAi('রহিমের কাছে এখন মোট ১০০০ টাকা দেনা', {'action': 'ledger_set', 'person': 'রহিম', 'balance': -1000}, ledger), isA<LedgerSet>());
     });
 
     testWidgets('R4 "হাতে কত রইল?" is worked out on the phone, not by the AI', (t) async {
-      await withAi(t, AppData(), {'type': 'chat'});
+      await withAi(t, AppData(), {'action': 'chat'});
       rig.ai.answer = {'reply': 'আপনার হাতে ৫,০০০ টাকা আছে।', 'items': const []};
       await say('৯০০০ টাকা নিয়ে বাজারে গেলাম; মাছ ২৫০০, মুদি ২০০০, মাংস ৩০০০, ভাড়া ১৫০।');
       await yes();
@@ -906,5 +908,85 @@ void main() {
     await say('ওকে কাল কল করতে মনে করাও');
     if (chat.wait != ChatWait.none) await say('সকাল ১০টায়');
     expect(data().reminders.where((r) => r.date == DateTime(2026, 10, 20)), hasLength(1), reason: '${data().reminders.map((r) => '${r.title} ${r.date}')}');
+  });
+
+  // ───────── 9, 62, 72, 73, 95 ─────────
+  testWidgets('C09 a late AI answer for an older message changes nothing (the newer date stays)', (t) async {
+    await open(t, AppData(tasks: [Task(id: 'x', title: 'নোয়াখালী যাওয়া', due: DateTime(2029, 6, 15))]));
+    rig.ai.key = 'k';
+    final slow = Completer<void>();
+    rig.ai.gate = slow.future;
+    // The AI's late answer would add a to-do for tomorrow.
+    rig.ai.answer = {'reply': 'জি', 'items': [{'action': 'task_add', 'text': 'পুরোনো উত্তরের কাজ', 'date': '2026-10-20'}]};
+    final first = chat.hear('ওইটা নিয়ে একটু ভাবো তো');
+    await t.pump();
+    expect(rig.ai.asked, hasLength(1), reason: 'the first message waits on the AI');
+    // Before that answer comes, the user says something newer.
+    rig.ai.gate = null;
+    rig.ai.answer = {'reply': 'ঠিক আছে', 'items': const []};
+    await chat.hear('আচ্ছা থাক');
+    slow.complete();
+    await first;
+    // ignore: avoid_print
+    expect(data().tasks.firstWhere((x) => x.id == 'x').due, DateTime(2029, 6, 15));
+    expect(data().tasks.where((x) => x.title.contains('পুরোনো')), isEmpty);
+    expect(data().tasks, hasLength(1));
+    // Not even offered: no question about it is left open.
+    expect(chat.messages.where((m) => !m.fromUser && [m.text, ...m.facts].join(' ').contains('পুরোনো')), isEmpty);
+    expect(chat.wait, ChatWait.none);
+  });
+
+  testWidgets('C62 two people named শফিক: asked which, the chosen one gets the loan with its amount and kind', (t) async {
+    await open(t, AppData(ledger: [
+      LedgerEntry(person: 'শফিক আহমেদ', kind: LedgerKind.lent, amount: 100, date: DateTime(2026, 10, 1)),
+      LedgerEntry(person: 'শফিক হাসান', kind: LedgerKind.lent, amount: 200, date: DateTime(2026, 10, 2)),
+    ]));
+    final r = await say('শফিককে ৫০০ টাকা ধার দিলাম');
+    final offered = chat.choices.map((c) => c.label).join(' ');
+    expect(offered, contains('শফিক আহমেদ'), reason: r);
+    expect(offered, contains('শফিক হাসান'));
+    expect(data().ledger, hasLength(2), reason: 'nothing written before the choice');
+    await say('শফিক হাসান');
+    await yes();
+    expect(owed('শফিক হাসান'), 700);
+    expect(owed('শফিক আহমেদ'), 100);
+  });
+
+  testWidgets('C72 two fee drafts waiting: "এইগুলো ওই বেতনের হিসাবে রাখো" → both into that account', (t) async {
+    await open(t, AppData(projects: [Project(id: 'S', name: 'শিক্ষার্থীদের বেতন')]));
+    final a = await say('মাহি ২০০০ আর আঁখি ৫০০ টাকা বেতন দিয়েছে');
+    expect(data().cash, isEmpty, reason: a);
+    await say('এইগুলো ওই বেতনের হিসাবে রাখো');
+    await yes();
+    expect(data().cash, hasLength(2), reason: '${data().cash.map((c) => '${c.amount} ${c.projectId}')}');
+    expect(data().cash.every((c) => c.projectId == 'S' && c.kind == CashKind.income), isTrue);
+  });
+
+  testWidgets('C73 a fee kept as plain income: "ওটা বেতনের হিসাবে সরাও" → the same entry moved, not doubled', (t) async {
+    final e = CashEntry(id: 'e1', kind: CashKind.income, amount: 2000, category: 'অন্যান্য আয়', note: 'মাহি ২০০০ টাকা', date: DateTime(2026, 10, 19));
+    await open(t, AppData(projects: [Project(id: 'S', name: 'শিক্ষার্থীদের বেতন')], cash: [e]));
+    await say('আজকের আয় দেখাও');
+    await say('মাহির ২০০০ টাকাটা বেতনের হিসাবে সরাও');
+    await yes();
+    expect(data().cash, hasLength(1));
+    expect((data().cash.single.id, data().cash.single.projectId, data().cash.single.amount), ('e1', 'S', 2000));
+  });
+
+  testWidgets('C95 "বাড়ি মেরামতের শুধু খরচগুলোর CSV দাও" → that account\'s spending only, exact total, nothing secret', (t) async {
+    final d = fixtureP();
+    d.cash.add(CashEntry(kind: CashKind.expense, amount: 999, category: 'বাজার', date: DateTime(2026, 10, 5)));
+    d.vault.add(VaultItem(name: 'ব্যাংক', password: 'secret-123'));
+    await open(t, d);
+    final r = await say('বাড়ি মেরামতের শুধু খরচগুলোর CSV দাও');
+    final bytes = rig.files.shared;
+    expect(bytes, isNotNull, reason: r);
+    final csv = utf8.decode(bytes!);
+    expect(csv, contains('ইট-বালু'));
+    expect(csv, contains('মজুরি'));
+    expect(csv, isNot(contains('প্রাপ্তি')), reason: 'income left out');
+    expect(csv, isNot(contains('999')), reason: 'other accounts left out');
+    expect(csv, contains('18500'));
+    expect(csv, isNot(contains('secret')));
+    expect(r, contains('১৮,৫০০'));
   });
 }

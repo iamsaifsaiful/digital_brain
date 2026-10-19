@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import '../logic/csv.dart' show cashCsv;
 import 'package:flutter/foundation.dart';
 
 import '../logic/lang.dart';
@@ -828,6 +831,10 @@ class ChatController extends ChangeNotifier {
     // কাজে …" right after is about it.
     final named = projectMeant(brain.data, t);
     if (named != null) _focusProject = (named.name, _now);
+    if (wait == ChatWait.none && await _moveCashInto(t, out)) {
+      notifyListeners();
+      return out.join(' ');
+    }
     if (wait == ChatWait.none && _envelopeLeft(t, out)) {
       notifyListeners();
       return out.join(' ');
@@ -1347,7 +1354,15 @@ class ChatController extends ChangeNotifier {
   Future<String> _understand(String t, List<String> out, {String? shown}) async {
     thinking = brain.aiOn;
     notifyListeners();
+    final turn = _turn;
     final (understood, problem) = await brain.understandAll(t, history: List.of(_history), fast: voiceMode);
+    // A newer message came while this one was being understood (a date
+    // corrected, a new request): this late answer is old — nothing is done
+    // with it, so it can never undo the newer one.
+    if (_turn != turn) {
+      Trace.log('understood', 'a late answer for an older message — ignored', {'text': t});
+      return out.join(' ');
+    }
     final cmds = _applyTopic(understood, t);
     thinking = false;
     if (problem != null) messages.add(ChatMessage.app(problem, info: true));
@@ -2135,7 +2150,14 @@ class ChatController extends ChangeNotifier {
       _phoneChecked = true;
       // Whose number? First the people already in the book with this name,
       // then যোগাযোগ. One fits: use it. Several: ask which.
-      final inBook = peopleNamed(brain.data.ledger, _person).where((p) => p.phone.isNotEmpty).toList();
+      // Two in the book called "শফিক" (with or without a number): which one
+      // is asked — money never goes to the first match.
+      var inBook = peopleNamed(brain.data.ledger, _person).toList();
+      // "শফিক" said, the book has "শফিক আহমেদ" and "শফিক হাসান": both offered.
+      if (inBook.isEmpty && !_person.trim().contains(' ')) {
+        final byFirst = [for (final p in balances(brain.data.ledger)) if (p.name.trim().contains(' ') && personKey(p.name.trim().split(' ').first) == personKey(_person)) p];
+        if (byFirst.length >= 2) inBook = byFirst;
+      }
       final options = inBook.isNotEmpty
           ? [for (final p in inBook) (p.name, p.phone)]
           : [for (final c in contactMatches(brain.data, _person).where((c) => c.phone.isNotEmpty)) (c.name, c.phone)];
@@ -2154,7 +2176,7 @@ class ChatController extends ChangeNotifier {
           trf('“{0}” নামে {1} জন আছেন। কার সাথে লেনদেন?', [_person, bnDigits(options.length)]),
           ChatWait.whichPerson,
           choices: [
-            for (final o in _personChoices) ChatChoice('${o.$1} · ${showPhone(o.$2)}', '${o.$1} ${o.$2}'),
+            for (final o in _personChoices) ChatChoice(o.$2.isEmpty ? o.$1 : '${o.$1} · ${showPhone(o.$2)}', o.$2.isEmpty ? o.$1 : '${o.$1} ${o.$2}'),
             ChatChoice(tr('নতুন মানুষ'), 'নতুন মানুষ'),
           ],
         );
@@ -2410,6 +2432,8 @@ class ChatController extends ChangeNotifier {
             return true;
           }
           _ledgerPhone = _personChoices[i].$2;
+          // The one chosen, by its full name ("শফিক হাসান", not "শফিক").
+          _person = _personChoices[i].$1;
         }
         _personChoices = const [];
         wait = ChatWait.none;
@@ -2458,6 +2482,17 @@ class ChatController extends ChangeNotifier {
         // "সব যথাযথ হয় নাই। নাহিয়ানের বেতন অন্যান্য হিসাবের … শিক্ষার্থীদের
         // বেতনে যুক্ত কর": one item of the list waiting, changed; asked again.
         if (_askingAll && _editQueued(t, out)) return true;
+        // "এইগুলো ওই বেতনের হিসাবে রাখো" while money items wait: all of
+        // them into that account — shown again, then kept on a yes.
+        final into = _askingAll && _queue.whereType<CashAdd>().isNotEmpty && !refused ? projectHinted(brain.data, t) : null;
+        if (into != null && _queue.whereType<CashAdd>().any((c) => c.project != into.name)) {
+          for (var i = 0; i < _queue.length; i++) {
+            final c = _queue[i];
+            if (c is CashAdd) _queue[i] = CashAdd(c.transcript, kind: c.kind, amount: c.amount, category: c.category, project: into.name);
+          }
+          _ask(out, trf('ঠিক আছে, এগুলো ‘{0}’ হিসাবে রাখব। এভাবে রেখে দিই?', [into.name]), ChatWait.yesNo, choices: _yesNoChoices, facts: [for (final x in _queue) summaryLine(x)]);
+          return true;
+        }
         // "খরচ মাত্র ১৫০ টাকা?" about the list waiting: what the list holds, still waiting.
         if (_askingAll && isQuestionText(t) && RegExp(fold(r'(?:খরচ|আয়|টাকা|মোট)')).hasMatch(fold(t)) && yesNo(t) == null) {
           final spent = _queue.whereType<CashAdd>().where((c) => c.kind == CashKind.expense).fold<int>(0, (a, c) => a + c.amount);
@@ -3076,6 +3111,37 @@ class ChatController extends ChangeNotifier {
 
   /// The new amount in a short correction ("না, ৭০০", "পাঁচশ না, সাতশ",
   /// "৭০০ হবে"); null when the answer is something else.
+  /// "মাহির ২০০০ টাকাটা বেতনের হিসাবে সরাও", "ওটা বেতনের হিসাবে সরাও": an
+  /// entry already kept in the general income-expense, moved into that
+  /// account — the same entry (never a second one). Undo is offered.
+  Future<bool> _moveCashInto(String t, List<String> out) async {
+    final f = fold(normalize(t));
+    if (!RegExp(fold(r'(?:সরাও|সরিয়ে\s+দাও|সরিয়ে\s+দাও|নিয়ে\s+যাও|ট্রান্সফার\s+করো|স্থানান্তর\s+করো)\s*[।.!]?$')).hasMatch(f)) return false;
+    final p = projectHinted(brain.data, t);
+    if (p == null) return false;
+    final amount = findAmount(normalize(t));
+    final said = words(normalize(t)).where((w) => w.runes.length > 2).map((w) => w.replaceAll(RegExp(fold(r'(?:ের|এর|র)$')), '')).toSet();
+    final recent = [
+      for (final e in brain.data.cash)
+        if (e.projectId == null && (amount == null || e.amount == amount) && !e.date.isBefore(dayOnly(_now).subtract(const Duration(days: 60)))) e
+    ]..sort((a, b) => b.date.compareTo(a.date));
+    // Named ("মাহির") or the only one with that amount; "ওটা" = the newest.
+    final named = [for (final e in recent) if (words(normalize(e.note)).any((w) => said.any((x) => w.startsWith(x)))) e];
+    final pick = named.length == 1 ? named.single : (recent.length == 1 ? recent.single : (amount == null && recent.isNotEmpty && RegExp(fold(r'(?:^|\s)(?:ওটা|এটা|ওইটা|সেটা)(?:\s|$)')).hasMatch(f) ? recent.first : null));
+    if (pick == null) {
+      _say(out, recent.isEmpty
+          ? tr('সাধারণ আয়-ব্যয়ে এমন কোনো এন্ট্রি পেলাম না — কিছু সরাইনি।')
+          : trf('এমন {0}টা এন্ট্রি আছে — কোনটা সরাব? নাম বা অঙ্কসহ বলুন। কিছু সরাইনি।', [bnDigits(recent.length)]),
+          facts: [for (final e in recent.take(5)) '${e.kind == CashKind.income ? tr('আয়') : tr('খরচ')}: ${e.category} — ${bnNumber(e.amount)} টাকা (${sayWhen(e.date, _now, withTime: false)})']);
+      return true;
+    }
+    final snap = brain.snapshot();
+    await brain.saveCash(CashEntry(id: pick.id, kind: pick.kind, amount: pick.amount, category: pick.category, note: pick.note, date: pick.date, projectId: p.id, accountId: pick.accountId, shopId: pick.shopId));
+    _say(out, trf('{0} টাকার এন্ট্রিটা ‘{1}’ হিসাবে সরিয়েছি — নতুন করে কিছু যোগ হয়নি।', [bnNumber(pick.amount), p.name]), links: [ChatLink(LinkKind.page, tr('অন্যান্য হিসাব'), page: 'projects')]);
+    _offerUndo(snap);
+    return true;
+  }
+
   /// "হাতে কত রইল?" right after "৯০০০ টাকা নিয়ে বাজারে গেলাম; মাছ ২৫০০, …":
   /// what is left of the money taken along — worked out here, from the
   /// parts said, never the accounts' balance.

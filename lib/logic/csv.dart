@@ -31,3 +31,22 @@ String ledgerCsv(List<LedgerEntry> entries) {
   }
   return b.toString();
 }
+
+/// One account's (or the general) entries as CSV — only the kind asked
+/// ([kind] null = both), each with its own row and a total row that is
+/// the exact sum of them. Amounts are taka (the app keeps one currency);
+/// nothing from the vault is ever part of it.
+String cashCsv(List<CashEntry> entries, {CashKind? kind}) {
+  final rows = [for (final e in entries) if (kind == null || e.kind == kind) e]..sort((a, b) => a.date.compareTo(b.date));
+  final b = StringBuffer('\uFEFF');
+  b.writeln(['তারিখ', 'ধরন', 'খাত', 'বিবরণ', 'পরিমাণ (টাকা)'].map(_cell).join(','));
+  for (final e in rows) {
+    b.writeln([_date(e.date), e.kind.label, e.category, e.note, e.amount].map(_cell).join(','));
+  }
+  final income = rows.where((e) => e.kind == CashKind.income).fold<int>(0, (s, e) => s + e.amount);
+  final spent = rows.where((e) => e.kind == CashKind.expense).fold<int>(0, (s, e) => s + e.amount);
+  b.writeln();
+  if (kind != CashKind.expense) b.writeln(['', 'মোট আয়', '', '', income].map(_cell).join(','));
+  if (kind != CashKind.income) b.writeln(['', 'মোট খরচ', '', '', spent].map(_cell).join(','));
+  return b.toString();
+}

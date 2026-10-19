@@ -587,6 +587,14 @@ Command? _habits(String said, String f, AppData? d, DateTime now, bool asking, b
 }
 
 Command? _business(String said, String f, AppData? d, DateTime now, int? amount, bool asking, bool negated, Aspect a) {
+  // "বাড়ি মেরামতের শুধু খরচগুলোর CSV দাও": that account's entries as a file.
+  final csvAsked = _tre(r'^\s*(.*?)\s*(?:(?:CSV|csv|সিএসভি|এক্সেল|excel|স্প্রেডশিট)\s*(?:ফাইল\S*)?)\s+(?:দাও|দিন|বানাও|বানিয়ে\s+দাও|পাঠাও|শেয়ার\s+করো|চাই)\s*$').firstMatch(f);
+  if (csvAsked != null && d != null) {
+    final what = csvAsked[1]!;
+    final kind = _thas(' $what ', r'(?:খরচ|ব্যয়)') ? 'expense' : (_thas(' $what ', r'(?:আয়|এসেছে)') ? 'income' : '');
+    final p = projectHinted(d, said) ?? projectMeant(d, said) ?? [for (final x in d.projects) if (!x.closed && _stemSaid(f, x.name)) x].firstOrNull;
+    return MenuAction(said, domain: 'project', op: 'csv', target: p?.name ?? '', text: kind);
+  }
   // Projects (অন্যান্য হিসাব).
   final create = _tre(r'^\s*(.+?)\s+নামে\s+(?:একটা\s+|নতুন\s+)?(?:প্রজেক্ট|প্রকল্প|হিসাব)\s+(?:খোলো|খুলুন|খুলে\s+দাও|বানাও|শুরু\s+করো)').firstMatch(f);
   if (create != null) return MenuAction(said, domain: 'project', op: 'create', target: create[1]!.trim());

@@ -485,6 +485,9 @@ class FakeAi implements AiBrain {
 
   final fastAsked = <bool>[];
 
+  /// When set, [route] waits for it before answering (tests only).
+  Future<void>? gate;
+
   @override
   Future<AiRoute?> route(String said, AiContext ctx, {List<AiTurn> history = const [], bool fast = false}) async {
     if (key.isEmpty && session.isEmpty) return null;
@@ -492,7 +495,12 @@ class FakeAi implements AiBrain {
     asked.add(said);
     histories.add(history);
     contexts.add(ctx);
-    if (error != null) throw error!;
-    return answer;
+    // Tests: hold the answer back until [gate] completes (a slow network).
+    // The answer as it was when asked (a later test change is a later answer).
+    final a = answer, e = error;
+    final g = gate;
+    if (g != null) await g;
+    if (e != null) throw e;
+    return a;
   }
 }

@@ -208,5 +208,16 @@ Project? projectMeant(AppData d, String said) {
   return named.length == 1 ? named.single : null;
 }
 
+/// "ওই বেতনের হিসাবে রাখো", "মেরামতের হিসাবে": an open account named by a
+/// word of its name before "হিসাবে" — only when exactly one fits.
+Project? projectHinted(AppData d, String said) {
+  final m = RegExp(fold(r'(\S+?)(?:ের|এর|র)?\s+(?:হিসাবে|হিসেবে|হিসাবের\s+(?:মধ্যে|ভেতরে|মাঝে)|অ্যাকাউন্টে|খাতায়)')).firstMatch(fold(normalize(said)));
+  if (m == null) return projectMeant(d, said);
+  final w = m[1]!;
+  if (w.runes.length < 2 || const ['অন্যান্য', 'আলাদা', 'নতুন', 'ওই', 'এই', 'সেই'].map(fold).contains(w)) return projectMeant(d, said);
+  final hits = [for (final p in d.projects) if (!p.closed && words(normalize(p.name)).any((x) => fold(x).startsWith(w) || w.startsWith(fold(x).replaceAll(RegExp(fold(r'(?:দের|ের|এর|র)$')), '')))) p];
+  return hits.length == 1 ? hits.single : projectMeant(d, said);
+}
+
 /// Only the page is named ("অন্যান্য হিসাবে রাখো"), not which account.
 bool projectPageNamed(String said) => RegExp(r'(?:অন্যান্য|আলাদা)\s+হিস(?:া|ে)ব|প্রজেক্ট|প্রকল্প').hasMatch(fold(normalize(said)));

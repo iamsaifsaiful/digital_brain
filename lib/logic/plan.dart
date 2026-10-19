@@ -768,7 +768,8 @@ List<Command>? peopleGave(String said, Parser p) {
   final out = <Command>[];
   var found = false;
   for (final s in sentences) {
-    final parts = [for (final x in s.split(RegExp(r'\s*[,،;]\s*'))) if (x.trim().isNotEmpty) x.trim()];
+    // "মাহি ২০০০ আর আঁখি ৫০০ টাকা …": "আর/ও/এবং" between people too.
+    final parts = [for (final x in s.split(RegExp(fold(r'\s*[,،;]\s*|\s+(?:আর|এবং|ও)\s+(?=\S+\s+[০-৯0-9])')))) if (x.trim().isNotEmpty) x.trim()];
     final f0 = fold(s);
     if (!found && give3.hasMatch(f0) && parts.length >= 2) {
       final context = <String>[];
@@ -786,7 +787,7 @@ List<Command>? peopleGave(String said, Parser p) {
         }
         // "<name> <amount> টাকা (দিছে)": one or two words of name first.
         // "মাহি ২০০০ টাকা", "আঁখি ৫০০", "ফয়সাল ১০০০ দিয়েছে".
-        final m = RegExp(fold(r'^(\S+(?:\s+\S+)?)\s+[০-৯0-9][০-৯0-9,]*\s*(?:হাজার\s*)?(?:টাকা(?:\s+\S+)?|(?:দিছে|দিয়েছে|দিয়েছে|দিল|দিলো|দিয়েছেন|দিয়েছেন|পাঠিয়েছে|পাঠিয়েছে))?$')).firstMatch(fold(x));
+        final m = RegExp(fold(r'^(\S+(?:\s+\S+)?)\s+[০-৯0-9][০-৯0-9,]*\s*(?:হাজার\s*)?(?:টাকা(?:\s+\S+){0,2}|(?:বেতন\s+)?(?:দিছে|দিয়েছে|দিয়েছে|দিল|দিলো|দিয়েছেন|দিয়েছেন|পাঠিয়েছে|পাঠিয়েছে))?$')).firstMatch(fold(x));
         if (m == null || RegExp(r'^[০-৯0-9]').hasMatch(m[1]!)) {
           ok = false;
           break;
