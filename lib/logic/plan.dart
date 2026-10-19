@@ -403,8 +403,9 @@ List<Command>? breathTodos(String said, Parser p) {
   final head = p.parse('${pieces.first} — কাজের তালিকায় লিখে রাখো');
   final shared = head is TaskAdd && head.due != null ? (head.due, head.span) : (w != null && w.hasDay ? (dayOnly(w.day), TaskSpan.day) : (null, TaskSpan.day));
   final out = <Command>[];
-  for (final x in pieces) {
-    final c = p.parse('${withoutWhen(x).trim()} — কাজের তালিকায় লিখে রাখো');
+  for (final (i, x) in pieces.indexed) {
+    // The first plan carries the when said for all: read with it whole.
+    final c = i == 0 && head is TaskAdd ? head : p.parse('${withoutWhen(x).trim()} — কাজের তালিকায় লিখে রাখো');
     if (c is! TaskAdd || c.title.trim().isEmpty) return null;
     out.add(TaskAdd(said, title: c.title, due: c.due ?? shared.$1, span: c.due != null ? c.span : shared.$2));
   }

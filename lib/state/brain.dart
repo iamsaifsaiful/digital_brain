@@ -1138,6 +1138,12 @@ class Brain extends ChangeNotifier {
     // Money is counted from the saved book, never put into words by the AI
     // (it could make up an amount); a question that needs a choice is asked.
     if (rules.length == 1 && (rules.first is MoneyListQuery || rules.first is Clarify || rules.first is LedgerQuery || rules.first is CashQuery)) return (rules, null);
+    // "ইমরান ১০ হাজার দিয়েছে, শুধু নোট করে রাখো": the place the user named
+    // wins on the phone — the AI never turns it into a money record.
+    if (rules.length == 1 && rules.first is NoteAdd && !(rules.first as NoteAdd).fromStatement) return (rules, null);
+    // "কোনো কাজ বাকি নেই" and other answers worked out here: amounts, what is
+    // left, a category's entries — counted from the records, not by the AI.
+    if (rules.length == 1 && rules.first is AiReply) return (rules, null);
     // "নোট খোলো": opening a page needs no AI; blood group, allergies and
     // what photos are kept stay on the phone.
     if (rules.length == 1 && (rules.first is OpenPlace || rules.first is ProfileQuery || rules.first is ProfileSet || rules.first is ManageItem)) return (rules, null);

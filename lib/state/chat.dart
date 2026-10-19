@@ -824,6 +824,10 @@ class ChatController extends ChangeNotifier {
       notifyListeners();
       return out.join(' ');
     }
+    // "বাড়ি মেরামতের হিসাব দেখাও" (or anything naming one account): "এই
+    // কাজে …" right after is about it.
+    final named = projectMeant(brain.data, t);
+    if (named != null) _focusProject = (named.name, _now);
     if (wait == ChatWait.none && _envelopeLeft(t, out)) {
       notifyListeners();
       return out.join(' ');
@@ -1443,7 +1447,7 @@ class ChatController extends ChangeNotifier {
       if (c is CashQuery) {
         _focusOn(cash: true);
         // "বাড়ি মেরামতের হিসাব দেখাও": "এই কাজে …" next is about that account.
-        final pr = c.project != null ? projectByName(brain.data, c.project!) : projectMeant(brain.data, c.transcript);
+        final pr = (c.project != null ? projectByName(brain.data, c.project!) : null) ?? projectMeant(brain.data, c.transcript);
         if (pr != null) _focusProject = (pr.name, _now);
       }
       // Money answers are kept in the AI's view of the conversation so a
@@ -1851,7 +1855,8 @@ class ChatController extends ChangeNotifier {
         // into it, not the monthly income.
         final fp = _focusProject;
         if (c.project == null && fp != null && _now.difference(fp.$2).inMinutes <= 20 && projectByName(brain.data, fp.$1) != null &&
-            RegExp(fold(r'(?:^|\s)(?:এই|এ|ওই|সেই|ঐ)\s+(?:কাজে|কাজের|হিসাবে|হিসেবে|হিসাবের|প্রজেক্টে|প্রকল্পে|খাতে)|(?:^|\s)(?:এখানে|এতে|এটাতে|ওখানে|সেখানে)(?:\s|$)')).hasMatch(fold(normalize(c.transcript)))) {
+            RegExp(fold(r'(?:^|\s)(?:এই|এ|ওই|সেই|ঐ)\s+(?:কাজে|কাজের|হিসাবে|হিসেবে|হিসাবের|প্রজেক্টে|প্রকল্পে|খাতে)|(?:^|\s)(?:এখানে|এতে|এটাতে|ওখানে|সেখানে)(?:\s|$)'))
+                .hasMatch(fold(normalize('${[for (final m in messages.reversed) if (m.fromUser) m.text].firstOrNull ?? ''} ${c.transcript}')))) {
           return _start(CashAdd(c.transcript, kind: c.kind, amount: c.amount, category: c.category, project: fp.$1), out);
         }
         if (c.project != null && c.project!.trim().isEmpty) {
@@ -1859,6 +1864,14 @@ class ChatController extends ChangeNotifier {
           final open = brain.data.projects.where((p) => !p.closed).toList();
           _ask(out, open.isEmpty ? tr('কোন নামে অন্যান্য হিসাব খুলে লিখব? নামটা বলুন।') : tr('অন্যান্য হিসাবের কোনটায় লিখব? বেছে নিন, বা নতুন নাম বলুন।'), ChatWait.project,
               choices: [for (final p in open.take(5)) ChatChoice(p.name, p.name)]);
+          return;
+        }
+        // A new separate account is Pro: never written to the general
+        // income-expense on its own — asked, and nothing is kept without a yes.
+        if (c.project != null && projectByName(brain.data, c.project!) == null && !brain.canAddProject) {
+          _current = CashAdd(c.transcript, kind: c.kind, amount: c.amount, category: c.category);
+          _ask(out, trf('নতুন হিসাব “{0}” খোলা প্রো সুবিধা (ফ্রিতে ১টা অন্যান্য হিসাব), তাই ওখানে লিখতে পারছি না। {1} টাকা সাধারণ আয়-ব্যয়ে লিখব, নাকি এখন রাখব না?', [c.project!, bnNumber(c.amount)]), ChatWait.yesNo,
+              choices: [ChatChoice(tr('সাধারণ আয়-ব্যয়ে লিখুন'), 'হ্যাঁ'), ChatChoice(tr('রাখবেন না'), 'না')]);
           return;
         }
         if (_allYes) return _saveCurrent(out);
@@ -3242,8 +3255,10 @@ class ChatController extends ChangeNotifier {
         String proNote = '';
         if (c.project != null) {
           if (projectByName(brain.data, c.project!) == null && !brain.canAddProject) {
-            // A second project is Pro: the entry still goes in, under the general account.
-            proNote = trf(' নতুন হিসাব “{0}” খোলা প্রো সুবিধা (ফ্রিতে ১টা অন্যান্য হিসাব), তাই সাধারণ আয়-ব্যয়ে লিখলাম।', [c.project!]);
+            // A second project is Pro: nothing is written anywhere else unasked.
+            _say(out, trf('নতুন হিসাব “{0}” খোলা প্রো সুবিধা, তাই কিছু লিখিনি। সাধারণ আয়-ব্যয়ে চাইলে বলুন।', [c.project!]));
+            await _done(out);
+            return;
           } else {
             project = await brain.projectNamed(c.project!);
           }

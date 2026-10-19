@@ -189,7 +189,7 @@ void main() {
     await open(t, AppData(tasks: fixtureT()));
     await showTasks();
     await say('৮ নম্বর বাদ দাও এবং ৭ নম্বরে রিমাইন্ডার দাও');
-    await yes();
+    if (chat.wait == ChatWait.bulk) await say('হ্যাঁ');
     if (chat.wait == ChatWait.batchTime) await say('দুপুর ২টায়');
     await yes();
     expect(taskIds().contains('T8'), isFalse);
@@ -402,6 +402,9 @@ void main() {
     final r = await say('দুটো ৫০ টাকা।');
     expect(data().cash, isEmpty, reason: r);
     expect(data().ledger, isEmpty);
+    // Asked what, and whether ৫০ is each or all — not whose money.
+    expect(r, contains('প্রতিটা'));
+    expect(chat.wait, ChatWait.none);
   });
 
   testWidgets('C46 draft of 3, "পেয়াজ ৩০০ টাকা, ৩ না" → 300, same item', (t) async {
@@ -756,4 +759,119 @@ void main() {
     expect(data().cash, isEmpty);
     expect(RegExp(r'ভরি\s*[০-৯0-9]').hasMatch(r), isFalse);
   });
+
+  // ───────── 75 and the AI routing rules (19 Oct brief §b83 1–5) ─────────
+  testWidgets('C75 a new account that needs Pro: asked, never written to the general one unasked', (t) async {
+    await open(t, fixtureP());
+    rig.brain.gated = true;
+    final r = await say('অন্যান্য হিসাবে বাগানে ৫০০ টাকা খরচ লিখে রাখো');
+    expect(data().cash, hasLength(3), reason: r);
+    expect(r, contains('প্রো'));
+    expect(r, contains('বাগান'));
+    expect(chat.wait, ChatWait.yesNo);
+    await say('না');
+    expect(data().cash, hasLength(3));
+    // Asked again, and this time "হ্যাঁ": then (only then) the general one.
+    await say('অন্যান্য হিসাবে বাগানে ৫০০ টাকা খরচ লিখে রাখো');
+    await say('হ্যাঁ');
+    expect(data().cash.where((c) => c.amount == 500 && c.projectId == null), hasLength(1));
+  });
+
+  group('AI on', () {
+    Future<void> withAi(WidgetTester t, AppData d, Map<String, Object?> item) async {
+      await open(t, d);
+      rig.ai.key = 'k';
+      rig.ai.answer = {'reply': 'জি, দেখছি।', 'items': [item]};
+    }
+
+    testWidgets('R1 "শুধু নোট করে রাখো" wins over an AI money item', (t) async {
+      await withAi(t, AppData(), {'type': 'ledger_add', 'person': 'ইমরান', 'amount': 10000, 'kind': 'received'});
+      await say('ইমরান আজ ১০ হাজার টাকা দিয়েছে, এটা শুধু নোট করে রাখো।');
+      await yes();
+      expect(data().ledger, isEmpty);
+      expect(data().cash, isEmpty);
+      expect(data().notes, hasLength(1));
+    });
+
+    testWidgets('R2 a name the user did not say is never written to (AI "corrected" রহম → রহিম)', (t) async {
+      await withAi(t, AppData(ledger: [LedgerEntry(person: 'রহিম', kind: LedgerKind.lent, amount: 500, date: DateTime(2026, 10, 1))]),
+          {'type': 'ledger_add', 'person': 'করিম', 'amount': 300, 'kind': 'lent'});
+      await say('সোহেলকে ৩০০ টাকা ধার দিলাম');
+      await yes();
+      expect(data().ledger.where((e) => e.person == 'করিম'), isEmpty);
+    });
+
+    testWidgets('R3 "দিতে হবে" from the AI as a balance never overwrites it', (t) async {
+      await withAi(t, AppData(ledger: [LedgerEntry(person: 'রহিম', kind: LedgerKind.borrowed, amount: 500, date: DateTime(2026, 10, 1))]),
+          {'type': 'ledger_set', 'person': 'রহিম', 'balance': -1000});
+      await say('রহিমকে কাল ১০০০ টাকা দিতে হবে');
+      await yes();
+      expect(owed('রহিম'), -500);
+    });
+
+    testWidgets('R4 "হাতে কত রইল?" is worked out on the phone, not by the AI', (t) async {
+      await withAi(t, AppData(), {'type': 'chat'});
+      rig.ai.answer = {'reply': 'আপনার হাতে ৫,০০০ টাকা আছে।', 'items': const []};
+      await say('৯০০০ টাকা নিয়ে বাজারে গেলাম; মাছ ২৫০০, মুদি ২০০০, মাংস ৩০০০, ভাড়া ১৫০।');
+      await yes();
+      final r = await say('হাতে কত রইল?');
+      expect(r, contains('১,৩৫০'));
+      expect(r, isNot(contains('৫,০০০')));
+    });
+  });
+
+  // ───────── held-out paraphrases (written after the fixes; not tuned to) ─────────
+  final heldOut = <String, Future<void> Function()>{
+    'H1 "পিয়াজ ২ কেজি নিলাম ১৮০ টাকায়" → 180': () async {
+      await say('পিয়াজ ২ কেজি নিলাম ১৮০ টাকায়');
+      await yes();
+      expect(spent().map((c) => c.amount), [180]);
+    },
+    'H2 "তিনটা ডিম কিনলাম, প্রতিটা ১৫ টাকা" → 45': () async {
+      await say('তিনটা ডিম কিনলাম, প্রতিটা ১৫ টাকা');
+      await yes();
+      expect(spent().map((c) => c.amount), [45]);
+    },
+    'H3 "২০৩০ সালের ১২ মার্চ ঢাকা যাব" → 12 Mar 2030': () async {
+      await say('২০৩০ সালের ১২ মার্চ ঢাকা যাব');
+      await yes();
+      expect(data().tasks.single.due, DateTime(2030, 3, 12));
+    },
+    'H4 "১০ আগস্ট ২০২৮ মিটিংয়ের রিমাইন্ডার দাও সকাল ১০টায়" → 2028': () async {
+      await say('১০ আগস্ট ২০২৮ মিটিংয়ের রিমাইন্ডার দাও সকাল ১০টায়');
+      await yes();
+      expect((data().reminders.single.date, data().reminders.single.hour), (DateTime(2028, 8, 10), 10));
+    },
+    'H5 "কেবল দেনাগুলো দেখাও, পাওনা লাগবে না" → nothing removed': () async {
+      data().ledger.addAll([LedgerEntry(person: 'করিম', kind: LedgerKind.lent, amount: 3000, date: DateTime(2026, 10, 1)), LedgerEntry(person: 'রহিম', kind: LedgerKind.borrowed, amount: 4500, date: DateTime(2026, 10, 2))]);
+      final r = await say('কেবল দেনাগুলো দেখাও, পাওনা লাগবে না');
+      expect(r, contains('রহিম'));
+      expect(chat.wait, ChatWait.none);
+      expect(data().ledger, hasLength(2));
+    },
+    'H6 "জসিম ৩০০, কামরুল ৭০০ — সবাইকে ধার দিলাম" → two loans': () async {
+      await say('জসিম ৩০০, কামরুল ৭০০ — সবাইকে ধার দিলাম');
+      await yes();
+      expect(data().ledger.fold(0, (s, e) => s + e.amount), 1000);
+      expect(data().ledger.every((e) => e.kind == LedgerKind.lent), isTrue);
+    },
+    'H7 "করিমের কাছ থেকে ২০০০ ধার নিলাম, পরে ৫০০ ফেরত দিলাম" → I owe 1500': () async {
+      await say('করিমের কাছ থেকে ২০০০ ধার নিলাম, পরে ৫০০ ফেরত দিলাম');
+      await yes();
+      expect(owed('করিম'), -1500);
+    },
+    'H8 "৫০০০ টাকা সাথে নিয়ে বের হলাম, চাল ১২০০, তেল ৮০০" then "কত টাকা বাঁচল?" → 3000': () async {
+      await say('৫০০০ টাকা সাথে নিয়ে বের হলাম, চাল ১২০০, তেল ৮০০');
+      await yes();
+      expect(spent().fold(0, (s, c) => s + c.amount), 2000);
+      final r = await say('কত টাকা বাঁচল?');
+      expect(r, contains('৩,০০০'));
+    },
+  };
+  for (final e in heldOut.entries) {
+    testWidgets(e.key, (t) async {
+      await open(t);
+      await e.value();
+    });
+  }
 }

@@ -205,6 +205,8 @@ extension _BulkChat on ChatController {
     // "শুধু পাওনাগুলো দাও, দেনা বাদ": a list to see — "বাদ" leaves a side
     // out of the answer, it removes nothing.
     if (oneSideAsked(t) != null) return false;
+    // "ওষুধ খাইনি, … টিক সরাও; রিমাইন্ডার বন্ধ কোরো না": a dose, not a list.
+    if (RegExp(fold(r'(?:ওষুধ|ঔষধ|ট্যাবলেট|ডোজ)')).hasMatch(fold(t)) && RegExp(fold(r'(?:টিক|খাইনি|খাই\s+নি|খেয়েছি)')).hasMatch(fold(t))) return false;
     // "৩০ অক্টোবর এবং ৩১ ডিসেম্বরের রিমাইন্ডার বাদ দাও": those days' items,
     // as one group — asked once.
     final dated = datedBulk(tidySpeech(t), _now);

@@ -546,7 +546,9 @@ Command? _medicines(String said, String f, AppData? d, DateTime now, int? amount
     if (_thas(f, r'(?:কতদিনের|কয়দিনের|কত\s+দিন|কয়\s+দিন|কতগুলো|কয়টা)\s') || _thas(f, r'(?:স্টক|বাকি\s+আছে)')) return MenuAction(said, domain: 'medicine', op: 'stock_query', target: named ?? '');
     return null;
   }
-  if (_thas(f, r'ভুল\s+করে') && _thas(f, r'(?:টিক|খেয়েছি)')) return MenuAction(said, domain: 'medicine', op: 'dose_undo', target: named ?? '', day: day, part: part);
+  // "ওষুধ খাইনি, আজকের খাওয়ার টিক সরাও; রিমাইন্ডার বন্ধ কোরো না": the
+  // tick taken back — the medicine and its reminders stay.
+  if ((_thas(f, r'ভুল\s+করে') && _thas(f, r'(?:টিক|খেয়েছি)')) || _thas(f, r'টিক(?:টা|টি|চিহ্ন)?\s+(?:সরাও|সরিয়ে\s+দাও|তুলে\s+দাও|উঠিয়ে\s+দাও|উঠাও|মুছে\s+দাও|মুছো|বাদ\s+দাও|তুলে\s+নাও)')) return MenuAction(said, domain: 'medicine', op: 'dose_undo', target: named ?? '', day: day, part: part);
   if (negated && _thas(f, r'(?:খাইনি|খাই\s+নি|খাওয়া\s+হয়নি|খাওয়া\s+হয়নি|খাইনাই)')) return MenuAction(said, domain: 'medicine', op: 'dose_not', target: named ?? '', day: day, part: part);
   final count = RegExp(r'(\d+)').firstMatch(normalize(spokenNumbers(said)));
   if (_thas(f, r'(?:এনেছি|আনলাম|কিনেছি|কিনলাম|এনে\s+রেখেছি)') && count != null && named != null) {
@@ -609,6 +611,18 @@ Command? _business(String said, String f, AppData? d, DateTime now, int? amount,
   // "নিহান ২০০০ টাকা বেতন দিয়েছে, এটা অন্যান্য হিসাবের ভেতরে শিক্ষার্থীদের
   // বেতনে যুক্ত কর": money into that account (who gave it is the note).
   var into = proj ?? (placeWord ? _tre(r'(?:অন্যান্য|আলাদা)\s+হিস(?:া|ে)ব\S*\s+(?:ভেতরে|ভিতরে|মধ্যে|মাঝে)?\s*(.+?)(?:এ|তে|য়|ে)?\s+(?:যুক্ত|যোগ|লেখ|লিখ|রাখ|জমা|অ্যাড)').firstMatch(f)?.group(1)?.trim() : null);
+  // "বাগান নামে নতুন হিসাবে ৫০০ টাকা খরচ": money into that named account.
+  final namedInto = _tre(r'^\s*(.+?)\s+নামে(?:র)?\s+(?:একটা\s+|নতুন\s+|আলাদা\s+)*(?:হিসাবে|হিসেবে|প্রজেক্টে|প্রকল্পে)\s').firstMatch(f);
+  if (namedInto != null && amount != null && !negated && !asking && words(namedInto[1]!).length <= 4) {
+    final got = _thas(f, r'(?:দিয়েছে|দিল|দিলো|এসেছে|এলো|পেয়েছি|পেলাম|জমা|আয়)');
+    return CashAdd(said, kind: got ? CashKind.income : CashKind.expense, amount: amount, category: got ? 'আয়' : categoryFor(f, CashKind.expense), project: _origWords(said, namedInto[1]!.trim()));
+  }
+  // "অন্যান্য হিসাবে বাগানে ৫০০ টাকা খরচ লিখে রাখো": the name ends before
+  // the amount ("বাগান"), never "বাগানে ৫০০ টাকা খরচ".
+  if (proj == null && into != null && RegExp(r'[০-৯0-9]').hasMatch(into)) {
+    into = into.split(RegExp(r'\s*[০-৯0-9]')).first.trim().replaceAll(_tre(r'(?:এ|তে|ে)$'), '').trim();
+    if (into.isEmpty) into = null;
+  }
   // "অন্যান্য হিসেবে যুক্ত কর, মিস্ত্রীর বিল ২৭০০ টাকা": no name said — the
   // chat asks which account (folder) it goes in, even when there is one.
   // ("রহিম ভবন প্রজেক্টে ৫০ হাজার এলো" names its account: not this.)

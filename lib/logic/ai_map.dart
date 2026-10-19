@@ -90,20 +90,39 @@ Command? commandFromAi(String said, Map<String, Object?> r, List<LedgerEntry> le
   // Morning or evening still open for [h]: from the user's own words where
   // the hour is found in them; otherwise the AI's own `time_clear`.
   bool open(int h) => hourState(said, h) ?? (r['time_clear'] == false && h >= 1 && h <= 12);
+  var guessed = false;
   String person() {
     final p = _str(r['person']);
-    return p.isEmpty ? '' : resolvePerson(p, known);
+    if (p.isEmpty) return '';
+    final got = resolvePerson(p, known);
+    // A name the user did not say (the AI "corrected" it to someone known):
+    // left empty, so the app asks — money never goes to a guessed person.
+    if (RegExp(r'[\u0980-\u09FF]').hasMatch(said)) {
+      final first = words(normalize(got)).where((w) => w.runes.length >= 2).firstOrNull;
+      final head = first == null ? '' : String.fromCharCodes(first.runes.take(first.runes.length.clamp(2, 3)));
+      if (head.isNotEmpty && !words(normalize(said)).any((w) => w.startsWith(head))) {
+        guessed = true;
+        return '';
+      }
+    }
+    return got;
   }
 
   switch (_str(r['action'])) {
     case 'ledger_add':
       final p = person();
+      // The AI named someone the user did not: the rules read it instead.
+      if (guessed) return null;
       final amount = _int(r['amount']).abs();
       final kind = LedgerKind.values.where((k) => k.name == _str(r['kind'])).firstOrNull;
       if (kind != null && p.isNotEmpty) return LedgerAdd(said, person: p, amount: amount, kind: kind);
       return LedgerAdd(said, person: p, amount: amount, options: LedgerKind.values, suggested: kind, allowExpense: true);
     case 'ledger_set':
+      // "রহিমকে কাল ১০০০ টাকা দিতে হবে": a duty, not the balance — the
+      // rules read it (a to-do); the stored balance is never overwritten.
+      if (RegExp(fold(r'(?:দিতে\s+হবে|দেবো|দেব|দিবো|দিব|ফেরত\s+দিতে)')).hasMatch(fold(normalize(said))) && !RegExp(fold(r'(?:মোট|সব\s+মিলিয়ে|সবমিলিয়ে|এখন|বর্তমানে)')).hasMatch(fold(normalize(said)))) return null;
       final p = person();
+      if (guessed) return null;
       final b = _int(r['balance']);
       if (p.isEmpty || b == 0) return LedgerAdd(said, person: p, amount: b.abs(), options: LedgerKind.values, allowExpense: true);
       return LedgerSet(said, person: p, balance: b);
