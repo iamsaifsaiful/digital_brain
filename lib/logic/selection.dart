@@ -104,8 +104,16 @@ int? _countOf(String w) {
   return null;
 }
 
+/// "২য়", "৩য়", "৪র্থ", "১ম", "6th": a place written with its ending.
+int? _numberedOrd(String s) {
+  final m = RegExp(r'^([0-9০-৯]{1,2})\s*(?:ম|য়|য়|র্থ|ষ্ঠ|তম|st|nd|rd|th)$').firstMatch(s);
+  return m == null ? null : int.parse(asciiDigits(m[1]!));
+}
+
 int? _ordOf(String w) {
   final s = w.replaceAll(_tre(r'(?:টা|টি|টাকে|টার|টায়|টাও)$'), '');
+  final numbered = _numberedOrd(s);
+  if (numbered != null) return numbered;
   for (final e in _ordWords.entries) {
     if (_tf(e.key) == _tf(s)) return e.value;
   }
@@ -162,8 +170,13 @@ Selection? selectionIn(String f) {
     final wd = asciiDigits(w);
     final nums = [for (final x in _tre(r'([0-9]+)\s*(?:নং|নম্বর|নাম্বার)?').allMatches(wd)) int.parse(x[1]!)];
     final onlyNums = nums.isNotEmpty && _tre(r'^(?:\s*[0-9]+\s*(?:নং|নম্বর|নাম্বার)?(?:টা|টি)?\s*(?:,|আর|ও|এবং)?)+\s*$').hasMatch(wd);
+    // "তিন আর চার রেখে": places said as words.
+    final wordPlaces = [for (final x in w.split(_tre(r'\s*(?:,|আর|ও|এবং)\s*'))) if (x.trim().isNotEmpty) _ordOf(x.trim().replaceAll(_tre(r'\s*(?:নম্বর|নাম্বার|নং)$'), '')) ?? _countOf(x.trim().replaceAll(_tre(r'\s*(?:নম্বর|নাম্বার|নং)$'), ''))];
+    final allWords = wordPlaces.length >= 2 && !wordPlaces.contains(null);
     if (o != null) {
       exceptIdx.add(o);
+    } else if (allWords) {
+      exceptIdx.addAll(wordPlaces.whereType<int>());
     } else if (onlyNums) {
       exceptIdx.addAll(nums);
     } else {
@@ -181,6 +194,18 @@ Selection? selectionIn(String f) {
   final hasRest = _thas(g, r'(?<=\s)(?:বাকিগুলো|বাকিগুলা|বাকি\s+সব|বাকি\s+সবগুলো|অন্যগুলো|অন্য\s+সব|বাকিগুলোর)(?=\s)');
   Selection withExcept(Selection s) => Selection(s.kind, indexes: s.indexes, n: s.n, from: s.from, to: s.to, names: s.names, filter: s.filter, exceptIdx: exceptIdx, exceptNames: exceptNames);
 
+  // "৪–৮ নম্বর", "৪-৮": a range written with a dash.
+  final dash = _tre(r'(?<=\s)([0-9০-৯]{1,2})\s*[–—-]\s*([0-9০-৯]{1,2})(?:\s*(?:নম্বর|নাম্বার|নং))?(?:টা|টি|গুলো)?(?=\s)').firstMatch(g);
+  if (dash != null && !_thas(g, r'(?:তারিখ|টায়|টাকা|মিনিট|ঘণ্টা)')) {
+    final a = int.parse(asciiDigits(dash[1]!)), b = int.parse(asciiDigits(dash[2]!));
+    if (a > 0 && b >= a) return withExcept(Selection(SelKind.range, from: a, to: b));
+  }
+  // "৩ নং ৪নং", "৩নং ৪নং ৭নং": places side by side, each with its নং.
+  final side = _tre(r'(?<=\s)((?:[0-9০-৯]{1,2}\s*(?:নং|নম্বর|নাম্বার)(?:টা|টি)?\s+){1,}[0-9০-৯]{1,2}\s*(?:নং|নম্বর|নাম্বার)(?:টা|টি)?)(?=\s)').firstMatch(g);
+  if (side != null) {
+    final nums = [for (final x in RegExp(r'([0-9০-৯]{1,2})').allMatches(side[1]!)) int.parse(asciiDigits(x[1]!))];
+    if (nums.length >= 2) return withExcept(Selection(SelKind.indexes, indexes: nums));
+  }
   // "এক থেকে তিন নম্বর", "১ থেকে ৩".
   // "৪নং থেকে ৮নং": the number with its নং attached, too.
   final range = _tre(r'(?<=\s)(\S+?)(?:\s*(?:নম্বর|নাম্বার|নং))?\s+(?:থেকে|হতে)\s+(\S+?)(?:\s*(?:নম্বর|নাম্বার|নং))?(?:টা|টি|গুলো)?\s').firstMatch(g);
@@ -272,7 +297,7 @@ String _bulkOp(String f0) {
   if (_thas(f, r'(?:রিমাইন্ডার|reminder|মনে\s+করানো)\S*\s+(?:\S+\s+)?(?:বন্ধ|অফ|off)')) return 'reminder_off';
   // "দ্বিতীয়টা বন্ধ কর" (a reminder list on screen): turned off, kept.
   if (_thas(f, r'(?<=\s)(?:বন্ধ|অফ|off)\s*(?:কর|করো|করে\s+দাও|করে\s+দিন|করুন|দাও|রাখো)?\s*$')) return 'reminder_off';
-  if (_thas(f, r'(?<=\s)(?:মুছে\s+(?:দাও|দিও|ফেলো|দেন|দিন|ফেলুন)|মুছো|মুছুন|মুছে\s+দাও|ডিলিট\s+(?:করো|করে\s+দাও|করুন)?|delete|কেটে\s+দাও|বাদ\s+(?:দাও|দিয়ে\s+দাও|দিও|দেন|দিন)|সরিয়ে\s+ফেলো|ক্লিয়ার\s+করো)(?=\s|$)')) return 'delete';
+  if (_thas(f, r'(?<=\s)(?:মুইছা\s+(?:দাও|দেও|ফালাও)|মুইছে\s+(?:দাও|দেও)|মুছা\s+দাও|মুছে\s+(?:দাও|দিও|ফেলো|দেন|দিন|ফেলুন)|মুছো|মুছুন|মুছে\s+দাও|ডিলিট\s+(?:করো|করে\s+দাও|করুন)?|delete|কেটে\s+দাও|বাদ\s+(?:দাও|দিয়ে\s+দাও|দিও|দেন|দিন)|সরিয়ে\s+ফেলো|ক্লিয়ার\s+করো)(?=\s|$)')) return 'delete';
   if (_thas(f, r'(?<=\s)বাদ(?=\s*$)')) return 'delete';
   // "রিমাইন্ডারগুলো দাও", "সব রিমাইন্ডার কি কি": the list's own name, not
   // "set a reminder for these".
@@ -299,7 +324,7 @@ String _bulkOp(String f0) {
 /// sentence names no group, has no supported verb, is negative ("মুছো না")
 /// or is not a request ("ও এসব মুছে দেয়").
 List<BulkAction>? bulkCommands(String said, DateTime now) {
-  var f = ' ${_tf(englishTimes(said)).replaceAll(RegExp(r'[।!?;:"“”]'), ' ').replaceAll(RegExp(r'\s*[—–]\s*'), ', ').toLowerCase()} ';
+  var f = ' ${_tf(englishTimes(banglishList(said))).replaceAll(RegExp(r'[।!?;:"“”]'), ' ').replaceAll(RegExp(r'(?<![0-9০-৯])\s*[—–]\s*(?![0-9০-৯])'), ', ').toLowerCase()} ';
   if (aspectOf(said) == Aspect.negated && !_thas(f, r'(?:হয়নি|হয়নি|করিনি|হাঁটিনি|পড়িনি)')) return null;
   if (negatedRequest(normalize(said))) return null;
   // "প্রথম দুটো — না, শেষের দুটো", "সব কাল রাখো — না, পরশু": the later words win.
@@ -422,6 +447,18 @@ List<BulkAction>? _clausePlan(String f, String said, DateTime now) {
     out.add(BulkAction(said, selection: sel, op: op, domain: dom, due: due, time: time, ampmOpen: open, day: dayOnly(now)));
   }
   return out;
+}
+
+/// A little Banglish about a list ("4 theke 8 number muche dao", "3 ar 4
+/// bade sob mucho") in Bangla words, so the same rules read it.
+String banglishList(String said) {
+  if (!RegExp(r'[a-zA-Z]').hasMatch(said)) return said;
+  const words = {
+    'theke': 'থেকে', 'number': 'নম্বর', 'no': 'নং', 'nong': 'নং', 'ar': 'আর', 'ebong': 'এবং', 'sob': 'সব', 'shob': 'সব', 'bade': 'বাদে', 'bad': 'বাদ',
+    'dao': 'দাও', 'muche': 'মুছে', 'mucho': 'মুছো', 'muchhe': 'মুছে', 'delete': 'মুছে দাও', 'rekhe': 'রেখে', 'baki': 'বাকি', 'bakigulo': 'বাকিগুলো',
+    'prothom': 'প্রথম', 'ditiyo': 'দ্বিতীয়', 'sesh': 'শেষ', 'sesher': 'শেষের', 'kaj': 'কাজ', 'ta': 'টা', 'egulo': 'এগুলো', 'kal': 'কাল', 'aj': 'আজ',
+  };
+  return said.split(RegExp(r'\s+')).map((w) => words[w.toLowerCase()] ?? w).join(' ').replaceAll('মুছে দাও দাও', 'মুছে দাও');
 }
 
 /// "দ্বিতীয়টা ভুল", "প্রথমটা হয়েছে", "শেষেরটা মুছো": one place in the list

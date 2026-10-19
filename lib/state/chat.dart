@@ -245,6 +245,10 @@ class ChatController extends ChangeNotifier {
   /// যাব"): kept until the right date is said.
   (String, DateTime)? _badDate;
 
+  /// To-dos of a month or year to be reminded at a time, waiting for the
+  /// day ("মে মাসের কত তারিখে?"): their ids, the time, their first day.
+  (List<String>, int, DateTime)? _spanRemind;
+
   /// The to-do whose day is asked ("পার্টির তারিখ যুক্ত কর").
   String? _dateTaskId;
 
@@ -2221,6 +2225,31 @@ class ChatController extends ChangeNotifier {
       case ChatWait.batchTime:
         return _batchTimeAnswer(t, out);
       case ChatWait.taskDate:
+        // "মে মাসের কত তারিখে মনে করাব?" → "১০ তারিখে": that day of the to-dos' own month.
+        final span = _spanRemind;
+        if (span != null) {
+          final d = RegExp(r'^\s*([0-9০-৯]{1,2})').firstMatch(asciiDigits(tidySpeech(t)));
+          final w0 = parseWhen(tidySpeech(t), _now);
+          final first = span.$3;
+          DateTime? day;
+          final monthSaid = RegExp(fold('(?:${bnMonths.join('|')})')).hasMatch(fold(t));
+          if (d != null && !monthSaid) {
+            final n = int.parse(d[1]!);
+            final c = DateTime(first.year, first.month, n);
+            if (c.month == first.month) day = c;
+          } else if (w0 != null && w0.hasDay) {
+            day = dayOnly(w0.day);
+          }
+          if (day == null) {
+            if (_looksNew(t)) return false;
+            _say(out, trf('কোন তারিখ? যেমন “১০ তারিখে” ({0})।', [monthName(first.month)]));
+            return true;
+          }
+          wait = ChatWait.none;
+          _spanRemind = null;
+          await _remindTasksOn(span.$1, span.$2, day, out);
+          return true;
+        }
         final w = parseWhen(tidySpeech(t), _now);
         final task = _dateTaskId == null ? null : _taskById(_dateTaskId!);
         if (task == null) return false;

@@ -131,9 +131,12 @@ void main() {
     expect(b, isNot(contains('বিভাগ')));
     expect(data().tasks.every((t) => t.due!.month == 5 && t.span == TaskSpan.month), isTrue, reason: b);
     final c = await say('২০৪১ সালের প্রতিটি কাজের রিমাইন্ডার দাও, সকাল ১১ টায়');
-    if (chat.wait != ChatWait.none) await say('হ্যাঁ');
+    // No day in May: which day is asked, never the 1st taken.
+    expect(c, contains('কত তারিখে'));
+    expect(data().reminders, isEmpty);
+    await say('১০ তারিখে');
     expect(data().reminders, hasLength(5), reason: c);
-    expect(data().reminders.every((r) => r.date.year == 2041 && r.hour == 11), isTrue);
+    expect(data().reminders.every((r) => r.date == DateTime(2041, 5, 10) && r.hour == 11), isTrue);
   });
 
   testWidgets('typing in the chat keeps the newest message in view', (t) async {

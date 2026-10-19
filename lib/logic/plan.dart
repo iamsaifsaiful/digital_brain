@@ -344,9 +344,12 @@ List<String> splitByWillVerbs(String text) {
 /// Null unless every piece reads as a to-do.
 List<Command>? breathTodos(String said, Parser p) {
   if (said.contains('\n') || RegExp(r'[,،;।]').hasMatch(said.trim().replaceAll(RegExp(r'[।.!?]+$'), ''))) return null;
-  final tidied = tidySpeech(said);
+  // "… এগুলো কাজের তালিকায় যুক্ত করো": where to keep them, not one more to-do.
+  final tidied = tidySpeech(said).replaceFirst(RegExp(fold(r'\s+(?:এগুলো|এগুলা|এগুলি|সব)\s+(?:কাজের\s+)?(?:তালিকায়|লিস্টে)\s+\S+(?:\s+\S+)?\s*$')), '');
   final pieces = splitByWillVerbs(tidied);
   if (pieces.length < 3) return null;
+  // Each with its own day ("৮ তারিখে …, ২২ তারিখে …"): the dated rules read those.
+  if (pieces.where((x) => parseWhen(x, p.now)?.hasDay ?? false).length >= 2) return null;
   final w = parseWhen(tidied, p.now);
   final out = <Command>[];
   for (final x in pieces) {

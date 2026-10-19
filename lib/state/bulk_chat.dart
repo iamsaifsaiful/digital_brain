@@ -601,7 +601,9 @@ extension _BulkChat on ChatController {
           await brain.deleteTask(id);
           return true;
         });
-        _say(out, _outcome(trf('{0}টা {1} মুছে দিয়েছি', [bnDigits(ok - series), noun]), ok, ids.length, failed, skipped) + (series > 0 ? trf(' {0}টা নিয়মিত কাজের শুধু এবারেরটা বাদ দিয়েছি — পুরো সিরিজ আছে।', [bnDigits(series)]) : ''),
+        // What is left of the list that was shown, said with it.
+        final left = [for (final id in set.ids) if (_taskById(id) case final x? when !x.done) id].length;
+        _say(out, _outcome(trf('{0}টা {1} মুছে দিয়েছি', [bnDigits(ok - series), noun]), ok, ids.length, failed, skipped) + (series > 0 ? trf(' {0}টা নিয়মিত কাজের শুধু এবারেরটা বাদ দিয়েছি — পুরো সিরিজ আছে।', [bnDigits(series)]) : '') + (left > 0 ? trf(' তালিকার বাকি {0}টা আছে।', [bnDigits(left)]) : ''),
             links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
       case ('tasks', 'done' || 'reopen'):
         final done = c.op == 'done';
@@ -1151,6 +1153,14 @@ extension _BulkChat on ChatController {
       _say(out, tr('কোন কাজগুলোর কথা বলছেন, খুঁজে পেলাম না — যেমন বলুন “কালকের প্রতিটি কাজের রিমাইন্ডার দাও, সকাল ৯টায়”।'));
       return true;
     }
+    // A month or a year with no day: the day is asked, never its first day taken.
+    final spans = [for (final x in pick) if (x.due != null && x.span != TaskSpan.day) x];
+    if (spans.isNotEmpty && spans.length == pick.length && spans.every((x) => x.span == TaskSpan.month && dayOnly(x.due!) == dayOnly(spans.first.due!))) {
+      _spanRemind = ([for (final x in spans) x.id], w.at.hour * 60 + w.at.minute, dayOnly(spans.first.due!));
+      final m = spans.first.due!;
+      _ask(out, trf('এই {0}টা কাজ {1} {2}-এর, নির্দিষ্ট দিন নেই। {1} মাসের কত তারিখে {3}-এ মনে করাব?', [bnDigits(spans.length), monthName(m.month), bnDigits(m.year), bnTime(w.at.hour, w.at.minute)]), ChatWait.taskDate);
+      return true;
+    }
     final snap = brain.snapshot();
     final kept = <String>[];
     var past = 0, firstDay = false;
@@ -1176,6 +1186,28 @@ extension _BulkChat on ChatController {
     _say(out, '${trf('ঠিক আছে, {0}টা কাজের রিমাইন্ডার {1}-এ রাখলাম।', [bnDigits(kept.length), time])}${note.isEmpty ? '' : ' $note'}', facts: kept, links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
     _offerUndo(snap);
     return true;
+  }
+
+  /// A reminder for each of [ids] at [minutes] after midnight on [day].
+  Future<void> _remindTasksOn(List<String> ids, int minutes, DateTime day, List<String> out) async {
+    final at = DateTime(day.year, day.month, day.day, minutes ~/ 60, minutes % 60);
+    if (!at.isAfter(_now)) {
+      _say(out, trf('{0} তো পার হয়ে গেছে — কিছু রাখিনি।', [sayWhen(at, _now)]));
+      return;
+    }
+    final snap = brain.snapshot();
+    final kept = <String>[];
+    for (final id in ids) {
+      final x = _taskById(id);
+      if (x == null || x.done) continue;
+      final r = Reminder(title: x.title, date: dayOnly(at), hour: at.hour, minute: at.minute, daysBefore: 0);
+      await brain.saveReminder(r);
+      await brain.saveTask(x.copyWith(reminderId: r.id));
+      kept.add(x.title);
+    }
+    _say(out, '${trf('ঠিক আছে, {0}টা কাজের রিমাইন্ডার {1}-এ রাখলাম।', [bnDigits(kept.length), sayWhen(at, _now)])}${brain.scheduleFailed ? ' ${tr('তবে ফোনে সেট করা যায়নি — এখনো বাজবে না।')}' : ''}',
+        facts: kept, links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
+    _offerUndo(snap);
   }
 
   Future<bool> _batchTimeAnswer(String t, List<String> out) async {

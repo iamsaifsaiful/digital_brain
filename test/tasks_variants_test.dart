@@ -41,8 +41,15 @@ void main() {
     // No punctuation, colloquial.
     'প্রথমটা আর দ্বিতীয়টা মুইছা দাও': minus({'k1', 'k2'}),
     'এগুলা সব মুছে দাও': <String>{},
+    // Not seen while writing the rules (checked after): the same rules read them.
+    '৫ম টা বাদ দাও': minus({'k5'}),
+    'ছয় থেকে নয় নম্বর মুছে দাও': {'k1', 'k2', 'k3', 'k4', 'k5'},
+    '৭নং ৮নং ৯নং মুছো': minus({'k7', 'k8', 'k9'}),
+    '১ আর ২ রেখে বাকিগুলো মুছে দাও': {'k1', 'k2'},
+    'শেষের দুইটা বাদ দেন': minus({'k8', 'k9'}),
     // A little Banglish.
     '4 theke 8 number muche dao': {'k1', 'k2', 'k3', 'k9'},
+    '3 ar 4 bade sob mucho': {'k3', 'k4'},
   };
 
   for (final e in cases.entries) {
