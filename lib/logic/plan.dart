@@ -3,7 +3,8 @@
 library;
 
 import 'calendar_ask.dart';
-import 'cash.dart' show cashItem, projectMeant;
+import 'cash.dart' show cashItem, projectMeant, projectHinted;
+import 'ledger.dart' show balanceOf;
 import 'answers.dart' show categoryAsked;
 import '../models/models.dart';
 import 'app_map.dart';
@@ -85,7 +86,7 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   }
   // Typed on several lines: a to-do list under a heading ("কালকের কাজ:")
   // is one to-do per line; other lines are separate sentences.
-  final perLine = lineTodos(said, p) ?? lineMoney(said, p) ?? breathTodos(said, p);
+  final perLine = lineTodos(said, p) ?? duesList(said, p) ?? lineMoney(said, p) ?? breathTodos(said, p);
   if (perLine != null) return perLine;
   if (said.contains('\n')) said = said.split(RegExp(r'\s*\n+\s*')).where((x) => x.trim().isNotEmpty).map((x) => x.trim().replaceAll(RegExp(r'[।.!?]+$'), '')).join('। ');
   // "ইয়ার তুমি একটা কাজ করো তো …": the opening words are not part of it.
@@ -288,9 +289,10 @@ String summaryLine(Command c) => switch (c) {
           if (c.amount > 0) '${bnNumber(c.amount)} টাকা',
           'লেনদেন',
         ].join(' — '),
-      LedgerSet() => c.balance >= 0
-          ? trf('{0} কাছে পাবেন {1} টাকা', [possessive(c.person), bnNumber(c.balance)])
-          : trf('{0} দেবেন {1} টাকা', [toPerson(c.person), bnNumber(-c.balance)]),
+      LedgerSet() => (c.balance >= 0
+              ? trf('{0} কাছে পাবেন {1} টাকা', [possessive(c.person), bnNumber(c.balance)])
+              : trf('{0} দেবেন {1} টাকা', [toPerson(c.person), bnNumber(-c.balance)])) +
+          (c.note.isEmpty ? '' : ' (${c.note})'),
       NoteAdd() => c.text,
       MemoryAdd() => 'মনে রাখব: ${c.text}',
       SpecialAdd() => '${c.kind.mark} ${c.person} — ${c.kind.bn}: ${bnDigits(c.day)} ${monthName(c.month)}',
@@ -524,6 +526,33 @@ List<Command>? lineTodos(String said0, Parser p) {
 /// "আজ সারাদিনের আয় ব্যয়ের হিসাব-" and one money line under it each: the
 /// heading only names the list (it is not a question); every line is read
 /// on its own.
+/// "আমার শিক্ষার্থীদের বেতন বকেয়া" and under it "১. ফয়সাল - ১০০০ টাকা",
+/// …: what each one owes now (a due, never money in). The note names the
+/// separate account the heading points to, so its answer shows the dues.
+List<Command>? duesList(String said, Parser p) {
+  final lines = [
+    for (final x in said.split(RegExp(r'\r?\n')))
+      if (x.trim().isNotEmpty) x.trim().replaceAll(RegExp(r'^(?:[-–—•*·▪]|[0-9০-৯]{1,2}\s*[.)।])\s*'), '').replaceAll(RegExp(r'[।.,;]+$'), '').trim()
+  ].where((x) => x.isNotEmpty).toList();
+  if (lines.length < 2) return null;
+  final h = fold(normalize(lines.first));
+  if (!RegExp(fold(r'(?:বকেয়া|বাকি\s+আছে|বাকি|পাওনা|পাবো|পাব|দেয়নি|দেয়\s+নি|দেয়নাই)')).hasMatch(h) || findAmount(normalize(lines.first)) != null) return null;
+  final d = p.data;
+  final proj = d == null ? null : (projectHinted(d, lines.first) ?? projectMeant(d, lines.first));
+  final note = proj == null ? tr('বকেয়া') : '${tr('বকেয়া')} — ${proj.name}';
+  final out = <Command>[];
+  for (final x in lines.skip(1)) {
+    final m = RegExp(r'^(.+?)\s*[-–—:=]?\s*([০-৯0-9][০-৯0-9,]*)\s*(?:টাকা|tk)?$').firstMatch(x);
+    if (m == null) return null;
+    final name = m[1]!.replaceAll(RegExp(r'[-–—:=\s]+$'), '').trim();
+    final amount = findAmount(normalize('${m[2]} টাকা'));
+    if (name.isEmpty || amount == null || words(normalize(name)).length > 3) return null;
+    final known = balanceOf(p.ledger, name)?.balance ?? 0;
+    out.add(LedgerSet(x, person: name, balance: known + amount, note: note));
+  }
+  return out.isEmpty ? null : out;
+}
+
 List<Command>? lineMoney(String said, Parser p) {
   final lines = [
     for (final x in said.split(RegExp(r'\r?\n')))
@@ -535,10 +564,18 @@ List<Command>? lineMoney(String said, Parser p) {
   if (!isHead) return null;
   final items = lines.skip(1).toList();
   if (items.any((x) => findAmount(normalize(x)) == null)) return null;
+  // "আজকের বাজারের হিসাব": every line is what was bought — spending in
+  // বাজার, never a লেনদেন with nobody named.
+  final market = RegExp(fold(r'(?:বাজার|কেনাকাটা|খরচ|ব্যয়)')).hasMatch(h) && !RegExp(fold(r'(?:আয়|ইনকাম)')).hasMatch(h);
   final out = <Command>[];
   for (final x in items) {
     final tidied = tidySpeech(x);
-    final c = spentInParts(tidied, p)?.firstOrNull ?? p.parse(tidied);
+    var c = spentInParts(tidied, p)?.firstOrNull ?? p.parse(tidied);
+    if (market && ((c is LedgerAdd && c.person.trim().isEmpty) || c is NoteAdd || c is NotUnderstood || c is SearchQuery)) {
+      c = CashAdd(x, kind: CashKind.expense, amount: findAmount(normalize(x))!, category: 'বাজার');
+    } else if (market && c is CashAdd && c.kind == CashKind.expense && c.category == 'অন্যান্য') {
+      c = CashAdd(c.transcript, kind: c.kind, amount: c.amount, category: 'বাজার', project: c.project);
+    }
     if (c is NotUnderstood || c is SearchQuery || c is NoteAdd) return null;
     out.add(c);
   }

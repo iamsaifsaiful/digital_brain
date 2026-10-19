@@ -265,6 +265,15 @@ String ledgerAnswer(AppData d, LedgerQuery q, [DateTime? now]) {
       if (t.payable == 0) return trf('আপনি মোট {0} টাকা পাবেন; আপনার কোনো দেনা নেই।', [bnNumber(t.receivable)]);
       if (t.receivable == 0) return trf('আপনাকে মোট {0} টাকা দিতে হবে; কারও কাছে পাওনা নেই।', [bnNumber(t.payable)]);
       final net = t.receivable - t.payable;
+      // "এই হিসাব গুলোর বিস্তারিত দাও", "কার কাছে কত": person by person.
+      if (RegExp(fold(r'(?:বিস্তারিত|বিস্তারিতভাবে|ভেঙে|আলাদা\s+করে|নামে\s+নামে|কার\s+কাছে|কার\s+কার|কাকে\s+কত|সবার|প্রত্যেকের|একে\s+একে)')).hasMatch(fold(normalize(q.transcript)))) {
+        final rows = [...all.where((p) => p.balance != 0)]..sort((a, b) => b.balance.abs().compareTo(a.balance.abs()));
+        return [
+          trf('আপনি পাবেন {0} টাকা, দিতে হবে {1} টাকা:', [bnNumber(t.receivable), bnNumber(t.payable)]),
+          for (final p in rows.take(20)) p.balance > 0 ? trf('• {0} কাছে পাবেন {1} টাকা', [possessive(p.name), bnNumber(p.balance)]) : trf('• {0} দিতে হবে {1} টাকা', [toPerson(p.name), bnNumber(-p.balance)]),
+          if (rows.length > 20) trf('আরও {0}টা', [bnDigits(rows.length - 20)]),
+        ].join('\n');
+      }
       return trf('আপনি পাবেন {0} টাকা, দিতে হবে {1} টাকা — {2}।', [
         bnNumber(t.receivable),
         bnNumber(t.payable),
@@ -639,7 +648,20 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
           : trf('{0} খুঁজে পাইনি। আছে: {1}।', [name.isEmpty ? 'কোন হিসাব' : '‘$name’ নামে হিসাব', nameList([for (final x in d.projects) x.name], unit: 'টা')]);
     }
     final s = projectSums(d.cash, p.id);
-    if (s.income == 0 && s.expense == 0) return trf('‘{0}’ হিসাবে টাকা আসা বা খরচের কোনো তথ্য নেই।', [p.name]);
+    // Dues kept for this account ("বকেয়া — শিক্ষার্থীদের বেতন" on the
+    // লেনদেন entries): who still owes, and how much in all.
+    final owing = <String, int>{};
+    for (final b in balances(d.ledger)) {
+      final tagged = d.ledger.any((e) => personKey(e.person) == personKey(b.name) && e.note.contains(p.name));
+      if (tagged && b.balance > 0) owing[b.name] = b.balance;
+    }
+    final dues = owing.isEmpty
+        ? const <String>[]
+        : [trf('বকেয়া {0} টাকা ({1} জন): {2}', [bnNumber(owing.values.fold<int>(0, (s, v) => s + v)), bnDigits(owing.length), [for (final e in owing.entries) '${e.key} ${bnNumber(e.value)}'].join(', ')])];
+    if (s.income == 0 && s.expense == 0) {
+      final none = trf('‘{0}’ হিসাবে টাকা আসা বা খরচের কোনো তথ্য নেই।', [p.name]);
+      return dues.isEmpty ? none : '$none ${dues.single}';
+    }
     final String head;
     if (s.income == 0) {
       head = trf('‘{0}’ হিসাবে এ পর্যন্ত খরচ {1} টাকা।', [p.name, bnNumber(s.expense)]);
@@ -651,7 +673,7 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
     }
     // "… হিসাব দাও": the entries too, not only the totals ("কত" asks only the sum).
     final total = RegExp(fold(r'(?:কত|কতো)')).hasMatch(fold(normalize(q.transcript)));
-    return total ? head : [head, ...projectEntryLines(d, p.id)].join('\n');
+    return total ? [head, ...dues].join(' ') : [head, ...dues, ...projectEntryLines(d, p.id)].join('\n');
   }
   // "বাজারের খাতের ভেতরের সব দেখাও": that খাত's entries (this month unless
   // another time is said), each with its own words; the sum matches them.

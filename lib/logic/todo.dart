@@ -448,7 +448,8 @@ _TdWhen _tdWhen(String said, DateTime now) {
   }
   if (w.day == null) {
     // "ডিসেম্বরে" (no day number before it): that month.
-    take(r'(?<=\s)(?<![০-৯0-9]\s)' + _monthsP + r'(?:\s+মাস(?:ে|ের)?)?(?:ের|এর|ে|তে)?(?:\s+মধ্যে)?(?=\s)', (m) {
+    // ("মে দিবস", "জুলাই বিপ্লব" — a named day — is part of the to-do.)
+    take(r'(?<=\s)(?<![০-৯0-9]\s)' + _monthsP + r'(?!\s+(?:দিবস|বিপ্লব|সংখ্যা))(?:\s+মাস(?:ে|ের)?)?(?:ের|এর|ে|তে)?(?:\s+মধ্যে)?(?=\s)', (m) {
       final mi = bnMonths.map(_tf).toList().indexOf(_tf(m[1]!)) + 1;
       if (mi <= 0) return;
       var y = today.year;
@@ -728,7 +729,7 @@ TaskQuery? _tdQuery(String said, String f, DateTime now) {
       from = DateTime(today.year, today.month + 1, 1);
       to = DateTime(today.year, today.month + 2, 0);
       label = 'আগামী মাসে';
-    } else if (_tre(r'(?<=\s)(?<![০-৯0-9]\s)' + _monthsP + r'(?:\s+মাস(?:ে|ের)?)?(?:ের|এর|ে|তে)?(?=\s)').hasMatch(f) && !_thas(f, r'[০-৯0-9]{1,2}\s+' + _monthsP)) {
+    } else if (_tre(r'(?<=\s)(?<![০-৯0-9]\s)' + _monthsP + r'(?!\s+(?:দিবস|বিপ্লব))(?:\s+মাস(?:ে|ের)?)?(?:ের|এর|ে|তে)?(?=\s)').hasMatch(f) && !_thas(f, r'[০-৯0-9]{1,2}\s+' + _monthsP)) {
       final m = _tre(_monthsP).firstMatch(f)!;
       final mi = bnMonths.map(_tf).toList().indexOf(_tf(m[1]!)) + 1;
       final y = mi < today.month ? today.year + 1 : today.year;

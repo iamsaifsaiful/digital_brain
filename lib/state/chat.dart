@@ -896,6 +896,10 @@ class ChatController extends ChangeNotifier {
       notifyListeners();
       return out.join(' ');
     }
+    if (wait == ChatWait.none && await _remindByDayOrHere(t, out)) {
+      notifyListeners();
+      return out.join(' ');
+    }
     if (wait == ChatWait.none && _envelopeLeft(t, out)) {
       notifyListeners();
       return out.join(' ');
@@ -922,6 +926,10 @@ class ChatController extends ChangeNotifier {
     }
     // "না" to money just offered, then "অন্যান্য হিসাবে শিক্ষার্থীদের বেতন
     // সংক্রান্ত বিভাগ খুলে এগুলো রাখবে": the same items, into that account.
+    if (wait == ChatWait.none && _refusedAsDues(t, out)) {
+      notifyListeners();
+      return out.join(' ');
+    }
     if (wait == ChatWait.none && await _refusedIntoProject(t, out)) {
       notifyListeners();
       return out.join(' ');
@@ -1185,6 +1193,37 @@ class ChatController extends ChangeNotifier {
     final ws = words(n);
     var monthOnly = date == null ? [for (var i = 0; i < bnMonths.length; i++) if (ws.contains(normalize(bnMonths[i]))) i + 1] : const <int>[];
     if (date == null && monthOnly.isEmpty) return false;
+    // "তাইলে ১৫ নভেম্বর কেন বলো?", "মাত্র যে বললাম ১৫ ফেব্রুয়ারী?": the day
+    // in a "why"/"I said" question is never the day to move to blindly.
+    // Two of the same kind kept (an old wrong one and the right one): the
+    // one on the day complained about is offered for removal — asked once.
+    if (date != null) {
+      final why = RegExp(fold(r'(?:^|\s)কেন(?:\s|$)')).hasMatch(f) && !changing;
+      final hits = [for (final x in brain.data.specialDays) if (x.month == date.$2 && x.day == date.$1) x];
+      if (hits.length == 1) {
+        final h = hits.single;
+        final twins = [for (final x in brain.data.specialDays) if (x.id != h.id && x.kind == h.kind && x.kind != SpecialKind.birthday) x];
+        if (why && twins.isNotEmpty) {
+          final keep = twins.first;
+          _current = ManageItem(t, action: 'delete');
+          await _confirmManage(Target(ItemKind.special, h.id, '${specialTitle(h)} — ${bnDigits(h.day)} ${monthName(h.month)}', h.person, DateTime(2000)), out);
+          messages.insert(messages.length - 1, ChatMessage.app(trf('দুঃখিত — {0} দুটো রাখা আছে: {1} {2} (পুরোনো, ভুল) আর {3} {4}। পুরোনোটা মুছে দিলে শুধু {3} {4} থাকবে।', [h.kind.bn, bnDigits(h.day), monthName(h.month), bnDigits(keep.day), monthName(keep.month)])));
+          return true;
+        }
+        if (!why && pointing && RegExp(fold(r'(?:বললাম|বলেছি|বলছি|মাত্র)')).hasMatch(f)) {
+          final extra = twins.isEmpty ? '' : ' ${trf('তবে আগের একটা {0}ও আছে — {1} {2}। ভুল হলে বলুন “{1} {2}-এরটা মুছে দাও”।', [h.kind.bn, bnDigits(twins.first.day), monthName(twins.first.month)])}';
+          _say(out, trf('{0} — {1} {2}, এভাবেই রাখা আছে।', [specialTitle(h), bnDigits(h.day), monthName(h.month)]) + extra);
+          _lastSpecial = (h.id, _now);
+          return true;
+        }
+      }
+      if (why) {
+        // Asked why that day was said: explained, nothing moved.
+        if (hits.isEmpty) return false;
+        _say(out, trf('{0} {1} {2}-এ রাখা আছে। বদলাতে বলুন, যেমন “{0} ১৫ ফেব্রুয়ারি হবে”।', [specialTitle(hits.first), bnDigits(hits.first.day), monthName(hits.first.month)]));
+        return true;
+      }
+    }
     SpecialDay? target;
     final last = _lastSpecial;
     if (last != null && _now.difference(last.$2).inMinutes <= 60) target = brain.data.specialDays.where((x) => x.id == last.$1).firstOrNull;
@@ -1749,7 +1788,7 @@ class ChatController extends ChangeNotifier {
         _phoneChecked = false;
         await _nextLedgerStep(out);
       case LedgerSet():
-        _setEntry = entryToReach(brain.data.ledger, c.person, c.balance, _now);
+        _setEntry = entryToReach(brain.data.ledger, c.person, c.balance, _now)?.copyWith(note: c.note.isEmpty ? null : c.note);
         if (_setEntry == null) {
           final cur = balanceWith(brain.data.ledger, c.person);
           _say(out, trf('খাতায় তো এটাই লেখা আছে — {0}। নতুন করে কিছু লাগবে না।', [owesText(c.person, cur)]), speak: !_allYes);
@@ -2027,6 +2066,48 @@ class ChatController extends ChangeNotifier {
       default:
         await _done(out);
     }
+  }
+
+  /// "বকেয়া", "পাওনা", "বাকি আছে" said as what the money is.
+  bool _saysDue(String t) => RegExp(fold(r'(?:বকেয়া|বাকি\s+আছে|বাকি\s+হিসাব|পাওনা\s+হিসাব|পাওনা|এরা\s+দেয়নি|দেয়নি)')).hasMatch(fold(normalize(t)));
+
+  /// Money items read as income, re-read as what each one owes ("এটা আয়
+  /// না, বকেয়া"): the person from each item's own words; the amount added
+  /// to what they owe already; the account named on the note.
+  List<Command> _asDues(List<Command> items, String said) {
+    final p = projectHinted(brain.data, said) ?? [for (final c in items) if (c is CashAdd && c.project != null) projectByName(brain.data, c.project!)].nonNulls.firstOrNull;
+    final note = p == null ? tr('বকেয়া') : '${tr('বকেয়া')} — ${p.name}';
+    return [
+      for (final c in items)
+        if (c is CashAdd)
+          () {
+            final name = cashItem(c.transcript).isNotEmpty ? cashItem(c.transcript) : c.transcript.split(RegExp(r'\s+[০-৯0-9]')).first.trim();
+            final known = balanceOf(brain.data.ledger, name)?.balance ?? 0;
+            return LedgerSet(c.transcript, person: name, balance: known + c.amount, note: note);
+          }()
+        else
+          c,
+    ];
+  }
+
+  /// "বকেয়া হিসেবে এই গুলো রাখো" right after money items were refused:
+  /// those, as dues — never a new note category.
+  bool _refusedAsDues(String t, List<String> out) {
+    final f = ' ${fold(normalize(t))} ';
+    if (!_saysDue(t) || !RegExp(fold(r'(?<=\s)(?:এগুলো|এগুলা|ওগুলো|সেগুলো|এইগুলো|এসব|এই\s+গুলো|এটা|ওটা)(?=\s)')).hasMatch(f)) return false;
+    final r = _refused;
+    final cash = r == null || _now.difference(r.$2).inMinutes > 15 ? const <CashAdd>[] : r.$1.whereType<CashAdd>().toList();
+    if (cash.isEmpty) {
+      _say(out, tr('কোনগুলো বকেয়া হিসেবে রাখব? নাম আর টাকাসহ বলুন — যেমন “ফয়সাল ১০০০ টাকা বকেয়া”।'));
+      return true;
+    }
+    _refused = null;
+    _queue
+      ..clear()
+      ..addAll(_asDues(cash, t));
+    _askingAll = true;
+    _ask(out, trf('ঠিক আছে, এগুলো বকেয়া (তাঁরা দেবেন) হিসেবে রাখব — আয় হিসেবে নয়। রেখে দিই?', []), ChatWait.yesNo, choices: _yesNoChoices, facts: [for (final x in _queue) summaryLine(x)]);
+    return true;
   }
 
   Future<bool> _refusedIntoProject(String t, List<String> out) async {
@@ -2570,6 +2651,18 @@ class ChatController extends ChangeNotifier {
         }
         // "সব যথাযথ হয় নাই। নাহিয়ানের বেতন অন্যান্য হিসাবের … শিক্ষার্থীদের
         // বেতনে যুক্ত কর": one item of the list waiting, changed; asked again.
+        // "এটা আয় না। এটা বকেয়া হিসাব": the same items, as what each one
+        // owes — never a "no" that drops them all.
+        if (_saysDue(t) && ((_askingAll && _queue.whereType<CashAdd>().isNotEmpty) || (!_askingAll && _current is CashAdd))) {
+          final items = _askingAll ? List<Command>.of(_queue) : <Command>[_current!];
+          _queue
+            ..clear()
+            ..addAll(_asDues(items, t));
+          _current = null;
+          _askingAll = true;
+          _ask(out, tr('ঠিক আছে, আয় নয় — বকেয়া (তাঁরা দেবেন)। এভাবে রেখে দিই?'), ChatWait.yesNo, choices: _yesNoChoices, facts: [for (final x in _queue) summaryLine(x)]);
+          return true;
+        }
         if (_askingAll && _editQueued(t, out)) return true;
         // "এইগুলো ওই বেতনের হিসাবে রাখো" while money items wait: all of
         // them into that account — shown again, then kept on a yes.
@@ -3228,6 +3321,56 @@ class ChatController extends ChangeNotifier {
     await brain.saveCash(CashEntry(id: pick.id, kind: pick.kind, amount: pick.amount, category: pick.category, note: pick.note, date: pick.date, projectId: p.id, accountId: pick.accountId, shopId: pick.shopId));
     _say(out, trf('{0} টাকার এন্ট্রিটা ‘{1}’ হিসাবে সরিয়েছি — নতুন করে কিছু যোগ হয়নি।', [bnNumber(pick.amount), p.name]), links: [ChatLink(LinkKind.page, tr('অন্যান্য হিসাব'), page: 'projects')]);
     _offerUndo(snap);
+    return true;
+  }
+
+  /// "১ মে এর কাজের রিমাইন্ডার দরকার": the to-dos kept on that day (of
+  /// whatever year they are in — "১ মে ২০২৯"), their reminder; "এখানে
+  /// রিমাইন্ডার যুক্ত কর" right after a to-do: that one's. The time is asked
+  /// when not said; never a reminder called "কাজের দরকার".
+  Future<bool> _remindByDayOrHere(String t, List<String> out) async {
+    final f = ' ${fold(normalize(tidySpeech(t))).replaceAll(RegExp(r'[।,!?]'), ' ')} ';
+    if (!RegExp(fold(r'(?:রিমাইন্ডার|মনে\s+করানো|এলার্ম|অ্যালার্ম)')).hasMatch(f)) return false;
+    if (!RegExp(fold(r'(?:দরকার|লাগবে|দাও|দিও|দেন|দিন|চাই|যুক্ত\s+কর|যোগ\s+কর|লাগাও|সেট\s+কর|দিয়ে\s+দাও|রাখো)')).hasMatch(f)) return false;
+    final w = parseWhen(tidySpeech(t), _now);
+    final clock = w != null && w.hasTime && saysClock(tidySpeech(t));
+    List<Task> targets = const [];
+    // "এখানে / এটাতে / এই কাজে রিমাইন্ডার যুক্ত কর".
+    final here = RegExp(fold(r'(?:^|\s)(?:এখানে|এটাতে|এতে|ওটাতে|ওখানে|এটার|ওটার|এটায়|এই\s+কাজে|ওই\s+কাজে|এই\s+কাজটায়|কাজটায়|কাজটাতে)\s+(?:একটা\s+)?রিমাইন্ডার')).hasMatch(f);
+    if (here) {
+      final focus = _focusTaskId != null && _focusTaskAt != null && _now.difference(_focusTaskAt!).inMinutes <= 15 ? _taskById(_focusTaskId!) : null;
+      if (focus == null) return false;
+      targets = [focus];
+    } else {
+      final dm = RegExp(fold(r'^\s*([০-৯0-9]{1,2})\s+(' + bnMonths.join('|') + r')(?:\s+([০-৯0-9]{4}))?\s*(?:এর|ের|তারিখের|-এর)?\s+(?:সব\s+)?(?:কাজ|কাজের|কাজটার|কাজটির|কাজগুলোর|কাজগুলার)\s')).firstMatch(f);
+      if (dm == null) return false;
+      final day = int.parse(asciiDigits(dm[1]!));
+      final month = bnMonths.map(fold).toList().indexOf(dm[2]!) + 1;
+      final year = dm[3] == null ? null : int.parse(asciiDigits(dm[3]!));
+      final open = [for (final x in brain.data.tasks) if (!x.done && x.due != null && x.span == TaskSpan.day && x.due!.month == month && x.due!.day == day && (year == null || x.due!.year == year) && !x.due!.isBefore(dayOnly(_now))) x];
+      if (open.isEmpty) {
+        _say(out, trf('{0} {1}-এ কোনো কাজ রাখা নেই — কিছু রাখিনি।', [bnDigits(day), monthName(month)]), links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
+        return true;
+      }
+      // The nearest year that has to-dos on that day.
+      final y = open.map((x) => x.due!.year).reduce((a, b) => a < b ? a : b);
+      targets = [for (final x in open) if (x.due!.year == y) x];
+    }
+    if (targets.length == 1) {
+      final task = targets.single;
+      _focusTask(task);
+      if (clock) {
+        final d = dayOnly(task.due ?? _now);
+        await _todo(TaskEdit(t, ref: TaskRef(ids: [task.id]), remindAt: DateTime(d.year, d.month, d.day, w.at.hour, w.at.minute), remindAmPm: ampmUnclear(t)), out);
+      } else {
+        await _todo(TaskEdit(t, ref: TaskRef(ids: [task.id]), remindNeedsTime: true), out);
+      }
+      return true;
+    }
+    _batchTasks = ([for (final x in targets) x.id], '', _turn);
+    _batchPart = null;
+    _ask(out, trf('{0}টা কাজের রিমাইন্ডার — প্রতিটা নিজের দিনে, কয়টায় মনে করাব? যেমন “দুপুর ১২টায়”।', [bnDigits(targets.length)]), ChatWait.batchTime,
+        facts: [for (final x in targets) taskLine(x, _now)]);
     return true;
   }
 

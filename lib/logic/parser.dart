@@ -56,9 +56,12 @@ class LedgerAdd extends Command {
 /// "ইসমাইলের কাছে আমি ৫ হাজার টাকা পাই": the user states a balance.
 /// [balance] > 0: they owe me; < 0: I owe them.
 class LedgerSet extends Command {
-  const LedgerSet(super.transcript, {required this.person, required this.balance});
+  const LedgerSet(super.transcript, {required this.person, required this.balance, this.note = ''});
   final String person;
   final int balance;
+
+  /// "বকেয়া — শিক্ষার্থীদের বেতন": what the balance is for (kept on the entry).
+  final String note;
 }
 
 enum LedgerAsk { all, receivable, payable, person }
