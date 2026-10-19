@@ -673,6 +673,15 @@ bool _tdAsks(String said, String f) =>
 
 /// A question about the to-do list, with what it covers. Null when [said]
 /// is not one.
+/// The to-do list for [when] ("আজকের", "জুন ২০২৯", "আগামী সপ্তাহের"),
+/// scoped to that time just as "<when> কাজগুলো কী কী?" would be.
+TaskQuery listQueryFor(String when, DateTime now) {
+  final said = '${when.isEmpty ? '' : '$when '}${fold('কাজগুলো কী কী?')}'.trim();
+  if (when.isEmpty) return TaskQuery(said);
+  final f = ' ${_tf(said).replaceAll(RegExp(r'[।!?,;:"“”]'), ' ').toLowerCase()} ';
+  return _tdQuery(said, f, now) ?? TaskQuery(said);
+}
+
 TaskQuery? _tdQuery(String said, String f, DateTime now) {
   final task = _thas(f, r'(?<=\s)' + _taskNounP + r'(?=\s)') || _thas(f, _listP);
   // "কী কী করা বাকি?", "আজ কী কী করার আছে?", "কী কী করতে হবে?", "কী কী করা লাগব?"
@@ -735,10 +744,12 @@ TaskQuery? _tdQuery(String said, String f, DateTime now) {
     } else if (_tre(r'(?<=\s)(?<![০-৯0-9]\s)' + _monthsP + r'(?!\s+(?:দিবস|বিপ্লব))(?:\s+মাস(?:ে|ের)?)?(?:ের|এর|ে|তে)?(?=\s)').hasMatch(f) && !_thas(f, r'[০-৯0-9]{1,2}\s+' + _monthsP)) {
       final m = _tre(_monthsP).firstMatch(f)!;
       final mi = bnMonths.map(_tf).toList().indexOf(_tf(m[1]!)) + 1;
-      final y = mi < today.month ? today.year + 1 : today.year;
+      // "জুন ২০২৯": the year said with the month wins.
+      final said = _tre(_monthsP + r'\S*\s+(?:সালের\s+)?([০-৯0-9]{4})(?=\s|\S)').firstMatch(f);
+      final y = said != null ? int.parse(asciiDigits(said[2]!)) : (mi < today.month ? today.year + 1 : today.year);
       from = DateTime(y, mi, 1);
       to = DateTime(y, mi + 1, 0);
-      label = '${bnMonths[mi - 1]} মাসে';
+      label = said != null ? '${bnMonths[mi - 1]} ${bnDigits(y)}-এ' : '${bnMonths[mi - 1]} মাসে';
     } else if (_thas(f, r'(?<=\s)(?:এই|এ)\s+মাস')) {
       from = today;
       to = DateTime(today.year, today.month + 1, 0);

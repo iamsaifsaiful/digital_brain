@@ -35,6 +35,16 @@ const _banglish = {
   'bazar': 'বাজার', 'dudh': 'দুধ', 'chul': 'চুল', 'doctor': 'ডাক্তার', 'daktar': 'ডাক্তার', 'bank': 'ব্যাংক', 'meeting': 'মিটিং', 'report': 'রিপোর্ট', 'file': 'ফাইল', 'ousudh': 'ওষুধ', 'oshudh': 'ওষুধ',
 };
 
+/// Words only Banglish uses (never English words).
+const _banglishOnly = {
+  'aj', 'aaj', 'ajke', 'kal', 'kalke', 'porshu', 'kaj', 'kajer', 'kajgulo', 'kam', 'talika', 'dao', 'dekhao', 'dekhan', 'bolo', 'chai', 'ki', 'koto', 'koyta', 'ache', 'ase', 'baki', 'amar', 'gulo',
+  'hobe', 'jabo', 'korbo', 'kinbo', 'dibo', 'debo', 'kinte', 'dite', 'nite', 'jete', 'katate', 'kora', 'hoye', 'gese', 'geche', 'gechhe', 'sesh', 'shesh', 'korechi', 'muche', 'mucho', 'bondho', 'koro', 'kore',
+  'mone', 'koriye', 'koraba', 'korabe', 'dio', 'sokal', 'sokale', 'dupur', 'bikel', 'sondha', 'sondhya', 'rate', 'tay', 'protidin', 'roj', 'kache', 'theke', 'kotha', 'bazar', 'dudh', 'chul', 'daktar', 'ousudh', 'oshudh', 'er', 'ta',
+};
+
+/// English sentence words: with any of them the message is English.
+const _englishWords = {'a', 'an', 'the', 'to', 'is', 'are', 'and', 'my', 'me', 'please', 'add', 'send', 'show', 'remind', 'set', 'what', 'tomorrow', 'today', 'for', 'of', 'at', 'in', 'on', 'i', 'you', 'it', 'this', 'that', 'with'};
+
 /// [said] in standard Bengali (see the file comment). Unchanged when there
 /// is nothing to change.
 String standardSpeech(String said) {
@@ -44,7 +54,12 @@ String standardSpeech(String said) {
     s = s.replaceAll(RegExp('(?<=^|[\\s,।?!])${RegExp.escape(e.key)}(?=\$|[\\s,।?!])'), e.value);
   }
   final words = s.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-  final mostlyLatin = words.where((w) => RegExp(r'^[A-Za-z0-9]').hasMatch(w)).length * 2 > words.length;
+  // Banglish only when a word of it is there and no English sentence
+  // words are ("Add a task, send the proposal" stays English).
+  final lower = [for (final w in words) w.toLowerCase().replaceAll(RegExp(r'[,.?!।]'), '')];
+  final banglishCore = lower.any(_banglishOnly.contains);
+  final english = lower.any(_englishWords.contains);
+  final mostlyLatin = banglishCore && !english && words.where((w) => RegExp(r'^[A-Za-z0-9]').hasMatch(w)).length * 2 > words.length;
   final out = StringBuffer();
   final parts = RegExp(r'\s+|[^\s]+').allMatches(s).map((m) => m[0]!).toList();
   for (final p in parts) {

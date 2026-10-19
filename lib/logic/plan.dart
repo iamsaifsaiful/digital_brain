@@ -54,7 +54,8 @@ List<Command> parseAll(String said, List<LedgerEntry> ledger,
   }
   // A "লিখে রাখো" note that names a day and a doing ("কালকে ডাক্তারের
   // কাছে যাওয়া লিখে রাখো") is a plan — a to-do, unless a note was named.
-  final datedPlan = out.length == 1 && out.first is NoteAdd && !(out.first as NoteAdd).fromStatement && !RegExp(fold(r'(?:নোট|নোটে|নোটস)')).hasMatch(fold(normalize(said))) && (parseWhen(tidySpeech(said), now ?? DateTime.now())?.hasDay ?? false);
+  final datedPlan = out.length == 1 && out.first is NoteAdd && !(out.first as NoteAdd).fromStatement && !RegExp(fold(r'(?:নোট|নোটে|নোটস|টাকা|খরচ|হিসাব)')).hasMatch(fold(normalize(said))) && (parseWhen(tidySpeech(said), now ?? DateTime.now())?.hasDay ?? false) &&
+      RegExp(fold(r'(?:ওয়া|নো)\s+লিখে\s+রাখো')).hasMatch(fold(normalize(said)));
   if (out.length == 1 && (out.first is NotUnderstood || out.first is SearchQuery || (out.first is NoteAdd && (out.first as NoteAdd).fromStatement) || datedPlan)) {
     final todo = todoIntentOf(said, tasks, now ?? DateTime.now(), ledger);
     if (todo != null) return [todo];

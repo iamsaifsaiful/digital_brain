@@ -782,7 +782,9 @@ class ChatController extends ChangeNotifier {
     // "কাজের তালিকা দাও" while something waits for a yes (a removal, a
     // save): a new question, never a yes — the waiting one is set aside,
     // unchanged, and the list is shown. (Dictation pauses on its own.)
-    if (taskListAsked(t) && wait != ChatWait.none && wait != ChatWait.collect) {
+    // "আজকের কাজগুলো" while "আজকের কাজগুলো, নাকি সব?" waits: the answer.
+    final bareChoice = wait == ChatWait.clarify && !t.contains('?') && !RegExp(fold(r'(?:^|\s)(?:দাও|দিন|দেন|দেখাও|দেখান|বলো|বলুন|শোনাও|কি|কী|কোন|কোনো|কয়টা|কত|আছে|চাই|চাচ্ছি)(?:\s|$)')).hasMatch(fold(normalize(t)));
+    if (taskListAsked(t) && wait != ChatWait.none && wait != ChatWait.collect && !bareChoice) {
       final removal = wait == ChatWait.bulk;
       _dropPending();
       if (removal) messages.add(ChatMessage.app(tr('মোছার প্রশ্নটা বাদ দিলাম — কিছু মোছা হয়নি।'), info: true));
@@ -3388,6 +3390,8 @@ class ChatController extends ChangeNotifier {
       final y = open.map((x) => x.due!.year).reduce((a, b) => a < b ? a : b);
       targets = [for (final x in open) if (x.due!.year == y) x];
     }
+    // A week's or month's plan: the usual path asks which day.
+    if (targets.length == 1 && targets.single.span != TaskSpan.day) return false;
     if (targets.length == 1) {
       final task = targets.single;
       _focusTask(task);
@@ -3413,7 +3417,13 @@ class ChatController extends ChangeNotifier {
     final k = key(c.title);
     if (k.isEmpty) return null;
     final hits = [for (final t in brain.data.tasks) if (!t.done && t.repeat == null && t.due != null && dayOnly(t.due!) != dayOnly(c.due!) && key(t.title) == k) t];
-    return hits.length == 1 ? hits.single : null;
+    if (hits.length != 1) return null;
+    // Only when that to-do itself is named ("বাজার করা কাল করব", "বাজারের
+    // কাজ কাল"): "পরশু ওষুধ আনতে হবে" is a need of its own, kept at once.
+    final said = fold(normalize(c.transcript));
+    final title = fold(normalize(hits.single.title));
+    final named = said.contains(title) || RegExp('${RegExp.escape(k)}\\S*\\s+${fold('কাজ')}').hasMatch(said);
+    return named ? hits.single : null;
   }
 
   /// "হাতে কত রইল?" right after "৯০০০ টাকা নিয়ে বাজারে গেলাম; মাছ ২৫০০, …":

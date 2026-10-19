@@ -145,7 +145,7 @@ List<String>? reminderQuestionTerms(String said) {
   if (RegExp(fold(r'(?:মনে\s+করিয়ে|মনে\s+করিও|করিয়ে\s+দিও|দিও|দিয়ো|সেট|বন্ধ|মুছ|বাদ|লাগবে\s+না|যুক্ত|যোগ)')).hasMatch(f)) return null;
   if (!asked && !plural) return null;
   if (!asked && RegExp(r'[০-৯0-9]').hasMatch(f)) return null;
-  const skip = ['আমার', 'আজ', 'আজকে', 'আজকের', 'কাল', 'কালকে', 'কালকের', 'সব', 'সবগুলো', 'কি', 'কী', 'কোন', 'কোনো', 'কয়টা', 'কয়টায়', 'কটায়', 'কখন', 'কবে', 'কত', 'কতগুলো', 'আছে', 'দাও', 'দেখাও', 'দেখান', 'বলো', 'বলুন', 'তো', 'একটু', 'ভাই', 'আপু', 'প্লিজ', 'আচ্ছা', 'জি', 'লিস্ট', 'তালিকা', 'দেওয়া', 'রাখা', 'মনে', 'করাবে', 'করাবা', 'করাবেন', 'করানো', 'এর', 'না'];
+  const skip = ['আমার', 'আজ', 'আজকে', 'আজকের', 'কাল', 'কালকে', 'কালকের', 'সব', 'সবগুলো', 'কি', 'কী', 'কোন', 'কোনো', 'কয়টা', 'কয়টায়', 'কটায়', 'কখন', 'কবে', 'কত', 'কতগুলো', 'আছে', 'দাও', 'দেখাও', 'দেখান', 'বলো', 'বলুন', 'তো', 'একটু', 'ভাই', 'আপু', 'প্লিজ', 'আচ্ছা', 'জি', 'লিস্ট', 'তালিকা', 'দেওয়া', 'রাখা', 'মনে', 'করাবে', 'করাবা', 'করাবেন', 'করানো', 'এর', 'না', 'আর', 'বর্তমানে', 'এখন', 'এখনো', 'বাকি', 'সামনের', 'সামনে', 'চালু', 'রয়েছে', 'যেসব', 'যে'];
   final rest = [
     for (final w in f.replaceRange(noun.start, noun.end, ' ').split(' '))
       if (w.isNotEmpty && !skip.map((x) => fold(normalize(x))).contains(w) && !RegExp(fold(r'^(?:রিমাইন্ডার|এলার্ম|অ্যালার্ম)')).hasMatch(w) && !RegExp(fold(r'^(?:গুলো|গুলি|গুলা)$')).hasMatch(w))
@@ -1034,7 +1034,7 @@ class Parser {
     // "আজ কী কী কাজ আছে", "কালকের লিস্ট প্লিজ": that list, read with
     // only its when — never a to-do "about" the asking words.
     final listScope = listQuestionScope(said);
-    if (listScope != null) return TaskQuery('${listScope.isEmpty ? '' : '$listScope '}${fold('কাজগুলো কী কী?')}'.trim());
+    if (listScope != null) return listQueryFor(listScope, now);
 
     // "সব রিমাইন্ডার দাও", "কি কি রিমাইন্ডার দাও", "রিমাইন্ডারগুলো দাও": the
     // ones kept, shown — "দাও" here asks to see, it sets nothing.
