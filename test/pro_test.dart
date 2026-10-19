@@ -225,7 +225,7 @@ void main() {
     });
   });
 
-  testWidgets('Play app: a second project by voice goes to the general account and offers Pro; vault limit', (t) async {
+  testWidgets('Play app: a second project by voice is asked (general account only on a yes) and offers Pro; vault limit', (t) async {
     final rig = await start(t);
     rig.brain.gated = true;
     rig.brain.data = AppData(
@@ -235,11 +235,15 @@ void main() {
     await settle(t);
     await openChat(t);
     await tell(t, rig, 'রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো');
-    if (find.widgetWithText(ActionChip, 'হ্যাঁ').evaluate().isNotEmpty) await tell(t, rig, 'হ্যাঁ');
+    await settle(t);
+    // Nothing is written anywhere until the user chooses the general account.
+    expect(rig.brain.data.cash, isEmpty);
+    expect(find.widgetWithText(ActionChip, 'সাধারণ আয়-ব্যয়ে লিখুন'), findsOneWidget);
+    expect(find.textContaining('প্রো সুবিধা'), findsWidgets);
+    await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.projects.length, 1);
     expect(rig.brain.data.cash.single.projectId, isNull);
-    expect(find.textContaining('প্রো সুবিধা'), findsWidgets);
 
     await tell(t, rig, 'ফেসবুকের পাসওয়ার্ড ১২২৩৯৯৩৯');
     if (find.widgetWithText(ActionChip, 'হ্যাঁ').evaluate().isNotEmpty) await tell(t, rig, 'হ্যাঁ');

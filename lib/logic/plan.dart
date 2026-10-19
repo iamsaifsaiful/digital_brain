@@ -174,7 +174,8 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
     // "… ১০০০ ধার নিয়েছি, পরে ৩০০ শোধ করেছি": money parts set off by commas.
     if (parts.length == 1) {
       final byComma = s.split(RegExp(r'\s*[,،;]\s*')).map((x) => x.trim()).where((x) => x.isNotEmpty).toList();
-      if (byComma.length > 1 && byComma.every((x) => findAmount(normalize(x)) != null)) parts = byComma;
+      // "পাঁচশ টাকা, না সাতশ টাকা দিলাম": a change of mind, one event.
+      if (byComma.length > 1 && byComma.every((x) => findAmount(normalize(x)) != null) && applySelfCorrection(normalize(s)) == normalize(s)) parts = byComma;
     }
     if (parts.length > 1) {
       // "রহিমের কাছ থেকে ১০০০ ধার নিয়েছি, পরে ৩০০ শোধ করেছি": a later part
@@ -555,7 +556,7 @@ List<Command>? sharedVerbMoney(String said, Parser p) {
 
 /// "শফিক ২৫০, ইসমাইল ৩৭১২, রবিন ২০০, শাকিল ৫০০—সবাইকে ধার দিলাম": one
 /// record per person, each with the verb said once at the end. Null unless
-/// every part is "<name> <amount>" and the end says "সবাইকে/প্রত্যেককে …".
+/// every part is `<name> <amount>` and the end says "সবাইকে/প্রত্যেককে …".
 List<Command>? namesThenVerb(String said, Parser p) {
   final f = fold(said.trim()).replaceAll(RegExp(r'[।.!]+$'), '');
   final m = RegExp(fold(r'^(.+?)\s*(?:[—–\-,;:]\s*|\s)(?:এদের\s+|তাদের\s+|এই\s+)?(?:সবাইকে|সকলকে|প্রত্যেককে|প্রত্যেকেকে|সবাই\s+মিলে|সবার\s+কাছ\s+থেকে|প্রত্যেকের\s+কাছ\s+থেকে|সবাই|প্রত্যেকে)\s+(.+)$')).firstMatch(f);
@@ -571,7 +572,7 @@ List<Command>? namesThenVerb(String said, Parser p) {
     if (im == null || RegExp(r'^[০-৯0-9]').hasMatch(im[1]!)) return null;
     final name = x.substring(0, im[1]!.length).trim();
     final amount = '${im[2]} টাকা';
-    final line = from ? '${name}র কাছ থেকে $amount $verb' : givers ? '$name $amount $verb' : '${toPerson(name)} $amount $verb';
+    final line = from ? '$nameর কাছ থেকে $amount $verb' : givers ? '$name $amount $verb' : '${toPerson(name)} $amount $verb';
     final c = p.parse(line);
     if (c is! LedgerAdd || c.person.trim().isEmpty || c.amount != findAmount(normalize(amount))) return null;
     out.add(c);

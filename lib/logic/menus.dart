@@ -250,7 +250,7 @@ Command? menuCommand(String said, AppData? d, DateTime now) {
   final noteList = _tre(r'(?<=\s)(\S+?)(?:ের|এর|র)?\s+(?:নোট|নোটগুলো|নোটগুলা)\s+(?:দেখাও|দাও|বলো|দেখান)').firstMatch(f);
   // "আজকের কথা নোটটা পড়ো", "নোটটা পড়ে শোনাও": one note, read out as it is
   // written — what it says is never done.
-  final noteRead = _tre(r'^\s*(.*?)\s*(?:নোট|নোটটা|নোটটি|নোটখানা)\s+(?:পড়ো|পড়|পড়ুন|পড়ে\s+শোনাও|পড়ে\s+দাও|শোনাও|খোলো|খুলে\s+দেখাও)\s*$').firstMatch(f);
+  final noteRead = _tre(r'^\s*(.*?)\s*(?:নোট|নোটটা|নোটটি|নোটখানা)\s+(?:পড়ো|পড়|পড়ুন|পড়ে\s+শোনাও|পড়ে\s+দাও|শোনাও)\s*$').firstMatch(f);
   if (noteRead != null) return MenuAction(said, domain: 'notes', op: 'read', text: noteRead[1]!.trim());
   // "আমার নোটগুলো দেখাও", "সব নোট দাও": all of them — "আমার" is no category.
   if (noteList != null) return MenuAction(said, domain: 'notes', op: 'list', text: const ['সব', 'আমা', 'আমার', 'আমাদে', 'আমাদের', 'সকল', 'সমস্ত', 'এই', 'ওই'].map(_tf).contains(_tf(noteList[1]!)) ? '' : noteList[1]!);

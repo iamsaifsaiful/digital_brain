@@ -4,7 +4,6 @@
 // reply. Cases that need a phone (speech, microphone, OCR on real images,
 // the dialer, biometrics, backup keys) are not here — they are listed as
 // not run in docs/master100-2026-10-19.md.
-import 'package:digital_brain/models/extras.dart';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/state/chat.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -874,4 +873,38 @@ void main() {
       await e.value();
     });
   }
+
+  // ───────── more of 1–10 and 81–90 that a chat test reaches ─────────
+  testWidgets('C01 the final text "কাল স্কুলে যাব, বাজার করব, ব্যাংকে যাব" → three to-dos on 20 Oct (speech joining itself: speech_join_test)', (t) async {
+    await open(t);
+    await say('কাল স্কুলে যাব, বাজার করব, ব্যাংকে যাব');
+    await yes();
+    expect(data().tasks, hasLength(3), reason: '${data().tasks.map((x) => x.title)}');
+    expect(data().tasks.every((x) => x.due == DateTime(2026, 10, 20)), isTrue);
+  });
+
+  testWidgets('C04 "হ্যাঁ"/"না" alone never become a to-do', (t) async {
+    await open(t);
+    await say('হ্যাঁ');
+    await say('না');
+    expect(data().tasks, isEmpty);
+    expect(data().notes, isEmpty);
+  });
+
+  testWidgets('C82 "ওয়ারেন্টি কার্ডের ছবি থেকে মেয়াদের তারিখ নিতে পারবে?" → about documents, not birthdays; nothing saved', (t) async {
+    await open(t, AppData(specialDays: [SpecialDay(person: 'রহিম', month: 3, day: 12)]));
+    final r = await say('ওয়ারেন্টি কার্ডের ছবি থেকে মেয়াদের তারিখ নিতে পারবে?');
+    expect(r, isNot(contains('রহিম')));
+    expect(data().docs, isEmpty);
+    expect(data().notes, isEmpty);
+    expect(data().reminders, isEmpty);
+  });
+
+  testWidgets('C87 "ওকে কাল কল করতে মনে করাও" after a contact → a reminder for tomorrow, no call now', (t) async {
+    await open(t, AppData(contacts: [Contact(name: 'হিরা', phone: '01711000003')]));
+    await say('হিরার নম্বর দাও');
+    await say('ওকে কাল কল করতে মনে করাও');
+    if (chat.wait != ChatWait.none) await say('সকাল ১০টায়');
+    expect(data().reminders.where((r) => r.date == DateTime(2026, 10, 20)), hasLength(1), reason: '${data().reminders.map((r) => '${r.title} ${r.date}')}');
+  });
 }
