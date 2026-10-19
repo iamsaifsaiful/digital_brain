@@ -857,6 +857,13 @@ class ChatController extends ChangeNotifier {
       }
       _dropPending();
     }
+    // "তুবার জন্মদিনের রিমাইন্ডার সন্ধ্যা ৭টায় করে দাও", "৩১ অক্টোবরের
+    // রিমাইন্ডারের সময় বদলাও": a reminder already kept, changed — never a
+    // second reminder made beside it.
+    if (wait == ChatWait.none && await _reminderChange(t, out)) {
+      notifyListeners();
+      return out.join(' ');
+    }
     // "এইগুলো সব মুছে দাও", "প্রথম দুটো কাল রাখো": several items of the
     // list just shown — before any rule that reads one item or the database.
     if (wait == ChatWait.none && await _bulk(t, out)) {
@@ -2685,6 +2692,17 @@ class ChatController extends ChangeNotifier {
         // "না, রেখো না": a plain no — checked first, so "রেখো" is never
         // taken as a corrected name or kind.
         final refused = refusesSave(t) || notWhatISaid(t);
+        // "সব কাজ মুছে দেবো?" → "শুধু ২০২৯ সালের": the same removal, narrowed
+        // to that stretch of time and asked again.
+        final clearing = _current;
+        final narrowTo = clearing is TasksClear && clearing.ids.isEmpty && !clearing.doneOnly ? periodSaid(tidySpeech(t), _now) : null;
+        if (narrowTo != null) {
+          _current = null;
+          wait = ChatWait.none;
+          choices = const [];
+          await _periodRemove('tasks', 'delete', narrowTo, t, out);
+          return true;
+        }
         // "হ্যাঁ তুলে রাখ, তবে এরাম শব্দটা বাদ দিও": that word out, then as asked.
         final drop = RegExp(fold(r'(\S+)\s+(?:শব্দটা|শব্দটি|কথাটা|শব্দ)\s+(?:বাদ|কেটে|মুছে)')).firstMatch(fold(t));
         final curW = _current;
@@ -3439,6 +3457,31 @@ class ChatController extends ChangeNotifier {
     _batchPart = null;
     _ask(out, trf('{0}টা কাজের রিমাইন্ডার — প্রতিটা নিজের দিনে, কয়টায় মনে করাব? যেমন “দুপুর ১২টায়”।', [bnDigits(targets.length)]), ChatWait.batchTime,
         facts: [for (final x in targets) taskLine(x, _now)]);
+    return true;
+  }
+
+  Future<bool> _reminderChange(String t, List<String> out) async {
+    final f = fold(normalize(t));
+    if (!RegExp(fold(r'(?:রিমাইন্ডার|মনে\s+করানো|এলার্ম|অ্যালার্ম)')).hasMatch(f)) return false;
+    // Removing, stopping or a to-do's own reminder have their own rules.
+    if (RegExp(fold(r'(?:মুছ|ডিলিট|বাদ|বন্ধ|লাগবে\s+না|দরকার\s+নেই|দরকার\s+নাই|(?:^|\s)কাজ)')).hasMatch(f)) return false;
+    final said = tidySpeech(t);
+    final w = parseWhen(said, _now);
+    final clock = w != null && w.hasTime && saysClock(said);
+    final timeWord = RegExp(fold(r'(?:সময়|টাইম|time)')).hasMatch(f);
+    final changeWord = RegExp(fold(r'(?:সরাও|সরিয়ে|বদল|পরিবর্তন|চেঞ্জ|করে\s+দাও|(?:^|\s)করো|(?:^|\s)কর(?:\s|$)|দিও|(?:^|\s)দাও|হবে)')).hasMatch(f);
+    if (!(clock || timeWord) || !changeWord) return false;
+    final hits = remindersNamed(brain.data, t, _now);
+    if (hits.isEmpty || hits.length > 6) return false;
+    _current = ManageItem(t, action: 'edit');
+    if (hits.length > 1) {
+      _targets = hits;
+      _ask(out, trf('কয়েকটা মিলেছে — কোনটা {0}?', [tr('বদলাবো')]), ChatWait.whichItem,
+          facts: [for (var i = 0; i < hits.length; i++) '${bnDigits(i + 1)}. ${hits[i].label}'],
+          choices: [for (var i = 0; i < hits.length; i++) ChatChoice(bnDigits(i + 1), '${i + 1}')]);
+      return true;
+    }
+    await _confirmManage(hits.single, out);
     return true;
   }
 

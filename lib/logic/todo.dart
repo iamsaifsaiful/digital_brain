@@ -849,7 +849,9 @@ TaskEdit? renameCommand(String said) {
     _tre(r'^(?:কাজের\s+)?নাম(?:টা)?\s+' + verb + how + r'[\s:,—–-]+(.+?)\s+থেকে\s+(.+?)' + end),
     // "X কাজের নাম বদল হবে Y", "X এর নাম পরিবর্তন করে Y করো", "৩নং কাজের নাম পরিবর্তন হবে, Y".
     _tre(r'^(.+?)' + own + r'\s+নাম(?:টা|টি)?\s+' + verb + how + r'[\s:,—–-]+(.+?)' + end),
-    // "X কাজটার নাম হবে Y", "X-এর নাম Y করে দাও", "X এর নাম Y রাখো".
+    // "X কাজটার নাম হবে Y".
+    _tre(r'^(.+?)' + own + r'\s+নাম(?:টা|টি)?\s+হবে[\s:,—–-]+(.+?)\s*[।.!]?$'),
+    // "X-এর নাম Y করে দাও", "X এর নাম Y রাখো".
     _tre(r'^(.+?)' + own + r'\s+নাম(?:টা|টি)?\s+(?:হবে\s+)?(.+?)\s+(?:হবে|রাখো|রাখ|রাখুন|দাও|দিন|করো|কর|করে\s+দাও|লিখো|লেখো|হোক)\s*[।.!]?$'),
     // "X কাজটা রিনেম করো Y", "X কাজটা এডিট করে Y করো".
     _tre(r'^(.+?)' + own + r'\s+(?:রিনেম|rename|এডিট|edit)\s+(?:করো|কর|করে)[\s:,—–-]+(.+?)' + end),
@@ -860,12 +862,14 @@ TaskEdit? renameCommand(String said) {
     final m = re.firstMatch(f);
     if (m == null) continue;
     var ref = m[1]!.trim(), title = m[2]!.trim();
-    if (i == 2 && _thas(' $title ', r'(?:^|\s)' + verb + r'(?:\s|$)')) continue;
+    if (i == 3 && _thas(' $title ', r'(?:^|\s)' + verb + r'(?:\s|$)')) continue;
     title = title.replaceAll(_tre(r'^(?:হবে|করে|দিয়ে)\s+'), '').replaceAll(_tre(r'\s+(?:নামে|নাম)$'), '').trim();
     ref = ref.replaceAll(_tre(r'(?:\s*(?:-?এর|কাজের|কাজটার|কাজটির|কাজটা|কাজ|টার|টা))+$'), '').replaceAll(_tre(r'^(?:আমার\s+)?(?:কাজের\s+তালিকার\s+)?'), '').trim();
     if (ref.isEmpty || title.isEmpty || title.length > 80) continue;
-    // A sentence about a person, an amount or a time is not a to-do's name.
+    // A sentence about a person, an amount or a time is not a to-do's name;
+    // "কাজের তারিখ বদলে ২৮ অক্টোবর করো" moves it.
     if (_thas(' $title ', r'(?:টাকা|[০-৯0-9]+\s*টায়)')) continue;
+    if (_thas(' $ref ', r'(?:তারিখ|দিন|সময়|টাইম)\S{0,3}\s*$')) continue;
     final r = _tdRef(' $ref কাজটা ', ref);
     final index = r.index ?? _tdOrdinal(' $ref টা ');
     final last = _thas(' $ref ', r'(?<=\s)(?:শেষেরটা|শেষেরটার|শেষের|সর্বশেষ)(?=\s)');
@@ -1064,7 +1068,7 @@ TaskEdit? _tdEdit(String said, String f, List<Task> open, DateTime now) {
 
   // "বাজার করার বদলে মাসের বাজার করা লিখো".
   final rename = _tre(r'^\s*(.+?)\s*(?:এর|ের)?\s+(?:বদলে|পরিবর্তে|জায়গায়)\s+(.+?)\s+(?:লিখো|লেখো|লিখে\s+দাও|লিখে\s+রাখো|করো|রাখো|দাও|করে\s+দাও)\s*$').firstMatch(f);
-  if (rename != null && !_thas(rename[1]!, r'(?:টাকা|সময়)')) {
+  if (rename != null && !_thas(rename[1]!, r'(?:টাকা|সময়|তারিখ|দিন|টাইম)\S{0,3}\s*$') && !(parseWhen(rename[2]!, now)?.hasDay ?? false)) {
     final r = _tdRef(' ${rename[1]} ', rename[1]!);
     final title = todoTitle(rename[2]!);
     if (title.isNotEmpty && !r.isEmpty) return TaskEdit(said, ref: r, title: title);

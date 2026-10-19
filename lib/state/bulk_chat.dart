@@ -287,18 +287,23 @@ extension _BulkChat on ChatController {
     final shown = _sets.where(_setFresh).lastOrNull;
     if (domain.isEmpty && shown != null && (shown.domain == 'reminders' || shown.domain == 'tasks')) domain = shown.domain;
     if (domain.isEmpty) return false;
+    await _periodRemove(domain, op, period, t, out);
+    return true;
+  }
+
+  /// [op] on every [domain] item in [period], asked once.
+  Future<void> _periodRemove(String domain, String op, ({DateTime from, DateTime to, String label}) period, String t, List<String> out) async {
     final d = brain.data;
     final pool = domain == 'reminders' ? [for (final r in d.reminders) r.id] : [for (final x in d.tasks) if (!x.done) x.id];
     final ids = _inPeriod(domain, pool, period.from, period.to);
     final label = period.label;
     if (ids.isEmpty) {
       _say(out, trf('{0} কোনো {1} নেই — কিছু বদলাইনি।', [label, _domainBn[domain] ?? '']));
-      return true;
+      return;
     }
     _rememberSet(domain, label, ids, source: t);
     await _bulkStart(BulkAction(t, selection: const Selection(SelKind.all), op: op, domain: domain), _sets.last, ids, out);
     _onList = true;
-    return true;
   }
 
   /// [cmds] (from the rules or the AI — the same shape) on the list meant.

@@ -240,3 +240,27 @@ bool _onDay(AppData d, Target t, (int, int, int?) x, DateTime now) {
   if (on == null) return false;
   return on.month == month && on.day == day && (year == null || yearly || on.year == year);
 }
+
+/// Saved reminders [said] names — by the day it is on ("৩১ অক্টোবরের") or
+/// by the words of its title ("তুবার জন্মদিনের", "জিলাপির"): the best
+/// match only (several when tied).
+List<Target> remindersNamed(AppData d, String said, DateTime now) {
+  final text = normalize(said);
+  final all = [for (final t in targetsIn(d, now)) if (t.kind == ItemKind.reminder) t];
+  final dated = _datesIn(text);
+  if (dated.isNotEmpty) return [for (final t in all) if (dated.any((x) => _onDay(d, t, x, now))) t];
+  const generic = {'দেওয়া', 'নেওয়া', 'যাওয়া', 'করা', 'শেষ', 'আমার', 'আমাদের', 'রিমাইন্ডার', 'সময়', 'দিন', 'আজ', 'কাল'};
+  final saidWords = [for (final w in words(text)) if (w.runes.length >= 2) w];
+  var best = 0;
+  final scored = <(Target, int)>[];
+  for (final t in all) {
+    final own = [for (final w in words(normalize(t.text))) if (w.runes.length >= 2 && !generic.map(normalize).contains(w)) w];
+    var score = 0;
+    for (final o in own) {
+      if (saidWords.any((w) => w == o || (o.runes.length >= 3 && w.startsWith(o)) || (w.runes.length >= 3 && o.startsWith(w)))) score++;
+    }
+    if (score > 0) scored.add((t, score));
+    if (score > best) best = score;
+  }
+  return [for (final (t, s) in scored) if (s == best) t];
+}

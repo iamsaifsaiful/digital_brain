@@ -98,7 +98,7 @@ const _collectiveP = r'(?:এই\s+(?:দুটি|দুটো|দুটা|দ
 /// "জুন মাসে", "জুনে", "ডিসেম্বরের": the month named (1–12) with no day of it.
 int? _monthSaid(String f) {
   for (var i = 0; i < bnMonths.length; i++) {
-    final m = RegExp('(?:^|\\s)${fold(bnMonths[i])}(?:ে|ের|এ|এর|\\s+মাসে|\\s+মাসের|\\s+মাস)?(?=\\s|\$)').firstMatch(f);
+    final m = RegExp('(?:^|\\s)${fold(bnMonths[i])}(?:ে|ের|এ|এর|\\s+মাসে|\\s+মাসের|\\s+মাস)?(?:গুলো|গুলা|গুলি|টা|টি)?(?=\\s|\$)').firstMatch(f);
     if (m == null) continue;
     // "১৫ জুনে": a day of it — a day, not the month.
     final before = f.substring(0, m.start).trim();
