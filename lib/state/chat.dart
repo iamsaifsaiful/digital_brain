@@ -42,7 +42,7 @@ part 'menu_chat.dart';
 part 'bulk_chat.dart';
 
 /// What the chat is waiting to hear.
-enum ChatWait { none, newAccount, bulk, batchTime, taskDate, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, taskTitle, taskDay, project, collect, whichPerson, whichItem, clarify, whichTask, taskTime }
+enum ChatWait { none, newAccount, bulk, batchTime, taskDate, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, taskTitle, taskDay, project, collect, whichPerson, whichItem, clarify, whichTask, taskTime, changeTo }
 
 /// What the user said they want to talk about at the start.
 enum Topic {
@@ -278,6 +278,9 @@ class ChatController extends ChangeNotifier {
 
   /// A to-do request waiting for "কোনটা?" or "কয়টায়?", and the choices.
   Command? _todoWaiting;
+
+  /// The time offered with "কখন মনে করিয়ে দেব? যেমন …": a plain yes takes it.
+  String? _offeredTime;
   List<Task> _todoChoices = const [];
 
   /// The reminder just set for a to-do ("না, এগারোটায়" changes it).
@@ -957,6 +960,12 @@ class ChatController extends ChangeNotifier {
       notifyListeners();
       return out.join(' ');
     }
+    // "না। কাজের নাম বদল কর" right after something was kept: what was kept
+    // was a rename asked for — taken back, and the rename done (or asked).
+    if (await _renameInstead(t, out)) {
+      notifyListeners();
+      return out.join(' ');
+    }
     // Right after a to-do or reminder was kept at once: "এটা তো বলি নাই"
     // takes it back; "X শব্দটা বাদ দিও" / "শুধু লিখবা Y" change its words.
     if (wait == ChatWait.none && await _afterSave(t, out)) {
@@ -1428,6 +1437,12 @@ class ChatController extends ChangeNotifier {
       return;
     }
     _change = changeIn(t, c.transcript, _now);
+    // "তুবার জন্মদিনের রিমাইন্ডারের সময় পরিবর্তন কর": the new time asked
+    // here, in the chat — no page opened for one value.
+    if (_change.isEmpty && (t.kind == ItemKind.reminder || t.kind == ItemKind.task) && RegExp(fold(r'(?:সময়|টাইম|time|কয়টায়|তারিখ|দিন)')).hasMatch(fold(normalize(c.transcript)))) {
+      _ask(out, t.kind == ItemKind.reminder ? trf('“{0}” — নতুন সময় কত? যেমন “সন্ধ্যা ৭টায়”।', [t.label]) : trf('“{0}” — নতুন তারিখ কবে? যেমন “২৮ অক্টোবর”।', [t.label]), ChatWait.changeTo);
+      return;
+    }
     if (_change.isEmpty) {
       // No new time or amount said: open it to change by hand.
       final link = ChatLink(LinkKind.page, trf('বদলান: {0}', [t.label]), page: 'edit:${t.kind.name}', folder: t.id);
@@ -2588,6 +2603,23 @@ class ChatController extends ChangeNotifier {
           if (pick is CashQuery) _focusOn(cash: true);
         }
         return true;
+      case ChatWait.changeTo:
+        // "সন্ধ্যা ৭টায়" after "নতুন সময় কত?": that one changed now.
+        final target = _target;
+        final ch = target == null ? const Change() : changeIn(target, t, _now);
+        if (target == null || ch.isEmpty) {
+          if (_looksNew(t)) return false;
+          _say(out, target?.kind == ItemKind.task ? tr('তারিখটা ধরতে পারিনি — যেমন বলুন “২৮ অক্টোবর”।') : tr('সময়টা ধরতে পারিনি — যেমন বলুন “সন্ধ্যা ৭টায়”।'));
+          return true;
+        }
+        wait = ChatWait.none;
+        choices = const [];
+        _current = null;
+        await brain.applyChange(target, ch);
+        _say(out, trf('বদলে দিলাম — {0}: {1}।', [target.text, ch.at != null && target.kind == ItemKind.reminder ? sayWhen(ch.at!, _now) : sayWhen(ch.day ?? ch.at!, _now, withTime: false)]));
+        _target = null;
+        _change = const Change();
+        return true;
       case ChatWait.whichItem:
         // "সব" / "দুটোই": every one listed. One kind → one confirmation
         // for the group; mixed kinds are not removed together.
@@ -3407,6 +3439,26 @@ class ChatController extends ChangeNotifier {
     _batchPart = null;
     _ask(out, trf('{0}টা কাজের রিমাইন্ডার — প্রতিটা নিজের দিনে, কয়টায় মনে করাব? যেমন “দুপুর ১২টায়”।', [bnDigits(targets.length)]), ChatWait.batchTime,
         facts: [for (final x in targets) taskLine(x, _now)]);
+    return true;
+  }
+
+  Future<bool> _renameInstead(String t, List<String> out) async {
+    final f = fold(normalize(t));
+    if (!RegExp(fold(r'নাম\s*(?:টা\s+)?(?:বদল|বদলাও|বদলে|পরিবর্তন|চেঞ্জ|পাল্টাও|পাল্টে)')).hasMatch(f) || renameCommand(t) != null) return false;
+    final last = _lastSave;
+    if (last == null || _now.difference(last.$3).inMinutes > 5 || _savedTurn != _turn - 1) return false;
+    final prev = last.$1.transcript;
+    await brain.restoreSnapshot(last.$2);
+    _lastSave = null;
+    if (wait != ChatWait.none) _dropPending();
+    // The words before ("যশোর যাওয়া … শ্বশুর বাড়ি যাওয়া") read again as a rename.
+    final again = renameCommand(prev) ?? renameCommand(prev.replaceFirst(RegExp(fold(r'\s+(?:নাম\s+)?(?:বদল|পরিবর্তন)\s+হবে\s+')), ' কাজের নাম বদল হবে '));
+    if (again != null) {
+      messages.add(ChatMessage.app(tr('আগেরটা ভুল করে রেখেছিলাম — সরিয়ে নিলাম।'), info: true));
+      await _todo(again, out);
+      return true;
+    }
+    _say(out, tr('আগেরটা সরিয়ে নিলাম। কোন কাজের নাম কী হবে? যেমন বলুন “যশোর যাওয়া কাজের নাম বদলে শ্বশুর বাড়ি যাওয়া রাখো”।'));
     return true;
   }
 

@@ -507,3 +507,29 @@ BulkAction? singleIndexCommand(String said, DateTime now) {
   final day = _thas(f, r'(?:গতকাল|গত\s+কাল)') ? dayOnly(now.subtract(const Duration(days: 1))) : dayOnly(now);
   return BulkAction(said, selection: Selection(SelKind.indexes, indexes: [i]), op: op, domain: _bulkDomain(f), day: day);
 }
+
+
+/// "২০২৭ সালের", "নভেম্বরের", "ফেব্রুয়ারি ২০২৯ এর", "এ মাসের": a stretch
+/// of time named with no day in it (a day is [datedBulk]'s). Null when none.
+({DateTime from, DateTime to, String label})? periodSaid(String said, DateTime now) {
+  final f = ' ${fold(normalize(said)).replaceAll(RegExp(r'[।,!?]'), ' ')} ';
+  final year = RegExp(r'(?<=\s)(20\d\d)(?!\d)').firstMatch(f);
+  final y = year == null ? null : int.parse(year[1]!);
+  final month = _monthSaid(f.replaceAll(RegExp(r'(?<=\s)(20\d\d)(?!\d)'), ' '));
+  // "১৫ জুন", "১১ জুন ২০২৭": a day, not a stretch.
+  for (final m in bnMonths) {
+    if (RegExp('(?:^|\\s)\\d{1,2}\\s*(?:${fold('তারিখ')}\\S*)?\\s+${fold(m)}').hasMatch(f)) return null;
+  }
+  if (RegExp(fold(r'(?<=\s)(?:এ|এই)\s+মাস')).hasMatch(f)) {
+    return (from: DateTime(now.year, now.month, 1), to: DateTime(now.year, now.month + 1, 0), label: 'এ মাসের');
+  }
+  if (month != null) {
+    final yy = y ?? (month < now.month ? now.year + 1 : now.year);
+    return (from: DateTime(yy, month, 1), to: DateTime(yy, month + 1, 0), label: y == null ? '${bnMonths[month - 1]}ের' : '${bnMonths[month - 1]} ${bnDigits(yy)}-এর');
+  }
+  if (y != null) return (from: DateTime(y, 1, 1), to: DateTime(y, 12, 31), label: '${bnDigits(y)} সালের');
+  return null;
+}
+
+/// What is to be done to several items ("মুছে দাও" → 'delete'), or ''.
+String bulkOpOf(String said) => _bulkOp(' ${_tf(normalize(said))} ');

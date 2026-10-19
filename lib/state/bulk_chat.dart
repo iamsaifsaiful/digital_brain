@@ -226,6 +226,9 @@ extension _BulkChat on ChatController {
       _onList = true;
       return true;
     }
+    // "২০২৭ সালের রিমাইন্ডার গুলো বাদ দাও", "নভেম্বরের গুলো মুছে দাও" (a
+    // reminder list shown): every one in that stretch of time — asked once.
+    if (await _periodBulk(t, out)) return true;
     var cmds = bulkCommands(tidySpeech(t), _now);
     // "৪নং থেকে ৮নং মুছে দাও। ৯নং এ রিমাইন্ডার যুক্ত কর": the first sentence
     // on the list, the rest heard after it.
@@ -251,6 +254,51 @@ extension _BulkChat on ChatController {
       cmds = [one];
     }
     return _bulkWith(cmds, t, out);
+  }
+
+  /// The day a reminder is on for a stretch of time: its own date, or the
+  /// next time a repeating one rings.
+  DateTime? _dayOf(String domain, String id) {
+    final d = brain.data;
+    if (domain == 'reminders') {
+      final r = d.reminders.where((x) => x.id == id).firstOrNull;
+      if (r == null) return null;
+      final on = r.repeat == Repeat.none ? r.date : r.nextDate(_now);
+      return DateTime(on.year, on.month, on.day);
+    }
+    final x = d.tasks.where((x) => x.id == id).firstOrNull;
+    return x?.due == null ? null : dayOnly(x!.due!);
+  }
+
+  List<String> _inPeriod(String domain, Iterable<String> ids, DateTime from, DateTime to) => [
+        for (final id in ids)
+          if (_dayOf(domain, id) case final day? when !day.isBefore(from) && !day.isAfter(to)) id
+      ];
+
+  Future<bool> _periodBulk(String t, List<String> out) async {
+    final period = periodSaid(tidySpeech(t), _now);
+    if (period == null) return false;
+    final op = bulkOpOf(tidySpeech(t));
+    if (!const {'delete', 'reminder_off', 'done'}.contains(op)) return false;
+    final f = fold(normalize(t));
+    var domain = RegExp(fold(r'(?:রিমাইন্ডার|এলার্ম|অ্যালার্ম|reminder|alarm)')).hasMatch(f)
+        ? 'reminders'
+        : (RegExp(fold(r'(?:কাজ|টাস্ক|টুডু|task)')).hasMatch(f) ? 'tasks' : '');
+    final shown = _sets.where(_setFresh).lastOrNull;
+    if (domain.isEmpty && shown != null && (shown.domain == 'reminders' || shown.domain == 'tasks')) domain = shown.domain;
+    if (domain.isEmpty) return false;
+    final d = brain.data;
+    final pool = domain == 'reminders' ? [for (final r in d.reminders) r.id] : [for (final x in d.tasks) if (!x.done) x.id];
+    final ids = _inPeriod(domain, pool, period.from, period.to);
+    final label = period.label;
+    if (ids.isEmpty) {
+      _say(out, trf('{0} কোনো {1} নেই — কিছু বদলাইনি।', [label, _domainBn[domain] ?? '']));
+      return true;
+    }
+    _rememberSet(domain, label, ids, source: t);
+    await _bulkStart(BulkAction(t, selection: const Selection(SelKind.all), op: op, domain: domain), _sets.last, ids, out);
+    _onList = true;
+    return true;
   }
 
   /// [cmds] (from the rules or the AI — the same shape) on the list meant.
@@ -504,6 +552,21 @@ extension _BulkChat on ChatController {
     final p = _pendingBulk;
     if (p == null) return false;
     final f = ' ${fold(t).replaceAll(RegExp(r'[।,!?]'), ' ')} ';
+    // "শুধু ২০২৭ সালের", "না, শুধু নভেম্বরের": the same removal, narrowed to
+    // that stretch of time — asked again, nothing removed yet.
+    final per = periodSaid(tidySpeech(t), _now);
+    if (per != null && (p.set.domain == 'reminders' || p.set.domain == 'tasks') && !RegExp(fold(r'(?:দেখাও|দেখান|বলো|বলুন|দাও\s*$)')).hasMatch(fold(normalize(t)))) {
+      final ids = _inPeriod(p.set.domain, p.ids, per.from, per.to);
+      if (ids.isEmpty) {
+        _say(out, trf('{0} কোনো {1} এই তালিকায় নেই — কিছু মুছিনি।', [per.label, _domainBn[p.set.domain] ?? '']));
+        return true;
+      }
+      _pendingBulk = null;
+      wait = ChatWait.none;
+      _rememberSet(p.set.domain, per.label, ids, source: t);
+      await _bulkStart(BulkAction(t, selection: const Selection(SelKind.all), op: p.action.op, domain: p.set.domain), _sets.last, ids, out);
+      return true;
+    }
     // A new selection said with a "no": the proposal is replaced, not added to.
     final rest = tidySpeech(t.replaceFirst(RegExp(fold(r'^\s*(?:না|নাহ|উহু)[,\s]+')), ''));
     var again = bulkCommands(rest, _now);
@@ -616,8 +679,18 @@ extension _BulkChat on ChatController {
           return true;
         });
         // What is left of the list that was shown, said with it.
-        final left = [for (final id in set.ids) if (_taskById(id) case final x? when !x.done) id].length;
+        final leftIds = [for (final id in set.ids) if (_taskById(id) case final x? when !x.done) id];
+        final left = leftIds.length;
+        // The list shown is now what is left, in the same order: "৩নং" next
+        // means the third of these — shown with the answer.
+        final shownLeft = [for (final id in _shownTasks) if (_taskById(id) case final x? when !x.done) id];
+        if (_shownTasks.isNotEmpty) {
+          _shownTasks = shownLeft;
+          _shownAt = _now;
+        }
+        final numbered = _shownTasks.isNotEmpty ? shownLeft : leftIds;
         _say(out, _outcome(trf('{0}টা {1} মুছে দিয়েছি', [bnDigits(ok - series), noun]), ok, ids.length, failed, skipped) + (series > 0 ? trf(' {0}টা নিয়মিত কাজের শুধু এবারেরটা বাদ দিয়েছি — পুরো সিরিজ আছে।', [bnDigits(series)]) : '') + (left > 0 ? trf(' তালিকার বাকি {0}টা আছে।', [bnDigits(left)]) : ''),
+            facts: left > 0 && numbered.length <= 10 ? [for (final (i, id) in numbered.indexed) '${bnDigits(i + 1)}. ${taskLine(_taskById(id)!, _now)}'] : const [],
             links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
       case ('tasks', 'done' || 'reopen'):
         final done = c.op == 'done';

@@ -350,7 +350,8 @@ extension _TodoChat on ChatController {
     final said = <String>[];
     if (c.title != null) {
       n = n.copyWith(title: c.title);
-      said.add(trf('নাম বদলে “{0}” করেছি', [c.title]));
+      // The old name said too: a number or a near name picked the right one.
+      said.add(trf('“{0}”-এর নাম বদলে “{1}” করেছি', [t.title, c.title]));
     }
     if (c.weekday != null) {
       final base = t.span == TaskSpan.week && t.due != null ? t.due! : null;
@@ -427,6 +428,7 @@ extension _TodoChat on ChatController {
       final q = c.say != null && c.say!.contains('{0}')
           ? trf(c.say!, [day0 == null ? tr('সকালে') : '$when ${_partWord(c.transcript)}'.trim()])
           : (c.say != null ? tr(c.say!) : trf('“{0}” — কখন মনে করিয়ে দেব? যেমন “{1}”।', [t.title, day0 == null || day0 == dayOnly(_now) ? tr('সন্ধ্যা ৭টায়') : '$when ${tr('সকাল ৯টায়')}']));
+      _offeredTime = c.say != null ? null : (day0 == null || day0 == dayOnly(_now) ? 'সন্ধ্যা ৭টায়' : 'সকাল ৯টায়');
       _ask(out, q, ChatWait.taskTime);
       return false;
     }
@@ -546,11 +548,17 @@ extension _TodoChat on ChatController {
       if (w != null && w.hasTime && part.isNotEmpty && !RegExp(fold(r'(?:সকাল|দুপুর|বিকেল|বিকাল|সন্ধ্যা|রাত)')).hasMatch(fold(said))) {
         w = parseWhen('$part $said', _now);
       }
+      // "হ্যাঁ দাও", "ঠিক আছে", "ওই সময়েই দাও": the time just offered.
+      final offered = _offeredTime;
+      if ((w == null || !w.hasTime) && offered != null && (yesNo(t) == true || RegExp(fold(r'(?:^|\s)(?:ওই|ঐ|সেই|ওটাই|সেটাই)\s*(?:সময়ে?|সময়েই|টাইমে?)?')).hasMatch(fold(normalize(t))))) {
+        w = parseWhen(offered, _now);
+      }
       if (w == null || !w.hasTime) {
         if (_looksNew(t)) return false;
         _say(out, tr('সময়টা ধরতে পারিনি — যেমন বলুন “সকাল ৯টায়”।'));
         return true;
       }
+      _offeredTime = null;
       wait = ChatWait.none;
       _todoWaiting = null;
       final ids = pending.ref.ids;

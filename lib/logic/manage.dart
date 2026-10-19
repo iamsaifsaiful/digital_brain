@@ -136,6 +136,17 @@ List<Target> findTargets(AppData d, String said, DateTime now) {
     final sorted = [...all]..sort((a, b) => b.at.compareTo(a.at));
     return sorted.take(1).toList();
   }
+  // "৩১ অক্টোবরের রিমাইন্ডার", "১১ জুন ২০২৭ এর": the day it is on picks
+  // it — the numbers are never read as part of a name or a year ("২০৩১").
+  final dated = _datesIn(text);
+  if (dated.isNotEmpty) {
+    final hit = [
+      for (final t in all)
+        if (t.kind == ItemKind.reminder || t.kind == ItemKind.task)
+          if (dated.any((x) => _onDay(d, t, x, now))) t
+    ];
+    if (hit.isNotEmpty) return hit.take(6).toList();
+  }
   final terms = _nameTerms(text, kind);
   final numbers = [for (final m in RegExp(r'\d+').allMatches(asciiDigits(text))) int.parse(m[0]!)];
   final scored = <(Target, int)>[];
@@ -200,4 +211,32 @@ Change changeIn(Target t, String said, DateTime now) {
       break;
   }
   return const Change();
+}
+
+/// Days said as "৩১ অক্টোবর" / "১১ জুন ২০২৭" in [text] (normalized):
+/// (month, day, year or null).
+List<(int, int, int?)> _datesIn(String text) {
+  final months = [for (final m in bnMonths) normalize(m)];
+  final re = RegExp('(?:^|\\s)(\\d{1,2})\\s*(?:${normalize('তারিখ')}\\S*|${normalize('ই')}|${normalize('শে')}|${normalize('লা')})?\\s+(${months.join('|')})\\S*(?:\\s+(\\d{4}))?');
+  return [
+    for (final m in re.allMatches(text))
+      if (int.parse(m[1]!) >= 1 && int.parse(m[1]!) <= 31) (months.indexOf(m[2]!) + 1, int.parse(m[1]!), m[3] == null ? null : int.parse(m[3]!)),
+  ];
+}
+
+/// [t] falls on [x] (a reminder's own day — or, repeating yearly, that day
+/// of any year; a to-do's due day).
+bool _onDay(AppData d, Target t, (int, int, int?) x, DateTime now) {
+  final (month, day, year) = x;
+  DateTime? on;
+  var yearly = false;
+  if (t.kind == ItemKind.reminder) {
+    final r = d.reminders.where((r) => r.id == t.id).firstOrNull;
+    on = r?.date;
+    yearly = r?.repeat == Repeat.yearly;
+  } else {
+    on = d.tasks.where((k) => k.id == t.id).firstOrNull?.due;
+  }
+  if (on == null) return false;
+  return on.month == month && on.day == day && (year == null || yearly || on.year == year);
 }

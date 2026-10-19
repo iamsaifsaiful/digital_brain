@@ -831,6 +831,52 @@ bool _amountIn(String f) {
 /// The to-do commands in [said] (tidied already), or null when it is not
 /// about the to-do list. Several requests in one breath ("বাজার করেছি,
 /// ওষুধ আনিনি। আর ব্যাংকের কাজটা কাল রাখো") give one command each.
+/// "যশোর যাওয়া কাজের নাম বদল হবে শ্বশুর বাড়ি যাওয়া", "৩নং কাজের নাম
+/// পরিবর্তন হবে, শ্রমিক দিবস", "বাজারের নাম বদলে মাসের বাজার রাখো",
+/// "কাজের নাম বদলাও: X থেকে Y", "X কাজটা রিনেম করো Y": a to-do's new
+/// name — the words said, kept as said. Null when not a rename (or when it
+/// is about a reminder, a note or anything else).
+TaskEdit? renameCommand(String said) {
+  // Folded only (not normalized): the new name keeps the user's letters.
+  final f = _tf(said).replaceAll(RegExp(r'[।?!;:"“”‘’()\[\]]'), ' ').replaceAll(RegExp(r'\s*,\s*'), ' , ').replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (_thas(' $f ', r'(?:রিমাইন্ডার|reminder|এলার্ম|অ্যালার্ম|নোট|ফোল্ডার|খাত|অ্যাকাউন্ট|একাউন্ট|কন্টাক্ট|নম্বর\s+সেভ)')) return null;
+  const verb = r'(?:বদল|বদলে|বদলাও|বদলিয়ে|পরিবর্তন|চেঞ্জ|পাল্টে|পাল্টিয়ে|পাল্টাও|ঠিক|এডিট|রিনেম|সংশোধন)';
+  const how = r'(?:\s+(?:হবে|করে|করো|কর|দাও|করে\s+দাও|করবো|করব))?';
+  const end = r'(?:\s+(?:রাখো|রাখ|রাখুন|করো|কর|করুন|দাও|দিন|হবে|লিখো|লেখো|লিখে\s+দাও|করে\s+দাও|রেখে\s+দাও|করবে|হোক))?\s*[।.!]?$';
+  const own = r'(?:\s*(?:-?এর|কাজের|কাজটার|কাজটির|কাজটা|নম্বরের|নম্বরটার|নং\s*এর|টার))?';
+  final forms = <RegExp>[
+    // "কাজের নাম বদলাও: X থেকে Y".
+    _tre(r'^(?:কাজের\s+)?নাম(?:টা)?\s+' + verb + how + r'[\s:,—–-]+(.+?)\s+থেকে\s+(.+?)' + end),
+    // "X কাজের নাম বদল হবে Y", "X এর নাম পরিবর্তন করে Y করো", "৩নং কাজের নাম পরিবর্তন হবে, Y".
+    _tre(r'^(.+?)' + own + r'\s+নাম(?:টা|টি)?\s+' + verb + how + r'[\s:,—–-]+(.+?)' + end),
+    // "X কাজটার নাম হবে Y", "X-এর নাম Y করে দাও", "X এর নাম Y রাখো".
+    _tre(r'^(.+?)' + own + r'\s+নাম(?:টা|টি)?\s+(?:হবে\s+)?(.+?)\s+(?:হবে|রাখো|রাখ|রাখুন|দাও|দিন|করো|কর|করে\s+দাও|লিখো|লেখো|হোক)\s*[।.!]?$'),
+    // "X কাজটা রিনেম করো Y", "X কাজটা এডিট করে Y করো".
+    _tre(r'^(.+?)' + own + r'\s+(?:রিনেম|rename|এডিট|edit)\s+(?:করো|কর|করে)[\s:,—–-]+(.+?)' + end),
+    // "X না লিখে Y লেখো".
+    _tre(r'^(.+?)\s+না\s+লিখে\s+(.+?)\s+(?:লেখো|লিখো|লিখে\s+দাও|লিখে\s+রাখো)\s*[।.!]?$'),
+  ];
+  for (final (i, re) in forms.indexed) {
+    final m = re.firstMatch(f);
+    if (m == null) continue;
+    var ref = m[1]!.trim(), title = m[2]!.trim();
+    if (i == 2 && _thas(' $title ', r'(?:^|\s)' + verb + r'(?:\s|$)')) continue;
+    title = title.replaceAll(_tre(r'^(?:হবে|করে|দিয়ে)\s+'), '').replaceAll(_tre(r'\s+(?:নামে|নাম)$'), '').trim();
+    ref = ref.replaceAll(_tre(r'(?:\s*(?:-?এর|কাজের|কাজটার|কাজটির|কাজটা|কাজ|টার|টা))+$'), '').replaceAll(_tre(r'^(?:আমার\s+)?(?:কাজের\s+তালিকার\s+)?'), '').trim();
+    if (ref.isEmpty || title.isEmpty || title.length > 80) continue;
+    // A sentence about a person, an amount or a time is not a to-do's name.
+    if (_thas(' $title ', r'(?:টাকা|[০-৯0-9]+\s*টায়)')) continue;
+    final r = _tdRef(' $ref কাজটা ', ref);
+    final index = r.index ?? _tdOrdinal(' $ref টা ');
+    final last = _thas(' $ref ', r'(?<=\s)(?:শেষেরটা|শেষেরটার|শেষের|সর্বশেষ)(?=\s)');
+    final first = _thas(' $ref ', r'(?<=\s)(?:প্রথমটা|প্রথমটার|প্রথম)(?=\s)');
+    final ref2 = last ? const TaskRef(index: -1) : (first ? const TaskRef(index: 1) : (index != null ? TaskRef(index: index, said: ref) : TaskRef(terms: _tdTerms(ref), said: ref)));
+    if (ref2.isEmpty) continue;
+    return TaskEdit(said, ref: ref2, title: title.replaceAll(RegExp(r'^[,\s]+|[,\s]+$'), ''));
+  }
+  return null;
+}
+
 List<Command>? todoCommands(String said, List<Task> tasks, DateTime now) {
   final whole = said.trim();
   if (whole.isEmpty) return null;

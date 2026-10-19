@@ -37,6 +37,10 @@ final _joiners = RegExp(r'\s+(?:আর|এবং|তারপর|তার প�
 /// money event, so "রহিম আর করিমকে ৫০০ টাকা দিলাম" stays one.
 List<Command> parseAll(String said, List<LedgerEntry> ledger,
     {List<Task> tasks = const [], List<Contact> contacts = const [], List<FolderHint> folders = const [], DateTime? now, AppData? data}) {
+  // "যশোর যাওয়া কাজের নাম বদল হবে শ্বশুর বাড়ি যাওয়া": a to-do renamed —
+  // never a note or a new to-do, whatever else the words could be.
+  final rename = renameCommand(said);
+  if (rename != null) return [rename];
   final out = _parseAll(said, ledger, tasks: tasks, contacts: contacts, folders: folders, now: now, data: data);
   // "আজ কয়েকটি কাজ আছে": a heading before the list — no to-do is called
   // "কয়েকটি"; the list itself is asked for.
