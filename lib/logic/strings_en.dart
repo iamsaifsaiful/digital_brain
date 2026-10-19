@@ -810,6 +810,7 @@ const enStrings = <String, String>{
   'আগেরটা ভুল করে রেখেছিলাম — সরিয়ে নিলাম।': 'I had kept the last one by mistake — taken back.',
   'আগেরটা সরিয়ে নিলাম। কোন কাজের নাম কী হবে? যেমন বলুন “যশোর যাওয়া কাজের নাম বদলে শ্বশুর বাড়ি যাওয়া রাখো”।': 'Taken back. Which to-do gets which new name? Say, for example, “rename the Jessore trip to visiting the in-laws”.',
   '“{0}”-এর নাম বদলে “{1}” করেছি': 'renamed “{0}” to “{1}”',
+  'কোন কাজের নাম কী হবে? যেমন বলুন “যশোর যাওয়া কাজের নাম বদলে শ্বশুর বাড়ি যাওয়া রাখো”।': 'Which to-do gets which new name? Say, for example, “rename the Jessore trip to visiting the in-laws”.',
   'আচ্ছা, কিছুই রাখলাম না।': 'OK, I didn\'t save anything.',
   'হ্যাঁ, প্রতিদিন {0}-এ রাখা আছে।': 'Yes, it is set for {0} every day.',
   'হ্যাঁ, {0}-এ রাখা আছে।': 'Yes, it is set for {0}.',

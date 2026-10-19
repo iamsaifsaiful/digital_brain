@@ -871,7 +871,9 @@ TaskEdit? renameCommand(String said) {
     if (_thas(' $title ', r'(?:টাকা|[০-৯0-9]+\s*টায়)')) continue;
     if (_thas(' $ref ', r'(?:তারিখ|দিন|সময়|টাইম)\S{0,3}\s*$')) continue;
     final r = _tdRef(' $ref কাজটা ', ref);
-    final index = r.index ?? _tdOrdinal(' $ref টা ');
+    // "তিন নম্বরটার": the place, read from the words before the new name.
+    final before = f.substring(0, f.lastIndexOf(m[2]!) < 0 ? f.length : f.lastIndexOf(m[2]!));
+    final index = r.index ?? _tdOrdinal(' $ref টা ') ?? _tdOrdinal(' ${before.replaceAll(_tre(r'\s+নাম\S*.*$'), '').replaceAll(_tre(r'(?:টার|টির|এর)(?=\s|$)'), 'টা')} ');
     final last = _thas(' $ref ', r'(?<=\s)(?:শেষেরটা|শেষেরটার|শেষের|সর্বশেষ)(?=\s)');
     final first = _thas(' $ref ', r'(?<=\s)(?:প্রথমটা|প্রথমটার|প্রথম)(?=\s)');
     final ref2 = last ? const TaskRef(index: -1) : (first ? const TaskRef(index: 1) : (index != null ? TaskRef(index: index, said: ref) : TaskRef(terms: _tdTerms(ref), said: ref)));

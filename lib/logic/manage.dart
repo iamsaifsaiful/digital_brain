@@ -65,7 +65,7 @@ List<Target> targetsIn(AppData d, DateTime now) => [
       for (final x in d.docs) Target(ItemKind.doc, x.id, '${tr('কাগজ')}: ${x.title}', '${x.title} ${x.folder}', x.createdAt),
     ];
 
-const _deleteWords = ['মুছে দাও', 'মুছে দিন', 'মুছে দেন', 'মুছে ফেলো', 'মুছে ফেল', 'মুছে ফেলুন', 'মুছো', 'মুছুন', 'মুছে', 'ডিলিট', 'delete', 'remove', 'বাতিল করো', 'বাতিল করে দাও', 'বাতিল করুন', 'কেটে দাও', 'সরিয়ে ফেলো', 'সরিয়ে নাও', 'বাদ দাও', 'বাদ দিন', 'বাদ দিয়ে দাও'];
+const _deleteWords = ['ফেলে দাও', 'ফেলে দিন', 'ফেলে দেন', 'মুছে দাও', 'মুছে দিন', 'মুছে দেন', 'মুছে ফেলো', 'মুছে ফেল', 'মুছে ফেলুন', 'মুছো', 'মুছুন', 'মুছে', 'ডিলিট', 'delete', 'remove', 'বাতিল করো', 'বাতিল করে দাও', 'বাতিল করুন', 'কেটে দাও', 'সরিয়ে ফেলো', 'সরিয়ে নাও', 'বাদ দাও', 'বাদ দিন', 'বাদ দিয়ে দাও'];
 const _editWords = ['বদলে দাও', 'বদলে দিন', 'বদলাও', 'বদলান', 'বদল করো', 'পরিবর্তন', 'এডিট', 'ইডিট', 'edit', 'ঠিক করে দাও', 'ঠিক করো', 'ঠিক করুন', 'সংশোধন', 'আপডেট', 'update', 'সরিয়ে দাও', 'পিছিয়ে দাও', 'এগিয়ে দাও'];
 const _lastWords = ['শেষটা', 'শেষেরটা', 'শেষ টা', 'এইমাত্র', 'এই মাত্র', 'আগেরটা', 'আগের টা', 'মাত্র যেটা', 'last one', 'শেষ লেনদেন', 'শেষ খরচ', 'শেষ রিমাইন্ডার', 'শেষ নোট'];
 
@@ -90,6 +90,8 @@ const _stopWords = ['বন্ধ করো', 'বন্ধ কর', 'বন্�
 String? manageAction(String text) {
   if (_has(text, _stopWords) && kindNamed(text) == ItemKind.reminder) return 'stop';
   if (_has(text, _deleteWords)) return 'delete';
+  // "রবিনের দাওয়াতের কাজটা বাদ": "বাদ" last.
+  if (RegExp('(?:^| )${normalize('বাদ')}\$').hasMatch(text)) return 'delete';
   if (_has(text, _editWords)) return 'edit';
   // "৫০০ না ৬০০ হবে", "রহিমের টাকাটা ৫০০ না, ৬০০": a correction.
   if (RegExp(r'\d+ (না|নয়|নয়|নই),? \d+').hasMatch(text)) return 'edit';
@@ -186,9 +188,16 @@ Change changeIn(Target t, String said, DateTime now) {
   final text = normalize(said);
   switch (t.kind) {
     case ItemKind.reminder:
-      final w = parseWhen(said, now);
+      // "৫টার বদলে ৬টায়": the time after "বদলে" is the new one.
+      final instead = RegExp('(?:${['বদলে', 'পরিবর্তে', 'জায়গায়', 'না'].map(normalize).join('|')})\\s+(.*)\$').firstMatch(text);
+      final w = (instead != null && parseWhen(instead[1]!, now) != null && RegExp('\\d').hasMatch(text.substring(0, instead.start)) ? parseWhen(instead[1]!, now) : null) ?? parseWhen(said, now);
       if (w == null || !(w.hasTime || w.hasDay)) break;
-      if (w.hasDay) return Change(at: w.at, day: dayOnly(w.at));
+      // "১১ জুন ২০২৭ এর রিমাইন্ডারের সময় বদলাও": its own day names it — no
+      // new time said, so nothing to change yet.
+      final ownDay = w.hasDay && w.at.month == t.at.month && w.at.day == t.at.day;
+      if (ownDay && !w.hasTime) break;
+      if (w.hasDay && !ownDay) return Change(at: w.at, day: dayOnly(w.at));
+      if (ownDay) return Change(at: DateTime(t.at.year, t.at.month, t.at.day, w.at.hour, w.at.minute), day: DateTime(t.at.year, t.at.month, t.at.day));
       // Only a new time ("৮টায় করে দাও"): the same day; morning or evening
       // as the reminder was, unless said ("রাত ৮টায়").
       var h = w.at.hour;

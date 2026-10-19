@@ -1908,6 +1908,12 @@ class ChatController extends ChangeNotifier {
         // "বাজার করা কাল করব" while "বাজার করা" is kept for another day: that
         // one moved, or a second one — asked (never a "বাজার করা করা").
         final moved = c.due != null && !_allYes && c.repeat == null ? _sameTitleOtherDay(c) : null;
+        // "বাজার করা কাজটা ২৮ তারিখে করব": that one ("কাজটা"), moved.
+        if (moved != null && RegExp(fold(r'(?:কাজটা|কাজটি|কাজটাকে)')).hasMatch(fold(normalize(c.transcript)))) {
+          _current = null;
+          await _todo(TaskEdit(c.transcript, ref: TaskRef(ids: [moved.id]), due: c.due, span: c.span), out);
+          return;
+        }
         if (moved != null) {
           _current = null;
           final when = sayWhen(c.due!, _now, withTime: false);
@@ -3420,7 +3426,8 @@ class ChatController extends ChangeNotifier {
       final dm = RegExp(fold(r'^\s*([০-৯0-9]{1,2})\s+(' + bnMonths.join('|') + r')(?:\s+([০-৯0-9]{4}))?\s*(?:এর|ের|তারিখের|-এর)?\s+(?:সব\s+)?(?:কাজ|কাজের|কাজটার|কাজটির|কাজগুলোর|কাজগুলার)\s')).firstMatch(f);
       if (dm == null) {
         // "ব্যাংক এর কাজের রিমাইন্ডার দরকার": a to-do named before "কাজের".
-        final nm = RegExp(fold(r'^\s*(.+?)\s*(?:এর|-এর)?\s+(?:কাজ|কাজের|কাজটার|কাজটির|কাজটায়|কাজে)\s+(?:একটা\s+)?(?:রিমাইন্ডার|এলার্ম|অ্যালার্ম)')).firstMatch(f);
+        // "নোয়াখালী যাওয়ার রিমাইন্ডার চাই": a to-do's name, "কাজের" or not.
+        final nm = RegExp(fold(r'^\s*(.+?)\s*(?:এর|-এর)?\s+(?:(?:কাজ|কাজের|কাজটার|কাজটির|কাজটায়|কাজে)\s+)?(?:একটা\s+)?(?:রিমাইন্ডার|এলার্ম|অ্যালার্ম)')).firstMatch(f);
         final named = nm == null ? null : _openTaskNamed(nm[1]!);
         if (named == null) return false;
         targets = [named];
@@ -3488,20 +3495,38 @@ class ChatController extends ChangeNotifier {
   Future<bool> _renameInstead(String t, List<String> out) async {
     final f = fold(normalize(t));
     if (!RegExp(fold(r'নাম\s*(?:টা\s+)?(?:বদল|বদলাও|বদলে|পরিবর্তন|চেঞ্জ|পাল্টাও|পাল্টে)')).hasMatch(f) || renameCommand(t) != null) return false;
+    // Only "কাজের নাম বদল কর" — which and to what are in the words before.
+    if (words(f).length > 6) return false;
     final last = _lastSave;
-    if (last == null || _now.difference(last.$3).inMinutes > 5 || _savedTurn != _turn - 1) return false;
-    final prev = last.$1.transcript;
-    await brain.restoreSnapshot(last.$2);
-    _lastSave = null;
+    var undone = false;
+    if (last != null && _now.difference(last.$3).inMinutes <= 5 && _savedTurn >= _turn - 1) {
+      await brain.restoreSnapshot(last.$2);
+      _lastSave = null;
+      undone = true;
+    }
     if (wait != ChatWait.none) _dropPending();
-    // The words before ("যশোর যাওয়া … শ্বশুর বাড়ি যাওয়া") read again as a rename.
-    final again = renameCommand(prev) ?? renameCommand(prev.replaceFirst(RegExp(fold(r'\s+(?:নাম\s+)?(?:বদল|পরিবর্তন)\s+হবে\s+')), ' কাজের নাম বদল হবে '));
+    final prev = [for (final m in messages.reversed) if (m.fromUser) m.text].skip(1).firstOrNull ?? '';
+    // "যশোর যাওয়া শ্বশুর বাড়ি যাওয়া লিখে রাখো": a to-do's name, then the new one.
+    TaskEdit? again = renameCommand(prev);
+    if (again == null && prev.isNotEmpty) {
+      final p = fold(normalize(prev));
+      for (final x in brain.data.tasks.where((x) => !x.done)) {
+        final k = fold(normalize(x.title));
+        final head = RegExp('^${RegExp.escape(k)}\\S{0,3}\\s+(?:${fold('কাজের|কাজটার|কাজটা|এর')}\\s+)?(?:${fold('নাম')}\\s+)?').firstMatch(p);
+        if (head == null) continue;
+        final rest = p.substring(head.end).replaceAll(RegExp(fold(r'\s*(?:লিখে\s+রাখো|রাখো|হবে|করো|লেখো|লিখো)\s*$')), '').trim();
+        if (rest.isNotEmpty) again = TaskEdit(prev, ref: TaskRef(ids: [x.id]), title: rest);
+        break;
+      }
+    }
     if (again != null) {
-      messages.add(ChatMessage.app(tr('আগেরটা ভুল করে রেখেছিলাম — সরিয়ে নিলাম।'), info: true));
+      if (undone) messages.add(ChatMessage.app(tr('আগেরটা ভুল করে রেখেছিলাম — সরিয়ে নিলাম।'), info: true));
       await _todo(again, out);
       return true;
     }
-    _say(out, tr('আগেরটা সরিয়ে নিলাম। কোন কাজের নাম কী হবে? যেমন বলুন “যশোর যাওয়া কাজের নাম বদলে শ্বশুর বাড়ি যাওয়া রাখো”।'));
+    _say(out, undone
+        ? tr('আগেরটা সরিয়ে নিলাম। কোন কাজের নাম কী হবে? যেমন বলুন “যশোর যাওয়া কাজের নাম বদলে শ্বশুর বাড়ি যাওয়া রাখো”।')
+        : tr('কোন কাজের নাম কী হবে? যেমন বলুন “যশোর যাওয়া কাজের নাম বদলে শ্বশুর বাড়ি যাওয়া রাখো”।'));
     return true;
   }
 
