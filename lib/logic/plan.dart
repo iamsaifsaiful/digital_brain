@@ -88,6 +88,10 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   // total only as a check — never a fourth expense.
   final parts = spentInParts(said, p);
   if (parts != null) return parts;
+  // "রাজু ৫০০০ টাকা পাঠাইছে, ২০০০ টাকার বাজার করলাম, ১০০০ টাকা মসজিদে দান
+  // করলাম": money in and out in one breath — one entry per part.
+  final mixed = mixedCash(said, p);
+  if (mixed != null) return mixed;
   // "রিপোর্টটা নোটে রাখো, পাঠানোর কাজ কাল দাও": a note, and a to-do about
   // the same thing — two items; nothing is sent.
   final nt = RegExp(fold(r'^(.+?)\s+নোটে\s+(?:রাখো|রাখ|লিখে\s+রাখো|তুলে\s+রাখো)[,\s]+(\S+?)(?:র|ের|এর)\s+কাজ(?:টা|টি)?\s+(.+)$')).firstMatch(fold(said));
@@ -362,7 +366,12 @@ List<Command>? lineTodos(String said0, Parser p) {
     if (own == null && yearPlan) {
       // "এই বছরে কিছু কাজ আছে": each a plan for the year.
       final y = yearOf == null ? p.now.year : int.parse(asciiDigits(yearOf[1]!));
-      out.add(TaskAdd(said, title: title, due: DateTime(y, 1, 1), span: TaskSpan.year));
+      // "২০৪১ সালের মে মাসের কাজের তালিকা": each for that month.
+      final mo = RegExp('(?:^|\\s)(${bnMonths.map(fold).join('|')})(?:\\s+${fold('মাস')}\\S*|${fold('ের')}|${fold('এর')}|${fold('ে')})?(?=\\s|\$)').firstMatch(h);
+      final mi = mo == null ? 0 : bnMonths.map(fold).toList().indexOf(mo[1]!) + 1;
+      out.add(mi > 0
+          ? TaskAdd(said, title: title, due: DateTime(y, mi, 1), span: TaskSpan.month)
+          : TaskAdd(said, title: title, due: DateTime(y, 1, 1), span: TaskSpan.year));
     } else {
       out.add(TaskAdd(said, title: title, due: own ?? (hw != null && hw.hasDay ? hw.day : null)));
     }
@@ -538,6 +547,30 @@ List<Command>? spentInParts(String said, Parser p) {
     if (t == null) return null;
   }
   return out;
+}
+
+/// Several money events in one message, each its own part with its own
+/// amount and verb: each read on its own (income, spending, or a person's
+/// লেনদেন). A shared "আজ"/"গতকাল" at the front goes with every part. Null
+/// unless every part is money with exactly its own amount.
+List<Command>? mixedCash(String said, Parser p) {
+  final pieces = [for (final x in said.split(RegExp(r'\s*[,،;।]\s*'))) if (x.trim().isNotEmpty) x.trim()];
+  if (pieces.length < 2) return null;
+  final lead = RegExp(fold(r'^(আজ|আজকে|গতকাল|গত\s+কাল)\s')).firstMatch(fold(pieces.first));
+  final out = <Command>[];
+  for (final (i, x) in pieces.indexed) {
+    final amount = findAmount(normalize(x));
+    if (amount == null || amount <= 0) return null;
+    final c = p.parse(i > 0 && lead != null && !RegExp(fold(r'^(?:আজ|আজকে|গতকাল|গত\s+কাল)\s')).hasMatch(fold(x)) ? '${lead[1]} $x' : x);
+    if (c is CashAdd && c.amount == amount) {
+      out.add(c);
+    } else if (c is LedgerAdd && c.amount == amount && c.person.trim().isNotEmpty) {
+      out.add(c);
+    } else {
+      return null;
+    }
+  }
+  return out.whereType<CashAdd>().isEmpty ? null : out;
 }
 
 /// "খাবার (চা)": the খাত, and what it was, when that says more.

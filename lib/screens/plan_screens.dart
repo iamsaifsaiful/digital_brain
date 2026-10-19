@@ -425,30 +425,30 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
           ],
         );
 
-    final List<Widget> body0 = switch (_tab) {
-      _ListTab.open => [
-          if (openCount == 0) EmptyState(icon: Icons.check_circle_outline_rounded, title: tr('কিছু বাকি নেই'), text: tr('নতুন কাজ বা রিমাইন্ডার নিচের বোতাম চেপে, বা মাইকে বলে রাখুন।')),
-          if (plan.overdue.isNotEmpty) section(tr('দেরি হয়ে গেছে'), plan.overdue, color: C.orange, withDay: true),
-          if (plan.today.isNotEmpty) section(tr('আজ'), plan.today),
-          if (plan.ahead.isNotEmpty) section(tr('সামনে'), plan.ahead, withDay: true),
-          const BillList(),
-        ],
-      _ListTab.repeating => [
-          if (plan.repeating.isEmpty)
-            EmptyState(icon: Icons.repeat_rounded, title: tr('বারবার বাজে এমন কিছু নেই'), text: tr('“প্রতিদিন রাত ১০টায় ওষুধ” বা “প্রতি ৩০ মিনিটে পানি” — এমন রিমাইন্ডার এখানে থাকবে।'))
-          else
-            Panel(child: Rows(children: [for (final r in plan.repeating) PlanRow(item: PlanItem.reminder(r, r.notifyAt(now)), withDay: true)])),
-        ],
-      _ListTab.done => [
-          if (plan.finished.isEmpty)
-            EmptyState(icon: Icons.history_rounded, title: tr('এখনো কিছু শেষ হয়নি'), text: tr('কাজে টিক দিলে বা রিমাইন্ডার বেজে গেলে এখানে আসবে।'))
-          else ...[
-            // Reminders whose time has gone by, apart from the finished to-dos.
-            if (plan.finished.any((i) => i.reminder != null)) section(tr('সময় পার হওয়া রিমাইন্ডার'), [for (final i in plan.finished.where((i) => i.reminder != null).take(60)) i], withDay: true),
-            if (plan.finished.any((i) => i.reminder == null)) section(tr('শেষ হওয়া কাজ'), [for (final i in plan.finished.where((i) => i.reminder == null).take(60)) i], withDay: true),
-          ],
-        ],
-    };
+    List<Widget> body0(_ListTab tab) => switch (tab) {
+          _ListTab.open => [
+              if (openCount == 0) EmptyState(icon: Icons.check_circle_outline_rounded, title: tr('কিছু বাকি নেই'), text: tr('নতুন কাজ বা রিমাইন্ডার নিচের বোতাম চেপে, বা মাইকে বলে রাখুন।')),
+              if (plan.overdue.isNotEmpty) section(tr('দেরি হয়ে গেছে'), plan.overdue, color: C.orange, withDay: true),
+              if (plan.today.isNotEmpty) section(tr('আজ'), plan.today),
+              if (plan.ahead.isNotEmpty) section(tr('সামনে'), plan.ahead, withDay: true),
+              const BillList(),
+            ],
+          _ListTab.repeating => [
+              if (plan.repeating.isEmpty)
+                EmptyState(icon: Icons.repeat_rounded, title: tr('বারবার বাজে এমন কিছু নেই'), text: tr('“প্রতিদিন রাত ১০টায় ওষুধ” বা “প্রতি ৩০ মিনিটে পানি” — এমন রিমাইন্ডার এখানে থাকবে।'))
+              else
+                Panel(child: Rows(children: [for (final r in plan.repeating) PlanRow(item: PlanItem.reminder(r, r.notifyAt(now)), withDay: true)])),
+            ],
+          _ListTab.done => [
+              if (plan.finished.isEmpty)
+                EmptyState(icon: Icons.history_rounded, title: tr('এখনো কিছু শেষ হয়নি'), text: tr('কাজে টিক দিলে বা রিমাইন্ডার বেজে গেলে এখানে আসবে।'))
+              else ...[
+                // Reminders whose time has gone by, apart from the finished to-dos.
+                if (plan.finished.any((i) => i.reminder != null)) section(tr('সময় পার হওয়া রিমাইন্ডার'), [for (final i in plan.finished.where((i) => i.reminder != null).take(60)) i], withDay: true),
+                if (plan.finished.any((i) => i.reminder == null)) section(tr('শেষ হওয়া কাজ'), [for (final i in plan.finished.where((i) => i.reminder == null).take(60)) i], withDay: true),
+              ],
+            ],
+        };
 
     return Scaffold(
       bottomNavigationBar: const AdBar(),
@@ -458,9 +458,8 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
           TopBar(title: tr('কাজ ও রিমাইন্ডার'), trailing: [
             const PdfButton({ReportPart.tasks, ReportPart.reminders}),
           ]),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-            child: SegTabs<_ListTab>(
+          Expanded(
+            child: TabPages<_ListTab>(
               items: [
                 (_ListTab.open, trf('বাকি · {0}', [bnDigits(openCount)])),
                 (_ListTab.repeating, trf('বারবার · {0}', [bnDigits(plan.repeating.length)])),
@@ -468,14 +467,9 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
               ],
               value: _tab,
               onChanged: (v) => setState(() => _tab = v),
-            ),
-          ),
-          Expanded(
-            child: SwipeSwitch.tabs<_ListTab>(
-              values: _ListTab.values,
-              value: _tab,
-              onChanged: (v) => setState(() => _tab = v),
-              child: ListView(padding: const EdgeInsets.fromLTRB(20, 0, 20, 96), children: body0),
+              tabsPadding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 96),
+              page: body0,
             ),
           ),
         ]),

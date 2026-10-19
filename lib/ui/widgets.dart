@@ -259,36 +259,50 @@ class TabTitle extends StatelessWidget {
 
 /// Grey pill with 2–4 choices; the chosen one is white (iOS-style tabs).
 class SegTabs<T> extends StatelessWidget {
-  const SegTabs({super.key, required this.items, required this.value, required this.onChanged});
+  const SegTabs({super.key, required this.items, required this.value, required this.onChanged, this.pages});
   final List<(T, String)> items;
   final T value;
   final ValueChanged<T> onChanged;
 
+  /// The pages under these tabs ([TabPages]): the thumb follows the finger
+  /// while they are dragged, not only after.
+  final PageController? pages;
+
   @override
   Widget build(BuildContext context) {
-    final at = items.indexWhere((x) => x.$1 == value);
+    final p = pages;
+    if (p == null) return _build(items.indexWhere((x) => x.$1 == value).toDouble(), animate: true);
+    return AnimatedBuilder(
+      animation: p,
+      builder: (context, _) {
+        final at = p.hasClients && p.position.haveDimensions ? (p.page ?? 0) : items.indexWhere((x) => x.$1 == value).toDouble();
+        return _build(at.clamp(0, (items.length - 1).toDouble()).toDouble(), animate: false);
+      },
+    );
+  }
+
+  Widget _build(double at, {required bool animate}) {
+    final align = Alignment(items.length == 1 ? 0 : -1 + 2 * at / (items.length - 1), 0);
+    final thumb = FractionallySizedBox(
+      widthFactor: 1 / items.length,
+      heightFactor: 1,
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(9), boxShadow: const [BoxShadow(color: Color(0x14111827), blurRadius: 2, offset: Offset(0, 1))]),
+      ),
+    );
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(color: C.chip, borderRadius: BorderRadius.circular(12)),
       child: SizedBox(
         height: 38,
         child: Stack(children: [
-          // The white thumb glides to the chosen tab.
+          // The white thumb glides to the chosen tab (with the finger, on pages).
           if (at >= 0)
-            AnimatedAlign(
-              duration: const Duration(milliseconds: 240),
-              curve: Curves.easeOutCubic,
-              alignment: Alignment(items.length == 1 ? 0 : -1 + 2 * at / (items.length - 1), 0),
-              child: FractionallySizedBox(
-                widthFactor: 1 / items.length,
-                heightFactor: 1,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(9), boxShadow: const [BoxShadow(color: Color(0x14111827), blurRadius: 2, offset: Offset(0, 1))]),
-                ),
-              ),
-            ),
+            animate
+                ? AnimatedAlign(duration: const Duration(milliseconds: 240), curve: Curves.easeOutCubic, alignment: align, child: thumb)
+                : Align(alignment: align, child: thumb),
           Row(children: [
-            for (final (v, label) in items)
+            for (final (i, (v, label)) in items.indexed)
               Expanded(
                 child: Semantics(
                   selected: v == value,
@@ -297,11 +311,17 @@ class SegTabs<T> extends StatelessWidget {
                     behavior: HitTestBehavior.opaque,
                     onTap: () => onChanged(v),
                     child: Center(
-                      child: AnimatedDefaultTextStyle(
-                        duration: const Duration(milliseconds: 200),
-                        style: body(14, weight: v == value ? FontWeight.w600 : FontWeight.w400, color: v == value ? C.ink : C.muted2),
-                        child: Text(label, maxLines: 1),
-                      ),
+                      child: animate
+                          ? AnimatedDefaultTextStyle(
+                              duration: const Duration(milliseconds: 200),
+                              style: body(14, weight: v == value ? FontWeight.w600 : FontWeight.w400, color: v == value ? C.ink : C.muted2),
+                              child: Text(label, maxLines: 1),
+                            )
+                          : Text(label,
+                              maxLines: 1,
+                              style: body(14,
+                                  weight: (at - i).abs() < 0.5 ? FontWeight.w600 : FontWeight.w400,
+                                  color: Color.lerp(C.ink, C.muted2, (at - i).abs().clamp(0.0, 1.0).toDouble()))),
                     ),
                   ),
                 ),
@@ -310,6 +330,138 @@ class SegTabs<T> extends StatelessWidget {
         ]),
       ),
     );
+  }
+}
+
+/// Tabs over pages that follow the finger: the page beside slides in as
+/// it is dragged (and the tabs' thumb with it), like the bottom menu.
+/// [top] is what scrolls away above (a title, tools) with the tabs placed
+/// in it; each tab's [page] is its own up-down list. Dragged past the first
+/// or last tab, the bottom menu's tab changes instead.
+class TabPages<T> extends StatefulWidget {
+  const TabPages({
+    super.key,
+    required this.items,
+    required this.value,
+    required this.onChanged,
+    this.top,
+    required this.page,
+    this.padding = const EdgeInsets.fromLTRB(20, 16, 20, 28),
+    this.tabsPadding = const EdgeInsets.fromLTRB(20, 4, 20, 8),
+  });
+  final List<(T, String)> items;
+  final T value;
+  final ValueChanged<T> onChanged;
+
+  /// The children above the pages, scrolling away; [tabs] is the tab row,
+  /// to be placed among them. Null: the tabs stay put above the pages.
+  final List<Widget> Function(Widget tabs)? top;
+
+  /// Around the tabs when they stay put ([top] null).
+  final EdgeInsets tabsPadding;
+  final List<Widget> Function(T value) page;
+  final EdgeInsets padding;
+
+  @override
+  State<TabPages<T>> createState() => _TabPagesState<T>();
+}
+
+class _TabPagesState<T> extends State<TabPages<T>> {
+  late final PageController _pages = PageController(initialPage: _index(widget.value));
+  double _over = 0;
+
+  int _index(T v) => widget.items.indexWhere((x) => x.$1 == v).clamp(0, widget.items.length - 1);
+
+  @override
+  void didUpdateWidget(TabPages<T> old) {
+    super.didUpdateWidget(old);
+    // Chosen from outside (a tap on the tabs, a link): slide there.
+    final i = _index(widget.value);
+    if (_pages.hasClients && (_pages.page ?? i.toDouble()).round() != i) {
+      _pages.animateToPage(i, duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
+  }
+
+  bool _edge(ScrollNotification n) {
+    if (n.depth != 0 || n.metrics.axis != Axis.horizontal) return false;
+    if (n is ScrollStartNotification) _over = 0;
+    if (n is OverscrollNotification) _over += n.overscroll;
+    if (n is ScrollEndNotification) {
+      // Pulled on past the first or last tab: the bottom menu's tab beside.
+      if (_over.abs() > 24) context.findAncestorStateOfType<_SwipeSwitchState>()?._step(_over > 0 ? 1 : -1);
+      _over = 0;
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tabs = SegTabs<T>(items: widget.items, value: widget.value, pages: _pages, onChanged: (v) {
+      widget.onChanged(v);
+      _pages.animateToPage(_index(v), duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
+    });
+    final pad = widget.padding;
+    final top = widget.top;
+    Widget pages({required bool nested}) => NotificationListener<ScrollNotification>(
+          onNotification: _edge,
+          child: PageView(
+            controller: _pages,
+            onPageChanged: (i) {
+              if (widget.items[i].$1 != widget.value) widget.onChanged(widget.items[i].$1);
+            },
+            children: [
+              for (final (v, _) in widget.items)
+                _KeepPage(
+                  child: ListView(
+                    key: PageStorageKey<Object?>('tab-$v'),
+                    primary: nested ? true : null,
+                    padding: EdgeInsets.fromLTRB(pad.left, nested ? 0 : pad.top, pad.right, pad.bottom),
+                    children: widget.page(v),
+                  ),
+                ),
+            ],
+          ),
+        );
+    if (top == null) {
+      return Column(children: [
+        Padding(padding: widget.tabsPadding, child: tabs),
+        Expanded(child: pages(nested: false)),
+      ]);
+    }
+    return NestedScrollView(
+      headerSliverBuilder: (context, _) => [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(pad.left, pad.top, pad.right, 0),
+          sliver: SliverList(delegate: SliverChildListDelegate(top(tabs))),
+        ),
+      ],
+      body: pages(nested: true),
+    );
+  }
+}
+
+/// A tab's page stays as it was (scroll place, open parts) while another is shown.
+class _KeepPage extends StatefulWidget {
+  const _KeepPage({required this.child});
+  final Widget child;
+  @override
+  State<_KeepPage> createState() => _KeepPageState();
+}
+
+class _KeepPageState extends State<_KeepPage> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
 

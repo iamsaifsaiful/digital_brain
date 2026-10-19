@@ -284,6 +284,8 @@ String sayWhen(DateTime at, DateTime now, {bool withTime = true}) {
     0 => 'আজ',
     1 => 'কাল (${weekdayName(day)})',
     2 => 'পরশু (${weekdayName(day)})',
+    // Another year, far off: the year too ("বুধবার, ১ মে ২০৪১").
+    _ when day.year != today.year && (diff > 180 || diff < -60) => '${weekdayName(day)}, ${bnDigits(day.day)} ${bnMonths[day.month - 1]} ${bnDigits(day.year)}',
     _ => '${weekdayName(day)}, ${bnDigits(day.day)} ${bnMonths[day.month - 1]}',
   };
   return withTime ? '$dayText ${bnTime(at.hour, at.minute)}' : dayText;

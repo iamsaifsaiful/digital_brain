@@ -240,7 +240,9 @@ extension _BulkChat on ChatController {
       // after a health list): the same resolver. To-dos keep their own.
       final one = singleIndexCommand(tidySpeech(t), _now);
       final newest = _sets.where(_setFresh).lastOrNull;
-      if (one == null || newest == null || newest.domain == 'tasks' || (one.domain.isNotEmpty && one.domain != newest.domain)) return false;
+      // To-dos keep their own rules, except removing one ("৮নং টা বাদ দাও"),
+      // which the to-do rules hear as a general "মুছে দাও".
+      if (one == null || newest == null || (newest.domain == 'tasks' && one.op != 'delete') || (one.domain.isNotEmpty && one.domain != newest.domain)) return false;
       cmds = [one];
     }
     return _bulkWith(cmds, t, out);
@@ -383,7 +385,7 @@ extension _BulkChat on ChatController {
     }
     if (c.op == 'delete') {
       // Removing several: asked once, with what and how many.
-      _pendingBulk = _BulkProposal(c, set, live, 'op${_now.microsecondsSinceEpoch}');
+      _pendingBulk = _BulkProposal(c, set, live, 'op${_now.microsecondsSinceEpoch}-$_turn');
       final what = _bulkWhat(set, live);
       final cashSum = set.domain == 'money' ? brain.data.cash.where((e) => live.contains(e.id)).fold<int>(0, (a, e) => a + e.amount) : 0;
       final q = set.domain == 'money'
@@ -935,6 +937,209 @@ extension _BulkChat on ChatController {
     _batchPart = part;
     final days = [for (final id in b.$1) if (_taskById(id)?.due != null) sayWhen(_taskById(id)!.due!, _now, withTime: false)];
     _ask(out, trf('“{0}” — {1}, {2} কয়টায় মনে করাব?', [b.$2.isEmpty ? tr('কাজগুলো') : b.$2, nameList(days, unit: 'দিন'), part == null ? '' : tr(part)]), ChatWait.batchTime);
+    return true;
+  }
+
+  /// "মে মাসে যুক্ত কর", "কাজ গুলো মে মাসে রাখো" right after a list of
+  /// to-dos was kept: those to-dos, moved to that month (of their own year)
+  /// or day — never a note or a new account named "মে".
+  Future<bool> _batchWhenFor(String t, List<String> out) async {
+    final b = _batchTasks;
+    if (b == null || b.$3 < _turn - 3) return false;
+    final f = ' ${fold(normalize(tidySpeech(t))).replaceAll(RegExp(r'[।,!?]'), ' ')} ';
+    if (!RegExp(fold(r'(?:যুক্ত|যোগ|রাখ|সরা|নিয়ে\s+যা|দাও|দিন|করো|কর\s|লিখ|বসাও)')).hasMatch(f)) return false;
+    final tasks = [for (final id in b.$1) ..._maybe(id)].where((x) => !x.done).toList();
+    if (tasks.isEmpty) return false;
+    final months = bnMonths.map(fold).toList();
+    final mo = RegExp('(?<=\\s)(${months.join('|')})(?:\\s+${fold('মাস')}\\S*|${fold('ের')}|${fold('এর')}|${fold('ে')}|${fold('তে')})?(?=\\s)').firstMatch(f);
+    DateTime? due;
+    var span = TaskSpan.day;
+    final hasDayNum = RegExp(r'(?<=\s)[0-9০-৯]{1,2}(?:\s|$)').hasMatch(f);
+    final yearSaid = RegExp(r'[0-9০-৯]{4}').firstMatch(f);
+    if (mo != null && !hasDayNum) {
+      final mi = months.indexOf(mo[1]!) + 1;
+      // The to-dos' own year ("২০৪১ সালের" kept before), unless one is said.
+      final own = tasks.first.due?.year;
+      var y = yearSaid != null ? int.parse(asciiDigits(yearSaid[0]!)) : (own != null && own > _now.year ? own : _now.year);
+      if (yearSaid == null && own == null && mi < _now.month) y++;
+      due = DateTime(y, mi, 1);
+      span = TaskSpan.month;
+    } else {
+      final w = parseWhen(tidySpeech(t), _now);
+      if (w == null || !w.hasDay) return false;
+      due = dayOnly(w.day);
+    }
+    // Only the when, the verb and words for "these to-dos".
+    final rest = f
+        .replaceAll(mo == null ? RegExp(r'^$') : RegExp(RegExp.escape(mo[0]!)), ' ')
+        .replaceAll(RegExp(fold(r'(?<=\s)(?:কাজ\s*(?:গুলো|গুলা|গুলি)?|এগুলো|এগুলা|ওগুলো|সব|সবগুলো|এই|ওই|তালিকা\S*|লিস্ট\S*|যুক্ত|যোগ|কর|করো|করে|দাও|দিন|রাখো|রাখ|রেখে|সরাও|সরিয়ে|লিখো|লিখে|বসাও|মধ্যে|মাসে|মাসের|সালের|সালে|তে|এ|এর)(?=\s)')), ' ')
+        .replaceAll(RegExp(r'[0-9০-৯]+'), ' ')
+        .trim();
+    if (rest.isNotEmpty && mo != null) return false;
+    if (mo == null && withoutWhen(rest).trim().isNotEmpty) return false;
+    final snap = brain.snapshot();
+    for (final x in tasks) {
+      await brain.saveTask(x.copyWith(due: due, span: span));
+    }
+    final when = span == TaskSpan.month ? (due.year == _now.year ? trf('{0} মাসে', [monthName(due.month)]) : trf('{0} {1}-এ', [monthName(due.month), bnDigits(due.year)])) : sayWhen(due, _now, withTime: false);
+    _say(out, trf('ঠিক আছে, {0}টা কাজ {1} রাখলাম।', [bnDigits(tasks.length), when]), facts: [for (final x in tasks) x.title], links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
+    _offerUndo(snap);
+    return true;
+  }
+
+  /// A separate account (অন্যান্য হিসাব) by name: "শিক্ষার্থীদের বেতনের
+  /// হিসাব রাখো নাই?" (none yet: offered), "শিক্ষার্থীদের বেতনের জন্যে একটি
+  /// হিসাব বিভাগ দরকার" (opened), "অন্যান্য হিসাবে তা খুলো" (the one just
+  /// asked about). Never the পাওনা-দেনা total.
+  Future<bool> _accountTalk(String t, List<String> out) async {
+    final f = fold(normalize(tidySpeech(t))).replaceAll(RegExp(r'[?？।!,]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    String clean(String x) {
+      var ws = x.trim().split(' ').where((w) => w.isNotEmpty).toList();
+      ws = ws.where((w) => !RegExp(fold(r'^(?:আমার|আমাদের|এই|ওই|একটি|একটা|একটা|আলাদা|নতুন)$')).hasMatch(w)).toList();
+      if (ws.isEmpty) return '';
+      final last = ws.last;
+      if (!RegExp(fold(r'দের$')).hasMatch(last)) ws[ws.length - 1] = last.replaceFirst(RegExp(fold(r'(?:ের|এর)$')), '');
+      return ws.join(' ');
+    }
+    bool ok(String name) {
+      if (name.isEmpty || name.length < 3) return false;
+      // Not a person in the লেনদেন book, nor the book's own words.
+      if (RegExp(fold(r'(?:^|\s)(?:পাওনা|দেনা|লেনদেন|আয়|ব্যয়|খরচ|মাসের|আজকের|কালকের|সব|মোট|ব্যাংক|বিকাশ|নগদ)(?:\s|$)')).hasMatch(name)) return false;
+      return !brain.data.ledger.any((e) => fold(normalize(e.person)) == name);
+    }
+    final fresh = _accountWanted != null && _now.difference(_accountWanted!.$2).inMinutes <= 15;
+    // "অন্যান্য হিসাবে তা খুলো", "আলাদা হিসাব খুলে দাও" — the one just asked about.
+    final openIt = RegExp(fold(r'^(?:(?:অন্যান্য|আলাদা)\s+হিস(?:া|ে)ব(?:ে|ের)?\s+)?(?:(?:তা|এটা|ওটা|সেটা|সেটি|এটি)\s+)?(?:খুলো|খোলো|খুলে\s+দাও|খুলে\s+দিন|খুলুন|খুলে\s+দেও|খুলে\s+রাখো|খোল)$')).firstMatch(f);
+    if (openIt != null && fresh && RegExp(fold(r'(?:অন্যান্য|আলাদা|তা|এটা|ওটা|সেটা)')).hasMatch(f)) {
+      await _openAccount(_accountWanted!.$1, out);
+      return true;
+    }
+    // "<X>-এর জন্যে একটি হিসাব বিভাগ দরকার / খুলে দাও".
+    final need = RegExp(fold(r'^(.+?)\s+(?:এর\s+)?(?:জন্যে|জন্য|জন্যও)\s+(?:একটি\s+|একটা\s+|আলাদা\s+|নতুন\s+)*(?:হিসাব|হিসেব|অ্যাকাউন্ট)(?:\s+(?:বিভাগ|খাতা|পাতা))?\s+(?:দরকার|লাগবে|চাই|খোলো|খুলো|খুলে\s+দাও|খুলুন|বানাও|করো|করে\s+দাও)$')).firstMatch(f);
+    if (need != null) {
+      final name = clean(need[1]!.replaceFirst(RegExp(fold(r'(?:ের|এর)$')), ''));
+      if (!ok(name)) return false;
+      final known = projectByName(brain.data, name) ?? projectMeant(brain.data, name);
+      if (known != null) {
+        _say(out, trf('‘{0}’ নামে হিসাব আগেই খোলা আছে — অন্যান্য হিসাবে পাবেন।', [known.name]), links: [ChatLink(LinkKind.page, tr('অন্যান্য হিসাব'), page: 'projects')]);
+        return true;
+      }
+      await _openAccount(name, out);
+      return true;
+    }
+    // "<X>-এর হিসাব রাখো নাই?" — none yet: offered; one there: shown.
+    final ask = RegExp(fold(r'^(.+?)\s+(?:হিসাব|হিসেব)(?:টা|টি)?\s+(?:রাখো\s*(?:নাই|নেই|নি|না)|রাখোনি|রাখোনাই|রাখোনেই|রাখ\s*(?:নাই|নেই)|রাখছ\s*না|নাই|নেই|আছে\s*(?:কি|কিনা)?|কোথায়|কই)$')).firstMatch(f);
+    if (ask != null) {
+      final name = clean(ask[1]!);
+      if (!ok(name) || name.split(' ').length > 4) return false;
+      // A খাত ("বাজারের হিসাব আছে?") or a person is not an account.
+      if ([...knownCategories(brain.data, CashKind.expense), ...knownCategories(brain.data, CashKind.income)].map((c) => fold(normalize(c))).contains(name)) return false;
+      final known = projectByName(brain.data, name) ?? projectMeant(brain.data, name);
+      if (known != null) return false; // the account's own answer (its entries) comes from the usual rules
+      _accountWanted = (name, _now);
+      _ask(out, trf('‘{0}’ নামে আলাদা কোনো হিসাব এখনো নেই। অন্যান্য হিসাবে ‘{0}’ খুলে দিই?', [name]), ChatWait.newAccount, choices: [ChatChoice(tr('হ্যাঁ, খুলে দাও'), 'হ্যাঁ'), ChatChoice(tr('না'), 'না')]);
+      return true;
+    }
+    return false;
+  }
+
+  /// "বাজার কি ৫০০০?": a doubt about an amount — checked against what is
+  /// written today under that খাত (or its words), never a search of phone
+  /// numbers.
+  bool _amountDoubt(String t, List<String> out) {
+    final f = fold(normalize(t)).replaceAll(RegExp(r'[?？।!]'), ' ').trim();
+    final m = RegExp(fold(r'^(\S+(?:\s+\S+)?)\s+(?:কি|কী)\s+([০-৯0-9][০-৯0-9,]*)\s*(?:টাকা)?(?:\s+(?:ছিল|হয়েছে|হয়েছে|লিখেছ|লিখলা|রাখলা|রাখছ))?$')).firstMatch(f);
+    if (m == null) return false;
+    final word = m[1]!.replaceFirst(RegExp(fold(r'(?:ে|এ|ের|এর)$')), '');
+    final said = int.tryParse(asciiDigits(m[2]!).replaceAll(',', ''));
+    if (said == null || word.length < 2) return false;
+    final today = dayOnly(_now);
+    final hits = [
+      for (final e in brain.data.cash)
+        if (!e.date.isBefore(today.subtract(const Duration(days: 1))) && (fold(normalize(e.category)).startsWith(word) || fold(normalize(e.note)).contains(word))) e
+    ];
+    if (hits.isEmpty) {
+      _say(out, trf('“{0}” খাতে আজ কোনো খরচ লেখা নেই। রাখতে চাইলে বলুন, যেমন “{0} {1} টাকা খরচ”।', [m[1]!, bnNumber(said)]));
+      return true;
+    }
+    final e = hits.last;
+    _say(out, e.amount == said
+        ? trf('হ্যাঁ, {0} — {1} টাকা লেখা আছে ({2})।', [e.category, bnNumber(e.amount), shortDate(e.date)])
+        : trf('না — {0} লেখা আছে {1} টাকা ({2}), {3} নয়। ভুল হলে বলুন “{0} {3} টাকা হবে”।', [e.category, bnNumber(e.amount), shortDate(e.date), bnNumber(said)]),
+        links: [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন'))]);
+    return true;
+  }
+
+  Future<void> _openAccount(String name, List<String> out) async {
+    _accountWanted = null;
+    final known = projectByName(brain.data, name);
+    if (known != null) {
+      _say(out, trf('‘{0}’ নামে হিসাব আগেই খোলা আছে।', [known.name]), links: [ChatLink(LinkKind.page, tr('অন্যান্য হিসাব'), page: 'projects')]);
+      return;
+    }
+    if (!brain.canAddProject) {
+      _say(out, tr('নতুন অন্যান্য হিসাব খোলা প্রো সুবিধা — প্রো চালু করলে খুলে দিতে পারব।'), links: [ChatLink(LinkKind.page, tr('প্রো ভার্সন'), page: 'pro')]);
+      return;
+    }
+    final snap = brain.snapshot();
+    await brain.projectNamed(name);
+    _actions++;
+    _say(out, trf('খুলে দিলাম — অন্যান্য হিসাবে ‘{0}’। এখন বলুন, যেমন “মাহি ২০০০ টাকা দিয়েছে, {0} হিসাবে”।', [name]), links: [ChatLink(LinkKind.page, tr('অন্যান্য হিসাব'), page: 'projects')]);
+    _offerUndo(snap);
+  }
+
+  /// "২০৪১ সালের প্রতিটি কাজের রিমাইন্ডার দাও, সকাল ১১ টায়": a reminder
+  /// for each of those to-dos at that time on its own day (a to-do for a
+  /// whole month or year: its first day, said so).
+  Future<bool> _eachTaskReminder(String t, List<String> out) async {
+    final f = ' ${fold(normalize(tidySpeech(t))).replaceAll(RegExp(r'[।,!?]'), ' ')} ';
+    if (!RegExp(fold(r'(?<=\s)(?:প্রতিটি|প্রতিটা|প্রত্যেকটি|প্রত্যেকটা|প্রত্যেক|সব|সবগুলো|সকল)\s+কাজ(?:ের|ে|গুলোর|গুলোতে)?\s+(?:রিমাইন্ডার|এলার্ম|অ্যালার্ম|মনে)')).hasMatch(f)) return false;
+    final w = parseWhen(tidySpeech(t), _now);
+    if (w == null || !w.hasTime) return false;
+    final open = [for (final x in brain.data.tasks) if (!x.done) x];
+    final year = RegExp(r'([0-9০-৯]{4})\s*' + fold('সাল')).firstMatch(f);
+    final months = bnMonths.map(fold).toList();
+    final mo = RegExp('(?<=\\s)(${months.join('|')})(?=\\s|${fold('ের')}|${fold('মাস')})').firstMatch(f);
+    List<Task> pick;
+    if (year != null || mo != null) {
+      final y = year == null ? null : int.parse(asciiDigits(year[1]!));
+      final m = mo == null ? null : months.indexOf(mo[1]!) + 1;
+      pick = [for (final x in open) if (x.due != null && (y == null || x.due!.year == y) && (m == null || x.due!.month == m)) x];
+    } else if (w.hasDay) {
+      pick = [for (final x in open) if (x.due != null && x.span == TaskSpan.day && dayOnly(x.due!) == dayOnly(w.day)) x];
+    } else {
+      final b = _batchTasks;
+      final set = _sets.where((x) => x.domain == 'tasks' && _setFresh(x)).lastOrNull;
+      final ids = b != null && b.$3 >= _turn - 3 ? b.$1 : (set?.ids ?? const <String>[]);
+      pick = [for (final id in ids) ..._maybe(id)].where((x) => !x.done).toList();
+    }
+    if (pick.isEmpty) {
+      _say(out, tr('কোন কাজগুলোর কথা বলছেন, খুঁজে পেলাম না — যেমন বলুন “কালকের প্রতিটি কাজের রিমাইন্ডার দাও, সকাল ৯টায়”।'));
+      return true;
+    }
+    final snap = brain.snapshot();
+    final kept = <String>[];
+    var past = 0, firstDay = false;
+    for (final x in pick) {
+      final d = x.due ?? dayOnly(_now);
+      if (x.span != TaskSpan.day) firstDay = true;
+      final at = DateTime(d.year, d.month, d.day, w.at.hour, w.at.minute);
+      if (!at.isAfter(_now)) {
+        past++;
+        continue;
+      }
+      final r = Reminder(title: x.title, date: dayOnly(at), hour: at.hour, minute: at.minute, daysBefore: 0);
+      await brain.saveReminder(r);
+      await brain.saveTask(x.copyWith(reminderId: r.id));
+      kept.add('${x.title} — ${sayWhen(at, _now)}');
+    }
+    final time = bnTime(w.at.hour, w.at.minute);
+    final note = [
+      if (firstDay) tr('যেগুলোর নির্দিষ্ট দিন নেই, সেগুলো মাস/বছরের প্রথম দিনে রাখলাম।'),
+      if (past > 0) trf('{0}টার সময় পেরিয়ে গেছে, ওগুলোতে দিইনি।', [bnDigits(past)]),
+    ].join(' ');
+    _say(out, '${trf('ঠিক আছে, {0}টা কাজের রিমাইন্ডার {1}-এ রাখলাম।', [bnDigits(kept.length), time])}${note.isEmpty ? '' : ' $note'}', facts: kept, links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
+    _offerUndo(snap);
     return true;
   }
 

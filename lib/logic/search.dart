@@ -49,6 +49,11 @@ int score(List<String> terms, List<String> fields) {
   for (final raw in terms) {
     final t = normalize(raw);
     if (t.length < 2) continue;
+    // A short number ("৫০০০") is an amount, never a piece of a phone number.
+    if (RegExp(r'^[0-9০-৯]+$').hasMatch(t) && t.length < 6) {
+      if (hayWords.contains(t)) s++;
+      continue;
+    }
     if (hay.contains(t) || hayWords.any((w) => wordsMatch(t, w))) s++;
   }
   return s;

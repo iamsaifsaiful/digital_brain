@@ -28,60 +28,61 @@ class _SpendHealthScreenState extends State<SpendHealthScreen> {
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
-    final h = spendHealth(brain.data, brain.services.now(), days: _days);
-    final advice = spendAdvice(h);
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
           TopBar(title: tr('খরচ বিশ্লেষণ')),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-            child: SegTabs<int>(items: [(7, tr('এই সপ্তাহ')), (30, tr('৩০ দিন'))], value: _days, onChanged: (v) => setState(() => _days = v)),
-          ),
           Expanded(
-            child: SwipeSwitch.tabs<int>(
-              values: const [7, 30],
+            child: TabPages<int>(
+              items: [(7, tr('এই সপ্তাহ')), (30, tr('৩০ দিন'))],
               value: _days,
               onChanged: (v) => setState(() => _days = v),
-              child: ListView(key: ValueKey(_days), padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
-                _Split(h),
-                const SizedBox(height: 14),
-                if (advice.isNotEmpty)
-                  Panel(
-                    key: const Key('spend-advice'),
-                    padding: const EdgeInsets.all(14),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(children: [
-                        Icon(Icons.tips_and_updates_outlined, color: C.green, size: 20),
-                        const SizedBox(width: 8),
-                        Text(tr('কী করা যায়'), style: body(15, weight: FontWeight.w600)),
-                      ]),
-                      const SizedBox(height: 8),
-                      for (final a in advice)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Padding(padding: const EdgeInsets.only(top: 8), child: Container(width: 5, height: 5, decoration: BoxDecoration(color: C.muted, shape: BoxShape.circle))),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(a, style: body(14, height: 1.45))),
-                          ]),
-                        ),
-                    ]),
-                  ),
-                if (h.shares.isNotEmpty) ...[
-                  const SizedBox(height: 18),
-                  SectionTitle(h.hasIncome ? tr('খাত অনুযায়ী — আয়ের কত ভাগ') : tr('খাত অনুযায়ী — খরচের কত ভাগ')),
-                  Panel(
-                    padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
-                    child: Column(children: [for (final s in h.shares) _Row(s, h)]),
-                  ),
-                ],
-              ]),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+              page: (days) => _page(brain, days),
             ),
           ),
         ]),
       ),
     );
+  }
+
+  List<Widget> _page(Brain brain, int days) {
+    final h = spendHealth(brain.data, brain.services.now(), days: days);
+    final advice = spendAdvice(h);
+    return [
+      _Split(h),
+      const SizedBox(height: 14),
+      if (advice.isNotEmpty)
+        Panel(
+          key: const Key('spend-advice'),
+          padding: const EdgeInsets.all(14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Icon(Icons.tips_and_updates_outlined, color: C.green, size: 20),
+              const SizedBox(width: 8),
+              Text(tr('কী করা যায়'), style: body(15, weight: FontWeight.w600)),
+            ]),
+            const SizedBox(height: 8),
+            for (final a in advice)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Padding(padding: const EdgeInsets.only(top: 8), child: Container(width: 5, height: 5, decoration: BoxDecoration(color: C.muted, shape: BoxShape.circle))),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(a, style: body(14, height: 1.45))),
+                ]),
+              ),
+          ]),
+        ),
+      if (h.shares.isNotEmpty) ...[
+        const SizedBox(height: 18),
+        SectionTitle(h.hasIncome ? tr('খাত অনুযায়ী — আয়ের কত ভাগ') : tr('খাত অনুযায়ী — খরচের কত ভাগ')),
+        Panel(
+          padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
+          child: Column(children: [for (final s in h.shares) _Row(s, h)]),
+        ),
+      ],
+    ];
   }
 }
 
@@ -127,7 +128,8 @@ class _Split extends StatelessWidget {
         const SizedBox(height: 10),
         Text(tr('যেমন হওয়া ভালো (৫০/৩০/২০)'), style: body(12.5, color: C.muted)),
         const SizedBox(height: 4),
-        bar([(tr('প্রয়োজনীয়'), needCap, C.blue.withValues(alpha: 0.45)), (tr('শখের'), wantCap, C.orange.withValues(alpha: 0.45)), (tr('সঞ্চয়'), keepGoal, C.green.withValues(alpha: 0.45))], 100, height: 10),
+        bar([(tr('প্রয়োজনীয়'), needCap, C.blue.withValues(alpha: 0.45)), (tr('শখের'), wantCap, C.orange.withValues(alpha: 0.45)), (tr('সঞ্চয়'), keepGoal, C.green.withValues(alpha: 0.45))], 100,
+            height: 10),
         const SizedBox(height: 12),
         Wrap(spacing: 14, runSpacing: 6, children: [
           for (final p in parts)

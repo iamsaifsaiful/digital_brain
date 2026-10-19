@@ -38,7 +38,7 @@ part 'menu_chat.dart';
 part 'bulk_chat.dart';
 
 /// What the chat is waiting to hear.
-enum ChatWait { none, bulk, batchTime, taskDate, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, taskTitle, taskDay, project, collect, whichPerson, whichItem, clarify, whichTask, taskTime }
+enum ChatWait { none, newAccount, bulk, batchTime, taskDate, yesNo, name, amount, kind, callee, phone, message, contactName, topic, topicName, reminderTime, reminderTitle, taskTitle, taskDay, project, collect, whichPerson, whichItem, clarify, whichTask, taskTime }
 
 /// What the user said they want to talk about at the start.
 enum Topic {
@@ -232,6 +232,10 @@ class ChatController extends ChangeNotifier {
   /// What was just refused ("না"), in case it is asked for again another
   /// way: "অন্যান্য হিসাবে … বিভাগ খুলে এগুলো রাখবে".
   (List<Command>, DateTime)? _refused;
+
+  /// A separate account asked for ("শিক্ষার্থীদের বেতনের হিসাব রাখো নাই?"),
+  /// for "অন্যান্য হিসাবে তা খুলো" a moment later.
+  (String, DateTime)? _accountWanted;
 
   /// The to-do whose day is asked ("পার্টির তারিখ যুক্ত কর").
   String? _dateTaskId;
@@ -784,6 +788,22 @@ class ChatController extends ChangeNotifier {
     _bulkRest = null;
     // "দুপুরে দাওয়াত" right after "২৩ ও ২৪ তারিখে দাওয়াত" was kept: a time
     // for those to-dos — not a new reminder for tomorrow.
+    if (wait == ChatWait.none && _amountDoubt(t, out)) {
+      notifyListeners();
+      return out.join(' ');
+    }
+    if (wait == ChatWait.none && await _accountTalk(t, out)) {
+      notifyListeners();
+      return out.join(' ');
+    }
+    if (wait == ChatWait.none && await _eachTaskReminder(t, out)) {
+      notifyListeners();
+      return out.join(' ');
+    }
+    if (wait == ChatWait.none && await _batchWhenFor(t, out)) {
+      notifyListeners();
+      return out.join(' ');
+    }
     if (wait == ChatWait.none && await _batchTimeFor(t, out)) {
       notifyListeners();
       return out.join(' ');
@@ -1380,6 +1400,11 @@ class ChatController extends ChangeNotifier {
       tags.add(shareable ? text : tr('[অ্যাপ নিজের রাখা তথ্য থেকে উত্তর দিল]'));
       if (c is SmallTalk && c.kind == Talk.whatCanYouDo) _say(out, capabilitiesList(), speak: false, links: [ChatLink(LinkKind.page, tr('কী কী করা যায় — বিস্তারিত'), page: 'help')]);
       if (c is SmallTalk && c.kind == Talk.bye) ended = true;
+      // A complaint right after an account was asked for: that offer again.
+      final want = _accountWanted;
+      if (c is SmallTalk && c.kind == Talk.sorry && want != null && _now.difference(want.$2).inMinutes <= 15 && projectByName(brain.data, want.$1) == null) {
+        _ask(out, trf('আপনি ‘{0}’ নামে আলাদা হিসাব চেয়েছিলেন — অন্যান্য হিসাবে খুলে দিই?', [want.$1]), ChatWait.newAccount, choices: [ChatChoice(tr('হ্যাঁ, খুলে দাও'), 'হ্যাঁ'), ChatChoice(tr('না'), 'না')]);
+      }
       // "আমি কথা বললে তুমি থেমে শুনবা": the setting itself is turned on.
       if (c is SmallTalk && c.kind == Talk.listenOverMe && !brain.bargeIn) await brain.setBargeIn(true);
     }
@@ -2702,6 +2727,29 @@ class ChatController extends ChangeNotifier {
         }
         _amount = a;
         await _nextLedgerStep(out);
+        return true;
+      case ChatWait.newAccount:
+        // "নির্দেশনা কি দিই, আর উত্তর কি দাও": a complaint, not a yes.
+        if (aboutTheAssistant(t) == AboutMe.complaint) {
+          final name = _accountWanted?.$1 ?? '';
+          _ask(out, trf('দুঃখিত, আগে ঠিক উত্তর দিইনি। আপনি ‘{0}’ নামে আলাদা হিসাব চেয়েছেন — অন্যান্য হিসাবে খুলে দিই?', [name]), ChatWait.newAccount,
+              choices: [ChatChoice(tr('হ্যাঁ, খুলে দাও'), 'হ্যাঁ'), ChatChoice(tr('না'), 'না')]);
+          return true;
+        }
+        final yn = yesNo(t);
+        if (yn == null) {
+          if (_looksNew(t)) return false;
+          _say(out, tr('খুলে দেবো কিনা — হ্যাঁ বা না বলুন।'));
+          return true;
+        }
+        wait = ChatWait.none;
+        choices = const [];
+        final name = _accountWanted?.$1;
+        if (yn != true || name == null) {
+          _say(out, tr('আচ্ছা, খুললাম না।'));
+          return true;
+        }
+        await _openAccount(name, out);
         return true;
       case ChatWait.project:
         final cur = _current;

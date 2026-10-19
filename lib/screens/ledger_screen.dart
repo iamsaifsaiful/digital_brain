@@ -40,40 +40,35 @@ class MoneyScreenState extends State<MoneyScreen> {
     final brain = BrainScope.of(context);
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
 
-    return SwipeSwitch.tabs<MoneyPart>(
-      values: MoneyPart.values,
+    return TabPages<MoneyPart>(
+      items: [(MoneyPart.cash, tr('আয়-ব্যয়')), (MoneyPart.loans, tr('ধার-দেনা')), (MoneyPart.projects, tr('অন্যান্য হিসাব'))],
       value: _part,
       onChanged: show,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-        children: [
-          TabTitle(tr('হিসাব'),
-              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                PdfButton(switch (_part) {
-                  MoneyPart.cash => const {ReportPart.money},
-                  MoneyPart.loans => const {ReportPart.ledger},
-                  MoneyPart.projects => const {ReportPart.projects},
-                }),
-                if (_part == MoneyPart.loans) IconButton(tooltip: tr('সব লেনদেন খুঁজুন'), onPressed: () => push(const TransactionsScreen()), icon: const Icon(Icons.search_rounded)),
-              ])),
-          const SizedBox(height: 12),
-          if (brain.businessMode) ...[const ShopTodayCard(), const SizedBox(height: 12)],
-          const MoneyTools(),
-          const SizedBox(height: 12),
-          SegTabs<MoneyPart>(
-            items: [(MoneyPart.cash, tr('আয়-ব্যয়')), (MoneyPart.loans, tr('ধার-দেনা')), (MoneyPart.projects, tr('অন্যান্য হিসাব'))],
-            value: _part,
-            onChanged: show,
-          ),
-          const SizedBox(height: 14),
-          ...switch (_part) {
-            MoneyPart.cash => [const CashView()],
-            MoneyPart.loans => _loans(context, brain, push),
-            MoneyPart.projects => [const ProjectsView()],
-          },
-          const AdSlot(padding: EdgeInsets.only(top: 16)),
-        ],
-      ),
+      top: (tabs) => [
+        TabTitle(tr('হিসাব'),
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              PdfButton(switch (_part) {
+                MoneyPart.cash => const {ReportPart.money},
+                MoneyPart.loans => const {ReportPart.ledger},
+                MoneyPart.projects => const {ReportPart.projects},
+              }),
+              if (_part == MoneyPart.loans) IconButton(tooltip: tr('সব লেনদেন খুঁজুন'), onPressed: () => push(const TransactionsScreen()), icon: const Icon(Icons.search_rounded)),
+            ])),
+        const SizedBox(height: 12),
+        if (brain.businessMode) ...[const ShopTodayCard(), const SizedBox(height: 12)],
+        const MoneyTools(),
+        const SizedBox(height: 12),
+        tabs,
+        const SizedBox(height: 14),
+      ],
+      page: (part) => [
+        ...switch (part) {
+          MoneyPart.cash => [const CashView()],
+          MoneyPart.loans => _loans(context, brain, push),
+          MoneyPart.projects => [const ProjectsView()],
+        },
+        const AdSlot(padding: EdgeInsets.only(top: 16)),
+      ],
     );
   }
 

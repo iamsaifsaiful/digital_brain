@@ -55,45 +55,39 @@ class _DiaryScreenState extends State<DiaryScreen> {
     final day = _picked ?? dayOnly(now);
     // "যোগ করুন" sits at the bottom, by the thumb, as on the other pages.
     return Stack(children: [
-      SwipeSwitch.tabs<DiaryView>(
-        values: DiaryView.values,
+      TabPages<DiaryView>(
+        items: [(DiaryView.day, tr('দৈনিক')), (DiaryView.week, tr('সাপ্তাহিক')), (DiaryView.month, tr('মাসিক'))],
         value: _view,
         onChanged: (v) => setState(() => _view = v),
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-          children: [
-            Row(children: [
-              Expanded(child: Text(tr('দিনলিপি'), style: display(24, weight: 700))),
-              IconButton(
-                tooltip: tr('ক্যালেন্ডার'),
-                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())),
-                icon: Icon(Icons.calendar_month_outlined, color: C.ink),
-              ),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+        top: (tabs) => [
+          Row(children: [
+            Expanded(child: Text(tr('দিনলিপি'), style: display(24, weight: 700))),
+            IconButton(
+              tooltip: tr('ক্যালেন্ডার'),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())),
+              icon: Icon(Icons.calendar_month_outlined, color: C.ink),
+            ),
+          ]),
+          const SizedBox(height: 10),
+          tabs,
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 38,
+            child: ListView(scrollDirection: Axis.horizontal, children: [
+              _tool(tr('অভ্যাস'), Icons.local_fire_department_outlined, const HabitsScreen()),
+              _tool(tr('ওষুধ'), Icons.medication_outlined, const MedicinesScreen()),
+              _tool(tr('বিশেষ দিন'), Icons.cake_outlined, const SpecialDaysScreen()),
+              _tool(tr('তৈরি তালিকা'), Icons.checklist_rtl_rounded, const TemplatesScreen()),
             ]),
-            const SizedBox(height: 10),
-            SegTabs<DiaryView>(
-              items: [(DiaryView.day, tr('দৈনিক')), (DiaryView.week, tr('সাপ্তাহিক')), (DiaryView.month, tr('মাসিক'))],
-              value: _view,
-              onChanged: (v) => setState(() => _view = v),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 38,
-              child: ListView(scrollDirection: Axis.horizontal, children: [
-                _tool(tr('অভ্যাস'), Icons.local_fire_department_outlined, const HabitsScreen()),
-                _tool(tr('ওষুধ'), Icons.medication_outlined, const MedicinesScreen()),
-                _tool(tr('বিশেষ দিন'), Icons.cake_outlined, const SpecialDaysScreen()),
-                _tool(tr('তৈরি তালিকা'), Icons.checklist_rtl_rounded, const TemplatesScreen()),
-              ]),
-            ),
-            const SizedBox(height: 12),
-            ...switch (_view) {
-              DiaryView.day => _dayView(brain, day, now),
-              DiaryView.week => _weekView(brain, day, now),
-              DiaryView.month => _monthView(brain, day, now),
-            },
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        page: (view) => switch (view) {
+          DiaryView.day => _dayView(brain, day, now),
+          DiaryView.week => _weekView(brain, day, now),
+          DiaryView.month => _monthView(brain, day, now),
+        },
       ),
       Positioned(
         right: 16,

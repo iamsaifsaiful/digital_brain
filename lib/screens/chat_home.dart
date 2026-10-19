@@ -127,6 +127,10 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Starting to type: back to the newest message.
+    _focus.addListener(() {
+      if (_focus.hasFocus) _toBottom();
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _loadPast();
       if (!mounted) return;
@@ -295,7 +299,8 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   void _toBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
-        _scroll.animateTo(_scroll.position.maxScrollExtent, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+        // Reversed list: 0 is the newest message.
+        _scroll.animateTo(0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
       }
     });
   }
@@ -1038,10 +1043,15 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     );
   }
 
+  // Anchored at the bottom (reversed): the newest message stays in view
+  // when one is added, when the keyboard opens and while typing — no
+  // scrolling down to find the answer.
   Widget _conversation() => ListView(
         controller: _scroll,
+        reverse: true,
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         children: [
+          for (final w in [
           if (_past.any((c) => c.id != _chatId)) _pastButton(),
           for (final m in _chat.messages) _message(m),
           if (_chat.thinking || _busy)
@@ -1060,6 +1070,8 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
               padding: const EdgeInsets.only(top: 8),
               child: Text(_error!, textAlign: TextAlign.center, style: body(13, color: C.orangeDark, height: 1.4)),
             ),
+          ].reversed)
+            w,
         ],
       );
 

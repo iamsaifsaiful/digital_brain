@@ -120,7 +120,10 @@ List<String> _nameTerms(String text, ItemKind? kind) {
     t = t.replaceAll(' ${normalize(w)}', ' ');
   }
   final rest = withoutWhen(t);
-  return searchTerms(normalize(rest)).where((x) => !RegExp(r'^\d+$').hasMatch(x) && x != normalize('টাকা') && x != normalize('টাকার')).toList();
+  // "কাজের তালিকা থেকে পার্টি বাদ দাও": where it is kept is not its name.
+  const where = ['থেকে', 'তালিকা', 'তালিকার', 'তালিকায়', 'লিস্ট', 'লিস্টের', 'লিস্টে', 'ভেতর', 'ভেতরে', 'মধ্যে'];
+  final skip = {normalize('টাকা'), normalize('টাকার'), for (final w in where) normalize(w), for (final w in where) ...searchTerms(normalize(w))};
+  return searchTerms(normalize(rest)).where((x) => !RegExp(r'^\d+$').hasMatch(x) && !skip.contains(x)).toList();
 }
 
 /// The saved things the request may mean, best first.
@@ -144,6 +147,8 @@ List<Target> findTargets(AppData d, String said, DateTime now) {
       if (hay.contains(term) || hayWords.any((h) => h.length >= 3 && (term.startsWith(h) || h.startsWith(term)))) score += 2;
     }
     if (t.amount != null && numbers.contains(t.amount)) score += 3;
+    // Named exactly ("পার্টি" and a to-do called just that): that one.
+    if (score > 0 && terms.isNotEmpty && searchTerms(hay).join(' ') == terms.join(' ')) score += 5;
     if (score > 0) scored.add((t, score));
   }
   if (scored.isEmpty) return const [];

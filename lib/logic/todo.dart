@@ -436,6 +436,16 @@ _TdWhen _tdWhen(String said, DateTime now) {
       w.span = TaskSpan.month;
     });
   }
+  // "২০৪১ সালের মে মাসে": that month of that year.
+  if (w.day == null) {
+    take(r'(?<=\s)([০-৯0-9]{4})\s+সাল(?:ের|এর)\s+' + _monthsP + r'(?:\s+মাস(?:ে|ের)?)?(?:ের|এর|ে|তে)?(?:\s+মধ্যে)?(?=\s)', (m) {
+      final y = int.parse(asciiDigits(m[1]!));
+      final mi = bnMonths.map(_tf).toList().indexOf(_tf(m[2]!)) + 1;
+      if (mi <= 0 || y < today.year || y > today.year + 60) return;
+      w.day = DateTime(y, mi, 1);
+      w.span = TaskSpan.month;
+    });
+  }
   if (w.day == null) {
     // "ডিসেম্বরে" (no day number before it): that month.
     take(r'(?<=\s)(?<![০-৯0-9]\s)' + _monthsP + r'(?:\s+মাস(?:ে|ের)?)?(?:ের|এর|ে|তে)?(?:\s+মধ্যে)?(?=\s)', (m) {
@@ -564,7 +574,7 @@ List<Task> tdMatch(Iterable<Task> tasks, List<String> terms, {bool open = true})
 
 /// "দ্বিতীয়টা" → 2, "শেষেরটা" → -1, "৩ নম্বর" → 3.
 int? _tdOrdinal(String f) {
-  final m = _tre(r'(?<=\s)(প্রথম|দ্বিতীয়|তৃতীয়|চতুর্থ|পঞ্চম|শেষের|উপরের)(?:টা|টি|টাকে|টার|টায়|\s+(?:কাজ|রিমাইন্ডার|নোট|ওষুধ|মাপ|লেনদেন|এন্ট্রি|অ্যালার্ম|এলার্ম)(?:টা|টি|টার)?)(?=\s)').firstMatch(f);
+  final m = _tre(r'(?<=\s)(প্রথম|দ্বিতীয়|তৃতীয়|চতুর্থ|পঞ্চম|ষষ্ঠ|সপ্তম|অষ্টম|নবম|দশম|শেষের|উপরের)(?:\s?(?:টা|টি|টাকে|টার|টায়)|\s+(?:কাজ|রিমাইন্ডার|নোট|ওষুধ|মাপ|লেনদেন|এন্ট্রি|অ্যালার্ম|এলার্ম)(?:টা|টি|টার)?)(?=\s)').firstMatch(f);
   if (m != null) {
     return switch (_tf(m[1]!)) {
       final x when x == _tf('প্রথম') || x == _tf('উপরের') => 1,
@@ -572,10 +582,15 @@ int? _tdOrdinal(String f) {
       final x when x == _tf('তৃতীয়') => 3,
       final x when x == _tf('চতুর্থ') => 4,
       final x when x == _tf('পঞ্চম') => 5,
+      final x when x == _tf('ষষ্ঠ') => 6,
+      final x when x == _tf('সপ্তম') => 7,
+      final x when x == _tf('অষ্টম') => 8,
+      final x when x == _tf('নবম') => 9,
+      final x when x == _tf('দশম') => 10,
       _ => -1,
     };
   }
-  final n = _tre(r'(?<=\s)(\S+)\s*(?:নম্বর|নাম্বার|নং)(?:\s*কাজ)?(?:টা|টি)?(?=\s)').firstMatch(f);
+  final n = _tre(r'(?<=\s)(\S+?)\s*(?:নম্বর|নাম্বার|নং)(?:\s*কাজ)?(?:\s?(?:টা|টি))?(?=\s)').firstMatch(f);
   if (n != null) return _tdNum(n[1]!);
   return null;
 }

@@ -794,99 +794,99 @@ class _SavingsScreenState extends State<SavingsScreen> {
           TopBar(title: tr('সঞ্চয় ও কিস্তি'), trailing: const [
             PdfButton({ReportPart.accounts})
           ]),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-            child: SegTabs<int>(items: [(0, tr('সঞ্চয়ের লক্ষ্য')), (1, tr('কিস্তি ও DPS'))], value: _tab, onChanged: (v) => setState(() => _tab = v)),
-          ),
           Expanded(
-            child: SwipeSwitch.tabs<int>(
-                values: const [0, 1],
+            child: TabPages<int>(
+                items: [(0, tr('সঞ্চয়ের লক্ষ্য')), (1, tr('কিস্তি ও DPS'))],
                 value: _tab,
                 onChanged: (v) => setState(() => _tab = v),
-                child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 100), children: [
-                  if (_tab == 0) ...[
-                    if (d.goals.isEmpty)
-                      EmptyState(
-                          icon: Icons.savings_outlined, title: tr('কোনো লক্ষ্য নেই'), text: tr('ঈদ, ভ্রমণ, নতুন কিছু কেনা — লক্ষ্য ঠিক করে একটু একটু জমান। কত জমলো আর মাসে কত রাখতে হবে, দেখাবে।'))
-                    else
-                      for (final g in d.goals) ...[
-                        Panel(
-                          padding: const EdgeInsets.all(14),
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                            Row(children: [
-                              Expanded(child: Text(g.name, style: body(16, weight: FontWeight.w600))),
-                              IconButton(tooltip: tr('বদলান'), onPressed: () => _editGoal(g), icon: Icon(Icons.edit_outlined, color: C.muted, size: 20)),
-                            ]),
-                            Text(trf('{0} জমেছে, লক্ষ্য {1}', [taka(g.saved), taka(g.target)]), style: body(14, color: C.muted2)),
-                            const SizedBox(height: 8),
-                            Bar(value: g.progress, height: 10),
-                            const SizedBox(height: 6),
-                            if (g.deadline != null)
-                              Text(
-                                g.saved >= g.target ? tr('লক্ষ্য পূরণ হয়েছে! 🎉') : trf('{0}-এর মধ্যে · মাসে {1} করে রাখলে হবে', [shortDate(g.deadline!), taka(g.perMonth(now) ?? 0)]),
-                                style: body(13, color: g.saved >= g.target ? C.green : C.muted),
-                              ),
-                            const SizedBox(height: 8),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: FilledButton.icon(
-                                onPressed: () async {
-                                  final v = readInt(await askText(context, tr('কত জমালেন?'), number: true));
-                                  if (v != null && v > 0) await brain.addDeposit(g, v);
-                                },
-                                style: FilledButton.styleFrom(backgroundColor: C.green, shape: const StadiumBorder()),
-                                icon: const Icon(Icons.add_rounded, size: 18),
-                                label: Text(tr('জমা')),
-                              ),
-                            ),
-                            if (g.deposits.isNotEmpty)
-                              TextButton(
-                                onPressed: () => _deposits(context, g.id),
-                                child: Text(trf('জমার হিসাব · {0}টা — বদলান বা মুছুন', [bnDigits(g.deposits.length)])),
-                              ),
-                          ]),
-                        ),
-                        const SizedBox(height: 10),
-                      ],
-                  ] else ...[
-                    if (d.installments.isEmpty)
-                      EmptyState(
-                          icon: Icons.event_repeat_outlined, title: tr('কোনো কিস্তি নেই'), text: tr('DPS, লোনের কিস্তি, বীমার প্রিমিয়াম — প্রতি মাসে আগের দিন মনে করাবো, টিক দিলে কত বাকি দেখাবে।'))
-                    else
-                      for (final i in d.installments) ...[
-                        Panel(
-                          padding: const EdgeInsets.all(14),
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                            Row(children: [
-                              Expanded(
-                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                  Text(i.name, style: body(16, weight: FontWeight.w600)),
-                                  Text('${isEn ? i.kind.en : i.kind.bn} · ${taka(i.amount)} · ${trf('প্রতি মাসের {0} তারিখ', [bnDigits(i.dayOfMonth)])}', style: body(13, color: C.muted)),
+                tabsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 100),
+                page: (tab) => [
+                      if (tab == 0) ...[
+                        if (d.goals.isEmpty)
+                          EmptyState(
+                              icon: Icons.savings_outlined, title: tr('কোনো লক্ষ্য নেই'), text: tr('ঈদ, ভ্রমণ, নতুন কিছু কেনা — লক্ষ্য ঠিক করে একটু একটু জমান। কত জমলো আর মাসে কত রাখতে হবে, দেখাবে।'))
+                        else
+                          for (final g in d.goals) ...[
+                            Panel(
+                              padding: const EdgeInsets.all(14),
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                                Row(children: [
+                                  Expanded(child: Text(g.name, style: body(16, weight: FontWeight.w600))),
+                                  IconButton(tooltip: tr('বদলান'), onPressed: () => _editGoal(g), icon: Icon(Icons.edit_outlined, color: C.muted, size: 20)),
                                 ]),
-                              ),
-                              IconButton(tooltip: tr('বদলান'), onPressed: () => _editInst(i), icon: Icon(Icons.edit_outlined, color: C.muted, size: 20)),
-                            ]),
-                            const SizedBox(height: 8),
-                            Bar(value: i.months == 0 ? 0 : i.paidCount / i.months, height: 10, color: C.purple),
-                            const SizedBox(height: 6),
-                            Text(trf('{0}/{1} কিস্তি দেওয়া ({2}) · বাকি {3}টি · শেষ {4}', [bnDigits(i.paidCount), bnDigits(i.months), taka(i.paidTotal), bnDigits(i.left), monthTitle(i.end)]),
-                                style: body(13, color: C.muted2)),
-                            const SizedBox(height: 8),
-                            Row(children: [
-                              FilledButton.icon(
-                                onPressed: () => brain.toggleInstallmentPaid(i, now),
-                                style:
-                                    FilledButton.styleFrom(backgroundColor: i.paidFor(now) ? C.chip : C.purple, foregroundColor: i.paidFor(now) ? C.ink : Colors.white, shape: const StadiumBorder()),
-                                icon: Icon(i.paidFor(now) ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, size: 18),
-                                label: Text(i.paidFor(now) ? trf('{0} দেওয়া হয়েছে', [monthName(now.month)]) : trf('{0}-এর কিস্তি দিলাম', [monthName(now.month)])),
-                              ),
-                            ]),
-                          ]),
-                        ),
-                        const SizedBox(height: 10),
+                                Text(trf('{0} জমেছে, লক্ষ্য {1}', [taka(g.saved), taka(g.target)]), style: body(14, color: C.muted2)),
+                                const SizedBox(height: 8),
+                                Bar(value: g.progress, height: 10),
+                                const SizedBox(height: 6),
+                                if (g.deadline != null)
+                                  Text(
+                                    g.saved >= g.target ? tr('লক্ষ্য পূরণ হয়েছে! 🎉') : trf('{0}-এর মধ্যে · মাসে {1} করে রাখলে হবে', [shortDate(g.deadline!), taka(g.perMonth(now) ?? 0)]),
+                                    style: body(13, color: g.saved >= g.target ? C.green : C.muted),
+                                  ),
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: FilledButton.icon(
+                                    onPressed: () async {
+                                      final v = readInt(await askText(context, tr('কত জমালেন?'), number: true));
+                                      if (v != null && v > 0) await brain.addDeposit(g, v);
+                                    },
+                                    style: FilledButton.styleFrom(backgroundColor: C.green, shape: const StadiumBorder()),
+                                    icon: const Icon(Icons.add_rounded, size: 18),
+                                    label: Text(tr('জমা')),
+                                  ),
+                                ),
+                                if (g.deposits.isNotEmpty)
+                                  TextButton(
+                                    onPressed: () => _deposits(context, g.id),
+                                    child: Text(trf('জমার হিসাব · {0}টা — বদলান বা মুছুন', [bnDigits(g.deposits.length)])),
+                                  ),
+                              ]),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                      ] else ...[
+                        if (d.installments.isEmpty)
+                          EmptyState(
+                              icon: Icons.event_repeat_outlined,
+                              title: tr('কোনো কিস্তি নেই'),
+                              text: tr('DPS, লোনের কিস্তি, বীমার প্রিমিয়াম — প্রতি মাসে আগের দিন মনে করাবো, টিক দিলে কত বাকি দেখাবে।'))
+                        else
+                          for (final i in d.installments) ...[
+                            Panel(
+                              padding: const EdgeInsets.all(14),
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                                Row(children: [
+                                  Expanded(
+                                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                      Text(i.name, style: body(16, weight: FontWeight.w600)),
+                                      Text('${isEn ? i.kind.en : i.kind.bn} · ${taka(i.amount)} · ${trf('প্রতি মাসের {0} তারিখ', [bnDigits(i.dayOfMonth)])}', style: body(13, color: C.muted)),
+                                    ]),
+                                  ),
+                                  IconButton(tooltip: tr('বদলান'), onPressed: () => _editInst(i), icon: Icon(Icons.edit_outlined, color: C.muted, size: 20)),
+                                ]),
+                                const SizedBox(height: 8),
+                                Bar(value: i.months == 0 ? 0 : i.paidCount / i.months, height: 10, color: C.purple),
+                                const SizedBox(height: 6),
+                                Text(trf('{0}/{1} কিস্তি দেওয়া ({2}) · বাকি {3}টি · শেষ {4}', [bnDigits(i.paidCount), bnDigits(i.months), taka(i.paidTotal), bnDigits(i.left), monthTitle(i.end)]),
+                                    style: body(13, color: C.muted2)),
+                                const SizedBox(height: 8),
+                                Row(children: [
+                                  FilledButton.icon(
+                                    onPressed: () => brain.toggleInstallmentPaid(i, now),
+                                    style: FilledButton.styleFrom(
+                                        backgroundColor: i.paidFor(now) ? C.chip : C.purple, foregroundColor: i.paidFor(now) ? C.ink : Colors.white, shape: const StadiumBorder()),
+                                    icon: Icon(i.paidFor(now) ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, size: 18),
+                                    label: Text(i.paidFor(now) ? trf('{0} দেওয়া হয়েছে', [monthName(now.month)]) : trf('{0}-এর কিস্তি দিলাম', [monthName(now.month)])),
+                                  ),
+                                ]),
+                              ]),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
                       ],
-                  ],
-                ])),
+                    ]),
           ),
         ]),
       ),

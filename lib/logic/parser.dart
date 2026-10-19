@@ -891,6 +891,21 @@ class Parser {
   /// that every way in — these rules or the AI — goes through.
   Command parse(String said) => checked(_parse(said), said, now);
 
+  CashAdd? _givenOrSent(String said, String text) {
+    final f = ' ${fold(text)} ';
+    final amount = findAmount(text);
+    if (amount == null || amount <= 0) return null;
+    bool has(String p) => RegExp(fold(p)).hasMatch(f);
+    if (has(r'(?:ধার|কর্জ|পাবো|পাব|পাবে|দেবো|দেব|দিবো|দিব|ফেরত|শোধ|দিতে\s+হবে|লাগবে)')) return null;
+    if (has(r'(?<=\s)(?:দান|সদকা|সদকাহ|সাদকা|যাকাত|জাকাত|ফিতরা|ফেতরা|মান্নত)(?:\s|$)') && has(r'(?:করলাম|করেছি|করছি|করলাম|দিলাম|দিয়েছি|দিয়েছি|দিছি|দিসি|দিয়ে\s+দিলাম|দিয়ে\s+দিয়েছি)')) {
+      return CashAdd(said, kind: CashKind.expense, amount: amount, category: 'দান-সদকা');
+    }
+    if (has(r'(?:বিদেশ|প্রবাস|দুবাই|সৌদি|মালয়েশিয়া|ওমান|কাতার|কুয়েত|ইতালি|লন্ডন)\s+থেকে|রেমিট্যান্স|রেমিটেন্স') && has(r'(?:পাঠা|পাঠি|এসেছে|আসছে|আসলো|এলো|পেলাম|পেয়েছি|পেয়েছি|পাইছি|দিছে|দিয়েছে|দিয়েছে)')) {
+      return CashAdd(said, kind: CashKind.income, amount: amount, category: 'রেমিট্যান্স');
+    }
+    return null;
+  }
+
   Command _parse(String said) {
     // "কাল eight pm-এ …": English times read as Bengali ones (also for titles).
     said = englishTimes(said);
@@ -928,6 +943,11 @@ class Parser {
     // transaction: it never reaches the money book (aspect.dart).
     final notYet = moneyNotNow(said, now);
     if (notYet != null) return notYet;
+
+    // "১০০০ টাকা মসজিদে দান করলাম": given away — spending, never a loan;
+    // "বিদেশ থেকে রাজু ৫০০০ টাকা পাঠাইছে": money from abroad — income.
+    final given = _givenOrSent(said, text);
+    if (given != null) return given;
 
     // "… এটা একটা কাজের লিস্টে রাখ", "… কাজের তালিকায় লিখে রাখো": a to-do,
     // even when it has a date ("২০ তারিখে") or a time in it.
