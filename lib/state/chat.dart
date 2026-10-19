@@ -1927,7 +1927,8 @@ class ChatController extends ChangeNotifier {
 
   /// The one open to-do [title] names ("…যাওয়ার" is "…যাওয়া"), or null.
   Task? _openTaskNamed(String title) {
-    String key(String x) => fold(normalize(x)).replaceAll(RegExp(fold(r'(?:ের|এর|র)$')), '').trim();
+    // "নোয়াখালী যাওয়া কাজের", "নোয়াখালী যাওয়ার": the to-do's own name.
+    String key(String x) => fold(normalize(x)).replaceAll(RegExp(fold(r'\s+(?:কাজ|কাজের|কাজটির|কাজটার|কাজটা|কাজটি)$')), '').replaceAll(RegExp(fold(r'(?:ের|এর|র)$')), '').trim();
     final k = key(title);
     if (k.length < 3) return null;
     final hits = [for (final t in brain.data.tasks) if (!t.done && key(t.title) == k) t];

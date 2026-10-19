@@ -1217,6 +1217,7 @@ extension _BulkChat on ChatController {
       if (_looksNew(t)) {
         wait = ChatWait.none;
         _batchPart = null;
+        _planRest = null;
         return false;
       }
       _say(out, tr('সময়টা ধরতে পারিনি। যেমন বলুন “১টায়” বা “দুপুর ১টায়”।'));
@@ -1226,6 +1227,8 @@ extension _BulkChat on ChatController {
     wait = ChatWait.none;
     _batchPart = null;
     await _batchRemindAt(w!.at.hour * 60 + w.at.minute, out);
+    // "৮নং বাদ দাও এবং ৭নং এ রিমাইন্ডার দাও": the removal waited for the time.
+    await _continuePlan(out);
     return true;
   }
 

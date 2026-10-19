@@ -566,6 +566,15 @@ extension _TodoChat on ChatController {
     return false;
   }
 
+  /// To-dos whose name is the reminder's subject: "নোয়াখালী যাওয়ার" →
+  /// "নোয়াখালী যাওয়া".
+  Iterable<Task> _taskNamedLike(String title) {
+    String key(String x) => fold(normalize(x)).replaceAll(RegExp(fold(r'\s+(?:কাজ|কাজের|কাজটির|কাজটা|কাজটি)$')), '').replaceAll(RegExp(fold(r'(?:ের|এর|র)$')), '').trim();
+    final k = key(title);
+    if (k.isEmpty) return const [];
+    return brain.data.tasks.where((x) => !x.done && key(x.title) == k);
+  }
+
   List<String> _tdWordsOf(String t) => [for (final w in words(normalize(t))) if (w.length >= 2) stem(w).replaceAll(RegExp(fold(r'(?:ের|এর|র)$')), '')];
 
   /// "না, এগারোটায়" / "না, কাল নয়, পরশু" right after a to-do or its
@@ -575,7 +584,7 @@ extension _TodoChat on ChatController {
     if (await _taskDateAdd(t, out)) return true;
     if (await _splitJustKept(t, out)) return true;
     final f = ' ${fold(t).replaceAll(RegExp(r'[।,!?]'), ' ')} ';
-    if (!RegExp(fold(r'^\s*(?:না|নাহ|উহু|না\s+না)\s')).hasMatch(f) && !RegExp(fold(r'\s(?:নয়|না)\s+\S+\s*$')).hasMatch(f)) return false;
+    if (!RegExp(fold(r'^\s*(?:না|নাহ|উহু|না\s+না)\s')).hasMatch(f) && !RegExp(fold(r'\s(?:নয়|না)\s+\S+(?:\s+\S+){0,3}\s*$')).hasMatch(f)) return false;
     // Only time words after the "না".
     final rest = f.replaceFirst(RegExp(fold(r'^\s*(?:না|নাহ|উহু|না\s+না)\s')), ' ');
     // "জানুয়ারির ১ তারিখে" → "১ জানুয়ারি": the date in the app's own words.
@@ -589,7 +598,13 @@ extension _TodoChat on ChatController {
     if (_focusReminderId != null && _focusReminderAt != null && _now.difference(_focusReminderAt!).inMinutes <= 10) {
       final r = brain.data.reminders.where((x) => x.id == _focusReminderId).firstOrNull;
       if (r != null && (w.hasTime || w.hasDay)) {
-        final d = w.hasDay ? w.day : r.date;
+        var d = w.hasDay ? w.day : r.date;
+        // "কাল না, ১৫ জুনে" for "নোয়াখালী যাওয়ার রিমাইন্ডার": no year said —
+        // the year of the to-do of that name on that day, if one is kept.
+        if (w.hasDay && !RegExp(r'[০-৯0-9]{4}').hasMatch(last)) {
+          final named = _taskNamedLike(r.title).where((x) => x.due != null && x.due!.month == d.month && x.due!.day == d.day).firstOrNull;
+          if (named != null) d = DateTime(named.due!.year, d.month, d.day);
+        }
         var at = DateTime(d.year, d.month, d.day, w.hasTime ? w.at.hour : r.hour, w.hasTime ? w.at.minute : r.minute);
         // A bare hour ("না, চারটায় নয়, পাঁচটায়") keeps the half of the day
         // of the reminder being corrected: "বিকেল ৪টা" → বিকেল ৫টা,

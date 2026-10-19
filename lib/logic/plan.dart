@@ -424,6 +424,13 @@ List<Command>? lineTodos(String said0, Parser p) {
       final next = DateTime(own.year, own.month + 1, own.day);
       if (next.day == own.day && !next.isBefore(prev)) own = next;
     }
+    // "২০২৯ সালের জুন মাসের কাজের তালিকা" then "৫ জুন …": the heading's year,
+    // unless the line says its own.
+    if (own != null && yearOf != null && !RegExp(r'[০-৯0-9]{4}').hasMatch(line)) {
+      final y = int.parse(asciiDigits(yearOf[1]!));
+      final d = DateTime(y, own.month, own.day);
+      if (d.month == own.month) own = d;
+    }
     if (own != null) prev = own;
     if (own == null && yearPlan) {
       // "এই বছরে কিছু কাজ আছে": each a plan for the year.

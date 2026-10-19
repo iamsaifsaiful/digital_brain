@@ -420,7 +420,7 @@ int? _onePlace(String c) {
 /// Several comma-separated parts, each with its own places and action
 /// (see [bulkCommands]); null unless every part has both.
 List<BulkAction>? _clausePlan(String f, String said, DateTime now) {
-  final clauses = [for (final x in f.split(_tre(r'\s*,\s*|\s+(?:এবং|আর|তারপর)\s+(?=\S+(?:টা|টি|\s*নম্বর|\s*নং)\b)'))) if (x.trim().isNotEmpty) ' ${x.trim()} '];
+  final clauses = [for (final x in f.split(_tre(r'\s*,\s*|\s+(?:এবং|আর|তারপর)\s+(?=[০-৯0-9]{1,2}\s*(?:নং|নম্বর|নাম্বার)|\S+(?:টা|টি)(?:\s|$)|(?:প্রথম|দ্বিতীয়|তৃতীয়|চতুর্থ|পঞ্চম|শেষের)\S*\s)'))) if (x.trim().isNotEmpty) ' ${x.trim()} '];
   if (clauses.length < 2) return null;
   final out = <BulkAction>[];
   final dom = _bulkDomain(f);

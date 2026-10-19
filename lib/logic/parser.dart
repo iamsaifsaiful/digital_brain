@@ -104,6 +104,17 @@ class NoteAdd extends Command {
 }
 
 /// The AI's own answer (conversation or general knowledge).
+/// "সব রিমাইন্ডার দাও", "আমার রিমাইন্ডারগুলো দেখাও", "কি কি রিমাইন্ডার দাও":
+/// asking to see the reminders kept (no time, no subject said).
+bool remindersAsked(String said) {
+  final f = fold(normalize(said)).replaceAll(RegExp(r'[?？।!,]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+  final m = RegExp(fold(r'^(?:আমার\s+)?(?:(সব|সকল|সবগুলো|কি\s+কি|কী\s+কী|কোন\s+কোন|কোনো|কোন|কয়টা|কতগুলো|যত)\s+)?(?:রিমাইন্ডার|reminder|এলার্ম|অ্যালার্ম|alarm)\s*(গুলো|গুলা|গুলি|সমূহ|এর\s+তালিকা|লিস্ট|তালিকা)?\s*(?:দাও|দেখাও|দেখান|বলো|বলুন|দেন|দিন|আছে|কি\s+কি|কী\s+কী|কোনগুলো)?$')).firstMatch(f);
+  if (m == null) return false;
+  // "রিমাইন্ডার দাও" alone sets one (what and when are asked); a word for
+  // "all/which" or "-গুলো" asks to see them.
+  return m[1] != null || m[2] != null || f.startsWith(fold('আমার'));
+}
+
 /// "৩১ নভেম্বর", "৩০ ফেব্রুয়ারি": a day the month does not have — the
 /// question to ask, or null when every date said is real.
 String? invalidDayOfMonth(String said, DateTime now) {
@@ -951,6 +962,10 @@ class Parser {
     // "৩১ নভেম্বর": no such day — asked, never moved to 1 December.
     final bad = invalidDayOfMonth(said, now);
     if (bad != null) return AiReply(said, text: bad);
+
+    // "সব রিমাইন্ডার দাও", "কি কি রিমাইন্ডার দাও", "রিমাইন্ডারগুলো দাও": the
+    // ones kept, shown — "দাও" here asks to see, it sets nothing.
+    if (remindersAsked(said)) return ReminderQuery(said, terms: const [], alarmsOnly: RegExp(fold(r'(?:এলার্ম|অ্যালার্ম|alarm)')).hasMatch(fold(text)));
 
     // The other menus (menus.dart): accounts, savings, medicines, habits,
     // what to keep in mind, settings… read against the user's own names.
