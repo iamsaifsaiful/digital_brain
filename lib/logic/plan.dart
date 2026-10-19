@@ -64,6 +64,18 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
     final body = (note[1] ?? note[2] ?? '').trim();
     if (body.isNotEmpty) return [NoteAdd(said, text: said.trim().substring(0, body.length).replaceAll(RegExp(r'[\s,।]+$'), ''))];
   }
+  // "কাজের তালিকা দাও", "আর কী বাকি?": the list asked to be seen — first,
+  // before anything could read "দাও" as content.
+  if (taskListAsked(said)) return [TaskQuery(said)];
+  // "হ্যাঁ নামে একটা কাজ রাখো": a title said as a title, even "হ্যাঁ".
+  final literal = RegExp(r'^\s*[“"‘]?(.+?)[”"’]?\s+নামে\s+(?:একটা\s+|একটি\s+|নতুন\s+)*কাজ\s+(?:রাখো|রাখুন|যোগ\s+করো|যুক্ত\s+করো|লেখো|লিখো|লিখে\s+রাখো|বানাও)\s*[।.!]?\s*$').firstMatch(said.trim());
+  if (literal != null && literal[1]!.trim().isNotEmpty) return [TaskAdd(said, title: literal[1]!.trim())];
+  // "কাজের তালিকায় বাজার করা যোগ করো": the to-do between the place and the verb.
+  final into = RegExp(r'^\s*(?:আমার\s+)?কাজের\s+(?:তালিকা|লিস্ট)(?:য়|য়|তে|ে)\s+(.+?)\s+(?:যোগ\s+করো|যোগ\s+করে\s+দাও|যুক্ত\s+করো|রাখো|লিখে\s+রাখো|লেখো|লিখো|তোলো|তুলে\s+রাখো)\s*[।.!]?\s*$').firstMatch(said.trim());
+  if (into != null && !RegExp(r'^(?:কী|কি|কোন|কয়টা)').hasMatch(into[1]!.trim())) {
+    final c = p.parse('${into[1]!.trim()} — কাজের তালিকায় লিখে রাখো');
+    if (c is TaskAdd && c.title.trim().isNotEmpty) return [c];
+  }
   // "কাজের তালিকায় রাখো: মাছ, চাল … কেনা": the order first, then what —
   // the order is never part of the to-do's name.
   final lead = RegExp(r'^\s*(?:আমার\s+)?কাজের\s+(?:তালিকা|লিস্ট)(?:য়|য়|তে|ে)\s+(?:লিখে\s+রাখো|রাখো|যোগ\s+করো|যুক্ত\s+করো|লেখো|লিখো|তুলে\s+রাখো)\s*[:：—–-]\s*(.+)$').firstMatch(said.trim());
@@ -222,7 +234,7 @@ String? redirectOf(String said) {
   const kinds = [
     ('alarm', ['অ্যালার্ম', 'এলার্ম', 'alarm']),
     ('reminder', ['রিমাইন্ডার', 'রিমাইন্ড', 'reminder', 'মনে করিয়ে', 'মনে করাবে', 'মনে করাবা', 'মনে করাও', 'জানিয়ে দিও', 'জানিয়ে দিবে', 'জানাবে']),
-    ('task', ['কাজের তালিকায়', 'কাজের তালিকা', 'কাজের লিস্টে', 'কাজে', 'কাজ হিসেবে', 'কাজ হিসাবে', 'টুডু', 'todo', 'to do']),
+    ('task', ['কাজের তালিকায়', 'কাজের তালিকাতে', 'কাজের লিস্টে', 'কাজে', 'কাজ হিসেবে', 'কাজ হিসাবে', 'টুডু', 'todo', 'to do']),
     ('note', ['নোটে', 'নোট']),
   ];
   for (final (k, ws) in kinds) {
@@ -235,6 +247,10 @@ String? redirectOf(String said) {
     }
   }
   if (kind == null) return null;
+  // "কাজের তালিকা দাও" asks to SEE the list: a to-do or note is made from
+  // the previous message only when told to keep it ("রাখো", "লিখে …").
+  if ((kind == 'task' || kind == 'note') && !RegExp(fold(r'(?:রাখো|রাখ|রাখুন|রাখেন|রেখো|রেখে|লিখে|লেখো|লিখো|লিখুন|তোলো|তুলে|যোগ|যুক্ত|সেভ|save|add|হিসেবে|হিসাবে)')).hasMatch(fold(normalize(said)))) return null;
+  if (taskListAsked(said)) return null;
   const fillers = [
     'এটা', 'এটাকে', 'এইটা', 'ওটা', 'ওটাকে', 'এটার', 'সেটা', 'এটাও', 'এই', 'ওই', 'হিসেবে', 'হিসাবে', 'হিসেবেই', 'লিখে', 'লেখো', 'লিখো', 'রাখো', 'রাখ', 'রাখুন', 'রাখেন', 'রেখো', 'রেখে', 'দাও', 'দিন', 'দিও', 'দেন', 'দাও না',
     'করো', 'কর', 'করে', 'করুন', 'করেন', 'সেট', 'set', 'না', 'বরং', 'একটা', 'একটি', 'ভাই', 'প্লিজ', 'please', 'আর', 'তাহলে', 'তো', 'জি', 'হ্যাঁ', 'হ্যা', 'ঠিক', 'আছে', 'আমাকে', 'আমায়', 'যেন', 'দিয়ো',

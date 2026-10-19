@@ -449,6 +449,8 @@ class ChatController extends ChangeNotifier {
   /// "…দেখাও" or a question). Sets the day the list is for.
   bool _startsList(String t) {
     if (isQuestionText(t)) return false;
+    // "কাজের তালিকা দাও/চাচ্ছি": the list asked to be seen — not dictation.
+    if (taskListAsked(t) || RegExp(fold(r'(?:চাই|চাচ্ছি|চাইছি|দেখতে|দেখব|দেখবো)')).hasMatch(fold(normalize(t)))) return false;
     // "টু-ডু লিস্ট খোলো", "কাজের তালিকায় X রাখো": a request, not a list to dictate.
     final asked = parseAll(t, brain.data.ledger, tasks: brain.data.tasks, now: _now);
     if (asked.any((c) => c is OpenPlace || c is TaskEdit || c is TaskDone || (c is TaskAdd && c.title.isNotEmpty))) return false;
@@ -501,7 +503,7 @@ class ChatController extends ChangeNotifier {
                 : due == dayOnly(_now).add(const Duration(days: 1))
                     ? tr('কালকের ')
                     : trf('{0}-এর ', [shortDate(due)]);
-        say = 'ঠিক আছে, $dayWordকাজের তালিকা। একটা একটা করে বলুন, যতক্ষণ খুশি — শেষ হলে বলুন “শেষ”।';
+        say = 'ঠিক আছে, $dayWordকাজের তালিকা লিখছি। একটা একটা করে বলুন — শেষ হলে বলুন “শেষ”, বাদ দিতে “বাতিল”। প্রশ্ন করলে লেখা থামিয়ে উত্তর দেব।';
       case Topic.call:
         say = 'ঠিক আছে। কাকে ফোন বা মেসেজ দেব বলুন — যেমন “রহিমকে ফোন দাও”।';
       case Topic.note:
@@ -558,6 +560,55 @@ class ChatController extends ChangeNotifier {
     _finishCollect(out);
     notifyListeners();
     return out.join(' ');
+  }
+
+  /// Lines dictated before a pause (a question, a complaint): not saved,
+  /// not lost — kept on "ওগুলো রাখো", dictation goes on with "লেখা চালাও",
+  /// dropped with "বাতিল".
+  List<String> _pausedDraft = const [];
+
+  void _pauseCollect(List<String> out, {String why = ''}) {
+    wait = ChatWait.none;
+    choices = const [];
+    if (topic == Topic.task) topic = null;
+    if (_collected.isEmpty) {
+      _say(out, '$why ${tr('তালিকা লেখা বন্ধ করলাম — কিছু রাখা হয়নি।')}'.trim(), speak: false);
+      return;
+    }
+    _pausedDraft = List.of(_collected);
+    _collected.clear();
+    _say(out, '$why ${trf('তালিকা লেখা থামালাম। এখন পর্যন্ত {0}টা লেখা হয়েছে, এখনো রাখা হয়নি — রাখতে বলুন “ওগুলো রাখো”, আবার লিখতে “লেখা চালাও”, বাদ দিতে “বাতিল”।', [bnDigits(_pausedDraft.length)])}'.trim(),
+        facts: [for (final (i, x) in _pausedDraft.indexed) '${bnDigits(i + 1)}. $x'], speak: false);
+  }
+
+  /// After a pause: keep, go on with, or drop the lines dictated.
+  bool _pausedDraftAnswer(String t, List<String> out) {
+    if (_pausedDraft.isEmpty || wait != ChatWait.none) return false;
+    final f = fold(normalize(t)).replaceAll(RegExp(r'[।.!?]'), ' ').trim();
+    if (RegExp(fold(r'^(?:ওগুলো|ঐগুলো|সেগুলো|লেখাগুলো|তালিকাটা|তালিকা)\s+(?:রাখো|রেখে\s+দাও|সেভ\s+করো)$|^(?:শেষ|রাখো)$')).hasMatch(f)) {
+      _collected
+        ..clear()
+        ..addAll(_pausedDraft);
+      _pausedDraft = const [];
+      _finishCollect(out);
+      return true;
+    }
+    if (RegExp(fold(r'^(?:লেখা\s+চালাও|আবার\s+লিখে\s+নাও|আবার\s+লেখো|আরও\s+লিখব|আরো\s+লিখব|চালিয়ে\s+যাও|লিখতে\s+থাকো)$')).hasMatch(f)) {
+      _collected
+        ..clear()
+        ..addAll(_pausedDraft);
+      _pausedDraft = const [];
+      topic = Topic.task;
+      wait = ChatWait.collect;
+      _say(out, trf('ঠিক আছে, আগের {0}টার পর থেকে লিখছি — বলুন, শেষ হলে “শেষ”।', [bnDigits(_collected.length)]));
+      return true;
+    }
+    if (isCancel(t)) {
+      _say(out, trf('ঠিক আছে, লেখা {0}টা বাদ দিলাম — আগে রাখা কাজগুলো যেমন ছিল আছে।', [bnDigits(_pausedDraft.length)]));
+      _pausedDraft = const [];
+      return true;
+    }
+    return false;
   }
 
   void _finishCollect(List<String> out) {
@@ -904,6 +955,25 @@ class ChatController extends ChangeNotifier {
       return out.join(' ');
     }
 
+    if (_pausedDraftAnswer(t, out)) {
+      notifyListeners();
+      return out.join(' ');
+    }
+    // "কি?", "কি করতেছো?", "তোমাকে কি প্রশ্ন করি": what the app is doing,
+    // and how to ask — nothing kept.
+    if (wait == ChatWait.none && confusedOrHelp(t)) {
+      _say(out, tr('এখন কিছু করছি না — আপনার কথার অপেক্ষায় আছি। কাজ দেখতে বলুন “আমার কাজের তালিকা দাও”; নতুন কাজ রাখতে “কাল ব্যাংকে যাব, তালিকায় রাখো”; টাকার হিসাব জানতে “এই মাসে কত খরচ হলো?”।'));
+      notifyListeners();
+      return out.join(' ');
+    }
+    // "একটা একটা করে কাজ লিখে নাও": dictation, asked for in so many words.
+    if (wait == ChatWait.none && _held.isEmpty && collectAsked(t)) {
+      _history.add(AiTurn.user(t));
+      _collectDue = null;
+      _setTopic(Topic.task, out);
+      notifyListeners();
+      return out.join(' ');
+    }
     // "আজকের কাজের তালিকা": a list is coming, said over several breaths.
     if (_held.isEmpty && _startsList(t)) {
       _history.add(AiTurn.user(t));
@@ -2450,8 +2520,17 @@ class ChatController extends ChangeNotifier {
           }
           return true;
         }
-        // A question or a money/call request in the middle: answer it normally.
-        if (isQuestionText(t) && _collected.isEmpty) return false;
+        // A question about what is kept ("কাজের তালিকা দাও"), a complaint or
+        // "কি করতেছো?" in the middle: never an item. Dictation pauses (the
+        // lines so far are kept aside, unsaved) and the message is answered.
+        if (confusedOrHelp(t)) {
+          _pauseCollect(out, why: tr('এখন আপনার বলা কাজগুলো একটা একটা করে লিখছিলাম।'));
+          return true;
+        }
+        if (taskListAsked(t) || _asksOwnData(t) || aboutTheAssistant(t) == AboutMe.complaint || complainsWrong(t) || (isQuestionText(t) && _collected.isEmpty)) {
+          _pauseCollect(out);
+          return false;
+        }
         _collected.add(t);
         messages.add(ChatMessage.app('${bnDigits(_collected.length)}. $t', info: true));
         return true;

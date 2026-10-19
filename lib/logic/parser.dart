@@ -991,6 +991,9 @@ class Parser {
     final bad = invalidDayOfMonth(said, now);
     if (bad != null) return AiReply(said, text: bad);
 
+    // "কাজের তালিকা দাও/চাচ্ছি": the list, read — nothing written.
+    if (taskListAsked(said)) return TaskQuery(said);
+
     // "সব রিমাইন্ডার দাও", "কি কি রিমাইন্ডার দাও", "রিমাইন্ডারগুলো দাও": the
     // ones kept, shown — "দাও" here asks to see, it sets nothing.
     if (remindersAsked(said)) return ReminderQuery(said, terms: const [], alarmsOnly: RegExp(fold(r'(?:এলার্ম|অ্যালার্ম|alarm)')).hasMatch(fold(text)));
@@ -2410,6 +2413,37 @@ bool isCancel(String said) {
   final t = normalize(said.replaceAll(RegExp(r'[।.!,]'), ' '));
   const all = ['বাদ দাও', 'বাদ দেন', 'বাদ দিন', 'বাদ', 'থাক', 'থাক দরকার নেই', 'থাকুক', 'বাতিল', 'বাতিল করো', 'বাতিল করুন', 'বাতিল কর', 'cancel', 'না থাক', 'দরকার নেই', 'এটা বাদ দাও', 'ওটা বাদ দাও'];
   return all.map(normalize).contains(t);
+}
+
+/// "আমার কাজের তালিকা দাও", "কাজের তালিকা চাচ্ছি", "তালিকাটা দেখতে চাই",
+/// "আর কী বাকি?", "amar kajer list dao": the to-do list asked to be SEEN.
+/// "দাও/চাই" here never asks to write anything — nor to start dictating.
+bool taskListAsked(String said) {
+  final f = fold(normalize(said)).replaceAll(RegExp(r'[?？।!,.]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+  final see = r'(?:দাও|দিন|দেন|দেখাও|দেখান|দেখি|দেখাবে|দেখাবা|বলো|বলুন|শোনাও|চাই|চাচ্ছি|চাইছি|চাইতেছি|দেখতে\s+চাই|দেখতে\s+চাচ্ছি|দেখব|দেখবো|পাঠাও|খোলো\s+তো)';
+  final list = r'(?:কাজের\s+(?:তালিকা|লিস্ট)(?:টা|টি)?|কাজগুলো|কাজগুলা|কাজগুলি|সব\s+কাজ|তালিকাটা|তালিকাটি|লিস্টটা|টু\s*ডু(?:\s+লিস্ট)?)';
+  if (RegExp(fold('^(?:আমার\\s+|আমাদের\\s+)?(?:সব\\s+|পুরো\\s+|বাকি\\s+)?$list\\s+(?:একটু\\s+)?$see(?:\\s+তো)?\$')).hasMatch(f)) return true;
+  if (RegExp(fold(r'^(?:আর\s+)?(?:কী|কি)\s+(?:কী|কি)?\s*(?:কাজ\s+)?বাকি(?:\s+আছে)?$')).hasMatch(f)) return true;
+  final latin = said.toLowerCase().replaceAll(RegExp(r'[?।!,.]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+  return RegExp(r'^(?:amar\s+)?(?:sob\s+)?(?:kajer\s+)?(?:list|talika|todo)(?:\s*ta)?\s+(?:dao|dekhao|chai|den|din)$').hasMatch(latin);
+}
+
+/// "নতুন কয়েকটা কাজ বলব, তালিকায় যোগ করো", "একটা একটা করে কাজ লিখে
+/// নাও", "নতুন তালিকা বানাব, আমি বলে যাচ্ছি": dictating to-dos, asked for.
+bool collectAsked(String said) {
+  final f = fold(normalize(said));
+  return RegExp(fold(r'(?:একটা\s+একটা\s+করে|এক\s+এক\s+করে|একে\s+একে)\s+(?:কাজ\s+)?(?:লিখে\s+নাও|লিখে\s+রাখো|লেখো|লিখো|বলছি|বলব|বলবো|নাও)')).hasMatch(f) ||
+      RegExp(fold(r'(?:নতুন\s+)?(?:কয়েকটা|কয়েকটি|কিছু|অনেকগুলো)\s+কাজ\s+(?:বলব|বলবো|বলছি|দেব|দেবো)')).hasMatch(f) ||
+      RegExp(fold(r'(?:আমি\s+)?বলে\s+যাচ্ছি|বলে\s+যাব|বলে\s+যাবো')).hasMatch(f) && RegExp(fold(r'(?:কাজ|তালিকা|লিস্ট)')).hasMatch(f);
+}
+
+/// "কি?", "কি করতেছো?", "কী করছ?", "তোমাকে কি প্রশ্ন করি": unsure what the
+/// app is doing or how to ask — explained, never kept.
+bool confusedOrHelp(String said) {
+  final f = fold(normalize(said)).replaceAll(RegExp(r'[?？।!,.]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+  return RegExp(fold(r'^(?:কি|কী|মানে|মানে\s+কি|কি\s+বললে|কী\s+বললে|বুঝিনি|বুঝলাম\s+না)$')).hasMatch(f) ||
+      RegExp(fold(r'^(?:তুমি\s+)?(?:এখন\s+)?(?:কি|কী)\s+(?:করতেছো|করতেছ|করছো|করছ|করছেন|করতেছেন|করো|করছিস)$')).hasMatch(f) ||
+      RegExp(fold(r'^(?:তোমাকে|আপনাকে)\s+(?:কি|কী)\s+(?:প্রশ্ন|জিজ্ঞেস|জিজ্ঞাসা)\s+(?:করি|করব|করবো|করতে\s+পারি)$|^(?:কি|কী)\s+(?:বলব|বলবো|জিজ্ঞেস\s+করব|প্রশ্ন\s+করব)$')).hasMatch(f);
 }
 
 /// "এখনো ঠিক করতে পারো নাই", "দাম ভুল উঠেছে": something waiting is wrong.
