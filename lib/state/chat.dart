@@ -237,6 +237,14 @@ class ChatController extends ChangeNotifier {
   /// for "অন্যান্য হিসাবে তা খুলো" a moment later.
   (String, DateTime)? _accountWanted;
 
+  /// The parts of one request still to do after the question one of them
+  /// asked ("এই ৫টা মুছে দেব?"), resolved against the list as it was shown.
+  (List<(BulkAction, List<String>)>, ResultSet)? _planRest;
+
+  /// A sentence with a day its month does not have ("৩১ নভেম্বর ঢাকায়
+  /// যাব"): kept until the right date is said.
+  (String, DateTime)? _badDate;
+
   /// The to-do whose day is asked ("পার্টির তারিখ যুক্ত কর").
   String? _dateTaskId;
 
@@ -788,6 +796,27 @@ class ChatController extends ChangeNotifier {
     _bulkRest = null;
     // "দুপুরে দাওয়াত" right after "২৩ ও ২৪ তারিখে দাওয়াত" was kept: a time
     // for those to-dos — not a new reminder for tomorrow.
+    // "৩১ নভেম্বর ঢাকায় যাব" → asked → "৩০ নভেম্বর": the same sentence, that day.
+    final badBefore = _badDate;
+    if (wait == ChatWait.none && badBefore != null && _now.difference(badBefore.$2).inMinutes <= 10 && _beyondWhen(t) == 0 && (parseWhen(tidySpeech(t), _now)?.hasDay ?? false)) {
+      _badDate = null;
+      final fixed = badBefore.$1.replaceFirst(RegExp(fold(r'[০-৯0-9]{1,2}\s*(?:তারিখ\S*|ই|শে|লা|এ)?\s+(?:জানুয়ারি|ফেব্রুয়ারি|মার্চ|এপ্রিল|মে|জুন|জুলাই|আগস্ট|সেপ্টেম্বর|অক্টোবর|নভেম্বর|ডিসেম্বর)\S*')), tidySpeech(t).replaceAll(RegExp(r'[।.!?]+$'), ''));
+      notifyListeners();
+      final more = await hear(fold(fixed) == fold(badBefore.$1) ? '${tidySpeech(t)} ${badBefore.$1}' : fixed, echo: false);
+      return [...out, more].where((x) => x.isNotEmpty).join(' ');
+    }
+    if (wait == ChatWait.none && invalidDayOfMonth(t, _now) != null) {
+      _badDate = (fold(normalize(t)), _now);
+      _say(out, invalidDayOfMonth(t, _now)!);
+      notifyListeners();
+      return out.join(' ');
+    }
+    if (await _voiceUndo(t, out)) {
+      _dropPending();
+      wait = ChatWait.none;
+      notifyListeners();
+      return out.join(' ');
+    }
     if (wait == ChatWait.none && _amountDoubt(t, out)) {
       notifyListeners();
       return out.join(' ');
@@ -1216,9 +1245,17 @@ class ChatController extends ChangeNotifier {
     if (found.isEmpty) found = findTargets(brain.data, c.transcript, _now);
     final verb = c.action == 'delete' ? tr('মুছবো') : (c.action == 'stop' ? tr('বন্ধ করবো') : tr('বদলাবো'));
     if (c.action == 'stop') found = [for (final t in found) if (t.kind == ItemKind.reminder && (brain.data.reminders.where((r) => r.id == t.id).firstOrNull?.enabled ?? false)) t];
+    final kind = kindNamed(text);
     if (found.isEmpty) {
-      final kind = kindNamed(text);
-      _say(out, trf('কোনটা {0}, খুঁজে পেলাম না। নাম, তারিখ বা টাকার অঙ্ক বলে আরেকবার বলুন — যেমন “রহিমের ৫০০ টাকার লেনদেনটা মুছে দাও”।', [verb]),
+      // The example fits what was asked about — a to-do, a reminder, money.
+      final example = switch (kind) {
+        ItemKind.task => tr('“বাজারের কাজটা মুছে দাও”'),
+        ItemKind.reminder => tr('“মিটিংয়ের রিমাইন্ডারটা মুছে দাও”'),
+        ItemKind.note => tr('“ওয়াইফাইয়ের নোটটা মুছে দাও”'),
+        ItemKind.ledger || ItemKind.cash => tr('“রহিমের ৫০০ টাকার লেনদেনটা মুছে দাও”'),
+        _ => tr('“বাজারের কাজটা মুছে দাও”'),
+      };
+      _say(out, trf('কোনটা {0}, খুঁজে পেলাম না। নাম বা তারিখ বলে আরেকবার বলুন — যেমন {1}।', [verb, example]),
           links: [if (kind != null && _pageOf(kind) != null) ChatLink(LinkKind.page, trf('খুলুন: {0}', [tr(kind.bn)]), page: _pageOf(kind))]);
       return;
     }
@@ -1400,6 +1437,13 @@ class ChatController extends ChangeNotifier {
       tags.add(shareable ? text : tr('[অ্যাপ নিজের রাখা তথ্য থেকে উত্তর দিল]'));
       if (c is SmallTalk && c.kind == Talk.whatCanYouDo) _say(out, capabilitiesList(), speak: false, links: [ChatLink(LinkKind.page, tr('কী কী করা যায় — বিস্তারিত'), page: 'help')]);
       if (c is SmallTalk && c.kind == Talk.bye) ended = true;
+      // "তুমি ভুল বুঝেছো" right after a save: what was kept, and the ways to fix it.
+      final justKept = _lastSave;
+      if (c is SmallTalk && c.kind == Talk.sorry && justKept != null && _now.difference(justKept.$3).inMinutes <= 10 && (_accountWanted == null)) {
+        out.removeLast();
+        messages.removeLast();
+        _say(out, trf('দুঃখিত। শেষে রেখেছি: {0}। কোনটা ভুল — নাম, তারিখ, না পুরোটাই? বলুন কী হবে, অথবা “ফিরিয়ে নাও” বললে ওটা সরিয়ে দেব।', [summaryLine(justKept.$1)]));
+      }
       // A complaint right after an account was asked for: that offer again.
       final want = _accountWanted;
       if (c is SmallTalk && c.kind == Talk.sorry && want != null && _now.difference(want.$2).inMinutes <= 15 && projectByName(brain.data, want.$1) == null) {
@@ -1538,6 +1582,7 @@ class ChatController extends ChangeNotifier {
   void _dropPending() {
     _todoWaiting = null;
     _pendingBulk = null;
+    _planRest = null;
     _healthFix = null;
     _todoChoices = const [];
     if (wait == ChatWait.whichTask || wait == ChatWait.taskTime) {
@@ -1701,7 +1746,18 @@ class ChatController extends ChangeNotifier {
         }
         // "রেস্টুরেন্টে খেতে যাওয়ার রিমাইন্ডার দাও, রাত ৮টায়": an open to-do
         // by that name, with a day — its reminder, on its own day.
-        final named = c.alarm || c.repeat != Repeat.none || c.needsTitle ? null : _openTaskNamed(c.title);
+        // "পার্টির রিমাইন্ডার দাও সন্ধ্যা ৭টায়, আগের দিন": the day before the
+        // to-do's own day — the to-do's day stays.
+        final before = RegExp(fold(r'(?:^|\s)(?:আগের\s+দিন|এক\s+দিন\s+আগে|একদিন\s+আগে|১\s*দিন\s+আগে|আগের\s+রাতে)(?:ই)?(?=\s|$)'));
+        final dayBefore = before.hasMatch(fold(normalize(c.transcript)));
+        final title0 = dayBefore ? fold(normalize(c.title)).replaceAll(before, ' ').replaceAll(RegExp(r'\s+'), ' ').trim() : c.title;
+        final named = c.alarm || c.repeat != Repeat.none || c.needsTitle ? null : _openTaskNamed(title0);
+        if (named != null && named.due != null && named.span == TaskSpan.day && dayBefore && !c.needsTime) {
+          _current = null;
+          final d = dayOnly(named.due!).subtract(const Duration(days: 1));
+          await _todo(TaskEdit(c.transcript, ref: TaskRef(ids: [named.id]), remindAt: DateTime(d.year, d.month, d.day, c.at.hour, c.at.minute), remindAmPm: ampmUnclear(c.transcript)), out);
+          return;
+        }
         if (named != null && named.due != null && named.span == TaskSpan.day && !(parseWhen(tidySpeech(c.transcript), _now)?.hasDay ?? false)) {
           _current = null;
           final edit = c.needsTime
@@ -2118,6 +2174,15 @@ class ChatController extends ChangeNotifier {
   /// A long new sentence instead of an answer.
   /// Something new rather than an answer: a longer sentence, or a question
   /// of its own ("রোজা কবে?").
+  /// How many words of [t] say something besides when (and the small words
+  /// of an answer: "টায়", "মনে করিও", "ঠিক আছে").
+  int _beyondWhen(String t) {
+    const small = ['টায়', 'টা', 'টাতে', 'এ', 'তে', 'দাও', 'দিও', 'মনে', 'করিও', 'করিয়ে', 'করিয়ে', 'দিবে', 'দেবে', 'হবে', 'ঠিক', 'আছে', 'হ্যাঁ', 'হ্যা', 'না', 'জি', 'আচ্ছা', 'ওকে', 'বাজে', 'বাজিয়ো', 'বাজাও', 'সময়', 'সময়ে', 'ভাই', 'প্লিজ', 'রাখো', 'করো', 'দিন', 'মিনিট', 'ঘণ্টা', 'পরে', 'আগে', 'বরং', 'নয়', 'নয়'];
+    final rest = words(normalize(withoutWhen(withoutClockWords(t))));
+    final skip = {for (final w in small) normalize(w)};
+    return rest.where((w) => !skip.contains(w) && !RegExp(r'^[0-9০-৯.:]+$').hasMatch(w)).length;
+  }
+
   bool _looksNew(String t) {
     final n = words(normalize(t)).length;
     return n >= 4 || (n >= 2 && isQuestionText(t) && yesNo(t) == null) || infoTopic(normalize(t)) != null;
@@ -2563,6 +2628,9 @@ class ChatController extends ChangeNotifier {
         // a part of the day already said holds unless the answer names one.
         // Only an answer that is itself a clock time ("১১ টায়") takes the
         // part said before — "আমার পাসপোর্ট দাও" is not "দুপুর" anything.
+        // "কাল রবিনকে কল করতে হবে" while a time is asked: a new request,
+        // not "কাল" for the waiting reminder.
+        if (_beyondWhen(t) >= 2) return false;
         final own = parseWhen(t, _now);
         final t2 = part != null && part != '?' && own != null && own.hasTime && !saysDayPart(t) ? '$part $t' : t;
         final w = parseWhen(t2, _now);
@@ -3016,6 +3084,11 @@ class ChatController extends ChangeNotifier {
         _focusReminderAt = _now;
         final early = c.minutesBefore > 0 ? trf(' {0} আগেও একবার জানিয়ে দেব।', [beforeLabel(c.minutesBefore)]) : '';
         // Saved, but the phone will not show it: say so instead of promising.
+        if (brain.scheduleFailed) {
+          _say(out, trf('রিমাইন্ডারটা রাখা হয়েছে ({0}), কিন্তু ফোনে সেট করা যায়নি — তাই এখনো বাজবে না। অ্যাপটা একবার বন্ধ করে খুলুন; তবু না হলে রিমাইন্ডার পাতা থেকে আবার চালু করুন।', [sayWhen(c.at, _now)]),
+              links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
+          break;
+        }
         if (!(await brain.services.notifier.health()).notificationsOn) {
           _say(out, trf('রিমাইন্ডারটা রাখা হয়েছে ({0}), কিন্তু এই ফোনে অ্যাপের নোটিফিকেশন বন্ধ — তাই এখন বাজবে না। ফোনের সেটিংস থেকে My Assistant-এর নোটিফিকেশন চালু করুন।', [sayWhen(c.at, _now)]),
               links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
@@ -3204,6 +3277,30 @@ class ChatController extends ChangeNotifier {
     if (last.text.isEmpty) return;
     last.undo = snap;
     last.undoAt = DateTime.now();
+    _undoAfter = brain.snapshot();
+  }
+
+  /// The data right after the save that can be taken back by voice — only
+  /// while nothing else has changed since.
+  String? _undoAfter;
+
+  /// "ফিরিয়ে নাও": the last save taken back, as the button does — only
+  /// when nothing changed after it (else that would be lost too).
+  Future<bool> _voiceUndo(String t, List<String> out) async {
+    final f = fold(normalize(t)).replaceAll(RegExp(r'[।!?,]'), ' ').trim();
+    if (!RegExp(fold(r'^(?:ওটা\s+|এটা\s+|শেষেরটা\s+|শেষটা\s+|আগেরটা\s+)?(?:ফিরিয়ে\s+(?:নাও|নিন|নেও|নে)|আনডু(?:\s+করো)?|undo|আগের\s+অবস্থায়\s+ফিরিয়ে\s+দাও)$')).hasMatch(f)) return false;
+    final m = messages.lastWhere((x) => x.undo != null, orElse: () => ChatMessage.app(''));
+    if (m.undo == null || _undoAfter == null || brain.snapshot() != _undoAfter) {
+      _say(out, tr('ফিরিয়ে নেওয়ার মতো শেষ কোনো পরিবর্তন পেলাম না — মুছে ফেলা জিনিস “মুছে ফেলা” পাতা থেকে ফেরত আনা যায়।'));
+      return true;
+    }
+    final snap = m.undo!;
+    m.undo = null;
+    _undoAfter = null;
+    await brain.restoreSnapshot(snap);
+    _lastSave = null;
+    _say(out, tr('ফিরিয়ে নিলাম — শেষ পরিবর্তনের আগের মতো আছে।'));
+    return true;
   }
 
   /// "ফিরিয়ে নিন": everything goes back to before that save.

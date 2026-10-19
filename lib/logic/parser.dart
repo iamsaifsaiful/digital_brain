@@ -21,7 +21,7 @@ import 'when.dart';
 import 'calendar_bd.dart' show hijriDate;
 import 'phrases.dart' show toPerson;
 import 'match.dart' show wordsMatch;
-import 'lang.dart' show tr;
+import 'lang.dart' show tr, trf;
 
 part 'todo.dart';
 part 'aspect.dart';
@@ -104,6 +104,26 @@ class NoteAdd extends Command {
 }
 
 /// The AI's own answer (conversation or general knowledge).
+/// "৩১ নভেম্বর", "৩০ ফেব্রুয়ারি": a day the month does not have — the
+/// question to ask, or null when every date said is real.
+String? invalidDayOfMonth(String said, DateTime now) {
+  final f = ' ${fold(normalize(said))} ';
+  final months = bnMonths.map(fold).toList();
+  final m = RegExp('(?<=\\s)([০-৯0-9]{1,2})\\s*(?:${fold('তারিখ')}\\S*|${fold('ই')}|${fold('শে')}|${fold('লা')}|${fold('এ')})?\\s+(${months.join('|')})(?=\\S*\\s)').firstMatch(f) ??
+      RegExp('(?<=\\s)(${months.join('|')})\\S*\\s+([০-৯0-9]{1,2})\\s*${fold('তারিখ')}').firstMatch(f);
+  if (m == null) return null;
+  final first = RegExp(r'^[০-৯0-9]').hasMatch(m[1]!);
+  final day = int.parse(asciiDigits(first ? m[1]! : m[2]!));
+  final mi = months.indexOf(first ? m[2]! : m[1]!) + 1;
+  if (mi <= 0 || day < 1) return null;
+  final y = RegExp(r'([০-৯0-9]{4})').firstMatch(f);
+  final year = y != null ? int.parse(asciiDigits(y[1]!)) : (mi < now.month ? now.year + 1 : now.year);
+  final last = DateTime(year, mi + 1, 0).day;
+  if (day <= last) return null;
+  final name = bnMonths[mi - 1];
+  return trf('{0} মাসে {1} তারিখ নেই — মাসটা {2} দিনের। কোন তারিখ বোঝাচ্ছেন — {2} {0}, নাকি অন্য দিন?', [name, bnDigits(day), bnDigits(last)]);
+}
+
 class AiReply extends Command {
   const AiReply(super.transcript, {required this.text});
   final String text;
@@ -927,6 +947,10 @@ class Parser {
       case null:
         break;
     }
+
+    // "৩১ নভেম্বর": no such day — asked, never moved to 1 December.
+    final bad = invalidDayOfMonth(said, now);
+    if (bad != null) return AiReply(said, text: bad);
 
     // The other menus (menus.dart): accounts, savings, medicines, habits,
     // what to keep in mind, settings… read against the user's own names.

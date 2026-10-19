@@ -314,17 +314,49 @@ extension _BulkChat on ChatController {
     set.turn = _turn;
     _onList = true;
     var picked = _lastPicked;
+    // Every part resolved first, against the list as shown — a removal
+    // never changes which item another part's number means.
+    final plan = <(BulkAction, List<String>)>[];
+    final failed = <String>[];
     for (final c in cmds) {
       final (ids, why) = _resolve(c.selection, set, lastPicked: picked);
       if (why != null) {
-        _say(out, why);
-        return true;
+        if (cmds.length == 1) {
+          _say(out, why);
+          return true;
+        }
+        failed.add(why);
+        continue;
       }
       picked = ids;
-      await _bulkStart(c, set, ids, out);
-      if (wait == ChatWait.bulk) return true;
+      plan.add((c, ids));
     }
+    // Removals last (each asked once), so the rest are done and said first.
+    plan.sort((a, b) => (a.$1.op == 'delete' ? 1 : 0).compareTo(b.$1.op == 'delete' ? 1 : 0));
+    if (failed.isNotEmpty) _say(out, '${failed.join(' ')} ${tr('ওই অংশে কিছু বদলাইনি।')}');
+    await _runPlan(plan, set, out);
     return true;
+  }
+
+  /// Runs [plan] in order; a part that asks something (a removal to
+  /// confirm, a time) keeps the rest waiting until it is answered.
+  Future<void> _runPlan(List<(BulkAction, List<String>)> plan, ResultSet set, List<String> out) async {
+    for (var i = 0; i < plan.length; i++) {
+      await _bulkStart(plan[i].$1, set, plan[i].$2, out);
+      if (wait != ChatWait.none) {
+        _planRest = (plan.sublist(i + 1), set);
+        return;
+      }
+    }
+    _planRest = null;
+  }
+
+  /// After an answer: the parts of the same request still to do.
+  Future<void> _continuePlan(List<String> out) async {
+    final rest = _planRest;
+    _planRest = null;
+    if (rest == null || rest.$1.isEmpty || wait != ChatWait.none) return;
+    await _runPlan(rest.$1, rest.$2, out);
   }
 
   bool _thas2(String t, String p) => RegExp(fold(p)).hasMatch(fold(t));
@@ -524,9 +556,11 @@ extension _BulkChat on ChatController {
       if (_doneOps.contains(p.opId)) return true;
       _doneOps.add(p.opId);
       await _bulkRun(p.action, p.set, p.ids, out);
+      await _continuePlan(out);
       return true;
     }
     _say(out, tr('ঠিক আছে, কিছু মুছিনি।'));
+    await _continuePlan(out);
     return true;
   }
 
@@ -628,7 +662,7 @@ extension _BulkChat on ChatController {
             out,
             _outcome(trf('{0}টা {1} রিমাইন্ডার {2}-এ দিয়েছি', [bnDigits(ok), _possBn(noun), bnTime(c.time! ~/ 60, c.time! % 60)]), ok, ids.length, failed, skipped) +
                 (limited > 0 ? trf(' {0}টার রিমাইন্ডার চালু হয়নি — ফ্রিতে একসাথে {1}টা রাখা যায়।', [bnDigits(limited), bnDigits(freeReminders)]) : '') +
-                (on ? '' : tr(' তবে ফোনে অ্যাপের নোটিফিকেশন বন্ধ — এখন বাজবে না।')),
+                (brain.scheduleFailed ? tr(' তবে ফোনে সেট করা যায়নি — এখনো বাজবে না।') : (on ? '' : tr(' তবে ফোনে অ্যাপের নোটিফিকেশন বন্ধ — এখন বাজবে না।'))),
             links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
       case ('tasks', 'reminder_off'):
         await each((id) async {
@@ -1137,6 +1171,7 @@ extension _BulkChat on ChatController {
     final note = [
       if (firstDay) tr('যেগুলোর নির্দিষ্ট দিন নেই, সেগুলো মাস/বছরের প্রথম দিনে রাখলাম।'),
       if (past > 0) trf('{0}টার সময় পেরিয়ে গেছে, ওগুলোতে দিইনি।', [bnDigits(past)]),
+      if (brain.scheduleFailed) tr('তবে ফোনে সেট করা যায়নি — এখনো বাজবে না।'),
     ].join(' ');
     _say(out, '${trf('ঠিক আছে, {0}টা কাজের রিমাইন্ডার {1}-এ রাখলাম।', [bnDigits(kept.length), time])}${note.isEmpty ? '' : ' $note'}', facts: kept, links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
     _offerUndo(snap);

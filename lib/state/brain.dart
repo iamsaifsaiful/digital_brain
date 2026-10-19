@@ -1292,8 +1292,17 @@ class Brain extends ChangeNotifier {
     final now = services.now();
     final all = [...plannedNotices(data.reminders, now), ...assistantNotices(data, now, assistantPrefs)];
     _updateWidget(now);
-    return _scheduling = _scheduling.then((_) => services.notifier.schedule(all)).catchError((_) {});
+    return _scheduling = _scheduling.then((_) async {
+      await services.notifier.schedule(all);
+      scheduleFailed = false;
+    }).catchError((Object _) {
+      // The phone refused: said where a reminder is promised, never hidden.
+      scheduleFailed = true;
+    });
   }
+
+  /// The last try to hand the reminders to the phone failed.
+  bool scheduleFailed = false;
 
   /// The home-screen widget: today's dates and the next few things.
   void _updateWidget(DateTime now) {

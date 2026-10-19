@@ -50,7 +50,8 @@ class Target {
 List<Target> targetsIn(AppData d, DateTime now) => [
       for (final r in d.reminders)
         Target(ItemKind.reminder, r.id, '${r.alarm ? tr('অ্যালার্ম') : tr('রিমাইন্ডার')}: ${r.title} — ${sayWhen(DateTime(r.nextDate(now).year, r.nextDate(now).month, r.nextDate(now).day, r.hour, r.minute), now)}', r.title, DateTime(r.date.year, r.date.month, r.date.day, r.hour, r.minute)),
-      for (final t in d.tasks) Target(ItemKind.task, t.id, '${tr('কাজ')}: ${t.title}${t.done ? tr(' (শেষ)') : ''}', t.title, t.createdAt),
+      // With its day: two to-dos by one name on two days are told apart.
+      for (final t in d.tasks) Target(ItemKind.task, t.id, '${tr('কাজ')}: ${t.title}${t.due != null && t.span == TaskSpan.day ? ' (${sayWhen(t.due!, now, withTime: false)})' : ''}${t.done ? tr(' (শেষ)') : ''}', t.title, t.createdAt),
       for (final n in d.notes) Target(ItemKind.note, n.id, '${tr('নোট')}: ${n.title.isEmpty ? n.body : n.title}', '${n.title} ${n.body} ${n.category}', n.updatedAt),
       for (final e in d.ledger)
         Target(ItemKind.ledger, e.id, '${tr('লেনদেন')}: ${describe(e.kind, e.person, e.amount)} (${shortDate(e.date)})', '${e.person} ${e.note}', e.date, amount: e.amount),

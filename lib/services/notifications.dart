@@ -734,6 +734,9 @@ class NotificationService implements Notifier {
 
 class FakeNotifier implements Notifier {
   List<PlannedNotice> scheduled = [];
+
+  /// Tests: the phone refuses to schedule.
+  bool failSchedule = false;
   final rung = <String>[];
   AlarmHealth state = AlarmHealth.unknown;
   (String, String)? picked;
@@ -773,6 +776,7 @@ class FakeNotifier implements Notifier {
 
   @override
   Future<void> schedule(List<PlannedNotice> notices) async {
+    if (failSchedule) throw StateError('the phone refused');
     scheduled = [for (final n in notices) if (!n.gentle) n];
     assistant = [for (final n in notices) if (n.gentle) n];
   }

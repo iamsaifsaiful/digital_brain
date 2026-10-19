@@ -488,6 +488,11 @@ extension _TodoChat on ChatController {
     _focusReminderId = r.id;
     _focusReminderAt = _now;
     // Kept, but this phone will not show it: said, never promised.
+    if (brain.scheduleFailed) {
+      _say(out, trf('“{0}”-এর রিমাইন্ডার রাখা হয়েছে ({1}), কিন্তু ফোনে সেট করা যায়নি — তাই এখনো বাজবে না। অ্যাপটা একবার বন্ধ করে খুলুন; তবু না হলে রিমাইন্ডার পাতা থেকে আবার চালু করুন।', [t.title, sayWhen(at, _now)]),
+          links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
+      return;
+    }
     if (!(await brain.services.notifier.health()).notificationsOn) {
       _say(out, trf('“{0}”-এর রিমাইন্ডার রাখা হয়েছে ({1}), কিন্তু এই ফোনে অ্যাপের নোটিফিকেশন বন্ধ — তাই এখন বাজবে না। ফোনের সেটিংস থেকে My Assistant-এর নোটিফিকেশন চালু করুন।', [t.title, sayWhen(at, _now)]),
           links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
@@ -568,6 +573,7 @@ extension _TodoChat on ChatController {
   Future<bool> _todoCorrection(String t, List<String> out) async {
     if (await _taskDayFix(t, out)) return true;
     if (await _taskDateAdd(t, out)) return true;
+    if (await _splitJustKept(t, out)) return true;
     final f = ' ${fold(t).replaceAll(RegExp(r'[।,!?]'), ' ')} ';
     if (!RegExp(fold(r'^\s*(?:না|নাহ|উহু|না\s+না)\s')).hasMatch(f) && !RegExp(fold(r'\s(?:নয়|না)\s+\S+\s*$')).hasMatch(f)) return false;
     // Only time words after the "না".
@@ -650,11 +656,57 @@ extension _TodoChat on ChatController {
     return true;
   }
 
+  /// "এগুলো তিনটা আলাদা কাজ", "একটা না, পাঁচটা", "অনেকগুলো কাজ, একটা না":
+  /// the to-do just kept was really several — it is split into them (same
+  /// day), never a note or a new category.
+  Future<bool> _splitJustKept(String t, List<String> out) async {
+    final f = ' ${fold(normalize(t))} ';
+    if (!RegExp(fold(r'(?:আলাদা\s+(?:আলাদা\s+)?(?:কাজ|করে|রাখো|রাখ)|অনেক\s*গুলো\s+কাজ|অনেকগুলা\s+কাজ|(?<=\s)(?:একটা|একটি|এক)\s+(?:না|নয়|নয়)(?=\s|,))')).hasMatch(f)) return false;
+    final id = _focusTaskId;
+    if (id == null || _focusTaskAt == null || _now.difference(_focusTaskAt!).inMinutes > 10) return false;
+    final task = _taskById(id);
+    if (task == null || task.done) return false;
+    final last = _lastSave;
+    final said = last != null && last.$1 is TaskAdd && (last.$1 as TaskAdd).title == task.title ? last.$1.transcript : task.title;
+    // By commas and "আর/ও": "মাছ, চাল, তেল কেনা" → মাছ কেনা, চাল কেনা, তেল কেনা.
+    var pieces = [for (final x in task.title.split(RegExp(fold(r'\s*[,،;]\s*|\s+(?:আর|ও|এবং)\s+')))) if (x.trim().isNotEmpty) x.trim()];
+    if (pieces.length >= 2) {
+      final verb = pieces.last.split(' ').last;
+      final isNoun = RegExp(fold(r'(?:া|ানো|ওয়া|য়া)$')).hasMatch(fold(verb)) && pieces.last.contains(' ');
+      if (isNoun) pieces = [for (final (i, x) in pieces.indexed) i == pieces.length - 1 || x.split(' ').length > 1 ? x : '$x $verb'];
+    } else {
+      // Said in one breath: one piece per "I will" verb.
+      final bare = withoutWhen(tidySpeech(said));
+      final p = Parser(ledger: brain.data.ledger, tasks: brain.data.tasks, now: _now);
+      pieces = [
+        for (final x in splitByWillVerbs(bare))
+          if (p.parse('${x.trim()} — কাজের তালিকায় লিখে রাখো') case final TaskAdd c when c.title.trim().isNotEmpty) c.title else x.trim(),
+      ];
+    }
+    if (pieces.length < 2) {
+      _say(out, trf('“{0}” কাজটা কোথায় ভাগ হবে বুঝতে পারিনি — কাজগুলোর নাম আলাদা করে বলুন, যেমন “মাছ কেনা, চাল কেনা”।', [task.title]));
+      return true;
+    }
+    final snap = brain.snapshot();
+    await brain.deleteTask(task.id);
+    if (task.reminderId != null) await brain.deleteReminder(task.reminderId!);
+    final made = <Task>[];
+    for (final x in pieces) {
+      final n = Task(title: x, due: task.due, span: task.span, createdAt: _now, list: task.list, urgent: task.urgent);
+      await brain.saveTask(n);
+      made.add(n);
+    }
+    _batchTasks = ([for (final x in made) x.id], '', _turn);
+    _say(out, trf('ঠিক আছে — একটার বদলে {0}টা আলাদা কাজ রাখলাম{1}।', [bnDigits(made.length), task.due == null ? '' : ' — ${taskWhen(made.first, _now) ?? ''}']), facts: [for (final x in made) x.title], links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
+    _offerUndo(snap);
+    return true;
+  }
+
   /// "পার্টির তারিখ যুক্ত কর" (with or without the date): that open to-do
   /// gets its day — asked when not said. Never a note.
   Future<bool> _taskDateAdd(String t, List<String> out) async {
     final f = fold(normalize(t));
-    final m = RegExp(fold(r'^(.+?)\s+(?:তারিখ|দিন|ডেট)\s+(?:যুক্ত|যোগ|দাও|দিন|বসাও|লিখ|লেখ|ঠিক|সেট)')).firstMatch(f);
+    final m = RegExp(fold(r'^(.+?)\s+(?:তারিখ|দিন|ডেট)(?:টা|টি)?(?:\s+[^\s]+){0,3}?\s+(?:যুক্ত|যোগ|দাও|দিন|বসাও|লিখ|লেখ|ঠিক|সেট|করো|কর)')).firstMatch(f);
     if (m == null) return false;
     final name = m[1]!.replaceAll(RegExp(fold(r'(?:কাজের|কাজটার|কাজটির|এর|ের|র)$')), '').replaceAll(RegExp(fold(r'^(?:আমার|এই|ওই)\s+')), '').trim();
     if (name.isEmpty) return false;

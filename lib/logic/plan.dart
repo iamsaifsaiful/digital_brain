@@ -54,9 +54,19 @@ List<Command> parseAll(String said, List<LedgerEntry> ledger,
 List<Command> _parseAll(String said, List<LedgerEntry> ledger,
     {List<Task> tasks = const [], List<Contact> contacts = const [], List<FolderHint> folders = const [], DateTime? now, AppData? data}) {
   final p = Parser(ledger: ledger, tasks: tasks, contacts: contacts, folders: folders, now: now, data: data);
+  // "৩১ নভেম্বর ঢাকায় যাব": no such day — asked first, nothing kept.
+  final bad = invalidDayOfMonth(said, p.now);
+  if (bad != null) return [AiReply(said, text: bad)];
+  // "ইমরান ৫০০০ টাকা দিয়েছে, শুধু নোটে রাখো", "… এটা নোট করে রাখো": the
+  // place said wins — a note, even with money or a day in it.
+  final note = RegExp(fold(r'^(.+?)[\s,।]+(?:(?:এটা|এটি|এগুলো|এইটা|ওটা)\s+)?(?:শুধু\s+|শুধুই\s+|কেবল\s+)?(?:নোটে|নোট\s+হিসেবে|নোট\s+আকারে|নোটস-?এ)\s+(?:রাখো|রাখ|রেখো|লিখে\s+রাখো|লিখো|লেখো|তুলে\s+রাখো|সেভ\s+করো)\s*[।.!]?$|^(.+?)[\s,।]+(?:(?:এটা|এটি|এগুলো|এইটা|ওটা)\s+)?(?:শুধু\s+)?নোট\s+(?:করে\s+রাখো|করে\s+রাখ|করো|কর|করে\s+নাও)\s*[।.!]?$')).firstMatch(fold(said.trim()));
+  if (note != null) {
+    final body = (note[1] ?? note[2] ?? '').trim();
+    if (body.isNotEmpty) return [NoteAdd(said, text: said.trim().substring(0, body.length).replaceAll(RegExp(r'[\s,।]+$'), ''))];
+  }
   // Typed on several lines: a to-do list under a heading ("কালকের কাজ:")
   // is one to-do per line; other lines are separate sentences.
-  final perLine = lineTodos(said, p) ?? lineMoney(said, p);
+  final perLine = lineTodos(said, p) ?? lineMoney(said, p) ?? breathTodos(said, p);
   if (perLine != null) return perLine;
   if (said.contains('\n')) said = said.split(RegExp(r'\s*\n+\s*')).where((x) => x.trim().isNotEmpty).map((x) => x.trim().replaceAll(RegExp(r'[।.!?]+$'), '')).join('। ');
   // "ইয়ার তুমি একটা কাজ করো তো …": the opening words are not part of it.
@@ -307,6 +317,46 @@ List<String>? docAsked(String said, AppData d) {
   return null;
 }
 
+/// "রবিনকে কল করব ফ্রেশ হয়ে নাস্তা করব গোসল করে মসজিদে যাব": the pieces,
+/// each ending at a first-person future verb ("করব", "যাবো", "কিনব").
+/// Joined actions ("গিয়ে", "করে", "হয়ে") stay inside their piece.
+List<String> splitByWillVerbs(String text) {
+  const notVerbs = {'সব', 'তবে', 'অব', 'কব', 'রব', 'শব', 'নব'};
+  final out = <String>[];
+  var cur = <String>[];
+  for (final w in text.trim().split(RegExp(r'\s+'))) {
+    cur.add(w);
+    final bare = w.replaceAll(RegExp(r'[,।.!?]+$'), '');
+    if (bare.length >= 2 && RegExp(fold(r'(?:ব|বো|বো)$')).hasMatch(fold(bare)) && !notVerbs.contains(bare)) {
+      out.add(cur.join(' '));
+      cur = [];
+    }
+  }
+  if (cur.isNotEmpty) {
+    if (out.isEmpty) return [cur.join(' ')];
+    out[out.length - 1] = '${out.last} ${cur.join(' ')}';
+  }
+  return out;
+}
+
+/// "কাল স্কুলে যাব বাজার করব চুল কাটব": three or more plans said in one
+/// breath with no commas — one to-do each, the day said once for all.
+/// Null unless every piece reads as a to-do.
+List<Command>? breathTodos(String said, Parser p) {
+  if (said.contains('\n') || RegExp(r'[,،;।]').hasMatch(said.trim().replaceAll(RegExp(r'[।.!?]+$'), ''))) return null;
+  final tidied = tidySpeech(said);
+  final pieces = splitByWillVerbs(tidied);
+  if (pieces.length < 3) return null;
+  final w = parseWhen(tidied, p.now);
+  final out = <Command>[];
+  for (final x in pieces) {
+    final c = p.parse('${withoutWhen(x).trim()} — কাজের তালিকায় লিখে রাখো');
+    if (c is! TaskAdd || c.title.trim().isEmpty) return null;
+    out.add(TaskAdd(said, title: c.title, due: c.due ?? (w != null && w.hasDay ? dayOnly(w.day) : null), span: c.span));
+  }
+  return out;
+}
+
 /// A list typed on several lines under a to-do heading — "কাজের তালিকা:",
 /// "কালকের কাজ", "টুডু" — one to-do per line ("-", "•", "১." in front
 /// dropped). A date written on a line is that to-do's; otherwise the
@@ -319,6 +369,15 @@ List<Command>? lineTodos(String said0, Parser p) {
     final m = RegExp(fold(r'^(.{0,40}?(?:কাজের\s+(?:তালিকা|লিস্ট)|কাজ\s*(?:গুলো|গুলা|গুলি)?))\s*(?:হলো|হল)?\s*[,:：\-–—]\s*(.+)$')).firstMatch(fold(said.trim()));
     if (m != null) {
       final parts = [for (final x in m[2]!.split(RegExp(r'\s*[,،;।]\s*'))) if (x.trim().isNotEmpty) x.trim()];
+      if (parts.length >= 2) said = [m[1]!, ...parts].join('\n');
+    }
+  }
+  // Said in one breath with no commas ("১০ জানুয়ারির কাজ ঘুম থেকে উঠে
+  // রবিনকে কল করব ফ্রেশ হয়ে নাস্তা করব …"): one to-do per "I will" verb.
+  if (!said.contains('\n')) {
+    final m = RegExp(fold(r'^(.{0,40}?(?:কাজের\s+(?:তালিকা|লিস্ট)|কাজ\s*(?:গুলো|গুলা|গুলি)?))\s+(.+)$')).firstMatch(fold(said.trim()));
+    if (m != null) {
+      final parts = splitByWillVerbs(m[2]!);
       if (parts.length >= 2) said = [m[1]!, ...parts].join('\n');
     }
   }

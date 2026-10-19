@@ -89,7 +89,7 @@ class BulkAction extends Command {
 const _collectiveP = r'(?:এই\s+(?:দুটি|দুটো|দুটা|দুইটা|দুই|তিনটা|তিনটি|চারটা|চারটি|পাঁচটা)(?:\s+কাজ)?|(?:দুটি|দুটো|দুটা|দুইটা|তিনটা|তিনটি|চারটা|চারটি)\s+কাজ|কাজ\s+(?:দুটি|দুটো|দুটা|দুইটা|তিনটা|তিনটি|চারটা)|এতে|এগুলোতে|এগুলায়|এইগুলো|এইগুলা|এই\s+গুলো|এই\s+গুলা|এগুলো|এগুলা|এগুলি|ওগুলো|ওগুলা|ওইগুলো|ওইগুলা|ঐগুলো|সেগুলো|সেগুলা|এসব|ওসব|এই\s+সব|ওই\s+সব|সবগুলো|সবগুলা|সবগুলি|সবকটা|সবকটি|সবকয়টা|সবক’টা|সব|সমস্ত|উপরেরগুলো|তালিকার\s+সব|যেগুলো\s+দেখালে|যেগুলো\s+বললে|এই\s+কাজগুলো|ওই\s+কাজগুলো|কাজগুলো|কাজগুলা|এই\s+(?:নোট|রিমাইন্ডার|ওষুধ|অভ্যাস)গুলো|(?:নোট|রিমাইন্ডার|ওষুধ|অভ্যাস)গুলো|(?:নোট|রিমাইন্ডার|ওষুধ|অভ্যাস)গুলোর|(?:টাকা|পাওনা|দেনা|ধার|ঋণ)গুলো|(?:টাকা|পাওনা|দেনা|ধার|ঋণ)গুলা)';
 
 const _ordWords = {'প্রথম': 1, 'দ্বিতীয়': 2, 'তৃতীয়': 3, 'চতুর্থ': 4, 'পঞ্চম': 5, 'ষষ্ঠ': 6, 'সপ্তম': 7, 'অষ্টম': 8, 'নবম': 9, 'দশম': 10};
-const _countWords = {'দু': 2, 'এক': 1, 'একটা': 1, 'দুই': 2, 'দুটো': 2, 'দুটা': 2, 'দুইটা': 2, 'দুটি': 2, 'তিন': 3, 'তিনটা': 3, 'তিনটি': 3, 'চার': 4, 'চারটা': 4, 'চারটি': 4, 'পাঁচ': 5, 'পাঁচটা': 5, 'পাঁচটি': 5, 'ছয়': 6, 'ছয়টা': 6, 'সাত': 7, 'সাতটা': 7};
+const _countWords = {'দু': 2, 'এক': 1, 'একটা': 1, 'দুই': 2, 'দুটো': 2, 'দুটা': 2, 'দুইটা': 2, 'দুটি': 2, 'তিন': 3, 'তিনটা': 3, 'তিনটি': 3, 'চার': 4, 'চারটা': 4, 'চারটি': 4, 'পাঁচ': 5, 'পাঁচটা': 5, 'পাঁচটি': 5, 'ছয়': 6, 'ছয়টা': 6, 'সাত': 7, 'সাতটা': 7, 'আট': 8, 'নয়': 9, 'দশ': 10, 'এগারো': 11, 'বারো': 12, 'তেরো': 13, 'চৌদ্দ': 14, 'পনেরো': 15, 'ষোল': 16, 'সতেরো': 17, 'আঠারো': 18, 'উনিশ': 19, 'বিশ': 20};
 
 int? _countOf(String w) {
   final a = int.tryParse(asciiDigits(w).replaceAll(RegExp(r'[^0-9]'), ''));
@@ -97,7 +97,7 @@ int? _countOf(String w) {
   for (final e in _countWords.entries) {
     if (_tf(e.key) == _tf(w)) return e.value;
   }
-  final stem = w.replaceAll(_tre(r'(?:টা|টি|টো|গুলো|টাই|টোই)$'), '');
+  final stem = w.replaceAll(_tre(r'(?:টার|টির|টোর|গুলোর|টাকে|টিকে|টা|টি|টো|গুলো|টাই|টোই)$'), '');
   for (final e in _countWords.entries) {
     if (_tf(e.key) == _tf(stem)) return e.value;
   }
@@ -148,6 +148,8 @@ Selection? selectionIn(String f) {
     // name, from the start of the sentence (or a comma) up to "রেখে/ছাড়া".
     _tre(r'(?:^|,)\s*(?:শুধু|কেবল|খালি)?\s*(\S+(?:\s+\S+){0,6}?)\s+(?:রেখে|ছাড়া|বাদে|বাদ\s+দিয়ে)\s+(?=(?:সব|বাকি|অন্য))'),
     _tre(r'(?<=\s)(\S+(?:\s+\S+)?)\s+(?:ছাড়া|বাদে|বাদ\s+দিয়ে|রেখে)\s+(?=(?:সব|বাকি|অন্য))'),
+    // "বিয়ের কাজগুলো রেখে দাও, বাকিগুলো বাদ": kept by a verb, the rest after a comma.
+    _tre(r'(?:^|,)\s*(?:শুধু|কেবল|খালি)?\s*(\S+(?:\s+\S+){0,6}?)\s+(?:রেখে\s+(?:দাও|দিও|দিন|দেন)|রাখো|রাখ|রেখো|রাখবে)(?=\s*,\s*(?:বাকি|অন্য|সব))'),
     // "রবিনের বোনের বিয়ের দাওয়াত থাকবে শুধু", "শুধু ব্যাংকেরটা থাকবে".
     _tre(r'(?:^|,)\s*(?:শুধু|কেবল|খালি)?\s*(\S+(?:\s+\S+){0,6}?)\s+(?:থাকবে|থাকুক|রাখো\s+না|বাদ\s+থাকবে|থাক)(?=[\s,])'),
     _tre(r'(?<=\s)(?:শুধু|কেবল|খালি)?\s*(\S+(?:\s+\S+)?)\s+(?:থাকবে|থাকুক|রাখো\s+না|বাদ\s+থাকবে|থাক)(?=[\s,])'),
@@ -268,6 +270,8 @@ String _bulkOp(String f0) {
   if (_thas(f, r'(?:দেখাও|দেখান|বলো|বলুন)\s*$') && !_thas(f, r'(?:মুছ|ডিলিট|রিমাইন্ডার)')) return 'show';
   if (_thas(f, r'(?:ফেরত\s+(?:আনো|দাও|আনুন)|ফিরিয়ে\s+(?:আনো|দাও|আনুন)|restore)')) return 'restore';
   if (_thas(f, r'(?:রিমাইন্ডার|reminder|মনে\s+করানো)\S*\s+(?:\S+\s+)?(?:বন্ধ|অফ|off)')) return 'reminder_off';
+  // "দ্বিতীয়টা বন্ধ কর" (a reminder list on screen): turned off, kept.
+  if (_thas(f, r'(?<=\s)(?:বন্ধ|অফ|off)\s*(?:কর|করো|করে\s+দাও|করে\s+দিন|করুন|দাও|রাখো)?\s*$')) return 'reminder_off';
   if (_thas(f, r'(?<=\s)(?:মুছে\s+(?:দাও|দিও|ফেলো|দেন|দিন|ফেলুন)|মুছো|মুছুন|মুছে\s+দাও|ডিলিট\s+(?:করো|করে\s+দাও|করুন)?|delete|কেটে\s+দাও|বাদ\s+(?:দাও|দিয়ে\s+দাও|দিও|দেন|দিন)|সরিয়ে\s+ফেলো|ক্লিয়ার\s+করো)(?=\s|$)')) return 'delete';
   if (_thas(f, r'(?<=\s)বাদ(?=\s*$)')) return 'delete';
   // "রিমাইন্ডারগুলো দাও", "সব রিমাইন্ডার কি কি": the list's own name, not
@@ -282,7 +286,8 @@ String _bulkOp(String f0) {
   if (_thas(f, r'(?:আবার\s+)?বাকি\s+(?:রাখো|করো|করে\s+দাও)|অসমাপ্ত\s+(?:করো|রাখো)')) return 'reopen';
   if (_thas(f, r'(?<=\s)(?:হয়নি|হয়নি|করিনি|হয়\s+নাই|হাঁটিনি|পড়িনি)(?=\s)')) return 'not_done';
   if (_thas(f, r'(?<=\s)(?:শেষ(?:\s+করো|\s+করেছি|\s+হয়েছে)?|করেছি|হয়ে\s+গেছে|হয়েছে|হয়েছে|সেরেছি|টিক\s+দাও|সম্পন্ন|done)(?=\s)')) return 'done';
-  if (_thas(f, r'(?<=\s)(?:রাখো|রাখ|দাও|সরাও|সরিয়ে\s+দাও|পিছিয়ে\s+দাও|নাও|করো)(?=\s*$)') && _thas(f, r'(?:আজ|কাল|পরশু|তারিখ|বার(?:ে)?|সপ্তাহ)')) return 'move';
+  // "প্রথম দুটো কাল রাখো", "শেষের তিনটি কাল করব", "সব কাল করব": another day.
+  if (_thas(f, r'(?<=\s)(?:রাখো|রাখ|দাও|সরাও|সরিয়ে\s+দাও|পিছিয়ে\s+দাও|নাও|করো|করব|করবো|করবো|হবে|যাবে|থাকবে)(?=\s*$|\s*,)') && _thas(f, r'(?:আজ|কাল|পরশু|তারিখ|বার(?:ে)?|সপ্তাহ)')) return 'move';
   if (_thas(f, r'(?:দেখাও|দেখান|বলো|বলুন|দাও)\s*$')) return 'show';
   // "রিমাইন্ডারগুলো কি কি", "নোটগুলো কোনগুলো": asking to see them.
   if (_thas(f, r'(?:কি\s+কি|কী\s+কী|কোনগুলো|কোন\s+কোন)\s*$')) return 'show';
@@ -311,6 +316,12 @@ List<BulkAction>? bulkCommands(String said, DateTime now) {
       f = ' ${f.substring(0, fix.start)} ';
     }
   }
+  // "প্রথমটা শেষ, দ্বিতীয়টা কাল, তৃতীয়টা মুছো", "৪–৮ মুছো, ৯ নম্বরে সন্ধ্যা
+  // ৭টার রিমাইন্ডার দাও": each part its own places and its own action —
+  // all resolved later against the same list, so a removal never shifts
+  // the numbers of another part.
+  final planned = _clausePlan(f, said, now);
+  if (planned != null) return planned;
   // "প্রথমটা হয়েছে, বাকিগুলো হয়নি": two requests, the second about the rest.
   final clauses = f.split(_tre(r'\s*,\s*')).where((x) => x.trim().isNotEmpty).toList();
   if (clauses.length == 2 && _thas(clauses[1], r'(?:বাকিগুলো|বাকিগুলা|বাকি\s+সব)')) {
@@ -357,7 +368,60 @@ List<BulkAction>? bulkCommands(String said, DateTime now) {
     }
   }
   final day = _thas(f, r'(?:গতকাল|গত\s+কাল)') ? dayOnly(now.subtract(const Duration(days: 1))) : dayOnly(now);
-  return [BulkAction(said, selection: sel, op: op, domain: domain, due: due, time: time, ampmOpen: open, day: day)];
+  final main = BulkAction(said, selection: sel, op: op, domain: domain, due: due, time: time, ampmOpen: open, day: day);
+  // "সব কাল করব, তবে ব্যাংকেরটা আজই থাকবে": the one left out has its own day.
+  if (op == 'move' && sel.exceptNames.isNotEmpty) {
+    final ex = _tre(r'(?<=\s)\S+?(?:টা|টি)\s+(আজই|আজকেই|আজকে|আজ|কালকেই|কালই|কাল|পরশু)(?=\s)\s*(?:\S+\s+)?(?:থাকবে|থাকুক|রাখো|হবে|করব|করবো)').firstMatch(f);
+    if (ex != null) {
+      final w = _tf(ex[1]!);
+      final add = w.startsWith(_tf('পরশু')) ? 2 : (w.startsWith(_tf('কাল')) ? 1 : 0);
+      final own = dayOnly(now).add(Duration(days: add));
+      if (own != due) return [main, BulkAction(said, selection: Selection(SelKind.names, names: sel.exceptNames), op: 'move', domain: domain, due: own, day: day)];
+    }
+  }
+  return [main];
+}
+
+/// One place said on its own ("প্রথমটা", "৯ নম্বরে", "৩নং"), or null.
+int? _onePlace(String c) {
+  final m = _tre(r'^\s*(\S+?)\s*(?:নম্বর|নাম্বার|নং)(?:ের|এর|এ|ে|টা|টি|টার|টায়|টাকে)?(?=\s|$)').firstMatch(c);
+  if (m != null) return _countOf(m[1]!) ?? _ordOf(m[1]!);
+  final first = c.trim().split(RegExp(r'\s+')).first;
+  final o = _ordOf(first);
+  if (o != null && first != _tf('শেষ')) return o;
+  return null;
+}
+
+/// Several comma-separated parts, each with its own places and action
+/// (see [bulkCommands]); null unless every part has both.
+List<BulkAction>? _clausePlan(String f, String said, DateTime now) {
+  final clauses = [for (final x in f.split(_tre(r'\s*,\s*|\s+(?:এবং|আর|তারপর)\s+(?=\S+(?:টা|টি|\s*নম্বর|\s*নং)\b)'))) if (x.trim().isNotEmpty) ' ${x.trim()} '];
+  if (clauses.length < 2) return null;
+  final out = <BulkAction>[];
+  final dom = _bulkDomain(f);
+  for (final c in clauses) {
+    final sel = selectionIn(c) ?? (_onePlace(c) == null ? null : Selection(SelKind.indexes, indexes: [_onePlace(c)!]));
+    if (sel == null || sel.kind == SelKind.all || sel.hasExcept) return null;
+    var op = _bulkOp(c);
+    final w = parseWhen(c, now);
+    // "দ্বিতীয়টা কাল": only a day — moved there.
+    if (op.isEmpty && w != null && w.hasDay && !w.hasTime) op = 'move';
+    if (op.isEmpty || op == 'show') return null;
+    DateTime? due;
+    int? time;
+    var open = false;
+    if (op == 'move') {
+      if (w == null || !w.hasDay) return null;
+      due = dayOnly(w.day);
+    }
+    if (op == 'remind' && w != null && w.hasTime) {
+      time = w.at.hour * 60 + w.at.minute;
+      open = hourOpen(said, w.at.hour) && !_thas(c, r'(?:সকাল|দুপুর|বিকাল|বিকেল|সন্ধ্যা|রাত|ভোর)');
+      if (w.hasDay) due = dayOnly(w.day);
+    }
+    out.add(BulkAction(said, selection: sel, op: op, domain: dom, due: due, time: time, ampmOpen: open, day: dayOnly(now)));
+  }
+  return out;
 }
 
 /// "দ্বিতীয়টা ভুল", "প্রথমটা হয়েছে", "শেষেরটা মুছো": one place in the list
