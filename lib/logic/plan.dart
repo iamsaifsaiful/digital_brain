@@ -43,6 +43,15 @@ List<Command> parseAll(String said, List<LedgerEntry> ledger,
   if (out.isNotEmpty && out.every((c) => (c is TaskAdd && onlyCount(c.title)) || (c is NoteAdd && onlyCount(c.text)))) {
     return [AiReply(said, text: tr('কোন কোন কাজ? একটা একটা করে বলুন, বা এক লাইনে একটা করে লিখুন — সব কাজের তালিকায় রেখে দেব।'))];
   }
+  // Only a loose note (a "new category") or nothing understood, but the
+  // words are about the to-do list: finished, removed, or a plan to keep.
+  // A "লিখে রাখো" note that names a day and a doing ("কালকে ডাক্তারের
+  // কাছে যাওয়া লিখে রাখো") is a plan — a to-do, unless a note was named.
+  final datedPlan = out.length == 1 && out.first is NoteAdd && !(out.first as NoteAdd).fromStatement && !RegExp(fold(r'(?:নোট|নোটে|নোটস)')).hasMatch(fold(normalize(said))) && (parseWhen(tidySpeech(said), now ?? DateTime.now())?.hasDay ?? false);
+  if (out.length == 1 && (out.first is NotUnderstood || out.first is SearchQuery || (out.first is NoteAdd && (out.first as NoteAdd).fromStatement) || datedPlan)) {
+    final todo = todoIntentOf(said, tasks, now ?? DateTime.now(), ledger);
+    if (todo != null) return [todo];
+  }
   // A menu clearly named in a request nothing understood (or only a loose
   // note would keep): said plainly what voice cannot do there, nothing saved.
   if (out.length == 1 && (out.first is NotUnderstood || out.first is SearchQuery || (out.first is NoteAdd && (out.first as NoteAdd).fromStatement))) {
@@ -67,7 +76,7 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   }
   // "কাজের তালিকা দাও", "আর কী বাকি?": the list asked to be seen — first,
   // before anything could read "দাও" as content.
-  if (taskListAsked(said)) return [TaskQuery(said)];
+  if (taskListAsked(said)) return [p.parse(said)];
   // "হ্যাঁ নামে একটা কাজ রাখো": a title said as a title, even "হ্যাঁ".
   final literal = RegExp(r'^\s*[“"‘]?(.+?)[”"’]?\s+নামে\s+(?:একটা\s+|একটি\s+|নতুন\s+)*কাজ\s+(?:রাখো|রাখুন|যোগ\s+করো|যুক্ত\s+করো|লেখো|লিখো|লিখে\s+রাখো|বানাও)\s*[।.!]?\s*$').firstMatch(said.trim());
   if (literal != null && literal[1]!.trim().isNotEmpty) return [TaskAdd(said, title: literal[1]!.trim())];
@@ -715,6 +724,48 @@ List<Command>? datedTodos(String said, Parser p) {
 /// against their sum — if it does not match, the parts are still kept and
 /// the chat shows them all before saving. Null when [said] is not a list
 /// of own spending.
+/// What a to-do sentence means when the usual rules found nothing better
+/// (would keep a loose note): "বাজার করা ডান" / "বাজারটা করে ফেলেছি" (a
+/// to-do finished), "রিপোর্টের কাজটা বাদ দিন" / "… তালিকা থেকে সরাও" (one
+/// removed — asked first), "চুল কাটানো কাজে রাখো", "ডিসেম্বর মাসে ভিসার
+/// কাজ", "কালকে ডাক্তারের কাছে যাওয়া লিখে রাখো" (one to keep). A finished
+/// or removed one must name a kept to-do by a word of its own.
+Command? todoIntentOf(String said, List<Task> tasks, DateTime now, List<LedgerEntry> ledger) {
+  final f = ' ${fold(normalize(said)).replaceAll(RegExp(r'[।,!?]'), ' ')} ';
+  // Generic words never pick a to-do on their own.
+  const generic = ['কাজ', 'কাজটা', 'কাজটি', 'করা', 'যাওয়া', 'দেওয়া', 'নেওয়া', 'আনা', 'কেনা', 'তালিকা', 'তালিকায়', 'লিস্ট', 'থেকে', 'আমার'];
+  List<Task> named() {
+    final ws = [for (final w in words(normalize(said))) if (w.runes.length > 1 && !generic.map(normalize).contains(w)) w.replaceAll(RegExp(fold(r'(?:টা|টি|য়ের|ের|এর|র|কে)$')), '')];
+    final open = [for (final t in tasks) if (!t.done) t];
+    final hits = [for (final t in open) if (words(normalize(t.title)).where((x) => !generic.map(normalize).contains(x)).any((x) => ws.any((w) => w.length > 1 && (x.startsWith(w) || w.startsWith(x))))) t];
+    return hits;
+  }
+  final done = RegExp(fold(r'(?:হয়ে\s+গেছে|হয়েছে|শেষ(?:\s+হয়েছে|\s+করেছি)?|ডান|done|ফেলেছি|সেরেছি|করেছি)\s*$')).hasMatch(f.trim());
+  if (done) {
+    final h = named();
+    if (h.length == 1) return TaskDone(said, terms: const [], ref: TaskRef(ids: [h.single.id]));
+  }
+  final remove = RegExp(fold(r'(?:মুছে|মুছো|মুছ|বাদ\s+(?:দাও|দিন|দেন)|ডিলিট|সরাও|সরিয়ে\s+দাও|কেটে\s+দাও)')).hasMatch(f);
+  if (remove) {
+    final h = named();
+    if (h.length == 1) return TaskEdit(said, ref: TaskRef(ids: [h.single.id]), delete: true);
+  }
+  final keep = RegExp(fold(r'(?:কাজে\s+রাখো|কাজ\s+রাখো|কাজের\s+তালিকা|এর\s+কাজ|(?<=\s)\S+(?:ের|এর|র)\s+কাজ(?=\s)|লিখে\s+রাখো|লেখো|(?<=\s)(?:হবে|করব|করবো|যাব|যাবো|কিনব|কিনবো|দেব|দেবো|নেব|লাগবে|করাব|করাবো)(?=\s))')).hasMatch(f);
+  // "… লিখে রাখো" alone keeps a note ("ওয়াইফাই কোড লিখে রাখো"): a to-do
+  // only with a day or an action word ("ডাক্তারের কাছে যাওয়া").
+  final onlyWrite = keep && !RegExp(fold(r'(?:কাজে\s+রাখো|কাজ\s+রাখো|কাজের\s+তালিকা|\S+(?:ের|এর|র)\s+কাজ|(?<=\s)(?:হবে|করব|করবো|যাব|যাবো|কিনব|কিনবো|দেব|দেবো|নেব|লাগবে|করাব|করাবো)(?=\s))')).hasMatch(f);
+  final body = said.replaceAll(RegExp(r'\s*(?:কাজে|কাজের\s+তালিকায়)\s+রাখো\s*[।.!]?\s*$'), '').replaceAll(RegExp(r'\s*লিখে\s+রাখো\s*[।.!]?\s*$'), '');
+  // A doing word last ("যাওয়া", "কাটানো", "কেনা") — not just any "…টা".
+  final last = fold(normalize(body.trim())).split(' ').last;
+  final action = (RegExp(fold(r'(?:ওয়া|নো|কেনা|করা|আনা|দেখা|ধরা|পড়া|জমা|বলা|ফেরা|তোলা|খোঁজা|পাঠানো|ভরা|বানা)$')).hasMatch(last) && !RegExp(fold(r'(?:টা|টি)$')).hasMatch(last)) || (parseWhen(tidySpeech(body), now)?.hasDay ?? false);
+  if (keep && !remove && !done && (!onlyWrite || action)) {
+    final p = Parser(ledger: ledger, tasks: tasks, now: now);
+    final c = p.parse('$body — কাজের তালিকায় লিখে রাখো');
+    if (c is TaskAdd && c.title.trim().isNotEmpty) return c;
+  }
+  return null;
+}
+
 /// "শুধু পাওনাগুলো দাও, দেনা বাদ": one side of the লেনদেন book, to see.
 LedgerAsk? oneSideAsked(String said) {
   final side = RegExp(fold(r'^(?:আমার\s+)?(?:শুধু|শুধুমাত্র|কেবল|খালি)\s+(পাওনা|দেনা)\S*\s+(?:দাও|দেখাও|দেখান|বলো|বলুন|দেন|দিন)(?:[\s,।]+(?:পাওনা|দেনা)\S*\s+(?:বাদ|ছাড়া|লাগবে\s+না|না))?[\s।.!?]*$')).firstMatch(fold(normalize(said)));

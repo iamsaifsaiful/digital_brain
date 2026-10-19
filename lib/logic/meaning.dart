@@ -16,6 +16,9 @@ bool _hasPhrase(String text, Iterable<String> keys) => keys.any((k) => (' $text 
 /// না", "ফোন দিয়ো না", "এটা রেখো না". Nothing is to be done. Only request
 /// forms count — "আমি জানি না" or "টাকা দেয়নি" are statements.
 bool negatedRequest(String text) {
+  // "কাজের তালিকা দাও না" asks politely; "ওষুধের কথা আর মনে করিও না" asks
+  // to stop a reminder — neither is a refusal.
+  if (taskListAsked(text) || remindersAsked(text) || reminderStopAsked(text)) return false;
   final w = words(text);
   if (w.length < 2) return _joinedNegative.contains(w.isEmpty ? '' : w.first);
   // The negative must belong to the request itself, at the end ("দেরি

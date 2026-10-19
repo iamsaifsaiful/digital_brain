@@ -553,8 +553,11 @@ int _tdScore(Task t, List<String> terms0) {
   final title = k(normalize('${t.title} ${t.note} ${t.list}'));
   final tw = {...words(title), ...words(title).map(stem)};
   var n = 0;
+  // "দেওয়া", "করা", "যাওয়া": action words many to-dos share — never what
+  // picks one ("বিদ্যুৎ বিল দেওয়া" is not "রিপোর্ট জমা দেওয়া").
+  final generic = {for (final g in const ['দেওয়া', 'দেয়া', 'করা', 'যাওয়া', 'নেওয়া', 'আনা', 'কেনা', 'রাখা', 'দেওয়ার', 'করার', 'যাওয়ার', 'কাজ', 'কাজের', 'কাজটা', 'কাজটি']) k(normalize(g))};
   for (final x in terms) {
-    if (x.length < 2) continue;
+    if (x.length < 2 || generic.contains(x)) continue;
     if (tw.contains(x) || title.contains(x) || tw.any((w) => w.length >= 3 && x.length >= 3 && (w.startsWith(x) || x.startsWith(w))) || tw.any((w) => w.length >= 3 && x.length >= 3 && wordsMatch(x, w))) n++;
   }
   return n;

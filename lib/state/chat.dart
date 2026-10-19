@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../logic/csv.dart' show cashCsv;
+import '../logic/standard.dart';
 import 'package:flutter/foundation.dart';
 
 import '../logic/lang.dart';
@@ -735,7 +736,9 @@ class ChatController extends ChangeNotifier {
     // talking — they are not something to save or answer.
     final (body, doneTail) = splitDoneTail(shown);
     // "দেনা পাওনা বলি নাই, বলেছি অন্যান্য হিসাব": only what was meant is heard.
-    final t = meantInstead(doneTail && body.isNotEmpty ? body : shown);
+    // "আইজকা কি কাম আছে", "kal doctor er kache jabo": in standard Bengali
+    // first, so every rule below reads one language (the bubble keeps the words as said).
+    final t = standardSpeech(meantInstead(doneTail && body.isNotEmpty ? body : shown));
     if (doneTail) Trace.log('understood', 'closing words left out', {'kept': t});
     ended = false;
     _turn++;
@@ -1878,6 +1881,20 @@ class ChatController extends ChangeNotifier {
           await _done(out);
           return;
         }
+        // "বাজার করা কাল করব" while "বাজার করা" is kept for another day: that
+        // one moved, or a second one — asked (never a "বাজার করা করা").
+        final moved = c.due != null && !_allYes && c.repeat == null ? _sameTitleOtherDay(c) : null;
+        if (moved != null) {
+          _current = null;
+          final when = sayWhen(c.due!, _now, withTime: false);
+          _clarifyOptions = [
+            (trf('{0} সরাও', [when]), TaskEdit(c.transcript, ref: TaskRef(ids: [moved.id]), due: c.due, span: c.span)),
+            (tr('আরেকটা রাখো'), TaskAdd(c.transcript, title: moved.title, due: c.due, span: c.span)),
+          ];
+          _ask(out, trf('“{0}” তো {1} রাখা আছে — {2} সরাব, নাকি {2} আরেকটা রাখব?', [moved.title, _whenOf(moved), when]), ChatWait.clarify,
+              choices: [for (final o in _clarifyOptions) ChatChoice(o.$1, o.$1)]);
+          return;
+        }
         // A to-do is kept at once (ফিরিয়ে নিন takes it back) — no "রাখি?".
         return _saveCurrent(out);
       case ReminderAdd():
@@ -2146,11 +2163,16 @@ class ChatController extends ChangeNotifier {
   /// The one open to-do [title] names ("…যাওয়ার" is "…যাওয়া"), or null.
   Task? _openTaskNamed(String title) {
     // "নোয়াখালী যাওয়া কাজের", "নোয়াখালী যাওয়ার": the to-do's own name.
-    String key(String x) => fold(normalize(x)).replaceAll(RegExp(fold(r'\s+(?:কাজ|কাজের|কাজটির|কাজটার|কাজটা|কাজটি)$')), '').replaceAll(RegExp(fold(r'(?:ের|এর|র)$')), '').trim();
+    // "ব্যাংকে যাওয়ার কথা", "ব্যাংকের কাজে": the words around the name too.
+    String key(String x) => fold(normalize(x)).replaceAll(RegExp(fold(r'(?:\s+(?:কাজ|কাজের|কাজে|কাজটির|কাজটার|কাজটা|কাজটি|কথা|কথাটা|বিষয়টা|ব্যাপারটা))+$')), '').replaceAll(RegExp(fold(r'(?:য়ের|ের|এর|র)$')), '').trim();
     final k = key(title);
     if (k.length < 3) return null;
     final hits = [for (final t in brain.data.tasks) if (!t.done && key(t.title) == k) t];
-    return hits.length == 1 ? hits.single : null;
+    if (hits.length == 1) return hits.single;
+    if (hits.isNotEmpty) return null;
+    // "ব্যাংক এর কাজ" for "ব্যাংকে যাওয়া": its own (not generic) words, one to-do only.
+    final near = tdMatch(brain.data.tasks, [for (final w in words(normalize(k))) stem(w)]);
+    return near.length == 1 ? near.single : null;
   }
 
   /// A special day already kept for the same person and kind.
@@ -3329,7 +3351,8 @@ class ChatController extends ChangeNotifier {
   /// রিমাইন্ডার যুক্ত কর" right after a to-do: that one's. The time is asked
   /// when not said; never a reminder called "কাজের দরকার".
   Future<bool> _remindByDayOrHere(String t, List<String> out) async {
-    final f = ' ${fold(normalize(tidySpeech(t))).replaceAll(RegExp(r'[।,!?]'), ' ')} ';
+    // "একটু / ভাই / আপু …": a polite word before the request.
+    final f = ' ${fold(normalize(tidySpeech(t))).replaceAll(RegExp(r'[।,!?]'), ' ').replaceFirst(RegExp(fold(r'^\s*(?:(?:একটু|ভাই|আপু|প্লিজ|আচ্ছা|শোনো|জি)\s+)+')), '')} ';
     if (!RegExp(fold(r'(?:রিমাইন্ডার|মনে\s+করানো|এলার্ম|অ্যালার্ম)')).hasMatch(f)) return false;
     if (!RegExp(fold(r'(?:দরকার|লাগবে|দাও|দিও|দেন|দিন|চাই|যুক্ত\s+কর|যোগ\s+কর|লাগাও|সেট\s+কর|দিয়ে\s+দাও|রাখো)')).hasMatch(f)) return false;
     final w = parseWhen(tidySpeech(t), _now);
@@ -3343,7 +3366,16 @@ class ChatController extends ChangeNotifier {
       targets = [focus];
     } else {
       final dm = RegExp(fold(r'^\s*([০-৯0-9]{1,2})\s+(' + bnMonths.join('|') + r')(?:\s+([০-৯0-9]{4}))?\s*(?:এর|ের|তারিখের|-এর)?\s+(?:সব\s+)?(?:কাজ|কাজের|কাজটার|কাজটির|কাজগুলোর|কাজগুলার)\s')).firstMatch(f);
-      if (dm == null) return false;
+      if (dm == null) {
+        // "ব্যাংক এর কাজের রিমাইন্ডার দরকার": a to-do named before "কাজের".
+        final nm = RegExp(fold(r'^\s*(.+?)\s*(?:এর|-এর)?\s+(?:কাজ|কাজের|কাজটার|কাজটির|কাজটায়|কাজে)\s+(?:একটা\s+)?(?:রিমাইন্ডার|এলার্ম|অ্যালার্ম)')).firstMatch(f);
+        final named = nm == null ? null : _openTaskNamed(nm[1]!);
+        if (named == null) return false;
+        targets = [named];
+      }
+    }
+    if (targets.isEmpty) {
+      final dm = RegExp(fold(r'^\s*([০-৯0-9]{1,2})\s+(' + bnMonths.join('|') + r')(?:\s+([০-৯0-9]{4}))?\s*(?:এর|ের|তারিখের|-এর)?\s+(?:সব\s+)?(?:কাজ|কাজের|কাজটার|কাজটির|কাজগুলোর|কাজগুলার)\s')).firstMatch(f)!;
       final day = int.parse(asciiDigits(dm[1]!));
       final month = bnMonths.map(fold).toList().indexOf(dm[2]!) + 1;
       final year = dm[3] == null ? null : int.parse(asciiDigits(dm[3]!));
@@ -3372,6 +3404,16 @@ class ChatController extends ChangeNotifier {
     _ask(out, trf('{0}টা কাজের রিমাইন্ডার — প্রতিটা নিজের দিনে, কয়টায় মনে করাব? যেমন “দুপুর ১২টায়”।', [bnDigits(targets.length)]), ChatWait.batchTime,
         facts: [for (final x in targets) taskLine(x, _now)]);
     return true;
+  }
+
+  /// An open to-do with the same name as [c] ("বাজার করা" for "বাজার করা
+  /// করা" / "বাজারের কাজ") kept for another day.
+  Task? _sameTitleOtherDay(TaskAdd c) {
+    String key(String x) => fold(normalize(x)).replaceAll(RegExp(fold(r'(?:\s+(?:করা|কাজ|কাজটা))+$')), '').replaceAll(RegExp(fold(r'(?:ের|এর|র)$')), '').trim();
+    final k = key(c.title);
+    if (k.isEmpty) return null;
+    final hits = [for (final t in brain.data.tasks) if (!t.done && t.repeat == null && t.due != null && dayOnly(t.due!) != dayOnly(c.due!) && key(t.title) == k) t];
+    return hits.length == 1 ? hits.single : null;
   }
 
   /// "হাতে কত রইল?" right after "৯০০০ টাকা নিয়ে বাজারে গেলাম; মাছ ২৫০০, …":

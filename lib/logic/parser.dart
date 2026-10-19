@@ -112,10 +112,46 @@ class NoteAdd extends Command {
 bool remindersAsked(String said) {
   final f = fold(normalize(said)).replaceAll(RegExp(r'[?？।!,]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
   final m = RegExp(fold(r'^(?:আমার\s+)?(?:(সব|সকল|সবগুলো|কি\s+কি|কী\s+কী|কোন\s+কোন|কোনো|কোন|কয়টা|কতগুলো|যত)\s+)?(?:রিমাইন্ডার|reminder|এলার্ম|অ্যালার্ম|alarm)\s*(গুলো|গুলা|গুলি|সমূহ|এর\s+তালিকা|লিস্ট|তালিকা)?\s*(?:দাও|দেখাও|দেখান|বলো|বলুন|দেন|দিন|আছে|কি\s+কি|কী\s+কী|কোনগুলো)?$')).firstMatch(f);
-  if (m == null) return false;
-  // "রিমাইন্ডার দাও" alone sets one (what and when are asked); a word for
-  // "all/which" or "-গুলো" asks to see them.
-  return m[1] != null || m[2] != null || f.startsWith(fold('আমার'));
+  if (m != null && (m[1] != null || m[2] != null || f.startsWith(fold('আমার')))) return true;
+  return reminderQuestionTerms(said) != null;
+}
+
+/// "মিটিংয়ের রিমাইন্ডার আর লাগবে না", "ওষুধের কথা আর মনে করিও না",
+/// "মিটিংয়ের কথা আর মনে করাতে হবে না", "ওষুধের রিমাইন্ডারটা বন্ধ": stop that
+/// reminder — a request, even though it ends in "না".
+bool reminderStopAsked(String said) => reminderStopSubject(said) != null;
+
+/// What [reminderStopAsked] is about ("ওষুধের"), or null.
+String? reminderStopSubject(String said) {
+  final f = fold(normalize(said)).replaceAll(RegExp(r'[?？।!,.]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim()
+      .replaceFirst(RegExp(fold(r'^(?:(?:একটু|ভাই|আপু|প্লিজ|আচ্ছা|শোনো|জি)\s+)+')), '');
+  final m = RegExp(fold(r'^((?:\S+\s+){0,4}?\S+?)\s*(?:রিমাইন্ডার\S*|এলার্ম\S*|অ্যালার্ম\S*|কথা)\s+(?:আর\s+)?(?:লাগবে\s+না|দরকার\s+নেই|দরকার\s+নাই|বন্ধ(?:\s+(?:করো|কর|করে\s+দাও|করুন|করেন))?|মনে\s+করাতে\s+হবে\s+না|মনে\s+করিও\s+না|মনে\s+করাবে\s+না|মনে\s+করাইও\s+না|দিও\s+না|দিতে\s+হবে\s+না)(?:\s+(?:প্লিজ|তো|ভাই|একটু))?$')).firstMatch(f);
+  if (m == null) return null;
+  final subject = m[1]!.trim();
+  return subject.isEmpty ? null : subject;
+}
+
+/// "আজকের রিমাইন্ডার গুলো", "কী কী মনে করাবে?", "আজ কখন কী মনে করাবে",
+/// "মিটিং কয়টায় মনে করাবে?", "ওষুধের রিমাইন্ডার কয়টায়?": the reminders
+/// kept, asked about — the words left over name which (may be none).
+/// Null when it sets one ("কাল ৯টায় মনে করিয়ে দিও", "মিটিংয়ের রিমাইন্ডার দাও").
+List<String>? reminderQuestionTerms(String said) {
+  final f = fold(normalize(said)).replaceAll(RegExp(r'[?？।!,.]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+  final noun = RegExp(fold(r'(?:রিমাইন্ডার|এলার্ম|অ্যালার্ম|মনে\s+করাবে|মনে\s+করাবা|মনে\s+করাবেন|মনে\s+করানো)')).firstMatch(f);
+  if (noun == null) return null;
+  final asked = said.contains('?') || RegExp(fold(r'(?:^|\s)(?:কি|কী|কোন|কোনো|কোনগুলো|কয়টা|কয়টায়|কটায়|কখন|কবে|কতগুলো|কত)(?:\s|$)')).hasMatch(f);
+  final plural = RegExp(fold(r'(?:গুলো|গুলি|গুলা|সমূহ|লিস্ট|তালিকা|(?:^|\s)সব(?:\s|$)|সবগুলো)')).hasMatch(f);
+  // Setting one: a "do it" verb, or a clock said without asking.
+  if (RegExp(fold(r'(?:মনে\s+করিয়ে|মনে\s+করিও|করিয়ে\s+দিও|দিও|দিয়ো|সেট|বন্ধ|মুছ|বাদ|লাগবে\s+না|যুক্ত|যোগ)')).hasMatch(f)) return null;
+  if (!asked && !plural) return null;
+  if (!asked && RegExp(r'[০-৯0-9]').hasMatch(f)) return null;
+  const skip = ['আমার', 'আজ', 'আজকে', 'আজকের', 'কাল', 'কালকে', 'কালকের', 'সব', 'সবগুলো', 'কি', 'কী', 'কোন', 'কোনো', 'কয়টা', 'কয়টায়', 'কটায়', 'কখন', 'কবে', 'কত', 'কতগুলো', 'আছে', 'দাও', 'দেখাও', 'দেখান', 'বলো', 'বলুন', 'তো', 'একটু', 'ভাই', 'আপু', 'প্লিজ', 'আচ্ছা', 'জি', 'লিস্ট', 'তালিকা', 'দেওয়া', 'রাখা', 'মনে', 'করাবে', 'করাবা', 'করাবেন', 'করানো', 'এর', 'না'];
+  final rest = [
+    for (final w in f.replaceRange(noun.start, noun.end, ' ').split(' '))
+      if (w.isNotEmpty && !skip.map((x) => fold(normalize(x))).contains(w) && !RegExp(fold(r'^(?:রিমাইন্ডার|এলার্ম|অ্যালার্ম)')).hasMatch(w) && !RegExp(fold(r'^(?:গুলো|গুলি|গুলা)$')).hasMatch(w))
+        w.replaceAll(RegExp(fold(r'(?:য়ের|ের|এর|র)$')), '')
+  ];
+  return rest;
 }
 
 /// "৩১ নভেম্বর", "৩০ ফেব্রুয়ারি": a day the month does not have — the
@@ -995,11 +1031,14 @@ class Parser {
     if (bad != null) return AiReply(said, text: bad);
 
     // "কাজের তালিকা দাও/চাচ্ছি": the list, read — nothing written.
-    if (taskListAsked(said)) return TaskQuery(said);
+    // "আজ কী কী কাজ আছে", "কালকের লিস্ট প্লিজ": that list, read with
+    // only its when — never a to-do "about" the asking words.
+    final listScope = listQuestionScope(said);
+    if (listScope != null) return TaskQuery('${listScope.isEmpty ? '' : '$listScope '}${fold('কাজগুলো কী কী?')}'.trim());
 
     // "সব রিমাইন্ডার দাও", "কি কি রিমাইন্ডার দাও", "রিমাইন্ডারগুলো দাও": the
     // ones kept, shown — "দাও" here asks to see, it sets nothing.
-    if (remindersAsked(said)) return ReminderQuery(said, terms: const [], alarmsOnly: RegExp(fold(r'(?:এলার্ম|অ্যালার্ম|alarm)')).hasMatch(fold(text)));
+    if (remindersAsked(said)) return ReminderQuery(said, terms: reminderQuestionTerms(said) ?? const [], alarmsOnly: RegExp(fold(r'(?:এলার্ম|অ্যালার্ম|alarm)')).hasMatch(fold(text)));
 
     // The other menus (menus.dart): accounts, savings, medicines, habits,
     // what to keep in mind, settings… read against the user's own names.
@@ -1070,6 +1109,9 @@ class Parser {
       if (c is LedgerAdd || c is LedgerSet || c is CashAdd || c is ReminderAdd || c is TaskAdd) return c;
     }
 
+    // "ওষুধের কথা আর মনে করিও না": stop that reminder (asked once).
+    final stopOf = reminderStopSubject(said);
+    if (stopOf != null) return ManageItem('$stopOf রিমাইন্ডার বন্ধ করো', action: 'stop');
     // "মুছে দিও না", "রিমাইন্ডার বন্ধ কোরো না": a request in the negative —
     // nothing is done (never read as "মুছে দাও").
     if (!isQuestionText(said) && negatedRequest(text)) return SmallTalk(said, kind: Talk.wontDo);
@@ -2333,7 +2375,7 @@ const _stopWordsRaw = {
   // People said as pronouns:
   'তুমি', 'তোমার', 'তোমাকে', 'আপনি', 'আপনার', 'আপনাকে', 'আমরা', 'আমাদের', 'সে', 'তার', 'তাকে', 'ওর', 'ওকে', 'উনি', 'ওনার',
   // The to-do list itself (asked about through the list, not a search):
-  'কাজ', 'কাজের', 'কাজগুলো', 'কাজগুলি', 'কাজগুলা', 'কাজটা', 'তালিকা', 'তালিকায়', 'লিস্ট', 'লিস্টে', 'বাকি', 'কোনো', 'কয়টা', 'কতগুলো', 'কোনগুলো',
+  'কাজ', 'কাজের', 'কাজগুলো', 'কাজগুলি', 'কাজকর্ম', 'কাজগুলা', 'কাজটা', 'তালিকা', 'তালিকায়', 'লিস্ট', 'লিস্টে', 'বাকি', 'কোনো', 'কয়টা', 'কতগুলো', 'কোনগুলো',
   // Plain verbs of saying, doing and being:
   'করো', 'কর', 'করি', 'করিনি', 'করি নাই', 'বলি', 'বললাম', 'বলছি', 'বলতেছি', 'জিজ্ঞেস', 'চাই', 'যাও', 'যাব', 'দেখি', 'নেই', 'নাই', 'হলো', 'হল',
 };
@@ -2421,14 +2463,56 @@ bool isCancel(String said) {
 /// "আমার কাজের তালিকা দাও", "কাজের তালিকা চাচ্ছি", "তালিকাটা দেখতে চাই",
 /// "আর কী বাকি?", "amar kajer list dao": the to-do list asked to be SEEN.
 /// "দাও/চাই" here never asks to write anything — nor to start dictating.
-bool taskListAsked(String said) {
-  final f = fold(normalize(said)).replaceAll(RegExp(r'[?？।!,.]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
-  final see = r'(?:দাও|দিন|দেন|দেখাও|দেখান|দেখি|দেখাবে|দেখাবা|বলো|বলুন|শোনাও|চাই|চাচ্ছি|চাইছি|চাইতেছি|দেখতে\s+চাই|দেখতে\s+চাচ্ছি|দেখব|দেখবো|পাঠাও|খোলো\s+তো)';
-  final list = r'(?:কাজের\s+(?:তালিকা|লিস্ট)(?:টা|টি)?|কাজগুলো|কাজগুলা|কাজগুলি|সব\s+কাজ|তালিকা|তালিকাটা|তালিকাটি|লিস্ট|লিস্টটা|টু\s*ডু(?:\s+লিস্ট)?)';
-  if (RegExp(fold('^(?:আমার\\s+|আমাদের\\s+)?(?:সব\\s+|পুরো\\s+|বাকি\\s+)?$list\\s+(?:একটু\\s+)?$see(?:\\s+তো)?\$')).hasMatch(f)) return true;
-  if (RegExp(fold(r'^(?:আর\s+)?(?:কী|কি)\s+(?:কী|কি)?\s*(?:কাজ\s+)?বাকি(?:\s+আছে)?$')).hasMatch(f)) return true;
-  final latin = said.toLowerCase().replaceAll(RegExp(r'[?।!,.]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
-  return RegExp(r'^(?:amar\s+)?(?:sob\s+)?(?:kajer\s+)?(?:list|talika|todo)(?:\s*ta)?\s+(?:dao|dekhao|chai|den|din)$').hasMatch(latin);
+bool taskListAsked(String said) => listQuestionScope(said) != null;
+
+/// The to-do list asked to be SEEN, in any of the ways people ask — "আমার
+/// কাজের তালিকা দাও", "আজ কী কী কাজ আছে", "কালকের লিস্ট প্লিজ", "আর কী
+/// বাকি?", "কতগুলো কাজ জমে আছে", "এই মাসের কাজ দাও", "জুন ২০২৯ এর কাজ":
+/// every word is a list word, a when, a word of asking or a filler —
+/// nothing names a to-do and nothing asks to change one. Returns the when
+/// part ("আজকের", "জুন ২০২৯", '' for all), or null when it is not that.
+String? listQuestionScope(String said) {
+  var f = fold(normalize(said)).replaceAll(RegExp(r'[?？।!,.:;\-–—]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (f.isEmpty) return null;
+  final ws = f.split(' ');
+  Set<String> set(List<String> xs) => {for (final x in xs) fold(normalize(x))};
+  final nouns = set(['কাজ', 'কাজের', 'কাজগুলো', 'কাজগুলি', 'কাজসমূহ', 'কাজগুলোর', 'তালিকা', 'তালিকাটা', 'তালিকাটি', 'তালিকায়', 'লিস্ট', 'লিস্টটা', 'লিস্টে', 'টুডু', 'টু', 'ডু', 'টাস্ক', 'টাস্কগুলো', 'todo', 'প্ল্যান', 'পরিকল্পনা']);
+  final asks = set(['দাও', 'দিন', 'দেন', 'দেখাও', 'দেখান', 'দেখি', 'দেখাবে', 'দেখাবা', 'বলো', 'বলুন', 'বলবে', 'বলবা', 'বলবেন', 'শোনাও', 'শোনান', 'চাই', 'চাচ্ছি', 'চাইছি', 'চাইতেছি', 'দেখতে', 'দেখব', 'দেখবো', 'পাঠাও',
+    'কি', 'কী', 'কোন', 'কোনো', 'কোনগুলো', 'কয়টা', 'কয়টি', 'কতগুলো', 'কতগুলা', 'কত', 'আছে', 'বাকি', 'জমে', 'রয়েছে', 'করতে', 'হবে', 'করার', 'কথা', 'ছিল', 'আছে?', 'লাগবে', 'হয়নি', 'হয়নি', 'হয়নাই']);
+  final fill = set(['আমার', 'আমাদের', 'ভাই', 'আপু', 'একটু', 'প্লিজ', 'please', 'শোনো', 'আচ্ছা', 'জি', 'তো', 'না', 'সব', 'সবগুলো', 'পুরো', 'গুলো', 'এখন', 'বর্তমানে', 'যেসব', 'সেগুলো', 'যা', 'এখনো', 'এখনও', 'আর', 'এ', 'এই', 'এর', 'সে', 'পেন্ডিং', 'অসমাপ্ত', 'বাকি', 'সারাদিনে', 'সারাদিনের', 'দিনের', 'হাতে', 'আমি', 'রেখেছিলাম', 'বলে']);
+  final whenWord = RegExp(fold('^(?:আজ|আজকে|আজকের|কাল|কালকে|কালকের|আগামীকাল|আগামীকালের|আগামী|পরশু|পরশুর|সপ্তাহ\\S*|মাস\\S*|বছর\\S*|সাল\\S*|তারিখ\\S*|সামনের|পরের|গত|${bnMonths.join('|')})\\S{0,3}\$|^[০-৯0-9]{1,4}\$|^(?:শনি|রবি|সোম|মঙ্গল|বুধ|বৃহস্পতি|শুক্র)বার\\S*\$'));
+  final change = RegExp(fold(r'(?:রাখো|রাখ|রেখো|যোগ|যুক্ত|লিখে|লেখো|লিখো|মুছ|বাদ|ডিলিট|শেষ\s+কর|করেছি|হয়ে\s+গেছে|সরাও|সরিয়ে|রিমাইন্ডার|মনে\s+কর|অ্যালার্ম|এলার্ম|টাকা)'));
+  if (change.hasMatch(f)) return null;
+  var noun = false, ask = false;
+  final when = <String>[];
+  for (final w in ws) {
+    // "কাজগুলো", "কাজটাজ": the list noun with its endings.
+    if (nouns.contains(w) || RegExp(fold(r'^(?:কাজ|তালিকা|লিস্ট|টাস্ক)(?:গুলো|গুলি|গুলা|সমূহ|টা|টি|ের|এর)?$')).hasMatch(w)) {
+      noun = true;
+    } else if (whenWord.hasMatch(w)) {
+      // "এই মাসের", "গত সপ্তাহের": the word before it belongs to the when.
+      final i = ws.indexOf(w);
+      if (i > 0 && RegExp(fold(r'^(?:এই|এ|গত|আগামী|সামনের|পরের)$')).hasMatch(ws[i - 1]) && (when.isEmpty || when.last != ws[i - 1])) when.add(ws[i - 1]);
+      when.add(w);
+    } else if (asks.contains(w)) {
+      ask = true;
+    } else if (!fill.contains(w)) {
+      return null;
+    }
+  }
+  // "আর কী বাকি?", "বাকি কী আছে": the list without the word for it.
+  final leftAsked = !noun && RegExp(fold(r'(?:^|\s)বাকি(?:\s|$)')).hasMatch(f) && RegExp(fold(r'(?:^|\s)(?:কী|কি)(?:\s|$)')).hasMatch(f);
+  // "কি কি করার কথা ছিল", "আমি কী কী করব বলে রেখেছিলাম": what I am to do.
+  final doAsked = !noun && RegExp(fold(r'(?:^|\s)(?:কী|কি)(?:\s|$)')).hasMatch(f) && RegExp(fold(r'(?:^|\s)(?:করব|করবো|করার|করতে)(?:\s|$)')).hasMatch(f) && RegExp(fold(r'(?:রেখেছিলাম|কথা\s+ছিল|হবে|আছে|লাগবে|বাকি)')).hasMatch(f);
+  if (!noun && !leftAsked && !doAsked) return null;
+  // A bare heading ("আজকের কাজের তালিকা", "নতুন টু ডু লিস্ট") is dictation,
+  // not a question. Anything else naming the to-dos is asking for them:
+  // "কালকের লিস্ট", "জুন ২০২৯ এর কাজ", "আজকের দিনের কাজগুলো".
+  final heading = RegExp(fold(r'(?:কাজের|টু\s+ডু|টুডু|todo)\s+(?:তালিকা|লিস্ট)')).hasMatch(f) && !ws.contains(fold('আমার'));
+  if (!ask && !leftAsked && !doAsked && heading) {
+    if (!RegExp(fold(r'(?:^|\s)(?:প্লিজ|please|তো)(?:\s|$)')).hasMatch(f)) return null;
+  }
+  return when.join(' ');
 }
 
 /// "নতুন কয়েকটা কাজ বলব, তালিকায় যোগ করো", "একটা একটা করে কাজ লিখে
