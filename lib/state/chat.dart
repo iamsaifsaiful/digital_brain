@@ -704,6 +704,8 @@ class ChatController extends ChangeNotifier {
     if (n.isEmpty) return false;
     // Left open: "…আর", "…তারপর", "খরচ হচ্ছে কোন" (কোন what?).
     if (RegExp(fold(r'(?:^|\s)(?:আর|এবং|তারপর|তার পর|এরপর|এর পর|আরও|আরো|মানে|যেমন|কিন্তু|যে|কোন|কোনো|কোনটা|যদি|তাহলে|নাকি|অথবা|বা)$')).hasMatch(n)) return false;
+    // "কাজের তালিকা দাও" is whole; "আজকের কাজের তালিকা" (a heading) waits.
+    if (taskListAsked(t)) return true;
     if (const ['তালিকা', 'লিস্ট', 'list'].any((w) => n.contains(normalize(w)))) return false;
     final c = parseAll(t, brain.data.ledger, tasks: brain.data.tasks, contacts: brain.data.contacts, folders: brain.folderHints, now: _now, data: brain.data);
     return c.isNotEmpty && c.every((x) => x is! NotUnderstood && x is! SearchQuery && !(x is NoteAdd && x.fromStatement));
@@ -773,6 +775,14 @@ class ChatController extends ChangeNotifier {
       _say(out, tr('ঠিক আছে, থামলাম। দরকার হলে মাইক চাপবেন।'));
       notifyListeners();
       return out.join(' ');
+    }
+    // "কাজের তালিকা দাও" while something waits for a yes (a removal, a
+    // save): a new question, never a yes — the waiting one is set aside,
+    // unchanged, and the list is shown. (Dictation pauses on its own.)
+    if (taskListAsked(t) && wait != ChatWait.none && wait != ChatWait.collect) {
+      final removal = wait == ChatWait.bulk;
+      _dropPending();
+      if (removal) messages.add(ChatMessage.app(tr('মোছার প্রশ্নটা বাদ দিলাম — কিছু মোছা হয়নি।'), info: true));
     }
     // "রিমাইন্ডার লিখে রাখো", "না, কাজের তালিকায় রাখো": about the previous
     // message, which is kept that way instead.

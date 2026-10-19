@@ -513,6 +513,15 @@ extension _BulkChat on ChatController {
     if (again != null && again.isNotEmpty) {
       final s = again.first.selection;
       final narrowing = s.kind == SelKind.all && s.hasExcept && again.first.op == 'show';
+      // "তালিকা দাও" while a removal waits: to see — never a removal of
+      // everything waiting. The question is set aside, nothing removed.
+      if (again.first.op == 'show' && !narrowing && s.kind == SelKind.all) {
+        _pendingBulk = null;
+        wait = ChatWait.none;
+        choices = const [];
+        messages.add(ChatMessage.app(tr('মোছার প্রশ্নটা বাদ দিলাম — কিছু মোছা হয়নি।'), info: true));
+        return false;
+      }
       if (narrowing || again.first.op == 'delete' || again.first.op == 'show') {
         final sel = narrowing ? null : s;
         final List<String> ids;

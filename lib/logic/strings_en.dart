@@ -785,6 +785,7 @@ const enStrings = <String, String>{
   'ঠিক আছে, লেখা {0}টা বাদ দিলাম — আগে রাখা কাজগুলো যেমন ছিল আছে।': 'All right, dropped the {0} written — the to-dos kept before are as they were.',
   'এখন কিছু করছি না — আপনার কথার অপেক্ষায় আছি। কাজ দেখতে বলুন “আমার কাজের তালিকা দাও”; নতুন কাজ রাখতে “কাল ব্যাংকে যাব, তালিকায় রাখো”; টাকার হিসাব জানতে “এই মাসে কত খরচ হলো?”।': "I'm not doing anything now — waiting for you. To see to-dos say “my to-do list”; to keep one, “I'll go to the bank tomorrow, put it on the list”; for money, “how much did I spend this month?”.",
   'এখন আপনার বলা কাজগুলো একটা একটা করে লিখছিলাম।': 'I was writing down the to-dos you said, one by one.',
+  'মোছার প্রশ্নটা বাদ দিলাম — কিছু মোছা হয়নি।': 'Set the removal question aside — nothing was removed.',
   'আচ্ছা, কিছুই রাখলাম না।': 'OK, I didn\'t save anything.',
   'হ্যাঁ, প্রতিদিন {0}-এ রাখা আছে।': 'Yes, it is set for {0} every day.',
   'হ্যাঁ, {0}-এ রাখা আছে।': 'Yes, it is set for {0}.',

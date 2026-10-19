@@ -2421,7 +2421,7 @@ bool isCancel(String said) {
 bool taskListAsked(String said) {
   final f = fold(normalize(said)).replaceAll(RegExp(r'[?？।!,.]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
   final see = r'(?:দাও|দিন|দেন|দেখাও|দেখান|দেখি|দেখাবে|দেখাবা|বলো|বলুন|শোনাও|চাই|চাচ্ছি|চাইছি|চাইতেছি|দেখতে\s+চাই|দেখতে\s+চাচ্ছি|দেখব|দেখবো|পাঠাও|খোলো\s+তো)';
-  final list = r'(?:কাজের\s+(?:তালিকা|লিস্ট)(?:টা|টি)?|কাজগুলো|কাজগুলা|কাজগুলি|সব\s+কাজ|তালিকাটা|তালিকাটি|লিস্টটা|টু\s*ডু(?:\s+লিস্ট)?)';
+  final list = r'(?:কাজের\s+(?:তালিকা|লিস্ট)(?:টা|টি)?|কাজগুলো|কাজগুলা|কাজগুলি|সব\s+কাজ|তালিকা|তালিকাটা|তালিকাটি|লিস্ট|লিস্টটা|টু\s*ডু(?:\s+লিস্ট)?)';
   if (RegExp(fold('^(?:আমার\\s+|আমাদের\\s+)?(?:সব\\s+|পুরো\\s+|বাকি\\s+)?$list\\s+(?:একটু\\s+)?$see(?:\\s+তো)?\$')).hasMatch(f)) return true;
   if (RegExp(fold(r'^(?:আর\s+)?(?:কী|কি)\s+(?:কী|কি)?\s*(?:কাজ\s+)?বাকি(?:\s+আছে)?$')).hasMatch(f)) return true;
   final latin = said.toLowerCase().replaceAll(RegExp(r'[?।!,.]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
