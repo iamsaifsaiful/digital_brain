@@ -3443,7 +3443,9 @@ class ChatController extends ChangeNotifier {
         // and "আগের দিন" have their own rules.
         final plain = nm != null && (RegExp(fold(r'(?:কাজ|কাজের|কাজটার|কাজটির|কাজটায়|কাজে)\s+(?:একটা\s+)?(?:রিমাইন্ডার|এলার্ম|অ্যালার্ম)')).hasMatch(f) ||
             RegExp(fold(r'^\S*\s*(?:একটা\s+)?(?:চাই|দাও|দিও|দেন|দিন|দরকার|লাগবে|সেট\s+করো|সেট\s+কর|যুক্ত\s+করো|যুক্ত\s+কর|দিয়ে\s+দাও)?\s*$')).hasMatch(f.substring(nm.end)));
-        final named = nm == null || !plain ? null : _openTaskNamed(nm[1]!);
+        // A day or a time inside the name ("আজ সকাল ৮টায় ব্যাংকে…") is a
+        // reminder of its own, not the to-do's.
+        final named = nm == null || !plain || parseWhen(nm[1]!, _now) != null ? null : _openTaskNamed(nm[1]!);
         if (named == null) return false;
         targets = [named];
       }
