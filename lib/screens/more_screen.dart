@@ -31,7 +31,7 @@ import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '2.37.0';
+const appVersion = '2.37.1';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
