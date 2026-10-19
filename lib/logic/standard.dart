@@ -74,6 +74,9 @@ String standardSpeech(String said) {
     }
     out.write(p);
   }
+  // "তালিকা থেকে সরিয়ে দাও": off the list is removing it ("সরাও" alone
+  // may mean another day).
+  final off = out.toString().replaceAllMapped(RegExp(r'(তালিকা|লিস্ট)\s+থেকে\s+(?:সরিয়ে\s+(?:দাও|দিন|দেন|ফেলো)|সরাও|সরান|উঠিয়ে\s+দাও|তুলে\s+দাও|কেটে\s+দাও)'), (m) => '${m[1]} থেকে মুছে দাও');
   // "কাজ টা", "রিমাইন্ডার গুলো": the ending joined to its word.
-  return out.toString().replaceAllMapped(RegExp(r'(\S)\s+(টা|টি|গুলো)(?=$|[\s,।?!])'), (m) => '${m[1]}${m[2]}');
+  return off.replaceAllMapped(RegExp(r'(\S)\s+(টা|টি|গুলো)(?=$|[\s,।?!])'), (m) => '${m[1]}${m[2]}');
 }

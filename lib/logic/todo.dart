@@ -976,7 +976,7 @@ Command? _tdOne(String said0, List<Task> tasks, DateTime now) {
 
   // "কাল ব্যাংকে যেতে হবে না", "আজ আর অফিসে যাব না": not something to do.
   // About a to-do on the list, the person is asked what to do with it.
-  if (_thas(f, r'(?<=\s)\S+(?:বো|ব|মু|তে\s+হবে|তে\s+লাগবে)\s+(?:না|নাই|নি)(?=\s)') && !_tdAsks(said, f)) {
+  if (_thas(f, r'(?<=\s)\S+(?:বো|ব|মু|তে\s+হবে|তে\s+লাগবে)\s+(?:না|নাই|নি)(?=\s)') && !_tdAsks(said, f) && !reminderStopAsked(said)) {
     final ref = _tdRef(f, said);
     final hit = ref.terms.isEmpty ? const <Task>[] : tdMatch(open, ref.terms);
     if (hit.length == 1) {

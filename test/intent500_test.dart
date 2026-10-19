@@ -553,7 +553,8 @@ void main() {
         final w = chat.wait;
         if (intent == 'none' || intent == 'alarmq' || intent == 'list' || intent == 'listday' || intent == 'remq') break;
         if (w == ChatWait.reminderTime || w == ChatWait.taskTime || w == ChatWait.batchTime) {
-          await chat.hear('সকাল ৯টায়');
+          // Later today, so a to-do due today can still be reminded.
+          await chat.hear('সন্ধ্যা ৭টায়');
         } else if (w == ChatWait.clarify || w == ChatWait.whichTask || w == ChatWait.whichItem) {
           await chat.hear('১');
         } else if (w == ChatWait.reminderTitle) {

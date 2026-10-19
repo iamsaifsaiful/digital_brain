@@ -45,6 +45,13 @@ List<Command> parseAll(String said, List<LedgerEntry> ledger,
   }
   // Only a loose note (a "new category") or nothing understood, but the
   // words are about the to-do list: finished, removed, or a plan to keep.
+  // "রিপোর্ট জমা কবে দিতে হবে?": when a to-do on the list is due — not
+  // money owed, though it says "দিতে হবে".
+  if (out.length == 1 && (out.first is NotUnderstood || out.first is SearchQuery || (out.first is LedgerQuery && (out.first as LedgerQuery).person == null)) &&
+      RegExp(fold(r'(?:^|\s)(?:কবে|কোন\s+দিন|কোন\s+তারিখে|কত\s+তারিখে)(?:\s|$|[?？])')).hasMatch(fold(normalize(said)))) {
+    final hit = namedOpenTasks(said, tasks);
+    if (hit.length == 1) return [TaskQuery('${hit.single.title} কাজ কবে?')];
+  }
   // A "লিখে রাখো" note that names a day and a doing ("কালকে ডাক্তারের
   // কাছে যাওয়া লিখে রাখো") is a plan — a to-do, unless a note was named.
   final datedPlan = out.length == 1 && out.first is NoteAdd && !(out.first as NoteAdd).fromStatement && !RegExp(fold(r'(?:নোট|নোটে|নোটস)')).hasMatch(fold(normalize(said))) && (parseWhen(tidySpeech(said), now ?? DateTime.now())?.hasDay ?? false);
@@ -730,16 +737,20 @@ List<Command>? datedTodos(String said, Parser p) {
 /// removed — asked first), "চুল কাটানো কাজে রাখো", "ডিসেম্বর মাসে ভিসার
 /// কাজ", "কালকে ডাক্তারের কাছে যাওয়া লিখে রাখো" (one to keep). A finished
 /// or removed one must name a kept to-do by a word of its own.
+/// Open to-dos one of whose own (not generic) words [said] names.
+List<Task> namedOpenTasks(String said, List<Task> tasks) {
+  // Generic words never pick a to-do on their own.
+  const generic = ['কাজ', 'কাজটা', 'কাজটি', 'করা', 'যাওয়া', 'দেওয়া', 'নেওয়া', 'আনা', 'কেনা', 'তালিকা', 'তালিকায়', 'লিস্ট', 'থেকে', 'আমার', 'কবে', 'হবে', 'দিতে', 'করতে', 'যেতে'];
+  final ws = [for (final w in words(normalize(said))) if (w.runes.length > 1 && !generic.map(normalize).contains(w)) w.replaceAll(RegExp(fold(r'(?:টা|টি|য়ের|ের|এর|র|কে)$')), '')];
+  final open = [for (final t in tasks) if (!t.done) t];
+  return [for (final t in open) if (words(normalize(t.title)).where((x) => !generic.map(normalize).contains(x)).any((x) => ws.any((w) => w.length > 1 && (x.startsWith(w) || w.startsWith(x))))) t];
+}
+
 Command? todoIntentOf(String said, List<Task> tasks, DateTime now, List<LedgerEntry> ledger) {
   final f = ' ${fold(normalize(said)).replaceAll(RegExp(r'[।,!?]'), ' ')} ';
-  // Generic words never pick a to-do on their own.
-  const generic = ['কাজ', 'কাজটা', 'কাজটি', 'করা', 'যাওয়া', 'দেওয়া', 'নেওয়া', 'আনা', 'কেনা', 'তালিকা', 'তালিকায়', 'লিস্ট', 'থেকে', 'আমার'];
-  List<Task> named() {
-    final ws = [for (final w in words(normalize(said))) if (w.runes.length > 1 && !generic.map(normalize).contains(w)) w.replaceAll(RegExp(fold(r'(?:টা|টি|য়ের|ের|এর|র|কে)$')), '')];
-    final open = [for (final t in tasks) if (!t.done) t];
-    final hits = [for (final t in open) if (words(normalize(t.title)).where((x) => !generic.map(normalize).contains(x)).any((x) => ws.any((w) => w.length > 1 && (x.startsWith(w) || w.startsWith(x))))) t];
-    return hits;
-  }
+  List<Task> named() => namedOpenTasks(said, tasks);
+  // "এভাবে হবে না", "কাল যেতে হবে না": said in the negative — nothing to keep.
+  final negative = RegExp(fold(r'(?:^|\s)(?:না|নাই|নি)\s*$')).hasMatch(f.trim());
   final done = RegExp(fold(r'(?:হয়ে\s+গেছে|হয়েছে|শেষ(?:\s+হয়েছে|\s+করেছি)?|ডান|done|ফেলেছি|সেরেছি|করেছি)\s*$')).hasMatch(f.trim());
   if (done) {
     final h = named();
@@ -758,7 +769,7 @@ Command? todoIntentOf(String said, List<Task> tasks, DateTime now, List<LedgerEn
   // A doing word last ("যাওয়া", "কাটানো", "কেনা") — not just any "…টা".
   final last = fold(normalize(body.trim())).split(' ').last;
   final action = (RegExp(fold(r'(?:ওয়া|নো|কেনা|করা|আনা|দেখা|ধরা|পড়া|জমা|বলা|ফেরা|তোলা|খোঁজা|পাঠানো|ভরা|বানা)$')).hasMatch(last) && !RegExp(fold(r'(?:টা|টি)$')).hasMatch(last)) || (parseWhen(tidySpeech(body), now)?.hasDay ?? false);
-  if (keep && !remove && !done && (!onlyWrite || action)) {
+  if (keep && !negative && !remove && !done && (!onlyWrite || action)) {
     final p = Parser(ledger: ledger, tasks: tasks, now: now);
     final c = p.parse('$body — কাজের তালিকায় লিখে রাখো');
     if (c is TaskAdd && c.title.trim().isNotEmpty) return c;
