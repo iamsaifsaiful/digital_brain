@@ -202,6 +202,9 @@ extension _BulkChat on ChatController {
   /// Handles "এগুলো সব …" when a list was shown (or the whole list was
   /// named). False when [t] is not about several items of a list.
   Future<bool> _bulk(String t, List<String> out) async {
+    // "শুধু পাওনাগুলো দাও, দেনা বাদ": a list to see — "বাদ" leaves a side
+    // out of the answer, it removes nothing.
+    if (oneSideAsked(t) != null) return false;
     // "৩০ অক্টোবর এবং ৩১ ডিসেম্বরের রিমাইন্ডার বাদ দাও": those days' items,
     // as one group — asked once.
     final dated = datedBulk(tidySpeech(t), _now);
@@ -617,24 +620,32 @@ extension _BulkChat on ChatController {
             links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
       case ('tasks', 'move'):
         var repeating = 0;
+        (DateTime, TaskSpan)? movedTo;
         await each((id) async {
           final t = _taskById(id)!;
           if (t.repeat != null) {
             repeating++;
             return false;
           }
+          // "এগুলো জুন মাসে" with no year: each in its own year's June
+          // ("২০৪১ সালের মে" → জুন ২০৪১), never pulled to this year.
+          var due = c.due!;
+          if (c.span == TaskSpan.month && !c.yearSaid && t.due != null && t.due!.year > due.year) {
+            due = DateTime(t.due!.year, due.month);
+          }
           // Already on that day (a retry): not changed again.
-          if (t.due != null && t.span == TaskSpan.day && dayOnly(t.due!) == c.due) return false;
-          await brain.saveTask(t.copyWith(due: c.due));
+          if (t.due != null && t.span == c.span && dayOnly(t.due!) == due) return false;
+          await brain.saveTask(t.copyWith(due: due, span: c.span));
+          movedTo = (due, c.span);
           // Its reminder goes with it — no alarm left on the old day.
           final rid = t.reminderId;
           final r = rid == null ? null : d.reminders.where((x) => x.id == rid).firstOrNull;
-          if (r != null && r.repeat == Repeat.none) await brain.saveReminder(r.copyWith(date: c.due));
+          if (r != null && r.repeat == Repeat.none && c.span == TaskSpan.day) await brain.saveReminder(r.copyWith(date: c.due));
           return true;
         });
         _say(
             out,
-            _outcome(trf('{0}টা {1} {2} রেখেছি', [bnDigits(ok), noun, sayWhen(c.due!, _now, withTime: false)]), ok, ids.length - repeating, failed, skipped) +
+            _outcome(trf('{0}টা {1} {2} রেখেছি', [bnDigits(ok), noun, c.span == TaskSpan.month ? trf('{0} {1}-এর যেকোনো সময়', [bnMonths[(movedTo?.$1 ?? c.due!).month - 1], bnDigits((movedTo?.$1 ?? c.due!).year)]) : sayWhen(c.due!, _now, withTime: false)]), ok, ids.length - repeating, failed, skipped) +
                 (repeating > 0 ? trf(' {0}টা নিয়মিত কাজ আগের নিয়মেই থাকল।', [bnDigits(repeating)]) : ''),
             links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
       case ('tasks', 'remind'):
@@ -1062,6 +1073,20 @@ extension _BulkChat on ChatController {
       }
       await _openAccount(name, out);
       return true;
+    }
+    // "অন্যান্য হিসাবে শিক্ষার্থীদের বেতনের একটা হিসাব খোলো": that account.
+    final make = RegExp(fold(r'^(?:(?:অন্যান্য|আলাদা)\s+হিস(?:া|ে)ব(?:ে|ের\s+(?:মধ্যে|ভেতরে|ভিতরে))?\s+)?(.+?)\s+(?:(?:একটি|একটা|নতুন|আলাদা)\s+)*(?:হিসাব|হিসেব|অ্যাকাউন্ট|খাতা)\s+(?:খোলো|খুলো|খুলে\s+দাও|খুলে\s+দিন|খুলুন|খোল|বানাও|বানিয়ে\s+দাও|তৈরি\s+করো|তৈরি\s+করে\s+দাও|চালু\s+করো)$')).firstMatch(f);
+    if (make != null) {
+      final name = clean(make[1]!);
+      if (ok(name) && name.split(' ').length <= 4) {
+        final known = projectByName(brain.data, name) ?? projectMeant(brain.data, name);
+        if (known != null) {
+          _say(out, trf('‘{0}’ নামে হিসাব আগেই খোলা আছে — অন্যান্য হিসাবে পাবেন।', [known.name]), links: [ChatLink(LinkKind.page, tr('অন্যান্য হিসাব'), page: 'projects')]);
+          return true;
+        }
+        await _openAccount(name, out);
+        return true;
+      }
     }
     // "<X>-এর হিসাব রাখো নাই?" — none yet: offered; one there: shown.
     final ask = RegExp(fold(r'^(.+?)\s+(?:হিসাব|হিসেব)(?:টা|টি)?\s+(?:রাখো\s*(?:নাই|নেই|নি|না)|রাখোনি|রাখোনাই|রাখোনেই|রাখ\s*(?:নাই|নেই)|রাখছ\s*না|নাই|নেই|আছে\s*(?:কি|কিনা)?|কোথায়|কই)$')).firstMatch(f);

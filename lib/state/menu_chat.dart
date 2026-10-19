@@ -235,6 +235,24 @@ extension _MenuChat on ChatController {
         }
         _rememberSet('habits', tr('আজকের'), [for (final h in d.habits) h.id], source: c.transcript);
         _say(out, trf('{0}টা অভ্যাস:', [bnDigits(d.habits.length)]), facts: [for (final h in d.habits) '${h.name} — ${h.doneOn(_now) ? tr('আজ হয়েছে') : tr('আজ বাকি')}'], links: _pageLink('habits'));
+      case ('notes', 'read'):
+        // By its words (title first); none said — the newest. Read as data.
+        final ws = words(normalize(c.text)).where((x) => x.runes.length > 1).toList();
+        int score(Note n) {
+          final t = words(normalize(n.title)).toSet(), b = normalize(n.body);
+          return ws.fold(0, (s, w) => s + (t.any((x) => x.startsWith(w) || w.startsWith(x)) ? 3 : (b.contains(w) ? 1 : 0)));
+        }
+        final ranked = [...d.notes]..sort((a, b) {
+            final r = score(b).compareTo(score(a));
+            return r != 0 ? r : b.updatedAt.compareTo(a.updatedAt);
+          });
+        final n = ranked.isEmpty || (ws.isNotEmpty && score(ranked.first) == 0) ? null : ranked.first;
+        if (n == null) {
+          _say(out, ws.isEmpty ? tr('কোনো নোট নেই।') : trf('“{0}”-এর কোনো নোট নেই।', [c.text]), links: [ChatLink(LinkKind.notes, tr('নোট দেখুন'))]);
+          return;
+        }
+        _rememberSet('notes', '', [n.id], source: c.transcript);
+        _say(out, trf('নোটে লেখা আছে: {0}', [noteLine(n)]), links: [ChatLink(LinkKind.notes, tr('নোট দেখুন'))]);
       case ('notes', 'list'):
         final w = fold(c.text.replaceAll(RegExp(fold(r'(?:ের|এর|র)$')), ''));
         final list = [for (final n in d.notes) if (w.isEmpty || fold(n.category).contains(w) || fold('${n.title} ${n.body}').contains(w)) n]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));

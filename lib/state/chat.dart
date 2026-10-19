@@ -398,6 +398,9 @@ class ChatController extends ChangeNotifier {
   /// The last money list asked for, so "আর গত মাসে?" or "শুধু খরচ" follows it.
   MoneyListQuery? _focusMoney;
 
+  /// The separate account (অন্যান্য হিসাব) just shown or written to.
+  (String, DateTime)? _focusProject;
+
   void _focusOn({String person = '', bool cash = false}) {
     _focusPerson = person;
     _focusCash = cash;
@@ -818,6 +821,10 @@ class ChatController extends ChangeNotifier {
     if (await _voiceUndo(t, out)) {
       _dropPending();
       wait = ChatWait.none;
+      notifyListeners();
+      return out.join(' ');
+    }
+    if (wait == ChatWait.none && _envelopeLeft(t, out)) {
       notifyListeners();
       return out.join(' ');
     }
@@ -1433,7 +1440,12 @@ class ChatController extends ChangeNotifier {
       final facts = c is TaskQuery && _shownTasks.length > 1 ? [for (final id in _shownTasks.take(30)) ..._maybe(id).map((t) => taskLine(t, _now))] : const <String>[];
       _say(out, text, vault: _vaultFor(c), links: _linksFor(c), facts: facts);
       if (c is LedgerQuery && c.ask == LedgerAsk.person && c.person != null) _focusOn(person: c.person!);
-      if (c is CashQuery) _focusOn(cash: true);
+      if (c is CashQuery) {
+        _focusOn(cash: true);
+        // "বাড়ি মেরামতের হিসাব দেখাও": "এই কাজে …" next is about that account.
+        final pr = c.project != null ? projectByName(brain.data, c.project!) : projectMeant(brain.data, c.transcript);
+        if (pr != null) _focusProject = (pr.name, _now);
+      }
       // Money answers are kept in the AI's view of the conversation so a
       // follow-up ("তাহলে সব মিলিয়ে কত?") makes sense; saved notes, tasks
       // and logins are not.
@@ -1755,7 +1767,17 @@ class ChatController extends ChangeNotifier {
         final before = RegExp(fold(r'(?:^|\s)(?:আগের\s+দিন|এক\s+দিন\s+আগে|একদিন\s+আগে|১\s*দিন\s+আগে|আগের\s+রাতে)(?:ই)?(?=\s|$)'));
         final dayBefore = before.hasMatch(fold(normalize(c.transcript)));
         final title0 = dayBefore ? fold(normalize(c.title)).replaceAll(before, ' ').replaceAll(RegExp(r'\s+'), ' ').trim() : c.title;
-        final named = c.alarm || c.repeat != Repeat.none || c.needsTitle ? null : _openTaskNamed(title0);
+        // "ওই কাজের আগের দিন মনে করিয়ে দিও": the to-do just shown or kept.
+        final pointsBack = RegExp(fold(r'^(?:(?:ওই|এই|সেই|ঐ|ওটার|এটার|সেটার)\s*)?(?:কাজ(?:ের|টার|টির|টা|টি)?)?$')).hasMatch(title0.trim()) && title0.trim().isNotEmpty;
+        final focused = pointsBack && _focusTaskFresh && _focusTaskId != null ? _taskById(_focusTaskId!) : null;
+        final named = c.alarm || c.repeat != Repeat.none || c.needsTitle ? null : (focused ?? _openTaskNamed(title0));
+        if (named != null && named.due != null && named.span == TaskSpan.day && dayBefore && c.needsTime) {
+          // The day before its own day; the hour is asked. The to-do stays on its day.
+          _current = null;
+          final d = dayOnly(named.due!).subtract(const Duration(days: 1));
+          await _todo(TaskEdit(c.transcript, ref: TaskRef(ids: [named.id]), remindNeedsTime: true, due: d), out);
+          return;
+        }
         if (named != null && named.due != null && named.span == TaskSpan.day && dayBefore && !c.needsTime) {
           _current = null;
           final d = dayOnly(named.due!).subtract(const Duration(days: 1));
@@ -1824,6 +1846,13 @@ class ChatController extends ChangeNotifier {
         if (c.amount <= 0) {
           _ask(out, tr('কত টাকা?'), ChatWait.amount);
           return;
+        }
+        // "এই কাজে আরও ১৫০০০ টাকা পেয়েছি" right after that account was shown:
+        // into it, not the monthly income.
+        final fp = _focusProject;
+        if (c.project == null && fp != null && _now.difference(fp.$2).inMinutes <= 20 && projectByName(brain.data, fp.$1) != null &&
+            RegExp(fold(r'(?:^|\s)(?:এই|এ|ওই|সেই|ঐ)\s+(?:কাজে|কাজের|হিসাবে|হিসেবে|হিসাবের|প্রজেক্টে|প্রকল্পে|খাতে)|(?:^|\s)(?:এখানে|এতে|এটাতে|ওখানে|সেখানে)(?:\s|$)')).hasMatch(fold(normalize(c.transcript)))) {
+          return _start(CashAdd(c.transcript, kind: c.kind, amount: c.amount, category: c.category, project: fp.$1), out);
         }
         if (c.project != null && c.project!.trim().isEmpty) {
           // Which account (folder) is always asked; a new name opens a new one.
@@ -2190,7 +2219,14 @@ class ChatController extends ChangeNotifier {
 
   bool _looksNew(String t) {
     final n = words(normalize(t)).length;
-    return n >= 4 || (n >= 2 && isQuestionText(t) && yesNo(t) == null) || infoTopic(normalize(t)) != null;
+    return n >= 4 || (n >= 2 && isQuestionText(t) && yesNo(t) == null) || infoTopic(normalize(t)) != null || (n >= 2 && _asksOwnData(t));
+  }
+
+  /// "আজকের খরচ দাও", "কাজের তালিকা দাও": a question about the app's own
+  /// records — never a name or an answer to what was asked before.
+  bool _asksOwnData(String t) {
+    final cmds = parseAll(t, brain.data.ledger, tasks: brain.data.tasks, now: _now, data: brain.data);
+    return cmds.length == 1 && (cmds.single is CashQuery || cmds.single is LedgerQuery || cmds.single is ReminderQuery || cmds.single is TaskQuery || cmds.single is Briefing || cmds.single is MoneyListQuery || cmds.single is HealthQuery || (cmds.single is MenuAction && (const {'list', 'show', 'read', 'today', 'total', 'report'}.contains((cmds.single as MenuAction).op) || ((cmds.single as MenuAction).domain == 'cash' && const {'spend', 'income', 'net'}.contains((cmds.single as MenuAction).op)))));
   }
 
   String _reminderTitle(String title, Repeat repeat) {
@@ -2434,8 +2470,10 @@ class ChatController extends ChangeNotifier {
         }
         // "না, সাতশ" / "পাঁচশ না, সাতশ": not a no — the amount corrected; ask again.
         final cur = _current;
-        final fixed = _correctedAmount(t);
-        if (!refused && fixed != null && !_askingAll && (cur is LedgerAdd || cur is CashAdd)) {
+        // "পেয়াজ ৩০০ টাকা, ৩ না": the old amount said "না" to — a fix, not a no.
+        final swapped = _amountSwap(t) ?? (cur == null ? null : _restatedAmount(t, cur));
+        final fixed = swapped ?? _correctedAmount(t);
+        if ((!refused || swapped != null) && fixed != null && !_askingAll && (cur is LedgerAdd || cur is CashAdd)) {
           wait = ChatWait.none;
           choices = const [];
           if (cur is LedgerAdd) {
@@ -2444,6 +2482,14 @@ class ChatController extends ChangeNotifier {
           } else if (cur is CashAdd) {
             await _start(CashAdd(cur.transcript, kind: cur.kind, amount: fixed, category: cur.category, project: cur.project), out);
           }
+          return true;
+        }
+        // "এখনো ঠিক করতে পারো নাই", "দাম ভুল" about one money item waiting:
+        // never a yes and never a drop — the right amount is asked.
+        if (!_askingAll && (cur is CashAdd || cur is LedgerAdd) && (complainsWrong(t) || aboutTheAssistant(t) == AboutMe.complaint)) {
+          final item = cashItem(cur!.transcript);
+          _ask(out, trf('{0}ঠিক অঙ্কটা বলুন, যেমন “{1} ৩০০ টাকা”। ঠিক হলে তারপর রাখব — এখনো কিছু রাখিনি।', [item.isEmpty ? '' : '$item — ', item.isEmpty ? tr('খরচ') : item]), ChatWait.yesNo,
+              choices: _yesNoChoices, facts: [summaryLine(cur)]);
           return true;
         }
         // "না, এগারোটায় করো", "না, করিমকে", "না, কাল": the waiting action
@@ -2480,7 +2526,7 @@ class ChatController extends ChangeNotifier {
           final f = fold(normalize(t));
           // "পেয়াজ এবং চা পাতার দাম ভুল উঠেছে", "এখনো ঠিক করতে পারো নাই":
           // something is wrong in the list — never a yes, never a drop.
-          final complaint = RegExp(fold(r'(?:ভুল\s+(?:উঠেছে|উঠছে|হয়েছে|হইছে|আছে|লিখেছ|লিখছ|লেখা|ধরেছ|ধরছ)|পার(?:ো|লা|লে)?\s*(?:নাই|নেই)|পারোনি|পারো\s+নি|পারনি|পারো\s+না|ঠিক\s+হয়\s*(?:নাই|নেই)|ঠিক\s+হয়নি|হয়\s+(?:নাই|নেই)|এখনো\s+ভুল|দাম\s+ভুল|টাকা\s+ভুল)')).hasMatch(f);
+          final complaint = complainsWrong(f);
           final amount = findAmount(normalize(t));
           // "পেয়াজ ৩০০ টাকা": that item's amount, said again.
           if (named.length == 1 && amount != null && !dropsItem(t)) {
@@ -3017,6 +3063,51 @@ class ChatController extends ChangeNotifier {
 
   /// The new amount in a short correction ("না, ৭০০", "পাঁচশ না, সাতশ",
   /// "৭০০ হবে"); null when the answer is something else.
+  /// "হাতে কত রইল?" right after "৯০০০ টাকা নিয়ে বাজারে গেলাম; মাছ ২৫০০, …":
+  /// what is left of the money taken along — worked out here, from the
+  /// parts said, never the accounts' balance.
+  bool _envelopeLeft(String t, List<String> out) {
+    final f = fold(normalize(t));
+    if (!RegExp(fold(r'(?:হাতে|পকেটে|সাথে)\s+(?:আর\s+)?(?:কত|কতো)\s*(?:টাকা\s+)?(?:রইল|রইলো|থাকল|থাকলো|আছে|বাকি|রয়েছে)|(?:কত|কতো)\s+(?:টাকা\s+)?(?:রইল|রইলো|থাকল|থাকলো|বাঁচল|বাঁচলো|ফেরত\s+(?:আনলাম|থাকল))')).hasMatch(f)) return false;
+    final said = [for (final m in messages.reversed) if (m.fromUser) m.text].skip(1).take(6);
+    for (final x in said) {
+      final carried = carriedCash(x);
+      if (carried == null) continue;
+      final parts = spentInParts(x, Parser(ledger: brain.data.ledger, tasks: brain.data.tasks, now: _now)) ?? const [];
+      final spent = parts.whereType<CashAdd>().fold<int>(0, (s, c) => s + c.amount);
+      if (spent == 0) return false;
+      final left = carried - spent;
+      _say(out, left >= 0
+          ? trf('{0} টাকা নিয়ে গিয়েছিলেন, খরচ {1} টাকা — হাতে থাকার কথা {2} টাকা।', [bnNumber(carried), bnNumber(spent), bnNumber(left)])
+          : trf('{0} টাকা নিয়ে গিয়েছিলেন, কিন্তু খরচ বলেছেন {1} টাকা — {2} টাকা বেশি। কোনো অঙ্ক ভুল হলে বলুন।', [bnNumber(carried), bnNumber(spent), bnNumber(-left)]));
+      return true;
+    }
+    return false;
+  }
+
+  /// "পেয়াজ ৩০০ টাকা" (or just "৩০০ টাকা") while that item waits with
+  /// another amount: the amount said again, right.
+  int? _restatedAmount(String t, Command cur) {
+    if (cur is! CashAdd && cur is! LedgerAdd) return null;
+    final a = findAmount(normalize(t));
+    final old = cur is CashAdd ? cur.amount : (cur as LedgerAdd).amount;
+    if (a == null || a <= 0 || a == old || yesNo(t) == false) return null;
+    final rest = words(normalize(t)).where((w) => findAmount(w) == null && !RegExp(fold(r'^(?:টাকা|টাকার|টাকায়|হবে|হবে।|ঠিক|দাম|খরচ|আসলে|মানে)$')).hasMatch(w)).toList();
+    if (rest.isEmpty) return a;
+    final item = words(normalize(cur is CashAdd ? cashItem(cur.transcript) : (cur as LedgerAdd).person)).toSet();
+    return rest.every((w) => item.any((x) => x.startsWith(w) || w.startsWith(x))) ? a : null;
+  }
+
+  /// "পেয়াজ ৩০০ টাকা, ৩ না", "৩০০ হবে, ৩ নয়": the new amount, with the
+  /// old one said "না" to after it.
+  int? _amountSwap(String t) {
+    final n = normalize(t).replaceAll(RegExp(r'[।.!]+\s*$'), '').trim();
+    final m = RegExp('^(.*\\S)[,\\s]+(\\S+(?:\\s+${normalize('টাকা')})?)\\s+(?:${['না', 'নয়', 'নয়', 'নই'].map(normalize).join('|')})\$').firstMatch(n);
+    if (m == null || findAmount(m[2]!) == null) return null;
+    final a = findAmount(m[1]!);
+    return a == null || a <= 0 || a == findAmount(m[2]!) ? null : a;
+  }
+
   int? _correctedAmount(String t) {
     final n = normalize(t);
     final ws = words(n);

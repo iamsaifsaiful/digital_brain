@@ -145,6 +145,13 @@ When? parseWhen(String said0, DateTime now) {
         if (m >= 0) {
           var c = DateTime(now.year, m + 1, d);
           if (c.isBefore(today)) c = DateTime(now.year + 1, m + 1, d);
+          // "১৫ জুন ২০২৯", "১৫ জুন, ২০২৯ সালে", "২০২৯ সালের ১৫ জুন": the
+          // year said is the year — never the next 15 June.
+          final y = _yearNear(w, i);
+          if (y != null) {
+            final e = DateTime(y, m + 1, d);
+            if (e.month == m + 1) c = e;
+          }
           day = c;
         } else if (next.startsWith(_n('তারিখ')) || next == _n('তাং')) {
           var c = DateTime(now.year, now.month, d);
@@ -298,8 +305,27 @@ final _timeBits = RegExp(
 
 /// [said] without the when-words, for a title: "কাল সকাল ১০টায় মিটিংয়ের কথা
 /// মনে করিয়ে দিও" → "মিটিংয়ের কথা মনে করিয়ে দিও" (the caller cuts the rest).
+/// A year (four digits) said with the date at [i] ("১৫ জুন ২০২৯",
+/// "২০২৯ সালের ১৫ জুন"): after the month, or before the day with "সাল".
+int? _yearNear(List<String> w, int i) {
+  int? year(String x) {
+    final n = int.tryParse(x.replaceAll(RegExp(r'[,।]'), ''));
+    return n != null && n >= 1900 && n <= 2300 && x.replaceAll(RegExp(r'[,।]'), '').length == 4 ? n : null;
+  }
+  if (i + 2 < w.length) {
+    final y = year(w[i + 2]);
+    if (y != null) return y;
+  }
+  if (i >= 2 && w[i - 1].startsWith(_n('সাল'))) return year(w[i - 2]);
+  if (i >= 1) return year(w[i - 1]);
+  return null;
+}
+
 String withoutWhen(String said) {
   var s = fold(said);
+  // "১৫ জুন ২০২৯", "২০২৯ সালের": the year goes with the date.
+  s = s.replaceAll(RegExp('(?<=${bnMonths.map(fold).join('|')})\\s*,?\\s*[০-৯0-9]{4}(?:\\s+${fold('সাল')}\\S*|\\s*-?\\s*(?:${fold('এ')}|${fold('তে')}|${fold('র')}|${fold('এর')})(?=[\\s,।.!?]|\$))?(?=[\\s,।.!?]|\$)'), ' ');
+  s = s.replaceAll(RegExp('(?:^|(?<=[\\s,।]))[০-৯0-9]{4}\\s+${fold('সাল')}\\S*'), ' ');
   s = s.replaceAll(RegExp(fold('[০-৯0-9]{1,2}\\s*[:.]\\s*[০-৯0-9]{2}(\\s*-?\\s*(এ|য়|তে|টায়|টা|টে|মিনিটে)(?=[\\s,।.!?]|\$))?')), ' ');
   s = s.replaceAll(RegExp(fold('([০-৯0-9]{1,2}\\s*(টায়|টা|টে))\\s+[০-৯0-9]{1,2}\\s*-?\\s*(মিনিটে|মিনিট|এ|তে)?(?=[\\s,।.!?]|\$)')), ' ');
   s = s.replaceAll(_timeBits, ' ');

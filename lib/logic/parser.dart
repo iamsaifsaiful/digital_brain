@@ -293,8 +293,11 @@ class CashAdd extends Command {
 
 /// "এই মাসে কত খরচ হলো?", "রহিম ভবন প্রজেক্টে কত টাকা আছে?"
 class CashQuery extends Command {
-  const CashQuery(super.transcript, {this.project});
+  const CashQuery(super.transcript, {this.project, this.category});
   final String? project;
+
+  /// "বাজারের খাতের ভেতরের সব দেখাও": the entries of this খাত.
+  final String? category;
 }
 
 /// "আজ আমার কী কী আছে?" — today's to-dos, reminders and dues.
@@ -625,7 +628,8 @@ final Map<String, num> _numberWords = {for (final e in _numberWordsRaw.entries) 
 /// "২ হাজার", "দেড় হাজার", "পাঁচশো", "৩ লাখ", "সাড়ে তিন হাজার" and
 /// amounts said in parts: "দুই হাজার পাঁচশ" = 2500, "এক লাখ বিশ হাজার".
 int? findAmount(String normalized) {
-  final w = words(normalized);
+  // "৩কেজি", "২টা": the number and the word after it, apart.
+  final w = words(normalized.replaceAllMapped(RegExp(r'(\d)(?=[^\d\s.,/\-:])'), (m) => '${m[1]} '));
 
   // One part: a number and its multiplier ("দুই হাজার", "পাঁচশ", "৫০০").
   // Returns (value, multiplier, words used) or null.
@@ -693,8 +697,30 @@ int? findAmount(String normalized) {
   }
   if (found.isEmpty) return null;
   final taka = found.where((f) => _takaWord.hasMatch(f.$2)).firstOrNull;
+  // "দুটি হ্যান্ডওয়াশ, প্রতিটি ৫০ টাকা", "৩ কেজি, প্রতি কেজি ৬০ টাকা": the
+  // price of one, times how many — "মোট ৫০ টাকায়" stays the total.
+  if (taka != null && _eachPrice.hasMatch(w.join(' '))) {
+    final count = found.where((f) => f != taka && _unitWord.hasMatch(f.$2)).firstOrNull?.$1 ?? _itemCount(w);
+    if (count != null && count > 1) return taka.$1 * count;
+  }
   if (taka != null) return taka.$1;
-  return (found.where((f) => !_unitWord.hasMatch(f.$2)).firstOrNull ?? found.first).$1;
+  // Only quantities ("পেয়াজ ৩ কেজি", "২টা ডিম"): no price was said.
+  // A big number with "টা" ("৫০০টা দিলাম") is still taka.
+  final priced = found.where((f) => !_unitWord.hasMatch(f.$2) || (RegExp(fold(r'^(?:টা|টি)$')).hasMatch(f.$2) && f.$1 > 20)).firstOrNull;
+  return priced?.$1;
+}
+
+final _eachPrice = RegExp(fold(r'(?:^|\s)(?:প্রতিটি|প্রতিটা|প্রত্যেকটি|প্রত্যেকটা|প্রতিটার|প্রতিটির|প্রতি\s+(?:পিস|পিচ|কেজি|লিটার|হালি|ডজন|প্যাকেট|বোতল|টা|টি|জোড়া)|each|per)(?=\s|$)'));
+
+/// "দুটি", "তিনটা", "পাঁচটি": how many, said as a word.
+int? _itemCount(List<String> w) {
+  for (final x in w) {
+    final m = RegExp(fold(r'^(এক|দু|দুই|তিন|চার|পাঁচ|ছয়|ছয়|সাত|আট|নয়|নয়|দশ)(?:টি|টা|টো|খানা)$')).firstMatch(x);
+    if (m == null) continue;
+    final n = _numberWords[m[1]] ?? (m[1] == fold('দু') ? 2 : null);
+    if (n != null) return n.toInt();
+  }
+  return null;
 }
 
 final _takaWord = RegExp(fold(r'^(?:টাকা|টাকার|টাকায়|টাকাতে|টাকাই|টাকাও|tk|taka)$'));
@@ -717,6 +743,8 @@ final Set<String> _notNames = {for (final w in _notNamesRaw) fold(w)};
 const _notNamesRaw = {
   'আমি', 'আমাকে', 'আমার', 'আজ', 'আজকে', 'গতকাল', 'কাল', 'এইমাত্র', 'এখন', 'টাকা', 'তাকে', 'ওকে', 'উনাকে', 'তাঁকে',
   'আরো', 'আরও', 'মোট', 'আবার', 'কাছ', 'কাছে', 'থেকে', 'ধার', 'ফেরত', 'শোধ',
+  // "… পরে ৩০০ শোধ করেছি": when, not who.
+  'পরে', 'তারপর', 'তারপরে', 'এরপর', 'এরপরে', 'পরবর্তীতে', 'সেদিন', 'আগে', 'গত',
 };
 
 bool _looksLikeName(String w) => w.isNotEmpty && !_notNames.contains(w) && !RegExp(r'^\d').hasMatch(w) && findAmount(w) == null;
@@ -2384,9 +2412,14 @@ bool isCancel(String said) {
   return all.map(normalize).contains(t);
 }
 
+/// "এখনো ঠিক করতে পারো নাই", "দাম ভুল উঠেছে": something waiting is wrong.
+bool complainsWrong(String said) => RegExp(fold(r'(?:ভুল\s+(?:উঠেছে|উঠছে|হয়েছে|হইছে|আছে|লিখেছ|লিখছ|লেখা|ধরেছ|ধরছ)|পার(?:ো|লা|লে|লেন|েন)?\s*(?:নাই|নেই)|পারোনি|পারো\s+নি|পারনি|পারো\s+না|ঠিক\s+হয়\s*(?:নাই|নেই)|ঠিক\s+হয়নি|হয়\s+(?:নাই|নেই)|এখনো\s+ভুল|দাম\s+ভুল|টাকা\s+ভুল|অঙ্ক\s+ভুল)')).hasMatch(fold(normalize(said)));
+
 bool? yesNo(String said) {
   final t = normalize(said);
   if (t.isEmpty) return null;
+  // "এখনো ঠিক করতে পারো নাই": "ঠিক" in a complaint is not a yes.
+  if (complainsWrong(said) || aboutTheAssistant(said) == AboutMe.complaint) return null;
   final w = words(t);
   if (w.any(_no.contains) || _hasAny(t, ['দরকার নেই', 'লাগবে না', 'রেখো না', 'রাখো না', 'করো না', 'চাই না', 'বাদ দাও', 'বাদ দেন', 'বাদ দে', 'রাখার দরকার'])) return false;
   if (w.any(_yes.contains) || _hasAny(t, ['ঠিক আছে', 'সেভ করো', 'যোগ করো'])) return true;

@@ -591,7 +591,8 @@ extension _TodoChat on ChatController {
     final last = tidySpeech(rest.split(RegExp(fold(r'\s(?:নয়|না)\s'))).last);
     final w = parseWhen(last, _now);
     if (w == null) return false;
-    final leftover = words(normalize(withoutWhen(withoutClockWords(last)))).where((x) => !const ['টায়', 'করো', 'দাও', 'রাখো', 'হবে', 'করব', 'বরং'].map(normalize).contains(x));
+    // "১৫ জুন ২০২৯ হবে": the year is part of the date, not a word left over.
+    final leftover = words(normalize(withoutWhen(withoutClockWords(last)))).where((x) => !const ['টায়', 'করো', 'দাও', 'রাখো', 'হবে', 'করব', 'বরং', 'সালে', 'সালের', 'সাল'].map(normalize).contains(x) && !RegExp(r'^[0-9০-৯]{4}$').hasMatch(x));
     if (leftover.isNotEmpty) return false;
     final snap = brain.snapshot();
     // The reminder just set: a new time or day ("না, এগারোটায়", "না, কাল").
@@ -684,7 +685,17 @@ extension _TodoChat on ChatController {
     final last = _lastSave;
     final said = last != null && last.$1 is TaskAdd && (last.$1 as TaskAdd).title == task.title ? last.$1.transcript : task.title;
     // By commas and "আর/ও": "মাছ, চাল, তেল কেনা" → মাছ কেনা, চাল কেনা, তেল কেনা.
-    var pieces = [for (final x in task.title.split(RegExp(fold(r'\s*[,،;]\s*|\s+(?:আর|ও|এবং)\s+')))) if (x.trim().isNotEmpty) x.trim()];
+    // The words as said ("…, ডাল আর লবণ কেনা"), not the tidied title that
+    // lost the "আর"; the order around them ("কাজের তালিকায় রাখো:") left out.
+    var source = task.title;
+    if (said != task.title) {
+      final body = said
+          .replaceFirst(RegExp(r'^\s*(?:আমার\s+)?কাজের\s+(?:তালিকা|লিস্ট)\S*\s+(?:লিখে\s+রাখো|রাখো|যোগ\s+করো|যুক্ত\s+করো|লেখো|লিখো|তুলে\s+রাখো)\s*[:：,—–-]?\s*'), '')
+          .replaceFirst(RegExp(r'\s*[—–-]?\s*(?:এগুলো\s+)?কাজের\s+(?:তালিকা|লিস্ট)\S*\s+\S+(?:\s+\S+)?\s*[।.]?\s*$'), '')
+          .trim();
+      if (RegExp(r'[,،]').hasMatch(body)) source = body.replaceAll(RegExp(r'[।.!]+$'), '');
+    }
+    var pieces = [for (final x in source.split(RegExp(fold(r'\s*[,،;]\s*|\s+(?:আর|ও|এবং)\s+')))) if (x.trim().isNotEmpty) x.trim()];
     if (pieces.length >= 2) {
       final verb = pieces.last.split(' ').last;
       final isNoun = RegExp(fold(r'(?:া|ানো|ওয়া|য়া)$')).hasMatch(fold(verb)) && pieces.last.contains(' ');

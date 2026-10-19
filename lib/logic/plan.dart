@@ -64,6 +64,13 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
     final body = (note[1] ?? note[2] ?? '').trim();
     if (body.isNotEmpty) return [NoteAdd(said, text: said.trim().substring(0, body.length).replaceAll(RegExp(r'[\s,।]+$'), ''))];
   }
+  // "কাজের তালিকায় রাখো: মাছ, চাল … কেনা": the order first, then what —
+  // the order is never part of the to-do's name.
+  final lead = RegExp(r'^\s*(?:আমার\s+)?কাজের\s+(?:তালিকা|লিস্ট)(?:য়|য়|তে|ে)\s+(?:লিখে\s+রাখো|রাখো|যোগ\s+করো|যুক্ত\s+করো|লেখো|লিখো|তুলে\s+রাখো)\s*[:：—–-]\s*(.+)$').firstMatch(said.trim());
+  if (lead != null && !lead[1]!.contains('\n')) {
+    final c = p.parse('${lead[1]!.trim()} — কাজের তালিকায় লিখে রাখো');
+    if (c is TaskAdd) return [c];
+  }
   // Typed on several lines: a to-do list under a heading ("কালকের কাজ:")
   // is one to-do per line; other lines are separate sentences.
   final perLine = lineTodos(said, p) ?? lineMoney(said, p) ?? breathTodos(said, p);
@@ -76,12 +83,25 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   if (calendarAsked(said)) return [SmallTalk(said, kind: calendarTodayOnly(said, p.now) ? Talk.date : Talk.calendar)];
   // "কিভাবে ডকুমেন্টস যুক্ত করব": how to — answered, never kept as a to-do.
   if (howToAsked(said) != null || abilityAsked(said) != null) return [ProfileQuery(said)];
+  // "শুধু পাওনাগুলো দাও, দেনা বাদ": a list to see, one side only — "বাদ"
+  // here leaves the other side out of the answer; nothing is removed.
+  // "দুটো ৫০ টাকা" and nothing else: what, and whether ৫০ is each or all,
+  // is asked — never guessed, never a person.
+  final bare = RegExp(fold(r'^\s*((?:এক|দু|দুই|তিন|চার|পাঁচ|ছয়|সাত|আট|নয়|দশ)(?:টা|টি|টো)|[০-৯0-9]{1,2}\s*(?:টা|টি))\s+([০-৯0-9][০-৯0-9,]*)\s*টাকা(?:য়|র)?\s*[।.!]?\s*$')).firstMatch(fold(normalize(said)));
+  if (bare != null) {
+    return [AiReply(said, text: trf('কী কিনলেন? আর {0} টাকা কি সবগুলোর মোট, নাকি প্রতিটার দাম? যেমন বলুন “দুটো হ্যান্ডওয়াশ মোট ৫০ টাকা” বা “প্রতিটা ৫০ টাকা”।', [bnNumber(findAmount(normalize('${bare[2]} টাকা')) ?? 0)]))];
+  }
+  final side = oneSideAsked(said);
+  if (side != null) return [LedgerQuery(said, ask: side)];
   // "আরও ১ জনের কাছে কত?" after a list of who owes: the whole list again.
-  if (RegExp(fold(r'আরও\s+\S+\s+জন')).hasMatch(fold(said)) && RegExp(fold(r'(?:কত|কে|কারা|কার|কাকে)')).hasMatch(fold(said))) {
+  if (RegExp(fold(r'(?:আরও|আরো|বাকি)\s+(?:ওই\s+|সেই\s+|ঐ\s+)?(?:\S+\s+জন|\S*জন)')).hasMatch(fold(said)) && RegExp(fold(r'(?:কত|কে|কারা|কার|কাকে)')).hasMatch(fold(said))) {
     return [LedgerQuery(said, ask: RegExp(fold(r'(?:কাছে|পাবো|পাব|পাওনা)')).hasMatch(fold(said)) ? LedgerAsk.receivable : LedgerAsk.payable)];
   }
   // "আয়ের খাত গুলো কি কি", "কিভাবে ব্যয় হয়েছে?": this month by খাত.
   if (categoryAsked(said) != null) return [CashQuery(said)];
+  // "বাজারের খাতের ভেতরের সব দেখাও": the entries under one খাত.
+  final cat = data == null ? null : categoryEntriesAsked(said, data);
+  if (cat != null) return [CashQuery(said, category: cat)];
   // "আমার পাসপোর্ট দাও", "জাতীয় পরিচয় পত্র কোথায়": a paper kept in
   // ডকুমেন্টস, by its name (spaces in it or not) — shown, never a new note.
   final doc = data == null ? null : docAsked(said, data);
@@ -90,6 +110,10 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   // people each gave; the other sentences read on their own.
   final gave = peopleGave(said, p);
   if (gave != null) return gave;
+  // "শফিক ২৫০, ইসমাইল ৩৭১২, রবিন ২০০ — সবাইকে ধার দিলাম": names with
+  // amounts, then one verb for all of them.
+  final all = namesThenVerb(said, p);
+  if (all != null) return all;
   // The other menus first (menus.dart): "এই মাসের DPS দিয়েছি" is an
   // instalment, never a to-do ticked by a shared word.
   final menu = menuCommand(said, data, p.now);
@@ -146,9 +170,26 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
       .toList();
   final out = <Command>[];
   for (final s in sentences) {
-    final parts = s.split(_joiners).map((x) => x.trim()).where((x) => x.isNotEmpty).toList();
+    var parts = s.split(_joiners).map((x) => x.trim()).where((x) => x.isNotEmpty).toList();
+    // "… ১০০০ ধার নিয়েছি, পরে ৩০০ শোধ করেছি": money parts set off by commas.
+    if (parts.length == 1) {
+      final byComma = s.split(RegExp(r'\s*[,،;]\s*')).map((x) => x.trim()).where((x) => x.isNotEmpty).toList();
+      if (byComma.length > 1 && byComma.every((x) => findAmount(normalize(x)) != null)) parts = byComma;
+    }
     if (parts.length > 1) {
-      final cmds = [for (final x in parts) p.parse(x)];
+      // "রহিমের কাছ থেকে ১০০০ ধার নিয়েছি, পরে ৩০০ শোধ করেছি": a later part
+      // with money and no one named is about the person just named.
+      final cmds = <Command>[];
+      var person = '';
+      for (final x in parts) {
+        var c = p.parse(x);
+        if (person.isNotEmpty && findAmount(normalize(x)) != null && (c is NotUnderstood || (c is NoteAdd && c.fromStatement) || (c is LedgerAdd && c.person.trim().isEmpty))) {
+          final again = p.parse('${toPerson(person)} $x');
+          if (again is LedgerAdd && again.person == person) c = again;
+        }
+        if (c is LedgerAdd && c.person.trim().isNotEmpty) person = c.person;
+        cmds.add(c);
+      }
       if (cmds.every(_complete)) {
         out.addAll(cmds);
         continue;
@@ -343,19 +384,29 @@ List<String> splitByWillVerbs(String text) {
 /// breath with no commas — one to-do each, the day said once for all.
 /// Null unless every piece reads as a to-do.
 List<Command>? breathTodos(String said, Parser p) {
-  if (said.contains('\n') || RegExp(r'[,،;।]').hasMatch(said.trim().replaceAll(RegExp(r'[।.!?]+$'), ''))) return null;
+  if (said.contains('\n')) return null;
+  final body = said.trim().replaceAll(RegExp(r'[।.!?]+$'), '');
+  // "২০৪১ সালের মে মাসে স্কুলে যাব, বাজার করব, চুল কাটব": commas between
+  // plans, each its own "I will" — the same as said in one breath.
+  final commas = [for (final x in body.split(RegExp(r'\s*[,،;]\s*'))) if (x.trim().isNotEmpty) x.trim()];
+  if (RegExp(r'[।]').hasMatch(body)) return null;
+  if (commas.length > 1 && !commas.every((x) => splitByWillVerbs(x).length == 1 && splitByWillVerbs(commas.join(' ')).length == commas.length)) return null;
   // "… এগুলো কাজের তালিকায় যুক্ত করো": where to keep them, not one more to-do.
-  final tidied = tidySpeech(said).replaceFirst(RegExp(fold(r'\s+(?:এগুলো|এগুলা|এগুলি|সব)\s+(?:কাজের\s+)?(?:তালিকায়|লিস্টে)\s+\S+(?:\s+\S+)?\s*$')), '');
+  final tidied = tidySpeech(commas.join(' ')).replaceFirst(RegExp(fold(r'\s+(?:এগুলো|এগুলা|এগুলি|সব)\s+(?:কাজের\s+)?(?:তালিকায়|লিস্টে)\s+\S+(?:\s+\S+)?\s*$')), '');
   final pieces = splitByWillVerbs(tidied);
-  if (pieces.length < 3) return null;
+  if (pieces.length < (commas.length > 1 ? 2 : 3)) return null;
   // Each with its own day ("৮ তারিখে …, ২২ তারিখে …"): the dated rules read those.
   if (pieces.where((x) => parseWhen(x, p.now)?.hasDay ?? false).length >= 2) return null;
   final w = parseWhen(tidied, p.now);
+  // The when said once ("২০৪১ সালের মে মাসে", "কাল") read as the first
+  // plan reads it — a month or year stays that span for all of them.
+  final head = p.parse('${pieces.first} — কাজের তালিকায় লিখে রাখো');
+  final shared = head is TaskAdd && head.due != null ? (head.due, head.span) : (w != null && w.hasDay ? (dayOnly(w.day), TaskSpan.day) : (null, TaskSpan.day));
   final out = <Command>[];
   for (final x in pieces) {
     final c = p.parse('${withoutWhen(x).trim()} — কাজের তালিকায় লিখে রাখো');
     if (c is! TaskAdd || c.title.trim().isEmpty) return null;
-    out.add(TaskAdd(said, title: c.title, due: c.due ?? (w != null && w.hasDay ? dayOnly(w.day) : null), span: c.span));
+    out.add(TaskAdd(said, title: c.title, due: c.due ?? shared.$1, span: c.due != null ? c.span : shared.$2));
   }
   return out;
 }
@@ -501,6 +552,32 @@ List<Command>? sharedVerbMoney(String said, Parser p) {
   return out;
 }
 
+/// "শফিক ২৫০, ইসমাইল ৩৭১২, রবিন ২০০, শাকিল ৫০০—সবাইকে ধার দিলাম": one
+/// record per person, each with the verb said once at the end. Null unless
+/// every part is "<name> <amount>" and the end says "সবাইকে/প্রত্যেককে …".
+List<Command>? namesThenVerb(String said, Parser p) {
+  final f = fold(said.trim()).replaceAll(RegExp(r'[।.!]+$'), '');
+  final m = RegExp(fold(r'^(.+?)\s*(?:[—–\-,;:]\s*|\s)(?:এদের\s+|তাদের\s+|এই\s+)?(?:সবাইকে|সকলকে|প্রত্যেককে|প্রত্যেকেকে|সবাই\s+মিলে|সবার\s+কাছ\s+থেকে|প্রত্যেকের\s+কাছ\s+থেকে|সবাই|প্রত্যেকে)\s+(.+)$')).firstMatch(f);
+  if (m == null) return null;
+  final verb = m[2]!.trim();
+  final items = m[1]!.split(RegExp(fold(r'\s*[,،;]\s*|\s+(?:আর|এবং|ও)\s+'))).map((x) => x.trim()).where((x) => x.isNotEmpty).toList();
+  if (items.length < 2) return null;
+  final from = RegExp(fold(r'কাছ\s+থেকে')).hasMatch(fold(m[0]!.substring(m[1]!.length)));
+  final givers = RegExp(fold(r'^(?:সবাই|প্রত্যেকে|সবাই\s+মিলে)$')).hasMatch(fold(m[0]!.substring(m[1]!.length).trim().split(RegExp(r'\s+')).first.replaceAll(RegExp(r'^[—–\-,;:]+'), '')));
+  final out = <Command>[];
+  for (final x in items) {
+    final im = RegExp(fold(r'^(\S+(?:\s+\S+)?)\s+([০-৯0-9][০-৯0-9,]*(?:\s*হাজার)?)\s*(?:টাকা)?$')).firstMatch(fold(x));
+    if (im == null || RegExp(r'^[০-৯0-9]').hasMatch(im[1]!)) return null;
+    final name = x.substring(0, im[1]!.length).trim();
+    final amount = '${im[2]} টাকা';
+    final line = from ? '${name}র কাছ থেকে $amount $verb' : givers ? '$name $amount $verb' : '${toPerson(name)} $amount $verb';
+    final c = p.parse(line);
+    if (c is! LedgerAdd || c.person.trim().isEmpty || c.amount != findAmount(normalize(amount))) return null;
+    out.add(c);
+  }
+  return out;
+}
+
 /// A title that only counts ("কয়েকটি", "কিছু কাজ আছে"): nothing to do is named.
 bool onlyCount(String title) {
   const filler = ['কয়েকটি', 'কয়েকটা', 'কয়েক', 'কিছু', 'অনেক', 'অনেকগুলো', 'বেশ', 'কয়টা', 'কয়টি', 'কতগুলো', 'কাজ', 'কাজও', 'আছে', 'আমার', 'আজ', 'আজকে', 'কাল', 'কালকে', 'এই', 'সপ্তাহে', 'মাসে', 'বছরে', 'টা', 'টি', 'গুলো', 'দুইটা', 'তিনটা', 'চারটা', 'পাঁচটা'];
@@ -583,11 +660,38 @@ List<Command>? datedTodos(String said, Parser p) {
 /// against their sum — if it does not match, the parts are still kept and
 /// the chat shows them all before saving. Null when [said] is not a list
 /// of own spending.
+/// "শুধু পাওনাগুলো দাও, দেনা বাদ": one side of the লেনদেন book, to see.
+LedgerAsk? oneSideAsked(String said) {
+  final side = RegExp(fold(r'^(?:আমার\s+)?(?:শুধু|শুধুমাত্র|কেবল|খালি)\s+(পাওনা|দেনা)\S*\s+(?:দাও|দেখাও|দেখান|বলো|বলুন|দেন|দিন)(?:[\s,।]+(?:পাওনা|দেনা)\S*\s+(?:বাদ|ছাড়া|লাগবে\s+না|না))?[\s।.!?]*$')).firstMatch(fold(normalize(said)));
+  if (side == null) return null;
+  return side[1] == fold('পাওনা') ? LedgerAsk.receivable : LedgerAsk.payable;
+}
+
+/// "বাজারের খাতের ভেতরের সব দেখাও", "ভাড়া খাতে কী কী খরচ": a খাত kept,
+/// its entries asked.
+String? categoryEntriesAsked(String said, AppData d) {
+  final f = fold(normalize(said));
+  final m = RegExp(fold(r'(\S+)\s+খাত(?:ের|এর|ে|টার|টির)?\s+(?:ভেতরের|ভিতরের|ভেতরে|ভিতরে|মধ্যে|মাঝে|সব|লেনদেন|কী\s+কী|কি\s+কি|এন্ট্রি)')).firstMatch(f);
+  if (m == null) return null;
+  final w = m[1]!.replaceAll(RegExp(fold(r'(?:ের|এর|র)$')), '');
+  for (final c in d.cash) {
+    final k = fold(normalize(c.category));
+    if (k == w || k == m[1] || (w.length >= 2 && k.startsWith(w))) return c.category;
+  }
+  return null;
+}
+
+/// "৯০০০ টাকা নিয়ে বাজারে গেলাম; …": the money taken along (not spent).
+int? carriedCash(String said) {
+  final m = RegExp(fold(r'^[^।.!?,;]*?((?:[০-৯0-9][০-৯0-9,]*|হাজার|শ)(?:\s+হাজার)?)\s*টাকা\s+(?:নিয়ে|সাথে\s+নিয়ে|হাতে\s+নিয়ে)')).firstMatch(fold(said));
+  return m == null ? null : findAmount(normalize('${m[1]} টাকা'));
+}
+
 List<Command>? spentInParts(String said, Parser p) {
   var f = fold(said);
   // "বাজারে গিয়েছি ৫০০০ টাকা নিয়ে।": the money taken along is not spent —
   // only what was bought after it is.
-  final carried = RegExp(fold(r'^[^।.!?,]*?(?:[০-৯0-9][০-৯0-9]*|হাজার|শ)\s*টাকা\s+(?:নিয়ে|সাথে\s+নিয়ে|হাতে\s+নিয়ে)(?:\s+(?:গিয়েছি|গিয়েছিলাম|গেলাম|গেছি|বের\s+হয়েছি|বের\s+হলাম))?[^।.!?,]*[।.!,]\s*')).firstMatch(f);
+  final carried = RegExp(fold(r'^[^।.!?,;]*?(?:[০-৯0-9][০-৯0-9]*|হাজার|শ)\s*টাকা\s+(?:নিয়ে|সাথে\s+নিয়ে|হাতে\s+নিয়ে)(?:\s+(?:গিয়েছি|গিয়েছিলাম|গেলাম|গেছি|বের\s+হয়েছি|বের\s+হলাম))?[^।.!?,;]*[।.!,;:]\s*')).firstMatch(f);
   if (carried != null) f = f.substring(carried.end);
   final total = RegExp(fold(r'[,،]?\s*(?:মোট|সব\s+মিলিয়ে|টোটাল)\s+(.+?)\s*(?:টাকা)?\s*[।.]?\s*$')).firstMatch(f);
   final body = total == null ? f : f.substring(0, total.start);
@@ -657,7 +761,7 @@ String _withItem(String category, String item) {
 /// rest is income — into the separate account the words point to
 /// ("শিক্ষার্থীদের" → "শিক্ষার্থীদের বেতন"). Null when it is not such a list.
 List<Command>? peopleGave(String said, Parser p) {
-  final sentences = [for (final x in said.split(RegExp(r'\s*[।!]\s*'))) if (x.trim().isNotEmpty) x.trim()];
+  final sentences = [for (final x in said.split(RegExp(r'\s*[।!;]\s*'))) if (x.trim().isNotEmpty) x.trim()];
   final give3 = RegExp(fold(r'(?:^|\s)(?:দিছে|দিয়েছে|দিয়েছে|দিল|দিলো|দিয়েছেন|দিয়েছেন|পাঠিয়েছে|পাঠিয়েছে|দিয়ে\s+গেছে)(?=[\s,।]|$)'));
   final out = <Command>[];
   var found = false;
@@ -679,7 +783,8 @@ List<Command>? peopleGave(String said, Parser p) {
           break;
         }
         // "<name> <amount> টাকা (দিছে)": one or two words of name first.
-        final m = RegExp(fold(r'^(\S+(?:\s+\S+)?)\s+[০-৯0-9][০-৯0-9,]*\s*(?:হাজার\s+)?টাকা(?:\s+\S+)?$')).firstMatch(fold(x));
+        // "মাহি ২০০০ টাকা", "আঁখি ৫০০", "ফয়সাল ১০০০ দিয়েছে".
+        final m = RegExp(fold(r'^(\S+(?:\s+\S+)?)\s+[০-৯0-9][০-৯0-9,]*\s*(?:হাজার\s*)?(?:টাকা(?:\s+\S+)?|(?:দিছে|দিয়েছে|দিয়েছে|দিল|দিলো|দিয়েছেন|দিয়েছেন|পাঠিয়েছে|পাঠিয়েছে))?$')).firstMatch(fold(x));
         if (m == null || RegExp(r'^[০-৯0-9]').hasMatch(m[1]!)) {
           ok = false;
           break;
@@ -689,7 +794,8 @@ List<Command>? peopleGave(String said, Parser p) {
       if (ok && items.length >= 2) {
         found = true;
         final ctx = fold(context.join(' '));
-        final salary = RegExp(fold(r'(?:শিক্ষার্থী|ছাত্র|ছাত্রী|স্টুডেন্ট|টিউশন|বেতন)')).hasMatch(fold(s));
+        // "…দিয়েছে; আব্দুর রহমানের কাছে বেতন বাবদ ৩০০০ পাব": the fee said anywhere in it.
+        final salary = RegExp(fold(r'(?:শিক্ষার্থী|ছাত্র|ছাত্রী|স্টুডেন্ট|টিউশন|বেতন)')).hasMatch(fold(said));
         String? project;
         final d = p.data;
         if (d != null) {

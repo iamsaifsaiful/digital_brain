@@ -248,7 +248,13 @@ Command? menuCommand(String said, AppData? d, DateTime now) {
   if (showing && _thas(f, r'(?:ওষুধের\s+তালিকা|ওষুধগুলো|ওষুধগুলা|সব\s+ওষুধ)')) return MenuAction(said, domain: 'medicine', op: 'list');
   if (showing && _thas(f, r'(?:অভ্যাসগুলো|অভ্যাসগুলা|অভ্যাসের\s+তালিকা|সব\s+অভ্যাস)')) return MenuAction(said, domain: 'habit', op: 'list');
   final noteList = _tre(r'(?<=\s)(\S+?)(?:ের|এর|র)?\s+(?:নোট|নোটগুলো|নোটগুলা)\s+(?:দেখাও|দাও|বলো|দেখান)').firstMatch(f);
-  if (noteList != null) return MenuAction(said, domain: 'notes', op: 'list', text: _tf(noteList[1]!) == _tf('সব') ? '' : noteList[1]!);
+  // "আজকের কথা নোটটা পড়ো", "নোটটা পড়ে শোনাও": one note, read out as it is
+  // written — what it says is never done.
+  final noteRead = _tre(r'^\s*(.*?)\s*(?:নোট|নোটটা|নোটটি|নোটখানা)\s+(?:পড়ো|পড়|পড়ুন|পড়ে\s+শোনাও|পড়ে\s+দাও|শোনাও|খোলো|খুলে\s+দেখাও)\s*$').firstMatch(f);
+  if (noteRead != null) return MenuAction(said, domain: 'notes', op: 'read', text: noteRead[1]!.trim());
+  // "আমার নোটগুলো দেখাও", "সব নোট দাও": all of them — "আমার" is no category.
+  if (noteList != null) return MenuAction(said, domain: 'notes', op: 'list', text: const ['সব', 'আমা', 'আমার', 'আমাদে', 'আমাদের', 'সকল', 'সমস্ত', 'এই', 'ওই'].map(_tf).contains(_tf(noteList[1]!)) ? '' : noteList[1]!);
+  if (showing && _thas(f, r'^\s*(?:আমার\s+|সব\s+|আমার\s+সব\s+)?(?:নোট|নোটগুলো|নোটগুলা|নোটস)\s+(?:দেখাও|দাও|বলো|দেখান)\s*$')) return MenuAction(said, domain: 'notes', op: 'list');
   final readings = _tre(r'^\s*(\S+?)(?:ের|এর|র)\s+(?:শেষ\s+)?(\S+?)(?:টা|টি)?\s+(?:মাপ|রিডিং)\S*\s+(?:দেখাও|দাও|বলো)').firstMatch(f);
   if (readings != null) {
     final who = readings[1]!;

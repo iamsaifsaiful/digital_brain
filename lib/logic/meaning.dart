@@ -317,12 +317,13 @@ String tidySpeech(String said, {List<bool>? whole}) {
   s = s.replaceAllMapped(RegExp('($months)\\s+(?:${fold('মাসের')}|${fold('মাসে')}|${fold('মাসেই')})\\s+([০-৯0-9]{1,2})\\s+${fold('তারিখ')}\\S*'), (m) => '${m[2]} ${m[1]}');
   // "ডিসেম্বরের ৬ তারিখে" (the "-এর" already gone): "৬ ডিসেম্বর", not the 6th of this month.
   s = s.replaceAllMapped(RegExp('(^|[\\s,।])($months)\\s+([০-৯0-9]{1,2})\\s+${fold('তারিখ')}\\S*'), (m) => '${m[1]}${m[3]} ${m[2]}');
-  // "৩১ ডিসেম্বর ২০২৭ সালের": the year after a date is dropped (dates are
-  // read from the day and month). "২০৩১ সালে আমি কোটিপতি হবো" keeps it —
-  // a year on its own is the when.
-  s = s.replaceAllMapped(RegExp('($months)\\s+(?:[০-৯0-9]{2,4}|${fold('দুই')}\\s+${fold('হাজার')}\\s+\\S+)\\s+${fold('সাল')}(?:${fold('ের')}|${fold('ে')}|)\\s+'), (m) => '${m[1]} ');
-  // "২০২৭ সালের ৫ জানুয়ারি": a year right before a date, the same.
-  s = s.replaceAll(RegExp('(?:[০-৯0-9]{2,4}|${fold('দুই')}\\s+${fold('হাজার')}\\s+\\S+)\\s+${fold('সাল')}(?:${fold('ের')}|${fold('ে')}|)\\s+(?=[০-৯0-9]{1,2}\\s+(?:$months))'), '');
+  // "৩১ ডিসেম্বর ২০২৭ সালের", "২০২৭ সালের ৫ জানুয়ারি": one form, the year
+  // kept right after the date ("৫ জানুয়ারি ২০২৭") — a year said is never
+  // lost. A spoken year ("দুই হাজার সাতাশ") is still dropped.
+  s = s.replaceAllMapped(RegExp('($months)\\s+([০-৯0-9]{4})\\s+${fold('সাল')}(?:${fold('ের')}|${fold('ে')}|)(?=\\s|\$)'), (m) => '${m[1]} ${m[2]}');
+  s = s.replaceAllMapped(RegExp('($months)\\s+(?:[০-৯0-9]{2}|${fold('দুই')}\\s+${fold('হাজার')}\\s+\\S+)\\s+${fold('সাল')}(?:${fold('ের')}|${fold('ে')}|)\\s+'), (m) => '${m[1]} ');
+  s = s.replaceAllMapped(RegExp('([০-৯0-9]{4})\\s+${fold('সাল')}(?:${fold('ের')}|${fold('ে')}|)\\s+([০-৯0-9]{1,2}\\s+(?:$months))(?=\\s|\$|[,।])'), (m) => '${m[2]} ${m[1]}');
+  s = s.replaceAll(RegExp('(?:[০-৯0-9]{2}|${fold('দুই')}\\s+${fold('হাজার')}\\s+\\S+)\\s+${fold('সাল')}(?:${fold('ের')}|${fold('ে')}|)\\s+(?=[০-৯0-9]{1,2}\\s+(?:$months))'), '');
   // "৩১ অক্টোবরের জন্য", "আমার জন্য একটা রিমাইন্ডার": "for" carries nothing here.
   s = s.replaceAllMapped(RegExp('($months)\\s+${fold('জন্য')}\\S*'), (m) => m[1]!);
   s = s.replaceAll(RegExp(fold(r'(?:(?:তুমি|আপনি)\s+)?আমার\s+জন্য\S*\s+(?=(?:একটা|একটি|এক|রিমাইন্ডার|অ্যালার্ম|এলার্ম))')), '');

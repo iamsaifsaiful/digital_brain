@@ -67,7 +67,7 @@ class Selection {
 /// list ('tasks', 'reminders', 'notes', 'medicines', 'habits', 'money'), or
 /// '' when the sentence did not say (the list just shown is meant).
 class BulkAction extends Command {
-  const BulkAction(super.transcript, {required this.selection, required this.op, this.domain = '', this.due, this.time, this.ampmOpen = false, this.day});
+  const BulkAction(super.transcript, {required this.selection, required this.op, this.domain = '', this.due, this.time, this.ampmOpen = false, this.day, this.span = TaskSpan.day, this.yearSaid = true});
   final Selection selection;
 
   /// 'delete', 'done', 'reopen', 'move', 'remind', 'reminder_off', 'urgent',
@@ -84,9 +84,29 @@ class BulkAction extends Command {
 
   /// 'done'/'not_done' for habits: which day.
   final DateTime? day;
+
+  /// 'move': "এগুলো জুন মাসে করব" — a month (or year), not a day.
+  final TaskSpan span;
+
+  /// 'move' to a month: false when no year was said — each to-do keeps its
+  /// own year ("২০৪১ সালের মে" → জুন ২০৪১).
+  final bool yearSaid;
 }
 
 const _collectiveP = r'(?:এই\s+(?:দুটি|দুটো|দুটা|দুইটা|দুই|তিনটা|তিনটি|চারটা|চারটি|পাঁচটা)(?:\s+কাজ)?|(?:দুটি|দুটো|দুটা|দুইটা|তিনটা|তিনটি|চারটা|চারটি)\s+কাজ|কাজ\s+(?:দুটি|দুটো|দুটা|দুইটা|তিনটা|তিনটি|চারটা)|এতে|এগুলোতে|এগুলায়|এইগুলো|এইগুলা|এই\s+গুলো|এই\s+গুলা|এগুলো|এগুলা|এগুলি|ওগুলো|ওগুলা|ওইগুলো|ওইগুলা|ঐগুলো|সেগুলো|সেগুলা|এসব|ওসব|এই\s+সব|ওই\s+সব|সবগুলো|সবগুলা|সবগুলি|সবকটা|সবকটি|সবকয়টা|সবক’টা|সব|সমস্ত|উপরেরগুলো|তালিকার\s+সব|যেগুলো\s+দেখালে|যেগুলো\s+বললে|এই\s+কাজগুলো|ওই\s+কাজগুলো|কাজগুলো|কাজগুলা|এই\s+(?:নোট|রিমাইন্ডার|ওষুধ|অভ্যাস)গুলো|(?:নোট|রিমাইন্ডার|ওষুধ|অভ্যাস)গুলো|(?:নোট|রিমাইন্ডার|ওষুধ|অভ্যাস)গুলোর|(?:টাকা|পাওনা|দেনা|ধার|ঋণ)গুলো|(?:টাকা|পাওনা|দেনা|ধার|ঋণ)গুলা)';
+
+/// "জুন মাসে", "জুনে", "ডিসেম্বরের": the month named (1–12) with no day of it.
+int? _monthSaid(String f) {
+  for (var i = 0; i < bnMonths.length; i++) {
+    final m = RegExp('(?:^|\\s)${fold(bnMonths[i])}(?:ে|ের|এ|এর|\\s+মাসে|\\s+মাসের|\\s+মাস)?(?=\\s|\$)').firstMatch(f);
+    if (m == null) continue;
+    // "১৫ জুনে": a day of it — a day, not the month.
+    final before = f.substring(0, m.start).trim();
+    if (RegExp(r'[0-9০-৯]{1,2}$').hasMatch(before)) return null;
+    return i + 1;
+  }
+  return null;
+}
 
 const _ordWords = {'প্রথম': 1, 'দ্বিতীয়': 2, 'তৃতীয়': 3, 'চতুর্থ': 4, 'পঞ্চম': 5, 'ষষ্ঠ': 6, 'সপ্তম': 7, 'অষ্টম': 8, 'নবম': 9, 'দশম': 10};
 const _countWords = {'দু': 2, 'এক': 1, 'একটা': 1, 'দুই': 2, 'দুটো': 2, 'দুটা': 2, 'দুইটা': 2, 'দুটি': 2, 'তিন': 3, 'তিনটা': 3, 'তিনটি': 3, 'চার': 4, 'চারটা': 4, 'চারটি': 4, 'পাঁচ': 5, 'পাঁচটা': 5, 'পাঁচটি': 5, 'ছয়': 6, 'ছয়টা': 6, 'সাত': 7, 'সাতটা': 7, 'আট': 8, 'নয়': 9, 'দশ': 10, 'এগারো': 11, 'বারো': 12, 'তেরো': 13, 'চৌদ্দ': 14, 'পনেরো': 15, 'ষোল': 16, 'সতেরো': 17, 'আঠারো': 18, 'উনিশ': 19, 'বিশ': 20};
@@ -312,7 +332,7 @@ String _bulkOp(String f0) {
   if (_thas(f, r'(?<=\s)(?:হয়নি|হয়নি|করিনি|হয়\s+নাই|হাঁটিনি|পড়িনি)(?=\s)')) return 'not_done';
   if (_thas(f, r'(?<=\s)(?:শেষ(?:\s+করো|\s+করেছি|\s+হয়েছে)?|করেছি|হয়ে\s+গেছে|হয়েছে|হয়েছে|সেরেছি|টিক\s+দাও|সম্পন্ন|done)(?=\s)')) return 'done';
   // "প্রথম দুটো কাল রাখো", "শেষের তিনটি কাল করব", "সব কাল করব": another day.
-  if (_thas(f, r'(?<=\s)(?:রাখো|রাখ|দাও|সরাও|সরিয়ে\s+দাও|পিছিয়ে\s+দাও|নাও|করো|করব|করবো|করবো|হবে|যাবে|থাকবে)(?=\s*$|\s*,)') && _thas(f, r'(?:আজ|কাল|পরশু|তারিখ|বার(?:ে)?|সপ্তাহ)')) return 'move';
+  if (_thas(f, r'(?<=\s)(?:রাখো|রাখ|দাও|সরাও|সরিয়ে\s+দাও|পিছিয়ে\s+দাও|নাও|করো|করব|করবো|করবো|হবে|যাবে|থাকবে)(?=\s*$|\s*,)') && (_thas(f, r'(?:আজ|কাল|পরশু|তারিখ|বার(?:ে)?|সপ্তাহ)') || _monthSaid(f) != null)) return 'move';
   if (_thas(f, r'(?:দেখাও|দেখান|বলো|বলুন|দাও)\s*$')) return 'show';
   // "রিমাইন্ডারগুলো কি কি", "নোটগুলো কোনগুলো": asking to see them.
   if (_thas(f, r'(?:কি\s+কি|কী\s+কী|কোনগুলো|কোন\s+কোন)\s*$')) return 'show';
@@ -379,10 +399,22 @@ List<BulkAction>? bulkCommands(String said, DateTime now) {
   DateTime? due;
   int? time;
   var open = false;
+  var span = TaskSpan.day;
+  var yearSaid = true;
   if (op == 'move') {
     final w = parseWhen(dayFix ?? f, now);
-    if (w == null || !w.hasDay) return null;
-    due = dayOnly(w.day);
+    final month = _monthSaid(f);
+    if ((w == null || !w.hasDay) && month != null) {
+      // "এগুলো জুন মাসে করব": the month, any day in it.
+      final y = RegExp(r'([0-9০-৯]{4})').firstMatch(f);
+      yearSaid = y != null;
+      final year = y != null ? int.parse(asciiDigits(y[1]!)) : (month < now.month ? now.year + 1 : now.year);
+      due = DateTime(year, month);
+      span = TaskSpan.month;
+    } else {
+      if (w == null || !w.hasDay) return null;
+      due = dayOnly(w.day);
+    }
   }
   if (op == 'remind') {
     final w = parseWhen(f, now);
@@ -393,7 +425,7 @@ List<BulkAction>? bulkCommands(String said, DateTime now) {
     }
   }
   final day = _thas(f, r'(?:গতকাল|গত\s+কাল)') ? dayOnly(now.subtract(const Duration(days: 1))) : dayOnly(now);
-  final main = BulkAction(said, selection: sel, op: op, domain: domain, due: due, time: time, ampmOpen: open, day: day);
+  final main = BulkAction(said, selection: sel, op: op, domain: domain, due: due, time: time, ampmOpen: open, day: day, span: span, yearSaid: yearSaid);
   // "সব কাল করব, তবে ব্যাংকেরটা আজই থাকবে": the one left out has its own day.
   if (op == 'move' && sel.exceptNames.isNotEmpty) {
     final ex = _tre(r'(?<=\s)\S+?(?:টা|টি)\s+(আজই|আজকেই|আজকে|আজ|কালকেই|কালই|কাল|পরশু)(?=\s)\s*(?:\S+\s+)?(?:থাকবে|থাকুক|রাখো|হবে|করব|করবো)').firstMatch(f);

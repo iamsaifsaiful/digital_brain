@@ -434,7 +434,13 @@ List<Task> scopedTasks(AppData d, TaskScope s, DateTime now) {
       pool = pool.where((t) => touches(t, s.from!, s.to ?? s.from!) || (s.withOverdue && over(t)));
     }
   }
-  if (s.about.isNotEmpty) pool = pool.where((t) => taskScore(t, s.about) > 0);
+  if (s.about.isNotEmpty) {
+    // "নোয়াখালী যাওয়া কাজটা": the to-dos that match it best, not every one
+    // sharing a word ("যাওয়া").
+    final scored = [for (final t in pool) (t, taskScore(t, s.about))].where((x) => x.$2 > 0).toList();
+    final best = scored.fold<int>(0, (m, x) => x.$2 > m ? x.$2 : m);
+    pool = [for (final x in scored) if (x.$2 == best) x.$1];
+  }
   final out = pool.toList();
   int rank(Task t) => t.due == null && t.deadline == null ? 2 : (over(t) ? 0 : 1);
   out.sort((a, b) {
@@ -562,6 +568,16 @@ DateTime _weekStartOf(DateTime d) => weekStartOf(d);
     return (trf('{0} — {1}।', [head, nameList([for (final i in items) line(i)], unit: 'টা')]), shown);
   }
   final what = s.about.isEmpty ? '' : trf('“{0}” নিয়ে ', [s.about.join(' ')]);
+  // "রবিনের বোনের বিয়েতে দাওয়াত কাজটা দেখাও" when that one is ticked: it,
+  // as it stands — never another open one sharing a word.
+  if (s.about.isNotEmpty && label.isEmpty && !s.doneOnly) {
+    final open = tasks.isEmpty ? 0 : taskScore(tasks.first, s.about);
+    final done = [for (final t in d.tasks) if (t.done && t.repeat == null) (t, taskScore(t, s.about))]..sort((a, b) => b.$2.compareTo(a.$2));
+    if (done.isNotEmpty && done.first.$2 > open) {
+      final t = done.first.$1;
+      return (trf('“{0}” শেষ হিসেবে দাগ দেওয়া আছে{1}।', [t.title, t.doneAt == null ? '' : trf(' ({0})', [sayWhen(t.doneAt!, now, withTime: false)])]), [t]);
+    }
+  }
   if (tasks.isEmpty) {
     if (s.undated) return (tr('তারিখ ছাড়া কোনো কাজ রাখা নেই।'), const []);
     if (s.overdue) return (tr('সময় পেরিয়ে গেছে এমন কোনো কাজ নেই।'), const []);
@@ -637,9 +653,43 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
     final total = RegExp(fold(r'(?:কত|কতো)')).hasMatch(fold(normalize(q.transcript)));
     return total ? head : [head, ...projectEntryLines(d, p.id)].join('\n');
   }
+  // "বাজারের খাতের ভেতরের সব দেখাও": that খাত's entries (this month unless
+  // another time is said), each with its own words; the sum matches them.
+  if (q.category != null) {
+    final per = periodIn(normalize(q.transcript), now) ?? (DateTime(now.year, now.month), DateTime(now.year, now.month + 1), 'এই মাসে');
+    final es = [
+      for (final e in d.cash)
+        if (e.projectId == null && e.category == q.category && !e.date.isBefore(per.$1) && e.date.isBefore(per.$2)) e
+    ]..sort((a, b) => b.date.compareTo(a.date));
+    if (es.isEmpty) return trf('{0} ‘{1}’ খাতে কিছু লেখা নেই।', [tr(per.$3), q.category!]);
+    final total = es.fold<int>(0, (s, e) => s + e.amount);
+    return [
+      trf('{0} ‘{1}’ খাতে {2}টা লেনদেন, মোট {3} টাকা:', [tr(per.$3), q.category!, bnDigits(es.length), bnNumber(total)]),
+      for (final e in es.take(15))
+        trf('• {0} — {1} টাকা ({2})', [cashItem(e.note).isEmpty ? e.category : cashItem(e.note), bnNumber(e.amount), sayWhen(e.date, now, withTime: false)]),
+      if (es.length > 15) trf('আরও {0}টা', [bnDigits(es.length - 15)]),
+    ].join('\n');
+  }
   // "আয়ের খাত গুলো কি কি", "কিভাবে ব্যয় হয়েছে?": this month by খাত.
   final byCat = categoryAsked(q.transcript);
   if (byCat != null) {
+    // "আজকের আয়ের খাতগুলো", "গত মাসের ব্যয়ের খাত": that time, by খাত.
+    final per = periodIn(normalize(q.transcript), now);
+    if (per != null && per.$3 != 'এই মাসে') {
+      final sums = <String, int>{};
+      for (final e in d.cash) {
+        if (e.kind != byCat || e.projectId != null || e.date.isBefore(per.$1) || !e.date.isBefore(per.$2)) continue;
+        sums[e.category] = (sums[e.category] ?? 0) + e.amount;
+      }
+      final rows = sums.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+      final when = tr(per.$3);
+      if (rows.isEmpty) return byCat == CashKind.income ? trf('{0} কোনো আয় লেখা নেই।', [when]) : trf('{0} কোনো খরচ লেখা নেই।', [when]);
+      final total = rows.fold<int>(0, (s, r) => s + r.value);
+      return [
+        trf(byCat == CashKind.income ? '{0} আয় {1} টাকা, {2}টা খাতে:' : '{0} খরচ {1} টাকা, {2}টা খাতে:', [when, bnNumber(total), bnDigits(rows.length)]),
+        for (final r in rows) trf('• {0} — {1} টাকা', [r.key, bnNumber(r.value)]),
+      ].join('\n');
+    }
     final m = monthSums(d.cash, now);
     final rows = byCat == CashKind.income ? m.topIncome : m.topExpenses;
     final total = byCat == CashKind.income ? m.income : m.expense;

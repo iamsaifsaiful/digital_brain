@@ -326,7 +326,7 @@ const voiceCaps = <String, VoiceCap>{
     'spend': 'spending in a span (day…until), category text', 'income': 'income in a span', 'net': 'income minus spending in a span',
     'recategorize': 'move the latest expense about target to category text', 'dupes': 'find two identical expenses; one removed if confirmed',
   }),
-  'notes': VoiceCap(VoiceLevel.partial, {'list': 'show notes of a category or with words (text)', 'replace_word': 'in the latest note with word target, write text instead'}),
+  'notes': VoiceCap(VoiceLevel.partial, {'list': 'show notes of a category or with words (text)', 'read': 'read one note out as written (text: its words)', 'replace_word': 'in the latest note with word target, write text instead'}),
   'health': VoiceCap(VoiceLevel.partial, {'list': "a family member's last readings (target, amount = how many)", 'none': 'nothing measured (nothing written)', 'fix_last': 'the last reading amount/10 was really amount2/10'},
       notYet: ['টিকা দেওয়া হয়েছে কথায় টিক দেওয়া', 'চেকআপের তারিখ কথায় বদলানো']),
   'zakat': VoiceCap(VoiceLevel.partial, {'price': "today's gold/silver price from BAJUS through our server (text gold|silver)", 'set_price': "put today's 22-carat prices into the zakat page"},
