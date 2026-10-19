@@ -428,6 +428,7 @@ extension _TodoChat on ChatController {
       final q = c.say != null && c.say!.contains('{0}')
           ? trf(c.say!, [day0 == null ? tr('সকালে') : '$when ${_partWord(c.transcript)}'.trim()])
           : (c.say != null ? tr(c.say!) : trf('“{0}” — কখন মনে করিয়ে দেব? যেমন “{1}”।', [t.title, day0 == null || day0 == dayOnly(_now) ? tr('সন্ধ্যা ৭টায়') : '$when ${tr('সকাল ৯টায়')}']));
+      _offerAsked = false;
       _offeredTime = c.say != null ? null : (day0 == null || day0 == dayOnly(_now) ? 'সন্ধ্যা ৭টায়' : 'সকাল ৯টায়');
       _ask(out, q, ChatWait.taskTime);
       return false;
@@ -549,7 +550,15 @@ extension _TodoChat on ChatController {
         w = parseWhen('$part $said', _now);
       }
       // "হ্যাঁ দাও", "ঠিক আছে", "ওই সময়েই দাও": the time just offered.
+      // A bare "হ্যাঁ" is no time: the time offered is asked back once
+      // ("সকাল ৯টায় রাখব?"); "হ্যাঁ দাও", "ঠিক আছে", "ওই সময়েই" take it.
       final offered = _offeredTime;
+      final bare = RegExp(fold(r'^\s*(?:হ্যাঁ|হ্যা|হুম|জি|জ্বি|yes|ha|haa)\s*[।.!]?\s*$')).hasMatch(fold(normalize(t)));
+      if ((w == null || !w.hasTime) && offered != null && bare && !_offerAsked) {
+        _offerAsked = true;
+        _ask(out, trf('{0} রাখব? “হ্যাঁ দাও” বলুন, বা অন্য সময় বলুন।', [tr(offered)]), ChatWait.taskTime);
+        return true;
+      }
       if ((w == null || !w.hasTime) && offered != null && (yesNo(t) == true || RegExp(fold(r'(?:^|\s)(?:ওই|ঐ|সেই|ওটাই|সেটাই)\s*(?:সময়ে?|সময়েই|টাইমে?)?')).hasMatch(fold(normalize(t))))) {
         w = parseWhen(offered, _now);
       }
@@ -559,6 +568,7 @@ extension _TodoChat on ChatController {
         return true;
       }
       _offeredTime = null;
+      _offerAsked = false;
       wait = ChatWait.none;
       _todoWaiting = null;
       final ids = pending.ref.ids;

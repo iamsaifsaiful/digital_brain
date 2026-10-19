@@ -281,6 +281,12 @@ class ChatController extends ChangeNotifier {
 
   /// The time offered with "কখন মনে করিয়ে দেব? যেমন …": a plain yes takes it.
   String? _offeredTime;
+
+  /// A bare "হ্যাঁ" to that question was asked back once: the next yes takes it.
+  bool _offerAsked = false;
+
+  /// The saved item a clarify choice about changing it is about.
+  Target? _clarifyTarget;
   List<Task> _todoChoices = const [];
 
   /// The reminder just set for a to-do ("না, এগারোটায়" changes it).
@@ -2608,6 +2614,11 @@ class ChatController extends ChangeNotifier {
               await _bulkStart(pick, whole, ids, out);
             }
           }
+        } else if (pick is ManageItem) {
+          final tg = _clarifyTarget;
+          _clarifyTarget = null;
+          _current = pick;
+          if (tg != null) await _confirmManage(tg, out);
         } else if (pick is MoneyListQuery) {
           _answerMoney(pick, out);
         } else {
@@ -3428,7 +3439,11 @@ class ChatController extends ChangeNotifier {
         // "ব্যাংক এর কাজের রিমাইন্ডার দরকার": a to-do named before "কাজের".
         // "নোয়াখালী যাওয়ার রিমাইন্ডার চাই": a to-do's name, "কাজের" or not.
         final nm = RegExp(fold(r'^\s*(.+?)\s*(?:এর|-এর)?\s+(?:(?:কাজ|কাজের|কাজটার|কাজটির|কাজটায়|কাজে)\s+)?(?:একটা\s+)?(?:রিমাইন্ডার|এলার্ম|অ্যালার্ম)')).firstMatch(f);
-        final named = nm == null ? null : _openTaskNamed(nm[1]!);
+        // Without "কাজের", only a plain ask ("…রিমাইন্ডার চাই/দাও"): times
+        // and "আগের দিন" have their own rules.
+        final plain = nm != null && (RegExp(fold(r'(?:কাজ|কাজের|কাজটার|কাজটির|কাজটায়|কাজে)\s+(?:একটা\s+)?(?:রিমাইন্ডার|এলার্ম|অ্যালার্ম)')).hasMatch(f) ||
+            RegExp(fold(r'^\S*\s*(?:একটা\s+)?(?:চাই|দাও|দিও|দেন|দিন|দরকার|লাগবে|সেট\s+করো|সেট\s+কর|যুক্ত\s+করো|যুক্ত\s+কর|দিয়ে\s+দাও)?\s*$')).hasMatch(f.substring(nm.end)));
+        final named = nm == null || !plain ? null : _openTaskNamed(nm[1]!);
         if (named == null) return false;
         targets = [named];
       }
@@ -3476,10 +3491,26 @@ class ChatController extends ChangeNotifier {
     final w = parseWhen(said, _now);
     final clock = w != null && w.hasTime && saysClock(said);
     final timeWord = RegExp(fold(r'(?:সময়|টাইম|time)')).hasMatch(f);
-    final changeWord = RegExp(fold(r'(?:সরাও|সরিয়ে|বদল|পরিবর্তন|চেঞ্জ|করে\s+দাও|(?:^|\s)করো|(?:^|\s)কর(?:\s|$)|দিও|(?:^|\s)দাও|হবে)')).hasMatch(f);
-    if (!(clock || timeWord) || !changeWord) return false;
+    final strong = timeWord || RegExp(fold(r'(?:সরাও|সরিয়ে|বদল|পরিবর্তন|চেঞ্জ|করে\s+দাও|(?:^|\s)করো|(?:^|\s)কর(?:\s|$)|হবে)')).hasMatch(f);
+    final weak = RegExp(fold(r'(?:দিও|(?:^|\s)দাও|(?:^|\s)দেন|(?:^|\s)দিন)')).hasMatch(f);
+    if (!(clock || timeWord) || !(strong || weak)) return false;
     final hits = remindersNamed(brain.data, t, _now);
     if (hits.isEmpty || hits.length > 6) return false;
+    // "তুবার জন্মদিনের রিমাইন্ডার সন্ধ্যা ৭টায় দিও" with one already kept:
+    // that one moved, or a second one — asked, never guessed.
+    if (!strong && hits.length == 1) {
+      final add = parseAll(t, brain.data.ledger, tasks: brain.data.tasks, contacts: brain.data.contacts, folders: brain.folderHints, now: _now, data: brain.data).whereType<ReminderAdd>().firstOrNull;
+      if (add != null) {
+        final x = hits.single;
+        _clarifyTarget = x;
+        _clarifyOptions = [
+          (tr('ওটাই সরাও'), ManageItem(t, action: 'edit')),
+          (tr('আরেকটা রাখো'), add),
+        ];
+        _ask(out, trf('“{0}” — এটার সময় বদলাব, নাকি আরেকটা রিমাইন্ডার রাখব?', [x.label]), ChatWait.clarify, choices: [for (final o in _clarifyOptions) ChatChoice(o.$1, o.$1)]);
+        return true;
+      }
+    }
     _current = ManageItem(t, action: 'edit');
     if (hits.length > 1) {
       _targets = hits;
