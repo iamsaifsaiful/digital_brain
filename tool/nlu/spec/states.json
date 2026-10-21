@@ -8,25 +8,25 @@
  {
   "state": "await_time",
   "asks": "কয়টায়? (রিমাইন্ডার/কাজের রিমাইন্ডার)",
-  "accepts": "time, daypart; confirm_yes = প্রস্তাবিত সময় (শুধু \"হ্যাঁ\" হলে একবার নিশ্চিত); cancel",
+  "accepts": "inform (time, daypart); confirm_yes = প্রস্তাবিত সময় (শুধু \"হ্যাঁ\" হলে একবার নিশ্চিত); cancel",
   "exits": "প্রশ্ন, অভিযোগ, নতুন বিষয়, ৩০ মিনিট"
  },
  {
   "state": "await_ampm",
   "asks": "সকাল না সন্ধ্যা?",
-  "accepts": "daypart, time, cancel",
+  "accepts": "inform (daypart, time), cancel",
   "exits": "একই"
  },
  {
   "state": "await_new_value",
   "asks": "নতুন সময়/তারিখ কত? (reminder_edit, task_edit)",
-  "accepts": "time, date, cancel",
+  "accepts": "inform (time, date), cancel",
   "exits": "একই"
  },
  {
   "state": "await_person",
   "asks": "কার সাথে লেনদেন?",
-  "accepts": "person, select, cancel, correct",
+  "accepts": "inform (person), select, cancel, correct",
   "exits": "একই"
  },
  {

@@ -57,10 +57,10 @@ SLOTS = {
 
 STATES = [
   ('idle', 'কিছু অপেক্ষায় নেই', 'সব intent', '—'),
-  ('await_time', 'কয়টায়? (রিমাইন্ডার/কাজের রিমাইন্ডার)', 'time, daypart; confirm_yes = প্রস্তাবিত সময় (শুধু "হ্যাঁ" হলে একবার নিশ্চিত); cancel', 'প্রশ্ন, অভিযোগ, নতুন বিষয়, ৩০ মিনিট'),
-  ('await_ampm', 'সকাল না সন্ধ্যা?', 'daypart, time, cancel', 'একই'),
-  ('await_new_value', 'নতুন সময়/তারিখ কত? (reminder_edit, task_edit)', 'time, date, cancel', 'একই'),
-  ('await_person', 'কার সাথে লেনদেন?', 'person, select, cancel, correct', 'একই'),
+  ('await_time', 'কয়টায়? (রিমাইন্ডার/কাজের রিমাইন্ডার)', 'inform (time, daypart); confirm_yes = প্রস্তাবিত সময় (শুধু "হ্যাঁ" হলে একবার নিশ্চিত); cancel', 'প্রশ্ন, অভিযোগ, নতুন বিষয়, ৩০ মিনিট'),
+  ('await_ampm', 'সকাল না সন্ধ্যা?', 'inform (daypart, time), cancel', 'একই'),
+  ('await_new_value', 'নতুন সময়/তারিখ কত? (reminder_edit, task_edit)', 'inform (time, date), cancel', 'একই'),
+  ('await_person', 'কার সাথে লেনদেন?', 'inform (person), select, cancel, correct', 'একই'),
   ('await_kind', 'দিলেন না নিলেন? / আয় না খরচ?', 'ledger_kind/cash_kind, select, cancel', 'একই'),
   ('confirm_delete', 'এই N টা মুছে দেব? (তালিকাসহ)', 'confirm_yes, confirm_no; select ("শুধু ২০২৭ সালের", "১ ছাড়া") → প্রস্তাব ছোট করে আবার জিজ্ঞেস; cancel', 'তালিকা দেখতে চাইলে প্রশ্ন বাদ — কিছু মোছা হয় না; নতুন বিষয়'),
   ('confirm_save', 'রাখি? (টাকা, নোটের নতুন বিভাগ)', 'confirm_yes, confirm_no, correct (মান বদলে আবার দেখানো)', 'নতুন অনুরোধে পুরনোটা বাদ — কখনো নতুন বাক্যের "দাও" দিয়ে সেভ নয়'),

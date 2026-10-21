@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../logic/csv.dart' show cashCsv;
 import '../logic/standard.dart';
+import '../nlu/labels.dart';
 import 'package:flutter/foundation.dart';
 
 import '../logic/lang.dart';
@@ -202,6 +203,28 @@ class ChatController extends ChangeNotifier {
 
   /// The lists shown (newest last) — what "এগুলো" means; see bulk_chat.dart.
   final List<ResultSet> _sets = [];
+
+  /// What the conversation is waiting on, for the NLU baseline harness and
+  /// shadow comparisons (tool/nlu): kinds and names only, never words.
+  @visibleForTesting
+  Map<String, Object?> get debugState {
+    final cur = _current;
+    final todo = _todoWaiting;
+    return {
+      'wait': wait.name,
+      'current': cur?.runtimeType.toString(),
+      'currentAction': cur is ManageItem ? cur.action : null,
+      'currentKind': cur is CashAdd ? cur.kind.name : null,
+      'todo': todo?.runtimeType.toString(),
+      'bulkOp': _pendingBulk?.action.op,
+      'bulkDomain': _pendingBulk?.set.domain,
+      'targetKind': _target?.kind.name,
+      'sets': _sets.length,
+      'lastSetDomain': _sets.isEmpty ? null : _sets.last.domain,
+      'lastSetTurn': _sets.isEmpty ? null : _sets.last.turn,
+      'turn': _turn,
+    };
+  }
 
   /// Counts the user's turns (how long ago a list was shown).
   int _turn = 0;
@@ -1522,6 +1545,8 @@ class ChatController extends ChangeNotifier {
     if (problem != null) messages.add(ChatMessage.app(problem, info: true));
 
     Trace.log('understood', 'intent', {'text': t, 'commands': cmds.map(traceLine).join(' + '), 'ai': brain.aiOn});
+    // The same reading in the NLU spec's names (for comparisons; no words).
+    Trace.log('understood', 'spec', {'intents': intentsOfCommands(cmds).join(',')});
     // A choice that belongs to something to keep ("আজই শুক্রবার, নাকি
     // আগামী?") waits its turn with the saves, so one question is open at a time.
     final saves = [for (final c in cmds) if (isSave(c) || (c is Clarify && cmds.length > 1 && c.options.every((o) => isSave(o.$2)))) c];

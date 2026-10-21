@@ -3265,6 +3265,68 @@
   "note": ""
  },
  {
+  "id": "inform",
+  "group": "নিয়ন্ত্রণ",
+  "maps_to": "answer to ChatWait (time/day/person/amount/value)",
+  "when": "অপেক্ষমাণ প্রশ্নের উত্তরে শুধু তথ্য — \"কয়টায়?\" → \"সকাল ৯টায়\", \"কার সাথে?\" → \"রহিম\", \"নতুন তারিখ?\" → \"৩১ অক্টোবর\"। কাজটা আগের প্রশ্নেরই; এই বাক্য শুধু ঘর পূরণ করে।",
+  "not_when": "কোনো প্রশ্ন অপেক্ষায় না থাকলে (তখন এটা অসম্পূর্ণ নতুন অনুরোধ)।",
+  "confusable": [
+   {
+    "intent": "correct",
+    "difference": "\"না, ৯টায়\" — আগের দেওয়া মান বদল"
+   },
+   {
+    "intent": "select",
+    "difference": "দেখানো বিকল্প থেকে বাছাই"
+   }
+  ],
+  "required": [],
+  "optional": [
+   "date",
+   "time",
+   "daypart",
+   "person",
+   "amount",
+   "title"
+  ],
+  "phone_only": false,
+  "examples": [
+   "সকাল ৯টায়",
+   "রাত ১১টায়",
+   "দুপুর ২টায়",
+   "৩১ অক্টোবর",
+   "১০ তারিখে",
+   "রহিম",
+   "৫০০ টাকা",
+   "কাল সকালে",
+   "সন্ধ্যা",
+   "আগামী শুক্রবার"
+  ],
+  "negatives": [
+   {
+    "text": "না, ৯টায়",
+    "intent": "correct"
+   },
+   {
+    "text": "১",
+    "intent": "select"
+   },
+   {
+    "text": "হ্যাঁ",
+    "intent": "confirm_yes"
+   },
+   {
+    "text": "কাল সকাল ৯টায় ব্যাংকের কথা মনে করিও",
+    "intent": "reminder_add"
+   },
+   {
+    "text": "বাতিল",
+    "intent": "cancel"
+   }
+  ],
+  "note": ""
+ },
+ {
   "id": "confirm_no",
   "group": "নিয়ন্ত্রণ",
   "maps_to": "yesNo → false",
