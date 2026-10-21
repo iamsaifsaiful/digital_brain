@@ -135,8 +135,16 @@ add_action('rest_api_init', function () {
             'pending_payments' => ma_pay_pending_count(),
             'income_month' => (int) $wpdb->get_var($wpdb->prepare('SELECT COALESCE(SUM(amount),0) FROM ' . ma_pay_table() . " WHERE status = 'approved' AND reviewed_at >= %s", gmdate('Y-m-01'))),
             'ai_today' => $ai['requests'],
+            // Dollars spent on AI today and this month (all models, all plans).
+            'ai_cost_today_usd' => round((ma_ai_spent('pro', ma_ai_today()) + ma_ai_spent('free', ma_ai_today())) / 1e6, 6),
+            'ai_cost_month_usd' => round((ma_ai_spent('pro', gmdate('Y-m-01')) + ma_ai_spent('free', gmdate('Y-m-01'))) / 1e6, 6),
             'feedback_new' => ma_fb_new_count(),
         ];
+    });
+
+    // AI cost by model (today, this month), sources of answers, budgets and prices.
+    ma_admin_route('/ai/overview', 'GET', function () {
+        return ma_ai_cost_report();
     });
 
     ma_admin_route('/payments', 'GET', function (WP_REST_Request $req) {

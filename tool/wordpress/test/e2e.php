@@ -60,7 +60,8 @@ $long = str_repeat('x', 120);
 echo "\nmember\n";
 [$code, $d] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '2.14.0', 'edition' => 'play']);
 check($code === 200 && strlen($d['session'] ?? '') === 64, 'login gives a session');
-check(($d['ai'] ?? null) === true && ($d['ai_left'] ?? 0) === 50, 'AI on, 50 left');
+// Pro's daily AI limit is 30 (21 Oct 2026 brief; was 50).
+check(($d['ai'] ?? null) === true && ($d['ai_left'] ?? 0) === 30, 'AI on, 30 left');
 check(($d['admin'] ?? false) === false, 'a member is not an admin');
 $ses = $d['session'];
 [$code] = call('POST', '/login', ['id_token' => 'RAHIMWRONGAUD' . $long]);
@@ -80,7 +81,28 @@ check($fwd['max_tokens'] === 4000 && !isset($fwd['metadata']) && $sent['ai'][0][
 check($code === 400, 'other models refused');
 check((int) $wpdb->get_var("SELECT requests FROM {$wpdb->prefix}ma_ai_usage") === 1, 'usage counted (no text kept)');
 [$code, $d] = call('GET', '/me', [], $ses);
-check($code === 200 && $d['ai_left'] === 49, '/me: 49 left');
+check($code === 200 && $d['ai_left'] === 29, '/me: 29 left');
+
+echo "\nAI cost by model, budgets and answer sources\n";
+$usage = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}ma_ai_usage WHERE model = 'claude-haiku-5-5'", ARRAY_A);
+// The pretended answer used 1200 input and 80 output tokens: 1200 × $0.10 + 80 × $0.50 per million = 160 millionths of a dollar.
+check($usage && (int) $usage['input'] === 1200 && (int) $usage['output'] === 80 && (int) $usage['cost_micro_usd'] === 160 && $usage['plan'] === 'pro' && $usage['provider'] === 'anthropic', 'Haiku answer: tokens and cost (160 µ$) by model');
+[$code] = call('POST', '/ai', ['model' => 'claude-sonnet-5-5', 'max_tokens' => 1000, 'messages' => [['role' => 'user', 'content' => 'হ্যালো']]], $ses);
+$son = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}ma_ai_usage WHERE model = 'claude-sonnet-5-5'", ARRAY_A);
+check($code === 200 && $son && (int) $son['cost_micro_usd'] === 1200 * 2 + 80 * 10, 'Sonnet in its own row: 3200 µ$ (20× Haiku per token)');
+check((int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}ma_ai_usage") === 2, 'one row per model');
+[$code, $d] = call('GET', '/me', [], $ses);
+check($d['ai_left'] === 28, 'the daily limit counts every model');
+update_option('ma_ai_budgets', wp_json_encode(['pro' => ['day' => 0.003, 'month' => 0], 'free' => ['day' => 0, 'month' => 0]]));
+[$code, $d] = call('POST', '/ai', ['model' => 'claude-haiku-5-5', 'max_tokens' => 1000, 'messages' => [['role' => 'user', 'content' => 'হ্যালো']]], $ses);
+check($code === 503 && ($d['code'] ?? '') === 'budget', 'Pro day budget ($0.003) used up ($0.00336): 503, the app goes on with its rules');
+update_option('ma_ai_budgets', '');
+[$code, $d] = call('POST', '/ai/sources', ['day' => gmdate('Y-m-d'), 'counts' => ['rules' => 7, 'haiku' => 2, 'sonnet' => 1, 'failed' => 1, 'words' => 3, 'local' => -4]], $ses);
+check($code === 200 && $d['kept'] === 4, 'answer sources: counts only, unknown and negative left out');
+[$code] = call('POST', '/ai/sources', ['day' => '2020-01-01', 'counts' => ['rules' => 1]], $ses);
+check($code === 400, 'an old day is refused');
+[$code] = call('POST', '/ai/sources', ['day' => gmdate('Y-m-d'), 'counts' => ['rules' => 1]]);
+check($code === 401, 'sources need a session');
 [$code] = call('GET', '/me', [], str_repeat('a', 64));
 check($code === 401, 'unknown session refused');
 [$code] = call('POST', '/device', ['token' => 'member-fcm-token-1234567890'], $ses);
@@ -123,6 +145,12 @@ try { ma_pay_submit(); } catch (Exception $e) { check(str_contains($e->getMessag
 check($code === 403, 'member session cannot use admin API');
 [$code, $d] = call('GET', '/admin/summary', [], $boss);
 check($code === 200 && $d['pending_payments'] === 1 && $d['members'] === 1, 'admin summary');
+check(abs($d['ai_cost_today_usd'] - 0.00336) < 0.000001, 'admin summary: today\'s AI cost $' . $d['ai_cost_today_usd']);
+[$code, $d] = call('GET', '/admin/ai/overview', [], $boss);
+$models = array_column($d['today'] ?? [], null, 'model');
+check($code === 200 && ($models['claude-haiku-5-5']['requests'] ?? 0) === 1 && abs(($models['claude-sonnet-5-5']['cost_usd'] ?? 0) - 0.0032) < 1e-9 && ($d['sources_today']['rules'] ?? 0) === 7, 'admin AI overview: cost by model and answer sources');
+[$code] = call('GET', '/admin/ai/overview', [], $ses);
+check($code === 403, 'a member cannot see the AI overview');
 [$code, $d] = call('GET', '/admin/payments', ['status' => 'pending'], $boss);
 check(count($d['payments']) === 1 && $d['payments'][0]['method'] === 'বিকাশ', 'admin sees the pending payment');
 [$code, $d] = call('POST', '/admin/payments/' . $p['id'], ['decision' => 'approve'], $boss);
@@ -301,6 +329,24 @@ file_put_contents(dirname(__FILE__) . '/page-pro.html', '<!doctype html><meta ch
 check(str_contains($pro, 'ফ্রি আর প্রো-তে কী কী') && str_contains($pro, 'মাসিক প্রো কিনুন') && str_contains($pro, 'তথ্য জমা দিন'), 'Pro page: features, plans and the form');
 check((bool) preg_match('/value="monthly"\s+checked/', $pro), 'the plan chosen above is ticked in the form');
 check(!str_contains(do_shortcode('[my_assistant_pro form="no"]'), 'তথ্য জমা দিন'), 'form="no" leaves the form out');
+echo "\nusage table migration (1.8.0 → 1.9.0)\n";
+$ut = $wpdb->prefix . 'ma_ai_usage';
+$wpdb->query("DROP TABLE $ut");
+$wpdb->query("CREATE TABLE $ut (user_id bigint(20) unsigned NOT NULL, day date NOT NULL, requests int(10) unsigned NOT NULL DEFAULT 0, tokens_in bigint(20) unsigned NOT NULL DEFAULT 0, tokens_out bigint(20) unsigned NOT NULL DEFAULT 0, PRIMARY KEY (user_id,day))");
+$wpdb->insert($ut, ['user_id' => 7, 'day' => '2026-10-01', 'requests' => 12, 'tokens_in' => 50000, 'tokens_out' => 900]);
+$wpdb->insert($ut, ['user_id' => 8, 'day' => '2026-10-02', 'requests' => 3, 'tokens_in' => 9000, 'tokens_out' => 100]);
+update_option('ma_acc_db_version', '1.8.0');
+ma_acc_install();
+$cols = $wpdb->get_col("SHOW COLUMNS FROM $ut", 0);
+$old = $wpdb->get_results("SELECT * FROM $ut ORDER BY user_id", ARRAY_A);
+check(in_array('model', $cols, true) && in_array('cost_micro_usd', $cols, true) && in_array('cache_read', $cols, true), 'new columns added');
+check(count($old) === 2 && (int) $old[0]['requests'] === 12 && $old[0]['model'] === 'unknown' && (int) $old[1]['tokens_in'] === 9000, 'old rows kept (model "unknown")');
+ma_ai_count(7, 'pro', 'claude-haiku-5-5', 'anthropic', ['input_tokens' => 10]);
+ma_ai_count(7, 'pro', 'claude-haiku-5-5', 'anthropic', ['input_tokens' => 10]);
+check((int) $wpdb->get_var($wpdb->prepare("SELECT requests FROM $ut WHERE user_id = 7 AND model = %s", 'claude-haiku-5-5')) === 2 && (int) $wpdb->get_var("SELECT COUNT(*) FROM $ut") === 3, 'after migration: the same day, a new model gets its own row');
+ma_acc_install();
+check((int) $wpdb->get_var("SELECT COUNT(*) FROM $ut") === 3, 'running the install again changes nothing');
+
 echo "\ngold and silver price\n";
 $today = wp_date('Y-m-d');
 $GLOBALS['metal_reply'] = 'এই যে: {"effective_date":"' . $today . '","gold":{"22k":"1,000,000","21k":1,"18k":1,"traditional":1},"silver":{"22k":3500,"21k":3300,"18k":2800,"traditional":2100},"source_url":"https://www.bajus.org/gold-price"}';

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -641,13 +642,66 @@ class Brain extends ChangeNotifier {
     notifyListeners();
   }
 
-  AiContext aiContext({DateTime? now}) => AiContext(
+  AiContext aiContext({DateTime? now, String shown = ''}) => AiContext(
         now: now ?? services.now(),
         people: knownPeople(data.ledger).take(60).toList(),
         categories: aiShareData ? data.noteCategories : const [],
         money: moneySummary(),
         records: aiShareData ? recordsSummary() : '',
+        shown: aiShareData ? shown : '',
       );
+
+  // ── Where each answer came from (counts only, sent to our server) ──
+
+  /// Today's counts by source: rules, local (the phone's model), gemini,
+  /// haiku, sonnet, failed. Kept on the phone until sent; never any words.
+  final Map<String, Map<String, int>> answerSources = {};
+
+  void countSource(String source) {
+    final d = services.now();
+    final day = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    final m = answerSources.putIfAbsent(day, () => {});
+    m[source] = (m[source] ?? 0) + 1;
+    _saveSources();
+  }
+
+  Future<void> _saveSources() async {
+    try {
+      await services.lock.keys.write('answer_sources', jsonEncode(answerSources));
+    } catch (_) {}
+  }
+
+  Future<void> _loadSources() async {
+    try {
+      final raw = await services.lock.keys.read('answer_sources');
+      if (raw == null || raw.isEmpty) return;
+      final j = jsonDecode(raw) as Map<String, dynamic>;
+      for (final e in j.entries) {
+        answerSources[e.key] = {for (final x in (e.value as Map<String, dynamic>).entries) x.key: (x.value as num).toInt()};
+      }
+    } catch (_) {}
+  }
+
+  /// Days before today go to the server once (signed in only); today's wait
+  /// until tomorrow. Older than a week: dropped (the server refuses them).
+  Future<void> sendAnswerSources() async {
+    final session = services.ai.session;
+    if (session.isEmpty || !services.server.configured) return;
+    final d = services.now();
+    final today = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    final weekAgo = d.subtract(const Duration(days: 7));
+    for (final day in answerSources.keys.toList()..sort()) {
+      if (day.compareTo(today) >= 0) continue;
+      final at = DateTime.tryParse(day);
+      if (at == null || at.isBefore(weekAgo)) {
+        answerSources.remove(day);
+        continue;
+      }
+      final r = await services.server.send('POST', '/ai/sources', session, {'day': day, 'counts': answerSources[day]});
+      if (r.status == 200 || r.status == 400) answerSources.remove(day);
+    }
+    await _saveSources();
+  }
 
   /// The user lets the AI see their reminders, tasks and notes (never
   /// passwords, PINs or anything secret), so it can answer about them.
@@ -1091,13 +1145,6 @@ class Brain extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool get aiBest => services.ai.quality == AiQuality.best;
-
-  Future<void> setAiBest(bool on) async {
-    services.ai.quality = on ? AiQuality.best : AiQuality.fast;
-    await services.lock.keys.write('ai_quality', on ? 'best' : 'fast');
-    notifyListeners();
-  }
 
   /// What the user meant. The rules always run (offline, instant); when AI
   /// is on, Claude's reading is used instead — except for anything secret,
@@ -1111,7 +1158,17 @@ class Brain extends ChangeNotifier {
   /// Like [understand], for a chat: a long message may hold several things
   /// (never empty). [history] is the conversation so far, already cleaned
   /// of anything private.
-  Future<(List<Command>, String?)> understandAll(String said, {List<AiTurn> history = const [], bool fast = false}) async {
+  Future<(List<Command>, String?)> understandAll(String said, {List<AiTurn> history = const [], bool fast = false, String shown = ''}) async {
+    final (cmds, problem, source) = await _understandAll(said, history: history, fast: fast, shown: shown);
+    countSource(source);
+    return (cmds, problem);
+  }
+
+  /// Sonnet may be asked when Haiku could not make a message out: Pro
+  /// through our server, or a key of the user's own.
+  bool get canEscalate => aiByServer || (!gated && services.ai.key.trim().isNotEmpty);
+
+  Future<(List<Command>, String?, String)> _understandAll(String said, {List<AiTurn> history = const [], bool fast = false, String shown = ''}) async {
     // One "now" for the whole message: the rules, the AI's context and the
     // reading of its answer never disagree about today (e.g. at midnight).
     final now = services.now();
@@ -1130,56 +1187,72 @@ class Brain extends ChangeNotifier {
         }
       }
     }
-    if (!aiOn) return (rules, null);
+    if (!aiOn) return (rules, null, 'rules');
     // The to-do list and reminders are decided on the phone, by the same
     // rules typed or spoken: when they found what is wanted, the AI is not
     // asked (one reading, one action — never a second one from the AI).
-    if (rules.any(_decidedHere)) return (rules, null);
+    if (rules.any(_decidedHere)) return (rules, null, 'rules');
     // Money is counted from the saved book, never put into words by the AI
     // (it could make up an amount); a question that needs a choice is asked.
-    if (rules.length == 1 && (rules.first is MoneyListQuery || rules.first is Clarify || rules.first is LedgerQuery || rules.first is CashQuery)) return (rules, null);
+    if (rules.length == 1 && (rules.first is MoneyListQuery || rules.first is Clarify || rules.first is LedgerQuery || rules.first is CashQuery)) return (rules, null, 'rules');
     // "ইমরান ১০ হাজার দিয়েছে, শুধু নোট করে রাখো": the place the user named
     // wins on the phone — the AI never turns it into a money record.
-    if (rules.length == 1 && rules.first is NoteAdd && !(rules.first as NoteAdd).fromStatement) return (rules, null);
+    if (rules.length == 1 && rules.first is NoteAdd && !(rules.first as NoteAdd).fromStatement) return (rules, null, 'rules');
     // "কোনো কাজ বাকি নেই" and other answers worked out here: amounts, what is
     // left, a category's entries — counted from the records, not by the AI.
-    if (rules.length == 1 && rules.first is AiReply) return (rules, null);
+    if (rules.length == 1 && rules.first is AiReply) return (rules, null, 'rules');
     // "নোট খোলো": opening a page needs no AI; blood group, allergies and
     // what photos are kept stay on the phone.
-    if (rules.length == 1 && (rules.first is OpenPlace || rules.first is ProfileQuery || rules.first is ProfileSet || rules.first is ManageItem)) return (rules, null);
+    if (rules.length == 1 && (rules.first is OpenPlace || rules.first is ProfileQuery || rules.first is ProfileSet || rules.first is ManageItem)) return (rules, null, 'rules');
     // An alarm is understood on the phone at once (no waiting for the AI).
-    if (rules.length == 1 && rules.first is ReminderAdd && (rules.first as ReminderAdd).alarm) return (rules, null);
-    if (mentionsSecret(said) || rules.any((c) => c is VaultQuery)) return (rules, null);
+    if (rules.length == 1 && rules.first is ReminderAdd && (rules.first as ReminderAdd).alarm) return (rules, null, 'rules');
+    if (mentionsSecret(said) || rules.any((c) => c is VaultQuery)) return (rules, null, 'rules');
     // A phone number in the sentence: understood on the phone (numbers never go to the AI).
-    if (findPhone(said) != null) return (rules, null);
+    if (findPhone(said) != null) return (rules, null, 'rules');
     // Listing the saved numbers needs no AI (and numbers never go to it).
-    if (rules.length == 1 && rules.first is ContactsQuery) return (rules, null);
+    if (rules.length == 1 && rules.first is ContactsQuery) return (rules, null, 'rules');
     if (rules.length == 1 && rules.first is SmallTalk && {Talk.time, Talk.date}.contains((rules.first as SmallTalk).kind)) {
-      return (rules, null);
+      return (rules, null, 'rules');
     }
     try {
       final clean = stripAddress(said).$1;
       var text = clean.isEmpty ? said : clean;
       final others = [for (final a in alts) if (a.trim() != said.trim() && !mentionsSecret(a)) a];
       if (others.isNotEmpty) text = '$text\n[speech recogniser also heard: ${others.take(3).join(' | ')}]';
-      final r = await services.ai.route(text, aiContext(now: now), history: history, fast: fast);
-      if (r == null) return (rules, null);
+      final ctx = aiContext(now: now, shown: shown);
+      final r = await services.ai.route(text, ctx, history: history, fast: fast);
+      if (r == null) return (rules, null, 'rules');
       var cmds = commandsFromAi(said, r, data.ledger, now: now);
+      var source = services.ai.lastModel.contains('sonnet') ? 'sonnet' : 'haiku';
+      // Haiku could not make it out (nothing usable): Sonnet once, Pro only.
+      if (_lost(cmds) && canEscalate) {
+        try {
+          final r2 = await services.ai.route(text, ctx, history: history, fast: fast, escalate: true);
+          final c2 = r2 == null ? const <Command>[] : commandsFromAi(said, r2, data.ledger, now: now);
+          if (!_lost(c2)) {
+            cmds = c2;
+            source = 'sonnet';
+          }
+        } on AiError catch (_) {}
+      }
       // The rules plainly heard "remind me" but the AI read a question about
       // saved reminders: a request wins over a search.
       final ruleReminder = rules.whereType<ReminderAdd>().firstOrNull;
       if (ruleReminder != null && cmds.any((c) => c is ReminderQuery) && !cmds.any((c) => c is ReminderAdd)) {
         cmds = [for (final c in cmds) c is ReminderQuery ? ruleReminder : c];
       }
-      return (cmds.isEmpty ? rules : cmds, null);
+      return (cmds.isEmpty ? rules : cmds, null, source);
     } on AiError catch (e) {
-      return (rules, '${e.message} নিজের নিয়মে বুঝে নিলাম।');
+      return (rules, '${e.message} নিজের নিয়মে বুঝে নিলাম।', 'failed');
     }
   }
 
   /// To-do and reminder commands the rules settle by themselves.
   static bool _decidedHere(Command c) =>
       c is TaskAdd || c is TaskEdit || c is TaskDone || c is TaskQuery || c is TaskRestore || c is TasksClear || c is ReminderAdd || c is ReminderSnooze || c is Clarify || c is MenuAction || c is BulkAction;
+
+  /// The AI's reading gave nothing to act on.
+  static bool _lost(List<Command> c) => c.isEmpty || c.every((x) => x is NotUnderstood);
 
   /// Rules that only half understood: nothing, a search, or a plain note.
   static bool _weak(List<Command> c) => c.length == 1 && (c.first is NotUnderstood || c.first is SearchQuery || c.first is NoteAdd);
@@ -1193,7 +1266,8 @@ class Brain extends ChangeNotifier {
   Future<void> load() async {
     try {
       services.ai.key = await services.lock.keys.read('claude_api_key') ?? '';
-      services.ai.quality = (await services.lock.keys.read('ai_quality')) == 'fast' ? AiQuality.fast : AiQuality.best;
+      // Haiku for everyone; Sonnet only by escalation (an old "best" setting is not used).
+      services.ai.quality = AiQuality.fast;
       aiShareData = (await services.lock.keys.read('ai_share_data')) != 'false';
       userName = await services.lock.keys.read('user_name') ?? '';
       askUserName = userName;
@@ -1211,8 +1285,11 @@ class Brain extends ChangeNotifier {
     } catch (_) {}
     await loadLook();
     await _loadPrefs();
+    await _loadSources();
     await _loadPro();
     await _loadAccount();
+    // Yesterday's (and older) answer-source counts: sent once, quietly.
+    unawaited(sendAnswerSources().catchError((_) {}));
     await _loadServerNotices();
     try {
       data = await services.store.load();

@@ -1507,7 +1507,9 @@ class ChatController extends ChangeNotifier {
     thinking = brain.aiOn;
     notifyListeners();
     final turn = _turn;
-    final (understood, problem) = await brain.understandAll(t, history: List.of(_history), fast: voiceMode);
+    // Typed or spoken: the same model and the same path; the list last
+    // shown goes with it, so "৩নং" reaches the AI with what it points at.
+    final (understood, problem) = await brain.understandAll(t, history: List.of(_history), shown: _shownForAi());
     // A newer message came while this one was being understood (a date
     // corrected, a new request): this late answer is old — nothing is done
     // with it, so it can never undo the newer one.
@@ -3482,6 +3484,24 @@ class ChatController extends ChangeNotifier {
     _ask(out, trf('{0}টা কাজের রিমাইন্ডার — প্রতিটা নিজের দিনে, কয়টায় মনে করাব? যেমন “দুপুর ১২টায়”।', [bnDigits(targets.length)]), ChatWait.batchTime,
         facts: [for (final x in targets) taskLine(x, _now)]);
     return true;
+  }
+
+  /// The freshest list shown (to-dos or reminders), numbered as shown.
+  String _shownForAi() {
+    final set = _sets.where(_setFresh).lastOrNull;
+    if (set == null) return '';
+    final d = brain.data;
+    final lines = <String>[];
+    for (final (i, id) in set.ids.take(20).indexed) {
+      final line = switch (set.domain) {
+        'tasks' => d.tasks.where((x) => x.id == id).map((x) => taskLine(x, _now)).firstOrNull,
+        'reminders' => d.reminders.where((x) => x.id == id).map((x) => '${x.title} — ${sayWhen(DateTime(x.date.year, x.date.month, x.date.day, x.hour, x.minute), _now)}').firstOrNull,
+        _ => null,
+      };
+      if (line != null) lines.add('${i + 1}. $line');
+    }
+    if (lines.isEmpty) return '';
+    return '${set.domain == 'tasks' ? 'to-dos' : 'reminders'} (${set.label}):\n${lines.join('\n')}';
   }
 
   Future<bool> _reminderChange(String t, List<String> out) async {

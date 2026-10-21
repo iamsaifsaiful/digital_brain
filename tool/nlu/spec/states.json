@@ -1,0 +1,74 @@
+[
+ {
+  "state": "idle",
+  "asks": "কিছু অপেক্ষায় নেই",
+  "accepts": "সব intent",
+  "exits": "—"
+ },
+ {
+  "state": "await_time",
+  "asks": "কয়টায়? (রিমাইন্ডার/কাজের রিমাইন্ডার)",
+  "accepts": "time, daypart; confirm_yes = প্রস্তাবিত সময় (শুধু \"হ্যাঁ\" হলে একবার নিশ্চিত); cancel",
+  "exits": "প্রশ্ন, অভিযোগ, নতুন বিষয়, ৩০ মিনিট"
+ },
+ {
+  "state": "await_ampm",
+  "asks": "সকাল না সন্ধ্যা?",
+  "accepts": "daypart, time, cancel",
+  "exits": "একই"
+ },
+ {
+  "state": "await_new_value",
+  "asks": "নতুন সময়/তারিখ কত? (reminder_edit, task_edit)",
+  "accepts": "time, date, cancel",
+  "exits": "একই"
+ },
+ {
+  "state": "await_person",
+  "asks": "কার সাথে লেনদেন?",
+  "accepts": "person, select, cancel, correct",
+  "exits": "একই"
+ },
+ {
+  "state": "await_kind",
+  "asks": "দিলেন না নিলেন? / আয় না খরচ?",
+  "accepts": "ledger_kind/cash_kind, select, cancel",
+  "exits": "একই"
+ },
+ {
+  "state": "confirm_delete",
+  "asks": "এই N টা মুছে দেব? (তালিকাসহ)",
+  "accepts": "confirm_yes, confirm_no; select (\"শুধু ২০২৭ সালের\", \"১ ছাড়া\") → প্রস্তাব ছোট করে আবার জিজ্ঞেস; cancel",
+  "exits": "তালিকা দেখতে চাইলে প্রশ্ন বাদ — কিছু মোছা হয় না; নতুন বিষয়"
+ },
+ {
+  "state": "confirm_save",
+  "asks": "রাখি? (টাকা, নোটের নতুন বিভাগ)",
+  "accepts": "confirm_yes, confirm_no, correct (মান বদলে আবার দেখানো)",
+  "exits": "নতুন অনুরোধে পুরনোটা বাদ — কখনো নতুন বাক্যের \"দাও\" দিয়ে সেভ নয়"
+ },
+ {
+  "state": "confirm_batch",
+  "asks": "কয়েকটা একসাথে রাখব?",
+  "accepts": "confirm_yes, confirm_no, select, correct",
+  "exits": "একই"
+ },
+ {
+  "state": "pick_one",
+  "asks": "কয়েকটা মিলেছে — কোনটা?",
+  "accepts": "select (নম্বর, নাম, \"সব\"), cancel",
+  "exits": "অভিযোগ (\"এটা না\") হলে আবার জিজ্ঞেস; নতুন বিষয়"
+ },
+ {
+  "state": "clarify",
+  "asks": "দুই বিকল্প (সরাব নাকি আরেকটা? / আজকেরগুলো নাকি সব?)",
+  "accepts": "select; বিকল্পের শব্দ (প্রশ্নবোধক ছাড়া)",
+  "exits": "প্রশ্নবোধক নতুন অনুরোধ"
+ },
+ {
+  "state": "dictating_list",
+  "asks": "তালিকা লেখা চলছে — শেষ / বাতিল",
+  "accepts": "task_add (প্রতি লাইন), dictate_end, cancel",
+  "exits": "প্রশ্ন বা অভিযোগে লেখা থামিয়ে উত্তর, \"লেখা চালাও\"-তে ফেরা; ১০ মিনিট নীরবতা"
+ }
+]

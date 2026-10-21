@@ -667,6 +667,7 @@ function ma_acc_render_settings($v) {
             <button class="ma-btn" type="submit">রাখুন</button>
         </form>
     </section>
+    <?php ma_acc_render_ai_costs($v['ai_costs'] ?? null); ?>
     <?php $push = $v['push'] ?? ['source' => '']; $post = esc_url(admin_url('admin-post.php')); ?>
     <section class="ma-card pad">
         <h2>অ্যাডমিন</h2>
@@ -990,5 +991,71 @@ function ma_acc_script() {
         });
     })();
     </script>
+    <?php
+}
+
+/** AI cost by model (today and this month), answer sources, prices and budgets. */
+function ma_acc_render_ai_costs($c) {
+    if (!is_array($c)) {
+        return;
+    }
+    $usd = function ($x) { return '$' . number_format((float) $x, 4); };
+    $table = function ($rows, $title) use ($usd) { ?>
+        <h3><?php echo esc_html($title); ?></h3>
+        <?php if (!$rows) : ?><p class="muted">এখনো কিছু নেই।</p><?php return; endif; ?>
+        <table class="ma-table ma-cost">
+            <thead><tr><th>মডেল</th><th>প্ল্যান</th><th>প্রশ্ন</th><th>ইনপুট</th><th>ক্যাশে লেখা</th><th>ক্যাশ থেকে</th><th>আউটপুট</th><th>খরচ</th><th>প্রতি প্রশ্নে</th><th>ক্যাশ হিট</th></tr></thead>
+            <tbody>
+            <?php foreach ($rows as $r) : ?>
+                <tr>
+                    <td><?php echo esc_html($r['model']); ?><?php if (!$r['priced']) : ?> <span class="ma-pill expired">দাম নেই</span><?php endif; ?></td>
+                    <td><?php echo esc_html($r['plan']); ?></td>
+                    <td><?php echo esc_html(ma_acc_bn(number_format($r['requests']))); ?></td>
+                    <td><?php echo esc_html(ma_acc_bn(number_format($r['input']))); ?></td>
+                    <td><?php echo esc_html(ma_acc_bn(number_format($r['cache_write']))); ?></td>
+                    <td><?php echo esc_html(ma_acc_bn(number_format($r['cache_read']))); ?></td>
+                    <td><?php echo esc_html(ma_acc_bn(number_format($r['output']))); ?></td>
+                    <td><?php echo esc_html($usd($r['cost_usd'])); ?></td>
+                    <td><?php echo esc_html($usd($r['per_request_usd'])); ?></td>
+                    <td><?php echo esc_html(ma_acc_bn((string) round($r['cache_hit'] * 100))) . '%'; ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php };
+    $src = $c['sources_today'];
+    $names = ['rules' => 'নিয়ম', 'local' => 'ফোনের মডেল', 'gemini' => 'Gemini', 'haiku' => 'Haiku', 'sonnet' => 'Sonnet', 'failed' => 'ব্যর্থ'];
+    $post = esc_url(admin_url('admin-post.php'));
+    ?>
+    <section class="ma-card pad">
+        <h2>AI-এর খরচ</h2>
+        <p class="muted">প্রতিটা উত্তরের আসল টোকেন আর দাম ধরে মডেল অনুযায়ী হিসাব। সদস্য কী বললেন তা রাখা হয় না।</p>
+        <?php $table($c['today'], 'আজ'); $table($c['month'], 'এই মাসে'); ?>
+        <h3>আজ উত্তর কোথা থেকে এল</h3>
+        <p><?php foreach ($names as $k => $label) : ?><span class="ma-pill"><?php echo esc_html($label . ': ' . ma_acc_bn((string) ($src[$k] ?? 0))); ?></span> <?php endforeach; ?></p>
+        <form method="post" action="<?php echo $post; ?>" class="ma-ai-form">
+            <input type="hidden" name="action" value="ma_ai_costs"><?php wp_nonce_field('ma_ai_costs'); ?>
+            <h3>দাম (ডলার, প্রতি ১০ লাখ টোকেন)</h3>
+            <table class="ma-table">
+                <thead><tr><th>মডেল</th><th>ইনপুট</th><th>ক্যাশে লেখা</th><th>ক্যাশ থেকে পড়া</th><th>আউটপুট</th></tr></thead>
+                <tbody>
+                <?php foreach ($c['prices'] as $model => $p) : $m = esc_attr($model); ?>
+                    <tr><td><?php echo esc_html($model); ?></td>
+                    <?php foreach (['in', 'cw', 'cr', 'out'] as $k) : ?><td><input type="text" inputmode="decimal" name="price[<?php echo $m; ?>][<?php echo $k; ?>]" value="<?php echo esc_attr((string) ($p[$k] ?? 0)); ?>"></td><?php endforeach; ?></tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <label>নতুন মডেল যোগ (নাম)<input type="text" name="new_model" placeholder="gemini-…"></label>
+            <h3>বাজেট (ডলার; ০ = সীমা নেই)</h3>
+            <div class="ma-ai-row">
+                <?php foreach (['free' => 'ফ্রি', 'pro' => 'প্রো'] as $plan => $label) : $b = $c['budget'][$plan]; ?>
+                    <label><?php echo esc_html($label); ?> — দিনে (আজ খরচ <?php echo esc_html($usd($b['spent_day'])); ?>)<input type="text" inputmode="decimal" name="budget[<?php echo $plan; ?>][day]" value="<?php echo esc_attr((string) $b['day']); ?>"></label>
+                    <label><?php echo esc_html($label); ?> — মাসে (এই মাসে <?php echo esc_html($usd($b['spent_month'])); ?>)<input type="text" inputmode="decimal" name="budget[<?php echo $plan; ?>][month]" value="<?php echo esc_attr((string) $b['month']); ?>"></label>
+                <?php endforeach; ?>
+            </div>
+            <p class="muted ma-tip">বাজেট শেষ হলে ওই প্ল্যানের AI বন্ধ থাকে, অ্যাপ নিজের নিয়মে বোঝে।</p>
+            <button class="ma-btn" type="submit">রাখুন</button>
+        </form>
+    </section>
     <?php
 }

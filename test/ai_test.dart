@@ -27,10 +27,11 @@ void main() {
     )..key = 'sk-ant-test';
     final r = await ai.route('কেমন আছো', ctx);
     expect(r!['reply'], 'ভালো আছি');
-    expect(sent['model'], ClaudeAi.models.first);
-    // Sonnet 5.5 refuses a forced tool: asked with auto, some thinking.
-    expect(sent['tool_choice'], {'type': 'auto'});
-    expect(sent['output_config'], {'effort': 'medium'});
+    // Haiku by default (21 Oct 2026 brief).
+    expect(sent['model'], ClaudeAi.fastModels.first);
+    // Haiku takes the forced tool (Sonnet 5.5, when escalated, is asked with auto).
+    expect(sent['tool_choice'], {'type': 'tool', 'name': 'route'});
+    expect(sent.containsKey('output_config'), isFalse);
     expect((sent['messages'] as List).single['content'], 'কেমন আছো');
     // The fixed rules are cached; the user's context comes after them.
     final system = sent['system'] as List;
@@ -74,7 +75,7 @@ void main() {
       client: MockClient((req) async {
         final m = (jsonDecode(req.body) as Map)['model'] as String;
         models.add(m);
-        if (m == ClaudeAi.models.first) return res(404, {'error': {'message': 'model not found'}});
+        if (m == ClaudeAi.escalationModels.first) return res(404, {'error': {'message': 'model not found'}});
         return res(200, {
           'content': [
             {'type': 'tool_use', 'id': 't', 'name': 'route', 'input': {'action': 'search', 'terms': ['ছাদ']}},
@@ -82,9 +83,9 @@ void main() {
         });
       }),
     )..key = 'k';
-    final r = await ai.route('ছাদের কোড', ctx);
+    final r = await ai.route('ছাদের কোড', ctx, escalate: true);
     expect(r!['action'], 'search');
-    expect(models, ClaudeAi.models.take(2).toList());
+    expect(models, ClaudeAi.escalationModels.take(2).toList());
   });
 
   test('errors become Bengali messages', () async {
@@ -124,10 +125,13 @@ void main() {
     expect(((tool['input_schema'] as Map)['properties'] as Map).keys, containsAll(['reply', 'items']));
   });
 
-  test('the best model is used by default and the money summary goes in the instructions', () {
+  // Changed 21 Oct 2026 (brief, step A): Haiku is the default for every
+  // message; Sonnet only by escalation (test/ai_cost_test.dart).
+  test('Haiku is used by default and the money summary goes in the instructions', () {
     final ai = ClaudeAi();
-    expect(ai.quality, AiQuality.best);
-    expect(ClaudeAi.models.first, startsWith('claude-sonnet'));
+    expect(ai.quality, AiQuality.fast);
+    expect(ClaudeAi.fastModels.first, 'claude-haiku-5-5');
+    expect(ClaudeAi.escalationModels.first, 'claude-sonnet-5-5');
     final p = systemPrompt(AiContext(now: DateTime(2026, 10, 9), money: 'রহিম: owes the user 4000'));
     expect(p, contains('রহিম: owes the user 4000'));
     expect(p, contains('ask ONE short question'));

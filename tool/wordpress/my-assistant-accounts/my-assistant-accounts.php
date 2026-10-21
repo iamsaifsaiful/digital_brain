@@ -2,7 +2,7 @@
 /**
  * Plugin Name: My Assistant Accounts
  * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, প্রো, পেমেন্ট, নোটিফিকেশন আর মতামত। শুধু নাম, ইমেইল, ছবি আর প্রো-র তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.8.0
+ * Version: 1.9.0
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: My Assistant
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.8.0';
+const MA_ACC_VERSION = '1.9.0';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
 const MA_ACC_PER_PAGE = 20;
 
@@ -460,6 +460,7 @@ function ma_acc_admin() {
         'endpoint' => rest_url('my-assistant/v1/login'),
         'ai' => ma_ai_settings() + ['source' => ma_ai_key_source(), 'tail' => substr(ma_ai_key(), -4)],
         'ai_stats' => ma_ai_today_stats(),
+        'ai_costs' => ma_ai_cost_report(),
         'push' => ['source' => ma_push_source()],
         'admins' => ma_admin_users(),
         'can_settings' => current_user_can('manage_options'),

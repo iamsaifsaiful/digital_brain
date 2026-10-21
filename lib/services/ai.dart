@@ -15,7 +15,7 @@ typedef AiRoute = Map<String, Object?>;
 /// What the app tells the AI besides the sentence. Never passwords, vault
 /// items or note text: only names in the লেনদেন (money) book and category names.
 class AiContext {
-  const AiContext({required this.now, this.people = const [], this.categories = const [], this.money = '', this.records = ''});
+  const AiContext({required this.now, this.people = const [], this.categories = const [], this.money = '', this.records = '', this.shown = ''});
   final DateTime now;
   final List<String> people;
   final List<String> categories;
@@ -29,14 +29,21 @@ class AiContext {
   /// questions about them are answered from the real records. Never
   /// passwords or vault items.
   final String records;
+
+  /// The list the app showed last (numbered, as shown), so "৩নং" or
+  /// "শেষের দুটো" reach the AI with what they point at. Only to-dos and
+  /// reminders, and only when the user allows records.
+  final String shown;
 }
 
-/// Which Claude model reads the user's words.
+/// Which Claude model reads the user's words. Haiku reads every message
+/// (typed or spoken alike); Sonnet — 20× the price per token — only when
+/// Haiku could not make one out, and only for Pro (21 Oct 2026 brief).
 enum AiQuality {
-  /// Sonnet: understands far better (dialects, long mixed sentences); costs more.
+  /// Sonnet first (no longer offered in the app; kept for old settings).
   best,
 
-  /// Haiku: quicker and cheaper.
+  /// Haiku: the default.
   fast,
 }
 
@@ -65,7 +72,12 @@ abstract class AiBrain {
   /// [history]). Returns null when no key is set; throws [AiError] when the
   /// call fails.
   /// [fast]: a spoken turn — the quick model, so the answer comes at once.
-  Future<AiRoute?> route(String said, AiContext ctx, {List<AiTurn> history = const [], bool fast = false});
+  /// [escalate]: Haiku could not make it out — asked once more of Sonnet
+  /// (Pro only; see [AiQuality]).
+  Future<AiRoute?> route(String said, AiContext ctx, {List<AiTurn> history = const [], bool fast = false, bool escalate = false});
+
+  /// The model that gave the last answer ('' before any).
+  String get lastModel;
 
   /// The key in use (empty = AI off, unless [session] is set).
   String get key;
@@ -97,7 +109,10 @@ class ClaudeAi implements AiBrain {
 
   bool get _viaServer => key.trim().isEmpty && session.isNotEmpty && proxy.isNotEmpty;
 
-  AiQuality _quality = AiQuality.best;
+  AiQuality _quality = AiQuality.fast;
+
+  @override
+  String lastModel = '';
 
   @override
   AiQuality get quality => _quality;
@@ -123,15 +138,21 @@ class ClaudeAi implements AiBrain {
 
   static const _endpoint = 'https://api.anthropic.com/v1/messages';
 
+  /// Sonnet, asked only when Haiku could not make a message out.
+  static const escalationModels = ['claude-sonnet-5-5', 'claude-sonnet-4-5'];
+
   @override
-  Future<AiRoute?> route(String said, AiContext ctx, {List<AiTurn> history = const [], bool fast = false}) async {
+  Future<AiRoute?> route(String said, AiContext ctx, {List<AiTurn> history = const [], bool fast = false, bool escalate = false}) async {
     if (key.trim().isEmpty && !_viaServer) return null;
     var fastAt = 0;
+    var upAt = 0;
     while (true) {
-      final list = fast ? fastModels : _models;
-      final model = fast ? fastModels[fastAt.clamp(0, fastModels.length - 1)] : _models[_model];
+      // Typed or spoken, the same model: Haiku; Sonnet only when escalated.
+      final list = escalate ? escalationModels : (_quality == AiQuality.best ? _models : fastModels);
+      final model = escalate ? escalationModels[upAt.clamp(0, escalationModels.length - 1)] : (list == fastModels ? fastModels[fastAt.clamp(0, fastModels.length - 1)] : _models[_model]);
       final res = await _post(said, ctx, model, history, fast: fast || list == fastModels);
       if (res.statusCode == 200) {
+        lastModel = model;
         final body = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, Object?>;
         final text = StringBuffer();
         for (final block in (body['content'] as List? ?? const [])) {
@@ -151,11 +172,15 @@ class ClaudeAi implements AiBrain {
         continue;
       }
       if ((res.statusCode == 404 || (res.statusCode == 400 && low.contains('model')))) {
-        if (fast && fastAt + 1 < fastModels.length) {
+        if (escalate && upAt + 1 < escalationModels.length) {
+          upAt++;
+          continue;
+        }
+        if (!escalate && list == fastModels && fastAt + 1 < fastModels.length) {
           fastAt++;
           continue;
         }
-        if (!fast && _model + 1 < _models.length) {
+        if (!escalate && list != fastModels && _model + 1 < _models.length) {
           _model++;
           continue;
         }
@@ -197,9 +222,12 @@ class ClaudeAi implements AiBrain {
               'model': model,
               'max_tokens': 4000,
               'system': [
+                // The fixed part (rules, the app map, folder words) is one
+                // cached block; what changes (time, money, records, the list
+                // shown) comes after it and is the only part paid in full.
                 {
                   'type': 'text',
-                  'text': _autoChoice.contains(model) ? '${systemRules()}\nAlways answer by calling the `route` tool exactly once; never answer in plain text.\n' : systemRules(),
+                  'text': '${_autoChoice.contains(model) ? '${systemRules()}\nAlways answer by calling the `route` tool exactly once; never answer in plain text.\n' : systemRules()}\n${systemFixed()}',
                   'cache_control': {'type': 'ephemeral'},
                 },
                 {'type': 'text', 'text': redactForAi(systemContext(ctx))},
@@ -236,7 +264,8 @@ const _weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Satu
 /// messages (the API needs them to alternate and start with the user).
 List<Map<String, String>> messagesFor(String said, List<AiTurn> history) {
   final out = <Map<String, String>>[];
-  for (final t in history.length > 12 ? history.sublist(history.length - 12) : history) {
+  // The last 6 turns (the list last shown goes in the context on its own).
+  for (final t in history.length > 6 ? history.sublist(history.length - 6) : history) {
     final role = t.fromUser ? 'user' : 'assistant';
     if (out.isEmpty && role == 'assistant') continue;
     if (out.isNotEmpty && out.last['role'] == role) {
@@ -252,7 +281,15 @@ List<Map<String, String>> messagesFor(String said, List<AiTurn> history) {
 
 /// The instructions sent with every sentence: the fixed rules (cached by
 /// the API, so they cost less and answer sooner) and today's context.
-String systemPrompt(AiContext ctx) => '${systemRules()}${systemContext(ctx)}';
+String systemPrompt(AiContext ctx) => '${systemRules()}\n${systemFixed()}${systemContext(ctx)}';
+
+/// What never changes between messages (cached with the rules): the app's
+/// parts and the paper folders.
+String systemFixed() => '''
+The app's parts (id: name — what it does), for `open` and for questions about the app:
+${appMapForAi()}
+Paper folders: ${docFolderWords.keys.join(', ')}
+''';
 
 /// Version of the fixed instructions below; change it with every edit to them.
 const aiRulesVersion = '2026-10-19.1';
@@ -349,16 +386,12 @@ String systemContext(AiContext ctx) {
   return '''
 Now is $date $time (the user's local time, UTC${_offset(d)}), ${_weekdays[d.weekday - 1]}. Work out every day and time from this moment.
 
-The app's parts (id: name — what it does), for `open` and for questions about the app:
-${appMapForAi()}
-Paper folders: ${docFolderWords.keys.join(', ')}
-
 Known people in the লেনদেন (money) book: ${ctx.people.isEmpty ? '(none)' : ctx.people.join(', ')}
 User's note categories: ${ctx.categories.isEmpty ? '(none)' : ctx.categories.join(', ')}
 Money summary (from the app, accurate):
 ${ctx.money.isEmpty ? '(nothing yet)' : ctx.money}
 User's records (from the app; lists may be shortened — if something is not listed, add the matching query item and let the app answer from the phone):
-${ctx.records.isEmpty ? '(the user has not allowed the AI to see reminders, to-dos and notes; for such questions add the query item and keep the reply to a few words — the app answers from the phone)' : ctx.records}${isEn ? '\n\nLANGUAGE: the user has set the app to English. Write `reply` in clear, natural, polite English (names as the user said them; times like 6:20 PM; amounts like ৳500). The user may still speak Bengali; understand it as usual. Item fields (text, category, title) stay as described above.' : ''}''';
+${ctx.records.isEmpty ? '(the user has not allowed the AI to see reminders, to-dos and notes; for such questions add the query item and keep the reply to a few words — the app answers from the phone)' : ctx.records}${ctx.shown.isEmpty ? '' : '\n\nThe list the app showed last (numbers as shown; "৩নং", "শেষের দুটো", "এগুলো" mean these):\n${ctx.shown}'}${isEn ? '\n\nLANGUAGE: the user has set the app to English. Write `reply` in clear, natural, polite English (names as the user said them; times like 6:20 PM; amounts like ৳500). The user may still speak Bengali; understand it as usual. Item fields (text, category, title) stay as described above.' : ''}''';
 }
 
 final _item = {
@@ -469,7 +502,14 @@ class FakeAi implements AiBrain {
   FakeAi({this.answer, this.error});
 
   @override
-  AiQuality quality = AiQuality.best;
+  AiQuality quality = AiQuality.fast;
+
+  @override
+  String lastModel = '';
+
+  /// Tests: the answer when escalated to Sonnet (null = the same [answer]).
+  AiRoute? escalatedAnswer;
+  final escalated = <bool>[];
 
   AiRoute? answer;
   AiError? error;
@@ -489,9 +529,17 @@ class FakeAi implements AiBrain {
   Future<void>? gate;
 
   @override
-  Future<AiRoute?> route(String said, AiContext ctx, {List<AiTurn> history = const [], bool fast = false}) async {
+  Future<AiRoute?> route(String said, AiContext ctx, {List<AiTurn> history = const [], bool fast = false, bool escalate = false}) async {
     if (key.isEmpty && session.isEmpty) return null;
     fastAsked.add(fast);
+    escalated.add(escalate);
+    lastModel = escalate ? 'claude-sonnet-5-5' : 'claude-haiku-5-5';
+    if (escalate && escalatedAnswer != null) {
+      asked.add(said);
+      histories.add(history);
+      contexts.add(ctx);
+      return escalatedAnswer;
+    }
     asked.add(said);
     histories.add(history);
     contexts.add(ctx);

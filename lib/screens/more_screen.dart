@@ -362,9 +362,6 @@ class _MoreScreenState extends State<MoreScreen> {
               linkRow(Icons.auto_awesome_outlined, tr('AI সহকারী (Claude)'),
                   sub: brain.aiOn ? tr('চালু আছে') : tr('বন্ধ · নিজের API key দিয়ে চালু করা যায়'), subColor: brain.aiOn ? C.green : C.muted, onTap: _setAiKey),
               if (brain.aiOn)
-                switchRow(Icons.psychology_outlined, tr('সবচেয়ে ভালো বোঝা (Sonnet)'), tr('বন্ধ করলে দ্রুত ও সস্তা Haiku — তবে কম বোঝে'), brain.aiBest,
-                    (v) => brain.setAiBest(v)),
-              if (brain.aiOn)
                 switchRow(Icons.manage_search_rounded, tr('AI আমার তথ্য দেখে উত্তর দিক'), tr('রিমাইন্ডার, কাজ, নোট ও হিসাব দেখে ঠিক উত্তর — পাসওয়ার্ড কখনো না'),
                     brain.aiShareData, (v) => brain.setAiShareData(v)),
             ]),
