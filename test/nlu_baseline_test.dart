@@ -98,7 +98,8 @@ String pendingIntent(Map<String, Object?> st) {
   final cur = st['current'] as String?;
   final bulkOp = st['bulkOp'] as String?;
   final dom = st['bulkDomain'] as String?;
-  String byCurrent() => switch (cur) {
+  final queue = (st['queue'] as List?)?.cast<String>() ?? const <String>[];
+  String byCurrent() => switch (cur ?? (queue.isEmpty ? null : queue.first)) {
         'TasksClear' => 'task_delete',
         'ManageItem' => switch (st['currentAction']) {
             'delete' => st['targetKind'] == 'task' ? 'task_delete' : (st['targetKind'] == 'reminder' ? 'reminder_delete' : 'item_delete'),
@@ -174,6 +175,11 @@ List<String> classify(String text, Map<String, Object?> st0, Map<String, Object?
   }
   if (diff.isNotEmpty) return diff;
   if (w1 != 'none') return [pendingIntent(st1)];
+  // A bare "হ্যাঁ"/"না" with nothing waiting: nothing done is the answer to it.
+  final yn = yesNo(text);
+  if (yn != null && text.trim().split(RegExp(r'\s+')).length <= 3 && traced.every((x) => x == 'none' || x.startsWith('reply'))) {
+    return [yn ? 'confirm_yes' : 'confirm_no'];
+  }
   final newSet = (st1['sets'] as int) > (st0['sets'] as int) || st1['lastSetTurn'] == st1['turn'];
   if (newSet) {
     return [

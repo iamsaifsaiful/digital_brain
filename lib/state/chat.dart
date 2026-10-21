@@ -215,6 +215,7 @@ class ChatController extends ChangeNotifier {
       'current': cur?.runtimeType.toString(),
       'currentAction': cur is ManageItem ? cur.action : null,
       'currentKind': cur is CashAdd ? cur.kind.name : null,
+      'queue': _askingAll ? [for (final c in _queue) c.runtimeType.toString()] : const <String>[],
       'todo': todo?.runtimeType.toString(),
       'bulkOp': _pendingBulk?.action.op,
       'bulkDomain': _pendingBulk?.set.domain,
