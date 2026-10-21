@@ -207,8 +207,15 @@ List<Map<String, dynamic>> loadGold() {
 
 void main() {
   final on = Platform.environment['NLU_BASELINE'] == '1';
-  final rows = on ? loadGold() : const <Map<String, dynamic>>[];
-  final out = <String>[];
+  // Shards (NLU_SHARD=2/6): one process holds only so many widget tests.
+  final shard = (Platform.environment['NLU_SHARD'] ?? '1/1').split('/').map(int.parse).toList();
+  final all = on ? loadGold() : const <Map<String, dynamic>>[];
+  final rows = [for (final (i, r) in all.indexed) if (i % shard[1] == shard[0] - 1) r];
+  final file = File('tool/nlu/out/baseline_old.${shard[0]}of${shard[1]}.jsonl');
+  if (on) {
+    Directory('tool/nlu/out').createSync(recursive: true);
+    file.writeAsStringSync('');
+  }
   for (final row in rows) {
     testWidgets('${row['id']}', (t) async {
       final rig = await start(t);
@@ -234,20 +241,16 @@ void main() {
             for (final x in (e.data['intents'] ?? '').split(','))
               if (x.isNotEmpty) x
       ];
-      out.add(jsonEncode({
+      file.writeAsStringSync('${jsonEncode({
         'id': row['id'],
         'parse': parse,
         'chat': classify(text, st0, st1, diff, traced),
         'diff': diff,
         'wait': st1['wait'],
-      }));
+      })}\n', mode: FileMode.append);
+      Trace.clear();
     });
   }
-  tearDownAll(() {
-    if (!on) return;
-    Directory('tool/nlu/out').createSync(recursive: true);
-    File('tool/nlu/out/baseline_old.jsonl').writeAsStringSync('${out.join('\n')}\n');
-  });
   if (!on) {
     test('baseline (run with NLU_BASELINE=1)', () {}, skip: 'writes tool/nlu/out/baseline_old.jsonl only when asked');
   }
