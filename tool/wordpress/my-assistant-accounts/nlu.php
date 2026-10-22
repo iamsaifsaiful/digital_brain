@@ -324,11 +324,15 @@ function ma_nlu_post($url, $headers, $body) {
         $res = wp_remote_post($url, ['timeout' => 25, 'headers' => $headers, 'body' => wp_json_encode($body)]);
         if (is_wp_error($res)) {
             $code = 0;
+            $GLOBALS['ma_nlu_last_error'] = 'সংযোগ হয়নি';
         } else {
             $code = (int) wp_remote_retrieve_response_code($res);
             if ($code === 200) {
                 return [200, json_decode(wp_remote_retrieve_body($res), true)];
             }
+            // Only the provider's short error message (never the member's words).
+            $err = json_decode(wp_remote_retrieve_body($res), true);
+            $GLOBALS['ma_nlu_last_error'] = $code . ' ' . substr((string) ($err['error']['message'] ?? $err['error']['status'] ?? ''), 0, 160);
         }
         if (!in_array($code, [0, 429, 529, 503], true)) {
             return [$code, null];
@@ -597,6 +601,13 @@ add_action('rest_api_init', function () {
         }
         return ['nlu' => ma_nlu_save_settings((array) ($in['nlu'] ?? [])), 'ai_on' => get_option('ma_ai_on', '0') === '1', 'budgets' => ma_ai_budgets()];
     });
+    ma_admin_route('/ai/selftest', 'POST', function (WP_REST_Request $req) {
+        $admin = ma_admin_of($req);
+        if (!user_can((int) $admin['id'], 'manage_options')) {
+            return new WP_Error('owner', 'site owner only', ['status' => 403]);
+        }
+        return ma_nlu_selftest();
+    });
     ma_admin_route('/nlu/review', 'GET', function (WP_REST_Request $req) {
         global $wpdb;
         $s = ma_nlu_table('samples');
@@ -704,3 +715,46 @@ function ma_nlu_overview() {
     $sig = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $s WHERE created >= %s AND signal_kind NOT IN ('', 'thumbs_up')", $from));
     return ['settings' => ma_nlu_settings(), 'samples_30d' => $n, 'error_signals_per_100' => $n ? round(100 * $sig / $n, 1) : 0, 'day' => get_transient('ma_nlu_day_' . ma_ai_today()) ?: ['all' => 0, 'escalated' => 0]];
 }
+
+/**
+ * One real call to each cloud reader with a fixed made-up sentence, so the
+ * owner can see that the keys and the request shape work (costs a fraction
+ * of a cent; counted like any other call, under the admin's id 0).
+ */
+function ma_nlu_selftest() {
+    $in = ['text' => 'কাল সকালে ব্যাংকে যেতে হবে', 'state' => 'idle', 'kind' => 'none', 'top' => []];
+    $set = ma_nlu_settings();
+    $out = [];
+    foreach (['gemini' => $set['free_model'], 'anthropic' => $set['pro_model']] as $who => $model) {
+        $t0 = microtime(true);
+        $got = $who === 'gemini' ? ma_nlu_call_gemini($model, $in) : ma_nlu_call_anthropic($model, $in);
+        $ms = (int) round((microtime(true) - $t0) * 1000);
+        if (!$got) {
+            $out[$who] = ['ok' => false, 'model' => $model, 'ms' => $ms, 'error' => $GLOBALS['ma_nlu_last_error'] ?? ''];
+            continue;
+        }
+        $cost = ma_ai_count(0, 'free', $model, ma_nlu_provider_of($model), $got[1]);
+        $clean = ma_nlu_clean_reading($got[0], $in['text']);
+        $out[$who] = ['ok' => $clean['pieces'] !== [], 'model' => $model, 'ms' => $ms, 'cost_micro_usd' => $cost, 'reading' => $clean];
+    }
+    return $out;
+}
+
+add_action('admin_post_ma_nlu_selftest', function () {
+    ma_acc_guard('ma_nlu_selftest', 'manage_options');
+    $r = ma_nlu_selftest();
+    $say = [];
+    foreach ($r as $who => $x) {
+        $name = $who === 'gemini' ? 'Gemini' : 'Claude';
+        if ($x['ok']) {
+            $p = $x['reading']['pieces'][0];
+            $say[] = "$name কাজ করছে ({$x['model']}, {$x['ms']} ms): " . $p['intent'] . ' — ' . implode(', ', array_map(function ($s) {
+                return $s['name'] . '=' . $s['words'];
+            }, $p['slots']));
+        } else {
+            $say[] = "$name কাজ করছে না ({$x['model']})" . ($x['error'] !== '' ? ': ' . $x['error'] : '');
+        }
+    }
+    $all = !in_array(false, array_column($r, 'ok'), true);
+    ma_acc_back(implode(' · ', $say), $all ? 'ok' : 'error', ['tab' => 'settings']);
+});

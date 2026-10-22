@@ -472,6 +472,12 @@ $ex = array_values(array_filter($d['samples'] ?? [], function ($x) use ($sid) { 
 check($code === 200 && $ex && str_contains($ex[0]['admin_label'], 'ledger_add'), 'export with the admin label (site owner)');
 [$code, $d] = call('POST', '/admin/ai/settings', ['nlu' => ['mode' => 'on', 'pct' => 0, 'free_model' => 'gemini-3.1-flash-lite'], 'budgets' => ['pro' => ['month' => 25]]], $bossSes);
 check($code === 200 && $d['nlu']['mode'] === 'on' && $d['nlu']['pct'] === 0 && $d['budgets']['pro']['month'] == 25, 'settings saved from the admin app');
+$GLOBALS['gem_fail'] = []; $GLOBALS['ant_fail'] = [];
+[$code, $d] = call('POST', '/admin/ai/selftest', [], $bossSes);
+check($code === 200 && $d['gemini']['ok'] && $d['anthropic']['ok'] && $d['gemini']['reading']['pieces'][0]['intent'] === 'task_add', 'self-test: one real call to each (here pretended) shows the keys work');
+$GLOBALS['gem_fail'] = [403];
+[$code, $d] = call('POST', '/admin/ai/selftest', [], $bossSes);
+check($code === 200 && !$d['gemini']['ok'] && str_starts_with($d['gemini']['error'], '403'), 'self-test: a refused key is reported with its code');
 [$code, $d] = call('GET', '/nlu/config', [], $ses);
 check($d['mode'] === 'off', 'a member outside the share (0%) gets mode off');
 call('POST', '/admin/ai/settings', ['nlu' => ['mode' => 'shadow', 'pct' => 100]], $bossSes);

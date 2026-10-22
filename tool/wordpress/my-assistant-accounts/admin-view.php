@@ -677,6 +677,15 @@ function ma_acc_render_settings($v) {
             <button class="ma-btn" type="submit">রাখুন</button>
         </form>
     </section>
+    <section class="ma-card pad">
+        <h2>Gemini আর Claude পরীক্ষা</h2>
+        <p class="muted ma-tip">একটা বানানো বাক্য ("কাল সকালে ব্যাংকে যেতে হবে") দুটো সেবায় একবার করে পাঠিয়ে দেখায় key আর অনুরোধের গড়ন ঠিক আছে কিনা। খরচ এক পয়সারও কম।</p>
+        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+            <input type="hidden" name="action" value="ma_nlu_selftest">
+            <?php wp_nonce_field('ma_nlu_selftest'); ?>
+            <button class="ma-btn" type="submit">এখন পরীক্ষা করুন</button>
+        </form>
+    </section>
     <?php ma_acc_render_ai_costs($v['ai_costs'] ?? null); ?>
     <?php $push = $v['push'] ?? ['source' => '']; $post = esc_url(admin_url('admin-post.php')); ?>
     <section class="ma-card pad">
