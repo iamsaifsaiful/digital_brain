@@ -20,17 +20,34 @@ update_option('ma_ai_key', 'sk-ant-test-0123456789abcdefghijkl');
 update_option('ma_fcm_account', wp_json_encode(['client_email' => 'x@y.iam.gserviceaccount.com', 'project_id' => 'my-assistant', 'private_key' => openssl_pkey_export(openssl_pkey_new(['private_key_bits' => 2048]), $pk) ? $pk : '']));
 
 // Google, Anthropic and Firebase, pretended.
-$sent = ['ai' => [], 'fcm' => [], 'mail' => [], 'metal' => []];
+$sent = ['ai' => [], 'fcm' => [], 'mail' => [], 'metal' => [], 'nlu' => []];
+$GLOBALS['gem_fail'] = [];
+$GLOBALS['ant_fail'] = [];
 add_filter('pre_http_request', function ($pre, $args, $url) use (&$sent) {
     if (str_contains($url, 'tokeninfo')) {
         parse_str(parse_url($url, PHP_URL_QUERY), $q);
-        $who = str_starts_with($q['id_token'], 'BOSS') ? ['sub' => 'g-boss', 'email' => 'boss@gmail.com', 'name' => 'Boss'] : ['sub' => 'g-rahim', 'email' => 'rahim@gmail.com', 'name' => 'রহিম উদ্দিন', 'picture' => 'https://lh3.googleusercontent.com/a/abc'];
+        $who = str_starts_with($q['id_token'], 'NLUFREE') ? ['sub' => 'g-nlu-free', 'email' => 'free@x.com', 'name' => 'Free'] : (str_starts_with($q['id_token'], 'BOSS') ? ['sub' => 'g-boss', 'email' => 'boss@gmail.com', 'name' => 'Boss'] : ['sub' => 'g-rahim', 'email' => 'rahim@gmail.com', 'name' => 'রহিম উদ্দিন', 'picture' => 'https://lh3.googleusercontent.com/a/abc']);
         $aud = str_contains($q['id_token'], 'WRONGAUD') ? 'other.apps.googleusercontent.com' : 'web-client.apps.googleusercontent.com';
         return ['response' => ['code' => 200], 'body' => wp_json_encode($who + ['iss' => 'https://accounts.google.com', 'aud' => $aud, 'exp' => time() + 600, 'email_verified' => 'true']), 'headers' => [], 'cookies' => []];
     }
     if (str_contains($url, 'api.anthropic.com') && str_contains($args['body'], 'web_search')) {
         $sent['metal'][] = json_decode($args['body'], true);
         return ['response' => ['code' => 200], 'body' => wp_json_encode(['stop_reason' => 'end_turn', 'content' => [['type' => 'text', 'text' => $GLOBALS['metal_reply']]]]), 'headers' => [], 'cookies' => []];
+    }
+    // The cloud reading (/nlu/resolve): a forced "route" tool call.
+    if ((str_contains($url, 'api.anthropic.com') || str_contains($url, 'generativelanguage.googleapis.com')) && str_contains($args['body'], '"route"')) {
+        $gem = str_contains($url, 'generativelanguage');
+        $body = json_decode($args['body'], true);
+        $sent['nlu'][] = ['url' => $url, 'body' => $body, 'headers' => $args['headers']];
+        $fail = array_shift($GLOBALS[$gem ? 'gem_fail' : 'ant_fail']);
+        if ($fail) {
+            return ['response' => ['code' => $fail], 'body' => '{}', 'headers' => [], 'cookies' => []];
+        }
+        $route = $GLOBALS['nlu_reply'];
+        if ($gem) {
+            return ['response' => ['code' => 200], 'body' => wp_json_encode(['candidates' => [['content' => ['parts' => [['functionCall' => ['name' => 'route', 'args' => $route]]]]]], 'usageMetadata' => ['promptTokenCount' => 1500, 'cachedContentTokenCount' => 1000, 'candidatesTokenCount' => 40]]), 'headers' => [], 'cookies' => []];
+        }
+        return ['response' => ['code' => 200], 'body' => wp_json_encode(['content' => [['type' => 'tool_use', 'name' => 'route', 'input' => $route]], 'usage' => ['input_tokens' => 300, 'cache_read_input_tokens' => 1200, 'output_tokens' => 50]]), 'headers' => [], 'cookies' => []];
     }
     if (str_contains($url, 'api.anthropic.com')) {
         $sent['ai'][] = $args;
@@ -329,6 +346,145 @@ file_put_contents(dirname(__FILE__) . '/page-pro.html', '<!doctype html><meta ch
 check(str_contains($pro, 'ফ্রি আর প্রো-তে কী কী') && str_contains($pro, 'মাসিক প্রো কিনুন') && str_contains($pro, 'তথ্য জমা দিন'), 'Pro page: features, plans and the form');
 check((bool) preg_match('/value="monthly"\s+checked/', $pro), 'the plan chosen above is ticked in the form');
 check(!str_contains(do_shortcode('[my_assistant_pro form="no"]'), 'তথ্য জমা দিন'), 'form="no" leaves the form out');
+
+echo "\nunderstanding (NLU): switch, models, cloud reading, samples\n";
+foreach (['ma_nlu_samples', 'ma_nlu_labels', 'ma_nlu_models'] as $t) {
+    check($wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}$t") !== null, "table $t");
+}
+// A fresh member (free) and a Pro member.
+[$code, $d] = call('POST', '/login', ['id_token' => 'NLUFREE' . $long]);
+$free = $d['session'];
+$freeId = (int) $wpdb->get_var($wpdb->prepare("SELECT user_id FROM {$wpdb->prefix}ma_sessions WHERE token_hash = %s", hash('sha256', $free)));
+$wpdb->update($wpdb->prefix . 'ma_users', ['pro_until' => null, 'pro_kind' => ''], ['id' => $freeId]);
+$proId = (int) $u['id'];
+$wpdb->update($wpdb->prefix . 'ma_users', ['pro_until' => gmdate('Y-m-d H:i:s', time() + 30 * DAY_IN_SECONDS)], ['id' => $proId]);
+update_option('ma_gemini_key', 'gem-test-key');
+update_option('ma_ai_on', '1');
+[$code, $d] = call('GET', '/nlu/config', [], $ses);
+check($code === 200 && $d['mode'] === 'shadow' && $d['cloud'] === true && $d['model'] === null && $d['consent_ver'] === '1', 'config: shadow by default, cloud on, no model yet');
+[$code] = call('GET', '/nlu/config');
+check($code === 401, 'config needs a session');
+[$code] = call('GET', '/nlu/model', [], $ses);
+check($code === 204, 'no live model: keep the built-in one');
+
+echo "  — cloud reading\n";
+$GLOBALS['nlu_reply'] = ['pieces' => [['intent' => 'task_add', 'slots' => [['name' => 'date', 'words' => 'কাল'], ['name' => 'title', 'words' => 'ব্যাংকে যেতে হবে'], ['name' => 'amount', 'words' => '৫০০০']]], ['intent' => 'made_up', 'slots' => []]], 'sure' => 0.9];
+$sent['nlu'] = [];
+[$code, $d] = call('POST', '/nlu/resolve', ['text' => 'কাল ব্যাংকে যেতে হবে', 'state' => 'idle', 'kind' => 'none', 'local_conf' => 0.6, 'top' => [['intent' => 'task_add', 'conf' => 0.6]]], $free);
+check($code === 200 && count($sent['nlu']) === 1 && str_contains($sent['nlu'][0]['url'], 'gemini-3.1-flash-lite') && $sent['nlu'][0]['headers']['x-goog-api-key'] === 'gem-test-key', 'free member → Gemini Flash-Lite, with our key');
+check(count($d['pieces']) === 1 && $d['pieces'][0]['intent'] === 'task_add', 'an intent not in the spec is dropped');
+check(array_column($d['pieces'][0]['slots'], 'words') === ['কাল', 'ব্যাংকে যেতে হবে'], 'a fact not in the message (৫০০০) is dropped — the model cannot invent a number');
+$gb = $sent['nlu'][0]['body'];
+check(($gb['toolConfig']['functionCallingConfig']['mode'] ?? '') === 'ANY' && ($gb['tools'][0]['functionDeclarations'][0]['name'] ?? '') === 'route' && !str_contains(wp_json_encode($gb), 'free@x.com'), 'Gemini: route as a forced function call, no member details sent');
+$cost = (int) $wpdb->get_var($wpdb->prepare("SELECT cost_micro_usd FROM {$wpdb->prefix}ma_ai_usage WHERE user_id = %d AND model = %s", $freeId, 'gemini-3.1-flash-lite'));
+check($cost === (int) round(500 * 0.25 + 1000 * 0.025 + 40 * 1.5), 'its cost is counted (free plan): ' . $cost);
+$sent['nlu'] = [];
+[$code, $d] = call('POST', '/nlu/resolve', ['text' => 'কাল ব্যাংকে যেতে হবে', 'local_conf' => 0.9], $ses);
+$ab = $sent['nlu'][0]['body'] ?? [];
+check($code === 200 && str_contains($sent['nlu'][0]['url'], 'anthropic') && $ab['model'] === 'claude-haiku-5-5' && ($ab['system'][0]['cache_control']['type'] ?? '') === 'ephemeral' && ($ab['tool_choice']['name'] ?? '') === 'route', 'Pro member → Haiku, fixed part cached, route forced');
+// Very unsure on the phone → Sonnet, but only within its share of the day.
+delete_transient('ma_nlu_day_' . gmdate('Y-m-d'));
+for ($i = 0; $i < 19; $i++) ma_nlu_count_use(999, 'claude-haiku-5-5');
+$sent['nlu'] = [];
+[$code, $d] = call('POST', '/nlu/resolve', ['text' => 'ওটা কাল', 'local_conf' => 0.1], $ses);
+check($code === 200 && $d['model'] === 'claude-sonnet-5-5', 'a Pro message the phone was very unsure of → Sonnet');
+$sent['nlu'] = [];
+[$code, $d] = call('POST', '/nlu/resolve', ['text' => 'ওটা পরশু', 'local_conf' => 0.1], $ses);
+check($code === 200 && $d['model'] === 'claude-haiku-5-5', 'Sonnet stays within 5% of the day: the next goes to Haiku');
+// Failures: 429 once → tried again; a broken provider → the other.
+$GLOBALS['gem_fail'] = [429];
+$sent['nlu'] = [];
+[$code, $d] = call('POST', '/nlu/resolve', ['text' => 'কাল ব্যাংকে যাব'], $free);
+check($code === 200 && count($sent['nlu']) === 2 && $d['model'] === 'gemini-3.1-flash-lite', '429 → tried once more');
+$GLOBALS['gem_fail'] = [500];
+$sent['nlu'] = [];
+[$code, $d] = call('POST', '/nlu/resolve', ['text' => 'কাল ব্যাংকে যাব'], $free);
+check($code === 200 && $d['model'] === 'claude-haiku-5-5', 'Gemini fails → Haiku answers');
+$GLOBALS['gem_fail'] = [500];
+$GLOBALS['ant_fail'] = [500];
+[$code] = call('POST', '/nlu/resolve', ['text' => 'কাল ব্যাংকে যাব'], $free);
+check($code === 504, 'both fail → 504 (the app stays on the phone path)');
+[$code] = call('POST', '/nlu/resolve', ['text' => '<নাম১> এর নম্বর ০১৭১১২২৩৩৪৪'], $free);
+check($code === 422, 'a phone number in the text is refused');
+[$code] = call('POST', '/nlu/resolve', ['text' => 'ওয়াইফাইয়ের পাসওয়ার্ড কত'], $free);
+check($code === 422, 'a secret is refused');
+update_option('ma_ai_budgets', wp_json_encode(['free' => ['day' => 0.0001, 'month' => 0], 'pro' => ['day' => 0, 'month' => 0]]));
+[$code] = call('POST', '/nlu/resolve', ['text' => 'কাল ব্যাংকে যাব'], $free);
+check($code === 503, 'free budget used up → 503');
+update_option('ma_ai_budgets', '');
+$s = ma_nlu_settings(); $s['free_per_user'] = 1; update_option('ma_nlu_settings', wp_json_encode($s));
+[$code] = call('POST', '/nlu/resolve', ['text' => 'কাল ব্যাংকে যাব'], $free);
+check($code === 429, 'the member\'s daily limit');
+update_option('ma_ai_on', '0');
+[$code] = call('POST', '/nlu/resolve', ['text' => 'কাল ব্যাংকে যাব'], $ses);
+check($code === 503, 'the one switch stops every cloud call');
+update_option('ma_ai_on', '1');
+update_option('ma_nlu_settings', '');
+
+echo "  — samples\n";
+$n0 = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}ma_nlu_samples");
+[$code] = call('POST', '/nlu/samples', ['samples' => [['text_delex' => 'কাল ব্যাংকে যাব']]], $ses);
+check($code === 403, 'no consent → refused');
+$samples = [
+    ['text_delex' => '<নাম১>কে ৫০০ টাকা দিলাম', 'state' => 'idle', 'local_json' => ['pieces' => [['intent' => 'cash_add']]], 'local_conf' => 0.7, 'final_json' => ['pieces' => [['intent' => 'ledger_add']]], 'signal' => 'edited'],
+    ['text_delex' => 'আমার নম্বর 01711223344', 'state' => 'idle'],
+    ['text_delex' => 'ওটিপি 482913 এসেছে'],
+    ['text_delex' => 'কাল বাজার করব', 'state' => 'weird', 'signal' => 'nonsense'],
+];
+[$code, $d] = call('POST', '/nlu/samples', ['consent_ver' => '1', 'samples' => $samples], $ses);
+check($code === 200 && $d['kept'] === 2 && $d['refused'] === 2, 'with consent: kept, but a phone number or a code is refused');
+$last = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}ma_nlu_samples ORDER BY id DESC LIMIT 1", ARRAY_A);
+check($last['state'] === 'idle' && $last['signal_kind'] === '' && strlen($last['user_hash']) === 64 && !str_contains(wp_json_encode($last), (string) $proId . '@'), 'unknown state/signal cleaned; member kept only as a hash');
+[$code] = call('POST', '/nlu/samples', ['consent_ver' => '1', 'samples' => array_fill(0, 101, ['text_delex' => 'x'])], $ses);
+check($code === 413, 'at most 100 at a time');
+
+echo "  — admin\n";
+$bossSes = ma_ai_new_session(1, 'admin');
+[$code, $d] = call('GET', '/admin/nlu/review', [], $bossSes);
+check($code === 200 && count($d['samples']) >= 1 && $d['samples'][0]['signal'] === 'edited' && $d['samples'][0]['phone'] === ['cash_add'] && $d['samples'][0]['final'] === ['ledger_add'], 'review: disagreements, error signals first');
+$sid = $d['samples'][0]['id'];
+[$code] = call('POST', "/admin/nlu/review/$sid", ['intents' => ['nonsense']], $bossSes);
+check($code === 400, 'a label must be a spec intent');
+[$code] = call('POST', "/admin/nlu/review/$sid", ['intents' => ['ledger_add'], 'pick' => 'user'], $bossSes);
+[$c2, $d2] = call('GET', '/admin/nlu/review', [], $bossSes);
+check($code === 200 && !in_array($sid, array_column($d2['samples'], 'id'), true), 'labelled → leaves the review list');
+[$code, $d] = call('GET', '/admin/nlu/export', [], $bossSes);
+$ex = array_values(array_filter($d['samples'] ?? [], function ($x) use ($sid) { return (int) $x['id'] === $sid; }));
+check($code === 200 && $ex && str_contains($ex[0]['admin_label'], 'ledger_add'), 'export with the admin label (site owner)');
+[$code, $d] = call('POST', '/admin/ai/settings', ['nlu' => ['mode' => 'on', 'pct' => 0, 'free_model' => 'gemini-3.1-flash-lite'], 'budgets' => ['pro' => ['month' => 25]]], $bossSes);
+check($code === 200 && $d['nlu']['mode'] === 'on' && $d['nlu']['pct'] === 0 && $d['budgets']['pro']['month'] == 25, 'settings saved from the admin app');
+[$code, $d] = call('GET', '/nlu/config', [], $ses);
+check($d['mode'] === 'off', 'a member outside the share (0%) gets mode off');
+call('POST', '/admin/ai/settings', ['nlu' => ['mode' => 'shadow', 'pct' => 100]], $bossSes);
+[$code] = call('POST', '/admin/nlu/models', ['version' => 'm2', 'url' => 'http://x/m.tflite', 'sha256' => str_repeat('a', 64)], $bossSes);
+check($code === 400, 'a model needs an https address');
+[$code] = call('POST', '/admin/nlu/models', ['version' => 'm2', 'url' => 'https://github.com/x/m2.tflite', 'sha256' => str_repeat('a', 64), 'size' => 14068808, 'thresholds' => ['task_add' => 0.8], 'eval' => ['exact' => 0.81]], $bossSes);
+[$c2] = call('GET', '/nlu/model', [], $ses);
+check($code === 200 && $c2 === 204, 'a draft reaches nobody');
+call('POST', '/admin/nlu/models', ['version' => 'm2', 'action' => 'live', 'pct' => 100], $bossSes);
+[$code, $d] = call('GET', '/nlu/model', [], $ses);
+check($code === 200 && $d['version'] === 'm2' && $d['sha256'] === str_repeat('a', 64) && $d['size'] === 14068808, 'live at 100%: the member gets it, with its SHA-256');
+[$code, $d] = call('GET', '/nlu/config', [], $ses);
+check(($d['thresholds']['task_add'] ?? 0) == 0.8 && $d['model'] === 'm2', 'config carries the live model\'s thresholds');
+call('POST', '/admin/nlu/models', ['version' => 'm2', 'action' => 'rollback'], $bossSes);
+[$code] = call('GET', '/nlu/model', [], $ses);
+check($code === 204, 'rollback: back to the built-in model');
+[$code, $d] = call('GET', '/admin/ai/overview', [], $bossSes);
+check($code === 200 && isset($d['nlu']['samples_30d']) && $d['nlu']['error_signals_per_100'] > 0, 'overview carries the NLU numbers');
+[$code, $d] = call('POST', '/ai/sources', ['day' => gmdate('Y-m-d'), 'counts' => ['nlu_same_sure' => 5, 'nlu_differ' => 2]], $ses);
+check($code === 200 && $d['kept'] === 2, 'shadow-mode counts are accepted');
+
+echo "  — privacy\n";
+[$code, $d] = call('DELETE', '/nlu/samples/mine', [], $ses);
+check($code === 200 && $d['deleted'] >= 2 && !$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$wpdb->prefix}ma_nlu_samples WHERE user_hash = %s", ma_nlu_user_hash($proId))), 'a member deletes all their samples');
+$wpdb->insert($wpdb->prefix . 'ma_nlu_samples', ma_nlu_sample_row($freeId, ['text_delex' => 'পুরনো কথা'], '1'));
+$wpdb->query("UPDATE {$wpdb->prefix}ma_nlu_samples SET created = '2025-01-01 00:00:00' WHERE text_delex = 'পুরনো কথা'");
+$wpdb->insert($wpdb->prefix . 'ma_nlu_samples', ma_nlu_sample_row($freeId, ['text_delex' => 'নতুন কথা'], '1'));
+check(ma_nlu_purge() === 1 && (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}ma_nlu_samples WHERE text_delex = 'নতুন কথা'") === 1, 'after 180 days a sample goes; newer ones stay');
+ma_nlu_forget_member($freeId);
+check(!$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$wpdb->prefix}ma_nlu_samples WHERE user_hash = %s", ma_nlu_user_hash($freeId))), 'a deleted member\'s samples go with them');
+check(wp_next_scheduled('ma_nlu_purge') !== false, 'the daily clean-up is scheduled');
+
 echo "\nusage table migration (1.8.0 → 1.9.0)\n";
 $ut = $wpdb->prefix . 'ma_ai_usage';
 $wpdb->query("DROP TABLE $ut");

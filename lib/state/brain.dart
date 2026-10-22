@@ -703,6 +703,25 @@ class Brain extends ChangeNotifier {
     await _saveSources();
   }
 
+  /// The server's switch for the on-phone model: off | shadow | on (GET
+  /// /nlu/config, once a day; shadow until the server says otherwise).
+  String nluMode = 'shadow';
+
+  Future<void> loadNluConfig() async {
+    try {
+      final saved = await services.lock.keys.read('nlu_mode');
+      if (saved == 'off' || saved == 'shadow' || saved == 'on') nluMode = saved!;
+      final session = services.ai.session;
+      if (session.isEmpty || !services.server.configured) return;
+      final r = await services.server.send('GET', '/nlu/config', session);
+      final m = r.data['mode'];
+      if (r.status == 200 && (m == 'off' || m == 'shadow' || m == 'on')) {
+        nluMode = m as String;
+        await services.lock.keys.write('nlu_mode', nluMode);
+      }
+    } catch (_) {}
+  }
+
   /// The user lets the AI see their reminders, tasks and notes (never
   /// passwords, PINs or anything secret), so it can answer about them.
   bool aiShareData = true;
@@ -1290,6 +1309,7 @@ class Brain extends ChangeNotifier {
     await _loadAccount();
     // Yesterday's (and older) answer-source counts: sent once, quietly.
     unawaited(sendAnswerSources().catchError((_) {}));
+    unawaited(loadNluConfig());
     await _loadServerNotices();
     try {
       data = await services.store.load();

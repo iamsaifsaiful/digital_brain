@@ -294,7 +294,9 @@ add_action('rest_api_init', function () {
 });
 
 /** Where each answer came from (rules, phone model, a cloud model, failed): counts only, never words. */
-const MA_AI_SOURCES = ['rules', 'local', 'gemini', 'haiku', 'sonnet', 'failed'];
+const MA_AI_SOURCES = ['rules', 'local', 'gemini', 'haiku', 'sonnet', 'failed',
+    // Shadow mode (the phone model reads next to the rules, acting on nothing).
+    'nlu_same_sure', 'nlu_same', 'nlu_differ_sure', 'nlu_differ', 'nlu_early', 'nlu_off'];
 
 function ma_ai_sources_in(WP_REST_Request $req) {
     $row = ma_ai_member($req);
@@ -454,6 +456,7 @@ function ma_ai_cost_report() {
             'pro' => $b['pro'] + ['spent_day' => ma_ai_spent('pro', ma_ai_today()) / 1e6, 'spent_month' => ma_ai_spent('pro', gmdate('Y-m-01')) / 1e6],
         ],
         'prices' => ma_ai_prices(),
+        'nlu' => ma_nlu_overview(),
     ];
 }
 

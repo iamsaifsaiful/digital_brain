@@ -11,19 +11,32 @@ import 'reader.dart';
 final nluShadowOn = const bool.fromEnvironment('NLU_SHADOW', defaultValue: true) && !Platform.environment.containsKey('FLUTTER_TEST');
 
 class NluShadow {
-  NluShadow(this._load);
+  NluShadow(this._load, {void Function(String key)? count, bool Function()? enabled, this.force = false})
+      : _countOut = count,
+        _enabled = enabled;
+
+  /// Runs even under `flutter test` (for the shadow's own tests).
+  final bool force;
 
   final Future<NluReader?> Function() _load;
+  final void Function(String key)? _countOut;
 
-  /// Today's counts (kept in memory; sent with the server switch, step G).
+  /// The server's switch (GET /nlu/config): off stops the shadow reading.
+  final bool Function()? _enabled;
+
+  /// This session's counts; each also goes to the daily answer-source counts
+  /// (sent to the server once a day, numbers only).
   final Map<String, int> counts = {};
-  void _count(String key) => counts[key] = (counts[key] ?? 0) + 1;
+  void _count(String key) {
+    counts[key] = (counts[key] ?? 0) + 1;
+    _countOut?.call(key);
+  }
   Future<NluReader?>? _reader;
   final Map<int, Future<List<NluPiece>?>> _readings = {};
 
   /// A message arrived (turn, the words as heard, the app's state in spec names).
   void listen(int turn, String text, String state, String kind) {
-    if (!nluShadowOn) return;
+    if (!(nluShadowOn || force) || !(_enabled?.call() ?? true)) return;
     // Turns the old rules settled before their usual reading (a pending
     // answer, a list change…) are counted apart.
     for (final k in _readings.keys.where((k) => k < turn).toList()) {

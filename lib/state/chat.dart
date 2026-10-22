@@ -233,7 +233,7 @@ class ChatController extends ChangeNotifier {
   int _turn = 0;
 
   /// The on-phone model reading next to the rules, acting on nothing (shadow mode).
-  final NluShadow nluShadow = NluShadow(TfliteRunner.load);
+  late final NluShadow nluShadow = NluShadow(TfliteRunner.load, count: brain.countSource, enabled: () => brain.nluMode != 'off');
 
   /// What the app waits on, in the NLU spec's state names (docs/nlu-spec.md).
   String get _nluState => switch (wait) {
