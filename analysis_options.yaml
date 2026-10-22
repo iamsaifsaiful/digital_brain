@@ -5,6 +5,8 @@ analyzer:
     - build/**
     # A separate app with its own settings and checks.
     - admin_app/**
+    - third_party/**
+    - android/**
 
 linter:
   rules:

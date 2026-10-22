@@ -3,6 +3,8 @@ import 'dart:convert';
 import '../logic/csv.dart' show cashCsv;
 import '../logic/standard.dart';
 import '../nlu/labels.dart';
+import '../nlu/model.dart' show TfliteRunner;
+import '../nlu/shadow.dart';
 import 'package:flutter/foundation.dart';
 
 import '../logic/lang.dart';
@@ -229,6 +231,31 @@ class ChatController extends ChangeNotifier {
 
   /// Counts the user's turns (how long ago a list was shown).
   int _turn = 0;
+
+  /// The on-phone model reading next to the rules, acting on nothing (shadow mode).
+  final NluShadow nluShadow = NluShadow(TfliteRunner.load);
+
+  /// What the app waits on, in the NLU spec's state names (docs/nlu-spec.md).
+  String get _nluState => switch (wait) {
+        ChatWait.none => 'idle',
+        ChatWait.collect => 'dictating_list',
+        ChatWait.bulk => (_pendingBulk?.action.op == 'delete' ? 'confirm_delete' : 'confirm_batch'),
+        ChatWait.batchTime || ChatWait.reminderTime || ChatWait.taskTime => 'await_time',
+        ChatWait.taskDate || ChatWait.taskDay || ChatWait.changeTo => 'await_new_value',
+        ChatWait.yesNo => 'confirm_save',
+        ChatWait.callee || ChatWait.whichPerson || ChatWait.name => 'await_person',
+        ChatWait.kind => 'await_kind',
+        ChatWait.whichItem || ChatWait.whichTask => 'pick_one',
+        ChatWait.clarify => 'clarify',
+        _ => 'idle',
+      };
+
+  String get _nluKind {
+    final st = _nluState;
+    if (!const {'confirm_delete', 'confirm_batch', 'pick_one', 'clarify'}.contains(st)) return 'none';
+    final d = _pendingBulk?.set.domain ?? (_sets.isEmpty ? null : _sets.last.domain);
+    return d.toString().contains('reminder') ? 'reminders' : 'tasks';
+  }
 
   /// A change to several items waiting for its yes, and ones already done
   /// (a repeated yes never runs it twice).
@@ -792,6 +819,7 @@ class ChatController extends ChangeNotifier {
     _lastText = shown;
     _lastTextAt = wall;
     if (echo) messages.add(ChatMessage.user(shown));
+    nluShadow.listen(_turn, shown, _nluState, _nluKind);
     // Only closing words ("না, আর বলতে চাই না") while a save waits for its
     // yes/no: that is "I have nothing more to say", not "don't save it".
     if (doneTail && body.isEmpty && wait == ChatWait.yesNo) {
@@ -1548,6 +1576,7 @@ class ChatController extends ChangeNotifier {
     Trace.log('understood', 'intent', {'text': t, 'commands': cmds.map(traceLine).join(' + '), 'ai': brain.aiOn});
     // The same reading in the NLU spec's names (for comparisons; no words).
     Trace.log('understood', 'spec', {'intents': intentsOfCommands(cmds).join(',')});
+    nluShadow.oldReading(turn, intentsOfCommands(cmds));
     // A choice that belongs to something to keep ("আজই শুক্রবার, নাকি
     // আগামী?") waits its turn with the saves, so one question is open at a time.
     final saves = [for (final c in cmds) if (isSave(c) || (c is Clarify && cmds.length > 1 && c.options.every((o) => isSave(o.$2)))) c];

@@ -1,0 +1,9 @@
+{
+ "dev_intent_acc": 0.8854,
+ "temperature": 1.25,
+ "params": 13704060,
+ "tflite_mb": 14.07,
+ "invokes": 3357,
+ "ms_median": 34.73,
+ "ms_p95": 35.11
+}

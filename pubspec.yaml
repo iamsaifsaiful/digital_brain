@@ -1,7 +1,7 @@
 name: digital_brain
 description: My Assistant — আপনার ব্যক্তিগত সহকারী। কাজের তালিকা, রিমাইন্ডার, ফোন-মেসেজ, বাকি ও লেনদেন, নোট আর পাসওয়ার্ড — মুখে বলুন বা লিখুন।
 publish_to: 'none'
-version: 2.38.0+89
+version: 2.39.0+90
 
 environment:
   sdk: '>=3.6.0 <4.0.0'
@@ -22,6 +22,9 @@ dependencies:
   share_plus: ^11.0.0
   speech_to_text: ^7.0.0
   timezone: ^0.11.0
+  # On-phone language model (TensorFlow Lite), vendored: see third_party/README.md.
+  tflite_flutter:
+    path: third_party/tflite_flutter
   url_launcher: ^6.3.1
 
 dev_dependencies:
@@ -31,6 +34,10 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # The on-phone language model (tool/nlu/train, step E): model, word pieces, labels and thresholds.
+  assets:
+    - assets/nlu/
 
   fonts:
     # Noto Sans Bengali: the main font — plain, familiar letters and digits
