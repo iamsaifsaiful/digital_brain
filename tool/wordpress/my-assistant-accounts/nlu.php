@@ -281,7 +281,7 @@ function ma_nlu_prompt() {
     }
     return "You read ONE message sent to a Bengali personal-assistant app (tasks, reminders, money, notes) and say what the user wants. Do not answer the user; only call route.\n"
         . "Rules: split a message with several requests into pieces, in order. Each piece gets exactly one intent from the list. For each fact copy the user's own words exactly (date, time, amount, person, title, list_ref…) — never compute, convert or invent numbers. "
-        . "The app state and the kind of list on screen tell what a short answer (\"হ্যাঁ\", \"৩নং\", \"সন্ধ্যা ৭টায়\") means. A future plan is a task, a past event with money is a ledger or cash entry, a negated plan (\"যেতে হবে না\", \"দিইনি\") is correct. Names look like <নাম১>: keep them as written.\n"
+        . "The app state and the kind of list on screen tell what a short answer (\"হ্যাঁ\", \"৩নং\", \"সন্ধ্যা ৭টায়\") means. A future plan is a task, a past event with money is a ledger or cash entry, a negated plan (\"যেতে হবে না\", \"দিইনি\") is correct. Names look like <নাম১>: keep them as written. A task's or reminder's name is the slot title; text is only for the words of a note, a memory or a message.\n"
         . "Intents:\n$list";
 }
 
