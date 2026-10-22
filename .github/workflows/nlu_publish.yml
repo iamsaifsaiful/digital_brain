@@ -1,0 +1,26 @@
+name: NLU publish
+
+# Puts a model that is already in the repository (e.g. the one the app used
+# to carry in assets/nlu) on a GitHub release and, when the MA_NLU_CI_KEY
+# secret is set, on the server as a DRAFT. Which model: tool/nlu/retrain/PUBLISH
+# ("VERSION MODEL_DIR"). Runs when the nlu-publish branch is pushed.
+on:
+  push:
+    branches: [nlu-publish]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MA_NLU_CI_KEY: ${{ secrets.MA_NLU_CI_KEY }}
+        run: |
+          set -eo pipefail
+          read -r VER DIR < tool/nlu/retrain/PUBLISH
+          python3 tool/nlu/retrain/publish.py "$VER" --model-dir "$DIR"
