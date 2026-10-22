@@ -15,34 +15,38 @@ permissions:
 jobs:
   train:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Which model
+        run: echo "M=$(cat tool/nlu/train/RUN)" >> $GITHUB_ENV
       - name: Install
-        run: pip install "tensorflow-cpu==2.15.1" "numpy<2" scipy scikit-learn
+        run: |
+          pip install "tensorflow-cpu==2.15.1" "numpy<2" scipy scikit-learn
+          if [ "$M" = bert ]; then pip install "transformers==4.40.2" "torch==2.3.1" --extra-index-url https://download.pytorch.org/whl/cpu; fi
       - name: Make data
         run: python tool/nlu/data/generate.py
       - name: Train and convert
-        run: python tool/nlu/train/tiny.py 2>&1 | tee train.log
+        run: python tool/nlu/train/${M}.py 2>&1 | tee train.log
       - name: Measure on gold
-        run: python tool/nlu/eval.py tool/nlu/out/pred_tiny.jsonl --system tiny --md eval_tiny.md
+        run: python tool/nlu/eval.py tool/nlu/out/pred_${M}.jsonl --system ${M} --md eval_${M}.md
       - name: Save results to the nlu-results branch
         if: always()
         run: |
-          mkdir -p /tmp/res && cp -r tool/nlu/out/models/tiny /tmp/res/ 2>/dev/null || true
-          cp tool/nlu/out/pred_tiny.jsonl tool/nlu/out/data/stats.json train.log eval_tiny.md /tmp/res/ 2>/dev/null || true
+          mkdir -p /tmp/res && cp -r tool/nlu/out/models/${M} /tmp/res/ 2>/dev/null || true
+          cp tool/nlu/out/pred_${M}.jsonl tool/nlu/out/data/stats.json train.log eval_${M}.md /tmp/res/ 2>/dev/null || true
           cd /tmp/res && git init -q && git checkout -q -b nlu-results
           git -c user.name=ci -c user.email=ci@localhost add -A && git -c user.name=ci -c user.email=ci@localhost commit -qm "results ${GITHUB_SHA}"
           git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" nlu-results
       - uses: actions/upload-artifact@v4
         with:
-          name: nlu-tiny
+          name: nlu-${{ env.M }}
           path: |
-            tool/nlu/out/models/tiny/
-            tool/nlu/out/pred_tiny.jsonl
+            tool/nlu/out/models/${{ env.M }}/
+            tool/nlu/out/pred_${{ env.M }}.jsonl
             tool/nlu/out/data/stats.json
             train.log
-            eval_tiny.md
+            eval_${{ env.M }}.md
