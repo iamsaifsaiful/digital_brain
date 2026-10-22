@@ -35,7 +35,7 @@ class FakeRunner implements NluRunner {
 }
 
 void main() {
-  final cfgFile = File('assets/nlu/config.json');
+  final cfgFile = File('tool/nlu/models/2026.10.22-bert2/config.json');
   test('reading around the model: lines, boundaries, spans, sure', () async {
     final config = NluConfig.fromJson(jsonDecode(cfgFile.readAsStringSync()) as Map<String, dynamic>);
     final wp = WordPiece(File('assets/nlu/vocab.txt').readAsLinesSync());

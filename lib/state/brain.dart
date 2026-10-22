@@ -776,16 +776,33 @@ class Brain extends ChangeNotifier {
     }
   }
 
-  /// A newer on-phone model for this member, if the server has one (used from the next start).
+  /// A newer on-phone model for this member, if the server has one — downloaded
+  /// on Wi-Fi only; the chat opens it at once ([onNluModelChanged]).
   Future<void> updateNluModelFromServer() async {
     final session = services.ai.session;
     if (session.isEmpty || !services.server.configured || nluMode == 'off') return;
     try {
       final r = await services.server.send('GET', '/nlu/model', session);
-      final what = await updateNluModel(NluModelFiles(await getApplicationSupportDirectory()), r.status, r.data);
+      final files = NluModelFiles(await getApplicationSupportDirectory());
+      final what = await updateNluModel(files, r.status, r.data, mayDownload: await unmetered());
       Trace.log('nlu', 'model update', {'result': what});
+      nluModelState = what.startsWith('updated:') ? 'ready' : (what == 'same' ? 'ready' : what);
+      if (nluModelState == 'ready') nluModelVersion = files.current ?? '';
+      notifyListeners();
+      if (what.startsWith('updated:') || what == 'builtin') onNluModelChanged?.call();
     } catch (_) {}
   }
+
+  /// For the More screen: 'ready' (with [nluModelVersion]), 'wait-wifi',
+  /// 'builtin' (no model for this member yet), other failures, or '' (not asked yet).
+  String nluModelState = '';
+  String nluModelVersion = '';
+
+  /// Wi-Fi (or another network that does not count data); tests replace it.
+  Future<bool> Function() unmetered = AppPlatform.unmetered;
+
+  /// Set by the chat: a new model is there (or gone) — open it again.
+  void Function()? onNluModelChanged;
 
   /// Everything this member sent is deleted on the server (and nothing waits here).
   Future<String?> deleteMyNluSamples() async {

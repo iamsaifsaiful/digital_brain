@@ -1,4 +1,6 @@
-// Loads the on-phone model (assets/nlu/) and runs it off the UI thread.
+// Loads the on-phone model (downloaded from the server, lib/nlu/updater.dart;
+// a development build may still carry one in assets/nlu/) and runs it off
+// the UI thread.
 // Any failure (no model, a phone the library does not support) leaves the
 // model off; the app keeps working with its old reading.
 import 'dart:convert';
@@ -21,7 +23,7 @@ class TfliteRunner implements NluRunner {
   final List<List<int>> _outs; // output shapes
 
   /// A model downloaded from the server (lib/nlu/updater.dart) first; if it
-  /// does not load, it is deleted and the built-in one is used.
+  /// does not load, it is deleted. Then one in the assets, if a build has it.
   static Future<NluReader?> load() async {
     try {
       final files = NluModelFiles(await getApplicationSupportDirectory());

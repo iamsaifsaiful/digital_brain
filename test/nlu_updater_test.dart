@@ -46,4 +46,21 @@ void main() {
     expect(await updateNluModel(files, 200, {'version': 'm4', 'url': 'http://x/m.tflite', 'sha256': 'a' * 64, 'thresholds': {'intents': []}}), 'failed');
     expect(await updateNluModel(files, 200, {'version': 'm4', 'url': 'https://x/m.tflite', 'sha256': 'a' * 64, 'thresholds': {}}), 'failed');
   });
+
+  test('mobile data: nothing downloaded until Wi-Fi; a model too big is refused', () async {
+    final bytes = utf8.encode('pretend tflite');
+    var gets = 0;
+    final client = MockClient((r) async {
+      gets++;
+      return http.Response.bytes(bytes, 200);
+    });
+    final files = NluModelFiles(dir);
+    final answer = {'version': 'm4', 'url': 'https://x/m4.tflite', 'sha256': await sha(bytes), 'size': bytes.length, 'thresholds': {'intents': ['task_add']}};
+    expect(await updateNluModel(files, 200, answer, client: client, mayDownload: false), 'wait-wifi');
+    expect(gets, 0);
+    expect(files.present, isFalse);
+    expect(await updateNluModel(files, 200, answer, client: client, mayDownload: true), 'updated:m4');
+    expect(await updateNluModel(files, 200, {...answer, 'version': 'm5', 'size': nluMaxModelBytes + 1}, client: client), 'too-big');
+    expect(files.current, 'm4');
+  });
 }

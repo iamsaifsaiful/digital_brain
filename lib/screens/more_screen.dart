@@ -31,7 +31,7 @@ import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '2.41.0';
+const appVersion = '2.42.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -373,6 +373,14 @@ class _MoreScreenState extends State<MoreScreen> {
             switchRow(Icons.school_outlined, tr('কথা বোঝা আরও ভালো করতে সাহায্য করুন'),
                 tr('কিছু বার্তা নাম সরিয়ে সার্ভারে যায় — পাসওয়ার্ড, ফোন নম্বর বা কোড কখনো না; ১৮০ দিন পর নিজে মুছে যায়'),
                 brain.nluSamplesOn, (v) => brain.setNluSamplesOn(v)),
+            if (brain.nluModelState.isNotEmpty)
+              linkRow(Icons.psychology_outlined, tr('ফোনে কথা বোঝার মডেল'),
+                  sub: switch (brain.nluModelState) {
+                    'ready' => trf('নামানো আছে · {0}', [brain.nluModelVersion]),
+                    'wait-wifi' => tr('Wi-Fi পেলে নিজে নামবে (প্রায় ১৪ MB) — মোবাইল ডেটায় নয়'),
+                    'builtin' => tr('এখনো চালু হয়নি — অ্যাপ নিজের নিয়মে বুঝছে'),
+                    _ => tr('নামানো যায়নি — পরে আবার চেষ্টা হবে'),
+                  }),
             linkRow(Icons.delete_sweep_outlined, tr('আমার পাঠানো বার্তা সার্ভার থেকে মুছে দিন'), onTap: () async {
               final why = await brain.deleteMyNluSamples();
               if (!context.mounted) return;

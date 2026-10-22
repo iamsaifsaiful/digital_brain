@@ -76,7 +76,7 @@ function ma_acc_url($args) {
 function ma_acc_render($v) {
     $labels = ma_acc_status_labels();
     $s = $v['stats'];
-    $tab = in_array($v['tab'], ['settings', 'payments', 'notices', 'feedback'], true) ? $v['tab'] : 'members';
+    $tab = in_array($v['tab'], ['settings', 'ai', 'payments', 'notices', 'feedback'], true) ? $v['tab'] : 'members';
     $fb_new = (int) ($v['fb_new'] ?? 0);
     $pending = (int) ($v['pending'] ?? 0);
     $paying_rate = $s['total'] ? round($s['pro'] * 100 / $s['total'], 1) : 0;
@@ -102,6 +102,7 @@ function ma_acc_render($v) {
                     <a class="<?php echo $tab === 'payments' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'payments']); ?>">পেমেন্ট<?php if ($pending) : ?><i class="ma-badge"><?php echo esc_html(ma_acc_bn($pending)); ?></i><?php endif; ?></a>
                     <a class="<?php echo $tab === 'notices' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'notices']); ?>">নোটিফিকেশন</a>
                     <a class="<?php echo $tab === 'feedback' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'feedback']); ?>">মতামত<?php if ($fb_new) : ?><i class="ma-badge"><?php echo esc_html(ma_acc_bn($fb_new)); ?></i><?php endif; ?></a>
+                    <?php if (!empty($v['can_settings'])) : ?><a class="<?php echo $tab === 'ai' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'ai']); ?>">AI খরচ</a><?php endif; ?>
                     <?php if (!empty($v['can_settings'])) : ?><a class="<?php echo $tab === 'settings' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'settings']); ?>">সেটিংস</a><?php endif; ?>
                 </nav>
             </div>
@@ -117,7 +118,9 @@ function ma_acc_render($v) {
             <div class="ma-toast <?php echo $v['msg_type'] === 'error' ? 'bad' : ''; ?>" role="status"><?php echo esc_html($v['msg']); ?></div>
         <?php endif; ?>
 
-        <?php if ($tab === 'settings' && !empty($v['can_settings'])) {
+        <?php if ($tab === 'ai' && !empty($v['can_settings'])) {
+            ma_acc_render_ai_report($v);
+        } elseif ($tab === 'settings' && !empty($v['can_settings'])) {
             ma_acc_render_settings($v);
         } elseif ($tab === 'payments') {
             ma_acc_render_payments($v);
@@ -628,7 +631,6 @@ function ma_acc_render_notices($v) {
 function ma_acc_render_settings($v) {
     $set = trim($v['clients']) !== '';
     $ai = $v['ai'];
-    $st = $v['ai_stats'];
     $ready = $ai['on'] && $ai['source'] !== '';
     ?>
     <section class="ma-card pad ma-ai">
@@ -638,12 +640,6 @@ function ma_acc_render_settings($v) {
                 <p class="muted">প্রো ও ট্রায়ালের সদস্যদের AI এই সার্ভার দিয়ে চলে। API key এখানেই থাকে — অ্যাপে কখনো যায় না। সদস্য কী বললেন তা এখানে রাখা হয় না, শুধু গোনা হয়।</p>
             </div>
             <span class="ma-pill <?php echo $ready ? 'pro' : 'expired'; ?>"><?php echo $ready ? 'চালু' : ($ai['source'] === '' ? 'key নেই' : 'বন্ধ'); ?></span>
-        </div>
-        <div class="ma-ai-stats">
-            <div><strong><?php echo esc_html(ma_acc_bn(number_format($st['requests']))); ?></strong><span>আজ AI প্রশ্ন</span></div>
-            <div><strong><?php echo esc_html(ma_acc_bn(number_format($st['people']))); ?></strong><span>আজ ব্যবহার করেছেন</span></div>
-            <div><strong><?php echo esc_html(ma_acc_bn(number_format($st['in'] + $st['out']))); ?></strong><span>আজকের টোকেন</span></div>
-            <div><strong><?php echo esc_html(ma_acc_bn(number_format($st['month']))); ?></strong><span>এই মাসে প্রশ্ন</span></div>
         </div>
         <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="ma-ai-form">
             <input type="hidden" name="action" value="ma_ai_settings">
@@ -1026,7 +1022,10 @@ function ma_acc_script() {
 }
 
 /** AI cost by model (today and this month), answer sources, prices and budgets. */
-function ma_acc_render_ai_costs($c) {
+/** The "AI খরচ" tab: what the AI cost and where answers came from (only reading — nothing to set here). */
+function ma_acc_render_ai_report($v) {
+    $c = $v['ai_costs'] ?? null;
+    $st = $v['ai_stats'];
     if (!is_array($c)) {
         return;
     }
@@ -1055,15 +1054,44 @@ function ma_acc_render_ai_costs($c) {
         </table>
     <?php };
     $src = $c['sources_today'];
-    $names = ['rules' => 'নিয়ম', 'local' => 'ফোনের মডেল', 'gemini' => 'Gemini', 'haiku' => 'Haiku', 'sonnet' => 'Sonnet', 'failed' => 'ব্যর্থ'];
+    $names = ['rules' => 'নিয়ম', 'local' => 'ফোনের মডেল', 'gemini' => 'Gemini', 'haiku' => 'Haiku', 'sonnet' => 'Sonnet', 'failed' => 'ব্যর্থ',
+        'nlu_agree' => 'মিলে যাওয়ায় AI লাগেনি', 'nlu_cloud' => 'ক্লাউডের পড়া নেওয়া', 'nlu_cloud_rules' => 'ক্লাউড জিজ্ঞেস, নিয়ম রইল', 'nlu_cloud_fail' => 'ক্লাউড পাওয়া যায়নি',
+        'nlu_same_sure' => 'মডেল-নিয়ম মিল (নিশ্চিত)', 'nlu_same' => 'মডেল-নিয়ম মিল', 'nlu_differ_sure' => 'অমিল (মডেল নিশ্চিত)', 'nlu_differ' => 'অমিল', 'nlu_off' => 'মডেল নেই'];
+    $budget = $c['budget'] ?? [];
     $post = esc_url(admin_url('admin-post.php'));
     ?>
     <section class="ma-card pad">
         <h2>AI-এর খরচ</h2>
-        <p class="muted">প্রতিটা উত্তরের আসল টোকেন আর দাম ধরে মডেল অনুযায়ী হিসাব। সদস্য কী বললেন তা রাখা হয় না।</p>
+        <p class="muted">প্রতিটা উত্তরের আসল টোকেন আর দাম ধরে মডেল অনুযায়ী হিসাব। সদস্য কী বললেন তা রাখা হয় না। দাম, বাজেট আর key বদলাতে “সেটিংস”।</p>
+        <div class="ma-ai-stats">
+            <div><strong><?php echo esc_html(ma_acc_bn(number_format($st['requests']))); ?></strong><span>আজ AI প্রশ্ন</span></div>
+            <div><strong><?php echo esc_html(ma_acc_bn(number_format($st['people']))); ?></strong><span>আজ ব্যবহার করেছেন</span></div>
+            <div><strong><?php echo esc_html(ma_acc_bn(number_format($st['in'] + $st['out']))); ?></strong><span>আজকের টোকেন</span></div>
+            <div><strong><?php echo esc_html(ma_acc_bn(number_format($st['month']))); ?></strong><span>এই মাসে প্রশ্ন</span></div>
+        </div>
+        <h3>বাজেট কতটা খরচ হলো</h3>
+        <p><?php foreach (['free' => 'ফ্রি', 'pro' => 'প্রো'] as $plan => $label) : $b = $budget[$plan] ?? null; if (!$b) { continue; } ?>
+            <span class="ma-pill"><?php echo esc_html($label . ' — আজ ' . $usd($b['spent_day']) . ' / ' . ((float) $b['day'] > 0 ? $usd($b['day']) : 'সীমা নেই') . ' · এই মাসে ' . $usd($b['spent_month']) . ' / ' . ((float) $b['month'] > 0 ? $usd($b['month']) : 'সীমা নেই')); ?></span>
+        <?php endforeach; ?></p>
         <?php $table($c['today'], 'আজ'); $table($c['month'], 'এই মাসে'); ?>
-        <h3>আজ উত্তর কোথা থেকে এল</h3>
-        <p><?php foreach ($names as $k => $label) : ?><span class="ma-pill"><?php echo esc_html($label . ': ' . ma_acc_bn((string) ($src[$k] ?? 0))); ?></span> <?php endforeach; ?></p>
+        <h3>উত্তর কোথা থেকে এল</h3>
+        <?php foreach (['আজ' => $src, 'এই মাসে' => $c['sources_month'] ?? []] as $when => $counts) : ?>
+            <p><strong><?php echo esc_html($when); ?>:</strong> <?php foreach ($names as $k => $label) : if (empty($counts[$k])) { continue; } ?><span class="ma-pill"><?php echo esc_html($label . ': ' . ma_acc_bn((string) $counts[$k])); ?></span> <?php endforeach; ?></p>
+        <?php endforeach; ?>
+    </section>
+    <?php
+}
+
+function ma_acc_render_ai_costs($c) {
+    if (!is_array($c)) {
+        return;
+    }
+    $usd = function ($x) { return '$' . number_format((float) $x, 4); };
+    $post = esc_url(admin_url('admin-post.php'));
+    ?>
+    <section class="ma-card pad">
+        <h2>AI-এর দাম আর বাজেট</h2>
+        <p class="muted">খরচের হিসাব দেখতে উপরে “AI খরচ”।</p>
         <form method="post" action="<?php echo $post; ?>" class="ma-ai-form">
             <input type="hidden" name="action" value="ma_ai_costs"><?php wp_nonce_field('ma_ai_costs'); ?>
             <h3>দাম (ডলার, প্রতি ১০ লাখ টোকেন)</h3>
@@ -1081,8 +1109,8 @@ function ma_acc_render_ai_costs($c) {
             <label class="ma-check"><input type="checkbox" name="budget_auto" value="1" <?php checked(!empty($c['budget']['auto'])); ?>> আয় অনুযায়ী নিজে ঠিক হোক (লোকসান যেন না হয়): প্রো-র আয়ের ২০% পর্যন্ত AI-তে, একজন প্রো সদস্যের খরচ তাঁর মাসিক দামের ৩০% পর্যন্ত, ফ্রি সবার জন্য মাসে $৩</label>
             <div class="ma-ai-row">
                 <?php foreach (['free' => 'ফ্রি', 'pro' => 'প্রো'] as $plan => $label) : $b = $c['budget'][$plan]; ?>
-                    <label><?php echo esc_html($label); ?> — দিনে (আজ খরচ <?php echo esc_html($usd($b['spent_day'])); ?>)<input type="text" inputmode="decimal" name="budget[<?php echo $plan; ?>][day]" value="<?php echo esc_attr((string) $b['day']); ?>"></label>
-                    <label><?php echo esc_html($label); ?> — মাসে (এই মাসে <?php echo esc_html($usd($b['spent_month'])); ?>)<input type="text" inputmode="decimal" name="budget[<?php echo $plan; ?>][month]" value="<?php echo esc_attr((string) $b['month']); ?>"></label>
+                    <label><?php echo esc_html($label); ?> — দিনে<input type="text" inputmode="decimal" name="budget[<?php echo $plan; ?>][day]" value="<?php echo esc_attr((string) $b['day']); ?>"></label>
+                    <label><?php echo esc_html($label); ?> — মাসে<input type="text" inputmode="decimal" name="budget[<?php echo $plan; ?>][month]" value="<?php echo esc_attr((string) $b['month']); ?>"></label>
                 <?php endforeach; ?>
             </div>
             <p class="muted ma-tip">বাজেট শেষ হলে ওই প্ল্যানের AI বন্ধ থাকে, অ্যাপ নিজের নিয়মে বোঝে।</p>

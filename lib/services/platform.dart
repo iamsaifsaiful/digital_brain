@@ -49,6 +49,16 @@ class AppPlatform {
     return Launch(action: '${a['action'] ?? ''}', text: '${a['text'] ?? ''}', files: files);
   }
 
+  /// On Wi-Fi or another network that does not count data (false on mobile
+  /// data, and when it cannot be told).
+  static Future<bool> unmetered() async {
+    try {
+      return await _ch.invokeMethod<bool>('unmetered') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// How the app was started (asked once at start).
   static Future<Launch> initial() async {
     try {

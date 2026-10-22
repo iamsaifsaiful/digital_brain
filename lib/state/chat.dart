@@ -133,6 +133,8 @@ class ChatController extends ChangeNotifier {
   /// not sent to the AI again).
   ChatController(this.brain, {List<ChatMessage> restored = const []}) {
     messages.addAll(restored);
+    // A model downloaded while the app runs is used from the next message.
+    brain.onNluModelChanged = () => nluShadow.reload();
   }
 
   final Brain brain;

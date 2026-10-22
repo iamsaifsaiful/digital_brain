@@ -5,7 +5,7 @@
 #   GH_TOKEN=… MA_NLU_CI_KEY=… python3 tool/nlu/retrain/publish.py VERSION [--model-dir assets/nlu] [--site …] [--repo owner/name]
 # Without MA_NLU_CI_KEY only the release is made (the draft can be sent later by
 # running it again once the key is set; an existing release is reused).
-import argparse, hashlib, json, os, subprocess, sys, urllib.request
+import argparse, hashlib, json, os, subprocess, sys, urllib.error, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODEL = os.path.abspath(os.path.join(HERE, '..', 'out', 'models', 'bert'))
@@ -43,7 +43,12 @@ def main():
                        'eval': {k: ev[k] for k in ('exact', 'delete', 'money') if k in ev}}).encode()
     req = urllib.request.Request(f'{a.site}/wp-json/my-assistant/v1/nlu/ci/model', data=body, method='POST',
                                  headers={'x-ma-ci-key': key, 'content-type': 'application/json', 'user-agent': 'my-assistant-retrain'})
-    print(urllib.request.urlopen(req, timeout=60).read().decode())
+    try:
+        print(urllib.request.urlopen(req, timeout=60).read().decode())
+    except urllib.error.HTTPError as e:
+        if e.code != 409:
+            raise
+        print(f'{a.version} is already on the server (409) — nothing to do')
 
 
 if __name__ == '__main__':

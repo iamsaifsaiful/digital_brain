@@ -328,13 +328,19 @@ check(!user_can($bossId, 'ma_manage'), 'removed admin loses access');
 
 echo "\nadmin pages\n";
 wp_set_current_user(1);
-foreach (['members', 'payments', 'notices', 'feedback', 'settings'] as $tab) {
+foreach (['members', 'payments', 'notices', 'feedback', 'ai', 'settings'] as $tab) {
     $_GET = ['page' => 'my-assistant', 'tab' => $tab];
     ob_start();
     ma_acc_admin();
     $html = ob_get_clean();
     file_put_contents(dirname(__FILE__) . "/page-$tab.html", '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#f0f0f1;padding:0 0 0 20px">' . $html);
     check(strlen($html) > 3000 && !preg_match('/(Warning|Notice|Fatal|Deprecated)\b.*on line/', $html), "$tab page renders cleanly (" . strlen($html) . ' bytes)');
+    if ($tab === 'ai') {
+        check(str_contains($html, 'AI-এর খরচ') && str_contains($html, 'উত্তর কোথা থেকে এল') && !str_contains($html, 'name="ai_key"'), 'AI cost tab: the report, no settings form');
+    }
+    if ($tab === 'settings') {
+        check(!str_contains($html, 'AI-এর খরচ') && !str_contains($html, 'আজ AI প্রশ্ন') && str_contains($html, 'AI-এর দাম আর বাজেট'), 'settings: only things to set (the cost report is in its own tab)');
+    }
 }
 ob_start();
 echo do_shortcode('[my_assistant_payment]');

@@ -121,6 +121,11 @@ class MainActivity : FlutterFragmentActivity() {
 
     private fun launchMethods(call: io.flutter.plugin.common.MethodCall, result: MethodChannel.Result) {
         when (call.method) {
+            "unmetered" -> {
+                // The on-phone model (~14 MB) is downloaded only off mobile data.
+                val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+                result.success(try { cm != null && cm.activeNetwork != null && !cm.isActiveNetworkMetered } catch (e: Exception) { false })
+            }
             "initial" -> {
                 result.success(firstLaunch)
                 firstLaunch = null

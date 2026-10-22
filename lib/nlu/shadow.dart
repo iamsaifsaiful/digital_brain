@@ -38,6 +38,9 @@ class NluShadow {
     _countOut?.call(key);
   }
   Future<NluReader?>? _reader;
+
+  /// A new model was downloaded (or removed): the next message opens it.
+  void reload() => _reader = null;
   final Map<int, Future<List<NluPiece>?>> _readings = {};
 
   /// A message arrived (turn, the words as heard, the app's state in spec names).
