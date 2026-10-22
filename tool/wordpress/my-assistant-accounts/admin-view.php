@@ -657,11 +657,21 @@ function ma_acc_render_settings($v) {
                         <input type="password" name="ai_key" autocomplete="off" spellcheck="false" placeholder="<?php echo $ai['source'] === 'saved' ? esc_attr('রাখা আছে · ••••' . $ai['tail'] . ' — বদলাতে নতুনটা দিন') : 'sk-ant-…'; ?>">
                     <?php endif; ?>
                 </label>
+                <label>Gemini API key (ফ্রি সদস্যদের বোঝার জন্য)
+                    <?php if (($ai['gemini_source'] ?? '') === 'config') : ?>
+                        <input type="text" value="wp-config.php থেকে নেওয়া · ••••<?php echo esc_attr($ai['gemini_tail']); ?>" disabled>
+                    <?php else : ?>
+                        <input type="password" name="gemini_key" autocomplete="off" spellcheck="false" placeholder="<?php echo ($ai['gemini_source'] ?? '') === 'saved' ? esc_attr('রাখা আছে · ••••' . $ai['gemini_tail'] . ' — বদলাতে নতুনটা দিন') : 'AIza…'; ?>">
+                    <?php endif; ?>
+                </label>
                 <label>সদস্যপ্রতি দিনে প্রশ্ন<input type="text" inputmode="numeric" name="per_user" value="<?php echo (int) $ai['per_user']; ?>"></label>
                 <label>সার্ভারে দিনে মোট প্রশ্ন<input type="text" inputmode="numeric" name="per_day" value="<?php echo (int) $ai['per_day']; ?>"></label>
             </div>
             <?php if ($ai['source'] === 'saved') : ?>
                 <label class="ma-check"><input type="checkbox" name="ai_key_remove" value="1"> রাখা key মুছে দিন</label>
+            <?php endif; ?>
+            <?php if (($ai['gemini_source'] ?? '') === 'saved') : ?>
+                <label class="ma-check"><input type="checkbox" name="gemini_key_remove" value="1"> রাখা Gemini key মুছে দিন</label>
             <?php endif; ?>
             <p class="muted ma-tip">সবচেয়ে নিরাপদ: key ডাটাবেসে না রেখে <code>wp-config.php</code>-এ লিখুন — <code>define('MA_ANTHROPIC_API_KEY', 'sk-ant-…');</code>। Anthropic Console-এ মাসিক খরচের সীমাও বেঁধে দিন।</p>
             <button class="ma-btn" type="submit">রাখুন</button>
@@ -1047,6 +1057,7 @@ function ma_acc_render_ai_costs($c) {
             </table>
             <label>নতুন মডেল যোগ (নাম)<input type="text" name="new_model" placeholder="gemini-…"></label>
             <h3>বাজেট (ডলার; ০ = সীমা নেই)</h3>
+            <label class="ma-check"><input type="checkbox" name="budget_auto" value="1" <?php checked(!empty($c['budget']['auto'])); ?>> আয় অনুযায়ী নিজে ঠিক হোক (লোকসান যেন না হয়): প্রো-র আয়ের ২০% পর্যন্ত AI-তে, একজন প্রো সদস্যের খরচ তাঁর মাসিক দামের ৩০% পর্যন্ত, ফ্রি সবার জন্য মাসে $৩</label>
             <div class="ma-ai-row">
                 <?php foreach (['free' => 'ফ্রি', 'pro' => 'প্রো'] as $plan => $label) : $b = $c['budget'][$plan]; ?>
                     <label><?php echo esc_html($label); ?> — দিনে (আজ খরচ <?php echo esc_html($usd($b['spent_day'])); ?>)<input type="text" inputmode="decimal" name="budget[<?php echo $plan; ?>][day]" value="<?php echo esc_attr((string) $b['day']); ?>"></label>

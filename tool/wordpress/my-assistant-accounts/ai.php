@@ -148,9 +148,68 @@ function ma_ai_cost_micro($model, $in, $cw, $cr, $out) {
     return (int) round($in * (float) ($p['in'] ?? 0) + $cw * (float) ($p['cw'] ?? 0) + $cr * (float) ($p['cr'] ?? 0) + $out * (float) ($p['out'] ?? 0));
 }
 
-/** Dollar budgets, free and Pro apart; 0 = no limit. */
+/**
+ * So the company never loses money on AI (owner, 22 Oct 2026): unless the
+ * owner sets budgets by hand, they follow what members pay.
+ *  - Pro: at most 20% of this month's Pro income goes to AI (active Pro
+ *    members × the monthly price, in dollars); a day may use up to twice
+ *    an even share of that.
+ *  - One Pro member: at most 30% of what they pay in a month.
+ *  - Free: a small fixed amount ($3 a month, $0.20 a day), since free
+ *    members pay nothing; the phone does the rest.
+ * Taka to dollars: option ma_usd_bdt (default 122).
+ */
+const MA_AI_PRO_SHARE = 0.20;
+const MA_AI_MEMBER_SHARE = 0.30;
+
+function ma_ai_usd_bdt() {
+    return max(50, (float) get_option('ma_usd_bdt', 122));
+}
+
+/** What one Pro member pays in a month, in dollars (the monthly price; a yearly plan pays less a month, so that is used when lower). */
+function ma_ai_pro_month_usd() {
+    $monthly = (int) get_option('ma_pay_monthly', 99);
+    $yearly = (int) get_option('ma_pay_yearly', 999);
+    return min($monthly, $yearly / 12) / ma_ai_usd_bdt();
+}
+
+function ma_ai_active_pro() {
+    global $wpdb;
+    return (int) $wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM ' . ma_acc_table() . " WHERE pro_until > %s AND pro_kind <> 'trial'", current_time('mysql', true)));
+}
+
+function ma_ai_auto_budgets() {
+    $pro_month = round(ma_ai_active_pro() * ma_ai_pro_month_usd() * MA_AI_PRO_SHARE, 4);
+    return [
+        'free' => ['day' => 0.20, 'month' => 3.0],
+        // A floor of one cent a day so the first Pro member is not refused before the count catches up.
+        'pro' => ['day' => max(0.01, round($pro_month / 30 * 2, 4)), 'month' => max(0.01, $pro_month)],
+        'auto' => true,
+    ];
+}
+
+/** The most one Pro member's AI may cost in a month (dollars). */
+function ma_ai_member_cap() {
+    return round(ma_ai_pro_month_usd() * MA_AI_MEMBER_SHARE, 4);
+}
+
+/** Millionths of a dollar a member's AI cost since $from. */
+function ma_ai_member_spent($user_id, $from) {
+    global $wpdb;
+    return (int) $wpdb->get_var($wpdb->prepare('SELECT COALESCE(SUM(cost_micro_usd),0) FROM ' . ma_ai_usage_table() . ' WHERE user_id = %d AND day >= %s', $user_id, $from));
+}
+
+function ma_ai_member_over($user_id) {
+    return ma_ai_member_spent($user_id, gmdate('Y-m-01')) >= ma_ai_member_cap() * 1e6;
+}
+
+/** Dollar budgets, free and Pro apart; 0 = no limit. Not set by hand: the automatic ones above. */
 function ma_ai_budgets() {
-    $b = json_decode((string) get_option('ma_ai_budgets', ''), true);
+    $raw = (string) get_option('ma_ai_budgets', '');
+    if ($raw === '') {
+        return ma_ai_auto_budgets();
+    }
+    $b = json_decode($raw, true);
     $b = is_array($b) ? $b : [];
     $one = function ($k) use ($b) {
         return ['day' => max(0, (float) ($b[$k]['day'] ?? 0)), 'month' => max(0, (float) ($b[$k]['month'] ?? 0))];
@@ -356,6 +415,10 @@ function ma_ai_proxy(WP_REST_Request $req) {
     if (ma_ai_used((int) $row['id']) >= $set['per_user']) {
         return new WP_Error('limit', 'daily limit', ['status' => 429]);
     }
+    // This member's AI this month already costs a fair share of what they pay.
+    if (ma_ai_member_over((int) $row['id'])) {
+        return new WP_Error('limit', 'monthly limit', ['status' => 429]);
+    }
     if (ma_ai_used_all() >= $set['per_day']) {
         return new WP_Error('busy', 'server daily limit', ['status' => 503]);
     }
@@ -412,6 +475,15 @@ add_action('admin_post_ma_ai_settings', function () {
         }
         update_option('ma_ai_key', $key, false);
     }
+    $gem = trim(sanitize_text_field(wp_unslash($_POST['gemini_key'] ?? '')));
+    if (!empty($_POST['gemini_key_remove'])) {
+        delete_option('ma_gemini_key');
+    } elseif ($gem !== '') {
+        if (!preg_match('/^[A-Za-z0-9_\-]{30,}$/', $gem)) {
+            ma_acc_back('Gemini key ঠিক মনে হচ্ছে না।', 'error', ['tab' => 'settings']);
+        }
+        update_option('ma_gemini_key', $gem, false);
+    }
     ma_acc_back('AI সেটিংস রাখা হয়েছে।', 'ok', ['tab' => 'settings']);
 });
 
@@ -452,6 +524,8 @@ function ma_ai_cost_report() {
         'sources_today' => $sources(ma_ai_today()),
         'sources_month' => $sources(gmdate('Y-m-01')),
         'budget' => [
+            'auto' => !empty($b['auto']),
+            'member_cap_usd' => ma_ai_member_cap(),
             'free' => $b['free'] + ['spent_day' => ma_ai_spent('free', ma_ai_today()) / 1e6, 'spent_month' => ma_ai_spent('free', gmdate('Y-m-01')) / 1e6],
             'pro' => $b['pro'] + ['spent_day' => ma_ai_spent('pro', ma_ai_today()) / 1e6, 'spent_month' => ma_ai_spent('pro', gmdate('Y-m-01')) / 1e6],
         ],
@@ -483,7 +557,11 @@ add_action('admin_post_ma_ai_costs', function () {
     foreach (['free', 'pro'] as $plan) {
         $b[$plan] = ['day' => max(0, (float) ($_POST['budget'][$plan]['day'] ?? 0)), 'month' => max(0, (float) ($_POST['budget'][$plan]['month'] ?? 0))];
     }
-    update_option('ma_ai_budgets', wp_json_encode($b), false);
+    if (!empty($_POST['budget_auto'])) {
+        delete_option('ma_ai_budgets');
+    } else {
+        update_option('ma_ai_budgets', wp_json_encode($b), false);
+    }
     ma_acc_back('দাম আর বাজেট রাখা হয়েছে।', 'ok', ['tab' => 'settings']);
 });
 

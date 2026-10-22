@@ -187,6 +187,13 @@ function ma_nlu_gemini_key() {
     return (string) get_option('ma_gemini_key', '');
 }
 
+function ma_nlu_gemini_key_source() {
+    if (defined('MA_GEMINI_API_KEY') && MA_GEMINI_API_KEY) {
+        return 'config';
+    }
+    return get_option('ma_gemini_key', '') !== '' ? 'saved' : '';
+}
+
 // ── Models ──
 
 function ma_nlu_model_json($m) {
@@ -461,6 +468,9 @@ function ma_nlu_resolve(WP_REST_Request $req) {
     }
     if (ma_ai_over_budget($plan)) {
         return new WP_Error('budget', 'budget used up', ['status' => 503]);
+    }
+    if ($pro && ma_ai_member_over((int) $row['id'])) {
+        return new WP_Error('limit', 'monthly limit', ['status' => 429]);
     }
     $local = (float) ($in['local_conf'] ?? 1);
     $first = $pro ? $set['pro_model'] : $set['free_model'];

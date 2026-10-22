@@ -461,7 +461,7 @@ function ma_acc_admin() {
         'msg' => isset($_GET['ma_msg']) ? sanitize_text_field(rawurldecode(wp_unslash($_GET['ma_msg']))) : '',
         'msg_type' => sanitize_key($_GET['ma_type'] ?? 'ok'),
         'endpoint' => rest_url('my-assistant/v1/login'),
-        'ai' => ma_ai_settings() + ['source' => ma_ai_key_source(), 'tail' => substr(ma_ai_key(), -4)],
+        'ai' => ma_ai_settings() + ['source' => ma_ai_key_source(), 'tail' => substr(ma_ai_key(), -4), 'gemini_source' => ma_nlu_gemini_key_source(), 'gemini_tail' => substr(ma_nlu_gemini_key(), -4)],
         'ai_stats' => ma_ai_today_stats(),
         'ai_costs' => ma_ai_cost_report(),
         'push' => ['source' => ma_push_source()],

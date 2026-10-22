@@ -421,6 +421,25 @@ check($code === 503, 'the one switch stops every cloud call');
 update_option('ma_ai_on', '1');
 update_option('ma_nlu_settings', '');
 
+echo "  — no loss: budgets follow income\n";
+update_option('ma_ai_budgets', '');
+update_option('ma_pay_monthly', 99); update_option('ma_pay_yearly', 999); update_option('ma_usd_bdt', 122);
+$ab = ma_ai_budgets();
+$npro = ma_ai_active_pro();
+check(!empty($ab['auto']) && abs($ab['pro']['month'] - max(0.01, round($npro * (999 / 12 / 122) * 0.20, 4))) < 1e-6 && $ab['free']['month'] == 3.0, "automatic budgets: Pro = 20% of $npro Pro member(s)' income, free \$3 a month");
+check(abs(ma_ai_member_cap() - round(999 / 12 / 122 * 0.30, 4)) < 1e-6, 'one Pro member may cost at most 30% of what they pay: $' . ma_ai_member_cap());
+$capMicro = (int) (ma_ai_member_cap() * 1e6);
+$wpdb->query($wpdb->prepare("INSERT INTO {$wpdb->prefix}ma_ai_usage (user_id, day, model, provider, plan, requests, cost_micro_usd) VALUES (%d, %s, 'test-cap', 'anthropic', 'pro', 1, %d)", $proId, gmdate('Y-m-d'), $capMicro));
+[$code] = call('POST', '/nlu/resolve', ['text' => 'কাল ব্যাংকে যাব'], $ses);
+check($code === 503, 'Pro AI past its share of Pro income → cloud stops for Pro (503)');
+update_option('ma_ai_budgets', wp_json_encode(['free' => ['day' => 0, 'month' => 0], 'pro' => ['day' => 0, 'month' => 0]]));
+[$code] = call('POST', '/nlu/resolve', ['text' => 'কাল ব্যাংকে যাব'], $ses);
+[$code2] = call('POST', '/ai', ['model' => 'claude-haiku-5-5', 'messages' => [['role' => 'user', 'content' => 'হ্যালো']]], $ses);
+check($code === 429 && $code2 === 429, 'a member at their monthly cap: cloud stops for them (the phone goes on)');
+$wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->prefix}ma_ai_usage WHERE user_id = %d AND model = 'test-cap'", $proId));
+update_option('ma_ai_budgets', '');
+update_option('ma_gemini_key', 'gem-test-key');
+
 echo "  — samples\n";
 $n0 = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}ma_nlu_samples");
 [$code] = call('POST', '/nlu/samples', ['samples' => [['text_delex' => 'কাল ব্যাংকে যাব']]], $ses);
