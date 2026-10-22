@@ -97,6 +97,16 @@ dependencies {
 KTS
 fi
 
+# ফ্যামিলি › লোকেশন: the phone answers "এখন কোথায়?" by itself (LocationShare.kt).
+if ! grep -q 'play-services-location' "$GRADLE_KTS"; then
+  cat >> "$GRADLE_KTS" <<'KTS'
+
+dependencies {
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+}
+KTS
+fi
+
 # Firebase (push): its settings for this app's package, from google-services.json.
 python3 tool/firebase_values.py tool/google-services.json "com.iamsaifsaiful.digital_brain$([ "${MY_ASSISTANT_PREVIEW:-}" = 1 ] && echo .preview)" android/app/src/main/res/values/firebase.xml
 
