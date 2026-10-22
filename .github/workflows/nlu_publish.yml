@@ -23,4 +23,11 @@ jobs:
         run: |
           set -eo pipefail
           read -r VER DIR < tool/nlu/retrain/PUBLISH
-          python3 tool/nlu/retrain/publish.py "$VER" --model-dir "$DIR"
+          python3 tool/nlu/retrain/publish.py "$VER" --model-dir "$DIR" 2>&1 | tee /tmp/publish.txt
+      - name: Report to the nlu-results branch
+        if: always()
+        run: |
+          mkdir -p /tmp/res && cp /tmp/publish.txt /tmp/res/publish.txt 2>/dev/null || echo "no output" > /tmp/res/publish.txt
+          cd /tmp/res && git init -q && git checkout -q -b nlu-results
+          git -c user.name=ci -c user.email=ci@localhost add -A && git -c user.name=ci -c user.email=ci@localhost commit -qm "publish ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" nlu-results
