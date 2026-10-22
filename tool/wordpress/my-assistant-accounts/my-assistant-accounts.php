@@ -2,7 +2,7 @@
 /**
  * Plugin Name: My Assistant Accounts
  * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, প্রো, পেমেন্ট, নোটিফিকেশন আর মতামত। শুধু নাম, ইমেইল, ছবি আর প্রো-র তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.11.2
+ * Version: 1.12.0
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: My Assistant
@@ -13,13 +13,14 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.11.2';
+const MA_ACC_VERSION = '1.12.0';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
 const MA_ACC_PER_PAGE = 20;
 
 require_once __DIR__ . '/admin-view.php';
 require_once __DIR__ . '/ai.php';
 require_once __DIR__ . '/nlu.php';
+require_once __DIR__ . '/ai-admin.php';
 require_once __DIR__ . '/payments.php';
 require_once __DIR__ . '/notices.php';
 require_once __DIR__ . '/push.php';
@@ -441,6 +442,9 @@ function ma_acc_admin() {
             'done' => $wpdb->get_results("SELECT * FROM $ft WHERE status = 'done' ORDER BY id DESC LIMIT 200", ARRAY_A),
             default => $wpdb->get_results("SELECT * FROM $ft WHERE status <> 'done' ORDER BY id DESC LIMIT 200", ARRAY_A),
         };
+    }
+    if ($tab === 'nlu') {
+        $extra['nlu'] = ['settings' => ma_nlu_settings(), 'models' => ma_nlu_models_list(), 'review' => ma_nlu_review_list(30), 'intents' => array_keys(MA_NLU_INTENTS), 'overview' => ma_nlu_overview()];
     }
     if ($tab === 'notices') {
         $extra['notices'] = $wpdb->get_results('SELECT * FROM ' . ma_note_table() . ' ORDER BY active DESC, id DESC', ARRAY_A);

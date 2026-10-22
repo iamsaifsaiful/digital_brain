@@ -145,7 +145,8 @@ add_action('rest_api_init', function () {
 
     // AI cost by model (today, this month), sources of answers, budgets and prices.
     ma_admin_route('/ai/overview', 'GET', function () {
-        return ma_ai_cost_report();
+        // The same as the site's "AI খরচ" page: today's numbers, cost by model, budgets, sources.
+        return ma_ai_cost_report() + ['stats' => ma_ai_today_stats()];
     });
 
     ma_admin_route('/payments', 'GET', function (WP_REST_Request $req) {

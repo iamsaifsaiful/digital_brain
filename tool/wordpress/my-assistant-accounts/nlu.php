@@ -579,120 +579,12 @@ add_action('rest_api_init', function () {
     });
 
     // ── Admin ──
-    ma_admin_route('/ai/settings', 'GET', function () {
-        return ['nlu' => ma_nlu_settings(), 'ai_on' => get_option('ma_ai_on', '0') === '1', 'budgets' => ma_ai_budgets(), 'member_cap_usd' => ma_ai_member_cap(), 'usd_bdt' => ma_ai_usd_bdt(), 'anthropic_key' => ma_ai_key_source(), 'gemini_key' => ma_nlu_gemini_key() !== '', 'prompt_ver' => MA_NLU_PROMPT_VER];
-    });
-    ma_admin_route('/ai/settings', 'POST', function (WP_REST_Request $req) {
-        $in = json_decode($req->get_body(), true) ?: [];
-        if (isset($in['ai_on'])) {
-            // The switch that stops every cloud call at once.
-            update_option('ma_ai_on', $in['ai_on'] ? '1' : '0');
-        }
-        if (!empty($in['budgets_auto'])) {
-            delete_option('ma_ai_budgets');
-        } elseif (isset($in['budgets']) && is_array($in['budgets'])) {
-            $b = ma_ai_budgets();
-            foreach (['free', 'pro'] as $plan) {
-                foreach (['day', 'month'] as $k) {
-                    if (isset($in['budgets'][$plan][$k])) {
-                        $b[$plan][$k] = max(0, (float) $in['budgets'][$plan][$k]);
-                    }
-                }
-            }
-            update_option('ma_ai_budgets', wp_json_encode($b), false);
-        }
-        return ['nlu' => ma_nlu_save_settings((array) ($in['nlu'] ?? [])), 'ai_on' => get_option('ma_ai_on', '0') === '1', 'budgets' => ma_ai_budgets()];
-    });
     ma_admin_route('/ai/selftest', 'POST', function (WP_REST_Request $req) {
         $admin = ma_admin_of($req);
         if (!user_can((int) $admin['id'], 'manage_options')) {
             return new WP_Error('owner', 'site owner only', ['status' => 403]);
         }
         return ma_nlu_selftest();
-    });
-    ma_admin_route('/nlu/review', 'GET', function (WP_REST_Request $req) {
-        global $wpdb;
-        $s = ma_nlu_table('samples');
-        $l = ma_nlu_table('labels');
-        $rows = $wpdb->get_results("SELECT s.* FROM $s s LEFT JOIN $l l ON l.sample_id = s.id AND l.source = 'admin' WHERE l.sample_id IS NULL ORDER BY (s.signal_kind <> '') DESC, s.created DESC LIMIT 500", ARRAY_A) ?: [];
-        $intents = function ($j) {
-            $d = json_decode((string) $j, true);
-            $out = [];
-            foreach ((array) ($d['pieces'] ?? $d ?? []) as $p) {
-                if (is_array($p) && isset($p['intent'])) {
-                    $out[] = $p['intent'];
-                }
-            }
-            return $out;
-        };
-        $out = [];
-        foreach ($rows as $r) {
-            $a = $intents($r['local_json']);
-            $b = $intents($r['cloud_json']);
-            $c = $intents($r['final_json']);
-            $differ = $r['signal_kind'] !== '' || ($b && $a && $a !== $b) || ($c && $b && $c !== $b) || ($c && $a && $c !== $a);
-            if (!$differ) {
-                continue;
-            }
-            $out[] = ['id' => (int) $r['id'], 'created' => $r['created'], 'state' => $r['state'], 'text' => $r['text_delex'], 'phone' => $a, 'phone_conf' => (float) $r['local_conf'], 'cloud' => $b, 'cloud_provider' => $r['cloud_provider'], 'final' => $c, 'signal' => $r['signal_kind']];
-            if (count($out) >= (int) ($req->get_param('limit') ?: 50)) {
-                break;
-            }
-        }
-        return ['samples' => $out, 'intents' => array_keys(MA_NLU_INTENTS)];
-    });
-    ma_admin_route('/nlu/review/(?P<id>\d+)', 'POST', function (WP_REST_Request $req) {
-        global $wpdb;
-        $id = (int) $req['id'];
-        if (!$wpdb->get_var($wpdb->prepare('SELECT id FROM ' . ma_nlu_table('samples') . ' WHERE id = %d', $id))) {
-            return new WP_Error('none', 'not found', ['status' => 404]);
-        }
-        $in = json_decode($req->get_body(), true) ?: [];
-        $intents = array_values(array_filter((array) ($in['intents'] ?? []), function ($i) {
-            return isset(MA_NLU_INTENTS[$i]);
-        }));
-        if (!$intents) {
-            return new WP_Error('bad', 'choose an intent', ['status' => 400]);
-        }
-        $admin = ma_admin_of($req);
-        $wpdb->query($wpdb->prepare('DELETE FROM ' . ma_nlu_table('labels') . " WHERE sample_id = %d AND source = 'admin'", $id));
-        $wpdb->insert(ma_nlu_table('labels'), ['sample_id' => $id, 'label_json' => wp_json_encode(['intents' => $intents, 'pick' => sanitize_key((string) ($in['pick'] ?? ''))]), 'source' => 'admin', 'admin_id' => (int) $admin['id'], 'created' => current_time('mysql', true)]);
-        return ['ok' => true];
-    });
-    ma_admin_route('/nlu/models', 'GET', function () {
-        global $wpdb;
-        return ['models' => array_map('ma_nlu_model_json', $wpdb->get_results('SELECT * FROM ' . ma_nlu_table('models') . ' ORDER BY created DESC', ARRAY_A) ?: [])];
-    });
-    ma_admin_route('/nlu/models', 'POST', function (WP_REST_Request $req) {
-        global $wpdb;
-        $t = ma_nlu_table('models');
-        $in = json_decode($req->get_body(), true) ?: [];
-        $ver = sanitize_text_field((string) ($in['version'] ?? ''));
-        if (!preg_match('/^[A-Za-z0-9._\-]{1,32}$/', $ver)) {
-            return new WP_Error('bad', 'version', ['status' => 400]);
-        }
-        $cur = $wpdb->get_row($wpdb->prepare("SELECT * FROM $t WHERE version = %s", $ver), ARRAY_A);
-        $action = sanitize_key((string) ($in['action'] ?? 'draft'));
-        if ($action === 'draft') {
-            $url = esc_url_raw((string) ($in['url'] ?? ''));
-            $sha = strtolower((string) ($in['sha256'] ?? ''));
-            if ($cur || !str_starts_with($url, 'https://') || !preg_match('/^[a-f0-9]{64}$/', $sha)) {
-                return new WP_Error('bad', 'need a new version, an https url and a sha256', ['status' => 400]);
-            }
-            $wpdb->insert($t, ['version' => $ver, 'file_url' => $url, 'sha256' => $sha, 'size_bytes' => max(0, (int) ($in['size'] ?? 0)), 'thresholds_json' => wp_json_encode($in['thresholds'] ?? new stdClass()), 'eval_json' => wp_json_encode($in['eval'] ?? new stdClass()), 'rollout_pct' => 0, 'status' => 'draft', 'created' => current_time('mysql', true)]);
-        } elseif (!$cur) {
-            return new WP_Error('none', 'not found', ['status' => 404]);
-        } elseif ($action === 'live') {
-            $wpdb->update($t, ['status' => 'live', 'rollout_pct' => max(0, min(100, (int) ($in['pct'] ?? 10)))], ['version' => $ver]);
-        } elseif ($action === 'pct') {
-            $wpdb->update($t, ['rollout_pct' => max(0, min(100, (int) ($in['pct'] ?? 0)))], ['version' => $ver]);
-        } elseif ($action === 'retire' || $action === 'rollback') {
-            // Rollback = this one retired; members fall back to the previous live one (or the built-in model).
-            $wpdb->update($t, ['status' => 'retired', 'rollout_pct' => 0], ['version' => $ver]);
-        } else {
-            return new WP_Error('bad', 'action', ['status' => 400]);
-        }
-        return ['ok' => true, 'model' => ma_nlu_model_json($wpdb->get_row($wpdb->prepare("SELECT * FROM $t WHERE version = %s", $ver), ARRAY_A))];
     });
     ma_admin_route('/nlu/export', 'GET', function (WP_REST_Request $req) {
         $admin = ma_admin_of($req);

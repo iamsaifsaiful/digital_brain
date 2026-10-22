@@ -465,27 +465,13 @@ function ma_ai_proxy(WP_REST_Request $req) {
 
 add_action('admin_post_ma_ai_settings', function () {
     ma_acc_guard('ma_ai_settings', 'manage_options');
-    update_option('ma_ai_on', !empty($_POST['ai_on']) ? '1' : '0');
-    update_option('ma_ai_per_user', max(1, min(500, (int) ($_POST['per_user'] ?? 50))));
-    update_option('ma_ai_per_day', max(1, min(100000, (int) ($_POST['per_day'] ?? 2000))));
-    $key = trim(sanitize_text_field(wp_unslash($_POST['ai_key'] ?? '')));
-    if (!empty($_POST['ai_key_remove'])) {
-        delete_option('ma_ai_key');
-    } elseif ($key !== '') {
-        if (!preg_match('/^sk-ant-[A-Za-z0-9_\-]{20,}$/', $key)) {
-            ma_acc_back('API key ঠিক মনে হচ্ছে না (sk-ant- দিয়ে শুরু হয়)।', 'error', ['tab' => 'settings']);
-        }
-        update_option('ma_ai_key', $key, false);
-    }
-    $gem = trim(sanitize_text_field(wp_unslash($_POST['gemini_key'] ?? '')));
-    if (!empty($_POST['gemini_key_remove'])) {
-        delete_option('ma_gemini_key');
-    } elseif ($gem !== '') {
-        // Google's keys: the old "AIza…" ones and the newer "AQ.…" ones (with a dot).
-        if (!preg_match('/^[A-Za-z0-9._\-]{30,200}$/', $gem)) {
-            ma_acc_back('Gemini key ঠিক মনে হচ্ছে না।', 'error', ['tab' => 'settings']);
-        }
-        update_option('ma_gemini_key', $gem, false);
+    ma_ai_save_general(['ai_on' => !empty($_POST['ai_on']), 'ai_per_user' => (int) ($_POST['per_user'] ?? 50), 'ai_per_day' => (int) ($_POST['per_day'] ?? 2000)]);
+    $err = ma_ai_save_keys([
+        'anthropic_key' => sanitize_text_field(wp_unslash($_POST['ai_key'] ?? '')), 'anthropic_remove' => !empty($_POST['ai_key_remove']),
+        'gemini_key' => sanitize_text_field(wp_unslash($_POST['gemini_key'] ?? '')), 'gemini_remove' => !empty($_POST['gemini_key_remove']),
+    ]);
+    if ($err !== '') {
+        ma_acc_back($err, 'error', ['tab' => 'settings']);
     }
     ma_acc_back('AI সেটিংস রাখা হয়েছে।', 'ok', ['tab' => 'settings']);
 });
@@ -540,32 +526,12 @@ function ma_ai_cost_report() {
 
 add_action('admin_post_ma_ai_costs', function () {
     ma_acc_guard('ma_ai_costs', 'manage_options');
-    $prices = [];
-    foreach ((array) ($_POST['price'] ?? []) as $model => $p) {
-        $model = sanitize_text_field(wp_unslash((string) $model));
-        if (!preg_match('/^[a-z0-9.\-]{3,64}$/', $model)) {
-            continue;
-        }
-        $one = [];
-        foreach (['in', 'cw', 'cr', 'out'] as $k) {
-            $one[$k] = max(0, min(1000, (float) ($p[$k] ?? 0)));
-        }
-        $prices[$model] = $one;
-    }
-    $new = sanitize_text_field(wp_unslash((string) ($_POST['new_model'] ?? '')));
-    if ($new !== '' && preg_match('/^[a-z0-9.\-]{3,64}$/', $new) && !isset($prices[$new])) {
-        $prices[$new] = ['in' => 0, 'cw' => 0, 'cr' => 0, 'out' => 0];
-    }
-    update_option('ma_ai_prices', wp_json_encode($prices), false);
+    ma_ai_save_prices(wp_unslash((array) ($_POST['price'] ?? [])), wp_unslash((string) ($_POST['new_model'] ?? '')));
     $b = [];
     foreach (['free', 'pro'] as $plan) {
-        $b[$plan] = ['day' => max(0, (float) ($_POST['budget'][$plan]['day'] ?? 0)), 'month' => max(0, (float) ($_POST['budget'][$plan]['month'] ?? 0))];
+        $b[$plan] = ['day' => (float) ($_POST['budget'][$plan]['day'] ?? 0), 'month' => (float) ($_POST['budget'][$plan]['month'] ?? 0)];
     }
-    if (!empty($_POST['budget_auto'])) {
-        delete_option('ma_ai_budgets');
-    } else {
-        update_option('ma_ai_budgets', wp_json_encode($b), false);
-    }
+    ma_ai_save_general(!empty($_POST['budget_auto']) ? ['budgets_auto' => true] : ['budgets' => $b]);
     ma_acc_back('দাম আর বাজেট রাখা হয়েছে।', 'ok', ['tab' => 'settings']);
 });
 

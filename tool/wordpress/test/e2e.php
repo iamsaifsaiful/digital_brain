@@ -328,13 +328,16 @@ check(!user_can($bossId, 'ma_manage'), 'removed admin loses access');
 
 echo "\nadmin pages\n";
 wp_set_current_user(1);
-foreach (['members', 'payments', 'notices', 'feedback', 'ai', 'settings'] as $tab) {
+foreach (['members', 'payments', 'notices', 'feedback', 'ai', 'nlu', 'settings'] as $tab) {
     $_GET = ['page' => 'my-assistant', 'tab' => $tab];
     ob_start();
     ma_acc_admin();
     $html = ob_get_clean();
     file_put_contents(dirname(__FILE__) . "/page-$tab.html", '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#f0f0f1;padding:0 0 0 20px">' . $html);
     check(strlen($html) > 3000 && !preg_match('/(Warning|Notice|Fatal|Deprecated)\b.*on line/', $html), "$tab page renders cleanly (" . strlen($html) . ' bytes)');
+    if ($tab === 'nlu') {
+        check(str_contains($html, 'ma_nlu_settings') && str_contains($html, 'মডেলের সংস্করণ') && str_contains($html, 'পর্যালোচনা') && str_contains($html, 'ma_nlu_draft'), 'AI মডেল page: mode, versions, review, draft — as in the app');
+    }
     if ($tab === 'ai') {
         check(str_contains($html, 'AI-এর খরচ') && str_contains($html, 'উত্তর কোথা থেকে এল') && !str_contains($html, 'name="ai_key"'), 'AI cost tab: the report, no settings form');
     }
@@ -505,6 +508,38 @@ check($code === 200 && isset($d['nlu']['samples_30d']) && $d['nlu']['error_signa
 check(isset($d['nlu']['weakest']) && is_array($d['nlu']['weakest']) && $d['usd_bdt'] == 122, 'overview: weakest intents list and the taka rate');
 [$code, $d] = call('POST', '/admin/ai/settings', ['budgets_auto' => true], $bossSes);
 check($code === 200 && !empty($d['budgets']['auto']), 'budgets back to automatic from the admin app');
+
+echo "  — the same on the site and in the admin app\n";
+[$code, $d] = call('GET', '/admin/ai/settings', [], $bossSes);
+check($code === 200 && $d['owner'] === true && isset($d['prices'], $d['ci_key'], $d['ai_per_user'], $d['nlu']['escalate_share']), 'owner: the app gets everything the settings page has');
+[$code, $d] = call('POST', '/admin/ai/settings', ['keys' => ['anthropic_key' => 'not-a-key']], $bossSes);
+check($code === 400, 'a wrong key is refused in the app as on the site');
+[$code, $d] = call('POST', '/admin/ai/settings', ['ai_per_user' => 40, 'prices' => ['claude-haiku-5-5' => ['in' => 1, 'cw' => 1.25, 'cr' => 0.1, 'out' => 5]], 'new_model' => 'gemini-9-test', 'nlu' => ['cloud_on' => false, 'escalate_share' => 0.03]], $bossSes);
+check($code === 200 && $d['ai_per_user'] === 40 && isset($d['prices']['gemini-9-test']) && $d['nlu']['cloud_on'] === false && abs($d['nlu']['escalate_share'] - 0.03) < 1e-9, 'limits, prices, cloud switch and Sonnet share from the app');
+call('POST', '/admin/ai/settings', ['nlu' => ['cloud_on' => true]], $bossSes);
+[$code, $d] = call('POST', '/admin/nlu/ci-key', [], $bossSes);
+check($code === 200 && strlen($d['ci_key']) === 48 && ma_nlu_ci_key() === $d['ci_key'], 'retraining key made from the app');
+$helperId = wp_insert_user(['user_login' => 'helper', 'user_email' => 'helper@gmail.com', 'user_pass' => 'long-password-456', 'role' => 'ma_admin']);
+$helperSes = ma_ai_new_session($helperId, 'admin');
+[$code, $d] = call('GET', '/admin/ai/settings', [], $helperSes);
+check($code === 200 && $d['owner'] === false && !isset($d['prices']) && !isset($d['ci_key']), 'another admin: no keys, prices or retraining key');
+[$code] = call('POST', '/admin/ai/settings', ['ai_on' => false], $helperSes);
+[$c2] = call('POST', '/admin/nlu/ci-key', [], $helperSes);
+check($code === 403 && $c2 === 403 && get_option('ma_ai_on') === '1', 'another admin cannot stop AI or make keys (owner only, as on the site)');
+[$code, $d] = call('POST', '/admin/ai/settings', ['nlu' => ['pct' => 50]], $helperSes);
+check($code === 200 && $d['nlu']['pct'] === 50, 'another admin can set the on-phone model (as on the site\'s AI মডেল page)');
+call('POST', '/admin/ai/settings', ['nlu' => ['pct' => 100]], $bossSes);
+$r = ma_nlu_model_do('m2', 'live', 30);
+check(!is_wp_error($r) && $r['status'] === 'live' && $r['rollout_pct'] === 30, 'site form and app share one action: live at 30%');
+wp_set_current_user(1);
+$_GET = ['page' => 'my-assistant', 'tab' => 'nlu'];
+ob_start();
+ma_acc_admin();
+$html = ob_get_clean();
+file_put_contents(dirname(__FILE__) . '/page-nlu2.html', '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#f0f0f1;padding:0 0 0 20px">' . $html);
+check(str_contains($html, 'চালু · ৩০%') && str_contains($html, '% রাখুন') && str_contains($html, 'ফিরিয়ে নিন') && !preg_match('/(Warning|Notice|Fatal|Deprecated)\b.*on line/', $html), 'AI মডেল page with a live model: share, change, take back');
+ma_nlu_model_do('m2', 'rollback');
+check(is_wp_error(ma_nlu_model_do('nope', 'live', 10)), 'an unknown version is refused');
 [$code, $d] = call('POST', '/ai/sources', ['day' => gmdate('Y-m-d'), 'counts' => ['nlu_same_sure' => 5, 'nlu_differ' => 2]], $ses);
 check($code === 200 && $d['kept'] === 2, 'shadow-mode counts are accepted');
 [$code, $d] = call('POST', '/ai/sources', ['day' => gmdate('Y-m-d'), 'counts' => ['nlu_agree' => 9, 'nlu_cloud' => 2, 'nlu_cloud_rules' => 3, 'nlu_cloud_fail' => 1, 'nlu_nonsense' => 4]], $ses);

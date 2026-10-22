@@ -18,24 +18,33 @@ class AiPage extends StatelessWidget {
     final c = Palette.of(context);
     return DefaultTabController(
       length: 4,
-      child: Column(children: [
-        const PageHead('AI ও বোঝা', sub: 'খরচ, ফোনে কতটা বোঝে, ভুলগুলো আর সেটিংস'),
-        TabBar(
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          labelStyle: text(15, weight: FontWeight.w600),
-          unselectedLabelColor: c.muted,
-          tabs: const [Tab(text: 'সারাংশ'), Tab(text: 'পর্যালোচনা'), Tab(text: 'মডেল'), Tab(text: 'সেটিংস')],
-        ),
-        Expanded(
-          child: TabBarView(children: [
-            AiSummary(api: api, guard: guard, refresh: refresh),
-            AiReview(api: api, guard: guard),
-            AiModels(api: api, guard: guard),
-            AiSettings(api: api, guard: guard),
-          ]),
-        ),
-      ]),
+      child: Column(
+        children: [
+          const PageHead('AI ও বোঝা', sub: 'খরচ, ফোনে কতটা বোঝে, ভুলগুলো আর সেটিংস'),
+          TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            labelStyle: text(15, weight: FontWeight.w600),
+            unselectedLabelColor: c.muted,
+            tabs: const [
+              Tab(text: 'সারাংশ'),
+              Tab(text: 'পর্যালোচনা'),
+              Tab(text: 'মডেল'),
+              Tab(text: 'সেটিংস'),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                AiSummary(api: api, guard: guard, refresh: refresh),
+                AiReview(api: api, guard: guard),
+                AiModels(api: api, guard: guard),
+                AiSettings(api: api, guard: guard),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -93,6 +102,7 @@ class _AiSummaryState extends State<AiSummary> {
     final rate = _d(o['usd_bdt']) > 0 ? _d(o['usd_bdt']) : 122.0;
     double spent(String span) => [for (final r in (o[span] as List? ?? const [])) _d((r as Map)['cost_usd'])].fold(0.0, (a, b) => a + b);
     final budget = (o['budget'] as Map?)?.cast<String, dynamic>() ?? {};
+    final stats = (o['stats'] as Map?)?.cast<String, dynamic>() ?? {};
     double cap(String span) => ['free', 'pro'].map((p) => _d((budget[p] as Map?)?[span])).fold(0.0, (a, b) => a + b);
     final src = (o['sources_month'] as Map?)?.cast<String, dynamic>() ?? {};
     // "On" mode: an agreement answered on the phone (the AI not asked); the
@@ -107,71 +117,171 @@ class _AiSummaryState extends State<AiSummary> {
     final shadowAll = shadowSame + _i(src['nlu_differ_sure']) + _i(src['nlu_differ']);
 
     Widget money(String label, double usd, double limit) => Expanded(
-          child: CardBox(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(label, style: text(13, color: c.muted)),
-              Text(tk(usd, rate), style: text(24, weight: FontWeight.w700, color: c.ink)),
-              Text(limit > 0 ? 'বাজেটের ${pct(usd / limit)} (${tk(limit, rate)})' : 'বাজেটের সীমা নেই', style: text(12.5, color: limit > 0 && usd / limit > 0.8 ? c.rose : c.muted)),
-            ]),
-          ),
-        );
+      child: CardBox(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: text(13, color: c.muted)),
+            Text(
+              tk(usd, rate),
+              style: text(24, weight: FontWeight.w700, color: c.ink),
+            ),
+            Text(limit > 0 ? 'বাজেটের ${pct(usd / limit)} (${tk(limit, rate)})' : 'বাজেটের সীমা নেই', style: text(12.5, color: limit > 0 && usd / limit > 0.8 ? c.rose : c.muted)),
+          ],
+        ),
+      ),
+    );
     Widget bar(String label, int n, Color color) {
       final share = total == 0 ? 0.0 : n / total;
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
-        child: Row(children: [
-          SizedBox(width: 74, child: Text(label, style: text(14, color: c.ink))),
-          Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(value: share, minHeight: 10, color: color, backgroundColor: c.line))),
-          SizedBox(width: 74, child: Text('${count(n)} · ${pct(share)}', textAlign: TextAlign.end, style: text(12.5, color: c.muted))),
-        ]),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 74,
+              child: Text(label, style: text(14, color: c.ink)),
+            ),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(value: share, minHeight: 10, color: color, backgroundColor: c.line),
+              ),
+            ),
+            SizedBox(
+              width: 74,
+              child: Text(
+                '${count(n)} · ${pct(share)}',
+                textAlign: TextAlign.end,
+                style: text(12.5, color: c.muted),
+              ),
+            ),
+          ],
+        ),
       );
     }
 
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
-        Row(children: [money('আজ খরচ', spent('today'), cap('day')), const SizedBox(width: 10), money('এই মাসে', spent('month'), cap('month'))]),
-        const SizedBox(height: 12),
-        CardBox(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('উত্তর কোথা থেকে (এই মাসে)', style: text(16, weight: FontWeight.w700, color: c.ink)),
-            Text(total == 0 ? 'এখনো কোনো গণনা আসেনি — অ্যাপ আগের দিনের হিসাব পরদিন পাঠায়' : 'ফোনে সমাধান ${pct(phone / total)}', style: text(13.5, color: c.muted)),
-            const SizedBox(height: 8),
-            bar('ফোন', phone, c.green),
-            bar('ক্লাউড', gem, const Color(0xFF2563EB)),
-            bar('Haiku', hai, c.amber),
-            bar('Sonnet', son, c.rose),
-          ]),
-        ),
-        const SizedBox(height: 12),
-        CardBox(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('ফোনের নতুন মডেল', style: text(16, weight: FontWeight.w700, color: c.ink)),
-            Text(shadowAll == 0 ? 'এখনো গণনা আসেনি' : 'পুরনো নিয়মের সাথে মিল ${pct(shadowSame / shadowAll)} (${count(shadowAll)} বার্তা)', style: text(13.5, color: c.muted)),
-            if (agreed + cloudKept + cloudUsed + cloudFail > 0) ...[
-              const SizedBox(height: 6),
-              Text('চালু মোড: মিলে যাওয়ায় AI-কে না জিজ্ঞেস ${count(agreed)} · ক্লাউডে জিজ্ঞেস ${count(cloudKept + cloudUsed)} (ক্লাউডের উত্তর নেওয়া ${count(cloudUsed)}) · ক্লাউড পাওয়া যায়নি ${count(cloudFail)}', style: text(13.5, color: c.ink)),
-            ],
-            const SizedBox(height: 6),
-            Text('ভুলের সংকেত: প্রতি ১০০ উত্তরে ${bn(_d(nlu['error_signals_per_100']).toStringAsFixed(1))} · শেখার নমুনা (৩০ দিন) ${count(_i(nlu['samples_30d']))}', style: text(13.5, color: c.ink)),
-          ]),
-        ),
-        const SizedBox(height: 12),
-        CardBox(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('সবচেয়ে দুর্বল ৫টা কাজের ধরন', style: text(16, weight: FontWeight.w700, color: c.ink)),
-            if (weak.isEmpty) Text('যথেষ্ট নমুনা আসেনি', style: text(13.5, color: c.muted)),
-            for (final w in weak)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Row(children: [
-                  Expanded(child: Text('${w['intent']}', style: text(14, color: c.ink))),
-                  Text('${pct(_d(w['ok_share']))} ঠিক · ${bn(_i(w['n']))}টা', style: text(13, color: c.muted)),
-                ]),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          Row(children: [money('আজ খরচ', spent('today'), cap('day')), const SizedBox(width: 10), money('এই মাসে', spent('month'), cap('month'))]),
+          const SizedBox(height: 12),
+          // The same as the site's "AI খরচ" page: today's numbers, each plan's budget, cost by model.
+          CardBox(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('আজ', style: text(16, weight: FontWeight.w700, color: c.ink)),
+                Text(
+                  'AI প্রশ্ন ${count(_i(stats['requests']))} · ব্যবহার করেছেন ${count(_i(stats['people']))} জন · টোকেন ${count(_i(stats['in']) + _i(stats['out']))} · এই মাসে প্রশ্ন ${count(_i(stats['month']))}',
+                  style: text(13.5, color: c.ink),
+                ),
+                const SizedBox(height: 6),
+                for (final (plan, label) in [('free', 'ফ্রি'), ('pro', 'প্রো')])
+                  if (budget[plan] is Map)
+                    Text(
+                      '$label — আজ ${tk(_d((budget[plan] as Map)['spent_day']), rate)} / ${_d((budget[plan] as Map)['day']) > 0 ? tk(_d((budget[plan] as Map)['day']), rate) : 'সীমা নেই'} · মাসে ${tk(_d((budget[plan] as Map)['spent_month']), rate)} / ${_d((budget[plan] as Map)['month']) > 0 ? tk(_d((budget[plan] as Map)['month']), rate) : 'সীমা নেই'}',
+                      style: text(13.5, color: c.muted),
+                    ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          for (final (span, title) in [('today', 'আজ — মডেল অনুযায়ী'), ('month', 'এই মাসে — মডেল অনুযায়ী')]) ...[
+            CardBox(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: text(16, weight: FontWeight.w700, color: c.ink)),
+                  if ((o[span] as List? ?? const []).isEmpty) Text('এখনো কিছু নেই', style: text(13.5, color: c.muted)),
+                  for (final r in (o[span] as List? ?? const []).cast<Map>())
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text('${r['model']}${r['plan'] == null ? '' : ' · ${r['plan']}'}${r['priced'] == false ? ' · দাম নেই' : ''}\n${count(_i(r['requests']))} প্রশ্ন · ক্যাশ হিট ${pct(_d(r['cache_hit']))}', style: text(13.5, color: c.ink)),
+                          ),
+                          Text('${tk(_d(r['cost_usd']), rate)}\nপ্রতি প্রশ্নে ${tk(_d(r['per_request_usd']), rate)}', textAlign: TextAlign.end, style: text(13, color: c.muted)),
+                        ],
+                      ),
+                    ),
+                ],
               ),
-          ]),
-        ),
-      ]),
+            ),
+            const SizedBox(height: 12),
+          ],
+          CardBox(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'উত্তর কোথা থেকে (এই মাসে)',
+                  style: text(16, weight: FontWeight.w700, color: c.ink),
+                ),
+                Text(total == 0 ? 'এখনো কোনো গণনা আসেনি — অ্যাপ আগের দিনের হিসাব পরদিন পাঠায়' : 'ফোনে সমাধান ${pct(phone / total)}', style: text(13.5, color: c.muted)),
+                const SizedBox(height: 8),
+                bar('ফোন', phone, c.green),
+                bar('ক্লাউড', gem, const Color(0xFF2563EB)),
+                bar('Haiku', hai, c.amber),
+                bar('Sonnet', son, c.rose),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          CardBox(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'ফোনের নতুন মডেল',
+                  style: text(16, weight: FontWeight.w700, color: c.ink),
+                ),
+                Text(shadowAll == 0 ? 'এখনো গণনা আসেনি' : 'পুরনো নিয়মের সাথে মিল ${pct(shadowSame / shadowAll)} (${count(shadowAll)} বার্তা)', style: text(13.5, color: c.muted)),
+                if (agreed + cloudKept + cloudUsed + cloudFail > 0) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'চালু মোড: মিলে যাওয়ায় AI-কে না জিজ্ঞেস ${count(agreed)} · ক্লাউডে জিজ্ঞেস ${count(cloudKept + cloudUsed)} (ক্লাউডের উত্তর নেওয়া ${count(cloudUsed)}) · ক্লাউড পাওয়া যায়নি ${count(cloudFail)}',
+                    style: text(13.5, color: c.ink),
+                  ),
+                ],
+                const SizedBox(height: 6),
+                Text(
+                  'ভুলের সংকেত: প্রতি ১০০ উত্তরে ${bn(_d(nlu['error_signals_per_100']).toStringAsFixed(1))} · শেখার নমুনা (৩০ দিন) ${count(_i(nlu['samples_30d']))}',
+                  style: text(13.5, color: c.ink),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          CardBox(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'সবচেয়ে দুর্বল ৫টা কাজের ধরন',
+                  style: text(16, weight: FontWeight.w700, color: c.ink),
+                ),
+                if (weak.isEmpty) Text('যথেষ্ট নমুনা আসেনি', style: text(13.5, color: c.muted)),
+                for (final w in weak)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text('${w['intent']}', style: text(14, color: c.ink)),
+                        ),
+                        Text('${pct(_d(w['ok_share']))} ঠিক · ${bn(_i(w['n']))}টা', style: text(13, color: c.muted)),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -227,10 +337,16 @@ class _AiReviewState extends State<AiReview> {
         builder: (ctx) => DraggableScrollableSheet(
           expand: false,
           initialChildSize: 0.7,
-          builder: (ctx, scroll) => ListView(controller: scroll, children: [
-            Padding(padding: const EdgeInsets.all(16), child: Text('ঠিক কাজের ধরন বাছুন', style: text(17, weight: FontWeight.w700))),
-            for (final i in _intents) ListTile(title: Text(i), onTap: () => Navigator.pop(ctx, i)),
-          ]),
+          builder: (ctx, scroll) => ListView(
+            controller: scroll,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('ঠিক কাজের ধরন বাছুন', style: text(17, weight: FontWeight.w700)),
+              ),
+              for (final i in _intents) ListTile(title: Text(i), onTap: () => Navigator.pop(ctx, i)),
+            ],
+          ),
         ),
       );
       if (chosen == null) return;
@@ -256,34 +372,58 @@ class _AiReviewState extends State<AiReview> {
       itemBuilder: (context, i) {
         final s = items[i];
         Widget line(String k, String v, {Color? color}) => Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                SizedBox(width: 92, child: Text(k, style: text(13.5, color: c.muted))),
-                Expanded(child: Text(v, style: text(15, weight: FontWeight.w600, color: color ?? c.ink))),
-              ]),
-            );
-        return ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
-          Text('${bn(i + 1)} / ${bn(items.length)} · ${ago('${s['created']}'.replaceFirst(' ', 'T'))}', style: text(13, color: c.muted)),
-          const SizedBox(height: 8),
-          CardBox(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('${s['text']}', style: text(19, weight: FontWeight.w700, color: c.ink, height: 1.4)),
-              line('অবস্থা', '${s['state']}'),
-              line('ফোন', '${list(s['phone'])} (${pct(_d(s['phone_conf']))})'),
-              line('ক্লাউড', '${list(s['cloud'])}${'${s['cloud_provider']}'.isEmpty ? '' : ' · ${s['cloud_provider']}'}'),
-              line('সদস্য শেষে', list(s['final'])),
-              if ('${s['signal']}'.isNotEmpty) line('সংকেত', '${s['signal']}', color: c.rose),
-            ]),
+          padding: const EdgeInsets.only(top: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 92,
+                child: Text(k, style: text(13.5, color: c.muted)),
+              ),
+              Expanded(
+                child: Text(
+                  v,
+                  style: text(15, weight: FontWeight.w600, color: color ?? c.ink),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 14),
-          FilledButton.icon(onPressed: () => _decide(s, 'phone'), icon: const Icon(Icons.phone_android_rounded), label: const Text('ফোন ঠিক')),
-          const SizedBox(height: 8),
-          FilledButton.tonalIcon(onPressed: (s['cloud'] as List? ?? const []).isEmpty ? null : () => _decide(s, 'cloud'), icon: const Icon(Icons.cloud_outlined), label: const Text('ক্লাউড ঠিক')),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(onPressed: () => _decide(s, 'other'), icon: const Icon(Icons.edit_outlined), label: const Text('দুটোই ভুল — ঠিকটা বাছুন')),
-          const SizedBox(height: 10),
-          Text('পরেরটায় যেতে বাঁয়ে সোয়াইপ করুন', textAlign: TextAlign.center, style: text(12.5, color: c.muted)),
-        ]);
+        );
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          children: [
+            Text('${bn(i + 1)} / ${bn(items.length)} · ${ago('${s['created']}'.replaceFirst(' ', 'T'))}', style: text(13, color: c.muted)),
+            const SizedBox(height: 8),
+            CardBox(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${s['text']}',
+                    style: text(19, weight: FontWeight.w700, color: c.ink, height: 1.4),
+                  ),
+                  line('অবস্থা', '${s['state']}'),
+                  line('ফোন', '${list(s['phone'])} (${pct(_d(s['phone_conf']))})'),
+                  line('ক্লাউড', '${list(s['cloud'])}${'${s['cloud_provider']}'.isEmpty ? '' : ' · ${s['cloud_provider']}'}'),
+                  line('সদস্য শেষে', list(s['final'])),
+                  if ('${s['signal']}'.isNotEmpty) line('সংকেত', '${s['signal']}', color: c.rose),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            FilledButton.icon(onPressed: () => _decide(s, 'phone'), icon: const Icon(Icons.phone_android_rounded), label: const Text('ফোন ঠিক')),
+            const SizedBox(height: 8),
+            FilledButton.tonalIcon(onPressed: (s['cloud'] as List? ?? const []).isEmpty ? null : () => _decide(s, 'cloud'), icon: const Icon(Icons.cloud_outlined), label: const Text('ক্লাউড ঠিক')),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(onPressed: () => _decide(s, 'other'), icon: const Icon(Icons.edit_outlined), label: const Text('দুটোই ভুল — ঠিকটা বাছুন')),
+            const SizedBox(height: 10),
+            Text(
+              'পরেরটায় যেতে বাঁয়ে সোয়াইপ করুন',
+              textAlign: TextAlign.center,
+              style: text(12.5, color: c.muted),
+            ),
+          ],
+        );
       },
     );
   }
@@ -325,51 +465,105 @@ class _AiModelsState extends State<AiModels> {
     final c = Palette.of(context);
     final m = _m;
     if (m == null) return const Center(child: CircularProgressIndicator());
-    if (m.isEmpty) return const Empty(Icons.memory_rounded, 'অ্যাপের ভেতরের মডেলই চলছে', 'নতুন মডেল শেখানো হলে এখানে draft হিসেবে আসবে; এখান থেকে অল্প সদস্যকে দিয়ে শুরু করবেন।');
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
-        for (final x in m) ...[
-          CardBox(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Expanded(child: Text('${x['version']}', style: text(18, weight: FontWeight.w700, color: c.ink))),
-                switch ('${x['status']}') {
-                  'live' => Pill('চালু · ${bn(_i(x['rollout_pct']))}%', c.green, c.tint),
-                  'draft' => Pill('draft', c.amber, c.amberTint),
-                  _ => Pill('বন্ধ', c.muted, c.ground),
-                },
-              ]),
-              Text('${date('${x['created']}'.replaceFirst(' ', 'T'))} · ${bn((_d(x['size']) / 1e6).toStringAsFixed(1))} MB', style: text(13, color: c.muted)),
-              if ((x['eval'] as Map?)?.isNotEmpty ?? false)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text([for (final e in (x['eval'] as Map).entries) '${e.key}: ${e.value is num ? pct(_d(e.value)) : e.value}'].join(' · '), style: text(13.5, color: c.ink)),
-                ),
-              if (x['status'] != 'retired') ...[
-                const SizedBox(height: 8),
-                Text('কত % সদস্য পাবেন: ${bn((_pct['${x['version']}'] ?? _d(x['rollout_pct'])).round())}%', style: text(14, color: c.ink)),
-                Slider(
-                  value: (_pct['${x['version']}'] ?? _d(x['rollout_pct'])).clamp(0, 100),
-                  max: 100,
-                  divisions: 20,
-                  onChanged: (v) => setState(() => _pct['${x['version']}'] = v),
-                ),
-                Row(children: [
-                  if (x['status'] == 'draft')
-                    FilledButton(onPressed: () => _act('${x['version']}', 'live', pct: (_pct['${x['version']}'] ?? 10).round()), child: const Text('চালু করুন'))
-                  else
-                    FilledButton(onPressed: () => _act('${x['version']}', 'pct', pct: (_pct['${x['version']}'] ?? _d(x['rollout_pct'])).round()), child: const Text('% রাখুন')),
-                  const SizedBox(width: 8),
-                  if (x['status'] == 'live') OutlinedButton(onPressed: () => _act('${x['version']}', 'rollback'), child: const Text('ফিরিয়ে নিন (rollback)')),
-                ]),
-              ],
-            ]),
-          ),
-          const SizedBox(height: 10),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          if (m.isEmpty) const Empty(Icons.memory_rounded, 'কোনো মডেল নেই', 'সদস্যদের অ্যাপ নিজের নিয়মে বুঝছে। নতুন মডেল শেখানো হলে এখানে draft হিসেবে আসবে; অল্প সদস্যকে দিয়ে শুরু করবেন।'),
+          for (final x in m) ...[
+            CardBox(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${x['version']}',
+                          style: text(18, weight: FontWeight.w700, color: c.ink),
+                        ),
+                      ),
+                      switch ('${x['status']}') {
+                        'live' => Pill('চালু · ${bn(_i(x['rollout_pct']))}%', c.green, c.tint),
+                        'draft' => Pill('draft', c.amber, c.amberTint),
+                        _ => Pill('বন্ধ', c.muted, c.ground),
+                      },
+                    ],
+                  ),
+                  Text('${date('${x['created']}'.replaceFirst(' ', 'T'))} · ${bn((_d(x['size']) / 1e6).toStringAsFixed(1))} MB', style: text(13, color: c.muted)),
+                  if ((x['eval'] as Map?)?.isNotEmpty ?? false)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text([for (final e in (x['eval'] as Map).entries) '${e.key}: ${e.value is num ? pct(_d(e.value)) : e.value}'].join(' · '), style: text(13.5, color: c.ink)),
+                    ),
+                  if (x['status'] != 'retired') ...[
+                    const SizedBox(height: 8),
+                    Text('কত % সদস্য পাবেন: ${bn((_pct['${x['version']}'] ?? _d(x['rollout_pct'])).round())}%', style: text(14, color: c.ink)),
+                    Slider(value: (_pct['${x['version']}'] ?? _d(x['rollout_pct'])).clamp(0, 100), max: 100, divisions: 20, onChanged: (v) => setState(() => _pct['${x['version']}'] = v)),
+                    Row(
+                      children: [
+                        if (x['status'] == 'draft')
+                          FilledButton(
+                            onPressed: () => _act('${x['version']}', 'live', pct: (_pct['${x['version']}'] ?? 10).round()),
+                            child: const Text('চালু করুন'),
+                          )
+                        else
+                          FilledButton(
+                            onPressed: () => _act('${x['version']}', 'pct', pct: (_pct['${x['version']}'] ?? _d(x['rollout_pct'])).round()),
+                            child: const Text('% রাখুন'),
+                          ),
+                        const SizedBox(width: 8),
+                        if (x['status'] == 'live') OutlinedButton(onPressed: () => _act('${x['version']}', 'rollback'), child: const Text('ফিরিয়ে নিন (rollback)')),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          OutlinedButton.icon(onPressed: _addDraft, icon: const Icon(Icons.add_rounded), label: const Text('হাতে একটা মডেল draft হিসেবে যোগ করুন')),
         ],
-      ]),
+      ),
     );
+  }
+
+  Future<void> _addDraft() async {
+    final f = [for (var i = 0; i < 4; i++) TextEditingController()];
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('draft যোগ করুন'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final (i, label) in [(0, 'সংস্করণ'), (1, 'ফাইলের ঠিকানা (https)'), (2, 'SHA-256'), (3, 'আকার (বাইট)')])
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: TextField(
+                    controller: f[i],
+                    keyboardType: i == 3 ? TextInputType.number : TextInputType.text,
+                    decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('বাতিল')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('রাখুন')),
+        ],
+      ),
+    );
+    if (ok == true) {
+      final r = await widget.guard(() => widget.api.addDraft(f[0].text.trim(), f[1].text.trim(), f[2].text.trim().toLowerCase(), int.tryParse(f[3].text.trim()) ?? 0));
+      if (r != null) await _load();
+    }
+    for (final t in f) {
+      t.dispose();
+    }
   }
 }
 
@@ -391,8 +585,13 @@ class _AiSettingsState extends State<AiSettings> {
   double _pctV = 100;
   bool _aiOn = true;
   bool _auto = true;
+  bool _cloudOn = true;
+  bool _removeAnthropic = false;
+  bool _removeGemini = false;
   bool _busy = false;
   String? _test;
+
+  bool get _owner => _s?['owner'] == true;
 
   @override
   void initState() {
@@ -421,6 +620,21 @@ class _AiSettingsState extends State<AiSettings> {
       _pctV = _d(n['pct']);
       _aiOn = s['ai_on'] == true;
       _auto = b['auto'] == true;
+      _cloudOn = n['cloud_on'] != false;
+      _removeAnthropic = false;
+      _removeGemini = false;
+      _f('escalate_share', (_d(n['escalate_share']) * 100).toStringAsFixed(1));
+      _f('escalate_below', n['escalate_below']);
+      _f('ai_per_user', s['ai_per_user']);
+      _f('ai_per_day', s['ai_per_day']);
+      _f('anthropic_key', '');
+      _f('gemini_key', '');
+      _f('new_model', '');
+      for (final e in ((s['prices'] as Map?) ?? const {}).entries) {
+        for (final k in ['in', 'cw', 'cr', 'out']) {
+          _f('price.${e.key}.$k', (e.value as Map)[k]);
+        }
+      }
       _f('free_model', n['free_model']);
       _f('pro_model', n['pro_model']);
       _f('escalate_model', n['escalate_model']);
@@ -436,9 +650,26 @@ class _AiSettingsState extends State<AiSettings> {
 
   Future<void> _save() async {
     setState(() => _busy = true);
+    double? num(String k) => double.tryParse(_num[k]!.text.trim());
+    final prices = <String, Object?>{
+      for (final m in ((_s?['prices'] as Map?) ?? const {}).keys)
+        '$m': {
+          for (final k in ['in', 'cw', 'cr', 'out']) k: num('price.$m.$k') ?? 0,
+        },
+    };
     final change = <String, Object?>{
-      'ai_on': _aiOn,
+      if (_owner) ...{
+        'ai_on': _aiOn,
+        'ai_per_user': int.tryParse(_num['ai_per_user']!.text.trim()) ?? 30,
+        'ai_per_day': int.tryParse(_num['ai_per_day']!.text.trim()) ?? 2000,
+        'keys': {'anthropic_key': _num['anthropic_key']!.text.trim(), 'gemini_key': _num['gemini_key']!.text.trim(), 'anthropic_remove': _removeAnthropic, 'gemini_remove': _removeGemini},
+        'prices': prices,
+        'new_model': _num['new_model']!.text.trim(),
+      },
       'nlu': {
+        'cloud_on': _cloudOn,
+        'escalate_share': (num('escalate_share') ?? 5) / 100,
+        'escalate_below': num('escalate_below') ?? 0.4,
         'mode': _mode,
         'pct': _pctV.round(),
         'free_model': _num['free_model']!.text.trim(),
@@ -447,10 +678,13 @@ class _AiSettingsState extends State<AiSettings> {
         'free_per_user': int.tryParse(_num['free_per_user']!.text.trim()) ?? 20,
         'pro_per_user': int.tryParse(_num['pro_per_user']!.text.trim()) ?? 60,
       },
-      if (_auto) 'budgets_auto': true,
-      if (!_auto)
+      if (_owner && _auto) 'budgets_auto': true,
+      if (_owner && !_auto)
         'budgets': {
-          for (final p in ['free', 'pro']) p: {for (final k in ['day', 'month']) k: double.tryParse(_num['$p.$k']!.text.trim()) ?? 0},
+          for (final p in ['free', 'pro'])
+            p: {
+              for (final k in ['day', 'month']) k: double.tryParse(_num['$p.$k']!.text.trim()) ?? 0,
+            },
         },
     };
     final r = await widget.guard(() => widget.api.saveAiSettings(change));
@@ -488,54 +722,207 @@ class _AiSettingsState extends State<AiSettings> {
     if (s == null) return const Center(child: CircularProgressIndicator());
     final rate = _d(s['usd_bdt']) > 0 ? _d(s['usd_bdt']) : 122.0;
     Widget field(String k, String label, {bool numeric = false}) => Padding(
-          padding: const EdgeInsets.only(top: 10),
-          child: TextField(controller: _num[k], keyboardType: numeric ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text, decoration: InputDecoration(labelText: label, border: const OutlineInputBorder())),
-        );
-    Widget head(String t) => Padding(padding: const EdgeInsets.only(top: 18, bottom: 4), child: Text(t, style: text(16, weight: FontWeight.w700, color: c.ink)));
-    return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
-      CardBox(
-        child: SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          value: _aiOn,
-          onChanged: (v) => setState(() => _aiOn = v),
-          title: Text('সব ক্লাউড AI চালু', style: text(16, weight: FontWeight.w700, color: c.ink)),
-          subtitle: Text('বন্ধ করলে সাথে সাথে সব ক্লাউড কল থামে — অ্যাপ ফোনে নিজের নিয়মে চলে', style: text(13, color: c.muted)),
+      padding: const EdgeInsets.only(top: 10),
+      child: TextField(
+        controller: _num[k],
+        keyboardType: numeric ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
+        decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+      ),
+    );
+    Widget head(String t) => Padding(
+      padding: const EdgeInsets.only(top: 18, bottom: 4),
+      child: Text(
+        t,
+        style: text(16, weight: FontWeight.w700, color: c.ink),
+      ),
+    );
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+      children: [
+        if (!_owner) Text('কিছু সেটিংস (AI-এর সব-বন্ধ সুইচ, key, দাম, বাজেট) শুধু সাইটের মালিক বদলাতে পারেন।', style: text(13, color: c.muted)),
+        if (_owner)
+          CardBox(
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _aiOn,
+              onChanged: (v) => setState(() => _aiOn = v),
+              title: Text(
+                'সব ক্লাউড AI চালু',
+                style: text(16, weight: FontWeight.w700, color: c.ink),
+              ),
+              subtitle: Text('বন্ধ করলে সাথে সাথে সব ক্লাউড কল থামে — অ্যাপ ফোনে নিজের নিয়মে চলে', style: text(13, color: c.muted)),
+            ),
+          ),
+        head('ফোনের মডেল (nlu_mode)'),
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'off', label: Text('বন্ধ')),
+            ButtonSegment(value: 'shadow', label: Text('ছায়া')),
+            ButtonSegment(value: 'on', label: Text('চালু')),
+          ],
+          selected: {_mode},
+          onSelectionChanged: (v) => setState(() => _mode = v.first),
         ),
-      ),
-      head('ফোনের মডেল (nlu_mode)'),
-      SegmentedButton<String>(
-        segments: const [ButtonSegment(value: 'off', label: Text('বন্ধ')), ButtonSegment(value: 'shadow', label: Text('ছায়া')), ButtonSegment(value: 'on', label: Text('চালু'))],
-        selected: {_mode},
-        onSelectionChanged: (v) => setState(() => _mode = v.first),
-      ),
-      const SizedBox(height: 6),
-      Text('কত % সদস্য: ${bn(_pctV.round())}%', style: text(14, color: c.ink)),
-      Slider(value: _pctV.clamp(0, 100), max: 100, divisions: 20, onChanged: (v) => setState(() => _pctV = v)),
-      head('মডেল'),
-      field('free_model', 'ফ্রি সদস্য'),
-      field('pro_model', 'প্রো সদস্য'),
-      field('escalate_model', 'ফোন খুব অনিশ্চিত হলে (প্রো, দিনে ≤৫%)'),
-      head('সদস্যপ্রতি দিনে ক্লাউডে বোঝা'),
-      Row(children: [Expanded(child: field('free_per_user', 'ফ্রি', numeric: true)), const SizedBox(width: 10), Expanded(child: field('pro_per_user', 'প্রো', numeric: true))]),
-      head('বাজেট (ডলার)'),
-      CheckboxListTile(
-        contentPadding: EdgeInsets.zero,
-        value: _auto,
-        onChanged: (v) => setState(() => _auto = v ?? true),
-        title: Text('আয় অনুযায়ী নিজে ঠিক হোক (লোকসান নয়)', style: text(14.5, color: c.ink)),
-        subtitle: Text('প্রো-র আয়ের ২০% পর্যন্ত; একজন প্রো সদস্য মাসে ${tk(_d(s['member_cap_usd']), rate)} পর্যন্ত; ফ্রি সবাই মিলে মাসে \$৩', style: text(12.5, color: c.muted)),
-      ),
-      if (!_auto) ...[
-        Row(children: [Expanded(child: field('free.day', 'ফ্রি — দিনে', numeric: true)), const SizedBox(width: 10), Expanded(child: field('free.month', 'ফ্রি — মাসে', numeric: true))]),
-        Row(children: [Expanded(child: field('pro.day', 'প্রো — দিনে', numeric: true)), const SizedBox(width: 10), Expanded(child: field('pro.month', 'প্রো — মাসে', numeric: true))]),
+        const SizedBox(height: 6),
+        Text('কত % সদস্য: ${bn(_pctV.round())}%', style: text(14, color: c.ink)),
+        Slider(value: _pctV.clamp(0, 100), max: 100, divisions: 20, onChanged: (v) => setState(() => _pctV = v)),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          value: _cloudOn,
+          onChanged: (v) => setState(() => _cloudOn = v),
+          title: Text('ক্লাউডে বোঝা চালু', style: text(15, color: c.ink)),
+        ),
+        head('মডেল'),
+        field('free_model', 'ফ্রি সদস্য'),
+        field('pro_model', 'প্রো সদস্য'),
+        field('escalate_model', 'ফোন খুব অনিশ্চিত হলে (প্রো, দিনে ≤৫%)'),
+        Row(
+          children: [
+            Expanded(child: field('escalate_share', 'তার ভাগ, দিনে সর্বোচ্চ %', numeric: true)),
+            const SizedBox(width: 10),
+            Expanded(child: field('escalate_below', 'অনিশ্চিত মানে এর নিচে (০–১)', numeric: true)),
+          ],
+        ),
+        head('সদস্যপ্রতি দিনে ক্লাউডে বোঝা'),
+        Row(
+          children: [
+            Expanded(child: field('free_per_user', 'ফ্রি', numeric: true)),
+            const SizedBox(width: 10),
+            Expanded(child: field('pro_per_user', 'প্রো', numeric: true)),
+          ],
+        ),
+        if (_owner) ...[
+          head('প্রো সদস্যের AI উত্তর (পুরনো পথ)'),
+          Row(
+            children: [
+              Expanded(child: field('ai_per_user', 'সদস্যপ্রতি দিনে', numeric: true)),
+              const SizedBox(width: 10),
+              Expanded(child: field('ai_per_day', 'সার্ভারে দিনে মোট', numeric: true)),
+            ],
+          ),
+          head('API key'),
+          field(
+            'anthropic_key',
+            s['anthropic_key'] == 'config'
+                ? 'Anthropic — wp-config.php থেকে'
+                : (s['anthropic_key'] == '' ? 'Anthropic key (sk-ant-…)' : 'Anthropic — রাখা আছে ••••${s['anthropic_tail'] ?? ''} · বদলাতে নতুনটা দিন'),
+          ),
+          if (s['anthropic_key'] == 'saved')
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _removeAnthropic,
+              onChanged: (v) => setState(() => _removeAnthropic = v ?? false),
+              title: Text('রাখা Anthropic key মুছে দিন', style: text(14, color: c.ink)),
+            ),
+          field(
+            'gemini_key',
+            s['gemini_source'] == 'config'
+                ? 'Gemini — wp-config.php থেকে'
+                : (s['gemini_key'] != true ? 'Gemini key (AQ.… বা AIza…)' : 'Gemini — রাখা আছে ••••${s['gemini_tail'] ?? ''} · বদলাতে নতুনটা দিন'),
+          ),
+          if (s['gemini_source'] == 'saved')
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _removeGemini,
+              onChanged: (v) => setState(() => _removeGemini = v ?? false),
+              title: Text('রাখা Gemini key মুছে দিন', style: text(14, color: c.ink)),
+            ),
+          head('দাম (ডলার, প্রতি ১০ লাখ টোকেন)'),
+          for (final m in ((s['prices'] as Map?) ?? const {}).keys) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(
+                '$m',
+                style: text(14, weight: FontWeight.w600, color: c.ink),
+              ),
+            ),
+            Row(
+              children: [
+                for (final (k, l) in [('in', 'ইনপুট'), ('cw', 'ক্যাশে লেখা'), ('cr', 'ক্যাশ থেকে'), ('out', 'আউটপুট')]) ...[
+                  Expanded(child: field('price.$m.$k', l, numeric: true)),
+                  if (k != 'out') const SizedBox(width: 6),
+                ],
+              ],
+            ),
+          ],
+          field('new_model', 'নতুন মডেল যোগ (নাম)'),
+        ],
+        if (_owner) ...[
+          head('বাজেট (ডলার)'),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _auto,
+            onChanged: (v) => setState(() => _auto = v ?? true),
+            title: Text('আয় অনুযায়ী নিজে ঠিক হোক (লোকসান নয়)', style: text(14.5, color: c.ink)),
+            subtitle: Text('প্রো-র আয়ের ২০% পর্যন্ত; একজন প্রো সদস্য মাসে ${tk(_d(s['member_cap_usd']), rate)} পর্যন্ত; ফ্রি সবাই মিলে মাসে \$৩', style: text(12.5, color: c.muted)),
+          ),
+          if (!_auto) ...[
+            Row(
+              children: [
+                Expanded(child: field('free.day', 'ফ্রি — দিনে', numeric: true)),
+                const SizedBox(width: 10),
+                Expanded(child: field('free.month', 'ফ্রি — মাসে', numeric: true)),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(child: field('pro.day', 'প্রো — দিনে', numeric: true)),
+                const SizedBox(width: 10),
+                Expanded(child: field('pro.month', 'প্রো — মাসে', numeric: true)),
+              ],
+            ),
+          ],
+        ],
+        const SizedBox(height: 6),
+        Text(
+          'নির্দেশনার সংস্করণ: ${s['prompt_ver'] ?? '—'} · Claude key: ${s['anthropic_key'] == '' ? 'নেই' : 'আছে'} · Gemini key: ${s['gemini_key'] == true ? 'আছে' : 'নেই'}',
+          style: text(12.5, color: c.muted),
+        ),
+        const SizedBox(height: 16),
+        FilledButton(onPressed: _busy ? null : _save, child: const Text('রাখুন')),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(onPressed: _busy ? null : _selfTest, icon: const Icon(Icons.science_outlined), label: const Text('Gemini আর Claude পরীক্ষা')),
+        if (_test != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(_test!, style: text(14, color: c.ink)),
+          ),
+        if (_owner) ...[
+          head('নতুন করে শেখানোর key'),
+          Text('GitHub-এ মডেল শেখানোর কাজ এটা দিয়ে শুধু নমুনা পড়ে আর নতুন মডেল draft হিসেবে রাখে। GitHub › Settings › Secrets-এ MA_NLU_CI_KEY নামে বসান।', style: text(13, color: c.muted)),
+          if ('${s['ci_key'] ?? ''}' == 'wp-config')
+            Text('wp-config.php থেকে নেওয়া।', style: text(13.5, color: c.ink))
+          else if ('${s['ci_key'] ?? ''}'.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      '${s['ci_key']}',
+                      style: text(13, color: c.ink).copyWith(fontFamily: 'monospace'),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'কপি',
+                    icon: const Icon(Icons.copy_rounded),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: '${s['ci_key']}'));
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('কপি হয়েছে')));
+                    },
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 8),
+          OutlinedButton(onPressed: _busy ? null : _newCiKey, child: Text('${s['ci_key'] ?? ''}'.isEmpty ? 'key বানান' : 'নতুন key বানান (আগেরটা বাতিল)')),
+        ],
       ],
-      const SizedBox(height: 6),
-      Text('নির্দেশনার সংস্করণ: ${s['prompt_ver'] ?? '—'} · Claude key: ${s['anthropic_key'] == '' ? 'নেই' : 'আছে'} · Gemini key: ${s['gemini_key'] == true ? 'আছে' : 'নেই'}', style: text(12.5, color: c.muted)),
-      const SizedBox(height: 16),
-      FilledButton(onPressed: _busy ? null : _save, child: const Text('রাখুন')),
-      const SizedBox(height: 8),
-      OutlinedButton.icon(onPressed: _busy ? null : _selfTest, icon: const Icon(Icons.science_outlined), label: const Text('Gemini আর Claude পরীক্ষা')),
-      if (_test != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_test!, style: text(14, color: c.ink))),
-    ]);
+    );
+  }
+
+  Future<void> _newCiKey() async {
+    final k = await widget.guard(() => widget.api.newCiKey());
+    if (k != null && mounted) await _load();
   }
 }

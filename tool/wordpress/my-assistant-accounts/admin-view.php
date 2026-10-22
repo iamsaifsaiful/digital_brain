@@ -76,7 +76,7 @@ function ma_acc_url($args) {
 function ma_acc_render($v) {
     $labels = ma_acc_status_labels();
     $s = $v['stats'];
-    $tab = in_array($v['tab'], ['settings', 'ai', 'payments', 'notices', 'feedback'], true) ? $v['tab'] : 'members';
+    $tab = in_array($v['tab'], ['settings', 'ai', 'nlu', 'payments', 'notices', 'feedback'], true) ? $v['tab'] : 'members';
     $fb_new = (int) ($v['fb_new'] ?? 0);
     $pending = (int) ($v['pending'] ?? 0);
     $paying_rate = $s['total'] ? round($s['pro'] * 100 / $s['total'], 1) : 0;
@@ -102,6 +102,7 @@ function ma_acc_render($v) {
                     <a class="<?php echo $tab === 'payments' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'payments']); ?>">পেমেন্ট<?php if ($pending) : ?><i class="ma-badge"><?php echo esc_html(ma_acc_bn($pending)); ?></i><?php endif; ?></a>
                     <a class="<?php echo $tab === 'notices' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'notices']); ?>">নোটিফিকেশন</a>
                     <a class="<?php echo $tab === 'feedback' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'feedback']); ?>">মতামত<?php if ($fb_new) : ?><i class="ma-badge"><?php echo esc_html(ma_acc_bn($fb_new)); ?></i><?php endif; ?></a>
+                    <a class="<?php echo $tab === 'nlu' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'nlu']); ?>">AI মডেল</a>
                     <?php if (!empty($v['can_settings'])) : ?><a class="<?php echo $tab === 'ai' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'ai']); ?>">AI খরচ</a><?php endif; ?>
                     <?php if (!empty($v['can_settings'])) : ?><a class="<?php echo $tab === 'settings' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'settings']); ?>">সেটিংস</a><?php endif; ?>
                 </nav>
@@ -120,6 +121,8 @@ function ma_acc_render($v) {
 
         <?php if ($tab === 'ai' && !empty($v['can_settings'])) {
             ma_acc_render_ai_report($v);
+        } elseif ($tab === 'nlu') {
+            ma_acc_render_nlu($v['nlu'] ?? []);
         } elseif ($tab === 'settings' && !empty($v['can_settings'])) {
             ma_acc_render_settings($v);
         } elseif ($tab === 'payments') {
@@ -890,7 +893,8 @@ function ma_acc_styles() {
     .ma-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:16px}
     .ma-grid .ma-card{margin-top:16px}
     .ma label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:13.5px;color:var(--mut2);margin:14px 0}
-    .ma label input[type=text],.ma label input[type=email]{height:42px;border:1px solid var(--line);border-radius:11px;padding:0 12px;font:inherit;font-weight:400;font-size:14px;color:var(--ink);box-shadow:none}
+    .ma label input[type=text],.ma label input[type=email],.ma label input[type=number],.ma label input[type=url],.ma label input[type=password],.ma label select{height:42px;border:1px solid var(--line);border-radius:11px;padding:0 12px;font:inherit;font-weight:400;font-size:14px;color:var(--ink);box-shadow:none}
+    .ma-table input[type=number],.ma-card select{height:32px;border:1px solid var(--line);border-radius:9px;padding:0 8px;font:inherit;font-size:13px}
     .ma label input:focus{border-color:var(--g);box-shadow:0 0 0 3px rgba(14,122,95,.15);outline:0}
     .ma .ma-check{flex-direction:row;align-items:center;gap:8px;font-weight:500}
     .ma-checks{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
@@ -1116,6 +1120,124 @@ function ma_acc_render_ai_costs($c) {
             <p class="muted ma-tip">বাজেট শেষ হলে ওই প্ল্যানের AI বন্ধ থাকে, অ্যাপ নিজের নিয়মে বোঝে।</p>
             <button class="ma-btn" type="submit">রাখুন</button>
         </form>
+    </section>
+    <?php
+}
+
+/**
+ * "AI মডেল": the on-phone model's mode, its versions (make live, share,
+ * take back) and the readings to check — the same as the admin app's
+ * AI › মডেল / পর্যালোচনা / সেটিংস (any admin; keys and costs stay with the owner).
+ */
+function ma_acc_render_nlu($n) {
+    $set = $n['settings'] ?? ma_nlu_settings();
+    $post = esc_url(admin_url('admin-post.php'));
+    $ov = $n['overview'] ?? [];
+    $intent_opts = function ($sel = '') use ($n) {
+        $o = '<option value="">— বাছুন —</option>';
+        foreach ((array) ($n['intents'] ?? []) as $i) {
+            $o .= '<option value="' . esc_attr($i) . '"' . selected($sel, $i, false) . '>' . esc_html($i) . '</option>';
+        }
+        return $o;
+    };
+    ?>
+    <section class="ma-card pad ma-ai">
+        <h2>ফোনের মডেল</h2>
+        <p class="muted">ছায়া: মডেল পড়ে, কিছু করে না। চালু: নিয়ম আর মডেল একমত হলে AI ডাকা হয় না; অমিল হলে ফ্রি সদস্যের বেলায় ক্লাউড জিজ্ঞেস হয় (তিনটার দুটো যা বলে)। শুরুতে অল্প % দিন।
+        <?php if ($ov) : ?> শেখার নমুনা (৩০ দিন): <?php echo esc_html(ma_acc_bn((string) ($ov['samples_30d'] ?? 0))); ?> · ভুলের সংকেত প্রতি ১০০-তে <?php echo esc_html(ma_acc_bn((string) ($ov['error_signals_per_100'] ?? 0))); ?><?php endif; ?></p>
+        <form method="post" action="<?php echo $post; ?>" class="ma-ai-form">
+            <input type="hidden" name="action" value="ma_nlu_settings"><?php wp_nonce_field('ma_nlu_settings'); ?>
+            <div class="ma-ai-row">
+                <label>মোড
+                    <select name="nlu[mode]">
+                        <?php foreach (['off' => 'বন্ধ', 'shadow' => 'ছায়া', 'on' => 'চালু'] as $k => $l) : ?><option value="<?php echo $k; ?>" <?php selected($set['mode'], $k); ?>><?php echo esc_html($l); ?></option><?php endforeach; ?>
+                    </select>
+                </label>
+                <label>কত % সদস্য<input type="number" min="0" max="100" name="nlu[pct]" value="<?php echo (int) $set['pct']; ?>"></label>
+                <label>ফ্রি সদস্যের ক্লাউড মডেল<input type="text" name="nlu[free_model]" value="<?php echo esc_attr($set['free_model']); ?>"></label>
+                <label>প্রো সদস্যের ক্লাউড মডেল<input type="text" name="nlu[pro_model]" value="<?php echo esc_attr($set['pro_model']); ?>"></label>
+                <label>খুব অনিশ্চিত হলে (প্রো)<input type="text" name="nlu[escalate_model]" value="<?php echo esc_attr($set['escalate_model']); ?>"></label>
+                <label>তার ভাগ, দিনে সর্বোচ্চ %<input type="number" step="0.5" min="0" max="20" name="nlu[escalate_share]" value="<?php echo esc_attr((string) round($set['escalate_share'] * 100, 1)); ?>"></label>
+                <label>"খুব অনিশ্চিত" মানে নিশ্চয়তা এর নিচে (০–১)<input type="number" step="0.05" min="0" max="1" name="nlu[escalate_below]" value="<?php echo esc_attr((string) $set['escalate_below']); ?>"></label>
+                <label>ফ্রি — সদস্যপ্রতি দিনে ক্লাউড<input type="number" min="0" name="nlu[free_per_user]" value="<?php echo (int) $set['free_per_user']; ?>"></label>
+                <label>প্রো — সদস্যপ্রতি দিনে ক্লাউড<input type="number" min="0" name="nlu[pro_per_user]" value="<?php echo (int) $set['pro_per_user']; ?>"></label>
+            </div>
+            <label class="ma-check"><input type="checkbox" name="nlu[cloud_on]" value="1" <?php checked(!empty($set['cloud_on'])); ?>> ক্লাউডে বোঝা চালু</label>
+            <button class="ma-btn" type="submit">রাখুন</button>
+        </form>
+    </section>
+
+    <section class="ma-card pad">
+        <h2>মডেলের সংস্করণ</h2>
+        <p class="muted">নতুন মডেল GitHub থেকে <em>draft</em> হয়ে আসে। চালু করলে যত % দেবেন তত সদস্যের ফোন Wi-Fi-তে নামাবে; বাকিরা আগের চালু মডেল পান। “ফিরিয়ে নিন” দিলে সবাই আগেরটায় ফেরে।</p>
+        <?php if (empty($n['models'])) : ?><p class="muted">এখনো কোনো মডেল আসেনি।</p><?php else : ?>
+        <table class="ma-table">
+            <thead><tr><th>সংস্করণ</th><th>অবস্থা</th><th>আকার</th><th>যাচাই</th><th>কাজ</th></tr></thead>
+            <tbody>
+            <?php foreach ($n['models'] as $m) : $ver = esc_attr($m['version']); ?>
+                <tr>
+                    <td><strong><?php echo esc_html($m['version']); ?></strong><br><span class="muted"><?php echo esc_html(ma_acc_date($m['created'])); ?></span></td>
+                    <td><?php if ($m['status'] === 'live') : ?><span class="ma-pill pro">চালু · <?php echo esc_html(ma_acc_bn((string) $m['rollout_pct'])); ?>%</span><?php elseif ($m['status'] === 'draft') : ?><span class="ma-pill trial">draft</span><?php else : ?><span class="ma-pill expired">বন্ধ</span><?php endif; ?></td>
+                    <td><?php echo esc_html(ma_acc_bn(number_format($m['size'] / 1e6, 1))); ?> MB</td>
+                    <td><?php $e = (array) $m['eval']; echo esc_html($e ? implode(' · ', array_map(function ($k, $x) { return $k . ': ' . (is_numeric($x) ? round($x * 100, 1) . '%' : (is_scalar($x) ? $x : '')); }, array_keys($e), $e)) : '—'); ?></td>
+                    <td>
+                        <?php if ($m['status'] !== 'retired') : ?>
+                        <form method="post" action="<?php echo $post; ?>" style="display:inline-flex;gap:6px;align-items:center">
+                            <input type="hidden" name="action" value="ma_nlu_model"><?php wp_nonce_field('ma_nlu_model'); ?>
+                            <input type="hidden" name="version" value="<?php echo $ver; ?>">
+                            <input type="hidden" name="op" value="<?php echo $m['status'] === 'draft' ? 'live' : 'pct'; ?>">
+                            <input type="number" name="pct" min="0" max="100" style="width:72px" value="<?php echo (int) ($m['status'] === 'draft' ? 10 : $m['rollout_pct']); ?>">%
+                            <button class="ma-btn small" type="submit"><?php echo $m['status'] === 'draft' ? 'চালু করুন' : '% রাখুন'; ?></button>
+                        </form>
+                        <?php endif; ?>
+                        <?php if ($m['status'] === 'live') : ?>
+                        <form method="post" action="<?php echo $post; ?>" style="display:inline">
+                            <input type="hidden" name="action" value="ma_nlu_model"><?php wp_nonce_field('ma_nlu_model'); ?>
+                            <input type="hidden" name="version" value="<?php echo $ver; ?>"><input type="hidden" name="op" value="rollback">
+                            <button class="ma-btn ghost small" type="submit">ফিরিয়ে নিন</button>
+                        </form>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php endif; ?>
+        <details style="margin-top:12px"><summary>হাতে একটা মডেল draft হিসেবে যোগ করুন</summary>
+            <form method="post" action="<?php echo $post; ?>" class="ma-ai-form">
+                <input type="hidden" name="action" value="ma_nlu_draft"><?php wp_nonce_field('ma_nlu_draft'); ?>
+                <div class="ma-ai-row">
+                    <label>সংস্করণ<input type="text" name="version" placeholder="2026.11.01-bert3"></label>
+                    <label>ফাইলের ঠিকানা (https)<input type="url" name="url" placeholder="https://github.com/…/nlu-….tflite"></label>
+                    <label>SHA-256<input type="text" name="sha256" spellcheck="false"></label>
+                    <label>আকার (বাইট)<input type="number" name="size" min="0"></label>
+                </div>
+                <button class="ma-btn ghost" type="submit">draft রাখুন</button>
+            </form>
+        </details>
+    </section>
+
+    <section class="ma-card pad">
+        <h2>পর্যালোচনা</h2>
+        <p class="muted">যেসব বার্তায় ফোন, ক্লাউড আর শেষ কাজ মেলেনি বা সদস্য “না” বলেছেন। নাম সরানো (<code>&lt;নাম১&gt;</code>)। ঠিকটা বেছে দিলে পরের শেখানোয় সবার আগে সেটা মানা হয়।</p>
+        <?php if (empty($n['review'])) : ?><p class="muted">এখন দেখার মতো কিছু নেই।</p><?php endif; ?>
+        <?php foreach ((array) ($n['review'] ?? []) as $r) : ?>
+            <form method="post" action="<?php echo $post; ?>" class="ma-ai-form" style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px">
+                <input type="hidden" name="action" value="ma_nlu_label"><?php wp_nonce_field('ma_nlu_label'); ?>
+                <input type="hidden" name="sample" value="<?php echo (int) $r['id']; ?>">
+                <input type="hidden" name="phone_intents" value="<?php echo esc_attr(implode(',', $r['phone'])); ?>">
+                <input type="hidden" name="cloud_intents" value="<?php echo esc_attr(implode(',', $r['cloud'])); ?>">
+                <p style="font-size:16px;margin:0 0 6px"><?php echo esc_html($r['text']); ?></p>
+                <p class="muted" style="margin:0 0 8px">ফোন: <?php echo esc_html(implode(', ', $r['phone']) ?: '—'); ?> (<?php echo esc_html(round($r['phone_conf'] * 100) . '%'); ?>) · ক্লাউড<?php echo $r['cloud_provider'] ? ' (' . esc_html($r['cloud_provider']) . ')' : ''; ?>: <?php echo esc_html(implode(', ', $r['cloud']) ?: '—'); ?> · শেষে: <?php echo esc_html(implode(', ', $r['final']) ?: '—'); ?><?php if ($r['signal']) : ?> · <span class="ma-pill expired">ভুলের সংকেত: <?php echo esc_html($r['signal']); ?></span><?php endif; ?></p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                    <?php if ($r['phone']) : ?><button class="ma-btn soft small" name="pick" value="phone">ফোন ঠিক</button><?php endif; ?>
+                    <?php if ($r['cloud']) : ?><button class="ma-btn soft small" name="pick" value="cloud">ক্লাউড ঠিক</button><?php endif; ?>
+                    <select name="intents[]"><?php echo $intent_opts(); ?></select>
+                    <select name="intents[]"><?php echo $intent_opts(); ?></select>
+                    <button class="ma-btn small" name="pick" value="other">এটাই ঠিক</button>
+                </div>
+            </form>
+        <?php endforeach; ?>
     </section>
     <?php
 }

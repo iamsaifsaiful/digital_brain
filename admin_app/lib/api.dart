@@ -241,6 +241,13 @@ class Api {
   Future<Map<String, dynamic>> modelAction(String version, String action, {int? pct}) async =>
       ((await _send('POST', '/admin/nlu/models', {'version': version, 'action': action, if (pct != null) 'pct': pct}))['model'] as Map).cast<String, dynamic>();
 
+  /// A model added by hand as a draft (as on the site's "AI মডেল" page).
+  Future<Map<String, dynamic>> addDraft(String version, String url, String sha256, int size) async =>
+      ((await _send('POST', '/admin/nlu/models', {'action': 'draft', 'version': version, 'url': url, 'sha256': sha256, 'size': size}))['model'] as Map).cast<String, dynamic>();
+
+  /// A new key for the retraining job (site owner only); the old one stops working.
+  Future<String> newCiKey() async => '${(await _send('POST', '/admin/nlu/ci-key'))['ci_key']}';
+
   Future<Map<String, dynamic>> _send(String method, String path, [Map<String, Object?>? body]) => _call(method, path, body, true);
 
   Future<Map<String, dynamic>> _call(String method, String path, Map<String, Object?>? body, bool auth) async {

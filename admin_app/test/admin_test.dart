@@ -34,6 +34,8 @@ class FakeServer {
     'nlu': {'mode': 'shadow', 'pct': 100, 'free_model': 'gemini-3.1-flash-lite', 'pro_model': 'claude-haiku-5-5', 'escalate_model': 'claude-sonnet-5-5', 'free_per_user': 20, 'pro_per_user': 60},
     'ai_on': true, 'budgets': {'auto': true, 'free': {'day': 0.2, 'month': 3}, 'pro': {'day': 0.09, 'month': 1.3}}, 'member_cap_usd': 0.2047, 'usd_bdt': 122,
     'anthropic_key': 'saved', 'gemini_key': true, 'prompt_ver': 'v1',
+    'owner': true, 'ai_per_user': 30, 'ai_per_day': 2000, 'anthropic_tail': 'AbCd', 'gemini_source': 'saved', 'gemini_tail': 'WxYz',
+    'prices': {'claude-haiku-5-5': {'in': 1, 'cw': 1.25, 'cr': 0.1, 'out': 5}}, 'ci_key': 'k' * 48,
   };
   final reviews = <Map<String, Object?>>[
     {'id': 11, 'created': '2026-10-22 04:00:00', 'state': 'idle', 'text': '<নাম১>কে ৫০০ টাকা দিলাম', 'phone': ['cash_add'], 'phone_conf': 0.62, 'cloud': ['ledger_add'], 'cloud_provider': 'gemini', 'final': ['ledger_add'], 'signal': 'edited'},
@@ -82,9 +84,10 @@ class FakeServer {
       ]};
     } else if (p == '/admin/ai/overview') {
       body = {
-        'today': [{'model': 'gemini-3.1-flash-lite', 'cost_usd': 0.012}, {'model': 'claude-haiku-5-5', 'cost_usd': 0.004}],
+        'today': [{'model': 'gemini-3.1-flash-lite', 'plan': 'free', 'requests': 40, 'cost_usd': 0.012, 'per_request_usd': 0.0003, 'cache_hit': 0.5}, {'model': 'claude-haiku-5-5', 'plan': 'pro', 'requests': 4, 'cost_usd': 0.004, 'per_request_usd': 0.001, 'cache_hit': 0.8}],
+        'stats': {'requests': 44, 'people': 9, 'in': 30000, 'out': 2000, 'month': 900},
         'month': [{'model': 'gemini-3.1-flash-lite', 'cost_usd': 0.41}, {'model': 'claude-haiku-5-5', 'cost_usd': 0.22}],
-        'budget': {'auto': true, 'free': {'day': 0.2, 'month': 3}, 'pro': {'day': 0.09, 'month': 1.3}},
+        'budget': {'auto': true, 'free': {'day': 0.2, 'month': 3, 'spent_day': 0.012, 'spent_month': 0.41}, 'pro': {'day': 0.09, 'month': 1.3, 'spent_day': 0.004, 'spent_month': 0.22}},
         'sources_month': {'rules': 900, 'local': 300, 'gemini': 200, 'haiku': 80, 'sonnet': 6, 'failed': 4, 'nlu_same_sure': 700, 'nlu_same': 100, 'nlu_differ_sure': 50, 'nlu_differ': 150},
         'usd_bdt': 122,
         'nlu': {'samples_30d': 420, 'error_signals_per_100': 3.4, 'weakest': [{'intent': 'reminder_edit', 'n': 30, 'bad': 9, 'ok_share': 0.7}]},
@@ -225,10 +228,17 @@ void main() {
     await t.tap(find.text('AI').last);
     await settle(t);
     expect(find.text('৳১.৯৫'), findsOneWidget); // today: $0.016 × 122
-    expect(find.textContaining('ফোনে সমাধান ৮১%'), findsOneWidget); // 1200 of 1490
-    expect(find.textContaining('মিল ৮০%'), findsOneWidget);
-    expect(find.text('reminder_edit'), findsOneWidget);
+    expect(find.textContaining('AI প্রশ্ন ৪৪'), findsOneWidget, reason: 'the same as the site\'s AI খরচ page');
     await shot(t, 'ai-summary');
+    final sum = find.descendant(of: find.byType(AiSummary), matching: find.byType(Scrollable)).first;
+    await t.scrollUntilVisible(find.textContaining('claude-haiku-5-5 · pro'), 300, scrollable: sum);
+    expect(find.textContaining('claude-haiku-5-5 · pro'), findsWidgets);
+    await t.scrollUntilVisible(find.textContaining('ফোনে সমাধান ৮১%'), 300, scrollable: sum);
+    expect(find.textContaining('ফোনে সমাধান ৮১%'), findsOneWidget); // 1200 of 1490
+    await t.scrollUntilVisible(find.textContaining('মিল ৮০%'), 300, scrollable: sum);
+    expect(find.textContaining('মিল ৮০%'), findsOneWidget);
+    await t.scrollUntilVisible(find.text('reminder_edit'), 300, scrollable: sum);
+    expect(find.text('reminder_edit'), findsOneWidget);
     await t.tap(find.text('পর্যালোচনা'));
     await settle(t);
     expect(find.text('<নাম১>কে ৫০০ টাকা দিলাম'), findsOneWidget);
@@ -255,6 +265,9 @@ void main() {
     await settle(t);
     expect((server.saved.single['nlu'] as Map)['mode'], 'on');
     expect(server.saved.single['budgets_auto'], true);
+    expect(server.saved.single['ai_per_user'], 30, reason: 'owner: the settings page\'s fields are here too');
+    expect(((server.saved.single['prices'] as Map)['claude-haiku-5-5'] as Map)['out'], 5);
+    expect((server.saved.single['keys'] as Map)['anthropic_key'], '', reason: 'an empty key field changes nothing');
     await t.pump(const Duration(seconds: 6)); // the "রাখা হয়েছে" note goes away
     await settle(t);
     await t.scrollUntilVisible(find.text('Gemini আর Claude পরীক্ষা'), 300, scrollable: list);
@@ -263,6 +276,8 @@ void main() {
     await t.scrollUntilVisible(find.textContaining('Gemini: কাজ করছে'), 300, scrollable: list);
     expect(find.textContaining('Gemini: কাজ করছে'), findsOneWidget);
     expect(find.textContaining('Claude: কাজ করছে না 401'), findsOneWidget);
+    await t.scrollUntilVisible(find.text('k' * 48), 300, scrollable: list);
+    expect(find.text('k' * 48), findsOneWidget, reason: 'the retraining key, as on the settings page');
   });
 
   testWidgets('signed out: email and password, then in', (t) async {
