@@ -255,7 +255,11 @@ void main() {
     await settle(t);
     expect(find.byType(ProScreen), findsOneWidget);
     expect(find.textContaining('ফ্রি চালু করুন'), findsNothing, reason: 'no trial');
+    final proList = find.descendant(of: find.byType(ProScreen), matching: find.byType(Scrollable)).first;
+    await t.scrollUntilVisible(find.byKey(const Key('get-pro')), 300, scrollable: proList);
     expect(find.byKey(const Key('get-pro')), findsOneWidget);
+    await t.fling(proList, const Offset(0, 3000), 3000);
+    await settle(t);
     await t.tap(find.text('বিস্তারিত').first);
     await settle(t);
     expect(find.byKey(const Key('pro-website')), findsOneWidget);

@@ -1,0 +1,338 @@
+// যাকাত — its own menu (not inside আয়-ব্যয় any more). Most people here are not
+// sure how zakat is counted, so the page does it from what the app already
+// knows (accounts, savings, DPS, ধার-দেনা, loan instalments), shows every
+// line with where it came from and when it last changed, and lets the user
+// leave a line out or add one by hand.
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+
+import '../logic/bn.dart';
+import '../logic/lang.dart';
+import '../logic/ledger.dart';
+import '../logic/money_more.dart' show MetalPrice;
+import '../logic/zakat.dart';
+import '../models/models.dart';
+import '../state/brain.dart';
+import '../ui/theme.dart';
+import '../ui/widgets.dart';
+
+class ZakatScreen extends StatefulWidget {
+  const ZakatScreen({super.key});
+  @override
+  State<ZakatScreen> createState() => _ZakatScreenState();
+}
+
+class _ZakatScreenState extends State<ZakatScreen> {
+  /// What the app cannot know: entered once, kept for next time.
+  final _f = {for (final k in ['gold_vori', 'gold_price', 'silver_vori', 'silver_price', 'business', 'other']) k: TextEditingController()};
+  bool _fetching = false;
+  String _priceNote = '';
+  bool _learn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final z = BrainScope.read(context).zakatSaved;
+      String n(num v) => v == 0 ? '' : (v is double && v != v.roundToDouble() ? '$v' : '${v.round()}');
+      _f['gold_vori']!.text = n(z.goldVori);
+      _f['gold_price']!.text = n(z.goldPrice);
+      _f['silver_vori']!.text = n(z.silverVori);
+      _f['silver_price']!.text = n(z.silverPrice);
+      _f['business']!.text = n(z.business);
+      _f['other']!.text = n(z.other);
+      setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    for (final c in _f.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _todayPrice(Brain brain) async {
+    setState(() => _fetching = true);
+    final MetalPrice? p = await brain.metalPriceToday();
+    if (!mounted) return;
+    if (p == null) {
+      setState(() {
+        _fetching = false;
+        _priceNote = tr('এখন আনতে পারলাম না (ইন্টারনেট বা সার্ভার সাড়া দেয়নি)। bajus.org-এ আজকের দাম দেখে নিজে লিখুন।');
+      });
+      return;
+    }
+    await brain.useMetalPrice(p);
+    if (!mounted) return;
+    setState(() {
+      _fetching = false;
+      _f['gold_price']!.text = '${p.gold22}';
+      _f['silver_price']!.text = '${p.silver22}';
+      _priceNote = trf('{0}, {1} থেকে কার্যকর — ২২ ক্যারেটের দাম বসানো হলো। গয়না অন্য ক্যারেটের হলে দাম বদলে নিন।', [p.source.isEmpty ? tr('বাজুস') : p.source, shortDate(p.date)]);
+    });
+  }
+
+  Future<void> _addItem(Brain brain) async {
+    final r = await showDialog<(String, int, bool)>(context: context, builder: (_) => const _ItemDialog());
+    if (r != null && r.$1.isNotEmpty && r.$2 > 0) await brain.addZakatItem(r.$1, r.$2, debt: r.$3);
+  }
+
+  /// The entries behind a line: a person's ধার-দেনা or an account's transactions.
+  void _details(Brain brain, ZakatLine l) {
+    final d = brain.data;
+    final rows = <(DateTime, String, int)>[];
+    if (l.key.startsWith('person:') || l.key.startsWith('owe:')) {
+      final key = l.key.substring(l.key.indexOf(':') + 1);
+      final keys = accountKeys(d.ledger);
+      for (final e in newestFirst(d.ledger.where((e) => keys[e.id] == key))) {
+        rows.add((e.date, tr(e.kind.label), e.kind.signed(e.amount)));
+      }
+    } else if (l.key.startsWith('account:')) {
+      final id = l.key.substring(8);
+      for (final e in d.cash.where((e) => e.accountId == id)) {
+        rows.add((e.date, e.category, e.kind == CashKind.income ? e.amount : -e.amount));
+      }
+      for (final t in d.transfers.where((t) => t.to == id || t.from == id)) {
+        rows.add((t.date, tr('এক অ্যাকাউন্ট থেকে আরেকটায়'), t.to == id ? t.amount : -(t.amount + t.fee)));
+      }
+      rows.sort((a, b) => b.$1.compareTo(a.$1));
+    } else if (l.key.startsWith('goal:')) {
+      for (final g in d.goals.where((g) => 'goal:${g.id}' == l.key)) {
+        for (final x in g.deposits.reversed) {
+          rows.add((x.date, tr('জমা'), x.amount));
+        }
+      }
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.6,
+        builder: (ctx, scroll) => ListView(controller: scroll, padding: const EdgeInsets.fromLTRB(20, 16, 20, 24), children: [
+          Text(l.label, style: display(20, weight: 700)),
+          const SizedBox(height: 4),
+          Text(l.how, style: body(13.5, color: C.muted, height: 1.4)),
+          const SizedBox(height: 10),
+          if (rows.isEmpty) Text(tr('আলাদা লেনদেন নেই — আপনার লেখা পরিমাণ'), style: body(14, color: C.muted)),
+          for (final r in rows.take(60))
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(children: [
+                SizedBox(width: 88, child: Text(shortDate(r.$1), style: body(13.5, color: C.muted))),
+                Expanded(child: Text(r.$2, style: body(14.5), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                Text('${r.$3 < 0 ? '−' : '+'}${taka(r.$3.abs())}', style: body(14.5, weight: FontWeight.w600, color: r.$3 < 0 ? C.orange : C.green)),
+              ]),
+            ),
+        ]),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final now = brain.services.now();
+    final saved = brain.zakatSaved;
+    final lines = zakatLines(brain.data, now, saved);
+    final z = zakatCount(lines, saved);
+    final due = zakatDueDay(brain.data.zakat.yearStart, now);
+    Widget field(String k, String label, {String? hint, bool vori = false}) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: TextField(
+            controller: _f[k],
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: (v) async {
+              await brain.setZakatValue(k, asciiDigits(v).replaceAll(',', '').trim());
+              if (mounted) setState(() {});
+            },
+            decoration: InputDecoration(labelText: label, hintText: hint, prefixText: vori ? null : tr('৳ '), suffixText: vori ? tr('ভরি') : null),
+          ),
+        );
+    // Two lines for where it came from (a one-line row would cut it off).
+    Widget line(ZakatLine l) => InkWell(
+          key: Key('zakat-line-${l.key}'),
+          onTap: () => _details(brain, l),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(4, 8, 10, 8),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Checkbox(value: l.included, onChanged: (v) => brain.setZakatIncluded(l.key, v ?? true)),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(l.label, style: body(15.5, weight: FontWeight.w600, color: l.included ? null : C.muted2), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(l.at == null ? l.how : '${l.how} · ${trf('শেষ বদল {0}', [shortDate(l.at!)])}', style: body(12.5, color: C.muted, height: 1.35), maxLines: 3),
+                  ]),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text('${l.debt ? '−' : ''}${taka(l.amount)}',
+                    style: body(15.5, weight: FontWeight.w600, color: !l.included ? C.muted2 : (l.debt ? C.orange : null)).copyWith(decoration: l.included ? null : TextDecoration.lineThrough)),
+              ),
+              if (l.manualId != null)
+                IconButton(tooltip: tr('মুছুন'), icon: const Icon(Icons.close_rounded, size: 18), onPressed: () => brain.deleteZakatItem(l.manualId!)),
+            ]),
+          ),
+        );
+    final groups = <ZakatGroup, List<ZakatLine>>{};
+    for (final l in lines) {
+      groups.putIfAbsent(l.group, () => []).add(l);
+    }
+    return Scaffold(
+      body: SafeArea(
+        child: Column(children: [
+          TopBar(title: tr('যাকাত')),
+          Expanded(
+            child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
+              Panel(
+                padding: const EdgeInsets.all(16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text(trf('যাকাতযোগ্য সম্পদ: {0}', [taka(math.max(0, z.net))]), style: body(15)),
+                  Text(trf('মোট সম্পদ {0} − দেনা {1}', [taka(z.wealth), taka(z.debts)]), style: body(12.5, color: C.muted)),
+                  const SizedBox(height: 6),
+                  Text(
+                    z.nisab <= 0 ? tr('নিসাব জানতে নিচে আজকের রুপার দাম দিন') : (z.due ? trf('যাকাত: {0}', [taka(z.zakat)]) : tr('নিসাবের কম — যাকাত ফরজ নয়')),
+                    key: const Key('zakat-total'),
+                    style: display(z.nisab <= 0 ? 17 : 24, weight: 700, color: z.due ? C.green : C.muted2),
+                  ),
+                  if (z.nisab > 0) Text(trf('নিসাব (৫২.৫ ভরি রুপা): {0}', [taka(z.nisab)]), style: body(12.5, color: C.muted)),
+                  const Divider(height: 22),
+                  Row(children: [
+                    Expanded(
+                      child: Text(
+                        due == null ? tr('যাকাতের বছর কবে শুরু, দিন দিলে পরের যাকাতের দিন মনে করিয়ে দেব') : trf('পরের যাকাতের দিন: {0} ({1})', [shortDate(due), daysLeftLabel(due, now)]),
+                        style: body(13.5, height: 1.35),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        final d = await showDatePicker(context: context, initialDate: brain.data.zakat.yearStart ?? now, firstDate: DateTime(now.year - 3), lastDate: now);
+                        if (d != null) await brain.setZakatYearStart(d);
+                      },
+                      child: Text(due == null ? tr('তারিখ দিন') : tr('বদলান')),
+                    ),
+                  ]),
+                ]),
+              ),
+              const SizedBox(height: 10),
+              Panel(
+                child: InkWell(
+                  onTap: () => setState(() => _learn = !_learn),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      Row(children: [
+                        Icon(Icons.menu_book_outlined, color: C.green, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(tr('যাকাত কী, কার ওপর, কীভাবে হিসাব'), style: body(15, weight: FontWeight.w600))),
+                        Icon(_learn ? Icons.expand_less_rounded : Icons.expand_more_rounded, color: C.muted),
+                      ]),
+                      if (_learn) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          tr('• নিসাব: সাড়ে ৫২ ভরি রুপা (বা সাড়ে ৭ ভরি সোনা) সমান সম্পদ এক চান্দ্র বছর ধরে থাকলে যাকাত ফরজ।\n• হার: যাকাতযোগ্য সম্পদের ২.৫% (৪০ ভাগের ১ ভাগ)।\n• ধরা হয়: নগদ, ব্যাংক ও মোবাইল ব্যাংকিংয়ের টাকা, সঞ্চয়, DPS-এ জমা, সোনা-রুপা, ব্যবসার মাল, ফেরত পাওয়ার আশা আছে এমন পাওনা।\n• ধরা হয় না: থাকার বাড়ি, নিজের ব্যবহারের গাড়ি-আসবাব, সংসারের জিনিস।\n• বাদ যায়: যে দেনা শোধ করতে হবে।\n• কাদের দেওয়া যায়: গরিব, মিসকিন, ঋণগ্রস্ত, মুসাফির ইত্যাদি (সূরা তাওবা ৬০)।\nএটা আনুমানিক হিসাব — নিশ্চিত হতে আলেমের পরামর্শ নিন।'),
+                          style: body(13.5, height: 1.5),
+                        ),
+                      ],
+                    ]),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              SectionTitle(tr('হিসাব কোথা থেকে এল')),
+              Text(tr('আয়-ব্যয়, অ্যাকাউন্ট, সঞ্চয়, কিস্তি আর ধার-দেনা থেকে নিজে আসে; সেখানে বদলালে এখানেও বদলায়। টিক তুলে দিলে সেটা বাদ যাবে, চাপলে কোন লেনদেন থেকে এল দেখাবে।'),
+                  style: body(12.5, color: C.muted, height: 1.4)),
+              const SizedBox(height: 8),
+              if (lines.isEmpty) Text(tr('এখনো কিছু নেই — অ্যাকাউন্ট, ধার-দেনা বা নিচে সোনা-রুপা লিখলে এখানে আসবে।'), style: body(14, color: C.muted)),
+              for (final g in ZakatGroup.values)
+                if (groups[g] != null) ...[
+                  Padding(padding: const EdgeInsets.only(top: 10, bottom: 4), child: Text(g.title, style: body(13.5, weight: FontWeight.w600, color: C.muted2))),
+                  Panel(child: Rows(children: [for (final l in groups[g]!) line(l)])),
+                ],
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(key: const Key('zakat-add'), onPressed: () => _addItem(brain), icon: const Icon(Icons.add_rounded), label: Text(tr('নিজে কিছু যোগ করুন'))),
+              ),
+              const SizedBox(height: 18),
+              SectionTitle(tr('একবার লিখে দিন — মনে রাখবো')),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  key: const Key('zakat-today-price'),
+                  onPressed: _fetching ? null : () => _todayPrice(brain),
+                  icon: _fetching ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.sync_rounded, size: 18),
+                  label: Text(tr('আজকের দাম আনুন (বাজুস)')),
+                ),
+              ),
+              if (_priceNote.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(_priceNote, style: body(12.5, color: C.muted, height: 1.4))),
+              const SizedBox(height: 10),
+              Row(children: [
+                Expanded(child: field('gold_vori', tr('সোনা'), vori: true)),
+                const SizedBox(width: 10),
+                Expanded(child: field('gold_price', tr('১ ভরি সোনার দাম'))),
+              ]),
+              Row(children: [
+                Expanded(child: field('silver_vori', tr('রুপা'), vori: true)),
+                const SizedBox(width: 10),
+                Expanded(child: field('silver_price', tr('১ ভরি রুপার দাম'), hint: tr('বাজারদর'))),
+              ]),
+              field('business', tr('ব্যবসার মাল (বিক্রয়মূল্যে)')),
+              field('other', tr('অন্যান্য (শেয়ার, বন্ড…)')),
+              InfoBanner(text: tr('মুখেও জিজ্ঞেস করা যায়: “আমার যাকাত কত?” — এই পাতার একই হিসাব থেকে উত্তর আসে।'), icon: Icons.info_outline_rounded),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+/// Something added by hand: what, how much, asset or debt.
+class _ItemDialog extends StatefulWidget {
+  const _ItemDialog();
+  @override
+  State<_ItemDialog> createState() => _ItemDialogState();
+}
+
+class _ItemDialogState extends State<_ItemDialog> {
+  final _label = TextEditingController(), _amount = TextEditingController();
+  bool _debt = false;
+
+  @override
+  void dispose() {
+    _label.dispose();
+    _amount.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: Text(tr('যাকাতের হিসাবে যোগ করুন')),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(key: const Key('zakat-item-label'), controller: _label, decoration: InputDecoration(labelText: tr('কী (যেমন: জমির বায়নার টাকা, প্রাইজবন্ড)'))),
+          const SizedBox(height: 8),
+          TextField(key: const Key('zakat-item-amount'), controller: _amount, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: tr('টাকা'), prefixText: tr('৳ '))),
+          const SizedBox(height: 8),
+          SegmentedButton<bool>(
+            segments: [ButtonSegment(value: false, label: Text(tr('সম্পদ'))), ButtonSegment(value: true, label: Text(tr('দেনা (বাদ যাবে)')))],
+            selected: {_debt},
+            onSelectionChanged: (v) => setState(() => _debt = v.first),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('বাতিল'))),
+          FilledButton(
+            key: const Key('zakat-item-save'),
+            onPressed: () => Navigator.pop(context, (_label.text.trim(), int.tryParse(asciiDigits(_amount.text).replaceAll(',', '').trim()) ?? 0, _debt)),
+            child: Text(tr('যোগ করুন')),
+          ),
+        ],
+      );
+}

@@ -25,6 +25,8 @@ import 'store_more_screens.dart';
 import 'vault_screen.dart';
 import 'pro_screen.dart';
 import 'requests_screen.dart';
+import 'zakat_screen.dart';
+import 'family_screen.dart';
 import '../logic/pro.dart';
 import '../state/brain.dart';
 import '../ui/pro_gate.dart';
@@ -48,6 +50,7 @@ Widget? placePage(String id, {String? folder}) => switch (id) {
       'accounts' => const AccountsScreen(),
       'savings' => const SavingsScreen(),
       'zakat' => const ZakatScreen(),
+      'family' => const FamilyScreen(),
       'split' => const SplitScreen(),
       'shop' => const ShopScreen(),
       'health' => const HealthScreen(),

@@ -26,6 +26,7 @@ import '../logic/cash.dart';
 import '../logic/health.dart';
 import '../logic/ledger.dart';
 import '../nlu/labels.dart';
+import 'family_state.dart';
 import '../nlu/reader.dart' show NluPiece;
 import '../nlu/router.dart';
 import '../nlu/samples.dart' show nluAppVersion, nluConsentVer, delexicalize;
@@ -609,6 +610,9 @@ class Brain extends ChangeNotifier {
 
   /// Feedback conversations and blood requests through our server.
   late final community = Community(services.server, () => services.ai.session);
+
+  /// ফ্যামিলি (lib/state/family_state.dart).
+  late final family = FamilyState(this);
 
   /// Answers from our team not opened yet (from the server, on refresh).
   int feedbackUnread = 0;
@@ -1495,6 +1499,8 @@ class Brain extends ChangeNotifier {
     // Yesterday's (and older) answer-source counts: sent once, quietly.
     unawaited(sendAnswerSources().catchError((_) {}));
     unawaited(loadNluConfig().then((_) => sendNluSamples()).then((_) => updateNluModelFromServer()).catchError((_) {}));
+    // ফ্যামিলি: what family members sent, location sharing and the heirs' copy (signed in only).
+    if (signedIn) unawaited(family.refresh().catchError((_) {}));
     await _loadServerNotices();
     try {
       data = await services.store.load();

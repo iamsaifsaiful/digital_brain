@@ -532,6 +532,15 @@ class _MembersPageState extends State<MembersPage> {
       const PageHead('সদস্য'),
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        child: OutlinedButton.icon(
+          key: const Key('heirs-open'),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => HeirClaimsPage(api: widget.api, guard: widget.guard))),
+          icon: const Icon(Icons.shield_outlined),
+          label: const Text('উত্তরাধিকারের অনুরোধ'),
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
         child: TextField(
           controller: _q,
           textInputAction: TextInputAction.search,
@@ -1051,4 +1060,129 @@ class _FeedbackThreadPageState extends State<FeedbackThreadPage> {
       ),
     );
   }
+}
+
+
+/// উত্তরাধিকার: deaths reported by an heir the member chose, with the
+/// certificate — the same list and decision as on the site's tab.
+class HeirClaimsPage extends StatefulWidget {
+  const HeirClaimsPage({super.key, required this.api, required this.guard});
+  final Api api;
+  final Guard guard;
+
+  @override
+  State<HeirClaimsPage> createState() => _HeirClaimsPageState();
+}
+
+class _HeirClaimsPageState extends State<HeirClaimsPage> {
+  List<Map<String, dynamic>>? _list;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final l = await widget.guard(() => widget.api.heirClaims());
+    if (l != null && mounted) setState(() => _list = l);
+  }
+
+  Future<void> _decide(Map<String, dynamic> cl, String action) async {
+    final note = await showDialog<String>(context: context, builder: (_) => _NoteDialog(approve: action == 'approve'));
+    if (note == null) return;
+    final r = await widget.guard(() async {
+      await widget.api.decideClaim((cl['id'] as num).toInt(), action, note);
+      return true;
+    });
+    if (r == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(action == 'approve' ? 'মানা হলো — সদস্যকে জানানো হয়েছে, ১৪ দিন পর খুলবে' : 'মানা হয়নি — উত্তরাধিকারীকে জানানো হয়েছে')));
+      _load();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Palette.of(context);
+    final list = _list;
+    const names = {'review': 'যাচাই বাকি', 'waiting': '১৪ দিনের অপেক্ষা', 'open': 'খোলা', 'rejected': 'মানা হয়নি', 'cancelled': 'বাতিল'};
+    return Scaffold(
+      appBar: AppBar(title: const Text('উত্তরাধিকারের অনুরোধ')),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: list == null
+            ? ListView(children: const [Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))])
+            : list.isEmpty
+                ? ListView(children: const [Empty(Icons.shield_outlined, 'কোনো অনুরোধ নেই', 'সদস্য যাঁকে উত্তরাধিকারী বেছেছেন, তিনি মৃত্যু সনদসহ খবর দিলে এখানে আসবে।')])
+                : ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
+                    Text('সদস্যের বেছে রাখা অংশ তালাবদ্ধ — আমরা খুলতে পারি না; মানলে সদস্যের ফোন আর ইমেইলে জানানো হয়, ১৪ দিনের মধ্যে তিনি বাতিল না করলে উত্তরাধিকারী দেখতে পান।', style: text(13, color: c.muted)),
+                    const SizedBox(height: 10),
+                    for (final cl in list) ...[
+                      CardBox(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Row(children: [
+                            Expanded(child: Text('${(cl['owner'] as Map)['name'] ?? ''}'.isEmpty ? '${(cl['owner'] as Map)['email']}' : '${(cl['owner'] as Map)['name']}', style: text(17, weight: FontWeight.w700, color: c.ink))),
+                            Pill(names['${cl['status']}'] ?? '${cl['status']}', cl['status'] == 'review' ? c.amber : c.muted, c.ground),
+                          ]),
+                          Text('${(cl['owner'] as Map)['email']}', style: text(13, color: c.muted)),
+                          const SizedBox(height: 6),
+                          Text('খবর দিয়েছেন: ${(cl['heir'] as Map)['name']} · ${(cl['heir'] as Map)['email']}${'${(cl['heir'] as Map)['relation']}'.isEmpty ? '' : ' · সম্পর্ক: ${(cl['heir'] as Map)['relation']}'}', style: text(14, color: c.ink)),
+                          Text(ago('${cl['created']}'), style: text(12.5, color: c.muted)),
+                          if ('${cl['note']}'.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text('${cl['note']}', style: text(14, color: c.ink))),
+                          if (cl['has_file'] == true)
+                            FutureBuilder<(Uint8List, String)>(
+                              future: widget.api.claimFile((cl['id'] as num).toInt()),
+                              builder: (context, snap) => Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: snap.data == null
+                                    ? Text(snap.hasError ? 'কাগজ খোলা গেল না' : 'কাগজ আনছি…', style: text(13, color: c.muted))
+                                    : snap.data!.$2.startsWith('image/')
+                                        ? ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.memory(snap.data!.$1, height: 220, fit: BoxFit.contain))
+                                        : Text('কাগজ: PDF (${bn((snap.data!.$1.length / 1024).round())} KB) — সাইটের পাতায় খুলুন', style: text(13, color: c.muted)),
+                              ),
+                            ),
+                          if ('${cl['admin_note'] ?? ''}'.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text('নোট: ${cl['admin_note']}', style: text(13, color: c.muted))),
+                          if (cl['status'] == 'review') ...[
+                            const SizedBox(height: 10),
+                            Row(children: [
+                              Expanded(child: FilledButton(key: Key('claim-approve-${cl['id']}'), onPressed: () => _decide(cl, 'approve'), child: const Text('কাগজ ঠিক — মানুন'))),
+                              const SizedBox(width: 8),
+                              Expanded(child: OutlinedButton(onPressed: () => _decide(cl, 'reject'), child: const Text('মানবেন না'))),
+                            ]),
+                          ],
+                        ]),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                  ]),
+      ),
+    );
+  }
+}
+
+class _NoteDialog extends StatefulWidget {
+  const _NoteDialog({required this.approve});
+  final bool approve;
+  @override
+  State<_NoteDialog> createState() => _NoteDialogState();
+}
+
+class _NoteDialogState extends State<_NoteDialog> {
+  final _t = TextEditingController();
+
+  @override
+  void dispose() {
+    _t.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: Text(widget.approve ? 'কাগজ ঠিক — মানবেন?' : 'মানবেন না?'),
+        content: TextField(controller: _t, decoration: const InputDecoration(labelText: 'নোট (ঐচ্ছিক)', hintText: 'যেমন: সনদ মিলেছে / ছবি অস্পষ্ট')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('বাতিল')),
+          FilledButton(key: const Key('claim-confirm'), onPressed: () => Navigator.pop(context, _t.text.trim()), child: Text(widget.approve ? 'মানুন' : 'মানবেন না')),
+        ],
+      );
 }

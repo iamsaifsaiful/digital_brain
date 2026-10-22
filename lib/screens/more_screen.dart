@@ -18,9 +18,10 @@ import 'help_screen.dart';
 import 'assistant_settings.dart';
 import 'settings_parts.dart';
 import 'sound_screen.dart';
-import 'store_more_screens.dart' show DonorPanel;
 import 'feedback_screen.dart';
 import 'requests_screen.dart';
+import 'zakat_screen.dart';
+import 'family_screen.dart';
 import 'trash_screen.dart';
 import 'trace_screen.dart';
 import '../services/trace.dart';
@@ -31,7 +32,7 @@ import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '2.42.0';
+const appVersion = '2.43.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -309,7 +310,7 @@ class _MoreScreenState extends State<MoreScreen> {
         // The things people come here for, as big tiles (two rows of two).
         for (final row in [
           [
-            _Tile(key: const Key('more-requests'), icon: Icons.bloodtype_outlined, fg: C.rose, bg: C.roseTint, title: tr('অনুরোধ'), sub: tr('রক্ত চাই / দিতে পারি'), onTap: () => push(const RequestsScreen())),
+            _Tile(key: const Key('more-requests'), icon: Icons.bloodtype_outlined, fg: C.rose, bg: C.roseTint, title: tr('ব্লাড ডোনেশন'), sub: tr('রক্ত দিন, রক্ত চান — সারা দেশে'), onTap: () => push(const RequestsScreen())),
             _Tile(
                 key: const Key('more-pro'),
                 icon: Icons.workspace_premium_outlined,
@@ -330,6 +331,24 @@ class _MoreScreenState extends State<MoreScreen> {
                 badge: brain.feedbackUnread > 0,
                 onTap: () => push(const FeedbackScreen())),
             _Tile(icon: Icons.lightbulb_outline_rounded, fg: C.green, bg: C.greenTint, title: tr('কী কী করা যায়'), sub: tr('সব সুবিধা, মাইকে কী বলবেন'), onTap: () => push(const HelpScreen())),
+          ],
+          [
+            _Tile(
+                key: const Key('more-zakat'),
+                icon: Icons.volunteer_activism_outlined,
+                fg: C.ochre,
+                bg: C.ochreTint,
+                title: tr('যাকাত'),
+                sub: tr('আপনার হিসাব থেকে নিজে হিসাব'),
+                onTap: () => push(const ZakatScreen())),
+            _Tile(
+                key: const Key('more-family'),
+                icon: Icons.family_restroom_rounded,
+                fg: C.purple,
+                bg: C.purpleTint,
+                title: tr('ফ্যামিলি'),
+                sub: tr('পরিবারের জন্য কাজ ও রিমাইন্ডার'),
+                onTap: () => push(const FamilyScreen())),
           ],
         ]) ...[
           Row(children: [Expanded(child: SizedBox(height: 70, child: row[0])), const SizedBox(width: 10), Expanded(child: SizedBox(height: 70, child: row[1]))]),
@@ -388,11 +407,6 @@ class _MoreScreenState extends State<MoreScreen> {
             }),
           ]),
         ),
-        const SizedBox(height: 16),
-        SectionTitle(tr('রক্তদান')),
-        const DonorPanel(),
-        const SizedBox(height: 6),
-        Panel(child: linkRow(Icons.bloodtype_outlined, tr('রক্তের অনুরোধ'), sub: tr('কারো রক্ত লাগলে দেখুন, বা নিজে অনুরোধ দিন'), onTap: () => push(const RequestsScreen()))),
         const SizedBox(height: 16),
         SectionTitle(tr('তথ্য নিরাপদ রাখা')),
         Panel(

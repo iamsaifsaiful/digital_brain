@@ -1059,7 +1059,9 @@ class AppData {
     List<Shop>? shops,
     List<Receipt>? receipts,
     List<TrashItem>? trash,
+    ZakatBook? zakat,
   })  : tasks = tasks ?? [],
+        zakat = zakat ?? ZakatBook(),
         trash = trash ?? [],
         inbox = inbox ?? [],
         shops = shops ?? [],
@@ -1126,6 +1128,9 @@ class AppData {
   /// Deleted things, kept 30 days (newest last).
   final List<TrashItem> trash;
 
+  /// The user's own changes to the zakat count (lines left out or added).
+  final ZakatBook zakat;
+
   static const schema = 1;
 
   /// Every tag in use, by name.
@@ -1166,6 +1171,7 @@ class AppData {
         if (shops.isNotEmpty) 'shops': shops.map((e) => e.toJson()).toList(),
         if (receipts.isNotEmpty) 'receipts': receipts.map((e) => e.toJson()).toList(),
         if (trash.isNotEmpty) 'trash': trash.map((e) => e.toJson()).toList(),
+        if (!zakat.isEmpty) 'zakat': zakat.toJson(),
       };
 
   factory AppData.fromJson(Map<String, Object?> j) {
@@ -1201,6 +1207,7 @@ class AppData {
       trash: list('trash', TrashItem.fromJson),
       health: list('health', HealthLog.fromJson),
       vaccines: {for (final e in ((j['vaccines'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
+      zakat: j['zakat'] is Map ? ZakatBook.fromJson((j['zakat'] as Map).cast<String, Object?>()) : null,
     );
   }
 }

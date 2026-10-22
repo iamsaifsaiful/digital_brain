@@ -46,6 +46,8 @@ function ma_bl_install() {
         id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
         user_id bigint(20) unsigned NOT NULL,
         patient varchar(120) NOT NULL DEFAULT '',
+        problem varchar(300) NOT NULL DEFAULT '',
+        location varchar(190) NOT NULL DEFAULT '',
         blood varchar(4) NOT NULL,
         bags tinyint unsigned NOT NULL DEFAULT 1,
         district varchar(64) NOT NULL,
@@ -128,6 +130,8 @@ function ma_bl_req_json($r, $me, $with_accepts = false) {
         'mine' => $mine,
         'by' => ma_bl_first_name($r['asker_name'] ?? '', $r['asker_email'] ?? ''),
         'patient' => $r['patient'],
+        'problem' => (string) ($r['problem'] ?? ''),
+        'location' => (string) ($r['location'] ?? ''),
         'blood' => $r['blood'],
         'bags' => (int) $r['bags'],
         'district' => $r['district'],
@@ -230,6 +234,15 @@ function ma_bl_list(WP_REST_Request $req) {
         $rows = $wpdb->get_results($wpdb->prepare("$sel WHERE r.user_id = %d ORDER BY r.id DESC LIMIT 30", $m['id']), ARRAY_A);
         return ['requests' => array_map(fn($x) => ma_bl_req_json($x, $m, true), $rows)];
     }
+    // The whole country (22 Oct 2026): every open request, nearest day first;
+    // a district or a group only when the member picks one.
+    if ($scope === 'all') {
+        $district = ma_bl_district($req->get_param('district') ?: '');
+        $group = ma_bl_group($req->get_param('blood') ?: '');
+        $where = ma_bl_open_sql() . ($district !== '' ? $wpdb->prepare(' AND r.district = %s', $district) : '') . ($group !== '' ? $wpdb->prepare(' AND r.blood = %s', $group) : '');
+        $rows = $wpdb->get_results("$sel WHERE $where ORDER BY r.need_by ASC LIMIT 100", ARRAY_A);
+        return ['requests' => array_map(fn($x) => ma_bl_req_json($x, $m), $rows ?: []), 'district' => $district, 'blood' => $group];
+    }
     $donor = ma_bl_donor_row((int) $m['id']);
     $district = ma_bl_district($req->get_param('district') ?: ($donor['district'] ?? ''));
     if ($district === '') {
@@ -265,6 +278,8 @@ function ma_bl_ask(WP_REST_Request $req) {
     $wpdb->insert($r, [
         'user_id' => (int) $m['id'],
         'patient' => mb_substr(sanitize_text_field((string) $req->get_param('patient')), 0, 120),
+        'problem' => mb_substr(sanitize_text_field((string) $req->get_param('problem')), 0, 300),
+        'location' => mb_substr(sanitize_text_field((string) $req->get_param('location')), 0, 190),
         'blood' => $blood,
         'bags' => $bags,
         'district' => $district,

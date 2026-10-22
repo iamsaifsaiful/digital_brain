@@ -1,6 +1,7 @@
 /// Accounts, the monthly report, zakat and splitting a bill.
 library;
 
+import 'zakat.dart' show zakatCount, zakatLines;
 import '../models/models.dart';
 import 'bn.dart';
 import 'lang.dart';
@@ -201,20 +202,9 @@ class ZakatSaved {
 
 /// The whole zakat: the records plus what the user entered ([z]). The
 /// nisab is 52.5 ভরি of silver at the price entered (none entered: unknown).
-ZakatInput zakatAuto(AppData d, DateTime now, ZakatSaved z) {
-  final r = zakatFromRecords(d, now);
-  return ZakatInput(
-    cash: r.cash,
-    bank: r.bank,
-    gold: (z.goldVori * z.goldPrice).round(),
-    silver: (z.silverVori * z.silverPrice).round(),
-    business: z.business,
-    receivable: r.receivable,
-    other: z.other,
-    debts: r.debts,
-    nisab: (z.silverPrice * 52.5).round(),
-  );
-}
+/// The count the যাকাত page shows and "আমার যাকাত কত?" answers: every line
+/// from lib/logic/zakat.dart, without the ones the user left out.
+ZakatInput zakatAuto(AppData d, DateTime now, ZakatSaved z) => zakatCount(zakatLines(d, now, z), z);
 
 /// Splitting [total] among [people]; the rounding taka goes to the first ones.
 List<int> splitAmounts(int total, int people) {

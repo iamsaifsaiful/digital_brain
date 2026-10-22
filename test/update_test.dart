@@ -150,7 +150,7 @@ void main() {
     expect(task.due, DateTime(2026, 10, 20));
   });
 
-  testWidgets('settings: profile rows are separate; blood donation is here; no AI row under অন্যান্য', (t) async {
+  testWidgets('settings: profile rows are separate; blood donation is its own page; no AI row under অন্যান্য', (t) async {
     final rig = await start(t);
     rig.brain.gated = true;
     await openMenu(t, 'সেটিংস');
@@ -164,7 +164,9 @@ void main() {
     expect(rig.brain.data.emergency.blood, 'B+');
     expect(find.byKey(const Key('more-feedback')), findsOneWidget);
     final list = vScroll().first;
-    await t.scrollUntilVisible(find.text('আমি রক্ত দিতে আগ্রহী'), 200, scrollable: list);
+    // Blood donation has its own page now (no donor switch here).
+    await t.scrollUntilVisible(find.text('তথ্য নিরাপদ রাখা'), 200, scrollable: list);
+    expect(find.text('আমি রক্ত দিতে আগ্রহী'), findsNothing);
     expect(find.text('AI সহকারী'), findsNothing);
   });
 
@@ -318,20 +320,25 @@ void main() {
     expect(acc!.iAccepted, isTrue);
   });
 
-  testWidgets('আরও tab: settings content with requests, Pro and feedback; অনুরোধ and প্রো ভার্সন in the home menu', (t) async {
+  testWidgets('আরও tab: blood donation, Pro, feedback, যাকাত and ফ্যামিলি; the same in the home menu', (t) async {
     await start(t);
     final grid = find.byType(GridView);
-    expect(find.descendant(of: grid, matching: find.text('অনুরোধ')), findsOneWidget);
+    expect(find.descendant(of: grid, matching: find.text('ব্লাড ডোনেশন')), findsOneWidget);
+    expect(find.descendant(of: grid, matching: find.text('যাকাত')), findsOneWidget);
+    expect(find.descendant(of: grid, matching: find.text('ফ্যামিলি')), findsOneWidget);
+    expect(find.descendant(of: grid, matching: find.text('অনুরোধ')), findsNothing, reason: 'not called অনুরোধ any more');
     expect(find.descendant(of: grid, matching: find.text('প্রো ভার্সন')), findsOneWidget);
     await t.tap(find.text('আরও').last);
     await settle(t);
     expect(find.byKey(const Key('more-requests')), findsOneWidget);
     expect(find.byKey(const Key('more-pro')), findsOneWidget);
     expect(find.byKey(const Key('more-feedback')), findsOneWidget);
-    expect(find.text('সেটিংস'), findsWidgets);
+    expect(find.byKey(const Key('more-zakat')), findsOneWidget);
+    expect(find.byKey(const Key('more-family')), findsOneWidget);
+    expect(find.text('রক্তের অনুরোধ'), findsNothing, reason: 'no separate request row in আরও');
     await t.tap(find.byKey(const Key('more-requests')));
     await settle(t);
-    expect(find.text('রক্তের অনুরোধ'), findsOneWidget);
+    expect(find.text('ব্লাড ডোনেশন'), findsOneWidget);
     expect(find.textContaining('Google দিয়ে লগইন করুন'), findsWidgets, reason: 'not signed in yet');
   });
 
@@ -413,13 +420,15 @@ void main() {
     await tapMenu(t, 'প্রো ভার্সন');
     expect(find.text('সংক্ষেপে'), findsOneWidget);
     final get = find.byKey(const Key('get-pro'));
-    await t.ensureVisible(get);
+    await t.scrollUntilVisible(get, 300, scrollable: vScroll().last);
     await settle(t);
     expect(find.text('Get Pro'), findsWidgets);
     await t.tap(get);
     await settle(t);
     final l = rig.services.launcher as FakeLauncher;
     expect(l.opened.last.toString(), proWebPage);
+    await t.fling(find.text('Get Pro').first, const Offset(0, 3000), 3000);
+    await settle(t);
     await t.tap(find.text('বিস্তারিত').first);
     await settle(t);
     await t.tap(find.byKey(const Key('pro-website')));

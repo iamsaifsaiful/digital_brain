@@ -41,7 +41,7 @@ const freeReportMonths = 3;
 
 /// No free trial: the free app is useful on its own, and Pro is bought
 /// when its tools are wanted.
-enum ProFeature { ai, noAds, autoBackup, docAlerts, dueReminders, history, reminders, people, docs, shops, receipts, pdf, projects, vault, inbox, smartNudges }
+enum ProFeature { ai, noAds, autoBackup, docAlerts, dueReminders, history, reminders, people, docs, shops, receipts, pdf, projects, vault, inbox, smartNudges, family }
 
 class ProInfo {
   const ProInfo(this.title, this.what, {this.free = '', this.later = false});
@@ -74,6 +74,7 @@ const proInfo = <ProFeature, ProInfo>{
   ProFeature.vault: ProInfo('পাসওয়ার্ড ভল্ট', 'যত খুশি পাসওয়ার্ড', free: '১০টা পাসওয়ার্ড'),
   ProFeature.inbox: ProInfo('মেসেজ থেকে কাজ', 'WhatsApp, SMS, বিকাশের মেসেজ থেকে নিজে হিসাব আর কাজ বানায়'),
   ProFeature.smartNudges: ProInfo('স্মার্ট খেয়াল', 'খরচ বেশি হলে, বেতন এলে, বিশেষ দিনের আগে — নিজে থেকে জানায়'),
+  ProFeature.family: ProInfo('ফ্যামিলি', 'পরিবারের সদস্যদের জন্য কাজ, রিমাইন্ডার, ওষুধের রিমাইন্ডার; অনুমতি থাকলে লাইভ লোকেশন; উত্তরাধিকারী', free: 'কেউ যুক্ত করলে যোগ দেওয়া আর তাঁর পাঠানো জিনিস পাওয়া'),
 };
 
 class ProPlan {

@@ -80,8 +80,10 @@ const appPlaces = <AppPlace>[
   AppPlace('templates', 'তৈরি তালিকা', ['তৈরি তালিকা', 'টেমপ্লেট', 'template', 'templates'], 'হজ, বিয়ে, নতুন বাসা, দেশে ফেরা — তৈরি কাজের তালিকা এক চাপে।'),
   AppPlace('store', 'সব কিছু', ['সব কিছু', 'সবকিছু', 'স্টোর', 'store'], 'অ্যাপের সব অংশ এক পাতায়।'),
   AppPlace('search', 'খুঁজুন', ['খোঁজার পাতা', 'সার্চ', 'search'], 'নোট, কাগজ, নম্বর, লেনদেন — সব জায়গায় একসাথে খোঁজা।'),
-  AppPlace('requests', 'অনুরোধ (রক্ত)', ['অনুরোধ', 'রক্তের অনুরোধ', 'রক্ত চাই', 'রক্ত লাগবে', 'রক্তদান', 'রক্ত দান', 'ব্লাড', 'ব্লাড ডোনার', 'blood', 'blood donor', 'blood request'],
-      'রক্ত দরকার হলে অনুরোধ দিন — আপনার জেলার দাতারা জানবেন; দাতা হলে কারো রক্ত লাগলে খবর পাবেন, “আমি দিতে পারব” বলতে পারবেন।', ['রক্তের অনুরোধ খোলো']),
+  AppPlace('requests', 'ব্লাড ডোনেশন', ['ব্লাড ডোনেশন', 'রক্তদান', 'রক্ত দান', 'অনুরোধ', 'রক্তের অনুরোধ', 'রক্ত চাই', 'রক্ত লাগবে', 'ব্লাড', 'ব্লাড ডোনার', 'blood', 'blood donation', 'blood donor', 'blood request'],
+      'রক্ত দরকার হলে অনুরোধ দিন — কার জন্যে, সমস্যা, হাসপাতাল, তারিখ আর নম্বরসহ; সারা দেশের সবাই দেখবেন, আপনার জেলার দাতারা নোটিফিকেশনও পাবেন। দাতা হলে “আমি দিতে পারব” বলতে পারবেন।', ['ব্লাড ডোনেশন খোলো']),
+  AppPlace('family', 'ফ্যামিলি', ['ফ্যামিলি', 'পরিবার', 'family'],
+      'পরিবারের সদস্যদের ইমেইলে যুক্ত করে তাঁদের জন্য কাজ, রিমাইন্ডার, ওষুধের রিমাইন্ডার, নোট দেওয়া; অনুমতি থাকলে লাইভ লোকেশন; উত্তরাধিকারী (প্রো)।', ['ফ্যামিলি খোলো']),
   AppPlace('settings', 'সেটিংস', ['সেটিংস', 'সেটিং', 'সেটিংসে', 'settings', 'setting', 'আরও'],
       'প্রোফাইল (নাম, জেলা, রক্তের গ্রুপ), রক্তদান, ভাষা, থিম ও নিজের রং, সহজ মোড, তালা, ব্যাকআপ, মতামত পাঠানো।'),
   AppPlace('notifications', 'নোটিফিকেশন', ['নোটিফিকেশন', 'notification', 'notifications', 'বিজ্ঞপ্তি'], 'কোন বার্তা আসবে, রাতে চুপ থাকা, দিনে কয়টা।'),
@@ -126,7 +128,7 @@ const docFolderWords = <String, List<String>>{
 const _endings = ['গুলোতে', 'গুলো', 'গুলি', 'টাতে', 'টায়', 'টা', 'টি', 'তে', 'য়', 'এর', 'ের', 'র', 'এ', 'ে', 's'];
 
 /// Pages that "… দেখাও" simply opens.
-const _pagesToShow = {'pro', 'requests', 'shop', 'calendar', 'settings', 'help', 'notifications', 'sound', 'backup', 'accounts', 'savings', 'zakat', 'split', 'emergency', 'templates', 'pdf', 'inbox', 'health'};
+const _pagesToShow = {'pro', 'requests', 'family', 'shop', 'calendar', 'settings', 'help', 'notifications', 'sound', 'backup', 'accounts', 'savings', 'zakat', 'split', 'emergency', 'templates', 'pdf', 'inbox', 'health'};
 
 // Words that open a page.
 const _openVerbs = [
@@ -335,5 +337,6 @@ const voiceCaps = <String, VoiceCap>{
   'diary': VoiceCap(VoiceLevel.openOnly, {}, notYet: ['ডায়েরিতে আলাদা লেখা রাখা']),
   'docs': VoiceCap(VoiceLevel.partial, {}, notYet: ['ফাইলের ভেতরের লেখা পড়া (OCR)', 'ফাইলের নাম বা মেয়াদ কথায় বদলানো']),
   'requests': VoiceCap(VoiceLevel.openOnly, {}, notYet: ['রক্তের অনুরোধ কথায় লেখা বা প্রকাশ করা']),
+  'family': VoiceCap(VoiceLevel.openOnly, {}, notYet: ['পরিবারের কারো জন্য কথায় কাজ বা রিমাইন্ডার পাঠানো']),
   'emergency': VoiceCap(VoiceLevel.partial, {'allergy_none': '"no allergy" said — not written as an allergy'}, notYet: ['জরুরি নম্বর ও অ্যালার্জি কথায় লেখা']),
 };

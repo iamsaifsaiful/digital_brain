@@ -1377,7 +1377,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
                 valueListenable: _text,
                 builder: (context, v, _) => v.text.trim().isEmpty
                     ? _Round(icon: Icons.mic_none_rounded, tooltip: tr('কথা বলুন'), bg: C.green, fg: Colors.white, size: 44, onTap: startVoice)
-                    : _Round(icon: Icons.arrow_upward_rounded, tooltip: tr('পাঠান'), bg: C.ink, fg: Colors.white, size: 44, onTap: _busy ? null : _submitTyped),
+                    : _Round(icon: Icons.arrow_upward_rounded, tooltip: tr('পাঠান'), bg: C.ink, fg: C.surface, size: 44, onTap: _busy ? null : _submitTyped),
               ),
             ]),
           ),

@@ -112,6 +112,8 @@ class BloodRequest {
     required this.phone,
     required this.status,
     this.patient = '',
+    this.problem = '',
+    this.location = '',
     this.hospital = '',
     this.note = '',
     this.accepted = 0,
@@ -121,7 +123,14 @@ class BloodRequest {
   final int id;
   final bool mine;
   final String by;
+  /// For whom ("আমার বাবা").
   final String patient;
+
+  /// The patient's problem (what the asker chose to write — shown to everyone).
+  final String problem;
+
+  /// Where the hospital is (area, address).
+  final String location;
   final String blood;
   final int bags;
   final String district;
@@ -145,6 +154,8 @@ class BloodRequest {
         mine: j['mine'] == true,
         by: '${j['by'] ?? ''}',
         patient: '${j['patient'] ?? ''}',
+        problem: '${j['problem'] ?? ''}',
+        location: '${j['location'] ?? ''}',
         blood: bloodLabel('${j['blood']}'),
         bags: (j['bags'] as num?)?.toInt() ?? 1,
         district: '${j['district'] ?? ''}',
@@ -236,8 +247,9 @@ class Community {
     return (DonorProfile.fromJson(r.data['donor']), r.error);
   }
 
-  /// scope: near (what this donor can give to), district, or mine.
-  Future<(List<BloodRequest>, String?)> requests({String scope = 'near', String district = '', String blood = ''}) async {
+  /// scope: all (the whole country; [district]/[blood] narrow it), near
+  /// (what this donor can give to), district, or mine.
+  Future<(List<BloodRequest>, String?)> requests({String scope = 'all', String district = '', String blood = ''}) async {
     final q = [
       'scope=$scope',
       if (district.isNotEmpty) 'district=${Uri.encodeQueryComponent(district)}',
@@ -248,7 +260,7 @@ class Community {
   }
 
   /// A new request: how many donors were told, or the reason it did not go.
-  Future<(int?, String?)> ask({required String blood, required int bags, required String district, required String hospital, required DateTime needBy, required String phone, String patient = '', String note = ''}) async {
+  Future<(int?, String?)> ask({required String blood, required int bags, required String district, required String hospital, required DateTime needBy, required String phone, String patient = '', String problem = '', String location = '', String note = ''}) async {
     final r = await _send('POST', '/blood/requests', {
       'blood': bloodKey(blood),
       'bags': bags,
@@ -257,6 +269,8 @@ class Community {
       'need_by': needBy.toUtc().toIso8601String(),
       'phone': phone,
       'patient': patient,
+      'problem': problem,
+      'location': location,
       'note': note,
     });
     if (r.status == 400) return (null, 'রক্তের গ্রুপ, জেলা, ঠিক মোবাইল নম্বর আর ৩০ দিনের মধ্যের তারিখ দিন');

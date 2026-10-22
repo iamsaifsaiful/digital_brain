@@ -27,7 +27,10 @@ class RequestsScreen extends StatefulWidget {
 
 class _RequestsScreenState extends State<RequestsScreen> {
   bool _mine = false;
-  bool _wholeDistrict = false;
+
+  /// Filters for the whole country's list ('' = all).
+  String _group = '';
+  String _place = '';
   DonorProfile? _donor;
   List<BloodRequest>? _list;
   String? _error;
@@ -43,12 +46,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
     if (!brain.signedIn) return;
     final c = brain.community;
     final (donor, e1) = _donor == null ? await c.donor() : (_donor!, null);
-    final (list, e2) = _mine
-        ? await c.requests(scope: 'mine')
-        : await c.requests(
-            scope: _wholeDistrict || !donor.on ? 'district' : 'near',
-            district: donor.on ? '' : brain.district,
-          );
+    final (list, e2) = _mine ? await c.requests(scope: 'mine') : await c.requests(scope: 'all', district: _place, blood: _group);
     if (!mounted) return;
     setState(() {
       _donor = donor;
@@ -124,7 +122,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
     final now = brain.services.now();
     final content = !brain.signedIn
         ? ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
-            Text(tr('রক্তের অনুরোধ দিতে বা দেখতে আগে Google দিয়ে লগইন করুন।'), style: body(15, color: C.muted2, height: 1.55)),
+            Text(tr('রক্ত চাইতে, দাতা হতে বা অনুরোধ দেখতে আগে Google দিয়ে লগইন করুন।'), style: body(15, color: C.muted2, height: 1.55)),
             const SizedBox(height: 12),
             const GoogleBackupPanel(),
           ])
@@ -132,7 +130,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
             onRefresh: _load,
             child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 100), children: [
               SegTabs<bool>(
-                items: [(false, tr('আশপাশের অনুরোধ')), (true, tr('আমার অনুরোধ'))],
+                items: [(false, tr('সারা দেশের অনুরোধ')), (true, tr('আমার অনুরোধ'))],
                 value: _mine,
                 onChanged: (v) {
                   setState(() => _mine = v);
@@ -142,18 +140,37 @@ class _RequestsScreenState extends State<RequestsScreen> {
               const SizedBox(height: 12),
               if (!_mine) ...[
                 if (donor != null) _DonorCard(donor: donor, onTap: _donorSetup),
-                if (donor != null && donor.on)
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: _wholeDistrict,
-                    onChanged: (v) {
-                      setState(() => _wholeDistrict = v);
-                      _reload();
-                    },
-                    title: Text(trf('{0}-এর সব অনুরোধ দেখুন', [tr(donor.district)]), style: body(14.5)),
-                    subtitle: Text(tr('বন্ধ থাকলে শুধু যেগুলোতে আপনি দিতে পারবেন'), style: body(12.5, color: C.muted)),
+                const SizedBox(height: 10),
+                Row(children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      key: const Key('blood-filter-group'),
+                      initialValue: _group,
+                      isExpanded: true,
+                      decoration: InputDecoration(labelText: tr('গ্রুপ'), isDense: true),
+                      items: [DropdownMenuItem(value: '', child: Text(tr('সব গ্রুপ'))), for (final g in bloodGroups) DropdownMenuItem(value: g, child: Text(g))],
+                      onChanged: (v) {
+                        setState(() => _group = v ?? '');
+                        _reload();
+                      },
+                    ),
                   ),
-                const SizedBox(height: 6),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      key: const Key('blood-filter-place'),
+                      initialValue: _place,
+                      isExpanded: true,
+                      decoration: InputDecoration(labelText: tr('জেলা'), isDense: true),
+                      items: [DropdownMenuItem(value: '', child: Text(tr('সারা দেশ'))), for (final p in bdPlaces) DropdownMenuItem(value: p.name, child: Text(p.label))],
+                      onChanged: (v) {
+                        setState(() => _place = v ?? '');
+                        _reload();
+                      },
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 10),
               ],
               if (_error != null) Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(_error!, style: body(14, color: C.red))),
               if (list == null)
@@ -162,7 +179,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
                 EmptyState(
                   icon: Icons.bloodtype_outlined,
                   title: _mine ? tr('আপনার কোনো অনুরোধ নেই') : tr('এখন কোনো অনুরোধ নেই'),
-                  text: _mine ? tr('রক্ত দরকার হলে নিচের “রক্ত চাই” চাপুন — আপনার জেলার দাতারা সাথে সাথে জানবেন।') : tr('কারো রক্ত লাগলে এখানে দেখাবে, আর দাতা হলে নোটিফিকেশনও পাবেন।'),
+                  text: _mine ? tr('রক্ত দরকার হলে নিচের “রক্ত চাই” চাপুন — সারা দেশের সবাই দেখবেন, আর আপনার জেলার দাতারা সাথে সাথে জানবেন।') : tr('দেশের যেকোনো জায়গায় কারো রক্ত লাগলে এখানে দেখাবে; দাতা হলে নিজের জেলার অনুরোধে নোটিফিকেশনও পাবেন।'),
                 )
               else
                 for (final r in list) ...[
@@ -185,9 +202,9 @@ class _RequestsScreenState extends State<RequestsScreen> {
         bottom: !widget.inTab,
         child: Column(children: [
           if (widget.inTab)
-            Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 4), child: TabTitle(tr('অনুরোধ')))
+            Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 4), child: TabTitle(tr('ব্লাড ডোনেশন')))
           else
-            TopBar(title: tr('রক্তের অনুরোধ')),
+            TopBar(title: tr('ব্লাড ডোনেশন')),
           Expanded(child: content),
         ]),
       ),
@@ -275,15 +292,18 @@ class _RequestCard extends StatelessWidget {
                 Expanded(child: Text(trf('{0} ব্যাগ রক্ত দরকার', [bnDigits(r.bags)]), style: body(16, weight: FontWeight.w700))),
                 Pill(state.$1, fg: state.$2, bg: state.$3),
               ]),
-              Text(r.hospital.isEmpty ? tr(r.district) : '${r.hospital}, ${tr(r.district)}', style: body(14, color: C.muted2)),
+              Text([if (r.hospital.isNotEmpty) r.hospital, if (r.location.isNotEmpty) r.location, tr(r.district)].join(', '), style: body(14, color: C.muted2)),
               Text(trf('লাগবে: {0}', [sayWhen(r.needBy, now)]), style: body(13.5, weight: FontWeight.w600, color: urgent ? C.rose : C.muted2)),
             ]),
           ),
         ]),
-        if (r.patient.isNotEmpty || r.note.isNotEmpty) ...[
+        if (r.patient.isNotEmpty || r.problem.isNotEmpty || r.note.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text([if (r.patient.isNotEmpty) trf('রোগী: {0}', [r.patient]), if (r.note.isNotEmpty) r.note].join(' · '), style: body(14, height: 1.5)),
+          if (r.patient.isNotEmpty) Text(trf('কার জন্যে: {0}', [r.patient]), style: body(14, height: 1.5)),
+          if (r.problem.isNotEmpty) Text(trf('রোগীর সমস্যা: {0}', [r.problem]), style: body(14, height: 1.5)),
+          if (r.note.isNotEmpty) Text(r.note, style: body(14, height: 1.5, color: C.muted2)),
         ],
+        if (!r.mine) Text(trf('যোগাযোগ: {0}', [bnDigits(r.phone)]), style: body(14, weight: FontWeight.w600, height: 1.6)),
         const SizedBox(height: 8),
         if (!r.mine) ...[
           Text(trf('চেয়েছেন {0}{1}', [r.by, r.accepted > 0 ? ' · ${trf('{0} জন রাজি', [bnDigits(r.accepted)])}' : '']), style: body(12.5, color: C.muted)),
@@ -448,6 +468,8 @@ class _AskBloodScreenState extends State<AskBloodScreen> {
   late DateTime _need;
   final _hospital = TextEditingController();
   final _patient = TextEditingController();
+  final _problem = TextEditingController();
+  final _location = TextEditingController();
   final _note = TextEditingController();
   late final _phone = TextEditingController(text: widget.phone);
   bool _busy = false;
@@ -464,7 +486,7 @@ class _AskBloodScreenState extends State<AskBloodScreen> {
 
   @override
   void dispose() {
-    for (final c in [_hospital, _patient, _note, _phone]) {
+    for (final c in [_hospital, _patient, _problem, _location, _note, _phone]) {
       c.dispose();
     }
     super.dispose();
@@ -473,6 +495,10 @@ class _AskBloodScreenState extends State<AskBloodScreen> {
   Future<void> _send() async {
     if (_blood.isEmpty) {
       setState(() => _error = tr('কোন গ্রুপের রক্ত লাগবে, বেছে নিন'));
+      return;
+    }
+    if (_patient.text.trim().isEmpty || _problem.text.trim().isEmpty || _hospital.text.trim().isEmpty) {
+      setState(() => _error = tr('কার জন্যে, রোগীর সমস্যা আর হাসপাতালের নাম দিন'));
       return;
     }
     setState(() {
@@ -487,6 +513,8 @@ class _AskBloodScreenState extends State<AskBloodScreen> {
           needBy: _need,
           phone: asciiDigits(_phone.text.trim()),
           patient: _patient.text.trim(),
+          problem: _problem.text.trim(),
+          location: _location.text.trim(),
           note: _note.text.trim(),
         );
     if (!mounted) return;
@@ -520,7 +548,13 @@ class _AskBloodScreenState extends State<AskBloodScreen> {
                 IconButton.outlined(onPressed: _bags < 10 ? () => setState(() => _bags++) : null, icon: const Icon(Icons.add_rounded)),
               ]),
               const SizedBox(height: 14),
-              TextField(key: const Key('ask-hospital'), controller: _hospital, decoration: InputDecoration(labelText: tr('হাসপাতাল / কোথায়'), hintText: tr('যেমন: ঢাকা মেডিকেল কলেজ হাসপাতাল'))),
+              TextField(key: const Key('ask-patient'), controller: _patient, decoration: InputDecoration(labelText: tr('কার জন্যে'), hintText: tr('যেমন: আমার বাবা, রহিম (৪৫)'))),
+              const SizedBox(height: 12),
+              TextField(key: const Key('ask-problem'), controller: _problem, decoration: InputDecoration(labelText: tr('রোগীর সমস্যা'), hintText: tr('যেমন: সিজারিয়ান অপারেশন, থ্যালাসেমিয়া, দুর্ঘটনা'))),
+              const SizedBox(height: 12),
+              TextField(key: const Key('ask-hospital'), controller: _hospital, decoration: InputDecoration(labelText: tr('হাসপাতাল'), hintText: tr('যেমন: ঢাকা মেডিকেল কলেজ হাসপাতাল'))),
+              const SizedBox(height: 12),
+              TextField(key: const Key('ask-location'), controller: _location, decoration: InputDecoration(labelText: tr('হাসপাতালের অবস্থান (এলাকা, ঠিকানা, ওয়ার্ড)'), hintText: tr('যেমন: বকশিবাজার, ওয়ার্ড ৩'))),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: bdPlaces.any((p) => p.name == _district) ? _district : bdPlaces.first.name,
@@ -542,11 +576,9 @@ class _AskBloodScreenState extends State<AskBloodScreen> {
               const SizedBox(height: 12),
               TextField(key: const Key('ask-phone'), controller: _phone, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: tr('যোগাযোগের মোবাইল নম্বর'))),
               const SizedBox(height: 12),
-              TextField(controller: _patient, decoration: InputDecoration(labelText: tr('রোগী (ঐচ্ছিক)'), hintText: tr('যেমন: আমার বাবা'))),
-              const SizedBox(height: 12),
-              TextField(controller: _note, maxLines: 2, decoration: InputDecoration(labelText: tr('বিস্তারিত (ঐচ্ছিক)'), hintText: tr('যেমন: অপারেশন, ওয়ার্ড ৩'))),
+              TextField(controller: _note, maxLines: 2, decoration: InputDecoration(labelText: tr('আর কিছু বলার থাকলে (ঐচ্ছিক)'), hintText: tr('যেমন: সকাল ১০টার আগে আসুন'))),
               const SizedBox(height: 8),
-              Text(tr('আপনার জেলার যাঁরা দাতা আর এই গ্রুপে দিতে পারেন, তাঁরা নোটিফিকেশন পাবেন এবং আপনার নম্বর দেখবেন। একসাথে ৩টা পর্যন্ত অনুরোধ খোলা রাখা যায়।'),
+              Text(tr('অনুরোধটা সারা দেশের সবাই দেখবেন — কার জন্যে, সমস্যা, হাসপাতাল, তারিখ আর আপনার নম্বরসহ। আপনার জেলার যাঁরা দাতা আর এই গ্রুপে দিতে পারেন, তাঁরা নোটিফিকেশনও পাবেন। একসাথে ৩টা পর্যন্ত অনুরোধ খোলা রাখা যায়।'),
                   style: body(12.5, color: C.muted, height: 1.5)),
               if (_error != null) ...[const SizedBox(height: 10), Text(_error!, style: body(14, color: C.red))],
               const SizedBox(height: 16),

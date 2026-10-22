@@ -2,7 +2,7 @@
 /**
  * Plugin Name: My Assistant Accounts
  * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, প্রো, পেমেন্ট, নোটিফিকেশন আর মতামত। শুধু নাম, ইমেইল, ছবি আর প্রো-র তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.12.0
+ * Version: 1.13.0
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: My Assistant
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.12.0';
+const MA_ACC_VERSION = '1.13.0';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
 const MA_ACC_PER_PAGE = 20;
 
@@ -28,6 +28,7 @@ require_once __DIR__ . '/admin-api.php';
 require_once __DIR__ . '/feedback.php';
 require_once __DIR__ . '/pro-page.php';
 require_once __DIR__ . '/blood.php';
+require_once __DIR__ . '/family.php';
 require_once __DIR__ . '/metal.php';
 
 /** The members table. */
@@ -67,6 +68,7 @@ function ma_acc_install() {
     ma_note_install();
     ma_fb_install();
     ma_bl_install();
+    ma_fam_install();
     // Who may approve payments and manage members (the admin app signs in with these accounts).
     if (!get_role('ma_admin')) {
         add_role('ma_admin', 'My Assistant অ্যাডমিন', ['read' => true, 'ma_manage' => true]);
@@ -323,6 +325,7 @@ add_action('admin_post_ma_acc_delete', function () {
     $wpdb->delete(ma_ai_sessions_table(), ['user_id' => $id]);
     $wpdb->delete(ma_ai_usage_table(), ['user_id' => $id]);
     ma_nlu_forget_member($id);
+    ma_fam_forget_member($id);
     ma_acc_back('সদস্যের তথ্য মুছে ফেলা হলো। আবার লগইন করলে নতুন করে যোগ হবেন।');
 });
 
@@ -443,6 +446,9 @@ function ma_acc_admin() {
             default => $wpdb->get_results("SELECT * FROM $ft WHERE status <> 'done' ORDER BY id DESC LIMIT 200", ARRAY_A),
         };
     }
+    if ($tab === 'heirs') {
+        $extra['heirs'] = ma_fam_claims_list('all');
+    }
     if ($tab === 'nlu') {
         $extra['nlu'] = ['settings' => ma_nlu_settings(), 'models' => ma_nlu_models_list(), 'review' => ma_nlu_review_list(30), 'intents' => array_keys(MA_NLU_INTENTS), 'overview' => ma_nlu_overview()];
     }
@@ -451,6 +457,7 @@ function ma_acc_admin() {
     }
     $extra['pending'] = ma_pay_pending_count();
     $extra['fb_new'] = ma_fb_new_count();
+    $extra['heirs_pending'] = ma_fam_claims_pending();
 
     ma_acc_render($extra + [
         'tab' => $tab,

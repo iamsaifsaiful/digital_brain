@@ -29,6 +29,8 @@ import 'notes_screen.dart';
 import 'plan_screens.dart';
 import 'vault_screen.dart';
 import 'requests_screen.dart';
+import 'zakat_screen.dart';
+import 'family_screen.dart';
 import 'pro_screen.dart';
 import '../logic/inbox.dart' show inboxTodo;
 import '../logic/lang.dart';
@@ -83,7 +85,9 @@ class HomePage extends StatelessWidget {
       (tr('পাসওয়ার্ড'), Icons.lock_outline_rounded, C.muted2, C.soft, () => push(const VaultPage())),
       (tr('ক্যালেন্ডার'), Icons.calendar_month_outlined, C.blue, C.blueTint, () => push(const CalendarScreen())),
       (tr('কম্পাস'), Icons.explore_outlined, C.green, C.greenTint, () => push(const CompassScreen())),
-      (tr('অনুরোধ'), Icons.bloodtype_outlined, C.rose, C.roseTint, () => push(const RequestsScreen())),
+      (tr('যাকাত'), Icons.volunteer_activism_outlined, C.ochre, C.ochreTint, () => push(const ZakatScreen())),
+      (tr('ফ্যামিলি'), Icons.family_restroom_rounded, C.purple, C.purpleTint, () => push(const FamilyScreen())),
+      (tr('ব্লাড ডোনেশন'), Icons.bloodtype_outlined, C.rose, C.roseTint, () => push(const RequestsScreen())),
       (tr('প্রো ভার্সন'), Icons.workspace_premium_outlined, C.ochre, C.ochreTint, () => push(const ProScreen())),
     ];
 

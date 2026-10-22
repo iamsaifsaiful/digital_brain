@@ -30,6 +30,7 @@ class FakeServer {
   final replies = <Map<String, dynamic>>[];
   final saved = <Map<String, dynamic>>[];
   final labels = <Map<String, dynamic>>[];
+  final decisions = <Map<String, dynamic>>[];
   final aiSettings = <String, Object?>{
     'nlu': {'mode': 'shadow', 'pct': 100, 'free_model': 'gemini-3.1-flash-lite', 'pro_model': 'claude-haiku-5-5', 'escalate_model': 'claude-sonnet-5-5', 'free_per_user': 20, 'pro_per_user': 60},
     'ai_on': true, 'budgets': {'auto': true, 'free': {'day': 0.2, 'month': 3}, 'pro': {'day': 0.09, 'month': 1.3}}, 'member_cap_usd': 0.2047, 'usd_bdt': 122,
@@ -97,6 +98,17 @@ class FakeServer {
     } else if (p == '/admin/ai/settings') {
       saved.add(jsonDecode(r.body) as Map<String, dynamic>);
       body = aiSettings;
+    } else if (p == '/admin/family/claims') {
+      body = {
+        'claims': [
+          {'id': 3, 'status': decisions.isEmpty ? 'review' : 'waiting', 'created': '2026-10-22T04:00:00Z', 'owner': {'id': 8, 'name': 'রাফি', 'email': 'son@gmail.com'}, 'heir': {'id': 7, 'name': 'আম্মা', 'email': 'mom@gmail.com', 'relation': 'ছেলে'}, 'note': 'গত শুক্রবার', 'file_name': 'sonod.png', 'file_mime': 'image/png', 'has_file': true, 'open_at': null, 'admin_note': ''},
+        ],
+      };
+    } else if (p == '/admin/family/claims/3/file') {
+      body = {'name': 'sonod.png', 'mime': 'image/png', 'data': 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='};
+    } else if (p == '/admin/family/claims/3') {
+      decisions.add(jsonDecode(r.body) as Map<String, dynamic>);
+      body = {'ok': true};
     } else if (p == '/admin/ai/selftest') {
       body = {'gemini': {'ok': true, 'ms': 900}, 'anthropic': {'ok': false, 'ms': 300, 'error': '401 invalid key'}};
     } else if (p == '/admin/nlu/review') {
@@ -332,5 +344,23 @@ void main() {
     await api.logout();
     expect(store.value, isNull);
     expect(await api.fingerprintOn(), isFalse);
+  });
+
+  testWidgets('উত্তরাধিকার: the reported death with the certificate; approve with a note (the same as on the site)', (t) async {
+    final server = await open(t);
+    await t.tap(find.text('সদস্য').last);
+    await settle(t);
+    await t.tap(find.byKey(const Key('heirs-open')));
+    await settle(t);
+    expect(find.text('রাফি'), findsOneWidget);
+    expect(find.textContaining('সম্পর্ক: ছেলে'), findsOneWidget);
+    expect(find.byType(Image), findsOneWidget, reason: 'the certificate is shown');
+    await t.tap(find.byKey(const Key('claim-approve-3')));
+    await settle(t);
+    await t.enterText(find.byType(TextField).last, 'সনদ মিলেছে');
+    await t.tap(find.byKey(const Key('claim-confirm')));
+    await settle(t);
+    expect(server.decisions.single, {'action': 'approve', 'note': 'সনদ মিলেছে'});
+    expect(find.text('১৪ দিনের অপেক্ষা'), findsOneWidget);
   });
 }

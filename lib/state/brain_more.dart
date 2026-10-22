@@ -204,6 +204,36 @@ extension BrainMore on Brain {
     await _save();
   }
 
+  // ── Zakat ──
+
+  /// Leaves a line of the zakat count out (or puts it back).
+  Future<void> setZakatIncluded(String key, bool included) async {
+    if (included) {
+      data.zakat.excluded.remove(key);
+    } else {
+      data.zakat.excluded.add(key);
+    }
+    await _save();
+  }
+
+  /// Something added to the zakat count by hand (an asset, or a debt to take off).
+  Future<void> addZakatItem(String label, int amount, {bool debt = false}) async {
+    data.zakat.items.add(ZakatItem(label: label.trim(), amount: amount, debt: debt, date: services.now()));
+    await _save();
+  }
+
+  Future<void> deleteZakatItem(String id) async {
+    data.zakat.items.removeWhere((i) => i.id == id);
+    data.zakat.excluded.remove('manual:$id');
+    await _save();
+  }
+
+  /// The day the user's zakat year began (the next due day is 354 days on).
+  Future<void> setZakatYearStart(DateTime? day) async {
+    data.zakat.yearStart = day;
+    await _save();
+  }
+
   // ── Instalments ──
 
   /// Saves [i] with a monthly reminder on its day (10 in the morning, and a day before).

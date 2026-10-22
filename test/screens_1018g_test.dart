@@ -4,7 +4,7 @@ import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/screens/doc_upload.dart';
 import 'package:digital_brain/screens/docs_screen.dart' show DocScreen;
 import 'package:digital_brain/screens/home_shell.dart';
-import 'package:digital_brain/screens/money_more_screens.dart' show ZakatScreen;
+import 'package:digital_brain/screens/zakat_screen.dart' show ZakatScreen;
 import 'package:digital_brain/services/files.dart';
 import 'package:digital_brain/services/ocr.dart';
 import 'package:digital_brain/state/chat.dart';

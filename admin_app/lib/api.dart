@@ -241,6 +241,20 @@ class Api {
   Future<Map<String, dynamic>> modelAction(String version, String action, {int? pct}) async =>
       ((await _send('POST', '/admin/nlu/models', {'version': version, 'action': action, if (pct != null) 'pct': pct}))['model'] as Map).cast<String, dynamic>();
 
+  // ── উত্তরাধিকার (the same as the site's tab) ──
+
+  /// Deaths reported by an heir the member chose: status review | all.
+  Future<List<Map<String, dynamic>>> heirClaims({String status = 'all'}) async => ((await _send('GET', '/admin/family/claims?status=$status'))['claims'] as List).cast<Map<String, dynamic>>();
+
+  /// approve (the member is told; the heir opens after 14 days unless cancelled) or reject.
+  Future<void> decideClaim(int id, String action, String note) => _send('POST', '/admin/family/claims/$id', {'action': action, 'note': note});
+
+  /// The certificate photo: (bytes, mime).
+  Future<(Uint8List, String)> claimFile(int id) async {
+    final r = await _send('GET', '/admin/family/claims/$id/file');
+    return (base64Decode('${r['data']}'), '${r['mime']}');
+  }
+
   /// A model added by hand as a draft (as on the site's "AI মডেল" page).
   Future<Map<String, dynamic>> addDraft(String version, String url, String sha256, int size) async =>
       ((await _send('POST', '/admin/nlu/models', {'action': 'draft', 'version': version, 'url': url, 'sha256': sha256, 'size': size}))['model'] as Map).cast<String, dynamic>();

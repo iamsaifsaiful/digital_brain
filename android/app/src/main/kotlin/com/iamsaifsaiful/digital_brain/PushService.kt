@@ -22,6 +22,12 @@ import io.flutter.plugin.common.MethodChannel
  */
 class PushService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
+        // A family member asked where this phone is (silent): answered here,
+        // with the app open or closed, only if the user turned sharing on.
+        if (message.data["type"] == "locate") {
+            LocationShare.answer(this)
+            return
+        }
         // In the background Firebase shows "notification" messages itself;
         // in the foreground they arrive here.
         val n = message.notification ?: return

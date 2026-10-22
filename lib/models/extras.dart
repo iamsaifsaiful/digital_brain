@@ -715,3 +715,42 @@ class Receipt {
         date: _d(j['date']) ?? DateTime.now(),
       );
 }
+
+// ───────────────────────── Zakat ─────────────────────────
+
+/// Something the user added to the zakat count by hand (an asset, or a debt
+/// to take off), with the day it was added.
+class ZakatItem {
+  ZakatItem({String? id, required this.label, required this.amount, this.debt = false, DateTime? date})
+      : id = id ?? newId(),
+        date = date ?? DateTime.now();
+  final String id;
+  final String label;
+  final int amount;
+  final bool debt;
+  final DateTime date;
+
+  Map<String, Object?> toJson() => {'id': id, 'label': label, 'amount': amount, 'debt': debt, 'date': date.toIso8601String()};
+  factory ZakatItem.fromJson(Map<String, Object?> j) => ZakatItem(id: j['id'] as String?, label: _s(j['label']), amount: _i(j['amount']), debt: j['debt'] == true, date: _d(j['date']));
+}
+
+/// The user's own changes to the zakat count: lines taken out (by key, see
+/// lib/logic/zakat.dart), lines added by hand, and the day their zakat year
+/// began (the next due day is a lunar year — 354 days — later).
+class ZakatBook {
+  ZakatBook({Set<String>? excluded, List<ZakatItem>? items, this.yearStart})
+      : excluded = excluded ?? {},
+        items = items ?? [];
+  final Set<String> excluded;
+  final List<ZakatItem> items;
+  DateTime? yearStart;
+
+  bool get isEmpty => excluded.isEmpty && items.isEmpty && yearStart == null;
+
+  Map<String, Object?> toJson() => {'excluded': excluded.toList()..sort(), 'items': [for (final i in items) i.toJson()], if (yearStart != null) 'yearStart': yearStart!.toIso8601String()};
+  factory ZakatBook.fromJson(Map<String, Object?> j) => ZakatBook(
+        excluded: {..._ls(j['excluded'])},
+        items: [for (final i in (j['items'] as List? ?? const [])) if (i is Map) ZakatItem.fromJson(i.cast<String, Object?>())],
+        yearStart: _d(j['yearStart']),
+      );
+}

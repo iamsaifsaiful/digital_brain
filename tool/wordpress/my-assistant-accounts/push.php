@@ -85,11 +85,16 @@ function ma_push_send(array $tokens, $title, $body, array $data = []) {
         $res = wp_remote_post('https://fcm.googleapis.com/v1/projects/' . rawurlencode($acc['project_id']) . '/messages:send', [
             'timeout' => 10,
             'headers' => ['authorization' => 'Bearer ' . $auth, 'content-type' => 'application/json'],
-            'body' => wp_json_encode(['message' => [
+            // No title: a silent data message the app handles itself (e.g. a family member asking where the phone is).
+            'body' => wp_json_encode(['message' => $title === '' ? [
+                'token' => $t,
+                'data' => (object) $data,
+                'android' => ['priority' => 'high', 'ttl' => '600s'],
+            ] : [
                 'token' => $t,
                 'notification' => ['title' => $title, 'body' => $body],
                 'data' => (object) $data,
-                'android' => ['priority' => 'high', 'notification' => ['channel_id' => 'ma_server']],
+                'android' => ['priority' => 'high', 'notification' => ['channel_id' => 'ma_server_v3']],
             ]]),
         ]);
         $code = is_wp_error($res) ? 0 : (int) wp_remote_retrieve_response_code($res);

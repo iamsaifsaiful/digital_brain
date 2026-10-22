@@ -317,6 +317,35 @@ class MainActivity : FlutterFragmentActivity() {
         requestPermissions(arrayOf(Manifest.permission.READ_CONTACTS), CONTACTS_REQUEST)
     }
 
+    /** ফ্যামিলি › লোকেশন: permissions, the sharing settings, and sending where the phone is now. */
+    private fun locationChannel(call: io.flutter.plugin.common.MethodCall, result: MethodChannel.Result) {
+        when (call.method) {
+            "status" -> result.success(LocationShare.status(this))
+            "ask" -> {
+                requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), LOCATION_REQUEST)
+                result.success(null)
+            }
+            // "Allow all the time": Android 11+ only offers it on the app's settings page.
+            "askBackground" -> {
+                if (Build.VERSION.SDK_INT == 29) {
+                    requestPermissions(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION), LOCATION_REQUEST)
+                } else if (Build.VERSION.SDK_INT >= 30) {
+                    tryStart(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+                }
+                result.success(null)
+            }
+            "configure" -> {
+                LocationShare.configure(this, call.argument<Boolean>("on") == true, call.argument<String>("key"), call.argument<String>("session"), call.argument<String>("base"))
+                result.success(null)
+            }
+            "report" -> Thread {
+                val ok = LocationShare.answer(applicationContext)
+                runOnUiThread { result.success(ok) }
+            }.start()
+            else -> result.notImplemented()
+        }
+    }
+
     @Deprecated("Uses the platform permission callback")
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
@@ -557,6 +586,9 @@ class MainActivity : FlutterFragmentActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/inbox").setMethodCallHandler { call, result ->
             inboxChannel(call, result)
         }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/location").setMethodCallHandler { call, result ->
+            locationChannel(call, result)
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/push").setMethodCallHandler { call, result ->
             PushService.handle(this, call, result)
         }
@@ -638,5 +670,6 @@ class MainActivity : FlutterFragmentActivity() {
         private const val SAVE_REQUEST = 4711
         private const val SOUND_REQUEST = 4712
         private const val CONTACTS_REQUEST = 4713
+        private const val LOCATION_REQUEST = 4721
     }
 }

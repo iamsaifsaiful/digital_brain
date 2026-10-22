@@ -76,7 +76,7 @@ function ma_acc_url($args) {
 function ma_acc_render($v) {
     $labels = ma_acc_status_labels();
     $s = $v['stats'];
-    $tab = in_array($v['tab'], ['settings', 'ai', 'nlu', 'payments', 'notices', 'feedback'], true) ? $v['tab'] : 'members';
+    $tab = in_array($v['tab'], ['settings', 'ai', 'nlu', 'heirs', 'payments', 'notices', 'feedback'], true) ? $v['tab'] : 'members';
     $fb_new = (int) ($v['fb_new'] ?? 0);
     $pending = (int) ($v['pending'] ?? 0);
     $paying_rate = $s['total'] ? round($s['pro'] * 100 / $s['total'], 1) : 0;
@@ -102,6 +102,7 @@ function ma_acc_render($v) {
                     <a class="<?php echo $tab === 'payments' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'payments']); ?>">পেমেন্ট<?php if ($pending) : ?><i class="ma-badge"><?php echo esc_html(ma_acc_bn($pending)); ?></i><?php endif; ?></a>
                     <a class="<?php echo $tab === 'notices' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'notices']); ?>">নোটিফিকেশন</a>
                     <a class="<?php echo $tab === 'feedback' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'feedback']); ?>">মতামত<?php if ($fb_new) : ?><i class="ma-badge"><?php echo esc_html(ma_acc_bn($fb_new)); ?></i><?php endif; ?></a>
+                    <a class="<?php echo $tab === 'heirs' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'heirs']); ?>">উত্তরাধিকার<?php if (!empty($v['heirs_pending'])) : ?><i class="ma-badge"><?php echo esc_html(ma_acc_bn($v['heirs_pending'])); ?></i><?php endif; ?></a>
                     <a class="<?php echo $tab === 'nlu' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'nlu']); ?>">AI মডেল</a>
                     <?php if (!empty($v['can_settings'])) : ?><a class="<?php echo $tab === 'ai' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'ai']); ?>">AI খরচ</a><?php endif; ?>
                     <?php if (!empty($v['can_settings'])) : ?><a class="<?php echo $tab === 'settings' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'settings']); ?>">সেটিংস</a><?php endif; ?>
@@ -121,6 +122,8 @@ function ma_acc_render($v) {
 
         <?php if ($tab === 'ai' && !empty($v['can_settings'])) {
             ma_acc_render_ai_report($v);
+        } elseif ($tab === 'heirs') {
+            ma_acc_render_heirs($v['heirs'] ?? []);
         } elseif ($tab === 'nlu') {
             ma_acc_render_nlu($v['nlu'] ?? []);
         } elseif ($tab === 'settings' && !empty($v['can_settings'])) {
@@ -137,7 +140,7 @@ function ma_acc_render($v) {
 
         <p class="ma-foot">
             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Zm0 2.2 6 2.2V11c0 4-2.6 7.8-6 9-3.4-1.2-6-5-6-9V6.4l6-2.2Z"/></svg>
-            এখানে শুধু নাম, ইমেইল, ছবি আর প্রো-র তথ্য থাকে। সদস্যের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এই সার্ভারে আসে না।
+            এখানে শুধু নাম, ইমেইল, ছবি আর প্রো-র তথ্য পড়া যায়। সদস্যের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ পড়ার মতো করে কখনো এই সার্ভারে আসে না — ফ্যামিলি বা উত্তরাধিকারীর জন্য যা আসে, তা তালাবদ্ধ; সার্ভার খুলতে পারে না।
         </p>
     </div>
     <?php
@@ -1237,6 +1240,41 @@ function ma_acc_render_nlu($n) {
                     <button class="ma-btn small" name="pick" value="other">এটাই ঠিক</button>
                 </div>
             </form>
+        <?php endforeach; ?>
+    </section>
+    <?php
+}
+
+/**
+ * "উত্তরাধিকার": deaths reported by an heir the member chose, with the
+ * document — the same list and decision as in the admin app.
+ */
+function ma_acc_render_heirs($claims) {
+    $post = esc_url(admin_url('admin-post.php'));
+    $names = ['review' => ['যাচাই বাকি', 'trial'], 'waiting' => ['১৪ দিনের অপেক্ষা', 'pro'], 'open' => ['খোলা', 'pro'], 'rejected' => ['মানা হয়নি', 'expired'], 'cancelled' => ['বাতিল', 'expired']];
+    ?>
+    <section class="ma-card pad">
+        <h2>উত্তরাধিকারের অনুরোধ</h2>
+        <p class="muted">সদস্য নিজে যাঁকে উত্তরাধিকারী বেছেছেন, শুধু তিনিই ইন্তেকালের খবর দিতে পারেন — মৃত্যু সনদের ছবিসহ। মানলে সদস্যের ফোনে আর ইমেইলে জানানো হয়; ১৪ দিনের মধ্যে সদস্য নিজে বাতিল না করলে উত্তরাধিকারী সদস্যের বেছে রাখা অংশ দেখতে পান। সেই অংশ তালাবদ্ধ — এই সার্ভার বা অ্যাডমিন খুলতে পারেন না।</p>
+        <?php if (!$claims) : ?><p class="muted">কোনো অনুরোধ নেই।</p><?php endif; ?>
+        <?php foreach ($claims as $c) : $st = $names[$c['status']] ?? [$c['status'], 'free']; ?>
+            <div style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px">
+                <p style="margin:0 0 4px"><span class="ma-pill <?php echo esc_attr($st[1]); ?>"><?php echo esc_html($st[0]); ?></span> <strong><?php echo esc_html($c['owner']['name'] ?: $c['owner']['email']); ?></strong> (<?php echo esc_html($c['owner']['email']); ?>)</p>
+                <p class="muted" style="margin:0 0 6px">খবর দিয়েছেন: <?php echo esc_html(($c['heir']['name'] ?: $c['heir']['email']) . ' · ' . $c['heir']['email'] . ($c['heir']['relation'] !== '' ? ' · সম্পর্ক: ' . $c['heir']['relation'] : '')); ?> · <?php echo esc_html(ma_acc_date(gmdate('Y-m-d H:i:s', strtotime($c['created'])))); ?></p>
+                <?php if ($c['note'] !== '') : ?><p style="margin:0 0 6px"><?php echo esc_html($c['note']); ?></p><?php endif; ?>
+                <?php if ($c['has_file']) : ?><p style="margin:0 0 8px"><a class="ma-btn ghost small" target="_blank" rel="noopener" href="<?php echo esc_url(wp_nonce_url(admin_url('admin-post.php?action=ma_fam_file&claim=' . (int) $c['id']), 'ma_fam_file')); ?>">কাগজ দেখুন (<?php echo esc_html($c['file_name']); ?>)</a></p><?php endif; ?>
+                <?php if ($c['status'] === 'waiting' && $c['open_at']) : ?><p class="muted">খুলবে: <?php echo esc_html(ma_acc_date(gmdate('Y-m-d H:i:s', strtotime($c['open_at'])))); ?></p><?php endif; ?>
+                <?php if ($c['admin_note'] !== '') : ?><p class="muted">নোট: <?php echo esc_html($c['admin_note']); ?></p><?php endif; ?>
+                <?php if ($c['status'] === 'review') : ?>
+                    <form method="post" action="<?php echo $post; ?>" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                        <input type="hidden" name="action" value="ma_fam_claim"><?php wp_nonce_field('ma_fam_claim'); ?>
+                        <input type="hidden" name="claim" value="<?php echo (int) $c['id']; ?>">
+                        <label style="flex:1;min-width:220px">নোট (ঐচ্ছিক)<input type="text" name="note" placeholder="যেমন: সনদ মিলেছে / ছবি অস্পষ্ট"></label>
+                        <button class="ma-btn small" name="op" value="approve">কাগজ ঠিক — মানুন</button>
+                        <button class="ma-btn ghost small" name="op" value="reject">মানবেন না</button>
+                    </form>
+                <?php endif; ?>
+            </div>
         <?php endforeach; ?>
     </section>
     <?php

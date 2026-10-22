@@ -34,6 +34,7 @@ import 'package:digital_brain/screens/notes_screen.dart';
 import 'package:digital_brain/screens/health_screens.dart';
 import 'package:digital_brain/screens/home_shell.dart';
 import 'package:digital_brain/screens/money_more_screens.dart';
+import 'package:digital_brain/screens/zakat_screen.dart';
 import 'package:digital_brain/screens/more_screen.dart';
 import 'package:digital_brain/screens/onboarding_screen.dart';
 import 'package:digital_brain/screens/search_screen.dart';
@@ -1680,7 +1681,7 @@ void main() {
   testWidgets('v2.9: settings switch the app to English and to dark, and back', (t) async {
     final rig = await start(t);
     await openMenu(t, 'সেটিংস');
-    expect(find.text('সেটিংস'), findsWidgets);
+    expect(find.byKey(const Key('more-zakat')), findsOneWidget);
     await t.scrollUntilVisible(find.text('English'), 200, scrollable: find.byType(Scrollable).last);
     await t.ensureVisible(find.text('English'));
     await settle(t);
