@@ -25,7 +25,10 @@ import '../logic/bn.dart';
 import '../logic/cash.dart';
 import '../logic/health.dart';
 import '../logic/ledger.dart';
-import '../nlu/samples.dart' show nluConsentVer;
+import '../nlu/labels.dart';
+import '../nlu/reader.dart' show NluPiece;
+import '../nlu/router.dart';
+import '../nlu/samples.dart' show nluAppVersion, nluConsentVer, delexicalize;
 import '../nlu/updater.dart';
 import 'package:path_provider/path_provider.dart';
 import '../logic/parser.dart';
@@ -1271,8 +1274,12 @@ class Brain extends ChangeNotifier {
   /// Like [understand], for a chat: a long message may hold several things
   /// (never empty). [history] is the conversation so far, already cleaned
   /// of anything private.
-  Future<(List<Command>, String?)> understandAll(String said, {List<AiTurn> history = const [], bool fast = false, String shown = ''}) async {
-    final (cmds, problem, source) = await _understandAll(said, history: history, fast: fast, shown: shown);
+  ///
+  /// [model] is the on-phone model's reading of the same words (started when
+  /// the message came); used only in the server's "on" mode (lib/nlu/router.dart).
+  Future<(List<Command>, String?)> understandAll(String said,
+      {List<AiTurn> history = const [], bool fast = false, String shown = '', Future<List<NluPiece>?>? model, String nluState = 'idle', String nluKind = 'none'}) async {
+    final (cmds, problem, source) = await _understandAll(said, history: history, fast: fast, shown: shown, model: model, nluState: nluState, nluKind: nluKind);
     countSource(source);
     return (cmds, problem);
   }
@@ -1281,7 +1288,8 @@ class Brain extends ChangeNotifier {
   /// through our server, or a key of the user's own.
   bool get canEscalate => aiByServer || (!gated && services.ai.key.trim().isNotEmpty);
 
-  Future<(List<Command>, String?, String)> _understandAll(String said, {List<AiTurn> history = const [], bool fast = false, String shown = ''}) async {
+  Future<(List<Command>, String?, String)> _understandAll(String said,
+      {List<AiTurn> history = const [], bool fast = false, String shown = '', Future<List<NluPiece>?>? model, String nluState = 'idle', String nluKind = 'none'}) async {
     // One "now" for the whole message: the rules, the AI's context and the
     // reading of its answer never disagree about today (e.g. at midnight).
     final now = services.now();
@@ -1300,33 +1308,31 @@ class Brain extends ChangeNotifier {
         }
       }
     }
-    if (!aiOn) return (rules, null, 'rules');
-    // The to-do list and reminders are decided on the phone, by the same
-    // rules typed or spoken: when they found what is wanted, the AI is not
-    // asked (one reading, one action — never a second one from the AI).
-    if (rules.any(_decidedHere)) return (rules, null, 'rules');
-    // Money is counted from the saved book, never put into words by the AI
-    // (it could make up an amount); a question that needs a choice is asked.
-    if (rules.length == 1 && (rules.first is MoneyListQuery || rules.first is Clarify || rules.first is LedgerQuery || rules.first is CashQuery)) return (rules, null, 'rules');
-    // "ইমরান ১০ হাজার দিয়েছে, শুধু নোট করে রাখো": the place the user named
-    // wins on the phone — the AI never turns it into a money record.
-    if (rules.length == 1 && rules.first is NoteAdd && !(rules.first as NoteAdd).fromStatement) return (rules, null, 'rules');
-    // "কোনো কাজ বাকি নেই" and other answers worked out here: amounts, what is
-    // left, a category's entries — counted from the records, not by the AI.
-    if (rules.length == 1 && rules.first is AiReply) return (rules, null, 'rules');
-    // "নোট খোলো": opening a page needs no AI; blood group, allergies and
-    // what photos are kept stay on the phone.
-    if (rules.length == 1 && (rules.first is OpenPlace || rules.first is ProfileQuery || rules.first is ProfileSet || rules.first is ManageItem)) return (rules, null, 'rules');
-    // An alarm is understood on the phone at once (no waiting for the AI).
-    if (rules.length == 1 && rules.first is ReminderAdd && (rules.first as ReminderAdd).alarm) return (rules, null, 'rules');
-    if (mentionsSecret(said) || rules.any((c) => c is VaultQuery)) return (rules, null, 'rules');
-    // A phone number in the sentence: understood on the phone (numbers never go to the AI).
-    if (findPhone(said) != null) return (rules, null, 'rules');
-    // Listing the saved numbers needs no AI (and numbers never go to it).
-    if (rules.length == 1 && rules.first is ContactsQuery) return (rules, null, 'rules');
-    if (rules.length == 1 && rules.first is SmallTalk && {Talk.time, Talk.date}.contains((rules.first as SmallTalk).kind)) {
-      return (rules, null, 'rules');
+    final ruleIntents = intentsOfCommands(rules);
+    // "On" mode: the on-phone model's reading, if it is ready (it started when
+    // the message came; it usually takes a few tens of milliseconds).
+    List<NluPiece>? pieces;
+    if (nluMode == 'on' && model != null) {
+      try {
+        pieces = await model.timeout(const Duration(milliseconds: 500), onTimeout: () => null);
+      } catch (_) {}
     }
+    final here = _staysHere(rules, said);
+    if (!aiOn) {
+      // Without the AI: the cloud reading only where the model and the rules
+      // disagree — two readings of three decide.
+      if (here || pieces == null || nluAgrees(pieces, ruleIntents) || _nluPrivate(said, rules, pieces)) return (rules, null, 'rules');
+      final got = await _cloudReading(said, pieces, nluState, nluKind);
+      if (got == null) return (rules, null, 'nlu_cloud_fail');
+      final (cloud, names) = got;
+      if (nluVote(ruleIntents, pieces, cloud) == 'rules') return (rules, null, 'nlu_cloud_rules');
+      final cmds = commandsFromReading(said, cloud, data.ledger, now, names: names);
+      Trace.log('nlu', 'cloud reading', {'rules': ruleIntents.join(','), 'cloud': cloud.intents.join(','), 'used': cmds != null});
+      return cmds == null ? (rules, null, 'nlu_cloud_rules') : (cmds, null, 'nlu_cloud');
+    }
+    if (here) return (rules, null, 'rules');
+    // The rules and the model read the same action: the AI is not asked.
+    if (nluMaySkipAi(pieces, ruleIntents)) return (rules, null, 'nlu_agree');
     try {
       final clean = stripAddress(said).$1;
       var text = clean.isEmpty ? said : clean;
@@ -1357,6 +1363,74 @@ class Brain extends ChangeNotifier {
       return (cmds.isEmpty ? rules : cmds, null, source);
     } on AiError catch (e) {
       return (rules, '${e.message} নিজের নিয়মে বুঝে নিলাম।', 'failed');
+    }
+  }
+
+  /// Readings the phone settles by itself — the AI and the cloud are never
+  /// asked about these (to-dos, reminders, money answers, secrets, numbers…).
+  bool _staysHere(List<Command> rules, String said) {
+    // The to-do list and reminders are decided on the phone, by the same
+    // rules typed or spoken: when they found what is wanted, the AI is not
+    // asked (one reading, one action — never a second one from the AI).
+    if (rules.any(_decidedHere)) return true;
+    // Money is counted from the saved book, never put into words by the AI
+    // (it could make up an amount); a question that needs a choice is asked.
+    if (rules.length == 1 && (rules.first is MoneyListQuery || rules.first is Clarify || rules.first is LedgerQuery || rules.first is CashQuery)) return true;
+    // "ইমরান ১০ হাজার দিয়েছে, শুধু নোট করে রাখো": the place the user named
+    // wins on the phone — the AI never turns it into a money record.
+    if (rules.length == 1 && rules.first is NoteAdd && !(rules.first as NoteAdd).fromStatement) return true;
+    // "কোনো কাজ বাকি নেই" and other answers worked out here: amounts, what is
+    // left, a category's entries — counted from the records, not by the AI.
+    if (rules.length == 1 && rules.first is AiReply) return true;
+    // "নোট খোলো": opening a page needs no AI; blood group, allergies and
+    // what photos are kept stay on the phone.
+    if (rules.length == 1 && (rules.first is OpenPlace || rules.first is ProfileQuery || rules.first is ProfileSet || rules.first is ManageItem)) return true;
+    // An alarm is understood on the phone at once (no waiting for the AI).
+    if (rules.length == 1 && rules.first is ReminderAdd && (rules.first as ReminderAdd).alarm) return true;
+    if (mentionsSecret(said) || rules.any((c) => c is VaultQuery)) return true;
+    // A phone number in the sentence: understood on the phone (numbers never go to the AI).
+    if (findPhone(said) != null) return true;
+    // Listing the saved numbers needs no AI (and numbers never go to it).
+    if (rules.length == 1 && rules.first is ContactsQuery) return true;
+    if (rules.length == 1 && rules.first is SmallTalk && {Talk.time, Talk.date}.contains((rules.first as SmallTalk).kind)) return true;
+    return false;
+  }
+
+  /// Health and medicine stay on the phone (never sent for a cloud reading).
+  static final _healthWords = RegExp(r'(ওষুধ|ঔষধ|ট্যাবলেট|ক্যাপসুল|ইনসুলিন|প্রেশার|প্রেসার|ডায়াবেটিস|ডায়াবেটিস|সুগার|রক্ত|ডাক্তার|হাসপাতাল|অসুখ|জ্বর|ওজন|পালস|bp\b|sugar|medicine|doctor)', caseSensitive: false);
+
+  bool _nluPrivate(String said, List<Command> rules, List<NluPiece> pieces) =>
+      _healthWords.hasMatch(said) ||
+      rules.any((c) => c is HealthAdd || c is HealthQuery || c is VaultAdd || c is VaultQuery) ||
+      pieces.any((p) => const {'health_add', 'menu_health', 'menu_medicine', 'vault_add', 'vault_query', 'contact_add'}.contains(p.intent));
+
+  /// The server's cloud reading (POST /nlu/resolve), names taken out first.
+  Future<(CloudReading, Map<String, String>)?> _cloudReading(String said, List<NluPiece> pieces, String state, String kind) async {
+    final session = services.ai.session;
+    if (session.isEmpty || !services.server.configured) return null;
+    final names = <String, String>{};
+    final text = delexicalize(said, [
+      for (final e in data.ledger) e.person,
+      for (final c in data.contacts) c.name,
+      for (final p in pieces)
+        if (p.slots['person'] != null) p.slots['person']!,
+    ], found: names);
+    if (text == null) return null;
+    try {
+      final r = await services.server.send('POST', '/nlu/resolve', session, {
+        'text': text,
+        'state': state,
+        'kind': kind,
+        'top': [for (final p in pieces) {'intent': p.intent, 'conf': double.parse(p.conf.toStringAsFixed(3))}],
+        'local_conf': pieces.map((p) => p.conf).reduce((a, b) => a < b ? a : b),
+        if (nluSamplesOn) 'consent_ver': nluConsentVer,
+        'app_ver': nluAppVersion,
+        'model_ver': 'bundled-1',
+      }).timeout(const Duration(seconds: 8));
+      if (r.status != 200) return null;
+      return (CloudReading.fromJson(r.data), names);
+    } catch (_) {
+      return null;
     }
   }
 

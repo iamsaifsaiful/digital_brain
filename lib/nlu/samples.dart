@@ -12,7 +12,9 @@ const nluConsentVer = '1';
 
 /// The words with names replaced, or null when this message must stay on
 /// the phone (a secret, a phone number, a long code).
-String? delexicalize(String text, Iterable<String> names) {
+/// [found] (if given) gets each tag and the name it stands for, so a cloud
+/// reading's words can be put back.
+String? delexicalize(String text, Iterable<String> names, {Map<String, String>? found}) {
   if (mentionsSecret(text)) return null;
   final digits = text.replaceAllMapped(RegExp('[০-৯]'), (m) => '${m[0]!.codeUnitAt(0) - 0x09E6}').replaceAll(RegExp(r'[\s\-]'), '');
   if (RegExp(r'0?1[3-9]\d{8}').hasMatch(digits)) return null;
@@ -27,6 +29,7 @@ String? delexicalize(String text, Iterable<String> names) {
     final re = RegExp('(?<![\\p{L}\\p{M}])${RegExp.escape(name)}(?=(?:কে|র|ের|য়ের|এর|দের|রা|ও|ই|কেও|রও)?(?![\\p{L}\\p{M}]))', unicode: true);
     if (!re.hasMatch(out)) continue;
     final tag = seen.putIfAbsent(normalize(name), () => '<নাম${'০১২৩৪৫৬৭৮৯'[(++n) % 10]}>');
+    found?.putIfAbsent(tag, () => name);
     out = out.replaceAll(re, tag);
   }
   return out;

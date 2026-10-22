@@ -95,8 +95,11 @@ class _AiSummaryState extends State<AiSummary> {
     final budget = (o['budget'] as Map?)?.cast<String, dynamic>() ?? {};
     double cap(String span) => ['free', 'pro'].map((p) => _d((budget[p] as Map?)?[span])).fold(0.0, (a, b) => a + b);
     final src = (o['sources_month'] as Map?)?.cast<String, dynamic>() ?? {};
-    final phone = _i(src['rules']) + _i(src['local']);
-    final gem = _i(src['gemini']), hai = _i(src['haiku']), son = _i(src['sonnet']), fail = _i(src['failed']);
+    // "On" mode: an agreement answered on the phone (the AI not asked); the
+    // cloud asked but the rules' reading kept, or the cloud not reachable.
+    final agreed = _i(src['nlu_agree']), cloudKept = _i(src['nlu_cloud_rules']), cloudUsed = _i(src['nlu_cloud']), cloudFail = _i(src['nlu_cloud_fail']);
+    final phone = _i(src['rules']) + _i(src['local']) + agreed + cloudKept + cloudFail;
+    final gem = _i(src['gemini']) + cloudUsed, hai = _i(src['haiku']), son = _i(src['sonnet']), fail = _i(src['failed']);
     final total = phone + gem + hai + son + fail;
     final nlu = (o['nlu'] as Map?)?.cast<String, dynamic>() ?? {};
     final weak = (nlu['weakest'] as List? ?? const []).cast<Map>();
@@ -135,7 +138,7 @@ class _AiSummaryState extends State<AiSummary> {
             Text(total == 0 ? 'এখনো কোনো গণনা আসেনি — অ্যাপ আগের দিনের হিসাব পরদিন পাঠায়' : 'ফোনে সমাধান ${pct(phone / total)}', style: text(13.5, color: c.muted)),
             const SizedBox(height: 8),
             bar('ফোন', phone, c.green),
-            bar('Gemini', gem, const Color(0xFF2563EB)),
+            bar('ক্লাউড', gem, const Color(0xFF2563EB)),
             bar('Haiku', hai, c.amber),
             bar('Sonnet', son, c.rose),
           ]),
@@ -143,8 +146,12 @@ class _AiSummaryState extends State<AiSummary> {
         const SizedBox(height: 12),
         CardBox(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('ফোনের নতুন মডেল (ছায়া মোড)', style: text(16, weight: FontWeight.w700, color: c.ink)),
+            Text('ফোনের নতুন মডেল', style: text(16, weight: FontWeight.w700, color: c.ink)),
             Text(shadowAll == 0 ? 'এখনো গণনা আসেনি' : 'পুরনো নিয়মের সাথে মিল ${pct(shadowSame / shadowAll)} (${count(shadowAll)} বার্তা)', style: text(13.5, color: c.muted)),
+            if (agreed + cloudKept + cloudUsed + cloudFail > 0) ...[
+              const SizedBox(height: 6),
+              Text('চালু মোড: মিলে যাওয়ায় AI-কে না জিজ্ঞেস ${count(agreed)} · ক্লাউডে জিজ্ঞেস ${count(cloudKept + cloudUsed)} (ক্লাউডের উত্তর নেওয়া ${count(cloudUsed)}) · ক্লাউড পাওয়া যায়নি ${count(cloudFail)}', style: text(13.5, color: c.ink)),
+            ],
             const SizedBox(height: 6),
             Text('ভুলের সংকেত: প্রতি ১০০ উত্তরে ${bn(_d(nlu['error_signals_per_100']).toStringAsFixed(1))} · শেখার নমুনা (৩০ দিন) ${count(_i(nlu['samples_30d']))}', style: text(13.5, color: c.ink)),
           ]),

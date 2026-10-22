@@ -501,6 +501,8 @@ check(isset($d['nlu']['weakest']) && is_array($d['nlu']['weakest']) && $d['usd_b
 check($code === 200 && !empty($d['budgets']['auto']), 'budgets back to automatic from the admin app');
 [$code, $d] = call('POST', '/ai/sources', ['day' => gmdate('Y-m-d'), 'counts' => ['nlu_same_sure' => 5, 'nlu_differ' => 2]], $ses);
 check($code === 200 && $d['kept'] === 2, 'shadow-mode counts are accepted');
+[$code, $d] = call('POST', '/ai/sources', ['day' => gmdate('Y-m-d'), 'counts' => ['nlu_agree' => 9, 'nlu_cloud' => 2, 'nlu_cloud_rules' => 3, 'nlu_cloud_fail' => 1, 'nlu_nonsense' => 4]], $ses);
+check($code === 200 && $d['kept'] === 4, 'on-mode counts are accepted (unknown names are not)');
 
 echo "  — retraining job key\n";
 function ci_call($method, $route, $key, $body = []) {

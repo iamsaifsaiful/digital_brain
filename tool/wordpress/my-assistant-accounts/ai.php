@@ -355,7 +355,9 @@ add_action('rest_api_init', function () {
 /** Where each answer came from (rules, phone model, a cloud model, failed): counts only, never words. */
 const MA_AI_SOURCES = ['rules', 'local', 'gemini', 'haiku', 'sonnet', 'failed',
     // Shadow mode (the phone model reads next to the rules, acting on nothing).
-    'nlu_same_sure', 'nlu_same', 'nlu_differ_sure', 'nlu_differ', 'nlu_early', 'nlu_off'];
+    'nlu_same_sure', 'nlu_same', 'nlu_differ_sure', 'nlu_differ', 'nlu_early', 'nlu_off',
+    // "On" mode: agreed (the AI not asked), the cloud's reading used / the rules' kept / the cloud not reached.
+    'nlu_agree', 'nlu_cloud', 'nlu_cloud_rules', 'nlu_cloud_fail'];
 
 function ma_ai_sources_in(WP_REST_Request $req) {
     $row = ma_ai_member($req);

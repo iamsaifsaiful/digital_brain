@@ -5,6 +5,7 @@
 import 'dart:io' show Platform;
 
 import '../services/trace.dart';
+import 'normalize.dart';
 import 'reader.dart';
 
 /// On unless a build turns it off (--dart-define=NLU_SHADOW=false); off in tests.
@@ -18,7 +19,7 @@ class NluShadow {
   /// After each comparison: (the words, the state, the model's pieces, the
   /// rules' intents, whether they agreed). Used for learning samples.
   final void Function(String text, String state, List<NluPiece> pieces, List<String> old, bool same)? onCompare;
-  final Map<int, (String, String)> _said = {};
+  final Map<int, (String, String, String)> _said = {};
 
   /// Runs even under `flutter test` (for the shadow's own tests).
   final bool force;
@@ -49,7 +50,7 @@ class NluShadow {
       _said.remove(k);
       _count('nlu_early');
     }
-    _said[turn] = (text, state);
+    _said[turn] = (text, state, kind);
     _reader ??= _load();
     _readings[turn] = _reader!.then((r) async {
       if (r == null) return null;
@@ -60,6 +61,15 @@ class NluShadow {
         return null;
       }
     });
+  }
+
+  /// The model's reading of that turn ("on" mode), with its state and list
+  /// kind — only when [text] is the same words it read (a message joined with
+  /// the one before, or changed, is not the reading the model made).
+  (Future<List<NluPiece>?>, String, String)? readingFor(int turn, String text) {
+    final f = _readings[turn], said = _said[turn];
+    if (f == null || said == null || nluNormalize(said.$1) != nluNormalize(text)) return null;
+    return (f, said.$2, said.$3);
   }
 
   /// What the old rules understood for that turn (spec intent names).

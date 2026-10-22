@@ -1583,12 +1583,15 @@ class ChatController extends ChangeNotifier {
   /// [t] is what is understood; [shown] is what the user actually said
   /// this time (kept for the AI's view of the conversation).
   Future<String> _understand(String t, List<String> out, {String? shown}) async {
-    thinking = brain.aiOn;
+    // The AI, or ("on" mode) maybe the cloud reading, may take a moment.
+    thinking = brain.aiOn || brain.nluMode == 'on';
     notifyListeners();
     final turn = _turn;
     // Typed or spoken: the same model and the same path; the list last
     // shown goes with it, so "৩নং" reaches the AI with what it points at.
-    final (understood, problem) = await brain.understandAll(t, history: List.of(_history), shown: _shownForAi());
+    final reading = brain.nluMode == 'on' ? nluShadow.readingFor(turn, t) : null;
+    final (understood, problem) = await brain.understandAll(t,
+        history: List.of(_history), shown: _shownForAi(), model: reading?.$1, nluState: reading?.$2 ?? 'idle', nluKind: reading?.$3 ?? 'none');
     // A newer message came while this one was being understood (a date
     // corrected, a new request): this late answer is old — nothing is done
     // with it, so it can never undo the newer one.
