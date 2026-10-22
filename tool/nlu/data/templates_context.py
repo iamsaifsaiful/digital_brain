@@ -65,7 +65,7 @@ C('await_time', 'none', 'কয়টায় মনে করাব?', inform=
 {time} [দিও|দাও|মনে করিও]
 {daypart}
 {time}[ ঠিক আছে|ই ভালো|]
-''', confirm_yes='''
+''', confirm_yes=YES + '''
 [হ্যাঁ, ওই সময়েই|ওই সময়েই দাও|যেটা বললে সেটাই|তুমি যেটা বলেছো সেটা]
 ''', cancel=CANCEL)
 
@@ -79,7 +79,13 @@ C('await_new_value', 'none', 'নতুন তারিখ বা সময় �
 {time}
 {date} {time}
 {date}[ দাও| করো| সরাও]
-''', cancel=CANCEL)
+''', confirm_yes=YES, cancel=CANCEL)
+
+# Nothing waiting (the app made an offer in words, or the user just agrees):
+# a bare yes/no is still confirm_yes/confirm_no (spec), never small talk.
+C('idle', 'none', None, confirm_yes=YES + '''
+[হ্যাঁ, [বসাও|রাখো|করো|দাও|দিয়ে দাও]|হ্যাঁ দাও|জি দাও|আচ্ছা দাও|ঠিক আছে দাও]
+''', confirm_no=NO)
 
 C('await_person', 'none', 'কার সাথে লেনদেন?', inform='''
 {person:plain}
