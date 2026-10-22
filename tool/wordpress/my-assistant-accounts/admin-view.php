@@ -661,7 +661,7 @@ function ma_acc_render_settings($v) {
                     <?php if (($ai['gemini_source'] ?? '') === 'config') : ?>
                         <input type="text" value="wp-config.php থেকে নেওয়া · ••••<?php echo esc_attr($ai['gemini_tail']); ?>" disabled>
                     <?php else : ?>
-                        <input type="password" name="gemini_key" autocomplete="off" spellcheck="false" placeholder="<?php echo ($ai['gemini_source'] ?? '') === 'saved' ? esc_attr('রাখা আছে · ••••' . $ai['gemini_tail'] . ' — বদলাতে নতুনটা দিন') : 'AIza…'; ?>">
+                        <input type="password" name="gemini_key" autocomplete="off" spellcheck="false" placeholder="<?php echo ($ai['gemini_source'] ?? '') === 'saved' ? esc_attr('রাখা আছে · ••••' . $ai['gemini_tail'] . ' — বদলাতে নতুনটা দিন') : 'AQ.… বা AIza…'; ?>">
                     <?php endif; ?>
                 </label>
                 <label>সদস্যপ্রতি দিনে প্রশ্ন<input type="text" inputmode="numeric" name="per_user" value="<?php echo (int) $ai['per_user']; ?>"></label>

@@ -479,7 +479,8 @@ add_action('admin_post_ma_ai_settings', function () {
     if (!empty($_POST['gemini_key_remove'])) {
         delete_option('ma_gemini_key');
     } elseif ($gem !== '') {
-        if (!preg_match('/^[A-Za-z0-9_\-]{30,}$/', $gem)) {
+        // Google's keys: the old "AIza…" ones and the newer "AQ.…" ones (with a dot).
+        if (!preg_match('/^[A-Za-z0-9._\-]{30,200}$/', $gem)) {
             ma_acc_back('Gemini key ঠিক মনে হচ্ছে না।', 'error', ['tab' => 'settings']);
         }
         update_option('ma_gemini_key', $gem, false);
