@@ -19,6 +19,8 @@ import 'services/compass.dart';
 import 'services/phonebook.dart';
 import 'services/voice.dart';
 import 'state/brain.dart';
+import 'nlu/samples.dart' show nluAppVersion;
+import 'screens/more_screen.dart' show appVersion;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,6 +47,7 @@ Future<void> main() async {
   );
   await services.notifier.init();
   final brain = Brain(services);
+  nluAppVersion = appVersion;
   runApp(DigitalBrainApp(brain: brain));
   await brain.load();
 }

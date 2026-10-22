@@ -363,7 +363,11 @@ class AccountServer {
     try {
       final uri = Uri.parse('$base/wp-json/my-assistant/v1$path');
       final headers = {'Content-Type': 'application/json', 'authorization': 'Bearer $session'};
-      final r = await (method == 'GET' ? _http.get(uri, headers: headers) : _http.post(uri, headers: headers, body: jsonEncode(body ?? const {})))
+      final r = await (method == 'GET'
+              ? _http.get(uri, headers: headers)
+              : method == 'DELETE'
+                  ? _http.delete(uri, headers: headers)
+                  : _http.post(uri, headers: headers, body: jsonEncode(body ?? const {})))
           .timeout(const Duration(seconds: 40));
       Map<String, dynamic> data = const {};
       try {

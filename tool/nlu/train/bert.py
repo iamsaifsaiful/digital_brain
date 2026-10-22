@@ -71,13 +71,15 @@ def arrays(enc, segs, seqs, intents, slot_tags):
         for k, pos in enumerate(first):
             if pos < 0:
                 continue
-            s[pos] = si.get(tags[k], 0)
+            s[pos] = si.get(tags[k], 0) if tags is not None else 0
             b[pos] = bi[bound[k]]
             m[pos] = 1
         I.append(ids); M.append(mask); T.append(types); Y.append(ii.get(intent, 0)); S.append(s); B.append(b); wy.append(weight); wt.append(m)
 
     for ctx, ws, intent, tags in segs:
         add(ctx, ws, tags, ['B'] + ['I'] * (len(ws) - 1), intent, 1.0)
+        if tags is None:
+            wt[-1] = np.zeros(MAXT, np.float32)  # intent only: no word labels learned
     for ctx, ws, tags, bound, n in seqs:
         if n >= 2:
             add(ctx, ws, tags, bound, None, 0.0)
@@ -110,7 +112,7 @@ def train():
     tr_segs, tr_seqs = C.examples(C.load_jsonl(os.path.join(C.DATA, 'train.jsonl')))
     dv_segs, dv_seqs = C.examples(C.load_jsonl(os.path.join(C.DATA, 'dev.jsonl')))
     intents = [x['id'] for x in json.load(open(os.path.join(C.ROOT, 'spec', 'intents.json')))]
-    slot_tags = ['O'] + sorted({t for *_, tags, _b, _n in tr_seqs for t in tags if t != 'O'})
+    slot_tags = C.spec_slot_tags()
     Xtr, Ytr, Wtr = arrays(enc, tr_segs, tr_seqs, intents, slot_tags)
     Xdv, Ydv, Wdv = arrays(enc, dv_segs, dv_seqs, intents, slot_tags)
     print('train', len(Ytr[0]), 'dev', len(Ydv[0]), flush=True)

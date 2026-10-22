@@ -4,9 +4,11 @@
 import 'dart:convert';
 
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:path_provider/path_provider.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 
 import 'reader.dart';
+import 'updater.dart';
 import 'wordpiece.dart';
 
 class TfliteRunner implements NluRunner {
@@ -18,17 +20,35 @@ class TfliteRunner implements NluRunner {
   final int _maxT;
   final List<List<int>> _outs; // output shapes
 
+  /// A model downloaded from the server (lib/nlu/updater.dart) first; if it
+  /// does not load, it is deleted and the built-in one is used.
   static Future<NluReader?> load() async {
     try {
-      final config = NluConfig.fromJson(jsonDecode(await rootBundle.loadString('assets/nlu/config.json')) as Map<String, dynamic>);
+      final files = NluModelFiles(await getApplicationSupportDirectory());
+      if (files.present) {
+        try {
+          return await _open(jsonDecode(files.config.readAsStringSync()) as Map<String, dynamic>, Interpreter.fromFile(files.model, options: InterpreterOptions()..threads = 2));
+        } catch (_) {
+          files.clear();
+        }
+      }
+    } catch (_) {}
+    try {
+      return await _open(jsonDecode(await rootBundle.loadString('assets/nlu/config.json')) as Map<String, dynamic>,
+          await Interpreter.fromAsset('assets/nlu/model.tflite', options: InterpreterOptions()..threads = 2));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<NluReader> _open(Map<String, dynamic> configJson, Interpreter it) async {
+    {
+      final config = NluConfig.fromJson(configJson);
       final vocab = const LineSplitter().convert(await rootBundle.loadString('assets/nlu/vocab.txt'));
-      final it = await Interpreter.fromAsset('assets/nlu/model.tflite', options: InterpreterOptions()..threads = 2);
       final iso = await IsolateInterpreter.create(address: it.address);
       final order = [for (final t in it.getInputTensors()) t.name];
       final outs = [for (final t in it.getOutputTensors()) t.shape];
       return NluReader(config, WordPiece(vocab), TfliteRunner._(it, iso, order, config.maxT, outs));
-    } catch (_) {
-      return null;
     }
   }
 

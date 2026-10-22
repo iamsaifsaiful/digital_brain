@@ -372,6 +372,9 @@ def main():
     ai = os.path.join(OUT, 'paraphrase.jsonl')
     ai_rows = [json.loads(l) for l in open(ai)] if os.path.exists(ai) else []
     rows += ai_rows
+    # Members' real messages, labelled (tool/nlu/retrain/labels.py).
+    real = os.path.join(OUT, 'real.jsonl')
+    rows += [json.loads(l) for l in open(real)] if os.path.exists(real) else []
     rows, conflicts = dedupe(rows)
     rows, dropped, ngold = gold_filter(rows)
     spec_intents = [x['id'] for x in json.load(open(os.path.join(SPEC, 'intents.json')))]

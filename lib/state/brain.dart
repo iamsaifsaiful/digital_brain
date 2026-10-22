@@ -25,6 +25,9 @@ import '../logic/bn.dart';
 import '../logic/cash.dart';
 import '../logic/health.dart';
 import '../logic/ledger.dart';
+import '../nlu/samples.dart' show nluConsentVer;
+import '../nlu/updater.dart';
+import 'package:path_provider/path_provider.dart';
 import '../logic/parser.dart';
 import '../logic/plan.dart';
 import '../logic/proactive.dart';
@@ -707,8 +710,99 @@ class Brain extends ChangeNotifier {
   /// /nlu/config, once a day; shadow until the server says otherwise).
   String nluMode = 'shadow';
 
+  /// The member agreed to send learning samples (off until they turn it on).
+  bool nluSamplesOn = false;
+
+  /// Samples waiting to be sent (at most 200 kept; the oldest go first).
+  final List<Map<String, Object?>> nluSamples = [];
+  DateTime? _lastSampleAt;
+  String _lastSampleText = '';
+
+  Future<void> setNluSamplesOn(bool on) async {
+    nluSamplesOn = on;
+    if (!on) nluSamples.clear();
+    try {
+      await services.lock.keys.write('nlu_samples_on', on ? 'true' : 'false');
+      await services.lock.keys.write('nlu_samples', jsonEncode(nluSamples));
+    } catch (_) {}
+    notifyListeners();
+  }
+
+  /// One sample; [said] is the plain words (for "said again" only, never kept).
+  void addNluSample(Map<String, Object?> sample, String said) {
+    if (!nluSamplesOn) return;
+    nluSamples.add(sample);
+    while (nluSamples.length > 200) {
+      nluSamples.removeAt(0);
+    }
+    _lastSampleAt = services.now();
+    _lastSampleText = normalize(said);
+    _saveNluSamples();
+  }
+
+  /// The member reacted to the reading just sampled: said no / complained
+  /// within a minute, or said the same thing again within 30 seconds.
+  void signalLastSample(String said, {required bool complained}) {
+    final at = _lastSampleAt;
+    if (!nluSamplesOn || at == null || nluSamples.isEmpty) return;
+    final s = services.now().difference(at).inSeconds;
+    String? sig;
+    if (complained && s <= 60) sig = 'said_no';
+    if (!complained && s <= 30 && normalize(said) == _lastSampleText) sig = 'repeated';
+    if (sig == null) return;
+    nluSamples.last['signal'] = sig;
+    _lastSampleAt = null;
+    _saveNluSamples();
+  }
+
+  Future<void> _saveNluSamples() async {
+    try {
+      await services.lock.keys.write('nlu_samples', jsonEncode(nluSamples));
+    } catch (_) {}
+  }
+
+  /// Waiting samples go to the server (signed in and agreed only).
+  Future<void> sendNluSamples() async {
+    final session = services.ai.session;
+    if (!nluSamplesOn || nluSamples.isEmpty || session.isEmpty || !services.server.configured) return;
+    final batch = nluSamples.take(100).toList();
+    final r = await services.server.send('POST', '/nlu/samples', session, {'consent_ver': nluConsentVer, 'samples': batch});
+    if (r.status == 200 || r.status == 400 || r.status == 413) {
+      nluSamples.removeRange(0, batch.length);
+      await _saveNluSamples();
+    }
+  }
+
+  /// A newer on-phone model for this member, if the server has one (used from the next start).
+  Future<void> updateNluModelFromServer() async {
+    final session = services.ai.session;
+    if (session.isEmpty || !services.server.configured || nluMode == 'off') return;
+    try {
+      final r = await services.server.send('GET', '/nlu/model', session);
+      final what = await updateNluModel(NluModelFiles(await getApplicationSupportDirectory()), r.status, r.data);
+      Trace.log('nlu', 'model update', {'result': what});
+    } catch (_) {}
+  }
+
+  /// Everything this member sent is deleted on the server (and nothing waits here).
+  Future<String?> deleteMyNluSamples() async {
+    nluSamples.clear();
+    await _saveNluSamples();
+    final session = services.ai.session;
+    if (session.isEmpty || !services.server.configured) return null;
+    final r = await services.server.send('DELETE', '/nlu/samples/mine', session);
+    return r.ok ? null : r.error;
+  }
+
   Future<void> loadNluConfig() async {
     try {
+      nluSamplesOn = (await services.lock.keys.read('nlu_samples_on')) == 'true';
+      final raw = await services.lock.keys.read('nlu_samples');
+      if (nluSamplesOn && raw != null && raw.isNotEmpty) {
+        nluSamples
+          ..clear()
+          ..addAll([for (final x in jsonDecode(raw) as List) (x as Map).cast<String, Object?>()]);
+      }
       final saved = await services.lock.keys.read('nlu_mode');
       if (saved == 'off' || saved == 'shadow' || saved == 'on') nluMode = saved!;
       final session = services.ai.session;
@@ -1309,7 +1403,7 @@ class Brain extends ChangeNotifier {
     await _loadAccount();
     // Yesterday's (and older) answer-source counts: sent once, quietly.
     unawaited(sendAnswerSources().catchError((_) {}));
-    unawaited(loadNluConfig());
+    unawaited(loadNluConfig().then((_) => sendNluSamples()).then((_) => updateNluModelFromServer()).catchError((_) {}));
     await _loadServerNotices();
     try {
       data = await services.store.load();

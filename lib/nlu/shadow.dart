@@ -11,9 +11,14 @@ import 'reader.dart';
 final nluShadowOn = const bool.fromEnvironment('NLU_SHADOW', defaultValue: true) && !Platform.environment.containsKey('FLUTTER_TEST');
 
 class NluShadow {
-  NluShadow(this._load, {void Function(String key)? count, bool Function()? enabled, this.force = false})
+  NluShadow(this._load, {void Function(String key)? count, bool Function()? enabled, this.force = false, this.onCompare})
       : _countOut = count,
         _enabled = enabled;
+
+  /// After each comparison: (the words, the state, the model's pieces, the
+  /// rules' intents, whether they agreed). Used for learning samples.
+  final void Function(String text, String state, List<NluPiece> pieces, List<String> old, bool same)? onCompare;
+  final Map<int, (String, String)> _said = {};
 
   /// Runs even under `flutter test` (for the shadow's own tests).
   final bool force;
@@ -41,8 +46,10 @@ class NluShadow {
     // answer, a list change…) are counted apart.
     for (final k in _readings.keys.where((k) => k < turn).toList()) {
       _readings.remove(k);
+      _said.remove(k);
       _count('nlu_early');
     }
+    _said[turn] = (text, state);
     _reader ??= _load();
     _readings[turn] = _reader!.then((r) async {
       if (r == null) return null;
@@ -58,6 +65,7 @@ class NluShadow {
   /// What the old rules understood for that turn (spec intent names).
   Future<void> oldReading(int turn, List<String> intents) async {
     final f = _readings.remove(turn);
+    final said = _said.remove(turn);
     if (f == null) return;
     final pieces = await f;
     if (pieces == null) {
@@ -69,6 +77,7 @@ class NluShadow {
     final same = mine.length == intents.toSet().length && mine.containsAll(intents);
     final key = same ? (sure ? 'nlu_same_sure' : 'nlu_same') : (sure ? 'nlu_differ_sure' : 'nlu_differ');
     _count(key);
+    if (said != null) onCompare?.call(said.$1, said.$2, pieces, intents, same);
     Trace.log('nlu', 'shadow', {'old': intents.join(','), 'model': [for (final p in pieces) '${p.intent}:${p.conf.toStringAsFixed(2)}'].join(','), 'result': key});
   }
 }

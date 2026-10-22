@@ -367,6 +367,19 @@ class _MoreScreenState extends State<MoreScreen> {
             ]),
           ),
         ],
+        const SizedBox(height: 10),
+        Panel(
+          child: Rows(children: [
+            switchRow(Icons.school_outlined, tr('কথা বোঝা আরও ভালো করতে সাহায্য করুন'),
+                tr('কিছু বার্তা নাম সরিয়ে সার্ভারে যায় — পাসওয়ার্ড, ফোন নম্বর বা কোড কখনো না; ১৮০ দিন পর নিজে মুছে যায়'),
+                brain.nluSamplesOn, (v) => brain.setNluSamplesOn(v)),
+            linkRow(Icons.delete_sweep_outlined, tr('আমার পাঠানো বার্তা সার্ভার থেকে মুছে দিন'), onTap: () async {
+              final why = await brain.deleteMyNluSamples();
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(why ?? tr('মুছে দেওয়া হয়েছে'))));
+            }),
+          ]),
+        ),
         const SizedBox(height: 16),
         SectionTitle(tr('রক্তদান')),
         const DonorPanel(),

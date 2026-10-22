@@ -144,6 +144,13 @@ def norm_tokens(tokens, tags):
     return out_t, out_g, idx
 
 
+def spec_slot_tags():
+    """O and B-/I- for every slot in the spec, in a fixed order, so every
+    model has the same outputs (a downloaded model can use the app's code)."""
+    slots = sorted(json.load(open(os.path.join(ROOT, 'spec', 'slots.json'))))
+    return ['O'] + [f'{p}-{s}' for s in slots for p in ('B', 'I')]
+
+
 def examples(rows):
     """→ pieces (ctx, words, intent) and sequences (ctx, words, slot tags, boundary tags, n_segments)."""
     segs, seqs = [], []
@@ -162,6 +169,9 @@ def examples(rows):
             bound[ws[0]] = 'B'
             for j in ws[1:]:
                 bound[j] = 'I'
-            segs.append((ctx, [toks[j] for j in ws], s['intent'], [tags[j] for j in ws]))
-        seqs.append((ctx, toks, tags, bound, n))
+            # A real message labelled only with its intent (tool/nlu/retrain):
+            # its words carry no fact labels, so they teach the intent only.
+            segs.append((ctx, [toks[j] for j in ws], s['intent'], None if r.get('intent_only') else [tags[j] for j in ws]))
+        if not r.get('intent_only'):
+            seqs.append((ctx, toks, tags, bound, n))
     return segs, seqs

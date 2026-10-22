@@ -685,6 +685,18 @@ function ma_acc_render_settings($v) {
             <?php wp_nonce_field('ma_nlu_selftest'); ?>
             <button class="ma-btn" type="submit">এখন পরীক্ষা করুন</button>
         </form>
+        <h3>নতুন করে শেখানোর key</h3>
+        <p class="muted ma-tip">GitHub-এ মডেল নতুন করে শেখানোর কাজ এটা দিয়ে শুধু শেখার নমুনা পড়ে আর নতুন মডেল <em>draft</em> হিসেবে রাখে — চালু করা, সেটিংস বা সদস্য দেখা পারে না। GitHub › Settings › Secrets-এ <code>MA_NLU_CI_KEY</code> নামে বসান।</p>
+        <?php $ci = ma_nlu_ci_key(); if ($ci !== '' && !(defined('MA_NLU_CI_KEY') && MA_NLU_CI_KEY)) : ?>
+            <input type="text" readonly value="<?php echo esc_attr($ci); ?>" onclick="this.select()" style="width:100%;font-family:monospace">
+        <?php elseif ($ci !== '') : ?>
+            <p class="muted">wp-config.php থেকে নেওয়া।</p>
+        <?php endif; ?>
+        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+            <input type="hidden" name="action" value="ma_nlu_ci_key">
+            <?php wp_nonce_field('ma_nlu_ci_key'); ?>
+            <button class="ma-btn" type="submit"><?php echo $ci === '' ? 'key বানান' : 'নতুন key বানান (আগেরটা বাতিল)'; ?></button>
+        </form>
     </section>
     <?php ma_acc_render_ai_costs($v['ai_costs'] ?? null); ?>
     <?php $push = $v['push'] ?? ['source' => '']; $post = esc_url(admin_url('admin-post.php')); ?>

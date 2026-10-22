@@ -62,6 +62,7 @@ def build_arrays(vocab, segs, seqs, intents, slot_tags):
     bi = {'O': 0, 'B': 1, 'I': 2}
     W, Ch, Y, S, B, wy, wt = [], [], [], [], [], [], []
     for ctx, ws, intent, tags in segs:
+        tags = tags or ['O'] * len(ws)
         w, c = vocab.encode(ctx, ws)
         s = np.zeros(MAXW, np.int32)
         b = np.zeros(MAXW, np.int32)

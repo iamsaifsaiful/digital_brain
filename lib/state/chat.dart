@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import '../logic/csv.dart' show cashCsv;
 import '../logic/standard.dart';
 import '../nlu/labels.dart';
 import '../nlu/model.dart' show TfliteRunner;
+import '../nlu/reader.dart' show NluPiece;
+import '../nlu/samples.dart';
 import '../nlu/shadow.dart';
 import 'package:flutter/foundation.dart';
 
@@ -233,7 +236,31 @@ class ChatController extends ChangeNotifier {
   int _turn = 0;
 
   /// The on-phone model reading next to the rules, acting on nothing (shadow mode).
-  late final NluShadow nluShadow = NluShadow(TfliteRunner.load, count: brain.countSource, enabled: () => brain.nluMode != 'off');
+  late final NluShadow nluShadow = NluShadow(TfliteRunner.load, count: brain.countSource, enabled: () => brain.nluMode != 'off', onCompare: _nluSample);
+
+  /// A learning sample (consent only): every reading the model and the rules
+  /// disagreed on, and one in ten they agreed on; names replaced, secrets,
+  /// numbers and codes never (see lib/nlu/samples.dart).
+  void _nluSample(String text, String state, List<NluPiece> pieces, List<String> old, bool same) {
+    brain.signalLastSample(text, complained: old.contains('complain_help') || old.contains('correct'));
+    brain.signalLastSample(text, complained: false);
+    if (!brain.nluSamplesOn) return;
+    if (same && _sampleRandom.nextDouble() > 0.1) return;
+    final names = [
+      for (final e in brain.data.ledger) e.person,
+      for (final c in brain.data.contacts) c.name,
+      for (final p in pieces)
+        if (p.slots['person'] != null) p.slots['person']!,
+    ];
+    final words = delexicalize(text, names);
+    if (words == null) return;
+    brain.addNluSample(
+      nluSample(textDelex: words, state: state, local: [for (final p in pieces) (p.intent, p.conf)], finalIntents: old, appVer: nluAppVersion, modelVer: 'bundled-1'),
+      text,
+    );
+  }
+
+  final _sampleRandom = math.Random();
 
   /// What the app waits on, in the NLU spec's state names (docs/nlu-spec.md).
   String get _nluState => switch (wait) {

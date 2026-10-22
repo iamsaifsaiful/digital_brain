@@ -1,0 +1,61 @@
+name: NLU retrain
+
+# Step I (the learning loop): members' labelled samples from the server →
+# merged with the step-D data → BanglaBERT-small trained again → read the
+# gold set → the gate (no intent more than 1 point worse, removals and money
+# not worse) → passed: published as a GitHub release and added on the server
+# as a DRAFT. An admin makes it live for a share of members in the admin app.
+# Runs when the nlu-retrain branch is pushed (a timed run would need this
+# file on the default branch).
+on:
+  push:
+    branches: [nlu-retrain]
+
+permissions:
+  contents: write
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: pip install "tensorflow-cpu==2.15.1" "numpy<2" scipy scikit-learn "transformers==4.40.2" "tf_keras==2.15.1" "torch==2.3.1" --extra-index-url https://download.pytorch.org/whl/cpu
+      - name: Members' samples
+        env:
+          MA_NLU_CI_KEY: ${{ secrets.MA_NLU_CI_KEY }}
+        run: |
+          if [ -z "$MA_NLU_CI_KEY" ]; then echo "No MA_NLU_CI_KEY secret: training on the made data only"; exit 0; fi
+          python tool/nlu/retrain/fetch.py
+          python tool/nlu/retrain/labels.py tool/nlu/out/real_samples.jsonl | tee labels.log
+      - name: Make data
+        run: python tool/nlu/data/generate.py | tee data.log
+      - name: Train
+        run: |
+          set -o pipefail
+          python tool/nlu/train/bert.py 2>&1 | tee train.log
+      - name: Gate
+        id: gate
+        run: |
+          set -o pipefail
+          python tool/nlu/retrain/gate.py tool/nlu/out/pred_bert.jsonl tool/nlu/train/pred_live.jsonl --md gate.md && echo "ok=1" >> $GITHUB_OUTPUT || echo "ok=0" >> $GITHUB_OUTPUT
+      - name: Publish as a draft
+        if: steps.gate.outputs.ok == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MA_NLU_CI_KEY: ${{ secrets.MA_NLU_CI_KEY }}
+        run: |
+          if [ -z "$MA_NLU_CI_KEY" ]; then echo "No key: not published"; exit 0; fi
+          python tool/nlu/retrain/publish.py "r$(date -u +%Y%m%d)-${{ github.run_number }}"
+      - name: Report to the nlu-results branch
+        if: always()
+        run: |
+          mkdir -p /tmp/res && cp gate.md train.log data.log labels.log /tmp/res/ 2>/dev/null || true
+          cp tool/nlu/out/pred_bert.jsonl tool/nlu/out/data/stats.json /tmp/res/ 2>/dev/null || true
+          cd /tmp/res && git init -q && git checkout -q -b nlu-results
+          git -c user.name=ci -c user.email=ci@localhost add -A && git -c user.name=ci -c user.email=ci@localhost commit -qm "retrain ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" nlu-results

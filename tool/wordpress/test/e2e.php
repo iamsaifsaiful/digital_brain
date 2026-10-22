@@ -502,6 +502,28 @@ check($code === 200 && !empty($d['budgets']['auto']), 'budgets back to automatic
 [$code, $d] = call('POST', '/ai/sources', ['day' => gmdate('Y-m-d'), 'counts' => ['nlu_same_sure' => 5, 'nlu_differ' => 2]], $ses);
 check($code === 200 && $d['kept'] === 2, 'shadow-mode counts are accepted');
 
+echo "  — retraining job key\n";
+function ci_call($method, $route, $key, $body = []) {
+    $req = new WP_REST_Request($method, '/my-assistant/v1' . $route);
+    $req->set_header('x-ma-ci-key', $key);
+    if ($method === 'GET') { foreach ($body as $k => $v) $req->set_param($k, $v); } else { $req->set_header('content-type', 'application/json'); $req->set_body(wp_json_encode($body)); }
+    $res = rest_do_request($req);
+    return [$res->get_status(), rest_get_server()->response_to_data($res, false)];
+}
+[$code] = ci_call('GET', '/nlu/ci/export', 'nothing');
+check($code === 403, 'no key yet: the job is refused');
+update_option('ma_nlu_ci_key', str_repeat('k', 48));
+[$code] = ci_call('GET', '/nlu/ci/export', str_repeat('x', 48));
+check($code === 403, 'a wrong key is refused');
+[$code, $d] = ci_call('GET', '/nlu/ci/export', str_repeat('k', 48));
+check($code === 200 && isset($d['samples']) && str_contains(wp_json_encode($d), 'ledger_add'), 'the job reads the labelled samples');
+[$code, $d] = ci_call('POST', '/nlu/ci/model', str_repeat('k', 48), ['version' => 'r3', 'url' => 'https://github.com/x/r3.tflite', 'sha256' => str_repeat('b', 64), 'thresholds' => ['intents' => ['task_add']], 'eval' => ['exact' => 0.83]]);
+check($code === 200 && $d['model']['status'] === 'draft' && $d['model']['rollout_pct'] === 0, 'the job adds a model only as a draft');
+[$code] = ci_call('POST', '/nlu/ci/model', str_repeat('k', 48), ['version' => 'r3', 'url' => 'https://github.com/x/r3.tflite', 'sha256' => str_repeat('b', 64)]);
+check($code === 409, 'the same version twice is refused');
+[$code] = call('GET', '/nlu/model', [], $ses);
+check($code === 204, 'a draft from the job reaches nobody');
+
 echo "  — privacy\n";
 [$code, $d] = call('DELETE', '/nlu/samples/mine', [], $ses);
 check($code === 200 && $d['deleted'] >= 2 && !$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$wpdb->prefix}ma_nlu_samples WHERE user_hash = %s", ma_nlu_user_hash($proId))), 'a member deletes all their samples');

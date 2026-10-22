@@ -788,3 +788,61 @@ add_action('admin_post_ma_nlu_selftest', function () {
     $all = !in_array(false, array_column($r, 'ok'), true);
     ma_acc_back(implode(' · ', $say), $all ? 'ok' : 'error', ['tab' => 'settings']);
 });
+
+// ── The retraining job (GitHub Actions, tool/nlu/retrain): its own narrow key ──
+// It can only read the labelled samples and add a model as a draft — never
+// make one live, change settings or see members. The key is made on the
+// settings page (or MA_NLU_CI_KEY in wp-config.php) and kept as a GitHub secret.
+
+function ma_nlu_ci_key() {
+    if (defined('MA_NLU_CI_KEY') && MA_NLU_CI_KEY) {
+        return (string) MA_NLU_CI_KEY;
+    }
+    return (string) get_option('ma_nlu_ci_key', '');
+}
+
+function ma_nlu_ci_ok(WP_REST_Request $req) {
+    $key = ma_nlu_ci_key();
+    $got = (string) $req->get_header('x-ma-ci-key');
+    return strlen($key) >= 32 && hash_equals($key, $got) ? true : new WP_Error('ci', 'not allowed', ['status' => 403]);
+}
+
+function ma_nlu_export_rows($since) {
+    global $wpdb;
+    $s = ma_nlu_table('samples');
+    $l = ma_nlu_table('labels');
+    return $wpdb->get_results($wpdb->prepare("SELECT s.id, s.created, s.app_ver, s.model_ver, s.state, s.text_delex, s.alts_delex, s.local_json, s.local_conf, s.cloud_json, s.cloud_provider, s.final_json, s.signal_kind, l.label_json admin_label FROM $s s LEFT JOIN $l l ON l.sample_id = s.id AND l.source = 'admin' WHERE s.id > %d ORDER BY s.id LIMIT 2000", (int) $since), ARRAY_A) ?: [];
+}
+
+/** Adds a model as a draft (an admin still has to make it live). */
+function ma_nlu_add_draft($in) {
+    global $wpdb;
+    $t = ma_nlu_table('models');
+    $ver = sanitize_text_field((string) ($in['version'] ?? ''));
+    $url = esc_url_raw((string) ($in['url'] ?? ''));
+    $sha = strtolower((string) ($in['sha256'] ?? ''));
+    if (!preg_match('/^[A-Za-z0-9._\-]{1,32}$/', $ver) || !str_starts_with($url, 'https://') || !preg_match('/^[a-f0-9]{64}$/', $sha)) {
+        return new WP_Error('bad', 'need a version, an https url and a sha256', ['status' => 400]);
+    }
+    if ($wpdb->get_var($wpdb->prepare("SELECT version FROM $t WHERE version = %s", $ver))) {
+        return new WP_Error('exists', 'version exists', ['status' => 409]);
+    }
+    $wpdb->insert($t, ['version' => $ver, 'file_url' => $url, 'sha256' => $sha, 'size_bytes' => max(0, (int) ($in['size'] ?? 0)), 'thresholds_json' => wp_json_encode($in['thresholds'] ?? new stdClass()), 'eval_json' => wp_json_encode($in['eval'] ?? new stdClass()), 'rollout_pct' => 0, 'status' => 'draft', 'created' => current_time('mysql', true)]);
+    return ma_nlu_model_json($wpdb->get_row($wpdb->prepare("SELECT * FROM $t WHERE version = %s", $ver), ARRAY_A));
+}
+
+add_action('rest_api_init', function () {
+    register_rest_route('my-assistant/v1', '/nlu/ci/export', ['methods' => 'GET', 'permission_callback' => 'ma_nlu_ci_ok', 'callback' => function (WP_REST_Request $req) {
+        return ['samples' => ma_nlu_export_rows((int) $req->get_param('since_id'))];
+    }]);
+    register_rest_route('my-assistant/v1', '/nlu/ci/model', ['methods' => 'POST', 'permission_callback' => 'ma_nlu_ci_ok', 'callback' => function (WP_REST_Request $req) {
+        $r = ma_nlu_add_draft(json_decode($req->get_body(), true) ?: []);
+        return is_wp_error($r) ? $r : ['ok' => true, 'model' => $r];
+    }]);
+});
+
+add_action('admin_post_ma_nlu_ci_key', function () {
+    ma_acc_guard('ma_nlu_ci_key', 'manage_options');
+    update_option('ma_nlu_ci_key', bin2hex(random_bytes(24)), false);
+    ma_acc_back('নতুন শেখানোর key বানানো হয়েছে — GitHub-এর secret MA_NLU_CI_KEY-তে বসান।', 'ok', ['tab' => 'settings']);
+});
