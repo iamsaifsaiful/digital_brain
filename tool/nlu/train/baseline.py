@@ -99,12 +99,35 @@ class Baseline:
         return C.read(text, state, kind, self.tag, lambda c, w: self.intent(c, w)[:2])
 
 
-def predict_gold(model, name):
+def thresholds(model, dev):
+    """Per-intent confidence needed on dev: removals/money 99%, lookups 90%, rest 97%."""
+    from tiny import DELETE, MONEY, LOOKUPS
+    segs, _ = C.examples(dev)
+    got = [(model.intent(c, w)[:2], i) for c, w, i, _ in segs]
+    out = {}
+    for name in model.clf.classes_:
+        target = 0.99 if name in DELETE | MONEY else 0.90 if name in LOOKUPS else 0.97
+        mine = [(conf, gold == name) for (pred, conf), gold in got if pred == name]
+        thr = 0.99
+        for t in [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 0.98, 0.99]:
+            s = [ok for c, ok in mine if c >= t]
+            if len(s) >= 5 and sum(s) / len(s) >= target:
+                thr = t
+                break
+        out[name] = thr
+    return out
+
+
+def predict_gold(model, name, thr=None):
     preds = []
     t0 = time.time()
     for g in C.gold_rows():
         segs = model.read(g['text'], g['state'], C.shown_kind(g['state'], g.get('before')))
-        preds.append(C.gold_prediction(g, name, segs))
+        p = C.gold_prediction(g, name, segs)
+        if thr:
+            p[f'{name}_raw_conf'] = p[f'{name}_conf']
+            p[f'{name}_conf'] = min((1.0 if s['conf'] >= thr.get(s['intent'], 0.99) else s['conf'] * 0.5 for s in segs), default=0.0)
+        preds.append(p)
     return preds, (time.time() - t0) / max(1, len(preds)) * 1000
 
 
@@ -127,7 +150,7 @@ def main():
     path = os.path.join(OUT, 'models', 'baseline.pkl')
     pickle.dump(m, open(path, 'wb'))
     rep = dev_report(m, dev)
-    preds, ms = predict_gold(m, 'base')
+    preds, ms = predict_gold(m, 'base', thresholds(m, dev))
     with open(os.path.join(OUT, 'pred_baseline.jsonl'), 'w') as f:
         for p in preds:
             f.write(__import__('json').dumps(p, ensure_ascii=False) + '\n')

@@ -162,6 +162,11 @@ def train():
     tfl = conv.convert()
     open(os.path.join(OUT, 'model.tflite'), 'wb').write(tfl)
     tok.save_pretrained(OUT)
+    # Test vectors for the Dart word-piece split (lib/nlu/wordpiece.dart).
+    with open(os.path.join(OUT, 'wordpiece_vectors.jsonl'), 'w') as f:
+        for line in open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vectors.jsonl')):
+            n = json.loads(line)['norm']
+            f.write(json.dumps(dict(norm=n, ids=tok.encode(n, add_special_tokens=False)), ensure_ascii=False) + '\n')
     cfg = dict(version=1, base=NAME, intents=intents, slot_tags=slot_tags, temperature=temp, thresholds=thresholds, maxt=MAXT,
                state_words=STATE_WORDS, kind_words=KIND_WORDS)
     json.dump(cfg, open(os.path.join(OUT, 'config.json'), 'w'), ensure_ascii=False, indent=1)
