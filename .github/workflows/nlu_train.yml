@@ -26,11 +26,13 @@ jobs:
       - name: Install
         run: |
           pip install "tensorflow-cpu==2.15.1" "numpy<2" scipy scikit-learn
-          if [ "$M" = bert ]; then pip install "transformers==4.40.2" "torch==2.3.1" --extra-index-url https://download.pytorch.org/whl/cpu; fi
+          if [ "$M" = bert ]; then pip install "transformers==4.40.2" "tf_keras==2.15.1" "torch==2.3.1" --extra-index-url https://download.pytorch.org/whl/cpu; fi
       - name: Make data
         run: python tool/nlu/data/generate.py
       - name: Train and convert
-        run: python tool/nlu/train/${M}.py 2>&1 | tee train.log
+        run: |
+          set -o pipefail
+          python tool/nlu/train/${M}.py 2>&1 | tee train.log
       - name: Measure on gold
         run: python tool/nlu/eval.py tool/nlu/out/pred_${M}.jsonl --system ${M} --md eval_${M}.md
       - name: Save results to the nlu-results branch

@@ -63,6 +63,12 @@ def evaluate(gold, preds, system):
     exact = sum(set(p[system]) == set(g['intent']) for g, p in rows)
     primary = sum(g['intent'][0] in p[system] for g, p in rows)
     out['n'], out['exact'], out['primary'] = len(rows), exact, primary
+    # The same sentence appears many times in some sources (one screen, many
+    # contexts); count each distinct (text, state) once as well.
+    seen = {}
+    for g, p in rows:
+        seen.setdefault((g['text'], g['state']), set(p[system]) == set(g['intent']))
+    out['distinct'] = (len(seen), sum(seen.values()))
     # Per intent (gold primary).
     per = defaultdict(lambda: [0, 0])
     conf = Counter()
@@ -104,7 +110,7 @@ def evaluate(gold, preds, system):
 
 
 def report(name, r):
-    L = [f'## {name}', '', f"সারি: {r['n']} · পুরো মিল (সব intent): {pct(r['exact'], r['n'])} · প্রধান intent ধরা: {pct(r['primary'], r['n'])}", '',
+    L = [f'## {name}', '', f"সারি: {r['n']} · পুরো মিল (সব intent): {pct(r['exact'], r['n'])} · প্রধান intent ধরা: {pct(r['primary'], r['n'])} · আলাদা বাক্য ধরে: {r['distinct'][1]}/{r['distinct'][0]} ({pct(r['distinct'][1], r['distinct'][0])})", '',
          '**আত্মবিশ্বাসের সীমা অনুযায়ী ফোনে সমাধান** (নিয়মে আত্মবিশ্বাস নেই — সিদ্ধান্ত নিলে ১.০)', '', '| সীমা | ফোনে সমাধান | তার মধ্যে ঠিক |', '|---|---|---|']
     for t, n, ok in r['coverage']:
         L.append(f"| {t:.2f} | {n} ({pct(n, r['n'])}) | {ok} ({pct(ok, n)}) |")

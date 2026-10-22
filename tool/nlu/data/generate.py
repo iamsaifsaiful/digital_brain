@@ -14,6 +14,7 @@ from templates_tasks import T as T1  # noqa: E402
 from templates_money import T as T2  # noqa: E402
 from templates_other import T as T3  # noqa: E402
 from templates_context import CTX  # noqa: E402
+from templates_extra import T as T4  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, '..'))
 OUT = os.path.join(ROOT, 'out', 'data')
@@ -37,7 +38,7 @@ NOISE_RATE = 0.4
 DEV_SHARE = 0.12
 
 
-def families(T):
+def families(T, prefix=''):
     out = []
     for intent, body in T.items():
         for k, block in enumerate(re.split(r'\n\s*\n', body.strip('\n'))):
@@ -47,7 +48,7 @@ def families(T):
                 meta = dict(kv.split('=') for kv in lines[0][1:].split())
                 lines = lines[1:]
             if lines:
-                out.append(dict(intent=intent, fam=f'{intent}#{k}', meta=meta, lines=lines))
+                out.append(dict(intent=intent, fam=f'{prefix}{intent}#{k}', meta=meta, lines=lines))
     return out
 
 
@@ -96,7 +97,7 @@ def shown_list(kind):
 
 
 def singles():
-    fams = families(T1) + families(T2) + families(T3)
+    fams = families(T1) + families(T2) + families(T3) + families(T4, 'x:')
     by_intent = defaultdict(list)
     for f in fams:
         by_intent[f['intent']].append(f)

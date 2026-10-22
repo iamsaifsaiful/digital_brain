@@ -78,7 +78,7 @@ def _value(ctx, name, var):
     if name in ('date', 'date2'):
         w, v = ctx.once(name, R.date)
         return w, 'date', v
-    if name == 'time':
+    if name in ('time', 'time2'):
         w, v = ctx.once(name, R.time)
         return w, 'time', v
     if name == 'daypart':
