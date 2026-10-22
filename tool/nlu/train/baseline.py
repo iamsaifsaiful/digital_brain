@@ -24,6 +24,11 @@ import common as C  # noqa: E402
 OUT = os.path.join(C.ROOT, 'out')
 
 
+def word_grams(s):
+    w = s.split()
+    return w + [a + '_' + b for a, b in zip(w, w[1:])]
+
+
 def seg_text(ctx, ws):
     return ' '.join(ctx + ws)
 
@@ -58,7 +63,7 @@ class Baseline:
         X = [seg_text(c, w) for c, w, _, _ in segs]
         y = [i for _, _, i, _ in segs]
         self.vc = TfidfVectorizer(analyzer='char_wb', ngram_range=(1, 4), min_df=2, sublinear_tf=True, max_features=200000)
-        self.vw = TfidfVectorizer(analyzer=lambda s: [t for t in s.split()] + [a + '_' + b for a, b in zip(s.split(), s.split()[1:])], min_df=2, sublinear_tf=True)
+        self.vw = TfidfVectorizer(analyzer=word_grams, min_df=2, sublinear_tf=True)
         Xv = hstack([self.vc.fit_transform(X), self.vw.fit_transform(X)]).tocsr()
         self.clf = LogisticRegression(C=20, max_iter=400)
         self.clf.fit(Xv, y)
