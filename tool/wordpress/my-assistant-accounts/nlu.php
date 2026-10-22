@@ -580,7 +580,7 @@ add_action('rest_api_init', function () {
 
     // ── Admin ──
     ma_admin_route('/ai/settings', 'GET', function () {
-        return ['nlu' => ma_nlu_settings(), 'ai_on' => get_option('ma_ai_on', '0') === '1', 'budgets' => ma_ai_budgets(), 'anthropic_key' => ma_ai_key_source(), 'gemini_key' => ma_nlu_gemini_key() !== ''];
+        return ['nlu' => ma_nlu_settings(), 'ai_on' => get_option('ma_ai_on', '0') === '1', 'budgets' => ma_ai_budgets(), 'member_cap_usd' => ma_ai_member_cap(), 'usd_bdt' => ma_ai_usd_bdt(), 'anthropic_key' => ma_ai_key_source(), 'gemini_key' => ma_nlu_gemini_key() !== '', 'prompt_ver' => MA_NLU_PROMPT_VER];
     });
     ma_admin_route('/ai/settings', 'POST', function (WP_REST_Request $req) {
         $in = json_decode($req->get_body(), true) ?: [];
@@ -588,7 +588,9 @@ add_action('rest_api_init', function () {
             // The switch that stops every cloud call at once.
             update_option('ma_ai_on', $in['ai_on'] ? '1' : '0');
         }
-        if (isset($in['budgets']) && is_array($in['budgets'])) {
+        if (!empty($in['budgets_auto'])) {
+            delete_option('ma_ai_budgets');
+        } elseif (isset($in['budgets']) && is_array($in['budgets'])) {
             $b = ma_ai_budgets();
             foreach (['free', 'pro'] as $plan) {
                 foreach (['day', 'month'] as $k) {
@@ -713,7 +715,35 @@ function ma_nlu_overview() {
     $from = gmdate('Y-m-d 00:00:00', time() - 30 * DAY_IN_SECONDS);
     $n = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $s WHERE created >= %s", $from));
     $sig = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $s WHERE created >= %s AND signal_kind NOT IN ('', 'thumbs_up')", $from));
-    return ['settings' => ma_nlu_settings(), 'samples_30d' => $n, 'error_signals_per_100' => $n ? round(100 * $sig / $n, 1) : 0, 'day' => get_transient('ma_nlu_day_' . ma_ai_today()) ?: ['all' => 0, 'escalated' => 0]];
+    // The weakest intents: the phone's reading, how often it drew an error
+    // signal or a different final/cloud reading (at least 5 samples).
+    $per = [];
+    foreach ($wpdb->get_results($wpdb->prepare("SELECT local_json, cloud_json, final_json, signal_kind FROM $s WHERE created >= %s ORDER BY id DESC LIMIT 5000", $from), ARRAY_A) ?: [] as $r) {
+        $first = function ($j) {
+            $d = json_decode((string) $j, true);
+            $p = $d['pieces'][0]['intent'] ?? ($d[0]['intent'] ?? null);
+            return is_string($p) ? $p : null;
+        };
+        $a = $first($r['local_json']);
+        if (!$a) {
+            continue;
+        }
+        $b = $first($r['final_json']) ?: $first($r['cloud_json']);
+        $bad = ($r['signal_kind'] !== '' && $r['signal_kind'] !== 'thumbs_up') || ($b && $b !== $a);
+        $per[$a] = $per[$a] ?? ['intent' => $a, 'n' => 0, 'bad' => 0];
+        $per[$a]['n']++;
+        $per[$a]['bad'] += $bad ? 1 : 0;
+    }
+    $weak = array_values(array_filter($per, function ($x) {
+        return $x['n'] >= 5;
+    }));
+    usort($weak, function ($x, $y) {
+        return $y['bad'] / $y['n'] <=> $x['bad'] / $x['n'];
+    });
+    $weak = array_map(function ($x) {
+        return $x + ['ok_share' => round(1 - $x['bad'] / $x['n'], 3)];
+    }, array_slice($weak, 0, 5));
+    return ['settings' => ma_nlu_settings(), 'samples_30d' => $n, 'error_signals_per_100' => $n ? round(100 * $sig / $n, 1) : 0, 'weakest' => $weak, 'day' => get_transient('ma_nlu_day_' . ma_ai_today()) ?: ['all' => 0, 'escalated' => 0]];
 }
 
 /**

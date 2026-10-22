@@ -496,6 +496,9 @@ call('POST', '/admin/nlu/models', ['version' => 'm2', 'action' => 'rollback'], $
 check($code === 204, 'rollback: back to the built-in model');
 [$code, $d] = call('GET', '/admin/ai/overview', [], $bossSes);
 check($code === 200 && isset($d['nlu']['samples_30d']) && $d['nlu']['error_signals_per_100'] > 0, 'overview carries the NLU numbers');
+check(isset($d['nlu']['weakest']) && is_array($d['nlu']['weakest']) && $d['usd_bdt'] == 122, 'overview: weakest intents list and the taka rate');
+[$code, $d] = call('POST', '/admin/ai/settings', ['budgets_auto' => true], $bossSes);
+check($code === 200 && !empty($d['budgets']['auto']), 'budgets back to automatic from the admin app');
 [$code, $d] = call('POST', '/ai/sources', ['day' => gmdate('Y-m-d'), 'counts' => ['nlu_same_sure' => 5, 'nlu_differ' => 2]], $ses);
 check($code === 200 && $d['kept'] === 2, 'shadow-mode counts are accepted');
 

@@ -210,6 +210,37 @@ class Api {
   Future<int> pushNow(String title, String body, String audience) async =>
       ((await _send('POST', '/admin/push', {'title': title, 'body': body, 'audience': audience}))['sent'] as num?)?.toInt() ?? 0;
 
+  // ── AI ও বোঝা ──
+
+  /// Cost by model, budgets, answer sources, and the NLU numbers.
+  Future<Map<String, dynamic>> aiOverview() => _send('GET', '/admin/ai/overview');
+
+  Future<Map<String, dynamic>> aiSettings() => _send('GET', '/admin/ai/settings');
+
+  /// {nlu: {...}, ai_on, budgets: {free:{day,month}, pro:{...}}, budgets_auto}.
+  Future<Map<String, dynamic>> saveAiSettings(Map<String, Object?> change) => _send('POST', '/admin/ai/settings', change);
+
+  /// One real call to Gemini and Claude with a made-up sentence (site owner only).
+  Future<Map<String, dynamic>> aiSelfTest() => _send('POST', '/admin/ai/selftest');
+
+  /// Samples where the phone, the cloud and the member's final action differ; error signals first.
+  Future<(List<Map<String, dynamic>>, List<String>)> review() async {
+    final r = await _send('GET', '/admin/nlu/review?limit=50');
+    return ((r['samples'] as List).cast<Map<String, dynamic>>(), (r['intents'] as List).cast<String>());
+  }
+
+  /// The right reading of a sample; pick = phone | cloud | other.
+  Future<bool> label(int id, List<String> intents, String pick) async {
+    await _send('POST', '/admin/nlu/review/$id', {'intents': intents, 'pick': pick});
+    return true;
+  }
+
+  Future<List<Map<String, dynamic>>> models() async => ((await _send('GET', '/admin/nlu/models'))['models'] as List).cast<Map<String, dynamic>>();
+
+  /// action: live (with pct) | pct | rollback.
+  Future<Map<String, dynamic>> modelAction(String version, String action, {int? pct}) async =>
+      ((await _send('POST', '/admin/nlu/models', {'version': version, 'action': action, if (pct != null) 'pct': pct}))['model'] as Map).cast<String, dynamic>();
+
   Future<Map<String, dynamic>> _send(String method, String path, [Map<String, Object?>? body]) => _call(method, path, body, true);
 
   Future<Map<String, dynamic>> _call(String method, String path, Map<String, Object?>? body, bool auth) async {
@@ -229,6 +260,7 @@ class Api {
       j = {};
     }
     if (r.statusCode == 429) throw const ApiError('অনেকবার ভুল হয়েছে — ১৫ মিনিট পরে আবার চেষ্টা করুন');
+    if (r.statusCode == 403 && j['code'] == 'owner') throw const ApiError('এটা শুধু সাইটের মূল অ্যাডমিন করতে পারেন');
     if (r.statusCode == 401 || r.statusCode == 403) {
       if (auth) {
         await logout();

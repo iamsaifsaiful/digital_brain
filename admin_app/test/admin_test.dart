@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:my_assistant_admin/ai_page.dart';
 import 'package:my_assistant_admin/api.dart';
 import 'package:my_assistant_admin/main.dart';
 
@@ -27,6 +28,19 @@ class FakeServer {
     {'id': 70, 'from': 'member', 'admin': '', 'text': 'রাত ১০টার রিমাইন্ডার বাজেনি', 'created': _ago(const Duration(minutes: 12)), 'file': {'name': 'screen.png', 'mime': 'image/png', 'size': 70}},
   ];
   final replies = <Map<String, dynamic>>[];
+  final saved = <Map<String, dynamic>>[];
+  final labels = <Map<String, dynamic>>[];
+  final aiSettings = <String, Object?>{
+    'nlu': {'mode': 'shadow', 'pct': 100, 'free_model': 'gemini-3.1-flash-lite', 'pro_model': 'claude-haiku-5-5', 'escalate_model': 'claude-sonnet-5-5', 'free_per_user': 20, 'pro_per_user': 60},
+    'ai_on': true, 'budgets': {'auto': true, 'free': {'day': 0.2, 'month': 3}, 'pro': {'day': 0.09, 'month': 1.3}}, 'member_cap_usd': 0.2047, 'usd_bdt': 122,
+    'anthropic_key': 'saved', 'gemini_key': true, 'prompt_ver': 'v1',
+  };
+  final reviews = <Map<String, Object?>>[
+    {'id': 11, 'created': '2026-10-22 04:00:00', 'state': 'idle', 'text': '<নাম১>কে ৫০০ টাকা দিলাম', 'phone': ['cash_add'], 'phone_conf': 0.62, 'cloud': ['ledger_add'], 'cloud_provider': 'gemini', 'final': ['ledger_add'], 'signal': 'edited'},
+  ];
+  final models = <Map<String, Object?>>[
+    {'version': 'm2', 'url': 'https://x/m2.tflite', 'sha256': 'a' * 64, 'size': 14068808, 'rollout_pct': 0, 'status': 'draft', 'created': '2026-10-22 04:00:00', 'thresholds': {}, 'eval': {'exact': 0.808}},
+  ];
 
   late final client = MockClient((r) async {
     calls.add(r);
@@ -66,6 +80,37 @@ class FakeServer {
         {'id': '1', 'title': 'আজকের কাজের লিস্ট করেছেন?', 'body': 'চাপুন আর বলুন — কাল কী কী করবেন, লিখে রাখবো।', 'kind': 'daily', 'at_time': '21:00', 'active': '1'},
         {'id': '2', 'title': 'শুক্রবারের পরিকল্পনা', 'body': 'ছুটির দিনে কী কী করবেন?', 'kind': 'weekly', 'at_time': '20:30', 'active': '0'},
       ]};
+    } else if (p == '/admin/ai/overview') {
+      body = {
+        'today': [{'model': 'gemini-3.1-flash-lite', 'cost_usd': 0.012}, {'model': 'claude-haiku-5-5', 'cost_usd': 0.004}],
+        'month': [{'model': 'gemini-3.1-flash-lite', 'cost_usd': 0.41}, {'model': 'claude-haiku-5-5', 'cost_usd': 0.22}],
+        'budget': {'auto': true, 'free': {'day': 0.2, 'month': 3}, 'pro': {'day': 0.09, 'month': 1.3}},
+        'sources_month': {'rules': 900, 'local': 300, 'gemini': 200, 'haiku': 80, 'sonnet': 6, 'failed': 4, 'nlu_same_sure': 700, 'nlu_same': 100, 'nlu_differ_sure': 50, 'nlu_differ': 150},
+        'usd_bdt': 122,
+        'nlu': {'samples_30d': 420, 'error_signals_per_100': 3.4, 'weakest': [{'intent': 'reminder_edit', 'n': 30, 'bad': 9, 'ok_share': 0.7}]},
+      };
+    } else if (p == '/admin/ai/settings' && r.method == 'GET') {
+      body = aiSettings;
+    } else if (p == '/admin/ai/settings') {
+      saved.add(jsonDecode(r.body) as Map<String, dynamic>);
+      body = aiSettings;
+    } else if (p == '/admin/ai/selftest') {
+      body = {'gemini': {'ok': true, 'ms': 900}, 'anthropic': {'ok': false, 'ms': 300, 'error': '401 invalid key'}};
+    } else if (p == '/admin/nlu/review') {
+      body = {'samples': reviews, 'intents': ['task_add', 'ledger_add', 'cash_add']};
+    } else if (p.startsWith('/admin/nlu/review/')) {
+      labels.add({'id': p.split('/').last, ...jsonDecode(r.body) as Map<String, dynamic>});
+      body = {'ok': true};
+    } else if (p == '/admin/nlu/models' && r.method == 'GET') {
+      body = {'models': models};
+    } else if (p == '/admin/nlu/models') {
+      final j = jsonDecode(r.body) as Map<String, dynamic>;
+      final m = models.firstWhere((x) => x['version'] == j['version']);
+      if (j['action'] == 'live') {
+        m['status'] = 'live';
+        m['rollout_pct'] = j['pct'];
+      }
+      body = {'ok': true, 'model': m};
     } else if (p == '/admin/login') {
       final j = jsonDecode(r.body);
       if (j['email'] != 'boss@gmail.com' || j['password'] != 'long-password-123') return http.Response('{"code":"login"}', 401);
@@ -173,6 +218,51 @@ void main() {
     expect(server.replies.single['text'], 'ফোনের ব্যাটারি সেটিং দেখুন');
     expect(find.text('ফোনের ব্যাটারি সেটিং দেখুন'), findsOneWidget);
     await shot(t, 'thread');
+  });
+
+  testWidgets('AI ও বোঝা: cost in taka, sources, review, a model to 10%, settings and the self-test', (t) async {
+    final server = await open(t);
+    await t.tap(find.text('AI').last);
+    await settle(t);
+    expect(find.text('৳১.৯৫'), findsOneWidget); // today: $0.016 × 122
+    expect(find.textContaining('ফোনে সমাধান ৮১%'), findsOneWidget); // 1200 of 1490
+    expect(find.textContaining('মিল ৮০%'), findsOneWidget);
+    expect(find.text('reminder_edit'), findsOneWidget);
+    await shot(t, 'ai-summary');
+    await t.tap(find.text('পর্যালোচনা'));
+    await settle(t);
+    expect(find.text('<নাম১>কে ৫০০ টাকা দিলাম'), findsOneWidget);
+    await shot(t, 'ai-review');
+    await t.tap(find.text('ক্লাউড ঠিক'));
+    await settle(t);
+    expect(server.labels.single['intents'], ['ledger_add']);
+    expect(server.labels.single['pick'], 'cloud');
+    expect(find.text('দেখার মতো কিছু নেই'), findsOneWidget);
+    await t.tap(find.text('মডেল'));
+    await settle(t);
+    expect(find.text('m2'), findsOneWidget);
+    await t.tap(find.text('চালু করুন'));
+    await settle(t);
+    expect(server.models.single['status'], 'live');
+    expect(server.models.single['rollout_pct'], 10);
+    await t.tap(find.text('সেটিংস'));
+    await settle(t);
+    await shot(t, 'ai-settings');
+    await t.tap(find.text('চালু'));
+    final list = find.descendant(of: find.byType(AiSettings), matching: find.byType(Scrollable)).first;
+    await t.scrollUntilVisible(find.text('রাখুন'), 300, scrollable: list);
+    await t.tap(find.text('রাখুন'));
+    await settle(t);
+    expect((server.saved.single['nlu'] as Map)['mode'], 'on');
+    expect(server.saved.single['budgets_auto'], true);
+    await t.pump(const Duration(seconds: 6)); // the "রাখা হয়েছে" note goes away
+    await settle(t);
+    await t.scrollUntilVisible(find.text('Gemini আর Claude পরীক্ষা'), 300, scrollable: list);
+    await t.tap(find.text('Gemini আর Claude পরীক্ষা'));
+    await settle(t);
+    await t.scrollUntilVisible(find.textContaining('Gemini: কাজ করছে'), 300, scrollable: list);
+    expect(find.textContaining('Gemini: কাজ করছে'), findsOneWidget);
+    expect(find.textContaining('Claude: কাজ করছে না 401'), findsOneWidget);
   });
 
   testWidgets('signed out: email and password, then in', (t) async {

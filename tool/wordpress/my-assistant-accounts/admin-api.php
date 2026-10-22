@@ -138,6 +138,7 @@ add_action('rest_api_init', function () {
             // Dollars spent on AI today and this month (all models, all plans).
             'ai_cost_today_usd' => round((ma_ai_spent('pro', ma_ai_today()) + ma_ai_spent('free', ma_ai_today())) / 1e6, 6),
             'ai_cost_month_usd' => round((ma_ai_spent('pro', gmdate('Y-m-01')) + ma_ai_spent('free', gmdate('Y-m-01'))) / 1e6, 6),
+            'usd_bdt' => ma_ai_usd_bdt(),
             'feedback_new' => ma_fb_new_count(),
         ];
     });

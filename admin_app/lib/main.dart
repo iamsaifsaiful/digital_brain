@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'ai_page.dart';
 import 'api.dart';
 import 'ui.dart';
 
@@ -401,6 +402,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       MembersPage(api: widget.api, guard: guard),
       FeedbackPage(api: widget.api, guard: guard, refresh: _refresh),
       NoticesPage(api: widget.api, guard: guard, onSignOut: widget.onSignedOut, onFingerprint: widget.onFingerprint),
+      AiPage(api: widget.api, guard: guard, refresh: _refresh),
     ];
     return Scaffold(
       body: SafeArea(bottom: false, child: IndexedStack(index: _tab, children: pages)),
@@ -425,6 +427,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
             label: 'মতামত',
           ),
           const NavigationDestination(icon: Icon(Icons.campaign_outlined), selectedIcon: Icon(Icons.campaign_rounded), label: 'নোটিফিকেশন'),
+          const NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), selectedIcon: Icon(Icons.auto_awesome_rounded), label: 'AI'),
         ],
       ),
     );

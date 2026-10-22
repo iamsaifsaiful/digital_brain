@@ -244,7 +244,7 @@ class _DashboardPageState extends State<DashboardPage> {
             else ...[
               Row(children: [fig('মোট সদস্য', count(n('members')), 'এই সপ্তাহে নতুন ${bn(n('new_week'))}'), const SizedBox(width: 10), fig('প্রো', count(n('pro')), 'নতুন মতামত ${bn(n('feedback_new'))}')]),
               const SizedBox(height: 10),
-              Row(children: [fig('এই মাসে আয়', taka(n('income_month')), 'ওয়েবসাইটের পেমেন্ট'), const SizedBox(width: 10), fig('সক্রিয়', count(n('active_week')), 'গত ৭ দিনে · আজ AI ${bn(n('ai_today'))}')]),
+              Row(children: [fig('এই মাসে আয়', taka(n('income_month')), 'ওয়েবসাইটের পেমেন্ট'), const SizedBox(width: 10), fig('সক্রিয়', count(n('active_week')), 'গত ৭ দিনে · আজ AI ${bn(n('ai_today'))}${s['ai_cost_today_usd'] == null ? '' : ' · ৳${bn(((s['ai_cost_today_usd'] as num) * ((s['usd_bdt'] as num?) ?? 122)).toStringAsFixed(2))}'}')]),
             ],
           ]),
         ),

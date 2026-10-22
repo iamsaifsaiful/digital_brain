@@ -1,7 +1,7 @@
 name: my_assistant_admin
 description: My Assistant Admin — payments, members and notifications from the phone. Keeps nothing on the phone but the sign-in.
 publish_to: 'none'
-version: 1.1.0+2
+version: 1.2.0+3
 
 environment:
   sdk: '>=3.8.0 <4.0.0'
