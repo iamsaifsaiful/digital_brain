@@ -22,6 +22,7 @@ const MA_FAM_PERMS = ['task', 'reminder', 'medicine', 'note', 'location'];
 const MA_FAM_WAIT_DAYS = 14;
 const MA_FAM_MAX_PACKAGE = 8 * 1024 * 1024;
 const MA_FAM_MAX_ITEM = 64 * 1024;
+const MA_FAM_MAX_FILE = 6 * 1024 * 1024;
 
 function ma_fam_table($t) {
     global $wpdb;
@@ -85,6 +86,15 @@ function ma_fam_install() {
         keys_json mediumtext NOT NULL,
         updated_at datetime NOT NULL,
         PRIMARY KEY  (owner_id)
+    ) $cs;");
+    // Photos and files of the heirs' copy, each sealed on the phone with the copy's file key.
+    dbDelta('CREATE TABLE ' . ma_fam_table('files') . " (
+        owner_id bigint(20) unsigned NOT NULL,
+        file_id varchar(40) NOT NULL,
+        file_key varchar(64) NOT NULL,
+        size int unsigned NOT NULL DEFAULT 0,
+        created_at datetime NOT NULL,
+        PRIMARY KEY  (owner_id, file_id)
     ) $cs;");
     dbDelta('CREATE TABLE ' . ma_fam_table('claims') . " (
         id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -471,10 +481,64 @@ add_action('rest_api_init', function () {
             return new WP_Error('disk', 'could not save', ['status' => 500]);
         }
         $wpdb->replace(ma_fam_table('packages'), ['owner_id' => (int) $row['id'], 'file_key' => $key, 'size' => strlen($bytes), 'keys_json' => wp_json_encode($keys), 'updated_at' => ma_fam_now()]);
+        // Files the copy no longer mentions go.
+        if (isset($in['files']) && is_array($in['files'])) {
+            $keep = array_flip(array_map('strval', $in['files']));
+            foreach ($wpdb->get_results($wpdb->prepare('SELECT file_id, file_key FROM ' . ma_fam_table('files') . ' WHERE owner_id = %d', $row['id']), ARRAY_A) ?: [] as $f) {
+                if (!isset($keep[$f['file_id']])) {
+                    @unlink(ma_fb_dir() . '/' . $f['file_key']);
+                    $wpdb->delete(ma_fam_table('files'), ['owner_id' => (int) $row['id'], 'file_id' => $f['file_id']]);
+                }
+            }
+        }
         if ($old) {
             @unlink(ma_fb_dir() . '/' . $old);
         }
         return ['ok' => true, 'heirs' => count($keys)];
+    });
+
+    // One sealed photo or file for the heirs' copy (only while the member has an heir).
+    $r('/family/files', 'POST', function ($req, $row) {
+        global $wpdb;
+        $in = ma_fam_body($req);
+        $id = preg_replace('/[^A-Za-z0-9_\-]/', '', (string) ($in['id'] ?? ''));
+        $bytes = base64_decode((string) ($in['blob'] ?? ''), true);
+        if ($id === '' || strlen($id) > 40 || $bytes === false || $bytes === '' || strlen($bytes) > MA_FAM_MAX_FILE) {
+            return new WP_Error('bad', 'a sealed file up to 6 MB', ['status' => 400]);
+        }
+        $heir = false;
+        foreach (ma_fam_links_of($row) as $l) {
+            $heir = $heir || ($l['status'] === 'active' && ma_fam_side($l, (int) $row['id'])['they_are_my_heir']);
+        }
+        if (!$heir) {
+            return new WP_Error('heirs', 'no heir named', ['status' => 400]);
+        }
+        $n = (int) $wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM ' . ma_fam_table('files') . ' WHERE owner_id = %d', $row['id']));
+        $old = $wpdb->get_var($wpdb->prepare('SELECT file_key FROM ' . ma_fam_table('files') . ' WHERE owner_id = %d AND file_id = %s', $row['id'], $id));
+        if (!$old && $n >= 2000) {
+            return new WP_Error('many', 'too many files', ['status' => 429]);
+        }
+        $key = bin2hex(random_bytes(32));
+        if (file_put_contents(ma_fb_dir() . '/' . $key, $bytes) === false) {
+            return new WP_Error('disk', 'could not save', ['status' => 500]);
+        }
+        if ($old) {
+            @unlink(ma_fb_dir() . '/' . $old);
+        }
+        $wpdb->replace(ma_fam_table('files'), ['owner_id' => (int) $row['id'], 'file_id' => $id, 'file_key' => $key, 'size' => strlen($bytes), 'created_at' => ma_fam_now()]);
+        return ['ok' => true];
+    });
+
+    $r('/family/(?P<id>\d+)/files/(?P<file>[A-Za-z0-9_\-]{1,40})', 'GET', function ($req, $row) {
+        global $wpdb;
+        $l = ma_fam_link_for($row, (int) $req['id']);
+        if (!$l || !ma_fam_link_json($l, (int) $row['id'])['can_open']) {
+            return new WP_Error('closed', 'not open to you', ['status' => 403]);
+        }
+        $s = ma_fam_side($l, (int) $row['id']);
+        $k = $wpdb->get_var($wpdb->prepare('SELECT file_key FROM ' . ma_fam_table('files') . ' WHERE owner_id = %d AND file_id = %s', $s['other'], (string) $req['file']));
+        $bytes = $k ? @file_get_contents(ma_fb_dir() . '/' . $k) : false;
+        return $bytes === false ? new WP_Error('none', 'not uploaded yet', ['status' => 404]) : ['blob' => base64_encode($bytes)];
     });
 
     $r('/family/package', 'DELETE', function ($req, $row) {
@@ -549,6 +613,10 @@ add_action('rest_api_init', function () {
 
 function ma_fam_drop_package($owner_id) {
     global $wpdb;
+    foreach ($wpdb->get_col($wpdb->prepare('SELECT file_key FROM ' . ma_fam_table('files') . ' WHERE owner_id = %d', $owner_id)) ?: [] as $k) {
+        @unlink(ma_fb_dir() . '/' . $k);
+    }
+    $wpdb->delete(ma_fam_table('files'), ['owner_id' => $owner_id]);
     $old = $wpdb->get_var($wpdb->prepare('SELECT file_key FROM ' . ma_fam_table('packages') . ' WHERE owner_id = %d', $owner_id));
     if ($old) {
         @unlink(ma_fb_dir() . '/' . $old);

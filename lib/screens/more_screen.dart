@@ -32,7 +32,7 @@ import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '2.43.0';
+const appVersion = '2.44.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -192,7 +192,7 @@ class _MoreScreenState extends State<MoreScreen> {
     final list = await brain.services.voice.voices();
     if (!mounted) return;
     final sample = tr('আসসালামু আলাইকুম! আমি আপনার সহকারী। বলুন, কী করে দিতে পারি?');
-    await showModalBottomSheet<void>(
+    await showAppSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => SafeArea(
@@ -263,7 +263,7 @@ class _MoreScreenState extends State<MoreScreen> {
     if (!await verifyUser(context, reason: tr('PIN বদলাতে আগে যাচাই করুন'))) return;
     if (!mounted) return;
     final lock = BrainScope.read(context).services.lock;
-    final done = await showModalBottomSheet<bool>(context: context, isScrollControlled: true, builder: (_) => _NewPinSheet(lock: lock));
+    final done = await showAppSheet<bool>(context: context, isScrollControlled: true, builder: (_) => _NewPinSheet(lock: lock));
     if (done == true && mounted) toast(context, tr('নতুন PIN রাখা হয়েছে'));
   }
 

@@ -708,6 +708,12 @@ check($code === 200 && count($d['claims_on_me']) === 0, 'a living member cancels
 [$code, $d] = call('POST', "/family/$lid/allow", ['open_now' => true], $sonSes);
 [$code, $d] = call('GET', "/family/$lid/package", [], $momSes);
 check($code === 200 && base64_decode($d['blob']) === 'sealed-copy' && $d['key'] === 'wrapped-for-mom', 'access given now: she opens it at once (sealed for her)');
+[$code] = call('POST', '/family/files', ['id' => 'f-photo-1', 'blob' => base64_encode('sealed-photo')], $sonSes);
+[$c2, $f] = call('GET', "/family/$lid/files/f-photo-1", [], $momSes);
+check($code === 200 && $c2 === 200 && base64_decode($f['blob']) === 'sealed-photo', 'photos too: sealed on his phone, opened by his heir');
+call('POST', '/family/package', ['blob' => base64_encode('sealed-copy-2'), 'keys' => [$lid => 'wrapped-for-mom'], 'files' => []], $sonSes);
+[$c4] = call('GET', "/family/$lid/files/f-photo-1", [], $momSes);
+check($c4 === 404, 'a photo the copy no longer lists is deleted');
 // A claim that runs its 14 days
 call('POST', "/family/$lid/allow", ['open_now' => false], $sonSes);
 call('POST', "/family/$lid/claim", ['note' => 'y', 'file' => ['name' => 'sonod.png', 'data' => base64_encode(base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='))]], $momSes);

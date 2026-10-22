@@ -106,7 +106,7 @@ class _ZakatScreenState extends State<ZakatScreen> {
         }
       }
     }
-    showModalBottomSheet<void>(
+    showAppSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => DraggableScrollableSheet(

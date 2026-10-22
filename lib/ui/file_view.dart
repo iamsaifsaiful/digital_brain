@@ -178,7 +178,7 @@ class _PdfViewScreenState extends State<PdfViewScreen> {
 /// Word, Excel and other files: opened in another app, or saved or shared.
 Future<void> _otherFile(BuildContext context, Uint8List bytes, String name, String mime, String title) async {
   final files = BrainScope.read(context).services.files;
-  final pick = await showModalBottomSheet<int>(
+  final pick = await showAppSheet<int>(
     context: context,
     showDragHandle: true,
     builder: (ctx) => SafeArea(

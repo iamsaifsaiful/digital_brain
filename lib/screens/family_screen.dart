@@ -13,6 +13,7 @@ import '../state/brain.dart';
 import '../state/family_state.dart';
 import '../ui/pro_gate.dart';
 import '../ui/theme.dart';
+import '../ui/file_view.dart';
 import '../ui/widgets.dart';
 import 'google_backup.dart';
 
@@ -51,14 +52,14 @@ class _FamilyScreenState extends State<FamilyScreen> {
   Future<void> _invite() async {
     if (!await needPro(context, ProFeature.family)) return;
     if (!mounted) return;
-    final r = await showModalBottomSheet<(String, String, List<String>)>(context: context, isScrollControlled: true, builder: (_) => const _AddSheet());
+    final r = await showAppSheet<(String, String, List<String>)>(context: context, isScrollControlled: true, builder: (_) => const _AddSheet());
     if (r == null || !mounted) return;
     final ok = await BrainScope.read(context).family.invite(r.$1, r.$2, r.$3);
     if (ok && mounted) toast(context, tr('অনুরোধ পাঠানো হয়েছে — তিনি অ্যাপে মেনে নিলে যুক্ত হবেন'));
   }
 
   Future<void> _answer(FamilyLink l) async {
-    final r = await showModalBottomSheet<(String, String, List<String>)>(context: context, isScrollControlled: true, builder: (_) => _AddSheet(accepting: l));
+    final r = await showAppSheet<(String, String, List<String>)>(context: context, isScrollControlled: true, builder: (_) => _AddSheet(accepting: l));
     if (r == null || !mounted) return;
     await BrainScope.read(context).family.answer(l, true, relation: r.$2, allow: r.$3);
   }
@@ -70,8 +71,14 @@ class _FamilyScreenState extends State<FamilyScreen> {
     return ListenableBuilder(
       listenable: fam,
       builder: (context, _) {
-        final incoming = [for (final l in fam.links) if (l.incoming) l];
-        final mine = [for (final l in fam.links) if (!l.incoming) l];
+        final incoming = [
+          for (final l in fam.links)
+            if (l.incoming) l
+        ];
+        final mine = [
+          for (final l in fam.links)
+            if (!l.incoming) l
+        ];
         final sharing = mine.any((l) => l.active && l.iAllow.contains('location'));
         final heirs = mine.where((l) => l.active && l.theyAreMyHeir).toList();
         return Scaffold(
@@ -133,7 +140,8 @@ class _FamilyScreenState extends State<FamilyScreen> {
                             EmptyState(
                               icon: Icons.family_restroom_rounded,
                               title: tr('এখনো কেউ নেই'),
-                              text: tr('মা-বাবা, স্বামী-স্ত্রী, সন্তান — তাঁদের ইমেইল দিয়ে যুক্ত করুন। তাঁরা যা অনুমতি দেবেন, শুধু তা-ই করতে পারবেন: কাজ, রিমাইন্ডার, ওষুধের রিমাইন্ডার, নোট, লাইভ লোকেশন।'),
+                              text: tr(
+                                  'মা-বাবা, স্বামী-স্ত্রী, সন্তান — তাঁদের ইমেইল দিয়ে যুক্ত করুন। তাঁরা যা অনুমতি দেবেন, শুধু তা-ই করতে পারবেন: কাজ, রিমাইন্ডার, ওষুধের রিমাইন্ডার, নোট, লাইভ লোকেশন।'),
                             ),
                           if (mine.isNotEmpty)
                             Panel(
@@ -160,52 +168,66 @@ class _FamilyScreenState extends State<FamilyScreen> {
                                 Text(
                                     _loc['fine'] != true
                                         ? tr('লোকেশন দেখাতে ফোনের অনুমতি লাগবে।')
-                                        : (_loc['background'] != true ? tr('অ্যাপ খোলা থাকলে লোকেশন যায়। ফোন হারালেও খুঁজে পেতে “সবসময়” অনুমতি দিন।') : tr('চালু — অ্যাপ বন্ধ থাকলেও “এখন কোথায়?” জিজ্ঞেস করলে ফোন নিজে জানাবে।')),
+                                        : (_loc['background'] != true
+                                            ? tr('অ্যাপ খোলা থাকলে লোকেশন যায়। ফোন হারালেও খুঁজে পেতে “সবসময়” অনুমতি দিন।')
+                                            : tr('চালু — অ্যাপ বন্ধ থাকলেও “এখন কোথায়?” জিজ্ঞেস করলে ফোন নিজে জানাবে।')),
                                     style: body(14, height: 1.45)),
                                 const SizedBox(height: 8),
                                 if (_loc['fine'] != true)
-                                  PrimaryButton(label: tr('লোকেশনের অনুমতি দিন'), height: 44, onPressed: () async {
-                                    if (!await _disclose(context)) return;
-                                    await LocationShareChannel.ask();
-                                    await Future<void>.delayed(const Duration(seconds: 2));
-                                    await _load();
-                                  })
+                                  PrimaryButton(
+                                      label: tr('লোকেশনের অনুমতি দিন'),
+                                      height: 44,
+                                      onPressed: () async {
+                                        if (!await _disclose(context)) return;
+                                        await LocationShareChannel.ask();
+                                        await Future<void>.delayed(const Duration(seconds: 2));
+                                        await _load();
+                                      })
                                 else if (_loc['background'] != true)
-                                  SecondaryButton(label: tr('“সবসময় অনুমতি দিন” বেছে নিন'), height: 44, onPressed: () async {
-                                    if (!await _disclose(context)) return;
-                                    await LocationShareChannel.askBackground();
-                                  }),
+                                  SecondaryButton(
+                                      label: tr('“সবসময় অনুমতি দিন” বেছে নিন'),
+                                      height: 44,
+                                      onPressed: () async {
+                                        if (!await _disclose(context)) return;
+                                        await LocationShareChannel.askBackground();
+                                      }),
                                 const SizedBox(height: 6),
                                 Text(tr('লোকেশন তালাবদ্ধ হয়ে যায় — শুধু যাঁদের অনুমতি দিয়েছেন তাঁরাই খুলতে পারেন, আমাদের সার্ভারও না।'), style: body(12.5, color: C.muted, height: 1.4)),
                               ]),
                             ),
                           ],
-                          const SizedBox(height: 16),
-                          SectionTitle(tr('উত্তরাধিকারী')),
-                          Text(
-                              heirs.isEmpty
-                                  ? tr('কোনো সদস্যকে খুলে “আমার উত্তরাধিকারী” চালু করলে, আপনার ইন্তেকালের পর (কাগজ যাচাই আর ১৪ দিন অপেক্ষার পর) বা আপনি এখনই অনুমতি দিলে তিনি নিচে বাছাই করা অংশ দেখতে পাবেন।')
-                                  : trf('উত্তরাধিকারী: {0}। তাঁরা যা দেখতে পাবেন:', [heirs.map((h) => h.title).join(', ')]),
-                              style: body(13.5, color: C.muted2, height: 1.45)),
-                          const SizedBox(height: 6),
-                          Panel(
-                            child: Rows(children: [
-                              for (final p in heirParts.keys)
-                                CheckboxListTile(
-                                  key: Key('heir-part-$p'),
-                                  value: _scope.contains(p),
-                                  onChanged: (v) async {
-                                    final next = [for (final x in heirParts.keys) if (x == p ? v == true : _scope.contains(x)) x];
-                                    setState(() => _scope = next);
-                                    await fam.setHeirScope(next);
-                                  },
-                                  title: Text(heirPartLabel(p), style: body(14.5)),
-                                  subtitle: p == 'vault' || p == 'health' ? Text(tr('নিজে টিক না দিলে যাবে না'), style: body(12, color: C.muted)) : null,
-                                ),
-                            ]),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(tr('উত্তরাধিকারীর কপি আপনার ফোনেই তালাবদ্ধ হয়ে সার্ভারে থাকে — শুধু তিনি খুলতে পারেন, আমরা না।'), style: body(12.5, color: C.muted, height: 1.4)),
+                          if (mine.any((l) => l.active)) ...[
+                            const SizedBox(height: 16),
+                            SectionTitle(tr('উত্তরাধিকারী')),
+                            Text(
+                                heirs.isEmpty
+                                    ? tr(
+                                        'কোনো সদস্যকে খুলে “আমার উত্তরাধিকারী” চালু করলে, আপনার ইন্তেকালের পর (কাগজ যাচাই আর ১৪ দিন অপেক্ষার পর) বা আপনি এখনই অনুমতি দিলে তিনি নিচে বাছাই করা অংশ দেখতে পাবেন।')
+                                    : trf('উত্তরাধিকারী: {0}। তাঁরা যা দেখতে পাবেন:', [heirs.map((h) => h.title).join(', ')]),
+                                style: body(13.5, color: C.muted2, height: 1.45)),
+                            const SizedBox(height: 6),
+                            Panel(
+                              child: Rows(children: [
+                                for (final p in heirParts.keys)
+                                  CheckboxListTile(
+                                    key: Key('heir-part-$p'),
+                                    value: _scope.contains(p),
+                                    onChanged: (v) async {
+                                      final next = [
+                                        for (final x in heirParts.keys)
+                                          if (x == p ? v == true : _scope.contains(x)) x
+                                      ];
+                                      setState(() => _scope = next);
+                                      await fam.setHeirScope(next);
+                                    },
+                                    title: Text(heirPartLabel(p), style: body(14.5)),
+                                    subtitle: p == 'vault' || p == 'health' ? Text(tr('নিজে টিক না দিলে যাবে না'), style: body(12, color: C.muted)) : null,
+                                  ),
+                              ]),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(tr('উত্তরাধিকারীর কপি আপনার ফোনেই তালাবদ্ধ হয়ে সার্ভারে থাকে — শুধু তিনি খুলতে পারেন, আমরা না।'), style: body(12.5, color: C.muted, height: 1.4)),
+                          ],
                         ]),
                       ),
               ),
@@ -274,7 +296,8 @@ class _AddSheetState extends State<_AddSheet> {
           Text(acc == null ? tr('ফ্যামিলিতে যোগ করুন') : trf('{0}-এর সাথে যুক্ত হোন', [acc.name]), style: display(20, weight: 700)),
           const SizedBox(height: 12),
           if (acc == null) ...[
-            TextField(key: const Key('family-email'), controller: _email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: tr('তাঁর ইমেইল (যেটা দিয়ে অ্যাপে লগইন করেন)'))),
+            TextField(
+                key: const Key('family-email'), controller: _email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: tr('তাঁর ইমেইল (যেটা দিয়ে অ্যাপে লগইন করেন)'))),
             const SizedBox(height: 10),
           ],
           TextField(key: const Key('family-relation'), controller: _relation, decoration: InputDecoration(labelText: tr('তিনি আপনার কে?'), hintText: tr('যেমন: আম্মা, ছেলে, স্ত্রী'))),
@@ -298,7 +321,14 @@ class _AddSheetState extends State<_AddSheet> {
                 setState(() => _error = tr('ঠিক ইমেইল দিন'));
                 return;
               }
-              Navigator.pop(context, (email, _relation.text.trim(), [for (final p in familyPerms) if (_allow.contains(p)) p]));
+              Navigator.pop(context, (
+                email,
+                _relation.text.trim(),
+                [
+                  for (final p in familyPerms)
+                    if (_allow.contains(p)) p
+                ]
+              ));
             },
           ),
         ]),
@@ -322,7 +352,7 @@ class _FamilyMemberScreenState extends State<FamilyMemberScreen> {
     final fam = BrainScope.read(context).family;
     if (!await needPro(context, ProFeature.family)) return;
     if (!mounted) return;
-    final payload = await showModalBottomSheet<Map<String, Object?>>(context: context, isScrollControlled: true, builder: (_) => _SendSheet(kind: kind, to: l.title));
+    final payload = await showAppSheet<Map<String, Object?>>(context: context, isScrollControlled: true, builder: (_) => _SendSheet(kind: kind, to: l.title));
     if (payload == null || !mounted) return;
     final ok = await fam.send(l, kind, payload);
     if (ok && mounted) toast(context, trf('{0}-কে পাঠানো হয়েছে', [l.iCall.isEmpty ? l.name : l.iCall]));
@@ -341,7 +371,7 @@ class _FamilyMemberScreenState extends State<FamilyMemberScreen> {
     final at = DateTime.tryParse('${p['at'] ?? ''}')?.toLocal();
     final lat = (p['lat'] as num).toDouble(), lon = (p['lon'] as num).toDouble();
     final now = brain.services.now();
-    await showModalBottomSheet<void>(
+    await showAppSheet<void>(
       context: context,
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -420,7 +450,10 @@ class _FamilyMemberScreenState extends State<FamilyMemberScreen> {
                         CheckboxListTile(
                           key: Key('family-allow-$p'),
                           value: l.iAllow.contains(p),
-                          onChanged: (v) => fam.setAllow(l, allow: [for (final x in familyPerms) if (x == p ? v == true : l.iAllow.contains(x)) x]),
+                          onChanged: (v) => fam.setAllow(l, allow: [
+                            for (final x in familyPerms)
+                              if (x == p ? v == true : l.iAllow.contains(x)) x
+                          ]),
                           title: Text(familyPermLabel(p), style: body(14.5)),
                         ),
                     ]),
@@ -465,7 +498,7 @@ class _FamilyMemberScreenState extends State<FamilyMemberScreen> {
                                 icon: Icons.folder_open_rounded,
                                 onPressed: () async {
                                   final data = await fam.openPackage(l);
-                                  if (data != null && context.mounted) Navigator.of(context).push(MaterialPageRoute(builder: (_) => HeirViewScreen(title: l.title, data: data)));
+                                  if (data != null && context.mounted) Navigator.of(context).push(MaterialPageRoute(builder: (_) => HeirViewScreen(title: l.title, data: data, link: l)));
                                 }),
                           )
                         else if (l.claim == null)
@@ -552,7 +585,8 @@ class _SendSheetState extends State<_SendSheet> {
                 final d = await showDatePicker(context: context, initialDate: _day ?? now, firstDate: DateTime(now.year, now.month, now.day), lastDate: now.add(const Duration(days: 3650)));
                 if (d != null) setState(() => _day = d);
               },
-              child: InputDecorator(decoration: InputDecoration(labelText: tr('কবে')), child: Text(_day == null ? (k == 'task' ? tr('দিন ছাড়া') : tr('দিন বেছে নিন')) : fullDate(_day!), style: body(16))),
+              child: InputDecorator(
+                  decoration: InputDecoration(labelText: tr('কবে')), child: Text(_day == null ? (k == 'task' ? tr('দিন ছাড়া') : tr('দিন বেছে নিন')) : fullDate(_day!), style: body(16))),
             ),
           ],
           if (k == 'reminder') ...[
@@ -622,9 +656,39 @@ class _SendSheetState extends State<_SendSheet> {
 
 /// What an heir sees: the parts the member chose, read-only.
 class HeirViewScreen extends StatelessWidget {
-  const HeirViewScreen({super.key, required this.title, required this.data});
+  const HeirViewScreen({super.key, required this.title, required this.data, this.link});
   final String title;
   final Map<String, dynamic> data;
+
+  /// Whose copy this is; needed to fetch photos (null in tests without a server).
+  final FamilyLink? link;
+
+  /// Photos and files of a note or document, as chips that open on tap.
+  Widget _files(BuildContext context, List<DocFile> files) {
+    if (files.isEmpty) return const SizedBox.shrink();
+    final key = '${data['files_key'] ?? ''}';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+      child: Wrap(spacing: 6, runSpacing: 6, children: [
+        for (final f in files)
+          ActionChip(
+            key: Key('heir-file-${f.id}'),
+            avatar: Icon(f.isImage ? Icons.image_outlined : Icons.insert_drive_file_outlined, size: 18, color: C.green),
+            label: Text(f.isImage ? tr('ছবি দেখুন') : f.name, style: body(13)),
+            onPressed: () async {
+              final l = link;
+              final bytes = l == null || key.isEmpty ? null : await BrainScope.read(context).family.openFile(l, f.id, key);
+              if (!context.mounted) return;
+              if (bytes == null) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('এখনো আসেনি — তাঁর ফোন Wi-Fi-তে থাকলে পাঠাবে'))));
+                return;
+              }
+              await viewFile(context, bytes, name: f.name, mime: f.mime, title: f.name);
+            },
+          ),
+      ]),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -634,7 +698,8 @@ class HeirViewScreen extends StatelessWidget {
     Widget section(String head, List<Widget> rows) => rows.isEmpty
         ? const SizedBox.shrink()
         : Padding(padding: const EdgeInsets.only(top: 14), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [SectionTitle(head), Panel(child: Rows(children: rows))]));
-    Widget row(String t, [String? sub, String? trail]) => ListRow(leading: const SizedBox(width: 4), title: t, subtitle: sub, trailing: trail == null ? null : Text(trail, style: body(14.5, weight: FontWeight.w600)));
+    Widget row(String t, [String? sub, String? trail]) =>
+        ListRow(leading: const SizedBox(width: 4), title: t, subtitle: sub, trailing: trail == null ? null : Text(trail, style: body(14.5, weight: FontWeight.w600)));
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
@@ -644,7 +709,8 @@ class HeirViewScreen extends StatelessWidget {
               Text(at == null ? '' : trf('{0} পর্যন্ত যা ছিল — শুধু দেখা যায়, বদলানো যায় না', [fullDate(at)]), style: body(13.5, color: C.muted)),
               if (parts.contains('money')) ...[
                 section(tr('ধার-দেনা'), [
-                  for (final p in balances(d.ledger)) if (p.balance != 0) row(p.name, p.balance > 0 ? tr('তাঁর কাছে পাওনা') : tr('তাঁকে দিতে হবে'), taka(p.balance.abs())),
+                  for (final p in balances(d.ledger))
+                    if (p.balance != 0) row(p.name, p.balance > 0 ? tr('তাঁর কাছে পাওনা') : tr('তাঁকে দিতে হবে'), taka(p.balance.abs())),
                 ]),
                 section(tr('অ্যাকাউন্ট'), [for (final a in d.accounts) row(a.name, tr(a.kind.bn))]),
                 section(tr('সঞ্চয় ও কিস্তি'), [
@@ -657,10 +723,23 @@ class HeirViewScreen extends StatelessWidget {
                 ]),
               ],
               if (parts.contains('notes')) ...[
-                section(tr('নোট'), [for (final n in d.notes) row(n.title.isEmpty ? n.body : n.title, n.title.isEmpty ? null : n.body)]),
+                section(tr('নোট'), [
+                  for (final n in d.notes)
+                    Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [row(n.title.isEmpty ? n.body : n.title, n.title.isEmpty ? null : n.body), _files(context, n.files)]),
+                ]),
                 section(tr('মনে রাখা কথা'), [for (final m in d.memories) row(m.text)]),
               ],
-              if (parts.contains('docs')) section(tr('ডকুমেন্ট'), [for (final x in d.docs) row(x.title, [x.folder, for (final f in x.fields) '${f.label}: ${f.value}'].where((s) => s.isNotEmpty).join(' · '))]),
+              if (parts.contains('docs'))
+                section(tr('ডকুমেন্ট'), [
+                  for (final x in d.docs)
+                    Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+                      row(x.title, [x.folder, for (final f in x.fields) '${f.label}: ${f.value}'].where((s) => s.isNotEmpty).join(' · ')),
+                      _files(context, x.files),
+                    ]),
+                ]),
               if (parts.contains('tasks')) ...[
                 section(tr('কাজ'), [for (final t in d.tasks.where((t) => !t.done)) row(t.title, t.due == null ? null : fullDate(t.due!))]),
                 section(tr('রিমাইন্ডার'), [for (final r in d.reminders.where((r) => r.enabled && r.vaultId == null)) row(r.title, fullDate(r.date))]),
@@ -668,7 +747,10 @@ class HeirViewScreen extends StatelessWidget {
               ],
               if (parts.contains('contacts')) section(tr('নম্বর'), [for (final c in d.contacts) row(c.name, bnDigits(c.phone))]),
               if (parts.contains('health')) section(tr('ওষুধ'), [for (final m in d.medicines) row(m.name, m.note)]),
-              if (parts.contains('vault')) section(tr('পাসওয়ার্ড ও ভল্ট'), [for (final v in d.vault) row(v.name, [v.username, v.password].where((s) => s.isNotEmpty).join(' · '))]),
+              if (parts.contains('vault'))
+                section(tr('পাসওয়ার্ড ও ভল্ট'), [
+                  for (final v in d.vault) row(v.name, [v.username, v.password].where((s) => s.isNotEmpty).join(' · '))
+                ]),
             ]),
           ),
         ]),

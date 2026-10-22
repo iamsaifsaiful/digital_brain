@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/screens/app_places.dart';
 import 'package:digital_brain/screens/family_screen.dart';
+import 'package:digital_brain/screens/money_screens.dart' show CashPage;
+import 'package:digital_brain/screens/tasks_screen.dart';
 import 'package:digital_brain/screens/requests_screen.dart';
 import 'package:digital_brain/screens/zakat_screen.dart';
 import 'package:digital_brain/ui/theme.dart';
@@ -71,4 +73,22 @@ void main() {
     await settle(t);
     if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/home.png'));
   });
+  // Several rows picked (lib/ui/pick.dart), light and dark.
+  for (final look in [Look.light, Look.dark]) {
+    for (final (name, page, row) in [('tasks', () => const TasksScreen() as Widget, 'বিদ্যুৎ বিল দেওয়া'), ('cash', () => const CashPage() as Widget, 'বাজার')]) {
+      testWidgets('picking ${look.name}: $name', (t) async {
+        final rig = await start(t);
+        await rig.brain.setLook(look);
+        rig.brain.data = sample(rig.brain.services.now());
+        await settle(t);
+        Navigator.of(t.element(find.byType(Scaffold).first)).push(MaterialPageRoute(builder: (_) => page()));
+        await settle(t);
+        await t.ensureVisible(find.text(row).last);
+        await t.longPress(find.text(row).last);
+        await settle(t);
+        expect(find.byKey(const Key('pick-bar')), findsOneWidget);
+        if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/pick-$name-${look.name}.png'));
+      });
+    }
+  }
 }

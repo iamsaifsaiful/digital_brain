@@ -260,7 +260,7 @@ class _DocScreenState extends State<DocScreen> {
     final keep = {for (final f in fresh) f.label};
     final expiry = d.expiry == null ? scan.expiry?.date : null;
     var useExpiry = expiry != null;
-    final ok = await showModalBottomSheet<bool>(
+    final ok = await showAppSheet<bool>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -421,7 +421,7 @@ class _DocScreenState extends State<DocScreen> {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(14),
                         onTap: () async {
-                          final src = await showModalBottomSheet<int>(
+                          final src = await showAppSheet<int>(
                             context: context,
                             showDragHandle: true,
                             builder: (ctx) => SafeArea(

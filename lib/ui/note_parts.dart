@@ -146,7 +146,7 @@ class _AttachmentsEditorState extends State<AttachmentsEditor> {
   }
 
   Future<void> _pick() async {
-    final src = await showModalBottomSheet<int>(
+    final src = await showAppSheet<int>(
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(

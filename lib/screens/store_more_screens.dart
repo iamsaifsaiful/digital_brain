@@ -27,7 +27,7 @@ class TagEditor extends StatelessWidget {
     final tags = brain.tagsOf(tagKey);
     Future<void> add() async {
       final all = brain.data.allTags.where((t) => !tags.contains(t)).toList();
-      final picked = await showModalBottomSheet<String>(
+      final picked = await showAppSheet<String>(
         context: context,
         builder: (ctx) => SafeArea(
           child: Padding(
@@ -463,7 +463,7 @@ class _EmergencyEditScreenState extends State<EmergencyEditScreen> {
 }
 
 /// Small list of saved contacts to pick one.
-Future<Contact?> pickContact(BuildContext context, List<Contact> contacts) => showModalBottomSheet<Contact>(
+Future<Contact?> pickContact(BuildContext context, List<Contact> contacts) => showAppSheet<Contact>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => SafeArea(

@@ -130,7 +130,7 @@ class _LockScreenState extends State<LockScreen> {
     final rec = await lock.hasRecovery();
     final google = brain.signedIn;
     if (!mounted) return;
-    final how = await showModalBottomSheet<String>(
+    final how = await showAppSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(
         child: Padding(

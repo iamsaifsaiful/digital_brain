@@ -32,7 +32,9 @@ class _RequestsScreenState extends State<RequestsScreen> {
   String _group = '';
   String _place = '';
   DonorProfile? _donor;
-  List<BloodRequest>? _list;
+
+  /// Each tab's list (false: the whole country, true: mine); null while loading.
+  final Map<bool, List<BloodRequest>?> _lists = {};
   String? _error;
 
   @override
@@ -41,23 +43,24 @@ class _RequestsScreenState extends State<RequestsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
-  Future<void> _load() async {
+  Future<void> _load([bool? which]) async {
     final brain = BrainScope.read(context);
     if (!brain.signedIn) return;
+    final mine = which ?? _mine;
     final c = brain.community;
     final (donor, e1) = _donor == null ? await c.donor() : (_donor!, null);
-    final (list, e2) = _mine ? await c.requests(scope: 'mine') : await c.requests(scope: 'all', district: _place, blood: _group);
+    final (list, e2) = mine ? await c.requests(scope: 'mine') : await c.requests(scope: 'all', district: _place, blood: _group);
     if (!mounted) return;
     setState(() {
       _donor = donor;
-      _list = list;
+      _lists[mine] = list;
       _error = e2 ?? e1;
     });
   }
 
-  Future<void> _reload() async {
-    setState(() => _list = null);
-    await _load();
+  Future<void> _reload([bool? which]) async {
+    setState(() => _lists[which ?? _mine] = null);
+    await _load(which);
   }
 
   Future<void> _ask() async {
@@ -65,11 +68,11 @@ class _RequestsScreenState extends State<RequestsScreen> {
     if (told == null || !mounted) return;
     toast(context, told == 0 ? tr('অনুরোধ রাখা হয়েছে') : trf('অনুরোধ রাখা হয়েছে — {0} জন দাতাকে জানানো হলো', [bnDigits(told)]));
     setState(() => _mine = true);
-    await _reload();
+    await _reload(true);
   }
 
   Future<void> _donorSetup() async {
-    final d = await showModalBottomSheet<DonorProfile>(context: context, isScrollControlled: true, builder: (_) => _DonorSheet(current: _donor ?? const DonorProfile()));
+    final d = await showAppSheet<DonorProfile>(context: context, isScrollControlled: true, builder: (_) => _DonorSheet(current: _donor ?? const DonorProfile()));
     if (d == null || !mounted) return;
     setState(() => _donor = d);
     await _reload();
@@ -118,8 +121,72 @@ class _RequestsScreenState extends State<RequestsScreen> {
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final donor = _donor;
-    final list = _list;
     final now = brain.services.now();
+    // Each tab is its own page; swiping left/right moves between them.
+    List<Widget> page(bool mine) {
+      final list = _lists[mine];
+      return [
+        if (!mine) ...[
+          if (donor != null) _DonorCard(donor: donor, onTap: _donorSetup),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                key: const Key('blood-filter-group'),
+                initialValue: _group,
+                isExpanded: true,
+                decoration: InputDecoration(labelText: tr('গ্রুপ'), isDense: true),
+                items: [DropdownMenuItem(value: '', child: Text(tr('সব গ্রুপ'))), for (final g in bloodGroups) DropdownMenuItem(value: g, child: Text(g))],
+                onChanged: (v) {
+                  setState(() => _group = v ?? '');
+                  _reload(false);
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                key: const Key('blood-filter-place'),
+                initialValue: _place,
+                isExpanded: true,
+                decoration: InputDecoration(labelText: tr('জেলা'), isDense: true),
+                items: [DropdownMenuItem(value: '', child: Text(tr('সারা দেশ'))), for (final p in bdPlaces) DropdownMenuItem(value: p.name, child: Text(p.label))],
+                onChanged: (v) {
+                  setState(() => _place = v ?? '');
+                  _reload(false);
+                },
+              ),
+            ),
+          ]),
+          const SizedBox(height: 10),
+        ],
+        if (_error != null) Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(_error!, style: body(14, color: C.red))),
+        if (list == null)
+          const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
+        else if (list.isEmpty)
+          EmptyState(
+            icon: Icons.bloodtype_outlined,
+            title: mine ? tr('আপনার কোনো অনুরোধ নেই') : tr('এখন কোনো অনুরোধ নেই'),
+            text: mine
+                ? tr('রক্ত দরকার হলে নিচের “রক্ত চাই” চাপুন — সারা দেশের সবাই দেখবেন, আর আপনার জেলার দাতারা সাথে সাথে জানবেন।')
+                : tr('দেশের যেকোনো জায়গায় কারো রক্ত লাগলে এখানে দেখাবে; দাতা হলে নিজের জেলার অনুরোধে নোটিফিকেশনও পাবেন।'),
+          )
+        else
+          for (final r in list) ...[
+            _RequestCard(
+              request: r,
+              now: now,
+              onCall: (p) => brain.services.launcher.open(Via.call, p),
+              onAccept: () => _accept(r),
+              onWithdraw: () => _act(r, 'withdraw'),
+              onDone: () => _act(r, 'close'),
+              onCancel: () => _act(r, 'close', status: 'cancelled'),
+            ),
+            const SizedBox(height: 10),
+          ],
+      ];
+    }
+
     final content = !brain.signedIn
         ? ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
             Text(tr('রক্ত চাইতে, দাতা হতে বা অনুরোধ দেখতে আগে Google দিয়ে লগইন করুন।'), style: body(15, color: C.muted2, height: 1.55)),
@@ -127,84 +194,27 @@ class _RequestsScreenState extends State<RequestsScreen> {
             const GoogleBackupPanel(),
           ])
         : RefreshIndicator(
-            onRefresh: _load,
-            child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 100), children: [
-              SegTabs<bool>(
-                items: [(false, tr('সারা দেশের অনুরোধ')), (true, tr('আমার অনুরোধ'))],
-                value: _mine,
-                onChanged: (v) {
-                  setState(() => _mine = v);
-                  _reload();
-                },
-              ),
-              const SizedBox(height: 12),
-              if (!_mine) ...[
-                if (donor != null) _DonorCard(donor: donor, onTap: _donorSetup),
-                const SizedBox(height: 10),
-                Row(children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      key: const Key('blood-filter-group'),
-                      initialValue: _group,
-                      isExpanded: true,
-                      decoration: InputDecoration(labelText: tr('গ্রুপ'), isDense: true),
-                      items: [DropdownMenuItem(value: '', child: Text(tr('সব গ্রুপ'))), for (final g in bloodGroups) DropdownMenuItem(value: g, child: Text(g))],
-                      onChanged: (v) {
-                        setState(() => _group = v ?? '');
-                        _reload();
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      key: const Key('blood-filter-place'),
-                      initialValue: _place,
-                      isExpanded: true,
-                      decoration: InputDecoration(labelText: tr('জেলা'), isDense: true),
-                      items: [DropdownMenuItem(value: '', child: Text(tr('সারা দেশ'))), for (final p in bdPlaces) DropdownMenuItem(value: p.name, child: Text(p.label))],
-                      onChanged: (v) {
-                        setState(() => _place = v ?? '');
-                        _reload();
-                      },
-                    ),
-                  ),
-                ]),
-                const SizedBox(height: 10),
-              ],
-              if (_error != null) Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(_error!, style: body(14, color: C.red))),
-              if (list == null)
-                const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
-              else if (list.isEmpty)
-                EmptyState(
-                  icon: Icons.bloodtype_outlined,
-                  title: _mine ? tr('আপনার কোনো অনুরোধ নেই') : tr('এখন কোনো অনুরোধ নেই'),
-                  text: _mine ? tr('রক্ত দরকার হলে নিচের “রক্ত চাই” চাপুন — সারা দেশের সবাই দেখবেন, আর আপনার জেলার দাতারা সাথে সাথে জানবেন।') : tr('দেশের যেকোনো জায়গায় কারো রক্ত লাগলে এখানে দেখাবে; দাতা হলে নিজের জেলার অনুরোধে নোটিফিকেশনও পাবেন।'),
-                )
-              else
-                for (final r in list) ...[
-                  _RequestCard(
-                    request: r,
-                    now: now,
-                    onCall: (p) => brain.services.launcher.open(Via.call, p),
-                    onAccept: () => _accept(r),
-                    onWithdraw: () => _act(r, 'withdraw'),
-                    onDone: () => _act(r, 'close'),
-                    onCancel: () => _act(r, 'close', status: 'cancelled'),
-                  ),
-                  const SizedBox(height: 10),
-                ],
-            ]),
+            // The lists are inside the pages (one level down).
+            notificationPredicate: (n) => n.depth == 1 && n.metrics.axis == Axis.vertical,
+            onRefresh: () => _load(),
+            child: TabPages<bool>(
+              items: [(false, tr('সারা দেশের অনুরোধ')), (true, tr('আমার অনুরোধ'))],
+              value: _mine,
+              tabsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+              onChanged: (v) {
+                setState(() => _mine = v);
+                if (_lists[v] == null) _load(v);
+              },
+              page: page,
+            ),
           );
     return Scaffold(
       floatingActionButton: brain.signedIn ? AddButton(key: const Key('blood-ask'), label: tr('রক্ত চাই'), icon: Icons.bloodtype_outlined, onPressed: _ask) : null,
       body: SafeArea(
         bottom: !widget.inTab,
         child: Column(children: [
-          if (widget.inTab)
-            Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 4), child: TabTitle(tr('ব্লাড ডোনেশন')))
-          else
-            TopBar(title: tr('ব্লাড ডোনেশন')),
+          if (widget.inTab) Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 4), child: TabTitle(tr('ব্লাড ডোনেশন'))) else TopBar(title: tr('ব্লাড ডোনেশন')),
           Expanded(child: content),
         ]),
       ),
@@ -306,7 +316,12 @@ class _RequestCard extends StatelessWidget {
         if (!r.mine) Text(trf('যোগাযোগ: {0}', [bnDigits(r.phone)]), style: body(14, weight: FontWeight.w600, height: 1.6)),
         const SizedBox(height: 8),
         if (!r.mine) ...[
-          Text(trf('চেয়েছেন {0}{1}', [r.by, r.accepted > 0 ? ' · ${trf('{0} জন রাজি', [bnDigits(r.accepted)])}' : '']), style: body(12.5, color: C.muted)),
+          Text(
+              trf('চেয়েছেন {0}{1}', [
+                r.by,
+                r.accepted > 0 ? ' · ${trf('{0} জন রাজি', [bnDigits(r.accepted)])}' : ''
+              ]),
+              style: body(12.5, color: C.muted)),
           const SizedBox(height: 10),
           if (r.open)
             Row(children: [
@@ -408,7 +423,8 @@ class _DonorSheetState extends State<_DonorSheet> {
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text(tr('আমি রক্ত দিতে চাই'), style: display(20, weight: 700)),
             const SizedBox(height: 4),
-            Text(tr('আপনার জেলায় কারো এই গ্রুপের রক্ত লাগলে নোটিফিকেশন পাবেন (দিনে ৩টার বেশি না; রক্ত দেওয়ার ৩ মাসের মধ্যে একটাও না)। শুধু গ্রুপ, জেলা, শেষ দেওয়ার দিন আর নম্বর সার্ভারে থাকে — নম্বর দেখবেন শুধু যাঁকে আপনি রাজি বলবেন।'),
+            Text(
+                tr('আপনার জেলায় কারো এই গ্রুপের রক্ত লাগলে নোটিফিকেশন পাবেন (দিনে ৩টার বেশি না; রক্ত দেওয়ার ৩ মাসের মধ্যে একটাও না)। শুধু গ্রুপ, জেলা, শেষ দেওয়ার দিন আর নম্বর সার্ভারে থাকে — নম্বর দেখবেন শুধু যাঁকে আপনি রাজি বলবেন।'),
                 style: body(13, color: C.muted, height: 1.5)),
             const SizedBox(height: 14),
             Text(tr('রক্তের গ্রুপ'), style: body(13, weight: FontWeight.w600, color: C.muted2)),
@@ -550,11 +566,15 @@ class _AskBloodScreenState extends State<AskBloodScreen> {
               const SizedBox(height: 14),
               TextField(key: const Key('ask-patient'), controller: _patient, decoration: InputDecoration(labelText: tr('কার জন্যে'), hintText: tr('যেমন: আমার বাবা, রহিম (৪৫)'))),
               const SizedBox(height: 12),
-              TextField(key: const Key('ask-problem'), controller: _problem, decoration: InputDecoration(labelText: tr('রোগীর সমস্যা'), hintText: tr('যেমন: সিজারিয়ান অপারেশন, থ্যালাসেমিয়া, দুর্ঘটনা'))),
+              TextField(
+                  key: const Key('ask-problem'), controller: _problem, decoration: InputDecoration(labelText: tr('রোগীর সমস্যা'), hintText: tr('যেমন: সিজারিয়ান অপারেশন, থ্যালাসেমিয়া, দুর্ঘটনা'))),
               const SizedBox(height: 12),
               TextField(key: const Key('ask-hospital'), controller: _hospital, decoration: InputDecoration(labelText: tr('হাসপাতাল'), hintText: tr('যেমন: ঢাকা মেডিকেল কলেজ হাসপাতাল'))),
               const SizedBox(height: 12),
-              TextField(key: const Key('ask-location'), controller: _location, decoration: InputDecoration(labelText: tr('হাসপাতালের অবস্থান (এলাকা, ঠিকানা, ওয়ার্ড)'), hintText: tr('যেমন: বকশিবাজার, ওয়ার্ড ৩'))),
+              TextField(
+                  key: const Key('ask-location'),
+                  controller: _location,
+                  decoration: InputDecoration(labelText: tr('হাসপাতালের অবস্থান (এলাকা, ঠিকানা, ওয়ার্ড)'), hintText: tr('যেমন: বকশিবাজার, ওয়ার্ড ৩'))),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: bdPlaces.any((p) => p.name == _district) ? _district : bdPlaces.first.name,
@@ -566,7 +586,8 @@ class _AskBloodScreenState extends State<AskBloodScreen> {
               InkWell(
                 borderRadius: BorderRadius.circular(14),
                 onTap: () async {
-                  final d = await showDatePicker(context: context, initialDate: _need.isBefore(now) ? now : _need, firstDate: DateTime(now.year, now.month, now.day), lastDate: now.add(const Duration(days: 30)));
+                  final d = await showDatePicker(
+                      context: context, initialDate: _need.isBefore(now) ? now : _need, firstDate: DateTime(now.year, now.month, now.day), lastDate: now.add(const Duration(days: 30)));
                   if (d == null || !context.mounted) return;
                   final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_need));
                   setState(() => _need = DateTime(d.year, d.month, d.day, t?.hour ?? _need.hour, t?.minute ?? 0));
@@ -578,7 +599,8 @@ class _AskBloodScreenState extends State<AskBloodScreen> {
               const SizedBox(height: 12),
               TextField(controller: _note, maxLines: 2, decoration: InputDecoration(labelText: tr('আর কিছু বলার থাকলে (ঐচ্ছিক)'), hintText: tr('যেমন: সকাল ১০টার আগে আসুন'))),
               const SizedBox(height: 8),
-              Text(tr('অনুরোধটা সারা দেশের সবাই দেখবেন — কার জন্যে, সমস্যা, হাসপাতাল, তারিখ আর আপনার নম্বরসহ। আপনার জেলার যাঁরা দাতা আর এই গ্রুপে দিতে পারেন, তাঁরা নোটিফিকেশনও পাবেন। একসাথে ৩টা পর্যন্ত অনুরোধ খোলা রাখা যায়।'),
+              Text(
+                  tr('অনুরোধটা সারা দেশের সবাই দেখবেন — কার জন্যে, সমস্যা, হাসপাতাল, তারিখ আর আপনার নম্বরসহ। আপনার জেলার যাঁরা দাতা আর এই গ্রুপে দিতে পারেন, তাঁরা নোটিফিকেশনও পাবেন। একসাথে ৩টা পর্যন্ত অনুরোধ খোলা রাখা যায়।'),
                   style: body(12.5, color: C.muted, height: 1.5)),
               if (_error != null) ...[const SizedBox(height: 10), Text(_error!, style: body(14, color: C.red))],
               const SizedBox(height: 16),

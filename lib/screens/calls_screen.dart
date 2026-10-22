@@ -173,7 +173,7 @@ Future<Contact?> pickContact(BuildContext context) async {
     await importFromPhone(context);
     if (!context.mounted || !brain.data.contacts.any((c) => c.phone.trim().isNotEmpty)) return null;
   }
-  return showModalBottomSheet<Contact>(
+  return showAppSheet<Contact>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,

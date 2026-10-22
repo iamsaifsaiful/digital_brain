@@ -134,7 +134,7 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
 
   Future<void> _settings(BuildContext context) async {
     final brain = BrainScope.read(context);
-    await showModalBottomSheet<void>(
+    await showAppSheet<void>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
@@ -342,7 +342,7 @@ class _TodoCard extends StatelessWidget {
 Future<void> showMessage(BuildContext context, InboxMessage m) async {
   final brain = BrainScope.read(context);
   final now = brain.services.now();
-  await showModalBottomSheet<void>(
+  await showAppSheet<void>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
@@ -455,7 +455,7 @@ Future<void> addFromMessage(BuildContext context, InboxMessage m) async {
   final who = m.from.isNotEmpty ? m.from : m.chat;
   final short = m.text.replaceAll(RegExp(r'\s+'), ' ').trim();
   final title = short.length <= 60 ? '$who: $short' : '$who: ${short.substring(0, 60)}…';
-  final pick = await showModalBottomSheet<String>(
+  final pick = await showAppSheet<String>(
     context: context,
     showDragHandle: true,
     builder: (ctx) => SafeArea(

@@ -5,18 +5,23 @@
 // lib/services/family_crypto.dart).
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart' show Sha256;
 import 'package:flutter/foundation.dart';
 
 import '../logic/lang.dart';
 import '../models/models.dart';
-import '../services/crypto.dart' show randomBytes, WrongKey;
+import '../services/crypto.dart' show randomBytes, WrongKey, seal, open;
 import '../services/family_crypto.dart';
 import '../services/files.dart' show PickedDoc;
 import '../services/location_share.dart';
 import '../services/trace.dart';
 import 'brain.dart';
+
+/// AES-256-GCM with a 32-byte key (lib/services/crypto.dart).
+Future<Uint8List> sealBytes(List<int> clear, List<int> key) => seal(clear, key);
+Future<Uint8List> openBytes(List<int> sealed, List<int> key) => open(sealed, key);
 
 /// What one member may let the other do (the order shown).
 const familyPerms = ['task', 'reminder', 'medicine', 'note', 'location'];
@@ -165,6 +170,12 @@ class FamilyState extends ChangeNotifier {
       return null;
     }
     if (!r.ok) {
+      // The site's plugin is older than the family part.
+      if (r.status == 404 && r.data['code'] == 'rest_no_route') {
+        error = tr('সার্ভারে ফ্যামিলি এখনো চালু হয়নি — সাইটের প্লাগিন হালনাগাদ করতে হবে');
+        notifyListeners();
+        return null;
+      }
       error = switch (r.status) {
         409 => tr('আগেই ফ্যামিলিতে আছেন (বা অনুরোধ আগেই গেছে)'),
         403 => tr('তিনি এটার অনুমতি দেননি'),
@@ -407,11 +418,23 @@ class FamilyState extends ChangeNotifier {
     }
     final scope = await heirScope();
     final all = brain.data.toJson();
+    // Photos and files of the chosen documents and notes: sealed one by one
+    // with a key of their own (kept on this phone, carried in the copy).
+    var filesKey = await _get('heir_files_key');
+    if (filesKey == null || filesKey.isEmpty) {
+      filesKey = base64Encode(randomBytes(32));
+      await _put('heir_files_key', filesKey);
+    }
+    final files = <DocFile>[
+      if (scope.contains('docs')) for (final d in brain.data.docs) ...d.files,
+      if (scope.contains('notes')) for (final n in brain.data.notes) ...n.files,
+    ];
     final parts = <String, Object?>{
       'v': 1,
       'name': brain.userName,
       'at': DateTime.now().toUtc().toIso8601String(),
       'parts': scope,
+      'files_key': filesKey,
       for (final p in scope)
         for (final k in heirParts[p]!) if (all[k] != null) k: all[k],
     };
@@ -422,10 +445,38 @@ class FamilyState extends ChangeNotifier {
     // Unchanged: not sent again; changed: at most every 6 hours (unless [force]).
     if (!force && (last == sig || (lastAt != null && DateTime.now().difference(lastAt).inHours < 6))) return;
     final (blob, keys) = await sealPackage(parts, {for (final h in heirs) h.id: h.theirKey});
-    final r = await _send('POST', '/family/package', {'blob': blob, 'keys': keys});
+    final r = await _send('POST', '/family/package', {'blob': blob, 'keys': keys, 'files': [for (final f in files) f.id]});
     if (r != null) {
       await _put('heir_sent', sig);
       await _put('heir_sent_at', DateTime.now().toIso8601String());
+    }
+    await _uploadFiles(files, filesKey);
+  }
+
+  /// The photos not sent yet — on Wi-Fi only (they can be many megabytes).
+  Future<void> _uploadFiles(List<DocFile> files, String filesKey) async {
+    final sent = ((await _get('heir_files_sent')) ?? '').split(',').where((x) => x.isNotEmpty).toSet();
+    final want = {for (final f in files) f.id};
+    final todo = [for (final f in files) if (!sent.contains(f.id)) f];
+    if (todo.isNotEmpty && !await brain.unmetered()) return;
+    final key = base64Decode(filesKey);
+    for (final f in todo) {
+      final bytes = await brain.services.store.loadDocFile(f.id);
+      if (bytes == null || bytes.length > 4 * 1024 * 1024) continue;
+      final blob = base64Encode(await sealBytes(bytes, key));
+      if (await _send('POST', '/family/files', {'id': f.id, 'blob': blob}) != null) sent.add(f.id);
+    }
+    await _put('heir_files_sent', sent.intersection(want).join(','));
+  }
+
+  /// One photo or file of the copy an heir opened ([filesKey] comes in the copy).
+  Future<Uint8List?> openFile(FamilyLink l, String fileId, String filesKey) async {
+    final d = await _send('GET', '/family/${l.id}/files/$fileId');
+    if (d == null) return null;
+    try {
+      return await openBytes(base64Decode('${d['blob']}'), base64Decode(filesKey));
+    } catch (_) {
+      return null;
     }
   }
 

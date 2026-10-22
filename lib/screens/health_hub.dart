@@ -117,141 +117,142 @@ class _HealthScreenState extends State<HealthScreen> {
             ]),
           ),
           Expanded(
-            child: ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 32), children: [
-              // Profile and BMI.
-              Panel(
-                padding: const EdgeInsets.all(16),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(m.isMe ? (brain.userName.isEmpty ? tr('আমি') : brain.userName) : m.name, style: display(20, weight: 700)),
-                        Text(
-                            [
-                              if (age != null) trf('বয়স {0}', [bnDigits(age)]),
-                              if (m.heightCm != null) heightText(m.heightCm!),
-                              if (m.sex.isNotEmpty) m.sex == 'm' ? tr('পুরুষ') : tr('নারী'),
-                              if ((m.isMe ? brain.data.emergency.blood : m.blood).isNotEmpty) trf('রক্ত {0}', [m.isMe ? brain.data.emergency.blood : m.blood]),
-                            ].join(' · ').ifEmpty(tr('বয়স, উচ্চতা, রক্তের গ্রুপ দিন')),
-                            style: body(13.5, color: C.muted)),
-                      ]),
-                    ),
-                    TextButton.icon(
-                      onPressed: () => editMember(context, m),
-                      icon: Icon(Icons.edit_outlined, size: 18, color: C.green),
-                      label: Text(tr('বদলান'), style: body(14, weight: FontWeight.w600, color: C.green)),
-                    ),
-                  ]),
-                  const SizedBox(height: 12),
-                  if (w != null && m.heightCm != null) ...[
-                    BmiGauge(bmi: bmiOf(w.a, m.heightCm!)),
-                    const SizedBox(height: 8),
-                    Text(
-                        trf('আপনার উচ্চতায় সুস্থ ওজন {0}–{1} কেজি; এখন {2}।', [bnDigits(healthyWeight(m.heightCm!).$1), bnDigits(healthyWeight(m.heightCm!).$2), kg(w.a)]),
-                        style: body(13.5, color: C.muted2, height: 1.5)),
-                  ] else
-                    Text(m.heightCm == null ? tr('উচ্চতা আর ওজন দিলে BMI দেখাবে (এশীয়দের মাপে)।') : tr('ওজন লিখলে BMI দেখাবে।'), style: body(13.5, color: C.muted)),
-                ]),
-              ),
-              const SizedBox(height: 12),
-              Row(children: [
-                tile(HealthKind.weight, Icons.monitor_weight_outlined, C.teal, w == null ? '—' : kg(w.a),
-                    w == null ? tr('লেখা হয়নি') : _changeText(d, m.id, now), quick: () => addReading(context, m.id, HealthKind.weight)),
-                const SizedBox(width: 10),
-                tile(HealthKind.bp, Icons.favorite_border_rounded, C.rose, bp == null ? '—' : readingText(bp).split(' · ').first,
-                    bp == null ? tr('লেখা হয়নি') : '${bpLevelNow!.$2} · ${shortDate(bp.at)}', level: bpLevelNow?.$1, quick: () => addReading(context, m.id, HealthKind.bp)),
-              ]),
-              const SizedBox(height: 10),
-              Row(children: [
-                tile(HealthKind.sugar, Icons.bloodtype_outlined, C.purple, sugar == null ? '—' : mmolText(sugar.a),
-                    sugar == null ? tr('লেখা হয়নি') : '${sugarLevelNow!.$2} · ${sugar.tag == 'fasting' ? tr('খালি পেটে') : tr('খাওয়ার পরে')}',
-                    level: sugarLevelNow?.$1, quick: () => addReading(context, m.id, HealthKind.sugar)),
-                const SizedBox(width: 10),
-                tile(HealthKind.water, Icons.water_drop_outlined, C.blue, trf('{0}/৮ গ্লাস', [bnDigits(water.round())]), tr('আজ পানি'),
-                    quick: () => brain.addHealth(HealthLog(member: m.id, kind: HealthKind.water, at: brain.services.now(), a: 1)), quickLabel: tr('+১ গ্লাস')),
-              ]),
-              const SizedBox(height: 10),
-              Row(children: [
-                tile(HealthKind.exercise, Icons.directions_walk_rounded, C.green, trf('{0} মিনিট', [bnDigits(walk.round())]), tr('আজ হাঁটা/ব্যায়াম'),
-                    quick: () => addReading(context, m.id, HealthKind.exercise)),
-                const SizedBox(width: 10),
-                tile(HealthKind.sleep, Icons.bedtime_outlined, C.ochre, sleep == null ? '—' : readingText(sleep), sleep == null ? tr('লেখা হয়নি') : shortDate(sleep.at),
-                    quick: () => addReading(context, m.id, HealthKind.sleep)),
-              ]),
-              if (needsVaccineCard(m, now) || (!m.isMe && m.birth != null && now.difference(m.birth!).inDays < 6 * 366)) ...[
-                const SizedBox(height: 12),
+            child: SwipeTabs<String>(
+              items: [for (final p in people) p.id],
+              value: m.id,
+              onChanged: (id) => setState(() => _member = id),
+              child: ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 32), children: [
+                // Profile and BMI.
                 Panel(
-                  child: ListRow(
-                    leading: Icon(Icons.vaccines_outlined, color: C.green),
-                    title: tr('টিকার কার্ড'),
-                    subtitle: _nextDoseText(d, m, now),
-                    trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
-                    onTap: () => _push(VaccineScreen(member: m.id)),
-                  ),
+                  padding: const EdgeInsets.all(16),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(m.isMe ? (brain.userName.isEmpty ? tr('আমি') : brain.userName) : m.name, style: display(20, weight: 700)),
+                          Text(
+                              [
+                                if (age != null) trf('বয়স {0}', [bnDigits(age)]),
+                                if (m.heightCm != null) heightText(m.heightCm!),
+                                if (m.sex.isNotEmpty) m.sex == 'm' ? tr('পুরুষ') : tr('নারী'),
+                                if ((m.isMe ? brain.data.emergency.blood : m.blood).isNotEmpty) trf('রক্ত {0}', [m.isMe ? brain.data.emergency.blood : m.blood]),
+                              ].join(' · ').ifEmpty(tr('বয়স, উচ্চতা, রক্তের গ্রুপ দিন')),
+                              style: body(13.5, color: C.muted)),
+                        ]),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => editMember(context, m),
+                        icon: Icon(Icons.edit_outlined, size: 18, color: C.green),
+                        label: Text(tr('বদলান'), style: body(14, weight: FontWeight.w600, color: C.green)),
+                      ),
+                    ]),
+                    const SizedBox(height: 12),
+                    if (w != null && m.heightCm != null) ...[
+                      BmiGauge(bmi: bmiOf(w.a, m.heightCm!)),
+                      const SizedBox(height: 8),
+                      Text(trf('আপনার উচ্চতায় সুস্থ ওজন {0}–{1} কেজি; এখন {2}।', [bnDigits(healthyWeight(m.heightCm!).$1), bnDigits(healthyWeight(m.heightCm!).$2), kg(w.a)]),
+                          style: body(13.5, color: C.muted2, height: 1.5)),
+                    ] else
+                      Text(m.heightCm == null ? tr('উচ্চতা আর ওজন দিলে BMI দেখাবে (এশীয়দের মাপে)।') : tr('ওজন লিখলে BMI দেখাবে।'), style: body(13.5, color: C.muted)),
+                  ]),
                 ),
-              ],
-              const SizedBox(height: 16),
-              SectionTitle(tr('চেকআপ ও রিপোর্ট')),
-              Panel(
-                child: Rows(children: [
-                  ListRow(
-                    leading: Icon(Icons.event_available_outlined, color: C.green),
-                    title: m.nextCheckup == null ? tr('পরের চেকআপের তারিখ') : trf('পরের চেকআপ: {0}', [fullDate(m.nextCheckup!)]),
-                    subtitle: m.nextCheckup == null ? tr('দিলে আগের দিন আর সেদিন সকালে মনে করাবো') : daysLeftLabel(m.nextCheckup!, now),
-                    trailing: m.nextCheckup == null
-                        ? null
-                        : IconButton(tooltip: tr('তারিখ মুছুন'), onPressed: () => brain.setCheckup(m, null), icon: Icon(Icons.close_rounded, color: C.muted)),
-                    onTap: () async {
-                      final p = await showDatePicker(context: context, initialDate: m.nextCheckup ?? now.add(const Duration(days: 30)), firstDate: dayOnly(now), lastDate: DateTime(now.year + 3));
-                      if (p != null) await brain.setCheckup(m, p);
-                    },
-                  ),
-                  ListRow(
-                    leading: Icon(Icons.description_outlined, color: C.blue),
-                    title: tr('পরীক্ষার রিপোর্ট'),
-                    subtitle: tr('ছবি তুলে রাখুন — তারিখসহ খুঁজে পাবেন'),
-                    trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
-                    onTap: () => _push(const DocsScreen(folder: 'চিকিৎসা')),
-                  ),
-                  ListRow(
-                    leading: Icon(Icons.receipt_long_outlined, color: C.blue),
-                    title: tr('প্রেসক্রিপশন'),
-                    trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
-                    onTap: () => _push(const DocsScreen(folder: 'প্রেসক্রিপশন')),
-                  ),
-                  if (m.isMe)
-                    ListRow(
-                      leading: Icon(Icons.medication_outlined, color: C.orange),
-                      title: tr('ওষুধের সময়সূচি'),
-                      subtitle: d.medicines.isEmpty ? tr('কোনো ওষুধ রাখা নেই') : trf('{0}টি ওষুধ', [bnDigits(d.medicines.length)]),
-                      trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
-                      onTap: () => _push(const MedicinesScreen()),
-                    ),
+                const SizedBox(height: 12),
+                Row(children: [
+                  tile(HealthKind.weight, Icons.monitor_weight_outlined, C.teal, w == null ? '—' : kg(w.a), w == null ? tr('লেখা হয়নি') : _changeText(d, m.id, now),
+                      quick: () => addReading(context, m.id, HealthKind.weight)),
+                  const SizedBox(width: 10),
+                  tile(HealthKind.bp, Icons.favorite_border_rounded, C.rose, bp == null ? '—' : readingText(bp).split(' · ').first,
+                      bp == null ? tr('লেখা হয়নি') : '${bpLevelNow!.$2} · ${shortDate(bp.at)}',
+                      level: bpLevelNow?.$1, quick: () => addReading(context, m.id, HealthKind.bp)),
                 ]),
-              ),
-              const SizedBox(height: 14),
-              PrimaryButton(label: tr('ডাক্তারকে দেখানোর সারাংশ'), icon: Icons.assignment_ind_outlined, onPressed: () => _push(DoctorSummaryScreen(member: m.id))),
-              const SizedBox(height: 12),
-              Text(
-                  tr('এখানে শুধু মাপ রাখা হয়; রোগ নির্ণয় করা হয় না। মাপ স্বাভাবিকের বাইরে গেলে ডাক্তার দেখান। সব তথ্য এই ফোনে তালাবদ্ধ থাকে।'),
-                  style: body(12.5, color: C.muted, height: 1.5)),
-              if (!m.isMe) ...[
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: () async {
-                      final ok = await confirmDialog(context, title: trf('{0}-কে সরাবেন?', [m.name]), text: tr('তার সব মাপ আর টিকার তথ্য মুছে যাবে।'), yes: tr('সরান'), danger: true);
-                      if (!ok) return;
-                      await brain.deleteMember(m);
-                      setState(() => _member = FamilyMember.meId);
-                    },
-                    icon: Icon(Icons.person_remove_outlined, size: 18, color: C.red),
-                    label: Text(tr('এই সদস্যকে সরান'), style: body(13, color: C.red)),
+                const SizedBox(height: 10),
+                Row(children: [
+                  tile(HealthKind.sugar, Icons.bloodtype_outlined, C.purple, sugar == null ? '—' : mmolText(sugar.a),
+                      sugar == null ? tr('লেখা হয়নি') : '${sugarLevelNow!.$2} · ${sugar.tag == 'fasting' ? tr('খালি পেটে') : tr('খাওয়ার পরে')}',
+                      level: sugarLevelNow?.$1, quick: () => addReading(context, m.id, HealthKind.sugar)),
+                  const SizedBox(width: 10),
+                  tile(HealthKind.water, Icons.water_drop_outlined, C.blue, trf('{0}/৮ গ্লাস', [bnDigits(water.round())]), tr('আজ পানি'),
+                      quick: () => brain.addHealth(HealthLog(member: m.id, kind: HealthKind.water, at: brain.services.now(), a: 1)), quickLabel: tr('+১ গ্লাস')),
+                ]),
+                const SizedBox(height: 10),
+                Row(children: [
+                  tile(HealthKind.exercise, Icons.directions_walk_rounded, C.green, trf('{0} মিনিট', [bnDigits(walk.round())]), tr('আজ হাঁটা/ব্যায়াম'),
+                      quick: () => addReading(context, m.id, HealthKind.exercise)),
+                  const SizedBox(width: 10),
+                  tile(HealthKind.sleep, Icons.bedtime_outlined, C.ochre, sleep == null ? '—' : readingText(sleep), sleep == null ? tr('লেখা হয়নি') : shortDate(sleep.at),
+                      quick: () => addReading(context, m.id, HealthKind.sleep)),
+                ]),
+                if (needsVaccineCard(m, now) || (!m.isMe && m.birth != null && now.difference(m.birth!).inDays < 6 * 366)) ...[
+                  const SizedBox(height: 12),
+                  Panel(
+                    child: ListRow(
+                      leading: Icon(Icons.vaccines_outlined, color: C.green),
+                      title: tr('টিকার কার্ড'),
+                      subtitle: _nextDoseText(d, m, now),
+                      trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
+                      onTap: () => _push(VaccineScreen(member: m.id)),
+                    ),
                   ),
+                ],
+                const SizedBox(height: 16),
+                SectionTitle(tr('চেকআপ ও রিপোর্ট')),
+                Panel(
+                  child: Rows(children: [
+                    ListRow(
+                      leading: Icon(Icons.event_available_outlined, color: C.green),
+                      title: m.nextCheckup == null ? tr('পরের চেকআপের তারিখ') : trf('পরের চেকআপ: {0}', [fullDate(m.nextCheckup!)]),
+                      subtitle: m.nextCheckup == null ? tr('দিলে আগের দিন আর সেদিন সকালে মনে করাবো') : daysLeftLabel(m.nextCheckup!, now),
+                      trailing: m.nextCheckup == null ? null : IconButton(tooltip: tr('তারিখ মুছুন'), onPressed: () => brain.setCheckup(m, null), icon: Icon(Icons.close_rounded, color: C.muted)),
+                      onTap: () async {
+                        final p = await showDatePicker(context: context, initialDate: m.nextCheckup ?? now.add(const Duration(days: 30)), firstDate: dayOnly(now), lastDate: DateTime(now.year + 3));
+                        if (p != null) await brain.setCheckup(m, p);
+                      },
+                    ),
+                    ListRow(
+                      leading: Icon(Icons.description_outlined, color: C.blue),
+                      title: tr('পরীক্ষার রিপোর্ট'),
+                      subtitle: tr('ছবি তুলে রাখুন — তারিখসহ খুঁজে পাবেন'),
+                      trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
+                      onTap: () => _push(const DocsScreen(folder: 'চিকিৎসা')),
+                    ),
+                    ListRow(
+                      leading: Icon(Icons.receipt_long_outlined, color: C.blue),
+                      title: tr('প্রেসক্রিপশন'),
+                      trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
+                      onTap: () => _push(const DocsScreen(folder: 'প্রেসক্রিপশন')),
+                    ),
+                    if (m.isMe)
+                      ListRow(
+                        leading: Icon(Icons.medication_outlined, color: C.orange),
+                        title: tr('ওষুধের সময়সূচি'),
+                        subtitle: d.medicines.isEmpty ? tr('কোনো ওষুধ রাখা নেই') : trf('{0}টি ওষুধ', [bnDigits(d.medicines.length)]),
+                        trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
+                        onTap: () => _push(const MedicinesScreen()),
+                      ),
+                  ]),
                 ),
-              ],
-            ]),
+                const SizedBox(height: 14),
+                PrimaryButton(label: tr('ডাক্তারকে দেখানোর সারাংশ'), icon: Icons.assignment_ind_outlined, onPressed: () => _push(DoctorSummaryScreen(member: m.id))),
+                const SizedBox(height: 12),
+                Text(tr('এখানে শুধু মাপ রাখা হয়; রোগ নির্ণয় করা হয় না। মাপ স্বাভাবিকের বাইরে গেলে ডাক্তার দেখান। সব তথ্য এই ফোনে তালাবদ্ধ থাকে।'), style: body(12.5, color: C.muted, height: 1.5)),
+                if (!m.isMe) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () async {
+                        final ok = await confirmDialog(context, title: trf('{0}-কে সরাবেন?', [m.name]), text: tr('তার সব মাপ আর টিকার তথ্য মুছে যাবে।'), yes: tr('সরান'), danger: true);
+                        if (!ok) return;
+                        await brain.deleteMember(m);
+                        setState(() => _member = FamilyMember.meId);
+                      },
+                      icon: Icon(Icons.person_remove_outlined, size: 18, color: C.red),
+                      label: Text(tr('এই সদস্যকে সরান'), style: body(13, color: C.red)),
+                    ),
+                  ),
+                ],
+              ]),
+            ),
           ),
         ]),
       ),
@@ -265,7 +266,10 @@ class _HealthScreenState extends State<HealthScreen> {
   }
 
   String _nextDoseText(AppData d, FamilyMember m, DateTime now) {
-    final due = [for (final v in epiSchedule) if (givenOn(d, m, v) == null) v];
+    final due = [
+      for (final v in epiSchedule)
+        if (givenOn(d, m, v) == null) v
+    ];
     if (due.isEmpty) return tr('সব টিকা দেওয়া হয়েছে');
     final next = doseDay(m, due.first);
     return trf('পরের টিকা {0} — {1} ({2})', [tr(due.first.name), fullDate(next), daysLeftLabel(next, now)]);
@@ -439,13 +443,14 @@ Future<void> addReading(BuildContext context, String member, HealthKind kind, {H
                 const SizedBox(width: 8),
                 Expanded(child: TextField(controller: b, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: tr('নিচের (ডায়াস্টোলিক)')))),
               ]),
-            HealthKind.weight => TextField(controller: a, autofocus: true, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: tr('ওজন (কেজি)'))),
-            HealthKind.sugar => TextField(
-                controller: a, autofocus: true, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: tr('সুগার (mmol/L বা mg/dL)'))),
+            HealthKind.weight =>
+              TextField(controller: a, autofocus: true, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: tr('ওজন (কেজি)'))),
+            HealthKind.sugar =>
+              TextField(controller: a, autofocus: true, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: tr('সুগার (mmol/L বা mg/dL)'))),
             HealthKind.water => TextField(controller: a, autofocus: true, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: tr('কত গ্লাস'))),
             HealthKind.exercise => TextField(controller: a, autofocus: true, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: tr('কত মিনিট'))),
-            HealthKind.sleep => TextField(
-                controller: a, autofocus: true, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: tr('কত ঘণ্টা ঘুম'))),
+            HealthKind.sleep =>
+              TextField(controller: a, autofocus: true, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: tr('কত ঘণ্টা ঘুম'))),
           },
           if (kind == HealthKind.bp) ...[
             const SizedBox(height: 8),
@@ -549,7 +554,11 @@ class _LineChart extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final values = [for (final p in points) p.$2, for (final p in points) if (p.$3 != null) p.$3!];
+    final values = [
+      for (final p in points) p.$2,
+      for (final p in points)
+        if (p.$3 != null) p.$3!
+    ];
     var lo = values.reduce((a, b) => a < b ? a : b);
     var hi = values.reduce((a, b) => a > b ? a : b);
     if (hi - lo < 1) {
@@ -643,9 +652,7 @@ class VaccineScreen extends StatelessWidget {
                           onChanged: (on) => brain.setDoseGiven(m, v, on == true ? now : null),
                           title: Text(tr(v.name), style: body(15, weight: FontWeight.w600)),
                           subtitle: Text(
-                              given != null
-                                  ? trf('দেওয়া হয়েছে {0} · {1}', [shortDate(given), tr(v.protects)])
-                                  : trf('{0} ({1}) · {2}', [fullDate(due), daysLeftLabel(due, now), tr(v.protects)]),
+                              given != null ? trf('দেওয়া হয়েছে {0} · {1}', [shortDate(given), tr(v.protects)]) : trf('{0} ({1}) · {2}', [fullDate(due), daysLeftLabel(due, now), tr(v.protects)]),
                               style: body(12.5, color: late ? C.orange : C.muted)),
                         );
                       }),

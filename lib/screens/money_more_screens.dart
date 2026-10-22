@@ -144,7 +144,7 @@ class AccountsScreen extends StatelessWidget {
     var kind = old?.kind ?? AccountKind.bkash;
     final name = TextEditingController(text: old?.name ?? '');
     final opening = TextEditingController(text: old == null ? '' : '${old.opening}');
-    final ok = await showModalBottomSheet<bool>(
+    final ok = await showAppSheet<bool>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(
@@ -193,7 +193,7 @@ class AccountsScreen extends StatelessWidget {
     }
     var from = old?.from ?? accs[0].id, to = old?.to ?? accs[1].id;
     final amount = TextEditingController(text: old == null ? '' : '${old.amount}'), fee = TextEditingController(text: old == null || old.fee == 0 ? '' : '${old.fee}');
-    final ok = await showModalBottomSheet<bool>(
+    final ok = await showAppSheet<bool>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(
@@ -518,7 +518,7 @@ class FixCategoriesScreen extends StatelessWidget {
         if (c != 'অন্যান্য' && c != tr('অন্যান্য')) c
     ];
     final custom = TextEditingController();
-    final picked = await showModalBottomSheet<String>(
+    final picked = await showAppSheet<String>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -675,7 +675,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
     final name = TextEditingController(text: old?.name ?? '');
     final target = TextEditingController(text: old == null ? '' : '${old.target}');
     DateTime? deadline = old?.deadline;
-    final ok = await showModalBottomSheet<bool>(
+    final ok = await showAppSheet<bool>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(
@@ -728,7 +728,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
     var kind = old?.kind ?? InstallmentKind.dps;
     var day = old?.dayOfMonth ?? 5;
     var start = old?.start ?? DateTime(DateTime.now().year, DateTime.now().month);
-    final ok = await showModalBottomSheet<bool>(
+    final ok = await showAppSheet<bool>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(
@@ -1163,7 +1163,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
 /// A goal's deposits, each one changed or taken out.
 Future<void> _deposits(BuildContext context, String goalId) async {
   final brain = BrainScope.read(context);
-  await showModalBottomSheet<void>(
+  await showAppSheet<void>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,

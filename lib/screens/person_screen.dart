@@ -64,7 +64,7 @@ class _PersonScreenState extends State<PersonScreen> {
   }
 
   Future<void> _rowMenu(Brain brain, LedgerEntry e) async {
-    final r = await showModalBottomSheet<String>(
+    final r = await showAppSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [

@@ -10,19 +10,65 @@ import 'new_item_screen.dart';
 import 'vault_item_screen.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
+import '../ui/pick.dart';
 
 /// Dates to remember, grouped: this month, later, past.
-class RemindersScreen extends StatelessWidget {
+class RemindersScreen extends StatefulWidget {
   const RemindersScreen({super.key, this.highlightId});
   final String? highlightId;
 
   @override
+  State<RemindersScreen> createState() => _RemindersScreenState();
+}
+
+class _RemindersScreenState extends State<RemindersScreen> {
+  final _picks = Picks();
+
+  @override
+  void initState() {
+    super.initState();
+    _picks.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _picks.dispose();
+    super.dispose();
+  }
+
+  List<PickAction> _actions(Brain brain) {
+    final picked = [
+      for (final r in brain.data.reminders)
+        if (_picks.has(r.id)) r
+    ];
+    final anyOn = picked.any((r) => r.enabled);
+    return [
+      PickAction(anyOn ? Icons.notifications_off_outlined : Icons.notifications_active_outlined, anyOn ? tr('বন্ধ করুন') : tr('চালু করুন'), () async {
+        for (final r in picked) {
+          await brain.saveReminder(r.copyWith(enabled: !anyOn));
+        }
+        _picks.clear();
+      }),
+      PickAction(Icons.delete_outline_rounded, tr('মুছুন'), danger: true, () async {
+        final messenger = ScaffoldMessenger.of(context);
+        if (!await confirmDialog(context, title: trf('{0}টা রিমাইন্ডার মুছবেন?', [bnDigits(picked.length)]), text: tr('৩০ দিন “মুছে ফেলা”-তে থাকবে।'), yes: tr('মুছুন'), danger: true)) return;
+        for (final r in picked) {
+          await brain.deleteReminder(r.id);
+        }
+        _picks.clear();
+        deletedSnack(messenger, picked.length, () => brain.undoLastDeletes(picked.length));
+      }),
+    ];
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final highlightId = widget.highlightId;
     final brain = BrainScope.of(context);
     final now = brain.services.now();
     final today = dayOnly(now);
     final all = [...brain.data.reminders]..sort((a, b) => a.nextDate(now).compareTo(b.nextDate(now)));
-    final highlighted = highlightId == null ? null : brain.reminderById(highlightId!);
+    final highlighted = highlightId == null ? null : brain.reminderById(highlightId);
     final rest = all.where((r) => r.id != highlighted?.id).toList();
     final monthEnd = DateTime(now.year, now.month + 1, 1);
     final thisMonth = rest.where((r) => !r.nextDate(now).isBefore(today) && r.nextDate(now).isBefore(monthEnd)).toList();
@@ -31,19 +77,26 @@ class RemindersScreen extends StatelessWidget {
 
     void edit(Reminder r) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewItemScreen(reminder: r)));
 
+    _picks.keepOnly(all.map((r) => r.id));
+    final picking = _picks.on;
+
     Widget row(Reminder r) {
       final d = r.nextDate(now);
       return ListRow(
-        leading: DateBlock(top: bnDigits(d.day), bottom: monthShort(d.month)),
+        key: Key('rem-${r.id}'),
+        picked: _picks.has(r.id),
+        onLongPress: () => _picks.toggle(r.id),
+        leading: picking ? PickMark(_picks.has(r.id)) : DateBlock(top: bnDigits(d.day), bottom: monthShort(d.month)),
         title: r.title,
         subtitle: [
           weekdayShort(d),
           if (r.repeat != Repeat.none) r.repeat.label,
           if (d.year != now.year) bnDigits(d.year),
+          if (!r.enabled) tr('বন্ধ'),
           if (r.note.isNotEmpty) r.note,
         ].join(' · '),
         trailing: Text(daysLeftLabel(d, now), style: body(13, color: C.muted)),
-        onTap: () => edit(r),
+        onTap: picking ? () => _picks.toggle(r.id) : () => edit(r),
       );
     }
 
@@ -54,37 +107,47 @@ class RemindersScreen extends StatelessWidget {
             Panel(child: Rows(children: [for (final r in list) row(r)])),
           ];
 
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            TopBar(title: tr('তারিখ ও রিমাইন্ডার'), trailing: const [PdfButton({ReportPart.reminders})]),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-                children: [
-                  if (highlighted != null) _Highlight(reminder: highlighted, onEdit: () => edit(highlighted)),
-                  if (all.isEmpty)
-                    EmptyState(
-                      icon: Icons.notifications_none_rounded,
-                      title: tr('কোনো তারিখ রাখা নেই'),
-                      text: tr('বিল দেওয়ার দিন, মেয়াদ শেষ হওয়ার দিন বা অ্যাপয়েন্টমেন্ট রাখুন — সময়মতো মনে করিয়ে দেওয়া হবে।'),
-                    ),
-                  ...group(tr('এই মাসে'), thisMonth),
-                  ...group(tr('পরে'), later),
-                  ...group(tr('পার হয়ে গেছে'), past),
-                ],
+    return PopScope(
+      canPop: !picking,
+      onPopInvokedWithResult: (did, _) {
+        if (!did) _picks.clear();
+      },
+      child: Scaffold(
+        bottomNavigationBar: picking ? PickBar(picks: _picks, all: all.map((r) => r.id), actions: _actions(brain)) : null,
+        body: SafeArea(
+          child: Column(
+            children: [
+              TopBar(title: tr('তারিখ ও রিমাইন্ডার'), trailing: const [
+                PdfButton({ReportPart.reminders})
+              ]),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+                  children: [
+                    if (highlighted != null) _Highlight(reminder: highlighted, onEdit: () => edit(highlighted)),
+                    if (all.isEmpty)
+                      EmptyState(
+                        icon: Icons.notifications_none_rounded,
+                        title: tr('কোনো তারিখ রাখা নেই'),
+                        text: tr('বিল দেওয়ার দিন, মেয়াদ শেষ হওয়ার দিন বা অ্যাপয়েন্টমেন্ট রাখুন — সময়মতো মনে করিয়ে দেওয়া হবে।'),
+                      ),
+                    ...group(tr('এই মাসে'), thisMonth),
+                    ...group(tr('পরে'), later),
+                    ...group(tr('পার হয়ে গেছে'), past),
+                  ],
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-              child: PrimaryButton(
-                label: tr('নতুন রিমাইন্ডার'),
-                icon: Icons.add_rounded,
-                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewItemScreen(category: ItemCategory.reminder))),
-              ),
-            ),
-          ],
+              if (!picking)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                  child: PrimaryButton(
+                    label: tr('নতুন রিমাইন্ডার'),
+                    icon: Icons.add_rounded,
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewItemScreen(category: ItemCategory.reminder))),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

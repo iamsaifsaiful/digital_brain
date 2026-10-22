@@ -63,7 +63,7 @@ Future<void> addDocuments(BuildContext context, {required int source, String? fo
 
   var together = true;
   if (picked.length > 1) {
-    final choice = await showModalBottomSheet<bool>(
+    final choice = await showAppSheet<bool>(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -131,7 +131,7 @@ Future<void> addDocuments(BuildContext context, {required int source, String? fo
 
 /// The form shown while keeping photos or files.
 Future<DocInfo?> askDocInfo(BuildContext context, List<PickedDoc> files, {String? folder, int index = 0, int of = 1, Doc? edit}) =>
-    showModalBottomSheet<DocInfo>(
+    showAppSheet<DocInfo>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,

@@ -154,7 +154,7 @@ Future<void> editTask(BuildContext context, Task t) async {
 /// Add a to-do. With [remind] the sheet starts as a reminder (a time that
 /// rings); otherwise as a plain to-do in the task list.
 Future<void> showAddSheet(BuildContext context, {bool remind = false, DateTime? day}) async {
-  final saved = await showModalBottomSheet<bool>(
+  final saved = await showAppSheet<bool>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
@@ -504,7 +504,7 @@ class BillList extends StatelessWidget {
   Future<void> _set(BuildContext context, String name, int day) async {
     final brain = BrainScope.read(context);
     final old = _find(brain, name);
-    final picked = await showModalBottomSheet<int>(
+    final picked = await showAppSheet<int>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => SafeArea(
@@ -587,7 +587,7 @@ Future<void> showBillPresets(BuildContext context) async {
   final brain = BrainScope.read(context);
   final have = {for (final r in brain.data.reminders) r.title};
   final chosen = <String, int>{};
-  final saved = await showModalBottomSheet<bool>(
+  final saved = await showAppSheet<bool>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,

@@ -21,7 +21,7 @@ Future<bool> needPro(BuildContext context, ProFeature feature, {bool allowed = f
   final brain = BrainScope.read(context);
   if (allowed || brain.has(feature)) return true;
   final info = proInfo[feature]!;
-  await showModalBottomSheet<void>(
+  await showAppSheet<void>(
     context: context,
     builder: (ctx) => SafeArea(
       child: Padding(

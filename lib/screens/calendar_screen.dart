@@ -66,168 +66,173 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-          children: [
-            Row(children: [
-              IconButton(tooltip: tr('ফিরে যান'), onPressed: () => Navigator.of(context).maybePop(), icon: const Icon(Icons.chevron_left_rounded, size: 30)),
-              Expanded(child: Text(tr('ক্যালেন্ডার'), style: display(21, weight: 700))),
-            ]),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                gradient: LinearGradient(colors: [C.green, C.teal], begin: Alignment.topLeft, end: Alignment.bottomRight),
-              ),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(picked == today ? tr('আজ বাংলা তারিখ') : tr('বাংলা তারিখ'), style: body(13, color: Colors.white70)),
-                      Text(bd.text, style: display(26, weight: 700, color: Colors.white, height: 1.3)),
-                      Text('${weekdayName(picked)} · ${bnDigits(picked.day)} ${monthName(picked.month)} ${bnDigits(picked.year)}',
-                          style: body(13.5, color: Colors.white)),
-                      const SizedBox(height: 2),
-                      Text(trf('হিজরি · {0}', [hj.short]), style: body(13.5, weight: FontWeight.w600, color: Colors.white)),
-                      Text(hj.arabic, textDirection: TextDirection.rtl, style: const TextStyle(fontSize: 15, color: Colors.white, height: 1.5)),
-                    ]),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12)),
-                    child: Column(children: [
-                      const Icon(Icons.eco_outlined, color: Colors.white, size: 20),
-                      Text(trf('{0}কাল', [bd.season]), style: body(12.5, weight: FontWeight.w600, color: Colors.white)),
-                    ]),
-                  ),
-                ]),
-                const SizedBox(height: 12),
-                Row(children: [
-                  sunTile(Icons.wb_twilight, const Color(0xFFFDE68A), tr('সূর্যোদয়'), t(sun.sunrise)),
-                  const SizedBox(width: 8),
-                  sunTile(Icons.nights_stay_outlined, const Color(0xFFFDBA74), tr('সূর্যাস্ত'), t(sun.sunset)),
-                ]),
-                const SizedBox(height: 8),
-                Text(
-                    trf('{0} অনুযায়ী · জেলা সেটিংসে বদলানো যায়{1}', [place.label, picked == today ? ' · ${bnDigits(toNext)} ${tr('দিন পর')} ${bnDigits(1)} ${nextBd.monthName}${nextBd.month % 2 == 0 ? ', ${trf('{0}কাল শুরু', [nextBd.season])}' : ''}' : '']),
-                    style: body(12.5, color: Colors.white, height: 1.45)),
+        child: SwipeTabs<CalSide>(
+          items: const [CalSide.bangla, CalSide.arabic],
+          value: _side,
+          onChanged: (v) => setState(() => _side = v),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+            children: [
+              Row(children: [
+                IconButton(tooltip: tr('ফিরে যান'), onPressed: () => Navigator.of(context).maybePop(), icon: const Icon(Icons.chevron_left_rounded, size: 30)),
+                Expanded(child: Text(tr('ক্যালেন্ডার'), style: display(21, weight: 700))),
               ]),
-            ),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.fromLTRB(4, 10, 4, 10),
-              decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16)),
-              child: Column(children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
-                  child: Text(trf('নামাজের সময় ({0}, আনুমানিক)', [place.label]), style: body(12.5, color: C.muted)),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  gradient: LinearGradient(colors: [C.green, C.teal], begin: Alignment.topLeft, end: Alignment.bottomRight),
                 ),
-                Row(children: [
-                  for (final (n, d) in [(tr('ফজর'), sun.fajr), (tr('জোহর'), sun.dhuhr), (tr('আসর'), sun.asr), (tr('মাগরিব'), sun.maghrib), (tr('এশা'), sun.isha)])
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Expanded(
-                      child: Column(children: [
-                        Text(n, style: body(11.5, color: C.muted)),
-                        Text(bnDigits('${d.hour > 12 ? d.hour - 12 : d.hour}:${d.minute.toString().padLeft(2, '0')}'),
-                            style: body(14, weight: FontWeight.w600)),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(picked == today ? tr('আজ বাংলা তারিখ') : tr('বাংলা তারিখ'), style: body(13, color: Colors.white70)),
+                        Text(bd.text, style: display(26, weight: 700, color: Colors.white, height: 1.3)),
+                        Text('${weekdayName(picked)} · ${bnDigits(picked.day)} ${monthName(picked.month)} ${bnDigits(picked.year)}', style: body(13.5, color: Colors.white)),
+                        const SizedBox(height: 2),
+                        Text(trf('হিজরি · {0}', [hj.short]), style: body(13.5, weight: FontWeight.w600, color: Colors.white)),
+                        Text(hj.arabic, textDirection: TextDirection.rtl, style: const TextStyle(fontSize: 15, color: Colors.white, height: 1.5)),
                       ]),
                     ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12)),
+                      child: Column(children: [
+                        const Icon(Icons.eco_outlined, color: Colors.white, size: 20),
+                        Text(trf('{0}কাল', [bd.season]), style: body(12.5, weight: FontWeight.w600, color: Colors.white)),
+                      ]),
+                    ),
+                  ]),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    sunTile(Icons.wb_twilight, const Color(0xFFFDE68A), tr('সূর্যোদয়'), t(sun.sunrise)),
+                    const SizedBox(width: 8),
+                    sunTile(Icons.nights_stay_outlined, const Color(0xFFFDBA74), tr('সূর্যাস্ত'), t(sun.sunset)),
+                  ]),
+                  const SizedBox(height: 8),
+                  Text(
+                      trf('{0} অনুযায়ী · জেলা সেটিংসে বদলানো যায়{1}', [
+                        place.label,
+                        picked == today ? ' · ${bnDigits(toNext)} ${tr('দিন পর')} ${bnDigits(1)} ${nextBd.monthName}${nextBd.month % 2 == 0 ? ', ${trf('{0}কাল শুরু', [nextBd.season])}' : ''}' : ''
+                      ]),
+                      style: body(12.5, color: Colors.white, height: 1.45)),
                 ]),
-              ]),
-            ),
-            if (hj.isRamadan) ...[
+              ),
               const SizedBox(height: 10),
-              Panel(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                child: Row(children: [
-                  Icon(Icons.nightlight_round, color: C.green),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(trf('রমজান · সেহরির শেষ সময় {0} · ইফতার {1} (আনুমানিক)', [bnTime(sun.fajr.hour, sun.fajr.minute), bnTime(sun.maghrib.hour, sun.maghrib.minute)]),
-                        style: body(14, weight: FontWeight.w500)),
-                  ),
-                ]),
-              ),
-            ],
-            const SizedBox(height: 10),
-            // The Hijri date follows the moon seen in Bangladesh: a day either way can be set here.
-            Panel(
-              padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
-              child: Row(children: [
-                Expanded(
-                  child: Text(
-                      brain.number('hijri_adjust') == 0
-                          ? tr('হিজরি তারিখ চাঁদ দেখার ওপর এক দিন এদিক-ওদিক হতে পারে')
-                          : trf('হিজরি তারিখ {0} দিন সরানো আছে', [bnDigits(brain.number('hijri_adjust') > 0 ? '+${brain.number('hijri_adjust')}' : '${brain.number('hijri_adjust')}')]),
-                      style: body(12.5, color: C.muted)),
-                ),
-                IconButton(
-                  tooltip: tr('হিজরি তারিখ এক দিন পিছিয়ে দিন'),
-                  onPressed: brain.number('hijri_adjust') <= -2 ? null : () => brain.setPref('hijri_adjust', brain.number('hijri_adjust') - 1),
-                  icon: const Icon(Icons.remove_circle_outline_rounded),
-                ),
-                IconButton(
-                  tooltip: tr('হিজরি তারিখ এক দিন এগিয়ে দিন'),
-                  onPressed: brain.number('hijri_adjust') >= 2 ? null : () => brain.setPref('hijri_adjust', brain.number('hijri_adjust') + 1),
-                  icon: const Icon(Icons.add_circle_outline_rounded),
-                ),
-              ]),
-            ),
-            const SizedBox(height: 10),
-            SegTabs<CalSide>(
-              items: [(CalSide.bangla, tr('বাংলা তারিখ')), (CalSide.arabic, tr('আরবি (হিজরি) তারিখ'))],
-              value: _side,
-              onChanged: (v) => setState(() => _side = v),
-            ),
-            const SizedBox(height: 8),
-            _monthGrid(month, today, picked),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
-              child: Text(tr('কোনো তারিখে চাপ দিলে সেদিনের কাজ দেখা যাবে, নতুন কাজ বা রিমাইন্ডারও রাখা যাবে।'), style: body(12, color: C.muted)),
-            ),
-            if (pickedHol != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text('${bnDigits(picked.day)} ${monthName(picked.month)}: ${pickedHol.label}${pickedHol.executive ? tr(' (নির্বাহী আদেশে)') : ''}',
-                    style: body(14, weight: FontWeight.w600, color: _red)),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
-              child: Text(tr('সামনের সরকারি ছুটি'), style: body(13, weight: FontWeight.w600, color: C.muted)),
-            ),
-            Container(
-              decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16)),
-              child: Column(children: [
-                for (final (i, r) in upcomingHolidays(today, count: 6).indexed) ...[
-                  if (i > 0) Divider(height: 1, indent: 14, endIndent: 14, color: C.line),
+              Container(
+                padding: const EdgeInsets.fromLTRB(4, 10, 4, 10),
+                decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16)),
+                child: Column(children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-                    child: Row(children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(color: C.roseTint, borderRadius: BorderRadius.circular(12)),
-                        child: Icon(Icons.flag_outlined, color: _red, size: 20),
-                      ),
-                      const SizedBox(width: 12),
+                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
+                    child: Text(trf('নামাজের সময় ({0}, আনুমানিক)', [place.label]), style: body(12.5, color: C.muted)),
+                  ),
+                  Row(children: [
+                    for (final (n, d) in [(tr('ফজর'), sun.fajr), (tr('জোহর'), sun.dhuhr), (tr('আসর'), sun.asr), (tr('মাগরিব'), sun.maghrib), (tr('এশা'), sun.isha)])
                       Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(r.label, style: body(15, weight: FontWeight.w600)),
-                          Text('${holidayRange(r)}${r.days > 1 ? ' · টানা ${bnDigits(r.days)} দিন' : ' · ${weekdayName(r.start)}'}',
-                              style: body(12.5, color: C.muted)),
+                        child: Column(children: [
+                          Text(n, style: body(11.5, color: C.muted)),
+                          Text(bnDigits('${d.hour > 12 ? d.hour - 12 : d.hour}:${d.minute.toString().padLeft(2, '0')}'), style: body(14, weight: FontWeight.w600)),
                         ]),
                       ),
-                      Text(_inDays(r.start.difference(today).inDays), style: body(12.5, weight: FontWeight.w600, color: _red)),
-                    ]),
+                  ]),
+                ]),
+              ),
+              if (hj.isRamadan) ...[
+                const SizedBox(height: 10),
+                Panel(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                  child: Row(children: [
+                    Icon(Icons.nightlight_round, color: C.green),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(trf('রমজান · সেহরির শেষ সময় {0} · ইফতার {1} (আনুমানিক)', [bnTime(sun.fajr.hour, sun.fajr.minute), bnTime(sun.maghrib.hour, sun.maghrib.minute)]),
+                          style: body(14, weight: FontWeight.w500)),
+                    ),
+                  ]),
+                ),
+              ],
+              const SizedBox(height: 10),
+              // The Hijri date follows the moon seen in Bangladesh: a day either way can be set here.
+              Panel(
+                padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+                child: Row(children: [
+                  Expanded(
+                    child: Text(
+                        brain.number('hijri_adjust') == 0
+                            ? tr('হিজরি তারিখ চাঁদ দেখার ওপর এক দিন এদিক-ওদিক হতে পারে')
+                            : trf('হিজরি তারিখ {0} দিন সরানো আছে', [bnDigits(brain.number('hijri_adjust') > 0 ? '+${brain.number('hijri_adjust')}' : '${brain.number('hijri_adjust')}')]),
+                        style: body(12.5, color: C.muted)),
                   ),
-                ],
-              ]),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
-              child: Text(tr('চাঁদ দেখার ওপর নির্ভর ছুটি এক-দুই দিন বদলাতে পারে।'), style: body(12, color: C.muted)),
-            ),
-          ],
+                  IconButton(
+                    tooltip: tr('হিজরি তারিখ এক দিন পিছিয়ে দিন'),
+                    onPressed: brain.number('hijri_adjust') <= -2 ? null : () => brain.setPref('hijri_adjust', brain.number('hijri_adjust') - 1),
+                    icon: const Icon(Icons.remove_circle_outline_rounded),
+                  ),
+                  IconButton(
+                    tooltip: tr('হিজরি তারিখ এক দিন এগিয়ে দিন'),
+                    onPressed: brain.number('hijri_adjust') >= 2 ? null : () => brain.setPref('hijri_adjust', brain.number('hijri_adjust') + 1),
+                    icon: const Icon(Icons.add_circle_outline_rounded),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 10),
+              SegTabs<CalSide>(
+                items: [(CalSide.bangla, tr('বাংলা তারিখ')), (CalSide.arabic, tr('আরবি (হিজরি) তারিখ'))],
+                value: _side,
+                onChanged: (v) => setState(() => _side = v),
+              ),
+              const SizedBox(height: 8),
+              _monthGrid(month, today, picked),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
+                child: Text(tr('কোনো তারিখে চাপ দিলে সেদিনের কাজ দেখা যাবে, নতুন কাজ বা রিমাইন্ডারও রাখা যাবে।'), style: body(12, color: C.muted)),
+              ),
+              if (pickedHol != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text('${bnDigits(picked.day)} ${monthName(picked.month)}: ${pickedHol.label}${pickedHol.executive ? tr(' (নির্বাহী আদেশে)') : ''}',
+                      style: body(14, weight: FontWeight.w600, color: _red)),
+                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
+                child: Text(tr('সামনের সরকারি ছুটি'), style: body(13, weight: FontWeight.w600, color: C.muted)),
+              ),
+              Container(
+                decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16)),
+                child: Column(children: [
+                  for (final (i, r) in upcomingHolidays(today, count: 6).indexed) ...[
+                    if (i > 0) Divider(height: 1, indent: 14, endIndent: 14, color: C.line),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                      child: Row(children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(color: C.roseTint, borderRadius: BorderRadius.circular(12)),
+                          child: Icon(Icons.flag_outlined, color: _red, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(r.label, style: body(15, weight: FontWeight.w600)),
+                            Text('${holidayRange(r)}${r.days > 1 ? ' · টানা ${bnDigits(r.days)} দিন' : ' · ${weekdayName(r.start)}'}', style: body(12.5, color: C.muted)),
+                          ]),
+                        ),
+                        Text(_inDays(r.start.difference(today).inDays), style: body(12.5, weight: FontWeight.w600, color: _red)),
+                      ]),
+                    ),
+                  ],
+                ]),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+                child: Text(tr('চাঁদ দেখার ওপর নির্ভর ছুটি এক-দুই দিন বদলাতে পারে।'), style: body(12, color: C.muted)),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -253,18 +258,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
           Expanded(
             child: Column(children: [
               Text('${monthName(month.month)} ${bnDigits(month.year)}', style: body(15, weight: FontWeight.w600)),
-              Text(
-                  _side == CalSide.bangla
-                      ? '${first.monthName} – ${last.monthName} ${bnDigits(last.year)}'
-                      : '${hFirst.monthName} – ${hLast.monthName} ${bnDigits(hLast.year)}',
+              Text(_side == CalSide.bangla ? '${first.monthName} – ${last.monthName} ${bnDigits(last.year)}' : '${hFirst.monthName} – ${hLast.monthName} ${bnDigits(hLast.year)}',
                   style: body(12, color: C.muted)),
             ]),
           ),
           IconButton(tooltip: tr('পরের মাস'), onPressed: () => setState(() => _month = DateTime(month.year, month.month + 1)), icon: const Icon(Icons.chevron_right_rounded)),
         ]),
         Row(children: [
-          for (final (i, h) in heads.indexed)
-            Expanded(child: Text(h, textAlign: TextAlign.center, style: body(11.5, color: i == 0 || i == 6 ? _red : C.muted))),
+          for (final (i, h) in heads.indexed) Expanded(child: Text(h, textAlign: TextAlign.center, style: body(11.5, color: i == 0 || i == 6 ? _red : C.muted))),
         ]),
         const SizedBox(height: 4),
         GridView.count(
@@ -303,8 +304,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10), border: isPicked ? Border.all(color: C.green, width: 1.5) : null),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Text(bnDigits(d.day), style: body(14.5, weight: FontWeight.w600, color: fg, height: 1.2)),
-          Text(
-              _side == CalSide.bangla ? bnDigits(banglaDate(d).day) : bnDigits(hijriDate(d, adjust: brain.number('hijri_adjust')).day),
+          Text(_side == CalSide.bangla ? bnDigits(banglaDate(d).day) : bnDigits(hijriDate(d, adjust: brain.number('hijri_adjust')).day),
               style: body(10, color: isToday ? Colors.white70 : (_side == CalSide.arabic ? C.teal : C.muted), height: 1.2)),
           Container(
             width: 5,
@@ -324,7 +324,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final hol = holidayOn(d);
     final hj = hijriDate(d, adjust: brain.number('hijri_adjust'));
     final past = d.isBefore(dayOnly(now));
-    await showModalBottomSheet<void>(
+    await showAppSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) {
@@ -337,10 +337,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               Text('${banglaDate(d).text} · ${hj.dayMonth}', style: body(13.5, color: C.muted)),
               if (hol != null) Text(trf('ছুটি: {0}', [hol.label]), style: body(14, weight: FontWeight.w600, color: _red)),
               const SizedBox(height: 14),
-              if (items.isEmpty)
-                Text(tr('এই দিনে কিছু রাখা নেই।'), style: body(14.5, color: C.muted))
-              else
-                Panel(child: Rows(children: [for (final i in items) PlanRow(item: i)])),
+              if (items.isEmpty) Text(tr('এই দিনে কিছু রাখা নেই।'), style: body(14.5, color: C.muted)) else Panel(child: Rows(children: [for (final i in items) PlanRow(item: i)])),
               const SizedBox(height: 16),
               if (!past) ...[
                 Text(tr('এই দিনের জন্য'), style: body(13, weight: FontWeight.w600, color: C.muted2)),

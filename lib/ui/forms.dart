@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'widgets.dart';
 import 'package:flutter/services.dart';
 
 import '../logic/bn.dart';
@@ -88,7 +89,7 @@ class Bar extends StatelessWidget {
 }
 
 /// "বদলান" or "মুছুন" for a saved entry ('edit', 'delete', or null).
-Future<String?> editOrDelete(BuildContext context, {String? title}) => showModalBottomSheet<String>(
+Future<String?> editOrDelete(BuildContext context, {String? title}) => showAppSheet<String>(
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(

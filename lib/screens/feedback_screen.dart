@@ -119,7 +119,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
 /// Picks a photo or a PDF to send (null when cancelled or not allowed).
 Future<OutgoingFile?> pickAttachment(BuildContext context) async {
   final brain = BrainScope.read(context);
-  final how = await showModalBottomSheet<int>(
+  final how = await showAppSheet<int>(
     context: context,
     builder: (ctx) => SafeArea(
       child: Column(mainAxisSize: MainAxisSize.min, children: [

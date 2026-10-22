@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import '../ui/widgets.dart';
 
 import '../logic/dictation.dart';
 import '../services/trace.dart';
@@ -876,7 +877,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   Future<void> _quickAdd() async {
     _closeVoice();
     _focus.unfocus();
-    final pick = await showModalBottomSheet<int>(
+    final pick = await showAppSheet<int>(
       context: context,
       backgroundColor: C.surface,
       showDragHandle: true,
@@ -960,7 +961,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
 
   Future<void> _showPast() async {
     _focus.unfocus();
-    await showModalBottomSheet<void>(
+    await showAppSheet<void>(
       context: context,
       backgroundColor: C.surface,
       showDragHandle: true,

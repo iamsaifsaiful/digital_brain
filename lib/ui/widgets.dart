@@ -15,7 +15,9 @@ String initialOf(String name) {
 
 /// White rounded card with a hairline border.
 class Panel extends StatelessWidget {
-  const Panel({super.key, required this.child, this.padding = EdgeInsets.zero, Color? color, Color? borderColor, this.radius = 16}) : _color = color, _borderColor = borderColor;
+  const Panel({super.key, required this.child, this.padding = EdgeInsets.zero, Color? color, Color? borderColor, this.radius = 16})
+      : _color = color,
+        _borderColor = borderColor;
   final Widget child;
   final EdgeInsetsGeometry padding;
   final Color? _color;
@@ -52,7 +54,9 @@ class Rows extends StatelessWidget {
 }
 
 class Avatar extends StatelessWidget {
-  const Avatar({super.key, required this.name, Color? fg, Color? bg, this.size = 40, this.square = false}) : _fg = fg, _bg = bg;
+  const Avatar({super.key, required this.name, Color? fg, Color? bg, this.size = 40, this.square = false})
+      : _fg = fg,
+        _bg = bg;
   final String name;
   final Color? _fg;
   Color get fg => _fg ?? C.green;
@@ -80,7 +84,9 @@ class Avatar extends StatelessWidget {
 Color balanceColor(int balance) => balance < 0 ? C.orange : (balance > 0 ? C.green : C.muted);
 
 class Pill extends StatelessWidget {
-  const Pill(this.text, {super.key, Color? fg, Color? bg}) : _fg = fg, _bg = bg;
+  const Pill(this.text, {super.key, Color? fg, Color? bg})
+      : _fg = fg,
+        _bg = bg;
   final String text;
   final Color? _fg;
   Color get fg => _fg ?? C.greenDark;
@@ -152,7 +158,9 @@ class PrimaryButton extends StatelessWidget {
 }
 
 class SecondaryButton extends StatelessWidget {
-  const SecondaryButton({super.key, required this.label, required this.onPressed, this.icon, Color? fg, Color? borderColor, this.height = 48}) : _fg = fg, _borderColor = borderColor;
+  const SecondaryButton({super.key, required this.label, required this.onPressed, this.icon, Color? fg, Color? borderColor, this.height = 48})
+      : _fg = fg,
+        _borderColor = borderColor;
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
@@ -297,10 +305,7 @@ class SegTabs<T> extends StatelessWidget {
         height: 38,
         child: Stack(children: [
           // The white thumb glides to the chosen tab (with the finger, on pages).
-          if (at >= 0)
-            animate
-                ? AnimatedAlign(duration: const Duration(milliseconds: 240), curve: Curves.easeOutCubic, alignment: align, child: thumb)
-                : Align(alignment: align, child: thumb),
+          if (at >= 0) animate ? AnimatedAlign(duration: const Duration(milliseconds: 240), curve: Curves.easeOutCubic, alignment: align, child: thumb) : Align(alignment: align, child: thumb),
           Row(children: [
             for (final (i, (v, label)) in items.indexed)
               Expanded(
@@ -319,9 +324,7 @@ class SegTabs<T> extends StatelessWidget {
                             )
                           : Text(label,
                               maxLines: 1,
-                              style: body(14,
-                                  weight: (at - i).abs() < 0.5 ? FontWeight.w600 : FontWeight.w400,
-                                  color: Color.lerp(C.ink, C.muted2, (at - i).abs().clamp(0.0, 1.0).toDouble()))),
+                              style: body(14, weight: (at - i).abs() < 0.5 ? FontWeight.w600 : FontWeight.w400, color: Color.lerp(C.ink, C.muted2, (at - i).abs().clamp(0.0, 1.0).toDouble()))),
                     ),
                   ),
                 ),
@@ -331,6 +334,29 @@ class SegTabs<T> extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Swiping left or right over [child] moves to the next or previous of
+/// [items] — for tabs whose content is not its own page ([TabPages] slides
+/// with the finger; this switches on a flick).
+class SwipeTabs<T> extends StatelessWidget {
+  const SwipeTabs({super.key, required this.items, required this.value, required this.onChanged, required this.child});
+  final List<T> items;
+  final T value;
+  final ValueChanged<T> onChanged;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragEnd: (d) {
+          final v = d.primaryVelocity ?? 0;
+          if (v.abs() < 250) return;
+          final i = items.indexOf(value) + (v < 0 ? 1 : -1);
+          if (i >= 0 && i < items.length) onChanged(items[i]);
+        },
+        child: child,
+      );
 }
 
 /// Tabs over pages that follow the finger: the page beside slides in as
@@ -402,10 +428,14 @@ class _TabPagesState<T> extends State<TabPages<T>> {
 
   @override
   Widget build(BuildContext context) {
-    final tabs = SegTabs<T>(items: widget.items, value: widget.value, pages: _pages, onChanged: (v) {
-      widget.onChanged(v);
-      _pages.animateToPage(_index(v), duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
-    });
+    final tabs = SegTabs<T>(
+        items: widget.items,
+        value: widget.value,
+        pages: _pages,
+        onChanged: (v) {
+          widget.onChanged(v);
+          _pages.animateToPage(_index(v), duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
+        });
     final pad = widget.padding;
     final top = widget.top;
     Widget pages({required bool nested}) => NotificationListener<ScrollNotification>(
@@ -487,7 +517,9 @@ class AddButton extends StatelessWidget {
 
 /// Small round button (call, SMS, WhatsApp…).
 class CircleAction extends StatelessWidget {
-  const CircleAction({super.key, required this.icon, required this.tooltip, required this.onPressed, Color? fg, Color? bg, this.size = 40}) : _fg = fg, _bg = bg;
+  const CircleAction({super.key, required this.icon, required this.tooltip, required this.onPressed, Color? fg, Color? bg, this.size = 40})
+      : _fg = fg,
+        _bg = bg;
   final IconData icon;
   final String tooltip;
   final VoidCallback? onPressed;
@@ -573,7 +605,10 @@ class Bubble extends StatelessWidget {
 
 /// Coloured note with an icon.
 class InfoBanner extends StatelessWidget {
-  const InfoBanner({super.key, required this.text, this.icon = Icons.verified_user_outlined, Color? fg, Color? iconColor, Color? bg}) : _fg = fg, _iconColor = iconColor, _bg = bg;
+  const InfoBanner({super.key, required this.text, this.icon = Icons.verified_user_outlined, Color? fg, Color? iconColor, Color? bg})
+      : _fg = fg,
+        _iconColor = iconColor,
+        _bg = bg;
   final String text;
   final IconData icon;
   final Color? _fg;
@@ -657,7 +692,18 @@ KindLook vaultLook(VaultKind k) => switch (k) {
 
 /// A row that opens something: leading, title, subtitle, trailing.
 class ListRow extends StatelessWidget {
-  ListRow({super.key, required this.leading, required this.title, this.subtitle, Color? subtitleColor, this.trailing, this.onTap, this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 12)}) : _subtitleColor = subtitleColor;
+  ListRow(
+      {super.key,
+      required this.leading,
+      required this.title,
+      this.subtitle,
+      Color? subtitleColor,
+      this.trailing,
+      this.onTap,
+      this.onLongPress,
+      this.picked = false,
+      this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 12)})
+      : _subtitleColor = subtitleColor;
   final Widget leading;
   final String title;
   final String? subtitle;
@@ -665,30 +711,40 @@ class ListRow extends StatelessWidget {
   Color get subtitleColor => _subtitleColor ?? C.muted;
   final Widget? trailing;
   final VoidCallback? onTap;
+
+  /// Starts picking several rows (see lib/ui/pick.dart).
+  final VoidCallback? onLongPress;
+
+  /// Shown as picked (tinted).
+  final bool picked;
   final EdgeInsets padding;
 
   @override
   Widget build(BuildContext context) => InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: padding,
-          child: Row(
-            children: [
-              leading,
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(title, style: body(16, weight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    if (subtitle != null && subtitle!.isNotEmpty)
-                      Text(subtitle!, style: body(13, color: subtitleColor, weight: subtitleColor == C.muted ? FontWeight.w400 : FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ],
+        onLongPress: onLongPress,
+        child: Container(
+          color: picked ? C.greenTint : null,
+          child: Padding(
+            padding: padding,
+            child: Row(
+              children: [
+                leading,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(title, style: body(16, weight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      if (subtitle != null && subtitle!.isNotEmpty)
+                        Text(subtitle!, style: body(13, color: subtitleColor, weight: subtitleColor == C.muted ? FontWeight.w400 : FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
                 ),
-              ),
-              if (trailing != null) ...[const SizedBox(width: 8), trailing!],
-            ],
+                if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+              ],
+            ),
           ),
         ),
       );
@@ -759,8 +815,7 @@ class SwipeSwitch extends StatefulWidget {
 
   /// For tabs listed in order: steps [value] through [values], with the
   /// slide between them.
-  static SwipeSwitch tabs<T>({Key? key, required List<T> values, required T value, required ValueChanged<T> onChanged, required Widget child}) =>
-      SwipeSwitch(
+  static SwipeSwitch tabs<T>({Key? key, required List<T> values, required T value, required ValueChanged<T> onChanged, required Widget child}) => SwipeSwitch(
         key: key,
         pageKey: value,
         onStep: (step) {
@@ -873,3 +928,25 @@ class _SwipeSwitchState extends State<SwipeSwitch> with SingleTickerProviderStat
     );
   }
 }
+
+/// Every bottom sheet in the app: like [showModalBottomSheet], but its
+/// content stays above the phone's own buttons and gesture bar (Android now
+/// draws apps under them), so a sheet's last button is never covered.
+Future<T?> showAppSheet<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool isScrollControlled = false,
+  bool? showDragHandle,
+  bool useSafeArea = false,
+  Color? backgroundColor,
+  ShapeBorder? shape,
+}) =>
+    showModalBottomSheet<T>(
+      context: context,
+      isScrollControlled: isScrollControlled,
+      showDragHandle: showDragHandle,
+      useSafeArea: useSafeArea,
+      backgroundColor: backgroundColor,
+      shape: shape,
+      builder: (ctx) => SafeArea(top: false, child: builder(ctx)),
+    );

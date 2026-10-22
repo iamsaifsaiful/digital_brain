@@ -24,7 +24,7 @@ void _push(BuildContext context, Widget w) => Navigator.of(context).push(Materia
 Future<Object?> pickShop(BuildContext context) async {
   final shops = BrainScope.read(context).data.shops;
   if (shops.length < 2) return shops.firstOrNull;
-  final picked = await showModalBottomSheet<Shop>(
+  final picked = await showAppSheet<Shop>(
     context: context,
     showDragHandle: true,
     builder: (ctx) => SafeArea(
@@ -48,7 +48,7 @@ Future<Shop?> shopForm(BuildContext context, {Shop? shop}) async {
   final name = TextEditingController(text: shop?.name ?? '');
   final phone = TextEditingController(text: shop?.phone ?? '');
   final address = TextEditingController(text: shop?.address ?? '');
-  final ok = await showModalBottomSheet<bool>(
+  final ok = await showAppSheet<bool>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
@@ -340,7 +340,7 @@ class ShopDetailScreen extends StatelessWidget {
 Future<void> _showReceipt(BuildContext context, Receipt r, Shop shop) async {
   final brain = BrainScope.read(context);
   final text = receiptTextOf(r, shop);
-  await showModalBottomSheet<void>(
+  await showAppSheet<void>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,

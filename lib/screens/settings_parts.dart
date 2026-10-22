@@ -48,7 +48,7 @@ class UserPhoto extends StatelessWidget {
 /// Camera, gallery or remove — for the profile photo.
 Future<void> changePhoto(BuildContext context) async {
   final brain = BrainScope.read(context);
-  final pick = await showModalBottomSheet<int>(
+  final pick = await showAppSheet<int>(
     context: context,
     builder: (ctx) => SafeArea(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -161,7 +161,7 @@ class ProfileCard extends StatelessWidget {
 Future<void> pickBloodGroup(BuildContext context) async {
   final brain = BrainScope.read(context);
   final current = brain.data.emergency.blood;
-  final picked = await showModalBottomSheet<String>(
+  final picked = await showAppSheet<String>(
     context: context,
     showDragHandle: true,
     builder: (ctx) => SafeArea(
@@ -295,7 +295,7 @@ Future<void> pickAccentColor(BuildContext context) async {
   final start = HSLColor.fromColor(accentFor(brain.accentKey).main);
   var hue = start.hue;
   var shade = start.lightness.clamp(0.22, 0.45);
-  final picked = await showModalBottomSheet<Color>(
+  final picked = await showAppSheet<Color>(
     context: context,
     isScrollControlled: true,
     builder: (ctx) => StatefulBuilder(

@@ -64,7 +64,7 @@ class PdfButton extends StatelessWidget {
 /// সবকিছু PDF আকারে: pick the parts (all ticked), then make one PDF.
 Future<void> exportEverything(BuildContext context) async {
   if (!await needPro(context, ProFeature.pdf) || !context.mounted) return;
-  final picked = await showModalBottomSheet<Set<ReportPart>>(
+  final picked = await showAppSheet<Set<ReportPart>>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,

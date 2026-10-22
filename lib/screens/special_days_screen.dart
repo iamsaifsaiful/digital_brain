@@ -94,7 +94,7 @@ String wishText(SpecialDay s) => switch (s.kind) {
 
 /// Adds or edits a special day in a sheet.
 Future<void> editSpecialDay(BuildContext context, SpecialDay? old) async {
-  await showModalBottomSheet<void>(
+  await showAppSheet<void>(
     context: context,
     isScrollControlled: true,
     builder: (_) => _SpecialSheet(old: old),

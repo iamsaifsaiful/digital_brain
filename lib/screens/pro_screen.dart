@@ -67,8 +67,7 @@ class _ProScreenState extends State<ProScreen> {
             : null;
 
     Widget getPro() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          if (showProLink)
-            PrimaryButton(key: const Key('get-pro'), label: brain.pro && sell ? tr('মেয়াদ বাড়ান') : 'Get Pro', icon: Icons.workspace_premium_rounded, onPressed: () => _getPro(brain)),
+          if (showProLink) PrimaryButton(key: const Key('get-pro'), label: brain.pro && sell ? tr('মেয়াদ বাড়ান') : 'Get Pro', icon: Icons.workspace_premium_rounded, onPressed: () => _getPro(brain)),
           if (previewEdition && !brain.pro) ...[
             const SizedBox(height: 6),
             TextButton(onPressed: () => _tryPreview(brain), child: Text(tr('প্রিভিউ: টাকা ছাড়া প্রো চালু করে দেখুন'))),
@@ -209,48 +208,52 @@ class _ProScreenState extends State<ProScreen> {
         child: Column(children: [
           const TopBar(title: '', close: true),
           Expanded(
-            child: ListView(padding: const EdgeInsets.fromLTRB(20, 0, 20, 28), children: [
-              Container(
-                padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(22),
-                  gradient: const LinearGradient(colors: [Color(0xFF111827), Color(0xFF1F2937)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            child: SwipeTabs<bool>(
+              items: const [false, true],
+              value: _details,
+              onChanged: (v) => setState(() => _details = v),
+              child: ListView(padding: const EdgeInsets.fromLTRB(20, 0, 20, 28), children: [
+                Container(
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(22),
+                    gradient: const LinearGradient(colors: [Color(0xFF111827), Color(0xFF1F2937)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  ),
+                  child: Row(children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(color: const Color(0xFFFBBF24), borderRadius: BorderRadius.circular(16)),
+                      child: const Icon(Icons.workspace_premium_rounded, color: Color(0xFF111827), size: 30),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('My Assistant Pro', style: display(22, weight: 700, color: Colors.white)),
+                        Text(status ?? tr('আরও বেশি কাজ, বিজ্ঞাপন ছাড়া'), style: body(13.5, color: const Color(0xFFD1D5DB))),
+                      ]),
+                    ),
+                  ]),
                 ),
-                child: Row(children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(color: const Color(0xFFFBBF24), borderRadius: BorderRadius.circular(16)),
-                    child: const Icon(Icons.workspace_premium_rounded, color: Color(0xFF111827), size: 30),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('My Assistant Pro', style: display(22, weight: 700, color: Colors.white)),
-                      Text(status ?? tr('আরও বেশি কাজ, বিজ্ঞাপন ছাড়া'), style: body(13.5, color: const Color(0xFFD1D5DB))),
-                    ]),
-                  ),
-                ]),
-              ),
-              const SizedBox(height: 14),
-              SegTabs<bool>(
-                items: [(false, tr('সংক্ষেপে')), (true, tr('বিস্তারিত'))],
-                value: _details,
-                onChanged: (v) => setState(() => _details = v),
-              ),
-              const SizedBox(height: 14),
-              ...(_details ? details : brief),
-              if (previewEdition) ...[
                 const SizedBox(height: 14),
-                Panel(
-                  color: C.orangeTint,
-                  borderColor: C.orange,
-                  padding: const EdgeInsets.all(14),
-                  child: Text(tr('এটা প্লে স্টোর ভার্সনের প্রিভিউ। সেটিংসের “পরীক্ষা: প্রো চালু” সুইচ দিয়ে ফ্রি আর প্রো দুটোই দেখতে পারবেন।'),
-                      style: body(13, color: C.orangeDark, height: 1.5)),
+                SegTabs<bool>(
+                  items: [(false, tr('সংক্ষেপে')), (true, tr('বিস্তারিত'))],
+                  value: _details,
+                  onChanged: (v) => setState(() => _details = v),
                 ),
-              ],
-            ]),
+                const SizedBox(height: 14),
+                ...(_details ? details : brief),
+                if (previewEdition) ...[
+                  const SizedBox(height: 14),
+                  Panel(
+                    color: C.orangeTint,
+                    borderColor: C.orange,
+                    padding: const EdgeInsets.all(14),
+                    child: Text(tr('এটা প্লে স্টোর ভার্সনের প্রিভিউ। সেটিংসের “পরীক্ষা: প্রো চালু” সুইচ দিয়ে ফ্রি আর প্রো দুটোই দেখতে পারবেন।'), style: body(13, color: C.orangeDark, height: 1.5)),
+                  ),
+                ],
+              ]),
+            ),
           ),
         ]),
       ),

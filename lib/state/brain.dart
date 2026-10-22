@@ -1689,6 +1689,13 @@ class Brain extends ChangeNotifier {
     if (data.trash.isNotEmpty) await restoreTrash(data.trash.last);
   }
 
+  /// "ফিরিয়ে আনুন" after deleting [n] picked rows at once.
+  Future<void> undoLastDeletes(int n) async {
+    for (var i = 0; i < n && data.trash.isNotEmpty; i++) {
+      await restoreTrash(data.trash.last);
+    }
+  }
+
   /// Gone for good (with its files).
   Future<void> forgetTrash(TrashItem t) async {
     for (final f in t.files) {

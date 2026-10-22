@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'widgets.dart';
 
 import '../logic/bn.dart';
 import '../services/lock.dart';
@@ -193,7 +194,7 @@ Future<bool> verifyUser(BuildContext context, {String? reason}) async {
     return true;
   }
   if (!context.mounted) return false;
-  final ok = await showModalBottomSheet<bool>(
+  final ok = await showAppSheet<bool>(
     context: context,
     isScrollControlled: true,
     builder: (c) => _PinSheet(reason: reason!),

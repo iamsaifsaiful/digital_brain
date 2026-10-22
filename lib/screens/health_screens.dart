@@ -70,7 +70,7 @@ class HabitsScreen extends StatelessWidget {
 
   Future<void> _menu(BuildContext context, Habit h) async {
     final brain = BrainScope.read(context);
-    final pick = await showModalBottomSheet<int>(
+    final pick = await showAppSheet<int>(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -224,7 +224,7 @@ class MedicinesScreen extends StatelessWidget {
 }
 
 Future<void> editMedicine(BuildContext context, Medicine? old) =>
-    showModalBottomSheet<void>(context: context, isScrollControlled: true, builder: (_) => _MedicineSheet(old: old));
+    showAppSheet<void>(context: context, isScrollControlled: true, builder: (_) => _MedicineSheet(old: old));
 
 class _MedicineSheet extends StatefulWidget {
   const _MedicineSheet({this.old});

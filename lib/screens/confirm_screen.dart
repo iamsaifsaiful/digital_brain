@@ -226,7 +226,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
 
   Future<void> _editKind() async {
     _q.stop();
-    final r = await showModalBottomSheet<LedgerKind>(
+    final r = await showAppSheet<LedgerKind>(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(
