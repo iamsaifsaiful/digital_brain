@@ -112,7 +112,7 @@ class FakeServer {
     } else if (p == '/admin/ai/selftest') {
       body = {'gemini': {'ok': true, 'ms': 900}, 'anthropic': {'ok': false, 'ms': 300, 'error': '401 invalid key'}};
     } else if (p == '/admin/nlu/review') {
-      body = {'samples': reviews, 'intents': ['task_add', 'ledger_add', 'cash_add']};
+      body = {'samples': reviews, 'intents': ['task_add', 'ledger_add', 'cash_add'], 'text': 'My Assistant — AI মডেল পর্যালোচনা\nবাক্য: <নাম১>কে ৫০০ টাকা দিলাম'};
     } else if (p.startsWith('/admin/nlu/review/')) {
       labels.add({'id': p.split('/').last, ...jsonDecode(r.body) as Map<String, dynamic>});
       body = {'ok': true};
@@ -255,6 +255,15 @@ void main() {
     await settle(t);
     expect(find.text('<নাম১>কে ৫০০ টাকা দিলাম'), findsOneWidget);
     await shot(t, 'ai-review');
+    String? copied;
+    t.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'] as String?;
+      return null;
+    });
+    await t.tap(find.byKey(const Key('review-copy')));
+    await settle(t);
+    expect(copied, contains('বাক্য: <নাম১>কে ৫০০ টাকা দিলাম'));
+    expect(find.textContaining('সব কপি হয়েছে'), findsOneWidget);
     await t.tap(find.text('ক্লাউড ঠিক'));
     await settle(t);
     expect(server.labels.single['intents'], ['ledger_add']);

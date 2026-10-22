@@ -54,6 +54,7 @@ class MainActivity : FlutterFragmentActivity() {
             window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         }
         super.onCreate(savedInstanceState)
+        CustomTone.regrant(this)
         if (isReminderIntent(intent)) setOverLock(true)
         if (savedInstanceState == null) firstLaunch = launchOf(intent)
     }
@@ -235,6 +236,22 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    /** Any audio file on the phone (an mp3 song, a recording) as the reminder tone. */
+    private fun pickToneFile(result: MethodChannel.Result) {
+        soundResult?.success(null)
+        soundResult = result
+        val i = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "audio/*"
+        }
+        try {
+            startActivityForResult(i, TONE_REQUEST)
+        } catch (e: Exception) {
+            soundResult = null
+            result.error("no_picker", e.message, null)
+        }
+    }
+
     /** The phone's alarm tones, ringtones and notification sounds, for the app's own picker. */
     private fun listSounds(result: MethodChannel.Result) {
         Thread {
@@ -342,6 +359,10 @@ class MainActivity : FlutterFragmentActivity() {
                 val ok = LocationShare.answer(applicationContext)
                 runOnUiThread { result.success(ok) }
             }.start()
+            "here" -> Thread {
+                val at = LocationShare.here(applicationContext)
+                runOnUiThread { result.success(at) }
+            }.start()
             else -> result.notImplemented()
         }
     }
@@ -384,6 +405,11 @@ class MainActivity : FlutterFragmentActivity() {
                 result.success(null)
             }
             "pickSound" -> pickSound(call.arguments as? String, result)
+            "pickToneFile" -> pickToneFile(result)
+            "removeTone" -> {
+                (call.arguments as? String)?.let { CustomTone.remove(this, it) }
+                result.success(null)
+            }
             "listSounds" -> listSounds(result)
             "playSound" -> {
                 playSound(call.arguments as? String)
@@ -631,6 +657,20 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (google.onActivityResult(requestCode, data)) return
+        if (requestCode == TONE_REQUEST) {
+            val r = soundResult ?: return
+            soundResult = null
+            val src = data?.data
+            if (resultCode != Activity.RESULT_OK || src == null) {
+                r.success(null)
+                return
+            }
+            Thread {
+                val out = CustomTone.add(this, src)
+                runOnUiThread { r.success(out) }
+            }.start()
+            return
+        }
         if (requestCode == SOUND_REQUEST) {
             val r = soundResult ?: return
             soundResult = null
@@ -669,6 +709,7 @@ class MainActivity : FlutterFragmentActivity() {
     companion object {
         private const val SAVE_REQUEST = 4711
         private const val SOUND_REQUEST = 4712
+        private const val TONE_REQUEST = 4722
         private const val CONTACTS_REQUEST = 4713
         private const val LOCATION_REQUEST = 4721
     }

@@ -136,6 +136,8 @@ class HomePage extends StatelessWidget {
                               const SizedBox(height: 4),
                               Text('${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)}', style: body(14.5, weight: FontWeight.w600, color: Colors.white).copyWith(shadows: shade)),
                               Text('${bd.text}, ${hj.dayMonth}', style: body(13, color: soft).copyWith(shadows: shade)),
+                              // The weather now, under the date (tap: the full weather).
+                              const Padding(padding: EdgeInsets.only(top: 6), child: _WeatherLabel()),
                             ]),
                           ),
                         ),
@@ -145,8 +147,6 @@ class HomePage extends StatelessWidget {
                         ),
                       ]),
                     ),
-                    // The temperature now, under the profile photo (tap: the full weather).
-                    Positioned(right: 16, top: top + 64, child: const _WeatherLabel()),
                     Positioned(left: 16, bottom: 14, child: _SunLabel(icon: Icons.wb_twilight, text: trf('সূর্যোদয় {0}', [bnTime(sun.sunrise.hour, sun.sunrise.minute)]))),
                     Positioned(right: 16, bottom: 14, child: _SunLabel(icon: Icons.nights_stay_outlined, text: trf('সূর্যাস্ত {0}', [bnTime(sun.sunset.hour, sun.sunset.minute)]))),
                   ]),
@@ -313,7 +313,8 @@ class _WeatherLabelState extends State<_WeatherLabel> {
 
   @override
   Widget build(BuildContext context) {
-    final w = BrainScope.of(context).weatherNow;
+    final brain = BrainScope.of(context);
+    final w = brain.weatherNow;
     if (w == null) return const SizedBox.shrink();
     return Tooltip(
       message: w.said(),
@@ -326,7 +327,7 @@ class _WeatherLabelState extends State<_WeatherLabel> {
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(w.code >= 51 ? Icons.water_drop_outlined : (w.code >= 3 ? Icons.cloud_outlined : Icons.wb_sunny_outlined), size: 15, color: const Color(0xFFFDE68A)),
           const SizedBox(width: 5),
-          Text('${w.short} · ${w.sky}', style: body(13, weight: FontWeight.w600, color: Colors.white)),
+          Flexible(child: Text('${w.short} · ${w.sky} · ${tr(brain.district)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w600, color: Colors.white))),
         ]),
       ),
     );

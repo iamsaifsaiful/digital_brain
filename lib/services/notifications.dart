@@ -263,6 +263,14 @@ abstract class Notifier {
   /// Android's sound picker: (uri, title), or null if cancelled.
   Future<(String, String)?> pickSound();
 
+  /// Any audio file on the phone (an mp3…), copied where the system can
+  /// play it: (uri, title), or an error ('too_big', 'not_audio', 'failed'),
+  /// or null if cancelled.
+  Future<({String uri, String title, String error})?> pickSoundFile();
+
+  /// Removes a tone this app copied (when the member chooses another).
+  Future<void> removeOwnSound(String uri);
+
   /// The phone's own tones, for the app's picker (with preview).
   Future<List<SoundOption>> sounds();
   Future<void> playSound(String uri);
@@ -414,6 +422,25 @@ class NotificationService implements Notifier {
 
   @override
   bool batteryConfirmed = false;
+
+  @override
+  Future<({String uri, String title, String error})?> pickSoundFile() async {
+    try {
+      final r = await _platform.invokeMapMethod<String, Object?>('pickToneFile');
+      if (r == null) return null;
+      return (uri: '${r['uri'] ?? ''}', title: '${r['title'] ?? ''}', error: '${r['error'] ?? ''}');
+    } catch (e) {
+      debugPrint('Tone file picker failed: $e');
+      return (uri: '', title: '', error: 'failed');
+    }
+  }
+
+  @override
+  Future<void> removeOwnSound(String uri) async {
+    try {
+      await _platform.invokeMethod('removeTone', uri);
+    } catch (_) {}
+  }
 
   @override
   Future<(String, String)?> pickSound() async {
@@ -752,6 +779,16 @@ class FakeNotifier implements Notifier {
 
   @override
   Future<(String, String)?> pickSound() async => picked;
+
+  /// What the file picker gives in tests.
+  ({String uri, String title, String error})? pickedFile;
+  final removedSounds = <String>[];
+
+  @override
+  Future<({String uri, String title, String error})?> pickSoundFile() async => pickedFile;
+
+  @override
+  Future<void> removeOwnSound(String uri) async => removedSounds.add(uri);
 
   List<SoundOption> phoneSounds = const [SoundOption('content://media/internal/audio/media/7', 'Morning', 'alarm')];
   final played = <String>[];

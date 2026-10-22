@@ -83,14 +83,23 @@ object LocationShare {
         return post("$base/wp-json/my-assistant/v1/family/location", session, JSONObject().put("sealed", sealed).toString())
     }
 
-    private fun find(context: Context): Location? {
+    /**
+     * Roughly where the phone is, for the app's own district (prayer times,
+     * weather). Stays on the phone — never sent. Blocking: off the main thread.
+     */
+    fun here(context: Context): Map<String, Double>? {
+        val l = find(context, rough = true) ?: return null
+        return mapOf("lat" to l.latitude, "lon" to l.longitude, "acc" to l.accuracy.toDouble())
+    }
+
+    private fun find(context: Context, rough: Boolean = false): Location? {
         val fine = context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val coarse = context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
         if (!fine && !coarse) return null
         val client = LocationServices.getFusedLocationProviderClient(context)
         return try {
             val cts = CancellationTokenSource()
-            Tasks.await(client.getCurrentLocation(if (fine) Priority.PRIORITY_HIGH_ACCURACY else Priority.PRIORITY_BALANCED_POWER_ACCURACY, cts.token), 20, TimeUnit.SECONDS)
+            Tasks.await(client.getCurrentLocation(if (fine && !rough) Priority.PRIORITY_HIGH_ACCURACY else Priority.PRIORITY_BALANCED_POWER_ACCURACY, cts.token), 20, TimeUnit.SECONDS)
                 ?: Tasks.await(client.lastLocation, 5, TimeUnit.SECONDS)
         } catch (_: SecurityException) {
             null

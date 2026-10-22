@@ -172,7 +172,10 @@ class _AiSummaryState extends State<AiSummary> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('আজ', style: text(16, weight: FontWeight.w700, color: c.ink)),
+                Text(
+                  'আজ',
+                  style: text(16, weight: FontWeight.w700, color: c.ink),
+                ),
                 Text(
                   'AI প্রশ্ন ${count(_i(stats['requests']))} · ব্যবহার করেছেন ${count(_i(stats['people']))} জন · টোকেন ${count(_i(stats['in']) + _i(stats['out']))} · এই মাসে প্রশ্ন ${count(_i(stats['month']))}',
                   style: text(13.5, color: c.ink),
@@ -193,7 +196,10 @@ class _AiSummaryState extends State<AiSummary> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: text(16, weight: FontWeight.w700, color: c.ink)),
+                  Text(
+                    title,
+                    style: text(16, weight: FontWeight.w700, color: c.ink),
+                  ),
                   if ((o[span] as List? ?? const []).isEmpty) Text('এখনো কিছু নেই', style: text(13.5, color: c.muted)),
                   for (final r in (o[span] as List? ?? const []).cast<Map>())
                     Padding(
@@ -202,9 +208,16 @@ class _AiSummaryState extends State<AiSummary> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: Text('${r['model']}${r['plan'] == null ? '' : ' · ${r['plan']}'}${r['priced'] == false ? ' · দাম নেই' : ''}\n${count(_i(r['requests']))} প্রশ্ন · ক্যাশ হিট ${pct(_d(r['cache_hit']))}', style: text(13.5, color: c.ink)),
+                            child: Text(
+                              '${r['model']}${r['plan'] == null ? '' : ' · ${r['plan']}'}${r['priced'] == false ? ' · দাম নেই' : ''}\n${count(_i(r['requests']))} প্রশ্ন · ক্যাশ হিট ${pct(_d(r['cache_hit']))}',
+                              style: text(13.5, color: c.ink),
+                            ),
                           ),
-                          Text('${tk(_d(r['cost_usd']), rate)}\nপ্রতি প্রশ্নে ${tk(_d(r['per_request_usd']), rate)}', textAlign: TextAlign.end, style: text(13, color: c.muted)),
+                          Text(
+                            '${tk(_d(r['cost_usd']), rate)}\nপ্রতি প্রশ্নে ${tk(_d(r['per_request_usd']), rate)}',
+                            textAlign: TextAlign.end,
+                            style: text(13, color: c.muted),
+                          ),
                         ],
                       ),
                     ),
@@ -324,6 +337,15 @@ class _AiReviewState extends State<AiReview> {
     }
   }
 
+  /// Everything under review as one text (to paste to Claude).
+  Future<void> _copyAll() async {
+    final t = await widget.guard(() => widget.api.reviewText());
+    if (t == null || t.isEmpty || !mounted) return;
+    await Clipboard.setData(ClipboardData(text: t));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('সব কপি হয়েছে — যেখানে চান পেস্ট করুন')));
+  }
+
   Future<void> _decide(Map<String, dynamic> s, String pick) async {
     var intents = switch (pick) {
       'phone' => (s['phone'] as List).cast<String>(),
@@ -366,65 +388,82 @@ class _AiReviewState extends State<AiReview> {
     if (items == null) return const Center(child: CircularProgressIndicator());
     if (items.isEmpty) return const Empty(Icons.task_alt_rounded, 'দেখার মতো কিছু নেই', 'ফোন, ক্লাউড আর সদস্যের শেষ কাজ যেখানে মেলেনি, সেগুলো এখানে আসবে।');
     String list(Object? v) => (v as List? ?? const []).isEmpty ? '—' : (v as List).join(' + ');
-    return PageView.builder(
-      controller: _pages,
-      itemCount: items.length,
-      itemBuilder: (context, i) {
-        final s = items[i];
-        Widget line(String k, String v, {Color? color}) => Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 92,
-                child: Text(k, style: text(13.5, color: c.muted)),
-              ),
-              Expanded(
-                child: Text(
-                  v,
-                  style: text(15, weight: FontWeight.w600, color: color ?? c.ink),
-                ),
-              ),
-            ],
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(key: const Key('review-copy'), onPressed: _copyAll, icon: const Icon(Icons.copy_all_rounded), label: const Text('সব কপি করুন')),
           ),
-        );
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          children: [
-            Text('${bn(i + 1)} / ${bn(items.length)} · ${ago('${s['created']}'.replaceFirst(' ', 'T'))}', style: text(13, color: c.muted)),
-            const SizedBox(height: 8),
-            CardBox(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        ),
+        Expanded(
+          child: PageView.builder(
+            controller: _pages,
+            itemCount: items.length,
+            itemBuilder: (context, i) {
+              final s = items[i];
+              Widget line(String k, String v, {Color? color}) => Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 92,
+                      child: Text(k, style: text(13.5, color: c.muted)),
+                    ),
+                    Expanded(
+                      child: Text(
+                        v,
+                        style: text(15, weight: FontWeight.w600, color: color ?? c.ink),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                 children: [
-                  Text(
-                    '${s['text']}',
-                    style: text(19, weight: FontWeight.w700, color: c.ink, height: 1.4),
+                  Text('${bn(i + 1)} / ${bn(items.length)} · ${ago('${s['created']}'.replaceFirst(' ', 'T'))}', style: text(13, color: c.muted)),
+                  const SizedBox(height: 8),
+                  CardBox(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${s['text']}',
+                          style: text(19, weight: FontWeight.w700, color: c.ink, height: 1.4),
+                        ),
+                        line('অবস্থা', '${s['state']}'),
+                        line('ফোন', '${list(s['phone'])} (${pct(_d(s['phone_conf']))})'),
+                        line('ক্লাউড', '${list(s['cloud'])}${'${s['cloud_provider']}'.isEmpty ? '' : ' · ${s['cloud_provider']}'}'),
+                        line('সদস্য শেষে', list(s['final'])),
+                        if ('${s['signal']}'.isNotEmpty) line('সংকেত', '${s['signal']}', color: c.rose),
+                      ],
+                    ),
                   ),
-                  line('অবস্থা', '${s['state']}'),
-                  line('ফোন', '${list(s['phone'])} (${pct(_d(s['phone_conf']))})'),
-                  line('ক্লাউড', '${list(s['cloud'])}${'${s['cloud_provider']}'.isEmpty ? '' : ' · ${s['cloud_provider']}'}'),
-                  line('সদস্য শেষে', list(s['final'])),
-                  if ('${s['signal']}'.isNotEmpty) line('সংকেত', '${s['signal']}', color: c.rose),
+                  const SizedBox(height: 14),
+                  FilledButton.icon(onPressed: () => _decide(s, 'phone'), icon: const Icon(Icons.phone_android_rounded), label: const Text('ফোন ঠিক')),
+                  const SizedBox(height: 8),
+                  FilledButton.tonalIcon(
+                    onPressed: (s['cloud'] as List? ?? const []).isEmpty ? null : () => _decide(s, 'cloud'),
+                    icon: const Icon(Icons.cloud_outlined),
+                    label: const Text('ক্লাউড ঠিক'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(onPressed: () => _decide(s, 'other'), icon: const Icon(Icons.edit_outlined), label: const Text('দুটোই ভুল — ঠিকটা বাছুন')),
+                  const SizedBox(height: 10),
+                  Text(
+                    'পরেরটায় যেতে বাঁয়ে সোয়াইপ করুন',
+                    textAlign: TextAlign.center,
+                    style: text(12.5, color: c.muted),
+                  ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            FilledButton.icon(onPressed: () => _decide(s, 'phone'), icon: const Icon(Icons.phone_android_rounded), label: const Text('ফোন ঠিক')),
-            const SizedBox(height: 8),
-            FilledButton.tonalIcon(onPressed: (s['cloud'] as List? ?? const []).isEmpty ? null : () => _decide(s, 'cloud'), icon: const Icon(Icons.cloud_outlined), label: const Text('ক্লাউড ঠিক')),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(onPressed: () => _decide(s, 'other'), icon: const Icon(Icons.edit_outlined), label: const Text('দুটোই ভুল — ঠিকটা বাছুন')),
-            const SizedBox(height: 10),
-            Text(
-              'পরেরটায় যেতে বাঁয়ে সোয়াইপ করুন',
-              textAlign: TextAlign.center,
-              style: text(12.5, color: c.muted),
-            ),
-          ],
-        );
-      },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

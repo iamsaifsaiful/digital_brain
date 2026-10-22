@@ -132,10 +132,7 @@ class Device {
 }
 
 class Api {
-  Api({http.Client? client, SessionStore? store, String? base})
-      : _http = client ?? http.Client(),
-        _store = store ?? SecureSession(),
-        base = base ?? apiBase;
+  Api({http.Client? client, SessionStore? store, String? base}) : _http = client ?? http.Client(), _store = store ?? SecureSession(), base = base ?? apiBase;
 
   final http.Client _http;
   final SessionStore _store;
@@ -174,8 +171,7 @@ class Api {
 
   Future<Map<String, dynamic>> summary() => _send('GET', '/admin/summary');
 
-  Future<List<Map<String, dynamic>>> payments(String status) async =>
-      ((await _send('GET', '/admin/payments?status=$status'))['payments'] as List).cast<Map<String, dynamic>>();
+  Future<List<Map<String, dynamic>>> payments(String status) async => ((await _send('GET', '/admin/payments?status=$status'))['payments'] as List).cast<Map<String, dynamic>>();
 
   Future<String> decide(int id, {required bool approve, String reason = '', bool tell = true}) async =>
       '${(await _send('POST', '/admin/payments/$id', {'decision': approve ? 'approve' : 'reject', 'reason': reason, 'tell': tell}))['message'] ?? ''}';
@@ -189,8 +185,7 @@ class Api {
   Future<List<Map<String, dynamic>>> notices() async => ((await _send('GET', '/admin/notices'))['notices'] as List).cast<Map<String, dynamic>>();
 
   /// Members' feature wishes and problems ('open', 'done' or 'all').
-  Future<List<Map<String, dynamic>>> feedback(String status) async =>
-      ((await _send('GET', '/admin/feedback?status=$status'))['feedback'] as List).cast<Map<String, dynamic>>();
+  Future<List<Map<String, dynamic>>> feedback(String status) async => ((await _send('GET', '/admin/feedback?status=$status'))['feedback'] as List).cast<Map<String, dynamic>>();
 
   /// 'read', 'done', 'new' or 'delete'.
   Future<void> setFeedback(int id, String status) => _send('POST', '/admin/feedback/$id', {'status': status});
@@ -199,16 +194,17 @@ class Api {
   Future<Map<String, dynamic>> feedbackThread(int id) => _send('GET', '/admin/feedback/$id');
 
   /// An answer (text and/or one photo or PDF, as base64); the member's phone is pushed.
-  Future<void> replyFeedback(int id, String text, {String? fileName, Uint8List? bytes}) =>
-      _send('POST', '/admin/feedback/$id/reply', {'text': text, if (bytes != null) 'file': {'name': fileName ?? 'file', 'data': base64Encode(bytes)}});
+  Future<void> replyFeedback(int id, String text, {String? fileName, Uint8List? bytes}) => _send('POST', '/admin/feedback/$id/reply', {
+    'text': text,
+    if (bytes != null) 'file': {'name': fileName ?? 'file', 'data': base64Encode(bytes)},
+  });
 
   /// An attachment's bytes.
   Future<Uint8List> feedbackFile(int messageId) async => base64Decode('${(await _send('GET', '/admin/feedback/file/$messageId'))['data']}');
 
   Future<void> toggleNotice(int id) => _send('POST', '/admin/notices/$id/toggle');
 
-  Future<int> pushNow(String title, String body, String audience) async =>
-      ((await _send('POST', '/admin/push', {'title': title, 'body': body, 'audience': audience}))['sent'] as num?)?.toInt() ?? 0;
+  Future<int> pushNow(String title, String body, String audience) async => ((await _send('POST', '/admin/push', {'title': title, 'body': body, 'audience': audience}))['sent'] as num?)?.toInt() ?? 0;
 
   // ── AI ও বোঝা ──
 
@@ -227,6 +223,12 @@ class Api {
   Future<(List<Map<String, dynamic>>, List<String>)> review() async {
     final r = await _send('GET', '/admin/nlu/review?limit=50');
     return ((r['samples'] as List).cast<Map<String, dynamic>>(), (r['intents'] as List).cast<String>());
+  }
+
+  /// Every sample under review (up to 500) as one text to copy, same as the site's button.
+  Future<String> reviewText() async {
+    final r = await _send('GET', '/admin/nlu/review?limit=500');
+    return '${r['text'] ?? ''}';
   }
 
   /// The right reading of a sample; pick = phone | cloud | other.
@@ -269,8 +271,7 @@ class Api {
     final headers = {'content-type': 'application/json', if (auth && _session != null) 'authorization': 'Bearer $_session'};
     http.Response r;
     try {
-      r = await (method == 'GET' ? _http.get(uri, headers: headers) : _http.post(uri, headers: headers, body: jsonEncode(body ?? {})))
-          .timeout(const Duration(seconds: 20));
+      r = await (method == 'GET' ? _http.get(uri, headers: headers) : _http.post(uri, headers: headers, body: jsonEncode(body ?? {}))).timeout(const Duration(seconds: 20));
     } catch (_) {
       throw const ApiError('ইন্টারনেট সংযোগ পাওয়া যায়নি');
     }
@@ -297,12 +298,12 @@ class Api {
 
 /// Why the fingerprint did not open the app, said plainly.
 String authProblem(LocalAuthExceptionCode code) => switch (code) {
-      LocalAuthExceptionCode.userCanceled || LocalAuthExceptionCode.systemCanceled => '',
-      LocalAuthExceptionCode.noBiometricsEnrolled => 'ফোনে কোনো আঙুলের ছাপ রাখা নেই — ফোনের Settings › Security থেকে যোগ করুন, অথবা ফোনের লক দিয়ে খুলুন',
-      LocalAuthExceptionCode.noCredentialsSet => 'ফোনে কোনো স্ক্রিন লক নেই — আগে ফোনের Settings থেকে PIN বা আঙুলের ছাপ চালু করুন',
-      LocalAuthExceptionCode.noBiometricHardware => 'এই ফোনে আঙুলের ছাপের সেন্সর নেই',
-      LocalAuthExceptionCode.temporaryLockout => 'অনেকবার ভুল হয়েছে — একটু পরে আবার চেষ্টা করুন, বা ফোনের লক দিয়ে খুলুন',
-      LocalAuthExceptionCode.biometricLockout => 'আঙুলের ছাপ বন্ধ হয়ে গেছে — ফোন একবার লক করে PIN দিয়ে খুলুন, তারপর আবার চেষ্টা করুন',
-      LocalAuthExceptionCode.timeout => 'সময় শেষ — আবার চাপুন',
-      _ => 'আঙুলের ছাপ চালু করা গেল না (${code.name}) — আবার চাপুন',
-    };
+  LocalAuthExceptionCode.userCanceled || LocalAuthExceptionCode.systemCanceled => '',
+  LocalAuthExceptionCode.noBiometricsEnrolled => 'ফোনে কোনো আঙুলের ছাপ রাখা নেই — ফোনের Settings › Security থেকে যোগ করুন, অথবা ফোনের লক দিয়ে খুলুন',
+  LocalAuthExceptionCode.noCredentialsSet => 'ফোনে কোনো স্ক্রিন লক নেই — আগে ফোনের Settings থেকে PIN বা আঙুলের ছাপ চালু করুন',
+  LocalAuthExceptionCode.noBiometricHardware => 'এই ফোনে আঙুলের ছাপের সেন্সর নেই',
+  LocalAuthExceptionCode.temporaryLockout => 'অনেকবার ভুল হয়েছে — একটু পরে আবার চেষ্টা করুন, বা ফোনের লক দিয়ে খুলুন',
+  LocalAuthExceptionCode.biometricLockout => 'আঙুলের ছাপ বন্ধ হয়ে গেছে — ফোন একবার লক করে PIN দিয়ে খুলুন, তারপর আবার চেষ্টা করুন',
+  LocalAuthExceptionCode.timeout => 'সময় শেষ — আবার চাপুন',
+  _ => 'আঙুলের ছাপ চালু করা গেল না (${code.name}) — আবার চাপুন',
+};

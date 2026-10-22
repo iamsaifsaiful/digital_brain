@@ -41,4 +41,15 @@ class LocationShareChannel {
       return false;
     }
   }
+
+  /// Roughly where the phone is (lat, lon), for the app's own district —
+  /// stays on the phone; null without permission or a fix.
+  static Future<(double, double)?> here() async {
+    try {
+      final m = await _ch.invokeMapMethod<String, Object?>('here');
+      final lat = m?['lat'], lon = m?['lon'];
+      if (lat is num && lon is num) return (lat.toDouble(), lon.toDouble());
+    } catch (_) {}
+    return null;
+  }
 }

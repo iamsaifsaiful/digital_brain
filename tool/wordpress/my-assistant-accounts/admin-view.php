@@ -1018,9 +1018,27 @@ function ma_acc_script() {
                 return;
             }
             var copy = e.target.closest('[data-copy]');
-            if (copy && navigator.clipboard) {
-                navigator.clipboard.writeText(document.getElementById(copy.getAttribute('data-copy')).textContent);
-                copy.title = 'কপি হয়েছে';
+            if (copy) {
+                var src = document.getElementById(copy.getAttribute('data-copy'));
+                var text = src.value !== undefined ? src.value : src.textContent;
+                var done = function () {
+                    copy.title = 'কপি হয়েছে';
+                    if (copy.tagName === 'BUTTON') {
+                        var was = copy.dataset.was || copy.textContent;
+                        copy.dataset.was = was;
+                        copy.textContent = 'কপি হয়েছে ✓';
+                        setTimeout(function () { copy.textContent = was; }, 2500);
+                    }
+                };
+                var fallback = function () {
+                    // http:// sites and old browsers have no clipboard API.
+                    var t = document.createElement('textarea');
+                    t.value = text; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
+                    document.body.appendChild(t); t.select();
+                    try { document.execCommand('copy'); done(); } catch (err) {}
+                    document.body.removeChild(t);
+                };
+                if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text).then(done, fallback); } else { fallback(); }
             }
         });
     })();
@@ -1221,7 +1239,13 @@ function ma_acc_render_nlu($n) {
     </section>
 
     <section class="ma-card pad">
-        <h2>পর্যালোচনা</h2>
+        <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+            <h2 style="margin:0">পর্যালোচনা</h2>
+            <?php if (!empty($n['review_all'])) : ?>
+                <button type="button" class="ma-btn small" id="ma-review-copy-btn" data-copy="ma-review-copy">সব কপি করুন (<?php echo esc_html(ma_acc_bn((string) count($n['review_all']))); ?>টা)</button>
+            <?php endif; ?>
+        </div>
+        <?php if (!empty($n['review_all'])) : ?><textarea id="ma-review-copy" readonly hidden><?php echo esc_textarea(ma_nlu_review_text($n['review_all'], $ov)); ?></textarea><?php endif; ?>
         <p class="muted">যেসব বার্তায় ফোন, ক্লাউড আর শেষ কাজ মেলেনি বা সদস্য “না” বলেছেন। নাম সরানো (<code>&lt;নাম১&gt;</code>)। ঠিকটা বেছে দিলে পরের শেখানোয় সবার আগে সেটা মানা হয়।</p>
         <?php if (empty($n['review'])) : ?><p class="muted">এখন দেখার মতো কিছু নেই।</p><?php endif; ?>
         <?php foreach ((array) ($n['review'] ?? []) as $r) : ?>

@@ -53,6 +53,7 @@ import '../services/notifications.dart';
 import '../services/phonebook.dart';
 import '../services/voice.dart';
 import '../services/platform.dart';
+import '../services/location_share.dart';
 import '../logic/calendar_bd.dart';
 import '../ui/theme.dart' show Look;
 import '../logic/inbox.dart' show secretMessage;
@@ -177,7 +178,10 @@ class Brain extends ChangeNotifier {
   String alarmSoundTitle = '';
 
   /// A ringtone the user picked; null goes back to the alarm tone.
-  Future<void> setAlarmSound(String? uri, String title) async {
+  /// [own]: a file the member added (copied by the app) — the one added
+  /// before is removed once it is no longer the tone.
+  Future<void> setAlarmSound(String? uri, String title, {bool own = false}) async {
+    final ownBefore = await services.lock.keys.read('alarm_sound_own');
     if (uri == null || uri == 'content://settings/system/alarm_alert') {
       services.notifier.soundUri = null;
       alarmSoundTitle = '';
@@ -189,6 +193,11 @@ class Brain extends ChangeNotifier {
       await services.lock.keys.write('alarm_sound', uri);
       await services.lock.keys.write('alarm_sound_title', title);
     }
+    if (ownBefore != null && ownBefore != uri) {
+      await services.notifier.removeOwnSound(ownBefore);
+      await services.lock.keys.delete('alarm_sound_own');
+    }
+    if (own && uri != null) await services.lock.keys.write('alarm_sound_own', uri);
     notifyListeners();
     await _reschedule();
   }
@@ -860,11 +869,53 @@ class Brain extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setDistrict(String v) async {
+  /// Chosen by hand ([auto] false) the place stays; otherwise it follows
+  /// the phone (see [refreshPlace]).
+  Future<void> setDistrict(String v, {bool auto = false}) async {
     district = v;
     askPlace = v;
     await services.lock.keys.write('district', v);
+    if (!auto && autoPlace) {
+      autoPlace = false;
+      await services.lock.keys.write('auto_place', 'false');
+    }
     notifyListeners();
+  }
+
+  /// The district follows where the phone is (sunrise, prayer times,
+  /// weather). The location is read on the phone only — never sent.
+  bool autoPlace = true;
+
+  /// Roughly where the phone is, if the member allowed location; tests replace it.
+  Future<(double, double)?> Function() whereAmI = () async {
+    final st = await LocationShareChannel.status();
+    if (st['fine'] != true || st['service'] != true) return null;
+    return LocationShareChannel.here();
+  };
+  DateTime? _placeCheckedAt;
+
+  /// Turns following the phone on or off.
+  Future<void> setAutoPlace(bool on) async {
+    autoPlace = on;
+    await services.lock.keys.write('auto_place', on ? 'true' : 'false');
+    notifyListeners();
+    if (on) await refreshPlace(force: true);
+  }
+
+  /// Moves [district] to where the phone is now (at most every 20 minutes
+  /// unless [force]). Returns the new place's name when it changed.
+  Future<String?> refreshPlace({bool force = false}) async {
+    if (!autoPlace) return null;
+    final now = services.now();
+    final last = _placeCheckedAt;
+    if (!force && last != null && now.difference(last).inMinutes < 20) return null;
+    _placeCheckedAt = now;
+    final at = await whereAmI();
+    if (at == null) return null;
+    final near = nearestPlace(at.$1, at.$2);
+    if (near == null || near.$1.name == district) return null;
+    await setDistrict(near.$1.name, auto: true);
+    return near.$1.name;
   }
 
   // ── Look and language (সেটিংস › চেহারা, ভাষা) ──
@@ -1481,6 +1532,7 @@ class Brain extends ChangeNotifier {
       askUserName = userName;
       district = await services.lock.keys.read('district') ?? 'ঢাকা';
       askPlace = district;
+      autoPlace = (await services.lock.keys.read('auto_place')) != 'false';
     } catch (_) {}
     try {
       services.voice.muted = (await services.lock.keys.read('speak_on')) == 'false';
@@ -1501,6 +1553,7 @@ class Brain extends ChangeNotifier {
     unawaited(loadNluConfig().then((_) => sendNluSamples()).then((_) => updateNluModelFromServer()).catchError((_) {}));
     // ফ্যামিলি: what family members sent, location sharing and the heirs' copy (signed in only).
     if (signedIn) unawaited(family.refresh().catchError((_) {}));
+    unawaited(refreshPlace().catchError((_) => null));
     await _loadServerNotices();
     try {
       data = await services.store.load();

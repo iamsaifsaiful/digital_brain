@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Only the folder where a file is copied to be opened in another app. -->
+<!-- Only the folder where a file is copied to be opened in another app, and
+     (Android 7–9) the member's own reminder tones, read by the system. -->
 <paths>
     <cache-path name="open" path="open/" />
+    <files-path name="tones" path="tones/" />
 </paths>

@@ -9,6 +9,7 @@ import '../logic/csv.dart';
 import '../services/crypto.dart';
 import '../services/data_store.dart';
 import '../services/lock.dart';
+import '../services/location_share.dart';
 import '../state/brain.dart';
 import '../ui/pin.dart';
 import '../ui/theme.dart';
@@ -32,7 +33,7 @@ import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '2.44.0';
+const appVersion = '2.45.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -111,15 +112,53 @@ class _MoreScreenState extends State<MoreScreen> {
       builder: (ctx) => SimpleDialog(
         title: Text(tr('আপনার জেলা/শহর'), style: body(18, weight: FontWeight.w600)),
         children: [
+          SimpleDialogOption(
+            key: const Key('place-auto'),
+            onPressed: () => Navigator.pop(ctx, '*'),
+            child: Row(children: [
+              Icon(Icons.my_location_rounded, size: 20, color: brain.autoPlace ? C.green : C.muted2),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(tr('ফোনের লোকেশন অনুযায়ী'), style: body(16, weight: brain.autoPlace ? FontWeight.w700 : FontWeight.w500, color: brain.autoPlace ? C.green : C.ink)),
+                  Text(tr('অন্য জেলায় গেলে নিজে বদলাবে — লোকেশন ফোনেই থাকে, কোথাও যায় না'), style: body(12.5, color: C.muted)),
+                ]),
+              ),
+            ]),
+          ),
+          const Divider(),
           for (final p in bdPlaces)
             SimpleDialogOption(
               onPressed: () => Navigator.pop(ctx, p.name),
-              child: Text(p.label, style: body(16, weight: p.name == brain.district ? FontWeight.w700 : FontWeight.w400, color: p.name == brain.district ? C.green : C.ink)),
+              child: Text(p.label,
+                  style: body(16, weight: !brain.autoPlace && p.name == brain.district ? FontWeight.w700 : FontWeight.w400, color: !brain.autoPlace && p.name == brain.district ? C.green : C.ink)),
             ),
         ],
       ),
     );
-    if (v != null) await brain.setDistrict(v);
+    if (v == null) return;
+    if (v != '*') {
+      await brain.setDistrict(v);
+      return;
+    }
+    // Following the phone: location permission first (asked once by Android).
+    var st = await LocationShareChannel.status();
+    if (st['fine'] != true) {
+      await LocationShareChannel.ask();
+      for (var i = 0; i < 20 && st['fine'] != true; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+        st = await LocationShareChannel.status();
+      }
+    }
+    await brain.setAutoPlace(true);
+    if (!mounted) return;
+    if (st['fine'] != true) {
+      toast(context, tr('লোকেশনের অনুমতি দিলে জেলা নিজে বদলাবে'));
+    } else if (st['service'] != true) {
+      toast(context, tr('ফোনের লোকেশন (GPS) চালু করলে জেলা নিজে বদলাবে'));
+    } else {
+      toast(context, trf('এখন: {0} — অন্য জেলায় গেলে নিজে বদলাবে', [tr(brain.district)]));
+    }
   }
 
 

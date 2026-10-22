@@ -66,12 +66,50 @@ function ma_nlu_review_list($limit = 50) {
         if (!$differ) {
             continue;
         }
-        $out[] = ['id' => (int) $r['id'], 'created' => $r['created'], 'state' => $r['state'], 'text' => $r['text_delex'], 'phone' => $a, 'phone_conf' => (float) $r['local_conf'], 'cloud' => $b, 'cloud_provider' => $r['cloud_provider'], 'final' => $c, 'signal' => $r['signal_kind']];
+        $alts = json_decode((string) ($r['alts_delex'] ?? ''), true);
+        $out[] = ['id' => (int) $r['id'], 'created' => $r['created'], 'state' => $r['state'], 'app_ver' => (string) ($r['app_ver'] ?? ''), 'model_ver' => (string) ($r['model_ver'] ?? ''), 'alts' => is_array($alts) ? array_values(array_filter($alts, 'is_string')) : [], 'text' => $r['text_delex'], 'phone' => $a, 'phone_conf' => (float) $r['local_conf'], 'cloud' => $b, 'cloud_provider' => $r['cloud_provider'], 'final' => $c, 'signal' => $r['signal_kind']];
         if (count($out) >= max(1, (int) $limit)) {
             break;
         }
     }
     return $out;
+}
+
+/**
+ * Every review row as plain text, to copy in one click and paste to Claude
+ * (names are already replaced by <নাম১>; nothing else about the member).
+ */
+function ma_nlu_review_text($rows, $overview = null) {
+    $j = function ($a) {
+        return $a ? implode(', ', $a) : '—';
+    };
+    $lines = ['My Assistant — AI মডেল পর্যালোচনা', 'সময় (UTC): ' . gmdate('Y-m-d H:i') . ' · প্লাগিন ' . MA_ACC_VERSION . ' · মোট ' . count($rows) . 'টা'];
+    if (is_array($overview)) {
+        $set = $overview['settings'] ?? [];
+        $live = [];
+        foreach (ma_nlu_models_list() as $m) {
+            if ($m['status'] === 'live') {
+                $live[] = $m['version'] . ' (' . $m['rollout_pct'] . '%)';
+            }
+        }
+        $lines[] = sprintf('মোড: %s (%d%% সদস্য) · চালু মডেল: %s · ৩০ দিনে নমুনা: %d · প্রতি ১০০-তে ভুলের সংকেত: %s', (string) ($set['mode'] ?? ''), (int) ($set['pct'] ?? 0), $live ? implode(', ', $live) : 'ফোনের ভেতরের', (int) ($overview['samples_30d'] ?? 0), (string) ($overview['error_signals_per_100'] ?? 0));
+        foreach ((array) ($overview['weakest'] ?? []) as $w) {
+            $lines[] = sprintf('দুর্বল: %s — %d-এর মধ্যে %d ভুল', $w['intent'], (int) $w['n'], (int) $w['bad']);
+        }
+    }
+    foreach ($rows as $i => $r) {
+        $lines[] = '';
+        $lines[] = sprintf('#%d [id %d] %s · %s · অ্যাপ %s · মডেল %s', $i + 1, $r['id'], $r['created'], $r['state'] ?: '—', $r['app_ver'] ?: '—', $r['model_ver'] ?: '—');
+        $lines[] = 'বাক্য: ' . $r['text'];
+        if (!empty($r['alts'])) {
+            $lines[] = 'অন্যভাবে শোনা: ' . implode(' | ', array_slice($r['alts'], 0, 3));
+        }
+        $lines[] = sprintf('ফোন: %s (%d%%) · ক্লাউড%s: %s · শেষে: %s', $j($r['phone']), (int) round($r['phone_conf'] * 100), $r['cloud_provider'] ? ' (' . $r['cloud_provider'] . ')' : '', $j($r['cloud']), $j($r['final']));
+        if ($r['signal'] !== '') {
+            $lines[] = 'ভুলের সংকেত: ' . $r['signal'];
+        }
+    }
+    return implode("\n", $lines);
 }
 
 /** The right reading of one sample (an admin's label wins in retraining). */
@@ -225,7 +263,8 @@ add_action('rest_api_init', function () {
         return ma_admin_is_owner($req) ? ['ci_key' => ma_nlu_ci_key_new()] : $owner_only;
     });
     ma_admin_route('/nlu/review', 'GET', function (WP_REST_Request $req) {
-        return ['samples' => ma_nlu_review_list((int) ($req->get_param('limit') ?: 50)), 'intents' => array_keys(MA_NLU_INTENTS)];
+        $rows = ma_nlu_review_list((int) ($req->get_param('limit') ?: 50));
+        return ['samples' => $rows, 'intents' => array_keys(MA_NLU_INTENTS), 'text' => ma_nlu_review_text($rows, ma_nlu_overview())];
     });
     ma_admin_route('/nlu/review/(?P<id>\d+)', 'POST', function (WP_REST_Request $req) {
         $in = json_decode($req->get_body(), true) ?: [];

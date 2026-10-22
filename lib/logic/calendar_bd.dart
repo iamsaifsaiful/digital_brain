@@ -101,7 +101,71 @@ const bdPlaces = [
   Place('ব্রাহ্মণবাড়িয়া', 23.9571, 91.1115),
   Place('চাঁদপুর', 23.2333, 90.6713),
   Place('সিরাজগঞ্জ', 24.4534, 89.7007),
+  // The other 40 districts (district towns).
+  Place('কিশোরগঞ্জ', 24.4449, 90.7766),
+  Place('মানিকগঞ্জ', 23.8617, 90.0003),
+  Place('মুন্সীগঞ্জ', 23.5422, 90.5305),
+  Place('নরসিংদী', 23.9322, 90.7151),
+  Place('রাজবাড়ী', 23.7574, 89.6445),
+  Place('মাদারীপুর', 23.1641, 90.1897),
+  Place('গোপালগঞ্জ', 23.0050, 89.8266),
+  Place('শরীয়তপুর', 23.2423, 90.4348),
+  Place('জামালপুর', 24.9375, 89.9378),
+  Place('শেরপুর', 25.0205, 90.0153),
+  Place('নেত্রকোনা', 24.8709, 90.7279),
+  Place('লক্ষ্মীপুর', 22.9425, 90.8412),
+  Place('রাঙ্গামাটি', 22.6533, 92.1750),
+  Place('খাগড়াছড়ি', 23.1193, 91.9847),
+  Place('বান্দরবান', 22.1953, 92.2184),
+  Place('নাটোর', 24.4206, 89.0003),
+  Place('নওগাঁ', 24.7936, 88.9318),
+  Place('চাঁপাইনবাবগঞ্জ', 24.5965, 88.2776),
+  Place('জয়পুরহাট', 25.0968, 89.0227),
+  Place('সাতক্ষীরা', 22.7185, 89.0705),
+  Place('বাগেরহাট', 22.6516, 89.7859),
+  Place('ঝিনাইদহ', 23.5450, 89.1726),
+  Place('মাগুরা', 23.4873, 89.4199),
+  Place('নড়াইল', 23.1725, 89.5127),
+  Place('চুয়াডাঙ্গা', 23.6402, 88.8418),
+  Place('মেহেরপুর', 23.7622, 88.6318),
+  Place('পটুয়াখালী', 22.3596, 90.3299),
+  Place('ভোলা', 22.6859, 90.6482),
+  Place('পিরোজপুর', 22.5841, 89.9720),
+  Place('ঝালকাঠি', 22.6406, 90.1987),
+  Place('বরগুনা', 22.1590, 90.1262),
+  Place('মৌলভীবাজার', 24.4829, 91.7774),
+  Place('হবিগঞ্জ', 24.3745, 91.4155),
+  Place('সুনামগঞ্জ', 25.0715, 91.3992),
+  Place('কুড়িগ্রাম', 25.8054, 89.6362),
+  Place('গাইবান্ধা', 25.3288, 89.5430),
+  Place('নীলফামারী', 25.9318, 88.8560),
+  Place('লালমনিরহাট', 25.9923, 89.2847),
+  Place('ঠাকুরগাঁও', 26.0337, 88.4617),
+  Place('পঞ্চগড়', 26.3411, 88.5542),
 ];
+
+/// The district whose town is nearest to ([lat], [lon]) and how far it is
+/// (km); null when the point is far outside Bangladesh.
+(Place, double)? nearestPlace(double lat, double lon) {
+  double km(Place p) {
+    const r = 6371.0;
+    final dLat = (p.lat - lat) * pi / 180, dLon = (p.lon - lon) * pi / 180;
+    final a = sin(dLat / 2) * sin(dLat / 2) + cos(lat * pi / 180) * cos(p.lat * pi / 180) * sin(dLon / 2) * sin(dLon / 2);
+    return 2 * r * asin(sqrt(a));
+  }
+
+  Place? best;
+  var d = double.infinity;
+  for (final p in bdPlaces) {
+    final k = km(p);
+    if (k < d) {
+      d = k;
+      best = p;
+    }
+  }
+  if (best == null || d > 120) return null;
+  return (best, d);
+}
 
 Place placeNamed(String name) => bdPlaces.firstWhere((p) => p.name == name, orElse: () => bdPlaces.first);
 
@@ -267,6 +331,7 @@ List<HolidayRun> upcomingHolidays(DateTime today, {int count = 6}) {
 // ───────────────────────── Hijri (Arabic) date ─────────────────────────
 
 const hijriMonths = ['মহররম', 'সফর', 'রবিউল আউয়াল', 'রবিউস সানি', 'জমাদিউল আউয়াল', 'জমাদিউস সানি', 'রজব', 'শাবান', 'রমজান', 'শাওয়াল', 'জিলকদ', 'জিলহজ'];
+
 /// The months in Arabic, as written on Islamic calendars.
 const hijriMonthsAr = ['مُحَرَّم', 'صَفَر', 'رَبِيع الأَوَّل', 'رَبِيع الآخِر', 'جُمَادَى الأُولَى', 'جُمَادَى الآخِرَة', 'رَجَب', 'شَعْبَان', 'رَمَضَان', 'شَوَّال', 'ذُو القَعْدَة', 'ذُو الحِجَّة'];
 

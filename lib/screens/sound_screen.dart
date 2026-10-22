@@ -25,6 +25,10 @@ class _SoundScreenState extends State<SoundScreen> {
   Notifier? _n;
   Timer? _stopTimer;
 
+  /// Files added on this page (copied by the app); those not kept are removed on leaving.
+  final _added = <String>{};
+  String? _saved;
+
   static const _alarmTone = 'content://settings/system/alarm_alert';
 
   @override
@@ -47,6 +51,9 @@ class _SoundScreenState extends State<SoundScreen> {
   void dispose() {
     _stopTimer?.cancel();
     _n?.stopSound();
+    for (final u in _added) {
+      if (u != _saved) _n?.removeOwnSound(u);
+    }
     super.dispose();
   }
 
@@ -69,7 +76,8 @@ class _SoundScreenState extends State<SoundScreen> {
   Future<void> _save() async {
     final brain = BrainScope.read(context);
     await brain.services.notifier.stopSound();
-    await brain.setAlarmSound(_chosen == _alarmTone ? null : _chosen, _chosenTitle);
+    _saved = _chosen;
+    await brain.setAlarmSound(_chosen == _alarmTone ? null : _chosen, _chosenTitle, own: _added.contains(_chosen));
     if (!mounted) return;
     toast(context, _chosen == _alarmTone ? tr('ফোনের অ্যালার্ম টোনে বাজবে') : trf('রিমাইন্ডার এখন “{0}” দিয়ে বাজবে', [_chosenTitle]));
     Navigator.of(context).pop();
@@ -84,6 +92,30 @@ class _SoundScreenState extends State<SoundScreen> {
       _chosen = s.$1;
       _chosenTitle = s.$2;
     });
+  }
+
+  /// "নিজের অডিও ফাইল": an mp3 or any audio on the phone.
+  Future<void> _fromFile() async {
+    final brain = BrainScope.read(context);
+    await brain.services.notifier.stopSound();
+    final r = await brain.services.notifier.pickSoundFile();
+    if (r == null || !mounted) return;
+    if (r.error.isNotEmpty || r.uri.isEmpty) {
+      toast(
+          context,
+          switch (r.error) {
+            'too_big' => tr('ফাইলটা অনেক বড় — ১৫ MB-এর ছোট একটা অডিও বেছে নিন'),
+            'not_audio' => tr('এটা অডিও ফাইল নয় — mp3 বা অন্য গান/শব্দের ফাইল বেছে নিন'),
+            _ => tr('ফাইলটা যোগ করা গেল না — আরেকটা চেষ্টা করুন'),
+          });
+      return;
+    }
+    _added.add(r.uri);
+    setState(() {
+      _chosen = r.uri;
+      _chosenTitle = r.title;
+    });
+    _play(r.uri);
   }
 
   Widget _row(String uri, String title, {String? sub}) {
@@ -140,9 +172,13 @@ class _SoundScreenState extends State<SoundScreen> {
                     Panel(
                       child: Rows(children: [
                         _row(_alarmTone, tr('ফোনের অ্যালার্ম টোন'), sub: tr('আগের মতো')),
-                        if (custom) _row(_chosen!, _chosenTitle.isEmpty ? tr('নিজের বেছে নেওয়া') : _chosenTitle, sub: tr('ফোন থেকে বেছে নেওয়া')),
+                        if (custom) _row(_chosen!, _chosenTitle.isEmpty ? tr('নিজের বেছে নেওয়া') : _chosenTitle, sub: tr('আপনার বেছে নেওয়া')),
                       ]),
                     ),
+                    const SizedBox(height: 12),
+                    PrimaryButton(key: const Key('tone-file'), label: tr('নিজের অডিও ফাইল যোগ করুন'), icon: Icons.audio_file_outlined, color: C.fill, onPressed: _fromFile),
+                    const SizedBox(height: 4),
+                    Text(tr('ফোনের যেকোনো গান, রেকর্ডিং বা mp3 (১৫ MB পর্যন্ত) — রিমাইন্ডার আর অ্যালার্ম সেটা দিয়ে বাজবে।'), style: body(12.5, color: C.muted)),
                     for (final k in const ['alarm', 'ringtone', 'notification'])
                       if (groups[k] != null) ...[
                         const SizedBox(height: 16),
@@ -150,7 +186,7 @@ class _SoundScreenState extends State<SoundScreen> {
                         Panel(child: Rows(children: [for (final s in groups[k]!) _row(s.uri, s.title)])),
                       ],
                     const SizedBox(height: 14),
-                    SecondaryButton(label: tr('নিজের গান বা অন্য শব্দ (ফোনের তালিকা)'), icon: Icons.library_music_outlined, onPressed: _fromPhone),
+                    SecondaryButton(label: tr('ফোনের শব্দের তালিকা খুলুন'), icon: Icons.library_music_outlined, onPressed: _fromPhone),
                   ]),
           ),
           Padding(
