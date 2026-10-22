@@ -9,6 +9,9 @@ on:
   push:
     branches: [nlu-train]
 
+permissions:
+  contents: write
+
 jobs:
   train:
     runs-on: ubuntu-latest
@@ -26,6 +29,14 @@ jobs:
         run: python tool/nlu/train/tiny.py 2>&1 | tee train.log
       - name: Measure on gold
         run: python tool/nlu/eval.py tool/nlu/out/pred_tiny.jsonl --system tiny --md eval_tiny.md
+      - name: Save results to the nlu-results branch
+        if: always()
+        run: |
+          mkdir -p /tmp/res && cp -r tool/nlu/out/models/tiny /tmp/res/ 2>/dev/null || true
+          cp tool/nlu/out/pred_tiny.jsonl tool/nlu/out/data/stats.json train.log eval_tiny.md /tmp/res/ 2>/dev/null || true
+          cd /tmp/res && git init -q && git checkout -q -b nlu-results
+          git -c user.name=ci -c user.email=ci@localhost add -A && git -c user.name=ci -c user.email=ci@localhost commit -qm "results ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" nlu-results
       - uses: actions/upload-artifact@v4
         with:
           name: nlu-tiny
