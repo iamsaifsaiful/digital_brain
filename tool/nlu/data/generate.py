@@ -150,7 +150,11 @@ def multis(pool):
     rows = []
     for k in range(MULTI):
         n = random.choice([2, 2, 2, 3])
-        parts = [random.choice(by[random.choice(MULTI_INTENTS)]) for _ in range(n)]
+        parts = []
+        while len(parts) < n:
+            p = random.choice(by[random.choice(MULTI_INTENTS)])
+            if all(p['family'] != q['family'] for q in parts):
+                parts.append(p)
         if k % 4 == 0:
             # A numbered list.
             sep = lambda i: f'{L.bn(i + 1)}.'
@@ -276,12 +280,22 @@ def trigrams(s):
     return {s[i:i + 3] for i in range(len(s) - 2)}
 
 
+CLOSED = json.load(open(os.path.join(GOLD, 'closed.json')))
+
+
+def is_closed(g):
+    """A short common reply (see gold/closed.json): allowed in training."""
+    return set(g['intent']) <= set(CLOSED['intents']) and len(norm(g['text']).split()) <= CLOSED['max_words']
+
+
 def gold_filter(rows):
     gold = []
     for f in glob.glob(os.path.join(GOLD, '*.jsonl')):
         for line in open(f):
             if line.strip():
                 g = json.loads(line)
+                if is_closed(g):
+                    continue
                 gold.append((g['id'], g['text']))
                 for a in g.get('heard_alts') or []:
                     gold.append((g['id'], a))

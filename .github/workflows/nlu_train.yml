@@ -1,0 +1,37 @@
+name: NLU train
+
+# Step E: makes the step-D data, trains the small on-phone model, converts it
+# to TFLite (int8 weights) and reads the gold set with the .tflite itself.
+# Run by hand; the results come back as an artifact (nothing is published).
+# Runs when the nlu-train branch is pushed (a hand-run workflow must live on
+# the default branch, and this one should not).
+on:
+  push:
+    branches: [nlu-train]
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: pip install "tensorflow-cpu==2.15.1" "numpy<2" scipy scikit-learn
+      - name: Make data
+        run: python tool/nlu/data/generate.py
+      - name: Train and convert
+        run: python tool/nlu/train/tiny.py 2>&1 | tee train.log
+      - name: Measure on gold
+        run: python tool/nlu/eval.py tool/nlu/out/pred_tiny.jsonl --system tiny --md eval_tiny.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nlu-tiny
+          path: |
+            tool/nlu/out/models/tiny/
+            tool/nlu/out/pred_tiny.jsonl
+            tool/nlu/out/data/stats.json
+            train.log
+            eval_tiny.md

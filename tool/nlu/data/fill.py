@@ -114,6 +114,12 @@ def _value(ctx, name, var):
         it = _item(ctx, 'item')
         if var == 'own':
             return it[3], 'category', it[3]
+        if var in ('near', 'nearloc'):
+            near = {'বাজার': ['খাবার', 'সংসার'], 'খাবার': ['বাজার'], 'সংসার': ['বাজার'], 'যাতায়াত': ['অফিস', 'ভ্রমণ'], 'বিল': ['সংসার', 'বাসা'],
+                    'চিকিৎসা': ['স্বাস্থ্য', 'পরিবার'], 'ভাড়া': ['বাসা', 'সংসার'], 'শিক্ষা': ['বাচ্চা', 'পরিবার'], 'কাপড়': ['কেনাকাটা', 'ঈদ'],
+                    'দান': ['সদকা', 'পরিবার'], 'প্রজেক্ট': ['বাড়ির কাজ', 'নির্মাণ']}.get(it[3], ['অন্যান্য'])
+            c = ctx.once('category', lambda: random.choice(near))
+            return (L.loc(c) if var == 'nearloc' else c), 'category', c
         c = ctx.once('category', lambda: random.choice([c for c in ['বাজার', 'খাবার', 'যাতায়াত', 'বিল', 'চিকিৎসা', 'সংসার', 'শিক্ষা', 'কাপড়', 'দান', 'ভাড়া'] if c != it[3]]))
         return (L.loc(c) if var == 'loc' else c), 'category', c
     if name == 'pname':
@@ -218,6 +224,9 @@ def _value(ctx, name, var):
         a = ctx.once('account', lambda: random.choice(L.ACCOUNTS))
         w = ctx.once(name, lambda: random.choice([x for x in L.ACCOUNTS if x != a]))
         return (L.loc(w) if var == 'loc' else L.gen(w) if var == 'gen' else w), 'target2', w
+    if name == 'lineno':
+        k = ctx.once(name, lambda: random.randint(1, 9))
+        return random.choice([f'{L.bn(k)}.', f'{L.bn(k)})', f'{k}.']), None, None
     if name == 'num12':
         k = ctx.once(name, lambda: random.choice([2, 3, 4, 5, 6, 10, 12, 15, 20]))
         return L.bn(k), 'quantity', k
@@ -260,7 +269,9 @@ def _value(ctx, name, var):
         return w, 'text', w
     if name == 'fullname':
         p = ctx.once('person', L.person)
-        w = ctx.once(name, lambda: p.split()[0] + ' ' + random.choice(['উদ্দিন', 'মিয়া', 'হাসান', 'হোসেন', 'আহমেদ', 'ভাই']))
+        first = p.split()[0]
+        sur = ['আক্তার', 'বেগম', 'খাতুন', 'আহমেদ', 'আপা'] if first in L.FEMALE else ['উদ্দিন', 'মিয়া', 'হাসান', 'হোসেন', 'আহমেদ', 'ভাই']
+        w = ctx.once(name, lambda: first + ' ' + random.choice(sur))
         return w, 'text', w
     if name == 'callme':
         w = ctx.once(name, lambda: random.choice(['সাইফ ভাই', 'স্যার', 'ভাইয়া', 'আপা', 'মামা', 'বস', 'রফিক ভাই', 'আপু']))

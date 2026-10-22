@@ -35,8 +35,18 @@ def pct(a, b):
     return f'{100 * a / b:.1f}%' if b else '—'
 
 
+CLOSED = json.load(open(os.path.join(HERE, 'gold', 'closed.json')))
+
+
+def is_closed(g):
+    words = [w for w in g['text'].replace('?', ' ').replace(',', ' ').replace('।', ' ').split() if w]
+    return set(g['intent']) <= set(CLOSED['intents']) and len(words) <= CLOSED['max_words']
+
+
 def evaluate(gold, preds, system):
-    rows = [(gold[p['id']], p) for p in preds if p['id'] in gold and system in p]
+    allrows = [(gold[p['id']], p) for p in preds if p['id'] in gold and system in p]
+    rows = [(g, p) for g, p in allrows if not is_closed(g)]
+    closed = [(g, p) for g, p in allrows if is_closed(g)]
     out = {}
     # Coverage and accuracy at confidence thresholds (rules: decided = 1.0).
     th = [0.0, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
@@ -73,7 +83,11 @@ def evaluate(gold, preds, system):
             out['false_delete'] = sum(1 for g, p in rows if (set(p[system]) & DELETE) and not (set(g['intent']) & DELETE))
     # Slots, where both have them.
     sl = [(g, p) for g, p in rows if g.get('slots') and p.get(f'{system}_slots') is not None]
-    out['slots'] = (len(sl), sum(all(p[f'{system}_slots'].get(k) == v for k, v in g['slots'].items()) for g, p in sl))
+    def slot_ok(ps, k, v):
+        if k == 'title_has':
+            return v in (ps.get('title') or '')
+        return ps.get(k) == v
+    out['slots'] = (len(sl), sum(all(slot_ok(p[f'{system}_slots'], k, v) for k, v in g['slots'].items()) for g, p in sl))
     # By source and tuned.
     src = defaultdict(lambda: [0, 0])
     for g, p in rows:
@@ -85,6 +99,7 @@ def evaluate(gold, preds, system):
     for g, p in rows:
         out['by_state'][g['state']][0] += 1
         out['by_state'][g['state']][1] += set(p[system]) == set(g['intent'])
+    out['closed'] = (len(closed), sum(set(p[system]) == set(g['intent']) for g, p in closed))
     return out
 
 
@@ -95,6 +110,7 @@ def report(name, r):
         L.append(f"| {t:.2f} | {n} ({pct(n, r['n'])}) | {ok} ({pct(ok, n)}) |")
     d, m = r['delete'], r['money']
     L += ['', f"মোছা: {d[1]}/{d[0]} ঠিক ({pct(d[1], d[0])}); না-চাওয়া মোছার প্রস্তাব: {r['false_delete']} · টাকা: {m[1]}/{m[0]} ঠিক ({pct(m[1], m[0])})",
+          f"ছোট সাধারণ উত্তর (শেখানোয় আছে, মূল হিসাবের বাইরে): {r['closed'][1]}/{r['closed'][0]}",
           f"তথ্য (slot) হুবহু: " + (f"{r['slots'][1]}/{r['slots'][0]}" if r['slots'][0] else 'এই পদ্ধতি তথ্য দেয় না — মাপা হয়নি'), '',
           '**উৎস অনুযায়ী**', '', '| উৎস | সারি | পুরো মিল |', '|---|---|---|']
     for k, (n, ok) in sorted(r['by_source'].items()):
