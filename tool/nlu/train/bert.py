@@ -17,7 +17,7 @@ from tiny import DELETE, MONEY, LOOKUPS  # noqa: E402
 
 NAME = os.environ.get('BERT_NAME', 'csebuetnlp/banglabert_small')
 MAXT = 48
-EPOCHS = int(os.environ.get('BERT_EPOCHS', '3'))
+EPOCHS = int(os.environ.get('BERT_EPOCHS', '4'))
 OUT = os.path.join(C.ROOT, 'out', 'models', 'bert')
 STATE_WORDS = {
     'idle': 'সাধারণ', 'await_time': 'সময় জানতে চাওয়া', 'await_ampm': 'সকাল না সন্ধ্যা', 'await_new_value': 'নতুন মান জানতে চাওয়া',

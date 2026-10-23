@@ -381,8 +381,15 @@ def main():
     # words are not labelled one by one.
     crowd = os.path.join(ROOT, 'out', 'crowd', 'train.jsonl')
     if os.path.exists(crowd):
+        per_user = defaultdict(int)
         for l in open(crowd):
             c = json.loads(l)
+            # At most 3 of each user's 6: the crowd adds variety without
+            # drowning the requests it does not cover (round 2 lost ground
+            # on reminder_query/stop, note_add, confirm_yes with all 6).
+            per_user[c['user']] += 1
+            if per_user[c['user']] > 3:
+                continue
             toks = c['text'].split()
             rows.append(dict(family=f"crowd:{c['user']}", kind='crowd', state='idle', shown=[], asked=None, tokens=toks, tags=['O'] * len(toks), text=c['text'],
                              intent=[c['intent']], segs=[dict(intent=c['intent'], start=0, end=len(toks), slots={})], slots={}, pair=None, noise=[],

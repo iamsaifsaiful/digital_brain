@@ -86,7 +86,10 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   if (blood != null) return [blood];
   // "১৮ সেপ্টেম্বর আমার বিয়ের দিন": a day kept every year, whichever
   // order the words come in — never a to-do named "আমার বিয়ের দিন".
-  if (!RegExp(fold(r'(?:হবে|করতে|যেতে|কিনতে|দিতে|লাগবে|আছে\?)')).hasMatch(fold(said))) {
+  // One day said alone — not a list ("কাজের তালিকায় লেখা, ৩১ অক্টোবর …,
+  // ৪ নভেম্বর …" goes where it was asked to).
+  if (!RegExp(fold(r'(?:হবে|করতে|যেতে|কিনতে|দিতে|লাগবে|আছে\?|তালিকা|লিস্ট|কাজ)')).hasMatch(fold(said)) && !RegExp(r'[,،\n]').hasMatch(said) &&
+      RegExp(fold(r'(?:জন্মদিন|জন্ম\s+দিন|বার্ষিকী|বিয়ের\s+দিন|বিয়ের\s+তারিখ|anniversary|birthday)')).hasMatch(fold(said))) {
     final special = specialDayIn(said, normalize(tidySpeech(said)), now: p.now);
     if (special != null) return [special];
   }
