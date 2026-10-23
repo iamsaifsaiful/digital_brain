@@ -265,6 +265,9 @@ void main() {
     expect(find.byKey(const Key('pro-website')), findsOneWidget);
     final list = find.descendant(of: find.byType(ProScreen), matching: find.byType(Scrollable)).first;
     await t.scrollUntilVisible(find.text('ফ্রি ভার্সনে বিজ্ঞাপন কোথায় দেখাবে'), 300, scrollable: list);
+    // The shop's lines are hidden now (business mode later): the page is
+    // shorter, so scroll on to the line itself.
+    await t.scrollUntilVisible(find.textContaining('দিনে সর্বোচ্চ ২টা'), 200, scrollable: list);
     expect(find.textContaining('দিনে সর্বোচ্চ ২টা'), findsOneWidget);
   });
 

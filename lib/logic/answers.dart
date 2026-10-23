@@ -909,6 +909,9 @@ bool ownMoneyAsked(String said, AppData? d) {
   if (!ws.contains(fold('কত')) && !ws.contains(fold('কতো'))) return false;
   if (RegExp(fold(r'(?:পাওনা|দেনা|ধার|বাকি|বকেয়া|কাছে|কাছ|থেকে|কার|কাকে|পাবো|পাব|দেবো|দিতে)')).hasMatch(t)) return false;
   if (d != null && d.ledger.any((e) => e.person.trim().length > 1 && t.contains(fold(normalize(e.person))))) return false;
+  // "এই সপ্তাহে আয় কত", "আয়ের কত ভাগ খরচ": the usual আয়/খরচ questions
+  // have their own answers (menus, the analysis) — only the other words here.
+  if (RegExp(fold(r'(?:আয়|খরচ|ব্যয়|ইনকাম|ভাগ|শতাংশ|%)')).hasMatch(t)) return false;
   final per = periodIn(t, DateTime(2026)) != null;
   return (per && (_inAsked.hasMatch(t) || _leftAsked.hasMatch(t))) || RegExp(fold(r'(?:কামাই|রোজগার|থাকল|থাকলো|থাকলো)')).hasMatch(t);
 }
