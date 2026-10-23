@@ -1,246 +1,317 @@
-# My Assistant — handoff for the next Claude session (18 Oct 2026, v2.25.0-b34)
+# My Assistant — handoff for the next Claude session (23 Oct 2026, app 2.45.0-b96)
 
-> **To Claude:** the owner (Saif, iamsaifsaiful@gmail.com — use only to identify him) writes in Bengali; reply and report in Bengali. He tests on his own Android phone and sends screenshots. For each finding: reproduce it in a test first, find the root cause, fix it so similar cases are fixed too, run the whole suite, then build a signed APK and send it. Do not change the package name or the signing.
+> **To Claude:** the owner (Saif — his email is only for identifying him) writes in Bengali; reply and report in Bengali. He tests on his own Android phone and sends screenshots. For each finding: reproduce it in a test first, find the root cause, and fix it so similar cases are fixed too. Then run the whole suite, build a signed APK and send it. He has delegated decisions: "তুমি আমার থেকে বেশি বুদ্ধিমান। তুমি সিদ্ধান্ত নিয়ে পরের কাজ গুলো কর". His goal is "যত কম খরচে উন্নত সেবা দেওয়া গ্রাহকদের", without loss to the company ("কোম্পানির যেন, লস না হয়").
+>
+> This file replaces the 18 Oct handoff (v2.25.0-b34). Everything from 18 Oct to 23 Oct is summarised here. The detailed reports are in `docs/` and in the claude.ai Project "App Development" (`claude/*.md`). The live to-do list is `docs/pending-2026-10-22.md`.
 
 ---
 
-## 0. Starting in a new Claude account (read first)
+## 0. Where things stand right now
 
-- The repo is the single source of truth: this file, `docs/voice-test-plan.md`, the commit messages (`git log`, detailed per release) and the tests.
-- Older history lives in the old account's claude.ai project "App Development" (`claude/digital-brain-*.md`, `claude/my-assistant-*.md`). That covers the release log since v1, the Pro/free plan decisions, the WordPress account server, the business model and the to-do intent design. The owner can copy those docs into the new account's project if deeper history is needed. Everything current is summarised here.
-- **Access:** connect GitHub with access to `iamsaifsaiful/digital_brain`, clone it, then `git checkout next-update`.
-- **Signing:** the owner must attach his signing-key file (from 13 Oct: the `.jks`, or its base64, and the password) before the first APK. Without it, only unsigned or CI-signed APKs can be made, and those do not install over his current app.
-- **Environment setup:**
-  - Flutter stable 3.47.x and Java 17.
-  - Run `bash tool/setup_platforms.sh` once, so the `android/` platform files match CI.
-  - Then `flutter pub get`.
-- Read sections 2, 4 and 9 before touching anything.
+| Part | Version | Where |
+|---|---|---|
+| Android app (play_preview edition, `.preview` package) | **2.45.0+96**, build **b96**. `pubspec.yaml` and `appVersion` in `lib/screens/more_screen.dart` | release `preview-2.45.0-build.64` (CI run number ≠ app build number) |
+| WordPress plugin `my-assistant-accounts` | **1.15.0** (`Version:` header and `MA_ACC_VERSION`) | `tool/wordpress/my-assistant-accounts/` |
+| Admin app | **1.5.0+7** | `admin_app/`, release `admin-1.5.0-build.10` |
+| On-phone NLU model | `2026.10.22-bert2`, SHA-256 `b849a629…17551f` | release `nlu-model-2026.10.22-bert2`; a draft is on the server |
 
-## 1a. Business context (decided earlier by the owner)
-- **Free and Pro, with no trial.** Two plans: ৳99/month and ৳999/year.
-- **Pro includes:** AI, no ads, auto Drive backup, paper-expiry and loan pay-back reminders, full report history, shops, receipts, PDF, inbox, smart notices.
-- **Free limits:** 20 reminders on, 20 loan people, 30 documents, 10 passwords, 1 shop, 1 other account.
-- **Editions:** `EDITION` dart-define — `direct` (GitHub APK), `play`, `play_preview`. The owner tests the **play_preview** build, which is the separate app `.preview`.
-- **Server:** a WordPress plugin on the owner's site (`tool/wordpress/`) handles accounts, the AI proxy (the key stays on the server, never in the APK), payments by bKash on the website, push via FCM, feedback and blood requests. There is also an admin app in `admin_app/`.
-- **Rules first, AI only when needed.** Medicines, health data, vault items and messages never go to the AI.
+- **Branch:** `next-update`, all work is pushed. Last commit: `53f9e98` ("2.45.0: own ringtone file; …"). The working tree is clean.
+- **Last files sent to the owner:**
+  - `My-Assistant-Play-Preview-2.45.0-b96-{arm64,armv7}.apk`
+  - `My-Assistant-Admin-1.5.0-b7-{arm64,armv7}.apk`
+  - `my-assistant-accounts-1.15.0.zip`
+- **Next numbers:**
+  - App: 2.46.0+97 (b97).
+  - Plugin: 1.16.0.
+  - Admin: 1.6.0+8.
+  - CI run numbers continue from preview build.65 and admin build.11.
+- **Tests:** 2176 Flutter tests pass. The full run takes about 16 minutes; run it alone, not alongside another test run (`master100` C58 once failed under parallel load and passes alone).
+  - Admin app: 8 tests.
+  - WordPress e2e: `ALL OK`.
+  - `flutter analyze`: 24 "info" lines, 0 warnings, 0 errors.
+  - `tool/i18n_missing.py`: 0 missing.
 
-## 1. What the app is
+## 1. The owner's standing rules (keep them all; quoted ones verbatim)
 
-- **My Assistant — আপনার ব্যক্তিগত সহকারী**: a Bengali voice-first personal assistant, built with Flutter and running on Android.
-- The user speaks or types Bengali (regional and Banglish too). The app keeps or answers:
-  - to-dos, reminders and alarms
-  - money: ধার-দেনা/ledger, আয়-ব্যয়, accounts, savings, DPS, shop
-  - notes, contacts and calls
-  - documents (ডকুমেন্টস/কাগজপত্র) and a password vault
-  - health readings, medicines and habits
-  - special days (birthdays and so on), the Bangladesh calendar (Bangla and Hijri dates, government holidays), zakat and backup
-- **Repo:** `github.com/iamsaifsaiful/digital_brain`. Working branch: **`next-update`** (all recent work is there; `main` is older).
-- **Package id:** `com.iamsaifsaiful.digital_brain`. It must never change, because updates install over the old app.
-- **Current version:** `pubspec.yaml` `version: 2.25.0+71`, plus `appVersion = '2.25.0'` in `lib/screens/more_screen.dart`. Bump both on every release.
-- **Last APK sent:** `My-Assistant-Play-Preview-2.25.0-b34-arm64.apk` / `-armv7.apk` (GitHub pre-release tag `preview-2.25.0-build.34`).
-
-## 2. The owner's standing rules (verbatim where quoted — keep them all)
-
-**How to fix things**
-- "সমস্যার সমাধান করার আগে, সমস্যা কি, কেন এপ ধরতে পারতেছে না, কি করলে ধরতে পারবে, আনুষঙ্গিক সকল দিক বিবেচনায় নিয়ে সমাধান করবা। যেন, সিমিলার কোন সমস্যা আবার না আসে"
-- "শুধু timeout বাড়িয়ে বা synonym list যোগ করে সমাধান হয়েছে বলবে না"; "শুধু UI message পাল্টিয়ে সমাধান হয়েছে বলবে না।"
-
-**Claims and reports**
+**Never**
+- "পাসওয়ার্ড, ভল্ট, PIN, OTP, স্বাস্থ্য, ওষুধ আর অন্য অ্যাপের মেসেজ কখনো ফোনের বাইরে যাবে না। API key APK-তে থাকবে না। প্যাকেজের নাম আর সাইনিং বদলাবে না। ব্যবহারকারীর ডেটা মুছে বা এনক্রিপশন দুর্বল করে কোনো সমস্যার সমাধান করবে না।"
+  - **Exception decided by the owner on 22 Oct:** a family member's medicine reminders and the heirs' copy may leave the phone, but only end-to-end sealed (X25519 + AES-GCM), so the server cannot read them.
+- "স্ক্রিনশট দেখে নতুন regex নিয়ম লিখবে না।" Fix causes in shared layers; never special-case one sentence.
+- "যাচাই-সেটের বাক্য বা তার কাছাকাছি রূপ কখনো শেখানোর ডেটায় যাবে না।" This covers the NLU gold, held-out and validation sets.
+- "কোনো সংখ্যা দাবি করবে না যা নিজে চালিয়ে মাপোনি।"
 - "বাস্তব audio test না করে voice recognition সম্পূর্ণ ঠিক হয়েছে বলে দাবি করবে না।"
-- "পরীক্ষা ছাড়া সফলতা বা accuracy percentage দাবি করবে না।"
-- "Static analysis থেকে নিশ্চিত নয় এমন বিষয়কে runtime fact বলবে না।"
-- Always list honestly what is **not** verified (real microphone, live AI, real notifications or vibration).
+- "অনুমতি ছাড়া paid service চালু করো না।"
+  - Example: the paraphrase step costs about $0.37 and is **not** approved yet.
+- Never commit the keystore, print its password, or put it in logs. Never ask for the owner's Google password.
+- The owner's Gemini key was once visible in a screenshot: never reproduce it.
 
-**Data and security**
-- "ব্যবহারকারীর ডেটা মুছে বা encryption দুর্বল করে সমস্যা সমাধান করবে না।"
-- "Data model পরিবর্তন হলে নিরাপদ migration রাখো।"
-- Passwords, vault items, PINs and OTPs never go to the AI and are never spoken aloud.
-- Health data stays on the phone. Messages from other apps never go to the AI. Medicines are not sent to the AI.
-- "API key, পাসওয়ার্ড, ব্যক্তিগত নোট ও মেসেজ logs-এ লিখবে না"; "ব্যক্তিগত তথ্য production log-এ লিখবে না। Debug logging বন্ধ করার ব্যবস্থা রাখো।"
+**Always**
+- List what is **not** verified, honestly, in every report.
+- Every new Bangla UI string (`tr()`/`trf()`) gets an English entry in `lib/logic/strings_en.dart`. Then `python3 tool/i18n_missing.py` must print "0 missing".
 
-**Keys, services and signing**
-- "অনুমতি ছাড়া paid service চালু করো না। API key APK-তে রাখবে না; backend ব্যবহার করো।" Also: "credential hardcode করবে না".
-- Never ask for the owner's Google password. The Firebase service-account JSON is never sent to Claude.
-- "বিদ্যমান package name ও release signing configuration সংরক্ষণ করো". **Never commit the keystore** (see §6).
+**Decisions taken this period (owner's words)**
+- Server settings hold only things to set. Costs and reports go in their own tab ("AI খরচ").
+- "এপে যা করা যাবে, সার্ভারেও তাই, এপেও তাই": the site and the admin app have full parity. One PHP implementation serves both (`ai-admin.php`).
+- Family is **Pro**: Pro is needed to add members and to send. Joining and receiving are free.
+- Live location only when the member allows it; it is meant for finding a lost phone too.
+- "যত ট্যাব থাকবে। সব সোয়াইপ হবে।"
+- Heirs ("উর্ধাধিকার") can see photos too.
+- The district follows the phone's location (default on). Choosing a district by hand turns it off.
+- Remaining format choices from earlier still hold: voice "আর কিছু বলতে চান?" stays off.
 
-**Workflow**
-- For a visible design change: send screenshots first, then the APK.
-- "আর কিছু বলতে চান?" (voice mode asking for more after an answer): the owner chose **"বন্ধই থাকুক"** (keep it off).
-
-## 3. Toolchain and commands
+## 2. Environment, build, sign, send (the exact routine that works)
 
 ```bash
-# Flutter (stable). Analyze: about 21 "info" lines is normal; there must be 0 errors and 0 warnings.
-flutter analyze --no-pub
-# All tests (~5 min). The last run had 769 passing.
-flutter test --no-pub
-# One file, or one test by name:
-flutter test --no-pub test/screens_1018c_test.dart --plain-name "৫ঙ"
-# English UI strings: every Bangla tr()/trf() text needs an English entry.
-python3 tool/i18n_missing.py      # must print "0 missing"
+export PATH=/opt/fl/flutter/bin:$PATH PUB_CACHE=/root/.pub-cache
+cd /home/claude/digital_brain            # clone of iamsaifsaiful/digital_brain, branch next-update
+flutter analyze --no-pub                 # 24 infos is normal
+flutter test --no-pub                    # ~16 min; one file: flutter test --no-pub test/x_test.dart
+python3 tool/i18n_missing.py             # "0 missing"
+bash <scratchpad>/e2e.sh                 # WordPress e2e on SQLite -> "ALL OK" (runs tool/wordpress/test/e2e.php)
+(cd admin_app && flutter test --no-pub)  # 8 tests
 ```
 
-- **i18n:** UI text is written in Bangla, wrapped in `tr('…')` or `trf('… {0}', [x])`. English lives in `lib/logic/strings_en.dart` (`enStrings` map, with the Bangla text as the key).
-  - When adding new text, add `'<bangla>': '<english>',` entries to that map, then run `tool/i18n_missing.py` until it shows 0.
-  - Example sentences that stay Bangla are listed in `tool/i18n_keep_bn.txt`.
-- **Test clock:** `Fri 9 Oct 2026 15:53` (`Rig.nowAt` in `test/app_test.dart`). Weeks start Saturday.
-- **Test helpers in `test/app_test.dart`:**
-  - `start(t)` builds a `Rig` with in-memory storage.
-  - `ChatController(rig.brain)` gives you the chat; call `chat.hear('…')` and read `chat.messages`.
-  - `sendTyped(t)` presses the chat's round send button. The keyboard ↵ now makes a new line.
-- **Screenshots without a phone:** a widget test that loads `assets/fonts/NotoSansBengali-*.ttf` and the MaterialIcons font with `FontLoader`, sets `t.view.physicalSize = Size(1170, 2532)` and `devicePixelRatio = 3`, then uses `captureImage(find.byType(MaterialApp).evaluate().first)` inside `t.runAsync` and writes the PNG. Keep such tests out of the committed suite (for example in a `test/tmp/` folder that you delete afterwards).
+**Environment notes**
+- Do **not** run `dart format` on large existing files. The formatter re-flows whole files (it happened to `brain.dart`, `more_screen.dart` and `notifications.dart`, and was reverted). Format only new files, or keep edits in the existing style.
+- `android/app/build.gradle.kts` is gitignored, because it is generated. Dependencies and minSdk are added by `tool/setup_platforms.sh` (for example `play-services-location:21.3.0`).
+- GitHub GraphQL is blocked from the sandbox; use REST (`gh api …`). Releases can't be created from the sandbox (403), so builds go through workflows.
 
-## 4. Build, sign and send
-
-1. Commit on `next-update` with these trailer lines:
+**Build steps**
+1. Bump `pubspec.yaml` and `appVersion`. For the plugin, bump `Version:` and `MA_ACC_VERSION`; for the admin app, bump `admin_app/pubspec.yaml`.
+2. Commit with these trailers:
    ```
-   Co-Authored-By: Claude <noreply@anthropic.com>
+   Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+   Claude-Session: https://claude.ai/code/session_01DGoFS7hoMMTew92zFE2BTR
    ```
-   Then `git push origin next-update`.
-2. Start the build: `gh workflow run play_preview.yml --ref next-update`.
-   - The workflow is `.github/workflows/play_preview.yml`: analyze, then `flutter build apk --release --split-per-abi --dart-define=EDITION=play_preview`.
-   - It publishes a pre-release tagged `preview-<version>-build.<run_number>`, with arm64 and armeabi-v7a APKs.
-3. Find the run with `gh api "repos/iamsaifsaiful/digital_brain/actions/runs?branch=next-update&per_page=1" --jq '.workflow_runs[0].id'` and poll it until `status == completed`. Use REST; do not use GraphQL.
-4. Download the assets: `gh api "repos/iamsaifsaiful/digital_brain/releases/tags/<tag>" --jq '.assets[]'`, then `gh api -H "Accept: application/octet-stream" repos/iamsaifsaiful/digital_brain/releases/assets/<id> > in.apk`.
-5. **Re-sign with the owner's release key.** The CI APKs are not signed with it. Use apksigner (or `java -jar apksigner.jar sign`):
-   - `--ks my-assistant-release.jks --ks-key-alias myassistant`, password from the owner. Alias: `myassistant`.
-   - Verify: the signer certificate's SHA-256 must start with **`fc6cff35`**: `…e59a32e26da5b81cb2efbc29af14745b2939d2a3909358af69d0014f`.
-6. Name the files `My-Assistant-Play-Preview-<ver>-b<N>-arm64.apk` and `…-armv7.apk`, then send both. The next build number continues from 35.
+3. Push: `git push origin next-update`.
+4. Start the builds:
+   - `gh workflow run play_preview.yml --ref next-update -R iamsaifsaiful/digital_brain`
+   - Admin app: `admin_app.yml`.
+   - Wait with `gh run view <id> --json status,conclusion`.
+5. Find the release assets:
+   ```
+   gh api "repos/iamsaifsaiful/digital_brain/releases?per_page=6" -q '.[] | .tag_name+" "+([.assets[]|(.id|tostring)+":"+.name]|join(","))'
+   ```
+   Download each with `gh api repos/…/releases/assets/<id> -H "Accept: application/octet-stream" > in/x.apk`.
+6. **Re-sign with the owner's key.**
+   - The keystore is the attached `…-my-assistant-release.jks` (alias `myassistant`). The password is in the attached `…-My-Assistant-signing-key.txt`.
+   - **Careful:** that file has a line that is just `পাসওয়ার্ড:`, and the value is on the **next non-empty line**. An earlier line also contains the word পাসওয়ার্ড inside a sentence.
+   - Read it only with a script, into a `mktemp` file under umask 077: `KP=$(cat f); shred -u f`.
+   - Sign with `java -jar /home/claude/signer/uber.jar -a in.apk --allowResign --ks … --ksAlias myassistant --ksPass "$KP" --ksKeyPass "$KP" -o out | grep -F -v -- "$KP"`, then `unset KP`.
+   - **Never echo or preview any line of that file.** On 22 Oct a debug print showed the first 12 characters of the password once. The owner was told; nothing more leaked.
+   - Check the certificate: `keytool -printcert -jarfile x.apk` → SHA256 `FC:6C:FF:35:…:69:D0:01:4F`.
+7. Name and send the files:
+   - Names: `My-Assistant-Play-Preview-<ver>-b<N>-{arm64,armv7}.apk`, `My-Assistant-Admin-<ver>-b<N>-{arm64,armv7}.apk`, and the plugin zip `cd tool/wordpress && zip -qr <scratch>/my-assistant-accounts-<ver>.zip my-assistant-accounts`.
+   - Send them with SendUserFile (display "attach").
+8. Update the docs in `docs/`, and in the Project with `project_write` (`claude/<name>.md`, using `local_path`).
 
-## 5. Architecture — how a sentence becomes an action
+## 3. What was done from 18 Oct to 23 Oct (by release)
 
-**`ChatController.hear()` (lib/state/chat.dart)** takes these steps in order:
-1. `_turn++` and the topic policy (`_topicTurn`, `_onList`).
-2. `_answer()` handles a pending question (`ChatWait.*`).
-3. `_bulk()` (lib/state/bulk_chat.dart) handles group actions on a shown list ("এগুলো সব মুছে দাও"), date-based groups ("৩০ অক্টোবর এবং ৩১ ডিসেম্বরের রিমাইন্ডার বাদ দাও") and single index picks.
-4. `_batchTimeFor()` handles "দুপুরে দাওয়াত" right after several to-dos were added.
-5. `_todoCorrection()`: "না, এগারোটায়".
-6. `_afterSave()`: "এটা তো বলি নাই".
-7. A negation check.
-8. `_understand()` → `brain.understandAll()`, which runs the local rules first and the AI only when the rules did not decide.
-9. Commands are executed: `_start()`, `_saveCurrent()`, `_todo()`, `_menu()`, `_bulkWith()`.
+**18–19 Oct: device-screenshot rounds and language audits (2.26 → 2.37)**
+- **2.26–2.31**
+  - Chat continues after leaving.
+  - History button on home.
+  - Swipe between tabs.
+  - Warranty date read from a photo.
+  - Gold/silver price of the day.
+  - Every paper and photo is read on the phone (text reading), with details offered as fields.
+  - Vibrating channels renewed.
+  - Preview builds can sign in CI when keystore secrets are set. We still re-sign locally.
+- **2.32–2.34**
+  - Tabs follow the finger.
+  - Comma lists under a heading.
+  - Temperature on home and in chat.
+  - Compass with qibla.
+  - Spending check in percent.
+  - A daily money thought.
+- **2.35–2.36**
+  - Fixes from the b45 screenshots: accounts by name, mixed money, ordinals, months, per-task reminders.
+  - To-do audit: 60 scenarios, all pass (`docs/tasks-audit-2026-10-19.md`).
+- **2.37.x**
+  - Master-100 case matrix (`docs/master100-*.md`).
+  - b85 regression fix (`docs/regression-b85-2026-10-19.md`).
+  - 500-phrasing intent corpus plus 40 held-out (`docs/intent500-2026-10-19.md`).
+  - "Angles" corpus: 343 multi-turn plus 35 held-out (`docs/angles-2026-10-19.md`).
 
-**`parseAll()` (lib/logic/plan.dart)** runs in this order:
-1. `lineTodos` (a typed multi-line list under a heading).
-2. Newlines become separate sentences.
-3. `tidySpeech()` (lib/logic/meaning.dart). It normalises:
-   - plural endings: "সব গুলো" → "সবগুলো"
-   - clock times: "৯ টায়" → "৯টায়"
-   - "আয় ব্যয়" → "আয়-ব্যয়"
-   - "সকল"/"সমস্ত" → "সব"
-   - dates and years, and day words
-4. `calendarAsked` → `SmallTalk(Talk.calendar | Talk.date)`.
-5. `docAsked` (papers by name).
-6. `menuCommand` (lib/logic/menus.dart).
-7. `spentInParts`.
-8. note+task split.
-9. `eventOnDays` ("২৩ এবং ২৪ তারিখে দাওয়াত").
-10. `datedTodos`.
-11. Money clauses.
-12. `todoCommands` (lib/logic/todo.dart).
-13. `Parser.parse` (lib/logic/parser.dart).
-14. `menuUnsupported` fallback.
+**22 Oct: the cost/understanding programme ("NLU"), steps A–I. Details: `docs/nlu-*.md`.**
+- **Step A (2.38):**
+  - Haiku for every AI message; Sonnet only on escalation for Pro.
+  - Cached instructions; cost counting per model.
+  - Server 1.9.0: budgets and answer sources.
+- **Step B:** intent spec, 65 intents (`docs/nlu-spec.md`; `tool/nlu/spec/`).
+- **Step C:**
+  - Gold set: 1593 turns.
+  - Baseline of the old rules (`docs/nlu-baseline-2026-10-22.md`).
+- **Step D:** template data generator (about 36k labelled sentences), noise, context (`docs/nlu-data-2026-10-22.md`).
+- **Step E/F (2.39):**
+  - BanglaBERT-small joint model in TFLite on the phone, in **shadow** mode (it reads every message and acts on nothing).
+  - Dart tokenizer/normalizer with parity tests.
+  - Vendored `tflite_flutter`.
+  - Model comparison: `docs/nlu-models-2026-10-22.md`.
+- **Step G (server 1.10.x):**
+  - `nlu.php`: mode off/shadow/on, model rollout %, cloud reading (`/nlu/resolve`: Gemini 3.1 Flash-Lite for free members, Haiku for Pro, Sonnet on escalation), budgets that follow income, and a self-test button (`docs/nlu-server-2026-10-22.md`).
+- **Step H:** admin app "AI ও বোঝা" tab.
+- **Step I (2.40):**
+  - Consented learning samples (names removed; numbers and secrets never sent).
+  - Model download with a SHA-256 check and rollback.
+  - Retrain loop in CI with the narrow key `MA_NLU_CI_KEY` (set and working).
+- **"On" mode (2.41/2.42):**
+  - When the rules and the model agree, the AI is skipped.
+  - When they disagree, members without AI get the cloud reading and two of three decide.
+  - Gold-set results: the router skips about 31% of the messages that would have gone to the AI; the rules are right on 94.3% of those; rules+model agreement is 98.3% correct. This was measured on the gold set only, not on live traffic.
+- **2.42:**
+  - The model is no longer in the APK; it downloads from the server on Wi-Fi only (≤40 MB, SHA-256 checked).
+  - "আরও" shows the model's state.
+- **Server 1.11–1.12, admin 1.2–1.3:**
+  - Site "AI খরচ" tab (reports only).
+  - Site "AI মডেল" tab (mode, versions live/%/rollback/draft, review).
+  - Parity with the admin app (`ai-admin.php`).
+  - `nlu_publish.yml` puts a model on a release plus a server draft.
 
-**Key files**
-- `lib/logic/parser.dart`: all `Command` classes, the main rules, `isQuestionText`, `searchTerms`, `normalize`/`fold`.
-- `lib/logic/todo.dart`: the to-do language (`_tdAdd`, `_tdWhen`, `_saysToDo`, `_nounOfVerb`, `todoTitle`).
-- `lib/logic/when.dart`: `parseWhen`, `hourOpen`/`ampmUnclear`/`saysDayPart` (a bare hour is never scheduled), `sayWhen`.
-- `lib/logic/selection.dart`:
-  - `Selection`/`SelKind` (all, indexes, first, last, range, names, filter, rest, global; plus excepts — a singular "ফোনেরটা" is marked `exceptOne`).
-  - `BulkAction`, `bulkCommands`, `datedBulk`.
-- `lib/state/bulk_chat.dart`:
-  - `ResultSet` keeps what was shown: ids, label, matching vs shown, turn. Sets stay fresh for 30 min / 12 turns.
-  - Resolver, `_bulkStart` (one confirmation for deletes), `_bulkRun`, undo/restore.
-  - `bulkOps` per domain: tasks, reminders, notes, medicines, habits, health, ledger, money.
-  - `followUps`: next-step chips.
-- `lib/logic/menus.dart` + `lib/state/menu_chat.dart`: the other menus as `MenuAction(domain, op, …)`. `voiceCaps` in `lib/logic/app_map.dart` is the registry of what voice can do; the AI may only use ops listed there.
-- `lib/logic/answers.dart`:
-  - `answerText` for questions.
-  - `reminderView` is the same reading for the answer and for the list remembered (with `alarmsOnly`).
-  - `weekdaysSaid`, `contactMatches` (sound-alike matching only on the word as said).
-- `lib/logic/ask.dart`: profile and topic questions (expiry, notes count, day agenda "৩১ ডিসেম্বর কী আছে?").
-- `lib/logic/calendar_bd.dart` + `lib/logic/calendar_ask.dart`: Bangla and Hijri dates and the `bdHolidays` list.
-  - **2027 has only fixed-date holidays.** Add Eid and the other moon-based dates when the government list comes out.
-- `lib/logic/suggest.dart`: prompts shown while typing (`suggestPrompts`).
-- `lib/services/ai.dart` + `lib/logic/ai_map.dart`: the AI tool schema (rules version `2026-10-18.4`) and its mapping. Ids from the AI are never trusted, and a confirmation never comes from the AI.
-- `lib/services/notifications.dart`: notification channels — `reminder_alarm_v2` and `assistant_notes_vibrate`; push is `ma_server_vibrate` in `android/.../PushService.kt` and the manifest. All vibrate.
-- `lib/screens/chat_home.dart`: the chat UI.
-  - The input is multi-line (↵ = new line; the round button sends).
-  - `_actionRow` puts the last answer's buttons low on the right, by the thumb. `_choiceRow` does the same for yes/no, with "হ্যাঁ" at the right end.
+**22 Oct: new features (2.43.0, plugin 1.13.0, admin 1.4.0). Details: `docs/family-zakat-blood-2026-10-22.md`.**
+- **যাকাত as its own menu** (`lib/logic/zakat.dart`, `lib/screens/zakat_screen.dart`, `ZakatBook` in AppData):
+  - Every line comes from the records, with its source and date.
+  - Any line can be ticked out; items can be added by hand; there is a zakat day every 354 days and a short learning panel.
+  - Voice "আমার যাকাত কত?" uses the same count.
+  - The old zakat tile inside money was removed.
+- **ব্লাড ডোনেশন** (renamed from the request menu; removed from "আরও"'s রক্তদান section):
+  - Request fields: for whom, problem, hospital, hospital location, district, date, contact, group, bags.
+  - The list covers the whole country, filtered by group and district.
+- **ফ্যামিলি (Pro):**
+  - Members are invited by email with a relationship and accept in the app.
+  - Per-member permissions: task, reminder, medicine, note, location. At most 20 members.
+  - Items sent between members are sealed for the receiver's phone key.
+  - Code: `lib/services/family_crypto.dart`, `lib/state/family_state.dart`, `lib/screens/family_screen.dart`, server `family.php`.
+- **Live location:**
+  - The phone answers a silent push even when the app is closed (`LocationShare.kt`), sealed with a location key that rotates when someone is removed.
+  - Shows a prominent disclosure before asking for "always" location.
+  - **Google Play needs a background-location declaration.** Its text is in the family doc.
+- **উত্তরাধিকার (heirs):**
+  - The member chooses heirs and which parts they may see (money, notes, docs, tasks, contacts; health and vault only if ticked).
+  - A gzip copy is sealed per heir and uploaded at most every 6 hours.
+  - The heir may open it if the member gave "এখনই পুরো অ্যাক্সেস", or after a death report with a certificate photo, an admin check (site "উত্তরাধিকার" tab or admin app), and 14 days without the member cancelling.
+- The notification small icon is now the app's "আ" mark. Dark mode: 34 pages screenshotted; the chat send button was fixed.
 
-**Capability matrix by voice:**
-- Full: ধার-দেনা, আয়-ব্যয়, accounts, savings, DPS, habits, projects, calendar.
-- Partial: shop (no receipts), medicines (no new medicine or times), health (no vaccines), memory, notes, settings (no AI/lock/language), backup (no restore), trash, special days, zakat.
-- Page only: diary, blood requests, reading files (no OCR).
+**22 Oct: 2.44.0 (plugin 1.14.0)**
+- **Multi-select** (`lib/ui/pick.dart`):
+  - Long-press a row to start, tap to add or remove, "সব" for all.
+  - Pages and actions:
+    - Tasks: done/reopen, date, move to list, share, delete.
+    - Income/expense: total, change category, share, delete.
+    - Transactions: total, share, delete.
+    - Reminders: off/on, delete.
+    - Notes: change section, share, delete.
+  - One-tap undo restores the whole batch (`brain.undoLastDeletes(n)`). Back only ends the picking.
+- **Heirs see photos:**
+  - Note and doc files are sealed with `heir_files_key`, which travels inside the heir's copy.
+  - Uploaded on Wi-Fi only, ≤4 MB each.
+  - Server: `POST /family/files` and `GET /family/{id}/files/{file}`.
+  - The heir taps "ছবি দেখুন".
+- **Swipe:** all tabs swipe. ব্লাড ডোনেশন uses `TabPages`; pro, calendar and health use the new `SwipeTabs`.
+- **Bottom sheets:** all 50 bottom sheets go through `showAppSheet` (bottom SafeArea), so buttons are no longer under the navigation bar.
+- A friendly message appears when the site plugin lacks the family routes.
 
-## 6. Signing key (important)
+**23 Oct: 2.45.0 (plugin 1.15.0, admin 1.5.0)**
+- **Copy all review rows in one click:**
+  - Site "AI মডেল" › পর্যালোচনা has "সব কপি করুন (Nটা)". The admin app has the same button.
+  - It copies the plain text from `ma_nlu_review_text()`: mode, live model, 30-day sample count, error-signal rate, weakest intents, then each unlabelled row (up to 500) with its sentence (names removed), alternatives, phone/cloud/final intents, signal, and app and model versions.
+  - The owner will paste this to Claude.
+- **Own ringtone:**
+  - "নিজের অডিও ফাইল যোগ করুন" accepts any audio up to 15 MB.
+  - Android 10+: copied into MediaStore at Alarms/My Assistant. Android 7–9: the app's files via FileProvider, with a read grant to the system UI, re-granted on app start (`CustomTone.kt`).
+  - The previous own tone is removed when replaced; an unkept file is removed on leaving the page.
+- **District follows the phone:**
+  - "ফোনের লোকেশন অনুযায়ী" is the default. On open and resume (at most every 20 minutes), the nearest of **64** districts is chosen (`nearestPlace`; the list grew from 24 to 64).
+  - The location is read on the phone only (`LocationShare.here`, balanced accuracy).
+  - Choosing a district by hand turns this off.
+- **Home:** the weather moved under the date (it overlapped before) and shows the district name.
 
-- The release keystore is **`my-assistant-release.jks`**: alias `myassistant`, signer SHA-256 `fc6cff35…`.
-- The owner has the key and its password from 13 Oct (the file "My-Assistant-signing-key.txt"). Ask him to attach it when an APK must be signed.
-- Never commit it, print the password, or put it in logs.
-- If it is lost, updates can no longer install over the existing app.
+## 4. Architecture additions since 18 Oct (where to look)
 
-## 7. What was done on 18 Oct (v2.23 → v2.25)
+The chat pipeline in §5 of the old handoff is unchanged in spirit. It now passes through the router:
+- **NLU router (`lib/nlu/router.dart`):**
+  - `nluAgrees`, `nluMaySkipAi`, `rulesWeak`, `CloudReading`, `nluVote`, `commandsFromReading`.
+  - `brain.understandAll(... model, nluState, nluKind)`.
+  - `_nluPrivate` keeps health and secret messages on the phone.
+- **Other NLU files:**
+  - Model files: `lib/nlu/model.dart`, `updater.dart` (Wi-Fi only, `wait-wifi`/`too-big`), `shadow.dart`, `samples.dart` (`delexicalize`).
+  - Python and CI: `tool/nlu/` (spec, data, train, retrain, publish); workflows `nlu_train.yml`, `nlu_retrain.yml`, `nlu_publish.yml`.
+- **Server plugin files:**
+  - `my-assistant-accounts.php` (tabs, install), `nlu.php`, `nlu-intents.php` (generated from the spec), `ai.php`, `ai-admin.php` (shared site/admin actions), `admin-view.php` (site UI and `ma_acc_script` copy handler), `admin-api.php`, `family.php`, `blood.php`, `push.php` (data-only push when title is ''), `payments.php`, `feedback.php`, `notices.php`.
+  - Tests: `tool/wordpress/test/e2e.php`.
+- **Admin app:** `admin_app/lib/{api,ui,ai_page}.dart`.
+- **UI helpers in `lib/ui/widgets.dart`:** `TabPages`, `SwipeTabs`, `showAppSheet`, `ListRow(onLongPress, picked)`. `lib/ui/pick.dart` holds `Picks`, `PickBar`, `PickMark`, `deletedSnack`.
+- **Tests added in this period (examples):**
+  - `test/pick_test.dart`
+  - `test/place_tone_test.dart`
+  - `test/zakat_family_test.dart`
+  - `test/nlu_*_test.dart`
+  - `test/dark/dark_shots_test.dart`: run with `SHOTS=1 … --update-goldens` to write PNGs to `test/dark/shots/` (gitignored).
 
-- **2.23.0 — collective selection.** Built from the owner's spec "আজকের কাজের তালিকা দাও → এইগুলো সব মুছে দাও".
-  - Result sets, typed selections, one confirmation for deletes, corrections ("না, শেষের দুটো"), "থাক" to cancel.
-  - Undo of a batch, honest partial results.
-  - An AI `bulk` action with a typed `select`.
-  - `test/bulk_test.dart` has 40 scenarios.
-- **2.24.0 — fixes from the device (b30 screenshots):**
-  - "হিসাব" was read as a verb (it became a to-do); "আয়-ব্যয়ের হিসাব" now gives a summary.
-  - Dated lists in one sentence; the birthday ring time is kept; weekday ranges for alarms; alarm questions are answered.
-  - "জন্মদিন ছাড়া সব" keeps every birthday.
-  - পাওনা/দেনা bulk asks "শোধ ধরব, নাকি মুছব?".
-  - Topic policy.
-  - Contacts: the full name is used ("রবিন হায়দার"); no more sound-alike on a stripped word (হায়দার ≠ Ahad).
-  - Calendar questions; context next-step chips; multi-line typing; vibration channels; thumb-zone buttons.
-- **2.25.0 — fixes from the device (b33 screenshots):**
-  - Deleting reminders by date; a to-do with a clock time gets a linked reminder.
-  - Year goals ("২০৩১ সালে…"); "সকল" = "সব".
-  - Events on days ("২৩ এবং ২৪ তারিখে দাওয়াত"), then "দুপুরে দাওয়াত" asks the hour for both days.
-  - A non-time answer to "কয়টায়?" is never a time.
-  - Papers by name ("আমার পাসপোর্ট দাও").
-  - "X আজ N টাকা দিবে" is a plan, not a payment. A full contact name picks that person. "ফেরত" beyond what was owed is asked about once.
-  - A numbered list under "এই বছরে কিছু কাজ আছে," becomes year-plan to-dos.
-  - The notes list, backup on/off status and the expiry question all answer now.
-- **Regression tests from the device screenshots:** `test/screens_1018_test.dart`, `screens_1018b_test.dart`, `screens_1018c_test.dart`, `followups_test.dart`, `calendar_ask_test.dart`.
+## 5. What is left
 
-## 8. Open items and known weak spots (next steps)
+### A. Waiting on the owner (these block later steps)
+1. **Install plugin 1.15.0** on the site. It contains everything from 1.12–1.14. Without it, the family page says "প্লাগিন হালনাগাদ করতে হবে".
+2. **Model:** make `2026.10.22-bert2` **live at 100%** from site "AI মডেল" (or admin app › AI › মডেল).
+   - Open the app on Wi-Fi; "আরও" should show "নামানো আছে · 2026.10.22-bert2". If not, send a screenshot.
+3. Turn on "কথা বোঝা আরও ভালো করতে সাহায্য করুন" on his own phone.
+4. **Mode "চালু"** for 5–10% of members first. After 2–3 days, send the review via the new **"সব কপি করুন"** button, plus the admin summary.
+5. Replace the Gemini key that was seen in a screenshot.
+6. **Google Play Console:** background-location declaration (text and video steps are in `docs/family-zakat-blood-2026-10-22.md`).
+7. **Two-phone family test:** add a member, send a medicine reminder, "এখন কোথায়?" with the app closed, heir "এখনই পুরো অ্যাক্সেস", and photos.
+8. Screenshots of any remaining dark-mode or UI problems.
+9. **Try on his phone:** own ringtone (does it ring with the screen locked?), district auto-change, multi-select bar, swipe on every tab.
 
-1. **Waiting for device feedback on b34.**
-   - Are the thumb-zone buttons at a good height?
-   - Is there vibration on push, reminders and the assistant's messages? Not verified on a phone.
-2. **Two wrong ledger entries on the owner's phone** came from older builds: ইমরান ১৫,০০০ and rafi ৯০,০০০. He may delete them from the লেনদেন page.
-3. **Small wording issues:**
-   - The goal title stays "কোটিপতি হবো" (it could read "কোটিপতি হওয়া").
-   - "এই এপকে বাজারে ছাড়া" loses "এই" (the leading-word stripper in `tidySpeech`).
-   - The paper answer says "০টা ছবি" when a document has no photos; hide the count when it is 0.
-   - `bnTime` gives "১টা-এ" (it should read "১টায়"); this is old app-wide style.
-4. **Not possible by voice yet** (`voiceCaps.notYet`):
-   - new medicines and medicine times
-   - receipts
-   - vaccines and checkups
-   - restore from backup
-   - AI on/off, lock and language
-   - diary continuation
-   - OCR of files
-5. **Calendar:** the 2027 Eid and other moon-based holidays are missing (the app says so honestly).
-6. **Never verified:**
-   - a real microphone or audio
-   - the live AI — tests use fixed AI answers in the schema's shape
-   - real notification delivery
-   - real Drive backup
+### B. Claude's next work, in order
+1. **When the owner pastes the review text:**
+   - Group the errors by kind.
+   - Propose the right label for each, applied with the site's buttons or `POST /admin/nlu/review/{id}`.
+   - List the training additions. Gold, held-out and validation sentences are never used.
+2. **Step J — structural gaps:**
+   - Several actions in one message.
+   - Follow-ups that depend on the previous turn.
+   - Corrections ("না, কাল নয় পরশু").
+   - The rest of step F (resolve/validate/cards/dialog_state).
+   - Start after 2–3 days of samples (from about 25 Oct).
+3. **Retrain:**
+   - Push to the `nlu-retrain` branch → gate → draft, when there are a few hundred samples.
+   - Fix first: in the first retrain cycle the **call intent fell from 100% to 0%** and the gate rejected the model. The likely cause is the slot-tag/intent_only change.
+4. **Step K — rollout:**
+   - "চালু" mode 10% → 25% → 50% → 100%, one step per week, each with the owner's OK.
+   - Then remove the parts of the old `parseAll()` that the model and the cloud handle well.
+5. **Cloud latency:** Gemini takes about 5.5 s; reduce it with a shorter prompt or caching.
+6. **Admin app summary:** costs visible to the owner only, as on the site (15–20 min; needs his "হ্যাঁ").
+7. **Voice to family:** "আম্মাকে রাত ৯টায় ওষুধের রিমাইন্ডার দাও", after family works on real phones.
+8. **Location:** periodic sending and location history, only if the owner wants them (needs Play approval).
+9. **Multi-select on more pages:** contacts, documents, medicines, savings, if asked.
+10. Remaining dark-mode fixes, after his screenshots.
 
-## 9. How to work a screenshot batch (the routine that worked)
+### C. Needs the owner's permission (costs money)
+- The AI paraphrase step for training data (`tool/nlu/data/paraphrase.py`): about $0.37 (~৳45) once on Anthropic. Not approved yet.
 
-1. List every finding back to the owner in Bengali, numbered, with what went wrong.
-2. Write `test/screens_<date>_test.dart` replaying each conversation word for word. Seed the data the screenshots show (reminders, contacts, docs, ledger). Assert on data, not only on text.
-3. Run it and watch every case fail first. Probe `parseAll(...)` to see which command a sentence becomes.
-4. Fix the root cause in the shared layer:
-   - `tidySpeech` for wording variants
-   - a rule's precondition (for example, `ReminderQuery` only for questions)
-   - the resolver
-   Never special-case one sentence.
-5. Run the whole suite, analyze, and `tool/i18n_missing.py`.
-6. Bump the version, commit, build, re-sign, verify `fc6cff35`, and send. Report in Bengali: a table of problem, cause and now; then what is unverified; then the two file names.
+### D. Not verified (say so in reports until it is)
+- **NLU on real phones:** model download, start, speed and memory.
+- **Live site:** the new tabs and endpoints on the real site (MySQL); tests use SQLite. Uploads up to 6 MB depend on the site's PHP limits. Emails from the real site, including the heir emails.
+- **Gemini quality:** not measurable from the sandbox.
+- **Real voice:** actual voice recognition.
+- **Family:**
+  - Two real phones.
+  - Location with the app closed, under different phone makers' battery savers.
+  - Kotlin parts are only compiled in CI.
+- **Own ringtone:**
+  - Ringing on real phones.
+  - Android 7–9 after a restart without opening the app (it may fall back to the default tone).
+  - Different makers' file pickers.
+- **District:**
+  - Auto-change on a real phone.
+  - The coordinates of the 40 new districts were written from knowledge, not checked against a source; the effect on prayer times is about a minute at most.
+- **UI:** the multi-select bar on small screens and with large text.
+- **Data:** the retrain cycle with real member samples.
+
+## 6. How to work a screenshot batch (unchanged routine)
+1. List every finding back to the owner in Bengali, numbered.
+2. Write `test/screens_<date>_test.dart` replaying each case and seeding the data shown. Assert on data, not only on text.
+3. Watch every case fail first, then fix the root cause in the shared layer (`tidySpeech`, a rule's precondition, the resolver, a shared widget). Never write a new regex for one sentence.
+4. Run the full suite, analyze, i18n and e2e.
+5. Bump the versions, commit, build, re-sign, verify `FC:6C:FF:35…`, and send.
+6. Report in Bengali: what changed, what is unverified, then the file names.
