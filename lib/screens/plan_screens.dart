@@ -354,7 +354,7 @@ class _AddSheetState extends State<_AddSheet> {
             Text(tr('বারবার'), style: body(13, weight: FontWeight.w600, color: C.muted2)),
             const SizedBox(height: 6),
             Wrap(spacing: 8, runSpacing: 8, children: [
-              for (final r in Repeat.values) _chip(r.label, _repeat == r, () => setState(() => _repeat = r)),
+              for (final r in Repeat.values.where((x) => !x.spoken || x == _repeat)) _chip(r.label, _repeat == r, () => setState(() => _repeat = r)),
             ]),
             if (!_repeat.isInterval) ...[
               const SizedBox(height: 6),
@@ -556,27 +556,51 @@ class BillList extends StatelessWidget {
       // The ones already kept first, by the day they fall on.
       ..sort(
           (a, b) => (a.$3 == null ? 1 : 0).compareTo(b.$3 == null ? 1 : 0) != 0 ? (a.$3 == null ? 1 : 0).compareTo(b.$3 == null ? 1 : 0) : (a.$3?.date.day ?? a.$2).compareTo(b.$3?.date.day ?? b.$2));
+    final kept = [for (final x in rows) if (x.$3 != null) x];
+    final unset = [for (final x in rows) if (x.$3 == null) x];
+    // The bills kept, as rows; the rest as small chips — a page of eight
+    // empty "চাপ দিয়ে তারিখ দিন" rows buried the to-dos (persona walk, 23 Oct).
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       SectionTitle(tr('এ মাসের বিল মনে করানো')),
-      Panel(
-        child: Rows(children: [
-          for (final (name, day, r) in rows)
-            ListRow(
-              key: Key('bill-$name'),
-              leading: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(color: r == null ? C.soft : C.orangeTint, borderRadius: BorderRadius.circular(10)),
-                child: Icon(Icons.receipt_long_outlined, size: 20, color: r == null ? C.muted : C.orange),
+      if (kept.isNotEmpty) ...[
+        Panel(
+          child: Rows(children: [
+            for (final (name, day, r) in kept)
+              ListRow(
+                key: Key('bill-$name'),
+                leading: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(color: C.orangeTint, borderRadius: BorderRadius.circular(10)),
+                  child: Icon(Icons.receipt_long_outlined, size: 20, color: C.orange),
+                ),
+                title: tr(name),
+                subtitle: trf('প্রতি মাসের {0} তারিখ · পরের বার {1}', [bnDigits(r!.date.day), shortDate(r.nextDate(now))]),
+                subtitleColor: C.greenDark,
+                trailing: Icon(Icons.check_circle_rounded, color: C.green),
+                onTap: () => _set(context, name, day),
               ),
-              title: tr(name),
-              subtitle: r == null ? tr('চাপ দিয়ে তারিখ দিন') : trf('প্রতি মাসের {0} তারিখ · পরের বার {1}', [bnDigits(r.date.day), shortDate(r.nextDate(now))]),
-              subtitleColor: r == null ? C.muted : C.greenDark,
-              trailing: r == null ? Icon(Icons.add_circle_outline_rounded, color: C.green) : Icon(Icons.check_circle_rounded, color: C.green),
-              onTap: () => _set(context, name, day),
-            ),
-        ]),
-      ),
+          ]),
+        ),
+        const SizedBox(height: 10),
+      ],
+      if (unset.isNotEmpty)
+        Panel(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(kept.isEmpty ? tr('কোন বিল দেন? চাপ দিয়ে তারিখ দিন — প্রতি মাসে মনে করাবো।') : tr('আরও কোনো বিল? চাপ দিয়ে তারিখ দিন।'), style: body(14, color: C.muted)),
+            const SizedBox(height: 10),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final (name, day, _) in unset)
+                ActionChip(
+                  key: Key('bill-$name'),
+                  avatar: Icon(Icons.add_rounded, size: 18, color: C.green),
+                  label: Text(tr(name), style: body(14)),
+                  onPressed: () => _set(context, name, day),
+                ),
+            ]),
+          ]),
+        ),
     ]);
   }
 }

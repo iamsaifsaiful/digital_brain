@@ -5,7 +5,7 @@ library;
 import 'calendar_ask.dart';
 import 'cash.dart' show cashItem, projectMeant, projectHinted;
 import 'ledger.dart' show balanceOf;
-import 'answers.dart' show categoryAsked;
+import 'answers.dart' show categoryAsked, ownMoneyAsked;
 import '../models/models.dart';
 import 'app_map.dart';
 import 'bn.dart';
@@ -79,6 +79,9 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   // "৩১ নভেম্বর ঢাকায় যাব": no such day — asked first, nothing kept.
   final bad = invalidDayOfMonth(said, p.now);
   if (bad != null) return [AiReply(said, text: bad)];
+  // "শেষ রক্ত দিয়েছি ১০ আগস্ট": the day blood was given — never a to-do.
+  final blood = p.bloodDonationOf(said);
+  if (blood != null) return [blood];
   // "ইমরান ৫০০০ টাকা দিয়েছে, শুধু নোটে রাখো", "… এটা নোট করে রাখো": the
   // place said wins — a note, even with money or a day in it.
   final note = RegExp(fold(r'^(.+?)[\s,।]+(?:(?:এটা|এটি|এগুলো|এইটা|ওটা)\s+)?(?:শুধু\s+|শুধুই\s+|কেবল\s+)?(?:নোটে|নোট\s+হিসেবে|নোট\s+আকারে|নোটস-?এ)\s+(?:রাখো|রাখ|রেখো|লিখে\s+রাখো|লিখো|লেখো|তুলে\s+রাখো|সেভ\s+করো)\s*[।.!]?$|^(.+?)[\s,।]+(?:(?:এটা|এটি|এগুলো|এইটা|ওটা)\s+)?(?:শুধু\s+)?নোট\s+(?:করে\s+রাখো|করে\s+রাখ|করো|কর|করে\s+নাও)\s*[।.!]?$')).firstMatch(fold(said.trim()));
@@ -86,6 +89,10 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
     final body = (note[1] ?? note[2] ?? '').trim();
     if (body.isNotEmpty) return [NoteAdd(said, text: said.trim().substring(0, body.length).replaceAll(RegExp(r'[\s,।]+$'), ''))];
   }
+  // "নোট রাখো: ক্লায়েন্ট রফিক সাহেব বৃহস্পতিবার কাগজ দেবেন": the order first,
+  // then what — a note, whatever days or money are in it.
+  final noteFirst = RegExp(r'^\s*(?:একটা\s+|একটি\s+)?(?:নোট|নোটে)\s+(?:রাখো|রাখ|রাখুন|লেখো|লিখো|লিখে\s+রাখো|করো|কর|করে\s+রাখো)\s*[:：,।—–-]?\s+(.{3,})$').firstMatch(said.trim());
+  if (noteFirst != null) return [NoteAdd(said, text: noteFirst[1]!.trim().replaceAll(RegExp(r'[।.]+$'), ''))];
   // "কাজের তালিকা দাও", "আর কী বাকি?": the list asked to be seen — first,
   // before anything could read "দাও" as content.
   if (taskListAsked(said)) return [p.parse(said)];
@@ -133,6 +140,8 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   }
   // "আয়ের খাত গুলো কি কি", "কিভাবে ব্যয় হয়েছে?": this month by খাত.
   if (categoryAsked(said) != null) return [CashQuery(said)];
+  // "আজ কত থাকল", "এই সপ্তাহে কত কামাই হলো": the own money of that time.
+  if (ownMoneyAsked(said, data) && (data == null || projectHinted(data, said) == null)) return [CashQuery(said)];
   // "বাজারের খাতের ভেতরের সব দেখাও": the entries under one খাত.
   final cat = data == null ? null : categoryEntriesAsked(said, data);
   if (cat != null) return [CashQuery(said, category: cat)];
@@ -205,6 +214,9 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   final out = <Command>[];
   for (final s in sentences) {
     var parts = s.split(_joiners).map((x) => x.trim()).where((x) => x.isNotEmpty).toList();
+    // "প্রতিদিন সকাল ৮টা আর রাত ৮টায় ইনসুলিন": two times, one thing — each
+    // time gets the thing (and the "every day").
+    if (parts.length > 1) parts = shareSubject(parts, p.now);
     // "… ১০০০ ধার নিয়েছি, পরে ৩০০ শোধ করেছি": money parts set off by commas.
     if (parts.length == 1) {
       final byComma = s.split(RegExp(r'\s*[,،;]\s*')).map((x) => x.trim()).where((x) => x.isNotEmpty).toList();
@@ -235,6 +247,35 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   }
   if (out.length <= 1) return [whole];
   return out;
+}
+
+final _repeatLead = RegExp(fold(r'^((?:প্রতিদিন|প্রত্যেকদিন|প্রত্যেক\s+দিন|রোজ|দৈনিক|প্রতি\s+\S+)\s+)'));
+
+/// Parts that are only a time ("প্রতিদিন সকাল ৮টা") take the words of the
+/// part that says what ("রাত ৮টায় ইনসুলিন নেওয়ার কথা মনে করাবে"); a
+/// repeat said once at the start goes with each. Others are left as they are.
+List<String> shareSubject(List<String> parts, DateTime now) {
+  bool timeOnly(String x) {
+    final w = parseWhen(x, now);
+    if (w == null || !w.hasTime) return false;
+    final rest = tidy(withoutWhen(x).replaceFirst(_repeatLead, '')).replaceAll(RegExp(fold(r'^(?:প্রতিদিন|রোজ|দৈনিক)$')), '').trim();
+    return rest.isEmpty;
+  }
+  final only = [for (final x in parts) timeOnly(x)];
+  if (!only.contains(true) || !only.contains(false)) return parts;
+  final lead = _repeatLead.firstMatch(fold(parts.first))?.group(1)?.trim() ?? '';
+  final content = parts[only.indexOf(false)];
+  final body = tidy(withoutWhen(content).replaceFirst(_repeatLead, ''));
+  if (body.isEmpty) return parts;
+  return [
+    for (var i = 0; i < parts.length; i++)
+      () {
+        var x = fold(parts[i]);
+        if (lead.isNotEmpty) x = x.replaceFirst(_repeatLead, '');
+        final core = only[i] ? '$x $body' : x;
+        return lead.isEmpty ? core : '$lead $core';
+      }(),
+  ];
 }
 
 /// One line for the "these are the things I found" list.
@@ -370,6 +411,8 @@ List<Command>? eventOnDays(String said, Parser p) {
       .replaceAll(RegExp(r'[,।.!]+'), ' ')
       .replaceAll(RegExp(r'\s+'), ' ')
       .trim();
+  // "… বিকেল ৫টায়": the clock time goes with the day, not into the name.
+  rest = withoutClock(rest);
   if (rest.isEmpty || RegExp(r'\S+').allMatches(rest).length > 8) return null;
   // Only an event, not something to do ("২৩ তারিখে ঢাকায় যাব" is a to-do
   // rule's own).
@@ -757,7 +800,7 @@ Command? todoIntentOf(String said, List<Task> tasks, DateTime now, List<LedgerEn
   // "এভাবে হবে না", "কাল যেতে হবে না": said in the negative — nothing to keep.
   final negative = RegExp(fold(r'(?:^|\s)(?:না|নাই|নি)\s*$')).hasMatch(f.trim());
   final done = RegExp(fold(r'(?:হয়ে\s+গেছে|হয়েছে|শেষ(?:\s+হয়েছে|\s+করেছি)?|ডান|done|ফেলেছি|সেরেছি|করেছি)\s*$')).hasMatch(f.trim());
-  if (done) {
+  if (done && !asksWh(said)) {
     final h = named();
     if (h.length == 1) return TaskDone(said, terms: const [], ref: TaskRef(ids: [h.single.id]));
   }

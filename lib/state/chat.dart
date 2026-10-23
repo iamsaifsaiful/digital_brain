@@ -238,7 +238,8 @@ class ChatController extends ChangeNotifier {
   int _turn = 0;
 
   /// The on-phone model reading next to the rules, acting on nothing (shadow mode).
-  late final NluShadow nluShadow = NluShadow(TfliteRunner.load, count: brain.countSource, enabled: () => brain.nluMode != 'off', onCompare: _nluSample);
+  late final NluShadow nluShadow = NluShadow(nluLoaderForTests ?? TfliteRunner.load,
+      count: brain.countSource, enabled: () => brain.nluMode != 'off', onCompare: _nluSample, force: nluLoaderForTests != null);
 
   /// A learning sample (consent only): every reading the model and the rules
   /// disagreed on, and one in ten they agreed on; names replaced, secrets,
@@ -1691,7 +1692,7 @@ class ChatController extends ChangeNotifier {
       // "আমার যাকাত কত" with no price entered: today's market price is fetched first.
       if (c is ProfileQuery && infoTopic(normalize(c.transcript)) == 'zakat' && brain.zakatSaved.silverPrice <= 0) await brain.metalPriceToday();
       if (c is ProfileQuery && infoTopic(normalize(c.transcript)) == 'weather') await brain.refreshWeather();
-      final text = answerText(brain.data, c, _now) ?? '';
+      final text = (c is ProfileQuery ? _donorAnswer(c.transcript) : null) ?? answerText(brain.data, c, _now) ?? '';
       // Two parts of one message with the same answer ("এ বিষয়ে কোনো তথ্য
       // নেই" twice): said once.
       if (text.isNotEmpty && !answered.add(text)) continue;
@@ -2560,9 +2561,38 @@ class ChatController extends ChangeNotifier {
     return rest.where((w) => !skip.contains(w) && !RegExp(r'^[0-9০-৯.:]+$').hasMatch(w)).length;
   }
 
+  /// "আবার কবে রক্ত দিতে পারব?": three months after the last time kept.
+  String? _donorAnswer(String said) {
+    final f = fold(normalize(said));
+    if (!RegExp(fold(r'কবে.*(?:রক্ত|ব্লাড)\s+(?:দিতে|দেওয়া|দেয়া)|(?:রক্ত|ব্লাড)\s+(?:দিতে|দেওয়া|দেয়া)\s+(?:পারব|পারবো|যাবে|পারি).*কবে|আবার\s+কবে\s+(?:রক্ত|ব্লাড)')).hasMatch(f)) return null;
+    final last = DateTime.tryParse(brain.text('blood_last'));
+    if (last == null) return tr('শেষ কবে রক্ত দিয়েছেন জানা নেই। বলুন, যেমন “শেষ রক্ত দিয়েছি ১০ আগস্ট” — তিন মাস পরের দিনটা বলে দেবো।');
+    final next = DateTime(last.year, last.month + 3, last.day);
+    final today = dayOnly(_now);
+    return next.isAfter(today)
+        ? trf('শেষ দিয়েছেন {0}। আবার দিতে পারবেন {1} থেকে ({2})।', [fullDate(last), fullDate(next), daysLeftLabel(next, _now)])
+        : trf('শেষ দিয়েছেন {0} — তিন মাস পেরিয়েছে, এখন দিতে পারবেন।', [fullDate(last)]);
+  }
+
+  bool _otherMoneyEvent(String t, LedgerAdd src) {
+    final n = normalize(t);
+    final amount = findAmount(n);
+    if (amount == null || words(n).length < 3) return false;
+    if (amount != src.amount) return true;
+    final c = parseAll(t, brain.data.ledger, tasks: brain.data.tasks, now: _now, data: brain.data);
+    return c.length == 1 && c.single is LedgerAdd && (c.single as LedgerAdd).person.trim().isNotEmpty && personKey((c.single as LedgerAdd).person) != personKey(src.person);
+  }
+
   bool _looksNew(String t) {
     final n = words(normalize(t)).length;
-    return n >= 4 || (n >= 2 && isQuestionText(t) && yesNo(t) == null) || infoTopic(normalize(t)) != null || (n >= 2 && _asksOwnData(t));
+    return n >= 4 || (n >= 2 && isQuestionText(t) && yesNo(t) == null) || infoTopic(normalize(t)) != null || (n >= 2 && (_asksOwnData(t) || _opensPage(t)));
+  }
+
+  /// "রিমাইন্ডার খোলো", "জরুরি কার্ড খোলো": a page asked for — never the
+  /// answer to a waiting question.
+  bool _opensPage(String t) {
+    final cmds = parseAll(t, brain.data.ledger, tasks: brain.data.tasks, now: _now, data: brain.data);
+    return cmds.length == 1 && cmds.single is OpenPlace;
   }
 
   /// "আজকের খরচ দাও", "কাজের তালিকা দাও": a question about the app's own
@@ -2922,7 +2952,11 @@ class ChatController extends ChangeNotifier {
             await _saveCurrent(out);
             return true;
           }
-          if (action) {
+          // "এই সপ্তাহে কত দিন তিলাওয়াত করেছি": a question of its own, not
+          // about the item waiting — never a yes to it.
+          final question = isQuestionText(t) && yesNo(t) == null && words(normalize(t)).length >= 4 &&
+              !RegExp(fold(r'(?:^|\s)(?:এটা|ওটা|এটি|ওটি|এগুলো|সেটা|কোন\s+বিভাগ|কোথায়\s+রাখ)')).hasMatch(fold(normalize(t)));
+          if (action || question) {
             Trace.log('understood', 'new request while a save waited — the waiting one dropped', {'new': next.map(traceLine).join(' | ')});
             _dropPending();
             return false;
@@ -3056,6 +3090,8 @@ class ChatController extends ChangeNotifier {
           return true;
         }
         if (_looksNew(t) && findAmount(normalize(t)) != null) return false;
+        // "রিমাইন্ডার খোলো", "আজ কত খরচ হলো?": not a name.
+        if (_opensPage(t) || (isQuestionText(t) && words(normalize(t)).length >= 3 && _looksNew(t))) return false;
         // "হ্যাঁ" / "না" is not a name.
         if (yesNo(t) != null && words(normalize(t)).length <= 2) {
           _say(out, tr('কার সাথে লেনদেন — নামটা বলুন।'));
@@ -3331,6 +3367,10 @@ class ChatController extends ChangeNotifier {
         return true;
       case ChatWait.kind:
         final src = _src!;
+        // "রহিমা আপার কাছ থেকে ১০০০ টাকা ধার নিলাম" while "মাকে ৫০০০ …" waits:
+        // a whole new money event (its own amount or person), never the
+        // answer to the old question — the old one is left unsaved.
+        if (_otherMoneyEvent(t, src)) return false;
         final opts = src.options.isEmpty ? LedgerKind.values : src.options;
         final pick = pickSpokenOption(t, [for (final o in opts) o.name], allowExpense: src.allowExpense);
         final choice = pick ?? (yesNo(t) == true ? src.suggested?.name : null);
@@ -3959,6 +3999,13 @@ class ChatController extends ChangeNotifier {
         }
         _target = null;
         _change = const Change();
+      case ProfileSet() when c.field == 'blood_last':
+        final day = DateTime.parse(c.value);
+        await brain.setPref('blood_last', day.toIso8601String());
+        final next = DateTime(day.year, day.month + 3, day.day);
+        _say(out, trf('রেখে দিলাম — শেষ রক্ত দিয়েছেন {0}। আবার দিতে পারবেন {1} থেকে।', [fullDate(day), fullDate(next)]),
+            links: [ChatLink(LinkKind.page, tr('ব্লাড ডোনেশন'), page: 'requests')], speak: !quiet);
+        _history.add(AiTurn.app(tr('[শেষ রক্তদানের দিন রাখা হলো]')));
       case ProfileSet() when c.field == 'height':
         final cm = double.parse(c.value);
         final whose = await brain.setHeight(c.who, cm);

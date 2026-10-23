@@ -1422,6 +1422,16 @@ class Brain extends ChangeNotifier {
       } catch (_) {}
     }
     final here = _staysHere(rules, said);
+    // The rules only half understood ("এই মাসে কী কী দিন আছে", "মেয়ের
+    // জন্মদিন কবে"), and the on-phone model is sure of a question or a
+    // special day: its reading answers, on the phone — free, no network.
+    if (!here && pieces != null && _weak(rules) && !_nluPrivate(said, rules, pieces)) {
+      final phone = phoneModelCommands(said, pieces, data.ledger, now);
+      if (phone != null) {
+        Trace.log('nlu', 'phone model answered', {'rules': ruleIntents.join(','), 'model': pieces.map((p) => p.intent).join(',')});
+        return (phone, null, 'nlu_phone');
+      }
+    }
     if (!aiOn) {
       // Without the AI: the cloud reading only where the model and the rules
       // disagree — two readings of three decide.

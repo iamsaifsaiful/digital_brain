@@ -478,6 +478,8 @@ const _menuStrongWords = <(String, List<String>)>[
 Command? _accounts(String said, String f, AppData? d, DateTime now, int? amount, bool asking, bool negated, Aspect a) {
   final hasAcct = _thas(f, r'(?:বিকাশ|bkash|রকেট|ব্যাংক|ব্যাঙ্ক|হাতে|নগদ|ক্যাশ|অ্যাকাউন্ট|একাউন্ট)');
   if (!hasAcct) return null;
+  // "আমার ব্যাংকের পিন কত": a secret (the vault), not the account's money.
+  if (_thas(f, r'(?<=\s)(?:পিন|পিন\S*|পাসওয়ার্ড\S*|password|pin|ওটিপি|otp)(?=\s|$)')) return null;
   if (asking) {
     if (_thas(f, r'(?:সব|সকল|মোট)\s+(?:অ্যাকাউন্ট|একাউন্ট|হিসাব)') || _thas(f, r'(?:অ্যাকাউন্ট|একাউন্ট)\S*\s+(?:মোট|সব)')) return MenuAction(said, domain: 'accounts', op: 'balance');
     // "বিকাশে কত টাকা আছে" is answered by the money question rules (ask.dart).
@@ -622,7 +624,7 @@ Command? _business(String said, String f, AppData? d, DateTime now, int? amount,
   // "বাগান নামে নতুন হিসাবে ৫০০ টাকা খরচ": money into that named account.
   final namedInto = _tre(r'^\s*(.+?)\s+নামে(?:র)?\s+(?:একটা\s+|নতুন\s+|আলাদা\s+)*(?:হিসাবে|হিসেবে|প্রজেক্টে|প্রকল্পে)\s').firstMatch(f);
   if (namedInto != null && amount != null && !negated && !asking && words(namedInto[1]!).length <= 4) {
-    final got = _thas(f, r'(?:দিয়েছে|দিল|দিলো|এসেছে|এলো|পেয়েছি|পেলাম|জমা|আয়)');
+    final got = _thas(f, r'(?<=\s)(?:দিয়েছে|দিল|দিলো|দিলেন|এসেছে|এলো|পেয়েছি|পেলাম|জমা|আয়|বিক্রি)(?=\s|$)');
     return CashAdd(said, kind: got ? CashKind.income : CashKind.expense, amount: amount, category: got ? 'আয়' : categoryFor(f, CashKind.expense), project: _origWords(said, namedInto[1]!.trim()));
   }
   // "অন্যান্য হিসাবে বাগানে ৫০০ টাকা খরচ লিখে রাখো": the name ends before
@@ -640,20 +642,29 @@ Command? _business(String said, String f, AppData? d, DateTime now, int? amount,
     final what = _thas(f, r'(?<=\s)বিল') ? 'বিল' : (spentHere ? 'অন্যান্য' : 'আয়');
     return CashAdd(said, kind: spentHere ? CashKind.expense : CashKind.income, amount: amount, category: what, project: '');
   }
-  if (into != null && into.isNotEmpty && amount != null && !negated && !asking) {
-    final spent = _thas(f, r'(?:খরচ|কিনলাম|কিনেছি|দিলাম|দিয়েছি|পরিশোধ\s+করেছি|বিল)');
-    final got = _thas(f, r'(?:দিয়েছে|দিয়েছে|দিল|দিলো|এসেছে|এলো|পেয়েছি|পেলাম|জমা|বেতন|ফি|আয়|চাঁদা|অনুদান)');
+  // "ভাইকে দোকানের জন্য ৫০ হাজার ধার দিলাম": a loan to a person, even
+  // when an account's name is in it — never that account's money.
+  final loanToSomeone = _thas(f, r'(?<=\s)(?:ধার|কর্জ|লোন|ঋণ)(?=\s)') && _thas(f, r'\S+কে(?=\s)');
+  if (into != null && into.isNotEmpty && amount != null && !negated && !asking && !loanToSomeone) {
+    // Whole words: "দিলাম" is not "দিল" (paid out is never read as received).
+    final spent = _thas(f, r'(?<=\s)(?:খরচ|কিনলাম|কিনেছি|দিলাম|দিয়েছি|পরিশোধ\s+করেছি|বিল)(?=\s|$)');
+    final got = _thas(f, r'(?<=\s)(?:দিয়েছে|দিয়েছে|দিল|দিলো|দিলেন|দিয়েছেন|এসেছে|এলো|পেয়েছি|পেলাম|জমা|বেতন|ফি|আয়|চাঁদা|অনুদান|বিক্রি)(?=\s|$)');
+    // Someone else gave or it came: a verb, not a word like বেতন/ফি
+    // ("বাবুর্চিকে বেতন দিলাম" is paid out).
+    final gotVerb = _thas(f, r'(?<=\s)(?:দিয়েছে|দিয়েছে|দিল|দিলো|দিলেন|দিয়েছেন|এসেছে|এলো|পেয়েছি|পেলাম|জমা|বিক্রি)(?=\s|$)');
     final adding = _thas(f, r'(?:যুক্ত\s+কর|যোগ\s+কর|লেখ|লিখে\s+রাখ|রাখো|অ্যাড|তোলো)');
     if ((spent || got) && (adding || proj != null)) {
-      final category = _thas(f, r'(?<=\s)বেতন') ? 'বেতন' : (spent ? categoryFor(f, CashKind.expense) : 'আয়');
-      return CashAdd(said, kind: spent && !got ? CashKind.expense : CashKind.income, amount: amount, category: category,
+      final inCat = categoryFor(f, CashKind.income);
+      final category = _thas(f, r'(?<=\s)বেতন') ? 'বেতন' : (spent && !gotVerb ? categoryFor(f, CashKind.expense) : (inCat == 'অন্যান্য আয়' ? 'আয়' : inCat));
+      return CashAdd(said, kind: spent && !gotVerb ? CashKind.expense : CashKind.income, amount: amount, category: category,
           project: proj ?? _origWords(said, into));
     }
   }
   if (_thas(f, r'(?:প্রজেক্ট|প্রকল্প)\S*\s.*(?:শেষ|বন্ধ\s+করো|আর্কাইভ)') && !asking) return MenuAction(said, domain: 'project', op: 'close', target: proj ?? '');
   if (_thas(f, r'(?<=\s)বাজেট(?=\s)') && amount != null && !asking) return MenuAction(said, domain: 'project', op: 'budget', target: proj ?? '', amount: amount);
   if (proj != null) {
-    if (asking && _thas(f, r'(?:খরচ|আয়|এসেছে|হিসাব)')) return CashQuery(said, project: proj);
+    // "মসজিদ ফান্ডে কত আছে", "শাড়ির ব্যবসায় কত লাভ হলো": that account.
+    if (asking && _thas(f, r'(?:খরচ|আয়|এসেছে|হিসাব|আছে|লাভ|থাকল|থাকলো|বাকি|(?<=\s)কত(?=\s))')) return CashQuery(said, project: proj);
     // "শিক্ষার্থীদের বেতনের হিসাব দাও", "… হিসাব অন্যান্য হিসাবে": that account shown.
     if (amount == null && !negated && _thas(f, r'হিস(?:া|ে)ব')) return CashQuery(said, project: proj);
     if (!negated && amount != null && a == Aspect.done && _thas(f, r'(?:এসেছে|এলো|পেয়েছি|পেলাম|জমা\s+হয়েছে|পেয়েছে)')) {
@@ -820,10 +831,9 @@ String _memberIn(String f, AppData? d) {
 
 /// "আম্মার প্রেশার": the owner's word without its ending ("আম্মা"), or null.
 String? _possessive(String f) {
-  final m = _tre(r'^\s*(?:আজ\s+|গতকাল\s+)?(\S+?)(?:ের|এর|র)\s+(?:প্রেশার|প্রেসার|রক্তচাপ|বিপি|bp|সুগার|ডায়াবেটিস|গ্লুকোজ|ওজন|উচ্চতা|হাইট)').firstMatch(f);
+  final m = _tre(r'^\s*(?:আজ\s+|গতকাল\s+)?(\S+?(?:ের|এর|র))\s+(?:প্রেশার|প্রেসার|রক্তচাপ|বিপি|bp|সুগার|ডায়াবেটিস|গ্লুকোজ|ওজন|উচ্চতা|হাইট)').firstMatch(f);
   if (m == null) return null;
-  final w = m[1]!;
-  if (const ['আমা', 'নিজে', 'আজকে', 'আজকে'].map(fold).contains(w)) return null;
-  // "আম্মার" → "আম্মা" (the -র belongs to a name ending in a vowel).
-  return w;
+  if (const ['আমার', 'নিজের', 'আজকের'].map(fold).contains(m[1]!)) return null;
+  // "আম্মার" → "আম্মা", "ছেলের" → "ছেলে" (never "ছেল").
+  return stripPossessive(m[1]!);
 }

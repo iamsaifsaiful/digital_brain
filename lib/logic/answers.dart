@@ -2,6 +2,8 @@
 /// screen. Passwords are never part of an answer.
 library;
 
+import 'dart:math' as math;
+
 import '../models/models.dart';
 import 'app_map.dart';
 import 'ask.dart';
@@ -81,6 +83,30 @@ String _reminderLines(Iterable<Reminder> rs, DateTime now, {bool withDay = false
 
 const _reminderPage = 10;
 final Set<String> _reminderGeneric = searchTerms(normalize('অ্যালার্ম অ্যালার্মগুলো এলার্ম এলার্মগুলো alarm কখন কয়টায় কটায় বাজবে রিমাইন্ডার রিমাইন্ডারগুলো রিমাইন্ডারগুলা রিমাইন্ডারের রিমাইন্ডারগুলোর মনে করানো করিয়ে করাবে আর আরো আরও অন্য অন্যান্য বাকি বাকিগুলো সব সবগুলো সবগুলা সমস্ত আমার কোন কোনো কোনগুলো কী কি কয়টা কতগুলো কতটা আছে আছেন রাখা রাখছি রেখেছি দেওয়া দেয়া দেখাও দেখান বলো বলুন দাও দিন তালিকা লিস্ট সামনের সামনে পরের চলতি এখন এখনো তো সেট')).toSet();
+
+/// "ছেলের টিকা কবে": a to-do that names more of the asked words than any
+/// reminder does (the birthday matches only "ছেলে") — that to-do's day.
+String? taskForReminderQuery(AppData d, ReminderQuery q, DateTime now) {
+  final named = [for (final t in q.terms) if (!_reminderGeneric.contains(t) && t.runes.length > 1) t];
+  if (named.length < 2) return null;
+  int score(String title) {
+    final ws = words(normalize(title));
+    return named.where((t) => ws.any((w) => w.startsWith(t) || t.startsWith(w))).length;
+  }
+  final remBest = d.reminders.fold<int>(0, (m, r) => math.max(m, score(r.title)));
+  Task? best;
+  var bestScore = remBest;
+  for (final t in openTasksOf(d, now)) {
+    final s = score(t.title);
+    if (s > bestScore) {
+      best = t;
+      bestScore = s;
+    }
+  }
+  if (best == null) return null;
+  final line = taskLine(best, now);
+  return line == best.title ? trf('“{0}” কাজের তালিকায় আছে, তারিখ রাখা নেই।', [best.title]) : '$line।';
+}
 
 String reminderAnswer(AppData d, ReminderQuery q, DateTime now) {
   // "আজ কোন রিমাইন্ডার আছে?", "কালকের রিমাইন্ডার": every one on that day.
@@ -362,7 +388,67 @@ List<Task> openTasksOf(AppData d, DateTime now) {
 /// "ব্যাংকে যাওয়া (আজ)", "রিপোর্ট জমা (১২ অক্টোবর)".
 String taskLabel(Task t, DateTime now) => taskLine(t, now);
 
+/// "এই সপ্তাহে", "এ মাসে", "আগামী সপ্তাহে": the days asked about, or null.
+(DateTime, DateTime, String)? spanAsked(String asked, DateTime now) {
+  final f = ' ${fold(normalize(tidySpeech(asked)))} ';
+  bool has(String p) => RegExp(fold(p)).hasMatch(f);
+  final today = dayOnly(now);
+  if (has(r'\s(?:এই|এ)\s+সপ্তাহ')) {
+    final s = weekStartOf(today);
+    return (s, s.add(const Duration(days: 7)), tr('এই সপ্তাহে'));
+  }
+  if (has(r'\s(?:আগামী|পরের|সামনের)\s+সপ্তাহ')) {
+    final s = weekStartOf(today).add(const Duration(days: 7));
+    return (s, s.add(const Duration(days: 7)), tr('আগামী সপ্তাহে'));
+  }
+  if (has(r'\s(?:এই|এ)\s+মাস')) return (DateTime(today.year, today.month), DateTime(today.year, today.month + 1), tr('এই মাসে'));
+  if (has(r'\s(?:আগামী|পরের|সামনের)\s+মাস')) return (DateTime(today.year, today.month + 1), DateTime(today.year, today.month + 2), tr('আগামী মাসে'));
+  return null;
+}
+
+/// To-dos, reminders and special days from today to the end of the span:
+/// "এই সপ্তাহে কী কী আছে?".
+String spanAnswer(AppData d, DateTime now, (DateTime, DateTime, String) span) {
+  final (from0, to, label) = span;
+  final today = dayOnly(now);
+  final from = from0.isBefore(today) ? today : from0;
+  final lines = <String>[];
+  var count = 0;
+  for (var day = from; day.isBefore(to); day = DateTime(day.year, day.month, day.day + 1)) {
+    final items = planItemsOn(d, day, now);
+    final specials = [for (final x in d.specialDays) if (x.month == day.month && x.day == day.day) x];
+    if (items.isEmpty && specials.isEmpty) continue;
+    count += items.length + specials.length;
+    final what = [
+      for (final x in specials) '${x.person} ${x.kind.bn}',
+      for (final i in items) i.reminder != null ? '${i.title} (${bnTime(i.sort.hour, i.sort.minute)})' : i.title,
+    ];
+    lines.add('${sayWhen(day, now, withTime: false)}: ${what.join(', ')}');
+  }
+  if (lines.isEmpty) return trf('{0} কোনো কাজ, রিমাইন্ডার বা বিশেষ দিন রাখা নেই।', [label]);
+  return '${trf('{0} {1}টা আছে —', [label, bnDigits(count)])} ${lines.join('; ')}।';
+}
+
+/// "মেয়ের জন্মদিন কবে?": a kept special day, by whose it is.
+String? specialDayAnswer(AppData d, String asked, DateTime now) {
+  final t = ' ${fold(normalize(asked))} ';
+  if (!RegExp(fold(r'(?:জন্মদিন|বার্ষিকী|বিবাহবার্ষিকী|anniversary|birthday)')).hasMatch(t) || !RegExp(fold(r'(?:কবে|কত\s+তারিখ|কোন\s+দিন|কখন)')).hasMatch(t)) return null;
+  final today = dayOnly(now);
+  final hits = [
+    for (final x in d.specialDays)
+      if (x.person.trim().isNotEmpty && (t.contains(' ${fold(normalize(x.person))}') || t.contains(' ${fold(normalize(possessive(x.person)))}'))) x
+  ];
+  if (hits.isEmpty) return null;
+  final x = hits.first;
+  var next = DateTime(today.year, x.month, x.day);
+  if (next.isBefore(today)) next = DateTime(today.year + 1, x.month, x.day);
+  final left = next.difference(today).inDays;
+  return trf('{0} {1} {2}, {3} — {4}।', [possessive(x.person), x.kind.bn, '${bnDigits(x.day)} ${monthName(x.month)}', weekdayName(next), left == 0 ? tr('আজই') : trf('আর {0} দিন', [bnDigits(left)])]);
+}
+
 String taskAnswer(AppData d, DateTime now, [String asked = '']) {
+  final span = asked.isEmpty ? null : spanAsked(asked, now);
+  if (span != null) return spanAnswer(d, now, span);
   final open = openTasksOf(d, now);
   // "আজকের কাজের তালিকা", "৩১ অক্টোবরের কাজ": only that day's.
   // "জানুয়ারি মাসের কাজের তালিকা": that month's.
@@ -736,6 +822,8 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
       for (final r in rows) trf('• {0} — {1} টাকা', [r.key, bnNumber(r.value)]),
     ].join('\n');
   }
+  final span = _spanCashAnswer(d, q.transcript, now);
+  if (span != null) return span;
   final s = monthSums(d.cash, now);
   if (s.income == 0 && s.expense == 0) return tr('এই মাসের আয়-খরচের কোনো তথ্য নেই। বলুন, যেমন “বাজারে ৫০০ টাকা খরচ হলো” — পরে জিজ্ঞেস করলেই হিসাব দেবো।');
   final top = s.topExpenses;
@@ -761,6 +849,68 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
     s.balance >= 0 ? trf('ব্যালেন্স {0} টাকা', [bnNumber(s.balance)]) : trf('আয়ের চেয়ে {0} টাকা বেশি খরচ হয়েছে', [bnNumber(-s.balance)]),
     most,
   ]);
+}
+
+final _inAsked = RegExp(fold(r'(?:আয়|ইনকাম|কামাই|রোজগার|পেলাম|পেয়েছি|পাইছি|এসেছে|এলো|আসলো)'));
+final _outAsked = RegExp(fold(r'(?:খরচ|ব্যয়|গেল|গেলো)'));
+final _leftAsked = RegExp(fold(r'(?:থাকল|থাকলো|থাকলো|বাঁচল|বাঁচলো|হাতে|জমল|জমলো|জমেছে|ব্যালেন্স)'));
+
+/// "আজ কত থাকল", "এই সপ্তাহে কত কামাই হলো", "এই মাসে ভাড়া কত পেলাম":
+/// the own money of that time — in, out or what is left, as asked, and of
+/// one খাত when one is named. Null for a plain question about this month
+/// (the usual answer).
+String? _spanCashAnswer(AppData d, String asked, DateTime now) {
+  final t = fold(normalize(tidySpeech(asked)));
+  final per = periodIn(t, now);
+  final focusIn = _inAsked.hasMatch(t) && !_outAsked.hasMatch(t);
+  final focusOut = _outAsked.hasMatch(t) && !_inAsked.hasMatch(t);
+  final left = _leftAsked.hasMatch(t);
+  final thisMonth = per == null || per.$3 == 'এই মাসে';
+  if (thisMonth && !focusIn && !left) return null;
+  final p = per ?? (DateTime(now.year, now.month), DateTime(now.year, now.month + 1), 'এই মাসে');
+  final when = tr(p.$3);
+  // A খাত named by one of its words: "ভাড়া" → ‘ভাড়া আয়’.
+  final kind = focusOut ? CashKind.expense : CashKind.income;
+  final ws = words(t);
+  String? cat;
+  if (focusIn || focusOut) {
+    for (final c in knownCategories(d, kind)) {
+      final first = fold(normalize(c)).split(' ').first;
+      if (first.runes.length > 2 && ws.any((w) => w == first || (w.startsWith(first) && w.length <= first.length + 2))) {
+        cat = c;
+        break;
+      }
+    }
+  }
+  final s = MoneySums();
+  for (final e in d.cash) {
+    if (e.projectId != null || e.date.isBefore(p.$1) || !e.date.isBefore(p.$2)) continue;
+    if (cat != null && (e.kind != kind || e.category != cat)) continue;
+    s.add(e);
+  }
+  if (cat != null) {
+    final n = kind == CashKind.income ? s.income : s.expense;
+    return n == 0
+        ? trf('{0} ‘{1}’ খাতে কিছু লেখা নেই।', [when, cat])
+        : trf(kind == CashKind.income ? '{0} ‘{1}’ খাতে আয় {2} টাকা।' : '{0} ‘{1}’ খাতে খরচ {2} টাকা।', [when, cat, bnNumber(n)]);
+  }
+  if (s.income == 0 && s.expense == 0) return trf('{0} কোনো আয়-খরচ লেখা নেই।', [when]);
+  if (focusIn && !left) return trf('{0} আয় {1} টাকা (খরচ {2} টাকা)।', [when, bnNumber(s.income), bnNumber(s.expense)]);
+  if (focusOut && !left) return trf('{0} খরচ {1} টাকা (আয় {2} টাকা)।', [when, bnNumber(s.expense), bnNumber(s.income)]);
+  return trf('{0} আয় {1} টাকা, খরচ {2} টাকা — {3} {4} টাকা।', [when, bnNumber(s.income), bnNumber(s.expense), s.balance >= 0 ? tr('হাতে থাকল') : tr('আয়ের চেয়ে বেশি খরচ'), bnNumber(s.balance.abs())]);
+}
+
+/// "আজ কত থাকল", "এই সপ্তাহে কত কামাই হলো", "এই মাসে ভাড়া কত পেলাম": a
+/// question about the user's own money of a time — never the লেনদেন book
+/// (no one named, nothing owed asked).
+bool ownMoneyAsked(String said, AppData? d) {
+  final t = fold(normalize(tidySpeech(said)));
+  final ws = words(t);
+  if (!ws.contains(fold('কত')) && !ws.contains(fold('কতো'))) return false;
+  if (RegExp(fold(r'(?:পাওনা|দেনা|ধার|বাকি|বকেয়া|কাছে|কাছ|থেকে|কার|কাকে|পাবো|পাব|দেবো|দিতে)')).hasMatch(t)) return false;
+  if (d != null && d.ledger.any((e) => e.person.trim().length > 1 && t.contains(fold(normalize(e.person))))) return false;
+  final per = periodIn(t, DateTime(2026)) != null;
+  return (per && (_inAsked.hasMatch(t) || _leftAsked.hasMatch(t))) || RegExp(fold(r'(?:কামাই|রোজগার|থাকল|থাকলো|থাকলো)')).hasMatch(t);
 }
 
 /// "আজ আমার কী কী আছে?" — the day at a glance.
@@ -801,7 +951,7 @@ String contactsAnswer(AppData d) {
 String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       LedgerQuery() => ledgerAnswer(d, cmd, now),
       VaultQuery() => vaultAnswer(d, cmd),
-      ReminderQuery() => reminderAnswer(d, cmd, now),
+      ReminderQuery() => specialDayAnswer(d, cmd.transcript, now) ?? taskForReminderQuery(d, cmd, now) ?? reminderAnswer(d, cmd, now),
       SearchQuery() => searchAnswer(d, cmd, now),
       SmallTalk() => cmd.kind == Talk.calendar ? calendarAnswer(cmd.transcript, now) : talkReply(cmd.kind, now),
       AiReply() => cmd.text,

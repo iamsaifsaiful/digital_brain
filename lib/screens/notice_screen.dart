@@ -70,20 +70,56 @@ class _NoticeScreenState extends State<NoticeScreen> {
     }).catchError((_) {});
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final brain = BrainScope.of(context);
-    final now = brain.services.now();
-    final coming = [for (final e in brain.noticePlan) if (e.at.isAfter(now)) _Row(e.at, e.title, e.body, e.kind)];
-    final came = <_Row>[
-      for (final e in brain.noticeHistory) if (!e.at.isAfter(now)) _Row(e.at, e.title, e.body, e.kind),
-      // Plan items whose time came since the last look.
-      for (final e in brain.noticePlan) if (!e.at.isAfter(now)) _Row(e.at, e.title, e.body, e.kind),
-      for (final p in _pushes)
-        if (p.status == 'sent') _Row(p.at, p.title, '', p.kind),
-    ]..sort((a, b) => b.at.compareTo(a.at));
-    final rows = _tab == 0 ? coming : came;
+  /// A notification opened: the whole message in a box.
+  Future<void> _open(_Row r, DateTime now) async {
+    final reminder = r.kind.startsWith('reminder');
+    final fg = reminder ? C.orange : C.blue;
+    final bg = reminder ? C.orangeTint : C.blueTint;
+    await showAppSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Container(
+              key: const Key('notice-box'),
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20), border: Border.all(color: fg.withValues(alpha: 0.25))),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(14)),
+                    child: Icon(_icon(r.kind), color: fg, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(noticeKindLabel(r.kind), style: body(13, weight: FontWeight.w600, color: fg)),
+                      Text('${relativeDay(r.at, now)} · ${bnTime(r.at.hour, r.at.minute)}', style: body(13, color: C.muted)),
+                    ]),
+                  ),
+                ]),
+                const SizedBox(height: 14),
+                Text(r.title.isEmpty ? noticeKindLabel(r.kind) : r.title, style: display(20, weight: 700, height: 1.3)),
+                if (r.body.trim().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(r.body.trim(), style: body(16, height: 1.55)),
+                ],
+              ]),
+            ),
+            const SizedBox(height: 14),
+            PrimaryButton(label: tr('ঠিক আছে'), height: 48, onPressed: () => Navigator.pop(ctx)),
+          ]),
+        ),
+      ),
+    );
+  }
 
+  List<Widget> _list(List<_Row> rows, DateTime now, bool coming, Brain brain) {
     final children = <Widget>[];
     var day = DateTime(0);
     var group = <Widget>[];
@@ -113,9 +149,42 @@ class _NoticeScreenState extends State<NoticeScreen> {
         title: r.title.isEmpty ? noticeKindLabel(r.kind) : r.title,
         subtitle: [noticeKindLabel(r.kind), if (r.body.trim().isNotEmpty) r.body.trim()].join(' · '),
         trailing: Text(bnTime(r.at.hour, r.at.minute), style: body(13, color: C.muted)),
+        onTap: () => _open(r, now),
       ));
     }
     flush();
+    return [
+      if (coming && brain.scheduleFailed)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Panel(
+            padding: const EdgeInsets.all(14),
+            child: Text(tr('ফোন রিমাইন্ডার রাখতে দিচ্ছে না — নোটিফিকেশনের অনুমতি দেখুন।'), style: body(14, color: C.orange)),
+          ),
+        ),
+      if (rows.isEmpty)
+        EmptyState(
+          icon: Icons.notifications_none_rounded,
+          title: coming ? tr('সামনের ৭ দিনে কোনো নোটিফিকেশন নেই') : tr('এখনো কোনো নোটিফিকেশন আসেনি'),
+          text: coming ? tr('রিমাইন্ডার রাখলে বা সারাংশ চালু করলে এখানে দেখাবে — কখন কোনটা আসবে।') : tr('যেগুলোর সময় হয়ে গেছে, সেগুলো এখানে থাকবে ৩০ দিন।'),
+        )
+      else
+        ...children,
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final now = brain.services.now();
+    final coming = [for (final e in brain.noticePlan) if (e.at.isAfter(now)) _Row(e.at, e.title, e.body, e.kind)];
+    final came = <_Row>[
+      for (final e in brain.noticeHistory) if (!e.at.isAfter(now)) _Row(e.at, e.title, e.body, e.kind),
+      // Plan items whose time came since the last look.
+      for (final e in brain.noticePlan) if (!e.at.isAfter(now)) _Row(e.at, e.title, e.body, e.kind),
+      for (final p in _pushes)
+        if (p.status == 'sent') _Row(p.at, p.title, '', p.kind),
+    ]..sort((a, b) => b.at.compareTo(a.at));
 
     return Scaffold(
       body: SafeArea(
@@ -127,33 +196,15 @@ class _NoticeScreenState extends State<NoticeScreen> {
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationSettingsScreen())),
             ),
           ]),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-            child: SegTabs<int>(
+          // Swiped like the other pages' tabs.
+          Expanded(
+            child: TabPages<int>(
               items: [(0, trf('আসছে ({0})', [bnDigits(coming.length)])), (1, tr('আগে এসেছে'))],
               value: _tab,
               onChanged: (v) => setState(() => _tab = v),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+              page: (t) => _list(t == 0 ? coming : came, now, t == 0, brain),
             ),
-          ),
-          Expanded(
-            child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
-              if (_tab == 0 && brain.scheduleFailed)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Panel(
-                    padding: const EdgeInsets.all(14),
-                    child: Text(tr('ফোন রিমাইন্ডার রাখতে দিচ্ছে না — নোটিফিকেশনের অনুমতি দেখুন।'), style: body(14, color: C.orange)),
-                  ),
-                ),
-              if (rows.isEmpty)
-                EmptyState(
-                  icon: Icons.notifications_none_rounded,
-                  title: _tab == 0 ? tr('সামনের ৭ দিনে কোনো নোটিফিকেশন নেই') : tr('এখনো কোনো নোটিফিকেশন আসেনি'),
-                  text: _tab == 0 ? tr('রিমাইন্ডার রাখলে বা সারাংশ চালু করলে এখানে দেখাবে — কখন কোনটা আসবে।') : tr('যেগুলোর সময় হয়ে গেছে, সেগুলো এখানে থাকবে ৩০ দিন।'),
-                )
-              else
-                ...children,
-            ]),
           ),
         ]),
       ),

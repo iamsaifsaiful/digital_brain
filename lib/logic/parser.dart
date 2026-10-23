@@ -16,7 +16,7 @@ import 'bn.dart';
 import 'ledger.dart';
 import 'cash.dart';
 import 'meaning.dart';
-import 'answers.dart' show periodIn;
+import 'answers.dart' show periodIn, spanAsked;
 import 'when.dart';
 import 'calendar_bd.dart' show hijriDate;
 import 'phrases.dart' show toPerson;
@@ -615,6 +615,10 @@ const _vowelSigns = 'ািীুূৃেৈোৌ';
 /// Removes a Bengali possessive ending: সজীবের → সজীব, রনির → রনি,
 /// wi-fi-এর → wi-fi.
 String stripPossessive(String w) {
+  // "মেয়ের" is মেয়ে + র (not "মে"); "ভাইয়ের" is ভাই below.
+  for (final r in _relations) {
+    if (w == '$rর' && r.endsWith('ে')) return r;
+  }
   for (final suf in ['-এর', '-র', 'এর', 'ের']) {
     if (w.endsWith(suf) && w.length > suf.length + 1) {
       final base = w.substring(0, w.length - suf.length);
@@ -656,12 +660,25 @@ String stem(String w) {
 
 const _numberWordsRaw = {
   'এক': 1, 'দুই': 2, 'দু': 2, 'তিন': 3, 'চার': 4, 'পাঁচ': 5, 'ছয়': 6, 'সাত': 7, 'আট': 8, 'দশ': 10,
-  'এগারো': 11, 'বারো': 12, 'তেরো': 13, 'চৌদ্দ': 14, 'পনেরো': 15, 'পনের': 15, 'ষোলো': 16, 'ষোল': 16, 'সতেরো': 17,
+  'এগারো': 11, 'বারো': 12, 'তেরো': 13, 'চৌদ্দ': 14, 'চোদ্দ': 14, 'পনেরো': 15, 'পনের': 15, 'ষোলো': 16, 'ষোল': 16, 'সতেরো': 17,
   'আঠারো': 18, 'উনিশ': 19, 'বিশ': 20, 'কুড়ি': 20, 'পঁচিশ': 25, 'ত্রিশ': 30, 'তিরিশ': 30, 'চল্লিশ': 40, 'পঞ্চাশ': 50, 'ষাট': 60,
   'সত্তর': 70, 'আশি': 80, 'নব্বই': 90, 'একশ': 100, 'একশো': 100, 'দেড়': 1.5, 'আড়াই': 2.5,
+  // Spellings the shared 1–99 list (menus.dart) does not have.
+  'আটাশ': 28, 'চোত্রিশ': 34, 'পয়ত্রিশ': 35, 'সাইত্রিশ': 37, 'বেয়াল্লিশ': 42, 'পয়তাল্লিশ': 45, 'অষ্টআশি': 88, 'অষ্টাশি': 88,
 };
 
-final Map<String, num> _numberWords = {for (final e in _numberWordsRaw.entries) fold(e.key): e.value};
+/// Words that are a number only next to a multiplier: "নয়" alone is "not",
+/// but "নয়শো", "নয় হাজার" are 900 and 9000.
+const _withMultiplierRaw = {'নয়': 9, 'নও': 9};
+final Map<String, num> _withMultiplier = {for (final e in _withMultiplierRaw.entries) fold(e.key): e.value};
+
+/// The amount words: the shared 1–99 list (21–99 said as one word too) and
+/// the ones above — not "বার" (times), "ছ", "নয়" (not) or zero.
+final Map<String, num> _numberWords = {
+  for (final e in _bnNumbers1to99.entries)
+    if (!const {'শূন্য', 'জিরো', 'বার', 'তের', 'ছ', 'নয়'}.contains(e.key)) fold(e.key): e.value,
+  for (final e in _numberWordsRaw.entries) fold(e.key): e.value,
+};
 
 /// The amount in a sentence, in whole taka. Understands "৫০০", "১,০০০",
 /// "২ হাজার", "দেড় হাজার", "পাঁচশো", "৩ লাখ", "সাড়ে তিন হাজার" and
@@ -689,12 +706,17 @@ int? findAmount(String normalized) {
     } else {
       base = _numberWords[w[at]];
       if (base == null) {
-        // পাঁচশো / পাঁচশ / দুইশো
+        // পাঁচশো / পাঁচশ / দুইশো / নয়শো
         final m = RegExp(fold(r'^(.+?)(শো|শ|শত)(?:টা|টি|টাকা|টাকার|র|ের|এর)?$')).firstMatch(w[at]);
-        if (m != null && _numberWords[m[1]] != null) {
-          base = _numberWords[m[1]]!;
+        final b = m == null ? null : (_numberWords[m[1]] ?? _withMultiplier[m[1]]);
+        if (b != null) {
+          base = b;
           mult = 100;
         }
+      }
+      // "নয় হাজার": নয় only before a multiplier.
+      if (base == null && _withMultiplier[w[at]] != null && at + 1 < w.length && RegExp(fold(r'^(?:হাজার|লাখ|লক্ষ|কোটি|শো|শ|শত)')).hasMatch(w[at + 1])) {
+        base = _withMultiplier[w[at]];
       }
     }
     if (base == null) return null;
@@ -763,7 +785,7 @@ int? _itemCount(List<String> w) {
 }
 
 final _takaWord = RegExp(fold(r'^(?:টাকা|টাকার|টাকায়|টাকাতে|টাকাই|টাকাও|tk|taka)$'));
-final _unitWord = RegExp(fold(r'^(?:কেজি|কেজির|কেজিতে|গ্রাম|গ্রামের|লিটার|লিটারের|পিস|পিচ|হালি|ডজন|মিটার|ফুট|গজ|বস্তা|প্যাকেট|বোতল|কার্টন|জোড়া|টা|টি|kg|g|gm|ltr|pcs)$'));
+final _unitWord = RegExp(fold(r'^(?:কেজি|কেজির|কেজিতে|গ্রাম|গ্রামের|লিটার|লিটারের|পিস|পিচ|হালি|ডজন|মিটার|ফুট|গজ|বস্তা|প্যাকেট|বোতল|কার্টন|জোড়া|টা|টি|দিন|দিনের|দিনে|মাস|মাসের|বছর|বছরের|ঘণ্টা|ঘণ্টার|ঘন্টা|ঘন্টার|জন|জনের|kg|g|gm|ltr|pcs)$'));
 
 bool _hasAny(String text, List<String> keys) => keys.any((k) => text.contains(fold(k)));
 
@@ -775,6 +797,11 @@ const _take1 = ['নিলাম', 'নিয়েছি', 'নিছি', 'ন
 const _got1 = ['পেলাম', 'পেয়েছি', 'পাইছি', 'পেয়েছিলাম'];
 const _give3 = ['দিল', 'দিলো', 'দিয়েছে', 'দিয়েছেন', 'দিলেন', 'দিছে', 'দিয়েছিল'];
 const _loanWords = ['ধার', 'কর্জ', 'লোন', 'loan', 'ঋণ'];
+
+final Set<String> _parents = {for (final w in const ['আম্মু', 'আম্মা', 'মা', 'আব্বু', 'আব্বা', 'বাবা', 'নানু', 'নানা', 'নানি', 'দাদু', 'দাদি']) normalize(w)};
+
+/// "ফেরত দেবে", "শোধ করবে ডিসেম্বরে": paying back is promised, not done.
+bool _returnLater(String text) => RegExp(fold(r'(?:ফেরত|শোধ|পরিশোধ)\s+(?:দেবে|দিবে|দেবেন|দিবেন|দিয়ে\s+দেবে|দিয়ে\s+দিবে|করবে|করবেন|দেওয়ার\s+কথা|দিবে\s+বলেছে|দেবে\s+বলেছে)')).hasMatch(text);
 const _returnWords = ['ফেরত', 'শোধ', 'পরিশোধ', 'ফিরিয়ে'];
 final List<String> _honorifics = [for (final h in _honorificsRaw) fold(h)];
 const _honorificsRaw = ['ভাই', 'ভাইয়া', 'ভাইয়া', 'আপা', 'আপু', 'চাচা', 'মামা', 'খালা', 'কাকা', 'দাদা', 'স্যার', 'সাহেব', 'বোন', 'মিয়া', 'মিঞা', 'মিয়াঁ', 'ভাবি', 'ভাবী', 'চাচী', 'চাচি', 'মামী', 'মামি', 'খালু', 'ফুফু', 'নানা', 'নানি', 'দাদি', 'হুজুর', 'মাস্টার', 'ভাইজান'];
@@ -785,6 +812,10 @@ const _notNamesRaw = {
   // "… পরে ৩০০ শোধ করেছি": when, not who.
   'পরে', 'তারপর', 'তারপরে', 'এরপর', 'এরপরে', 'পরবর্তীতে', 'সেদিন', 'আগে', 'গত',
 };
+
+/// "রহিমকে", "মাকে": to someone. "থেকে", "দিকে" only end the same way.
+final Set<String> _notKe = {for (final w in const ['থেকে', 'দিকে', 'একে', 'ঠেকে', 'ডেকে', 'রেখে', 'দেখে']) normalize(w)};
+bool _endsKe(String x) => x.endsWith('কে') && !_notKe.contains(x);
 
 bool _looksLikeName(String w) => w.isNotEmpty && !_notNames.contains(w) && !RegExp(r'^\d').hasMatch(w) && findAmount(w) == null;
 
@@ -932,7 +963,9 @@ SpecialAdd? specialDayIn(String said, String text, {DateTime? now}) {
   var person = '';
   if (before.isNotEmpty) {
     final last = before.last;
-    person = last == 'আমার' || last == 'আমাদের' ? last : stripPossessive(last);
+    // "মেয়ের" is "মেয়ে" (never the month "মে"): relations by their own form.
+    final rel = _relations.map(fold).where((r) => last == r || last == '$r${fold('র')}' || last == '$r${fold('ের')}' || last == '$r${fold('এর')}').firstOrNull;
+    person = last == 'আমার' || last == 'আমাদের' ? last : (rel ?? stripPossessive(last));
     if (before.length >= 2 && _honorifics.contains(person) && _looksLikeName(before[before.length - 2])) person = '${before[before.length - 2]} $person';
   }
   if (person.isEmpty || RegExp(r'^\d').hasMatch(person) || _months.containsKey(person)) person = kind == SpecialKind.anniversary ? 'আমাদের' : '';
@@ -1187,6 +1220,11 @@ class Parser {
     final alarm = _alarm(said, text);
     if (alarm != null) return alarm;
 
+    // Giving blood: "শেষ রক্ত দিয়েছি ১০ আগস্ট" (the day kept), "আবার কবে রক্ত
+    // দিতে পারব?" (answered from it), "রক্ত লাগবে" (the blood requests page).
+    final blood = _bloodDonation(said, text, w);
+    if (blood != null) return blood;
+
     // "আমার ব্লাড গ্রুপ বি পজিটিভ" (keep) / "আমার ব্লাড গ্রুপ কী?" (answer);
     // "আমার কী কী ছবি আছে?" (what kind of things are kept).
     if (mentionsBlood(text)) {
@@ -1282,7 +1320,10 @@ class Parser {
       // "ইমরান আজ ১৫০০০ টাকা দিবে": someone else will pay — a plan to
       // remember, not money that moved (and never "who?" asked again).
       final theyWill = w.any((x) => const ['দিবে', 'দেবে', 'দিবেন', 'দেবেন', 'দিবা', 'পাঠাবে', 'পাঠাবেন', 'দিয়ে দিবে', 'ফেরত দিবে'].map(normalize).contains(x));
-      if (theyWill) {
+      // "ভাইকে ৫০ হাজার ধার দিলাম, ফেরত দেবে ডিসেম্বরে": the loan is made
+      // now (the pay-back time goes with it) — not a plan.
+      final madeNow = _hasAny(text, [..._give1, ..._take1]) && (_hasAny(text, _loanWords) || _returnLater(text));
+      if (theyWill && !madeNow) {
         final title = tidy(cutWords(said, ['আগামীকাল', 'আগামী কাল', 'কাল', 'আজকে', 'আজ', 'পরশু', ..._fillers]))
             .replaceAll(RegExp(r'[।.!]+$'), '')
             .trim();
@@ -1326,7 +1367,24 @@ class Parser {
         if (add != null) return _dated(add, text);
       }
       // No one owes anything: own spending or income ("বিদ্যুৎ বিল ১২০০ টাকা দিলাম").
-      final kind = cashKindOf(text);
+      // "আম্মু টিফিনের জন্য ১০০ টাকা দিলো": a parent's money to a child is
+      // pocket money (income), not a loan to keep account of.
+      final fromParent = w.isNotEmpty && _parents.contains(stripPossessive(w.first)) && _hasAny(text, _give3) && !_hasAny(text, _give1);
+      var kind = fromParent ? CashKind.income : cashKindOf(text);
+      if (kind == null && amount != null && amount > 0) {
+        final third = _hasAny(text, _give3) && !_hasAny(text, _give1);
+        // "রুবিনা আপা অগ্রিম ৩০০ টাকা দিলেন": someone gave it — in (as
+        // "দিয়েছে" already is). A loan or a return was read above.
+        if (third) {
+          kind = CashKind.income;
+        } else if (!_hasAny(text, [..._give1, ..._take1, ..._got1]) &&
+            !w.any((x) => (_endsKe(x) && x != 'আমাকে') || x == 'কাছে' || x == 'কাছ' || x == 'থেকে') &&
+            !known.any((k) => text.contains(normalize(k))) &&
+            categoryFor(text, CashKind.expense) != 'অন্যান্য') {
+          // "বাইকের তেল ৩০০ টাকা": a thing and a price, no one named — spent.
+          kind = CashKind.expense;
+        }
+      }
       if (kind != null && amount != null && amount > 0 && !_hasAny(text, [..._loanWords, ..._returnWords])) {
         return CashAdd(said, kind: kind, amount: amount, category: categoryFor(text, kind));
       }
@@ -1434,7 +1492,7 @@ class Parser {
     final ws = words(text);
     const neg = ['দিইনি', 'দেইনি', 'দিনি', 'দেইনাই', 'দেয়নি', 'দেয়নি', 'দেয়নাই', 'দেননি', 'দিলাম না', 'দিই নাই', 'দেই নাই', 'দেই নি', 'দেয় নাই', 'দেয় নি', 'দিল না', 'দিলো না',
       'নিইনি', 'নেইনি', 'নেই নাই', 'নিলাম না', 'নেয়নি', 'নেয়নি', 'পাইনি', 'পাই নাই', 'পাইনাই', 'পেলাম না', 'করিনি', 'শোধ করিনি', 'শোধ করেনি', 'ফেরত দেয়নি'];
-    final money = ws.contains(normalize('টাকা')) || findAmount(text) != null || _hasAny(text, [..._loanWords, ..._returnWords]);
+    final money = ws.contains(normalize('টাকা')) || findAmount(text) != null || _hasAny(text, [..._loanWords, ..._returnWords, 'ভাড়া', 'বেতন', 'কিস্তি', 'বিল', 'পাওনা', 'বকেয়া']);
     return money && _hasNorm(text, neg);
   }
 
@@ -1514,7 +1572,7 @@ class Parser {
     // "X-কে আমার/আমি N টাকা দিতে হবে / দেব"
     if (iOweWords && !_hasAny(text, _give1)) {
       for (var i = 0; i < w.length; i++) {
-        if (!w[i].endsWith('কে') || w[i] == 'আমাকে' || w[i] == 'কাকে') continue;
+        if (!_endsKe(w[i]) || w[i] == 'আমাকে' || w[i] == 'কাকে') continue;
         final raw = _nameEndingAt(w, i, stripTo);
         if (raw != null) return LedgerSet(said, person: resolvePerson(raw, known), balance: -amount);
       }
@@ -1531,7 +1589,7 @@ class Parser {
     }
     for (var i = 0; i < w.length && person == null; i++) {
       String? raw;
-      if (w[i].endsWith('কে') && w[i] != 'আমাকে' && w[i] != 'কাকে') raw = _nameEndingAt(w, i, stripTo);
+      if (_endsKe(w[i]) && w[i] != 'আমাকে' && w[i] != 'কাকে') raw = _nameEndingAt(w, i, stripTo);
       if (raw == null && i + 1 < w.length && (w[i + 1] == 'কাছে' || w[i + 1] == 'কাছ' || w[i + 1] == 'থেকে')) {
         raw = _nameEndingAt(w, i, stripPossessive);
       }
@@ -1551,11 +1609,23 @@ class Parser {
 
   LedgerAdd? _ledgerEvent(String said, String text, List<String> w, int amount, List<String> known) {
     final loan = _hasAny(text, _loanWords);
-    final ret = _hasAny(text, _returnWords);
+    // "ফেরত দেবে ডিসেম্বরে": a return promised for later, not one made now.
+    final ret = _hasAny(text, _returnWords) && !_returnLater(text);
+
+    // "টিউশনি থেকে ৩০০০ টাকা পেলাম", "অফিস থেকে বোনাস পেলাম": money that
+    // came from a place or a job — earned, not borrowed. Only a person
+    // ("X-এর কাছ থেকে") or someone already in the book can be a loan.
+    if (!loan && !ret && _hasAny(text, _got1) && !_hasAny(text, _take1)) {
+      final from = w.indexWhere((x) => x == normalize('থেকে') || x == normalize('হতে'));
+      if (from > 0 && w[from - 1] != normalize('কাছ') && w[from - 1] != normalize('কাছে')) {
+        final source = stripPossessive(w[from - 1]);
+        if (!known.any((k) => personKey(k) == personKey(source) || text.contains(normalize(k)))) return null;
+      }
+    }
 
     // "ইমরান আজ ১০ হাজার টাকা দিয়েছে": someone already in the book gave
     // me money — paid back, or lent me more; never guessed as income.
-    if (amount > 0 && _hasAny(text, _give3) && !_hasAny(text, _give1) && !w.any((x) => x.endsWith('কে') && x.length > 2)) {
+    if (amount > 0 && _hasAny(text, _give3) && !_hasAny(text, _give1) && !w.any((x) => _endsKe(x) && x.length > 2)) {
       final giver = [...known]..sort((a, b) => b.length.compareTo(a.length));
       final k = giver.where((k) => normalize(k).isNotEmpty && (text == normalize(k) || text.startsWith('${normalize(k)} '))).firstOrNull;
       if (k != null) {
@@ -1639,7 +1709,7 @@ class Parser {
 
     final person = verbPerson(text);
     // "করিমের ধার ২০০ টাকা শোধ করলাম", "করিমের টাকা ফেরত দিয়ে দিলাম": I paid back.
-    if (ret && person.me && !w.contains(normalize('আমাকে')) && !w.any((x) => x.endsWith('কে') && x != normalize('আমাকে'))) {
+    if (ret && person.me && !w.contains(normalize('আমাকে')) && !w.any((x) => _endsKe(x) && x != normalize('আমাকে'))) {
       final name = _anyName(w, known);
       if (name.isNotEmpty) return LedgerAdd(said, person: name, amount: amount, kind: LedgerKind.repaid);
     }
@@ -1648,7 +1718,7 @@ class Parser {
     if (_hasAny(text, _give1) || _hasAny(text, ['দিলাম', 'দিয়েছি']) || (ret && person.me)) {
       for (var i = 0; i < w.length; i++) {
         final t = w[i];
-        if (t == 'আমাকে' || !(t.endsWith('কে'))) continue;
+        if (t == 'আমাকে' || !(_endsKe(t))) continue;
         final raw = _nameEndingAt(w, i, stripTo);
         if (raw == null) continue;
         final person = resolvePerson(raw, known);
@@ -1721,7 +1791,7 @@ class Parser {
       if (!_hasAny(text, [..._give1, ..._give3, ..._take1, ..._got1, ..._loanWords, ..._returnWords])) return null;
       String? raw;
       for (var i = 0; i < w.length && raw == null; i++) {
-        if (w[i].endsWith('কে') && w[i] != 'আমাকে' && w[i] != 'কাকে') raw = _nameEndingAt(w, i, stripTo);
+        if (_endsKe(w[i]) && w[i] != 'আমাকে' && w[i] != 'কাকে') raw = _nameEndingAt(w, i, stripTo);
         if (raw == null && i + 1 < w.length && (w[i + 1] == 'কাছে' || w[i + 1] == 'কাছ' || w[i + 1] == 'থেকে')) {
           raw = _nameEndingAt(w, i, stripPossessive);
         }
@@ -1740,7 +1810,7 @@ class Parser {
       if (w.join(' ').contains(normalize(k))) return k;
     }
     for (var i = 0; i < w.length; i++) {
-      if (w[i].endsWith('কে') && w[i] != 'আমাকে' && w[i] != 'কাকে') {
+      if (_endsKe(w[i]) && w[i] != 'আমাকে' && w[i] != 'কাকে') {
         final raw = _nameEndingAt(w, i, stripTo);
         if (raw != null && raw.length >= 2) return resolvePerson(raw, known);
       }
@@ -1760,7 +1830,8 @@ class Parser {
       final name = _projectName(w, projectAt);
       if (asking) return CashQuery(said, project: name);
       if (amount != null && amount > 0) {
-        final kind = cashKindOf(text) ?? CashKind.expense;
+        // "রহিম ভবন প্রজেক্টে মালিক ৫ লাখ টাকা দিলো": someone gave — money in.
+        final kind = cashKindOf(text) ?? (_hasAny(text, _give3) && !_hasAny(text, _give1) ? CashKind.income : CashKind.expense);
         return CashAdd(said, kind: kind, amount: amount, category: categoryFor(text, kind), project: name);
       }
       return null;
@@ -1773,7 +1844,7 @@ class Parser {
     if (!asking && amount != null && amount > 0 && _hasNorm(text, ['খরচ', 'কিনলাম', 'কিনেছি', 'বেতন', 'আয়', 'ইনকাম', 'বিক্রি', 'রিচার্জ', 'বিল', 'বাজার এনেছি', 'বাজার করেছি', 'বাজার করলাম', 'বাজার আনলাম', 'রেমিট্যান্স'])) {
       final known = knownPeople(ledger);
       final bill = _hasNorm(text, const ['বিল']) && !known.any((k) => text.contains(normalize(k)));
-      final namedPerson = w.any((x) => x.endsWith('কে') && !{'আমাকে', 'কাকে'}.contains(x)) ||
+      final namedPerson = w.any((x) => _endsKe(x) && !{'আমাকে', 'কাকে'}.contains(x)) ||
           w.any((x) => x == 'কাছে' || x == 'কাছ' || x == 'থেকে') ||
           _hasAny(text, _loanWords) ||
           (!bill && _hasAny(text, _returnWords));
@@ -1811,6 +1882,16 @@ class Parser {
     // A question about the day's plan, or about "my tasks", in any words.
     if (isQuestionText(said) && w.any((x) => const ['পরিকল্পনা', 'প্ল্যান', 'শিডিউল', 'রুটিন'].map(normalize).contains(x)) && w.any((x) => const ['আজ', 'আজকের', 'আজকে', 'দিনের'].map(normalize).contains(x))) {
       return Briefing(said);
+    }
+    // "এই সপ্তাহে কী কী আছে?", "এ মাসে কী কী দিন আছে?": what is on in those days.
+    if (isQuestionText(said) && spanAsked(said, now) != null && RegExp(fold(r'(?:কী|কি)\s+(?:কী|কি)\s+(?:আছে|দিন|কাজ|প্ল্যান|পরিকল্পনা)|(?:কী|কি)\s+(?:আছে|প্ল্যান)|কোন\s+কোন\s+দিন')).hasMatch(fold(text)) && findAmount(text) == null && !_hasNorm(text, const ['খরচ', 'আয়', 'টাকা', 'ছুটি'])) {
+      return TaskQuery(said);
+    }
+    // "বুধবার কী কী ডেলিভারি", "কাল কী কী মিটিং": that day's to-dos and
+    // reminders — whatever they are called.
+    final dayW = parseWhen(said, now);
+    if (dayW != null && dayW.hasDay && RegExp(fold(r'(?:^|\s)(?:কী|কি)\s+(?:কী|কি)(?:\s|$)')).hasMatch(fold(text)) && findAmount(text) == null && !_hasNorm(text, const ['খরচ', 'আয়', 'টাকা', 'কিনতে', 'বাজার'])) {
+      return TaskQuery(said);
     }
     if (isQuestionText(said) && w.any((x) => x == normalize('কাজগুলো') || x == normalize('কাজগুলি') || x == normalize('কাজসমূহ')) && !_hasNorm(text, _doneKeys) && findAmount(text) == null) {
       return TaskQuery(said);
@@ -2014,7 +2095,7 @@ class Parser {
       final terms = searchTerms(normalize(cutWords(said, [..._doneKeys, 'হয়নি', 'হয় নি', 'হয় নাই', 'হয়নাই', 'করিনি', 'এখনো', 'এখনও', 'বাকি', 'শেষ', 'কাজটা', 'কাজ টা', 'কাজটি', 'কাজ', 'টা'])));
       if (terms.isNotEmpty && matchTasks(tasks, terms).isNotEmpty) return TaskDone(said, terms: terms, done: false);
     }
-    if (!money && _hasNorm(text, _doneKeys) && !saysNotDone(text)) {
+    if (!money && !asksWh(said) && _hasNorm(text, _doneKeys) && !saysNotDone(text)) {
       final terms = searchTerms(normalize(cutWords(said, [..._doneKeys, 'কাজটা', 'কাজ টা', 'কাজটি', 'কাজ', 'টা'])));
       if (terms.isNotEmpty && matchTasks(tasks.where((t) => !t.done), terms).isNotEmpty) return TaskDone(said, terms: terms);
     }
@@ -2065,6 +2146,34 @@ class Parser {
     if (has(['ঘুমিয়েছি', 'ঘুমালাম', 'ঘুম হয়েছে', 'ঘুমিয়েছিলাম', 'slept']) && has(['ঘণ্টা', 'ঘন্টা', 'hour']) && nums.first > 0 && nums.first <= 16) {
       return HealthAdd(said, kind: HealthKind.sleep, a: nums.first);
     }
+    return null;
+  }
+
+  /// The blood-giving reading of [said] alone (see [_bloodDonation]).
+  Command? bloodDonationOf(String said) {
+    final text = normalize(said);
+    return _bloodDonation(said, text, words(text));
+  }
+
+  Command? _bloodDonation(String said, String text, List<String> w) {
+    final blood = RegExp(fold(r'(?:^|\s)(?:রক্ত|ব্লাড)(?=\s|$)')).hasMatch(fold(text));
+    if (!blood || _hasAny(text, ['টাকা', 'গ্রুপ', 'চাপ', 'প্রেশার', 'প্রেসার'])) return null;
+    final f = fold(text);
+    if (RegExp(fold(r'কবে.*(?:রক্ত|ব্লাড)\s+(?:দিতে|দেওয়া|দেয়া)|(?:রক্ত|ব্লাড)\s+(?:দিতে|দেওয়া|দেয়া)\s+(?:পারব|পারবো|যাবে|পারি).*কবে|আবার\s+কবে\s+(?:রক্ত|ব্লাড)')).hasMatch(f)) {
+      return ProfileQuery(said);
+    }
+    if (isQuestionText(said)) return null;
+    // Someone named ("রহিমকে রক্ত দিলাম") is still the user giving blood.
+    if (RegExp(fold(r'(?:রক্ত|ব্লাড)\s+(?:দিয়েছি|দিলাম|দিয়েছিলাম|দিছি|দান\s+করেছি|দান\s+করলাম)(?=\s|$)')).hasMatch(f)) {
+      final when = parseWhen(tidySpeech(said), now);
+      var day = when != null && when.hasDay ? dayOnly(when.day) : dayOnly(now);
+      // "গত মাসের ৫ তারিখে": that day of last month.
+      if (_hasNorm(text, const ['গত মাস', 'গত মাসে', 'গত মাসের', 'আগের মাসে', 'আগের মাসের'])) day = DateTime(now.year, now.month - 1, day.day);
+      // A day said without a year that is still ahead was last year's.
+      if (day.isAfter(dayOnly(now))) day = DateTime(day.year - 1, day.month, day.day);
+      return ProfileSet(said, field: 'blood_last', value: day.toIso8601String());
+    }
+    if (RegExp(fold(r'(?:রক্ত|ব্লাড)\S*\s+(?:লাগবে|চাই|দরকার|প্রয়োজন)(?=\s|$)')).hasMatch(f)) return OpenPlace(said, place: 'requests');
     return null;
   }
 
@@ -2143,7 +2252,7 @@ class Parser {
     final known = {...knownPeople(ledger), for (final c in contacts) c.name}.toList();
     const pronouns = {'আমাকে', 'তাকে', 'ওকে', 'উনাকে', 'ওনাকে', 'তাঁকে', 'কাকে', 'সবাইকে'};
     for (var i = 0; i < w.length; i++) {
-      if (w[i].endsWith('কে') && !pronouns.contains(w[i])) {
+      if (_endsKe(w[i]) && !pronouns.contains(w[i])) {
         var raw = _nameEndingAt(w, i, stripTo);
         // "রবিন হায়দারকে ফোন দাও": the whole name, not only its last word —
         // at the start of the sentence, plain words (no ending, no day or
@@ -2188,7 +2297,7 @@ class Parser {
       String? raw;
       if (i + 1 < w.length && (w[i + 1] == 'কাছে' || w[i + 1] == 'সাথে' || w[i + 1] == 'সঙ্গে')) {
         raw = _nameEndingAt(w, i, stripPossessive);
-      } else if (w[i].endsWith('কে') && w[i] != 'আমাকে' && w[i] != 'কাকে') {
+      } else if (_endsKe(w[i]) && w[i] != 'আমাকে' && w[i] != 'কাকে') {
         raw = _nameEndingAt(w, i, stripTo);
       } else if (w[i].endsWith('ের') || w[i].endsWith('এর')) {
         raw = _nameEndingAt(w, i, stripPossessive);
@@ -2290,12 +2399,13 @@ const _smsKeys = [
   'টেক্সট করো', 'টেক্সট দাও', 'টেক্সট পাঠাও', 'বার্তা পাঠাও', 'message', 'message dao', 'message koro', 'লিখে পাঠাও',
 ];
 
-final _everyPattern = RegExp(fold('(প্রতি|প্রত্যেক)?\\s*(আধা|আধ|[০-৯0-9]+)\\s*(মিনিট|ঘণ্টা|ঘন্টা)\\S*(\\s*(পর পর|পরপর|অন্তর|পরে পরে))?'));
+final _everyPattern = RegExp(fold('(প্রতি|প্রত্যেক)?\\s*(আধা|আধ|[০-৯0-9]+|এক|দুই|দু|তিন|চার|পাঁচ|ছয়|সাত|আট|নয়|দশ|বারো|পনেরো|বিশ|ত্রিশ|পঁয়তাল্লিশ)\\s*(মিনিট|ঘণ্টা|ঘন্টা)\\S*(\\s*(পর পর|পরপর|অন্তর|পরে পরে|পরে|পর)(?=\\s|\$))?'));
 
 /// "প্রতি ৩০ মিনিটে", "১০ মিনিট পর পর", "ঘণ্টায় ঘণ্টায়", "প্রতি আধা ঘণ্টায়"
 /// → minutes; null when the sentence has no such repeat. [text] is normalized.
 int? everyMinutes(String text) {
-  final t = ' $text ';
+  // "প্রতি দুই ঘণ্টা পর": the count said as a word.
+  final t = ' ${normalize(spokenNumbers(text))} ';
   int unit(String u) => u.startsWith(normalize('মিনিট')) || u.startsWith('min') ? 1 : 60;
   final a = RegExp('(?:প্রতি|প্রত্যেক|every)\\s*(\\d+|${normalize('আধা')}|${normalize('আধ')})\\s*(${normalize('মিনিট')}|${normalize('ঘণ্টা')}|${normalize('ঘন্টা')}|min|hour)')
       .firstMatch(t);
@@ -2428,6 +2538,15 @@ bool asksToShow(String text) {
 final _showVerbs = {for (final x in const ['দাও', 'দিন', 'দেন', 'দেখাও', 'দেখান', 'বলো', 'বলুন', 'বলেন', 'জানাও', 'জানান']) normalize(x)};
 
 /// Does the sentence ask something (rather than state a fact)?
+/// A real question ("পাসপোর্টের মেয়াদ কবে শেষ", "বাজার কি করেছি?"): it
+/// asks, so it never marks a to-do done (narrower than [isQuestionText]:
+/// "দেখা করেছি" is not a question).
+bool asksWh(String said) {
+  if (said.contains('?') || said.contains('？')) return true;
+  final qs = {for (final x in const ['কবে', 'কখন', 'কি', 'কী', 'কত', 'কোথায়', 'কোথায়', 'কেন', 'কিনা', 'নাকি', 'কয়টা', 'কয়টায়']) fold(normalize(x))};
+  return words(normalize(said)).any(qs.contains);
+}
+
 bool isQuestionText(String said) {
   if (said.contains('?') || said.contains('？')) return true;
   final w = words(normalize(said));
@@ -2552,9 +2671,19 @@ bool? yesNo(String said) {
   if (complainsWrong(said) || aboutTheAssistant(said) == AboutMe.complaint) return null;
   final w = words(t);
   if (w.any(_no.contains) || _hasAny(t, ['দরকার নেই', 'লাগবে না', 'রেখো না', 'রাখো না', 'করো না', 'চাই না', 'বাদ দাও', 'বাদ দেন', 'বাদ দে', 'রাখার দরকার'])) return false;
-  if (w.any(_yes.contains) || _hasAny(t, ['ঠিক আছে', 'সেভ করো', 'যোগ করো'])) return true;
-  return null;
+  if (_hasAny(t, ['ঠিক আছে', 'সেভ করো', 'যোগ করো'])) return true;
+  final hits = [for (final x in w) if (_yes.contains(x)) x];
+  if (hits.isEmpty) return null;
+  // "এই সপ্তাহে কত দিন তিলাওয়াত করেছি": a question of its own — "দিন"
+  // there is a day, "হবে"/"দাও" are its verbs, not a yes. A plain yes word
+  // (হ্যাঁ, জি, আচ্ছা, ok) still is one.
+  if (asksWh(said) && w.length >= 3 && hits.every(_softYes.contains)) return null;
+  return true;
 }
+
+final Set<String> _softYes = {
+  for (final x in const ['দিন', 'দাও', 'হবে', 'চলবে', 'করো', 'কর', 'করেন', 'করুন', 'রাখো', 'রাখ', 'রাখেন', 'রাখুন', 'দেন', 'যোগ', 'সেভ', 'ঠিক', 'সঠিক', 'একদম']) fold(normalize(x)),
+};
 
 bool _hasPhrase(String text, List<String> ps) => ps.any((p) => text.contains(fold(p)));
 

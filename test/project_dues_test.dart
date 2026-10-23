@@ -3,7 +3,7 @@ import 'package:digital_brain/logic/ledger.dart';
 import 'package:digital_brain/logic/parser.dart' show LedgerQuery, LedgerAsk;
 import 'package:digital_brain/logic/person_money.dart';
 import 'package:digital_brain/models/models.dart';
-import 'package:digital_brain/screens/money_screens.dart' show ProjectScreen;
+import 'package:digital_brain/screens/money_screens.dart' show ProjectScreen, ProjectsView;
 import 'package:digital_brain/screens/money_search_screen.dart';
 import 'package:digital_brain/screens/project_dues.dart';
 import 'package:digital_brain/state/brain.dart' show BrainScope;
@@ -146,6 +146,26 @@ void main() {
     expect(find.text('৳৯০০'), findsOneWidget);
     expect(find.text('করিমের রিকশা ভাড়া'), findsNothing); // shown inside the subtitle
     expect(find.textContaining('করিমের রিকশা ভাড়া'), findsOneWidget);
+  });
+
+  testWidgets('বকেয়া from the অন্যান্য হিসাব tab itself, and all of them listed there', (t) async {
+    final rig = await start(t);
+    final b = rig.brain;
+    await t.pumpWidget(BrainScope(brain: b, child: MaterialApp(theme: buildTheme(), home: Scaffold(body: ListView(children: const [ProjectsView()])))));
+    await settle(t);
+    await t.tap(find.byKey(const Key('due-add-top')));
+    await settle(t);
+    await t.tap(find.text('ঠিক আছে')); // the name, দোকান, is filled in
+    await settle(t);
+    await t.enterText(find.byKey(const Key('due-person')), 'করিম');
+    await t.enterText(find.byKey(const Key('due-amount')), '৪০০');
+    await t.tap(find.text('রাখুন'));
+    await settle(t);
+    final shop = b.data.projects.single;
+    expect(shop.name, 'দোকান');
+    expect(projectDueTotals(b.data, shop.id).$1, 400);
+    expect(find.text('করিম'), findsOneWidget, reason: 'listed on the tab, no need to open the হিসাব');
+    expect(find.textContaining('দোকান'), findsWidgets);
   });
 
   test('a project loan survives a save and load', () {

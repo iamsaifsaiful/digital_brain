@@ -18,6 +18,11 @@ class ProScreen extends StatefulWidget {
 }
 
 /// A short name and an icon for each Pro feature (the সংক্ষেপে tab).
+/// The shop's features wait with ব্যবসায়ী মোড (owner, 23 Oct): not offered
+/// until it is on.
+bool _shown(BuildContext context, ProFeature f) =>
+    !(f == ProFeature.shops || f == ProFeature.receipts) || BrainScope.of(context).businessMode;
+
 const _short = <ProFeature, (String, IconData)>{
   ProFeature.ai: ('AI সহকারী', Icons.auto_awesome_outlined),
   ProFeature.noAds: ('বিজ্ঞাপন নেই', Icons.block_rounded),
@@ -84,6 +89,7 @@ class _ProScreenState extends State<ProScreen> {
         childAspectRatio: 3.3,
         children: [
           for (final f in proInfo.keys)
+            if (_shown(context, f))
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(color: C.soft, borderRadius: BorderRadius.circular(12)),
@@ -156,6 +162,7 @@ class _ProScreenState extends State<ProScreen> {
         const SizedBox(height: 16),
       ],
       for (final e in proInfo.entries)
+        if (_shown(context, e.key))
         Padding(
           padding: const EdgeInsets.only(bottom: 14),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [

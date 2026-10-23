@@ -95,6 +95,8 @@ String? infoTopic(String text) {
       !_has(text, ['প্রজেক্ট', 'প্রকল্প', 'project', 'কাছে', 'পাওনা', 'দেনা', 'পাবো', 'পাব', 'বাকি', 'এই মাসে', 'মাসের'])) {
     return 'money';
   }
+  // "আমার তথ্য কি তোমার সার্ভারে যায়?", "ডেটা কি নিরাপদ?": where the data lives.
+  if (_has(text, ['তথ্য', 'ডেটা', 'ডাটা', 'data', 'পাসওয়ার্ড', 'গোপন']) && _has(text, ['সার্ভার', 'ইন্টারনেট', 'বাইরে', 'অন্য কেউ', 'কে দেখ', 'নিরাপদ', 'সেফ', 'safe', 'শেয়ার', 'চুরি', 'হ্যাক'])) return 'privacy';
   if (_has(text, ['যাকাত', 'জাকাত', 'zakat'])) return 'zakat';
   if (_has(text, ['ওষুধ', 'ঔষধ', 'অষুধ', 'মেডিসিন'])) return 'medicines';
   if (_has(text, ['অভ্যাস', 'habit'])) return 'habits';
@@ -122,6 +124,8 @@ String? infoAnswer(AppData d, String said, DateTime now) {
   switch (topic) {
     case 'inbox':
       return inboxAnswer(d, said, now);
+    case 'privacy':
+      return tr('আপনার তথ্য আপনার ফোনেই থাকে, PIN দিয়ে তালা দেওয়া। পাসওয়ার্ড, পিন আর ওটিপি কখনো ফোনের বাইরে যায় না। ব্যাকআপ যায় আপনার নিজের Google Drive-এ, তালা দেওয়া অবস্থায়। ফ্যামিলিতে কিছু পাঠালে শুধু সেই মানুষটাই খুলতে পারেন। AI চালু থাকলে শুধু যে কথাটা বুঝতে সাহায্য লাগে সেটুকু যায়।');
     case 'sehri':
       // The last time for sehri is the start of Fajr.
       final s = now.isBefore(today.fajr) ? today : tomorrow;
@@ -259,6 +263,20 @@ String? infoAnswer(AppData d, String said, DateTime now) {
           if (x.expiry != null && (terms.isEmpty || terms.any((t) => normalize('${x.title} ${x.folder}').contains(t)))) x,
       ]..sort((a, b) => a.expiry!.compareTo(b.expiry!));
       if (docs.isEmpty) {
+        // "পাসপোর্টের মেয়াদ কবে শেষ" with no paper in ডকুমেন্টস, but a to-do
+        // or reminder about it: that is what was kept — said, with the hint.
+        final named = [
+          for (final t in searchTerms(text))
+            if (!_has(t, ['মেয়াদ', 'কবে', 'শেষ', 'কত', 'তারিখ', 'আমার', 'হবে', 'কখন']) && t.runes.length > 2) t
+        ];
+        bool about(String title) => named.isNotEmpty && searchTerms(normalize(title)).any((w) => named.any((t) => w.startsWith(t) || t.startsWith(w)));
+        final kept = [
+          for (final t in d.tasks) if (!t.done && about(t.title)) t.due == null ? '“${t.title}”' : '“${t.title}” (${sayWhen(t.due!, now, withTime: false)})',
+          for (final r in d.reminders) if (about(r.title)) '“${r.title}” (${sayWhen(r.nextDate(now), now, withTime: false)})',
+        ];
+        if (kept.isNotEmpty) {
+          return trf('আপনি রেখেছিলেন: {0}। ডকুমেন্টসে কাগজটি রেখে মেয়াদের তারিখ দিলে শেষ হওয়ার আগে মনে করিয়ে দেবো।', [kept.take(2).join('; ')]);
+        }
         return tr('মেয়াদের কোনো তথ্য নেই। ডকুমেন্টসে কাগজটি রেখে মেয়াদের তারিখ দিলে শেষ হওয়ার আগে মনে করিয়ে দেবো।');
       }
       return docs.take(4).map((x) {

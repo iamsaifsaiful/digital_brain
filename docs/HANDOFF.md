@@ -19,6 +19,12 @@
 ## 0b. Update 23 Oct (evening): plugin 1.17.0, admin app 1.7.0+9 (app unchanged, 2.46.0-b97)
 - কোম্পানির হিসাব (owner): `finance.php` — tables `ma_fin_entries` (hand-written আয়/খরচ) and `ma_fin_investors`; `ma_fin_summary()` = approved payments (Pro given free has no payment, so never counts) + hand income; AI bill from the usage table × usd_bdt + hand costs; investors apart; cash = invested + income − expense. Site tab "হিসাব" and admin `GET /admin/finance`, `POST /admin/finance/entry|investor`, `POST|DELETE /admin/finance/{entry|investor}/{id}` — site owner only (manage_options) in both. Admin app: dashboard card → FinancePage. e2e covers it.
 
+## 0c. Update 23 Oct (night): 2.47.0-b98 (plugin and admin unchanged)
+- Second persona walk (21–40) with the real on-phone model: findings 25–40 in `docs/persona-walk-2026-10-23.md`. Walk scripts are `test/persona/*_walk.dart` (renamed from `_test` so the normal suite skips them; they need the model socket server and write `test/persona/out/`). Run: `MODEL=1 flutter test --no-pub --update-goldens test/persona/p5_walk.dart`. The probe: `test/persona/probe_walk.dart --dart-define=LINES='a|b'`.
+- Phone model answers: `phoneModelCommands` (nlu/router.dart) answers only when the rules are weak and the model is sure (`Brain._understandAll`, source `nlu_phone`); `nluLoaderForTests` in nlu/shadow.dart.
+- Shared fixes: number words 21–99 in `findAmount` (from menus.dart `_bnNumbers1to99`; নয় only before a multiplier); `asksWh()` — a question never marks a to-do done; `yesNo` treats দিন/দাও/হবে as no yes inside a wh-question; `_looksNew` counts an `OpenPlace`; `ownMoneyAsked` + `_spanCashAnswer` (own money of a time: in / out / left, one খাত); project questions (কত আছে / লাভ) → that project; first-person give in a project is spending; `Repeat.every2h/3h/4h/6h` (voice only; pickers show them only when chosen); `taskForReminderQuery`; expiry answer falls back to a to-do about the paper; day + "কী কী" → that day's list.
+- UI: বকেয়া from the অন্যান্য হিসাব tab (`AllDuesSection`, "বকেয়া যোগ" picks or creates a হিসাব); unset bills on the reminders page as chips.
+
 ## 0. Where things stand right now
 
 | Part | Version | Where |

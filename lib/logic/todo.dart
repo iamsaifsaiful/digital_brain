@@ -313,7 +313,8 @@ String todoTitle(String rest) {
   while (ws.isNotEmpty && ws.first == ',') {
     ws.removeAt(0);
   }
-  return tidy(ws.join(' ').replaceAll(' , ', ', ')).replaceAll(RegExp(r'[,।.]+$'), '').trim();
+  // "ডাক্তার দেখানো বিকেল ৫টায়": the time is kept apart, not in the name.
+  return tidy(withoutClock(ws.join(' ').replaceAll(' , ', ', '))).replaceAll(RegExp(r'[,।.]+$'), '').trim();
 }
 
 // ───────────────────────── Time words ─────────────────────────
@@ -1011,7 +1012,7 @@ Command? _tdOne(String said0, List<Task> tasks, DateTime now) {
   final reopen = _thas(f, r'(?<=\s)(?:আবার\s+)?(?:বাকি|অসমাপ্ত|অসম্পূর্ণ)\s+(?:রাখো|করো|করে\s+দাও)(?=\s)');
   final notDone = reopen || _saysNotDone(f);
   // "রিপোর্ট শেষ করতে হবে", "রিপোর্ট শেষ হলে পাঠাব": still to do, not done.
-  final done = !notDone && !_saysToDo(f) && _saysDone(f);
+  final done = !notDone && !_saysToDo(f) && _saysDone(f) && !asksWh(said);
   if (reopen) {
     final ref = _tdRef(f, said);
     return TaskDone(said, terms: ref.terms, ref: ref.terms.isEmpty && ref.index == null ? TaskRef(it: true, said: said) : ref, done: false);

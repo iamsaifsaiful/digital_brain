@@ -299,6 +299,10 @@ enum Repeat {
   every10('প্রতি ১০ মিনিটে', minutes: 10),
   every30('প্রতি ৩০ মিনিটে', minutes: 30),
   hourly('প্রতি ঘণ্টায়', minutes: 60),
+  every2h('প্রতি ২ ঘণ্টায়', minutes: 120),
+  every3h('প্রতি ৩ ঘণ্টায়', minutes: 180),
+  every4h('প্রতি ৪ ঘণ্টায়', minutes: 240),
+  every6h('প্রতি ৬ ঘণ্টায়', minutes: 360),
   daily('প্রতিদিন'),
   weekly('প্রতি সপ্তাহে'),
   monthly('প্রতি মাসে'),
@@ -312,7 +316,13 @@ enum Repeat {
   bool get isInterval => minutes > 0;
 
   /// The nearest short repeat for "every N minutes".
-  static Repeat everyMinutes(int m) => m <= 7 ? every5 : (m <= 19 ? every10 : (m <= 44 ? every30 : hourly));
+  static Repeat everyMinutes(int m) => m <= 7
+      ? every5
+      : (m <= 19 ? every10 : (m <= 44 ? every30 : (m <= 90 ? hourly : (m <= 150 ? every2h : (m <= 210 ? every3h : (m <= 300 ? every4h : every6h))))));
+
+  /// Every 2–6 hours: said by voice ("প্রতি দুই ঘণ্টা পর পর"); the pickers
+  /// show them only when one is chosen, so the usual choices stay few.
+  bool get spoken => this == every2h || this == every3h || this == every4h || this == every6h;
 
   static Repeat parse(Object? v) => Repeat.values.firstWhere((k) => k.name == v, orElse: () => Repeat.none);
 }

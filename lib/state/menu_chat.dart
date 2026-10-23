@@ -55,6 +55,21 @@ extension _MenuChat on ChatController {
       // ── Accounts ──
       case ('accounts', 'balance'):
         if (d.accounts.isEmpty) {
+          // "এই মাসে হাতে কত থাকলো": with no accounts kept, what this month's
+          // (or today's) income and spending leave.
+          final t = normalize(c.transcript);
+          final todayAsked = RegExp(fold(r'(?:^|\s)(?:আজ|আজকে|আজকের)(?=\s|$)')).hasMatch(fold(t));
+          final s = MoneySums();
+          for (final e in d.cash) {
+            if (e.projectId != null) continue;
+            if (todayAsked ? dayOnly(e.date) == dayOnly(_now) : (e.date.year == _now.year && e.date.month == _now.month)) s.add(e);
+          }
+          if (s.income > 0 || s.expense > 0) {
+            final when = todayAsked ? tr('আজ') : tr('এই মাসে');
+            _say(out, trf('{0} আয় {1} টাকা, খরচ {2} টাকা — {3} {4} টাকা।', [when, bnNumber(s.income), bnNumber(s.expense), s.balance >= 0 ? tr('হাতে থাকল') : tr('আয়ের চেয়ে বেশি খরচ'), bnNumber(s.balance.abs())]),
+                links: [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন'))]);
+            return;
+          }
           _say(out, tr('কোনো অ্যাকাউন্ট রাখা নেই। অ্যাকাউন্ট পাতায় হাতের টাকা, বিকাশ বা ব্যাংক যোগ করলে কোথায় কত আছে বলতে পারব।'), links: _pageLink('accounts'));
           return;
         }

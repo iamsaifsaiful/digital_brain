@@ -435,6 +435,43 @@ class ProjectsView extends StatelessWidget {
       if (context.mounted) Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProjectScreen(id: p.id)));
     }
 
+    // বকেয়া right from this tab: one হিসাব → straight in; several → which
+    // one; none → name one first (দোকান, ব্যবসা…).
+    Future<void> addDue() async {
+      Project? target;
+      if (open.length == 1) {
+        target = open.first;
+      } else if (open.isEmpty) {
+        if (!await needPro(context, ProFeature.projects, allowed: brain.canAddProject) || !context.mounted) return;
+        final name = await askProjectName(context, initial: tr('দোকান'));
+        if (name == null || name.trim().isEmpty || !context.mounted) return;
+        target = await brain.projectNamed(name.trim());
+      } else {
+        target = await showAppSheet<Project>(
+          context: context,
+          showDragHandle: true,
+          builder: (ctx) => SafeArea(
+            child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(20, 0, 20, 20), children: [
+              Text(tr('কোন হিসাবে বকেয়া?'), style: display(19, weight: 700)),
+              const SizedBox(height: 12),
+              Panel(
+                child: Rows(children: [
+                  for (final p in open)
+                    ListRow(
+                      leading: Icon(Icons.work_outline_rounded, color: C.blue),
+                      title: p.name,
+                      onTap: () => Navigator.pop(ctx, p),
+                    ),
+                ]),
+              ),
+            ]),
+          ),
+        );
+      }
+      if (target == null || !context.mounted) return;
+      await dueForm(context, target);
+    }
+
     Widget row(Project p) {
       final s = projectSums(d.cash, p.id);
       final (owed, _) = projectDueTotals(d, p.id);
@@ -464,15 +501,21 @@ class ProjectsView extends StatelessWidget {
         items: [(tr('মোট এসেছে'), inTotal, C.green), (tr('মোট খরচ'), outTotal, C.orange)],
       ),
       const SizedBox(height: 12),
-      PrimaryButton(label: tr('নতুন হিসাব'), icon: Icons.add_rounded, height: 48, color: C.fill, onPressed: create),
+      Row(children: [
+        Expanded(child: PrimaryButton(label: tr('নতুন হিসাব'), icon: Icons.add_rounded, height: 48, color: C.fill, onPressed: create)),
+        const SizedBox(width: 8),
+        Expanded(child: PrimaryButton(key: const Key('due-add-top'), label: tr('বকেয়া যোগ'), icon: Icons.receipt_long_outlined, height: 48, onPressed: addDue)),
+      ]),
       const SizedBox(height: 8),
       Text(tr('মুখেও বলা যায়: “রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো”, “রহিম ভবন প্রজেক্টে রড কিনলাম ২০ হাজার”'), style: body(13, color: C.muted)),
       const SizedBox(height: 16),
+      AllDuesSection(projects: [...open, ...closed]),
+      if (open.isNotEmpty || closed.isNotEmpty) const SizedBox(height: 16),
       if (open.isEmpty && closed.isEmpty)
         EmptyState(
           icon: Icons.work_outline_rounded,
           title: tr('অন্যান্য কোনো হিসাব নেই'),
-          text: tr('বাড়ি বানানো, অফিসের কাজ, কোনো অর্ডার — প্রতিটার আলাদা আয়-ব্যয় রাখুন। কত এলো, কত গেল, কত থাকলো দেখবেন।'),
+          text: tr('বাড়ি বানানো, দোকান, অফিসের কাজ, কোনো অর্ডার — প্রতিটার আলাদা আয়-ব্যয় আর বকেয়া রাখুন। কত এলো, কত গেল, কে কত বাকি দেখবেন।'),
         )
       else ...[
         if (open.isNotEmpty) ...[

@@ -655,7 +655,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
       if (_showRepeat) ...[
         const SizedBox(height: 6),
         Wrap(spacing: 8, children: [
-          for (final r in Repeat.values)
+          for (final r in Repeat.values.where((x) => !x.spoken || x == _repeat))
             ChoiceChip(
               label: Text(tr(r.label), style: body(14, color: r == _repeat ? C.onInk : C.ink)),
               selected: r == _repeat,

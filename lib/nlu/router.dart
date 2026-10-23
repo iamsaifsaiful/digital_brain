@@ -176,3 +176,27 @@ Map<String, Object?>? _routeItem(String intent, Map<String, String> s, String sa
   }
   return null;
 }
+
+/// What the on-phone model may settle alone, when the rules could not:
+/// questions about what is kept — never money, to-dos or reminders to make
+/// (their facts are the rules' to read).
+const nluPhoneIntents = {'task_query', 'special_query', 'cash_query', 'calendar_query', 'briefing', 'reminder_query', 'ledger_query'};
+
+/// The model's own reading made into commands, when every piece is sure and
+/// one of [nluPhoneIntents]; null otherwise.
+List<Command>? phoneModelCommands(String said, List<NluPiece> pieces, List<LedgerEntry> ledger, DateTime now) {
+  if (pieces.isEmpty || pieces.any((p) => !p.sure || !nluPhoneIntents.contains(p.intent))) return null;
+  final out = <Command>[];
+  for (final p in pieces) {
+    final c = switch (p.intent) {
+      'task_query' => TaskQuery(said),
+      // A special day is asked like a reminder ("… কবে?"); its answer looks in both.
+      'reminder_query' || 'special_query' => ReminderQuery(said, terms: searchTerms(normalize(said))),
+      'calendar_query' => SmallTalk(said, kind: Talk.calendar),
+      _ => commandsFromReading(said, CloudReading([(p.intent, p.slots)], p.conf), ledger, now)?.single,
+    };
+    if (c == null) return null;
+    out.add(c);
+  }
+  return out;
+}

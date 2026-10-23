@@ -339,3 +339,78 @@ class ProjectDuesSection extends StatelessWidget {
     ]);
   }
 }
+
+/// Every open বকেয়া across the অন্যান্য হিসাব, on that tab itself — so
+/// nobody has to open a হিসাব and scroll to find them. Late ones first.
+class AllDuesSection extends StatelessWidget {
+  const AllDuesSection({super.key, required this.projects});
+  final List<Project> projects;
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final today = dayOnly(brain.services.now());
+    final rows = <(Project, PersonBalance, DateTime?)>[];
+    var owed = 0, owing = 0;
+    for (final pr in projects) {
+      for (final p in projectDues(brain.data, pr.id)) {
+        if (p.balance == 0) continue;
+        if (p.balance > 0) owed += p.balance;
+        if (p.balance < 0) owing -= p.balance;
+        rows.add((pr, p, _nextDue(_linesOf(brain.data, pr, p))));
+      }
+    }
+    if (rows.isEmpty) return const SizedBox.shrink();
+    rows.sort((a, b) {
+      final x = a.$3, y = b.$3;
+      if (x == null && y == null) return b.$2.balance.abs().compareTo(a.$2.balance.abs());
+      if (x == null) return 1;
+      if (y == null) return -1;
+      return x.compareTo(y);
+    });
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      SectionTitle(tr('বকেয়া')),
+      Panel(
+        padding: const EdgeInsets.all(14),
+        child: Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tr('আমি পাবো'), style: body(13, color: C.muted)),
+              Text(taka(owed), style: display(19, color: C.green)),
+            ]),
+          ),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text(tr('আমি দেবো'), style: body(13, color: C.muted)),
+              Text(taka(owing), style: display(19, color: C.orange)),
+            ]),
+          ),
+        ]),
+      ),
+      const SizedBox(height: 8),
+      Panel(
+        child: Rows(children: [
+          for (final (pr, p, next) in rows)
+            () {
+              final late = next != null && dayOnly(next).isBefore(today);
+              final when = next == null ? null : (late ? trf('দিন পেরিয়েছে {0}', [shortDate(next)]) : trf('পরিশোধ {0}', [shortDate(next)]));
+              return ListRow(
+                key: Key('alldue-${pr.id}-${p.key}'),
+                leading: CircleAvatar(
+                  backgroundColor: p.balance > 0 ? C.greenTint : C.orangeTint,
+                  child: Text(p.name.isEmpty ? '?' : p.name.characters.first, style: body(15, weight: FontWeight.w700, color: p.balance > 0 ? C.green : C.orange)),
+                ),
+                title: p.name,
+                subtitle: [pr.name, if (when != null) when].join(' · '),
+                trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+                  Text(taka(p.balance.abs()), style: display(16, color: late ? C.red : (p.balance > 0 ? C.green : C.orange))),
+                  Text(p.balance > 0 ? tr('পাবো') : tr('দেবো'), style: body(12, color: C.muted)),
+                ]),
+                onTap: () => dueDetails(context, pr, p),
+              );
+            }(),
+        ]),
+      ),
+    ]);
+  }
+}

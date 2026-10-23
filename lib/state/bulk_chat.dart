@@ -1131,7 +1131,7 @@ extension _BulkChat on ChatController {
     final f = fold(normalize(tidySpeech(t))).replaceAll(RegExp(r'[?？।!,]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
     String clean(String x) {
       var ws = x.trim().split(' ').where((w) => w.isNotEmpty).toList();
-      ws = ws.where((w) => !RegExp(fold(r'^(?:আমার|আমাদের|এই|ওই|একটি|একটা|একটা|আলাদা|নতুন)$')).hasMatch(w)).toList();
+      ws = ws.where((w) => !RegExp(fold(r'^(?:আমার|আমাদের|এই|ওই|একটি|একটা|একটা|আলাদা|নতুন|নামে|নামের|নামক|নামেই)$')).hasMatch(w)).toList();
       if (ws.isEmpty) return '';
       final last = ws.last;
       if (!RegExp(fold(r'দের$')).hasMatch(last)) ws[ws.length - 1] = last.replaceFirst(RegExp(fold(r'(?:ের|এর)$')), '');
@@ -1139,6 +1139,8 @@ extension _BulkChat on ChatController {
     }
     bool ok(String name) {
       if (name.isEmpty || name.length < 3) return false;
+      // "অন্যান্য হিসাব খোলো": the page itself, never an account named অন্যান্য.
+      if (RegExp(fold(r'^(?:অন্যান্য|অন্য|আলাদা|নতুন|সব|এই|ওই|আমার|হিসাব|হিসেব)(?:\s+(?:অন্যান্য|হিসাব|হিসেব))*$')).hasMatch(name)) return false;
       // Not a person in the লেনদেন book, nor the book's own words.
       if (RegExp(fold(r'(?:^|\s)(?:পাওনা|দেনা|লেনদেন|আয়|ব্যয়|খরচ|মাসের|আজকের|কালকের|সব|মোট|ব্যাংক|বিকাশ|নগদ)(?:\s|$)')).hasMatch(name)) return false;
       return !brain.data.ledger.any((e) => fold(normalize(e.person)) == name);

@@ -11,6 +11,10 @@ import 'reader.dart';
 /// On unless a build turns it off (--dart-define=NLU_SHADOW=false); off in tests.
 final nluShadowOn = const bool.fromEnvironment('NLU_SHADOW', defaultValue: true) && !Platform.environment.containsKey('FLUTTER_TEST');
 
+/// Tests that read with a real model set this (the persona walks): the
+/// shadow then runs under `flutter test` too, with this loader.
+Future<NluReader?> Function()? nluLoaderForTests;
+
 class NluShadow {
   NluShadow(this._load, {void Function(String key)? count, bool Function()? enabled, this.force = false, this.onCompare})
       : _countOut = count,

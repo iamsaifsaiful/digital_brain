@@ -323,6 +323,21 @@ int? _yearNear(List<String> w, int i) {
 
 String withoutWhen(String said) {
   var s = fold(said);
+  // "দশটায়", "তিনটায়": hours said as words go like "১০টায়".
+  // (Only a clock time: "-টায়"/"-টে", or "-টা" after সকাল/বিকেল/রাত — "তিনটা
+  // ফাইল" keeps its count.)
+  final parts = s.split(' ');
+  final dayparts = {for (final d in const ['ভোর', 'সকাল', 'দুপুর', 'বিকাল', 'বিকেল', 'সন্ধ্যা', 'রাত']) _n(d)};
+  for (var i = 0; i < parts.length; i++) {
+    final x = _n(parts[i]);
+    final m = _hourSuffix.firstMatch(x);
+    if (m == null || !_hourNames.containsKey(m[1])) continue;
+    final atTime = m[2] != _n('টা') && m[2] != _n('টার');
+    if (atTime || (i > 0 && dayparts.contains(_n(parts[i - 1])))) parts[i] = _hourWord(x);
+  }
+  s = parts.join(' ');
+  // "আগামী রবিবার": the "next" goes with the day.
+  s = s.replaceAll(RegExp('${fold('আগামী')}\\s+(?=(?:${bnWeekdays.map(fold).join('|')}))'), '');
   // "১৫ জুন ২০২৯", "২০২৯ সালের": the year goes with the date.
   s = s.replaceAll(RegExp('(?<=${bnMonths.map(fold).join('|')})\\s*,?\\s*[০-৯0-9]{4}(?:\\s+${fold('সাল')}\\S*|\\s*-?\\s*(?:${fold('এ')}|${fold('তে')}|${fold('র')}|${fold('এর')})(?=[\\s,।.!?]|\$))?(?=[\\s,।.!?]|\$)'), ' ');
   s = s.replaceAll(RegExp('(?:^|(?<=[\\s,।]))[০-৯0-9]{4}\\s+${fold('সাল')}\\S*'), ' ');
@@ -340,6 +355,18 @@ String withoutWhen(String said) {
     for (final d in bnWeekdays) ...[d, '$dে', '$dের'],
   ]);
   return s;
+}
+
+/// Only the clock time and its part of day: "ডাক্তার দেখানো বিকেল ৫টায়" →
+/// "ডাক্তার দেখানো". Other words (and counts like "তিনটা ফাইল") stay.
+String withoutClock(String s) {
+  final dayparts = ['ভোর', 'ভোরে', 'সকাল', 'সকালে', 'দুপুর', 'দুপুরে', 'বিকাল', 'বিকালে', 'বিকেল', 'বিকেলে', 'সন্ধ্যা', 'সন্ধ্যায়', 'রাত', 'রাতে'].map(fold).join('|');
+  final hours = _hourNames.keys.join('|');
+  final clock = '(?:(?:সাড়ে|সোয়া|পৌনে)\\s*)?(?:[০-৯0-9]{1,2}(?:\\s*[:.]\\s*[০-৯0-9]{2})?|$hours)\\s*(?:টায়|টাতে|টার|টা|টে|বাজে)';
+  final re = RegExp(fold('(?:(?:$dayparts)\\s+)?$clock(?=[\\s,।.!?]|\$)'));
+  final hasClock = RegExp(fold('(?:$dayparts)\\s+$clock|[০-৯0-9]{1,2}\\s*(?:টায়|টাতে|টে)|(?:$hours)(?:টায়|টাতে|টে)')).hasMatch(fold(s));
+  if (!hasClock) return s;
+  return fold(s).replaceAll(re, ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
 }
 
 /// Removes whole words or phrases (Bengali has no \b, so spaces and

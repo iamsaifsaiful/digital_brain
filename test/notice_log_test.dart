@@ -69,7 +69,14 @@ void main() {
     await settle(t);
     expect(find.text('ওষুধ খাওয়া'), findsWidgets);
     expect(find.textContaining('আসছে'), findsOneWidget);
-    await t.tap(find.text('আগে এসেছে'));
+    // A tap shows the whole message in a box.
+    await t.tap(find.text('ওষুধ খাওয়া').first);
+    await settle(t);
+    expect(find.byKey(const Key('notice-box')), findsOneWidget);
+    await t.tap(find.text('ঠিক আছে'));
+    await settle(t);
+    // The tabs swipe.
+    await t.fling(find.byType(PageView), const Offset(-500, 0), 2000);
     await settle(t);
     expect(find.text('এখনো কোনো নোটিফিকেশন আসেনি'), findsOneWidget);
   });
