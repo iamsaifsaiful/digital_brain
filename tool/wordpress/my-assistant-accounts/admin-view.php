@@ -76,7 +76,7 @@ function ma_acc_url($args) {
 function ma_acc_render($v) {
     $labels = ma_acc_status_labels();
     $s = $v['stats'];
-    $tab = in_array($v['tab'], ['settings', 'ai', 'nlu', 'heirs', 'payments', 'notices', 'feedback'], true) ? $v['tab'] : 'members';
+    $tab = in_array($v['tab'], ['settings', 'ai', 'nlu', 'heirs', 'payments', 'notices', 'feedback', 'finance'], true) ? $v['tab'] : 'members';
     $fb_new = (int) ($v['fb_new'] ?? 0);
     $pending = (int) ($v['pending'] ?? 0);
     $paying_rate = $s['total'] ? round($s['pro'] * 100 / $s['total'], 1) : 0;
@@ -104,6 +104,7 @@ function ma_acc_render($v) {
                     <a class="<?php echo $tab === 'feedback' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'feedback']); ?>">মতামত<?php if ($fb_new) : ?><i class="ma-badge"><?php echo esc_html(ma_acc_bn($fb_new)); ?></i><?php endif; ?></a>
                     <a class="<?php echo $tab === 'heirs' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'heirs']); ?>">উত্তরাধিকার<?php if (!empty($v['heirs_pending'])) : ?><i class="ma-badge"><?php echo esc_html(ma_acc_bn($v['heirs_pending'])); ?></i><?php endif; ?></a>
                     <a class="<?php echo $tab === 'nlu' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'nlu']); ?>">AI মডেল</a>
+                    <?php if (!empty($v['can_settings'])) : ?><a class="<?php echo $tab === 'finance' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'finance']); ?>">হিসাব</a><?php endif; ?>
                     <?php if (!empty($v['can_settings'])) : ?><a class="<?php echo $tab === 'ai' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'ai']); ?>">AI খরচ</a><?php endif; ?>
                     <?php if (!empty($v['can_settings'])) : ?><a class="<?php echo $tab === 'settings' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'settings']); ?>">সেটিংস</a><?php endif; ?>
                 </nav>
@@ -132,6 +133,8 @@ function ma_acc_render($v) {
             ma_acc_render_payments($v);
         } elseif ($tab === 'notices') {
             ma_acc_render_notices($v);
+        } elseif ($tab === 'finance' && !empty($v['can_settings'])) {
+            ma_acc_render_finance($v['finance'] ?? []);
         } elseif ($tab === 'feedback') {
             ma_acc_render_feedback($v);
         } else {
@@ -556,6 +559,110 @@ function ma_acc_render_feedback_thread($v, $post, $kinds) {
                 <button class="ma-btn" type="submit">উত্তর পাঠান</button>
             </div>
         </form>
+    </section>
+    <?php
+}
+
+/** কোম্পানির হিসাব: আয়, ব্যয়, বিনিয়োগকারী (site owner only; the same in the admin app). */
+function ma_acc_render_finance($f) {
+    if (!$f) {
+        return;
+    }
+    $post = esc_url(admin_url('admin-post.php'));
+    $tk = function ($n) {
+        return ($n < 0 ? '−' : '') . '৳' . ma_acc_bn(number_format(abs((int) $n)));
+    };
+    $mo = ['জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টে', 'অক্টো', 'নভে', 'ডিসে'];
+    $mname = function ($ym) use ($mo) {
+        return $mo[(int) substr($ym, 5, 2) - 1] . ' ' . ma_acc_bn(substr($ym, 0, 4));
+    };
+    $m = $f['month'];
+    ?>
+    <section class="ma-card">
+        <div class="ma-bar"><div class="ma-bar-title"><h2>হিসাব</h2><span class="ma-count"><?php echo esc_html($mname($m['month'])); ?></span></div></div>
+        <p class="muted ma-pad">আয়ের মধ্যে আছে অনুমোদিত পেমেন্ট আর হাতে লেখা আয়। টাকা ছাড়া কাউকে প্রো দিলে সেটা আয়ে ধরা হয় না। ব্যয়ের মধ্যে আছে AI-এর বিল (ডলার ৳<?php echo esc_html(ma_acc_bn($f['usd_bdt'])); ?> ধরে) আর হাতে লেখা খরচ। বিনিয়োগ আলাদা রাখা হয়, ওটা আয় নয়।</p>
+        <div class="ma-figures ma-pad">
+            <div class="ma-fig"><span>এ মাসে আয়</span><strong><?php echo esc_html($tk($m['income'])); ?></strong><em>পেমেন্ট <?php echo esc_html($tk($m['payments'])); ?></em></div>
+            <div class="ma-fig"><span>এ মাসে ব্যয়</span><strong><?php echo esc_html($tk($m['expense'])); ?></strong><em>AI <?php echo esc_html($tk($m['ai'])); ?></em></div>
+            <div class="ma-fig"><span>এ মাসে লাভ/লস</span><strong><?php echo esc_html($tk($m['net'])); ?></strong><em>শুরু থেকে <?php echo esc_html($tk($f['all']['net'])); ?></em></div>
+            <div class="ma-fig"><span>মোট বিনিয়োগ</span><strong><?php echo esc_html($tk($f['invested'])); ?></strong><em>হাতে থাকার কথা <?php echo esc_html($tk($f['cash'])); ?></em></div>
+        </div>
+        <?php if ($f['months']) : ?>
+            <div class="ma-table-wrap">
+                <table class="ma-table">
+                    <thead><tr><th>মাস</th><th class="right">পেমেন্ট</th><th class="right hide-s">অন্য আয়</th><th class="right">AI</th><th class="right hide-s">অন্য খরচ</th><th class="right">লাভ/লস</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($f['months'] as $r) : ?>
+                        <tr><td><?php echo esc_html($mname($r['month'])); ?></td><td class="right"><?php echo esc_html($tk($r['payments'])); ?></td><td class="right hide-s"><?php echo esc_html($tk($r['income_other'])); ?></td><td class="right"><?php echo esc_html($tk($r['ai'])); ?></td><td class="right hide-s"><?php echo esc_html($tk($r['expense_other'])); ?></td><td class="right"><strong><?php echo esc_html($tk($r['net'])); ?></strong></td></tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
+    </section>
+
+    <section class="ma-card">
+        <div class="ma-bar"><div class="ma-bar-title"><h2>আয় বা খরচ লিখুন</h2></div></div>
+        <form class="ma-pad" method="post" action="<?php echo $post; ?>">
+            <input type="hidden" name="action" value="ma_fin_entry"><?php wp_nonce_field('ma_fin_entry'); ?>
+            <div class="ma-ai-row three">
+                <label>ধরন<select name="kind"><option value="expense">খরচ</option><option value="income">আয়</option></select></label>
+                <label>খাত<input type="text" name="category" maxlength="80" list="ma-fin-cats" placeholder="সার্ভার ও হোস্টিং"></label>
+                <label>টাকা<input type="number" name="amount" min="1" required></label>
+            </div>
+            <datalist id="ma-fin-cats"><?php foreach (array_merge($f['categories']['expense'], $f['categories']['income']) as $c) : ?><option value="<?php echo esc_attr($c); ?>"><?php endforeach; ?></datalist>
+            <div class="ma-ai-row three">
+                <label>তারিখ<input type="date" name="on_date" value="<?php echo esc_attr(current_time('Y-m-d')); ?>"></label>
+                <label>বিবরণ<input type="text" name="note" maxlength="400"></label>
+                <label>&nbsp;<button class="ma-btn" type="submit">রাখুন</button></label>
+            </div>
+        </form>
+        <?php if ($f['entries']) : ?>
+            <div class="ma-table-wrap">
+                <table class="ma-table">
+                    <thead><tr><th>তারিখ</th><th>খাত</th><th class="hide-s">বিবরণ</th><th class="right">টাকা</th><th></th></tr></thead>
+                    <tbody>
+                    <?php foreach ($f['entries'] as $e) : ?>
+                        <tr><td><?php echo esc_html(ma_acc_date($e['on_date'] . ' 06:00:00')); ?></td><td><?php echo esc_html($e['category']); ?></td><td class="hide-s"><?php echo esc_html($e['note']); ?></td>
+                            <td class="right"><strong style="color:<?php echo $e['kind'] === 'income' ? 'var(--ok,#0E7A5F)' : 'var(--warn,#B45309)'; ?>"><?php echo esc_html(($e['kind'] === 'income' ? '+' : '−') . $tk($e['amount'])); ?></strong></td>
+                            <td class="right"><form method="post" action="<?php echo $post; ?>" onsubmit="return confirm('মুছে ফেলবেন?')"><input type="hidden" name="action" value="ma_fin_delete"><input type="hidden" name="which" value="entry"><input type="hidden" name="id" value="<?php echo (int) $e['id']; ?>"><?php wp_nonce_field('ma_fin_delete'); ?><button class="ma-btn small ghost" type="submit">মুছুন</button></form></td></tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
+    </section>
+
+    <section class="ma-card">
+        <div class="ma-bar"><div class="ma-bar-title"><h2>বিনিয়োগকারী</h2><span class="ma-count"><?php echo esc_html(ma_acc_bn(count($f['investors']))); ?> জন · <?php echo esc_html($tk($f['invested'])); ?></span></div></div>
+        <form class="ma-pad" method="post" action="<?php echo $post; ?>">
+            <input type="hidden" name="action" value="ma_fin_investor"><?php wp_nonce_field('ma_fin_investor'); ?>
+            <div class="ma-ai-row three">
+                <label>নাম<input type="text" name="name" maxlength="190" required></label>
+                <label>মোবাইল/ইমেইল<input type="text" name="contact" maxlength="190"></label>
+                <label>টাকা<input type="number" name="amount" min="0"></label>
+            </div>
+            <div class="ma-ai-row three">
+                <label>শেয়ার (%)<input type="text" name="share" maxlength="16" placeholder="১০"></label>
+                <label>তারিখ<input type="date" name="on_date" value="<?php echo esc_attr(current_time('Y-m-d')); ?>"></label>
+                <label>নোট<input type="text" name="note" maxlength="400"></label>
+            </div>
+            <button class="ma-btn" type="submit">বিনিয়োগকারী যোগ করুন</button>
+        </form>
+        <?php if ($f['investors']) : ?>
+            <div class="ma-table-wrap">
+                <table class="ma-table">
+                    <thead><tr><th>নাম</th><th class="hide-s">যোগাযোগ</th><th>তারিখ</th><th class="right">শেয়ার</th><th class="right">টাকা</th><th></th></tr></thead>
+                    <tbody>
+                    <?php foreach ($f['investors'] as $i) : ?>
+                        <tr><td><?php echo esc_html($i['name']); ?><?php if ($i['note'] !== '') : ?><div class="muted small"><?php echo esc_html($i['note']); ?></div><?php endif; ?></td><td class="hide-s"><?php echo esc_html($i['contact']); ?></td><td><?php echo esc_html(ma_acc_date($i['on_date'] . ' 06:00:00')); ?></td>
+                            <td class="right"><?php echo $i['share'] !== '' ? esc_html(ma_acc_bn($i['share']) . '%') : '—'; ?></td><td class="right"><strong><?php echo esc_html($tk($i['amount'])); ?></strong></td>
+                            <td class="right"><form method="post" action="<?php echo $post; ?>" onsubmit="return confirm('মুছে ফেলবেন?')"><input type="hidden" name="action" value="ma_fin_delete"><input type="hidden" name="which" value="investor"><input type="hidden" name="id" value="<?php echo (int) $i['id']; ?>"><?php wp_nonce_field('ma_fin_delete'); ?><button class="ma-btn small ghost" type="submit">মুছুন</button></form></td></tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
     </section>
     <?php
 }

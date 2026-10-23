@@ -2,7 +2,7 @@
 /**
  * Plugin Name: My Assistant Accounts
  * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, প্রো, পেমেন্ট, নোটিফিকেশন আর মতামত। শুধু নাম, ইমেইল, ছবি আর প্রো-র তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.16.0
+ * Version: 1.17.0
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: My Assistant
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.16.0';
+const MA_ACC_VERSION = '1.17.0';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
 const MA_ACC_PER_PAGE = 20;
 
@@ -30,6 +30,7 @@ require_once __DIR__ . '/pro-page.php';
 require_once __DIR__ . '/blood.php';
 require_once __DIR__ . '/family.php';
 require_once __DIR__ . '/metal.php';
+require_once __DIR__ . '/finance.php';
 
 /** The members table. */
 function ma_acc_table() {
@@ -69,6 +70,7 @@ function ma_acc_install() {
     ma_fb_install();
     ma_bl_install();
     ma_fam_install();
+    ma_fin_install();
     // Who may approve payments and manage members (the admin app signs in with these accounts).
     if (!get_role('ma_admin')) {
         add_role('ma_admin', 'My Assistant অ্যাডমিন', ['read' => true, 'ma_manage' => true]);
@@ -445,6 +447,9 @@ function ma_acc_admin() {
             'done' => $wpdb->get_results("SELECT * FROM $ft WHERE status = 'done' ORDER BY id DESC LIMIT 200", ARRAY_A),
             default => $wpdb->get_results("SELECT * FROM $ft WHERE status <> 'done' ORDER BY id DESC LIMIT 200", ARRAY_A),
         };
+    }
+    if ($tab === 'finance' && current_user_can('manage_options')) {
+        $extra['finance'] = ma_fin_summary(sanitize_text_field((string) ($_GET['month'] ?? '')));
     }
     if ($tab === 'heirs') {
         $extra['heirs'] = ma_fam_claims_list('all');

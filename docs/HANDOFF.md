@@ -16,6 +16,9 @@
 - Profile plan badge (`PlanBadge` in settings_parts.dart: ফ্রি / প্রো · until / ট্রায়াল, tap → ProScreen; Play app only). Pro coming on adds a one-off local notification `nudge:pro` (Brain._oneOff) — from a server grant only when the phone has no push token (the server pushes its own).
 - Persona review + next ideas: `docs/persona-review-2026-10-23.md`.
 
+## 0b. Update 23 Oct (evening): plugin 1.17.0, admin app 1.7.0+9 (app unchanged, 2.46.0-b97)
+- কোম্পানির হিসাব (owner): `finance.php` — tables `ma_fin_entries` (hand-written আয়/খরচ) and `ma_fin_investors`; `ma_fin_summary()` = approved payments (Pro given free has no payment, so never counts) + hand income; AI bill from the usage table × usd_bdt + hand costs; investors apart; cash = invested + income − expense. Site tab "হিসাব" and admin `GET /admin/finance`, `POST /admin/finance/entry|investor`, `POST|DELETE /admin/finance/{entry|investor}/{id}` — site owner only (manage_options) in both. Admin app: dashboard card → FinancePage. e2e covers it.
+
 ## 0. Where things stand right now
 
 | Part | Version | Where |

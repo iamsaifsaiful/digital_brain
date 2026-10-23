@@ -270,7 +270,281 @@ class _DashboardPageState extends State<DashboardPage> {
               Icon(Icons.chevron_right_rounded, color: c.muted),
             ]),
           ),
+        const SizedBox(height: 10),
+        CardBox(
+          key: const Key('open-finance'),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => FinancePage(api: widget.api, guard: widget.guard))),
+          child: Row(children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(color: c.tint, borderRadius: BorderRadius.circular(14)),
+              child: Icon(Icons.account_balance_outlined, color: c.brand),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('হিসাব', style: text(16, weight: FontWeight.w700, color: c.ink)),
+                Text('আয়, ব্যয়, লাভ/লস আর বিনিয়োগকারী', style: text(13.5, color: c.muted)),
+              ]),
+            ),
+            Icon(Icons.chevron_right_rounded, color: c.muted),
+          ]),
+        ),
       ]),
+    );
+  }
+}
+
+// ── হিসাব (site owner only) ──
+
+String _ymName(String ym) {
+  final m = int.tryParse(ym.length >= 7 ? ym.substring(5, 7) : '') ?? 1;
+  return '${_months[m - 1]} ${bn(ym.substring(0, 4))}';
+}
+
+String _signed(num n) => '${n < 0 ? '−' : ''}${taka(n.abs().toInt())}';
+
+/// কোম্পানির হিসাব: the same as the site's হিসাব tab. Income is approved
+/// payments plus income written by hand (Pro given free is not income); the
+/// AI bill and costs written by hand are the expenses; investors apart.
+class FinancePage extends StatefulWidget {
+  const FinancePage({super.key, required this.api, required this.guard});
+  final Api api;
+  final Guard guard;
+
+  @override
+  State<FinancePage> createState() => _FinancePageState();
+}
+
+class _FinancePageState extends State<FinancePage> {
+  Map<String, dynamic>? _f;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final f = await widget.api.finance();
+      if (mounted) {
+        setState(() {
+          _f = f;
+          _error = null;
+        });
+      }
+    } on ApiError catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    }
+  }
+
+  String _today() => DateTime.now().toIso8601String().substring(0, 10);
+
+  Future<void> _addEntry() async {
+    final c = Palette.of(context);
+    final cats = ((_f?['categories'] as Map?) ?? const {}).cast<String, dynamic>();
+    var kind = 'expense';
+    final cat = TextEditingController();
+    final amount = TextEditingController();
+    final note = TextEditingController();
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => Padding(
+          padding: EdgeInsets.fromLTRB(22, 0, 22, 22 + MediaQuery.of(ctx).viewInsets.bottom),
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('আয় বা খরচ লিখুন', style: text(21, weight: FontWeight.w700, color: c.ink)),
+              const SizedBox(height: 12),
+              SegmentedButton<String>(
+                segments: const [ButtonSegment(value: 'expense', label: Text('খরচ')), ButtonSegment(value: 'income', label: Text('আয়'))],
+                selected: {kind},
+                showSelectedIcon: false,
+                onSelectionChanged: (v) => setS(() => kind = v.first),
+              ),
+              const SizedBox(height: 10),
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                for (final x in ((cats[kind] as List?) ?? const []).cast<Object>()) ActionChip(label: Text('$x'), onPressed: () => setS(() => cat.text = '$x')),
+              ]),
+              const SizedBox(height: 10),
+              TextField(key: const Key('fin-cat'), controller: cat, decoration: const InputDecoration(labelText: 'খাত', border: OutlineInputBorder())),
+              const SizedBox(height: 10),
+              TextField(key: const Key('fin-amount'), controller: amount, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'টাকা', prefixText: '৳ ', border: OutlineInputBorder())),
+              const SizedBox(height: 10),
+              TextField(controller: note, decoration: const InputDecoration(labelText: 'বিবরণ (ঐচ্ছিক)', border: OutlineInputBorder())),
+              const SizedBox(height: 16),
+              SizedBox(width: double.infinity, height: 52, child: FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('রাখুন'))),
+            ]),
+          ),
+        ),
+      ),
+    );
+    final n = int.tryParse(amount.text.trim()) ?? 0;
+    if (ok != true || n <= 0) return;
+    await widget.guard(() => widget.api.addFinanceEntry(kind: kind, category: cat.text.trim(), amount: n, date: _today(), note: note.text.trim()));
+    _load();
+  }
+
+  Future<void> _addInvestor() async {
+    final c = Palette.of(context);
+    final name = TextEditingController();
+    final contact = TextEditingController();
+    final amount = TextEditingController();
+    final share = TextEditingController();
+    final note = TextEditingController();
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(22, 0, 22, 22 + MediaQuery.of(ctx).viewInsets.bottom),
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('বিনিয়োগকারী', style: text(21, weight: FontWeight.w700, color: c.ink)),
+            const SizedBox(height: 12),
+            TextField(key: const Key('inv-name'), controller: name, decoration: const InputDecoration(labelText: 'নাম', border: OutlineInputBorder())),
+            const SizedBox(height: 10),
+            TextField(controller: contact, decoration: const InputDecoration(labelText: 'মোবাইল/ইমেইল', border: OutlineInputBorder())),
+            const SizedBox(height: 10),
+            TextField(key: const Key('inv-amount'), controller: amount, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'বিনিয়োগ', prefixText: '৳ ', border: OutlineInputBorder())),
+            const SizedBox(height: 10),
+            TextField(controller: share, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'শেয়ার (%)', border: OutlineInputBorder())),
+            const SizedBox(height: 10),
+            TextField(controller: note, decoration: const InputDecoration(labelText: 'নোট', border: OutlineInputBorder())),
+            const SizedBox(height: 16),
+            SizedBox(width: double.infinity, height: 52, child: FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('যোগ করুন'))),
+          ]),
+        ),
+      ),
+    );
+    if (ok != true || name.text.trim().isEmpty) return;
+    await widget.guard(() => widget.api.addInvestor(
+        name: name.text.trim(), contact: contact.text.trim(), amount: int.tryParse(amount.text.trim()) ?? 0, share: share.text.trim(), date: _today(), note: note.text.trim()));
+    _load();
+  }
+
+  Future<void> _delete(String which, Map<String, dynamic> row) async {
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('মুছে ফেলবেন?'),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('না')), TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('মুছুন'))],
+      ),
+    );
+    if (yes != true) return;
+    await widget.guard(() => widget.api.deleteFinance(which, (row['id'] as num).toInt()));
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Palette.of(context);
+    final f = _f;
+    num v(Map? m, String k) => (m?[k] as num?) ?? 0;
+    Widget fig(String label, num value, String sub, Color color) => Expanded(
+          child: CardBox(
+            padding: const EdgeInsets.all(14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, style: text(13, color: c.muted)),
+              Text(_signed(value), style: text(20, weight: FontWeight.w700, color: color)),
+              Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: text(12, color: c.muted)),
+            ]),
+          ),
+        );
+    return Scaffold(
+      appBar: AppBar(title: const Text('হিসাব')),
+      floatingActionButton: f == null ? null : FloatingActionButton.extended(key: const Key('fin-add'), onPressed: _addEntry, icon: const Icon(Icons.add_rounded), label: const Text('আয়/খরচ')),
+      body: _error != null
+          ? ListView(children: [Empty(Icons.lock_outline_rounded, 'দেখা যাচ্ছে না', _error!)])
+          : f == null
+              ? const Center(child: CircularProgressIndicator())
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 96), children: [
+                    Text('আয়ের মধ্যে আছে অনুমোদিত পেমেন্ট আর হাতে লেখা আয়। টাকা ছাড়া কাউকে প্রো দিলে সেটা আয়ে ধরা হয় না। ব্যয়ের মধ্যে আছে AI-এর বিল আর হাতে লেখা খরচ।',
+                        style: text(13, color: c.muted, height: 1.45)),
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      fig('এ মাসে আয়', v(f['month'], 'income'), 'পেমেন্ট ${_signed(v(f['month'], 'payments'))}', c.green),
+                      const SizedBox(width: 10),
+                      fig('এ মাসে ব্যয়', v(f['month'], 'expense'), 'AI ${_signed(v(f['month'], 'ai'))}', c.amber),
+                    ]),
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      fig('এ মাসে লাভ/লস', v(f['month'], 'net'), 'শুরু থেকে ${_signed(v(f['all'], 'net'))}', v(f['month'], 'net') < 0 ? c.rose : c.green),
+                      const SizedBox(width: 10),
+                      fig('মোট বিনিয়োগ', v(f, 'invested'), 'হাতে থাকার কথা ${_signed(v(f, 'cash'))}', c.ink),
+                    ]),
+                    const SizedBox(height: 18),
+                    Text('মাস অনুযায়ী', style: text(16, weight: FontWeight.w700, color: c.ink)),
+                    const SizedBox(height: 8),
+                    for (final m in ((f['months'] as List?) ?? const []).cast<Map>())
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: CardBox(
+                          padding: const EdgeInsets.all(14),
+                          child: Row(children: [
+                            Expanded(
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Text(_ymName('${m['month']}'), style: text(15, weight: FontWeight.w700, color: c.ink)),
+                                Text('আয় ${_signed(v(m, 'income'))} · ব্যয় ${_signed(v(m, 'expense'))}', style: text(12.5, color: c.muted)),
+                              ]),
+                            ),
+                            Text(_signed(v(m, 'net')), style: text(16, weight: FontWeight.w700, color: v(m, 'net') < 0 ? c.rose : c.green)),
+                          ]),
+                        ),
+                      ),
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      Expanded(child: Text('বিনিয়োগকারী', style: text(16, weight: FontWeight.w700, color: c.ink))),
+                      TextButton.icon(key: const Key('inv-add'), onPressed: _addInvestor, icon: const Icon(Icons.person_add_alt_1_outlined), label: const Text('যোগ করুন')),
+                    ]),
+                    for (final i in ((f['investors'] as List?) ?? const []).cast<Map<String, dynamic>>())
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: CardBox(
+                          padding: const EdgeInsets.all(14),
+                          child: Row(children: [
+                            Expanded(
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Text('${i['name']}', style: text(15, weight: FontWeight.w700, color: c.ink)),
+                                Text([if ('${i['contact'] ?? ''}'.isNotEmpty) '${i['contact']}', date('${i['on_date']}'), if ('${i['share'] ?? ''}'.isNotEmpty) 'শেয়ার ${bn(i['share'])}%'].join(' · '),
+                                    style: text(12.5, color: c.muted)),
+                              ]),
+                            ),
+                            Text(_signed(v(i, 'amount')), style: text(15, weight: FontWeight.w700, color: c.ink)),
+                            IconButton(tooltip: 'মুছুন', onPressed: () => _delete('investor', i), icon: Icon(Icons.delete_outline_rounded, color: c.muted)),
+                          ]),
+                        ),
+                      ),
+                    const SizedBox(height: 10),
+                    Text('হাতে লেখা আয়-খরচ', style: text(16, weight: FontWeight.w700, color: c.ink)),
+                    const SizedBox(height: 8),
+                    for (final e in ((f['entries'] as List?) ?? const []).cast<Map<String, dynamic>>())
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: CardBox(
+                          padding: const EdgeInsets.all(14),
+                          child: Row(children: [
+                            Expanded(
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Text('${e['category']}', style: text(15, weight: FontWeight.w700, color: c.ink)),
+                                Text([date('${e['on_date']}'), if ('${e['note'] ?? ''}'.isNotEmpty) '${e['note']}'].join(' · '), style: text(12.5, color: c.muted)),
+                              ]),
+                            ),
+                            Text('${e['kind'] == 'income' ? '+' : '−'}${taka(v(e, 'amount').toInt())}',
+                                style: text(15, weight: FontWeight.w700, color: e['kind'] == 'income' ? c.green : c.amber)),
+                            IconButton(tooltip: 'মুছুন', onPressed: () => _delete('entry', e), icon: Icon(Icons.delete_outline_rounded, color: c.muted)),
+                          ]),
+                        ),
+                      ),
+                  ]),
+                ),
     );
   }
 }

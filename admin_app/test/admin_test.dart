@@ -28,6 +28,13 @@ class FakeServer {
     {'id': 70, 'from': 'member', 'admin': '', 'text': 'রাত ১০টার রিমাইন্ডার বাজেনি', 'created': _ago(const Duration(minutes: 12)), 'file': {'name': 'screen.png', 'mime': 'image/png', 'size': 70}},
   ];
   final replies = <Map<String, dynamic>>[];
+  final finAdds = <Map<String, dynamic>>[];
+  final finEntries = <Map<String, Object?>>[
+    {'id': 1, 'kind': 'expense', 'category': 'সার্ভার ও হোস্টিং', 'amount': 1500, 'on_date': '2026-10-05', 'note': 'হোস্টিং'},
+  ];
+  final investors = <Map<String, Object?>>[
+    {'id': 1, 'name': 'করিম চৌধুরী', 'contact': '01711000000', 'amount': 200000, 'share': '10', 'on_date': '2026-09-01', 'note': ''},
+  ];
   final saved = <Map<String, dynamic>>[];
   final labels = <Map<String, dynamic>>[];
   final decisions = <Map<String, dynamic>>[];
@@ -78,6 +85,25 @@ class FakeServer {
         {'id': 2, 'name': 'Nusrat Jahan', 'email': 'nusrat.j@gmail.com', 'picture': '', 'status': 'trial', 'pro_until': _now.add(const Duration(days: 5)).toIso8601String(), 'joined': _ago(const Duration(days: 2)), 'last_seen': _ago(const Duration(hours: 3)), 'version': '2.14.0 play', 'note': ''},
         {'id': 3, 'name': '', 'email': 'sumon.dhaka@gmail.com', 'picture': '', 'status': 'free', 'pro_until': null, 'joined': _ago(const Duration(days: 30)), 'last_seen': _ago(const Duration(days: 1)), 'version': '2.14.0 direct', 'note': ''},
       ]};
+    } else if (p == '/admin/finance') {
+      final inc = 999 + finAdds.where((x) => x['kind'] == 'income').fold<int>(0, (a, x) => a + (x['amount'] as int));
+      final exp = 1500 + 320 + finAdds.where((x) => x['kind'] == 'expense').fold<int>(0, (a, x) => a + (x['amount'] as int));
+      body = {
+        'month': {'month': '2026-10', 'payments': 999, 'income_other': inc - 999, 'ai': 320, 'expense_other': exp - 320, 'income': inc, 'expense': exp, 'net': inc - exp},
+        'all': {'income': inc + 4950, 'expense': exp + 900, 'net': inc + 4950 - exp - 900},
+        'invested': 200000, 'cash': 200000 + inc + 4950 - exp - 900,
+        'months': [
+          {'month': '2026-10', 'income': inc, 'expense': exp, 'net': inc - exp},
+          {'month': '2026-09', 'income': 4950, 'expense': 900, 'net': 4050},
+        ],
+        'entries': finEntries, 'investors': investors,
+        'categories': {'income': ['বিজ্ঞাপন'], 'expense': ['সার্ভার ও হোস্টিং', 'ডোমেইন']},
+      };
+    } else if (p == '/admin/finance/entry') {
+      final j = jsonDecode(r.body) as Map<String, dynamic>;
+      finAdds.add(j);
+      finEntries.insert(0, {'id': 9, 'kind': j['kind'], 'category': j['category'], 'amount': j['amount'], 'on_date': j['date'], 'note': j['note']});
+      body = {'ok': true, 'id': 9};
     } else if (p == '/admin/notice-log') {
       final when = r.url.queryParameters['when'] ?? '';
       final all = [
@@ -238,6 +264,26 @@ void main() {
     await t.testTextInput.receiveAction(TextInputAction.search);
     await settle(t);
     expect(find.text('রিমাইন্ডার'), findsNothing);
+  });
+
+  testWidgets('হিসাব: income, expense, profit, investors; write a cost', (t) async {
+    final server = await open(t);
+    await t.scrollUntilVisible(find.byKey(const Key('open-finance')), 200);
+    await t.tap(find.byKey(const Key('open-finance')));
+    await settle(t);
+    expect(find.text('এ মাসে আয়'), findsOneWidget);
+    expect(find.text('করিম চৌধুরী'), findsOneWidget);
+    expect(find.text('৳৯৯৯'), findsOneWidget);
+    await shot(t, 'finance');
+    await t.tap(find.byKey(const Key('fin-add')));
+    await settle(t);
+    await t.tap(find.text('ডোমেইন'));
+    await t.enterText(find.byKey(const Key('fin-amount')), '1200');
+    await t.tap(find.text('রাখুন'));
+    await settle(t);
+    expect(server.finAdds.single, containsPair('category', 'ডোমেইন'));
+    expect(server.finAdds.single['amount'], 1200);
+    expect(find.text('ডোমেইন'), findsOneWidget);
   });
 
   testWidgets('feedback: open a conversation, see the screenshot, answer with text', (t) async {

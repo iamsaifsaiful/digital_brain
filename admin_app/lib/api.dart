@@ -204,6 +204,14 @@ class Api {
 
   Future<void> toggleNotice(int id) => _send('POST', '/admin/notices/$id/toggle');
 
+  /// কোম্পানির হিসাব (site owner only): আয়, ব্যয়, বিনিয়োগকারী — the same as the site's হিসাব tab.
+  Future<Map<String, dynamic>> finance() => _send('GET', '/admin/finance');
+  Future<void> addFinanceEntry({required String kind, required String category, required int amount, required String date, String note = ''}) =>
+      _send('POST', '/admin/finance/entry', {'kind': kind, 'category': category, 'amount': amount, 'date': date, 'note': note});
+  Future<void> addInvestor({required String name, String contact = '', int amount = 0, String share = '', required String date, String note = ''}) =>
+      _send('POST', '/admin/finance/investor', {'name': name, 'contact': contact, 'amount': amount, 'share': share, 'date': date, 'note': note});
+  Future<void> deleteFinance(String which, int id) => _send('POST', '/admin/finance/$which/$id');
+
   /// নোটিফিকেশনের লগ (as on the site): [q] a member's name or e-mail, [when] '', 'past' or 'next'.
   Future<List<Map<String, dynamic>>> noticeLog({String q = '', String when = ''}) async =>
       ((await _send('GET', '/admin/notice-log?q=${Uri.encodeQueryComponent(q)}&when=$when'))['rows'] as List).cast<Map<String, dynamic>>();
