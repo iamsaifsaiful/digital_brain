@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'p5_test.dart' show run;
+import 'p5_walk.dart' show run;
 
 void main() {
   testWidgets('31 ভাড়াটিয়া', (t) => run(t, 'p31', 'রাশিদা, ভাড়া বাসায় থাকেন', [
