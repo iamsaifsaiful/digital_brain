@@ -106,6 +106,12 @@ T['task_query'] = '''
 {todo:title} কবে [যেন|আছে|রাখা][?|]
 '''
 
+T['task_query'] += '''
+[todo|to do|to-do] [list|liste] [dao|dekhao|bolo|show koro]
+[amar |][kajer|kaj er] [list|talika] [ta |][dao|dekhao|bolo]
+[aj|kal|ajke|kalke] [ki ki|koto] kaj [ache|ase][?|]
+'''
+
 T['open_page'] = '''
 {page} [খোলো|খুলো|খুলে দাও|দেখাও][ তো| একটু|]
 '''
