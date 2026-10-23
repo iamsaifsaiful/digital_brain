@@ -215,6 +215,11 @@ F('call', 'a', lambda u: (j(_p(u) + 'কে', ch(u, ['ফোন দাও', 'ক
 F('call', 'b', lambda u: (j(ch(u, ['একটু', 'এখনই']), _p(u) + 'কে', ch(u, ['কল করো', 'ফোন করো তো'])), {}))
 F('open_page', 'a', lambda u: (j(ch(u, ['রিমাইন্ডার', 'নোট', 'হিসাব', 'স্বাস্থ্য', 'ডকুমেন্টস', 'ক্যালেন্ডার']), ch(u, ['খোলো', 'খুলো', 'খুলে দাও'])), dict(page=True)))
 F('open_page', 'b', lambda u: (j(ch(u, ['লেনদেনের', 'নোটের', 'রিমাইন্ডারের', 'অভ্যাসের', 'ওষুধের', 'ক্যালেন্ডারের', 'সেটিংসের']), ch(u, ['পাতাটা', 'পেজ', 'পাতা']), ch(u, ['দেখাও', 'খোলো', 'ওপেন করো'])), dict(page=True)))
+# Contrast for special_add: a relation and a date are a plan too ("বারো
+# নভেম্বর ছেলের টিকা" is a to-do, not a birthday) — only জন্মদিন / বার্ষিকী
+# make a yearly day.
+F('task_add', 'a', lambda u: (j(f'{L.bn(u.r.randint(1, 28))} {ch(u, L.MONTHS)}', ch(u, ['ছেলের', 'মেয়ের', 'আম্মার', 'বোনের', 'নানুর']), ch(u, ['টিকা', 'স্কুলের মিটিং', 'ডাক্তার দেখানো', 'বিয়েতে দাওয়াত', 'পরীক্ষা', 'চোখের অপারেশন'])), {}))
+F('task_add', 'b', lambda u: (j(ch(u, ['ছেলের', 'মেয়ের', 'ভাইয়ের', 'খালার']), ch(u, ['ভর্তির কাজ', 'বিয়ের বাজার', 'টিকার দিন', 'রেজাল্ট আনা']), f'{L.bn(u.r.randint(1, 28))} {ch(u, L.MONTHS)}'), {}))
 F('special_add', 'a', lambda u: (j(ch(u, ['ছেলের', 'মেয়ের', 'বউয়ের', 'আম্মার', L.gen(ch(u, L.MALE))]), 'জন্মদিন', f'{L.bn(u.r.randint(1, 28))} {ch(u, L.MONTHS)}'), {}))
 F('special_add', 'b', lambda u: (j(f'{L.bn(u.r.randint(1, 28))} {ch(u, L.MONTHS)}', ch(u, ['আমাদের বিবাহবার্ষিকী', 'আমার বিয়ের দিন'])), {}))
 
