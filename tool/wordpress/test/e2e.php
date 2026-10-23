@@ -751,4 +751,51 @@ check($code === 200 && $mine && $mine[0]['problem'] === 'অপারেশন' 
 [$code, $d] = call('GET', '/blood/requests', ['scope' => 'all', 'blood' => 'A+'], $farSes);
 check($code === 200 && !array_filter($d['requests'], fn($x) => $x['hospital'] === 'রাজশাহী মেডিকেল'), 'a group filter narrows it');
 
+echo "  — নোটিফিকেশনের লগ: the phone's plan and our pushes\n";
+[$logId, $logSes] = $mk('log@gmail.com', 'লগ সদস্য', false);
+$wpdb->update(ma_ai_sessions_table(), ['fcm_token' => 'log-phone-fcm-token-123456'], ['user_id' => $logId]);
+$soon = gmdate('c', time() + 3600);
+$later = gmdate('c', time() + 2 * DAY_IN_SECONDS);
+[$code] = call('POST', '/notices/plan', ['items' => [['kind' => 'reminder', 'at' => $soon]]]);
+check($code === 401, 'plan: needs the member session');
+[$code, $d] = call('POST', '/notices/plan', ['items' => [
+    ['kind' => 'reminder', 'at' => $soon, 'title' => 'ওষুধ খান — নাপা'],
+    ['kind' => 'brief:morning', 'at' => $later],
+    ['kind' => 'server', 'at' => $later, 'title' => 'আজকের লিস্ট করেছেন?'],
+    ['kind' => 'Bad Kind!', 'at' => $soon],
+    ['kind' => 'reminder', 'at' => gmdate('c', time() - 3600)],
+    ['kind' => 'reminder', 'at' => gmdate('c', time() + 30 * DAY_IN_SECONDS)],
+]], $logSes);
+check($code === 200 && $d['saved'] === 3, 'plan: three good lines kept (bad kind, past and far ones dropped)');
+$t = ma_nlog_table();
+check(!$wpdb->get_var("SELECT COUNT(*) FROM $t WHERE user_id = $logId AND title LIKE '%নাপা%'"), "plan: a reminder's own words are never stored");
+check($wpdb->get_var("SELECT title FROM $t WHERE user_id = $logId AND kind = 'server'") === 'আজকের লিস্ট করেছেন?', "plan: our own notification keeps its title");
+call('POST', '/notices/plan', ['items' => [['kind' => 'reminder', 'at' => $later]]], $logSes);
+check((int) $wpdb->get_var("SELECT COUNT(*) FROM $t WHERE user_id = $logId AND source = 'plan'") === 1, 'plan: a new list replaces what was still ahead');
+$wpdb->insert($t, ['user_id' => $logId, 'source' => 'plan', 'kind' => 'reminder', 'title' => '', 'at' => gmdate('Y-m-d H:i:s', time() - 7200), 'status' => 'planned', 'created_at' => gmdate('Y-m-d H:i:s')]);
+call('POST', '/notices/plan', ['items' => [['kind' => 'reminder', 'at' => $later]]], $logSes);
+check((int) $wpdb->get_var("SELECT COUNT(*) FROM $t WHERE user_id = $logId AND source = 'plan'") === 2, 'plan: what already went by stays as history');
+ma_push_member($logId, 'আপনার মতামতের উত্তর এসেছে', 'ধন্যবাদ', ['type' => 'feedback']);
+ma_push_member($logId, '', '', ['type' => 'locate']);
+[$code, $d] = call('GET', '/notices/log', [], $logSes);
+check($code === 200 && count($d['pushes']) === 1 && $d['pushes'][0]['kind'] === 'feedback' && $d['pushes'][0]['status'] === 'sent', 'push: logged for the member (a silent one is not)');
+[$code, $d] = call('GET', '/admin/notice-log', ['q' => 'log@gmail'], $bossSes);
+$kinds = array_column($d['rows'] ?? [], 'kind');
+check($code === 200 && in_array('feedback', $kinds, true) && in_array('reminder', $kinds, true) && !array_filter($d['rows'], fn($r) => $r['email'] !== 'log@gmail.com'), 'admin app: the log, filtered by member');
+$shown = array_values(array_filter($d['rows'], fn($r) => $r['source'] === 'plan' && $r['status'] === 'shown'));
+check($shown && $shown[0]['status_label'] === 'দেখানোর কথা', 'admin app: a planned one whose time came reads "দেখানোর কথা"');
+[$code, $d] = call('GET', '/admin/notice-log', ['q' => 'log@gmail', 'when' => 'next'], $bossSes);
+check($code === 200 && count($d['rows']) === 1 && $d['rows'][0]['kind'] === 'reminder', 'admin app: only what is still ahead');
+[$code] = call('GET', '/admin/notice-log', [], $logSes);
+check($code === 403, 'admin app: a member cannot read the log');
+$n0 = count($sent['fcm']);
+[$code, $d] = call('POST', '/admin/push', ['title' => 'নতুন সুবিধা', 'body' => 'দেখুন', 'audience' => 'all'], $bossSes);
+check($code === 200 && $d['sent'] >= 1 && (int) $wpdb->get_var("SELECT COUNT(*) FROM $t WHERE user_id = $logId AND kind = 'news'") === 1, 'a push to everyone is logged per member');
+wp_set_current_user(1);
+$_GET = ['page' => 'my-assistant', 'tab' => 'notices', 'nq' => 'log@gmail'];
+ob_start();
+ma_acc_admin();
+$html = ob_get_clean();
+check(str_contains($html, 'কার কাছে কী গেছে') && str_contains($html, 'মতামতের উত্তর') && str_contains($html, 'এখনই পাঠান') && !preg_match('/(Warning|Notice|Fatal|Deprecated)\b.*on line/', $html), 'site: the log and "send now" on the নোটিফিকেশন tab');
+
 echo $fail ? "\n$fail FAILED\n" : "\nALL OK\n";

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../logic/me.dart' show bloodGroups;
 
+import '../logic/bn.dart';
 import '../logic/lang.dart';
+import 'pro_screen.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
@@ -140,6 +142,7 @@ class ProfileCard extends StatelessWidget {
                 Text(brain.userName.isEmpty ? tr('আপনার নাম দিন') : brain.userName,
                     maxLines: 1, overflow: TextOverflow.ellipsis, style: display(20, weight: 700, color: brain.userName.isEmpty ? C.muted : C.ink)),
                 if (brain.signedIn) Text(brain.googleEmail, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, color: C.muted)),
+                if (brain.gated) ...[const SizedBox(height: 6), const PlanBadge()],
               ]),
             ),
           ]),
@@ -335,4 +338,46 @@ Future<void> pickAccentColor(BuildContext context) async {
     ),
   );
   if (picked != null) await brain.setAccent(colorKey(picked));
+}
+
+/// ফ্রি / প্রো / ট্রায়াল on the profile; a tap shows what Pro gives.
+class PlanBadge extends StatelessWidget {
+  const PlanBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final pro = brain.pro;
+    final trial = pro && brain.proKind == 'trial';
+    final until = brain.proUntil;
+    final label = !pro
+        ? tr('ফ্রি')
+        : trial
+            ? tr('ট্রায়াল')
+            : tr('প্রো');
+    final sub = pro && until != null ? trf('{0} পর্যন্ত', [shortDate(until)]) : (pro ? '' : tr('প্রো নিন'));
+    final fg = pro ? C.ochre : C.muted;
+    final bg = pro ? C.ochreTint : C.chip;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Material(
+        color: bg,
+        shape: StadiumBorder(side: BorderSide(color: fg.withValues(alpha: 0.35))),
+        child: InkWell(
+          key: const Key('plan-badge'),
+          customBorder: const StadiumBorder(),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProScreen())),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(pro ? Icons.workspace_premium_rounded : Icons.person_outline_rounded, size: 16, color: fg),
+              const SizedBox(width: 5),
+              Text(label, style: body(13, weight: FontWeight.w700, color: fg)),
+              if (sub.isNotEmpty) Text(' · $sub', style: body(12.5, color: fg)),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
 }

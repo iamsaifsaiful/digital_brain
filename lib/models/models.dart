@@ -63,8 +63,13 @@ class LedgerEntry {
     this.due,
     this.reminderId,
     this.shopId,
+    this.projectId,
   })  : id = id ?? newId(),
         createdAt = createdAt ?? DateTime.now();
+
+  /// A বকেয়া of one of the অন্যান্য হিসাব (a business's customer or
+  /// supplier); null = a personal loan.
+  final String? projectId;
 
   /// A customer's due from this shop (see [Shop]); null = personal or the first shop.
   final String? shopId;
@@ -102,6 +107,7 @@ class LedgerEntry {
         due: clearDue ? null : (due ?? this.due),
         reminderId: clearReminder ? null : (reminderId ?? this.reminderId),
         shopId: shopId,
+        projectId: projectId,
       );
 
   Map<String, Object?> toJson() => {
@@ -116,6 +122,7 @@ class LedgerEntry {
         if (due != null) 'due': due!.toIso8601String(),
         if (reminderId != null) 'reminderId': reminderId,
         if (shopId != null) 'shopId': shopId,
+        if (projectId != null) 'projectId': projectId,
       };
 
   factory LedgerEntry.fromJson(Map<String, Object?> j) => LedgerEntry(
@@ -130,6 +137,7 @@ class LedgerEntry {
         due: _date(j['due']),
         reminderId: j['reminderId'] as String?,
         shopId: j['shopId'] as String?,
+        projectId: j['projectId'] as String?,
       );
 }
 

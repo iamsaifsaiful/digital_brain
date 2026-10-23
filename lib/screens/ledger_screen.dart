@@ -11,6 +11,7 @@ import '../ui/widgets.dart';
 import 'ledger_form_screen.dart';
 import 'money_screens.dart';
 import 'money_more_screens.dart';
+import 'money_search_screen.dart';
 import 'person_screen.dart';
 import 'transactions_screen.dart';
 import '../logic/lang.dart';
@@ -52,7 +53,9 @@ class MoneyScreenState extends State<MoneyScreen> {
                 MoneyPart.loans => const {ReportPart.ledger},
                 MoneyPart.projects => const {ReportPart.projects},
               }),
-              if (_part == MoneyPart.loans) IconButton(tooltip: tr('সব লেনদেন খুঁজুন'), onPressed: () => push(const TransactionsScreen()), icon: const Icon(Icons.search_rounded)),
+              if (_part == MoneyPart.loans) IconButton(tooltip: tr('সব লেনদেন খুঁজুন'), onPressed: () => push(const TransactionsScreen()), icon: const Icon(Icons.list_alt_rounded)),
+              IconButton(
+                  key: const Key('money-search-open'), tooltip: tr('হিসাবে খুঁজুন'), onPressed: () => push(const MoneySearchScreen()), icon: const Icon(Icons.person_search_outlined)),
             ])),
         const SizedBox(height: 12),
         if (brain.businessMode) ...[const ShopTodayCard(), const SizedBox(height: 12)],

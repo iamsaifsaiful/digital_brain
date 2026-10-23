@@ -2,7 +2,7 @@
 /**
  * Plugin Name: My Assistant Accounts
  * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, প্রো, পেমেন্ট, নোটিফিকেশন আর মতামত। শুধু নাম, ইমেইল, ছবি আর প্রো-র তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.15.0
+ * Version: 1.16.0
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: My Assistant
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.15.0';
+const MA_ACC_VERSION = '1.16.0';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
 const MA_ACC_PER_PAGE = 20;
 
@@ -454,6 +454,9 @@ function ma_acc_admin() {
     }
     if ($tab === 'notices') {
         $extra['notices'] = $wpdb->get_results('SELECT * FROM ' . ma_note_table() . ' ORDER BY active DESC, id DESC', ARRAY_A);
+        $extra['nlog_q'] = sanitize_text_field(wp_unslash((string) ($_GET['nq'] ?? '')));
+        $extra['nlog_when'] = in_array($_GET['nwhen'] ?? '', ['past', 'next'], true) ? $_GET['nwhen'] : '';
+        $extra['nlog'] = ma_nlog_rows($extra['nlog_q'], $extra['nlog_when'], 200);
     }
     $extra['pending'] = ma_pay_pending_count();
     $extra['fb_new'] = ma_fb_new_count();

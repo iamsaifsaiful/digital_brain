@@ -130,7 +130,12 @@ function ma_push_member($user_id, $title, $body, array $data = []) {
         'SELECT fcm_token FROM ' . ma_ai_sessions_table() . " WHERE user_id = %d AND app <> 'admin' AND fcm_token <> '' AND expires_at > UTC_TIMESTAMP()",
         $user_id
     ));
-    return ma_push_send($tokens, $title, $body, $data);
+    $sent = ma_push_send($tokens, $title, $body, $data);
+    // Shown ones go in the member's notification log (silent ones are not seen).
+    if ($title !== '' && function_exists('ma_nlog_add')) {
+        ma_nlog_add($user_id, 'push', (string) ($data['type'] ?? ''), $title, gmdate('Y-m-d H:i:s'), $sent > 0 ? 'sent' : (!$tokens || !ma_push_account() ? 'no_device' : 'failed'));
+    }
+    return $sent;
 }
 
 add_action('rest_api_init', function () {
@@ -214,4 +219,47 @@ add_action('admin_post_ma_push_test', function () {
     ma_acc_guard('ma_push_test', 'manage_options');
     $n = ma_push_admins('পরীক্ষা', 'My Assistant অ্যাডমিন অ্যাপে পুশ ঠিকমতো আসছে।', ['type' => 'test']);
     ma_acc_back($n ? 'পরীক্ষার পুশ গেছে ' . ma_acc_bn($n) . 'টা ফোনে।' : 'কোনো অ্যাডমিন ফোনে যায়নি — অ্যাডমিন অ্যাপে লগইন করা আছে আর Firebase ঠিক আছে কি না দেখুন।', $n ? 'ok' : 'error', ['tab' => 'settings']);
+});
+
+/**
+ * A message to many members at once ($where narrows by plan, on table u);
+ * each member's line goes in the notification log. Returns how many phones got it.
+ */
+function ma_push_broadcast($title, $body, $where = '') {
+    global $wpdb;
+    $rows = $wpdb->get_results('SELECT s.user_id, s.fcm_token FROM ' . ma_ai_sessions_table() . ' s JOIN ' . ma_acc_table() . " u ON u.id = s.user_id WHERE s.app <> 'admin' AND s.fcm_token <> '' AND s.expires_at > UTC_TIMESTAMP() $where LIMIT 5000", ARRAY_A);
+    $by = [];
+    foreach ($rows as $r) {
+        $by[(int) $r['user_id']][] = $r['fcm_token'];
+    }
+    $sent = 0;
+    $at = gmdate('Y-m-d H:i:s');
+    foreach ($by as $uid => $tokens) {
+        $n = ma_push_send($tokens, $title, $body, ['type' => 'news']);
+        $sent += $n;
+        ma_nlog_add($uid, 'push', 'news', $title, $at, $n > 0 ? 'sent' : 'failed');
+    }
+    return $sent;
+}
+
+/** The SQL to narrow a broadcast to one plan (on table u). */
+function ma_push_where($aud) {
+    $now = gmdate('Y-m-d H:i:s');
+    return match ($aud) {
+        'pro' => "AND u.pro_until > '$now' AND u.pro_kind <> 'trial'",
+        'trial' => "AND u.pro_until > '$now' AND u.pro_kind = 'trial'",
+        'free' => "AND (u.pro_until IS NULL OR u.pro_until <= '$now')",
+        default => '',
+    };
+}
+
+add_action('admin_post_ma_push_now', function () {
+    ma_acc_guard('ma_push_now');
+    $title = mb_substr(sanitize_text_field(wp_unslash((string) ($_POST['title'] ?? ''))), 0, 120);
+    $body = mb_substr(sanitize_text_field(wp_unslash((string) ($_POST['body'] ?? ''))), 0, 400);
+    if ($title === '') {
+        ma_acc_back('শিরোনাম দিন।', 'error', ['tab' => 'notices']);
+    }
+    $n = ma_push_broadcast($title, $body, ma_push_where(sanitize_key((string) ($_POST['audience'] ?? 'all'))));
+    ma_acc_back(ma_acc_bn($n) . 'টি ফোনে পাঠানো হলো।', 'ok', ['tab' => 'notices']);
 });

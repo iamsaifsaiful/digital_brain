@@ -54,7 +54,10 @@ class AssistantSection extends StatelessWidget {
             brain.data.memories.isEmpty ? tr('আপনার সম্পর্কে যা মনে রাখবে') : trf('{0}টি কথা মনে রাখা আছে', [bnDigits(brain.data.memories.length)]), () => push(const MemoryScreen())),
         link(Icons.badge_outlined, tr('আপনার পরিচয়'), brain.persona.isEmpty ? tr('বেছে নিলে তালিকা ও হিসাব সেভাবে সাজানো থাকবে') : personaLabel(brain.persona),
             () => push(const OnboardingScreen(fromSettings: true))),
-        sw(Icons.storefront_outlined, tr('ব্যবসায়ী মোড'), tr('হিসাবে দিনের বিক্রি, কাস্টমারের বাকি, রসিদ'), brain.businessMode, (v) => brain.setPref('business_mode', v)),
+        // ব্যবসায়ী মোড comes later (owner, 23 Oct); for now businesses keep
+        // বকেয়া inside অন্যান্য হিসাব. Kept only for those who already turned it on.
+        if (brain.businessMode)
+          sw(Icons.storefront_outlined, tr('ব্যবসায়ী মোড'), tr('হিসাবে দিনের বিক্রি, কাস্টমারের বাকি, রসিদ'), brain.businessMode, (v) => brain.setPref('business_mode', v)),
         sw(Icons.mic_none_rounded, tr('নোটিফিকেশনে মাইক'), tr('উপর থেকে টেনে নামিয়ে এক চাপে বলুন'), brain.panelMic, (v) => brain.setPref('panel_mic', v)),
         link(Icons.touch_app_outlined, tr('ফোনের সহকারী বানান'), tr('হোম বোতাম চেপে ধরলেই My Assistant খুলবে'), () async {
           await showDialog<void>(

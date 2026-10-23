@@ -1,3 +1,4 @@
+import 'notice_screen.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -33,7 +34,7 @@ import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '2.45.0';
+const appVersion = '2.46.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -399,6 +400,8 @@ class _MoreScreenState extends State<MoreScreen> {
             linkRow(Icons.delete_outline_rounded, tr('মুছে ফেলা'),
                 sub: brain.data.trash.isEmpty ? tr('যা মুছবেন, ৩০ দিন এখানে থাকবে') : trf('{0}টা — ৩০ দিনের মধ্যে ফিরিয়ে আনা যায়', [bnDigits(brain.data.trash.length)]),
                 onTap: () => push(const TrashScreen())),
+            linkRow(Icons.notifications_none_rounded, tr('নোটিফিকেশন'),
+                sub: tr('কোনটা কখন আসবে, আগে কী এসেছে'), onTap: () => push(const NoticeScreen())),
             linkRow(Icons.notifications_active_outlined, tr('রিমাইন্ডার ঠিকমতো বাজবে তো?'), sub: tr('ফোনের সেটিং দেখে নিন, ১ মিনিটে পরীক্ষা করুন'), onTap: () => push(const ReminderCheckScreen())),
             linkRow(Icons.bug_report_outlined, tr('সমস্যা খোঁজার লগ'),
                 sub: Trace.enabled ? tr('চালু — মাইক কী শুনল, কী বুঝল') : tr('বন্ধ — ভয়েসে সমস্যা হলে চালু করুন'), onTap: () => push(const TraceScreen())),

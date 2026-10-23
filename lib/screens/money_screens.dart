@@ -5,6 +5,7 @@ import '../ui/pro_gate.dart';
 
 import '../logic/bn.dart';
 import '../logic/cash.dart';
+import '../logic/ledger.dart' show projectDueTotals;
 import '../logic/parser.dart' show normalize;
 import '../logic/money_more.dart';
 import '../models/models.dart';
@@ -15,6 +16,7 @@ import '../ui/widgets.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 import '../ui/pick.dart';
+import 'project_dues.dart';
 
 /// White card: one big figure ("এই মাসের ব্যালেন্স") and two under it.
 class SummaryCard extends StatelessWidget {
@@ -435,6 +437,8 @@ class ProjectsView extends StatelessWidget {
 
     Widget row(Project p) {
       final s = projectSums(d.cash, p.id);
+      final (owed, _) = projectDueTotals(d, p.id);
+      final sub = p.budget > 0 ? trf('বাজেট {0} · খরচ {1}', [taka(p.budget), taka(s.expense)]) : trf('এসেছে {0} · খরচ {1}', [taka(s.income), taka(s.expense)]);
       return ListRow(
         leading: Container(
           width: 40,
@@ -443,7 +447,7 @@ class ProjectsView extends StatelessWidget {
           child: Icon(Icons.work_outline_rounded, color: C.blue, size: 20),
         ),
         title: p.name,
-        subtitle: p.budget > 0 ? trf('বাজেট {0} · খরচ {1}', [taka(p.budget), taka(s.expense)]) : trf('এসেছে {0} · খরচ {1}', [taka(s.income), taka(s.expense)]),
+        subtitle: owed > 0 ? '$sub · ${trf('বকেয়া {0}', [taka(owed)])}' : sub,
         trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
           Text(taka(s.balance.abs()), style: display(16, color: s.balance >= 0 ? C.green : C.orange)),
           Text(s.balance >= 0 ? tr('অবশিষ্ট') : tr('বেশি খরচ'), style: body(12, color: C.muted)),
@@ -522,7 +526,7 @@ class ProjectScreen extends StatelessWidget {
         case 'close':
           await brain.saveProject(p.copyWith(closed: !p.closed));
         case 'delete':
-          final ok = await confirmDialog(context, title: tr('এই হিসাব মুছবেন?'), text: trf('‘{0}’ আর এর সব আয়-ব্যয় মুছে যাবে।', [p.name]), yes: tr('মুছুন'), danger: true);
+          final ok = await confirmDialog(context, title: tr('এই হিসাব মুছবেন?'), text: trf('‘{0}’ আর এর সব আয়-ব্যয় ও বকেয়া মুছে যাবে।', [p.name]), yes: tr('মুছুন'), danger: true);
           if (!ok) return;
           await brain.deleteProject(p.id);
           if (context.mounted) Navigator.of(context).pop();
@@ -597,6 +601,8 @@ class ProjectScreen extends StatelessWidget {
                   ),
                 ),
               ]),
+              const SizedBox(height: 16),
+              ProjectDuesSection(project: p),
               const SizedBox(height: 16),
               if (s.byCategory.isNotEmpty) ...[
                 SectionTitle(tr('খাত অনুযায়ী খরচ')),

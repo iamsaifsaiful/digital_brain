@@ -6,6 +6,16 @@
 
 ---
 
+## 0a. Update 23 Oct (later): 2.46.0-b97, plugin 1.16.0, admin 1.6.0+8
+- Old notifications on open: MainActivity drops a reminder intent when the activity is rebuilt (savedInstanceState != null) and on `clearLaunch` after Dart handled the launch tap; `schedule()` schedules each notice on its own (one bad past one no longer stops the rest), repeating ones go to `nextAhead()` (month-end safe).
+- নোটিফিকেশন page (`lib/screens/notice_screen.dart`, bell on Home + আরও): next 7 days (`expandPlan`) and 30 days of history (`addPassed`), kept encrypted in the key vault (`notice_log`); `lib/logic/notice_log.dart`.
+- Server log: table `ma_notice_log` (notices.php), `POST /notices/plan` (kind + time only; a title only for kind `server`), `GET /notices/log` (member's pushes), every `ma_push_member` and broadcast logged; site নোটিফিকেশন tab "কার কাছে কী গেছে" + "এখনই পাঠান"; admin `GET /admin/notice-log` + admin app page. e2e covers it.
+- বকেয়া in অন্যান্য হিসাব (owner: simple, and like ধার-দেনা — আমি পাবো / আমি দেবো; who, what/why, amount, pay date → reminder; giving is not আয়/ব্যয়; money collected is আয়, money paid is ব্যয়): `LedgerEntry.projectId` (lent/borrowed = বকেয়া, received/repaid = আদায়/শোধ + a project income 'বকেয়া আদায়' / expense 'বকেয়া শোধ'); `lib/screens/project_dues.dart`; helpers `projectDues/projectDueTotals` in logic/ledger.dart; reminder via `_dueReminder` (Pro, like loans); paid in full clears the pay days; PDF table; deleting a project trashes its dues.
+- হিসাবে খোঁজা (owner): `lib/logic/person_money.dart` (`personMoney`: cash whose note/category names the person as a word, all their loans and dues; net = income − expense + personal loan cash flow + still owed), `lib/screens/money_search_screen.dart` (search icon on the হিসাব title; card on the person page), and `ledgerAnswer` person adds income/expense/net.
+- Business mode: switch hidden unless already on; onboarding "business" no longer turns it on (owner: later). Member profile: owner said not needed.
+- Profile plan badge (`PlanBadge` in settings_parts.dart: ফ্রি / প্রো · until / ট্রায়াল, tap → ProScreen; Play app only). Pro coming on adds a one-off local notification `nudge:pro` (Brain._oneOff) — from a server grant only when the phone has no push token (the server pushes its own).
+- Persona review + next ideas: `docs/persona-review-2026-10-23.md`.
+
 ## 0. Where things stand right now
 
 | Part | Version | Where |

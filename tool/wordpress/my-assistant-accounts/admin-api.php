@@ -225,14 +225,19 @@ add_action('rest_api_init', function () {
         if ($title === '') {
             return new WP_Error('bad', 'title needed', ['status' => 400]);
         }
-        $now = gmdate('Y-m-d H:i:s');
-        $where = match ($aud) {
-            'pro' => "AND u.pro_until > '$now' AND u.pro_kind <> 'trial'",
-            'trial' => "AND u.pro_until > '$now' AND u.pro_kind = 'trial'",
-            'free' => "AND (u.pro_until IS NULL OR u.pro_until <= '$now')",
-            default => '',
-        };
-        $tokens = $wpdb->get_col('SELECT s.fcm_token FROM ' . ma_ai_sessions_table() . ' s JOIN ' . ma_acc_table() . " u ON u.id = s.user_id WHERE s.app <> 'admin' AND s.fcm_token <> '' AND s.expires_at > UTC_TIMESTAMP() $where LIMIT 5000");
-        return ['ok' => true, 'sent' => ma_push_send($tokens, $title, $body, ['type' => 'news'])];
+        $where = ma_push_where($aud);
+        return ['ok' => true, 'sent' => ma_push_broadcast($title, $body, $where)];
+    });
+
+    /** নোটিফিকেশনের লগ: what members' phones show and what we pushed (the same as the site). */
+    ma_admin_route('/notice-log', 'GET', function (WP_REST_Request $req) {
+        $q = sanitize_text_field((string) $req->get_param('q'));
+        $when = sanitize_key((string) $req->get_param('when'));
+        $rows = ma_nlog_rows($q, $when, (int) ($req->get_param('limit') ?: 200));
+        foreach ($rows as &$r) {
+            $r['status_label'] = ma_nlog_status_label($r['status']);
+            $r['at'] = str_replace(' ', 'T', $r['at']) . 'Z';
+        }
+        return ['rows' => $rows];
     });
 });

@@ -502,7 +502,14 @@ class NotificationService implements Notifier {
       );
       final launch = await _plugin.getNotificationAppLaunchDetails();
       final resp = launch?.notificationResponse;
-      if ((launch?.didNotificationLaunchApp ?? false) && resp != null) _onResponse(resp);
+      if ((launch?.didNotificationLaunchApp ?? false) && resp != null) {
+        _onResponse(resp);
+        // Handled once: the activity's launch intent is reset, so a later
+        // look (the engine restarting with the same activity) is a plain open.
+        try {
+          await _platform.invokeMethod('clearLaunch');
+        } catch (_) {}
+      }
       _ready = true;
     } catch (e) {
       debugPrint('Notifications unavailable: $e');
@@ -717,46 +724,93 @@ class NotificationService implements Notifier {
           if (c.id.startsWith(_channelId) && c.id != keep) await _android?.deleteNotificationChannel(channelId: c.id);
         }
       } catch (_) {}
+      final now = DateTime.now();
       for (final n in notices) {
-        final every = n.every;
-        if (every != null) {
-          // The plugin counts the repeats from "now"; a fixed clock keeps
-          // them on the reminder's own times however often we reschedule.
-          await withClock(
-            Clock.fixed(n.at),
-            () => _plugin.periodicallyShowWithDuration(
-              id: n.id,
-              repeatDurationInterval: every,
-              notificationDetails: _details(insistent: insistent, repeating: true, sound: soundUri),
-              title: n.title,
-              body: n.body,
-              androidScheduleMode: repeatMode,
-              payload: n.payload(soundUri),
-            ),
-          );
-          continue;
+        // One that cannot be set (a time already gone, the phone refusing)
+        // never stops the rest from being set.
+        try {
+          await _scheduleOne(n, now, mode, repeatMode);
+        } catch (e) {
+          debugPrint('Could not schedule one notice: $e');
         }
-        await _plugin.zonedSchedule(
-          id: n.id,
-          scheduledDate: tz.TZDateTime.from(n.at, tz.UTC),
-          notificationDetails: n.gentle ? _gentleDetails(n.body) : _details(insistent: insistent && !n.early, repeating: false, sound: soundUri),
-          androidScheduleMode: mode,
-          title: n.title,
-          body: n.body,
-          payload: n.payload(soundUri),
-          matchDateTimeComponents: switch (n.repeat) {
-            NoticeRepeat.none => null,
-            NoticeRepeat.daily => DateTimeComponents.time,
-            NoticeRepeat.weekly => DateTimeComponents.dayOfWeekAndTime,
-            NoticeRepeat.monthly => DateTimeComponents.dayOfMonthAndTime,
-            NoticeRepeat.yearly => DateTimeComponents.dateAndTime,
-          },
-        );
       }
     } catch (e) {
       debugPrint('Could not schedule reminders: $e');
     }
   }
+
+  Future<void> _scheduleOne(PlannedNotice n, DateTime now, AndroidScheduleMode mode, AndroidScheduleMode repeatMode) async {
+    final every = n.every;
+    if (every != null) {
+      // The plugin counts the repeats from "now"; a fixed clock keeps
+      // them on the reminder's own times however often we reschedule.
+      await withClock(
+        Clock.fixed(n.at),
+        () => _plugin.periodicallyShowWithDuration(
+          id: n.id,
+          repeatDurationInterval: every,
+          notificationDetails: _details(insistent: insistent, repeating: true, sound: soundUri),
+          title: n.title,
+          body: n.body,
+          androidScheduleMode: repeatMode,
+          payload: n.payload(soundUri),
+        ),
+      );
+      return;
+    }
+    // A one-time notice whose time has gone is never handed to the
+    // phone: Android would show it at once — an old notice on opening.
+    if (n.repeat == NoticeRepeat.none && !n.at.isAfter(now)) return;
+    // A repeating one is set for its next time, never a past one (the
+    // phone would ring it at once and then repeat from there).
+    final at = nextAhead(n, now);
+    await _plugin.zonedSchedule(
+      id: n.id,
+      scheduledDate: tz.TZDateTime.from(at, tz.UTC),
+      notificationDetails: n.gentle ? _gentleDetails(n.body) : _details(insistent: insistent && !n.early, repeating: false, sound: soundUri),
+      androidScheduleMode: mode,
+      title: n.title,
+      body: n.body,
+      payload: n.payload(soundUri),
+      matchDateTimeComponents: switch (n.repeat) {
+        NoticeRepeat.none => null,
+        NoticeRepeat.daily => DateTimeComponents.time,
+        NoticeRepeat.weekly => DateTimeComponents.dayOfWeekAndTime,
+        NoticeRepeat.monthly => DateTimeComponents.dayOfMonthAndTime,
+        NoticeRepeat.yearly => DateTimeComponents.dateAndTime,
+      },
+    );
+  }
+}
+
+/// [n]'s time if still ahead; for a repeating one, its next time after
+/// [now] (a day, week, month or year on). One-time notices are returned as
+/// they are (the caller skips a gone one).
+DateTime nextAhead(PlannedNotice n, DateTime now) {
+  final a = n.at;
+  if (a.isAfter(now) || n.repeat == NoticeRepeat.none) return a;
+  // Each step counts from the first time, so a reminder on the 31st stays
+  // on the 31st (or the month's last day) instead of drifting.
+  DateTime step(int k) => switch (n.repeat) {
+        NoticeRepeat.daily => DateTime(a.year, a.month, a.day + k, a.hour, a.minute),
+        NoticeRepeat.weekly => DateTime(a.year, a.month, a.day + 7 * k, a.hour, a.minute),
+        NoticeRepeat.monthly => _clampDay(a.year, a.month + k, a.day, a.hour, a.minute),
+        NoticeRepeat.yearly => _clampDay(a.year + k, a.month, a.day, a.hour, a.minute),
+        NoticeRepeat.none => a,
+      };
+  var k = 1;
+  if (n.repeat == NoticeRepeat.daily) k = now.difference(a).inDays.clamp(1, 1 << 20);
+  var at = step(k);
+  for (var i = 0; i < 2000 && !at.isAfter(now); i++) {
+    at = step(++k);
+  }
+  return at;
+}
+
+DateTime _clampDay(int year, int month, int day, int hour, int minute) {
+  final first = DateTime(year, month);
+  final last = DateTime(first.year, first.month + 1, 0).day;
+  return DateTime(first.year, first.month, day > last ? last : day, hour, minute);
 }
 
 class FakeNotifier implements Notifier {

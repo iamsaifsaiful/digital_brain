@@ -1,3 +1,5 @@
+import '../logic/person_money.dart';
+import 'money_search_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
@@ -108,6 +110,7 @@ class _PersonScreenState extends State<PersonScreen> {
     final given = p.lentTotal + p.repaidTotal;
     final got = p.receivedTotal + p.borrowedTotal;
     final sameName = peopleNamed(brain.data.ledger, p.name).length > 1;
+    final all = personMoney(brain.data, p.name);
     final reminderText = bal > 0
         ? trf('আসসালামু আলাইকুম {0} ভাই, আপনার কাছে আমার {1} বাকি আছে। সুবিধামতো দিয়ে দিলে উপকার হয়। ধন্যবাদ।', [p.name, taka(bal)])
         : '';
@@ -168,6 +171,29 @@ class _PersonScreenState extends State<PersonScreen> {
                       Text(trf('দিয়েছেন {0} · পেয়েছেন {1}', [taka(given), taka(got)]), style: body(14, color: C.muted)),
                     ]),
                   ),
+                  // The rest of this person's money (আয়-ব্যয় naming them, বকেয়া) and the নীট.
+                  if (all.income > 0 || all.expense > 0 || all.lines.any((l) => l.projectId != null)) ...[
+                    const SizedBox(height: 10),
+                    InkWell(
+                      key: const Key('person-all'),
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () => _push(MoneySearchScreen(query: p.name)),
+                      child: Panel(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                      child: Row(children: [
+                        Icon(Icons.account_balance_wallet_outlined, color: C.green),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(trf('সব হিসাব · নীট {0}{1}', [all.net < 0 ? '−' : '', taka(all.net.abs())]), style: body(15, weight: FontWeight.w600)),
+                            Text(trf('আয় {0} · ব্যয় {1} · বকেয়া/পাওনা {2}', [taka(all.income), taka(all.expense), taka(all.owed)]), style: body(13, color: C.muted)),
+                          ]),
+                        ),
+                        Icon(Icons.chevron_right_rounded, color: C.muted),
+                      ]),
+                    ),
+                    ),
+                  ],
                   // The agreed pay-back day, while money is still out.
                   if (bal != 0)
                     for (final (e, _) in rows)

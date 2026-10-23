@@ -53,6 +53,15 @@ class MainActivity : FlutterFragmentActivity() {
         if (!packageName.endsWith(".preview")) {
             window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         }
+        // Brought back after Android closed the app in the background (or the
+        // launcher icon reopening an old task): the activity is rebuilt with
+        // the intent it was FIRST started with. If that was a tap on a
+        // notification, the notifications plugin would report it again and
+        // the old reminder would open once more on every return. A rebuilt
+        // activity is never a new tap: it starts as a plain open.
+        if (savedInstanceState != null && isReminderIntent(intent)) {
+            intent = Intent(this, MainActivity::class.java).setAction(Intent.ACTION_MAIN)
+        }
         super.onCreate(savedInstanceState)
         CustomTone.regrant(this)
         if (isReminderIntent(intent)) setOverLock(true)
@@ -400,6 +409,12 @@ class MainActivity : FlutterFragmentActivity() {
                 result.success(null)
             }
             "showOverLock" -> { setOverLock(call.arguments == true); result.success(null) }
+            // The notification tap that opened the app was handled: later
+            // looks at the launch see a plain open, never the same tap again.
+            "clearLaunch" -> {
+                if (isReminderIntent(intent)) intent = Intent(this, MainActivity::class.java).setAction(Intent.ACTION_MAIN)
+                result.success(null)
+            }
             "openAppSettings" -> {
                 tryStart(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
                 result.success(null)

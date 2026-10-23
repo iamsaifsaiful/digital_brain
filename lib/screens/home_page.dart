@@ -1,3 +1,4 @@
+import 'notice_screen.dart';
 import 'package:flutter/material.dart';
 
 import 'google_backup.dart';
@@ -141,6 +142,13 @@ class HomePage extends StatelessWidget {
                             ]),
                           ),
                         ),
+                        IconButton(
+                          key: const Key('home-notices'),
+                          tooltip: tr('নোটিফিকেশন'),
+                          onPressed: () => push(const NoticeScreen()),
+                          icon: Icon(Icons.notifications_none_rounded, color: Colors.white, size: 26, shadows: shade),
+                        ),
+                        const SizedBox(width: 4),
                         Tooltip(
                           message: tr('প্রোফাইল'),
                           child: InkWell(customBorder: const CircleBorder(), onTap: () => goToTab(context, ShellTab.more), child: const UserPhoto(size: 44, onDark: true)),

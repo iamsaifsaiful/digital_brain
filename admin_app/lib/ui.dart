@@ -636,6 +636,8 @@ class _NoticesPageState extends State<NoticesPage> {
     if (l != null && mounted) setState(() => _list = l);
   }
 
+  void _openLog() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => NoticeLogPage(api: widget.api, guard: widget.guard)));
+
   Future<void> _pushNow() async {
     final c = Palette.of(context);
     final title = TextEditingController();
@@ -689,11 +691,30 @@ class _NoticesPageState extends State<NoticesPage> {
             sub: 'ফোনে নিয়মিত যা যায়',
             action: PopupMenuButton<int>(
               itemBuilder: (_) => const [
+                PopupMenuItem(value: 3, child: Text('কার কাছে কী গেছে')),
                 PopupMenuItem(value: 2, child: Text('আঙুলের ছাপে খোলা: চালু/বন্ধ')),
                 PopupMenuItem(value: 1, child: Text('লগআউট')),
               ],
-              onSelected: (v) => v == 1 ? widget.onSignOut() : widget.onFingerprint(),
+              onSelected: (v) => v == 3 ? _openLog() : (v == 1 ? widget.onSignOut() : widget.onFingerprint()),
             )),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+          child: CardBox(
+            key: const Key('notice-log'),
+            onTap: _openLog,
+            child: Row(children: [
+              Icon(Icons.receipt_long_outlined, color: c.brand),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('কার কাছে কী গেছে', style: text(15.5, weight: FontWeight.w700, color: c.ink)),
+                  Text('প্রতিটি সদস্যের ফোনে কোন নোটিফিকেশন কখন — আর আমাদের পুশ', style: text(13, color: c.muted)),
+                ]),
+              ),
+              Icon(Icons.chevron_right_rounded, color: c.muted),
+            ]),
+          ),
+        ),
         Expanded(
           child: RefreshIndicator(
             onRefresh: _load,
@@ -725,6 +746,115 @@ class _NoticesPageState extends State<NoticesPage> {
                                   _load();
                                 },
                               ),
+                            ]),
+                          );
+                        },
+                      ),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+/// নোটিফিকেশনের লগ: what each member's phone shows and when, and our
+/// pushes — the same list as the site's নোটিফিকেশন tab. Reminders have no
+/// words here: those stay on the member's phone.
+class NoticeLogPage extends StatefulWidget {
+  const NoticeLogPage({super.key, required this.api, required this.guard});
+  final Api api;
+  final Guard guard;
+
+  @override
+  State<NoticeLogPage> createState() => _NoticeLogPageState();
+}
+
+class _NoticeLogPageState extends State<NoticeLogPage> {
+  final _q = TextEditingController();
+  String _when = '';
+  List<Map<String, dynamic>>? _rows;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _q.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final r = await widget.guard(() => widget.api.noticeLog(q: _q.text.trim(), when: _when));
+    if (r != null && mounted) setState(() => _rows = r);
+  }
+
+  String _time(String? iso) {
+    final d = iso == null ? null : DateTime.tryParse(iso)?.toLocal();
+    if (d == null) return '—';
+    final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
+    final part = d.hour < 12 ? 'সকাল' : (d.hour < 17 ? 'দুপুর' : (d.hour < 19 ? 'বিকেল' : 'রাত'));
+    return '${date(iso)} · $part ${bn(h)}:${bn(d.minute.toString().padLeft(2, '0'))}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Palette.of(context);
+    final rows = _rows;
+    return Scaffold(
+      appBar: AppBar(title: const Text('কার কাছে কী গেছে')),
+      body: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: TextField(
+            key: const Key('log-q'),
+            controller: _q,
+            textInputAction: TextInputAction.search,
+            onSubmitted: (_) => _load(),
+            decoration: InputDecoration(prefixIcon: const Icon(Icons.search_rounded), hintText: 'সদস্যের নাম বা ইমেইল', border: OutlineInputBorder(borderRadius: BorderRadius.circular(14))),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: SegmentedButton<String>(
+            segments: const [ButtonSegment(value: '', label: Text('সব')), ButtonSegment(value: 'past', label: Text('গেছে')), ButtonSegment(value: 'next', label: Text('সামনে'))],
+            selected: {_when},
+            showSelectedIcon: false,
+            onSelectionChanged: (s) {
+              setState(() => _when = s.first);
+              _load();
+            },
+          ),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _load,
+            child: rows == null
+                ? ListView(children: const [Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))])
+                : rows.isEmpty
+                    ? ListView(children: const [Empty(Icons.notifications_none_rounded, 'কিছু পাওয়া যায়নি', 'সদস্যরা নতুন অ্যাপ খুললে তাঁদের ফোনের তালিকা এখানে আসবে।')])
+                    : ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+                        itemCount: rows.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        itemBuilder: (context, i) {
+                          final r = rows[i];
+                          final bad = r['status'] == 'failed' || r['status'] == 'no_device';
+                          final name = '${r['name'] ?? ''}'.trim().isEmpty ? '${r['email'] ?? ''}' : '${r['name']}';
+                          return CardBox(
+                            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Icon(r['source'] == 'push' ? Icons.send_rounded : Icons.notifications_none_rounded, color: bad ? c.rose : c.brand, size: 20),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                  Text('${r['label']}', style: text(15, weight: FontWeight.w700, color: c.ink)),
+                                  if ('${r['title'] ?? ''}'.isNotEmpty) Text('${r['title']}', style: text(13.5, color: c.ink)),
+                                  Text('$name · ${_time('${r['at']}')}', style: text(12.5, color: c.muted)),
+                                ]),
+                              ),
+                              Text('${r['status_label'] ?? ''}', style: text(12.5, weight: FontWeight.w600, color: bad ? c.rose : c.muted)),
                             ]),
                           );
                         },

@@ -11,6 +11,7 @@ import 'calendar_ask.dart';
 import 'cash.dart';
 import 'health.dart';
 import 'ledger.dart';
+import 'person_money.dart';
 import 'match.dart';
 import 'day_plan.dart';
 import 'meaning.dart' show tidySpeech;
@@ -227,7 +228,21 @@ String ledgerAnswer(AppData d, LedgerQuery q, [DateTime? now]) {
   switch (q.ask) {
     case LedgerAsk.person:
       final p = balanceOf(d.ledger, q.person!);
-      if (p == null) return trf('{0} সাথে কোনো লেনদেনের তথ্য নেই।', [possessive(q.person!)]);
+      final all = personMoney(d, p?.name ?? q.person!);
+      // "করিমের হিসাব": his আয়-ব্যয় and বকেয়া too, with one নীট.
+      final allText = all.income > 0 || all.expense > 0
+          ? trf(' তাঁর নামে সব মিলিয়ে আয় {0} টাকা, ব্যয় {1} টাকা{2} — নীট {3}{4} টাকা।', [
+              bnNumber(all.income),
+              bnNumber(all.expense),
+              all.owed > 0 ? trf(', বকেয়া/পাওনা {0} টাকা', [bnNumber(all.owed)]) : (all.owing > 0 ? trf(', দেনা {0} টাকা', [bnNumber(all.owing)]) : ''),
+              all.net < 0 ? tr('মাইনাস ') : '',
+              bnNumber(all.net.abs()),
+            ])
+          : '';
+      if (p == null) {
+        if (allText.isNotEmpty) return allText.trim();
+        return trf('{0} সাথে কোনো লেনদেনের তথ্য নেই।', [possessive(q.person!)]);
+      }
       final period = periodIn(normalize(q.transcript), now ?? DateTime.now());
       if (period != null) {
         final (from, to, label) = period;
@@ -245,7 +260,7 @@ String ledgerAnswer(AppData d, LedgerQuery q, [DateTime? now]) {
       final hist = runningFor(d.ledger, p.name);
       final last = hist.isEmpty ? null : hist.last.$1;
       final lastText = last == null ? '' : trf(' শেষ লেনদেন ছিল {0} {1}।', [bnDigits(last.date.day), monthName(last.date.month)]);
-      return '${owesText(p.name, p.balance)}।$lastText';
+      return '${owesText(p.name, p.balance)}।$lastText$allText';
     case LedgerAsk.receivable:
       final owe = all.where((p) => p.balance > 0).toList();
       if (owe.isEmpty) return tr('এখন কারও কাছে আপনার কিছু পাওনা নেই।');

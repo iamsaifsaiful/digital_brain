@@ -606,6 +606,58 @@ function ma_acc_render_notices($v) {
         <?php endif; ?>
     </section>
 
+    <?php $nq = (string) ($v['nlog_q'] ?? ''); $nw = (string) ($v['nlog_when'] ?? ''); ?>
+    <section class="ma-card" id="ma-nlog">
+        <div class="ma-bar">
+            <div class="ma-bar-title"><h2>কার কাছে কী গেছে</h2><span class="ma-count"><?php echo esc_html(ma_acc_bn(count($v['nlog'] ?? []))); ?>টি</span></div>
+        </div>
+        <p class="muted ma-pad">প্রতিটি সদস্যের ফোন কোন নোটিফিকেশন কখন দেখাবে (সামনের ৭ দিন), আর আমরা কী পুশ পাঠিয়েছি। রিমাইন্ডারের লেখা ফোনেই থাকে — এখানে শুধু ধরন আর সময়। ৬০ দিন রাখা হয়।</p>
+        <form class="ma-tools" method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>">
+            <input type="hidden" name="page" value="my-assistant"><input type="hidden" name="tab" value="notices"><input type="hidden" name="nwhen" value="<?php echo esc_attr($nw); ?>">
+            <label class="ma-search">
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M10.5 3a7.5 7.5 0 0 1 5.9 12.1l4.3 4.2a1 1 0 0 1-1.4 1.4l-4.2-4.3A7.5 7.5 0 1 1 10.5 3Zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Z"/></svg>
+                <input type="search" name="nq" value="<?php echo esc_attr($nq); ?>" placeholder="সদস্যের নাম বা ইমেইল">
+            </label>
+            <div class="ma-chips" role="tablist">
+                <?php foreach (['' => 'সব', 'past' => 'গেছে', 'next' => 'সামনে আসবে'] as $k => $l) : ?>
+                    <a class="ma-chip <?php echo $nw === $k ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'notices', 'nq' => $nq, 'nwhen' => $k]); ?>#ma-nlog"><?php echo esc_html($l); ?></a>
+                <?php endforeach; ?>
+            </div>
+        </form>
+        <?php if (empty($v['nlog'])) : ?>
+            <div class="ma-empty"><h3>এখনো কিছু নেই</h3><p>সদস্যরা নতুন অ্যাপ খুললে তাঁদের ফোনের তালিকা এখানে আসবে।</p></div>
+        <?php else : ?>
+            <div class="ma-table-wrap">
+                <table class="ma-table">
+                    <thead><tr><th>সদস্য</th><th>কী</th><th>কখন</th><th>অবস্থা</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($v['nlog'] as $r) : ?>
+                        <tr>
+                            <td><?php echo esc_html($r['name'] !== '' && $r['name'] !== null ? $r['name'] : (string) $r['email']); ?><div class="muted small"><?php echo esc_html((string) $r['email']); ?></div></td>
+                            <td><?php echo esc_html($r['label']); ?><?php if ($r['title'] !== '') : ?><div class="muted small"><?php echo esc_html($r['title']); ?></div><?php endif; ?></td>
+                            <td><?php echo esc_html(ma_acc_date($r['at']) . ' · ' . ma_acc_bn(gmdate('H:i', ma_acc_ts($r['at']) + (int) (get_option('gmt_offset', 0) * HOUR_IN_SECONDS)))); ?></td>
+                            <td><span class="ma-pill <?php echo in_array($r['status'], ['failed', 'no_device'], true) ? 'expired' : ($r['status'] === 'planned' ? 'trial' : 'pro'); ?>"><?php echo esc_html(ma_nlog_status_label($r['status'])); ?></span></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
+    </section>
+
+    <section class="ma-card">
+        <div class="ma-bar"><div class="ma-bar-title"><h2>এখনই পাঠান</h2><span class="ma-count">পুশ</span></div></div>
+        <form class="ma-pad" method="post" action="<?php echo $post; ?>">
+            <input type="hidden" name="action" value="ma_push_now"><?php wp_nonce_field('ma_push_now'); ?>
+            <div class="ma-ai-row three">
+                <label>শিরোনাম<input type="text" name="title" maxlength="120" required></label>
+                <label>লেখা<input type="text" name="body" maxlength="400"></label>
+                <label>কাকে<select name="audience"><?php foreach (ma_note_options()['audience'] as $k => $l) : ?><option value="<?php echo esc_attr($k); ?>"><?php echo esc_html($l); ?></option><?php endforeach; ?></select></label>
+            </div>
+            <button class="ma-btn" type="submit" onclick="return confirm('এখনই পাঠাবেন?')">পাঠান</button>
+        </form>
+    </section>
+
     <dialog class="ma-dialog wide" id="ma-note">
         <form method="post" action="<?php echo $post; ?>">
             <input type="hidden" name="action" value="ma_note_save"><input type="hidden" name="id" data-f="id">

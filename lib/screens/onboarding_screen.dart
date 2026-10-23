@@ -37,7 +37,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final brain = BrainScope.read(context);
     final key = _picked ?? 'other';
     await brain.setPref('persona', key);
-    if (key == 'business' && !brain.businessMode) await brain.setPref('business_mode', true);
     if (!widget.fromSettings || brain.quickQuestions.toString() == Brain.defaultQuestions.toString()) {
       await brain.setQuickQuestions(personaSetup(key).questions);
     }

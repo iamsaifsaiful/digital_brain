@@ -1708,7 +1708,7 @@ void main() {
     expect(find.text('থিম'), findsWidgets);
   });
 
-  testWidgets('v2.9: first run asks what the user does; a shopkeeper gets the shop tools', (t) async {
+  testWidgets('v2.9: first run asks what the user does; a shopkeeper gets the lists and questions (shop mode comes later)', (t) async {
     showOnboarding = true;
     addTearDown(() => showOnboarding = false);
     t.view.physicalSize = const Size(1170, 2532);
@@ -1728,12 +1728,13 @@ void main() {
     await t.tap(find.text('শুরু করি'));
     await settle(t);
     expect(rig.brain.persona, 'business');
-    expect(rig.brain.businessMode, isTrue);
+    // ব্যবসায়ী মোড waits (owner, 23 Oct): বকেয়া lives in অন্যান্য হিসাব.
+    expect(rig.brain.businessMode, isFalse);
     expect(rig.brain.data.tasks.where((x) => x.list == 'মাসের বাজার'), isNotEmpty);
     expect(rig.brain.quickQuestions.first, 'আজ কত বিক্রি হলো?');
     await t.tap(find.text('হিসাব').last);
     await settle(t);
-    expect(find.text('আজকের বিক্রি'), findsOneWidget);
+    expect(find.text('আজকের বিক্রি'), findsNothing);
   });
 
   testWidgets('v2.9: every new page opens, in Bangla and in English, light and dark', (t) async {

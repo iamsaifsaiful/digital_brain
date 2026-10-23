@@ -36,6 +36,7 @@ import '../logic/parser.dart';
 import '../logic/plan.dart';
 import '../logic/proactive.dart';
 import '../logic/pro.dart';
+import '../logic/notice_log.dart';
 import '../logic/server_notices.dart';
 import '../logic/when.dart' show sayWhen;
 import '../models/models.dart';
@@ -277,7 +278,10 @@ class Brain extends ChangeNotifier {
   /// The preview's test switch.
   Future<void> setProForTest(bool on) => on ? _setPro(services.now().add(const Duration(days: 365)), 'test') : _setPro(null, '');
 
-  Future<void> _setPro(DateTime? until, String kind) async {
+  /// One-off notifications planned by the app itself ("প্রো চালু হয়েছে").
+  final _oneOff = <PlannedNotice>[];
+
+  Future<void> _setPro(DateTime? until, String kind, {bool announce = true}) async {
     final wasPro = pro;
     proUntil = until;
     proKind = kind;
@@ -290,7 +294,21 @@ class Brain extends ChangeNotifier {
       }
       await keys.write('pro_kind', kind);
     } catch (_) {}
-    if (!wasPro && pro) await _addProReminders();
+    if (!wasPro && pro) {
+      await _addProReminders();
+      // A notification that Pro is on (our server pushes one itself when
+      // the phone can get pushes — then not twice).
+      if (announce && gated) {
+        _oneOff.add(PlannedNotice(
+          id: stableId('pro-on'),
+          at: services.now().add(const Duration(seconds: 5)),
+          title: tr('প্রো চালু হয়েছে 🎉'),
+          body: tr('রিমাইন্ডার, ব্যাকআপ, ফ্যামিলি — সব প্রো সুবিধা এখন চালু। ধন্যবাদ!'),
+          reminderId: 'nudge:pro',
+          gentle: true,
+        ));
+      }
+    }
     notifyListeners();
     await _reschedule();
   }
@@ -321,7 +339,11 @@ class Brain extends ChangeNotifier {
   }
 
   Reminder _dueReminder(LedgerEntry x) => Reminder(
-      title: x.kind == LedgerKind.lent ? trf('{0} {1} ফেরত দেওয়ার দিন', [x.person, taka(x.amount)]) : trf('{0}-কে {1} শোধের দিন', [x.person, taka(x.amount)]),
+      title: x.projectId != null
+          ? (x.kind == LedgerKind.lent ? trf('{0} {1} বকেয়া দেওয়ার দিন', [x.person, taka(x.amount)]) : trf('{0}-কে {1} বকেয়া শোধের দিন', [x.person, taka(x.amount)]))
+          : x.kind == LedgerKind.lent
+              ? trf('{0} {1} ফেরত দেওয়ার দিন', [x.person, taka(x.amount)])
+              : trf('{0}-কে {1} শোধের দিন', [x.person, taka(x.amount)]),
       date: dayOnly(x.due!),
       hour: 10,
       daysBefore: 1);
@@ -392,7 +414,7 @@ class Brain extends ChangeNotifier {
       if (info != null) {
         final until = info.proUntil;
         if (until != null && until.isAfter(services.now()) && (proUntil == null || until.isAfter(proUntil!))) {
-          await _setPro(until, info.proKind);
+          await _setPro(until, info.proKind, announce: await _noPush());
         }
       }
       notifyListeners();
@@ -452,9 +474,19 @@ class Brain extends ChangeNotifier {
     // Pro given on the website (or bought on another phone) shows up here too.
     final until = info.proUntil;
     if (gated && until != null && until.isAfter(services.now()) && (proUntil == null || until.isAfter(proUntil!))) {
-      await _setPro(until, info.proKind);
+      await _setPro(until, info.proKind, announce: await _noPush());
     }
     notifyListeners();
+  }
+
+  /// This phone cannot get our pushes (no Firebase), so the app says it itself.
+  Future<bool> _noPush() async {
+    try {
+      final t = await services.push.token();
+      return t == null || t.isEmpty;
+    } catch (_) {
+      return true;
+    }
   }
 
   /// The phone's push token to the server, when it is new for this session.
@@ -1555,6 +1587,7 @@ class Brain extends ChangeNotifier {
     if (signedIn) unawaited(family.refresh().catchError((_) {}));
     unawaited(refreshPlace().catchError((_) => null));
     await _loadServerNotices();
+    await _loadNoticeLog();
     try {
       data = await services.store.load();
       loadError = null;
@@ -1637,8 +1670,10 @@ class Brain extends ChangeNotifier {
   Future<void> _reschedule() {
     if (!loaded || loadError != null) return Future.value();
     final now = services.now();
-    final all = [...plannedNotices(data.reminders, now), ...assistantNotices(data, now, assistantPrefs)];
+    _oneOff.removeWhere((n) => !n.at.isAfter(now.subtract(const Duration(minutes: 1))));
+    final all = [...plannedNotices(data.reminders, now), ...assistantNotices(data, now, assistantPrefs), ..._oneOff];
     _updateWidget(now);
+    _notePlan(all, now);
     return _scheduling = _scheduling.then((_) async {
       await services.notifier.schedule(all);
       scheduleFailed = false;
@@ -1650,6 +1685,70 @@ class Brain extends ChangeNotifier {
 
   /// The last try to hand the reminders to the phone failed.
   bool scheduleFailed = false;
+
+  // ── নোটিফিকেশন page: coming up and already shown ──
+
+  /// The next seven days of notifications, soonest first.
+  List<NoticeEvent> noticePlan = [];
+
+  /// Those already shown (their time came), newest first, 30 days.
+  List<NoticeEvent> noticeHistory = [];
+  DateTime? _noticePlanAt;
+  String _noticeSaved = '';
+  String _planSent = '';
+  DateTime? _planSentAt;
+
+  Future<void> _loadNoticeLog() async {
+    try {
+      final raw = await services.lock.keys.read('notice_log');
+      if (raw == null) return;
+      final j = jsonDecode(raw) as Map<String, dynamic>;
+      noticePlan = [...(j['plan'] as List? ?? const []).map(NoticeEvent.fromJson).whereType<NoticeEvent>()];
+      noticeHistory = [...(j['history'] as List? ?? const []).map(NoticeEvent.fromJson).whereType<NoticeEvent>()];
+      _noticePlanAt = DateTime.tryParse('${j['at']}');
+      _noticeSaved = raw;
+    } catch (_) {}
+  }
+
+  void _notePlan(List<PlannedNotice> all, DateTime now) {
+    noticeHistory = addPassed(noticeHistory, noticePlan, _noticePlanAt, now);
+    noticePlan = expandPlan(all, now);
+    _noticePlanAt = now;
+    final raw = jsonEncode({
+      'at': now.toIso8601String(),
+      'plan': [for (final e in noticePlan.take(250)) e.toJson()],
+      'history': [for (final e in noticeHistory) e.toJson()],
+    });
+    if (raw != _noticeSaved) {
+      _noticeSaved = raw;
+      unawaited(services.lock.keys.write('notice_log', raw).catchError((_) {}));
+    }
+    unawaited(_sendPlan(now).catchError((_) {}));
+  }
+
+  /// Tells our server what this member's phone will show (kind and time
+  /// only): when it changed, or every six hours at most otherwise.
+  Future<void> _sendPlan(DateTime now) async {
+    final session = services.ai.session;
+    if (session.isEmpty) return;
+    final items = planForServer(noticePlan);
+    final sig = jsonEncode(items.map((e) => '${e['kind']}@${e['at']}').toList());
+    final fresh = _planSentAt != null && now.difference(_planSentAt!) < const Duration(hours: 6);
+    if (sig == _planSent && fresh) return;
+    _planSent = sig;
+    _planSentAt = now;
+    final r = await services.server.send('POST', '/notices/plan', session, {'items': items});
+    if (!r.ok) _planSent = '';
+  }
+
+  /// Pushes our server sent this member (for the নোটিফিকেশন page).
+  Future<List<PushRecord>> pushLog() async {
+    final session = services.ai.session;
+    if (session.isEmpty) return const [];
+    final r = await services.server.send('GET', '/notices/log', session);
+    if (!r.ok) return const [];
+    return [...((r.data['pushes'] as List?) ?? const []).map(PushRecord.fromJson).whereType<PushRecord>()];
+  }
 
   /// The home-screen widget: today's dates and the next few things.
   void _updateWidget(DateTime now) {
@@ -2148,11 +2247,19 @@ class Brain extends ChangeNotifier {
   /// Removes a project and its entries.
   Future<void> deleteProject(String id) async {
     for (final p in data.projects.where((e) => e.id == id)) {
-      _trash(p.name, [('projects', p.toJson()), for (final c in data.cash) if (c.projectId == id) ('cash', c.toJson())]);
+      _trash(p.name, [
+        ('projects', p.toJson()),
+        for (final c in data.cash) if (c.projectId == id) ('cash', c.toJson()),
+        for (final l in data.ledger) if (l.projectId == id) ('ledger', l.toJson()),
+      ]);
     }
     data.projects.removeWhere((e) => e.id == id);
     data.cash.removeWhere((e) => e.projectId == id);
+    final dueRems = {for (final l in data.ledger) if (l.projectId == id && l.reminderId != null) l.reminderId};
+    data.ledger.removeWhere((e) => e.projectId == id);
+    data.reminders.removeWhere((r) => dueRems.contains(r.id));
     await _save();
+    if (dueRems.isNotEmpty) await _reschedule();
   }
 
   /// The project called [name], made if there is none yet.

@@ -231,3 +231,25 @@ LedgerEntry? entryToReach(Iterable<LedgerEntry> entries, String person, int targ
     note: p == null ? 'শুরুর হিসাব' : 'হিসাব মিলানো: মোট ${taka(target)} ${target >= 0 ? 'পাবেন' : 'দেবেন'}',
   );
 }
+
+// ── বকেয়া of the অন্যান্য হিসাব ──
+
+/// The project's dues, one per person, biggest first; settled ones last.
+List<PersonBalance> projectDues(AppData d, String projectId) {
+  final list = balances(d.ledger.where((e) => e.projectId == projectId));
+  list.sort((a, b) {
+    if (a.settled != b.settled) return a.settled ? 1 : -1;
+    return b.balance.abs().compareTo(a.balance.abs());
+  });
+  return list;
+}
+
+/// (Customers owe me, I owe suppliers) for the project.
+(int, int) projectDueTotals(AppData d, String projectId) {
+  var owed = 0, owing = 0;
+  for (final p in projectDues(d, projectId)) {
+    if (p.balance > 0) owed += p.balance;
+    if (p.balance < 0) owing -= p.balance;
+  }
+  return (owed, owing);
+}

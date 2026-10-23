@@ -204,6 +204,10 @@ class Api {
 
   Future<void> toggleNotice(int id) => _send('POST', '/admin/notices/$id/toggle');
 
+  /// নোটিফিকেশনের লগ (as on the site): [q] a member's name or e-mail, [when] '', 'past' or 'next'.
+  Future<List<Map<String, dynamic>>> noticeLog({String q = '', String when = ''}) async =>
+      ((await _send('GET', '/admin/notice-log?q=${Uri.encodeQueryComponent(q)}&when=$when'))['rows'] as List).cast<Map<String, dynamic>>();
+
   Future<int> pushNow(String title, String body, String audience) async => ((await _send('POST', '/admin/push', {'title': title, 'body': body, 'audience': audience}))['sent'] as num?)?.toInt() ?? 0;
 
   // ── AI ও বোঝা ──

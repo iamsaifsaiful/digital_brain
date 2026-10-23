@@ -78,6 +78,15 @@ class FakeServer {
         {'id': 2, 'name': 'Nusrat Jahan', 'email': 'nusrat.j@gmail.com', 'picture': '', 'status': 'trial', 'pro_until': _now.add(const Duration(days: 5)).toIso8601String(), 'joined': _ago(const Duration(days: 2)), 'last_seen': _ago(const Duration(hours: 3)), 'version': '2.14.0 play', 'note': ''},
         {'id': 3, 'name': '', 'email': 'sumon.dhaka@gmail.com', 'picture': '', 'status': 'free', 'pro_until': null, 'joined': _ago(const Duration(days: 30)), 'last_seen': _ago(const Duration(days: 1)), 'version': '2.14.0 direct', 'note': ''},
       ]};
+    } else if (p == '/admin/notice-log') {
+      final when = r.url.queryParameters['when'] ?? '';
+      final all = [
+        {'id': 9, 'source': 'plan', 'kind': 'reminder', 'label': 'রিমাইন্ডার', 'title': '', 'at': _now.add(const Duration(hours: 3)).toUtc().toIso8601String(), 'status': 'planned', 'status_label': 'আসবে', 'email': 'nusrat.j@gmail.com', 'name': 'Nusrat Jahan'},
+        {'id': 8, 'source': 'push', 'kind': 'feedback', 'label': 'মতামতের উত্তর', 'title': 'আপনার মতামতের উত্তর এসেছে', 'at': _ago(const Duration(hours: 2)), 'status': 'sent', 'status_label': 'পাঠানো হয়েছে', 'email': 'saiful.islam@gmail.com', 'name': 'সাইফুল ইসলাম'},
+        {'id': 7, 'source': 'push', 'kind': 'news', 'label': 'সবাইকে পাঠানো', 'title': 'নতুন সুবিধা', 'at': _ago(const Duration(days: 1)), 'status': 'no_device', 'status_label': 'ফোন যুক্ত নেই', 'email': 'sumon.dhaka@gmail.com', 'name': ''},
+      ];
+      final q = r.url.queryParameters['q'] ?? '';
+      body = {'rows': [for (final x in all) if ((when != 'next' || x['status'] == 'planned') && (q.isEmpty || '${x['email']}'.contains(q))) x]};
     } else if (p == '/admin/notices') {
       body = {'notices': [
         {'id': '1', 'title': 'আজকের কাজের লিস্ট করেছেন?', 'body': 'চাপুন আর বলুন — কাল কী কী করবেন, লিখে রাখবো।', 'kind': 'daily', 'at_time': '21:00', 'active': '1'},
@@ -215,6 +224,20 @@ void main() {
     await settle(t);
     expect(find.text('আজকের কাজের লিস্ট করেছেন?'), findsOneWidget);
     await shot(t, 'notices');
+    // কার কাছে কী গেছে: the same log as the site.
+    await t.tap(find.byKey(const Key('notice-log')));
+    await settle(t);
+    expect(find.text('মতামতের উত্তর'), findsOneWidget);
+    expect(find.text('ফোন যুক্ত নেই'), findsOneWidget);
+    await shot(t, 'notice_log');
+    await t.tap(find.text('সামনে'));
+    await settle(t);
+    expect(find.text('মতামতের উত্তর'), findsNothing);
+    expect(find.text('রিমাইন্ডার'), findsOneWidget);
+    await t.enterText(find.byKey(const Key('log-q')), 'saiful');
+    await t.testTextInput.receiveAction(TextInputAction.search);
+    await settle(t);
+    expect(find.text('রিমাইন্ডার'), findsNothing);
   });
 
   testWidgets('feedback: open a conversation, see the screenshot, answer with text', (t) async {

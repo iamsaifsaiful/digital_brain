@@ -365,6 +365,33 @@ void _projects(_Doc doc, AppData d, String? onlyId) {
       [tr('বাকি'), '${s.balance < 0 ? '−' : ''}${taka(s.balance)}', s.balance < 0 ? 'o' : 'g'],
       if (p.budget > 0) [tr('বাজেট'), taka(p.budget), s.expense > p.budget ? 'o' : ''],
     ]);
+    final dues = [for (final x in projectDues(d, p.id)) if (!x.settled) x];
+    if (dues.isNotEmpty) {
+      final (owed, owing) = projectDueTotals(d, p.id);
+      doc.p(trf('বকেয়া — পাবো {0}, দেবো {1}', [taka(owed), taka(owing)]));
+      final keys = accountKeys(d.ledger.where((e) => e.projectId == p.id));
+      String what(PersonBalance x) => {
+            for (final e in d.ledger)
+              if (e.projectId == p.id && (e.kind == LedgerKind.lent || e.kind == LedgerKind.borrowed) && keys[e.id] == x.key && e.note.trim().isNotEmpty) e.note.trim()
+          }.join(', ');
+      String due(PersonBalance x) {
+        DateTime? best;
+        for (final e in d.ledger) {
+          if (e.projectId == p.id && (e.kind == LedgerKind.lent || e.kind == LedgerKind.borrowed) && keys[e.id] == x.key && e.due != null && (best == null || e.due!.isBefore(best))) best = e.due;
+        }
+        return best == null ? '' : _d(best);
+      }
+
+      doc.table(
+        [tr('নাম'), tr('কী বাবদ'), tr('পরিশোধ'), tr('পাবো'), tr('দেবো')],
+        [
+          for (final x in dues)
+            [x.name, what(x), due(x), x.balance > 0 ? cell(taka(x.balance), tone: 'g', bold: true) : '', x.balance < 0 ? cell(taka(-x.balance), tone: 'o', bold: true) : ''],
+        ],
+        w: [2.4, 3, 1.7, 1.6, 1.6],
+        a: ['l', 'l', 'l', 'r', 'r'],
+      );
+    }
     if (list.isEmpty) {
       doc.p(tr('এই হিসাবে এখনো কিছু লেখা নেই।'), muted: true);
       continue;
