@@ -38,3 +38,5 @@ android/app/src/main/res/values/firebase.xml
 tool/nlu/out/
 __pycache__/
 test/dark/shots/
+# Pages the WordPress e2e writes on every run
+tool/wordpress/test/page-*.html
