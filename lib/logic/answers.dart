@@ -913,7 +913,8 @@ bool ownMoneyAsked(String said, AppData? d) {
   // have their own answers (menus, the analysis) — only the other words here.
   if (RegExp(fold(r'(?:আয়|খরচ|ব্যয়|ইনকাম|ভাগ|শতাংশ|%)')).hasMatch(t)) return false;
   final per = periodIn(t, DateTime(2026)) != null;
-  return (per && (_inAsked.hasMatch(t) || _leftAsked.hasMatch(t))) || RegExp(fold(r'(?:কামাই|রোজগার|থাকল|থাকলো|থাকলো)')).hasMatch(t);
+  // "এ মাসে মোট কত গেল": spent, said plainly.
+  return (per && (_inAsked.hasMatch(t) || _leftAsked.hasMatch(t) || RegExp(fold(r'(?:^|\s)(?:গেল|গেলো|লাগলো|লাগল)(?:\s|$)')).hasMatch(t))) || RegExp(fold(r'(?:কামাই|রোজগার|থাকল|থাকলো|থাকলো)')).hasMatch(t);
 }
 
 /// "আজ আমার কী কী আছে?" — the day at a glance.
