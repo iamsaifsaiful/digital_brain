@@ -37,6 +37,8 @@ final _joiners = RegExp(r'\s+(?:আর|এবং|তারপর|তার প�
 /// money event, so "রহিম আর করিমকে ৫০০ টাকা দিলাম" stays one.
 List<Command> parseAll(String said, List<LedgerEntry> ledger,
     {List<Task> tasks = const [], List<Contact> contacts = const [], List<FolderHint> folders = const [], DateTime? now, AppData? data}) {
+  // "ও হ্যাঁ, … ভুল করবা না", "… কল গর": the request itself, said plainly.
+  said = plainSpeech(said);
   // "যশোর যাওয়া কাজের নাম বদল হবে শ্বশুর বাড়ি যাওয়া": a to-do renamed —
   // never a note or a new to-do, whatever else the words could be.
   final rename = renameCommand(said);
@@ -82,6 +84,12 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   // "শেষ রক্ত দিয়েছি ১০ আগস্ট": the day blood was given — never a to-do.
   final blood = p.bloodDonationOf(said);
   if (blood != null) return [blood];
+  // "১৮ সেপ্টেম্বর আমার বিয়ের দিন": a day kept every year, whichever
+  // order the words come in — never a to-do named "আমার বিয়ের দিন".
+  if (!RegExp(fold(r'(?:হবে|করতে|যেতে|কিনতে|দিতে|লাগবে|আছে\?)')).hasMatch(fold(said))) {
+    final special = specialDayIn(said, normalize(tidySpeech(said)), now: p.now);
+    if (special != null) return [special];
+  }
   // "ইমরান ৫০০০ টাকা দিয়েছে, শুধু নোটে রাখো", "… এটা নোট করে রাখো": the
   // place said wins — a note, even with money or a day in it.
   final note = RegExp(fold(r'^(.+?)[\s,।]+(?:(?:এটা|এটি|এগুলো|এইটা|ওটা)\s+)?(?:শুধু\s+|শুধুই\s+|কেবল\s+)?(?:নোটে|নোট\s+হিসেবে|নোট\s+আকারে|নোটস-?এ)\s+(?:রাখো|রাখ|রেখো|লিখে\s+রাখো|লিখো|লেখো|তুলে\s+রাখো|সেভ\s+করো)\s*[।.!]?$|^(.+?)[\s,।]+(?:(?:এটা|এটি|এগুলো|এইটা|ওটা)\s+)?(?:শুধু\s+)?নোট\s+(?:করে\s+রাখো|করে\s+রাখ|করো|কর|করে\s+নাও)\s*[।.!]?$')).firstMatch(fold(said.trim()));
@@ -140,6 +148,12 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   }
   // "আয়ের খাত গুলো কি কি", "কিভাবে ব্যয় হয়েছে?": this month by খাত.
   if (categoryAsked(said) != null) return [CashQuery(said)];
+  // "এ মাসের খরচের হিসাব দাও", "আয়ের হিসাব শোনাও": the own book — never
+  // the পাওনা-দেনা one, unless that is named.
+  if (RegExp(fold(r'(?:^|\s)(?:খরচ|আয়|আয়-ব্যয়|ইনকাম)(?:ের|এর|র)?\s+(?:হিসাব|হিসেব|তালিকা|লিস্ট|খাতা)')).hasMatch(fold(normalize(tidySpeech(said)))) &&
+      !RegExp(fold(r'(?:পাওনা|দেনা|ধার|লেনদেন|বকেয়া)')).hasMatch(fold(said)) && (data == null || projectHinted(data, said) == null)) {
+    return [CashQuery(said)];
+  }
   // "আজ কত থাকল", "এই সপ্তাহে কত কামাই হলো": the own money of that time.
   if (ownMoneyAsked(said, data) && (data == null || projectHinted(data, said) == null)) return [CashQuery(said)];
   // "বাজারের খাতের ভেতরের সব দেখাও": the entries under one খাত.

@@ -445,6 +445,36 @@ String _bnNum(int n) => n.toString().split('').map((c) => '০১২৩৪৫৬
 /// "task-টা tomorrow move করো" → "কাজটা কাল সরাও": the same meaning in
 /// the words the rest of the app reads. Only whole words change, so names
 /// stay as they are.
+/// What a person adds around a request that is not the request (the
+/// 2000-user crowd, 23 Oct): "ও হ্যাঁ, …", "ভাই একটা কথা, …", "… ভুল করবা
+/// না", "… ঠিকমতো রাখবে", "… বাবা", "… bro" — taken off, and the
+/// region's verb forms ("গর", "দেও", "মনে করাইয়া দিবা") said the standard
+/// way, so every rule reads the request itself. A short reply ("ঠিক আছে")
+/// is left as it is.
+String plainSpeech(String said) {
+  var s = fold(said.trim());
+  if (s.split(RegExp(r'\s+')).length < 3) return said;
+  final lead = RegExp(fold(r'^(?:ও\s+হ্যাঁ|ভুলে\s+গেছিলাম|ভুলে\s+গিয়েছিলাম|ভাই\s+একটা\s+কথা|আরেকটা\s+কথা|আচ্ছা\s+শোনো|শোনো|শুনো|হুনো|উমম+|ইয়ে|দয়া\s+করে|প্লিজ|please)[\s,।]+'));
+  final tail = RegExp(fold(r'[\s,।]+(?:ভুল\s+করবা\s+না|ভুল\s+করবে\s+না|ভুল\s+করো\s+না|ভুলে\s+যেও\s+না(?:\s+কিন্তু)?|ঠিকমতো\s+রাখবে|ঠিকমতো\s+রাখবা|ঠিক\s+করে\s+লিখবা|ঠিক\s+করে\s+লিখবে|ঠিক\s+আছে|বুঝছো|বুঝলে|কেমন|bro|ব্রো|বাবা|মা|ভাই|প্লিজ|please)\s*[?？।.!]*$'));
+  for (var k = 0; k < 3; k++) {
+    final before = s;
+    s = s.replaceFirst(lead, '');
+    // "কেমন" / "ঠিক আছে" end a question of their own ("প্রেশার কেমন",
+    // "সব ঠিক আছে?"): only taken off after a whole request.
+    final m = tail.firstMatch(s);
+    if (m != null) {
+      final rest = s.substring(0, m.start).trim();
+      final word = m[0]!.replaceAll(RegExp(r'[\s,।?？.!]'), '');
+      final ask = word == fold('কেমন') || word == fold('ঠিকআছে');
+      final asksBefore = RegExp(fold(r'(?:প্রেশার|সুগার|ওজন|অবস্থা|শরীর|দিন|আবহাওয়া)$')).hasMatch(rest);
+      if (rest.split(RegExp(r'\s+')).length >= 2 && !(ask && asksBefore)) s = rest;
+    }
+    if (s == before) break;
+  }
+  s = _everydayWords(s);
+  return s;
+}
+
 String _everydayWords(String s) {
   var t = s;
   // English inside Bengali speech.
@@ -461,6 +491,8 @@ String _everydayWords(String s) {
     (r'\badd\s*(?:কর(?:ো|ে\s+দাও|ুন|েন))', 'যোগ করো'),
     (r'\boff\s*(?:কর(?:ো|ে\s+দাও|ুন|েন)?)', 'বন্ধ করো'),
     (r'\breminder\b', 'রিমাইন্ডার'),
+    (r'(?:রিমাইন্ড|remind)\s+(?:করো|করুন|করবা|করবে|কর|করে\s+দাও|করে\s+দিও|করিও)', 'মনে করিয়ে দাও'),
+    (r'(?:প্রত্যেক|প্রতি)\s+দিন(?=$|[\s,।?!])', 'প্রতিদিন'),
   ]) {
     t = t.replaceAllMapped(RegExp(p, caseSensitive: false), (m) => r.contains(r'$1') ? r.replaceAll(r'$1', m[1] ?? '') : r);
   }
@@ -471,6 +503,12 @@ String _everydayWords(String s) {
     'করমু': 'করব', 'আনমু': 'আনব', 'যামু': 'যাব', 'খামু': 'খাব', 'দিমু': 'দেব', 'নিমু': 'নেব', 'কিনমু': 'কিনব', 'পাঠামু': 'পাঠাব',
     'হইয়া': 'হয়ে', 'হইয়্যা': 'হয়ে', 'অইয়া': 'হয়ে', 'অয়': 'হয়', 'অইছে': 'হয়েছে', 'হইছে': 'হয়েছে', 'হইসে': 'হয়েছে',
     'এইডা': 'এটা', 'ওইডা': 'ওটা', 'হেইডা': 'সেটা', 'হেডা': 'সেটা',
+    // The regions' verb forms (the crowd, 23 Oct).
+    'গর': 'করো', 'গরো': 'করো', 'হরো': 'করো', 'দেও': 'দাও', 'দও': 'দাও', 'দিবা': 'দিও', 'দিবেন': 'দিও', 'করাইয়া': 'করিয়ে', 'করাইয়্যা': 'করিয়ে',
+    'কইরা': 'করে', 'দিয়া': 'দিয়ে', 'নিয়া': 'নিয়ে', 'লেইখা': 'লিখে', 'রাইখা': 'রেখে', 'হইলো': 'হলো', 'হইল': 'হলো', 'পাইলাম': 'পেলাম',
+    'আইজ': 'আজ', 'আইজ্জা': 'আজ', 'আজিয়া': 'আজ', 'আইজকা': 'আজ', 'কাইল': 'কাল', 'কাইলকা': 'কাল', 'হালিয়া': 'কাল', 'কিতা': 'কী',
+    'যাইয়ুম': 'যাব', 'যাইমু': 'যাব', 'যাইবাম': 'যাব', 'কইরমু': 'করব', 'গইরগুম': 'করব', 'হরমু': 'করব', 'করবাম': 'করব', 'দিয়ুম': 'দেব', 'দিবাম': 'দেব',
+    'অইয়ে': 'হয়েছে', 'হয়্যাছে': 'হয়েছে', 'দার': 'ধার', 'খরছ': 'খরচ', 'রিমান্ডার': 'রিমাইন্ডার', 'রিমাইনডার': 'রিমাইন্ডার', 'ডেইলি': 'প্রতিদিন', 'daily': 'প্রতিদিন',
   };
   final folded = {for (final e in map.entries) fold(e.key): fold(e.value)};
   t = t.replaceAllMapped(RegExp(r'[^\s,।?!.]+'), (m) {

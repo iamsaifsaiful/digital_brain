@@ -28,7 +28,9 @@ jobs:
           pip install "tensorflow-cpu==2.15.1" "numpy<2" scipy scikit-learn
           if [ "$M" = bert ]; then pip install "transformers==4.40.2" "tf_keras==2.15.1" "torch==2.3.1" --extra-index-url https://download.pytorch.org/whl/cpu; fi
       - name: Make data
-        run: python tool/nlu/data/generate.py
+        run: |
+          python tool/nlu/crowd/crowd.py
+          python tool/nlu/data/generate.py
       - name: Train and convert
         run: |
           set -o pipefail

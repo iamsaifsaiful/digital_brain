@@ -33,7 +33,9 @@ jobs:
           python tool/nlu/retrain/fetch.py
           python tool/nlu/retrain/labels.py tool/nlu/out/real_samples.jsonl | tee labels.log
       - name: Make data
-        run: python tool/nlu/data/generate.py | tee data.log
+        run: |
+          python tool/nlu/crowd/crowd.py
+          python tool/nlu/data/generate.py | tee data.log
       - name: Train
         run: |
           set -o pipefail

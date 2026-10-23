@@ -1360,7 +1360,11 @@ class Parser {
 
     // Anything else about money (টাকা) also belongs in লেনদেন, never in a
     // note category. Missing person or amount: the app asks for them.
-    final money = _hasAny(text, ['টাকা']) || said.contains('৳') || w.contains('tk');
+    // "১২০০ দিয়ে টায়ার সারাই করালাম", "বেতন হিসেবে ৭৬৫০০ হাতে পেলাম": an
+    // amount and a money verb is money even without the word "টাকা".
+    final bareMoney = amount != null && amount >= 20 && cashKindOf(text) != null && !(parseWhen(said, now)?.hasTime ?? false) &&
+        !_hasNorm(text, const ['কেজি', 'গ্রাম', 'লিটার', 'মিনিট', 'ঘণ্টা', 'ঘন্টা', 'দিন', 'বছর', 'জন', 'বার', 'নম্বর', 'নাম্বার']);
+    final money = _hasAny(text, ['টাকা']) || said.contains('৳') || w.contains('tk') || bareMoney;
     if (money && !asking) {
       if (amount == null) {
         final add = _ledgerEvent(said, text, w, 0, known);
@@ -1671,6 +1675,17 @@ class Parser {
             options: const [LedgerKind.received, LedgerKind.borrowed],
             suggested: owesMe ? LedgerKind.received : LedgerKind.borrowed);
       }
+    }
+
+    // 1b) "মিতু আপা ১০ হাজার টাকা ধার দিলেন", "আবির মামা কর্জ দিছে": a loan
+    // someone gave, with no one else named to have got it — they lent it
+    // to me ("আমাকে" left out).
+    if (loan && !ret && _hasAny(text, _give3) && !_hasAny(text, [..._give1, ..._take1]) && !w.any((x) => _endsKe(x) && x != normalize('আমাকে')) &&
+        !w.contains(normalize('থেকে')) && !w.contains(normalize('কাছ'))) {
+      // The giver is said first, as is ("আবির মামা" → "আবির", never "আবি").
+      final first = w.isEmpty ? '' : w.first;
+      final name = first.isNotEmpty && _looksLikeName(first) && !RegExp(r'\d').hasMatch(first) ? resolvePerson(first, known) : _anyName(w, known);
+      if (name.isNotEmpty) return LedgerAdd(said, person: name, amount: amount, kind: LedgerKind.borrowed);
     }
 
     // 2) "রহিমের কাছ থেকে ১,০০০ টাকা ধার নিয়েছি" — I took / got from them.
@@ -2552,7 +2567,7 @@ bool isQuestionText(String said) {
   final w = words(normalize(said));
   const q = [
     'কী', 'কি', 'কত', 'কোথায়', 'কোথায়', 'কবে', 'কে', 'কার', 'কাকে', 'কোন', 'কোনটা', 'কেমন', 'কিভাবে', 'কীভাবে',
-    'দেখাও', 'দেখান', 'দেখা', 'বলো', 'বলুন', 'বল', 'খুঁজে', 'খোঁজো', 'খুঁজো', 'বের', 'what', 'where', 'when', 'show', 'find',
+    'দেখাও', 'দেখান', 'বলো', 'বলুন', 'বল', 'খুঁজে', 'খোঁজো', 'খুঁজো', 'বের', 'what', 'where', 'when', 'show', 'find',
     'কখন', 'কটায়', 'কয়টা', 'কয়টি', 'কতগুলো', 'কতটা', 'কেন', 'কিসে', 'কিসের', 'কোনগুলো', 'কারা', 'how', 'which',
   ];
   final qs = {for (final x in q) fold(x)};

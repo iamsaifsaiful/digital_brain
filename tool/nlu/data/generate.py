@@ -376,6 +376,17 @@ def main():
     # Members' real messages, labelled (tool/nlu/retrain/labels.py).
     real = os.path.join(OUT, 'real.jsonl')
     rows += [json.loads(l) for l in open(real)] if os.path.exists(real) else []
+    # The crowd's training half (tool/nlu/crowd/crowd.py: 1000 made-up users,
+    # their own sentence frames — the other half is gold). Intent only: the
+    # words are not labelled one by one.
+    crowd = os.path.join(ROOT, 'out', 'crowd', 'train.jsonl')
+    if os.path.exists(crowd):
+        for l in open(crowd):
+            c = json.loads(l)
+            toks = c['text'].split()
+            rows.append(dict(family=f"crowd:{c['user']}", kind='crowd', state='idle', shown=[], asked=None, tokens=toks, tags=['O'] * len(toks), text=c['text'],
+                             intent=[c['intent']], segs=[dict(intent=c['intent'], start=0, end=len(toks), slots={})], slots={}, pair=None, noise=[],
+                             intent_only=True, source='crowd', id=c['id']))
     rows, conflicts = dedupe(rows)
     rows, dropped, ngold = gold_filter(rows)
     spec_intents = [x['id'] for x in json.load(open(os.path.join(SPEC, 'intents.json')))]
