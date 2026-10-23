@@ -15,6 +15,7 @@ from templates_money import T as T2  # noqa: E402
 from templates_other import T as T3  # noqa: E402
 from templates_context import CTX  # noqa: E402
 from templates_extra import T as T4  # noqa: E402
+from templates_walk import T as T5  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, '..'))
 OUT = os.path.join(ROOT, 'out', 'data')
@@ -25,10 +26,10 @@ SPEC = os.path.join(ROOT, 'spec')
 BUDGET = defaultdict(lambda: 500, {
     'task_add': 2600, 'task_done': 900, 'task_edit': 1300, 'task_delete': 1300, 'task_query': 1300, 'task_remind': 700, 'task_reopen': 450,
     'task_skip_once': 400, 'reminder_add': 2200, 'reminder_edit': 900, 'reminder_stop': 600, 'reminder_delete': 900, 'reminder_snooze': 250,
-    'reminder_query': 700, 'ledger_add': 2400, 'ledger_set': 700, 'ledger_query': 900, 'cash_add': 2400, 'cash_query': 700, 'rename': 900,
+    'reminder_query': 700, 'ledger_add': 2400, 'ledger_set': 700, 'ledger_query': 900, 'cash_add': 3200, 'cash_query': 1100, 'rename': 900,
     'item_delete': 800, 'note_add': 700, 'note_query': 400, 'dictate_start': 300, 'dictate_end': 0, 'correct': 400, 'complain_help': 250,
     'smalltalk': 120, 'out_of_scope': 300, 'menu_alarm': 120, 'menu_backup': 120, 'menu_settings': 200, 'menu_zakat': 120, 'briefing': 80,
-    'calendar_query': 200, 'profile_query': 120, 'menu_trash': 200, 'menu_installment': 200, 'menu_health': 250, 'menu_special': 250,
+    'calendar_query': 200, 'profile_query': 120, 'menu_trash': 200, 'menu_installment': 200, 'menu_health': 300, 'health_add': 600, 'open_page': 700, 'menu_special': 250,
 })
 CTX_BUDGET = 260          # per (state, shown, intent)
 MULTI = 3500              # several requests in one message
@@ -97,7 +98,7 @@ def shown_list(kind):
 
 
 def singles():
-    fams = families(T1) + families(T2) + families(T3) + families(T4, 'x:')
+    fams = families(T1) + families(T2) + families(T3) + families(T4, 'x:') + families(T5, 'w:')
     by_intent = defaultdict(list)
     for f in fams:
         by_intent[f['intent']].append(f)

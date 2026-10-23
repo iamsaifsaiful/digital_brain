@@ -282,6 +282,20 @@ def _value(ctx, name, var):
     if name == 'oos':
         w = ctx.once(name, lambda: random.choice(L.OUT_OF_SCOPE))
         return w, None, None
+    # The persona walk's words (23 Oct). Who gave or was paid has no slot of
+    # its own (it is the entry's note).
+    if name in ('isrc', 'wage', 'earn'):
+        w = ctx.once(name, lambda: random.choice({'isrc': L.INCOME_SOURCES, 'wage': L.WAGES, 'earn': L.EARN}[name]))
+        return w, ('item' if name != 'earn' else None), w
+    if name in ('giver', 'worker', 'family', 'tenant', 'parent', 'pocket'):
+        w = ctx.once(name, lambda: random.choice({'giver': L.GIVERS, 'worker': L.WORKERS, 'family': L.FAMILY, 'tenant': L.TENANTS,
+                                                   'parent': L.PARENTS, 'pocket': L.POCKET}[name]))
+        if var == 'ke':
+            w = w + 'কে'
+        return w, None, None
+    if name == 'kin':
+        w = ctx.once(name, lambda: random.choice(L.KIN))
+        return w, 'person', w
     if name == 'notetopic':
         w = ctx.once(name, lambda: random.choice(L.NOTE_TOPICS))
         return w, 'terms', w
