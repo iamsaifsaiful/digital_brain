@@ -6,6 +6,37 @@
 
 ---
 
+## 0f. Update 24 Oct (evening): 2.50.0-b103, plugin 1.18.0, admin 1.8.0+10
+
+## Main money (এখন আছে)
+- এখন আছে = the amount said at one moment + every own income − spending written after it. Saying it again starts afresh from then (old lines stay but are not counted).
+- Independent of accounts (supersedes the owner's earlier "accounts total" choice).
+- Loans and other হিসাব join by themselves (no question): lent → ব্যয় 'ধার দেওয়া', borrowed → আয় 'ধার নেওয়া', received → 'ধার ফেরত পাওয়া', repaid → 'ধার শোধ'; a বকেয়া collected → 'বকেয়া থেকে আয়'; project spending → ব্যয়. Mirror lines carry `linkId`; delete/undo travel together; one can be taken out ("মূল টাকা থেকে বাদ দিন").
+- Loans are shown in ব্যয় but not counted as spending (spend health skips them); personMoney skips mirror lines.
+- Tap এখন আছে → "এখন আছে কীভাবে হলো" (start, parts, lines).
+
+## Premium (owner's list; everything else free)
+Premium: >20 active reminders (all kinds, money too), >30 documents, অন্যান্য হিসাব (anything at all), ওছিয়তনামা, family in স্বাস্থ্য, >20 passwords, family heirs / full access / location, auto Drive backup, PDF, AI answers, no ads.
+Free now: loan reminders, paper expiry alerts, all report months, any number of loan people, shops and receipts, smart notices, family invites and sending tasks/reminders/notes.
+`proInfo` (lib/logic/pro.dart) is the single list the Premium page and every lock read — update it with every change. `freeFeatures` lists the open ones.
+
+## Other changes
+- সংরক্ষণ: বিশেষ দিন tile beside স্বাস্থ্য; "সব তথ্য ও নিজের বিভাগ" row removed.
+- Location: asks permission once when following the phone; fix order balanced → GPS → last fix → any provider's last fix (works on mobile data / without Wi-Fi). A failed try is retried next time.
+- রক্ত দিতে চাই: mobile number required (01XXXXXXXXX).
+- Zakat: from এখন আছে when set (accounts not added again), with ধার-দেনা and marked বকেয়া; price of 1 ভরি fetched on open, shown as one line (boxes only to change it).
+- Uploads: a name or a tag required; a folder required; no catch-all অন্যান্য folder (old ones stay); make a new folder for anything else.
+- ওছিয়তনামা in নোট (note id `will`), with "শেষ ওছিয়ত: date".
+- BMI ≥ 23 (me or a family member): kind push Mon & Thu 7:30, no number on the lock screen (under স্বাস্থ্য পরামর্শ switch).
+- Passwords: opened from পাসওয়ার্ড, no বিভাগ row; known apps/sites chips (Facebook, WhatsApp, Gmail, bKash…) shown as a letter on the brand colour (not logos).
+- Heir: "এক চাপে সব ব্যাকআপ নিন" saves a locked .dbrain (password chosen there).
+- Reading other apps' messages (মেসেজ থেকে কাজ) removed completely (Dart, Kotlin MessageListener, screens, tests). Old stored inbox copies are no longer loaded.
+
+- Server (plugin 1.18.0): family invite and sending items free; `/allow` adding `location`, turning on `heir` or `open_now`, and the `lockey` item need Premium (402); `ma_fam_free_perms` strips location on accept for free members. Subscriptions by bKash only (`ma_pay_methods` keeps only বিকাশ lines). Premium page rows = the owner's list. "প্রো" → "প্রিমিয়াম" in every user-visible text (site, emails, admin app). e2e ALL OK.
+- Landing (scratchpad/landing): Premium section, new "বিপদে পাশে" section (backup if the phone is lost, finding a lost phone, family, blood, zakat, will), bKash only.
+- Tests: 2348 pass (full run ~29 min).
+- Not verified on a phone: location on mobile data, BMI notice timing, heir one-tap backup with real files, bKash-only form on the live site.
+
 ## 0e. Update 24 Oct (later): 2.49.1-b102 — the earlier UI is back
 - The owner tried 2.49.0 and said: "বর্তমান ইউআই ভালো লাগছে না। আগের ইউআই ফিরিয়ে আনো এবং প্রয়োজনে কিছু আপডেট কর, যেন, দেখতে ক্লিন, প্রোফেশনাল লাগে। কোন কিছু যেন এআই না লাগে". lib/ and test/ went back to 8a10123 (before the redesign); kept: প্রিমিয়াম everywhere, `appPremium` in menus.dart, the vault place fix, StartTips `mounted`.
 - His points: home 'সামনে' always lists the holiday going on now or the next two; app icon resource renamed to `@mipmap/ic_app_mark` (his phone showed the v1 brain icon in notifications — not checked on a phone); `SectionTitle` has space above; হিসাব tool cards → ⋮ menu (`MoneyToolsMenu`); 'এখন কত টাকা আছে' (`CashNowCard`, `AppData.cashOffset/cashSetAt`, `cashOnHand()` in logic/cash.dart, `Brain.setCashOnHand`); calmer category colours in theme.dart; emoji in labels/titles replaced by icons.
