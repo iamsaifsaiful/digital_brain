@@ -66,11 +66,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: SwipeTabs<CalSide>(
-          items: const [CalSide.bangla, CalSide.arabic],
-          value: _side,
-          onChanged: (v) => setState(() => _side = v),
-          child: ListView(
+        // (owner, 24 Oct: the page-wide swipe between the date tabs felt
+        // abrupt — the tabs change by a tap; a swipe on the month turns the month.)
+        child: Builder(
+          builder: (context) => ListView(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
             children: [
               Row(children: [
@@ -240,6 +239,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   String _inDays(int n) => n <= 0 ? tr('আজ') : (n == 1 ? tr('কাল') : trf('{0} দিন পর', [bnDigits(n)]));
 
+  /// Which way the last month turn went (1 = next, -1 = before).
+  double _dir = 1;
+
+  void _turn(DateTime month, int by) => setState(() {
+        _dir = by.toDouble();
+        _month = DateTime(month.year, month.month + by);
+      });
+
   Widget _monthGrid(DateTime month, DateTime today, DateTime picked) {
     final days = DateTime(month.year, month.month + 1, 0).day;
     final lead = (DateTime(month.year, month.month).weekday + 1) % 7; // Saturday first
@@ -254,7 +261,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16)),
       child: Column(children: [
         Row(children: [
-          IconButton(tooltip: tr('আগের মাস'), onPressed: () => setState(() => _month = DateTime(month.year, month.month - 1)), icon: const Icon(Icons.chevron_left_rounded)),
+          IconButton(tooltip: tr('আগের মাস'), onPressed: () => _turn(month, -1), icon: const Icon(Icons.chevron_left_rounded)),
           Expanded(
             child: Column(children: [
               Text('${monthName(month.month)} ${bnDigits(month.year)}', style: body(15, weight: FontWeight.w600)),
@@ -262,23 +269,50 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   style: body(12, color: C.muted)),
             ]),
           ),
-          IconButton(tooltip: tr('পরের মাস'), onPressed: () => setState(() => _month = DateTime(month.year, month.month + 1)), icon: const Icon(Icons.chevron_right_rounded)),
+          IconButton(tooltip: tr('পরের মাস'), onPressed: () => _turn(month, 1), icon: const Icon(Icons.chevron_right_rounded)),
         ]),
         Row(children: [
           for (final (i, h) in heads.indexed) Expanded(child: Text(h, textAlign: TextAlign.center, style: body(11.5, color: i == 0 || i == 6 ? _red : C.muted))),
         ]),
         const SizedBox(height: 4),
-        GridView.count(
-          crossAxisCount: 7,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 3,
-          crossAxisSpacing: 3,
-          childAspectRatio: 0.9,
-          children: [
-            for (var i = 0; i < lead; i++) const SizedBox.shrink(),
-            for (var d = 1; d <= days; d++) _cell(DateTime(month.year, month.month, d), today, picked),
-          ],
+        // Swipe the days left or right to turn the month; the new month
+        // slides in from the side it was pulled from.
+        GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onHorizontalDragEnd: (d) {
+            final v = d.primaryVelocity ?? 0;
+            if (v.abs() < 200) return;
+            _turn(month, v < 0 ? 1 : -1);
+          },
+          child: ClipRect(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 260),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              layoutBuilder: (current, previous) => Stack(alignment: Alignment.topCenter, children: [...previous, if (current != null) current]),
+              transitionBuilder: (child, anim) {
+                final incoming = child.key == ValueKey('${month.year}-${month.month}');
+                final from = Offset((incoming ? 1.0 : -1.0) * _dir, 0);
+                return SlideTransition(
+                  position: Tween<Offset>(begin: incoming ? from : -from, end: Offset.zero).animate(anim),
+                  child: FadeTransition(opacity: anim, child: child),
+                );
+              },
+              child: GridView.count(
+                key: ValueKey('${month.year}-${month.month}'),
+                crossAxisCount: 7,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 3,
+                crossAxisSpacing: 3,
+                childAspectRatio: 0.9,
+                children: [
+                  for (var i = 0; i < lead; i++) const SizedBox.shrink(),
+                  for (var d = 1; d <= days; d++) _cell(DateTime(month.year, month.month, d), today, picked),
+                ],
+              ),
+            ),
+          ),
         ),
       ]),
     );

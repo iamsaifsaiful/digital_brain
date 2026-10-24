@@ -71,23 +71,18 @@ class _DiaryScreenState extends State<DiaryScreen> {
           ]),
           const SizedBox(height: 10),
           tabs,
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 38,
-            child: ListView(scrollDirection: Axis.horizontal, children: [
-              _tool(tr('অভ্যাস'), Icons.local_fire_department_outlined, const HabitsScreen()),
-              _tool(tr('ওষুধ'), Icons.medication_outlined, const MedicinesScreen()),
-              _tool(tr('বিশেষ দিন'), Icons.cake_outlined, const SpecialDaysScreen()),
-              _tool(tr('তৈরি তালিকা'), Icons.checklist_rtl_rounded, const TemplatesScreen()),
-            ]),
-          ),
           const SizedBox(height: 12),
         ],
-        page: (view) => switch (view) {
-          DiaryView.day => _dayView(brain, day, now),
-          DiaryView.week => _weekView(brain, day, now),
-          DiaryView.month => _monthView(brain, day, now),
-        },
+        // Habits, medicines, special days and ready lists sit at the bottom
+        // with an example each, so a new user sees what they are for (owner, 24 Oct).
+        page: (view) => [
+          ...switch (view) {
+            DiaryView.day => _dayView(brain, day, now),
+            DiaryView.week => _weekView(brain, day, now),
+            DiaryView.month => _monthView(brain, day, now),
+          },
+          _moreToKeep(),
+        ],
       ),
       Positioned(
         right: 16,
@@ -97,15 +92,35 @@ class _DiaryScreenState extends State<DiaryScreen> {
     ]);
   }
 
-  Widget _tool(String label, IconData icon, Widget page) => Padding(
-        padding: const EdgeInsets.only(right: 8),
-        child: ActionChip(
-          avatar: Icon(icon, size: 18, color: C.green),
-          label: Text(label),
-          labelStyle: body(13.5, weight: FontWeight.w500),
-          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => page)),
-        ),
-      );
+  /// "আরও যা রাখা যায়": each with an example of what to say or keep.
+  Widget _moreToKeep() {
+    Widget row(Key key, String label, IconData icon, String example, Widget page) => ListRow(
+          key: key,
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(12)),
+            child: Icon(icon, color: C.green, size: 21),
+          ),
+          title: label,
+          subtitle: example,
+          trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => page)),
+        );
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      _label(tr('আরও যা রাখা যায়')),
+      _box([
+        row(const Key('diary-habits'), tr('অভ্যাস'), Icons.local_fire_department_outlined, tr('যেমন: প্রতিদিন ৩০ মিনিট হাঁটা, ৫ ওয়াক্ত নামাজ'), const HabitsScreen()),
+        row(const Key('diary-medicines'), tr('ওষুধ'), Icons.medication_outlined, tr('যেমন: নাপা — সকাল ৮টা আর রাত ৯টা, খাবারের পরে'), const MedicinesScreen()),
+        row(const Key('diary-special'), tr('বিশেষ দিন'), Icons.cake_outlined, tr('যেমন: আম্মার জন্মদিন ১২ মার্চ — প্রতি বছর আগের দিন মনে করাবে'), const SpecialDaysScreen()),
+        row(const Key('diary-templates'), tr('তৈরি তালিকা'), Icons.checklist_rtl_rounded, tr('যেমন: ঈদের কেনাকাটা, মাসের বাজার — এক চাপে পুরো তালিকা'), const TemplatesScreen()),
+      ]),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+        child: Text(tr('মুখেও বলা যায়: “রোজ সকালে হাঁটা অভ্যাসে রাখো”, “নাপা রাত ৯টায় মনে করিয়ে দিও”'), style: body(12.5, color: C.muted, height: 1.45)),
+      ),
+    ]);
+  }
 
   /// A to-do that can be dragged onto a day in the strip above.
   Widget _draggable(PlanItem i) {

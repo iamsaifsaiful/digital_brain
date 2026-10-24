@@ -3920,4 +3920,10 @@ const enStrings = <String, String>{
   'হাতে, ব্যাংকে, বিকাশে — সব মিলিয়ে লিখুন। এরপর আয়-খরচ লিখলে নিজে বাড়বে-কমবে।': 'Cash, bank, bKash — write it all together. After that it goes up and down with what you earn and spend.',
   'যেমন ১২,০০০': 'e.g. 12,000',
   'চলছে':'Going on',
+  'আরও যা রাখা যায়': 'More you can keep',
+  'যেমন: প্রতিদিন ৩০ মিনিট হাঁটা, ৫ ওয়াক্ত নামাজ': 'e.g. a 30-minute walk every day, the five prayers',
+  'যেমন: নাপা — সকাল ৮টা আর রাত ৯টা, খাবারের পরে': 'e.g. Napa — 8 am and 9 pm, after food',
+  'যেমন: আম্মার জন্মদিন ১২ মার্চ — প্রতি বছর আগের দিন মনে করাবে': 'e.g. Mother’s birthday, 12 March — reminded the day before, every year',
+  'যেমন: ঈদের কেনাকাটা, মাসের বাজার — এক চাপে পুরো তালিকা': 'e.g. Eid shopping, the month’s groceries — a whole list in one tap',
+  'মুখেও বলা যায়: “রোজ সকালে হাঁটা অভ্যাসে রাখো”, “নাপা রাত ৯টায় মনে করিয়ে দিও”': 'You can also say: “keep a morning walk as a habit”, “remind me Napa at 9 pm”',
 };
