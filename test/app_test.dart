@@ -565,11 +565,15 @@ void main() {
     await t.tap(find.byTooltip('বন্ধ করুন'));
     await settle(t);
     // (also the page title; the new answer cards are taller, so scroll up to the first line)
-    final chatList = t.state<ScrollableState>(pageList());
-    chatList.position.jumpTo(chatList.position.minScrollExtent);
+    // (the chat list is reversed and built lazily: go to its far end, the oldest line)
+    final chatList = t.state<ScrollableState>(find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.up).first);
+    for (var i = 0; i < 5; i++) {
+      chatList.position.jumpTo(chatList.position.maxScrollExtent);
+      await t.pump();
+    }
     await settle(t);
     expect(find.text('আমি সজীবকে ৫০০ টাকা ধার দিলাম'), findsNWidgets(2));
-    chatList.position.jumpTo(chatList.position.maxScrollExtent);
+    chatList.position.jumpTo(chatList.position.minScrollExtent);
     await settle(t);
     expect(find.text('সজীবের খাতা দেখুন →'), findsWidgets);
   });
