@@ -1108,8 +1108,10 @@ class AppData {
     this.cashSetAt,
     this.cashStart,
     Set<String>? notInMain,
+    List<String>? ownDocFolders,
   })  : tasks = tasks ?? [],
         notInMain = notInMain ?? {},
+        ownDocFolders = ownDocFolders ?? [],
         zakat = zakat ?? ZakatBook(),
         trash = trash ?? [],
         shops = shops ?? [],
@@ -1176,6 +1178,9 @@ class AppData {
   /// Loans and other হিসাব's entries the user took out of the main money.
   final Set<String> notInMain;
 
+  /// Folders the user made in ডকুমেন্টস (kept even while empty).
+  final List<String> ownDocFolders;
+
   /// Messages read from other apps' notifications (newest last).
 
   /// The user's shops (দোকান), first one first.
@@ -1234,6 +1239,7 @@ class AppData {
         if (cashSetAt != null) 'cashSetAt': cashSetAt!.toIso8601String(),
         if (cashStart != null) 'cashStart': cashStart,
         if (notInMain.isNotEmpty) 'notInMain': notInMain.toList(),
+        if (ownDocFolders.isNotEmpty) 'ownDocFolders': ownDocFolders,
       };
 
   factory AppData.fromJson(Map<String, Object?> j) {
@@ -1273,6 +1279,7 @@ class AppData {
       cashSetAt: j['cashSetAt'] is String ? DateTime.tryParse(j['cashSetAt'] as String) : null,
       cashStart: (j['cashStart'] as num?)?.toInt(),
       notInMain: {for (final x in (j['notInMain'] as List?) ?? const []) '$x'},
+      ownDocFolders: [for (final x in (j['ownDocFolders'] as List?) ?? const []) '$x'],
     );
   }
 }

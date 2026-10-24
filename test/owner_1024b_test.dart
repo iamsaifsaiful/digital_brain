@@ -8,7 +8,12 @@ import 'package:digital_brain/logic/services_list.dart';
 import 'package:digital_brain/logic/zakat.dart';
 import 'package:digital_brain/logic/money_more.dart' show ZakatSaved;
 import 'package:digital_brain/models/models.dart';
+import 'dart:typed_data';
+
+import 'package:digital_brain/screens/docs_screen.dart';
+import 'package:digital_brain/state/brain.dart' show BrainMore;
 import 'package:digital_brain/screens/notes_screen.dart';
+import 'package:digital_brain/services/files.dart' show PickedDoc;
 import 'package:digital_brain/screens/will_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -119,5 +124,31 @@ void main() {
     expect(all, contains('বিকাশে'));
     expect(all, isNot(contains('মেসেজ থেকে কাজ')));
     expect(placeById('will'), isNotNull);
+  });
+
+  testWidgets('ডকুমেন্টস: a folder named by the user, kept while empty, a photo goes in it', (t) async {
+    final rig = await start(t);
+    final ctx = t.element(find.byType(Scaffold).first);
+    Navigator.of(ctx).push(MaterialPageRoute(builder: (_) => const DocsScreen()));
+    await settle(t);
+    await t.ensureVisible(find.byKey(const Key('doc-folder-new')));
+    await t.tap(find.byKey(const Key('doc-folder-new')));
+    await settle(t);
+    await t.enterText(find.byKey(const Key('doc-folder-name')), 'বাচ্চার স্কুল');
+    await t.tap(find.byKey(const Key('doc-folder-save')));
+    await settle(t);
+    expect(rig.brain.data.ownDocFolders, ['বাচ্চার স্কুল']);
+    expect(find.text('বাচ্চার স্কুল'), findsWidgets, reason: 'the folder opens');
+    // Kept after a restart (in the saved data).
+    expect(AppData.fromJson(rig.brain.data.toJson()).ownDocFolders, ['বাচ্চার স্কুল']);
+    rig.files.photo = PickedDoc(Uint8List.fromList(List.generate(800, (i) => i % 251)), 'r.jpg', 'image/jpeg');
+    await t.tap(find.text('গ্যালারি'));
+    await settle(t);
+    await t.enterText(find.widgetWithText(TextField, 'নাম'), 'রেজাল্ট কার্ড');
+    await t.ensureVisible(find.text('রাখুন').last);
+    await t.tap(find.text('রাখুন').last);
+    await settle(t);
+    expect(rig.brain.data.docs.single.folder, 'বাচ্চার স্কুল');
+    expect(await rig.brain.removeDocFolder('বাচ্চার স্কুল'), isFalse, reason: 'not while it holds a paper');
   });
 }

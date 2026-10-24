@@ -4030,4 +4030,8 @@ const enStrings = <String, String>{
   'পাসপোর্ট, লাইসেন্স, ট্যাক্স টোকেনের মেয়াদ শেষের আগে মনে করায় (২০টা রিমাইন্ডারের মধ্যে ধরা)।': 'Reminds before a passport, licence or tax token expires (counted within the 20 reminders).',
   'নিজের ওছিয়ত লিখে রাখা, কবে শেষ বদলেছেন তারিখসহ; উত্তরাধিকারী পরে দেখতে পান (প্রিমিয়াম)।': 'Write your will, with the date it was last changed; your heir can see it later (Premium).',
   'ওছিয়তনামা খোলো': 'Open my will',
+  'নিজে নাম দিন': 'Name it yourself',
+  'খালি ফোল্ডারটা মুছুন': 'Delete this empty folder',
+  'যেমন: বাচ্চার স্কুল, অফিসের কাগজ': 'e.g. Children\'s school, Office papers',
+  'বানান': 'Create',
 };

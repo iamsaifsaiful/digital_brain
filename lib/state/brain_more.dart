@@ -185,6 +185,31 @@ extension BrainMore on Brain {
 
   /// Takes [sourceId]'s line out of the main money (the source stays); it
   /// stays out until put back.
+  /// A folder of the user's own in ডকুমেন্টস (owner, 24 Oct). Returns the
+  /// name kept (an existing one with the same name is reused).
+  Future<String> addDocFolder(String name) async {
+    final n = name.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (n.isEmpty) return n;
+    final have = [...docFolders, ...data.ownDocFolders, for (final d in data.docs) d.folder];
+    final same = have.where((f) => f.toLowerCase() == n.toLowerCase()).firstOrNull;
+    if (same != null) {
+      if (!docFolders.contains(same) && !data.ownDocFolders.contains(same)) data.ownDocFolders.add(same);
+      await _save();
+      return same;
+    }
+    data.ownDocFolders.add(n);
+    await _save();
+    return n;
+  }
+
+  /// Takes away an empty folder of the user's own.
+  Future<bool> removeDocFolder(String name) async {
+    if (data.docs.any((d) => d.folder == name)) return false;
+    data.ownDocFolders.remove(name);
+    await _save();
+    return true;
+  }
+
   Future<void> removeFromMain(String sourceId) async {
     data.notInMain.add(sourceId);
     final c = mainCopyOf(data, sourceId);

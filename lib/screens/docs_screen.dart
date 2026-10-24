@@ -29,7 +29,7 @@ String sizeText(int bytes) {
 }
 
 /// All folders: the usual ones, then the user's own.
-List<String> allDocFolders(AppData d) => [...docFolders, ...{for (final x in d.docs) x.folder}.where((f) => !docFolders.contains(f))];
+List<String> allDocFolders(AppData d) => [...docFolders, ...{...d.ownDocFolders, for (final x in d.docs) x.folder}.where((f) => !docFolders.contains(f))];
 
 /// Adds photos or files (one or many), with a name and a few words about
 /// them; see [addDocuments].
@@ -63,6 +63,34 @@ class _DocsScreenState extends State<DocsScreen> {
   Future<void> _setShrink(bool v) async {
     setState(() => _shrink = v);
     await BrainScope.read(context).services.lock.keys.write('doc_shrink', v ? 'true' : 'false');
+  }
+
+  /// "নতুন ফোল্ডার": the user names it, then it opens to add photos and files.
+  Future<void> _newFolder() async {
+    final brain = BrainScope.read(context);
+    final c = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('নতুন ফোল্ডারের নাম'), style: body(18, weight: FontWeight.w600)),
+        content: TextField(
+          key: const Key('doc-folder-name'),
+          controller: c,
+          autofocus: true,
+          style: body(16),
+          decoration: InputDecoration(hintText: tr('যেমন: বাচ্চার স্কুল, অফিসের কাগজ')),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
+          FilledButton(key: const Key('doc-folder-save'), onPressed: () => Navigator.pop(ctx, c.text.trim()), child: Text(tr('বানান'))),
+        ],
+      ),
+    );
+    // The dialog is still closing; the controller is left to be collected.
+    if (name == null || name.isEmpty || !mounted) return;
+    final kept = await brain.addDocFolder(name);
+    if (mounted) await Navigator.of(context).push(MaterialPageRoute(builder: (_) => DocsScreen(folder: kept)));
   }
 
   Future<void> _open(Doc d) async {
@@ -172,6 +200,30 @@ class _DocsScreenState extends State<DocsScreen> {
                             ),
                           ),
                         ),
+                      // A folder of the user's own, named by them (owner, 24 Oct).
+                      Material(
+                        color: C.greenTint,
+                        borderRadius: BorderRadius.circular(16),
+                        child: InkWell(
+                          key: const Key('doc-folder-new'),
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: _newFolder,
+                          child: Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(11)),
+                                child: Icon(Icons.create_new_folder_outlined, color: C.green, size: 20),
+                              ),
+                              const Spacer(),
+                              Text(tr('নতুন ফোল্ডার'), maxLines: 2, style: body(13, weight: FontWeight.w700, color: C.greenDark, height: 1.25)),
+                              Text(tr('নিজে নাম দিন'), style: body(11.5, color: C.greenDark)),
+                            ]),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -179,6 +231,19 @@ class _DocsScreenState extends State<DocsScreen> {
                   padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
                   child: Text(folder == null ? tr('সম্প্রতি রাখা') : trf('এই ফোল্ডারে · {0}টি', [bnDigits(docs.length)]), style: body(13, weight: FontWeight.w600, color: C.muted)),
                 ),
+                if (folder != null && docs.isEmpty && d.ownDocFolders.contains(folder))
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      key: const Key('doc-folder-remove'),
+                      onPressed: () async {
+                        await brain.removeDocFolder(folder);
+                        if (context.mounted) Navigator.of(context).pop();
+                      },
+                      icon: Icon(Icons.delete_outline_rounded, color: C.red, size: 18),
+                      label: Text(tr('খালি ফোল্ডারটা মুছুন'), style: body(13.5, color: C.red)),
+                    ),
+                  ),
                 if (docs.isEmpty)
                   Panel(
                     padding: const EdgeInsets.all(16),

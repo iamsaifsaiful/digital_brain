@@ -335,7 +335,7 @@ class _DocInfoSheetState extends State<_DocInfoSheet> {
                     ],
                   ),
                 );
-                c.dispose();
+                // The dialog is still closing; the controller is left to be collected.
                 if (v != null && v.isNotEmpty) setState(() {
                   _folder = v;
                   _error = null;
