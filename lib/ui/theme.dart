@@ -56,7 +56,7 @@ String colorKey(Color c) => '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padL
 class C {
   /// Set by the app before building; screens read colours through [C].
   static bool dark = false;
-  static Accent accent = accents.first;
+  static Accent accent = accentFor('amber');
 
   static Color _p(int light, int night) => Color(dark ? night : light);
 

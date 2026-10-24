@@ -977,7 +977,8 @@ class Brain extends ChangeNotifier {
   Look look = Look.system;
 
   /// The accent colour's key (see `accents`).
-  String accentKey = 'green';
+  /// Default: কমলা (owner, 25 Oct); a colour the user chose stays.
+  String accentKey = 'amber';
 
   /// The app's words in English instead of Bangla.
   bool english = false;
@@ -1046,7 +1047,7 @@ class Brain extends ChangeNotifier {
       final keys = services.lock.keys;
       final saved = await keys.read('look');
       look = Look.values.firstWhere((l) => l.name == saved, orElse: () => Look.system);
-      accentKey = await keys.read('accent') ?? 'green';
+      accentKey = await keys.read('accent') ?? 'amber';
       english = (await keys.read('lang')) == 'en';
       letterSize = double.tryParse(await keys.read('letter_size') ?? '') ?? 1.0;
       easyMode = (await keys.read('easy_mode')) == 'true';
