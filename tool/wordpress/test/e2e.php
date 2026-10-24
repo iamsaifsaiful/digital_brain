@@ -348,7 +348,7 @@ foreach (['members', 'payments', 'notices', 'feedback', 'ai', 'nlu', 'settings']
 ob_start();
 echo do_shortcode('[my_assistant_payment]');
 $form = ob_get_clean();
-check(str_contains($form, 'তথ্য জমা দিন') && str_contains($form, 'নগদ'), 'website form shortcode');
+check(str_contains($form, 'তথ্য জমা দিন') && str_contains($form, 'বিকাশ') && !str_contains($form, 'নগদ |'), 'website form shortcode: bKash only');
 $_GET = ['plan' => 'monthly'];
 $pro = do_shortcode('[my_assistant_pro]');
 file_put_contents(dirname(__FILE__) . '/page-pro.html', '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="margin:0;padding:24px 16px;background:#F6F7F9">' . $pro);

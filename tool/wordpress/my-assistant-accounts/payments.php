@@ -56,12 +56,15 @@ function ma_pay_plans() {
  * e.g. "বিকাশ | 01XXXXXXXXX | Send Money (পার্সোনাল)".
  */
 function ma_pay_methods() {
-    $default = "বিকাশ | 01997959167 | Send Money\nনগদ | 01997959167 | Send Money";
+    // Owner, 24 Oct: subscriptions are taken by bKash only; other lines saved earlier are left out.
+    $default = "বিকাশ | 01997959167 | Send Money";
     $raw = (string) get_option('ma_pay_methods', $default);
     // The first versions saved sample numbers (01XXXXXXXXX); those are not real, so the real ones are used.
     if (trim($raw) === '' || str_contains($raw, 'XXXXXXX')) {
         $raw = $default;
     }
+    $bkash = array_filter(preg_split('/\r?\n/', $raw), fn($l) => preg_match('/^\s*(বিকাশ|bkash)/iu', $l));
+    $raw = $bkash ? implode("\n", $bkash) : $default;
     $out = [];
     foreach (preg_split('/\r?\n/', $raw) as $line) {
         $p = array_map('trim', explode('|', $line));
@@ -254,7 +257,7 @@ function ma_pay_form($atts = []) {
 
             <div class="box">
                 <p class="label"><span class="n">২</span>টাকা পাঠান</p>
-                <p class="sub">যেটা দিয়ে টাকা পাঠাবেন, সেটা বেছে নিন।</p>
+                <p class="sub"><?php echo count($methods ?? []) > 1 ? 'যেটা দিয়ে টাকা পাঠাবেন, সেটা বেছে নিন।' : 'নিচের বিকাশ নম্বরে Send Money করুন।'; ?></p>
                 <div class="methods">
                     <?php $first = true; foreach ($methods as $key => $m) : ?>
                         <label class="opt method"><input type="radio" name="method" value="<?php echo esc_attr($key); ?>" <?php checked($first); ?> required><span class="card"><span class="radio"></span>
