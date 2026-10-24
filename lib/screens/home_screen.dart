@@ -114,7 +114,8 @@ class TodaySections extends StatelessWidget {
             ),
           ),
         TextButton.icon(
-          onPressed: () => showAddSheet(context, remind: true),
+          // Owner (24 Oct): a to-do starts with its reminder off; switch it on if wanted.
+          onPressed: () => showAddSheet(context),
           style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8), visualDensity: VisualDensity.compact),
           icon: Icon(Icons.add_rounded, size: 18, color: C.green),
           label: Text(tr('যোগ করুন'), style: body(13.5, weight: FontWeight.w600, color: C.green)),

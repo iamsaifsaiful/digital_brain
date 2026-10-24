@@ -314,6 +314,7 @@ class _AddSheetState extends State<_AddSheet> {
                 ]),
               ),
               Switch(
+                key: const Key('add-remind'),
                 value: _remind,
                 onChanged: (v) => setState(() {
                   _remind = v;
@@ -452,7 +453,7 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
 
     return Scaffold(
       bottomNavigationBar: const AdBar(),
-      floatingActionButton: AddButton(label: tr('যোগ করুন'), onPressed: () => showAddSheet(context, remind: true)),
+      floatingActionButton: AddButton(label: tr('যোগ করুন'), onPressed: () => showAddSheet(context)),
       body: SafeArea(
         child: Column(children: [
           TopBar(title: tr('কাজ ও রিমাইন্ডার'), trailing: [

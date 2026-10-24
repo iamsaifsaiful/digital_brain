@@ -1239,13 +1239,17 @@ void main() {
     expect(rig.brain.data.ledger.last.phone, '01819876543');
   });
 
-  testWidgets('+ যোগ করুন on the home makes a reminder that rings at the chosen time', (t) async {
+  testWidgets('+ যোগ করুন on the home: a to-do with the reminder off; switched on, it rings at the chosen time', (t) async {
     final rig = await start(t);
     // Today's list is on the home itself.
     await t.scrollUntilVisible(find.text('যোগ করুন'), 200, scrollable: find.byType(Scrollable).first);
     await t.ensureVisible(find.text('যোগ করুন'));
     await settle(t);
     await t.tap(find.text('যোগ করুন'));
+    await settle(t);
+    // Owner (24 Oct): the reminder starts off.
+    expect(t.widget<Switch>(find.byKey(const Key('add-remind'))).value, isFalse);
+    await t.tap(find.byKey(const Key('add-remind')));
     await settle(t);
     await t.enterText(find.byType(TextField).last, 'ক্লায়েন্ট মিটিং');
     await t.ensureVisible(find.text('রাখুন'));
