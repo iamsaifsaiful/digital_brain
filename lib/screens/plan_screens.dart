@@ -10,6 +10,7 @@ export '../logic/day_plan.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/early_picker.dart';
+import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'alarm_screens.dart';
@@ -54,22 +55,31 @@ class PlanRow extends StatelessWidget {
     return InkWell(
       onTap: () => t != null ? editTask(context, t) : Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewItemScreen(reminder: r))),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(6, 6, 14, 6),
+        padding: const EdgeInsets.fromLTRB(6, 6, 10, 6),
         child: Row(children: [
           if (t != null)
-            Checkbox(value: t.done, activeColor: C.green, onChanged: (v) => brain.setTaskDone(t, v ?? false))
+            Checkbox(
+              value: t.done,
+              shape: const CircleBorder(),
+              side: BorderSide(color: C.muted, width: 1.4),
+              activeColor: C.dark ? C.primary : C.fill,
+              checkColor: C.dark ? C.surface : Colors.white,
+              onChanged: (v) => brain.setTaskDone(t, v ?? false),
+            )
           else
-            SizedBox(
-              width: 48,
-              height: 48,
-              child: Icon(passed ? Icons.notifications_off_outlined : Icons.notifications_active_outlined, color: passed ? C.muted : C.green, size: 22),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(6, 4, 10, 4),
+              child: IconSquare(passed ? Icons.notifications_off_outlined : Icons.notifications_active_outlined, size: 40, bg: C.dark ? C.chip : C.surface, color: passed ? C.muted : C.muted2),
             ),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(item.title, style: body(16, weight: FontWeight.w500, color: (t?.done ?? false) || passed ? C.muted : C.ink), maxLines: 2, overflow: TextOverflow.ellipsis),
-                Text(passed ? trf('{0} · বেজেছে', [label]) : label, style: body(13, color: r != null && !passed ? C.green : C.muted)),
+                Text(item.title,
+                    style: body(16, weight: FontWeight.w500, color: (t?.done ?? false) || passed ? C.muted : C.ink).copyWith(decoration: (t?.done ?? false) ? TextDecoration.lineThrough : null, decorationColor: C.muted),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis),
+                Text(passed ? trf('{0} · বেজেছে', [label]) : label, style: body(13, color: C.muted)),
               ]),
             ),
           ),
@@ -96,7 +106,7 @@ class TaskAlarmButton extends StatelessWidget {
     return IconButton(
       tooltip: r == null ? tr('রিমাইন্ডার দিন') : trf('রিমাইন্ডার: {0}', [bnTime(r.hour, r.minute)]),
       visualDensity: VisualDensity.compact,
-      icon: Icon(r == null ? Icons.alarm_add_outlined : Icons.alarm_on_rounded, size: 21, color: r == null ? C.muted : C.green),
+      icon: Icon(r == null ? Icons.alarm_add_outlined : Icons.alarm_on_rounded, size: 21, color: r == null ? C.muted : C.primary),
       onPressed: () => Navigator.of(context).push(MaterialPageRoute(
         builder: (_) =>
             r != null ? NewItemScreen(reminder: r) : NewItemScreen(category: ItemCategory.reminder, presetTitle: task.title, presetAt: at != null && at.isAfter(now) ? at : null, task: task),

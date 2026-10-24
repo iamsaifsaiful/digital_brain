@@ -4,6 +4,7 @@ import '../logic/bn.dart';
 import '../models/models.dart';
 import '../services/notifications.dart';
 import '../state/brain.dart';
+import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart' show toast;
 import 'alarm_screens.dart';
@@ -15,50 +16,78 @@ import '../logic/lang.dart';
 /// A titled part of the home: a heading, maybe a link on the right, then
 /// its card.
 class HomeSection extends StatelessWidget {
-  const HomeSection({super.key, required this.title, this.action, this.onAction, this.trailing, required this.child});
+  const HomeSection({super.key, required this.title, this.action, this.onAction, this.trailing, this.note, required this.child});
   final String title;
   final String? action;
   final VoidCallback? onAction;
   final Widget? trailing;
+
+  /// A small hand-written word beside the heading (24 Oct design).
+  final Widget? note;
   final Widget child;
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: 20),
+        padding: const EdgeInsets.only(top: 22),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          SizedBox(
-            height: 36,
-            child: Row(children: [
-              const SizedBox(width: 4),
-              Expanded(child: Text(title, style: display(16.5, weight: 700))),
-              if (trailing != null) trailing!,
-              if (action != null)
-                TextButton(
-                  onPressed: onAction,
-                  style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8), visualDensity: VisualDensity.compact),
-                  child: Text(action!, style: body(13.5, weight: FontWeight.w600, color: C.green)),
-                ),
-            ]),
-          ),
-          const SizedBox(height: 6),
+          HomeSectionHeader(title: title, action: action, onAction: onAction, trailing: trailing, padTop: false),
+          if (note != null) Padding(padding: const EdgeInsets.fromLTRB(2, 0, 0, 10), child: Align(alignment: Alignment.centerLeft, child: note!)),
           child,
         ]),
       );
 }
 
+/// The heading of a home part: bold title, a hand note maybe, and a muted
+/// "সব দেখুন ›" on the right.
+class HomeSectionHeader extends StatelessWidget {
+  const HomeSectionHeader({super.key, required this.title, this.action, this.onAction, this.trailing, this.note, this.padTop = true});
+  final String title;
+  final String? action;
+  final VoidCallback? onAction;
+  final Widget? trailing;
+  final Widget? note;
+  final bool padTop;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.only(top: padTop ? 22 : 0, bottom: 10),
+        child: SizedBox(
+          height: 36,
+          child: Row(children: [
+            Text(title, maxLines: 1, style: heading(18)),
+            if (note != null) ...[const SizedBox(width: 10), Flexible(child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: note!))],
+            const Spacer(),
+            if (trailing != null) trailing!,
+            if (action != null)
+              TextButton(
+                onPressed: onAction,
+                style: TextButton.styleFrom(padding: const EdgeInsets.only(left: 8), visualDensity: VisualDensity.compact, foregroundColor: C.muted),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(action!, style: body(13.5, weight: FontWeight.w500, color: C.muted)),
+                  Icon(Icons.chevron_right_rounded, size: 18, color: C.muted),
+                ]),
+              ),
+          ]),
+        ),
+      );
+}
+
 /// The plain white card every part of the home sits on.
 class HomeCard extends StatelessWidget {
-  const HomeCard({super.key, required this.child, this.padding = const EdgeInsets.all(14), this.onTap});
+  const HomeCard({super.key, required this.child, this.padding = const EdgeInsets.all(16), this.onTap});
   final Widget child;
   final EdgeInsets padding;
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Material(
-        color: C.surface,
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: C.line)),
-        child: InkWell(onTap: onTap, child: Padding(padding: padding, child: child)),
+  Widget build(BuildContext context) => DecoratedBox(
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), boxShadow: C.shadow),
+        child: Material(
+          color: C.surface,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: C.dark ? BorderSide(color: C.line) : BorderSide.none),
+          child: InkWell(onTap: onTap, child: Padding(padding: padding, child: child)),
+        ),
       );
 }
 
@@ -79,6 +108,8 @@ class TodaySections extends StatelessWidget {
     final todoToday = [for (final i in plan.today) if (i.task != null) i].length;
     final doneToday = [for (final t in d.tasks) if (t.done && t.doneAt != null && dayOnly(t.doneAt!) == today) t].length;
     final all = todoToday + doneToday;
+    final yesterday = today.subtract(const Duration(days: 1));
+    final doneYesterday = [for (final t in d.tasks) if (t.done && t.doneAt != null && dayOnly(t.doneAt!) == yesterday) t].length;
 
     Widget label(String text, {Color? color}) => Padding(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 2),
@@ -93,7 +124,7 @@ class TodaySections extends StatelessWidget {
               trailing: late
                   ? TextButton(
                       onPressed: () => brain.saveTask(i.task!.copyWith(due: tomorrow)),
-                      child: Text(tr('কাল করব'), style: body(13, weight: FontWeight.w600, color: C.green)),
+                      child: Text(tr('কাল করব'), style: body(13, weight: FontWeight.w600, color: C.primary)),
                     )
                   : null,
             ),
@@ -102,6 +133,7 @@ class TodaySections extends StatelessWidget {
 
     return HomeSection(
       title: tr('আজকের কাজ'),
+      note: doneToday > 0 && doneToday >= doneYesterday ? HandNote(tr('গতকালের চেয়ে একটু ভালো'), size: 12.5, smile: true) : null,
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
         if (all > 0)
           InkWell(
@@ -116,8 +148,8 @@ class TodaySections extends StatelessWidget {
         TextButton.icon(
           onPressed: () => showAddSheet(context, remind: true),
           style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8), visualDensity: VisualDensity.compact),
-          icon: Icon(Icons.add_rounded, size: 18, color: C.green),
-          label: Text(tr('যোগ করুন'), style: body(13.5, weight: FontWeight.w600, color: C.green)),
+          icon: Icon(Icons.add_rounded, size: 18, color: C.primary),
+          label: Text(tr('যোগ করুন'), style: body(13.5, weight: FontWeight.w600, color: C.primary)),
         ),
       ]),
       child: HomeCard(
@@ -128,7 +160,7 @@ class TodaySections extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(14, 14, 14, 2),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(99),
-                child: LinearProgressIndicator(value: doneToday / all, minHeight: 5, color: C.green, backgroundColor: C.line2),
+                child: LinearProgressIndicator(value: doneToday / all, minHeight: 5, color: C.primary, backgroundColor: C.chip),
               ),
             ),
           if (plan.overdue.isNotEmpty) ...[
@@ -154,8 +186,8 @@ class TodaySections extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(children: [
-                Expanded(child: Text(tr('সব কাজ ও রিমাইন্ডার দেখুন'), style: body(14, weight: FontWeight.w600, color: C.green))),
-                Icon(Icons.chevron_right_rounded, color: C.green),
+                Expanded(child: Text(tr('সব কাজ ও রিমাইন্ডার দেখুন'), style: body(14, weight: FontWeight.w600, color: C.primary))),
+                Icon(Icons.chevron_right_rounded, color: C.primary),
               ]),
             ),
           ),

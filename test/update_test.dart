@@ -346,7 +346,7 @@ void main() {
     final a = accentFor(colorKey(const Color(0xFFFFEB3B)));
     expect(a.key, startsWith('#'));
     expect(HSLColor.fromColor(a.main).lightness, lessThanOrEqualTo(0.451));
-    expect(accentFor('#zzzzzz').key, 'green');
+    expect(accentFor('#zzzzzz').key, 'forest'); // the default look (24 Oct)
   });
 
   testWidgets('মুছে ফেলা: a deleted note waits 30 days in আরও and comes back', (t) async {

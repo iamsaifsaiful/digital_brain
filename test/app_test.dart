@@ -56,6 +56,8 @@ Future<void> loadFonts() async {
     noto.addFont(rootBundle.load('assets/fonts/NotoSansBengali-$w.ttf'));
   }
   await noto.load();
+  final galada = FontLoader('Galada')..addFont(rootBundle.load('assets/fonts/Galada-Regular.ttf'));
+  await galada.load();
 }
 
 class Rig {

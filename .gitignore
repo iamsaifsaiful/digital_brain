@@ -41,3 +41,4 @@ test/dark/shots/
 # Pages the WordPress e2e writes on every run
 tool/wordpress/test/page-*.html
 test/persona/out/
+test/ui/shots/

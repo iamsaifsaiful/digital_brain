@@ -11,44 +11,136 @@ import '../logic/money_more.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/forms.dart';
+import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 import '../ui/pick.dart';
 import 'project_dues.dart';
+import 'spend_health_screen.dart';
 
-/// White card: one big figure ("এই মাসের ব্যালেন্স") and two under it.
+/// The dark balance card (24 Oct design): one big figure ("এই মাসের
+/// ব্যালেন্স"), the figures under it, maybe a month switch on the right and
+/// a soft line of how the balance went through the month.
 class SummaryCard extends StatelessWidget {
-  const SummaryCard({super.key, required this.title, required this.amount, required this.items, this.negative = false});
+  const SummaryCard({super.key, required this.title, required this.amount, required this.items, this.negative = false, this.trailing, this.spark});
   final String title;
   final int amount;
 
   /// Shows the big figure with a minus, in amber.
   final bool negative;
+
+  /// (label, amount, colour) — amounts as taka. The colour is kept for
+  /// the light text it maps to on the dark card.
   final List<(String, int, Color)> items;
+  final Widget? trailing;
+
+  /// The running balance, day by day (two points or more draws a line).
+  final List<num>? spark;
 
   @override
-  Widget build(BuildContext context) => Panel(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: body(14, color: C.muted)),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text('${negative ? '−' : ''}${taka(amount)}', style: display(34, weight: 700, color: negative ? C.orange : C.ink, height: 1.2)),
-          ),
-          const SizedBox(height: 10),
-          const Divider(height: 1),
-          const SizedBox(height: 10),
-          Row(children: [
-            for (final (i, it) in items.indexed) ...[
-              if (i > 0) const SizedBox(width: 12),
-              Expanded(child: Figure(label: it.$1, amount: taka(it.$2), color: it.$3, size: 18)),
-            ],
+  Widget build(BuildContext context) {
+    const fg = Colors.white;
+    final dim = Colors.white.withValues(alpha: 0.7);
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: C.fill,
+        borderRadius: BorderRadius.circular(22),
+        border: C.dark ? Border.all(color: C.fillEdge) : null,
+        boxShadow: C.shadow,
+      ),
+      child: Stack(children: [
+        if (spark != null && spark!.length > 1)
+          Positioned(right: 0, bottom: 0, width: 190, height: 96, child: CustomPaint(painter: _Spark(spark!))),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 16, 18),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(child: Text(title, style: body(14, color: dim))),
+              if (trailing != null) trailing!,
+            ]),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text('${negative ? '−' : ''}${taka(amount)}', style: display(36, weight: 700, color: negative ? const Color(0xFFF5C28B) : fg, height: 1.25)),
+            ),
+            const SizedBox(height: 10),
+            Row(children: [
+              for (final (i, it) in items.indexed) ...[
+                if (i > 0) const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(it.$1, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: dim)),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(it.$2 < 0 ? '—' : (it.$1 == tr('জমার হার') ? '${bnDigits(it.$2)}%' : taka(it.$2)), style: display(16, weight: 600, color: fg)),
+                    ),
+                  ]),
+                ),
+              ],
+            ]),
           ]),
-        ]),
-      );
+        ),
+      ]),
+    );
+  }
+}
+
+class _Spark extends CustomPainter {
+  _Spark(this.v);
+  final List<num> v;
+
+  @override
+  void paint(Canvas canvas, Size s) {
+    final lo = v.fold<double>(double.infinity, (a, b) => a < b ? a : b.toDouble());
+    final hi = v.fold<double>(-double.infinity, (a, b) => a > b ? a : b.toDouble());
+    final span = hi - lo == 0 ? 1.0 : hi - lo;
+    Offset at(int i) => Offset(s.width * i / (v.length - 1), s.height * 0.9 - (v[i] - lo) / span * s.height * 0.75);
+    final line = Path()..moveTo(at(0).dx, at(0).dy);
+    for (var i = 1; i < v.length; i++) {
+      final p0 = at(i - 1), p1 = at(i);
+      final mx = (p0.dx + p1.dx) / 2;
+      line.cubicTo(mx, p0.dy, mx, p1.dy, p1.dx, p1.dy);
+    }
+    final area = Path.from(line)
+      ..lineTo(s.width, s.height)
+      ..lineTo(0, s.height)
+      ..close();
+    canvas.drawPath(
+        area,
+        Paint()
+          ..shader = LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [const Color(0xFF8FD3B4).withValues(alpha: 0.32), const Color(0xFF8FD3B4).withValues(alpha: 0.02)])
+              .createShader(Offset.zero & s));
+    canvas.drawPath(
+        line,
+        Paint()
+          ..color = const Color(0xFFA9E2C8)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2);
+  }
+
+  @override
+  bool shouldRepaint(_Spark o) => o.v != v;
+}
+
+/// The money left after each day of [m] so far (for the card's line).
+List<int> runningBalance(List<CashEntry> cash, DateTime m, DateTime now) {
+  final last = (m.year == now.year && m.month == now.month) ? now.day : DateTime(m.year, m.month + 1, 0).day;
+  final perDay = List<int>.filled(last + 1, 0);
+  for (final e in cash) {
+    if (e.projectId != null || e.date.year != m.year || e.date.month != m.month || e.date.day > last) continue;
+    perDay[e.date.day] += e.kind == CashKind.income ? e.amount : -e.amount;
+  }
+  final out = <int>[];
+  var run = 0;
+  for (var d = 1; d <= last; d++) {
+    run += perDay[d];
+    out.add(run);
+  }
+  return out;
 }
 
 // ───────────────────────── আয়-ব্যয় (monthly) ─────────────────────────
@@ -120,36 +212,47 @@ class _CashViewState extends State<CashView> {
     _shown = [for (final e in entries) e.id];
     _picks.keepOnly(_shown);
     final top = sums.topExpenses;
-    final maxCat = top.isEmpty ? 1 : top.first.value;
 
+    final rate = sums.income > 0 ? (sums.balance * 100 / sums.income).round().clamp(-999, 100) : -1;
+    Widget arrow(IconData icon, String tip, VoidCallback? go) => SizedBox(
+          width: 30,
+          height: 30,
+          child: IconButton(
+            tooltip: tip,
+            padding: EdgeInsets.zero,
+            iconSize: 20,
+            color: Colors.white,
+            disabledColor: Colors.white24,
+            onPressed: go,
+            icon: Icon(icon),
+          ),
+        );
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [
-        IconButton(
-          tooltip: tr('আগের মাস'),
-          onPressed: () {
-            _picks.clear();
-            setState(() => _month = DateTime(m.year, m.month - 1));
-          },
-          icon: const Icon(Icons.chevron_left_rounded),
-        ),
-        Expanded(child: Text('${monthName(m.month)} ${bnDigits(m.year)}', textAlign: TextAlign.center, style: display(18))),
-        IconButton(
-          tooltip: tr('পরের মাস'),
-          onPressed: isThisMonth
-              ? null
-              : () {
-                  _picks.clear();
-                  setState(() => _month = DateTime(m.year, m.month + 1));
-                },
-          icon: const Icon(Icons.chevron_right_rounded),
-        ),
-      ]),
-      const SizedBox(height: 6),
       SummaryCard(
         title: isThisMonth ? tr('এই মাসের ব্যালেন্স') : tr('মাসের ব্যালেন্স'),
         amount: sums.balance.abs(),
         negative: sums.balance < 0,
-        items: [(tr('আয়'), sums.income, C.green), (tr('খরচ'), sums.expense, C.orange)],
+        spark: runningBalance(brain.data.cash, m, now),
+        trailing: Container(
+          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            arrow(Icons.chevron_left_rounded, tr('আগের মাস'), () {
+              _picks.clear();
+              setState(() => _month = DateTime(m.year, m.month - 1));
+            }),
+            Text(isThisMonth || m.year == now.year ? monthName(m.month) : '${monthName(m.month)} ${bnDigits(m.year)}', style: body(13, weight: FontWeight.w600, color: Colors.white)),
+            arrow(
+                Icons.chevron_right_rounded,
+                tr('পরের মাস'),
+                isThisMonth
+                    ? null
+                    : () {
+                        _picks.clear();
+                        setState(() => _month = DateTime(m.year, m.month + 1));
+                      }),
+          ]),
+        ),
+        items: [(tr('আয়'), sums.income, C.green), (tr('খরচ'), sums.expense, C.orange), if (rate >= 0) (tr('জমার হার'), rate, C.green)],
       ),
       const SizedBox(height: 12),
       Row(children: [
@@ -167,7 +270,8 @@ class _CashViewState extends State<CashView> {
             label: tr('খরচ'),
             icon: Icons.add_rounded,
             height: 48,
-            color: C.fill,
+            color: C.surface,
+            textColor: C.ink,
             onPressed: () => _push(const CashFormScreen(kind: CashKind.expense)),
           ),
         ),
@@ -176,26 +280,34 @@ class _CashViewState extends State<CashView> {
       Text(tr('মুখেও বলা যায়: “বাজারে ৫০০ টাকা খরচ হলো”, “বেতন পেলাম ৩০ হাজার”'), style: body(13, color: C.muted)),
       const SizedBox(height: 16),
       if (top.isNotEmpty) ...[
-        SectionTitle(tr('খাত অনুযায়ী খরচ')),
+        SectionTitle(tr('খাত অনুযায়ী খরচ'), action: tr('বিস্তারিত'), onAction: () => _push(const SpendHealthScreen())),
         Panel(
-          padding: const EdgeInsets.all(14),
-          child: Column(children: [
-            for (final c in top)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Expanded(child: Text(c.key, style: body(15, weight: FontWeight.w600))),
-                    Text(taka(c.value), style: display(15)),
-                  ]),
-                  const SizedBox(height: 4),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(value: c.value / maxCat, minHeight: 7, color: C.orange, backgroundColor: C.orangeTint),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Builder(builder: (context) {
+            final colors = splitColors();
+            final shown = top.take(colors.length - 1).toList();
+            final rest = top.skip(shown.length).fold<int>(0, (a, c) => a + c.value);
+            final parts = [for (final (i, c) in shown.indexed) (c.key, c.value, colors[i]), if (rest > 0) (tr('অন্যান্য'), rest, colors.last)];
+            return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              StackedBar(parts: [for (final p in parts) (p.$2.toDouble(), p.$3)], height: 12),
+              const SizedBox(height: 10),
+              Wrap(runSpacing: 2, children: [
+                for (final p in parts)
+                  FractionallySizedBox(
+                    widthFactor: 0.5,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(0, 4, 10, 4),
+                      child: Row(children: [
+                        Container(width: 9, height: 9, decoration: BoxDecoration(color: p.$3, shape: BoxShape.circle, border: Border.all(color: C.line))),
+                        const SizedBox(width: 7),
+                        Expanded(child: Text(p.$1, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13.5))),
+                        Text(taka(p.$2), style: display(13.5, weight: 600)),
+                      ]),
+                    ),
                   ),
-                ]),
-              ),
-          ]),
+              ]),
+            ]);
+          }),
         ),
         const SizedBox(height: 16),
       ],
@@ -224,16 +336,11 @@ Widget cashRow(BuildContext context, CashEntry e, {Picks? picks}) {
     onLongPress: picks == null ? null : () => picks.toggle(e.id),
     leading: picking
         ? PickMark(picks.has(e.id))
-        : Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(color: income ? C.greenTint : C.orangeTint, borderRadius: BorderRadius.circular(12)),
-            child: Icon(income ? Icons.south_west_rounded : Icons.north_east_rounded, color: income ? C.green : C.orange, size: 20),
-          ),
+        : IconSquare(income ? Icons.south_west_rounded : Icons.north_east_rounded, size: 40, color: income ? C.green : C.muted2),
     title: e.category,
     subtitle: [shortDate(e.date), if (e.note.trim().isNotEmpty) e.note.trim()].join(' · '),
     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-      Text('${income ? '+' : '−'}${taka(e.amount)}', style: display(16, color: income ? C.green : C.orange)),
+      Text('${income ? '+' : '−'}${taka(e.amount)}', style: display(16, weight: 600, color: income ? C.green : C.ink)),
       if (!picking)
         IconButton(
           tooltip: tr('বদলান বা মুছুন'),

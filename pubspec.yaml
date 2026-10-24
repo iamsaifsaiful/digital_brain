@@ -64,3 +64,8 @@ flutter:
           weight: 600
         - asset: assets/fonts/HindSiliguri-Bold.ttf
           weight: 700
+    # Galada: Bengali handwriting, only for the small hand-written notes of
+    # the new design ("ছোট ছোট পদক্ষেপ, বড় ফল"). OFL, licence in assets/fonts/.
+    - family: Galada
+      fonts:
+        - asset: assets/fonts/Galada-Regular.ttf

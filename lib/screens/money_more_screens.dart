@@ -14,6 +14,7 @@ import '../logic/cash.dart' show knownCategories;
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/forms.dart';
+import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'money_screens.dart';
@@ -33,32 +34,31 @@ class MoneyTools extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
+    // fg/bg are kept in the calls but the new look is one calm colour.
     Widget tile(String label, IconData icon, Color fg, Color bg, Widget page, {ProFeature? pro}) => Padding(
-          padding: const EdgeInsets.only(right: 10),
-          child: Material(
-            color: C.surface,
-            borderRadius: BorderRadius.circular(16),
-            child: InkWell(
+          padding: const EdgeInsets.only(right: 10, bottom: 4),
+          child: Container(
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), boxShadow: C.shadow),
+            child: Material(
+              color: C.surface,
               borderRadius: BorderRadius.circular(16),
-              onTap: () async {
-                if (pro != null && !await needPro(context, pro)) return;
-                if (context.mounted) _push(context, page);
-              },
-              child: Container(
-                width: 92,
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-                decoration: BoxDecoration(border: Border.all(color: C.line), borderRadius: BorderRadius.circular(16)),
-                child: Column(children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
-                    child: Icon(icon, color: fg, size: 22),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(label, textAlign: TextAlign.center, maxLines: pro != null && !brain.has(pro) ? 1 : 2, overflow: TextOverflow.ellipsis, style: body(12.5, weight: FontWeight.w500, height: 1.25)),
-                  if (pro != null && !brain.has(pro)) ...[const SizedBox(height: 2), const ProMark()],
-                ]),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () async {
+                  if (pro != null && !await needPro(context, pro)) return;
+                  if (context.mounted) _push(context, page);
+                },
+                child: Container(
+                  width: 88,
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                  decoration: C.dark ? BoxDecoration(border: Border.all(color: C.line), borderRadius: BorderRadius.circular(16)) : null,
+                  child: Column(children: [
+                    IconSquare(icon, size: 38),
+                    const SizedBox(height: 6),
+                    Text(label, textAlign: TextAlign.center, maxLines: pro != null && !brain.has(pro) ? 1 : 2, overflow: TextOverflow.ellipsis, style: body(12, weight: FontWeight.w500, height: 1.25)),
+                    if (pro != null && !brain.has(pro)) ...[const SizedBox(height: 2), const ProMark()],
+                  ]),
+                ),
               ),
             ),
           ),

@@ -13,9 +13,10 @@ String initialOf(String name) {
   return t.characters.first;
 }
 
-/// White rounded card with a hairline border.
+/// White rounded card with a very soft shadow (the new look; a hairline
+/// edge in the dark look).
 class Panel extends StatelessWidget {
-  const Panel({super.key, required this.child, this.padding = EdgeInsets.zero, Color? color, Color? borderColor, this.radius = 16})
+  const Panel({super.key, required this.child, this.padding = EdgeInsets.zero, Color? color, Color? borderColor, this.radius = 18})
       : _color = color,
         _borderColor = borderColor;
   final Widget child;
@@ -23,16 +24,19 @@ class Panel extends StatelessWidget {
   final Color? _color;
   Color get color => _color ?? C.surface;
   final Color? _borderColor;
-  Color get borderColor => _borderColor ?? C.line;
+  Color get borderColor => _borderColor ?? (C.dark ? C.line : Colors.transparent);
   final double radius;
 
   /// A Material, so list tiles and ink splashes inside show properly.
   @override
-  Widget build(BuildContext context) => Material(
-        color: color,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius), side: BorderSide(color: borderColor)),
-        clipBehavior: Clip.antiAlias,
-        child: Padding(padding: padding, child: child),
+  Widget build(BuildContext context) => DecoratedBox(
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(radius), boxShadow: _color == null || _color == C.surface ? C.shadow : const []),
+        child: Material(
+          color: color,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius), side: BorderSide(color: borderColor)),
+          clipBehavior: Clip.antiAlias,
+          child: Padding(padding: padding, child: child),
+        ),
       );
 }
 
@@ -113,12 +117,16 @@ class SectionTitle extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Expanded(child: Text(title, style: body(15, weight: FontWeight.w600, color: C.muted2))),
+            Expanded(child: Text(title, style: heading(17))),
             if (action != null)
               TextButton(
                 onPressed: onAction,
-                style: TextButton.styleFrom(foregroundColor: C.green, minimumSize: const Size(44, 40)),
-                child: Text(action!, style: body(14, weight: FontWeight.w600, color: C.green)),
+                style: TextButton.styleFrom(foregroundColor: C.muted, minimumSize: const Size(44, 40)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(action!, style: body(13.5, weight: FontWeight.w500, color: C.muted)),
+                  const SizedBox(width: 4),
+                  Icon(Icons.arrow_forward_rounded, size: 16, color: C.muted),
+                ]),
               ),
           ],
         ),
@@ -126,12 +134,15 @@ class SectionTitle extends StatelessWidget {
 }
 
 class PrimaryButton extends StatelessWidget {
-  const PrimaryButton({super.key, required this.label, required this.onPressed, this.icon, Color? color, this.height = 52}) : _color = color;
+  const PrimaryButton({super.key, required this.label, required this.onPressed, this.icon, Color? color, this.height = 52, this.textColor}) : _color = color;
   final String label;
+
+  /// For a light button (white with dark text).
+  final Color? textColor;
   final VoidCallback? onPressed;
   final IconData? icon;
   final Color? _color;
-  Color get color => _color ?? C.green;
+  Color get color => _color ?? C.primary;
   final double height;
 
   @override
@@ -144,13 +155,15 @@ class PrimaryButton extends StatelessWidget {
             backgroundColor: color,
             disabledBackgroundColor: C.disabled,
             disabledForegroundColor: C.muted,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            foregroundColor: textColor ?? (color == C.primary ? C.onPrimary : Colors.white),
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: textColor != null && !C.dark ? BorderSide.none : BorderSide(color: textColor != null ? C.line : Colors.transparent)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[Icon(icon, size: 22), const SizedBox(width: 8)],
-              Flexible(child: Text(label, style: body(17, weight: FontWeight.w600, color: onPressed == null ? C.muted : Colors.white), overflow: TextOverflow.ellipsis)),
+              Flexible(child: Text(label, style: body(16.5, weight: FontWeight.w600, color: onPressed == null ? C.muted : (textColor ?? (color == C.primary ? C.onPrimary : Colors.white))), overflow: TextOverflow.ellipsis)),
             ],
           ),
         ),
@@ -181,7 +194,7 @@ class SecondaryButton extends StatelessWidget {
             backgroundColor: C.surface,
             side: BorderSide(color: borderColor),
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -205,13 +218,16 @@ class RoundIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Tooltip(
         message: tooltip,
-        child: Material(
-          color: dark ? C.fill : C.surface,
-          shape: CircleBorder(side: BorderSide(color: dark ? C.fill : C.line)),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onPressed,
-            child: SizedBox(width: 44, height: 44, child: Icon(icon, size: 22, color: dark ? Colors.white : C.ink)),
+        child: DecoratedBox(
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), boxShadow: dark ? const [] : C.shadow),
+          child: Material(
+            color: dark ? C.fill : C.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: dark ? C.fill : (C.dark ? C.line : Colors.transparent))),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: onPressed,
+              child: SizedBox(width: 44, height: 44, child: Icon(icon, size: 22, color: dark ? Colors.white : C.ink)),
+            ),
           ),
         ),
       );
@@ -219,24 +235,37 @@ class RoundIconButton extends StatelessWidget {
 
 /// Standard top bar: back chevron, title, optional trailing widgets.
 class TopBar extends StatelessWidget {
-  const TopBar({super.key, required this.title, this.trailing = const [], this.close = false, this.onBack});
+  const TopBar({super.key, required this.title, this.trailing = const [], this.close = false, this.onBack, this.sub, this.note});
   final String title;
   final List<Widget> trailing;
   final bool close;
   final VoidCallback? onBack;
 
+  /// A short line under the title ("আজ গুছিয়ে নিন, কাল সহজ হবে।").
+  final String? sub;
+
+  /// A small hand-written note on the right ([HandNote]), when there is no trailing button.
+  final Widget? note;
+
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(8, 8, 12, 4),
+        padding: const EdgeInsets.fromLTRB(6, 8, 16, 6),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             IconButton(
               tooltip: close ? tr('বন্ধ করুন') : tr('ফিরে যান'),
               onPressed: onBack ?? () => Navigator.of(context).maybePop(),
-              icon: Icon(close ? Icons.close_rounded : Icons.chevron_left_rounded, size: close ? 24 : 30, color: C.ink),
+              icon: Icon(close ? Icons.close_rounded : Icons.arrow_back_ios_new_rounded, size: close ? 24 : 20, color: C.ink),
             ),
             const SizedBox(width: 2),
-            Expanded(child: Text(title, style: display(21, weight: 700), overflow: TextOverflow.ellipsis)),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                Text(title, style: heading(sub == null ? 24 : 26), overflow: TextOverflow.ellipsis, maxLines: 1),
+                if (sub != null) Text(sub!, style: body(12.5, color: C.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
+              ]),
+            ),
+            if (note != null && trailing.isEmpty) note!,
             ...trailing,
           ],
         ),
@@ -256,8 +285,8 @@ class TabTitle extends StatelessWidget {
         children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              if (sub != null) Text(sub!, style: body(13, color: C.muted)),
-              Text(title, style: display(26, weight: 700, height: 1.2)),
+              Text(title, style: heading(28, height: 1.15)),
+              if (sub != null) Text(sub!, style: body(12.5, color: C.muted)),
             ]),
           ),
           if (trailing != null) trailing!,
@@ -295,12 +324,12 @@ class SegTabs<T> extends StatelessWidget {
       widthFactor: 1 / items.length,
       heightFactor: 1,
       child: DecoratedBox(
-        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(9), boxShadow: const [BoxShadow(color: Color(0x14111827), blurRadius: 2, offset: Offset(0, 1))]),
+        decoration: BoxDecoration(color: C.dark ? C.fill : C.surface, borderRadius: BorderRadius.circular(11), boxShadow: const [BoxShadow(color: Color(0x14111827), blurRadius: 3, offset: Offset(0, 1))]),
       ),
     );
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: C.chip, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: C.chip, borderRadius: BorderRadius.circular(14)),
       child: SizedBox(
         height: 38,
         child: Stack(children: [
@@ -506,9 +535,9 @@ class AddButton extends StatelessWidget {
   Widget build(BuildContext context) => FloatingActionButton.extended(
         heroTag: null,
         onPressed: onPressed,
-        backgroundColor: C.fill,
+        backgroundColor: C.fab,
         foregroundColor: Colors.white,
-        elevation: 3,
+        elevation: 4,
         shape: const StadiumBorder(),
         icon: Icon(icon),
         label: Text(label, style: body(15, weight: FontWeight.w600, color: Colors.white)),
@@ -736,9 +765,9 @@ class ListRow extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(title, style: body(16, weight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text(title, style: body(15, weight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
                       if (subtitle != null && subtitle!.isNotEmpty)
-                        Text(subtitle!, style: body(13, color: subtitleColor, weight: subtitleColor == C.muted ? FontWeight.w400 : FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(subtitle!, style: body(12.5, color: subtitleColor, weight: subtitleColor == C.muted ? FontWeight.w400 : FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
                     ],
                   ),
                 ),
@@ -767,8 +796,8 @@ class EmptyState extends StatelessWidget {
             Container(
               width: 64,
               height: 64,
-              decoration: BoxDecoration(color: C.greenTint, shape: BoxShape.circle),
-              child: Icon(icon, color: C.green, size: 30),
+              decoration: BoxDecoration(color: C.soft, shape: BoxShape.circle),
+              child: Icon(icon, color: C.muted2, size: 30),
             ),
             const SizedBox(height: 12),
             Text(title, style: display(19), textAlign: TextAlign.center),

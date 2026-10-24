@@ -6,6 +6,7 @@ import '../logic/bn.dart';
 import '../logic/cash.dart';
 import '../logic/ledger.dart';
 import '../state/brain.dart';
+import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'ledger_form_screen.dart';
@@ -47,7 +48,10 @@ class MoneyScreenState extends State<MoneyScreen> {
       onChanged: show,
       top: (tabs) => [
         TabTitle(tr('হিসাব'),
-            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+            sub: tr('টাকা কোথায় যায়, এক নজরে।'),
+            trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+              Padding(padding: const EdgeInsets.only(right: 8), child: HandNote(tr('একটু একটু করে জমান'), size: 12.5, rotate: -5)),
+              Row(mainAxisSize: MainAxisSize.min, children: [
               PdfButton(switch (_part) {
                 MoneyPart.cash => const {ReportPart.money},
                 MoneyPart.loans => const {ReportPart.ledger},
@@ -56,6 +60,7 @@ class MoneyScreenState extends State<MoneyScreen> {
               if (_part == MoneyPart.loans) IconButton(tooltip: tr('সব লেনদেন খুঁজুন'), onPressed: () => push(const TransactionsScreen()), icon: const Icon(Icons.list_alt_rounded)),
               IconButton(
                   key: const Key('money-search-open'), tooltip: tr('হিসাবে খুঁজুন'), onPressed: () => push(const MoneySearchScreen()), icon: const Icon(Icons.person_search_outlined)),
+              ]),
             ])),
         const SizedBox(height: 12),
         if (brain.businessMode) ...[const ShopTodayCard(), const SizedBox(height: 12)],
