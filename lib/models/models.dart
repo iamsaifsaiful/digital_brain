@@ -1032,7 +1032,9 @@ class Doc {
 }
 
 /// The folders offered from the start (the user can make more).
-const docFolders = ['জাতীয় পরিচয়পত্র', 'পাসপোর্ট', 'জমি ও বাড়ির কাগজ', 'বিল ও রসিদ', 'সার্টিফিকেট', 'চিকিৎসা', 'প্রেসক্রিপশন', 'ওয়ারেন্টি ও গ্যারান্টি', 'গাড়ি ও লাইসেন্স', 'পরিবারের ছবি', 'অন্যান্য'];
+const docFolders = ['জাতীয় পরিচয়পত্র', 'পাসপোর্ট', 'জমি ও বাড়ির কাগজ', 'বিল ও রসিদ', 'সার্টিফিকেট', 'চিকিৎসা', 'প্রেসক্রিপশন', 'ওয়ারেন্টি ও গ্যারান্টি', 'গাড়ি ও লাইসেন্স', 'পরিবারের ছবি'];
+// No catch-all "অন্যান্য" (owner, 24 Oct): each folder holds only what its
+// name says; anything else goes in a folder the user makes. Old ones stay.
 
 /// Something the user deleted, kept for [TrashItem.keepDays] days so it can
 /// be brought back (আরও › মুছে ফেলা). [items] are (list key in

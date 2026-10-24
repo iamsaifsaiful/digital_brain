@@ -10,6 +10,7 @@ import '../models/models.dart';
 import '../services/notifications.dart';
 import 'bn.dart';
 import 'calendar_bd.dart';
+import 'health.dart' show bmiOf, latest;
 import 'lang.dart';
 import 'ledger.dart';
 import 'phrases.dart';
@@ -158,6 +159,7 @@ const nudgeDay2 = 'nudge:day2';
 const nudgeSalary = 'nudge:salary';
 const nudgeSoon = 'nudge:soon';
 const nudgeBackup = 'nudge:backup';
+const nudgeBmi = 'nudge:bmi:';
 const nudgeQuote = 'nudge:quote';
 const nudgeFix = 'nudge:fix';
 
@@ -270,7 +272,7 @@ bool _chosenByUser(String tag) =>
     tag.startsWith(nudgeQuote) || tag.startsWith(nudgeFix) || tag == morningTag || tag == nightTag || tag.startsWith(nudgePrayer) || tag.startsWith(nudgeRamadan) || tag.startsWith(nudgeDonor);
 
 int _rank(String tag) {
-  const order = [morningTag, nightTag, nudgePrayer, nudgeRamadan, nudgeDue, nudgeBill, nudgeMed, nudgeDoc, nudgeBackup, nudgeDonor, nudgeDay2, '${nudgePlan}eve', nudgeSoon, nudgeSalary, nudgeSpend, nudgeNoCash, nudgePlan, nudgeHabit, nudgeJumuah, nudgeWeek, nudgeFest, nudgeHealth, nudgeBack];
+  const order = [morningTag, nightTag, nudgePrayer, nudgeRamadan, nudgeDue, nudgeBill, nudgeMed, nudgeDoc, nudgeBackup, nudgeDonor, nudgeDay2, '${nudgePlan}eve', nudgeSoon, nudgeSalary, nudgeSpend, nudgeNoCash, nudgePlan, nudgeHabit, nudgeBmi, nudgeJumuah, nudgeWeek, nudgeFest, nudgeHealth, nudgeBack];
   for (var i = 0; i < order.length; i++) {
     if (tag.startsWith(order[i])) return i;
   }
@@ -489,6 +491,24 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
       if (!at.isAfter(now)) continue;
       add(nudgeHealth, monthKey(day), at, tr('এই মৌসুমের স্বাস্থ্য পরামর্শ'), tr(healthTips[day.month - 1]));
       break;
+    }
+  }
+
+  // BMI above normal (owner, 24 Oct): a kind push twice a week, at 7:30 on
+  // Monday and Thursday — one small step, never the number (it shows on the
+  // lock screen).
+  if (p.health) {
+    for (final m in d.members) {
+      final w = latest(d, m.id, HealthKind.weight);
+      if (w == null || m.heightCm == null || m.heightCm! <= 0) continue;
+      if (bmiOf(w.a, m.heightCm!) < 23) continue;
+      for (final wd in const [DateTime.monday, DateTime.thursday]) {
+        final at = nextWeekday(wd, 7 * 60 + 30);
+        final n = at.difference(DateTime(2026)).inDays ~/ 3;
+        final step = tr(bmiSteps[n % bmiSteps.length]);
+        final who = m.isMe ? tr('আজ নিজের জন্য ছোট একটা ধাপ') : trf('{0}-এর জন্য ছোট একটা ধাপ', [m.relation.isNotEmpty ? m.relation : m.name]);
+        add('$nudgeBmi${m.id}', dayKey(at), at, who, step);
+      }
     }
   }
 
@@ -785,3 +805,16 @@ List<PlannedNotice> _noticed(AppData d, DateTime now, AssistantPrefs p) {
   }
   return out;
 }
+
+
+/// Small, kind steps for a weight above normal (one per notice, in turn).
+const bmiSteps = [
+  'আজ ২০ মিনিট হাঁটুন — ছোট ছোট পা-ই বড় বদল আনে।',
+  'পানি বেশি, চিনি কম — আজ একটা মিষ্টি পানীয় বাদ দিয়ে দেখুন।',
+  'প্লেটের অর্ধেক সবজি রাখুন — পেট ভরবে, ভাত লাগবে কম।',
+  'লিফট নয়, সিঁড়ি — প্রতিটা ধাপই কাজে লাগে।',
+  'রাতের খাবার একটু আগে আর একটু কম — ঘুমও ভালো হবে।',
+  'সপ্তাহে আধা কেজি কমানোই যথেষ্ট — ধীরে, কিন্তু নিয়মিত।',
+  'ভাজাপোড়ার বদলে আজ ফল খান — শরীর ধন্যবাদ দেবে।',
+  'নামাজের পর ১০ মিনিট হাঁটা — অভ্যাস হয়ে গেলে আর কষ্ট লাগবে না।',
+];

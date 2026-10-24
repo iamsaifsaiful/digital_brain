@@ -156,7 +156,8 @@ class _DocInfoSheetState extends State<_DocInfoSheet> {
   late final _people = TextEditingController(text: widget.edit?.people ?? '');
   late final _place = TextEditingController(text: widget.edit?.place ?? '');
   final _tags = TextEditingController();
-  late String _folder = widget.edit?.folder ?? widget.folder ?? 'অন্যান্য';
+  late String _folder = widget.edit?.folder ?? widget.folder ?? '';
+  String? _error;
   late DateTime? _taken = widget.edit?.taken;
   late DateTime? _expiry = widget.edit?.expiry;
   bool _same = false;
@@ -197,8 +198,8 @@ class _DocInfoSheetState extends State<_DocInfoSheet> {
       } else if (found == null && !scan.empty) {
         _readNote = tr('ছবিতে মেয়াদ বা ওয়ারেন্টির তারিখ পরিষ্কার পাইনি — থাকলে নিজে দিন।');
       }
-      if (_folder == 'অন্যান্য') _folder = _folderFor(scan) ?? _folder;
-      if (_title.text.trim().isEmpty && _folder != 'অন্যান্য') {
+      if (_folder.isEmpty || _folder == 'অন্যান্য') _folder = _folderFor(scan) ?? _folder;
+      if (_title.text.trim().isEmpty && _folder.isNotEmpty && _folder != 'অন্যান্য') {
         final name = scan.fields.where((f) => f.label == tr('নাম')).firstOrNull?.value;
         if (name != null) _people.text = _people.text.isEmpty ? name : _people.text;
       }
@@ -225,7 +226,18 @@ class _DocInfoSheetState extends State<_DocInfoSheet> {
   }
 
   void _done() {
-    final title = _title.text.trim().isEmpty ? tr(_folder) : _title.text.trim();
+    // A name or a tag is a must, so it can be found by asking later; and a
+    // folder that fits (owner, 24 Oct).
+    final tags0 = [for (final t in _tags.text.split(RegExp(r'[,،;]'))) if (t.trim().isNotEmpty) t.trim()];
+    if (_title.text.trim().isEmpty && tags0.isEmpty) {
+      setState(() => _error = tr('নাম বা ট্যাগ দিন — পরে জিজ্ঞেস করলে এ দিয়েই খুঁজে দেবে'));
+      return;
+    }
+    if (_folder.isEmpty) {
+      setState(() => _error = tr('ফোল্ডার বেছে নিন — মিলছে না? “নতুন ফোল্ডার” বানান'));
+      return;
+    }
+    final title = _title.text.trim().isEmpty ? tags0.join(', ') : _title.text.trim();
     final base = widget.edit ?? Doc(title: title, folder: _folder);
     final doc = base.copyWith(
       title: title,
@@ -240,8 +252,7 @@ class _DocInfoSheetState extends State<_DocInfoSheet> {
       fields: mergeFields(base.fields, [for (final f in _scan?.fields ?? const <DocField>[]) if (_keep.contains(f.label)) f]),
       text: _scan?.text,
     );
-    final tags = [for (final t in _tags.text.split(RegExp(r'[,،;]'))) if (t.trim().isNotEmpty) t.trim()];
-    Navigator.of(context).pop(DocInfo(doc, tags, sameForRest: _same, pageTexts: _scan?.pages ?? const []));
+    Navigator.of(context).pop(DocInfo(doc, tags0, sameForRest: _same, pageTexts: _scan?.pages ?? const []));
   }
 
   @override
@@ -294,12 +305,20 @@ class _DocInfoSheetState extends State<_DocInfoSheet> {
               ]),
             ),
           const SizedBox(height: 14),
-          field(_title, tr('নাম'), tr('যেমন: রুমার পাসপোর্ট, ভাইয়ের বিয়ের ছবি'), icon: Icons.label_outline_rounded),
-          Text(tr('ফোল্ডার'), style: body(13, weight: FontWeight.w600, color: C.muted2)),
+          field(_title, tr('নাম *'), tr('যেমন: রুমার পাসপোর্ট, ভাইয়ের বিয়ের ছবি'), icon: Icons.label_outline_rounded),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Text(tr('নাম বা ট্যাগ — অন্তত একটা দিতে হবে'), style: body(12, color: C.muted)),
+          ),
+          Text(tr('ফোল্ডার *'), style: body(13, weight: FontWeight.w600, color: C.muted2)),
+          Text(tr('যে ফোল্ডারের যে নাম, তাতে শুধু সেই কাগজ। অন্য কিছু হলে নতুন ফোল্ডার বানান।'), style: body(12, color: C.muted)),
           const SizedBox(height: 6),
           Wrap(spacing: 8, runSpacing: 8, children: [
-            for (final x in folders)
-              ChoiceChip(label: Text(tr(x)), selected: _folder == x, onSelected: (_) => setState(() => _folder = x)),
+            for (final x in {...folders, if (_folder.isNotEmpty) _folder})
+              ChoiceChip(label: Text(tr(x)), selected: _folder == x, onSelected: (_) => setState(() {
+                    _folder = x;
+                    _error = null;
+                  })),
             ActionChip(
               avatar: Icon(Icons.add_rounded, size: 18, color: C.green),
               label: Text(tr('নতুন ফোল্ডার')),
@@ -317,7 +336,10 @@ class _DocInfoSheetState extends State<_DocInfoSheet> {
                   ),
                 );
                 c.dispose();
-                if (v != null && v.isNotEmpty) setState(() => _folder = v);
+                if (v != null && v.isNotEmpty) setState(() {
+                  _folder = v;
+                  _error = null;
+                });
               },
             ),
           ]),
@@ -379,8 +401,9 @@ class _DocInfoSheetState extends State<_DocInfoSheet> {
               onChanged: (v) => setState(() => _same = v ?? false),
               title: Text(trf('বাকি {0}টাতেও একই তথ্য দিন', [bnDigits(widget.of - widget.index - 1)]), style: body(14.5)),
             ),
+          if (_error != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text(_error!, key: const Key('doc-info-error'), style: body(14, color: C.red))),
           const SizedBox(height: 6),
-          PrimaryButton(label: widget.edit != null ? tr('রাখুন') : tr('রাখুন'), icon: Icons.check_rounded, onPressed: _done),
+          PrimaryButton(key: const Key('doc-info-save'), label: tr('রাখুন'), icon: Icons.check_rounded, onPressed: _done),
         ]),
       ),
     );

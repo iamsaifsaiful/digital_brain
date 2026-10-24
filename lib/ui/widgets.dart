@@ -1,3 +1,4 @@
+import '../logic/services_list.dart' show KnownService;
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
@@ -951,3 +952,20 @@ Future<T?> showAppSheet<T>({
       shape: shape,
       builder: (ctx) => SafeArea(top: false, child: builder(ctx)),
     );
+
+
+/// A known app or site as a letter on its colour (not the company's logo).
+class ServiceBadge extends StatelessWidget {
+  const ServiceBadge({super.key, required this.service, this.size = 40});
+  final KnownService service;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: service.color, borderRadius: BorderRadius.circular(size * 0.3)),
+        child: Text(service.letter, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: size * 0.5, height: 1)),
+      );
+}

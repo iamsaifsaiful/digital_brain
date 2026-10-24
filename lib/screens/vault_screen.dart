@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
 import '../logic/parser.dart';
+import '../logic/services_list.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/pin.dart';
@@ -107,7 +108,7 @@ class _VaultScreenState extends State<VaultScreen> {
             child: Rows(children: [
               for (final v in list)
                 ListRow(
-                  leading: _KindIcon(kind: v.kind),
+                  leading: knownServiceOf(v.name) == null ? _KindIcon(kind: v.kind) : ServiceBadge(service: knownServiceOf(v.name)!),
                   title: v.name,
                   subtitle: v.address.isEmpty || v.kind == VaultKind.wifi ? v.kind.label : '${v.kind.label} · ${v.address}',
                   trailing: Text('••••', style: body(18, color: C.muted)),

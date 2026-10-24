@@ -1,6 +1,8 @@
 // ফ্যামিলি (Pro): add family members by e-mail, choose what each may do for
 // you, send them to-dos, reminders, medicine reminders and notes, see where
 // they are (if they allow), and heirs (lib/state/family_state.dart).
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
@@ -8,6 +10,7 @@ import '../logic/lang.dart';
 import '../logic/ledger.dart';
 import '../logic/pro.dart';
 import '../models/models.dart';
+import '../services/data_store.dart' show Backup;
 import '../services/location_share.dart';
 import '../state/brain.dart';
 import '../state/family_state.dart';
@@ -713,6 +716,9 @@ class HeirViewScreen extends StatelessWidget {
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 28), children: [
               Text(at == null ? '' : trf('{0} পর্যন্ত যা ছিল — শুধু দেখা যায়, বদলানো যায় না', [fullDate(at)]), style: body(13.5, color: C.muted)),
+              // One tap: everything here as a locked backup file (owner, 24 Oct).
+              const SizedBox(height: 10),
+              PrimaryButton(key: const Key('heir-backup'), label: tr('এক চাপে সব ব্যাকআপ নিন'), icon: Icons.download_rounded, onPressed: () => heirBackup(context, title, data, link)),
               if (parts.contains('money')) ...[
                 section(tr('ধার-দেনা'), [
                   for (final p in balances(d.ledger))
@@ -792,6 +798,79 @@ class _ClaimDialogState extends State<_ClaimDialog> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('বাতিল'))),
           FilledButton(onPressed: () => Navigator.pop(context, _note.text.trim()), child: Text(tr('সনদের ছবি বেছে নিন'))),
+        ],
+      );
+}
+
+
+/// The heir's copy saved as one locked backup file (.dbrain, opened with
+/// সেটিংস › ব্যাকআপ ফিরিয়ে আনুন and the password chosen here). Photos and
+/// files that have come so far go in it too.
+Future<void> heirBackup(BuildContext context, String title, Map<String, dynamic> data, FamilyLink? link) async {
+  final brain = BrainScope.read(context);
+  final pass = await showDialog<String>(context: context, builder: (_) => const _BackupPassDialog());
+  if (pass == null || !context.mounted) return;
+  final d = AppData.fromJson(data);
+  final key = '${data['files_key'] ?? ''}';
+  final files = <String, Uint8List>{};
+  var missing = 0;
+  if (link != null && key.isNotEmpty) {
+    for (final f in [for (final n in d.notes) ...n.files, for (final x in d.docs) ...x.files]) {
+      final b = await brain.family.openFile(link, f.id, key);
+      if (b == null) {
+        missing++;
+      } else {
+        files[f.id] = b;
+      }
+    }
+  }
+  final bytes = await Backup.export(d, pass, files: files);
+  final now = brain.services.now();
+  final safe = title.replaceAll(RegExp(r'[^\p{L}\p{N}]+', unicode: true), '-');
+  final name = 'my-assistant-$safe-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.dbrain';
+  final ok = await brain.services.files.saveFile(bytes, name);
+  if (!context.mounted) return;
+  toast(context, !ok ? tr('সেভ করা হয়নি') : (missing == 0 ? trf('সব ব্যাকআপ সেভ হলো: {0}', [name]) : trf('ব্যাকআপ সেভ হলো: {0} — {1}টা ছবি/ফাইল এখনো আসেনি', [name, bnDigits(missing)])));
+}
+
+class _BackupPassDialog extends StatefulWidget {
+  const _BackupPassDialog();
+  @override
+  State<_BackupPassDialog> createState() => _BackupPassDialogState();
+}
+
+class _BackupPassDialogState extends State<_BackupPassDialog> {
+  final _a = TextEditingController(), _b = TextEditingController();
+  String? _err;
+
+  @override
+  void dispose() {
+    _a.dispose();
+    _b.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: Text(tr('ব্যাকআপের পাসওয়ার্ড')),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(tr('এই পাসওয়ার্ড ছাড়া ব্যাকআপ খোলা যাবে না। ভুলে গেলে কেউ উদ্ধার করতে পারবে না — কোথাও লিখে রাখুন।'), style: body(13.5, color: C.muted, height: 1.45)),
+          const SizedBox(height: 10),
+          TextField(key: const Key('heir-pass'), controller: _a, obscureText: true, decoration: InputDecoration(labelText: tr('পাসওয়ার্ড'))),
+          const SizedBox(height: 8),
+          TextField(key: const Key('heir-pass2'), controller: _b, obscureText: true, decoration: InputDecoration(labelText: tr('আবার দিন'), errorText: _err)),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('বাতিল'))),
+          FilledButton(
+            key: const Key('heir-pass-ok'),
+            onPressed: () {
+              if (_a.text.length < 8) return setState(() => _err = tr('অন্তত ৮ অক্ষর দিন'));
+              if (_a.text != _b.text) return setState(() => _err = tr('দুটো মেলেনি'));
+              Navigator.pop(context, _a.text);
+            },
+            child: Text(tr('ব্যাকআপ নিন')),
+          ),
         ],
       );
 }

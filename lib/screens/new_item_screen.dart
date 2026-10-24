@@ -1,3 +1,4 @@
+import '../logic/services_list.dart';
 import 'package:flutter/material.dart';
 
 import '../logic/pro.dart';
@@ -345,7 +346,8 @@ class _NewItemScreenState extends State<NewItemScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                   children: [
-                    if (!widget.editing) ...[
+                    // Opened from one place (e.g. পাসওয়ার্ড): only that form (owner, 24 Oct).
+                    if (!widget.editing && widget.category == null) ...[
                       Text(tr('বিভাগ'), style: body(14, weight: FontWeight.w600, color: C.muted)),
                       const SizedBox(height: 8),
                       Row(children: [
@@ -405,6 +407,26 @@ class _NewItemScreenState extends State<NewItemScreen> {
           ),
       ]),
       const SizedBox(height: 14),
+      // Well-known apps and sites: one tap fills the name and address.
+      if (widget.vault == null && _vaultKind != VaultKind.wifi) ...[
+        Text(tr('কোনটার পাসওয়ার্ড?'), style: body(13, weight: FontWeight.w600, color: C.muted2)),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final k in knownServices)
+            ActionChip(
+              key: Key('vault-known-${k.address}'),
+              avatar: ServiceBadge(service: k, size: 22),
+              label: Text(k.name, style: body(13.5, weight: knownServiceOf(_a.text) == k ? FontWeight.w700 : FontWeight.w400)),
+              side: BorderSide(color: knownServiceOf(_a.text) == k ? k.color : C.border),
+              onPressed: () => setState(() {
+                _a.text = k.name;
+                _b.text = k.address;
+                _vaultKind = k.kind;
+              }),
+            ),
+        ]),
+        const SizedBox(height: 14),
+      ],
       TextFormField(
         controller: _a,
         decoration: InputDecoration(labelText: _vaultKind == VaultKind.wifi ? tr('নাম (যেমন: বাসার Wi-Fi)') : tr('ওয়েবসাইট বা অ্যাপের নাম')),
