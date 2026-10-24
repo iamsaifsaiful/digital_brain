@@ -14,8 +14,6 @@ import 'package:flutter/rendering.dart' show debugDisableShadows;
 import 'package:flutter_test/flutter_test.dart';
 
 import '../app_test.dart' show settle, start, openTyping, sendTyped;
-import 'package:digital_brain/screens/search_screen.dart';
-import 'package:digital_brain/screens/lock_screen.dart';
 import 'new_ui_shots_test.dart' as four show sample, icons;
 
 final shots = Platform.environment['SHOTS'] == '1';
