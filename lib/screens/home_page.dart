@@ -161,7 +161,7 @@ class HomePage extends StatelessWidget {
             // This week, on the landscape.
             HeroCard(
               key: const Key('home-week'),
-              label: weekAll > 0 ? tr('এই সপ্তাহে') : tr('আজ'),
+              label: weekAll > 0 ? tr('এই সপ্তাহে') : tr('আজ শুরু করুন'),
               action: tr('চালিয়ে যান'),
               onTap: () => push(const AllTasksScreen()),
               progress: weekAll > 0 ? weekDone / weekAll : null,
@@ -173,7 +173,7 @@ class HomePage extends StatelessWidget {
                     Text(trf('/ {0} কাজ শেষ', [bnDigits(weekAll)]), style: body(17, weight: FontWeight.w500, color: Colors.white)),
                   ])
                 else
-                  Text('${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)}', style: display(22, weight: 700, color: Colors.white, height: 1.4)),
+                  Text(tr('এই সপ্তাহে কোনো কাজ রাখা নেই'), style: display(20, weight: 700, color: Colors.white, height: 1.4)),
                 const SizedBox(height: 2),
                 FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(sunLine, maxLines: 1, style: body(13, color: Colors.white.withValues(alpha: 0.85)))),
               ]),

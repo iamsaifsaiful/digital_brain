@@ -3999,4 +3999,6 @@ const enStrings = <String, String>{
   'কিবলা কম্পাস': 'Qibla compass',
   'শিখে নিন': 'Learn',
   'আপনার তথ্য তালাবদ্ধ আছে': 'Your data is locked',
+  'এই সপ্তাহে কোনো কাজ রাখা নেই': 'No tasks this week yet',
+  'আজ শুরু করুন': 'Start today',
 };
