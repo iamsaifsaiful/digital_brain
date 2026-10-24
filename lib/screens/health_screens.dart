@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../logic/bn.dart';
 import '../logic/lang.dart';
 import '../models/models.dart';
+import 'family_screen.dart' show sendMedicineToFamily;
 import '../state/brain.dart';
 import '../ui/forms.dart';
 import '../ui/theme.dart';
@@ -34,21 +35,24 @@ class HabitStrip extends StatelessWidget {
 
 /// Today's doses as tick chips (for দিনলিপি).
 class DoseStrip extends StatelessWidget {
-  const DoseStrip({super.key, required this.day});
+  const DoseStrip({super.key, required this.day, this.member});
   final DateTime day;
+
+  /// Only this person's ([FamilyMember.id]); null: everyone's, with the name on others'.
+  final String? member;
 
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     return Wrap(spacing: 8, runSpacing: 8, children: [
       for (final m in brain.data.medicines)
-        if (m.until == null || !dayOnly(day).isAfter(dayOnly(m.until!)))
+        if ((member == null || m.member == member) && (m.until == null || !dayOnly(day).isAfter(dayOnly(m.until!))))
           for (final t in m.times)
             FilterChip(
               selected: m.takenAt(day, t),
               onSelected: (_) => brain.toggleDose(m, day, t),
               avatar: Icon(m.takenAt(day, t) ? Icons.check_circle_rounded : Icons.medication_outlined, size: 18, color: m.takenAt(day, t) ? C.green : C.muted2),
-              label: Text('${m.name} · ${minutesText(t)}'),
+              label: Text(member == null && m.member != FamilyMember.meId ? '${brain.personById(m.member).name}: ${m.name} · ${minutesText(t)}' : '${m.name} · ${minutesText(t)}'),
               labelStyle: body(14, weight: FontWeight.w500, color: m.takenAt(day, t) ? C.greenDark : C.ink),
               showCheckmark: false,
             ),
@@ -166,31 +170,55 @@ class HabitsScreen extends StatelessWidget {
 
 // ───────────────────────── Medicines ─────────────────────────
 
+/// ওষুধের সময়সূচি of one person in স্বাস্থ্য: the user's own, or a family
+/// member's (owner, 24 Oct night) — their list, today's doses, adding one
+/// (it rings on this phone), and, when that person is in ফ্যামিলি and
+/// allows it, sending the reminder to their own phone (sealed).
 class MedicinesScreen extends StatelessWidget {
-  const MedicinesScreen({super.key});
+  const MedicinesScreen({super.key, this.member = FamilyMember.meId});
+  final String member;
 
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final now = brain.services.now();
+    final me = member == FamilyMember.meId;
+    final who = brain.personById(member);
+    final meds = [for (final m in brain.data.medicines) if (m.member == member) m];
+    final senders = [for (final l in brain.family.links) if (l.active && l.theyAllow.contains('medicine')) l];
     return Scaffold(
-      floatingActionButton: AddButton(label: tr('ওষুধ যোগ'), onPressed: () => editMedicine(context, null)),
+      floatingActionButton: AddButton(label: tr('ওষুধ যোগ'), onPressed: () => editMedicine(context, null, member: member)),
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('ওষুধের সময়সূচি'), trailing: const [PdfButton({ReportPart.health})]),
+          TopBar(title: me ? tr('ওষুধের সময়সূচি') : trf('{0}-এর ওষুধ', [who.name]), trailing: const [PdfButton({ReportPart.health})]),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 100), children: [
-              if (brain.data.medicines.isEmpty)
+              if (!me && senders.isNotEmpty) ...[
+                Panel(
+                  child: ListRow(
+                    key: const Key('med-send-family'),
+                    leading: Icon(Icons.send_to_mobile_outlined, color: C.green),
+                    title: tr('ওঁর নিজের ফোনেও রিমাইন্ডার দিন'),
+                    subtitle: tr('ফ্যামিলিতে যুক্ত থাকলে ওঁর ফোনে বাজবে — তালাবদ্ধ হয়ে যায়'),
+                    trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
+                    onTap: () => sendMedicineToFamily(context, senders),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (meds.isEmpty)
                 EmptyState(
                   icon: Icons.medication_outlined,
                   title: tr('কোনো ওষুধ রাখা নেই'),
-                  text: tr('ওষুধের নাম, দিনে কয়বার আর কয়টা আছে লিখুন — সময়মতো বাজবে, খেলে টিক দিন, ফুরানোর আগে মনে করাবো।'),
+                  text: me
+                      ? tr('ওষুধের নাম, দিনে কয়বার আর কয়টা আছে লিখুন — সময়মতো বাজবে, খেলে টিক দিন, ফুরানোর আগে মনে করাবো।')
+                      : trf('{0}-এর ওষুধের নাম আর সময় লিখুন — সময়মতো আপনার ফোনে বাজবে, যেন খাইয়ে দিতে বা মনে করিয়ে দিতে পারেন।', [who.name]),
                 )
               else ...[
                 SectionTitle(tr('আজ')),
-                Panel(padding: const EdgeInsets.all(12), child: DoseStrip(day: now)),
+                Panel(padding: const EdgeInsets.all(12), child: DoseStrip(day: now, member: member)),
                 const SizedBox(height: 14),
-                for (final m in brain.data.medicines) ...[
+                for (final m in meds) ...[
                   Panel(
                     child: ListRow(
                       leading: Container(
@@ -223,12 +251,13 @@ class MedicinesScreen extends StatelessWidget {
   }
 }
 
-Future<void> editMedicine(BuildContext context, Medicine? old) =>
-    showAppSheet<void>(context: context, isScrollControlled: true, builder: (_) => _MedicineSheet(old: old));
+Future<void> editMedicine(BuildContext context, Medicine? old, {String member = FamilyMember.meId}) =>
+    showAppSheet<void>(context: context, isScrollControlled: true, builder: (_) => _MedicineSheet(old: old, member: old?.member ?? member));
 
 class _MedicineSheet extends StatefulWidget {
-  const _MedicineSheet({this.old});
+  const _MedicineSheet({this.old, this.member = FamilyMember.meId});
   final Medicine? old;
+  final String member;
   @override
   State<_MedicineSheet> createState() => _MedicineSheetState();
 }
@@ -264,7 +293,7 @@ class _MedicineSheetState extends State<_MedicineSheet> {
       toast(context, tr('নাম আর অন্তত একটা সময় দিন'));
       return;
     }
-    final base = widget.old ?? Medicine(name: name);
+    final base = widget.old ?? Medicine(name: name, member: widget.member);
     await brain.saveMedicine(base.copyWith(
       name: name,
       dose: _dose,

@@ -272,6 +272,27 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         const SizedBox(height: 10),
         CardBox(
+          key: const Key('open-errors'),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ErrorsPage(api: widget.api, guard: widget.guard))),
+          child: Row(children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(color: c.tint, borderRadius: BorderRadius.circular(14)),
+              child: Icon(Icons.bug_report_outlined, color: c.brand),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('সমস্যার লগ', style: text(16, weight: FontWeight.w700, color: c.ink)),
+                Text('অ্যাপে কোথায় ভুল হচ্ছে — ঠিক করার জন্য', style: text(13.5, color: c.muted)),
+              ]),
+            ),
+            Icon(Icons.chevron_right_rounded, color: c.muted),
+          ]),
+        ),
+        const SizedBox(height: 10),
+        CardBox(
           key: const Key('open-finance'),
           onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => FinancePage(api: widget.api, guard: widget.guard))),
           child: Row(children: [
@@ -297,6 +318,84 @@ class _DashboardPageState extends State<DashboardPage> {
 }
 
 // ── হিসাব (site owner only) ──
+
+/// সমস্যার লগ, as on the site: the kind, the cleaned first line, how many
+/// times, the version and when; tap for the code places.
+class ErrorsPage extends StatefulWidget {
+  const ErrorsPage({super.key, required this.api, required this.guard});
+  final Api api;
+  final Guard guard;
+
+  @override
+  State<ErrorsPage> createState() => _ErrorsPageState();
+}
+
+class _ErrorsPageState extends State<ErrorsPage> {
+  List<Map<String, dynamic>>? _rows;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final r = await widget.guard(() => widget.api.errors());
+    if (r != null && mounted) setState(() => _rows = r);
+  }
+
+  Future<void> _clear() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('সব লগ মুছবেন?'),
+        actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('না')), TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('মুছুন'))],
+      ),
+    );
+    if (ok != true) return;
+    await widget.guard(() => widget.api.clearErrors());
+    await _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Palette.of(context);
+    final rows = _rows;
+    return Scaffold(
+      appBar: AppBar(title: const Text('সমস্যার লগ'), actions: [
+        if (rows != null && rows.isNotEmpty) IconButton(key: const Key('errors-clear'), tooltip: 'সব মুছুন', onPressed: _clear, icon: const Icon(Icons.delete_sweep_outlined)),
+      ]),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: rows == null
+            ? ListView(children: const [Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))])
+            : rows.isEmpty
+                ? ListView(children: const [Empty(Icons.bug_report_outlined, 'কোনো সমস্যা আসেনি', 'অ্যাপে ভুল হলে এখানে দেখা যাবে — সদস্যের লেখা বা গোপন কিছু আসে না।')])
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                    itemCount: rows.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, i) {
+                      final r = rows[i];
+                      return CardBox(
+                        child: Theme(
+                          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                          child: ExpansionTile(
+                            tilePadding: EdgeInsets.zero,
+                            title: Text('${r['kind']} · ${bn(r['count'] ?? 1)} বার', style: text(15, weight: FontWeight.w700, color: c.ink)),
+                            subtitle: Text('${r['message']}\n${r['version']} · ${date('${r['last_at']}')}${'${r['email'] ?? ''}'.isEmpty ? '' : ' · ${r['email']}'}', style: text(12.5, color: c.muted)),
+                            children: [
+                              Align(alignment: Alignment.centerLeft, child: SelectableText('${r['stack']}', style: text(12, color: c.ink))),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+      ),
+    );
+  }
+}
 
 String _ymName(String ym) {
   final m = int.tryParse(ym.length >= 7 ? ym.substring(5, 7) : '') ?? 1;

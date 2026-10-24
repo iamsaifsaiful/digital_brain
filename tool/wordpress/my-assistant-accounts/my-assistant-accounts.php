@@ -2,7 +2,7 @@
 /**
  * Plugin Name: My Assistant Accounts
  * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, প্রিমিয়াম, পেমেন্ট, নোটিফিকেশন আর মতামত। শুধু নাম, ইমেইল, ছবি আর প্রিমিয়ামের তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.18.0
+ * Version: 1.18.1
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: My Assistant
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.18.0';
+const MA_ACC_VERSION = '1.18.1';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
 const MA_ACC_PER_PAGE = 20;
 
@@ -31,6 +31,7 @@ require_once __DIR__ . '/blood.php';
 require_once __DIR__ . '/family.php';
 require_once __DIR__ . '/metal.php';
 require_once __DIR__ . '/finance.php';
+require_once __DIR__ . '/errors.php';
 
 /** The members table. */
 function ma_acc_table() {
@@ -71,6 +72,7 @@ function ma_acc_install() {
     ma_bl_install();
     ma_fam_install();
     ma_fin_install();
+    ma_err_install();
     // Who may approve payments and manage members (the admin app signs in with these accounts).
     if (!get_role('ma_admin')) {
         add_role('ma_admin', 'My Assistant অ্যাডমিন', ['read' => true, 'ma_manage' => true]);

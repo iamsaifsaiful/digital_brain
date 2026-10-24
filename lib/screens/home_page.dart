@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../logic/bn.dart';
 import '../logic/calendar_bd.dart';
@@ -7,6 +10,7 @@ import '../logic/lang.dart';
 import '../logic/ledger.dart' show totals;
 import '../logic/money_quotes.dart';
 import '../logic/phrases.dart' show possessive;
+import '../logic/sky_light.dart';
 import '../logic/spend_health.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
@@ -44,8 +48,8 @@ String helloFor(DateTime now) {
 
 /// হোম (the approved design of 24 Oct, docs/design/2026-10-24-home-final):
 /// the greeting and today's three dates, weather and the next prayer, at
-/// most one thing that needs a look, today's work, the money, the coming
-/// holidays, every tool (folded), a line about money, and the privacy note.
+/// most one thing that needs a look, today's work, the money with a line
+/// about money under it, the coming holidays, every tool, and the privacy note.
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -55,21 +59,27 @@ class HomePage extends StatelessWidget {
     if (brain.easyMode) return const EasyHome();
     final now = brain.services.now();
     final quote = quoteFor(now);
-    final top = MediaQuery.of(context).padding.top;
 
-    return ColoredBox(
+    // The picture runs under the phone's status bar: its icons go white there.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: C.ground,
+        systemNavigationBarIconBrightness: C.dark ? Brightness.light : Brightness.dark,
+      ),
+      child: ColoredBox(
       color: C.ground,
       child: ListView(
-        padding: EdgeInsets.fromLTRB(20, top + 6, 20, 24),
+        padding: const EdgeInsets.only(bottom: 24),
         children: [
-          const _Header(),
-          const _InfoRow(),
+          const HomeHero(),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const HomeAttention(),
           const TodaySections(),
           const _MoneyCard(),
-          const _Holidays(),
-          const SizedBox(height: 14),
-          const _Tools(),
+          // আজকের অর্থ-কথা right under the money (owner, 24 Oct night).
           const SizedBox(height: 12),
           AppCard(
             key: const Key('home-quote'),
@@ -85,6 +95,10 @@ class HomePage extends StatelessWidget {
               ),
             ]),
           ),
+          const _Holidays(),
+          const SizedBox(height: 14),
+          const _Tools(),
+          const SizedBox(height: 12),
           // Free Play app only: a quiet ad card under the quote.
           const AdSlot(padding: EdgeInsets.only(top: 12)),
           Padding(
@@ -95,93 +109,12 @@ class HomePage extends StatelessWidget {
               Flexible(child: Text(tr('আপনার তথ্য এই ফোনেই থাকে, তালাবদ্ধ'), style: body(11.5, color: C.muted))),
             ]),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-/// "শুভ সন্ধ্যা, সাইফুল", today in three calendars, the bell and the photo.
-class _Header extends StatelessWidget {
-  const _Header();
-
-  @override
-  Widget build(BuildContext context) {
-    final brain = BrainScope.of(context);
-    final now = brain.services.now();
-    final bd = banglaDate(now);
-    final hj = hijriDate(now, adjust: brain.number('hijri_adjust'));
-    final first = brain.userName.trim().isEmpty ? '' : brain.userName.trim().split(' ').first;
-    final seen = DateTime.tryParse(brain.text('notices_seen'));
-    final unread = brain.noticeHistory.any((e) => !e.at.isAfter(now) && (seen == null || e.at.isAfter(seen)));
-    final premium = brain.gated && brain.pro;
-    void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
-    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Expanded(
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () => push(const CalendarScreen()),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(first.isEmpty ? helloFor(now) : '${helloFor(now)}, $first', maxLines: 1, overflow: TextOverflow.ellipsis, style: display(25, weight: 600, height: 1.3)),
-            const SizedBox(height: 2),
-            Text('${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)}', style: body(13.5, color: C.muted)),
-            const SizedBox(height: 4),
-            Text('${bd.text}  •  ${hj.dayMonth} ${bnDigits(hj.year)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted)),
-          ]),
-        ),
-      ),
-      SizedBox(
-        width: 44,
-        height: 44,
-        child: IconButton(
-          key: const Key('home-notices'),
-          tooltip: tr('নোটিফিকেশন'),
-          onPressed: () async {
-            await brain.setPref('notices_seen', now.toIso8601String());
-            push(const NoticeScreen());
-          },
-          icon: Stack(clipBehavior: Clip.none, children: [
-            Icon(Icons.notifications_none_rounded, size: 24, color: C.ink),
-            if (unread)
-              Positioned(
-                right: 1,
-                top: 1,
-                child: Container(
-                  key: const Key('home-unread'),
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(color: C.green, shape: BoxShape.circle, border: Border.all(color: C.ground, width: 1.5)),
-                ),
-              ),
-          ]),
-        ),
-      ),
-      const SizedBox(width: 4),
-      Tooltip(
-        message: tr('প্রোফাইল'),
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: () => goToTab(context, ShellTab.more),
-          child: SizedBox(
-            width: 44,
-            height: 48,
-            child: Stack(clipBehavior: Clip.none, alignment: Alignment.topCenter, children: [
-              const Padding(padding: EdgeInsets.only(top: 2), child: UserPhoto(size: 38)),
-              if (premium)
-                Positioned(
-                  bottom: 0,
-                  child: Container(
-                    key: const Key('home-premium-badge'),
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                    decoration: BoxDecoration(color: C.green, borderRadius: BorderRadius.circular(5), border: Border.all(color: C.ground, width: 2)),
-                    child: Text(tr('প্রিমিয়াম'), style: body(8.5, weight: FontWeight.w700, color: C.onAccent, height: 1.3)),
-                  ),
-                ),
             ]),
           ),
-        ),
+        ],
       ),
-    ]);
+      ),
+    );
   }
 }
 
@@ -222,22 +155,51 @@ List<SlotFact> slotFacts(DateTime now, SunTimes t, HijriDate hj) {
   return out;
 }
 
-/// Weather on the left; the turning slot on the right; hairlines above and below.
-class _InfoRow extends StatefulWidget {
-  const _InfoRow();
+/// The top of the home (owner, 24 Oct night): the owner's painting of a
+/// river bank, lit by the time of day ([skyLight]: dawn, morning, noon,
+/// afternoon, evening, night), with the greeting and today's three dates,
+/// the bell and the photo, the temperature with the sky and the district,
+/// the next prayer (in Ramadan iftar or the end of sehri), and sunrise and
+/// sunset along the bottom. It fades into the page below.
+class HomeHero extends StatefulWidget {
+  const HomeHero({super.key});
 
   @override
-  State<_InfoRow> createState() => _InfoRowState();
+  State<HomeHero> createState() => _HomeHeroState();
 }
 
-class _InfoRowState extends State<_InfoRow> {
+class _HomeHeroState extends State<HomeHero> {
+  Timer? _tick;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) BrainScope.read(context).refreshWeather();
     });
+    // The light moves on with the clock while the home is open.
+    _tick = Timer.periodic(const Duration(minutes: 2), (_) {
+      if (mounted) setState(() {});
+    });
   }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Both pictures ready before the light needs them (no day flash at night).
+    precacheImage(const AssetImage('assets/sky/day.jpg'), context);
+    precacheImage(const AssetImage('assets/sky/night.jpg'), context);
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  static const _white = Colors.white;
+  static final _soft = Colors.white.withValues(alpha: 0.86);
+  static const _shade = [Shadow(color: Color(0x59000000), blurRadius: 10)];
 
   @override
   Widget build(BuildContext context) {
@@ -246,70 +208,219 @@ class _InfoRowState extends State<_InfoRow> {
     final place = placeNamed(brain.district);
     final sun = sunTimes(now, place);
     final hj = hijriDate(now, adjust: brain.number('hijri_adjust'));
-    final w = brain.weatherNow;
-    final night = now.isBefore(sun.sunrise) || now.isAfter(sun.sunset);
+    final light = skyLight(now, sun.sunrise, sun.sunset);
     final facts = slotFacts(now, sun, hj);
+    final top = MediaQuery.of(context).padding.top;
+    final height = top + 318.0;
+    // In the dark look the day is a little dimmer, so it sits with the page.
+    final dim = (light.dim + (C.dark ? 0.16 * (1 - light.night) : 0)).clamp(0.0, 0.6);
 
-    Widget slide(SlotFact f) {
-      final text = f.kind == 'sun'
-          ? Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
-              Text('${f.label} ${f.time}', style: body(11.5, color: C.muted, height: 1.5)),
-              Text(f.second, style: body(11.5, color: C.muted, height: 1.5)),
-            ])
-          : Row(mainAxisSize: MainAxisSize.min, children: [
-              if (f.ramadanDay != null)
-                Container(
-                  margin: const EdgeInsets.only(right: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
-                  decoration: BoxDecoration(color: C.warnBg, borderRadius: BorderRadius.circular(9), border: Border.all(color: C.warnBorder)),
-                  child: Text(trf('রমজান {0}', [bnDigits(f.ramadanDay!)]), style: body(11, weight: FontWeight.w600, color: C.warn)),
-                ),
-              Text(f.label, style: body(13.5, weight: FontWeight.w600)),
-              const SizedBox(width: 4),
-              Text(f.time, style: body(13.5, weight: FontWeight.w600, color: C.green)),
-            ]);
-      return text;
+    Widget picture = Stack(fit: StackFit.expand, children: [
+      Image.asset('assets/sky/day.jpg', fit: BoxFit.cover, alignment: const Alignment(0, 0.55), gaplessPlayback: true, excludeFromSemantics: true),
+      if (light.night > 0)
+        Opacity(
+          opacity: light.night.clamp(0.0, 1.0),
+          child: Image.asset('assets/sky/night.jpg', fit: BoxFit.cover, alignment: const Alignment(0, 0.55), gaplessPlayback: true, excludeFromSemantics: true),
+        ),
+    ]);
+    if (light.tintAmount > 0.01) {
+      // Clipped: a colour filter's layer has no edge of its own and would tint the whole page.
+      picture = ClipRect(child: ColorFiltered(colorFilter: ColorFilter.mode(light.tint.withValues(alpha: light.tintAmount), BlendMode.softLight), child: picture));
     }
 
-    IconData iconOf(SlotFact f) => switch (f.kind) {
-          'prayer' => Icons.mosque_outlined,
-          'iftar' || 'sehri' => Icons.nightlight_outlined,
-          _ => Icons.wb_twilight_rounded,
-        };
-
-    return Container(
-      margin: const EdgeInsets.only(top: 14, bottom: 4),
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: C.border))),
-      child: Row(children: [
-        Expanded(
-          child: w == null
-              ? Row(children: [
-                  Icon(night ? Icons.nightlight_outlined : Icons.place_outlined, size: 20, color: C.muted),
-                  const SizedBox(width: 7),
-                  Flexible(child: Text(tr(brain.district), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13))),
-                ])
-              : Tooltip(
-                  key: const Key('home-temp'),
-                  message: w.said(),
-                  triggerMode: TooltipTriggerMode.tap,
-                  showDuration: const Duration(seconds: 5),
-                  child: Row(children: [
-                    Icon(night ? Icons.nightlight_outlined : (w.code >= 51 ? Icons.water_drop_outlined : (w.code >= 3 ? Icons.cloud_outlined : Icons.wb_sunny_outlined)),
-                        size: 20, color: C.muted),
-                    const SizedBox(width: 7),
-                    Flexible(child: Text('${w.short} · ${w.sky} · ${tr(brain.district)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13))),
-                  ]),
-                ),
+    return SizedBox(
+      key: Key('home-hero-${light.phase}'),
+      height: height,
+      child: Stack(fit: StackFit.expand, children: [
+        picture,
+        if (dim > 0) ColoredBox(color: Colors.black.withValues(alpha: dim)),
+        // A veil at the top for the words, and the fade into the page.
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: const [0, 0.42, 0.8, 1], colors: [
+              Colors.black.withValues(alpha: 0.30),
+              Colors.black.withValues(alpha: 0),
+              C.ground.withValues(alpha: 0),
+              C.ground,
+            ]),
+          ),
         ),
-        RotatingSlot(
-          key: const Key('home-slot'),
-          slides: [for (final f in facts) slide(f)],
-          trailing: [for (final f in facts) IconTile(iconOf(f), size: 40)],
-          onTap: (_) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())),
+        Padding(
+          padding: EdgeInsets.fromLTRB(20, top + 8, 20, 40),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _greeting(context, brain, now, hj),
+            const SizedBox(height: 10),
+            _weather(brain, sun, now),
+            const SizedBox(height: 14),
+            _prayer(context, facts.first),
+            const Spacer(),
+            _sunRow(facts.last),
+          ]),
         ),
       ]),
     );
+  }
+
+  /// "শুভ বিকেল, সাইফুল", today in three calendars, the bell and the photo.
+  Widget _greeting(BuildContext context, Brain brain, DateTime now, HijriDate hj) {
+    final bd = banglaDate(now);
+    final first = brain.userName.trim().isEmpty ? '' : brain.userName.trim().split(' ').first;
+    final seen = DateTime.tryParse(brain.text('notices_seen'));
+    final unread = brain.noticeHistory.any((e) => !e.at.isAfter(now) && (seen == null || e.at.isAfter(seen)));
+    final premium = brain.gated && brain.pro;
+    void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => push(const CalendarScreen()),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(first.isEmpty ? helloFor(now) : '${helloFor(now)}, $first',
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: display(25, weight: 600, height: 1.3, color: _white).copyWith(shadows: _shade)),
+            const SizedBox(height: 2),
+            Text('${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)}', style: body(13.5, color: _soft).copyWith(shadows: _shade)),
+            const SizedBox(height: 2),
+            Text('${bd.text}  •  ${hj.dayMonth} ${bnDigits(hj.year)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: _soft).copyWith(shadows: _shade)),
+          ]),
+        ),
+      ),
+      SizedBox(
+        width: 44,
+        height: 44,
+        child: IconButton(
+          key: const Key('home-notices'),
+          tooltip: tr('নোটিফিকেশন'),
+          onPressed: () async {
+            await brain.setPref('notices_seen', now.toIso8601String());
+            push(const NoticeScreen());
+          },
+          icon: Stack(clipBehavior: Clip.none, children: [
+            const Icon(Icons.notifications_none_rounded, size: 25, color: _white, shadows: _shade),
+            if (unread)
+              Positioned(
+                right: 1,
+                top: 1,
+                child: Container(
+                  key: const Key('home-unread'),
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(color: Color(0xFFF5B841), shape: BoxShape.circle),
+                ),
+              ),
+          ]),
+        ),
+      ),
+      const SizedBox(width: 4),
+      Tooltip(
+        message: tr('প্রোফাইল'),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () => goToTab(context, ShellTab.more),
+          child: SizedBox(
+            width: 48,
+            height: 54,
+            child: Stack(clipBehavior: Clip.none, alignment: Alignment.topCenter, children: [
+              const Padding(padding: EdgeInsets.only(top: 2), child: UserPhoto(size: 42, onDark: true)),
+              if (premium)
+                Positioned(
+                  bottom: 0,
+                  child: Container(
+                    key: const Key('home-premium-badge'),
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(color: C.green, borderRadius: BorderRadius.circular(5), border: Border.all(color: _white, width: 1.5)),
+                    child: Text(tr('প্রিমিয়াম'), style: body(8.5, weight: FontWeight.w700, color: C.onAccent, height: 1.3)),
+                  ),
+                ),
+            ]),
+          ),
+        ),
+      ),
+    ]);
+  }
+
+  /// "৩১°  রোদ · ঢাকা / ↑৩২° ↓২৪° · অনুভূত ৩৪°" (or the district alone before the weather comes).
+  Widget _weather(Brain brain, SunTimes sun, DateTime now) {
+    final w = brain.weatherNow;
+    final day = !now.isBefore(sun.sunrise) && now.isBefore(sun.sunset);
+    if (w == null) {
+      return Row(children: [
+        const Icon(Icons.place_outlined, size: 18, color: _white, shadows: _shade),
+        const SizedBox(width: 6),
+        Flexible(child: Text(tr(brain.district), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15, weight: FontWeight.w600, color: _white).copyWith(shadows: _shade))),
+      ]);
+    }
+    final sky = day && w.code <= 1 ? tr('রোদ') : w.sky;
+    return Tooltip(
+      key: const Key('home-temp'),
+      message: w.said(),
+      triggerMode: TooltipTriggerMode.tap,
+      showDuration: const Duration(seconds: 5),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        Text(w.short, style: display(62, weight: 400, height: 1.05, color: _white).copyWith(shadows: _shade)),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('$sky · ${tr(brain.district)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(16.5, weight: FontWeight.w600, color: _white).copyWith(shadows: _shade)),
+            // Arrows as icons: neither font has ↑ ↓ (they showed as boxes).
+            Text.rich(
+              TextSpan(children: [
+                WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.arrow_upward_rounded, size: 13, color: _soft, shadows: _shade)),
+                TextSpan(text: '${bnDigits(w.max.round())}°  '),
+                WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.arrow_downward_rounded, size: 13, color: _soft, shadows: _shade)),
+                TextSpan(text: '${bnDigits(w.min.round())}° · ${trf('অনুভূত {0}°', [bnDigits(w.feels.round())])}'),
+              ]),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: body(12.5, color: _soft).copyWith(shadows: _shade),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  /// The next prayer (iftar / end of sehri in Ramadan) in a glass pill.
+  Widget _prayer(BuildContext context, SlotFact f) {
+    final icon = f.kind == 'prayer' ? Icons.mosque_outlined : Icons.nightlight_outlined;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: const Key('home-slot'),
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.45)),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 20, color: _white),
+            const SizedBox(width: 8),
+            if (f.ramadanDay != null) ...[
+              Text(trf('রমজান {0}', [bnDigits(f.ramadanDay!)]), style: body(12, weight: FontWeight.w600, color: _soft)),
+              Text('  ·  ', style: body(12, color: _soft)),
+            ],
+            Text('${f.label} ${f.time}', style: body(15, weight: FontWeight.w600, color: _white)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  /// Sunrise on the left, sunset on the right, along the river.
+  Widget _sunRow(SlotFact f) {
+    final style = body(12.5, weight: FontWeight.w500, color: _white).copyWith(shadows: _shade);
+    return Row(children: [
+      const Icon(Icons.wb_twilight_rounded, size: 17, color: _white, shadows: _shade),
+      const SizedBox(width: 5),
+      Text('${f.label} ${f.time}', style: style),
+      const Spacer(),
+      const Icon(Icons.nightlight_outlined, size: 16, color: _white, shadows: _shade),
+      const SizedBox(width: 5),
+      Text(f.second, style: style),
+    ]);
   }
 }
 
@@ -493,14 +604,12 @@ class _DateBox extends StatelessWidget {
       );
 }
 
-/// সব সুবিধা: every tool, folded by default (the choice is kept).
+/// সব সুবিধা: every tool, always open (owner, 24 Oct night).
 class _Tools extends StatelessWidget {
   const _Tools();
 
   @override
   Widget build(BuildContext context) {
-    final brain = BrainScope.of(context);
-    final open = brain.flag('home_tools_open');
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
     final tools = <(String, IconData, VoidCallback)>[
       (tr('কাজের তালিকা'), Icons.checklist_rounded, () => goToTab(context, ShellTab.diary)),
@@ -522,30 +631,23 @@ class _Tools extends StatelessWidget {
       key: const Key('home-tools'),
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Column(children: [
-        InkWell(
-          key: const Key('home-tools-toggle'),
-          onTap: () => brain.setPref('home_tools_open', !open),
-          child: SizedBox(
-            height: 50,
-            child: Row(children: [
-              Text(tr('সব সুবিধা'), style: body(14, weight: FontWeight.w600)),
-              const SizedBox(width: 6),
-              Text(trf('{0}টা', [bnDigits(tools.length)]), style: body(12, color: C.muted)),
-              const Spacer(),
-              AnimatedRotation(turns: open ? 0.5 : 0, duration: const Duration(milliseconds: 200), child: Icon(Icons.expand_more_rounded, size: 20, color: C.muted)),
-            ]),
-          ),
+        SizedBox(
+          height: 50,
+          child: Row(children: [
+            Text(tr('সব সুবিধা'), style: body(14, weight: FontWeight.w600)),
+            const SizedBox(width: 6),
+            Text(trf('{0}টা', [bnDigits(tools.length)]), style: body(12, color: C.muted)),
+          ]),
         ),
-        if (open)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: LayoutBuilder(builder: (context, box) {
-              final w = (box.maxWidth - 18) / 4;
-              return Wrap(spacing: 6, runSpacing: 4, children: [
-                for (final (label, icon, onTap) in tools) SizedBox(width: w, child: ToolTile(icon: icon, label: label, onTap: onTap)),
-              ]);
-            }),
-          ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: LayoutBuilder(builder: (context, box) {
+            final w = (box.maxWidth - 18) / 4;
+            return Wrap(spacing: 6, runSpacing: 4, children: [
+              for (final (label, icon, onTap) in tools) SizedBox(width: w, child: ToolTile(icon: icon, label: label, onTap: onTap)),
+            ]);
+          }),
+        ),
       ]),
     );
   }

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../logic/steps.dart';
+import '../services/steps_channel.dart';
+
 import '../logic/bn.dart';
 import '../logic/health.dart';
 import '../logic/lang.dart';
@@ -184,6 +187,8 @@ class _HealthScreenState extends State<HealthScreen> {
                   tile(HealthKind.sleep, Icons.bedtime_outlined, C.ochre, sleep == null ? '—' : readingText(sleep), sleep == null ? tr('লেখা হয়নি') : shortDate(sleep.at),
                       quick: () => addReading(context, m.id, HealthKind.sleep)),
                 ]),
+                // The phone's own step count (the user's, not a family member's).
+                if (m.isMe) const StepsCard(),
                 if (needsVaccineCard(m, now) || (!m.isMe && m.birth != null && now.difference(m.birth!).inDays < 6 * 366)) ...[
                   const SizedBox(height: 12),
                   Panel(
@@ -223,14 +228,18 @@ class _HealthScreenState extends State<HealthScreen> {
                       trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
                       onTap: () => _push(const DocsScreen(folder: 'প্রেসক্রিপশন')),
                     ),
-                    if (m.isMe)
-                      ListRow(
+                    // Everyone's, family members' too (owner, 24 Oct night).
+                    Builder(builder: (context) {
+                      final meds = [for (final x in d.medicines) if (x.member == m.id) x];
+                      return ListRow(
+                        key: const Key('health-medicines'),
                         leading: Icon(Icons.medication_outlined, color: C.orange),
-                        title: tr('ওষুধের সময়সূচি'),
-                        subtitle: d.medicines.isEmpty ? tr('কোনো ওষুধ রাখা নেই') : trf('{0}টি ওষুধ', [bnDigits(d.medicines.length)]),
+                        title: m.isMe ? tr('ওষুধের সময়সূচি') : trf('{0}-এর ওষুধ', [m.name]),
+                        subtitle: meds.isEmpty ? tr('কোনো ওষুধ রাখা নেই') : meds.map((x) => x.name).join(', '),
                         trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
-                        onTap: () => _push(const MedicinesScreen()),
-                      ),
+                        onTap: () => _push(MedicinesScreen(member: m.id)),
+                      );
+                    }),
                   ]),
                 ),
                 const SizedBox(height: 14),
@@ -696,6 +705,84 @@ class DoctorSummaryScreen extends StatelessWidget {
             ]),
           ),
         ]),
+      ),
+    );
+  }
+}
+
+
+/// আজকের হাঁটা from the phone's step counter (owner, 24 Oct night): asks
+/// for the permission once, then shows today's steps (and about how far),
+/// with yesterday's beside. Read and kept on this phone only.
+class StepsCard extends StatefulWidget {
+  const StepsCard({super.key});
+
+  @override
+  State<StepsCard> createState() => _StepsCardState();
+}
+
+class _StepsCardState extends State<StepsCard> with WidgetsBindingObserver {
+  bool _sensor = false, _allowed = false, _read = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // Back from the permission question (or another app): read again.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState s) {
+    if (s == AppLifecycleState.resumed) _load();
+  }
+
+  Future<void> _load() async {
+    final (sensor, allowed) = await StepsChannel.status();
+    if (!mounted) return;
+    setState(() {
+      _sensor = sensor;
+      _allowed = allowed;
+    });
+    if (!sensor || !allowed) return;
+    final n = await StepsChannel.read();
+    if (n == null || !mounted) return;
+    final brain = BrainScope.read(context);
+    final book = stepsRead(StepBook.fromJson(brain.text('steps_book')), brain.services.now(), n);
+    await brain.setPref('steps_book', book.toJson());
+    if (mounted) setState(() => _read = true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_sensor) return const SizedBox.shrink();
+    final brain = BrainScope.of(context);
+    final now = brain.services.now();
+    final book = StepBook.fromJson(brain.text('steps_book'));
+    final today = book != null && book.day == stepDay(now) ? book.today : 0;
+    final y = book?.days[stepDay(now.subtract(const Duration(days: 1)))];
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Panel(
+        key: const Key('health-steps'),
+        child: ListRow(
+          leading: Icon(Icons.directions_walk_rounded, color: C.green),
+          title: !_allowed ? tr('হাঁটার ধাপ নিজে থেকে গুনুক') : trf('আজ {0} ধাপ', [bnDigits(today)]),
+          subtitle: !_allowed
+              ? tr('ফোন সারাদিন ধাপ গোনে — অনুমতি দিলে এখানে দেখাবে; শুধু এই ফোনেই থাকে')
+              : [
+                  if (today > 0) trf('প্রায় {0} কিমি', [bnDigits(double.parse(stepsKm(today).toStringAsFixed(1)))]),
+                  if (y != null) trf('গতকাল {0} ধাপ', [bnDigits(y)]),
+                  if (!_read && today == 0) tr('গোনা শুরু হলো — হাঁটলে বাড়বে'),
+                ].join(' · '),
+          trailing: _allowed ? null : TextButton(key: const Key('steps-allow'), onPressed: StepsChannel.ask, child: Text(tr('চালু করুন'))),
+        ),
       ),
     );
   }

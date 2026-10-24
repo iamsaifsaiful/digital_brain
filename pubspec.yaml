@@ -1,7 +1,7 @@
 name: digital_brain
 description: My Assistant — আপনার ব্যক্তিগত সহকারী। কাজের তালিকা, রিমাইন্ডার, ফোন-মেসেজ, বাকি ও লেনদেন, নোট আর পাসওয়ার্ড — মুখে বলুন বা লিখুন।
 publish_to: 'none'
-version: 2.52.1+108
+version: 2.53.0+108
 
 environment:
   sdk: '>=3.6.0 <4.0.0'
@@ -38,6 +38,7 @@ flutter:
   # The on-phone language model (tool/nlu/train, step E): model, word pieces, labels and thresholds.
   assets:
     - assets/nlu/
+    - assets/sky/
 
   fonts:
     # Noto Sans Bengali: the main font — plain, familiar letters and digits

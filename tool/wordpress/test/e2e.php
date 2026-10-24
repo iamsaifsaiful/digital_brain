@@ -637,8 +637,13 @@ $mk = function ($email, $name, $pro) use ($wpdb) {
 [$momId, $momSes] = $mk('mom@gmail.com', 'আম্মা', true);
 [$sonId, $sonSes] = $mk('son@gmail.com', 'রাফি', false);
 $wpdb->update(ma_ai_sessions_table(), ['fcm_token' => 'son-phone-fcm-token-123456'], ['user_id' => $sonId]);
-[$code] = call('POST', '/family/invite', ['email' => 'aunt@gmail.com', 'relation' => 'খালা'], $sonSes);
+[$code, $d] = call('POST', '/family/invite', ['email' => 'aunt@gmail.com', 'relation' => 'খালা'], $sonSes);
 check($code === 200, 'family: inviting is free (owner, 24 Oct)');
+// A request not yet answered can be taken back by the one who sent it (owner, 24 Oct night).
+$aunt = $d['links'][0]['id'] ?? 0;
+[$code, $d] = call('POST', "/family/$aunt/remove", [], $sonSes);
+check($code === 200 && count($d['links']) === 0, 'family: a pending request is taken back');
+check($wpdb->get_var($wpdb->prepare('SELECT status FROM ' . ma_fam_table('links') . ' WHERE id = %d', $aunt)) === 'removed', 'family: the taken-back request is closed on the server');
 $wpdb->query($wpdb->prepare('DELETE FROM ' . ma_fam_table('links') . ' WHERE a_user = %d', $sonId));
 [$code, $d] = call('POST', '/family/key', ['pubkey' => 'short'], $momSes);
 check($code === 400, 'a public key must be 32 bytes');
@@ -841,5 +846,25 @@ ob_start();
 ma_acc_admin();
 $html = ob_get_clean();
 check(str_contains($html, 'বিনিয়োগকারী') && str_contains($html, 'করিম চৌধুরী') && str_contains($html, 'এ মাসে আয়') && !preg_match('/(Warning|Notice|Fatal|Deprecated)\b.*on line/', $html), 'site: the হিসাব tab renders');
+
+// ── সমস্যার লগ (owner, 24 Oct night) ──
+$err = ['kind' => 'StateError', 'message' => 'Bad state: "রহিমকে ৫০০" for saif@gmail.com 01712345678', 'stack' => "package:digital_brain/state/brain.dart:120\npackage:flutter/src/widgets/framework.dart:5", 'version' => '2.53.0+108', 'count' => 2];
+[$code, $d] = call('POST', '/errors', ['items' => [$err, ['kind' => '', 'message' => '']]], '');
+check($code === 200 && $d['kept'] === 1, 'errors: kept without sign-in; empty ones dropped');
+call('POST', '/errors', ['items' => [$err]], $sonSes);
+[$code, $d] = call('GET', '/admin/errors', [], $bossSes);
+$e0 = $d['errors'][0] ?? [];
+check($code === 200 && count($d['errors']) === 1 && $e0['count'] === 4, 'errors: the same error counted together');
+check(!str_contains(json_encode($e0, JSON_UNESCAPED_UNICODE), 'রহিম') && !str_contains($e0['message'], 'saif@') && !str_contains($e0['message'], '01712345678'), 'errors: no member words, e-mail or number kept');
+check(str_contains($e0['stack'], 'brain.dart:120') && $e0['version'] === '2.53.0+108', 'errors: code places and version kept');
+[$code] = call('GET', '/admin/errors', [], $sonSes);
+check($code === 403, 'errors: only admins read them');
+$_GET = ['page' => 'my-assistant', 'tab' => 'errors'];
+ob_start();
+ma_acc_admin();
+$html = ob_get_clean();
+check(str_contains($html, 'সমস্যার লগ') && str_contains($html, 'StateError') && !preg_match('/(Warning|Notice|Fatal|Deprecated)\b.*on line/', $html), 'site: the সমস্যার লগ tab renders');
+[$code, $d] = call('POST', '/admin/errors/clear', [], $bossSes);
+check($code === 200 && $d['errors'] === [], 'errors: cleared by an admin');
 
 echo $fail ? "\n$fail FAILED\n" : "\nALL OK\n";

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import '../logic/services_list.dart' show KnownService;
 import 'package:flutter/material.dart';
 
@@ -460,6 +461,11 @@ class _TabPagesState<T> extends State<TabPages<T>> {
         });
     final pad = widget.padding;
     final top = widget.top;
+    // Never flush against the tabs: whatever the page starts with (a heading,
+    // a card), at least `gap` of air under the tab row.
+    const gap = 12.0;
+    // (With [top], the caller puts its own space after the tabs.)
+    final first = top == null ? math.max(pad.top, gap - widget.tabsPadding.bottom).toDouble() : 0.0;
     Widget pages({required bool nested}) => NotificationListener<ScrollNotification>(
           onNotification: _edge,
           child: PageView(
@@ -473,7 +479,7 @@ class _TabPagesState<T> extends State<TabPages<T>> {
                   child: ListView(
                     key: PageStorageKey<Object?>('tab-$v'),
                     primary: nested ? true : null,
-                    padding: EdgeInsets.fromLTRB(pad.left, nested ? 0 : pad.top, pad.right, pad.bottom),
+                    padding: EdgeInsets.fromLTRB(pad.left, first, pad.right, pad.bottom),
                     children: widget.page(v),
                   ),
                 ),

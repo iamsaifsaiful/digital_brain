@@ -34,7 +34,7 @@ void main() {
     expect(b.canUseProjects, isFalse);
     expect(freeVaultItems, 20);
     expect(freeReminders, 20);
-    expect(freeDocs, 30);
+    expect(freeDocs, 20);
     b.data = AppData(vault: [for (var i = 0; i < 19; i++) VaultItem(name: 's$i', password: 'x')]);
     expect(b.canAddVault, isTrue);
     b.data.vault.add(VaultItem(name: 's19', password: 'x'));

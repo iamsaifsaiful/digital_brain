@@ -355,6 +355,20 @@ class AccountServer {
     }
   }
 
+  /// সমস্যার লগ: cleaned error reports (services/error_log.dart); works before sign-in too.
+  Future<bool> sendErrors(List<Map<String, Object?>> items, String session) async {
+    if (!configured) return false;
+    try {
+      final r = await _http
+          .post(Uri.parse('$base/wp-json/my-assistant/v1/errors'),
+              headers: {'Content-Type': 'application/json', if (session.isNotEmpty) 'authorization': 'Bearer $session'}, body: jsonEncode({'items': items}))
+          .timeout(const Duration(seconds: 20));
+      return r.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// One call to our server with this phone's session: the answer, or a
   /// plain Bangla reason it did not work (see logic in services/community.dart).
   Future<ServerReply> send(String method, String path, String session, [Map<String, Object?>? body]) async {

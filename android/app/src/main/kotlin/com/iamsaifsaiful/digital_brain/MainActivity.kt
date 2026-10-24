@@ -574,6 +574,9 @@ class MainActivity : FlutterFragmentActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/location").setMethodCallHandler { call, result ->
             locationChannel(call, result)
         }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/steps").setMethodCallHandler { call, result ->
+            Steps.handle(this, call, result)
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/push").setMethodCallHandler { call, result ->
             PushService.handle(this, call, result)
         }

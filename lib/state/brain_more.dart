@@ -120,7 +120,8 @@ extension BrainMore on Brain {
     final ids = <String>[];
     for (final t in m.times) {
       final r = Reminder(
-        title: trf('ওষুধ: {0}', [m.name]),
+        // A family member's: whose it is, in the title (it rings on this phone).
+        title: m.member == FamilyMember.meId ? trf('ওষুধ: {0}', [m.name]) : trf('{0}-এর ওষুধ: {1}', [personById(m.member).name, m.name]),
         date: today,
         hour: t ~/ 60,
         minute: t % 60,

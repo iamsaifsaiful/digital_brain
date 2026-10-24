@@ -42,7 +42,7 @@ Accent customAccent(Color c) {
   final main = h.toColor();
   final hex = (main.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase();
   return Accent('#$hex', 'নিজের রং', 'Your colour', main, h.withLightness(h.lightness * 0.72).toColor(),
-      h.withLightness(0.95).withSaturation(h.saturation * 0.7).toColor(), Color.alphaBlend(main.withValues(alpha: 0.24), const Color(0xFF161B22)));
+      h.withLightness(0.95).withSaturation(h.saturation * 0.7).toColor(), Color.alphaBlend(main.withValues(alpha: 0.24), const Color(0xFF1A2342)));
 }
 
 /// The colour as saved ('#RRGGBB').
@@ -50,7 +50,8 @@ String colorKey(Color c) => '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padL
 
 /// Colours of the approved home design (24 Oct, docs/design/2026-10-24-home-final):
 /// a calm green-grey ground, white cards with a 1 px hairline and no
-/// shadow, one accent, a warm amber for attention; and the dark set.
+/// shadow, one accent, a warm amber for attention; and the dark set, a
+/// deep night blue (owner, 24 Oct) with the mint accent.
 /// Old names stay and point at the new tokens.
 class C {
   /// Set by the app before building; screens read colours through [C].
@@ -60,28 +61,28 @@ class C {
   static Color _p(int light, int night) => Color(dark ? night : light);
 
   /// bg: the screen.
-  static Color get ground => _p(0xFFF5F7F6, 0xFF101916);
-  static Color get surface => _p(0xFFFFFFFF, 0xFF19251F);
+  static Color get ground => _p(0xFFF5F7F6, 0xFF121A33);
+  static Color get surface => _p(0xFFFFFFFF, 0xFF1A2342);
 
   /// surface2: counters, date blocks, quiet chips, the tabs' track.
-  static Color get surface2 => _p(0xFFEDF2F0, 0xFF223129);
-  static Color get ink => _p(0xFF192E28, 0xFFEEF4EF);
-  static Color get muted => _p(0xFF667871, 0xFFA1B3A8);
-  static Color get muted2 => _p(0xFF3E524B, 0xFFC6D4CB);
-  static Color get line => _p(0xFFDFE7E3, 0xFF2D3D33);
-  static Color get line2 => _p(0xFFDFE7E3, 0xFF2D3D33);
-  static Color get border => _p(0xFFDFE7E3, 0xFF2D3D33);
-  static Color get inputBorder => _p(0xFFD3DED9, 0xFF3A4B41);
-  static Color get disabled => _p(0xFFE3E9E6, 0xFF2A3830);
+  static Color get surface2 => _p(0xFFEDF2F0, 0xFF242E50);
+  static Color get ink => _p(0xFF192E28, 0xFFEEF1F8);
+  static Color get muted => _p(0xFF667871, 0xFFA3ADC6);
+  static Color get muted2 => _p(0xFF3E524B, 0xFFC7CEE0);
+  static Color get line => _p(0xFFDFE7E3, 0xFF2E3859);
+  static Color get line2 => _p(0xFFDFE7E3, 0xFF2E3859);
+  static Color get border => _p(0xFFDFE7E3, 0xFF2E3859);
+  static Color get inputBorder => _p(0xFFD3DED9, 0xFF3A456A);
+  static Color get disabled => _p(0xFFE3E9E6, 0xFF283252);
   static Color get chip => surface2;
 
   /// Attention (late, may-not-ring, money to give).
   static Color get warn => _p(0xFF92631C, 0xFFE5C487);
-  static Color get warnBg => _p(0xFFFBF5E9, 0xFF2B281E);
-  static Color get warnBorder => _p(0xFFEBDFC5, 0xFF45402E);
+  static Color get warnBg => _p(0xFFFBF5E9, 0xFF2A2732);
+  static Color get warnBorder => _p(0xFFEBDFC5, 0xFF4A4232);
 
   /// A solid dark fill for buttons and cards with white text (dark in both looks).
-  static Color get fill => _p(0xFF192E28, 0xFF2A3A31);
+  static Color get fill => _p(0xFF192E28, 0xFF2A3558);
 
   /// Always dark (lock screen, alarm page).
   static const night = Color(0xFF111827);
@@ -94,7 +95,7 @@ class C {
   static Color get greenDark => dark ? (accent.key == 'green' ? const Color(0xFFA9E6D2) : _glow(accent.main, 0.82)) : accent.dark;
 
   /// accentSoft: icon tiles, the active tab's pill, soft chips.
-  static Color get greenTint => dark ? (accent.key == 'green' ? const Color(0xFF223C31) : Color.alphaBlend(_glow(accent.main, 0.45).withValues(alpha: 0.22), surface)) : accent.tint;
+  static Color get greenTint => dark ? (accent.key == 'green' ? const Color(0xFF1F3B47) : Color.alphaBlend(_glow(accent.main, 0.45).withValues(alpha: 0.22), surface)) : accent.tint;
   static Color get greenSoft => dark ? Color.alphaBlend(_glow(accent.main, 0.45).withValues(alpha: 0.12), surface) : Color.lerp(accent.tint, Colors.white, 0.45)!;
 
   /// Letters and icons on the accent.
@@ -154,12 +155,13 @@ class C {
   static const alarm = Color(0xFF0B3B30);
 }
 
-/// Noto Sans Bengali for Bengali (clear, familiar digits); Hind Siliguri
+/// Noto Sans Bengali for every Bengali letter and digit, body and headings
+/// alike (Hind's ১ is hard to read: owner, 24 Oct); Hind Siliguri only
 /// fills in English letters and punctuation that Noto's Bengali font lacks.
 const bodyFont = 'NotoBengali';
-const displayFont = 'Hind';
+const displayFont = 'NotoBengali';
 const fontFallback = ['Hind'];
-const _displayFallback = ['NotoBengali'];
+const _displayFallback = ['Hind'];
 
 FontWeight _w(double weight) => weight >= 650 ? FontWeight.w700 : (weight >= 550 ? FontWeight.w600 : FontWeight.w500);
 

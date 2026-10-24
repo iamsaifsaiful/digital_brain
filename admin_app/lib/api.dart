@@ -206,6 +206,10 @@ class Api {
 
   /// কোম্পানির হিসাব (site owner only): আয়, ব্যয়, বিনিয়োগকারী — the same as the site's হিসাব tab.
   Future<Map<String, dynamic>> finance() => _send('GET', '/admin/finance');
+
+  /// সমস্যার লগ: errors the app ran into (cleaned on the phone and the server).
+  Future<List<Map<String, dynamic>>> errors() async => [for (final e in ((await _send('GET', '/admin/errors'))['errors'] as List? ?? const [])) (e as Map).cast<String, dynamic>()];
+  Future<void> clearErrors() => _send('POST', '/admin/errors/clear');
   Future<void> addFinanceEntry({required String kind, required String category, required int amount, required String date, String note = ''}) =>
       _send('POST', '/admin/finance/entry', {'kind': kind, 'category': category, 'amount': amount, 'date': date, 'note': note});
   Future<void> addInvestor({required String name, String contact = '', int amount = 0, String share = '', required String date, String note = ''}) =>

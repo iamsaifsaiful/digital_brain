@@ -1,6 +1,7 @@
 package com.iamsaifsaiful.digital_brain
 
 import android.content.Context
+import android.hardware.GeomagneticField
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -10,10 +11,15 @@ import android.view.WindowManager
 import io.flutter.plugin.common.EventChannel
 
 /**
- * The phone's heading for the compass page: degrees from magnetic north
- * (0–360) and how much to trust it, streamed while the page is open.
- * Rotation vector when the phone has one (gyro-steadied), else the
- * accelerometer with the magnetometer. Nothing is kept or sent anywhere.
+ * The phone's heading for the compass page: degrees from TRUE north
+ * (0–360; the magnetic declination at the place Dart gives is added) and
+ * how much to trust it, streamed while the page is open. Rotation vector
+ * when the phone has one (gyro-steadied), else the accelerometer with the
+ * magnetometer. The heading is where the phone points however it is held:
+ * the top edge and the back (camera side) are both projected onto the
+ * ground and added, so flat, tilted and upright all give the same,
+ * steady direction (getOrientation's azimuth jumps when the phone stands
+ * up). Nothing is kept or sent anywhere.
  */
 class Compass(private val context: Context) : EventChannel.StreamHandler, SensorEventListener {
     private val sm = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -24,9 +30,19 @@ class Compass(private val context: Context) : EventChannel.StreamHandler, Sensor
     private var haveM = false
     private var accuracy = SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM
     private var lastSent = 0L
+    private var declination = 0f
+
+    /** The rotation vector's own error estimate (radians), when the phone gives one. */
+    private var rvError = -1f
 
     override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
         sink = events
+        val a = arguments as? Map<*, *>
+        val lat = (a?.get("lat") as? Number)?.toFloat()
+        val lon = (a?.get("lon") as? Number)?.toFloat()
+        declination = if (lat != null && lon != null) {
+            GeomagneticField(lat, lon, 0f, System.currentTimeMillis()).declination
+        } else 0f
         val rv = sm.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
         val mag = sm.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
         if (rv == null && (mag == null || sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) == null)) {
@@ -56,7 +72,10 @@ class Compass(private val context: Context) : EventChannel.StreamHandler, Sensor
     override fun onSensorChanged(e: SensorEvent) {
         val r = FloatArray(9)
         when (e.sensor.type) {
-            Sensor.TYPE_ROTATION_VECTOR -> SensorManager.getRotationMatrixFromVector(r, e.values)
+            Sensor.TYPE_ROTATION_VECTOR -> {
+                SensorManager.getRotationMatrixFromVector(r, e.values)
+                if (e.values.size > 4) rvError = e.values[4]
+            }
             Sensor.TYPE_ACCELEROMETER -> {
                 for (i in 0..2) gravity[i] = 0.85f * gravity[i] + 0.15f * e.values[i]
                 haveG = true
@@ -82,10 +101,16 @@ class Compass(private val context: Context) : EventChannel.StreamHandler, Sensor
             Surface.ROTATION_270 -> SensorManager.remapCoordinateSystem(r, SensorManager.AXIS_MINUS_Y, SensorManager.AXIS_X, out)
             else -> System.arraycopy(r, 0, out, 0, 9)
         }
-        val o = FloatArray(3)
-        SensorManager.getOrientation(out, o)
-        var deg = Math.toDegrees(o[0].toDouble())
-        if (deg < 0) deg += 360.0
-        sink?.success(mapOf("heading" to deg, "accuracy" to accuracy))
+        // Rows of [out] are east, north, up; column 1 is the top edge and
+        // column 2 the screen's face. Top edge + back (−face), on the ground.
+        val east = out[1] - out[2]
+        val north = out[4] - out[5]
+        if (east * east + north * north < 1e-4f) return
+        var deg = Math.toDegrees(Math.atan2(east.toDouble(), north.toDouble())) + declination
+        deg = ((deg % 360.0) + 360.0) % 360.0
+        // The fused sensor's own estimate overrides a hopeful magnetometer.
+        var acc = accuracy
+        if (rvError > 0.35f) acc = minOf(acc, SensorManager.SENSOR_STATUS_ACCURACY_LOW)
+        sink?.success(mapOf("heading" to deg, "accuracy" to acc))
     }
 }

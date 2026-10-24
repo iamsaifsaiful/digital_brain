@@ -35,7 +35,9 @@ class _CompassScreenState extends State<CompassScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _sub = BrainScope.read(context).services.compass.headings().listen((h) {
+      final brain = BrainScope.read(context);
+      final place = placeNamed(brain.district);
+      _sub = brain.services.compass.headings(lat: place.lat, lon: place.lon).listen((h) {
         if (!mounted) return;
         if (h == null) {
           setState(() => _none = true);
@@ -153,7 +155,7 @@ class _CompassScreenState extends State<CompassScreen> {
                 ],
                 const SizedBox(height: 12),
                 Text(
-                  tr('ফোন হাতের তালুতে সমান করে ধরুন। কিবলার দিক আপনার জেলার হিসেবে — সেটিংসে জেলা ঠিক থাকলে দিকও ঠিক থাকবে। মসজিদের দিক মিলিয়ে নেওয়া ভালো।'),
+                  tr('ফোন সমান করে বা সামনে খাড়া করে — যেভাবে সুবিধা ধরুন; ফোনের মাথা যেদিকে, দিক সেটাই। প্রথমবার ফোনটা বাতাসে ইংরেজি ৮-এর মতো কয়েকবার ঘোরান। লোহা, চুম্বক, স্পিকার, ল্যাপটপ বা চুম্বকওয়ালা কভার থেকে দূরে রাখুন — এগুলো দিক বদলে দেয়। কিবলার দিক আপনার জেলার হিসেবে; মসজিদের দিক মিলিয়ে নেওয়া ভালো।'),
                   style: body(13, color: C.muted, height: 1.45),
                 ),
               ],
@@ -202,13 +204,13 @@ class _Dial extends CustomPainter {
     }
 
     final big = r * 0.15;
-    text(tr('উ'), 0, r - 40, TextStyle(fontFamily: 'Hind', fontSize: big, fontWeight: FontWeight.w700, color: red));
-    text(tr('পূ'), 90, r - 40, TextStyle(fontFamily: 'Hind', fontSize: big, fontWeight: FontWeight.w700, color: ink));
-    text(tr('দ'), 180, r - 40, TextStyle(fontFamily: 'Hind', fontSize: big, fontWeight: FontWeight.w700, color: ink));
-    text(tr('প'), 270, r - 40, TextStyle(fontFamily: 'Hind', fontSize: big, fontWeight: FontWeight.w700, color: ink));
+    text(tr('উ'), 0, r - 40, TextStyle(fontFamily: bodyFont, fontSize: big, fontWeight: FontWeight.w700, color: red));
+    text(tr('পূ'), 90, r - 40, TextStyle(fontFamily: bodyFont, fontSize: big, fontWeight: FontWeight.w700, color: ink));
+    text(tr('দ'), 180, r - 40, TextStyle(fontFamily: bodyFont, fontSize: big, fontWeight: FontWeight.w700, color: ink));
+    text(tr('প'), 270, r - 40, TextStyle(fontFamily: bodyFont, fontSize: big, fontWeight: FontWeight.w700, color: ink));
     for (var d = 30; d < 360; d += 30) {
       if (d % 90 == 0) continue;
-      text(bnDigits(d), d.toDouble(), r - 34, TextStyle(fontFamily: 'Hind', fontSize: r * 0.075, color: muted));
+      text(bnDigits(d), d.toDouble(), r - 34, TextStyle(fontFamily: bodyFont, fontSize: r * 0.075, color: muted));
     }
 
     // The needle: red to the north.

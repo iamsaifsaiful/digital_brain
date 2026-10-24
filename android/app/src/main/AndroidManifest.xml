@@ -2,6 +2,8 @@
 
     <!-- Voice input. Bengali speech recognition usually runs on Google's servers. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- স্বাস্থ্য: today's steps from the phone's own step counter (read on the phone only). -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- ফ্যামিলি › লোকেশন (only when the user shares it with a family member). -->

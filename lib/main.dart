@@ -1,3 +1,5 @@
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -15,6 +17,7 @@ import 'services/notifications.dart';
 import 'services/ocr.dart';
 import 'services/weather.dart';
 import 'services/compass.dart';
+import 'services/error_log.dart';
 import 'services/phonebook.dart';
 import 'services/voice.dart';
 import 'state/brain.dart';
@@ -44,6 +47,16 @@ Future<void> main() async {
     compass: DeviceCompass(),
   );
   await services.notifier.init();
+  // সমস্যার লগ: every error the app runs into, cleaned, for our server.
+  final shown = FlutterError.onError;
+  FlutterError.onError = (d) {
+    ErrorLog.record(d.exception, d.stack, version: appVersion);
+    shown?.call(d);
+  };
+  PlatformDispatcher.instance.onError = (e, s) {
+    ErrorLog.record(e, s, version: appVersion);
+    return false;
+  };
   final brain = Brain(services);
   nluAppVersion = appVersion;
   runApp(DigitalBrainApp(brain: brain));

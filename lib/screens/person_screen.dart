@@ -13,6 +13,7 @@ import 'ledger_form_screen.dart';
 import 'to_main.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
+import '../ui/pick.dart';
 
 /// One person's account: who (name and mobile), the balance, a reminder
 /// message to send, and every transaction.
@@ -29,6 +30,45 @@ class PersonScreen extends StatefulWidget {
 
 class _PersonScreenState extends State<PersonScreen> {
   late String? _key = widget.accountKey;
+
+  /// Several entries picked (long-press a row) to delete or share together (owner, 24 Oct night).
+  final _picks = Picks();
+
+  @override
+  void initState() {
+    super.initState();
+    _picks.addListener(_redraw);
+  }
+
+  void _redraw() => setState(() {});
+
+  @override
+  void dispose() {
+    _picks.removeListener(_redraw);
+    _picks.dispose();
+    super.dispose();
+  }
+
+  List<PickAction> _pickActions(Brain brain) {
+    final picked = [
+      for (final e in brain.data.ledger)
+        if (_picks.has(e.id)) e
+    ];
+    return [
+      PickAction(Icons.share_outlined, tr('পাঠান'), () async {
+        await brain.services.files.shareText(picked.map((e) => '${shortDate(e.date)} · ${e.person} · ${e.kind.label} ${taka(e.amount)}${e.note.isEmpty ? '' : ' (${e.note})'}').join('\n'));
+      }),
+      PickAction(Icons.delete_outline_rounded, tr('মুছুন'), danger: true, () async {
+        final messenger = ScaffoldMessenger.of(context);
+        if (!await confirmDialog(context, title: trf('{0}টা লেনদেন মুছবেন?', [bnDigits(picked.length)]), text: tr('৩০ দিন “মুছে ফেলা”-তে থাকবে।'), yes: tr('মুছুন'), danger: true)) return;
+        for (final e in picked) {
+          await brain.deleteEntry(e.id);
+        }
+        _picks.clear();
+        deletedSnack(messenger, picked.length, () => brain.undoLastDeletes(picked.length));
+      }),
+    ];
+  }
 
   void _push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
 
@@ -109,6 +149,10 @@ class _PersonScreenState extends State<PersonScreen> {
     }
     _key ??= p.key;
     final rows = runningForKey(brain.data.ledger, p.key).reversed.toList();
+    _picks.keepOnly(rows.map((r) => r.$1.id));
+    final picked = [for (final (e, _) in rows) if (_picks.has(e.id)) e];
+    final pickedOut = picked.where((e) => e.kind.outflow).fold<int>(0, (a, e) => a + e.amount);
+    final pickedIn = picked.where((e) => !e.kind.outflow).fold<int>(0, (a, e) => a + e.amount);
     final bal = p.balance;
     final (fg, bg) = balanceColors(bal);
     final given = p.lentTotal + p.repaidTotal;
@@ -119,7 +163,23 @@ class _PersonScreenState extends State<PersonScreen> {
         ? trf('আসসালামু আলাইকুম {0} ভাই, আপনার কাছে আমার {1} বাকি আছে। সুবিধামতো দিয়ে দিলে উপকার হয়। ধন্যবাদ।', [p.name, taka(bal)])
         : '';
 
-    return Scaffold(
+    return PopScope(
+      canPop: !_picks.on,
+      onPopInvokedWithResult: (did, _) {
+        if (!did) _picks.clear();
+      },
+      child: Scaffold(
+      bottomNavigationBar: _picks.on
+          ? PickBar(
+              picks: _picks,
+              all: rows.map((r) => r.$1.id),
+              note: [
+                if (pickedOut > 0) trf('গেছে {0}', [taka(pickedOut)]),
+                if (pickedIn > 0) trf('এসেছে {0}', [taka(pickedIn)])
+              ].join(' · '),
+              actions: _pickActions(brain),
+            )
+          : null,
       body: SafeArea(
         child: Column(
           children: [
@@ -238,10 +298,13 @@ class _PersonScreenState extends State<PersonScreen> {
                       child: Rows(children: [
                         for (final (e, after) in rows)
                           InkWell(
-                            onTap: () => _rowMenu(brain, e),
+                            key: Key('person-row-${e.id}'),
+                            onTap: () => _picks.on ? _picks.toggle(e.id) : _rowMenu(brain, e),
+                            onLongPress: () => _picks.toggle(e.id),
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                               child: Row(children: [
+                                if (_picks.on) ...[PickMark(_picks.has(e.id)), const SizedBox(width: 10)],
                                 Expanded(
                                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                     Text(e.kind.label, style: body(15, weight: FontWeight.w600)),
@@ -256,6 +319,11 @@ class _PersonScreenState extends State<PersonScreen> {
                             ),
                           ),
                       ]),
+                    ),
+                  if (rows.length > 1 && !_picks.on)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6, left: 2),
+                      child: Text(tr('কয়েকটা একসাথে মুছতে বা পাঠাতে একটায় চেপে ধরুন'), style: body(12, color: C.muted)),
                     ),
                   const SizedBox(height: 16),
                   Row(children: [
@@ -281,6 +349,7 @@ class _PersonScreenState extends State<PersonScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

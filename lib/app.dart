@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'logic/bn.dart';
 import 'logic/proactive.dart';
@@ -14,6 +15,7 @@ import 'screens/home_shell.dart';
 import 'screens/person_screen.dart';
 import 'screens/plan_screens.dart';
 import 'screens/store_more_screens.dart';
+import 'services/error_log.dart';
 import 'services/files.dart';
 import 'services/platform.dart';
 import 'ui/widgets.dart';
@@ -35,6 +37,10 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
   final _nav = GlobalKey<NavigatorState>();
   DateTime? _leftAt;
   bool _wasUnlocked = false;
+
+  /// Unlocked at least once since the app started: from then on a lock is a
+  /// cover over the pages, not a new start (see [_LockCover]).
+  bool _everUnlocked = false;
 
   Brain get brain => widget.brain;
 
@@ -114,10 +120,14 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       WidgetsBinding.instance.addPostFrameCallback((_) => _rebuildAll());
     }
     if (_wasUnlocked && !brain.unlocked) {
-      // A ringing reminder's page stays open (it shows nothing private);
-      // the pages under it close when it does.
-      if (!_alarmOpen) _nav.currentState?.popUntil((r) => r.isFirst);
+      // Locked after being used: the open pages stay as they were (a note
+      // half written, the tab, the chat) and the lock covers them; the
+      // keyboard goes down so nothing is typed behind the lock.
+      FocusManager.instance.primaryFocus?.unfocus();
     }
+    if (brain.unlocked) _everUnlocked = true;
+    // The cover is built here (MaterialApp.builder), above BrainScope.
+    if (_wasUnlocked != brain.unlocked && mounted) setState(() {});
     if (!_wasUnlocked && brain.unlocked) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _maybeRestore();
@@ -142,6 +152,8 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
       _leftAt ??= brain.services.now();
+      // সমস্যার লগ goes when the app steps away (and on coming back).
+      ErrorLog.flush(brain.services.server, brain.services.ai.session);
       if (brain.loaded) brain.autoDriveBackup();
     } else if (state == AppLifecycleState.resumed) {
       final left = _leftAt;
@@ -150,6 +162,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       // Rings set while the app was away (or lost to a phone restart) are
       // put back every time the app comes to the front.
       brain.refreshNotices();
+      ErrorLog.flush(brain.services.server, brain.services.ai.session);
       if (brain.loaded && brain.loadError == null) {
         brain.markOpened();
         brain.refreshAccount();
@@ -294,10 +307,18 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       if (ctx != null && ctx.mounted) toast(ctx, tr('আর বাজবে না'));
       return;
     }
-    _alarmOpen = true;
-    await nav.push(MaterialPageRoute(builder: (_) => AlarmScreen(info: t.info), fullscreenDialog: true));
-    _alarmOpen = false;
-    if (!brain.unlocked) nav.popUntil((r) => r.isFirst);
+    // Over the lock the page comes in at once (no slide), so the pages kept
+    // under the lock never show during a transition.
+    final covered = !brain.unlocked;
+    setState(() => _alarmOpen = true);
+    await nav.push(covered
+        ? PageRouteBuilder<void>(
+            pageBuilder: (_, __, ___) => AlarmScreen(info: t.info),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+            fullscreenDialog: true)
+        : MaterialPageRoute(builder: (_) => AlarmScreen(info: t.info), fullscreenDialog: true));
+    if (mounted) setState(() => _alarmOpen = false);
     // Another one rang meanwhile.
     if (brain.services.notifier.tapped.value != null) _onNotificationTap();
   }
@@ -313,14 +334,31 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
         debugShowCheckedModeBanner: false,
         theme: buildTheme(),
         themeAnimationDuration: Duration.zero,
-        home: const _Gate(),
+        home: _Gate(everUnlocked: _everUnlocked),
+        // The phone's own bars follow the look: the bottom navigation bar
+        // takes the screen's colour (it stayed light grey in the dark look).
+        builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: C.dark ? Brightness.light : Brightness.dark,
+            statusBarBrightness: C.dark ? Brightness.dark : Brightness.light,
+            systemNavigationBarColor: C.ground,
+            systemNavigationBarDividerColor: C.ground,
+            systemNavigationBarIconBrightness: C.dark ? Brightness.light : Brightness.dark,
+          ),
+          child: _LockCover(
+            covered: _everUnlocked && brain.loaded && !brain.unlocked && !_alarmOpen,
+            child: child ?? const SizedBox.shrink(),
+          ),
+        ),
       ),
     );
   }
 }
 
 class _Gate extends StatelessWidget {
-  const _Gate();
+  const _Gate({required this.everUnlocked});
+  final bool everUnlocked;
 
   @override
   Widget build(BuildContext context) {
@@ -328,9 +366,41 @@ class _Gate extends StatelessWidget {
     if (!brain.loaded) {
       return const Scaffold(backgroundColor: C.night, body: Center(child: CircularProgressIndicator(color: C.mint)));
     }
-    if (!brain.unlocked) return const LockScreen();
+    // Only the first lock replaces the app; later ones cover it (_LockCover).
+    if (!brain.unlocked && !everUnlocked) return const LockScreen();
     if (brain.loadError != null) return const _LoadError();
     return const HomeShell();
+  }
+}
+
+/// The lock after the app has been used: the pages stay alive underneath,
+/// hidden (not painted, no taps, no animations, not read out), and the PIN
+/// page sits on top with its own navigator for its sheets and dialogs.
+/// Unlocking takes the cover away and the user is back where they were.
+class _LockCover extends StatelessWidget {
+  const _LockCover({required this.covered, required this.child});
+  final bool covered;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(fit: StackFit.expand, children: [
+      TickerMode(
+        enabled: !covered,
+        child: ExcludeSemantics(
+          excluding: covered,
+          child: Offstage(offstage: covered, child: child),
+        ),
+      ),
+      if (covered)
+        ColoredBox(
+          key: const Key('lock-cover'),
+          color: C.night,
+          child: HeroControllerScope.none(
+            child: Navigator(onGenerateRoute: (_) => MaterialPageRoute(builder: (_) => const LockScreen())),
+          ),
+        ),
+    ]);
   }
 }
 

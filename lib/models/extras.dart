@@ -183,13 +183,17 @@ class Habit {
 
 /// A medicine taken at set times every day, with how many are left.
 class Medicine {
-  Medicine({String? id, required this.name, this.dose = 1, List<int>? times, this.stock = 0, this.note = '', List<String>? reminderIds, List<String>? taken, this.until})
+  Medicine({String? id, required this.name, this.dose = 1, List<int>? times, this.stock = 0, this.note = '', List<String>? reminderIds, List<String>? taken, this.until, this.member = 'me'})
       : id = id ?? newId(),
         times = times ?? [9 * 60],
         reminderIds = reminderIds ?? [],
         taken = taken ?? [];
   final String id;
   final String name;
+
+  /// Whose medicine: the user ('me') or a family member kept in স্বাস্থ্য
+  /// ([FamilyMember.id]); the reminders ring on this phone either way.
+  final String member;
 
   /// Pills (or spoons) each time.
   final int dose;
@@ -225,11 +229,13 @@ class Medicine {
         reminderIds: reminderIds ?? this.reminderIds,
         taken: taken ?? this.taken,
         until: clearUntil ? null : (until ?? this.until),
+        member: member,
       );
 
   Map<String, Object?> toJson() => {
         'id': id,
         'name': name,
+        if (member != 'me') 'member': member,
         'dose': dose,
         'times': times,
         'stock': stock,
@@ -248,6 +254,7 @@ class Medicine {
         reminderIds: _ls(j['reminderIds']),
         taken: _ls(j['taken']),
         until: _d(j['until']),
+        member: j['member'] is String && (j['member'] as String).isNotEmpty ? j['member'] as String : 'me',
       );
 }
 

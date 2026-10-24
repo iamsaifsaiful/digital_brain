@@ -2,7 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 
-/// Where the top of the phone points: degrees from magnetic north, and the
+/// Where the phone points (top edge, or its back when held upright):
+/// degrees from true north at the place given to [CompassSource.headings], and the
 /// sensor's own trust in it (0 = needs a figure-8, 3 = good).
 class Heading {
   const Heading(this.degrees, {this.accuracy = 3});
@@ -13,14 +14,16 @@ class Heading {
 
 /// The phone's compass. The stream gives null when the phone has no sensor for it.
 abstract class CompassSource {
-  Stream<Heading?> headings();
+  /// [lat]/[lon]: where the phone is, so the magnetic declination there is
+  /// taken out and 0° is true north (the qibla is worked out from true north).
+  Stream<Heading?> headings({double? lat, double? lon});
 }
 
 class DeviceCompass implements CompassSource {
   static const _ch = EventChannel('my_assistant/compass');
 
   @override
-  Stream<Heading?> headings() => _ch.receiveBroadcastStream().map<Heading?>((e) {
+  Stream<Heading?> headings({double? lat, double? lon}) => _ch.receiveBroadcastStream({'lat': lat, 'lon': lon}).map<Heading?>((e) {
         final m = (e as Map).cast<Object?, Object?>();
         if (m['none'] == true) return null;
         return Heading((m['heading'] as num).toDouble(), accuracy: (m['accuracy'] as num?)?.toInt() ?? 3);
@@ -33,5 +36,5 @@ class FakeCompass implements CompassSource {
   void point(Heading? h) => _c.add(h);
 
   @override
-  Stream<Heading?> headings() => _c.stream;
+  Stream<Heading?> headings({double? lat, double? lon}) => _c.stream;
 }

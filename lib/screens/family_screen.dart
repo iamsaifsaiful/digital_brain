@@ -155,7 +155,21 @@ class _FamilyScreenState extends State<FamilyScreen> {
                                     subtitle: l.active
                                         ? (l.theyAllow.isEmpty ? tr('আপনাকে এখনো কিছুর অনুমতি দেননি') : trf('অনুমতি: {0}', [l.theyAllow.map(_short).join(', ')]))
                                         : tr('উত্তরের অপেক্ষায় — তিনি অ্যাপ খুলে মেনে নেবেন'),
-                                    trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
+                                    // A request not yet answered can be taken back (owner, 24 Oct).
+                                    trailing: l.active
+                                        ? Icon(Icons.chevron_right_rounded, color: C.muted)
+                                        : TextButton(
+                                            key: Key('family-withdraw-${l.id}'),
+                                            onPressed: () async {
+                                              if (!await confirmDialog(context,
+                                                  title: tr('অনুরোধ ফেরত নেবেন?'), text: trf('{0} আর এই অনুরোধ দেখতে পাবেন না। পরে চাইলে আবার পাঠাতে পারবেন।', [l.title]), yes: tr('ফেরত নিন'))) {
+                                                return;
+                                              }
+                                              await fam.remove(l);
+                                              if (context.mounted) toast(context, tr('অনুরোধ ফেরত নেওয়া হয়েছে'));
+                                            },
+                                            child: Text(tr('ফেরত নিন'), style: body(13.5, weight: FontWeight.w600, color: C.red)),
+                                          ),
                                     onTap: l.active ? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => FamilyMemberScreen(linkId: l.id))) : null,
                                   ),
                               ]),
@@ -536,6 +550,28 @@ class _FamilyMemberScreenState extends State<FamilyMemberScreen> {
       },
     );
   }
+}
+
+/// From স্বাস্থ্য: a medicine reminder to a family member's own phone. With
+/// more than one who allows it, the user picks whom first.
+Future<void> sendMedicineToFamily(BuildContext context, List<FamilyLink> to) async {
+  final fam = BrainScope.read(context).family;
+  var l = to.length == 1 ? to.first : null;
+  l ??= await showAppSheet<FamilyLink>(
+    context: context,
+    builder: (c) => SafeArea(
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(padding: const EdgeInsets.fromLTRB(20, 4, 20, 8), child: Text(tr('কার ফোনে?'), style: display(19, weight: 700))),
+        for (final x in to) ListTile(title: Text(x.title), onTap: () => Navigator.pop(c, x)),
+        const SizedBox(height: 8),
+      ]),
+    ),
+  );
+  if (l == null || !context.mounted) return;
+  final payload = await showAppSheet<Map<String, Object?>>(context: context, isScrollControlled: true, builder: (_) => _SendSheet(kind: 'medicine', to: l!.title));
+  if (payload == null || !context.mounted) return;
+  final ok = await fam.send(l, 'medicine', payload);
+  if (ok && context.mounted) toast(context, trf('{0}-কে পাঠানো হয়েছে', [l.iCall.isEmpty ? l.name : l.iCall]));
 }
 
 /// What to send: a to-do, a reminder, a medicine reminder or a note.
