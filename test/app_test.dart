@@ -564,8 +564,13 @@ void main() {
     // Closing the voice view shows the whole conversation.
     await t.tap(find.byTooltip('বন্ধ করুন'));
     await settle(t);
-    // (also the page title)
+    // (also the page title; the new answer cards are taller, so scroll up to the first line)
+    final chatList = t.state<ScrollableState>(pageList());
+    chatList.position.jumpTo(chatList.position.minScrollExtent);
+    await settle(t);
     expect(find.text('আমি সজীবকে ৫০০ টাকা ধার দিলাম'), findsNWidgets(2));
+    chatList.position.jumpTo(chatList.position.maxScrollExtent);
+    await settle(t);
     expect(find.text('সজীবের খাতা দেখুন →'), findsWidgets);
   });
 
