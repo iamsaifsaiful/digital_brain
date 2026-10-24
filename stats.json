@@ -1,0 +1,215 @@
+{
+ "seed": 7,
+ "total": 41926,
+ "train": 36680,
+ "dev": 5246,
+ "families": 1391,
+ "template_families": 196,
+ "kinds": {
+  "single": 31446,
+  "context": 2862,
+  "multi_numbered": 875,
+  "multi": 2625,
+  "headed": 1800,
+  "exit": 751,
+  "crowd": 1567
+ },
+ "states": {
+  "idle": 38392,
+  "confirm_delete": 437,
+  "confirm_save": 347,
+  "confirm_batch": 937,
+  "await_time": 303,
+  "await_ampm": 76,
+  "await_new_value": 361,
+  "await_person": 335,
+  "await_kind": 86,
+  "pick_one": 291,
+  "clarify": 108,
+  "dictating_list": 253
+ },
+ "noise": {
+  "ascii_digits": 2611,
+  "filler": 4098,
+  "filler_end": 900,
+  "no_punct": 2033,
+  "stt": 3139,
+  "region": 1225,
+  "join": 702
+ },
+ "regions": {
+  "নোয়াখালী": 326,
+  "চট্টগ্রাম": 266,
+  "ময়মনসিংহ": 159,
+  "সিলেট": 211,
+  "রাজশাহী": 23,
+  "বরিশাল": 240
+ },
+ "per_intent": {
+  "cash_add": 7759,
+  "task_add": 6595,
+  "reminder_add": 3763,
+  "ledger_add": 3519,
+  "task_edit": 1932,
+  "task_delete": 1922,
+  "ledger_set": 1899,
+  "task_done": 1575,
+  "note_add": 1430,
+  "rename": 1085,
+  "reminder_delete": 989,
+  "task_query": 964,
+  "cash_query": 961,
+  "reminder_edit": 893,
+  "ledger_query": 887,
+  "correct": 879,
+  "task_remind": 853,
+  "reminder_stop": 821,
+  "item_delete": 814,
+  "inform": 717,
+  "reminder_query": 615,
+  "call": 598,
+  "open_page": 585,
+  "select": 560,
+  "special_add": 533,
+  "contact_add": 523,
+  "menu_people": 500,
+  "contact_query": 487,
+  "special_query": 453,
+  "task_skip_once": 400,
+  "task_reopen": 386,
+  "menu_cash": 378,
+  "menu_habit": 354,
+  "menu_accounts": 334,
+  "menu_savings": 334,
+  "menu_shop": 281,
+  "confirm_yes": 275,
+  "dictate_start": 272,
+  "menu_project": 265,
+  "health_add": 224,
+  "complain_help": 206,
+  "menu_special": 198,
+  "note_query": 151,
+  "doc_query": 138,
+  "cancel": 119,
+  "menu_zakat": 102,
+  "calendar_query": 102,
+  "menu_health": 98,
+  "reminder_snooze": 94,
+  "vault_query": 91,
+  "menu_medicine": 83,
+  "out_of_scope": 80,
+  "vault_add": 72,
+  "confirm_no": 69,
+  "smalltalk": 59,
+  "memory_add": 55,
+  "menu_notes": 52,
+  "menu_alarm": 49,
+  "profile_query": 48,
+  "menu_backup": 39,
+  "briefing": 37,
+  "menu_installment": 36,
+  "menu_memory": 32,
+  "menu_settings": 26,
+  "menu_trash": 20,
+  "dictate_end": 18
+ },
+ "missing_intents": [],
+ "dropped_gold": 294,
+ "dropped_gold_kinds": {
+  "near": 145,
+  "exact": 149
+ },
+ "gold_sentences": 6961,
+ "conflicts": 1,
+ "pairs": [
+  {
+   "pair": "প্রশ্ন বনাম রাখা",
+   "a": "ledger_query",
+   "a_n": 887,
+   "b": "ledger_add",
+   "b_n": 2786
+  },
+  {
+   "pair": "হয়ে গেছে / হবে / হয়নি",
+   "a": "ledger_add",
+   "a_n": 2786,
+   "b": "task_add",
+   "b_n": 3144
+  },
+  {
+   "pair": "কাজ বনাম রিমাইন্ডার",
+   "a": "task_add",
+   "a_n": 3144,
+   "b": "reminder_add",
+   "b_n": 2347
+  },
+  {
+   "pair": "ধার বনাম নিজের খরচ",
+   "a": "ledger_add",
+   "a_n": 2786,
+   "b": "cash_add",
+   "b_n": 3389
+  },
+  {
+   "pair": "নোট বনাম টাকার হিসাব",
+   "a": "ledger_add",
+   "a_n": 2786,
+   "b": "note_add",
+   "b_n": 736
+  },
+  {
+   "pair": "তালিকা দেখা বনাম লেখা",
+   "a": "task_query",
+   "a_n": 964,
+   "b": "dictate_start",
+   "b_n": 272
+  },
+  {
+   "pair": "বাকিতে মাল দেওয়া বনাম বাকি আদায়",
+   "a": "menu_shop",
+   "a_n": 281,
+   "b": "ledger_add",
+   "b_n": 2786
+  },
+  {
+   "pair": "\"সরাও\": দিন বদল বনাম মোছা",
+   "a": "task_edit",
+   "a_n": 1243,
+   "b": "task_delete",
+   "b_n": 1195
+  },
+  {
+   "pair": "রিমাইন্ডার বদল বনাম নতুন",
+   "a": "reminder_edit",
+   "a_n": 893,
+   "b": "reminder_add",
+   "b_n": 2347
+  },
+  {
+   "pair": "নাম বদল বনাম দিন বদল",
+   "a": "rename",
+   "a_n": 1085,
+   "b": "task_edit",
+   "b_n": 1243
+  },
+  {
+   "pair": "বন্ধ বনাম মোছা",
+   "a": "reminder_stop",
+   "a_n": 821,
+   "b": "reminder_delete",
+   "b_n": 989
+  },
+  {
+   "pair": "অভিযোগ বনাম সংশোধন",
+   "a": "complain_help",
+   "a_n": 206,
+   "b": "correct",
+   "b_n": 879
+  }
+ ],
+ "sources": {
+  "template": 40359,
+  "crowd": 1567
+ },
+ "cost_usd": 0.0
+}

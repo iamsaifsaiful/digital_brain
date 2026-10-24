@@ -1,0 +1,70 @@
+2026-10-24 02:22:02.715817: I tensorflow/core/util/port.cc:113] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-10-24 02:22:02.717454: I external/local_tsl/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2026-10-24 02:22:02.740251: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2026-10-24 02:22:02.740278: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2026-10-24 02:22:02.741049: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2026-10-24 02:22:02.745490: I external/local_tsl/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2026-10-24 02:22:02.745689: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-10-24 02:22:03.781764: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+/opt/hostedtoolcache/Python/3.11.17/x64/lib/python3.11/site-packages/huggingface_hub/file_download.py:949: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+train 49024 dev 6962
+Some weights of the PyTorch model were not used when initializing the TF 2.0 model TFElectraModel: ['discriminator_predictions.dense_prediction.weight', 'discriminator_predictions.dense.bias', 'electra.embeddings.position_ids', 'discriminator_predictions.dense_prediction.bias', 'discriminator_predictions.dense.weight']
+- This IS expected if you are initializing TFElectraModel from a PyTorch model trained on another task or with another architecture (e.g. initializing a TFBertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing TFElectraModel from a PyTorch model that you expect to be exactly identical (e.g. initializing a TFBertForSequenceClassification model from a BertForSequenceClassification model).
+All the weights of TFElectraModel were initialized from the PyTorch model.
+If your task is similar to the task the model of the checkpoint was trained on, you can already use TFElectraModel for predictions without further training.
+1532/1532 - 499s - loss: 0.7581 - intent_loss: 0.6273 - slots_loss: 0.1591 - bound_loss: 0.0389 - 499s/epoch - 326ms/step
+epoch 1: dev intent 0.8770 tags 0.8912 (522s)
+1532/1532 - 481s - loss: 0.0923 - intent_loss: 0.0605 - slots_loss: 0.0365 - bound_loss: 0.0125 - 481s/epoch - 314ms/step
+epoch 2: dev intent 0.8844 tags 0.9339 (501s)
+1532/1532 - 492s - loss: 0.0370 - intent_loss: 0.0211 - slots_loss: 0.0180 - bound_loss: 0.0066 - 492s/epoch - 321ms/step
+epoch 3: dev intent 0.8955 tags 0.9606 (512s)
+1532/1532 - 473s - loss: 0.0216 - intent_loss: 0.0109 - slots_loss: 0.0119 - bound_loss: 0.0048 - 473s/epoch - 309ms/step
+epoch 4: dev intent 0.8857 tags 0.9679 (492s)
+2026-10-24 02:57:10.429827: W tensorflow/compiler/mlir/lite/python/tf_tfl_flatbuffer_helpers.cc:378] Ignored output_format.
+2026-10-24 02:57:10.429870: W tensorflow/compiler/mlir/lite/python/tf_tfl_flatbuffer_helpers.cc:381] Ignored drop_control_dependency.
+2026-10-24 02:57:10.430263: I tensorflow/cc/saved_model/reader.cc:83] Reading SavedModel from: /tmp/tmpc5mzjdxk
+2026-10-24 02:57:10.468475: I tensorflow/cc/saved_model/reader.cc:51] Reading meta graph with tags { serve }
+2026-10-24 02:57:10.468514: I tensorflow/cc/saved_model/reader.cc:146] Reading SavedModel debug info (if present) from: /tmp/tmpc5mzjdxk
+2026-10-24 02:57:10.583180: I tensorflow/compiler/mlir/mlir_graph_optimization_pass.cc:388] MLIR V1 optimization pass is not enabled
+2026-10-24 02:57:10.644072: I tensorflow/cc/saved_model/loader.cc:233] Restoring SavedModel bundle.
+2026-10-24 02:57:11.336363: I tensorflow/cc/saved_model/loader.cc:217] Running initialization op on SavedModel bundle at path: /tmp/tmpc5mzjdxk
+2026-10-24 02:57:11.623608: I tensorflow/cc/saved_model/loader.cc:316] SavedModel load for tags { serve }; Status: success: OK. Took 1193344 microseconds.
+2026-10-24 02:57:11.989757: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+Summary on the non-converted ops:
+---------------------------------
+ * Accepted dialects: tfl, builtin, func
+ * Non-Converted Ops: 152, Total Ops 1362, % non-converted = 11.16 %
+ * 152 ARITH ops
+
+- arith.constant:  152 occurrences  (f32: 134, i32: 18)
+
+
+
+  (f32: 175)
+  (f32: 24)
+  (f32: 1)
+  (i32: 51)
+  (f32: 1)
+  (f32: 76)
+  (uq_8: 1, f32: 1, i32: 100)
+  (f32: 12)
+  (f32: 50)
+  (f32: 88)
+
+  (i32: 75)
+  (uq_8: 76)
+  (i32: 100)
+  (f32: 173, i32: 1)
+  (f32: 25)
+  (i32: 51)
+  (f32: 12)
+  (f32: 25)
+  (f32: 1, i32: 13)
+  (f32: 26)
+  (f32: 48)
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+WARNING: Attempting to use a delegate that only supports static-sized tensors with a graph that has dynamic-sized tensors (tensor#234 is a dynamic-sized tensor).
+{'dev_intent_acc': 0.8955, 'temperature': 1.5, 'params': 13710742, 'tflite_mb': 14.08, 'invokes': 14671, 'ms_median': 22.01, 'ms_p95': 22.76}
