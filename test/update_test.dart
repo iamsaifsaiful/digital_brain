@@ -23,7 +23,16 @@ import 'pro_test.dart' show keyServer, tokenGoogle;
 import 'app_test.dart' show Rig, enterPin, loadFonts, openMenu, settle, start, vScroll;
 
 /// A shortcut in the home menu (scrolled into view first).
+/// The new home (24 Oct) has the shortcuts near the bottom: bring them into view.
+Future<void> toGrid(WidgetTester t) async {
+  if (find.byType(GridView).evaluate().isNotEmpty) return;
+  final list = t.state<ScrollableState>(vScroll().first);
+  list.position.jumpTo(list.position.maxScrollExtent);
+  await t.pump();
+}
+
 Future<void> tapMenu(WidgetTester t, String label) async {
+  await toGrid(t);
   final f = find.descendant(of: find.byType(GridView), matching: find.text(label));
   await t.ensureVisible(f);
   await settle(t);
@@ -76,6 +85,7 @@ void main() {
 
   testWidgets('home menu: one হিসাব (no separate আয়-ব্যয়), no settings (it is in আরও), most used first', (t) async {
     await start(t);
+    await toGrid(t);
     final grid = find.byType(GridView);
     expect(find.descendant(of: grid, matching: find.text('আয়-ব্যয়')), findsNothing);
     expect(find.descendant(of: grid, matching: find.text('লেনদেন')), findsNothing);
@@ -322,6 +332,7 @@ void main() {
 
   testWidgets('আরও tab: blood donation, Pro, feedback, যাকাত and ফ্যামিলি; the same in the home menu', (t) async {
     await start(t);
+    await toGrid(t);
     final grid = find.byType(GridView);
     expect(find.descendant(of: grid, matching: find.text('ব্লাড ডোনেশন')), findsOneWidget);
     expect(find.descendant(of: grid, matching: find.text('যাকাত')), findsOneWidget);
