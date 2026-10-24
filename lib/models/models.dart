@@ -521,7 +521,7 @@ enum CashKind {
 /// Money in or out that is not owed by anyone: monthly spending and
 /// income, or a project's receipts and costs ([projectId] set).
 class CashEntry {
-  CashEntry({String? id, required this.kind, required this.amount, this.category = 'অন্যান্য', this.note = '', required this.date, this.projectId, this.accountId, this.shopId, this.linkId})
+  CashEntry({String? id, required this.kind, required this.amount, this.category = 'অন্যান্য', this.note = '', required this.date, this.projectId, this.accountId, this.shopId, this.linkId, this.addedAt})
       : id = id ?? newId();
 
   final String id;
@@ -544,6 +544,10 @@ class CashEntry {
   /// (owner, 24 Oct): that entry's id. It follows that entry's changes.
   final String? linkId;
 
+  /// When it was written (null on entries from before 24 Oct): "এখন আছে"
+  /// counts what was written after it was set.
+  final DateTime? addedAt;
+
   CashEntry copyWith({CashKind? kind, int? amount, String? category, String? note, DateTime? date}) => CashEntry(
       id: id,
       kind: kind ?? this.kind,
@@ -554,7 +558,8 @@ class CashEntry {
       projectId: projectId,
       accountId: accountId,
       shopId: shopId,
-      linkId: linkId);
+      linkId: linkId,
+      addedAt: addedAt);
 
   Map<String, Object?> toJson() => {
         'id': id,
@@ -567,6 +572,7 @@ class CashEntry {
         if (accountId != null) 'accountId': accountId,
         if (shopId != null) 'shopId': shopId,
         if (linkId != null) 'linkId': linkId,
+        if (addedAt != null) 'addedAt': addedAt!.toIso8601String(),
       };
 
   factory CashEntry.fromJson(Map<String, Object?> j) => CashEntry(
@@ -580,6 +586,7 @@ class CashEntry {
         accountId: j['accountId'] as String?,
         shopId: j['shopId'] as String?,
         linkId: j['linkId'] as String?,
+        addedAt: _date(j['addedAt']),
       );
 }
 
@@ -1098,7 +1105,10 @@ class AppData {
     ZakatBook? zakat,
     this.cashOffset,
     this.cashSetAt,
+    this.cashStart,
+    Set<String>? notInMain,
   })  : tasks = tasks ?? [],
+        notInMain = notInMain ?? {},
         zakat = zakat ?? ZakatBook(),
         trash = trash ?? [],
         inbox = inbox ?? [],
@@ -1159,6 +1169,13 @@ class AppData {
   int? cashOffset;
   DateTime? cashSetAt;
 
+  /// "এখন আছে" as said at [cashSetAt] (owner, 24 Oct): the main money starts
+  /// there; what is written after it moves it. ([cashOffset]: the 2.49.1 way, read once.)
+  int? cashStart;
+
+  /// Loans and other হিসাব's entries the user took out of the main money.
+  final Set<String> notInMain;
+
   /// Messages read from other apps' notifications (newest last).
   final List<InboxMessage> inbox;
 
@@ -1217,6 +1234,8 @@ class AppData {
         if (!zakat.isEmpty) 'zakat': zakat.toJson(),
         if (cashOffset != null) 'cashOffset': cashOffset,
         if (cashSetAt != null) 'cashSetAt': cashSetAt!.toIso8601String(),
+        if (cashStart != null) 'cashStart': cashStart,
+        if (notInMain.isNotEmpty) 'notInMain': notInMain.toList(),
       };
 
   factory AppData.fromJson(Map<String, Object?> j) {
@@ -1255,6 +1274,8 @@ class AppData {
       zakat: j['zakat'] is Map ? ZakatBook.fromJson((j['zakat'] as Map).cast<String, Object?>()) : null,
       cashOffset: (j['cashOffset'] as num?)?.toInt(),
       cashSetAt: j['cashSetAt'] is String ? DateTime.tryParse(j['cashSetAt'] as String) : null,
+      cashStart: (j['cashStart'] as num?)?.toInt(),
+      notInMain: {for (final x in (j['notInMain'] as List?) ?? const []) '$x'},
     );
   }
 }

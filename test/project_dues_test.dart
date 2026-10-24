@@ -86,8 +86,11 @@ void main() {
     await t.tap(find.text('রাখুন'));
     await settle(t);
     expect(projectDueTotals(b.data, p.id), (0, 2000));
-    final cash = b.data.cash.single;
+    final cash = b.data.cash.where((c) => c.linkId == null).single;
     expect((cash.kind, cash.amount, cash.category), (CashKind.expense, 1000, dueOutCategory));
+    // …and it joined the main money by itself (owner, 24 Oct).
+    final main = b.data.cash.where((c) => c.linkId == cash.id).single;
+    expect((main.projectId, main.kind, main.amount), (null, CashKind.expense, 1000));
   });
 
   testWidgets('a pay day brings a reminder; paid in full, it goes', (t) async {

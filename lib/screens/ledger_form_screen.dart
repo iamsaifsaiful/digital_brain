@@ -13,7 +13,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'calls_screen.dart';
 import 'home_shell.dart';
-import 'to_main.dart';
+import '../logic/cash.dart' show mainAddedText;
 import '../logic/lang.dart';
 
 String _tail(String s) => s.length <= 3 ? s : s.substring(s.length - 3);
@@ -80,10 +80,9 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
         : widget.entry!.copyWith(person: person, phone: phone, kind: _kind, amount: amount, date: _date, note: _note.text.trim(), due: _hasDue ? _due : null, clearDue: !_hasDue || _due == null);
     await brain.saveEntry(e, guessPhone: false);
     if (!mounted) return;
-    toast(context, trf('সেভ হয়েছে। {0}', [balanceSentence(person, after)]));
-    // Owner (24 Oct): a new loan — in the main আয়-ব্যয় too?
-    if (widget.entry == null) await askAddToMain(context, e.id);
-    if (!mounted) return;
+    // A loan goes into the main money by itself (owner, 24 Oct): say so too.
+    final main = brain.lastMainLine;
+    toast(context, trf('সেভ হয়েছে। {0}', [balanceSentence(person, after)]) + (main == null ? '' : '\n${mainAddedText(main)}'));
     final nav = Navigator.of(context);
     nav.pop();
     if (nav.mounted) await afterTaskDone(nav.context);

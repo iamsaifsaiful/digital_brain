@@ -886,6 +886,10 @@ class Brain extends ChangeNotifier {
   bool aiShareData = true;
 
   /// What the assistant calls the user ("সাইফুল ভাই"); empty = no name.
+  /// The main-money line the last loan or other হিসাব's entry made (to say
+  /// "মূল টাকায় যুক্ত হলো"); null when none was made.
+  CashEntry? lastMainLine;
+
   String userName = '';
 
   /// This build can read other apps' messages (see [InboxSource.supported]).
@@ -1810,7 +1814,7 @@ class Brain extends ChangeNotifier {
       x = x.copyWith(reminderId: r.id);
     }
     _upsert(data.ledger, x, (y) => y.id);
-    await _followToMain(x.id);
+    lastMainLine = await _intoMain(x.id);
     final pk = phoneKey(x.phone);
     if (pk.isNotEmpty && !data.contacts.any((c) => phoneKey(c.phone) == pk)) {
       data.contacts.add(Contact(name: x.person.trim(), phone: asciiDigits(x.phone.trim()), note: 'লেনদেন', updatedAt: services.now()));
@@ -2207,14 +2211,18 @@ class Brain extends ChangeNotifier {
   Future<void> saveCash(CashEntry e) async {
     // A new own entry with accounts kept goes into one (so "এখন আছে", their
     // total, follows it): the cash account, else the first.
-    if (e.projectId == null && e.accountId == null && !data.cash.any((x) => x.id == e.id)) {
-      final a = defaultAccountId(data);
-      if (a != null) {
-        e = CashEntry(id: e.id, kind: e.kind, amount: e.amount, category: e.category, note: e.note, date: e.date, accountId: a, shopId: e.shopId, linkId: e.linkId);
+    final isNew = !data.cash.any((x) => x.id == e.id);
+    if (isNew) {
+      final a = e.projectId == null && e.accountId == null ? defaultAccountId(data) : e.accountId;
+      e = CashEntry(id: e.id, kind: e.kind, amount: e.amount, category: e.category, note: e.note, date: e.date, projectId: e.projectId, accountId: a, shopId: e.shopId, linkId: e.linkId, addedAt: e.addedAt ?? services.now());
+    } else {
+      final was = data.cash.firstWhere((x) => x.id == e.id);
+      if (e.addedAt == null && was.addedAt != null) {
+        e = CashEntry(id: e.id, kind: e.kind, amount: e.amount, category: e.category, note: e.note, date: e.date, projectId: e.projectId, accountId: e.accountId, shopId: e.shopId, linkId: e.linkId, addedAt: was.addedAt);
       }
     }
     _upsert(data.cash, e, (x) => x.id);
-    if (e.projectId != null) await _followToMain(e.id);
+    lastMainLine = e.projectId != null ? await _intoMain(e.id) : null;
     await _save();
   }
 

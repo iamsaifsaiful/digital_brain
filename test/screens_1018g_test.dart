@@ -242,14 +242,15 @@ void main() {
     final q = await say('বাড়ির মেরামতে মিস্ত্রির বিল বাবদ ২৯০০ টাকা যুক্ত কর');
     expect(q, contains('বাড়ি মেরামত'));
     await say('হ্যাঁ');
-    expect(data().cash.single.projectId, 'p2');
-    expect(data().cash.single.category, 'বিল');
+    final own = data().cash.where((c) => c.linkId == null);
+    expect(own.single.projectId, 'p2');
+    expect(own.single.category, 'বিল');
     // Offered for the monthly আয়-ব্যয়, then "না। <the account>": moved there, not dropped.
     await say('মিস্ত্রির বিল ৫০০ টাকা');
     final m = await say('না। অন্যান্য হিসাবের ভেতরে বাড়ির মেরামতে');
     expect(m, isNot(contains('রাখলাম না')));
     if (chat.wait == ChatWait.yesNo) await say('হ্যাঁ');
-    expect(data().cash.where((e) => e.amount == 500).single.projectId, 'p2');
+    expect(data().cash.where((e) => e.amount == 500 && e.linkId == null).single.projectId, 'p2');
     final all = await say('অন্যান্য হিসাব ভেততের সব দাও');
     expect(all, contains('মিস্ত্রি'));
   });

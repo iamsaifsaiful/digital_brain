@@ -90,16 +90,24 @@ class _CashNowCardState extends State<CashNowCard> {
     if (now != null) {
       return Panel(
         key: const Key('cash-now'),
+        padding: EdgeInsets.zero,
+        child: InkWell(
+          key: const Key('cash-now-open'),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CashNowScreen())),
+          child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
         child: Row(children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(brain.data.accounts.isEmpty ? tr('এখন আছে') : tr('এখন আছে · সব অ্যাকাউন্ট মিলিয়ে'), style: body(13.5, color: C.muted)),
+              Text(tr('এখন আছে'), style: body(13.5, color: C.muted)),
               Text('${now < 0 ? '−' : ''}${taka(now.abs())}', style: display(24, weight: 700, color: now < 0 ? C.orange : C.ink)),
             ]),
           ),
-          TextButton(key: const Key('cash-now-change'), onPressed: () => _change(brain, now), child: Text(tr('ঠিক করুন'))),
+          TextButton(key: const Key('cash-now-change'), onPressed: () => _change(brain, now), child: Text(tr('নতুন করে দিন'))),
+          Icon(Icons.chevron_right_rounded, color: C.muted),
         ]),
+          ),
+        ),
       );
     }
     return Panel(
@@ -108,7 +116,7 @@ class _CashNowCardState extends State<CashNowCard> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text(tr('এখন আপনার কাছে কত টাকা আছে?'), style: body(15.5, weight: FontWeight.w600)),
         const SizedBox(height: 2),
-        Text(tr('হাতে, ব্যাংকে, বিকাশে — সব মিলিয়ে লিখুন। এরপর আয়-খরচ লিখলে নিজে বাড়বে-কমবে।'), style: body(13, color: C.muted, height: 1.45)),
+        Text(tr('হাতে, ব্যাংকে, বিকাশে — সব মিলিয়ে লিখুন। এরপর আয়, খরচ, ধার আর অন্যান্য হিসাবের খরচ লিখলে নিজে বাড়বে-কমবে।'), style: body(13, color: C.muted, height: 1.45)),
         const SizedBox(height: 10),
         Row(children: [
           Expanded(
@@ -154,13 +162,72 @@ class _AmountDialogState extends State<_AmountDialog> {
           controller: _c,
           autofocus: true,
           keyboardType: TextInputType.number,
-          decoration: InputDecoration(prefixText: '৳ ', helperText: tr('হাতে, ব্যাংকে, বিকাশে — সব মিলিয়ে')),
+          decoration: InputDecoration(prefixText: '৳ ', helperText: tr('এখন থেকে নতুন করে হিসাব শুরু হবে'), helperMaxLines: 2),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('বাতিল'))),
           TextButton(onPressed: () => Navigator.pop(context, _c.text), child: Text(tr('রাখুন'))),
         ],
       );
+}
+
+/// How "এখন আছে" came to be: the amount said and when, every kind of line
+/// since with its sum, and the lines themselves (owner, 24 Oct).
+class CashNowScreen extends StatelessWidget {
+  const CashNowScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final start = cashStartOf(brain.data);
+    final now = cashOnHand(brain.data);
+    final lines = [...cashSinceStart(brain.data)]..sort((a, b) => (b.addedAt ?? b.date).compareTo(a.addedAt ?? a.date));
+    Widget row(String label, int v, {bool bold = false, Key? key}) => Padding(
+          key: key,
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Row(children: [
+            Expanded(child: Text(label, style: body(15, weight: bold ? FontWeight.w700 : FontWeight.w400))),
+            Text('${v < 0 ? '−' : (bold ? '' : '+')}${taka(v.abs())}', style: display(15.5, weight: bold ? 700 : 600, color: bold ? C.ink : (v < 0 ? C.orange : C.green))),
+          ]),
+        );
+    return Scaffold(
+      body: SafeArea(
+        child: Column(children: [
+          TopBar(title: tr('এখন আছে কীভাবে হলো')),
+          Expanded(
+            child: start == null || now == null
+                ? Padding(padding: const EdgeInsets.all(20), child: Text(tr('এখনো “এখন আছে” দেওয়া হয়নি।'), style: body(15, color: C.muted)))
+                : ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
+                    Panel(
+                      key: const Key('cash-now-parts'),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                      child: Column(children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 5),
+                          child: Row(children: [
+                            Expanded(child: Text(trf('শুরুতে ছিল ({0})', [fullDate(start.$2)]), style: body(15))),
+                            Text(taka(start.$1), style: display(15.5, weight: 600)),
+                          ]),
+                        ),
+                        for (final (label, v) in cashNowParts(brain.data)) row(tr(label), v),
+                        const Divider(height: 18),
+                        row(tr('এখন আছে'), now, bold: true, key: const Key('cash-now-total')),
+                      ]),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(tr('ধার দিলে ব্যয়ে দেখায়, ধার নিলে আয়ে — খরচ বা আয় নয়, টাকা আসা-যাওয়া। অন্যান্য হিসাবের খরচ এখান থেকেই যায়; বকেয়া পেলে আয়ে আসে।'),
+                        style: body(12.5, color: C.muted, height: 1.5)),
+                    if (lines.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      SectionTitle(trf('এর পরের লেনদেন · {0}টি', [bnDigits(lines.length)])),
+                      Panel(child: Rows(children: [for (final e in lines) cashRow(context, e)])),
+                    ],
+                  ]),
+          ),
+        ]),
+      ),
+    );
+  }
 }
 
 // ───────────────────────── আয়-ব্যয় (monthly) ─────────────────────────
@@ -740,26 +807,17 @@ class ProjectScreen extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 12),
-              Row(children: [
-                Expanded(
-                  child: PrimaryButton(
-                    label: tr('টাকা এলো'),
-                    icon: Icons.add_rounded,
-                    height: 48,
-                    onPressed: () => push(CashFormScreen(kind: CashKind.income, projectId: p.id)),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: PrimaryButton(
-                    label: tr('খরচ'),
-                    icon: Icons.add_rounded,
-                    height: 48,
-                    color: C.fill,
-                    onPressed: () => push(CashFormScreen(kind: CashKind.expense, projectId: p.id)),
-                  ),
-                ),
-              ]),
+              // Another হিসাব has spending (from the main money) and বকেয়া; money
+              // coming in is the main আয় (owner, 24 Oct).
+              PrimaryButton(
+                label: tr('খরচ'),
+                icon: Icons.add_rounded,
+                height: 48,
+                color: C.fill,
+                onPressed: () => push(CashFormScreen(kind: CashKind.expense, projectId: p.id)),
+              ),
+              const SizedBox(height: 6),
+              Text(tr('খরচ মূল টাকা থেকে যায়। এই কাজে টাকা পেলে আয়-ব্যয়ে আয় হিসেবে লিখুন; বকেয়া পেলে নিচে বকেয়া থেকে আদায় দিন।'), style: body(12.5, color: C.muted, height: 1.45)),
               const SizedBox(height: 16),
               ProjectDuesSection(project: p),
               const SizedBox(height: 16),
@@ -849,7 +907,8 @@ class _CashFormScreenState extends State<CashFormScreen> {
     );
     await brain.saveCash(saved);
     // Owner (24 Oct): another হিসাব's new entry — in the main আয়-ব্যয় too?
-    if (widget.entry == null && _projectId != null && mounted) await askAddToMain(context, saved.id);
+    // Another হিসাব's spending goes into the main money by itself: say so.
+    if (widget.entry == null && _projectId != null && mounted) sayMainLine(context);
     if (mounted) Navigator.of(context).pop();
   }
 

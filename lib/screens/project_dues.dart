@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
 import 'to_main.dart';
+import '../logic/cash.dart' show mainAddedText;
 import '../logic/lang.dart';
 import '../logic/ledger.dart';
 import '../logic/pro.dart';
@@ -127,7 +128,6 @@ Future<void> dueForm(BuildContext context, Project project, {String person = '',
   if (!context.mounted) return;
   final left = _balanceOf(brain, project, who);
   toast(context, left >= 0 ? trf('রাখা হয়েছে। {0} এর কাছে বকেয়া {1}', [who, taka(left)]) : trf('রাখা হয়েছে। {0} কে দিতে হবে {1}', [who, taka(-left)]));
-  await askAddToMain(context, entry.id);
 }
 
 int _balanceOf(Brain brain, Project project, String who) =>
@@ -173,6 +173,7 @@ Future<void> collectDue(BuildContext context, Project project, String person, in
   await brain.saveEntry(LedgerEntry(person: person, kind: iPay ? LedgerKind.repaid : LedgerKind.received, amount: n, date: dayOnly(now), note: tr(iPay ? dueOutCategory : dueInCategory), projectId: project.id));
   final paid = CashEntry(kind: iPay ? CashKind.expense : CashKind.income, amount: n, category: tr(iPay ? dueOutCategory : dueInCategory), note: person, date: now, projectId: project.id);
   await brain.saveCash(paid);
+  final main = brain.lastMainLine;
   final left = _balanceOf(brain, project, person);
   if (iPay ? left >= 0 : left <= 0) {
     for (final e in [...brain.data.ledger]) {
@@ -181,11 +182,10 @@ Future<void> collectDue(BuildContext context, Project project, String person, in
   }
   if (!context.mounted) return;
   if (iPay) {
-    toast(context, left < 0 ? trf('ব্যয়ে যোগ হলো। {0} কে আরও দিতে হবে {1}', [person, taka(-left)]) : trf('ব্যয়ে যোগ হলো। {0} এর বকেয়া শেষ', [person]));
+    toast(context, (left < 0 ? trf('ব্যয়ে যোগ হলো। {0} কে আরও দিতে হবে {1}', [person, taka(-left)]) : trf('ব্যয়ে যোগ হলো। {0} এর বকেয়া শেষ', [person])) + (main == null ? '' : '\n${mainAddedText(main)}'));
   } else {
-    toast(context, left > 0 ? trf('আয়ে যোগ হলো। {0} এর কাছে আরও বকেয়া {1}', [person, taka(left)]) : trf('আয়ে যোগ হলো। {0} এর বকেয়া শেষ', [person]));
+    toast(context, (left > 0 ? trf('আয়ে যোগ হলো। {0} এর কাছে আরও বকেয়া {1}', [person, taka(left)]) : trf('আয়ে যোগ হলো। {0} এর বকেয়া শেষ', [person])) + (main == null ? '' : '\n${mainAddedText(main)}'));
   }
-  await askAddToMain(context, paid.id);
 }
 
 /// The earliest pay day still ahead among [lines].

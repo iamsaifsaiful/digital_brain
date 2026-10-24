@@ -165,45 +165,49 @@ extension BrainMore on Brain {
 
   // ── Money now ──
 
-  /// "এখন আমার কাছে [amount] টাকা আছে": later income and spending move it.
+  /// "এখন আমার কাছে [amount] টাকা আছে": the main money starts afresh from now.
   Future<void> setCashOnHand(int amount) async {
-    // With accounts, the money now is theirs: the cash (or first) account
-    // takes the difference.
-    final id = defaultAccountId(data);
-    if (id != null) {
-      final a = data.accounts.firstWhere((x) => x.id == id);
-      await saveAccount(a.copyWith(opening: a.opening + amount - (cashOnHand(data) ?? 0)));
-      return;
-    }
-    data.cashOffset = amount - ownNet(data);
+    data.cashStart = amount;
+    data.cashOffset = null;
     data.cashSetAt = services.now();
     await _save();
   }
 
-  // ── মূল হিসাবে যুক্ত ──
+  // ── Loans and other হিসাব in the main money ──
 
-  /// Puts [sourceId] (a loan, a বকেয়া, another হিসাব's entry) in the main
-  /// আয়-ব্যয় too; the entry made, or null when it cannot go (or is there).
+  /// Puts [sourceId] back in the main money (after the user took it out).
   Future<CashEntry?> addToMain(String sourceId) async {
-    if (!canGoToMain(data, sourceId) || mainCopyOf(data, sourceId) != null) return null;
-    final e = mainEntryFor(data, sourceId);
-    if (e == null) return null;
-    await saveCash(e);
-    return data.cash.firstWhere((x) => x.id == e.id);
+    data.notInMain.remove(sourceId);
+    await _intoMain(sourceId);
+    await _save();
+    return mainCopyOf(data, sourceId);
   }
 
-  /// Takes [sourceId]'s copy out of the main আয়-ব্যয় (the source stays).
+  /// Takes [sourceId]'s line out of the main money (the source stays); it
+  /// stays out until put back.
   Future<void> removeFromMain(String sourceId) async {
+    data.notInMain.add(sourceId);
     final c = mainCopyOf(data, sourceId);
-    if (c != null) await deleteCash(c.id);
+    if (c != null) data.cash.removeWhere((x) => x.id == c.id);
+    await _save();
   }
 
-  /// After [sourceId] changed: its main copy follows.
-  Future<void> _followToMain(String sourceId) async {
+  /// After [sourceId] was written or changed: its main line is made or
+  /// follows. The line made, when it is new.
+  Future<CashEntry?> _intoMain(String sourceId) async {
     final old = mainCopyOf(data, sourceId);
-    if (old == null) return;
-    final e = mainEntryFor(data, sourceId, old: old);
-    if (e != null) _upsert(data.cash, e, (x) => x.id);
+    if (!canGoToMain(data, sourceId)) {
+      if (old != null) data.cash.removeWhere((x) => x.id == old.id);
+      return null;
+    }
+    if (old == null && data.notInMain.contains(sourceId)) return null;
+    final e = mainEntryFor(data, sourceId, old: old, now: services.now());
+    if (e == null) return null;
+    final placed = old == null && e.accountId == null
+        ? CashEntry(kind: e.kind, amount: e.amount, category: e.category, note: e.note, date: e.date, accountId: defaultAccountId(data), linkId: e.linkId, addedAt: e.addedAt)
+        : e;
+    _upsert(data.cash, placed, (x) => x.id);
+    return old == null ? placed : null;
   }
 
   // ── Accounts ──

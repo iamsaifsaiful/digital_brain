@@ -97,6 +97,8 @@ PersonMoney personMoney(AppData d, String q) {
   }
   final names = {m.query, ...m.names};
   for (final c in d.cash) {
+    // A main-money copy of a loan or another হিসাব line is the same money.
+    if (c.linkId != null) continue;
     if (!names.any((n) => namesPerson(c.note, n) || namesPerson(c.category, n))) continue;
     final inc = c.kind == CashKind.income;
     if (inc) {

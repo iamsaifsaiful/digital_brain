@@ -12,21 +12,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'app_test.dart' show settle, start, openTyping, sendTyped;
 
 void main() {
-  test('money now: the amount said, then income adds and spending takes away; a project does not count', () {
-    final now = DateTime(2026, 10, 24, 10);
-    final d = AppData(cash: [CashEntry(kind: CashKind.expense, amount: 500, date: now)]);
+  test('money now (2.49.1 data): the offset kept then still gives the same amount', () {
+    final at = DateTime(2026, 10, 24, 10);
+    final d = AppData(cash: [CashEntry(kind: CashKind.expense, amount: 500, date: at.subtract(const Duration(hours: 1)))]);
     expect(cashOnHand(d), isNull);
     d.cashOffset = 10000 - ownNet(d);
+    d.cashSetAt = at;
     expect(cashOnHand(d), 10000);
-    d.cash.add(CashEntry(kind: CashKind.income, amount: 2000, date: now));
-    d.cash.add(CashEntry(kind: CashKind.expense, amount: 300, date: now));
-    d.cash.add(CashEntry(kind: CashKind.expense, amount: 9999, date: now, projectId: 'p1'));
-    expect(cashOnHand(d), 11700);
+    d.cash.add(CashEntry(kind: CashKind.income, amount: 2000, date: at, addedAt: at.add(const Duration(minutes: 5))));
+    d.cash.add(CashEntry(kind: CashKind.expense, amount: 9999, date: at, projectId: 'p1', addedAt: at.add(const Duration(minutes: 6))));
+    expect(cashOnHand(d), 12000);
     final back = AppData.fromJson(d.toJson());
-    expect(cashOnHand(back), 11700);
+    expect(cashOnHand(back), 12000);
   });
 
-  testWidgets('হিসাব: asked once at the top; typed and kept; later spending lowers it; it can be corrected', (t) async {
+  testWidgets('হিসাব: asked once at the top; typed and kept; later spending lowers it; set again, it starts from there', (t) async {
     final rig = await start(t);
     await t.tap(find.text('হিসাব').last);
     await settle(t);
@@ -39,6 +39,7 @@ void main() {
     await rig.brain.saveCash(CashEntry(kind: CashKind.expense, amount: 450, category: 'বাজার', date: rig.brain.services.now()));
     await settle(t);
     expect(find.descendant(of: find.byKey(const Key('cash-now')), matching: find.textContaining('১১,৫৫০')), findsOneWidget);
+    rig.nowAt = rig.nowAt.add(const Duration(minutes: 1));
     await t.tap(find.byKey(const Key('cash-now-change')));
     await settle(t);
     await t.enterText(find.byKey(const Key('cash-now-edit')), '11000');
@@ -79,70 +80,83 @@ void main() {
     expect(find.text('অভ্যাস'), findsWidgets);
   });
 
-  group('মূল হিসাবে যুক্ত', () {
-    testWidgets('a loan put in the main আয়-ব্যয়: an expense ‘ধার দেওয়া’, follows its change, goes with it, and comes back on undo', (t) async {
+  group('মূল টাকা (owner, 24 Oct)', () {
+    testWidgets('the owner’s example: salary in, spending out, lending out (shown as ব্যয়), borrowing in (as আয়), another হিসাবের খরচ out, a বকেয়া given does nothing, collected comes in', (t) async {
+      final rig = await start(t);
+      final b = rig.brain;
+      final now = b.services.now();
+      await b.setCashOnHand(5000);
+      await b.saveCash(CashEntry(kind: CashKind.income, amount: 20000, category: 'বেতন', date: now));
+      await b.saveCash(CashEntry(kind: CashKind.expense, amount: 3000, category: 'বাজার', date: now));
+      await b.saveEntry(LedgerEntry(person: 'রহিম', kind: LedgerKind.lent, amount: 2000, date: now));
+      expect(b.lastMainLine!.category, 'ধার দেওয়া');
+      await b.saveEntry(LedgerEntry(person: 'করিম', kind: LedgerKind.borrowed, amount: 1000, date: now));
+      final p = Project(name: 'বাড়ির কাজ');
+      b.data.projects.add(p);
+      await b.saveCash(CashEntry(kind: CashKind.expense, amount: 4000, category: 'রড', date: now, projectId: p.id));
+      expect(b.lastMainLine!.note, 'বাড়ির কাজ');
+      await b.saveEntry(LedgerEntry(person: 'সেলিম', kind: LedgerKind.lent, amount: 7000, date: now, projectId: p.id));
+      expect(b.lastMainLine, isNull, reason: 'a বকেয়া is work done; no money moved');
+      await b.saveCash(CashEntry(kind: CashKind.income, amount: 2000, category: 'বকেয়া আদায়', note: 'সেলিম', date: now, projectId: p.id));
+      expect(b.lastMainLine!.category, 'বকেয়া থেকে আয়');
+      expect(cashOnHand(b.data), 5000 + 20000 - 3000 - 2000 + 1000 - 4000 + 2000);
+      expect(cashNowParts(b.data), [('আয়', 20000), ('খরচ', -3000), ('ধার নেওয়া', 1000), ('ধার দেওয়া', -2000), ('বকেয়া থেকে আয়', 2000), ('অন্যান্য হিসাবের খরচ', -4000)]);
+      final m = monthSums(b.data.cash, now);
+      expect(m.incomeByCategory['ধার নেওয়া'], 1000, reason: 'shown in আয়');
+      expect(m.byCategory['ধার দেওয়া'], 2000, reason: 'shown in ব্যয়');
+    });
+
+    testWidgets('“এখন আছে” said again starts afresh: what came before is not counted', (t) async {
+      final rig = await start(t);
+      final b = rig.brain;
+      await b.setCashOnHand(5000);
+      await b.saveCash(CashEntry(kind: CashKind.income, amount: 20000, category: 'বেতন', date: b.services.now()));
+      expect(cashOnHand(b.data), 25000);
+      rig.nowAt = rig.nowAt.add(const Duration(minutes: 1));
+      await b.setCashOnHand(10000);
+      expect(cashOnHand(b.data), 10000);
+      expect(cashNowParts(b.data), isEmpty);
+      rig.nowAt = rig.nowAt.add(const Duration(minutes: 1));
+      await b.saveCash(CashEntry(kind: CashKind.expense, amount: 500, category: 'বাজার', date: b.services.now()));
+      expect(cashOnHand(b.data), 9500);
+    });
+
+    testWidgets('a loan taken out of the main money stays out (even when changed) until put back; deleted, its line goes and comes back with undo', (t) async {
       final rig = await start(t);
       final b = rig.brain;
       final now = b.services.now();
       await b.setCashOnHand(10000);
       final loan = LedgerEntry(person: 'রহিম', kind: LedgerKind.lent, amount: 3000, date: now);
       await b.saveEntry(loan);
-      expect(cashOnHand(b.data), 10000, reason: 'not in the main account until asked');
-      final copy = await b.addToMain(loan.id);
-      expect((copy!.kind, copy.category, copy.amount, copy.note), (CashKind.expense, 'ধার দেওয়া', 3000, 'রহিম'));
       expect(cashOnHand(b.data), 7000);
-      expect(await b.addToMain(loan.id), isNull, reason: 'once only');
       await b.saveEntry(b.data.ledger.single.copyWith(amount: 3500));
-      expect(mainCopyOf(b.data, loan.id)!.amount, 3500);
-      await b.deleteEntry(loan.id);
-      expect(mainCopyOf(b.data, loan.id), isNull);
-      await b.undoLastDelete();
-      expect(b.data.ledger, hasLength(1));
-      expect(mainCopyOf(b.data, loan.id)!.amount, 3500);
+      expect(cashOnHand(b.data), 6500, reason: 'its line follows');
       await b.removeFromMain(loan.id);
-      expect(mainCopyOf(b.data, loan.id), isNull);
-      expect(b.data.ledger, hasLength(1), reason: 'the loan stays');
+      expect(cashOnHand(b.data), 10000);
+      await b.saveEntry(b.data.ledger.single.copyWith(amount: 4000));
+      expect(mainCopyOf(b.data, loan.id), isNull, reason: 'stays out');
+      expect((await b.addToMain(loan.id))!.amount, 4000);
+      expect(cashOnHand(b.data), 6000);
+      await b.deleteEntry(loan.id);
+      expect(cashOnHand(b.data), 10000);
+      await b.undoLastDelete();
+      expect(cashOnHand(b.data), 6000);
     });
 
-    testWidgets('another হিসাব: its entry goes in with the হিসাব name; a বকেয়া given can go, its payback goes as that হিসাবের আয়', (t) async {
-      final rig = await start(t);
-      final b = rig.brain;
-      final now = b.services.now();
-      final p = Project(name: 'বাড়ির কাজ');
-      b.data.projects.add(p);
-      final rod = CashEntry(kind: CashKind.expense, amount: 10000, category: 'রড', date: now, projectId: p.id);
-      await b.saveCash(rod);
-      final c = await b.addToMain(rod.id);
-      expect((c!.category, c.note, c.projectId), ('রড', 'বাড়ির কাজ', null));
-      final due = LedgerEntry(person: 'সেলিম', kind: LedgerKind.lent, amount: 7000, date: now, projectId: p.id);
-      final back = LedgerEntry(person: 'সেলিম', kind: LedgerKind.received, amount: 2000, date: now, projectId: p.id);
-      await b.saveEntry(due);
-      await b.saveEntry(back);
-      expect(canGoToMain(b.data, due.id), isTrue);
-      expect((await b.addToMain(due.id))!.category, 'বকেয়া দেওয়া');
-      expect(canGoToMain(b.data, back.id), isFalse, reason: 'the payback is the হিসাব\'s own income entry');
-      await b.deleteCash(rod.id);
-      expect(mainCopyOf(b.data, rod.id), isNull);
-    });
-
-    testWidgets('loan form: asked right after saving; yes puts it in and says so', (t) async {
+    testWidgets('loan form: the save message says it went into the main money', (t) async {
       final rig = await start(t);
       Navigator.of(t.element(find.byType(Scaffold).first)).push(MaterialPageRoute(builder: (_) => const LedgerFormScreen(person: 'রহিম', kind: LedgerKind.lent, amount: 500)));
       await settle(t);
       await t.tap(find.text('সেভ করুন').last);
-      await settle(t);
-      expect(find.text('মূল হিসাবেও যোগ করবেন?'), findsOneWidget);
-      await t.tap(find.text('হ্যাঁ, যোগ করুন'));
-      for (var i = 0; i < 8; i++) {
+      for (var i = 0; i < 6; i++) {
         await t.pump(const Duration(milliseconds: 100));
       }
-      expect(find.textContaining('মূল হিসাবে যুক্ত হলো'), findsOneWidget);
+      expect(find.textContaining('মূল টাকায় যুক্ত হলো'), findsOneWidget);
       await settle(t);
-      final loan = rig.brain.data.ledger.single;
-      expect(mainCopyOf(rig.brain.data, loan.id)!.category, 'ধার দেওয়া');
+      expect(mainCopyOf(rig.brain.data, rig.brain.data.ledger.single.id)!.category, 'ধার দেওয়া');
     });
 
-    testWidgets('chat: a loan said has “মূল হিসাবেও যোগ করুন”; tapped, it goes in and the chat says so', (t) async {
+    testWidgets('chat: a loan said is written in the main money too, and a quiet line says so', (t) async {
       final rig = await start(t);
       await openTyping(t);
       await t.enterText(find.byType(TextField).first, 'রহিমকে ৫০০ টাকা ধার দিলাম');
@@ -153,30 +167,35 @@ void main() {
         await settle(t);
       }
       expect(rig.brain.data.ledger, hasLength(1));
-      await t.tap(find.textContaining('মূল হিসাবেও যোগ করুন').last);
+      expect(find.textContaining('মূল টাকায় যুক্ত হলো'), findsOneWidget);
+    });
+
+    testWidgets('“এখন আছে” opens how it came about', (t) async {
+      final rig = await start(t);
+      final b = rig.brain;
+      await b.setCashOnHand(5000);
+      await b.saveCash(CashEntry(kind: CashKind.income, amount: 2000, category: 'বেতন', date: b.services.now()));
+      await t.tap(find.text('হিসাব').last);
       await settle(t);
-      expect(find.textContaining('মূল হিসাবে যুক্ত হলো'), findsOneWidget);
-      expect(mainCopyOf(rig.brain.data, rig.brain.data.ledger.single.id), isNotNull);
+      await t.tap(find.byKey(const Key('cash-now-open')));
+      await settle(t);
+      expect(find.byKey(const Key('cash-now-parts')), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const Key('cash-now-total')), matching: find.textContaining('৭,০০০')), findsOneWidget);
     });
   });
 
-  testWidgets('with accounts, “এখন আছে” is their total; a new entry goes into the cash account; a correction moves its opening', (t) async {
+  testWidgets('accounts do not change “এখন আছে”; a new own entry still goes into the cash account', (t) async {
     final rig = await start(t);
     final b = rig.brain;
     final cash = MoneyAccount(name: 'নগদ', opening: 2000);
-    final bkash = MoneyAccount(name: 'বিকাশ', kind: AccountKind.bkash, opening: 5000);
-    await b.saveAccount(bkash);
+    await b.saveAccount(MoneyAccount(name: 'বিকাশ', kind: AccountKind.bkash, opening: 5000));
     await b.saveAccount(cash);
-    expect(cashOnHand(b.data), 7000);
+    await b.setCashOnHand(9000);
     await b.saveCash(CashEntry(kind: CashKind.expense, amount: 500, category: 'বাজার', date: b.services.now()));
     expect(b.data.cash.single.accountId, cash.id);
-    expect(cashOnHand(b.data), 6500);
-    await b.setCashOnHand(10000);
-    expect(cashOnHand(b.data), 10000);
-    expect(totalBalance(b.data), 10000);
-    expect(b.data.accounts.firstWhere((a) => a.id == cash.id).opening, 5500);
+    expect(cashOnHand(b.data), 8500);
+    expect(totalBalance(b.data), 6500);
   });
-
   testWidgets('ধার-দেনা counts বকেয়া too and says how much of it is বকেয়া', (t) async {
     final rig = await start(t);
     final b = rig.brain;

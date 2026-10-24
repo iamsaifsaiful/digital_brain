@@ -71,14 +71,11 @@ class ChatChoice {
   final String answer;
 }
 
-enum LinkKind { person, editEntry, notes, reminders, tasks, contacts, cash, special, memory, doc, health, page, toMain }
+enum LinkKind { person, editEntry, notes, reminders, tasks, contacts, cash, special, memory, doc, health, page }
 
 /// "খাতা দেখুন" and similar, under an app message.
 class ChatLink {
-  const ChatLink(this.kind, this.label, {this.person, this.entry, this.docId, this.page, this.folder, this.sourceId});
-
-  /// For [LinkKind.toMain]: the loan or other হিসাব's entry to put in the main আয়-ব্যয়.
-  final String? sourceId;
+  const ChatLink(this.kind, this.label, {this.person, this.entry, this.docId, this.page, this.folder});
   final LinkKind kind;
   final String label;
   final String? person;
@@ -1220,7 +1217,7 @@ class ChatController extends ChangeNotifier {
     if (!RegExp(fold(r'(?:লেখ|লিখ|রাখ|সরাও|নাও|যোগ|যুক্ত|দাও|মাঝে|ভেতরে|মধ্যে)')).hasMatch(fold(t))) return false;
     final p = projectMeant(brain.data, t);
     if (p == null && !projectPageNamed(t)) return false;
-    final e = brain.data.cash.where((x) => x.amount == c.amount && x.kind == c.kind && x.projectId == null && dayOnly(x.date) == dayOnly(_now)).lastOrNull;
+    final e = brain.data.cash.where((x) => x.amount == c.amount && x.kind == c.kind && x.projectId == null && x.linkId == null && dayOnly(x.date) == dayOnly(_now)).lastOrNull;
     if (e == null) return false;
     if (p == null) {
       // Only "অন্যান্য হিসাবে": which account is asked first.
@@ -3528,7 +3525,7 @@ class ChatController extends ChangeNotifier {
     final said = words(normalize(t)).where((w) => w.runes.length > 2).map((w) => w.replaceAll(RegExp(fold(r'(?:ের|এর|র)$')), '')).toSet();
     final recent = [
       for (final e in brain.data.cash)
-        if (e.projectId == null && (amount == null || e.amount == amount) && !e.date.isBefore(dayOnly(_now).subtract(const Duration(days: 60)))) e
+        if (e.projectId == null && e.linkId == null && (amount == null || e.amount == amount) && !e.date.isBefore(dayOnly(_now).subtract(const Duration(days: 60)))) e
     ]..sort((a, b) => b.date.compareTo(a.date));
     // Named ("মাহির") or the only one with that amount; "ওটা" = the newest.
     final named = [for (final e in recent) if (words(normalize(e.note)).any((w) => said.any((x) => w.startsWith(x)))) e];
@@ -3819,13 +3816,10 @@ class ChatController extends ChangeNotifier {
         final after = balanceAfter(brain.data.ledger, _person, kind, _amount);
         final entry = LedgerEntry(person: _person, phone: _ledgerPhone, kind: kind, amount: _amount, date: _ledgerDate ?? dayOnly(_now), note: '');
         await brain.saveEntry(entry, guessPhone: _ledgerPhone.isEmpty);
-        // Owner (24 Oct): asked right away whether it goes in the main আয়-ব্যয় too.
         _say(out, quiet ? trf('লিখলাম: {0}।', [describe(kind, _person, _amount)]) : savedSentence(kind, _person, _amount, after),
-            links: _linksFor1(quiet, [
-              ChatLink(LinkKind.person, trf('{0} খাতা দেখুন', [possessive(_person)]), person: _person),
-              if (!quiet) ChatLink(LinkKind.toMain, tr('মূল হিসাবেও যোগ করুন'), sourceId: entry.id),
-            ]),
-            speak: !quiet);
+            links: _linksFor1(quiet, [ChatLink(LinkKind.person, trf('{0} খাতা দেখুন', [possessive(_person)]), person: _person)]), speak: !quiet);
+        // The loan went into the main money by itself (owner, 24 Oct): a quiet line says so.
+        if (brain.lastMainLine case final main?) messages.add(ChatMessage.app(mainAddedText(main), info: true));
         _history.add(AiTurn.app('[লিখে রাখা হলো: ${describe(kind, _person, _amount)}]'));
         _focusOn(person: _person);
       case LedgerSet():
@@ -3946,12 +3940,8 @@ class ChatController extends ChangeNotifier {
           done = c.kind == CashKind.expense ? trf('লিখলাম। এই মাসে মোট খরচ {0} টাকা।', [bnNumber(m.expense)]) : trf('লিখলাম। এই মাসে মোট আয় {0} টাকা।', [bnNumber(m.income)]);
         }
         _say(out, quiet ? trf('লিখলাম: {0}', [summaryLine(c)]) : done + proNote,
-            links: _linksFor1(quiet, [
-              ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন')),
-              if (project != null && !quiet) ChatLink(LinkKind.toMain, tr('মূল হিসাবেও যোগ করুন'), sourceId: cashId),
-              if (proNote.isNotEmpty) ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro'),
-            ]),
-            speak: !quiet);
+            links: _linksFor1(quiet, [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন')), if (proNote.isNotEmpty) ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]), speak: !quiet);
+        if (project != null && brain.lastMainLine != null) messages.add(ChatMessage.app(mainAddedText(brain.lastMainLine!), info: true));
         _history.add(AiTurn.app('[লেখা হলো: ${summaryLine(c)}]'));
         _focusOn(cash: c.project == null);
       case VaultAdd():
@@ -4081,7 +4071,7 @@ class ChatController extends ChangeNotifier {
     for (final m in messages) {
       m.undo = null;
     }
-    final last = messages.lastWhere((m) => !m.fromUser, orElse: () => ChatMessage.app(''));
+    final last = messages.lastWhere((m) => !m.fromUser && !m.info, orElse: () => ChatMessage.app(''));
     if (last.text.isEmpty) return;
     last.undo = snap;
     last.undoAt = DateTime.now();

@@ -1195,7 +1195,7 @@ void main() {
     await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     expect(rig.voice.spoken.last, contains('৩০,০০০'));
-    expect(rig.brain.data.cash.every((e) => e.projectId == rig.brain.data.projects.single.id), isTrue);
+    expect(rig.brain.data.cash.where((e) => e.linkId == null).every((e) => e.projectId == rig.brain.data.projects.single.id), isTrue);
   });
 
   testWidgets('a reminder every 30 minutes is scheduled as a repeat', (t) async {

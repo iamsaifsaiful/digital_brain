@@ -4,7 +4,8 @@ library;
 
 import '../models/models.dart';
 import 'ledger.dart';
-import 'money_more.dart' show totalBalance;
+import 'bn.dart' show taka;
+import 'lang.dart';
 import 'parser.dart';
 
 class MoneySums {
@@ -253,29 +254,85 @@ bool projectPageNamed(String said) => RegExp(r'(?:অন্যান্য|আ�
 /// The user's own money in and out so far (not other হিসাব's, not shops').
 int ownNet(AppData d) => d.cash.where((e) => e.projectId == null).fold(0, (a, e) => a + (e.kind == CashKind.income ? e.amount : -e.amount));
 
-/// "এখন আছে": with accounts (নগদ, বিকাশ, ব্যাংক…) it is their total (owner,
-/// 24 Oct); without, what the user said they had, moved by every income and
-/// spending since; null until they say it.
-int? cashOnHand(AppData d) => d.accounts.isNotEmpty ? totalBalance(d) : (d.cashOffset == null ? null : d.cashOffset! + ownNet(d));
+// ── মূল টাকা: "এখন আছে" (owner, 24 Oct) ──
+// The money the user has: what they said at one moment, then every own
+// income (+) and spending (−) written after it. Loans and other হিসাব's
+// money come into it as their own lines in আয়-ব্যয় (see mainEntryFor):
+// lending is shown as ব্যয় (not spending), borrowing as আয়, another হিসাব's
+// spending as ব্যয়, a বকেয়া collected as আয় "বকেয়া থেকে". A বকেয়া itself
+// (work done, money not yet in) does not move it. Saying "এখন আছে" again
+// starts afresh from then.
+
+/// When "এখন আছে" was said, and how much (the 2.49.1 offset read once).
+(int, DateTime)? cashStartOf(AppData d) {
+  final at = d.cashSetAt;
+  if (at == null) return null;
+  if (d.cashStart != null) return (d.cashStart!, at);
+  if (d.cashOffset != null) {
+    // 2.49.1 kept an offset over everything: the amount then was the offset
+    // plus what had been written by that moment.
+    final before = d.cash.where((e) => e.projectId == null && !(e.addedAt ?? e.date).isAfter(at)).fold(0, (a, e) => a + (e.kind == CashKind.income ? e.amount : -e.amount));
+    return (d.cashOffset! + before, at);
+  }
+  return null;
+}
+
+/// The main-money lines written since "এখন আছে" was said.
+List<CashEntry> cashSinceStart(AppData d) {
+  final start = cashStartOf(d);
+  if (start == null) return const [];
+  return [for (final e in d.cash) if (e.projectId == null && !(e.addedAt ?? e.date).isBefore(start.$2)) e];
+}
+
+/// "এখন আছে": the amount said, with every income and spending since; null until said.
+int? cashOnHand(AppData d) {
+  final start = cashStartOf(d);
+  if (start == null) return null;
+  return start.$1 + cashSinceStart(d).fold<int>(0, (a, e) => a + (e.kind == CashKind.income ? e.amount : -e.amount));
+}
+
+/// How "এখন আছে" came to be: (label, amount with its sign) per kind of line, in order.
+List<(String, int)> cashNowParts(AppData d) {
+  final parts = <String, int>{};
+  void add(String k, int v) => parts[k] = (parts[k] ?? 0) + v;
+  for (final e in cashSinceStart(d)) {
+    final v = e.kind == CashKind.income ? e.amount : -e.amount;
+    final cat = e.category;
+    if (cat == 'ধার নেওয়া' || cat == 'ধার ফেরত পাওয়া') {
+      add(cat, v);
+    } else if (cat == 'ধার দেওয়া' || cat == 'ধার শোধ') {
+      add(cat, v);
+    } else if (cat == mainDueInCategory || cat == 'বকেয়া শোধ') {
+      add(cat, v);
+    } else if (e.linkId != null) {
+      add(e.kind == CashKind.income ? 'অন্যান্য হিসাবের আয়' : 'অন্যান্য হিসাবের খরচ', v);
+    } else {
+      add(e.kind == CashKind.income ? 'আয়' : 'খরচ', v);
+    }
+  }
+  const order = ['আয়', 'খরচ', 'ধার নেওয়া', 'ধার দেওয়া', 'ধার ফেরত পাওয়া', 'ধার শোধ', 'বকেয়া থেকে আয়', 'বকেয়া শোধ', 'অন্যান্য হিসাবের আয়', 'অন্যান্য হিসাবের খরচ'];
+  return [for (final k in order) if (parts[k] != null) (k, parts[k]!)];
+}
 
 /// Where an own income or spending goes when none is chosen: the cash
 /// account, else the first one.
 String? defaultAccountId(AppData d) => (d.accounts.where((a) => a.kind == AccountKind.cash).firstOrNull ?? d.accounts.firstOrNull)?.id;
 
+// ── Loans and other হিসাব in the main money (owner, 24 Oct) ──
+// Each goes in by itself as its own line, which keeps the source's id
+// ([CashEntry.linkId]) and follows its changes; the user can take one out.
 
-// ── মূল হিসাবে যুক্ত (owner, 24 Oct) ──
-// A loan, a বকেয়া given or taken, or another হিসাব's income/spending can also
-// be put in the main আয়-ব্যয় — asked after it is written, or later. The copy
-// keeps the source's id ([CashEntry.linkId]) and follows its changes.
+/// The main-account খাত for loan money (kept out of spending advice).
+const mainLoanCategories = {'ধার দেওয়া', 'ধার নেওয়া', 'ধার ফেরত পাওয়া', 'ধার শোধ'};
 
-/// The main-account খাত for loan and বকেয়া money (kept out of spending advice).
-const mainLoanCategories = {'ধার দেওয়া', 'ধার নেওয়া', 'ধার ফেরত পাওয়া', 'ধার শোধ', 'বকেয়া দেওয়া', 'বকেয়া নেওয়া'};
+/// A বকেয়া collected, in the main আয়.
+const mainDueInCategory = 'বকেয়া থেকে আয়';
 
-/// Whether [id] (a loan, a বকেয়া or another হিসাব's entry) can go to the main আয়-ব্যয়.
+/// Whether [id] goes into the main money: an own loan (any way), or another
+/// হিসাব's entry (its spending, a বকেয়া collected or paid). A বকেয়া itself does not.
 bool canGoToMain(AppData d, String id) {
   final l = d.ledger.where((e) => e.id == id).firstOrNull;
-  // A বকেয়া paid back is already money in that হিসাব (বকেয়া আদায়/শোধ): that entry goes instead.
-  if (l != null) return l.projectId == null || l.kind == LedgerKind.lent || l.kind == LedgerKind.borrowed;
+  if (l != null) return l.projectId == null;
   return d.cash.any((e) => e.id == id && e.projectId != null);
 }
 
@@ -283,28 +340,33 @@ bool canGoToMain(AppData d, String id) {
 CashEntry? mainCopyOf(AppData d, String id) => d.cash.where((e) => e.linkId == id && e.projectId == null).firstOrNull;
 
 /// What [id] becomes in the main আয়-ব্যয় (a new entry, or [old]'s update).
-CashEntry? mainEntryFor(AppData d, String id, {CashEntry? old}) {
-  final l = d.ledger.where((e) => e.id == id).firstOrNull;
+CashEntry? mainEntryFor(AppData d, String id, {CashEntry? old, DateTime? now}) {
+  final l = d.ledger.where((e) => e.id == id && e.projectId == null).firstOrNull;
   if (l != null) {
-    final due = l.projectId != null;
     final (kind, cat) = switch (l.kind) {
-      LedgerKind.lent => (CashKind.expense, due ? 'বকেয়া দেওয়া' : 'ধার দেওয়া'),
-      LedgerKind.borrowed => (CashKind.income, due ? 'বকেয়া নেওয়া' : 'ধার নেওয়া'),
+      LedgerKind.lent => (CashKind.expense, 'ধার দেওয়া'),
+      LedgerKind.borrowed => (CashKind.income, 'ধার নেওয়া'),
       LedgerKind.received => (CashKind.income, 'ধার ফেরত পাওয়া'),
       LedgerKind.repaid => (CashKind.expense, 'ধার শোধ'),
     };
-    return CashEntry(id: old?.id, kind: kind, amount: l.amount, category: cat, note: l.person, date: l.date, accountId: old?.accountId, linkId: l.id);
+    return CashEntry(id: old?.id, kind: kind, amount: l.amount, category: cat, note: l.person, date: l.date, accountId: old?.accountId, linkId: l.id, addedAt: old?.addedAt ?? now);
   }
   final c = d.cash.where((e) => e.id == id && e.projectId != null).firstOrNull;
   if (c == null) return null;
   final project = d.projects.where((p) => p.id == c.projectId).firstOrNull?.name ?? '';
+  final dueIn = c.kind == CashKind.income && (c.category == 'বকেয়া আদায়' || c.category == 'Dues collected');
   return CashEntry(
       id: old?.id,
       kind: c.kind,
       amount: c.amount,
-      category: c.category,
+      category: dueIn ? mainDueInCategory : c.category,
       note: [project, if (c.note.trim().isNotEmpty) c.note.trim()].join(' · '),
       date: c.date,
       accountId: old?.accountId,
-      linkId: c.id);
+      linkId: c.id,
+      addedAt: old?.addedAt ?? c.addedAt ?? now);
 }
+
+/// What is said once it is in: "মূল টাকায় যুক্ত হলো — ‘ধার দেওয়া’ ৳৫০০ ব্যয়".
+String mainAddedText(CashEntry e) =>
+    trf('মূল টাকায় যুক্ত হলো — ‘{0}’ {1} {2}', [e.category, taka(e.amount), e.kind == CashKind.income ? tr('আয়') : tr('ব্যয়')]);

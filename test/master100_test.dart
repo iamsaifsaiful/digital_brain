@@ -513,7 +513,9 @@ void main() {
     await say('সজীবকে ৫০০ টাকা ধার দিলাম।');
     await yes();
     expect(owed('সজীব'), 500);
-    expect(data().cash, isEmpty);
+    // Owner, 24 Oct: a loan shows in ব্যয় as ধার দেওয়া, but it is not spending.
+    expect(data().cash.where((c) => c.linkId == null), isEmpty);
+    expect(data().cash.single.category, 'ধার দেওয়া');
   });
 
   testWidgets('C57 with L, "সজীবের কাছ থেকে আর ১০০ টাকা ফেরত পেলাম" → 100 owed', (t) async {
@@ -528,7 +530,8 @@ void main() {
     await say('রহিমের কাছ থেকে ১০০০ ধার নিয়েছি, পরে ৩০০ শোধ করেছি।');
     await yes();
     expect(owed('রহিম'), -700, reason: '${data().ledger.map((e) => '${e.kind.name} ${e.amount}')}');
-    expect(data().cash, isEmpty);
+    expect(data().cash.where((c) => c.linkId == null), isEmpty);
+    expect(data().cash.map((c) => c.category).toSet(), {'ধার নেওয়া', 'ধার শোধ'});
   });
 
   testWidgets('C59 owed 500, "রহিমের কাছে এখন মোট ২০০০ টাকা পাই" → balance 2000, not +2000', (t) async {
@@ -590,7 +593,7 @@ void main() {
     await yes();
     final p = data().cash.where((c) => c.projectId == 'P');
     expect(p.where((c) => c.kind == CashKind.expense).fold(0, (s, c) => s + c.amount), 21400);
-    expect(data().cash.where((c) => c.projectId == null), isEmpty);
+    expect(data().cash.where((c) => c.projectId == null && c.linkId == null), isEmpty);
   });
 
   testWidgets('C67 a plain bill, then "না, অন্যান্য হিসাবের ভেতরে বাড়ি মেরামতে রাখো" → moved, not both', (t) async {
@@ -599,7 +602,7 @@ void main() {
     await yes();
     await say('না, অন্যান্য হিসাবের ভেতরে বাড়ি মেরামতে রাখো।');
     await yes();
-    expect(data().cash.where((c) => c.amount == 2900), hasLength(1), reason: '${data().cash.map((c) => '${c.amount} ${c.projectId}')}');
+    expect(data().cash.where((c) => c.amount == 2900 && c.linkId == null), hasLength(1), reason: '${data().cash.map((c) => '${c.amount} ${c.projectId}')}');
     expect(data().cash.firstWhere((c) => c.amount == 2900).projectId, 'P');
   });
 
@@ -958,8 +961,9 @@ void main() {
     expect(data().cash, isEmpty, reason: a);
     await say('এইগুলো ওই বেতনের হিসাবে রাখো');
     await yes();
-    expect(data().cash, hasLength(2), reason: '${data().cash.map((c) => '${c.amount} ${c.projectId}')}');
-    expect(data().cash.every((c) => c.projectId == 'S' && c.kind == CashKind.income), isTrue);
+    final own = data().cash.where((c) => c.linkId == null);
+    expect(own, hasLength(2), reason: '${data().cash.map((c) => '${c.amount} ${c.projectId}')}');
+    expect(own.every((c) => c.projectId == 'S' && c.kind == CashKind.income), isTrue);
   });
 
   testWidgets('C73 a fee kept as plain income: "ওটা বেতনের হিসাবে সরাও" → the same entry moved, not doubled', (t) async {
@@ -968,8 +972,9 @@ void main() {
     await say('আজকের আয় দেখাও');
     await say('মাহির ২০০০ টাকাটা বেতনের হিসাবে সরাও');
     await yes();
-    expect(data().cash, hasLength(1));
-    expect((data().cash.single.id, data().cash.single.projectId, data().cash.single.amount), ('e1', 'S', 2000));
+    final own = data().cash.where((c) => c.linkId == null);
+    expect(own, hasLength(1));
+    expect((own.single.id, own.single.projectId, own.single.amount), ('e1', 'S', 2000));
   });
 
   testWidgets('C95 "বাড়ি মেরামতের শুধু খরচগুলোর CSV দাও" → that account\'s spending only, exact total, nothing secret', (t) async {
