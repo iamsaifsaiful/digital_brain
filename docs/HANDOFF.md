@@ -42,6 +42,11 @@ Not verified on a phone: the hero's look on real screens and its light at real h
 
 Tests at 2.54.0: full suite 2378 pass + 1 skipped, 1 failed (update_test tapped the money card under the new floating message) → fixed in the test, file passes (20/20). Plugin e2e ALL OK (282). Admin app 9 tests.
 
+### 2.54.1-b112 (25 Oct, 1 am)
+- Place change → weather at once: `_weatherKey` ties the weather to the place it was fetched for (`weatherNow` null for another place), `setDistrict` clears it (and `todayWeather`) and calls `refreshWeather`; the home's 2-min tick also calls `refreshPlace` (now every 10 min at most) and `refreshWeather`.
+- Backup nudge: first among the floating messages when something is kept and `last_backup` is older than 7 days (or never).
+- Full suite 2380 pass + 1 skipped.
+
 ## 0g. Update 24 Oct (night): 2.51.0-b106 → 2.52.0-b107 — the approved home design on every screen
 
 - Design source: `docs/design/2026-10-24-home-final/` (PROMPT.md, home.html). Tokens in `lib/ui/theme.dart` (class C), parts in `lib/ui/kit.dart` (SectionHeading, AppCard, SoftChip, SmallButton, AttentionCard, ToolTile, RotatingSlot).
