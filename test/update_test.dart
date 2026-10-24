@@ -452,7 +452,10 @@ void main() {
     await rig.brain.setUserName('সাইফ');
     await rig.brain.saveCash(CashEntry(kind: CashKind.expense, amount: 250, category: 'বাজার', date: rig.brain.services.now()));
     await settle(t);
-    expect(find.textContaining(', সাইফ'), findsOneWidget);
+    // The new home (24 Oct): the greeting on one line, the name big under it.
+    expect(find.text('সাইফ'), findsOneWidget);
+    expect(find.textContaining(RegExp(r'^(সুপ্রভাত|শুভ \S+),$')), findsOneWidget);
+    await t.scrollUntilVisible(find.text('এ মাসের হিসাব'), 300, scrollable: vScroll().first);
     expect(find.text('আজকের কাজ'), findsOneWidget);
     expect(find.text('এ মাসের হিসাব'), findsOneWidget);
     expect(find.descendant(of: find.byKey(const Key('home-stat-spent')), matching: find.textContaining('২৫০')), findsWidgets);
