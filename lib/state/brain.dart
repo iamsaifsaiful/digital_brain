@@ -136,6 +136,10 @@ class Brain extends ChangeNotifier {
   /// True between the user unlocking and the app locking again.
   bool unlocked = false;
 
+  /// Unlocked at least once since this brain started: later locks cover the
+  /// open pages instead of closing them (app.dart, _LockCover).
+  bool unlockedOnce = false;
+
   /// When the user last proved it was them (PIN or fingerprint), for the
   /// vault's short grace period.
   DateTime? lastVerified;
@@ -1636,6 +1640,7 @@ class Brain extends ChangeNotifier {
 
   void unlock() {
     unlocked = true;
+    unlockedOnce = true;
     lastVerified = services.now();
     notifyListeners();
   }

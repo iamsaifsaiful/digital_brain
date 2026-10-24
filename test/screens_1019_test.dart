@@ -129,7 +129,9 @@ void main() {
     expect(find.text(quoteFor(now).text), findsOneWidget);
     final row = find.byKey(const Key('home-spend-health'));
     await t.scrollUntilVisible(row, -300, scrollable: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first);
-    await t.scrollUntilVisible(row, 200, scrollable: find.byType(Scrollable).at(1));
+    // The quote sits right under the money now (owner, 24 Oct night): bring the row fully into view.
+    await Scrollable.ensureVisible(t.element(row), alignment: 0.5);
+    await settle(t);
     expect(find.textContaining('শখের খাতে ৫০%'), findsOneWidget);
     await t.tap(row);
     await settle(t, 20);

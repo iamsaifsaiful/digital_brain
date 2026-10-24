@@ -38,9 +38,6 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
   DateTime? _leftAt;
   bool _wasUnlocked = false;
 
-  /// Unlocked at least once since the app started: from then on a lock is a
-  /// cover over the pages, not a new start (see [_LockCover]).
-  bool _everUnlocked = false;
 
   Brain get brain => widget.brain;
 
@@ -61,6 +58,18 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
         _runPending();
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(DigitalBrainApp old) {
+    super.didUpdateWidget(old);
+    if (old.brain != widget.brain) {
+      old.brain.removeListener(_onBrain);
+      old.brain.services.notifier.tapped.removeListener(_onNotificationTap);
+      widget.brain.addListener(_onBrain);
+      widget.brain.services.notifier.tapped.addListener(_onNotificationTap);
+      _wasUnlocked = widget.brain.unlocked;
+    }
   }
 
   @override
@@ -125,7 +134,6 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       // keyboard goes down so nothing is typed behind the lock.
       FocusManager.instance.primaryFocus?.unfocus();
     }
-    if (brain.unlocked) _everUnlocked = true;
     // The cover is built here (MaterialApp.builder), above BrainScope.
     if (_wasUnlocked != brain.unlocked && mounted) setState(() {});
     if (!_wasUnlocked && brain.unlocked) {
@@ -334,7 +342,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
         debugShowCheckedModeBanner: false,
         theme: buildTheme(),
         themeAnimationDuration: Duration.zero,
-        home: _Gate(everUnlocked: _everUnlocked),
+        home: const _Gate(),
         // The phone's own bars follow the look: the bottom navigation bar
         // takes the screen's colour (it stayed light grey in the dark look).
         builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
@@ -347,7 +355,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
             systemNavigationBarIconBrightness: C.dark ? Brightness.light : Brightness.dark,
           ),
           child: _LockCover(
-            covered: _everUnlocked && brain.loaded && !brain.unlocked && !_alarmOpen,
+            covered: brain.unlockedOnce && brain.loaded && !brain.unlocked && !_alarmOpen,
             child: child ?? const SizedBox.shrink(),
           ),
         ),
@@ -357,8 +365,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
 }
 
 class _Gate extends StatelessWidget {
-  const _Gate({required this.everUnlocked});
-  final bool everUnlocked;
+  const _Gate();
 
   @override
   Widget build(BuildContext context) {
@@ -367,7 +374,7 @@ class _Gate extends StatelessWidget {
       return const Scaffold(backgroundColor: C.night, body: Center(child: CircularProgressIndicator(color: C.mint)));
     }
     // Only the first lock replaces the app; later ones cover it (_LockCover).
-    if (!brain.unlocked && !everUnlocked) return const LockScreen();
+    if (!brain.unlocked && !brain.unlockedOnce) return const LockScreen();
     if (brain.loadError != null) return const _LoadError();
     return const HomeShell();
   }

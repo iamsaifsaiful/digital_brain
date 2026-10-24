@@ -669,7 +669,7 @@ const enStrings = <String, String>{
   'ডানে আরও {0} ঘুরুন': 'Turn {0} more to the right',
   'বাঁয়ে আরও {0} ঘুরুন': 'Turn {0} more to the left',
   'দিক ঠিকমতো ধরতে পারছে না — ফোনটা বাতাসে ইংরেজি ৮-এর মতো কয়েকবার ঘোরান, আর চুম্বক বা লোহার জিনিস থেকে দূরে রাখুন।': 'The direction is unsteady — move the phone in a figure 8 a few times, away from magnets and iron.',
-  'ফোন সমান করে বা সামনে খাড়া করে — যেভাবে সুবিধা ধরুন; ফোনের মাথা যেদিকে, দিক সেটাই। প্রথমবার ফোনটা বাতাসে ইংরেজি ৮-এর মতো কয়েকবার ঘোরান। লোহা, চুম্বক, স্পিকার, ল্যাপটপ বা চুম্বকওয়ালা কভার থেকে দূরে রাখুন — এগুলো দিক বদলে দেয়। কিবলার দিক আপনার জেলার হিসেবে; মসজিদের দিক মিলিয়ে নেওয়া ভালো।': 'Hold the phone flat or upright in front of you, as you like; it shows where the top of the phone points. The first time, wave the phone in a figure 8 a few times. Keep it away from iron, magnets, speakers, laptops and magnetic covers — they bend the direction. The qibla is worked out from your district; it is good to check against a mosque.',
+  'ফোন সমান করে বা সামনে খাড়া করে — যেভাবে সুবিধা ধরুন; ফোনের মাথা যেদিকে, দিক সেটাই। প্রথমবার ফোনটা বাতাসে কয়েকবার ৮ আঁকার মতো ঘোরান। লোহা, চুম্বক, স্পিকার, ল্যাপটপ বা চুম্বকওয়ালা কভার থেকে দূরে রাখুন — এগুলো দিক বদলে দেয়। কিবলার দিক আপনার জেলার হিসেবে; মসজিদের দিক মিলিয়ে নেওয়া ভালো।': 'Hold the phone flat or upright in front of you, as you like; it shows where the top of the phone points. The first time, wave the phone in a figure 8 a few times. Keep it away from iron, magnets, speakers, laptops and magnetic covers — they bend the direction. The qibla is worked out from your district; it is good to check against a mosque.',
   'উ': 'N',
   'পূ': 'E',
   'দ': 'S',
