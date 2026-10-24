@@ -40,7 +40,7 @@ Not verified on a phone: the hero's look on real screens and its light at real h
 - 17. **Words**: টিক for দাগ; no "ভাই" in the payment request; battery line plainer; "এদিক-ওদিক" → "আগে-পরে"; BMI scale "নিচে কম ওজন".
 - Open question to the owner: "সমস্যা খোঁজার লগ" may have meant the mic trace (what was heard/understood); that holds the member's words, so it was not sent — two options were offered.
 
-Tests at 2.54.0: full suite 2379 pass + 1 skipped, 1 failed (update_test tapped the money card under the new floating message) → fixed in the test, file passes (20/20). Plugin e2e ALL OK (282). Admin app 9 tests.
+Tests at 2.54.0: full suite 2378 pass + 1 skipped, 1 failed (update_test tapped the money card under the new floating message) → fixed in the test, file passes (20/20). Plugin e2e ALL OK (282). Admin app 9 tests.
 
 ## 0g. Update 24 Oct (night): 2.51.0-b106 → 2.52.0-b107 — the approved home design on every screen
 
