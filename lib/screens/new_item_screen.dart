@@ -411,9 +411,13 @@ class _NewItemScreenState extends State<NewItemScreen> {
       if (widget.vault == null && _vaultKind != VaultKind.wifi) ...[
         Text(tr('কোনটার পাসওয়ার্ড?'), style: body(13, weight: FontWeight.w600, color: C.muted2)),
         const SizedBox(height: 8),
-        Wrap(spacing: 8, runSpacing: 8, children: [
+        SizedBox(
+          height: 42,
+          child: ListView(scrollDirection: Axis.horizontal, children: [
           for (final k in knownServices)
-            ActionChip(
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ActionChip(
               key: Key('vault-known-${k.address}'),
               avatar: ServiceBadge(service: k, size: 22),
               label: Text(k.name, style: body(13.5, weight: knownServiceOf(_a.text) == k ? FontWeight.w700 : FontWeight.w400)),
@@ -423,8 +427,9 @@ class _NewItemScreenState extends State<NewItemScreen> {
                 _b.text = k.address;
                 _vaultKind = k.kind;
               }),
-            ),
-        ]),
+            )),
+          ]),
+        ),
         const SizedBox(height: 14),
       ],
       TextFormField(

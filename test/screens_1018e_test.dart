@@ -117,22 +117,22 @@ void main() {
     expect(q, contains('কোনটায়'), reason: 'asked even with one account');
     await say('বাড়ি মেরামত');
     await say('হ্যাঁ');
-    expect(data().cash.where((e) => e.amount == 2700).single.projectId, 'p1');
+    expect(data().cash.where((e) => e.amount == 2700 && e.linkId == null).single.projectId, 'p1');
     // Waiting for a yes, the account is named instead.
     await say('মিস্ত্রীর বিল ৫০০ টাকা');
     await say('এটা অন্যান্য হিসাবের মাঝে রাখো');
     expect(chat.wait, ChatWait.project);
     await say('বাড়ি মেরামত');
     await say('হ্যাঁ');
-    expect(data().cash.where((e) => e.amount == 500).single.projectId, 'p1');
+    expect(data().cash.where((e) => e.amount == 500 && e.linkId == null).single.projectId, 'p1');
     // Kept in the general আয়-ব্যয়, then moved by name.
     await say('বাজারে ২০০ টাকা খরচ');
     await say('হ্যাঁ');
     expect(data().cash.where((e) => e.amount == 200).single.projectId, isNull);
     final m = await say('ব্যয়ে লিখতে বলি নাই, অন্যান্য হিসাবের বাড়ির মেরামত এ লিখ');
     expect(m, contains('বাড়ি মেরামত'));
-    expect(data().cash.where((e) => e.amount == 200).single.projectId, 'p1');
-    expect(data().cash.where((e) => e.amount == 200), hasLength(1), reason: 'moved, not written twice');
+    expect(data().cash.where((e) => e.amount == 200 && e.linkId == null).single.projectId, 'p1');
+    expect(data().cash.where((e) => e.amount == 200 && e.linkId == null), hasLength(1), reason: 'moved, not written twice');
   });
 
   test('১৫. a chat is titled by its first real message, not "হ্যাঁ"', () {

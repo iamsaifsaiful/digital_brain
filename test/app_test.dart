@@ -82,7 +82,7 @@ class Rig {
       google: google,
       clock: () => nowAt,
     );
-    brain = Brain(services);
+    brain = Brain(services)..placeStatus = () async => const {};
     if (data != null) brain.data = data;
   }
 
@@ -1521,6 +1521,10 @@ void main() {
     await t.enterText(find.widgetWithText(TextField, 'নাম'), 'ভাইয়ের বিয়ে');
     await t.enterText(find.widgetWithText(TextField, 'কী আছে (বিবরণ)'), 'গায়ে হলুদ আর বিয়ের দিনের ছবি');
     await t.enterText(find.widgetWithText(TextField, 'কোথায়'), 'ফেনী');
+    // A folder is a must (owner, 24 Oct).
+    await t.ensureVisible(find.widgetWithText(ChoiceChip, 'পরিবারের ছবি'));
+    await t.tap(find.widgetWithText(ChoiceChip, 'পরিবারের ছবি'));
+    await settle(t);
     await t.ensureVisible(find.text('রাখুন').last);
     await t.tap(find.text('রাখুন').last);
     await settle(t);

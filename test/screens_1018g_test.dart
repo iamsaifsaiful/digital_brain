@@ -274,6 +274,7 @@ void main() {
     await settle(t);
     expect(find.byKey(const Key('doc-read-note')), findsOneWidget);
     expect(find.textContaining('১২ মে ২০২৭'), findsWidgets);
+    await t.enterText(find.widgetWithText(TextField, 'নাম'), 'ফ্রিজের ওয়ারেন্টি');
     await t.ensureVisible(find.text('রাখুন').last);
     await t.tap(find.text('রাখুন').last);
     await settle(t);
@@ -290,6 +291,11 @@ void main() {
     unawaited(askDocInfo(ctx, [PickedDoc(png, 'x.jpg', 'image/jpeg')]).then((v) => got = v));
     await settle(t);
     expect(find.textContaining('পরিষ্কার পাইনি'), findsOneWidget);
+    // A name and a folder are a must (owner, 24 Oct).
+    await t.enterText(find.widgetWithText(TextField, 'নাম'), 'X200');
+    await t.ensureVisible(find.widgetWithText(ChoiceChip, 'ওয়ারেন্টি ও গ্যারান্টি'));
+    await t.tap(find.widgetWithText(ChoiceChip, 'ওয়ারেন্টি ও গ্যারান্টি'));
+    await settle(t);
     await t.ensureVisible(find.text('রাখুন').last);
     await t.tap(find.text('রাখুন').last);
     await settle(t);
@@ -310,6 +316,7 @@ void main() {
     await t.ensureVisible(find.byKey(const Key('doc-field-ইস্যুর তারিখ')));
     await t.tap(find.byKey(const Key('doc-field-ইস্যুর তারিখ')));
     await settle(t);
+    await t.enterText(find.widgetWithText(TextField, 'নাম'), 'আমার পাসপোর্ট');
     await t.ensureVisible(find.text('রাখুন').last);
     await t.tap(find.text('রাখুন').last);
     await settle(t);

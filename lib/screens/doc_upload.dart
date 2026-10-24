@@ -305,12 +305,12 @@ class _DocInfoSheetState extends State<_DocInfoSheet> {
               ]),
             ),
           const SizedBox(height: 14),
-          field(_title, tr('নাম *'), tr('যেমন: রুমার পাসপোর্ট, ভাইয়ের বিয়ের ছবি'), icon: Icons.label_outline_rounded),
+          field(_title, tr('নাম'), tr('যেমন: রুমার পাসপোর্ট, ভাইয়ের বিয়ের ছবি'), icon: Icons.label_outline_rounded),
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: Text(tr('নাম বা ট্যাগ — অন্তত একটা দিতে হবে'), style: body(12, color: C.muted)),
           ),
-          Text(tr('ফোল্ডার *'), style: body(13, weight: FontWeight.w600, color: C.muted2)),
+          Text(tr('ফোল্ডার'), style: body(13, weight: FontWeight.w600, color: C.muted2)),
           Text(tr('যে ফোল্ডারের যে নাম, তাতে শুধু সেই কাগজ। অন্য কিছু হলে নতুন ফোল্ডার বানান।'), style: body(12, color: C.muted)),
           const SizedBox(height: 6),
           Wrap(spacing: 8, runSpacing: 8, children: [

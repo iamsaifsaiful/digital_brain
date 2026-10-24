@@ -78,8 +78,9 @@ void main() {
     expect(r, isNot(contains('পাবেন')));
     expect(r, contains('শিক্ষার্থীদের বেতন'));
     await say('হ্যাঁ');
-    expect(data().cash, hasLength(3));
-    expect(data().cash.every((e) => e.projectId != null), isTrue);
+    final own = data().cash.where((e) => e.linkId == null);
+    expect(own, hasLength(3));
+    expect(own.every((e) => e.projectId != null), isTrue);
   });
 
   testWidgets('temperature: on the home sky and asked in the chat', (t) async {

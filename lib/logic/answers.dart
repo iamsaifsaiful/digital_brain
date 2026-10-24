@@ -983,7 +983,8 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       : [for (final e in d.ledger) if (inSpan(e.date) && (q.person == null || personKey(e.person) == personKey(q.person!))) e];
   final cash = q.person != null
       ? <CashEntry>[]
-      : [for (final e in d.cash) if (inSpan(e.date) && (q.category == null || e.category == q.category || (q.category == 'অন্যান্য' && e.category.trim().isEmpty))) e];
+      // A loan's copy in the main money is the same record as the loan.
+      : [for (final e in d.cash) if (e.linkId == null && inSpan(e.date) && (q.category == null || e.category == q.category || (q.category == 'অন্যান্য' && e.category.trim().isEmpty))) e];
   ledger.sort((a, b) => b.date.compareTo(a.date));
   cash.sort((a, b) => b.date.compareTo(a.date));
   return (ledger: ledger, cash: cash);

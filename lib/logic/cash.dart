@@ -330,9 +330,13 @@ const mainDueInCategory = 'বকেয়া থেকে আয়';
 
 /// Whether [id] goes into the main money: an own loan (any way), or another
 /// হিসাব's entry (its spending, a বকেয়া collected or paid). A বকেয়া itself does not.
+/// "বকেয়া — শিক্ষার্থীদের বেতন": a due kept in ধার-দেনা (work done, no
+/// money out of the pocket), so not in the main money.
+bool isDueNote(String note) => note.trim().startsWith('বকেয়া');
+
 bool canGoToMain(AppData d, String id) {
   final l = d.ledger.where((e) => e.id == id).firstOrNull;
-  if (l != null) return l.projectId == null;
+  if (l != null) return l.projectId == null && !isDueNote(l.note);
   return d.cash.any((e) => e.id == id && e.projectId != null);
 }
 
@@ -341,7 +345,7 @@ CashEntry? mainCopyOf(AppData d, String id) => d.cash.where((e) => e.linkId == i
 
 /// What [id] becomes in the main আয়-ব্যয় (a new entry, or [old]'s update).
 CashEntry? mainEntryFor(AppData d, String id, {CashEntry? old, DateTime? now}) {
-  final l = d.ledger.where((e) => e.id == id && e.projectId == null).firstOrNull;
+  final l = d.ledger.where((e) => e.id == id && e.projectId == null && !isDueNote(e.note)).firstOrNull;
   if (l != null) {
     final (kind, cat) = switch (l.kind) {
       LedgerKind.lent => (CashKind.expense, 'ধার দেওয়া'),

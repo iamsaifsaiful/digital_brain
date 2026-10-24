@@ -59,12 +59,12 @@ void main() {
         projects: [Project(name: 'বাড়ি')],
         vault: [for (var i = 0; i < freeVaultItems; i++) VaultItem(name: 'site$i', password: 'x')],
       );
-      expect(b.canAddShop, isFalse);
+      // Owner, 24 Oct: shops free; অন্যান্য হিসাব premium only.
+      expect(b.canAddShop, isTrue);
       expect(b.canAddProject, isFalse);
       expect(b.canAddVault, isFalse);
-      // A closed project does not count.
       b.data = AppData(projects: [Project(name: 'বাড়ি', closed: true)]);
-      expect(b.canAddProject, isTrue);
+      expect(b.canAddProject, isFalse);
 
       // New limits: 20 people in ধার-দেনা, 20 ringing reminders, 30 documents.
       b.data = AppData(
@@ -73,12 +73,11 @@ void main() {
         docs: [for (var i = 0; i < freeDocs; i++) Doc(title: 'd$i')],
       );
       expect(b.canAddPerson('মানুষ3'), isTrue, reason: 'someone already there');
-      expect(b.canAddPerson('নতুন কেউ'), isFalse);
+      expect(b.canAddPerson('নতুন কেউ'), isTrue, reason: 'any number of people now');
       expect(b.canAddReminder, isFalse);
       expect(b.canAddDoc, isFalse);
-      // Reports: this month and the two before.
-      expect(b.canSeeMonth(DateTime(2026, 8)), isTrue);
-      expect(b.canSeeMonth(DateTime(2026, 7)), isFalse);
+      // Reports: every month is free now.
+      expect(b.canSeeMonth(DateTime(2026, 7)), isTrue);
       expect(b.has(ProFeature.autoBackup), isFalse);
 
       await b.activatePro(proPlans.first);
@@ -86,29 +85,25 @@ void main() {
       expect(b.proKind, 'pro_yearly');
     });
 
-    test('zakat is free; smart notices, paper expiry and pay-back reminders are Pro', () async {
+    test('zakat, smart notices, paper expiry and pay-back reminders are free; their reminders count toward 20', () async {
       final rig = Rig();
       final b = rig.brain;
       final now = DateTime(2026, 10, 9);
       b.gated = true;
       expect(infoAnswer(b.data, 'আমার যাকাত কত?', now), isNot(contains('প্রিমিয়াম')));
-      expect(b.assistantPrefs.smart, isFalse);
-      expect(b.assistantPrefs.docAlerts, isFalse);
-      expect(b.assistantPrefs.dueAlerts, isFalse);
-      // Free: the date is kept, no reminder.
+      expect(b.assistantPrefs.smart, isTrue);
+      expect(b.assistantPrefs.docAlerts, isTrue);
+      expect(b.assistantPrefs.dueAlerts, isTrue);
       await b.saveEntry(LedgerEntry(person: 'রহিম', kind: LedgerKind.lent, amount: 500, date: DateTime(2026, 10, 9), due: DateTime(2026, 11, 1)));
       final doc = Doc(title: 'পাসপোর্ট');
       await b.saveDoc(doc);
       await b.setDocExpiry(doc, DateTime(2027, 5, 1));
-      expect(b.data.reminders, isEmpty);
-      expect(b.data.ledger.single.due, DateTime(2026, 11, 1));
-      // Pro comes on: both reminders are made from what was written.
-      await b.activatePro(proPlans.last);
       expect(b.data.reminders.length, 2);
-      expect(b.data.ledger.single.reminderId, isNotNull);
-      expect(b.data.docs.single.reminderId, isNotNull);
-      expect(b.assistantPrefs.smart, isTrue);
-      expect(b.assistantPrefs.docAlerts, isTrue);
+      // At 20 ringing reminders, a money one is not added (the date stays).
+      b.data.reminders.addAll([for (var i = 0; i < freeReminders; i++) Reminder(title: 'r$i', date: DateTime(2026, 11), hour: 9)]);
+      await b.saveEntry(LedgerEntry(person: 'করিম', kind: LedgerKind.lent, amount: 300, date: DateTime(2026, 10, 9), due: DateTime(2026, 11, 2)));
+      final k = b.data.ledger.firstWhere((e) => e.person == 'করিম');
+      expect((k.due, k.reminderId), (DateTime(2026, 11, 2), null));
     });
 
     test('Pro survives a restart', () async {
@@ -323,7 +318,7 @@ void main() {
     await openChat(t);
     await tell(t, rig, 'পিডিএফ দাও');
     await settle(t);
-    expect(find.textContaining('PDF রিপোর্ট — প্রিমিয়াম সুবিধা'), findsOneWidget);
+    expect(find.textContaining('PDF ডাউনলোড — প্রিমিয়াম সুবিধা'), findsOneWidget);
   });
 
   group('AI through our server (the key never in the app)', () {

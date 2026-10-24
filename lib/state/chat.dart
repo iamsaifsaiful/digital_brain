@@ -2229,7 +2229,7 @@ class ChatController extends ChangeNotifier {
           () {
             final name = cashItem(c.transcript).isNotEmpty ? cashItem(c.transcript) : c.transcript.split(RegExp(r'\s+[০-৯0-9]')).first.trim();
             final known = balanceOf(brain.data.ledger, name)?.balance ?? 0;
-            return LedgerSet(c.transcript, person: name, balance: known + c.amount, note: note);
+            return LedgerSet(c.transcript, person: name, balance: known + c.amount, note: note, due: true);
           }()
         else
           c,
@@ -3832,6 +3832,8 @@ class ChatController extends ChangeNotifier {
       case LedgerSet():
         final e = _setEntry!;
         await brain.saveEntry(e);
+        // A বকেয়া is no money out of the pocket (owner, 24 Oct).
+        if (c.due) await brain.removeFromMain(e.id);
         _say(out, quiet ? trf('লিখলাম: {0}।', [summaryLine(c)]) : trf('ঠিক আছে, লিখে রাখলাম। {0}', [balanceSentence(e.person, c.balance)]),
             links: _linksFor1(quiet, [ChatLink(LinkKind.person, trf('{0} খাতা দেখুন', [possessive(e.person)]), person: e.person)]), speak: !quiet);
         _history.add(AiTurn.app('[লিখে রাখা হলো: ${summaryLine(c)}]'));

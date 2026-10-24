@@ -941,11 +941,14 @@ class Brain extends ChangeNotifier {
   /// Oct: "অটোমেটিক লোকেশন ট্রাক করতেছে না"). [once]: only the first time.
   Future<void> askPlacePermission({bool once = false}) async {
     if (once && await services.lock.keys.read('place_asked') == 'true') return;
-    final st = await LocationShareChannel.status();
+    final st = await placeStatus();
     if (st.isEmpty || st['fine'] == true) return;
     await _put('place_asked', 'true');
     await LocationShareChannel.ask();
   }
+
+  /// The phone's location permission (tests replace it).
+  Future<Map<String, bool>> Function() placeStatus = LocationShareChannel.status;
 
   /// Moves [district] to where the phone is now (at most every 20 minutes
   /// unless [force]). Returns the new place's name when it changed.

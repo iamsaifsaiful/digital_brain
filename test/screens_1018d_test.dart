@@ -143,7 +143,7 @@ void main() {
     }
     await say('নিহান ২০০০ টাকা বেতন দিয়েছে, এটা অন্যান্য হিসাবের ভেতরে শিক্ষার্থীদের বেতনে যুক্ত কর');
     await say('হ্যাঁ');
-    final e = data().cash.where((x) => x.amount == 2000).single;
+    final e = data().cash.where((x) => x.amount == 2000 && x.linkId == null).single;
     expect(e.kind, CashKind.income);
     expect(e.projectId, 'p1');
     expect(data().ledger, isEmpty);
