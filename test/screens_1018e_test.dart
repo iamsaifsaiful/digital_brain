@@ -30,8 +30,12 @@ void main() {
     chat = ChatController(rig.brain);
   }
 
-  testWidgets('১. the home box has a button to the earlier conversations', (t) async {
+  testWidgets('১. the home box has a button to the earlier conversations (once touched)', (t) async {
     await open(t);
+    // The approved design keeps the bar quiet: the button shows when the box is touched.
+    expect(find.byKey(const Key('home-past-chats')), findsNothing);
+    await t.tap(find.byType(TextField).first);
+    await settle(t);
     expect(find.byKey(const Key('home-past-chats')), findsOneWidget);
     // Typing in the box: the button gives way (the box shows ✕ instead).
     await t.enterText(find.byType(TextField).first, 'আজ');

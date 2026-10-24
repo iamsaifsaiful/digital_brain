@@ -47,6 +47,7 @@ class MoneyScreenState extends State<MoneyScreen> {
       onChanged: show,
       top: (tabs) => [
         TabTitle(tr('হিসাব'),
+            sub: tr('আয়-ব্যয় আর ধার-দেনা'),
             trailing: Row(mainAxisSize: MainAxisSize.min, children: [
               PdfButton(switch (_part) {
                 MoneyPart.cash => const {ReportPart.money},

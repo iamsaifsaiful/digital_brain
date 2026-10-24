@@ -4,6 +4,7 @@ import '../logic/bn.dart';
 import '../state/brain.dart';
 import '../ui/note_parts.dart';
 import '../ui/theme.dart';
+import '../ui/widgets.dart' show TabTitle;
 import 'calls_screen.dart';
 import 'docs_screen.dart';
 import 'home_shell.dart';
@@ -30,33 +31,32 @@ class StoreScreen extends StatelessWidget {
 
     Widget tile(String label, String sub, IconData icon, Color fg, Color bg, VoidCallback onTap) => Material(
           color: C.surface,
-          borderRadius: BorderRadius.circular(18),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17), side: BorderSide(color: C.border)),
           child: InkWell(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(17),
             onTap: onTap,
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Container(width: 42, height: 42, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(13)), child: Icon(icon, color: fg, size: 22)),
+                Container(width: 40, height: 40, decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: C.green, size: 22)),
                 const SizedBox(height: 10),
-                Text(label, style: body(15, weight: FontWeight.w600)),
-                Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted)),
+                Text(label, style: body(14.5, weight: FontWeight.w600)),
+                Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted)),
               ]),
             ),
           ),
         );
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
-        Text(tr('সংরক্ষণ'), style: display(24, weight: 700)),
-        Text(tr('আপনার সব দরকারি জিনিস, এই ফোনে তালাবদ্ধ'), style: body(13.5, color: C.muted)),
-        const SizedBox(height: 12),
+        TabTitle(tr('সংরক্ষণ'), sub: tr('আপনার সব দরকারি জিনিস, এই ফোনে তালাবদ্ধ')),
+        const SizedBox(height: 14),
         Material(
           color: C.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: BorderSide(color: C.line)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: C.border)),
           child: InkWell(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(15),
             onTap: () => push(const SearchScreen()),
             child: SizedBox(
               height: 46,
@@ -89,7 +89,7 @@ class StoreScreen extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         Row(children: [
-          for (final (label, icon, fg, bg, page) in [
+          for (final (label, icon, _, _, page) in [
             (tr('জরুরি কার্ড'), Icons.emergency_outlined, C.rose, C.roseTint, const EmergencyScreen() as Widget),
             (tr('কাগজের মেয়াদ'), Icons.event_busy_outlined, C.orange, C.orangeTint, const ExpiryScreen() as Widget),
             (tr('ট্যাগ'), Icons.sell_outlined, C.green, C.greenTint, const TagsScreen() as Widget),
@@ -97,16 +97,16 @@ class StoreScreen extends StatelessWidget {
             Expanded(
               child: Material(
                 color: C.surface,
-                borderRadius: BorderRadius.circular(16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17), side: BorderSide(color: C.border)),
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(17),
                   onTap: () => push(page),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
                     child: Column(children: [
-                      Container(width: 38, height: 38, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: fg, size: 20)),
+                      Container(width: 38, height: 38, decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: C.green, size: 20)),
                       const SizedBox(height: 6),
-                      Text(label, textAlign: TextAlign.center, maxLines: 2, style: body(12, weight: FontWeight.w500, height: 1.2)),
+                      Text(label, textAlign: TextAlign.center, maxLines: 2, style: body(11.5, weight: FontWeight.w500, height: 1.25)),
                     ]),
                   ),
                 ),
@@ -116,9 +116,9 @@ class StoreScreen extends StatelessWidget {
           ],
         ]),
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
+          padding: const EdgeInsets.fromLTRB(0, 16, 0, 6),
           child: Row(children: [
-            Expanded(child: Text(tr('সম্প্রতি রাখা নোট'), style: body(13, weight: FontWeight.w600, color: C.muted))),
+            Expanded(child: Text(tr('সম্প্রতি রাখা নোট'), style: display(17, weight: 600))),
             TextButton.icon(
               onPressed: () => push(const NewItemScreen(category: ItemCategory.note)),
               icon: Icon(Icons.add_rounded, size: 18, color: C.green),
@@ -127,7 +127,7 @@ class StoreScreen extends StatelessWidget {
           ]),
         ),
         Container(
-          decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16)),
+          decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(17), border: Border.all(color: C.border)),
           clipBehavior: Clip.antiAlias,
           child: recent.isEmpty
               ? Padding(
@@ -136,7 +136,7 @@ class StoreScreen extends StatelessWidget {
                 )
               : Column(children: [
                   for (final (i, n) in recent.indexed) ...[
-                    if (i > 0) Divider(height: 1, indent: 14, endIndent: 14, color: C.line),
+                    if (i > 0) Divider(height: 1, indent: 14, endIndent: 14, color: C.border),
                     InkWell(
                       onTap: () => push(NewItemScreen(note: n)),
                       child: Padding(
@@ -145,13 +145,13 @@ class StoreScreen extends StatelessWidget {
                           Container(
                               width: 40,
                               height: 40,
-                              decoration: BoxDecoration(color: C.ochreTint, borderRadius: BorderRadius.circular(12)),
-                              child: Icon(Icons.sticky_note_2_outlined, color: C.ochre, size: 20)),
+                              decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(12)),
+                              child: Icon(Icons.description_outlined, color: C.green, size: 20)),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(n.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15, weight: FontWeight.w600)),
-                              Text('${n.category} · ${notePreview(n)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted)),
+                              Text(n.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w500)),
+                              Text('${n.category} · ${notePreview(n)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted)),
                             ]),
                           ),
                           Icon(Icons.chevron_right_rounded, color: C.muted),

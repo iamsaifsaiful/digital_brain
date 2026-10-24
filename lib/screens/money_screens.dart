@@ -187,7 +187,7 @@ class CashNowScreen extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 5),
           child: Row(children: [
             Expanded(child: Text(label, style: body(15, weight: bold ? FontWeight.w700 : FontWeight.w400))),
-            Text('${v < 0 ? '−' : (bold ? '' : '+')}${taka(v.abs())}', style: display(15.5, weight: bold ? 700 : 600, color: bold ? C.ink : (v < 0 ? C.orange : C.green))),
+            Text('${v < 0 ? '−' : (bold ? '' : '+')}${taka(v.abs())}', style: display(15.5, weight: bold ? 700 : 600, color: bold ? C.ink : (v < 0 ? C.ink : C.green))),
           ]),
         );
     return Scaffold(
@@ -330,7 +330,7 @@ class _CashViewState extends State<CashView> {
         title: isThisMonth ? tr('এই মাসের ব্যালেন্স') : tr('মাসের ব্যালেন্স'),
         amount: sums.balance.abs(),
         negative: sums.balance < 0,
-        items: [(tr('আয়'), sums.income, C.green), (tr('খরচ'), sums.expense, C.orange)],
+        items: [(tr('আয়'), sums.income, C.green), (tr('খরচ'), sums.expense, C.ink)],
       ),
       const SizedBox(height: 12),
       Row(children: [
@@ -372,7 +372,7 @@ class _CashViewState extends State<CashView> {
                   const SizedBox(height: 4),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(value: c.value / maxCat, minHeight: 7, color: C.orange, backgroundColor: C.orangeTint),
+                    child: LinearProgressIndicator(value: c.value / maxCat, minHeight: 6, color: C.green, backgroundColor: C.surface2),
                   ),
                 ]),
               ),
@@ -408,13 +408,13 @@ Widget cashRow(BuildContext context, CashEntry e, {Picks? picks}) {
         : Container(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(color: income ? C.greenTint : C.orangeTint, borderRadius: BorderRadius.circular(12)),
-            child: Icon(income ? Icons.south_west_rounded : Icons.north_east_rounded, color: income ? C.green : C.orange, size: 20),
+            decoration: BoxDecoration(color: income ? C.greenTint : C.surface2, borderRadius: BorderRadius.circular(12)),
+            child: Icon(income ? Icons.south_west_rounded : Icons.north_east_rounded, color: income ? C.green : C.muted2, size: 20),
           ),
     title: e.category,
     subtitle: [shortDate(e.date), if (e.note.trim().isNotEmpty) e.note.trim()].join(' · ') + (e.projectId == null ? '' : mainMark(BrainScope.of(context).data, e.id)),
     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-      Text('${income ? '+' : '−'}${taka(e.amount)}', style: display(16, color: income ? C.green : C.orange)),
+      Text('${income ? '+' : '−'}${taka(e.amount)}', style: body(14.5, weight: FontWeight.w600, color: income ? C.green : C.ink)),
       if (!picking)
         IconButton(
           tooltip: tr('বদলান বা মুছুন'),
@@ -682,7 +682,7 @@ class ProjectsView extends StatelessWidget {
         title: tr('চলমান হিসাবগুলোতে হাতে আছে'),
         amount: (inTotal - outTotal).abs(),
         negative: inTotal < outTotal,
-        items: [(tr('মোট এসেছে'), inTotal, C.green), (tr('মোট খরচ'), outTotal, C.orange)],
+        items: [(tr('মোট এসেছে'), inTotal, C.green), (tr('মোট খরচ'), outTotal, C.ink)],
       ),
       const SizedBox(height: 12),
       Row(children: [
@@ -782,7 +782,7 @@ class ProjectScreen extends StatelessWidget {
                 title: s.balance >= 0 ? tr('হাতে আছে') : tr('বেশি খরচ হয়েছে'),
                 amount: s.balance.abs(),
                 negative: s.balance < 0,
-                items: [(tr('মোট এসেছে'), s.income, C.green), (tr('মোট খরচ'), s.expense, C.orange)],
+                items: [(tr('মোট এসেছে'), s.income, C.green), (tr('মোট খরচ'), s.expense, C.ink)],
               ),
               if (p.budget > 0) ...[
                 const SizedBox(height: 10),

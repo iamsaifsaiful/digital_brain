@@ -59,17 +59,18 @@ class _DiaryScreenState extends State<DiaryScreen> {
         items: [(DiaryView.day, tr('দৈনিক')), (DiaryView.week, tr('সাপ্তাহিক')), (DiaryView.month, tr('মাসিক'))],
         value: _view,
         onChanged: (v) => setState(() => _view = v),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
         top: (tabs) => [
-          Row(children: [
-            Expanded(child: Text(tr('দিনলিপি'), style: display(24, weight: 700))),
-            IconButton(
+          TabTitle(
+            tr('দিনলিপি'),
+            sub: tr('দিনের কাজ, রিমাইন্ডার আর অভ্যাস'),
+            trailing: IconButton(
               tooltip: tr('ক্যালেন্ডার'),
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())),
               icon: Icon(Icons.calendar_month_outlined, color: C.ink),
             ),
-          ]),
-          const SizedBox(height: 10),
+          ),
+          const SizedBox(height: 14),
           tabs,
           const SizedBox(height: 12),
         ],
@@ -132,8 +133,8 @@ class _DiaryScreenState extends State<DiaryScreen> {
         color: Colors.transparent,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(color: C.fill, borderRadius: BorderRadius.circular(14)),
-          child: Text(t.title, style: body(14, weight: FontWeight.w600, color: Colors.white)),
+          decoration: BoxDecoration(color: C.green, borderRadius: BorderRadius.circular(11)),
+          child: Text(t.title, style: body(14, weight: FontWeight.w600, color: C.onAccent)),
         ),
       ),
       childWhenDragging: Opacity(opacity: 0.4, child: PlanRow(item: i)),
@@ -142,20 +143,20 @@ class _DiaryScreenState extends State<DiaryScreen> {
   }
 
   Widget _box(List<Widget> rows) => Container(
-        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(17), border: Border.all(color: C.border)),
         clipBehavior: Clip.antiAlias,
         child: Column(children: [
           for (final (i, r) in rows.indexed) ...[
-            if (i > 0) Divider(height: 1, indent: 14, endIndent: 14, color: C.line),
+            if (i > 0) Divider(height: 1, indent: 14, endIndent: 14, color: C.border),
             r,
           ],
         ]),
       );
 
   Widget _label(String text, {Widget? action}) => Padding(
-        padding: const EdgeInsets.fromLTRB(4, 16, 0, 8),
+        padding: const EdgeInsets.fromLTRB(0, 16, 0, 6),
         child: Row(children: [
-          Expanded(child: Text(text, style: body(13, weight: FontWeight.w600, color: C.muted))),
+          Expanded(child: Text(text, style: display(16, weight: 600))),
           if (action != null) action,
         ]),
       );
@@ -180,7 +181,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
     return [
       Container(
         padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(17), border: Border.all(color: C.border)),
         child: Row(children: [
           IconButton(
             tooltip: tr('আগের সপ্তাহ'),
@@ -233,7 +234,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
     final today = dayOnly(d) == dayOnly(now);
     final red = holidayOn(d) != null || isWeekend(d);
     final has = itemsOn(brain.data, d, now).isNotEmpty;
-    final fg = on ? Colors.white : (red ? C.rose : C.ink);
+    final fg = on ? C.onAccent : (red ? C.rose : C.ink);
     return DragTarget<Task>(
       onAcceptWithDetails: (det) async {
         await brain.moveTask(det.data, d);
@@ -255,11 +256,11 @@ class _DiaryScreenState extends State<DiaryScreen> {
           border: hover ? Border.all(color: C.green, width: 2) : (today && !on ? Border.all(color: C.green) : null),
         ),
         child: Column(children: [
-          Text(weekdayShort(d), style: body(10.5, color: on ? Colors.white70 : C.muted, height: 1.2)),
+          Text(weekdayShort(d), style: body(11, color: on ? C.onAccent.withValues(alpha: 0.8) : C.muted, height: 1.2)),
           Text(bnDigits(d.day), style: body(16, weight: FontWeight.w700, color: fg, height: 1.25)),
-          Text(bnDigits(banglaDate(d).day), style: body(10, color: on ? Colors.white70 : C.muted, height: 1.2)),
+          Text(bnDigits(banglaDate(d).day), style: body(11, color: on ? C.onAccent.withValues(alpha: 0.8) : C.muted, height: 1.2)),
           const SizedBox(height: 2),
-          Container(width: 5, height: 5, decoration: BoxDecoration(shape: BoxShape.circle, color: has ? (on ? Colors.white : C.orange) : Colors.transparent)),
+          Container(width: 5, height: 5, decoration: BoxDecoration(shape: BoxShape.circle, color: has ? (on ? C.onAccent : C.warn) : Colors.transparent)),
         ]),
       ),
     );

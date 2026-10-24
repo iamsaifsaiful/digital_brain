@@ -54,22 +54,49 @@ class PlanRow extends StatelessWidget {
     return InkWell(
       onTap: () => t != null ? editTask(context, t) : Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewItemScreen(reminder: r))),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(6, 6, 14, 6),
+        padding: const EdgeInsets.fromLTRB(8, 4, 12, 4),
         child: Row(children: [
           if (t != null)
-            Checkbox(value: t.done, activeColor: C.green, onChanged: (v) => brain.setTaskDone(t, v ?? false))
+            // The design's tick box: 22, radius 7, accent when done.
+            Semantics(
+              checked: t.done,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => brain.setTaskDone(t, !t.done),
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Center(
+                    child: Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: t.done ? C.green : Colors.transparent,
+                        borderRadius: BorderRadius.circular(7),
+                        border: Border.all(color: t.done ? C.green : C.inputBorder, width: 1.6),
+                      ),
+                      child: t.done ? Icon(Icons.check_rounded, size: 15, color: C.onAccent) : null,
+                    ),
+                  ),
+                ),
+              ),
+            )
           else
             SizedBox(
-              width: 48,
-              height: 48,
-              child: Icon(passed ? Icons.notifications_off_outlined : Icons.notifications_active_outlined, color: passed ? C.muted : C.green, size: 22),
+              width: 44,
+              height: 44,
+              child: Icon(passed ? Icons.notifications_off_outlined : Icons.notifications_none_rounded, color: passed ? C.muted : C.green, size: 21),
             ),
+          const SizedBox(width: 4),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(item.title, style: body(16, weight: FontWeight.w500, color: (t?.done ?? false) || passed ? C.muted : C.ink), maxLines: 2, overflow: TextOverflow.ellipsis),
-                Text(passed ? trf('{0} · বেজেছে', [label]) : label, style: body(13, color: r != null && !passed ? C.green : C.muted)),
+                Text(item.title,
+                    style: body(14, color: (t?.done ?? false) || passed ? C.muted : C.ink).copyWith(decoration: t?.done ?? false ? TextDecoration.lineThrough : null, decorationColor: C.muted),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis),
+                Text(passed ? trf('{0} · বেজেছে', [label]) : label, style: body(11.5, color: r != null && !passed ? C.green : C.muted)),
               ]),
             ),
           ),

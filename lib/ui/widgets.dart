@@ -16,7 +16,7 @@ String initialOf(String name) {
 
 /// White rounded card with a hairline border.
 class Panel extends StatelessWidget {
-  const Panel({super.key, required this.child, this.padding = EdgeInsets.zero, Color? color, Color? borderColor, this.radius = 16})
+  const Panel({super.key, required this.child, this.padding = EdgeInsets.zero, Color? color, Color? borderColor, this.radius = 17})
       : _color = color,
         _borderColor = borderColor;
   final Widget child;
@@ -97,8 +97,8 @@ class Pill extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
-        child: Text(text, style: body(13, weight: FontWeight.w600, color: fg)),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(9)),
+        child: Text(text, style: body(12, weight: FontWeight.w600, color: fg)),
       );
 }
 
@@ -111,24 +111,33 @@ class SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         // Space above too, so a heading never sits on the card before it.
-        padding: const EdgeInsets.only(top: 10, bottom: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(child: Text(title, style: body(15, weight: FontWeight.w600, color: C.muted2))),
-            if (action != null)
-              TextButton(
-                onPressed: onAction,
-                style: TextButton.styleFrom(foregroundColor: C.green, minimumSize: const Size(44, 40)),
-                child: Text(action!, style: body(14, weight: FontWeight.w600, color: C.green)),
-              ),
-          ],
+        padding: const EdgeInsets.only(top: 16, bottom: 6),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 32),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(child: Text(title, style: display(17, weight: 600))),
+              if (action != null)
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: onAction,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 44),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text(action!, style: body(12.5, weight: FontWeight.w600, color: C.green)),
+                      Icon(Icons.chevron_right_rounded, size: 17, color: C.green),
+                    ]),
+                  ),
+                ),
+            ],
+          ),
         ),
       );
 }
 
 class PrimaryButton extends StatelessWidget {
-  const PrimaryButton({super.key, required this.label, required this.onPressed, this.icon, Color? color, this.height = 52}) : _color = color;
+  const PrimaryButton({super.key, required this.label, required this.onPressed, this.icon, Color? color, this.height = 50}) : _color = color;
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
@@ -137,22 +146,32 @@ class PrimaryButton extends StatelessWidget {
   final double height;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
+  Widget build(BuildContext context) {
+    // The old dark "second" button is the design's outlined one now.
+    if (_color != null && _color == C.fill) {
+      return SecondaryButton(label: label, onPressed: onPressed, icon: icon, height: height);
+    }
+    return _filled();
+  }
+
+  Widget _filled() => SizedBox(
         height: height,
         width: double.infinity,
         child: FilledButton(
           onPressed: onPressed,
           style: FilledButton.styleFrom(
             backgroundColor: color,
+            foregroundColor: _color == null ? C.onAccent : Colors.white,
             disabledBackgroundColor: C.disabled,
             disabledForegroundColor: C.muted,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (icon != null) ...[Icon(icon, size: 22), const SizedBox(width: 8)],
-              Flexible(child: Text(label, style: body(17, weight: FontWeight.w600, color: onPressed == null ? C.muted : Colors.white), overflow: TextOverflow.ellipsis)),
+              if (icon != null) ...[Icon(icon, size: 20), const SizedBox(width: 8)],
+              Flexible(child: Text(label, style: body(15.5, weight: FontWeight.w600, color: onPressed == null ? C.muted : (_color == null ? C.onAccent : Colors.white)), overflow: TextOverflow.ellipsis)),
             ],
           ),
         ),
@@ -183,13 +202,13 @@ class SecondaryButton extends StatelessWidget {
             backgroundColor: C.surface,
             side: BorderSide(color: borderColor),
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (icon != null) ...[Icon(icon, size: 19), const SizedBox(width: 6)],
-              Flexible(child: Text(label, style: body(15, weight: FontWeight.w600, color: fg), overflow: TextOverflow.ellipsis)),
+              if (icon != null) ...[Icon(icon, size: 18), const SizedBox(width: 6)],
+              Flexible(child: Text(label, style: body(14, weight: FontWeight.w500, color: fg), overflow: TextOverflow.ellipsis)),
             ],
           ),
         ),
@@ -207,13 +226,14 @@ class RoundIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Tooltip(
         message: tooltip,
+        // Plain (no box); the main action of a page ([dark]) is the accent square.
         child: Material(
-          color: dark ? C.fill : C.surface,
-          shape: CircleBorder(side: BorderSide(color: dark ? C.fill : C.line)),
+          color: dark ? C.green : Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: InkWell(
-            customBorder: const CircleBorder(),
+            borderRadius: BorderRadius.circular(12),
             onTap: onPressed,
-            child: SizedBox(width: 44, height: 44, child: Icon(icon, size: 22, color: dark ? Colors.white : C.ink)),
+            child: SizedBox(width: 44, height: 44, child: Icon(icon, size: 22, color: dark ? C.onAccent : C.ink)),
           ),
         ),
       );
@@ -238,7 +258,7 @@ class TopBar extends StatelessWidget {
               icon: Icon(close ? Icons.close_rounded : Icons.chevron_left_rounded, size: close ? 24 : 30, color: C.ink),
             ),
             const SizedBox(width: 2),
-            Expanded(child: Text(title, style: display(21, weight: 700), overflow: TextOverflow.ellipsis)),
+            Expanded(child: Text(title, style: display(21, weight: 600), overflow: TextOverflow.ellipsis)),
             ...trailing,
           ],
         ),
@@ -254,12 +274,12 @@ class TabTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              if (sub != null) Text(sub!, style: body(13, color: C.muted)),
-              Text(title, style: display(26, weight: 700, height: 1.2)),
+              Text(title, style: display(25, weight: 600, height: 1.3)),
+              if (sub != null) Padding(padding: const EdgeInsets.only(top: 2), child: Text(sub!, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13.5, color: C.muted))),
             ]),
           ),
           if (trailing != null) trailing!,
@@ -297,12 +317,12 @@ class SegTabs<T> extends StatelessWidget {
       widthFactor: 1 / items.length,
       heightFactor: 1,
       child: DecoratedBox(
-        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(9), boxShadow: const [BoxShadow(color: Color(0x14111827), blurRadius: 2, offset: Offset(0, 1))]),
+        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(9), border: Border.all(color: C.border)),
       ),
     );
     return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: C.chip, borderRadius: BorderRadius.circular(12)),
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(color: C.surface2, borderRadius: BorderRadius.circular(11)),
       child: SizedBox(
         height: 38,
         child: Stack(children: [
@@ -321,12 +341,12 @@ class SegTabs<T> extends StatelessWidget {
                       child: animate
                           ? AnimatedDefaultTextStyle(
                               duration: const Duration(milliseconds: 200),
-                              style: body(14, weight: v == value ? FontWeight.w600 : FontWeight.w400, color: v == value ? C.ink : C.muted2),
+                              style: body(13, weight: v == value ? FontWeight.w600 : FontWeight.w400, color: v == value ? C.ink : C.muted),
                               child: Text(label, maxLines: 1),
                             )
                           : Text(label,
                               maxLines: 1,
-                              style: body(14, weight: (at - i).abs() < 0.5 ? FontWeight.w600 : FontWeight.w400, color: Color.lerp(C.ink, C.muted2, (at - i).abs().clamp(0.0, 1.0).toDouble()))),
+                              style: body(13, weight: (at - i).abs() < 0.5 ? FontWeight.w600 : FontWeight.w400, color: Color.lerp(C.ink, C.muted, (at - i).abs().clamp(0.0, 1.0).toDouble()))),
                     ),
                   ),
                 ),
@@ -508,12 +528,13 @@ class AddButton extends StatelessWidget {
   Widget build(BuildContext context) => FloatingActionButton.extended(
         heroTag: null,
         onPressed: onPressed,
-        backgroundColor: C.fill,
-        foregroundColor: Colors.white,
-        elevation: 3,
-        shape: const StadiumBorder(),
+        backgroundColor: C.green,
+        foregroundColor: C.onAccent,
+        elevation: 0,
+        highlightElevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)),
         icon: Icon(icon),
-        label: Text(label, style: body(15, weight: FontWeight.w600, color: Colors.white)),
+        label: Text(label, style: body(14.5, weight: FontWeight.w600, color: C.onAccent)),
       );
 }
 
@@ -614,11 +635,11 @@ class InfoBanner extends StatelessWidget {
   final String text;
   final IconData icon;
   final Color? _fg;
-  Color get fg => _fg ?? C.blueText;
+  Color get fg => _fg ?? C.muted2;
   final Color? _iconColor;
-  Color get iconColor => _iconColor ?? C.blue;
+  Color get iconColor => _iconColor ?? C.green;
   final Color? _bg;
-  Color get bg => _bg ?? C.blueTint;
+  Color get bg => _bg ?? C.greenTint;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -627,9 +648,9 @@ class InfoBanner extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 20, color: iconColor),
+            Icon(icon, size: 19, color: iconColor),
             const SizedBox(width: 10),
-            Expanded(child: Text(text, style: body(14, color: fg, height: 1.5))),
+            Expanded(child: Text(text, style: body(13, color: fg, height: 1.5))),
           ],
         ),
       );
@@ -662,14 +683,15 @@ class DateBlock extends StatelessWidget {
   final String bottom;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        width: 46,
+  Widget build(BuildContext context) => Container(
+        width: 44,
+        height: 46,
+        decoration: BoxDecoration(color: C.surface2, borderRadius: BorderRadius.circular(12)),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(top, style: display(20, height: 1)),
-            const SizedBox(height: 2),
-            Text(bottom, style: body(12, color: C.muted, height: 1.1), maxLines: 1, overflow: TextOverflow.clip),
+            Text(top, style: body(17, weight: FontWeight.w700, height: 1.1)),
+            Text(bottom, style: body(10.5, color: C.muted, height: 1.2), maxLines: 1, overflow: TextOverflow.clip),
           ],
         ),
       );
@@ -704,7 +726,7 @@ class ListRow extends StatelessWidget {
       this.onTap,
       this.onLongPress,
       this.picked = false,
-      this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 12)})
+      this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 10)})
       : _subtitleColor = subtitleColor;
   final Widget leading;
   final String title;
@@ -738,9 +760,9 @@ class ListRow extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(title, style: body(16, weight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text(title, style: body(14.5, weight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
                       if (subtitle != null && subtitle!.isNotEmpty)
-                        Text(subtitle!, style: body(13, color: subtitleColor, weight: subtitleColor == C.muted ? FontWeight.w400 : FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(subtitle!, style: body(12, color: subtitleColor, weight: subtitleColor == C.muted ? FontWeight.w400 : FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
                     ],
                   ),
                 ),
@@ -767,15 +789,15 @@ class EmptyState extends StatelessWidget {
         child: Column(
           children: [
             Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(color: C.greenTint, shape: BoxShape.circle),
-              child: Icon(icon, color: C.green, size: 30),
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(17)),
+              child: Icon(icon, color: C.green, size: 26),
             ),
             const SizedBox(height: 12),
-            Text(title, style: display(19), textAlign: TextAlign.center),
+            Text(title, style: display(17), textAlign: TextAlign.center),
             const SizedBox(height: 4),
-            Text(text, style: body(14, color: C.muted, height: 1.5), textAlign: TextAlign.center),
+            Text(text, style: body(13.5, color: C.muted, height: 1.5), textAlign: TextAlign.center),
             if (action != null) ...[
               const SizedBox(height: 14),
               SizedBox(width: 220, child: PrimaryButton(label: action!, onPressed: onAction, height: 48)),

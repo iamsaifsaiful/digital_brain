@@ -164,44 +164,46 @@ class _AssistantBarState extends State<AssistantBar> {
         ),
       Container(
         key: const ValueKey('box'),
-        color: C.surface,
-        padding: const EdgeInsets.fromLTRB(0, 10, 0, 8),
+        decoration: BoxDecoration(color: C.surface, border: Border(top: BorderSide(color: C.border))),
+        padding: const EdgeInsets.fromLTRB(0, 10, 0, 6),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          if (widget.questions && !typing)
+          // The one-tap questions: once the box is touched (approved design keeps the bar quiet).
+          if (widget.questions && !typing && _focus.hasFocus) ...[
             SizedBox(
               height: 36,
               child: ListView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 15),
                 children: [
                   chip(tr('আগের কথা'), () => openAssistant(context), icon: Icons.forum_outlined),
                   for (final x in brain.quickQuestions) chip(x, () => openChatWith(context, x)),
                 ],
               ),
             ),
-          if (widget.questions && !typing) const SizedBox(height: 10),
+            const SizedBox(height: 10),
+          ],
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 15),
             child: Row(children: [
               Expanded(
                 child: Container(
-                  height: 52,
-                  padding: const EdgeInsets.only(left: 16, right: 6),
+                  height: 50,
+                  padding: const EdgeInsets.only(left: 12, right: 4),
                   decoration: BoxDecoration(
-                    color: C.soft,
-                    borderRadius: BorderRadius.circular(26),
-                    border: Border.all(color: _focus.hasFocus ? C.green : Colors.transparent, width: 1.5),
+                    color: C.ground,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: _focus.hasFocus ? C.green : C.border, width: _focus.hasFocus ? 1.5 : 1),
                   ),
                   child: Row(children: [
-                    Icon(Icons.search_rounded, color: C.muted, size: 21),
-                    const SizedBox(width: 8),
+                    Icon(Icons.keyboard_outlined, color: C.muted, size: 20),
+                    const SizedBox(width: 9),
                     Expanded(
                       child: TextField(
                         controller: _text,
                         focusNode: _focus,
                         textInputAction: TextInputAction.send,
                         onSubmitted: (_) => _send(),
-                        style: body(15.5),
+                        style: body(14),
                         decoration: InputDecoration(
                           isDense: true,
                           filled: false,
@@ -209,8 +211,8 @@ class _AssistantBarState extends State<AssistantBar> {
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
                           contentPadding: EdgeInsets.zero,
-                          hintText: tr('খুঁজুন, রাখুন বা জিজ্ঞেস করুন…'),
-                          hintStyle: body(15, color: C.muted),
+                          hintText: tr('বলুন বা লিখুন — “রবিনকে ৫০০ দিলাম”'),
+                          hintStyle: body(13.5, color: C.muted),
                         ),
                       ),
                     ),
@@ -221,14 +223,14 @@ class _AssistantBarState extends State<AssistantBar> {
                         onPressed: _text.clear,
                         icon: Icon(Icons.close_rounded, color: C.muted, size: 20),
                       )
-                    else
-                      // The earlier conversations, one tap from the box.
+                    else if (_focus.hasFocus)
+                      // The earlier conversations, once the box is touched.
                       IconButton(
                         key: const Key('home-past-chats'),
                         tooltip: tr('আগের কথাগুলো'),
                         visualDensity: VisualDensity.compact,
                         onPressed: () => openPastChats(context),
-                        icon: Icon(Icons.history_rounded, color: C.green, size: 24),
+                        icon: Icon(Icons.history_rounded, color: C.muted, size: 21),
                       ),
                   ]),
                 ),
@@ -243,14 +245,14 @@ class _AssistantBarState extends State<AssistantBar> {
                   excludeSemantics: true,
                   child: Material(
                     color: C.green,
-                    shape: const CircleBorder(),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)),
                     child: InkWell(
-                      customBorder: const CircleBorder(),
+                      borderRadius: BorderRadius.circular(17),
                       onTap: typing ? _send : () => openVoice(context),
                       child: SizedBox(
                         width: 52,
                         height: 52,
-                        child: Icon(typing ? Icons.arrow_upward_rounded : Icons.mic_rounded, color: Colors.white, size: 27),
+                        child: Icon(typing ? Icons.arrow_upward_rounded : Icons.mic_none_rounded, color: C.onAccent, size: 26),
                       ),
                     ),
                   ),

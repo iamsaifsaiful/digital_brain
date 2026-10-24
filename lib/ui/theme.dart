@@ -16,7 +16,7 @@ class Accent {
 }
 
 const accents = [
-  Accent('green', 'সবুজ', 'Green', Color(0xFF0E7A5F), Color(0xFF0A5C47), Color(0xFFE7F4EF), Color(0xFF12352C)),
+  Accent('green', 'সবুজ', 'Green', Color(0xFF087866), Color(0xFF06594C), Color(0xFFE7F3EE), Color(0xFF223C31)),
   Accent('blue', 'নীল', 'Blue', Color(0xFF1D5FD8), Color(0xFF17459E), Color(0xFFE8F0FE), Color(0xFF15284A)),
   Accent('purple', 'বেগুনি', 'Purple', Color(0xFF6D3FD6), Color(0xFF4F2BA3), Color(0xFFF1ECFE), Color(0xFF2A1F4A)),
   Accent('teal', 'ফিরোজা', 'Teal', Color(0xFF0E7490), Color(0xFF0B5468), Color(0xFFE3F4F8), Color(0xFF113541)),
@@ -48,8 +48,10 @@ Accent customAccent(Color c) {
 /// The colour as saved ('#RRGGBB').
 String colorKey(Color c) => '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
 
-/// Colours from the design canvas (v2: clean grey ground, white cards,
-/// one accent colour, amber for money going out), with a dark set.
+/// Colours of the approved home design (24 Oct, docs/design/2026-10-24-home-final):
+/// a calm green-grey ground, white cards with a 1 px hairline and no
+/// shadow, one accent, a warm amber for attention; and the dark set.
+/// Old names stay and point at the new tokens.
 class C {
   /// Set by the app before building; screens read colours through [C].
   static bool dark = false;
@@ -57,30 +59,50 @@ class C {
 
   static Color _p(int light, int night) => Color(dark ? night : light);
 
-  static Color get ground => _p(0xFFF6F7F9, 0xFF0B0F14);
-  static Color get surface => _p(0xFFFFFFFF, 0xFF161B22);
-  static Color get ink => _p(0xFF111827, 0xFFF0F3F6);
-  static Color get muted => _p(0xFF6B7280, 0xFF9DA7B3);
-  static Color get muted2 => _p(0xFF374151, 0xFFC9D1D9);
-  static Color get line => _p(0xFFE5E7EB, 0xFF2A313C);
-  static Color get line2 => _p(0xFFF1F2F4, 0xFF21262D);
-  static Color get border => _p(0xFFE5E7EB, 0xFF30363D);
-  static Color get inputBorder => _p(0xFFD1D5DB, 0xFF3D4550);
-  static Color get disabled => _p(0xFFE5E7EB, 0xFF2F343C);
-  static Color get chip => _p(0xFFECEEF1, 0xFF21262D);
+  /// bg: the screen.
+  static Color get ground => _p(0xFFF5F7F6, 0xFF101916);
+  static Color get surface => _p(0xFFFFFFFF, 0xFF19251F);
+
+  /// surface2: counters, date blocks, quiet chips, the tabs' track.
+  static Color get surface2 => _p(0xFFEDF2F0, 0xFF223129);
+  static Color get ink => _p(0xFF192E28, 0xFFEEF4EF);
+  static Color get muted => _p(0xFF667871, 0xFFA1B3A8);
+  static Color get muted2 => _p(0xFF3E524B, 0xFFC6D4CB);
+  static Color get line => _p(0xFFDFE7E3, 0xFF2D3D33);
+  static Color get line2 => _p(0xFFDFE7E3, 0xFF2D3D33);
+  static Color get border => _p(0xFFDFE7E3, 0xFF2D3D33);
+  static Color get inputBorder => _p(0xFFD3DED9, 0xFF3A4B41);
+  static Color get disabled => _p(0xFFE3E9E6, 0xFF2A3830);
+  static Color get chip => surface2;
+
+  /// Attention (late, may-not-ring, money to give).
+  static Color get warn => _p(0xFF92631C, 0xFFE5C487);
+  static Color get warnBg => _p(0xFFFBF5E9, 0xFF2B281E);
+  static Color get warnBorder => _p(0xFFEBDFC5, 0xFF45402E);
 
   /// A solid dark fill for buttons and cards with white text (dark in both looks).
-  static Color get fill => _p(0xFF111827, 0xFF2D333B);
+  static Color get fill => _p(0xFF192E28, 0xFF2A3A31);
 
   /// Always dark (lock screen, alarm page).
   static const night = Color(0xFF111827);
 
   /// In the dark look the accent glows: brighter and more saturated (not
   /// washed out with white), with white letters still readable on it.
-  static Color get green => dark ? _glow(accent.main, 0.34) : accent.main;
-  static Color get greenDark => dark ? _glow(accent.main, 0.74) : accent.dark;
-  static Color get greenTint => dark ? Color.alphaBlend(_glow(accent.main, 0.45).withValues(alpha: 0.22), surface) : accent.tint;
+  /// accent; in the dark look a light glow (mint for the default green)
+  /// with dark letters on it ([onAccent]).
+  static Color get green => dark ? (accent.key == 'green' ? const Color(0xFF8BD8BF) : _glow(accent.main, 0.72)) : accent.main;
+  static Color get greenDark => dark ? (accent.key == 'green' ? const Color(0xFFA9E6D2) : _glow(accent.main, 0.82)) : accent.dark;
+
+  /// accentSoft: icon tiles, the active tab's pill, soft chips.
+  static Color get greenTint => dark ? (accent.key == 'green' ? const Color(0xFF223C31) : Color.alphaBlend(_glow(accent.main, 0.45).withValues(alpha: 0.22), surface)) : accent.tint;
   static Color get greenSoft => dark ? Color.alphaBlend(_glow(accent.main, 0.45).withValues(alpha: 0.12), surface) : Color.lerp(accent.tint, Colors.white, 0.45)!;
+
+  /// Letters and icons on the accent.
+  static Color get onAccent => dark ? const Color(0xFF102C21) : Colors.white;
+
+  // Short names from the design.
+  static Color get accentC => green;
+  static Color get accentSoft => greenTint;
 
   static Color _glow(Color c, double lightness) {
     final h = HSLColor.fromColor(c);
@@ -93,9 +115,9 @@ class C {
 
   // Category colours (24 Oct): calm, earthy versions, so pages read as one
   // quiet set rather than a rainbow.
-  static Color get orange => _p(0xFFA85F1F, 0xFFE0A55C);
-  static Color get orangeDark => _p(0xFF84481A, 0xFFF0C080);
-  static Color get orangeTint => _tint(0xFFFBF1E4, 0xFFE0A55C);
+  static Color get orange => warn;
+  static Color get orangeDark => _p(0xFF7A5216, 0xFFEDD3A0);
+  static Color get orangeTint => warnBg;
 
   static Color get blue => _p(0xFF3D5F8A, 0xFF9DB7D6);
   static Color get blueTint => _tint(0xFFEDF1F6, 0xFF9DB7D6);
@@ -117,7 +139,7 @@ class C {
   static Color get roseFill => _p(0xFFA8434A, 0xFFC2554F);
   static Color get roseTint => _tint(0xFFF8EBEC, 0xFFE99AA0);
   static Color get waTint => _tint(0xFFE3F6EA, 0xFF34D399);
-  static Color get soft => _p(0xFFF3F4F6, 0xFF1F252D);
+  static Color get soft => surface2;
 
   // On the dark surfaces (alarm page, Pro card).
   static const dark2 = Color(0xFF1F2937);
@@ -135,14 +157,15 @@ class C {
 /// Noto Sans Bengali for Bengali (clear, familiar digits); Hind Siliguri
 /// fills in English letters and punctuation that Noto's Bengali font lacks.
 const bodyFont = 'NotoBengali';
-const displayFont = 'NotoBengali';
+const displayFont = 'Hind';
 const fontFallback = ['Hind'];
+const _displayFallback = ['NotoBengali'];
 
 FontWeight _w(double weight) => weight >= 650 ? FontWeight.w700 : (weight >= 550 ? FontWeight.w600 : FontWeight.w500);
 
 /// Headings and amounts.
 TextStyle display(double size, {double weight = 600, Color? color, double? height}) =>
-    TextStyle(fontFamily: displayFont, fontFamilyFallback: fontFallback, fontSize: size * textScale, height: height ?? 1.25, color: color ?? C.ink, fontWeight: _w(weight));
+    TextStyle(fontFamily: displayFont, fontFamilyFallback: _displayFallback, fontSize: size * textScale, height: height ?? 1.3, color: color ?? C.ink, fontWeight: _w(weight));
 
 TextStyle body(double size, {FontWeight weight = FontWeight.w400, Color? color, double? height}) =>
     TextStyle(fontFamily: bodyFont, fontFamilyFallback: fontFallback, fontSize: size * textScale, fontWeight: weight, color: color ?? C.ink, height: height ?? 1.45);
@@ -161,7 +184,7 @@ ThemeData buildTheme() {
       seedColor: C.green,
       brightness: C.dark ? Brightness.dark : Brightness.light,
       primary: C.green,
-      onPrimary: Colors.white,
+      onPrimary: C.onAccent,
       surface: C.ground,
       onSurface: C.ink,
     ),
@@ -171,15 +194,16 @@ ThemeData buildTheme() {
     appBarTheme: AppBarTheme(backgroundColor: C.ground, foregroundColor: C.ink, elevation: 0, scrolledUnderElevation: 0),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: C.surface,
+      fillColor: C.ground,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      labelStyle: body(15, color: C.muted),
-      hintStyle: body(15, color: const Color(0xFF7D8681)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: C.inputBorder)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: C.green, width: 2)),
-      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: C.red)),
-      focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: C.red, width: 2)),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+      labelStyle: body(14, color: C.muted),
+      floatingLabelStyle: body(12.5, color: C.muted),
+      hintStyle: body(14, color: C.muted),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: C.border)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: C.green, width: 1.5)),
+      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: C.red)),
+      focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: C.red, width: 1.5)),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
@@ -188,10 +212,10 @@ ThemeData buildTheme() {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
     dividerTheme: DividerThemeData(color: C.line2, thickness: 1, space: 1),
-    bottomSheetTheme: BottomSheetThemeData(backgroundColor: C.surface, showDragHandle: true),
-    dialogTheme: DialogThemeData(backgroundColor: C.surface, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+    bottomSheetTheme: BottomSheetThemeData(backgroundColor: C.surface, surfaceTintColor: Colors.transparent, showDragHandle: true, dragHandleColor: C.border, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20)))),
+    dialogTheme: DialogThemeData(backgroundColor: C.surface, surfaceTintColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
     switchTheme: SwitchThemeData(
-      thumbColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? Colors.white : null),
+      thumbColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? C.onAccent : null),
       trackColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? C.green : null),
       trackOutlineColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? C.green : null),
     ),
@@ -199,8 +223,8 @@ ThemeData buildTheme() {
       backgroundColor: C.surface,
       selectedColor: C.greenTint,
       side: BorderSide(color: C.line),
-      shape: const StadiumBorder(),
-      labelStyle: body(14, color: C.muted2),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+      labelStyle: body(13.5, color: C.muted2),
       secondaryLabelStyle: body(14, color: C.greenDark, weight: FontWeight.w600),
       showCheckmark: false,
     ),
@@ -208,8 +232,8 @@ ThemeData buildTheme() {
       style: ButtonStyle(
         backgroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? C.surface : C.chip),
         foregroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? C.ink : C.muted2),
-        side: WidgetStatePropertyAll(BorderSide(color: C.chip, width: 3)),
-        shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+        side: WidgetStatePropertyAll(BorderSide(color: C.border)),
+        shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(11))),
       ),
     ),
   );
