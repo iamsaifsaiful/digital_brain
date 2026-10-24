@@ -15,7 +15,6 @@ import '../services/files.dart';
 import '../state/brain.dart';
 import '../ui/note_parts.dart' show openMap;
 import '../ui/pin.dart';
-import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import '../logic/lang.dart';
@@ -73,8 +72,8 @@ class _DocsScreenState extends State<DocsScreen> {
 
   Widget _addButton(IconData icon, String label, int source, {bool dark = false}) => Expanded(
         child: Material(
-          color: dark ? C.fill : C.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: dark ? BorderSide(color: C.fillEdge) : (C.dark ? BorderSide(color: C.line) : BorderSide.none)),
+          color: dark ? C.green : C.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: dark ? BorderSide.none : BorderSide(color: C.inputBorder)),
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
             onTap: () => addDocument(context, source: source, folder: widget.folder),
@@ -99,7 +98,12 @@ class _DocsScreenState extends State<DocsScreen> {
     final folders = allDocFolders(d);
 
     Widget docRow(Doc x) => ListRow(
-          leading: IconSquare(x.files.any((f) => f.isImage) ? Icons.image_outlined : Icons.description_outlined, size: 40),
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(color: C.blueTint, borderRadius: BorderRadius.circular(12)),
+            child: Icon(x.files.any((f) => f.isImage) ? Icons.image_outlined : Icons.description_outlined, color: C.blue, size: 20),
+          ),
           title: x.title,
           subtitle: trf('{0} · {1} পাতা · {2}{3}', [x.folder, bnDigits(x.files.length), sizeText(x.size), x.expiry != null ? ' · মেয়াদ ${bnDigits(x.expiry!.day)} ${monthShort(x.expiry!.month)} ${bnDigits(x.expiry!.year)}' : '']),
           onTap: () => _open(x),
@@ -108,7 +112,7 @@ class _DocsScreenState extends State<DocsScreen> {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: folder ?? tr('ডকুমেন্টস'), sub: trf('{0}টা কাগজ, এই ফোনে তালাবদ্ধ', [bnDigits(docs.length)]), trailing: [const PdfButton({ReportPart.docs}), Padding(padding: const EdgeInsets.only(right: 8), child: Icon(Icons.lock_outline_rounded, color: C.muted2))]),
+          TopBar(title: folder ?? tr('ডকুমেন্টস'), trailing: [const PdfButton({ReportPart.docs}), Padding(padding: EdgeInsets.only(right: 8), child: Icon(Icons.lock_outline_rounded, color: C.green))]),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
@@ -132,11 +136,11 @@ class _DocsScreenState extends State<DocsScreen> {
                             style: body(12.5, color: C.muted)),
                       ]),
                     ),
-                    Switch(value: _shrink, onChanged: _setShrink),
+                    Switch(value: _shrink, activeTrackColor: C.green, onChanged: _setShrink),
                   ]),
                 ),
                 if (folder == null) ...[
-                  Padding(padding: const EdgeInsets.fromLTRB(4, 18, 4, 10), child: Text(tr('ফোল্ডার'), style: heading(18))),
+                  Padding(padding: const EdgeInsets.fromLTRB(4, 18, 4, 8), child: Text(tr('ফোল্ডার'), style: body(13, weight: FontWeight.w600, color: C.muted))),
                   GridView.count(
                     crossAxisCount: 3,
                     shrinkWrap: true,
@@ -148,14 +152,19 @@ class _DocsScreenState extends State<DocsScreen> {
                       for (final f in folders)
                         Material(
                           color: C.surface,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: C.dark ? BorderSide(color: C.line) : BorderSide.none),
+                          borderRadius: BorderRadius.circular(16),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(16),
                             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DocsScreen(folder: f))),
                             child: Padding(
                               padding: const EdgeInsets.all(10),
                               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                IconSquare(Icons.folder_outlined, size: 36, radius: 11),
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(color: C.blueTint, borderRadius: BorderRadius.circular(11)),
+                                  child: Icon(Icons.folder_outlined, color: C.blue, size: 20),
+                                ),
                                 const Spacer(),
                                 Text(tr(f), maxLines: 2, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w600, height: 1.25)),
                                 Text(trf('{0}টি', [bnDigits(d.docs.where((x) => x.folder == f).length)]), style: body(11.5, color: C.muted)),
@@ -168,7 +177,7 @@ class _DocsScreenState extends State<DocsScreen> {
                 ],
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
-                  child: Text(folder == null ? tr('সম্প্রতি রাখা') : trf('এই ফোল্ডারে · {0}টি', [bnDigits(docs.length)]), style: heading(18)),
+                  child: Text(folder == null ? tr('সম্প্রতি রাখা') : trf('এই ফোল্ডারে · {0}টি', [bnDigits(docs.length)]), style: body(13, weight: FontWeight.w600, color: C.muted)),
                 ),
                 if (docs.isEmpty)
                   Panel(

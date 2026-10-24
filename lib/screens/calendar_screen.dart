@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../logic/bn.dart';
 import '../logic/calendar_bd.dart';
 import '../state/brain.dart';
-import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'home_page.dart' show holidayRange;
@@ -51,7 +50,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     Widget sunTile(IconData icon, Color c, String label, String value) => Expanded(
           child: Container(
             padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(12)),
             child: Row(children: [
               Icon(icon, color: c, size: 22),
               const SizedBox(width: 8),
@@ -74,11 +73,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
             children: [
-              TopBar(title: tr('ক্যালেন্ডার'), sub: tr('ইংরেজি, বাংলা আর হিজরি এক সাথে'), note: HandNote(tr('প্রতিটা দিন গুরুত্বপূর্ণ'), size: 12.5, rotate: -5)),
+              Row(children: [
+                IconButton(tooltip: tr('ফিরে যান'), onPressed: () => Navigator.of(context).maybePop(), icon: const Icon(Icons.chevron_left_rounded, size: 30)),
+                Expanded(child: Text(tr('ক্যালেন্ডার'), style: display(21, weight: 700))),
+              ]),
               const SizedBox(height: 6),
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: C.fill, borderRadius: BorderRadius.circular(22), border: C.dark ? Border.all(color: C.fillEdge) : null),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  gradient: LinearGradient(colors: [C.green, C.teal], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Expanded(
@@ -140,7 +145,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 Panel(
                   padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                   child: Row(children: [
-                    Icon(Icons.nightlight_round, color: C.muted2),
+                    Icon(Icons.nightlight_round, color: C.green),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(trf('রমজান · সেহরির শেষ সময় {0} · ইফতার {1} (আনুমানিক)', [bnTime(sun.fajr.hour, sun.fajr.minute), bnTime(sun.maghrib.hour, sun.maghrib.minute)]),
@@ -286,7 +291,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final isPicked = d == picked && !isToday;
     final hol = holidayOn(d) != null;
     final weekend = isWeekend(d);
-    final bg = isToday ? C.fill : (hol ? C.roseTint : Colors.transparent);
+    final bg = isToday ? C.green : (hol ? C.roseTint : Colors.transparent);
     final fg = isToday ? Colors.white : (hol || weekend ? _red : C.ink);
     return InkWell(
       key: Key('day-${d.year}-${d.month}-${d.day}'),
@@ -296,7 +301,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         _dayDetails(d);
       },
       child: Container(
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10), border: isPicked ? Border.all(color: C.primary, width: 1.5) : null),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10), border: isPicked ? Border.all(color: C.green, width: 1.5) : null),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Text(bnDigits(d.day), style: body(14.5, weight: FontWeight.w600, color: fg, height: 1.2)),
           Text(_side == CalSide.bangla ? bnDigits(banglaDate(d).day) : bnDigits(hijriDate(d, adjust: brain.number('hijri_adjust')).day),
@@ -370,7 +375,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     Navigator.pop(ctx);
                     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SpecialDaysScreen()));
                   },
-                  icon: Icon(Icons.cake_outlined, color: C.muted2),
+                  icon: Icon(Icons.cake_outlined, color: C.green),
                   label: Text(tr('জন্মদিন বা বিশেষ দিন রাখুন')),
                 ),
               ],

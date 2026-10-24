@@ -6,7 +6,6 @@ import '../logic/lang.dart';
 import '../logic/me.dart' show bloodGroups;
 import '../models/models.dart';
 import '../state/brain.dart';
-import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'docs_screen.dart';
@@ -49,51 +48,38 @@ class _HealthScreenState extends State<HealthScreen> {
     final sugar = latest(d, m.id, HealthKind.sugar);
     final age = m.ageOn(now);
 
-    // The 24 Oct look: calm white tiles; the first (blood pressure) dark.
-    Widget tile(HealthKind kind, IconData icon, Color color, String value, String sub, {Level? level, VoidCallback? quick, String? quickLabel, bool featured = false}) {
-      final fg = featured ? Colors.white : C.ink;
-      final dim = featured ? Colors.white.withValues(alpha: 0.75) : C.muted;
-      return Expanded(
-        child: Material(
-          color: featured ? C.fill : C.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: featured ? BorderSide(color: C.fillEdge) : (C.dark ? BorderSide(color: C.line) : BorderSide.none)),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: () => _push(HealthKindScreen(member: m.id, kind: kind)),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 8, 10),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Icon(icon, color: featured ? Colors.white : C.muted2, size: 18),
-                  const SizedBox(width: 6),
-                  Expanded(child: Text(isEn ? kind.en : kind.bn, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w600, color: featured ? Colors.white : C.muted2))),
-                ]),
-                const SizedBox(height: 6),
-                Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(21, weight: 700, color: level == null || featured ? fg : levelColor(level))),
-                const SizedBox(height: 2),
-                if (level != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: featured ? Colors.white.withValues(alpha: 0.14) : levelColor(level).withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)),
-                    child: Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, weight: FontWeight.w600, color: featured ? Colors.white : levelColor(level))),
-                  )
-                else
-                  Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(12, color: dim, height: 1.3)),
-                if (quick != null)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: const EdgeInsets.symmetric(horizontal: 8)),
-                      onPressed: quick,
-                      child: Text(quickLabel ?? tr('যোগ'), style: body(13, weight: FontWeight.w600, color: featured ? Colors.white : C.primary)),
+    Widget tile(HealthKind kind, IconData icon, Color color, String value, String sub, {Level? level, VoidCallback? quick, String? quickLabel}) => Expanded(
+          child: Material(
+            color: C.surface,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => _push(HealthKindScreen(member: m.id, kind: kind)),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 8, 10),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Icon(icon, color: color, size: 20),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(isEn ? kind.en : kind.bn, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w600, color: C.muted2))),
+                  ]),
+                  const SizedBox(height: 6),
+                  Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(19, weight: 700, color: level == null ? C.ink : levelColor(level))),
+                  Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(12, color: C.muted, height: 1.3)),
+                  if (quick != null)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                        onPressed: quick,
+                        child: Text(quickLabel ?? tr('যোগ'), style: body(13, weight: FontWeight.w600, color: C.green)),
+                      ),
                     ),
-                  ),
-              ]),
+                ]),
+              ),
             ),
           ),
-        ),
-      );
-    }
+        );
 
     final bpLevelNow = bp == null ? null : bpLevel(bp.a, bp.b ?? 0);
     final sugarLevelNow = sugar == null ? null : sugarLevel(sugar.a, fasting: sugar.tag == 'fasting');
@@ -104,7 +90,7 @@ class _HealthScreenState extends State<HealthScreen> {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('স্বাস্থ্য'), sub: tr('শুধু এই ফোনে থাকে, কোথাও যায় না'), trailing: [
+          TopBar(title: tr('স্বাস্থ্য'), trailing: [
             const PdfButton({ReportPart.health}),
             IconButton(tooltip: tr('ডাক্তারকে দেখান'), onPressed: () => _push(DoctorSummaryScreen(member: m.id)), icon: const Icon(Icons.assignment_ind_outlined)),
           ]),
@@ -121,7 +107,7 @@ class _HealthScreenState extends State<HealthScreen> {
                   ),
                 ),
               ActionChip(
-                avatar: Icon(Icons.person_add_alt_outlined, size: 18, color: C.muted2),
+                avatar: Icon(Icons.person_add_alt_outlined, size: 18, color: C.green),
                 label: Text(tr('পরিবারের সদস্য')),
                 onPressed: () async {
                   final added = await editMember(context, null);
@@ -156,8 +142,8 @@ class _HealthScreenState extends State<HealthScreen> {
                       ),
                       TextButton.icon(
                         onPressed: () => editMember(context, m),
-                        icon: Icon(Icons.edit_outlined, size: 18, color: C.primary),
-                        label: Text(tr('বদলান'), style: body(14, weight: FontWeight.w600, color: C.primary)),
+                        icon: Icon(Icons.edit_outlined, size: 18, color: C.green),
+                        label: Text(tr('বদলান'), style: body(14, weight: FontWeight.w600, color: C.green)),
                       ),
                     ]),
                     const SizedBox(height: 12),
@@ -171,25 +157,25 @@ class _HealthScreenState extends State<HealthScreen> {
                   ]),
                 ),
                 const SizedBox(height: 12),
-                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  tile(HealthKind.weight, Icons.monitor_weight_outlined, C.teal, w == null ? '—' : kg(w.a), w == null ? tr('লেখা হয়নি') : _changeText(d, m.id, now),
+                      quick: () => addReading(context, m.id, HealthKind.weight)),
+                  const SizedBox(width: 10),
                   tile(HealthKind.bp, Icons.favorite_border_rounded, C.rose, bp == null ? '—' : readingText(bp).split(' · ').first,
                       bp == null ? tr('লেখা হয়নি') : '${bpLevelNow!.$2} · ${shortDate(bp.at)}',
-                      level: bpLevelNow?.$1, quick: () => addReading(context, m.id, HealthKind.bp), featured: true),
-                  const SizedBox(width: 10),
+                      level: bpLevelNow?.$1, quick: () => addReading(context, m.id, HealthKind.bp)),
+                ]),
+                const SizedBox(height: 10),
+                Row(children: [
                   tile(HealthKind.sugar, Icons.bloodtype_outlined, C.purple, sugar == null ? '—' : mmolText(sugar.a),
                       sugar == null ? tr('লেখা হয়নি') : '${sugarLevelNow!.$2} · ${sugar.tag == 'fasting' ? tr('খালি পেটে') : tr('খাওয়ার পরে')}',
                       level: sugarLevelNow?.$1, quick: () => addReading(context, m.id, HealthKind.sugar)),
-                ]),
-                const SizedBox(height: 10),
-                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  tile(HealthKind.weight, Icons.monitor_weight_outlined, C.teal, w == null ? '—' : kg(w.a), w == null ? tr('লেখা হয়নি') : _changeText(d, m.id, now),
-                      quick: () => addReading(context, m.id, HealthKind.weight)),
                   const SizedBox(width: 10),
                   tile(HealthKind.water, Icons.water_drop_outlined, C.blue, trf('{0}/৮ গ্লাস', [bnDigits(water.round())]), tr('আজ পানি'),
                       quick: () => brain.addHealth(HealthLog(member: m.id, kind: HealthKind.water, at: brain.services.now(), a: 1)), quickLabel: tr('+১ গ্লাস')),
                 ]),
                 const SizedBox(height: 10),
-                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
                   tile(HealthKind.exercise, Icons.directions_walk_rounded, C.green, trf('{0} মিনিট', [bnDigits(walk.round())]), tr('আজ হাঁটা/ব্যায়াম'),
                       quick: () => addReading(context, m.id, HealthKind.exercise)),
                   const SizedBox(width: 10),
@@ -200,7 +186,7 @@ class _HealthScreenState extends State<HealthScreen> {
                   const SizedBox(height: 12),
                   Panel(
                     child: ListRow(
-                      leading: IconSquare(Icons.vaccines_outlined, size: 38),
+                      leading: Icon(Icons.vaccines_outlined, color: C.green),
                       title: tr('টিকার কার্ড'),
                       subtitle: _nextDoseText(d, m, now),
                       trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
@@ -213,7 +199,7 @@ class _HealthScreenState extends State<HealthScreen> {
                 Panel(
                   child: Rows(children: [
                     ListRow(
-                      leading: IconSquare(Icons.event_available_outlined, size: 38),
+                      leading: Icon(Icons.event_available_outlined, color: C.green),
                       title: m.nextCheckup == null ? tr('পরের চেকআপের তারিখ') : trf('পরের চেকআপ: {0}', [fullDate(m.nextCheckup!)]),
                       subtitle: m.nextCheckup == null ? tr('দিলে আগের দিন আর সেদিন সকালে মনে করাবো') : daysLeftLabel(m.nextCheckup!, now),
                       trailing: m.nextCheckup == null ? null : IconButton(tooltip: tr('তারিখ মুছুন'), onPressed: () => brain.setCheckup(m, null), icon: Icon(Icons.close_rounded, color: C.muted)),
@@ -223,21 +209,21 @@ class _HealthScreenState extends State<HealthScreen> {
                       },
                     ),
                     ListRow(
-                      leading: IconSquare(Icons.description_outlined, size: 38),
+                      leading: Icon(Icons.description_outlined, color: C.blue),
                       title: tr('পরীক্ষার রিপোর্ট'),
                       subtitle: tr('ছবি তুলে রাখুন — তারিখসহ খুঁজে পাবেন'),
                       trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
                       onTap: () => _push(const DocsScreen(folder: 'চিকিৎসা')),
                     ),
                     ListRow(
-                      leading: IconSquare(Icons.receipt_long_outlined, size: 38),
+                      leading: Icon(Icons.receipt_long_outlined, color: C.blue),
                       title: tr('প্রেসক্রিপশন'),
                       trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
                       onTap: () => _push(const DocsScreen(folder: 'প্রেসক্রিপশন')),
                     ),
                     if (m.isMe)
                       ListRow(
-                        leading: IconSquare(Icons.medication_outlined, size: 38),
+                        leading: Icon(Icons.medication_outlined, color: C.orange),
                         title: tr('ওষুধের সময়সূচি'),
                         subtitle: d.medicines.isEmpty ? tr('কোনো ওষুধ রাখা নেই') : trf('{0}টি ওষুধ', [bnDigits(d.medicines.length)]),
                         trailing: Icon(Icons.chevron_right_rounded, color: C.muted),

@@ -5,4 +5,4 @@
   silently drops a notification whose icon is missing.
 -->
 <resources xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@drawable/ic_stat_reminder,@mipmap/ic_launcher" />
+    tools:keep="@drawable/ic_stat_reminder,@mipmap/ic_app_mark" />

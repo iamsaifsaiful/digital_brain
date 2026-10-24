@@ -89,16 +89,16 @@ class _AssistantBarState extends State<AssistantBar> {
     Widget chip(String label, VoidCallback onTap, {IconData? icon}) => Padding(
           padding: const EdgeInsets.only(right: 8),
           child: Material(
-            color: C.surface,
-            borderRadius: BorderRadius.circular(16),
+            color: C.greenTint,
+            borderRadius: BorderRadius.circular(18),
             child: InkWell(
               borderRadius: BorderRadius.circular(18),
               onTap: onTap,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  if (icon != null) ...[Icon(icon, size: 16, color: C.muted2), const SizedBox(width: 5)],
-                  Text(label, style: body(13.5, weight: FontWeight.w500, color: C.ink, height: 1.2)),
+                  if (icon != null) ...[Icon(icon, size: 16, color: C.greenDark), const SizedBox(width: 5)],
+                  Text(label, style: body(13.5, weight: FontWeight.w500, color: C.greenDark, height: 1.2)),
                 ]),
               ),
             ),
@@ -164,8 +164,8 @@ class _AssistantBarState extends State<AssistantBar> {
         ),
       Container(
         key: const ValueKey('box'),
-        color: C.ground,
-        padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
+        color: C.surface,
+        padding: const EdgeInsets.fromLTRB(0, 10, 0, 8),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           if (widget.questions && !typing)
             SizedBox(
@@ -185,13 +185,12 @@ class _AssistantBarState extends State<AssistantBar> {
             child: Row(children: [
               Expanded(
                 child: Container(
-                  height: 54,
+                  height: 52,
                   padding: const EdgeInsets.only(left: 16, right: 6),
                   decoration: BoxDecoration(
-                    color: C.surface,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: C.shadow,
-                    border: Border.all(color: _focus.hasFocus ? C.primary : (C.dark ? C.line : Colors.transparent), width: _focus.hasFocus ? 2 : 1),
+                    color: C.soft,
+                    borderRadius: BorderRadius.circular(26),
+                    border: Border.all(color: _focus.hasFocus ? C.green : Colors.transparent, width: 1.5),
                   ),
                   child: Row(children: [
                     Icon(Icons.search_rounded, color: C.muted, size: 21),
@@ -229,7 +228,7 @@ class _AssistantBarState extends State<AssistantBar> {
                         tooltip: tr('আগের কথাগুলো'),
                         visualDensity: VisualDensity.compact,
                         onPressed: () => openPastChats(context),
-                        icon: Icon(Icons.history_rounded, color: C.muted2, size: 24),
+                        icon: Icon(Icons.history_rounded, color: C.green, size: 24),
                       ),
                   ]),
                 ),
@@ -242,19 +241,16 @@ class _AssistantBarState extends State<AssistantBar> {
                   button: true,
                   label: typing ? tr('পাঠান') : tr('বলুন'),
                   excludeSemantics: true,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(shape: BoxShape.circle, boxShadow: C.dark ? const [] : const [BoxShadow(color: Color(0x331F2A27), blurRadius: 14, offset: Offset(0, 5))]),
-                    child: Material(
-                      color: C.fab,
-                      shape: const CircleBorder(),
-                      child: InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: typing ? _send : () => openVoice(context),
-                        child: SizedBox(
-                          width: 58,
-                          height: 58,
-                          child: Icon(typing ? Icons.arrow_upward_rounded : Icons.mic_rounded, color: Colors.white, size: 28),
-                        ),
+                  child: Material(
+                    color: C.green,
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: typing ? _send : () => openVoice(context),
+                      child: SizedBox(
+                        width: 52,
+                        height: 52,
+                        child: Icon(typing ? Icons.arrow_upward_rounded : Icons.mic_rounded, color: Colors.white, size: 27),
                       ),
                     ),
                   ),

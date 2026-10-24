@@ -7,7 +7,6 @@ import '../logic/parser.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/note_parts.dart';
-import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'new_item_screen.dart';
@@ -131,7 +130,7 @@ class _NotesScreenState extends State<NotesScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              TopBar(title: _cat ?? tr('নোট ও অন্যান্য'), sub: tr('মনে রাখার সব কথা'), note: HandNote(tr('ভুলে যাওয়ার ভয় নেই'), size: 12.5, rotate: -5), trailing: [
+              TopBar(title: _cat ?? tr('নোট ও অন্যান্য'), trailing: [
                 const PdfButton({ReportPart.notes}),
                 RoundIconButton(icon: Icons.add_rounded, tooltip: tr('নতুন নোট'), dark: true, onPressed: _new),
               ]),
@@ -166,57 +165,39 @@ class _NotesScreenState extends State<NotesScreen> {
                     else if (list.isEmpty)
                       Text(tr('কিছু মেলেনি।'), style: body(14, color: C.muted))
                     else
-                      // Two columns of cards (24 Oct look), the newest dark.
-                      Builder(builder: (context) {
-                        Widget card(Note n, bool dark) {
-                          final picked = _picks.has(n.id);
-                          final fg = dark ? Colors.white : C.ink;
-                          final dim = dark ? Colors.white.withValues(alpha: 0.75) : C.muted2;
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Material(
-                              color: picked ? C.greenTint : (dark ? C.fill : C.surface),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: dark ? BorderSide(color: C.fillEdge) : (C.dark ? BorderSide(color: C.line) : BorderSide.none)),
-                              clipBehavior: Clip.antiAlias,
-                              child: InkWell(
-                                key: Key('note-${n.id}'),
-                                onTap: picking ? () => _picks.toggle(n.id) : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewItemScreen(note: n))),
-                                onLongPress: () => _picks.toggle(n.id),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(14),
-                                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                      if (picking) ...[
-                                        Icon(picked ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, color: picked ? C.green : C.muted, size: 20),
-                                        const SizedBox(width: 6)
-                                      ],
-                                      Expanded(child: Text(n.title, style: body(15.5, weight: FontWeight.w600, color: picked ? C.ink : fg))),
-                                    ]),
-                                    if ((n.body.isNotEmpty && n.body != n.title) || n.files.isNotEmpty) ...[
-                                      const SizedBox(height: 4),
-                                      Text(isChecklist(n.body) || n.files.isNotEmpty ? notePreview(n) : n.body,
-                                          style: body(13.5, color: picked ? C.muted2 : dim, height: 1.5), maxLines: 6, overflow: TextOverflow.ellipsis),
+                      for (final n in list) ...[
+                        Panel(
+                          child: InkWell(
+                            key: Key('note-${n.id}'),
+                            onTap: picking ? () => _picks.toggle(n.id) : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewItemScreen(note: n))),
+                            onLongPress: () => _picks.toggle(n.id),
+                            child: Container(
+                              color: _picks.has(n.id) ? C.greenTint : null,
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(children: [
+                                    if (picking) ...[
+                                      Icon(_picks.has(n.id) ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, color: _picks.has(n.id) ? C.green : C.muted, size: 22),
+                                      const SizedBox(width: 8)
                                     ],
-                                    const SizedBox(height: 8),
-                                    Text(_cat == null ? '${n.category} · ${shortDate(n.updatedAt)}' : shortDate(n.updatedAt),
-                                        style: body(11.5, color: picked ? C.muted : (dark ? Colors.white.withValues(alpha: 0.6) : C.muted))),
+                                    Expanded(child: Text(n.title, style: body(16, weight: FontWeight.w600))),
                                   ]),
-                                ),
+                                  if ((n.body.isNotEmpty && n.body != n.title) || n.files.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(isChecklist(n.body) || n.files.isNotEmpty ? notePreview(n) : n.body,
+                                        style: body(14, color: C.muted2, height: 1.5), maxLines: 4, overflow: TextOverflow.ellipsis),
+                                  ],
+                                  const SizedBox(height: 6),
+                                  Text(_cat == null ? '${n.category} · ${shortDate(n.updatedAt)}' : shortDate(n.updatedAt), style: body(12, color: C.muted)),
+                                ],
                               ),
                             ),
-                          );
-                        }
-
-                        final left = <Widget>[], right = <Widget>[];
-                        for (final (i, n) in list.indexed) {
-                          (i.isEven ? left : right).add(card(n, i == 0 && !picking));
-                        }
-                        return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Expanded(child: Column(children: left)),
-                          const SizedBox(width: 10),
-                          Expanded(child: Column(children: right)),
-                        ]);
-                      }),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
                   ],
                 ),
               ),

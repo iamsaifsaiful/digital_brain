@@ -55,7 +55,7 @@ class NotificationSettingsScreen extends StatelessWidget {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('নোটিফিকেশন'), sub: tr('কখন কী জানাবো')),
+          TopBar(title: tr('নোটিফিকেশন')),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 32), children: [
               InfoBanner(

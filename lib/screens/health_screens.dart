@@ -5,7 +5,6 @@ import '../logic/lang.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/forms.dart';
-import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import '../ui/pdf_export.dart';
@@ -25,7 +24,7 @@ class HabitStrip extends StatelessWidget {
           selected: h.doneOn(day),
           onSelected: (_) => brain.toggleHabit(h, day),
           avatar: Icon(h.doneOn(day) ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, size: 18, color: h.doneOn(day) ? C.green : C.muted),
-          label: Text(h.streak(now) > 1 ? '${h.name} · 🔥${bnDigits(h.streak(now))}' : h.name),
+          label: Text(h.streak(now) > 1 ? '${h.name} · ${trf('{0} দিন', [bnDigits(h.streak(now))])}' : h.name),
           labelStyle: body(14, weight: FontWeight.w500, color: h.doneOn(day) ? C.greenDark : C.ink),
           showCheckmark: false,
         ),
@@ -48,7 +47,7 @@ class DoseStrip extends StatelessWidget {
             FilterChip(
               selected: m.takenAt(day, t),
               onSelected: (_) => brain.toggleDose(m, day, t),
-              avatar: Text(m.takenAt(day, t) ? '✅' : '💊', style: const TextStyle(fontSize: 14)),
+              avatar: Icon(m.takenAt(day, t) ? Icons.check_circle_rounded : Icons.medication_outlined, size: 18, color: m.takenAt(day, t) ? C.green : C.muted2),
               label: Text('${m.name} · ${minutesText(t)}'),
               labelStyle: body(14, weight: FontWeight.w500, color: m.takenAt(day, t) ? C.greenDark : C.ink),
               showCheckmark: false,
@@ -111,37 +110,12 @@ class HabitsScreen extends StatelessWidget {
       floatingActionButton: AddButton(label: tr('অভ্যাস যোগ'), onPressed: () => _add(context)),
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('অভ্যাস'), sub: tr('ছোট অভ্যাস, বড় বদল'), trailing: const [PdfButton({ReportPart.health})]),
+          TopBar(title: tr('অভ্যাস'), trailing: const [PdfButton({ReportPart.health})]),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 100), children: [
               if (brain.data.habits.isEmpty)
                 EmptyState(icon: Icons.local_fire_department_outlined, title: tr('ভালো অভ্যাস গড়ুন'), text: tr('প্রতিদিন টিক দিন — টানা কত দিন হলো দেখাবে, চাইলে রোজ নির্দিষ্ট সময়ে মনে করাবো।'))
-              else ...[
-                // The longest run going now, on a dark card.
-                Builder(builder: (context) {
-                  final best = ([...brain.data.habits]..sort((a, b) => b.streak(now).compareTo(a.streak(now)))).first;
-                  final doneToday = brain.data.habits.where((h) => h.doneOn(today)).length;
-                  return HeroCard(
-                    key: const Key('habit-hero'),
-                    landscape: false,
-                    label: tr('সবচেয়ে লম্বা ধারা'),
-                    side: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(14)),
-                      child: const Icon(Icons.local_fire_department_rounded, color: Color(0xFFF5A35C)),
-                    ),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(best.streak(now) > 0 ? trf('{0} দিন টানা', [bnDigits(best.streak(now))]) : tr('আজ থেকে শুরু করুন'), style: display(26, weight: 700, color: Colors.white, height: 1.35)),
-                      Text('${best.name} · ${trf('আজ {0}/{1} হয়েছে', [bnDigits(doneToday), bnDigits(brain.data.habits.length)])}',
-                          maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, color: Colors.white.withValues(alpha: 0.8))),
-                    ]),
-                  );
-                }),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 18, 4, 10),
-                  child: Text(tr('শেষ ৭ দিন'), style: heading(18)),
-                ),
+              else
                 for (final h in brain.data.habits) ...[
                   Panel(
                     padding: const EdgeInsets.all(14),
@@ -151,8 +125,8 @@ class HabitsScreen extends StatelessWidget {
                         IconButton(tooltip: tr('আরও'), onPressed: () => _menu(context, h), icon: Icon(Icons.more_horiz_rounded, color: C.muted)),
                       ]),
                       Text(
-                        h.streak(now) > 0 ? trf('টানা {0} দিন 🔥 · সেরা {1} দিন', [bnDigits(h.streak(now)), bnDigits(h.best())]) : tr('আজ থেকে শুরু করুন'),
-                        style: body(13.5, color: h.streak(now) > 0 ? C.warn : C.muted, weight: FontWeight.w500),
+                        h.streak(now) > 0 ? trf('টানা {0} দিন · সেরা {1} দিন', [bnDigits(h.streak(now)), bnDigits(h.best())]) : tr('আজ থেকে শুরু করুন'),
+                        style: body(13.5, color: h.streak(now) > 0 ? C.orange : C.muted, weight: FontWeight.w500),
                       ),
                       const SizedBox(height: 10),
                       Row(children: [
@@ -168,9 +142,9 @@ class HabitsScreen extends StatelessWidget {
                                   width: 30,
                                   height: 30,
                                   decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(9),
-                                    color: h.doneOn(d) ? C.fill : (d.isBefore(today) && !d.isBefore(dayOnly(h.createdAt)) ? C.dangerTint : Colors.transparent),
-                                    border: Border.all(color: h.doneOn(d) ? C.fillEdge : (d == today ? C.muted : (d.isBefore(today) && !d.isBefore(dayOnly(h.createdAt)) ? C.dangerTint : C.line)), width: 1.5),
+                                    shape: BoxShape.circle,
+                                    color: h.doneOn(d) ? C.green : Colors.transparent,
+                                    border: Border.all(color: h.doneOn(d) ? C.green : (d == today ? C.green : C.line), width: 1.5),
                                   ),
                                   child: h.doneOn(d) ? const Icon(Icons.check_rounded, size: 18, color: Colors.white) : null,
                                 ),
@@ -182,7 +156,6 @@ class HabitsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                 ],
-              ],
             ]),
           ),
         ]),
@@ -204,7 +177,7 @@ class MedicinesScreen extends StatelessWidget {
       floatingActionButton: AddButton(label: tr('ওষুধ যোগ'), onPressed: () => editMedicine(context, null)),
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('ওষুধের সময়সূচি'), sub: tr('সময়মতো ওষুধ, ভালো থাকা'), trailing: const [PdfButton({ReportPart.health})]),
+          TopBar(title: tr('ওষুধের সময়সূচি'), trailing: const [PdfButton({ReportPart.health})]),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 100), children: [
               if (brain.data.medicines.isEmpty)
@@ -225,7 +198,7 @@ class MedicinesScreen extends StatelessWidget {
                         height: 44,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(color: C.roseTint, borderRadius: BorderRadius.circular(12)),
-                        child: const Text('💊', style: TextStyle(fontSize: 20)),
+                        child: Icon(Icons.medication_outlined, color: C.green, size: 22),
                       ),
                       title: m.name,
                       subtitle: [

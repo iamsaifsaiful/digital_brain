@@ -189,7 +189,7 @@ class _NoticeScreenState extends State<NoticeScreen> {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('নোটিফিকেশন'), sub: tr('সামনের ৭ দিন, গত ৩০ দিন'), trailing: [
+          TopBar(title: tr('নোটিফিকেশন'), trailing: [
             IconButton(
               tooltip: tr('নোটিফিকেশন সেটিংস'),
               icon: const Icon(Icons.tune_rounded),

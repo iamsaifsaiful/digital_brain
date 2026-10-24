@@ -67,7 +67,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                       child: Rows(children: [
                         for (final c in list)
                           ListRow(
-                            leading: Avatar(name: c.name),
+                            leading: Avatar(name: c.name, fg: C.purple, bg: C.purpleTint),
                             title: c.name,
                             subtitle: [if (c.phone.isNotEmpty) bnDigits(c.phone), if (c.note.isNotEmpty) c.note].join(' · '),
                             trailing: c.phone.isEmpty

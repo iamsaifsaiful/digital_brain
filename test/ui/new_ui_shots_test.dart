@@ -1,4 +1,4 @@
-// The 24 Oct design: the four main pages build in light and dark, with a
+// The four main pages build in light and dark, with a
 // full sample. With SHOTS=1 --update-goldens it also writes screenshots to
 // test/ui/shots/ (icons drawn with Flutter's own MaterialIcons font).
 import 'dart:io';

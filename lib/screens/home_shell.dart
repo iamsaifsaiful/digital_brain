@@ -188,7 +188,7 @@ class _Nav extends StatelessWidget {
       (ShellTab.more, Icons.menu_rounded, Icons.menu_open_rounded, 'আরও'),
     ];
     return Container(
-      decoration: BoxDecoration(color: C.surface.withValues(alpha: 0.96), border: Border(top: BorderSide(color: C.line))),
+      decoration: BoxDecoration(color: C.surface, border: Border(top: BorderSide(color: C.line2))),
       child: SafeArea(
         top: false,
         child: SizedBox(
@@ -201,18 +201,18 @@ class _Nav extends StatelessWidget {
                 // Where the pages are now (between two tabs while swiping).
                 final at = pages.hasClients && pages.position.haveDimensions ? (pages.page ?? current.index.toDouble()) : current.index.toDouble();
                 return Stack(children: [
-                  // A short line under the active tab's word, gliding with the page.
+                  // One highlight that glides from tab to tab with the page.
                   Positioned(
-                    left: at * w + (w - 18) / 2,
-                    bottom: 5,
-                    child: Container(width: 18, height: 3, decoration: BoxDecoration(color: C.ink, borderRadius: BorderRadius.circular(2))),
+                    left: at * w + (w - 56) / 2,
+                    top: 9,
+                    child: Container(width: 56, height: 30, decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(15))),
                   ),
                   Row(children: [
                     for (final (i, (t, icon, active, label)) in tabs.indexed)
                       () {
                         // 1 on its own tab, fading to 0 one tab away.
                         final near = (1 - (at - i).abs()).clamp(0.0, 1.0);
-                        final color = Color.lerp(C.dark ? C.muted : const Color(0xFF9B9A95), C.ink, near)!;
+                        final color = Color.lerp(C.muted, C.greenDark, near)!;
                         return Expanded(
                           child: Semantics(
                             selected: t == current,
@@ -223,14 +223,17 @@ class _Nav extends StatelessWidget {
                               highlightColor: Colors.transparent,
                               onTap: () => onTab(t),
                               child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                                Badge(
-                                  isLabelVisible: t == ShellTab.more && unread,
-                                  smallSize: 9,
-                                  child: Icon(near > 0.5 ? active : icon, size: 24, color: color),
+                                SizedBox(
+                                  width: 56,
+                                  height: 30,
+                                  child: Badge(
+                                    isLabelVisible: t == ShellTab.more && unread,
+                                    smallSize: 9,
+                                    child: Icon(near > 0.5 ? active : icon, size: 23, color: color),
+                                  ),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(tr(label), style: body(11.5, weight: near > 0.5 ? FontWeight.w600 : FontWeight.w400, color: color, height: 1.2)),
-                                const SizedBox(height: 6),
+                                const SizedBox(height: 3),
+                                Text(tr(label), style: body(12, weight: near > 0.5 ? FontWeight.w600 : FontWeight.w400, color: color, height: 1.2)),
                               ]),
                             ),
                           ),

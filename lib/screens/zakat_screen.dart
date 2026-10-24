@@ -14,7 +14,6 @@ import '../logic/money_more.dart' show MetalPrice;
 import '../logic/zakat.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
-import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 
@@ -188,64 +187,37 @@ class _ZakatScreenState extends State<ZakatScreen> {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('যাকাত'), sub: tr('আপনার হিসাব থেকে নিজে নিজে')),
+          TopBar(title: tr('যাকাত')),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
-              HeroCard(
-                landscape: false,
-                side: Icon(Icons.brightness_7_outlined, size: 44, color: Colors.white.withValues(alpha: 0.18)),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(
-                    z.nisab <= 0 ? tr('নিসাব জানতে নিচে আজকের রুপার দাম দিন') : (z.due ? tr('এ বছর যাকাত দিতে হবে') : tr('নিসাবের কম — যাকাত ফরজ নয়')),
-                    key: const Key('zakat-total'),
-                    style: body(13.5, weight: FontWeight.w500, color: Colors.white.withValues(alpha: 0.85)),
-                  ),
-                  if (z.nisab > 0 && z.due)
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(taka(z.zakat), style: display(38, weight: 700, color: Colors.white, height: 1.3)),
-                    ),
-                  if (z.nisab > 0) ...[
-                    const SizedBox(height: 4),
-                    StatusPill(
-                      z.due ? trf('নিসাব {0} পেরিয়েছে', [taka(z.nisab)]) : trf('নিসাব (৫২.৫ ভরি রুপা): {0}', [taka(z.nisab)]),
-                      dot: z.due ? const Color(0xFF8FD3B4) : null,
-                      bg: Colors.white.withValues(alpha: 0.12),
-                      fg: Colors.white,
-                    ),
-                  ],
-                  const SizedBox(height: 14),
-                  Row(children: [
-                    for (final (label, v) in [(tr('সম্পদ'), taka(z.wealth)), (tr('দেনা বাদ'), '−${taka(z.debts)}'), (tr('নিট'), taka(math.max(0, z.net)))])
-                      Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(label, style: body(12, color: Colors.white.withValues(alpha: 0.7))),
-                          FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(v, style: display(15, weight: 600, color: Colors.white))),
-                        ]),
-                      ),
-                  ]),
-                ]),
-              ),
-              const SizedBox(height: 10),
               Panel(
-                padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
-                child: Row(children: [
-                  IconSquare(Icons.event_outlined, size: 38),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      due == null ? tr('যাকাতের বছর কবে শুরু, দিন দিলে পরের যাকাতের দিন মনে করিয়ে দেব') : trf('পরের যাকাতের দিন: {0} ({1})', [shortDate(due), daysLeftLabel(due, now)]),
-                      style: body(13.5, height: 1.35),
+                padding: const EdgeInsets.all(16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text(trf('যাকাতযোগ্য সম্পদ: {0}', [taka(math.max(0, z.net))]), style: body(15)),
+                  Text(trf('মোট সম্পদ {0} − দেনা {1}', [taka(z.wealth), taka(z.debts)]), style: body(12.5, color: C.muted)),
+                  const SizedBox(height: 6),
+                  Text(
+                    z.nisab <= 0 ? tr('নিসাব জানতে নিচে আজকের রুপার দাম দিন') : (z.due ? trf('যাকাত: {0}', [taka(z.zakat)]) : tr('নিসাবের কম — যাকাত ফরজ নয়')),
+                    key: const Key('zakat-total'),
+                    style: display(z.nisab <= 0 ? 17 : 24, weight: 700, color: z.due ? C.green : C.muted2),
+                  ),
+                  if (z.nisab > 0) Text(trf('নিসাব (৫২.৫ ভরি রুপা): {0}', [taka(z.nisab)]), style: body(12.5, color: C.muted)),
+                  const Divider(height: 22),
+                  Row(children: [
+                    Expanded(
+                      child: Text(
+                        due == null ? tr('যাকাতের বছর কবে শুরু, দিন দিলে পরের যাকাতের দিন মনে করিয়ে দেব') : trf('পরের যাকাতের দিন: {0} ({1})', [shortDate(due), daysLeftLabel(due, now)]),
+                        style: body(13.5, height: 1.35),
+                      ),
                     ),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      final d = await showDatePicker(context: context, initialDate: brain.data.zakat.yearStart ?? now, firstDate: DateTime(now.year - 3), lastDate: now);
-                      if (d != null) await brain.setZakatYearStart(d);
-                    },
-                    child: Text(due == null ? tr('তারিখ দিন') : tr('বদলান')),
-                  ),
+                    TextButton(
+                      onPressed: () async {
+                        final d = await showDatePicker(context: context, initialDate: brain.data.zakat.yearStart ?? now, firstDate: DateTime(now.year - 3), lastDate: now);
+                        if (d != null) await brain.setZakatYearStart(d);
+                      },
+                      child: Text(due == null ? tr('তারিখ দিন') : tr('বদলান')),
+                    ),
+                  ]),
                 ]),
               ),
               const SizedBox(height: 10),
@@ -256,7 +228,7 @@ class _ZakatScreenState extends State<ZakatScreen> {
                     padding: const EdgeInsets.all(14),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                       Row(children: [
-                        Icon(Icons.menu_book_outlined, color: C.muted2, size: 20),
+                        Icon(Icons.menu_book_outlined, color: C.green, size: 20),
                         const SizedBox(width: 10),
                         Expanded(child: Text(tr('যাকাত কী, কার ওপর, কীভাবে হিসাব'), style: body(15, weight: FontWeight.w600))),
                         Icon(_learn ? Icons.expand_less_rounded : Icons.expand_more_rounded, color: C.muted),

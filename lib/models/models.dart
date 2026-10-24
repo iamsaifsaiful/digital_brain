@@ -1078,6 +1078,8 @@ class AppData {
     List<Receipt>? receipts,
     List<TrashItem>? trash,
     ZakatBook? zakat,
+    this.cashOffset,
+    this.cashSetAt,
   })  : tasks = tasks ?? [],
         zakat = zakat ?? ZakatBook(),
         trash = trash ?? [],
@@ -1133,6 +1135,11 @@ class AppData {
 
   /// Vaccine doses given: "<member id>:<dose key>" → the day (ISO).
   final Map<String, String> vaccines;
+
+  /// "এখন কত টাকা আছে": the money the user said they have, kept as an
+  /// offset over their own income and spending (see `cashOnHand`); null = not said.
+  int? cashOffset;
+  DateTime? cashSetAt;
 
   /// Messages read from other apps' notifications (newest last).
   final List<InboxMessage> inbox;
@@ -1190,6 +1197,8 @@ class AppData {
         if (receipts.isNotEmpty) 'receipts': receipts.map((e) => e.toJson()).toList(),
         if (trash.isNotEmpty) 'trash': trash.map((e) => e.toJson()).toList(),
         if (!zakat.isEmpty) 'zakat': zakat.toJson(),
+        if (cashOffset != null) 'cashOffset': cashOffset,
+        if (cashSetAt != null) 'cashSetAt': cashSetAt!.toIso8601String(),
       };
 
   factory AppData.fromJson(Map<String, Object?> j) {
@@ -1226,6 +1235,8 @@ class AppData {
       health: list('health', HealthLog.fromJson),
       vaccines: {for (final e in ((j['vaccines'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
       zakat: j['zakat'] is Map ? ZakatBook.fromJson((j['zakat'] as Map).cast<String, Object?>()) : null,
+      cashOffset: (j['cashOffset'] as num?)?.toInt(),
+      cashSetAt: j['cashSetAt'] is String ? DateTime.tryParse(j['cashSetAt'] as String) : null,
     );
   }
 }

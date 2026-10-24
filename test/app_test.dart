@@ -44,9 +44,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// The page's own vertical list (not a row of chips or the tabs' pager).
-Finder pageList() => find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first;
-
 /// Real fonts, so text measures like on a phone.
 Future<void> loadFonts() async {
   final hind = FontLoader('Hind');
@@ -59,8 +56,6 @@ Future<void> loadFonts() async {
     noto.addFont(rootBundle.load('assets/fonts/NotoSansBengali-$w.ttf'));
   }
   await noto.load();
-  final galada = FontLoader('Galada')..addFont(rootBundle.load('assets/fonts/Galada-Regular.ttf'));
-  await galada.load();
 }
 
 class Rig {
@@ -193,8 +188,6 @@ Future<void> openTyping(WidgetTester t) async {
 void main() {
   testWidgets('first run: choose a PIN, then home', (t) async {
     final rig = await start(t);
-    // The new home (24 Oct) puts the shortcuts further down.
-    await t.scrollUntilVisible(find.text('সব কিছু এক জায়গায়'), 300, scrollable: pageList());
     expect(find.text('সব কিছু এক জায়গায়'), findsOneWidget);
     expect(await rig.services.lock.hasPin(), isTrue);
 
@@ -564,17 +557,8 @@ void main() {
     // Closing the voice view shows the whole conversation.
     await t.tap(find.byTooltip('বন্ধ করুন'));
     await settle(t);
-    // (also the page title; the new answer cards are taller, so scroll up to the first line)
-    // (the chat list is reversed and built lazily: go to its far end, the oldest line)
-    final chatList = t.state<ScrollableState>(find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.up).first);
-    for (var i = 0; i < 5; i++) {
-      chatList.position.jumpTo(chatList.position.maxScrollExtent);
-      await t.pump();
-    }
-    await settle(t);
+    // (also the page title)
     expect(find.text('আমি সজীবকে ৫০০ টাকা ধার দিলাম'), findsNWidgets(2));
-    chatList.position.jumpTo(chatList.position.minScrollExtent);
-    await settle(t);
     expect(find.text('সজীবের খাতা দেখুন →'), findsWidgets);
   });
 
@@ -1258,7 +1242,7 @@ void main() {
   testWidgets('+ যোগ করুন on the home makes a reminder that rings at the chosen time', (t) async {
     final rig = await start(t);
     // Today's list is on the home itself.
-    await t.scrollUntilVisible(find.text('যোগ করুন'), 200, scrollable: pageList());
+    await t.scrollUntilVisible(find.text('যোগ করুন'), 200, scrollable: find.byType(Scrollable).first);
     await t.ensureVisible(find.text('যোগ করুন'));
     await settle(t);
     await t.tap(find.text('যোগ করুন'));
@@ -1474,17 +1458,14 @@ void main() {
     await start(t);
     expect(find.textContaining('২৪ আশ্বিন ১৪৩৩'), findsOneWidget);
     expect(find.textContaining('সূর্যোদয়'), findsOneWidget);
-    await t.scrollUntilVisible(find.textContaining('দুর্গাপূজা'), 300, scrollable: pageList());
     expect(find.textContaining('দুর্গাপূজা'), findsOneWidget);
-    final home = t.state<ScrollableState>(pageList());
-    home.position.jumpTo(home.position.maxScrollExtent);
-    await t.pump();
+    await t.scrollUntilVisible(find.text('ক্যালেন্ডার').first, 300, scrollable: find.byType(Scrollable).first);
     await t.ensureVisible(find.text('ক্যালেন্ডার').first);
     await settle(t);
     await t.tap(find.text('ক্যালেন্ডার').first);
     await settle(t);
     expect(find.byType(CalendarScreen), findsOneWidget);
-    await t.scrollUntilVisible(find.text('মহান বিজয় দিবস'), 300, scrollable: pageList());
+    await t.scrollUntilVisible(find.text('মহান বিজয় দিবস'), 300, scrollable: find.byType(Scrollable).first);
     expect(find.text('মহান বিজয় দিবস'), findsOneWidget);
   });
 
@@ -1550,7 +1531,7 @@ void main() {
 
   testWidgets('an alarm for office days rings six days a week', (t) async {
     final rig = await start(t);
-    await t.scrollUntilVisible(find.text('অ্যালার্ম'), 300, scrollable: pageList());
+    await t.scrollUntilVisible(find.text('অ্যালার্ম'), 300, scrollable: find.byType(Scrollable).first);
     await t.ensureVisible(find.text('অ্যালার্ম'));
     await settle(t);
     await t.tap(find.text('অ্যালার্ম'));

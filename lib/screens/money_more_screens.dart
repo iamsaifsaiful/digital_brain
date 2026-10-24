@@ -14,7 +14,6 @@ import '../logic/cash.dart' show knownCategories;
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/forms.dart';
-import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'money_screens.dart';
@@ -34,31 +33,32 @@ class MoneyTools extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
-    // fg/bg are kept in the calls but the new look is one calm colour.
     Widget tile(String label, IconData icon, Color fg, Color bg, Widget page, {ProFeature? pro}) => Padding(
-          padding: const EdgeInsets.only(right: 10, bottom: 4),
-          child: Container(
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), boxShadow: C.shadow),
-            child: Material(
-              color: C.surface,
+          padding: const EdgeInsets.only(right: 10),
+          child: Material(
+            color: C.surface,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
               borderRadius: BorderRadius.circular(16),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: () async {
-                  if (pro != null && !await needPro(context, pro)) return;
-                  if (context.mounted) _push(context, page);
-                },
-                child: Container(
-                  width: 88,
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-                  decoration: C.dark ? BoxDecoration(border: Border.all(color: C.line), borderRadius: BorderRadius.circular(16)) : null,
-                  child: Column(children: [
-                    IconSquare(icon, size: 38),
-                    const SizedBox(height: 6),
-                    Text(label, textAlign: TextAlign.center, maxLines: pro != null && !brain.has(pro) ? 1 : 2, overflow: TextOverflow.ellipsis, style: body(12, weight: FontWeight.w500, height: 1.25)),
-                    if (pro != null && !brain.has(pro)) ...[const SizedBox(height: 2), const ProMark()],
-                  ]),
-                ),
+              onTap: () async {
+                if (pro != null && !await needPro(context, pro)) return;
+                if (context.mounted) _push(context, page);
+              },
+              child: Container(
+                width: 92,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+                decoration: BoxDecoration(border: Border.all(color: C.line), borderRadius: BorderRadius.circular(16)),
+                child: Column(children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+                    child: Icon(icon, color: fg, size: 22),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(label, textAlign: TextAlign.center, maxLines: pro != null && !brain.has(pro) ? 1 : 2, overflow: TextOverflow.ellipsis, style: body(12.5, weight: FontWeight.w500, height: 1.25)),
+                  if (pro != null && !brain.has(pro)) ...[const SizedBox(height: 2), const ProMark()],
+                ]),
               ),
             ),
           ),
@@ -73,6 +73,37 @@ class MoneyTools extends StatelessWidget {
         tile(tr('সঞ্চয় ও কিস্তি'), Icons.savings_outlined, C.purple, C.purpleTint, const SavingsScreen()),
         tile(tr('খরচ ভাগাভাগি'), Icons.call_split_rounded, C.teal, C.tealTint, const SplitScreen()),
       ]),
+    );
+  }
+}
+
+/// হিসাবের অন্য পাতা (owner, 24 Oct: no cards on top) — one ⋮ menu on the title.
+class MoneyToolsMenu extends StatelessWidget {
+  const MoneyToolsMenu({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final items = <(String, IconData, Widget)>[
+      if (brain.businessMode) (tr('দোকান'), Icons.storefront_outlined, const ShopScreen()),
+      (tr('অ্যাকাউন্ট'), Icons.account_balance_outlined, const AccountsScreen()),
+      (tr('খরচ বিশ্লেষণ'), Icons.pie_chart_outline_rounded, const SpendHealthScreen()),
+      (tr('মাসের রিপোর্ট'), Icons.insert_chart_outlined_rounded, const ReportScreen()),
+      (tr('সঞ্চয় ও কিস্তি'), Icons.savings_outlined, const SavingsScreen()),
+      (tr('খরচ ভাগাভাগি'), Icons.call_split_rounded, const SplitScreen()),
+    ];
+    return PopupMenuButton<int>(
+      key: const Key('money-tools'),
+      tooltip: tr('আরও'),
+      icon: Icon(Icons.more_vert_rounded, color: C.ink),
+      onSelected: (i) => _push(context, items[i].$3),
+      itemBuilder: (_) => [
+        for (final (i, (label, icon, _)) in items.indexed)
+          PopupMenuItem<int>(
+            value: i,
+            child: Row(children: [Icon(icon, size: 20, color: C.muted2), const SizedBox(width: 12), Text(label, style: body(15))]),
+          ),
+      ],
     );
   }
 }
@@ -238,7 +269,7 @@ class AccountsScreen extends StatelessWidget {
       floatingActionButton: AddButton(label: tr('অ্যাকাউন্ট যোগ'), onPressed: () => _edit(context, null)),
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('অ্যাকাউন্ট'), sub: tr('নগদ, বিকাশ, ব্যাংক — এক জায়গায়'), trailing: [
+          TopBar(title: tr('অ্যাকাউন্ট'), trailing: [
             const PdfButton({ReportPart.accounts}),
             if (d.accounts.length >= 2) IconButton(tooltip: tr('টাকা সরান'), onPressed: () => _transfer(context), icon: const Icon(Icons.swap_horiz_rounded)),
           ]),
@@ -341,7 +372,7 @@ class _ReportScreenState extends State<ReportScreen> {
     final m = _month ?? DateTime(now.year, now.month);
     final r = monthReport(brain.data, m);
     final insights = reportInsights(r);
-    final palette = [...splitColors().take(4), C.ochre, C.blue, C.rose];
+    final palette = [C.green, C.blue, C.orange, C.purple, C.teal, C.rose, C.ochre];
     bool isOther(String k) => k == 'অন্যান্য' || k == tr('অন্যান্য');
     final named = [
       for (final e in r.byCategory)
@@ -359,7 +390,7 @@ class _ReportScreenState extends State<ReportScreen> {
       bottomNavigationBar: const AdBar(),
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('মাসের রিপোর্ট'), sub: m.year == now.year && m.month == now.month ? trf('{0} · {1} তারিখ পর্যন্ত', [monthTitle(m), bnDigits(now.day)]) : monthTitle(m), trailing: [
+          TopBar(title: tr('মাসের রিপোর্ট'), trailing: [
             PdfButton(const {ReportPart.money}, scope: ReportScope(month: m), title: trf('আয়-ব্যয় · {0}', [monthTitle(m)]), fileExtra: monthKey(m)),
             if (r.expense > 0) IconButton(tooltip: tr('ছবি হিসেবে পাঠান'), onPressed: () => _share(r), icon: const Icon(Icons.ios_share_rounded)),
           ]),
@@ -394,39 +425,6 @@ class _ReportScreenState extends State<ReportScreen> {
                       negative: r.balance < 0,
                       items: [(tr('আয়'), r.income, C.green), (tr('খরচ'), r.expense, C.orange)],
                     ),
-                    const SizedBox(height: 12),
-                    // The last six months' spending, this one dark.
-                    Builder(builder: (context) {
-                      final months = [for (var k = 5; k >= 0; k--) DateTime(m.year, m.month - k)];
-                      final spent = [for (final x in months) monthReport(brain.data, x).expense];
-                      final prev = spent[4];
-                      return Panel(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(tr('এ মাসে খরচ'), style: body(13, color: C.muted)),
-                          Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-                            Text(taka(r.expense), style: display(24, weight: 700)),
-                            const SizedBox(width: 8),
-                            if (prev > 0)
-                              Flexible(
-                                child: Text(
-                                    r.expense <= prev
-                                        ? trf('গত মাসের চেয়ে {0}% কম', [bnDigits(((prev - r.expense) * 100 / prev).round())])
-                                        : trf('গত মাসের চেয়ে {0}% বেশি', [bnDigits(((r.expense - prev) * 100 / prev).round())]),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: body(12.5, weight: FontWeight.w600, color: r.expense <= prev ? C.green : C.warn)),
-                              ),
-                          ]),
-                          const SizedBox(height: 12),
-                          MiniBars(values: spent, height: 70),
-                          const SizedBox(height: 4),
-                          Row(children: [
-                            for (final x in months) Expanded(child: Text(monthShort(x.month), textAlign: TextAlign.center, maxLines: 1, style: body(10.5, color: C.muted))),
-                          ]),
-                        ]),
-                      );
-                    }),
                     const SizedBox(height: 12),
                     if (r.expense == 0)
                       EmptyState(icon: Icons.insert_chart_outlined_rounded, title: tr('এই মাসে কোনো খরচ লেখা নেই'), text: tr('খরচ লিখলে এখানে ছবিসহ হিসাব দেখাবে।'))
@@ -468,9 +466,9 @@ class _ReportScreenState extends State<ReportScreen> {
                             FilledButton.icon(
                               key: const Key('fix-categories'),
                               onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => FixCategoriesScreen(month: m))),
-                              style: FilledButton.styleFrom(backgroundColor: C.primary, foregroundColor: C.onPrimary),
+                              style: FilledButton.styleFrom(backgroundColor: C.green, foregroundColor: Colors.white),
                               icon: const Icon(Icons.category_outlined, size: 18),
-                              label: Text(tr('খাত ঠিক করুন'), style: body(14.5, weight: FontWeight.w600, color: C.onPrimary)),
+                              label: Text(tr('খাত ঠিক করুন'), style: body(14.5, weight: FontWeight.w600, color: Colors.white)),
                             ),
                           ]),
                         ),
@@ -823,7 +821,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
       floatingActionButton: AddButton(label: _tab == 0 ? tr('লক্ষ্য যোগ') : tr('কিস্তি যোগ'), onPressed: () => _tab == 0 ? _editGoal(null) : _editInst(null)),
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('সঞ্চয় ও কিস্তি'), sub: tr('স্বপ্নের দিকে, একটু একটু করে'), trailing: const [
+          TopBar(title: tr('সঞ্চয় ও কিস্তি'), trailing: const [
             PdfButton({ReportPart.accounts})
           ]),
           Expanded(
@@ -834,44 +832,6 @@ class _SavingsScreenState extends State<SavingsScreen> {
                 tabsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 100),
                 page: (tab) => [
-                      if (tab == 0 && d.goals.isNotEmpty) ...[
-                        HeroCard(
-                          key: const Key('savings-hero'),
-                          landscape: false,
-                          label: tr('মোট জমা'),
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Text(taka(d.goals.fold<int>(0, (a, g) => a + g.saved)), style: display(34, weight: 700, color: Colors.white, height: 1.3)),
-                            ),
-                            Text(
-                                trf('এ মাসে জমা +{0}', [
-                                  taka(d.goals.fold<int>(0, (a, g) => a + g.deposits.where((x) => x.date.year == now.year && x.date.month == now.month).fold<int>(0, (b, x) => b + x.amount)))
-                                ]),
-                                style: body(13, color: Colors.white.withValues(alpha: 0.8))),
-                          ]),
-                          side: Padding(padding: const EdgeInsets.only(top: 4), child: HandNote(tr('চালিয়ে যান!'), size: 13, color: Colors.white.withValues(alpha: 0.85))),
-                        ),
-                        const SizedBox(height: 14),
-                      ],
-                      if (tab == 1 && d.installments.isNotEmpty) ...[
-                        HeroCard(
-                          key: const Key('installment-hero'),
-                          landscape: false,
-                          label: tr('প্রতি মাসের কিস্তি'),
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Text(taka(d.installments.where((i) => i.left > 0).fold<int>(0, (a, i) => a + i.amount)), style: display(34, weight: 700, color: Colors.white, height: 1.3)),
-                            ),
-                            Text(trf('{0}টা চলছে · এ মাসে {1}টা দেওয়া', [bnDigits(d.installments.where((i) => i.left > 0).length), bnDigits(d.installments.where((i) => i.paidFor(now)).length)]),
-                                style: body(13, color: Colors.white.withValues(alpha: 0.8))),
-                          ]),
-                        ),
-                        const SizedBox(height: 14),
-                      ],
                       if (tab == 0) ...[
                         if (d.goals.isEmpty)
                           EmptyState(
@@ -882,10 +842,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
                               padding: const EdgeInsets.all(14),
                               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                                 Row(children: [
-                                  ProgressRing(value: g.progress, icon: Icons.savings_outlined, size: 46),
-                                  const SizedBox(width: 12),
                                   Expanded(child: Text(g.name, style: body(16, weight: FontWeight.w600))),
-                                  Text('${bnDigits((g.progress * 100).round())}%', style: display(17, weight: 700)),
                                   IconButton(tooltip: tr('বদলান'), onPressed: () => _editGoal(g), icon: Icon(Icons.edit_outlined, color: C.muted, size: 20)),
                                 ]),
                                 Text(trf('{0} জমেছে, লক্ষ্য {1}', [taka(g.saved), taka(g.target)]), style: body(14, color: C.muted2)),
@@ -894,7 +851,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
                                 const SizedBox(height: 6),
                                 if (g.deadline != null)
                                   Text(
-                                    g.saved >= g.target ? tr('লক্ষ্য পূরণ হয়েছে! 🎉') : trf('{0}-এর মধ্যে · মাসে {1} করে রাখলে হবে', [shortDate(g.deadline!), taka(g.perMonth(now) ?? 0)]),
+                                    g.saved >= g.target ? tr('লক্ষ্য পূরণ হয়েছে') : trf('{0}-এর মধ্যে · মাসে {1} করে রাখলে হবে', [shortDate(g.deadline!), taka(g.perMonth(now) ?? 0)]),
                                     style: body(13, color: g.saved >= g.target ? C.green : C.muted),
                                   ),
                                 const SizedBox(height: 8),
@@ -905,7 +862,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
                                       final v = readInt(await askText(context, tr('কত জমালেন?'), number: true));
                                       if (v != null && v > 0) await brain.addDeposit(g, v);
                                     },
-                                    style: FilledButton.styleFrom(backgroundColor: C.primary, shape: const StadiumBorder()),
+                                    style: FilledButton.styleFrom(backgroundColor: C.green, shape: const StadiumBorder()),
                                     icon: const Icon(Icons.add_rounded, size: 18),
                                     label: Text(tr('জমা')),
                                   ),
@@ -940,7 +897,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
                                   IconButton(tooltip: tr('বদলান'), onPressed: () => _editInst(i), icon: Icon(Icons.edit_outlined, color: C.muted, size: 20)),
                                 ]),
                                 const SizedBox(height: 8),
-                                Bar(value: i.months == 0 ? 0 : i.paidCount / i.months, height: 10, color: C.fill),
+                                Bar(value: i.months == 0 ? 0 : i.paidCount / i.months, height: 10, color: C.purple),
                                 const SizedBox(height: 6),
                                 Text(trf('{0}/{1} কিস্তি দেওয়া ({2}) · বাকি {3}টি · শেষ {4}', [bnDigits(i.paidCount), bnDigits(i.months), taka(i.paidTotal), bnDigits(i.left), monthTitle(i.end)]),
                                     style: body(13, color: C.muted2)),
@@ -949,7 +906,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
                                   FilledButton.icon(
                                     onPressed: () => brain.toggleInstallmentPaid(i, now),
                                     style: FilledButton.styleFrom(
-                                        backgroundColor: i.paidFor(now) ? C.chip : C.primary, foregroundColor: i.paidFor(now) ? C.ink : C.onPrimary, shape: const StadiumBorder()),
+                                        backgroundColor: i.paidFor(now) ? C.chip : C.purple, foregroundColor: i.paidFor(now) ? C.ink : Colors.white, shape: const StadiumBorder()),
                                     icon: Icon(i.paidFor(now) ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, size: 18),
                                     label: Text(i.paidFor(now) ? trf('{0} দেওয়া হয়েছে', [monthName(now.month)]) : trf('{0}-এর কিস্তি দিলাম', [monthName(now.month)])),
                                   ),
@@ -998,7 +955,7 @@ class _SplitScreenState extends State<SplitScreen> {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('খরচ ভাগাভাগি'), sub: tr('কে কত দেবে, এক হিসাবে')),
+          TopBar(title: tr('খরচ ভাগাভাগি')),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
               TextField(

@@ -31,7 +31,7 @@ class _SpendHealthScreenState extends State<SpendHealthScreen> {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('খরচ বিশ্লেষণ'), sub: tr('টাকা কোথায় যায়, কোথায় বাঁচে')),
+          TopBar(title: tr('খরচ বিশ্লেষণ')),
           Expanded(
             child: TabPages<int>(
               items: [(7, tr('এই সপ্তাহ')), (30, tr('৩০ দিন'))],

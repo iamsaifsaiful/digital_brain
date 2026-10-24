@@ -120,7 +120,7 @@ extension BrainMore on Brain {
     final ids = <String>[];
     for (final t in m.times) {
       final r = Reminder(
-        title: '💊 ${m.name}',
+        title: trf('ওষুধ: {0}', [m.name]),
         date: today,
         hour: t ~/ 60,
         minute: t % 60,
@@ -161,6 +161,15 @@ extension BrainMore on Brain {
     data.reminders.removeWhere((r) => m.reminderIds.contains(r.id));
     await _save();
     await _reschedule();
+  }
+
+  // ── Money now ──
+
+  /// "এখন আমার কাছে [amount] টাকা আছে": later income and spending move it.
+  Future<void> setCashOnHand(int amount) async {
+    data.cashOffset = amount - ownNet(data);
+    data.cashSetAt = services.now();
+    await _save();
   }
 
   // ── Accounts ──

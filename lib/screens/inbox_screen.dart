@@ -69,7 +69,7 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('মেসেজ থেকে কাজ'), sub: tr('অন্য অ্যাপের মেসেজ থেকে কাজ খুঁজে দিই'), trailing: [
+          TopBar(title: tr('মেসেজ থেকে কাজ'), trailing: [
             IconButton(tooltip: tr('কোন অ্যাপ পড়বে'), onPressed: () => _settings(context), icon: const Icon(Icons.tune_rounded)),
           ]),
           Expanded(

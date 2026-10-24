@@ -124,14 +124,10 @@ void main() {
     rig.brain.data = week();
     rig.brain.notifyListeners();
     await settle(t);
-    // The new home (24 Oct) is longer: scroll down to the money card and the thought.
-    final home = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first;
-    final row = find.byKey(const Key('home-spend-health'));
-    await t.scrollUntilVisible(row, 200, scrollable: home);
-    await t.scrollUntilVisible(find.byKey(const Key('home-quote')), 200, scrollable: home);
     expect(find.byKey(const Key('home-quote')), findsOneWidget);
     expect(find.text(quoteFor(now).text), findsOneWidget);
-    await t.scrollUntilVisible(row, -200, scrollable: home);
+    final row = find.byKey(const Key('home-spend-health'));
+    await t.scrollUntilVisible(row, 200, scrollable: find.byType(Scrollable).at(1));
     expect(find.textContaining('শখের খাতে ৫০%'), findsOneWidget);
     await t.tap(row);
     await settle(t, 20);

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../logic/bn.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
-import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'alarm_screens.dart';
@@ -70,68 +69,37 @@ class AlarmsScreen extends StatelessWidget {
       ),
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('অ্যালার্ম'), sub: tr('ফোন লক থাকলেও ঠিক সময়ে বাজবে'), note: HandNote(tr('ঘুম ভালো হোক'), size: 12.5, rotate: -5)),
+          TopBar(title: tr('অ্যালার্ম')),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
               children: [
-                if (next == null)
-                  InfoBanner(icon: Icons.alarm_rounded, text: '${tr('কোনো অ্যালার্ম চালু নেই')}\n${tr('নিচের + চাপুন, বা সহকারীকে বলুন — “প্রতিদিন সকাল ৭টায় অ্যালার্ম দাও”')}')
-                else
-                  Builder(builder: (context) {
-                    final at = next.notifyAt(now);
-                    final diff = DateTime(at.year, at.month, at.day).difference(DateTime(now.year, now.month, now.day)).inDays;
-                    final dayWord = diff == 0 ? tr('আজ') : diff == 1 ? '${tr('কাল')} ${weekdayName(at)}' : '${bnDigits(at.day)} ${monthShort(at.month)}';
-                    final h12 = next.hour % 12 == 0 ? 12 : next.hour % 12;
-                    final night = next.hour < 6 || next.hour >= 18;
-                    return HeroCard(
-                      key: const Key('alarm-next'),
-                      landscape: false,
-                      label: '${tr('পরের অ্যালার্ম')} · $dayWord',
-                      onTap: () => open(next),
-                      side: Container(
-                        width: 54,
-                        height: 54,
-                        decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.08)),
-                        child: Icon(night ? Icons.nightlight_round : Icons.wb_sunny_rounded, color: C.sun, size: 30),
-                      ),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-                          Text(bnDigits('$h12:${next.minute.toString().padLeft(2, '0')}'), style: display(40, weight: 700, color: Colors.white, height: 1.2)),
-                          const SizedBox(width: 8),
-                          Text(bnTime(next.hour, next.minute).split(' ').first, style: body(16, color: Colors.white)),
-                        ]),
-                        Row(children: [
-                          Expanded(child: Text(inText(at), style: body(13, color: Colors.white.withValues(alpha: 0.8)))),
-                          Flexible(child: StatusPill(next.title, bg: Colors.white.withValues(alpha: 0.12), fg: Colors.white)),
-                        ]),
-                      ]),
-                    );
-                  }),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                  decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(16)),
                   child: Row(children: [
-                    Expanded(child: Text(tr('সব অ্যালার্ম'), style: heading(18))),
-                    Text(trf('{0}টা', [bnDigits(alarms.length)]), style: body(13, color: C.muted)),
-                  ]),
-                ),
-                for (final r in alarms) _AlarmCard(alarm: r, onTap: () => open(r)),
-                if (alarms.isNotEmpty) const SizedBox(height: 4),
-                Material(
-                  color: C.greenTint,
-                  borderRadius: BorderRadius.circular(16),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReminderCheckScreen())),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-                      child: Row(children: [
-                        Icon(Icons.verified_outlined, color: C.green),
-                        const SizedBox(width: 12),
-                        Expanded(child: Text(tr('অ্যালার্ম ঠিকমতো বাজবে তো? দেখে নিন'), style: body(14, weight: FontWeight.w600, color: C.greenDark))),
-                        Icon(Icons.chevron_right_rounded, color: C.greenDark),
+                    Icon(Icons.alarm_rounded, color: C.green),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(next == null ? tr('কোনো অ্যালার্ম চালু নেই') : trf('পরের অ্যালার্ম {0}', [inText(next.notifyAt(now))]),
+                            style: body(15, weight: FontWeight.w600, color: C.greenDark)),
+                        Text(
+                            next == null
+                                ? tr('নিচের + চাপুন, বা সহকারীকে বলুন — “প্রতিদিন সকাল ৭টায় অ্যালার্ম দাও”')
+                                : '${bnTime(next.hour, next.minute)} · ${next.title}',
+                            style: body(13, color: C.greenDark)),
                       ]),
                     ),
+                  ]),
+                ),
+                const SizedBox(height: 12),
+                for (final r in alarms) _AlarmCard(alarm: r, onTap: () => open(r)),
+                if (alarms.isNotEmpty) const SizedBox(height: 4),
+                Center(
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReminderCheckScreen())),
+                    child: Text(tr('অ্যালার্ম ঠিকমতো বাজবে তো? দেখে নিন'), style: body(14, weight: FontWeight.w600, color: C.green)),
                   ),
                 ),
               ],
@@ -162,7 +130,7 @@ class _AlarmCard extends StatelessWidget {
         opacity: r.enabled ? 1 : 0.5,
         child: Material(
           color: C.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: C.dark ? BorderSide(color: C.line) : BorderSide.none),
+          borderRadius: BorderRadius.circular(18),
           child: InkWell(
             borderRadius: BorderRadius.circular(18),
             onTap: onTap,
@@ -176,22 +144,24 @@ class _AlarmCard extends StatelessWidget {
                   const Spacer(),
                   Switch(
                     value: r.enabled,
+                    activeTrackColor: C.green,
                     onChanged: (v) => brain.saveReminder(r.copyWith(enabled: v)),
                   ),
                 ]),
-                Text('${r.title} · ${alarmDaysText(r, now)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13.5, color: C.muted2)),
-                if (days.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Wrap(spacing: 5, runSpacing: 5, children: [
+                Row(children: [
+                  Expanded(
+                    child: Text('${r.title} · ${alarmDaysText(r, now)}',
+                        maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13.5, color: C.muted2)),
+                  ),
+                  if (days.isNotEmpty)
                     for (final d in _dayOrder)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: days.contains(d) ? C.chip : Colors.transparent, borderRadius: BorderRadius.circular(8), border: Border.all(color: days.contains(d) ? C.chip : C.line)),
-                        child: Text(weekdayShort(DateTime(2026, 10, 12 + (d - 1))),
-                            style: body(11.5, weight: days.contains(d) ? FontWeight.w600 : FontWeight.w400, color: days.contains(d) ? C.ink : C.muted)),
+                      SizedBox(
+                        width: 22,
+                        child: Text(_dayShort[d]!,
+                            textAlign: TextAlign.center,
+                            style: body(11.5, weight: days.contains(d) ? FontWeight.w700 : FontWeight.w400, color: days.contains(d) ? C.green : C.muted)),
                       ),
-                  ]),
-                ],
+                ]),
               ]),
             ),
           ),

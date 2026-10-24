@@ -247,3 +247,11 @@ Project? projectHinted(AppData d, String said) {
 
 /// Only the page is named ("অন্যান্য হিসাবে রাখো"), not which account.
 bool projectPageNamed(String said) => RegExp(r'(?:অন্যান্য|আলাদা)\s+হিস(?:া|ে)ব|প্রজেক্ট|প্রকল্প').hasMatch(fold(normalize(said)));
+
+
+/// The user's own money in and out so far (not other হিসাব's, not shops').
+int ownNet(AppData d) => d.cash.where((e) => e.projectId == null).fold(0, (a, e) => a + (e.kind == CashKind.income ? e.amount : -e.amount));
+
+/// "এখন হাতে আছে": what the user said they had, moved by every income and
+/// spending since; null until they say it.
+int? cashOnHand(AppData d) => d.cashOffset == null ? null : d.cashOffset! + ownNet(d);

@@ -302,7 +302,7 @@ class Brain extends ChangeNotifier {
         _oneOff.add(PlannedNotice(
           id: stableId('pro-on'),
           at: services.now().add(const Duration(seconds: 5)),
-          title: tr('প্রিমিয়াম চালু হয়েছে 🎉'),
+          title: tr('প্রিমিয়াম চালু হয়েছে'),
           body: tr('রিমাইন্ডার, ব্যাকআপ, ফ্যামিলি — সব প্রিমিয়াম সুবিধা এখন চালু। ধন্যবাদ!'),
           reminderId: 'nudge:pro',
           gentle: true,
@@ -956,7 +956,7 @@ class Brain extends ChangeNotifier {
   Look look = Look.system;
 
   /// The accent colour's key (see `accents`).
-  String accentKey = 'forest';
+  String accentKey = 'green';
 
   /// The app's words in English instead of Bangla.
   bool english = false;
@@ -1025,7 +1025,7 @@ class Brain extends ChangeNotifier {
       final keys = services.lock.keys;
       final saved = await keys.read('look');
       look = Look.values.firstWhere((l) => l.name == saved, orElse: () => Look.system);
-      accentKey = await keys.read('accent') ?? 'forest';
+      accentKey = await keys.read('accent') ?? 'green';
       english = (await keys.read('lang')) == 'en';
       letterSize = double.tryParse(await keys.read('letter_size') ?? '') ?? 1.0;
       easyMode = (await keys.read('easy_mode')) == 'true';

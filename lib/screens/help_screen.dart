@@ -56,7 +56,7 @@ class HelpScreen extends StatelessWidget {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('কী কী করা যায়'), sub: tr('মুখে বলুন, বাকিটা আমি করি')),
+          TopBar(title: tr('কী কী করা যায়')),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 0, 20, 24), children: [
               Panel(

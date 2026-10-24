@@ -68,11 +68,11 @@ class ProMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-        decoration: BoxDecoration(color: C.chip, borderRadius: BorderRadius.circular(999)),
+        decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(999)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.workspace_premium_outlined, size: 12, color: C.muted2),
+          Icon(Icons.lock_outline_rounded, size: 12, color: C.greenDark),
           const SizedBox(width: 3),
-          Text(tr('প্রিমিয়াম'), style: body(10.5, weight: FontWeight.w700, color: C.muted2)),
+          Text(tr('প্রিমিয়াম'), style: body(10.5, weight: FontWeight.w700, color: C.greenDark)),
         ]),
       );
 }

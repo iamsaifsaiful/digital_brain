@@ -293,7 +293,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
             onTap: () => _openVault(item),
           ),
         ContactHit(:final contact) => ListRow(
-            leading: Avatar(name: contact.name),
+            leading: Avatar(name: contact.name, fg: C.purple, bg: C.purpleTint),
             title: contact.name,
             subtitle: contact.phone.isNotEmpty ? bnDigits(contact.phone) : tr('যোগাযোগ'),
             onTap: () => _push(NewItemScreen(contact: contact)),

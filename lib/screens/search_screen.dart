@@ -8,7 +8,6 @@ import '../logic/search.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/pin.dart';
-import '../ui/kit.dart';
 import '../ui/theme.dart';
 import 'docs_screen.dart';
 import 'special_days_screen.dart';
@@ -66,7 +65,7 @@ class _SearchScreenState extends State<SearchScreen> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
           child: Row(children: [
-            IconSquare(icon, size: 40),
+            Container(width: 40, height: 40, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: fg, size: 20)),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -118,7 +117,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 child: Container(
                   height: 48,
                   padding: const EdgeInsets.only(left: 14, right: 4),
-                  decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: C.ink, width: 1.6)),
+                  decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: C.green, width: 1.6)),
                   child: Row(children: [
                     Icon(Icons.search_rounded, color: C.muted, size: 20),
                     const SizedBox(width: 8),
@@ -147,13 +146,13 @@ class _SearchScreenState extends State<SearchScreen> {
                       IconButton(
                         tooltip: tr('সহকারীকে পাঠান'),
                         onPressed: () => openChatWith(context, q),
-                        icon: Icon(Icons.send_rounded, color: C.ink),
+                        icon: Icon(Icons.send_rounded, color: C.green),
                       )
                     else
                       IconButton(
                         tooltip: tr('বলে খুঁজুন'),
                         onPressed: () => openVoice(context),
-                        icon: Icon(Icons.mic_none_rounded, color: C.ink),
+                        icon: Icon(Icons.mic_none_rounded, color: C.green),
                       ),
                   ]),
                 ),
@@ -199,7 +198,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       for (final c in contacts.take(8))
                         _row(Icons.person_outline_rounded, C.purple, C.purpleTint, c.name, c.phone.isEmpty ? c.note : showPhone(c.phone), () {
                           if (c.phone.isNotEmpty) brain.services.launcher.open(Via.call, c.phone);
-                        }, trailing: c.phone.isEmpty ? null : Icon(Icons.call_outlined, color: C.ink)),
+                        }, trailing: c.phone.isEmpty ? null : Icon(Icons.call_outlined, color: C.green)),
                     ]),
                   if (people.isNotEmpty)
                     _group(trf('হিসাব · {0}', [bnDigits(people.length)]), [

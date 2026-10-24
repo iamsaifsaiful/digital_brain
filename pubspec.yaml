@@ -1,7 +1,7 @@
 name: digital_brain
 description: My Assistant — আপনার ব্যক্তিগত সহকারী। কাজের তালিকা, রিমাইন্ডার, ফোন-মেসেজ, বাকি ও লেনদেন, নোট আর পাসওয়ার্ড — মুখে বলুন বা লিখুন।
 publish_to: 'none'
-version: 2.49.0+101
+version: 2.49.1+102
 
 environment:
   sdk: '>=3.6.0 <4.0.0'
@@ -64,8 +64,3 @@ flutter:
           weight: 600
         - asset: assets/fonts/HindSiliguri-Bold.ttf
           weight: 700
-    # Galada: Bengali handwriting, only for the small hand-written notes of
-    # the new design ("ছোট ছোট পদক্ষেপ, বড় ফল"). OFL, licence in assets/fonts/.
-    - family: Galada
-      fonts:
-        - asset: assets/fonts/Galada-Regular.ttf

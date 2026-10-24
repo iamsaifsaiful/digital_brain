@@ -11,7 +11,6 @@ import '../logic/money_more.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/pdf_export.dart';
-import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'money_more_screens.dart' show ReceiptScreen, dueMessage;
@@ -106,7 +105,7 @@ class ShopScreen extends StatelessWidget {
       return Scaffold(
         body: SafeArea(
           child: Column(children: [
-            TopBar(title: tr('দোকান'), sub: tr('বিক্রি, খরচ আর বাকি — এক জায়গায়')),
+            TopBar(title: tr('দোকান')),
             Expanded(
               child: ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 24), children: [
                 EmptyState(
@@ -162,7 +161,7 @@ class ShopScreen extends StatelessWidget {
                 child: Rows(children: [
                   for (final s in shops)
                     ListRow(
-                      leading: Avatar(name: s.name),
+                      leading: Avatar(name: s.name, fg: C.orange, bg: C.orangeTint),
                       title: s.name,
                       subtitle: [
                         trf('আজ {0}', [taka(salesOn(d, now, shop: s).total)]),
@@ -237,54 +236,43 @@ class ShopDetailScreen extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Text([if (shop.phone.isNotEmpty) shop.phone, if (shop.address.isNotEmpty) shop.address].join(' · '), style: body(13.5, color: C.muted)),
                 ),
-              // Today's sales on the dark card, the week in small bars.
-              HeroCard(
-                key: const Key('shop-hero'),
-                landscape: false,
-                label: tr('আজকের বিক্রি'),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(taka(today.total), style: display(34, weight: 700, color: Colors.white, height: 1.3))),
-                  Text(trf('{0}টি বিক্রি', [bnDigits(today.count)]), style: body(13, color: Colors.white.withValues(alpha: 0.8))),
-                  const SizedBox(height: 12),
-                  MiniBars(values: sales, height: 46, light: true),
-                  const SizedBox(height: 4),
-                  Row(children: [for (final day in week) Expanded(child: Text(weekdayShort(day), textAlign: TextAlign.center, style: body(10.5, color: Colors.white.withValues(alpha: 0.7))))]),
-                ]),
-              ),
-              const SizedBox(height: 10),
               Panel(
                 padding: const EdgeInsets.all(14),
-                child: Row(children: [
-                  Expanded(child: Figure(label: trf('{0}-এর বিক্রি', [monthName(now.month)]), amount: taka(m.sales), color: C.green, size: 18)),
-                  Expanded(child: Figure(label: tr('এ মাসের খরচ'), amount: taka(m.costs), color: C.orange, size: 18)),
-                  Expanded(child: Figure(label: tr('এ মাসে থাকল'), amount: '${m.sales - m.costs < 0 ? '−' : ''}${taka(m.sales - m.costs)}', color: m.sales - m.costs < 0 ? C.orange : C.ink, size: 18)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Row(children: [
+                    Expanded(child: Figure(label: tr('আজকের বিক্রি'), amount: taka(today.total), color: C.green, size: 22, sub: trf('{0}টি বিক্রি', [bnDigits(today.count)]))),
+                    Expanded(child: Figure(label: trf('{0}-এর বিক্রি', [monthName(now.month)]), amount: taka(m.sales), color: C.green, size: 22)),
+                  ]),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Expanded(child: Figure(label: tr('এ মাসের খরচ'), amount: taka(m.costs), color: C.orange, size: 20)),
+                    Expanded(child: Figure(label: tr('এ মাসে থাকল'), amount: '${m.sales - m.costs < 0 ? '−' : ''}${taka(m.sales - m.costs)}', color: m.sales - m.costs < 0 ? C.orange : C.green, size: 20)),
+                  ]),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(
+                      child: PrimaryButton(
+                        label: tr('বিক্রি'),
+                        icon: Icons.add_rounded,
+                        height: 44,
+                        onPressed: () => _push(context, CashFormScreen(kind: CashKind.income, category: salesCategory, shopId: shop.id)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: PrimaryButton(
+                        label: tr('খরচ'),
+                        icon: Icons.remove_rounded,
+                        height: 44,
+                        color: C.orange,
+                        onPressed: () => _push(context, CashFormScreen(kind: CashKind.expense, shopId: shop.id)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: PrimaryButton(label: tr('রসিদ'), icon: Icons.receipt_long_outlined, height: 44, color: C.fill, onPressed: () => _push(context, ReceiptScreen(shop: shop)))),
+                  ]),
                 ]),
               ),
-              const SizedBox(height: 10),
-              Row(children: [
-                Expanded(
-                  child: PrimaryButton(
-                    label: tr('বিক্রি'),
-                    icon: Icons.add_rounded,
-                    height: 46,
-                    color: C.green,
-                    onPressed: () => _push(context, CashFormScreen(kind: CashKind.income, category: salesCategory, shopId: shop.id)),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: PrimaryButton(
-                    label: tr('খরচ'),
-                    icon: Icons.remove_rounded,
-                    height: 46,
-                    color: C.surface,
-                    textColor: C.ink,
-                    onPressed: () => _push(context, CashFormScreen(kind: CashKind.expense, shopId: shop.id)),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(child: PrimaryButton(label: tr('রসিদ'), icon: Icons.receipt_long_outlined, height: 46, color: C.surface, textColor: C.ink, onPressed: () => _push(context, ReceiptScreen(shop: shop)))),
-              ]),
               const SizedBox(height: 14),
               SectionTitle(tr('গত ৭ দিনের বিক্রি')),
               Panel(
@@ -295,7 +283,7 @@ class ShopDetailScreen extends StatelessWidget {
                       child: Column(children: [
                         Text(v == 0 ? '' : bnNumber(v), style: body(10, color: C.muted), maxLines: 1, overflow: TextOverflow.clip),
                         const SizedBox(height: 2),
-                        Container(height: 80.0 * v / maxS + 2, margin: const EdgeInsets.symmetric(horizontal: 4), decoration: BoxDecoration(color: i == 6 ? C.fill : C.chip, borderRadius: BorderRadius.circular(4))),
+                        Container(height: 80.0 * v / maxS + 2, margin: const EdgeInsets.symmetric(horizontal: 4), decoration: BoxDecoration(color: i == 6 ? C.green : C.greenTint, borderRadius: BorderRadius.circular(4))),
                         const SizedBox(height: 4),
                         Text(weekdayShort(week[i]), style: body(11, color: C.muted)),
                       ]),
@@ -327,7 +315,7 @@ class ShopDetailScreen extends StatelessWidget {
                   child: Rows(children: [
                     for (final p in owing)
                       ListRow(
-                        leading: Avatar(name: p.name),
+                        leading: Avatar(name: p.name, fg: C.orange, bg: C.orangeTint),
                         title: p.name,
                         subtitle: [taka(p.balance), if (p.last != null) daysLeftLabel(p.last!, now)].join(' · '),
                         trailing: p.phone.isEmpty

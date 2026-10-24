@@ -6,7 +6,6 @@ import '../logic/bn.dart';
 import '../logic/cash.dart';
 import '../logic/ledger.dart';
 import '../state/brain.dart';
-import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'ledger_form_screen.dart';
@@ -48,10 +47,7 @@ class MoneyScreenState extends State<MoneyScreen> {
       onChanged: show,
       top: (tabs) => [
         TabTitle(tr('হিসাব'),
-            sub: tr('টাকা কোথায় যায়, এক নজরে।'),
-            trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
-              Padding(padding: const EdgeInsets.only(right: 8), child: HandNote(tr('একটু একটু করে জমান'), size: 12.5, rotate: -5)),
-              Row(mainAxisSize: MainAxisSize.min, children: [
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
               PdfButton(switch (_part) {
                 MoneyPart.cash => const {ReportPart.money},
                 MoneyPart.loans => const {ReportPart.ledger},
@@ -60,12 +56,10 @@ class MoneyScreenState extends State<MoneyScreen> {
               if (_part == MoneyPart.loans) IconButton(tooltip: tr('সব লেনদেন খুঁজুন'), onPressed: () => push(const TransactionsScreen()), icon: const Icon(Icons.list_alt_rounded)),
               IconButton(
                   key: const Key('money-search-open'), tooltip: tr('হিসাবে খুঁজুন'), onPressed: () => push(const MoneySearchScreen()), icon: const Icon(Icons.person_search_outlined)),
-              ]),
+              const MoneyToolsMenu(),
             ])),
         const SizedBox(height: 12),
         if (brain.businessMode) ...[const ShopTodayCard(), const SizedBox(height: 12)],
-        const MoneyTools(),
-        const SizedBox(height: 12),
         tabs,
         const SizedBox(height: 14),
       ],
@@ -99,18 +93,15 @@ class MoneyScreenState extends State<MoneyScreen> {
     return [
       Row(children: [
         Expanded(
-          child: Container(
+          child: Panel(
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: C.fill, borderRadius: BorderRadius.circular(18), border: C.dark ? Border.all(color: C.fillEdge) : null),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Icon(Icons.south_west_rounded, size: 16, color: Colors.white.withValues(alpha: 0.8)),
-                const SizedBox(width: 4),
-                Text(tr('আমি পাব'), style: body(13, color: Colors.white.withValues(alpha: 0.8))),
-              ]),
-              FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(taka(loans.receivable), style: display(22, weight: 700, color: Colors.white, height: 1.3))),
-              Text(trf('দিয়েছি {0} · ফেরত {1}', [taka(loans.lent), taka(loans.received)]), maxLines: 2, style: body(11.5, color: Colors.white.withValues(alpha: 0.7))),
-            ]),
+            child: Figure(
+              label: tr('আমি পাব'),
+              amount: taka(loans.receivable),
+              color: C.green,
+              size: 22,
+              sub: trf('দিয়েছি {0} · ফেরত {1}', [taka(loans.lent), taka(loans.received)]),
+            ),
           ),
         ),
         const SizedBox(width: 10),
@@ -146,7 +137,7 @@ class MoneyScreenState extends State<MoneyScreen> {
           child: Rows(children: [
             for (final p in people)
               ListRow(
-                leading: Avatar(name: p.name),
+                leading: Avatar(name: p.name, fg: balanceColors(p.balance).$1, bg: balanceColors(p.balance).$2),
                 title: p.name,
                 subtitle: [
                   if (p.phone.isNotEmpty) showPhone(p.phone) else if (dupNames.contains(personKey(p.name))) tr('নম্বর নেই — যোগ করুন'),

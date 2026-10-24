@@ -4,7 +4,6 @@ import '../logic/bn.dart';
 import '../logic/lang.dart';
 import '../logic/pro.dart';
 import '../state/brain.dart';
-import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 
@@ -214,25 +213,33 @@ class _ProScreenState extends State<ProScreen> {
       backgroundColor: C.ground,
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('প্রিমিয়াম ভার্সন'), sub: tr('সব সুবিধা, কোনো বিজ্ঞাপন নেই'), close: true),
+          const TopBar(title: '', close: true),
           Expanded(
             child: SwipeTabs<bool>(
               items: const [false, true],
               value: _details,
               onChanged: (v) => setState(() => _details = v),
               child: ListView(padding: const EdgeInsets.fromLTRB(20, 0, 20, 28), children: [
-                HeroCard(
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 26),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(children: [
-                      const Icon(Icons.workspace_premium_rounded, color: Color(0xFFF5C46B), size: 18),
-                      const SizedBox(width: 6),
-                      Text('My Assistant ${tr('প্রিমিয়াম')}', style: body(13.5, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.9))),
-                    ]),
-                    const SizedBox(height: 8),
-                    Text(tr('আরও সহজ,\nআরও নিশ্চিন্ত'), style: heading(30, color: Colors.white, height: 1.15)),
-                    const SizedBox(height: 10),
-                    Text(status ?? tr('আরও বেশি কাজ, বিজ্ঞাপন ছাড়া'), style: body(13.5, color: Colors.white.withValues(alpha: 0.8))),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(22),
+                    gradient: const LinearGradient(colors: [Color(0xFF111827), Color(0xFF1F2937)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  ),
+                  child: Row(children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(color: const Color(0xFFFBBF24), borderRadius: BorderRadius.circular(16)),
+                      child: const Icon(Icons.workspace_premium_rounded, color: Color(0xFF111827), size: 30),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('My Assistant Premium', style: display(22, weight: 700, color: Colors.white)),
+                        Text(status ?? tr('আরও বেশি কাজ, বিজ্ঞাপন ছাড়া'), style: body(13.5, color: const Color(0xFFD1D5DB))),
+                      ]),
+                    ),
                   ]),
                 ),
                 const SizedBox(height: 14),

@@ -84,7 +84,7 @@ class Bar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ClipRRect(
         borderRadius: BorderRadius.circular(height),
-        child: LinearProgressIndicator(value: value.clamp(0, 1), minHeight: height, backgroundColor: C.chip, color: color ?? (C.dark ? C.primary : C.fill)),
+        child: LinearProgressIndicator(value: value.clamp(0, 1), minHeight: height, backgroundColor: C.chip, color: color ?? C.green),
       );
 }
 

@@ -1,13 +1,5 @@
-import 'dart:math' as math;
-
 import 'notice_screen.dart';
 import 'package:flutter/material.dart';
-
-import '../logic/home_figures.dart';
-import '../models/models.dart' show InstallmentKind;
-import '../ui/kit.dart';
-import '../ui/widgets.dart' show Panel;
-import 'money_more_screens.dart' show SavingsScreen;
 
 import 'google_backup.dart';
 
@@ -28,6 +20,7 @@ import '../logic/money_quotes.dart';
 import 'docs_screen.dart';
 import 'calls_screen.dart';
 import 'home_screen.dart';
+import 'home_sky.dart';
 import 'health_hub.dart';
 import 'home_shell.dart';
 import 'inbox_screen.dart';
@@ -67,9 +60,7 @@ class HomePage extends StatelessWidget {
     final bd = banglaDate(now);
     final hj = hijriDate(now, adjust: brain.number('hijri_adjust'));
     final sun = sunTimes(now, placeNamed(brain.district));
-    final runs = upcomingHolidays(now, count: 1);
-    final next = runs.isEmpty ? null : runs.first;
-    final daysTo = next == null ? 0 : DateTime(next.start.year, next.start.month, next.start.day).difference(today).inDays;
+    final runs = upcomingHolidays(now, count: 2);
     final month = monthSums(d.cash, now);
     final owe = totals(d.ledger);
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
@@ -101,9 +92,9 @@ class HomePage extends StatelessWidget {
 
     if (brain.easyMode) return const EasyHome();
 
-    final (weekDone, weekAll) = weekTaskProgress(d, now);
-    final sunLine = '${trf('সূর্যোদয় {0}', [bnTime(sun.sunrise.hour, sun.sunrise.minute)])} · ${trf('সূর্যাস্ত {0}', [bnTime(sun.sunset.hour, sun.sunset.minute)])}';
-    final daytime = !now.isBefore(sun.sunrise) && now.isBefore(sun.sunset);
+    const shade = [Shadow(color: Color(0x66000000), blurRadius: 8)];
+    final soft = Colors.white.withValues(alpha: 0.88);
+    const horizon = 54.0;
     Widget figure(String label, String value, Color color) => Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(label, style: body(12.5, color: C.muted)),
@@ -115,314 +106,205 @@ class HomePage extends StatelessWidget {
     return Column(children: [
       Expanded(
         child: ListView(
-          padding: EdgeInsets.fromLTRB(22, top + 10, 22, 24),
+          padding: EdgeInsets.zero,
           children: [
-            // A hand-written note, the bell and the profile.
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(padding: const EdgeInsets.only(top: 10), child: HandNote(tr('ছোট ছোট পদক্ষেপ, বড় ফল'), arrow: HandArrow.right, size: 14.5)),
-                ),
-              ),
-              IconButton(
-                key: const Key('home-notices'),
-                tooltip: tr('নোটিফিকেশন'),
-                onPressed: () => push(const NoticeScreen()),
-                icon: Icon(Icons.notifications_none_rounded, color: C.ink, size: 27),
-              ),
-              const SizedBox(width: 6),
-              Tooltip(
-                message: tr('প্রোফাইল'),
-                child: InkWell(customBorder: const CircleBorder(), onTap: () => goToTab(context, ShellTab.more), child: const UserPhoto(size: 48)),
-              ),
-            ]),
-            const SizedBox(height: 10),
-            // শুভ সকাল, the name, today.
-            InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () => push(const CalendarScreen()),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(first.isEmpty ? helloFor(now) : '${helloFor(now)},', style: heading(22, weight: 600, color: C.muted2)),
-                if (first.isNotEmpty)
-                  Row(children: [
-                    Flexible(child: Text(first, maxLines: 1, overflow: TextOverflow.ellipsis, style: heading(32, height: 1.12))),
-                    const SizedBox(width: 10),
-                    CustomPaint(size: const Size(26, 26), painter: _SunOrMoon(day: daytime)),
-                  ]),
-                const SizedBox(height: 4),
-                Text('${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)} · ${bd.text}', style: body(13.5, color: C.muted)),
-                Text(hj.dayMonth, style: body(12.5, color: C.muted)),
-              ]),
-            ),
-            // The weather now, under the date (tap: the full weather).
-            const Padding(padding: EdgeInsets.only(top: 10), child: Align(alignment: Alignment.centerLeft, child: _WeatherLabel())),
-            const SizedBox(height: 16),
-            // This week, on the landscape.
-            HeroCard(
-              key: const Key('home-week'),
-              label: weekAll > 0 ? tr('এই সপ্তাহে') : tr('আজ শুরু করুন'),
-              action: tr('চালিয়ে যান'),
-              onTap: () => push(const AllTasksScreen()),
-              progress: weekAll > 0 ? weekDone / weekAll : null,
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                if (weekAll > 0)
-                  Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-                    Text(bnDigits(weekDone), style: display(34, weight: 700, color: Colors.white, height: 1.15)),
-                    const SizedBox(width: 6),
-                    Text(trf('/ {0} কাজ শেষ', [bnDigits(weekAll)]), style: body(17, weight: FontWeight.w500, color: Colors.white)),
-                  ])
-                else
-                  Text(tr('এই সপ্তাহে কোনো কাজ রাখা নেই'), style: display(20, weight: 700, color: Colors.white, height: 1.4)),
-                const SizedBox(height: 2),
-                FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(sunLine, maxLines: 1, style: body(13, color: Colors.white.withValues(alpha: 0.85)))),
-              ]),
-            ),
-            // Savings goals and instalments, side by side.
-            if (d.goals.isNotEmpty || d.installments.isNotEmpty) ...[
-              HomeSectionHeader(title: tr('চলমান লক্ষ্য'), action: tr('সব দেখুন'), onAction: () => push(const SavingsScreen())),
-              SizedBox(
-                height: 186,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  clipBehavior: Clip.none,
-                  children: [
-                    for (final (i, g) in d.goals.indexed)
-                      _GoalCard(
-                        tone: i,
-                        icon: Icons.savings_outlined,
-                        name: g.name,
-                        sub: '${taka(g.saved)} / ${bnNumber(g.target)}',
-                        progress: g.progress,
-                        onTap: () => push(const SavingsScreen()),
-                      ),
-                    for (final (i, x) in d.installments.indexed)
-                      _GoalCard(
-                        tone: d.goals.length + i,
-                        icon: x.kind == InstallmentKind.loan ? Icons.home_work_outlined : Icons.account_balance_outlined,
-                        name: x.name,
-                        sub: '${trf('কিস্তি {0}/{1}', [bnDigits(x.paidCount), bnDigits(x.months)])} · ${taka(x.amount)}',
-                        progress: x.months <= 0 ? 0 : x.paidCount / x.months,
-                        onTap: () => push(const SavingsScreen()),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-            const GoogleStartCard(),
-            if (d.reminders.isNotEmpty) const AlarmBanner(),
-            const TodaySections(),
-            HomeSection(
-              title: tr('এ মাসের হিসাব'),
-              action: tr('হিসাব খুলুন'),
-              onAction: () => goToTab(context, ShellTab.money),
-              child: HomeCard(
-                key: const Key('home-stat-spent'),
-                onTap: () => goToTab(context, ShellTab.money),
-                child: Column(children: [
-                  Row(children: [
-                    figure(tr('আয়'), taka(month.income), C.green),
-                    figure(tr('খরচ'), taka(month.expense), C.red),
-                    figure(tr('হাতে থাকল'), taka(month.balance), C.ink),
-                  ]),
-                  if (owe.receivable > 0 || owe.payable > 0) ...[
-                    Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: C.line)),
-                    Row(children: [
-                      if (owe.receivable > 0) figure(trf('পাবো, {0} জনের কাছে', [bnDigits(owe.owingPeople)]), taka(owe.receivable), C.green),
-                      if (owe.payable > 0) figure(trf('দেবো, {0} জনকে', [bnDigits(owe.owedPeople)]), taka(owe.payable), C.warn),
-                      if (owe.receivable == 0 || owe.payable == 0) const Spacer(),
-                    ]),
-                  ],
-                  if (week.spent > 0) ...[
-                    Padding(padding: const EdgeInsets.only(top: 12, bottom: 4), child: Divider(height: 1, color: C.line)),
-                    InkWell(
-                      key: const Key('home-spend-health'),
-                      onTap: () => push(const SpendHealthScreen()),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        child: Row(children: [
-                          Icon(Icons.pie_chart_outline_rounded, size: 20, color: weekWarn ? C.warn : C.green),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              week.hasIncome
-                                  ? trf('এ সপ্তাহে আয়ের {0}% খরচ — শখের খাতে {1}%', [bnDigits(week.pct(week.spent)), bnDigits(week.pct(week.wants))])
-                                  : trf('এ সপ্তাহে খরচ {0} — কোথায় যাচ্ছে দেখুন', [taka(week.spent)]),
-                              style: body(13.5, color: weekWarn ? C.warn : C.ink, weight: FontWeight.w500),
-                            ),
+            // A short greeting under today's sky.
+            SizedBox(
+              height: top + 236,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+                child: HomeSky(
+                  now: now,
+                  sunrise: sun.sunrise,
+                  sunset: sun.sunset,
+                  horizon: horizon,
+                  arcHeight: 58,
+                  child: Stack(children: [
+                    Positioned(
+                      left: 20,
+                      right: 16,
+                      top: top + 12,
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Expanded(
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => push(const CalendarScreen()),
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(first.isEmpty ? helloFor(now) : '${helloFor(now)}, $first', maxLines: 1, overflow: TextOverflow.ellipsis,
+                                  style: display(24, weight: 700, color: Colors.white, height: 1.2).copyWith(shadows: shade)),
+                              const SizedBox(height: 4),
+                              Text('${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)}', style: body(14.5, weight: FontWeight.w600, color: Colors.white).copyWith(shadows: shade)),
+                              Text('${bd.text}, ${hj.dayMonth}', style: body(13, color: soft).copyWith(shadows: shade)),
+                              // The weather now, under the date (tap: the full weather).
+                              const Padding(padding: EdgeInsets.only(top: 6), child: _WeatherLabel()),
+                            ]),
                           ),
-                          Icon(Icons.chevron_right_rounded, color: C.muted),
-                        ]),
-                      ),
+                        ),
+                        IconButton(
+                          key: const Key('home-notices'),
+                          tooltip: tr('নোটিফিকেশন'),
+                          onPressed: () => push(const NoticeScreen()),
+                          icon: Icon(Icons.notifications_none_rounded, color: Colors.white, size: 26, shadows: shade),
+                        ),
+                        const SizedBox(width: 4),
+                        Tooltip(
+                          message: tr('প্রোফাইল'),
+                          child: InkWell(customBorder: const CircleBorder(), onTap: () => goToTab(context, ShellTab.more), child: const UserPhoto(size: 44, onDark: true)),
+                        ),
+                      ]),
                     ),
-                  ],
-                ]),
+                    Positioned(left: 16, bottom: 14, child: _SunLabel(icon: Icons.wb_twilight, text: trf('সূর্যোদয় {0}', [bnTime(sun.sunrise.hour, sun.sunrise.minute)]))),
+                    Positioned(right: 16, bottom: 14, child: _SunLabel(icon: Icons.nights_stay_outlined, text: trf('সূর্যাস্ত {0}', [bnTime(sun.sunset.hour, sun.sunset.minute)]))),
+                  ]),
+                ),
               ),
             ),
-            HomeSection(
-              title: tr('আজকের অর্থ-কথা'),
-              child: HomeCard(
-                key: const Key('home-quote'),
-                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Icon(Icons.format_quote_rounded, color: C.sun, size: 26),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(tr(quote.text), style: body(15, height: 1.5, weight: FontWeight.w500)),
-                      if (quote.source.isNotEmpty) ...[const SizedBox(height: 4), Text('— ${tr(quote.source)}', style: body(12.5, color: C.muted))],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                const GoogleStartCard(),
+                if (d.reminders.isNotEmpty) const AlarmBanner(),
+                const TodaySections(),
+                HomeSection(
+                  title: tr('এ মাসের হিসাব'),
+                  action: tr('হিসাব খুলুন'),
+                  onAction: () => goToTab(context, ShellTab.money),
+                  child: HomeCard(
+                    key: const Key('home-stat-spent'),
+                    onTap: () => goToTab(context, ShellTab.money),
+                    child: Column(children: [
+                      Row(children: [
+                        figure(tr('আয়'), taka(month.income), C.green),
+                        figure(tr('খরচ'), taka(month.expense), C.red),
+                        figure(tr('হাতে থাকল'), taka(month.balance), C.ink),
+                      ]),
+                      if (owe.receivable > 0 || owe.payable > 0) ...[
+                        Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: C.line)),
+                        Row(children: [
+                          if (owe.receivable > 0) figure(trf('পাবো, {0} জনের কাছে', [bnDigits(owe.owingPeople)]), taka(owe.receivable), C.green),
+                          if (owe.payable > 0) figure(trf('দেবো, {0} জনকে', [bnDigits(owe.owedPeople)]), taka(owe.payable), C.orange),
+                          if (owe.receivable == 0 || owe.payable == 0) const Spacer(),
+                        ]),
+                      ],
+                      if (week.spent > 0) ...[
+                        Padding(padding: const EdgeInsets.only(top: 12, bottom: 4), child: Divider(height: 1, color: C.line)),
+                        InkWell(
+                          key: const Key('home-spend-health'),
+                          onTap: () => push(const SpendHealthScreen()),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Row(children: [
+                              Icon(Icons.pie_chart_outline_rounded, size: 20, color: weekWarn ? C.orange : C.green),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  week.hasIncome
+                                      ? trf('এ সপ্তাহে আয়ের {0}% খরচ — শখের খাতে {1}%', [bnDigits(week.pct(week.spent)), bnDigits(week.pct(week.wants))])
+                                      : trf('এ সপ্তাহে খরচ {0} — কোথায় যাচ্ছে দেখুন', [taka(week.spent)]),
+                                  style: body(13.5, color: weekWarn ? C.orange : C.ink, weight: FontWeight.w500),
+                                ),
+                              ),
+                              Icon(Icons.chevron_right_rounded, color: C.muted),
+                            ]),
+                          ),
+                        ),
+                      ],
                     ]),
                   ),
-                ]),
-              ),
-            ),
-            if (inboxTodos.isNotEmpty || (next != null && daysTo <= 30))
-              HomeSection(
-                title: tr('সামনে'),
-                child: HomeCard(
-                  padding: EdgeInsets.zero,
-                  child: Column(children: [
-                    if (inboxTodos.isNotEmpty)
-                      _UpcomingRow(
-                        lead: Icon(Icons.mark_chat_unread_outlined, color: C.muted2, size: 22),
-                        tint: C.soft,
-                        title: trf('মেসেজ থেকে {0}টা কাজ', [bnDigits(inboxTodos.length)]),
-                        text: inboxTodos.first.$2.summary,
-                        onTap: () => push(const InboxScreen()),
-                      ),
-                    if (inboxTodos.isNotEmpty && next != null && daysTo <= 30) Divider(height: 1, indent: 72, color: C.line),
-                    if (next != null && daysTo <= 30)
-                      _UpcomingRow(
-                        lead: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Text(bnDigits(next.start.day), style: display(17, weight: 700, color: C.danger, height: 1.05)),
-                          Text(monthName(next.start.month), maxLines: 1, overflow: TextOverflow.clip, style: body(9.5, weight: FontWeight.w600, color: C.danger, height: 1.1)),
-                        ]),
-                        tint: C.dangerTint,
-                        title: daysTo == 0 ? trf('আজ ছুটি — {0}', [next.label]) : next.label,
-                        text: '${holidayRange(next)}${next.days > 1 ? ', ${trf('টানা {0} দিন', [bnDigits(next.days)])}' : ''}',
-                        tag: daysTo > 0 ? trf('{0} দিন পর', [bnDigits(daysTo)]) : null,
-                        onTap: () => push(const CalendarScreen()),
-                      ),
-                  ]),
                 ),
-              ),
-            HomeSection(
-              title: tr('সব কিছু এক জায়গায়'),
-              child: HomeCard(
-                padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
-                child: GridView.count(
-                  crossAxisCount: 4,
-                  shrinkWrap: true,
-                  padding: EdgeInsets.zero,
-                  physics: const NeverScrollableScrollPhysics(),
-                  childAspectRatio: 0.92,
-                  children: [
-                    for (final (label, icon, _, _, onTap) in shortcuts)
-                      InkWell(
-                        borderRadius: BorderRadius.circular(14),
-                        onTap: onTap,
-                        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          IconSquare(icon, size: 46, radius: 14),
-                          const SizedBox(height: 7),
-                          Text(label, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(12.5, height: 1.2)),
+                HomeSection(
+                  title: tr('আজকের অর্থ-কথা'),
+                  child: HomeCard(
+                    key: const Key('home-quote'),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Icon(Icons.format_quote_rounded, color: C.ochre, size: 26),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(tr(quote.text), style: body(15, height: 1.5, weight: FontWeight.w500)),
+                          if (quote.source.isNotEmpty) ...[const SizedBox(height: 4), Text('— ${tr(quote.source)}', style: body(12.5, color: C.muted))],
                         ]),
                       ),
-                  ],
+                    ]),
+                  ),
                 ),
-              ),
+                // Inbox to-dos, and the holiday going on now or the next two
+                // (owner, 24 Oct: always on the home, however far).
+                if (inboxTodos.isNotEmpty || runs.isNotEmpty)
+                  HomeSection(
+                    title: tr('সামনে'),
+                    action: tr('ক্যালেন্ডার'),
+                    onAction: () => push(const CalendarScreen()),
+                    child: HomeCard(
+                      key: const Key('home-holidays'),
+                      padding: EdgeInsets.zero,
+                      child: Column(children: [
+                        if (inboxTodos.isNotEmpty)
+                          _UpcomingRow(
+                            lead: Icon(Icons.mark_chat_unread_outlined, color: C.green, size: 22),
+                            tint: C.greenTint,
+                            title: trf('মেসেজ থেকে {0}টা কাজ', [bnDigits(inboxTodos.length)]),
+                            text: inboxTodos.first.$2.summary,
+                            onTap: () => push(const InboxScreen()),
+                          ),
+                        for (final (i, h) in runs.indexed) ...[
+                          if (i > 0 || inboxTodos.isNotEmpty) Divider(height: 1, indent: 72, color: C.line),
+                          Builder(builder: (context) {
+                            final days = DateTime(h.start.year, h.start.month, h.start.day).difference(today).inDays;
+                            return _UpcomingRow(
+                              lead: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                Text(bnDigits(h.start.day), style: display(17, weight: 700, color: C.rose, height: 1.05)),
+                                Text(monthName(h.start.month), maxLines: 1, overflow: TextOverflow.clip, style: body(9.5, weight: FontWeight.w600, color: C.rose, height: 1.1)),
+                              ]),
+                              tint: C.roseTint,
+                              title: days <= 0 ? trf('আজ ছুটি — {0}', [h.label]) : h.label,
+                              text: '${holidayRange(h)}${h.days > 1 ? ', ${trf('টানা {0} দিন', [bnDigits(h.days)])}' : ''}',
+                              tag: days > 0 ? trf('{0} দিন পর', [bnDigits(days)]) : tr('চলছে'),
+                              onTap: () => push(const CalendarScreen()),
+                            );
+                          }),
+                        ],
+                      ]),
+                    ),
+                  ),
+                HomeSection(
+                  title: tr('সব কিছু এক জায়গায়'),
+                  child: HomeCard(
+                    padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+                    child: GridView.count(
+                      crossAxisCount: 4,
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      physics: const NeverScrollableScrollPhysics(),
+                      childAspectRatio: 0.92,
+                      children: [
+                        for (final (label, icon, fg, bg, onTap) in shortcuts)
+                          InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: onTap,
+                            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Container(
+                                width: 46,
+                                height: 46,
+                                decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
+                                child: Icon(icon, color: fg, size: 23),
+                              ),
+                              const SizedBox(height: 7),
+                              Text(label, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(12.5, height: 1.2)),
+                            ]),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const StartTips(),
+              ]),
             ),
-            const StartTips(),
           ],
         ),
       ),
       const AdSlot(padding: EdgeInsets.fromLTRB(16, 4, 16, 6)),
     ]);
-  }
-}
-
-/// A small drawn sun beside the name (a moon after sunset) — no emoji font.
-class _SunOrMoon extends CustomPainter {
-  _SunOrMoon({required this.day});
-  final bool day;
-
-  @override
-  void paint(Canvas canvas, Size s) {
-    final c = s.center(Offset.zero);
-    if (day) {
-      final p = Paint()..color = C.sun;
-      canvas.drawCircle(c, s.width * 0.22, p);
-      final ray = Paint()
-        ..color = C.sun
-        ..strokeWidth = 2
-        ..strokeCap = StrokeCap.round;
-      for (var i = 0; i < 8; i++) {
-        final a = i * math.pi / 4;
-        canvas.drawLine(c + Offset(math.cos(a), math.sin(a)) * s.width * 0.34, c + Offset(math.cos(a), math.sin(a)) * s.width * 0.48, ray);
-      }
-    } else {
-      final p = Paint()..color = C.sun;
-      final moon = Path()..addOval(Rect.fromCircle(center: c, radius: s.width * 0.36));
-      final cut = Path()..addOval(Rect.fromCircle(center: c + Offset(s.width * 0.18, -s.width * 0.12), radius: s.width * 0.32));
-      canvas.drawPath(Path.combine(PathOperation.difference, moon, cut), p);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_SunOrMoon o) => o.day != day;
-}
-
-/// One savings goal or instalment: a coloured top with "• চলছে" and an
-/// icon, then the name, how far, and a thin bar.
-class _GoalCard extends StatelessWidget {
-  const _GoalCard({required this.tone, required this.icon, required this.name, required this.sub, required this.progress, required this.onTap});
-  final int tone;
-  final IconData icon;
-  final String name;
-  final String sub;
-  final double progress;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final tops = [C.fill, C.dark ? const Color(0xFF242B28) : const Color(0xFFEDEBE5), C.dark ? const Color(0xFF213029) : const Color(0xFFDCE3DD)];
-    final top = tops[tone % 3];
-    final onTop = tone % 3 == 0 ? const Color(0xFFE8E3D6) : C.muted2;
-    final pct = (progress * 100).round();
-    return Padding(
-      padding: const EdgeInsets.only(right: 12, bottom: 4),
-      child: SizedBox(
-        width: 150,
-        child: Panel(
-          child: InkWell(
-            onTap: onTap,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Container(
-                height: 76,
-                color: top,
-                padding: const EdgeInsets.all(8),
-                child: Stack(children: [
-                  StatusPill(tr('চলছে'), dot: C.green),
-                  Center(child: Padding(padding: const EdgeInsets.only(top: 14), child: Icon(icon, size: 30, color: onTop))),
-                ]),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14.5, weight: FontWeight.w600)),
-                  Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted)),
-                  const SizedBox(height: 6),
-                  Text('${bnDigits(pct)}%', style: body(13, weight: FontWeight.w600)),
-                  const SizedBox(height: 4),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(3),
-                    child: LinearProgressIndicator(value: progress.clamp(0, 1).toDouble(), minHeight: 4, color: C.fill, backgroundColor: C.line),
-                  ),
-                ]),
-              ),
-            ]),
-          ),
-        ),
-      ),
-    );
   }
 }
 
@@ -455,16 +337,32 @@ class _WeatherLabelState extends State<_WeatherLabel> {
       showDuration: const Duration(seconds: 5),
       child: Container(
         key: const Key('home-temp'),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16), boxShadow: C.shadow),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(color: const Color(0x33000000), borderRadius: BorderRadius.circular(14)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(w.code >= 51 ? Icons.water_drop_outlined : (w.code >= 3 ? Icons.cloud_outlined : Icons.wb_sunny_outlined), size: 17, color: w.code >= 3 ? C.muted2 : C.sun),
-          const SizedBox(width: 6),
-          Flexible(child: Text('${w.short} · ${w.sky} · ${tr(brain.district)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13.5, weight: FontWeight.w500))),
+          Icon(w.code >= 51 ? Icons.water_drop_outlined : (w.code >= 3 ? Icons.cloud_outlined : Icons.wb_sunny_outlined), size: 15, color: const Color(0xFFFDE68A)),
+          const SizedBox(width: 5),
+          Flexible(child: Text('${w.short} · ${w.sky} · ${tr(brain.district)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w600, color: Colors.white))),
         ]),
       ),
     );
   }
+}
+
+class _SunLabel extends StatelessWidget {
+  const _SunLabel({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 14, color: const Color(0xFFFDE68A)),
+          const SizedBox(width: 4),
+          Text(text, style: body(12.5, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.92))),
+        ]),
+      );
 }
 
 /// One thing coming up: a small tinted square (a date or an icon), what it

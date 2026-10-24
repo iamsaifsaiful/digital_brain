@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../logic/bn.dart';
 import '../state/brain.dart';
 import '../ui/note_parts.dart';
-import '../ui/kit.dart';
 import '../ui/theme.dart';
 import 'calls_screen.dart';
 import 'docs_screen.dart';
@@ -29,173 +28,100 @@ class StoreScreen extends StatelessWidget {
     final brain = BrainScope.of(context);
     final d = brain.data;
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
-    final recent = ([...d.notes]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt))).take(6).toList();
-    final now = brain.services.now();
-    // The paper whose expiry is nearest, if it ends within a month (or ended lately).
-    final soon = (d.docs.where((x) => x.expiry != null && dayOnly(x.expiry!).difference(dayOnly(now)).inDays.abs() <= 30).toList()
-          ..sort((a, b) => a.expiry!.compareTo(b.expiry!)))
-        .firstOrNull;
+    final recent = ([...d.notes]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt))).take(4).toList();
 
-    // fg/bg kept in the calls; the new look is one calm colour, the vault dark.
-    Widget tile(String label, String sub, IconData icon, Color fg, Color bg, VoidCallback onTap, {bool dark = false}) => Container(
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), boxShadow: C.shadow),
-          child: Material(
-            color: dark ? C.fill : C.surface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: C.dark ? BorderSide(color: dark ? C.fillEdge : C.line) : BorderSide.none),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: onTap,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
-                child: Row(children: [
-                  IconSquare(icon, size: 42, bg: dark ? Colors.white.withValues(alpha: 0.12) : null, color: dark ? Colors.white : null),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15, weight: FontWeight.w600, color: dark ? Colors.white : C.ink)),
-                      Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: dark ? Colors.white.withValues(alpha: 0.7) : C.muted)),
-                    ]),
-                  ),
-                ]),
-              ),
+    Widget tile(String label, String sub, IconData icon, Color fg, Color bg, VoidCallback onTap) => Material(
+          color: C.surface,
+          borderRadius: BorderRadius.circular(18),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Container(width: 42, height: 42, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(13)), child: Icon(icon, color: fg, size: 22)),
+                const SizedBox(height: 10),
+                Text(label, style: body(15, weight: FontWeight.w600)),
+                Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted)),
+              ]),
             ),
           ),
         );
 
-    final tiles = [
-      tile(tr('নোট'), trf('{0}টি', [bnDigits(d.notes.length)]), Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, () => push(const NotesScreen())),
-      tile(tr('ডকুমেন্টস'), trf('{0}টি · তালাবদ্ধ', [bnDigits(d.docs.length)]), Icons.folder_copy_outlined, C.blue, C.blueTint, () => push(const DocsScreen())),
-      tile(tr('পাসওয়ার্ড'), trf('{0}টি · তালাবদ্ধ', [bnDigits(d.vault.length)]), Icons.key_rounded, C.ink, C.soft, () => push(const VaultPage()), dark: true),
-      tile(tr('যোগাযোগ'), trf('{0} জন', [bnDigits(d.contacts.length)]), Icons.call_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
-      tile(tr('স্বাস্থ্য'), tr('BMI, প্রেশার, সুগার, টিকা'), Icons.favorite_border_rounded, C.rose, C.roseTint, () => push(const HealthScreen())),
-      if (brain.inboxSupported) tile(tr('মেসেজ থেকে কাজ'), tr('WhatsApp, imo, Gmail, SMS'), Icons.mark_chat_unread_outlined, C.green, C.greenTint, () => push(const InboxScreen())),
-    ];
-
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(child: Text(tr('সংরক্ষণ'), style: heading(28))),
-          Padding(padding: const EdgeInsets.only(top: 4), child: HandNote(tr('সব এক জায়গায়'), size: 13, arrow: HandArrow.downLeft, rotate: 6)),
-        ]),
-        Row(children: [
-          Icon(Icons.lock_outline_rounded, size: 14, color: C.muted),
-          const SizedBox(width: 4),
-          Flexible(child: Text(tr('আপনার সব দরকারি জিনিস, এই ফোনে তালাবদ্ধ'), style: body(13, color: C.muted))),
-        ]),
+        Text(tr('সংরক্ষণ'), style: display(24, weight: 700)),
+        Text(tr('আপনার সব দরকারি জিনিস, এই ফোনে তালাবদ্ধ'), style: body(13.5, color: C.muted)),
+        const SizedBox(height: 12),
+        Material(
+          color: C.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: BorderSide(color: C.line)),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(24),
+            onTap: () => push(const SearchScreen()),
+            child: SizedBox(
+              height: 46,
+              child: Row(children: [
+                const SizedBox(width: 16),
+                Icon(Icons.search_rounded, color: C.muted, size: 20),
+                const SizedBox(width: 10),
+                Expanded(child: Text(tr('নোট, নম্বর, পাসওয়ার্ড খুঁজুন…'), style: body(14.5, color: C.muted))),
+                IconButton(tooltip: tr('বলে খুঁজুন'), onPressed: () => openVoice(context), icon: Icon(Icons.mic_none_rounded, color: C.green)),
+              ]),
+            ),
+          ),
+        ),
         const SizedBox(height: 14),
-        Container(
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), boxShadow: C.shadow),
-          child: Material(
-            color: C.surface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: C.dark ? BorderSide(color: C.line) : BorderSide.none),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: () => push(const SearchScreen()),
-              child: SizedBox(
-                height: 54,
-                child: Row(children: [
-                  const SizedBox(width: 16),
-                  Icon(Icons.search_rounded, color: C.muted, size: 22),
-                  const SizedBox(width: 10),
-                  Expanded(child: Text(tr('নোট, নম্বর, পাসওয়ার্ড খুঁজুন…'), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14.5, color: C.muted))),
-                  Padding(
-                    padding: const EdgeInsets.only(right: 7),
-                    child: Material(
-                      color: C.soft,
-                      borderRadius: BorderRadius.circular(12),
-                      child: IconButton(tooltip: tr('বলে খুঁজুন'), onPressed: () => openVoice(context), icon: Icon(Icons.mic_none_rounded, color: C.ink)),
-                    ),
-                  ),
-                ]),
-              ),
-            ),
-          ),
-        ),
-        if (soon != null) ...[
-          const SizedBox(height: 12),
-          Material(
-            color: C.warnTint,
-            borderRadius: BorderRadius.circular(16),
-            child: InkWell(
-              key: const Key('store-expiry-soon'),
-              borderRadius: BorderRadius.circular(16),
-              onTap: () => push(const ExpiryScreen()),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-                child: Row(children: [
-                  Icon(Icons.warning_amber_rounded, color: C.warn),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(
-                          dayOnly(soon.expiry!).isBefore(dayOnly(now))
-                              ? trf('{0} — মেয়াদ শেষ হয়ে গেছে', [soon.title])
-                              : trf('{0} — মেয়াদের {1}', [soon.title, daysLeftLabel(soon.expiry!, now)]),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: body(14.5, weight: FontWeight.w600)),
-                      Text(fullDate(soon.expiry!), style: body(12.5, color: C.muted2)),
-                    ]),
-                  ),
-                  Icon(Icons.chevron_right_rounded, color: C.muted2),
-                ]),
-              ),
-            ),
-          ),
-        ],
-        Padding(
-          padding: const EdgeInsets.fromLTRB(2, 18, 2, 10),
-          child: Row(children: [
-            Expanded(child: Text(tr('সব কিছু'), style: heading(18))),
-            Text(trf('{0}টা ভাগ', [bnDigits(tiles.length)]), style: body(13, color: C.muted)),
-          ]),
-        ),
         GridView.count(
           crossAxisCount: 2,
           shrinkWrap: true,
-          padding: EdgeInsets.zero,
           physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 10,
           crossAxisSpacing: 10,
-          childAspectRatio: 2.3,
-          children: tiles,
+          childAspectRatio: 1.35,
+          children: [
+            tile(tr('নোট'), trf('{0}টি', [bnDigits(d.notes.length)]), Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, () => push(const NotesScreen())),
+            tile(tr('ডকুমেন্টস'), trf('{0}টি · তালাবদ্ধ', [bnDigits(d.docs.length)]), Icons.folder_copy_outlined, C.blue, C.blueTint, () => push(const DocsScreen())),
+            tile(tr('পাসওয়ার্ড'), trf('{0}টি · তালাবদ্ধ', [bnDigits(d.vault.length)]), Icons.lock_outline_rounded, C.ink, C.soft, () => push(const VaultPage())),
+            tile(tr('যোগাযোগ'), trf('{0} জন', [bnDigits(d.contacts.length)]), Icons.call_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
+            tile(tr('স্বাস্থ্য'), tr('BMI, প্রেশার, সুগার, টিকা'), Icons.favorite_border_rounded, C.rose, C.roseTint, () => push(const HealthScreen())),
+            if (brain.inboxSupported) tile(tr('মেসেজ থেকে কাজ'), tr('WhatsApp, imo, Gmail, SMS'), Icons.mark_chat_unread_outlined, C.green, C.greenTint, () => push(const InboxScreen())),
+          ],
         ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 40,
-          child: ListView(scrollDirection: Axis.horizontal, children: [
-            for (final (label, icon, page) in [
-              (tr('জরুরি কার্ড'), Icons.emergency_outlined, const EmergencyScreen() as Widget),
-              (tr('কাগজের মেয়াদ'), Icons.event_busy_outlined, const ExpiryScreen() as Widget),
-              (tr('ট্যাগ'), Icons.sell_outlined, const TagsScreen() as Widget),
-              (tr('বিশেষ দিন'), Icons.cake_outlined, const SpecialDaysScreen() as Widget),
-            ])
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Material(
-                  color: C.surface,
-                  shape: StadiumBorder(side: BorderSide(color: C.line)),
-                  child: InkWell(
-                    customBorder: const StadiumBorder(),
-                    onTap: () => push(page),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(icon, size: 18, color: C.muted2),
-                        const SizedBox(width: 6),
-                        Text(label, style: body(13.5, weight: FontWeight.w500)),
-                      ]),
-                    ),
+        const SizedBox(height: 10),
+        Row(children: [
+          for (final (label, icon, fg, bg, page) in [
+            (tr('জরুরি কার্ড'), Icons.emergency_outlined, C.rose, C.roseTint, const EmergencyScreen() as Widget),
+            (tr('কাগজের মেয়াদ'), Icons.event_busy_outlined, C.orange, C.orangeTint, const ExpiryScreen() as Widget),
+            (tr('ট্যাগ'), Icons.sell_outlined, C.green, C.greenTint, const TagsScreen() as Widget),
+            (tr('বিশেষ দিন'), Icons.cake_outlined, C.purple, C.purpleTint, const SpecialDaysScreen() as Widget),
+          ]) ...[
+            Expanded(
+              child: Material(
+                color: C.surface,
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => push(page),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                    child: Column(children: [
+                      Container(width: 38, height: 38, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: fg, size: 20)),
+                      const SizedBox(height: 6),
+                      Text(label, textAlign: TextAlign.center, maxLines: 2, style: body(12, weight: FontWeight.w500, height: 1.2)),
+                    ]),
                   ),
                 ),
               ),
-          ]),
-        ),
+            ),
+            if (label != tr('বিশেষ দিন')) const SizedBox(width: 8),
+          ],
+        ]),
         const SizedBox(height: 10),
         Material(
           color: C.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: C.dark ? BorderSide(color: C.line) : BorderSide.none),
+          borderRadius: BorderRadius.circular(16),
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
             onTap: () => push(const MenuPage(child: LibraryScreen())),
@@ -211,57 +137,51 @@ class StoreScreen extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(2, 18, 0, 6),
+          padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
           child: Row(children: [
-            Expanded(child: Text(tr('সম্প্রতি রাখা নোট'), style: heading(18))),
-            TextButton(
+            Expanded(child: Text(tr('সম্প্রতি রাখা নোট'), style: body(13, weight: FontWeight.w600, color: C.muted))),
+            TextButton.icon(
               onPressed: () => push(const NewItemScreen(category: ItemCategory.note)),
-              style: TextButton.styleFrom(foregroundColor: C.muted),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(tr('নতুন'), style: body(14, weight: FontWeight.w500, color: C.muted)),
-                const SizedBox(width: 2),
-                Icon(Icons.add_rounded, size: 18, color: C.muted),
-              ]),
+              icon: Icon(Icons.add_rounded, size: 18, color: C.green),
+              label: Text(tr('নতুন'), style: body(14, weight: FontWeight.w600, color: C.green)),
             ),
           ]),
         ),
-        if (recent.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16)),
-            child: Text(tr('এখনো কোনো নোট নেই। সহকারীকে বলুন — “মনে রাখো: গাড়ির কাগজ আলমারিতে”।'), style: body(14, color: C.muted, height: 1.5)),
-          )
-        else
-          SizedBox(
-            height: 132,
-            child: ListView(clipBehavior: Clip.none, scrollDirection: Axis.horizontal, children: [
-              for (final n in recent)
-                Padding(
-                  padding: const EdgeInsets.only(right: 10, bottom: 4),
-                  child: Container(
-                    width: 168,
-                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), boxShadow: C.shadow),
-                    child: Material(
-                      color: C.surface,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: C.dark ? BorderSide(color: C.line) : BorderSide.none),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () => push(NewItemScreen(note: n)),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 12, 12, 10),
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(n.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15, weight: FontWeight.w600)),
-                            const SizedBox(height: 2),
-                            Expanded(child: Text(notePreview(n), maxLines: 2, overflow: TextOverflow.ellipsis, style: body(13, color: C.muted2, height: 1.4))),
-                            Text('${shortDate(n.updatedAt)} · ${n.category}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted)),
-                          ]),
-                        ),
+        Container(
+          decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16)),
+          clipBehavior: Clip.antiAlias,
+          child: recent.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Text(tr('এখনো কোনো নোট নেই। সহকারীকে বলুন — “মনে রাখো: গাড়ির কাগজ আলমারিতে”।'), style: body(14, color: C.muted, height: 1.5)),
+                )
+              : Column(children: [
+                  for (final (i, n) in recent.indexed) ...[
+                    if (i > 0) Divider(height: 1, indent: 14, endIndent: 14, color: C.line),
+                    InkWell(
+                      onTap: () => push(NewItemScreen(note: n)),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+                        child: Row(children: [
+                          Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(color: C.ochreTint, borderRadius: BorderRadius.circular(12)),
+                              child: Icon(Icons.sticky_note_2_outlined, color: C.ochre, size: 20)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(n.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15, weight: FontWeight.w600)),
+                              Text('${n.category} · ${notePreview(n)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted)),
+                            ]),
+                          ),
+                          Icon(Icons.chevron_right_rounded, color: C.muted),
+                        ]),
                       ),
                     ),
-                  ),
-                ),
-            ]),
-          ),
+                  ],
+                ]),
+        ),
       ],
     );
   }

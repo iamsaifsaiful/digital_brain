@@ -162,7 +162,7 @@ class _SoundScreenState extends State<SoundScreen> {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('রিমাইন্ডারের রিংটোন'), sub: tr('কোন শব্দে মনে করাবো')),
+          TopBar(title: tr('রিমাইন্ডারের রিংটোন')),
           Expanded(
             child: l == null
                 ? const Center(child: CircularProgressIndicator())
