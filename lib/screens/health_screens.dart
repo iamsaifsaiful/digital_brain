@@ -146,7 +146,7 @@ class HabitsScreen extends StatelessWidget {
                                     color: h.doneOn(d) ? C.green : Colors.transparent,
                                     border: Border.all(color: h.doneOn(d) ? C.green : (d == today ? C.green : C.line), width: 1.5),
                                   ),
-                                  child: h.doneOn(d) ? const Icon(Icons.check_rounded, size: 18, color: Colors.white) : null,
+                                  child: h.doneOn(d) ? Icon(Icons.check_rounded, size: 18, color: C.onAccent) : null,
                                 ),
                               ]),
                             ),

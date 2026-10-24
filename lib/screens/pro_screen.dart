@@ -222,22 +222,19 @@ class _ProScreenState extends State<ProScreen> {
               child: ListView(padding: const EdgeInsets.fromLTRB(20, 0, 20, 28), children: [
                 Container(
                   padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(22),
-                    gradient: const LinearGradient(colors: [Color(0xFF111827), Color(0xFF1F2937)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                  ),
+                  decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(17), border: Border.all(color: C.border)),
                   child: Row(children: [
                     Container(
                       width: 52,
                       height: 52,
-                      decoration: BoxDecoration(color: const Color(0xFFFBBF24), borderRadius: BorderRadius.circular(16)),
-                      child: const Icon(Icons.workspace_premium_rounded, color: Color(0xFF111827), size: 30),
+                      decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(16)),
+                      child: Icon(Icons.workspace_premium_rounded, color: C.green, size: 30),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('My Assistant Premium', style: display(22, weight: 700, color: Colors.white)),
-                        Text(status ?? tr('আরও বেশি কাজ, বিজ্ঞাপন ছাড়া'), style: body(13.5, color: const Color(0xFFD1D5DB))),
+                        Text('My Assistant Premium', style: display(21, weight: 600)),
+                        Text(status ?? tr('আরও বেশি কাজ, বিজ্ঞাপন ছাড়া'), style: body(13, color: C.muted)),
                       ]),
                     ),
                   ]),

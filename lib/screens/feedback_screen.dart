@@ -387,9 +387,9 @@ class _FeedbackThreadScreenState extends State<FeedbackThreadScreen> {
               IconButton.filled(
                 key: const Key('reply-send'),
                 tooltip: tr('পাঠান'),
-                style: IconButton.styleFrom(backgroundColor: C.green, foregroundColor: Colors.white),
+                style: IconButton.styleFrom(backgroundColor: C.green, foregroundColor: C.onAccent),
                 onPressed: _busy ? null : _send,
-                icon: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send_rounded),
+                icon: _busy ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: C.onAccent)) : const Icon(Icons.send_rounded),
               ),
             ]),
           ),

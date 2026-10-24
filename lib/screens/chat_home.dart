@@ -1343,12 +1343,11 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: C.surface,
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(17),
               border: Border.all(color: C.inputBorder),
-              boxShadow: const [BoxShadow(color: Color(0x0F111827), blurRadius: 10, offset: Offset(0, 2))],
             ),
             child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              _Round(icon: Icons.add_rounded, tooltip: tr('দ্রুত যোগ'), bg: C.soft, fg: C.ink, size: 40, onTap: _quickAdd),
+              _Round(icon: Icons.add_rounded, tooltip: tr('দ্রুত যোগ'), bg: C.surface2, fg: C.ink, size: 40, onTap: _quickAdd),
               const SizedBox(width: 6),
               Expanded(
                 child: TextField(
@@ -1377,8 +1376,8 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
               ValueListenableBuilder<TextEditingValue>(
                 valueListenable: _text,
                 builder: (context, v, _) => v.text.trim().isEmpty
-                    ? _Round(icon: Icons.mic_none_rounded, tooltip: tr('কথা বলুন'), bg: C.green, fg: Colors.white, size: 44, onTap: startVoice)
-                    : _Round(icon: Icons.arrow_upward_rounded, tooltip: tr('পাঠান'), bg: C.ink, fg: C.surface, size: 44, onTap: _busy ? null : _submitTyped),
+                    ? _Round(icon: Icons.mic_none_rounded, tooltip: tr('কথা বলুন'), bg: C.green, fg: C.onAccent, size: 44, onTap: startVoice)
+                    : _Round(icon: Icons.arrow_upward_rounded, tooltip: tr('পাঠান'), bg: C.green, fg: C.onAccent, size: 44, onTap: _busy ? null : _submitTyped),
               ),
             ]),
           ),
@@ -1533,7 +1532,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
             label: _listening ? (_draft.isNotEmpty ? tr('বলা শেষ') : tr('শেষ')) : (_draft.isNotEmpty ? tr('পাঠান') : tr('বলুন')),
             excludeSemantics: true,
             child: Material(
-              color: C.fill,
+              color: C.green,
               shape: const StadiumBorder(),
               child: InkWell(
                 customBorder: const StadiumBorder(),
@@ -1544,7 +1543,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
                     padding: const EdgeInsets.symmetric(horizontal: 30),
                     child: Center(
                         child: Text(_listening ? (_draft.isNotEmpty ? tr('বলা শেষ') : tr('শেষ')) : (_draft.isNotEmpty ? tr('পাঠান') : tr('বলুন')),
-                            style: body(17, weight: FontWeight.w600, color: Colors.white))),
+                            style: body(17, weight: FontWeight.w600, color: C.onAccent))),
                   ),
                 ),
               ),
@@ -1568,7 +1567,7 @@ class _Mark extends StatelessWidget {
         width: size,
         height: size,
         decoration: BoxDecoration(color: C.green, borderRadius: BorderRadius.circular(size * 0.32)),
-        child: Icon(Icons.auto_awesome_rounded, color: Colors.white, size: size * 0.55),
+        child: Icon(Icons.auto_awesome_rounded, color: C.onAccent, size: size * 0.55),
       );
 }
 
@@ -1586,9 +1585,10 @@ class _Round extends StatelessWidget {
         message: tooltip,
         child: Material(
           color: bg,
-          shape: const CircleBorder(),
+          // Rounded squares, like the home composer (approved design).
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(size * 0.3)),
           child: InkWell(
-            customBorder: const CircleBorder(),
+            customBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(size * 0.3)),
             onTap: onTap,
             child: SizedBox(width: size, height: size, child: Icon(icon, color: fg, size: size * 0.5)),
           ),

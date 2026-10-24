@@ -62,8 +62,10 @@ class AlarmsScreen extends StatelessWidget {
     return Scaffold(
       floatingActionButton: FloatingActionButton(
         tooltip: tr('নতুন অ্যালার্ম'),
-        backgroundColor: C.fill,
-        foregroundColor: Colors.white,
+        backgroundColor: C.green,
+        foregroundColor: C.onAccent,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)),
         onPressed: open,
         child: const Icon(Icons.add_rounded, size: 28),
       ),
@@ -322,7 +324,7 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
                           height: 42,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(shape: BoxShape.circle, color: _days.contains(d) ? C.green : C.soft),
-                          child: Text(_dayShort[d]!, style: body(14, weight: FontWeight.w600, color: _days.contains(d) ? Colors.white : C.muted)),
+                          child: Text(_dayShort[d]!, style: body(14, weight: FontWeight.w600, color: _days.contains(d) ? C.onAccent : C.muted)),
                         ),
                       ),
                     ),

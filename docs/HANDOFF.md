@@ -6,6 +6,17 @@
 
 ---
 
+## 0g. Update 24 Oct (night): 2.51.0-b106 → 2.52.0-b107 — the approved home design on every screen
+
+- Design source: `docs/design/2026-10-24-home-final/` (PROMPT.md, home.html). Tokens in `lib/ui/theme.dart` (class C), parts in `lib/ui/kit.dart` (SectionHeading, AppCard, SoftChip, SmallButton, AttentionCard, ToolTile, RotatingSlot).
+- 2.51.0-b106: home rewritten (`home_page.dart`, `home_screen.dart`), composer, nav, দিনলিপি, হিসাব, সংরক্ষণ.
+- Sehri ends 5 minutes before Fajr (`SunTimes.sehriEnd`), used by the home slot, calendar, answers and the Ramadan notice.
+- Then: আরও tiles (one accent), calendar top card flat (no gradient, ink text), Premium hero flat (no dark gradient/yellow), chat composer like home (radius 17, no shadow, accent rounded-square mic and send), match panel shadow removed, search field radius 15, accent fills use `C.onAccent` (white on mint in dark was unreadable), alarm FAB accent rounded square.
+- Moved/shrunk (tell the owner): sky picture removed (its facts in the info row's turning slot); quick questions and the past-chats button only when the box is focused; tools folded (14, no হিসাব tool — it is a tab); start tips one expandable card; expense amounts in text colour; "খরচ" button outlined; More tiles all accent.
+- Kept on purpose: the hue gradient in own-colour picker (it is the picker), the full-screen alarm page colours, the lock screen.
+- Shots: `SHOTS=1 LOOK=light|dark flutter test --no-pub --update-goldens test/ui/all_pages_shots_test.dart` → `test/ui/shots/all/` (gitignored).
+- Not verified on a phone: real fonts/sizes on small screens, the turning slot's 5 s timing feel, dark mode on AMOLED.
+
 ## 0f. Update 24 Oct (evening): 2.50.0-b103, plugin 1.18.0, admin 1.8.0+10
 
 ## Main money (এখন আছে)

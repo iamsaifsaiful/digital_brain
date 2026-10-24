@@ -34,7 +34,7 @@ import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '2.51.0';
+const appVersion = '2.52.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -343,7 +343,7 @@ class _MoreScreenState extends State<MoreScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       children: [
-        TabTitle(tr('আরও')),
+        TabTitle(tr('আরও'), sub: tr('প্রোফাইল, সেটিংস আর আরও সুবিধা')),
         const SizedBox(height: 14),
         ProfileCard(onName: _setName, onPlace: _setDistrict),
         const SizedBox(height: 12),
@@ -356,7 +356,7 @@ class _MoreScreenState extends State<MoreScreen> {
                 icon: Icons.workspace_premium_outlined,
                 fg: C.ochre,
                 bg: C.ochreTint,
-                title: tr('প্রিমিয়াম ভার্সন'),
+                title: tr('প্রিমিয়াম'),
                 sub: brain.gated && brain.pro ? tr('চালু আছে') : tr('কী কী পাবেন'),
                 onTap: () => push(const ProScreen())),
           ],
@@ -800,7 +800,7 @@ class _Tile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
         color: C.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: C.line)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17), side: BorderSide(color: C.border)),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
@@ -810,13 +810,14 @@ class _Tile extends StatelessWidget {
               Badge(
                 isLabelVisible: badge,
                 smallSize: 10,
-                child: Container(width: 40, height: 40, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: fg, size: 22)),
+                // One accent for every tool (the approved design's tiles).
+                child: Container(width: 40, height: 40, decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: C.green, size: 22)),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15, weight: FontWeight.w700)),
-                  Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: badge ? C.greenDark : C.muted)),
+                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w600)),
+                  Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: badge ? C.greenDark : C.muted)),
                 ]),
               ),
             ]),

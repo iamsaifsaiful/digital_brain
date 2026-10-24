@@ -466,9 +466,9 @@ class _ReportScreenState extends State<ReportScreen> {
                             FilledButton.icon(
                               key: const Key('fix-categories'),
                               onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => FixCategoriesScreen(month: m))),
-                              style: FilledButton.styleFrom(backgroundColor: C.green, foregroundColor: Colors.white),
+                              style: FilledButton.styleFrom(backgroundColor: C.green, foregroundColor: C.onAccent),
                               icon: const Icon(Icons.category_outlined, size: 18),
-                              label: Text(tr('খাত ঠিক করুন'), style: body(14.5, weight: FontWeight.w600, color: Colors.white)),
+                              label: Text(tr('খাত ঠিক করুন'), style: body(14.5, weight: FontWeight.w600, color: C.onAccent)),
                             ),
                           ]),
                         ),

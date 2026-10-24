@@ -4059,4 +4059,5 @@ const enStrings = <String, String>{
   'দিনের কাজ, রিমাইন্ডার আর অভ্যাস': 'Your day\'s tasks, reminders and habits',
   'আয়-ব্যয়, ধার-দেনা আর অন্যান্য হিসাব': 'Income and spending, loans and other accounts',
   'আয়-ব্যয় আর ধার-দেনা': 'Income, spending and loans',
+  'প্রোফাইল, সেটিংস আর আরও সুবিধা': 'Profile, settings and more',
 };

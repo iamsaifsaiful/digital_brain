@@ -120,7 +120,7 @@ class _CompassScreenState extends State<CompassScreen> {
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(color: facing ? C.green : C.greenTint, borderRadius: BorderRadius.circular(12)),
-                      child: Icon(Icons.mosque_outlined, color: facing ? Colors.white : C.green),
+                      child: Icon(Icons.mosque_outlined, color: facing ? C.onAccent : C.green),
                     ),
                     const SizedBox(width: 12),
                     Expanded(

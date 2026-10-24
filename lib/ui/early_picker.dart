@@ -73,7 +73,7 @@ class EarlyPicker extends StatelessWidget {
     final none = days == 0 && minutes == 0;
     final custom = !none && !(minutes > 0 && _minuteChoices.contains(minutes)) && !(days > 0 && _dayChoices.contains(days));
     Widget chip(String label, bool on, VoidCallback tap) => ChoiceChip(
-          label: Text(label, style: body(14, color: on ? Colors.white : C.ink)),
+          label: Text(label, style: body(14, color: on ? C.onAccent : C.ink)),
           selected: on,
           showCheckmark: false,
           selectedColor: C.fill,

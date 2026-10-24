@@ -50,14 +50,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
     Widget sunTile(IconData icon, Color c, String label, String value) => Expanded(
           child: Container(
             padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: C.surface2, borderRadius: BorderRadius.circular(12)),
             child: Row(children: [
-              Icon(icon, color: c, size: 22),
+              Icon(icon, color: C.green, size: 21),
               const SizedBox(width: 8),
               Flexible(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(label, style: body(11.5, color: Colors.white70, height: 1.2)),
-                  Text(value, style: body(15, weight: FontWeight.w600, color: Colors.white, height: 1.3)),
+                  Text(label, style: body(11.5, color: C.muted, height: 1.2)),
+                  Text(value, style: body(14, weight: FontWeight.w600, height: 1.3)),
                 ]),
               ),
             ]),
@@ -70,37 +70,35 @@ class _CalendarScreenState extends State<CalendarScreen> {
         // abrupt — the tabs change by a tap; a swipe on the month turns the month.)
         child: Builder(
           builder: (context) => ListView(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
             children: [
               Row(children: [
                 IconButton(tooltip: tr('ফিরে যান'), onPressed: () => Navigator.of(context).maybePop(), icon: const Icon(Icons.chevron_left_rounded, size: 30)),
-                Expanded(child: Text(tr('ক্যালেন্ডার'), style: display(21, weight: 700))),
+                Expanded(child: Text(tr('ক্যালেন্ডার'), style: display(21, weight: 600))),
               ]),
               const SizedBox(height: 6),
+              // A flat card like the rest (approved design: no coloured blocks).
               Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  gradient: LinearGradient(colors: [C.green, C.teal], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                ),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(17), border: Border.all(color: C.border)),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(picked == today ? tr('আজ বাংলা তারিখ') : tr('বাংলা তারিখ'), style: body(13, color: Colors.white70)),
-                        Text(bd.text, style: display(26, weight: 700, color: Colors.white, height: 1.3)),
-                        Text('${weekdayName(picked)} · ${bnDigits(picked.day)} ${monthName(picked.month)} ${bnDigits(picked.year)}', style: body(13.5, color: Colors.white)),
+                        Text(picked == today ? tr('আজ বাংলা তারিখ') : tr('বাংলা তারিখ'), style: body(12, color: C.muted)),
+                        Text(bd.text, style: display(25, weight: 600, height: 1.3)),
+                        Text('${weekdayName(picked)} · ${bnDigits(picked.day)} ${monthName(picked.month)} ${bnDigits(picked.year)}', style: body(13, color: C.muted)),
                         const SizedBox(height: 2),
-                        Text(trf('হিজরি · {0}', [hj.short]), style: body(13.5, weight: FontWeight.w600, color: Colors.white)),
-                        Text(hj.arabic, textDirection: TextDirection.rtl, style: const TextStyle(fontSize: 15, color: Colors.white, height: 1.5)),
+                        Text(trf('হিজরি · {0}', [hj.short]), style: body(13.5, weight: FontWeight.w600, color: C.green)),
+                        Text(hj.arabic, textDirection: TextDirection.rtl, style: TextStyle(fontSize: 15, color: C.muted2, height: 1.5)),
                       ]),
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12)),
+                      decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(12)),
                       child: Column(children: [
-                        const Icon(Icons.eco_outlined, color: Colors.white, size: 20),
-                        Text(trf('{0}কাল', [bd.season]), style: body(12.5, weight: FontWeight.w600, color: Colors.white)),
+                        Icon(Icons.eco_outlined, color: C.green, size: 20),
+                        Text(trf('{0}কাল', [bd.season]), style: body(12, weight: FontWeight.w600, color: C.green)),
                       ]),
                     ),
                   ]),
@@ -116,13 +114,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         place.label,
                         picked == today ? ' · ${bnDigits(toNext)} ${tr('দিন পর')} ${bnDigits(1)} ${nextBd.monthName}${nextBd.month % 2 == 0 ? ', ${trf('{0}কাল শুরু', [nextBd.season])}' : ''}' : ''
                       ]),
-                      style: body(12.5, color: Colors.white, height: 1.45)),
+                      style: body(11.5, color: C.muted, height: 1.45)),
                 ]),
               ),
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.fromLTRB(4, 10, 4, 10),
-                decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16)),
+                decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(17), border: Border.all(color: C.border)),
                 child: Column(children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
@@ -326,7 +324,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final hol = holidayOn(d) != null;
     final weekend = isWeekend(d);
     final bg = isToday ? C.green : (hol ? C.roseTint : Colors.transparent);
-    final fg = isToday ? Colors.white : (hol || weekend ? _red : C.ink);
+    final fg = isToday ? C.onAccent : (hol || weekend ? _red : C.ink);
     return InkWell(
       key: Key('day-${d.year}-${d.month}-${d.day}'),
       borderRadius: BorderRadius.circular(10),
@@ -339,12 +337,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Text(bnDigits(d.day), style: body(14.5, weight: FontWeight.w600, color: fg, height: 1.2)),
           Text(_side == CalSide.bangla ? bnDigits(banglaDate(d).day) : bnDigits(hijriDate(d, adjust: brain.number('hijri_adjust')).day),
-              style: body(10, color: isToday ? Colors.white70 : (_side == CalSide.arabic ? C.teal : C.muted), height: 1.2)),
+              style: body(10, color: isToday ? C.onAccent.withValues(alpha: 0.75) : (_side == CalSide.arabic ? C.teal : C.muted), height: 1.2)),
           Container(
             width: 5,
             height: 5,
             margin: const EdgeInsets.only(top: 1),
-            decoration: BoxDecoration(shape: BoxShape.circle, color: busy ? (isToday ? Colors.white : C.orange) : Colors.transparent),
+            decoration: BoxDecoration(shape: BoxShape.circle, color: busy ? (isToday ? C.onAccent : C.orange) : Colors.transparent),
           ),
         ]),
       ),

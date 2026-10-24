@@ -327,7 +327,7 @@ class _TasksScreenState extends State<TasksScreen> {
                       tooltip: tr('যোগ করুন'),
                       style: IconButton.styleFrom(backgroundColor: C.green, minimumSize: const Size(52, 52)),
                       onPressed: _add,
-                      icon: const Icon(Icons.add_rounded, color: Colors.white),
+                      icon: Icon(Icons.add_rounded, color: C.onAccent),
                     ),
                   ]),
                 ),

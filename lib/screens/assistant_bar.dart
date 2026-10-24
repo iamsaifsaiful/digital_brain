@@ -115,10 +115,6 @@ class _AssistantBarState extends State<AssistantBar> {
           key: const ValueKey('matches'),
           constraints: const BoxConstraints(maxHeight: 260),
           margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: C.dark ? 0.35 : 0.08), blurRadius: 16, offset: const Offset(0, 4))],
-          ),
           child: Material(
             color: C.surface,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: C.line)),

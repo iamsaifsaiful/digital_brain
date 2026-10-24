@@ -117,7 +117,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 child: Container(
                   height: 48,
                   padding: const EdgeInsets.only(left: 14, right: 4),
-                  decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: C.green, width: 1.6)),
+                  decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(15), border: Border.all(color: C.green, width: 1.2)),
                   child: Row(children: [
                     Icon(Icons.search_rounded, color: C.muted, size: 20),
                     const SizedBox(width: 8),
