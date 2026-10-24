@@ -48,21 +48,36 @@ You are continuing work on **My Assistant**, a Bengali voice-first personal assi
 - Do not run `dart format` on big existing files; it re-flows them. Keep the existing style and format only new files.
 - **The UI rebuild must not change behaviour or data.** It is a visual change: same features, same data, same voice flow. Every existing widget test must keep passing; update finders only where text or structure genuinely moved, and say so.
 
-### 2. Current state (23 Oct 2026)
-- App **2.45.0+96** (b96), plugin **1.15.0**, admin app **1.5.0+7**, branch `next-update`. The last commit before this design was `88fae63`.
-- Tests:
-  - Flutter: 2176 pass. The full run takes about 16 min; run it alone, never in parallel.
-  - Admin app: 8 tests.
+### 2. Current state — check it, do not trust these numbers blindly
+- **Another session kept working after `docs/HANDOFF.md` was written (23 Oct, 2.45.0).** When this prompt was written (24 Oct) the branch `next-update` was at:
+  - App **2.48.0+99**, plugin **1.17.0**, admin app **1.7.0+9**.
+  - Latest commits: crowd/persona NLU rounds and the 2.46–2.48 fixes.
+- **Before anything else:**
+  - Run `git log --oneline 88fae63..HEAD` and read every commit message since the handoff.
+  - Read the newer reports in `docs/` (for example `crowd-2000-2026-10-24.md`, `persona-walk-2026-10-23.md`, `persona-review-2026-10-23.md`).
+  - Take the real version numbers from `pubspec.yaml`, `MA_ACC_VERSION` in `tool/wordpress/my-assistant-accounts/my-assistant-accounts.php`, and `admin_app/pubspec.yaml`.
+- **Features added after the mockups were drawn, which the new UI must also cover:**
+  - The নোটিফিকেশন page (next 7 days, last 30).
+  - বকেয়া inside অন্যান্য হিসাব.
+  - হিসাবে খোঁজা by a person's name.
+  - The plan badge on the profile.
+  - Company accounts (owner only, on the site and in the admin app — not in the member app).
+  - Business mode is hidden for now.
+  - Style them with the same kit (§5).
+- **Next release:** the next minor after the current one (for example 2.49.0+100 if the branch is still at 2.48.0+99). Bump `pubspec.yaml` and `appVersion` in `lib/screens/more_screen.dart`. The plugin and admin app are unchanged unless needed.
+- **Tests (as of 23 Oct; recount):**
+  - Flutter: about 2176 pass. The full run takes about 16 min; run it alone, never in parallel.
+  - Admin app tests pass.
   - WordPress e2e: ALL OK.
-  - `flutter analyze`: 24 infos, 0 warnings.
-- **Next release:** 2.46.0+97. Bump `pubspec.yaml` and `appVersion` in `lib/screens/more_screen.dart`. The plugin and admin app are unchanged unless needed.
+  - `flutter analyze`: about 24 infos, 0 warnings.
 - Build, sign and send exactly as in `docs/HANDOFF.md` §2:
   - Build with the `play_preview.yml` workflow.
   - Download the assets via `gh api` (REST only; GraphQL is blocked).
-  - Re-sign with `uber-apk-signer --allowResign`, alias `myassistant`.
+  - Re-sign with `uber-apk-signer --allowResign`, alias `myassistant`. If the signer jar is missing, download uber-apk-signer from its GitHub release, or use apksigner.
   - Verify the certificate is SHA256 `FC:6C:FF:35:…:69:D0:01:4F`.
-  - Name the files `My-Assistant-Play-Preview-2.46.0-b97-{arm64,armv7}.apk`.
-- **Commit trailers:** the ones your session's system tells you to use. The previous session used `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` plus its own session link.
+  - Name the files `My-Assistant-Play-Preview-<ver>-b<N>-{arm64,armv7}.apk`.
+- **Commit trailers:** the ones your session's system tells you to use.
+- **Do not overwrite other sessions' work.** Always run `git fetch` and rebase before pushing. If the push is rejected, rebase; never force-push.
 
 ### 3. Open design decisions — ask the owner FIRST (use one multiple-choice question set)
 1. **Is the design approved as is, or what should change?** He may name pages.
@@ -392,7 +407,7 @@ Pages not in the mockups keep their features and get the same kit: tasks list, r
    - `python3 tool/i18n_missing.py` = 0.
    - Admin app tests (unchanged).
    - WordPress e2e (unchanged).
-6. Bump to 2.46.0+97, commit, push, build `play_preview.yml`, re-sign, verify `FC:6C:FF:35`, and send both APKs.
+6. Bump the version (see §2), commit, `git fetch && git rebase origin/next-update`, push, build `play_preview.yml`, re-sign, verify `FC:6C:FF:35`, and send both APKs.
 7. Update `docs/HANDOFF.md` and `docs/pending-2026-10-22.md` (also in the claude.ai Project if one is attached).
 8. **Report in Bengali:**
    - What changed, with screenshots.
