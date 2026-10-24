@@ -613,7 +613,7 @@ extension _MenuChat on ChatController {
         hit.sort((a, b) => b.date.compareTo(a.date));
         final e = hit.first;
         final cat = c.text.trim();
-        await brain.saveCash(CashEntry(id: e.id, kind: e.kind, amount: e.amount, category: cat, note: e.note, date: e.date, projectId: e.projectId, accountId: e.accountId, shopId: e.shopId));
+        await brain.saveCash(CashEntry(id: e.id, kind: e.kind, amount: e.amount, category: cat, note: e.note, date: e.date, projectId: e.projectId, accountId: e.accountId, shopId: e.shopId, linkId: e.linkId));
         _actions++;
         _say(out, trf('{0} টাকার “{1}” খরচটা ({2}) {3} খাতে সরিয়েছি — টাকা বা তারিখ বদলায়নি।', [bnNumber(e.amount), e.note.isEmpty ? e.category : e.note, shortDate(e.date), cat]),
             links: [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন'))]);

@@ -89,7 +89,8 @@ class Bar extends StatelessWidget {
 }
 
 /// "বদলান" or "মুছুন" for a saved entry ('edit', 'delete', or null).
-Future<String?> editOrDelete(BuildContext context, {String? title}) => showAppSheet<String>(
+/// [extra]: one more line (label, icon, the value it returns), e.g. "মূল হিসাবে যোগ করুন".
+Future<String?> editOrDelete(BuildContext context, {String? title, (String, IconData, String)? extra}) => showAppSheet<String>(
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(
@@ -100,6 +101,7 @@ Future<String?> editOrDelete(BuildContext context, {String? title}) => showAppSh
               child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: display(17, weight: 700)),
             ),
           ListTile(leading: const Icon(Icons.edit_outlined), title: Text(tr('বদলান'), style: body(16)), onTap: () => Navigator.pop(ctx, 'edit')),
+          if (extra != null) ListTile(leading: Icon(extra.$2), title: Text(extra.$1, style: body(16)), onTap: () => Navigator.pop(ctx, extra.$3)),
           ListTile(
             leading: Icon(Icons.delete_outline_rounded, color: C.red),
             title: Text(tr('মুছুন'), style: body(16, color: C.red)),

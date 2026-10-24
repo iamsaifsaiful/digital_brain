@@ -71,11 +71,14 @@ class ChatChoice {
   final String answer;
 }
 
-enum LinkKind { person, editEntry, notes, reminders, tasks, contacts, cash, special, memory, doc, health, page }
+enum LinkKind { person, editEntry, notes, reminders, tasks, contacts, cash, special, memory, doc, health, page, toMain }
 
 /// "খাতা দেখুন" and similar, under an app message.
 class ChatLink {
-  const ChatLink(this.kind, this.label, {this.person, this.entry, this.docId, this.page, this.folder});
+  const ChatLink(this.kind, this.label, {this.person, this.entry, this.docId, this.page, this.folder, this.sourceId});
+
+  /// For [LinkKind.toMain]: the loan or other হিসাব's entry to put in the main আয়-ব্যয়.
+  final String? sourceId;
   final LinkKind kind;
   final String label;
   final String? person;
@@ -3814,10 +3817,15 @@ class ChatController extends ChangeNotifier {
       case LedgerAdd():
         final kind = _kind!;
         final after = balanceAfter(brain.data.ledger, _person, kind, _amount);
-        await brain.saveEntry(LedgerEntry(person: _person, phone: _ledgerPhone, kind: kind, amount: _amount, date: _ledgerDate ?? dayOnly(_now), note: ''),
-            guessPhone: _ledgerPhone.isEmpty);
+        final entry = LedgerEntry(person: _person, phone: _ledgerPhone, kind: kind, amount: _amount, date: _ledgerDate ?? dayOnly(_now), note: '');
+        await brain.saveEntry(entry, guessPhone: _ledgerPhone.isEmpty);
+        // Owner (24 Oct): asked right away whether it goes in the main আয়-ব্যয় too.
         _say(out, quiet ? trf('লিখলাম: {0}।', [describe(kind, _person, _amount)]) : savedSentence(kind, _person, _amount, after),
-            links: _linksFor1(quiet, [ChatLink(LinkKind.person, trf('{0} খাতা দেখুন', [possessive(_person)]), person: _person)]), speak: !quiet);
+            links: _linksFor1(quiet, [
+              ChatLink(LinkKind.person, trf('{0} খাতা দেখুন', [possessive(_person)]), person: _person),
+              if (!quiet) ChatLink(LinkKind.toMain, tr('মূল হিসাবেও যোগ করুন'), sourceId: entry.id),
+            ]),
+            speak: !quiet);
         _history.add(AiTurn.app('[লিখে রাখা হলো: ${describe(kind, _person, _amount)}]'));
         _focusOn(person: _person);
       case LedgerSet():
@@ -3913,7 +3921,9 @@ class ChatController extends ChangeNotifier {
             project = await brain.projectNamed(c.project!);
           }
         }
+        final cashId = newId();
         await brain.saveCash(CashEntry(
+          id: cashId,
           kind: c.kind,
           amount: c.amount,
           category: c.category,
@@ -3936,7 +3946,12 @@ class ChatController extends ChangeNotifier {
           done = c.kind == CashKind.expense ? trf('লিখলাম। এই মাসে মোট খরচ {0} টাকা।', [bnNumber(m.expense)]) : trf('লিখলাম। এই মাসে মোট আয় {0} টাকা।', [bnNumber(m.income)]);
         }
         _say(out, quiet ? trf('লিখলাম: {0}', [summaryLine(c)]) : done + proNote,
-            links: _linksFor1(quiet, [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন')), if (proNote.isNotEmpty) ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]), speak: !quiet);
+            links: _linksFor1(quiet, [
+              ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন')),
+              if (project != null && !quiet) ChatLink(LinkKind.toMain, tr('মূল হিসাবেও যোগ করুন'), sourceId: cashId),
+              if (proNote.isNotEmpty) ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro'),
+            ]),
+            speak: !quiet);
         _history.add(AiTurn.app('[লেখা হলো: ${summaryLine(c)}]'));
         _focusOn(cash: c.project == null);
       case VaultAdd():

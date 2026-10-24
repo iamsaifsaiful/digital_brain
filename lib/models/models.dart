@@ -521,7 +521,7 @@ enum CashKind {
 /// Money in or out that is not owed by anyone: monthly spending and
 /// income, or a project's receipts and costs ([projectId] set).
 class CashEntry {
-  CashEntry({String? id, required this.kind, required this.amount, this.category = 'অন্যান্য', this.note = '', required this.date, this.projectId, this.accountId, this.shopId})
+  CashEntry({String? id, required this.kind, required this.amount, this.category = 'অন্যান্য', this.note = '', required this.date, this.projectId, this.accountId, this.shopId, this.linkId})
       : id = id ?? newId();
 
   final String id;
@@ -540,6 +540,22 @@ class CashEntry {
   /// The shop (see [Shop]) a sale or shop cost belongs to; null = the first shop / not a shop.
   final String? shopId;
 
+  /// Put in the main আয়-ব্যয় from a loan, a বকেয়া or another হিসাব's entry
+  /// (owner, 24 Oct): that entry's id. It follows that entry's changes.
+  final String? linkId;
+
+  CashEntry copyWith({CashKind? kind, int? amount, String? category, String? note, DateTime? date}) => CashEntry(
+      id: id,
+      kind: kind ?? this.kind,
+      amount: amount ?? this.amount,
+      category: category ?? this.category,
+      note: note ?? this.note,
+      date: date ?? this.date,
+      projectId: projectId,
+      accountId: accountId,
+      shopId: shopId,
+      linkId: linkId);
+
   Map<String, Object?> toJson() => {
         'id': id,
         'kind': kind.name,
@@ -550,6 +566,7 @@ class CashEntry {
         'projectId': projectId,
         if (accountId != null) 'accountId': accountId,
         if (shopId != null) 'shopId': shopId,
+        if (linkId != null) 'linkId': linkId,
       };
 
   factory CashEntry.fromJson(Map<String, Object?> j) => CashEntry(
@@ -562,6 +579,7 @@ class CashEntry {
         projectId: j['projectId'] as String?,
         accountId: j['accountId'] as String?,
         shopId: j['shopId'] as String?,
+        linkId: j['linkId'] as String?,
       );
 }
 

@@ -6,6 +6,7 @@
 library;
 
 import '../models/models.dart';
+import 'cash.dart' show mainLoanCategories;
 import 'bn.dart';
 import 'lang.dart';
 import 'money_more.dart' show reportCategory;
@@ -84,7 +85,8 @@ SpendHealth spendHealth(AppData d, DateTime now, {int days = 7}) {
   var income30 = 0, lastWants = 0;
   final by = <String, int>{};
   for (final e in d.cash) {
-    if (e.projectId != null || e.shopId != null || !e.date.isBefore(end)) continue;
+    // Loan and বকেয়া money put in the main account is neither earning nor spending here.
+    if (e.projectId != null || e.shopId != null || !e.date.isBefore(end) || mainLoanCategories.contains(e.category)) continue;
     if (e.kind == CashKind.income) {
       if (!e.date.isBefore(month)) income30 += e.amount;
       continue;

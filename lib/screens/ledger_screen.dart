@@ -84,6 +84,14 @@ class MoneyScreenState extends State<MoneyScreen> {
         final s = (a.balance == 0 ? 1 : 0).compareTo(b.balance == 0 ? 1 : 0);
         return s != 0 ? s : b.balance.abs().compareTo(a.balance.abs());
       });
+    // বকেয়া of other হিসাব are counted here too (owner, 24 Oct), and marked.
+    final keys = accountKeys(entries);
+    final dueOf = <String, Set<String>>{};
+    for (final e in entries.where((e) => e.projectId != null)) {
+      final name = brain.data.projects.where((x) => x.id == e.projectId).firstOrNull?.name;
+      if (name != null) dueOf.putIfAbsent(keys[e.id]!, () => {}).add(name);
+    }
+    final dues = totals(entries.where((e) => e.projectId != null));
     final dupNames = <String>{};
     final seen = <String>{};
     for (final p in people) {
@@ -118,6 +126,14 @@ class MoneyScreenState extends State<MoneyScreen> {
           ),
         ),
       ]),
+      if (dues.receivable > 0 || dues.payable > 0)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+          child: Text(
+              trf('এর মধ্যে অন্যান্য হিসাবের বকেয়া: পাব {0} · দেব {1}', [taka(dues.receivable), taka(dues.payable)]),
+              key: const Key('loans-dues-note'),
+              style: body(12.5, color: C.muted)),
+        ),
       const SizedBox(height: 12),
       PrimaryButton(label: tr('নতুন লেনদেন'), icon: Icons.add_rounded, color: C.fill, height: 48, onPressed: () => push(const LedgerFormScreen())),
       const SizedBox(height: 6),
@@ -140,6 +156,7 @@ class MoneyScreenState extends State<MoneyScreen> {
                 leading: Avatar(name: p.name, fg: balanceColors(p.balance).$1, bg: balanceColors(p.balance).$2),
                 title: p.name,
                 subtitle: [
+                  if (dueOf[p.key] != null) trf('বকেয়া · {0}', [dueOf[p.key]!.join(', ')]),
                   if (p.phone.isNotEmpty) showPhone(p.phone) else if (dupNames.contains(personKey(p.name))) tr('নম্বর নেই — যোগ করুন'),
                   if (p.last != null) daysLeftLabel(p.last!, now).replaceAll(' আগে', ''),
                 ].join(' · '),

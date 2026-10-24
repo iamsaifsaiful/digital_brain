@@ -29,6 +29,8 @@ import 'health_hub.dart';
 import 'person_screen.dart';
 import 'plan_screens.dart';
 import 'vault_item_screen.dart';
+import 'to_main.dart';
+import '../logic/cash.dart' show mainCopyOf;
 import '../logic/lang.dart';
 
 /// সহকারী: speak or type; it keeps, finds and answers. Opened from the
@@ -843,6 +845,15 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     if (ok && mounted) await _open(DocScreen(id: id, unlocked: true));
   }
 
+  /// "মূল হিসাবেও যোগ করুন" under a loan or another হিসাব's entry.
+  Future<void> _toMain(String id) async {
+    final brain = BrainScope.read(context);
+    final had = mainCopyOf(brain.data, id);
+    final e = had ?? await brain.addToMain(id);
+    if (!mounted) return;
+    _chat.addInfo(e == null ? tr('এটা মূল হিসাবে যোগ করা যায় না') : (had != null ? tr('আগেই মূল হিসাবে যুক্ত আছে') : mainAddedText(e)));
+  }
+
   void _link(ChatLink l) {
     switch (l.kind) {
       case LinkKind.person:
@@ -866,6 +877,8 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
         _open(const HealthScreen());
       case LinkKind.page:
         _openPlace(l);
+      case LinkKind.toMain:
+        _toMain(l.sourceId!);
       case LinkKind.editEntry:
         _chat.dropPending();
         _open(ConfirmScreen(command: l.entry!)).then((r) {

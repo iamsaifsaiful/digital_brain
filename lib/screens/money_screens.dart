@@ -17,6 +17,7 @@ import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 import '../ui/pick.dart';
 import 'project_dues.dart';
+import 'to_main.dart';
 
 /// White card: one big figure ("এই মাসের ব্যালেন্স") and two under it.
 class SummaryCard extends StatelessWidget {
@@ -93,7 +94,7 @@ class _CashNowCardState extends State<CashNowCard> {
         child: Row(children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tr('এখন আছে'), style: body(13.5, color: C.muted)),
+              Text(brain.data.accounts.isEmpty ? tr('এখন আছে') : tr('এখন আছে · সব অ্যাকাউন্ট মিলিয়ে'), style: body(13.5, color: C.muted)),
               Text('${now < 0 ? '−' : ''}${taka(now.abs())}', style: display(24, weight: 700, color: now < 0 ? C.orange : C.ink)),
             ]),
           ),
@@ -344,7 +345,7 @@ Widget cashRow(BuildContext context, CashEntry e, {Picks? picks}) {
             child: Icon(income ? Icons.south_west_rounded : Icons.north_east_rounded, color: income ? C.green : C.orange, size: 20),
           ),
     title: e.category,
-    subtitle: [shortDate(e.date), if (e.note.trim().isNotEmpty) e.note.trim()].join(' · '),
+    subtitle: [shortDate(e.date), if (e.note.trim().isNotEmpty) e.note.trim()].join(' · ') + (e.projectId == null ? '' : mainMark(BrainScope.of(context).data, e.id)),
     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
       Text('${income ? '+' : '−'}${taka(e.amount)}', style: display(16, color: income ? C.green : C.orange)),
       if (!picking)
@@ -381,7 +382,7 @@ Widget cashPickBar(BuildContext context, Picks picks, Iterable<String> shown) {
         final cat = await askCategory(context, knownCategories(brain.data, kind));
         if (cat == null || cat.isEmpty) return;
         for (final e in picked) {
-          await brain.saveCash(CashEntry(id: e.id, kind: e.kind, amount: e.amount, category: cat, note: e.note, date: e.date, projectId: e.projectId, accountId: e.accountId, shopId: e.shopId));
+          await brain.saveCash(CashEntry(id: e.id, kind: e.kind, amount: e.amount, category: cat, note: e.note, date: e.date, projectId: e.projectId, accountId: e.accountId, shopId: e.shopId, linkId: e.linkId));
         }
         picks.clear();
       }),
@@ -431,8 +432,10 @@ Future<String?> askCategory(BuildContext context, List<String> known) {
 /// ⋮ on an income/expense: change it, or delete it (with a few seconds to take it back).
 Future<void> cashActions(BuildContext context, CashEntry e) async {
   final brain = BrainScope.read(context);
-  final pick = await editOrDelete(context, title: '${e.category} · ${taka(e.amount)}');
+  final line = mainMenuLine(brain.data, e.id);
+  final pick = await editOrDelete(context, title: '${e.category} · ${taka(e.amount)}', extra: line == null ? null : (line.$1, line.$2, 'main'));
   if (!context.mounted) return;
+  if (pick == 'main') return toggleMain(context, e.id);
   if (pick == 'edit') {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => CashFormScreen(entry: e, kind: e.kind, projectId: e.projectId)));
   } else if (pick == 'delete') {
@@ -810,7 +813,7 @@ class _CashFormScreenState extends State<CashFormScreen> {
   late CashKind _kind = widget.entry?.kind ?? widget.kind;
   late final _amount = TextEditingController(text: widget.entry == null ? (widget.amount == null ? '' : '${widget.amount}') : '${widget.entry!.amount}');
   late final _category = TextEditingController(text: widget.entry?.category ?? widget.category ?? '');
-  late String? _accountId = widget.entry?.accountId ?? BrainScope.read(context).data.accounts.firstOrNull?.id;
+  late String? _accountId = widget.entry != null ? widget.entry!.accountId : defaultAccountId(BrainScope.read(context).data);
   late final _note = TextEditingController(text: widget.entry?.note ?? widget.note ?? '');
   late DateTime _date = widget.entry?.date ?? widget.date ?? BrainScope.read(context).services.now();
   late String? _projectId = widget.entry?.projectId ?? widget.projectId;
@@ -832,7 +835,7 @@ class _CashFormScreenState extends State<CashFormScreen> {
     }
     // No খাত picked: guess it from the note ("রিকশা" → যাতায়াত), else অন্যান্য.
     final cat = _category.text.trim().isEmpty ? categoryFor(normalize(_note.text), _kind) : _category.text.trim();
-    await brain.saveCash(CashEntry(
+    final saved = CashEntry(
       id: widget.entry?.id,
       kind: _kind,
       amount: amount,
@@ -842,7 +845,11 @@ class _CashFormScreenState extends State<CashFormScreen> {
       projectId: _projectId,
       accountId: _accountId,
       shopId: widget.entry?.shopId ?? widget.shopId,
-    ));
+      linkId: widget.entry?.linkId,
+    );
+    await brain.saveCash(saved);
+    // Owner (24 Oct): another হিসাব's new entry — in the main আয়-ব্যয় too?
+    if (widget.entry == null && _projectId != null && mounted) await askAddToMain(context, saved.id);
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -911,7 +918,9 @@ class _CashFormScreenState extends State<CashFormScreen> {
                 const SizedBox(height: 6),
                 Wrap(spacing: 6, runSpacing: 6, children: [
                   for (final a in brain.data.accounts) ChoiceChip(label: Text(accountLabel(a), style: body(13)), selected: _accountId == a.id, onSelected: (_) => setState(() => _accountId = a.id)),
-                  ChoiceChip(label: Text(tr('বলা নেই'), style: body(13)), selected: _accountId == null, onSelected: (_) => setState(() => _accountId = null)),
+                  // "বলা নেই" only for an old entry that has none (owner, 24 Oct: every entry in an account).
+                  if (widget.entry != null && widget.entry!.accountId == null)
+                    ChoiceChip(label: Text(tr('বলা নেই'), style: body(13)), selected: _accountId == null, onSelected: (_) => setState(() => _accountId = null)),
                 ]),
               ],
               if (projects.isNotEmpty) ...[

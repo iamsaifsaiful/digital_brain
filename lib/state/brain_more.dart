@@ -167,9 +167,43 @@ extension BrainMore on Brain {
 
   /// "এখন আমার কাছে [amount] টাকা আছে": later income and spending move it.
   Future<void> setCashOnHand(int amount) async {
+    // With accounts, the money now is theirs: the cash (or first) account
+    // takes the difference.
+    final id = defaultAccountId(data);
+    if (id != null) {
+      final a = data.accounts.firstWhere((x) => x.id == id);
+      await saveAccount(a.copyWith(opening: a.opening + amount - (cashOnHand(data) ?? 0)));
+      return;
+    }
     data.cashOffset = amount - ownNet(data);
     data.cashSetAt = services.now();
     await _save();
+  }
+
+  // ── মূল হিসাবে যুক্ত ──
+
+  /// Puts [sourceId] (a loan, a বকেয়া, another হিসাব's entry) in the main
+  /// আয়-ব্যয় too; the entry made, or null when it cannot go (or is there).
+  Future<CashEntry?> addToMain(String sourceId) async {
+    if (!canGoToMain(data, sourceId) || mainCopyOf(data, sourceId) != null) return null;
+    final e = mainEntryFor(data, sourceId);
+    if (e == null) return null;
+    await saveCash(e);
+    return data.cash.firstWhere((x) => x.id == e.id);
+  }
+
+  /// Takes [sourceId]'s copy out of the main আয়-ব্যয় (the source stays).
+  Future<void> removeFromMain(String sourceId) async {
+    final c = mainCopyOf(data, sourceId);
+    if (c != null) await deleteCash(c.id);
+  }
+
+  /// After [sourceId] changed: its main copy follows.
+  Future<void> _followToMain(String sourceId) async {
+    final old = mainCopyOf(data, sourceId);
+    if (old == null) return;
+    final e = mainEntryFor(data, sourceId, old: old);
+    if (e != null) _upsert(data.cash, e, (x) => x.id);
   }
 
   // ── Accounts ──
@@ -574,7 +608,7 @@ extension BrainHealth on Brain {
       case ItemKind.cash:
         final e = data.cash.where((x) => x.id == t.id).firstOrNull;
         if (e != null && c.amount != null) {
-          await saveCash(CashEntry(id: e.id, kind: e.kind, amount: c.amount!, category: e.category, note: e.note, date: e.date, projectId: e.projectId, accountId: e.accountId, shopId: e.shopId));
+          await saveCash(CashEntry(id: e.id, kind: e.kind, amount: c.amount!, category: e.category, note: e.note, date: e.date, projectId: e.projectId, accountId: e.accountId, shopId: e.shopId, linkId: e.linkId));
         }
       default:
         break;

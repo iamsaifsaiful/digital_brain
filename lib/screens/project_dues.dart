@@ -7,6 +7,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
+import 'to_main.dart';
 import '../logic/lang.dart';
 import '../logic/ledger.dart';
 import '../logic/pro.dart';
@@ -121,10 +122,12 @@ Future<void> dueForm(BuildContext context, Project project, {String person = '',
   final who = name.text.trim();
   if (!await needPro(context, ProFeature.people, allowed: brain.canAddPerson(who)) || !context.mounted) return;
   final now = brain.services.now();
-  await brain.saveEntry(LedgerEntry(person: who, kind: owe ? LedgerKind.borrowed : LedgerKind.lent, amount: _money(money.text), date: dayOnly(now), note: what.text.trim(), due: due, projectId: project.id));
+  final entry = LedgerEntry(person: who, kind: owe ? LedgerKind.borrowed : LedgerKind.lent, amount: _money(money.text), date: dayOnly(now), note: what.text.trim(), due: due, projectId: project.id);
+  await brain.saveEntry(entry);
   if (!context.mounted) return;
   final left = _balanceOf(brain, project, who);
   toast(context, left >= 0 ? trf('রাখা হয়েছে। {0} এর কাছে বকেয়া {1}', [who, taka(left)]) : trf('রাখা হয়েছে। {0} কে দিতে হবে {1}', [who, taka(-left)]));
+  await askAddToMain(context, entry.id);
 }
 
 int _balanceOf(Brain brain, Project project, String who) =>
@@ -168,8 +171,8 @@ Future<void> collectDue(BuildContext context, Project project, String person, in
   final n = _money(money.text);
   final now = brain.services.now();
   await brain.saveEntry(LedgerEntry(person: person, kind: iPay ? LedgerKind.repaid : LedgerKind.received, amount: n, date: dayOnly(now), note: tr(iPay ? dueOutCategory : dueInCategory), projectId: project.id));
-  await brain.saveCash(CashEntry(
-      kind: iPay ? CashKind.expense : CashKind.income, amount: n, category: tr(iPay ? dueOutCategory : dueInCategory), note: person, date: now, projectId: project.id));
+  final paid = CashEntry(kind: iPay ? CashKind.expense : CashKind.income, amount: n, category: tr(iPay ? dueOutCategory : dueInCategory), note: person, date: now, projectId: project.id);
+  await brain.saveCash(paid);
   final left = _balanceOf(brain, project, person);
   if (iPay ? left >= 0 : left <= 0) {
     for (final e in [...brain.data.ledger]) {
@@ -182,6 +185,7 @@ Future<void> collectDue(BuildContext context, Project project, String person, in
   } else {
     toast(context, left > 0 ? trf('আয়ে যোগ হলো। {0} এর কাছে আরও বকেয়া {1}', [person, taka(left)]) : trf('আয়ে যোগ হলো। {0} এর বকেয়া শেষ', [person]));
   }
+  await askAddToMain(context, paid.id);
 }
 
 /// The earliest pay day still ahead among [lines].
@@ -238,9 +242,17 @@ Future<void> dueDetails(BuildContext context, Project project, PersonBalance p) 
                     if (_isDue(e)) dueKindLabel(e.kind),
                     shortDate(e.date),
                     if (_isDue(e) && e.due != null) trf('পরিশোধ {0}', [shortDate(e.due!)]),
-                  ].join(' · '),
+                  ].join(' · ') + mainMark(brain.data, e.id),
                   trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                     Text(taka(e.amount), style: display(15, color: e.kind.signed(1) > 0 ? C.green : C.orange)),
+                    if (mainMenuLine(brain.data, e.id) case final line?)
+                      IconButton(
+                        key: Key('due-main-${e.id}'),
+                        tooltip: line.$1,
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(line.$2, color: C.muted, size: 20),
+                        onPressed: () => Navigator.pop(ctx, 'main:${e.id}'),
+                      ),
                     IconButton(
                       tooltip: tr('মুছুন'),
                       visualDensity: VisualDensity.compact,
@@ -263,6 +275,7 @@ Future<void> dueDetails(BuildContext context, Project project, PersonBalance p) 
     final ok = await confirmDialog(context, title: tr('মুছবেন?'), text: tr('এই বকেয়ার লাইনটা মুছে যাবে।'), yes: tr('মুছুন'), danger: true);
     if (ok && context.mounted) await brain.deleteEntry(action.substring(4));
   }
+  if (action.startsWith('main:')) await toggleMain(context, action.substring(5));
 }
 
 /// The বকেয়া part of a project page.

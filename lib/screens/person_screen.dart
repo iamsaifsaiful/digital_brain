@@ -10,6 +10,7 @@ import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'ledger_form_screen.dart';
+import 'to_main.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
@@ -71,6 +72,8 @@ class _PersonScreenState extends State<PersonScreen> {
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           ListTile(leading: const Icon(Icons.edit_outlined), title: Text(tr('সংশোধন করুন')), onTap: () => Navigator.pop(ctx, 'edit')),
+          if (mainMenuLine(brain.data, e.id) case final line?)
+            ListTile(leading: Icon(line.$2), title: Text(line.$1), onTap: () => Navigator.pop(ctx, 'main')),
           ListTile(
             leading: Icon(Icons.delete_outline_rounded, color: C.red),
             title: Text(tr('মুছে ফেলুন'), style: body(16, color: C.red)),
@@ -81,6 +84,7 @@ class _PersonScreenState extends State<PersonScreen> {
     );
     if (!mounted) return;
     if (r == 'edit') _push(LedgerFormScreen(entry: e));
+    if (r == 'main') await toggleMain(context, e.id);
     if (r == 'delete') await deleteEntryWithUndo(context, brain, e);
   }
 

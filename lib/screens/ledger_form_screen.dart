@@ -13,6 +13,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'calls_screen.dart';
 import 'home_shell.dart';
+import 'to_main.dart';
 import '../logic/lang.dart';
 
 String _tail(String s) => s.length <= 3 ? s : s.substring(s.length - 3);
@@ -80,6 +81,9 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
     await brain.saveEntry(e, guessPhone: false);
     if (!mounted) return;
     toast(context, trf('সেভ হয়েছে। {0}', [balanceSentence(person, after)]));
+    // Owner (24 Oct): a new loan — in the main আয়-ব্যয় too?
+    if (widget.entry == null) await askAddToMain(context, e.id);
+    if (!mounted) return;
     final nav = Navigator.of(context);
     nav.pop();
     if (nav.mounted) await afterTaskDone(nav.context);

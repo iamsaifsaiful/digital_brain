@@ -1810,6 +1810,7 @@ class Brain extends ChangeNotifier {
       x = x.copyWith(reminderId: r.id);
     }
     _upsert(data.ledger, x, (y) => y.id);
+    await _followToMain(x.id);
     final pk = phoneKey(x.phone);
     if (pk.isNotEmpty && !data.contacts.any((c) => phoneKey(c.phone) == pk)) {
       data.contacts.add(Contact(name: x.person.trim(), phone: asciiDigits(x.phone.trim()), note: 'লেনদেন', updatedAt: services.now()));
@@ -1898,9 +1899,11 @@ class Brain extends ChangeNotifier {
 
   Future<void> deleteEntry(String id) async {
     final e = data.ledger.where((e) => e.id == id).firstOrNull;
-    if (e != null) _trash('${e.person} · ${e.kind.label} ${taka(e.amount)}', [('ledger', e.toJson()), ..._remindersJson([e.reminderId])]);
+    final copy = data.cash.where((c) => c.linkId == id && c.projectId == null).firstOrNull;
+    if (e != null) _trash('${e.person} · ${e.kind.label} ${taka(e.amount)}', [('ledger', e.toJson()), ..._remindersJson([e.reminderId]), if (copy != null) ('cash', copy.toJson())]);
     final rem = e?.reminderId;
     data.ledger.removeWhere((e) => e.id == id);
+    if (copy != null) data.cash.removeWhere((c) => c.id == copy.id);
     if (rem != null) data.reminders.removeWhere((r) => r.id == rem);
     await _save();
     if (rem != null) await _reschedule();
@@ -2202,15 +2205,26 @@ class Brain extends ChangeNotifier {
   List<Task> openTasks() => openTasksOf(data, services.now());
 
   Future<void> saveCash(CashEntry e) async {
+    // A new own entry with accounts kept goes into one (so "এখন আছে", their
+    // total, follows it): the cash account, else the first.
+    if (e.projectId == null && e.accountId == null && !data.cash.any((x) => x.id == e.id)) {
+      final a = defaultAccountId(data);
+      if (a != null) {
+        e = CashEntry(id: e.id, kind: e.kind, amount: e.amount, category: e.category, note: e.note, date: e.date, accountId: a, shopId: e.shopId, linkId: e.linkId);
+      }
+    }
     _upsert(data.cash, e, (x) => x.id);
+    if (e.projectId != null) await _followToMain(e.id);
     await _save();
   }
 
   Future<void> deleteCash(String id) async {
+    // Another হিসাব's entry takes its main-account copy with it (one undo).
+    final copy = data.cash.where((e) => e.linkId == id && e.projectId == null && e.id != id).firstOrNull;
     for (final e in data.cash.where((e) => e.id == id)) {
-      _trash('${e.category} · ${taka(e.amount)}', [('cash', e.toJson())]);
+      _trash('${e.category} · ${taka(e.amount)}', [('cash', e.toJson()), if (copy != null) ('cash', copy.toJson())]);
     }
-    data.cash.removeWhere((e) => e.id == id);
+    data.cash.removeWhere((e) => e.id == id || (copy != null && e.id == copy.id));
     await _save();
   }
 
@@ -2227,7 +2241,7 @@ class Brain extends ChangeNotifier {
     for (var i = 0; i < data.cash.length; i++) {
       final e = data.cash[i];
       if (e.shopId == id) {
-        data.cash[i] = CashEntry(id: e.id, kind: e.kind, amount: e.amount, category: e.category, note: e.note, date: e.date, projectId: e.projectId, accountId: e.accountId);
+        data.cash[i] = CashEntry(id: e.id, kind: e.kind, amount: e.amount, category: e.category, note: e.note, date: e.date, projectId: e.projectId, accountId: e.accountId, linkId: e.linkId);
       }
     }
     for (var i = 0; i < data.ledger.length; i++) {

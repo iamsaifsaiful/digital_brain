@@ -4,6 +4,7 @@ library;
 
 import '../models/models.dart';
 import 'ledger.dart';
+import 'money_more.dart' show totalBalance;
 import 'parser.dart';
 
 class MoneySums {
@@ -252,6 +253,58 @@ bool projectPageNamed(String said) => RegExp(r'(?:অন্যান্য|আ�
 /// The user's own money in and out so far (not other হিসাব's, not shops').
 int ownNet(AppData d) => d.cash.where((e) => e.projectId == null).fold(0, (a, e) => a + (e.kind == CashKind.income ? e.amount : -e.amount));
 
-/// "এখন হাতে আছে": what the user said they had, moved by every income and
+/// "এখন আছে": with accounts (নগদ, বিকাশ, ব্যাংক…) it is their total (owner,
+/// 24 Oct); without, what the user said they had, moved by every income and
 /// spending since; null until they say it.
-int? cashOnHand(AppData d) => d.cashOffset == null ? null : d.cashOffset! + ownNet(d);
+int? cashOnHand(AppData d) => d.accounts.isNotEmpty ? totalBalance(d) : (d.cashOffset == null ? null : d.cashOffset! + ownNet(d));
+
+/// Where an own income or spending goes when none is chosen: the cash
+/// account, else the first one.
+String? defaultAccountId(AppData d) => (d.accounts.where((a) => a.kind == AccountKind.cash).firstOrNull ?? d.accounts.firstOrNull)?.id;
+
+
+// ── মূল হিসাবে যুক্ত (owner, 24 Oct) ──
+// A loan, a বকেয়া given or taken, or another হিসাব's income/spending can also
+// be put in the main আয়-ব্যয় — asked after it is written, or later. The copy
+// keeps the source's id ([CashEntry.linkId]) and follows its changes.
+
+/// The main-account খাত for loan and বকেয়া money (kept out of spending advice).
+const mainLoanCategories = {'ধার দেওয়া', 'ধার নেওয়া', 'ধার ফেরত পাওয়া', 'ধার শোধ', 'বকেয়া দেওয়া', 'বকেয়া নেওয়া'};
+
+/// Whether [id] (a loan, a বকেয়া or another হিসাব's entry) can go to the main আয়-ব্যয়.
+bool canGoToMain(AppData d, String id) {
+  final l = d.ledger.where((e) => e.id == id).firstOrNull;
+  // A বকেয়া paid back is already money in that হিসাব (বকেয়া আদায়/শোধ): that entry goes instead.
+  if (l != null) return l.projectId == null || l.kind == LedgerKind.lent || l.kind == LedgerKind.borrowed;
+  return d.cash.any((e) => e.id == id && e.projectId != null);
+}
+
+/// The main-account copy of [id], if it was put there.
+CashEntry? mainCopyOf(AppData d, String id) => d.cash.where((e) => e.linkId == id && e.projectId == null).firstOrNull;
+
+/// What [id] becomes in the main আয়-ব্যয় (a new entry, or [old]'s update).
+CashEntry? mainEntryFor(AppData d, String id, {CashEntry? old}) {
+  final l = d.ledger.where((e) => e.id == id).firstOrNull;
+  if (l != null) {
+    final due = l.projectId != null;
+    final (kind, cat) = switch (l.kind) {
+      LedgerKind.lent => (CashKind.expense, due ? 'বকেয়া দেওয়া' : 'ধার দেওয়া'),
+      LedgerKind.borrowed => (CashKind.income, due ? 'বকেয়া নেওয়া' : 'ধার নেওয়া'),
+      LedgerKind.received => (CashKind.income, 'ধার ফেরত পাওয়া'),
+      LedgerKind.repaid => (CashKind.expense, 'ধার শোধ'),
+    };
+    return CashEntry(id: old?.id, kind: kind, amount: l.amount, category: cat, note: l.person, date: l.date, accountId: old?.accountId, linkId: l.id);
+  }
+  final c = d.cash.where((e) => e.id == id && e.projectId != null).firstOrNull;
+  if (c == null) return null;
+  final project = d.projects.where((p) => p.id == c.projectId).firstOrNull?.name ?? '';
+  return CashEntry(
+      id: old?.id,
+      kind: c.kind,
+      amount: c.amount,
+      category: c.category,
+      note: [project, if (c.note.trim().isNotEmpty) c.note.trim()].join(' · '),
+      date: c.date,
+      accountId: old?.accountId,
+      linkId: c.id);
+}
