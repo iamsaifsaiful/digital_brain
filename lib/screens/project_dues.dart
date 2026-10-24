@@ -37,6 +37,8 @@ int _money(String s) => int.tryParse(asciiDigits(s).replaceAll(RegExp(r'[,\s৳]
 /// when they will pay — that day brings a reminder. Not আয় or ব্যয়: only
 /// the money, when it comes, is আয়.
 Future<void> dueForm(BuildContext context, Project project, {String person = '', bool iOwe = false}) async {
+  // অন্যান্য হিসাব is premium (owner, 24 Oct).
+  if (!await needPro(context, ProFeature.projects) || !context.mounted) return;
   final brain = BrainScope.read(context);
   final name = TextEditingController(text: person);
   final what = TextEditingController();
@@ -137,6 +139,8 @@ int _balanceOf(Brain brain, Project project, String who) =>
 /// The বকেয়া goes down and the money is আয় (or ব্যয়) of [project]. Paid
 /// in full, the pay-day reminders go.
 Future<void> collectDue(BuildContext context, Project project, String person, int owed, {bool iPay = false}) async {
+  // অন্যান্য হিসাব is premium (owner, 24 Oct).
+  if (!await needPro(context, ProFeature.projects) || !context.mounted) return;
   final brain = BrainScope.read(context);
   final money = TextEditingController(text: owed > 0 ? '$owed' : '');
   final ok = await showAppSheet<bool>(

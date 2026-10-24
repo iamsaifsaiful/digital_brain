@@ -168,8 +168,6 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
         brain.refreshAccount();
         // Travelled to another district: prayer times and weather follow.
         brain.refreshPlace();
-        // Messages from WhatsApp, imo, Gmail… that came while away.
-        brain.syncInbox();
         // What family members sent while away (light: no copy upload here).
         if (brain.signedIn) brain.family.refresh(deep: false).then((_) => brain.family.receive()).catchError((_) => 0);
       }

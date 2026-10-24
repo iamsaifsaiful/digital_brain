@@ -38,14 +38,12 @@ import '../logic/proactive.dart';
 import '../logic/pro.dart';
 import '../logic/notice_log.dart';
 import '../logic/server_notices.dart';
-import '../logic/when.dart' show sayWhen;
 import '../models/models.dart';
 import '../services/ai.dart';
 import '../services/community.dart';
 import '../services/crypto.dart' show WrongKey;
 import '../services/data_store.dart';
 import '../services/files.dart';
-import '../services/inbox.dart';
 import '../services/google_account.dart';
 import '../services/push.dart';
 import '../services/launcher.dart';
@@ -57,7 +55,6 @@ import '../services/platform.dart';
 import '../services/location_share.dart';
 import '../logic/calendar_bd.dart';
 import '../ui/theme.dart' show Look;
-import '../logic/inbox.dart' show secretMessage;
 import '../logic/lang.dart';
 
 part 'brain_more.dart';
@@ -73,7 +70,6 @@ class Services {
     AiBrain? ai,
     Launcher? launcher,
     Phonebook? phonebook,
-    InboxSource? inbox,
     GoogleAccount? google,
     PushSource? push,
     DriveStore? drive,
@@ -90,7 +86,6 @@ class Services {
         push = push ?? FakePush(),
         drive = drive ?? FakeDrive(),
         server = server ?? AccountServer.off(),
-        inbox = inbox ?? FakeInbox(),
         launcher = launcher ?? FakeLauncher(),
         phonebook = phonebook ?? FakePhonebook(),
         now = clock ?? DateTime.now;
@@ -120,7 +115,6 @@ class Services {
   final Phonebook phonebook;
 
   /// Messages from other apps' notifications.
-  final InboxSource inbox;
 
   /// Google sign-in, the app's Drive folder, and our account server.
   final GoogleAccount google;
@@ -246,9 +240,13 @@ class Brain extends ChangeNotifier {
 
   /// The preview draws sample ad spaces (real ads need AdMob).
   bool adSamples = previewEdition;
-  bool has(ProFeature f) => pro;
-  bool get canAddShop => pro || data.shops.length < freeShops;
+  bool has(ProFeature f) => pro || freeFeatures.contains(f);
+  bool get canAddShop => true;
   bool get canAddProject => pro || data.projects.where((p) => !p.closed).length < freeProjects;
+
+  /// Writing anything into অন্যান্য হিসাব (premium, owner 24 Oct; what is
+  /// already there stays readable).
+  bool get canUseProjects => has(ProFeature.projects);
   bool get canAddVault => pro || data.vault.length < freeVaultItems;
   bool get canAddDoc => pro || data.docs.length < freeDocs;
 
@@ -258,7 +256,7 @@ class Brain extends ChangeNotifier {
 
   /// A new person in ধার-দেনা (someone already there is always fine).
   bool canAddPerson(String name) {
-    if (pro) return true;
+    if (has(ProFeature.people)) return true;
     final key = personKey(name);
     final people = {for (final e in data.ledger) personKey(e.person)};
     return people.contains(key) || people.length < freeLedgerPeople;
@@ -270,7 +268,7 @@ class Brain extends ChangeNotifier {
     return DateTime(n.year, n.month - (freeReportMonths - 1));
   }
 
-  bool canSeeMonth(DateTime m) => pro || !DateTime(m.year, m.month).isBefore(firstFreeMonth);
+  bool canSeeMonth(DateTime m) => has(ProFeature.history) || !DateTime(m.year, m.month).isBefore(firstFreeMonth);
 
   /// After Google Play confirms a purchase (in the preview, the test button).
   Future<void> activatePro(ProPlan plan) => _setPro(services.now().add(Duration(days: plan.days)), plan.id);
@@ -892,8 +890,6 @@ class Brain extends ChangeNotifier {
 
   String userName = '';
 
-  /// This build can read other apps' messages (see [InboxSource.supported]).
-  bool inboxSupported = false;
 
   /// The place for sunrise, sunset and prayer times (see `bdPlaces`).
   String district = 'ঢাকা';
@@ -935,7 +931,20 @@ class Brain extends ChangeNotifier {
     autoPlace = on;
     await services.lock.keys.write('auto_place', on ? 'true' : 'false');
     notifyListeners();
-    if (on) await refreshPlace(force: true);
+    if (on) {
+      await askPlacePermission();
+      await refreshPlace(force: true);
+    }
+  }
+
+  /// Asks for location when following the phone has none yet (owner, 24
+  /// Oct: "অটোমেটিক লোকেশন ট্রাক করতেছে না"). [once]: only the first time.
+  Future<void> askPlacePermission({bool once = false}) async {
+    if (once && await services.lock.keys.read('place_asked') == 'true') return;
+    final st = await LocationShareChannel.status();
+    if (st.isEmpty || st['fine'] == true) return;
+    await _put('place_asked', 'true');
+    await LocationShareChannel.ask();
   }
 
   /// Moves [district] to where the phone is now (at most every 20 minutes
@@ -945,9 +954,10 @@ class Brain extends ChangeNotifier {
     final now = services.now();
     final last = _placeCheckedAt;
     if (!force && last != null && now.difference(last).inMinutes < 20) return null;
-    _placeCheckedAt = now;
     final at = await whereAmI();
+    // No fix (location off, no permission yet): tried again next time.
     if (at == null) return null;
+    _placeCheckedAt = now;
     final near = nearestPlace(at.$1, at.$2);
     if (near == null || near.$1.name == district) return null;
     await setDistrict(near.$1.name, auto: true);
@@ -1121,7 +1131,7 @@ class Brain extends ChangeNotifier {
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly', 'n_quote', 'n_fix',
-    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'inbox_apps', 'inbox_on', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'g_card_off', 'trace_on',
+    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'g_card_off', 'trace_on',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
@@ -1599,7 +1609,7 @@ class Brain extends ChangeNotifier {
     unawaited(loadNluConfig().then((_) => sendNluSamples()).then((_) => updateNluModelFromServer()).catchError((_) {}));
     // ফ্যামিলি: what family members sent, location sharing and the heirs' copy (signed in only).
     if (signedIn) unawaited(family.refresh().catchError((_) {}));
-    unawaited(refreshPlace().catchError((_) => null));
+    unawaited((autoPlace ? askPlacePermission(once: true) : Future<void>.value()).then((_) => refreshPlace()).catchError((_) => null));
     await _loadServerNotices();
     await _loadNoticeLog();
     try {
@@ -1619,12 +1629,6 @@ class Brain extends ChangeNotifier {
     refreshAccount();
     await _reschedule();
     if (loadError == null) await _showStanding();
-    inboxSupported = await services.inbox.supported();
-    if (inboxSupported) notifyListeners();
-    if (loadError == null && inboxSupported) {
-      await services.inbox.setApps([for (final n in inboxAppsOn) ...packagesOf(n)], on: inboxOn);
-      await syncInbox();
-    }
   }
 
   void unlock() {
@@ -1807,8 +1811,9 @@ class Brain extends ChangeNotifier {
     final oldRem = old?.reminderId ?? x.reminderId;
     if (oldRem != null) data.reminders.removeWhere((r) => r.id == oldRem);
     x = x.copyWith(clearReminder: true);
-    // The day itself is kept for everyone; the reminder is Pro.
-    if (x.due != null && (x.kind == LedgerKind.lent || x.kind == LedgerKind.borrowed) && has(ProFeature.dueReminders)) {
+    // The day is always kept; its reminder counts toward the 20 free ones
+    // (owner, 24 Oct: money reminders too).
+    if (x.due != null && (x.kind == LedgerKind.lent || x.kind == LedgerKind.borrowed) && has(ProFeature.dueReminders) && canAddReminder) {
       final r = _dueReminder(x);
       data.reminders.add(r);
       x = x.copyWith(reminderId: r.id);
@@ -2100,8 +2105,8 @@ class Brain extends ChangeNotifier {
   Future<Doc> setDocExpiry(Doc d, DateTime? expiry) async {
     if (d.reminderId != null) data.reminders.removeWhere((r) => r.id == d.reminderId);
     var next = d.copyWith(expiry: expiry, clearExpiry: expiry == null, clearReminder: true);
-    // The date is kept for everyone; the reminder is Pro.
-    if (expiry != null && has(ProFeature.docAlerts)) {
+    // The date is always kept; its reminder counts toward the 20 free ones.
+    if (expiry != null && has(ProFeature.docAlerts) && canAddReminder) {
       final r = _expiryReminder(next);
       data.reminders.add(r);
       next = next.copyWith(reminderId: r.id);

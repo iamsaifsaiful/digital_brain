@@ -607,52 +607,6 @@ class HealthLog {
       );
 }
 
-/// A message seen in another app's notification (WhatsApp, Telegram, imo,
-/// Gmail, SMS…). Kept only on the phone, inside the encrypted data.
-class InboxMessage {
-  InboxMessage({required this.id, required this.app, required this.appName, this.chat = '', this.from = '', required this.text, required this.at, this.key = '', this.group = false, this.state = ''});
-  final String id;
-
-  /// The app's package ("com.whatsapp") and its name ("WhatsApp").
-  final String app;
-  final String appName;
-
-  /// The chat or group, and who wrote.
-  final String chat;
-  final String from;
-  final String text;
-  final DateTime at;
-
-  /// The notification it came in (for its reply button while it is on the phone).
-  final String key;
-  final bool group;
-
-  /// '' (new), 'saved' (made into a task/reminder/entry), 'replied', 'dismissed'.
-  final String state;
-
-  bool get isNew => state.isEmpty;
-
-  InboxMessage withState(String s) => InboxMessage(id: id, app: app, appName: appName, chat: chat, from: from, text: text, at: at, key: key, group: group, state: s);
-
-  Map<String, Object?> toJson() => {
-        'id': id, 'app': app, 'appName': appName, 'chat': chat, 'from': from, 'text': text, 'at': at.toIso8601String(),
-        if (key.isNotEmpty) 'key': key, if (group) 'group': true, if (state.isNotEmpty) 'state': state,
-      };
-
-  factory InboxMessage.fromJson(Map<String, Object?> j) => InboxMessage(
-        id: _s(j['id']),
-        app: _s(j['app']),
-        appName: _s(j['appName']),
-        chat: _s(j['chat']),
-        from: _s(j['from']),
-        text: _s(j['text']),
-        at: _d(j['at']) ?? DateTime.now(),
-        key: _s(j['key']),
-        group: j['group'] == true,
-        state: _s(j['state']),
-      );
-}
-
 // ───────────────────────── Shops ─────────────────────────
 
 /// One of the user's shops or businesses. The first one also takes the

@@ -544,7 +544,7 @@ extension _MenuChat on ChatController {
           return;
         }
         if (!brain.canAddProject) {
-          _say(out, tr('ফ্রিতে একটা অন্যান্য হিসাব রাখা যায়; নতুনটা খোলা হয়নি। প্রিমিয়াম নিলে যত খুশি রাখা যাবে।'), links: _pageLink('pro'));
+          _say(out, tr('অন্যান্য হিসাব প্রিমিয়াম সুবিধা; নতুনটা খোলা হয়নি।'), links: _pageLink('pro'));
           return;
         }
         await brain.saveProject(Project(name: c.target.trim(), createdAt: _now));

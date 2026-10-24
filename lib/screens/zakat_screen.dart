@@ -8,6 +8,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
+import '../logic/cash.dart' show cashStartOf, cashSinceStart;
 import '../logic/lang.dart';
 import '../logic/ledger.dart';
 import '../logic/money_more.dart' show MetalPrice;
@@ -29,6 +30,7 @@ class _ZakatScreenState extends State<ZakatScreen> {
   bool _fetching = false;
   String _priceNote = '';
   bool _learn = false;
+  bool _editPrice = false;
 
   @override
   void initState() {
@@ -43,6 +45,8 @@ class _ZakatScreenState extends State<ZakatScreen> {
       _f['business']!.text = n(z.business);
       _f['other']!.text = n(z.other);
       setState(() {});
+      // No price yet: today's is fetched at once (the boxes stay for when it fails).
+      if (z.goldPrice <= 0 || z.silverPrice <= 0) _todayPrice(BrainScope.read(context));
     });
   }
 
@@ -71,6 +75,7 @@ class _ZakatScreenState extends State<ZakatScreen> {
       _fetching = false;
       _f['gold_price']!.text = '${p.gold22}';
       _f['silver_price']!.text = '${p.silver22}';
+      _editPrice = false;
       _priceNote = trf('{0}, {1} থেকে কার্যকর — ২২ ক্যারেটের দাম বসানো হলো। গয়না অন্য ক্যারেটের হলে দাম বদলে নিন।', [p.source.isEmpty ? tr('বাজুস') : p.source, shortDate(p.date)]);
     });
   }
@@ -97,6 +102,13 @@ class _ZakatScreenState extends State<ZakatScreen> {
       }
       for (final t in d.transfers.where((t) => t.to == id || t.from == id)) {
         rows.add((t.date, tr('এক অ্যাকাউন্ট থেকে আরেকটায়'), t.to == id ? t.amount : -(t.amount + t.fee)));
+      }
+      rows.sort((a, b) => b.$1.compareTo(a.$1));
+    } else if (l.key == 'cash:now') {
+      final start = cashStartOf(d);
+      if (start != null) rows.add((start.$2, tr('শুরুতে ছিল'), start.$1));
+      for (final e in cashSinceStart(d)) {
+        rows.add((e.date, e.note.isEmpty ? e.category : '${e.category} · ${e.note}', e.kind == CashKind.income ? e.amount : -e.amount));
       }
       rows.sort((a, b) => b.$1.compareTo(a.$1));
     } else if (l.key.startsWith('goal:')) {
@@ -273,15 +285,29 @@ class _ZakatScreenState extends State<ZakatScreen> {
               ),
               if (_priceNote.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(_priceNote, style: body(12.5, color: C.muted, height: 1.4))),
               const SizedBox(height: 10),
+              // The price of 1 ভরি comes from বাজুস; the boxes are only for
+              // when it could not be fetched (owner, 24 Oct).
+              if (saved.goldPrice > 0 && saved.silverPrice > 0 && !_editPrice)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(children: [
+                    Expanded(
+                      child: Text(trf('১ ভরি: সোনা {0} · রুপা {1}', [taka(saved.goldPrice), taka(saved.silverPrice)]),
+                          key: const Key('zakat-price-line'), style: body(14, weight: FontWeight.w600)),
+                    ),
+                    TextButton(onPressed: () => setState(() => _editPrice = true), child: Text(tr('বদলান'))),
+                  ]),
+                )
+              else
+                Row(children: [
+                  Expanded(child: field('gold_price', tr('১ ভরি সোনার দাম'))),
+                  const SizedBox(width: 10),
+                  Expanded(child: field('silver_price', tr('১ ভরি রুপার দাম'), hint: tr('বাজারদর'))),
+                ]),
               Row(children: [
-                Expanded(child: field('gold_vori', tr('সোনা'), vori: true)),
+                Expanded(child: field('gold_vori', tr('আপনার সোনা'), vori: true)),
                 const SizedBox(width: 10),
-                Expanded(child: field('gold_price', tr('১ ভরি সোনার দাম'))),
-              ]),
-              Row(children: [
-                Expanded(child: field('silver_vori', tr('রুপা'), vori: true)),
-                const SizedBox(width: 10),
-                Expanded(child: field('silver_price', tr('১ ভরি রুপার দাম'), hint: tr('বাজারদর'))),
+                Expanded(child: field('silver_vori', tr('আপনার রুপা'), vori: true)),
               ]),
               field('business', tr('ব্যবসার মাল (বিক্রয়মূল্যে)')),
               field('other', tr('অন্যান্য (শেয়ার, বন্ড…)')),

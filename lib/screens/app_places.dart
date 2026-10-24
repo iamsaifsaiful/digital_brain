@@ -9,7 +9,6 @@ import 'docs_screen.dart';
 import 'health_hub.dart';
 import 'health_screens.dart';
 import 'help_screen.dart';
-import 'inbox_screen.dart';
 import 'home_shell.dart';
 import 'ledger_screen.dart' show MoneyPart;
 import 'money_more_screens.dart';
@@ -27,9 +26,6 @@ import 'pro_screen.dart';
 import 'requests_screen.dart';
 import 'zakat_screen.dart';
 import 'family_screen.dart';
-import '../logic/pro.dart';
-import '../state/brain.dart';
-import '../ui/pro_gate.dart';
 import '../ui/pdf_export.dart';
 
 /// The page for a part of the app (see logic/app_map.dart), or null for the
@@ -44,7 +40,6 @@ Widget? placePage(String id, {String? folder}) => switch (id) {
       'docs' => DocsScreen(folder: folder),
       'vault' => const VaultPage(),
       'contacts' => const CallsScreen(),
-      'inbox' => const InboxScreen(),
       'report' => const ReportScreen(),
       'spending' => const SpendHealthScreen(),
       'accounts' => const AccountsScreen(),
@@ -93,13 +88,6 @@ Future<void> openPlace(BuildContext context, String id, {String? folder}) async 
     case 'pdf':
       await exportEverything(context);
     default:
-      final locked = switch (id) {
-        'inbox' => ProFeature.inbox,
-        _ => null,
-      };
-      if (locked != null && !BrainScope.read(context).has(locked)) {
-        if (!await needPro(context, locked) || !context.mounted) return;
-      }
       final page = placePage(id, folder: folder);
       if (page != null) await Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
   }

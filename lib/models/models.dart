@@ -1098,7 +1098,6 @@ class AppData {
     List<FamilyMember>? members,
     List<HealthLog>? health,
     Map<String, String>? vaccines,
-    List<InboxMessage>? inbox,
     List<Shop>? shops,
     List<Receipt>? receipts,
     List<TrashItem>? trash,
@@ -1111,7 +1110,6 @@ class AppData {
         notInMain = notInMain ?? {},
         zakat = zakat ?? ZakatBook(),
         trash = trash ?? [],
-        inbox = inbox ?? [],
         shops = shops ?? [],
         receipts = receipts ?? [],
         members = members ?? [],
@@ -1177,7 +1175,6 @@ class AppData {
   final Set<String> notInMain;
 
   /// Messages read from other apps' notifications (newest last).
-  final List<InboxMessage> inbox;
 
   /// The user's shops (দোকান), first one first.
   final List<Shop> shops;
@@ -1227,7 +1224,6 @@ class AppData {
         'members': members.map((e) => e.toJson()).toList(),
         'health': health.map((e) => e.toJson()).toList(),
         if (vaccines.isNotEmpty) 'vaccines': vaccines,
-        if (inbox.isNotEmpty) 'inbox': inbox.map((e) => e.toJson()).toList(),
         if (shops.isNotEmpty) 'shops': shops.map((e) => e.toJson()).toList(),
         if (receipts.isNotEmpty) 'receipts': receipts.map((e) => e.toJson()).toList(),
         if (trash.isNotEmpty) 'trash': trash.map((e) => e.toJson()).toList(),
@@ -1265,7 +1261,6 @@ class AppData {
       },
       emergency: j['emergency'] is Map ? EmergencyCard.fromJson((j['emergency'] as Map).cast<String, Object?>()) : const EmergencyCard(),
       members: list('members', FamilyMember.fromJson),
-      inbox: list('inbox', InboxMessage.fromJson),
       shops: list('shops', Shop.fromJson),
       receipts: list('receipts', Receipt.fromJson),
       trash: list('trash', TrashItem.fromJson),

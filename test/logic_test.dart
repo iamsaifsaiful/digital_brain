@@ -3,7 +3,6 @@ import 'package:digital_brain/logic/answers.dart';
 import 'package:digital_brain/logic/ask.dart';
 import 'package:digital_brain/logic/app_map.dart';
 import 'package:digital_brain/logic/me.dart';
-import 'package:digital_brain/logic/inbox.dart';
 import 'package:digital_brain/logic/bn.dart';
 import 'package:digital_brain/logic/calendar_bd.dart';
 import 'package:digital_brain/logic/cash.dart';
@@ -1452,42 +1451,6 @@ void main() {
     test('the app\'s own voice is told apart from the user\'s words', () {
       expect(echoToken('৫০০,'), '500');
       expect(echoToken('শুনছি।'), 'শুনছি');
-    });
-  });
-
-  group('messages from other apps', () {
-    final now = DateTime(2026, 10, 14, 10);
-    InboxMessage msg(String text, {String app = 'com.whatsapp', String name = 'WhatsApp', String from = 'রহিম', bool group = false}) =>
-        InboxMessage(id: text.hashCode.toString(), app: app, appName: name, chat: from, from: from, text: text, at: now.subtract(const Duration(minutes: 5)), group: group);
-    test('a meeting time becomes a reminder; a date a to-do', () {
-      final m = insightOf(msg('কাল বিকেল ৩টায় অফিসে মিটিং, চলে আসবেন'), now)!;
-      expect(m.kind, InboxKind.meeting);
-      final r = m.command as ReminderAdd;
-      expect((r.at.day, r.at.hour), (15, 15));
-      expect(insightOf(msg('বৃহস্পতিবার রিপোর্ট জমা দিতে হবে'), now)!.kind, InboxKind.deadline);
-    });
-    test('money asked for, and bKash money in or out', () {
-      final ask = insightOf(msg('ভাই ৫০০০ টাকা পাঠাও, খুব দরকার'), now)!;
-      expect(ask.kind, InboxKind.moneyAsk);
-      expect((ask.command as TaskAdd).title, contains('৫,০০০'));
-      final inn = insightOf(msg('You have received Tk 1,500.00 from 01712345678. TrxID 9ABC', app: 'com.google.android.apps.messaging', name: 'SMS', from: 'bKash'), now)!;
-      expect(inn.kind, InboxKind.moneyIn);
-      expect((inn.command as CashAdd).amount, 1500);
-    });
-    test('a question waits for a reply; ads and plain chat are left alone', () {
-      expect(insightOf(msg('আপনি কি আজ দোকানে আসবেন?'), now)!.kind, InboxKind.reply);
-      expect(insightOf(msg('৫০% ছাড়! আজই রিচার্জ করুন', app: 'com.google.android.apps.messaging', name: 'SMS', from: 'GP'), now), isNull);
-      expect(insightOf(msg('আলহামদুলিল্লাহ ভালো আছি'), now), isNull);
-    });
-    test('voice: "হোয়াটসঅ্যাপে কী এসেছে?" and "রহিম কী লিখেছে?"', () {
-      final d = AppData(inbox: [msg('ভাই ৫০০০ টাকা পাঠাও'), msg('কেমন আছেন', from: 'করিম')]);
-      final p = Parser(ledger: const [], now: now);
-      final q = p.parse('হোয়াটসঅ্যাপে কী এসেছে?');
-      expect(q, isA<ProfileQuery>());
-      expect(answerText(d, q, now), allOf(contains('৫,০০০'), contains('কাজের কথা')));
-      expect(answerText(d, p.parse('রহিম কী লিখেছে?'), now), contains('পাঠাও'));
-      expect(p.parse('করিমকে মেসেজ দাও যে কী লাগবে'), isA<CallPerson>());
-      expect(answerText(AppData(), q, now), contains('কোনো মেসেজের তথ্য নেই'));
     });
   });
 

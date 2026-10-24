@@ -1234,6 +1234,10 @@ class ChatController extends ChangeNotifier {
   String? _moveCashId;
 
   Future<bool> _moveCash(CashEntry e, Project p, List<String> out) async {
+    if (!brain.canUseProjects) {
+      _say(out, tr('অন্যান্য হিসাব প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
+      return true;
+    }
     final snap = brain.snapshot();
     await brain.saveCash(CashEntry(id: e.id, kind: e.kind, amount: e.amount, category: e.category, note: e.note, date: e.date, projectId: p.id, accountId: e.accountId, shopId: e.shopId));
     _actions++;
@@ -1801,7 +1805,6 @@ class ChatController extends ChangeNotifier {
       if (!mentionsBlood(text)) {
         // Everyday questions: the page where it is kept.
         final page = switch (infoTopic(text) ?? profileField(text)) {
-          'inbox' => 'inbox',
           'prayer' || 'sehri' || 'iftar' || 'sunrise' || 'sunset' || 'ramadan' => 'calendar',
           'howto' => howToAsked(text)?.id,
           'ability' => 'docs',
@@ -3352,9 +3355,9 @@ class ChatController extends ChangeNotifier {
           if (e == null) return false;
           var name = tidy(cutWords(t, const ['প্রজেক্ট', 'প্রজেক্টে', 'প্রজেক্টের', 'প্রকল্প', 'প্রকল্পে', 'নামে', 'নাম', 'হিসাবে', 'হিসাব']));
           if (name.isEmpty) name = t.trim();
-          final p = projectByName(brain.data, name) ?? (brain.canAddProject ? await brain.projectNamed(name) : null);
+          final p = !brain.canUseProjects ? null : projectByName(brain.data, name) ?? (brain.canAddProject ? await brain.projectNamed(name) : null);
           if (p == null) {
-            _say(out, tr('নতুন অন্যান্য হিসাব খোলা প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'));
+            _say(out, tr('অন্যান্য হিসাব প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'));
             return true;
           }
           return _moveCash(e, p, out);
@@ -3521,6 +3524,10 @@ class ChatController extends ChangeNotifier {
     if (!RegExp(fold(r'(?:সরাও|সরিয়ে\s+দাও|সরিয়ে\s+দাও|নিয়ে\s+যাও|ট্রান্সফার\s+করো|স্থানান্তর\s+করো)\s*[।.!]?$')).hasMatch(f)) return false;
     final p = projectHinted(brain.data, t);
     if (p == null) return false;
+    if (!brain.canUseProjects) {
+      _say(out, tr('অন্যান্য হিসাব প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
+      return true;
+    }
     final amount = findAmount(normalize(t));
     final said = words(normalize(t)).where((w) => w.runes.length > 2).map((w) => w.replaceAll(RegExp(fold(r'(?:ের|এর|র)$')), '')).toSet();
     final recent = [
@@ -3906,9 +3913,9 @@ class ChatController extends ChangeNotifier {
         Project? project;
         String proNote = '';
         if (c.project != null) {
-          if (projectByName(brain.data, c.project!) == null && !brain.canAddProject) {
-            // A second project is Pro: nothing is written anywhere else unasked.
-            _say(out, trf('নতুন হিসাব “{0}” খোলা প্রিমিয়াম সুবিধা, তাই কিছু লিখিনি। সাধারণ আয়-ব্যয়ে চাইলে বলুন।', [c.project!]));
+          if (!brain.canUseProjects) {
+            // অন্যান্য হিসাব is premium: nothing is written anywhere else unasked.
+            _say(out, trf('অন্যান্য হিসাব (“{0}”) প্রিমিয়াম সুবিধা, তাই কিছু লিখিনি। সাধারণ আয়-ব্যয়ে চাইলে বলুন।', [c.project!]), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
             await _done(out);
             return;
           } else {

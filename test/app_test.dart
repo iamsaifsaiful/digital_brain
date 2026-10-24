@@ -12,7 +12,6 @@ import 'package:digital_brain/services/crypto.dart';
 import 'package:digital_brain/services/data_store.dart';
 import 'package:digital_brain/services/files.dart';
 import 'package:digital_brain/services/launcher.dart';
-import 'package:digital_brain/services/inbox.dart';
 import 'package:digital_brain/services/google_account.dart';
 import 'package:digital_brain/services/lock.dart';
 import 'package:digital_brain/services/notifications.dart';
@@ -25,7 +24,6 @@ import 'package:digital_brain/screens/assistant_settings.dart';
 import 'package:digital_brain/screens/app_places.dart';
 import 'package:digital_brain/screens/lock_screen.dart' show googleFirst;
 import 'package:digital_brain/screens/chat_home.dart';
-import 'package:digital_brain/screens/inbox_screen.dart';
 import 'package:digital_brain/screens/calendar_screen.dart';
 import 'package:digital_brain/screens/tasks_screen.dart';
 import 'package:digital_brain/ui/file_view.dart';
@@ -71,7 +69,6 @@ class Rig {
     biometrics = FakeBiometrics(has: false);
     ai = FakeAi();
     phonebook = FakePhonebook();
-    inbox = FakeInbox();
     final store = DataStore(keys: vault, blob: this.blob);
     services = Services(
       store: store,
@@ -81,7 +78,6 @@ class Rig {
       files: files,
       ai: ai,
       phonebook: phonebook,
-      inbox: inbox,
       server: server,
       google: google,
       clock: () => nowAt,
@@ -97,7 +93,6 @@ class Rig {
   late final FakeVoice voice;
   late final FakeAi ai;
   late final FakePhonebook phonebook;
-  late final FakeInbox inbox;
   late final FakeNotifier notifier;
   late final FakeFiles files;
   late final FakeBiometrics biometrics;
@@ -248,71 +243,6 @@ void main() {
     await tell(t, rig, 'লেনদেন খোলো');
     await settle(t);
     expect(find.byType(ChatHome), findsNothing);
-  });
-
-  testWidgets('inbox: access turned off shows the setup again; codes and passwords are never kept; a build without the reader says so', (t) async {
-    final rig = await start(t);
-    rig.inbox.access = true;
-    rig.inbox.waiting.addAll([
-      InboxMessage(id: 'a', app: 'com.google.android.apps.messaging', appName: 'SMS', chat: 'bKash', from: 'bKash', text: 'Your OTP is 482913. Do not share.', at: DateTime(2026, 10, 9, 9)),
-      InboxMessage(id: 'b', app: 'com.whatsapp', appName: 'WhatsApp', chat: 'রহিম', from: 'রহিম', text: 'ওয়াইফাই পাসওয়ার্ড টা দাও', at: DateTime(2026, 10, 9, 9, 1)),
-      InboxMessage(id: 'c', app: 'com.whatsapp', appName: 'WhatsApp', chat: 'রহিম', from: 'রহিম', text: 'কাল বিকেলে দেখা হবে', at: DateTime(2026, 10, 9, 9, 2)),
-      InboxMessage(id: 'c', app: 'com.whatsapp', appName: 'WhatsApp', chat: 'রহিম', from: 'রহিম', text: 'কাল বিকেলে দেখা হবে', at: DateTime(2026, 10, 9, 9, 2)), // the same one twice
-    ]);
-    unawaited(openPlace(t.element(find.byType(HomeShell)), 'inbox'));
-    await settle(t);
-    expect([for (final m in rig.brain.data.inbox) m.id], ['c']);
-    Navigator.of(t.element(find.byType(InboxScreen))).pop();
-    await settle(t);
-    // Access taken away in the phone's settings: the page asks again.
-    rig.inbox.access = false;
-    unawaited(openPlace(t.element(find.byType(HomeShell)), 'inbox'));
-    await settle(t);
-    expect(find.text('অনুমতি দিন'), findsOneWidget);
-    Navigator.of(t.element(find.byType(InboxScreen))).pop();
-    await settle(t);
-    // This APK leaves the reader out (Play Protect): the page says so.
-    rig.inbox.isSupported = false;
-    await rig.brain.load();
-    unawaited(openPlace(t.element(find.byType(HomeShell)), 'inbox'));
-    await settle(t);
-    expect(find.textContaining('এই সংস্করণে নেই'), findsOneWidget);
-    expect(find.text('অনুমতি দিন'), findsNothing);
-    Navigator.of(t.element(find.byType(InboxScreen))).pop();
-    await settle(t);
-  });
-
-  testWidgets('বার্তা থেকে কাজ: permission first, then the work found in messages', (t) async {
-    final rig = await start(t);
-    unawaited(openPlace(t.element(find.byType(HomeShell)), 'inbox'));
-    await settle(t);
-    expect(find.byType(InboxScreen), findsOneWidget);
-    expect(find.text('অনুমতি দিন'), findsOneWidget);
-    expect(find.textContaining('কোনো সার্ভার বা AI-তে যায় না'), findsWidgets);
-    rig.inbox.waiting.addAll([
-      InboxMessage(id: '1', app: 'com.whatsapp', appName: 'WhatsApp', chat: 'রহিম', from: 'রহিম', text: 'ভাই ৫০০০ টাকা পাঠাও, খুব দরকার', at: DateTime(2026, 10, 9, 15, 40), key: 'k1'),
-      InboxMessage(id: '2', app: 'com.whatsapp', appName: 'WhatsApp', chat: 'করিম', from: 'করিম', text: 'ঠিক আছে', at: DateTime(2026, 10, 9, 15, 41)),
-    ]);
-    await t.ensureVisible(find.text('অনুমতি দিন'));
-    await t.tap(find.text('অনুমতি দিন'));
-    await settle(t);
-    expect(rig.brain.data.inbox, hasLength(2));
-    expect(find.textContaining('টাকা চেয়েছেন'), findsOneWidget);
-    await t.tap(find.text('কাজে রাখুন').first);
-    await settle(t);
-    expect(rig.brain.data.tasks.single.title, contains('৫,০০০'));
-    expect(find.textContaining('টাকা চেয়েছেন'), findsNothing);
-    // Reply to a message from the list.
-    await t.tap(find.text('রহিম').first);
-    await settle(t);
-    await t.tap(find.text('উত্তর দিন').last);
-    await settle(t);
-    await t.tap(find.text('একটু পরে জানাচ্ছি।'));
-    await t.tap(find.text('পাঠান'));
-    await settle(t);
-    expect(rig.inbox.sent.single, ('1', 'একটু পরে জানাচ্ছি।'));
-    Navigator.of(t.element(find.byType(InboxScreen))).pop();
-    await settle(t);
   });
 
   testWidgets('AI privacy: off sends nothing; on, secrets, numbers and the vault never go', (t) async {

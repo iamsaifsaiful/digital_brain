@@ -7,10 +7,8 @@ import '../ui/theme.dart';
 import 'calls_screen.dart';
 import 'docs_screen.dart';
 import 'home_shell.dart';
-import 'library_screen.dart';
 import 'new_item_screen.dart';
 import 'health_hub.dart';
-import 'inbox_screen.dart';
 import 'notes_screen.dart';
 import 'search_screen.dart';
 import 'special_days_screen.dart';
@@ -86,7 +84,7 @@ class StoreScreen extends StatelessWidget {
             tile(tr('পাসওয়ার্ড'), trf('{0}টি · তালাবদ্ধ', [bnDigits(d.vault.length)]), Icons.lock_outline_rounded, C.ink, C.soft, () => push(const VaultPage())),
             tile(tr('যোগাযোগ'), trf('{0} জন', [bnDigits(d.contacts.length)]), Icons.call_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
             tile(tr('স্বাস্থ্য'), tr('BMI, প্রেশার, সুগার, টিকা'), Icons.favorite_border_rounded, C.rose, C.roseTint, () => push(const HealthScreen())),
-            if (brain.inboxSupported) tile(tr('মেসেজ থেকে কাজ'), tr('WhatsApp, imo, Gmail, SMS'), Icons.mark_chat_unread_outlined, C.green, C.greenTint, () => push(const InboxScreen())),
+            tile(tr('বিশেষ দিন'), trf('{0}টি · জন্মদিন, বিবাহবার্ষিকী', [bnDigits(d.specialDays.length)]), Icons.cake_outlined, C.purple, C.purpleTint, () => push(const SpecialDaysScreen())),
           ],
         ),
         const SizedBox(height: 10),
@@ -95,7 +93,6 @@ class StoreScreen extends StatelessWidget {
             (tr('জরুরি কার্ড'), Icons.emergency_outlined, C.rose, C.roseTint, const EmergencyScreen() as Widget),
             (tr('কাগজের মেয়াদ'), Icons.event_busy_outlined, C.orange, C.orangeTint, const ExpiryScreen() as Widget),
             (tr('ট্যাগ'), Icons.sell_outlined, C.green, C.greenTint, const TagsScreen() as Widget),
-            (tr('বিশেষ দিন'), Icons.cake_outlined, C.purple, C.purpleTint, const SpecialDaysScreen() as Widget),
           ]) ...[
             Expanded(
               child: Material(
@@ -115,27 +112,9 @@ class StoreScreen extends StatelessWidget {
                 ),
               ),
             ),
-            if (label != tr('বিশেষ দিন')) const SizedBox(width: 8),
+            if (label != tr('ট্যাগ')) const SizedBox(width: 8),
           ],
         ]),
-        const SizedBox(height: 10),
-        Material(
-          color: C.surface,
-          borderRadius: BorderRadius.circular(16),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: () => push(const MenuPage(child: LibraryScreen())),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-              child: Row(children: [
-                Icon(Icons.folder_open_outlined, color: C.muted2),
-                const SizedBox(width: 12),
-                Expanded(child: Text(trf('সব তথ্য ও নিজের বিভাগ · {0}টি', [bnDigits(d.noteCategories.length)]), style: body(15, weight: FontWeight.w500))),
-                Icon(Icons.chevron_right_rounded, color: C.muted),
-              ]),
-            ),
-          ),
-        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
           child: Row(children: [

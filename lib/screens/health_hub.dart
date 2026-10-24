@@ -4,6 +4,8 @@ import '../logic/bn.dart';
 import '../logic/health.dart';
 import '../logic/lang.dart';
 import '../logic/me.dart' show bloodGroups;
+import '../logic/pro.dart';
+import '../ui/pro_gate.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
@@ -327,6 +329,9 @@ class BmiGauge extends StatelessWidget {
 /// Add or change a family member (or the user's own height, age, sex).
 Future<FamilyMember?> editMember(BuildContext context, FamilyMember? m) async {
   final brain = BrainScope.read(context);
+  // Family in স্বাস্থ্য is premium (owner, 24 Oct); one's own is free.
+  if (m == null && !await needPro(context, ProFeature.familyHealth)) return null;
+  if (!context.mounted) return null;
   final name = TextEditingController(text: m == null ? '' : (m.isMe ? (brain.userName.isEmpty ? tr('আমি') : brain.userName) : m.name));
   final relation = TextEditingController(text: m?.relation ?? '');
   final cm = m?.heightCm;

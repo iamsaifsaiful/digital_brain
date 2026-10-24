@@ -11,7 +11,6 @@ import 'calendar_bd.dart';
 import 'lang.dart';
 import 'money_more.dart' show accountBalance, ZakatSaved, zakatAuto, MetalPrice;
 import 'cash.dart';
-import 'inbox.dart' show inboxAnswer;
 import 'parser.dart';
 import 'proactive.dart' show remindsOn, specialTitle;
 import 'when.dart';
@@ -76,13 +75,6 @@ String? infoTopic(String text) {
   // "কিবলা কোন দিকে?", "কেবলা কোথায়"
   if (_has(text, ['কিবলা', 'কেবলা', 'কিবলার', 'কেবলার', 'qibla']) && _has(text, ['দিক', 'কোথায়', 'কোন', 'কোনদিকে', 'কোন দিকে', 'which', 'where'])) return 'qibla';
   if (howToAsked(text) != null) return 'howto';
-  // "রহিম কী লিখেছে?", "করিম কী মেসেজ দিয়েছে?"
-  if (_has(text, ['কী লিখেছে', 'কি লিখেছে', 'কী লিখছে', 'কি লিখছে', 'কী মেসেজ দিয়েছে', 'কি মেসেজ দিয়েছে', 'কী পাঠিয়েছে', 'কি পাঠিয়েছে', 'কী বলেছে মেসেজে'])) return 'inbox';
-  if (_has(text, ['মেসেজ', 'মেসেজে', 'বার্তা', 'ম্যাসেজ', 'ইমেইল', 'মেইল', 'জিমেইল', 'message', 'mail', 'এসএমএস', 'sms']) ||
-      (_has(text, ['হোয়াটসঅ্যাপ', 'হোয়াটসআপ', 'টেলিগ্রাম', 'ইমো', 'মেসেঞ্জার', 'whatsapp', 'telegram', 'imo']) && _has(text, ['এসেছে', 'আসছে', 'লিখেছে', 'লিখছে', 'কী', 'কি', 'কে']))) {
-    final sending = _has(text, ['মেসেজ দাও', 'মেসেজ দিন', 'মেসেজ দেন', 'মেসেজ পাঠাও', 'মেসেজ পাঠান', 'লিখে দাও', 'লিখে পাঠাও', 'মেইল করো', 'মেইল পাঠাও', 'send']);
-    if (!sending && _has(text, ['এসেছে', 'আসছে', 'এলো', 'আসলো', 'লিখেছে', 'লিখছে', 'পাঠিয়েছে', 'নতুন', 'জরুরি', 'কী আছে', 'কি আছে', 'কোন', 'কয়টা', 'দেখাও', 'পড়ো', 'পড়ে শোনাও', 'শোনাও'])) return 'inbox';
-  }
   // "রোজা কবে?", "রমজান কবে শুরু?": the coming Ramadan by the Hijri calendar.
   if (_has(text, ['রোজা', 'রমজান', 'রমযান', 'রামাদান', 'ramadan']) && _has(text, ['কবে', 'কখন', 'শুরু', 'কত তারিখ', 'কয় তারিখ', 'কত দিন', 'কয়দিন', 'বাকি', 'কততম', 'কয়টা'])) return 'ramadan';
   if (_has(text, ['সেহরি', 'সাহরি', 'সেহেরি'])) return 'sehri';
@@ -122,8 +114,6 @@ String? infoAnswer(AppData d, String said, DateTime now) {
   final tomorrow = sunTimes(now.add(const Duration(days: 1)), place);
   final where = _at(place.label);
   switch (topic) {
-    case 'inbox':
-      return inboxAnswer(d, said, now);
     case 'privacy':
       return tr('আপনার তথ্য আপনার ফোনেই থাকে, PIN দিয়ে তালা দেওয়া। পাসওয়ার্ড, পিন আর ওটিপি কখনো ফোনের বাইরে যায় না। ব্যাকআপ যায় আপনার নিজের Google Drive-এ, তালা দেওয়া অবস্থায়। ফ্যামিলিতে কিছু পাঠালে শুধু সেই মানুষটাই খুলতে পারেন। AI চালু থাকলে শুধু যে কথাটা বুঝতে সাহায্য লাগে সেটুকু যায়।');
     case 'sehri':

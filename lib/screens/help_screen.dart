@@ -18,7 +18,6 @@ const _icons = <String, IconData>{
   'docs': Icons.folder_copy_outlined,
   'vault': Icons.key_rounded,
   'contacts': Icons.call_outlined,
-  'inbox': Icons.mark_chat_unread_outlined,
   'money': Icons.account_balance_wallet_outlined,
   'ledger': Icons.payments_outlined,
   'projects': Icons.work_outline_rounded,

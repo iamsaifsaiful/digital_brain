@@ -37,7 +37,7 @@ AppData richer(DateTime now) {
 
 void main() {
   final pages = <String, Widget Function()>{
-    for (final id in ['tasks', 'alarms', 'calendar', 'special', 'notes', 'docs', 'vault', 'contacts', 'inbox', 'report', 'spending', 'accounts', 'savings', 'split', 'shop', 'health', 'medicines', 'habits', 'emergency', 'expiry', 'tags', 'memory', 'templates', 'search', 'settings', 'notifications', 'sound', 'backup', 'help', 'pro', 'compass'])
+    for (final id in ['tasks', 'alarms', 'calendar', 'special', 'notes', 'docs', 'vault', 'contacts', 'report', 'spending', 'accounts', 'savings', 'split', 'shop', 'health', 'medicines', 'habits', 'emergency', 'expiry', 'tags', 'memory', 'templates', 'search', 'settings', 'notifications', 'sound', 'backup', 'help', 'pro', 'compass'])
       id: () => placePage(id)!,
     'zakat': () => const ZakatScreen(),
     'family': () => const FamilyScreen(),

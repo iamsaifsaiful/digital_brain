@@ -23,7 +23,6 @@ import 'home_screen.dart';
 import 'home_sky.dart';
 import 'health_hub.dart';
 import 'home_shell.dart';
-import 'inbox_screen.dart';
 import 'settings_parts.dart';
 import 'easy_home.dart';
 import 'notes_screen.dart';
@@ -33,7 +32,6 @@ import 'requests_screen.dart';
 import 'zakat_screen.dart';
 import 'family_screen.dart';
 import 'pro_screen.dart';
-import '../logic/inbox.dart' show inboxTodo;
 import '../logic/lang.dart';
 
 String helloFor(DateTime now) {
@@ -66,7 +64,6 @@ class HomePage extends StatelessWidget {
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
     final top = MediaQuery.of(context).padding.top;
     final first = brain.userName.trim().isEmpty ? '' : brain.userName.trim().split(' ').first;
-    final inboxTodos = inboxTodo(d, now);
     final week = spendHealth(d, now);
     final weekWarn = week.hasIncome && (week.pct(week.wants) > wantCap || week.spent > week.income);
     final quote = quoteFor(now);
@@ -228,9 +225,9 @@ class HomePage extends StatelessWidget {
                     ]),
                   ),
                 ),
-                // Inbox to-dos, and the holiday going on now or the next two
+                // The holiday going on now or the next two
                 // (owner, 24 Oct: always on the home, however far).
-                if (inboxTodos.isNotEmpty || runs.isNotEmpty)
+                if (runs.isNotEmpty)
                   HomeSection(
                     title: tr('সামনে'),
                     action: tr('ক্যালেন্ডার'),
@@ -239,16 +236,8 @@ class HomePage extends StatelessWidget {
                       key: const Key('home-holidays'),
                       padding: EdgeInsets.zero,
                       child: Column(children: [
-                        if (inboxTodos.isNotEmpty)
-                          _UpcomingRow(
-                            lead: Icon(Icons.mark_chat_unread_outlined, color: C.green, size: 22),
-                            tint: C.greenTint,
-                            title: trf('মেসেজ থেকে {0}টা কাজ', [bnDigits(inboxTodos.length)]),
-                            text: inboxTodos.first.$2.summary,
-                            onTap: () => push(const InboxScreen()),
-                          ),
                         for (final (i, h) in runs.indexed) ...[
-                          if (i > 0 || inboxTodos.isNotEmpty) Divider(height: 1, indent: 72, color: C.line),
+                          if (i > 0) Divider(height: 1, indent: 72, color: C.line),
                           Builder(builder: (context) {
                             final days = DateTime(h.start.year, h.start.month, h.start.day).difference(today).inDays;
                             return _UpcomingRow(

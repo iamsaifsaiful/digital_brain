@@ -50,8 +50,6 @@ class _FamilyScreenState extends State<FamilyScreen> {
   }
 
   Future<void> _invite() async {
-    if (!await needPro(context, ProFeature.family)) return;
-    if (!mounted) return;
     final r = await showAppSheet<(String, String, List<String>)>(context: context, isScrollControlled: true, builder: (_) => const _AddSheet());
     if (r == null || !mounted) return;
     final ok = await BrainScope.read(context).family.invite(r.$1, r.$2, r.$3);
@@ -350,8 +348,6 @@ class _FamilyMemberScreenState extends State<FamilyMemberScreen> {
 
   Future<void> _send(FamilyLink l, String kind) async {
     final fam = BrainScope.read(context).family;
-    if (!await needPro(context, ProFeature.family)) return;
-    if (!mounted) return;
     final payload = await showAppSheet<Map<String, Object?>>(context: context, isScrollControlled: true, builder: (_) => _SendSheet(kind: kind, to: l.title));
     if (payload == null || !mounted) return;
     final ok = await fam.send(l, kind, payload);
@@ -450,10 +446,14 @@ class _FamilyMemberScreenState extends State<FamilyMemberScreen> {
                         CheckboxListTile(
                           key: Key('family-allow-$p'),
                           value: l.iAllow.contains(p),
-                          onChanged: (v) => fam.setAllow(l, allow: [
+                          onChanged: (v) async {
+                            // Showing my location is premium (owner, 24 Oct).
+                            if (p == 'location' && v == true && !await needPro(context, ProFeature.family)) return;
+                            await fam.setAllow(l, allow: [
                             for (final x in familyPerms)
                               if (x == p ? v == true : l.iAllow.contains(x)) x
-                          ]),
+                            ]);
+                          },
                           title: Text(familyPermLabel(p), style: body(14.5)),
                         ),
                     ]),
@@ -465,7 +465,10 @@ class _FamilyMemberScreenState extends State<FamilyMemberScreen> {
                       SwitchListTile(
                         key: const Key('family-heir'),
                         value: l.theyAreMyHeir,
-                        onChanged: (v) => fam.setAllow(l, heir: v),
+                        onChanged: (v) async {
+                          if (v && !await needPro(context, ProFeature.family)) return;
+                          await fam.setAllow(l, heir: v);
+                        },
                         title: Text(tr('আমার উত্তরাধিকারী'), style: body(15, weight: FontWeight.w600)),
                         subtitle: Text(tr('আমার ইন্তেকালের পর (কাগজ যাচাই আর ১৪ দিন পর) ফ্যামিলি পাতায় বাছাই করা অংশ দেখবেন'), style: body(12.5, color: C.muted)),
                       ),
@@ -473,7 +476,10 @@ class _FamilyMemberScreenState extends State<FamilyMemberScreen> {
                         SwitchListTile(
                           key: const Key('family-open-now'),
                           value: l.iOpened,
-                          onChanged: (v) => fam.setAllow(l, openNow: v),
+                          onChanged: (v) async {
+                            if (v && !await needPro(context, ProFeature.family)) return;
+                            await fam.setAllow(l, openNow: v);
+                          },
                           title: Text(tr('এখনই পুরো অ্যাক্সেস দিন'), style: body(15)),
                           subtitle: Text(tr('অপেক্ষা ছাড়াই এখন থেকে দেখতে পাবেন'), style: body(12.5, color: C.muted)),
                         ),

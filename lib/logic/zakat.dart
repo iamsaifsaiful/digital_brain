@@ -5,6 +5,7 @@
 // changed, and each one the user may leave out.
 import '../models/models.dart';
 import 'bn.dart';
+import 'cash.dart' show cashOnHand, cashStartOf, cashNowParts, cashSinceStart;
 import 'lang.dart';
 import 'ledger.dart';
 import 'money_more.dart' show accountBalance, ZakatSaved, ZakatInput;
@@ -80,18 +81,31 @@ List<ZakatLine> zakatLines(AppData d, DateTime now, ZakatSaved z) {
     out.add(ZakatLine(key: key, group: g, label: label, amount: amount, how: how, at: at, debt: debt, included: !off.contains(key), manualId: manualId));
   }
 
-  for (final a in d.accounts) {
-    final bal = accountBalance(d, a);
-    final entries = d.cash.where((e) => e.accountId == a.id).toList();
-    final moves = d.transfers.where((t) => t.to == a.id || t.from == a.id).toList();
-    final n = entries.length + moves.length;
-    add('account:${a.id}', a.kind == AccountKind.bank ? ZakatGroup.bank : ZakatGroup.cash, a.name, bal,
-        n > 0 ? trf('অ্যাকাউন্টের ব্যালেন্স: শুরু {0} + {1}টা লেনদেন', [_tk(a.opening), bnDigits(n)]) : trf('অ্যাকাউন্টের ব্যালেন্স: শুরু {0}', [_tk(a.opening)]), at: _latest([for (final e in entries) e.date, for (final t in moves) t.date]));
-  }
-  if (d.accounts.isEmpty) {
-    final own = d.cash.where((e) => e.projectId == null).toList();
-    final bal = own.fold<int>(0, (s, e) => s + (e.kind == CashKind.income ? e.amount : -e.amount));
-    add('cash:estimate', ZakatGroup.cash, tr('আয়-ব্যয়ের ব্যালেন্স'), bal, trf('আয় থেকে খরচ বাদ ({0}টা হিসাব) — আনুমানিক; অ্যাকাউন্ট যোগ করলে ঠিক হিসাব', [bnDigits(own.length)]), at: _latest([for (final e in own) e.date]));
+  // "এখন আছে" said (owner, 24 Oct): zakat counts from it — the amount then,
+  // with every আয়-ব্যয়, loan and বকেয়া since (accounts are not added again).
+  final now$ = cashOnHand(d);
+  if (now$ != null) {
+    final start = cashStartOf(d)!;
+    final parts = cashNowParts(d);
+    final how = [
+      trf('শুরুতে {0} ({1})', [_tk(start.$1), shortDate(start.$2)]),
+      for (final (k, v) in parts) '${tr(k)} ${v < 0 ? '−' : '+'}${_tk(v.abs())}',
+    ].join(' · ');
+    add('cash:now', ZakatGroup.cash, tr('এখন আছে'), now$, how, at: _latest([start.$2, for (final e in cashSinceStart(d)) e.addedAt ?? e.date]));
+  } else {
+    for (final a in d.accounts) {
+      final bal = accountBalance(d, a);
+      final entries = d.cash.where((e) => e.accountId == a.id).toList();
+      final moves = d.transfers.where((t) => t.to == a.id || t.from == a.id).toList();
+      final n = entries.length + moves.length;
+      add('account:${a.id}', a.kind == AccountKind.bank ? ZakatGroup.bank : ZakatGroup.cash, a.name, bal,
+          n > 0 ? trf('অ্যাকাউন্টের ব্যালেন্স: শুরু {0} + {1}টা লেনদেন', [_tk(a.opening), bnDigits(n)]) : trf('অ্যাকাউন্টের ব্যালেন্স: শুরু {0}', [_tk(a.opening)]), at: _latest([for (final e in entries) e.date, for (final t in moves) t.date]));
+    }
+    if (d.accounts.isEmpty) {
+      final own = d.cash.where((e) => e.projectId == null).toList();
+      final bal = own.fold<int>(0, (s, e) => s + (e.kind == CashKind.income ? e.amount : -e.amount));
+      add('cash:estimate', ZakatGroup.cash, tr('আয়-ব্যয়ের ব্যালেন্স'), bal, trf('আয় থেকে খরচ বাদ ({0}টা হিসাব) — আনুমানিক; অ্যাকাউন্ট যোগ করলে ঠিক হিসাব', [bnDigits(own.length)]), at: _latest([for (final e in own) e.date]));
+    }
   }
   for (final g in d.goals) {
     add('goal:${g.id}', ZakatGroup.savings, g.name, g.saved, trf('{0}বার জমা', [bnDigits(g.deposits.length)]), at: _latest([for (final x in g.deposits) x.date]));
@@ -100,11 +114,13 @@ List<ZakatLine> zakatLines(AppData d, DateTime now, ZakatSaved z) {
     final last = i.paid.isEmpty ? null : DateTime.tryParse('${(i.paid.toList()..sort()).last}-01');
     add('dps:${i.id}', ZakatGroup.dps, i.name, i.paidTotal, trf('{0}টা কিস্তি × {1}', [bnDigits(i.paidCount), _tk(i.amount)]), at: last);
   }
+  final dueKeys = {for (final e in d.ledger.where((e) => e.projectId != null)) accountKeys(d.ledger)[e.id]};
   for (final p in balances(d.ledger)) {
+    final due = dueKeys.contains(p.key) ? ' · ${tr('বকেয়া')}' : '';
     if (p.balance > 0) {
-      add('person:${p.key}', ZakatGroup.receivable, p.name, p.balance, trf('ধার দিয়েছেন {0}, ফেরত পেয়েছেন {1} ({2}টা হিসাব)', [_tk(p.lentTotal), _tk(p.receivedTotal), bnDigits(p.count)]), at: p.last);
+      add('person:${p.key}', ZakatGroup.receivable, '${p.name}$due', p.balance, trf('ধার দিয়েছেন {0}, ফেরত পেয়েছেন {1} ({2}টা হিসাব)', [_tk(p.lentTotal), _tk(p.receivedTotal), bnDigits(p.count)]), at: p.last);
     } else if (p.balance < 0) {
-      add('owe:${p.key}', ZakatGroup.payable, p.name, -p.balance, trf('ধার নিয়েছেন {0}, শোধ করেছেন {1} ({2}টা হিসাব)', [_tk(p.borrowedTotal), _tk(p.repaidTotal), bnDigits(p.count)]), at: p.last, debt: true);
+      add('owe:${p.key}', ZakatGroup.payable, '${p.name}$due', -p.balance, trf('ধার নিয়েছেন {0}, শোধ করেছেন {1} ({2}টা হিসাব)', [_tk(p.borrowedTotal), _tk(p.repaidTotal), bnDigits(p.count)]), at: p.last, debt: true);
     }
   }
   for (final i in d.installments.where((i) => i.kind == InstallmentKind.loan)) {

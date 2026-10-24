@@ -97,16 +97,24 @@ object LocationShare {
         val coarse = context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
         if (!fine && !coarse) return null
         val client = LocationServices.getFusedLocationProviderClient(context)
-        return try {
+        fun now(priority: Int, secs: Long): Location? = try {
             val cts = CancellationTokenSource()
-            Tasks.await(client.getCurrentLocation(if (fine && !rough) Priority.PRIORITY_HIGH_ACCURACY else Priority.PRIORITY_BALANCED_POWER_ACCURACY, cts.token), 20, TimeUnit.SECONDS)
-                ?: Tasks.await(client.lastLocation, 5, TimeUnit.SECONDS)
-        } catch (_: SecurityException) {
-            null
-        } catch (_: Exception) {
-            try { Tasks.await(client.lastLocation, 5, TimeUnit.SECONDS) } catch (_: Exception) { null }
-        }
+            Tasks.await(client.getCurrentLocation(priority, cts.token), secs, TimeUnit.SECONDS)
+        } catch (_: Exception) { null }
+        // On mobile data with Wi-Fi off the network fix can come back empty:
+        // then GPS (works without internet), then the last fix any provider has.
+        val first = if (fine && !rough) Priority.PRIORITY_HIGH_ACCURACY else Priority.PRIORITY_BALANCED_POWER_ACCURACY
+        return now(first, 20)
+            ?: (if (fine && first != Priority.PRIORITY_HIGH_ACCURACY) now(Priority.PRIORITY_HIGH_ACCURACY, 25) else null)
+            ?: try { Tasks.await(client.lastLocation, 5, TimeUnit.SECONDS) } catch (_: Exception) { null }
+            ?: lastKnown(context)
     }
+
+    /** The newest last fix of any provider (GPS, network, passive), without Play services. */
+    private fun lastKnown(context: Context): Location? = try {
+        val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        lm?.getProviders(true)?.mapNotNull { p -> try { lm.getLastKnownLocation(p) } catch (_: SecurityException) { null } }?.maxByOrNull { it.time }
+    } catch (_: Exception) { null }
 
     private fun seal(clear: ByteArray, key: ByteArray): String {
         val nonce = ByteArray(12).also { SecureRandom().nextBytes(it) }

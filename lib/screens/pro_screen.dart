@@ -24,7 +24,7 @@ bool _shown(BuildContext context, ProFeature f) =>
     !(f == ProFeature.shops || f == ProFeature.receipts) || BrainScope.of(context).businessMode;
 
 const _short = <ProFeature, (String, IconData)>{
-  ProFeature.ai: ('AI সহকারী', Icons.auto_awesome_outlined),
+  ProFeature.ai: ('AI উত্তর', Icons.auto_awesome_outlined),
   ProFeature.noAds: ('বিজ্ঞাপন নেই', Icons.block_rounded),
   ProFeature.autoBackup: ('অটো ব্যাকআপ', Icons.cloud_sync_outlined),
   ProFeature.docAlerts: ('কাগজের মেয়াদের খবর', Icons.event_busy_outlined),
@@ -35,11 +35,13 @@ const _short = <ProFeature, (String, IconData)>{
   ProFeature.docs: ('যত খুশি ডকুমেন্ট', Icons.folder_copy_outlined),
   ProFeature.shops: ('একাধিক দোকান', Icons.storefront_outlined),
   ProFeature.receipts: ('রসিদ', Icons.receipt_long_outlined),
-  ProFeature.pdf: ('PDF রিপোর্ট', Icons.picture_as_pdf_outlined),
+  ProFeature.pdf: ('PDF ডাউনলোড', Icons.picture_as_pdf_outlined),
   ProFeature.projects: ('অন্যান্য হিসাব', Icons.folder_special_outlined),
   ProFeature.vault: ('যত খুশি পাসওয়ার্ড', Icons.lock_outline_rounded),
-  ProFeature.inbox: ('মেসেজ থেকে কাজ', Icons.mark_chat_unread_outlined),
   ProFeature.smartNudges: ('স্মার্ট খেয়াল', Icons.tips_and_updates_outlined),
+  ProFeature.family: ('উত্তরাধিকার, পুরো অ্যাক্সেস, লোকেশন', Icons.family_restroom_rounded),
+  ProFeature.will: ('ওছিয়তনামা', Icons.history_edu_outlined),
+  ProFeature.familyHealth: ('পরিবারের স্বাস্থ্য', Icons.favorite_border_rounded),
 };
 
 class _ProScreenState extends State<ProScreen> {
@@ -184,9 +186,7 @@ class _ProScreenState extends State<ProScreen> {
         ),
       const SizedBox(height: 4),
       SectionTitle(tr('সবসময় ফ্রি')),
-      Text(
-          tr('মুখে বলে সব কাজ, আয়-ব্যয় ও ধার-দেনা (২০ জন), তাগাদার মেসেজ, কাজের তালিকা, ২০টা চালু রিমাইন্ডার, অ্যালার্ম, ক্যালেন্ডার ও নামাজের সময়, নোট, ৩০টা ডকুমেন্ট, পরিবারের সবার স্বাস্থ্য, শিশুর টিকা, ওষুধের রিমাইন্ডার, অভ্যাস, যাকাতের হিসাব, সঞ্চয়, ১টা দোকান, ১টা অন্যান্য হিসাব, ১০টা পাসওয়ার্ড, নিজে চাপলে Google Drive-এ ব্যাকআপ আর নতুন ফোনে সব ফিরিয়ে আনা। আপনার রাখা কোনো তথ্য কখনো তালাবদ্ধ হবে না।'),
-          style: body(14, color: C.muted2, height: 1.55)),
+      Text(tr(freeList), key: const Key('pro-free-list'), style: body(14, color: C.muted2, height: 1.55)),
       if (sell) ...[
         const SizedBox(height: 18),
         SectionTitle(tr('ফ্রি ভার্সনে বিজ্ঞাপন কোথায় দেখাবে')),

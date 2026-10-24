@@ -87,10 +87,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Reading other apps' notifications (MessageListener) is left out of
-             this build: Google Play Protect blocks installing a downloaded APK
-             that can read notifications. It returns in the Play Store build. -->
-
         <!-- "অন্য অ্যাপে খুলুন": a kept PDF or document handed to the phone's own viewer. -->
         <provider
             android:name="androidx.core.content.FileProvider"

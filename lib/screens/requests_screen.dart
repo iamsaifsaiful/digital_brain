@@ -395,6 +395,13 @@ class _DonorSheetState extends State<_DonorSheet> {
       setState(() => _error = tr('রক্তের গ্রুপ বেছে নিন'));
       return;
     }
+    // A donor without a number cannot be reached (owner, 24 Oct).
+    final digits = asciiDigits(_phone.text.trim()).replaceAll(RegExp(r'[^0-9]'), '');
+    final local = digits.startsWith('880') ? '0${digits.substring(3)}' : digits;
+    if (on && !RegExp(r'^01[3-9]\d{8}$').hasMatch(local)) {
+      setState(() => _error = tr('মোবাইল নম্বর দিন — ১১ অঙ্কের, যেমন ০১৭১২৩৪৫৬৭৮'));
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -452,7 +459,7 @@ class _DonorSheetState extends State<_DonorSheet> {
               ),
             ),
             const SizedBox(height: 12),
-            TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: tr('মোবাইল নম্বর (রাজি হলে যাঁকে দেবেন, তিনি দেখবেন)'))),
+            TextField(controller: _phone, keyboardType: TextInputType.phone, key: const Key('donor-phone'), decoration: InputDecoration(labelText: tr('মোবাইল নম্বর *'), helperText: tr('বাধ্যতামূলক — রাজি হলে যাঁকে দেবেন, শুধু তিনি দেখবেন'), helperMaxLines: 2)),
             if (_error != null) ...[const SizedBox(height: 10), Text(_error!, style: body(14, color: C.red))],
             const SizedBox(height: 16),
             PrimaryButton(key: const Key('donor-save'), label: widget.current.on ? tr('রাখুন') : tr('দাতা হিসেবে যুক্ত হোন'), color: C.roseFill, onPressed: _busy ? null : () => _save(true)),

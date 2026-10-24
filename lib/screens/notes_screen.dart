@@ -1,3 +1,4 @@
+import 'will_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../ui/pro_gate.dart';
@@ -97,6 +98,7 @@ class _NotesScreenState extends State<NotesScreen> {
     final cats = brain.data.noteCategories;
     final q = normalize(_q);
     final list = ([...brain.data.notes]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt)))
+        .where((n) => n.id != willNoteId)
         .where((n) => _cat == null || n.category == _cat)
         .where((n) => q.isEmpty || normalize('${n.title} ${n.body} ${n.category}').contains(q))
         .toList();
@@ -154,7 +156,9 @@ class _NotesScreenState extends State<NotesScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                   children: [
-                    if (brain.data.notes.isEmpty)
+                    // ওছিয়তনামা: its own card, with the day it was last changed (owner, 24 Oct).
+                    if (_cat == null && q.isEmpty) ...[const WillCard(), const SizedBox(height: 12)],
+                    if (brain.data.notes.every((n) => n.id == willNoteId))
                       EmptyState(
                         icon: Icons.description_outlined,
                         title: tr('কোনো নোট নেই'),

@@ -621,6 +621,7 @@ class ProjectsView extends StatelessWidget {
     // বকেয়া right from this tab: one হিসাব → straight in; several → which
     // one; none → name one first (দোকান, ব্যবসা…).
     Future<void> addDue() async {
+      if (!await needPro(context, ProFeature.projects) || !context.mounted) return;
       Project? target;
       if (open.length == 1) {
         target = open.first;
@@ -814,7 +815,9 @@ class ProjectScreen extends StatelessWidget {
                 icon: Icons.add_rounded,
                 height: 48,
                 color: C.fill,
-                onPressed: () => push(CashFormScreen(kind: CashKind.expense, projectId: p.id)),
+                onPressed: () async {
+                  if (await needPro(context, ProFeature.projects) && context.mounted) push(CashFormScreen(kind: CashKind.expense, projectId: p.id));
+                },
               ),
               const SizedBox(height: 6),
               Text(tr('খরচ মূল টাকা থেকে যায়। এই কাজে টাকা পেলে আয়-ব্যয়ে আয় হিসেবে লিখুন; বকেয়া পেলে নিচে বকেয়া থেকে আদায় দিন।'), style: body(12.5, color: C.muted, height: 1.45)),

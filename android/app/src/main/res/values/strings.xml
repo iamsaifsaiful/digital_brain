@@ -2,5 +2,4 @@
 <resources>
     <string name="widget_description">আজকের কাজ, বাংলা তারিখ আর এক চাপে মাইক</string>
     <string name="widget_name">My Assistant — আজ</string>
-    <string name="inbox_listener">My Assistant — বার্তা থেকে কাজ</string>
 </resources>

@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 
 import 'services/google_account.dart';
 import 'services/push.dart';
-import 'services/inbox.dart';
 
 import 'app.dart';
 import 'services/ai.dart';
@@ -36,7 +35,6 @@ Future<void> main() async {
     ai: ClaudeAi(),
     launcher: DeviceLauncher(),
     phonebook: DevicePhonebook(),
-    inbox: DeviceInbox(),
     google: DeviceGoogle(),
     drive: HttpDrive(),
     server: AccountServer(),
