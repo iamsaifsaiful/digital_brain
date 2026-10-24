@@ -153,7 +153,7 @@ class _ProScreenState extends State<ProScreen> {
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(tr('বিস্তারিত আর কেনা — আমাদের ওয়েবসাইটে'), style: body(15, weight: FontWeight.w700, color: C.greenDark)),
                     Text(proWebPage.replaceFirst('https://', ''), style: body(13, color: C.greenDark)),
-                    Text(tr('বিকাশ, নগদ, রকেট বা ব্যাংকে টাকা দিয়ে প্রিমিয়াম নেওয়া যায়'), style: body(12, color: C.greenDark)),
+                    Text(tr('বিকাশে টাকা দিয়ে প্রিমিয়াম নেওয়া যায়'), style: body(12, color: C.greenDark)),
                   ]),
                 ),
                 Icon(Icons.open_in_new_rounded, color: C.green),

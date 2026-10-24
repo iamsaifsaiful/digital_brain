@@ -4009,4 +4009,6 @@ const enStrings = <String, String>{
   'সপ্তাহে আধা কেজি কমানোই যথেষ্ট — ধীরে, কিন্তু নিয়মিত।': 'Half a kilo a week is enough — slowly, but steadily.',
   'ভাজাপোড়ার বদলে আজ ফল খান — শরীর ধন্যবাদ দেবে।': 'Fruit instead of fried snacks today — your body will thank you.',
   'নামাজের পর ১০ মিনিট হাঁটা — অভ্যাস হয়ে গেলে আর কষ্ট লাগবে না।': 'A 10-minute walk after prayer — once it is a habit, it is easy.',
+  'বিকাশে টাকা দিয়ে প্রিমিয়াম নেওয়া যায়': 'Premium is paid by bKash',
+  'উত্তরাধিকার, পুরো অ্যাক্সেস আর লোকেশন প্রিমিয়াম সুবিধা': 'Heirs, full access and location are Premium features',
 };
