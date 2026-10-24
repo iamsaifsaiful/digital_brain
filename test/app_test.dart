@@ -168,7 +168,20 @@ Future<void> tell(WidgetTester t, Rig rig, String s, {List<String> alternatives 
 
 Future<void> openTyping(WidgetTester t) async {
   if (find.text('আগের কথা').evaluate().isEmpty) {
-    await t.tap(find.text('হোম').last);
+    if (find.byKey(const ValueKey('box')).evaluate().isEmpty) {
+      Navigator.of(t.element(find.byType(Scaffold).last)).popUntil((r) => r.isFirst);
+      await settle(t);
+    }
+    if (find.text('হোম').evaluate().isNotEmpty) {
+      await t.tap(find.text('হোম').last);
+      await settle(t);
+    }
+    // The one-tap row shows once the box at the bottom is touched (approved design, 24 Oct).
+    // A notice over the box is moved out of the way first.
+    ScaffoldMessenger.of(t.element(find.byKey(const ValueKey('box')))).clearSnackBars();
+    await settle(t);
+    await t.tap(find.byKey(const ValueKey('box')));
+    await t.tap(find.descendant(of: find.byKey(const ValueKey('box')), matching: find.byType(TextField)));
     await settle(t);
   }
   await t.tap(find.text('আগের কথা'));
@@ -182,7 +195,7 @@ Future<void> openTyping(WidgetTester t) async {
 void main() {
   testWidgets('first run: choose a PIN, then home', (t) async {
     final rig = await start(t);
-    expect(find.text('সব কিছু এক জায়গায়'), findsOneWidget);
+    expect(find.text('আজকের কাজ'), findsOneWidget);
     expect(await rig.services.lock.hasPin(), isTrue);
 
     // Lock and unlock again with a wrong, then the right PIN.
@@ -1390,7 +1403,8 @@ void main() {
   testWidgets('home shows both dates, sun times and the next holiday; the calendar opens', (t) async {
     await start(t);
     expect(find.textContaining('২৪ আশ্বিন ১৪৩৩'), findsOneWidget);
-    expect(find.textContaining('সূর্যোদয়'), findsOneWidget);
+    // Sunrise and sunset take turns with the next prayer in the slot (approved design).
+    expect(find.byKey(const Key('home-slot')), findsOneWidget);
     expect(find.textContaining('দুর্গাপূজা'), findsOneWidget);
     await t.scrollUntilVisible(find.text('ক্যালেন্ডার').first, 300, scrollable: find.byType(Scrollable).first);
     await t.ensureVisible(find.text('ক্যালেন্ডার').first);
@@ -1409,7 +1423,7 @@ void main() {
           notes: [Note(title: 'রহিম ভবনের নকশা', body: 'রহিম ভবনের নকশা আলমারিতে', category: 'বাসা')],
         ));
     // Typing in the box at the bottom shows matches right above it…
-    await t.tap(find.text('খুঁজুন, রাখুন বা জিজ্ঞেস করুন…'));
+    await t.tap(find.text('বলুন বা লিখুন — “রবিনকে ৫০০ দিলাম”'));
     await settle(t);
     await t.enterText(find.byType(TextField).last, 'র');
     await settle(t);
@@ -1464,7 +1478,8 @@ void main() {
 
   testWidgets('an alarm for office days rings six days a week', (t) async {
     final rig = await start(t);
-    await t.scrollUntilVisible(find.text('অ্যালার্ম'), 300, scrollable: find.byType(Scrollable).first);
+    await openTools(t);
+    await t.scrollUntilVisible(find.text('অ্যালার্ম'), 300, scrollable: vScroll().first);
     await t.ensureVisible(find.text('অ্যালার্ম'));
     await settle(t);
     await t.tap(find.text('অ্যালার্ম'));
@@ -1720,3 +1735,13 @@ Future<void> sendTyped(WidgetTester t) async {
 
 /// The page's own up-down list (the tabs side by side are a scrollable too).
 Finder vScroll() => find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down);
+
+/// The home's সব সুবিধা card, unfolded (it starts folded in the approved design).
+Future<void> openTools(WidgetTester t) async {
+  final grid = find.byKey(const Key('home-tools'));
+  await t.scrollUntilVisible(grid, 300, scrollable: vScroll().first);
+  if (find.descendant(of: grid, matching: find.text('কাজের তালিকা')).evaluate().isEmpty) {
+    await t.tap(find.byKey(const Key('home-tools-toggle')));
+    await settle(t);
+  }
+}

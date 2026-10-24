@@ -19,10 +19,15 @@ void main() {
   }
 
   Future<void> pick(WidgetTester t, Finder row, {bool first = false}) async {
+    // Mid-screen, so the bar that appears at the bottom never covers it.
+    await Scrollable.ensureVisible(t.element(row), alignment: 0.5);
+    await settle(t);
+    // Near its left edge: a floating add button may sit over its middle.
+    final at = t.getTopLeft(row) + const Offset(24, 12);
     if (first) {
-      await t.longPress(row);
+      await t.longPressAt(at);
     } else {
-      await t.tap(row);
+      await t.tapAt(at);
     }
     await settle(t);
   }

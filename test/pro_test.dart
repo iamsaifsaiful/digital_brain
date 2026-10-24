@@ -309,6 +309,8 @@ void main() {
     rig.brain.gated = true;
     rig.brain.adSamples = true;
     await settle(t);
+    // Below the day's thought, at the end of the home.
+    await t.scrollUntilVisible(find.byKey(const Key('ad-banner')), 300, scrollable: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first);
     expect(find.byKey(const Key('ad-banner')), findsOneWidget);
     await rig.brain.setProForTest(true);
     await settle(t);

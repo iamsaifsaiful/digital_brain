@@ -20,11 +20,12 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'pro_test.dart' show keyServer, tokenGoogle;
-import 'app_test.dart' show Rig, enterPin, loadFonts, openMenu, settle, start, vScroll;
+import 'app_test.dart' show Rig, enterPin, loadFonts, openMenu, openTools, settle, start, vScroll;
 
 /// A shortcut in the home menu (scrolled into view first).
 Future<void> tapMenu(WidgetTester t, String label) async {
-  final f = find.descendant(of: find.byType(GridView), matching: find.text(label));
+  await openTools(t);
+  final f = find.descendant(of: find.byKey(const Key('home-tools')), matching: find.text(label));
   await t.ensureVisible(f);
   await settle(t);
   await t.tap(f);
@@ -74,16 +75,19 @@ void main() {
 
   testWidgets('home menu: one হিসাব (no separate আয়-ব্যয়), no settings (it is in আরও), most used first', (t) async {
     await start(t);
-    final grid = find.byType(GridView);
+    await openTools(t);
+    final grid = find.byKey(const Key('home-tools'));
     expect(find.descendant(of: grid, matching: find.text('আয়-ব্যয়')), findsNothing);
     expect(find.descendant(of: grid, matching: find.text('লেনদেন')), findsNothing);
-    expect(find.descendant(of: grid, matching: find.text('হিসাব')), findsOneWidget);
+    // হিসাব is a tab at the bottom; the approved design's 14 tools leave it out.
+    expect(find.text('হিসাব'), findsWidgets);
     expect(find.descendant(of: grid, matching: find.text('সেটিংস')), findsNothing, reason: 'settings live in আরও');
     expect(find.byTooltip('সেটিংস'), findsNothing, reason: 'no settings icon at the top');
     final first = t.getTopLeft(find.descendant(of: grid, matching: find.text('কাজের তালিকা')));
     final alarm = t.getTopLeft(find.descendant(of: grid, matching: find.text('অ্যালার্ম')));
     expect(first.dy < alarm.dy || first.dx < alarm.dx, isTrue);
-    await tapMenu(t, 'হিসাব');
+    await t.tap(find.text('হিসাব').last);
+    await settle(t);
     expect(find.text('অন্যান্য হিসাব'), findsOneWidget);
     expect(find.text('আলাদা হিসাব'), findsNothing);
   });
@@ -319,12 +323,13 @@ void main() {
 
   testWidgets('আরও tab: blood donation, Pro, feedback, যাকাত and ফ্যামিলি; the same in the home menu', (t) async {
     await start(t);
-    final grid = find.byType(GridView);
+    await openTools(t);
+    final grid = find.byKey(const Key('home-tools'));
     expect(find.descendant(of: grid, matching: find.text('ব্লাড ডোনেশন')), findsOneWidget);
     expect(find.descendant(of: grid, matching: find.text('যাকাত')), findsOneWidget);
     expect(find.descendant(of: grid, matching: find.text('ফ্যামিলি')), findsOneWidget);
     expect(find.descendant(of: grid, matching: find.text('অনুরোধ')), findsNothing, reason: 'not called অনুরোধ any more');
-    expect(find.descendant(of: grid, matching: find.text('প্রিমিয়াম ভার্সন')), findsOneWidget);
+    expect(find.descendant(of: grid, matching: find.text('প্রিমিয়াম')), findsOneWidget);
     await t.tap(find.text('আরও').last);
     await settle(t);
     expect(find.byKey(const Key('more-requests')), findsOneWidget);
@@ -414,7 +419,7 @@ void main() {
 
   testWidgets('প্রো ভার্সন: features in brief, the website and Get Pro', (t) async {
     final rig = await start(t);
-    await tapMenu(t, 'প্রিমিয়াম ভার্সন');
+    await tapMenu(t, 'প্রিমিয়াম');
     expect(find.text('সংক্ষেপে'), findsOneWidget);
     final get = find.byKey(const Key('get-pro'));
     await t.scrollUntilVisible(get, 300, scrollable: vScroll().last);
@@ -440,7 +445,7 @@ void main() {
     await settle(t);
     expect(find.textContaining(', সাইফ'), findsOneWidget);
     expect(find.text('আজকের কাজ'), findsOneWidget);
-    expect(find.text('এ মাসের হিসাব'), findsOneWidget);
+    expect(find.text('টাকার হিসাব'), findsOneWidget);
     expect(find.descendant(of: find.byKey(const Key('home-stat-spent')), matching: find.textContaining('২৫০')), findsWidgets);
     await t.tap(find.byKey(const Key('home-stat-spent')));
     await settle(t);

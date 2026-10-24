@@ -124,9 +124,11 @@ void main() {
     rig.brain.data = week();
     rig.brain.notifyListeners();
     await settle(t);
+    await t.scrollUntilVisible(find.byKey(const Key('home-quote')), 300, scrollable: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first);
     expect(find.byKey(const Key('home-quote')), findsOneWidget);
     expect(find.text(quoteFor(now).text), findsOneWidget);
     final row = find.byKey(const Key('home-spend-health'));
+    await t.scrollUntilVisible(row, -300, scrollable: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first);
     await t.scrollUntilVisible(row, 200, scrollable: find.byType(Scrollable).at(1));
     expect(find.textContaining('শখের খাতে ৫০%'), findsOneWidget);
     await t.tap(row);
