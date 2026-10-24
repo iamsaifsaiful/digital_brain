@@ -1362,7 +1362,7 @@ class Parser {
     // note category. Missing person or amount: the app asks for them.
     // "১২০০ দিয়ে টায়ার সারাই করালাম", "বেতন হিসেবে ৭৬৫০০ হাতে পেলাম": an
     // amount and a money verb is money even without the word "টাকা".
-    final bareMoney = amount != null && amount >= 20 && cashKindOf(text) != null && !RegExp(fold(r'(?:টায়|টার\s+সময়|[0-9০-৯]:[0-9০-৯])')).hasMatch(fold(said)) &&
+    final bareMoney = amount != null && amount >= 20 && cashKindOf(text) != null && !RegExp(fold(r'(?:[0-9০-৯]\s*টা(?:য়|র\s+সময়)|(?:এক|দুই|তিন|চার|পাঁচ|ছয়|সাত|আট|নয়|দশ|এগারো|বারো)টা(?:য়|র)|[0-9০-৯]:[0-9০-৯])')).hasMatch(fold(said)) &&
         !w.any((x) => const ['কেজি', 'গ্রাম', 'লিটার', 'মিনিট', 'ঘণ্টা', 'ঘন্টা', 'দিন', 'বছর', 'জন', 'বার', 'নম্বর', 'নাম্বার'].map(normalize).contains(x));
     final money = _hasAny(text, ['টাকা']) || said.contains('৳') || w.contains('tk') || bareMoney;
     if (money && !asking) {

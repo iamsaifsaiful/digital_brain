@@ -261,4 +261,36 @@ void main() {
     expect(c, isA<TaskQuery>());
     expect(answerText(d, c, now), contains('ব্লাউজ'));
   });
+
+  // ── The 2000-user crowd (tool/nlu/crowd): asides, regions, plain money ──
+  group('the crowd', () {
+    test('asides around a request are not the request', () {
+      expect(one('ও হ্যাঁ, রহিমকে ৫০০ টাকা ধার দিলাম ভুল করবা না'), isA<LedgerAdd>());
+      expect(one('স্বাস্থ্য খুলো মনে করে ভাই'), isA<OpenPlace>());
+      expect(one('আমার প্রেশার কেমন'), isNot(isA<HealthAdd>()), reason: '"কেমন" there is the question itself');
+    });
+    test('the regions\' verbs', () {
+      expect(one('দয়া করে এখনই মিঠুকে কল গর'), isA<CallPerson>());
+      expect(one('এ মাসের খরচের হিসাব দেও'), isA<CashQuery>());
+      expect((one('পেনশন তোলার কথা পরশু সকাল দশটায় মনে করাইয়া দিবা') as ReminderAdd).at.hour, 10);
+      expect(one('কাল সকাল ৮টায় ওষুধ খাওয়ার কথা মনে করে দিও'), isA<ReminderAdd>());
+      expect((one('ডেইলি রাত ১০টায় প্রেশারের ওষুধ নেওয়ার রিমাইন্ডার দাও') as ReminderAdd).repeat, Repeat.daily);
+    });
+    test('a loan someone gave is borrowed', () {
+      final c = one('আবির মামা ৩৫ হাজার টাকা কর্জ দিছে') as LedgerAdd;
+      expect((c.person, c.kind), ('আবির', LedgerKind.borrowed));
+    });
+    test('money without the word টাকা; money that came in', () {
+      expect((one('১২০০ দিয়ে টায়ার সারাই করালাম') as CashAdd).kind, CashKind.expense);
+      expect((one('১২০০ দিয়ে টায়ার সারাই করালাম') as CashAdd).category, isNot('কৃষি'));
+      expect((one('আজ আপওয়ার্কের পেমেন্ট বাবদ ৬৫৫০০ টাকা পেয়েছি') as CashAdd).kind, CashKind.income);
+      expect((one('আজ ফাইভারের পেমেন্ট হলো ৯৬৫০০ টাকা') as CashAdd).kind, CashKind.income);
+      expect((one('আজ খাবার ২৮০০০ লাগলো') as CashAdd).kind, CashKind.expense);
+      expect((one('বিদ্যুৎ বিল এসেছে ১২০০ টাকা') as CashAdd).kind, CashKind.expense);
+    });
+    test('a yearly day in any order; a list stays a list', () {
+      expect(one('১৮ সেপ্টেম্বর আমার বিয়ের দিন'), isA<SpecialAdd>());
+      expect(one('এ মাসে মোট কত গেল'), isA<CashQuery>());
+    });
+  });
 }
