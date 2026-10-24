@@ -338,7 +338,10 @@ Command? menuCommand(String said, AppData? d, DateTime now) {
   }
 
   // ── Instalments / DPS ──
-  if (_thas(f, r'(?:ডিপিএস|dps|কিস্তি|প্রিমিয়াম)')) {
+  // "প্রিমিয়াম" is also the app's paid plan (24 Oct): "প্রিমিয়াম খোলো",
+  // "প্রিমিয়ামে কী পাব" are about the app, not an insurance premium.
+  final appPremium = _thas(f, r'প্রিমিয়াম\S*\s+(?:ভার্সন|সুবিধা|প্ল্যান|প্যাকেজ|খোলো|খুলো|খুলে|দেখাও|চালু|নেব|নিব|নিতে|কিনব|কিনতে|নিলে|কী\s+পাব|কি\s+পাব|কী\s+আছে|কি\s+আছে)');
+  if (_thas(f, r'(?:ডিপিএস|dps|কিস্তি)') || (_thas(f, r'প্রিমিয়াম') && !appPremium)) {
     final day = _thas(f, r'গত\s+মাস') ? DateTime(now.year, now.month - 1) : DateTime(now.year, now.month);
     if (_thas(f, r'(?:ভুল\s+করে)') && _thas(f, r'(?:দিয়েছি|পেইড|paid|টিক)')) return MenuAction(said, domain: 'installment', op: 'unpay', day: day);
     if (negated) {
@@ -426,7 +429,7 @@ Command? menuCommand(String said, AppData? d, DateTime now) {
   // ── The app itself ──
   if (asking && _thas(f, r'(?:আমি\s+কী\s+কী\s+রেখেছি|কী\s+কী\s+রাখা\s+আছে|আমার\s+কী\s+কী\s+আছে\s+অ্যাপে)')) return MenuAction(said, domain: 'app', op: 'summary');
   if (_thas(f, r'(?:কেন|কি\s+কারণে)\s+(?:আমার\s+)?(?:কথা|কথাটা)?\s*(?:বুঝলে|বুঝলা|বুঝতে\s+পারলে|বোঝোনি|বুঝোনি)')) return MenuAction(said, domain: 'app', op: 'why');
-  if (asking && _thas(f, r'(?:প্রো|pro)\S*\s') && _thas(f, r'(?:কী\s+পাব|কি\s+পাব|কী\s+আছে|কি\s+আছে|সুবিধা)')) return MenuAction(said, domain: 'app', op: 'pro');
+  if (asking && _thas(f, r'(?:প্রো|pro|প্রিমিয়াম|premium)\S*\s') && _thas(f, r'(?:কী\s+পাব|কি\s+পাব|কী\s+আছে|কি\s+আছে|সুবিধা)')) return MenuAction(said, domain: 'app', op: 'pro');
   if (asking && _thas(f, r'রিমাইন্ডার\S*\s.*(?:কেন\s+(?:হয়নি|বাজেনি|আসেনি|বাজল\s+না))')) return MenuAction(said, domain: 'app', op: 'why_reminder');
   if (asking && _thas(f, r'(?:বয়স)') && d != null) {
     final who = _named(f, [for (final s in d.specialDays) s.person]);

@@ -4,12 +4,14 @@ import '../logic/bn.dart';
 import '../services/lock.dart';
 import '../state/brain.dart';
 import '../ui/pin.dart';
+import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../logic/lang.dart';
 import '../models/models.dart';
 import '../ui/widgets.dart';
 import 'store_more_screens.dart';
 import 'more_screen.dart' show appVersion;
+import 'home_page.dart' show helloFor;
 
 /// Off in tests, so they start straight at the PIN.
 bool googleFirst = true;
@@ -78,27 +80,40 @@ class _LockScreenState extends State<LockScreen> {
   }
 
   Widget _googleStep() => Column(children: [
-        Text(tr('শুরু করতে Google দিয়ে লগইন করুন'), textAlign: TextAlign.center, style: body(18, color: Colors.white, weight: FontWeight.w600)),
+        // The welcome picture: hills at dawn, with a hand-written note.
+        ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: SizedBox(
+            height: 170,
+            width: double.infinity,
+            child: Stack(children: [
+              Positioned.fill(child: Container(color: C.fill, child: CustomPaint(painter: LandscapePainter()))),
+              Positioned(left: 16, top: 14, child: HandNote(tr('ছোট ছোট পদক্ষেপ, বড় ফল'), arrow: HandArrow.right, size: 14, color: Colors.white)),
+            ]),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text(tr('শুরু করতে Google দিয়ে লগইন করুন'), textAlign: TextAlign.center, style: heading(20)),
         const SizedBox(height: 10),
         Text(tr('আপনার তথ্য Google Drive-এ তালাবদ্ধ ব্যাকআপ রাখা যাবে, ফোন বদলালেও সব ফিরে আসবে। এরপর একটা PIN ঠিক করবেন।'),
-            textAlign: TextAlign.center, style: body(14, color: const Color(0xFFC9D3CE), height: 1.55)),
+            textAlign: TextAlign.center, style: body(14, color: C.muted2, height: 1.55)),
         const SizedBox(height: 22),
         SizedBox(
           width: double.infinity,
           height: 54,
           child: FilledButton.icon(
             key: const Key('welcome-google'),
-            style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF1F2937), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+            style: FilledButton.styleFrom(backgroundColor: C.fill, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
             onPressed: _signing ? null : _google,
             icon: _signing
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('G', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF4285F4))),
-            label: Text(tr('Google দিয়ে লগইন'), style: body(16, weight: FontWeight.w600, color: const Color(0xFF1F2937))),
+                : Container(width: 26, height: 26, alignment: Alignment.center, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle), child: const Text('G', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF4285F4)))),
+            label: Text(tr('Google দিয়ে লগইন'), style: body(16, weight: FontWeight.w600, color: Colors.white)),
           ),
         ),
         if (_message != null) ...[
           const SizedBox(height: 12),
-          Text(_message!, textAlign: TextAlign.center, style: body(14, color: C.peach, weight: FontWeight.w600)),
+          Text(_message!, textAlign: TextAlign.center, style: body(14, color: C.danger, weight: FontWeight.w600)),
         ],
         const SizedBox(height: 10),
         TextButton(
@@ -110,7 +125,7 @@ class _LockScreenState extends State<LockScreen> {
                     _message = null;
                     _padKey++;
                   }),
-          child: Text(tr('এখন না, পরে করব'), style: body(14, color: const Color(0xFFA9B5AF))),
+          child: Text(tr('এখন না, পরে করব'), style: body(14, weight: FontWeight.w600, color: C.ink)),
         ),
       ]);
 
@@ -274,7 +289,7 @@ class _LockScreenState extends State<LockScreen> {
       _ => tr('PIN দিন'),
     };
     return Scaffold(
-      backgroundColor: C.night,
+      backgroundColor: C.ground,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, box) => SingleChildScrollView(
@@ -290,36 +305,44 @@ class _LockScreenState extends State<LockScreen> {
                         Container(
                           width: 72,
                           height: 72,
-                          decoration: BoxDecoration(color: C.green, borderRadius: BorderRadius.circular(22)),
+                          decoration: BoxDecoration(color: C.fill, borderRadius: BorderRadius.circular(22), border: C.dark ? Border.all(color: C.fillEdge) : null),
                           child: const Icon(Icons.psychology_outlined, color: Colors.white, size: 42),
                         ),
-                        const SizedBox(height: 12),
-                        Text('My Assistant', style: display(30, weight: 700, color: Colors.white)),
+                        const SizedBox(height: 14),
+                        Builder(builder: (context) {
+                          final brain = BrainScope.of(context);
+                          final name = brain.userName.trim();
+                          return Text(_mode == _Mode.unlock && name.isNotEmpty ? '${helloFor(brain.services.now())}, ${name.split(' ').first}' : 'My Assistant',
+                              textAlign: TextAlign.center, style: heading(28));
+                        }),
                         const SizedBox(height: 4),
-                        Text(tr('আপনার ব্যক্তিগত সহকারী'),
-                            style: body(14, color: const Color(0xFFA9B5AF)), textAlign: TextAlign.center),
+                        Row(mainAxisSize: MainAxisSize.min, children: [
+                          if (_mode == _Mode.unlock) ...[Icon(Icons.lock_outline_rounded, size: 14, color: C.muted), const SizedBox(width: 4)],
+                          Text(_mode == _Mode.unlock ? tr('আপনার তথ্য তালাবদ্ধ আছে') : tr('আপনার ব্যক্তিগত সহকারী'), style: body(14, color: C.muted), textAlign: TextAlign.center),
+                        ]),
                       ],
                     ),
                     const SizedBox(height: 28),
                     if (_mode == _Mode.loading)
-                      const SizedBox(height: 300, child: Center(child: CircularProgressIndicator(color: C.mint)))
+                      SizedBox(height: 300, child: Center(child: CircularProgressIndicator(color: C.primary)))
                     else if (_mode == _Mode.google)
                       _googleStep()
                     else
                       Column(
                         children: [
-                          Text(title, style: body(17, color: const Color(0xFFE4EAE7), weight: FontWeight.w500)),
+                          Text(title, style: body(17, color: C.muted2, weight: FontWeight.w500)),
                           const SizedBox(height: 6),
                           SizedBox(
                             height: 44,
                             child: _lockedUntil != null
-                                ? LockCountdown(key: ValueKey(_lockedUntil), until: _lockedUntil!, style: body(14, color: C.peach, weight: FontWeight.w600))
+                                ? LockCountdown(key: ValueKey(_lockedUntil), until: _lockedUntil!, style: body(14, color: C.danger, weight: FontWeight.w600))
                                 : _message == null
                                 ? null
-                                : Text(_message!, style: body(14, color: C.peach, weight: FontWeight.w600), textAlign: TextAlign.center),
+                                : Text(_message!, style: body(14, color: C.danger, weight: FontWeight.w600), textAlign: TextAlign.center),
                           ),
                           PinPad(
                             key: ValueKey(_padKey),
+                            dark: false,
                             onComplete: _entered,
                             onBiometric: _mode == _Mode.unlock && _bioAvailable ? _biometric : null,
                           ),
@@ -327,7 +350,7 @@ class _LockScreenState extends State<LockScreen> {
                             TextButton(
                               key: const Key('forgot-pin'),
                               onPressed: _forgot,
-                              child: Text(tr('PIN ভুলে গেছেন?'), style: body(14, weight: FontWeight.w600, color: C.mint)),
+                              child: Text(tr('PIN ভুলে গেছেন?'), style: body(14, weight: FontWeight.w600, color: C.ink)),
                             ),
                         ],
                       ),
@@ -352,9 +375,9 @@ class _LockScreenState extends State<LockScreen> {
                               ),
                             ),
                           )),
-                          icon: const Icon(Icons.emergency_outlined, color: Color(0xFFFCA5A5)),
-                          label: Text(tr('জরুরি তথ্য'), style: body(15, weight: FontWeight.w600, color: const Color(0xFFFCA5A5))),
-                          style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0x66FCA5A5)), shape: const StadiumBorder()),
+                          icon: Icon(Icons.emergency_outlined, color: C.danger),
+                          label: Text(tr('জরুরি তথ্য'), style: body(15, weight: FontWeight.w600, color: C.danger)),
+                          style: OutlinedButton.styleFrom(backgroundColor: C.dangerTint, side: BorderSide.none, shape: const StadiumBorder()),
                         ),
                       ),
                     const SizedBox(height: 24),
@@ -364,7 +387,7 @@ class _LockScreenState extends State<LockScreen> {
                           : _mode == _Mode.create || _mode == _Mode.confirm
                           ? tr('PIN শুধু এই ফোনে, এনক্রিপ্ট করে রাখা হয়। ভুলে গেলে আঙুলের ছাপ বা একই Google অ্যাকাউন্ট দিয়ে নতুন PIN দেওয়া যাবে।')
                           : tr('কিছুক্ষণ ব্যবহার না করলে অ্যাপ নিজে থেকে লক হয়ে যায়'),
-                      style: body(13, color: const Color(0xFFA9B5AF), height: 1.5),
+                      style: body(13, color: C.muted, height: 1.5),
                       textAlign: TextAlign.center,
                     ),
                   ],

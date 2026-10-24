@@ -282,7 +282,7 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
                             labelText: _kind == LedgerKind.lent ? tr('ফেরত পাওয়ার তারিখ (ঐচ্ছিক)') : tr('শোধের তারিখ (ঐচ্ছিক)'),
                             helperText: BrainScope.of(context).has(ProFeature.dueReminders)
                                 ? tr('দিলে আগের দিন আর সেদিন সকালে মনে করাবো')
-                                : tr('তারিখ লেখা থাকবে। সেদিন মনে করানো প্রো সুবিধা।'),
+                                : tr('তারিখ লেখা থাকবে। সেদিন মনে করানো প্রিমিয়াম সুবিধা।'),
                             prefixIcon: const Icon(Icons.event_available_outlined, size: 20),
                             suffixIcon: _due == null ? null : IconButton(tooltip: tr('তারিখ মুছুন'), onPressed: () => setState(() => _due = null), icon: const Icon(Icons.close_rounded)),
                           ),

@@ -544,7 +544,7 @@ extension _MenuChat on ChatController {
           return;
         }
         if (!brain.canAddProject) {
-          _say(out, tr('ফ্রিতে একটা অন্যান্য হিসাব রাখা যায়; নতুনটা খোলা হয়নি। প্রো নিলে যত খুশি রাখা যাবে।'), links: _pageLink('pro'));
+          _say(out, tr('ফ্রিতে একটা অন্যান্য হিসাব রাখা যায়; নতুনটা খোলা হয়নি। প্রিমিয়াম নিলে যত খুশি রাখা যাবে।'), links: _pageLink('pro'));
           return;
         }
         await brain.saveProject(Project(name: c.target.trim(), createdAt: _now));
@@ -747,7 +747,7 @@ extension _MenuChat on ChatController {
                 : trf('আমি শুনেছিলাম: “{0}”। এর মধ্যে নিশ্চিত কোনো কাজ ধরতে পারিনি — হয় কোনো শব্দ ভুল শোনা গেছে, নয়তো এ ধরনের কাজ কথায় করা যায় না। লেখাটা ঠিক থাকলে অন্যভাবে বলুন, ভুল হলে আবার বলুন।', [heard]));
       case ('app', 'pro'):
         final p = placeById('pro');
-        _say(out, trf('প্রোতে: {0} দাম ও মেয়াদ প্রো পাতায় দেখুন — কেনা না করলে কিছু কাটা হয় না।', [tr(p?.what ?? '')]), links: _pageLink('pro'));
+        _say(out, trf('প্রিমিয়ামে: {0} দাম ও মেয়াদ প্রিমিয়াম পাতায় দেখুন — কেনা না করলে কিছু কাটা হয় না।', [tr(p?.what ?? '')]), links: _pageLink('pro'));
       case ('app', 'why_reminder'):
         final health = await brain.services.notifier.health();
         final exact = await brain.services.notifier.exactAllowed();

@@ -12,6 +12,7 @@ import '../services/location_share.dart';
 import '../state/brain.dart';
 import '../state/family_state.dart';
 import '../ui/pro_gate.dart';
+import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/file_view.dart';
 import '../ui/widgets.dart';
@@ -85,7 +86,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
           floatingActionButton: brain.signedIn ? AddButton(key: const Key('family-add'), label: tr('সদস্য যোগ'), icon: Icons.person_add_alt_1_rounded, onPressed: _invite) : null,
           body: SafeArea(
             child: Column(children: [
-              TopBar(title: tr('ফ্যামিলি')),
+              TopBar(title: tr('ফ্যামিলি'), sub: tr('একে অপরের পাশে, সবসময়')),
               Expanded(
                 child: !brain.signedIn
                     ? ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
@@ -135,6 +136,23 @@ class _FamilyScreenState extends State<FamilyScreen> {
                                 ]),
                               ),
                           ],
+                          if (mine.isNotEmpty) ...[
+                            HeroCard(
+                              key: const Key('family-hero'),
+                              label: tr('আমার পরিবার'),
+                              side: AvatarStack([for (final l in mine) l.name], size: 34),
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Text(trf('{0} জন সদস্য', [bnDigits(mine.length + 1)]), style: display(26, weight: 700, color: Colors.white, height: 1.35)),
+                                const SizedBox(height: 6),
+                                Row(children: [
+                                  Icon(Icons.lock_outline_rounded, size: 14, color: Colors.white.withValues(alpha: 0.8)),
+                                  const SizedBox(width: 5),
+                                  Expanded(child: Text(tr('যা পাঠান, তালাবদ্ধ যায় — আমরাও খুলতে পারি না'), style: body(12.5, color: Colors.white.withValues(alpha: 0.8)))),
+                                ]),
+                              ]),
+                            ),
+                            const SizedBox(height: 6),
+                          ],
                           SectionTitle(tr('আমার ফ্যামিলি')),
                           if (fam.loaded && mine.isEmpty)
                             EmptyState(
@@ -149,7 +167,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                                 for (final l in mine)
                                   ListRow(
                                     key: Key('family-${l.id}'),
-                                    leading: Avatar(name: l.name, fg: C.purple, bg: C.purpleTint),
+                                    leading: Avatar(name: l.name, fg: Colors.white, bg: AvatarStack.toneOf(l.name)),
                                     title: l.title,
                                     subtitle: l.active
                                         ? (l.theyAllow.isEmpty ? tr('আপনাকে এখনো কিছুর অনুমতি দেননি') : trf('অনুমতি: {0}', [l.theyAllow.map(_short).join(', ')]))

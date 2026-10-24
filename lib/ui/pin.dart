@@ -52,16 +52,18 @@ class _PinPadState extends State<PinPad> {
   @override
   Widget build(BuildContext context) {
     final fg = widget.dark ? Colors.white : C.ink;
-    final keyBg = widget.dark ? C.dark2 : C.line2;
-    final dotOn = widget.dark ? C.mint : C.green;
-    final dotOff = widget.dark ? const Color(0xFF5D6B65) : C.border;
+    final keyBg = widget.dark ? C.dark2 : C.surface;
+    final dotOn = widget.dark ? C.mint : C.fill;
+    final dotOff = widget.dark ? const Color(0xFF5D6B65) : C.muted;
 
     Widget key(String d) => Semantics(
           button: true,
           label: d,
           child: Material(
             color: keyBg,
-            shape: const CircleBorder(),
+            elevation: widget.dark || C.dark ? 0 : 1.5,
+            shadowColor: const Color(0x33000000),
+            shape: CircleBorder(side: !widget.dark && C.dark ? BorderSide(color: C.line) : BorderSide.none),
             child: InkWell(
               customBorder: const CircleBorder(),
               onTap: () => _press(d),
@@ -111,11 +113,24 @@ class _PinPadState extends State<PinPad> {
                 height: 68,
                 child: widget.onBiometric == null
                     ? null
-                    : IconButton(
-                        tooltip: tr('আঙুলের ছাপে খুলুন'),
-                        onPressed: widget.onBiometric,
-                        icon: Icon(Icons.fingerprint_rounded, size: 36, color: widget.dark ? C.mint : C.green),
-                      ),
+                    : widget.dark
+                        ? IconButton(
+                            tooltip: tr('আঙুলের ছাপে খুলুন'),
+                            onPressed: widget.onBiometric,
+                            icon: const Icon(Icons.fingerprint_rounded, size: 36, color: C.mint),
+                          )
+                        : Tooltip(
+                            message: tr('আঙুলের ছাপে খুলুন'),
+                            child: Material(
+                              color: C.fill,
+                              shape: const CircleBorder(),
+                              child: InkWell(
+                                customBorder: const CircleBorder(),
+                                onTap: widget.onBiometric,
+                                child: const Center(child: Icon(Icons.fingerprint_rounded, size: 34, color: Colors.white)),
+                              ),
+                            ),
+                          ),
               ),
             ),
             Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: key('0')),
@@ -127,7 +142,7 @@ class _PinPadState extends State<PinPad> {
                 child: IconButton(
                   tooltip: tr('মুছুন'),
                   onPressed: _back,
-                  icon: Icon(Icons.backspace_outlined, size: 26, color: widget.dark ? C.onDarkMuted : C.muted),
+                  icon: Icon(Icons.backspace_outlined, size: 26, color: widget.dark ? C.onDarkMuted : C.ink),
                 ),
               ),
             ),

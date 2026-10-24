@@ -96,7 +96,7 @@ class HomePage extends StatelessWidget {
       (tr('যাকাত'), Icons.volunteer_activism_outlined, C.ochre, C.ochreTint, () => push(const ZakatScreen())),
       (tr('ফ্যামিলি'), Icons.family_restroom_rounded, C.purple, C.purpleTint, () => push(const FamilyScreen())),
       (tr('ব্লাড ডোনেশন'), Icons.bloodtype_outlined, C.rose, C.roseTint, () => push(const RequestsScreen())),
-      (tr('প্রো ভার্সন'), Icons.workspace_premium_outlined, C.ochre, C.ochreTint, () => push(const ProScreen())),
+      (tr('প্রিমিয়াম ভার্সন'), Icons.workspace_premium_outlined, C.ochre, C.ochreTint, () => push(const ProScreen())),
     ];
 
     if (brain.easyMode) return const EasyHome();

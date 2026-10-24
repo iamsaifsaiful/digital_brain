@@ -2147,7 +2147,7 @@ class ChatController extends ChangeNotifier {
         // income-expense on its own — asked, and nothing is kept without a yes.
         if (c.project != null && projectByName(brain.data, c.project!) == null && !brain.canAddProject) {
           _current = CashAdd(c.transcript, kind: c.kind, amount: c.amount, category: c.category);
-          _ask(out, trf('নতুন হিসাব “{0}” খোলা প্রো সুবিধা (ফ্রিতে ১টা অন্যান্য হিসাব), তাই ওখানে লিখতে পারছি না। {1} টাকা সাধারণ আয়-ব্যয়ে লিখব, নাকি এখন রাখব না?', [c.project!, bnNumber(c.amount)]), ChatWait.yesNo,
+          _ask(out, trf('নতুন হিসাব “{0}” খোলা প্রিমিয়াম সুবিধা (ফ্রিতে ১টা অন্যান্য হিসাব), তাই ওখানে লিখতে পারছি না। {1} টাকা সাধারণ আয়-ব্যয়ে লিখব, নাকি এখন রাখব না?', [c.project!, bnNumber(c.amount)]), ChatWait.yesNo,
               choices: [ChatChoice(tr('সাধারণ আয়-ব্যয়ে লিখুন'), 'হ্যাঁ'), ChatChoice(tr('রাখবেন না'), 'না')]);
           return;
         }
@@ -3354,7 +3354,7 @@ class ChatController extends ChangeNotifier {
           if (name.isEmpty) name = t.trim();
           final p = projectByName(brain.data, name) ?? (brain.canAddProject ? await brain.projectNamed(name) : null);
           if (p == null) {
-            _say(out, tr('নতুন অন্যান্য হিসাব খোলা প্রো সুবিধা — খরচটা যেমন ছিল আছে।'));
+            _say(out, tr('নতুন অন্যান্য হিসাব খোলা প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'));
             return true;
           }
           return _moveCash(e, p, out);
@@ -3809,8 +3809,8 @@ class ChatController extends ChangeNotifier {
     }
     switch (c) {
       case LedgerAdd() when !brain.canAddPerson(_person):
-        _say(out, trf('ফ্রিতে {0} জনের ধার-দেনা রাখা যায়, সেটা পূর্ণ হয়ে গেছে। প্রো নিলে যত খুশি মানুষ রাখতে পারবেন — আগের হিসাব যেমন আছে থাকবে।', [bnDigits(freeLedgerPeople)]),
-            links: [ChatLink(LinkKind.page, tr('প্রো দেখুন'), page: 'pro')]);
+        _say(out, trf('ফ্রিতে {0} জনের ধার-দেনা রাখা যায়, সেটা পূর্ণ হয়ে গেছে। প্রিমিয়াম নিলে যত খুশি মানুষ রাখতে পারবেন — আগের হিসাব যেমন আছে থাকবে।', [bnDigits(freeLedgerPeople)]),
+            links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
       case LedgerAdd():
         final kind = _kind!;
         final after = balanceAfter(brain.data.ledger, _person, kind, _amount);
@@ -3845,8 +3845,8 @@ class ChatController extends ChangeNotifier {
       case TaskAdd():
         await _saveTaskAdd(c, out, quiet: quiet);
       case ReminderAdd() when !brain.canAddReminder:
-        _say(out, trf('ফ্রিতে একসাথে {0}টা রিমাইন্ডার চালু রাখা যায়, সেটা পূর্ণ। পুরোনো কোনোটা বন্ধ বা মুছে দিন, অথবা প্রো নিলে যত খুশি রাখতে পারবেন।', [bnDigits(freeReminders)]),
-            links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন')), ChatLink(LinkKind.page, tr('প্রো দেখুন'), page: 'pro')]);
+        _say(out, trf('ফ্রিতে একসাথে {0}টা রিমাইন্ডার চালু রাখা যায়, সেটা পূর্ণ। পুরোনো কোনোটা বন্ধ বা মুছে দিন, অথবা প্রিমিয়াম নিলে যত খুশি রাখতে পারবেন।', [bnDigits(freeReminders)]),
+            links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন')), ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
       case ReminderAdd() when c.ampmOpen:
         // Last guard before the scheduler: an hour still open is never set.
         _say(out, trf('{0} — ভোর না বিকেল, তা ঠিক হয়নি, তাই রিমাইন্ডারটি রাখিনি। সময়টা আবার বলুন।', [c.title]));
@@ -3906,7 +3906,7 @@ class ChatController extends ChangeNotifier {
         if (c.project != null) {
           if (projectByName(brain.data, c.project!) == null && !brain.canAddProject) {
             // A second project is Pro: nothing is written anywhere else unasked.
-            _say(out, trf('নতুন হিসাব “{0}” খোলা প্রো সুবিধা, তাই কিছু লিখিনি। সাধারণ আয়-ব্যয়ে চাইলে বলুন।', [c.project!]));
+            _say(out, trf('নতুন হিসাব “{0}” খোলা প্রিমিয়াম সুবিধা, তাই কিছু লিখিনি। সাধারণ আয়-ব্যয়ে চাইলে বলুন।', [c.project!]));
             await _done(out);
             return;
           } else {
@@ -3936,14 +3936,14 @@ class ChatController extends ChangeNotifier {
           done = c.kind == CashKind.expense ? trf('লিখলাম। এই মাসে মোট খরচ {0} টাকা।', [bnNumber(m.expense)]) : trf('লিখলাম। এই মাসে মোট আয় {0} টাকা।', [bnNumber(m.income)]);
         }
         _say(out, quiet ? trf('লিখলাম: {0}', [summaryLine(c)]) : done + proNote,
-            links: _linksFor1(quiet, [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন')), if (proNote.isNotEmpty) ChatLink(LinkKind.page, tr('প্রো দেখুন'), page: 'pro')]), speak: !quiet);
+            links: _linksFor1(quiet, [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন')), if (proNote.isNotEmpty) ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]), speak: !quiet);
         _history.add(AiTurn.app('[লেখা হলো: ${summaryLine(c)}]'));
         _focusOn(cash: c.project == null);
       case VaultAdd():
         final old = _vaultNamed(c.name);
         if (old == null && !brain.canAddVault) {
-          _say(out, trf('ফ্রিতে {0}টা পাসওয়ার্ড রাখা যায়, সেটা পূর্ণ হয়ে গেছে। প্রো নিলে যত খুশি রাখতে পারবেন — আগেরগুলো যেমন আছে থাকবে।', [bnDigits(freeVaultItems)]),
-              links: [ChatLink(LinkKind.page, tr('প্রো দেখুন'), page: 'pro')]);
+          _say(out, trf('ফ্রিতে {0}টা পাসওয়ার্ড রাখা যায়, সেটা পূর্ণ হয়ে গেছে। প্রিমিয়াম নিলে যত খুশি রাখতে পারবেন — আগেরগুলো যেমন আছে থাকবে।', [bnDigits(freeVaultItems)]),
+              links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
           break;
         }
         await brain.saveVault(VaultItem(

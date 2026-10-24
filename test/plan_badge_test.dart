@@ -17,9 +17,9 @@ void main() {
     expect(find.text('ফ্রি'), findsOneWidget);
     await b.activatePro(proPlans.first);
     await settle(t);
-    expect(find.text('প্রো'), findsOneWidget);
+    expect(find.text('প্রিমিয়াম'), findsOneWidget);
     final on = b.noticePlan.where((e) => e.tag == 'nudge:pro').toList();
     expect(on, hasLength(1), reason: 'planned, and on the নোটিফিকেশন page too');
-    expect(on.single.title, contains('প্রো চালু'));
+    expect(on.single.title, contains('প্রিমিয়াম চালু'));
   });
 }

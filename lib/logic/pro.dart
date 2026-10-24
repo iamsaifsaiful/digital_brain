@@ -22,7 +22,7 @@ bool get playEdition => edition == 'play' || edition == 'play_preview';
 bool get previewEdition => edition == 'play_preview';
 
 /// The website's Pro page (the shortcode [my_assistant_pro]), behind
-/// "Get Pro". Google Play's payment rules do not allow a Play Store app to
+/// "Get Premium". Google Play's payment rules do not allow a Play Store app to
 /// send people to pay another way, so the Play Store build can turn the link
 /// off with `--dart-define=PRO_LINK=off`.
 const proWebPage = 'https://getmyassistant.app/';

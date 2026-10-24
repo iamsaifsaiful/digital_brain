@@ -5,6 +5,7 @@ import '../logic/parser.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/pin.dart';
+import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'new_item_screen.dart';
@@ -53,18 +54,18 @@ class _VaultScreenState extends State<VaultScreen> {
                 child: IconButton(
                   tooltip: tr('ফিরে যান'),
                   onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.chevron_left_rounded, size: 30),
+                  icon: Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: C.ink),
                 ),
               ),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(tr('গোপন তথ্য'), style: display(24, weight: 700)),
+                  Text(tr('গোপন তথ্য'), style: heading(26)),
                   Row(children: [
-                    Icon(Icons.lock_rounded, size: 14, color: C.greenDark),
+                    Icon(Icons.lock_rounded, size: 13, color: C.muted),
                     const SizedBox(width: 4),
-                    Text(trf('এনক্রিপ্ট করা · {0}টি তথ্য', [bnDigits(all.length)]), style: body(13, weight: FontWeight.w600, color: C.greenDark)),
+                    Flexible(child: Text(tr('আঙুলের ছাপে খোলা · ১ মিনিটে নিজে বন্ধ'), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted))),
                   ]),
                 ],
               ),
@@ -90,7 +91,27 @@ class _VaultScreenState extends State<VaultScreen> {
           ]),
         ],
         const SizedBox(height: 12),
-        InfoBanner(text: tr('শুধু এই ফোনে, তালাবদ্ধ অবস্থায় থাকে। দেখতে আঙুলের ছাপ বা PIN লাগে। AI-তে কখনো যায় না, জোরে পড়াও হয় না।')),
+        HeroCard(
+          landscape: false,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(14)),
+              child: const Icon(Icons.verified_user_outlined, color: Color(0xFF8FD3B4)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(trf('এনক্রিপ্ট করা · {0}টি তথ্য', [bnDigits(all.length)]), style: body(16, weight: FontWeight.w700, color: Colors.white)),
+                const SizedBox(height: 2),
+                Text(tr('শুধু এই ফোনে, তালাবদ্ধ অবস্থায় থাকে। দেখতে আঙুলের ছাপ বা PIN লাগে। AI-তে কখনো যায় না, জোরে পড়াও হয় না।'),
+                    style: body(12.5, color: Colors.white.withValues(alpha: 0.78), height: 1.45)),
+              ]),
+            ),
+          ]),
+        ),
         const SizedBox(height: 12),
         if (all.isEmpty)
           EmptyState(

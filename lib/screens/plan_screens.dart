@@ -465,7 +465,7 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
       floatingActionButton: AddButton(label: tr('যোগ করুন'), onPressed: () => showAddSheet(context, remind: true)),
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('কাজ ও রিমাইন্ডার'), trailing: [
+          TopBar(title: tr('কাজ ও রিমাইন্ডার'), sub: tr('যা করবেন, যা মনে রাখবেন'), trailing: [
             const PdfButton({ReportPart.tasks, ReportPart.reminders}),
           ]),
           Expanded(

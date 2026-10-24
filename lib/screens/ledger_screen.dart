@@ -99,15 +99,18 @@ class MoneyScreenState extends State<MoneyScreen> {
     return [
       Row(children: [
         Expanded(
-          child: Panel(
+          child: Container(
             padding: const EdgeInsets.all(14),
-            child: Figure(
-              label: tr('আমি পাব'),
-              amount: taka(loans.receivable),
-              color: C.green,
-              size: 22,
-              sub: trf('দিয়েছি {0} · ফেরত {1}', [taka(loans.lent), taka(loans.received)]),
-            ),
+            decoration: BoxDecoration(color: C.fill, borderRadius: BorderRadius.circular(18), border: C.dark ? Border.all(color: C.fillEdge) : null),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Icon(Icons.south_west_rounded, size: 16, color: Colors.white.withValues(alpha: 0.8)),
+                const SizedBox(width: 4),
+                Text(tr('আমি পাব'), style: body(13, color: Colors.white.withValues(alpha: 0.8))),
+              ]),
+              FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(taka(loans.receivable), style: display(22, weight: 700, color: Colors.white, height: 1.3))),
+              Text(trf('দিয়েছি {0} · ফেরত {1}', [taka(loans.lent), taka(loans.received)]), maxLines: 2, style: body(11.5, color: Colors.white.withValues(alpha: 0.7))),
+            ]),
           ),
         ),
         const SizedBox(width: 10),
@@ -143,7 +146,7 @@ class MoneyScreenState extends State<MoneyScreen> {
           child: Rows(children: [
             for (final p in people)
               ListRow(
-                leading: Avatar(name: p.name, fg: balanceColors(p.balance).$1, bg: balanceColors(p.balance).$2),
+                leading: Avatar(name: p.name),
                 title: p.name,
                 subtitle: [
                   if (p.phone.isNotEmpty) showPhone(p.phone) else if (dupNames.contains(personKey(p.name))) tr('নম্বর নেই — যোগ করুন'),

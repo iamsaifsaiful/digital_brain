@@ -61,7 +61,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       floatingActionButton: brain.signedIn ? AddButton(key: const Key('feedback-new'), label: tr('নতুন লিখুন'), icon: Icons.edit_outlined, onPressed: _new) : null,
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('মতামত ও সমস্যা')),
+          TopBar(title: tr('মতামত ও সমস্যা'), sub: tr('আপনার কথা আমরা পড়ি')),
           Expanded(
             child: !brain.signedIn
                 ? ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
@@ -387,7 +387,7 @@ class _FeedbackThreadScreenState extends State<FeedbackThreadScreen> {
               IconButton.filled(
                 key: const Key('reply-send'),
                 tooltip: tr('পাঠান'),
-                style: IconButton.styleFrom(backgroundColor: C.green, foregroundColor: Colors.white),
+                style: IconButton.styleFrom(backgroundColor: C.primary, foregroundColor: C.onPrimary),
                 onPressed: _busy ? null : _send,
                 icon: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send_rounded),
               ),

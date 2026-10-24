@@ -165,7 +165,7 @@ class FamilyState extends ChangeNotifier {
   Future<Map<String, dynamic>?> _send(String method, String path, [Map<String, Object?>? body]) async {
     final r = await brain.services.server.send(method, path, _session, body);
     if (r.status == 402) {
-      error = tr('ফ্যামিলি প্রো ভার্সনে — কাউকে যুক্ত করতে বা কিছু পাঠাতে প্রো লাগবে');
+      error = tr('ফ্যামিলি প্রিমিয়ামে — কাউকে যুক্ত করতে বা কিছু পাঠাতে প্রিমিয়াম লাগবে');
       notifyListeners();
       return null;
     }

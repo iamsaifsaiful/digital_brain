@@ -125,29 +125,35 @@ class C {
   /// the card in the dark look.
   static Color _tint(int light, int night) => dark ? Color.alphaBlend(Color(night).withValues(alpha: 0.20), surface) : Color(light);
 
-  static Color get orange => _p(0xFFB45309, 0xFFF59E0B);
-  static Color get orangeDark => _p(0xFF92400E, 0xFFFBBF24);
-  static Color get orangeTint => _tint(0xFFFEF3E2, 0xFFF59E0B);
+  // The category colours. With the deep green-black accent (24 Oct look)
+  // they are calm, earthy versions, so a page reads as one quiet set.
+  static bool get _calm => accent.key == 'forest';
+  static Color _c(int calmLight, int calmNight, int light, int night) => _calm ? _p(calmLight, calmNight) : _p(light, night);
+  static Color _ct(int calmLight, int calmNight, int light, int night) => _calm ? _tint(calmLight, calmNight) : _tint(light, night);
 
-  static Color get blue => _p(0xFF1D4ED8, 0xFF60A5FA);
-  static Color get blueTint => _tint(0xFFEEF2FF, 0xFF60A5FA);
-  static Color get blueText => _p(0xFF1E3A8A, 0xFFB4C6F5);
+  static Color get orange => _c(0xFFB06A2C, 0xFFE0A55C, 0xFFB45309, 0xFFF59E0B);
+  static Color get orangeDark => _c(0xFF8A4F1D, 0xFFF0C080, 0xFF92400E, 0xFFFBBF24);
+  static Color get orangeTint => _ct(0xFFF7EEE3, 0xFFE0A55C, 0xFFFEF3E2, 0xFFF59E0B);
 
-  static Color get purple => _p(0xFF6D28D9, 0xFFA78BFA);
-  static Color get purpleTint => _tint(0xFFF3EEFF, 0xFFA78BFA);
+  static Color get blue => _c(0xFF466377, 0xFF9DB7C9, 0xFF1D4ED8, 0xFF60A5FA);
+  static Color get blueTint => _ct(0xFFEBEFF1, 0xFF9DB7C9, 0xFFEEF2FF, 0xFF60A5FA);
+  static Color get blueText => _c(0xFF2E4453, 0xFFC5D3DD, 0xFF1E3A8A, 0xFFB4C6F5);
 
-  static Color get ochre => _p(0xFF92400E, 0xFFF0B060);
-  static Color get ochreTint => _tint(0xFFFEF7E6, 0xFFF0B060);
+  static Color get purple => _c(0xFF6E5C80, 0xFFB9A8CC, 0xFF6D28D9, 0xFFA78BFA);
+  static Color get purpleTint => _ct(0xFFEFEBF2, 0xFFB9A8CC, 0xFFF3EEFF, 0xFFA78BFA);
 
-  static Color get red => _p(0xFFB91C1C, 0xFFF87171);
+  static Color get ochre => _c(0xFF8A6A2E, 0xFFD9B56E, 0xFF92400E, 0xFFF0B060);
+  static Color get ochreTint => _ct(0xFFF5F0E4, 0xFFD9B56E, 0xFFFEF7E6, 0xFFF0B060);
 
-  static Color get teal => _p(0xFF0F766E, 0xFF2DD4BF);
-  static Color get tealTint => _tint(0xFFE6F6F4, 0xFF2DD4BF);
-  static Color get rose => _p(0xFFBE123C, 0xFFFB7185);
-  static Color get roseDark => _p(0xFF9F1239, 0xFFFDA4AF);
+  static Color get red => _c(0xFFB2412E, 0xFFEE8670, 0xFFB91C1C, 0xFFF87171);
+
+  static Color get teal => _c(0xFF3F6F66, 0xFF8CC2B6, 0xFF0F766E, 0xFF2DD4BF);
+  static Color get tealTint => _ct(0xFFE6EEEB, 0xFF8CC2B6, 0xFFE6F6F4, 0xFF2DD4BF);
+  static Color get rose => _c(0xFFA84B48, 0xFFE99A94, 0xFFBE123C, 0xFFFB7185);
+  static Color get roseDark => _c(0xFF8A3A37, 0xFFF2B8B3, 0xFF9F1239, 0xFFFDA4AF);
   /// A rose fill that keeps white letters readable in both looks.
-  static Color get roseFill => _p(0xFFBE123C, 0xFFE11D48);
-  static Color get roseTint => _tint(0xFFFFF1F2, 0xFFFB7185);
+  static Color get roseFill => _c(0xFFB2412E, 0xFFC2554F, 0xFFBE123C, 0xFFE11D48);
+  static Color get roseTint => _ct(0xFFF6E9E7, 0xFFE99A94, 0xFFFFF1F2, 0xFFFB7185);
   static Color get waTint => _tint(0xFFE3F6EA, 0xFF34D399);
   static Color get soft => _p(0xFFF6F5F2, 0xFF212826);
 

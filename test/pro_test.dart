@@ -91,7 +91,7 @@ void main() {
       final b = rig.brain;
       final now = DateTime(2026, 10, 9);
       b.gated = true;
-      expect(infoAnswer(b.data, 'আমার যাকাত কত?', now), isNot(contains('প্রো')));
+      expect(infoAnswer(b.data, 'আমার যাকাত কত?', now), isNot(contains('প্রিমিয়াম')));
       expect(b.assistantPrefs.smart, isFalse);
       expect(b.assistantPrefs.docAlerts, isFalse);
       expect(b.assistantPrefs.dueAlerts, isFalse);
@@ -239,7 +239,7 @@ void main() {
     // Nothing is written anywhere until the user chooses the general account.
     expect(rig.brain.data.cash, isEmpty);
     expect(find.widgetWithText(ActionChip, 'সাধারণ আয়-ব্যয়ে লিখুন'), findsOneWidget);
-    expect(find.textContaining('প্রো সুবিধা'), findsWidgets);
+    expect(find.textContaining('প্রিমিয়াম সুবিধা'), findsWidgets);
     await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.projects.length, 1);
@@ -323,7 +323,7 @@ void main() {
     await openChat(t);
     await tell(t, rig, 'পিডিএফ দাও');
     await settle(t);
-    expect(find.textContaining('PDF রিপোর্ট — প্রো সুবিধা'), findsOneWidget);
+    expect(find.textContaining('PDF রিপোর্ট — প্রিমিয়াম সুবিধা'), findsOneWidget);
   });
 
   group('AI through our server (the key never in the app)', () {

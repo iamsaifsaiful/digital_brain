@@ -35,7 +35,7 @@ Future<bool> needPro(BuildContext context, ProFeature feature, {bool allowed = f
               child: Icon(Icons.lock_outline_rounded, color: C.green),
             ),
             const SizedBox(width: 12),
-            Expanded(child: Text(trf('{0} — প্রো সুবিধা', [tr(info.title)]), style: display(19))),
+            Expanded(child: Text(trf('{0} — প্রিমিয়াম সুবিধা', [tr(info.title)]), style: display(19))),
           ]),
           const SizedBox(height: 12),
           Text(tr(info.what), style: body(15, height: 1.5)),
@@ -47,7 +47,7 @@ Future<bool> needPro(BuildContext context, ProFeature feature, {bool allowed = f
           Text(tr('আপনার রাখা তথ্য যেমন আছে তেমনই থাকবে — দেখা, বদলানো, মোছা সবসময় যাবে।'), style: body(13, color: C.muted, height: 1.45)),
           const SizedBox(height: 16),
           PrimaryButton(
-            label: tr('প্রো দেখুন'),
+            label: tr('প্রিমিয়াম দেখুন'),
             icon: Icons.auto_awesome_rounded,
             onPressed: () async {
               Navigator.pop(ctx);
@@ -61,18 +61,18 @@ Future<bool> needPro(BuildContext context, ProFeature feature, {bool allowed = f
   return brain.has(feature);
 }
 
-/// A small "PRO" mark beside a locked row or button.
+/// A small "প্রিমিয়াম" mark beside a locked row or button.
 class ProMark extends StatelessWidget {
   const ProMark({super.key});
 
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-        decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(999)),
+        decoration: BoxDecoration(color: C.chip, borderRadius: BorderRadius.circular(999)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.lock_outline_rounded, size: 12, color: C.greenDark),
+          Icon(Icons.workspace_premium_outlined, size: 12, color: C.muted2),
           const SizedBox(width: 3),
-          Text('PRO', style: body(11, weight: FontWeight.w700, color: C.greenDark)),
+          Text(tr('প্রিমিয়াম'), style: body(10.5, weight: FontWeight.w700, color: C.muted2)),
         ]),
       );
 }
@@ -154,7 +154,7 @@ Future<void> afterTaskDone(BuildContext context) async {
                 textAlign: TextAlign.center, style: body(15, color: C.muted2, height: 1.55)),
             const Spacer(),
             PrimaryButton(
-              label: tr('বিজ্ঞাপন ছাড়া — প্রো দেখুন'),
+              label: tr('বিজ্ঞাপন ছাড়া — প্রিমিয়াম দেখুন'),
               onPressed: () async {
                 Navigator.pop(ctx);
                 await openPro(context);

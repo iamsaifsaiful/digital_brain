@@ -476,8 +476,8 @@ extension _TodoChat on ChatController {
     final old = rid == null ? null : brain.data.reminders.where((x) => x.id == rid).firstOrNull;
     // A new reminder past the free limit: the to-do stays; said plainly.
     if (old == null && !brain.canAddReminder) {
-      _say(out, trf('“{0}” কাজটি তালিকায় আছে, তবে রিমাইন্ডার চালু হয়নি — ফ্রিতে একসাথে {1}টা রিমাইন্ডার রাখা যায়। পুরোনো কোনোটা বন্ধ করুন, বা প্রো নিন।', [t.title, bnDigits(freeReminders)]),
-          links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন')), ChatLink(LinkKind.page, tr('প্রো দেখুন'), page: 'pro')]);
+      _say(out, trf('“{0}” কাজটি তালিকায় আছে, তবে রিমাইন্ডার চালু হয়নি — ফ্রিতে একসাথে {1}টা রিমাইন্ডার রাখা যায়। পুরোনো কোনোটা বন্ধ করুন, বা প্রিমিয়াম নিন।', [t.title, bnDigits(freeReminders)]),
+          links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন')), ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
       return;
     }
     final Reminder r;

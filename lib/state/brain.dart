@@ -278,7 +278,7 @@ class Brain extends ChangeNotifier {
   /// The preview's test switch.
   Future<void> setProForTest(bool on) => on ? _setPro(services.now().add(const Duration(days: 365)), 'test') : _setPro(null, '');
 
-  /// One-off notifications planned by the app itself ("প্রো চালু হয়েছে").
+  /// One-off notifications planned by the app itself ("প্রিমিয়াম চালু হয়েছে").
   final _oneOff = <PlannedNotice>[];
 
   Future<void> _setPro(DateTime? until, String kind, {bool announce = true}) async {
@@ -302,8 +302,8 @@ class Brain extends ChangeNotifier {
         _oneOff.add(PlannedNotice(
           id: stableId('pro-on'),
           at: services.now().add(const Duration(seconds: 5)),
-          title: tr('প্রো চালু হয়েছে 🎉'),
-          body: tr('রিমাইন্ডার, ব্যাকআপ, ফ্যামিলি — সব প্রো সুবিধা এখন চালু। ধন্যবাদ!'),
+          title: tr('প্রিমিয়াম চালু হয়েছে 🎉'),
+          body: tr('রিমাইন্ডার, ব্যাকআপ, ফ্যামিলি — সব প্রিমিয়াম সুবিধা এখন চালু। ধন্যবাদ!'),
           reminderId: 'nudge:pro',
           gentle: true,
         ));

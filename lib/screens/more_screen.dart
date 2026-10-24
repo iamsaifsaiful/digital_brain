@@ -13,6 +13,7 @@ import '../services/lock.dart';
 import '../services/location_share.dart';
 import '../state/brain.dart';
 import '../ui/pin.dart';
+import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'alarm_screens.dart';
@@ -28,6 +29,7 @@ import 'trash_screen.dart';
 import 'trace_screen.dart';
 import '../services/trace.dart';
 import 'pro_screen.dart';
+import 'compass_screen.dart';
 import 'google_backup.dart';
 import '../logic/pro.dart';
 import '../ui/pro_gate.dart';
@@ -343,57 +345,49 @@ class _MoreScreenState extends State<MoreScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       children: [
-        TabTitle(tr('আরও')),
+        TabTitle(tr('আরও'),
+            sub: tr('প্রোফাইল, সুবিধা আর সেটিংস'),
+            trailing: Padding(padding: const EdgeInsets.only(bottom: 10), child: HandNote(tr('নিজের মতো সাজিয়ে নিন'), size: 12.5, rotate: -5))),
         const SizedBox(height: 14),
         ProfileCard(onName: _setName, onPlace: _setDistrict),
         const SizedBox(height: 12),
-        // The things people come here for, as big tiles (two rows of two).
-        for (final row in [
-          [
-            _Tile(key: const Key('more-requests'), icon: Icons.bloodtype_outlined, fg: C.rose, bg: C.roseTint, title: tr('ব্লাড ডোনেশন'), sub: tr('রক্ত দিন, রক্ত চান — সারা দেশে'), onTap: () => push(const RequestsScreen())),
-            _Tile(
-                key: const Key('more-pro'),
-                icon: Icons.workspace_premium_outlined,
-                fg: C.ochre,
-                bg: C.ochreTint,
-                title: tr('প্রো ভার্সন'),
-                sub: brain.gated && brain.pro ? tr('চালু আছে') : tr('কী কী পাবেন'),
-                onTap: () => push(const ProScreen())),
-          ],
-          [
-            _Tile(
+        // প্রিমিয়াম on the landscape card.
+        HeroCard(
+          key: const Key('more-pro'),
+          label: tr('প্রিমিয়াম ভার্সন'),
+          onTap: () => push(const ProScreen()),
+          side: Padding(
+            padding: const EdgeInsets.only(top: 18),
+            child: StatusPill(brain.gated && brain.pro ? tr('চালু আছে') : tr('দেখুন'), bg: Colors.white.withValues(alpha: 0.16), fg: Colors.white),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(brain.gated && brain.pro ? tr('প্রিমিয়াম চালু আছে') : tr('কী কী পাবেন'), style: heading(24, color: Colors.white, height: 1.35)),
+            Text(tr('AI, বিজ্ঞাপন ছাড়া, অটো ব্যাকআপ'), style: body(12.5, color: Colors.white.withValues(alpha: 0.8))),
+          ]),
+        ),
+        HomeSectionHeaderLite(title: tr('সুবিধা'), action: tr('কী কী করা যায়'), onAction: () => push(const HelpScreen())),
+        GridView.count(
+          crossAxisCount: 3,
+          shrinkWrap: true,
+          padding: EdgeInsets.zero,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 1.05,
+          children: [
+            _Square(key: const Key('more-family'), icon: Icons.family_restroom_rounded, title: tr('ফ্যামিলি'), dark: true, onTap: () => push(const FamilyScreen())),
+            _Square(key: const Key('more-zakat'), icon: Icons.volunteer_activism_outlined, title: tr('যাকাত'), onTap: () => push(const ZakatScreen())),
+            _Square(key: const Key('more-requests'), icon: Icons.bloodtype_outlined, title: tr('ব্লাড ডোনেশন'), onTap: () => push(const RequestsScreen())),
+            _Square(icon: Icons.explore_outlined, title: tr('কিবলা কম্পাস'), onTap: () => push(const CompassScreen())),
+            _Square(icon: Icons.lightbulb_outline_rounded, title: tr('শিখে নিন'), onTap: () => push(const HelpScreen())),
+            _Square(
                 key: const Key('more-feedback'),
                 icon: Icons.forum_outlined,
-                fg: C.blue,
-                bg: C.blueTint,
                 title: tr('মতামত'),
-                sub: brain.feedbackUnread > 0 ? trf('{0}টা নতুন উত্তর', [bnDigits(brain.feedbackUnread)]) : tr('সমস্যা বা নতুন সুবিধা'),
                 badge: brain.feedbackUnread > 0,
                 onTap: () => push(const FeedbackScreen())),
-            _Tile(icon: Icons.lightbulb_outline_rounded, fg: C.green, bg: C.greenTint, title: tr('কী কী করা যায়'), sub: tr('সব সুবিধা, মাইকে কী বলবেন'), onTap: () => push(const HelpScreen())),
           ],
-          [
-            _Tile(
-                key: const Key('more-zakat'),
-                icon: Icons.volunteer_activism_outlined,
-                fg: C.ochre,
-                bg: C.ochreTint,
-                title: tr('যাকাত'),
-                sub: tr('আপনার হিসাব থেকে নিজে হিসাব'),
-                onTap: () => push(const ZakatScreen())),
-            _Tile(
-                key: const Key('more-family'),
-                icon: Icons.family_restroom_rounded,
-                fg: C.purple,
-                bg: C.purpleTint,
-                title: tr('ফ্যামিলি'),
-                sub: tr('পরিবারের জন্য কাজ ও রিমাইন্ডার'),
-                onTap: () => push(const FamilyScreen())),
-          ],
-        ]) ...[
-          Row(children: [Expanded(child: SizedBox(height: 70, child: row[0])), const SizedBox(width: 10), Expanded(child: SizedBox(height: 70, child: row[1]))]),
-          const SizedBox(height: 10),
-        ],
+        ),
         const SizedBox(height: 10),
         Panel(
           child: Rows(children: [
@@ -517,7 +511,7 @@ class _MoreScreenState extends State<MoreScreen> {
             linkRow(Icons.table_view_outlined, tr('ধার-দেনার রিপোর্ট (CSV)'), sub: tr('Excel বা Google Sheets-এ খোলা যায়'), onTap: _csv,
                 trailing: Icon(Icons.ios_share_rounded, color: C.muted)),
             if (previewEdition)
-              switchRow(Icons.science_outlined, tr('পরীক্ষা: প্রো চালু'), tr('শুধু প্রিভিউতে — ফ্রি আর প্রো ইউজার কী দেখবে দুটোই দেখে নিন'), brain.pro, (v) => brain.setProForTest(v)),
+              switchRow(Icons.science_outlined, tr('পরীক্ষা: প্রিমিয়াম চালু'), tr('শুধু প্রিভিউতে — ফ্রি আর প্রিমিয়াম ইউজার কী দেখবে দুটোই দেখে নিন'), brain.pro, (v) => brain.setProForTest(v)),
             linkRow(Icons.info_outline_rounded, tr('লাইসেন্স ও সংস্করণ'),
                 sub: 'My Assistant ${bnDigits(appVersion)}${previewEdition ? ' · ${tr('প্লে স্টোর প্রিভিউ')}' : ''}',
                 onTap: () => showLicensePage(context: context, applicationName: 'My Assistant', applicationVersion: appVersion)),
@@ -699,18 +693,40 @@ class _BackupScreenState extends State<BackupScreen> {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('ব্যাকআপ')),
+          TopBar(title: tr('ব্যাকআপ'), sub: tr('ফোন হারালেও তথ্য হারাবে না'), note: HandNote(tr('নিশ্চিন্তে থাকুন'), size: 12.5, rotate: -5)),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
-              InfoBanner(
-                text: last == null
-                    ? tr('এখনো কোনো ব্যাকআপ নেওয়া হয়নি। ফোন হারালে বা বদলালে সব তথ্য হারিয়ে যাবে।')
-                    : trf('শেষ ব্যাকআপ {0} ({1})।{2}', [daysLeftLabel(last, now), fullDate(last), old ? ' এর পরের তথ্য ফোন হারালে হারিয়ে যাবে।' : '']),
-                icon: old ? Icons.warning_amber_rounded : Icons.check_circle_outline_rounded,
-                fg: old ? C.orangeDark : C.greenDark,
-                iconColor: old ? C.orange : C.green,
-                bg: old ? C.orangeTint : C.greenTint,
-              ),
+              if (old)
+                InfoBanner(
+                  text: last == null
+                      ? tr('এখনো কোনো ব্যাকআপ নেওয়া হয়নি। ফোন হারালে বা বদলালে সব তথ্য হারিয়ে যাবে।')
+                      : trf('শেষ ব্যাকআপ {0} ({1})।{2}', [daysLeftLabel(last, now), fullDate(last), ' এর পরের তথ্য ফোন হারালে হারিয়ে যাবে।']),
+                  icon: Icons.warning_amber_rounded,
+                  fg: C.orangeDark,
+                  iconColor: C.warn,
+                  bg: C.warnTint,
+                )
+              else
+                HeroCard(
+                  landscape: false,
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                  child: Row(children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(16)),
+                      child: const Icon(Icons.cloud_done_outlined, color: Color(0xFF8FD3B4), size: 28),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(tr('সব নিরাপদ আছে'), style: heading(20, color: Colors.white)),
+                        Text(trf('শেষ ব্যাকআপ {0} ({1})।{2}', [daysLeftLabel(last, now), fullDate(last), '']),
+                            style: body(12.5, color: Colors.white.withValues(alpha: 0.78), height: 1.4)),
+                      ]),
+                    ),
+                  ]),
+                ),
               const SizedBox(height: 12),
               const GoogleBackupPanel(),
               const SizedBox(height: 16),
@@ -787,40 +803,58 @@ class _NewPinSheetState extends State<_NewPinSheet> {
 }
 
 /// A big square-ish shortcut at the top of আরও.
-class _Tile extends StatelessWidget {
-  const _Tile({super.key, required this.icon, required this.fg, required this.bg, required this.title, required this.sub, required this.onTap, this.badge = false});
+class _Square extends StatelessWidget {
+  const _Square({super.key, required this.icon, required this.title, required this.onTap, this.dark = false, this.badge = false});
   final IconData icon;
-  final Color fg;
-  final Color bg;
   final String title;
-  final String sub;
   final VoidCallback onTap;
+  final bool dark;
   final bool badge;
 
   @override
   Widget build(BuildContext context) => Material(
-        color: C.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: C.line)),
+        color: dark ? C.fill : C.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: dark ? BorderSide(color: C.fillEdge) : (C.dark ? BorderSide(color: C.line) : BorderSide.none)),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
-            child: Row(children: [
+            padding: const EdgeInsets.all(8),
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Badge(
                 isLabelVisible: badge,
                 smallSize: 10,
-                child: Container(width: 40, height: 40, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: fg, size: 22)),
+                child: IconSquare(icon, size: 42, bg: dark ? Colors.white.withValues(alpha: 0.12) : null, color: dark ? Colors.white : null),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15, weight: FontWeight.w700)),
-                  Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: badge ? C.greenDark : C.muted)),
-                ]),
-              ),
+              const SizedBox(height: 8),
+              Text(title, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w600, color: dark ? Colors.white : C.ink, height: 1.2)),
             ]),
           ),
         ),
+      );
+}
+
+/// A part's heading with a muted link on the right (as on the home).
+class HomeSectionHeaderLite extends StatelessWidget {
+  const HomeSectionHeaderLite({super.key, required this.title, this.action, this.onAction});
+  final String title;
+  final String? action;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 18, bottom: 8),
+        child: Row(children: [
+          Expanded(child: Text(title, style: heading(18))),
+          if (action != null)
+            TextButton(
+              onPressed: onAction,
+              style: TextButton.styleFrom(foregroundColor: C.muted, visualDensity: VisualDensity.compact),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(action!, style: body(13, color: C.muted)),
+                Icon(Icons.chevron_right_rounded, size: 18, color: C.muted),
+              ]),
+            ),
+        ]),
       );
 }

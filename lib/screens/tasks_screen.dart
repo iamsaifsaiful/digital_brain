@@ -210,7 +210,7 @@ class _TasksScreenState extends State<TasksScreen> {
             ? PickMark(_picks.has(t.id))
             : Checkbox(
                 value: t.done,
-                activeColor: C.green,
+                activeColor: C.primary,
                 onChanged: (v) => brain.setTaskDone(t, v ?? false),
               ),
         title: t.title,
@@ -325,7 +325,7 @@ class _TasksScreenState extends State<TasksScreen> {
                     const SizedBox(width: 8),
                     IconButton.filled(
                       tooltip: tr('যোগ করুন'),
-                      style: IconButton.styleFrom(backgroundColor: C.green, minimumSize: const Size(52, 52)),
+                      style: IconButton.styleFrom(backgroundColor: C.primary, minimumSize: const Size(52, 52)),
                       onPressed: _add,
                       icon: const Icon(Icons.add_rounded, color: Colors.white),
                     ),

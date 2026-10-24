@@ -190,7 +190,7 @@ class ClaudeAi implements AiBrain {
           case 401:
             throw AiError(tr('AI-এর জন্য আবার Google দিয়ে লগইন করুন (সেটিংস › Google অ্যাকাউন্ট)।'));
           case 402:
-            throw AiError(tr('AI প্রো সুবিধা — প্রো বা ট্রায়াল চালু নেই।'));
+            throw AiError(tr('AI প্রিমিয়াম সুবিধা — প্রিমিয়াম বা ট্রায়াল চালু নেই।'));
           case 429:
             throw AiError(tr('আজকের AI প্রশ্ন শেষ। কাল আবার পাবেন।'));
           case 503:

@@ -76,7 +76,7 @@ class TagsScreen extends StatelessWidget {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('ট্যাগ')),
+          TopBar(title: tr('ট্যাগ'), sub: tr('এক ট্যাগে সব এক সাথে')),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
               if (d.allTags.isEmpty)
@@ -188,7 +188,7 @@ class ExpiryScreen extends StatelessWidget {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('কাগজের মেয়াদ')),
+          TopBar(title: tr('কাগজের মেয়াদ'), sub: tr('মেয়াদ শেষের আগেই জানবেন')),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
               if (docs.isEmpty)
@@ -311,7 +311,7 @@ class EmergencyScreen extends StatelessWidget {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('জরুরি কার্ড'), trailing: [
+          TopBar(title: tr('জরুরি কার্ড'), sub: tr('বিপদে অন্য কেউ লক স্ক্রিন থেকে দেখবেন'), trailing: [
             IconButton(tooltip: tr('বদলান'), onPressed: () => _push(context, const EmergencyEditScreen()), icon: const Icon(Icons.edit_outlined)),
           ]),
           Expanded(
@@ -338,9 +338,42 @@ class EmergencyScreen extends StatelessWidget {
               ],
               const SizedBox(height: 18),
               SectionTitle(tr('জাতীয় জরুরি নম্বর')),
+              // ৯৯৯ first, big and red: one tap to call.
+              Builder(builder: (context) {
+                final (n, label, sub) = emergencyNumbers.first;
+                return Material(
+                  color: C.roseFill,
+                  borderRadius: BorderRadius.circular(20),
+                  child: InkWell(
+                    key: const Key('emergency-999'),
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () => brain.services.launcher.open(Via.call, n),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 14, 14, 14),
+                      child: Row(children: [
+                        Text(bnDigits(n), style: display(34, weight: 800, color: Colors.white)),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(tr(label), style: body(14, weight: FontWeight.w600, color: Colors.white)),
+                            Text(tr(sub), maxLines: 2, overflow: TextOverflow.ellipsis, style: body(12, color: Colors.white.withValues(alpha: 0.85))),
+                          ]),
+                        ),
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                          child: Icon(Icons.call_rounded, color: C.roseFill),
+                        ),
+                      ]),
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 10),
               Panel(
                 child: Rows(children: [
-                  for (final (n, label, sub) in emergencyNumbers)
+                  for (final (n, label, sub) in emergencyNumbers.skip(1))
                     ListRow(
                       leading: Container(
                         width: 54,
@@ -351,7 +384,7 @@ class EmergencyScreen extends StatelessWidget {
                       ),
                       title: tr(label),
                       subtitle: tr(sub),
-                      trailing: Icon(Icons.call_rounded, color: C.green),
+                      trailing: Icon(Icons.call_rounded, color: C.primary),
                       onTap: () => brain.services.launcher.open(Via.call, n),
                     ),
                 ]),

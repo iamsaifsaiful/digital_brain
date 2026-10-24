@@ -286,6 +286,8 @@ class _StartTipsState extends State<StartTips> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Built while scrolling past, it may be gone by the next frame.
+      if (!mounted) return;
       final keys = BrainScope.read(context).services.lock.keys;
       final v = await keys.read('tips_done');
       final seen = (await keys.read('tips_seen')) ?? '';

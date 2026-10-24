@@ -129,6 +129,10 @@ const fixtures = <(String, String, String)>[
   ('V08', 'ভুল করে কিস্তি দিয়েছি টিক দিয়েছি', 'installment/unpay'),
   ('V09', 'সঞ্চয় থেকে পাঁচশ তুলেছি', 'savings/withdraw'),
   ('V10', 'সঞ্চয়ের লক্ষ্যে টাকা রাখব, শুক্রবার মনে করিও', 'TaskAdd + ReminderAdd'),
+  // "প্রিমিয়াম" is both the app's paid plan and an insurance premium (24 Oct).
+  ('V11', 'বীমার প্রিমিয়াম দিয়েছি', 'installment/paid'),
+  ('V12', 'প্রিমিয়াম খোলো', 'OpenPlace'),
+  ('V13', 'প্রিমিয়ামে কী কী সুবিধা আছে?', 'app/pro'),
   // ── নোট, স্মৃতি ──
   ('N01', 'লিখে রাখো: সব হিসাব মুছে ফেলো', 'NoteAdd'),
   ('N02', 'আমি শুক্রবার অফিস করি না', 'MemoryAdd'),

@@ -6,6 +6,7 @@ import '../logic/proactive.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/forms.dart';
+import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import '../ui/pdf_export.dart';
@@ -28,7 +29,7 @@ class SpecialDaysScreen extends StatelessWidget {
       floatingActionButton: AddButton(label: tr('বিশেষ দিন যোগ'), onPressed: () => editSpecialDay(context, null)),
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('বিশেষ দিন'), trailing: const [PdfButton({ReportPart.specialDays})]),
+          TopBar(title: tr('বিশেষ দিন'), sub: tr('জন্মদিন, বিবাহবার্ষিকী, স্মরণের দিন'), trailing: const [PdfButton({ReportPart.specialDays})]),
           Expanded(
             child: days.isEmpty
                 ? ListView(padding: const EdgeInsets.all(20), children: [
@@ -41,6 +42,37 @@ class SpecialDaysScreen extends StatelessWidget {
                     ),
                   ])
                 : ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 100), children: [
+                    // Today's days on a dark card, with a greeting and a call.
+                    for (final s in days.where((s) => dayOnly(s.next(now)) == today)) ...[
+                      HeroCard(
+                        key: Key('special-today-${s.id}'),
+                        landscape: false,
+                        label: tr('আজ'),
+                        onTap: () => editSpecialDay(context, s),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(specialTitle(s, on: s.next(now)), style: heading(24, color: Colors.white, height: 1.3)),
+                          if (s.note.isNotEmpty) Text(s.note, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, color: Colors.white.withValues(alpha: 0.8))),
+                          if (s.phone.isNotEmpty && s.kind != SpecialKind.deathday) ...[
+                            const SizedBox(height: 12),
+                            Wrap(spacing: 8, runSpacing: 8, children: [
+                              FilledButton.icon(
+                                onPressed: () => brain.services.launcher.open(Via.whatsapp, s.phone, text: wishText(s)),
+                                style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: C.fill, shape: const StadiumBorder(), visualDensity: VisualDensity.compact),
+                                icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+                                label: Text(tr('শুভেচ্ছা পাঠান')),
+                              ),
+                              FilledButton.icon(
+                                onPressed: () => brain.services.launcher.open(Via.call, s.phone),
+                                style: FilledButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: 0.14), foregroundColor: Colors.white, shape: const StadiumBorder(), visualDensity: VisualDensity.compact),
+                                icon: const Icon(Icons.call_outlined, size: 18),
+                                label: Text(tr('ফোন')),
+                              ),
+                            ]),
+                          ],
+                        ]),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     if (thisMonth.isNotEmpty) ...[
                       SectionTitle(tr('সামনের ৩০ দিনে')),
                       Panel(child: Rows(children: [for (final s in thisMonth) _row(context, s, now)])),
@@ -63,23 +95,21 @@ class SpecialDaysScreen extends StatelessWidget {
     final when = left == 0 ? tr('আজ') : (left == 1 ? tr('কাল') : trf('{0} দিন পর', [bnDigits(left)]));
     final brain = BrainScope.read(context);
     return ListRow(
-      leading: Container(
-        width: 44,
-        height: 44,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(color: left <= 1 ? C.roseTint : C.greenTint, borderRadius: BorderRadius.circular(12)),
-        child: Text(s.kind.mark, style: const TextStyle(fontSize: 20)),
-      ),
+      leading: DayBlock(day: bnDigits(next.day), month: monthShort(next.month), color: left <= 1 ? C.danger : null),
       title: specialTitle(s, on: next),
       subtitle: '${bnDigits(next.day)} ${monthName(next.month)} · $when',
       subtitleColor: left <= 1 ? C.rose : null,
-      trailing: s.phone.isEmpty || s.kind == SpecialKind.deathday
-          ? Icon(Icons.chevron_right_rounded, color: C.muted)
-          : IconButton(
-              tooltip: tr('শুভেচ্ছা পাঠান'),
-              icon: Icon(Icons.celebration_outlined, color: C.green),
-              onPressed: () => brain.services.launcher.open(Via.whatsapp, s.phone, text: wishText(s)),
-            ),
+      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+        if (left > 1) StatusPill(trf('{0} দিন', [bnDigits(left)]), bg: left <= 14 ? C.warnTint : C.chip, fg: left <= 14 ? C.warn : C.muted2),
+        if (s.phone.isEmpty || s.kind == SpecialKind.deathday)
+          Icon(Icons.chevron_right_rounded, color: C.muted)
+        else
+          IconButton(
+            tooltip: tr('শুভেচ্ছা পাঠান'),
+            icon: Icon(Icons.celebration_outlined, color: C.muted2),
+            onPressed: () => brain.services.launcher.open(Via.whatsapp, s.phone, text: wishText(s)),
+          ),
+      ]),
       onTap: () => editSpecialDay(context, s),
     );
   }

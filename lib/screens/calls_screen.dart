@@ -55,14 +55,42 @@ class _CallsScreenState extends State<CallsScreen> {
     final list = all.where((c) => q.isEmpty || normalize('${c.name} ${c.phone} ${asciiDigits(c.phone)} ${c.note}').contains(q)).toList();
     void addNew() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewItemScreen(category: ItemCategory.contact)));
 
+    // A birthday or anniversary today, with the person's number: wish them.
+    final now = brain.services.now();
+    final today = [
+      for (final sd in brain.data.specialDays)
+        if (sd.month == now.month && sd.day == now.day)
+          (sd, sd.phone.isNotEmpty ? sd.phone : (all.where((c) => normalize(c.name) == normalize(sd.person) && c.phone.isNotEmpty).firstOrNull?.phone ?? ''))
+    ].where((x) => x.$2.isNotEmpty).toList();
+
     final header = <Widget>[
+      for (final (sd, phone) in today)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Container(
+            key: Key('contacts-today-${sd.id}'),
+            padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+            decoration: BoxDecoration(color: C.warnTint, borderRadius: BorderRadius.circular(16)),
+            child: Row(children: [
+              Icon(Icons.cake_outlined, color: C.warn),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(trf('আজ {0}-এর {1}', [sd.person, isEn ? sd.kind.en : sd.kind.bn]), style: body(14.5, weight: FontWeight.w600)),
+                  Text(tr('একটা শুভেচ্ছা জানিয়ে দিন'), style: body(12.5, color: C.muted2)),
+                ]),
+              ),
+              _actions(phone, sd.person),
+            ]),
+          ),
+        ),
       Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: SecondaryButton(
           label: all.isEmpty ? tr('ফোনবুক থেকে সব নম্বর আনুন') : tr('ফোনবুক থেকে নতুন নম্বর আনুন'),
           icon: Icons.download_rounded,
-          fg: C.green,
-          borderColor: C.green,
+          fg: C.ink,
+          borderColor: C.inputBorder,
           onPressed: () => importFromPhone(context),
         ),
       ),
@@ -105,7 +133,7 @@ class _CallsScreenState extends State<CallsScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(first ? 16 : 0), bottom: Radius.circular(last ? 16 : 0)),
         clipBehavior: Clip.antiAlias,
         child: ListRow(
-          leading: Avatar(name: c.name, fg: C.purple, bg: C.purpleTint),
+          leading: Avatar(name: c.name),
           title: c.name,
           subtitle: [if (c.note.trim().isNotEmpty) c.note.trim(), if (c.phone.isNotEmpty) showPhone(c.phone)].join(' · '),
           trailing: c.phone.isEmpty ? null : _actions(c.phone, c.name),
@@ -118,10 +146,10 @@ class _CallsScreenState extends State<CallsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            TopBar(title: tr('যোগাযোগ'), trailing: [
+            TopBar(title: tr('যোগাযোগ'), sub: tr('নাম বললেই ফোন'), trailing: [
               const PdfButton({ReportPart.contacts}),
               IconButton(tooltip: tr('নতুন নম্বর রাখুন'), onPressed: addNew, icon: const Icon(Icons.person_add_alt_1_outlined)),
-              IconButton(tooltip: tr('মুখে বলুন'), onPressed: () => openVoice(context), icon: Icon(Icons.mic_none_rounded, color: C.green)),
+              IconButton(tooltip: tr('মুখে বলুন'), onPressed: () => openVoice(context), icon: Icon(Icons.mic_none_rounded, color: C.ink)),
             ]),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
@@ -219,7 +247,7 @@ class _ContactPickerState extends State<_ContactPicker> {
           child: ListView.builder(
             itemCount: list.length,
             itemBuilder: (_, i) => ListTile(
-              leading: Avatar(name: list[i].name, size: 36, fg: C.purple, bg: C.purpleTint),
+              leading: Avatar(name: list[i].name, size: 36),
               title: Text(list[i].name, style: body(15, weight: FontWeight.w600)),
               subtitle: Text(showPhone(list[i].phone), style: body(13, color: C.muted)),
               onTap: () => Navigator.pop(context, list[i]),

@@ -8,6 +8,7 @@ import '../logic/when.dart' show sayWhen;
 import '../models/models.dart' show Via;
 import '../services/community.dart';
 import '../state/brain.dart';
+import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'google_backup.dart' show GoogleBackupPanel;
@@ -214,7 +215,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
       body: SafeArea(
         bottom: !widget.inTab,
         child: Column(children: [
-          if (widget.inTab) Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 4), child: TabTitle(tr('ব্লাড ডোনেশন'))) else TopBar(title: tr('ব্লাড ডোনেশন')),
+          if (widget.inTab) Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 4), child: TabTitle(tr('ব্লাড ডোনেশন'), sub: tr('রক্ত দিন, জীবন বাঁচান'))) else TopBar(title: tr('ব্লাড ডোনেশন'), sub: tr('রক্ত দিন, জীবন বাঁচান'), note: HandNote(tr('এক ব্যাগ রক্ত, একটা জীবন'), size: 12.5, rotate: -5)),
           Expanded(child: content),
         ]),
       ),
@@ -228,39 +229,44 @@ class _DonorCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Material(
-        color: donor.on ? C.roseTint : C.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: donor.on ? Colors.transparent : C.line)),
-        child: InkWell(
-          key: const Key('donor-card'),
-          borderRadius: BorderRadius.circular(16),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-            child: Row(children: [
-              Container(
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(color: C.roseFill, shape: BoxShape.circle),
-                child: donor.on ? Text(bloodLabel(donor.blood), style: display(15, weight: 700, color: Colors.white)) : const Icon(Icons.volunteer_activism_outlined, color: Colors.white, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(donor.on ? tr('আপনি রক্তদাতা') : tr('আমি রক্ত দিতে চাই'), style: body(15.5, weight: FontWeight.w700, color: donor.on ? C.roseDark : C.ink)),
-                  Text(
-                      donor.on
-                          ? '${tr(donor.district)}${donor.lastDonated == null ? '' : ' · ${trf('শেষ দিয়েছেন {0}', [shortDate(donor.lastDonated!)])}'} · ${tr('বদলান')}'
-                          : tr('দাতা হলে আপনার জেলায় কারো রক্ত লাগলে নোটিফিকেশন পাবেন'),
-                      style: body(13, color: donor.on ? C.roseDark : C.muted)),
-                ]),
-              ),
-              Icon(Icons.chevron_right_rounded, color: donor.on ? C.roseDark : C.muted),
-            ]),
-          ),
+  Widget build(BuildContext context) {
+    final on = donor.on;
+    final fg = on ? Colors.white : C.ink;
+    final sub = on ? Colors.white.withValues(alpha: 0.75) : C.muted;
+    return Material(
+      color: on ? C.fill : C.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: on ? C.fillEdge : (C.dark ? C.line : Colors.transparent))),
+      child: InkWell(
+        key: const Key('donor-card'),
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+          child: Row(children: [
+            Container(
+              width: on ? 56 : 44,
+              height: on ? 56 : 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: C.roseFill, borderRadius: BorderRadius.circular(on ? 16 : 22)),
+              child: on ? Text(bloodLabel(donor.blood), style: display(19, weight: 700, color: Colors.white)) : const Icon(Icons.volunteer_activism_outlined, color: Colors.white, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(on ? '${tr('আপনি রক্তদাতা')} · ${tr(donor.district)}' : tr('আমি রক্ত দিতে চাই'), style: body(15.5, weight: FontWeight.w700, color: fg)),
+                Text(
+                    on
+                        ? '${donor.lastDonated == null ? '' : '${trf('শেষ দিয়েছেন {0}', [shortDate(donor.lastDonated!)])} · '}${tr('বদলান')}'
+                        : tr('দাতা হলে আপনার জেলায় কারো রক্ত লাগলে নোটিফিকেশন পাবেন'),
+                    style: body(13, color: sub)),
+              ]),
+            ),
+            Icon(Icons.chevron_right_rounded, color: sub),
+          ]),
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _RequestCard extends StatelessWidget {
@@ -292,8 +298,8 @@ class _RequestCard extends StatelessWidget {
             width: 56,
             height: 56,
             alignment: Alignment.center,
-            decoration: BoxDecoration(color: C.roseFill, borderRadius: BorderRadius.circular(16)),
-            child: Text(r.blood, style: display(20, weight: 800, color: Colors.white)),
+            decoration: BoxDecoration(color: C.roseTint, borderRadius: BorderRadius.circular(16)),
+            child: Text(r.blood, style: display(20, weight: 800, color: C.rose)),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -338,7 +344,7 @@ class _RequestCard extends StatelessWidget {
               style: body(13.5, weight: FontWeight.w600, color: r.donors.isEmpty ? C.muted : C.greenDark)),
           for (final d in r.donors)
             ListRow(
-              leading: Avatar(name: d.name, fg: C.rose, bg: C.roseTint),
+              leading: Avatar(name: d.name),
               title: d.name,
               subtitle: [bnDigits(d.phone), if (d.note.isNotEmpty) d.note].join(' · '),
               trailing: CircleAction(icon: Icons.call_rounded, tooltip: tr('ফোন দিন'), onPressed: () => onCall(d.phone)),

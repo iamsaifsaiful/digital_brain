@@ -103,7 +103,7 @@ class MemoryScreen extends StatelessWidget {
       floatingActionButton: AddButton(label: tr('যোগ করুন'), onPressed: add),
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('সহকারীর স্মৃতি'), trailing: const [PdfButton({ReportPart.memories})]),
+          TopBar(title: tr('সহকারীর স্মৃতি'), sub: tr('যা বলেছেন, মনে রাখি'), trailing: const [PdfButton({ReportPart.memories})]),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 100), children: [
               InfoBanner(

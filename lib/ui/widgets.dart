@@ -57,15 +57,19 @@ class Rows extends StatelessWidget {
       );
 }
 
+/// The same calm colour for a name every time (avatars across the app).
+Color nameTone(String name) => _tones[name.runes.fold<int>(0, (a, c) => a + c) % _tones.length];
+const _tones = [Color(0xFFB9785A), Color(0xFF4F6B60), Color(0xFF7A6FA8), Color(0xFFB98A3E), Color(0xFF5C7A99)];
+
 class Avatar extends StatelessWidget {
   const Avatar({super.key, required this.name, Color? fg, Color? bg, this.size = 40, this.square = false})
       : _fg = fg,
         _bg = bg;
   final String name;
   final Color? _fg;
-  Color get fg => _fg ?? C.green;
+  Color get fg => _fg ?? Colors.white;
   final Color? _bg;
-  Color get bg => _bg ?? C.greenTint;
+  Color get bg => _bg ?? nameTone(name);
   final double size;
   final bool square;
 
@@ -553,9 +557,9 @@ class CircleAction extends StatelessWidget {
   final String tooltip;
   final VoidCallback? onPressed;
   final Color? _fg;
-  Color get fg => _fg ?? C.green;
+  Color get fg => _fg ?? C.ink;
   final Color? _bg;
-  Color get bg => _bg ?? C.greenTint;
+  Color get bg => _bg ?? C.chip;
   final double size;
 
   @override

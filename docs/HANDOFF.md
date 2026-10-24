@@ -6,6 +6,13 @@
 
 ---
 
+## 0d. Update 24 Oct: 2.49.0 — the new UI on every page; প্রো → প্রিমিয়াম
+- Owner's answers (24 Oct): design may change where needed but must match the whole app and drop nothing from the last APK; FAB = 🎤; hand notes stay, small; main colour deep green-black, changeable; "প্রো" → "প্রিমিয়াম" everywhere the user sees (internal ids, `ProFeature`, server keys unchanged; voice still understands প্রো, and "প্রিমিয়াম খোলো" opens the page while "বীমার প্রিমিয়াম দিয়েছি" is still an instalment — menus.dart `appPremium`).
+- What was built and what was left out on purpose: `docs/design/2026-10-24-new-ui/IMPLEMENTED.md`. Kit: `lib/ui/kit.dart`; tokens: `lib/ui/theme.dart` (default accent `forest`; calm category colours with it).
+- Screenshots of every page, light and dark: `SHOTS=1 flutter test --no-pub --update-goldens test/ui/all_pages_shots_test.dart` (and `new_ui_shots_test.dart` for the 4 tabs) → `test/ui/shots/` (gitignored). Without SHOTS they only check every page builds.
+- Fixes found on the way: `placePage('vault')` now opens `VaultPage` (VaultScreen alone had no Material); StartTips checks `mounted` before reading context; MiniBars no longer `reduce(math.max)` on an int list.
+- NLU round 7 (CI run 40053704800) failed the gate (better overall 79.9→83.4%, money 65→78%, zakat fixed; but calendar, confirm_yes, ledger_add, task_remind and delete fell) — not published.
+
 ## 0a. Update 23 Oct (later): 2.46.0-b97, plugin 1.16.0, admin 1.6.0+8
 - Old notifications on open: MainActivity drops a reminder intent when the activity is rebuilt (savedInstanceState != null) and on `clearLaunch` after Dart handled the launch tap; `schedule()` schedules each notice on its own (one bad past one no longer stops the rest), repeating ones go to `nextAhead()` (month-end safe).
 - নোটিফিকেশন page (`lib/screens/notice_screen.dart`, bell on Home + আরও): next 7 days (`expandPlan`) and 30 days of history (`addPassed`), kept encrypted in the key vault (`notice_log`); `lib/logic/notice_log.dart`.

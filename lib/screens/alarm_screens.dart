@@ -359,7 +359,7 @@ class _CheckRow extends StatelessWidget {
             const SizedBox(width: 8),
             FilledButton(
               onPressed: onFix,
-              style: FilledButton.styleFrom(backgroundColor: C.green, minimumSize: const Size(0, 38), padding: const EdgeInsets.symmetric(horizontal: 14)),
+              style: FilledButton.styleFrom(backgroundColor: C.primary, minimumSize: const Size(0, 38), padding: const EdgeInsets.symmetric(horizontal: 14)),
               child: Text(fix, style: body(14, weight: FontWeight.w600, color: Colors.white)),
             ),
           ],

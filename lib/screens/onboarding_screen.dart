@@ -131,7 +131,7 @@ class TemplatesScreen extends StatelessWidget {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('তৈরি তালিকা')),
+          TopBar(title: tr('তৈরি তালিকা'), sub: tr('এক চাপে পুরো তালিকা')),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
               Text(tr('একটা বেছে নিলে তার সব জিনিস কাজের তালিকায় আলাদা নামে উঠে যাবে। টিক দিয়ে দিয়ে শেষ করুন, দরকারমতো বাদ দিন বা যোগ করুন।'),
@@ -168,7 +168,7 @@ class TemplatesScreen extends StatelessWidget {
         await brain.addList(tr(t.name), [for (final i in t.items) tr(i)]);
         if (context.mounted) toast(context, trf('‘{0}’ কাজের তালিকায় যোগ হলো', [tr(t.name)]));
       },
-      style: FilledButton.styleFrom(backgroundColor: C.green, shape: const StadiumBorder()),
+      style: FilledButton.styleFrom(backgroundColor: C.primary, shape: const StadiumBorder()),
       child: Text(tr('যোগ করুন')),
     );
   }

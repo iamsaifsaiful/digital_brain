@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
 import 'theme.dart';
-import 'widgets.dart' show initialOf;
+import 'widgets.dart' show initialOf, nameTone;
 
 /// Where a [HandNote]'s little arrow points.
 enum HandArrow { none, right, downLeft, downRight }
@@ -185,7 +185,10 @@ class LandscapePainter extends CustomPainter {
 /// plain accent), a label, a big value, a line, an action on the right and
 /// an optional progress bar.
 class HeroCard extends StatelessWidget {
-  const HeroCard({super.key, this.label, required this.child, this.action, this.onTap, this.progress, this.landscape = true, this.padding = const EdgeInsets.fromLTRB(20, 18, 20, 18), this.radius = 22});
+  const HeroCard({super.key, this.label, required this.child, this.action, this.onTap, this.progress, this.landscape = true, this.padding = const EdgeInsets.fromLTRB(20, 18, 20, 18), this.radius = 22, this.side});
+
+  /// Something on the right (an icon, a badge) instead of [action].
+  final Widget? side;
   final String? label;
   final Widget child;
   final String? action;
@@ -209,7 +212,8 @@ class HeroCard extends StatelessWidget {
               child,
             ]),
           ),
-          if (action != null)
+          if (side != null) Padding(padding: const EdgeInsets.only(left: 8), child: side!),
+          if (action != null && side == null)
             Padding(
               padding: const EdgeInsets.only(top: 22, left: 8),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -335,7 +339,8 @@ class AvatarStack extends StatelessWidget {
   final double size;
   final int max;
 
-  static const _tones = [Color(0xFFB9785A), Color(0xFF4F6B60), Color(0xFF7A6FA8), Color(0xFFB98A3E), Color(0xFF5C7A99)];
+  /// The same calm colour for a name every time (avatars across the app).
+  static Color toneOf(String name) => nameTone(name);
 
   @override
   Widget build(BuildContext context) {
@@ -351,7 +356,7 @@ class AvatarStack extends StatelessWidget {
               width: size,
               height: size,
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: _tones[n.hashCode.abs() % _tones.length], shape: BoxShape.circle, border: Border.all(color: C.ground, width: 2)),
+              decoration: BoxDecoration(color: toneOf(n), shape: BoxShape.circle, border: Border.all(color: C.ground, width: 2)),
               child: Text(initialOf(n), style: body(size * 0.4, weight: FontWeight.w600, color: Colors.white, height: 1)),
             ),
           ),
@@ -396,7 +401,7 @@ class MiniBars extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final top = values.isEmpty ? 1 : values.reduce(math.max).toDouble();
+    final top = values.fold<double>(0, (a, v) => math.max(a, v.toDouble()));
     final hi = highlight ?? values.length - 1;
     return SizedBox(
       height: height,

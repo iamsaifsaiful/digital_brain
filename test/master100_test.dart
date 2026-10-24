@@ -769,7 +769,7 @@ void main() {
     rig.brain.gated = true;
     final r = await say('অন্যান্য হিসাবে বাগানে ৫০০ টাকা খরচ লিখে রাখো');
     expect(data().cash, hasLength(3), reason: r);
-    expect(r, contains('প্রো'));
+    expect(r, contains('প্রিমিয়াম'));
     expect(r, contains('বাগান'));
     expect(chat.wait, ChatWait.yesNo);
     await say('না');

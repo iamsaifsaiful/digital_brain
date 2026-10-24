@@ -71,7 +71,7 @@ class _CompassScreenState extends State<CompassScreen> {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('কম্পাস')),
+          TopBar(title: tr('কম্পাস'), sub: tr('কিবলার দিক')),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 24), children: [
               if (_none)

@@ -4,6 +4,7 @@ import '../logic/bn.dart';
 import '../logic/lang.dart';
 import '../logic/pro.dart';
 import '../state/brain.dart';
+import '../ui/kit.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 
@@ -45,7 +46,7 @@ const _short = <ProFeature, (String, IconData)>{
 class _ProScreenState extends State<ProScreen> {
   bool _details = false;
 
-  /// "Get Pro": our website's Pro page, where any way of paying works.
+  /// "Get Premium": our website's Pro page, where any way of paying works.
   Future<void> _getPro(Brain brain) async {
     final ok = await brain.services.launcher.openUrl(Uri.parse(proWebPage));
     if (!ok && mounted) toast(context, tr('ব্রাউজার খোলা গেল না'));
@@ -54,7 +55,7 @@ class _ProScreenState extends State<ProScreen> {
   /// The preview only: Pro on without paying, to try both sides.
   Future<void> _tryPreview(Brain brain) async {
     await brain.activatePro(proPlans.first);
-    if (mounted) toast(context, tr('প্রো চালু হলো (পরীক্ষা)'));
+    if (mounted) toast(context, tr('প্রিমিয়াম চালু হলো (পরীক্ষা)'));
   }
 
   @override
@@ -66,16 +67,16 @@ class _ProScreenState extends State<ProScreen> {
         ? tr('এই অ্যাপে এখন সব সুবিধা খোলা — কিছুই তালাবদ্ধ নয়।')
         : brain.pro
             ? switch (brain.proKind) {
-                'test' => tr('প্রো চালু (প্রিভিউ পরীক্ষা)'),
-                _ => trf('প্রো চালু — {0} পর্যন্ত', [shortDate(until!)]),
+                'test' => tr('প্রিমিয়াম চালু (প্রিভিউ পরীক্ষা)'),
+                _ => trf('প্রিমিয়াম চালু — {0} পর্যন্ত', [shortDate(until!)]),
               }
             : null;
 
     Widget getPro() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          if (showProLink) PrimaryButton(key: const Key('get-pro'), label: brain.pro && sell ? tr('মেয়াদ বাড়ান') : 'Get Pro', icon: Icons.workspace_premium_rounded, onPressed: () => _getPro(brain)),
+          if (showProLink) PrimaryButton(key: const Key('get-pro'), label: brain.pro && sell ? tr('মেয়াদ বাড়ান') : 'Get Premium', icon: Icons.workspace_premium_rounded, onPressed: () => _getPro(brain)),
           if (previewEdition && !brain.pro) ...[
             const SizedBox(height: 6),
-            TextButton(onPressed: () => _tryPreview(brain), child: Text(tr('প্রিভিউ: টাকা ছাড়া প্রো চালু করে দেখুন'))),
+            TextButton(onPressed: () => _tryPreview(brain), child: Text(tr('প্রিভিউ: টাকা ছাড়া প্রিমিয়াম চালু করে দেখুন'))),
           ],
         ]);
 
@@ -128,7 +129,7 @@ class _ProScreenState extends State<ProScreen> {
         child: TextButton.icon(
           onPressed: () => setState(() => _details = true),
           icon: const Icon(Icons.list_alt_rounded),
-          label: Text(tr('ফ্রি আর প্রো-র পুরো তুলনা')),
+          label: Text(tr('ফ্রি আর প্রিমিয়ামের পুরো তুলনা')),
         ),
       ),
     ];
@@ -151,7 +152,7 @@ class _ProScreenState extends State<ProScreen> {
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(tr('বিস্তারিত আর কেনা — আমাদের ওয়েবসাইটে'), style: body(15, weight: FontWeight.w700, color: C.greenDark)),
                     Text(proWebPage.replaceFirst('https://', ''), style: body(13, color: C.greenDark)),
-                    Text(tr('বিকাশ, নগদ, রকেট বা ব্যাংকে টাকা দিয়ে প্রো নেওয়া যায়'), style: body(12, color: C.greenDark)),
+                    Text(tr('বিকাশ, নগদ, রকেট বা ব্যাংকে টাকা দিয়ে প্রিমিয়াম নেওয়া যায়'), style: body(12, color: C.greenDark)),
                   ]),
                 ),
                 Icon(Icons.open_in_new_rounded, color: C.green),
@@ -213,33 +214,25 @@ class _ProScreenState extends State<ProScreen> {
       backgroundColor: C.ground,
       body: SafeArea(
         child: Column(children: [
-          const TopBar(title: '', close: true),
+          TopBar(title: tr('প্রিমিয়াম ভার্সন'), sub: tr('সব সুবিধা, কোনো বিজ্ঞাপন নেই'), close: true),
           Expanded(
             child: SwipeTabs<bool>(
               items: const [false, true],
               value: _details,
               onChanged: (v) => setState(() => _details = v),
               child: ListView(padding: const EdgeInsets.fromLTRB(20, 0, 20, 28), children: [
-                Container(
-                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(22),
-                    gradient: const LinearGradient(colors: [Color(0xFF111827), Color(0xFF1F2937)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                  ),
-                  child: Row(children: [
-                    Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(color: const Color(0xFFFBBF24), borderRadius: BorderRadius.circular(16)),
-                      child: const Icon(Icons.workspace_premium_rounded, color: Color(0xFF111827), size: 30),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('My Assistant Pro', style: display(22, weight: 700, color: Colors.white)),
-                        Text(status ?? tr('আরও বেশি কাজ, বিজ্ঞাপন ছাড়া'), style: body(13.5, color: const Color(0xFFD1D5DB))),
-                      ]),
-                    ),
+                HeroCard(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 26),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      const Icon(Icons.workspace_premium_rounded, color: Color(0xFFF5C46B), size: 18),
+                      const SizedBox(width: 6),
+                      Text('My Assistant ${tr('প্রিমিয়াম')}', style: body(13.5, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.9))),
+                    ]),
+                    const SizedBox(height: 8),
+                    Text(tr('আরও সহজ,\nআরও নিশ্চিন্ত'), style: heading(30, color: Colors.white, height: 1.15)),
+                    const SizedBox(height: 10),
+                    Text(status ?? tr('আরও বেশি কাজ, বিজ্ঞাপন ছাড়া'), style: body(13.5, color: Colors.white.withValues(alpha: 0.8))),
                   ]),
                 ),
                 const SizedBox(height: 14),
@@ -256,7 +249,7 @@ class _ProScreenState extends State<ProScreen> {
                     color: C.orangeTint,
                     borderColor: C.orange,
                     padding: const EdgeInsets.all(14),
-                    child: Text(tr('এটা প্লে স্টোর ভার্সনের প্রিভিউ। সেটিংসের “পরীক্ষা: প্রো চালু” সুইচ দিয়ে ফ্রি আর প্রো দুটোই দেখতে পারবেন।'), style: body(13, color: C.orangeDark, height: 1.5)),
+                    child: Text(tr('এটা প্লে স্টোর ভার্সনের প্রিভিউ। সেটিংসের “পরীক্ষা: প্রিমিয়াম চালু” সুইচ দিয়ে ফ্রি আর প্রিমিয়াম দুটোই দেখতে পারবেন।'), style: body(13, color: C.orangeDark, height: 1.5)),
                   ),
                 ],
               ]),

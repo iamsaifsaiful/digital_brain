@@ -327,7 +327,7 @@ void main() {
     expect(find.descendant(of: grid, matching: find.text('যাকাত')), findsOneWidget);
     expect(find.descendant(of: grid, matching: find.text('ফ্যামিলি')), findsOneWidget);
     expect(find.descendant(of: grid, matching: find.text('অনুরোধ')), findsNothing, reason: 'not called অনুরোধ any more');
-    expect(find.descendant(of: grid, matching: find.text('প্রো ভার্সন')), findsOneWidget);
+    expect(find.descendant(of: grid, matching: find.text('প্রিমিয়াম ভার্সন')), findsOneWidget);
     await t.tap(find.text('আরও').last);
     await settle(t);
     expect(find.byKey(const Key('more-requests')), findsOneWidget);
@@ -417,17 +417,17 @@ void main() {
 
   testWidgets('প্রো ভার্সন: features in brief, the website and Get Pro', (t) async {
     final rig = await start(t);
-    await tapMenu(t, 'প্রো ভার্সন');
+    await tapMenu(t, 'প্রিমিয়াম ভার্সন');
     expect(find.text('সংক্ষেপে'), findsOneWidget);
     final get = find.byKey(const Key('get-pro'));
     await t.scrollUntilVisible(get, 300, scrollable: vScroll().last);
     await settle(t);
-    expect(find.text('Get Pro'), findsWidgets);
+    expect(find.text('Get Premium'), findsWidgets);
     await t.tap(get);
     await settle(t);
     final l = rig.services.launcher as FakeLauncher;
     expect(l.opened.last.toString(), proWebPage);
-    await t.fling(find.text('Get Pro').first, const Offset(0, 3000), 3000);
+    await t.fling(find.text('Get Premium').first, const Offset(0, 3000), 3000);
     await settle(t);
     await t.tap(find.text('বিস্তারিত').first);
     await settle(t);

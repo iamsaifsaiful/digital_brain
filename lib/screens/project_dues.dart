@@ -93,7 +93,7 @@ Future<void> dueForm(BuildContext context, Project project, {String person = '',
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
-                    brain.has(ProFeature.dueReminders) ? tr('আগের দিন আর সেদিন সকাল ১০টায় মনে করিয়ে দেবো।') : tr('তারিখ রাখা থাকবে; মনে করিয়ে দেওয়া প্রো-তে।'),
+                    brain.has(ProFeature.dueReminders) ? tr('আগের দিন আর সেদিন সকাল ১০টায় মনে করিয়ে দেবো।') : tr('তারিখ রাখা থাকবে; মনে করিয়ে দেওয়া প্রিমিয়ামে।'),
                     style: body(13, color: C.muted)),
               ),
             const SizedBox(height: 14),
