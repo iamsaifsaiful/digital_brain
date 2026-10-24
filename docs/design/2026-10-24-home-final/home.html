@@ -1,0 +1,788 @@
+<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>My Assistant — হোম</title><link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet"><style>
+
+* { box-sizing: border-box; }
+:root { color-scheme: light; }
+body {
+  margin: 0;
+  padding: 36px 28px;
+  background: #e8eceb;
+  color: #243833;
+  font-family: "Noto Sans Bengali", sans-serif;
+}
+h1,h2,h3,p { margin: 0; }
+button,input,summary { font: inherit; }
+button { cursor: pointer; }
+button:focus-visible,input:focus-visible,summary:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+button { -webkit-tap-highlight-color: transparent; }
+.presentation {
+  width: max-content;
+  min-width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 36px;
+}
+.mode-label {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 12px 5px;
+}
+.phone {
+  --bg: #f5f7f6;
+  --surface: #ffffff;
+  --surface-2: #edf2f0;
+  --text: #192e28;
+  --muted: #667871;
+  --border: #dfe7e3;
+  --accent: #087866;
+  --accent-soft: #e7f3ee;
+  --on-accent: #ffffff;
+  --warning: #92631c;
+  --warning-bg: #fbf5e9;
+  --warning-border: #ebdfc5;
+  width: 390px;
+  height: 844px;
+  flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #b7c4be;
+  border-radius: 34px;
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 20px 55px #19372a12;
+  color-scheme: light;
+}
+.phone.dark {
+  --bg: #101916;
+  --surface: #19251f;
+  --surface-2: #223129;
+  --text: #eef4ef;
+  --muted: #a1b3a8;
+  --border: #2d3d33;
+  --accent: #8bd8bf;
+  --accent-soft: #223c31;
+  --on-accent: #102c21;
+  --warning: #e5c487;
+  --warning-bg: #2b281e;
+  --warning-border: #45402e;
+  border-color: #39483f;
+  color-scheme: dark;
+}
+.icon {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+.small-icon { width: 16px; height: 16px; }
+.status {
+  height: 33px;
+  min-height: 33px;
+  padding: 10px 23px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+}
+.status-icons { display: flex; gap: 6px; align-items: center; }
+.status-icons .icon { width: 16px; height: 16px; }
+.content {
+  flex: 1;
+  min-height: 0;
+  padding: 9px 19px 22px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.content::-webkit-scrollbar { display: none; }
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.brand { display: flex; align-items: center; gap: 8px; }
+.brand-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: grid;
+  place-items: center;
+}
+.brand-name {
+  font-family: "Hind Siliguri", sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+}
+.top-actions { display: flex; gap: 6px; align-items: center; }
+.icon-button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+.unread {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.profile { position: relative; }
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.pro {
+  position: absolute;
+  bottom: -1px;
+  left: 9px;
+  padding: 1px 5px;
+  background: var(--accent);
+  color: var(--on-accent);
+  border: 2px solid var(--bg);
+  border-radius: 5px;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 12px;
+}
+.greeting {
+  font-family: "Hind Siliguri", sans-serif;
+  font-size: 26px;
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: -.4px;
+}
+.date { font-size: 13px; margin-top: 4px; color: var(--muted); }
+.calendars {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 6px;
+  white-space: nowrap;
+}
+.calendar-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.weather {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 15px 0 13px;
+  padding: 11px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.weather-main { display: flex; align-items: center; gap: 7px; font-size: 12px; }
+.weather-main .icon { color: var(--muted); width: 20px; }
+.sun-times { font-size: 10px; color: var(--muted); line-height: 1.7; text-align: right; }
+.warning {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--warning-border);
+  border-radius: 14px;
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+.warning .icon { width: 20px; height: 20px; }
+.warning strong { display: block; font-size: 12px; font-weight: 600; }
+.warning p { font-size: 10px; margin-top: 3px; }
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 12px 0 4px;
+  min-height: 32px;
+}
+.section-heading h2 {
+  font-family: "Hind Siliguri", sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+}
+.counter {
+  font-size: 10px;
+  color: var(--muted);
+  background: var(--surface-2);
+  border-radius: 6px;
+  padding: 4px 7px;
+}
+.card {
+  border: 1px solid var(--border);
+  border-radius: 17px;
+  background: var(--surface);
+}
+.next-card { padding: 13px 14px; }
+.next-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.live-dot { width: 5px; height: 5px; background: var(--accent); border-radius: 50%; }
+.next-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.next-title { font-size: 14px; font-weight: 600; }
+.next-meta { font-size: 10px; color: var(--muted); margin-top: 5px; }
+.time { font-size: 19px; font-weight: 600; color: var(--accent); white-space: nowrap; }
+.time small { display: block; font-size: 9px; font-weight: 400; color: var(--muted); text-align: right; margin-top: 2px; }
+.money { padding: 13px 14px 0; }
+.balance-row { display: flex; align-items: center; justify-content: space-between; }
+.eyebrow { font-size: 10px; color: var(--muted); }
+.balance { font-size: 26px; letter-spacing: -.5px; line-height: 1.6; font-weight: 600; }
+.wallet-icon {
+  display: grid; place-items: center;
+  width: 40px; height: 40px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 12px;
+}
+.money-stats { display: flex; gap: 26px; margin: 4px 0 12px; }
+.money-stat { font-size: 10px; color: var(--muted); }
+.money-stat strong { display: block; margin-top: 5px; font-size: 12px; font-weight: 500; color: var(--text); }
+.money-stat span { display: inline-flex; align-items: center; gap: 4px; }
+.loan-row {
+  padding: 10px 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 10px;
+}
+.loan-row strong { color: var(--text); font-weight: 500; margin-left: 5px; }
+.tools { margin-top: 12px; }
+.tools summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+}
+.tools summary::-webkit-details-marker { display: none; }
+.tools summary .icon { width: 17px; height: 17px; color: var(--muted); }
+.tools[open] summary .icon { transform: rotate(180deg); }
+.tool-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; padding-bottom: 8px; }
+.tool {
+  min-height: 67px;
+  padding: 10px 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 10px;
+}
+.tool .icon { width: 19px; height: 19px; color: var(--accent); }
+.privacy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 9px;
+  padding: 8px 0 0;
+}
+.bottom {
+  flex-shrink: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 10px 15px 8px;
+}
+.composer { display: flex; align-items: center; gap: 10px; }
+.type-wrap {
+  height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+  background: var(--bg);
+  color: var(--muted);
+}
+.type-wrap .icon { width: 19px; height: 19px; }
+.type-wrap input {
+  width: 100%;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  height: 44px;
+}
+.type-wrap input::placeholder { color: var(--muted); opacity: 1; }
+.mic {
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: 19px;
+  background: var(--accent);
+  color: var(--on-accent);
+  display: grid;
+  place-items: center;
+}
+.mic .icon { width: 26px; height: 26px; stroke-width: 1.8; }
+.nav { display: flex; margin-top: 5px; }
+.nav button {
+  flex: 1;
+  min-height: 48px;
+  padding: 5px 0 2px;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 9px;
+}
+.nav .icon { width: 19px; height: 19px; }
+.nav button.active { color: var(--accent); font-weight: 600; }
+.gesture {
+  height: 4px;
+  width: 102px;
+  background: var(--text);
+  opacity: .3;
+  border-radius: 10px;
+  margin: 5px auto 0;
+}
+.demo-note { text-align: center; font-size: 11px; color: #64746e; margin-top: 22px; }
+@media (prefers-reduced-motion: no-preference) {
+  button { transition: opacity .15s; }
+  button:hover { opacity: .78; }
+}
+
+/* ---- full home (adapted) ---- */
+.content { padding: 6px 20px 24px; }
+.topbar { margin-bottom: 0; align-items: flex-start; }
+.greeting { font-size: 25px; line-height: 1.3; }
+.date { font-size: 13.5px; margin-top: 2px; }
+.calendars { font-size: 11.5px; margin-top: 4px; }
+.weather { margin: 14px 0 12px; padding: 10px 0; }
+.weather-main { font-size: 13px; }
+.sun-times { font-size: 11.5px; line-height: 1.6; }
+.warning strong { font-size: 13px; }
+.warning p { font-size: 11.5px; }
+.warning .act { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--warning); border: 1px solid var(--warning-border); border-radius: 10px; padding: 6px 10px; background: transparent; white-space: nowrap; }
+.section-heading { margin: 16px 0 6px; }
+.section-heading h2 { font-size: 17px; }
+.counter { font-size: 11.5px; }
+.link { font-size: 12.5px; color: var(--accent); font-weight: 600; display: inline-flex; align-items: center; gap: 2px; }
+.link .icon { width: 15px; height: 15px; }
+.next-label { font-size: 11.5px; }
+.next-title { font-size: 16px; }
+.next-meta { font-size: 12px; }
+.time { font-size: 22px; }
+.time small { font-size: 11px; }
+.btn-row { display: flex; gap: 8px; margin-top: 12px; }
+.btn { height: 38px; padding: 0 12px; border-radius: 11px; border: 1px solid var(--border); background: var(--surface); color: var(--text); display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; }
+.btn .icon { width: 17px; height: 17px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.tasks { margin-top: 8px; padding: 2px 14px; }
+.grp { font-size: 11.5px; color: var(--muted); font-weight: 600; padding: 10px 0 2px; display: flex; align-items: center; gap: 5px; }
+.grp.late { color: var(--warning); }
+.grp .icon { width: 14px; height: 14px; }
+.trow { display: flex; align-items: center; gap: 11px; padding: 9px 0; }
+.trow + .trow { border-top: 1px solid var(--border); }
+.box { width: 22px; height: 22px; border-radius: 7px; border: 1.6px solid var(--border); flex: none; display: grid; place-items: center; }
+.box.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.box .icon { width: 14px; height: 14px; stroke-width: 2.4; }
+.trow .tx { flex: 1; min-width: 0; }
+.trow .t1 { font-size: 14px; }
+.trow .t1.done { color: var(--muted); text-decoration: line-through; }
+.trow .t2 { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+.trow .t2.late { color: var(--warning); }
+.chip { font-size: 11.5px; font-weight: 600; color: var(--accent); background: var(--accent-soft); border-radius: 9px; padding: 5px 10px; white-space: nowrap; border: 0; }
+.peek { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+.peek .icon { width: 16px; height: 16px; }
+.card-foot { display: flex; border-top: 1px solid var(--border); margin: 0 -14px; }
+.card-foot button { flex: 1; height: 44px; border: 0; background: transparent; color: var(--accent); font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.card-foot button + button { border-left: 1px solid var(--border); }
+.card-foot .icon { width: 17px; height: 17px; }
+.eyebrow { font-size: 11.5px; }
+.balance { font-size: 27px; line-height: 1.45; }
+.money-stat { font-size: 11.5px; }
+.money-stat strong { font-size: 14px; font-weight: 600; }
+.money-stat .in { color: var(--accent); }
+.loans { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--border); }
+.loans > div { padding: 10px 0; font-size: 11.5px; color: var(--muted); }
+.loans > div + div { border-left: 1px solid var(--border); padding-left: 12px; }
+.loans strong { display: block; font-size: 15px; font-weight: 600; color: var(--text); margin-top: 2px; }
+.loans .due { display: block; font-size: 11px; color: var(--warning); margin-top: 2px; }
+.week { display: flex; align-items: center; gap: 8px; padding: 11px 0; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--text); }
+.week .icon { width: 17px; height: 17px; color: var(--accent); }
+.week .go { margin-left: auto; color: var(--muted); width: 16px; height: 16px; }
+.hol { padding: 4px 14px; }
+.hrow { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+.hrow + .hrow { border-top: 1px solid var(--border); }
+.dblock { width: 44px; height: 46px; border-radius: 12px; background: var(--surface-2); text-align: center; padding-top: 5px; flex: none; }
+.dblock b { display: block; font-size: 17px; font-weight: 700; line-height: 1.15; }
+.dblock span { font-size: 10.5px; color: var(--muted); }
+.hrow .t1 { font-size: 14px; font-weight: 500; }
+.hrow .t2 { font-size: 11.5px; color: var(--muted); }
+.hrow .tag { margin-left: auto; font-size: 11.5px; color: var(--muted); background: var(--surface-2); border-radius: 8px; padding: 4px 8px; white-space: nowrap; }
+.tools { margin-top: 14px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); padding: 0 14px; }
+.tools summary { font-size: 14px; font-weight: 600; min-height: 50px; }
+.tools summary small { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; }
+.tool-grid { grid-template-columns: repeat(4,1fr); gap: 6px; padding: 2px 0 12px; }
+.tool { justify-content: flex-start; min-height: 72px; font-size: 11.5px; border: 0; background: transparent; gap: 6px; padding: 6px 2px; text-align: center; line-height: 1.25; }
+.tool .icon { width: 22px; height: 22px; padding: 9px; box-sizing: content-box; background: var(--accent-soft); border-radius: 12px; }
+.quote { margin-top: 12px; padding: 13px 14px; display: flex; gap: 10px; }
+.quote .icon { width: 20px; height: 20px; color: var(--muted); }
+.quote .q { font-size: 13.5px; line-height: 1.6; }
+.quote .s { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.privacy { font-size: 11.5px; padding: 14px 0 0; }
+.type-wrap input { font-size: 13.5px; }
+.mic { width: 52px; height: 52px; border-radius: 17px; }
+.nav button { font-size: 11px; min-height: 52px; }
+.nav .icon { width: 22px; height: 22px; }
+.nav button.active .icon { background: var(--accent-soft); border-radius: 10px; padding: 3px 12px; box-sizing: content-box; }
+.pro { font-size: 9px; }
+.phone.tall { height: auto; }
+.phone.tall .content { overflow: visible; }
+
+.pro { left: 50%; transform: translateX(-50%); padding: 1px 6px; font-size: 8.5px; white-space: nowrap; bottom: -3px; }
+.prayer-now { text-align: right; display: flex; align-items: center; gap: 9px; }
+.prayer-now .pi { width: 34px; height: 34px; border-radius: 11px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
+.prayer-now .pi .icon { width: 19px; height: 19px; }
+.prayer-now .l1 { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.prayer-now .l1 b { color: var(--accent); font-weight: 600; }
+.prayer-now .l2 { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+.ramadan { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600; color: var(--warning); background: var(--warning-bg); border: 1px solid var(--warning-border); border-radius: 8px; padding: 1px 6px; margin-right: 4px; }
+
+.rot { position: relative; height: 50px; min-width: 150px; } .rot .slide { white-space: nowrap; }
+.rot .slide { position: absolute; right: 0; top: 0; opacity: 0; transform: translateY(6px); }
+.rot .slide.s1 { animation: rotA 10s infinite; }
+.rot .slide.s2 { animation: rotB 10s infinite; }
+@keyframes rotA { 0%,45% { opacity: 1; transform: none; } 50%,95% { opacity: 0; transform: translateY(-6px); } 100% { opacity: 1; transform: none; } }
+@keyframes rotB { 0%,45% { opacity: 0; transform: translateY(6px); } 50%,95% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+.rot.still .slide { animation: none; }
+.rot.still.show1 .s1, .rot.still.show2 .s2 { opacity: 1; transform: none; }
+.rdots { display: flex; gap: 3px; justify-content: flex-end; margin-top: 4px; }
+.rdots i { width: 4px; height: 4px; border-radius: 50%; background: var(--border); display: block; }
+.rdots i.on { background: var(--accent); width: 10px; border-radius: 3px; }
+</style></head><body><svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+<defs>
+  <symbol id="spark" viewBox="0 0 24 24"><path d="M12 3l2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4z"/></symbol>
+  <symbol id="bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></symbol>
+  <symbol id="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
+  <symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="wallet" viewBox="0 0 24 24"><path d="M20 8V5H6a3 3 0 0 0-3 3v11a2 2 0 0 0 2 2h15V8H6a3 3 0 0 1 0-6h12"/><path d="M20 12h-5v5h5M17 14.5h.01"/></symbol>
+  <symbol id="down" viewBox="0 0 24 24"><path d="M12 4v15m-5-5l5 5 5-5"/></symbol>
+  <symbol id="up" viewBox="0 0 24 24"><path d="M12 20V5m-5 5l5-5 5 5"/></symbol>
+  <symbol id="chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></symbol>
+  <symbol id="keyboard" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10"/></symbol>
+  <symbol id="mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2m-7 9v3m-4 0h8"/></symbol>
+  <symbol id="home" viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="list" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/></symbol>
+  <symbol id="history" viewBox="0 0 24 24"><path d="M3 10a9 9 0 1 1 2 8M3 4v6h6m3-3v5l3 2"/></symbol>
+  <symbol id="note" viewBox="0 0 24 24"><path d="M14 3H5v18h14V8zM14 3v6h5M8 13h8M8 17h5"/></symbol>
+  <symbol id="folder" viewBox="0 0 24 24"><path d="M3 7V4h6l3 3h9v13H3z"/></symbol>
+  <symbol id="person" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M4 21v-3a8 8 0 0 1 16 0v3"/></symbol>
+  <symbol id="health" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/><path d="M7 12h3l2-4 2 7 2-3h2"/></symbol>
+  <symbol id="calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 10h18M8 15h.01M12 15h.01M16 15h.01"/></symbol>
+  <symbol id="alarm" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M3 5l3-3m12 0l3 3M6 20l-2 2m14-2l2 2"/></symbol>
+  <symbol id="exchange" viewBox="0 0 24 24"><path d="M3 7h17m-4-4l4 4-4 4M21 17H4m4-4l-4 4 4 4"/></symbol>
+  <symbol id="signal" viewBox="0 0 24 24"><path d="M4 20v-3m5 3v-7m5 7V9m5 11V4"/></symbol>
+  <symbol id="battery" viewBox="0 0 24 24"><rect x="2" y="6" width="18" height="12" rx="2"/><path d="M23 10v4M5 9h11v6H5z"/></symbol>
+
+  <symbol id="phone" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></symbol>
+  <symbol id="check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></symbol>
+  <symbol id="snooze" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M9 10h6l-6 6h6M4 4l3-2m13 2l-3-2"/></symbol>
+  <symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="arrow" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="quote" viewBox="0 0 24 24"><path d="M9 7H5v5h4l-2 5M19 7h-4v5h4l-2 5"/></symbol>
+  <symbol id="compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></symbol>
+  <symbol id="zakat" viewBox="0 0 24 24"><path d="M4 14h3l3 2h4a2 2 0 0 0 0-4h-3M4 20h12l5-4M13 6a3 3 0 1 0 6 0 3 3 0 0 0-6 0"/></symbol>
+  <symbol id="family" viewBox="0 0 24 24"><circle cx="7" cy="6" r="2.5"/><circle cx="17" cy="6" r="2.5"/><circle cx="12" cy="12" r="2"/><path d="M3 21v-6a4 4 0 0 1 8 0M13 15a4 4 0 0 1 8 0v6M9 21v-3a3 3 0 0 1 6 0v3"/></symbol>
+  <symbol id="drop" viewBox="0 0 24 24"><path d="M12 3s7 7.5 7 12a7 7 0 0 1-14 0c0-4.5 7-12 7-12z"/><path d="M12 11v6M9 14h6"/></symbol>
+  <symbol id="crown" viewBox="0 0 24 24"><path d="M3 8l4 4 5-7 5 7 4-4-2 11H5z"/></symbol>
+  <symbol id="pie" viewBox="0 0 24 24"><path d="M12 3v9h9A9 9 0 1 1 12 3z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></symbol>
+  <symbol id="warn" viewBox="0 0 24 24"><path d="M12 3l10 18H2zM12 10v5M12 18h.01"/></symbol>
+  <symbol id="box" viewBox="0 0 24 24"><path d="M3 8l9-5 9 5v8l-9 5-9-5zM3 8l9 5 9-5M12 13v8"/></symbol>
+  <symbol id="menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="party" viewBox="0 0 24 24"><path d="M4 20l5-14 9 9zM14 4l1 2M19 9l2-1M17 3l-1 3"/></symbol>
+  <symbol id="wifi" viewBox="0 0 24 24"><path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01"/></symbol>
+  <symbol id="mosque" viewBox="0 0 24 24"><path d="M12 3c-1 2-4 3-4 6h8c0-3-3-4-4-6zM6 21V11h12v10M3 21h18M4 21v-9M20 21v-9M10 21v-4a2 2 0 0 1 4 0v4M4 12V9M20 12V9"/></symbol>
+  <symbol id="moon" viewBox="0 0 24 24"><path d="M20 15A8 8 0 1 1 9 4a7 7 0 0 0 11 11z"/></symbol>
+  <symbol id="sunrise" viewBox="0 0 24 24"><path d="M3 18h18M6 18a6 6 0 0 1 12 0M12 4v4M4.9 9.9l1.4 1.4M19.1 9.9l-1.4 1.4M9 6l3-3 3 3"/></symbol>
+</defs>
+</svg><main class="presentation"><section><h1 class="mode-label">হালকা মোড</h1><div class="phone tall" id="light">
+  <div class="status"><span>সন্ধ্যা ৬:৩৪</span><div class="status-icons"><svg class="icon"><use href="#signal"/></svg><svg class="icon"><use href="#wifi"/></svg><svg class="icon"><use href="#battery"/></svg></div></div>
+  <div class="content">
+    <header class="topbar">
+      <div>
+        <h1 class="greeting">শুভ সন্ধ্যা, সাইফুল</h1>
+        <p class="date">শনিবার, ২৪ অক্টোবর</p>
+        <div class="calendars"><span>৮ কার্তিক ১৪৩৩</span><span class="calendar-dot"></span><span>১২ জমাদিউল আউয়াল ১৪৪৮</span></div>
+      </div>
+      <div class="top-actions">
+        <button class="icon-button" type="button" aria-label="নোটিফিকেশন"><svg class="icon"><use href="#bell"/></svg><span class="unread"></span></button>
+        <button class="icon-button profile" type="button" aria-label="প্রোফাইল"><svg class="avatar" viewBox="0 0 40 40" role="img" aria-label="সাইফুলের প্রতীকী ছবি">
+            <rect width="40" height="40" fill="#ccd8cd"/>
+            <path d="M4 40c0-11 7-17 16-17s16 6 16 17" fill="#426356"/>
+            <path d="M15 23v5c3 4 7 4 10 0v-5" fill="#c89470"/>
+            <ellipse cx="20" cy="16" rx="9" ry="11" fill="#ddb08e"/>
+            <path d="M11 17C7 6 15 2 21 3c10 0 11 8 8 15l-2-8c-5 3-9 3-13 2z" fill="#293d32"/>
+            <path d="M16 21c2 2 6 2 8 0" fill="none" stroke="#8a5e49" stroke-linecap="round"/>
+          </svg><span class="pro">প্রিমিয়াম</span></button>
+      </div>
+    </header>
+
+    <section class="weather">
+      <div class="weather-main"><svg class="icon"><use href="#sun"/></svg><span>২৬° · পরিষ্কার · ঢাকা</span></div>
+      <div class="rot"><div class="slide s1 prayer-now"><div><div class="l1">এশা <b>৬:৩৮</b></div><div class="rdots"><i class="on"></i><i></i></div></div><span class="pi"><svg class="icon"><use href="#mosque"/></svg></span></div><div class="slide s2 prayer-now"><div><div class="l1" style="font-weight:500">সূর্যোদয় <b>৬:০১</b></div><div class="l1" style="font-weight:500">সূর্যাস্ত <b>৫:২৪</b></div><div class="rdots"><i></i><i class="on"></i></div></div><span class="pi"><svg class="icon"><use href="#sunrise"/></svg></span></div></div>
+    </section>
+
+    <aside class="warning">
+      <svg class="icon"><use href="#warn"/></svg>
+      <div><strong>রিমাইন্ডার নাও বাজতে পারে</strong><p>ফোনের একটা সেটিং বন্ধ আছে</p></div>
+      <button class="act" type="button">ঠিক করুন</button>
+    </aside>
+
+    <div class="section-heading"><h2>আজকের কাজ</h2><span class="counter">৩/৫ শেষ</span></div>
+    <article class="card next-card">
+      <div class="next-label"><span class="live-dot"></span>এরপর · ২৬ মিনিট পর</div>
+      <div class="next-row">
+        <div><h3 class="next-title">আম্মাকে ফোন</h3><p class="next-meta">পরিবার · প্রতি শনিবার</p></div>
+        <div class="time">৭:০০<small>সন্ধ্যা</small></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" type="button"><svg class="icon"><use href="#phone"/></svg>ফোন করুন</button>
+        <button class="btn" type="button"><svg class="icon"><use href="#check"/></svg>হয়ে গেছে</button>
+        <button class="btn" type="button"><svg class="icon"><use href="#snooze"/></svg>পরে</button>
+      </div>
+    </article>
+    <article class="card tasks">
+      <div class="grp late"><svg class="icon"><use href="#clock"/></svg>দেরি হয়ে গেছে · ১</div>
+      <div class="trow"><span class="box"></span><div class="tx"><div class="t1">ব্যাংকে যাওয়া — ডিপিএস জমা</div><div class="t2 late">দুপুর ১২:৩০ ছিল</div></div><button class="chip" type="button">কাল করব</button></div>
+      <div class="grp">আজ</div>
+      <div class="trow"><span class="box on"><svg class="icon"><use href="#check"/></svg></span><div class="tx"><div class="t1 done">বিদ্যুৎ বিল দেওয়া</div><div class="t2">সকাল ১০টা</div></div></div>
+      <div class="trow"><span class="box"></span><div class="tx"><div class="t1">আব্বার ওষুধ</div><div class="t2">রাত ৯টা · ফ্যামিলি থেকে</div></div></div>
+      <div class="peek"><svg class="icon"><use href="#calendar"/></svg>কাল, রবিবার · ২টা কাজ, প্রথমটা সকাল ৯টায়</div>
+      <div class="card-foot"><button type="button"><svg class="icon"><use href="#plus"/></svg>যোগ করুন</button><button type="button">সব কাজ ও রিমাইন্ডার</button></div>
+    </article>
+
+    <div class="section-heading"><h2>টাকার হিসাব</h2><span class="link">অক্টোবর · খুলুন<svg class="icon"><use href="#arrow"/></svg></span></div>
+    <div class="card money">
+      <div class="balance-row">
+        <div><p class="eyebrow">হাতে থাকল</p><p class="balance">৳২২,৫৫০</p></div>
+        <span class="wallet-icon"><svg class="icon"><use href="#wallet"/></svg></span>
+      </div>
+      <div class="money-stats">
+        <div class="money-stat"><span><svg class="icon small-icon"><use href="#down"/></svg>আয়</span><strong class="in">৳৩৫,০০০</strong></div>
+        <div class="money-stat"><span><svg class="icon small-icon"><use href="#up"/></svg>খরচ</span><strong>৳১২,৪৫০</strong></div>
+      </div>
+      <div class="loans">
+        <div>পাবো · ৩ জনের কাছে<strong>৳২৪,৫০০</strong><span class="due">আজ রহিমের ফেরতের দিন</span></div>
+        <div>দেবো · ১ জনকে<strong>৳১৫,০০০</strong><span class="due" style="color:var(--muted)">করিম · ৩ নভেম্বর</span></div>
+      </div>
+      <div class="week"><svg class="icon"><use href="#pie"/></svg>এ সপ্তাহে আয়ের ৩১% খরচ — শখের খাতে ৮%<svg class="icon go"><use href="#arrow"/></svg></div>
+    </div>
+
+    <div class="section-heading"><h2>সামনের ছুটি</h2><span class="link">ক্যালেন্ডার<svg class="icon"><use href="#arrow"/></svg></span></div>
+    <div class="card hol">
+      <div class="hrow"><div class="dblock"><b>১৬</b><span>ডিসে</span></div><div><div class="t1">বিজয় দিবস</div><div class="t2">বুধবার</div></div><span class="tag">৫৩ দিন পর</span></div>
+      <div class="hrow"><div class="dblock"><b>২৫</b><span>ডিসে</span></div><div><div class="t1">বড়দিন</div><div class="t2">শুক্রবার</div></div><span class="tag">৬২ দিন পর</span></div>
+    </div>
+
+    <details class="tools" open>
+      <summary><span>সব সুবিধা<small>১৪টা</small></span><svg class="icon"><use href="#chevron"/></svg></summary>
+      <div class="tool-grid">
+        <button class="tool" type="button"><svg class="icon"><use href="#list"/></svg>কাজের তালিকা</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#bell"/></svg>রিমাইন্ডার</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#folder"/></svg>ডকুমেন্টস</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#note"/></svg>নোট</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#person"/></svg>যোগাযোগ</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#health"/></svg>স্বাস্থ্য</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#alarm"/></svg>অ্যালার্ম</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#lock"/></svg>পাসওয়ার্ড</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#calendar"/></svg>ক্যালেন্ডার</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#compass"/></svg>কম্পাস</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#zakat"/></svg>যাকাত</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#family"/></svg>ফ্যামিলি</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#drop"/></svg>ব্লাড ডোনেশন</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#crown"/></svg>প্রিমিয়াম</button>
+      </div>
+    </details>
+
+    <article class="card quote"><svg class="icon"><use href="#quote"/></svg><div><p class="q">আয় বুঝে ব্যয় করো, সঞ্চয় করো আগে।</p><p class="s">আজকের অর্থ-কথা</p></div></article>
+
+    <p class="privacy"><svg class="icon small-icon"><use href="#lock"/></svg>আপনার তথ্য এই ফোনেই থাকে, তালাবদ্ধ</p>
+  </div>
+
+  <footer class="bottom">
+    <div class="composer">
+      <label class="type-wrap"><svg class="icon"><use href="#keyboard"/></svg><input type="text" placeholder="বলুন বা লিখুন — “রবিনকে ৫০০ দিলাম”"></label>
+      <button class="mic" type="button" aria-label="বলুন"><svg class="icon"><use href="#mic"/></svg></button>
+    </div>
+    <nav class="nav">
+      <button class="active" type="button"><svg class="icon"><use href="#home"/></svg>হোম</button>
+      <button type="button"><svg class="icon"><use href="#list"/></svg>দিনলিপি</button>
+      <button type="button"><svg class="icon"><use href="#wallet"/></svg>হিসাব</button>
+      <button type="button"><svg class="icon"><use href="#box"/></svg>সংরক্ষণ</button>
+      <button type="button"><svg class="icon"><use href="#menu"/></svg>আরও</button>
+    </nav>
+    <div class="gesture"></div>
+  </footer>
+</div></section><section><h1 class="mode-label">গাঢ় মোড</h1><div class="phone dark tall" id="dark">
+  <div class="status"><span>সন্ধ্যা ৬:৩৪</span><div class="status-icons"><svg class="icon"><use href="#signal"/></svg><svg class="icon"><use href="#wifi"/></svg><svg class="icon"><use href="#battery"/></svg></div></div>
+  <div class="content">
+    <header class="topbar">
+      <div>
+        <h1 class="greeting">শুভ সন্ধ্যা, সাইফুল</h1>
+        <p class="date">শনিবার, ২৪ অক্টোবর</p>
+        <div class="calendars"><span>৮ কার্তিক ১৪৩৩</span><span class="calendar-dot"></span><span>১২ জমাদিউল আউয়াল ১৪৪৮</span></div>
+      </div>
+      <div class="top-actions">
+        <button class="icon-button" type="button" aria-label="নোটিফিকেশন"><svg class="icon"><use href="#bell"/></svg><span class="unread"></span></button>
+        <button class="icon-button profile" type="button" aria-label="প্রোফাইল"><svg class="avatar" viewBox="0 0 40 40" role="img" aria-label="সাইফুলের প্রতীকী ছবি">
+            <rect width="40" height="40" fill="#ccd8cd"/>
+            <path d="M4 40c0-11 7-17 16-17s16 6 16 17" fill="#426356"/>
+            <path d="M15 23v5c3 4 7 4 10 0v-5" fill="#c89470"/>
+            <ellipse cx="20" cy="16" rx="9" ry="11" fill="#ddb08e"/>
+            <path d="M11 17C7 6 15 2 21 3c10 0 11 8 8 15l-2-8c-5 3-9 3-13 2z" fill="#293d32"/>
+            <path d="M16 21c2 2 6 2 8 0" fill="none" stroke="#8a5e49" stroke-linecap="round"/>
+          </svg><span class="pro">প্রিমিয়াম</span></button>
+      </div>
+    </header>
+
+    <section class="weather">
+      <div class="weather-main"><svg class="icon"><use href="#sun"/></svg><span>২৬° · পরিষ্কার · ঢাকা</span></div>
+      <div class="rot"><div class="slide s1 prayer-now"><div><div class="l1">এশা <b>৬:৩৮</b></div><div class="rdots"><i class="on"></i><i></i></div></div><span class="pi"><svg class="icon"><use href="#mosque"/></svg></span></div><div class="slide s2 prayer-now"><div><div class="l1" style="font-weight:500">সূর্যোদয় <b>৬:০১</b></div><div class="l1" style="font-weight:500">সূর্যাস্ত <b>৫:২৪</b></div><div class="rdots"><i></i><i class="on"></i></div></div><span class="pi"><svg class="icon"><use href="#sunrise"/></svg></span></div></div>
+    </section>
+
+    <aside class="warning">
+      <svg class="icon"><use href="#warn"/></svg>
+      <div><strong>রিমাইন্ডার নাও বাজতে পারে</strong><p>ফোনের একটা সেটিং বন্ধ আছে</p></div>
+      <button class="act" type="button">ঠিক করুন</button>
+    </aside>
+
+    <div class="section-heading"><h2>আজকের কাজ</h2><span class="counter">৩/৫ শেষ</span></div>
+    <article class="card next-card">
+      <div class="next-label"><span class="live-dot"></span>এরপর · ২৬ মিনিট পর</div>
+      <div class="next-row">
+        <div><h3 class="next-title">আম্মাকে ফোন</h3><p class="next-meta">পরিবার · প্রতি শনিবার</p></div>
+        <div class="time">৭:০০<small>সন্ধ্যা</small></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" type="button"><svg class="icon"><use href="#phone"/></svg>ফোন করুন</button>
+        <button class="btn" type="button"><svg class="icon"><use href="#check"/></svg>হয়ে গেছে</button>
+        <button class="btn" type="button"><svg class="icon"><use href="#snooze"/></svg>পরে</button>
+      </div>
+    </article>
+    <article class="card tasks">
+      <div class="grp late"><svg class="icon"><use href="#clock"/></svg>দেরি হয়ে গেছে · ১</div>
+      <div class="trow"><span class="box"></span><div class="tx"><div class="t1">ব্যাংকে যাওয়া — ডিপিএস জমা</div><div class="t2 late">দুপুর ১২:৩০ ছিল</div></div><button class="chip" type="button">কাল করব</button></div>
+      <div class="grp">আজ</div>
+      <div class="trow"><span class="box on"><svg class="icon"><use href="#check"/></svg></span><div class="tx"><div class="t1 done">বিদ্যুৎ বিল দেওয়া</div><div class="t2">সকাল ১০টা</div></div></div>
+      <div class="trow"><span class="box"></span><div class="tx"><div class="t1">আব্বার ওষুধ</div><div class="t2">রাত ৯টা · ফ্যামিলি থেকে</div></div></div>
+      <div class="peek"><svg class="icon"><use href="#calendar"/></svg>কাল, রবিবার · ২টা কাজ, প্রথমটা সকাল ৯টায়</div>
+      <div class="card-foot"><button type="button"><svg class="icon"><use href="#plus"/></svg>যোগ করুন</button><button type="button">সব কাজ ও রিমাইন্ডার</button></div>
+    </article>
+
+    <div class="section-heading"><h2>টাকার হিসাব</h2><span class="link">অক্টোবর · খুলুন<svg class="icon"><use href="#arrow"/></svg></span></div>
+    <div class="card money">
+      <div class="balance-row">
+        <div><p class="eyebrow">হাতে থাকল</p><p class="balance">৳২২,৫৫০</p></div>
+        <span class="wallet-icon"><svg class="icon"><use href="#wallet"/></svg></span>
+      </div>
+      <div class="money-stats">
+        <div class="money-stat"><span><svg class="icon small-icon"><use href="#down"/></svg>আয়</span><strong class="in">৳৩৫,০০০</strong></div>
+        <div class="money-stat"><span><svg class="icon small-icon"><use href="#up"/></svg>খরচ</span><strong>৳১২,৪৫০</strong></div>
+      </div>
+      <div class="loans">
+        <div>পাবো · ৩ জনের কাছে<strong>৳২৪,৫০০</strong><span class="due">আজ রহিমের ফেরতের দিন</span></div>
+        <div>দেবো · ১ জনকে<strong>৳১৫,০০০</strong><span class="due" style="color:var(--muted)">করিম · ৩ নভেম্বর</span></div>
+      </div>
+      <div class="week"><svg class="icon"><use href="#pie"/></svg>এ সপ্তাহে আয়ের ৩১% খরচ — শখের খাতে ৮%<svg class="icon go"><use href="#arrow"/></svg></div>
+    </div>
+
+    <div class="section-heading"><h2>সামনের ছুটি</h2><span class="link">ক্যালেন্ডার<svg class="icon"><use href="#arrow"/></svg></span></div>
+    <div class="card hol">
+      <div class="hrow"><div class="dblock"><b>১৬</b><span>ডিসে</span></div><div><div class="t1">বিজয় দিবস</div><div class="t2">বুধবার</div></div><span class="tag">৫৩ দিন পর</span></div>
+      <div class="hrow"><div class="dblock"><b>২৫</b><span>ডিসে</span></div><div><div class="t1">বড়দিন</div><div class="t2">শুক্রবার</div></div><span class="tag">৬২ দিন পর</span></div>
+    </div>
+
+    <details class="tools" open>
+      <summary><span>সব সুবিধা<small>১৪টা</small></span><svg class="icon"><use href="#chevron"/></svg></summary>
+      <div class="tool-grid">
+        <button class="tool" type="button"><svg class="icon"><use href="#list"/></svg>কাজের তালিকা</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#bell"/></svg>রিমাইন্ডার</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#folder"/></svg>ডকুমেন্টস</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#note"/></svg>নোট</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#person"/></svg>যোগাযোগ</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#health"/></svg>স্বাস্থ্য</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#alarm"/></svg>অ্যালার্ম</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#lock"/></svg>পাসওয়ার্ড</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#calendar"/></svg>ক্যালেন্ডার</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#compass"/></svg>কম্পাস</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#zakat"/></svg>যাকাত</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#family"/></svg>ফ্যামিলি</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#drop"/></svg>ব্লাড ডোনেশন</button>
+        <button class="tool" type="button"><svg class="icon"><use href="#crown"/></svg>প্রিমিয়াম</button>
+      </div>
+    </details>
+
+    <article class="card quote"><svg class="icon"><use href="#quote"/></svg><div><p class="q">আয় বুঝে ব্যয় করো, সঞ্চয় করো আগে।</p><p class="s">আজকের অর্থ-কথা</p></div></article>
+
+    <p class="privacy"><svg class="icon small-icon"><use href="#lock"/></svg>আপনার তথ্য এই ফোনেই থাকে, তালাবদ্ধ</p>
+  </div>
+
+  <footer class="bottom">
+    <div class="composer">
+      <label class="type-wrap"><svg class="icon"><use href="#keyboard"/></svg><input type="text" placeholder="বলুন বা লিখুন — “রবিনকে ৫০০ দিলাম”"></label>
+      <button class="mic" type="button" aria-label="বলুন"><svg class="icon"><use href="#mic"/></svg></button>
+    </div>
+    <nav class="nav">
+      <button class="active" type="button"><svg class="icon"><use href="#home"/></svg>হোম</button>
+      <button type="button"><svg class="icon"><use href="#list"/></svg>দিনলিপি</button>
+      <button type="button"><svg class="icon"><use href="#wallet"/></svg>হিসাব</button>
+      <button type="button"><svg class="icon"><use href="#box"/></svg>সংরক্ষণ</button>
+      <button type="button"><svg class="icon"><use href="#menu"/></svg>আরও</button>
+    </nav>
+    <div class="gesture"></div>
+  </footer>
+</div></section></main></body></html>
