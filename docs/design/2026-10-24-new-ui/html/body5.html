@@ -1,0 +1,133 @@
+<style>
+.seg { margin: 14px 22px 0; background: #E9E7E2; border-radius: 14px; padding: 4px; display: flex; }
+.seg div { flex: 1; text-align: center; padding: 7px 0; border-radius: 11px; font: 500 13px Noto; color: var(--ink2); }
+.seg .on { background: var(--card); font-weight: 600; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.donor { margin: 12px 22px 0; border-radius: 20px; background: var(--accent); color: #fff; padding: 14px 16px; display: flex; gap: 14px; align-items: center; position: relative; overflow: hidden; }
+.drop { width: 58px; height: 58px; border-radius: 18px; background: #C2412D; display: grid; place-items: center; font: 700 22px Inter, sans-serif; flex: none; }
+.donor .t1 { font: 600 15px Noto; }
+.donor .t2 { font: 400 11.5px/1.5 Noto; opacity: .78; }
+.donor .ok { display: inline-flex; align-items: center; gap: 4px; margin-top: 5px; font: 500 11px Noto; background: rgba(255,255,255,.12); padding: 2px 8px; border-radius: 9px; }
+.filters { display: flex; gap: 8px; margin: 14px 22px 0; }
+.filters > span { display: flex; align-items: center; gap: 4px; padding: 7px 10px 7px 12px; border-radius: 14px; background: var(--card); font: 500 12.5px Noto; color: var(--ink2); box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.filters .mi { font-size: 17px; }
+.req { margin: 10px 22px 0; background: var(--card); border-radius: 18px; padding: 12px 13px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.req .top { display: flex; gap: 12px; align-items: flex-start; padding: 0; }
+.grp { width: 46px; height: 46px; border-radius: 14px; background: #FBE7E3; color: #B2412E; display: grid; place-items: center; font: 700 16px Inter, sans-serif; flex: none; }
+.req .t1 { font: 600 14.5px Noto; }
+.req .t2 { font: 400 11.5px/1.55 Noto; color: var(--muted); display: flex; align-items: center; gap: 3px; }
+.req .t2 .mi { font-size: 13px; }
+.req .urgent { margin-left: auto; font: 600 10.5px Noto; color: #B2412E; background: #FBE7E3; padding: 2px 8px; border-radius: 9px; white-space: nowrap; }
+.req .acts { display: flex; gap: 8px; margin: 10px 0 0 58px; }
+.req .acts > span { font: 500 12px Noto; padding: 6px 12px; border-radius: 14px; display: flex; align-items: center; gap: 4px; background: var(--soft); border: 1px solid var(--line); }
+.req .acts .dark { background: var(--accent); color: #fff; border-color: var(--accent); }
+.req .acts .mi { font-size: 15px; }
+.efab { position: absolute; right: 18px; bottom: 100px; height: 54px; border-radius: 27px; background: #B2412E; color: #fff; display: flex; align-items: center; gap: 6px; padding: 0 20px 0 16px; font: 600 14.5px Noto; box-shadow: 0 8px 18px rgba(178,65,46,.35); }
+.efab .mi { font-size: 22px; }
+
+.search { margin: 14px 22px 0; height: 46px; background: var(--card); border-radius: 15px; display: flex; align-items: center; gap: 10px; padding: 0 8px 0 14px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.search .mi { font-size: 22px; color: var(--muted); }
+.search span.t { flex: 1; font: 400 14px Noto; color: var(--muted); }
+.fchips { display: flex; gap: 8px; margin: 12px 22px 0; overflow: hidden; }
+.fchips > span { flex: none; font: 500 12.5px Noto; padding: 6px 13px; border-radius: 15px; background: var(--card); color: var(--ink2); box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.fchips .on { background: var(--accent); color: #fff; }
+.feat { margin: 14px 22px 0; background: var(--card); border-radius: 20px; padding: 12px; display: flex; gap: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.idc { width: 118px; height: 76px; border-radius: 10px; background: linear-gradient(135deg,#E3EBE6,#C9D6CE); position: relative; flex: none; overflow: hidden; }
+.idc .ph { position: absolute; left: 9px; top: 14px; width: 26px; height: 32px; border-radius: 5px; background: #9DB1A6; }
+.idc i { position: absolute; left: 42px; height: 5px; border-radius: 3px; background: #9DB1A6; display: block; }
+.idc .stripe { position: absolute; left: 0; right: 0; top: 0; height: 8px; background: #0E7A5F; opacity: .55; }
+.feat .t1 { font: 600 14.5px Noto; }
+.feat .t2 { font: 400 11.5px Noto; color: var(--muted); }
+.feat .num { font: 600 15px Inter, sans-serif; letter-spacing: 1.5px; margin-top: 6px; display: flex; align-items: center; gap: 6px; }
+.feat .num .mi { font-size: 18px; color: var(--muted); }
+.dgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 22px; }
+.doc { background: var(--card); border-radius: 18px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.doc .th { height: 74px; position: relative; display: grid; place-items: center; }
+.doc .paper { width: 52px; height: 62px; border-radius: 6px; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.12); position: relative; margin-top: 18px; }
+.doc .paper i { position: absolute; left: 8px; right: 8px; height: 3px; background: #DAD7D0; border-radius: 2px; display: block; }
+.doc .badge { z-index: 2; position: absolute; right: 8px; top: 8px; font: 600 10.5px Noto; background: rgba(255,255,255,.95); padding: 2px 8px; border-radius: 9px; color: var(--ink2); }
+.doc .badge.warn { background: #FBF1E3; color: #9A5F1E; }
+.doc .b { padding: 8px 11px 10px; }
+.doc .t1 { font: 600 13.5px Noto; }
+.doc .t2 { font: 400 11px Noto; color: var(--muted); display: flex; align-items: center; gap: 3px; }
+.doc .t2 .mi { font-size: 12px; }
+</style>
+<div class="stage">
+
+<!-- ───────────── PAGE 9: ব্লাড ডোনেশন ───────────── -->
+<div class="phone" id="blood">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="head2">
+    <span class="mi back">&#xf570;</span>
+    <div class="tt"><h1>ব্লাড ডোনেশন</h1><p>রক্ত দিন, জীবন বাঁচান</p></div>
+    <div style="padding-top:4px;text-align:right"><span class="hand" style="font-size:12.5px">এক ব্যাগ রক্ত,<br>একটা জীবন</span></div>
+  </div>
+
+  <div class="donor">
+    <div class="drop">B+</div>
+    <div style="flex:1"><div class="t1">আপনি দাতা · ঢাকা</div><div class="t2">শেষ দান ১২ জুলাই · আবার দিতে পারবেন ৯ নভেম্বর থেকে</div><span class="ok"><span class="mi" style="font-size:13px">&#xf47c;</span>আপনার গ্রুপে দরকার হলে জানাব</span></div>
+  </div>
+
+  <div class="seg"><div class="on">সারা দেশের অনুরোধ</div><div>আমার অনুরোধ</div></div>
+  <div class="filters"><span><span class="mi" style="color:#B2412E">&#xf5bf;</span>সব গ্রুপ<span class="mi">&#xf720;</span></span><span><span class="mi">&#xf193;</span>সারা দেশ<span class="mi">&#xf720;</span></span></div>
+
+  <div class="req">
+    <div class="top"><div class="grp">O−</div><div style="flex:1;min-width:0"><div class="t1">মায়ের জন্য · সিজার</div><div class="t2"><span class="mi">&#xf17e;</span>ঢাকা মেডিকেল কলেজ হাসপাতাল</div><div class="t2"><span class="mi">&#xf51a;</span>আজ বিকাল ৪টা · ২ ব্যাগ · ঢাকা</div></div><span class="urgent">জরুরি</span></div>
+    <div class="acts"><span class="dark"><span class="mi">&#xef1a;</span>ফোন করুন</span><span><span class="mi">&#xf378;</span>শেয়ার</span></div>
+  </div>
+  <div class="req">
+    <div class="top"><div class="grp">A+</div><div style="flex:1;min-width:0"><div class="t1">ভাইয়ের জন্য · থ্যালাসেমিয়া</div><div class="t2"><span class="mi">&#xf17e;</span>চট্টগ্রাম মেডিকেল কলেজ</div><div class="t2"><span class="mi">&#xf51a;</span>কাল সকাল ১০টা · ১ ব্যাগ · চট্টগ্রাম</div></div></div>
+    <div class="acts"><span class="dark"><span class="mi">&#xef1a;</span>ফোন করুন</span><span><span class="mi">&#xf378;</span>শেয়ার</span></div>
+  </div>
+
+  <div class="req" style="margin-right:22px">
+    <div class="top"><div class="grp">B+</div><div style="flex:1;min-width:0"><div class="t1">বাবার জন্য · ডেঙ্গু</div><div class="t2"><span class="mi">&#xf17e;</span>কুমিল্লা মেডিকেল কলেজ</div><div class="t2"><span class="mi">&#xf51a;</span>২৬ অক্টো · প্লাটিলেট · কুমিল্লা</div></div></div>
+  </div>
+  <div class="efab"><span class="mi">&#xf537;</span>রক্ত চাই</div>
+  <div class="nav">
+    <div><span class="mi">&#xf7f5;</span>হোম</div>
+    <div><span class="mi">&#xf02e;</span>দিনলিপি</div>
+    <div><span class="mi">&#xee33;</span>হিসাব</div>
+    <div><span class="mi">&#xf134;</span>সংরক্ষণ</div>
+    <div class="on"><span class="mi">&#xf8b6;</span>আরও</div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+<!-- ───────────── PAGE 10: ডকুমেন্টস ───────────── -->
+<div class="phone" id="docs">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="head2">
+    <span class="mi back">&#xf570;</span>
+    <div class="tt"><h1>ডকুমেন্টস</h1><p><span class="mi" style="font-size:13px;vertical-align:-1px">&#xf889;</span> ১২টি কাগজ, এই ফোনে তালাবদ্ধ</p></div>
+    <div class="iconbtn"><span class="mi">&#xefe1;</span></div>
+  </div>
+  <div class="search"><span class="mi">&#xf013d;</span><span class="t">নাম, নম্বর বা লেখা দিয়ে খুঁজুন…</span></div>
+  <div class="fchips"><span class="on">সব</span><span>পরিচয়পত্র</span><span>জমি-বাড়ি</span><span>শিক্ষা</span><span>ওয়ারেন্টি</span></div>
+
+  <div class="feat">
+    <div class="idc"><div class="stripe"></div><div class="ph"></div><i style="top:18px;width:56px"></i><i style="top:28px;width:44px"></i><i style="top:38px;width:50px"></i><i style="top:58px;left:9px;width:96px"></i></div>
+    <div style="flex:1;min-width:0"><div class="t1">জাতীয় পরিচয়পত্র</div><div class="t2">পরিচয়পত্র · ২টি ছবি</div><div class="num">•••• ৪৫২১<span class="mi">&#xf4a1;</span></div><div class="t2" style="margin-top:2px">আঙুলের ছাপ দিলে পুরো নম্বর</div></div>
+  </div>
+
+  <div class="sec" style="padding-top:14px"><h3>সব কাগজ</h3><a>নতুন আগে</a></div>
+  <div class="dgrid">
+    <div class="doc"><div class="th" style="background:#E6E9EC"><span class="badge warn">১২ দিনে শেষ</span><div class="paper"><i style="top:10px"></i><i style="top:18px;right:18px"></i><i style="top:26px"></i></div></div><div class="b"><div class="t1">পাসপোর্ট</div><div class="t2">মেয়াদ ৫ নভেম্বর · রিমাইন্ডার</div></div></div>
+    <div class="doc"><div class="th" style="background:#ECE7DE"><span class="badge">৩টি ছবি</span><div class="paper"><i style="top:10px"></i><i style="top:18px"></i><i style="top:26px;right:20px"></i></div></div><div class="b"><div class="t1">জমির দলিল</div><div class="t2">জমি-বাড়ি · মিরপুর</div></div></div>
+    <div class="doc"><div class="th" style="background:#E3EBE6"><span class="badge">PDF</span><div class="paper"><i style="top:10px;right:14px"></i><i style="top:18px"></i><i style="top:26px"></i></div></div><div class="b"><div class="t1">এসএসসি সার্টিফিকেট</div><div class="t2">শিক্ষা · ২০১০</div></div></div>
+    <div class="doc"><div class="th" style="background:#EDE6EC"><span class="badge">মার্চ ২০২৮</span><div class="paper"><i style="top:10px"></i><i style="top:18px;right:16px"></i><i style="top:26px"></i></div></div><div class="b"><div class="t1">ফ্রিজের ওয়ারেন্টি</div><div class="t2">ওয়ারেন্টি · ছবি থেকে পড়া</div></div></div>
+  </div>
+
+  <div class="fab"><span class="mi">&#xee39;</span></div>
+  <div class="nav">
+    <div><span class="mi">&#xf7f5;</span>হোম</div>
+    <div><span class="mi">&#xf02e;</span>দিনলিপি</div>
+    <div><span class="mi">&#xee33;</span>হিসাব</div>
+    <div class="on"><span class="mi">&#xf134;</span>সংরক্ষণ</div>
+    <div><span class="mi">&#xf8b6;</span>আরও</div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+</div>
+</body>
+</html>

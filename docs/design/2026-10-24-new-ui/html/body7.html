@@ -1,0 +1,124 @@
+<style>
+.ph { padding: 8px 22px 0; display: flex; align-items: flex-start; justify-content: space-between; }
+.ph h1 { font: 700 28px/1.2 Hind; }
+.ph p { font: 400 12.5px Noto; color: var(--muted); }
+.seg { margin: 14px 22px 0; background: #E9E7E2; border-radius: 14px; padding: 4px; display: flex; }
+.seg div { flex: 1; text-align: center; padding: 7px 0; border-radius: 11px; font: 500 13px Noto; color: var(--ink2); }
+.seg .on { background: var(--card); font-weight: 600; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.safe { margin: 14px 22px 0; border-radius: 20px; background: var(--accent); color: #fff; padding: 14px 16px; display: flex; gap: 13px; align-items: center; }
+.safe .shield { width: 50px; height: 50px; border-radius: 16px; background: rgba(255,255,255,.1); display: grid; place-items: center; }
+.safe .shield .mi { font-size: 28px; color: #A6E3C9; }
+.safe .t1 { font: 600 15px Noto; }
+.safe .t2 { font: 400 11.5px/1.5 Noto; opacity: .78; }
+.search { margin: 12px 22px 0; height: 46px; background: var(--card); border-radius: 15px; display: flex; align-items: center; gap: 10px; padding: 0 14px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.search .mi { font-size: 22px; color: var(--muted); }
+.search span.t { flex: 1; font: 400 14px Noto; color: var(--muted); }
+.vault { margin: 0 22px; background: var(--card); border-radius: 18px; padding: 2px 12px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.vault .r { display: flex; align-items: center; gap: 11px; padding: 9px 0; }
+.vault .r + .r { border-top: 1px solid var(--line); }
+.lt { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; font: 700 15px Inter, sans-serif; color: #fff; flex: none; }
+.vault .tx { flex: 1; min-width: 0; }
+.vault .t1 { font: 600 14px Noto; display: flex; align-items: center; gap: 6px; }
+.vault .t2 { font: 400 11.5px Inter, Noto, sans-serif; color: var(--muted); letter-spacing: .3px; }
+.vault .weak { font: 600 10px Noto; color: #9A5F1E; background: #FBF1E3; padding: 1px 7px; border-radius: 8px; }
+.vault .act { width: 32px; height: 32px; border-radius: 10px; background: var(--soft); display: grid; place-items: center; }
+.vault .act .mi { font-size: 17px; color: var(--ink2); }
+
+.owe { display: flex; gap: 10px; margin: 14px 22px 0; }
+.owe > div { flex: 1; border-radius: 18px; padding: 13px 14px; }
+.owe .get { background: var(--accent); color: #fff; }
+.owe .give { background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.owe .l { font: 500 12px Noto; opacity: .75; display: flex; align-items: center; gap: 4px; }
+.owe .l .mi { font-size: 16px; }
+.owe .v { font: 700 24px/1.2 Hind; margin-top: 4px; }
+.owe .s { font: 400 11.5px Noto; opacity: .7; }
+.btns { display: flex; gap: 10px; margin: 10px 22px 0; }
+.btns div { flex: 1; height: 44px; border-radius: 14px; display: flex; align-items: center; justify-content: center; gap: 6px; font: 600 13.5px Noto; background: var(--card); box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.btns .mi { font-size: 19px; }
+.people { margin: 0 22px; display: flex; flex-direction: column; gap: 8px; }
+.pp { background: var(--card); border-radius: 16px; padding: 10px 12px; display: flex; align-items: center; gap: 11px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.pav { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 600 16px Hind; flex: none; }
+.pp .tx { flex: 1; min-width: 0; }
+.pp .t1 { font: 600 14px Noto; }
+.pp .t2 { font: 400 11.5px Noto; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+.pp .due { font: 600 10.5px Noto; color: #B2412E; background: #FBE7E3; padding: 1px 7px; border-radius: 8px; }
+.pp .amt { text-align: right; }
+.pp .amt b { display: block; font: 700 15px Hind; }
+.pp .amt span { font: 400 10.5px Noto; color: var(--muted); }
+.in { color: var(--green); }
+.outc { color: #B9772A; }
+</style>
+<div class="stage">
+
+<!-- ───────────── PAGE 13: পাসওয়ার্ড ───────────── -->
+<div class="phone" id="vault">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="head2">
+    <span class="mi back">&#xf570;</span>
+    <div class="tt"><h1>পাসওয়ার্ড</h1><p>আঙুলের ছাপে খোলা · ১ মিনিটে নিজে বন্ধ</p></div>
+    <div style="padding-top:6px;text-align:right"><span class="hand" style="font-size:13px">শুধু আপনার<br>জন্য</span></div>
+  </div>
+
+  <div class="safe">
+    <div class="shield"><span class="mi">&#xf0c7;</span></div>
+    <div><div class="t1">৮টি পাসওয়ার্ড, তালাবদ্ধ</div><div class="t2">ফোনের বাইরে যায় না, AI-ও দেখে না। ২টি দুর্বল — বদলে নিন।</div></div>
+  </div>
+  <div class="search"><span class="mi">&#xf013d;</span><span class="t">কোনটা খুঁজছেন?</span></div>
+
+  <div class="sec" style="padding-top:14px"><h3>সব</h3><a>নামের ক্রমে</a></div>
+  <div class="vault">
+    <div class="r"><div class="lt" style="background:#C2412D">G</div><div class="tx"><div class="t1">Gmail</div><div class="t2">saiful•••@gmail.com</div></div><div class="act"><span class="mi">&#xf66c;</span></div></div>
+    <div class="r"><div class="lt" style="background:#D6336C">b</div><div class="tx"><div class="t1">বিকাশ</div><div class="t2">০১৭•••• · PIN ••••</div></div><div class="act"><span class="mi">&#xf66c;</span></div></div>
+    <div class="r"><div class="lt" style="background:#2F6B53">D</div><div class="tx"><div class="t1">ডাচ-বাংলা নেট ব্যাংকিং</div><div class="t2">saiful_db · ••••••••</div></div><div class="act"><span class="mi">&#xf66c;</span></div></div>
+    <div class="r"><div class="lt" style="background:#3B5998">f</div><div class="tx"><div class="t1">Facebook <span class="weak">দুর্বল</span></div><div class="t2">saiful.islam · ••••••</div></div><div class="act"><span class="mi">&#xf66c;</span></div></div>
+    <div class="r"><div class="lt" style="background:#6E7F8F"><span class="mi" style="font-size:19px">&#xf03bb;</span></div><div class="tx"><div class="t1">বাসার Wi-Fi <span class="weak">দুর্বল</span></div><div class="t2">Saiful_Home · ••••••••</div></div><div class="act"><span class="mi">&#xf66c;</span></div></div>
+  </div>
+
+  <div class="fab"><span class="mi">&#xf537;</span></div>
+  <div class="nav">
+    <div><span class="mi">&#xf7f5;</span>হোম</div>
+    <div><span class="mi">&#xf02e;</span>দিনলিপি</div>
+    <div><span class="mi">&#xee33;</span>হিসাব</div>
+    <div class="on"><span class="mi">&#xf134;</span>সংরক্ষণ</div>
+    <div><span class="mi">&#xf8b6;</span>আরও</div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+<!-- ───────────── PAGE 14: ধার-দেনা ───────────── -->
+<div class="phone" id="ledger">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="ph">
+    <div><h1>হিসাব</h1><p>টাকা কোথায় যায়, এক নজরে।</p></div>
+    <div style="padding-top:6px;text-align:right"><span class="hand" style="font-size:12.5px">হিসাব পরিষ্কার,<br>সম্পর্ক ভালো</span></div>
+  </div>
+  <div class="seg"><div>আয়-ব্যয়</div><div class="on">ধার-দেনা</div><div>অন্যান্য হিসাব</div></div>
+
+  <div class="owe">
+    <div class="get"><div class="l"><span class="mi">&#xf607;</span>পাবো</div><div class="v">৳২৪,৫০০</div><div class="s">৩ জনের কাছে</div></div>
+    <div class="give"><div class="l" style="color:var(--muted);opacity:1"><span class="mi">&#xf603;</span>দেবো</div><div class="v outc">৳১৫,০০০</div><div class="s" style="color:var(--muted);opacity:1">১ জনকে</div></div>
+  </div>
+  <div class="btns"><div><span class="mi in">&#xf603;</span>দিলাম</div><div><span class="mi outc">&#xf607;</span>নিলাম</div><div><span class="mi">&#xf7ef;</span>সব লেনদেন</div></div>
+
+  <div class="sec" style="padding-top:14px"><h3>মানুষ</h3><a>বেশি টাকা আগে</a></div>
+  <div class="people">
+    <div class="pp"><div class="pav" style="background:#5B7A6F">জা</div><div class="tx"><div class="t1">জামাল</div><div class="t2">১৫ সেপ্টে দিয়েছিলেন</div></div><div class="amt"><b class="in">৳১৫,০০০</b><span>পাবো</span></div></div>
+    <div class="pp"><div class="pav" style="background:#B07A5A">র</div><div class="tx"><div class="t1">রহিম</div><div class="t2"><span class="due">আজ ফেরতের দিন</span></div></div><div class="amt"><b class="in">৳৪,৫০০</b><span>পাবো</span></div></div>
+    <div class="pp"><div class="pav" style="background:#7C6A9A">সু</div><div class="tx"><div class="t1">সুমন</div><div class="t2">২ অক্টো দিয়েছিলেন</div></div><div class="amt"><b class="in">৳৫,০০০</b><span>পাবো</span></div></div>
+    <div class="pp" style="margin-right:70px"><div class="pav" style="background:#6E7F8F">ক</div><div class="tx"><div class="t1">করিম</div><div class="t2">৩ নভে দেওয়ার কথা</div></div><div class="amt"><b class="outc">৳১৫,০০০</b><span>দেবো</span></div></div>
+  </div>
+
+  <div class="fab"><span class="mi">&#xf8bd;</span></div>
+  <div class="nav">
+    <div><span class="mi">&#xf7f5;</span>হোম</div>
+    <div><span class="mi">&#xf02e;</span>দিনলিপি</div>
+    <div class="on"><span class="mi">&#xee33;</span>হিসাব</div>
+    <div><span class="mi">&#xf134;</span>সংরক্ষণ</div>
+    <div><span class="mi">&#xf8b6;</span>আরও</div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+</div>
+</body>
+</html>

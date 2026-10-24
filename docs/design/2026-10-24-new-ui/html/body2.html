@@ -1,0 +1,170 @@
+<style>
+.ph { padding: 8px 22px 0; display: flex; align-items: flex-start; justify-content: space-between; }
+.ph h1 { font: 700 28px/1.2 Hind; }
+.ph p { font: 400 12.5px Noto; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+.seg { margin: 14px 22px 0; background: #E9E7E2; border-radius: 14px; padding: 4px; display: flex; }
+.seg div { flex: 1; text-align: center; padding: 7px 0; border-radius: 11px; font: 500 13px Noto; color: var(--ink2); }
+.seg .on { background: var(--card); font-weight: 600; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.bal { margin: 14px 22px 0; border-radius: 22px; background: #1F2A27; color: #fff; padding: 16px 18px; position: relative; overflow: hidden; }
+.bal .l { font: 500 12.5px Noto; opacity: .75; }
+.bal .v { font: 700 32px/1.15 Hind; margin-top: 2px; }
+.bal .row { display: flex; gap: 22px; margin-top: 10px; }
+.bal .row div { font: 400 11.5px Noto; opacity: .8; }
+.bal .row b { display: block; font: 600 15px Hind; opacity: 1; }
+.bal svg { position: absolute; right: 0; top: 14px; }
+.bal .m { position: absolute; right: 16px; top: 14px; font: 500 12px Noto; background: rgba(255,255,255,.14); padding: 3px 10px; border-radius: 12px; display: flex; align-items: center; gap: 2px; }
+.btns { display: flex; gap: 10px; margin: 12px 22px 0; }
+.btns div { flex: 1; height: 46px; border-radius: 15px; display: flex; align-items: center; justify-content: center; gap: 6px; font: 600 14px Noto; }
+.btns .a { background: var(--accent); color: #fff; }
+.btns .b { background: var(--card); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.stack { margin: 0 22px; background: var(--card); border-radius: 18px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.stack .bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px; }
+.stack .lg { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 14px; margin-top: 12px; }
+.stack .lg div { display: flex; align-items: center; gap: 7px; font: 400 12.5px Noto; color: var(--ink2); }
+.stack .lg i { width: 8px; height: 8px; border-radius: 3px; flex: none; }
+.stack .lg b { margin-left: auto; font: 600 12.5px Noto; color: var(--ink); }
+.txn { margin: 0 22px; }
+.txn .r { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.txn .r + .r { border-top: 1px solid var(--line); }
+.txn .ic { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; flex: none; background: var(--card); box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.txn .ic .mi { font-size: 19px; color: var(--ink2); }
+.txn .tx { flex: 1; }
+.txn .t1 { font: 500 14px Noto; }
+.txn .t2 { font: 400 11.5px Noto; color: var(--muted); }
+.txn .amt { font: 600 14.5px Hind; }
+.amt.in { color: var(--green); }
+
+.search { margin: 14px 22px 0; height: 48px; background: var(--card); border-radius: 16px; display: flex; align-items: center; gap: 10px; padding: 0 8px 0 14px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.search .mi { font-size: 22px; color: var(--muted); }
+.search span.t { flex: 1; font: 400 14px Noto; color: var(--muted); }
+.search .micb { width: 34px; height: 34px; border-radius: 11px; background: var(--soft); display: grid; place-items: center; }
+.search .micb .mi { color: var(--ink); font-size: 20px; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 22px; }
+.cat { background: var(--card); border-radius: 18px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.05); position: relative; display: grid; grid-template-columns: 36px 1fr; column-gap: 10px; align-items: center; }
+.cat .ic { grid-row: span 2; }
+.cat .ic { width: 36px; height: 36px; border-radius: 12px; background: var(--soft); display: grid; place-items: center; }
+.cat .ic .mi { font-size: 20px; color: var(--ink2); }
+.cat .n { font: 600 14px Noto; align-self: end; line-height: 1.3; }
+.cat .s { font: 400 11px Noto; color: var(--muted); display: flex; align-items: center; gap: 3px; align-self: start; white-space: nowrap; overflow: hidden; }
+.cat .s .mi { font-size: 12px; }
+.cat .go { display: none; }
+.cat.dark { background: var(--accent); color: #fff; }
+.cat.dark .ic { background: rgba(255,255,255,.12); }
+.cat.dark .ic .mi, .cat.dark .s { color: rgba(255,255,255,.75); }
+.cat.dark .go { color: rgba(255,255,255,.5); }
+.chips { display: flex; gap: 8px; margin: 12px 22px 0; overflow: hidden; }
+.chips > span { flex: none; display: flex; align-items: center; gap: 5px; padding: 7px 12px 7px 9px; border-radius: 16px; background: var(--card); font: 500 12.5px Noto; color: var(--ink2); box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.chips .mi { font-size: 16px; }
+.alert { margin: 12px 22px 0; border-radius: 16px; background: #FBF1E3; padding: 11px 13px; display: flex; align-items: center; gap: 11px; }
+.alert .mi { color: #B9772A; font-size: 22px; }
+.alert .t1 { font: 600 13.5px Noto; }
+.alert .t2 { font: 400 11.5px Noto; color: #8A6A44; }
+.notes { margin: 0 22px; display: flex; gap: 10px; }
+.note { flex: 1; background: var(--card); border-radius: 16px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.note .t1 { font: 600 13.5px Noto; }
+.note .t2 { font: 400 12px/1.5 Noto; color: var(--ink2); margin-top: 3px; }
+.note .t3 { font: 400 10.5px Noto; color: var(--muted); margin-top: 6px; }
+</style>
+<div class="stage">
+
+<!-- ───────────── PAGE 3: হিসাব ───────────── -->
+<div class="phone" id="money">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="ph">
+    <div><h1>হিসাব</h1><p>টাকা কোথায় যায়, এক নজরে।</p></div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <div style="text-align:right;margin-right:2px"><span class="hand" style="font-size:12.5px">একটু একটু<br>করে জমান</span></div>
+      <div class="iconbtn"><span class="mi">&#xf2a4;</span></div>
+    </div>
+  </div>
+  <div class="seg"><div class="on">আয়-ব্যয়</div><div>ধার-দেনা</div><div>অন্যান্য হিসাব</div></div>
+
+  <div class="bal">
+    <svg width="170" height="96" viewBox="0 0 170 96"><defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7FB7A3" stop-opacity=".35"/><stop offset="1" stop-color="#7FB7A3" stop-opacity="0"/></linearGradient></defs>
+      <path d="M0 80 C 18 74, 26 52, 44 58 C 62 64, 70 34, 90 40 C 108 46, 118 22, 136 28 C 150 32, 160 18, 170 14 V96 H0Z" fill="url(#g1)" transform="translate(0,22)"/>
+      <path d="M0 80 C 18 74, 26 52, 44 58 C 62 64, 70 34, 90 40 C 108 46, 118 22, 136 28 C 150 32, 160 18, 170 14" stroke="#9CCBB9" stroke-width="2" fill="none" transform="translate(0,22)"/></svg>
+    <div class="m">অক্টোবর <span class="mi" style="font-size:16px">&#xf720;</span></div>
+    <div class="l">এই মাসের ব্যালেন্স</div>
+    <div class="v">৳২২,৫৫০</div>
+    <div class="row"><div>আয়<b>৳৩৫,০০০</b></div><div>খরচ<b>৳১২,৪৫০</b></div><div>জমার হার<b>৬৪%</b></div></div>
+  </div>
+  <div class="btns"><div class="a"><span class="mi" style="font-size:20px">&#xf537;</span>আয়</div><div class="b"><span class="mi" style="font-size:20px">&#xf537;</span>খরচ</div></div>
+
+  <div class="sec"><h3>খাত অনুযায়ী খরচ</h3><a>বিস্তারিত <span class="mi" style="font-size:15px">&#xf57a;</span></a></div>
+  <div class="stack">
+    <div class="bar"><i style="width:40%;background:#1F2A27"></i><i style="width:34%;background:#5B7A6F"></i><i style="width:15%;background:#A9BDB4"></i><i style="width:7%;background:#D8C7A6"></i><i style="width:4%;background:#E3E0D9"></i></div>
+    <div class="lg">
+      <div><i style="background:#1F2A27"></i>বাসা ভাড়া<b>৳৫,০০০</b></div>
+      <div><i style="background:#5B7A6F"></i>বাজার<b>৳৪,২০০</b></div>
+      <div><i style="background:#A9BDB4"></i>বিল<b>৳১,৮৫০</b></div>
+      <div><i style="background:#D8C7A6"></i>যাতায়াত<b>৳৯০০</b></div>
+    </div>
+  </div>
+
+  <div class="sec"><h3>সাম্প্রতিক</h3><a>সব লেনদেন <span class="mi" style="font-size:15px">&#xf57a;</span></a></div>
+  <div class="txn" style="margin-right:86px">
+    <div class="r"><div class="ic"><span class="mi">&#xf37e;</span></div><div class="tx"><div class="t1">বাজার</div><div class="t2">আজ · বিকাশ</div></div><div class="amt">−৳৪৫০</div></div>
+    <div class="r"><div class="ic"><span class="mi">&#xeedd;</span></div><div class="tx"><div class="t1">বিদ্যুৎ বিল</div><div class="t2">আজ · নগদ</div></div><div class="amt">−৳১,৮৫০</div></div>
+    <div class="r"><div class="ic"><span class="mi">&#xf266;</span></div><div class="tx"><div class="t1">বেতন</div><div class="t2">১ অক্টো · ব্যাংক</div></div><div class="amt in">+৳৩৫,০০০</div></div>
+  </div>
+
+  <div class="fab"><span class="mi">&#xf8bd;</span></div>
+  <div class="nav">
+    <div><span class="mi">&#xf7f5;</span>হোম</div>
+    <div><span class="mi">&#xf02e;</span>দিনলিপি</div>
+    <div class="on"><span class="mi">&#xee33;</span>হিসাব</div>
+    <div><span class="mi">&#xf134;</span>সংরক্ষণ</div>
+    <div><span class="mi">&#xf8b6;</span>আরও</div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+<!-- ───────────── PAGE 4: সংরক্ষণ ───────────── -->
+<div class="phone" id="store">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="ph">
+    <div><h1>সংরক্ষণ</h1><p><span class="mi" style="font-size:14px">&#xf889;</span>দরকারি সব, এই ফোনে তালাবদ্ধ</p></div>
+    <div style="padding-top:6px;text-align:right"><span class="hand" style="font-size:13px">সব এক<br>জায়গায়</span>
+      <svg width="40" height="18" viewBox="0 0 40 18" style="display:block;margin-left:auto"><path d="M36 3 C 30 12, 18 15, 6 12" stroke="#3B3F3E" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M11 7 L 5 12 L 12 15" stroke="#3B3F3E" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+  </div>
+  <div class="search"><span class="mi">&#xf013d;</span><span class="t">নোট, নম্বর, ডকুমেন্ট খুঁজুন…</span><span class="micb"><span class="mi">&#xf8bb;</span></span></div>
+
+  <div class="alert"><span class="mi">&#xf02a0;</span><div style="flex:1"><div class="t1">পাসপোর্টের মেয়াদ ১২ দিন পর শেষ</div><div class="t2">৫ নভেম্বর · নবায়নের রিমাইন্ডার দেওয়া আছে</div></div><span class="mi" style="color:#B9772A;font-size:22px">&#xf63b;</span></div>
+
+  <div class="sec" style="padding-top:14px"><h3>সব কিছু</h3><a>৬টা ভাগ</a></div>
+  <div class="grid">
+    <div class="cat"><div class="ic"><span class="mi">&#xf3e8;</span></div><div class="n">নোট</div><div class="s">২৪টি</div><span class="mi go">&#xf63b;</span></div>
+    <div class="cat"><div class="ic"><span class="mi">&#xf05ff;</span></div><div class="n">ডকুমেন্টস</div><div class="s">১২টি · <span class="mi">&#xf889;</span>তালাবদ্ধ</div><span class="mi go">&#xf63b;</span></div>
+    <div class="cat dark"><div class="ic"><span class="mi">&#xf0343;</span></div><div class="n">পাসওয়ার্ড</div><div class="s">৮টি · আঙুলের ছাপে</div><span class="mi go">&#xf63b;</span></div>
+    <div class="cat"><div class="ic"><span class="mi">&#xef1a;</span></div><div class="n">যোগাযোগ</div><div class="s">১৮৬ জন</div><span class="mi go">&#xf63b;</span></div>
+    <div class="cat"><div class="ic"><span class="mi">&#xf737;</span></div><div class="n">স্বাস্থ্য</div><div class="s">প্রেশার, সুগার</div><span class="mi go">&#xf63b;</span></div>
+    <div class="cat"><div class="ic"><span class="mi">&#xf1b4;</span></div><div class="n">মেসেজের কাজ</div><div class="s">WhatsApp, SMS…</div><span class="mi go">&#xf63b;</span></div>
+  </div>
+  <div class="chips">
+    <span><span class="mi">&#xf05f4;</span>জরুরি কার্ড</span>
+    <span><span class="mi">&#xf02d;</span>কাগজের মেয়াদ</span>
+    <span><span class="mi">&#xef0f;</span>বিশেষ দিন</span>
+    <span><span class="mi">&#xf353;</span>ট্যাগ</span>
+  </div>
+
+  <div class="sec" style="padding-top:14px"><h3>সম্প্রতি রাখা</h3><a>নতুন <span class="mi" style="font-size:15px">&#xf537;</span></a></div>
+  <div class="notes" style="margin-right:86px">
+    <div class="note"><div class="t1">গাড়ির কাগজ</div><div class="t2">আলমারির উপরের তাকে</div><div class="t3">আজ · নোট</div></div>
+    <div class="note"><div class="t1">ওয়াইফাই</div><div class="t2">রাউটারের নিচে লেখা</div><div class="t3">গতকাল · নোট</div></div>
+  </div>
+
+  <div class="fab"><span class="mi">&#xf8bd;</span></div>
+  <div class="nav">
+    <div><span class="mi">&#xf7f5;</span>হোম</div>
+    <div><span class="mi">&#xf02e;</span>দিনলিপি</div>
+    <div><span class="mi">&#xee33;</span>হিসাব</div>
+    <div class="on"><span class="mi">&#xf134;</span>সংরক্ষণ</div>
+    <div><span class="mi">&#xf8b6;</span>আরও</div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+</div>
+</body>
+</html>

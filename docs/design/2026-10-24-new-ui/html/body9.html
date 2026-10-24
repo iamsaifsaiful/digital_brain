@@ -1,0 +1,146 @@
+<style>
+.search { margin: 14px 22px 0; height: 46px; background: var(--card); border-radius: 15px; display: flex; align-items: center; gap: 10px; padding: 0 8px 0 14px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.search .mi { font-size: 22px; color: var(--muted); }
+.search span.t { flex: 1; font: 400 14px Noto; color: var(--muted); }
+.search .micb { width: 34px; height: 34px; border-radius: 11px; background: var(--soft); display: grid; place-items: center; }
+.search .micb .mi { color: var(--ink); font-size: 20px; }
+.favs { display: flex; gap: 14px; margin: 0 22px; overflow: hidden; }
+.fav { text-align: center; flex: none; width: 56px; }
+.fav .av { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 600 19px Hind; margin: 0 auto; box-shadow: 0 0 0 2px var(--page), 0 0 0 3.5px #D6D3CC; }
+.fav div.n { font: 500 12px Noto; margin-top: 6px; white-space: nowrap; }
+.bday { margin: 14px 22px 0; background: #F6ECE3; border-radius: 18px; padding: 12px 13px; display: flex; align-items: center; gap: 11px; }
+.bday .ic { width: 40px; height: 40px; border-radius: 13px; background: #fff; display: grid; place-items: center; }
+.bday .ic .mi { font-size: 22px; color: #C0703F; }
+.bday .t1 { font: 600 14px Noto; }
+.bday .t2 { font: 400 11.5px Noto; color: #8A6A54; }
+.bday .b { margin-left: auto; display: flex; gap: 6px; }
+.rb { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; flex: none; }
+.rb .mi { font-size: 19px; }
+.rb.light { background: #fff; color: var(--ink); }
+.letter { font: 600 13px Noto; color: var(--muted); margin: 14px 22px 6px; }
+.clist { margin: 0 22px; background: var(--card); border-radius: 18px; padding: 2px 12px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.clist .r { display: flex; align-items: center; gap: 11px; padding: 8px 0; }
+.clist .r + .r { border-top: 1px solid var(--line); }
+.cav { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 600 16px Hind; flex: none; }
+.clist .tx { flex: 1; min-width: 0; }
+.clist .t1 { font: 600 14px Noto; display: flex; gap: 6px; align-items: center; }
+.clist .t2 { font: 400 11.5px Noto; color: var(--muted); }
+.tg { font: 500 10px Noto; padding: 1px 7px; border-radius: 8px; background: var(--soft); color: var(--ink2); }
+.clist .rb { width: 34px; height: 34px; background: var(--soft); color: var(--ink); }
+.clist .rb .mi { font-size: 18px; }
+
+.tot { margin: 14px 22px 0; border-radius: 22px; background: var(--accent); color: #fff; padding: 16px 18px; display: flex; align-items: center; gap: 14px; }
+.tot .l { font: 500 12.5px Noto; opacity: .75; }
+.tot .v { font: 700 30px/1.15 Hind; }
+.tot .s { font: 400 11.5px Noto; opacity: .8; }
+.tot .s b { color: #A6E3C9; font-weight: 600; }
+.goalr { margin: 0 22px; display: flex; flex-direction: column; gap: 10px; }
+.gr { background: var(--card); border-radius: 18px; padding: 12px 13px; display: flex; align-items: center; gap: 13px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.ring { width: 54px; height: 54px; position: relative; flex: none; }
+.ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.ring .mi { position: absolute; inset: 0; display: grid; place-items: center; font-size: 22px; color: var(--ink2); }
+.gr .tx { flex: 1; min-width: 0; }
+.gr .t1 { font: 600 14.5px Noto; }
+.gr .t2 { font: 400 11.5px Noto; color: var(--muted); }
+.gr .pc { font: 700 17px Hind; }
+.inst { margin: 0 22px; background: var(--card); border-radius: 18px; padding: 2px 13px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.inst .r { padding: 10px 0; }
+.inst .r + .r { border-top: 1px solid var(--line); }
+.inst .h { display: flex; align-items: center; gap: 10px; }
+.inst .ic { width: 34px; height: 34px; border-radius: 11px; background: var(--soft); display: grid; place-items: center; flex: none; }
+.inst .ic .mi { font-size: 19px; color: var(--ink2); }
+.inst .t1 { font: 600 14px Noto; }
+.inst .t2 { font: 400 11.5px Noto; color: var(--muted); }
+.inst .amt { margin-left: auto; text-align: right; font: 700 14.5px Hind; }
+.inst .amt span { display: block; font: 400 10.5px Noto; color: var(--muted); }
+.dots { display: flex; gap: 3px; margin: 8px 0 0 44px; flex-wrap: wrap; }
+.dots i { width: 9px; height: 9px; border-radius: 3px; background: var(--line); display: block; }
+.dots i.on { background: var(--ink); }
+</style>
+<div class="stage">
+
+<!-- ───────────── PAGE 17: যোগাযোগ ───────────── -->
+<div class="phone" id="contacts">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="head2">
+    <span class="mi back">&#xf570;</span>
+    <div class="tt"><h1>যোগাযোগ</h1><p>১৮৬ জন · নাম বললেই ফোন</p></div>
+    <div class="iconbtn"><span class="mi">&#xf0068;</span></div>
+  </div>
+  <div class="search"><span class="mi">&#xf013d;</span><span class="t">নাম বা নম্বর খুঁজুন…</span><span class="micb"><span class="mi">&#xf8bb;</span></span></div>
+
+  <div class="sec" style="padding-top:14px"><h3>প্রায়ই কথা হয় <span class="hand" style="font-size:12.5px;margin-left:6px;transform:rotate(-6deg) translateY(-3px)">একটা ফোন, অনেক খুশি</span></h3><a></a></div>
+  <div class="favs">
+    <div class="fav"><div class="av" style="background:#B07A5A">আ</div><div class="n">আম্মা</div></div>
+    <div class="fav"><div class="av" style="background:#4E6B62">ব</div><div class="n">আব্বা</div></div>
+    <div class="fav"><div class="av" style="background:#7C6A9A">রা</div><div class="n">রাফি</div></div>
+    <div class="fav"><div class="av" style="background:#C2955B">র</div><div class="n">রহিম</div></div>
+    <div class="fav"><div class="av" style="background:#6E7F8F">ডা</div><div class="n">ডাক্তার</div></div>
+  </div>
+
+  <div class="bday"><div class="ic"><span class="mi">&#xf5fc;</span></div><div><div class="t1">আজ জামালের জন্মদিন</div><div class="t2">একটা শুভেচ্ছা জানিয়ে দিন</div></div><div class="b"><span class="rb light"><span class="mi">&#xf3ad;</span></span><span class="rb"><span class="mi">&#xf608;</span></span></div></div>
+
+  <div class="letter">অ – ক</div>
+  <div class="clist" style="margin-right:86px">
+    <div class="r"><div class="cav" style="background:#5B7A6F">অ</div><div class="tx"><div class="t1">অফিস রিসেপশন <span class="tg">অফিস</span></div><div class="t2">০২-৯৫৫ ৪৪১২</div></div><span class="rb"><span class="mi">&#xf608;</span></span></div>
+    <div class="r"><div class="cav" style="background:#B07A5A">আ</div><div class="tx"><div class="t1">আম্মা <span class="tg">পরিবার</span></div><div class="t2">০১৭১১-২৩৪ ৫৬৭</div></div><span class="rb"><span class="mi">&#xf608;</span></span></div>
+    <div class="r"><div class="cav" style="background:#6E7F8F">ক</div><div class="tx"><div class="t1">করিম ভাই</div><div class="t2">০১৮১৯-৭৬৫ ৪৩২</div></div><span class="rb"><span class="mi">&#xf608;</span></span></div>
+    <div class="r"><div class="cav" style="background:#5E7A8C">ডা</div><div class="tx"><div class="t1">ডা. রফিক <span class="tg">ডাক্তার</span></div><div class="t2">০১৯১২-৪৫৬ ৭৮৯</div></div><span class="rb"><span class="mi">&#xf608;</span></span></div>
+  </div>
+
+  <div class="fab"><span class="mi">&#xf8bd;</span></div>
+  <div class="nav">
+    <div><span class="mi">&#xf7f5;</span>হোম</div>
+    <div><span class="mi">&#xf02e;</span>দিনলিপি</div>
+    <div><span class="mi">&#xee33;</span>হিসাব</div>
+    <div class="on"><span class="mi">&#xf134;</span>সংরক্ষণ</div>
+    <div><span class="mi">&#xf8b6;</span>আরও</div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+<!-- ───────────── PAGE 18: সঞ্চয় ও কিস্তি ───────────── -->
+<div class="phone" id="savings">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="head2">
+    <span class="mi back">&#xf570;</span>
+    <div class="tt"><h1>সঞ্চয় ও কিস্তি</h1><p>স্বপ্নের দিকে, একটু একটু করে</p></div>
+    <div class="iconbtn"><span class="mi">&#xf537;</span></div>
+  </div>
+
+  <div class="tot">
+    <div style="flex:1"><div class="l">মোট জমা</div><div class="v">৳১,৮৪,০০০</div><div class="s">এ মাসে জমা <b>+৳৮,০০০</b></div></div>
+    <span class="hand" style="font-size:13px;color:#E8E3D6;transform:rotate(-8deg)">চালিয়ে<br>যান!</span>
+  </div>
+
+  <div class="sec" style="padding-top:14px"><h3>লক্ষ্য</h3><a>৩টা</a></div>
+  <div class="goalr">
+    <div class="gr"><div class="ring"><svg width="54" height="54"><circle cx="27" cy="27" r="23" stroke="#ECEAE5" stroke-width="5" fill="none"/><circle cx="27" cy="27" r="23" stroke="#1F2A27" stroke-width="5" fill="none" stroke-linecap="round" stroke-dasharray="144.5" stroke-dashoffset="133"/></svg><span class="mi">&#xf336;</span></div>
+      <div class="tx"><div class="t1">হজের সঞ্চয়</div><div class="t2">৳৪০,০০০ / ৫,০০,০০০ · ২০৩০ সাল</div></div><div class="pc">৮%</div></div>
+    <div class="gr"><div class="ring"><svg width="54" height="54"><circle cx="27" cy="27" r="23" stroke="#ECEAE5" stroke-width="5" fill="none"/><circle cx="27" cy="27" r="23" stroke="#1F2A27" stroke-width="5" fill="none" stroke-linecap="round" stroke-dasharray="144.5" stroke-dashoffset="94"/></svg><span class="mi">&#xf33c;</span></div>
+      <div class="tx"><div class="t1">মেয়ের পড়াশোনা</div><div class="t2">৳৭০,০০০ / ২,০০,০০০</div></div><div class="pc">৩৫%</div></div>
+    <div class="gr"><div class="ring"><svg width="54" height="54"><circle cx="27" cy="27" r="23" stroke="#ECEAE5" stroke-width="5" fill="none"/><circle cx="27" cy="27" r="23" stroke="#0E7A5F" stroke-width="5" fill="none" stroke-linecap="round" stroke-dasharray="144.5" stroke-dashoffset="43"/></svg><span class="mi">&#xf46c;</span></div>
+      <div class="tx"><div class="t1">নতুন মোটরসাইকেল</div><div class="t2">৳১,০৫,০০০ / ১,৫০,০০০ · প্রায় হয়ে এলো</div></div><div class="pc">৭০%</div></div>
+  </div>
+
+  <div class="sec" style="padding-top:14px"><h3>কিস্তি</h3><a>পরেরটা আগে</a></div>
+  <div class="inst" style="margin-right:86px">
+    <div class="r"><div class="h"><div class="ic"><span class="mi">&#xee32;</span></div><div><div class="t1">ডিপিএস</div><div class="t2">পরের কিস্তি ৫ নভেম্বর</div></div><div class="amt">৳৫,০০০<span>৫৪/১২০</span></div></div></div>
+    <div class="r"><div class="h"><div class="ic"><span class="mi">&#xf109;</span></div><div><div class="t1">বাড়ির লোন</div><div class="t2">পরের কিস্তি ১০ নভেম্বর</div></div><div class="amt">৳৮,০০০<span>৮/২৪</span></div></div>
+      <div class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+  </div>
+
+  <div class="fab"><span class="mi">&#xf8bd;</span></div>
+  <div class="nav">
+    <div><span class="mi">&#xf7f5;</span>হোম</div>
+    <div><span class="mi">&#xf02e;</span>দিনলিপি</div>
+    <div class="on"><span class="mi">&#xee33;</span>হিসাব</div>
+    <div><span class="mi">&#xf134;</span>সংরক্ষণ</div>
+    <div><span class="mi">&#xf8b6;</span>আরও</div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+</div>
+</body>
+</html>

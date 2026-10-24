@@ -1,0 +1,179 @@
+<style>
+.ph { padding: 8px 22px 0; display: flex; align-items: flex-start; justify-content: space-between; }
+.ph h1 { font: 700 28px/1.2 Hind; }
+.ph p { font: 400 12.5px Noto; color: var(--muted); }
+.prof { margin: 12px 22px 0; background: var(--card); border-radius: 20px; padding: 14px; display: flex; align-items: center; gap: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.prof .avatar { width: 54px; height: 54px; font-size: 22px; }
+.prof .nm { font: 700 17px Hind; }
+.prof .sb { font: 400 12px Noto; color: var(--muted); display: flex; align-items: center; gap: 3px; }
+.prof .sb .mi { font-size: 14px; }
+.prof .tag { margin-left: auto; align-self: flex-start; font: 600 11.5px Noto; background: #F8E3DF; color: #B2412E; padding: 3px 9px; border-radius: 10px; }
+.pro { margin: 12px 22px 0; height: 92px; border-radius: 20px; overflow: hidden; position: relative; color: #fff; }
+.pro svg { position: absolute; inset: 0; }
+.pro .a { position: absolute; left: 16px; top: 14px; font: 500 12px Noto; opacity: .85; display: flex; align-items: center; gap: 4px; }
+.pro .b { position: absolute; left: 16px; top: 34px; font: 700 21px Hind; }
+.pro .c { position: absolute; left: 16px; top: 62px; font: 400 11.5px Noto; opacity: .85; }
+.pro .d { position: absolute; right: 14px; top: 32px; font: 600 12.5px Noto; background: rgba(255,255,255,.16); padding: 6px 12px; border-radius: 14px; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 0 22px; }
+.tile { background: var(--card); border-radius: 18px; padding: 10px 6px 8px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.tile .ic { width: 36px; height: 36px; border-radius: 13px; background: var(--soft); display: grid; place-items: center; margin: 0 auto; }
+.tile .ic .mi { font-size: 21px; color: var(--ink2); }
+.tile .n { font: 600 12.5px Noto; margin-top: 7px; }
+.tile.dark { background: var(--accent); color: #fff; }
+.tile.dark .ic { background: rgba(255,255,255,.12); }
+.tile.dark .ic .mi { color: #fff; }
+.set { margin: 0 22px; background: var(--card); border-radius: 18px; padding: 2px 14px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.set .r { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.set .r + .r { border-top: 1px solid var(--line); }
+.set .r > .mi:first-child { font-size: 21px; color: var(--ink2); }
+.set .tx { flex: 1; }
+.set .t1 { font: 500 14px Noto; }
+.set .t2 { font: 400 11.5px Noto; color: var(--muted); }
+.set .chev { color: #B5B3AD; font-size: 22px; }
+.sw { width: 40px; height: 24px; border-radius: 12px; background: var(--accent); position: relative; }
+.sw::after { content: ''; position: absolute; right: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; }
+
+/* chat */
+.chead { display: flex; align-items: center; gap: 10px; padding: 6px 16px 10px; border-bottom: 1px solid var(--line); }
+.chead .back { font-size: 20px; padding: 6px; }
+.bot { width: 42px; height: 42px; border-radius: 14px; background: var(--accent); color: #fff; display: grid; place-items: center; position: relative; }
+.bot .mi { font-size: 22px; }
+.bot::after { content: ''; position: absolute; right: -2px; bottom: -2px; width: 11px; height: 11px; border-radius: 50%; background: #3DBE8B; border: 2px solid var(--page); }
+.chead .nm { font: 700 17px Hind; }
+.chead .st { font: 400 11.5px Noto; color: var(--green); }
+.msgs { padding: 12px 16px 0; display: flex; flex-direction: column; gap: 10px; }
+.dayl { align-self: center; font: 500 11px Noto; color: var(--muted); background: #EAE8E3; padding: 3px 10px; border-radius: 10px; }
+.me { align-self: flex-end; max-width: 78%; background: var(--accent); color: #fff; padding: 10px 13px; border-radius: 18px 18px 6px 18px; font: 400 14px/1.5 Noto; }
+.me small { display: flex; align-items: center; gap: 3px; justify-content: flex-end; font: 400 10.5px Noto; opacity: .65; margin-top: 3px; }
+.ai { align-self: flex-start; max-width: 88%; }
+.ai .bub { background: var(--card); padding: 11px 13px; border-radius: 18px 18px 18px 6px; font: 400 14px/1.5 Noto; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.ai .card { margin-top: 8px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.ai .card .row { display: flex; align-items: center; gap: 10px; padding: 9px 11px; }
+.ai .card .row + .row { border-top: 1px solid var(--line); }
+.ai .card .ic { width: 30px; height: 30px; border-radius: 10px; background: var(--soft); display: grid; place-items: center; flex: none; }
+.ai .card .ic .mi { font-size: 17px; color: var(--ink2); }
+.ai .card .t1 { font: 500 13px Noto; }
+.ai .card .t2 { font: 400 11px Noto; color: var(--muted); }
+.ai .card .ok { margin-left: auto; color: var(--green); font-size: 18px; }
+.ai .acts { display: flex; gap: 6px; margin-top: 8px; }
+.ai .acts > span { font: 500 12px Noto; padding: 5px 11px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); display: flex; align-items: center; gap: 3px; }
+.ai .acts .mi { font-size: 14px; }
+.mini { display: flex; align-items: flex-end; gap: 6px; height: 46px; margin-top: 8px; }
+.mini div { flex: 0 0 52px; text-align: center; font: 400 10px Noto; color: var(--muted); }
+.mini i { display: block; width: 26px; margin-left: auto; margin-right: auto; border-radius: 5px 5px 2px 2px; margin-bottom: 3px; background: #D9D7D1; }
+.sugg { position: absolute; left: 0; right: 0; bottom: 112px; display: flex; gap: 8px; padding: 0 16px; overflow: hidden; }
+.sugg span { flex: none; font: 500 12.5px Noto; padding: 7px 13px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); color: var(--ink2); }
+.inbar { position: absolute; left: 0; right: 0; bottom: 0; height: 104px; background: var(--page); padding: 10px 16px 0; display: flex; align-items: flex-start; gap: 10px; }
+.inbar .field { flex: 1; height: 50px; border-radius: 25px; background: var(--card); display: flex; align-items: center; padding: 0 8px 0 16px; gap: 6px; font: 400 14px Noto; color: var(--muted); box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.inbar .field span.t { flex: 1; }
+.inbar .field .mi { font-size: 22px; color: var(--muted); }
+.bigmic { width: 58px; height: 58px; border-radius: 50%; background: var(--fab); color: #fff; display: grid; place-items: center; margin-top: -4px; box-shadow: 0 0 0 7px rgba(46,59,55,.12), 0 0 0 14px rgba(46,59,55,.06); }
+.bigmic .mi { font-size: 28px; }
+</style>
+<div class="stage">
+
+<!-- ───────────── PAGE 5: আরও ───────────── -->
+<div class="phone" id="more">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="ph">
+    <div><h1>আরও</h1><p>প্রোফাইল, সুবিধা আর সেটিংস</p></div>
+    <div style="padding-top:8px;text-align:right"><span class="hand" style="font-size:13px">নিজের মতো<br>সাজিয়ে নিন</span></div>
+  </div>
+
+  <div class="prof">
+    <div class="avatar">স</div>
+    <div><div class="nm">সাইফুল ইসলাম</div><div class="sb"><span class="mi">&#xf193;</span>ঢাকা · ফোনের লোকেশন অনুযায়ী</div><div class="sb">Google দিয়ে লগইন · ব্যাকআপ চালু</div></div>
+    <span class="tag">B+</span>
+  </div>
+
+  <div class="pro">
+    <svg viewBox="0 0 346 92" preserveAspectRatio="xMidYMid slice" width="346" height="92">
+      <defs><linearGradient id="sky2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8E9690"/><stop offset="1" stop-color="#C9CCC4"/></linearGradient>
+      <linearGradient id="fade2" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#141917" stop-opacity=".9"/><stop offset=".6" stop-color="#141917" stop-opacity=".5"/><stop offset="1" stop-color="#141917" stop-opacity=".2"/></linearGradient><filter id="mist2"><feGaussianBlur stdDeviation="1.4"/></filter></defs>
+      <rect width="346" height="92" fill="url(#sky2)"/>
+      <path d="M0 50 C 60 30, 110 44, 170 30 C 230 18, 290 38, 346 26 V92 H0Z" fill="#7C857F" filter="url(#mist2)"/>
+      <path d="M0 66 C 80 52, 150 64, 220 52 C 280 44, 320 56, 346 50 V92 H0Z" fill="#4C5751"/>
+      <g fill="#262E2A"><path d="M260 92 L272 44 L284 92Z"/><path d="M280 92 L290 56 L300 92Z"/><path d="M298 92 L312 38 L326 92Z"/><path d="M322 92 L332 60 L342 92Z"/></g>
+      <rect width="346" height="92" fill="url(#fade2)"/>
+    </svg>
+    <div class="a"><span class="mi" style="font-size:15px">&#xf06a1;</span>প্রো ভার্সন</div>
+    <div class="b">প্রো চালু আছে</div>
+    <div class="c">২৪ নভেম্বর পর্যন্ত · AI, বিজ্ঞাপন ছাড়া, অটো ব্যাকআপ</div>
+    <div class="d">নবায়ন</div>
+  </div>
+
+  <div class="sec" style="padding-top:14px"><h3>সুবিধা</h3><a>কী কী করা যায় <span class="mi" style="font-size:15px">&#xf57a;</span></a></div>
+  <div class="tiles">
+    <div class="tile dark"><div class="ic"><span class="mi">&#xf733;</span></div><div class="n">ফ্যামিলি</div></div>
+    <div class="tile"><div class="ic"><span class="mi">&#xf4a9;</span></div><div class="n">যাকাত</div></div>
+    <div class="tile"><div class="ic"><span class="mi">&#xeed2;</span></div><div class="n">ব্লাড ডোনেশন</div></div>
+    <div class="tile"><div class="ic"><span class="mi">&#xf037;</span></div><div class="n">কিবলা কম্পাস</div></div>
+    <div class="tile"><div class="ic"><span class="mi">&#xf854;</span></div><div class="n">শিখে নিন</div></div>
+    <div class="tile"><div class="ic"><span class="mi">&#xf04f;</span></div><div class="n">মতামত</div></div>
+  </div>
+
+  <div class="sec" style="padding-top:14px"><h3>সেটিংস</h3><a>সংস্করণ ২.৪৫.০</a></div>
+  <div class="set" style="margin-right:86px">
+    <div class="r"><span class="mi">&#xf24f;</span><div class="tx"><div class="t1">চেহারা ও ভাষা</div><div class="t2">লাইট · বাংলা</div></div><span class="mi chev">&#xf63b;</span></div>
+    <div class="r"><span class="mi">&#xf1fb;</span><div class="tx"><div class="t1">রিমাইন্ডারের রিংটোন</div><div class="t2">আমার গান</div></div><span class="mi chev">&#xf63b;</span></div>
+    <div class="r"><span class="mi">&#xf762;</span><div class="tx"><div class="t1">অ্যাপ লক</div><div class="t2">আঙুলের ছাপ</div></div><span class="sw"></span></div>
+  </div>
+
+  <div class="fab"><span class="mi">&#xf8bd;</span></div>
+  <div class="nav">
+    <div><span class="mi">&#xf7f5;</span>হোম</div>
+    <div><span class="mi">&#xf02e;</span>দিনলিপি</div>
+    <div><span class="mi">&#xee33;</span>হিসাব</div>
+    <div><span class="mi">&#xf134;</span>সংরক্ষণ</div>
+    <div class="on"><span class="mi">&#xf8b6;</span>আরও</div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+<!-- ───────────── PAGE 6: সহকারী (চ্যাট) ───────────── -->
+<div class="phone" id="chat">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="chead">
+    <span class="mi back">&#xf570;</span>
+    <div class="bot"><span class="mi">&#xf596;</span></div>
+    <div style="flex:1"><div class="nm">আপনার সহকারী</div><div class="st">শুনছি…</div></div>
+    <div class="iconbtn" style="width:38px;height:38px;border-radius:12px"><span class="mi" style="font-size:20px">&#xf8dc;</span></div>
+  </div>
+
+  <div class="msgs">
+    <div class="dayl">আজ সকাল</div>
+    <div class="me">কাল সকাল ৯টায় ব্যাংকে যেতে হবে, আর রহিম ৫০০ টাকা ফেরত দিয়েছে<small><span class="mi" style="font-size:12px">&#xf7bd;</span>বলেছেন · ৯:৩৮</small></div>
+    <div class="ai">
+      <div class="bub">দুটো কাজ রাখলাম:
+        <div class="card">
+          <div class="row"><div class="ic"><span class="mi">&#xf021a;</span></div><div><div class="t1">ব্যাংকে যাওয়া</div><div class="t2">কাজ · কাল সকাল ৯টা · রিমাইন্ডার দেওয়া</div></div><span class="mi ok">&#xf636;</span></div>
+          <div class="row"><div class="ic"><span class="mi">&#xf06a4;</span></div><div><div class="t1">রহিম ফেরত দিলেন ৳৫০০</div><div class="t2">ধার-দেনা · এখন পাবেন ৳৪,৫০০</div></div><span class="mi ok">&#xf636;</span></div>
+        </div>
+      </div>
+      <div class="acts"><span><span class="mi">&#xf00d;</span>বদলান</span><span><span class="mi">&#xf0261;</span>ফিরিয়ে আনুন</span></div>
+    </div>
+    <div class="me">এই মাসে বাজারে কত খরচ হলো?<small>৯:৪০</small></div>
+    <div class="ai">
+      <div class="bub">অক্টোবরে বাজারে <b>৳৪,২০০</b>। গত মাসের চেয়ে ৳৬০০ কম।
+        <div class="mini">
+          <div><i style="height:30px"></i>আগস্ট</div>
+          <div><i style="height:36px"></i>সেপ্টে</div>
+          <div><i style="height:26px;background:#1F2A27"></i>অক্টো</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sugg"><span>আজ কী কী কাজ?</span><span>আমার যাকাত কত?</span><span>রিমাইন্ডারগুলো দাও</span></div>
+  <div style="position:absolute;right:26px;bottom:156px"><span class="hand" style="font-size:12.5px">বলুন, আমি শুনছি</span>
+    <svg width="26" height="14" viewBox="0 0 26 14" style="vertical-align:-6px"><path d="M2 3 C 10 4, 17 8, 22 12" stroke="#3B3F3E" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M16 12 L 23 12 L 22 6" stroke="#3B3F3E" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="inbar">
+    <div class="field"><span class="t">লিখুন বা বলুন…</span><span class="mi">&#xf0147;</span></div>
+    <div class="bigmic"><span class="mi">&#xf8bd;</span></div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+</div>
+</body>
+</html>

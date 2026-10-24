@@ -1,0 +1,131 @@
+<style>
+.sales { margin: 14px 22px 0; border-radius: 22px; background: var(--accent); color: #fff; padding: 16px 18px 12px; }
+.sales .l { font: 500 12.5px Noto; opacity: .75; }
+.sales .v { font: 700 32px/1.15 Hind; }
+.sales .s { font: 400 12px Noto; opacity: .85; }
+.sales .s b { color: #A6E3C9; font-weight: 600; }
+.wk { display: flex; align-items: flex-end; gap: 8px; height: 46px; margin-top: 12px; }
+.wk div { flex: 1; text-align: center; font: 400 9.5px Noto; color: rgba(255,255,255,.6); }
+.wk i { display: block; border-radius: 4px; background: rgba(255,255,255,.18); margin-bottom: 3px; }
+.wk .on i { background: #A6E3C9; }
+.wk .on { color: #fff; }
+.qbtn { display: flex; gap: 8px; margin: 12px 22px 0; }
+.qbtn > div { flex: 1; height: 46px; border-radius: 15px; background: var(--card); display: flex; align-items: center; justify-content: center; gap: 5px; font: 600 13px Noto; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.qbtn > div.a { background: var(--green); color: #fff; }
+.qbtn .mi { font-size: 19px; }
+.duel { margin: 0 22px; background: var(--card); border-radius: 18px; padding: 2px 12px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.duel .r { display: flex; align-items: center; gap: 11px; padding: 9px 0; }
+.duel .r + .r { border-top: 1px solid var(--line); }
+.cav { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 600 15px Hind; flex: none; }
+.duel .tx { flex: 1; min-width: 0; }
+.duel .t1 { font: 600 13.5px Noto; }
+.duel .t2 { font: 400 11px Noto; color: var(--muted); }
+.duel .a { font: 700 14px Hind; text-align: right; }
+.duel .a span { display: block; font: 400 10.5px Noto; color: var(--muted); }
+.duel .a.due { color: #B9772A; }
+.rc { width: 38px; height: 38px; border-radius: 12px; background: var(--soft); display: grid; place-items: center; flex: none; font: 600 12px Hind; color: var(--ink2); }
+
+.sbar { display: flex; align-items: center; gap: 10px; margin: 8px 16px 0; }
+.sbox { flex: 1; height: 50px; border-radius: 16px; background: var(--card); display: flex; align-items: center; gap: 8px; padding: 0 10px 0 14px; box-shadow: 0 0 0 2px var(--accent); }
+.sbox .mi { font-size: 22px; color: var(--ink2); }
+.sbox .q { flex: 1; font: 500 15px Noto; }
+.sbox .q::after { content: ''; display: inline-block; width: 2px; height: 18px; background: var(--green); vertical-align: -3px; margin-left: 1px; }
+.cancel { font: 500 14px Noto; color: var(--ink2); }
+.fchips { display: flex; gap: 8px; margin: 12px 16px 0; overflow: hidden; }
+.fchips > span { flex: none; font: 500 12.5px Noto; padding: 6px 12px; border-radius: 15px; background: var(--card); color: var(--ink2); box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.fchips .on { background: var(--accent); color: #fff; }
+.grpl { font: 600 12.5px Noto; color: var(--muted); margin: 14px 22px 7px; display: flex; align-items: center; gap: 6px; }
+.grpl .mi { font-size: 16px; }
+.res { margin: 0 16px; background: var(--card); border-radius: 18px; padding: 2px 12px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.res .r { display: flex; align-items: center; gap: 11px; padding: 9px 0; }
+.res .r + .r { border-top: 1px solid var(--line); }
+.res .ic { width: 36px; height: 36px; border-radius: 11px; background: var(--soft); display: grid; place-items: center; flex: none; }
+.res .ic .mi { font-size: 19px; color: var(--ink2); }
+.res .tx { flex: 1; min-width: 0; }
+.res .t1 { font: 600 13.5px Noto; }
+.res .t2 { font: 400 11.5px Noto; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+mark { background: #F6E3A8; color: inherit; border-radius: 3px; padding: 0 2px; }
+.res .chev { color: #B5B3AD; font-size: 22px; }
+.recent { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 22px; }
+.recent > span { font: 400 12px Noto; padding: 5px 11px 5px 8px; border-radius: 14px; border: 1px solid var(--line); color: var(--ink2); display: flex; align-items: center; gap: 4px; }
+.recent .mi { font-size: 14px; color: var(--muted); }
+</style>
+<div class="stage">
+
+<!-- ───────────── PAGE 27: দোকান ───────────── -->
+<div class="phone" id="shop">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="head2">
+    <span class="mi back">&#xf570;</span>
+    <div class="tt"><h1>আমার দোকান</h1><p>রহমান স্টোর · মিরপুর ১০</p></div>
+    <div class="iconbtn"><span class="mi">&#xf01fa;</span></div>
+  </div>
+
+  <div class="sales">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div><div class="l">আজকের বিক্রি</div><div class="v">৳৮,৪৫০</div><div class="s">১২টা রসিদ · গতকালের চেয়ে <b>৳৯০০ বেশি</b></div></div>
+      <span class="hand" style="font-size:13px;color:#E8E3D6;transform:rotate(-8deg)">বরকত<br>হোক</span>
+    </div>
+    <div class="wk">
+      <div><i style="height:24px"></i>রবি</div><div><i style="height:30px"></i>সোম</div><div><i style="height:20px"></i>মঙ্গল</div><div><i style="height:34px"></i>বুধ</div><div><i style="height:28px"></i>বৃহঃ</div><div><i style="height:16px"></i>শুক্র</div><div class="on"><i style="height:32px"></i>আজ</div>
+    </div>
+  </div>
+  <div class="qbtn"><div class="a"><span class="mi">&#xf537;</span>বিক্রি</div><div><span class="mi">&#xf537;</span>খরচ</div><div><span class="mi">&#xf2f0;</span>রসিদ</div></div>
+
+  <div class="sec" style="padding-top:14px"><h3>বাকির খাতা</h3><a>৳১,৮০০ বাকি</a></div>
+  <div class="duel">
+    <div class="r"><div class="cav" style="background:#6E7F8F">ক</div><div class="tx"><div class="t1">করিম মিয়া</div><div class="t2">৫ দিন ধরে · ৩ বার নিয়েছেন</div></div><div class="a due">৳১,২০০<span>বাকি</span></div></div>
+    <div class="r"><div class="cav" style="background:#B07A5A">সা</div><div class="tx"><div class="t1">সালমা আপা</div><div class="t2">গতকাল</div></div><div class="a due">৳৬০০<span>বাকি</span></div></div>
+  </div>
+
+  <div class="sec" style="padding-top:14px"><h3>শেষ রসিদ</h3><a>সব দেখুন <span class="mi" style="font-size:15px">&#xf57a;</span></a></div>
+  <div class="duel" style="margin-right:86px">
+    <div class="r"><div class="rc">#১২</div><div class="tx"><div class="t1">চাল ৫ কেজি, ডাল ২ কেজি</div><div class="t2">১১:১০ · বিকাশ</div></div><div class="a">৳৮৫০</div></div>
+    <div class="r"><div class="rc">#১১</div><div class="tx"><div class="t1">তেল ১ লিটার, চিনি</div><div class="t2">১০:৪২ · নগদ টাকা</div></div><div class="a">৳৩২০</div></div>
+  </div>
+
+  <div class="fab"><span class="mi">&#xf8bd;</span></div>
+  <div class="nav">
+    <div><span class="mi">&#xf7f5;</span>হোম</div>
+    <div><span class="mi">&#xf02e;</span>দিনলিপি</div>
+    <div class="on"><span class="mi">&#xee33;</span>হিসাব</div>
+    <div><span class="mi">&#xf134;</span>সংরক্ষণ</div>
+    <div><span class="mi">&#xf8b6;</span>আরও</div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+<!-- ───────────── PAGE 28: খোঁজা ───────────── -->
+<div class="phone" id="search">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="sbar">
+    <div class="sbox"><span class="mi">&#xf013d;</span><span class="q">পাসপোর্ট</span><span class="mi" style="font-size:20px;color:var(--muted)">&#xf647;</span></div>
+    <span class="cancel">বাতিল</span>
+  </div>
+  <div class="fchips"><span class="on">সব · ৫</span><span>ডকুমেন্ট · ১</span><span>রিমাইন্ডার · ১</span><span>নোট · ২</span><span>কাজ · ১</span></div>
+
+  <div class="grpl"><span class="mi">&#xf05ff;</span>ডকুমেন্ট</div>
+  <div class="res">
+    <div class="r"><div class="ic"><span class="mi">&#xeeb8;</span></div><div class="tx"><div class="t1"><mark>পাসপোর্ট</mark></div><div class="t2">ছবি থেকে পড়া: “Passport No A•••••21 · Date of Expiry 05 NOV 2026”</div></div><span class="mi chev">&#xf63b;</span></div>
+  </div>
+  <div class="grpl"><span class="mi">&#xf02e;</span>রিমাইন্ডার ও কাজ</div>
+  <div class="res">
+    <div class="r"><div class="ic"><span class="mi">&#xf234;</span></div><div class="tx"><div class="t1"><mark>পাসপোর্ট</mark> নবায়ন</div><div class="t2">২৫ অক্টোবর, রবিবার · সকাল ১০টা</div></div><span class="mi chev">&#xf63b;</span></div>
+    <div class="r"><div class="ic"><span class="mi">&#xf021a;</span></div><div class="tx"><div class="t1"><mark>পাসপোর্টের</mark> জন্য ছবি তোলা</div><div class="t2">কাজ · তারিখ নেই</div></div><span class="mi chev">&#xf63b;</span></div>
+  </div>
+  <div class="grpl"><span class="mi">&#xf3e8;</span>নোট</div>
+  <div class="res">
+    <div class="r"><div class="ic"><span class="mi">&#xf3e8;</span></div><div class="tx"><div class="t1"><mark>পাসপোর্ট</mark> অফিস</div><div class="t2">আগারগাঁও, সকাল ৯টায় খোলে · জাতীয় পরিচয়পত্র আর…</div></div><span class="mi chev">&#xf63b;</span></div>
+    <div class="r"><div class="ic"><span class="mi">&#xf3e8;</span></div><div class="tx"><div class="t1">বিদেশ যাওয়ার কাগজ</div><div class="t2">ভিসা, <mark>পাসপোর্টের</mark> ফটোকপি দুইটা, টিকিট</div></div><span class="mi chev">&#xf63b;</span></div>
+  </div>
+
+  <div class="grpl" style="margin-top:16px"><span class="mi">&#xf7ef;</span>আগে খুঁজেছেন <span class="hand" style="font-size:12.5px;margin-left:auto;color:var(--ink2)">মুখে বলেও খোঁজা যায়</span></div>
+  <div class="recent"><span><span class="mi">&#xf7ef;</span>রহিম</span><span><span class="mi">&#xf7ef;</span>বিদ্যুৎ বিল</span><span><span class="mi">&#xf7ef;</span>জমির দলিল</span></div>
+
+  <div class="fab" style="bottom:36px"><span class="mi">&#xf8bd;</span></div>
+  <div class="homebar"></div>
+</div>
+
+</div>
+</body>
+</html>

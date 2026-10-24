@@ -1,0 +1,143 @@
+<style>
+.mhead { display: flex; align-items: center; justify-content: space-between; margin: 14px 22px 0; }
+.mhead .m { font: 700 19px Hind; }
+.mhead .m small { display: block; font: 400 11.5px Noto; color: var(--muted); }
+.mhead .nv { display: flex; gap: 6px; }
+.mhead .nv span { width: 36px; height: 36px; border-radius: 12px; background: var(--card); display: grid; place-items: center; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.mhead .nv .mi { font-size: 22px; }
+.cal { margin: 12px 16px 0; background: var(--card); border-radius: 22px; padding: 10px 8px 8px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.cal .wd, .cal .gd { display: grid; grid-template-columns: repeat(7, 1fr); }
+.cal .wd span { text-align: center; font: 500 11px Noto; color: var(--muted); padding-bottom: 6px; }
+.cal .wd span.f { color: #D2553E; }
+.cd { height: 44px; text-align: center; border-radius: 13px; position: relative; padding-top: 4px; }
+.cd b { display: block; font: 600 15px Hind; line-height: 1.3; }
+.cd small { display: block; font: 400 9px Noto; color: #A9A7A1; line-height: 1.2; }
+.cd i { position: absolute; left: 50%; bottom: 3px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--green); }
+.cd.fri b { color: #D2553E; }
+.cd.today { background: var(--accent); }
+.cd.today b, .cd.today small { color: #fff; }
+.cd.today i { background: #fff; }
+.prayer { display: flex; gap: 6px; margin: 12px 16px 0; }
+.prayer div { flex: 1; background: var(--card); border-radius: 13px; padding: 7px 0; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.prayer div b { display: block; font: 600 13px Hind; }
+.prayer div span { font: 400 10.5px Noto; color: var(--muted); }
+.prayer div.cur { background: #E7EFEA; }
+.prayer div.cur span { color: var(--green); font-weight: 600; }
+.dayl2 { margin: 0 22px; background: var(--card); border-radius: 18px; padding: 2px 12px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.dayl2 .r { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+.dayl2 .r + .r { border-top: 1px solid var(--line); }
+.dayl2 .tm { font: 500 11.5px Noto; color: var(--muted); width: 62px; }
+.dayl2 .t1 { font: 500 13.5px Noto; flex: 1; }
+.dayl2 .bar { width: 3px; height: 26px; border-radius: 2px; background: var(--accent); }
+
+.bk { margin: 14px 22px 0; border-radius: 22px; background: var(--accent); color: #fff; padding: 18px; display: flex; gap: 14px; align-items: center; }
+.bk .cl { width: 60px; height: 60px; border-radius: 20px; background: rgba(166,227,201,.15); display: grid; place-items: center; flex: none; }
+.bk .cl .mi { font-size: 34px; color: #A6E3C9; }
+.bk .t1 { font: 700 20px Hind; }
+.bk .t2 { font: 400 12px/1.5 Noto; opacity: .8; }
+.bbtns { display: flex; gap: 10px; margin: 12px 22px 0; }
+.bbtns div { flex: 1; height: 46px; border-radius: 15px; display: flex; align-items: center; justify-content: center; gap: 6px; font: 600 14px Noto; }
+.bbtns .a { background: var(--card); box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.bbtns .b { background: transparent; border: 1.5px solid #CFCCC5; color: var(--ink2); }
+.bbtns .mi { font-size: 20px; }
+.setl { margin: 0 22px; background: var(--card); border-radius: 18px; padding: 2px 14px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.setl .r { display: flex; align-items: center; gap: 12px; padding: 9px 0; }
+.setl .r + .r { border-top: 1px solid var(--line); }
+.setl .r > .mi { font-size: 20px; color: var(--ink2); }
+.setl .tx { flex: 1; }
+.setl .t1 { font: 500 13.5px Noto; }
+.setl .t2 { font: 400 11px Noto; color: var(--muted); }
+.setl .v { font: 600 12.5px Noto; color: var(--ink2); }
+.sw { width: 40px; height: 24px; border-radius: 12px; background: var(--accent); position: relative; flex: none; }
+.sw::after { content: ''; position: absolute; right: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; }
+.incl { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 22px; }
+.incl > span { font: 500 12px Noto; padding: 6px 11px 6px 8px; border-radius: 14px; background: var(--card); display: flex; align-items: center; gap: 5px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.incl .mi { font-size: 15px; color: var(--green); }
+</style>
+<div class="stage">
+
+<!-- ───────────── PAGE 23: ক্যালেন্ডার ───────────── -->
+<div class="phone" id="calendar">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="head2">
+    <span class="mi back">&#xf570;</span>
+    <div class="tt"><h1>ক্যালেন্ডার</h1><p>ইংরেজি, বাংলা আর হিজরি এক সাথে</p></div>
+    <div style="padding-top:6px;text-align:right"><span class="hand" style="font-size:13px">প্রতিটা দিন<br>গুরুত্বপূর্ণ</span></div>
+  </div>
+  <div class="mhead">
+    <div class="m">অক্টোবর ২০২৬<small>আশ্বিন–কার্তিক ১৪৩৩</small></div>
+    <div class="nv"><span><span class="mi">&#xf63a;</span></span><span><span class="mi">&#xf63b;</span></span></div>
+  </div>
+  <div class="cal">
+    <div class="wd"><span>শনি</span><span>রবি</span><span>সোম</span><span>মঙ্গল</span><span>বুধ</span><span>বৃহঃ</span><span class="f">শুক্র</span></div>
+    <div class="gd"><div class="cd e"></div><div class="cd e"></div><div class="cd e"></div><div class="cd e"></div><div class="cd e"></div><div class="cd"><b>১</b><small>১৬</small></div><div class="cd fri"><b>২</b><small>১৭</small></div><div class="cd"><b>৩</b><small>১৮</small><i></i></div><div class="cd"><b>৪</b><small>১৯</small></div><div class="cd"><b>৫</b><small>২০</small></div><div class="cd"><b>৬</b><small>২১</small></div><div class="cd"><b>৭</b><small>২২</small></div><div class="cd"><b>৮</b><small>২৩</small></div><div class="cd fri"><b>৯</b><small>২৪</small><i></i></div><div class="cd"><b>১০</b><small>২৫</small></div><div class="cd"><b>১১</b><small>২৬</small></div><div class="cd"><b>১২</b><small>২৭</small></div><div class="cd"><b>১৩</b><small>২৮</small></div><div class="cd"><b>১৪</b><small>২৯</small></div><div class="cd"><b>১৫</b><small>৩০</small><i></i></div><div class="cd fri"><b>১৬</b><small>৩১</small></div><div class="cd"><b>১৭</b><small>১ কার্তিক</small></div><div class="cd"><b>১৮</b><small>২</small></div><div class="cd"><b>১৯</b><small>৩</small></div><div class="cd"><b>২০</b><small>৪</small></div><div class="cd"><b>২১</b><small>৫</small><i></i></div><div class="cd"><b>২২</b><small>৬</small></div><div class="cd fri"><b>২৩</b><small>৭</small></div><div class="cd today"><b>২৪</b><small>৮</small><i></i></div><div class="cd"><b>২৫</b><small>৯</small><i></i></div><div class="cd"><b>২৬</b><small>১০</small></div><div class="cd"><b>২৭</b><small>১১</small></div><div class="cd"><b>২৮</b><small>১২</small><i></i></div><div class="cd"><b>২৯</b><small>১৩</small></div><div class="cd fri"><b>৩০</b><small>১৪</small><i></i></div><div class="cd"><b>৩১</b><small>১৫</small></div></div>
+  </div>
+  <div class="prayer">
+    <div><b>৪:৪৯</b><span>ফজর</span></div>
+    <div class="cur"><b>১১:৪৩</b><span>যোহর</span></div>
+    <div><b>৩:৩৮</b><span>আসর</span></div>
+    <div><b>৫:২৪</b><span>মাগরিব</span></div>
+    <div><b>৬:৩৮</b><span>এশা</span></div>
+  </div>
+  <div class="sec" style="padding-top:12px"><h3 style="font-size:16px">আজ, শনিবার · ৮ কার্তিক</h3><a>৫টা</a></div>
+  <div class="dayl2" style="margin-right:86px">
+    <div class="r"><span class="bar"></span><span class="tm">দুপুর ১২:৩০</span><span class="t1">ব্যাংকে যাওয়া</span></div>
+    <div class="r"><span class="bar" style="background:#B07A5A"></span><span class="tm">বিকাল ৩:০০</span><span class="t1">রহিম ফেরত দেবেন</span></div>
+  </div>
+
+  <div class="fab"><span class="mi">&#xf537;</span></div>
+  <div class="nav">
+    <div><span class="mi">&#xf7f5;</span>হোম</div>
+    <div class="on"><span class="mi">&#xf71b;</span>দিনলিপি</div>
+    <div><span class="mi">&#xee33;</span>হিসাব</div>
+    <div><span class="mi">&#xf134;</span>সংরক্ষণ</div>
+    <div><span class="mi">&#xf8b6;</span>আরও</div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+<!-- ───────────── PAGE 24: ব্যাকআপ ───────────── -->
+<div class="phone" id="backup">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="head2">
+    <span class="mi back">&#xf570;</span>
+    <div class="tt"><h1>ব্যাকআপ</h1><p>ফোন হারালেও তথ্য হারাবে না</p></div>
+    <div style="padding-top:6px;text-align:right"><span class="hand" style="font-size:13px">নিশ্চিন্তে<br>থাকুন</span></div>
+  </div>
+
+  <div class="bk">
+    <div class="cl"><span class="mi">&#xf64c;</span></div>
+    <div><div class="t1">সব নিরাপদ আছে</div><div class="t2">শেষ ব্যাকআপ আজ সকাল ৮:০২ · Google Drive · ৫২ MB</div></div>
+  </div>
+  <div class="bbtns"><div class="a"><span class="mi">&#xf05c9;</span>এখনই ব্যাকআপ</div><div class="b"><span class="mi">&#xf010b;</span>ফিরিয়ে আনুন</div></div>
+
+  <div class="sec" style="padding-top:14px"><h3>কীভাবে</h3><a></a></div>
+  <div class="setl">
+    <div class="r"><span class="mi">&#xf05f5;</span><div class="tx"><div class="t1">প্রতিদিন নিজে থেকে</div><div class="t2">রাতে, ফোন চার্জে থাকলে</div></div><span class="sw"></span></div>
+    <div class="r"><span class="mi">&#xf02bf;</span><div class="tx"><div class="t1">শুধু Wi-Fi-তে</div><div class="t2">মোবাইল ডেটা খরচ হবে না</div></div><span class="sw"></span></div>
+    <div class="r"><span class="mi">&#xf889;</span><div class="tx"><div class="t1">তালাবদ্ধ ব্যাকআপ</div><div class="t2">Google-ও খুলতে পারে না</div></div><span class="v">চালু</span></div>
+  </div>
+
+  <div class="sec" style="padding-top:14px"><h3>যা থাকে</h3><a></a></div>
+  <div class="incl" style="margin-right:86px">
+    <span><span class="mi">&#xf636;</span>৪২টা কাজ ও রিমাইন্ডার</span>
+    <span><span class="mi">&#xf636;</span>৩১৮টা লেনদেন</span>
+    <span><span class="mi">&#xf636;</span>২৪টা নোট</span>
+    <span><span class="mi">&#xf636;</span>৩৮টা ছবি</span>
+    <span><span class="mi">&#xf636;</span>পাসওয়ার্ড</span>
+  </div>
+
+  <div class="fab"><span class="mi">&#xf8bd;</span></div>
+  <div class="nav">
+    <div><span class="mi">&#xf7f5;</span>হোম</div>
+    <div><span class="mi">&#xf02e;</span>দিনলিপি</div>
+    <div><span class="mi">&#xee33;</span>হিসাব</div>
+    <div><span class="mi">&#xf134;</span>সংরক্ষণ</div>
+    <div class="on"><span class="mi">&#xf8b6;</span>আরও</div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,136 @@
+<style>
+.today2 { margin: 14px 22px 0; border-radius: 22px; background: var(--accent); color: #fff; padding: 16px 18px; position: relative; overflow: hidden; }
+.today2 .l { font: 500 12px Noto; opacity: .75; display: flex; align-items: center; gap: 4px; }
+.today2 .v { font: 700 23px/1.3 Hind; margin-top: 4px; }
+.today2 .s { font: 400 12px Noto; opacity: .8; }
+.today2 .acts { display: flex; gap: 8px; margin-top: 12px; }
+.today2 .acts > span { font: 600 12.5px Noto; padding: 7px 13px; border-radius: 14px; background: #fff; color: var(--ink); display: flex; align-items: center; gap: 5px; }
+.today2 .acts > span.g { background: rgba(255,255,255,.14); color: #fff; }
+.today2 .acts .mi { font-size: 16px; }
+.today2 svg { position: absolute; right: 10px; top: 8px; }
+.mlabel { font: 600 13px Noto; color: var(--muted); margin: 14px 22px 8px; }
+.sdays { margin: 0 22px; background: var(--card); border-radius: 18px; padding: 2px 12px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.sdays .r { display: flex; align-items: center; gap: 12px; padding: 9px 0; }
+.sdays .r + .r { border-top: 1px solid var(--line); }
+.db { width: 46px; height: 50px; border-radius: 14px; background: var(--soft); text-align: center; padding-top: 6px; flex: none; }
+.db b { display: block; font: 700 18px/1.1 Hind; }
+.db span { font: 400 10.5px Noto; color: var(--muted); }
+.sdays .tx { flex: 1; min-width: 0; }
+.sdays .t1 { font: 600 14px Noto; }
+.sdays .t2 { font: 400 11.5px Noto; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+.sdays .t2 .mi { font-size: 14px; }
+.cnt { font: 600 11px Noto; padding: 3px 9px; border-radius: 10px; background: var(--soft); color: var(--ink2); white-space: nowrap; }
+.cnt.soon { background: #FBF1E3; color: #9A5F1E; }
+
+.ecard { margin: 14px 22px 0; border-radius: 22px; background: #fff; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+.ecard .etop { background: #B2412E; color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 8px; font: 600 13.5px Noto; }
+.ecard .etop .mi { font-size: 20px; }
+.ecard .bd { padding: 14px 16px; display: flex; gap: 14px; }
+.ecard .bg { width: 64px; height: 64px; border-radius: 18px; background: #FBE7E3; color: #B2412E; display: grid; place-items: center; font: 700 22px Inter, sans-serif; flex: none; }
+.ecard .nm { font: 700 18px Hind; }
+.ecard .ln { font: 400 12.5px/1.6 Noto; color: var(--ink2); }
+.ecard .ln b { font-weight: 600; color: var(--ink); }
+.ecard .ft { border-top: 1px dashed var(--line); padding: 10px 16px; font: 400 12px Noto; color: var(--ink2); display: flex; gap: 6px; align-items: center; }
+.ecard .ft .mi { font-size: 16px; color: #B2412E; }
+.econ { margin: 0 22px; background: var(--card); border-radius: 18px; padding: 2px 12px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.econ .r { display: flex; align-items: center; gap: 11px; padding: 9px 0; }
+.econ .r + .r { border-top: 1px solid var(--line); }
+.cav { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 600 16px Hind; flex: none; }
+.econ .tx { flex: 1; }
+.econ .t1 { font: 600 14px Noto; }
+.econ .t2 { font: 400 11.5px Noto; color: var(--muted); }
+.callb { width: 40px; height: 40px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; }
+.callb .mi { font-size: 20px; }
+.n999 { margin: 12px 22px 0; border-radius: 18px; background: #B2412E; color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+.n999 b { font: 700 28px Hind; }
+.n999 .t { flex: 1; font: 400 12px/1.4 Noto; opacity: .9; }
+.n999 .callb { background: #fff; color: #B2412E; }
+.lockrow { margin: 12px 22px 0; display: flex; align-items: center; gap: 10px; font: 500 13px Noto; color: var(--ink2); }
+.lockrow .mi { font-size: 20px; }
+.sw { width: 40px; height: 24px; border-radius: 12px; background: var(--accent); position: relative; flex: none; margin-left: auto; }
+.sw::after { content: ''; position: absolute; right: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; }
+</style>
+<div class="stage">
+
+<!-- ───────────── PAGE 25: বিশেষ দিন ───────────── -->
+<div class="phone" id="special">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="head2">
+    <span class="mi back">&#xf570;</span>
+    <div class="tt"><h1>বিশেষ দিন</h1><p>জন্মদিন, বিবাহবার্ষিকী, স্মরণের দিন</p></div>
+    <div class="iconbtn"><span class="mi">&#xf537;</span></div>
+  </div>
+
+  <div class="today2">
+    <svg width="70" height="70" viewBox="0 0 70 70" opacity=".9"><g fill="none" stroke="#E9C46A" stroke-width="2" stroke-linecap="round"><path d="M12 18 l4 4"/><path d="M58 14 l-4 5"/><path d="M50 50 l5 3"/><path d="M14 52 l-4 3"/></g><circle cx="35" cy="34" r="3" fill="#E9C46A"/><circle cx="22" cy="40" r="2" fill="#A6E3C9"/><circle cx="48" cy="28" r="2" fill="#F2A08C"/></svg>
+    <div class="l"><span class="mi" style="font-size:15px">&#xf5fc;</span>আজ</div>
+    <div class="v">জামালের জন্মদিন</div>
+    <div class="s">৩৫ বছরে পা দিলেন · বন্ধু</div>
+    <div class="acts"><span><span class="mi">&#xf3ad;</span>শুভেচ্ছা পাঠান</span><span class="g"><span class="mi">&#xf608;</span>ফোন</span></div>
+  </div>
+
+  <div class="mlabel">নভেম্বর <span class="hand" style="font-size:12.5px;margin-left:10px;color:var(--ink2)">ভুলে যাবেন না!</span></div>
+  <div class="sdays">
+    <div class="r"><div class="db"><b>৩</b><span>নভে</span></div><div class="tx"><div class="t1">আম্মা-আব্বার বিবাহবার্ষিকী</div><div class="t2"><span class="mi">&#xf737;</span>৩৫তম · আগের দিন মনে করাবে</div></div><span class="cnt soon">১০ দিন</span></div>
+    <div class="r"><div class="db"><b>১২</b><span>নভে</span></div><div class="tx"><div class="t1">রাফির জন্মদিন</div><div class="t2"><span class="mi">&#xf5fc;</span>১০ বছর হবে</div></div><span class="cnt">১৯ দিন</span></div>
+  </div>
+  <div class="mlabel">ডিসেম্বর</div>
+  <div class="sdays" style="margin-right:86px">
+    <div class="r"><div class="db"><b>২০</b><span>ডিসে</span></div><div class="tx"><div class="t1">দাদার মৃত্যুবার্ষিকী</div><div class="t2"><span class="mi">&#xf17b;</span>দোয়া ও স্মরণ</div></div><span class="cnt">৫৭ দিন</span></div>
+  </div>
+
+  <div class="fab"><span class="mi">&#xf8bd;</span></div>
+  <div class="nav">
+    <div><span class="mi">&#xf7f5;</span>হোম</div>
+    <div><span class="mi">&#xf02e;</span>দিনলিপি</div>
+    <div><span class="mi">&#xee33;</span>হিসাব</div>
+    <div class="on"><span class="mi">&#xf134;</span>সংরক্ষণ</div>
+    <div><span class="mi">&#xf8b6;</span>আরও</div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+<!-- ───────────── PAGE 26: জরুরি কার্ড ───────────── -->
+<div class="phone" id="emergency">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="head2">
+    <span class="mi back">&#xf570;</span>
+    <div class="tt"><h1>জরুরি কার্ড</h1><p>বিপদে অন্য কেউ লক স্ক্রিন থেকে দেখবেন</p></div>
+    <div class="iconbtn"><span class="mi">&#xf00d;</span></div>
+  </div>
+
+  <div class="ecard">
+    <div class="etop"><span class="mi">&#xf0313;</span>জরুরি তথ্য</div>
+    <div class="bd">
+      <div class="bg">B+</div>
+      <div><div class="nm">সাইফুল ইসলাম</div>
+        <div class="ln"><b>অ্যালার্জি:</b> পেনিসিলিন</div>
+        <div class="ln"><b>অসুখ:</b> উচ্চ রক্তচাপ</div>
+        <div class="ln"><b>ঠিকানা:</b> মিরপুর ১০, ঢাকা</div></div>
+    </div>
+    <div class="ft"><span class="mi">&#xf340;</span>লক স্ক্রিনে দেখাচ্ছে · আপনি যা লিখেছেন, শুধু তা-ই</div>
+  </div>
+
+  <div class="sec" style="padding-top:14px"><h3>বিপদে খবর দিন</h3><a>২ জন</a></div>
+  <div class="econ">
+    <div class="r"><div class="cav" style="background:#B07A5A">আ</div><div class="tx"><div class="t1">আম্মা</div><div class="t2">মা · ০১৭১১-২৩৪ ৫৬৭</div></div><span class="callb"><span class="mi">&#xf608;</span></span></div>
+    <div class="r"><div class="cav" style="background:#7C6A9A">রা</div><div class="tx"><div class="t1">রাফি</div><div class="t2">ছেলে · ০১৮২২-৯৮৭ ৬৫৪</div></div><span class="callb"><span class="mi">&#xf608;</span></span></div>
+  </div>
+
+  <div class="n999" style="margin-right:86px"><b>৯৯৯</b><div class="t">জাতীয় জরুরি সেবা<br>পুলিশ, ফায়ার সার্ভিস, অ্যাম্বুলেন্স</div><span class="callb"><span class="mi">&#xf608;</span></span></div>
+  <div class="lockrow" style="margin-right:86px"><span class="mi">&#xf340;</span>লক স্ক্রিনে দেখাবে<span class="sw"></span></div>
+
+  <div class="fab"><span class="mi">&#xf8bd;</span></div>
+  <div class="nav">
+    <div><span class="mi">&#xf7f5;</span>হোম</div>
+    <div><span class="mi">&#xf02e;</span>দিনলিপি</div>
+    <div><span class="mi">&#xee33;</span>হিসাব</div>
+    <div class="on"><span class="mi">&#xf134;</span>সংরক্ষণ</div>
+    <div><span class="mi">&#xf8b6;</span>আরও</div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+</div>
+</body>
+</html>

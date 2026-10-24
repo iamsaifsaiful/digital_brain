@@ -1,0 +1,142 @@
+<style>
+.chart { margin: 14px 22px 0; background: var(--card); border-radius: 20px; padding: 14px 14px 10px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.chart .l { font: 500 12px Noto; color: var(--muted); }
+.chart .v { font: 700 26px/1.2 Hind; }
+.chart .v small { font: 500 12px Noto; color: var(--green); margin-left: 6px; }
+.bars2 { display: flex; align-items: flex-end; gap: 10px; height: 110px; margin-top: 10px; padding: 0 2px; }
+.bars2 div { flex: 1; text-align: center; font: 400 10.5px Noto; color: var(--muted); }
+.bars2 i { display: block; border-radius: 8px 8px 4px 4px; background: #E3E1DB; margin-bottom: 5px; position: relative; }
+.bars2 .on i { background: var(--accent); }
+.bars2 .on { color: var(--ink); font-weight: 600; }
+.bars2 .on b { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font: 600 10.5px Hind; color: var(--ink); white-space: nowrap; }
+.ins { display: flex; gap: 10px; margin: 12px 22px 0; }
+.ins > div { flex: 1; border-radius: 16px; padding: 11px 12px; }
+.ins .g { background: #E7EFEA; }
+.ins .o { background: #FBF1E3; }
+.ins .mi { font-size: 20px; }
+.ins .t1 { font: 600 13px Noto; margin-top: 4px; }
+.ins .t2 { font: 400 11px Noto; color: var(--ink2); opacity: .8; }
+.cats { margin: 0 22px; background: var(--card); border-radius: 18px; padding: 4px 14px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.cats .r { padding: 8px 0; }
+.cats .r + .r { border-top: 1px solid var(--line); }
+.cats .h { display: flex; align-items: center; gap: 9px; }
+.cats .h .mi { font-size: 18px; color: var(--ink2); }
+.cats .n { font: 500 13.5px Noto; flex: 1; }
+.cats .a { font: 600 13.5px Hind; }
+.cats .p { font: 400 11px Noto; color: var(--muted); width: 34px; text-align: right; }
+.cats .bar { height: 5px; border-radius: 3px; background: var(--line); margin: 6px 0 0 27px; }
+.cats .bar b { display: block; height: 100%; border-radius: 3px; background: var(--ink); }
+
+.streak { margin: 14px 22px 0; border-radius: 22px; background: var(--accent); color: #fff; padding: 15px 18px; display: flex; align-items: center; gap: 14px; }
+.flame { width: 52px; height: 52px; border-radius: 16px; background: rgba(233,162,59,.18); display: grid; place-items: center; }
+.flame .mi { font-size: 30px; color: #F2B24C; }
+.streak .l { font: 500 12px Noto; opacity: .75; }
+.streak .v { font: 700 26px/1.2 Hind; }
+.streak .s { font: 400 11.5px Noto; opacity: .8; }
+.hgrid { margin: 0 22px; background: var(--card); border-radius: 20px; padding: 10px 12px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.hgrid .hd, .hgrid .r { display: grid; grid-template-columns: 1fr repeat(7, 22px); column-gap: 5px; align-items: center; }
+.hgrid .hd span { font: 500 10.5px Noto; color: var(--muted); text-align: center; }
+.hgrid .hd span.today { color: var(--ink); font-weight: 700; }
+.hgrid .r { padding: 9px 0; border-top: 1px solid var(--line); }
+.hgrid .nm { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.hgrid .nm .ic { width: 30px; height: 30px; border-radius: 10px; background: var(--soft); display: grid; place-items: center; flex: none; }
+.hgrid .nm .ic .mi { font-size: 17px; color: var(--ink2); }
+.hgrid .nm .t1 { font: 500 13px Noto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hgrid .nm .t2 { font: 400 10.5px Noto; color: var(--muted); }
+.sq { width: 22px; height: 22px; border-radius: 7px; background: var(--line); display: grid; place-items: center; }
+.sq.on { background: var(--accent); }
+.sq.on::after { content: ''; width: 8px; height: 4px; border-left: 2px solid #fff; border-bottom: 2px solid #fff; transform: rotate(-45deg) translate(1px,-1px); }
+.sq.today { background: #fff; border: 1.6px dashed #9B9A95; }
+.sq.miss { background: #F3E4E0; }
+</style>
+<div class="stage">
+
+<!-- ───────────── PAGE 19: মাসের রিপোর্ট ───────────── -->
+<div class="phone" id="report">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="head2">
+    <span class="mi back">&#xf570;</span>
+    <div class="tt"><h1>মাসের রিপোর্ট</h1><p>অক্টোবর ২০২৬ · ২৪ তারিখ পর্যন্ত</p></div>
+    <div class="iconbtn"><span class="mi">&#xf2a4;</span></div>
+  </div>
+
+  <div class="chart">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div><div class="l">এ মাসে খরচ</div><div class="v">৳১২,৪৫০<small>গত মাসের চেয়ে ১২% কম</small></div></div>
+      <span class="hand" style="font-size:13px;margin-top:4px">ভালো<br>হচ্ছে!</span>
+    </div>
+    <div class="bars2">
+      <div><i style="height:62px"></i>মে</div>
+      <div><i style="height:74px"></i>জুন</div>
+      <div><i style="height:58px"></i>জুলাই</div>
+      <div><i style="height:80px"></i>আগস্ট</div>
+      <div><i style="height:70px"></i>সেপ্টে</div>
+      <div class="on"><i style="height:62px"><b>১২.৪ হা.</b></i>অক্টো</div>
+    </div>
+  </div>
+
+  <div class="ins">
+    <div class="g"><span class="mi" style="color:var(--green)">&#xf0252;</span><div class="t1">৳১,৭০০ কম খরচ</div><div class="t2">সেপ্টেম্বরের তুলনায়</div></div>
+    <div class="o"><span class="mi" style="color:#B9772A">&#xf854;</span><div class="t1">শখের খাতে ৪%</div><div class="t2">রেস্টুরেন্টে ৳৫০০</div></div>
+  </div>
+
+  <div class="sec" style="padding-top:14px"><h3>কোথায় গেল</h3><a>৫টা খাত</a></div>
+  <div class="cats" style="margin-right:86px">
+    <div class="r"><div class="h"><span class="mi">&#xf107;</span><span class="n">বাসা ভাড়া</span><span class="a">৳৫,০০০</span><span class="p">৪০%</span></div><div class="bar"><b style="width:40%"></b></div></div>
+    <div class="r"><div class="h"><span class="mi">&#xf37f;</span><span class="n">বাজার</span><span class="a">৳৪,২০০</span><span class="p">৩৪%</span></div><div class="bar"><b style="width:34%"></b></div></div>
+    <div class="r"><div class="h"><span class="mi">&#xeedd;</span><span class="n">বিল</span><span class="a">৳১,৮৫০</span><span class="p">১৫%</span></div><div class="bar"><b style="width:15%"></b></div></div>
+    <div class="r"><div class="h"><span class="mi">&#xefc4;</span><span class="n">যাতায়াত</span><span class="a">৳৯০০</span><span class="p">৭%</span></div><div class="bar"><b style="width:7%"></b></div></div>
+    <div class="r"><div class="h"><span class="mi">&#xf316;</span><span class="n">রেস্টুরেন্ট</span><span class="a">৳৫০০</span><span class="p">৪%</span></div><div class="bar"><b style="width:4%"></b></div></div>
+  </div>
+
+  <div class="fab"><span class="mi">&#xf8bd;</span></div>
+  <div class="nav">
+    <div><span class="mi">&#xf7f5;</span>হোম</div>
+    <div><span class="mi">&#xf02e;</span>দিনলিপি</div>
+    <div class="on"><span class="mi">&#xee33;</span>হিসাব</div>
+    <div><span class="mi">&#xf134;</span>সংরক্ষণ</div>
+    <div><span class="mi">&#xf8b6;</span>আরও</div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+<!-- ───────────── PAGE 20: অভ্যাস ───────────── -->
+<div class="phone" id="habits">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="head2">
+    <span class="mi back">&#xf570;</span>
+    <div class="tt"><h1>অভ্যাস</h1><p>ছোট অভ্যাস, বড় বদল</p></div>
+    <div class="iconbtn"><span class="mi">&#xf537;</span></div>
+  </div>
+
+  <div class="streak">
+    <div class="flame"><span class="mi">&#xf86b;</span></div>
+    <div style="flex:1"><div class="l">সবচেয়ে লম্বা ধারা</div><div class="v">১২ দিন টানা</div><div class="s">৩০ মিনিট হাঁটা · আজও হলে ১৩</div></div>
+    <span class="hand" style="font-size:13px;color:#E8E3D6;transform:rotate(-8deg)">থামবেন<br>না!</span>
+  </div>
+
+  <div class="sec" style="padding-top:14px"><h3>শেষ ৭ দিন</h3><a>আজ ৩/৫ হয়েছে</a></div>
+  <div class="hgrid">
+    <div class="hd"><span></span><span>র</span><span>সো</span><span>ম</span><span>বু</span><span>বৃ</span><span>শু</span><span class="today">শ</span></div>
+    <div class="r"><div class="nm"><div class="ic"><span class="mi">&#xf0144;</span></div><div style="min-width:0"><div class="t1">৫ ওয়াক্ত নামাজ</div><div class="t2">৬/৭ দিন</div></div></div><span class="sq on"></span><span class="sq on"></span><span class="sq on"></span><span class="sq miss"></span><span class="sq on"></span><span class="sq on"></span><span class="sq on"></span></div>
+    <div class="r"><div class="nm"><div class="ic"><span class="mi">&#xf6bd;</span></div><div style="min-width:0"><div class="t1">৩০ মিনিট হাঁটা</div><div class="t2">১২ দিন টানা</div></div></div><span class="sq on"></span><span class="sq on"></span><span class="sq on"></span><span class="sq on"></span><span class="sq on"></span><span class="sq on"></span><span class="sq today"></span></div>
+    <div class="r"><div class="nm"><div class="ic"><span class="mi">&#xf179;</span></div><div style="min-width:0"><div class="t1">৮ গ্লাস পানি</div><div class="t2">আজ ৫ গ্লাস</div></div></div><span class="sq on"></span><span class="sq miss"></span><span class="sq on"></span><span class="sq on"></span><span class="sq miss"></span><span class="sq on"></span><span class="sq today"></span></div>
+    <div class="r"><div class="nm"><div class="ic"><span class="mi">&#xf1c2;</span></div><div style="min-width:0"><div class="t1">২০ পৃষ্ঠা পড়া</div><div class="t2">৪/৭ দিন</div></div></div><span class="sq on"></span><span class="sq miss"></span><span class="sq on"></span><span class="sq miss"></span><span class="sq on"></span><span class="sq miss"></span><span class="sq on"></span></div>
+    <div class="r"><div class="nm"><div class="ic"><span class="mi">&#xf019c;</span></div><div style="min-width:0"><div class="t1">ধূমপান নয়</div><div class="t2">২১ দিন টানা</div></div></div><span class="sq on"></span><span class="sq on"></span><span class="sq on"></span><span class="sq on"></span><span class="sq on"></span><span class="sq on"></span><span class="sq on"></span></div>
+  </div>
+  <div style="margin:10px 22px 0;font:400 11.5px Noto;color:var(--muted);display:flex;align-items:center;gap:6px"><span class="sq on" style="width:14px;height:14px;border-radius:4px"></span>হয়েছে <span class="sq miss" style="width:14px;height:14px;border-radius:4px;margin-left:8px"></span>হয়নি <span class="sq today" style="width:14px;height:14px;border-radius:4px;margin-left:8px"></span>আজ বাকি · চাপলেই টিক</div>
+
+  <div class="fab"><span class="mi">&#xf8bd;</span></div>
+  <div class="nav">
+    <div><span class="mi">&#xf7f5;</span>হোম</div>
+    <div class="on"><span class="mi">&#xf71b;</span>দিনলিপি</div>
+    <div><span class="mi">&#xee33;</span>হিসাব</div>
+    <div><span class="mi">&#xf134;</span>সংরক্ষণ</div>
+    <div><span class="mi">&#xf8b6;</span>আরও</div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+</div>
+</body>
+</html>

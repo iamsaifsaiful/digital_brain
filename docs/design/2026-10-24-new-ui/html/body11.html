@@ -1,0 +1,104 @@
+<style>
+.welcome-art { position: absolute; left: 0; right: 0; top: 0; height: 360px; overflow: hidden; border-radius: 0 0 36px 36px; }
+.welcome-art svg { position: absolute; inset: 0; }
+.wstatus { position: relative; z-index: 2; color: #fff; }
+.wstatus .bars i { background: #fff; }
+.wstatus .batt { border-color: #fff; }
+.wstatus .batt b { background: #fff; }
+.logo { width: 64px; height: 64px; border-radius: 20px; background: #fff; display: grid; place-items: center; font: 700 34px Hind; color: var(--accent); box-shadow: 0 10px 24px rgba(0,0,0,.18); }
+.wbody { position: absolute; left: 0; right: 0; top: 318px; padding: 0 26px; }
+.wbody h1 { font: 700 29px/1.25 Hind; margin-top: 18px; }
+.wbody p { font: 400 14px/1.6 Noto, Inter; color: var(--ink2); margin-top: 6px; }
+.wf { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.wf .r { display: flex; align-items: center; gap: 12px; }
+.wf .ic { width: 38px; height: 38px; border-radius: 12px; background: var(--card); display: grid; place-items: center; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.wf .ic .mi { font-size: 20px; color: var(--ink2); }
+.wf .t1 { font: 600 13.5px Noto; }
+.wf .t2 { font: 400 11.5px Noto; color: var(--muted); }
+.wdots { display: flex; gap: 6px; justify-content: center; position: absolute; left: 0; right: 0; bottom: 152px; }
+.wdots i { width: 7px; height: 7px; border-radius: 4px; background: #CFCCC5; display: block; }
+.wdots i.on { width: 22px; background: var(--accent); }
+.wcta { position: absolute; left: 22px; right: 22px; bottom: 40px; }
+.gbtn { height: 54px; border-radius: 18px; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; gap: 10px; font: 600 15.5px Noto; }
+.gdot { width: 26px; height: 26px; border-radius: 50%; background: #fff; display: grid; place-items: center; font: 700 15px Inter, sans-serif; color: #4285F4; }
+.later { text-align: center; font: 500 14px Noto; color: var(--ink2); margin-top: 12px; }
+.later small { display: block; font: 400 11px Noto; color: var(--muted); margin-top: 6px; }
+
+.lockbg { position: absolute; inset: 0; background: linear-gradient(180deg, #E8E7E1 0%, var(--page) 45%); }
+.lockc { position: relative; text-align: center; padding-top: 40px; }
+.lockc .logo { margin: 0 auto; background: var(--accent); color: #fff; box-shadow: 0 10px 24px rgba(31,42,39,.25); }
+.lockc h2 { font: 700 24px Hind; margin-top: 16px; }
+.lockc p { font: 400 13px Noto; color: var(--muted); margin-top: 2px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+.pins { display: flex; justify-content: center; gap: 18px; margin-top: 28px; }
+.pins i { width: 15px; height: 15px; border-radius: 50%; border: 2px solid #A9A7A1; display: block; }
+.pins i.on { background: var(--accent); border-color: var(--accent); }
+.pad { display: grid; grid-template-columns: repeat(3, 76px); gap: 14px 26px; justify-content: center; margin-top: 34px; }
+.key { width: 76px; height: 76px; border-radius: 50%; background: var(--card); display: grid; place-items: center; font: 600 28px Hind; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.key.flat { background: transparent; box-shadow: none; }
+.key .mi { font-size: 28px; color: var(--ink2); }
+.key.fp { background: var(--accent); }
+.key.fp .mi { color: #fff; font-size: 32px; }
+.forgot { text-align: center; font: 500 13px Noto; color: var(--ink2); margin-top: 22px; }
+</style>
+<div class="stage">
+
+<!-- ───────────── PAGE 21: স্বাগতম ───────────── -->
+<div class="phone" id="welcome">
+  <div class="welcome-art">
+    <svg viewBox="0 0 390 360" preserveAspectRatio="xMidYMid slice" width="390" height="360">
+      <defs><linearGradient id="skw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6F7D76"/><stop offset=".7" stop-color="#C9CCC2"/><stop offset="1" stop-color="#E4E1D8"/></linearGradient><filter id="msw"><feGaussianBlur stdDeviation="2"/></filter></defs>
+      <rect width="390" height="360" fill="url(#skw)"/>
+      <circle cx="292" cy="176" r="26" fill="#F3E3BF" opacity=".85"/>
+      <path d="M0 210 C 60 180, 120 200, 180 176 C 240 152, 310 186, 390 166 V360 H0Z" fill="#87908A" filter="url(#msw)"/>
+      <path d="M0 250 C 80 226, 160 246, 240 222 C 300 206, 350 228, 390 220 V360 H0Z" fill="#5F6A64" filter="url(#msw)"/>
+      <path d="M0 290 C 100 268, 200 290, 300 270 C 340 262, 370 272, 390 268 V360 H0Z" fill="#3B4540"/>
+      <g fill="#222A27"><path d="M30 360 L46 262 L62 360Z"/><path d="M56 360 L68 286 L80 360Z"/><path d="M300 360 L316 240 L332 360Z"/><path d="M326 360 L340 270 L354 360Z"/><path d="M350 360 L366 230 L382 360Z"/></g>
+      <rect width="390" height="360" fill="#141917" opacity=".12"/>
+    </svg>
+    <div style="position:absolute;left:26px;top:86px"><span class="hand" style="font-size:16px;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.3)">ছোট ছোট পদক্ষেপ,<br>বড় ফল</span>
+      <svg width="40" height="26" viewBox="0 0 34 22" style="display:block;margin:12px 0 0 58px"><path d="M3 15 C 11 18, 20 14, 28 6" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M22 5 L 29 5 L 28 12" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  </div>
+  <div class="status wstatus"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+
+  <div class="wbody">
+    <div class="logo">আ</div>
+    <h1>আপনার ব্যক্তিগত সহকারী</h1>
+    <p>বাংলায় বলুন বা লিখুন — কাজ, হিসাব, রিমাইন্ডার, দরকারি কাগজ সব মনে রাখবে।</p>
+    <div class="wf">
+      <div class="r"><div class="ic"><span class="mi">&#xf2f3;</span></div><div><div class="t1">মুখে বললেই হয়</div><div class="t2">“কাল সকাল ৯টায় ব্যাংকে যেতে হবে”</div></div></div>
+      <div class="r"><div class="ic"><span class="mi">&#xf889;</span></div><div><div class="t1">তথ্য আপনার ফোনেই, তালাবদ্ধ</div><div class="t2">পাসওয়ার্ড আর স্বাস্থ্য কোথাও যায় না</div></div></div>
+    </div>
+  </div>
+
+  <div class="wdots"><i class="on"></i><i></i><i></i></div>
+  <div class="wcta">
+    <div class="gbtn"><span class="gdot">G</span>Google দিয়ে শুরু করুন</div>
+    <div class="later">লগইন ছাড়াই দেখি<small>আগে ব্যবহার করে থাকলে লগইনে ব্যাকআপ ফিরে আসবে</small></div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+<!-- ───────────── PAGE 22: অ্যাপ লক ───────────── -->
+<div class="phone" id="lock">
+  <div class="lockbg"></div>
+  <div class="status" style="position:relative"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="lockc">
+    <div class="logo">আ</div>
+    <h2>শুভ সকাল, সাইফুল</h2>
+    <p><span class="mi" style="font-size:14px">&#xf889;</span>আপনার তথ্য তালাবদ্ধ আছে</p>
+    <div class="pins"><i class="on"></i><i class="on"></i><i></i><i></i></div>
+    <div class="pad">
+      <div class="key">১</div><div class="key">২</div><div class="key">৩</div>
+      <div class="key">৪</div><div class="key">৫</div><div class="key">৬</div>
+      <div class="key">৭</div><div class="key">৮</div><div class="key">৯</div>
+      <div class="key fp"><span class="mi">&#xf762;</span></div><div class="key">০</div><div class="key flat"><span class="mi">&#xf5a2;</span></div>
+    </div>
+    <div class="forgot">PIN ভুলে গেছেন?</div>
+    <div style="margin-top:10px"><span class="hand" style="font-size:13px">শুধু আপনিই খুলতে পারেন</span></div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+</div>
+</body>
+</html>

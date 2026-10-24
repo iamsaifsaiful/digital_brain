@@ -1,0 +1,155 @@
+<style>
+.head2 h1 { font: 700 26px/1.2 Hind; }
+.hero2 { margin: 14px 22px 0; height: 108px; border-radius: 22px; overflow: hidden; position: relative; color: #fff; }
+.hero2 svg.bg { position: absolute; inset: 0; }
+.hero2 .t { position: absolute; left: 18px; top: 14px; font: 500 12.5px Noto; opacity: .85; }
+.hero2 .big { position: absolute; left: 18px; top: 32px; font: 700 30px/1.1 Hind; }
+.hero2 .big small { font: 500 15px Hind; opacity: .85; }
+.hero2 .s { position: absolute; left: 18px; bottom: 14px; font: 400 12px Noto; opacity: .88; display: flex; align-items: center; gap: 4px; }
+.hero2 .faces { position: absolute; right: 18px; top: 18px; }
+.hero2 .faces span { width: 32px; height: 32px; font-size: 13px; border-color: #2a3330; }
+.mem { margin: 0 22px; display: flex; flex-direction: column; gap: 10px; }
+.mcard { background: var(--card); border-radius: 18px; padding: 12px 13px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.mcard .top { display: flex; align-items: center; gap: 11px; padding: 0; }
+.mav { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 600 17px Hind; flex: none; }
+.mcard .nm { font: 600 15px Noto; }
+.mcard .rel { font: 400 11.5px Noto; color: var(--muted); display: flex; align-items: center; gap: 3px; }
+.mcard .rel .mi { font-size: 13px; }
+.mcard .btn { margin-left: auto; display: flex; align-items: center; gap: 4px; padding: 7px 11px; border-radius: 14px; background: var(--accent); color: #fff; font: 500 12px Noto; }
+.mcard .btn .mi { font-size: 15px; }
+.mcard .btn.ghost { background: var(--soft); color: var(--ink2); }
+.perms { display: flex; gap: 6px; margin: 9px 0 0 53px; flex-wrap: wrap; }
+.perms > span { font: 500 11px Noto; padding: 3px 9px 3px 7px; border-radius: 10px; background: var(--soft); color: var(--ink2); display: flex; align-items: center; gap: 3px; }
+.perms .mi { font-size: 13px; }
+.sendrow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 0 22px; }
+.sendrow > div { background: var(--card); border-radius: 16px; padding: 10px 4px 8px; text-align: center; font: 500 12px Noto; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.sendrow .ic { width: 34px; height: 34px; border-radius: 11px; background: var(--soft); display: grid; place-items: center; margin: 0 auto 5px; }
+.sendrow .ic .mi { font-size: 19px; color: var(--ink2); }
+.heir { margin: 12px 22px 0; border-radius: 16px; border: 1px dashed #CFCCC5; padding: 11px 13px; display: flex; align-items: center; gap: 11px; }
+.heir .mi { font-size: 22px; color: var(--ink2); }
+.heir .t1 { font: 600 13px Noto; }
+.heir .t2 { font: 400 11.5px Noto; color: var(--muted); }
+
+.zk { margin: 14px 22px 0; border-radius: 22px; background: var(--accent); color: #fff; padding: 16px 18px; position: relative; overflow: hidden; }
+.zk .l { font: 500 12.5px Noto; opacity: .75; }
+.zk .v { font: 700 34px/1.15 Hind; margin-top: 1px; }
+.zk .ok { display: inline-flex; align-items: center; gap: 4px; font: 500 11.5px Noto; background: rgba(61,190,139,.18); color: #A6E3C9; padding: 3px 9px; border-radius: 10px; margin-top: 6px; }
+.zk .ok .mi { font-size: 14px; }
+.zk .row { display: flex; gap: 18px; margin-top: 12px; padding-top: 11px; border-top: 1px solid rgba(255,255,255,.12); }
+.zk .row div { font: 400 11px Noto; opacity: .75; }
+.zk .row b { display: block; font: 600 14px Hind; opacity: 1; color: #fff; }
+.zk svg { position: absolute; right: -6px; top: -6px; opacity: .14; }
+.zday { margin: 10px 22px 0; display: flex; align-items: center; gap: 10px; background: var(--card); border-radius: 16px; padding: 10px 12px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.zday .mi { font-size: 21px; color: var(--ink2); }
+.zday .t1 { font: 600 13px Noto; }
+.zday .t2 { font: 400 11.5px Noto; color: var(--muted); }
+.zday .pill2 { margin-left: auto; font: 600 11.5px Noto; background: var(--soft); padding: 4px 10px; border-radius: 10px; }
+.lines { margin: 0 22px; background: var(--card); border-radius: 18px; padding: 2px 12px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.lines .r { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+.lines .r + .r { border-top: 1px solid var(--line); }
+.lines .cb { font-size: 22px; color: var(--ink); }
+.lines .cb.off { color: #C9C7C1; }
+.lines .tx { flex: 1; min-width: 0; }
+.lines .t1 { font: 500 13.5px Noto; }
+.lines .t2 { font: 400 11px Noto; color: var(--muted); }
+.lines .a { font: 600 13.5px Hind; }
+.lines .a.minus { color: #B2412E; }
+.lines .r.off .t1, .lines .r.off .a { color: var(--muted); text-decoration: line-through; text-decoration-color: #C9C7C1; }
+.addbtn { margin: 10px 22px 0; height: 44px; border-radius: 14px; border: 1.5px dashed #CFCCC5; display: flex; align-items: center; justify-content: center; gap: 6px; font: 600 13.5px Noto; color: var(--ink2); }
+</style>
+<div class="stage">
+
+<!-- ───────────── PAGE 7: ফ্যামিলি ───────────── -->
+<div class="phone" id="family">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="head2">
+    <span class="mi back">&#xf570;</span>
+    <div class="tt"><h1>ফ্যামিলি</h1><p>একে অপরের পাশে, সবসময়</p></div>
+    <div class="iconbtn"><span class="mi">&#xf0067;</span></div>
+  </div>
+
+  <div class="hero2">
+    <svg class="bg" viewBox="0 0 346 108" preserveAspectRatio="xMidYMid slice" width="346" height="108">
+      <defs><linearGradient id="sk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9AA39C"/><stop offset="1" stop-color="#D3D4CC"/></linearGradient>
+      <linearGradient id="fd" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#141917" stop-opacity=".9"/><stop offset=".6" stop-color="#141917" stop-opacity=".55"/><stop offset="1" stop-color="#141917" stop-opacity=".3"/></linearGradient><filter id="ms"><feGaussianBlur stdDeviation="1.4"/></filter></defs>
+      <rect width="346" height="108" fill="url(#sk)"/>
+      <path d="M0 62 C 60 44, 120 58, 180 42 C 240 28, 300 50, 346 38 V108 H0Z" fill="#7C857F" filter="url(#ms)"/>
+      <path d="M0 80 C 80 66, 160 80, 240 66 C 290 58, 320 70, 346 64 V108 H0Z" fill="#4C5751"/>
+      <g fill="#262E2A"><path d="M150 108 L160 70 L170 108Z"/><path d="M166 108 L174 82 L182 108Z"/><path d="M40 108 L50 76 L60 108Z"/></g>
+      <rect width="346" height="108" fill="url(#fd)"/>
+    </svg>
+    <div class="t">আমার পরিবার</div>
+    <div class="big">৪ <small>জন সদস্য</small></div>
+    <div class="s"><span class="mi" style="font-size:15px">&#xf379;</span>যা পাঠান, তালাবদ্ধ যায় — আমরাও খুলতে পারি না</div>
+    <div class="faces"><span style="background:#B07A5A">আ</span><span style="background:#4E6B62">ব</span><span style="background:#7C6A9A">রা</span><span style="background:#C2955B">মি</span></div>
+  </div>
+
+  <div class="sec" style="padding-top:14px"><h3>সদস্য</h3><a>অনুমতি বদলান <span class="mi" style="font-size:15px">&#xf57a;</span></a></div>
+  <div class="mem">
+    <div class="mcard">
+      <div class="top"><div class="mav" style="background:#B07A5A">আ</div><div><div class="nm">আম্মা</div><div class="rel">মা · ১০ মিনিট আগে বাসায়</div></div><div class="btn"><span class="mi">&#xf884;</span>এখন কোথায়?</div></div>
+      <div class="perms"><span><span class="mi">&#xf1bf;</span>ওষুধ</span><span><span class="mi">&#xf02e;</span>রিমাইন্ডার</span><span><span class="mi">&#xf193;</span>লোকেশন</span><span style="background:#F8EFE0;color:#8A6A44">উত্তরাধিকারী</span></div>
+    </div>
+    <div class="mcard">
+      <div class="top"><div class="mav" style="background:#4E6B62">ব</div><div><div class="nm">আব্বা</div><div class="rel">বাবা · <span class="mi">&#xf5b1;</span>৬৪% চার্জ</div></div><div class="btn ghost"><span class="mi">&#xf1bf;</span>ওষুধ দিন</div></div>
+      <div class="perms"><span><span class="mi">&#xf1bf;</span>ওষুধ</span><span><span class="mi">&#xf021a;</span>কাজ</span><span><span class="mi">&#xf02e;</span>রিমাইন্ডার</span></div>
+    </div>
+    <div class="mcard" style="padding:10px 13px">
+      <div class="top"><div class="mav" style="background:#7C6A9A">রা</div><div><div class="nm">রাফি</div><div class="rel">ছেলে · <span class="mi">&#xf7fe;</span>যোগ দেওয়ার অপেক্ষায়</div></div><div class="btn ghost">আবার পাঠান</div></div>
+    </div>
+  </div>
+
+  <div class="sec" style="padding-top:14px"><h3>কারো জন্য পাঠান</h3><a></a></div>
+  <div class="sendrow" style="margin-right:86px;grid-template-columns:repeat(3,1fr)">
+    <div><div class="ic"><span class="mi">&#xf021a;</span></div>কাজ</div>
+    <div><div class="ic"><span class="mi">&#xf02e;</span></div>রিমাইন্ডার</div>
+    <div><div class="ic"><span class="mi">&#xf1bf;</span></div>ওষুধ</div>
+  </div>
+
+  <div class="fab"><span class="mi">&#xf8bd;</span></div>
+  <div class="nav">
+    <div><span class="mi">&#xf7f5;</span>হোম</div>
+    <div><span class="mi">&#xf02e;</span>দিনলিপি</div>
+    <div><span class="mi">&#xee33;</span>হিসাব</div>
+    <div><span class="mi">&#xf134;</span>সংরক্ষণ</div>
+    <div class="on"><span class="mi">&#xf8b6;</span>আরও</div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+<!-- ───────────── PAGE 8: যাকাত ───────────── -->
+<div class="phone" id="zakat">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+  <div class="head2">
+    <span class="mi back">&#xf570;</span>
+    <div class="tt"><h1>যাকাত</h1><p>আপনার হিসাব থেকে নিজে নিজে</p></div>
+    <div class="iconbtn"><span class="mi">&#xeeaf;</span></div>
+  </div>
+
+  <div class="zk">
+    <svg width="120" height="120" viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="#fff" stroke-width="2"/><circle cx="60" cy="60" r="38" fill="none" stroke="#fff" stroke-width="2"/><path d="M60 8 L 72 48 L 112 60 L 72 72 L 60 112 L 48 72 L 8 60 L 48 48Z" fill="none" stroke="#fff" stroke-width="2"/></svg>
+    <div class="l">এ বছর যাকাত দিতে হবে</div>
+    <div class="v">৳১৩,৮২৫</div>
+    <div class="ok"><span class="mi">&#xf47c;</span>নিসাব ৳১,৫৭,৫০০ পেরিয়েছে</div>
+    <div class="row"><div>সম্পদ<b>৳৬,৬৪,০০০</b></div><div>দেনা বাদ<b>−৳১,১১,০০০</b></div><div>নিট<b>৳৫,৫৩,০০০</b></div></div>
+  </div>
+  <div class="zday"><span class="mi">&#xf02c;</span><div><div class="t1">যাকাতের দিন: ৯ মার্চ ২০২৭</div><div class="t2">চাঁদের হিসাবে বছর পূর্ণ হবে</div></div><span class="pill2">১৩৬ দিন</span></div>
+
+  <div class="sec" style="padding-top:14px"><h3>কোথা থেকে কত</h3><a>টিক তুললে বাদ</a></div>
+  <div class="lines">
+    <div class="r"><span class="mi cb">&#xf633;</span><div class="tx"><div class="t1">ব্যাংক ও নগদ</div><div class="t2">ডাচ-বাংলা, বিকাশ · হিসাব থেকে · ২০ অক্টো</div></div><span class="a">৳২,০৪,০০০</span></div>
+    <div class="r"><span class="mi cb">&#xf633;</span><div class="tx"><div class="t1">হজের সঞ্চয়</div><div class="t2">সঞ্চয়ের লক্ষ্য থেকে</div></div><span class="a">৳৪০,০০০</span></div>
+    <div class="r"><span class="mi cb">&#xf633;</span><div class="tx"><div class="t1">রহিমের কাছে পাওনা</div><div class="t2">৩০,০০০ দিয়েছেন, ১০,০০০ ফেরত</div></div><span class="a">৳২০,০০০</span></div>
+    <div class="r"><span class="mi cb">&#xf633;</span><div class="tx"><div class="t1">সোনা ২ ভরি</div><div class="t2">নিজে লেখা · আজকের দামে</div></div><span class="a">৳৪,০০,০০০</span></div>
+    <div class="r off"><span class="mi cb off">&#xf632;</span><div class="tx"><div class="t1">জমির বায়না</div><div class="t2">নিজে যোগ করা · বাদ রেখেছেন</div></div><span class="a">৳১,০০,০০০</span></div>
+    <div class="r"><span class="mi cb">&#xf633;</span><div class="tx"><div class="t1">করিমের দেনা + লোনের ১২ কিস্তি</div><div class="t2">দেনা — বাদ যায়</div></div><span class="a minus">−৳১,১১,০০০</span></div>
+  </div>
+  <div class="addbtn" style="margin-right:86px"><span class="mi" style="font-size:19px">&#xf537;</span>নিজে কিছু যোগ করুন</div>
+
+  <div class="fab" style="bottom:36px"><span class="mi">&#xf8bd;</span></div>
+  <div class="homebar"></div>
+</div>
+
+</div>
+</body>
+</html>

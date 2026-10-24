@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<title>My Assistant — নতুন ডিজাইন</title>
+<style>
+@font-face { font-family: Hind; src: url(fonts/HindSiliguri-Regular.ttf); font-weight: 400; }
+@font-face { font-family: Hind; src: url(fonts/HindSiliguri-Medium.ttf); font-weight: 500; }
+@font-face { font-family: Hind; src: url(fonts/HindSiliguri-SemiBold.ttf); font-weight: 600; }
+@font-face { font-family: Hind; src: url(fonts/HindSiliguri-Bold.ttf); font-weight: 700; }
+@font-face { font-family: Noto; src: url(fonts/NotoSansBengali-Regular.ttf); font-weight: 400; }
+@font-face { font-family: Noto; src: url(fonts/NotoSansBengali-Medium.ttf); font-weight: 500; }
+@font-face { font-family: Noto; src: url(fonts/NotoSansBengali-SemiBold.ttf); font-weight: 600; }
+@font-face { font-family: Noto; src: url(fonts/NotoSansBengali-Bold.ttf); font-weight: 700; }
+@font-face { font-family: Noto; src: url(fonts/Inter-Regular.otf); font-weight: 400; unicode-range: U+0000-00FF, U+2010-2027; }
+@font-face { font-family: Noto; src: url(fonts/Inter-Medium.otf); font-weight: 500; unicode-range: U+0000-00FF, U+2010-2027; }
+@font-face { font-family: Noto; src: url(fonts/Inter-SemiBold.otf); font-weight: 600; unicode-range: U+0000-00FF, U+2010-2027; }
+@font-face { font-family: Noto; src: url(fonts/Inter-Bold.otf); font-weight: 700; unicode-range: U+0000-00FF, U+2010-2027; }
+@font-face { font-family: MI; src: url(fonts/MaterialIcons-Regular.otf); }
+
+:root {
+  --page: #F3F2EE;      /* warm paper */
+  --card: #FFFFFF;
+  --ink: #17191A;
+  --ink2: #3B3F3E;
+  --muted: #8C8C87;
+  --line: #ECEAE5;
+  --soft: #F6F5F2;
+  --accent: #1F2A27;    /* deep green-black: buttons, selected day */
+  --fab: #2E3B37;
+  --green: #0E7A5F;     /* the app's green, used sparingly */
+  --amber: #E9A23B;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #D9D7D1; font-family: Noto, sans-serif; color: var(--ink); }
+.stage { display: flex; gap: 48px; padding: 48px; align-items: flex-start; justify-content: center; }
+.phone {
+  width: 390px; height: 844px; background: var(--page); border-radius: 46px; overflow: hidden;
+  position: relative; box-shadow: 0 30px 60px rgba(0,0,0,.18), 0 0 0 1px rgba(0,0,0,.05);
+}
+.mi { font-family: MI; font-style: normal; font-weight: normal; line-height: 1; display: inline-block; font-feature-settings: 'liga'; }
+
+/* status bar */
+.status { height: 50px; padding: 18px 30px 0; display: flex; justify-content: space-between; font: 600 15px Inter, sans-serif; }
+.status .r { display: flex; gap: 6px; align-items: center; }
+.bars { display: flex; gap: 2px; align-items: flex-end; }
+.bars i { width: 3px; background: var(--ink); border-radius: 1px; display: block; }
+.batt { width: 24px; height: 12px; border: 1.5px solid var(--ink); border-radius: 3px; padding: 1.5px; }
+.batt b { display: block; height: 100%; width: 80%; background: var(--ink); border-radius: 1px; }
+
+.hand { font-family: Hind; font-weight: 500; color: var(--ink2); transform: rotate(-7deg); display: inline-block; line-height: 1.15; letter-spacing: .2px; }
+
+/* ── page 1: home ── */
+.top { display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 22px 0; }
+.icons { display: flex; gap: 14px; align-items: center; }
+.bell { position: relative; font-size: 25px; color: var(--ink); }
+.bell::after { content: ''; position: absolute; right: 2px; top: 1px; width: 7px; height: 7px; border-radius: 50%; background: #E2553D; border: 1.5px solid var(--page); }
+.avatar { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(140deg,#3F5B53,#1F2A27); color: #fff; display: grid; place-items: center; font: 600 18px Hind; box-shadow: 0 0 0 2px var(--page), 0 0 0 3px #DAD8D2; }
+
+.hello { padding: 10px 22px 0; }
+.hello .g { font: 500 20px Hind; color: var(--ink2); }
+.hello .n { font: 700 32px/1.12 Hind; letter-spacing: -.3px; display: flex; align-items: center; gap: 8px; }
+.hello .d { font: 400 13.5px Noto; color: var(--muted); margin-top: 2px; }
+.weather { margin-top: 7px; display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px 5px 8px; background: var(--card); border-radius: 20px; font: 500 12.5px Noto; color: var(--ink2); box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.weather .mi { font-size: 16px; color: var(--amber); }
+
+.hero { margin: 14px 22px 0; height: 116px; border-radius: 22px; overflow: hidden; position: relative; color: #fff; }
+.hero svg { position: absolute; inset: 0; }
+.hero .t { position: absolute; left: 18px; top: 13px; font: 500 13px Noto; opacity: .9; }
+.hero .big { position: absolute; left: 18px; top: 31px; font: 700 34px/1 Hind; }
+.hero .big small { font: 500 17px Hind; opacity: .85; }
+.hero .s { position: absolute; left: 18px; top: 68px; font: 400 12.5px Noto; opacity: .9; }
+.hero .go { position: absolute; right: 16px; top: 46px; font: 600 13px Noto; display: flex; align-items: center; gap: 2px; }
+.hero .bar { position: absolute; left: 18px; right: 18px; bottom: 14px; height: 5px; background: rgba(255,255,255,.28); border-radius: 3px; }
+.hero .bar b { display: block; height: 100%; width: 60%; background: #fff; border-radius: 3px; }
+
+.sec { display: flex; justify-content: space-between; align-items: baseline; padding: 16px 22px 8px; }
+.sec h3 { font: 600 18px Hind; }
+.sec a { font: 500 12.5px Noto; color: var(--muted); display: flex; align-items: center; gap: 3px; }
+
+.goals { display: flex; gap: 12px; padding: 0 22px; overflow: hidden; }
+.goal { flex: 0 0 140px; background: var(--card); border-radius: 18px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.goal .pic { height: 58px; position: relative; display: grid; place-items: center; }
+.goal .pic .mi { font-size: 26px; margin-top: 8px; }
+.pill { position: absolute; left: 8px; top: 8px; background: rgba(255,255,255,.92); color: var(--ink2); font: 500 10.5px Noto; padding: 2px 8px 2px 6px; border-radius: 10px; display: flex; align-items: center; gap: 4px; }
+.pill::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--green); }
+.goal .b { padding: 8px 11px 10px; }
+.goal .nm { font: 600 13.5px Noto; }
+.goal .sub { font: 400 11px Noto; color: var(--muted); margin-top: 1px; }
+.goal .pc { font: 600 11px Noto; margin-top: 5px; }
+.goal .pb { height: 4px; background: var(--line); border-radius: 2px; margin-top: 4px; }
+.goal .pb b { display: block; height: 100%; background: var(--ink); border-radius: 2px; }
+
+.tasks { margin: 0 86px 0 22px; }
+.task { display: flex; align-items: center; gap: 12px; padding: 7px 0; }
+.task + .task { border-top: 1px solid var(--line); }
+.ck { width: 24px; height: 24px; border-radius: 50%; border: 1.6px solid #C9C7C1; flex: none; display: grid; place-items: center; }
+.ck.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+.ck.on .mi { font-size: 16px; }
+.task .tx { flex: 1; min-width: 0; }
+.task .tt { font: 500 14.5px Noto; }
+.task .tt.done { color: var(--muted); text-decoration: line-through; text-decoration-color: #B9B7B1; }
+.task .ts { font: 400 11.5px Noto; color: var(--muted); }
+.task .chev { color: #B5B3AD; font-size: 22px; }
+
+.fab { position: absolute; right: 18px; bottom: 100px; width: 58px; height: 58px; border-radius: 50%; background: var(--fab); color: #fff; display: grid; place-items: center; box-shadow: 0 8px 18px rgba(31,42,39,.35); }
+.fab .mi { font-size: 28px; }
+
+.nav { position: absolute; left: 0; right: 0; bottom: 0; height: 84px; background: rgba(255,255,255,.92); border-top: 1px solid var(--line); display: flex; padding: 8px 6px 0; }
+.nav div { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #9B9A95; font: 500 11px Noto; position: relative; }
+.nav .mi { font-size: 24px; }
+.nav .on { color: var(--ink); font-weight: 600; }
+.nav .on::after { content: ''; position: absolute; bottom: -6px; width: 18px; height: 3px; border-radius: 2px; background: var(--ink); }
+.homebar { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 134px; height: 5px; border-radius: 3px; background: var(--ink); }
+
+/* ── page 2: দিনলিপি ── */
+.head2 { display: flex; align-items: flex-start; gap: 8px; padding: 8px 18px 0; }
+.head2 .back { font-size: 20px; padding: 8px 6px; }
+.head2 .tt { flex: 1; }
+.head2 h1 { font: 700 26px/1.2 Hind; }
+.head2 p { font: 400 12.5px Noto; color: var(--muted); }
+.iconbtn { width: 42px; height: 42px; border-radius: 14px; background: var(--card); display: grid; place-items: center; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.iconbtn .mi { font-size: 22px; }
+.month { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px 0; }
+.month .m { font: 600 17px Hind; display: flex; align-items: center; gap: 2px; }
+.month .m small { font: 400 12px Noto; color: var(--muted); margin-left: 8px; }
+.week { display: flex; justify-content: space-between; padding: 14px 16px 0; }
+.day { width: 46px; padding: 8px 0 9px; border-radius: 14px; text-align: center; position: relative; }
+.day .w { font: 400 12px Noto; color: var(--muted); }
+.day .n { font: 600 16.5px Hind; margin-top: 3px; }
+.day .dot { width: 4px; height: 4px; border-radius: 50%; background: #B8B6B0; margin: 5px auto 0; }
+.day.on { background: var(--accent); color: #fff; box-shadow: 0 6px 14px rgba(31,42,39,.25); }
+.day.on .w { color: rgba(255,255,255,.7); }
+.day.on .dot { background: #fff; }
+.day.off .n { color: #D2553E; }
+
+.timeline { position: relative; padding: 14px 16px 0 0; }
+.slot { display: flex; align-items: flex-start; min-height: 58px; }
+.slot .tm { width: 84px; flex: none; text-align: right; padding: 13px 10px 0 4px; font: 500 11.5px Noto; color: var(--muted); white-space: nowrap; }
+.item { flex: 1; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; position: relative; }
+.item .ic { width: 34px; height: 34px; border-radius: 11px; background: var(--card); display: grid; place-items: center; flex: none; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.item .ic .mi { font-size: 19px; color: var(--ink2); }
+.item .tx { flex: 1; min-width: 0; }
+.item .t1 { font: 500 14px Noto; }
+.item .t2 { font: 400 11.5px Noto; color: var(--muted); }
+.item .chev { color: #B5B3AD; font-size: 22px; }
+.item.done .t1 { color: var(--muted); text-decoration: line-through; text-decoration-color: #B9B7B1; }
+.item.focus { background: var(--card); box-shadow: 0 6px 18px rgba(0,0,0,.06); flex-direction: column; align-items: stretch; padding: 12px; }
+.item.focus .row { display: flex; align-items: center; gap: 12px; }
+.item.focus .note { font: 400 12.5px/1.55 Noto; color: var(--ink2); margin: 10px 0 0 46px; }
+.item.focus .acts { display: flex; gap: 8px; margin: 10px 0 0 46px; }
+.chip { font: 500 12px Noto; padding: 6px 12px; border-radius: 16px; border: 1px solid var(--line); display: flex; align-items: center; gap: 4px; background: var(--soft); }
+.chip.dark { background: var(--accent); color: #fff; border-color: var(--accent); }
+.chip .mi { font-size: 15px; }
+.faces { display: flex; }
+.faces span { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--page); margin-left: -7px; display: grid; place-items: center; font: 600 10.5px Hind; color: #fff; }
+.item.focus .faces span { border-color: #fff; }
+.now { position: relative; margin: 2px 0 8px 88px; height: 0; border-top: 1.5px solid #D2553E; }
+.now::before { content: ''; position: absolute; left: -4px; top: -5px; width: 8px; height: 8px; border-radius: 50%; background: #D2553E; }
+.now span { position: absolute; left: -48px; top: -9px; font: 600 11px Noto; color: #D2553E; }
+
+.leaf { position: absolute; left: -26px; bottom: 84px; opacity: .32; z-index: 0; pointer-events: none; }
+.timeline, .fab { z-index: 1; }
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+<!-- ───────────── PAGE 1: হোম ───────────── -->
+<div class="phone" id="home">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+
+  <div class="top">
+    <div style="padding-top:6px">
+      <span class="hand" style="font-size:14px">ছোট ছোট পদক্ষেপ,<br>বড় ফল</span>
+      <svg width="34" height="22" viewBox="0 0 34 22" style="margin-left:-2px;vertical-align:-2px"><path d="M3 15 C 11 18, 20 14, 28 6" stroke="#3B3F3E" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M22 5 L 29 5 L 28 12" stroke="#3B3F3E" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="icons">
+      <span class="mi bell">&#xf0027;</span>
+      <div class="avatar">স</div>
+    </div>
+  </div>
+
+  <div class="hello">
+    <div class="g">শুভ সকাল,</div>
+    <div class="n">সাইফুল
+      <svg width="30" height="30" viewBox="0 0 30 30"><g fill="none" stroke="#E9A23B" stroke-width="2.2" stroke-linecap="round"><path d="M15 4 v4"/><path d="M15 22 v4"/><path d="M4 15 h4"/><path d="M22 15 h4"/><path d="M7.2 7.2 l2.8 2.8"/><path d="M20 20 l2.8 2.8"/><path d="M22.8 7.2 l-2.8 2.8"/><path d="M10 20 l-2.8 2.8"/></g><circle cx="15" cy="15" r="4.6" fill="#E9A23B"/></svg>
+    </div>
+    <div class="d">শনিবার, ২৪ অক্টোবর · ৮ কার্তিক ১৪৩৩</div>
+    <div class="weather"><span class="mi">&#xf4bc;</span>২৮° · রোদ · ঢাকা</div>
+  </div>
+
+  <div class="hero">
+    <svg viewBox="0 0 346 128" preserveAspectRatio="xMidYMid slice" width="346" height="128">
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8E9690"/><stop offset="1" stop-color="#C9CCC4"/></linearGradient>
+        <linearGradient id="fade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#141917" stop-opacity=".88"/><stop offset=".55" stop-color="#141917" stop-opacity=".45"/><stop offset="1" stop-color="#141917" stop-opacity=".15"/></linearGradient>
+        <filter id="mist"><feGaussianBlur stdDeviation="1.6"/></filter>
+      </defs>
+      <rect width="346" height="128" fill="url(#sky)"/>
+      <path d="M0 70 C 50 48, 90 60, 140 44 C 190 30, 240 52, 290 38 C 320 30, 340 36, 346 34 V128 H0Z" fill="#7C857F" filter="url(#mist)"/>
+      <path d="M0 86 C 60 68, 110 80, 170 64 C 220 52, 270 72, 346 58 V128 H0Z" fill="#5F6A64" filter="url(#mist)"/>
+      <path d="M0 100 C 70 88, 140 98, 210 86 C 260 78, 300 92, 346 84 V128 H0Z" fill="#3E4842"/>
+      <g fill="#262E2A">
+        <path d="M230 128 L244 70 L258 128Z"/><path d="M252 128 L262 82 L272 128Z"/><path d="M268 128 L284 60 L300 128Z"/><path d="M296 128 L306 86 L316 128Z"/><path d="M310 128 L324 66 L338 128Z"/><path d="M332 128 L340 92 L348 128Z"/>
+        <path d="M200 128 L208 96 L216 128Z"/>
+      </g>
+      <rect width="346" height="128" fill="url(#fade)"/>
+    </svg>
+    <div class="t">এই সপ্তাহে</div>
+    <div class="big">৩ <small>/ ৫ কাজ শেষ</small></div>
+    <div class="s">সূর্যোদয় ৬:০১ · সূর্যাস্ত ৫:২৪</div>
+    <div class="go">চালিয়ে যান <span class="mi" style="font-size:20px">&#xf63b;</span></div>
+    <div class="bar"><b></b></div>
+  </div>
+
+  <div class="sec"><h3>চলমান লক্ষ্য</h3><a>সব দেখুন <span class="mi" style="font-size:15px">&#xf57a;</span></a></div>
+  <div class="goals">
+    <div class="goal">
+      <div class="pic" style="background:#1F2A27;color:#E8E3D6"><span class="pill">চলছে</span><span class="mi">&#xf336;</span></div>
+      <div class="b"><div class="nm">হজের সঞ্চয়</div><div class="sub">৳৪০,০০০ / ৫,০০,০০০</div><div class="pc">৮%</div><div class="pb"><b style="width:8%"></b></div></div>
+    </div>
+    <div class="goal">
+      <div class="pic" style="background:#EDEBE5;color:#3B3F3E"><span class="pill">চলছে</span><span class="mi">&#xee32;</span></div>
+      <div class="b"><div class="nm">ডিপিএস</div><div class="sub">মাসে ৳৫,০০০ · ৫৪/১২০</div><div class="pc">৪৫%</div><div class="pb"><b style="width:45%"></b></div></div>
+    </div>
+    <div class="goal">
+      <div class="pic" style="background:#DCE3DD;color:#2E3B37"><span class="pill">চলছে</span><span class="mi">&#xf109;</span></div>
+      <div class="b"><div class="nm">বাড়ির লোন</div><div class="sub">কিস্তি ৮/২৪</div><div class="pc">৩৩%</div><div class="pb"><b style="width:33%"></b></div></div>
+    </div>
+  </div>
+
+  <div class="sec" style="padding-top:14px"><h3>আজকের কাজ <span class="hand" style="font-size:12.5px;margin-left:8px;transform:rotate(-6deg) translateY(-3px)">গতকালের চেয়ে একটু ভালো</span></h3><a>৩টা কাজ</a></div>
+  <div class="tasks">
+    <div class="task"><span class="ck on"><span class="mi">&#xf636;</span></span><div class="tx"><div class="tt done">বিদ্যুৎ বিল দেওয়া</div><div class="ts">বিল · সকাল ১০টা</div></div><span class="mi chev">&#xf63b;</span></div>
+    <div class="task"><span class="ck"></span><div class="tx"><div class="tt">ব্যাংকে যাওয়া — ডিপিএস জমা</div><div class="ts">কাজ · দুপুর ১২:৩০</div></div><span class="mi chev">&#xf63b;</span></div>
+    <div class="task"><span class="ck"></span><div class="tx"><div class="tt">আম্মাকে ফোন</div><div class="ts">পরিবার · সন্ধ্যা ৭টা</div></div><span class="mi chev">&#xf63b;</span></div>
+  </div>
+
+
+  <div class="fab"><span class="mi">&#xf8bd;</span></div>
+  <div class="nav">
+    <div class="on"><span class="mi">&#xf7f5;</span>হোম</div>
+    <div><span class="mi">&#xf02e;</span>দিনলিপি</div>
+    <div><span class="mi">&#xee33;</span>হিসাব</div>
+    <div><span class="mi">&#xf134;</span>সংরক্ষণ</div>
+    <div><span class="mi">&#xf8b6;</span>আরও</div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+<!-- ───────────── PAGE 2: দিনলিপি ───────────── -->
+<div class="phone" id="day">
+  <div class="status"><span>৯:৪১</span><span class="r"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span><span class="mi" style="font-size:17px">&#xf02bf;</span><span class="batt"><b></b></span></span></div>
+
+  <div class="head2">
+    <span class="mi back">&#xf570;</span>
+    <div class="tt"><h1>দিনলিপি</h1><p>আজ গুছিয়ে নিন, কাল সহজ হবে।</p></div>
+    <div class="iconbtn"><span class="mi">&#xf051f;</span></div>
+  </div>
+
+  <div class="month">
+    <div class="m">অক্টোবর ২০২৬ <span class="mi" style="font-size:22px">&#xf720;</span><small>কার্তিক ১৪৩৩</small></div>
+    <div style="text-align:right"><span class="hand" style="font-size:14px;transform:rotate(-8deg)">শুভ দিন</span>
+      <svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align:-2px"><circle cx="5" cy="6" r="1" fill="#3B3F3E"/><circle cx="11" cy="6" r="1" fill="#3B3F3E"/><path d="M4 10 Q 8 14, 12 10" stroke="#3B3F3E" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
+      <svg width="54" height="8" viewBox="0 0 54 8" style="display:block;margin:-2px 0 0 auto"><path d="M2 5 C 14 2, 28 7, 52 3" stroke="#3B3F3E" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>
+    </div>
+  </div>
+
+  <div class="week">
+    <div class="day on"><div class="w">শনি</div><div class="n">২৪</div><div class="dot"></div></div>
+    <div class="day"><div class="w">রবি</div><div class="n">২৫</div><div class="dot"></div></div>
+    <div class="day"><div class="w">সোম</div><div class="n">২৬</div><div class="dot" style="visibility:hidden"></div></div>
+    <div class="day"><div class="w">মঙ্গল</div><div class="n">২৭</div><div class="dot"></div></div>
+    <div class="day"><div class="w">বুধ</div><div class="n">২৮</div><div class="dot"></div></div>
+    <div class="day"><div class="w">বৃহঃ</div><div class="n">২৯</div><div class="dot" style="visibility:hidden"></div></div>
+    <div class="day off"><div class="w">শুক্র</div><div class="n">৩০</div><div class="dot"></div></div>
+  </div>
+
+  <div class="timeline">
+    <div class="slot"><div class="tm">সকাল ৮:০০</div>
+      <div class="item"><div class="ic"><span class="mi">&#xf1bf;</span></div><div class="tx"><div class="t1">নাপা ৫০০ — খাবার পরে</div><div class="t2">ওষুধ · ১টা ট্যাবলেট</div></div><span class="mi chev">&#xf63b;</span></div></div>
+    <div class="slot"><div class="tm">সকাল ১০:০০</div>
+      <div class="item done"><div class="ic"><span class="mi">&#xeedd;</span></div><div class="tx"><div class="t1">বিদ্যুৎ বিল দেওয়া</div><div class="t2">রিমাইন্ডার · হয়ে গেছে</div></div><span class="mi chev">&#xf63b;</span></div></div>
+
+    <div class="now"><span>১১:২০</span></div>
+
+    <div class="slot"><div class="tm">দুপুর ১২:৩০</div>
+      <div class="item"><div class="ic"><span class="mi">&#xf021a;</span></div><div class="tx"><div class="t1">ব্যাংকে যাওয়া — ডিপিএস জমা</div><div class="t2">কাজ · ৩০ মিনিট</div></div><span class="mi chev">&#xf63b;</span></div></div>
+    <div class="slot"><div class="tm">বিকাল ৩:০০</div>
+      <div class="item focus">
+        <div class="row"><div class="ic"><span class="mi">&#xf06a4;</span></div><div class="tx"><div class="t1">রহিম ফেরত দেবেন ৳৫,০০০</div><div class="t2">ধার-দেনা · ফেরতের দিন</div></div><span class="mi chev">&#xf63b;</span></div>
+        <div class="note">১ সেপ্টেম্বর ধার দিয়েছিলেন।</div>
+        <div class="acts"><span class="chip dark"><span class="mi">&#xef1a;</span>ফোন করুন</span><span class="chip"><span class="mi">&#xf636;</span>শোধ হয়েছে</span></div>
+      </div></div>
+    <div class="slot"><div class="tm">সন্ধ্যা ৭:০০</div>
+      <div class="item"><div class="ic"><span class="mi">&#xef1a;</span></div><div class="tx"><div class="t1">আম্মাকে ফোন</div><div class="t2">পরিবার · প্রতি শনিবার</div></div><div class="faces"><span style="background:#B07A5A">আ</span></div><span class="mi chev">&#xf63b;</span></div></div>
+    <div class="slot"><div class="tm">রাত ৯:০০</div>
+      <div class="item" style="margin-right:62px"><div class="ic"><span class="mi">&#xf733;</span></div><div class="tx"><div class="t1">আব্বার ওষুধ</div><div class="t2">ফ্যামিলি থেকে</div></div><div class="faces"><span style="background:#B07A5A">আ</span><span style="background:#4E6B62">ব</span></div><span class="mi chev">&#xf63b;</span></div></div>
+  </div>
+
+  <svg class="leaf" width="84" height="112" viewBox="0 0 120 160">
+    <g fill="#6F8A76">
+      <path d="M20 160 C 22 120, 30 80, 52 40" stroke="#6F8A76" stroke-width="2" fill="none"/>
+      <path d="M30 120 C 6 112, 0 94, 6 84 C 22 92, 30 104, 30 120Z"/>
+      <path d="M34 104 C 56 102, 66 86, 64 74 C 46 78, 36 90, 34 104Z"/>
+      <path d="M40 80 C 20 70, 18 54, 24 46 C 38 54, 42 66, 40 80Z"/>
+      <path d="M46 62 C 64 58, 72 44, 70 34 C 56 38, 48 48, 46 62Z"/>
+      <path d="M52 40 C 44 28, 46 16, 52 10 C 58 20, 56 32, 52 40Z"/>
+    </g>
+  </svg>
+
+  <div class="fab"><span class="mi">&#xf537;</span></div>
+  <div class="nav">
+    <div><span class="mi">&#xf7f5;</span>হোম</div>
+    <div class="on"><span class="mi">&#xf71b;</span>দিনলিপি</div>
+    <div><span class="mi">&#xee33;</span>হিসাব</div>
+    <div><span class="mi">&#xf134;</span>সংরক্ষণ</div>
+    <div><span class="mi">&#xf8b6;</span>আরও</div>
+  </div>
+  <div class="homebar"></div>
+</div>
+
+</div>
+</body>
+</html>
