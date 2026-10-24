@@ -4171,4 +4171,5 @@ const enStrings = <String, String>{
   'জন্মদিন বা বিশেষ দিন যুক্ত করুন': 'Add a birthday or special day',
   'সঞ্চয়ের লক্ষ্য যুক্ত করুন': 'Add a savings goal',
   'অ্যালার্ম যুক্ত করুন': 'Add an alarm',
+  'ব্যাকআপ নিন — ফোন হারালেও সব ফিরে পাবেন': 'Take a backup — get everything back even if the phone is lost',
 };

@@ -166,6 +166,7 @@ class _AddNudgeCardState extends State<AddNudgeCard> {
         'habits' => Icons.repeat_rounded,
         'special' => Icons.cake_outlined,
         'savings' => Icons.savings_outlined,
+        'backup' => Icons.cloud_upload_outlined,
         _ => Icons.alarm_rounded,
       };
 
@@ -174,7 +175,7 @@ class _AddNudgeCardState extends State<AddNudgeCard> {
     final brain = BrainScope.of(context);
     if (!brain.loaded || brain.easyMode) return const SizedBox.shrink();
     if (!nudgesShown(brain.services.now(), DateTime.tryParse(brain.text('nudges_hidden_at')))) return const SizedBox.shrink();
-    final list = addNudges(brain.data);
+    final list = addNudges(brain.data, lastBackup: DateTime.tryParse(brain.text('last_backup')), now: brain.services.now());
     if (list.isEmpty) return const SizedBox.shrink();
     final n = list[_i % list.length];
     return Material(

@@ -17,8 +17,15 @@ class AddNudge {
   final String place;
 }
 
-/// The nudges for [d]'s empty menus, in the order they are shown.
-List<AddNudge> addNudges(AppData d) => [
+/// Something kept in the app worth a backup.
+bool _hasData(AppData d) =>
+    d.tasks.isNotEmpty || d.reminders.isNotEmpty || d.cash.isNotEmpty || d.ledger.isNotEmpty || d.notes.isNotEmpty || d.docs.isNotEmpty || d.vault.isNotEmpty || d.contacts.isNotEmpty || d.health.isNotEmpty || d.medicines.isNotEmpty;
+
+/// The nudges for [d]'s empty menus, in the order they are shown; first,
+/// a backup when there is something kept and none in 7 days (owner, 25 Oct).
+List<AddNudge> addNudges(AppData d, {DateTime? lastBackup, DateTime? now}) => [
+      if (now != null && _hasData(d) && (lastBackup == null || now.difference(lastBackup) > const Duration(days: 7)))
+        const AddNudge('backup', 'ব্যাকআপ নিন — ফোন হারালেও সব ফিরে পাবেন', 'backup'),
       if (d.tasks.isEmpty) const AddNudge('tasks', 'কাজের তালিকায় কিছু যুক্ত করুন', 'tasks'),
       if (!d.reminders.any((r) => !r.alarm)) const AddNudge('reminders', 'রিমাইন্ডার যুক্ত করুন', 'reminders'),
       if (d.cash.isEmpty) const AddNudge('money', 'হিসাবে আয়-ব্যয় যুক্ত করুন', 'money'),

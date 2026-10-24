@@ -351,6 +351,12 @@ void main() {
     expect(nudgesShown(at, null), isTrue);
     expect(nudgesShown(at.add(const Duration(hours: 23)), at), isFalse);
     expect(nudgesShown(at.add(const Duration(days: 1)), at), isTrue);
+    // Backup: only with something kept, and none in 7 days; it comes first.
+    final kept = AppData(notes: [Note(title: 'দলিল')]);
+    expect(addNudges(AppData(), now: at).map((n) => n.id), isNot(contains('backup')));
+    expect(addNudges(kept, now: at).first.id, 'backup');
+    expect(addNudges(kept, now: at, lastBackup: at.subtract(const Duration(days: 3))).map((n) => n.id), isNot(contains('backup')));
+    expect(addNudges(kept, now: at, lastBackup: at.subtract(const Duration(days: 8))).first.id, 'backup');
   });
 
   testWidgets('home: the floating message opens its menu; ✕ hides all until tomorrow', (t) async {
