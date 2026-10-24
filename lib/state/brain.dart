@@ -908,15 +908,23 @@ class Brain extends ChangeNotifier {
   /// Chosen by hand ([auto] false) the place stays; otherwise it follows
   /// the phone (see [refreshPlace]).
   Future<void> setDistrict(String v, {bool auto = false}) async {
+    final moved = v != district;
     district = v;
     askPlace = v;
     hijriAdjust = hijriShift;
+    // A new place: its own weather now, never the last place's (owner, 25 Oct).
+    if (moved) {
+      _weather = null;
+      _weatherKey = '';
+      todayWeather = null;
+    }
     await services.lock.keys.write('district', v);
     if (!auto && autoPlace) {
       autoPlace = false;
       await services.lock.keys.write('auto_place', 'false');
     }
     notifyListeners();
+    if (moved) await refreshWeather();
   }
 
   /// The district follows where the phone is (sunrise, prayer times,
@@ -955,13 +963,13 @@ class Brain extends ChangeNotifier {
   /// The phone's location permission (tests replace it).
   Future<Map<String, bool>> Function() placeStatus = LocationShareChannel.status;
 
-  /// Moves [district] to where the phone is now (at most every 20 minutes
+  /// Moves [district] to where the phone is now (at most every 10 minutes
   /// unless [force]). Returns the new place's name when it changed.
   Future<String?> refreshPlace({bool force = false}) async {
     if (!autoPlace) return null;
     final now = services.now();
     final last = _placeCheckedAt;
-    if (!force && last != null && now.difference(last).inMinutes < 20) return null;
+    if (!force && last != null && now.difference(last).inMinutes < 10) return null;
     final at = await whereAmI();
     // No fix (location off, no permission yet): tried again next time.
     if (at == null) return null;
@@ -1341,18 +1349,26 @@ class Brain extends ChangeNotifier {
 
   Weather? _weather;
 
-  /// The weather last fetched for the user's district (kept 30 minutes).
-  Weather? get weatherNow => _weather;
+  /// The place ([Place.key]) [_weather] was fetched for.
+  String _weatherKey = '';
+
+  /// The weather last fetched for the user's place (kept 30 minutes) — only
+  /// while that is still the place.
+  Weather? get weatherNow => _weatherKey == district ? _weather : null;
 
   /// Fetches it when older than 30 minutes; the last one when offline.
   Future<Weather?> refreshWeather() async {
     final now = services.now();
     final place = placeNamed(district);
-    final w = _weather;
-    if (w != null && w.place == place.name && now.difference(w.at).inMinutes < 30) return w;
+    final key = district;
+    final w = weatherNow;
+    if (w != null && now.difference(w.at).inMinutes < 30) return w;
     final got = await services.weather.now(place.lat, place.lon, place.name, now);
+    // Moved again while asking: this answer is for a place no longer chosen.
+    if (key != district) return weatherNow;
     if (got != null) {
       _weather = got;
+      _weatherKey = key;
       todayWeather = got;
       notifyListeners();
     }

@@ -380,5 +380,27 @@ void main() {
     expect(find.byKey(const Key('add-nudge')), findsOneWidget, reason: 'back a day later');
   });
 
+  testWidgets('changing the place brings that place\'s weather at once (no 30-minute old one)', (t) async {
+    final rig = await start(t);
+    final w = rig.brain.services.weather as FakeWeather;
+    w.answer = Weather(temp: 31, feels: 34, min: 24, max: 32, humidity: 70, code: 0, place: 'ঢাকা', at: rig.nowAt);
+    await rig.brain.refreshWeather();
+    await settle(t);
+    expect(find.text('৩১°'), findsOneWidget);
+    // Chosen by hand: Dubai.
+    w.answer = Weather(temp: 36, feels: 39, min: 28, max: 37, humidity: 40, code: 0, place: 'দুবাই', at: rig.nowAt);
+    await rig.brain.setDistrict(placeAt(25.20, 55.27, tzMinutes: 240).key);
+    await settle(t);
+    expect(find.text('৩৬°'), findsOneWidget);
+    expect(find.text('৩১°'), findsNothing);
+    expect(find.descendant(of: find.byKey(const Key('home-temp')), matching: find.textContaining('দুবাই')), findsOneWidget);
+    // Offline in the new place: the old place's weather is not shown as if it were here.
+    w.answer = null;
+    await rig.brain.setDistrict('খুলনা');
+    await settle(t);
+    expect(find.text('৩৬°'), findsNothing);
+    expect(find.byKey(const Key('home-temp')), findsNothing);
+  });
+
   test('rig still builds', () => expect(Rig().brain, isNotNull));
 }

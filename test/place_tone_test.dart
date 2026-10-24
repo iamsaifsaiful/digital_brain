@@ -40,7 +40,7 @@ void main() {
     expect(b.district, 'সিলেট');
     expect(b.autoPlace, isTrue, reason: 'moving by itself keeps following');
     at = (22.36, 91.78);
-    expect(await b.refreshPlace(), isNull, reason: 'not again within 20 minutes');
+    expect(await b.refreshPlace(), isNull, reason: 'not again within 10 minutes');
     expect(asked, 1);
     expect(await b.refreshPlace(force: true), 'চট্টগ্রাম');
     // No permission / no fix: nothing changes.

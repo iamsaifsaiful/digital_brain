@@ -270,9 +270,15 @@ class _HomeHeroState extends State<HomeHero> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) BrainScope.read(context).refreshWeather();
     });
-    // The light moves on with the clock while the home is open.
+    // While the home is open: the light moves on with the clock, the place
+    // follows the phone (checked every 10 min at most) and the weather is
+    // fetched again when half an hour old.
     _tick = Timer.periodic(const Duration(minutes: 2), (_) {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      setState(() {});
+      final brain = BrainScope.read(context);
+      brain.refreshPlace();
+      brain.refreshWeather();
     });
   }
 
