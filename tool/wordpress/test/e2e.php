@@ -352,7 +352,7 @@ check(str_contains($form, 'তথ্য জমা দিন') && str_contains($f
 $_GET = ['plan' => 'monthly'];
 $pro = do_shortcode('[my_assistant_pro]');
 file_put_contents(dirname(__FILE__) . '/page-pro.html', '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="margin:0;padding:24px 16px;background:#F6F7F9">' . $pro);
-check(str_contains($pro, 'ফ্রি আর প্রো-তে কী কী') && str_contains($pro, 'মাসিক প্রো কিনুন') && str_contains($pro, 'তথ্য জমা দিন'), 'Pro page: features, plans and the form');
+check(str_contains($pro, 'ফ্রি আর প্রিমিয়ামে কী কী') && str_contains($pro, 'মাসিক প্রিমিয়াম কিনুন') && str_contains($pro, 'তথ্য জমা দিন'), 'Pro page: features, plans and the form');
 check((bool) preg_match('/value="monthly"\s+checked/', $pro), 'the plan chosen above is ticked in the form');
 check(!str_contains(do_shortcode('[my_assistant_pro form="no"]'), 'তথ্য জমা দিন'), 'form="no" leaves the form out');
 
@@ -637,8 +637,9 @@ $mk = function ($email, $name, $pro) use ($wpdb) {
 [$momId, $momSes] = $mk('mom@gmail.com', 'আম্মা', true);
 [$sonId, $sonSes] = $mk('son@gmail.com', 'রাফি', false);
 $wpdb->update(ma_ai_sessions_table(), ['fcm_token' => 'son-phone-fcm-token-123456'], ['user_id' => $sonId]);
-[$code] = call('POST', '/family/invite', ['email' => 'mom@gmail.com', 'relation' => 'আম্মা'], $sonSes);
-check($code === 402, 'family: inviting needs Pro');
+[$code] = call('POST', '/family/invite', ['email' => 'aunt@gmail.com', 'relation' => 'খালা'], $sonSes);
+check($code === 200, 'family: inviting is free (owner, 24 Oct)');
+$wpdb->query($wpdb->prepare('DELETE FROM ' . ma_fam_table('links') . ' WHERE a_user = %d', $sonId));
 [$code, $d] = call('POST', '/family/key', ['pubkey' => 'short'], $momSes);
 check($code === 400, 'a public key must be 32 bytes');
 call('POST', '/family/key', ['pubkey' => base64_encode(random_bytes(32))], $momSes);
@@ -656,14 +657,25 @@ check($code === 200 && $d['links'][0]['incoming'] === true && $d['links'][0]['th
 [$code] = call('POST', '/family/items', ['link' => $lid, 'kind' => 'task', 'sealed' => base64_encode('x')], $momSes);
 check($code === 404, 'nothing can be sent before they accept');
 [$code, $d] = call('POST', "/family/$lid/accept", ['relation' => 'আম্মা', 'allow' => ['task', 'reminder', 'medicine', 'location']], $sonSes);
-check($code === 200 && $d['links'][0]['status'] === 'active' && $d['links'][0]['i_allow'] === ['task', 'reminder', 'medicine', 'location'], 'accepted, with what he lets her do');
+check($code === 200 && $d['links'][0]['status'] === 'active' && $d['links'][0]['i_allow'] === ['task', 'reminder', 'medicine'], 'accepted, with what he lets her do — location left out without Premium');
+[$code] = call('POST', "/family/$lid/allow", ['allow' => ['task', 'reminder', 'medicine', 'location']], $sonSes);
+check($code === 402, 'showing my location needs Premium');
+[$code] = call('POST', "/family/$lid/allow", ['heir' => true], $sonSes);
+check($code === 402, 'naming an heir needs Premium');
+$wpdb->update(ma_acc_table(), ['pro_until' => gmdate('Y-m-d H:i:s', time() + 30 * DAY_IN_SECONDS)], ['id' => $sonId]);
+[$code] = call('POST', "/family/$lid/allow", ['allow' => ['task', 'reminder', 'medicine', 'location']], $sonSes);
+check($code === 200, 'with Premium, location can be shared');
+$wpdb->update(ma_acc_table(), ['pro_until' => null], ['id' => $sonId]);
 [$code, $d] = call('GET', '/family', [], $momSes);
 check($d['links'][0]['their_key'] === $sonKey && $d['links'][0]['they_allow'] === ['task', 'reminder', 'medicine', 'location'], 'she gets his public key and his permissions');
 [$code] = call('POST', '/family/items', ['link' => $lid, 'kind' => 'medicine', 'sealed' => base64_encode(random_bytes(80))], $momSes);
 [$c2] = call('POST', '/family/items', ['link' => $lid, 'kind' => 'note', 'sealed' => base64_encode('x')], $momSes);
 check($code === 200 && $c2 === 403, 'a medicine reminder goes (allowed); a note does not (not allowed)');
 [$code] = call('POST', '/family/items', ['link' => $lid, 'kind' => 'task', 'sealed' => base64_encode('x')], $sonSes);
-check($code === 402, 'sending needs Pro (receiving does not)');
+check($code === 200, 'sending a task is free too');
+[$code] = call('POST', '/family/items', ['link' => $lid, 'kind' => 'lockey', 'sealed' => base64_encode('k')], $sonSes);
+check($code === 402, 'the location key needs Premium');
+$wpdb->query($wpdb->prepare('DELETE FROM ' . ma_fam_table('items') . ' WHERE from_user = %d', $sonId));
 $row = $wpdb->get_row("SELECT * FROM " . ma_fam_table('items') . " ORDER BY id DESC LIMIT 1", ARRAY_A);
 check(!str_contains($row['sealed'] . wp_json_encode($row), 'ওষুধ') && $row['kind'] === 'medicine', 'the server keeps only the sealed bytes');
 [$code, $d] = call('GET', '/family/items', [], $sonSes);
@@ -684,7 +696,8 @@ check($code === 403, 'she has not shared hers: he cannot ask');
 call('POST', '/family/location', ['sealed' => base64_encode('sealed-place')], $sonSes);
 [$code, $d] = call('GET', "/family/$lid/location", [], $momSes);
 check($code === 200 && base64_decode($d['sealed']) === 'sealed-place' && $d['at'], 'his phone answered (sealed); she reads it');
-// Heirs
+// Heirs (Premium)
+$wpdb->update(ma_acc_table(), ['pro_until' => gmdate('Y-m-d H:i:s', time() + 30 * DAY_IN_SECONDS)], ['id' => $sonId]);
 [$code, $d] = call('POST', "/family/$lid/allow", ['heir' => true], $sonSes);
 check($code === 200 && $d['links'][0]['they_are_my_heir'] === true, 'he names his mother as heir');
 [$code] = call('POST', '/family/package', ['blob' => base64_encode('sealed-copy'), 'keys' => [$lid => 'wrapped-for-mom', 999 => 'stranger']], $sonSes);

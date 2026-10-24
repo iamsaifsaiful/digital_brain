@@ -181,7 +181,7 @@ class _AiSummaryState extends State<AiSummary> {
                   style: text(13.5, color: c.ink),
                 ),
                 const SizedBox(height: 6),
-                for (final (plan, label) in [('free', 'ফ্রি'), ('pro', 'প্রো')])
+                for (final (plan, label) in [('free', 'ফ্রি'), ('pro', 'প্রিমিয়াম')])
                   if (budget[plan] is Map)
                     Text(
                       '$label — আজ ${tk(_d((budget[plan] as Map)['spent_day']), rate)} / ${_d((budget[plan] as Map)['day']) > 0 ? tk(_d((budget[plan] as Map)['day']), rate) : 'সীমা নেই'} · মাসে ${tk(_d((budget[plan] as Map)['spent_month']), rate)} / ${_d((budget[plan] as Map)['month']) > 0 ? tk(_d((budget[plan] as Map)['month']), rate) : 'সীমা নেই'}',
@@ -813,8 +813,8 @@ class _AiSettingsState extends State<AiSettings> {
         ),
         head('মডেল'),
         field('free_model', 'ফ্রি সদস্য'),
-        field('pro_model', 'প্রো সদস্য'),
-        field('escalate_model', 'ফোন খুব অনিশ্চিত হলে (প্রো, দিনে ≤৫%)'),
+        field('pro_model', 'প্রিমিয়াম সদস্য'),
+        field('escalate_model', 'ফোন খুব অনিশ্চিত হলে (প্রিমিয়াম, দিনে ≤৫%)'),
         Row(
           children: [
             Expanded(child: field('escalate_share', 'তার ভাগ, দিনে সর্বোচ্চ %', numeric: true)),
@@ -827,11 +827,11 @@ class _AiSettingsState extends State<AiSettings> {
           children: [
             Expanded(child: field('free_per_user', 'ফ্রি', numeric: true)),
             const SizedBox(width: 10),
-            Expanded(child: field('pro_per_user', 'প্রো', numeric: true)),
+            Expanded(child: field('pro_per_user', 'প্রিমিয়াম', numeric: true)),
           ],
         ),
         if (_owner) ...[
-          head('প্রো সদস্যের AI উত্তর (পুরনো পথ)'),
+          head('প্রিমিয়াম সদস্যের AI উত্তর (পুরনো পথ)'),
           Row(
             children: [
               Expanded(child: field('ai_per_user', 'সদস্যপ্রতি দিনে', numeric: true)),
@@ -893,7 +893,7 @@ class _AiSettingsState extends State<AiSettings> {
             value: _auto,
             onChanged: (v) => setState(() => _auto = v ?? true),
             title: Text('আয় অনুযায়ী নিজে ঠিক হোক (লোকসান নয়)', style: text(14.5, color: c.ink)),
-            subtitle: Text('প্রো-র আয়ের ২০% পর্যন্ত; একজন প্রো সদস্য মাসে ${tk(_d(s['member_cap_usd']), rate)} পর্যন্ত; ফ্রি সবাই মিলে মাসে \$৩', style: text(12.5, color: c.muted)),
+            subtitle: Text('প্রিমিয়ামের আয়ের ২০% পর্যন্ত; একজন প্রিমিয়াম সদস্য মাসে ${tk(_d(s['member_cap_usd']), rate)} পর্যন্ত; ফ্রি সবাই মিলে মাসে \$৩', style: text(12.5, color: c.muted)),
           ),
           if (!_auto) ...[
             Row(
@@ -905,9 +905,9 @@ class _AiSettingsState extends State<AiSettings> {
             ),
             Row(
               children: [
-                Expanded(child: field('pro.day', 'প্রো — দিনে', numeric: true)),
+                Expanded(child: field('pro.day', 'প্রিমিয়াম — দিনে', numeric: true)),
                 const SizedBox(width: 10),
-                Expanded(child: field('pro.month', 'প্রো — মাসে', numeric: true)),
+                Expanded(child: field('pro.month', 'প্রিমিয়াম — মাসে', numeric: true)),
               ],
             ),
           ],

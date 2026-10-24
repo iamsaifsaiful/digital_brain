@@ -200,7 +200,7 @@ add_action('rest_api_init', function () {
             $wpdb->update($t, $data, ['id' => $row['id']]);
         }
         if ($days > 0) {
-            ma_push_member((int) $row['id'], 'প্রো চালু হয়েছে 🎉', 'AI, বিজ্ঞাপন ছাড়া আর সব প্রো সুবিধা এখন চালু।', ['type' => 'pro']);
+            ma_push_member((int) $row['id'], 'প্রিমিয়াম চালু হয়েছে 🎉', 'AI, বিজ্ঞাপন ছাড়া আর সব প্রিমিয়াম সুবিধা এখন চালু।', ['type' => 'pro']);
         }
         return ['ok' => true, 'member' => ma_admin_member_json($wpdb->get_row($wpdb->prepare("SELECT * FROM $t WHERE id = %d", $row['id']), ARRAY_A))];
     });

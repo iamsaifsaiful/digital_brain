@@ -11,7 +11,7 @@ if (!defined('ABSPATH')) {
 /** Status => [label, css class]. */
 function ma_acc_status_labels() {
     return [
-        'pro' => ['প্রো', 'pro'],
+        'pro' => ['প্রিমিয়াম', 'pro'],
         'trial' => ['ট্রায়াল', 'trial'],
         'free' => ['ফ্রি', 'free'],
         'expired' => ['মেয়াদ শেষ', 'expired'],
@@ -94,7 +94,7 @@ function ma_acc_render($v) {
                     </span>
                     <div>
                         <div class="ma-brand-name">My Assistant</div>
-                        <div class="ma-brand-sub">সদস্য ও প্রো · getmyassistant.app</div>
+                        <div class="ma-brand-sub">সদস্য ও প্রিমিয়াম · getmyassistant.app</div>
                     </div>
                 </div>
                 <nav class="ma-tabs" aria-label="বিভাগ">
@@ -111,7 +111,7 @@ function ma_acc_render($v) {
             </div>
             <div class="ma-figures">
                 <div class="ma-fig"><span>মোট সদস্য</span><strong><?php echo esc_html(ma_acc_bn(number_format($s['total']))); ?></strong><em>এই সপ্তাহে নতুন <?php echo esc_html(ma_acc_bn($s['week'])); ?></em></div>
-                <div class="ma-fig"><span>প্রো</span><strong><?php echo esc_html(ma_acc_bn(number_format($s['pro']))); ?></strong><em><?php echo esc_html(ma_acc_bn($paying_rate)); ?>% সদস্য প্রো নিয়েছেন</em></div>
+                <div class="ma-fig"><span>প্রিমিয়াম</span><strong><?php echo esc_html(ma_acc_bn(number_format($s['pro']))); ?></strong><em><?php echo esc_html(ma_acc_bn($paying_rate)); ?>% সদস্য প্রিমিয়াম নিয়েছেন</em></div>
                 <div class="ma-fig"><span>নতুন মতামত</span><strong><?php echo esc_html(ma_acc_bn(number_format($fb_new))); ?></strong><em>অ্যাপ থেকে সদস্যদের লেখা</em></div>
                 <div class="ma-fig"><span>সক্রিয় (৭ দিনে)</span><strong><?php echo esc_html(ma_acc_bn(number_format($s['active']))); ?></strong><em>গত ৭ দিনে অ্যাপ খুলেছেন</em></div>
             </div>
@@ -143,7 +143,7 @@ function ma_acc_render($v) {
 
         <p class="ma-foot">
             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Zm0 2.2 6 2.2V11c0 4-2.6 7.8-6 9-3.4-1.2-6-5-6-9V6.4l6-2.2Z"/></svg>
-            এখানে শুধু নাম, ইমেইল, ছবি আর প্রো-র তথ্য পড়া যায়। সদস্যের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ পড়ার মতো করে কখনো এই সার্ভারে আসে না — ফ্যামিলি বা উত্তরাধিকারীর জন্য যা আসে, তা তালাবদ্ধ; সার্ভার খুলতে পারে না।
+            এখানে শুধু নাম, ইমেইল, ছবি আর প্রিমিয়ামের তথ্য পড়া যায়। সদস্যের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ পড়ার মতো করে কখনো এই সার্ভারে আসে না — ফ্যামিলি বা উত্তরাধিকারীর জন্য যা আসে, তা তালাবদ্ধ; সার্ভার খুলতে পারে না।
         </p>
     </div>
     <?php
@@ -151,7 +151,7 @@ function ma_acc_render($v) {
 }
 
 function ma_acc_render_members($v, $labels) {
-    $filters = ['' => 'সবাই', 'pro' => 'প্রো', 'trial' => 'ট্রায়াল', 'free' => 'ফ্রি', 'expired' => 'মেয়াদ শেষ', 'waiting' => 'অপেক্ষায়'];
+    $filters = ['' => 'সবাই', 'pro' => 'প্রিমিয়াম', 'trial' => 'ট্রায়াল', 'free' => 'ফ্রি', 'expired' => 'মেয়াদ শেষ', 'waiting' => 'অপেক্ষায়'];
     ?>
     <section class="ma-card">
         <div class="ma-bar">
@@ -211,7 +211,7 @@ function ma_acc_render_members($v, $labels) {
                             <th class="hide-s">যোগ দিয়েছেন</th>
                             <th class="hide-m">শেষ দেখা</th>
                             <th>অবস্থা</th>
-                            <th class="hide-s">প্রো পর্যন্ত</th>
+                            <th class="hide-s">প্রিমিয়াম পর্যন্ত</th>
                             <th class="right">কাজ</th>
                         </tr>
                     </thead>
@@ -257,13 +257,13 @@ function ma_acc_render_members($v, $labels) {
                                     <button type="button" class="ma-icon" title="বিস্তারিত" aria-label="বিস্তারিত: <?php echo esc_attr($data['name']); ?>" data-open="ma-view" data-m="<?php echo esc_attr(wp_json_encode($data)); ?>">
                                         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 5c5 0 8.6 4.3 9.7 6.4a1.3 1.3 0 0 1 0 1.2C20.6 14.7 17 19 12 19s-8.6-4.3-9.7-6.4a1.3 1.3 0 0 1 0-1.2C3.4 9.3 7 5 12 5Zm0 2c-3.6 0-6.4 3-7.6 5 1.2 2 4 5 7.6 5s6.4-3 7.6-5c-1.2-2-4-5-7.6-5Zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6Z"/></svg>
                                     </button>
-                                    <button type="button" class="ma-icon" title="প্রো ও নোট" aria-label="প্রো ও নোট: <?php echo esc_attr($data['name']); ?>" data-open="ma-edit" data-m="<?php echo esc_attr(wp_json_encode($data)); ?>">
+                                    <button type="button" class="ma-icon" title="প্রিমিয়াম ও নোট" aria-label="প্রিমিয়াম ও নোট: <?php echo esc_attr($data['name']); ?>" data-open="ma-edit" data-m="<?php echo esc_attr(wp_json_encode($data)); ?>">
                                         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M15.6 3.6a2 2 0 0 1 2.8 0l2 2a2 2 0 0 1 0 2.8L9.2 19.6a2 2 0 0 1-1 .5l-3.9.9a1 1 0 0 1-1.2-1.2l.9-3.9c.1-.4.3-.7.5-1L15.6 3.6ZM17 5l-11 11-.5 2.5L8 18 19 7l-2-2Z"/></svg>
                                     </button>
                                     <button type="button" class="ma-icon danger" title="মুছুন" aria-label="মুছুন: <?php echo esc_attr($data['name']); ?>" data-open="ma-delete" data-m="<?php echo esc_attr(wp_json_encode($data)); ?>">
                                         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M9 3h6a1 1 0 0 1 1 1v1h4a1 1 0 1 1 0 2h-1l-.9 12.1A2 2 0 0 1 16.1 21H7.9a2 2 0 0 1-2-1.9L5 7H4a1 1 0 0 1 0-2h4V4a1 1 0 0 1 1-1Zm-2 4 .9 12h8.2L17 7H7Zm3 2a1 1 0 0 1 1 1v6a1 1 0 1 1-2 0v-6a1 1 0 0 1 1-1Zm4 0a1 1 0 0 1 1 1v6a1 1 0 1 1-2 0v-6a1 1 0 0 1 1-1Z"/></svg>
                                     </button>
-                                    <button type="button" class="ma-btn small <?php echo $data['pro'] ? 'soft' : ''; ?>" data-open="ma-edit" data-m="<?php echo esc_attr(wp_json_encode($data)); ?>"><?php echo $data['pro'] ? 'মেয়াদ বাড়ান' : 'প্রো দিন'; ?></button>
+                                    <button type="button" class="ma-btn small <?php echo $data['pro'] ? 'soft' : ''; ?>" data-open="ma-edit" data-m="<?php echo esc_attr(wp_json_encode($data)); ?>"><?php echo $data['pro'] ? 'মেয়াদ বাড়ান' : 'প্রিমিয়াম দিন'; ?></button>
                                 </div>
                             </td>
                         </tr>
@@ -289,11 +289,11 @@ function ma_acc_render_members($v, $labels) {
             <input type="hidden" name="action" value="ma_acc_add">
             <?php wp_nonce_field('ma_acc_add'); ?>
             <h3>সদস্য যোগ করুন</h3>
-            <p class="muted">যেমন: কেউ ওয়েবসাইটে বিকাশে প্রো কিনেছেন। তাঁর Google ইমেইল দিন — অ্যাপে সেই ইমেইলে লগইন করলেই প্রো চালু হবে।</p>
+            <p class="muted">যেমন: কেউ ওয়েবসাইটে বিকাশে প্রিমিয়াম কিনেছেন। তাঁর Google ইমেইল দিন — অ্যাপে সেই ইমেইলে লগইন করলেই প্রিমিয়াম চালু হবে।</p>
             <label>Google ইমেইল<input type="email" name="email" required placeholder="name@gmail.com"></label>
             <label>নাম (ঐচ্ছিক)<input type="text" name="name"></label>
-            <fieldset class="ma-days"><legend>প্রো কত দিনের</legend>
-                <?php foreach ([0 => 'প্রো ছাড়া', 30 => '১ মাস', 365 => '১ বছর'] as $d => $l) : ?>
+            <fieldset class="ma-days"><legend>প্রিমিয়াম কত দিনের</legend>
+                <?php foreach ([0 => 'প্রিমিয়াম ছাড়া', 30 => '১ মাস', 365 => '১ বছর'] as $d => $l) : ?>
                     <label><input type="radio" name="days" value="<?php echo (int) $d; ?>" <?php checked($d, 365); ?>><span><?php echo esc_html($l); ?></span></label>
                 <?php endforeach; ?>
             </fieldset>
@@ -306,7 +306,7 @@ function ma_acc_render_members($v, $labels) {
         <div class="ma-view-head"><span class="ma-av big" data-f="initial"></span><div><h3 data-f="name"></h3><span class="muted" data-f="email"></span></div></div>
         <dl class="ma-dl">
             <dt>অবস্থা</dt><dd data-f="status"></dd>
-            <dt>প্রো পর্যন্ত</dt><dd data-f="until"></dd>
+            <dt>প্রিমিয়াম পর্যন্ত</dt><dd data-f="until"></dd>
             <dt>কীভাবে</dt><dd data-f="kind"></dd>
             <dt>ট্রায়াল শুরু</dt><dd data-f="trial"></dd>
             <dt>যোগ দিয়েছেন</dt><dd data-f="joined"></dd>
@@ -322,14 +322,14 @@ function ma_acc_render_members($v, $labels) {
             <input type="hidden" name="action" value="ma_acc_edit">
             <input type="hidden" name="id" data-f="id">
             <?php wp_nonce_field('ma_acc_edit'); ?>
-            <h3>প্রো ও নোট</h3>
-            <p class="muted"><span data-f="name"></span> · এখন: <strong data-f="status"></strong>, প্রো পর্যন্ত <span data-f="until"></span></p>
-            <fieldset class="ma-days"><legend>প্রো যোগ করুন (চলমান মেয়াদের পরে যোগ হবে)</legend>
+            <h3>প্রিমিয়াম ও নোট</h3>
+            <p class="muted"><span data-f="name"></span> · এখন: <strong data-f="status"></strong>, প্রিমিয়াম পর্যন্ত <span data-f="until"></span></p>
+            <fieldset class="ma-days"><legend>প্রিমিয়াম যোগ করুন (চলমান মেয়াদের পরে যোগ হবে)</legend>
                 <?php foreach ([0 => 'বদল নেই', 30 => '+১ মাস', 90 => '+৩ মাস', 365 => '+১ বছর'] as $d => $l) : ?>
                     <label><input type="radio" name="days" value="<?php echo (int) $d; ?>" <?php checked($d, 0); ?>><span><?php echo esc_html($l); ?></span></label>
                 <?php endforeach; ?>
             </fieldset>
-            <label class="ma-check"><input type="checkbox" name="mode" value="stop"> প্রো এখনই বন্ধ করুন</label>
+            <label class="ma-check"><input type="checkbox" name="mode" value="stop"> প্রিমিয়াম এখনই বন্ধ করুন</label>
             <label>নোট<input type="text" name="note" data-f="note" maxlength="500"></label>
             <div class="ma-dialog-actions"><button type="button" class="ma-btn ghost" data-close>বাতিল</button><button class="ma-btn" type="submit">রাখুন</button></div>
         </form>
@@ -341,7 +341,7 @@ function ma_acc_render_members($v, $labels) {
             <input type="hidden" name="id" data-f="id">
             <?php wp_nonce_field('ma_acc_delete'); ?>
             <h3>সদস্যের তথ্য মুছবেন?</h3>
-            <p class="muted"><strong data-f="name"></strong> (<span data-f="email"></span>)-এর নাম, ইমেইল আর প্রো-র তথ্য মুছে যাবে। অ্যাপে তাঁর নিজের তথ্য যেমন আছে থাকবে।</p>
+            <p class="muted"><strong data-f="name"></strong> (<span data-f="email"></span>)-এর নাম, ইমেইল আর প্রিমিয়ামের তথ্য মুছে যাবে। অ্যাপে তাঁর নিজের তথ্য যেমন আছে থাকবে।</p>
             <div class="ma-dialog-actions"><button type="button" class="ma-btn ghost" data-close>বাতিল</button><button class="ma-btn danger" type="submit">মুছুন</button></div>
         </form>
     </dialog>
@@ -424,10 +424,10 @@ function ma_acc_render_payments($v) {
                 <dt>টাকা</dt><dd><span data-f="amount"></span> · <span data-f="plan"></span></dd>
                 <dt>যে নম্বর থেকে</dt><dd class="ma-mono" data-f="sender"></dd>
                 <dt>TrxID</dt><dd class="ma-mono" data-f="trx"></dd>
-                <dt>প্রো পাবেন</dt><dd data-f="email"></dd>
+                <dt>প্রিমিয়াম পাবেন</dt><dd data-f="email"></dd>
                 <dt>নোট</dt><dd data-f="note"></dd>
             </dl>
-            <div class="ma-dialog-actions"><button type="button" class="ma-btn ghost" data-close>পরে</button><button class="ma-btn" type="submit">মিলেছে — প্রো দিন</button></div>
+            <div class="ma-dialog-actions"><button type="button" class="ma-btn ghost" data-close>পরে</button><button class="ma-btn" type="submit">মিলেছে — প্রিমিয়াম দিন</button></div>
         </form>
     </dialog>
 
@@ -455,7 +455,7 @@ function ma_acc_render_payments($v) {
             <label>মাধ্যম — প্রতি লাইনে একটা: <span class="ma-mono">নাম | নম্বর | কীভাবে পাঠাবেন</span>
                 <textarea name="methods" rows="6" spellcheck="false"><?php echo esc_textarea($v['methods_raw']); ?></textarea>
             </label>
-            <p class="muted ma-tip">ওয়েবসাইটের একটা পাতায় লিখুন <code>[my_assistant_pro]</code> — প্রো-র সব সুবিধা, দুই প্ল্যান আর তার নিচে পেমেন্ট ফর্ম একসাথে দেখাবে (শুধু ফর্ম চাইলে <code>[my_assistant_payment]</code>)। Play Store-এর অ্যাপের ভেতরে এই পাতার লিংক বা উল্লেখ দেওয়া যাবে না — এটা Google-এর নিয়ম।</p>
+            <p class="muted ma-tip">ওয়েবসাইটের একটা পাতায় লিখুন <code>[my_assistant_pro]</code> — প্রিমিয়ামের সব সুবিধা, দুই প্ল্যান আর তার নিচে পেমেন্ট ফর্ম একসাথে দেখাবে (শুধু ফর্ম চাইলে <code>[my_assistant_payment]</code>)। Play Store-এর অ্যাপের ভেতরে এই পাতার লিংক বা উল্লেখ দেওয়া যাবে না — এটা Google-এর নিয়ম।</p>
             <div class="ma-dialog-actions"><button type="button" class="ma-btn ghost" data-close>বাতিল</button><button class="ma-btn" type="submit">রাখুন</button></div>
         </form>
     </dialog>
@@ -580,7 +580,7 @@ function ma_acc_render_finance($f) {
     ?>
     <section class="ma-card">
         <div class="ma-bar"><div class="ma-bar-title"><h2>হিসাব</h2><span class="ma-count"><?php echo esc_html($mname($m['month'])); ?></span></div></div>
-        <p class="muted ma-pad">আয়ের মধ্যে আছে অনুমোদিত পেমেন্ট আর হাতে লেখা আয়। টাকা ছাড়া কাউকে প্রো দিলে সেটা আয়ে ধরা হয় না। ব্যয়ের মধ্যে আছে AI-এর বিল (ডলার ৳<?php echo esc_html(ma_acc_bn($f['usd_bdt'])); ?> ধরে) আর হাতে লেখা খরচ। বিনিয়োগ আলাদা রাখা হয়, ওটা আয় নয়।</p>
+        <p class="muted ma-pad">আয়ের মধ্যে আছে অনুমোদিত পেমেন্ট আর হাতে লেখা আয়। টাকা ছাড়া কাউকে প্রিমিয়াম দিলে সেটা আয়ে ধরা হয় না। ব্যয়ের মধ্যে আছে AI-এর বিল (ডলার ৳<?php echo esc_html(ma_acc_bn($f['usd_bdt'])); ?> ধরে) আর হাতে লেখা খরচ। বিনিয়োগ আলাদা রাখা হয়, ওটা আয় নয়।</p>
         <div class="ma-figures ma-pad">
             <div class="ma-fig"><span>এ মাসে আয়</span><strong><?php echo esc_html($tk($m['income'])); ?></strong><em>পেমেন্ট <?php echo esc_html($tk($m['payments'])); ?></em></div>
             <div class="ma-fig"><span>এ মাসে ব্যয়</span><strong><?php echo esc_html($tk($m['expense'])); ?></strong><em>AI <?php echo esc_html($tk($m['ai'])); ?></em></div>
@@ -802,14 +802,14 @@ function ma_acc_render_settings($v) {
         <div class="ma-ai-head">
             <div>
                 <h2>AI সহকারী</h2>
-                <p class="muted">প্রো ও ট্রায়ালের সদস্যদের AI এই সার্ভার দিয়ে চলে। API key এখানেই থাকে — অ্যাপে কখনো যায় না। সদস্য কী বললেন তা এখানে রাখা হয় না, শুধু গোনা হয়।</p>
+                <p class="muted">প্রিমিয়াম ও ট্রায়ালের সদস্যদের AI এই সার্ভার দিয়ে চলে। API key এখানেই থাকে — অ্যাপে কখনো যায় না। সদস্য কী বললেন তা এখানে রাখা হয় না, শুধু গোনা হয়।</p>
             </div>
             <span class="ma-pill <?php echo $ready ? 'pro' : 'expired'; ?>"><?php echo $ready ? 'চালু' : ($ai['source'] === '' ? 'key নেই' : 'বন্ধ'); ?></span>
         </div>
         <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="ma-ai-form">
             <input type="hidden" name="action" value="ma_ai_settings">
             <?php wp_nonce_field('ma_ai_settings'); ?>
-            <label class="ma-check ma-switch"><input type="checkbox" name="ai_on" value="1" <?php checked($ai['on'], true); ?>><span class="ma-switch-ui" aria-hidden="true"></span> প্রো সদস্যদের জন্য AI চালু</label>
+            <label class="ma-check ma-switch"><input type="checkbox" name="ai_on" value="1" <?php checked($ai['on'], true); ?>><span class="ma-switch-ui" aria-hidden="true"></span> প্রিমিয়াম সদস্যদের জন্য AI চালু</label>
             <div class="ma-ai-row">
                 <label>Anthropic API key
                     <?php if ($ai['source'] === 'config') : ?>
@@ -889,7 +889,7 @@ function ma_acc_render_settings($v) {
         <div class="ma-ai-head">
             <div>
                 <h2>পুশ নোটিফিকেশন (Firebase)</h2>
-                <p class="muted">নতুন পেমেন্ট এলে অ্যাডমিনদের ফোনে, আর প্রো চালু হলে সদস্যের ফোনে সাথে সাথে পুশ যায়। এর জন্য Firebase-এর service account লাগে (ফ্রি)।</p>
+                <p class="muted">নতুন পেমেন্ট এলে অ্যাডমিনদের ফোনে, আর প্রিমিয়াম চালু হলে সদস্যের ফোনে সাথে সাথে পুশ যায়। এর জন্য Firebase-এর service account লাগে (ফ্রি)।</p>
             </div>
             <span class="ma-pill <?php echo $push['source'] !== '' ? 'pro' : 'expired'; ?>"><?php echo $push['source'] !== '' ? 'পুশ চালু' : 'Firebase নেই'; ?></span>
         </div>
@@ -937,7 +937,7 @@ function ma_acc_render_settings($v) {
                 </li>
             </ul>
             <h3>কী রাখা হয়</h3>
-            <p class="muted">Google অ্যাকাউন্টের নাম, ইমেইল, ছবির লিংক, কবে যোগ দিয়েছেন ও শেষ কবে খুলেছেন, অ্যাপের সংস্করণ, ট্রায়াল আর প্রো। এর বেশি কিছু না।</p>
+            <p class="muted">Google অ্যাকাউন্টের নাম, ইমেইল, ছবির লিংক, কবে যোগ দিয়েছেন ও শেষ কবে খুলেছেন, অ্যাপের সংস্করণ, ট্রায়াল আর প্রিমিয়াম। এর বেশি কিছু না।</p>
         </section>
     </div>
     <?php
@@ -1254,7 +1254,7 @@ function ma_acc_render_ai_report($v) {
             <div><strong><?php echo esc_html(ma_acc_bn(number_format($st['month']))); ?></strong><span>এই মাসে প্রশ্ন</span></div>
         </div>
         <h3>বাজেট কতটা খরচ হলো</h3>
-        <p><?php foreach (['free' => 'ফ্রি', 'pro' => 'প্রো'] as $plan => $label) : $b = $budget[$plan] ?? null; if (!$b) { continue; } ?>
+        <p><?php foreach (['free' => 'ফ্রি', 'pro' => 'প্রিমিয়াম'] as $plan => $label) : $b = $budget[$plan] ?? null; if (!$b) { continue; } ?>
             <span class="ma-pill"><?php echo esc_html($label . ' — আজ ' . $usd($b['spent_day']) . ' / ' . ((float) $b['day'] > 0 ? $usd($b['day']) : 'সীমা নেই') . ' · এই মাসে ' . $usd($b['spent_month']) . ' / ' . ((float) $b['month'] > 0 ? $usd($b['month']) : 'সীমা নেই')); ?></span>
         <?php endforeach; ?></p>
         <?php $table($c['today'], 'আজ'); $table($c['month'], 'এই মাসে'); ?>
@@ -1290,9 +1290,9 @@ function ma_acc_render_ai_costs($c) {
             </table>
             <label>নতুন মডেল যোগ (নাম)<input type="text" name="new_model" placeholder="gemini-…"></label>
             <h3>বাজেট (ডলার; ০ = সীমা নেই)</h3>
-            <label class="ma-check"><input type="checkbox" name="budget_auto" value="1" <?php checked(!empty($c['budget']['auto'])); ?>> আয় অনুযায়ী নিজে ঠিক হোক (লোকসান যেন না হয়): প্রো-র আয়ের ২০% পর্যন্ত AI-তে, একজন প্রো সদস্যের খরচ তাঁর মাসিক দামের ৩০% পর্যন্ত, ফ্রি সবার জন্য মাসে $৩</label>
+            <label class="ma-check"><input type="checkbox" name="budget_auto" value="1" <?php checked(!empty($c['budget']['auto'])); ?>> আয় অনুযায়ী নিজে ঠিক হোক (লোকসান যেন না হয়): প্রিমিয়ামের আয়ের ২০% পর্যন্ত AI-তে, একজন প্রিমিয়াম সদস্যের খরচ তাঁর মাসিক দামের ৩০% পর্যন্ত, ফ্রি সবার জন্য মাসে $৩</label>
             <div class="ma-ai-row">
-                <?php foreach (['free' => 'ফ্রি', 'pro' => 'প্রো'] as $plan => $label) : $b = $c['budget'][$plan]; ?>
+                <?php foreach (['free' => 'ফ্রি', 'pro' => 'প্রিমিয়াম'] as $plan => $label) : $b = $c['budget'][$plan]; ?>
                     <label><?php echo esc_html($label); ?> — দিনে<input type="text" inputmode="decimal" name="budget[<?php echo $plan; ?>][day]" value="<?php echo esc_attr((string) $b['day']); ?>"></label>
                     <label><?php echo esc_html($label); ?> — মাসে<input type="text" inputmode="decimal" name="budget[<?php echo $plan; ?>][month]" value="<?php echo esc_attr((string) $b['month']); ?>"></label>
                 <?php endforeach; ?>
@@ -1335,12 +1335,12 @@ function ma_acc_render_nlu($n) {
                 </label>
                 <label>কত % সদস্য<input type="number" min="0" max="100" name="nlu[pct]" value="<?php echo (int) $set['pct']; ?>"></label>
                 <label>ফ্রি সদস্যের ক্লাউড মডেল<input type="text" name="nlu[free_model]" value="<?php echo esc_attr($set['free_model']); ?>"></label>
-                <label>প্রো সদস্যের ক্লাউড মডেল<input type="text" name="nlu[pro_model]" value="<?php echo esc_attr($set['pro_model']); ?>"></label>
-                <label>খুব অনিশ্চিত হলে (প্রো)<input type="text" name="nlu[escalate_model]" value="<?php echo esc_attr($set['escalate_model']); ?>"></label>
+                <label>প্রিমিয়াম সদস্যের ক্লাউড মডেল<input type="text" name="nlu[pro_model]" value="<?php echo esc_attr($set['pro_model']); ?>"></label>
+                <label>খুব অনিশ্চিত হলে (প্রিমিয়াম)<input type="text" name="nlu[escalate_model]" value="<?php echo esc_attr($set['escalate_model']); ?>"></label>
                 <label>তার ভাগ, দিনে সর্বোচ্চ %<input type="number" step="0.5" min="0" max="20" name="nlu[escalate_share]" value="<?php echo esc_attr((string) round($set['escalate_share'] * 100, 1)); ?>"></label>
                 <label>"খুব অনিশ্চিত" মানে নিশ্চয়তা এর নিচে (০–১)<input type="number" step="0.05" min="0" max="1" name="nlu[escalate_below]" value="<?php echo esc_attr((string) $set['escalate_below']); ?>"></label>
                 <label>ফ্রি — সদস্যপ্রতি দিনে ক্লাউড<input type="number" min="0" name="nlu[free_per_user]" value="<?php echo (int) $set['free_per_user']; ?>"></label>
-                <label>প্রো — সদস্যপ্রতি দিনে ক্লাউড<input type="number" min="0" name="nlu[pro_per_user]" value="<?php echo (int) $set['pro_per_user']; ?>"></label>
+                <label>প্রিমিয়াম — সদস্যপ্রতি দিনে ক্লাউড<input type="number" min="0" name="nlu[pro_per_user]" value="<?php echo (int) $set['pro_per_user']; ?>"></label>
             </div>
             <label class="ma-check"><input type="checkbox" name="nlu[cloud_on]" value="1" <?php checked(!empty($set['cloud_on'])); ?>> ক্লাউডে বোঝা চালু</label>
             <button class="ma-btn" type="submit">রাখুন</button>

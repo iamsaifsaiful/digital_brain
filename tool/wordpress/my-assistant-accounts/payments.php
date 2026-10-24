@@ -80,7 +80,7 @@ function ma_pay_labels() {
 
 // ── The website form: [my_assistant_payment] ──
 //
-// A whole "প্রো কিনুন" page: plan, where to send the money, and the form
+// A whole "প্রিমিয়াম কিনুন" page: plan, where to send the money, and the form
 // whose details come to this server (admin-post.php → ma_pay_submit).
 // [my_assistant_payment]            the full page with its own top bar and footer
 //                                   (for an Elementor Canvas / blank page)
@@ -217,7 +217,7 @@ function ma_pay_form($atts = []) {
         <div class="done" role="status">
             <span class="ck"><?php echo $check; ?></span>
             <h2>ধন্যবাদ! তথ্য পেয়েছি</h2>
-            <p>পেমেন্ট মিলিয়ে আমরা প্রো চালু করছি — বেশির ভাগ সময় সাথে সাথেই হয়ে যায়। চালু হলে ফোনে নোটিফিকেশন আর ইমেইল পাবেন। অ্যাপে যে Google অ্যাকাউন্ট দিয়েছেন, সেটাতেই লগইন রাখুন।</p>
+            <p>পেমেন্ট মিলিয়ে আমরা প্রিমিয়াম চালু করছি — বেশির ভাগ সময় সাথে সাথেই হয়ে যায়। চালু হলে ফোনে নোটিফিকেশন আর ইমেইল পাবেন। অ্যাপে যে Google অ্যাকাউন্ট দিয়েছেন, সেটাতেই লগইন রাখুন।</p>
             <p>পেমেন্ট না মিললে কেন মেলেনি, ইমেইলে জানিয়ে দেব।</p>
             <a href="<?php echo esc_url($home); ?>">← মূল পাতায় ফিরুন</a>
         </div>
@@ -226,8 +226,8 @@ function ma_pay_form($atts = []) {
 
     <?php if ($a['head'] !== 'no') : ?>
     <div class="wrap head">
-        <h1>প্রো কিনুন</h1>
-        <p>নিচের নম্বরে টাকা পাঠিয়ে তথ্য জমা দিন। তথ্য সরাসরি আমাদের সার্ভারে আসে — পেমেন্ট মিলিয়ে আমরা আপনার Google অ্যাকাউন্টে প্রো চালু করি, বেশির ভাগ সময় সাথে সাথেই।</p>
+        <h1>প্রিমিয়াম কিনুন</h1>
+        <p>নিচের নম্বরে টাকা পাঠিয়ে তথ্য জমা দিন। তথ্য সরাসরি আমাদের সার্ভারে আসে — পেমেন্ট মিলিয়ে আমরা আপনার Google অ্যাকাউন্টে প্রিমিয়াম চালু করি, বেশির ভাগ সময় সাথে সাথেই।</p>
     </div>
     <?php endif; ?>
 
@@ -270,8 +270,8 @@ function ma_pay_form($atts = []) {
             <div class="box after">
                 <h3>জমা দেওয়ার পর</h3>
                 <ol>
-                    <li><span class="n">ক</span><div><b>আমরা পেমেন্ট মিলিয়ে নিই</b>আপনার TrxID দেখে প্রো চালু করি — বেশির ভাগ সময় সাথে সাথেই।</div></li>
-                    <li><span class="n">খ</span><div><b>অ্যাপে প্রো চলে আসে</b>একই Google অ্যাকাউন্টে লগইন থাকলেই হবে। ফোনে নোটিফিকেশন আর ইমেইলেও জানাই।</div></li>
+                    <li><span class="n">ক</span><div><b>আমরা পেমেন্ট মিলিয়ে নিই</b>আপনার TrxID দেখে প্রিমিয়াম চালু করি — বেশির ভাগ সময় সাথে সাথেই।</div></li>
+                    <li><span class="n">খ</span><div><b>অ্যাপে প্রিমিয়াম চলে আসে</b>একই Google অ্যাকাউন্টে লগইন থাকলেই হবে। ফোনে নোটিফিকেশন আর ইমেইলেও জানাই।</div></li>
                     <li><span class="n">গ</span><div><b>না মিললে জানাই</b>কেন মেলেনি ইমেইলে লিখে দিই; উত্তর দিলেই আবার দেখি।</div></li>
                 </ol>
             </div>
@@ -283,11 +283,11 @@ function ma_pay_form($atts = []) {
             <?php if ($state !== '') : ?><div class="bad" role="alert"><?php echo esc_html(ma_pay_error_text($state)); ?></div><?php endif; ?>
             <label class="field">যে নম্বর থেকে টাকা পাঠিয়েছেন<input type="text" name="sender" required maxlength="64" autocomplete="tel" inputmode="tel" placeholder="01XXXXXXXXX"></label>
             <label class="field">ট্রানজেকশন আইডি (TrxID)<input type="text" name="trx" required maxlength="64" autocomplete="off" spellcheck="false" placeholder="যেমন 9A7KX2PQ1M"></label>
-            <label class="field">যে Google ইমেইলে অ্যাপে লগইন করেন<input type="email" name="email" required maxlength="190" autocomplete="email" placeholder="name@gmail.com"><span class="hint">এই ইমেইলেই প্রো চালু হবে — ঠিকমতো লিখুন।</span></label>
+            <label class="field">যে Google ইমেইলে অ্যাপে লগইন করেন<input type="email" name="email" required maxlength="190" autocomplete="email" placeholder="name@gmail.com"><span class="hint">এই ইমেইলেই প্রিমিয়াম চালু হবে — ঠিকমতো লিখুন।</span></label>
             <label class="field">নাম<input type="text" name="name" maxlength="190" autocomplete="name" placeholder="আপনার নাম"></label>
             <label class="field">মোবাইল (ঐচ্ছিক)<input type="tel" name="phone" maxlength="32" autocomplete="tel" placeholder="যোগাযোগের নম্বর"></label>
             <label class="field">কিছু বলার থাকলে (ঐচ্ছিক)<textarea name="note" maxlength="500"></textarea></label>
-            <div class="sumline"><span id="ma-pay-sum-label"><?php echo esc_html($plans[$chosen]['label']); ?> প্রো</span><b id="ma-pay-sum-price">৳<?php echo esc_html(ma_acc_bn($plans[$chosen]['price'])); ?></b></div>
+            <div class="sumline"><span id="ma-pay-sum-label"><?php echo esc_html($plans[$chosen]['label']); ?> প্রিমিয়াম</span><b id="ma-pay-sum-price">৳<?php echo esc_html(ma_acc_bn($plans[$chosen]['price'])); ?></b></div>
             <button class="submit" type="submit">তথ্য জমা দিন</button>
             <p class="secure"><?php echo $lock; ?><span>আমরা কখনো আপনার PIN, OTP বা পাসওয়ার্ড চাই না। একই TrxID দুবার জমা দেওয়া যায় না। জমা দিয়ে আপনি <a href="<?php echo esc_url(home_url('/terms-and-conditions/')); ?>">শর্তাবলি</a> মেনে নিচ্ছেন — কেনার পর টাকা ফেরত হয় না।</span></p>
         </div>
@@ -298,7 +298,7 @@ function ma_pay_form($atts = []) {
         if (!root) return;
         root.querySelectorAll('input[name="plan"]').forEach(function (r) {
             r.addEventListener('change', function () {
-                document.getElementById('ma-pay-sum-label').textContent = r.dataset.label + ' প্রো';
+                document.getElementById('ma-pay-sum-label').textContent = r.dataset.label + ' প্রিমিয়াম';
                 document.getElementById('ma-pay-sum-price').textContent = '৳' + r.dataset.price;
             });
         });
@@ -433,11 +433,11 @@ function ma_pay_decide($id, $approve, $reason = '', $tell = true, $by = '') {
         ]);
     }
     $wpdb->update(ma_pay_table(), ['status' => 'approved'] + $who, ['id' => $id]);
-    wp_mail($p['email'], 'My Assistant প্রো চালু হয়েছে', "আপনার পেমেন্ট ({$p['method']}, TrxID {$p['trx']}) পেয়েছি — ধন্যবাদ!\n\nঅ্যাপে এই ইমেইলের ({$p['email']}) Google অ্যাকাউন্টে লগইন করলেই প্রো চালু হবে। আগে থেকে লগইন করা থাকলে অ্যাপ খুললেই চালু হয়ে যাবে।\n\n— My Assistant");
+    wp_mail($p['email'], 'My Assistant প্রিমিয়াম চালু হয়েছে', "আপনার পেমেন্ট ({$p['method']}, TrxID {$p['trx']}) পেয়েছি — ধন্যবাদ!\n\nঅ্যাপে এই ইমেইলের ({$p['email']}) Google অ্যাকাউন্টে লগইন করলেই প্রিমিয়াম চালু হবে। আগে থেকে লগইন করা থাকলে অ্যাপ খুললেই চালু হয়ে যাবে।\n\n— My Assistant");
     if ($member) {
-        ma_push_member((int) $member['id'], 'প্রো চালু হয়েছে 🎉', 'আপনার পেমেন্ট পেয়েছি — ধন্যবাদ! AI, বিজ্ঞাপন ছাড়া আর সব প্রো সুবিধা এখন চালু।', ['type' => 'pro']);
+        ma_push_member((int) $member['id'], 'প্রিমিয়াম চালু হয়েছে 🎉', 'আপনার পেমেন্ট পেয়েছি — ধন্যবাদ! AI, বিজ্ঞাপন ছাড়া আর সব প্রিমিয়াম সুবিধা এখন চালু।', ['type' => 'pro']);
     }
-    return [true, 'অনুমোদন দেওয়া হলো, ' . $p['email'] . '-এ প্রো চালু হলো।'];
+    return [true, 'অনুমোদন দেওয়া হলো, ' . $p['email'] . '-এ প্রিমিয়াম চালু হলো।'];
 }
 
 add_action('admin_post_ma_pay_review', function () {

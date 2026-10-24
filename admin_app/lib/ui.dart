@@ -136,7 +136,7 @@ class Pill extends StatelessWidget {
 Pill statusPill(BuildContext context, String status) {
   final c = Palette.of(context);
   return switch (status) {
-    'pro' || 'approved' => Pill(status == 'pro' ? 'প্রো' : 'অনুমোদিত', c.green, c.tint),
+    'pro' || 'approved' => Pill(status == 'pro' ? 'প্রিমিয়াম' : 'অনুমোদিত', c.green, c.tint),
     'trial' => Pill('ট্রায়াল', c.amber, c.amberTint),
     'pending' => Pill('দেখার অপেক্ষায়', c.amber, c.amberTint),
     'expired' || 'rejected' => Pill(status == 'expired' ? 'মেয়াদ শেষ' : 'বাতিল', c.rose, c.roseTint),
@@ -242,7 +242,7 @@ class _DashboardPageState extends State<DashboardPage> {
             if (s == null)
               const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator(color: Colors.white)))
             else ...[
-              Row(children: [fig('মোট সদস্য', count(n('members')), 'এই সপ্তাহে নতুন ${bn(n('new_week'))}'), const SizedBox(width: 10), fig('প্রো', count(n('pro')), 'নতুন মতামত ${bn(n('feedback_new'))}')]),
+              Row(children: [fig('মোট সদস্য', count(n('members')), 'এই সপ্তাহে নতুন ${bn(n('new_week'))}'), const SizedBox(width: 10), fig('প্রিমিয়াম', count(n('pro')), 'নতুন মতামত ${bn(n('feedback_new'))}')]),
               const SizedBox(height: 10),
               Row(children: [fig('এই মাসে আয়', taka(n('income_month')), 'ওয়েবসাইটের পেমেন্ট'), const SizedBox(width: 10), fig('সক্রিয়', count(n('active_week')), 'গত ৭ দিনে · আজ AI ${bn(n('ai_today'))}${s['ai_cost_today_usd'] == null ? '' : ' · ৳${bn(((s['ai_cost_today_usd'] as num) * ((s['usd_bdt'] as num?) ?? 122)).toStringAsFixed(2))}'}')]),
             ],
@@ -466,7 +466,7 @@ class _FinancePageState extends State<FinancePage> {
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 96), children: [
-                    Text('আয়ের মধ্যে আছে অনুমোদিত পেমেন্ট আর হাতে লেখা আয়। টাকা ছাড়া কাউকে প্রো দিলে সেটা আয়ে ধরা হয় না। ব্যয়ের মধ্যে আছে AI-এর বিল আর হাতে লেখা খরচ।',
+                    Text('আয়ের মধ্যে আছে অনুমোদিত পেমেন্ট আর হাতে লেখা আয়। টাকা ছাড়া কাউকে প্রিমিয়াম দিলে সেটা আয়ে ধরা হয় না। ব্যয়ের মধ্যে আছে AI-এর বিল আর হাতে লেখা খরচ।',
                         style: text(13, color: c.muted, height: 1.45)),
                     const SizedBox(height: 10),
                     Row(children: [
@@ -604,7 +604,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
                 style: text(14.5, color: c.muted, height: 1.55)),
             if (approve) ...[
               const SizedBox(height: 10),
-              Text('${p['email']}-এ ${p['plan']} প্রো চালু হবে, আর তাঁকে ইমেইল ও পুশে জানানো হবে।', style: text(14.5, color: c.ink, height: 1.5)),
+              Text('${p['email']}-এ ${p['plan']} প্রিমিয়াম চালু হবে, আর তাঁকে ইমেইল ও পুশে জানানো হবে।', style: text(14.5, color: c.ink, height: 1.5)),
             ] else ...[
               const SizedBox(height: 12),
               TextField(controller: reason, decoration: const InputDecoration(labelText: 'কারণ (ঐচ্ছিক)', border: OutlineInputBorder())),
@@ -617,7 +617,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
               child: FilledButton(
                 style: FilledButton.styleFrom(backgroundColor: approve ? c.brand : c.rose, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
                 onPressed: () => Navigator.pop(ctx, true),
-                child: Text(approve ? 'মিলেছে — প্রো দিন' : 'বাতিল করুন', style: text(16, weight: FontWeight.w700, color: Colors.white)),
+                child: Text(approve ? 'মিলেছে — প্রিমিয়াম দিন' : 'বাতিল করুন', style: text(16, weight: FontWeight.w700, color: Colors.white)),
               ),
             ),
           ]),
@@ -685,7 +685,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
                             const SizedBox(height: 8),
                             _kv(context, 'মাধ্যম', '${p['method']} · ${p['sender']}'),
                             _kv(context, 'TrxID', '${p['trx']}', copy: true),
-                            _kv(context, 'প্রো পাবেন', '${p['email']}'),
+                            _kv(context, 'প্রিমিয়াম পাবেন', '${p['email']}'),
                             if ('${p['name']}'.isNotEmpty) _kv(context, 'নাম', '${p['name']}'),
                             if ('${p['note']}'.isNotEmpty) _kv(context, 'নোট', '${p['note']}'),
                             if ('${p['reason']}'.isNotEmpty) _kv(context, 'কারণ', '${p['reason']}'),
@@ -768,14 +768,14 @@ class _MembersPageState extends State<MembersPage> {
             const SizedBox(height: 10),
             Wrap(spacing: 8, runSpacing: 6, children: [
               statusPill(ctx, '${m['status']}'),
-              if (m['pro_until'] != null) Pill('প্রো পর্যন্ত ${date('${m['pro_until']}')}', c.ink, c.ground),
+              if (m['pro_until'] != null) Pill('প্রিমিয়াম পর্যন্ত ${date('${m['pro_until']}')}', c.ink, c.ground),
               Pill('যোগ ${date('${m['joined']}')}', c.muted, c.ground),
               Pill('শেষ দেখা ${ago('${m['last_seen']}')}', c.muted, c.ground),
               if ('${m['version']}'.isNotEmpty) Pill('${m['version']}', c.muted, c.ground),
             ]),
             if ('${m['note']}'.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 10), child: Text('নোট: ${m['note']}', style: text(14, color: c.ink))),
             const SizedBox(height: 16),
-            Text('প্রো যোগ করুন (চলমান মেয়াদের পরে যোগ হবে)', style: text(14, weight: FontWeight.w600, color: c.ink)),
+            Text('প্রিমিয়াম যোগ করুন (চলমান মেয়াদের পরে যোগ হবে)', style: text(14, weight: FontWeight.w600, color: c.ink)),
             const SizedBox(height: 8),
             Row(children: [
               for (final (d, l) in [(30, '+১ মাস'), (90, '+৩ মাস'), (365, '+১ বছর')]) ...[
@@ -784,7 +784,7 @@ class _MembersPageState extends State<MembersPage> {
               ],
             ]),
             if (m['status'] == 'pro' || m['status'] == 'trial')
-              TextButton(onPressed: () => Navigator.pop(ctx, -1), style: TextButton.styleFrom(foregroundColor: c.rose), child: const Text('প্রো এখনই বন্ধ করুন')),
+              TextButton(onPressed: () => Navigator.pop(ctx, -1), style: TextButton.styleFrom(foregroundColor: c.rose), child: const Text('প্রিমিয়াম এখনই বন্ধ করুন')),
           ]),
         ),
       ),
@@ -793,7 +793,7 @@ class _MembersPageState extends State<MembersPage> {
     final id = (m['id'] as num).toInt();
     final r = await widget.guard(() => widget.api.changeMember(id, days: days > 0 ? days : 0, stop: days < 0));
     if (r != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(days < 0 ? 'প্রো বন্ধ করা হলো' : 'প্রো দেওয়া হলো — সদস্যের ফোনে পুশ গেছে')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(days < 0 ? 'প্রিমিয়াম বন্ধ করা হলো' : 'প্রিমিয়াম দেওয়া হলো — সদস্যের ফোনে পুশ গেছে')));
       _load();
     }
   }
@@ -934,7 +934,7 @@ class _NoticesPageState extends State<NoticesPage> {
             SegmentedButton<String>(
               segments: const [
                 ButtonSegment(value: 'all', label: Text('সবাই')),
-                ButtonSegment(value: 'pro', label: Text('প্রো')),
+                ButtonSegment(value: 'pro', label: Text('প্রিমিয়াম')),
                 ButtonSegment(value: 'free', label: Text('ফ্রি')),
               ],
               selected: {aud},

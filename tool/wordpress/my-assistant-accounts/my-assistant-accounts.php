@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: My Assistant Accounts
- * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, প্রো, পেমেন্ট, নোটিফিকেশন আর মতামত। শুধু নাম, ইমেইল, ছবি আর প্রো-র তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.17.0
+ * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, প্রিমিয়াম, পেমেন্ট, নোটিফিকেশন আর মতামত। শুধু নাম, ইমেইল, ছবি আর প্রিমিয়ামের তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
+ * Version: 1.18.0
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: My Assistant
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.17.0';
+const MA_ACC_VERSION = '1.18.0';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
 const MA_ACC_PER_PAGE = 20;
 
@@ -280,7 +280,7 @@ add_action('admin_post_ma_acc_add', function () {
     $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE email = %s ORDER BY id LIMIT 1", $email), ARRAY_A);
     if ($row) {
         $wpdb->update($table, ['pro_until' => $days ? ma_acc_extend($row, $days) : $row['pro_until'], 'pro_kind' => $days ? 'manual' : $row['pro_kind'], 'note' => $note ?: $row['note']], ['id' => $row['id']]);
-        ma_acc_back('এই ইমেইলের সদস্য আগেই ছিলেন — প্রো যোগ করা হলো।');
+        ma_acc_back('এই ইমেইলের সদস্য আগেই ছিলেন — প্রিমিয়াম যোগ করা হলো।');
     }
     $now = current_time('mysql', true);
     $wpdb->insert($table, [
@@ -293,7 +293,7 @@ add_action('admin_post_ma_acc_add', function () {
         'pro_until' => $days ? gmdate('Y-m-d H:i:s', time() + $days * DAY_IN_SECONDS) : null,
         'pro_kind' => $days ? 'manual' : '',
     ]);
-    ma_acc_back('যোগ করা হলো। এই ইমেইলে অ্যাপে Google দিয়ে লগইন করলেই প্রো চালু হবে।');
+    ma_acc_back('যোগ করা হলো। এই ইমেইলে অ্যাপে Google দিয়ে লগইন করলেই প্রিমিয়াম চালু হবে।');
 });
 
 add_action('admin_post_ma_acc_edit', function () {
@@ -316,7 +316,7 @@ add_action('admin_post_ma_acc_edit', function () {
         $data['pro_kind'] = 'manual';
     }
     $wpdb->update($table, $data, ['id' => $id]);
-    ma_acc_back($mode === 'stop' ? 'প্রো বন্ধ করা হলো।' : 'রাখা হয়েছে। সদস্য অ্যাপে আবার লগইন করলে নতুন প্রো দেখাবে।');
+    ma_acc_back($mode === 'stop' ? 'প্রিমিয়াম বন্ধ করা হলো।' : 'রাখা হয়েছে। সদস্য অ্যাপে আবার লগইন করলে নতুন প্রিমিয়াম দেখাবে।');
 });
 
 add_action('admin_post_ma_acc_delete', function () {
@@ -341,7 +341,7 @@ add_action('admin_post_ma_acc_export', function () {
     header('Content-Disposition: attachment; filename=my-assistant-members-' . gmdate('Y-m-d') . '.csv');
     $out = fopen('php://output', 'w');
     fwrite($out, "\xEF\xBB\xBF");
-    fputcsv($out, ['নাম', 'ইমেইল', 'অবস্থা', 'প্রো পর্যন্ত', 'ধরন', 'ট্রায়াল শুরু', 'যোগ দিয়েছেন', 'শেষ দেখা', 'সংস্করণ', 'নোট']);
+    fputcsv($out, ['নাম', 'ইমেইল', 'অবস্থা', 'প্রিমিয়াম পর্যন্ত', 'ধরন', 'ট্রায়াল শুরু', 'যোগ দিয়েছেন', 'শেষ দেখা', 'সংস্করণ', 'নোট']);
     $labels = ma_acc_status_labels();
     foreach ($rows as $r) {
         $cells = [$r['name'], $r['email'], $labels[ma_acc_status($r)][0], $r['pro_until'], $r['pro_kind'], $r['trial_started'], $r['created_at'], $r['last_seen'], trim($r['app_version'] . ' ' . $r['edition']), $r['note']];

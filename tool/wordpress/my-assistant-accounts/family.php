@@ -231,7 +231,16 @@ function ma_fam_member(WP_REST_Request $req) {
 }
 
 function ma_fam_pro_needed($row) {
-    return ma_nlu_is_pro($row) ? null : new WP_Error('pro', 'family is a Pro feature', ['status' => 402]);
+    return ma_nlu_is_pro($row) ? null : new WP_Error('pro', 'this part of family is a Premium feature', ['status' => 402]);
+}
+
+/**
+ * Owner, 24 Oct: joining, inviting and sending tasks, reminders, medicine
+ * reminders and notes are free; heirs, full access now and showing one's
+ * location are Premium. Without Premium, 'location' is left out.
+ */
+function ma_fam_free_perms($row, array $perms) {
+    return ma_nlu_is_pro($row) ? $perms : array_values(array_filter($perms, fn($x) => $x !== 'location'));
 }
 
 function ma_fam_body(WP_REST_Request $req) {
@@ -280,9 +289,6 @@ add_action('rest_api_init', function () {
 
     $r('/family/invite', 'POST', function ($req, $row) {
         global $wpdb;
-        if ($e = ma_fam_pro_needed($row)) {
-            return $e;
-        }
         $in = ma_fam_body($req);
         $email = strtolower(sanitize_email((string) ($in['email'] ?? '')));
         if (!is_email($email) || $email === strtolower($row['email'])) {
@@ -323,7 +329,7 @@ add_action('rest_api_init', function () {
             if ((int) $l['a_user'] === (int) $row['id'] || $l['status'] !== 'pending') {
                 return new WP_Error('bad', 'only the one invited accepts', ['status' => 400]);
             }
-            $wpdb->update($t, ['status' => 'active', 'b_user' => (int) $row['id'], 'b_calls_a' => mb_substr(sanitize_text_field((string) ($in['relation'] ?? '')), 0, 60), 'b_grants' => implode(',', ma_fam_perms($in['allow'] ?? [])), 'updated_at' => ma_fam_now()], ['id' => $l['id']]);
+            $wpdb->update($t, ['status' => 'active', 'b_user' => (int) $row['id'], 'b_calls_a' => mb_substr(sanitize_text_field((string) ($in['relation'] ?? '')), 0, 60), 'b_grants' => implode(',', ma_fam_free_perms($row, ma_fam_perms($in['allow'] ?? []))), 'updated_at' => ma_fam_now()], ['id' => $l['id']]);
             ma_push_member((int) $l['a_user'], 'ফ্যামিলিতে যুক্ত হয়েছেন', ($row['name'] ?: $row['email']) . ' আপনার অনুরোধ মেনে নিয়েছেন', ['type' => 'family']);
         } else {
             // Declined or removed: nothing sent between them stays.
@@ -346,7 +352,15 @@ add_action('rest_api_init', function () {
         $o = $a ? 'b' : 'a';
         $set = ['updated_at' => ma_fam_now()];
         if (isset($in['allow'])) {
-            $set[$p . '_grants'] = implode(',', ma_fam_perms($in['allow']));
+            $want = ma_fam_perms($in['allow']);
+            $had = explode(',', (string) ($l[$p . '_grants'] ?? ''));
+            if (in_array('location', $want, true) && !in_array('location', $had, true) && ($e = ma_fam_pro_needed($row))) {
+                return $e;
+            }
+            $set[$p . '_grants'] = implode(',', $want);
+        }
+        if (((!empty($in['heir']) && !(int) $l[$p . '_heir_' . $o]) || (!empty($in['open_now']) && !(int) $l[$p . '_open_' . $o])) && ($e = ma_fam_pro_needed($row))) {
+            return $e;
         }
         if (isset($in['relation'])) {
             $set[$p . '_calls_' . $o] = mb_substr(sanitize_text_field((string) $in['relation']), 0, 60);
@@ -367,10 +381,11 @@ add_action('rest_api_init', function () {
     // Something sealed for a family member: a to-do, a reminder, a medicine reminder, a note — or the location key.
     $r('/family/items', 'POST', function ($req, $row) {
         global $wpdb;
-        if ($e = ma_fam_pro_needed($row)) {
+        $in = ma_fam_body($req);
+        // Sending things is free; the location key (sharing where I am) is Premium.
+        if (sanitize_key((string) ($in['kind'] ?? '')) === 'lockey' && ($e = ma_fam_pro_needed($row))) {
             return $e;
         }
-        $in = ma_fam_body($req);
         $l = ma_fam_link_for($row, (int) ($in['link'] ?? 0));
         $kind = sanitize_key((string) ($in['kind'] ?? ''));
         $sealed = (string) ($in['sealed'] ?? '');

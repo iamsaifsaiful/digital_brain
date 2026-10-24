@@ -64,7 +64,7 @@ class FakeServer {
       final id = int.parse(p.split('/').last);
       final pay = payments.firstWhere((x) => x['id'] == id);
       pay['status'] = jsonDecode(r.body)['decision'] == 'approve' ? 'approved' : 'rejected';
-      body = {'ok': true, 'message': 'অনুমোদন দেওয়া হলো, ${pay['email']}-এ প্রো চালু হলো।'};
+      body = {'ok': true, 'message': 'অনুমোদন দেওয়া হলো, ${pay['email']}-এ প্রিমিয়াম চালু হলো।'};
     } else if (p == '/admin/feedback') {
       body = {'feedback': feedback.where((x) => r.url.queryParameters['status'] == 'all' || (r.url.queryParameters['status'] == 'done') == (x['status'] == 'done')).toList()};
     } else if (p == '/admin/feedback/file/70') {
@@ -227,7 +227,7 @@ void main() {
     await settle(t);
     expect(find.text('পেমেন্ট মিলেছে?'), findsOneWidget);
     await shot(t, 'approve');
-    await t.tap(find.text('মিলেছে — প্রো দিন'));
+    await t.tap(find.text('মিলেছে — প্রিমিয়াম দিন'));
     await settle(t);
     expect(server.payments.first['status'], 'approved');
     final decided = server.calls.firstWhere((r) => r.url.path.endsWith('/admin/payments/1'));
