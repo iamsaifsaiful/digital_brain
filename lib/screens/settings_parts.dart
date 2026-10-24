@@ -150,7 +150,7 @@ class ProfileCard extends StatelessWidget {
         Divider(height: 1, color: C.line2),
         row(const Key('profile-name'), Icons.badge_outlined, C.green, tr('নাম'), brain.userName.isEmpty ? tr('নাম দিন') : brain.userName, onName, empty: brain.userName.isEmpty),
         Divider(height: 1, indent: 52, color: C.line2),
-        row(const Key('profile-place'), Icons.place_outlined, C.blue, tr('জেলা/শহর'), brain.autoPlace ? trf('{0} · ফোনের লোকেশন অনুযায়ী', [tr(brain.district)]) : tr(brain.district), onPlace),
+        row(const Key('profile-place'), Icons.place_outlined, C.blue, tr('জেলা/শহর'), brain.autoPlace ? trf('{0} · ফোনের লোকেশন অনুযায়ী', [brain.placeLabel]) : brain.placeLabel, onPlace),
         Divider(height: 1, indent: 52, color: C.line2),
         row(const Key('profile-blood'), Icons.bloodtype_outlined, C.rose, tr('রক্তের গ্রুপ'), blood.isEmpty ? tr('রক্তের গ্রুপ দিন') : blood, () => pickBloodGroup(context),
             empty: blood.isEmpty),

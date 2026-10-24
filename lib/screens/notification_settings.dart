@@ -113,7 +113,7 @@ class NotificationSettingsScreen extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(tr('যে ওয়াক্তের সময় জানাবে'), style: body(15)),
-                  Text(trf('{0} অনুযায়ী আনুমানিক সময়ে; চুপ থাকার সময়েও জানাবে', [tr(brain.district)]), style: body(12, color: C.muted)),
+                  Text(trf('{0} অনুযায়ী আনুমানিক সময়ে; চুপ থাকার সময়েও জানাবে', [brain.placeLabel]), style: body(12, color: C.muted)),
                   const SizedBox(height: 8),
                   Wrap(spacing: 8, runSpacing: 8, children: [
                     for (final (k, label) in [('fajr', tr('ফজর')), ('dhuhr', tr('জোহর')), ('asr', tr('আসর')), ('maghrib', tr('মাগরিব')), ('isha', tr('এশা'))])

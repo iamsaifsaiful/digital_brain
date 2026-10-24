@@ -138,13 +138,13 @@ String? infoAnswer(AppData d, String said, DateTime now) {
       return howToAnswer(howToAsked(text)!);
     case 'ramadan':
       final h = hijriDate(now);
-      if (h.isRamadan) return trf('এখন রমজান চলছে — আজ {0} রোজা (হিজরি হিসাবে; চাঁদ দেখার ওপর এক দিন এদিক-ওদিক হতে পারে)।', [bnDigits(h.day)]);
+      if (h.isRamadan) return trf('এখন রমজান চলছে — আজ {0} রোজা (হিজরি হিসাবে; চাঁদ দেখার ওপর এক দিন আগে-পরে হতে পারে)।', [bnDigits(h.day)]);
       var day = DateTime(now.year, now.month, now.day);
       for (var i = 0; i < 400 && !(hijriDate(day).isRamadan && hijriDate(day).day == 1); i++) {
         day = day.add(const Duration(days: 1));
       }
       final left = day.difference(DateTime(now.year, now.month, now.day)).inDays;
-      return trf('পরের রমজান শুরু হতে পারে {0} {1} — আর {2} দিন। এটা হিজরি হিসাবে আনুমানিক; বাংলাদেশে চাঁদ দেখার ওপর এক দিন এদিক-ওদিক হতে পারে।', [weekdayName(day), fullDate(day), bnDigits(left)]);
+      return trf('পরের রমজান শুরু হতে পারে {0} {1} — আর {2} দিন। এটা হিজরি হিসাবে আনুমানিক; বাংলাদেশে চাঁদ দেখার ওপর এক দিন আগে-পরে হতে পারে।', [weekdayName(day), fullDate(day), bnDigits(left)]);
     case 'sunrise':
       final s = now.isBefore(today.sunrise) ? today : tomorrow;
       return trf('{0} {1} সূর্যোদয় {2}।', [where, s == today ? tr('আজ') : tr('কাল'), _t(s.sunrise)]);

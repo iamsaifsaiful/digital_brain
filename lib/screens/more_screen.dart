@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
+import '../logic/world_places.dart';
 import '../logic/calendar_bd.dart';
 import '../logic/csv.dart';
 import '../services/crypto.dart';
@@ -34,7 +35,7 @@ import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '2.53.2';
+const appVersion = '2.54.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -122,7 +123,7 @@ class _MoreScreenState extends State<MoreScreen> {
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(tr('ফোনের লোকেশন অনুযায়ী'), style: body(16, weight: brain.autoPlace ? FontWeight.w700 : FontWeight.w500, color: brain.autoPlace ? C.green : C.ink)),
-                  Text(tr('অন্য জেলায় গেলে নিজে বদলাবে — লোকেশন ফোনেই থাকে, কোথাও যায় না'), style: body(12.5, color: C.muted)),
+                  Text(tr('অন্য জেলা বা দেশে গেলে নিজে বদলাবে — লোকেশন ফোনেই থাকে, কোথাও যায় না'), style: body(12.5, color: C.muted)),
                 ]),
               ),
             ]),
@@ -133,6 +134,20 @@ class _MoreScreenState extends State<MoreScreen> {
               onPressed: () => Navigator.pop(ctx, p.name),
               child: Text(p.label,
                   style: body(16, weight: !brain.autoPlace && p.name == brain.district ? FontWeight.w700 : FontWeight.w400, color: !brain.autoPlace && p.name == brain.district ? C.green : C.ink)),
+            ),
+          // Anywhere in the world (owner, 25 Oct): prayer times on that city's clock.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 14, 24, 4),
+            child: Text(tr('দেশের বাইরে'), style: body(13, weight: FontWeight.w600, color: C.muted)),
+          ),
+          for (final p in worldPlaces)
+            SimpleDialogOption(
+              key: Key('place-${p.name}'),
+              onPressed: () => Navigator.pop(ctx, p.key),
+              child: Text(p.label,
+                  style: body(16,
+                      weight: !brain.autoPlace && p.name == placeNamed(brain.district).name ? FontWeight.w700 : FontWeight.w400,
+                      color: !brain.autoPlace && p.name == placeNamed(brain.district).name ? C.green : C.ink)),
             ),
         ],
       ),
@@ -158,7 +173,7 @@ class _MoreScreenState extends State<MoreScreen> {
     } else if (st['service'] != true) {
       toast(context, tr('ফোনের লোকেশন (GPS) চালু করলে জেলা নিজে বদলাবে'));
     } else {
-      toast(context, trf('এখন: {0} — অন্য জেলায় গেলে নিজে বদলাবে', [tr(brain.district)]));
+      toast(context, trf('এখন: {0} — অন্য জেলায় গেলে নিজে বদলাবে', [brain.placeLabel]));
     }
   }
 

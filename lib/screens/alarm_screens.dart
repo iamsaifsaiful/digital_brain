@@ -270,7 +270,7 @@ class _ReminderCheckScreenState extends State<ReminderCheckScreen> with WidgetsB
                         _CheckRow(
                           ok: h.batteryFree,
                           title: tr('ব্যাটারি সেভিং থেকে বাদ'),
-                          sub: h.batteryFree ? tr('বাদ দেওয়া আছে') : tr('ফোন অ্যাপটিকে ঘুম পাড়িয়ে রিমাইন্ডার থামাতে পারে'),
+                          sub: h.batteryFree ? tr('বাদ দেওয়া আছে') : tr('ব্যাটারি বাঁচাতে ফোন অ্যাপটি বন্ধ করে রিমাইন্ডার থামিয়ে দিতে পারে'),
                           fix: tr('বাদ দিন'),
                           onFix: () async {
                             _batteryTried = true;

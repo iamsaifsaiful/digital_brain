@@ -160,7 +160,7 @@ class _PersonScreenState extends State<PersonScreen> {
     final sameName = peopleNamed(brain.data.ledger, p.name).length > 1;
     final all = personMoney(brain.data, p.name);
     final reminderText = bal > 0
-        ? trf('আসসালামু আলাইকুম {0} ভাই, আপনার কাছে আমার {1} বাকি আছে। সুবিধামতো দিয়ে দিলে উপকার হয়। ধন্যবাদ।', [p.name, taka(bal)])
+        ? trf('আসসালামু আলাইকুম {0}, আপনার কাছে আমার {1} বাকি আছে। সুবিধামতো দিয়ে দিলে উপকার হয়। ধন্যবাদ।', [p.name, taka(bal)])
         : '';
 
     return PopScope(

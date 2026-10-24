@@ -38,7 +38,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final month = _month ?? DateTime(now.year, now.month);
     final picked = _picked ?? today;
     final bd = banglaDate(picked);
-    final hj = hijriDate(picked, adjust: brain.number('hijri_adjust'));
+    final hj = hijriDate(picked, adjust: brain.hijriShift);
     final place = placeNamed(brain.district);
     final sun = sunTimes(picked, place);
     final nextStart = nextBanglaMonthStart(today);
@@ -158,19 +158,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 child: Row(children: [
                   Expanded(
                     child: Text(
-                        brain.number('hijri_adjust') == 0
-                            ? tr('হিজরি তারিখ চাঁদ দেখার ওপর এক দিন এদিক-ওদিক হতে পারে')
-                            : trf('হিজরি তারিখ {0} দিন সরানো আছে', [bnDigits(brain.number('hijri_adjust') > 0 ? '+${brain.number('hijri_adjust')}' : '${brain.number('hijri_adjust')}')]),
+                        brain.hijriShift == 0
+                            ? tr('হিজরি তারিখ চাঁদ দেখার ওপর এক দিন আগে-পরে হতে পারে')
+                            : trf('হিজরি তারিখ {0} দিন সরানো আছে', [bnDigits(brain.hijriShift > 0 ? '+${brain.hijriShift}' : '${brain.hijriShift}')]),
                         style: body(12.5, color: C.muted)),
                   ),
                   IconButton(
                     tooltip: tr('হিজরি তারিখ এক দিন পিছিয়ে দিন'),
-                    onPressed: brain.number('hijri_adjust') <= -2 ? null : () => brain.setPref('hijri_adjust', brain.number('hijri_adjust') - 1),
+                    onPressed: brain.hijriShift <= -2 ? null : () => brain.setPref('hijri_adjust', brain.hijriShift - 1),
                     icon: const Icon(Icons.remove_circle_outline_rounded),
                   ),
                   IconButton(
                     tooltip: tr('হিজরি তারিখ এক দিন এগিয়ে দিন'),
-                    onPressed: brain.number('hijri_adjust') >= 2 ? null : () => brain.setPref('hijri_adjust', brain.number('hijri_adjust') + 1),
+                    onPressed: brain.hijriShift >= 2 ? null : () => brain.setPref('hijri_adjust', brain.hijriShift + 1),
                     icon: const Icon(Icons.add_circle_outline_rounded),
                   ),
                 ]),
@@ -251,7 +251,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final heads = [tr('শনি'), tr('রবি'), tr('সোম'), tr('মঙ্গল'), tr('বুধ'), tr('বৃহঃ'), tr('শুক্র')];
     final first = banglaDate(DateTime(month.year, month.month));
     final last = banglaDate(DateTime(month.year, month.month, days));
-    final adjust = BrainScope.of(context).number('hijri_adjust');
+    final adjust = BrainScope.of(context).hijriShift;
     final hFirst = hijriDate(DateTime(month.year, month.month), adjust: adjust);
     final hLast = hijriDate(DateTime(month.year, month.month, days), adjust: adjust);
     return Container(
@@ -336,7 +336,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10), border: isPicked ? Border.all(color: C.green, width: 1.5) : null),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Text(bnDigits(d.day), style: body(14.5, weight: FontWeight.w600, color: fg, height: 1.2)),
-          Text(_side == CalSide.bangla ? bnDigits(banglaDate(d).day) : bnDigits(hijriDate(d, adjust: brain.number('hijri_adjust')).day),
+          Text(_side == CalSide.bangla ? bnDigits(banglaDate(d).day) : bnDigits(hijriDate(d, adjust: brain.hijriShift).day),
               style: body(10, color: isToday ? C.onAccent.withValues(alpha: 0.75) : (_side == CalSide.arabic ? C.teal : C.muted), height: 1.2)),
           Container(
             width: 5,
@@ -354,7 +354,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final brain = BrainScope.read(context);
     final now = brain.services.now();
     final hol = holidayOn(d);
-    final hj = hijriDate(d, adjust: brain.number('hijri_adjust'));
+    final hj = hijriDate(d, adjust: brain.hijriShift);
     final past = d.isBefore(dayOnly(now));
     await showAppSheet<void>(
       context: context,

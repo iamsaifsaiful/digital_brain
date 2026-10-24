@@ -8,6 +8,7 @@ import '../logic/calendar_bd.dart';
 import '../logic/cash.dart';
 import '../logic/lang.dart';
 import '../logic/ledger.dart' show totals;
+import '../logic/add_nudges.dart';
 import '../logic/money_quotes.dart';
 import '../logic/phrases.dart' show possessive;
 import '../logic/sky_light.dart';
@@ -18,6 +19,7 @@ import '../ui/kit.dart';
 import '../ui/pro_gate.dart';
 import '../ui/theme.dart';
 import 'alarm_list_screen.dart';
+import 'app_places.dart' show openPlace;
 import 'calendar_screen.dart';
 import 'calls_screen.dart';
 import 'compass_screen.dart';
@@ -69,8 +71,9 @@ class HomePage extends StatelessWidget {
       ),
       child: ColoredBox(
       color: C.ground,
-      child: ListView(
-        padding: const EdgeInsets.only(bottom: 24),
+      child: Stack(children: [
+      ListView(
+        padding: const EdgeInsets.only(bottom: 96),
         children: [
           const HomeHero(),
           Padding(
@@ -113,6 +116,96 @@ class HomePage extends StatelessWidget {
           ),
         ],
       ),
+      // কিছু যুক্ত করুন: one empty menu at a time, floating over the bottom.
+      const Positioned(left: 16, right: 16, bottom: 12, child: AddNudgeCard()),
+      ]),
+      ),
+    );
+  }
+}
+
+/// The floating "… যুক্ত করুন" message (owner, 25 Oct): turns between the
+/// empty menus every few seconds; a tap opens that menu; ✕ hides them all
+/// for a day. Menus with something in them never show.
+class AddNudgeCard extends StatefulWidget {
+  const AddNudgeCard({super.key});
+
+  @override
+  State<AddNudgeCard> createState() => _AddNudgeCardState();
+}
+
+class _AddNudgeCardState extends State<AddNudgeCard> {
+  int _i = 0;
+  Timer? _turn;
+
+  @override
+  void initState() {
+    super.initState();
+    _turn = Timer.periodic(const Duration(seconds: 6), (_) {
+      if (mounted) setState(() => _i++);
+    });
+  }
+
+  @override
+  void dispose() {
+    _turn?.cancel();
+    super.dispose();
+  }
+
+  static IconData _icon(String id) => switch (id) {
+        'tasks' => Icons.checklist_rounded,
+        'reminders' => Icons.notifications_none_rounded,
+        'money' => Icons.account_balance_wallet_outlined,
+        'ledger' => Icons.handshake_outlined,
+        'notes' => Icons.description_outlined,
+        'docs' => Icons.folder_outlined,
+        'vault' => Icons.lock_outline_rounded,
+        'contacts' => Icons.person_outline_rounded,
+        'health' => Icons.monitor_heart_outlined,
+        'medicines' => Icons.medication_outlined,
+        'habits' => Icons.repeat_rounded,
+        'special' => Icons.cake_outlined,
+        'savings' => Icons.savings_outlined,
+        _ => Icons.alarm_rounded,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    if (!brain.loaded || brain.easyMode) return const SizedBox.shrink();
+    if (!nudgesShown(brain.services.now(), DateTime.tryParse(brain.text('nudges_hidden_at')))) return const SizedBox.shrink();
+    final list = addNudges(brain.data);
+    if (list.isEmpty) return const SizedBox.shrink();
+    final n = list[_i % list.length];
+    return Material(
+      key: const Key('add-nudge'),
+      color: C.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: C.green.withValues(alpha: 0.45))),
+      child: InkWell(
+        key: Key('add-nudge-${n.id}'),
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => openPlace(context, n.place),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+          child: Row(children: [
+            IconTile(_icon(n.id), size: 36),
+            const SizedBox(width: 10),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: Text(tr(n.text), key: ValueKey(n.id), maxLines: 2, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w600)),
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: C.muted, size: 20),
+            IconButton(
+              key: const Key('add-nudge-close'),
+              tooltip: tr('এখন না'),
+              visualDensity: VisualDensity.compact,
+              onPressed: () => brain.setPref('nudges_hidden_at', brain.services.now().toIso8601String()),
+              icon: Icon(Icons.close_rounded, size: 18, color: C.muted),
+            ),
+          ]),
+        ),
       ),
     );
   }
@@ -207,7 +300,7 @@ class _HomeHeroState extends State<HomeHero> {
     final now = brain.services.now();
     final place = placeNamed(brain.district);
     final sun = sunTimes(now, place);
-    final hj = hijriDate(now, adjust: brain.number('hijri_adjust'));
+    final hj = hijriDate(now, adjust: brain.hijriShift);
     final light = skyLight(now, sun.sunrise, sun.sunset);
     final facts = slotFacts(now, sun, hj);
     final top = MediaQuery.of(context).padding.top;
@@ -346,7 +439,7 @@ class _HomeHeroState extends State<HomeHero> {
       return Row(children: [
         const Icon(Icons.place_outlined, size: 18, color: _white, shadows: _shade),
         const SizedBox(width: 6),
-        Flexible(child: Text(tr(brain.district), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15, weight: FontWeight.w600, color: _white).copyWith(shadows: _shade))),
+        Flexible(child: Text(brain.placeLabel, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15, weight: FontWeight.w600, color: _white).copyWith(shadows: _shade))),
       ]);
     }
     final sky = day && w.code <= 1 ? tr('রোদ') : w.sky;
@@ -360,7 +453,7 @@ class _HomeHeroState extends State<HomeHero> {
         const SizedBox(width: 14),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('$sky · ${tr(brain.district)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(16.5, weight: FontWeight.w600, color: _white).copyWith(shadows: _shade)),
+            Text('$sky · ${brain.placeLabel}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(16.5, weight: FontWeight.w600, color: _white).copyWith(shadows: _shade)),
             // Arrows as icons: neither font has ↑ ↓ (they showed as boxes).
             Text.rich(
               TextSpan(children: [

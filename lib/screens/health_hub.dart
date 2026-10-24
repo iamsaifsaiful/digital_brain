@@ -330,7 +330,7 @@ class BmiGauge extends StatelessWidget {
         ]),
       ),
       const SizedBox(height: 4),
-      Text(tr('এশীয়দের মাপ: ১৮.৫-এর কম কম · ২৩ পর্যন্ত স্বাভাবিক · ২৭.৫ পর্যন্ত একটু বেশি'), style: body(11.5, color: C.muted)),
+      Text(tr('এশীয়দের মাপ: ১৮.৫-এর নিচে কম ওজন · ২৩ পর্যন্ত স্বাভাবিক · ২৭.৫ পর্যন্ত একটু বেশি'), style: body(11.5, color: C.muted)),
     ]);
   }
 }

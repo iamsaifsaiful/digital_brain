@@ -379,7 +379,7 @@ class _DonorSheetState extends State<_DonorSheet> {
     super.initState();
     final brain = BrainScope.read(context);
     if (_blood.isEmpty) _blood = brain.data.emergency.blood;
-    if (_district.isEmpty) _district = brain.district;
+    if (_district.isEmpty) _district = bdPlaces.any((p) => p.name == brain.district) ? brain.district : bdPlaces.first.name;
     _last ??= DateTime.tryParse(brain.text('blood_last'));
   }
 
@@ -502,7 +502,7 @@ class _AskBloodScreenState extends State<AskBloodScreen> {
   void initState() {
     super.initState();
     final brain = BrainScope.read(context);
-    _district = brain.district;
+    _district = bdPlaces.any((p) => p.name == brain.district) ? brain.district : bdPlaces.first.name;
     final now = brain.services.now();
     _need = DateTime(now.year, now.month, now.day, 18).isAfter(now) ? DateTime(now.year, now.month, now.day, 18) : DateTime(now.year, now.month, now.day + 1, 10);
   }

@@ -3,6 +3,7 @@
 /// Everything is worked out on the phone, without the internet.
 library;
 
+import 'world_places.dart';
 import 'dart:math';
 
 import 'bn.dart';
@@ -67,13 +68,63 @@ DateTime nextBanglaMonthStart(DateTime g) {
 // ── Places, sun and prayer times ──
 
 class Place {
-  const Place(this.name, this.lat, this.lon);
+  const Place(this.name, this.lat, this.lon, {this.tz = 360, this.region = 'sa'});
   final String name;
 
   /// The name in the app's language.
   String get label => tr(name);
   final double lat;
   final double lon;
+
+  /// Minutes from UTC of the clock there (Bangladesh +360).
+  final int tz;
+
+  /// The prayer-time method's region: 'sa' (South Asia, Karachi 18°/18°),
+  /// 'gulf' (Umm al-Qura: 18.5°, Isha 90 min after Maghrib), 'mwl'
+  /// (Muslim World League 18°/17°) or 'na' (ISNA 15°/15°). Asr is Hanafi everywhere.
+  final String region;
+
+  /// Outside Bangladesh (anywhere in the world, owner 25 Oct).
+  bool get abroad => key.startsWith('geo|');
+
+  /// How it is kept in settings: a district's name, or
+  /// 'geo|name|lat|lon|tz|region' for anywhere else.
+  String get key => bdPlaces.any((p) => p.name == name && p.lat == lat) ? name : 'geo|$name|${lat.toStringAsFixed(4)}|${lon.toStringAsFixed(4)}|$tz|$region';
+}
+
+/// The region for prayer times at ([lat], [lon]) when no city says it.
+String regionAt(double lat, double lon) {
+  if (lat >= 5 && lat <= 37 && lon >= 60 && lon <= 98) return 'sa';
+  if (lat >= 12 && lat <= 33 && lon >= 34 && lon < 60) return 'gulf';
+  if (lon <= -50 && lat >= 10) return 'na';
+  return 'mwl';
+}
+
+/// Where the phone is, as a place: the district within 120 km in
+/// Bangladesh; elsewhere the nearest big city's name (within 150 km, else
+/// "আপনার এলাকা") at the phone's own position, with the phone's clock
+/// ([tzMinutes]) and the region's prayer method.
+Place placeAt(double lat, double lon, {required int tzMinutes}) {
+  final bd = nearestPlace(lat, lon);
+  if (bd != null) return bd.$1;
+  Place? best;
+  var d = double.infinity;
+  for (final p in worldPlaces) {
+    final k = kmBetween(lat, lon, p.lat, p.lon);
+    if (k < d) {
+      d = k;
+      best = p;
+    }
+  }
+  final near = best != null && d <= 150 ? best : null;
+  return Place(near?.name ?? 'আপনার এলাকা', lat, lon, tz: tzMinutes, region: near?.region ?? regionAt(lat, lon));
+}
+
+double kmBetween(double lat1, double lon1, double lat2, double lon2) {
+  const r = 6371.0;
+  final dLat = (lat2 - lat1) * pi / 180, dLon = (lon2 - lon1) * pi / 180;
+  final a = sin(dLat / 2) * sin(dLat / 2) + cos(lat1 * pi / 180) * cos(lat2 * pi / 180) * sin(dLon / 2) * sin(dLon / 2);
+  return 2 * r * asin(sqrt(a));
 }
 
 const bdPlaces = [
@@ -167,7 +218,17 @@ const bdPlaces = [
   return (best, d);
 }
 
-Place placeNamed(String name) => bdPlaces.firstWhere((p) => p.name == name, orElse: () => bdPlaces.first);
+/// The place kept in settings ([Place.key]): a district, or anywhere in the world.
+Place placeNamed(String name) {
+  if (name.startsWith('geo|')) {
+    final f = name.split('|');
+    if (f.length >= 6) {
+      final lat = double.tryParse(f[2]), lon = double.tryParse(f[3]), tz = int.tryParse(f[4]);
+      if (lat != null && lon != null && tz != null) return Place(f[1], lat, lon, tz: tz, region: f[5]);
+    }
+  }
+  return bdPlaces.firstWhere((p) => p.name == name, orElse: () => bdPlaces.first);
+}
 
 class SunTimes {
   const SunTimes({required this.sunrise, required this.sunset, required this.fajr, required this.dhuhr, required this.asr, required this.maghrib, required this.isha});
@@ -188,9 +249,12 @@ class SunTimes {
 double _rad(double d) => d * pi / 180;
 double _deg(double r) => r * 180 / pi;
 
-/// Sun and prayer times (Bangladesh time, UTC+6) for [day] at [p]:
-/// Fajr and Isha at 18° (Karachi method), Asr Hanafi. Accurate to a
-/// minute or two.
+/// Sun and prayer times on the clock of [p] (Bangladesh UTC+6, or the
+/// place's own) for [day]: Fajr and Isha by the region's method (Karachi
+/// 18°/18° in South Asia, Umm al-Qura in the Gulf, MWL 18°/17°, ISNA
+/// 15°/15° in North America), Asr Hanafi. Where the sun never goes deep
+/// enough (summer far north), Fajr and Isha are a seventh of the night from
+/// sunrise and sunset. Accurate to a minute or two.
 SunTimes sunTimes(DateTime day, Place p) {
   final jd = DateTime.utc(day.year, day.month, day.day).difference(DateTime.utc(2000, 1, 1, 12)).inHours / 24.0;
   final g = _rad((357.529 + 0.98560028 * jd) % 360);
@@ -202,12 +266,20 @@ SunTimes sunTimes(DateTime day, Place p) {
   var eqt = q / 15 - ra;
   if (eqt > 12) eqt -= 24;
   if (eqt < -12) eqt += 24;
-  final noon = 12 + 6 - p.lon / 15 - eqt;
+  final noon = 12 + p.tz / 60 - p.lon / 15 - eqt;
   final lat = _rad(p.lat);
-  double t(double angle) {
+  double? reach(double angle) {
     final c = (-sin(_rad(angle)) - sin(lat) * sin(dec)) / (cos(lat) * cos(dec));
-    return _deg(acos(c.clamp(-1.0, 1.0))) / 15;
+    if (c < -1 || c > 1) return null;
+    return _deg(acos(c)) / 15;
   }
+
+  double t(double angle) => reach(angle) ?? (angle > 0 ? 12.0 : 0.0);
+  final (fajrAngle, ishaAngle) = switch (p.region) { 'gulf' => (18.5, 0.0), 'mwl' => (18.0, 17.0), 'na' => (15.0, 15.0), _ => (18.0, 18.0) };
+  final rise = noon - t(0.833), set = noon + t(0.833);
+  final night = 24 - (set - rise);
+  final fajrH = reach(fajrAngle) == null ? rise - night / 7 : noon - reach(fajrAngle)!;
+  final ishaH = p.region == 'gulf' ? set + 2 / 60 + 1.5 : (reach(ishaAngle) == null ? set + night / 7 : noon + reach(ishaAngle)!);
 
   final asrAngle = -_deg(atan(1 / (2 + tan((lat - dec).abs()))));
   DateTime at(double h) {
@@ -216,13 +288,13 @@ SunTimes sunTimes(DateTime day, Place p) {
   }
 
   return SunTimes(
-    sunrise: at(noon - t(0.833)),
-    sunset: at(noon + t(0.833)),
-    fajr: at(noon - t(18)),
+    sunrise: at(rise),
+    sunset: at(set),
+    fajr: at(fajrH),
     dhuhr: at(noon + 1 / 60),
     asr: at(noon + t(asrAngle)),
-    maghrib: at(noon + t(0.833) + 2 / 60),
-    isha: at(noon + t(18)),
+    maghrib: at(set + 2 / 60),
+    isha: at(ishaH),
   );
 }
 

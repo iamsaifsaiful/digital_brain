@@ -660,7 +660,7 @@ DateTime _weekStartOf(DateTime d) => weekStartOf(d);
   }
   if (s.doneOnly) {
     final when = label.isEmpty ? tr('আজ') : label;
-    if (tasks.isEmpty) return (trf('{0} এখনো কোনো কাজ শেষ হিসেবে দাগ দেওয়া হয়নি।', [when]), const []);
+    if (tasks.isEmpty) return (trf('{0} এখনো কোনো কাজ শেষ হিসেবে টিক দেওয়া হয়নি।', [when]), const []);
     return (trf('{0} {1}টা কাজ শেষ করেছেন — {2}।', [when, bnDigits(tasks.length), nameList([for (final t in tasks) t.title], unit: 'টা')]), tasks);
   }
   // One day: the same list home and the কাজ page show for it (to-dos and reminders).
@@ -685,7 +685,7 @@ DateTime _weekStartOf(DateTime d) => weekStartOf(d);
     final done = [for (final t in d.tasks) if (t.done && t.repeat == null) (t, taskScore(t, s.about))]..sort((a, b) => b.$2.compareTo(a.$2));
     if (done.isNotEmpty && done.first.$2 > open) {
       final t = done.first.$1;
-      return (trf('“{0}” শেষ হিসেবে দাগ দেওয়া আছে{1}।', [t.title, t.doneAt == null ? '' : trf(' ({0})', [sayWhen(t.doneAt!, now, withTime: false)])]), [t]);
+      return (trf('“{0}” শেষ হিসেবে টিক দেওয়া আছে{1}।', [t.title, t.doneAt == null ? '' : trf(' ({0})', [sayWhen(t.doneAt!, now, withTime: false)])]), [t]);
     }
   }
   if (tasks.isEmpty) {

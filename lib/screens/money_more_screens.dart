@@ -1031,7 +1031,7 @@ class _SplitScreenState extends State<SplitScreen> {
 // ───────────────────────── Shop ─────────────────────────
 
 /// The polite reminder sent to a customer who owes.
-String dueMessage(String name, int amount) => trf('আসসালামু আলাইকুম {0} ভাই, আপনার কাছে আমার {1} বাকি আছে। সুবিধামতো দিয়ে দিলে উপকার হয়। ধন্যবাদ।', [name, taka(amount)]);
+String dueMessage(String name, int amount) => trf('আসসালামু আলাইকুম {0}, আপনার কাছে আমার {1} বাকি আছে। সুবিধামতো দিয়ে দিলে উপকার হয়। ধন্যবাদ।', [name, taka(amount)]);
 
 /// A receipt (memo): items, total, paid; sent by WhatsApp; the sale and any
 /// due are recorded.

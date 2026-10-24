@@ -259,7 +259,7 @@ extension _TodoChat on ChatController {
       return false;
     }
     if (t.done) {
-      _say(out, trf('“{0}” আগেই শেষ হিসেবে দাগ দেওয়া আছে।', [t.title]), links: links);
+      _say(out, trf('“{0}” আগেই শেষ হিসেবে টিক দেওয়া আছে।', [t.title]), links: links);
       return false;
     }
     await brain.setTaskDone(t, true);
@@ -270,7 +270,7 @@ extension _TodoChat on ChatController {
       final left = brain.data.tasks.where((x) => !x.done).length;
       _say(out, trf('“{0}” কাজটি সম্পন্ন করেছি।{1}', [t.title, left > 0 ? trf(' আর {0}টা কাজ বাকি।', [bnDigits(left)]) : tr(' সব কাজ শেষ!')]), links: links);
     }
-    _history.add(AiTurn.app('[কাজ শেষ হিসেবে দাগ দেওয়া হলো]'));
+    _history.add(AiTurn.app('[কাজ শেষ হিসেবে টিক দেওয়া হলো]'));
     return true;
   }
 
@@ -283,7 +283,7 @@ extension _TodoChat on ChatController {
     for (final t in tasks) {
       await brain.setTaskDone(t, true);
     }
-    _say(out, trf('{0} {1}টা কাজ শেষ হিসেবে দাগ দিলাম — {2}।', [today ? tr('আজকের') : tr('তালিকার'), bnDigits(tasks.length), nameList([for (final t in tasks) t.title], unit: 'টা')]),
+    _say(out, trf('{0} {1}টা কাজ শেষ হিসেবে টিক দিলাম — {2}।', [today ? tr('আজকের') : tr('তালিকার'), bnDigits(tasks.length), nameList([for (final t in tasks) t.title], unit: 'টা')]),
         links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
     return true;
   }

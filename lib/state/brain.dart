@@ -910,6 +910,7 @@ class Brain extends ChangeNotifier {
   Future<void> setDistrict(String v, {bool auto = false}) async {
     district = v;
     askPlace = v;
+    hijriAdjust = hijriShift;
     await services.lock.keys.write('district', v);
     if (!auto && autoPlace) {
       autoPlace = false;
@@ -965,11 +966,21 @@ class Brain extends ChangeNotifier {
     // No fix (location off, no permission yet): tried again next time.
     if (at == null) return null;
     _placeCheckedAt = now;
-    final near = nearestPlace(at.$1, at.$2);
-    if (near == null || near.$1.name == district) return null;
-    await setDistrict(near.$1.name, auto: true);
-    return near.$1.name;
+    // Anywhere in the world (owner, 25 Oct): a district in Bangladesh, else
+    // the place itself on the phone's own clock.
+    final here = placeAt(at.$1, at.$2, tzMinutes: now.timeZoneOffset.inMinutes);
+    final was = placeNamed(district);
+    if (here.name == was.name && here.tz == was.tz && kmBetween(here.lat, here.lon, was.lat, was.lon) < 5) return null;
+    await setDistrict(here.key, auto: true);
+    return here.name;
   }
+
+  /// Days the Hijri date is moved: the user's own choice, else +1 outside
+  /// South Asia (the month there usually starts a day before Bangladesh).
+  int get hijriShift => prefs.containsKey('hijri_adjust') ? number('hijri_adjust') : (placeNamed(district).region == 'sa' ? 0 : 1);
+
+  /// The place's name in the app's language (a district or a city abroad).
+  String get placeLabel => placeNamed(district).label;
 
   // ── Look and language (সেটিংস › চেহারা, ভাষা) ──
 
@@ -1170,7 +1181,7 @@ class Brain extends ChangeNotifier {
         await _showStanding();
       default:
         prefs[key] = '$value';
-        if (key == 'hijri_adjust') hijriAdjust = value as int;
+        if (key == 'hijri_adjust') hijriAdjust = hijriShift;
     }
     notifyListeners();
     await _put(key, '$value');
@@ -1201,7 +1212,7 @@ class Brain extends ChangeNotifier {
       // The diagnostic trace: on in development builds, or when the user turned it on.
       Trace.enabled = kDebugMode || prefs['trace_on'] == 'true';
       askZakat = zakatSaved;
-      hijriAdjust = number('hijri_adjust');
+      hijriAdjust = hijriShift;
       askPlace = district;
       askUserName = userName;
       final q = await keys.read('quick_questions');

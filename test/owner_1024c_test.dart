@@ -14,6 +14,7 @@ import 'package:digital_brain/screens/plan_screens.dart';
 import 'package:digital_brain/screens/health_screens.dart' show MedicinesScreen;
 import 'package:digital_brain/screens/person_screen.dart';
 import 'package:digital_brain/logic/steps.dart';
+import 'package:digital_brain/logic/add_nudges.dart';
 import 'package:digital_brain/services/compass.dart';
 import 'package:digital_brain/services/error_log.dart';
 import 'package:digital_brain/services/google_account.dart' show AccountServer;
@@ -284,6 +285,99 @@ void main() {
     await ErrorLog.flush(AccountServer(MockClient((r) async => http.Response('', 500)), 'https://example.test'), 's' * 64);
     expect(ErrorLog.pending, hasLength(1));
     ErrorLog.pending.clear();
+  });
+
+  test('anywhere in the world: the city, its clock, its prayer method', () {
+    final dubai = placeAt(25.20, 55.27, tzMinutes: 240);
+    expect((dubai.name, dubai.region, dubai.tz, dubai.abroad), ('দুবাই', 'gulf', 240, true));
+    final back = placeNamed(dubai.key);
+    expect((back.name, back.tz, back.region), ('দুবাই', 240, 'gulf'));
+    expect(back.lat, closeTo(25.20, 0.001));
+    // Inside Bangladesh it is still the district.
+    expect(placeAt(23.81, 90.41, tzMinutes: 360).key, 'ঢাকা');
+    expect(placeNamed('ঢাকা').abroad, isFalse);
+    // Far from any listed city: "আপনার এলাকা", region from the map.
+    final sea = placeAt(-45.0, -100.0, tzMinutes: -360);
+    expect((sea.name, sea.region), ('আপনার এলাকা', 'mwl'));
+
+    String hm(DateTime d) => '${d.hour}:${d.minute.toString().padLeft(2, '0')}';
+    int mins(DateTime d) => d.hour * 60 + d.minute;
+    // Dubai, 25 Oct 2026 (Property Finder's Umm al-Qura table: sunrise 6:19,
+    // Maghrib 5:47; Isha 90 min after Maghrib). Within 5 minutes.
+    final t = sunTimes(DateTime(2026, 10, 25), back);
+    expect(mins(t.sunrise), inInclusiveRange(6 * 60 + 14, 6 * 60 + 24), reason: hm(t.sunrise));
+    expect(mins(t.maghrib), inInclusiveRange(17 * 60 + 42, 17 * 60 + 52), reason: hm(t.maghrib));
+    expect(t.isha.difference(t.maghrib).inMinutes, 90);
+    expect(mins(t.dhuhr), inInclusiveRange(11 * 60 + 56, 12 * 60 + 6), reason: hm(t.dhuhr));
+    // London in midsummer: the sun never goes 18° down, Fajr and Isha still come.
+    final london = placeNamed(placeAt(51.51, -0.13, tzMinutes: 60).key);
+    final s = sunTimes(DateTime(2026, 6, 21), london);
+    expect(s.fajr.isBefore(s.sunrise), isTrue, reason: hm(s.fajr));
+    expect(s.isha.isAfter(s.maghrib), isTrue, reason: hm(s.isha));
+    expect(mins(s.sunrise), inInclusiveRange(4 * 60 + 38, 4 * 60 + 48), reason: hm(s.sunrise));
+    // Dhaka as before (Karachi 18°, UTC+6).
+    final d = sunTimes(DateTime(2026, 10, 24), placeNamed('ঢাকা'));
+    expect(mins(d.sunrise), inInclusiveRange(5 * 60 + 55, 6 * 60 + 5), reason: hm(d.sunrise));
+  });
+
+  testWidgets('the phone abroad: home, prayer and Hijri follow the city', (t) async {
+    final rig = await start(t);
+    final b = rig.brain;
+    b.whereAmI = () async => (25.20, 55.27);
+    b.placeStatus = () async => {'fine': true, 'service': true};
+    final hj0 = b.hijriShift;
+    final moved = await b.refreshPlace(force: true);
+    await settle(t);
+    expect(moved, 'দুবাই');
+    expect(b.placeLabel, 'দুবাই');
+    expect(placeNamed(b.district).region, 'gulf');
+    expect(b.hijriShift, hj0 + 1, reason: 'a day ahead outside South Asia');
+    await b.setPref('hijri_adjust', 0);
+    expect(b.hijriShift, 0, reason: 'the user\'s own choice wins');
+    // Back home: the district again.
+    b.whereAmI = () async => (23.81, 90.41);
+    expect(await b.refreshPlace(force: true), 'ঢাকা');
+    expect(b.district, 'ঢাকা');
+  });
+
+  test('কিছু যুক্ত করুন: only empty menus; ✕ for a day', () {
+    final empty = addNudges(AppData()).map((n) => n.id).toList();
+    expect(empty, containsAll(['tasks', 'reminders', 'money', 'ledger', 'notes', 'docs', 'vault', 'health', 'medicines', 'habits', 'special', 'savings', 'alarms']));
+    final some = addNudges(AppData(tasks: [Task(title: 'বাজার')], cash: [CashEntry(kind: CashKind.expense, amount: 50, category: 'বাজার', date: DateTime(2026, 10, 25))])).map((n) => n.id);
+    expect(some, isNot(contains('tasks')));
+    expect(some, isNot(contains('money')));
+    expect(some, contains('notes'));
+    final at = DateTime(2026, 10, 25, 9);
+    expect(nudgesShown(at, null), isTrue);
+    expect(nudgesShown(at.add(const Duration(hours: 23)), at), isFalse);
+    expect(nudgesShown(at.add(const Duration(days: 1)), at), isTrue);
+  });
+
+  testWidgets('home: the floating message opens its menu; ✕ hides all until tomorrow', (t) async {
+    final rig = await start(t);
+    expect(find.byKey(const Key('add-nudge')), findsOneWidget);
+    expect(find.byKey(const Key('add-nudge-tasks')), findsOneWidget, reason: 'the first empty menu');
+    expect(find.text('কাজের তালিকায় কিছু যুক্ত করুন'), findsOneWidget);
+    await t.tap(find.byKey(const Key('add-nudge-tasks')));
+    await settle(t);
+    expect(find.byKey(const Key('add-nudge')), findsNothing, reason: 'left home for the to-do list');
+    Navigator.of(t.element(find.byType(HomeShell, skipOffstage: false))).popUntil((r) => r.isFirst);
+    await settle(t);
+    await t.tap(find.text('হোম').last);
+    await settle(t);
+    // Something written in to-dos: its message is gone, the next one shows.
+    await rig.brain.saveTask(Task(title: 'বাজার করা'));
+    await settle(t);
+    expect(find.byKey(const Key('add-nudge-tasks')), findsNothing);
+    expect(find.byKey(const Key('add-nudge')), findsOneWidget);
+    await t.tap(find.byKey(const Key('add-nudge-close')));
+    await settle(t);
+    expect(find.byKey(const Key('add-nudge')), findsNothing);
+    rig.nowAt = rig.nowAt.add(const Duration(days: 1, minutes: 1));
+    // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
+    rig.brain.notifyListeners();
+    await settle(t);
+    expect(find.byKey(const Key('add-nudge')), findsOneWidget, reason: 'back a day later');
   });
 
   test('rig still builds', () => expect(Rig().brain, isNotNull));
