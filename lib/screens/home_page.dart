@@ -208,10 +208,10 @@ List<SlotFact> slotFacts(DateTime now, SunTimes t, HijriDate hj) {
   String at(DateTime x) => bnTime(x.hour, x.minute).replaceAll(RegExp(r'^(?:ভোর|সকাল|দুপুর|বিকেল|সন্ধ্যা|রাত)\s*'), '');
   final out = <SlotFact>[];
   if (hj.month == 9) {
-    final beforeIftar = !now.isBefore(t.fajr) && now.isBefore(t.maghrib);
+    final beforeIftar = !now.isBefore(t.sehriEnd) && now.isBefore(t.maghrib);
     out.add(beforeIftar
         ? SlotFact('iftar', tr('ইফতার'), at(t.maghrib), ramadanDay: hj.day)
-        : SlotFact('sehri', tr('সেহরি শেষ'), at(t.fajr), ramadanDay: hj.day));
+        : SlotFact('sehri', tr('সেহরি শেষ'), at(t.sehriEnd), ramadanDay: hj.day));
   } else {
     final prayers = [(tr('ফজর'), t.fajr), (now.weekday == DateTime.friday ? tr('জুমা') : tr('জোহর'), t.dhuhr), (tr('আসর'), t.asr), (tr('মাগরিব'), t.maghrib), (tr('এশা'), t.isha)];
     // The next one; after Isha, still Isha until midnight, then tomorrow's Fajr.

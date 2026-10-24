@@ -117,9 +117,9 @@ String? infoAnswer(AppData d, String said, DateTime now) {
     case 'privacy':
       return tr('আপনার তথ্য আপনার ফোনেই থাকে, PIN দিয়ে তালা দেওয়া। পাসওয়ার্ড, পিন আর ওটিপি কখনো ফোনের বাইরে যায় না। ব্যাকআপ যায় আপনার নিজের Google Drive-এ, তালা দেওয়া অবস্থায়। ফ্যামিলিতে কিছু পাঠালে শুধু সেই মানুষটাই খুলতে পারেন। AI চালু থাকলে শুধু যে কথাটা বুঝতে সাহায্য লাগে সেটুকু যায়।');
     case 'sehri':
-      // The last time for sehri is the start of Fajr.
-      final s = now.isBefore(today.fajr) ? today : tomorrow;
-      return trf('{0} {1} সেহরির শেষ সময় {2} (আনুমানিক; স্থানীয় মসজিদের সময় মিলিয়ে নিন)।', [where, s == today ? tr('আজ') : tr('কাল'), _t(s.fajr)]);
+      // Sehri ends 5 minutes before Fajr begins.
+      final s = now.isBefore(today.sehriEnd) ? today : tomorrow;
+      return trf('{0} {1} সেহরির শেষ সময় {2} (আনুমানিক; স্থানীয় মসজিদের সময় মিলিয়ে নিন)।', [where, s == today ? tr('আজ') : tr('কাল'), _t(s.sehriEnd)]);
     case 'iftar':
       final s = now.isBefore(today.maghrib) ? today : tomorrow;
       final left = s.maghrib.difference(now);

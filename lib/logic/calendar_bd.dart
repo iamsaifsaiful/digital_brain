@@ -180,6 +180,9 @@ class SunTimes {
   final DateTime asr;
   final DateTime maghrib;
   final DateTime isha;
+
+  /// The end of sehri: 5 minutes before Fajr begins (owner, 24 Oct).
+  DateTime get sehriEnd => fajr.subtract(const Duration(minutes: 5));
 }
 
 double _rad(double d) => d * pi / 180;

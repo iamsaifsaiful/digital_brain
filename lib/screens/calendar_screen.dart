@@ -147,7 +147,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     Icon(Icons.nightlight_round, color: C.green),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(trf('রমজান · সেহরির শেষ সময় {0} · ইফতার {1} (আনুমানিক)', [bnTime(sun.fajr.hour, sun.fajr.minute), bnTime(sun.maghrib.hour, sun.maghrib.minute)]),
+                      child: Text(trf('রমজান · সেহরির শেষ সময় {0} · ইফতার {1} (আনুমানিক)', [bnTime(sun.sehriEnd.hour, sun.sehriEnd.minute), bnTime(sun.maghrib.hour, sun.maghrib.minute)]),
                           style: body(14, weight: FontWeight.w500)),
                     ),
                   ]),

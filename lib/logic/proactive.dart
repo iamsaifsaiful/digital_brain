@@ -552,8 +552,8 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
       add('$nudgePrayer:$k', dayKey(day), v.$2, trf('{0}-এর সময় হয়েছে', [v.$1]), trf('{0} · {1}', [bnTime(v.$2.hour, v.$2.minute), place.label]));
     }
     if (p.ramadan && hijriDate(day).isRamadan) {
-      final sehri = t.fajr.subtract(const Duration(minutes: 40));
-      add('$nudgeRamadan:sehri', dayKey(day), sehri, tr('সেহরির সময়'), trf('সেহরির শেষ সময় {0} (আনুমানিক)।', [bnTime(t.fajr.hour, t.fajr.minute)]));
+      final sehri = t.sehriEnd.subtract(const Duration(minutes: 40));
+      add('$nudgeRamadan:sehri', dayKey(day), sehri, tr('সেহরির সময়'), trf('সেহরির শেষ সময় {0} (আনুমানিক)।', [bnTime(t.sehriEnd.hour, t.sehriEnd.minute)]));
       final iftar = t.maghrib.subtract(const Duration(minutes: 10));
       add('$nudgeRamadan:iftar', dayKey(day), iftar, tr('ইফতারের সময় হয়ে আসছে'), trf('ইফতার {0}-এ (আনুমানিক)।', [bnTime(t.maghrib.hour, t.maghrib.minute)]));
     }

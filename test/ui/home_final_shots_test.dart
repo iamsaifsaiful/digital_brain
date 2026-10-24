@@ -71,6 +71,8 @@ void main() {
     expect((noon.kind, noon.ramadanDay), ('iftar', 14));
     final night = slotFacts(t.maghrib.add(const Duration(minutes: 1)), t, ram).first;
     expect(night.kind, 'sehri');
+    // Owner, 24 Oct: sehri ends 5 minutes before Fajr.
+    expect(t.sehriEnd, t.fajr.subtract(const Duration(minutes: 5)));
     // No countdowns or day length anywhere on the slot.
     for (final x in [...f, noon, night]) {
       expect('${x.label} ${x.time} ${x.second}', isNot(contains('পর')));
