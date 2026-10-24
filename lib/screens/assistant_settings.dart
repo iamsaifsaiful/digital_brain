@@ -9,7 +9,6 @@ import '../ui/forms.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'notification_settings.dart';
-import 'onboarding_screen.dart';
 import '../ui/pdf_export.dart';
 
 /// সেটিংস › সহকারী: summaries, nudges, memory, quick ways to open it.
@@ -52,8 +51,6 @@ class AssistantSection extends StatelessWidget {
         sw(Icons.redo_rounded, tr('বাকি কাজ পরের দিনে'), tr('আগের দিনের না-হওয়া কাজ নিজে থেকে আজকের তালিকায় আসবে'), brain.carryOver, (v) => brain.setPref('carry_over', v)),
         link(Icons.psychology_alt_outlined, tr('সহকারীর স্মৃতি'),
             brain.data.memories.isEmpty ? tr('আপনার সম্পর্কে যা মনে রাখবে') : trf('{0}টি কথা মনে রাখা আছে', [bnDigits(brain.data.memories.length)]), () => push(const MemoryScreen())),
-        link(Icons.badge_outlined, tr('আপনার পরিচয়'), brain.persona.isEmpty ? tr('বেছে নিলে তালিকা ও হিসাব সেভাবে সাজানো থাকবে') : personaLabel(brain.persona),
-            () => push(const OnboardingScreen(fromSettings: true))),
         // ব্যবসায়ী মোড comes later (owner, 23 Oct); for now businesses keep
         // বকেয়া inside অন্যান্য হিসাব. Kept only for those who already turned it on.
         if (brain.businessMode)

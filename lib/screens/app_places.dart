@@ -1,3 +1,4 @@
+import 'will_screen.dart' show WillScreen;
 import 'package:flutter/material.dart';
 
 import 'alarm_list_screen.dart';
@@ -37,6 +38,7 @@ Widget? placePage(String id, {String? folder}) => switch (id) {
       'compass' => const CompassScreen(),
       'special' => const SpecialDaysScreen(),
       'notes' => NotesScreen(category: folder),
+      'will' => const WillScreen(),
       'docs' => DocsScreen(folder: folder),
       'vault' => const VaultPage(),
       'contacts' => const CallsScreen(),

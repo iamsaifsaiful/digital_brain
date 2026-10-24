@@ -11,7 +11,6 @@ import 'screens/money_more_screens.dart';
 import 'screens/calendar_screen.dart';
 import 'screens/health_screens.dart';
 import 'screens/home_shell.dart';
-import 'screens/onboarding_screen.dart';
 import 'screens/person_screen.dart';
 import 'screens/plan_screens.dart';
 import 'screens/store_more_screens.dart';
@@ -23,9 +22,6 @@ import 'screens/alarm_screens.dart';
 import 'logic/lang.dart';
 import 'state/brain.dart';
 import 'ui/theme.dart';
-
-/// Off in tests, so they start straight on Home.
-bool showOnboarding = true;
 
 class DigitalBrainApp extends StatefulWidget {
   const DigitalBrainApp({super.key, required this.brain});
@@ -126,13 +122,11 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _maybeRestore();
         _runPending();
-        _maybeOnboard();
       });
     }
     _wasUnlocked = brain.unlocked;
   }
 
-  bool _onboarded = false;
 
   /// Signed in with Google on the welcome page of a new install: bring back
   /// that account's Drive backup (asked first, with its password).
@@ -142,13 +136,6 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
     final ctx = _nav.currentContext;
     if (ctx == null || !ctx.mounted) return;
     await restoreFromDrive(ctx, fresh: true);
-  }
-
-  /// The first time after the PIN: "আপনি কী করেন?".
-  void _maybeOnboard() {
-    if (_onboarded || brain.persona.isNotEmpty || !brain.unlocked || brain.loadError != null || !showOnboarding) return;
-    _onboarded = true;
-    _nav.currentState?.push(MaterialPageRoute(builder: (_) => const OnboardingScreen()));
   }
 
   @override

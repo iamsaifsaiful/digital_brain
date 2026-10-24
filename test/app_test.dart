@@ -121,7 +121,6 @@ Future<Rig> start(WidgetTester t, {AppData? data, AiRoute? ai, AccountServer? se
   t.view.devicePixelRatio = 3.0;
   addTearDown(t.view.reset);
   await loadFonts();
-  showOnboarding = false;
   googleFirst = false;
   final rig = Rig(server: server);
   await t.pumpWidget(DigitalBrainApp(brain: rig.brain));
@@ -1646,9 +1645,7 @@ void main() {
     expect(find.text('থিম'), findsWidgets);
   });
 
-  testWidgets('v2.9: first run asks what the user does; a shopkeeper gets the lists and questions (shop mode comes later)', (t) async {
-    showOnboarding = true;
-    addTearDown(() => showOnboarding = false);
+  testWidgets('first run: no "আপনি কী করেন?" screen (owner, 24 Oct: no profile) — straight to Home', (t) async {
     t.view.physicalSize = const Size(1170, 2532);
     t.view.devicePixelRatio = 3.0;
     addTearDown(t.view.reset);
@@ -1660,19 +1657,9 @@ void main() {
     await enterPin(t, '1234');
     await enterPin(t, '1234');
     await settle(t);
-    expect(find.text('আপনি কী করেন?'), findsOneWidget);
-    await t.tap(find.text('ব্যবসায়ী / দোকানদার'));
-    await settle(t);
-    await t.tap(find.text('শুরু করি'));
-    await settle(t);
-    expect(rig.brain.persona, 'business');
-    // ব্যবসায়ী মোড waits (owner, 23 Oct): বকেয়া lives in অন্যান্য হিসাব.
-    expect(rig.brain.businessMode, isFalse);
-    expect(rig.brain.data.tasks.where((x) => x.list == 'মাসের বাজার'), isNotEmpty);
-    expect(rig.brain.quickQuestions.first, 'আজ কত বিক্রি হলো?');
-    await t.tap(find.text('হিসাব').last);
-    await settle(t);
-    expect(find.text('আজকের বিক্রি'), findsNothing);
+    expect(find.text('আপনি কী করেন?'), findsNothing);
+    expect(rig.brain.persona, isEmpty);
+    expect(find.byType(HomeShell), findsOneWidget);
   });
 
   testWidgets('v2.9: every new page opens, in Bangla and in English, light and dark', (t) async {
@@ -1696,7 +1683,7 @@ void main() {
     final pages = <Widget>[
       const SpecialDaysScreen(), const HabitsScreen(), const MedicinesScreen(), const AccountsScreen(), const ReportScreen(), const SavingsScreen(),
       const SplitScreen(), const ZakatScreen(), const ShopScreen(), const ReceiptScreen(), const EmergencyScreen(), const EmergencyEditScreen(),
-      const TagsScreen(), const TagScreen(tag: 'গাড়ি'), const ExpiryScreen(), const TemplatesScreen(), const MemoryScreen(), const OnboardingScreen(fromSettings: true),
+      const TagsScreen(), const TagScreen(tag: 'গাড়ি'), const ExpiryScreen(), const TemplatesScreen(), const MemoryScreen(),
       const MenuPage(child: MoreScreen()), const SearchScreen(initial: 'Rahim'),
     ];
     for (final (english, look) in [(false, Look.light), (true, Look.dark)]) {

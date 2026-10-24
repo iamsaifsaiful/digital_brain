@@ -1,6 +1,7 @@
 // Owner's changes of 24 Oct (second list): what is premium, zakat from
 // এখন আছে, the BMI push, ওছিয়তনামা, known apps for passwords, a name or tag
 // for every upload, the heir's one-tap backup.
+import 'package:digital_brain/logic/app_map.dart' show capabilitiesList, placeById;
 import 'package:digital_brain/logic/pro.dart';
 import 'package:digital_brain/logic/proactive.dart';
 import 'package:digital_brain/logic/services_list.dart';
@@ -108,5 +109,15 @@ void main() {
 
   test('a document must have a folder that fits: no catch-all অন্যান্য', () {
     expect(docFolders, isNot(contains('অন্যান্য')));
+  });
+
+  test('কী কী করা যায়: the new parts are listed (will, money now, family, premium by bKash)', () {
+    final all = capabilitiesList();
+    expect(all, contains('ওছিয়তনামা'));
+    expect(all, contains('এখন আছে'));
+    expect(all, contains('উত্তরাধিকারী'));
+    expect(all, contains('বিকাশে'));
+    expect(all, isNot(contains('মেসেজ থেকে কাজ')));
+    expect(placeById('will'), isNotNull);
   });
 }

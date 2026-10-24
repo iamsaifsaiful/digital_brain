@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../logic/bn.dart';
 import '../logic/lang.dart';
 import '../logic/templates.dart';
 import '../state/brain.dart';
@@ -9,118 +8,7 @@ import '../ui/widgets.dart';
 
 export '../logic/templates.dart' show personaLabel;
 
-/// "আপনি কে?": the kind of user, so lists, one-tap questions and the
-/// money page start out arranged for them. Shown once after the PIN, and
-/// from সেটিংস.
-class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key, this.fromSettings = false});
-  final bool fromSettings;
-
-  @override
-  State<OnboardingScreen> createState() => _OnboardingScreenState();
-}
-
-class _OnboardingScreenState extends State<OnboardingScreen> {
-  String? _picked;
-  final _lists = <String>{};
-
-  void _pick(String key) {
-    setState(() {
-      _picked = key;
-      _lists
-        ..clear()
-        ..addAll(personaSetup(key).lists);
-    });
-  }
-
-  Future<void> _done() async {
-    final brain = BrainScope.read(context);
-    final key = _picked ?? 'other';
-    await brain.setPref('persona', key);
-    if (!widget.fromSettings || brain.quickQuestions.toString() == Brain.defaultQuestions.toString()) {
-      await brain.setQuickQuestions(personaSetup(key).questions);
-    }
-    for (final t in listTemplates) {
-      if (_lists.contains(t.name) && !brain.data.tasks.any((x) => x.list == tr(t.name))) {
-        await brain.addList(tr(t.name), [for (final i in t.items) tr(i)]);
-      }
-    }
-    if (mounted) Navigator.of(context).pop();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Column(children: [
-          if (widget.fromSettings) TopBar(title: tr('আপনার পরিচয়')) else const SizedBox(height: 16),
-          Expanded(
-            child: ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 20), children: [
-              if (!widget.fromSettings) ...[
-                Text(tr('আপনি কী করেন?'), style: display(26, weight: 700)),
-                const SizedBox(height: 6),
-                Text(tr('বেছে নিলে তালিকা, এক চাপের প্রশ্ন আর হিসাবের পাতা আপনার মতো করে সাজানো থাকবে। পরে সেটিংস থেকে বদলানো যায়।'),
-                    style: body(15, color: C.muted, height: 1.5)),
-                const SizedBox(height: 16),
-              ],
-              for (final p in personas) ...[
-                Material(
-                  color: _picked == p.$1 ? C.greenTint : C.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () => _pick(p.$1),
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: _picked == p.$1 ? C.green : C.line, width: _picked == p.$1 ? 2 : 1),
-                      ),
-                      child: Row(children: [
-                        _IconBox(personaIcon(p.$1)),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(tr(p.$3), style: body(16, weight: FontWeight.w600)),
-                            Text(tr(p.$4), style: body(13, color: C.muted)),
-                          ]),
-                        ),
-                        if (_picked == p.$1) Icon(Icons.check_circle_rounded, color: C.green),
-                      ]),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-              ],
-              if (_picked != null) ...[
-                const SizedBox(height: 8),
-                SectionTitle(tr('তৈরি তালিকা যোগ করবেন?')),
-                Panel(
-                  child: Column(children: [
-                    for (final t in listTemplates)
-                      CheckboxListTile(
-                        value: _lists.contains(t.name),
-                        onChanged: (v) => setState(() => v == true ? _lists.add(t.name) : _lists.remove(t.name)),
-                        secondary: Icon(templateIcon(t.name), color: C.muted2),
-                        title: Text(tr(t.name), style: body(15)),
-                        subtitle: Text(trf('{0}টি জিনিস', [bnDigits(t.items.length)]), style: body(12.5, color: C.muted)),
-                      ),
-                  ]),
-                ),
-              ],
-            ]),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-            child: Column(children: [
-              PrimaryButton(label: _picked == null ? tr('পরে করবো') : tr('শুরু করি'), onPressed: _done),
-            ]),
-          ),
-        ]),
-      ),
-    );
-  }
-}
+// The "আপনি কী করেন?" screen was removed (owner, 24 Oct: no profile).
 
 /// তৈরি তালিকা: ready-made lists to add in one tap.
 class TemplatesScreen extends StatelessWidget {
@@ -189,15 +77,6 @@ class _IconBox extends StatelessWidget {
         child: Icon(icon, color: C.green, size: 24),
       );
 }
-
-IconData personaIcon(String key) => switch (key) {
-      'business' => Icons.storefront_outlined,
-      'job' => Icons.work_outline_rounded,
-      'student' => Icons.school_outlined,
-      'home' => Icons.home_outlined,
-      'probashi' => Icons.flight_takeoff_rounded,
-      _ => Icons.person_outline_rounded,
-    };
 
 IconData templateIcon(String name) => switch (name) {
       'ঈদের কেনাকাটা' => Icons.shopping_bag_outlined,

@@ -37,7 +37,6 @@ void main() {
     t.view.devicePixelRatio = 3.0;
     addTearDown(t.view.reset);
     await loadFonts();
-    showOnboarding = false;
     googleFirst = true;
     addTearDown(() => googleFirst = false);
     final google = FakeGoogle()..user = const GoogleUser(id: '1', email: 'saif@gmail.com', name: 'Saif Saiful', idToken: 'tok');
@@ -62,7 +61,6 @@ void main() {
     t.view.devicePixelRatio = 3.0;
     addTearDown(t.view.reset);
     await loadFonts();
-    showOnboarding = false;
     googleFirst = true;
     addTearDown(() => googleFirst = false);
     final rig = Rig();
@@ -214,7 +212,6 @@ void main() {
     t.view.devicePixelRatio = 3.0;
     addTearDown(t.view.reset);
     await loadFonts();
-    showOnboarding = false;
     googleFirst = false;
     final google = tokenGoogle('owner@gmail.com');
     final rig = Rig(google: google, server: keyServer());
