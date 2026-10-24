@@ -6,6 +6,11 @@
 
 ---
 
+## 0e. Update 24 Oct (later): 2.49.1-b102 — the earlier UI is back
+- The owner tried 2.49.0 and said: "বর্তমান ইউআই ভালো লাগছে না। আগের ইউআই ফিরিয়ে আনো এবং প্রয়োজনে কিছু আপডেট কর, যেন, দেখতে ক্লিন, প্রোফেশনাল লাগে। কোন কিছু যেন এআই না লাগে". lib/ and test/ went back to 8a10123 (before the redesign); kept: প্রিমিয়াম everywhere, `appPremium` in menus.dart, the vault place fix, StartTips `mounted`.
+- His points: home 'সামনে' always lists the holiday going on now or the next two; app icon resource renamed to `@mipmap/ic_app_mark` (his phone showed the v1 brain icon in notifications — not checked on a phone); `SectionTitle` has space above; হিসাব tool cards → ⋮ menu (`MoneyToolsMenu`); 'এখন কত টাকা আছে' (`CashNowCard`, `AppData.cashOffset/cashSetAt`, `cashOnHand()` in logic/cash.dart, `Brain.setCashOnHand`); calmer category colours in theme.dart; emoji in labels/titles replaced by icons.
+- The 24 Oct design (kit, mockups) stays only in `docs/design/2026-10-24-new-ui/` and git history (75d3e22..06cb1b8).
+
 ## 0d. Update 24 Oct: 2.49.0 — the new UI on every page; প্রো → প্রিমিয়াম
 - Owner's answers (24 Oct): design may change where needed but must match the whole app and drop nothing from the last APK; FAB = 🎤; hand notes stay, small; main colour deep green-black, changeable; "প্রো" → "প্রিমিয়াম" everywhere the user sees (internal ids, `ProFeature`, server keys unchanged; voice still understands প্রো, and "প্রিমিয়াম খোলো" opens the page while "বীমার প্রিমিয়াম দিয়েছি" is still an instalment — menus.dart `appPremium`).
 - What was built and what was left out on purpose: `docs/design/2026-10-24-new-ui/IMPLEMENTED.md`. Kit: `lib/ui/kit.dart`; tokens: `lib/ui/theme.dart` (default accent `forest`; calm category colours with it).
