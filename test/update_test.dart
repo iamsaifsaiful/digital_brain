@@ -447,6 +447,9 @@ void main() {
     expect(find.text('আজকের কাজ'), findsOneWidget);
     expect(find.text('টাকার হিসাব'), findsOneWidget);
     expect(find.descendant(of: find.byKey(const Key('home-stat-spent')), matching: find.textContaining('২৫০')), findsWidgets);
+    // The floating "কিছু যুক্ত করুন" sits over the bottom: bring the card to the middle first.
+    await Scrollable.ensureVisible(t.element(find.byKey(const Key('home-stat-spent'))), alignment: 0.3);
+    await settle(t);
     await t.tap(find.byKey(const Key('home-stat-spent')));
     await settle(t);
     expect(find.text('অন্যান্য হিসাব'), findsOneWidget);

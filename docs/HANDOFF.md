@@ -6,6 +6,42 @@
 
 ---
 
+## 0h. Update 25 Oct (after midnight): 2.53.0-b108, plugin 1.18.1, admin 1.9.0+11 — the owner's 24 Oct night list
+
+Owner's points (in his order) and what was done:
+1. **Home hero** (his two paintings, `assets/sky/day.jpg`, `night.jpg`): `HomeHero` in `home_page.dart`; light from `lib/logic/sky_light.dart` (`skyLight(now, sunrise, sunset)`: night → dawn → sunrise → morning → noon → afternoon → golden → sunset → evening → night; night picture mixed over the day one, a soft-light tint clipped to the picture, a little dimmer by day in the dark look). Greeting, three dates, bell, photo + প্রিমিয়াম, temperature + sky (রোদ by day for codes 0–1) + district, ↑↓ as icons (no font has the arrows), next prayer pill (`home-slot`; iftar/sehri in Ramadan), sunrise/sunset row; fades into the page. The old `home_sky.dart` (unused) was removed. The info row and its turning slot are gone from home (`slotFacts` stays).
+   - Dark look: night blue (`C.ground` #121A33, surface #1A2342…), mint accent kept.
+2. **Font**: `displayFont` is Noto Bengali too (Hind's ১); Hind only as fallback for English. Compass digits too.
+3. **আজকের অর্থ-কথা** right under the home money card.
+4. **সব সুবিধা** always open (no toggle; `home_tools_open` no longer read).
+5. **Leaving the app keeps the page**: cause was the 30 s auto-lock popping every route and `_Gate` swapping HomeShell for LockScreen. Now the first lock replaces the app (cold start) but later locks are `_LockCover` in `MaterialApp.builder`: pages offstage (no paint, taps, tickers, semantics), the PIN page on top with its own Navigator (`HeroControllerScope.none`), keyboard closed. Ringing alarm over the lock: pushed without a transition so nothing shows under it.
+6. **Compass**: true north (declination from `GeomagneticField` at the district), heading = top edge + back projected on the ground (steady upright), rotation-vector error estimate marks it shaky; help text rewritten.
+7. **Gap under tabs** (his screenshot of কাজ ও রিমাইন্ডার › বারবার): `TabPages` keeps ≥12 px under fixed tabs whatever the page starts with.
+   - Also: the phone's navigation bar follows the look (was light grey in dark).
+8. **Family medicines in স্বাস্থ্য**: `Medicine.member` (JSON `member`, absent = me); `MedicinesScreen(member:)` per person; reminders "আম্মা-এর ওষুধ: …" ring on this phone; `DoseStrip(member:)`; "ওঁর নিজের ফোনেও রিমাইন্ডার দিন" → `sendMedicineToFamily` (sealed, via ফ্যামিলি) when someone allows medicine.
+9. **Steps**: `Steps.kt` (`my_assistant/steps`: status/ask/read, TYPE_STEP_COUNTER, ACTIVITY_RECOGNITION in the manifest), `lib/logic/steps.dart` (`StepBook` in pref `steps_book`, restart and new-day rules), `StepsCard` in স্বাস্থ্য (me only).
+10. **Take back a family request**: pending rows have "ফেরত নিন" (server `remove` already allowed it; e2e now checks it).
+11. **Loans multi-select**: person page history rows — long-press, pick, delete (with undo) or share; hint line under the list.
+12. **Free documents 20** (`freeDocs`, Premium page row, site pro-page).
+13. **সমস্যার লগ**: `lib/services/error_log.dart` (FlutterError/PlatformDispatcher → cleaned kind, first line, code places, version; same counted; sent on pause/resume, before sign-in too), server `errors.php` (`POST /errors`, cleaned again, 60/h per address; `GET /admin/errors`, `POST /admin/errors/clear`; site tab "সমস্যার লগ"), admin app `ErrorsPage`.
+14. Word choice: asked for examples; the pages touched were read through.
+
+Tests: `test/owner_1024c_test.dart` (15; 5 failed on the old code). Hero shots: `SHOTS=1 flutter test --no-pub --update-goldens test/owner_1024c_test.dart --plain-name "home hero"` → `test/ui/shots/hero-*.png`.
+
+Environment notes (new container): storage.googleapis.com and pub.dev are blocked. Flutter + pub cache come from the repo's `toolchain` release (run `toolchain.yml` when deps change); unpack .zst with libzstd via ctypes (no zstd binary); `dart pub get --offline` in the app and in `/opt/fl/flutter/packages/flutter_tools` (`--example`), then `flutter … --no-pub` works. Signer: uber-apk-signer 1.3.0 from GitHub releases.
+
+Not verified on a phone: the hero's look on real screens and its light at real hours; the lock cover with real app switching and the system file/camera pickers; compass accuracy indoors/outdoors; step counter on different makers (some send the count only on the next step; steps after yesterday's last reading count for today); family medicine send between two phones; error reports reaching the live site.
+
+### Later the same night → 2.54.0-b111 (one APK, as the owner asked)
+- 2.53.1: "unlocked once" lives on `Brain.unlockedOnce` (a new brain/app start asks the PIN again); the app re-attaches listeners when its brain changes (`didUpdateWidget`). This fixed 12 suite failures (tests that start the app twice in one test).
+- 2.53.2: default accent **কমলা** (`amber`); a colour the user chose stays.
+- 15. **Anywhere in the world** (owner, 25 Oct): `Place` has `tz` (minutes) and `region` ('sa' Karachi 18/18, 'gulf' Umm al-Qura 18.5 + Isha = Maghrib+90, 'mwl' 18/17, 'na' 15/15; Asr Hanafi). `placeAt(lat, lon, tzMinutes)`: district within 120 km, else nearest of `worldPlaces` (≈78 cities, Bengali names, English in strings_en) within 150 km, else "আপনার এলাকা", at the phone's own position and clock. Kept as `geo|name|lat|lon|tz|region` in `district`; `placeNamed` parses it; `brain.placeLabel` for display. Far north in summer: Fajr/Isha a seventh of the night. `brain.hijriShift`: the user's `hijri_adjust`, else +1 outside 'sa'. Picker (আরও › জেলা/শহর) lists "দেশের বাইরে". Dubai checked against Property Finder's table (sunrise 6:19, Maghrib 5:47 on 25 Oct; ours within 3 min). Cities picked by hand use a fixed offset (no DST); following the phone uses the phone's clock (DST right).
+- 16. **কিছু যুক্ত করুন** (`lib/logic/add_nudges.dart`, `AddNudgeCard` on home): one empty menu at a time, turning every 6 s; tap → `openPlace`; ✕ → pref `nudges_hidden_at`, back after a day; menus with something never show.
+- 17. **Words**: টিক for দাগ; no "ভাই" in the payment request; battery line plainer; "এদিক-ওদিক" → "আগে-পরে"; BMI scale "নিচে কম ওজন".
+- Open question to the owner: "সমস্যা খোঁজার লগ" may have meant the mic trace (what was heard/understood); that holds the member's words, so it was not sent — two options were offered.
+
+Tests at 2.54.0: full suite 2379 pass + 1 skipped, 1 failed (update_test tapped the money card under the new floating message) → fixed in the test, file passes (20/20). Plugin e2e ALL OK (282). Admin app 9 tests.
+
 ## 0g. Update 24 Oct (night): 2.51.0-b106 → 2.52.0-b107 — the approved home design on every screen
 
 - Design source: `docs/design/2026-10-24-home-final/` (PROMPT.md, home.html). Tokens in `lib/ui/theme.dart` (class C), parts in `lib/ui/kit.dart` (SectionHeading, AppCard, SoftChip, SmallButton, AttentionCard, ToolTile, RotatingSlot).
