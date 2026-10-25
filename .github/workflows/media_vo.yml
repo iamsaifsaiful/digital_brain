@@ -22,6 +22,8 @@ jobs:
           (pip install edge-tts==7.2.0 && python tool/media/tts.py) > edge.log 2>&1 || true
       - name: Indic Parler-TTS
         continue-on-error: true
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           (pip install git+https://github.com/huggingface/parler-tts.git@main soundfile && pip install --force-reinstall --no-deps torch==2.5.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cpu && python tool/media/parler.py) > parler.log 2>&1 || true
       - name: Save to the branch
