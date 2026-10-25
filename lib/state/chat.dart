@@ -465,6 +465,10 @@ class ChatController extends ChangeNotifier {
   /// "didn't understand"), so a short follow-up like "আজ" or "সন্ধ্যায়"
   /// can complete it.
   String _lastSaid = '';
+
+  /// Venting in a row ("ধুর মিয়া" again and again): each answer shorter.
+  int _vents = 0;
+  DateTime? _ventAt;
   DateTime? _lastSaidAt;
 
   /// What the conversation is about right now: the person last written or
@@ -1132,15 +1136,33 @@ class ChatController extends ChangeNotifier {
     // unfinished; with none, ask for it once more. Never sent to the AI as a
     // new question (that took seconds and answered something else).
     final shortKeep = keepThat(whole) && words(normalize(whole)).length <= 5 && _lastSaid.isNotEmpty;
-    if (notListening(whole) || shortKeep) {
+    // "ধুর মিয়া", "আরে বোকা …", "ভাবতে লাগাও আধা ঘণ্টা" (owner's video, 25
+    // Oct: "ইউজারের কথার ইমোশন বুঝতে হবে"): venting is answered as venting.
+    final mood = moodOf(whole) ?? (shortKeep ? Mood.unheard : null);
+    if (mood != null) {
       _history.add(AiTurn.user(whole));
+      final sorry = switch (mood) {
+        Mood.annoyed => tr('দুঃখিত, আপনাকে বিরক্ত করে ফেলেছি।'),
+        Mood.impatient => tr('দুঃখিত, দেরি করে ফেলেছি।'),
+        Mood.unheard => tr('দুঃখিত, আগেরবার ঠিক ধরতে পারিনি।'),
+      };
+      // A request said along with it ("ধুর, কাল সকাল ১০টায় মনে করিয়ে দিও"):
+      // that request, after the sorry.
+      final rest = withoutVenting(whole);
+      final restWhen = parseWhen(rest, _now);
+      if (words(rest).length >= 3 && ((restWhen?.hasTime ?? false) || findAmount(rest) != null)) {
+        Trace.log('understood', 'venting, with a request in it', const {});
+        _say(out, sorry);
+        return _understand(withoutVenting(whole, keepWords: true), out, shown: whole);
+      }
+      // "এটা রাইখো না" after a request left unfinished: that request, kept.
       final prev = _lastSaid;
       final fresh = prev.isNotEmpty && _lastSaidAt != null && _now.difference(_lastSaidAt!).inMinutes <= 10;
-      if (fresh && (keepThat(whole) || notListening(whole))) {
+      if (fresh && keepThat(whole)) {
         final timed = parseWhen(prev, _now)?.hasTime ?? false;
         final redo = timed ? '$prev মনে করিয়ে দিও' : '$prev — কাজের তালিকায় লিখে রাখো';
         Trace.log('understood', 'not listened to — the unfinished request kept', const {});
-        _say(out, tr('দুঃখিত, আগেরবার ঠিক ধরতে পারিনি।'));
+        _say(out, sorry);
         return _understand(redo, out, shown: whole);
       }
       // Something was just kept: say what, so a wrong word can be named.
@@ -1155,11 +1177,20 @@ class ChatController extends ChangeNotifier {
                 ? '“${k.title}”'
                 : summaryLine(kept.$1);
       }
-      final text = keptLine != null
-          ? trf('দুঃখিত। এখন রাখা আছে — {0}। কোথাও ভুল থাকলে বলুন কোনটা বদলাব, যেমন “X না, Y”।', [keptLine])
-          : tr('দুঃখিত — এবার মন দিয়ে শুনছি। কী রাখব, আরেকবার বলুন; সময় থাকলে সময়সহ বলবেন।');
+      // Said again and again: not the same long answer each time.
+      final again = _ventAt != null && _now.difference(_ventAt!).inMinutes <= 3;
+      _vents = again ? _vents + 1 : 1;
+      _ventAt = _now;
+      final text = _vents >= 3
+          ? tr('বুঝতে পারছি, আপনি বিরক্ত — আমি দুঃখিত। এক লাইনে বলুন কী চান, আমি সেটাই করব। চাইলে কিবোর্ডে লিখেও দিতে পারেন।')
+          : _vents == 2
+              ? '$sorry ${keptLine != null ? trf('এখন আছে {0}। কী বদলাব, শুধু সেটুকু বলুন।', [keptLine]) : tr('কী করব, ছোট করে বলুন।')}'
+              : keptLine != null
+                  ? '$sorry ${trf('এখন রাখা আছে — {0}। ভুল হলে বলুন “এটা রাখতে বলিনি”, বা কোন শব্দ বদলাব — যেমন “X না, Y”।', [keptLine])}'
+                  : '$sorry ${tr('এবার মন দিয়ে শুনছি — কী করব, আরেকবার বলুন; সময় থাকলে সময়সহ।')}';
       _say(out, text);
       _history.add(AiTurn.app(text));
+      _lastSaid = '';
       notifyListeners();
       return out.join(' ');
     }
@@ -1586,6 +1617,17 @@ class ChatController extends ChangeNotifier {
       final link = ChatLink(LinkKind.page, trf('বদলান: {0}', [t.label]), page: 'edit:${t.kind.name}', folder: t.id);
       _say(out, trf('“{0}” — বদলানোর পাতা খুলছি।', [t.label]), links: [link]);
       openNow = link;
+      _current = null;
+      wait = ChatWait.none;
+      return;
+    }
+    // The same time it already has ("রিমাইন্ডার সেট করো প্রতিদিন ৮:৪৫" said
+    // again): never "X বদলে X করে দেবো?" — it is already so.
+    final same = t.kind == ItemKind.reminder && _change.at != null && _change.amount == null
+        ? brain.data.reminders.where((r) => r.id == t.id && r.hour == _change.at!.hour && r.minute == _change.at!.minute).firstOrNull
+        : null;
+    if (same != null) {
+      _say(out, trf('“{0}” {1}-এ আগে থেকেই রাখা আছে — কিছু বদলাতে হয়নি।', [same.title, bnTime(same.hour, same.minute)]), links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
       _current = null;
       wait = ChatWait.none;
       return;

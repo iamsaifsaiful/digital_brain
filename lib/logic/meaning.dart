@@ -586,3 +586,44 @@ bool notListening(String said) => RegExp(fold(
 /// keep what was just said. ("রাখো না" here asks; it does not forbid.)
 bool keepThat(String said) => RegExp(fold(r'(?:^|\s)(?:এটা|এইটা|ওটা|সেটা|এটাও|এগুলো)?\s*(?:রাখো|রাখ|রাইখো|রাইখ্যো|রাখবা|রেখে\s+দাও|রাইখা\s+দাও|লিখে\s+রাখো|লেইখা\s+রাখো|সেভ\s+করো)(?:\s+না)?(?:\s|$|[?!।])'))
     .hasMatch(fold(normalize(said)));
+
+/// How the user feels about the app right now (owner, 25 Oct: "ইউজারের কথার
+/// ইমোশন বুঝতে হবে"). Venting is answered as venting — with a sorry and a
+/// way forward — never kept as a to-do or note, and never sent to the AI as
+/// a question to look up.
+enum Mood {
+  /// "ধুর মিয়া", "আরে বোকা", "ফালতু", "কোন মজাই নাই": annoyed with the app.
+  annoyed,
+
+  /// "ভাবতে লাগাও আধা ঘণ্টা", "একটু উত্তর দাও", "এত দেরি কেন": waiting too long.
+  impatient,
+
+  /// "তুমি কি আমার কথা শুনতেছো না", "বুঝো না": not listened to.
+  unheard,
+}
+
+final _annoyed = RegExp(fold(
+    r'(?:^|\s)(?:ধুর|ধুরো|ধুত্তোরি|ধ্যাত|ধুস|ধুশ|বোকা|গাধা|বেকুব|বলদ|ফালতু|আজাইরা|আজেবাজে|বিরক্তিকর|অকেজো|অকাজের|ইউজলেস|useless|stupid)(?=\s|$|[,।!?])'
+    r'|মজা(?:ই)?\s+(?:নাই|নেই)|কোন(?:ো)?\s+কাজের\s+না|মাথা\s+খারাপ|রাগ\s+(?:লাগে|লাগতেছে|লাগছে|হচ্ছে|হইতেছে)|কেন\s+ব্যবহার\s+করব|ব্যবহার\s+করব\s+না|কেউ\s+(?:রাখে|লেখে|করে)\s*$|(?:রাখে|লেখে)\s+কেউ|ভালো\s*ভাবে\s+নেবে'));
+final _impatient = RegExp(fold(
+    r'ভাবতে\s+(?:লাগাও|লাগাইতেছো|লাগাচ্ছো|এত)|(?:এত|এতো|আধা\s+ঘণ্টা|আধা\s+ঘন্টা)\s+(?:সময়|দেরি|দেরী|লাগে|লাগাও)|দেরি\s+কেন|দেরী\s+কেন|(?:একটু\s+)?উত্তর\s+(?:দাও|দেও|দেন|দিচ্ছো\s+না|দাও\s+না)|তাড়াতাড়ি\s+(?:করো|কর|বলো|দাও)|জলদি\s+(?:করো|কর)|আর\s+কত(?:ক্ষণ)?\s+(?:লাগবে|বসে)'));
+
+Mood? moodOf(String said) {
+  final f = fold(normalize(said));
+  if (notListening(said)) return Mood.unheard;
+  if (_impatient.hasMatch(f)) return Mood.impatient;
+  if (_annoyed.hasMatch(f)) return Mood.annoyed;
+  return null;
+}
+
+/// [said] without its venting words: what is left may still be a request
+/// ("ধুর, কাল সকাল ১০টায় মনে করিয়ে দিও").
+String withoutVenting(String said, {bool keepWords = false}) {
+  var f = fold(normalize(said));
+  for (final r in [_impatient, _annoyed]) {
+    f = f.replaceAll(r, ' ');
+  }
+  if (keepWords) return f.replaceAll(RegExp(fold(r'^(?:\s|মিয়া|আরে|রে|ভাই|তো)+')), '').replaceAll(RegExp(r'\s+'), ' ').trim();
+  f = f.replaceAll(RegExp(fold(r'(?:^|\s)(?:মিয়া|মিয়া|ভাই|আরে|রে|তো|তুমি|কি|কী|একটু|আমি|তোমাকে|এটা)(?=\s|$)')), ' ');
+  return f.replaceAll(RegExp(r'\s+'), ' ').trim();
+}

@@ -812,14 +812,34 @@ extension _TodoChat on ChatController {
     if (task == null && rem == null) return false;
     // "তোমাকে না রে ভাই, তুবাকে" (owner's video, 25 Oct): one word of what
     // was kept is wrong — that word, swapped; nothing else changes.
-    final swap = RegExp(fold(r'^\s*(\S+)\s+না(?:[\s,]+(?:রে|ভাই|আপা|তো|গো|বাবা|ভাইয়া|আপু))*[\s,।]+(\S+(?:\s+(?:কে|রে|এর|র|ের))?)\s*[।.!]*$')).firstMatch(fold(t));
+    // Also "আমি বলি তুবা কে, তুমি শুনতেছো তোমাকে" (I say Y, you hear X) and
+    // "না, এখানে হবে তুবা" (no, here it is Y — the word the app could not
+    // have meant: "তোমাকে").
     final had = task?.title ?? rem!.title;
+    final ft = fold(normalize(t));
+    String? from, to;
+    final m1 = RegExp(fold(r'^\s*(\S+)\s+না(?:[\s,]+(?:রে|ভাই|আপা|তো|গো|বাবা|ভাইয়া|আপু))*[\s,।]+(\S+(?:\s+(?:কে|রে|এর|র|ের))?)\s*[।.!]*$')).firstMatch(fold(t));
+    final m2 = RegExp(fold(r'আমি\s+(?:বলি|বলছি|বলতেছি|বললাম|কইলাম|কই)\s+(\S+(?:\s+কে)?)\s+(?:আর\s+|কিন্তু\s+)?তুমি\s+(?:শুনতেছো|শুনতেছ|শুনছো|শুনছ|শুনলে|শুনো|শুনলা|লিখলে|লিখছো|লেখো|লিখলা)\s+(\S+)')).firstMatch(ft);
+    final m3 = RegExp(fold(r'^\s*না[\s,]+(?:এখানে|ওখানে|এটা|ওটা|ওইখানে)\s+(?:হবে|হইবো|হবে\s+না)\s+(\S+(?:\s+কে)?)(?:\s+(?:কেন|কে|তো|না))?\s*$')).firstMatch(ft);
+    if (m1 != null) {
+      (from, to) = (m1[1]!, m1[2]!);
+    } else if (m2 != null) {
+      (from, to) = (m2[2]!, m2[1]!);
+    } else if (m3 != null && RegExp(fold(r'(?:^|\s)(?:তোমাকে|তোমারে)(?=\s|$)')).hasMatch(fold(had))) {
+      (from, to) = ('তোমাকে', m3[1]!.replaceAll(RegExp(fold(r'\s+কে$')), 'কে'));
+    }
     // "তোমাকে" was only who the app was told, so it is not in the title:
     // the right one goes in front ("তুবাকে মাদ্রাসায় নিয়ে যেতে হয়").
-    final toYou = swap != null && RegExp(fold(r'^(?:তোমাকে|তোমারে|আপনাকে|তুমি|আপনি)$')).hasMatch(fold(swap[1]!));
-    if (swap != null && (toYou || RegExp('(?:^|\\s)${RegExp.escape(fold(swap[1]!))}(?=\\s|\$)').hasMatch(fold(had)))) {
-      final put = words(normalize(swap[2]!)).join(' ');
-      final inside = RegExp('(?<=^|\\s)${RegExp.escape(fold(swap[1]!))}(?=\\s|\$)');
+    final toYou = from != null && RegExp(fold(r'^(?:তোমাকে|তোমারে|আপনাকে|তুমি|আপনি)$')).hasMatch(fold(from));
+    if (from != null && to != null && (toYou || RegExp('(?:^|\\s)${RegExp.escape(fold(from))}(?=\\s|\$)').hasMatch(fold(had)))) {
+      var put = words(normalize(to)).join(' ');
+      if (!put.endsWith('কে') && RegExp(fold(r'^(?:তোমাকে|তোমারে|আপনাকে)$')).hasMatch(fold(from))) put = '$putকে';
+      // Already so (said again, in other words): nothing to change.
+      if (!RegExp('(?:^|\\s)${RegExp.escape(fold(from))}(?=\\s|\$)').hasMatch(fold(had)) && RegExp('(?:^|\\s)${RegExp.escape(fold(put))}(?=\\s|\$)').hasMatch(fold(had))) {
+        _say(out, trf('ঠিক আছে — “{0}” এভাবেই রাখা আছে।', [had]));
+        return true;
+      }
+      final inside = RegExp('(?<=^|\\s)${RegExp.escape(fold(from))}(?=\\s|\$)');
       final title = inside.hasMatch(fold(had)) ? fold(had).replaceFirst(inside, put) : '$put ${fold(had)}';
       if (put.isNotEmpty && title != fold(had)) {
         if (task != null) {

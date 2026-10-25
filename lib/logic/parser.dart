@@ -1418,7 +1418,9 @@ class Parser {
       if (when != null && when.hasTime) {
         // "দিন সকাল …": the start of "প্রতিদিন" lost by the speech engine.
         final plain = said
-            .replaceAll(RegExp(fold(r'(?:^|\s)(?:তোমাকে|তোমারে|আপনাকে)(?=\s)')), ' ')
+            // …but "তোমাকে নিয়ে" is someone taken along (often a name the
+            // speech engine heard as "তোমাকে") — kept, so it can be named.
+            .replaceAll(RegExp(fold(r'(?:^|\s)(?:তোমাকে|তোমারে|আপনাকে)(?=\s)(?!\s+(?:নিয়ে|নিয়ে|সাথে|সঙ্গে|নিয়া))')), ' ')
             .trim()
             .replaceFirst(RegExp(fold(r'^দিন\s+(?=(?:সকাল|ভোর|দুপুর|বিকাল|বিকেল|সন্ধ্যা|রাত)\S*\s)')), 'প্রতিদিন ');
         final daily = when.hasDay || RegExp(fold(r'(?:প্রতি|রোজ|প্রত্যেক|সপ্তাহে|মাসে)')).hasMatch(fold(plain)) ? plain : 'প্রতিদিন $plain';
