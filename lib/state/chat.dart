@@ -481,6 +481,9 @@ class ChatController extends ChangeNotifier {
   /// "ফেরত পেলাম" more than was owed was pointed out once for this entry.
   bool _overWarned = false;
 
+  /// The kind said before "more than was owed" was asked ("ফেরত দিয়েছে").
+  LedgerKind? _overKind;
+
   /// The command being saved right now, so a repeated "হ্যাঁ" (voice and a
   /// tap together, or a callback fired twice) can never save it twice.
   Command? _executing;
@@ -2515,6 +2518,7 @@ class ChatController extends ChangeNotifier {
       final owed = _kind == LedgerKind.received ? (bal > 0 ? bal : 0) : (bal < 0 ? -bal : 0);
       if (_amount > owed) {
         _overWarned = true;
+        _overKind = _kind;
         final was = owed == 0
             ? (_kind == LedgerKind.repaid ? tr('আপনার কোনো দেনা ছিল না') : tr('আগে কোনো পাওনা ছিল না'))
             : (_kind == LedgerKind.repaid ? trf('দেনা ছিল {0} টাকা', [bnNumber(owed)]) : trf('পাওনা ছিল {0} টাকা', [bnNumber(owed)]));
@@ -3370,6 +3374,15 @@ class ChatController extends ChangeNotifier {
         return true;
       case ChatWait.kind:
         final src = _src!;
+        // "সাবিনা না এটা রবিন হবে": not this person — the same money with
+        // the right one, read again from the start (owner's voice chat, 25 Oct).
+        final other = personCorrection(t, _person);
+        if (other != null) {
+          wait = ChatWait.none;
+          choices = const [];
+          await _start(LedgerAdd(src.transcript.replaceAll(_person, other), person: other, amount: _amount, kind: _overKind ?? src.kind), out);
+          return true;
+        }
         // "রহিমা আপার কাছ থেকে ১০০০ টাকা ধার নিলাম" while "মাকে ৫০০০ …" waits:
         // a whole new money event (its own amount or person), never the
         // answer to the old question — the old one is left unsaved.

@@ -39,6 +39,11 @@ List<Command> parseAll(String said, List<LedgerEntry> ledger,
     {List<Task> tasks = const [], List<Contact> contacts = const [], List<FolderHint> folders = const [], DateTime? now, AppData? data}) {
   // "ও হ্যাঁ, … ভুল করবা না", "… কল গর": the request itself, said plainly.
   said = plainSpeech(said);
+  // One breath, no punctuation, several sums: the commas speech lost, back.
+  said = moneyBreathCommas(said);
+  // "… দাওয়াত আছে সেটা কাজের তালিকায় রাখো আর শনিবার … মনে করিয়ে দিও":
+  // each order ends its own sentence, and "সেটা" is what was just said.
+  said = spokenOrders(said);
   // "যশোর যাওয়া কাজের নাম বদল হবে শ্বশুর বাড়ি যাওয়া": a to-do renamed —
   // never a note or a new to-do, whatever else the words could be.
   final rename = renameCommand(said);
@@ -205,6 +210,8 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   // Money said in parts of different times: one command each.
   final shared = sharedVerbMoney(said, p);
   if (shared != null) return shared;
+  final told = loanThenReturn(said, p);
+  if (told != null) return told;
   final money = moneyClauses(said, p);
   if (money != null) return money;
   // To-do requests, one per clause ("বাজার করেছি, ওষুধ আনিনি").
@@ -212,7 +219,10 @@ List<Command> _parseAll(String said, List<LedgerEntry> ledger,
   if (todo != null && todo.isNotEmpty) return todo;
   // "… এটা আমাকে কাজের তালিকায় লিখে রাখো": one to-do, said whole.
   final first = p.parse(said);
-  if (first is TaskAdd && RegExp(fold(r'(?:কাজের\s+(?:লিস্ট|তালিকা)|টু\s*ডু)')).hasMatch(fold(said))) return [first];
+  // Only for one sentence: "… তালিকায় রাখো। শনিবার … মনে করিয়ে দিও" is
+  // two requests, each read below on its own.
+  final oneSentence = said.trim().replaceAll(RegExp(r'[।!?.]+\s*$'), '').split(_sentenceEnd).where((x) => x.trim().isNotEmpty).length < 2;
+  if (oneSentence && first is TaskAdd && RegExp(fold(r'(?:কাজের\s+(?:লিস্ট|তালিকা)|টু\s*ডু)')).hasMatch(fold(said))) return [first];
   // "তুমি এটা লেখ, …": the instruction is not part of what to save.
   final (rest, write) = stripAddress(said);
   if (rest.isNotEmpty && rest != said.trim()) {
@@ -1006,4 +1016,175 @@ List<Command>? peopleGave(String said, Parser p) {
     out.add(c);
   }
   return found ? out : null;
+}
+
+
+/// Speech comes without punctuation, so "চাল কিনলাম ১২০০ টাকার ডাল কিনলাম
+/// ৩০০ টাকার আর সবজি নিলাম ২৫০ টাকার রিকশা ভাড়া গেল ৬০ টাকা" reached the
+/// list readers (which split at commas and "আর") as one or two parts and
+/// lost sums (owner, 25 Oct: long speech). This puts back a comma between
+/// the money parts: after a sum said at the end of its part ("… কিনলাম ১২০০
+/// টাকার"), or before the next sum when a sum leads its part ("৬০০ টাকার
+/// মুরগি …"). Only for a message with no punctuation of its own and two or
+/// more sums; the words are not changed.
+String moneyBreathCommas(String said) {
+  if (said.contains(RegExp(r'[,،;।\n]'))) return said;
+  final w = said.trim().split(RegExp(r'\s+'));
+  if (w.length < 6) return said;
+  // Each sum: [start, end) over the words, with its "টাকা/টাকার" if said.
+  final spans = <(int, int)>[];
+  bool numberWord(String x) {
+    final f = normalize(x);
+    return RegExp(r'^[০-৯0-9][০-৯0-9,.]*$').hasMatch(f) || (findAmount(f) != null && !RegExp(fold(r'^(?:টাকা|টাকার|টাকায়)$')).hasMatch(fold(x)));
+  }
+
+  final multiplier = RegExp(fold(r'^(?:হাজার|হাজারের|হাজারে|লাখ|লাখের|লক্ষ|শো|শ|শত|কোটি)$'));
+  final taka = RegExp(fold(r'^(?:টাকা|টাকার|টাকায়|টাকাতে|টাকাই|টাকাও|tk|taka)$'));
+  for (var i = 0; i < w.length; i++) {
+    if (!numberWord(w[i]) && fold(w[i]) != fold('সাড়ে')) continue;
+    var j = i + 1;
+    while (j < w.length && (numberWord(w[j]) || multiplier.hasMatch(fold(w[j])))) {
+      j++;
+    }
+    final hasTaka = j < w.length && taka.hasMatch(fold(w[j]));
+    if (hasTaka) j++;
+    // A sum is "টাকা" said, or a big number (hundreds and up) — not "২টা", "৩ কেজি".
+    final v = findAmount(normalize(w.sublist(i, j).join(' ')));
+    final unit = j < w.length && RegExp(fold(r'^(?:কেজি|গ্রাম|লিটার|টা|টি|পিস|হালি|ডজন|জন|দিন|মাস|বছর|তারিখ|তারিখে|টায়|টার|বার)$')).hasMatch(fold(w[j]));
+    if (v != null && !unit && (hasTaka || v >= 100)) spans.add((i, j));
+    i = j - 1;
+  }
+  if (spans.length < 2) return said;
+  // Words that still belong to the sum before them.
+  final tail = RegExp(fold(r'^(?:দিয়ে|দিয়ে|নিয়ে|নিয়ে|খরচ|হলো|হল|হয়েছে|হয়েছে|গেল|গেলো|গেছে|দিলাম|দিছি|দিয়েছি|দিয়েছি|নিলাম|নিছি|পেলাম|পাইছি|কিনলাম|কিনছি|লাগল|লাগলো|লাগছে|করে|মতো|মত|ধার|হিসেবে|দিয়া|দিসি|নিছিল|নিছিলো|নিয়েছিল|নিয়েছিলো|নিয়েছিলেন|নিছিলাম|নিয়েছিলাম|দিছিলাম|দিয়েছিলাম|দিছিল|দিয়েছিল|নিল|নিলো|দিল|দিলো)$'));
+  final cuts = <int>{};
+  var pieceStart = 0;
+  for (var k = 0; k < spans.length - 1; k++) {
+    final (a, b) = spans[k];
+    final leads = a - pieceStart <= 1 && fold(w[b - 1]).endsWith(fold('টাকার'));
+    if (leads) {
+      // "৬০০ টাকার মুরগি কিনলাম ১০০০ টাকার …": cut before the next sum.
+      final next = spans[k + 1].$1;
+      cuts.add(next);
+      pieceStart = next;
+    } else {
+      var c = b;
+      while (c < spans[k + 1].$1 && tail.hasMatch(fold(w[c]))) {
+        c++;
+      }
+      if (c < spans[k + 1].$1) {
+        cuts.add(c);
+        pieceStart = c;
+      }
+    }
+  }
+  // "৫ হাজার টাকা দিলাম ইসমাইলকে আজকে 5000 টাকা দিলাম": the same sum said
+  // again, with nothing new but who or when — one thing, not two. (Two
+  // things at one price still differ: "চাল ৩০০ টাকার, ডাল ৩০০ টাকার".)
+  final sorted = cuts.toList()..sort();
+  final bounds = [0, ...sorted, w.length];
+  const when = {'আজ', 'আজকে', 'কাল', 'কালকে', 'গতকাল', 'এখন', 'আবার', 'মানে', 'না'};
+  for (var k = 0; k + 2 < bounds.length; k++) {
+    final a = w.sublist(bounds[k], bounds[k + 1]), b = w.sublist(bounds[k + 1], bounds[k + 2]);
+    final va = findAmount(normalize(a.join(' '))), vb = findAmount(normalize(b.join(' ')));
+    if (va == null || va != vb) continue;
+    Set<String> rest(List<String> x) => {for (final y in x) if (!numberWord(y) && !multiplier.hasMatch(fold(y)) && !taka.hasMatch(fold(y)) && !when.contains(y)) fold(y)};
+    final ra = rest(a), rb = rest(b);
+    if (ra.difference(rb).isEmpty || rb.difference(ra).isEmpty) cuts.remove(bounds[k + 1]);
+  }
+  if (cuts.isEmpty) return said;
+  final out = StringBuffer();
+  for (var i = 0; i < w.length; i++) {
+    if (cuts.contains(i)) out.write(',');
+    if (i > 0) out.write(' ');
+    out.write(w[i]);
+  }
+  // "…, তার থেকে বাসা ভাড়া দিলাম …": "from that" only joins the parts.
+  return out.toString().replaceAll(RegExp(fold(r',\s+(?:তার|এর|তা|সেখান|ওখান)\s+থেকে\s+')), ', ');
+}
+
+
+/// Orders said in one breath (owner, 25 Oct: long speech): a full stop after
+/// an order ("… তালিকায় রাখো", "… মনে করিয়ে দিও") when more follows after
+/// "আর/তারপর/এবং", and "ওটা/সেটা/এটা" before an order dropped when the same
+/// sentence has just said what it is ("মিটিং আছে ওটা মনে করিয়ে দিও" →
+/// "মিটিং আছে মনে করিয়ে দিও") — so it is never looked up among old to-dos.
+String spokenOrders(String said) {
+  const order = r'(?:কাজের\s+(?:তালিকায়|লিস্টে)\s+(?:রাখো|রাখবা|রেখো|যোগ\s+করো|লিখে\s+রাখো)|তালিকায়\s+(?:রাখো|রেখো)|লিখে\s+রাখো|লিখে\s+রাখবা|মনে\s+করিয়ে\s+(?:দিও|দাও|দিবা|দিবেন|দিয়ো|দিয়েন|দিও\s+একটু|দিবা\s+একটু)|রিমাইন্ডার\s+(?:দাও|দিও|দিবা|সেট\s+করো)|অ্যালার্ম\s+(?:দাও|দিও|সেট\s+করো))';
+  var s = said;
+  // "… <thing> ওটা/সেটা <order>": the thing itself.
+  s = s.replaceAllMapped(RegExp(fold(r'(\S+(?:\s+\S+){2,}?)\s+(?:ওটা|সেটা|এটা|ওইটা|সেইটা|এইটা|ওটাও|সেটাও|এটাও)\s+(' + order + r')')), (m) => '${m[1]} ${m[2]}');
+  // "<order> আর <more>": two sentences.
+  s = s.replaceAllMapped(RegExp(fold(r'(' + order + r')(?:\s+(?:একটু|প্লিজ))?\s+(?:আর|তারপর|এবং|আর\s+তারপর)\s+(?=\S+(?:\s+\S+){2,})')), (m) => '${m[1]}। ');
+  return s;
+}
+
+/// "সুমন আমার কাছ থেকে গত সপ্তাহে দুই হাজার টাকা নিছিল আজকে এক হাজার ফেরত
+/// দিছে", "হাসানকে দশ হাজার ধার দিছিলাম ও আজকে পুরো টাকাটা ফেরত দিছে": a
+/// loan told as what happened before, then what came back today. When the
+/// loan is not in the book yet, both are kept (the loan first, so what
+/// came back has something to settle); when it is, only what came back.
+/// The same for money the user took ("… থেকে নিয়েছিলাম … ফেরত দিলাম").
+List<Command>? loanThenReturn(String said, Parser p) {
+  final n = fold(normalize(said));
+  // What happened before: someone took (or I gave) — a past perfect verb.
+  final theyTook = fold(r'(?:ধার\s+)?(?:নিছিল|নিছিলো|নিয়েছিল|নিয়েছিলো|নিয়েছিলেন|নিছিলেন|নিসিল)');
+  final iGave = fold(r'(?:ধার\s+)?(?:দিছিলাম|দিয়েছিলাম|দিসিলাম|দিছিলাম|দিয়েছিলাম)');
+  final iTook = fold(r'(?:ধার\s+)?(?:নিছিলাম|নিয়েছিলাম|নিসিলাম)');
+  final backToMe = fold(r'(?:ফেরত|শোধ)\s+(?:দিয়ে\s+)?(?:দিছে|দিয়েছে|দিল|দিলো|দিছেন|দিয়েছেন|দিলেন|দিসে)');
+  final backFromMe = fold(r'(?:ফেরত|শোধ)\s+(?:দিয়ে\s+)?(?:দিলাম|দিছি|দিয়েছি|দিসি)');
+  final h = RegExp('^(.*?)\\s+(?:($theyTook)|($iGave)|($iTook))(?=\\s)(.*?)($backToMe|$backFromMe)(?=\\s|\$)\\s*\\S{0,6}\\s*\$').firstMatch(n);
+  if (h == null) return null;
+  final before = h[1]!, after = h[5]!;
+  final iOwe = h[4] != null;
+  if (iOwe != RegExp(backFromMe).hasMatch(h[6]!)) return null;
+  // Whose money: "Xকে … দিছিলাম", "X আমার কাছ থেকে … নিছিল",
+  // "আমি Xের কাছ থেকে … নিয়েছিলাম".
+  const honor = {'ভাই', 'আপা', 'ভাবি', 'ভাবী', 'মামা', 'চাচা', 'খালা', 'ফুপু', 'দাদা', 'দিদি', 'আপু', 'সাহেব', 'বস'};
+  const notNames = {'আমাকে', 'তাকে', 'ওকে', 'ওনাকে', 'উনাকে', 'আপনাকে', 'তোমাকে', 'কাকে'};
+  final ws = before.split(' ');
+  String? name;
+  if (h[2] != null) {
+    // The one who took usually leads ("রহিম গত মাসে আমার থেকে …");
+    // after a time ("গত সপ্তাহে সুমন আমার কাছ থেকে …"), the word before "আমার".
+    const fillers = {'আচ্ছা', 'শোনো', 'শুনো', 'শোন', 'তো', 'মানে', 'আসলে', 'হ্যাঁ', 'ও'};
+    const times = {'গত', 'আজ', 'আজকে', 'কাল', 'কালকে', 'গতকাল', 'পরশু', 'সেদিন', 'আগে', 'এই', 'গতমাসে'};
+    final at = ws.indexOf('আমার');
+    final lead = ws.indexWhere((w) => !fillers.contains(w));
+    if (lead >= 0 && lead < at && !times.contains(ws[lead]) && parseWhen(ws[lead], p.now) == null) {
+      name = lead + 1 < at && honor.contains(ws[lead + 1]) ? '${ws[lead]} ${ws[lead + 1]}' : ws[lead];
+    } else if (at >= 1) {
+      final last = ws[at - 1];
+      name = honor.contains(last) && at >= 2 ? '${ws[at - 2]} $last' : last;
+    }
+  } else {
+    // I gave: "Xকে"; I took: "Xের কাছ থেকে", "Xর থেকে".
+    for (var i = 0; i < ws.length; i++) {
+      final w = ws[i];
+      final next = i + 1 < ws.length ? ws[i + 1] : '';
+      final m = iOwe
+          ? (RegExp(r'^(?:কাছ|কাছে|কাছ্থেকে|থেকে)$').hasMatch(next) ? RegExp(fold(r'^(\S{2,}?)(?:ের|এর|র)$')).firstMatch(w) : null)
+          : RegExp(r'^(\S{2,}?)কে$').firstMatch(w);
+      if (m != null && !notNames.contains(w) && !{'আমার', 'তার', 'ওর', 'ওনার', 'উনার'}.contains(w)) {
+        name = m[1];
+        break;
+      }
+    }
+  }
+  if (name == null || name.isEmpty) return null;
+  final first = findAmount(before);
+  if (first == null || first <= 0) return null;
+  // No sum said for what came back ("… আজ ফেরত দিছে"): all of it.
+  final back = findAmount(after) ?? first;
+  if (back <= 0 || back > first) return null;
+  final base = p.parse(iOwe ? '$nameের কাছ থেকে $first টাকা ধার নিলাম' : '$nameকে $first টাকা ধার দিলাম');
+  final person = base is LedgerAdd && base.person.isNotEmpty ? base.person : name;
+  final w = parseWhen(before, p.now);
+  final day = w != null && w.hasDay && w.day.isBefore(dayOnly(p.now)) ? dayOnly(w.day) : null;
+  final known = balanceOf(p.ledger, person)?.balance ?? 0;
+  final told = iOwe ? -known : known;
+  return [
+    if (told < back) LedgerAdd(said, person: person, amount: first, kind: iOwe ? LedgerKind.borrowed : LedgerKind.lent, date: day),
+    LedgerAdd(said, person: person, amount: back, kind: iOwe ? LedgerKind.repaid : LedgerKind.received),
+  ];
 }

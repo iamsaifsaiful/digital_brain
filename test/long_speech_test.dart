@@ -56,7 +56,7 @@ final _cases = <(String, _Want)>[
 ];
 
 /// Cases that must pass (raised as the understanding improves).
-const _floor = 0;
+const _floor = 20;
 
 void main() {
   testWidgets('long speech: one breath, several things', (t) async {

@@ -454,7 +454,9 @@ String _bnNum(int n) => n.toString().split('').map((c) => '০১২৩৪৫৬
 String plainSpeech(String said) {
   var s = fold(said.trim());
   if (s.split(RegExp(r'\s+')).length < 3) return said;
-  final lead = RegExp(fold(r'^(?:ও\s+হ্যাঁ|ভুলে\s+গেছিলাম|ভুলে\s+গিয়েছিলাম|ভাই\s+একটা\s+কথা|আরেকটা\s+কথা|আচ্ছা\s+শোনো|শোনো|শুনো|হুনো|উমম+|ইয়ে|দয়া\s+করে|প্লিজ|please)[\s,।]+'));
+  final lead = RegExp(fold(r'^(?:ও\s+হ্যাঁ|ভুলে\s+গেছিলাম|ভুলে\s+গিয়েছিলাম|ভাই\s+একটা\s+কথা|আরেকটা\s+কথা|আচ্ছা\s+শোনো|শোনো|শুনো|হুনো|উমম+|ইয়ে|দয়া\s+করে|প্লিজ|please'
+      // Spoken run-ups (owner, 25 Oct: long speech): "মানে আমি বলতে চাচ্ছি যে", "তো যা বলছিলাম", "আসলে".
+      r'|(?:মানে\s+)?(?:আমি\s+)?(?:বলতে\s+চাচ্ছি|বলতে\s+চাইছি|বলতে\s+চাই|বলছিলাম|বলছি)(?:\s+যে)?|(?:তো\s+)?যা\s+বলছিলাম|আসলে|মানে|তো|আচ্ছা)[\s,।]+'));
   final tail = RegExp(fold(r'[\s,।]+(?:ভুল\s+করবা\s+না|ভুল\s+করবে\s+না|ভুল\s+করো\s+না|ভুলে\s+যেও\s+না(?:\s+কিন্তু)?|ঠিকমতো\s+রাখবে|ঠিকমতো\s+রাখবা|ঠিক\s+করে\s+লিখবা|ঠিক\s+করে\s+লিখবে|মনে\s+করে|ঠিক\s+আছে|বুঝছো|বুঝলে|কেমন|bro|ব্রো|বাবা|মা|ভাই|প্লিজ|please)\s*[?？।.!]*$'));
   for (var k = 0; k < 3; k++) {
     final before = s;
@@ -539,3 +541,36 @@ String meantInstead(String said) {
 }
 
 
+
+
+/// A reply that corrects who it was (owner's voice chat, 25 Oct): "সাবিনা না
+/// এটা রবিন হবে", "না, রবিন", "রবিন হবে", "সাবিনা না রবিনের কাছ থেকে" —
+/// the other name, without its endings; null when the reply is not a name
+/// correction (an answer like "নতুন ধার", a plain "না") or names [current].
+String? personCorrection(String said, String current) {
+  final ws = words(normalize(said.replaceAll(RegExp(r'[,،।.!?]'), ' ')));
+  if (ws.isEmpty || ws.length > 7) return null;
+  final cur = fold(current.trim().split(RegExp(r'\s+')).first);
+  bool isCur(String x) => cur.isNotEmpty && fold(x).startsWith(cur);
+  final demonstratives = {'এটা', 'ওটা', 'এইটা', 'ওইটা', 'এটি', 'উনি', 'সে', 'ও', 'আসলে', 'মানে'};
+  final tails = {'হবে', 'হবেন', 'হইবো', 'হইব', 'ছিল', 'ছিলো', 'কাছ', 'থেকে', 'দিয়েছে', 'দিছে', 'দিছেন', 'দিল'};
+  var i = 0;
+  // "<current> না …" or "না …": the correction marker.
+  if (isCur(ws[i])) i++;
+  final marked = i < ws.length && ws[i] == fold('না');
+  if (marked) i++;
+  while (i < ws.length && demonstratives.map(fold).contains(ws[i])) {
+    i++;
+  }
+  final rest = ws.sublist(i).where((x) => !tails.map(fold).contains(x)).toList();
+  final saidTail = ws.sublist(i).any((x) => const {'হবে', 'হবেন'}.map(fold).contains(x));
+  if (rest.isEmpty || rest.length > 3) return null;
+  // Without "না" it must be "<name> হবে".
+  if (!marked && !saidTail) return null;
+  final name = stripPossessive(rest.join(' ')).replaceAll(RegExp(fold(r'(?:এর|ের|র|কে|রে)$')), '').trim();
+  if (name.isEmpty || isCur(name)) return null;
+  // Not an answer word ("না, নতুন ধার", "না শোধ").
+  if (RegExp(fold(r'(?:ধার|শোধ|ফেরত|খরচ|নতুন|দিলাম|নিলাম|পেলাম|টাকা|হ্যাঁ|ঠিক)')).hasMatch(fold(name))) return null;
+  if (findAmount(normalize(name)) != null) return null;
+  return name;
+}

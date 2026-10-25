@@ -898,6 +898,15 @@ List<Command>? todoCommands(String said, List<Task> tasks, DateTime now) {
   if (pd != null) return [pd];
   // "বৃহস্পতিবার করব, তবে শুক্রবারের মধ্যে জমা দিতে হবে": one to-do.
   final oneThought = _thas(' ${_tf(whole)} ', r'\s(?:তবে|কিন্তু)\s.+মধ্যে');
+  // "কাল বাজার করব। পরশু ব্যাংকে যাব": whole sentences, each a to-do of its
+  // own (with its own day) — never one to-do of both.
+  final sentences = [
+    for (final c in whole.split(RegExp(r'[।!?\n]+|\.\s+'))) if (c.trim().isNotEmpty) c.trim(),
+  ];
+  if (sentences.length >= 2 && !oneThought) {
+    final each = [for (final c in sentences) _tdOne(c, tasks, now)];
+    if (each.every((c) => c is TaskAdd && c.title.trim().isNotEmpty)) return each.cast<Command>();
+  }
   if (clauses.length >= 2 && !oneThought) {
     final cmds = [for (final c in clauses) _tdOne(c, tasks, now)];
     final real = cmds.whereType<Command>().where((c) => c is! TaskQuery || clauses.length == 1).toList();
