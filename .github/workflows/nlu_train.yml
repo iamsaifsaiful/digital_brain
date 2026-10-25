@@ -27,6 +27,16 @@ jobs:
         run: |
           pip install "tensorflow-cpu==2.15.1" "numpy<2" scipy scikit-learn
           if [ "$M" = bert ]; then pip install "transformers==4.40.2" "tf_keras==2.15.1" "torch==2.3.1" --extra-index-url https://download.pytorch.org/whl/cpu; fi
+      - name: The 5,000 users' train half (if made)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p tool/nlu/out/people
+          if gh release download nlu-people-data -p train.jsonl.gz -D tool/nlu/out/people -R "$GITHUB_REPOSITORY"; then
+            gunzip -f tool/nlu/out/people/train.jsonl.gz && wc -l tool/nlu/out/people/train.jsonl
+          else
+            echo "no people data yet"
+          fi
       - name: Make data
         run: |
           python tool/nlu/crowd/crowd.py

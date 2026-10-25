@@ -1,0 +1,56 @@
+name: NLU people
+
+# 5,000 made-up users write what they would say in every menu (Claude Haiku,
+# batch; owner's go-ahead 25 Oct 2026, budget-capped). Runs when the
+# nlu-people branch is pushed. A 100-user pilot measures the real cost and
+# the rest is sent only if the projection is under BUDGET. The checked
+# sentences go on the "nlu-people-data" release (train half, test half,
+# users, stats, usage); nlu_train.yml uses the train half.
+on:
+  push:
+    branches: [nlu-people]
+
+permissions:
+  contents: write
+
+jobs:
+  people:
+    runs-on: ubuntu-latest
+    timeout-minutes: 600
+    env:
+      BUDGET: '20'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Users and requests (nothing sent)
+        run: python tool/nlu/people/people.py prepare
+      - name: Pilot, then the rest within the budget
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then echo "::error::No ANTHROPIC_API_KEY secret"; exit 1; fi
+          python tool/nlu/people/people.py run --budget "$BUDGET"
+      - name: Check labels, drop near-duplicates, split by user
+        run: python tool/nlu/people/people.py verify
+      - name: Publish the data
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd tool/nlu/out/people
+          ls -la
+          gzip -kf raw.jsonl train.jsonl test.jsonl 2>/dev/null || true
+          gh release delete nlu-people-data -y --cleanup-tag -R "$GITHUB_REPOSITORY" || true
+          gh release create nlu-people-data users.json stats.json usage.json train.jsonl.gz test.jsonl.gz raw.jsonl.gz \
+            --title "NLU people data (not an app release)" --notes "5,000 made-up users: train half (users 0–3999) and test half (4000–4999, never trained on)." \
+            --prerelease --latest=false -R "$GITHUB_REPOSITORY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nlu-people
+          path: |
+            tool/nlu/out/people/usage.json
+            tool/nlu/out/people/stats.json
+            tool/nlu/gold/people.jsonl

@@ -373,6 +373,22 @@ def main():
     ai = os.path.join(OUT, 'paraphrase.jsonl')
     ai_rows = [json.loads(l) for l in open(ai)] if os.path.exists(ai) else []
     rows += ai_rows
+    # 5,000 made-up users' own words (tool/nlu/people/people.py; the train
+    # half only — users 4000–4999 are for measuring). Every long one-breath
+    # message is kept; of the single ones at most 10 a user, so no one user
+    # (or the AI's habits) drowns the rest.
+    people = os.path.join(ROOT, 'out', 'people', 'train.jsonl')
+    if os.path.exists(people):
+        per_user = defaultdict(int)
+        for l in open(people):
+            x = json.loads(l)
+            if len(x['segs']) == 1:
+                per_user[x['user']] += 1
+                if per_user[x['user']] > 10:
+                    continue
+            x.setdefault('pair', None)
+            x.setdefault('slots', {})
+            rows.append(x)
     # Members' real messages, labelled (tool/nlu/retrain/labels.py).
     real = os.path.join(OUT, 'real.jsonl')
     rows += [json.loads(l) for l in open(real)] if os.path.exists(real) else []

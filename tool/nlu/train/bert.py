@@ -16,7 +16,9 @@ import common as C  # noqa: E402
 from tiny import DELETE, MONEY, LOOKUPS  # noqa: E402
 
 NAME = os.environ.get('BERT_NAME', 'csebuetnlp/banglabert_small')
-MAXT = 48
+# Word pieces read at once: 128 (was 48 — long one-breath messages were cut;
+# owner, 25 Oct). The app reads it from config.json.
+MAXT = int(os.environ.get('BERT_MAXT', '128'))
 EPOCHS = int(os.environ.get('BERT_EPOCHS', '4'))
 OUT = os.path.join(C.ROOT, 'out', 'models', 'bert')
 STATE_WORDS = {
