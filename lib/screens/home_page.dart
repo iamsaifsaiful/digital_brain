@@ -27,6 +27,7 @@ import 'docs_screen.dart';
 import 'easy_home.dart';
 import 'family_screen.dart';
 import 'health_hub.dart';
+import 'health_screens.dart' show MedicinesScreen;
 import 'home_screen.dart';
 import 'home_shell.dart';
 import 'notes_screen.dart';
@@ -714,6 +715,7 @@ class _Tools extends StatelessWidget {
     final tools = <(String, IconData, VoidCallback)>[
       (tr('কাজের তালিকা'), Icons.checklist_rounded, () => goToTab(context, ShellTab.diary)),
       (tr('রিমাইন্ডার'), Icons.notifications_none_rounded, () => push(const AllTasksScreen())),
+      (tr('হিসাব'), Icons.account_balance_wallet_outlined, () => goToTab(context, ShellTab.money)),
       (tr('ডকুমেন্টস'), Icons.folder_outlined, () => push(const DocsScreen())),
       (tr('নোট'), Icons.description_outlined, () => push(const NotesScreen())),
       (tr('যোগাযোগ'), Icons.person_outline_rounded, () => push(const CallsScreen())),
@@ -724,6 +726,7 @@ class _Tools extends StatelessWidget {
       (tr('কম্পাস'), Icons.explore_outlined, () => push(const CompassScreen())),
       (tr('যাকাত'), Icons.volunteer_activism_outlined, () => push(const ZakatScreen())),
       (tr('ফ্যামিলি'), Icons.family_restroom_rounded, () => push(const FamilyScreen())),
+      (tr('ওষুধ'), Icons.medication_outlined, () => push(const MedicinesScreen())),
       (tr('ব্লাড ডোনেশন'), Icons.bloodtype_outlined, () => push(const RequestsScreen())),
       (tr('প্রিমিয়াম'), Icons.workspace_premium_outlined, () => push(const ProScreen())),
     ];
