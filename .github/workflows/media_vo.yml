@@ -16,13 +16,14 @@ jobs:
         with:
           python-version: '3.11'
       - name: Edge voices (may be refused)
+        if: false
         continue-on-error: true
         run: |
           (pip install edge-tts==7.2.0 && python tool/media/tts.py) > edge.log 2>&1 || true
       - name: Indic Parler-TTS
         continue-on-error: true
         run: |
-          (pip install "torch==2.3.1" --extra-index-url https://download.pytorch.org/whl/cpu && pip install git+https://github.com/huggingface/parler-tts.git@v0.2.2 soundfile && python tool/media/parler.py) > parler.log 2>&1 || true
+          (pip install "torch==2.3.1" --extra-index-url https://download.pytorch.org/whl/cpu && pip install git+https://github.com/huggingface/parler-tts.git@main soundfile && python tool/media/parler.py) > parler.log 2>&1 || true
       - name: Save to the branch
         if: always()
         run: |
