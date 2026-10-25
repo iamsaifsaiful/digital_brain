@@ -212,7 +212,7 @@ class LookSection extends StatelessWidget {
         const SizedBox(height: 18),
         label(tr('থিম')),
         SegTabs<Look>(
-          items: [(Look.system, tr('ফোনের মতো')), (Look.light, tr('আলো')), (Look.dark, tr('অন্ধকার'))],
+          items: [(Look.sun, tr('সময়ের সাথে')), (Look.system, tr('ফোনের মতো')), (Look.light, tr('আলো')), (Look.dark, tr('অন্ধকার'))],
           value: brain.look,
           onChanged: (v) => brain.setLook(v),
         ),

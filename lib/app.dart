@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'logic/bn.dart';
 import 'logic/proactive.dart';
+import 'logic/calendar_bd.dart' show placeNamed, sunTimes;
+import 'logic/sky_light.dart';
 import 'screens/more_screen.dart' show BackupScreen;
 import 'screens/google_backup.dart' show restoreFromDrive;
 import 'screens/feedback_screen.dart' show FeedbackScreen;
@@ -49,6 +53,12 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
     brain.services.notifier.tapped.addListener(_onNotificationTap);
     AppPlatform.listen();
     AppPlatform.launches.addListener(_onLaunch);
+    _dusk = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (brain.look == Look.sun && brain.loaded && _applyLook()) {
+        setState(() {});
+        _rebuildAll();
+      }
+    });
     // Opened by a reminder before this page existed.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       _onNotificationTap();
@@ -59,6 +69,9 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       }
     });
   }
+
+  /// সময়ের সাথে: the colours move on with the light (checked every minute).
+  Timer? _dusk;
 
   @override
   void didUpdateWidget(DigitalBrainApp old) {
@@ -74,6 +87,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
 
   @override
   void dispose() {
+    _dusk?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     brain.removeListener(_onBrain);
     brain.services.notifier.tapped.removeListener(_onNotificationTap);
@@ -88,16 +102,18 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
   /// the user's choice (and the phone's own dark mode for "ফোনের মতো").
   bool _applyLook() {
     final platformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
-    final dark = switch (brain.look) {
-      Look.dark => true,
-      Look.light => false,
-      Look.system => platformDark,
+    final mix = switch (brain.look) {
+      Look.dark => 1.0,
+      Look.light => 0.0,
+      Look.system => platformDark ? 1.0 : 0.0,
+      Look.sun => duskMix(brain),
     };
     final size = brain.easyMode ? (brain.letterSize < 1.15 ? 1.15 : brain.letterSize) : brain.letterSize;
-    final stamp = '$dark|${brain.accentKey}|${brain.english}|$size';
+    final stamp = '${mix.toStringAsFixed(2)}|${brain.accentKey}|${brain.english}|$size';
     if (stamp == _lookStamp) return false;
     _lookStamp = stamp;
-    C.dark = dark;
+    C.mix = mix;
+    C.dark = mix >= 0.5;
     C.accent = accentFor(brain.accentKey);
     isEn = brain.english;
     textScale = size;
@@ -442,4 +458,19 @@ class _LoadError extends StatelessWidget {
           ),
         ),
       );
+}
+
+
+/// How dark the app is now in the সময়ের সাথে look (0 day … 1 night): the
+/// home picture's night amount at the user's place, in steps of 0.05 so the
+/// pages are rebuilt only now and then while it changes, never resting
+/// between 0.3 and 0.7.
+double duskMix(Brain brain) {
+  final now = brain.services.now();
+  final sun = sunTimes(now, placeNamed(brain.district));
+  final n = skyLight(now, sun.sunrise, sun.sunset).night.clamp(0.0, 1.0);
+  // The page dims slowly to 0.3, crosses the middle at once (a grey page
+  // with grey letters is hard to read), then deepens slowly from 0.7.
+  final m = n < 0.5 ? n * 0.6 : 0.7 + (n - 0.5) * 0.6;
+  return (m * 20).round() / 20;
 }

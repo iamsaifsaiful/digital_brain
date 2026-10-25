@@ -313,7 +313,7 @@ class _HomeHeroState extends State<HomeHero> {
     final top = MediaQuery.of(context).padding.top;
     final height = top + 318.0;
     // In the dark look the day is a little dimmer, so it sits with the page.
-    final dim = (light.dim + (C.dark ? 0.16 * (1 - light.night) : 0)).clamp(0.0, 0.6);
+    final dim = (light.dim + 0.16 * C.mix * (1 - light.night)).clamp(0.0, 0.6);
 
     Widget picture = Stack(fit: StackFit.expand, children: [
       Image.asset('assets/sky/day.jpg', fit: BoxFit.cover, alignment: const Alignment(0, 0.55), gaplessPlayback: true, excludeFromSemantics: true),

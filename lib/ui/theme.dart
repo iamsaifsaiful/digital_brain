@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 /// The app's look: light or dark, and the main accent colour. Chosen in
 /// সেটিংস › চেহারা and read by [C] while the screens build.
-enum Look { system, light, dark }
+/// [sun]: light by day, dark by night, changing slowly through dawn and
+/// dusk with the home picture (owner, 25 Oct) — the default.
+enum Look { sun, system, light, dark }
 
 class Accent {
   const Accent(this.key, this.name, this.nameEn, this.main, this.dark, this.tint, this.tintDark);
@@ -55,10 +57,19 @@ String colorKey(Color c) => '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padL
 /// Old names stay and point at the new tokens.
 class C {
   /// Set by the app before building; screens read colours through [C].
+  /// [mix] is how far towards the dark set (0 light … 1 dark); [dark] is
+  /// true from half way (bars, the platform brightness).
   static bool dark = false;
+  static double mix = 0;
   static Accent accent = accentFor('amber');
 
-  static Color _p(int light, int night) => Color(dark ? night : light);
+  static Color _p(int light, int night) => mix <= 0 ? Color(light) : (mix >= 1 ? Color(night) : Color.lerp(Color(light), Color(night), mix)!);
+
+  /// Letters and marks: never a washed in-between grey — the light set's
+  /// until half way, the dark set's after (the ground under them never
+  /// stops in the middle either, see `duskMix`).
+  static Color _f(int light, int night) => Color(mix < 0.5 ? light : night);
+  static Color _mix(Color light, Color night) => mix <= 0 ? light : (mix >= 1 ? night : Color.lerp(light, night, mix)!);
 
   /// bg: the screen.
   static Color get ground => _p(0xFFF5F7F6, 0xFF121A33);
@@ -66,9 +77,9 @@ class C {
 
   /// surface2: counters, date blocks, quiet chips, the tabs' track.
   static Color get surface2 => _p(0xFFEDF2F0, 0xFF242E50);
-  static Color get ink => _p(0xFF192E28, 0xFFEEF1F8);
-  static Color get muted => _p(0xFF667871, 0xFFA3ADC6);
-  static Color get muted2 => _p(0xFF3E524B, 0xFFC7CEE0);
+  static Color get ink => _f(0xFF192E28, 0xFFEEF1F8);
+  static Color get muted => _f(0xFF667871, 0xFFA3ADC6);
+  static Color get muted2 => _f(0xFF3E524B, 0xFFC7CEE0);
   static Color get line => _p(0xFFDFE7E3, 0xFF2E3859);
   static Color get line2 => _p(0xFFDFE7E3, 0xFF2E3859);
   static Color get border => _p(0xFFDFE7E3, 0xFF2E3859);
@@ -77,7 +88,7 @@ class C {
   static Color get chip => surface2;
 
   /// Attention (late, may-not-ring, money to give).
-  static Color get warn => _p(0xFF92631C, 0xFFE5C487);
+  static Color get warn => _f(0xFF92631C, 0xFFE5C487);
   static Color get warnBg => _p(0xFFFBF5E9, 0xFF2A2732);
   static Color get warnBorder => _p(0xFFEBDFC5, 0xFF4A4232);
 
@@ -91,15 +102,26 @@ class C {
   /// washed out with white), with white letters still readable on it.
   /// accent; in the dark look a light glow (mint for the default green)
   /// with dark letters on it ([onAccent]).
-  static Color get green => dark ? (accent.key == 'green' ? const Color(0xFF8BD8BF) : _glow(accent.main, 0.72)) : accent.main;
-  static Color get greenDark => dark ? (accent.key == 'green' ? const Color(0xFFA9E6D2) : _glow(accent.main, 0.82)) : accent.dark;
+  static Color get green => mix < 0.5 ? accent.main : (accent.key == 'green' ? const Color(0xFF8BD8BF) : _glow(accent.main, 0.72));
+  static Color get greenDark => mix < 0.5 ? accent.dark : (accent.key == 'green' ? const Color(0xFFA9E6D2) : _glow(accent.main, 0.82));
 
   /// accentSoft: icon tiles, the active tab's pill, soft chips.
-  static Color get greenTint => dark ? (accent.key == 'green' ? const Color(0xFF1F3B47) : Color.alphaBlend(_glow(accent.main, 0.45).withValues(alpha: 0.22), surface)) : accent.tint;
-  static Color get greenSoft => dark ? Color.alphaBlend(_glow(accent.main, 0.45).withValues(alpha: 0.12), surface) : Color.lerp(accent.tint, Colors.white, 0.45)!;
+  static Color get greenTint => _mix(accent.tint, accent.key == 'green' ? const Color(0xFF1F3B47) : Color.alphaBlend(_glow(accent.main, 0.45).withValues(alpha: 0.22), surface));
+  static Color get greenSoft => _mix(Color.lerp(accent.tint, Colors.white, 0.45)!, Color.alphaBlend(_glow(accent.main, 0.45).withValues(alpha: 0.12), surface));
 
-  /// Letters and icons on the accent.
-  static Color get onAccent => dark ? const Color(0xFF102C21) : Colors.white;
+  /// Letters and icons on the accent: dark on a light fill, white on a deep
+  /// one (decided by the fill itself, so it stays readable while it changes).
+  static Color get onAccent => _readableOn(green, const Color(0xFF102C21), Colors.white);
+
+  /// Of [a] and [b], the one that reads better on [bg] (higher contrast).
+  static Color _readableOn(Color bg, Color a, Color b) {
+    double c(Color x) {
+      final l1 = bg.computeLuminance() + 0.05, l2 = x.computeLuminance() + 0.05;
+      return l1 > l2 ? l1 / l2 : l2 / l1;
+    }
+
+    return c(a) >= c(b) ? a : b;
+  }
 
   // Short names from the design.
   static Color get accentC => green;
@@ -112,30 +134,30 @@ class C {
 
   /// A colour's tint for its icon box: light in the light look, a glow over
   /// the card in the dark look.
-  static Color _tint(int light, int night) => dark ? Color.alphaBlend(Color(night).withValues(alpha: 0.20), surface) : Color(light);
+  static Color _tint(int light, int night) => _mix(Color(light), Color.alphaBlend(Color(night).withValues(alpha: 0.20), surface));
 
   // Category colours (24 Oct): calm, earthy versions, so pages read as one
   // quiet set rather than a rainbow.
   static Color get orange => warn;
-  static Color get orangeDark => _p(0xFF7A5216, 0xFFEDD3A0);
+  static Color get orangeDark => _f(0xFF7A5216, 0xFFEDD3A0);
   static Color get orangeTint => warnBg;
 
-  static Color get blue => _p(0xFF3D5F8A, 0xFF9DB7D6);
+  static Color get blue => _f(0xFF3D5F8A, 0xFF9DB7D6);
   static Color get blueTint => _tint(0xFFEDF1F6, 0xFF9DB7D6);
-  static Color get blueText => _p(0xFF2A4466, 0xFFC5D3E4);
+  static Color get blueText => _f(0xFF2A4466, 0xFFC5D3E4);
 
-  static Color get purple => _p(0xFF6A5A8E, 0xFFB4A6D2);
+  static Color get purple => _f(0xFF6A5A8E, 0xFFB4A6D2);
   static Color get purpleTint => _tint(0xFFF0EDF5, 0xFFB4A6D2);
 
-  static Color get ochre => _p(0xFF8A6420, 0xFFD9B56E);
+  static Color get ochre => _f(0xFF8A6420, 0xFFD9B56E);
   static Color get ochreTint => _tint(0xFFF6F0E3, 0xFFD9B56E);
 
-  static Color get red => _p(0xFFB33A2B, 0xFFEE8670);
+  static Color get red => _f(0xFFB33A2B, 0xFFEE8670);
 
-  static Color get teal => _p(0xFF2F6F67, 0xFF7FC4B8);
+  static Color get teal => _f(0xFF2F6F67, 0xFF7FC4B8);
   static Color get tealTint => _tint(0xFFE7F0EE, 0xFF7FC4B8);
-  static Color get rose => _p(0xFFA8434A, 0xFFE99AA0);
-  static Color get roseDark => _p(0xFF8A333A, 0xFFF2BCC0);
+  static Color get rose => _f(0xFFA8434A, 0xFFE99AA0);
+  static Color get roseDark => _f(0xFF8A333A, 0xFFF2BCC0);
   /// A rose fill that keeps white letters readable in both looks.
   static Color get roseFill => _p(0xFFA8434A, 0xFFC2554F);
   static Color get roseTint => _tint(0xFFF8EBEC, 0xFFE99AA0);
@@ -148,8 +170,8 @@ class C {
 
   /// Text on an [ink]-coloured fill (a selected chip, the user's bubble):
   /// white in the light look, dark in the dark look where [ink] is light.
-  static Color get onInk => _p(0xFFFFFFFF, 0xFF111827);
-  static Color get onInkMuted => _p(0xFFD1D5DB, 0xFF4B5563);
+  static Color get onInk => _readableOn(ink, const Color(0xFF111827), const Color(0xFFFFFFFF));
+  static Color get onInkMuted => onInk == const Color(0xFF111827) ? const Color(0xFF4B5563) : const Color(0xFFD1D5DB);
   static const mint = Color(0xFFA7F3D0);
   static const peach = Color(0xFFFDBA74);
   static const alarm = Color(0xFF0B3B30);

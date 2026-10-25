@@ -85,9 +85,9 @@ void main() {
   });
 
   test('the dark look is a night blue', () {
-    C.dark = true;
+    C.mix = 1;
     final g = HSLColor.fromColor(C.ground);
-    C.dark = false;
+    C.mix = 0;
     expect(g.hue, inInclusiveRange(215, 240));
     expect(g.lightness, lessThan(0.16));
   });
@@ -407,6 +407,57 @@ void main() {
     expect(find.text('৩৬°'), findsNothing);
     expect(find.byKey(const Key('home-temp')), findsNothing);
   });
+
+  test('সময়ের সাথে: colours blend from the light set to the dark one', () {
+    C.mix = 0;
+    final day = C.ground;
+    C.mix = 1;
+    final night = C.ground;
+    C.mix = 0.5;
+    final between = C.ground;
+    C.mix = 0;
+    expect(between, isNot(day));
+    expect(between, isNot(night));
+    expect(HSLColor.fromColor(between).lightness, inExclusiveRange(HSLColor.fromColor(night).lightness, HSLColor.fromColor(day).lightness));
+    // Letters on the accent stay readable all the way.
+    for (final m in [0.0, 0.25, 0.5, 0.75, 1.0]) {
+      C.mix = m;
+      final ratio = (C.green.computeLuminance() + 0.05) / (C.onAccent.computeLuminance() + 0.05);
+      final contrast = ratio > 1 ? ratio : 1 / ratio;
+      expect(contrast, greaterThan(3.0), reason: 'mix $m');
+    }
+    C.mix = 0;
+  });
+
+  for (final shots in [Platform.environment['SHOTS'] == '1']) {
+    testWidgets('সময়ের সাথে is the default: light by day, slowly dark after sunset', (t) async {
+      if (shots) await icons();
+      final rig = await start(t);
+      expect(rig.brain.look, Look.sun);
+      final sun = sunTimes(DateTime(2026, 10, 24), placeNamed('ঢাকা'));
+      final mixes = <double>[];
+      for (final (name, at) in [
+        ('1-afternoon', DateTime(2026, 10, 24, 15)),
+        ('2-sunset', sun.sunset.add(const Duration(minutes: 5))),
+        ('3-dusk', sun.sunset.add(const Duration(minutes: 25))),
+        ('4-evening', sun.sunset.add(const Duration(minutes: 45))),
+        ('5-night', DateTime(2026, 10, 24, 21)),
+      ]) {
+        rig.nowAt = at;
+        // A minute passes: the app looks at the light again.
+        await t.pump(const Duration(minutes: 1));
+        await settle(t);
+        mixes.add(C.mix);
+        if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('ui/shots/dusk-$name.png'));
+      }
+      expect(mixes.first, 0);
+      expect(mixes.last, 1);
+      for (var i = 1; i < mixes.length; i++) {
+        expect(mixes[i], greaterThanOrEqualTo(mixes[i - 1]), reason: '$mixes');
+      }
+      expect(mixes.where((m) => m > 0 && m < 1), isNotEmpty, reason: 'it passes through in-between colours: $mixes');
+    });
+  }
 
   test('rig still builds', () => expect(Rig().brain, isNotNull));
 }

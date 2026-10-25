@@ -993,7 +993,7 @@ class Brain extends ChangeNotifier {
   // ── Look and language (সেটিংস › চেহারা, ভাষা) ──
 
   /// Light, dark, or as the phone is.
-  Look look = Look.system;
+  Look look = Look.sun;
 
   /// The accent colour's key (see `accents`).
   /// Default: কমলা (owner, 25 Oct); a colour the user chose stays.
@@ -1065,7 +1065,7 @@ class Brain extends ChangeNotifier {
     try {
       final keys = services.lock.keys;
       final saved = await keys.read('look');
-      look = Look.values.firstWhere((l) => l.name == saved, orElse: () => Look.system);
+      look = Look.values.firstWhere((l) => l.name == saved, orElse: () => Look.sun);
       accentKey = await keys.read('accent') ?? 'amber';
       english = (await keys.read('lang')) == 'en';
       letterSize = double.tryParse(await keys.read('letter_size') ?? '') ?? 1.0;

@@ -4172,4 +4172,5 @@ const enStrings = <String, String>{
   'সঞ্চয়ের লক্ষ্য যুক্ত করুন': 'Add a savings goal',
   'অ্যালার্ম যুক্ত করুন': 'Add an alarm',
   'ব্যাকআপ নিন — ফোন হারালেও সব ফিরে পাবেন': 'Take a backup — get everything back even if the phone is lost',
+  'সময়ের সাথে': 'With the time',
 };
