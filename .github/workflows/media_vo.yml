@@ -9,14 +9,26 @@ permissions:
 jobs:
   tts:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install edge-tts==7.0.2
-      - run: python tool/media/tts.py 2>&1 | tee tts.log; cd out && zip -q ../vo.zip *.mp3 || true
-      - env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Edge voices (may be refused)
+        continue-on-error: true
+        run: |
+          pip install edge-tts==7.2.0 && python tool/media/tts.py 2>&1 | tail -5 | tee edge.log
+      - name: Indic Parler-TTS
+        continue-on-error: true
+        run: |
+          pip install "torch==2.3.1" --extra-index-url https://download.pytorch.org/whl/cpu
+          pip install git+https://github.com/huggingface/parler-tts.git@v0.2.2 soundfile
+          python tool/media/parler.py 2>&1 | tail -20 | tee parler.log
+      - name: Publish
         if: always()
-        run: gh release create "media-vo-${{ github.run_number }}" vo.zip tts.log --target "$GITHUB_SHA" --title "Voice-over ${{ github.run_number }}" --notes "Promo video voice-over clips" --prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          touch edge.log parler.log; mkdir -p out; (cd out && zip -q ../vo.zip * || true); [ -f vo.zip ] || zip -q vo.zip edge.log
+          gh release create "media-vo-${{ github.run_number }}" vo.zip edge.log parler.log --target "$GITHUB_SHA" --title "Voice-over ${{ github.run_number }}" --notes "Promo video voice-over clips" --prerelease
