@@ -821,8 +821,30 @@ extension _TodoChat on ChatController {
     final m1 = RegExp(fold(r'^\s*(\S+)\s+না(?:[\s,]+(?:রে|ভাই|আপা|তো|গো|বাবা|ভাইয়া|আপু))*[\s,।]+(\S+(?:\s+(?:কে|রে|এর|র|ের))?)\s*[।.!]*$')).firstMatch(fold(t));
     final m2 = RegExp(fold(r'আমি\s+(?:বলি|বলছি|বলতেছি|বললাম|কইলাম|কই)\s+(\S+(?:\s+কে)?)\s+(?:আর\s+|কিন্তু\s+)?তুমি\s+(?:শুনতেছো|শুনতেছ|শুনছো|শুনছ|শুনলে|শুনো|শুনলা|লিখলে|লিখছো|লেখো|লিখলা)\s+(\S+)')).firstMatch(ft);
     final m3 = RegExp(fold(r'^\s*না[\s,]+(?:এখানে|ওখানে|এটা|ওটা|ওইখানে)\s+(?:হবে|হইবো|হবে\s+না)\s+(\S+(?:\s+কে)?)(?:\s+(?:কেন|কে|তো|না))?\s*$')).firstMatch(ft);
-    if (m1 != null) {
+    // "সেখানে তুমি বলছো তোমাকে, আমি বলছি টোবা কে" (you say X, I say Y).
+    final m2b = RegExp(fold(r'তুমি\s+(?:বলছো|বলছ|বলতেছো|বলতেছ|লিখছো|লিখতেছো|শুনছো|শুনতেছো|লিখলা|বললা)\s+(\S+)\s+(?:আর\s+|কিন্তু\s+)?আমি\s+(?:বলছি|বলি|বলতেছি|বললাম|কইলাম)\s+(\S+(?:\s+কে)?)')).firstMatch(ft);
+    // "এখানে তোমাকে না, এটা হবে (তোমাকে) তুবা": X not, here it is Y.
+    final m4 = RegExp(fold(r'^\s*(?:এখানে\s+|ওখানে\s+|এইখানে\s+)?(\S+)\s+না[\s,]+(?:এটা\s+|ওটা\s+|এখানে\s+)?(?:হবে|হইবো)(?:\s+(.*))?$')).firstMatch(ft);
+    // The word asked for a moment ago ("‘তোমাকে’-এর জায়গায় কী হবে?").
+    final asked = _swapAsk;
+    if (asked != null && _now.difference(asked.$2).inMinutes <= 3 && words(ft).isNotEmpty && words(ft).length <= 3 && m1 == null) {
+      _swapAsk = null;
+      (from, to) = (asked.$1, words(ft).join(' '));
+    } else if (m1 != null) {
       (from, to) = (m1[1]!, m1[2]!);
+    } else if (m2b != null) {
+      (from, to) = (m2b[1]!, m2b[2]!);
+    } else if (m4 != null && m3 == null && m2 == null) {
+      final x = m4[1]!;
+      final rest = [for (final w in words(m4[2] ?? '')) if (fold(w) != fold(x)) w];
+      if (rest.isEmpty) {
+        // The right word was lost (cut off by the speech engine): asked, never
+        // kept as a to-do called "এখানে তোমাকে না".
+        _swapAsk = (x, _now);
+        _say(out, trf('“{0}”-এর জায়গায় কী হবে? শুধু সেটুকু বলুন — যেমন “তুবাকে”।', [x]));
+        return true;
+      }
+      (from, to) = (x, rest.join(' '));
     } else if (m2 != null) {
       (from, to) = (m2[2]!, m2[1]!);
     } else if (m3 != null && RegExp(fold(r'(?:^|\s)(?:তোমাকে|তোমারে)(?=\s|$)')).hasMatch(fold(had))) {

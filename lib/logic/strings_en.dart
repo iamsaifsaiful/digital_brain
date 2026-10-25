@@ -4175,6 +4175,7 @@ const enStrings = <String, String>{
   'সময়ের সাথে': 'With the time',
   'দুঃখিত, ভুল বুঝেছিলাম। মুছে দিলাম — {0}।': 'Sorry, I got that wrong. Removed — {0}.',
   'ঠিক আছে, মুছিনি — যেমন ছিল তেমনই আছে।': 'OK, not removed — it stays as it was.',
+  '“{0}”-এর জায়গায় কী হবে? শুধু সেটুকু বলুন — যেমন “তুবাকে”।': 'What goes in place of “{0}”? Say just that — like “Tuba”.',
   'দুঃখিত, আপনাকে বিরক্ত করে ফেলেছি।': 'Sorry, I have annoyed you.',
   'দুঃখিত, দেরি করে ফেলেছি।': 'Sorry, I was slow.',
   'বুঝতে পারছি, আপনি বিরক্ত — আমি দুঃখিত। এক লাইনে বলুন কী চান, আমি সেটাই করব। চাইলে কিবোর্ডে লিখেও দিতে পারেন।': "I can tell you're annoyed — I'm sorry. Say in one line what you want and I'll do just that. You can also type it.",

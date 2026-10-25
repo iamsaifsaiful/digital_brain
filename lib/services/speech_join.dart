@@ -13,6 +13,24 @@ import 'trace.dart';
 /// * results from an older session (a late callback) are ignored, except the
 ///   final text of a session that ended early, which replaces the partial
 ///   text kept for it (corrected, never doubled).
+/// The final words of a piece, given the partial text shown just before
+/// it. Some recognisers send a final that drops words the partial already
+/// had — its end ("… তোমাকে তুবা" → "…"), or all but the last few words
+/// ("সেখানে … বলছি টোবা কে" → "তুবা তু"). The final's own words win where
+/// they overlap (they are the corrected reading); words only the partial
+/// had are kept.
+String fuller(String partial, String fin) {
+  final pw = partial.trim().split(RegExp(r'\s+')).where((x) => x.isNotEmpty).toList();
+  final fw = fin.trim().split(RegExp(r'\s+')).where((x) => x.isNotEmpty).toList();
+  if (fw.isEmpty) return partial.trim();
+  if (fw.length >= pw.length) return fin.trim();
+  // The partial is the final and more: all of it.
+  if (pw.take(fw.length).join(' ') == fw.join(' ')) return pw.join(' ');
+  // Clipped by two words or more: the partial's start, the final's end.
+  if (fw.length <= pw.length - 2) return [...pw.take(pw.length - fw.length), ...fw].join(' ');
+  return fin.trim();
+}
+
 class SpeechJoin {
   String committed = '';
   String current = '';
@@ -68,7 +86,7 @@ class SpeechJoin {
     // the partial text kept for it.
     if (isFinal && sid == _keptSession && _kept.isNotEmpty && committed.trimRight().endsWith(_kept)) {
       final base = committed.trimRight();
-      committed = '${base.substring(0, base.length - _kept.length)} $words'.trim();
+      committed = '${base.substring(0, base.length - _kept.length)} ${fuller(_kept, words)}'.trim();
       _finals[sid] = words;
       _kept = '';
       _keptSession = -1;
@@ -107,6 +125,10 @@ class SpeechJoin {
       _kept = '';
       _keptSession = -1;
     }
+    // A final shorter than what was on screen a moment ago (owner's video,
+    // 25 Oct: "…এটা হবে তোমাকে তুবা" shown, "…এটা হবে" sent as final): the
+    // words heard are kept, never lost to a clipped final.
+    if (isFinal && current.trim().isNotEmpty) words = fuller(current, words);
     final changed = words != current;
     current = words;
     if (isFinal) {

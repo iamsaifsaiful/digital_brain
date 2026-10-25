@@ -466,6 +466,9 @@ class ChatController extends ChangeNotifier {
   /// can complete it.
   String _lastSaid = '';
 
+  /// "X না, এটা হবে …" with the new word lost: which word, and when asked.
+  (String, DateTime)? _swapAsk;
+
   /// A removal answered "না" (maybe wrongly), for a moment after.
   (ManageItem, Target, DateTime)? _refusedManage;
 
