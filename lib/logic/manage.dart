@@ -14,7 +14,7 @@ import 'when.dart';
 /// Kinds of saved things the assistant can change or remove by voice.
 /// (Passwords are only changed on their own locked page.)
 enum ItemKind {
-  reminder('রিমাইন্ডার', ['রিমাইন্ডার', 'মনে করানো', 'অ্যালার্ম', 'এলার্ম', 'alarm', 'reminder']),
+  reminder('রিমাইন্ডার', ['রিমাইন্ডার', 'রিমেন্ডার', 'রিমাইনডার', 'রিমান্ডার', 'রিমেইন্ডার', 'মনে করানো', 'অ্যালার্ম', 'এলার্ম', 'alarm', 'reminder']),
   task('কাজ', ['কাজের তালিকা', 'কাজ', 'টুডু', 'task']),
   note('নোট', ['নোট', 'note']),
   ledger('লেনদেন', ['লেনদেন', 'ধার', 'বাকি', 'পাওনা', 'দেনা', 'হিসাব']),
@@ -149,6 +149,12 @@ List<Target> findTargets(AppData d, String said, DateTime now) {
     ];
     if (hit.isNotEmpty) return hit.take(6).toList();
   }
+  // "আজকে রাত্রে সেটা ডিলিট করে দাও", "রাত্রে আটটা ৪৫-এ যে রিমাইন্ডারটা
+  // আছে" (owner's video, 25 Oct): the day and the clock it rings at pick it.
+  if (kind == null || kind == ItemKind.reminder) {
+    final byTime = _remindersAt(d, said, now);
+    if (byTime.isNotEmpty) return [for (final t in all) if (byTime.contains(t.id)) t].take(6).toList();
+  }
   final terms = _nameTerms(text, kind);
   final numbers = [for (final m in RegExp(r'\d+').allMatches(asciiDigits(text))) int.parse(m[0]!)];
   final scored = <(Target, int)>[];
@@ -272,4 +278,38 @@ List<Target> remindersNamed(AppData d, String said, DateTime now) {
     if (score > best) best = score;
   }
   return [for (final (t, s) in scored) if (s == best) t];
+}
+
+/// Reminders that ring on the day and at the time [said] gives ("আজকে
+/// রাত্রে", "রাত ৮:৪৫-এ", "আজ রাত আটটা ৪৫"). A part of the day without a
+/// clock ("রাত্রে") picks all of that part. Empty when no time is said or
+/// none rings then.
+Set<String> _remindersAt(AppData d, String said, DateTime now) {
+  final f = normalize(said);
+  final w = parseWhen(said, now);
+  final part = <String, (int, int)>{
+    'ভোর': (3, 6), 'সকাল': (5, 12), 'সকালে': (5, 12), 'দুপুর': (11, 15), 'দুপুরে': (11, 15), 'বিকাল': (14, 18), 'বিকেল': (14, 18), 'বিকেলে': (14, 18), 'বিকালে': (14, 18),
+    'সন্ধ্যা': (17, 20), 'সন্ধ্যায়': (17, 20), 'রাত': (18, 24), 'রাতে': (18, 24), 'রাত্রে': (18, 24), 'রাত্রি': (18, 24), 'রাইতে': (18, 24),
+  };
+  (int, int)? range;
+  for (final e in part.entries) {
+    if (words(f).contains(normalize(e.key))) range = e.value;
+  }
+  // A clock said in so many words ("৮:৪৫", "আটটা ৪৫", "৮টায়").
+  final clock = RegExp(r'\d{1,2}\s*[:.]\s*\d{2}|\d{1,2}\s*(?:টা|টায়|টার)').hasMatch(asciiDigits(f)) || RegExp(normalize('(?:এক|দুই|তিন|চার|পাঁচ|ছয়|সাত|আট|নয়|দশ|এগারো|বারো)(?:টা|টায়|টার)')).hasMatch(f);
+  final dayed = w != null && w.hasDay;
+  if (!clock && range == null) return const {};
+  if (!clock && !dayed) return const {};
+  final out = <String>{};
+  for (final r in d.reminders) {
+    final next = r.nextDate(now);
+    if (dayed && !(next.year == w.at.year && next.month == w.at.month && next.day == w.at.day)) continue;
+    if (clock && w != null && w.hasTime) {
+      if (r.hour != w.at.hour || r.minute != w.at.minute) continue;
+    } else if (range != null) {
+      if (r.hour < range.$1 || r.hour >= range.$2) continue;
+    }
+    out.add(r.id);
+  }
+  return out;
 }

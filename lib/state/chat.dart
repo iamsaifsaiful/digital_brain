@@ -466,6 +466,9 @@ class ChatController extends ChangeNotifier {
   /// can complete it.
   String _lastSaid = '';
 
+  /// A removal answered "না" (maybe wrongly), for a moment after.
+  (ManageItem, Target, DateTime)? _refusedManage;
+
   /// Venting in a row ("ধুর মিয়া" again and again): each answer shorter.
   int _vents = 0;
   DateTime? _ventAt;
@@ -835,7 +838,7 @@ class ChatController extends ChangeNotifier {
     // "দেনা পাওনা বলি নাই, বলেছি অন্যান্য হিসাব": only what was meant is heard.
     // "আইজকা কি কাম আছে", "kal doctor er kache jabo": in standard Bengali
     // first, so every rule below reads one language (the bubble keeps the words as said).
-    final t = standardSpeech(meantInstead(doneTail && body.isNotEmpty ? body : shown));
+    final t = shortOrdinal(standardSpeech(meantInstead(doneTail && body.isNotEmpty ? body : shown)));
     if (doneTail) Trace.log('understood', 'closing words left out', {'kept': t});
     ended = false;
     _turn++;
@@ -1135,6 +1138,20 @@ class ChatController extends ChangeNotifier {
     // 25 Oct): not listened to — say sorry and keep the request the app left
     // unfinished; with none, ask for it once more. Never sent to the AI as a
     // new question (that took seconds and answered something else).
+    // "তোমাকে তো আমি বাদ দিতে বলছি, আবার মোছ নাই কেন" right after a "না" to
+    // "মুছে দেবো?": the "না" was taken wrongly — removed now, with an undo.
+    final refused = _refusedManage;
+    if (refused != null && _now.difference(refused.$3).inMinutes <= 5 && insistsOnDelete(whole) && refused.$1.action == 'delete') {
+      _refusedManage = null;
+      _history.add(AiTurn.user(whole));
+      final snap = brain.snapshot();
+      await brain.deleteTarget(refused.$2);
+      _actions++;
+      _say(out, trf('দুঃখিত, ভুল বুঝেছিলাম। মুছে দিলাম — {0}।', [refused.$2.label]));
+      _offerUndo(snap);
+      notifyListeners();
+      return out.join(' ');
+    }
     final shortKeep = keepThat(whole) && words(normalize(whole)).length <= 5 && _lastSaid.isNotEmpty;
     // "ধুর মিয়া", "আরে বোকা …", "ভাবতে লাগাও আধা ঘণ্টা" (owner's video, 25
     // Oct: "ইউজারের কথার ইমোশন বুঝতে হবে"): venting is answered as venting.
@@ -2702,7 +2719,9 @@ class ChatController extends ChangeNotifier {
   /// not an answer but something new.
   Future<bool> _answer(String t, List<String> out) async {
     // "বাদ দাও", "থাক", "বাতিল": the question and what it was for are dropped.
-    if (wait != ChatWait.none && isCancel(t)) {
+    // …except when the question was "মুছে দেবো?": then "বাদ দাও" is the yes.
+    final deleting = (wait == ChatWait.yesNo && _current is ManageItem && (_current as ManageItem).action == 'delete') || (wait == ChatWait.bulk && _pendingBulk?.action.op == 'delete');
+    if (wait != ChatWait.none && isCancel(t) && !(deleting && deleteSaid(t))) {
       _pendingBulk = null;
       wait = ChatWait.none;
       choices = const [];
@@ -2913,6 +2932,11 @@ class ChatController extends ChangeNotifier {
         // "তুমি কি আমার কথা শুনতেছো না, এটা রাইখো না": "keep it, will you" —
         // a yes said in annoyance, never a no (owner's video, 25 Oct).
         if (notListening(t) && keepThat(t)) t = 'হ্যাঁ';
+        // "মুছে দেবো?" → "বাদ দাও আবার কি চিন্তা করতেছো": the same removal
+        // asked again is a yes (owner's video, 25 Oct), never a no.
+        final asked = _current;
+        if (asked is ManageItem && asked.action == 'delete' && deleteSaid(t)) t = 'হ্যাঁ';
+        if (asked is ManageItem && _target != null && yesNo(t) == false) _refusedManage = (asked, _target!, _now);
         // "না, রেখো না": a plain no — checked first, so "রেখো" is never
         // taken as a corrected name or kind.
         final refused = refusesSave(t) || notWhatISaid(t);
@@ -3166,7 +3190,8 @@ class ChatController extends ChangeNotifier {
         } else {
           final cur3 = _current;
           if (cur3 != null) _refused = ([cur3], _now);
-          _say(out, tr('আচ্ছা, রাখলাম না।'));
+          // A "মুছে দেবো?" answered no: nothing removed (not "nothing kept").
+          _say(out, cur3 is ManageItem && cur3.action == 'delete' ? tr('ঠিক আছে, মুছিনি — যেমন ছিল তেমনই আছে।') : tr('আচ্ছা, রাখলাম না।'));
           await _done(out);
         }
         return true;

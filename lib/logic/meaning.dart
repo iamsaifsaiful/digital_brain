@@ -627,3 +627,27 @@ String withoutVenting(String said, {bool keepWords = false}) {
   f = f.replaceAll(RegExp(fold(r'(?:^|\s)(?:মিয়া|মিয়া|ভাই|আরে|রে|তো|তুমি|কি|কী|একটু|আমি|তোমাকে|এটা)(?=\s|$)')), ' ');
   return f.replaceAll(RegExp(r'\s+'), ' ').trim();
 }
+
+/// "ওই লিস্টের প্রথম যে রিমাইন্ডার আছে সেটা বাদ দাও", "প্রথম রিমাইন্ডার যেটা
+/// আছে সেটা …" (owner's video, 25 Oct): one place in the list just shown,
+/// said the long way — read as "প্রথম রিমাইন্ডারটা …".
+String shortOrdinal(String said) => fold(said)
+    // "বললাম প্রথম রিমাইন্ডার …": the run-up before it goes too.
+    .replaceFirst(RegExp(fold(r'^\s*(?:আমি\s+)?(?:বললাম|বলছি|বলতেছি|কইলাম|কইতাছি)\s+(?:যে\s+)?(?=(?:ওই|এই|সেই|লিস্টের|তালিকার|প্রথম|দ্বিতীয়|তৃতীয়|চতুর্থ|পঞ্চম|শেষ)\S*\s)')), '')
+    .replaceAllMapped(
+    RegExp(fold(r'(?:(?:ওই|এই|সেই)\s+)?(?:(?:লিস্টের|লিস্টে|তালিকার|তালিকায়)\s+)?(প্রথম|দ্বিতীয়|তৃতীয়|চতুর্থ|পঞ্চম|শেষ|শেষের)\s+(?:যে\s+|যেই\s+)?(রিমাইন্ডার|রিমেন্ডার|অ্যালার্ম|কাজ|নোট)(?:\s*(?:টা|টি))?(?:\s+(?:যেটা|যেটি|যেইটা))?(?:\s+(?:আছে|ছিল))?(?:\s+(?:সেটা|সেটি|ওটা|ঐটা))?(?=\s|$)')),
+    (m) => '${m[1]} ${m[2] == fold('রিমেন্ডার') ? 'রিমাইন্ডার' : m[2]}টা');
+
+/// "বাদ দাও", "মুছে দাও", "ডিলিট করো" — and not "বাদ দিও না".
+bool deleteSaid(String said) {
+  final f = fold(normalize(said));
+  return RegExp(fold(r'(?:বাদ\s+(?:দাও|দেও|দেন|দিন|দিয়ে\s+দাও|দিয়া\s+দাও)|মুছে\s+(?:দাও|দেন|দিন|ফেলো|ফেল)|মুছো|মুছুন|ডিলিট|ফেলে\s+দাও)')).hasMatch(f) &&
+      !RegExp(fold(r'(?:দাও|দিও|দিয়ো|দেন|মুছো|করো|ফেলো)\s+না(?:\s|$)')).hasMatch(f);
+}
+
+/// "তোমাকে তো আমি বাদ দিতে বলছি, আবার মোছ নাই কেন": the removal the app
+/// did not do (a "না" taken the wrong way), asked for again.
+bool insistsOnDelete(String said) {
+  final f = fold(normalize(said));
+  return RegExp(fold(r'(?:বাদ|মুছ|মোছ|ডিলিট)\S*\s+(?:দিতে\s+|করতে\s+|ফেলতে\s+)?(?:বলছি|বললাম|বলেছি|বলছিলাম|বলতেছি|কইছি|কইলাম)|(?:মোছ|মুছ|বাদ\s+দেও|বাদ\s+দাও|বাদ\s+দিলা|ডিলিট\s+করো)\S*\s+(?:নাই|নি|না)\s+কেন')).hasMatch(f);
+}

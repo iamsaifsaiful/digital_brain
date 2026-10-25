@@ -97,7 +97,15 @@ extension _BulkChat on ChatController {
     // A bare "এগুলো": the list shown last — unless something else was said
     // or answered after it (then it is not known what "these" are).
     final last = fresh.lastOrNull;
-    return last != null && last.turn >= _topicTurn ? last : null;
+    if (last != null && last.turn >= _topicTurn) return last;
+    // "প্রথম রিমাইন্ডারটা …" after a turn about something else ("কি তুমি
+    // কি"): the kind named still points at the list of that kind shown.
+    const named = {'reminders': r'(?:রিমাইন্ডার|অ্যালার্ম)', 'tasks': r'কাজ', 'notes': r'নোট'};
+    for (final s in fresh.reversed) {
+      final w = named[s.domain];
+      if (w != null && RegExp(fold(w)).hasMatch(fold(b.transcript))) return s;
+    }
+    return null;
   }
 
   /// [sel] on [set] → ids, or the reason it cannot be told (said as is).
@@ -627,7 +635,8 @@ extension _BulkChat on ChatController {
         return true;
       }
     }
-    final yn = yesNo(t);
+    // "মুছে দেব?" → "বাদ দাও আবার কি চিন্তা করতেছো": asked again, so a yes.
+    final yn = p.action.op == 'delete' && deleteSaid(t) ? true : yesNo(t);
     // Something new said instead of an answer ("ফাউন্ডেশনের কাছে আমি ৬৪ হাজার
     // টাকা পাবো"): nothing removed, and that is heard on its own.
     if (yn == null && _looksNew(t)) return false;
