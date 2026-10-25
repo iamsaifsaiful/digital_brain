@@ -42,6 +42,16 @@ Not verified on a phone: the hero's look on real screens and its light at real h
 
 Tests at 2.54.0: full suite 2378 pass + 1 skipped, 1 failed (update_test tapped the money card under the new floating message) → fixed in the test, file passes (20/20). Plugin e2e ALL OK (282). Admin app 9 tests.
 
+### 2.55.1-b114 (25 Oct) — long speech (owner: "দীর্ঘ কথা ধরতে পারে না … ভয়েস এ ঠিক শুনলেও সে অনুযায়ী কাজ করতে পারে না")
+- `test/long_speech_test.dart`: 20 one-breath utterances (measurement only, never training). 13/20 → **20/20**, floor now 20.
+- `plan.dart`: `moneyBreathCommas` (commas speech lost between sums; a sum said again with nothing new stays one), `spokenOrders` (". " after an order when more follows; "ওটা/সেটা" before an order dropped), `loanThenReturn` ("X আমার থেকে … নিছিল … ফেরত দিছে": loan kept if not in the book, then the return; also borrowed → repaid). The whole-to-do shortcut only for one sentence.
+- `todo.dart`: several whole sentences, each a to-do → one each.
+- `meaning.dart`: spoken run-ups stripped ("মানে আমি বলতে চাচ্ছি যে", "তো যা বলছিলাম", "আসলে"); `personCorrection` used by the kind question in `chat.dart` (owner's screenshot "সাবিনা না এটা রবিন হবে" was saved as a to-do; now the return is Robin's — `test/owner_1025_test.dart`).
+- `parser.dart`: "একশো বিশ" = 120.
+- 5,000-persona data (`tool/nlu/people/people.py`, `nlu_people.yml`, push `nlu-people`): waits for the owner's `ANTHROPIC_API_KEY` secret; pilot 100 users, budget $20, estimate ~$5. Then retrain with MAXT 128.
+- Full suite: all pass when intent500 runs alone (under -j 8 it hit the 10-min limit; alone 2 min, 500/500).
+- Not verified: real voice; past loans said with "গত সপ্তাহে" are dated today.
+
 ### 2.55.0-b113 (25 Oct, morning)
 - **সময়ের সাথে** look (`Look.sun`, now the default; a chosen look stays): `C.mix` 0…1 from the home picture's night amount at the place (`duskMix` in app.dart, steps of 0.05, never resting between 0.3 and 0.7); backgrounds lerp (`_p`), letters/marks and the accent switch at half way (`_f`), `onAccent`/`onInk` pick the more readable of dark/white. Checked every minute (`_dusk` timer), rebuilt only on a step.
 - Notification icon question (owner's screenshot showed the old brain icon): the APK holds only the আ mark (launcher, small icon, PNGs checked). Likely the old non-preview app still installed (the preview installs beside it) or the phone's icon cache; asked the owner to long-press the notification to see which app.
