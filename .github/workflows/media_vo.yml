@@ -1,0 +1,21 @@
+name: Media voice-over
+# Bangla voice-over clips for the promo video (tool/media). Runs when the
+# media-vo branch is pushed; the clips go to a release.
+on:
+  push:
+    branches: [media-vo]
+permissions:
+  contents: write
+jobs:
+  tts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install edge-tts==6.1.12
+      - run: python tool/media/tts.py && cd out && zip -q ../vo.zip *.mp3
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "media-vo-${{ github.run_number }}" vo.zip --target "$GITHUB_SHA" --title "Voice-over ${{ github.run_number }}" --notes "Promo video voice-over clips" --prerelease
