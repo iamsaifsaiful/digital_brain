@@ -33,6 +33,7 @@ BUDGET = defaultdict(lambda: 500, {
 })
 CTX_BUDGET = 260          # per (state, shown, intent)
 MULTI = 3500              # several requests in one message
+LONG = 3000               # one long spoken breath: 2–4 requests, no punctuation, run-ups and fillers
 HEADED = 1800             # a heading and lines that inherit its date/year
 EXIT_SHARE = 0.05         # idle requests said while the app was waiting
 NOISE_RATE = 0.4
@@ -174,6 +175,62 @@ def multis(pool):
     return rows
 
 
+# How people start and join a long spoken breath (owner, 25 Oct: "দীর্ঘ কথা
+# ধরতে পারে না"): standard and regional run-ups, joiners, and endings. All
+# of them are outside every request (tag O, in no segment).
+OPENERS = ['আচ্ছা শোনো', 'শোনো', 'শুনো', 'শোনেন', 'হুনো', 'হুনেন', 'তো', 'মানে', 'আসলে', 'আচ্ছা', 'ভাই শোনো', 'আপা শুনেন', 'মানে আমি বলতে চাচ্ছি যে',
+           'আমি বলতে চাই যে', 'তো যা বলছিলাম', 'একটা কথা ছিল', 'কয়েকটা কথা লিখে রাখো', 'আজকে অনেক কাজ', 'আমার কয়েকটা কাজ আছে', 'ও আচ্ছা', 'হ্যালো',
+           'কইতাছি', 'হুন', 'এই যে শোনো', 'দেখো', 'বুঝছো', 'আচ্ছা ঠিক আছে শোনো', 'ও হ্যাঁ']
+JOINERS = ['আর', 'তারপর', 'এরপর', 'এর পরে', 'তারপরে', 'আর হ্যাঁ', 'ও হ্যাঁ', 'আরেকটা কথা', 'আরেকটা হলো', 'সাথে', 'আর শোনো', 'তারপর আবার', 'আবার',
+           'আর তারপর', 'এবং', 'আর একটা', 'পরে', 'হেরপর', 'তারফর', 'আর ইয়ে']
+ENDERS = ['একটু', 'প্লিজ', 'ঠিক আছে', 'বুঝছো', 'ভুলো না', 'মনে রাইখো', 'এই আর কি', 'এইটুকুই', 'আপাতত এই', 'ধন্যবাদ']
+LONG_INTENTS = ['task_add', 'task_add', 'reminder_add', 'reminder_add', 'cash_add', 'cash_add', 'cash_add', 'ledger_add', 'ledger_add', 'note_add', 'task_done',
+                'health_add', 'task_remind', 'reminder_edit', 'task_edit']
+_PUNCT = re.compile(r'[।.,!?;:]+$')
+
+
+def _spoken(p):
+    """A request as speech gives it: no punctuation (a word made only of it goes)."""
+    toks, tags = [], []
+    for t, g in zip(p['tokens'], p['tags']):
+        u = _PUNCT.sub('', t)
+        if not u:
+            continue
+        toks.append(u)
+        tags.append(g)
+    return dict(p, tokens=toks, tags=tags)
+
+
+def longs(pool):
+    by = defaultdict(list)
+    for r in pool:
+        if r['state'] == 'idle' and r['kind'] == 'single' and 3 <= len(r['tokens']) <= 22:
+            by[r['intent'][0]].append(r)
+    rows = []
+    for k in range(LONG):
+        n = random.choice([2, 3, 3, 3, 4, 4])
+        parts = []
+        while len(parts) < n:
+            p = random.choice(by[random.choice([i for i in LONG_INTENTS if by[i]])])
+            if all(p['family'] != q['family'] for q in parts):
+                parts.append(_spoken(p))
+        r = join_rows(parts, 'long', lambda i: random.choice(JOINERS) if random.random() < 0.85 else '')
+        if random.random() < 0.6:
+            head = random.choice(OPENERS).split()
+            r['tokens'] = head + r['tokens']
+            r['tags'] = ['O'] * len(head) + r['tags']
+            for sg in r['segs']:
+                sg['start'] += len(head)
+                sg['end'] += len(head)
+        if random.random() < 0.25:
+            tail = random.choice(ENDERS).split()
+            r['tokens'] += tail
+            r['tags'] += ['O'] * len(tail)
+        r['text'] = ' '.join(r['tokens'])
+        rows.append(r)
+    return rows
+
+
 def headed():
     """A heading whose day/year every line takes on."""
     rows = []
@@ -263,7 +320,7 @@ def exits(pool):
 def add_noise(rows):
     for r in rows:
         rate = NOISE_RATE if r['kind'] != 'context' else NOISE_RATE * 0.5
-        if r['kind'] in ('headed', 'multi_numbered'):
+        if r['kind'] in ('headed', 'multi_numbered', 'long'):
             continue
         if random.random() < rate:
             toks, tags, kinds = noise.apply(r['tokens'], r['tags'], rate=0.9)
@@ -368,7 +425,7 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     single, fams = singles()
     ctx = contexts()
-    rows = single + ctx + multis(single) + headed() + exits(single)
+    rows = single + ctx + multis(single) + longs(single) + headed() + exits(single)
     add_noise(rows)
     ai = os.path.join(OUT, 'paraphrase.jsonl')
     ai_rows = [json.loads(l) for l in open(ai)] if os.path.exists(ai) else []

@@ -37,6 +37,9 @@ jobs:
           python tool/nlu/crowd/crowd.py
           python tool/nlu/data/generate.py | tee data.log
       - name: Train
+        env:
+          # Long one-breath speech (25 Oct): 96 word pieces (was 48).
+          BERT_MAXT: '96'
         run: |
           set -o pipefail
           python tool/nlu/train/bert.py 2>&1 | tee train.log
