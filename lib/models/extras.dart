@@ -219,7 +219,7 @@ class Medicine {
 
   bool takenAt(DateTime day, int time) => taken.contains('${dayKey(day)} $time');
 
-  Medicine copyWith({String? name, int? dose, List<int>? times, int? stock, String? note, List<String>? reminderIds, List<String>? taken, DateTime? until, bool clearUntil = false}) => Medicine(
+  Medicine copyWith({String? member, String? name, int? dose, List<int>? times, int? stock, String? note, List<String>? reminderIds, List<String>? taken, DateTime? until, bool clearUntil = false}) => Medicine(
         id: id,
         name: name ?? this.name,
         dose: dose ?? this.dose,
@@ -229,7 +229,7 @@ class Medicine {
         reminderIds: reminderIds ?? this.reminderIds,
         taken: taken ?? this.taken,
         until: clearUntil ? null : (until ?? this.until),
-        member: member,
+        member: member ?? this.member,
       );
 
   Map<String, Object?> toJson() => {

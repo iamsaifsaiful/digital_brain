@@ -15,6 +15,7 @@ import '../services/location_share.dart';
 import '../state/brain.dart';
 import '../state/family_state.dart';
 import '../ui/pro_gate.dart';
+import '../ui/medicine_times.dart';
 import '../ui/theme.dart';
 import '../ui/file_view.dart';
 import '../ui/widgets.dart';
@@ -646,11 +647,7 @@ class _SendSheetState extends State<_SendSheet> {
           ],
           if (k == 'medicine') ...[
             const SizedBox(height: 10),
-            Text(tr('কখন খাবেন'), style: body(13.5, weight: FontWeight.w600, color: C.muted2)),
-            Wrap(spacing: 8, children: [
-              for (final m in [7 * 60, 8 * 60, 13 * 60, 14 * 60, 20 * 60, 21 * 60, 22 * 60])
-                FilterChip(label: Text(hm(m)), selected: _times.contains(m), onSelected: (v) => setState(() => v ? _times.add(m) : _times.remove(m))),
-            ]),
+            MedicineTimesPicker(times: (_times.toList()..sort()), onChanged: (t) => setState(() => _times..clear()..addAll(t))),
             const SizedBox(height: 8),
             Row(children: [
               Expanded(child: Text(tr('প্রতিবার কয়টা'), style: body(15))),

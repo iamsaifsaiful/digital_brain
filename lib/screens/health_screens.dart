@@ -6,6 +6,7 @@ import '../models/models.dart';
 import 'family_screen.dart' show sendMedicineToFamily;
 import '../state/brain.dart';
 import '../ui/forms.dart';
+import '../ui/medicine_times.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import '../ui/pdf_export.dart';
@@ -269,6 +270,7 @@ class _MedicineSheetState extends State<_MedicineSheet> {
   late List<int> _times = [...?widget.old?.times];
   late int _dose = widget.old?.dose ?? 1;
   late DateTime? _until = widget.old?.until;
+  late String _member = widget.member;
 
   @override
   void initState() {
@@ -284,8 +286,6 @@ class _MedicineSheetState extends State<_MedicineSheet> {
     super.dispose();
   }
 
-  void _preset(List<int> t) => setState(() => _times = t);
-
   Future<void> _save() async {
     final brain = BrainScope.read(context);
     final name = _name.text.trim();
@@ -293,8 +293,9 @@ class _MedicineSheetState extends State<_MedicineSheet> {
       toast(context, tr('নাম আর অন্তত একটা সময় দিন'));
       return;
     }
-    final base = widget.old ?? Medicine(name: name, member: widget.member);
+    final base = widget.old ?? Medicine(name: name, member: _member);
     await brain.saveMedicine(base.copyWith(
+      member: _member,
       name: name,
       dose: _dose,
       times: [..._times]..sort(),
@@ -315,32 +316,14 @@ class _MedicineSheetState extends State<_MedicineSheet> {
           Text(widget.old == null ? tr('নতুন ওষুধ') : tr('ওষুধ বদলান'), style: display(20, weight: 700)),
           FieldLabel(tr('ওষুধের নাম')),
           TextField(controller: _name, autofocus: widget.old == null, decoration: InputDecoration(hintText: tr('যেমন: নাপা, সেকলো'))),
-          FieldLabel(tr('কখন খাবেন')),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            ActionChip(label: Text(tr('দিনে ১ বার')), onPressed: () => _preset([9 * 60])),
-            ActionChip(label: Text(tr('দিনে ২ বার')), onPressed: () => _preset([9 * 60, 21 * 60])),
-            ActionChip(label: Text(tr('দিনে ৩ বার')), onPressed: () => _preset([8 * 60, 14 * 60, 22 * 60])),
-          ]),
-          const SizedBox(height: 8),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            for (final (i, t) in _times.indexed)
-              InputChip(
-                label: Text(minutesText(t)),
-                onPressed: () async {
-                  final m = await askTime(context, t);
-                  if (m != null) setState(() => _times[i] = m);
-                },
-                onDeleted: _times.length <= 1 ? null : () => setState(() => _times.removeAt(i)),
-              ),
-            ActionChip(
-              avatar: const Icon(Icons.add_rounded, size: 18),
-              label: Text(tr('সময়')),
-              onPressed: () async {
-                final m = await askTime(context, 13 * 60);
-                if (m != null) setState(() => _times.add(m));
-              },
-            ),
-          ]),
+          FieldLabel(tr('কার জন্য')),
+          MedicinePersonPicker(
+            people: [for (final m in BrainScope.of(context).healthPeople) (m.id, m.isMe ? tr('আমি') : m.name)],
+            selected: _member,
+            onChanged: (id) => setState(() => _member = id),
+          ),
+          const SizedBox(height: 14),
+          MedicineTimesPicker(times: _times, onChanged: (t) => setState(() => _times = t)),
           FieldLabel(trf('প্রতিবার কয়টা: {0}', [bnDigits(_dose)])),
           Row(children: [
             IconButton(onPressed: _dose > 1 ? () => setState(() => _dose--) : null, icon: const Icon(Icons.remove_circle_outline_rounded)),
