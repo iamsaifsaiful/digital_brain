@@ -42,6 +42,11 @@ Not verified on a phone: the hero's look on real screens and its light at real h
 
 Tests at 2.54.0: full suite 2378 pass + 1 skipped, 1 failed (update_test tapped the money card under the new floating message) → fixed in the test, file passes (20/20). Plugin e2e ALL OK (282). Admin app 9 tests.
 
+### 2.55.0-b113 (25 Oct, morning)
+- **সময়ের সাথে** look (`Look.sun`, now the default; a chosen look stays): `C.mix` 0…1 from the home picture's night amount at the place (`duskMix` in app.dart, steps of 0.05, never resting between 0.3 and 0.7); backgrounds lerp (`_p`), letters/marks and the accent switch at half way (`_f`), `onAccent`/`onInk` pick the more readable of dark/white. Checked every minute (`_dusk` timer), rebuilt only on a step.
+- Notification icon question (owner's screenshot showed the old brain icon): the APK holds only the আ mark (launcher, small icon, PNGs checked). Likely the old non-preview app still installed (the preview installs beside it) or the phone's icon cache; asked the owner to long-press the notification to see which app.
+- Full suite 2382 pass + 1 skipped.
+
 ### 2.54.1-b112 (25 Oct, 1 am)
 - Place change → weather at once: `_weatherKey` ties the weather to the place it was fetched for (`weatherNow` null for another place), `setDistrict` clears it (and `todayWeather`) and calls `refreshWeather`; the home's 2-min tick also calls `refreshPlace` (now every 10 min at most) and `refreshWeather`.
 - Backup nudge: first among the floating messages when something is kept and `last_backup` is older than 7 days (or never).
