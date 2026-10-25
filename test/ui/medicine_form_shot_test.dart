@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/screens/health_screens.dart' show MedicinesScreen;
-import 'package:digital_brain/state/brain.dart' show BrainMore, BrainHealth;
+import 'package:digital_brain/state/brain.dart' show BrainHealth;
 import 'package:digital_brain/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show debugDisableShadows;
