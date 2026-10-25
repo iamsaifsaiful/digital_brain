@@ -4173,4 +4173,7 @@ const enStrings = <String, String>{
   'অ্যালার্ম যুক্ত করুন': 'Add an alarm',
   'ব্যাকআপ নিন — ফোন হারালেও সব ফিরে পাবেন': 'Take a backup — get everything back even if the phone is lost',
   'সময়ের সাথে': 'With the time',
+  'দুঃখিত, আগেরবার ঠিক ধরতে পারিনি।': "Sorry, I didn't catch that the first time.",
+  'দুঃখিত। এখন রাখা আছে — {0}। কোথাও ভুল থাকলে বলুন কোনটা বদলাব, যেমন “X না, Y”।': 'Sorry. What is kept now — {0}. If something is wrong, say what to change, like “not X, Y”.',
+  'দুঃখিত — এবার মন দিয়ে শুনছি। কী রাখব, আরেকবার বলুন; সময় থাকলে সময়সহ বলবেন।': "Sorry — I'm listening now. Say once more what to keep; with the time, if there is one.",
 };

@@ -810,6 +810,27 @@ extension _TodoChat on ChatController {
     final task = c is TaskAdd ? brain.data.tasks.where((x) => x.title == c.title).lastOrNull : null;
     final rem = c is ReminderAdd ? brain.data.reminders.where((x) => x.id == _focusReminderId).firstOrNull : null;
     if (task == null && rem == null) return false;
+    // "তোমাকে না রে ভাই, তুবাকে" (owner's video, 25 Oct): one word of what
+    // was kept is wrong — that word, swapped; nothing else changes.
+    final swap = RegExp(fold(r'^\s*(\S+)\s+না(?:[\s,]+(?:রে|ভাই|আপা|তো|গো|বাবা|ভাইয়া|আপু))*[\s,।]+(\S+(?:\s+(?:কে|রে|এর|র|ের))?)\s*[।.!]*$')).firstMatch(fold(t));
+    final had = task?.title ?? rem!.title;
+    // "তোমাকে" was only who the app was told, so it is not in the title:
+    // the right one goes in front ("তুবাকে মাদ্রাসায় নিয়ে যেতে হয়").
+    final toYou = swap != null && RegExp(fold(r'^(?:তোমাকে|তোমারে|আপনাকে|তুমি|আপনি)$')).hasMatch(fold(swap[1]!));
+    if (swap != null && (toYou || RegExp('(?:^|\\s)${RegExp.escape(fold(swap[1]!))}(?=\\s|\$)').hasMatch(fold(had)))) {
+      final put = words(normalize(swap[2]!)).join(' ');
+      final inside = RegExp('(?<=^|\\s)${RegExp.escape(fold(swap[1]!))}(?=\\s|\$)');
+      final title = inside.hasMatch(fold(had)) ? fold(had).replaceFirst(inside, put) : '$put ${fold(had)}';
+      if (put.isNotEmpty && title != fold(had)) {
+        if (task != null) {
+          await brain.saveTask(task.copyWith(title: title));
+        } else {
+          await brain.saveReminder(rem!.copyWith(title: title));
+        }
+        _say(out, trf('ঠিক আছে, লেখা বদলে “{0}” করেছি।', [title]));
+        return true;
+      }
+    }
     final shorter = onlyWrite(t);
     if ((refusesSave(t) || notWhatISaid(t)) && shorter == null) {
       await brain.restoreSnapshot(last.$2);

@@ -574,3 +574,15 @@ String? personCorrection(String said, String current) {
   if (findAmount(normalize(name)) != null) return null;
   return name;
 }
+
+/// "তুমি কি আমার কথা শুনতেছো না", "বুঝো না?", "কী বললাম": the user says
+/// the app is not listening (owner's video, 25 Oct).
+bool notListening(String said) => RegExp(fold(
+        r'(?:এভাবে|এমন\s+করে|এরকম)\s+(?:থাকলে|চললে|করলে)|ভালো\s*ভাবে\s+নেবে\s*না|ভালো\s*ভাবে\s+নেবে\s+এটা|কিছুই\s+(?:বুঝো|বোঝো|পারো)\s*না|কী\s+করতেছো?\s+এভাবে|কি\s+করতেছো?\s+এভাবে|'
+        r'(?:কথা\s+)?(?:শুনতেছো|শুনতেছ|শুনছো|শুনছ|শুনতে\s+পাও|শুনতে\s+পাচ্ছো|শুনো|শোনো|শুনেন|বুঝতেছো|বুঝতেছ|বুঝছো|বুঝো|বোঝো|বুঝতে\s+পারো|বুঝতে\s+পারছো|বুঝেন)\s*না(?:\s|$|[?!।])|কী\s+বললাম|কি\s+বললাম|কী\s+বলছি\s+শোনো|কতবার\s+বলব'))
+    .hasMatch(fold(normalize(said)));
+
+/// "এটা রাখো", "এটা রাইখো না" (keep it, will you), "রেখে দাও", "লিখে রাখো":
+/// keep what was just said. ("রাখো না" here asks; it does not forbid.)
+bool keepThat(String said) => RegExp(fold(r'(?:^|\s)(?:এটা|এইটা|ওটা|সেটা|এটাও|এগুলো)?\s*(?:রাখো|রাখ|রাইখো|রাইখ্যো|রাখবা|রেখে\s+দাও|রাইখা\s+দাও|লিখে\s+রাখো|লেইখা\s+রাখো|সেভ\s+করো)(?:\s+না)?(?:\s|$|[?!।])'))
+    .hasMatch(fold(normalize(said)));

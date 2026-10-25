@@ -1127,6 +1127,42 @@ class ChatController extends ChangeNotifier {
     // "এই কথাটা আর মনে রেখো না", "হাঁটা বন্ধ না, reminder বন্ধ": a request
     // the menus understand (a negative word inside it is part of it).
     final menuHere = menuCommand(tidySpeech(whole), brain.data, _now);
+    // "তুমি কি আমার কথা শুনতেছো না, বলতেছি এটা রাইখো না" (owner's video,
+    // 25 Oct): not listened to — say sorry and keep the request the app left
+    // unfinished; with none, ask for it once more. Never sent to the AI as a
+    // new question (that took seconds and answered something else).
+    final shortKeep = keepThat(whole) && words(normalize(whole)).length <= 5 && _lastSaid.isNotEmpty;
+    if (notListening(whole) || shortKeep) {
+      _history.add(AiTurn.user(whole));
+      final prev = _lastSaid;
+      final fresh = prev.isNotEmpty && _lastSaidAt != null && _now.difference(_lastSaidAt!).inMinutes <= 10;
+      if (fresh && (keepThat(whole) || notListening(whole))) {
+        final timed = parseWhen(prev, _now)?.hasTime ?? false;
+        final redo = timed ? '$prev মনে করিয়ে দিও' : '$prev — কাজের তালিকায় লিখে রাখো';
+        Trace.log('understood', 'not listened to — the unfinished request kept', const {});
+        _say(out, tr('দুঃখিত, আগেরবার ঠিক ধরতে পারিনি।'));
+        return _understand(redo, out, shown: whole);
+      }
+      // Something was just kept: say what, so a wrong word can be named.
+      final kept = _lastSave;
+      String? keptLine;
+      if (kept != null && _now.difference(kept.$3).inMinutes <= 5) {
+        final r = brain.data.reminders.where((x) => x.id == _focusReminderId).firstOrNull;
+        final k = brain.data.tasks.where((x) => x.id == _focusTaskId).firstOrNull;
+        keptLine = r != null
+            ? '“${r.title}” — ${r.repeat == Repeat.daily ? tr('প্রতিদিন') : sayWhen(DateTime(r.date.year, r.date.month, r.date.day), _now, withTime: false)} ${bnTime(r.hour, r.minute)}'
+            : k != null
+                ? '“${k.title}”'
+                : summaryLine(kept.$1);
+      }
+      final text = keptLine != null
+          ? trf('দুঃখিত। এখন রাখা আছে — {0}। কোথাও ভুল থাকলে বলুন কোনটা বদলাব, যেমন “X না, Y”।', [keptLine])
+          : tr('দুঃখিত — এবার মন দিয়ে শুনছি। কী রাখব, আরেকবার বলুন; সময় থাকলে সময়সহ বলবেন।');
+      _say(out, text);
+      _history.add(AiTurn.app(text));
+      notifyListeners();
+      return out.join(' ');
+    }
     if (!isQuestionText(whole) && negatedRequest(normalize(whole)) && !(todoHere?.any((c) => c is TaskEdit && c.stopReminder) ?? false) && menuHere is! MenuAction) {
       _history.add(AiTurn.user(whole));
       final text = talkReply(Talk.wontDo, _now);
@@ -2832,6 +2868,9 @@ class ChatController extends ChangeNotifier {
         messages.add(ChatMessage.app('${bnDigits(_collected.length)}. $t', info: true));
         return true;
       case ChatWait.yesNo:
+        // "তুমি কি আমার কথা শুনতেছো না, এটা রাইখো না": "keep it, will you" —
+        // a yes said in annoyance, never a no (owner's video, 25 Oct).
+        if (notListening(t) && keepThat(t)) t = 'হ্যাঁ';
         // "না, রেখো না": a plain no — checked first, so "রেখো" is never
         // taken as a corrected name or kind.
         final refused = refusesSave(t) || notWhatISaid(t);

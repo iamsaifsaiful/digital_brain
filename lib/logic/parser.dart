@@ -1409,6 +1409,24 @@ class Parser {
       if (plan != null) return plan;
     }
 
+    // "সকাল আটটা ৪৫ মিনিটে (তোমাকে) মাদ্রাসায় নিয়ে যেতে হয়" (owner's video,
+    // 25 Oct): a clock time and a duty said as a habit ("…তে হয়/লাগে") — a
+    // reminder every day, not a fact to file or a question. "তোমাকে" is only
+    // who is told.
+    if (!asking && !text.contains(normalize('মনে করিয়ে')) && RegExp(fold(r'\S+(?:তে|তে\s+নিয়ে\s+যেতে)\s+(?:হয়|হয়|লাগে|হইবো|হয়\s+রোজ)(?:\s|$)')).hasMatch(fold(said))) {
+      final when = parseWhen(said, now);
+      if (when != null && when.hasTime) {
+        // "দিন সকাল …": the start of "প্রতিদিন" lost by the speech engine.
+        final plain = said
+            .replaceAll(RegExp(fold(r'(?:^|\s)(?:তোমাকে|তোমারে|আপনাকে)(?=\s)')), ' ')
+            .trim()
+            .replaceFirst(RegExp(fold(r'^দিন\s+(?=(?:সকাল|ভোর|দুপুর|বিকাল|বিকেল|সন্ধ্যা|রাত)\S*\s)')), 'প্রতিদিন ');
+        final daily = when.hasDay || RegExp(fold(r'(?:প্রতি|রোজ|প্রত্যেক|সপ্তাহে|মাসে)')).hasMatch(fold(plain)) ? plain : 'প্রতিদিন $plain';
+        final r = parse('$daily মনে করিয়ে দিও');
+        if (r is ReminderAdd && r.title.trim().isNotEmpty) return r;
+      }
+    }
+
     // "প্রতিদিন রাত ১০টায় ওষুধ", "রাত ৯টায় ওষুধ খাওয়া": a clock time and a
     // thing, said short — a reminder, even without "মনে করিয়ে দিও".
     if (!asking && w.length <= 7 && !text.contains(normalize('মনে করিয়ে'))) {
