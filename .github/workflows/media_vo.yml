@@ -26,6 +26,11 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           (pip install git+https://github.com/huggingface/parler-tts.git@main soundfile && pip install --force-reinstall --no-deps torch==2.5.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cpu && python tool/media/parler.py) > parler.log 2>&1 || true
+      - name: MMS draft voice
+        continue-on-error: true
+        run: |
+          (pip install transformers soundfile && pip install --force-reinstall --no-deps torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu; python tool/media/mms.py) > mms.log 2>&1 || true
+          tail -c 3000 mms.log > out/mms.log 2>/dev/null || (mkdir -p out && tail -c 3000 mms.log > out/mms.log)
       - name: Save to the branch
         if: always()
         run: |
