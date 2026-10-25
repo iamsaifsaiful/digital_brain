@@ -296,7 +296,7 @@ Set<String> _remindersAt(AppData d, String said, DateTime now) {
     if (words(f).contains(normalize(e.key))) range = e.value;
   }
   // A clock said in so many words ("৮:৪৫", "আটটা ৪৫", "৮টায়").
-  final clock = RegExp(r'\d{1,2}\s*[:.]\s*\d{2}|\d{1,2}\s*(?:টা|টায়|টার)').hasMatch(asciiDigits(f)) || RegExp(normalize('(?:এক|দুই|তিন|চার|পাঁচ|ছয়|সাত|আট|নয়|দশ|এগারো|বারো)(?:টা|টায়|টার)')).hasMatch(f);
+  final clock = RegExp(r'\d{1,2}\s*[:.]\s*\d{2}|\d{1,2}\s*(?:টা|টায়|টার)').hasMatch(asciiDigits(f)) || RegExp(fold(r'(?:^|\s)(?:এক|দুই|তিন|চার|পাঁচ|ছয়|সাত|আট|নয়|দশ|এগারো|বারো)(?:টা|টায়|টার)(?=\s|$)')).hasMatch(f);
   final dayed = w != null && w.hasDay;
   if (!clock && range == null) return const {};
   if (!clock && !dayed) return const {};
