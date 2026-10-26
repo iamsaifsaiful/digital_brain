@@ -1444,6 +1444,10 @@ class Brain extends ChangeNotifier {
 
   /// Sonnet may be asked when Haiku could not make a message out: Pro
   /// through our server, or a key of the user's own.
+  /// How long the AI is waited for when the rules already understood the
+  /// message (it is waited for fully only when they did not).
+  static const aiPatience = Duration(seconds: 4);
+
   bool get canEscalate => aiByServer || (!gated && services.ai.key.trim().isNotEmpty);
 
   Future<(List<Command>, String?, String)> _understandAll(String said,
@@ -1507,7 +1511,25 @@ class Brain extends ChangeNotifier {
       final others = [for (final a in alts) if (a.trim() != said.trim() && !mentionsSecret(a)) a];
       if (others.isNotEmpty) text = '$text\n[speech recogniser also heard: ${others.take(3).join(' | ')}]';
       final ctx = aiContext(now: now, shown: shown);
-      final r = await services.ai.route(text, ctx, history: history, fast: fast);
+      // The rules already understood something: the AI gets a few seconds,
+      // not twenty — a slow network should not keep the user waiting on
+      // "ভাবছি…" for what the phone can do itself (owner, 26 Oct).
+      final asking = services.ai.route(text, ctx, history: history, fast: fast);
+      final AiRoute? r;
+      if (_weak(rules)) {
+        r = await asking;
+      } else {
+        var late = false;
+        r = await asking.timeout(aiPatience, onTimeout: () {
+          late = true;
+          return null;
+        });
+        if (late) {
+          asking.ignore();
+          Trace.log('understood', 'the AI was slow — the phone\'s own reading', {'rules': ruleIntents.join(',')});
+          return (rules, null, 'ai_slow');
+        }
+      }
       if (r == null) return (rules, null, 'rules');
       var cmds = commandsFromAi(said, r, data.ledger, now: now);
       var source = services.ai.lastModel.contains('sonnet') ? 'sonnet' : 'haiku';
@@ -1544,6 +1566,10 @@ class Brain extends ChangeNotifier {
     // Money is counted from the saved book, never put into words by the AI
     // (it could make up an amount); a question that needs a choice is asked.
     if (rules.length == 1 && (rules.first is MoneyListQuery || rules.first is Clarify || rules.first is LedgerQuery || rules.first is CashQuery)) return true;
+    // "রবিনের কাছে ৫০০০ টাকা পাই": a balance said plainly — the rules read it
+    // whole; asking the AI only cost seconds and came back as a loan whose
+    // kind had to be asked again (owner's recording, 26 Oct).
+    if (rules.length == 1 && rules.first is LedgerSet) return true;
     // "ইমরান ১০ হাজার দিয়েছে, শুধু নোট করে রাখো": the place the user named
     // wins on the phone — the AI never turns it into a money record.
     if (rules.length == 1 && rules.first is NoteAdd && !(rules.first as NoteAdd).fromStatement) return true;
