@@ -24,7 +24,7 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p out
-          (pip install faster-whisper==1.0.3 && python tool/media/transcribe.py) > out/transcribe.log 2>&1 || true
+          (pip install faster-whisper==1.0.3 requests && python tool/media/transcribe.py) > out/transcribe.log 2>&1 || true
       - name: Indic Parler-TTS
         if: false
         continue-on-error: true
