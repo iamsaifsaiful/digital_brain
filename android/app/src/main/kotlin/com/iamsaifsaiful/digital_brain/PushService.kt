@@ -31,7 +31,8 @@ class PushService : FirebaseMessagingService() {
         // In the background Firebase shows "notification" messages itself;
         // in the foreground they arrive here.
         val n = message.notification ?: return
-        show(this, n.title ?: "My Assistant", n.body ?: "", message.data["type"] ?: "")
+        val type = message.data["type"] ?: ""
+        show(this, n.title ?: "My Assistant", n.body ?: "", if (type == "server" && message.data["mic"] == "1") "server_mic" else type)
     }
 
     override fun onNewToken(token: String) {

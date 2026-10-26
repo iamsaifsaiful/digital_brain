@@ -155,10 +155,13 @@ class MainActivity : FlutterFragmentActivity() {
                 // A tap on a notification from our server: "push" (shown by the app)
                 // or "type" (shown by Firebase while the app was closed).
                 val type = i.getStringExtra("push") ?: i.getStringExtra("type")
-                if (type == "blood" || type == "feedback") {
+                // A site notification that asks to speak ("চাপলে মাইক খুলবে"): the mic opens.
+                val mic = type == "server_mic" || (type == "server" && i.getStringExtra("mic") == "1")
+                if (type == "blood" || type == "feedback" || mic) {
                     i.removeExtra("push")
                     i.removeExtra("type")
-                    mapOf("action" to "push:$type")
+                    i.removeExtra("mic")
+                    mapOf("action" to if (mic) "voice" else "push:$type")
                 } else null
             }
         }

@@ -20,6 +20,7 @@ class ServerNotice {
     this.until,
     this.cond = '',
     this.mic = false,
+    this.pushed = false,
   });
 
   final int id;
@@ -44,6 +45,11 @@ class ServerNotice {
   /// A tap opens the mic.
   final bool mic;
 
+  /// Our server pushes this one itself at its time (owner, 27 Oct: notices
+  /// did not come when the app had not been opened since they were
+  /// written), so the phone does not plan it again.
+  final bool pushed;
+
   static DateTime? _day(Object? v) => v == null ? null : DateTime.tryParse('$v');
 
   static ServerNotice? fromJson(Object? j) {
@@ -63,6 +69,7 @@ class ServerNotice {
       until: _day(j['until']),
       cond: '${j['cond'] ?? ''}',
       mic: j['mic'] == true,
+      pushed: j['pushed'] == true,
     );
   }
 
@@ -78,6 +85,7 @@ class ServerNotice {
         'until': until?.toIso8601String(),
         'cond': cond,
         'mic': mic,
+        'pushed': pushed,
       };
 }
 
@@ -89,6 +97,7 @@ List<PlannedNotice> serverNotices(List<ServerNotice> list, AppData d, DateTime n
   final out = <PlannedNotice>[];
   final today = DateTime(now.year, now.month, now.day);
   for (final n in list) {
+    if (n.pushed) continue;
     final hm = n.time.split(':');
     final minutes = int.parse(hm[0]) * 60 + int.parse(hm[1]);
     for (var i = 0; i < 3; i++) {

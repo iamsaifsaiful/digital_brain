@@ -345,11 +345,16 @@ class AccountServer {
     if (!configured) return null;
     try {
       final r = await _http
-          .get(Uri.parse('$base/wp-json/my-assistant/v1/notices'), headers: {if (session.isNotEmpty) 'authorization': 'Bearer $session'})
+          // push=1: this app takes the server's pushes for notices without a condition.
+          .get(Uri.parse('$base/wp-json/my-assistant/v1/notices?push=1'), headers: {if (session.isNotEmpty) 'authorization': 'Bearer $session'})
           .timeout(const Duration(seconds: 15));
       if (r.statusCode != 200) return null;
-      final list = (jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>)['notices'] as List? ?? const [];
-      return [...list.take(30).map(ServerNotice.fromJson).whereType<ServerNotice>()];
+      final body = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
+      final list = body['notices'] as List? ?? const [];
+      final pushed = {for (final x in body['pushed'] as List? ?? const []) if (x is num) x.toInt()};
+      return [
+        ...list.take(30).map((j) => ServerNotice.fromJson(j is Map && pushed.contains((j['id'] as num?)?.toInt()) ? {...j, 'pushed': true} : j)).whereType<ServerNotice>()
+      ];
     } catch (_) {
       return null;
     }
