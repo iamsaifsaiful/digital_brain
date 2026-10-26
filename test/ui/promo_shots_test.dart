@@ -87,4 +87,16 @@ void main() {
     await settle(t);
     await snap(t, 'medicines');
   });
+
+  testWidgets('promo: money by day and filters', (t) async {
+    await rig0(t);
+    await t.tap(find.text('হিসাব').last);
+    await settle(t);
+    t.view.physicalSize = const Size(1170, 5200);
+    await settle(t);
+    await snap(t, 'money-month');
+    await t.tap(find.text('দৈনিক'));
+    await settle(t);
+    await snap(t, 'money-day');
+  });
 }

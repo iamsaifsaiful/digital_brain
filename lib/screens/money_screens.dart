@@ -241,7 +241,12 @@ class CashView extends StatefulWidget {
 }
 
 class _CashViewState extends State<CashView> {
-  DateTime? _month;
+  CashSpan _span = CashSpan.month;
+  DateTime? _at;
+
+  /// ফিল্টার: only incomes or only expenses (null = both), one খাত (null = all).
+  CashKind? _kind;
+  String? _cat;
   final _picks = Picks();
   PersistentBottomSheetController? _bar;
   List<String> _shown = const [];
@@ -288,46 +293,140 @@ class _CashViewState extends State<CashView> {
 
   void _push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
 
+  void _go(VoidCallback f) {
+    _picks.clear();
+    setState(f);
+  }
+
+  String _label(DateTime from, DateTime now) {
+    switch (_span) {
+      case CashSpan.day:
+        final today = DateTime(now.year, now.month, now.day);
+        final d = from.difference(today).inDays;
+        final name = d == 0 ? tr('আজ') : d == -1 ? tr('গতকাল') : weekdayName(from);
+        return '$name, ${shortDate(from)}${from.year == now.year ? '' : ' ${bnDigits(from.year)}'}';
+      case CashSpan.week:
+        final last = from.add(const Duration(days: 6));
+        return '${shortDate(from)} – ${shortDate(last)}';
+      case CashSpan.month:
+        return '${monthName(from.month)} ${bnDigits(from.year)}';
+      case CashSpan.year:
+        return bnDigits(from.year);
+    }
+  }
+
+  String _title(bool current) => switch ((_span, current)) {
+        (CashSpan.day, true) => tr('আজকের ব্যালেন্স'),
+        (CashSpan.day, false) => tr('দিনের ব্যালেন্স'),
+        (CashSpan.week, true) => tr('এই সপ্তাহের ব্যালেন্স'),
+        (CashSpan.week, false) => tr('সপ্তাহের ব্যালেন্স'),
+        (CashSpan.month, true) => tr('এই মাসের ব্যালেন্স'),
+        (CashSpan.month, false) => tr('মাসের ব্যালেন্স'),
+        (CashSpan.year, true) => tr('এই বছরের ব্যালেন্স'),
+        (CashSpan.year, false) => tr('বছরের ব্যালেন্স'),
+      };
+
+  String get _empty => switch (_span) {
+        CashSpan.day => tr('এই দিনে কিছু লেখা নেই'),
+        CashSpan.week => tr('এই সপ্তাহে কিছু লেখা নেই'),
+        CashSpan.month => tr('এই মাসে কিছু লেখা নেই'),
+        CashSpan.year => tr('এই বছরে কিছু লেখা নেই'),
+      };
+
+  Future<void> _pickCategory(List<String> cats) async {
+    final c = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), children: [
+          Text(tr('কোন খাত দেখবেন?'), style: display(18)),
+          const SizedBox(height: 10),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final k in cats) ActionChip(key: Key('cash-cat-$k'), label: Text(k), onPressed: () => Navigator.pop(ctx, k)),
+          ]),
+        ]),
+      ),
+    );
+    if (c != null) _go(() => _cat = c);
+  }
+
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final now = brain.services.now();
-    final m = _month ?? DateTime(now.year, now.month);
-    final isThisMonth = m.year == now.year && m.month == now.month;
-    final sums = monthSums(brain.data.cash, m);
-    final entries = brain.data.cash.where((e) => e.projectId == null && e.date.year == m.year && e.date.month == m.month).toList()..sort((a, b) => b.date.compareTo(a.date));
+    final from = _at == null ? spanStart(_span, now) : spanStart(_span, _at!);
+    final to = spanShift(_span, from, 1);
+    final current = !now.isBefore(from) && now.isBefore(to);
+    final inSpan = spanEntries(brain.data.cash, from, to);
+    final sums = sumsOf(inSpan);
+    final cats = {
+      for (final e in inSpan)
+        if (_kind == null || e.kind == _kind) e.category
+    }.toList()
+      ..sort();
+    final cat = _cat != null && cats.contains(_cat) ? _cat : null;
+    final entries = [
+      for (final e in inSpan)
+        if ((_kind == null || e.kind == _kind) && (cat == null || e.category == cat)) e
+    ]..sort((a, b) => b.date.compareTo(a.date));
+    final filtered = _kind != null || cat != null;
+    final shownSums = sumsOf(entries);
     _shown = [for (final e in entries) e.id];
     _picks.keepOnly(_shown);
-    final top = sums.topExpenses;
+    final incomeSide = _kind == CashKind.income;
+    final top = incomeSide ? shownSums.topIncome : shownSums.topExpenses;
     final maxCat = top.isEmpty ? 1 : top.first.value;
+    // Day by day (all but the day view): each day with its own totals.
+    final days = <DateTime, List<CashEntry>>{};
+    for (final e in entries) {
+      (days[DateTime(e.date.year, e.date.month, e.date.day)] ??= []).add(e);
+    }
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       const CashNowCard(),
       const SizedBox(height: 12),
+      SegTabs<CashSpan>(
+        key: const Key('cash-span'),
+        items: [(CashSpan.day, tr('দৈনিক')), (CashSpan.week, tr('সাপ্তাহিক')), (CashSpan.month, tr('মাসিক')), (CashSpan.year, tr('বাৎসরিক'))],
+        value: _span,
+        onChanged: (v) => _go(() {
+          // The new period holds the day being looked at.
+          _at = _at == null ? null : (current ? null : from);
+          _span = v;
+        }),
+      ),
+      const SizedBox(height: 6),
       Row(children: [
         IconButton(
-          tooltip: tr('আগের মাস'),
-          onPressed: () {
-            _picks.clear();
-            setState(() => _month = DateTime(m.year, m.month - 1));
-          },
+          key: const Key('cash-prev'),
+          tooltip: tr('আগে'),
+          onPressed: () => _go(() => _at = spanShift(_span, from, -1)),
           icon: const Icon(Icons.chevron_left_rounded),
         ),
-        Expanded(child: Text('${monthName(m.month)} ${bnDigits(m.year)}', textAlign: TextAlign.center, style: display(18))),
+        Expanded(
+          child: InkWell(
+            key: const Key('cash-when'),
+            borderRadius: BorderRadius.circular(10),
+            onTap: () async {
+              final d = await showDatePicker(context: context, initialDate: from.isAfter(now) ? now : from, firstDate: DateTime(2000), lastDate: now);
+              if (d != null) _go(() => _at = d);
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(_label(from, now), textAlign: TextAlign.center, style: display(18)),
+            ),
+          ),
+        ),
         IconButton(
-          tooltip: tr('পরের মাস'),
-          onPressed: isThisMonth
-              ? null
-              : () {
-                  _picks.clear();
-                  setState(() => _month = DateTime(m.year, m.month + 1));
-                },
+          key: const Key('cash-next'),
+          tooltip: tr('পরে'),
+          onPressed: current ? null : () => _go(() => _at = spanShift(_span, from, 1)),
           icon: const Icon(Icons.chevron_right_rounded),
         ),
       ]),
       const SizedBox(height: 6),
       SummaryCard(
-        title: isThisMonth ? tr('এই মাসের ব্যালেন্স') : tr('মাসের ব্যালেন্স'),
+        title: _title(current),
         amount: sums.balance.abs(),
         negative: sums.balance < 0,
         items: [(tr('আয়'), sums.income, C.green), (tr('খরচ'), sums.expense, C.ink)],
@@ -355,44 +454,130 @@ class _CashViewState extends State<CashView> {
       ]),
       const SizedBox(height: 8),
       Text(tr('মুখেও বলা যায়: “বাজারে ৫০০ টাকা খরচ হলো”, “বেতন পেলাম ৩০ হাজার”'), style: body(13, color: C.muted)),
-      const SizedBox(height: 16),
-      if (top.isNotEmpty) ...[
-        SectionTitle(tr('খাত অনুযায়ী খরচ')),
+      const SizedBox(height: 14),
+      // ফিল্টার
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(children: [
+          Icon(Icons.filter_list_rounded, size: 20, color: C.muted),
+          const SizedBox(width: 8),
+          for (final (k, label) in [(null, tr('সব')), (CashKind.income, tr('শুধু আয়')), (CashKind.expense, tr('শুধু খরচ'))]) ...[
+            ChoiceChip(
+              key: Key('cash-kind-${k?.name ?? 'all'}'),
+              label: Text(label),
+              selected: _kind == k,
+              showCheckmark: false,
+              onSelected: (_) => _go(() {
+                _kind = k;
+                _cat = null;
+              }),
+            ),
+            const SizedBox(width: 6),
+          ],
+          if (cat != null)
+            InputChip(
+              key: const Key('cash-cat-on'),
+              label: Text(cat),
+              selected: true,
+              showCheckmark: false,
+              onPressed: () => _pickCategory(cats),
+              onDeleted: () => _go(() => _cat = null),
+            )
+          else if (cats.length > 1)
+            ActionChip(
+              key: const Key('cash-cat'),
+              avatar: const Icon(Icons.label_outline_rounded, size: 18),
+              label: Text(tr('খাত')),
+              onPressed: () => _pickCategory(cats),
+            ),
+        ]),
+      ),
+      if (filtered && entries.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(
+            key: const Key('cash-filter-total'),
+            [
+              if (shownSums.income > 0) trf('আয় {0}', [taka(shownSums.income)]),
+              if (shownSums.expense > 0) trf('খরচ {0}', [taka(shownSums.expense)]),
+              trf('{0}টা লেনদেন', [bnDigits(entries.length)]),
+            ].join(' · '),
+            style: body(13.5, weight: FontWeight.w600, color: C.muted2),
+          ),
+        ),
+      const SizedBox(height: 6),
+      if (top.length > 1 || (top.isNotEmpty && cat == null)) ...[
+        SectionTitle(incomeSide ? tr('খাত অনুযায়ী আয়') : tr('খাত অনুযায়ী খরচ')),
         Panel(
           padding: const EdgeInsets.all(14),
           child: Column(children: [
             for (final c in top)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Expanded(child: Text(c.key, style: body(15, weight: FontWeight.w600))),
-                    Text(taka(c.value), style: display(15)),
+              InkWell(
+                onTap: () => _go(() => _cat = c.key),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Expanded(child: Text(c.key, style: body(15, weight: FontWeight.w600))),
+                      Text(taka(c.value), style: display(15)),
+                    ]),
+                    const SizedBox(height: 4),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(value: c.value / maxCat, minHeight: 6, color: C.green, backgroundColor: C.surface2),
+                    ),
                   ]),
-                  const SizedBox(height: 4),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(value: c.value / maxCat, minHeight: 6, color: C.green, backgroundColor: C.surface2),
-                  ),
-                ]),
+                ),
               ),
           ]),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
       ],
       if (entries.isEmpty)
         EmptyState(
           icon: Icons.account_balance_wallet_outlined,
-          title: tr('এই মাসে কিছু লেখা নেই'),
-          text: tr('বাজার, ভাড়া, বিল, বেতন — নিজের আয় আর খরচ এখানে রাখুন। মাস শেষে কত জমলো, এক নজরে দেখবেন।'),
+          title: filtered ? tr('এই ফিল্টারে কিছু নেই') : _empty,
+          text: filtered ? tr('ফিল্টার বদলে বা “সব” বেছে দেখুন।') : tr('বাজার, ভাড়া, বিল, বেতন — নিজের আয় আর খরচ এখানে রাখুন। মাস শেষে কত জমলো, এক নজরে দেখবেন।'),
         )
       else ...[
-        SectionTitle(isThisMonth ? tr('এই মাসের হিসাব') : tr('মাসের হিসাব')),
+        SectionTitle(tr('লেনদেন')),
         if (!_picks.on && entries.length > 1)
           Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(tr('চেপে ধরে কয়েকটা বেছে একসাথে মুছা বা খাত বদলানো যায়'), style: body(12, color: C.muted))),
-        Panel(child: Rows(children: [for (final e in entries) cashRow(context, e, picks: _picks)])),
+        if (_span == CashSpan.day)
+          Panel(child: Rows(children: [for (final e in entries) cashRow(context, e, picks: _picks)]))
+        else
+          for (final MapEntry(key: day, value: list) in days.entries) ...[
+            _DayHead(day: day, entries: list, now: now),
+            Panel(child: Rows(children: [for (final e in list) cashRow(context, e, picks: _picks)])),
+            const SizedBox(height: 10),
+          ],
       ],
     ]);
+  }
+}
+
+/// A day's heading in the list: the date, and that day's income and spending.
+class _DayHead extends StatelessWidget {
+  const _DayHead({required this.day, required this.entries, required this.now});
+  final DateTime day;
+  final List<CashEntry> entries;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = sumsOf(entries);
+    final today = DateTime(now.year, now.month, now.day);
+    final diff = day.difference(today).inDays;
+    final name = diff == 0 ? tr('আজ') : diff == -1 ? tr('গতকাল') : weekdayName(day);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
+      child: Row(children: [
+        Expanded(child: Text('${shortDate(day)} · $name', style: body(13.5, weight: FontWeight.w600, color: C.muted2))),
+        if (s.income > 0) Text('+${taka(s.income)}', style: body(13, weight: FontWeight.w600, color: C.green)),
+        if (s.income > 0 && s.expense > 0) const SizedBox(width: 10),
+        if (s.expense > 0) Text('−${taka(s.expense)}', style: body(13, weight: FontWeight.w600, color: C.muted2)),
+      ]),
+    );
   }
 }
 

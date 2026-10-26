@@ -42,6 +42,39 @@ MoneySums monthSums(Iterable<CashEntry> cash, DateTime month) {
   return s;
 }
 
+/// The period the হিসাব page shows (owner, 26 Oct: "মাসিক হিসেবের পাশাপাশি
+/// দৈনিক দেখা যাবে। ফিল্টার অপশন থাকা দরকার").
+enum CashSpan { day, week, month, year }
+
+/// The first day of the [span] holding [d]. Weeks start on Saturday, as in
+/// Bangladesh.
+DateTime spanStart(CashSpan span, DateTime d) => switch (span) {
+      CashSpan.day => DateTime(d.year, d.month, d.day),
+      CashSpan.week => DateTime(d.year, d.month, d.day - (d.weekday + 1) % 7),
+      CashSpan.month => DateTime(d.year, d.month),
+      CashSpan.year => DateTime(d.year),
+    };
+
+/// The start of the period [steps] after (or before) the one at [start].
+DateTime spanShift(CashSpan span, DateTime start, int steps) => switch (span) {
+      CashSpan.day => DateTime(start.year, start.month, start.day + steps),
+      CashSpan.week => DateTime(start.year, start.month, start.day + 7 * steps),
+      CashSpan.month => DateTime(start.year, start.month + steps),
+      CashSpan.year => DateTime(start.year + steps),
+    };
+
+/// Personal (non-project) entries from [from] up to (not including) [to].
+List<CashEntry> spanEntries(Iterable<CashEntry> cash, DateTime from, DateTime to) => [
+      for (final e in cash)
+        if (e.projectId == null && !e.date.isBefore(from) && e.date.isBefore(to)) e
+    ];
+
+MoneySums sumsOf(Iterable<CashEntry> entries) {
+  final s = MoneySums();
+  entries.forEach(s.add);
+  return s;
+}
+
 MoneySums projectSums(Iterable<CashEntry> cash, String projectId) {
   final s = MoneySums();
   for (final e in cash) {
