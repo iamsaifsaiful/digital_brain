@@ -61,10 +61,6 @@ void main() {
     await t.tap(find.byKey(const Key('cash-next')));
     await settle(t);
     expect(find.text('আজকের ব্যালেন্স'), findsOneWidget);
-    // Swiping back from দৈনিক goes nowhere.
-    await t.fling(find.byKey(const Key('cash-swipe')), const Offset(300, 0), 1200);
-    await settle(t);
-    expect(find.text('আজকের ব্যালেন্স'), findsOneWidget);
 
     // Weekly (Sat 3 – Fri 9 Oct): not the salary on the 1st.
     await t.tap(find.text('সাপ্তাহিক'));
@@ -104,5 +100,10 @@ void main() {
     expect(total(), contains('আয় ৳৩০,০০০'));
     expect(find.text('খাত অনুযায়ী আয়'), findsOneWidget);
     expect(rig.brain.data.cash.length, 5, reason: 'filters only look');
+    // Past বাৎসরিক, a swipe moves on to ধার-দেনা.
+    await show(find.byKey(const Key('cash-swipe')));
+    await t.fling(find.byKey(const Key('cash-swipe')), const Offset(-300, 0), 1200);
+    await settle(t, 20);
+    expect(find.text('আমি পাব'), findsOneWidget);
   });
 }

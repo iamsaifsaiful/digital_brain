@@ -288,6 +288,21 @@ class TabTitle extends StatelessWidget {
       );
 }
 
+/// A swipe a part inside a tab page could not use (it is at its first or
+/// last choice): the tab pages around it move on instead, then the bottom
+/// menu — inner tabs first, then the outer ones, as everywhere.
+void passSwipe(BuildContext context, int step) {
+  final p = Scrollable.maybeOf(context, axis: Axis.horizontal)?.position;
+  if (p != null && p.hasContentDimensions && p.hasViewportDimension) {
+    final target = p.pixels + step * p.viewportDimension;
+    if (target >= p.minScrollExtent - 1 && target <= p.maxScrollExtent + 1) {
+      p.animateTo(target.clamp(p.minScrollExtent, p.maxScrollExtent).toDouble(), duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
+      return;
+    }
+  }
+  context.findAncestorStateOfType<_SwipeSwitchState>()?._step(step);
+}
+
 /// Grey pill with 2–4 choices; the chosen one is white (iOS-style tabs).
 class SegTabs<T> extends StatelessWidget {
   const SegTabs({super.key, required this.items, required this.value, required this.onChanged, this.pages});

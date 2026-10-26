@@ -410,8 +410,14 @@ class _CashViewState extends State<CashView> {
       onHorizontalDragEnd: (d) {
         final v = d.primaryVelocity ?? 0;
         if (v.abs() < 150) return;
-        final i = _span.index + (v < 0 ? 1 : -1);
-        if (i >= 0 && i < CashSpan.values.length) setSpan(CashSpan.values[i]);
+        final step = v < 0 ? 1 : -1;
+        final i = _span.index + step;
+        if (i >= 0 && i < CashSpan.values.length) {
+          setSpan(CashSpan.values[i]);
+        } else {
+          // Past দৈনিক or বাৎসরিক: on to the tab beside.
+          passSwipe(context, step);
+        }
       },
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       SegTabs<CashSpan>(

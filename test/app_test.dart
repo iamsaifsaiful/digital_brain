@@ -1153,6 +1153,10 @@ void main() {
   testWidgets('হিসাব tab opens on আয়-ব্যয়, then ধার-দেনা and প্রজেক্ট', (t) async {
     await start(t, data: AppData(cash: [CashEntry(kind: CashKind.expense, amount: 500, category: 'বাজার', date: DateTime(2026, 10, 5))]));
     await openMenu(t, 'হিসাব');
+    // Opens on দৈনিক (owner, 26 Oct); মাসিক one tap away.
+    expect(find.text('আজকের ব্যালেন্স'), findsOneWidget);
+    await t.tap(find.text('মাসিক'));
+    await settle(t);
     expect(find.text('এই মাসের ব্যালেন্স'), findsOneWidget);
     expect(find.text('বাজার'), findsWidgets);
     await t.tap(find.text('ধার-দেনা'));
