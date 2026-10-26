@@ -45,22 +45,22 @@ Collecting truststore>=0.10 (from httpx2<3,>=2.0.0->huggingface-hub>=0.13->faste
 Collecting h11>=0.16 (from httpcore2==2.16.0->httpx2<3,>=2.0.0->huggingface-hub>=0.13->faster-whisper==1.0.3)
   Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
 Downloading faster_whisper-1.0.3-py3-none-any.whl (2.0 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.0/2.0 MB 111.4 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.0/2.0 MB 20.8 MB/s  0:00:00
 Downloading av-12.3.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (34.4 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 34.4/34.4 MB 285.4 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 34.4/34.4 MB 91.0 MB/s  0:00:00
 Downloading ctranslate2-4.8.4-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (42.4 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 42.4/42.4 MB 259.7 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 42.4/42.4 MB 117.9 MB/s  0:00:00
 Downloading onnxruntime-1.31.0-cp311-cp311-manylinux_2_28_x86_64.whl (23.8 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 23.8/23.8 MB 298.0 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 23.8/23.8 MB 135.8 MB/s  0:00:00
 Downloading pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (806 kB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 806.6/806.6 kB 166.9 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 806.6/806.6 kB 57.6 MB/s  0:00:00
 Downloading tokenizers-0.23.3-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (3.4 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.4/3.4 MB 301.4 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.4/3.4 MB 223.8 MB/s  0:00:00
 Downloading huggingface_hub-2.3.0-py3-none-any.whl (855 kB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 855.2/855.2 kB 175.5 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 855.2/855.2 kB 230.4 MB/s  0:00:00
 Downloading click-8.5.0-py3-none-any.whl (125 kB)
 Downloading hf_xet-1.7.0-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (4.2 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.2/4.2 MB 318.7 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.2/4.2 MB 143.1 MB/s  0:00:00
 Downloading httpx2-2.16.0-py3-none-any.whl (97 kB)
 Downloading httpcore2-2.16.0-py3-none-any.whl (85 kB)
 Downloading anyio-4.15.1-py3-none-any.whl (132 kB)
@@ -69,7 +69,7 @@ Downloading fsspec-2026.9.0-py3-none-any.whl (221 kB)
 Downloading h11-0.16.0-py3-none-any.whl (37 kB)
 Downloading idna-3.20-py3-none-any.whl (69 kB)
 Downloading numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.9 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.9/16.9 MB 330.3 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.9/16.9 MB 139.2 MB/s  0:00:00
 Downloading packaging-26.3-py3-none-any.whl (129 kB)
 Downloading protobuf-7.36.2-cp310-abi3-manylinux2014_x86_64.whl (343 kB)
 Downloading tqdm-4.70.1-py3-none-any.whl (80 kB)
@@ -82,4 +82,13 @@ Successfully installed anyio-4.15.1 av-12.3.0 click-8.5.0 ctranslate2-4.8.4 fast
 
 [notice] A new release of pip is available: 26.2.1 -> 26.2.2
 [notice] To update, run: pip install --upgrade pip
-python: can't open file '/home/runner/work/digital_brain/digital_brain/tool/media/transcribe.py': [Errno 2] No such file or directory
+Traceback (most recent call last):
+  File "/home/runner/work/digital_brain/digital_brain/tool/media/transcribe.py", line 4, in <module>
+    from faster_whisper import WhisperModel
+  File "/opt/hostedtoolcache/Python/3.11.17/x64/lib/python3.11/site-packages/faster_whisper/__init__.py", line 2, in <module>
+    from faster_whisper.transcribe import WhisperModel
+  File "/opt/hostedtoolcache/Python/3.11.17/x64/lib/python3.11/site-packages/faster_whisper/transcribe.py", line 17, in <module>
+    from faster_whisper.utils import download_model, format_timestamp, get_end, get_logger
+  File "/opt/hostedtoolcache/Python/3.11.17/x64/lib/python3.11/site-packages/faster_whisper/utils.py", line 8, in <module>
+    import requests
+ModuleNotFoundError: No module named 'requests'
