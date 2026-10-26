@@ -29,13 +29,27 @@ SELECT = '''
 [শুধু |]{month}[গুলো|]
 '''
 
+# Round 3 (gate of 26 Oct): asked "মুছে দেব?", the user names which ones —
+# often after a "না" ("না, শুধু ২ নম্বরটা"). That is a choice, not a no.
+SELECT_DEL = '''
+না, [শুধু |কেবল ]{num:ta}
+না, [শুধু |কেবল ]{listref}
+সব না, [শুধু |]{num:ta}
+[সবগুলো না|সব না], {listref}
+[শুধু |]{num:ta} [মুছো|মুছে দাও|ডিলিট করো][, বাকিগুলো [রাখো|থাকুক]|]
+{num:ta} আর {num2:ta} [মুছো|মুছে দাও]
+[না না|উহু], [শুধু |]{num:ta}
+[ওইটা না|ওটা না], {num:ta}
+[শুধু |]{num:ta}[ মুছবে|], বাকিগুলো না
+'''
+
 C('confirm_delete', 'tasks', 'এই কাজগুলো মুছে দেব?', confirm_yes=YES + '''
 [হ্যাঁ মুছে দাও|মুছে দাও|মুছো|হ্যাঁ, সব মুছো|ডিলিট করো]
 ''', confirm_no=NO + '''
 [মুছো না|রেখে দাও|না, থাকুক]
-''', cancel=CANCEL, select=SELECT)
+''', cancel=CANCEL, select=SELECT + SELECT_DEL)
 
-C('confirm_delete', 'reminders', 'এই রিমাইন্ডারগুলো মুছে দেব?', confirm_yes=YES, confirm_no=NO, cancel=CANCEL, select=SELECT)
+C('confirm_delete', 'reminders', 'এই রিমাইন্ডারগুলো মুছে দেব?', confirm_yes=YES, confirm_no=NO, cancel=CANCEL, select=SELECT + SELECT_DEL)
 
 C('confirm_save', 'none', 'রাখব?', confirm_yes=YES + '''
 [রাখো|হ্যাঁ রাখো|সেভ করো|লিখে রাখো]
