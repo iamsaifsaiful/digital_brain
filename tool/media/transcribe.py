@@ -8,9 +8,9 @@ m = WhisperModel('large-v3', device='cpu', compute_type='int8')
 prompt = 'রিমাইন্ডার, হিসাব, ধার-দেনা, ডকুমেন্ট, পাসওয়ার্ড, ফ্যামিলি, ওষুধ, যাকাত, অটো ব্যাকআপ, My Assistant।'
 os.makedirs('out', exist_ok=True)
 res = {}
-for a, b in [(20, 50), (52, 66), (67, 86)]:
+for a, b in [(28, 35), (34, 41), (40, 48)]:
     f = f'tool/media/in/cut_{a}.wav'  # cut beforehand (no ffmpeg on the runner)
-    segs, _ = m.transcribe(f, language='bn', word_timestamps=True, vad_filter=True, beam_size=5, condition_on_previous_text=False, initial_prompt=prompt)
+    segs, _ = m.transcribe(f, language='bn', word_timestamps=True, vad_filter=False, beam_size=5, condition_on_previous_text=False, initial_prompt=prompt)
     rows = []
     for s in segs:
         rows.append(dict(start=a + s.start, end=a + s.end, text=s.text, words=[dict(w=w.word, s=a + w.start, e=a + w.end) for w in (s.words or [])]))
