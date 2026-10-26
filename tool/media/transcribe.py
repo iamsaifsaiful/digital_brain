@@ -9,8 +9,7 @@ prompt = 'রিমাইন্ডার, হিসাব, ধার-দেন�
 os.makedirs('out', exist_ok=True)
 res = {}
 for a, b in [(20, 50), (52, 66), (67, 86)]:
-    f = f'out/cut_{a}.wav'
-    subprocess.run(['ffmpeg', '-y', '-v', 'error', '-ss', str(a), '-to', str(b), '-i', 'tool/media/in/vo.mp3', '-ar', '16000', '-ac', '1', f], check=True)
+    f = f'tool/media/in/cut_{a}.wav'  # cut beforehand (no ffmpeg on the runner)
     segs, _ = m.transcribe(f, language='bn', word_timestamps=True, vad_filter=True, beam_size=5, condition_on_previous_text=False, initial_prompt=prompt)
     rows = []
     for s in segs:
