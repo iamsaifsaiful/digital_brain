@@ -129,6 +129,66 @@ class Device {
       return null;
     }
   }
+
+  static const _open = MethodChannel('my_assistant/open');
+  static const _bkash = MethodChannel('my_assistant/bkash');
+
+  /// A link in the phone's browser (the members PDF).
+  static Future<bool> openUrl(String url) async {
+    try {
+      return await _open.invokeMethod<bool>('open', {'url': url}) ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// বিকাশ মেলানো on this phone: {on, permission, last, queued}.
+  static Future<Map<String, dynamic>> bkashStatus() async {
+    try {
+      return (await _bkash.invokeMapMethod<String, dynamic>('status')) ?? const {};
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  /// Asks Android for the SMS permission; true when given.
+  static Future<bool> bkashPermission() async {
+    try {
+      return await _bkash.invokeMethod<bool>('permission') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> bkashSetup(String key, String base) async {
+    try {
+      await _bkash.invokeMethod('setup', {'key': key, 'base': base});
+    } catch (_) {}
+  }
+
+  static Future<void> bkashOff() async {
+    try {
+      await _bkash.invokeMethod('off');
+    } catch (_) {}
+  }
+
+  /// bKash payments received in the last [days] days (read on the phone; only the four fields).
+  static Future<List<Map<String, dynamic>>> bkashScan(int days) async {
+    try {
+      final l = await _bkash.invokeListMethod<Map<Object?, Object?>>('scan', {'days': days}) ?? const [];
+      return [for (final m in l) m.cast<String, dynamic>()];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  static Future<Map<String, dynamic>> bkashFlush() async {
+    try {
+      return (await _bkash.invokeMapMethod<String, dynamic>('flush')) ?? const {};
+    } catch (_) {
+      return const {};
+    }
+  }
 }
 
 class Api {
@@ -176,8 +236,23 @@ class Api {
   Future<String> decide(int id, {required bool approve, String reason = '', bool tell = true}) async =>
       '${(await _send('POST', '/admin/payments/$id', {'decision': approve ? 'approve' : 'reject', 'reason': reason, 'tell': tell}))['message'] ?? ''}';
 
-  Future<List<Map<String, dynamic>>> members({String q = '', int page = 1}) async =>
-      ((await _send('GET', '/admin/members?q=${Uri.encodeQueryComponent(q)}&page=$page'))['members'] as List).cast<Map<String, dynamic>>();
+  Future<List<Map<String, dynamic>>> members({String q = '', int page = 1}) async => (await memberList(q: q, page: page)).$1;
+
+  /// Members by search, status, join date ('today', 'week', 'month', 'YYYY-MM', 'YYYY-MM-DD')
+  /// and Premium source: (rows, how many in all, the filter in words).
+  Future<(List<Map<String, dynamic>>, int, String)> memberList({String q = '', String status = '', String joined = '', String src = '', int page = 1}) async {
+    final r = await _send('GET', '/admin/members?${_query({'q': q, 'status': status, 'joined': joined, 'src': src, 'page': '$page'})}');
+    return ((r['members'] as List).cast<Map<String, dynamic>>(), (r['count'] as num?)?.toInt() ?? 0, '${r['words'] ?? ''}');
+  }
+
+  /// New members per day (30) and month (12), Premium by source, and the figures.
+  Future<Map<String, dynamic>> memberGrowth() => _send('GET', '/admin/members/growth');
+
+  /// A 10-minute link to the members list as a PDF (opened in the phone's browser).
+  Future<String> membersPdfLink({String q = '', String status = '', String joined = '', String src = ''}) async =>
+      '${(await _send('POST', '/admin/members/print-link', {'q': q, 'status': status, 'joined': joined, 'src': src}))['url'] ?? ''}';
+
+  static String _query(Map<String, String> m) => [for (final e in m.entries) if (e.value.isNotEmpty) '${e.key}=${Uri.encodeQueryComponent(e.value)}'].join('&');
 
   Future<Map<String, dynamic>> changeMember(int id, {int days = 0, bool stop = false, String? note}) async =>
       ((await _send('POST', '/admin/members/$id', {'days': days, 'stop': stop, if (note != null) 'note': note}))['member'] as Map).cast<String, dynamic>();
@@ -205,7 +280,9 @@ class Api {
   Future<void> toggleNotice(int id) => _send('POST', '/admin/notices/$id/toggle');
 
   /// কোম্পানির হিসাব (site owner only): আয়, ব্যয়, বিনিয়োগকারী — the same as the site's হিসাব tab.
-  Future<Map<String, dynamic>> finance() => _send('GET', '/admin/finance');
+  /// [month] 'YYYY-MM'; [kind] '' / income / expense and [category] filter the month's lines.
+  Future<Map<String, dynamic>> finance({String month = '', String kind = '', String category = ''}) =>
+      _send('GET', '/admin/finance${month.isEmpty && kind.isEmpty && category.isEmpty ? '' : '?${_query({'month': month, 'kind': kind, 'category': category})}'}');
 
   /// সমস্যার লগ: errors the app ran into (cleaned on the phone and the server).
   Future<List<Map<String, dynamic>>> errors() async => [for (final e in ((await _send('GET', '/admin/errors'))['errors'] as List? ?? const [])) (e as Map).cast<String, dynamic>()];
@@ -219,6 +296,31 @@ class Api {
   /// নোটিফিকেশনের লগ (as on the site): [q] a member's name or e-mail, [when] '', 'past' or 'next'.
   Future<List<Map<String, dynamic>>> noticeLog({String q = '', String when = ''}) async =>
       ((await _send('GET', '/admin/notice-log?q=${Uri.encodeQueryComponent(q)}&when=$when'))['rows'] as List).cast<Map<String, dynamic>>();
+
+  /// What goes out, when, and how many a day (no list of who got what).
+  Future<Map<String, dynamic>> noticeStats() => _send('GET', '/admin/notice-stats');
+
+  // ── মতামত: one inbox per member ──
+
+  /// Members with conversations ('open', 'done' or 'all').
+  Future<List<Map<String, dynamic>>> inbox(String status) async => ((await _send('GET', '/admin/inbox?status=$status'))['members'] as List).cast<Map<String, dynamic>>();
+
+  /// One member: every message of every conversation, and where a reply goes (reply_to).
+  Future<Map<String, dynamic>> inboxOne(String key) => _send('GET', '/admin/inbox/${Uri.encodeComponent(key)}');
+
+  /// 'done' (all finished) or 'open' (the newest opened again).
+  Future<void> setInbox(String key, String status) => _send('POST', '/admin/inbox/${Uri.encodeComponent(key)}', {'status': status});
+
+  // ── বিকাশ মেলানো ──
+
+  Future<Map<String, dynamic>> bkash() => _send('GET', '/admin/bkash');
+  Future<Map<String, dynamic>> setBkashAuto(bool on) => _send('POST', '/admin/bkash/settings', {'auto': on});
+
+  /// A new key for this phone (the payment-SIM phone); the old one stops working.
+  Future<String> bkashKey() async => '${(await _send('POST', '/admin/bkash/key'))['key'] ?? ''}';
+
+  /// A bKash message read on this phone (pasted, or found in the inbox): only the four fields.
+  Future<String> bkashManual(Map<String, dynamic> item) async => '${(await _send('POST', '/admin/bkash/manual', item))['status_label'] ?? ''}';
 
   Future<int> pushNow(String title, String body, String audience) async => ((await _send('POST', '/admin/push', {'title': title, 'body': body, 'audience': audience}))['sent'] as num?)?.toInt() ?? 0;
 

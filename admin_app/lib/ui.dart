@@ -3,6 +3,9 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/services.dart';
 
 import 'api.dart';
+import 'pages2.dart';
+
+export 'pages2.dart';
 
 typedef Guard = Future<T?> Function<T>(Future<T> Function() job);
 
@@ -397,257 +400,6 @@ class _ErrorsPageState extends State<ErrorsPage> {
   }
 }
 
-String _ymName(String ym) {
-  final m = int.tryParse(ym.length >= 7 ? ym.substring(5, 7) : '') ?? 1;
-  return '${_months[m - 1]} ${bn(ym.substring(0, 4))}';
-}
-
-String _signed(num n) => '${n < 0 ? '−' : ''}${taka(n.abs().toInt())}';
-
-/// কোম্পানির হিসাব: the same as the site's হিসাব tab. Income is approved
-/// payments plus income written by hand (Pro given free is not income); the
-/// AI bill and costs written by hand are the expenses; investors apart.
-class FinancePage extends StatefulWidget {
-  const FinancePage({super.key, required this.api, required this.guard});
-  final Api api;
-  final Guard guard;
-
-  @override
-  State<FinancePage> createState() => _FinancePageState();
-}
-
-class _FinancePageState extends State<FinancePage> {
-  Map<String, dynamic>? _f;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final f = await widget.api.finance();
-      if (mounted) {
-        setState(() {
-          _f = f;
-          _error = null;
-        });
-      }
-    } on ApiError catch (e) {
-      if (mounted) setState(() => _error = e.message);
-    }
-  }
-
-  String _today() => DateTime.now().toIso8601String().substring(0, 10);
-
-  Future<void> _addEntry() async {
-    final c = Palette.of(context);
-    final cats = ((_f?['categories'] as Map?) ?? const {}).cast<String, dynamic>();
-    var kind = 'expense';
-    final cat = TextEditingController();
-    final amount = TextEditingController();
-    final note = TextEditingController();
-    final ok = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => Padding(
-          padding: EdgeInsets.fromLTRB(22, 0, 22, 22 + MediaQuery.of(ctx).viewInsets.bottom),
-          child: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('আয় বা খরচ লিখুন', style: text(21, weight: FontWeight.w700, color: c.ink)),
-              const SizedBox(height: 12),
-              SegmentedButton<String>(
-                segments: const [ButtonSegment(value: 'expense', label: Text('খরচ')), ButtonSegment(value: 'income', label: Text('আয়'))],
-                selected: {kind},
-                showSelectedIcon: false,
-                onSelectionChanged: (v) => setS(() => kind = v.first),
-              ),
-              const SizedBox(height: 10),
-              Wrap(spacing: 6, runSpacing: 6, children: [
-                for (final x in ((cats[kind] as List?) ?? const []).cast<Object>()) ActionChip(label: Text('$x'), onPressed: () => setS(() => cat.text = '$x')),
-              ]),
-              const SizedBox(height: 10),
-              TextField(key: const Key('fin-cat'), controller: cat, decoration: const InputDecoration(labelText: 'খাত', border: OutlineInputBorder())),
-              const SizedBox(height: 10),
-              TextField(key: const Key('fin-amount'), controller: amount, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'টাকা', prefixText: '৳ ', border: OutlineInputBorder())),
-              const SizedBox(height: 10),
-              TextField(controller: note, decoration: const InputDecoration(labelText: 'বিবরণ (ঐচ্ছিক)', border: OutlineInputBorder())),
-              const SizedBox(height: 16),
-              SizedBox(width: double.infinity, height: 52, child: FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('রাখুন'))),
-            ]),
-          ),
-        ),
-      ),
-    );
-    final n = int.tryParse(amount.text.trim()) ?? 0;
-    if (ok != true || n <= 0) return;
-    await widget.guard(() => widget.api.addFinanceEntry(kind: kind, category: cat.text.trim(), amount: n, date: _today(), note: note.text.trim()));
-    _load();
-  }
-
-  Future<void> _addInvestor() async {
-    final c = Palette.of(context);
-    final name = TextEditingController();
-    final contact = TextEditingController();
-    final amount = TextEditingController();
-    final share = TextEditingController();
-    final note = TextEditingController();
-    final ok = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(22, 0, 22, 22 + MediaQuery.of(ctx).viewInsets.bottom),
-        child: SingleChildScrollView(
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('বিনিয়োগকারী', style: text(21, weight: FontWeight.w700, color: c.ink)),
-            const SizedBox(height: 12),
-            TextField(key: const Key('inv-name'), controller: name, decoration: const InputDecoration(labelText: 'নাম', border: OutlineInputBorder())),
-            const SizedBox(height: 10),
-            TextField(controller: contact, decoration: const InputDecoration(labelText: 'মোবাইল/ইমেইল', border: OutlineInputBorder())),
-            const SizedBox(height: 10),
-            TextField(key: const Key('inv-amount'), controller: amount, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'বিনিয়োগ', prefixText: '৳ ', border: OutlineInputBorder())),
-            const SizedBox(height: 10),
-            TextField(controller: share, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'শেয়ার (%)', border: OutlineInputBorder())),
-            const SizedBox(height: 10),
-            TextField(controller: note, decoration: const InputDecoration(labelText: 'নোট', border: OutlineInputBorder())),
-            const SizedBox(height: 16),
-            SizedBox(width: double.infinity, height: 52, child: FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('যোগ করুন'))),
-          ]),
-        ),
-      ),
-    );
-    if (ok != true || name.text.trim().isEmpty) return;
-    await widget.guard(() => widget.api.addInvestor(
-        name: name.text.trim(), contact: contact.text.trim(), amount: int.tryParse(amount.text.trim()) ?? 0, share: share.text.trim(), date: _today(), note: note.text.trim()));
-    _load();
-  }
-
-  Future<void> _delete(String which, Map<String, dynamic> row) async {
-    final yes = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('মুছে ফেলবেন?'),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('না')), TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('মুছুন'))],
-      ),
-    );
-    if (yes != true) return;
-    await widget.guard(() => widget.api.deleteFinance(which, (row['id'] as num).toInt()));
-    _load();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = Palette.of(context);
-    final f = _f;
-    num v(Map? m, String k) => (m?[k] as num?) ?? 0;
-    Widget fig(String label, num value, String sub, Color color) => Expanded(
-          child: CardBox(
-            padding: const EdgeInsets.all(14),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(label, style: text(13, color: c.muted)),
-              Text(_signed(value), style: text(20, weight: FontWeight.w700, color: color)),
-              Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: text(12, color: c.muted)),
-            ]),
-          ),
-        );
-    return Scaffold(
-      appBar: AppBar(title: const Text('হিসাব')),
-      floatingActionButton: f == null ? null : FloatingActionButton.extended(key: const Key('fin-add'), onPressed: _addEntry, icon: const Icon(Icons.add_rounded), label: const Text('আয়/খরচ')),
-      body: _error != null
-          ? ListView(children: [Empty(Icons.lock_outline_rounded, 'দেখা যাচ্ছে না', _error!)])
-          : f == null
-              ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 96), children: [
-                    Text('আয়ের মধ্যে আছে অনুমোদিত পেমেন্ট আর হাতে লেখা আয়। টাকা ছাড়া কাউকে প্রিমিয়াম দিলে সেটা আয়ে ধরা হয় না। ব্যয়ের মধ্যে আছে AI-এর বিল আর হাতে লেখা খরচ।',
-                        style: text(13, color: c.muted, height: 1.45)),
-                    const SizedBox(height: 10),
-                    Row(children: [
-                      fig('এ মাসে আয়', v(f['month'], 'income'), 'পেমেন্ট ${_signed(v(f['month'], 'payments'))}', c.green),
-                      const SizedBox(width: 10),
-                      fig('এ মাসে ব্যয়', v(f['month'], 'expense'), 'AI ${_signed(v(f['month'], 'ai'))}', c.amber),
-                    ]),
-                    const SizedBox(height: 10),
-                    Row(children: [
-                      fig('এ মাসে লাভ/লস', v(f['month'], 'net'), 'শুরু থেকে ${_signed(v(f['all'], 'net'))}', v(f['month'], 'net') < 0 ? c.rose : c.green),
-                      const SizedBox(width: 10),
-                      fig('মোট বিনিয়োগ', v(f, 'invested'), 'হাতে থাকার কথা ${_signed(v(f, 'cash'))}', c.ink),
-                    ]),
-                    const SizedBox(height: 18),
-                    Text('মাস অনুযায়ী', style: text(16, weight: FontWeight.w700, color: c.ink)),
-                    const SizedBox(height: 8),
-                    for (final m in ((f['months'] as List?) ?? const []).cast<Map>())
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: CardBox(
-                          padding: const EdgeInsets.all(14),
-                          child: Row(children: [
-                            Expanded(
-                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                Text(_ymName('${m['month']}'), style: text(15, weight: FontWeight.w700, color: c.ink)),
-                                Text('আয় ${_signed(v(m, 'income'))} · ব্যয় ${_signed(v(m, 'expense'))}', style: text(12.5, color: c.muted)),
-                              ]),
-                            ),
-                            Text(_signed(v(m, 'net')), style: text(16, weight: FontWeight.w700, color: v(m, 'net') < 0 ? c.rose : c.green)),
-                          ]),
-                        ),
-                      ),
-                    const SizedBox(height: 10),
-                    Row(children: [
-                      Expanded(child: Text('বিনিয়োগকারী', style: text(16, weight: FontWeight.w700, color: c.ink))),
-                      TextButton.icon(key: const Key('inv-add'), onPressed: _addInvestor, icon: const Icon(Icons.person_add_alt_1_outlined), label: const Text('যোগ করুন')),
-                    ]),
-                    for (final i in ((f['investors'] as List?) ?? const []).cast<Map<String, dynamic>>())
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: CardBox(
-                          padding: const EdgeInsets.all(14),
-                          child: Row(children: [
-                            Expanded(
-                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                Text('${i['name']}', style: text(15, weight: FontWeight.w700, color: c.ink)),
-                                Text([if ('${i['contact'] ?? ''}'.isNotEmpty) '${i['contact']}', date('${i['on_date']}'), if ('${i['share'] ?? ''}'.isNotEmpty) 'শেয়ার ${bn(i['share'])}%'].join(' · '),
-                                    style: text(12.5, color: c.muted)),
-                              ]),
-                            ),
-                            Text(_signed(v(i, 'amount')), style: text(15, weight: FontWeight.w700, color: c.ink)),
-                            IconButton(tooltip: 'মুছুন', onPressed: () => _delete('investor', i), icon: Icon(Icons.delete_outline_rounded, color: c.muted)),
-                          ]),
-                        ),
-                      ),
-                    const SizedBox(height: 10),
-                    Text('হাতে লেখা আয়-খরচ', style: text(16, weight: FontWeight.w700, color: c.ink)),
-                    const SizedBox(height: 8),
-                    for (final e in ((f['entries'] as List?) ?? const []).cast<Map<String, dynamic>>())
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: CardBox(
-                          padding: const EdgeInsets.all(14),
-                          child: Row(children: [
-                            Expanded(
-                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                Text('${e['category']}', style: text(15, weight: FontWeight.w700, color: c.ink)),
-                                Text([date('${e['on_date']}'), if ('${e['note'] ?? ''}'.isNotEmpty) '${e['note']}'].join(' · '), style: text(12.5, color: c.muted)),
-                              ]),
-                            ),
-                            Text('${e['kind'] == 'income' ? '+' : '−'}${taka(v(e, 'amount').toInt())}',
-                                style: text(15, weight: FontWeight.w700, color: e['kind'] == 'income' ? c.green : c.amber)),
-                            IconButton(tooltip: 'মুছুন', onPressed: () => _delete('entry', e), icon: Icon(Icons.delete_outline_rounded, color: c.muted)),
-                          ]),
-                        ),
-                      ),
-                  ]),
-                ),
-    );
-  }
-}
-
 // ── পেমেন্ট ──
 
 class PaymentsPage extends StatefulWidget {
@@ -663,6 +415,7 @@ class PaymentsPage extends StatefulWidget {
 class _PaymentsPageState extends State<PaymentsPage> {
   String _status = 'pending';
   List<Map<String, dynamic>>? _list;
+  Map<String, dynamic>? _bkash;
 
   @override
   void initState() {
@@ -680,6 +433,10 @@ class _PaymentsPageState extends State<PaymentsPage> {
   Future<void> _load() async {
     final l = await widget.guard(() => widget.api.payments(_status));
     if (l != null && mounted) setState(() => _list = l);
+    try {
+      final b = await widget.api.bkash();
+      if (mounted) setState(() => _bkash = b);
+    } on ApiError catch (_) {}
   }
 
   Future<void> _decide(Map<String, dynamic> p, bool approve) async {
@@ -764,14 +521,14 @@ class _PaymentsPageState extends State<PaymentsPage> {
           onRefresh: _load,
           child: list == null
               ? ListView(children: const [Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))])
-              : list.isEmpty
-                  ? ListView(children: [Empty(Icons.task_alt_rounded, _status == 'pending' ? 'দেখার মতো কিছু নেই' : 'এখানে কিছু নেই', 'নতুন পেমেন্ট এলে পুশ নোটিফিকেশন আসবে।')])
-                  : ListView.separated(
+              : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                      itemCount: list.length,
+                      itemCount: list.length + 1 + (list.isEmpty ? 1 : 0),
                       separatorBuilder: (_, _) => const SizedBox(height: 10),
                       itemBuilder: (context, i) {
-                        final p = list[i];
+                        if (i == 0) return BkashCard(api: widget.api, guard: widget.guard, info: _bkash, onChanged: _load);
+                        if (list.isEmpty) return Empty(Icons.task_alt_rounded, _status == 'pending' ? 'দেখার মতো কিছু নেই' : 'এখানে কিছু নেই', 'নতুন পেমেন্ট এলে পুশ নোটিফিকেশন আসবে।');
+                        final p = list[i - 1];
                         return CardBox(
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Row(children: [
@@ -827,162 +584,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
   }
 }
 
-// ── সদস্য ──
-
-class MembersPage extends StatefulWidget {
-  const MembersPage({super.key, required this.api, required this.guard});
-  final Api api;
-  final Guard guard;
-
-  @override
-  State<MembersPage> createState() => _MembersPageState();
-}
-
-class _MembersPageState extends State<MembersPage> {
-  final _q = TextEditingController();
-  List<Map<String, dynamic>>? _list;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final l = await widget.guard(() => widget.api.members(q: _q.text.trim()));
-    if (l != null && mounted) setState(() => _list = l);
-  }
-
-  Future<void> _open(Map<String, dynamic> m) async {
-    final c = Palette.of(context);
-    final days = await showModalBottomSheet<int>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('${m['name']}'.isEmpty ? '${m['email']}' : '${m['name']}', style: text(21, weight: FontWeight.w700, color: c.ink)),
-            Text('${m['email']}', style: text(14, color: c.muted)),
-            const SizedBox(height: 10),
-            Wrap(spacing: 8, runSpacing: 6, children: [
-              statusPill(ctx, '${m['status']}'),
-              if (m['pro_until'] != null) Pill('প্রিমিয়াম পর্যন্ত ${date('${m['pro_until']}')}', c.ink, c.ground),
-              Pill('যোগ ${date('${m['joined']}')}', c.muted, c.ground),
-              Pill('শেষ দেখা ${ago('${m['last_seen']}')}', c.muted, c.ground),
-              if ('${m['version']}'.isNotEmpty) Pill('${m['version']}', c.muted, c.ground),
-            ]),
-            if ('${m['note']}'.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 10), child: Text('নোট: ${m['note']}', style: text(14, color: c.ink))),
-            const SizedBox(height: 16),
-            Text('প্রিমিয়াম যোগ করুন (চলমান মেয়াদের পরে যোগ হবে)', style: text(14, weight: FontWeight.w600, color: c.ink)),
-            const SizedBox(height: 8),
-            Row(children: [
-              for (final (d, l) in [(30, '+১ মাস'), (90, '+৩ মাস'), (365, '+১ বছর')]) ...[
-                Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(ctx, d), child: Text(l))),
-                if (d != 365) const SizedBox(width: 8),
-              ],
-            ]),
-            if (m['status'] == 'pro' || m['status'] == 'trial')
-              TextButton(onPressed: () => Navigator.pop(ctx, -1), style: TextButton.styleFrom(foregroundColor: c.rose), child: const Text('প্রিমিয়াম এখনই বন্ধ করুন')),
-          ]),
-        ),
-      ),
-    );
-    if (days == null) return;
-    final id = (m['id'] as num).toInt();
-    final r = await widget.guard(() => widget.api.changeMember(id, days: days > 0 ? days : 0, stop: days < 0));
-    if (r != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(days < 0 ? 'প্রিমিয়াম বন্ধ করা হলো' : 'প্রিমিয়াম দেওয়া হলো — সদস্যের ফোনে পুশ গেছে')));
-      _load();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = Palette.of(context);
-    final list = _list;
-    return Column(children: [
-      const PageHead('সদস্য'),
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-        child: OutlinedButton.icon(
-          key: const Key('heirs-open'),
-          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => HeirClaimsPage(api: widget.api, guard: widget.guard))),
-          icon: const Icon(Icons.shield_outlined),
-          label: const Text('উত্তরাধিকারের অনুরোধ'),
-        ),
-      ),
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-        child: TextField(
-          controller: _q,
-          textInputAction: TextInputAction.search,
-          onSubmitted: (_) => _load(),
-          decoration: InputDecoration(
-            hintText: 'নাম বা ইমেইল দিয়ে খুঁজুন',
-            prefixIcon: const Icon(Icons.search_rounded),
-            filled: true,
-            fillColor: c.card,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: c.line)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: c.line)),
-          ),
-        ),
-      ),
-      Expanded(
-        child: RefreshIndicator(
-          onRefresh: _load,
-          child: list == null
-              ? ListView(children: const [Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))])
-              : list.isEmpty
-                  ? ListView(children: const [Empty(Icons.person_search_outlined, 'কাউকে পাওয়া যায়নি', 'অ্যাপে কেউ Google দিয়ে লগইন করলেই এখানে আসবেন।')])
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                      itemCount: list.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
-                      itemBuilder: (context, i) {
-                        final m = list[i];
-                        final name = '${m['name']}'.isEmpty ? '${m['email']}' : '${m['name']}';
-                        final pic = '${m['picture']}';
-                        return CardBox(
-                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                          onTap: () => _open(m),
-                          child: Row(children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: pic.startsWith('https://')
-                                  ? Image.network(pic, width: 42, height: 42, fit: BoxFit.cover, errorBuilder: (_, _, _) => _initial(context, name))
-                                  : _initial(context, name),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: text(15, weight: FontWeight.w600, color: c.ink)),
-                                Text('${m['email']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: text(13, color: c.muted)),
-                              ]),
-                            ),
-                            statusPill(context, '${m['status']}'),
-                          ]),
-                        );
-                      },
-                    ),
-        ),
-      ),
-    ]);
-  }
-
-  Widget _initial(BuildContext context, String name) {
-    final c = Palette.of(context);
-    return Container(
-      width: 42,
-      height: 42,
-      color: c.tint,
-      alignment: Alignment.center,
-      child: Text(name.characters.first.toUpperCase(), style: text(16, weight: FontWeight.w700, color: c.brand)),
-    );
-  }
-}
-
-// ── নোটিফিকেশন ──
+// ── নোটিফিকেশন ── (সদস্য, মতামত, হিসাব: pages2.dart)
 
 class NoticesPage extends StatefulWidget {
   const NoticesPage({super.key, required this.api, required this.guard, required this.onSignOut, required this.onFingerprint});
@@ -1009,7 +611,7 @@ class _NoticesPageState extends State<NoticesPage> {
     if (l != null && mounted) setState(() => _list = l);
   }
 
-  void _openLog() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => NoticeLogPage(api: widget.api, guard: widget.guard)));
+  void _openLog() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => NoticeStatsPage(api: widget.api, guard: widget.guard)));
 
   Future<void> _pushNow() async {
     final c = Palette.of(context);
@@ -1064,7 +666,7 @@ class _NoticesPageState extends State<NoticesPage> {
             sub: 'ফোনে নিয়মিত যা যায়',
             action: PopupMenuButton<int>(
               itemBuilder: (_) => const [
-                PopupMenuItem(value: 3, child: Text('কার কাছে কী গেছে')),
+                PopupMenuItem(value: 3, child: Text('কী কখন যাচ্ছে, দিনে কতটি')),
                 PopupMenuItem(value: 2, child: Text('আঙুলের ছাপে খোলা: চালু/বন্ধ')),
                 PopupMenuItem(value: 1, child: Text('লগআউট')),
               ],
@@ -1080,8 +682,8 @@ class _NoticesPageState extends State<NoticesPage> {
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('কার কাছে কী গেছে', style: text(15.5, weight: FontWeight.w700, color: c.ink)),
-                  Text('প্রতিটি সদস্যের ফোনে কোন নোটিফিকেশন কখন — আর আমাদের পুশ', style: text(13, color: c.muted)),
+                  Text('কী কখন যাচ্ছে, দিনে কতটি', style: text(15.5, weight: FontWeight.w700, color: c.ink)),
+                  Text('সামনের ৭ দিনের নোটিফিকেশন আর গত ১৪ দিনের হিসাব', style: text(13, color: c.muted)),
                 ]),
               ),
               Icon(Icons.chevron_right_rounded, color: c.muted),
@@ -1130,230 +732,7 @@ class _NoticesPageState extends State<NoticesPage> {
   }
 }
 
-/// নোটিফিকেশনের লগ: what each member's phone shows and when, and our
-/// pushes — the same list as the site's নোটিফিকেশন tab. Reminders have no
-/// words here: those stay on the member's phone.
-class NoticeLogPage extends StatefulWidget {
-  const NoticeLogPage({super.key, required this.api, required this.guard});
-  final Api api;
-  final Guard guard;
-
-  @override
-  State<NoticeLogPage> createState() => _NoticeLogPageState();
-}
-
-class _NoticeLogPageState extends State<NoticeLogPage> {
-  final _q = TextEditingController();
-  String _when = '';
-  List<Map<String, dynamic>>? _rows;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  @override
-  void dispose() {
-    _q.dispose();
-    super.dispose();
-  }
-
-  Future<void> _load() async {
-    final r = await widget.guard(() => widget.api.noticeLog(q: _q.text.trim(), when: _when));
-    if (r != null && mounted) setState(() => _rows = r);
-  }
-
-  String _time(String? iso) {
-    final d = iso == null ? null : DateTime.tryParse(iso)?.toLocal();
-    if (d == null) return '—';
-    final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
-    final part = d.hour < 12 ? 'সকাল' : (d.hour < 17 ? 'দুপুর' : (d.hour < 19 ? 'বিকেল' : 'রাত'));
-    return '${date(iso)} · $part ${bn(h)}:${bn(d.minute.toString().padLeft(2, '0'))}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = Palette.of(context);
-    final rows = _rows;
-    return Scaffold(
-      appBar: AppBar(title: const Text('কার কাছে কী গেছে')),
-      body: Column(children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: TextField(
-            key: const Key('log-q'),
-            controller: _q,
-            textInputAction: TextInputAction.search,
-            onSubmitted: (_) => _load(),
-            decoration: InputDecoration(prefixIcon: const Icon(Icons.search_rounded), hintText: 'সদস্যের নাম বা ইমেইল', border: OutlineInputBorder(borderRadius: BorderRadius.circular(14))),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: SegmentedButton<String>(
-            segments: const [ButtonSegment(value: '', label: Text('সব')), ButtonSegment(value: 'past', label: Text('গেছে')), ButtonSegment(value: 'next', label: Text('সামনে'))],
-            selected: {_when},
-            showSelectedIcon: false,
-            onSelectionChanged: (s) {
-              setState(() => _when = s.first);
-              _load();
-            },
-          ),
-        ),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: _load,
-            child: rows == null
-                ? ListView(children: const [Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))])
-                : rows.isEmpty
-                    ? ListView(children: const [Empty(Icons.notifications_none_rounded, 'কিছু পাওয়া যায়নি', 'সদস্যরা নতুন অ্যাপ খুললে তাঁদের ফোনের তালিকা এখানে আসবে।')])
-                    : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-                        itemCount: rows.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 8),
-                        itemBuilder: (context, i) {
-                          final r = rows[i];
-                          final bad = r['status'] == 'failed' || r['status'] == 'no_device';
-                          final name = '${r['name'] ?? ''}'.trim().isEmpty ? '${r['email'] ?? ''}' : '${r['name']}';
-                          return CardBox(
-                            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Icon(r['source'] == 'push' ? Icons.send_rounded : Icons.notifications_none_rounded, color: bad ? c.rose : c.brand, size: 20),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                  Text('${r['label']}', style: text(15, weight: FontWeight.w700, color: c.ink)),
-                                  if ('${r['title'] ?? ''}'.isNotEmpty) Text('${r['title']}', style: text(13.5, color: c.ink)),
-                                  Text('$name · ${_time('${r['at']}')}', style: text(12.5, color: c.muted)),
-                                ]),
-                              ),
-                              Text('${r['status_label'] ?? ''}', style: text(12.5, weight: FontWeight.w600, color: bad ? c.rose : c.muted)),
-                            ]),
-                          );
-                        },
-                      ),
-          ),
-        ),
-      ]),
-    );
-  }
-}
-
 // ── মতামত ──
-
-/// Members' feature wishes and problems, as conversations. Open one to read
-/// it, see photos, answer (with a photo or PDF) or mark it done. Nothing is
-/// kept on this phone.
-class FeedbackPage extends StatefulWidget {
-  const FeedbackPage({super.key, required this.api, required this.guard, required this.refresh});
-  final Api api;
-  final Guard guard;
-  final ValueNotifier<int> refresh;
-
-  @override
-  State<FeedbackPage> createState() => _FeedbackPageState();
-}
-
-class _FeedbackPageState extends State<FeedbackPage> {
-  String _status = 'open';
-  List<Map<String, dynamic>>? _list;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.refresh.addListener(_load);
-    _load();
-  }
-
-  @override
-  void dispose() {
-    widget.refresh.removeListener(_load);
-    super.dispose();
-  }
-
-  Future<void> _load() async {
-    final l = await widget.guard(() => widget.api.feedback(_status));
-    if (l != null && mounted) setState(() => _list = l);
-  }
-
-  Future<void> _open(Map<String, dynamic> f) async {
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => FeedbackThreadPage(api: widget.api, guard: widget.guard, id: (f['id'] as num).toInt())));
-    await _load();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = Palette.of(context);
-    final list = _list;
-    return Column(children: [
-      const PageHead('মতামত', sub: 'অ্যাপ থেকে সদস্যদের লেখা'),
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-        child: SizedBox(
-          width: double.infinity,
-          child: SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'open', label: Text('খোলা')),
-              ButtonSegment(value: 'done', label: Text('শেষ')),
-              ButtonSegment(value: 'all', label: Text('সব')),
-            ],
-            selected: {_status},
-            showSelectedIcon: false,
-            onSelectionChanged: (s) {
-              setState(() {
-                _status = s.first;
-                _list = null;
-              });
-              _load();
-            },
-          ),
-        ),
-      ),
-      Expanded(
-        child: RefreshIndicator(
-          onRefresh: _load,
-          child: list == null
-              ? ListView(children: const [Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))])
-              : list.isEmpty
-                  ? ListView(children: const [Empty(Icons.forum_outlined, 'এখানে কিছু নেই', 'সদস্যরা নতুন সুবিধা চাইলে বা সমস্যা জানালে পুশ নোটিফিকেশন আসবে।')])
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                      itemCount: list.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (context, i) {
-                        final f = list[i];
-                        final st = '${f['status']}';
-                        final kind = '${f['kind']}';
-                        final last = f['last'] as Map?;
-                        final count = (f['count'] as num?)?.toInt() ?? 1;
-                        return CardBox(
-                          onTap: () => _open(f),
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Row(children: [
-                              Pill('${f['kind_label']}', kind == 'problem' ? c.rose : c.green, kind == 'problem' ? c.roseTint : c.tint),
-                              const SizedBox(width: 6),
-                              if (st == 'new') Pill('নতুন', c.amber, c.amberTint) else if (st == 'done') Pill('শেষ', c.green, c.tint),
-                              const Spacer(),
-                              Text(ago('${f['updated'] ?? f['created']}'), style: text(12.5, color: c.muted)),
-                            ]),
-                            const SizedBox(height: 8),
-                            Text('${'${f['name']}'.isEmpty ? f['email'] : f['name']}', style: text(15, weight: FontWeight.w700, color: c.ink)),
-                            Text('${f['text']}'.isEmpty ? '📎 সংযুক্তি' : '${f['text']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: text(14.5, color: c.ink, height: 1.5)),
-                            if (count > 1 && last != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text('${last['from'] == 'admin' ? 'আমরা' : 'সদস্য'}: ${last['text']} · ${bn(count)}টা বার্তা',
-                                    maxLines: 1, overflow: TextOverflow.ellipsis, style: text(13, color: c.muted)),
-                              ),
-                          ]),
-                        );
-                      },
-                    ),
-        ),
-      ),
-    ]);
-  }
-}
 
 /// One conversation with a member.
 class FeedbackThreadPage extends StatefulWidget {
