@@ -10,6 +10,10 @@ import 'crypto.dart';
 abstract class Biometrics {
   Future<bool> available();
   Future<bool> authenticate(String reason);
+
+  /// Takes a fingerprint prompt that is up off the screen (a ringing
+  /// reminder's page must not wait behind it).
+  Future<void> cancel();
 }
 
 class DeviceBiometrics implements Biometrics {
@@ -48,6 +52,13 @@ class DeviceBiometrics implements Biometrics {
     }
     return false;
   }
+
+  @override
+  Future<void> cancel() async {
+    try {
+      await _auth.stopAuthentication();
+    } catch (_) {}
+  }
 }
 
 /// For tests.
@@ -65,6 +76,11 @@ class FakeBiometrics implements Biometrics {
     asked++;
     return ok;
   }
+
+  int cancelled = 0;
+
+  @override
+  Future<void> cancel() async => cancelled++;
 }
 
 sealed class PinResult {

@@ -50,7 +50,8 @@ class _LockScreenState extends State<LockScreen> {
       _mode = has ? _Mode.unlock : (googleFirst && !brain.signedIn ? _Mode.google : _Mode.create);
       _bioAvailable = bio;
     });
-    if (bio) _biometric();
+    // Not while a ringing reminder's page is open (or about to open).
+    if (bio && !brain.alarmOpen && brain.services.notifier.tapped.value == null) _biometric();
   }
 
   /// First step on a new phone: Google sign-in (the account, Pro bought on

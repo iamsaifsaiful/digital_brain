@@ -140,6 +140,11 @@ class Brain extends ChangeNotifier {
   /// open pages instead of closing them (app.dart, _LockCover).
   bool unlockedOnce = false;
 
+  /// A ringing reminder's page is open (also over the PIN): the lock asks
+  /// for no fingerprint meanwhile, so the page's buttons work at once (owner,
+  /// 26 Oct: "বন্ধ করতে ক্লিক করলে … লগইন স্কিন আসে").
+  bool alarmOpen = false;
+
   /// When the user last proved it was them (PIN or fingerprint), for the
   /// vault's short grace period.
   DateTime? lastVerified;

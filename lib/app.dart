@@ -322,6 +322,9 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       return;
     }
     brain.services.notifier.tapped.value = null;
+    // A fingerprint prompt up for the lock would sit over the alarm page.
+    brain.alarmOpen = true;
+    unawaited(brain.services.lock.biometrics.cancel());
     // "আর বাজাবে না" pressed on the notification itself: stop it here and
     // now — no page to open, nothing more to press.
     if (t.action == 'stop') {
@@ -329,6 +332,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       await brain.stopReminder(t.info.reminderId);
       final ctx = _nav.currentContext;
       if (ctx != null && ctx.mounted) toast(ctx, tr('আর বাজবে না'));
+      brain.alarmOpen = false;
       return;
     }
     // Over the lock the page comes in at once (no slide), so the pages kept
@@ -342,6 +346,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
             reverseTransitionDuration: Duration.zero,
             fullscreenDialog: true)
         : MaterialPageRoute(builder: (_) => AlarmScreen(info: t.info), fullscreenDialog: true));
+    brain.alarmOpen = false;
     if (mounted) setState(() => _alarmOpen = false);
     // Another one rang meanwhile.
     if (brain.services.notifier.tapped.value != null) _onNotificationTap();
