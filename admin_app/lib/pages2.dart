@@ -741,6 +741,15 @@ class _NoticeStatsPageState extends State<NoticeStatsPage> {
           ),
         ]),
       ));
+      widgets.add(Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: FilledButton.tonalIcon(
+          key: const Key('notice-today'),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => NoticeDayPage(api: widget.api, guard: widget.guard, day: ''))),
+          icon: const Icon(Icons.today_rounded),
+          label: const Text('আজ কোন কোন নোটিফিকেশন, কে কতগুলো'),
+        ),
+      ));
       widgets.add(Padding(padding: const EdgeInsets.fromLTRB(2, 18, 2, 8), child: Text('সামনের ৭ দিন', style: text(16, weight: FontWeight.w700, color: c.ink))));
       if (up.isEmpty) widgets.add(Text('চালু থাকা কোনো নোটিফিকেশন সামনের ৭ দিনে পড়েনি।', style: text(13.5, color: c.muted)));
       var day = '';
@@ -768,12 +777,13 @@ class _NoticeStatsPageState extends State<NoticeStatsPage> {
         ));
       }
       widgets.add(Padding(padding: const EdgeInsets.fromLTRB(2, 18, 2, 4), child: Text('দিনে কতটি', style: text(16, weight: FontWeight.w700, color: c.ink))));
-      widgets.add(Padding(padding: const EdgeInsets.fromLTRB(2, 0, 2, 8), child: Text('সব সদস্য মিলে, ধরন অনুযায়ী — কার কাছে কী গেছে তা দেখানো হয় না।', style: text(12.5, color: c.muted))));
+      widgets.add(Padding(padding: const EdgeInsets.fromLTRB(2, 0, 2, 8), child: Text('সব সদস্য মিলে, ধরন অনুযায়ী — কোনো দিনে চাপলে সেদিনের তালিকা আর কে কতগুলো পেয়েছেন।', style: text(12.5, color: c.muted))));
       for (final d in days) {
         final parts = [for (final g in groups.entries) if ((d[g.key] as num? ?? 0) > 0) '${g.value} ${bn(d[g.key])}'];
         widgets.add(Padding(
           padding: const EdgeInsets.only(bottom: 6),
           child: CardBox(
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => NoticeDayPage(api: widget.api, guard: widget.guard, day: '${d['day']}'))),
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
@@ -802,6 +812,106 @@ class _NoticeStatsPageState extends State<NoticeStatsPage> {
       body: s == null
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(onRefresh: _load, child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: widgets)),
+    );
+  }
+}
+
+/// One day: which notifications went (or will go), what, when, to how many;
+/// and how many each member gets — members' own reminders only as a kind.
+class NoticeDayPage extends StatefulWidget {
+  const NoticeDayPage({super.key, required this.api, required this.guard, required this.day});
+  final Api api;
+  final Guard guard;
+  final String day;
+
+  @override
+  State<NoticeDayPage> createState() => _NoticeDayPageState();
+}
+
+class _NoticeDayPageState extends State<NoticeDayPage> {
+  Map<String, dynamic>? _d;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final d = await widget.guard(() => widget.api.noticeDay(widget.day));
+    if (d != null && mounted) setState(() => _d = d);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Palette.of(context);
+    final d = _d;
+    final items = ((d?['items'] as List?) ?? const []).cast<Map<String, dynamic>>();
+    final members = ((d?['members'] as List?) ?? const []).cast<Map<String, dynamic>>();
+    String hm(String t) {
+      final p = t.split(':');
+      final h = int.tryParse(p.first) ?? 0;
+      final part = h < 12 ? 'সকাল' : (h < 15 ? 'দুপুর' : (h < 18 ? 'বিকেল' : (h < 20 ? 'সন্ধ্যা' : 'রাত')));
+      return '$part ${bn(h % 12 == 0 ? 12 : h % 12)}:${bn(p.length > 1 ? p[1] : '00')}';
+    }
+    return Scaffold(
+      appBar: AppBar(title: Text(d == null ? 'নোটিফিকেশন' : date('${d['day']}'))),
+      body: d == null
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
+                Text('মোট ${bn(d['total'])}টি · ${bn(d['people'])} জন সদস্য · জনপ্রতি গড় ${bn(d['avg'])}, সর্বোচ্চ ${bn(d['max'])}', style: text(14, weight: FontWeight.w600, color: c.ink)),
+                Padding(padding: const EdgeInsets.fromLTRB(0, 4, 0, 10), child: Text('সদস্যের নিজের রিমাইন্ডারের লেখা ফোনেই থাকে — এখানে শুধু ধরন আর সময়।', style: text(12.5, color: c.muted))),
+                Text('কোন কোন নোটিফিকেশন, কখন', style: text(16, weight: FontWeight.w700, color: c.ink)),
+                const SizedBox(height: 8),
+                if (items.isEmpty) Text('এই দিনে কিছু নেই।', style: text(13.5, color: c.muted)),
+                for (final it in items)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: CardBox(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                      child: Row(children: [
+                        SizedBox(
+                          width: 78,
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(hm('${it['time']}'), style: text(13, weight: FontWeight.w700, color: c.ink)),
+                            if (it['ahead'] == true) Text('আসবে', style: text(11, color: c.amber)),
+                          ]),
+                        ),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('${it['label']}', style: text(14.5, weight: FontWeight.w600, color: c.ink)),
+                            if ('${it['title']}'.isNotEmpty) Text('${it['title']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: text(12.5, color: c.ink)),
+                            Text('${it['by'] == 'server' ? 'সার্ভার থেকে পুশ' : 'সদস্যের ফোন'} · ${bn(it['people'])} জন${(it['failed'] as num? ?? 0) > 0 ? ' · পৌঁছায়নি ${bn(it['failed'])}' : ''}',
+                                style: text(12, color: (it['failed'] as num? ?? 0) > 0 ? c.rose : c.muted)),
+                          ]),
+                        ),
+                        Text(bn(it['count']), style: text(16, weight: FontWeight.w700, color: c.brand)),
+                      ]),
+                    ),
+                  ),
+                const SizedBox(height: 14),
+                Text('কে দিনে কতগুলো পাচ্ছে', style: text(16, weight: FontWeight.w700, color: c.ink)),
+                const SizedBox(height: 8),
+                for (final m in members)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: CardBox(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                      child: Row(children: [
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('${m['name']}'.isEmpty ? '${m['email']}' : '${m['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: text(14.5, weight: FontWeight.w600, color: c.ink)),
+                            Text('${m['email']}${(m['failed'] as num? ?? 0) > 0 ? ' · পৌঁছায়নি ${bn(m['failed'])}' : ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: text(12, color: c.muted)),
+                          ]),
+                        ),
+                        Text('${bn(m['count'])}টি', style: text(15, weight: FontWeight.w700, color: c.ink)),
+                      ]),
+                    ),
+                  ),
+              ]),
+            ),
     );
   }
 }

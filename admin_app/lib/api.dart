@@ -300,6 +300,9 @@ class Api {
   /// What goes out, when, and how many a day (no list of who got what).
   Future<Map<String, dynamic>> noticeStats() => _send('GET', '/admin/notice-stats');
 
+  /// One day ('YYYY-MM-DD', '' = today): which notifications, what, when; how many each member gets.
+  Future<Map<String, dynamic>> noticeDay(String day) => _send('GET', '/admin/notice-day${day.isEmpty ? '' : '?day=$day'}');
+
   // ── মতামত: one inbox per member ──
 
   /// Members with conversations ('open', 'done' or 'all').

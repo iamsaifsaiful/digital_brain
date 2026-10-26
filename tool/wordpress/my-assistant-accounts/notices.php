@@ -579,3 +579,72 @@ function ma_note_overview() {
         'runs' => $runs,
     ];
 }
+
+/**
+ * One day (owner, 27 Oct, again): which notifications went or will go,
+ * what they are and at what time, and how many each member gets that day.
+ * Members' own reminders show only as a kind and a time — never their words.
+ * $day 'Y-m-d' in site time (default today).
+ */
+function ma_note_day($day = '') {
+    global $wpdb;
+    $off = ma_acc_tz_off();
+    $day = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $day) ? $day : gmdate('Y-m-d', time() + $off);
+    $from = gmdate('Y-m-d H:i:s', strtotime($day . ' 00:00:00 UTC') - $off);
+    $to = gmdate('Y-m-d H:i:s', strtotime($day . ' 00:00:00 UTC') + DAY_IN_SECONDS - $off);
+    $now = gmdate('Y-m-d H:i:s');
+    $t = ma_nlog_table();
+    $rows = $wpdb->get_results($wpdb->prepare(
+        "SELECT source, kind, title, SUBSTR(at, 1, 16) AS m, status, COUNT(*) AS n, COUNT(DISTINCT user_id) AS people FROM $t WHERE at >= %s AND at < %s GROUP BY source, kind, title, SUBSTR(at, 1, 16), status",
+        $from, $to
+    ), ARRAY_A);
+    $items = [];
+    foreach ($rows as $r) {
+        $local = gmdate('H:i', strtotime($r['m'] . ':00 UTC') + $off);
+        $label = ma_nlog_kind_label($r['kind']);
+        $k = $r['source'] . '|' . $r['kind'] . '|' . $r['title'] . '|' . $local;
+        if (!isset($items[$k])) {
+            $items[$k] = [
+                'time' => $local,
+                'label' => $label,
+                'title' => (string) $r['title'],
+                'group' => ma_note_group($r['source'], $r['kind']),
+                'by' => $r['source'] === 'push' ? 'server' : 'phone',
+                'count' => 0,
+                'people' => 0,
+                'failed' => 0,
+                'ahead' => $r['m'] . ':00' > substr($now, 0, 19),
+            ];
+        }
+        $n = (int) $r['n'];
+        if (in_array($r['status'], ['failed', 'no_device'], true)) {
+            $items[$k]['failed'] += $n;
+        } else {
+            $items[$k]['count'] += $n;
+        }
+        $items[$k]['people'] = max($items[$k]['people'], (int) $r['people']);
+    }
+    $items = array_values($items);
+    usort($items, fn($a, $b) => strcmp($a['time'], $b['time']) ?: strcmp($a['label'], $b['label']));
+    // How many each member gets that day (a count, nothing more).
+    $per = $wpdb->get_results($wpdb->prepare(
+        "SELECT l.user_id, u.name, u.email, COUNT(*) AS n, SUM(CASE WHEN l.status IN ('failed', 'no_device') THEN 1 ELSE 0 END) AS failed FROM $t l LEFT JOIN " . ma_acc_table() . " u ON u.id = l.user_id WHERE l.at >= %s AND l.at < %s GROUP BY l.user_id, u.name, u.email ORDER BY n DESC LIMIT 500",
+        $from, $to
+    ), ARRAY_A);
+    $members = [];
+    $total = 0;
+    foreach ($per as $p) {
+        $n = (int) $p['n'];
+        $total += $n;
+        $members[] = ['user_id' => (int) $p['user_id'], 'name' => (string) $p['name'], 'email' => (string) $p['email'], 'count' => $n, 'failed' => (int) $p['failed']];
+    }
+    return [
+        'day' => $day,
+        'items' => $items,
+        'members' => $members,
+        'total' => $total,
+        'people' => count($members),
+        'avg' => $members ? round($total / count($members), 1) : 0,
+        'max' => $members ? $members[0]['count'] : 0,
+    ];
+}

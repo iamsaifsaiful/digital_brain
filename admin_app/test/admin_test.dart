@@ -130,6 +130,19 @@ class FakeServer {
         ],
         'runs': {},
       };
+    } else if (p == '/admin/notice-day') {
+      body = {
+        'day': _now.toIso8601String().substring(0, 10), 'total': 17, 'people': 3, 'avg': 5.7, 'max': 9,
+        'items': [
+          {'time': '08:00', 'label': 'সকালের সারাংশ', 'title': '', 'group': 'brief', 'by': 'phone', 'count': 3, 'people': 3, 'failed': 0, 'ahead': false},
+          {'time': '11:11', 'label': 'সাইটের নোটিফিকেশন', 'title': 'আজ বৃহস্পতিবার', 'group': 'server', 'by': 'server', 'count': 4, 'people': 4, 'failed': 1, 'ahead': false},
+          {'time': '21:00', 'label': 'রিমাইন্ডার', 'title': '', 'group': 'reminder', 'by': 'phone', 'count': 10, 'people': 2, 'failed': 0, 'ahead': true},
+        ],
+        'members': [
+          {'user_id': 1, 'name': 'সাইফুল ইসলাম', 'email': 'saiful.islam@gmail.com', 'count': 9, 'failed': 0},
+          {'user_id': 2, 'name': 'Nusrat Jahan', 'email': 'nusrat.j@gmail.com', 'count': 5, 'failed': 1},
+        ],
+      };
     } else if (p == '/admin/bkash') {
       body = bkash;
     } else if (p == '/admin/bkash/settings') {
@@ -341,6 +354,14 @@ void main() {
     expect(find.textContaining('পৌঁছায়নি ২'), findsOneWidget);
     expect(find.textContaining('rakib'), findsNothing);
     await shot(t, 'notice_stats');
+    // One day: what, when; and how many each member gets.
+    await t.tap(find.byKey(const Key('notice-today')));
+    await settle(t);
+    expect(find.text('আজ বৃহস্পতিবার'), findsOneWidget);
+    expect(find.text('কে দিনে কতগুলো পাচ্ছে'), findsOneWidget);
+    await t.scrollUntilVisible(find.text('৯টি'), 200);
+    expect(find.text('৯টি'), findsOneWidget);
+    await shot(t, 'notice_day');
   });
 
   testWidgets('members: by join date and source, new per day, PDF in the browser', (t) async {

@@ -434,6 +434,7 @@ function ma_acc_admin() {
     if ($tab === 'notices') {
         $extra['notices'] = $wpdb->get_results('SELECT * FROM ' . ma_note_table() . ' ORDER BY active DESC, id DESC', ARRAY_A);
         $extra['note_overview'] = ma_note_overview();
+        $extra['note_day'] = ma_note_day(sanitize_text_field((string) ($_GET['nday'] ?? '')));
     }
     $extra['pending'] = ma_pay_pending_count();
     $extra['fb_new'] = ma_fb_new_count();

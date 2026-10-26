@@ -814,7 +814,7 @@ $_GET = ['page' => 'my-assistant', 'tab' => 'notices', 'nq' => 'log@gmail'];
 ob_start();
 ma_acc_admin();
 $html = ob_get_clean();
-check(str_contains($html, 'কার কাছে কী গেছে') && str_contains($html, 'মতামতের উত্তর') && str_contains($html, 'এখনই পাঠান') && !preg_match('/(Warning|Notice|Fatal|Deprecated)\b.*on line/', $html), 'site: the log and "send now" on the নোটিফিকেশন tab');
+check(str_contains($html, 'কোন কোন নোটিফিকেশন') && str_contains($html, 'মতামতের উত্তর') && str_contains($html, 'এখনই পাঠান') && !preg_match('/(Warning|Notice|Fatal|Deprecated)\b.*on line/', $html), 'site: the log and "send now" on the নোটিফিকেশন tab');
 
 echo "  — হিসাব: income, expense, investors (owner only)\n";
 $paid = (int) $wpdb->get_var('SELECT COALESCE(SUM(amount),0) FROM ' . ma_pay_table() . " WHERE status = 'approved'");
@@ -1006,6 +1006,17 @@ check(($ov['runs'][$nidNow]['sent'] ?? 0) === 1 && !isset($ov['nlog']), 'notices
 [$code] = call('GET', '/admin/notice-stats', [], $ses);
 check($code === 403, 'notices: the overview is for admins');
 $wpdb->delete(ma_note_table(), ['id' => $nidLate]);
+// One day: what, when, how many; and how many each member gets.
+call('POST', '/notices/plan', ['items' => [['kind' => 'reminder', 'at' => gmdate('c', time() + 3600)], ['kind' => 'brief:morning', 'at' => gmdate('c', time() + 7200)]]], $pushSes);
+[$code, $nd] = call('GET', '/admin/notice-day', [], $bossSes);
+$srv = current(array_filter($nd['items'], fn($i) => $i['title'] === 'এখনকার নোটিফিকেশন'));
+check($code === 200 && $srv && $srv['by'] === 'server' && $srv['count'] === 1 && $srv['people'] === 1 && preg_match('/^\d\d:\d\d$/', $srv['time']), 'notice day: the server push with its time and count');
+$rem = array_filter($nd['items'], fn($i) => $i['label'] === 'রিমাইন্ডার' && $i['by'] === 'phone');
+check($rem && !array_filter($rem, fn($i) => $i['title'] !== '') && array_filter($rem, fn($i) => $i['ahead']), 'notice day: a member reminder only as a kind and time, the coming one marked ahead');
+$me = current(array_filter($nd['members'], fn($m) => $m['email'] === 'rahim@gmail.com'));
+check($me && $me['count'] >= 3 && $nd['people'] >= 1 && $nd['max'] >= $me['count'] && $nd['avg'] > 0, 'notice day: how many each member gets (' . ($me['count'] ?? 0) . ')');
+[$code] = call('GET', '/admin/notice-day', [], $ses);
+check($code === 403, 'notice day: admins only');
 
 echo "\n  — feedback: one inbox per member\n";
 $sesA = ma_ai_new_session((int) $u['id']);
@@ -1058,7 +1069,7 @@ check(str_contains($h, 'ওয়েবসাইট (বিকাশ)') && str_c
 $h = $render(['tab' => 'payments', 'pst' => 'all']);
 check(str_contains($h, 'বিকাশে আসা টাকা') && str_contains($h, '9A7KX2PQ1M') && str_contains($h, 'মিলেছে — প্রিমিয়াম চালু') && !preg_match($bad, $h), 'site: payments show bKash');
 $h = $render(['tab' => 'notices']);
-check(str_contains($h, 'আজ আর কাল কী যাবে') && str_contains($h, 'দিনে কতটি') && str_contains($h, 'সার্ভার থেকে পুশ') && !str_contains($h, '<h2>কার কাছে কী গেছে</h2>') && !preg_match($bad, $h), 'site: notifications overview instead of the per-member log');
+check(str_contains($h, 'আজ আর কাল কী যাবে') && str_contains($h, 'দিনে কতটি') && str_contains($h, 'কোন কোন নোটিফিকেশন') && str_contains($h, 'কে দিনে কতগুলো পাচ্ছে') && str_contains($h, 'এখনকার নোটিফিকেশন') && str_contains($h, 'সার্ভার থেকে পুশ') && !str_contains($h, '<h2>কার কাছে কী গেছে</h2>') && !preg_match($bad, $h), 'site: notifications overview instead of the per-member log');
 $h = $render(['tab' => 'feedback', 'fst' => 'all']);
 check(str_contains($h, 'জন সদস্য') && str_contains($h, 'ma-inbox-row') && !preg_match($bad, $h), 'site: feedback inbox list');
 $h = $render(['tab' => 'feedback', 'who' => (string) $u['id']]);

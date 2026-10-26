@@ -247,6 +247,11 @@ add_action('rest_api_init', function () {
         return ma_note_overview();
     });
 
+    /** One day: which notifications, what, when; and how many each member gets. */
+    ma_admin_route('/notice-day', 'GET', function (WP_REST_Request $req) {
+        return ma_note_day(sanitize_text_field((string) $req->get_param('day')));
+    });
+
     /** নোটিফিকেশনের লগ (admin app 1.9 and older). */
     ma_admin_route('/notice-log', 'GET', function (WP_REST_Request $req) {
         $q = sanitize_text_field((string) $req->get_param('q'));
