@@ -5,6 +5,8 @@ import android.Manifest
 import android.app.NotificationManager
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
+import android.media.AudioManager
+import android.media.MediaPlayer
 import android.media.Ringtone
 import android.media.RingtoneManager
 import android.provider.ContactsContract
@@ -43,6 +45,60 @@ class MainActivity : FlutterFragmentActivity() {
     private var contactsResult: MethodChannel.Result? = null
     private var preview: Ringtone? = null
     private val stopPreview = Runnable { preview?.stop() }
+
+    // The alarm page's own ring (owner, 26 Oct: "মোবাইল সাইলেন্ট থাকলেও
+    // বাজবে"): some phones mute a notification's sound in silent mode even on
+    // the alarm volume, so when the page opens and nothing is ringing on the
+    // alarm volume, it rings the tone itself until the page is closed.
+    private var backup: MediaPlayer? = null
+    private var backupUri: String? = null
+    private val stopBackupLater = Runnable { stopBackup() }
+    private val startBackup = Runnable {
+        val uri = backupUri ?: return@Runnable
+        if (backup != null || alarmSounding()) return@Runnable
+        try {
+            val mp = MediaPlayer()
+            mp.setAudioAttributes(AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build())
+            mp.setDataSource(this, Uri.parse(uri))
+            mp.isLooping = true
+            mp.prepare()
+            mp.start()
+            backup = mp
+            window.decorView.postDelayed(stopBackupLater, 5 * 60 * 1000L)
+        } catch (e: Exception) {
+            stopBackup()
+        }
+    }
+
+    /** Something (the reminder's notification) is ringing on the alarm volume now. */
+    private fun alarmSounding(): Boolean {
+        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        if (Build.VERSION.SDK_INT >= 26) {
+            return am.activePlaybackConfigurations.any { it.audioAttributes.usage == AudioAttributes.USAGE_ALARM }
+        }
+        // Older phones: trust the notification unless the phone is silent.
+        return am.ringerMode == AudioManager.RINGER_MODE_NORMAL
+    }
+
+    private fun stopBackup() {
+        window.decorView.removeCallbacks(startBackup)
+        window.decorView.removeCallbacks(stopBackupLater)
+        backupUri = null
+        try {
+            backup?.stop()
+        } catch (e: Exception) {
+        }
+        backup?.release()
+        backup = null
+    }
+
+    override fun onDestroy() {
+        stopBackup()
+        super.onDestroy()
+    }
     private var launchChannel: MethodChannel? = null
     private val google by lazy { GoogleAuth(this) }
 
@@ -398,9 +454,28 @@ class MainActivity : FlutterFragmentActivity() {
                     "batteryFree" to batteryFree(),
                     "fullScreen" to fullScreen,
                     "brand" to brand,
-                    "hasAutostart" to autostartBrands.contains(brand)
+                    "hasAutostart" to autostartBrands.contains(brand),
+                    "alarmVolume" to (getSystemService(Context.AUDIO_SERVICE) as AudioManager).getStreamVolume(AudioManager.STREAM_ALARM)
                 ))
             }
+            "raiseAlarmVolume" -> {
+                try {
+                    val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    val max = am.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+                    val want = Math.max(am.getStreamVolume(AudioManager.STREAM_ALARM), Math.ceil(max * 0.8).toInt())
+                    am.setStreamVolume(AudioManager.STREAM_ALARM, want, AudioManager.FLAG_SHOW_UI)
+                } catch (e: Exception) {
+                }
+                result.success(null)
+            }
+            "ringBackup" -> {
+                stopBackup()
+                backupUri = call.arguments as? String
+                // A moment for the notification's own sound to start first.
+                if (backupUri != null) window.decorView.postDelayed(startBackup, 1500)
+                result.success(null)
+            }
+            "stopBackup" -> { stopBackup(); result.success(null) }
             "askBattery" -> { askBattery(); result.success(null) }
             "openAutostart" -> { openAutostart(); result.success(null) }
             "openNotificationSettings" -> {

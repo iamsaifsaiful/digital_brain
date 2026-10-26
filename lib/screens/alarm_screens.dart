@@ -20,6 +20,22 @@ class AlarmScreen extends StatefulWidget {
 
 class _AlarmScreenState extends State<AlarmScreen> {
   bool _closing = false;
+  late final Notifier _n = BrainScope.read(context).services.notifier;
+
+  @override
+  void initState() {
+    super.initState();
+    // Rings even with the phone on silent (owner, 26 Oct).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _n.ringOnPage(widget.info.reminderId, widget.info.sound);
+    });
+  }
+
+  @override
+  void dispose() {
+    if (!_closing) _n.stopRinging(widget.info.reminderId);
+    super.dispose();
+  }
 
   Reminder? get _reminder => BrainScope.read(context).reminderById(widget.info.reminderId);
 
@@ -239,7 +255,7 @@ class _ReminderCheckScreenState extends State<ReminderCheckScreen> with WidgetsB
                 ? const Center(child: CircularProgressIndicator())
                 : ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
                     Text(
-                      tr('কিছু ফোন ব্যাটারি বাঁচাতে অ্যাপের অ্যালার্ম থামিয়ে দেয়। নিচের সব কটিতে সবুজ টিক থাকলে রিমাইন্ডার ঠিক সময়ে বাজবে — ফোন লক থাকলেও।'),
+                      tr('কিছু ফোন ব্যাটারি বাঁচাতে অ্যাপের অ্যালার্ম থামিয়ে দেয়। নিচের সব কটিতে সবুজ টিক থাকলে রিমাইন্ডার ঠিক সময়ে বাজবে — ফোন লক বা সাইলেন্ট থাকলেও।'),
                       style: body(14, color: C.muted, height: 1.55),
                     ),
                     const SizedBox(height: 14),
@@ -278,6 +294,18 @@ class _ReminderCheckScreenState extends State<ReminderCheckScreen> with WidgetsB
                             // Some phones answer in place, with no return to the app.
                             await Future<void>.delayed(const Duration(seconds: 2));
                             if (mounted) await _load();
+                          },
+                        ),
+                        _CheckRow(
+                          ok: h.alarmVolumeOn,
+                          title: tr('অ্যালার্মের ভলিউম'),
+                          sub: h.alarmVolumeOn
+                              ? tr('চালু আছে — ফোন সাইলেন্ট থাকলেও রিমাইন্ডার বাজবে')
+                              : tr('শূন্যে আছে — রিমাইন্ডার কোনো শব্দ করবে না'),
+                          fix: tr('বাড়ান'),
+                          onFix: () async {
+                            await n.raiseAlarmVolume();
+                            await _load();
                           },
                         ),
                         if (!h.fullScreenOn)

@@ -223,6 +223,7 @@ class AlarmHealth {
     required this.fullScreenOn,
     required this.brand,
     required this.hasAutostart,
+    this.alarmVolumeOn = true,
   });
   final bool notificationsOn;
   final bool exactOn;
@@ -239,7 +240,11 @@ class AlarmHealth {
   /// The maker has its own "auto-start" switch that must be on.
   final bool hasAutostart;
 
-  bool get allGood => notificationsOn && exactOn && batteryFree;
+  /// The alarm volume is above zero: reminders ring on it, also with the
+  /// phone on silent (owner, 26 Oct) — at zero they make no sound at all.
+  final bool alarmVolumeOn;
+
+  bool get allGood => notificationsOn && exactOn && batteryFree && alarmVolumeOn;
 
   static const unknown = AlarmHealth(notificationsOn: true, exactOn: true, batteryFree: true, fullScreenOn: true, brand: '', hasAutostart: false);
 }
@@ -295,6 +300,14 @@ abstract class Notifier {
 
   /// Lets the alarm page show over the lock screen (only while it is open).
   Future<void> showOverLock(bool on);
+
+  /// Turns the alarm volume up (to at least 80%), which reminders ring on.
+  Future<void> raiseAlarmVolume();
+
+  /// The alarm page opened by a reminder that is still ringing: if the phone
+  /// muted its sound (some do in silent mode), the page rings it itself on
+  /// the alarm volume until [stopRinging].
+  Future<void> ringOnPage(String reminderId, String? sound);
 
   /// The emergency card on the lock screen (null removes it).
   Future<void> showEmergency(String? text);
@@ -563,6 +576,7 @@ class NotificationService implements Notifier {
       fullScreenOn: p['fullScreen'] != false,
       brand: '${p['brand'] ?? ''}'.toLowerCase(),
       hasAutostart: p['hasAutostart'] == true,
+      alarmVolumeOn: p['alarmVolume'] is! int || (p['alarmVolume'] as int) > 0,
     );
   }
 
@@ -595,6 +609,21 @@ class NotificationService implements Notifier {
 
   @override
   Future<void> showOverLock(bool on) => _call('showOverLock', on);
+
+  @override
+  Future<void> raiseAlarmVolume() => _call('raiseAlarmVolume');
+
+  @override
+  Future<void> ringOnPage(String reminderId, String? sound) async {
+    try {
+      final active = await _android?.getActiveNotifications() ?? const [];
+      // Opened by a tap, the notification is gone and nothing should ring.
+      if (!active.any((a) => NoticeInfo.parse(a.payload)?.reminderId == reminderId)) return;
+      await _call('ringBackup', sound ?? _alarmTone);
+    } catch (e) {
+      debugPrint('ringOnPage: $e');
+    }
+  }
 
   static final _emergencyId = stableId('emergency-card');
   static final _micId = stableId('panel-mic');
@@ -681,6 +710,7 @@ class NotificationService implements Notifier {
 
   @override
   Future<void> stopRinging(String reminderId) async {
+    await _call('stopBackup');
     try {
       final active = await _android?.getActiveNotifications() ?? const [];
       for (final a in active) {
@@ -910,6 +940,26 @@ class FakeNotifier implements Notifier {
 
   @override
   Future<void> showOverLock(bool on) async {}
+
+  int volumeRaised = 0;
+
+  @override
+  Future<void> raiseAlarmVolume() async {
+    volumeRaised++;
+    state = AlarmHealth(
+        notificationsOn: state.notificationsOn,
+        exactOn: state.exactOn,
+        batteryFree: state.batteryFree,
+        fullScreenOn: state.fullScreenOn,
+        brand: state.brand,
+        hasAutostart: state.hasAutostart);
+  }
+
+  /// Reminders the alarm page was asked to ring itself.
+  final pageRings = <String>[];
+
+  @override
+  Future<void> ringOnPage(String reminderId, String? sound) async => pageRings.add(reminderId);
 
   String? emergency;
   bool micOn = false;
