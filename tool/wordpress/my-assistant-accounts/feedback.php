@@ -370,6 +370,152 @@ function ma_fb_admin_reply($id, $text, array $file, $admin_name) {
     return $mid;
 }
 
+// ── One inbox per member (owner, 27 Oct): every conversation of a member in one place ──
+
+/** The inbox key of a conversation: the member's id, or their e-mail when there is none. */
+function ma_fb_key($r) {
+    return (int) $r['user_id'] > 0 ? (string) (int) $r['user_id'] : 'e:' . strtolower($r['email']);
+}
+
+/**
+ * Members with conversations, newest first. $st: 'open' (anything not
+ * finished), 'done' (all finished) or 'all'; $q: name or e-mail.
+ */
+function ma_fb_inbox($st = 'open', $q = '') {
+    global $wpdb;
+    $rows = $wpdb->get_results('SELECT * FROM ' . ma_fb_table() . ' ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 1000', ARRAY_A);
+    $out = [];
+    foreach ($rows as $r) {
+        $k = ma_fb_key($r);
+        if (!isset($out[$k])) {
+            $out[$k] = ['key' => $k, 'user_id' => (int) $r['user_id'], 'email' => $r['email'], 'name' => $r['name'], 'picture' => '', 'threads' => 0, 'open' => 0, 'new' => 0, 'kinds' => [], 'updated' => $r['updated_at'] ?: $r['created_at'], 'last' => null, 'thread' => (int) $r['id']];
+            $last = $wpdb->get_row($wpdb->prepare('SELECT sender, body, file_key FROM ' . ma_fb_msgs_table() . ' WHERE feedback_id = %d ORDER BY id DESC LIMIT 1', $r['id']), ARRAY_A);
+            if ($last) {
+                $out[$k]['last'] = ['from' => $last['sender'], 'text' => $last['body'] !== '' ? $last['body'] : '📎 সংযুক্তি'];
+            }
+        }
+        $g = &$out[$k];
+        $g['threads']++;
+        if ($r['status'] !== 'done') {
+            $g['open']++;
+        }
+        if ($r['status'] === 'new') {
+            $g['new']++;
+        }
+        $g['kinds'][$r['kind']] = true;
+        unset($g);
+    }
+    $ids = array_filter(array_map(fn($g) => $g['user_id'], $out));
+    if ($ids) {
+        foreach ($wpdb->get_results('SELECT id, picture, name FROM ' . ma_acc_table() . ' WHERE id IN (' . implode(',', array_map('intval', $ids)) . ')', ARRAY_A) as $u) {
+            foreach ($out as &$g) {
+                if ($g['user_id'] === (int) $u['id']) {
+                    $g['picture'] = $u['picture'];
+                    if ($g['name'] === '') {
+                        $g['name'] = $u['name'];
+                    }
+                }
+            }
+            unset($g);
+        }
+    }
+    $kinds = ma_fb_kinds();
+    $res = [];
+    foreach ($out as $g) {
+        if (($st === 'open' && $g['open'] === 0) || ($st === 'done' && $g['open'] > 0)) {
+            continue;
+        }
+        if ($q !== '' && stripos($g['name'] . ' ' . $g['email'], $q) === false) {
+            continue;
+        }
+        $g['kind_labels'] = array_values(array_map(fn($k) => $kinds[$k][0] ?? $k, array_keys($g['kinds'])));
+        $g['kinds'] = array_keys($g['kinds']);
+        $g['updated'] = gmdate('c', ma_acc_ts($g['updated']));
+        $res[] = $g;
+    }
+    return $res;
+}
+
+/** The conversations of one member (by inbox key), oldest first. */
+function ma_fb_member_threads($key) {
+    global $wpdb;
+    if (preg_match('/^\d+$/', (string) $key)) {
+        return $wpdb->get_results($wpdb->prepare('SELECT * FROM ' . ma_fb_table() . ' WHERE user_id = %d ORDER BY id ASC', (int) $key), ARRAY_A);
+    }
+    if (str_starts_with((string) $key, 'e:')) {
+        return $wpdb->get_results($wpdb->prepare('SELECT * FROM ' . ma_fb_table() . ' WHERE user_id = 0 AND email = %s ORDER BY id ASC', substr($key, 2)), ARRAY_A);
+    }
+    return [];
+}
+
+/**
+ * One member's inbox: who, every message of every conversation in time
+ * order (each says which conversation it belongs to), and where a reply
+ * goes (the newest open conversation). Opening it marks the new ones read.
+ */
+function ma_fb_inbox_one($key) {
+    global $wpdb;
+    $threads = ma_fb_member_threads($key);
+    if (!$threads) {
+        return null;
+    }
+    $kinds = ma_fb_kinds();
+    $msgs = [];
+    $tjson = [];
+    $reply_to = 0;
+    foreach ($threads as $t) {
+        if ($t['status'] === 'new') {
+            $wpdb->update(ma_fb_table(), ['status' => 'read'], ['id' => $t['id']]);
+            $t['status'] = 'read';
+        }
+        if ($t['status'] !== 'done') {
+            $reply_to = (int) $t['id'];
+        }
+        $tjson[] = ['id' => (int) $t['id'], 'kind' => $t['kind'], 'kind_label' => $kinds[$t['kind']][0] ?? $t['kind'], 'status' => $t['status'], 'created' => gmdate('c', ma_acc_ts($t['created_at'])), 'version' => $t['app_version']];
+        foreach ($wpdb->get_results($wpdb->prepare('SELECT * FROM ' . ma_fb_msgs_table() . ' WHERE feedback_id = %d', $t['id']), ARRAY_A) as $m) {
+            $msgs[] = ma_fb_msg_json($m) + ['thread' => (int) $t['id'], 'kind_label' => $kinds[$t['kind']][0] ?? $t['kind'], 'file_mime' => $m['file_mime'], 'file_size' => (int) $m['file_size'], 'at' => $m['created_at']];
+        }
+    }
+    usort($msgs, fn($a, $b) => [$a['at'], $a['id']] <=> [$b['at'], $b['id']]);
+    foreach ($msgs as &$m) {
+        unset($m['at']);
+    }
+    unset($m);
+    $last = end($threads);
+    $u = (int) $last['user_id'] > 0 ? $wpdb->get_row($wpdb->prepare('SELECT picture, name FROM ' . ma_acc_table() . ' WHERE id = %d', $last['user_id']), ARRAY_A) : null;
+    return [
+        'key' => (string) $key,
+        'user_id' => (int) $last['user_id'],
+        'email' => $last['email'],
+        'name' => $last['name'] !== '' ? $last['name'] : (string) ($u['name'] ?? ''),
+        'picture' => (string) ($u['picture'] ?? ''),
+        'threads' => $tjson,
+        'messages' => $msgs,
+        'reply_to' => $reply_to ?: (int) $last['id'],
+        'open' => $reply_to > 0,
+    ];
+}
+
+/** All of a member's conversations finished ('done'), or the newest one opened again ('open'). */
+function ma_fb_inbox_set($key, $what) {
+    global $wpdb;
+    $threads = ma_fb_member_threads($key);
+    if (!$threads) {
+        return false;
+    }
+    if ($what === 'done') {
+        foreach ($threads as $t) {
+            $wpdb->update(ma_fb_table(), ['status' => 'done'], ['id' => $t['id']]);
+        }
+        return true;
+    }
+    if ($what === 'open') {
+        $t = end($threads);
+        return $wpdb->update(ma_fb_table(), ['status' => 'read'], ['id' => $t['id']]) !== false;
+    }
+    return false;
+}
+
 // ── The admin app (/admin/feedback…) ──
 
 add_action('rest_api_init', function () {
@@ -409,6 +555,18 @@ add_action('rest_api_init', function () {
         $mid = ma_fb_admin_reply((int) $req['id'], ma_fb_text($req), $file ?: [], ma_admin_of($req)['name']);
         return is_wp_error($mid) ? $mid : ['ok' => true, 'id' => $mid];
     });
+    // One inbox per member.
+    ma_admin_route('/inbox', 'GET', function (WP_REST_Request $req) {
+        return ['members' => ma_fb_inbox(sanitize_key((string) ($req->get_param('status') ?: 'open')), sanitize_text_field((string) $req->get_param('q'))), 'new' => ma_fb_new_count()];
+    });
+    ma_admin_route('/inbox/(?P<key>[0-9]+|e:[^/]+)', 'GET', function (WP_REST_Request $req) {
+        $one = ma_fb_inbox_one(rawurldecode((string) $req['key']));
+        return $one ?: new WP_Error('none', 'not found', ['status' => 404]);
+    });
+    ma_admin_route('/inbox/(?P<key>[0-9]+|e:[^/]+)', 'POST', function (WP_REST_Request $req) {
+        $ok = ma_fb_inbox_set(rawurldecode((string) $req['key']), sanitize_key((string) $req->get_param('status')));
+        return new WP_REST_Response(['ok' => $ok], $ok ? 200 : 404);
+    });
     ma_admin_route('/feedback/file/(?P<id>\d+)', 'GET', function (WP_REST_Request $req) {
         $msg = ma_fb_msg_row((int) $req['id']);
         return $msg ? ma_fb_file_json($msg) : new WP_Error('none', 'not found', ['status' => 404]);
@@ -421,8 +579,24 @@ add_action('admin_post_ma_fb_set', function () {
     ma_acc_guard('ma_fb_set');
     $id = (int) ($_POST['id'] ?? 0);
     $st = sanitize_key(wp_unslash($_POST['status'] ?? ''));
+    $who = ma_fb_key_of($id);
     ma_fb_set($id, $st);
-    ma_acc_back('রাখা হয়েছে।', 'ok', $st === 'delete' ? ['tab' => 'feedback'] : ['tab' => 'feedback', 'fb' => $id]);
+    ma_acc_back($st === 'delete' ? 'কথোপকথন মুছে ফেলা হলো।' : 'রাখা হয়েছে।', 'ok', $st === 'delete' || $who === '' ? ['tab' => 'feedback'] : ['tab' => 'feedback', 'who' => $who]);
+});
+
+/** The inbox key of a conversation id ('' when there is none). */
+function ma_fb_key_of($id) {
+    global $wpdb;
+    $r = $wpdb->get_row($wpdb->prepare('SELECT user_id, email FROM ' . ma_fb_table() . ' WHERE id = %d', $id), ARRAY_A);
+    return $r ? ma_fb_key($r) : '';
+}
+
+add_action('admin_post_ma_fb_inbox_set', function () {
+    ma_acc_guard('ma_fb_inbox_set');
+    $who = sanitize_text_field(wp_unslash((string) ($_POST['who'] ?? '')));
+    $what = sanitize_key((string) ($_POST['status'] ?? ''));
+    ma_fb_inbox_set($who, $what);
+    ma_acc_back($what === 'done' ? 'সব কথোপকথন শেষ হিসেবে রাখা হলো।' : 'আবার খোলা হলো।', 'ok', $what === 'done' ? ['tab' => 'feedback'] : ['tab' => 'feedback', 'who' => $who]);
 });
 
 add_action('admin_post_ma_fb_reply', function () {
@@ -433,11 +607,11 @@ add_action('admin_post_ma_fb_reply', function () {
     if (!empty($_FILES['file']['tmp_name']) && is_uploaded_file($_FILES['file']['tmp_name'])) {
         $file = ma_fb_store_file((string) file_get_contents($_FILES['file']['tmp_name']), $_FILES['file']['name'] ?? '');
         if (is_wp_error($file)) {
-            ma_acc_back('সংযুক্তি রাখা যায়নি — শুধু ছবি বা PDF, ৫ MB পর্যন্ত।', 'error', ['tab' => 'feedback', 'fb' => $id]);
+            ma_acc_back('সংযুক্তি রাখা যায়নি — শুধু ছবি বা PDF, ৫ MB পর্যন্ত।', 'error', ['tab' => 'feedback', 'who' => ma_fb_key_of($id)]);
         }
     }
     $r = ma_fb_admin_reply($id, $text, $file ?: [], wp_get_current_user()->display_name);
-    ma_acc_back(is_wp_error($r) ? 'কিছু লিখুন বা ফাইল দিন।' : 'উত্তর পাঠানো হয়েছে — সদস্যের ফোনে নোটিফিকেশন গেছে।', is_wp_error($r) ? 'error' : 'ok', ['tab' => 'feedback', 'fb' => $id]);
+    ma_acc_back(is_wp_error($r) ? 'কিছু লিখুন বা ফাইল দিন।' : 'উত্তর পাঠানো হয়েছে — সদস্যের ফোনে নোটিফিকেশন গেছে।', is_wp_error($r) ? 'error' : 'ok', ['tab' => 'feedback', 'who' => ma_fb_key_of($id)]);
 });
 
 /** Opens an attachment for a signed-in admin (never a public link). */

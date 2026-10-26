@@ -39,6 +39,7 @@ function ma_ai_install() {
         last_used datetime NOT NULL,
         app varchar(16) NOT NULL DEFAULT 'member',
         fcm_token varchar(300) NOT NULL DEFAULT '',
+        srv_push tinyint(1) NOT NULL DEFAULT 0,
         PRIMARY KEY  (id),
         UNIQUE KEY token_hash (token_hash),
         KEY user_id (user_id)

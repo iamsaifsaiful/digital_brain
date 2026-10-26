@@ -215,13 +215,18 @@ function ma_pay_form($atts = []) {
     <div class="top"><div class="wrap"><a class="brand" href="<?php echo esc_url($home); ?>"><img src="<?php echo esc_url($icon); ?>" alt="">My Assistant</a><a class="back" href="<?php echo esc_url($home); ?>">← মূল পাতায় ফিরুন</a></div></div>
     <?php endif; ?>
 
-    <?php if ($state === 'ok') : ?>
+    <?php if ($state === 'ok' || $state === 'auto') : ?>
     <div class="wrap" style="padding-top:48px;padding-bottom:64px;max-width:760px">
         <div class="done" role="status">
             <span class="ck"><?php echo $check; ?></span>
+            <?php if ($state === 'auto') : ?>
+            <h2>প্রিমিয়াম চালু হয়ে গেছে 🎉</h2>
+            <p>আপনার বিকাশ পেমেন্ট মিলেছে — ধন্যবাদ! অ্যাপে এই Google অ্যাকাউন্টে লগইন থাকলে অ্যাপ খুললেই প্রিমিয়াম দেখাবে। ইমেইলেও জানিয়ে দিয়েছি।</p>
+            <?php else : ?>
             <h2>ধন্যবাদ! তথ্য পেয়েছি</h2>
             <p>পেমেন্ট মিলিয়ে আমরা প্রিমিয়াম চালু করছি — বেশির ভাগ সময় সাথে সাথেই হয়ে যায়। চালু হলে ফোনে নোটিফিকেশন আর ইমেইল পাবেন। অ্যাপে যে Google অ্যাকাউন্ট দিয়েছেন, সেটাতেই লগইন রাখুন।</p>
             <p>পেমেন্ট না মিললে কেন মেলেনি, ইমেইলে জানিয়ে দেব।</p>
+            <?php endif; ?>
             <a href="<?php echo esc_url($home); ?>">← মূল পাতায় ফিরুন</a>
         </div>
     </div>
@@ -389,7 +394,13 @@ function ma_pay_submit() {
         'trx' => substr($trx, 0, 64),
         'note' => substr(sanitize_textarea_field(wp_unslash($_POST['note'] ?? '')), 0, 500),
     ]);
-    ma_push_admins('নতুন পেমেন্ট — ৳' . $plans[$plan]['price'], $methods[$method]['name'] . ' · ' . $email, ['type' => 'payment', 'id' => (string) $wpdb->insert_id]);
+    $pay_id = (int) $wpdb->insert_id;
+    // The money may already have come in (the payment-SIM phone sent it): Premium at once.
+    if (ma_bk_on_payment($pay_id)) {
+        ma_push_admins('প্রিমিয়াম নিজে থেকে চালু — ৳' . $plans[$plan]['price'], 'বিকাশে টাকা মিলেছে · ' . $email, ['type' => 'payment', 'id' => (string) $pay_id]);
+        $go('auto');
+    }
+    ma_push_admins('নতুন পেমেন্ট — ৳' . $plans[$plan]['price'], $methods[$method]['name'] . ' · ' . $email, ['type' => 'payment', 'id' => (string) $pay_id]);
     wp_mail(
         get_option('admin_email'),
         'My Assistant: নতুন পেমেন্ট — ' . $methods[$method]['name'] . ' ৳' . $plans[$plan]['price'],
@@ -407,7 +418,7 @@ add_action('admin_post_ma_pay_submit', 'ma_pay_submit');
  * rejects a payment. Used by the website admin page and the admin app.
  * Returns [ok, message].
  */
-function ma_pay_decide($id, $approve, $reason = '', $tell = true, $by = '') {
+function ma_pay_decide($id, $approve, $reason = '', $tell = true, $by = '', $kind = 'web') {
     global $wpdb;
     $p = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . ma_pay_table() . ' WHERE id = %d', $id), ARRAY_A);
     if (!$p || $p['status'] !== 'pending') {
@@ -428,14 +439,14 @@ function ma_pay_decide($id, $approve, $reason = '', $tell = true, $by = '') {
     $table = ma_acc_table();
     $member = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE email = %s ORDER BY id LIMIT 1", $p['email']), ARRAY_A);
     if ($member) {
-        $wpdb->update($table, ['pro_until' => ma_acc_extend($member, $days), 'pro_kind' => 'manual'], ['id' => $member['id']]);
+        $wpdb->update($table, ['pro_until' => ma_acc_extend($member, $days), 'pro_kind' => $kind], ['id' => $member['id']]);
     } else {
         $wpdb->insert($table, [
             'google_sub' => 'pending:' . $p['email'], 'email' => $p['email'], 'name' => $p['name'], 'note' => $p['method'] . ' ' . $p['trx'],
-            'created_at' => $now, 'last_seen' => $now, 'pro_until' => gmdate('Y-m-d H:i:s', time() + $days * DAY_IN_SECONDS), 'pro_kind' => 'manual',
+            'created_at' => $now, 'last_seen' => $now, 'pro_until' => gmdate('Y-m-d H:i:s', time() + $days * DAY_IN_SECONDS), 'pro_kind' => $kind,
         ]);
     }
-    $wpdb->update(ma_pay_table(), ['status' => 'approved'] + $who, ['id' => $id]);
+    $wpdb->update(ma_pay_table(), ['status' => 'approved', 'reason' => $kind === 'bkash' ? 'বিকাশে টাকা মিলেছে — নিজে থেকে' : $p['reason']] + $who, ['id' => $id]);
     wp_mail($p['email'], 'My Assistant প্রিমিয়াম চালু হয়েছে', "আপনার পেমেন্ট ({$p['method']}, TrxID {$p['trx']}) পেয়েছি — ধন্যবাদ!\n\nঅ্যাপে এই ইমেইলের ({$p['email']}) Google অ্যাকাউন্টে লগইন করলেই প্রিমিয়াম চালু হবে। আগে থেকে লগইন করা থাকলে অ্যাপ খুললেই চালু হয়ে যাবে।\n\n— My Assistant");
     if ($member) {
         ma_push_member((int) $member['id'], 'প্রিমিয়াম চালু হয়েছে 🎉', 'আপনার পেমেন্ট পেয়েছি — ধন্যবাদ! AI, বিজ্ঞাপন ছাড়া আর সব প্রিমিয়াম সুবিধা এখন চালু।', ['type' => 'pro']);

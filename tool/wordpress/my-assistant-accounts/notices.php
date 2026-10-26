@@ -38,6 +38,23 @@ function ma_note_install() {
         PRIMARY KEY  (id)
     ) " . $wpdb->get_charset_collate() . ';');
     ma_nlog_install();
+    // Each time the server itself pushed a notice (once per notice and day).
+    dbDelta('CREATE TABLE ' . ma_note_runs_table() . " (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        notice_id bigint(20) unsigned NOT NULL,
+        day date NOT NULL,
+        at datetime NOT NULL,
+        members int(10) unsigned NOT NULL DEFAULT 0,
+        sent int(10) unsigned NOT NULL DEFAULT 0,
+        failed int(10) unsigned NOT NULL DEFAULT 0,
+        PRIMARY KEY  (id),
+        UNIQUE KEY notice_day (notice_id, day)
+    ) " . $wpdb->get_charset_collate() . ';');
+}
+
+function ma_note_runs_table() {
+    global $wpdb;
+    return $wpdb->prefix . 'ma_notice_runs';
 }
 
 // ── নোটিফিকেশনের লগ: what each member's phone is set to show, and what we pushed ──
@@ -240,7 +257,22 @@ add_action('rest_api_init', function () {
 /** Active notifications for this phone (everyone's, plus its plan's when signed in). */
 function ma_note_list(WP_REST_Request $req) {
     global $wpdb;
+    ma_note_tick_soon();
     $member = ma_ai_member($req);
+    // A phone that can take our pushes (2.55.11 and later says push=1): the
+    // notices without a condition come from here at their time, so the
+    // phone does not plan them itself (it could be closed, or not opened
+    // since the notice was written — owner, 27 Oct).
+    $pushed = [];
+    if ($member && $req->get_param('push')) {
+        $sess = ma_session_row($req);
+        if ($sess) {
+            if ((int) $sess['srv_push'] !== 1) {
+                $wpdb->update(ma_ai_sessions_table(), ['srv_push' => 1], ['id' => (int) $sess['id']]);
+            }
+            $pushed_ok = $sess['fcm_token'] !== '' && ma_push_account() !== null;
+        }
+    }
     $plan = 'free';
     if ($member) {
         $s = ma_acc_status($member);
@@ -266,9 +298,12 @@ function ma_note_list(WP_REST_Request $req) {
             'cond' => $r['cond'],
             'mic' => (bool) $r['mic'],
         ];
+        if (!empty($pushed_ok) && $r['cond'] === '') {
+            $pushed[] = (int) $r['id'];
+        }
     }
-    $res = new WP_REST_Response(['notices' => $out], 200);
-    $res->header('Cache-Control', 'private, max-age=600');
+    $res = new WP_REST_Response(['notices' => $out, 'pushed' => $pushed], 200);
+    $res->header('Cache-Control', 'private, no-store');
     return $res;
 }
 
@@ -325,3 +360,222 @@ add_action('admin_post_ma_note_toggle', function () {
     $wpdb->query($wpdb->prepare('UPDATE ' . ma_note_table() . ' SET active = 1 - active WHERE id = %d', $id));
     ma_acc_back('বদলানো হলো।', 'ok', ['tab' => 'notices']);
 });
+
+// ── The server pushes the notices without a condition at their time ──
+// WordPress runs this every five minutes when anyone uses the site or the
+// app (and from a real cron, if the host has one). A notice more than two
+// hours late is not sent (old news); each notice goes once a day.
+
+add_filter('cron_schedules', function ($s) {
+    $s['ma_five'] = ['interval' => 300, 'display' => 'Every 5 minutes (My Assistant)'];
+    return $s;
+});
+add_action('init', function () {
+    if (!wp_next_scheduled('ma_note_tick')) {
+        wp_schedule_event(time() + 60, 'ma_five', 'ma_note_tick');
+    }
+});
+add_action('ma_note_tick', 'ma_note_tick');
+
+/** From an app or admin request: at most once a minute. */
+function ma_note_tick_soon() {
+    if (get_transient('ma_note_tick_lock')) {
+        return;
+    }
+    set_transient('ma_note_tick_lock', 1, MINUTE_IN_SECONDS);
+    ma_note_tick();
+}
+
+/** When a notice is due on a local day ('Y-m-d'), as a UTC timestamp; null when not that day. */
+function ma_note_occurs($n, $day) {
+    $ts = strtotime($day . ' UTC');
+    if (!$ts) {
+        return null;
+    }
+    if ($n['kind'] === 'once' && $n['on_date'] !== $day) {
+        return null;
+    }
+    if ($n['kind'] === 'weekly' && (int) gmdate('N', $ts) !== (int) $n['weekday']) {
+        return null;
+    }
+    if (!empty($n['start_date']) && $day < $n['start_date']) {
+        return null;
+    }
+    if (!empty($n['end_date']) && $day > $n['end_date']) {
+        return null;
+    }
+    return strtotime($day . ' ' . $n['at_time'] . ':00 UTC') - ma_acc_tz_off();
+}
+
+/** Phones that take server pushes, for a notice's audience: user_id => [tokens]. */
+function ma_note_push_targets($audience) {
+    global $wpdb;
+    $rows = $wpdb->get_results('SELECT s.user_id, s.fcm_token FROM ' . ma_ai_sessions_table() . ' s JOIN ' . ma_acc_table() . " u ON u.id = s.user_id WHERE s.app <> 'admin' AND s.srv_push = 1 AND s.fcm_token <> '' AND s.expires_at > UTC_TIMESTAMP() " . ma_push_where($audience) . ' LIMIT 20000', ARRAY_A);
+    $by = [];
+    foreach ($rows as $r) {
+        $by[(int) $r['user_id']][] = $r['fcm_token'];
+    }
+    return $by;
+}
+
+function ma_note_tick() {
+    global $wpdb;
+    if (!ma_push_account()) {
+        return 0;
+    }
+    $now = time();
+    $today = gmdate('Y-m-d', $now + ma_acc_tz_off());
+    $notes = $wpdb->get_results('SELECT * FROM ' . ma_note_table() . " WHERE active = 1 AND cond = ''", ARRAY_A);
+    $done = 0;
+    foreach ($notes as $n) {
+        $at = ma_note_occurs($n, $today);
+        if ($at === null || $at > $now || $now - $at > 2 * HOUR_IN_SECONDS) {
+            continue;
+        }
+        if ($wpdb->get_var($wpdb->prepare('SELECT id FROM ' . ma_note_runs_table() . ' WHERE notice_id = %d AND day = %s', $n['id'], $today))) {
+            continue;
+        }
+        // Claimed first, so two runs at once never send it twice (the unique key refuses the second).
+        $quiet = $wpdb->suppress_errors(true);
+        $ok = $wpdb->insert(ma_note_runs_table(), ['notice_id' => (int) $n['id'], 'day' => $today, 'at' => gmdate('Y-m-d H:i:s', $now)]);
+        $wpdb->suppress_errors($quiet);
+        if (!$ok) {
+            continue;
+        }
+        $run = (int) $wpdb->insert_id;
+        $members = 0;
+        $sent = 0;
+        $failed = 0;
+        foreach (ma_note_push_targets($n['audience']) as $uid => $tokens) {
+            $members++;
+            $k = ma_push_send($tokens, $n['title'], $n['body'], ['type' => 'server', 'id' => (string) $n['id'], 'mic' => $n['mic'] ? '1' : '0']);
+            $k > 0 ? $sent++ : $failed++;
+            ma_nlog_add($uid, 'push', 'server', $n['title'], gmdate('Y-m-d H:i:s', $now), $k > 0 ? 'sent' : 'failed');
+        }
+        $wpdb->update(ma_note_runs_table(), ['members' => $members, 'sent' => $sent, 'failed' => $failed], ['id' => $run]);
+        $done++;
+    }
+    return $done;
+}
+
+// ── What goes out, when, and how many a day (owner, 27 Oct: not who got what) ──
+
+/** The kind of a log line in one of a few groups. */
+function ma_note_group($source, $kind) {
+    if ($source === 'push') {
+        return match ($kind) {
+            'server' => 'server',
+            'news' => 'news',
+            default => 'other_push',
+        };
+    }
+    if ($kind === 'server' || str_starts_with($kind, 'nudge:srv') || str_starts_with($kind, 'nudge:plan:srv')) {
+        return 'server';
+    }
+    if (str_starts_with($kind, 'reminder')) {
+        return 'reminder';
+    }
+    if (str_starts_with($kind, 'brief:')) {
+        return 'brief';
+    }
+    return 'nudge';
+}
+
+function ma_note_group_labels() {
+    return [
+        'server' => 'সাইটের নোটিফিকেশন',
+        'news' => '“এখনই পাঠান”',
+        'other_push' => 'প্রিমিয়াম, মতামতের উত্তর, ফ্যামিলি…',
+        'reminder' => 'সদস্যদের নিজের রিমাইন্ডার',
+        'brief' => 'সকাল/রাতের সারাংশ',
+        'nudge' => 'সহকারীর মনে করানো',
+    ];
+}
+
+/**
+ * The notifications page: the next 7 days of our notices (time, who, how
+ * many phones), and the last 14 days counted per day and kind.
+ */
+function ma_note_overview() {
+    global $wpdb;
+    $off = ma_acc_tz_off();
+    $now = time();
+    $o = ma_note_options();
+    $push_on = ma_push_account() !== null;
+    $notes = $wpdb->get_results('SELECT * FROM ' . ma_note_table() . ' WHERE active = 1 ORDER BY at_time ASC', ARRAY_A);
+    $aud_count = [];
+    $phone_count = [];
+    $upcoming = [];
+    $today = strtotime(gmdate('Y-m-d', $now + $off) . ' UTC');
+    for ($i = 0; $i < 7; $i++) {
+        $day = gmdate('Y-m-d', $today + $i * DAY_IN_SECONDS);
+        foreach ($notes as $n) {
+            $at = ma_note_occurs($n, $day);
+            if ($at === null || $at < $now - 5 * MINUTE_IN_SECONDS) {
+                continue;
+            }
+            $aud = $n['audience'];
+            if (!isset($aud_count[$aud])) {
+                $aud_count[$aud] = (int) $wpdb->get_var('SELECT COUNT(*) FROM ' . ma_acc_table() . " u WHERE u.google_sub NOT LIKE 'pending:%' " . ma_push_where($aud));
+                $phone_count[$aud] = count(ma_note_push_targets($aud));
+            }
+            $by_push = $push_on && $n['cond'] === '';
+            $upcoming[] = [
+                'id' => (int) $n['id'],
+                'day' => $day,
+                'time' => $n['at_time'],
+                'at' => gmdate('c', $at),
+                'title' => $n['title'],
+                'body' => $n['body'],
+                'audience' => $o['audience'][$aud] ?? 'সবাই',
+                'how' => $by_push ? 'push' : 'phone',
+                'how_label' => $by_push ? 'সার্ভার থেকে পুশ' : ($n['cond'] !== '' ? 'ফোন নিজে দেখাবে (শর্ত: ' . ($o['cond'][$n['cond']] ?? '') . ')' : 'ফোন নিজে দেখাবে'),
+                'members' => $aud_count[$aud],
+                'phones' => $by_push ? $phone_count[$aud] : null,
+            ];
+        }
+    }
+    usort($upcoming, fn($a, $b) => strcmp($a['at'], $b['at']));
+
+    // The last 14 days, per local day and group (counted by the hour in SQL).
+    $from = gmdate('Y-m-d H:i:s', $today - 13 * DAY_IN_SECONDS - $off);
+    $rows = $wpdb->get_results($wpdb->prepare(
+        'SELECT SUBSTR(at, 1, 13) AS h, source, kind, status, COUNT(*) AS n FROM ' . ma_nlog_table() . ' WHERE at >= %s AND at <= %s GROUP BY SUBSTR(at, 1, 13), source, kind, status',
+        $from, gmdate('Y-m-d H:i:s', $now)
+    ), ARRAY_A);
+    $groups = array_keys(ma_note_group_labels());
+    $days = [];
+    for ($i = 0; $i < 14; $i++) {
+        $d = gmdate('Y-m-d', $today - $i * DAY_IN_SECONDS);
+        $days[$d] = ['day' => $d, 'total' => 0, 'failed' => 0] + array_fill_keys($groups, 0);
+    }
+    foreach ($rows as $r) {
+        $d = gmdate('Y-m-d', strtotime($r['h'] . ':00:00 UTC') + $off);
+        if (!isset($days[$d])) {
+            continue;
+        }
+        $n = (int) $r['n'];
+        if (in_array($r['status'], ['failed', 'no_device'], true)) {
+            $days[$d]['failed'] += $n;
+            continue;
+        }
+        $days[$d][ma_note_group($r['source'], $r['kind'])] += $n;
+        $days[$d]['total'] += $n;
+    }
+    // Each notice: how many times the server sent it, and to how many phones.
+    $runs = [];
+    foreach ($wpdb->get_results('SELECT notice_id, COUNT(*) AS times, SUM(sent) AS sent, SUM(failed) AS failed, MAX(at) AS last FROM ' . ma_note_runs_table() . ' GROUP BY notice_id', ARRAY_A) as $r) {
+        $runs[(int) $r['notice_id']] = ['times' => (int) $r['times'], 'sent' => (int) $r['sent'], 'failed' => (int) $r['failed'], 'last' => gmdate('c', ma_acc_ts($r['last']))];
+    }
+    $sessions = (int) $wpdb->get_var('SELECT COUNT(DISTINCT user_id) FROM ' . ma_ai_sessions_table() . " WHERE app <> 'admin' AND fcm_token <> '' AND expires_at > UTC_TIMESTAMP()");
+    $new_app = (int) $wpdb->get_var('SELECT COUNT(DISTINCT user_id) FROM ' . ma_ai_sessions_table() . " WHERE app <> 'admin' AND srv_push = 1 AND fcm_token <> '' AND expires_at > UTC_TIMESTAMP()");
+    return [
+        'push_on' => $push_on,
+        'phones' => $sessions,
+        'phones_new_app' => $new_app,
+        'upcoming' => $upcoming,
+        'days' => array_values($days),
+        'groups' => ma_note_group_labels(),
+        'runs' => $runs,
+    ];
+}

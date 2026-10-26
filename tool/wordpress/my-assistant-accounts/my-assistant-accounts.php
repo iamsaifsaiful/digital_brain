@@ -2,7 +2,7 @@
 /**
  * Plugin Name: My Assistant Accounts
  * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, প্রিমিয়াম, পেমেন্ট, নোটিফিকেশন আর মতামত। শুধু নাম, ইমেইল, ছবি আর প্রিমিয়ামের তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.18.1
+ * Version: 1.19.0
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: My Assistant
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.18.1';
+const MA_ACC_VERSION = '1.19.0';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
 const MA_ACC_PER_PAGE = 20;
 
@@ -32,6 +32,8 @@ require_once __DIR__ . '/family.php';
 require_once __DIR__ . '/metal.php';
 require_once __DIR__ . '/finance.php';
 require_once __DIR__ . '/errors.php';
+require_once __DIR__ . '/bkash.php';
+require_once __DIR__ . '/members.php';
 
 /** The members table. */
 function ma_acc_table() {
@@ -73,6 +75,8 @@ function ma_acc_install() {
     ma_fam_install();
     ma_fin_install();
     ma_err_install();
+    ma_bk_install();
+    ma_acc_source_migrate();
     // Who may approve payments and manage members (the admin app signs in with these accounts).
     if (!get_role('ma_admin')) {
         add_role('ma_admin', 'My Assistant অ্যাডমিন', ['read' => true, 'ma_manage' => true]);
@@ -84,8 +88,9 @@ function ma_acc_install() {
     update_option('ma_acc_db_version', MA_ACC_VERSION);
 }
 
-// An update of the plugin brings new columns without re-activating.
-add_action('admin_init', function () {
+// An update of the plugin brings new columns without re-activating — on any
+// request, since the apps may come before anyone opens wp-admin.
+add_action('init', function () {
     if (get_option('ma_acc_db_version') !== MA_ACC_VERSION) {
         ma_acc_install();
     }
@@ -337,16 +342,16 @@ add_action('admin_post_ma_acc_delete', function () {
 add_action('admin_post_ma_acc_export', function () {
     ma_acc_guard('ma_acc_export');
     global $wpdb;
-    $rows = $wpdb->get_results('SELECT * FROM ' . ma_acc_table() . ' ORDER BY created_at DESC', ARRAY_A);
+    $rows = ma_acc_member_rows(sanitize_text_field(wp_unslash((string) ($_POST['q'] ?? ''))), sanitize_key((string) ($_POST['status'] ?? '')), sanitize_text_field((string) ($_POST['joined'] ?? '')), sanitize_key((string) ($_POST['src'] ?? '')), 100000, 0, 'created_at DESC');
     nocache_headers();
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename=my-assistant-members-' . gmdate('Y-m-d') . '.csv');
     $out = fopen('php://output', 'w');
     fwrite($out, "\xEF\xBB\xBF");
-    fputcsv($out, ['নাম', 'ইমেইল', 'অবস্থা', 'প্রিমিয়াম পর্যন্ত', 'ধরন', 'ট্রায়াল শুরু', 'যোগ দিয়েছেন', 'শেষ দেখা', 'সংস্করণ', 'নোট']);
+    fputcsv($out, ['নাম', 'ইমেইল', 'অবস্থা', 'প্রিমিয়াম পর্যন্ত', 'প্রিমিয়াম কোথা থেকে', 'ট্রায়াল শুরু', 'যোগ দিয়েছেন', 'শেষ দেখা', 'সংস্করণ', 'নোট']);
     $labels = ma_acc_status_labels();
     foreach ($rows as $r) {
-        $cells = [$r['name'], $r['email'], $labels[ma_acc_status($r)][0], $r['pro_until'], $r['pro_kind'], $r['trial_started'], $r['created_at'], $r['last_seen'], trim($r['app_version'] . ' ' . $r['edition']), $r['note']];
+        $cells = [$r['name'], $r['email'], $labels[ma_acc_status($r)][0], $r['pro_until'], ma_acc_source_label($r), $r['trial_started'], $r['created_at'], $r['last_seen'], trim($r['app_version'] . ' ' . $r['edition']), $r['note']];
         // A cell starting with = + - @ would run as a formula in Excel.
         fputcsv($out, array_map(function ($v) {
             $v = (string) $v;
@@ -369,49 +374,22 @@ function ma_acc_admin() {
     $status = sanitize_key($_GET['status'] ?? '');
     $page = max(1, (int) ($_GET['paged'] ?? 1));
 
-    $where = ['1=1'];
-    $args = [];
-    if ($q !== '') {
-        $where[] = '(name LIKE %s OR email LIKE %s)';
-        $like = '%' . $wpdb->esc_like($q) . '%';
-        $args[] = $like;
-        $args[] = $like;
+    $joined = sanitize_text_field((string) ($_GET['joined'] ?? ''));
+    // The month and day pickers.
+    foreach (['jd', 'jm'] as $k) {
+        if (!empty($_GET[$k])) {
+            $joined = sanitize_text_field((string) $_GET[$k]);
+            break;
+        }
     }
-    $now = gmdate('Y-m-d H:i:s');
-    switch ($status) {
-        case 'pro':
-            $where[] = "pro_until > '$now' AND pro_kind <> 'trial' AND google_sub NOT LIKE 'pending:%'";
-            break;
-        case 'trial':
-            $where[] = "pro_until > '$now' AND pro_kind = 'trial'";
-            break;
-        case 'free':
-            $where[] = "pro_until IS NULL AND google_sub NOT LIKE 'pending:%'";
-            break;
-        case 'expired':
-            $where[] = "pro_until IS NOT NULL AND pro_until <= '$now'";
-            break;
-        case 'waiting':
-            $where[] = "google_sub LIKE 'pending:%'";
-            break;
-    }
-    $sql_where = implode(' AND ', $where);
-    $count_sql = "SELECT COUNT(*) FROM $table WHERE $sql_where";
-    $list_sql = "SELECT * FROM $table WHERE $sql_where ORDER BY last_seen DESC LIMIT %d OFFSET %d";
-    $found = (int) ($args ? $wpdb->get_var($wpdb->prepare($count_sql, $args)) : $wpdb->get_var($count_sql));
-    $rows = $wpdb->get_results($wpdb->prepare($list_sql, array_merge($args, [MA_ACC_PER_PAGE, ($page - 1) * MA_ACC_PER_PAGE])), ARRAY_A);
-
-    $week = gmdate('Y-m-d H:i:s', time() - 7 * DAY_IN_SECONDS);
-    $stats = [
-        'total' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE google_sub NOT LIKE 'pending:%'"),
-        'pro' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE pro_until > '$now' AND pro_kind <> 'trial' AND google_sub NOT LIKE 'pending:%'"),
-        'trial' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE pro_until > '$now' AND pro_kind = 'trial' AND google_sub NOT LIKE 'pending:%'"),
-        'week' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE created_at > '$week' AND google_sub NOT LIKE 'pending:%'"),
-        'active' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE last_seen > '$week' AND google_sub NOT LIKE 'pending:%'"),
-    ];
+    $src = sanitize_key((string) ($_GET['src'] ?? ''));
+    $found = ma_acc_member_count($q, $status, $joined, $src);
+    $rows = ma_acc_member_rows($q, $status, $joined, $src, MA_ACC_PER_PAGE, ($page - 1) * MA_ACC_PER_PAGE);
+    $stats = ma_acc_member_stats();
 
     $extra = [];
     if ($tab === 'payments') {
+        $extra['bkash'] = ma_bk_overview();
         $pst = sanitize_key($_GET['pst'] ?? 'pending');
         $pt = ma_pay_table();
         $extra['pst'] = $pst;
@@ -429,29 +407,23 @@ function ma_acc_admin() {
         $extra['plans'] = ma_pay_plans();
     }
     if ($tab === 'feedback') {
-        $fbid = (int) ($_GET['fb'] ?? 0);
-        if ($fbid) {
-            $thread = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . ma_fb_table() . ' WHERE id = %d', $fbid), ARRAY_A);
-            if ($thread) {
-                if ($thread['status'] === 'new') {
-                    $wpdb->update(ma_fb_table(), ['status' => 'read'], ['id' => $fbid]);
-                    $thread['status'] = 'read';
-                }
-                $extra['thread'] = $thread;
-                $extra['thread_msgs'] = $wpdb->get_results($wpdb->prepare('SELECT * FROM ' . ma_fb_msgs_table() . ' WHERE feedback_id = %d ORDER BY id ASC', $fbid), ARRAY_A);
-            }
+        $who = sanitize_text_field(wp_unslash((string) ($_GET['who'] ?? '')));
+        // An old link to one conversation opens its member's inbox.
+        if ($who === '' && !empty($_GET['fb'])) {
+            $who = ma_fb_key_of((int) $_GET['fb']);
+        }
+        if ($who !== '') {
+            $extra['inbox_one'] = ma_fb_inbox_one($who);
         }
         $fst = sanitize_key($_GET['fst'] ?? 'open');
-        $ft = ma_fb_table();
-        $extra['fst'] = $fst;
-        $extra['feedback'] = match ($fst) {
-            'all' => $wpdb->get_results("SELECT * FROM $ft ORDER BY id DESC LIMIT 200", ARRAY_A),
-            'done' => $wpdb->get_results("SELECT * FROM $ft WHERE status = 'done' ORDER BY id DESC LIMIT 200", ARRAY_A),
-            default => $wpdb->get_results("SELECT * FROM $ft WHERE status <> 'done' ORDER BY id DESC LIMIT 200", ARRAY_A),
-        };
+        $extra['fst'] = in_array($fst, ['open', 'done', 'all'], true) ? $fst : 'open';
+        $extra['fq'] = sanitize_text_field(wp_unslash((string) ($_GET['fq'] ?? '')));
+        $extra['inbox'] = ma_fb_inbox($extra['fst'], $extra['fq']);
     }
     if ($tab === 'finance' && current_user_can('manage_options')) {
-        $extra['finance'] = ma_fin_summary(sanitize_text_field((string) ($_GET['month'] ?? '')));
+        $month = sanitize_text_field((string) ($_GET['month'] ?? ''));
+        $extra['finance'] = ma_fin_summary($month);
+        $extra['finance']['lines'] = ma_fin_month_lines($month, sanitize_key((string) ($_GET['fk'] ?? '')), sanitize_text_field(wp_unslash((string) ($_GET['fc'] ?? ''))));
     }
     if ($tab === 'heirs') {
         $extra['heirs'] = ma_fam_claims_list('all');
@@ -461,9 +433,7 @@ function ma_acc_admin() {
     }
     if ($tab === 'notices') {
         $extra['notices'] = $wpdb->get_results('SELECT * FROM ' . ma_note_table() . ' ORDER BY active DESC, id DESC', ARRAY_A);
-        $extra['nlog_q'] = sanitize_text_field(wp_unslash((string) ($_GET['nq'] ?? '')));
-        $extra['nlog_when'] = in_array($_GET['nwhen'] ?? '', ['past', 'next'], true) ? $_GET['nwhen'] : '';
-        $extra['nlog'] = ma_nlog_rows($extra['nlog_q'], $extra['nlog_when'], 200);
+        $extra['note_overview'] = ma_note_overview();
     }
     $extra['pending'] = ma_pay_pending_count();
     $extra['fb_new'] = ma_fb_new_count();
@@ -473,6 +443,9 @@ function ma_acc_admin() {
         'tab' => $tab,
         'q' => $q,
         'status' => $status,
+        'joined' => $joined,
+        'src' => $src,
+        'growth' => $tab === 'members' ? ma_acc_growth() : null,
         'page' => $page,
         'pages' => max(1, (int) ceil($found / MA_ACC_PER_PAGE)),
         'found' => $found,

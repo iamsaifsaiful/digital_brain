@@ -179,13 +179,54 @@ function ma_fin_summary($month = '') {
     ];
 }
 
+/**
+ * Every line of one month (owner, 27 Oct: filter the হিসাব): hand-written
+ * income and expense, each approved payment, and the month's AI bill —
+ * newest first. Lines the server made itself have id 0 (not deletable).
+ * $kind '' / 'income' / 'expense'; $cat a category ('' = all).
+ */
+function ma_fin_month_lines($month, $kind = '', $cat = '') {
+    global $wpdb;
+    $month = preg_match('/^\d{4}-\d{2}$/', (string) $month) ? $month : current_time('Y-m');
+    $lines = [];
+    foreach ($wpdb->get_results($wpdb->prepare('SELECT * FROM ' . ma_fin_table('entries') . ' WHERE on_date LIKE %s ORDER BY on_date DESC, id DESC', $month . '-%'), ARRAY_A) as $e) {
+        $lines[] = ['id' => (int) $e['id'], 'date' => $e['on_date'], 'kind' => $e['kind'] === 'income' ? 'income' : 'expense', 'category' => $e['category'], 'note' => $e['note'], 'amount' => (int) $e['amount'], 'auto' => false];
+    }
+    $off = ma_acc_tz_off();
+    $from = gmdate('Y-m-d H:i:s', strtotime($month . '-01 00:00:00 UTC') - $off);
+    $to = gmdate('Y-m-d H:i:s', strtotime($month . '-01 00:00:00 UTC +1 month') - $off);
+    foreach ($wpdb->get_results($wpdb->prepare('SELECT * FROM ' . ma_pay_table() . " WHERE status = 'approved' AND amount > 0 AND COALESCE(reviewed_at, created_at) >= %s AND COALESCE(reviewed_at, created_at) < %s", $from, $to), ARRAY_A) as $p) {
+        $plans = ma_pay_plans();
+        $lines[] = ['id' => 0, 'date' => gmdate('Y-m-d', ma_acc_ts($p['reviewed_at'] ?: $p['created_at']) + $off), 'kind' => 'income', 'category' => 'প্রিমিয়াম (' . ($plans[$p['plan']]['label'] ?? $p['plan']) . ')', 'note' => $p['email'] . ' · ' . $p['method'] . ' ' . $p['trx'], 'amount' => (int) $p['amount'], 'auto' => true];
+    }
+    $ai = ma_fin_ai_by_month()[$month] ?? 0;
+    if ($ai > 0) {
+        $last = $month === current_time('Y-m') ? current_time('Y-m-d') : gmdate('Y-m-t', strtotime($month . '-01 UTC'));
+        $lines[] = ['id' => 0, 'date' => $last, 'kind' => 'expense', 'category' => 'AI-এর বিল', 'note' => 'মাসের মোট (ডলার ৳' . ma_ai_usd_bdt() . ' ধরে)', 'amount' => $ai, 'auto' => true];
+    }
+    usort($lines, fn($a, $b) => strcmp($b['date'], $a['date']));
+    $cats = [];
+    foreach ($lines as $l) {
+        $cats[$l['category']] = true;
+    }
+    $shown = array_values(array_filter($lines, function ($l) use ($kind, $cat) {
+        return ($kind === '' || $l['kind'] === $kind) && ($cat === '' || $l['category'] === $cat);
+    }));
+    $sum = ['income' => 0, 'expense' => 0];
+    foreach ($shown as $l) {
+        $sum[$l['kind']] += $l['amount'];
+    }
+    return ['month' => $month, 'lines' => $shown, 'categories' => array_keys($cats), 'sum' => $sum];
+}
+
 // ── Site (forms on the হিসাব tab; site owner only) ──
 
 add_action('admin_post_ma_fin_entry', function () {
     ma_acc_guard('ma_fin_entry', 'manage_options');
     $u = wp_get_current_user();
     $r = ma_fin_add_entry(sanitize_key((string) ($_POST['kind'] ?? '')), wp_unslash((string) ($_POST['category'] ?? '')), (int) ($_POST['amount'] ?? 0), (string) ($_POST['on_date'] ?? ''), wp_unslash((string) ($_POST['note'] ?? '')), $u ? $u->user_email : '');
-    is_string($r) ? ma_acc_back($r, 'error', ['tab' => 'finance']) : ma_acc_back('লেখা হলো।', 'ok', ['tab' => 'finance']);
+    $m = substr((string) ($_POST['on_date'] ?? ''), 0, 7);
+    is_string($r) ? ma_acc_back($r, 'error', ['tab' => 'finance']) : ma_acc_back('লেখা হলো।', 'ok', ['tab' => 'finance'] + (preg_match('/^\d{4}-\d{2}$/', $m) ? ['month' => $m] : []));
 });
 
 add_action('admin_post_ma_fin_investor', function () {
@@ -212,7 +253,8 @@ add_action('rest_api_init', function () {
         register_rest_route('my-assistant/v1', '/admin' . $path, ['methods' => $method, 'callback' => $cb, 'permission_callback' => $owner]);
     };
     $route('/finance', 'GET', function (WP_REST_Request $req) {
-        return ma_fin_summary((string) $req->get_param('month'));
+        $month = (string) $req->get_param('month');
+        return ma_fin_summary($month) + ['month_lines' => ma_fin_month_lines($month, sanitize_key((string) $req->get_param('kind')), sanitize_text_field((string) $req->get_param('category')))];
     });
     $route('/finance/entry', 'POST', function (WP_REST_Request $req) {
         $a = ma_admin_of($req);
