@@ -430,7 +430,7 @@ void main() {
   });
 
   for (final shots in [Platform.environment['SHOTS'] == '1']) {
-    testWidgets('সময়ের সাথে is the default: light by day, slowly dark after sunset', (t) async {
+    testWidgets('সময়ের সাথে is the default: light by day, dark after sunset, never a muddy in-between', (t) async {
       if (shots) await icons();
       final rig = await start(t);
       expect(rig.brain.look, Look.sun);
@@ -455,7 +455,9 @@ void main() {
       for (var i = 1; i < mixes.length; i++) {
         expect(mixes[i], greaterThanOrEqualTo(mixes[i - 1]), reason: '$mixes');
       }
-      expect(mixes.where((m) => m > 0 && m < 1), isNotEmpty, reason: 'it passes through in-between colours: $mixes');
+      // 26 Oct: no half-light pages at dusk (the owner found them muddy).
+      expect(mixes.every((m) => m == 0 || m == 1), isTrue, reason: '$mixes');
+      expect(mixes, [0, 0, 1, 1, 1]);
     });
   }
 

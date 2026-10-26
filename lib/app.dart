@@ -466,16 +466,15 @@ class _LoadError extends StatelessWidget {
 }
 
 
-/// How dark the app is now in the সময়ের সাথে look (0 day … 1 night): the
-/// home picture's night amount at the user's place, in steps of 0.05 so the
-/// pages are rebuilt only now and then while it changes, never resting
-/// between 0.3 and 0.7.
+/// How dark the app is now in the সময়ের সাথে look: the light set by day,
+/// the dark set by night, changing once when the home picture is half way
+/// to night (about a quarter of an hour after sunset, and before sunrise).
+/// The picture itself still changes slowly; the pages never rest in
+/// between — a half-light, half-night page was a muddy grey-blue at the
+/// start of the evening and the morning (owner, 26 Oct).
 double duskMix(Brain brain) {
   final now = brain.services.now();
   final sun = sunTimes(now, placeNamed(brain.district));
-  final n = skyLight(now, sun.sunrise, sun.sunset).night.clamp(0.0, 1.0);
-  // The page dims slowly to 0.3, crosses the middle at once (a grey page
-  // with grey letters is hard to read), then deepens slowly from 0.7.
-  final m = n < 0.5 ? n * 0.6 : 0.7 + (n - 0.5) * 0.6;
-  return (m * 20).round() / 20;
+  final n = skyLight(now, sun.sunrise, sun.sunset).night;
+  return n >= 0.5 ? 1.0 : 0.0;
 }

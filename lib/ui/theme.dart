@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 /// The app's look: light or dark, and the main accent colour. Chosen in
 /// সেটিংস › চেহারা and read by [C] while the screens build.
-/// [sun]: light by day, dark by night, changing slowly through dawn and
-/// dusk with the home picture (owner, 25 Oct) — the default.
+/// [sun]: light by day, dark by night, changing once at dusk and dawn
+/// while the home picture changes slowly (owner, 25–26 Oct) — the default.
 enum Look { sun, system, light, dark }
 
 class Accent {
