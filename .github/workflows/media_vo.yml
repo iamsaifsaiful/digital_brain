@@ -20,13 +20,20 @@ jobs:
         continue-on-error: true
         run: |
           (pip install edge-tts==7.2.0 && python tool/media/tts.py) > edge.log 2>&1 || true
+      - name: Transcribe the owner's voice-over
+        continue-on-error: true
+        run: |
+          mkdir -p out
+          (pip install faster-whisper==1.0.3 && python tool/media/transcribe.py) > out/transcribe.log 2>&1 || true
       - name: Indic Parler-TTS
+        if: false
         continue-on-error: true
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           (pip install git+https://github.com/huggingface/parler-tts.git@main soundfile && pip install --force-reinstall --no-deps torch==2.5.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cpu && python tool/media/parler.py) > parler.log 2>&1 || true
       - name: MMS draft voice
+        if: false
         continue-on-error: true
         run: |
           (pip install transformers soundfile && pip install --force-reinstall --no-deps torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu; python tool/media/mms.py) > mms.log 2>&1 || true
