@@ -1,7 +1,7 @@
 # Step I.3: may the new model replace the one members have now?
 #   python3 tool/nlu/retrain/gate.py new_pred.jsonl old_pred.jsonl --key bert [--md report.md]
 # Refused when any intent's accuracy on the gold set drops by more than one
-# point (intents with at least 5 gold rows), or when removals or money get
+# point and more than one sentence (intents with at least 5 gold rows), or when removals or money get
 # less accurate, or when more removals are proposed that nobody asked for.
 import argparse, json, os, sys
 
@@ -31,8 +31,12 @@ def main():
         if n >= 5 and n_old:
             d = pct(ok_new, n) - pct(ok_old, n_old)
             lines.append(f'| {intent} | {n} | {pct(ok_old, n_old):.1f}% | {pct(ok_new, n):.1f}% | {d:+.1f} |')
-            if d < -1.0:
-                problems.append(f'{intent}: {d:+.1f} পয়েন্ট')
+            # A drop counts when it is more than one point AND more than one
+            # sentence (with 7 gold rows one sentence is 14 points; owner,
+            # 26 Oct: a single row should not decide).
+            lost = round(ok_old / n_old * n - ok_new) if n_old else 0
+            if d < -1.0 and lost >= 2:
+                problems.append(f'{intent}: {d:+.1f} পয়েন্ট ({lost}টা বাক্য)')
     for name in ('delete', 'money'):
         if pct(new[name][1], new[name][0]) < pct(old[name][1], old[name][0]):
             problems.append(f'{name}: {pct(old[name][1], old[name][0]):.1f}% → {pct(new[name][1], new[name][0]):.1f}%')
