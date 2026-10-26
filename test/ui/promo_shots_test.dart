@@ -92,11 +92,22 @@ void main() {
     await rig0(t);
     await t.tap(find.text('হিসাব').last);
     await settle(t);
+    await t.tap(find.text('মাসিক'));
+    await settle(t);
     t.view.physicalSize = const Size(1170, 5200);
     await settle(t);
     await snap(t, 'money-month');
     await t.tap(find.text('দৈনিক'));
     await settle(t);
     await snap(t, 'money-day');
+  });
+
+  testWidgets('promo: emergency card with the blood group', (t) async {
+    final rig = await rig0(t);
+    rig.brain.data.emergency = const EmergencyCard(
+        name: 'সাইফুল ইসলাম', blood: 'B+', contacts: ['আম্মা — 01711234567', 'ভাই — 01819765432'], medicines: 'অ্যামলোডিপিন ৫ মি.গ্রা.', allergies: 'পেনিসিলিন', onLockScreen: true);
+    Navigator.of(t.element(find.byType(Scaffold).first)).push(MaterialPageRoute(builder: (_) => placePage('emergency')!));
+    await settle(t);
+    await snap(t, 'emergency');
   });
 }
