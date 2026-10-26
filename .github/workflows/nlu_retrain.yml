@@ -36,6 +36,13 @@ jobs:
         run: |
           python tool/nlu/crowd/crowd.py
           python tool/nlu/data/generate.py | tee data.log
+      - name: Today's gold read by the live model
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LIVE=$(cat tool/nlu/retrain/LIVE)
+          gh release download "nlu-model-$LIVE" -p "*.tflite" -O /tmp/live.tflite || { echo "No live model asset: the gate uses the old file"; exit 0; }
+          python tool/nlu/retrain/live_pred.py /tmp/live.tflite | tee live.log || echo "Live reading failed: the gate uses the old file"
       - name: Train
         env:
           # Long one-breath speech (25 Oct): 96 word pieces (was 48).
@@ -47,7 +54,9 @@ jobs:
         id: gate
         run: |
           set -o pipefail
-          python tool/nlu/retrain/gate.py tool/nlu/out/pred_bert.jsonl tool/nlu/train/pred_live.jsonl --md gate.md && echo "ok=1" >> $GITHUB_OUTPUT || echo "ok=0" >> $GITHUB_OUTPUT
+          BASE=tool/nlu/out/pred_live_now.jsonl; [ -s "$BASE" ] || BASE=tool/nlu/train/pred_live.jsonl
+          echo "Compared with: $BASE"
+          python tool/nlu/retrain/gate.py tool/nlu/out/pred_bert.jsonl "$BASE" --md gate.md && echo "ok=1" >> $GITHUB_OUTPUT || echo "ok=0" >> $GITHUB_OUTPUT
       - name: Publish as a draft
         if: steps.gate.outputs.ok == '1'
         env:
@@ -59,8 +68,8 @@ jobs:
       - name: Report to the nlu-results branch
         if: always()
         run: |
-          mkdir -p /tmp/res && cp gate.md train.log data.log labels.log /tmp/res/ 2>/dev/null || true
-          cp tool/nlu/out/pred_bert.jsonl tool/nlu/out/data/stats.json /tmp/res/ 2>/dev/null || true
+          mkdir -p /tmp/res && cp gate.md train.log data.log labels.log live.log /tmp/res/ 2>/dev/null || true
+          cp tool/nlu/out/pred_bert.jsonl tool/nlu/out/pred_live_now.jsonl tool/nlu/out/data/stats.json /tmp/res/ 2>/dev/null || true
           cd /tmp/res && git init -q && git checkout -q -b nlu-results
           git -c user.name=ci -c user.email=ci@localhost add -A && git -c user.name=ci -c user.email=ci@localhost commit -qm "retrain ${GITHUB_SHA}"
           git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" nlu-results

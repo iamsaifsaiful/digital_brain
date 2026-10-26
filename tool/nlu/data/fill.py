@@ -179,9 +179,13 @@ def _value(ctx, name, var):
     if name == 'listref':
         w, v = ctx.once(name, R.list_ref)
         return w, 'list_ref', v
-    if name == 'num':
+    if name in ('num', 'num2', 'num3'):
         k = ctx.once(name, lambda: random.randint(1, 9))
-        w = random.choice([f'{L.bn(k)}নং', f'{L.bn(k)} নম্বর', f'{L.bn(k)} নং', L.ORDINALS[k]])
+        if var == 'ta':
+            # "চতুর্থটা", "৪ নম্বরটা": the item said alone.
+            w = random.choice([L.ORDINALS[k] + 'টা', f'{L.bn(k)} নম্বরটা', f'{L.bn(k)}নংটা', f'{L.bn(k)} নম্বর কাজটা'])
+        else:
+            w = random.choice([f'{L.bn(k)}নং', f'{L.bn(k)} নম্বর', f'{L.bn(k)} নং', L.ORDINALS[k]])
         return w, 'list_ref', f'idx:{k}'
     if name == 'year':
         w, v = ctx.once(name, R.year_filter)
