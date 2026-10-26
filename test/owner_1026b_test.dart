@@ -32,8 +32,17 @@ void main() {
     await settle(t);
     String total() => (t.widget<Text>(find.byKey(const Key('cash-filter-total'))).data ?? '');
 
-    // Monthly (as before): October only, day by day.
+    // Opens on দৈনিক.
+    expect(find.text('আজকের ব্যালেন্স'), findsOneWidget);
+    // A swipe on the period moves দৈনিক → সাপ্তাহিক → মাসিক (the আয়-ব্যয় tab stays).
+    await t.fling(find.byKey(const Key('cash-swipe')), const Offset(-300, 0), 1200);
+    await settle(t);
+    expect(find.text('এই সপ্তাহের ব্যালেন্স'), findsOneWidget);
+    await t.fling(find.byKey(const Key('cash-swipe')), const Offset(-300, 0), 1200);
+    await settle(t);
+    // Monthly: October only, day by day.
     expect(find.text('এই মাসের ব্যালেন্স'), findsOneWidget);
+    expect(find.text('আমি পাব'), findsNothing, reason: 'still on আয়-ব্যয়, not ধার-দেনা');
     expect(find.text('৳২৯,০০০'), findsWidgets);
     expect(find.textContaining('· আজ'), findsOneWidget);
     expect(find.textContaining('· গতকাল'), findsOneWidget);
@@ -50,6 +59,10 @@ void main() {
     expect(find.text('দিনের ব্যালেন্স'), findsOneWidget);
     expect(find.text('৳৩০০'), findsWidgets);
     await t.tap(find.byKey(const Key('cash-next')));
+    await settle(t);
+    expect(find.text('আজকের ব্যালেন্স'), findsOneWidget);
+    // Swiping back from দৈনিক goes nowhere.
+    await t.fling(find.byKey(const Key('cash-swipe')), const Offset(300, 0), 1200);
     await settle(t);
     expect(find.text('আজকের ব্যালেন্স'), findsOneWidget);
 

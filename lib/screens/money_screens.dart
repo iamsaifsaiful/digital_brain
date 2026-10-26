@@ -241,7 +241,11 @@ class CashView extends StatefulWidget {
 }
 
 class _CashViewState extends State<CashView> {
-  CashSpan _span = CashSpan.month;
+  /// Opens on দৈনিক, always (owner, 26 Oct).
+  CashSpan _span = CashSpan.day;
+
+  /// Which way the last swipe went (the card slides that way).
+  int _dir = 1;
   DateTime? _at;
 
   /// ফিল্টার: only incomes or only expenses (null = both), one খাত (null = all).
@@ -315,6 +319,13 @@ class _CashViewState extends State<CashView> {
     }
   }
 
+  String _spanName(CashSpan v) => switch (v) {
+        CashSpan.day => tr('দৈনিক'),
+        CashSpan.week => tr('সাপ্তাহিক'),
+        CashSpan.month => tr('মাসিক'),
+        CashSpan.year => tr('বাৎসরিক'),
+      };
+
   String _title(bool current) => switch ((_span, current)) {
         (CashSpan.day, true) => tr('আজকের ব্যালেন্স'),
         (CashSpan.day, false) => tr('দিনের ব্যালেন্স'),
@@ -382,25 +393,42 @@ class _CashViewState extends State<CashView> {
       (days[DateTime(e.date.year, e.date.month, e.date.day)] ??= []).add(e);
     }
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const CashNowCard(),
-      const SizedBox(height: 12),
+    void setSpan(CashSpan v) {
+      if (v == _span) return;
+      _go(() {
+        _dir = v.index > _span.index ? 1 : -1;
+        // The new period holds the day being looked at.
+        _at = _at == null ? null : (current ? null : from);
+        _span = v;
+      });
+    }
+
+    final period = GestureDetector(
+      key: const Key('cash-swipe'),
+      behavior: HitTestBehavior.translucent,
+      // দৈনিক ⇄ সাপ্তাহিক ⇄ মাসিক ⇄ বাৎসরিক with a swipe (owner, 26 Oct).
+      onHorizontalDragEnd: (d) {
+        final v = d.primaryVelocity ?? 0;
+        if (v.abs() < 150) return;
+        final i = _span.index + (v < 0 ? 1 : -1);
+        if (i >= 0 && i < CashSpan.values.length) setSpan(CashSpan.values[i]);
+      },
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       SegTabs<CashSpan>(
         key: const Key('cash-span'),
-        items: [(CashSpan.day, tr('দৈনিক')), (CashSpan.week, tr('সাপ্তাহিক')), (CashSpan.month, tr('মাসিক')), (CashSpan.year, tr('বাৎসরিক'))],
+        items: [for (final v in CashSpan.values) (v, _spanName(v))],
         value: _span,
-        onChanged: (v) => _go(() {
-          // The new period holds the day being looked at.
-          _at = _at == null ? null : (current ? null : from);
-          _span = v;
-        }),
+        onChanged: (v) => setSpan(v),
       ),
       const SizedBox(height: 6),
       Row(children: [
         IconButton(
           key: const Key('cash-prev'),
           tooltip: tr('আগে'),
-          onPressed: () => _go(() => _at = spanShift(_span, from, -1)),
+          onPressed: () => _go(() {
+            _dir = -1;
+            _at = spanShift(_span, from, -1);
+          }),
           icon: const Icon(Icons.chevron_left_rounded),
         ),
         Expanded(
@@ -420,17 +448,41 @@ class _CashViewState extends State<CashView> {
         IconButton(
           key: const Key('cash-next'),
           tooltip: tr('পরে'),
-          onPressed: current ? null : () => _go(() => _at = spanShift(_span, from, 1)),
+          onPressed: current ? null : () => _go(() {
+                    _dir = 1;
+                    _at = spanShift(_span, from, 1);
+                  }),
           icon: const Icon(Icons.chevron_right_rounded),
         ),
       ]),
       const SizedBox(height: 6),
-      SummaryCard(
-        title: _title(current),
-        amount: sums.balance.abs(),
-        negative: sums.balance < 0,
-        items: [(tr('আয়'), sums.income, C.green), (tr('খরচ'), sums.expense, C.ink)],
+      AnimatedSwitcher(
+        duration: const Duration(milliseconds: 260),
+        transitionBuilder: (child, a) {
+          final incoming = child.key == ValueKey('${_span.name}-$from');
+          final off = Offset((incoming ? 0.25 : -0.25) * _dir, 0);
+          return FadeTransition(
+            opacity: a,
+            child: SlideTransition(position: Tween(begin: off, end: Offset.zero).animate(CurvedAnimation(parent: a, curve: Curves.easeOutCubic)), child: child),
+          );
+        },
+        child: SummaryCard(
+          key: ValueKey('${_span.name}-$from'),
+          title: _title(current),
+          amount: sums.balance.abs(),
+          negative: sums.balance < 0,
+          items: [(tr('আয়'), sums.income, C.green), (tr('খরচ'), sums.expense, C.ink)],
+        ),
       ),
+      ]),
+    );
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      const CashNowCard(),
+      const SizedBox(height: 12),
+      period,
+      const SizedBox(height: 4),
+      Text(tr('বাঁয়ে-ডানে সরিয়ে দৈনিক, সাপ্তাহিক, মাসিক, বাৎসরিক বদলান'), textAlign: TextAlign.center, style: body(11.5, color: C.muted)),
       const SizedBox(height: 12),
       Row(children: [
         Expanded(

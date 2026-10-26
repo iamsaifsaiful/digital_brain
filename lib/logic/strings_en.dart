@@ -1137,6 +1137,7 @@ const enStrings = <String, String>{
   'এই বছরে কিছু লেখা নেই': 'Nothing written this year',
   'কোন খাত দেখবেন?': 'Which category?',
   'বাৎসরিক': 'Yearly',
+  'বাঁয়ে-ডানে সরিয়ে দৈনিক, সাপ্তাহিক, মাসিক, বাৎসরিক বদলান': 'Swipe left or right for daily, weekly, monthly, yearly',
   'আগে': 'Earlier',
   'শুধু আয়': 'Income only',
   'শুধু খরচ': 'Spending only',
