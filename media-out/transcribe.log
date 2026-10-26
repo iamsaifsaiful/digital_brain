@@ -53,22 +53,22 @@ Collecting urllib3<3,>=1.26 (from requests)
 Collecting certifi>=2023.5.7 (from requests)
   Downloading certifi-2026.10.23-py3-none-any.whl.metadata (2.5 kB)
 Downloading faster_whisper-1.0.3-py3-none-any.whl (2.0 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.0/2.0 MB 23.6 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.0/2.0 MB 142.3 MB/s  0:00:00
 Downloading av-12.3.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (34.4 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 34.4/34.4 MB 89.1 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 34.4/34.4 MB 262.4 MB/s  0:00:00
 Downloading ctranslate2-4.8.4-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (42.4 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 42.4/42.4 MB 107.0 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 42.4/42.4 MB 223.4 MB/s  0:00:00
 Downloading onnxruntime-1.31.0-cp311-cp311-manylinux_2_28_x86_64.whl (23.8 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 23.8/23.8 MB 92.8 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 23.8/23.8 MB 216.8 MB/s  0:00:00
 Downloading pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (806 kB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 806.6/806.6 kB 1.9 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 806.6/806.6 kB 149.5 MB/s  0:00:00
 Downloading tokenizers-0.23.3-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (3.4 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.4/3.4 MB 68.0 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.4/3.4 MB 294.6 MB/s  0:00:00
 Downloading huggingface_hub-2.3.0-py3-none-any.whl (855 kB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 855.2/855.2 kB 46.0 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 855.2/855.2 kB 156.2 MB/s  0:00:00
 Downloading click-8.5.0-py3-none-any.whl (125 kB)
 Downloading hf_xet-1.7.0-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (4.2 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.2/4.2 MB 84.8 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.2/4.2 MB 306.2 MB/s  0:00:00
 Downloading httpx2-2.16.0-py3-none-any.whl (97 kB)
 Downloading httpcore2-2.16.0-py3-none-any.whl (85 kB)
 Downloading requests-2.34.2-py3-none-any.whl (73 kB)
@@ -81,7 +81,7 @@ Downloading filelock-4.2.4-py3-none-any.whl (162 kB)
 Downloading fsspec-2026.9.0-py3-none-any.whl (221 kB)
 Downloading h11-0.16.0-py3-none-any.whl (37 kB)
 Downloading numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.9 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.9/16.9 MB 81.6 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.9/16.9 MB 296.9 MB/s  0:00:00
 Downloading packaging-26.3-py3-none-any.whl (129 kB)
 Downloading protobuf-7.36.2-cp310-abi3-manylinux2014_x86_64.whl (343 kB)
 Downloading tqdm-4.70.1-py3-none-any.whl (80 kB)
@@ -95,14 +95,14 @@ Successfully installed anyio-4.15.1 av-12.3.0 certifi-2026.10.23 charset_normali
 [notice] A new release of pip is available: 26.2.1 -> 26.2.2
 [notice] To update, run: pip install --upgrade pip
 Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
-Traceback (most recent call last):
-  File "/home/runner/work/digital_brain/digital_brain/tool/media/transcribe.py", line 13, in <module>
-    subprocess.run(['ffmpeg', '-y', '-v', 'error', '-ss', str(a), '-to', str(b), '-i', 'tool/media/in/vo.mp3', '-ar', '16000', '-ac', '1', f], check=True)
-  File "/opt/hostedtoolcache/Python/3.11.17/x64/lib/python3.11/subprocess.py", line 548, in run
-    with Popen(*popenargs, **kwargs) as process:
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.17/x64/lib/python3.11/subprocess.py", line 1026, in __init__
-    self._execute_child(args, executable, preexec_fn, close_fds,
-  File "/opt/hostedtoolcache/Python/3.11.17/x64/lib/python3.11/subprocess.py", line 1955, in _execute_child
-    raise child_exception_type(errno_num, err_msg, err_filename)
-FileNotFoundError: [Errno 2] No such file or directory: 'ffmpeg'
+[0;93m2026-10-26 06:56:16.216588828 [W:onnxruntime:Default, device_discovery.cc:95 GetPciBusId] Skipping pci_bus_id for PCI path at "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/MSFT1000:00/5620e0c7-8062-4dce-aeb7-520c7ef76171" because filename "5620e0c7-8062-4dce-aeb7-520c7ef76171" did not match expected pattern of [0-9a-f]+:[0-9a-f]+:[0-9a-f]+[.][0-9a-f]+[m
+== 20-50
+20.00-49.98  একটা কোন একাউন্টের মনে থাকে না? তার উপর বাবামায়ের ওষুধের সমায়? হতাত রক্ত লাগলে কার কোন গ্রুপ? জাকাতের হিসাব? আর ফো�
+== 52-66
+52.00-58.96  নাম শহো লিখে রাখুন, চাইলে মুখে বলুন, রাবিন কে পাঁছাজাব টাকা দিলাম, লিখে রাখে My Assistant।
+58.96-63.92  ডাক্যুমন্স জোরুরি কাগোজের ছোবি রাখুন গুছিয়ে দর্কারে পাবেন হাতের কাছেই
+63.92-65.98  পাস্঵োর্ড সব পাস্঵োর্ড
+== 67-86
+67.00-75.82  তালাবধ্য আর এন্ক্রিপ্ট করা ফ্যামিলি পরিবারের সবার শাস্থ তথ্য এক সঙ্গে কার কখন ওষুধ লাগবে সোময় মতো মনে করিয় দেব�
+75.82-81.66  বলাড রক্তের গ্রুপ আর রক্তদাতার তথ্য বিপদের সময় থাকে হাতের কাছেই
+81.66-85.82  জাকাত সম্পদের তথ্য লিখলেই পেয়ে জাবেন জাকাতের হিশাব
