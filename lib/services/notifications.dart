@@ -398,14 +398,17 @@ NotificationDetails _gentleDetails(String body) => NotificationDetails(
 /// in its own little engine). "১০ মিনিট পরে" rings the same reminder again.
 @pragma('vm:entry-point')
 Future<void> onNoticeActionInBackground(NotificationResponse r) async {
-  if (r.actionId != 'snooze') return;
+  // "snooze" (the notification's ১০ মিনিট পরে) or "snooze:5" / "snooze:60" from the alarm page (AlarmActivity.kt).
+  final a = r.actionId ?? '';
+  if (a != 'snooze' && !a.startsWith('snooze:')) return;
+  final minutes = a == 'snooze' ? 10 : (int.tryParse(a.substring(7)) ?? 10).clamp(1, 24 * 60);
   final info = NoticeInfo.parse(r.payload);
   if (info == null) return;
   try {
     tzdata.initializeTimeZones();
     final plugin = FlutterLocalNotificationsPlugin();
     await plugin.initialize(settings: const InitializationSettings(android: AndroidInitializationSettings('ic_stat_reminder')));
-    await _ring(plugin, info.reminderId, info.title, info.body, const Duration(minutes: 10), insistent: true, sound: info.sound);
+    await _ring(plugin, info.reminderId, info.title, info.body, Duration(minutes: minutes), insistent: true, sound: info.sound);
   } catch (e) {
     debugPrint('Snooze failed: $e');
   }

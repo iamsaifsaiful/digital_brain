@@ -104,8 +104,12 @@ class MainActivity : FlutterFragmentActivity() {
     // (owner's review, 27 Oct: no readable copies left in the cache).
     override fun onResume() {
         super.onResume()
+        inFront = true
         clearOpenCopies()
     }
+
+    /** The app is on the screen now (a reminder's page then opens over it, not instead of it). */
+    private var inFront = false
 
     private fun clearOpenCopies() {
         try {
@@ -121,6 +125,14 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         CrashLog.install(this)
+        // A reminder ringing (or its notification tapped): its own full-screen
+        // page, and the app is not opened (owner, 27 Oct).
+        if (savedInstanceState == null && AlarmActivity.reminderOf(intent) != null) {
+            startActivity(AlarmActivity.from(this, intent))
+            super.onCreate(null)
+            finish()
+            return
+        }
         if (!packageName.endsWith(".preview")) {
             window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         }
@@ -142,6 +154,13 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun onNewIntent(intent: Intent) {
+        // The same while the app sits in the background: the page alone (the
+        // app goes back where it was); never told to the app as a tap.
+        if (AlarmActivity.reminderOf(intent) != null) {
+            startActivity(AlarmActivity.from(this, intent))
+            if (!inFront) moveTaskToBack(true)
+            return
+        }
         if (isReminderIntent(intent)) setOverLock(true)
         super.onNewIntent(intent)
         val l = launchOf(intent)
@@ -381,6 +400,7 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun onPause() {
+        inFront = false
         window.decorView.removeCallbacks(stopPreview)
         preview?.stop()
         super.onPause()

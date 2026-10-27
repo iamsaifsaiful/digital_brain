@@ -148,6 +148,16 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- A ringing reminder's own full-screen page (the app itself is not opened). -->
+        <activity
+            android:name=".AlarmActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity="${applicationId}.alarm"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
         <!-- Health Connect: why the app reads health data (Android 13 and older). -->
         <activity
             android:name=".HealthPrivacyActivity"
