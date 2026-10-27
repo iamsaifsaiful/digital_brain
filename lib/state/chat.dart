@@ -854,7 +854,7 @@ class ChatController extends ChangeNotifier {
     // The same words again within seconds, right after they were acted on:
     // a repeated callback or a retry — never a second entry.
     final wall = DateTime.now();
-    if (shown == _lastText && _lastTextAt != null && wall.difference(_lastTextAt!).inSeconds < 8 && _actions > _actionsAtLast && wait == ChatWait.none) {
+    if (shown == _lastText && _lastTextAt != null && wall.difference(_lastTextAt!).inSeconds < 8 && _actions > _actionsAtLast && wait == ChatWait.none && _askMainFor == null) {
       Trace.log('understood', 'the same words again at once — not done twice', const {});
       return '';
     }
@@ -879,7 +879,8 @@ class ChatController extends ChangeNotifier {
     // leaves it apart, and is heard as itself).
     final askMain = _askMainFor;
     _askMainFor = null;
-    final mainYes = askMain == null ? null : yesNo(t);
+    // Only a plain yes or no is the answer; a new request ("অন্যান্য হিসাবের সব দাও") is heard as itself.
+    final mainYes = askMain == null ? null : mainAnswer(t);
     if (askMain != null && mainYes != null) {
       await brain.setProjectMain(askMain, mainYes);
       choices = const [];
@@ -1337,6 +1338,16 @@ class ChatController extends ChangeNotifier {
 
   /// A হিসাব just opened by voice, waiting for "মূল হিসাবেও যোগ হবে?" (owner, 27 Oct).
   String? _askMainFor;
+
+  /// The answer to "মূল হিসাবেও যোগ হবে?": a plain yes or no, or "যোগ করো" /
+  /// "আলাদা রাখো"; anything else is not an answer (null).
+  static bool? mainAnswer(String said) {
+    final f = said.trim().toLowerCase().replaceAll(RegExp(r'[,।!.?]+'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (f.isEmpty || f.split(' ').length > 5) return null;
+    if (RegExp(r'^(?:না|নাহ|জি না|no)(?: |$)').hasMatch(f) || RegExp(r'^(?:আলাদা|যোগ কর(?:ো|বে|বেন|িও)? না|যোগ হবে না)').hasMatch(f)) return false;
+    if (RegExp(r'^(?:হ্যাঁ|হ্যা|হাঁ|হা|জি|জ্বি|ঠিক আছে|আচ্ছা|yes|ok|okay)(?: |$)').hasMatch(f) || RegExp(r'^যোগ (?:করো|কর|করুন|করেন|হবে)$').hasMatch(f)) return true;
+    return null;
+  }
 
   /// Asks whether [p]'s entries join the main money; until the answer they do not.
   void _askProjectMain(Project p, List<String> out) {

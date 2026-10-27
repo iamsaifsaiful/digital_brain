@@ -1,7 +1,7 @@
 import 'package:digital_brain/logic/cash.dart';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/screens/money_screens.dart';
-import 'package:digital_brain/state/brain.dart' show BrainMore;
+import 'package:digital_brain/state/chat.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -32,6 +32,45 @@ void main() {
       expect(mainCopyOf(b.data, e.id), isNull);
       expect(mainCopyOf(b.data, e2.id), isNull);
       expect(b.data.cash.where((c) => c.projectId == p.id).length, 2, reason: 'the হিসাব’s own entries stay');
+    });
+
+    testWidgets('by voice: asked after the first entry; a new request is not taken as the answer; "হ্যাঁ" lets it in', (t) async {
+      final rig = await start(t);
+      rig.brain.data.projects.add(Project(id: 'p9', name: 'বাড়ি মেরামত'));
+      final chat = ChatController(rig.brain);
+      Future<String> say(String s) async {
+        final n = chat.messages.length;
+        await chat.hear(s);
+        return chat.messages.skip(n).where((m) => !m.fromUser).map((m) => m.text).join(' ');
+      }
+
+      var r = await say('বাড়ি মেরামত হিসাবে মিস্ত্রির বিল ২৯০০ টাকা খরচ');
+      if (chat.wait == ChatWait.yesNo) r = await say('হ্যাঁ');
+      expect(r, contains('মূল হিসাবেও যোগ হবে?'));
+      final e = rig.brain.data.cash.firstWhere((c) => c.projectId == 'p9');
+      expect(mainCopyOf(rig.brain.data, e.id), isNull, reason: 'not before the yes');
+      // Asked again on the next entry; this time a question comes instead of an answer.
+      r = await say('অন্যান্য হিসাবের সব দাও');
+      expect(rig.brain.data.projects.single.mainAsked, isFalse);
+      // The question comes again with the next entry; now the answer.
+      await say('বাড়ি মেরামত হিসাবে রং ৫০০ টাকা খরচ');
+      if (chat.wait == ChatWait.yesNo) await say('হ্যাঁ');
+      // A second "হ্যাঁ" at once is the answer to the new question, not a repeat.
+      r = await say('হ্যাঁ');
+      expect(r, contains('মূল হিসাবেও যোগ হবে।'));
+      expect(rig.brain.data.projects.single.mainAsked, isTrue);
+      expect(mainCopyOf(rig.brain.data, e.id)?.amount, 2900);
+    });
+
+    test('only a plain answer counts', () {
+      expect(ChatController.mainAnswer('হ্যাঁ'), isTrue);
+      expect(ChatController.mainAnswer('জি, যোগ করো'), isTrue);
+      expect(ChatController.mainAnswer('যোগ করুন'), isTrue);
+      expect(ChatController.mainAnswer('না'), isFalse);
+      expect(ChatController.mainAnswer('আলাদা রাখো'), isFalse);
+      expect(ChatController.mainAnswer('যোগ করো না'), isFalse);
+      expect(ChatController.mainAnswer('অন্যান্য হিসাবের সব দাও'), isNull);
+      expect(ChatController.mainAnswer('মিস্ত্রির বিল ৫০০ টাকা'), isNull);
     });
 
     test('a হিসাব saved before this keeps going in, as it did, until asked', () {

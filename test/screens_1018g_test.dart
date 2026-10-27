@@ -37,7 +37,7 @@ void main() {
   Future<void> open(WidgetTester t) async {
     rig = await start(t);
     rig.nowAt = DateTime(2026, 10, 18, 19, 0);
-    data().projects.addAll([Project(id: 'p1', name: 'শিক্ষার্থীদের বেতন'), Project(id: 'p2', name: 'বাড়ি মেরামত')]);
+    data().projects.addAll([Project(id: 'p1', name: 'শিক্ষার্থীদের বেতন', inMain: true, mainAsked: true), Project(id: 'p2', name: 'বাড়ি মেরামত', inMain: true, mainAsked: true)]);
     chat = ChatController(rig.brain);
   }
 
