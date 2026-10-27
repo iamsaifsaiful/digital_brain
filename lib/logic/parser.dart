@@ -2166,7 +2166,7 @@ class Parser {
       // Health Connect (27 Oct): "গত রাতে কত ঘুমিয়েছি?", "আজ কত মিনিট ব্যায়াম করলাম?", "আজ কত হাঁটলাম?".
       if (has(['ঘুমিয়েছি', 'ঘুমালাম', 'ঘুমিয়েছিলাম', 'ঘুমাইছি', 'ঘুম হয়েছে', 'ঘুম হলো', 'ঘুমের হিসাব', 'slept', 'sleep'])) return HealthQuery(said, what: HealthKind.sleep.name);
       if (has(['ব্যায়াম', 'এক্সারসাইজ', 'exercise', 'workout'])) return HealthQuery(said, what: HealthKind.exercise.name);
-      if (has(['হাঁটলাম', 'হেঁটেছি', 'হাটলাম', 'হাঁটছি', 'হাঁটা হয়েছে', 'স্টেপ', 'steps', 'কত পা', 'কত ধাপ'])) {
+      if (has(['হাঁটলাম', 'হেঁটেছি', 'হাটলাম', 'হাঁটছি', 'হাঁটা হয়েছে', 'স্টেপ', 'steps', 'কত ধাপ হাঁট', 'কত পা হাঁট', 'কত পা হেঁট'])) {
         return HealthQuery(said, what: has(['মিনিট', 'ঘণ্টা', 'ঘন্টা']) ? HealthKind.exercise.name : 'steps');
       }
       // "আমার স্বাস্থ্যের অবস্থা কি", "শরীর কেমন": all the latest measures.
