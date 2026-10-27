@@ -20,6 +20,7 @@ import 'package:http/http.dart' as http;
 
 import '../logic/money_more.dart' show MetalPrice;
 import '../logic/server_notices.dart';
+import 'error_log.dart';
 
 /// The OAuth "Web client" ID from Google Cloud (passed at build time with
 /// `--dart-define=GOOGLE_WEB_CLIENT_ID=…`). Empty until it is set up.
@@ -394,6 +395,7 @@ class AccountServer {
         if (j is Map<String, dynamic>) data = j;
       } catch (_) {}
       if (r.statusCode == 200) return ServerReply(200, data, null);
+      if (r.statusCode >= 500) ErrorLog.problem('Server', 'status_${r.statusCode} $method ${uri.path}');
       return ServerReply(r.statusCode, data, switch (r.statusCode) {
         401 => 'আবার Google দিয়ে লগইন করুন',
         404 => 'খুঁজে পাওয়া গেল না',

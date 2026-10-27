@@ -106,6 +106,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var firstLaunch: Map<String, Any>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        CrashLog.install(this)
         if (!packageName.endsWith(".preview")) {
             window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         }

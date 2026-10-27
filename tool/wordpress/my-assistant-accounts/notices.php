@@ -581,10 +581,62 @@ function ma_note_overview() {
 }
 
 /**
- * One day (owner, 27 Oct, again): which notifications went or will go,
- * what they are and at what time, and how many each member gets that day.
- * Members' own reminders show only as a kind and a time — never their words.
- * $day 'Y-m-d' in site time (default today).
+ * Every push notification the app itself sends a member (owner, 27 Oct, a
+ * third time: "আমাদের এপ থেকে ইউজারের কাছে কি কি পুশ নোটিফিকেশন যায়, কখন
+ * যায়, দিনে কয়টা"). Kept in step with lib/logic/proactive.dart by hand.
+ * key = the kind the phone reports; at = usual time (for sorting); cap =
+ * counted in the daily limit of 3; off = only when the member turns it on.
+ */
+function ma_note_catalog() {
+    return [
+        ['key' => 'nudge:bmi', 'at' => '07:30', 'label' => 'ওজনের ছোট ধাপ', 'sample' => 'আজ নিজের জন্য ছোট একটা ধাপ', 'when' => 'সোম আর বৃহস্পতিবার সকাল ৭:৩০ — ওজন স্বাভাবিকের বেশি থাকলে', 'cap' => true],
+        ['key' => 'brief:morning', 'at' => '08:00', 'label' => 'সুপ্রভাত — আজকের সূচি', 'sample' => 'সুপ্রভাত! আজকের সূচি', 'when' => 'প্রতিদিন সকাল ৮টা (সদস্য সময় বদলাতে পারেন)', 'cap' => false],
+        ['key' => 'nudge:fest', 'at' => '08:30', 'label' => 'উৎসবের শুভেচ্ছা', 'sample' => 'ঈদ মোবারক! / শুভ নববর্ষ!', 'when' => 'উৎসবের দিন সকাল ৮:৩০', 'cap' => true],
+        ['key' => 'nudge:quote', 'at' => '09:15', 'label' => 'আজকের অর্থ-কথা', 'sample' => 'আজকের অর্থ-কথা', 'when' => 'প্রতিদিন সকাল ৯:১৫', 'cap' => false],
+        ['key' => 'nudge:plan', 'at' => '09:15', 'label' => 'পরিকল্পনা জানতে চাওয়া', 'sample' => 'নতুন সপ্তাহ শুরু / নতুন মাস / কাল ছুটি / কালকের জন্য কিছু?', 'when' => 'রবিবার ৯:১৫, মাসের ১ তারিখ ৯:৩০, ছুটির আগের সন্ধ্যা ৮:৩০, রাত ৯:০৫', 'cap' => true],
+        ['key' => 'nudge:due', 'at' => '10:00', 'label' => 'পাওনা টাকার তাগাদা', 'sample' => '…-এর কাছে … পাওনা', 'when' => 'সকাল ১০টা — শেষ লেনদেনের ৩০ দিন পর পর', 'cap' => true],
+        ['key' => 'nudge:bill', 'at' => '10:00', 'label' => 'বিল/ভাড়ার শেষ দিন পরশু', 'sample' => '… — শেষ দিন পরশু', 'when' => 'সকাল ১০টা — শেষ দিনের দুই দিন আগে', 'cap' => true],
+        ['key' => 'nudge:med', 'at' => '10:00', 'label' => 'ওষুধ ফুরিয়ে আসছে', 'sample' => '… আর … দিনের আছে', 'when' => 'সকাল ১০টা — ৫ দিন বা কম বাকি থাকলে', 'cap' => true],
+        ['key' => 'nudge:doc', 'at' => '10:00', 'label' => 'কাগজের মেয়াদ ৬ মাস বাকি', 'sample' => '…-এর মেয়াদ ৬ মাস পর শেষ', 'when' => 'সকাল ১০টা — একবার', 'cap' => true],
+        ['key' => 'nudge:fix', 'at' => '10:00', 'label' => 'ঘরের মেরামত বাকি', 'sample' => 'আজ ছুটির দিন — ঘরের …টা জিনিস ঠিক করা বাকি', 'when' => 'ছুটির দিন সকাল ১০টা — তালিকায় থাকলে', 'cap' => false],
+        ['key' => 'nudge:soon', 'at' => '10:00', 'label' => 'ঈদ/রমজান ১০ দিন পর', 'sample' => 'ঈদুল আজহা আর ১০ দিন', 'when' => 'সকাল ১০টা — বছরে কয়েকবার', 'cap' => true],
+        ['key' => 'nudge:week', 'at' => '10:00', 'label' => 'গত সপ্তাহের হিসাব', 'sample' => 'গত সপ্তাহের হিসাব', 'when' => 'শনিবার সকাল ১০টা', 'cap' => true],
+        ['key' => 'nudge:donor', 'at' => '10:00', 'label' => 'আবার রক্ত দিতে পারবেন', 'sample' => 'আবার রক্ত দিতে পারবেন', 'when' => 'সময় হলে সকাল ১০টা — রক্তদাতা হলে', 'cap' => false],
+        ['key' => 'nudge:health', 'at' => '10:30', 'label' => 'মৌসুমের স্বাস্থ্য পরামর্শ', 'sample' => 'এই মৌসুমের স্বাস্থ্য পরামর্শ', 'when' => 'মাসের প্রথম শনিবার সকাল ১০:৩০', 'cap' => true],
+        ['key' => 'nudge:back', 'at' => '10:30', 'label' => 'কেমন আছেন?', 'sample' => 'কেমন আছেন?', 'when' => '৩ দিন অ্যাপ না খুললে সকাল ১০:৩০', 'cap' => true],
+        ['key' => 'nudge:jumuah', 'at' => '11:00', 'label' => 'জুমা মোবারক', 'sample' => 'জুমা মোবারক!', 'when' => 'শুক্রবার সকাল ১১টা', 'cap' => true],
+        ['key' => 'nudge:backup', 'at' => '11:30', 'label' => 'ব্যাকআপ নেওয়া হয়নি', 'sample' => '… দিন ব্যাকআপ নেওয়া হয়নি', 'when' => 'শুক্রবার ১১:৩০ — ৩০ দিন ব্যাকআপ না থাকলে', 'cap' => true],
+        ['key' => 'nudge:day2', 'at' => '19:00', 'label' => 'পরশু জন্মদিন/বিবাহবার্ষিকী', 'sample' => 'পরশু …-এর জন্মদিন', 'when' => 'সন্ধ্যা ৭টা — দুই দিন আগে', 'cap' => true],
+        ['key' => 'nudge:salary', 'at' => '19:00', 'label' => 'বেতন এসেছে — সঞ্চয়', 'sample' => 'বেতন এসেছে — …', 'when' => 'বেতন লেখার দিন সন্ধ্যা ৭টা', 'cap' => true],
+        ['key' => 'nudge:spend', 'at' => '19:30', 'label' => 'কোনো খাতে খরচ বেশি', 'sample' => 'এ মাসে …-এ খরচ বেশি', 'when' => 'সন্ধ্যা ৭:৩০ — গত মাসের চেয়ে ২০% বেশি হলে', 'cap' => true],
+        ['key' => 'nudge:habit', 'at' => '20:00', 'label' => 'অভ্যাসের ধারা', 'sample' => 'টানা … দিন — …', 'when' => 'রাত ৮টা — সেদিনেরটা না হলে', 'cap' => true],
+        ['key' => 'brief:night', 'at' => '21:00', 'label' => 'রাতের সারাংশ — কাজ বাকি', 'sample' => 'আজ …টা কাজ বাকি রইল', 'when' => 'প্রতিদিন রাত ৯টা — কাজ বাকি থাকলে', 'cap' => false],
+        ['key' => 'nudge:nocash', 'at' => '21:15', 'label' => 'আজকের খরচ লেখা হয়নি', 'sample' => 'আজকের খরচ লেখা হয়নি', 'when' => 'রাত ৯:১৫ — নিয়মিত লেখেন কিন্তু আজ লেখেননি', 'cap' => true],
+        ['key' => 'nudge:prayer', 'at' => '', 'label' => 'নামাজের সময়', 'sample' => 'জোহর-এর সময় হয়েছে', 'when' => 'ওয়াক্ত শুরু হলে — সদস্য চালু করলে', 'cap' => false, 'off' => true],
+        ['key' => 'nudge:ramadan', 'at' => '', 'label' => 'সেহরি আর ইফতার', 'sample' => 'সেহরির সময় / ইফতারের সময় হয়ে আসছে', 'when' => 'রমজানে — সদস্য চালু করলে', 'cap' => false, 'off' => true],
+        ['key' => 'nudge:pro', 'at' => '', 'label' => 'প্রিমিয়াম চালু হয়েছে', 'sample' => 'প্রিমিয়াম চালু হয়েছে', 'when' => 'প্রিমিয়াম চালু হওয়ার সময় একবার', 'cap' => false],
+    ];
+}
+
+/** Our server's own pushes (not planned by the phone). */
+function ma_note_push_labels() {
+    return [
+        'news' => ['“এখনই পাঠান”', 'আপনি পাঠালে'],
+        'pro' => ['প্রিমিয়াম চালু/মেয়াদ', 'প্রিমিয়াম চালু বা শেষ হলে'],
+        'feedback' => ['মতামতের উত্তর', 'আপনি উত্তর দিলে'],
+        'blood' => ['রক্তের অনুরোধ', 'কাছের কেউ রক্ত চাইলে'],
+        'family' => ['ফ্যামিলি', 'পরিবারের কেউ কিছু ভাগ করলে'],
+        'family_item' => ['ফ্যামিলি', 'পরিবারের কেউ কিছু ভাগ করলে'],
+        'heir_claim' => ['উত্তরাধিকার', 'কেউ দাবি করলে'],
+        'test' => ['পরীক্ষা', 'পরীক্ষার পুশ'],
+    ];
+}
+
+/**
+ * One day: every notification the app sends a member — what, when (the
+ * rule), and how many went that day and to how many members; then how many
+ * each member got. Members' own reminders are theirs, not the app's: one
+ * line, a count only. $day 'Y-m-d' in site time (default today).
  */
 function ma_note_day($day = '') {
     global $wpdb;
@@ -592,43 +644,109 @@ function ma_note_day($day = '') {
     $day = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $day) ? $day : gmdate('Y-m-d', time() + $off);
     $from = gmdate('Y-m-d H:i:s', strtotime($day . ' 00:00:00 UTC') - $off);
     $to = gmdate('Y-m-d H:i:s', strtotime($day . ' 00:00:00 UTC') + DAY_IN_SECONDS - $off);
-    $now = gmdate('Y-m-d H:i:s');
+    $now = gmdate('Y-m-d H:i');
     $t = ma_nlog_table();
     $rows = $wpdb->get_results($wpdb->prepare(
         "SELECT source, kind, title, SUBSTR(at, 1, 16) AS m, status, COUNT(*) AS n, COUNT(DISTINCT user_id) AS people FROM $t WHERE at >= %s AND at < %s GROUP BY source, kind, title, SUBSTR(at, 1, 16), status",
         $from, $to
     ), ARRAY_A);
-    $items = [];
-    foreach ($rows as $r) {
-        $local = gmdate('H:i', strtotime($r['m'] . ':00 UTC') + $off);
-        $label = ma_nlog_kind_label($r['kind']);
-        $k = $r['source'] . '|' . $r['kind'] . '|' . $r['title'] . '|' . $local;
-        if (!isset($items[$k])) {
-            $items[$k] = [
-                'time' => $local,
-                'label' => $label,
-                'title' => (string) $r['title'],
-                'group' => ma_note_group($r['source'], $r['kind']),
-                'by' => $r['source'] === 'push' ? 'server' : 'phone',
-                'count' => 0,
-                'people' => 0,
-                'failed' => 0,
-                'ahead' => $r['m'] . ':00' > substr($now, 0, 19),
-            ];
-        }
-        $n = (int) $r['n'];
-        if (in_array($r['status'], ['failed', 'no_device'], true)) {
-            $items[$k]['failed'] += $n;
-        } else {
-            $items[$k]['count'] += $n;
-        }
-        $items[$k]['people'] = max($items[$k]['people'], (int) $r['people']);
+    $people = $wpdb->get_results($wpdb->prepare(
+        "SELECT source, kind, title, COUNT(DISTINCT user_id) AS people FROM $t WHERE at >= %s AND at < %s AND status NOT IN ('failed', 'no_device') GROUP BY source, kind, title",
+        $from, $to
+    ), ARRAY_A);
+
+    // Every kind the app has, in the order of its usual time; counts filled in below.
+    $app = [];
+    foreach (ma_note_catalog() as $c) {
+        $app[$c['key']] = $c + ['by' => 'phone', 'title' => '', 'count' => 0, 'people' => 0, 'failed' => 0, 'ahead' => 0, 'times' => [], 'off' => $c['off'] ?? false];
     }
-    $items = array_values($items);
-    usort($items, fn($a, $b) => strcmp($a['time'], $b['time']) ?: strcmp($a['label'], $b['label']));
-    // How many each member gets that day (a count, nothing more).
+    $rem = ['count' => 0, 'people' => 0, 'ahead' => 0];
+    $rem_people = 0;
+    $key_of = function ($source, $kind, $title) {
+        if ($source === 'push' && $kind !== 'server') {
+            return 'push:' . $kind;
+        }
+        if ($kind === 'server' || str_starts_with($kind, 'nudge:srv') || str_starts_with($kind, 'nudge:plan:srv')) {
+            return 'server:' . $title;
+        }
+        if (str_starts_with($kind, 'reminder')) {
+            return 'reminder';
+        }
+        foreach (ma_note_catalog() as $c) {
+            if ($kind === $c['key'] || str_starts_with($kind, $c['key'] . ':')) {
+                return $c['key'];
+            }
+        }
+        return 'other';
+    };
+    foreach ($rows as $r) {
+        $k = $key_of($r['source'], $r['kind'], (string) $r['title']);
+        $n = (int) $r['n'];
+        $bad = in_array($r['status'], ['failed', 'no_device'], true);
+        $ahead = $r['m'] > $now;
+        if ($k === 'reminder') {
+            if (!$bad) {
+                $rem['count'] += $n;
+                $rem['ahead'] += $ahead ? $n : 0;
+            }
+            continue;
+        }
+        if (!isset($app[$k])) {
+            if (str_starts_with($k, 'server:')) {
+                $app[$k] = ['key' => $k, 'at' => '', 'label' => 'সাইটের নোটিফিকেশন', 'sample' => (string) $r['title'], 'when' => 'আপনি সাইট থেকে যে সময় ঠিক করেছেন', 'cap' => false];
+            } elseif (str_starts_with($k, 'push:')) {
+                $pl = ma_note_push_labels()[substr($k, 5)] ?? [ma_nlog_kind_label(substr($k, 5)), 'সার্ভার থেকে'];
+                $app[$k] = ['key' => $k, 'at' => '', 'label' => $pl[0], 'sample' => (string) $r['title'], 'when' => $pl[1], 'cap' => false];
+            } else {
+                $app[$k] = ['key' => $k, 'at' => '', 'label' => 'অন্যান্য মনে করানো', 'sample' => '', 'when' => 'পুরোনো অ্যাপ বা নতুন ধরন', 'cap' => true];
+            }
+            $app[$k] += ['by' => $r['source'] === 'push' ? 'server' : 'phone', 'title' => '', 'count' => 0, 'people' => 0, 'failed' => 0, 'ahead' => 0, 'times' => [], 'off' => false];
+        }
+        if ($r['source'] === 'push') {
+            $app[$k]['by'] = 'server';
+        }
+        if ($bad) {
+            $app[$k]['failed'] += $n;
+            continue;
+        }
+        $app[$k]['count'] += $n;
+        $app[$k]['ahead'] += $ahead ? $n : 0;
+        $hm = gmdate('H:i', strtotime($r['m'] . ':00 UTC') + $off);
+        $app[$k]['times'][$hm] = ($app[$k]['times'][$hm] ?? 0) + $n;
+    }
+    foreach ($people as $p) {
+        $k = $key_of($p['source'], $p['kind'], (string) $p['title']);
+        if ($k === 'reminder') {
+            $rem_people = max($rem_people, (int) $p['people']);
+        } elseif (isset($app[$k])) {
+            $app[$k]['people'] = max($app[$k]['people'], (int) $p['people']);
+        }
+    }
+    $rem['people'] = (int) $wpdb->get_var($wpdb->prepare(
+        "SELECT COUNT(DISTINCT user_id) FROM $t WHERE at >= %s AND at < %s AND kind LIKE 'reminder%%' AND status NOT IN ('failed', 'no_device')",
+        $from, $to
+    ));
+    $list = [];
+    foreach ($app as $a) {
+        // The busiest times first (at most 4), then in order.
+        arsort($a['times']);
+        $times = array_slice(array_keys($a['times']), 0, 4);
+        sort($times);
+        $a['times'] = $times;
+        if ($a['at'] === '' && $times) {
+            $a['at'] = $times[0];
+        }
+        $list[] = $a;
+    }
+    usort($list, fn($a, $b) => (($b['count'] > 0) <=> ($a['count'] > 0)) ?: strcmp($a['at'] === '' ? '99' : $a['at'], $b['at'] === '' ? '99' : $b['at']));
+
+    // How many the app sends each member that day (reminders counted apart).
     $per = $wpdb->get_results($wpdb->prepare(
-        "SELECT l.user_id, u.name, u.email, COUNT(*) AS n, SUM(CASE WHEN l.status IN ('failed', 'no_device') THEN 1 ELSE 0 END) AS failed FROM $t l LEFT JOIN " . ma_acc_table() . " u ON u.id = l.user_id WHERE l.at >= %s AND l.at < %s GROUP BY l.user_id, u.name, u.email ORDER BY n DESC LIMIT 500",
+        "SELECT l.user_id, u.name, u.email,
+            SUM(CASE WHEN l.kind NOT LIKE 'reminder%%' AND l.status NOT IN ('failed', 'no_device') THEN 1 ELSE 0 END) AS n,
+            SUM(CASE WHEN l.kind LIKE 'reminder%%' AND l.status NOT IN ('failed', 'no_device') THEN 1 ELSE 0 END) AS r,
+            SUM(CASE WHEN l.status IN ('failed', 'no_device') THEN 1 ELSE 0 END) AS failed
+         FROM $t l LEFT JOIN " . ma_acc_table() . " u ON u.id = l.user_id WHERE l.at >= %s AND l.at < %s GROUP BY l.user_id, u.name, u.email ORDER BY n DESC, r DESC LIMIT 500",
         $from, $to
     ), ARRAY_A);
     $members = [];
@@ -636,15 +754,22 @@ function ma_note_day($day = '') {
     foreach ($per as $p) {
         $n = (int) $p['n'];
         $total += $n;
-        $members[] = ['user_id' => (int) $p['user_id'], 'name' => (string) $p['name'], 'email' => (string) $p['email'], 'count' => $n, 'failed' => (int) $p['failed']];
+        $members[] = ['user_id' => (int) $p['user_id'], 'name' => (string) $p['name'], 'email' => (string) $p['email'], 'count' => $n, 'reminders' => (int) $p['r'], 'failed' => (int) $p['failed']];
     }
+    $with = array_filter($members, fn($m) => $m['count'] > 0);
     return [
         'day' => $day,
-        'items' => $items,
+        'app' => $list,
+        'reminders' => $rem,
         'members' => $members,
         'total' => $total,
-        'people' => count($members),
-        'avg' => $members ? round($total / count($members), 1) : 0,
-        'max' => $members ? $members[0]['count'] : 0,
+        'people' => count($with),
+        'avg' => $with ? round($total / count($with), 1) : 0,
+        'max' => $with ? max(array_column($with, 'count')) : 0,
+        'rules' => [
+            'cap' => 3,
+            'quiet' => 'রাত ১০টা থেকে সকাল ৭টা',
+            'daily' => 'প্রতিদিন নিশ্চিত: সুপ্রভাত (৮টা) আর অর্থ-কথা (৯:১৫); কাজ বাকি থাকলে রাতের সারাংশ (৯টা)। বাকি মনে করানো দিনে সর্বোচ্চ ৩টি।',
+        ],
     ];
 }

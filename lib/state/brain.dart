@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 
 import '../logic/doc_dates.dart';
 import 'doc_scan.dart' show mergeFields;
+import '../services/error_log.dart';
 import '../services/weather.dart';
 import '../services/compass.dart';
 import '../logic/weather.dart';
@@ -1527,6 +1528,7 @@ class Brain extends ChangeNotifier {
         if (late) {
           asking.ignore();
           Trace.log('understood', 'the AI was slow — the phone\'s own reading', {'rules': ruleIntents.join(',')});
+          ErrorLog.problem('AiSlow', 'no answer in ${aiPatience.inSeconds}s');
           return (rules, null, 'ai_slow');
         }
       }
@@ -1552,6 +1554,7 @@ class Brain extends ChangeNotifier {
       }
       return (cmds.isEmpty ? rules : cmds, null, source);
     } on AiError catch (e) {
+      ErrorLog.problem('AiError', e.code.isEmpty ? 'unknown' : e.code);
       return (rules, '${e.message} নিজের নিয়মে বুঝে নিলাম।', 'failed');
     }
   }
@@ -1684,8 +1687,9 @@ class Brain extends ChangeNotifier {
       try {
         photo = await services.store.loadDocFile(_photoId);
       } catch (_) {}
-    } catch (e) {
+    } catch (e, st) {
       loadError = '$e';
+      ErrorLog.problem('DataLoad', e.runtimeType.toString(), st: st);
     }
     loaded = true;
     notifyListeners();

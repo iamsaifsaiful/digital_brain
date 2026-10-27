@@ -864,6 +864,23 @@ ob_start();
 ma_acc_admin();
 $html = ob_get_clean();
 check(str_contains($html, 'সমস্যার লগ') && str_contains($html, 'StateError') && !preg_match('/(Warning|Notice|Fatal|Deprecated)\b.*on line/', $html), 'site: the সমস্যার লগ tab renders');
+// Problems the app handled but the member felt (owner, 27 Oct): apart from crashes, with a plain meaning.
+call('POST', '/errors', ['items' => [
+    ['level' => 'problem', 'kind' => 'AiError', 'message' => 'timeout', 'stack' => 'package:digital_brain/state/brain.dart:1555', 'version' => '2.55.12', 'count' => 3],
+    ['level' => 'problem', 'kind' => 'Voice', 'message' => 'error_network', 'stack' => '', 'version' => '2.55.12'],
+    ['level' => 'crash', 'kind' => 'Android:IllegalStateException', 'message' => 'x', 'stack' => 'com.iamsaifsaiful.digital_brain.MainActivity.onCreate:120', 'version' => '2.55.12'],
+]], $sonSes);
+[$code, $d] = call('GET', '/admin/errors', ['level' => 'problem'], $bossSes);
+$ai = current(array_filter($d['errors'], fn($e) => $e['kind'] === 'AiError'));
+check($code === 200 && count($d['errors']) === 2 && $ai && $ai['level'] === 'problem' && $ai['count'] === 3 && str_contains($ai['meaning'], 'সময়মতো'), 'errors: problems apart, with a plain meaning');
+check($d['counts']['crash'] >= 5 && $d['counts']['problem'] === 4 && $d['counts']['day'] >= 3, 'errors: counted by kind (' . json_encode($d['counts']) . ')');
+[$code, $d] = call('GET', '/admin/errors', ['level' => 'crash'], $bossSes);
+check(array_filter($d['errors'], fn($e) => str_contains($e['meaning'], 'Android')) && !array_filter($d['errors'], fn($e) => $e['level'] !== 'crash'), 'errors: an Android crash among the crashes');
+$_GET = ['page' => 'my-assistant', 'tab' => 'errors', 'lv' => 'problem'];
+ob_start();
+ma_acc_admin();
+$html = ob_get_clean();
+check(str_contains($html, 'ফোন থেকে সরাসরি') && str_contains($html, 'কথা শোনার সময় ইন্টারনেট পায়নি') && !str_contains($html, 'StateError') && !preg_match('/(Warning|Notice|Fatal|Deprecated)\b.*on line/', $html), 'site: problems filter on the সমস্যার লগ tab');
 [$code, $d] = call('POST', '/admin/errors/clear', [], $bossSes);
 check($code === 200 && $d['errors'] === [], 'errors: cleared by an admin');
 
@@ -1009,12 +1026,13 @@ $wpdb->delete(ma_note_table(), ['id' => $nidLate]);
 // One day: what, when, how many; and how many each member gets.
 call('POST', '/notices/plan', ['items' => [['kind' => 'reminder', 'at' => gmdate('c', time() + 3600)], ['kind' => 'brief:morning', 'at' => gmdate('c', time() + 7200)]]], $pushSes);
 [$code, $nd] = call('GET', '/admin/notice-day', [], $bossSes);
-$srv = current(array_filter($nd['items'], fn($i) => $i['title'] === 'এখনকার নোটিফিকেশন'));
-check($code === 200 && $srv && $srv['by'] === 'server' && $srv['count'] === 1 && $srv['people'] === 1 && preg_match('/^\d\d:\d\d$/', $srv['time']), 'notice day: the server push with its time and count');
-$rem = array_filter($nd['items'], fn($i) => $i['label'] === 'রিমাইন্ডার' && $i['by'] === 'phone');
-check($rem && !array_filter($rem, fn($i) => $i['title'] !== '') && array_filter($rem, fn($i) => $i['ahead']), 'notice day: a member reminder only as a kind and time, the coming one marked ahead');
+$cat = array_column($nd['app'], null, 'key');
+$srv = current(array_filter($nd['app'], fn($i) => $i['sample'] === 'এখনকার নোটিফিকেশন'));
+check($code === 200 && $srv && $srv['by'] === 'server' && $srv['count'] === 1 && $srv['people'] === 1 && preg_match('/^\d\d:\d\d$/', $srv['times'][0] ?? ''), 'notice day: the server push with its time and count');
+check(isset($cat['brief:morning'], $cat['nudge:quote'], $cat['brief:night'], $cat['nudge:jumuah']) && $cat['brief:morning']['count'] === 1 && $cat['brief:morning']['ahead'] === 1 && $cat['nudge:jumuah']['count'] === 0 && str_contains($cat['brief:night']['when'], '৯টা'), 'notice day: every kind the app sends, with its rule; the morning one counted and coming');
+check(!isset($cat['reminder']) && $nd['reminders']['count'] >= 1 && $nd['reminders']['people'] >= 1 && !array_filter($nd['app'], fn($i) => str_contains($i['label'], 'রিমাইন্ডার')), 'notice day: members\' own reminders only as one count, apart from the app\'s');
 $me = current(array_filter($nd['members'], fn($m) => $m['email'] === 'rahim@gmail.com'));
-check($me && $me['count'] >= 3 && $nd['people'] >= 1 && $nd['max'] >= $me['count'] && $nd['avg'] > 0, 'notice day: how many each member gets (' . ($me['count'] ?? 0) . ')');
+check($me && $me['count'] >= 2 && $me['reminders'] >= 1 && $nd['people'] >= 1 && $nd['max'] >= $me['count'] && $nd['avg'] > 0 && $nd['rules']['cap'] === 3, 'notice day: how many the app sends each member (' . ($me['count'] ?? 0) . ' + ' . ($me['reminders'] ?? 0) . ' own reminders)');
 [$code] = call('GET', '/admin/notice-day', [], $ses);
 check($code === 403, 'notice day: admins only');
 
@@ -1069,7 +1087,7 @@ check(str_contains($h, 'ওয়েবসাইট (বিকাশ)') && str_c
 $h = $render(['tab' => 'payments', 'pst' => 'all']);
 check(str_contains($h, 'বিকাশে আসা টাকা') && str_contains($h, '9A7KX2PQ1M') && str_contains($h, 'মিলেছে — প্রিমিয়াম চালু') && !preg_match($bad, $h), 'site: payments show bKash');
 $h = $render(['tab' => 'notices']);
-check(str_contains($h, 'আজ আর কাল কী যাবে') && str_contains($h, 'দিনে কতটি') && str_contains($h, 'কোন কোন নোটিফিকেশন') && str_contains($h, 'কে দিনে কতগুলো পাচ্ছে') && str_contains($h, 'এখনকার নোটিফিকেশন') && str_contains($h, 'সার্ভার থেকে পুশ') && !str_contains($h, '<h2>কার কাছে কী গেছে</h2>') && !preg_match($bad, $h), 'site: notifications overview instead of the per-member log');
+check(str_contains($h, 'আজ আর কাল কী যাবে') && str_contains($h, 'দিনে কতটি') && str_contains($h, 'অ্যাপ থেকে কোন কোন নোটিফিকেশন যায়') && str_contains($h, 'জুমা মোবারক') && str_contains($h, 'সীমার বাইরে') && str_contains($h, 'সদস্যের নিজের রিমাইন্ডার') && str_contains($h, 'কে দিনে কতগুলো পাচ্ছে') && str_contains($h, 'এখনকার নোটিফিকেশন') && str_contains($h, 'সার্ভার থেকে পুশ') && !str_contains($h, '<h2>কার কাছে কী গেছে</h2>') && !preg_match($bad, $h), 'site: notifications overview instead of the per-member log');
 $h = $render(['tab' => 'feedback', 'fst' => 'all']);
 check(str_contains($h, 'জন সদস্য') && str_contains($h, 'ma-inbox-row') && !preg_match($bad, $h), 'site: feedback inbox list');
 $h = $render(['tab' => 'feedback', 'who' => (string) $u['id']]);

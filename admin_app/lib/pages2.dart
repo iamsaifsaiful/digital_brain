@@ -747,7 +747,7 @@ class _NoticeStatsPageState extends State<NoticeStatsPage> {
           key: const Key('notice-today'),
           onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => NoticeDayPage(api: widget.api, guard: widget.guard, day: ''))),
           icon: const Icon(Icons.today_rounded),
-          label: const Text('আজ কোন কোন নোটিফিকেশন, কে কতগুলো'),
+          label: const Text('অ্যাপ থেকে কোন কোন নোটিফিকেশন যায়, কে কতগুলো'),
         ),
       ));
       widgets.add(Padding(padding: const EdgeInsets.fromLTRB(2, 18, 2, 8), child: Text('সামনের ৭ দিন', style: text(16, weight: FontWeight.w700, color: c.ink))));
@@ -846,51 +846,87 @@ class _NoticeDayPageState extends State<NoticeDayPage> {
   Widget build(BuildContext context) {
     final c = Palette.of(context);
     final d = _d;
-    final items = ((d?['items'] as List?) ?? const []).cast<Map<String, dynamic>>();
+    final items = ((d?['app'] as List?) ?? const []).cast<Map<String, dynamic>>();
     final members = ((d?['members'] as List?) ?? const []).cast<Map<String, dynamic>>();
+    final rem = (d?['reminders'] as Map?) ?? const {};
     String hm(String t) {
       final p = t.split(':');
       final h = int.tryParse(p.first) ?? 0;
       final part = h < 12 ? 'সকাল' : (h < 15 ? 'দুপুর' : (h < 18 ? 'বিকেল' : (h < 20 ? 'সন্ধ্যা' : 'রাত')));
       return '$part ${bn(h % 12 == 0 ? 12 : h % 12)}:${bn(p.length > 1 ? p[1] : '00')}';
     }
+    Widget tag(String t, Color bg, Color fg) => Container(
+          margin: const EdgeInsets.only(right: 6, top: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(99)),
+          child: Text(t, style: text(11, weight: FontWeight.w600, color: fg)),
+        );
     return Scaffold(
-      appBar: AppBar(title: Text(d == null ? 'নোটিফিকেশন' : date('${d['day']}'))),
+      appBar: AppBar(title: Text(d == null ? 'নোটিফিকেশন' : (widget.day.isEmpty ? 'আজ' : date('${d['day']}')))),
       body: d == null
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
-                Text('মোট ${bn(d['total'])}টি · ${bn(d['people'])} জন সদস্য · জনপ্রতি গড় ${bn(d['avg'])}, সর্বোচ্চ ${bn(d['max'])}', style: text(14, weight: FontWeight.w600, color: c.ink)),
-                Padding(padding: const EdgeInsets.fromLTRB(0, 4, 0, 10), child: Text('সদস্যের নিজের রিমাইন্ডারের লেখা ফোনেই থাকে — এখানে শুধু ধরন আর সময়।', style: text(12.5, color: c.muted))),
-                Text('কোন কোন নোটিফিকেশন, কখন', style: text(16, weight: FontWeight.w700, color: c.ink)),
-                const SizedBox(height: 8),
-                if (items.isEmpty) Text('এই দিনে কিছু নেই।', style: text(13.5, color: c.muted)),
+                Text('অ্যাপ থেকে কোন কোন নোটিফিকেশন যায়', style: text(17, weight: FontWeight.w700, color: c.ink)),
+                const SizedBox(height: 4),
+                Text('এদিন মোট ${bn(d['total'])}টি · ${bn(d['people'])} জন সদস্য · জনপ্রতি গড় ${bn(d['avg'])}, সর্বোচ্চ ${bn(d['max'])}', style: text(13.5, weight: FontWeight.w600, color: c.ink)),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 6, 0, 12),
+                  child: Text('${(d['rules'] as Map?)?['daily'] ?? ''} চুপ থাকার সময় ${(d['rules'] as Map?)?['quiet'] ?? ''}।', style: text(12.5, color: c.muted)),
+                ),
                 for (final it in items)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 6),
-                    child: CardBox(
-                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                      child: Row(children: [
-                        SizedBox(
-                          width: 78,
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(hm('${it['time']}'), style: text(13, weight: FontWeight.w700, color: c.ink)),
-                            if (it['ahead'] == true) Text('আসবে', style: text(11, color: c.amber)),
+                    child: Opacity(
+                      opacity: (it['count'] as num? ?? 0) == 0 && (it['failed'] as num? ?? 0) == 0 ? 0.55 : 1,
+                      child: CardBox(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          SizedBox(
+                            width: 82,
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(((it['times'] as List?) ?? const []).isNotEmpty ? [for (final t in (it['times'] as List)) hm('$t')].join('\n') : ('${it['at']}'.isEmpty ? '—' : hm('${it['at']}')),
+                                  style: text(12.5, weight: FontWeight.w700, color: c.ink)),
+                              if ((it['ahead'] as num? ?? 0) > 0) Text('${bn(it['ahead'])}টি আসবে', style: text(11, color: c.amber)),
+                            ]),
+                          ),
+                          Expanded(
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text('${it['label']}', style: text(14.5, weight: FontWeight.w600, color: c.ink)),
+                              Text('“${it['sample']}”', maxLines: 1, overflow: TextOverflow.ellipsis, style: text(12.5, color: c.ink)),
+                              Text('${it['when']}', style: text(12, color: c.muted)),
+                              Wrap(children: [
+                                if (it['cap'] == false) tag('সীমার বাইরে', c.line, c.muted),
+                                if (it['by'] == 'server') tag('সার্ভার থেকে পুশ', c.brand.withValues(alpha: .12), c.brand),
+                                if (it['off'] == true) tag('চালু করলে', c.line, c.muted),
+                                if ((it['failed'] as num? ?? 0) > 0) tag('পৌঁছায়নি ${bn(it['failed'])}', c.rose.withValues(alpha: .12), c.rose),
+                              ]),
+                            ]),
+                          ),
+                          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                            Text((it['count'] as num? ?? 0) == 0 ? '—' : bn(it['count']), style: text(16, weight: FontWeight.w700, color: c.brand)),
+                            if ((it['count'] as num? ?? 0) > 0) Text('${bn(it['people'])} জন', style: text(11.5, color: c.muted)),
                           ]),
-                        ),
-                        Expanded(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text('${it['label']}', style: text(14.5, weight: FontWeight.w600, color: c.ink)),
-                            if ('${it['title']}'.isNotEmpty) Text('${it['title']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: text(12.5, color: c.ink)),
-                            Text('${it['by'] == 'server' ? 'সার্ভার থেকে পুশ' : 'সদস্যের ফোন'} · ${bn(it['people'])} জন${(it['failed'] as num? ?? 0) > 0 ? ' · পৌঁছায়নি ${bn(it['failed'])}' : ''}',
-                                style: text(12, color: (it['failed'] as num? ?? 0) > 0 ? c.rose : c.muted)),
-                          ]),
-                        ),
-                        Text(bn(it['count']), style: text(16, weight: FontWeight.w700, color: c.brand)),
-                      ]),
+                        ]),
+                      ),
                     ),
                   ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: CardBox(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                    child: Row(children: [
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('সদস্যের নিজের রিমাইন্ডার', style: text(14.5, weight: FontWeight.w600, color: c.ink)),
+                          Text('অ্যাপ নিজে পাঠায় না — সদস্য যা রাখেন; লেখা ফোনেই থাকে।', style: text(12, color: c.muted)),
+                        ]),
+                      ),
+                      Text('${bn(rem['count'] ?? 0)} · ${bn(rem['people'] ?? 0)} জন', style: text(13.5, weight: FontWeight.w700, color: c.muted)),
+                    ]),
+                  ),
+                ),
                 const SizedBox(height: 14),
                 Text('কে দিনে কতগুলো পাচ্ছে', style: text(16, weight: FontWeight.w700, color: c.ink)),
                 const SizedBox(height: 8),
@@ -903,7 +939,7 @@ class _NoticeDayPageState extends State<NoticeDayPage> {
                         Expanded(
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Text('${m['name']}'.isEmpty ? '${m['email']}' : '${m['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: text(14.5, weight: FontWeight.w600, color: c.ink)),
-                            Text('${m['email']}${(m['failed'] as num? ?? 0) > 0 ? ' · পৌঁছায়নি ${bn(m['failed'])}' : ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: text(12, color: c.muted)),
+                            Text('${m['email']}${(m['reminders'] as num? ?? 0) > 0 ? ' · নিজের রিমাইন্ডার ${bn(m['reminders'])}' : ''}${(m['failed'] as num? ?? 0) > 0 ? ' · পৌঁছায়নি ${bn(m['failed'])}' : ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: text(12, color: c.muted)),
                           ]),
                         ),
                         Text('${bn(m['count'])}টি', style: text(15, weight: FontWeight.w700, color: c.ink)),

@@ -930,49 +930,52 @@ function ma_acc_render_notices($v) {
     <?php $nd = $v['note_day'] ?? null; if ($nd) : $today = gmdate('Y-m-d', time() + ma_acc_tz_off()); ?>
     <section class="ma-card" id="ma-day">
         <div class="ma-bar">
-            <div class="ma-bar-title"><h2><?php echo $nd['day'] === $today ? 'আজ' : esc_html(ma_acc_date($nd['day'] . ' 06:00:00')); ?> কোন কোন নোটিফিকেশন</h2><span class="ma-count">মোট <?php echo esc_html(ma_acc_bn($nd['total'])); ?>টি · <?php echo esc_html(ma_acc_bn($nd['people'])); ?> জন সদস্য</span></div>
-            <form class="ma-inline-form" method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>">
-                <input type="hidden" name="page" value="my-assistant"><input type="hidden" name="tab" value="notices">
-                <div class="ma-chips">
-                    <?php for ($i = 0; $i < 7; $i++) : $d = gmdate('Y-m-d', strtotime($today . ' UTC') - $i * DAY_IN_SECONDS); ?>
-                        <a class="ma-chip <?php echo $nd['day'] === $d ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'notices', 'nday' => $d]); ?>#ma-day"><?php echo $i === 0 ? 'আজ' : ($i === 1 ? 'গতকাল' : esc_html(ma_acc_bn((int) substr($d, 8)) . ' ' . ma_acc_month_name(substr($d, 0, 7)))); ?></a>
-                    <?php endfor; ?>
-                </div>
-            </form>
-        </div>
-        <p class="muted ma-pad">কী গেছে বা যাবে, কখন, কতজনের কাছে। সদস্যের নিজের রিমাইন্ডারের লেখা ফোনেই থাকে — এখানে শুধু ধরন আর সময়।</p>
-        <?php if (!$nd['items']) : ?>
-            <div class="ma-empty"><h3>এই দিনে কিছু নেই</h3><p>সদস্যরা নতুন অ্যাপ খুললে তাঁদের ফোনের তালিকা এখানে আসে।</p></div>
-        <?php else : ?>
-            <div class="ma-day-grid">
-                <div class="ma-table-wrap">
-                    <table class="ma-table">
-                        <thead><tr><th>সময়</th><th>কী</th><th>কে পাঠায়</th><th class="right">কতজন</th><th class="right">কয়টি</th></tr></thead>
-                        <tbody>
-                        <?php foreach ($nd['items'] as $it) : ?>
-                            <tr>
-                                <td><strong><?php echo esc_html(ma_acc_bn($it['time'])); ?></strong><?php if ($it['ahead']) : ?><span class="ma-ver">আসবে</span><?php endif; ?></td>
-                                <td><?php echo esc_html($it['label']); ?><?php if ($it['title'] !== '') : ?><span class="ma-ver"><?php echo esc_html($it['title']); ?></span><?php endif; ?></td>
-                                <td class="muted"><?php echo $it['by'] === 'server' ? 'সার্ভার (পুশ)' : 'সদস্যের ফোন'; ?></td>
-                                <td class="right"><?php echo esc_html(ma_acc_bn($it['people'])); ?></td>
-                                <td class="right"><strong><?php echo esc_html(ma_acc_bn($it['count'])); ?></strong><?php if ($it['failed']) : ?> <span class="ma-pill expired"><?php echo esc_html(ma_acc_bn($it['failed'])); ?> পৌঁছায়নি</span><?php endif; ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="ma-table-wrap">
-                    <table class="ma-table">
-                        <thead><tr><th>কে দিনে কতগুলো পাচ্ছে</th><th class="right">গড় <?php echo esc_html(ma_acc_bn($nd['avg'])); ?> · সর্বোচ্চ <?php echo esc_html(ma_acc_bn($nd['max'])); ?></th></tr></thead>
-                        <tbody>
-                        <?php foreach (array_slice($nd['members'], 0, 100) as $m) : ?>
-                            <tr><td><?php echo esc_html($m['name'] !== '' ? $m['name'] : $m['email']); ?><span class="ma-ver"><?php echo esc_html($m['email']); ?></span></td><td class="right"><strong><?php echo esc_html(ma_acc_bn($m['count'])); ?></strong><?php if ($m['failed']) : ?><span class="ma-ver" style="color:var(--rose)"><?php echo esc_html(ma_acc_bn($m['failed'])); ?> পৌঁছায়নি</span><?php endif; ?></td></tr>
-                        <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
+            <div class="ma-bar-title"><h2>অ্যাপ থেকে কোন কোন নোটিফিকেশন যায়</h2><span class="ma-count"><?php echo $nd['day'] === $today ? 'আজ' : esc_html(ma_acc_date($nd['day'] . ' 06:00:00')); ?> · মোট <?php echo esc_html(ma_acc_bn($nd['total'])); ?>টি · <?php echo esc_html(ma_acc_bn($nd['people'])); ?> জন সদস্য</span></div>
+            <div class="ma-chips">
+                <?php for ($i = 0; $i < 7; $i++) : $d = gmdate('Y-m-d', strtotime($today . ' UTC') - $i * DAY_IN_SECONDS); ?>
+                    <a class="ma-chip <?php echo $nd['day'] === $d ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'notices', 'nday' => $d]); ?>#ma-day"><?php echo $i === 0 ? 'আজ' : ($i === 1 ? 'গতকাল' : esc_html(ma_acc_bn((int) substr($d, 8)) . ' ' . ma_acc_month_name(substr($d, 0, 7)))); ?></a>
+                <?php endfor; ?>
             </div>
-        <?php endif; ?>
+        </div>
+        <div class="ma-rules">
+            <div><strong>দিনে কয়টা:</strong> <?php echo esc_html($nd['rules']['daily']); ?></div>
+            <div><strong>চুপ থাকার সময়:</strong> <?php echo esc_html($nd['rules']['quiet']); ?> — এ সময়ের মনে করানো সকাল ৭টায় যায়। সদস্য সেটিংসে যেকোনোটা বন্ধ করতে পারেন।</div>
+        </div>
+        <div class="ma-day-grid">
+            <div class="ma-table-wrap">
+                <table class="ma-table ma-cat">
+                    <thead><tr><th>কখন</th><th>কোন নোটিফিকেশন</th><th class="right">এদিন কতজন</th><th class="right">কয়টি</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($nd['app'] as $it) : $none = $it['count'] === 0 && $it['failed'] === 0; ?>
+                        <tr class="<?php echo $none ? 'ma-dim' : ''; ?>">
+                            <td><strong><?php echo esc_html($it['times'] ? ma_acc_bn(implode(', ', $it['times'])) : ($it['at'] !== '' ? ma_acc_bn($it['at']) : '—')); ?></strong><?php if ($it['ahead']) : ?><span class="ma-ver"><?php echo esc_html(ma_acc_bn($it['ahead'])); ?>টি আসবে</span><?php endif; ?></td>
+                            <td>
+                                <strong><?php echo esc_html($it['label']); ?></strong>
+                                <?php if (!$it['cap']) : ?><span class="ma-tag">সীমার বাইরে</span><?php endif; ?>
+                                <?php if ($it['by'] === 'server') : ?><span class="ma-tag srv">সার্ভার থেকে পুশ</span><?php endif; ?>
+                                <?php if ($it['off']) : ?><span class="ma-tag">চালু করলে</span><?php endif; ?>
+                                <span class="ma-ver">“<?php echo esc_html($it['sample']); ?>” · <?php echo esc_html($it['when']); ?></span>
+                            </td>
+                            <td class="right"><?php echo $none ? '—' : esc_html(ma_acc_bn($it['people'])); ?></td>
+                            <td class="right"><strong><?php echo $none ? '—' : esc_html(ma_acc_bn($it['count'])); ?></strong><?php if ($it['failed']) : ?> <span class="ma-pill expired"><?php echo esc_html(ma_acc_bn($it['failed'])); ?> পৌঁছায়নি</span><?php endif; ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    <tr class="ma-dim"><td>—</td><td><strong>সদস্যের নিজের রিমাইন্ডার</strong><span class="ma-ver">অ্যাপ নিজে পাঠায় না — সদস্য যা রাখেন। লেখা ফোনেই থাকে, এখানে শুধু সংখ্যা।</span></td><td class="right"><?php echo esc_html(ma_acc_bn($nd['reminders']['people'])); ?></td><td class="right"><?php echo esc_html(ma_acc_bn($nd['reminders']['count'])); ?></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="ma-table-wrap">
+                <table class="ma-table">
+                    <thead><tr><th>কে দিনে কতগুলো পাচ্ছে</th><th class="right">গড় <?php echo esc_html(ma_acc_bn($nd['avg'])); ?> · সর্বোচ্চ <?php echo esc_html(ma_acc_bn($nd['max'])); ?></th></tr></thead>
+                    <tbody>
+                    <?php if (!$nd['members']) : ?><tr><td colspan="2" class="muted">এই দিনে কিছু নেই। সদস্যরা নতুন অ্যাপ খুললে তাঁদের ফোনের তালিকা এখানে আসে।</td></tr><?php endif; ?>
+                    <?php foreach (array_slice($nd['members'], 0, 100) as $m) : ?>
+                        <tr><td><?php echo esc_html($m['name'] !== '' ? $m['name'] : $m['email']); ?><span class="ma-ver"><?php echo esc_html($m['email']); ?></span></td><td class="right"><strong><?php echo esc_html(ma_acc_bn($m['count'])); ?></strong><?php if ($m['reminders']) : ?><span class="ma-ver">+ নিজের রিমাইন্ডার <?php echo esc_html(ma_acc_bn($m['reminders'])); ?></span><?php endif; ?><?php if ($m['failed']) : ?><span class="ma-ver" style="color:var(--rose)"><?php echo esc_html(ma_acc_bn($m['failed'])); ?> পৌঁছায়নি</span><?php endif; ?></td></tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </section>
     <?php endif; ?>
 
@@ -1408,7 +1411,13 @@ function ma_acc_styles() {
     .ma-meter i{position:absolute;left:0;top:0;bottom:0;background:#BFE3D5}
     .ma-meter b{position:relative;padding-left:8px;font-size:12.5px;line-height:22px}
     .ma-daily td,.ma-daily th{padding:9px 12px}
-    .ma-day-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:0;border-top:1px solid var(--line)}
+    .ma-day-grid{display:grid;grid-template-columns:1.8fr 1fr;gap:0;border-top:1px solid var(--line)}
+    .ma-rules{padding:4px 22px 16px;display:grid;gap:4px;font-size:13.5px;color:var(--mut2)}
+    .ma-rules strong{color:var(--ink)}
+    .ma-cat td{vertical-align:top}
+    .ma-dim td{opacity:.55}
+    .ma-tag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;background:var(--line);font-size:11.5px;font-weight:600;color:var(--mut2)}
+    .ma-tag.srv{background:var(--gt);color:var(--gd)}
     .ma-day-grid>.ma-table-wrap{border-top:0}
     .ma-day-grid>.ma-table-wrap+.ma-table-wrap{border-left:1px solid var(--line)}
     @media (max-width:1000px){.ma-day-grid{grid-template-columns:1fr}.ma-day-grid>.ma-table-wrap+.ma-table-wrap{border-left:0;border-top:1px solid var(--line)}}

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'error_log.dart';
 import 'speech_join.dart';
 import 'trace.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -284,6 +285,7 @@ class DeviceVoice extends Voice {
       _ttsSetup ??= _setupTts();
     } catch (e) {
       debugPrint('Speech unavailable: $e');
+      ErrorLog.problem('VoiceInit', e.runtimeType.toString());
       _ready = false;
     }
     return _ready;
@@ -390,6 +392,9 @@ class DeviceVoice extends Voice {
   void _handleError(SpeechRecognitionError e) {
     if (_finished) return;
     final code = e.errorMsg;
+    // সমস্যার লগ: the recogniser's own code (never what was heard); the
+    // everyday "nothing said yet" ones are left out.
+    if (code != 'error_no_match' && code != 'error_speech_timeout') ErrorLog.problem('Voice', code);
     // The session the app itself just cancelled complaining late: not this turn's error.
     if ((code == 'error_client' || code == 'error_busy' || code == 'error_recognizer_busy') && DateTime.now().difference(_cancelledAt) < const Duration(milliseconds: 700)) return;
     if (_finalizing) return _finish();

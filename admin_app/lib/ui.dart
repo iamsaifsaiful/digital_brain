@@ -288,7 +288,7 @@ class _DashboardPageState extends State<DashboardPage> {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('সমস্যার লগ', style: text(16, weight: FontWeight.w700, color: c.ink)),
-                Text('অ্যাপে কোথায় ভুল হচ্ছে — ঠিক করার জন্য', style: text(13.5, color: c.muted)),
+                Text('সদস্যদের ফোন থেকে সরাসরি — ক্র্যাশ আর সমস্যা', style: text(13.5, color: c.muted)),
               ]),
             ),
             Icon(Icons.chevron_right_rounded, color: c.muted),
@@ -373,7 +373,7 @@ class _ErrorsPageState extends State<ErrorsPage> {
         child: rows == null
             ? ListView(children: const [Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))])
             : rows.isEmpty
-                ? ListView(children: const [Empty(Icons.bug_report_outlined, 'কোনো সমস্যা আসেনি', 'অ্যাপে ভুল হলে এখানে দেখা যাবে — সদস্যের লেখা বা গোপন কিছু আসে না।')])
+                ? ListView(children: const [Empty(Icons.bug_report_outlined, 'কোনো সমস্যা আসেনি', 'সদস্যদের ফোনে ক্র্যাশ বা সমস্যা হলে কয়েক সেকেন্ডের মধ্যে এখানে আসে — সদস্যের লেখা বা গোপন কিছু আসে না।')])
                 : ListView.separated(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
                     itemCount: rows.length,
@@ -385,8 +385,9 @@ class _ErrorsPageState extends State<ErrorsPage> {
                           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                           child: ExpansionTile(
                             tilePadding: EdgeInsets.zero,
-                            title: Text('${r['kind']} · ${bn(r['count'] ?? 1)} বার', style: text(15, weight: FontWeight.w700, color: c.ink)),
-                            subtitle: Text('${r['message']}\n${r['version']} · ${date('${r['last_at']}')}${'${r['email'] ?? ''}'.isEmpty ? '' : ' · ${r['email']}'}', style: text(12.5, color: c.muted)),
+                            title: Text('${r['meaning'] ?? r['kind']}', style: text(15, weight: FontWeight.w700, color: c.ink)),
+                            subtitle: Text('${r['level'] == 'problem' ? 'সমস্যা' : 'ক্র্যাশ'} · ${bn(r['count'] ?? 1)} বার · ${r['kind']} ${r['message']}\n${r['version']} · ${date('${r['last_at']}')}${'${r['email'] ?? ''}'.isEmpty ? '' : ' · ${r['email']}'}',
+                                style: text(12.5, color: r['level'] == 'problem' ? c.muted : c.rose)),
                             children: [
                               Align(alignment: Alignment.centerLeft, child: SelectableText('${r['stack']}', style: text(12, color: c.ink))),
                             ],

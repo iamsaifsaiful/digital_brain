@@ -58,10 +58,13 @@ class AiTurn {
 }
 
 class AiError implements Exception {
-  const AiError(this.message);
+  const AiError(this.message, [this.code = '']);
 
   /// Bengali, for the user.
   final String message;
+
+  /// A short English code for the সমস্যার লগ ('timeout', 'offline', 'status_500' …).
+  final String code;
 
   @override
   String toString() => message;
@@ -163,7 +166,7 @@ class ClaudeAi implements AiBrain {
         }
         // Answered in words instead of the tool: a plain reply.
         if (text.toString().trim().isNotEmpty) return {'reply': text.toString().trim(), 'items': const []};
-        throw AiError(tr('AI-এর উত্তর বুঝতে পারিনি।'));
+        throw AiError(tr('AI-এর উত্তর বুঝতে পারিনি।'), 'bad_reply');
       }
       final err = _errorText(res);
       final low = err.toLowerCase();
@@ -188,21 +191,21 @@ class ClaudeAi implements AiBrain {
       if (_viaServer) {
         switch (res.statusCode) {
           case 401:
-            throw AiError(tr('AI-এর জন্য আবার Google দিয়ে লগইন করুন (সেটিংস › Google অ্যাকাউন্ট)।'));
+            throw AiError(tr('AI-এর জন্য আবার Google দিয়ে লগইন করুন (সেটিংস › Google অ্যাকাউন্ট)।'), 'session');
           case 402:
-            throw AiError(tr('AI প্রিমিয়াম সুবিধা — প্রিমিয়াম বা ট্রায়াল চালু নেই।'));
+            throw AiError(tr('AI প্রিমিয়াম সুবিধা — প্রিমিয়াম বা ট্রায়াল চালু নেই।'), 'not_pro');
           case 429:
-            throw AiError(tr('আজকের AI প্রশ্ন শেষ। কাল আবার পাবেন।'));
+            throw AiError(tr('আজকের AI প্রশ্ন শেষ। কাল আবার পাবেন।'), 'daily_limit');
           case 503:
           case 504:
-            throw AiError(tr('AI এই মুহূর্তে বন্ধ আছে।'));
+            throw AiError(tr('AI এই মুহূর্তে বন্ধ আছে।'), 'off');
         }
       }
-      if (res.statusCode == 401) throw AiError(tr('API key ঠিক নেই। সেটিংস থেকে key দেখে নিন।'));
-      if (res.statusCode == 429) throw AiError(tr('এই মুহূর্তে অনেক বেশি অনুরোধ হয়েছে। একটু পরে চেষ্টা করুন।'));
-      if (err.toLowerCase().contains('credit')) throw AiError(tr('API অ্যাকাউন্টে ক্রেডিট শেষ। platform.claude.com থেকে ক্রেডিট যোগ করুন।'));
+      if (res.statusCode == 401) throw AiError(tr('API key ঠিক নেই। সেটিংস থেকে key দেখে নিন।'), 'key');
+      if (res.statusCode == 429) throw AiError(tr('এই মুহূর্তে অনেক বেশি অনুরোধ হয়েছে। একটু পরে চেষ্টা করুন।'), 'rate');
+      if (err.toLowerCase().contains('credit')) throw AiError(tr('API অ্যাকাউন্টে ক্রেডিট শেষ। platform.claude.com থেকে ক্রেডিট যোগ করুন।'), 'credit');
       debugPrint('AI error ${res.statusCode}: $err');
-      throw AiError(trf('AI সাড়া দেয়নি ({0})।', [res.statusCode]));
+      throw AiError(trf('AI সাড়া দেয়নি ({0})।', [res.statusCode]), 'status_${res.statusCode}');
     }
   }
 
@@ -242,9 +245,9 @@ class ClaudeAi implements AiBrain {
           )
           .timeout(Duration(seconds: fast ? 20 : (_quality == AiQuality.best ? 45 : 20)));
     } on TimeoutException {
-      throw AiError(tr('ইন্টারনেট ধীর, AI সময়মতো উত্তর দেয়নি।'));
+      throw AiError(tr('ইন্টারনেট ধীর, AI সময়মতো উত্তর দেয়নি।'), 'timeout');
     } catch (e) {
-      throw AiError(tr('ইন্টারনেট সংযোগ পাওয়া যায়নি।'));
+      throw AiError(tr('ইন্টারনেট সংযোগ পাওয়া যায়নি।'), 'offline');
     }
   }
 

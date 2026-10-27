@@ -130,17 +130,28 @@ class FakeServer {
         ],
         'runs': {},
       };
+    } else if (p == '/admin/errors') {
+      body = {
+        'errors': [
+          {'id': 1, 'level': 'problem', 'level_label': 'সমস্যা', 'meaning': 'ইন্টারনেট ধীর — AI সময়মতো উত্তর দেয়নি', 'kind': 'AiError', 'message': 'timeout', 'stack': 'package:digital_brain/state/brain.dart:1555', 'version': '2.55.12', 'count': 3, 'first_at': _now.toIso8601String(), 'last_at': _now.toIso8601String(), 'email': 'nusrat.j@gmail.com'},
+          {'id': 2, 'level': 'crash', 'level_label': 'ক্র্যাশ', 'meaning': 'অ্যাপ বন্ধ হয়ে গেছে (Android অংশে)', 'kind': 'Android:IllegalStateException', 'message': 'x', 'stack': 'com.iamsaifsaiful.digital_brain.MainActivity.onCreate:120', 'version': '2.55.12', 'count': 1, 'first_at': _now.toIso8601String(), 'last_at': _now.toIso8601String(), 'email': ''},
+        ],
+        'counts': {'crash': 1, 'problem': 3, 'day': 2},
+      };
     } else if (p == '/admin/notice-day') {
       body = {
-        'day': _now.toIso8601String().substring(0, 10), 'total': 17, 'people': 3, 'avg': 5.7, 'max': 9,
-        'items': [
-          {'time': '08:00', 'label': 'সকালের সারাংশ', 'title': '', 'group': 'brief', 'by': 'phone', 'count': 3, 'people': 3, 'failed': 0, 'ahead': false},
-          {'time': '11:11', 'label': 'সাইটের নোটিফিকেশন', 'title': 'আজ বৃহস্পতিবার', 'group': 'server', 'by': 'server', 'count': 4, 'people': 4, 'failed': 1, 'ahead': false},
-          {'time': '21:00', 'label': 'রিমাইন্ডার', 'title': '', 'group': 'reminder', 'by': 'phone', 'count': 10, 'people': 2, 'failed': 0, 'ahead': true},
+        'day': _now.toIso8601String().substring(0, 10), 'total': 14, 'people': 3, 'avg': 4.7, 'max': 6,
+        'rules': {'cap': 3, 'quiet': 'রাত ১০টা থেকে সকাল ৭টা', 'daily': 'প্রতিদিন নিশ্চিত: সুপ্রভাত (৮টা) আর অর্থ-কথা (৯:১৫)।'},
+        'app': [
+          {'key': 'brief:morning', 'at': '08:00', 'label': 'সুপ্রভাত — আজকের সূচি', 'sample': 'সুপ্রভাত! আজকের সূচি', 'when': 'প্রতিদিন সকাল ৮টা', 'cap': false, 'by': 'phone', 'count': 3, 'people': 3, 'failed': 0, 'ahead': 0, 'times': ['08:00'], 'off': false},
+          {'key': 'server:1', 'at': '11:11', 'label': 'সাইটের নোটিফিকেশন', 'sample': 'আজ বৃহস্পতিবার', 'when': 'আপনি সাইট থেকে যে সময় ঠিক করেছেন', 'cap': false, 'by': 'server', 'count': 4, 'people': 4, 'failed': 1, 'ahead': 0, 'times': ['11:11'], 'off': false},
+          {'key': 'brief:night', 'at': '21:00', 'label': 'রাতের সারাংশ — কাজ বাকি', 'sample': 'আজ …টা কাজ বাকি রইল', 'when': 'প্রতিদিন রাত ৯টা — কাজ বাকি থাকলে', 'cap': false, 'by': 'phone', 'count': 2, 'people': 2, 'failed': 0, 'ahead': 2, 'times': ['21:00'], 'off': false},
+          {'key': 'nudge:jumuah', 'at': '11:00', 'label': 'জুমা মোবারক', 'sample': 'জুমা মোবারক!', 'when': 'শুক্রবার সকাল ১১টা', 'cap': true, 'by': 'phone', 'count': 0, 'people': 0, 'failed': 0, 'ahead': 0, 'times': [], 'off': false},
         ],
+        'reminders': {'count': 10, 'people': 2, 'ahead': 4},
         'members': [
-          {'user_id': 1, 'name': 'সাইফুল ইসলাম', 'email': 'saiful.islam@gmail.com', 'count': 9, 'failed': 0},
-          {'user_id': 2, 'name': 'Nusrat Jahan', 'email': 'nusrat.j@gmail.com', 'count': 5, 'failed': 1},
+          {'user_id': 1, 'name': 'সাইফুল ইসলাম', 'email': 'saiful.islam@gmail.com', 'count': 6, 'reminders': 7, 'failed': 0},
+          {'user_id': 2, 'name': 'Nusrat Jahan', 'email': 'nusrat.j@gmail.com', 'count': 5, 'reminders': 3, 'failed': 1},
         ],
       };
     } else if (p == '/admin/bkash') {
@@ -357,10 +368,14 @@ void main() {
     // One day: what, when; and how many each member gets.
     await t.tap(find.byKey(const Key('notice-today')));
     await settle(t);
-    expect(find.text('আজ বৃহস্পতিবার'), findsOneWidget);
+    expect(find.text('অ্যাপ থেকে কোন কোন নোটিফিকেশন যায়'), findsOneWidget);
+    expect(find.text('সুপ্রভাত — আজকের সূচি'), findsOneWidget);
+    expect(find.text('“আজ বৃহস্পতিবার”'), findsOneWidget);
+    expect(find.text('সীমার বাইরে'), findsWidgets);
+    await t.scrollUntilVisible(find.text('সদস্যের নিজের রিমাইন্ডার'), 200);
+    await t.scrollUntilVisible(find.text('৬টি'), 200);
     expect(find.text('কে দিনে কতগুলো পাচ্ছে'), findsOneWidget);
-    await t.scrollUntilVisible(find.text('৯টি'), 200);
-    expect(find.text('৯টি'), findsOneWidget);
+    expect(find.textContaining('নিজের রিমাইন্ডার ৭'), findsOneWidget);
     await shot(t, 'notice_day');
   });
 
@@ -531,6 +546,17 @@ void main() {
     expect(find.textContaining('Claude: কাজ করছে না 401'), findsOneWidget);
     await t.scrollUntilVisible(find.text('k' * 48), 300, scrollable: list);
     expect(find.text('k' * 48), findsOneWidget, reason: 'the retraining key, as on the settings page');
+  });
+
+  testWidgets('সমস্যার লগ: from the phones, crashes and problems with a plain meaning', (t) async {
+    await open(t);
+    await t.scrollUntilVisible(find.byKey(const Key('open-errors')), 200);
+    await t.tap(find.byKey(const Key('open-errors')));
+    await settle(t);
+    expect(find.text('ইন্টারনেট ধীর — AI সময়মতো উত্তর দেয়নি'), findsOneWidget);
+    expect(find.textContaining('সমস্যা · ৩ বার · AiError'), findsOneWidget);
+    expect(find.textContaining('ক্র্যাশ · ১ বার'), findsOneWidget);
+    await shot(t, 'errors');
   });
 
   testWidgets('signed out: email and password, then in', (t) async {
