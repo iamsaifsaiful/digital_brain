@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:my_assistant_admin/ai_page.dart';
 import 'package:my_assistant_admin/api.dart';
+import 'package:my_assistant_admin/bkash.dart';
 import 'package:my_assistant_admin/main.dart';
 
 final _now = DateTime.now().toUtc();
@@ -16,6 +17,9 @@ String _ago(Duration d) => _now.subtract(d).toIso8601String();
 /// A pretend server with what the admin app shows.
 class FakeServer {
   final calls = <http.Request>[];
+  Map<String, dynamic> noticeRules = {};
+  bool setupNeeded = false;
+  String minVersion = '';
   final payments = <Map<String, Object?>>[
     {'id': 1, 'created': _ago(const Duration(minutes: 30)), 'email': 'rakib.hasan92@gmail.com', 'name': 'রাকিব হাসান', 'phone': '', 'plan': 'বার্ষিক', 'amount': 999, 'method': 'বিকাশ', 'sender': '01712345678', 'trx': 'BJK4Q9X2PL', 'note': '', 'status': 'pending', 'reason': '', 'reviewed_by': '', 'reviewed': null},
     {'id': 2, 'created': _ago(const Duration(hours: 2)), 'email': 'ayesha.s@gmail.com', 'name': 'Ayesha Siddika', 'phone': '', 'plan': 'মাসিক', 'amount': 99, 'method': 'নগদ', 'sender': '01987654321', 'trx': '7NG2KD81QZ', 'note': 'তাড়াতাড়ি চালু করবেন', 'status': 'pending', 'reason': '', 'reviewed_by': '', 'reviewed': null},
@@ -36,6 +40,18 @@ class FakeServer {
     {'id': 1, 'name': 'করিম চৌধুরী', 'contact': '01711000000', 'amount': 200000, 'share': '10', 'on_date': '2026-09-01', 'note': ''},
   ];
   final saved = <Map<String, dynamic>>[];
+  final printLinks = <Map<String, dynamic>>[];
+  final opened = <String>[];
+  final memberQueries = <Map<String, String>>[];
+  final inboxSet = <String>[];
+  final bkashManual = <Map<String, dynamic>>[];
+  final bkash = <String, Object?>{
+    'auto': true, 'phone_set': true, 'last_sms': _ago(const Duration(minutes: 5)),
+    'received': <Map<String, Object?>>[
+      {'id': 1, 'trx': '9A7KX2PQ1M', 'amount': 999, 'sender': '01712345678', 'at': _ago(const Duration(minutes: 5)), 'source': 'sms', 'status': 'matched', 'status_label': 'মিলেছে — প্রিমিয়াম চালু', 'payment_id': 1},
+      {'id': 2, 'trx': 'SHORTPAY01', 'amount': 500, 'sender': '01700000000', 'at': _ago(const Duration(hours: 1)), 'source': 'sms', 'status': 'short', 'status_label': 'টাকা কম', 'payment_id': 3},
+    ],
+  };
   final labels = <Map<String, dynamic>>[];
   final decisions = <Map<String, dynamic>>[];
   final aiSettings = <String, Object?>{
@@ -79,9 +95,94 @@ class FakeServer {
     } else if (p.startsWith('/admin/feedback/')) {
       feedback.firstWhere((x) => x['id'] == int.parse(p.split('/').last))['status'] = jsonDecode(r.body)['status'];
       body = {'ok': true};
-    } else if (p == '/admin/members') {
+    } else if (p == '/admin/members/growth') {
+      body = {
+        'days': [for (var i = 29; i >= 0; i--) {'day': _now.subtract(Duration(days: i)).toIso8601String().substring(0, 10), 'n': i == 0 ? 2 : (i % 7 == 0 ? 1 : 0)}],
+        'months': [for (var i = 11; i >= 0; i--) {'month': '2026-${(10 - i < 1 ? 10 - i + 12 : 10 - i).toString().padLeft(2, '0')}', 'n': i == 0 ? 12 : 0}],
+        'sources': [{'key': 'web', 'label': 'ওয়েবসাইট (বিকাশ)', 'n': 2}, {'key': 'bkash', 'label': 'বিকাশ — নিজে থেকে মিলেছে', 'n': 1}, {'key': 'play', 'label': 'Google Play', 'n': 0}],
+        'stats': {'today_new': 2, 'month_new': 12, 'week': 3},
+      };
+    } else if (p == '/admin/members/print-link') {
+      printLinks.add(jsonDecode(r.body) as Map<String, dynamic>);
+      body = {'url': 'https://getmyassistant.app/?ma_members_print=${'a' * 48}'};
+    } else if (p == '/admin/inbox') {
       body = {'members': [
-        {'id': 1, 'name': 'সাইফুল ইসলাম', 'email': 'saiful.islam@gmail.com', 'picture': '', 'status': 'pro', 'pro_until': '2027-08-12T00:00:00Z', 'joined': _ago(const Duration(days: 20)), 'last_seen': _ago(const Duration(hours: 1)), 'version': '2.14.0 play', 'note': ''},
+        {'key': '5', 'user_id': 5, 'email': 'rakib.hasan92@gmail.com', 'name': 'রাকিব হাসান', 'picture': '', 'threads': 2, 'open': 2, 'new': 1, 'kinds': ['problem', 'idea'], 'kind_labels': ['সমস্যা', 'নতুন সুবিধা'], 'updated': _ago(const Duration(minutes: 12)), 'last': {'from': 'member', 'text': 'রাত ১০টার রিমাইন্ডার বাজেনি'}, 'thread': 7},
+      ]};
+    } else if (p == '/admin/inbox/5' && r.method == 'GET') {
+      body = {'key': '5', 'user_id': 5, 'email': 'rakib.hasan92@gmail.com', 'name': 'রাকিব হাসান', 'picture': '', 'open': true, 'reply_to': 7,
+        'threads': [{'id': 6, 'kind': 'idea', 'kind_label': 'নতুন সুবিধা', 'status': 'read', 'created': _ago(const Duration(days: 2)), 'version': '2.15.0'}, {'id': 7, 'kind': 'problem', 'kind_label': 'সমস্যা', 'status': 'read', 'created': _ago(const Duration(minutes: 12)), 'version': '2.15.0'}],
+        'messages': [
+          {'id': 60, 'thread': 6, 'from': 'member', 'admin': '', 'text': 'নিজের রিংটোন দেওয়া গেলে ভালো হয়', 'created': _ago(const Duration(days: 2)), 'file': null},
+          for (final m in messages) {...m, 'thread': 7},
+        ]};
+    } else if (p == '/admin/inbox/5') {
+      inboxSet.add(jsonDecode(r.body)['status'] as String);
+      body = {'ok': true};
+    } else if (p == '/admin/notice-stats') {
+      body = {
+        'push_on': true, 'phones': 9, 'phones_new_app': 4,
+        'upcoming': [
+          {'id': 1, 'day': _now.toIso8601String().substring(0, 10), 'time': '21:00', 'title': 'আজকের কাজের লিস্ট করেছেন?', 'audience': 'সবাই', 'how': 'push', 'how_label': 'সার্ভার থেকে পুশ', 'members': 14, 'phones': 4},
+          {'id': 3, 'day': _now.toIso8601String().substring(0, 10), 'time': '18:00', 'title': 'আজ খরচ লিখেছেন?', 'audience': 'সবাই', 'how': 'phone', 'how_label': 'ফোন নিজে দেখাবে (শর্ত: সেদিন খরচ লেখা না হলে)', 'members': 14, 'phones': null},
+        ],
+        'groups': {'server': 'সাইটের নোটিফিকেশন', 'news': '“এখনই পাঠান”', 'reminder': 'সদস্যদের নিজের রিমাইন্ডার'},
+        'days': [
+          {'day': _now.toIso8601String().substring(0, 10), 'total': 17, 'failed': 2, 'server': 4, 'news': 0, 'reminder': 13},
+          {'day': _now.subtract(const Duration(days: 1)).toIso8601String().substring(0, 10), 'total': 9, 'failed': 0, 'server': 0, 'news': 0, 'reminder': 9},
+        ],
+        'runs': {},
+      };
+    } else if (p == '/admin/errors') {
+      body = {
+        'errors': [
+          {'id': 1, 'level': 'problem', 'level_label': 'সমস্যা', 'meaning': 'ইন্টারনেট ধীর — AI সময়মতো উত্তর দেয়নি', 'kind': 'AiError', 'message': 'timeout', 'stack': 'package:digital_brain/state/brain.dart:1555', 'version': '2.55.12', 'count': 3, 'first_at': _now.toIso8601String(), 'last_at': _now.toIso8601String(), 'email': 'nusrat.j@gmail.com'},
+          {'id': 2, 'level': 'crash', 'level_label': 'ক্র্যাশ', 'meaning': 'অ্যাপ বন্ধ হয়ে গেছে (Android অংশে)', 'kind': 'Android:IllegalStateException', 'message': 'x', 'stack': 'com.iamsaifsaiful.digital_brain.MainActivity.onCreate:120', 'version': '2.55.12', 'count': 1, 'first_at': _now.toIso8601String(), 'last_at': _now.toIso8601String(), 'email': ''},
+        ],
+        'counts': {'crash': 1, 'problem': 3, 'day': 2},
+      };
+    } else if (p == '/admin/notice-rules') {
+      if (r.method == 'POST') noticeRules = jsonDecode(r.body) as Map<String, dynamic>;
+      final saved = (noticeRules['kinds'] as Map?) ?? const {};
+      Map<String, dynamic> row(String key, String label, String at) => {
+            'key': key, 'label': label, 'sample': label, 'when': 'প্রতিদিন', 'default_at': at, 'cap': false, 'off_by_default': false,
+            'on': (saved[key] as Map?)?['on'] ?? true, 'at': (saved[key] as Map?)?['at'] ?? '', 'title': (saved[key] as Map?)?['title'] ?? '', 'body': '', 'who': (saved[key] as Map?)?['who'] ?? 'all',
+          };
+      body = {
+        'kinds': [row('brief:morning', 'সুপ্রভাত — আজকের সূচি', '08:00'), row('nudge:quote', 'আজকের অর্থ-কথা', '09:15')],
+        'cap': noticeRules['cap'] == null || '${noticeRules['cap']}'.isEmpty ? null : int.tryParse('${noticeRules['cap']}'),
+        'who': {'all': 'সবাই', 'new': 'নতুন (প্রথম ৭ দিন)', 'old': 'পুরোনো (৮ দিন বা বেশি)'},
+      };
+    } else if (p == '/admin/notice-day') {
+      body = {
+        'day': _now.toIso8601String().substring(0, 10), 'total': 14, 'people': 3, 'avg': 4.7, 'max': 6,
+        'rules': {'cap': 3, 'quiet': 'রাত ১০টা থেকে সকাল ৭টা', 'daily': 'প্রতিদিন নিশ্চিত: সুপ্রভাত (৮টা) আর অর্থ-কথা (৯:১৫)।'},
+        'app': [
+          {'key': 'brief:morning', 'at': '08:00', 'label': 'সুপ্রভাত — আজকের সূচি', 'sample': 'সুপ্রভাত! আজকের সূচি', 'when': 'প্রতিদিন সকাল ৮টা', 'cap': false, 'by': 'phone', 'count': 3, 'people': 3, 'failed': 0, 'ahead': 0, 'times': ['08:00'], 'off': false},
+          {'key': 'server:1', 'at': '11:11', 'label': 'সাইটের নোটিফিকেশন', 'sample': 'আজ বৃহস্পতিবার', 'when': 'আপনি সাইট থেকে যে সময় ঠিক করেছেন', 'cap': false, 'by': 'server', 'count': 4, 'people': 4, 'failed': 1, 'ahead': 0, 'times': ['11:11'], 'off': false},
+          {'key': 'brief:night', 'at': '21:00', 'label': 'রাতের সারাংশ — কাজ বাকি', 'sample': 'আজ …টা কাজ বাকি রইল', 'when': 'প্রতিদিন রাত ৯টা — কাজ বাকি থাকলে', 'cap': false, 'by': 'phone', 'count': 2, 'people': 2, 'failed': 0, 'ahead': 2, 'times': ['21:00'], 'off': false},
+          {'key': 'nudge:jumuah', 'at': '11:00', 'label': 'জুমা মোবারক', 'sample': 'জুমা মোবারক!', 'when': 'শুক্রবার সকাল ১১টা', 'cap': true, 'by': 'phone', 'count': 0, 'people': 0, 'failed': 0, 'ahead': 0, 'times': [], 'off': false},
+        ],
+        'reminders': {'count': 10, 'people': 2, 'ahead': 4},
+        'members': [
+          {'user_id': 1, 'name': 'সাইফুল ইসলাম', 'email': 'saiful.islam@gmail.com', 'count': 6, 'reminders': 7, 'failed': 0},
+          {'user_id': 2, 'name': 'Nusrat Jahan', 'email': 'nusrat.j@gmail.com', 'count': 5, 'reminders': 3, 'failed': 1},
+        ],
+      };
+    } else if (p == '/admin/bkash') {
+      body = bkash;
+    } else if (p == '/admin/bkash/settings') {
+      bkash['auto'] = jsonDecode(r.body)['auto'];
+      body = bkash;
+    } else if (p == '/admin/bkash/manual') {
+      final j = jsonDecode(r.body) as Map<String, dynamic>;
+      bkashManual.add(j);
+      (bkash['received'] as List).insert(0, {'id': 9, 'trx': j['trx'], 'amount': j['amount'], 'sender': j['sender'], 'at': _ago(Duration.zero), 'source': 'manual', 'status': 'matched', 'status_label': 'মিলেছে — প্রিমিয়াম চালু', 'payment_id': 1});
+      body = {'ok': true, 'status': 'matched', 'status_label': 'মিলেছে — প্রিমিয়াম চালু'};
+    } else if (p == '/admin/members') {
+      memberQueries.add(r.url.queryParameters);
+      body = {'count': 3, 'words': r.url.queryParameters['joined'] == 'today' ? 'আজ যোগ দিয়েছেন' : 'সব সদস্য', 'members': [
+        {'id': 1, 'name': 'সাইফুল ইসলাম', 'email': 'saiful.islam@gmail.com', 'picture': '', 'status': 'pro', 'source': 'web', 'source_label': 'ওয়েবসাইট (বিকাশ)', 'pro_until': '2027-08-12T00:00:00Z', 'joined': _ago(const Duration(days: 20)), 'last_seen': _ago(const Duration(hours: 1)), 'version': '2.14.0 play', 'note': ''},
         {'id': 2, 'name': 'Nusrat Jahan', 'email': 'nusrat.j@gmail.com', 'picture': '', 'status': 'trial', 'pro_until': _now.add(const Duration(days: 5)).toIso8601String(), 'joined': _ago(const Duration(days: 2)), 'last_seen': _ago(const Duration(hours: 3)), 'version': '2.14.0 play', 'note': ''},
         {'id': 3, 'name': '', 'email': 'sumon.dhaka@gmail.com', 'picture': '', 'status': 'free', 'pro_until': null, 'joined': _ago(const Duration(days: 30)), 'last_seen': _ago(const Duration(days: 1)), 'version': '2.14.0 direct', 'note': ''},
       ]};
@@ -97,6 +198,16 @@ class FakeServer {
           {'month': '2026-09', 'income': 4950, 'expense': 900, 'net': 4050},
         ],
         'entries': finEntries, 'investors': investors,
+        'month_lines': {
+          'month': r.url.queryParameters['month'] ?? '2026-10',
+          'lines': [
+            for (final e in finEntries)
+              if ((r.url.queryParameters['kind'] ?? '').isEmpty || e['kind'] == r.url.queryParameters['kind']) {'id': e['id'], 'date': e['on_date'], 'kind': e['kind'], 'category': e['category'], 'note': e['note'], 'amount': e['amount'], 'auto': false},
+            if ((r.url.queryParameters['kind'] ?? '') != 'expense') {'id': 0, 'date': '2026-10-10', 'kind': 'income', 'category': 'প্রিমিয়াম (বার্ষিক)', 'note': 'x@gmail.com · বিকাশ BJK4', 'amount': 999, 'auto': true},
+          ],
+          'categories': ['সার্ভার ও হোস্টিং', 'প্রিমিয়াম (বার্ষিক)'],
+          'sum': {'income': 999, 'expense': 1500},
+        },
         'categories': {'income': ['বিজ্ঞাপন'], 'expense': ['সার্ভার ও হোস্টিং', 'ডোমেইন']},
       };
     } else if (p == '/admin/finance/entry') {
@@ -161,9 +272,17 @@ class FakeServer {
         m['rollout_pct'] = j['pct'];
       }
       body = {'ok': true, 'model': m};
+    } else if (p == '/admin/login' && minVersion.isNotEmpty && r.headers['x-ma-app-version'] != minVersion) {
+      return http.Response(jsonEncode({'code': 'update', 'data': {'status': 426, 'min': minVersion, 'url': 'https://example.test/admin.apk'}}), 426);
     } else if (p == '/admin/login') {
       final j = jsonDecode(r.body);
       if (j['email'] != 'boss@gmail.com' || j['password'] != 'long-password-123') return http.Response('{"code":"login"}', 401);
+      // Two-step sign-in: the authenticator's code after the password.
+      if (j['password'] == 'long-password-123' && j['email'] == 'boss@gmail.com' && setupNeeded) {
+        return http.Response(jsonEncode({'code': 'otp_setup', 'data': {'status': 403, 'account': {'login': 'saif', 'email': 'boss@gmail.com'}}}), 403);
+      }
+      if (j['code'] == null) return http.Response('{"code":"otp_required"}', 401);
+      if (j['code'] != '123456') return http.Response('{"code":"otp_wrong"}', 401);
       body = {'session': 'c' * 64, 'name': 'Boss'};
     }
     return http.Response.bytes(utf8.encode(jsonEncode(body)), 200);
@@ -202,6 +321,16 @@ Future<FakeServer> open(WidgetTester t, {bool signedIn = true}) async {
   addTearDown(t.view.reset);
   await loadFonts();
   final server = FakeServer();
+  // The phone's side: links open; বিকাশ মেলানো is off on this phone.
+  t.binding.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('my_assistant/open'), (c) async {
+    server.opened.add('${(c.arguments as Map)['url']}');
+    return true;
+  });
+  t.binding.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('my_assistant/bkash'), (c) async => switch (c.method) {
+        'status' || 'flush' => {'on': false, 'permission': false, 'last': null, 'queued': 0},
+        'scan' => <Object>[],
+        _ => true,
+      });
   final store = MemorySession()..value = signedIn ? 'c' * 64 : null;
   await t.pumpWidget(AdminApp(api: Api(client: server.client, store: store, base: 'https://getmyassistant.app'), device: FakeDevice()));
   await settle(t);
@@ -250,20 +379,48 @@ void main() {
     await settle(t);
     expect(find.text('আজকের কাজের লিস্ট করেছেন?'), findsOneWidget);
     await shot(t, 'notices');
-    // কার কাছে কী গেছে: the same log as the site.
+    // কী কখন যাচ্ছে, দিনে কতটি (no list of who got what).
     await t.tap(find.byKey(const Key('notice-log')));
     await settle(t);
-    expect(find.text('মতামতের উত্তর'), findsOneWidget);
-    expect(find.text('ফোন যুক্ত নেই'), findsOneWidget);
-    await shot(t, 'notice_log');
-    await t.tap(find.text('সামনে'));
+    expect(find.text('সামনের ৭ দিন'), findsOneWidget);
+    expect(find.text('আজ খরচ লিখেছেন?'), findsOneWidget);
+    expect(find.textContaining('৪টি ফোনে পুশ'), findsOneWidget);
+    expect(find.textContaining('পৌঁছায়নি ২'), findsOneWidget);
+    expect(find.textContaining('rakib'), findsNothing);
+    await shot(t, 'notice_stats');
+    // One day: what, when; and how many each member gets.
+    await t.tap(find.byKey(const Key('notice-today')));
     await settle(t);
-    expect(find.text('মতামতের উত্তর'), findsNothing);
-    expect(find.text('রিমাইন্ডার'), findsOneWidget);
-    await t.enterText(find.byKey(const Key('log-q')), 'saiful');
-    await t.testTextInput.receiveAction(TextInputAction.search);
+    expect(find.text('অ্যাপ থেকে কোন কোন নোটিফিকেশন যায়'), findsOneWidget);
+    expect(find.text('সুপ্রভাত — আজকের সূচি'), findsOneWidget);
+    expect(find.text('“আজ বৃহস্পতিবার”'), findsOneWidget);
+    expect(find.text('সীমার বাইরে'), findsWidgets);
+    await t.scrollUntilVisible(find.text('সদস্যের নিজের রিমাইন্ডার'), 200);
+    await t.scrollUntilVisible(find.text('৬টি'), 200);
+    expect(find.text('কে দিনে কতগুলো পাচ্ছে'), findsOneWidget);
+    expect(find.textContaining('নিজের রিমাইন্ডার ৭'), findsOneWidget);
+    await shot(t, 'notice_day');
+  });
+
+  testWidgets('members: by join date and source, new per day, PDF in the browser', (t) async {
+    final server = await open(t);
+    await t.tap(find.text('সদস্য').last);
     await settle(t);
-    expect(find.text('রিমাইন্ডার'), findsNothing);
+    expect(find.byKey(const Key('growth')), findsOneWidget);
+    expect(find.textContaining('এ মাসে ১২'), findsOneWidget);
+    expect(find.textContaining('ওয়েবসাইট (বিকাশ)'), findsWidgets);
+    await shot(t, 'members_growth');
+    await t.tap(find.byKey(const Key('joined-today')));
+    await settle(t);
+    expect(server.memberQueries.last['joined'], 'today');
+    expect(find.textContaining('আজ যোগ দিয়েছেন'), findsOneWidget);
+    await t.tap(find.text('মাসিক'));
+    await settle(t);
+    expect(find.text('অক্টো'), findsWidgets);
+    await t.tap(find.byKey(const Key('members-pdf')));
+    await settle(t);
+    expect(server.printLinks.single['joined'], 'today');
+    expect(server.opened.single, startsWith('https://getmyassistant.app/?ma_members_print='));
   });
 
   testWidgets('হিসাব: income, expense, profit, investors; write a cost', (t) async {
@@ -286,22 +443,66 @@ void main() {
     expect(find.text('ডোমেইন'), findsOneWidget);
   });
 
-  testWidgets('feedback: open a conversation, see the screenshot, answer with text', (t) async {
+  testWidgets('feedback: one inbox per member, both conversations, answer with text', (t) async {
     final server = await open(t);
     await t.tap(find.text('মতামত').last);
     await settle(t);
-    expect(find.text('রাত ১০টার রিমাইন্ডার বাজেনি'), findsOneWidget);
-    await shot(t, 'feedback');
-    await t.tap(find.text('রাত ১০টার রিমাইন্ডার বাজেনি'));
-    await settle(t);
     expect(find.text('রাকিব হাসান'), findsOneWidget);
+    expect(find.textContaining('২টা কথোপকথন'), findsOneWidget);
+    await shot(t, 'feedback');
+    await t.tap(find.text('রাকিব হাসান'));
+    await settle(t);
+    expect(find.text('নিজের রিংটোন দেওয়া গেলে ভালো হয়'), findsOneWidget);
+    expect(find.text('রাত ১০টার রিমাইন্ডার বাজেনি'), findsOneWidget);
     expect(server.calls.any((r) => r.url.path.endsWith('/admin/feedback/file/70')), isTrue, reason: 'the screenshot is fetched');
     await t.enterText(find.byKey(const Key('admin-reply')), 'ফোনের ব্যাটারি সেটিং দেখুন');
     await t.tap(find.byKey(const Key('admin-send')));
     await settle(t);
     expect(server.replies.single['text'], 'ফোনের ব্যাটারি সেটিং দেখুন');
-    expect(find.text('ফোনের ব্যাটারি সেটিং দেখুন'), findsOneWidget);
+    expect(server.calls.any((r) => r.url.path.endsWith('/admin/feedback/7/reply')), isTrue, reason: 'to the newest open conversation');
     await shot(t, 'thread');
+  });
+
+  testWidgets('বিকাশ মেলানো: the card, auto approval, a pasted message (only four fields go)', (t) async {
+    final server = await open(t);
+    await t.tap(find.text('পেমেন্ট').last);
+    await settle(t);
+    expect(find.byKey(const Key('bkash-card')), findsOneWidget);
+    await t.tap(find.byKey(const Key('bkash-card')));
+    await settle(t);
+    await settle(t);
+    await shot(t, 'bkash');
+    await t.scrollUntilVisible(find.text('টাকা কম'), 200);
+    expect(find.text('৳৯৯৯ · 9A7KX2PQ1M'), findsOneWidget);
+    await t.scrollUntilVisible(find.byKey(const Key('bkash-auto')), -200);
+    await t.tap(find.byKey(const Key('bkash-auto')));
+    await settle(t);
+    expect(server.bkash['auto'], false);
+    await t.scrollUntilVisible(find.byKey(const Key('bkash-paste-open')), 100);
+    await t.tap(find.byKey(const Key('bkash-paste-open')));
+    await settle(t);
+    await settle(t);
+    await t.enterText(find.byKey(const Key('bkash-paste')), 'You have received Tk 99.00 from 01811111111. Fee Tk 0.00. Balance Tk 12,345.00. TrxID ABCD123456 at 27/10/2026 15:02');
+    await t.tap(find.text('মেলান'));
+    await settle(t);
+    final sent = server.bkashManual.single;
+    expect(sent.keys.toSet(), {'trx', 'amount', 'sender', 'at'});
+    expect(sent['trx'], 'ABCD123456');
+    expect(sent['amount'], 99);
+    expect(jsonEncode(sent).contains('12,345'), isFalse, reason: 'no balance');
+  });
+
+  test('a bKash message is read the same as on the server', () {
+    final p = parseBkash('You have received Tk 999.00 from 01712345678. Ref 12. Fee Tk 0.00. Balance Tk 5,210.50. TrxID 9A7KX2PQ1M at 27/10/2026 15:02')!;
+    expect(p['trx'], '9A7KX2PQ1M');
+    expect(p['amount'], 999);
+    expect(p['sender'], '01712345678');
+    expect(p['at'], '2026-10-27T09:02:00.000Z');
+    final b = parseBkash('আপনি ০১৮১২৩৪৫৬৭৮ থেকে ৯৯.০০ টাকা পেয়েছেন। TrxID BJR4XYZ123 সময় ২৭/১০/২০২৬ ১০:১৫')!;
+    expect(b['amount'], 99);
+    expect(b['sender'], '01812345678');
+    expect(parseBkash('Cash In Tk 500.00 from 01712345678 successful. TrxID 8J7K6L5M4N'), isNull);
+    expect(parseBkash('Send Money Tk 50.00 to 01712345678 successful. TrxID 7J7K6L5M4N'), isNull);
   });
 
   testWidgets('AI ও বোঝা: cost in taka, sources, review, a model to 10%, settings and the self-test', (t) async {
@@ -370,6 +571,80 @@ void main() {
     expect(find.text('k' * 48), findsOneWidget, reason: 'the retraining key, as on the settings page');
   });
 
+  testWidgets('সমস্যার লগ: from the phones, crashes and problems with a plain meaning', (t) async {
+    await open(t);
+    await t.scrollUntilVisible(find.byKey(const Key('open-errors')), 200);
+    await t.tap(find.byKey(const Key('open-errors')));
+    await settle(t);
+    expect(find.text('ইন্টারনেট ধীর — AI সময়মতো উত্তর দেয়নি'), findsOneWidget);
+    expect(find.textContaining('সমস্যা · ৩ বার · AiError'), findsOneWidget);
+    expect(find.textContaining('ক্র্যাশ · ১ বার'), findsOneWidget);
+    await shot(t, 'errors');
+  });
+
+  testWidgets('নোটিফিকেশন নিয়ন্ত্রণ: a kind off, another at 07:30 for new members only, a daily cap', (t) async {
+    final server = await open(t);
+    await t.tap(find.text('নোটিফিকেশন').last);
+    await settle(t);
+    await t.tap(find.byKey(const Key('notice-log')));
+    await settle(t);
+    await t.scrollUntilVisible(find.byKey(const Key('notice-rules')), 200);
+    await t.tap(find.byKey(const Key('notice-rules')));
+    await settle(t);
+    expect(find.text('আজকের অর্থ-কথা'), findsOneWidget);
+    await t.tap(find.byKey(const Key('rule-on-brief:morning')));
+    await settle(t);
+    await t.tap(find.byKey(const Key('rule-nudge:quote')));
+    await settle(t);
+    await t.enterText(find.byKey(const Key('rule-at')), '07:30');
+    await t.enterText(find.byKey(const Key('rule-title')), '{name}, {title}');
+    await t.tap(find.byKey(const Key('rule-who')));
+    await settle(t);
+    await t.tap(find.text('নতুন (প্রথম ৭ দিন)').last);
+    await settle(t);
+    await t.tap(find.byKey(const Key('rule-ok')));
+    await settle(t);
+    await t.enterText(find.byKey(const Key('rules-cap')), '2');
+    await t.tap(find.byKey(const Key('rules-save')));
+    await settle(t);
+    final k = server.noticeRules['kinds'] as Map;
+    expect((k['brief:morning'] as Map)['on'], isFalse);
+    expect(((k['nudge:quote'] as Map)['at'], (k['nudge:quote'] as Map)['title'], (k['nudge:quote'] as Map)['who']), ('07:30', '{name}, {title}', 'new'));
+    expect(server.noticeRules['cap'], '2');
+    expect(find.textContaining('সময় 07:30'), findsOneWidget);
+    await shot(t, 'notice_rules');
+  });
+
+  test('the version the app says is the one in pubspec.yaml', () {
+    final v = RegExp(r'^version:\s*([0-9.]+)', multiLine: true).firstMatch(File('pubspec.yaml').readAsStringSync())![1];
+    expect(adminAppVersion, v);
+  });
+
+  testWidgets('an old admin app is told to update at sign-in, with where to get the new one', (t) async {
+    final server = await open(t, signedIn: false);
+    server.minVersion = '9.0.0';
+    await t.enterText(find.byKey(const Key('email')), 'boss@gmail.com');
+    await t.enterText(find.byKey(const Key('password')), 'long-password-123');
+    await t.tap(find.byKey(const Key('sign-in')));
+    await settle(t);
+    expect(find.byKey(const Key('update-needed')), findsOneWidget);
+    expect(find.textContaining('নতুন সংস্করণ (9.0.0)'), findsWidgets);
+    await t.tap(find.byKey(const Key('update-open')));
+    await settle(t);
+    expect(server.opened.last, 'https://example.test/admin.apk');
+    expect(server.calls.last.headers['x-ma-app-version'], adminAppVersion);
+  });
+
+  testWidgets('two-step not set up on this account: the app says which account', (t) async {
+    final server = await open(t, signedIn: false);
+    server.setupNeeded = true;
+    await t.enterText(find.byKey(const Key('email')), 'boss@gmail.com');
+    await t.enterText(find.byKey(const Key('password')), 'long-password-123');
+    await t.tap(find.byKey(const Key('sign-in')));
+    await settle(t);
+    expect(find.textContaining('“saif” (boss@gmail.com)'), findsOneWidget);
+  });
+
   testWidgets('signed out: email and password, then in', (t) async {
     final server = await open(t, signedIn: false);
     expect(find.text('লগইন'), findsOneWidget);
@@ -382,9 +657,19 @@ void main() {
     await t.enterText(find.byKey(const Key('password')), 'long-password-123');
     await t.tap(find.byKey(const Key('sign-in')));
     await settle(t);
+    // The right password asks for the authenticator's code.
+    expect(find.byKey(const Key('otp')), findsOneWidget);
+    await t.enterText(find.byKey(const Key('otp')), '000 000');
+    await t.tap(find.byKey(const Key('sign-in')));
+    await settle(t);
+    expect(find.textContaining('কোড মেলেনি'), findsOneWidget);
+    await t.enterText(find.byKey(const Key('otp')), '123 456');
+    await t.tap(find.byKey(const Key('sign-in')));
+    await settle(t);
     await settle(t);
     expect(find.text('২টা পেমেন্ট দেখার অপেক্ষায়'), findsOneWidget);
-    expect(server.calls.where((r) => r.url.path.endsWith('/admin/login')).length, 2);
+    expect(server.calls.where((r) => r.url.path.endsWith('/admin/login')).length, 4);
+    expect(jsonDecode(server.calls.lastWhere((r) => r.url.path.endsWith('/admin/login')).body)['code'], '123456');
   });
 
   testWidgets('fingerprint lock when it is on', (t) async {
@@ -415,7 +700,7 @@ void main() {
     final api = Api(client: server.client, store: store, base: 'https://x');
     await expectLater(api.login('boss@gmail.com', 'nope'), throwsA(isA<ApiError>()));
     expect(store.value, isNull);
-    expect(await api.login('boss@gmail.com', 'long-password-123'), 'Boss');
+    expect(await api.login('boss@gmail.com', 'long-password-123', code: '123 456'), 'Boss');
     expect(store.value, 'c' * 64);
     await api.setFingerprint(true);
     expect(await api.fingerprintOn(), isTrue);

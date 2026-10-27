@@ -370,7 +370,10 @@ bool isDueNote(String note) => note.trim().startsWith('বকেয়া');
 bool canGoToMain(AppData d, String id) {
   final l = d.ledger.where((e) => e.id == id).firstOrNull;
   if (l != null) return l.projectId == null && !isDueNote(l.note);
-  return d.cash.any((e) => e.id == id && e.projectId != null);
+  // Another হিসাব's entry: only when that হিসাব was let into the main money.
+  final c = d.cash.where((e) => e.id == id && e.projectId != null).firstOrNull;
+  if (c == null) return false;
+  return d.projects.where((p) => p.id == c.projectId).firstOrNull?.inMain ?? false;
 }
 
 /// The main-account copy of [id], if it was put there.

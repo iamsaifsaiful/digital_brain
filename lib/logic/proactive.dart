@@ -6,7 +6,10 @@
 /// handed to the notifier as quiet notifications (not alarms).
 library;
 
+import 'dart:math' show min;
+
 import '../models/models.dart';
+import 'vault_age.dart';
 import '../services/notifications.dart';
 import 'bn.dart';
 import 'calendar_bd.dart';
@@ -66,7 +69,15 @@ class AssistantPrefs {
     this.dueAlerts = true,
     this.quote = true,
     this.homeFix = true,
+    this.rules = NoticeRules.none,
+    this.groups = const {'all'},
   });
+
+  /// What the admin set on the site or in the admin app (logic/server_notices.dart).
+  final NoticeRules rules;
+
+  /// Which groups this member is in (new/old, regular/occasional, free/pro), from this phone.
+  final Set<String> groups;
 
   /// A thought about money each morning (see logic/money_quotes.dart).
   final bool quote;
@@ -162,6 +173,7 @@ const nudgeBackup = 'nudge:backup';
 const nudgeBmi = 'nudge:bmi:';
 const nudgeQuote = 'nudge:quote';
 const nudgeFix = 'nudge:fix';
+const nudgePass = 'nudge:pass';
 
 /// One sentence for each month: what to watch for in Bangladesh's seasons.
 const healthTips = [
@@ -247,17 +259,20 @@ List<PlannedNotice> assistantNotices(AppData d, DateTime now, AssistantPrefs p) 
     ..._summaries(d, now, p), ..._nudges(d, now, p), ..._extras(d, now, p), ..._plans(d, now, p), ..._noticed(d, now, p),
     if (p.news && p.nudgesOn) ...serverNotices(p.server, d, now, lastOpen: p.lastOpen),
   ];
+  // The admin's rules: off, for some members only, another time or wording.
+  final ruled = p.rules.kinds.isEmpty ? all : [for (final n in all) _ruled(n, p, now)].whereType<PlannedNotice>().toList();
+  final cap = p.rules.cap == null ? p.dailyCap : min(p.dailyCap, p.rules.cap!);
   final kept = <PlannedNotice>[];
   final perDay = <String, int>{};
   // Most useful first, so the cap drops the least useful.
-  all.sort((a, b) => _rank(a.reminderId).compareTo(_rank(b.reminderId)));
-  for (var n in all) {
+  ruled.sort((a, b) => _rank(a.reminderId).compareTo(_rank(b.reminderId)));
+  for (var n in ruled) {
     final chosen = _chosenByUser(n.reminderId);
     if (!chosen && p.quietOn) n = _afterQuiet(n, p);
     if (!chosen) {
       final k = dayKey(n.at);
       final c = perDay[k] ?? 0;
-      if (c >= p.dailyCap) continue;
+      if (c >= cap) continue;
       perDay[k] = c + 1;
     }
     kept.add(n);
@@ -266,13 +281,35 @@ List<PlannedNotice> assistantNotices(AppData d, DateTime now, AssistantPrefs p) 
   return kept;
 }
 
+/// [n] after the admin's rule for its kind: null when it does not go (off,
+/// or not for this member's groups, or its new time has passed).
+PlannedNotice? _ruled(PlannedNotice n, AssistantPrefs p, DateTime now) {
+  final r = p.rules.forTag(n.reminderId);
+  if (r == null) return n;
+  if (!r.on || !p.groups.contains(r.who)) return null;
+  var at = n.at;
+  final m = r.minutes;
+  // A summary time the member set themself stays theirs.
+  final ownTime = (n.reminderId == morningTag && p.morningAt != 8 * 60) || (n.reminderId == nightTag && p.nightAt != 21 * 60);
+  if (m != null && !ownTime) {
+    at = _at(dayOnly(n.at), m);
+    if (!at.isAfter(now)) return null;
+  }
+  final name = p.name.trim();
+  final title = r.title.trim().isEmpty ? n.title : fillNotice(r.title, title: n.title, body: n.body, name: name);
+  final body = r.body.trim().isEmpty ? n.body : fillNotice(r.body, title: n.title, body: n.body, name: name);
+  if (at == n.at && title == n.title && body == n.body) return n;
+  return PlannedNotice(id: n.id, at: at, title: title.isEmpty ? n.title : title, body: body, reminderId: n.reminderId, gentle: n.gentle, repeat: n.repeat, every: n.every, early: n.early);
+}
+
 /// Summaries at the user's own times, and prayer/Ramadan times they asked
 /// for, are never held back or counted.
 bool _chosenByUser(String tag) =>
     tag.startsWith(nudgeQuote) || tag.startsWith(nudgeFix) || tag == morningTag || tag == nightTag || tag.startsWith(nudgePrayer) || tag.startsWith(nudgeRamadan) || tag.startsWith(nudgeDonor);
 
 int _rank(String tag) {
-  const order = [morningTag, nightTag, nudgePrayer, nudgeRamadan, nudgeDue, nudgeBill, nudgeMed, nudgeDoc, nudgeBackup, nudgeDonor, nudgeDay2, '${nudgePlan}eve', nudgeSoon, nudgeSalary, nudgeSpend, nudgeNoCash, nudgePlan, nudgeHabit, nudgeBmi, nudgeJumuah, nudgeWeek, nudgeFest, nudgeHealth, nudgeBack];
+  // Our own notices first (owner, 27 Oct): a few a week, and the daily cap must not drop them.
+  const order = ['nudge:srv:', 'nudge:plan:srv', morningTag, nightTag, nudgePrayer, nudgeRamadan, nudgeDue, nudgeBill, nudgeMed, nudgeDoc, nudgeBackup, nudgeDonor, nudgeDay2, '${nudgePlan}eve', nudgeSoon, nudgeSalary, nudgeSpend, nudgeNoCash, nudgePlan, nudgeHabit, nudgeBmi, nudgeJumuah, nudgeWeek, nudgeFest, nudgeHealth, nudgeBack];
   for (var i = 0; i < order.length; i++) {
     if (tag.startsWith(order[i])) return i;
   }
@@ -415,6 +452,8 @@ List<PlannedNotice> _nudges(AppData d, DateTime now, AssistantPrefs p) {
       gentle: true,
     ));
   }
+
+  out.addAll(passwordNudges(d, now));
 
   // Medicine running low.
   for (final m in d.medicines) {
@@ -587,6 +626,48 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
     add(nudgeDonor, dayKey(donor), _at(dayOnly(donor), 10 * 60), tr('আবার রক্ত দিতে পারবেন'), tr('শেষ রক্তদানের পর যথেষ্ট সময় পার হয়েছে। কারও দরকার হলে এখন সাহায্য করতে পারবেন।'));
   }
   return out;
+}
+
+/// The day the password nudge first went out to everyone; a password already
+/// six months old then is counted from this day (owner, 27 Oct).
+final passNudgeStart = DateTime(2026, 10, 27);
+
+/// A Friday or a government holiday, on or after [day].
+DateTime nextFridayOrHoliday(DateTime day) {
+  var x = dayOnly(day);
+  while (x.weekday != DateTime.friday && holidayOn(x) == null) {
+    x = x.add(const Duration(days: 1));
+  }
+  return x;
+}
+
+/// Passwords six months old (then twelve…): one gentle note on the first
+/// Friday or holiday after, at 11:45 — the count only, never the names (the
+/// lock screen shows it). Tapped, it opens the vault.
+List<PlannedNotice> passwordNudges(AppData d, DateTime now) {
+  final byDay = <DateTime, int>{};
+  for (final v in d.vault) {
+    if (v.password.isEmpty) continue;
+    final next = nextDue(v, now);
+    final last = next.subtract(passwordMaxAge);
+    for (final due in [if (!last.isBefore(v.passwordSince.add(passwordMaxAge))) last, next]) {
+      final from = due.isBefore(passNudgeStart) ? passNudgeStart : due;
+      final day = nextFridayOrHoliday(from);
+      if (_at(day, 11 * 60 + 45).isAfter(now)) byDay[day] = (byDay[day] ?? 0) + 1;
+    }
+  }
+  final days = byDay.keys.toList()..sort();
+  return [
+    for (final day in days.take(2))
+      PlannedNotice(
+        id: stableId('$nudgePass:${dayKey(day)}'),
+        at: _at(day, 11 * 60 + 45),
+        title: byDay[day] == 1 ? tr('একটা পাসওয়ার্ড ৬ মাস বদলানো হয়নি') : trf('{0}টা পাসওয়ার্ড ৬ মাস বদলানো হয়নি', [bnDigits(byDay[day]!)]),
+        body: tr('আজ ছুটির দিন — বদলে নিলে অ্যাকাউন্ট নিরাপদ থাকে। চাপুন, ভল্টে কোনগুলো পুরোনো দেখুন।'),
+        reminderId: nudgePass,
+        gentle: true,
+      ),
+  ];
 }
 
 String? _wishFor(String holiday) {

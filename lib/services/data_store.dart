@@ -162,7 +162,13 @@ class DataStore {
 class Backup {
   static final _prefix = utf8.encode('DBRNBK');
   static const version = 2;
+  /// For a key that is already random (the account's Drive key: 256 bits),
+  /// where more rounds add nothing.
   static const defaultIterations = 120000;
+
+  /// For a password a person chose (a backup file, the Drive backup's extra
+  /// lock): OWASP's 2023 advice for PBKDF2-HMAC-SHA256 (owner's review, 27 Oct).
+  static const passwordIterations = 600000;
 
   static Future<Uint8List> export(AppData data, String password, {Map<String, Uint8List> files = const {}, int iterations = defaultIterations}) async {
     final salt = randomBytes(16);

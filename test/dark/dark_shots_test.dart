@@ -10,6 +10,7 @@ import 'package:digital_brain/screens/tasks_screen.dart';
 import 'package:digital_brain/screens/requests_screen.dart';
 import 'package:digital_brain/screens/zakat_screen.dart';
 import 'package:digital_brain/ui/theme.dart';
+import 'package:digital_brain/ui/widgets.dart' show ListRow;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -83,8 +84,20 @@ void main() {
         await settle(t);
         Navigator.of(t.element(find.byType(Scaffold).first)).push(MaterialPageRoute(builder: (_) => page()));
         await settle(t);
-        await t.ensureVisible(find.text(row).last);
-        await t.longPress(find.text(row).last);
+        // The row itself, by its key (a summary above may carry the same word).
+        final cash = rig.brain.data.cash.where((e) => e.category == row).firstOrNull;
+        // A row of the page's own list (one that can be picked), not the summary above it.
+        final pickable = find.byWidgetPredicate((w) => w is ListRow && w.onLongPress != null && w.key is ValueKey<String> && '${(w.key as ValueKey<String>).value}'.startsWith('cash-'));
+        final hit = cash == null ? find.text(row).last : pickable.first;
+        await t.ensureVisible(hit);
+        // The cash page's only row sits under the floating buttons on this
+        // screen size: its own long-press is called (the bar is what is shown).
+        final w = hit.evaluate().first.widget;
+        if (w is ListRow && w.onLongPress != null) {
+          w.onLongPress!();
+        } else {
+          await t.longPressAt(t.getTopLeft(hit) + const Offset(24, 12));
+        }
         await settle(t);
         expect(find.byKey(const Key('pick-bar')), findsOneWidget);
         if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/pick-$name-${look.name}.png'));

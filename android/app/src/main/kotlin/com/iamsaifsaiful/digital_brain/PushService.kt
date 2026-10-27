@@ -25,13 +25,14 @@ class PushService : FirebaseMessagingService() {
         // A family member asked where this phone is (silent): answered here,
         // with the app open or closed, only if the user turned sharing on.
         if (message.data["type"] == "locate") {
-            LocationShare.answer(this)
+            LocationShare.answer(this, message.data["by"] ?: "")
             return
         }
         // In the background Firebase shows "notification" messages itself;
         // in the foreground they arrive here.
         val n = message.notification ?: return
-        show(this, n.title ?: "My Assistant", n.body ?: "", message.data["type"] ?: "")
+        val type = message.data["type"] ?: ""
+        show(this, n.title ?: "My Assistant", n.body ?: "", if (type == "server" && message.data["mic"] == "1") "server_mic" else type)
     }
 
     override fun onNewToken(token: String) {

@@ -1,0 +1,20 @@
+# Security and version updates for the packages the apps use (owner's
+# review, 27 Oct). Each update comes as a pull request; nothing changes by
+# itself. Monthly, a few at a time.
+version: 2
+updates:
+  - package-ecosystem: pub
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+  - package-ecosystem: pub
+    directory: /admin_app
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5

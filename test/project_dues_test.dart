@@ -18,6 +18,7 @@ void main() {
     final rig = await start(t);
     final b = rig.brain;
     final p = await b.projectNamed('রহিম স্টোর');
+    await b.setProjectMain(p.id, true); // the user said yes to the main-money question
     await t.pumpWidget(BrainScope(brain: b, child: MaterialApp(theme: buildTheme(), home: ProjectScreen(id: p.id))));
     await settle(t);
     final add = find.byKey(const Key('due-add'));
@@ -59,6 +60,7 @@ void main() {
     final rig = await start(t);
     final b = rig.brain;
     final p = await b.projectNamed('রহিম স্টোর');
+    await b.setProjectMain(p.id, true); // the user said yes to the main-money question
     await t.pumpWidget(BrainScope(brain: b, child: MaterialApp(theme: buildTheme(), home: ProjectScreen(id: p.id))));
     await settle(t);
     final add = find.byKey(const Key('due-add'));
@@ -97,6 +99,7 @@ void main() {
     final rig = await start(t);
     final b = rig.brain;
     final p = await b.projectNamed('রহিম স্টোর');
+    await b.setProjectMain(p.id, true); // the user said yes to the main-money question
     final day = b.services.now().add(const Duration(days: 5));
     await b.saveEntry(LedgerEntry(person: 'জসিম', kind: LedgerKind.lent, amount: 650, date: b.services.now(), note: 'সিমেন্ট', due: day, projectId: p.id));
     final rem = b.data.reminders.where((r) => r.title.contains('জসিম')).toList();
@@ -122,6 +125,7 @@ void main() {
     final b = rig.brain;
     final now = b.services.now();
     final p = await b.projectNamed('রহিম স্টোর');
+    await b.setProjectMain(p.id, true); // the user said yes to the main-money question
     await b.saveEntry(LedgerEntry(person: 'করিম মিয়া', kind: LedgerKind.lent, amount: 1200, date: now, note: 'চাল', projectId: p.id));
     await b.saveEntry(LedgerEntry(person: 'করিম মিয়া', kind: LedgerKind.received, amount: 500, date: now, projectId: p.id));
     await b.saveCash(CashEntry(kind: CashKind.income, amount: 500, category: 'বকেয়া আদায়', note: 'করিম মিয়া', date: now, projectId: p.id));
@@ -159,6 +163,11 @@ void main() {
     await t.tap(find.byKey(const Key('due-add-top')));
     await settle(t);
     await t.tap(find.text('ঠিক আছে')); // the name, দোকান, is filled in
+    await settle(t);
+    // A new হিসাব: "মূল হিসাবেও যোগ হবে?" must be answered (owner, 27 Oct).
+    await t.tap(find.byKey(const Key('main-no')));
+    await t.pump();
+    await t.tap(find.byKey(const Key('main-ok')));
     await settle(t);
     await t.enterText(find.byKey(const Key('due-person')), 'করিম');
     await t.enterText(find.byKey(const Key('due-amount')), '৪০০');

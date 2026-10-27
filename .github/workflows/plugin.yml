@@ -1,0 +1,26 @@
+name: Plugin check
+
+# The WordPress plugin: every PHP file must parse (owner's review, 27 Oct).
+on:
+  push:
+    paths: ['tool/wordpress/**']
+  pull_request:
+    paths: ['tool/wordpress/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: PHP syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+      - name: php -l
+        run: |
+          set -e
+          for f in tool/wordpress/my-assistant-accounts/*.php tool/wordpress/test/*.php; do php -l "$f"; done

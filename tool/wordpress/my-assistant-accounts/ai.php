@@ -39,6 +39,7 @@ function ma_ai_install() {
         last_used datetime NOT NULL,
         app varchar(16) NOT NULL DEFAULT 'member',
         fcm_token varchar(300) NOT NULL DEFAULT '',
+        srv_push tinyint(1) NOT NULL DEFAULT 0,
         PRIMARY KEY  (id),
         UNIQUE KEY token_hash (token_hash),
         KEY user_id (user_id)
@@ -282,7 +283,7 @@ function ma_ai_new_session($user_id, $app = 'member') {
         'user_id' => (int) $user_id,
         'token_hash' => hash('sha256', $token),
         'created_at' => $now,
-        'expires_at' => gmdate('Y-m-d H:i:s', time() + ($app === 'admin' ? 30 : 60) * DAY_IN_SECONDS),
+        'expires_at' => gmdate('Y-m-d H:i:s', time() + ($app === 'admin' ? 7 : 60) * DAY_IN_SECONDS),
         'last_used' => $now,
         'app' => $app === 'admin' ? 'admin' : 'member',
     ]);

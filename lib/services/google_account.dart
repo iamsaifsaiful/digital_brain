@@ -20,6 +20,7 @@ import 'package:http/http.dart' as http;
 
 import '../logic/money_more.dart' show MetalPrice;
 import '../logic/server_notices.dart';
+import 'error_log.dart';
 
 /// The OAuth "Web client" ID from Google Cloud (passed at build time with
 /// `--dart-define=GOOGLE_WEB_CLIENT_ID=…`). Empty until it is set up.
@@ -233,6 +234,13 @@ class SessionExpired implements Exception {
   const SessionExpired();
 }
 
+/// The site asks for a newer app before signing in (its minimum version).
+class UpdateRequired implements Exception {
+  const UpdateRequired(this.min, this.url);
+  final String min;
+  final String url;
+}
+
 /// What our server says about the account.
 class AccountInfo {
   const AccountInfo({this.proUntil, this.proKind = '', this.trialUsed = false, this.session = '', this.ai = false, this.aiLeft = 0, this.backupKey = '', this.feedbackUnread = 0});
@@ -301,8 +309,14 @@ class AccountServer {
           .post(Uri.parse('$base/wp-json/my-assistant/v1/login'),
               headers: {'Content-Type': 'application/json'}, body: jsonEncode({'id_token': u.idToken, 'app_version': appVersion, 'edition': edition}))
           .timeout(const Duration(seconds: 15));
+      if (r.statusCode == 426) {
+        final d = ((jsonDecode(r.body) as Map)['data'] as Map?) ?? const {};
+        throw UpdateRequired('${d['min'] ?? ''}', '${d['url'] ?? ''}');
+      }
       if (r.statusCode != 200) return null;
       return AccountInfo.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
+    } on UpdateRequired {
+      rethrow;
     } catch (_) {
       return null;
     }
@@ -339,17 +353,26 @@ class AccountServer {
     }
   }
 
+  /// The admin's rules for the app's own notifications, from the last [notices] call.
+  Object? lastRules;
+
   /// Notifications written on the website for this phone (everyone's, plus
   /// its plan's when signed in). Null when offline.
   Future<List<ServerNotice>?> notices(String session) async {
     if (!configured) return null;
     try {
       final r = await _http
-          .get(Uri.parse('$base/wp-json/my-assistant/v1/notices'), headers: {if (session.isNotEmpty) 'authorization': 'Bearer $session'})
+          // push=1: this app takes the server's pushes for notices without a condition.
+          .get(Uri.parse('$base/wp-json/my-assistant/v1/notices?push=1'), headers: {if (session.isNotEmpty) 'authorization': 'Bearer $session'})
           .timeout(const Duration(seconds: 15));
       if (r.statusCode != 200) return null;
-      final list = (jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>)['notices'] as List? ?? const [];
-      return [...list.take(30).map(ServerNotice.fromJson).whereType<ServerNotice>()];
+      final body = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
+      lastRules = body['rules'];
+      final list = body['notices'] as List? ?? const [];
+      final pushed = {for (final x in body['pushed'] as List? ?? const []) if (x is num) x.toInt()};
+      return [
+        ...list.take(30).map((j) => ServerNotice.fromJson(j is Map && pushed.contains((j['id'] as num?)?.toInt()) ? {...j, 'pushed': true} : j)).whereType<ServerNotice>()
+      ];
     } catch (_) {
       return null;
     }
@@ -389,6 +412,7 @@ class AccountServer {
         if (j is Map<String, dynamic>) data = j;
       } catch (_) {}
       if (r.statusCode == 200) return ServerReply(200, data, null);
+      if (r.statusCode >= 500) ErrorLog.problem('Server', 'status_${r.statusCode} $method ${uri.path}');
       return ServerReply(r.statusCode, data, switch (r.statusCode) {
         401 => 'আবার Google দিয়ে লগইন করুন',
         404 => 'খুঁজে পাওয়া গেল না',

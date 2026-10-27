@@ -547,10 +547,12 @@ extension _MenuChat on ChatController {
           _say(out, tr('অন্যান্য হিসাব প্রিমিয়াম সুবিধা; নতুনটা খোলা হয়নি।'), links: _pageLink('pro'));
           return;
         }
-        await brain.saveProject(Project(name: c.target.trim(), createdAt: _now));
+        final made = Project(name: c.target.trim(), createdAt: _now);
+        await brain.saveProject(made);
         _actions++;
         _say(out, trf('“{0}” নামে নতুন হিসাব খুলেছি।', [c.target.trim()]), links: _pageLink('projects'));
         _offerUndo(snap);
+        _askProjectMain(made, out);
       case ('project', 'budget' || 'close'):
         final open = d.projects.where((p) => !p.closed).toList();
         final p = c.target.isNotEmpty ? projectByName(d, c.target) : (open.length == 1 ? open.single : null);
@@ -559,11 +561,11 @@ extension _MenuChat on ChatController {
           return;
         }
         if (c.op == 'budget') {
-          await brain.saveProject(Project(id: p.id, name: p.name, createdAt: p.createdAt, closed: p.closed, budget: c.amount));
+          await brain.saveProject(p.copyWith(budget: c.amount));
           _actions++;
           _say(out, trf('“{0}”-এর বাজেট {1} টাকা রাখলাম। এটা পাওয়া টাকা হিসেবে লেখা হয়নি।', [p.name, bnNumber(c.amount)]), links: _pageLink('projects'));
         } else {
-          await brain.saveProject(Project(id: p.id, name: p.name, createdAt: p.createdAt, closed: true, budget: p.budget));
+          await brain.saveProject(p.copyWith(closed: true));
           _actions++;
           _say(out, trf('“{0}” শেষ হিসেবে রেখেছি — মুছিনি; পুরোনো হিসাব যেমন ছিল আছে।', [p.name]), links: _pageLink('projects'));
         }

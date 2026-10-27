@@ -5,8 +5,14 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/widgets.dart';
 
+import '../logic/vault_age.dart';
+import '../logic/steps.dart' show StepBook, stepDay;
+import '../logic/ai_safe.dart';
 import '../logic/doc_dates.dart';
 import 'doc_scan.dart' show mergeFields;
+import '../services/health_connect.dart';
+import '../logic/health_connect.dart';
+import '../services/error_log.dart';
 import '../services/weather.dart';
 import '../services/compass.dart';
 import '../logic/weather.dart';
@@ -77,8 +83,10 @@ class Services {
     TextReader? ocr,
     WeatherSource? weather,
     CompassSource? compass,
+    HealthConnectSource? health,
     DateTime Function()? clock,
   })  : ai = ai ?? FakeAi(),
+        health = health ?? FakeHealthConnect(),
         ocr = ocr ?? FakeTextReader(),
         weather = weather ?? FakeWeather(),
         compass = compass ?? FakeCompass(),
@@ -104,6 +112,9 @@ class Services {
 
   /// The phone's heading, for the compass page.
   final CompassSource compass;
+
+  /// Android's Health Connect, read only (steps, sleep, exercise for "আমি").
+  final HealthConnectSource health;
 
   /// Claude, when the user has set an API key (see আরও).
   final AiBrain ai;
@@ -227,9 +238,10 @@ class Brain extends ChangeNotifier {
 
   // ── Pro (sold only in the Play Store app; see logic/pro.dart) ──
 
-  /// Features are locked only in the Play app; the downloaded APK has all.
+  /// Premium features are locked until the member has Premium (every build
+  /// given out; see logic/pro.dart).
   bool get gated => _gated;
-  bool _gated = playEdition;
+  bool _gated = gatedEdition;
   set gated(bool v) {
     _gated = v;
     notifyListeners();
@@ -238,7 +250,8 @@ class Brain extends ChangeNotifier {
   /// Pro lasts until this moment.
   DateTime? proUntil;
 
-  /// A plan id ('pro_yearly', 'pro_monthly'), 'web' (bought on the website) or 'test' (preview).
+  /// 'play:pro_yearly' (Google Play), what our server says ('web', 'bkash',
+  /// 'manual', 'trial'), or 'test' (an internal test build).
   String proKind = '';
 
   /// The first day the app was opened (no full-screen ad that day).
@@ -279,8 +292,9 @@ class Brain extends ChangeNotifier {
 
   bool canSeeMonth(DateTime m) => has(ProFeature.history) || !DateTime(m.year, m.month).isBefore(firstFreeMonth);
 
-  /// After Google Play confirms a purchase (in the preview, the test button).
-  Future<void> activatePro(ProPlan plan) => _setPro(services.now().add(Duration(days: plan.days)), plan.id);
+  /// After Google Play confirms a purchase ('play:' + the plan; an internal
+  /// test build's button uses it too). Only these stand without our server.
+  Future<void> activatePro(ProPlan plan) => _setPro(services.now().add(Duration(days: plan.days)), 'play:${plan.id}');
 
   /// The preview's test switch.
   Future<void> setProForTest(bool on) => on ? _setPro(services.now().add(const Duration(days: 365)), 'test') : _setPro(null, '');
@@ -362,6 +376,15 @@ class Brain extends ChangeNotifier {
     try {
       proUntil = DateTime.tryParse(await keys.read('pro_until') ?? '');
       proKind = await keys.read('pro_kind') ?? '';
+      // Premium turned on by the old preview's test switch or button (no
+      // payment; there is no Play billing yet): gone in a build given out —
+      // the member's data all stays.
+      if (!proTestSwitch && (proKind == 'test' || proPlans.any((p) => p.id == proKind))) {
+        proUntil = null;
+        proKind = '';
+        await keys.delete('pro_until');
+        await keys.delete('pro_kind');
+      }
       firstUse = DateTime.tryParse(await keys.read('first_use') ?? '');
       if (firstUse == null) {
         firstUse = services.now();
@@ -426,12 +449,20 @@ class Brain extends ChangeNotifier {
       }
       notifyListeners();
       return null;
+    } on UpdateRequired catch (e) {
+      // Signed in to Google, but our site wants a newer app first (its data here stays open).
+      updateUrl = e.url;
+      notifyListeners();
+      return trf('অ্যাপের নতুন সংস্করণ ({0}) এসেছে — আপডেট করে আবার লগইন করুন। ফোনে রাখা সব তথ্য আগের মতোই খোলা থাকবে।', [e.min]);
     } on GoogleError catch (e) {
       return e.message;
     } catch (e) {
       return 'Google লগইন হয়নি: $e';
     }
   }
+
+  /// Where the newer app is, when our site asked for one at sign-in.
+  String updateUrl = '';
 
   /// "PIN ভুলে গেছেন?" on a signed-in phone: the owner picks the same Google
   /// account and our server checks Google's token. Null when it is them.
@@ -478,10 +509,13 @@ class Brain extends ChangeNotifier {
     } else {
       await keys.write('srv_pro_until', info.proUntil!.toIso8601String());
     }
-    // Pro given on the website (or bought on another phone) shows up here too.
+    // Our server decides Premium (owner's review, 27 Oct): given on the
+    // website, by bKash or by an admin shows up here — and taken back here
+    // too. Only a Google Play purchase on this phone ('play…') stands on its own.
     final until = info.proUntil;
-    if (gated && until != null && until.isAfter(services.now()) && (proUntil == null || until.isAfter(proUntil!))) {
-      await _setPro(until, info.proKind, announce: await _noPush());
+    final live = until != null && until.isAfter(services.now()) ? until : null;
+    if (gated && !proKind.startsWith('play') && (live != proUntil || (live != null && proKind != info.proKind))) {
+      await _setPro(live, live == null ? '' : info.proKind, announce: await _noPush());
     }
     notifyListeners();
   }
@@ -513,8 +547,13 @@ class Brain extends ChangeNotifier {
   /// Notifications written on our website (planned with the assistant's own).
   List<ServerNotice> serverNoticeList = const [];
 
+  /// The admin's rules for the app's own notifications (on/off, time, wording, who).
+  NoticeRules noticeRules = NoticeRules.none;
+
   Future<void> _loadServerNotices() async {
     try {
+      final rules = await services.lock.keys.read('srv_note_rules');
+      if (rules != null) noticeRules = NoticeRules.fromJson(jsonDecode(rules));
       final raw = await services.lock.keys.read('srv_notices');
       if (raw == null) return;
       serverNoticeList = [...(jsonDecode(raw) as List).map(ServerNotice.fromJson).whereType<ServerNotice>()];
@@ -529,8 +568,10 @@ class Brain extends ChangeNotifier {
     final list = await services.server.notices(session);
     if (list != null) {
       serverNoticeList = list;
+      noticeRules = NoticeRules.fromJson(services.server.lastRules);
       try {
         await services.lock.keys.write('srv_notices', jsonEncode([for (final n in list) n.toJson()]));
+        await services.lock.keys.write('srv_note_rules', jsonEncode(noticeRules.toJson()));
       } catch (_) {}
       await _reschedule();
     }
@@ -557,7 +598,7 @@ class Brain extends ChangeNotifier {
     services.ai.session = '';
     serverAi = false;
     serverProUntil = null;
-    for (final k in ['g_email', 'g_name', 'drive_on', 'drive_pw', 'drive_key_server', 'srv_session', 'srv_ai', 'srv_pro_until']) {
+    for (final k in ['g_email', 'g_name', 'drive_on', 'drive_pw', 'drive_extra', 'drive_key_server', 'srv_session', 'srv_ai', 'srv_pro_until']) {
       await keys.delete(k);
     }
     notifyListeners();
@@ -598,7 +639,11 @@ class Brain extends ChangeNotifier {
     notifyListeners();
     try {
       final token = await services.google.driveToken();
-      final bytes = await Backup.export(data, pw, files: await backupFiles());
+      // The extra lock (the member's own password) on top of the account's key, when set.
+      final extra = await keys.read('drive_extra');
+      final hasExtra = extra != null && extra.isNotEmpty;
+      final bytes = await Backup.export(data, hasExtra ? driveLock(pw, extra) : pw,
+          files: await backupFiles(), iterations: hasExtra ? Backup.passwordIterations : Backup.defaultIterations);
       final now = services.now();
       final stamp = now.toIso8601String().replaceAll(':', '-').split('.').first;
       final id = await services.drive.upload(token, '$_drivePrefix-$stamp.dbk', bytes);
@@ -636,14 +681,57 @@ class Brain extends ChangeNotifier {
     return [for (final f in await services.drive.list(token)) if (f.name.startsWith(_drivePrefix)) f];
   }
 
-  /// Opens a Drive backup (nothing is replaced yet): with the account's key,
-  /// or [password] for a backup made before keys (WrongKey when neither fits).
+  /// Opens a Drive backup (nothing is replaced yet): with the account's key;
+  /// with [password] it is tried as the member's extra lock on that key, then
+  /// as the whole password of a backup made before keys (WrongKey when none fits).
   Future<(AppData, Map<String, Uint8List>)> openDriveBackup(DriveFile f, {String? password}) async {
     final token = await services.google.driveToken();
     final bytes = await services.drive.download(token, f.id);
-    final key = password ?? await services.lock.keys.read('drive_pw');
-    if (key == null || key.isEmpty) throw const WrongKey();
-    return Backup.restore(bytes, key);
+    final key = await services.lock.keys.read('drive_pw');
+    if (password == null) {
+      if (key == null || key.isEmpty) throw const WrongKey();
+      final extra = await services.lock.keys.read('drive_extra');
+      if (extra != null && extra.isNotEmpty) {
+        try {
+          return await Backup.restore(bytes, driveLock(key, extra));
+        } on WrongKey {
+          // Made before the extra lock was set: the key alone.
+        }
+      }
+      return Backup.restore(bytes, key);
+    }
+    if (key != null && key.isNotEmpty) {
+      try {
+        final r = await Backup.restore(bytes, driveLock(key, password));
+        // Opened with the extra lock: later backups keep it.
+        await services.lock.keys.write('drive_extra', password);
+        return r;
+      } on WrongKey {
+        // Not the extra lock: maybe an old backup's own password.
+      }
+    }
+    return Backup.restore(bytes, password);
+  }
+
+  /// The Drive backup's key with the member's own extra password (owner's
+  /// review, 27 Oct): someone who takes over the Google account cannot open
+  /// the backup without it. Forgotten, it cannot be recovered.
+  static String driveLock(String accountKey, String extra) => '$accountKey\u0000$extra';
+
+  Future<bool> driveExtraOn() async => ((await services.lock.keys.read('drive_extra')) ?? '').isNotEmpty;
+
+  /// Sets (or with null takes off) the extra lock, then backs up at once, so
+  /// the copy in Drive has the new lock (the older one is deleted after).
+  Future<String?> setDriveExtra(String? password) async {
+    final keys = services.lock.keys;
+    if (password == null || password.isEmpty) {
+      await keys.delete('drive_extra');
+    } else {
+      await keys.write('drive_extra', password);
+    }
+    _driveDirty = true;
+    notifyListeners();
+    return driveOn ? backupToDrive() : null;
   }
 
   /// After restoring from Drive: keep backing up, now with the account's key.
@@ -1139,7 +1227,12 @@ class Brain extends ChangeNotifier {
         lastBackup: DateTime.tryParse(text('last_backup')),
         quote: flag('n_quote', true),
         homeFix: flag('n_fix', true),
+        rules: noticeRules,
+        groups: memberGroups(now: services.now(), firstUse: firstUse, openDays: openDays, pro: gated ? pro : true),
       );
+
+  /// The days the app was opened lately (for the admin's "নিয়মিত / মাঝে মাঝে"; stays on the phone).
+  List<DateTime> get openDays => [for (final x in text('open_days').split(',')) if (DateTime.tryParse(x) != null) DateTime.parse(x)];
 
   /// When the user may give blood again (3 months after the last time), if they are a donor.
   DateTime? get donorNextDate {
@@ -1154,6 +1247,111 @@ class Brain extends ChangeNotifier {
     final last = DateTime.tryParse(text('last_open'));
     if (last != null && dayOnly(last) == dayOnly(now)) return;
     await setPref('last_open', now.toIso8601String());
+    // The last 30 days it was opened (a date each, nothing more).
+    final days = [...openDays.map(dayKey).where((d) => d != dayKey(now)), dayKey(now)];
+    await setPref('open_days', days.skip(days.length > 30 ? days.length - 30 : 0).join(','));
+  }
+
+  // ── Health Connect, read only (owner, 27 Oct) ──
+
+  /// Whether this phone has it; checked when the health page opens and on resume.
+  HcStatus hcStatus = HcStatus.unsupported;
+
+  /// All three read permissions given (steps, sleep, exercise).
+  bool hcGranted = false;
+
+  /// Today's steps from Health Connect (null: not read yet).
+  int? hcStepsToday;
+  DateTime? _hcRead;
+
+  /// The user turned it on in the app, after the explanation page.
+  bool get hcOn => flag('hc_on');
+
+  Future<void> checkHealthConnect() async {
+    hcStatus = await services.health.status();
+    hcGranted = hcStatus == HcStatus.available && await services.health.granted();
+    notifyListeners();
+  }
+
+  /// Asks Health Connect for the three read permissions (its own screen).
+  Future<bool> turnOnHealthConnect() async {
+    await checkHealthConnect();
+    if (hcStatus != HcStatus.available) return false;
+    final ok = await services.health.request();
+    hcGranted = ok;
+    if (ok) {
+      await setPref('hc_on', true);
+      await syncHealthConnect(force: true);
+    }
+    notifyListeners();
+    return ok;
+  }
+
+  /// Stops reading; with [forget], the readings brought in from it go too
+  /// (the hand-written ones stay).
+  Future<void> turnOffHealthConnect({bool forget = false}) async {
+    await setPref('hc_on', false);
+    hcStepsToday = null;
+    LiveSteps.today = null;
+    if (forget) {
+      data.health.removeWhere((h) => h.tag == hcTag);
+      await setPref('hc_gone', '');
+      await _save();
+    }
+    notifyListeners();
+  }
+
+  /// Reads today's steps and the last 30 days' sleep and exercise sessions
+  /// into the app's own readings, without doubles (logic/health_connect.dart).
+  /// Returns how many readings were new.
+  Future<int> syncHealthConnect({bool force = false}) async {
+    if (!hcOn) return 0;
+    final now = services.now();
+    if (!force && _hcRead != null && now.difference(_hcRead!) < const Duration(minutes: 2)) return 0;
+    _hcRead = now;
+    await checkHealthConnect();
+    if (!hcGranted) return 0;
+    final today = dayOnly(now);
+    final steps = await services.health.steps(today, now);
+    if (steps != null) {
+      hcStepsToday = steps;
+      LiveSteps.today = (day: today, steps: steps, at: now, hc: true);
+    }
+    final from = today.subtract(const Duration(days: 30));
+    final gone = text('hc_gone').split(',').toSet();
+    final incoming = [
+      ...(await services.health.sleep(from, now)).map(sleepLog),
+      ...(await services.health.exercise(from, now)).map(exerciseLog),
+    ].whereType<HealthLog>().where((h) => !gone.contains(h.id)).toList();
+    final before = {for (final h in data.health) if (h.tag == hcTag) h.id: jsonEncode(h.toJson())};
+    final changed = incoming.any((h) => before[h.id] != jsonEncode(h.toJson()));
+    var added = 0;
+    if (changed) {
+      final (list, n) = mergeHcLogs(data.health, incoming);
+      added = n;
+      data.health
+        ..clear()
+        ..addAll(list);
+      await _save();
+    }
+    notifyListeners();
+    return added;
+  }
+
+  /// A Health Connect reading the user deleted is not brought back.
+  Future<void> _hcForget(String id) async {
+    if (!id.startsWith('hc:')) return;
+    final gone = [...text('hc_gone').split(',').where((x) => x.isNotEmpty && x != id), id];
+    await setPref('hc_gone', gone.skip(gone.length > 300 ? gone.length - 300 : 0).join(','));
+  }
+
+  /// Today's steps for an answer: Health Connect's, else the phone's own counter.
+  void noteStepsForAnswers() {
+    final now = services.now();
+    final hc = LiveSteps.today;
+    if (hcOn && hc != null && hc.day == dayOnly(now)) return;
+    final book = StepBook.fromJson(text('steps_book'));
+    LiveSteps.today = book != null && book.day == stepDay(now) ? (day: dayOnly(now), steps: book.today, at: now, hc: false) : null;
   }
 
   /// The other settings (notification types, quiet hours, Hijri date
@@ -1163,7 +1361,7 @@ class Brain extends ChangeNotifier {
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly', 'n_quote', 'n_fix',
-    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'g_card_off', 'trace_on',
+    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'g_card_off', 'trace_on', 'hc_on', 'hc_gone', 'steps_book',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
@@ -1246,7 +1444,11 @@ class Brain extends ChangeNotifier {
     String d2(int n) => n.toString().padLeft(2, '0');
     String day(DateTime d) => '${d.year}-${d2(d.month)}-${d2(d.day)}';
     final lines = <String>[];
-    final mem = data.memories.where((m) => !mentionsSecret(m.text)).take(40).toList();
+    // Health stays on the phone: anything about medicine, a doctor or an illness is left out (owner's rule).
+    final meds = [for (final m in data.medicines) m.name];
+    bool hx(String s) => mentionsHealth(s, extra: meds);
+    var held = 0;
+    final mem = data.memories.where((m) => !mentionsSecret(m.text) && !hx(m.text)).take(40).toList();
     if (mem.isNotEmpty) {
       lines.add('What the user asked you to keep in mind about them (use it in answers):');
       for (final m in mem) {
@@ -1258,12 +1460,17 @@ class Brain extends ChangeNotifier {
       lines.add('Special days (next date): ${sd.take(30).map((x) => '${x.person} ${x.kind.name} ${day(x.next(now))}${x.year == null ? '' : ' (since ${x.year})'}').join('; ')}');
     }
     if (data.habits.isNotEmpty) {
-      lines.add('Habits (streak days, done today?): ${data.habits.map((h) => '${h.name} ${h.streak(now)} ${h.doneOn(now) ? 'yes' : 'no'}').join('; ')}');
+      final habits = data.habits.where((h) => !hx(h.name)).toList();
+      if (habits.isNotEmpty) lines.add('Habits (streak days, done today?): ${habits.map((h) => '${h.name} ${h.streak(now)} ${h.doneOn(now) ? 'yes' : 'no'}').join('; ')}');
     }
     // Medicines are health data: they stay on the phone (questions about
     // them are answered by the app itself).
     if (data.medicines.isNotEmpty) lines.add('Medicines: kept on the phone only — for any medicine question add a menu/medicine item or reply "দেখছি।".');
-    final rem = [...data.reminders]..sort((a, b) => a.nextDate(now).compareTo(b.nextDate(now)));
+    final rem = [...data.reminders.where((r) {
+      final h = hx(r.title);
+      if (h) held++;
+      return !h;
+    })]..sort((a, b) => a.nextDate(now).compareTo(b.nextDate(now)));
     if (rem.isNotEmpty) {
       lines.add('Reminders (next date, time, repeat):');
       for (final r in rem.take(50)) {
@@ -1275,7 +1482,12 @@ class Brain extends ChangeNotifier {
     } else {
       lines.add('Reminders: none saved.');
     }
-    final open = data.tasks.where((t) => !t.done).toList();
+    final open = data.tasks.where((t) {
+      if (t.done) return false;
+      final h = hx(t.title);
+      if (h) held++;
+      return !h;
+    }).toList();
     if (open.isNotEmpty) {
       lines.add('Open to-dos:');
       for (final t in open.take(60)) {
@@ -1293,10 +1505,10 @@ class Brain extends ChangeNotifier {
     } else {
       lines.add('Open to-dos: none.');
     }
-    final doneToday = data.tasks.where((t) => t.done && t.doneAt != null && dayOnly(t.doneAt!) == dayOnly(now)).toList();
+    final doneToday = data.tasks.where((t) => t.done && t.doneAt != null && dayOnly(t.doneAt!) == dayOnly(now) && !hx(t.title)).toList();
     if (doneToday.isNotEmpty) lines.add('Done today: ${doneToday.take(20).map((t) => t.title).join('; ')}');
     final notes = ([...data.notes]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt)))
-        .where((n) => !mentionsSecret('${n.title} ${n.body}'))
+        .where((n) => !mentionsSecret('${n.title} ${n.body}') && !hx('${n.category} ${n.title} ${n.body}'))
         .take(40)
         .toList();
     if (notes.isNotEmpty) {
@@ -1306,13 +1518,15 @@ class Brain extends ChangeNotifier {
         lines.add('- ${n.category}: ${text.length > 160 ? '${text.substring(0, 160)}…' : text}');
       }
     }
-    if (data.docs.isNotEmpty) {
+    final docs = data.docs.where((x) => !hx('${x.title} ${x.folder} ${x.about}')).toList();
+    if (docs.isNotEmpty) {
       lines.add('Documents kept (photos/files, opened on the phone): '
-          '${data.docs.take(40).map((x) => '${x.title} [${x.folder}]'
+          '${docs.take(40).map((x) => '${x.title} [${x.folder}]'
               '${x.about.isEmpty ? '' : ' — ${x.about}'}${x.people.isEmpty ? '' : ', people: ${x.people}'}${x.place.isEmpty ? '' : ', place: ${x.place}'}'
               '${x.taken == null ? '' : ', date ${day(x.taken!)}'}, ${x.files.length} files'
               '${x.expiry == null ? '' : ' expires ${day(x.expiry!)}'}').join('; ')}');
     }
+    if (held > 0) lines.add('Health-related reminders/to-dos kept on the phone only: $held (not shown to you; for those reply "দেখছি।" or add a menu/medicine item).');
     lines.add('Contacts saved: ${data.contacts.length} (numbers stay on the phone; the app looks them up).');
     lines.add('Passwords saved: ${data.vault.length} (never shown to you; the app opens them with fingerprint/PIN).');
     return lines.join('\n');
@@ -1527,6 +1741,7 @@ class Brain extends ChangeNotifier {
         if (late) {
           asking.ignore();
           Trace.log('understood', 'the AI was slow — the phone\'s own reading', {'rules': ruleIntents.join(',')});
+          ErrorLog.problem('AiSlow', 'no answer in ${aiPatience.inSeconds}s');
           return (rules, null, 'ai_slow');
         }
       }
@@ -1552,6 +1767,7 @@ class Brain extends ChangeNotifier {
       }
       return (cmds.isEmpty ? rules : cmds, null, source);
     } on AiError catch (e) {
+      ErrorLog.problem('AiError', e.code.isEmpty ? 'unknown' : e.code);
       return (rules, '${e.message} নিজের নিয়মে বুঝে নিলাম।', 'failed');
     }
   }
@@ -1684,8 +1900,9 @@ class Brain extends ChangeNotifier {
       try {
         photo = await services.store.loadDocFile(_photoId);
       } catch (_) {}
-    } catch (e) {
+    } catch (e, st) {
       loadError = '$e';
+      ErrorLog.problem('DataLoad', e.runtimeType.toString(), st: st);
     }
     loaded = true;
     notifyListeners();
@@ -1986,6 +2203,8 @@ class Brain extends ChangeNotifier {
   }
 
   Future<void> saveVault(VaultItem v) async {
+    // The date it was put in stays; a replaced password is kept, faded (logic/vault_age.dart).
+    v = vaultToSave(data.vault.where((x) => x.id == v.id).firstOrNull, v, services.now());
     _upsert(data.vault, v, (x) => x.id);
     await _save();
   }
@@ -2364,6 +2583,19 @@ class Brain extends ChangeNotifier {
     data.reminders.removeWhere((r) => dueRems.contains(r.id));
     await _save();
     if (dueRems.isNotEmpty) await _reschedule();
+  }
+
+  /// Whether [id]'s entries go into the main আয়-ব্যয় — the user's answer.
+  /// Its entries already written follow at once (in, or taken out).
+  Future<void> setProjectMain(String id, bool inMain) async {
+    final p = data.projects.where((x) => x.id == id).firstOrNull;
+    if (p == null) return;
+    _upsert(data.projects, p.copyWith(inMain: inMain, mainAsked: true), (x) => x.id);
+    for (final c in [...data.cash.where((e) => e.projectId == id)]) {
+      await _intoMain(c.id);
+    }
+    lastMainLine = null;
+    await _save();
   }
 
   /// The project called [name], made if there is none yet.

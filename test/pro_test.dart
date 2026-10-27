@@ -44,10 +44,12 @@ void main() {
   });
 
   group('Pro (Play app only)', () {
-    test('the downloaded APK has everything; the Play app locks only adding more', () async {
+    test('every build given out locks Premium (owner\'s review, 27 Oct); locked, only adding more asks', () async {
+      expect(gatedEdition, isTrue, reason: 'the GitHub APK too');
+      expect(proTestSwitch, isFalse, reason: 'no free-Premium switch in a build given out');
       final rig = Rig();
       final b = rig.brain;
-      expect(b.gated, isFalse);
+      b.gated = false; // the internal "open" build
       expect(b.pro, isTrue);
       expect(b.showAds, isFalse);
 
@@ -82,7 +84,7 @@ void main() {
 
       await b.activatePro(proPlans.first);
       expect(b.pro, isTrue);
-      expect(b.proKind, 'pro_yearly');
+      expect(b.proKind, 'play:pro_yearly');
     });
 
     test('zakat, smart notices, paper expiry and pay-back reminders are free; their reminders count toward 20', () async {
@@ -115,7 +117,33 @@ void main() {
       again.brain.gated = true;
       await again.brain.load();
       expect(again.brain.pro, isTrue);
-      expect(again.brain.proKind, 'pro_yearly');
+      expect(again.brain.proKind, 'play:pro_yearly');
+    });
+
+    test('Premium from the old preview\'s free button or switch is gone; our server decides, and can take it back', () async {
+      final rig = Rig(server: keyServer(), google: tokenGoogle());
+      final keys = rig.services.lock.keys as MemoryKeyVault;
+      // What the old preview left on a phone: Premium for a year, no payment.
+      await keys.write('pro_until', DateTime(2027, 10, 1).toIso8601String());
+      await keys.write('pro_kind', 'pro_yearly');
+      rig.brain.gated = true;
+      await rig.brain.load();
+      expect(rig.brain.pro, isFalse);
+      expect(await keys.read('pro_kind'), isNull);
+      // Given on the website: on; then the admin takes it back: off at the next look.
+      var until = DateTime.now().add(const Duration(days: 30)).toUtc().toIso8601String();
+      final web = Rig(
+          server: AccountServer(
+              MockClient((r) async => http.Response(jsonEncode({'ok': true, 'session': 'd' * 64, 'backup_key': 'Kq3xY8vB2nLm9PzR4tW7sD1fG6hJ0aC5eU8iO2pQ9rS', 'pro_until': until, 'pro_kind': 'web'}), 200)),
+              'https://example.test'),
+          google: tokenGoogle());
+      web.brain.gated = true;
+      await web.brain.load();
+      await web.brain.signInGoogle();
+      expect((web.brain.pro, web.brain.proKind), (true, 'web'));
+      until = '';
+      await web.brain.refreshAccount(force: true);
+      expect(web.brain.pro, isFalse, reason: 'our server took it back');
     });
   });
 
@@ -178,6 +206,48 @@ void main() {
       await stranger.brain.signInGoogle();
       (stranger.services.drive as FakeDrive).files[list.single.id] = (list.single, bytes);
       await expectLater(stranger.brain.openDriveBackup(list.single), throwsA(anything));
+    });
+
+    test('extra lock (owner\'s review, 27 Oct): the account alone no longer opens the backup; the account + password does', () async {
+      final rig = Rig(server: keyServer(), google: tokenGoogle());
+      final b = rig.brain;
+      await b.load();
+      final drive = rig.services.drive as FakeDrive;
+      await b.signInGoogle();
+      b.data = AppData(notes: [Note(title: 'জমির দলিল', body: 'ব্যাংকের লকারে')]);
+      expect(await b.startDriveBackup(), isNull);
+      expect(await b.setDriveExtra('my-own-pass-123'), isNull);
+      expect(await b.driveExtraOn(), isTrue);
+      final list = await b.driveBackups();
+      expect(list, hasLength(1));
+      final bytes = drive.files[list.single.id]!.$2;
+      // Someone who took over the Google account, on a new phone: the account's key alone fails.
+      final thief = Rig(server: keyServer(), google: tokenGoogle());
+      await thief.brain.load();
+      await thief.brain.signInGoogle();
+      (thief.services.drive as FakeDrive).files[list.single.id] = (list.single, bytes);
+      await expectLater(thief.brain.openDriveBackup(list.single), throwsA(isA<WrongKey>()));
+      await expectLater(thief.brain.openDriveBackup(list.single, password: 'guess-1234'), throwsA(isA<WrongKey>()));
+      // The password alone (without the account's key) does not open it either.
+      final noAccount = Rig(server: keyServer('Zz9xY8vB2nLm9PzR4tW7sD1fG6hJ0aC5eU8iO2pQ9rS'), google: tokenGoogle('x@gmail.com'));
+      await noAccount.brain.load();
+      await noAccount.brain.signInGoogle();
+      (noAccount.services.drive as FakeDrive).files[list.single.id] = (list.single, bytes);
+      await expectLater(noAccount.brain.openDriveBackup(list.single, password: 'my-own-pass-123'), throwsA(isA<WrongKey>()));
+      // The owner on a new phone: account + password; later backups keep the lock.
+      final mine = Rig(server: keyServer(), google: tokenGoogle());
+      await mine.brain.load();
+      await mine.brain.signInGoogle();
+      (mine.services.drive as FakeDrive).files[list.single.id] = (list.single, bytes);
+      final (restored, _) = await mine.brain.openDriveBackup(list.single, password: 'my-own-pass-123');
+      expect(restored.notes.single.title, 'জমির দলিল');
+      expect(await mine.brain.driveExtraOn(), isTrue);
+      // Taken off: the next backup opens with the account alone again.
+      expect(await b.setDriveExtra(null), isNull);
+      final again = await b.driveBackups();
+      (thief.services.drive as FakeDrive).files[again.single.id] = (again.single, drive.files[again.single.id]!.$2);
+      final (open2, _) = await thief.brain.openDriveBackup(again.single);
+      expect(open2.notes.single.title, 'জমির দলিল');
     });
 
     test('backs up on leaving the app only when something changed', () async {

@@ -440,7 +440,8 @@ add_action('rest_api_init', function () {
         $last = $wpdb->get_row($wpdb->prepare('SELECT asked_at FROM ' . ma_fam_table('places') . ' WHERE user_id = %d', $s['other']), ARRAY_A);
         if (!$last || ma_acc_ts($last['asked_at'] ?? null) < time() - 30) {
             $wpdb->query($wpdb->prepare('INSERT INTO ' . ma_fam_table('places') . " (user_id, sealed, at, asked_at) VALUES (%d, '', %s, %s) ON DUPLICATE KEY UPDATE asked_at = VALUES(asked_at)", $s['other'], '1970-01-01 00:00:00', ma_fam_now()));
-            ma_push_member($s['other'], '', '', ['type' => 'locate']);
+            // Who asked goes along: the phone tells its owner each time (no silent tracking).
+            ma_push_member($s['other'], '', '', ['type' => 'locate', 'by' => mb_substr(trim((string) ($row['name'] ?: $row['email'])), 0, 40)]);
         }
         return ['ok' => true];
     });

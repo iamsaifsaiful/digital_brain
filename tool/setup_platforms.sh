@@ -16,8 +16,9 @@ if [ ! -f "$GRADLE_KTS" ]; then
   exit 1
 fi
 
-# local_auth needs Android 7.0 (API 24) or newer.
-sed -i -E 's/minSdk = flutter\.minSdkVersion/minSdk = maxOf(24, flutter.minSdkVersion)/' "$GRADLE_KTS"
+# Health Connect's library (androidx.health.connect:connect-client) needs
+# Android 8.0 (API 26) or newer; local_auth alone needed 24.
+sed -i -E 's/minSdk = flutter\.minSdkVersion/minSdk = maxOf(26, flutter.minSdkVersion)/' "$GRADLE_KTS"
 
 # Scheduled notifications need core library desugaring; the AppCompat theme
 # (for the fingerprint dialog) needs androidx.appcompat.
@@ -103,6 +104,19 @@ if ! grep -q 'play-services-location' "$GRADLE_KTS"; then
 
 dependencies {
     implementation("com.google.android.gms:play-services-location:21.3.0")
+}
+KTS
+fi
+
+# স্বাস্থ্য › Health Connect, read only (HealthConnect.kt). 1.1.0 is the
+# stable release (8 Oct 2025); it needs compileSdk 36 and AGP 8.9.1+, which
+# this Flutter's template already has.
+if ! grep -q 'connect-client' "$GRADLE_KTS"; then
+  cat >> "$GRADLE_KTS" <<'KTS'
+
+dependencies {
+    implementation("androidx.health.connect:connect-client:1.1.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 }
 KTS
 fi

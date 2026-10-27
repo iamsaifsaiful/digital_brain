@@ -28,6 +28,46 @@ class GoogleBackupPanel extends StatefulWidget {
 class _GoogleBackupPanelState extends State<GoogleBackupPanel> {
   bool _busy = false;
   String? _error;
+  bool _extra = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final on = await BrainScope.read(context).driveExtraOn();
+      if (mounted) setState(() => _extra = on);
+    });
+  }
+
+  /// অতিরিক্ত তালা: the member's own password on top of the account's key
+  /// (owner's review, 27 Oct) — someone who takes over the Google account
+  /// cannot open the backup without it.
+  Future<void> _toggleExtra() async {
+    final brain = BrainScope.read(context);
+    if (_extra) {
+      final ok = await confirmDialog(context,
+          title: tr('অতিরিক্ত তালা খুলবেন?'),
+          text: tr('এরপর শুধু Google অ্যাকাউন্ট দিয়েই ব্যাকআপ খোলা যাবে। এখনই নতুন ব্যাকআপ নেওয়া হবে।'),
+          yes: tr('খুলুন'));
+      if (!ok || !mounted || !await verifyUser(context, reason: tr('অতিরিক্ত তালা খুলতে যাচাই করুন'))) return;
+      await _run(() => brain.setDriveExtra(null));
+      if (mounted && _error == null) setState(() => _extra = false);
+      return;
+    }
+    final ok = await confirmDialog(context,
+        title: tr('অতিরিক্ত তালা'),
+        text: tr('ব্যাকআপে আপনার নিজের একটা পাসওয়ার্ডও লাগবে। কেউ আপনার Google অ্যাকাউন্ট দখল করলেও এই পাসওয়ার্ড ছাড়া ব্যাকআপ খুলতে পারবে না।\n\nসাবধান: পাসওয়ার্ড ভুলে গেলে নতুন ফোনে ব্যাকআপ আর খোলা যাবে না — কেউ উদ্ধার করতে পারবে না। কোথাও লিখে রাখুন।'),
+        yes: tr('পাসওয়ার্ড ঠিক করুন'));
+    if (!ok || !mounted) return;
+    final pw = await askBackupPassword(context, create: true);
+    if (pw == null || !mounted) return;
+    await _run(() => brain.setDriveExtra(pw));
+    if (!mounted) return;
+    if (_error == null) {
+      setState(() => _extra = true);
+      toast(context, tr('অতিরিক্ত তালা চালু — নতুন ব্যাকআপ নেওয়া হয়েছে।'));
+    }
+  }
 
   Future<void> _run(Future<String?> Function() job) async {
     setState(() {
@@ -152,12 +192,30 @@ class _GoogleBackupPanelState extends State<GoogleBackupPanel> {
                 onTap: () => needPro(context, ProFeature.autoBackup),
               ),
           ],
+          if (brain.driveOn)
+            ListRow(
+              key: const Key('drive-extra'),
+              leading: Icon(_extra ? Icons.lock_rounded : Icons.lock_open_rounded, color: _extra ? C.green : C.muted),
+              title: tr('অতিরিক্ত তালা (নিজের পাসওয়ার্ড)'),
+              subtitle: _extra ? tr('চালু — ব্যাকআপ খুলতে Google অ্যাকাউন্ট আর আপনার পাসওয়ার্ড দুটোই লাগে') : tr('বন্ধ — Google অ্যাকাউন্ট দখল হলেও ব্যাকআপ যেন খোলা না যায়'),
+              onTap: busy ? null : _toggleExtra,
+            ),
           const SizedBox(height: 4),
           TextButton.icon(onPressed: busy ? null : () => _restore(), icon: const Icon(Icons.restore_rounded), label: Text(tr('Drive থেকে ফিরিয়ে আনুন'))),
         ],
         if (_error != null) ...[
           const SizedBox(height: 8),
           Text(_error!, style: body(13, color: C.red, height: 1.45)),
+          if (brain.updateUrl.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: PrimaryButton(
+                  key: const Key('app-update'),
+                  label: tr('নতুন সংস্করণ নামান'),
+                  icon: Icons.system_update_rounded,
+                  height: 44,
+                  onPressed: () => brain.services.launcher.openUrl(Uri.parse(brain.updateUrl))),
+            ),
         ],
       ]),
     );
@@ -291,7 +349,8 @@ Future<void> restoreFromDrive(BuildContext context, {bool fresh = false, void Fu
     try {
       (restored, files) = await brain.openDriveBackup(f);
     } on WrongKey {
-      // Made before backups were locked with the account's key: its old password opens it once.
+      // Locked with the member's own extra password too, or made before backups were
+      // locked with the account's key (its old password opens it once).
       setBusy(false);
       if (!context.mounted) return;
       final pw = await askBackupPassword(context, create: false);
@@ -324,7 +383,7 @@ Future<void> restoreFromDrive(BuildContext context, {bool fresh = false, void Fu
     await brain.continueDriveBackup();
     if (context.mounted) toast(context, tr('ব্যাকআপ ফিরিয়ে আনা হয়েছে।'));
   } on WrongKey {
-    if (context.mounted) toast(context, tr('পুরোনো ব্যাকআপের পাসওয়ার্ড মেলেনি। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
+    if (context.mounted) toast(context, tr('ব্যাকআপের পাসওয়ার্ড মেলেনি। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
   } on NotABackup {
     if (context.mounted) toast(context, tr('ফাইলটি নষ্ট। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
   } on UnsupportedBackup {

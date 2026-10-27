@@ -2,7 +2,9 @@ import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 
+import 'services/health_connect.dart';
 import 'services/google_account.dart';
 import 'services/push.dart';
 
@@ -45,9 +47,15 @@ Future<void> main() async {
     ocr: DeviceTextReader(),
     weather: OpenMeteo(),
     compass: DeviceCompass(),
+    health: DeviceHealthConnect(),
   );
   await services.notifier.init();
-  // সমস্যার লগ: every error the app runs into, cleaned, for our server.
+  // সমস্যার লগ: every error the app runs into, cleaned, for our server —
+  // kept in a small file until sent, and sent a few seconds after.
+  ErrorLog.version = appVersion;
+  try {
+    await ErrorLog.open(await getApplicationSupportDirectory());
+  } catch (_) {}
   final shown = FlutterError.onError;
   FlutterError.onError = (d) {
     ErrorLog.record(d.exception, d.stack, version: appVersion);
@@ -58,6 +66,7 @@ Future<void> main() async {
     return false;
   };
   final brain = Brain(services);
+  ErrorLog.connect(services.server, () => brain.services.ai.session);
   nluAppVersion = appVersion;
   runApp(DigitalBrainApp(brain: brain));
   await brain.load();

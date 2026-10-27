@@ -99,6 +99,24 @@ class MainActivity : FlutterFragmentActivity() {
         stopBackup()
         super.onDestroy()
     }
+
+    // Back from the other app a document was opened in: its copy goes
+    // (owner's review, 27 Oct: no readable copies left in the cache).
+    override fun onResume() {
+        super.onResume()
+        inFront = true
+        clearOpenCopies()
+    }
+
+    /** The app is on the screen now (a reminder's page then opens over it, not instead of it). */
+    private var inFront = false
+
+    private fun clearOpenCopies() {
+        try {
+            java.io.File(cacheDir, "open").listFiles()?.forEach { it.delete() }
+        } catch (_: Exception) {
+        }
+    }
     private var launchChannel: MethodChannel? = null
     private val google by lazy { GoogleAuth(this) }
 
@@ -106,6 +124,15 @@ class MainActivity : FlutterFragmentActivity() {
     private var firstLaunch: Map<String, Any>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        CrashLog.install(this)
+        // A reminder ringing (or its notification tapped): its own full-screen
+        // page, and the app is not opened (owner, 27 Oct).
+        if (savedInstanceState == null && AlarmActivity.reminderOf(intent) != null) {
+            startActivity(AlarmActivity.from(this, intent))
+            super.onCreate(null)
+            finish()
+            return
+        }
         if (!packageName.endsWith(".preview")) {
             window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         }
@@ -119,12 +146,21 @@ class MainActivity : FlutterFragmentActivity() {
             intent = Intent(this, MainActivity::class.java).setAction(Intent.ACTION_MAIN)
         }
         super.onCreate(savedInstanceState)
+        HealthConnect.register(this)
         CustomTone.regrant(this)
+        clearOpenCopies()
         if (isReminderIntent(intent)) setOverLock(true)
         if (savedInstanceState == null) firstLaunch = launchOf(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
+        // The same while the app sits in the background: the page alone (the
+        // app goes back where it was); never told to the app as a tap.
+        if (AlarmActivity.reminderOf(intent) != null) {
+            startActivity(AlarmActivity.from(this, intent))
+            if (!inFront) moveTaskToBack(true)
+            return
+        }
         if (isReminderIntent(intent)) setOverLock(true)
         super.onNewIntent(intent)
         val l = launchOf(intent)
@@ -155,17 +191,24 @@ class MainActivity : FlutterFragmentActivity() {
                 // A tap on a notification from our server: "push" (shown by the app)
                 // or "type" (shown by Firebase while the app was closed).
                 val type = i.getStringExtra("push") ?: i.getStringExtra("type")
-                if (type == "blood" || type == "feedback") {
+                // A site notification that asks to speak ("চাপলে মাইক খুলবে"): the mic opens.
+                val mic = type == "server_mic" || (type == "server" && i.getStringExtra("mic") == "1")
+                if (type == "blood" || type == "feedback" || mic) {
                     i.removeExtra("push")
                     i.removeExtra("type")
-                    mapOf("action" to "push:$type")
+                    i.removeExtra("mic")
+                    mapOf("action" to if (mic) "voice" else "push:$type")
                 } else null
             }
         }
     }
 
-    /** A shared file's bytes, name and type (up to 25 MB). */
-    private fun readShared(u: Uri): Map<String, Any>? = try {
+    /**
+     * A shared file's bytes, name and type (up to 25 MB). Only content://
+     * from another app (owner's review, 27 Oct): a file:// path or our own
+     * provider could point into this app's private folder.
+     */
+    private fun readShared(u: Uri): Map<String, Any>? = if (u.scheme != "content" || u.authority.orEmpty().startsWith(packageName)) null else try {
         var name = "file"
         var size = -1L
         contentResolver.query(u, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { c ->
@@ -357,6 +400,7 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun onPause() {
+        inFront = false
         window.decorView.removeCallbacks(stopPreview)
         preview?.stop()
         super.onPause()
@@ -651,6 +695,9 @@ class MainActivity : FlutterFragmentActivity() {
         }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/steps").setMethodCallHandler { call, result ->
             Steps.handle(this, call, result)
+        }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/health").setMethodCallHandler { call, result ->
+            HealthConnect.handle(this, call, result)
         }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/push").setMethodCallHandler { call, result ->
             PushService.handle(this, call, result)

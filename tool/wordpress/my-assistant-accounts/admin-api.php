@@ -10,6 +10,28 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+/**
+ * The oldest admin app this server works with (owner, 27 Oct: "নতুন আপডেট
+ * আসলেই পুরাতন এপে লগইন নিতে গেলেই আপডেট করতে বলবে"). Raised with each
+ * release whose app the plugin needs; an older app is told to update — at
+ * sign-in and on every call.
+ */
+const MA_ADMIN_APP_MIN = '1.13.0';
+
+function ma_app_update_url() {
+    $u = (string) get_option('ma_app_update_url', '');
+    return $u !== '' ? $u : 'https://github.com/iamsaifsaiful/digital_brain/releases';
+}
+
+/** The update answer when the admin app is older than [MA_ADMIN_APP_MIN] (or too old to say its version). */
+function ma_admin_app_update(WP_REST_Request $req) {
+    $v = trim((string) $req->get_header('x-ma-app-version'));
+    if ($v !== '' && version_compare($v, MA_ADMIN_APP_MIN, '>=')) {
+        return null;
+    }
+    return new WP_Error('update', 'update the admin app', ['status' => 426, 'min' => MA_ADMIN_APP_MIN, 'have' => $v, 'url' => ma_app_update_url()]);
+}
+
 /** The admin behind the request (an admin-app session of a WordPress user who may manage), or null. */
 function ma_admin_of(WP_REST_Request $req) {
     $s = ma_session_row($req);
@@ -24,14 +46,19 @@ function ma_admin_of(WP_REST_Request $req) {
 }
 
 /**
- * Email + password (a WordPress account with the admin role). Five wrong
- * tries for an address or from a network wait 15 minutes.
+ * Email + password (a WordPress account with the admin role), then the
+ * 6-digit code from the admin's authenticator app. Five wrong tries for an
+ * address or from a network wait 15 minutes. Each sign-in is e-mailed.
  */
 function ma_admin_login(WP_REST_Request $req) {
     global $wpdb;
+    $old = ma_admin_app_update($req);
+    if ($old) {
+        return $old;
+    }
     $email = strtolower(sanitize_email((string) $req->get_param('email')));
     $pass = (string) $req->get_param('password');
-    $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : 'x';
+    $ip = ma_client_ip();
     $keys = ['ma_adm_fail_' . md5($email), 'ma_adm_fail_' . md5($ip)];
     foreach ($keys as $k) {
         if ((int) get_transient($k) >= 5) {
@@ -45,9 +72,29 @@ function ma_admin_login(WP_REST_Request $req) {
         }
         return new WP_Error('login', 'wrong email or password', ['status' => 401]);
     }
+    // Two-step sign-in (owner's review, 27 Oct): required for every admin.
+    if (!ma_totp_on($user->ID)) {
+        // Which account (the password was right): two-step sign-in is set up per WordPress account.
+        $who = ['login' => $user->user_login, 'email' => $user->user_email];
+        if (get_user_meta($user->ID, 'ma_totp', true) !== '') {
+            return new WP_Error('otp_unreadable', 'two-step key cannot be read', ['status' => 403, 'account' => $who]);
+        }
+        return new WP_Error('otp_setup', 'set up two-step sign-in on the site first', ['status' => 403, 'account' => $who]);
+    }
+    $code = (string) $req->get_param('code');
+    if ($code === '') {
+        return new WP_Error('otp_required', 'code needed', ['status' => 401]);
+    }
+    if (!ma_totp_check($user->ID, $code)) {
+        foreach ($keys as $k) {
+            set_transient($k, (int) get_transient($k) + 1, 15 * MINUTE_IN_SECONDS);
+        }
+        return new WP_Error('otp_wrong', 'wrong code', ['status' => 401]);
+    }
     foreach ($keys as $k) {
         delete_transient($k);
     }
+    ma_sec_login_mail($user);
     return ['session' => ma_ai_new_session($user->ID, 'admin'), 'name' => $user->display_name, 'email' => $user->user_email];
 }
 
@@ -56,6 +103,10 @@ function ma_admin_route($path, $method, $cb) {
         'methods' => $method,
         'callback' => $cb,
         'permission_callback' => function (WP_REST_Request $req) {
+            $old = ma_admin_app_update($req);
+            if ($old) {
+                return $old;
+            }
             return ma_admin_of($req) !== null ? true : new WP_Error('admin', 'not an admin', ['status' => 403]);
         },
     ]);
@@ -74,6 +125,8 @@ function ma_admin_member_json($r) {
         'status_label' => $labels[$st][0],
         'pro_until' => $r['pro_until'] ? gmdate('c', ma_acc_ts($r['pro_until'])) : null,
         'pro_kind' => $r['pro_kind'],
+        'source' => ma_acc_source_key($r),
+        'source_label' => ma_acc_source_label($r),
         'joined' => gmdate('c', ma_acc_ts($r['created_at'])),
         'last_seen' => gmdate('c', ma_acc_ts($r['last_seen'])),
         'version' => trim($r['app_version'] . ' ' . $r['edition']),
@@ -131,6 +184,8 @@ add_action('rest_api_init', function () {
             'pro' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $t WHERE pro_until > '$now' AND pro_kind <> 'trial' AND google_sub NOT LIKE 'pending:%'"),
             'trial' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $t WHERE pro_until > '$now' AND pro_kind = 'trial' AND google_sub NOT LIKE 'pending:%'"),
             'new_week' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $t WHERE created_at > '$week' AND google_sub NOT LIKE 'pending:%'"),
+            'new_today' => ma_acc_member_stats()['today_new'],
+            'new_month' => ma_acc_member_stats()['month_new'],
             'active_week' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $t WHERE last_seen > '$week' AND google_sub NOT LIKE 'pending:%'"),
             'pending_payments' => ma_pay_pending_count(),
             'income_month' => (int) $wpdb->get_var($wpdb->prepare('SELECT COALESCE(SUM(amount),0) FROM ' . ma_pay_table() . " WHERE status = 'approved' AND reviewed_at >= %s", gmdate('Y-m-01'))),
@@ -165,18 +220,26 @@ add_action('rest_api_init', function () {
         return new WP_REST_Response(['ok' => $ok, 'message' => $msg], $ok ? 200 : 409);
     });
 
+    // q, status, joined ('today', 'week', 'month', 'YYYY-MM', 'YYYY-MM-DD'), src, page.
     ma_admin_route('/members', 'GET', function (WP_REST_Request $req) {
-        global $wpdb;
-        $t = ma_acc_table();
         $q = sanitize_text_field((string) $req->get_param('q'));
+        $status = sanitize_key((string) $req->get_param('status'));
+        $joined = sanitize_text_field((string) $req->get_param('joined'));
+        $src = sanitize_key((string) $req->get_param('src'));
         $page = max(1, (int) $req->get_param('page'));
-        if ($q !== '') {
-            $like = '%' . $wpdb->esc_like($q) . '%';
-            $rows = $wpdb->get_results($wpdb->prepare("SELECT * FROM $t WHERE name LIKE %s OR email LIKE %s ORDER BY last_seen DESC LIMIT 30 OFFSET %d", $like, $like, ($page - 1) * 30), ARRAY_A);
-        } else {
-            $rows = $wpdb->get_results($wpdb->prepare("SELECT * FROM $t ORDER BY last_seen DESC LIMIT 30 OFFSET %d", ($page - 1) * 30), ARRAY_A);
-        }
-        return ['members' => array_map('ma_admin_member_json', $rows)];
+        $rows = ma_acc_member_rows($q, $status, $joined, $src, 30, ($page - 1) * 30);
+        return ['members' => array_map('ma_admin_member_json', $rows), 'count' => ma_acc_member_count($q, $status, $joined, $src), 'words' => ma_acc_filter_words($q, $status, $joined, $src)];
+    });
+
+    // New members per day and month, Premium by source, and the figures.
+    ma_admin_route('/members/growth', 'GET', function () {
+        return ma_acc_growth() + ['stats' => ma_acc_member_stats(), 'sources_all' => ma_acc_sources()];
+    });
+
+    // The list as a PDF: a 10-minute link the phone's browser opens.
+    ma_admin_route('/members/print-link', 'POST', function (WP_REST_Request $req) {
+        $a = ma_admin_of($req);
+        return ['url' => ma_acc_print_link($a['id'], sanitize_text_field((string) $req->get_param('q')), sanitize_key((string) $req->get_param('status')), sanitize_text_field((string) $req->get_param('joined')), sanitize_key((string) $req->get_param('src')))];
     });
 
     ma_admin_route('/members/(?P<id>\d+)', 'POST', function (WP_REST_Request $req) {
@@ -229,7 +292,18 @@ add_action('rest_api_init', function () {
         return ['ok' => true, 'sent' => ma_push_broadcast($title, $body, $where)];
     });
 
-    /** নোটিফিকেশনের লগ: what members' phones show and what we pushed (the same as the site). */
+    /** What goes out, when, and how many a day (the site's নোটিফিকেশন page). */
+    ma_admin_route('/notice-stats', 'GET', function () {
+        ma_note_tick_soon();
+        return ma_note_overview();
+    });
+
+    /** One day: which notifications, what, when; and how many each member gets. */
+    ma_admin_route('/notice-day', 'GET', function (WP_REST_Request $req) {
+        return ma_note_day(sanitize_text_field((string) $req->get_param('day')));
+    });
+
+    /** নোটিফিকেশনের লগ (admin app 1.9 and older). */
     ma_admin_route('/notice-log', 'GET', function (WP_REST_Request $req) {
         $q = sanitize_text_field((string) $req->get_param('q'));
         $when = sanitize_key((string) $req->get_param('when'));

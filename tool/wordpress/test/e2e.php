@@ -64,9 +64,12 @@ add_filter('pre_http_request', function ($pre, $args, $url) use (&$sent) {
 }, 10, 3);
 add_filter('pre_wp_mail', function ($r, $atts) use (&$sent) { $sent['mail'][] = $atts; return true; }, 10, 2);
 
+$GLOBALS['adminAppVersion'] = '9.9.9';
 function call($method, $route, $body = [], $session = null) {
     $req = new WP_REST_Request($method, '/my-assistant/v1' . $route);
     if ($session) $req->set_header('authorization', 'Bearer ' . $session);
+    // The admin app says its version (an older one is told to update).
+    if (str_starts_with($route, '/admin') && $GLOBALS['adminAppVersion'] !== '') $req->set_header('x-ma-app-version', $GLOBALS['adminAppVersion']);
     if ($method === 'GET') { foreach ($body as $k => $v) $req->set_param($k, $v); }
     else { $req->set_header('content-type', 'application/json'); $req->set_body(wp_json_encode($body)); }
     $res = rest_do_request($req);
@@ -75,6 +78,12 @@ function call($method, $route, $body = [], $session = null) {
 $long = str_repeat('x', 120);
 
 echo "\nmember\n";
+update_option('ma_app_min', '2.56.0');
+[$code, $d] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '2.14.0', 'edition' => 'play']);
+check($code === 426 && ($d['data']['min'] ?? '') === '2.56.0', 'members: an app older than the minimum is asked to update');
+[$code] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '2.56.0+127', 'edition' => 'play']);
+check($code === 200, 'members: the minimum or newer signs in');
+delete_option('ma_app_min');
 [$code, $d] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '2.14.0', 'edition' => 'play']);
 check($code === 200 && strlen($d['session'] ?? '') === 64, 'login gives a session');
 // Pro's daily AI limit is 30 (21 Oct 2026 brief; was 50).
@@ -144,8 +153,34 @@ $plain = wp_insert_user(['user_login' => 'writer@gmail.com', 'user_email' => 'wr
 check($code === 401, 'a site user without the admin role cannot');
 [$code] = call('POST', '/admin/login', ['email' => 'boss@gmail.com', 'password' => 'wrong']);
 check($code === 401, 'wrong password refused');
+// An older admin app (or one too old to say its version) is told to update, before anything else.
+$GLOBALS['adminAppVersion'] = '';
 [$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123']);
-check($code === 200 && strlen($d['session'] ?? '') === 64 && $d['name'] === 'Boss', 'admin app login with email + password');
+check($code === 426 && ($d['code'] ?? '') === 'update' && ($d['data']['min'] ?? '') === MA_ADMIN_APP_MIN && str_starts_with($d['data']['url'] ?? '', 'https://'), 'admin app: too old → asked to update, with where');
+$GLOBALS['adminAppVersion'] = '1.12.0';
+[$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123']);
+check($code === 426, 'admin app: 1.12.0 → asked to update');
+$GLOBALS['adminAppVersion'] = '9.9.9';
+// Two-step sign-in (owner's review, 27 Oct): no code set up → refused; then the authenticator's code.
+[$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123']);
+check($code === 403 && ($d['code'] ?? '') === 'otp_setup' && ($d['data']['account']['email'] ?? '') === 'boss@gmail.com', 'admin app: two-step sign-in must be set up first (says which account)');
+$totp = ma_b32_encode(random_bytes(20));
+update_user_meta($bossId, 'ma_totp', ma_sec_seal($totp));
+check(str_starts_with((string) get_user_meta($bossId, 'ma_totp', true), 'enc1:') && ma_totp_secret($bossId) === $totp, 'two-step: the secret is kept sealed');
+[$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123']);
+check($code === 401 && ($d['code'] ?? '') === 'otp_required', 'two-step: the password alone asks for the code');
+[$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123', 'code' => '000000']);
+check($code === 401 && ($d['code'] ?? '') === 'otp_wrong', 'two-step: a wrong code refused');
+$mails0 = count($sent['mail']);
+$otp = ma_totp_code($totp, intdiv(time(), 30));
+[$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123', 'code' => $otp]);
+check($code === 200 && strlen($d['session'] ?? '') === 64 && $d['name'] === 'Boss', 'admin app login with email + password + code');
+check(count($sent['mail']) === $mails0 + 1 && str_contains($sent['mail'][$mails0]['subject'] ?? '', 'নতুন লগইন'), 'two-step: the admin is e-mailed about the sign-in');
+[$code] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123', 'code' => $otp]);
+check($code === 401, 'two-step: the same code cannot be used twice');
+$sesRow = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . ma_ai_sessions_table() . ' WHERE token_hash = %s', hash('sha256', $d['session'])), ARRAY_A);
+check($sesRow && abs(ma_acc_ts($sesRow['expires_at']) - time() - 7 * DAY_IN_SECONDS) < 120, 'admin sessions last 7 days');
+check(ma_totp_code('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', 1) === '287082', 'TOTP matches RFC 6238 (SHA-1, 59 s)');
 $boss = $d['session'];
 [$code] = call('GET', '/me', [], $boss);
 check($code === 401, 'an admin session is not a member session');
@@ -156,7 +191,7 @@ try { ma_pay_submit(); } catch (Exception $e) { check(str_contains($e->getMessag
 $p = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}ma_payments", ARRAY_A);
 check($p && $p['trx'] === 'BJK4-Q9X2PL' && $p['email'] === 'karim@gmail.com' && (int) $p['amount'] === 999, 'kept: email lower-case, TrxID upper-case, price from settings');
 check(count($sent['fcm']) === 1 && $sent['fcm'][0]['message']['token'] === 'boss-fcm-token-1234567890', 'admin phone pushed: ' . ($sent['fcm'][0]['message']['notification']['title'] ?? ''));
-check(count($sent['mail']) === 1, 'admin emailed');
+check(count($sent['mail']) === $mails0 + 2 && str_contains(end($sent['mail'])['subject'] ?? '', 'নতুন পেমেন্ট'), 'admin emailed');
 try { ma_pay_submit(); } catch (Exception $e) { check(str_contains($e->getMessage(), 'ma_pay=dup'), 'same TrxID twice refused'); }
 [$code] = call('GET', '/admin/summary', [], $ses);
 check($code === 403, 'member session cannot use admin API');
@@ -814,7 +849,7 @@ $_GET = ['page' => 'my-assistant', 'tab' => 'notices', 'nq' => 'log@gmail'];
 ob_start();
 ma_acc_admin();
 $html = ob_get_clean();
-check(str_contains($html, 'কার কাছে কী গেছে') && str_contains($html, 'মতামতের উত্তর') && str_contains($html, 'এখনই পাঠান') && !preg_match('/(Warning|Notice|Fatal|Deprecated)\b.*on line/', $html), 'site: the log and "send now" on the নোটিফিকেশন tab');
+check(str_contains($html, 'কোন কোন নোটিফিকেশন') && str_contains($html, 'মতামতের উত্তর') && str_contains($html, 'এখনই পাঠান') && !preg_match('/(Warning|Notice|Fatal|Deprecated)\b.*on line/', $html), 'site: the log and "send now" on the নোটিফিকেশন tab');
 
 echo "  — হিসাব: income, expense, investors (owner only)\n";
 $paid = (int) $wpdb->get_var('SELECT COALESCE(SUM(amount),0) FROM ' . ma_pay_table() . " WHERE status = 'approved'");
@@ -864,7 +899,293 @@ ob_start();
 ma_acc_admin();
 $html = ob_get_clean();
 check(str_contains($html, 'সমস্যার লগ') && str_contains($html, 'StateError') && !preg_match('/(Warning|Notice|Fatal|Deprecated)\b.*on line/', $html), 'site: the সমস্যার লগ tab renders');
+// Problems the app handled but the member felt (owner, 27 Oct): apart from crashes, with a plain meaning.
+call('POST', '/errors', ['items' => [
+    ['level' => 'problem', 'kind' => 'AiError', 'message' => 'timeout', 'stack' => 'package:digital_brain/state/brain.dart:1555', 'version' => '2.55.12', 'count' => 3],
+    ['level' => 'problem', 'kind' => 'Voice', 'message' => 'error_network', 'stack' => '', 'version' => '2.55.12'],
+    ['level' => 'crash', 'kind' => 'Android:IllegalStateException', 'message' => 'x', 'stack' => 'com.iamsaifsaiful.digital_brain.MainActivity.onCreate:120', 'version' => '2.55.12'],
+]], $sonSes);
+[$code, $d] = call('GET', '/admin/errors', ['level' => 'problem'], $bossSes);
+$ai = current(array_filter($d['errors'], fn($e) => $e['kind'] === 'AiError'));
+check($code === 200 && count($d['errors']) === 2 && $ai && $ai['level'] === 'problem' && $ai['count'] === 3 && str_contains($ai['meaning'], 'সময়মতো'), 'errors: problems apart, with a plain meaning');
+check($d['counts']['crash'] >= 5 && $d['counts']['problem'] === 4 && $d['counts']['day'] >= 3, 'errors: counted by kind (' . json_encode($d['counts']) . ')');
+[$code, $d] = call('GET', '/admin/errors', ['level' => 'crash'], $bossSes);
+check(array_filter($d['errors'], fn($e) => str_contains($e['meaning'], 'Android')) && !array_filter($d['errors'], fn($e) => $e['level'] !== 'crash'), 'errors: an Android crash among the crashes');
+$_GET = ['page' => 'my-assistant', 'tab' => 'errors', 'lv' => 'problem'];
+ob_start();
+ma_acc_admin();
+$html = ob_get_clean();
+check(str_contains($html, 'ফোন থেকে সরাসরি') && str_contains($html, 'কথা শোনার সময় ইন্টারনেট পায়নি') && !str_contains($html, 'StateError') && !preg_match('/(Warning|Notice|Fatal|Deprecated)\b.*on line/', $html), 'site: problems filter on the সমস্যার লগ tab');
 [$code, $d] = call('POST', '/admin/errors/clear', [], $bossSes);
 check($code === 200 && $d['errors'] === [], 'errors: cleared by an admin');
+
+
+// ── 27 Oct: members by date and source, PDF, bKash on its own, server pushes, inbox, হিসাব ──
+echo "\n  — members by join date and Premium source\n";
+$U = ma_acc_table();
+$mkm = function ($email, $days_ago, $kind = '', $pro = false) use ($wpdb, $U) {
+    $at = gmdate('Y-m-d H:i:s', time() - $days_ago * DAY_IN_SECONDS - 60);
+    $wpdb->insert($U, ['google_sub' => 'g-' . $email, 'email' => $email, 'name' => $email, 'created_at' => $at, 'last_seen' => $at, 'pro_kind' => $kind, 'pro_until' => $pro ? gmdate('Y-m-d H:i:s', time() + 30 * DAY_IN_SECONDS) : null]);
+    return (int) $wpdb->insert_id;
+};
+$before = ma_acc_member_stats();
+$mkm('today1@x.com', 0);
+$mkm('today2@x.com', 0, 'web', true);
+$mkm('old@x.com', 45, 'manual', true);
+$mkm('play@x.com', 3, 'play:pro_yearly', true);
+$st = ma_acc_member_stats();
+check($st['today_new'] === $before['today_new'] + 2, 'members: new today counted (' . $st['today_new'] . ')');
+[$code, $d] = call('GET', '/admin/members', ['joined' => 'today'], $bossSes);
+$emails = array_column($d['members'], 'email');
+check($code === 200 && in_array('today1@x.com', $emails, true) && !in_array('old@x.com', $emails, true) && $d['count'] === $st['today_new'], 'members: joined=today filter');
+$oldMonth = gmdate('Y-m', time() + ma_acc_tz_off() - 45 * DAY_IN_SECONDS);
+[$code, $d] = call('GET', '/admin/members', ['joined' => $oldMonth], $bossSes);
+check(in_array('old@x.com', array_column($d['members'], 'email'), true) && !in_array('today1@x.com', array_column($d['members'], 'email'), true), 'members: a month (' . $oldMonth . ')');
+[$code, $d] = call('GET', '/admin/members', ['src' => 'play'], $bossSes);
+check(array_column($d['members'], 'email') === ['play@x.com'] && $d['members'][0]['source_label'] === 'Google Play', 'members: by Premium source (Google Play)');
+[$code, $g] = call('GET', '/admin/members/growth', [], $bossSes);
+check($code === 200 && count($g['days']) === 30 && count($g['months']) === 12 && end($g['days'])['n'] === $st['today_new'] && $g['stats']['month_new'] >= 2, 'members: growth per day (30) and month (12)');
+$src = array_column($g['sources'], 'n', 'key');
+check(($src['web'] ?? 0) >= 1 && ($src['play'] ?? 0) === 1 && ($src['manual'] ?? 0) >= 1, 'members: Premium counted by source');
+// The old "manual" Premium that came from a website payment becomes "web" (once).
+$mid = $mkm('paidbefore@x.com', 10, 'manual', true);
+$wpdb->insert(ma_pay_table(), ['created_at' => gmdate('Y-m-d H:i:s'), 'email' => 'paidbefore@x.com', 'plan' => 'yearly', 'amount' => 999, 'method' => 'বিকাশ', 'trx' => 'OLDPAY0001', 'status' => 'approved', 'reviewed_at' => gmdate('Y-m-d H:i:s')]);
+delete_option('ma_acc_src_mig');
+ma_acc_source_migrate();
+check($wpdb->get_var("SELECT pro_kind FROM $U WHERE id = $mid") === 'web' && $wpdb->get_var("SELECT pro_kind FROM $U WHERE email = 'old@x.com'") === 'manual', 'members: old website payments shown as ওয়েবসাইট, gifts stay অ্যাডমিন');
+[$code, $d] = call('POST', '/admin/members/print-link', ['joined' => 'today'], $bossSes);
+parse_str((string) parse_url($d['url'] ?? '', PHP_URL_QUERY), $pq);
+$job = get_transient('ma_print_' . hash('sha256', $pq['ma_members_print'] ?? ''));
+check($code === 200 && is_array($job) && $job['joined'] === 'today', 'PDF: a 10-minute link for the admin app');
+check(is_array(ma_acc_print_take($pq['ma_members_print'])) && ma_acc_print_take($pq['ma_members_print']) === null, 'PDF: the link opens once only');
+$_SERVER['REMOTE_ADDR'] = '162.158.10.20';
+$_SERVER['HTTP_CF_CONNECTING_IP'] = '103.4.145.9';
+check(ma_client_ip() === '103.4.145.9', 'client IP: through Cloudflare, the visitor\'s own address');
+$_SERVER['REMOTE_ADDR'] = '45.12.1.1';
+check(ma_client_ip() === '45.12.1.1', 'client IP: the Cloudflare header from anywhere else is not believed');
+$_SERVER['REMOTE_ADDR'] = '2606:4700:10::6816:1';
+check(ma_client_ip() === '103.4.145.9' && !ma_ip_in_cloudflare('2001:db8::1'), 'client IP: Cloudflare over IPv6 too');
+unset($_SERVER['HTTP_CF_CONNECTING_IP']);
+$_SERVER['REMOTE_ADDR'] = '127.0.0.1';
+[$code] = call('POST', '/admin/members/print-link', [], $ses);
+check($code === 403, 'PDF: members cannot make one');
+$html = ma_acc_print_html('', '', 'today', '');
+check(str_contains($html, 'today1@x.com') && !str_contains($html, 'old@x.com') && str_contains($html, 'window.print()') && str_contains($html, 'আজ যোগ দিয়েছেন'), 'PDF: the print page has the filtered list');
+
+echo "\n  — bKash: Premium on by itself\n";
+$sms = 'You have received Tk 999.00 from 01712345678. Ref 12. Fee Tk 0.00. Balance Tk 5,210.50. TrxID 9A7KX2PQ1M at 27/10/2026 15:02';
+$p = ma_bk_parse($sms);
+check($p && $p['trx'] === '9A7KX2PQ1M' && $p['amount'] === 999 && $p['sender'] === '01712345678' && $p['at'] !== '', 'bKash: an English “received” message read (balance left out)');
+$p2 = ma_bk_parse('আপনি ০১৮১২৩৪৫৬৭৮ থেকে ৯৯.০০ টাকা পেয়েছেন। TrxID BJR4XYZ123 সময় ২৭/১০/২০২৬ ১০:১৫');
+check($p2 && $p2['amount'] === 99 && $p2['sender'] === '01812345678' && $p2['trx'] === 'BJR4XYZ123', 'bKash: a Bangla message read');
+check(ma_bk_parse('Cash In Tk 500.00 from 01712345678 successful. TrxID 8J7K6L5M4N') === null && ma_bk_parse('Send Money Tk 50.00 to 01712345678 successful. TrxID 7J7K6L5M4N') === null, 'bKash: cash-in and sending are not payments');
+[$code, $d] = call('POST', '/admin/bkash/key', [], $bossSes);
+$bkey = $d['key'] ?? '';
+check($code === 200 && preg_match('/^bk_[a-f0-9]{48}$/', $bkey), 'bKash: the payment-SIM phone gets its own key');
+$smscall = function ($key, $items) {
+    $req = new WP_REST_Request('POST', '/my-assistant/v1/bkash/sms');
+    $req->set_header('x-ma-bkash-key', $key);
+    $req->set_header('content-type', 'application/json');
+    $req->set_body(wp_json_encode(['items' => $items]));
+    $res = rest_do_request($req);
+    return [$res->get_status(), rest_get_server()->response_to_data($res, false)];
+};
+[$code] = $smscall('bk_' . str_repeat('0', 48), [$p]);
+check($code === 403, 'bKash: a wrong key is refused');
+[$code] = call('POST', '/admin/bkash/key', [], $ses);
+check($code === 403, 'bKash: a member cannot make a key');
+// Automatic approval is off until an admin turns it on (owner's review, 27 Oct).
+[$code, $d] = call('GET', '/admin/bkash', [], $bossSes);
+check($code === 200 && $d['auto'] === false, 'bKash: automatic approval starts off');
+call('POST', '/admin/bkash/settings', ['auto' => true], $bossSes);
+$p['verified'] = true;
+// 0) a faked "bKash" message (its balance could not be checked on the phone): never approved by itself.
+$mkm('spoof@x.com', 2);
+$wpdb->insert(ma_pay_table(), ['created_at' => gmdate('Y-m-d H:i:s'), 'email' => 'spoof@x.com', 'plan' => 'yearly', 'amount' => 999, 'method' => 'বিকাশ', 'sender' => '01555555555', 'trx' => 'SPOOFED001', 'status' => 'pending']);
+[$code, $d] = $smscall($bkey, [['trx' => 'SPOOFED001', 'amount' => 999, 'sender' => '01555555555', 'at' => gmdate('c'), 'verified' => false]]);
+$ps = $wpdb->get_row('SELECT * FROM ' . ma_pay_table() . " WHERE trx = 'SPOOFED001'", ARRAY_A);
+check($d['results'] === ['found'] && $ps['status'] === 'pending' && str_contains($ps['reason'], 'ব্যালেন্স') && $wpdb->get_var("SELECT pro_until FROM $U WHERE email = 'spoof@x.com'") === null, 'bKash: a message the phone could not check against the balance waits for an admin');
+// 1) the form first, then the money.
+$U2 = $mkm('bkpayer@x.com', 2);
+$wpdb->insert(ma_pay_table(), ['created_at' => gmdate('Y-m-d H:i:s'), 'email' => 'bkpayer@x.com', 'plan' => 'yearly', 'amount' => 999, 'method' => 'বিকাশ', 'sender' => '01712-345678', 'trx' => '9a7kx2pq1m', 'status' => 'pending']);
+$pid1 = (int) $wpdb->insert_id;
+$fcm0 = count($sent['fcm']);
+[$code, $d] = $smscall($bkey, [$p, ['trx' => 'x', 'amount' => 5]]);
+$row = $wpdb->get_row("SELECT * FROM $U WHERE id = $U2", ARRAY_A);
+check($code === 200 && $d['results'] === ['matched', 'bad'] && $wpdb->get_var("SELECT status FROM " . ma_pay_table() . " WHERE id = $pid1") === 'approved', 'bKash: money arrives → the waiting payment is approved');
+check(ma_acc_status($row) === 'pro' && $row['pro_kind'] === 'bkash' && ma_acc_source_label($row) === 'বিকাশ — নিজে থেকে মিলেছে', 'bKash: Premium on, source বিকাশ (নিজে থেকে)');
+$bkrow = $wpdb->get_row('SELECT * FROM ' . ma_bk_table() . " WHERE trx = '9A7KX2PQ1M'", ARRAY_A);
+check($bkrow && (int) $bkrow['amount'] === 999 && $bkrow['sender'] === '01712345678' && !str_contains(wp_json_encode($bkrow), '5,210') && !str_contains(wp_json_encode($bkrow), 'Balance'), 'bKash: only amount, TrxID, number and time kept');
+[$code, $d] = $smscall($bkey, [$p]);
+check($d['results'] === ['matched'] && (int) $wpdb->get_var('SELECT COUNT(*) FROM ' . ma_bk_table() . " WHERE trx = '9A7KX2PQ1M'") === 1, 'bKash: the same message twice is kept once');
+// 2) the money first, then the form.
+$smscall($bkey, [['trx' => 'MONEYFIRST1', 'amount' => 99, 'sender' => '01911111111', 'at' => gmdate('c'), 'verified' => true]]);
+$wpdb->insert(ma_pay_table(), ['created_at' => gmdate('Y-m-d H:i:s'), 'email' => 'later@x.com', 'plan' => 'monthly', 'amount' => 99, 'method' => 'বিকাশ', 'sender' => '01911111111', 'trx' => 'MONEYFIRST1', 'status' => 'pending']);
+$pid2 = (int) $wpdb->insert_id;
+check(ma_bk_on_payment($pid2) === true && $wpdb->get_var("SELECT pro_kind FROM $U WHERE email = 'later@x.com'") === 'bkash', 'bKash: the form after the money → Premium at once (a member waiting to sign in)');
+// 3) too little money, or another number: left for an admin.
+$wpdb->insert(ma_pay_table(), ['created_at' => gmdate('Y-m-d H:i:s'), 'email' => 'short@x.com', 'plan' => 'yearly', 'amount' => 999, 'method' => 'বিকাশ', 'sender' => '01700000000', 'trx' => 'SHORTPAY01', 'status' => 'pending']);
+$pid3 = (int) $wpdb->insert_id;
+[$code, $d] = $smscall($bkey, [['trx' => 'SHORTPAY01', 'amount' => 500, 'sender' => '01700000000']]);
+$p3 = $wpdb->get_row('SELECT * FROM ' . ma_pay_table() . " WHERE id = $pid3", ARRAY_A);
+check($d['results'] === ['short'] && $p3['status'] === 'pending' && str_contains($p3['reason'], '৳৫০০'), 'bKash: less than the price → waits for an admin, reason written');
+$wpdb->insert(ma_pay_table(), ['created_at' => gmdate('Y-m-d H:i:s'), 'email' => 'other@x.com', 'plan' => 'monthly', 'amount' => 99, 'method' => 'বিকাশ', 'sender' => '01799999999', 'trx' => 'OTHERNO001', 'status' => 'pending']);
+[$code, $d] = $smscall($bkey, [['trx' => 'OTHERNO001', 'amount' => 99, 'sender' => '01788888888']]);
+check($d['results'] === ['other_no'], 'bKash: the money came from another number → waits for an admin');
+[$code, $d] = call('POST', '/admin/bkash/settings', ['auto' => false], $bossSes);
+$wpdb->insert(ma_pay_table(), ['created_at' => gmdate('Y-m-d H:i:s'), 'email' => 'manual@x.com', 'plan' => 'monthly', 'amount' => 99, 'method' => 'বিকাশ', 'sender' => '', 'trx' => 'AUTOOFF001', 'status' => 'pending']);
+[$code2, $d2] = call('POST', '/admin/bkash/manual', ['trx' => 'AUTOOFF001', 'amount' => 99, 'sender' => '01700000001'], $bossSes);
+check($d['auto'] === false && $d2['status'] === 'found' && $wpdb->get_var('SELECT status FROM ' . ma_pay_table() . " WHERE trx = 'AUTOOFF001'") === 'pending', 'bKash: automatic approval off → found, but an admin decides');
+call('POST', '/admin/bkash/settings', ['auto' => true], $bossSes);
+[$code, $d] = call('GET', '/admin/bkash', [], $bossSes);
+check($code === 200 && $d['phone_set'] === true && $d['last_sms'] !== null && count($d['received']) >= 5, 'bKash: the overview for the admin app');
+
+echo "\n  — notifications: the server pushes at the time; what goes, when, how many\n";
+$pushSes = ma_ai_new_session((int) $u['id']);
+call('POST', '/device', ['token' => 'fcm-token-for-rahim-0123456789'], $pushSes);
+$localNow = time() + ma_acc_tz_off();
+$wpdb->insert(ma_note_table(), ['title' => 'এখনকার নোটিফিকেশন', 'body' => 'পরীক্ষা', 'kind' => 'daily', 'at_time' => gmdate('H:i', $localNow - 120), 'audience' => 'all', 'cond' => '', 'mic' => 1, 'active' => 1, 'created_at' => gmdate('Y-m-d H:i:s')]);
+$nidNow = (int) $wpdb->insert_id;
+$wpdb->insert(ma_note_table(), ['title' => 'শর্তের নোটিফিকেশন', 'kind' => 'daily', 'at_time' => gmdate('H:i', $localNow - 120), 'audience' => 'all', 'cond' => 'no_tasks', 'mic' => 0, 'active' => 1, 'created_at' => gmdate('Y-m-d H:i:s')]);
+$nidCond = (int) $wpdb->insert_id;
+$wpdb->insert(ma_note_table(), ['title' => 'পুরোনো সময়', 'kind' => 'daily', 'at_time' => gmdate('H:i', $localNow - 3 * 3600), 'audience' => 'all', 'cond' => '', 'mic' => 0, 'active' => 1, 'created_at' => gmdate('Y-m-d H:i:s')]);
+$nidLate = (int) $wpdb->insert_id;
+[$code, $d] = call('GET', '/notices', ['push' => 1], $pushSes);
+check($code === 200 && in_array($nidNow, $d['pushed'], true) && !in_array($nidCond, $d['pushed'], true), 'notices: the new app is told which ones the server pushes (not the conditional one)');
+[$code, $d] = call('GET', '/notices', [], $ses);
+check($d['pushed'] === [], 'notices: an old app still plans them all itself');
+delete_transient('ma_note_tick_lock');
+$wpdb->query('DELETE FROM ' . ma_note_runs_table());
+$f0 = count($sent['fcm']);
+ma_note_tick();
+$mine = array_filter(array_slice($sent['fcm'], $f0), fn($m) => ($m['message']['notification']['title'] ?? '') === 'এখনকার নোটিফিকেশন');
+$m1 = reset($mine);
+check(count($mine) === 1 && $m1['message']['token'] === 'fcm-token-for-rahim-0123456789' && $m1['message']['data']['type'] === 'server' && $m1['message']['data']['mic'] === '1', 'notices: due now → pushed to the phone that asked for pushes');
+check(!array_filter(array_slice($sent['fcm'], $f0), fn($m) => in_array($m['message']['notification']['title'] ?? '', ['শর্তের নোটিফিকেশন', 'পুরোনো সময়'], true)), 'notices: the conditional one and one 3 hours late are not pushed');
+$f1 = count($sent['fcm']);
+ma_note_tick();
+check(count($sent['fcm']) === $f1, 'notices: each notice goes once a day');
+$run = $wpdb->get_row('SELECT * FROM ' . ma_note_runs_table() . " WHERE notice_id = $nidNow", ARRAY_A);
+check($run && (int) $run['sent'] === 1 && (int) $run['members'] === 1, 'notices: the run is counted (1 member, 1 sent)');
+[$code, $ov] = call('GET', '/admin/notice-stats', [], $bossSes);
+$today = gmdate('Y-m-d', $localNow);
+$day0 = $ov['days'][0] ?? [];
+check($code === 200 && $day0['day'] === $today && $day0['server'] >= 1 && $day0['total'] >= 1 && count($ov['days']) === 14, 'notices: per day and kind (today has the server push)');
+$up = array_filter($ov['upcoming'], fn($x) => $x['id'] === $nidNow);
+check(count($up) >= 6 && reset($up)['how'] === 'push' && reset($up)['phones'] >= 1, 'notices: the next 7 days, with how each goes');
+$upc = array_filter($ov['upcoming'], fn($x) => $x['id'] === $nidCond);
+check($upc && reset($upc)['how'] === 'phone', 'notices: a conditional one is shown by the phone');
+check(($ov['runs'][$nidNow]['sent'] ?? 0) === 1 && !isset($ov['nlog']), 'notices: per-notice sends, and no list of who got what');
+[$code] = call('GET', '/admin/notice-stats', [], $ses);
+check($code === 403, 'notices: the overview is for admins');
+$wpdb->delete(ma_note_table(), ['id' => $nidLate]);
+// One day: what, when, how many; and how many each member gets.
+call('POST', '/notices/plan', ['items' => [['kind' => 'reminder', 'at' => gmdate('c', time() + 3600)], ['kind' => 'brief:morning', 'at' => gmdate('c', time() + 7200)]]], $pushSes);
+[$code, $nd] = call('GET', '/admin/notice-day', [], $bossSes);
+$cat = array_column($nd['app'], null, 'key');
+$srv = current(array_filter($nd['app'], fn($i) => $i['sample'] === 'এখনকার নোটিফিকেশন'));
+check($code === 200 && $srv && $srv['by'] === 'server' && $srv['count'] === 1 && $srv['people'] === 1 && preg_match('/^\d\d:\d\d$/', $srv['times'][0] ?? ''), 'notice day: the server push with its time and count');
+check(isset($cat['brief:morning'], $cat['nudge:quote'], $cat['brief:night'], $cat['nudge:jumuah']) && $cat['brief:morning']['count'] === 1 && $cat['brief:morning']['ahead'] === 1 && $cat['nudge:jumuah']['count'] === 0 && str_contains($cat['brief:night']['when'], '৯টা'), 'notice day: every kind the app sends, with its rule; the morning one counted and coming');
+check(!isset($cat['reminder']) && $nd['reminders']['count'] >= 1 && $nd['reminders']['people'] >= 1 && !array_filter($nd['app'], fn($i) => str_contains($i['label'], 'রিমাইন্ডার')), 'notice day: members\' own reminders only as one count, apart from the app\'s');
+$me = current(array_filter($nd['members'], fn($m) => $m['email'] === 'rahim@gmail.com'));
+check($me && $me['count'] >= 2 && $me['reminders'] >= 1 && $nd['people'] >= 1 && $nd['max'] >= $me['count'] && $nd['avg'] > 0 && $nd['rules']['cap'] === 3, 'notice day: how many the app sends each member (' . ($me['count'] ?? 0) . ' + ' . ($me['reminders'] ?? 0) . ' own reminders)');
+[$code] = call('GET', '/admin/notice-day', [], $ses);
+check($code === 403, 'notice day: admins only');
+
+echo "\n  — feedback: one inbox per member\n";
+$sesA = ma_ai_new_session((int) $u['id']);
+[$c1, $t1] = call('POST', '/feedback', ['kind' => 'idea', 'text' => 'প্রথম মতামত — রিংটোন নিজের মতো'], $sesA);
+[$c2, $t2] = call('POST', '/feedback', ['kind' => 'problem', 'text' => 'দ্বিতীয় মতামত — লোকেশন বদলায় না'], $sesA);
+[$code, $d] = call('GET', '/admin/inbox', ['status' => 'open'], $bossSes);
+$me = current(array_filter($d['members'], fn($g) => $g['user_id'] === (int) $u['id']));
+check($code === 200 && $me && $me['threads'] >= 2 && $me['new'] >= 2 && in_array('idea', $me['kinds'], true) && in_array('problem', $me['kinds'], true), 'inbox: one row per member with both conversations');
+check(count(array_filter($d['members'], fn($g) => $g['user_id'] === (int) $u['id'])) === 1, 'inbox: the member appears once');
+[$code, $one] = call('GET', '/admin/inbox/' . $u['id'], [], $bossSes);
+$texts = array_column($one['messages'], 'text');
+check($code === 200 && array_search('প্রথম মতামত — রিংটোন নিজের মতো', $texts) < array_search('দ্বিতীয় মতামত — লোকেশন বদলায় না', $texts) && $one['reply_to'] === $t2['id'], 'inbox: all messages in time order; a reply goes to the newest open one');
+check((int) $wpdb->get_var('SELECT COUNT(*) FROM ' . ma_fb_table() . " WHERE user_id = {$u['id']} AND status = 'new'") === 0, 'inbox: opening marks them read');
+call('POST', "/admin/feedback/{$one['reply_to']}/reply", ['text' => 'দেখছি, ধন্যবাদ!'], $bossSes);
+[$code, $one2] = call('GET', '/admin/inbox/' . $u['id'], [], $bossSes);
+check(end($one2['messages'])['text'] === 'দেখছি, ধন্যবাদ!' && end($one2['messages'])['from'] === 'admin', 'inbox: the reply shows at the end');
+[$code] = call('POST', '/admin/inbox/' . $u['id'], ['status' => 'done'], $bossSes);
+[$code2, $d] = call('GET', '/admin/inbox', ['status' => 'open'], $bossSes);
+check($code === 200 && !array_filter($d['members'], fn($g) => $g['user_id'] === (int) $u['id']), 'inbox: “all finished” closes every conversation of the member');
+[$code] = call('GET', '/admin/inbox', [], $ses);
+check($code === 403, 'inbox: admins only');
+
+echo "\n  — হিসাব: one month's lines with filters\n";
+$ym = current_time('Y-m');
+$L = ma_fin_month_lines($ym);
+$cats = array_column($L['lines'], 'category');
+check(in_array('প্রিমিয়াম (বার্ষিক)', $cats, true) && (bool) array_filter($L['lines'], fn($l) => $l['auto'] && $l['id'] === 0), 'হিসাব: approved payments come in as lines by themselves');
+$Li = ma_fin_month_lines($ym, 'income');
+check($Li['lines'] && !array_filter($Li['lines'], fn($l) => $l['kind'] !== 'income') && $Li['sum']['expense'] === 0, 'হিসাব: filter income only');
+$Lc = ma_fin_month_lines($ym, '', 'প্রিমিয়াম (মাসিক)');
+check($Lc['lines'] && !array_filter($Lc['lines'], fn($l) => $l['category'] !== 'প্রিমিয়াম (মাসিক)'), 'হিসাব: filter by category');
+[$code, $d] = call('GET', '/admin/finance', ['month' => $ym, 'kind' => 'expense'], $bossSes);
+check($code === 200 && isset($d['month_lines']) && !array_filter($d['month_lines']['lines'], fn($l) => $l['kind'] !== 'expense'), 'হিসাব: the same for the admin app');
+
+echo "\n  — the site pages\n";
+wp_set_current_user(1);
+$render = function ($get) {
+    $_GET = ['page' => 'my-assistant'] + $get;
+    ob_start();
+    ma_acc_admin();
+    return ob_get_clean();
+};
+$bad = '/(Warning|Notice|Fatal|Deprecated)\b.*on line/';
+$h = $render(['joined' => 'today']);
+check(str_contains($h, 'নতুন সদস্য') && str_contains($h, 'দৈনিক') && str_contains($h, 'মাসিক') && str_contains($h, 'today1@x.com') && !str_contains($h, 'old@x.com') && str_contains($h, 'ma_acc_print') && !preg_match($bad, $h), 'site: members by day, bars, PDF button');
+$h = $render(['jm' => $oldMonth]);
+check(str_contains($h, 'old@x.com') && !str_contains($h, 'today1@x.com') && !preg_match($bad, $h), 'site: the month picker');
+$h = $render(['src' => 'web']);
+check(str_contains($h, 'ওয়েবসাইট (বিকাশ)') && str_contains($h, 'today2@x.com') && !str_contains($h, 'play@x.com') && !preg_match($bad, $h), 'site: Premium source filter and label');
+$h = $render(['tab' => 'payments', 'pst' => 'all']);
+check(str_contains($h, 'বিকাশে আসা টাকা') && str_contains($h, '9A7KX2PQ1M') && str_contains($h, 'মিলেছে — প্রিমিয়াম চালু') && !preg_match($bad, $h), 'site: payments show bKash');
+$h = $render(['tab' => 'security']);
+check(str_contains($h, 'দুই ধাপের লগইন') && str_contains($h, 'নিরাপত্তা') && !preg_match($bad, $h), 'site: the নিরাপত্তা tab (two-step sign-in)');
+$h = $render(['tab' => 'notices']);
+check(str_contains($h, 'আজ আর কাল কী যাবে') && str_contains($h, 'দিনে কতটি') && str_contains($h, 'অ্যাপ থেকে কোন কোন নোটিফিকেশন যায়') && str_contains($h, 'জুমা মোবারক') && str_contains($h, 'সীমার বাইরে') && str_contains($h, 'সদস্যের নিজের রিমাইন্ডার') && str_contains($h, 'কে দিনে কতগুলো পাচ্ছে') && str_contains($h, 'এখনকার নোটিফিকেশন') && str_contains($h, 'সার্ভার থেকে পুশ') && !str_contains($h, '<h2>কার কাছে কী গেছে</h2>') && !preg_match($bad, $h), 'site: notifications overview instead of the per-member log');
+$h = $render(['tab' => 'feedback', 'fst' => 'all']);
+check(str_contains($h, 'জন সদস্য') && str_contains($h, 'ma-inbox-row') && !preg_match($bad, $h), 'site: feedback inbox list');
+$h = $render(['tab' => 'feedback', 'who' => (string) $u['id']]);
+check(str_contains($h, 'প্রথম মতামত') && str_contains($h, 'দ্বিতীয় মতামত') && str_contains($h, 'দেখছি, ধন্যবাদ!') && str_contains($h, 'ma-chat-sep') && !preg_match($bad, $h), 'site: one member’s inbox');
+$h = $render(['tab' => 'feedback', 'fb' => (string) $t1['id']]);
+check(str_contains($h, 'দ্বিতীয় মতামত'), 'site: an old link to a conversation opens the member’s inbox');
+$h = $render(['tab' => 'finance', 'fk' => 'income']);
+check(str_contains($h, 'আয় বা খরচ লিখুন') && str_contains($h, 'ma-fin-add') && str_contains($h, 'হাতে থাকার কথা') && str_contains($h, 'মাস অনুযায়ী') && !preg_match($bad, $h), 'site: হিসাব with month, filters and a pop-up form');
+$_GET = [];
+
+echo "\n  — the app's own notifications, controlled from the site and the admin app\n";
+[$code, $d] = call('GET', '/admin/notice-rules', [], $bossSes);
+check($code === 200 && count($d['kinds']) === count(ma_note_catalog()) && $d['kinds'][0]['on'] === true && isset($d['who']['regular']), 'rules: every kind, on by default, the groups');
+[$code, $d] = call('POST', '/admin/notice-rules', ['kinds' => ['brief:morning' => ['on' => false], 'nudge:quote' => ['on' => true, 'at' => '07:30', 'title' => '{name}, {title}<script>', 'who' => 'new'], 'nope' => ['on' => false], 'nudge:week' => ['on' => true, 'at' => '25:99', 'who' => 'hacker']], 'cap' => 2], $bossSes);
+$q = current(array_filter($d['kinds'], fn($k) => $k['key'] === 'nudge:quote'));
+$w = current(array_filter($d['kinds'], fn($k) => $k['key'] === 'nudge:week'));
+check($code === 200 && $d['cap'] === 2 && $q['at'] === '07:30' && $q['who'] === 'new' && !str_contains($q['title'], '<script>') && $w['at'] === '' && $w['who'] === 'all', 'rules: saved, each field checked (bad time and group dropped, no tags)');
+[$code, $d] = call('GET', '/notices');
+$pub = json_decode(wp_json_encode($d['rules']), true);
+check($code === 200 && ($pub['kinds']['brief:morning']['on'] ?? true) === false && ($pub['kinds']['nudge:quote']['at'] ?? '') === '07:30' && !isset($pub['kinds']['nudge:jumuah']) && $pub['cap'] === 2, 'phones get only the changed rules');
+[$code] = call('GET', '/admin/notice-rules', [], $ses);
+check($code === 403, 'rules: admins only');
+$h = $render(['tab' => 'notices']);
+check(str_contains($h, 'অ্যাপের নোটিফিকেশন নিয়ন্ত্রণ') && str_contains($h, 'name="r[nudge:quote][at]"') && !preg_match($bad, $h), 'site: the rules table on the notifications tab');
+call('POST', '/admin/notice-rules', ['kinds' => [], 'cap' => ''], $bossSes);
+
+echo "\n  — members' backup keys sealed with MA_DATA_KEY (owner's review, 27 Oct)\n";
+$h = $render(['tab' => 'security']);
+check(str_contains($h, "define('MA_DATA_KEY'") && !preg_match($bad, $h), 'security tab: how to add MA_DATA_KEY');
+$rowK = $wpdb->get_row("SELECT * FROM $U WHERE backup_key <> '' AND google_sub NOT LIKE 'pending:%' LIMIT 1", ARRAY_A);
+$plainK = $rowK['backup_key'];
+check(strlen($plainK) >= 40 && strpos($plainK, 'enc1:') !== 0, 'without MA_DATA_KEY: kept as it was');
+define('MA_DATA_KEY', str_repeat('ab', 32));
+check(ma_acc_backup_key($rowK) === $plainK, 'with MA_DATA_KEY: the same key comes back');
+$stored = $wpdb->get_var($wpdb->prepare("SELECT backup_key FROM $U WHERE id = %d", $rowK['id']));
+check(strpos($stored, 'enc1:') === 0 && !str_contains($stored, $plainK), 'and it is now sealed in the database');
+$rowK['backup_key'] = $stored;
+check(ma_acc_backup_key($rowK) === $plainK, 'sealed: opens to the same key');
+check(ma_totp_secret($bossId) === $totp, 'two-step secrets do not depend on MA_DATA_KEY');
+$h = $render(['tab' => 'security']);
+check(str_contains($h, 'MA_DATA_KEY</code> কখনো বদলাবেন') && !preg_match($bad, $h), 'security tab: the data key is on');
 
 echo $fail ? "\n$fail FAILED\n" : "\nALL OK\n";
