@@ -17,6 +17,8 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # The same Flutter as the tests were run with (reproducible builds).
+          flutter-version: '3.47.7'
       - run: flutter --version
       - run: flutter config --no-analytics && flutter pub get
       # Running the tests once downloads the host engine (flutter_tester).

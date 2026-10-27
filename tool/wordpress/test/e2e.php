@@ -144,8 +144,26 @@ $plain = wp_insert_user(['user_login' => 'writer@gmail.com', 'user_email' => 'wr
 check($code === 401, 'a site user without the admin role cannot');
 [$code] = call('POST', '/admin/login', ['email' => 'boss@gmail.com', 'password' => 'wrong']);
 check($code === 401, 'wrong password refused');
+// Two-step sign-in (owner's review, 27 Oct): no code set up → refused; then the authenticator's code.
 [$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123']);
-check($code === 200 && strlen($d['session'] ?? '') === 64 && $d['name'] === 'Boss', 'admin app login with email + password');
+check($code === 403 && ($d['code'] ?? '') === 'otp_setup', 'admin app: two-step sign-in must be set up first');
+$totp = ma_b32_encode(random_bytes(20));
+update_user_meta($bossId, 'ma_totp', ma_sec_seal($totp));
+check(str_starts_with((string) get_user_meta($bossId, 'ma_totp', true), 'enc1:') && ma_totp_secret($bossId) === $totp, 'two-step: the secret is kept sealed');
+[$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123']);
+check($code === 401 && ($d['code'] ?? '') === 'otp_required', 'two-step: the password alone asks for the code');
+[$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123', 'code' => '000000']);
+check($code === 401 && ($d['code'] ?? '') === 'otp_wrong', 'two-step: a wrong code refused');
+$mails0 = count($sent['mail']);
+$otp = ma_totp_code($totp, intdiv(time(), 30));
+[$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123', 'code' => $otp]);
+check($code === 200 && strlen($d['session'] ?? '') === 64 && $d['name'] === 'Boss', 'admin app login with email + password + code');
+check(count($sent['mail']) === $mails0 + 1 && str_contains($sent['mail'][$mails0]['subject'] ?? '', 'নতুন লগইন'), 'two-step: the admin is e-mailed about the sign-in');
+[$code] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123', 'code' => $otp]);
+check($code === 401, 'two-step: the same code cannot be used twice');
+$sesRow = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . ma_ai_sessions_table() . ' WHERE token_hash = %s', hash('sha256', $d['session'])), ARRAY_A);
+check($sesRow && abs(ma_acc_ts($sesRow['expires_at']) - time() - 7 * DAY_IN_SECONDS) < 120, 'admin sessions last 7 days');
+check(ma_totp_code('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', 1) === '287082', 'TOTP matches RFC 6238 (SHA-1, 59 s)');
 $boss = $d['session'];
 [$code] = call('GET', '/me', [], $boss);
 check($code === 401, 'an admin session is not a member session');
@@ -156,7 +174,7 @@ try { ma_pay_submit(); } catch (Exception $e) { check(str_contains($e->getMessag
 $p = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}ma_payments", ARRAY_A);
 check($p && $p['trx'] === 'BJK4-Q9X2PL' && $p['email'] === 'karim@gmail.com' && (int) $p['amount'] === 999, 'kept: email lower-case, TrxID upper-case, price from settings');
 check(count($sent['fcm']) === 1 && $sent['fcm'][0]['message']['token'] === 'boss-fcm-token-1234567890', 'admin phone pushed: ' . ($sent['fcm'][0]['message']['notification']['title'] ?? ''));
-check(count($sent['mail']) === 1, 'admin emailed');
+check(count($sent['mail']) === $mails0 + 2 && str_contains(end($sent['mail'])['subject'] ?? '', 'নতুন পেমেন্ট'), 'admin emailed');
 try { ma_pay_submit(); } catch (Exception $e) { check(str_contains($e->getMessage(), 'ma_pay=dup'), 'same TrxID twice refused'); }
 [$code] = call('GET', '/admin/summary', [], $ses);
 check($code === 403, 'member session cannot use admin API');
@@ -922,6 +940,16 @@ check($wpdb->get_var("SELECT pro_kind FROM $U WHERE id = $mid") === 'web' && $wp
 parse_str((string) parse_url($d['url'] ?? '', PHP_URL_QUERY), $pq);
 $job = get_transient('ma_print_' . hash('sha256', $pq['ma_members_print'] ?? ''));
 check($code === 200 && is_array($job) && $job['joined'] === 'today', 'PDF: a 10-minute link for the admin app');
+check(is_array(ma_acc_print_take($pq['ma_members_print'])) && ma_acc_print_take($pq['ma_members_print']) === null, 'PDF: the link opens once only');
+$_SERVER['REMOTE_ADDR'] = '162.158.10.20';
+$_SERVER['HTTP_CF_CONNECTING_IP'] = '103.4.145.9';
+check(ma_client_ip() === '103.4.145.9', 'client IP: through Cloudflare, the visitor\'s own address');
+$_SERVER['REMOTE_ADDR'] = '45.12.1.1';
+check(ma_client_ip() === '45.12.1.1', 'client IP: the Cloudflare header from anywhere else is not believed');
+$_SERVER['REMOTE_ADDR'] = '2606:4700:10::6816:1';
+check(ma_client_ip() === '103.4.145.9' && !ma_ip_in_cloudflare('2001:db8::1'), 'client IP: Cloudflare over IPv6 too');
+unset($_SERVER['HTTP_CF_CONNECTING_IP']);
+$_SERVER['REMOTE_ADDR'] = '127.0.0.1';
 [$code] = call('POST', '/admin/members/print-link', [], $ses);
 check($code === 403, 'PDF: members cannot make one');
 $html = ma_acc_print_html('', '', 'today', '');
@@ -949,6 +977,17 @@ $smscall = function ($key, $items) {
 check($code === 403, 'bKash: a wrong key is refused');
 [$code] = call('POST', '/admin/bkash/key', [], $ses);
 check($code === 403, 'bKash: a member cannot make a key');
+// Automatic approval is off until an admin turns it on (owner's review, 27 Oct).
+[$code, $d] = call('GET', '/admin/bkash', [], $bossSes);
+check($code === 200 && $d['auto'] === false, 'bKash: automatic approval starts off');
+call('POST', '/admin/bkash/settings', ['auto' => true], $bossSes);
+$p['verified'] = true;
+// 0) a faked "bKash" message (its balance could not be checked on the phone): never approved by itself.
+$mkm('spoof@x.com', 2);
+$wpdb->insert(ma_pay_table(), ['created_at' => gmdate('Y-m-d H:i:s'), 'email' => 'spoof@x.com', 'plan' => 'yearly', 'amount' => 999, 'method' => 'বিকাশ', 'sender' => '01555555555', 'trx' => 'SPOOFED001', 'status' => 'pending']);
+[$code, $d] = $smscall($bkey, [['trx' => 'SPOOFED001', 'amount' => 999, 'sender' => '01555555555', 'at' => gmdate('c'), 'verified' => false]]);
+$ps = $wpdb->get_row('SELECT * FROM ' . ma_pay_table() . " WHERE trx = 'SPOOFED001'", ARRAY_A);
+check($d['results'] === ['found'] && $ps['status'] === 'pending' && str_contains($ps['reason'], 'ব্যালেন্স') && $wpdb->get_var("SELECT pro_until FROM $U WHERE email = 'spoof@x.com'") === null, 'bKash: a message the phone could not check against the balance waits for an admin');
 // 1) the form first, then the money.
 $U2 = $mkm('bkpayer@x.com', 2);
 $wpdb->insert(ma_pay_table(), ['created_at' => gmdate('Y-m-d H:i:s'), 'email' => 'bkpayer@x.com', 'plan' => 'yearly', 'amount' => 999, 'method' => 'বিকাশ', 'sender' => '01712-345678', 'trx' => '9a7kx2pq1m', 'status' => 'pending']);
@@ -963,7 +1002,7 @@ check($bkrow && (int) $bkrow['amount'] === 999 && $bkrow['sender'] === '01712345
 [$code, $d] = $smscall($bkey, [$p]);
 check($d['results'] === ['matched'] && (int) $wpdb->get_var('SELECT COUNT(*) FROM ' . ma_bk_table() . " WHERE trx = '9A7KX2PQ1M'") === 1, 'bKash: the same message twice is kept once');
 // 2) the money first, then the form.
-$smscall($bkey, [['trx' => 'MONEYFIRST1', 'amount' => 99, 'sender' => '01911111111', 'at' => gmdate('c')]]);
+$smscall($bkey, [['trx' => 'MONEYFIRST1', 'amount' => 99, 'sender' => '01911111111', 'at' => gmdate('c'), 'verified' => true]]);
 $wpdb->insert(ma_pay_table(), ['created_at' => gmdate('Y-m-d H:i:s'), 'email' => 'later@x.com', 'plan' => 'monthly', 'amount' => 99, 'method' => 'বিকাশ', 'sender' => '01911111111', 'trx' => 'MONEYFIRST1', 'status' => 'pending']);
 $pid2 = (int) $wpdb->insert_id;
 check(ma_bk_on_payment($pid2) === true && $wpdb->get_var("SELECT pro_kind FROM $U WHERE email = 'later@x.com'") === 'bkash', 'bKash: the form after the money → Premium at once (a member waiting to sign in)');
@@ -1086,6 +1125,8 @@ $h = $render(['src' => 'web']);
 check(str_contains($h, 'ওয়েবসাইট (বিকাশ)') && str_contains($h, 'today2@x.com') && !str_contains($h, 'play@x.com') && !preg_match($bad, $h), 'site: Premium source filter and label');
 $h = $render(['tab' => 'payments', 'pst' => 'all']);
 check(str_contains($h, 'বিকাশে আসা টাকা') && str_contains($h, '9A7KX2PQ1M') && str_contains($h, 'মিলেছে — প্রিমিয়াম চালু') && !preg_match($bad, $h), 'site: payments show bKash');
+$h = $render(['tab' => 'security']);
+check(str_contains($h, 'দুই ধাপের লগইন') && str_contains($h, 'নিরাপত্তা') && !preg_match($bad, $h), 'site: the নিরাপত্তা tab (two-step sign-in)');
 $h = $render(['tab' => 'notices']);
 check(str_contains($h, 'আজ আর কাল কী যাবে') && str_contains($h, 'দিনে কতটি') && str_contains($h, 'অ্যাপ থেকে কোন কোন নোটিফিকেশন যায়') && str_contains($h, 'জুমা মোবারক') && str_contains($h, 'সীমার বাইরে') && str_contains($h, 'সদস্যের নিজের রিমাইন্ডার') && str_contains($h, 'কে দিনে কতগুলো পাচ্ছে') && str_contains($h, 'এখনকার নোটিফিকেশন') && str_contains($h, 'সার্ভার থেকে পুশ') && !str_contains($h, '<h2>কার কাছে কী গেছে</h2>') && !preg_match($bad, $h), 'site: notifications overview instead of the per-member log');
 $h = $render(['tab' => 'feedback', 'fst' => 'all']);
@@ -1097,5 +1138,21 @@ check(str_contains($h, 'দ্বিতীয় মতামত'), 'site: an ol
 $h = $render(['tab' => 'finance', 'fk' => 'income']);
 check(str_contains($h, 'আয় বা খরচ লিখুন') && str_contains($h, 'ma-fin-add') && str_contains($h, 'হাতে থাকার কথা') && str_contains($h, 'মাস অনুযায়ী') && !preg_match($bad, $h), 'site: হিসাব with month, filters and a pop-up form');
 $_GET = [];
+
+echo "\n  — members' backup keys sealed with MA_DATA_KEY (owner's review, 27 Oct)\n";
+$h = $render(['tab' => 'security']);
+check(str_contains($h, "define('MA_DATA_KEY'") && !preg_match($bad, $h), 'security tab: how to add MA_DATA_KEY');
+$rowK = $wpdb->get_row("SELECT * FROM $U WHERE backup_key <> '' AND google_sub NOT LIKE 'pending:%' LIMIT 1", ARRAY_A);
+$plainK = $rowK['backup_key'];
+check(strlen($plainK) >= 40 && strpos($plainK, 'enc1:') !== 0, 'without MA_DATA_KEY: kept as it was');
+define('MA_DATA_KEY', str_repeat('ab', 32));
+check(ma_acc_backup_key($rowK) === $plainK, 'with MA_DATA_KEY: the same key comes back');
+$stored = $wpdb->get_var($wpdb->prepare("SELECT backup_key FROM $U WHERE id = %d", $rowK['id']));
+check(strpos($stored, 'enc1:') === 0 && !str_contains($stored, $plainK), 'and it is now sealed in the database');
+$rowK['backup_key'] = $stored;
+check(ma_acc_backup_key($rowK) === $plainK, 'sealed: opens to the same key');
+check(ma_totp_secret($bossId) === $totp, 'two-step secrets do not depend on MA_DATA_KEY');
+$h = $render(['tab' => 'security']);
+check(str_contains($h, 'MA_DATA_KEY</code> কখনো বদলাবেন') && !preg_match($bad, $h), 'security tab: the data key is on');
 
 echo $fail ? "\n$fail FAILED\n" : "\nALL OK\n";

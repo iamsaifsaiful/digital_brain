@@ -6,9 +6,15 @@ import 'dart:io';
 
 import 'package:digital_brain/services/ai.dart';
 import 'package:digital_brain/services/error_log.dart';
+import 'package:digital_brain/services/family_crypto.dart' show FamilyKeys, safetyCode;
 import 'package:digital_brain/services/google_account.dart';
 import 'package:digital_brain/services/notifications.dart' show idsToCancel, snoozeId;
+import 'package:digital_brain/logic/ai_safe.dart';
+import 'package:digital_brain/models/extras.dart' show Medicine;
+import 'package:digital_brain/models/models.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'app_test.dart' show Rig;
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -95,5 +101,40 @@ void main() {
     expect(cancel, containsAll([other, gone]));
     // Nothing on the screen: all but the snooze are cancelled and set again.
     expect(idsToCancel(pending, live: {'r-med', 'r-bill'}, shown: const {}), [daily, other, gone]);
+  });
+
+  test('health stays on the phone: medicine, doctor or illness items never reach the AI', () {
+    expect(mentionsHealth('ডায়াবেটিসের ওষুধ খাওয়া'), isTrue);
+    expect(mentionsHealth('ডাক্তারের সাথে দেখা'), isTrue);
+    expect(mentionsHealth('Take BP tablet'), isTrue);
+    expect(mentionsHealth('মেটফরমিন ৫০০', extra: ['মেটফরমিন']), isTrue);
+    expect(mentionsHealth('বাজার করা'), isFalse);
+    expect(mentionsHealth('বিদ্যুৎ বিল দেওয়া'), isFalse);
+    final rig = Rig();
+    final b = rig.brain;
+    b.data.medicines.add(Medicine(name: 'Metformin'));
+    b.data.reminders.addAll([
+      Reminder(title: 'ডায়াবেটিসের ওষুধ', date: DateTime(2026, 10, 27), hour: 9),
+      Reminder(title: 'Metformin 500', date: DateTime(2026, 10, 27), hour: 21),
+      Reminder(title: 'বিদ্যুৎ বিল', date: DateTime(2026, 10, 28), hour: 10),
+    ]);
+    b.data.tasks.add(Task(title: 'ডাক্তারের অ্যাপয়েন্টমেন্ট নেওয়া'));
+    b.data.notes.add(Note(title: 'প্রেশার', body: 'সকালে ১৪০/৯০'));
+    final ctx = b.aiContext(now: DateTime(2026, 10, 27, 8)).records;
+    expect(ctx, contains('বিদ্যুৎ বিল'));
+    for (final secret in ['ডায়াবেটিস', 'Metformin', 'ডাক্তার', 'প্রেশার', '১৪০']) {
+      expect(ctx, isNot(contains(secret)), reason: secret);
+    }
+    expect(ctx, contains('kept on the phone only: 3'));
+  });
+
+  test('family safety code: the same on both phones; a swapped key gives another', () async {
+    final a = await FamilyKeys.generate(), b = await FamilyKeys.generate(), mallory = await FamilyKeys.generate();
+    final onA = await safetyCode(a.publicB64, b.publicB64);
+    final onB = await safetyCode(b.publicB64, a.publicB64);
+    expect(onA, onB);
+    expect(RegExp(r'^\d{4}( \d{4}){4}$').hasMatch(onA), isTrue, reason: onA);
+    // Our server (or anyone in between) gave A a different key for B.
+    expect(await safetyCode(a.publicB64, mallory.publicB64), isNot(onA));
   });
 }

@@ -99,6 +99,20 @@ class MainActivity : FlutterFragmentActivity() {
         stopBackup()
         super.onDestroy()
     }
+
+    // Back from the other app a document was opened in: its copy goes
+    // (owner's review, 27 Oct: no readable copies left in the cache).
+    override fun onResume() {
+        super.onResume()
+        clearOpenCopies()
+    }
+
+    private fun clearOpenCopies() {
+        try {
+            java.io.File(cacheDir, "open").listFiles()?.forEach { it.delete() }
+        } catch (_: Exception) {
+        }
+    }
     private var launchChannel: MethodChannel? = null
     private val google by lazy { GoogleAuth(this) }
 
@@ -121,6 +135,7 @@ class MainActivity : FlutterFragmentActivity() {
         }
         super.onCreate(savedInstanceState)
         CustomTone.regrant(this)
+        clearOpenCopies()
         if (isReminderIntent(intent)) setOverLock(true)
         if (savedInstanceState == null) firstLaunch = launchOf(intent)
     }
@@ -168,8 +183,12 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
-    /** A shared file's bytes, name and type (up to 25 MB). */
-    private fun readShared(u: Uri): Map<String, Any>? = try {
+    /**
+     * A shared file's bytes, name and type (up to 25 MB). Only content://
+     * from another app (owner's review, 27 Oct): a file:// path or our own
+     * provider could point into this app's private folder.
+     */
+    private fun readShared(u: Uri): Map<String, Any>? = if (u.scheme != "content" || u.authority.orEmpty().startsWith(packageName)) null else try {
         var name = "file"
         var size = -1L
         contentResolver.query(u, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { c ->

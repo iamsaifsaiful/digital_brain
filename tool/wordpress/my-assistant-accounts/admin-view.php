@@ -76,7 +76,7 @@ function ma_acc_url($args) {
 function ma_acc_render($v) {
     $labels = ma_acc_status_labels();
     $s = $v['stats'];
-    $tab = in_array($v['tab'], ['settings', 'ai', 'nlu', 'heirs', 'payments', 'notices', 'feedback', 'finance', 'errors'], true) ? $v['tab'] : 'members';
+    $tab = in_array($v['tab'], ['settings', 'ai', 'nlu', 'heirs', 'payments', 'notices', 'feedback', 'finance', 'errors', 'security'], true) ? $v['tab'] : 'members';
     $fb_new = (int) ($v['fb_new'] ?? 0);
     $pending = (int) ($v['pending'] ?? 0);
     $paying_rate = $s['total'] ? round($s['pro'] * 100 / $s['total'], 1) : 0;
@@ -105,6 +105,7 @@ function ma_acc_render($v) {
                     <a class="<?php echo $tab === 'heirs' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'heirs']); ?>">উত্তরাধিকার<?php if (!empty($v['heirs_pending'])) : ?><i class="ma-badge"><?php echo esc_html(ma_acc_bn($v['heirs_pending'])); ?></i><?php endif; ?></a>
                     <a class="<?php echo $tab === 'nlu' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'nlu']); ?>">AI মডেল</a>
                     <a class="<?php echo $tab === 'errors' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'errors']); ?>">সমস্যার লগ</a>
+                    <a class="<?php echo $tab === 'security' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'security']); ?>">নিরাপত্তা<?php if (!ma_totp_on(get_current_user_id())) : ?><i class="ma-badge">!</i><?php endif; ?></a>
                     <?php if (!empty($v['can_settings'])) : ?><a class="<?php echo $tab === 'finance' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'finance']); ?>">হিসাব</a><?php endif; ?>
                     <?php if (!empty($v['can_settings'])) : ?><a class="<?php echo $tab === 'ai' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'ai']); ?>">AI খরচ</a><?php endif; ?>
                     <?php if (!empty($v['can_settings'])) : ?><a class="<?php echo $tab === 'settings' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'settings']); ?>">সেটিংস</a><?php endif; ?>
@@ -130,6 +131,8 @@ function ma_acc_render($v) {
             ma_acc_render_nlu($v['nlu'] ?? []);
         } elseif ($tab === 'errors') {
             ma_acc_render_errors();
+        } elseif ($tab === 'security') {
+            ma_acc_render_security();
         } elseif ($tab === 'settings' && !empty($v['can_settings'])) {
             ma_acc_render_settings($v);
         } elseif ($tab === 'payments') {
@@ -436,8 +439,8 @@ function ma_acc_render_payments($v) {
                 <strong><?php echo $bk['phone_set'] ? 'ফোন যুক্ত আছে' : 'ফোন এখনো যুক্ত হয়নি'; ?></strong>
                 <span><?php echo $bk['last_sms'] ? 'শেষ SMS এসেছে ' . esc_html(ma_acc_ago(gmdate('Y-m-d H:i:s', strtotime($bk['last_sms'])))) : 'যে ফোনে পেমেন্টের বিকাশ সিম আছে, তাতে অ্যাডমিন অ্যাপ খুলে: পেমেন্ট › বিকাশ মেলানো › “এই ফোনে চালু করুন”।'; ?></span>
             </div>
-            <div class="ok"><strong>যা আসে</strong><span>শুধু টাকা, TrxID, কোন নম্বর থেকে আর কখন — মেসেজের বাকি লেখা, ব্যালান্স বা ফোনের অন্য কিছু আসে না।</span></div>
-            <div class="ok"><strong>কখন চালু হয়</strong><span>ফর্মে জমা দেওয়া TrxID আর বিকাশের TrxID মিললে, আর অন্তত প্ল্যানের দাম এলে — যেটা আগে আসুক। টাকা কম বা নম্বর না মিললে আপনার জন্য অপেক্ষা করে।</span></div>
+            <div class="ok"><strong>যা আসে</strong><span>শুধু টাকা, TrxID, কোন নম্বর থেকে, কখন, আর ব্যালেন্স মিলেছে কিনা (হ্যাঁ/না) — ব্যালেন্সের অঙ্ক, মেসেজের বাকি লেখা বা ফোনের অন্য কিছু আসে না।</span></div>
+            <div class="ok"><strong>কখন চালু হয়</strong><span>নিজে থেকে অনুমোদন চালু থাকলে: TrxID মিললে, অন্তত প্ল্যানের দাম এলে, আর পেমেন্টের ফোন বিকাশের ব্যালেন্স মিলিয়ে মেসেজটা আসল বলে নিশ্চিত হলে। ভুয়া “bKash” SMS ব্যালেন্স জানে না, তাই সেটা আপনার জন্য অপেক্ষা করে। ফোন যুক্ত করার পর প্রথম মেসেজটাও অপেক্ষা করে (তখনো আগের ব্যালেন্স জানা থাকে না)।</span></div>
         </div>
         <?php if ($bk['received']) : ?>
             <div class="ma-table-wrap">

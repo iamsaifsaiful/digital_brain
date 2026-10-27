@@ -33,6 +33,7 @@ function ma_bk_install() {
         created_at datetime NOT NULL,
         source varchar(8) NOT NULL DEFAULT 'sms',
         status varchar(12) NOT NULL DEFAULT 'new',
+        verified tinyint(1) NOT NULL DEFAULT 0,
         payment_id bigint(20) unsigned NOT NULL DEFAULT 0,
         PRIMARY KEY  (id),
         UNIQUE KEY trx (trx),
@@ -40,9 +41,14 @@ function ma_bk_install() {
     ) " . $wpdb->get_charset_collate() . ';');
 }
 
-/** Automatic approval on (default) or off (every payment waits for an admin). */
+/**
+ * Automatic approval: off unless an admin turns it on (owner's review,
+ * 27 Oct). Even on, only a message the payment-SIM phone could check against
+ * bKash's running balance is approved by itself — a faked "bKash" sender
+ * cannot know the balance.
+ */
 function ma_bk_auto() {
-    return get_option('ma_bk_auto', '1') === '1';
+    return get_option('ma_bk_auto', '0') === '1';
 }
 
 /** Bangla digits to ASCII. */
@@ -130,6 +136,8 @@ function ma_bk_receive(array $item, $source = 'sms') {
         'created_at' => gmdate('Y-m-d H:i:s'),
         'source' => $source === 'manual' ? 'manual' : 'sms',
         'status' => 'new',
+        // Pasted by an admin: the admin saw it. From the phone: only when its balance checked out.
+        'verified' => $source === 'manual' || !empty($item['verified']) ? 1 : 0,
     ]);
     $id = (int) $wpdb->insert_id;
     if ($source === 'sms') {
@@ -163,6 +171,9 @@ function ma_bk_settle($in_id, array $pay) {
     } elseif (!ma_bk_auto()) {
         $status = 'found';
         $why = 'বিকাশে টাকা এসেছে (TrxID মিলেছে) — নিজে থেকে অনুমোদন বন্ধ, হাতে দিন।';
+    } elseif (empty($in['verified'])) {
+        $status = 'found';
+        $why = 'TrxID মিলেছে, কিন্তু বিকাশের ব্যালেন্স দিয়ে মেসেজটা নিশ্চিত করা যায়নি (ভুয়া SMS-ও হতে পারে) — বিকাশ অ্যাপে টাকা এসেছে দেখে হাতে দিন।';
     }
     $wpdb->update(ma_bk_table(), ['payment_id' => (int) $pay['id'], 'status' => $status], ['id' => $in_id]);
     if ($status === 'matched') {
@@ -203,6 +214,7 @@ function ma_bk_json($r) {
         'sender' => $r['sender'],
         'at' => gmdate('c', ma_acc_ts($r['received_at'])),
         'source' => $r['source'],
+        'verified' => !empty($r['verified']),
         'status' => $r['status'],
         'status_label' => $l[0],
         'payment_id' => (int) $r['payment_id'],
@@ -282,8 +294,9 @@ add_action('rest_api_init', function () {
     });
     // A message pasted by hand (the phone reads it; only the four fields come).
     ma_admin_route('/bkash/manual', 'POST', function (WP_REST_Request $req) {
-        $item = ['trx' => $req->get_param('trx'), 'amount' => $req->get_param('amount'), 'sender' => $req->get_param('sender'), 'at' => $req->get_param('at')];
-        [$ok, $status] = ma_bk_receive($item, 'manual');
+        $item = ['trx' => $req->get_param('trx'), 'amount' => $req->get_param('amount'), 'sender' => $req->get_param('sender'), 'at' => $req->get_param('at'), 'verified' => (bool) $req->get_param('verified')];
+        // Read from the phone's inbox by the admin app: as trusted as the phone's check. Pasted: the admin saw it.
+        [$ok, $status] = ma_bk_receive($item, $req->get_param('from') === 'scan' ? 'sms' : 'manual');
         return $ok ? ['ok' => true, 'status' => $status, 'status_label' => ma_bk_status_labels()[$status][0] ?? $status] : new WP_Error('bad', 'TrxID বা টাকা পড়া যায়নি', ['status' => 400]);
     });
 });

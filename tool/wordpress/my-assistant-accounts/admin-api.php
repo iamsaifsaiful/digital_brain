@@ -24,14 +24,15 @@ function ma_admin_of(WP_REST_Request $req) {
 }
 
 /**
- * Email + password (a WordPress account with the admin role). Five wrong
- * tries for an address or from a network wait 15 minutes.
+ * Email + password (a WordPress account with the admin role), then the
+ * 6-digit code from the admin's authenticator app. Five wrong tries for an
+ * address or from a network wait 15 minutes. Each sign-in is e-mailed.
  */
 function ma_admin_login(WP_REST_Request $req) {
     global $wpdb;
     $email = strtolower(sanitize_email((string) $req->get_param('email')));
     $pass = (string) $req->get_param('password');
-    $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : 'x';
+    $ip = ma_client_ip();
     $keys = ['ma_adm_fail_' . md5($email), 'ma_adm_fail_' . md5($ip)];
     foreach ($keys as $k) {
         if ((int) get_transient($k) >= 5) {
@@ -45,9 +46,24 @@ function ma_admin_login(WP_REST_Request $req) {
         }
         return new WP_Error('login', 'wrong email or password', ['status' => 401]);
     }
+    // Two-step sign-in (owner's review, 27 Oct): required for every admin.
+    if (!ma_totp_on($user->ID)) {
+        return new WP_Error('otp_setup', 'set up two-step sign-in on the site first', ['status' => 403]);
+    }
+    $code = (string) $req->get_param('code');
+    if ($code === '') {
+        return new WP_Error('otp_required', 'code needed', ['status' => 401]);
+    }
+    if (!ma_totp_check($user->ID, $code)) {
+        foreach ($keys as $k) {
+            set_transient($k, (int) get_transient($k) + 1, 15 * MINUTE_IN_SECONDS);
+        }
+        return new WP_Error('otp_wrong', 'wrong code', ['status' => 401]);
+    }
     foreach ($keys as $k) {
         delete_transient($k);
     }
+    ma_sec_login_mail($user);
     return ['session' => ma_ai_new_session($user->ID, 'admin'), 'name' => $user->display_name, 'email' => $user->user_email];
 }
 

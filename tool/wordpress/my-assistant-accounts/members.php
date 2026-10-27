@@ -346,13 +346,22 @@ function ma_acc_print_link($admin_id, $q, $status, $joined, $src) {
     return add_query_arg('ma_members_print', $token, home_url('/'));
 }
 
+/** The print job behind a link, once only (owner's review, 27 Oct: a link that reached someone else is already spent). */
+function ma_acc_print_take($token) {
+    $job = preg_match('/^[a-f0-9]{48}$/', (string) $token) ? get_transient('ma_print_' . hash('sha256', $token)) : false;
+    if (!is_array($job) || !user_can((int) $job['admin'], 'ma_manage')) {
+        return null;
+    }
+    delete_transient('ma_print_' . hash('sha256', $token));
+    return $job;
+}
+
 add_action('init', function () {
     if (!isset($_GET['ma_members_print'])) {
         return;
     }
-    $token = (string) $_GET['ma_members_print'];
-    $job = preg_match('/^[a-f0-9]{48}$/', $token) ? get_transient('ma_print_' . hash('sha256', $token)) : false;
-    if (!is_array($job) || !user_can((int) $job['admin'], 'ma_manage')) {
+    $job = ma_acc_print_take((string) $_GET['ma_members_print']);
+    if ($job === null) {
         status_header(403);
         header('Content-Type: text/plain; charset=utf-8');
         echo 'লিংকের মেয়াদ শেষ — অ্যাডমিন অ্যাপ থেকে আবার PDF চাপুন।';

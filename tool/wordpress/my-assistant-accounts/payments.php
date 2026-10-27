@@ -356,7 +356,7 @@ function ma_pay_submit() {
     if (!empty($_POST['website'])) {
         $go('ok'); // a bot filled the hidden field
     }
-    $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : 'x';
+    $ip = ma_client_ip();
     $rl = 'ma_pay_rl_' . md5($ip);
     $n = (int) get_transient($rl);
     if ($n >= 8) {

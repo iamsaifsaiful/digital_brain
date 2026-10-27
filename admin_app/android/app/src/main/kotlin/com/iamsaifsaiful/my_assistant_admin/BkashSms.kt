@@ -19,6 +19,12 @@ import java.util.TimeZone
  * to our server — amount, TrxID, sender number and time. Never the message
  * itself, the balance, other messages or anything else on the phone. Only
  * messages whose sender is bKash count. Off until turned on in the app.
+ *
+ * A sender name can be faked (owner's review, 27 Oct), so each message is
+ * also checked against bKash's own running balance, kept only on this phone:
+ * a real "received Tk 500" moves the balance from the last one by 500. A
+ * fake one cannot know the balance — it goes as "verified": false, and the
+ * server never approves it by itself.
  */
 object BkashSms {
     const val PREFS = "ma_bkash"
@@ -28,7 +34,8 @@ object BkashSms {
     fun isOn(c: Context) = prefs(c).getBoolean("on", false) && prefs(c).getString("key", "").orEmpty().isNotEmpty()
 
     fun setup(c: Context, key: String, base: String) {
-        prefs(c).edit().putString("key", key).putString("base", base).putBoolean("on", true).apply()
+        // The phone's key is kept sealed by the Keystore (owner's review, 27 Oct).
+        prefs(c).edit().putString("key", KeySealed.seal(key)).putString("base", base).putBoolean("on", true).apply()
     }
 
     fun off(c: Context) {
@@ -62,6 +69,7 @@ object BkashSms {
             ?: return null
         val amount = amountText.replace(",", "").toDoubleOrNull()?.toInt() ?: return null
         if (amount <= 0) return null
+        val balance = balanceOf(t)
         val from = Regex("from\\s+(\\+?[\\d\\-\\s]{11,16})", RegexOption.IGNORE_CASE).find(t)?.groupValues?.get(1)
             ?: Regex("(\\+?[\\d\\-]{11,16})\\s*(?:নম্বর\\s*)?থেকে").find(t)?.groupValues?.get(1)
         var at = ""
@@ -74,7 +82,57 @@ object BkashSms {
             } catch (_: Exception) {
             }
         }
-        return JSONObject().put("trx", trx).put("amount", amount).put("sender", if (from != null) phone(from) else "").put("at", at)
+        val o = JSONObject().put("trx", trx).put("amount", amount).put("sender", if (from != null) phone(from) else "").put("at", at)
+        if (balance != null) o.put("_balance", balance)
+        return o
+    }
+
+    /** bKash's "Balance Tk 1,234.56" (or Bangla) in any of its messages, in paisa. */
+    fun balanceOf(raw: String): Long? {
+        val t = ascii(raw)
+        val m = Regex("(?:Balance|ব্যালেন্স)\\s*(?:is\\s*)?(?::\\s*)?(?:Tk\\.?|৳|টাকা)?\\s*([\\d,]+(?:\\.\\d{1,2})?)", RegexOption.IGNORE_CASE).find(t) ?: return null
+        val v = m.groupValues[1].replace(",", "").toDoubleOrNull() ?: return null
+        return Math.round(v * 100)
+    }
+
+    private fun amountPaisa(raw: String): Long? {
+        val t = ascii(raw)
+        val v = (Regex("Tk\\.?\\s*([\\d,]+(?:\\.\\d{1,2})?)", RegexOption.IGNORE_CASE).find(t)?.groupValues?.get(1)
+            ?: Regex("([\\d,]+(?:\\.\\d{1,2})?)\\s*টাকা").find(t)?.groupValues?.get(1))?.replace(",", "")?.toDoubleOrNull() ?: return null
+        return Math.round(v * 100)
+    }
+
+    private fun feeOf(raw: String): Long {
+        val t = ascii(raw)
+        val v = Regex("(?:Fee|Charge|চার্জ|ফি)\\s*(?:Tk\\.?|৳)?\\s*([\\d,]+(?:\\.\\d{1,2})?)", RegexOption.IGNORE_CASE).find(t)?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull() ?: return 0
+        return Math.round(v * 100)
+    }
+
+    /**
+     * Walks bKash messages oldest first: every one with a balance moves the
+     * running balance; a received payment is "verified" only when its balance
+     * is the last balance plus its amount. The balance itself never leaves.
+     */
+    fun verify(c: Context, messages: List<String>): List<JSONObject> {
+        val p = prefs(c)
+        var last = if (p.contains("bal")) p.getLong("bal", 0) else null
+        val out = mutableListOf<JSONObject>()
+        for (m in messages) {
+            val bal = balanceOf(m)
+            val item = parse(m)
+            if (item != null) {
+                // The whole amount in paisa (the item keeps whole taka), less any fee bKash took.
+                val amt = amountPaisa(m) ?: (item.optLong("amount") * 100)
+                val fee = feeOf(m)
+                val ok = bal != null && last != null && Math.abs(bal - (last + amt - fee)) <= 1
+                item.remove("_balance")
+                item.put("verified", ok)
+                out.add(item)
+            }
+            if (bal != null) last = bal
+        }
+        if (last != null) p.edit().putLong("bal", last).apply()
+        return out
     }
 
     /** bKash's own sender name (alphanumeric "bKash"), not a number someone could text from. */
@@ -86,7 +144,7 @@ object BkashSms {
         val queue = JSONArray(p.getString("queue", "[]"))
         for (it in items) queue.put(it)
         if (queue.length() == 0 || !isOn(c)) return
-        val ok = post(p.getString("base", "").orEmpty(), p.getString("key", "").orEmpty(), queue)
+        val ok = post(p.getString("base", "").orEmpty(), KeySealed.open(p.getString("key", "")).orEmpty(), queue)
         val e = p.edit()
         if (ok) {
             e.putString("queue", "[]").putString("last", SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }.format(java.util.Date()))
@@ -123,12 +181,14 @@ object BkashSms {
         val out = mutableListOf<JSONObject>()
         val since = System.currentTimeMillis() - days * 86_400_000L
         try {
-            c.contentResolver.query(Uri.parse("content://sms/inbox"), arrayOf("address", "body", "date"), "date >= ?", arrayOf(since.toString()), "date DESC")?.use { cur ->
+            val bodies = mutableListOf<String>()
+            c.contentResolver.query(Uri.parse("content://sms/inbox"), arrayOf("address", "body", "date"), "date >= ?", arrayOf(since.toString()), "date ASC")?.use { cur ->
                 while (cur.moveToNext()) {
                     if (!fromBkash(cur.getString(0))) continue
-                    parse(cur.getString(1) ?: "")?.let { out.add(it) }
+                    bodies.add(cur.getString(1) ?: "")
                 }
             }
+            out.addAll(verify(c, bodies))
         } catch (_: SecurityException) {
         }
         return out
@@ -146,7 +206,8 @@ class BkashSmsReceiver : BroadcastReceiver() {
             if (!BkashSms.fromBkash(from)) continue
             bodies.getOrPut(from) { StringBuilder() }.append(m.messageBody ?: "")
         }
-        val items = bodies.values.mapNotNull { BkashSms.parse(it.toString()) }
+        // Every bKash message moves the running balance; received ones are checked against it.
+        val items = BkashSms.verify(context, bodies.values.map { it.toString() })
         if (items.isEmpty()) return
         val pending = goAsync()
         Thread {

@@ -52,7 +52,7 @@ function ma_err_clean($s, $max, $digits = 3) {
 
 /** At most 60 reports an hour from one address, so a loop cannot fill the table. */
 function ma_err_too_many() {
-    $k = 'ma_err_' . md5((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+    $k = 'ma_err_' . md5(ma_client_ip());
     $n = (int) get_transient($k);
     if ($n >= 60) {
         return true;

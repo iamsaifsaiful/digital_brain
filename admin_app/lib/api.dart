@@ -13,8 +13,11 @@ import 'package:local_auth/local_auth.dart';
 const apiBase = String.fromEnvironment('API_BASE', defaultValue: 'https://getmyassistant.app');
 
 class ApiError implements Exception {
-  const ApiError(this.message, {this.signedOut = false});
+  const ApiError(this.message, {this.signedOut = false, this.code = ''});
   final String message;
+
+  /// The server's reason ('otp_required', 'otp_wrong', 'otp_setup' …).
+  final String code;
 
   /// The session is gone or the email is no longer an admin.
   final bool signedOut;
@@ -204,9 +207,10 @@ class Api {
     return _session != null && _session!.isNotEmpty;
   }
 
-  /// Email and password of an admin account on the website.
-  Future<String> login(String email, String password) async {
-    final r = await _call('POST', '/admin/login', {'email': email.trim(), 'password': password}, false);
+  /// Email and password of an admin account on the website, then the
+  /// 6-digit code from the admin's authenticator app (two-step sign-in).
+  Future<String> login(String email, String password, {String code = ''}) async {
+    final r = await _call('POST', '/admin/login', {'email': email.trim(), 'password': password, if (code.isNotEmpty) 'code': code.replaceAll(' ', '')}, false);
     _session = '${r['session']}';
     await _store.write(_session);
     return '${r['name'] ?? ''}';
@@ -404,6 +408,12 @@ class Api {
     }
     if (r.statusCode == 429) throw const ApiError('অনেকবার ভুল হয়েছে — ১৫ মিনিট পরে আবার চেষ্টা করুন');
     if (r.statusCode == 403 && j['code'] == 'owner') throw const ApiError('এটা শুধু সাইটের মূল অ্যাডমিন করতে পারেন');
+    final reason = '${j['code'] ?? ''}';
+    if (!auth && reason == 'otp_required') throw const ApiError('Authenticator অ্যাপের ৬ সংখ্যার কোড দিন', code: 'otp_required');
+    if (!auth && reason == 'otp_wrong') throw const ApiError('কোড মেলেনি — অ্যাপে এখন যে কোড দেখাচ্ছে সেটা দিন', code: 'otp_wrong');
+    if (!auth && reason == 'otp_setup') {
+      throw const ApiError('আগে সাইটে দুই ধাপের লগইন চালু করুন: getmyassistant.app/wp-admin › My Assistant › নিরাপত্তা। তারপর এখানে লগইন করুন।', code: 'otp_setup');
+    }
     if (r.statusCode == 401 || r.statusCode == 403) {
       if (auth) {
         await logout();

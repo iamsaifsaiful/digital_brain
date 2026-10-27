@@ -210,6 +210,8 @@ class SignIn extends StatefulWidget {
 class _SignInState extends State<SignIn> {
   final _email = TextEditingController();
   final _pass = TextEditingController();
+  final _code = TextEditingController();
+  bool _needCode = false;
   bool _busy = false;
   bool _show = false;
   String? _error;
@@ -224,11 +226,16 @@ class _SignInState extends State<SignIn> {
       _error = null;
     });
     try {
-      await widget.api.login(_email.text, _pass.text);
+      await widget.api.login(_email.text, _pass.text, code: _code.text);
       _pass.clear();
+      _code.clear();
       widget.onIn();
     } on ApiError catch (e) {
-      setState(() => _error = e.message);
+      setState(() {
+        _error = e.code == 'otp_required' ? null : e.message;
+        if (e.code == 'otp_required' || e.code == 'otp_wrong') _needCode = true;
+        if (e.code == 'otp_wrong') _code.clear();
+      });
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -278,6 +285,20 @@ class _SignInState extends State<SignIn> {
             decoration: _field('পাসওয়ার্ড', Icons.lock_outline_rounded,
                 suffix: IconButton(tooltip: _show ? 'লুকান' : 'দেখান', onPressed: () => setState(() => _show = !_show), icon: Icon(_show ? Icons.visibility_off_outlined : Icons.visibility_outlined))),
           ),
+          if (_needCode) ...[
+            const SizedBox(height: 10),
+            TextField(
+              key: const Key('otp'),
+              controller: _code,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              autofillHints: const [AutofillHints.oneTimeCode],
+              maxLength: 7,
+              onSubmitted: (_) => _go(),
+              style: text(18, color: const Color(0xFF111827)),
+              decoration: _field('Authenticator-এর ৬ সংখ্যার কোড', Icons.shield_outlined).copyWith(counterText: ''),
+            ),
+          ],
         ]),
       ),
       if (_error != null)

@@ -32,7 +32,9 @@ import javax.crypto.spec.SecretKeySpec
  * The place is locked with the 32-byte location key the user's app shared
  * with those members (AES-256-GCM: nonce 12 + text + tag 16, the same as
  * lib/services/family_crypto.dart sealPlace); our server only passes it on.
- * Nothing is sent unless the user turned sharing on in the app.
+ * Nothing is sent unless the user turned sharing on in the app, and each
+ * time it is, the user sees who looked (owner's review, 27 Oct: no silent
+ * tracking). The key and session are kept sealed by the Keystore (KeySealed).
  */
 object LocationShare {
     private const val PREFS = "ma_location_share"
@@ -43,7 +45,7 @@ object LocationShare {
             e.clear().apply()
             return
         }
-        e.putBoolean("on", true).putString("key", key).putString("session", session).putString("base", base).apply()
+        e.putBoolean("on", true).putString("key", KeySealed.seal(key)).putString("session", KeySealed.seal(session)).putString("base", base).apply()
     }
 
     fun isOn(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("on", false)
@@ -62,12 +64,16 @@ object LocationShare {
         )
     }
 
-    /** Finds the phone and sends where it is. Blocking: call it off the main thread. */
-    fun answer(context: Context): Boolean {
+    /** Finds the phone and sends where it is, then tells the user who asked. Blocking: call it off the main thread. */
+    fun answer(context: Context, by: String = ""): Boolean {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (!p.getBoolean("on", false)) return false
-        val key = Base64.decode(p.getString("key", "") ?: "", Base64.DEFAULT)
-        val session = p.getString("session", "") ?: ""
+        val storedKey = p.getString("key", "") ?: ""
+        val storedSession = p.getString("session", "") ?: ""
+        val key = Base64.decode(KeySealed.open(storedKey) ?: "", Base64.DEFAULT)
+        val session = KeySealed.open(storedSession) ?: ""
+        // Kept before sealing: sealed now.
+        if (!storedKey.startsWith("k1:") && key.size == 32) p.edit().putString("key", KeySealed.seal(storedKey)).putString("session", KeySealed.seal(storedSession)).apply()
         val base = p.getString("base", "") ?: ""
         if (key.size != 32 || session.isEmpty() || base.isEmpty()) return false
         val loc = find(context) ?: return false
@@ -80,7 +86,34 @@ object LocationShare {
             .put("at", fmt.format(Date(loc.time)))
             .put("battery", bm?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1)
         val sealed = seal(place.toString().toByteArray(Charsets.UTF_8), key)
-        return post("$base/wp-json/my-assistant/v1/family/location", session, JSONObject().put("sealed", sealed).toString())
+        val ok = post("$base/wp-json/my-assistant/v1/family/location", session, JSONObject().put("sealed", sealed).toString())
+        if (ok) told(context, by)
+        return ok
+    }
+
+    /** "রহিম আপনার লোকেশন দেখলেন" — quiet, but always shown. */
+    private fun told(context: Context, by: String) {
+        try {
+            val nm = context.getSystemService(android.app.NotificationManager::class.java) ?: return
+            if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel("ma_location_seen") == null) {
+                nm.createNotificationChannel(android.app.NotificationChannel("ma_location_seen", "লোকেশন দেখা হলে", android.app.NotificationManager.IMPORTANCE_LOW).apply {
+                    description = "পরিবারের কেউ আপনার লোকেশন দেখলে জানানো হয়"
+                })
+            }
+            val who = by.trim().take(40).ifEmpty { "পরিবারের একজন" }
+            val open = context.packageManager.getLaunchIntentForPackage(context.packageName)
+            val pi = if (open == null) null else android.app.PendingIntent.getActivity(context, 7, open, android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
+            val n = androidx.core.app.NotificationCompat.Builder(context, "ma_location_seen")
+                .setSmallIcon(R.drawable.ic_stat_reminder)
+                .setContentTitle("$who আপনার লোকেশন দেখলেন")
+                .setContentText("ফ্যামিলি › লোকেশন থেকে শেয়ার বন্ধ করা যায়।")
+                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
+                .setAutoCancel(true)
+                .apply { if (pi != null) setContentIntent(pi) }
+                .build()
+            nm.notify(7707, n)
+        } catch (_: Exception) {
+        }
     }
 
     /**

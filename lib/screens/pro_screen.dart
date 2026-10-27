@@ -75,7 +75,7 @@ class _ProScreenState extends State<ProScreen> {
 
     Widget getPro() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           if (showProLink) PrimaryButton(key: const Key('get-pro'), label: brain.pro && sell ? tr('মেয়াদ বাড়ান') : 'Get Premium', icon: Icons.workspace_premium_rounded, onPressed: () => _getPro(brain)),
-          if (previewEdition && !brain.pro) ...[
+          if (proTestSwitch && !brain.pro) ...[
             const SizedBox(height: 6),
             TextButton(onPressed: () => _tryPreview(brain), child: Text(tr('প্রিভিউ: টাকা ছাড়া প্রিমিয়াম চালু করে দেখুন'))),
           ],
@@ -247,7 +247,7 @@ class _ProScreenState extends State<ProScreen> {
                 ),
                 const SizedBox(height: 14),
                 ...(_details ? details : brief),
-                if (previewEdition) ...[
+                if (proTestSwitch) ...[
                   const SizedBox(height: 14),
                   Panel(
                     color: C.orangeTint,

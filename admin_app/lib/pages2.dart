@@ -1139,7 +1139,7 @@ class _BkashPageState extends State<BkashPage> {
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
-                Text('ওয়েবসাইটে জমা দেওয়া TrxID আর বিকাশে আসা টাকার TrxID মিললে, আর অন্তত প্ল্যানের দাম এলে প্রিমিয়াম নিজে থেকে চালু হয় — যেটা আগে আসুক। টাকা কম বা নম্বর না মিললে আপনার অনুমোদনের জন্য অপেক্ষা করে।',
+                Text('নিজে থেকে অনুমোদন চালু থাকলে: TrxID মিললে, অন্তত প্ল্যানের দাম এলে, আর এই ফোন বিকাশের ব্যালেন্স মিলিয়ে মেসেজটা আসল বলে নিশ্চিত হলে প্রিমিয়াম চালু হয়। ব্যালেন্সের অঙ্ক এই ফোনেই থাকে। না মিললে আপনার অনুমোদনের জন্য অপেক্ষা করে।',
                     style: text(13.5, color: c.muted, height: 1.55)),
                 const SizedBox(height: 12),
                 CardBox(
@@ -1153,7 +1153,7 @@ class _BkashPageState extends State<BkashPage> {
                       if (r != null && mounted) setState(() => _server = r);
                     },
                     title: Text('নিজে থেকে অনুমোদন', style: text(15, weight: FontWeight.w700, color: c.ink)),
-                    subtitle: Text(s['auto'] == true ? 'টাকা মিললেই প্রিমিয়াম চালু' : 'মিললেও আপনি দেখে অনুমোদন দেবেন', style: text(12.5, color: c.muted)),
+                    subtitle: Text(s['auto'] == true ? 'TrxID আর বিকাশের ব্যালেন্স দুটোই মিললে প্রিমিয়াম চালু; ভুয়া SMS আপনার জন্য অপেক্ষা করবে' : 'মিললেও আপনি দেখে অনুমোদন দেবেন', style: text(12.5, color: c.muted)),
                   ),
                 ),
                 const SizedBox(height: 10),

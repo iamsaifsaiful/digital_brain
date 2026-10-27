@@ -456,6 +456,28 @@ class _FamilyMemberScreenState extends State<FamilyMemberScreen> {
                         ),
                     ]),
                   ),
+                  const SizedBox(height: 10),
+                  FutureBuilder<String?>(
+                    future: fam.safetyCodeWith(l),
+                    builder: (context, snap) => snap.data == null
+                        ? const SizedBox.shrink()
+                        : Panel(
+                            key: const Key('family-safety'),
+                            padding: const EdgeInsets.all(14),
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Row(children: [
+                                Icon(Icons.verified_user_outlined, color: C.green, size: 20),
+                                const SizedBox(width: 8),
+                                Text(tr('নিরাপত্তা কোড'), style: body(15, weight: FontWeight.w700)),
+                              ]),
+                              const SizedBox(height: 6),
+                              SelectableText(bnDigits(snap.data!), style: body(19, weight: FontWeight.w700, color: C.ink)),
+                              const SizedBox(height: 4),
+                              Text(trf('{0}-এর ফোনেও একই কোড দেখালে আপনাদের তালা ঠিক আছে — মাঝখানে কেউ (আমাদের সার্ভারও) পড়তে পারে না। না মিললে কিছু পাঠাবেন না, আমাদের জানান।', [l.iCall.isEmpty ? l.name : l.iCall]),
+                                  style: body(13, color: C.muted, height: 1.5)),
+                            ]),
+                          ),
+                  ),
                   const SizedBox(height: 16),
                   SectionTitle(tr('তিনি আমার জন্য যা করতে পারবেন')),
                   Panel(
@@ -857,7 +879,7 @@ Future<void> heirBackup(BuildContext context, String title, Map<String, dynamic>
       }
     }
   }
-  final bytes = await Backup.export(d, pass, files: files);
+  final bytes = await Backup.export(d, pass, files: files, iterations: Backup.passwordIterations);
   final now = brain.services.now();
   final safe = title.replaceAll(RegExp(r'[^\p{L}\p{N}]+', unicode: true), '-');
   final name = 'my-assistant-$safe-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.dbrain';

@@ -35,7 +35,7 @@ import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '2.55.13';
+const appVersion = '2.56.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -531,7 +531,7 @@ class _MoreScreenState extends State<MoreScreen> {
                 trailing: brain.has(ProFeature.pdf) ? Icon(Icons.download_rounded, color: C.muted) : const ProMark()),
             linkRow(Icons.table_view_outlined, tr('ধার-দেনার রিপোর্ট (CSV)'), sub: tr('Excel বা Google Sheets-এ খোলা যায়'), onTap: _csv,
                 trailing: Icon(Icons.ios_share_rounded, color: C.muted)),
-            if (previewEdition)
+            if (proTestSwitch)
               switchRow(Icons.science_outlined, tr('পরীক্ষা: প্রিমিয়াম চালু'), tr('শুধু প্রিভিউতে — ফ্রি আর প্রিমিয়াম ইউজার কী দেখবে দুটোই দেখে নিন'), brain.pro, (v) => brain.setProForTest(v)),
             linkRow(Icons.info_outline_rounded, tr('লাইসেন্স ও সংস্করণ'),
                 sub: 'My Assistant ${bnDigits(appVersion)}${previewEdition ? ' · ${tr('প্লে স্টোর প্রিভিউ')}' : ''}',
@@ -541,7 +541,7 @@ class _MoreScreenState extends State<MoreScreen> {
         if (brain.aiOn) ...[
           const SizedBox(height: 8),
           Text(brain.aiShareData
-                  ? tr('AI চালু থাকলে Anthropic-এ যায়: আপনার বলা বা লেখা বাক্য, টাকার হিসাবের সারাংশ (নাম ও অঙ্ক), রিমাইন্ডার, কাজ, নোট, ওষুধ ও অভ্যাসের নাম, বিশেষ দিন, ডকুমেন্টের নাম আর “মনে রেখো” কথাগুলো — যাতে আপনার জিনিস নিয়ে ঠিক উত্তর দিতে পারে। কখনো যায় না: পাসওয়ার্ড ও ভল্ট, PIN/OTP/পাসওয়ার্ড থাকা নোট, ফোন-কার্ড-NID নম্বর, ইমেইল, স্বাস্থ্যের মাপ আর অন্য অ্যাপের মেসেজ।')
+                  ? tr('AI চালু থাকলে Anthropic-এ যায়: আপনার বলা বা লেখা বাক্য, টাকার হিসাবের সারাংশ (নাম ও অঙ্ক), রিমাইন্ডার, কাজ, নোট, অভ্যাসের নাম, বিশেষ দিন, ডকুমেন্টের নাম আর “মনে রেখো” কথাগুলো — যাতে আপনার জিনিস নিয়ে ঠিক উত্তর দিতে পারে। কখনো যায় না: পাসওয়ার্ড ও ভল্ট, PIN/OTP/পাসওয়ার্ড থাকা নোট, ওষুধ, স্বাস্থ্যের মাপ, ওষুধ-ডাক্তার-অসুখের কথা থাকা রিমাইন্ডার-কাজ-নোট, ফোন-কার্ড-NID নম্বর, ইমেইল আর অন্য অ্যাপের মেসেজ।')
                   : tr('AI চালু থাকলে শুধু আপনার বলা বা লেখা বাক্য আর টাকার হিসাবের সারাংশ (নাম ও অঙ্ক) Anthropic-এ যায়। রিমাইন্ডার, কাজ, নোট, পাসওয়ার্ড, ভল্ট, ফোন-কার্ড-NID নম্বর বা অন্য অ্যাপের মেসেজ যায় না।'),
               style: body(12, color: C.muted, height: 1.5)),
         ],
@@ -629,7 +629,7 @@ class _BackupScreenState extends State<BackupScreen> {
     if (pass == null || !mounted) return;
     setState(() => _busy = true);
     try {
-      final bytes = await Backup.export(brain.data, pass, files: await brain.backupFiles());
+      final bytes = await Backup.export(brain.data, pass, files: await brain.backupFiles(), iterations: Backup.passwordIterations);
       final now = brain.services.now();
       final name = 'my-assistant-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.dbrain';
       if (toPhone) {

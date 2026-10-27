@@ -2,7 +2,7 @@
 /**
  * Plugin Name: My Assistant Accounts
  * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, প্রিমিয়াম, পেমেন্ট, নোটিফিকেশন আর মতামত। শুধু নাম, ইমেইল, ছবি আর প্রিমিয়ামের তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.20.0
+ * Version: 1.21.0
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: My Assistant
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.20.0';
+const MA_ACC_VERSION = '1.21.0';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
 const MA_ACC_PER_PAGE = 20;
 
@@ -34,6 +34,7 @@ require_once __DIR__ . '/finance.php';
 require_once __DIR__ . '/errors.php';
 require_once __DIR__ . '/bkash.php';
 require_once __DIR__ . '/members.php';
+require_once __DIR__ . '/security.php';
 
 /** The members table. */
 function ma_acc_table() {
@@ -61,7 +62,7 @@ function ma_acc_install() {
         trial_started datetime NULL DEFAULT NULL,
         pro_until datetime NULL DEFAULT NULL,
         pro_kind varchar(32) NOT NULL DEFAULT '',
-        backup_key varchar(64) NOT NULL DEFAULT '',
+        backup_key varchar(160) NOT NULL DEFAULT '',
         PRIMARY KEY  (id),
         UNIQUE KEY google_sub (google_sub),
         KEY email (email)
@@ -125,7 +126,7 @@ add_action('rest_api_init', function () {
 
 /** Too many requests from one address in an hour. */
 function ma_acc_rate_limited() {
-    $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : 'x';
+    $ip = ma_client_ip();
     $key = 'ma_acc_rl_' . md5($ip);
     $n = (int) get_transient($key);
     if ($n >= 60) {
@@ -173,10 +174,25 @@ function ma_acc_row($sub) {
  */
 function ma_acc_backup_key($row) {
     global $wpdb;
-    $key = (string) ($row['backup_key'] ?? '');
-    if (strlen($key) < 40 && !empty($row['id']) && strpos((string) $row['google_sub'], 'pending:') !== 0) {
+    $stored = (string) ($row['backup_key'] ?? '');
+    // Sealed with MA_DATA_KEY from wp-config.php (owner's review, 27 Oct): a
+    // copy of the database alone does not give the keys. Without that key
+    // here, a sealed one is never replaced — a new key would make the
+    // member's backups unreadable for good.
+    if (strpos($stored, 'enc1:') === 0) {
+        $plain = ma_sec_open($stored, true);
+        return is_string($plain) ? $plain : '';
+    }
+    $key = $stored;
+    if (strlen($key) < 40) {
+        if (empty($row['id']) || strpos((string) $row['google_sub'], 'pending:') === 0) {
+            return $key;
+        }
         $key = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
-        $wpdb->update(ma_acc_table(), ['backup_key' => $key], ['id' => (int) $row['id']]);
+    }
+    $sealed = ma_sec_seal($key, true);
+    if ($sealed !== null || $key !== $stored) {
+        $wpdb->update(ma_acc_table(), ['backup_key' => $sealed ?? $key], ['id' => (int) $row['id']]);
     }
     return $key;
 }

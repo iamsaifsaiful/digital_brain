@@ -82,7 +82,11 @@ class Rig {
       google: google,
       clock: () => nowAt,
     );
-    brain = Brain(services)..placeStatus = () async => const {};
+    // Tests of the app's features run as the internal "open" build (nothing
+    // locked); the Premium tests turn the locks on themselves.
+    brain = Brain(services)
+      ..placeStatus = (() async => const {})
+      ..gated = false;
     if (data != null) brain.data = data;
   }
 

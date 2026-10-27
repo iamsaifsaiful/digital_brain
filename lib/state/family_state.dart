@@ -150,6 +150,9 @@ class FamilyState extends ChangeNotifier {
     } catch (_) {}
   }
 
+  /// The 20-digit safety code with [l] (see family_crypto.dart), or null before their key is known.
+  Future<String?> safetyCodeWith(FamilyLink l) async => l.theirKey.isEmpty ? null : safetyCode((await keys()).publicB64, l.theirKey);
+
   Future<FamilyKeys> keys() async {
     final k = _keys;
     if (k != null) return k;

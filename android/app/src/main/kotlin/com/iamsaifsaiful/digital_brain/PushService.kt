@@ -25,7 +25,7 @@ class PushService : FirebaseMessagingService() {
         // A family member asked where this phone is (silent): answered here,
         // with the app open or closed, only if the user turned sharing on.
         if (message.data["type"] == "locate") {
-            LocationShare.answer(this)
+            LocationShare.answer(this, message.data["by"] ?: "")
             return
         }
         // In the background Firebase shows "notification" messages itself;

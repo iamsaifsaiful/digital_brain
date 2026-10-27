@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/widgets.dart';
 
+import '../logic/ai_safe.dart';
 import '../logic/doc_dates.dart';
 import 'doc_scan.dart' show mergeFields;
 import '../services/error_log.dart';
@@ -228,9 +229,10 @@ class Brain extends ChangeNotifier {
 
   // ── Pro (sold only in the Play Store app; see logic/pro.dart) ──
 
-  /// Features are locked only in the Play app; the downloaded APK has all.
+  /// Premium features are locked until the member has Premium (every build
+  /// given out; see logic/pro.dart).
   bool get gated => _gated;
-  bool _gated = playEdition;
+  bool _gated = gatedEdition;
   set gated(bool v) {
     _gated = v;
     notifyListeners();
@@ -239,7 +241,8 @@ class Brain extends ChangeNotifier {
   /// Pro lasts until this moment.
   DateTime? proUntil;
 
-  /// A plan id ('pro_yearly', 'pro_monthly'), 'web' (bought on the website) or 'test' (preview).
+  /// 'play:pro_yearly' (Google Play), what our server says ('web', 'bkash',
+  /// 'manual', 'trial'), or 'test' (an internal test build).
   String proKind = '';
 
   /// The first day the app was opened (no full-screen ad that day).
@@ -280,8 +283,9 @@ class Brain extends ChangeNotifier {
 
   bool canSeeMonth(DateTime m) => has(ProFeature.history) || !DateTime(m.year, m.month).isBefore(firstFreeMonth);
 
-  /// After Google Play confirms a purchase (in the preview, the test button).
-  Future<void> activatePro(ProPlan plan) => _setPro(services.now().add(Duration(days: plan.days)), plan.id);
+  /// After Google Play confirms a purchase ('play:' + the plan; an internal
+  /// test build's button uses it too). Only these stand without our server.
+  Future<void> activatePro(ProPlan plan) => _setPro(services.now().add(Duration(days: plan.days)), 'play:${plan.id}');
 
   /// The preview's test switch.
   Future<void> setProForTest(bool on) => on ? _setPro(services.now().add(const Duration(days: 365)), 'test') : _setPro(null, '');
@@ -363,6 +367,15 @@ class Brain extends ChangeNotifier {
     try {
       proUntil = DateTime.tryParse(await keys.read('pro_until') ?? '');
       proKind = await keys.read('pro_kind') ?? '';
+      // Premium turned on by the old preview's test switch or button (no
+      // payment; there is no Play billing yet): gone in a build given out —
+      // the member's data all stays.
+      if (!proTestSwitch && (proKind == 'test' || proPlans.any((p) => p.id == proKind))) {
+        proUntil = null;
+        proKind = '';
+        await keys.delete('pro_until');
+        await keys.delete('pro_kind');
+      }
       firstUse = DateTime.tryParse(await keys.read('first_use') ?? '');
       if (firstUse == null) {
         firstUse = services.now();
@@ -479,10 +492,13 @@ class Brain extends ChangeNotifier {
     } else {
       await keys.write('srv_pro_until', info.proUntil!.toIso8601String());
     }
-    // Pro given on the website (or bought on another phone) shows up here too.
+    // Our server decides Premium (owner's review, 27 Oct): given on the
+    // website, by bKash or by an admin shows up here — and taken back here
+    // too. Only a Google Play purchase on this phone ('play…') stands on its own.
     final until = info.proUntil;
-    if (gated && until != null && until.isAfter(services.now()) && (proUntil == null || until.isAfter(proUntil!))) {
-      await _setPro(until, info.proKind, announce: await _noPush());
+    final live = until != null && until.isAfter(services.now()) ? until : null;
+    if (gated && !proKind.startsWith('play') && (live != proUntil || (live != null && proKind != info.proKind))) {
+      await _setPro(live, live == null ? '' : info.proKind, announce: await _noPush());
     }
     notifyListeners();
   }
@@ -558,7 +574,7 @@ class Brain extends ChangeNotifier {
     services.ai.session = '';
     serverAi = false;
     serverProUntil = null;
-    for (final k in ['g_email', 'g_name', 'drive_on', 'drive_pw', 'drive_key_server', 'srv_session', 'srv_ai', 'srv_pro_until']) {
+    for (final k in ['g_email', 'g_name', 'drive_on', 'drive_pw', 'drive_extra', 'drive_key_server', 'srv_session', 'srv_ai', 'srv_pro_until']) {
       await keys.delete(k);
     }
     notifyListeners();
@@ -599,7 +615,11 @@ class Brain extends ChangeNotifier {
     notifyListeners();
     try {
       final token = await services.google.driveToken();
-      final bytes = await Backup.export(data, pw, files: await backupFiles());
+      // The extra lock (the member's own password) on top of the account's key, when set.
+      final extra = await keys.read('drive_extra');
+      final hasExtra = extra != null && extra.isNotEmpty;
+      final bytes = await Backup.export(data, hasExtra ? driveLock(pw, extra) : pw,
+          files: await backupFiles(), iterations: hasExtra ? Backup.passwordIterations : Backup.defaultIterations);
       final now = services.now();
       final stamp = now.toIso8601String().replaceAll(':', '-').split('.').first;
       final id = await services.drive.upload(token, '$_drivePrefix-$stamp.dbk', bytes);
@@ -637,14 +657,57 @@ class Brain extends ChangeNotifier {
     return [for (final f in await services.drive.list(token)) if (f.name.startsWith(_drivePrefix)) f];
   }
 
-  /// Opens a Drive backup (nothing is replaced yet): with the account's key,
-  /// or [password] for a backup made before keys (WrongKey when neither fits).
+  /// Opens a Drive backup (nothing is replaced yet): with the account's key;
+  /// with [password] it is tried as the member's extra lock on that key, then
+  /// as the whole password of a backup made before keys (WrongKey when none fits).
   Future<(AppData, Map<String, Uint8List>)> openDriveBackup(DriveFile f, {String? password}) async {
     final token = await services.google.driveToken();
     final bytes = await services.drive.download(token, f.id);
-    final key = password ?? await services.lock.keys.read('drive_pw');
-    if (key == null || key.isEmpty) throw const WrongKey();
-    return Backup.restore(bytes, key);
+    final key = await services.lock.keys.read('drive_pw');
+    if (password == null) {
+      if (key == null || key.isEmpty) throw const WrongKey();
+      final extra = await services.lock.keys.read('drive_extra');
+      if (extra != null && extra.isNotEmpty) {
+        try {
+          return await Backup.restore(bytes, driveLock(key, extra));
+        } on WrongKey {
+          // Made before the extra lock was set: the key alone.
+        }
+      }
+      return Backup.restore(bytes, key);
+    }
+    if (key != null && key.isNotEmpty) {
+      try {
+        final r = await Backup.restore(bytes, driveLock(key, password));
+        // Opened with the extra lock: later backups keep it.
+        await services.lock.keys.write('drive_extra', password);
+        return r;
+      } on WrongKey {
+        // Not the extra lock: maybe an old backup's own password.
+      }
+    }
+    return Backup.restore(bytes, password);
+  }
+
+  /// The Drive backup's key with the member's own extra password (owner's
+  /// review, 27 Oct): someone who takes over the Google account cannot open
+  /// the backup without it. Forgotten, it cannot be recovered.
+  static String driveLock(String accountKey, String extra) => '$accountKey\u0000$extra';
+
+  Future<bool> driveExtraOn() async => ((await services.lock.keys.read('drive_extra')) ?? '').isNotEmpty;
+
+  /// Sets (or with null takes off) the extra lock, then backs up at once, so
+  /// the copy in Drive has the new lock (the older one is deleted after).
+  Future<String?> setDriveExtra(String? password) async {
+    final keys = services.lock.keys;
+    if (password == null || password.isEmpty) {
+      await keys.delete('drive_extra');
+    } else {
+      await keys.write('drive_extra', password);
+    }
+    _driveDirty = true;
+    notifyListeners();
+    return driveOn ? backupToDrive() : null;
   }
 
   /// After restoring from Drive: keep backing up, now with the account's key.
@@ -1247,7 +1310,11 @@ class Brain extends ChangeNotifier {
     String d2(int n) => n.toString().padLeft(2, '0');
     String day(DateTime d) => '${d.year}-${d2(d.month)}-${d2(d.day)}';
     final lines = <String>[];
-    final mem = data.memories.where((m) => !mentionsSecret(m.text)).take(40).toList();
+    // Health stays on the phone: anything about medicine, a doctor or an illness is left out (owner's rule).
+    final meds = [for (final m in data.medicines) m.name];
+    bool hx(String s) => mentionsHealth(s, extra: meds);
+    var held = 0;
+    final mem = data.memories.where((m) => !mentionsSecret(m.text) && !hx(m.text)).take(40).toList();
     if (mem.isNotEmpty) {
       lines.add('What the user asked you to keep in mind about them (use it in answers):');
       for (final m in mem) {
@@ -1259,12 +1326,17 @@ class Brain extends ChangeNotifier {
       lines.add('Special days (next date): ${sd.take(30).map((x) => '${x.person} ${x.kind.name} ${day(x.next(now))}${x.year == null ? '' : ' (since ${x.year})'}').join('; ')}');
     }
     if (data.habits.isNotEmpty) {
-      lines.add('Habits (streak days, done today?): ${data.habits.map((h) => '${h.name} ${h.streak(now)} ${h.doneOn(now) ? 'yes' : 'no'}').join('; ')}');
+      final habits = data.habits.where((h) => !hx(h.name)).toList();
+      if (habits.isNotEmpty) lines.add('Habits (streak days, done today?): ${habits.map((h) => '${h.name} ${h.streak(now)} ${h.doneOn(now) ? 'yes' : 'no'}').join('; ')}');
     }
     // Medicines are health data: they stay on the phone (questions about
     // them are answered by the app itself).
     if (data.medicines.isNotEmpty) lines.add('Medicines: kept on the phone only — for any medicine question add a menu/medicine item or reply "দেখছি।".');
-    final rem = [...data.reminders]..sort((a, b) => a.nextDate(now).compareTo(b.nextDate(now)));
+    final rem = [...data.reminders.where((r) {
+      final h = hx(r.title);
+      if (h) held++;
+      return !h;
+    })]..sort((a, b) => a.nextDate(now).compareTo(b.nextDate(now)));
     if (rem.isNotEmpty) {
       lines.add('Reminders (next date, time, repeat):');
       for (final r in rem.take(50)) {
@@ -1276,7 +1348,12 @@ class Brain extends ChangeNotifier {
     } else {
       lines.add('Reminders: none saved.');
     }
-    final open = data.tasks.where((t) => !t.done).toList();
+    final open = data.tasks.where((t) {
+      if (t.done) return false;
+      final h = hx(t.title);
+      if (h) held++;
+      return !h;
+    }).toList();
     if (open.isNotEmpty) {
       lines.add('Open to-dos:');
       for (final t in open.take(60)) {
@@ -1294,10 +1371,10 @@ class Brain extends ChangeNotifier {
     } else {
       lines.add('Open to-dos: none.');
     }
-    final doneToday = data.tasks.where((t) => t.done && t.doneAt != null && dayOnly(t.doneAt!) == dayOnly(now)).toList();
+    final doneToday = data.tasks.where((t) => t.done && t.doneAt != null && dayOnly(t.doneAt!) == dayOnly(now) && !hx(t.title)).toList();
     if (doneToday.isNotEmpty) lines.add('Done today: ${doneToday.take(20).map((t) => t.title).join('; ')}');
     final notes = ([...data.notes]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt)))
-        .where((n) => !mentionsSecret('${n.title} ${n.body}'))
+        .where((n) => !mentionsSecret('${n.title} ${n.body}') && !hx('${n.category} ${n.title} ${n.body}'))
         .take(40)
         .toList();
     if (notes.isNotEmpty) {
@@ -1307,13 +1384,15 @@ class Brain extends ChangeNotifier {
         lines.add('- ${n.category}: ${text.length > 160 ? '${text.substring(0, 160)}…' : text}');
       }
     }
-    if (data.docs.isNotEmpty) {
+    final docs = data.docs.where((x) => !hx('${x.title} ${x.folder} ${x.about}')).toList();
+    if (docs.isNotEmpty) {
       lines.add('Documents kept (photos/files, opened on the phone): '
-          '${data.docs.take(40).map((x) => '${x.title} [${x.folder}]'
+          '${docs.take(40).map((x) => '${x.title} [${x.folder}]'
               '${x.about.isEmpty ? '' : ' — ${x.about}'}${x.people.isEmpty ? '' : ', people: ${x.people}'}${x.place.isEmpty ? '' : ', place: ${x.place}'}'
               '${x.taken == null ? '' : ', date ${day(x.taken!)}'}, ${x.files.length} files'
               '${x.expiry == null ? '' : ' expires ${day(x.expiry!)}'}').join('; ')}');
     }
+    if (held > 0) lines.add('Health-related reminders/to-dos kept on the phone only: $held (not shown to you; for those reply "দেখছি।" or add a menu/medicine item).');
     lines.add('Contacts saved: ${data.contacts.length} (numbers stay on the phone; the app looks them up).');
     lines.add('Passwords saved: ${data.vault.length} (never shown to you; the app opens them with fingerprint/PIN).');
     return lines.join('\n');

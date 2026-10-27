@@ -70,7 +70,7 @@ class MainActivity : FlutterFragmentActivity() {
                 // Recent bKash payments from the inbox (parsed here; only the four fields).
                 "scan" -> Thread {
                     val items = BkashSms.scan(this, call.argument<Int>("days") ?: 3)
-                    val list = items.map { mapOf("trx" to it.optString("trx"), "amount" to it.optInt("amount"), "sender" to it.optString("sender"), "at" to it.optString("at")) }
+                    val list = items.map { mapOf("trx" to it.optString("trx"), "amount" to it.optInt("amount"), "sender" to it.optString("sender"), "at" to it.optString("at"), "verified" to it.optBoolean("verified"), "from" to "scan") }
                     runOnUiThread { result.success(list) }
                 }.start()
                 // What waited (offline) goes now.

@@ -260,6 +260,9 @@ class FakeServer {
     } else if (p == '/admin/login') {
       final j = jsonDecode(r.body);
       if (j['email'] != 'boss@gmail.com' || j['password'] != 'long-password-123') return http.Response('{"code":"login"}', 401);
+      // Two-step sign-in: the authenticator's code after the password.
+      if (j['code'] == null) return http.Response('{"code":"otp_required"}', 401);
+      if (j['code'] != '123456') return http.Response('{"code":"otp_wrong"}', 401);
       body = {'session': 'c' * 64, 'name': 'Boss'};
     }
     return http.Response.bytes(utf8.encode(jsonEncode(body)), 200);
@@ -571,9 +574,19 @@ void main() {
     await t.enterText(find.byKey(const Key('password')), 'long-password-123');
     await t.tap(find.byKey(const Key('sign-in')));
     await settle(t);
+    // The right password asks for the authenticator's code.
+    expect(find.byKey(const Key('otp')), findsOneWidget);
+    await t.enterText(find.byKey(const Key('otp')), '000 000');
+    await t.tap(find.byKey(const Key('sign-in')));
+    await settle(t);
+    expect(find.textContaining('কোড মেলেনি'), findsOneWidget);
+    await t.enterText(find.byKey(const Key('otp')), '123 456');
+    await t.tap(find.byKey(const Key('sign-in')));
+    await settle(t);
     await settle(t);
     expect(find.text('২টা পেমেন্ট দেখার অপেক্ষায়'), findsOneWidget);
-    expect(server.calls.where((r) => r.url.path.endsWith('/admin/login')).length, 2);
+    expect(server.calls.where((r) => r.url.path.endsWith('/admin/login')).length, 4);
+    expect(jsonDecode(server.calls.lastWhere((r) => r.url.path.endsWith('/admin/login')).body)['code'], '123456');
   });
 
   testWidgets('fingerprint lock when it is on', (t) async {
@@ -604,7 +617,7 @@ void main() {
     final api = Api(client: server.client, store: store, base: 'https://x');
     await expectLater(api.login('boss@gmail.com', 'nope'), throwsA(isA<ApiError>()));
     expect(store.value, isNull);
-    expect(await api.login('boss@gmail.com', 'long-password-123'), 'Boss');
+    expect(await api.login('boss@gmail.com', 'long-password-123', code: '123 456'), 'Boss');
     expect(store.value, 'c' * 64);
     await api.setFingerprint(true);
     expect(await api.fingerprintOn(), isTrue);

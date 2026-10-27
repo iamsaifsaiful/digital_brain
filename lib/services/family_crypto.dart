@@ -95,3 +95,21 @@ Future<Map<String, dynamic>> openSealedPackage(String blobB64, String wrappedKey
   final clear = await open(base64Decode(blobB64), content);
   return (jsonDecode(utf8.decode(gzip.decode(clear))) as Map).cast<String, dynamic>();
 }
+
+/// The pair's safety code (owner's review, 27 Oct): the same 20 digits on both
+/// phones when each has the other's real key. Different digits mean someone
+/// in between (even our server) swapped a key — nothing sealed is then safe.
+Future<String> safetyCode(String aB64, String bB64) async {
+  final a = base64Decode(aB64), b = base64Decode(bB64);
+  final first = _less(a, b) ? a : b, second = identical(first, a) ? b : a;
+  final h = (await Sha256().hash([...utf8.encode('ma-safety-v1'), ...first, ...second])).bytes;
+  final groups = [for (var i = 0; i < 5; i++) ((h[2 * i] << 8 | h[2 * i + 1]) % 10000).toString().padLeft(4, '0')];
+  return groups.join(' ');
+}
+
+bool _less(List<int> a, List<int> b) {
+  for (var i = 0; i < a.length && i < b.length; i++) {
+    if (a[i] != b[i]) return a[i] < b[i];
+  }
+  return a.length < b.length;
+}

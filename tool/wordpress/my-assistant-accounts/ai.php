@@ -283,7 +283,7 @@ function ma_ai_new_session($user_id, $app = 'member') {
         'user_id' => (int) $user_id,
         'token_hash' => hash('sha256', $token),
         'created_at' => $now,
-        'expires_at' => gmdate('Y-m-d H:i:s', time() + ($app === 'admin' ? 30 : 60) * DAY_IN_SECONDS),
+        'expires_at' => gmdate('Y-m-d H:i:s', time() + ($app === 'admin' ? 7 : 60) * DAY_IN_SECONDS),
         'last_used' => $now,
         'app' => $app === 'admin' ? 'admin' : 'member',
     ]);

@@ -1,11 +1,14 @@
 /// My Assistant Pro: what the free app gives, what Pro adds, and which build
 /// sells it.
 ///
-/// The APK people download from GitHub has everything (nothing is locked).
+/// Every build people get locks the Premium features until our server (or
+/// Google Play) says the member has Premium (owner's review, 27 Oct: the
+/// GitHub APK used to have everything open, and anyone can download it).
 /// The Play Store app is free with ads; Pro (bought through Google Play
 /// Billing) adds the features below and removes the ads. The preview build
 /// (`--dart-define=EDITION=play_preview`) shows the Play app as a new user
-/// gets it, with a test switch in place of real payment.
+/// gets it. Only an internal test build (`--dart-define=PRO_TEST=true`)
+/// has a switch that turns Premium on without paying — never one given out.
 ///
 /// Rule: Pro never locks the user's own data. Items already kept stay
 /// readable, editable and deletable; only adding more past a free limit, or
@@ -18,8 +21,15 @@ const String edition = String.fromEnvironment('EDITION', defaultValue: 'direct')
 /// The Play Store app (or its preview): free with ads, Pro sold in the app.
 bool get playEdition => edition == 'play' || edition == 'play_preview';
 
-/// The preview: no real payment; a test switch turns Pro on and off.
+/// The preview: the Play app as a new user gets it (sample ad spaces).
 bool get previewEdition => edition == 'play_preview';
+
+/// Premium features are locked unless the member has Premium — in every
+/// build except an internal one made with `--dart-define=EDITION=open`.
+bool get gatedEdition => edition != 'open';
+
+/// Internal test builds only: a switch that turns Premium on without paying.
+const proTestSwitch = bool.fromEnvironment('PRO_TEST');
 
 /// The website's Pro page (the shortcode [my_assistant_pro]), behind
 /// "Get Premium". Google Play's payment rules do not allow a Play Store app to
