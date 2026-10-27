@@ -7,6 +7,7 @@ import 'logic/bn.dart';
 import 'logic/proactive.dart';
 import 'logic/calendar_bd.dart' show placeNamed, sunTimes;
 import 'logic/sky_light.dart';
+import 'screens/vault_screen.dart' show VaultPage;
 import 'screens/more_screen.dart' show BackupScreen;
 import 'screens/google_backup.dart' show restoreFromDrive;
 import 'screens/feedback_screen.dart' show FeedbackScreen;
@@ -298,6 +299,8 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       push(const BackupScreen());
     } else if (id.startsWith(nudgeQuote)) {
       push(const SpendHealthScreen());
+    } else if (id.startsWith(nudgePass)) {
+      push(const VaultPage());
     } else if (id.startsWith(nudgeFix)) {
       push(const AllTasksScreen());
     } else if (id.startsWith(nudgeSpend)) {

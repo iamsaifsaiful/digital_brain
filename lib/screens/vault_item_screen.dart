@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
+import '../logic/vault_age.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
@@ -153,6 +154,32 @@ class _VaultItemScreenState extends State<VaultItemScreen> {
                       bg: C.orangeTint,
                     ),
                   ],
+                  const SizedBox(height: 12),
+                  _Dates(v: v, now: now),
+                  if (v.old.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Panel(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(trf('আগের পাসওয়ার্ড ({0}টি)', [bnDigits(v.old.length)]), style: body(13, color: C.muted)),
+                        for (final o in v.old)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Opacity(
+                              opacity: 0.45,
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Text(_show ? o.password : '•' * 8,
+                                    style: _show
+                                        ? TextStyle(fontFamily: 'monospace', fontSize: 15, color: C.ink, decoration: TextDecoration.lineThrough)
+                                        : body(16, height: 1.3).copyWith(letterSpacing: 3)),
+                                Text(o.from == null ? trf('{0} পর্যন্ত চালু ছিল', [fullDate(o.until)]) : trf('{0} থেকে {1} পর্যন্ত চালু ছিল', [fullDate(o.from!), fullDate(o.until)]),
+                                    style: body(12, color: C.muted)),
+                              ]),
+                            ),
+                          ),
+                      ]),
+                    ),
+                  ],
                   if (v.note.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Panel(
@@ -178,7 +205,7 @@ class _VaultItemScreenState extends State<VaultItemScreen> {
                   const SizedBox(height: 14),
                   Text(tr('• কপি করা পাসওয়ার্ড ৩০ সেকেন্ড পর ক্লিপবোর্ড থেকে মুছে যায়'), style: body(13, color: C.muted, height: 1.6)),
                   Text(tr('• ভয়েসে চাইলে অ্যাপ শুধু বলে “স্ক্রিনে দেখুন” — পাসওয়ার্ড জোরে পড়ে না'), style: body(13, color: C.muted, height: 1.6)),
-                  Text(trf('• শেষ বদল: {0}', [fullDate(v.updatedAt)]), style: body(13, color: C.muted, height: 1.6)),
+                  Text(trf('• শেষ সম্পাদনা: {0}', [fullDate(v.updatedAt)]), style: body(13, color: C.muted, height: 1.6)),
                 ],
               ),
             ),
@@ -218,6 +245,47 @@ class _VaultItemScreenState extends State<VaultItemScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// When it was put in and when its password was last set; "বা তার আগে"
+/// for a login kept before the app noted these.
+class _Dates extends StatelessWidget {
+  const _Dates({required this.v, required this.now});
+  final VaultItem v;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final known = [v.passwordSince, v.updatedAt, for (final o in v.old) ...[o.until, if (o.from != null) o.from!]];
+    final earliest = known.reduce((a, b) => a.isBefore(b) ? a : b);
+    final added = v.createdAt == null ? trf('{0} বা তার আগে', [fullDate(earliest)]) : fullDate(v.createdAt!);
+    final set = v.passwordAt == null ? trf('{0} বা তার আগে', [fullDate(v.passwordSince)]) : fullDate(v.passwordAt!);
+    final days = dayOnly(now).difference(dayOnly(v.passwordSince)).inDays;
+    final stale = v.password.isNotEmpty && !now.isBefore(v.passwordSince.add(passwordMaxAge));
+    Widget line(IconData icon, String label, String value, {Color? color}) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(children: [
+            Icon(icon, size: 18, color: color ?? C.muted),
+            const SizedBox(width: 10),
+            Expanded(child: Text(label, style: body(14, color: C.muted))),
+            Flexible(child: Text(value, textAlign: TextAlign.end, style: body(14, weight: FontWeight.w600, color: color ?? C.ink))),
+          ]),
+        );
+    return Panel(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Column(children: [
+        line(Icons.event_available_outlined, tr('যোগ করা হয়েছে'), added),
+        if (v.password.isNotEmpty) line(Icons.key_outlined, tr('পাসওয়ার্ড দেওয়া হয়েছে'), set),
+        if (v.password.isNotEmpty)
+          line(stale ? Icons.update_rounded : Icons.schedule_rounded, tr('পাসওয়ার্ডের বয়স'), days <= 0 ? tr('আজ') : trf('{0} দিন', [bnDigits(days)]), color: stale ? C.orangeDark : null),
+        if (stale)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(tr('৬ মাসের বেশি পুরোনো — সম্পাদনায় গিয়ে নতুন পাসওয়ার্ড দিন; আগেরটা এখানে ঝাপসা করে রাখা থাকবে।'), style: body(13, color: C.orangeDark, height: 1.5)),
+          ),
+      ]),
     );
   }
 }

@@ -1,3 +1,4 @@
+import '../logic/vault_age.dart' show usedBefore;
 import '../logic/services_list.dart';
 import 'package:flutter/material.dart';
 
@@ -477,6 +478,11 @@ class _NewItemScreenState extends State<NewItemScreen> {
           const SizedBox(width: 6),
           Flexible(child: Text(s.label, style: body(13, weight: FontWeight.w600, color: sColor))),
         ]),
+      if (widget.vault != null && usedBefore(widget.vault!, _pw.text))
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(tr('এই পাসওয়ার্ড এই লগইনে আগে ব্যবহার হয়েছে — নতুন একটা দিলে বেশি নিরাপদ।'), style: body(13, weight: FontWeight.w600, color: C.orangeDark)),
+        ),
       Align(
         alignment: Alignment.centerRight,
         child: TextButton.icon(

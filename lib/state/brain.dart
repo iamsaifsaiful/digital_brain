@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/widgets.dart';
 
+import '../logic/vault_age.dart';
 import '../logic/ai_safe.dart';
 import '../logic/doc_dates.dart';
 import 'doc_scan.dart' show mergeFields;
@@ -2092,6 +2093,8 @@ class Brain extends ChangeNotifier {
   }
 
   Future<void> saveVault(VaultItem v) async {
+    // The date it was put in stays; a replaced password is kept, faded (logic/vault_age.dart).
+    v = vaultToSave(data.vault.where((x) => x.id == v.id).firstOrNull, v, services.now());
     _upsert(data.vault, v, (x) => x.id);
     await _save();
   }

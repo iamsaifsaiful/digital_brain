@@ -9,6 +9,7 @@ library;
 import 'dart:math' show min;
 
 import '../models/models.dart';
+import 'vault_age.dart';
 import '../services/notifications.dart';
 import 'bn.dart';
 import 'calendar_bd.dart';
@@ -172,6 +173,7 @@ const nudgeBackup = 'nudge:backup';
 const nudgeBmi = 'nudge:bmi:';
 const nudgeQuote = 'nudge:quote';
 const nudgeFix = 'nudge:fix';
+const nudgePass = 'nudge:pass';
 
 /// One sentence for each month: what to watch for in Bangladesh's seasons.
 const healthTips = [
@@ -451,6 +453,8 @@ List<PlannedNotice> _nudges(AppData d, DateTime now, AssistantPrefs p) {
     ));
   }
 
+  out.addAll(passwordNudges(d, now));
+
   // Medicine running low.
   for (final m in d.medicines) {
     final left = m.daysLeft;
@@ -622,6 +626,48 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
     add(nudgeDonor, dayKey(donor), _at(dayOnly(donor), 10 * 60), tr('আবার রক্ত দিতে পারবেন'), tr('শেষ রক্তদানের পর যথেষ্ট সময় পার হয়েছে। কারও দরকার হলে এখন সাহায্য করতে পারবেন।'));
   }
   return out;
+}
+
+/// The day the password nudge first went out to everyone; a password already
+/// six months old then is counted from this day (owner, 27 Oct).
+final passNudgeStart = DateTime(2026, 10, 27);
+
+/// A Friday or a government holiday, on or after [day].
+DateTime nextFridayOrHoliday(DateTime day) {
+  var x = dayOnly(day);
+  while (x.weekday != DateTime.friday && holidayOn(x) == null) {
+    x = x.add(const Duration(days: 1));
+  }
+  return x;
+}
+
+/// Passwords six months old (then twelve…): one gentle note on the first
+/// Friday or holiday after, at 11:45 — the count only, never the names (the
+/// lock screen shows it). Tapped, it opens the vault.
+List<PlannedNotice> passwordNudges(AppData d, DateTime now) {
+  final byDay = <DateTime, int>{};
+  for (final v in d.vault) {
+    if (v.password.isEmpty) continue;
+    final next = nextDue(v, now);
+    final last = next.subtract(passwordMaxAge);
+    for (final due in [if (!last.isBefore(v.passwordSince.add(passwordMaxAge))) last, next]) {
+      final from = due.isBefore(passNudgeStart) ? passNudgeStart : due;
+      final day = nextFridayOrHoliday(from);
+      if (_at(day, 11 * 60 + 45).isAfter(now)) byDay[day] = (byDay[day] ?? 0) + 1;
+    }
+  }
+  final days = byDay.keys.toList()..sort();
+  return [
+    for (final day in days.take(2))
+      PlannedNotice(
+        id: stableId('$nudgePass:${dayKey(day)}'),
+        at: _at(day, 11 * 60 + 45),
+        title: byDay[day] == 1 ? tr('একটা পাসওয়ার্ড ৬ মাস বদলানো হয়নি') : trf('{0}টা পাসওয়ার্ড ৬ মাস বদলানো হয়নি', [bnDigits(byDay[day]!)]),
+        body: tr('আজ ছুটির দিন — বদলে নিলে অ্যাকাউন্ট নিরাপদ থাকে। চাপুন, ভল্টে কোনগুলো পুরোনো দেখুন।'),
+        reminderId: nudgePass,
+        gentle: true,
+      ),
+  ];
 }
 
 String? _wishFor(String holiday) {

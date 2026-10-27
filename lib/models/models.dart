@@ -168,12 +168,28 @@ class VaultItem {
     this.password = '',
     this.note = '',
     DateTime? updatedAt,
+    this.createdAt,
+    this.passwordAt,
+    this.old = const [],
   })  : id = id ?? newId(),
         updatedAt = updatedAt ?? DateTime.now();
 
   final String id;
   final String name;
   final VaultKind kind;
+
+  /// When it was first put in the vault (null: kept before the app noted it).
+  final DateTime? createdAt;
+
+  /// When the password itself was last set (null: before the app noted it — see [VaultItem.passwordSince]).
+  final DateTime? passwordAt;
+
+  /// Earlier passwords, newest first, shown faded (owner, 27 Oct). Kept
+  /// inside the vault like the password itself.
+  final List<OldPassword> old;
+
+  /// When the password was set, as well as the app knows.
+  DateTime get passwordSince => passwordAt ?? updatedAt;
 
   /// Web address, or the network name for Wi-Fi.
   final String address;
@@ -193,6 +209,9 @@ class VaultItem {
         'password': password,
         'note': note,
         'updatedAt': updatedAt.toIso8601String(),
+        if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
+        if (passwordAt != null) 'passwordAt': passwordAt!.toIso8601String(),
+        if (old.isNotEmpty) 'old': [for (final o in old) o.toJson()],
       };
 
   factory VaultItem.fromJson(Map<String, Object?> j) => VaultItem(
@@ -205,7 +224,30 @@ class VaultItem {
         password: (j['password'] as String?) ?? '',
         note: (j['note'] as String?) ?? '',
         updatedAt: _date(j['updatedAt']),
+        createdAt: _date(j['createdAt']),
+        passwordAt: _date(j['passwordAt']),
+        old: [
+          for (final o in (j['old'] as List?) ?? const [])
+            if (o is Map) OldPassword.fromJson(o.cast<String, Object?>()),
+        ],
       );
+}
+
+/// A password that was replaced: what it was, and when it was in use.
+class OldPassword {
+  const OldPassword({required this.password, this.from, required this.until});
+  final String password;
+
+  /// When it was set (null: not known).
+  final DateTime? from;
+
+  /// When it was replaced.
+  final DateTime until;
+
+  Map<String, Object?> toJson() => {'password': password, if (from != null) 'from': from!.toIso8601String(), 'until': until.toIso8601String()};
+
+  factory OldPassword.fromJson(Map<String, Object?> j) =>
+      OldPassword(password: (j['password'] as String?) ?? '', from: _date(j['from']), until: _date(j['until']) ?? DateTime.fromMillisecondsSinceEpoch(0));
 }
 
 // ───────────────────────── Contacts ─────────────────────────

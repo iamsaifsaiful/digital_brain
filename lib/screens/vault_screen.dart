@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../logic/bn.dart';
 import '../logic/parser.dart';
 import '../logic/services_list.dart';
+import '../logic/vault_age.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/pin.dart';
@@ -35,6 +36,7 @@ class _VaultScreenState extends State<VaultScreen> {
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final all = [...brain.data.vault]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    final stale = {for (final v in stalePasswords(brain.data, brain.services.now())) v.id};
     final kinds = VaultKind.values.where((k) => all.any((v) => v.kind == k)).toList();
     final q = normalize(_q);
     final list = all.where((v) {
@@ -92,6 +94,16 @@ class _VaultScreenState extends State<VaultScreen> {
         ],
         const SizedBox(height: 12),
         InfoBanner(text: tr('শুধু এই ফোনে, তালাবদ্ধ অবস্থায় থাকে। দেখতে আঙুলের ছাপ বা PIN লাগে। AI-তে কখনো যায় না, জোরে পড়াও হয় না।')),
+        if (stale.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          InfoBanner(
+            text: trf('{0}টা পাসওয়ার্ড ৬ মাসের বেশি বদলানো হয়নি — নিচে “পুরোনো” লেখা আছে। সময় করে বদলে নিন।', [bnDigits(stale.length)]),
+            icon: Icons.update_rounded,
+            fg: C.orangeDark,
+            iconColor: C.orange,
+            bg: C.orangeTint,
+          ),
+        ],
         const SizedBox(height: 12),
         if (all.isEmpty)
           EmptyState(
@@ -111,7 +123,7 @@ class _VaultScreenState extends State<VaultScreen> {
                   leading: knownServiceOf(v.name) == null ? _KindIcon(kind: v.kind) : ServiceBadge(service: knownServiceOf(v.name)!),
                   title: v.name,
                   subtitle: v.address.isEmpty || v.kind == VaultKind.wifi ? v.kind.label : '${v.kind.label} · ${v.address}',
-                  trailing: Text('••••', style: body(18, color: C.muted)),
+                  trailing: stale.contains(v.id) ? Pill(tr('পুরোনো'), fg: C.orangeDark, bg: C.orangeTint) : Text('••••', style: body(18, color: C.muted)),
                   onTap: () => _open(v),
                 ),
             ]),
