@@ -324,6 +324,15 @@ const _alarmTone = 'content://settings/system/alarm_alert';
 
 /// Android never changes a channel's sound after it is made, so each
 /// ringtone gets its own channel.
+/// Which waiting notices to cancel before setting them all again: not a
+/// snooze still to ring (unless its reminder is gone), and never one that
+/// is on the screen now — cancelling it would also silence a ringing
+/// reminder (it is set again with the rest, which replaces its next time).
+List<int> idsToCancel(Iterable<(int, String?)> pending, {required Set<String> live, required Set<int> shown}) => [
+      for (final (id, reminderId) in pending)
+        if (!shown.contains(id) && !(reminderId != null && id == snoozeId(reminderId) && (live.contains(reminderId) || reminderId == 'test'))) id,
+    ];
+
 String channelFor(String? sound) => sound == null ? _channelId : '${_channelId}_${stableId(sound)}';
 const _platform = MethodChannel('my_assistant/alarm');
 
@@ -735,11 +744,16 @@ class NotificationService implements Notifier {
       final mode = exact ? AndroidScheduleMode.alarmClock : AndroidScheduleMode.inexactAllowWhileIdle;
       final repeatMode = exact ? AndroidScheduleMode.exactAllowWhileIdle : AndroidScheduleMode.inexactAllowWhileIdle;
       final live = {for (final n in notices) n.reminderId};
-      for (final p in await _plugin.pendingNotificationRequests()) {
-        final info = NoticeInfo.parse(p.payload);
-        // A snooze still to ring stays, unless its reminder was deleted.
-        if (info != null && p.id == snoozeId(info.reminderId) && (live.contains(info.reminderId) || info.reminderId == 'test')) continue;
-        await _plugin.cancel(id: p.id);
+      // What is on the screen (ringing) right now: cancelling its id would
+      // also take the shown notification away and silence it — a daily
+      // reminder went quiet a second after the app opened (owner, 27 Oct).
+      var shown = const <int>{};
+      try {
+        shown = {for (final a in await _android?.getActiveNotifications() ?? const <ActiveNotification>[]) if (a.id != null) a.id!};
+      } catch (_) {}
+      final pending = [for (final p in await _plugin.pendingNotificationRequests()) (p.id, NoticeInfo.parse(p.payload)?.reminderId)];
+      for (final id in idsToCancel(pending, live: live, shown: shown)) {
+        await _plugin.cancel(id: id);
       }
       // Channels of ringtones no longer used.
       try {

@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:digital_brain/services/ai.dart';
 import 'package:digital_brain/services/error_log.dart';
 import 'package:digital_brain/services/google_account.dart';
+import 'package:digital_brain/services/notifications.dart' show idsToCancel, snoozeId;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -81,5 +82,18 @@ void main() {
     expect(File('${dir.path}/app_crash.json').existsSync(), isFalse);
     ErrorLog.pending.clear();
     await dir.delete(recursive: true);
+  });
+
+  test('a ringing reminder is never cancelled when the app opens and sets the notices again (it went quiet in a second)', () {
+    final daily = 1001, other = 1002, gone = 1003;
+    final snooze = snoozeId('r-med');
+    final pending = [(daily, 'r-med'), (other, 'r-bill'), (gone, 'r-old'), (snooze, 'r-med')];
+    // The daily medicine reminder is on the screen, ringing.
+    final cancel = idsToCancel(pending, live: {'r-med', 'r-bill'}, shown: {daily});
+    expect(cancel, isNot(contains(daily)));
+    expect(cancel, isNot(contains(snooze)));
+    expect(cancel, containsAll([other, gone]));
+    // Nothing on the screen: all but the snooze are cancelled and set again.
+    expect(idsToCancel(pending, live: {'r-med', 'r-bill'}, shown: const {}), [daily, other, gone]);
   });
 }
