@@ -750,6 +750,15 @@ class _NoticeStatsPageState extends State<NoticeStatsPage> {
           label: const Text('অ্যাপ থেকে কোন কোন নোটিফিকেশন যায়, কে কতগুলো'),
         ),
       ));
+      widgets.add(Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: FilledButton.icon(
+          key: const Key('notice-rules'),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => NoticeRulesPage(api: widget.api, guard: widget.guard))),
+          icon: const Icon(Icons.tune_rounded),
+          label: const Text('নিয়ন্ত্রণ: কোনটা যাবে, কখন, কোন লেখায়, কারা পাবেন'),
+        ),
+      ));
       widgets.add(Padding(padding: const EdgeInsets.fromLTRB(2, 18, 2, 8), child: Text('সামনের ৭ দিন', style: text(16, weight: FontWeight.w700, color: c.ink))));
       if (up.isEmpty) widgets.add(Text('চালু থাকা কোনো নোটিফিকেশন সামনের ৭ দিনে পড়েনি।', style: text(13.5, color: c.muted)));
       var day = '';
@@ -948,6 +957,165 @@ class _NoticeDayPageState extends State<NoticeDayPage> {
                   ),
               ]),
             ),
+    );
+  }
+}
+
+/// The app's own notifications, controlled from here (owner, 27 Oct): each
+/// kind on or off, its time, its wording (templates) and who gets it; and at
+/// most how many reminders a day. Phones follow on their next look.
+class NoticeRulesPage extends StatefulWidget {
+  const NoticeRulesPage({super.key, required this.api, required this.guard});
+  final Api api;
+  final Guard guard;
+
+  @override
+  State<NoticeRulesPage> createState() => _NoticeRulesPageState();
+}
+
+class _NoticeRulesPageState extends State<NoticeRulesPage> {
+  List<Map<String, dynamic>>? _kinds;
+  Map<String, String> _who = const {};
+  final _cap = TextEditingController();
+  bool _dirty = false;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  void _take(Map<String, dynamic> d) {
+    _kinds = [for (final k in (d['kinds'] as List? ?? const [])) Map<String, dynamic>.from(k as Map)];
+    _who = {for (final e in ((d['who'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'};
+    _cap.text = d['cap'] == null ? '' : '${d['cap']}';
+    _dirty = false;
+  }
+
+  Future<void> _load() async {
+    final d = await widget.guard(() => widget.api.noticeRules());
+    if (d != null && mounted) setState(() => _take(d));
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    final body = {
+      'kinds': {for (final k in _kinds!) '${k['key']}': {'on': k['on'] == true, 'at': '${k['at'] ?? ''}', 'title': '${k['title'] ?? ''}', 'body': '${k['body'] ?? ''}', 'who': '${k['who'] ?? 'all'}'}},
+      'cap': _cap.text.trim(),
+    };
+    final d = await widget.guard(() => widget.api.saveNoticeRules(body));
+    if (!mounted) return;
+    setState(() {
+      _saving = false;
+      if (d != null) _take(d);
+    });
+    if (d != null) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('রাখা হয়েছে — ফোনগুলো পরের বার খুললে মানবে')));
+  }
+
+  Future<void> _edit(Map<String, dynamic> k) async {
+    final at = TextEditingController(text: '${k['at'] ?? ''}');
+    final title = TextEditingController(text: '${k['title'] ?? ''}');
+    final body = TextEditingController(text: '${k['body'] ?? ''}');
+    var who = '${k['who'] ?? 'all'}';
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(ctx).viewInsets.bottom),
+        child: StatefulBuilder(
+          builder: (ctx, set) => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text('${k['label']}', style: text(18, weight: FontWeight.w700)),
+            Text('${k['when']}', style: text(12.5, color: Palette.of(ctx).muted)),
+            const SizedBox(height: 12),
+            TextField(key: const Key('rule-at'), controller: at, keyboardType: TextInputType.datetime, decoration: InputDecoration(labelText: 'সময় (যেমন 07:30) — খালি: ${k['default_at']}')),
+            TextField(key: const Key('rule-title'), controller: title, decoration: InputDecoration(labelText: 'শিরোনাম', hintText: '${k['sample']}')),
+            TextField(key: const Key('rule-body'), controller: body, maxLines: 2, decoration: const InputDecoration(labelText: 'লেখা', hintText: '{body}')),
+            const SizedBox(height: 4),
+            Text('{title} = অ্যাপ যা লিখত, {body} = অ্যাপের বিস্তারিত, {name} = সদস্যের নাম। খালি = অ্যাপের নিজের লেখা।', style: text(12, color: Palette.of(ctx).muted)),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              key: const Key('rule-who'),
+              initialValue: _who.containsKey(who) ? who : 'all',
+              decoration: const InputDecoration(labelText: 'কারা পাবেন'),
+              items: [for (final e in _who.entries) DropdownMenuItem(value: e.key, child: Text(e.value, overflow: TextOverflow.ellipsis))],
+              onChanged: (v) => set(() => who = v ?? 'all'),
+            ),
+            const SizedBox(height: 14),
+            FilledButton(key: const Key('rule-ok'), onPressed: () => Navigator.pop(ctx, true), child: const Text('ঠিক আছে')),
+          ]),
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final t = at.text.trim();
+    setState(() {
+      k['at'] = RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(t) ? t : '';
+      k['title'] = title.text.trim();
+      k['body'] = body.text.trim();
+      k['who'] = who;
+      _dirty = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Palette.of(context);
+    final kinds = _kinds;
+    return Scaffold(
+      appBar: AppBar(title: const Text('নোটিফিকেশন নিয়ন্ত্রণ'), actions: [
+        TextButton(key: const Key('rules-save'), onPressed: kinds == null || _saving || !_dirty ? null : _save, child: const Text('রাখুন')),
+      ]),
+      body: kinds == null
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
+              Text('প্রতিটা ধরনে চাপলে সময়, লেখা আর কারা পাবেন বদলানো যায়। “কারা পাবেন” প্রতিটা ফোন নিজে ঠিক করে — কে কতদিন অ্যাপ খোলেন তা সার্ভারে আসে না। সদস্য নিজে বন্ধ করে থাকলে সেটা বন্ধই থাকে।',
+                  style: text(13, color: c.muted)),
+              const SizedBox(height: 10),
+              TextField(
+                key: const Key('rules-cap'),
+                controller: _cap,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => setState(() => _dirty = true),
+                decoration: const InputDecoration(labelText: 'দিনে সর্বোচ্চ মনে করানো (খালি = ৩)', helperText: 'সকালের সূচি, অর্থ-কথা, নামাজ গোনা হয় না'),
+              ),
+              const SizedBox(height: 12),
+              for (final k in kinds)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: CardBox(
+                    key: Key('rule-${k['key']}'),
+                    onTap: () => _edit(k),
+                    padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+                    child: Row(children: [
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('${k['label']}', style: text(14.5, weight: FontWeight.w600, color: k['on'] == true ? c.ink : c.muted)),
+                          Text(
+                              [
+                                '${k['at']}'.isEmpty ? '${k['when']}' : 'সময় ${k['at']}',
+                                if ('${k['who']}' != 'all') _who['${k['who']}'] ?? '',
+                                if ('${k['title']}'.isNotEmpty) '“${k['title']}”',
+                              ].join(' · '),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: text(12, color: c.muted)),
+                        ]),
+                      ),
+                      Switch(
+                        key: Key('rule-on-${k['key']}'),
+                        value: k['on'] == true,
+                        onChanged: (v) => setState(() {
+                          k['on'] = v;
+                          _dirty = true;
+                        }),
+                      ),
+                    ]),
+                  ),
+                ),
+              const SizedBox(height: 8),
+              FilledButton(onPressed: _saving || !_dirty ? null : _save, child: Text(_saving ? 'রাখছি…' : 'নিয়ম রাখুন')),
+            ]),
     );
   }
 }

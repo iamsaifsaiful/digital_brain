@@ -302,7 +302,7 @@ function ma_note_list(WP_REST_Request $req) {
             $pushed[] = (int) $r['id'];
         }
     }
-    $res = new WP_REST_Response(['notices' => $out, 'pushed' => $pushed], 200);
+    $res = new WP_REST_Response(['notices' => $out, 'pushed' => $pushed, 'rules' => ma_note_rules_public()], 200);
     $res->header('Cache-Control', 'private, no-store');
     return $res;
 }
@@ -772,4 +772,150 @@ function ma_note_day($day = '') {
             'daily' => 'প্রতিদিন নিশ্চিত: সুপ্রভাত (৮টা) আর অর্থ-কথা (৯:১৫); কাজ বাকি থাকলে রাতের সারাংশ (৯টা)। বাকি মনে করানো দিনে সর্বোচ্চ ৩টি।',
         ],
     ];
+}
+
+// ── Controlling the app's own notifications (owner, 27 Oct: "সার্ভার বা
+// এডমিন এপ থেকে নোটিফিকেশন নিয়ন্ত্রণ — কোনগুলো যাবে, লেখার ধরণ, সময়, কোন
+// ধরনের ইউজার পাবে") ──
+//
+// One rule per kind of the catalog: on/off, a clock time, a title and text
+// written as templates ({title} {body} {name} = what the app would have
+// said), and who gets it — decided on each phone from how it is used, so
+// nothing about the member's use leaves the phone. Plus at most how many
+// reminders a day. A member's own settings still win (one they turned off
+// stays off).
+
+/** Who: decided on the phone. */
+function ma_note_who_options() {
+    return [
+        'all' => 'সবাই',
+        'new' => 'নতুন (প্রথম ৭ দিন)',
+        'old' => 'পুরোনো (৮ দিন বা বেশি)',
+        'regular' => 'নিয়মিত (১৪ দিনে ৫ দিন বা বেশি খোলেন)',
+        'occasional' => 'মাঝে মাঝে (১৪ দিনে ৫ দিনের কম খোলেন)',
+        'free' => 'ফ্রি',
+        'pro' => 'প্রিমিয়াম',
+    ];
+}
+
+function ma_note_rules() {
+    $saved = get_option('ma_note_rules', []);
+    $saved = is_array($saved) ? $saved : [];
+    $kinds = [];
+    foreach (ma_note_catalog() as $c) {
+        $r = is_array($saved['kinds'][$c['key']] ?? null) ? $saved['kinds'][$c['key']] : [];
+        $kinds[$c['key']] = [
+            'on' => !array_key_exists('on', $r) || !empty($r['on']),
+            'at' => (string) ($r['at'] ?? ''),
+            'title' => (string) ($r['title'] ?? ''),
+            'body' => (string) ($r['body'] ?? ''),
+            'who' => isset(ma_note_who_options()[$r['who'] ?? '']) ? $r['who'] : 'all',
+        ];
+    }
+    $cap = $saved['cap'] ?? null;
+    return ['kinds' => $kinds, 'cap' => is_numeric($cap) ? max(0, min(10, (int) $cap)) : null];
+}
+
+/** Saves what an admin sent (only known kinds and fields, each checked). */
+function ma_note_rules_save(array $in) {
+    $known = array_column(ma_note_catalog(), 'key');
+    $out = ['kinds' => [], 'cap' => null];
+    foreach ((array) ($in['kinds'] ?? []) as $k => $r) {
+        if (!in_array($k, $known, true) || !is_array($r)) {
+            continue;
+        }
+        $at = (string) ($r['at'] ?? '');
+        $out['kinds'][$k] = [
+            'on' => !empty($r['on']),
+            'at' => preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $at) ? $at : '',
+            'title' => mb_substr(sanitize_text_field((string) ($r['title'] ?? '')), 0, 80),
+            'body' => mb_substr(sanitize_textarea_field((string) ($r['body'] ?? '')), 0, 240),
+            'who' => isset(ma_note_who_options()[$r['who'] ?? '']) ? $r['who'] : 'all',
+        ];
+    }
+    $cap = $in['cap'] ?? '';
+    $out['cap'] = is_numeric($cap) && $cap !== '' ? max(0, min(10, (int) $cap)) : null;
+    update_option('ma_note_rules', $out, false);
+    return ma_note_rules();
+}
+
+/** What phones get: only the rules that differ from the app's own way. */
+function ma_note_rules_public() {
+    $r = ma_note_rules();
+    $kinds = [];
+    foreach ($r['kinds'] as $k => $x) {
+        if (!$x['on'] || $x['at'] !== '' || $x['title'] !== '' || $x['body'] !== '' || $x['who'] !== 'all') {
+            $kinds[$k] = $x;
+        }
+    }
+    return ['kinds' => (object) $kinds, 'cap' => $r['cap']];
+}
+
+/** For the site page and the admin app: each kind with its rule. */
+function ma_note_rules_view() {
+    $r = ma_note_rules();
+    $rows = [];
+    foreach (ma_note_catalog() as $c) {
+        $rows[] = ['key' => $c['key'], 'label' => $c['label'], 'sample' => $c['sample'], 'when' => $c['when'], 'default_at' => $c['at'], 'cap' => $c['cap'], 'off_by_default' => !empty($c['off'])] + $r['kinds'][$c['key']];
+    }
+    return ['kinds' => $rows, 'cap' => $r['cap'], 'who' => ma_note_who_options()];
+}
+
+add_action('admin_post_ma_note_rules', function () {
+    ma_acc_guard('ma_note_rules');
+    $post = wp_unslash($_POST);
+    $kinds = [];
+    foreach (ma_note_catalog() as $c) {
+        $f = $post['r'][$c['key']] ?? [];
+        $kinds[$c['key']] = ['on' => !empty($f['on']), 'at' => $f['at'] ?? '', 'title' => $f['title'] ?? '', 'body' => $f['body'] ?? '', 'who' => $f['who'] ?? 'all'];
+    }
+    ma_note_rules_save(['kinds' => $kinds, 'cap' => $post['cap'] ?? '']);
+    ma_acc_back('নোটিফিকেশনের নিয়ম রাখা হয়েছে — সদস্যদের ফোন পরের বার খুললে বা কয়েক ঘণ্টার মধ্যে মানবে।', 'ok', ['tab' => 'notices']);
+});
+
+add_action('rest_api_init', function () {
+    ma_admin_route('/notice-rules', 'GET', function () {
+        return ma_note_rules_view();
+    });
+    ma_admin_route('/notice-rules', 'POST', function (WP_REST_Request $req) {
+        ma_note_rules_save((array) $req->get_json_params());
+        return ma_note_rules_view();
+    });
+});
+
+/** The site's notifications tab: the rules, one row per kind. */
+function ma_note_render_rules() {
+    $v = ma_note_rules_view();
+    $who = $v['who'];
+    $post = esc_url(admin_url('admin-post.php'));
+    ?>
+    <section class="ma-card" id="ma-rules">
+        <div class="ma-bar"><div class="ma-bar-title"><h2>অ্যাপের নোটিফিকেশন নিয়ন্ত্রণ</h2><span class="ma-count">কোনটা যাবে, কখন, কোন লেখায়, কারা পাবেন</span></div></div>
+        <p class="muted ma-pad">সময় খালি রাখলে অ্যাপের নিজের সময়। লেখায় <code>{title}</code> = অ্যাপ যা লিখত, <code>{body}</code> = অ্যাপের বিস্তারিত (যেমন আজকের সূচি), <code>{name}</code> = সদস্যের নাম। খালি রাখলে অ্যাপের নিজের লেখা। “কারা পাবেন” প্রতিটা ফোন নিজেই ঠিক করে — কে কতদিন অ্যাপ খোলেন তা সার্ভারে আসে না। সদস্য নিজে কোনোটা বন্ধ করে থাকলে সেটা বন্ধই থাকে।</p>
+        <form method="post" action="<?php echo $post; ?>">
+            <input type="hidden" name="action" value="ma_note_rules"><?php wp_nonce_field('ma_note_rules'); ?>
+            <div class="ma-table-wrap">
+                <table class="ma-table ma-rules">
+                    <thead><tr><th>চালু</th><th>নোটিফিকেশন</th><th>সময়</th><th>শিরোনাম</th><th>লেখা</th><th>কারা পাবেন</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($v['kinds'] as $k) : $n = 'r[' . esc_attr($k['key']) . ']'; ?>
+                        <tr class="<?php echo $k['on'] ? '' : 'ma-dim'; ?>">
+                            <td><input type="checkbox" name="<?php echo $n; ?>[on]" value="1" <?php checked($k['on']); ?> aria-label="চালু"></td>
+                            <td><strong><?php echo esc_html($k['label']); ?></strong><span class="ma-ver"><?php echo esc_html($k['when']); ?></span></td>
+                            <td><input type="time" name="<?php echo $n; ?>[at]" value="<?php echo esc_attr($k['at']); ?>" placeholder="<?php echo esc_attr($k['default_at']); ?>" style="width:110px"></td>
+                            <td><input type="text" name="<?php echo $n; ?>[title]" value="<?php echo esc_attr($k['title']); ?>" placeholder="<?php echo esc_attr($k['sample']); ?>" maxlength="80"></td>
+                            <td><input type="text" name="<?php echo $n; ?>[body]" value="<?php echo esc_attr($k['body']); ?>" placeholder="{body}" maxlength="240"></td>
+                            <td><select name="<?php echo $n; ?>[who]"><?php foreach ($who as $wk => $wl) : ?><option value="<?php echo esc_attr($wk); ?>" <?php selected($k['who'], $wk); ?>><?php echo esc_html($wl); ?></option><?php endforeach; ?></select></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <div class="ma-pad" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                <label>দিনে সর্বোচ্চ মনে করানো (সারাংশ, অর্থ-কথা বাদে): <input type="number" name="cap" min="0" max="10" value="<?php echo esc_attr($v['cap'] ?? ''); ?>" placeholder="৩" style="width:70px"></label>
+                <button class="ma-btn" type="submit">নিয়ম রাখুন</button>
+            </div>
+        </form>
+    </section>
+    <?php
 }

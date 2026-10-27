@@ -198,6 +198,21 @@ Widget _logo() => Container(
       child: const Icon(Icons.admin_panel_settings_outlined, color: Colors.white, size: 34),
     );
 
+/// "নতুন সংস্করণ বসান" — with a button to where it is.
+Future<void> showUpdate(BuildContext context, ApiError e) => showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        key: const Key('update-needed'),
+        title: const Text('আপডেট করুন'),
+        content: Text(e.message),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('পরে')),
+          if (e.url.isNotEmpty) FilledButton(key: const Key('update-open'), onPressed: () => Device.openUrl(e.url), child: const Text('নতুনটা নামান')),
+        ],
+      ),
+    );
+
 class SignIn extends StatefulWidget {
   const SignIn({super.key, required this.api, required this.onIn});
   final Api api;
@@ -231,6 +246,11 @@ class _SignInState extends State<SignIn> {
       _code.clear();
       widget.onIn();
     } on ApiError catch (e) {
+      if (e.code == 'update') {
+        setState(() => _error = e.message);
+        if (mounted) await showUpdate(context, e);
+        return;
+      }
       setState(() {
         _error = e.code == 'otp_required' ? null : e.message;
         if (e.code == 'otp_required' || e.code == 'otp_wrong') _needCode = true;
@@ -406,7 +426,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     try {
       return await job();
     } on ApiError catch (e) {
-      if (e.signedOut) {
+      if (e.code == 'update') {
+        if (mounted) await showUpdate(context, e);
+      } else if (e.signedOut) {
         widget.onSignedOut();
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));

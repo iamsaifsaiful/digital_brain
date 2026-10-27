@@ -206,6 +206,16 @@ class _GoogleBackupPanelState extends State<GoogleBackupPanel> {
         if (_error != null) ...[
           const SizedBox(height: 8),
           Text(_error!, style: body(13, color: C.red, height: 1.45)),
+          if (brain.updateUrl.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: PrimaryButton(
+                  key: const Key('app-update'),
+                  label: tr('নতুন সংস্করণ নামান'),
+                  icon: Icons.system_update_rounded,
+                  height: 44,
+                  onPressed: () => brain.services.launcher.openUrl(Uri.parse(brain.updateUrl))),
+            ),
         ],
       ]),
     );

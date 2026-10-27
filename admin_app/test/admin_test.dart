@@ -17,6 +17,9 @@ String _ago(Duration d) => _now.subtract(d).toIso8601String();
 /// A pretend server with what the admin app shows.
 class FakeServer {
   final calls = <http.Request>[];
+  Map<String, dynamic> noticeRules = {};
+  bool setupNeeded = false;
+  String minVersion = '';
   final payments = <Map<String, Object?>>[
     {'id': 1, 'created': _ago(const Duration(minutes: 30)), 'email': 'rakib.hasan92@gmail.com', 'name': 'রাকিব হাসান', 'phone': '', 'plan': 'বার্ষিক', 'amount': 999, 'method': 'বিকাশ', 'sender': '01712345678', 'trx': 'BJK4Q9X2PL', 'note': '', 'status': 'pending', 'reason': '', 'reviewed_by': '', 'reviewed': null},
     {'id': 2, 'created': _ago(const Duration(hours: 2)), 'email': 'ayesha.s@gmail.com', 'name': 'Ayesha Siddika', 'phone': '', 'plan': 'মাসিক', 'amount': 99, 'method': 'নগদ', 'sender': '01987654321', 'trx': '7NG2KD81QZ', 'note': 'তাড়াতাড়ি চালু করবেন', 'status': 'pending', 'reason': '', 'reviewed_by': '', 'reviewed': null},
@@ -138,6 +141,18 @@ class FakeServer {
         ],
         'counts': {'crash': 1, 'problem': 3, 'day': 2},
       };
+    } else if (p == '/admin/notice-rules') {
+      if (r.method == 'POST') noticeRules = jsonDecode(r.body) as Map<String, dynamic>;
+      final saved = (noticeRules['kinds'] as Map?) ?? const {};
+      Map<String, dynamic> row(String key, String label, String at) => {
+            'key': key, 'label': label, 'sample': label, 'when': 'প্রতিদিন', 'default_at': at, 'cap': false, 'off_by_default': false,
+            'on': (saved[key] as Map?)?['on'] ?? true, 'at': (saved[key] as Map?)?['at'] ?? '', 'title': (saved[key] as Map?)?['title'] ?? '', 'body': '', 'who': (saved[key] as Map?)?['who'] ?? 'all',
+          };
+      body = {
+        'kinds': [row('brief:morning', 'সুপ্রভাত — আজকের সূচি', '08:00'), row('nudge:quote', 'আজকের অর্থ-কথা', '09:15')],
+        'cap': noticeRules['cap'] == null || '${noticeRules['cap']}'.isEmpty ? null : int.tryParse('${noticeRules['cap']}'),
+        'who': {'all': 'সবাই', 'new': 'নতুন (প্রথম ৭ দিন)', 'old': 'পুরোনো (৮ দিন বা বেশি)'},
+      };
     } else if (p == '/admin/notice-day') {
       body = {
         'day': _now.toIso8601String().substring(0, 10), 'total': 14, 'people': 3, 'avg': 4.7, 'max': 6,
@@ -257,10 +272,15 @@ class FakeServer {
         m['rollout_pct'] = j['pct'];
       }
       body = {'ok': true, 'model': m};
+    } else if (p == '/admin/login' && minVersion.isNotEmpty && r.headers['x-ma-app-version'] != minVersion) {
+      return http.Response(jsonEncode({'code': 'update', 'data': {'status': 426, 'min': minVersion, 'url': 'https://example.test/admin.apk'}}), 426);
     } else if (p == '/admin/login') {
       final j = jsonDecode(r.body);
       if (j['email'] != 'boss@gmail.com' || j['password'] != 'long-password-123') return http.Response('{"code":"login"}', 401);
       // Two-step sign-in: the authenticator's code after the password.
+      if (j['password'] == 'long-password-123' && j['email'] == 'boss@gmail.com' && setupNeeded) {
+        return http.Response(jsonEncode({'code': 'otp_setup', 'data': {'status': 403, 'account': {'login': 'saif', 'email': 'boss@gmail.com'}}}), 403);
+      }
       if (j['code'] == null) return http.Response('{"code":"otp_required"}', 401);
       if (j['code'] != '123456') return http.Response('{"code":"otp_wrong"}', 401);
       body = {'session': 'c' * 64, 'name': 'Boss'};
@@ -560,6 +580,69 @@ void main() {
     expect(find.textContaining('সমস্যা · ৩ বার · AiError'), findsOneWidget);
     expect(find.textContaining('ক্র্যাশ · ১ বার'), findsOneWidget);
     await shot(t, 'errors');
+  });
+
+  testWidgets('নোটিফিকেশন নিয়ন্ত্রণ: a kind off, another at 07:30 for new members only, a daily cap', (t) async {
+    final server = await open(t);
+    await t.tap(find.text('নোটিফিকেশন').last);
+    await settle(t);
+    await t.tap(find.byKey(const Key('notice-log')));
+    await settle(t);
+    await t.scrollUntilVisible(find.byKey(const Key('notice-rules')), 200);
+    await t.tap(find.byKey(const Key('notice-rules')));
+    await settle(t);
+    expect(find.text('আজকের অর্থ-কথা'), findsOneWidget);
+    await t.tap(find.byKey(const Key('rule-on-brief:morning')));
+    await settle(t);
+    await t.tap(find.byKey(const Key('rule-nudge:quote')));
+    await settle(t);
+    await t.enterText(find.byKey(const Key('rule-at')), '07:30');
+    await t.enterText(find.byKey(const Key('rule-title')), '{name}, {title}');
+    await t.tap(find.byKey(const Key('rule-who')));
+    await settle(t);
+    await t.tap(find.text('নতুন (প্রথম ৭ দিন)').last);
+    await settle(t);
+    await t.tap(find.byKey(const Key('rule-ok')));
+    await settle(t);
+    await t.enterText(find.byKey(const Key('rules-cap')), '2');
+    await t.tap(find.byKey(const Key('rules-save')));
+    await settle(t);
+    final k = server.noticeRules['kinds'] as Map;
+    expect((k['brief:morning'] as Map)['on'], isFalse);
+    expect(((k['nudge:quote'] as Map)['at'], (k['nudge:quote'] as Map)['title'], (k['nudge:quote'] as Map)['who']), ('07:30', '{name}, {title}', 'new'));
+    expect(server.noticeRules['cap'], '2');
+    expect(find.textContaining('সময় 07:30'), findsOneWidget);
+    await shot(t, 'notice_rules');
+  });
+
+  test('the version the app says is the one in pubspec.yaml', () {
+    final v = RegExp(r'^version:\s*([0-9.]+)', multiLine: true).firstMatch(File('pubspec.yaml').readAsStringSync())![1];
+    expect(adminAppVersion, v);
+  });
+
+  testWidgets('an old admin app is told to update at sign-in, with where to get the new one', (t) async {
+    final server = await open(t, signedIn: false);
+    server.minVersion = '9.0.0';
+    await t.enterText(find.byKey(const Key('email')), 'boss@gmail.com');
+    await t.enterText(find.byKey(const Key('password')), 'long-password-123');
+    await t.tap(find.byKey(const Key('sign-in')));
+    await settle(t);
+    expect(find.byKey(const Key('update-needed')), findsOneWidget);
+    expect(find.textContaining('নতুন সংস্করণ (9.0.0)'), findsWidgets);
+    await t.tap(find.byKey(const Key('update-open')));
+    await settle(t);
+    expect(server.opened.last, 'https://example.test/admin.apk');
+    expect(server.calls.last.headers['x-ma-app-version'], adminAppVersion);
+  });
+
+  testWidgets('two-step not set up on this account: the app says which account', (t) async {
+    final server = await open(t, signedIn: false);
+    server.setupNeeded = true;
+    await t.enterText(find.byKey(const Key('email')), 'boss@gmail.com');
+    await t.enterText(find.byKey(const Key('password')), 'long-password-123');
+    await t.tap(find.byKey(const Key('sign-in')));
+    await settle(t);
+    expect(find.textContaining('“saif” (boss@gmail.com)'), findsOneWidget);
   });
 
   testWidgets('signed out: email and password, then in', (t) async {

@@ -440,12 +440,20 @@ class Brain extends ChangeNotifier {
       }
       notifyListeners();
       return null;
+    } on UpdateRequired catch (e) {
+      // Signed in to Google, but our site wants a newer app first (its data here stays open).
+      updateUrl = e.url;
+      notifyListeners();
+      return trf('অ্যাপের নতুন সংস্করণ ({0}) এসেছে — আপডেট করে আবার লগইন করুন। ফোনে রাখা সব তথ্য আগের মতোই খোলা থাকবে।', [e.min]);
     } on GoogleError catch (e) {
       return e.message;
     } catch (e) {
       return 'Google লগইন হয়নি: $e';
     }
   }
+
+  /// Where the newer app is, when our site asked for one at sign-in.
+  String updateUrl = '';
 
   /// "PIN ভুলে গেছেন?" on a signed-in phone: the owner picks the same Google
   /// account and our server checks Google's token. Null when it is them.
@@ -530,8 +538,13 @@ class Brain extends ChangeNotifier {
   /// Notifications written on our website (planned with the assistant's own).
   List<ServerNotice> serverNoticeList = const [];
 
+  /// The admin's rules for the app's own notifications (on/off, time, wording, who).
+  NoticeRules noticeRules = NoticeRules.none;
+
   Future<void> _loadServerNotices() async {
     try {
+      final rules = await services.lock.keys.read('srv_note_rules');
+      if (rules != null) noticeRules = NoticeRules.fromJson(jsonDecode(rules));
       final raw = await services.lock.keys.read('srv_notices');
       if (raw == null) return;
       serverNoticeList = [...(jsonDecode(raw) as List).map(ServerNotice.fromJson).whereType<ServerNotice>()];
@@ -546,8 +559,10 @@ class Brain extends ChangeNotifier {
     final list = await services.server.notices(session);
     if (list != null) {
       serverNoticeList = list;
+      noticeRules = NoticeRules.fromJson(services.server.lastRules);
       try {
         await services.lock.keys.write('srv_notices', jsonEncode([for (final n in list) n.toJson()]));
+        await services.lock.keys.write('srv_note_rules', jsonEncode(noticeRules.toJson()));
       } catch (_) {}
       await _reschedule();
     }
@@ -1203,7 +1218,12 @@ class Brain extends ChangeNotifier {
         lastBackup: DateTime.tryParse(text('last_backup')),
         quote: flag('n_quote', true),
         homeFix: flag('n_fix', true),
+        rules: noticeRules,
+        groups: memberGroups(now: services.now(), firstUse: firstUse, openDays: openDays, pro: gated ? pro : true),
       );
+
+  /// The days the app was opened lately (for the admin's "নিয়মিত / মাঝে মাঝে"; stays on the phone).
+  List<DateTime> get openDays => [for (final x in text('open_days').split(',')) if (DateTime.tryParse(x) != null) DateTime.parse(x)];
 
   /// When the user may give blood again (3 months after the last time), if they are a donor.
   DateTime? get donorNextDate {
@@ -1218,6 +1238,9 @@ class Brain extends ChangeNotifier {
     final last = DateTime.tryParse(text('last_open'));
     if (last != null && dayOnly(last) == dayOnly(now)) return;
     await setPref('last_open', now.toIso8601String());
+    // The last 30 days it was opened (a date each, nothing more).
+    final days = [...openDays.map(dayKey).where((d) => d != dayKey(now)), dayKey(now)];
+    await setPref('open_days', days.skip(days.length > 30 ? days.length - 30 : 0).join(','));
   }
 
   /// The other settings (notification types, quiet hours, Hijri date
@@ -1227,7 +1250,7 @@ class Brain extends ChangeNotifier {
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly', 'n_quote', 'n_fix',
-    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'g_card_off', 'trace_on',
+    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'g_card_off', 'trace_on',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';

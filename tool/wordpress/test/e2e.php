@@ -64,9 +64,12 @@ add_filter('pre_http_request', function ($pre, $args, $url) use (&$sent) {
 }, 10, 3);
 add_filter('pre_wp_mail', function ($r, $atts) use (&$sent) { $sent['mail'][] = $atts; return true; }, 10, 2);
 
+$GLOBALS['adminAppVersion'] = '9.9.9';
 function call($method, $route, $body = [], $session = null) {
     $req = new WP_REST_Request($method, '/my-assistant/v1' . $route);
     if ($session) $req->set_header('authorization', 'Bearer ' . $session);
+    // The admin app says its version (an older one is told to update).
+    if (str_starts_with($route, '/admin') && $GLOBALS['adminAppVersion'] !== '') $req->set_header('x-ma-app-version', $GLOBALS['adminAppVersion']);
     if ($method === 'GET') { foreach ($body as $k => $v) $req->set_param($k, $v); }
     else { $req->set_header('content-type', 'application/json'); $req->set_body(wp_json_encode($body)); }
     $res = rest_do_request($req);
@@ -75,6 +78,12 @@ function call($method, $route, $body = [], $session = null) {
 $long = str_repeat('x', 120);
 
 echo "\nmember\n";
+update_option('ma_app_min', '2.56.0');
+[$code, $d] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '2.14.0', 'edition' => 'play']);
+check($code === 426 && ($d['data']['min'] ?? '') === '2.56.0', 'members: an app older than the minimum is asked to update');
+[$code] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '2.56.0+127', 'edition' => 'play']);
+check($code === 200, 'members: the minimum or newer signs in');
+delete_option('ma_app_min');
 [$code, $d] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '2.14.0', 'edition' => 'play']);
 check($code === 200 && strlen($d['session'] ?? '') === 64, 'login gives a session');
 // Pro's daily AI limit is 30 (21 Oct 2026 brief; was 50).
@@ -144,9 +153,17 @@ $plain = wp_insert_user(['user_login' => 'writer@gmail.com', 'user_email' => 'wr
 check($code === 401, 'a site user without the admin role cannot');
 [$code] = call('POST', '/admin/login', ['email' => 'boss@gmail.com', 'password' => 'wrong']);
 check($code === 401, 'wrong password refused');
+// An older admin app (or one too old to say its version) is told to update, before anything else.
+$GLOBALS['adminAppVersion'] = '';
+[$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123']);
+check($code === 426 && ($d['code'] ?? '') === 'update' && ($d['data']['min'] ?? '') === MA_ADMIN_APP_MIN && str_starts_with($d['data']['url'] ?? '', 'https://'), 'admin app: too old → asked to update, with where');
+$GLOBALS['adminAppVersion'] = '1.12.0';
+[$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123']);
+check($code === 426, 'admin app: 1.12.0 → asked to update');
+$GLOBALS['adminAppVersion'] = '9.9.9';
 // Two-step sign-in (owner's review, 27 Oct): no code set up → refused; then the authenticator's code.
 [$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123']);
-check($code === 403 && ($d['code'] ?? '') === 'otp_setup', 'admin app: two-step sign-in must be set up first');
+check($code === 403 && ($d['code'] ?? '') === 'otp_setup' && ($d['data']['account']['email'] ?? '') === 'boss@gmail.com', 'admin app: two-step sign-in must be set up first (says which account)');
 $totp = ma_b32_encode(random_bytes(20));
 update_user_meta($bossId, 'ma_totp', ma_sec_seal($totp));
 check(str_starts_with((string) get_user_meta($bossId, 'ma_totp', true), 'enc1:') && ma_totp_secret($bossId) === $totp, 'two-step: the secret is kept sealed');
@@ -1138,6 +1155,22 @@ check(str_contains($h, 'দ্বিতীয় মতামত'), 'site: an ol
 $h = $render(['tab' => 'finance', 'fk' => 'income']);
 check(str_contains($h, 'আয় বা খরচ লিখুন') && str_contains($h, 'ma-fin-add') && str_contains($h, 'হাতে থাকার কথা') && str_contains($h, 'মাস অনুযায়ী') && !preg_match($bad, $h), 'site: হিসাব with month, filters and a pop-up form');
 $_GET = [];
+
+echo "\n  — the app's own notifications, controlled from the site and the admin app\n";
+[$code, $d] = call('GET', '/admin/notice-rules', [], $bossSes);
+check($code === 200 && count($d['kinds']) === count(ma_note_catalog()) && $d['kinds'][0]['on'] === true && isset($d['who']['regular']), 'rules: every kind, on by default, the groups');
+[$code, $d] = call('POST', '/admin/notice-rules', ['kinds' => ['brief:morning' => ['on' => false], 'nudge:quote' => ['on' => true, 'at' => '07:30', 'title' => '{name}, {title}<script>', 'who' => 'new'], 'nope' => ['on' => false], 'nudge:week' => ['on' => true, 'at' => '25:99', 'who' => 'hacker']], 'cap' => 2], $bossSes);
+$q = current(array_filter($d['kinds'], fn($k) => $k['key'] === 'nudge:quote'));
+$w = current(array_filter($d['kinds'], fn($k) => $k['key'] === 'nudge:week'));
+check($code === 200 && $d['cap'] === 2 && $q['at'] === '07:30' && $q['who'] === 'new' && !str_contains($q['title'], '<script>') && $w['at'] === '' && $w['who'] === 'all', 'rules: saved, each field checked (bad time and group dropped, no tags)');
+[$code, $d] = call('GET', '/notices');
+$pub = json_decode(wp_json_encode($d['rules']), true);
+check($code === 200 && ($pub['kinds']['brief:morning']['on'] ?? true) === false && ($pub['kinds']['nudge:quote']['at'] ?? '') === '07:30' && !isset($pub['kinds']['nudge:jumuah']) && $pub['cap'] === 2, 'phones get only the changed rules');
+[$code] = call('GET', '/admin/notice-rules', [], $ses);
+check($code === 403, 'rules: admins only');
+$h = $render(['tab' => 'notices']);
+check(str_contains($h, 'অ্যাপের নোটিফিকেশন নিয়ন্ত্রণ') && str_contains($h, 'name="r[nudge:quote][at]"') && !preg_match($bad, $h), 'site: the rules table on the notifications tab');
+call('POST', '/admin/notice-rules', ['kinds' => [], 'cap' => ''], $bossSes);
 
 echo "\n  — members' backup keys sealed with MA_DATA_KEY (owner's review, 27 Oct)\n";
 $h = $render(['tab' => 'security']);

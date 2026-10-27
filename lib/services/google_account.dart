@@ -234,6 +234,13 @@ class SessionExpired implements Exception {
   const SessionExpired();
 }
 
+/// The site asks for a newer app before signing in (its minimum version).
+class UpdateRequired implements Exception {
+  const UpdateRequired(this.min, this.url);
+  final String min;
+  final String url;
+}
+
 /// What our server says about the account.
 class AccountInfo {
   const AccountInfo({this.proUntil, this.proKind = '', this.trialUsed = false, this.session = '', this.ai = false, this.aiLeft = 0, this.backupKey = '', this.feedbackUnread = 0});
@@ -302,8 +309,14 @@ class AccountServer {
           .post(Uri.parse('$base/wp-json/my-assistant/v1/login'),
               headers: {'Content-Type': 'application/json'}, body: jsonEncode({'id_token': u.idToken, 'app_version': appVersion, 'edition': edition}))
           .timeout(const Duration(seconds: 15));
+      if (r.statusCode == 426) {
+        final d = ((jsonDecode(r.body) as Map)['data'] as Map?) ?? const {};
+        throw UpdateRequired('${d['min'] ?? ''}', '${d['url'] ?? ''}');
+      }
       if (r.statusCode != 200) return null;
       return AccountInfo.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
+    } on UpdateRequired {
+      rethrow;
     } catch (_) {
       return null;
     }
@@ -340,6 +353,9 @@ class AccountServer {
     }
   }
 
+  /// The admin's rules for the app's own notifications, from the last [notices] call.
+  Object? lastRules;
+
   /// Notifications written on the website for this phone (everyone's, plus
   /// its plan's when signed in). Null when offline.
   Future<List<ServerNotice>?> notices(String session) async {
@@ -351,6 +367,7 @@ class AccountServer {
           .timeout(const Duration(seconds: 15));
       if (r.statusCode != 200) return null;
       final body = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
+      lastRules = body['rules'];
       final list = body['notices'] as List? ?? const [];
       final pushed = {for (final x in body['pushed'] as List? ?? const []) if (x is num) x.toInt()};
       return [

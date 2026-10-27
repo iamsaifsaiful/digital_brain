@@ -8,8 +8,11 @@ import 'package:digital_brain/services/ai.dart';
 import 'package:digital_brain/services/error_log.dart';
 import 'package:digital_brain/services/family_crypto.dart' show FamilyKeys, safetyCode;
 import 'package:digital_brain/services/google_account.dart';
+
 import 'package:digital_brain/services/notifications.dart' show idsToCancel, snoozeId;
 import 'package:digital_brain/logic/ai_safe.dart';
+import 'package:digital_brain/logic/proactive.dart';
+import 'package:digital_brain/logic/server_notices.dart';
 import 'package:digital_brain/models/extras.dart' show Medicine;
 import 'package:digital_brain/models/models.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -136,5 +139,56 @@ void main() {
     expect(RegExp(r'^\d{4}( \d{4}){4}$').hasMatch(onA), isTrue, reason: onA);
     // Our server (or anyone in between) gave A a different key for B.
     expect(await safetyCode(a.publicB64, mallory.publicB64), isNot(onA));
+  });
+
+  test('the admin controls the app\'s own notifications: off, who, time, wording, how many', () {
+    final now = DateTime(2026, 10, 27, 6); // Tuesday morning
+    final d = AppData();
+    String quoteTitle(List<dynamic> l) => l.firstWhere((n) => n.reminderId == nudgeQuote).title as String;
+    final plain = assistantNotices(d, now, const AssistantPrefs(name: 'সাইফ'));
+    final today = plain.where((n) => n.at.day == 27).toList();
+    expect(today.any((n) => n.reminderId == morningTag), isTrue);
+    expect(today.firstWhere((n) => n.reminderId == nudgeQuote).at.hour, 9);
+    // Morning brief only for new members; the quote at 7:30 with the admin's wording.
+    const rules = NoticeRules(kinds: {
+      'brief:morning': NoticeRule(who: 'new'),
+      'nudge:quote': NoticeRule(at: '07:30', title: '{name}, আজকের ভাবনা: {title}'),
+    });
+    final old = assistantNotices(d, now, const AssistantPrefs(name: 'সাইফ', rules: rules, groups: {'all', 'old', 'regular', 'free'}));
+    expect(old.where((n) => n.at.day == 27).any((n) => n.reminderId == morningTag), isFalse, reason: 'not for older members');
+    final q = old.firstWhere((n) => n.reminderId == nudgeQuote && n.at.day == 27);
+    expect((q.at.hour, q.at.minute), (7, 30));
+    expect(q.title, 'সাইফ, আজকের ভাবনা: আজকের অর্থ-কথা');
+    final fresh = assistantNotices(d, now, const AssistantPrefs(rules: rules, groups: {'all', 'new', 'occasional', 'free'}));
+    expect(fresh.where((n) => n.at.day == 27).any((n) => n.reminderId == morningTag), isTrue, reason: 'new members still get it');
+    // Off for everyone.
+    final off = assistantNotices(d, now, const AssistantPrefs(rules: NoticeRules(kinds: {'nudge:quote': NoticeRule(on: false)})));
+    expect(off.any((n) => n.reminderId == nudgeQuote), isFalse);
+    // The member's own morning time stays theirs.
+    final own = assistantNotices(d, now, const AssistantPrefs(morningAt: 6 * 60 + 30, rules: NoticeRules(kinds: {'brief:morning': NoticeRule(at: '09:00')})));
+    expect(own.firstWhere((n) => n.reminderId == morningTag && n.at.day == 27).at.hour, 6);
+    expect(quoteTitle(plain), 'আজকের অর্থ-কথা');
+  });
+
+  test('member groups come from this phone\'s own use', () {
+    final now = DateTime(2026, 10, 27, 10);
+    final g1 = memberGroups(now: now, firstUse: DateTime(2026, 10, 24), openDays: [DateTime(2026, 10, 25), DateTime(2026, 10, 27)], pro: false);
+    expect(g1, {'all', 'new', 'occasional', 'free'});
+    final g2 = memberGroups(now: now, firstUse: DateTime(2026, 9, 1), openDays: [for (var i = 0; i < 6; i++) DateTime(2026, 10, 27 - i * 2)], pro: true);
+    expect(g2, {'all', 'old', 'regular', 'pro'});
+    final r = NoticeRules.fromJson({'kinds': {'nudge:prayer': {'on': false}}, 'cap': 1});
+    expect(r.forTag('nudge:prayer:fajr')?.on, isFalse);
+    expect(r.cap, 1);
+    expect(NoticeRules.fromJson(NoticeRules.fromJson({'kinds': {'nudge:quote': {'at': '07:30'}}}).toJson()).forTag('nudge:quote')?.minutes, 450);
+  });
+
+  test('the site asks for a newer app at sign-in: the member is told, with where; the phone keeps working', () async {
+    final rig = Rig(
+        server: AccountServer(MockClient((r) async => http.Response(jsonEncode({'code': 'update', 'data': {'status': 426, 'min': '2.56.0', 'url': 'https://getmyassistant.app/app'}}), 426)), 'https://example.test'),
+        google: FakeGoogle()..user = GoogleUser(id: '1', email: 'test@gmail.com', name: 'Test', idToken: 'google-token'));
+    await rig.brain.load();
+    final msg = await rig.brain.signInGoogle();
+    expect(msg, contains('2.56.0'));
+    expect(rig.brain.updateUrl, 'https://getmyassistant.app/app');
   });
 }

@@ -130,3 +130,81 @@ bool _condition(String cond, AppData d, DateTime day, DateTime? lastOpen) {
     _ => false, // a condition this version does not know: better silent than wrong
   };
 }
+
+/// How the admin wants one kind of the app's own notifications (owner, 27
+/// Oct: controlled from the site or the admin app). Empty fields keep the
+/// app's own way.
+class NoticeRule {
+  const NoticeRule({this.on = true, this.at = '', this.title = '', this.body = '', this.who = 'all'});
+  final bool on;
+
+  /// 'HH:MM' or '' (the app's own time).
+  final String at;
+
+  /// Templates: {title} and {body} = what the app would say, {name} = the member's name.
+  final String title;
+  final String body;
+
+  /// 'all', 'new', 'old', 'regular', 'occasional', 'free', 'pro' — decided on this phone.
+  final String who;
+
+  static NoticeRule fromJson(Map j) =>
+      NoticeRule(on: j['on'] != false, at: '${j['at'] ?? ''}', title: '${j['title'] ?? ''}', body: '${j['body'] ?? ''}', who: '${j['who'] ?? 'all'}');
+  Map<String, Object?> toJson() => {'on': on, 'at': at, 'title': title, 'body': body, 'who': who};
+
+  /// Minutes after midnight, or null.
+  int? get minutes {
+    final m = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(at);
+    if (m == null) return null;
+    final h = int.parse(m[1]!), mi = int.parse(m[2]!);
+    return h < 24 && mi < 60 ? h * 60 + mi : null;
+  }
+}
+
+class NoticeRules {
+  const NoticeRules({this.kinds = const {}, this.cap});
+  final Map<String, NoticeRule> kinds;
+
+  /// At most this many nudges a day (the member's own limit may be lower).
+  final int? cap;
+
+  static const none = NoticeRules();
+
+  static NoticeRules fromJson(Object? j) {
+    if (j is! Map) return none;
+    final k = j['kinds'];
+    return NoticeRules(
+      kinds: {if (k is Map) for (final e in k.entries) if (e.value is Map) '${e.key}': NoticeRule.fromJson(e.value as Map)},
+      cap: (j['cap'] as num?)?.toInt(),
+    );
+  }
+
+  Map<String, Object?> toJson() => {'kinds': {for (final e in kinds.entries) e.key: e.value.toJson()}, 'cap': cap};
+
+  /// The rule for a notification's tag ('nudge:prayer:fajr' → 'nudge:prayer'), if any.
+  NoticeRule? forTag(String tag) {
+    for (final e in kinds.entries) {
+      if (tag == e.key || tag.startsWith('${e.key}:')) return e.value;
+    }
+    return null;
+  }
+}
+
+/// Which groups this phone's member is in, from how the app is used here
+/// (nothing of it is sent anywhere): new/old by the first day, regular or
+/// occasional by the days it was opened in the last 14, free or pro.
+Set<String> memberGroups({required DateTime now, DateTime? firstUse, required Iterable<DateTime> openDays, required bool pro}) {
+  final today = DateTime(now.year, now.month, now.day);
+  final first = firstUse == null ? today : DateTime(firstUse.year, firstUse.month, firstUse.day);
+  final days = {for (final d in openDays) DateTime(d.year, d.month, d.day)}.where((d) => !d.isBefore(today.subtract(const Duration(days: 13))) && !d.isAfter(today)).length;
+  return {
+    'all',
+    today.difference(first).inDays < 7 ? 'new' : 'old',
+    days >= 5 ? 'regular' : 'occasional',
+    pro ? 'pro' : 'free',
+  };
+}
+
+/// "{title}", "{body}", "{name}" filled in.
+String fillNotice(String template, {required String title, required String body, required String name}) =>
+    template.replaceAll('{title}', title).replaceAll('{body}', body).replaceAll('{name}', name).trim();

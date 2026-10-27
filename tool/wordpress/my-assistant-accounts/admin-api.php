@@ -10,6 +10,28 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+/**
+ * The oldest admin app this server works with (owner, 27 Oct: "নতুন আপডেট
+ * আসলেই পুরাতন এপে লগইন নিতে গেলেই আপডেট করতে বলবে"). Raised with each
+ * release whose app the plugin needs; an older app is told to update — at
+ * sign-in and on every call.
+ */
+const MA_ADMIN_APP_MIN = '1.13.0';
+
+function ma_app_update_url() {
+    $u = (string) get_option('ma_app_update_url', '');
+    return $u !== '' ? $u : 'https://github.com/iamsaifsaiful/digital_brain/releases';
+}
+
+/** The update answer when the admin app is older than [MA_ADMIN_APP_MIN] (or too old to say its version). */
+function ma_admin_app_update(WP_REST_Request $req) {
+    $v = trim((string) $req->get_header('x-ma-app-version'));
+    if ($v !== '' && version_compare($v, MA_ADMIN_APP_MIN, '>=')) {
+        return null;
+    }
+    return new WP_Error('update', 'update the admin app', ['status' => 426, 'min' => MA_ADMIN_APP_MIN, 'have' => $v, 'url' => ma_app_update_url()]);
+}
+
 /** The admin behind the request (an admin-app session of a WordPress user who may manage), or null. */
 function ma_admin_of(WP_REST_Request $req) {
     $s = ma_session_row($req);
@@ -30,6 +52,10 @@ function ma_admin_of(WP_REST_Request $req) {
  */
 function ma_admin_login(WP_REST_Request $req) {
     global $wpdb;
+    $old = ma_admin_app_update($req);
+    if ($old) {
+        return $old;
+    }
     $email = strtolower(sanitize_email((string) $req->get_param('email')));
     $pass = (string) $req->get_param('password');
     $ip = ma_client_ip();
@@ -48,7 +74,12 @@ function ma_admin_login(WP_REST_Request $req) {
     }
     // Two-step sign-in (owner's review, 27 Oct): required for every admin.
     if (!ma_totp_on($user->ID)) {
-        return new WP_Error('otp_setup', 'set up two-step sign-in on the site first', ['status' => 403]);
+        // Which account (the password was right): two-step sign-in is set up per WordPress account.
+        $who = ['login' => $user->user_login, 'email' => $user->user_email];
+        if (get_user_meta($user->ID, 'ma_totp', true) !== '') {
+            return new WP_Error('otp_unreadable', 'two-step key cannot be read', ['status' => 403, 'account' => $who]);
+        }
+        return new WP_Error('otp_setup', 'set up two-step sign-in on the site first', ['status' => 403, 'account' => $who]);
     }
     $code = (string) $req->get_param('code');
     if ($code === '') {
@@ -72,6 +103,10 @@ function ma_admin_route($path, $method, $cb) {
         'methods' => $method,
         'callback' => $cb,
         'permission_callback' => function (WP_REST_Request $req) {
+            $old = ma_admin_app_update($req);
+            if ($old) {
+                return $old;
+            }
             return ma_admin_of($req) !== null ? true : new WP_Error('admin', 'not an admin', ['status' => 403]);
         },
     ]);

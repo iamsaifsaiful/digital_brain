@@ -12,9 +12,16 @@ import 'package:local_auth/local_auth.dart';
 
 const apiBase = String.fromEnvironment('API_BASE', defaultValue: 'https://getmyassistant.app');
 
+/// This app's version, sent with every call: an older one than the server
+/// works with is told to update (keep equal to pubspec.yaml; a test checks).
+const adminAppVersion = '1.13.0';
+
 class ApiError implements Exception {
-  const ApiError(this.message, {this.signedOut = false, this.code = ''});
+  const ApiError(this.message, {this.signedOut = false, this.code = '', this.url = ''});
   final String message;
+
+  /// Where the new version is ('update').
+  final String url;
 
   /// The server's reason ('otp_required', 'otp_wrong', 'otp_setup' …).
   final String code;
@@ -304,6 +311,10 @@ class Api {
   /// What goes out, when, and how many a day (no list of who got what).
   Future<Map<String, dynamic>> noticeStats() => _send('GET', '/admin/notice-stats');
 
+  /// The rules for the app's own notifications: each kind on/off, time, wording, who.
+  Future<Map<String, dynamic>> noticeRules() => _send('GET', '/admin/notice-rules');
+  Future<Map<String, dynamic>> saveNoticeRules(Map<String, dynamic> rules) => _send('POST', '/admin/notice-rules', rules);
+
   /// One day ('YYYY-MM-DD', '' = today): which notifications, what, when; how many each member gets.
   Future<Map<String, dynamic>> noticeDay(String day) => _send('GET', '/admin/notice-day${day.isEmpty ? '' : '?day=$day'}');
 
@@ -393,7 +404,7 @@ class Api {
 
   Future<Map<String, dynamic>> _call(String method, String path, Map<String, Object?>? body, bool auth) async {
     final uri = Uri.parse('$base/wp-json/my-assistant/v1$path');
-    final headers = {'content-type': 'application/json', if (auth && _session != null) 'authorization': 'Bearer $_session'};
+    final headers = {'content-type': 'application/json', 'x-ma-app-version': adminAppVersion, if (auth && _session != null) 'authorization': 'Bearer $_session'};
     http.Response r;
     try {
       r = await (method == 'GET' ? _http.get(uri, headers: headers) : _http.post(uri, headers: headers, body: jsonEncode(body ?? {}))).timeout(const Duration(seconds: 20));
@@ -409,10 +420,20 @@ class Api {
     if (r.statusCode == 429) throw const ApiError('অনেকবার ভুল হয়েছে — ১৫ মিনিট পরে আবার চেষ্টা করুন');
     if (r.statusCode == 403 && j['code'] == 'owner') throw const ApiError('এটা শুধু সাইটের মূল অ্যাডমিন করতে পারেন');
     final reason = '${j['code'] ?? ''}';
+    if (r.statusCode == 426 || reason == 'update') {
+      final d = (j['data'] as Map?) ?? const {};
+      throw ApiError('অ্যাডমিন অ্যাপের নতুন সংস্করণ (${d['min'] ?? ''}) বসান — এটা $adminAppVersion। নতুনটা ছাড়া লগইন বা কাজ হবে না।', code: 'update', url: '${d['url'] ?? ''}');
+    }
     if (!auth && reason == 'otp_required') throw const ApiError('Authenticator অ্যাপের ৬ সংখ্যার কোড দিন', code: 'otp_required');
     if (!auth && reason == 'otp_wrong') throw const ApiError('কোড মেলেনি — অ্যাপে এখন যে কোড দেখাচ্ছে সেটা দিন', code: 'otp_wrong');
-    if (!auth && reason == 'otp_setup') {
-      throw const ApiError('আগে সাইটে দুই ধাপের লগইন চালু করুন: getmyassistant.app/wp-admin › My Assistant › নিরাপত্তা। তারপর এখানে লগইন করুন।', code: 'otp_setup');
+    if (!auth && (reason == 'otp_setup' || reason == 'otp_unreadable')) {
+      final a = ((j['data'] as Map?)?['account'] as Map?) ?? const {};
+      final who = a.isEmpty ? '' : '“${a['login']}” (${a['email']}) ';
+      throw ApiError(
+          reason == 'otp_setup'
+              ? 'এই অ্যাকাউন্টে $whoদুই ধাপের লগইন চালু নেই। দুই ধাপ প্রতিটা WordPress অ্যাকাউন্টে আলাদা: getmyassistant.app/wp-admin-এ ঠিক এই অ্যাকাউন্ট দিয়ে ঢুকে My Assistant › নিরাপত্তা-তে চালু করুন, তারপর এখানে লগইন করুন।'
+              : 'এই অ্যাকাউন্টের $whoদুই ধাপের চাবি সার্ভার পড়তে পারছে না। wp-admin › My Assistant › নিরাপত্তা-তে “পুরোনো চাবি মুছুন” চেপে আবার চালু করুন।',
+          code: reason);
     }
     if (r.statusCode == 401 || r.statusCode == 403) {
       if (auth) {

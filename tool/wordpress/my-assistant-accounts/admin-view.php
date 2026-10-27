@@ -982,6 +982,8 @@ function ma_acc_render_notices($v) {
     </section>
     <?php endif; ?>
 
+    <?php ma_note_render_rules(); ?>
+
     <section class="ma-card" id="ma-daily">
         <div class="ma-bar"><div class="ma-bar-title"><h2>গত ১৪ দিনে দিনে কতটি</h2><span class="ma-count">সব সদস্য মিলে · দিনে চাপলে সেদিনের তালিকা</span></div></div>
         <p class="muted ma-pad">সদস্যদের ফোনে যা দেখানো হয়েছে আর আমরা যা পুশ করেছি, ধরন অনুযায়ী গোনা।</p>
@@ -1418,6 +1420,8 @@ function ma_acc_styles() {
     .ma-rules{padding:4px 22px 16px;display:grid;gap:4px;font-size:13.5px;color:var(--mut2)}
     .ma-rules strong{color:var(--ink)}
     .ma-cat td{vertical-align:top}
+    .ma-rules input[type=text]{width:100%;min-width:140px}
+    .ma-rules td{vertical-align:middle}
     .ma-dim td{opacity:.55}
     .ma-tag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;background:var(--line);font-size:11.5px;font-weight:600;color:var(--mut2)}
     .ma-tag.srv{background:var(--gt);color:var(--gd)}

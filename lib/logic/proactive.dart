@@ -6,6 +6,8 @@
 /// handed to the notifier as quiet notifications (not alarms).
 library;
 
+import 'dart:math' show min;
+
 import '../models/models.dart';
 import '../services/notifications.dart';
 import 'bn.dart';
@@ -66,7 +68,15 @@ class AssistantPrefs {
     this.dueAlerts = true,
     this.quote = true,
     this.homeFix = true,
+    this.rules = NoticeRules.none,
+    this.groups = const {'all'},
   });
+
+  /// What the admin set on the site or in the admin app (logic/server_notices.dart).
+  final NoticeRules rules;
+
+  /// Which groups this member is in (new/old, regular/occasional, free/pro), from this phone.
+  final Set<String> groups;
 
   /// A thought about money each morning (see logic/money_quotes.dart).
   final bool quote;
@@ -247,23 +257,47 @@ List<PlannedNotice> assistantNotices(AppData d, DateTime now, AssistantPrefs p) 
     ..._summaries(d, now, p), ..._nudges(d, now, p), ..._extras(d, now, p), ..._plans(d, now, p), ..._noticed(d, now, p),
     if (p.news && p.nudgesOn) ...serverNotices(p.server, d, now, lastOpen: p.lastOpen),
   ];
+  // The admin's rules: off, for some members only, another time or wording.
+  final ruled = p.rules.kinds.isEmpty ? all : [for (final n in all) _ruled(n, p, now)].whereType<PlannedNotice>().toList();
+  final cap = p.rules.cap == null ? p.dailyCap : min(p.dailyCap, p.rules.cap!);
   final kept = <PlannedNotice>[];
   final perDay = <String, int>{};
   // Most useful first, so the cap drops the least useful.
-  all.sort((a, b) => _rank(a.reminderId).compareTo(_rank(b.reminderId)));
-  for (var n in all) {
+  ruled.sort((a, b) => _rank(a.reminderId).compareTo(_rank(b.reminderId)));
+  for (var n in ruled) {
     final chosen = _chosenByUser(n.reminderId);
     if (!chosen && p.quietOn) n = _afterQuiet(n, p);
     if (!chosen) {
       final k = dayKey(n.at);
       final c = perDay[k] ?? 0;
-      if (c >= p.dailyCap) continue;
+      if (c >= cap) continue;
       perDay[k] = c + 1;
     }
     kept.add(n);
   }
   kept.sort((a, b) => a.at.compareTo(b.at));
   return kept;
+}
+
+/// [n] after the admin's rule for its kind: null when it does not go (off,
+/// or not for this member's groups, or its new time has passed).
+PlannedNotice? _ruled(PlannedNotice n, AssistantPrefs p, DateTime now) {
+  final r = p.rules.forTag(n.reminderId);
+  if (r == null) return n;
+  if (!r.on || !p.groups.contains(r.who)) return null;
+  var at = n.at;
+  final m = r.minutes;
+  // A summary time the member set themself stays theirs.
+  final ownTime = (n.reminderId == morningTag && p.morningAt != 8 * 60) || (n.reminderId == nightTag && p.nightAt != 21 * 60);
+  if (m != null && !ownTime) {
+    at = _at(dayOnly(n.at), m);
+    if (!at.isAfter(now)) return null;
+  }
+  final name = p.name.trim();
+  final title = r.title.trim().isEmpty ? n.title : fillNotice(r.title, title: n.title, body: n.body, name: name);
+  final body = r.body.trim().isEmpty ? n.body : fillNotice(r.body, title: n.title, body: n.body, name: name);
+  if (at == n.at && title == n.title && body == n.body) return n;
+  return PlannedNotice(id: n.id, at: at, title: title.isEmpty ? n.title : title, body: body, reminderId: n.reminderId, gentle: n.gentle, repeat: n.repeat, every: n.every, early: n.early);
 }
 
 /// Summaries at the user's own times, and prayer/Ramadan times they asked

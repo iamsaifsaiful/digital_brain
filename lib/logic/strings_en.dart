@@ -4228,4 +4228,6 @@ const enStrings = <String, String>{
   'ব্যাকআপের পাসওয়ার্ড মেলেনি। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।': 'The backup password did not match. Nothing on this phone was changed.',
   'নিরাপত্তা কোড': 'Safety code',
   '{0}-এর ফোনেও একই কোড দেখালে আপনাদের তালা ঠিক আছে — মাঝখানে কেউ (আমাদের সার্ভারও) পড়তে পারে না। না মিললে কিছু পাঠাবেন না, আমাদের জানান।': 'If {0}’s phone shows the same code, your lock is sound — no one in between (not even our server) can read it. If it differs, send nothing and tell us.',
+  'অ্যাপের নতুন সংস্করণ ({0}) এসেছে — আপডেট করে আবার লগইন করুন। ফোনে রাখা সব তথ্য আগের মতোই খোলা থাকবে।': 'A new version of the app ({0}) is out — update, then sign in again. Everything kept on this phone stays open as before.',
+  'নতুন সংস্করণ নামান': 'Get the new version',
 };
