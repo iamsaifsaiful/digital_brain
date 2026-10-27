@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'services/health_connect.dart';
 import 'services/google_account.dart';
 import 'services/push.dart';
 
@@ -46,6 +47,7 @@ Future<void> main() async {
     ocr: DeviceTextReader(),
     weather: OpenMeteo(),
     compass: DeviceCompass(),
+    health: DeviceHealthConnect(),
   );
   await services.notifier.init();
   // সমস্যার লগ: every error the app runs into, cleaned, for our server —

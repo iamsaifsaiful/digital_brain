@@ -1,3 +1,5 @@
+import 'health_connect_screen.dart';
+import '../logic/health_connect.dart' show hcTag;
 import 'package:flutter/material.dart';
 
 import '../logic/steps.dart';
@@ -188,7 +190,8 @@ class _HealthScreenState extends State<HealthScreen> {
                       quick: () => addReading(context, m.id, HealthKind.sleep)),
                 ]),
                 // The phone's own step count (the user's, not a family member's).
-                if (m.isMe) const StepsCard(),
+                if (m.isMe) const HealthConnectCard(),
+                if (m.isMe && !(brain.hcOn && brain.hcGranted)) const StepsCard(),
                 if (needsVaccineCard(m, now) || (!m.isMe && m.birth != null && now.difference(m.birth!).inDays < 6 * 366)) ...[
                   const SizedBox(height: 12),
                   Panel(
@@ -544,9 +547,10 @@ class HealthKindScreen extends StatelessWidget {
                       ListRow(
                         leading: Icon(Icons.circle, size: 12, color: levelOf(h) == null ? C.muted : levelColor(levelOf(h)!.$1)),
                         title: readingText(h),
-                        subtitle: '${shortDate(h.at)} · ${bnTime(h.at.hour, h.at.minute)}${levelOf(h) == null ? '' : ' · ${levelOf(h)!.$2}'}',
+                        subtitle: '${shortDate(h.at)} · ${bnTime(h.at.hour, h.at.minute)}${levelOf(h) == null ? '' : ' · ${levelOf(h)!.$2}'}${h.tag == hcTag ? ' · Health Connect' : ''}',
                         trailing: IconButton(tooltip: tr('মুছুন'), onPressed: () => brain.deleteHealth(h.id), icon: Icon(Icons.delete_outline_rounded, color: C.muted, size: 20)),
-                        onTap: () => addReading(context, member, kind, old: h),
+                        // Health Connect's own readings are changed there; here they can only be deleted.
+                        onTap: h.tag == hcTag ? null : () => addReading(context, member, kind, old: h),
                       ),
                   ]),
                 ),

@@ -2163,6 +2163,12 @@ class Parser {
       if (weight) return HealthQuery(said, what: HealthKind.weight.name);
       if (bp) return HealthQuery(said, what: HealthKind.bp.name);
       if (sugar) return HealthQuery(said, what: HealthKind.sugar.name);
+      // Health Connect (27 Oct): "গত রাতে কত ঘুমিয়েছি?", "আজ কত মিনিট ব্যায়াম করলাম?", "আজ কত হাঁটলাম?".
+      if (has(['ঘুমিয়েছি', 'ঘুমালাম', 'ঘুমিয়েছিলাম', 'ঘুমাইছি', 'ঘুম হয়েছে', 'ঘুম হলো', 'ঘুমের হিসাব', 'slept', 'sleep'])) return HealthQuery(said, what: HealthKind.sleep.name);
+      if (has(['ব্যায়াম', 'এক্সারসাইজ', 'exercise', 'workout'])) return HealthQuery(said, what: HealthKind.exercise.name);
+      if (has(['হাঁটলাম', 'হেঁটেছি', 'হাটলাম', 'হাঁটছি', 'হাঁটা হয়েছে', 'স্টেপ', 'steps', 'কত পা', 'কত ধাপ'])) {
+        return HealthQuery(said, what: has(['মিনিট', 'ঘণ্টা', 'ঘন্টা']) ? HealthKind.exercise.name : 'steps');
+      }
       // "আমার স্বাস্থ্যের অবস্থা কি", "শরীর কেমন": all the latest measures.
       if (has(['স্বাস্থ্য', 'সাস্থ্য', 'শরীর', 'শরির', 'হেলথ', 'health']) && !has(['টাকা', 'বিমা', 'বীমা', 'কার্ড'])) return HealthQuery(said, what: 'summary');
       return null;

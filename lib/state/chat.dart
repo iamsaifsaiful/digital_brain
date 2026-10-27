@@ -875,6 +875,18 @@ class ChatController extends ChangeNotifier {
     }
     notifyListeners();
     final out = <String>[];
+    // "‘…’ হিসাবের আয়-ব্যয় মূল হিসাবেও যোগ হবে?": the answer (anything else
+    // leaves it apart, and is heard as itself).
+    final askMain = _askMainFor;
+    _askMainFor = null;
+    final mainYes = askMain == null ? null : yesNo(t);
+    if (askMain != null && mainYes != null) {
+      await brain.setProjectMain(askMain, mainYes);
+      choices = const [];
+      _say(out, mainYes ? tr('ঠিক আছে — এই হিসাবের আয়-ব্যয় মূল হিসাবেও যোগ হবে।') : tr('ঠিক আছে — এই হিসাব আলাদা থাকবে, মূল হিসাবে যোগ হবে না।'));
+      notifyListeners();
+      return out.join(' ');
+    }
     // "শেষ" ends a list being collected; it is not "stop listening".
     if (_isStop(t) && !(collecting && _isFinish(t))) {
       if (wait != ChatWait.none) _dropPending();
@@ -1322,6 +1334,17 @@ class ChatController extends ChangeNotifier {
 
   /// The expense being moved by "অন্যান্য হিসাবে রাখো" while its account is asked.
   String? _moveCashId;
+
+  /// A হিসাব just opened by voice, waiting for "মূল হিসাবেও যোগ হবে?" (owner, 27 Oct).
+  String? _askMainFor;
+
+  /// Asks whether [p]'s entries join the main money; until the answer they do not.
+  void _askProjectMain(Project p, List<String> out) {
+    if (p.mainAsked) return;
+    _askMainFor = p.id;
+    _say(out, trf('‘{0}’ হিসাবের আয়-ব্যয় মূল হিসাবেও যোগ হবে? হ্যাঁ বললে যোগ হবে; না বললে বা উত্তর না দিলে আলাদা থাকবে।', [p.name]));
+    choices = _yesNoChoices;
+  }
 
   Future<bool> _moveCash(CashEntry e, Project p, List<String> out) async {
     if (!brain.canUseProjects) {
@@ -1797,6 +1820,11 @@ class ChatController extends ChangeNotifier {
       // "আমার যাকাত কত" with no price entered: today's market price is fetched first.
       if (c is ProfileQuery && infoTopic(normalize(c.transcript)) == 'zakat' && brain.zakatSaved.silverPrice <= 0) await brain.metalPriceToday();
       if (c is ProfileQuery && infoTopic(normalize(c.transcript)) == 'weather') await brain.refreshWeather();
+      // "আজ কত হাঁটলাম?", "গত রাতে কত ঘুমিয়েছি?": the latest from Health Connect first (on the phone).
+      if (c is HealthQuery && const {'steps', 'sleep', 'exercise'}.contains(c.what)) {
+        await brain.syncHealthConnect(force: true).catchError((_) => 0);
+        brain.noteStepsForAnswers();
+      }
       final text = (c is ProfileQuery ? _donorAnswer(c.transcript) : null) ?? answerText(brain.data, c, _now) ?? '';
       // Two parts of one message with the same answer ("এ বিষয়ে কোনো তথ্য
       // নেই" twice): said once.
@@ -3473,7 +3501,9 @@ class ChatController extends ChangeNotifier {
             _say(out, tr('অন্যান্য হিসাব প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'));
             return true;
           }
-          return _moveCash(e, p, out);
+          final moved = await _moveCash(e, p, out);
+          _askProjectMain(brain.data.projects.firstWhere((x) => x.id == p.id, orElse: () => p), out);
+          return moved;
         }
         if (cur is! CashAdd) return false;
         var name = tidy(cutWords(t, const ['প্রজেক্ট', 'প্রজেক্টে', 'প্রজেক্টের', 'প্রকল্প', 'প্রকল্পে', 'নামে', 'নাম']));
@@ -4073,6 +4103,7 @@ class ChatController extends ChangeNotifier {
         _say(out, quiet ? trf('লিখলাম: {0}', [summaryLine(c)]) : done + proNote,
             links: _linksFor1(quiet, [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন')), if (proNote.isNotEmpty) ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]), speak: !quiet);
         if (project != null && brain.lastMainLine != null) messages.add(ChatMessage.app(mainAddedText(brain.lastMainLine!), info: true));
+        if (project != null) _askProjectMain(brain.data.projects.firstWhere((x) => x.id == project!.id), out);
         _history.add(AiTurn.app('[লেখা হলো: ${summaryLine(c)}]'));
         _focusOn(cash: c.project == null);
       case VaultAdd():

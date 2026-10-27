@@ -2,4 +2,6 @@
 <resources>
     <string name="widget_description">আজকের কাজ, বাংলা তারিখ আর এক চাপে মাইক</string>
     <string name="widget_name">My Assistant — আজ</string>
+    <string name="health_privacy_title">My Assistant — স্বাস্থ্য তথ্য</string>
+    <string name="health_privacy">My Assistant Health Connect থেকে যা পড়ে, শুধু তা-ই এখানে লেখা।\n\nকী পড়ি: আপনার হাঁটার স্টেপ, ঘুমের সময় (ঘুমের ধাপসহ) আর ব্যায়ামের সময়। কিছু লিখি না, বদলাই না।\n\nকেন পড়ি: অ্যাপের স্বাস্থ্য পাতায় \"আজ কত পা হাঁটলেন\", গত রাতের ঘুম আর ব্যায়ামের মিনিট দেখাতে, আর আপনি জিজ্ঞেস করলে (\"আজ কত হাঁটলাম?\", \"গত রাতে কত ঘুমিয়েছি?\") উত্তর দিতে। শুধু \"আমি\" প্রোফাইলের জন্য।\n\nকোথায় থাকে: শুধু এই ফোনে, অ্যাপের এনক্রিপ্ট করা ফাইলে। আমাদের সার্ভারে, AI-তে বা অন্য কারও কাছে যায় না; বিজ্ঞাপনে ব্যবহার হয় না, বিক্রি হয় না।\n\nবন্ধ করতে: Health Connect › অ্যাপের অনুমতি › My Assistant থেকে যেকোনো সময় অনুমতি তুলে নিন। অ্যাপের স্বাস্থ্য পাতা থেকে Health Connect থেকে আনা মাপগুলো মুছেও ফেলতে পারবেন।\n\nWhat we read from Health Connect: steps, sleep sessions and exercise sessions — read only. They are shown on the app\'s health page and used to answer your own questions, for your own profile only. They stay on this phone, encrypted; they are never sent to our server, to an AI, or to anyone else, and never used for ads.</string>
 </resources>

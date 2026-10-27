@@ -580,6 +580,7 @@ extension BrainHealth on Brain {
       _trash(tr('স্বাস্থ্যের মাপ'), [('health', h.toJson())]);
     }
     data.health.removeWhere((h) => h.id == id);
+    await _hcForget(id);
     await _save();
   }
 

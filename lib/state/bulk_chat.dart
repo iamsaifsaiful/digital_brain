@@ -1243,10 +1243,11 @@ extension _BulkChat on ChatController {
       return;
     }
     final snap = brain.snapshot();
-    await brain.projectNamed(name);
+    final made = await brain.projectNamed(name);
     _actions++;
     _say(out, trf('খুলে দিলাম — অন্যান্য হিসাবে ‘{0}’। এখন বলুন, যেমন “মাহি ২০০০ টাকা দিয়েছে, {0} হিসাবে”।', [name]), links: [ChatLink(LinkKind.page, tr('অন্যান্য হিসাব'), page: 'projects')]);
     _offerUndo(snap);
+    _askProjectMain(made, out);
   }
 
   /// "২০৪১ সালের প্রতিটি কাজের রিমাইন্ডার দাও, সকাল ১১ টায়": a reminder

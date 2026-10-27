@@ -134,6 +134,7 @@ class MainActivity : FlutterFragmentActivity() {
             intent = Intent(this, MainActivity::class.java).setAction(Intent.ACTION_MAIN)
         }
         super.onCreate(savedInstanceState)
+        HealthConnect.register(this)
         CustomTone.regrant(this)
         clearOpenCopies()
         if (isReminderIntent(intent)) setOverLock(true)
@@ -674,6 +675,9 @@ class MainActivity : FlutterFragmentActivity() {
         }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/steps").setMethodCallHandler { call, result ->
             Steps.handle(this, call, result)
+        }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/health").setMethodCallHandler { call, result ->
+            HealthConnect.handle(this, call, result)
         }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/push").setMethodCallHandler { call, result ->
             PushService.handle(this, call, result)

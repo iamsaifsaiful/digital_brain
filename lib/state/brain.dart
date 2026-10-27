@@ -6,9 +6,12 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/widgets.dart';
 
 import '../logic/vault_age.dart';
+import '../logic/steps.dart' show StepBook, stepDay;
 import '../logic/ai_safe.dart';
 import '../logic/doc_dates.dart';
 import 'doc_scan.dart' show mergeFields;
+import '../services/health_connect.dart';
+import '../logic/health_connect.dart';
 import '../services/error_log.dart';
 import '../services/weather.dart';
 import '../services/compass.dart';
@@ -80,8 +83,10 @@ class Services {
     TextReader? ocr,
     WeatherSource? weather,
     CompassSource? compass,
+    HealthConnectSource? health,
     DateTime Function()? clock,
   })  : ai = ai ?? FakeAi(),
+        health = health ?? FakeHealthConnect(),
         ocr = ocr ?? FakeTextReader(),
         weather = weather ?? FakeWeather(),
         compass = compass ?? FakeCompass(),
@@ -107,6 +112,9 @@ class Services {
 
   /// The phone's heading, for the compass page.
   final CompassSource compass;
+
+  /// Android's Health Connect, read only (steps, sleep, exercise for "আমি").
+  final HealthConnectSource health;
 
   /// Claude, when the user has set an API key (see আরও).
   final AiBrain ai;
@@ -1244,6 +1252,108 @@ class Brain extends ChangeNotifier {
     await setPref('open_days', days.skip(days.length > 30 ? days.length - 30 : 0).join(','));
   }
 
+  // ── Health Connect, read only (owner, 27 Oct) ──
+
+  /// Whether this phone has it; checked when the health page opens and on resume.
+  HcStatus hcStatus = HcStatus.unsupported;
+
+  /// All three read permissions given (steps, sleep, exercise).
+  bool hcGranted = false;
+
+  /// Today's steps from Health Connect (null: not read yet).
+  int? hcStepsToday;
+  DateTime? _hcRead;
+
+  /// The user turned it on in the app, after the explanation page.
+  bool get hcOn => flag('hc_on');
+
+  Future<void> checkHealthConnect() async {
+    hcStatus = await services.health.status();
+    hcGranted = hcStatus == HcStatus.available && await services.health.granted();
+    notifyListeners();
+  }
+
+  /// Asks Health Connect for the three read permissions (its own screen).
+  Future<bool> turnOnHealthConnect() async {
+    await checkHealthConnect();
+    if (hcStatus != HcStatus.available) return false;
+    final ok = await services.health.request();
+    hcGranted = ok;
+    if (ok) {
+      await setPref('hc_on', true);
+      await syncHealthConnect(force: true);
+    }
+    notifyListeners();
+    return ok;
+  }
+
+  /// Stops reading; with [forget], the readings brought in from it go too
+  /// (the hand-written ones stay).
+  Future<void> turnOffHealthConnect({bool forget = false}) async {
+    await setPref('hc_on', false);
+    hcStepsToday = null;
+    LiveSteps.today = null;
+    if (forget) {
+      data.health.removeWhere((h) => h.tag == hcTag);
+      await setPref('hc_gone', '');
+      await _save();
+    }
+    notifyListeners();
+  }
+
+  /// Reads today's steps and the last 30 days' sleep and exercise sessions
+  /// into the app's own readings, without doubles (logic/health_connect.dart).
+  /// Returns how many readings were new.
+  Future<int> syncHealthConnect({bool force = false}) async {
+    if (!hcOn) return 0;
+    final now = services.now();
+    if (!force && _hcRead != null && now.difference(_hcRead!) < const Duration(minutes: 2)) return 0;
+    _hcRead = now;
+    await checkHealthConnect();
+    if (!hcGranted) return 0;
+    final today = dayOnly(now);
+    final steps = await services.health.steps(today, now);
+    if (steps != null) {
+      hcStepsToday = steps;
+      LiveSteps.today = (day: today, steps: steps, at: now, hc: true);
+    }
+    final from = today.subtract(const Duration(days: 30));
+    final gone = text('hc_gone').split(',').toSet();
+    final incoming = [
+      ...(await services.health.sleep(from, now)).map(sleepLog),
+      ...(await services.health.exercise(from, now)).map(exerciseLog),
+    ].whereType<HealthLog>().where((h) => !gone.contains(h.id)).toList();
+    final before = {for (final h in data.health) if (h.tag == hcTag) h.id: jsonEncode(h.toJson())};
+    final changed = incoming.any((h) => before[h.id] != jsonEncode(h.toJson()));
+    var added = 0;
+    if (changed) {
+      final (list, n) = mergeHcLogs(data.health, incoming);
+      added = n;
+      data.health
+        ..clear()
+        ..addAll(list);
+      await _save();
+    }
+    notifyListeners();
+    return added;
+  }
+
+  /// A Health Connect reading the user deleted is not brought back.
+  Future<void> _hcForget(String id) async {
+    if (!id.startsWith('hc:')) return;
+    final gone = [...text('hc_gone').split(',').where((x) => x.isNotEmpty && x != id), id];
+    await setPref('hc_gone', gone.skip(gone.length > 300 ? gone.length - 300 : 0).join(','));
+  }
+
+  /// Today's steps for an answer: Health Connect's, else the phone's own counter.
+  void noteStepsForAnswers() {
+    final now = services.now();
+    final hc = LiveSteps.today;
+    if (hcOn && hc != null && hc.day == dayOnly(now)) return;
+    final book = StepBook.fromJson(text('steps_book'));
+    LiveSteps.today = book != null && book.day == stepDay(now) ? (day: dayOnly(now), steps: book.today, at: now, hc: false) : null;
+  }
+
   /// The other settings (notification types, quiet hours, Hijri date
   /// correction, prayer reminders…), as saved text. Read with [flag] / [number].
   final Map<String, String> prefs = {};
@@ -1251,7 +1361,7 @@ class Brain extends ChangeNotifier {
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly', 'n_quote', 'n_fix',
-    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'g_card_off', 'trace_on',
+    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'g_card_off', 'trace_on', 'hc_on', 'hc_gone', 'steps_book',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
@@ -2473,6 +2583,19 @@ class Brain extends ChangeNotifier {
     data.reminders.removeWhere((r) => dueRems.contains(r.id));
     await _save();
     if (dueRems.isNotEmpty) await _reschedule();
+  }
+
+  /// Whether [id]'s entries go into the main আয়-ব্যয় — the user's answer.
+  /// Its entries already written follow at once (in, or taken out).
+  Future<void> setProjectMain(String id, bool inMain) async {
+    final p = data.projects.where((x) => x.id == id).firstOrNull;
+    if (p == null) return;
+    _upsert(data.projects, p.copyWith(inMain: inMain, mainAsked: true), (x) => x.id);
+    for (final c in [...data.cash.where((e) => e.projectId == id)]) {
+      await _intoMain(c.id);
+    }
+    lastMainLine = null;
+    await _save();
   }
 
   /// The project called [name], made if there is none yet.

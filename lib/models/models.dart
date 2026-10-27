@@ -634,7 +634,7 @@ class CashEntry {
 
 /// A piece of work with its own money: "রহিম ভবন", "অফিস সাজানো".
 class Project {
-  Project({String? id, required this.name, DateTime? createdAt, this.closed = false, this.budget = 0})
+  Project({String? id, required this.name, DateTime? createdAt, this.closed = false, this.budget = 0, this.inMain = false, this.mainAsked = false})
       : id = id ?? newId(),
         createdAt = createdAt ?? DateTime.now();
 
@@ -646,10 +646,25 @@ class Project {
   /// How much may be spent (an Eid or wedding budget); 0 = none set.
   final int budget;
 
-  Project copyWith({String? name, bool? closed, int? budget}) =>
-      Project(id: id, name: name ?? this.name, createdAt: createdAt, closed: closed ?? this.closed, budget: budget ?? this.budget);
+  /// Its entries also go into the main আয়-ব্যয় (owner, 27 Oct: only when
+  /// the user said yes). A new হিসাব starts out of it until asked.
+  final bool inMain;
 
-  Map<String, Object?> toJson() => {'id': id, 'name': name, 'createdAt': createdAt.toIso8601String(), 'closed': closed, if (budget > 0) 'budget': budget};
+  /// The user was asked (and answered) whether it joins the main money.
+  /// A হিসাব from before this was asked keeps going in, as it did, until asked.
+  final bool mainAsked;
+
+  Project copyWith({String? name, bool? closed, int? budget, bool? inMain, bool? mainAsked}) => Project(
+      id: id,
+      name: name ?? this.name,
+      createdAt: createdAt,
+      closed: closed ?? this.closed,
+      budget: budget ?? this.budget,
+      inMain: inMain ?? this.inMain,
+      mainAsked: mainAsked ?? this.mainAsked);
+
+  Map<String, Object?> toJson() =>
+      {'id': id, 'name': name, 'createdAt': createdAt.toIso8601String(), 'closed': closed, if (budget > 0) 'budget': budget, 'inMain': inMain, 'mainAsked': mainAsked};
 
   factory Project.fromJson(Map<String, Object?> j) => Project(
         id: j['id'] as String?,
@@ -657,6 +672,9 @@ class Project {
         createdAt: _date(j['createdAt']),
         closed: j['closed'] == true,
         budget: (j['budget'] as num?)?.toInt() ?? 0,
+        // Saved before 27 Oct: its entries went into the main money.
+        inMain: j['inMain'] is bool ? j['inMain'] as bool : true,
+        mainAsked: j['mainAsked'] == true,
       );
 }
 

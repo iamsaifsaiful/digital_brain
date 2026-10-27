@@ -801,10 +801,46 @@ Future<String?> askProjectName(BuildContext context, {String initial = ''}) {
 
 /// A new project or event: a name (or a ready one — ঈদ, বিয়ে…) and, if
 /// wanted, a budget. Returns (name, budget).
-Future<(String, int)?> askNewProject(BuildContext context) {
+/// The two answers to "এই হিসাবের লেনদেন মূল হিসাবে যোগ হবে?" — one must be
+/// picked (owner, 27 Oct); none is chosen beforehand.
+Widget mainChoice(bool? value, ValueChanged<bool> pick) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(tr('এই হিসাবের আয়-ব্যয় মূল হিসাবেও যোগ হবে?'), style: body(15, weight: FontWeight.w600)),
+      const SizedBox(height: 4),
+      Text(tr('হ্যাঁ দিলে প্রতিটা লেনদেন মূল আয়-ব্যয় আর হাতের টাকায়ও আলাদা লাইন হয়ে যোগ হবে। না দিলে এটা আলাদা থাকবে।'), style: body(13, color: C.muted, height: 1.5)),
+      const SizedBox(height: 8),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        ChoiceChip(key: const Key('main-yes'), label: Text(tr('হ্যাঁ, যোগ হবে')), selected: value == true, onSelected: (_) => pick(true)),
+        ChoiceChip(key: const Key('main-no'), label: Text(tr('না, আলাদা থাকবে')), selected: value == false, onSelected: (_) => pick(false)),
+      ]),
+    ]);
+
+/// Asks the question by itself (a হিসাব opened by voice, or one from before):
+/// it cannot be closed without an answer.
+Future<bool?> askProjectMain(BuildContext context, String name) {
+  bool? v;
+  return showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) => PopScope(
+      canPop: false,
+      child: StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text(name, style: display(20)),
+          content: mainChoice(v, (x) => setD(() => v = x)),
+          actions: [
+            TextButton(key: const Key('main-ok'), onPressed: v == null ? null : () => Navigator.pop(ctx, v), child: Text(tr('ঠিক আছে'))),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+Future<(String, int, bool)?> askNewProject(BuildContext context) {
   final name = TextEditingController();
   final budget = TextEditingController();
-  return showDialog<(String, int)>(
+  bool? inMain;
+  return showDialog<(String, int, bool)>(
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setD) => AlertDialog(
@@ -816,15 +852,21 @@ Future<(String, int)?> askNewProject(BuildContext context) {
                 ActionChip(label: Text(t), onPressed: () => setD(() => name.text = t)),
             ]),
             const SizedBox(height: 10),
-            TextField(controller: name, decoration: InputDecoration(labelText: tr('নাম, যেমন: রহিম ভবন'))),
+            TextField(controller: name, onChanged: (_) => setD(() {}), decoration: InputDecoration(labelText: tr('নাম, যেমন: রহিম ভবন'))),
             const SizedBox(height: 10),
             TextField(controller: budget, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: tr('বাজেট (ঐচ্ছিক)'), prefixText: '৳ ')),
+            const SizedBox(height: 14),
+            mainChoice(inMain, (x) => setD(() => inMain = x)),
           ]),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
           TextButton(
-            onPressed: () => Navigator.pop(ctx, (name.text.trim(), int.tryParse(asciiDigits(budget.text).replaceAll(RegExp(r'[,\s]'), '')) ?? 0)),
+            key: const Key('project-ok'),
+            // Both the name and the answer are needed.
+            onPressed: name.text.trim().isEmpty || inMain == null
+                ? null
+                : () => Navigator.pop(ctx, (name.text.trim(), int.tryParse(asciiDigits(budget.text).replaceAll(RegExp(r'[,\s]'), '')) ?? 0, inMain!)),
             child: Text(tr('ঠিক আছে')),
           ),
         ],
@@ -858,6 +900,7 @@ class ProjectsView extends StatelessWidget {
         p = p.copyWith(budget: r.$2);
         await brain.saveProject(p);
       }
+      if (!p.mainAsked) await brain.setProjectMain(p.id, r.$3);
       if (context.mounted) Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProjectScreen(id: p.id)));
     }
 
@@ -873,6 +916,10 @@ class ProjectsView extends StatelessWidget {
         final name = await askProjectName(context, initial: tr('দোকান'));
         if (name == null || name.trim().isEmpty || !context.mounted) return;
         target = await brain.projectNamed(name.trim());
+        if (!context.mounted) return;
+        final v = await askProjectMain(context, target.name);
+        if (v != null) await brain.setProjectMain(target.id, v);
+        if (!context.mounted) return;
       } else {
         target = await showAppSheet<Project>(
           context: context,
@@ -959,9 +1006,30 @@ class ProjectsView extends StatelessWidget {
   }
 }
 
-class ProjectScreen extends StatelessWidget {
+class ProjectScreen extends StatefulWidget {
   const ProjectScreen({super.key, required this.id});
   final String id;
+
+  @override
+  State<ProjectScreen> createState() => _ProjectScreenState();
+}
+
+class _ProjectScreenState extends State<ProjectScreen> {
+  String get id => widget.id;
+
+  @override
+  void initState() {
+    super.initState();
+    // Not asked yet (opened by voice, or from before 27 Oct): asked now, once.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final brain = BrainScope.read(context);
+      final p = brain.data.projects.where((x) => x.id == id).firstOrNull;
+      if (p == null || p.mainAsked) return;
+      final v = await askProjectMain(context, p.name);
+      if (v != null) await brain.setProjectMain(p.id, v);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -993,6 +1061,10 @@ class ProjectScreen extends StatelessWidget {
             ),
           );
           if (v != null) await brain.saveProject(p.copyWith(budget: int.tryParse(asciiDigits(v).replaceAll(RegExp(r'[,\s]'), '')) ?? 0));
+        case 'main':
+          final v = await askProjectMain(context, p.name);
+          if (v != null) await brain.setProjectMain(p.id, v);
+          if (v != null && context.mounted) toast(context, v ? tr('এখন থেকে এই হিসাবের লেনদেন মূল হিসাবেও যোগ হবে') : tr('এই হিসাব এখন আলাদা — মূল হিসাবে যোগ হবে না'));
         case 'close':
           await brain.saveProject(p.copyWith(closed: !p.closed));
         case 'delete':
@@ -1014,6 +1086,7 @@ class ProjectScreen extends StatelessWidget {
               itemBuilder: (_) => [
                 PopupMenuItem(value: 'rename', child: Text(tr('নাম বদলান'))),
                 PopupMenuItem(value: 'budget', child: Text(p.budget > 0 ? tr('বাজেট বদলান') : tr('বাজেট ঠিক করুন'))),
+                PopupMenuItem(value: 'main', child: Text(p.inMain ? tr('মূল হিসাব: যোগ হচ্ছে — বদলান') : tr('মূল হিসাব: আলাদা — বদলান'))),
                 PopupMenuItem(value: 'close', child: Text(p.closed ? tr('আবার চালু করুন') : tr('হিসাব শেষ'))),
                 PopupMenuItem(value: 'delete', child: Text(tr('মুছুন'))),
               ],

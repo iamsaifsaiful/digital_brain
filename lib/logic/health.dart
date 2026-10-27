@@ -6,6 +6,8 @@
 /// say so plainly and point to 999.
 library;
 
+import 'health_connect.dart' show LiveSteps, hcTag;
+import 'steps.dart' show stepsKm;
 import '../models/models.dart';
 import 'bn.dart';
 import 'lang.dart';
@@ -232,6 +234,31 @@ String healthAnswer(AppData d, String what, DateTime now, {String member = Famil
         if (!identical(f, last) && f.tag == 'fasting') trf('খালি পেটে শেষবার {0}', [mmolText(f.a)]),
       ];
       return '${parts.join('। ')}।';
+    case 'steps':
+      final s = LiveSteps.today;
+      if (member != FamilyMember.meId) return tr('হাঁটার হিসাব শুধু আপনার নিজের (“আমি”) ফোন থেকে পাওয়া যায়।');
+      if (s == null || s.day != dayOnly(now)) {
+        return tr('আজকের হাঁটার হিসাব এখনো পাইনি। স্বাস্থ্য পাতায় Health Connect (বা ফোনের ধাপ গোনা) চালু করুন — তারপর জিজ্ঞেস করলেই বলে দেবো।');
+      }
+      final km = stepsKm(s.steps);
+      return trf('আজ এ পর্যন্ত {0} পা হেঁটেছেন — প্রায় {1} কিমি।{2}',
+          [bnDigits(s.steps), bnDigits(km.toStringAsFixed(1)), s.hc ? tr(' (Health Connect থেকে)') : tr(' (ফোনের ধাপ গোনা থেকে)')]);
+    case 'sleep':
+      final r = readings(d, member, HealthKind.sleep);
+      if (r.isEmpty) return tr('ঘুমের কোনো হিসাব নেই। বলুন, যেমন “কাল রাতে ৭ ঘণ্টা ঘুমিয়েছি” — বা স্বাস্থ্য পাতায় Health Connect চালু করুন।');
+      final last = r.last;
+      final recent = now.difference(last.at) < const Duration(hours: 30);
+      final week = r.where((h) => h.at.isAfter(now.subtract(const Duration(days: 7)))).toList();
+      final avg = week.length < 3 ? '' : trf(' গত ৭ দিনে গড়ে {0} ঘণ্টা।', [bnDigits((week.fold(0.0, (a, h) => a + h.a) / week.length).toStringAsFixed(1))]);
+      final from = last.tag == hcTag ? tr(' (Health Connect থেকে)') : '';
+      return recent
+          ? trf('গত রাতে {0} ঘুমিয়েছেন, উঠেছেন {1}-এ।{2}{3}', [readingText(last), bnTime(last.at.hour, last.at.minute), from, avg])
+          : trf('শেষ ঘুমের হিসাব {0}: {1}।{2}{3}', [shortDate(last.at), readingText(last), from, avg]);
+    case 'exercise':
+      final today = totalOn(d, member, HealthKind.exercise, now);
+      final week = d.health.where((h) => h.member == member && h.kind == HealthKind.exercise && !h.at.isBefore(dayOnly(now).subtract(const Duration(days: 6)))).fold(0.0, (a, h) => a + h.a);
+      if (today <= 0 && week <= 0) return tr('এই সপ্তাহে ব্যায়ামের কোনো হিসাব নেই। বলুন, যেমন “আজ ৩০ মিনিট হাঁটলাম” — বা স্বাস্থ্য পাতায় Health Connect চালু করুন।');
+      return trf('আজ {0} মিনিট ব্যায়াম; গত ৭ দিনে মোট {1} মিনিট।', [bnDigits(today.round()), bnDigits(week.round())]);
     case 'summary':
       final parts = [
         for (final k in const ['weight', 'bp', 'sugar'])

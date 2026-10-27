@@ -190,6 +190,8 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       ErrorLog.flush(brain.services.server, brain.services.ai.session);
       if (brain.loaded && brain.loadError == null) {
         brain.markOpened();
+        // স্বাস্থ্য › Health Connect: today's steps, last night's sleep (when turned on).
+        brain.syncHealthConnect().catchError((_) => 0);
         brain.refreshAccount();
         // Travelled to another district: prayer times and weather follow.
         brain.refreshPlace();

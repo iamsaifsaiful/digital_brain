@@ -91,7 +91,8 @@ void main() {
       await b.saveEntry(LedgerEntry(person: 'রহিম', kind: LedgerKind.lent, amount: 2000, date: now));
       expect(b.lastMainLine!.category, 'ধার দেওয়া');
       await b.saveEntry(LedgerEntry(person: 'করিম', kind: LedgerKind.borrowed, amount: 1000, date: now));
-      final p = Project(name: 'বাড়ির কাজ');
+      // The user said yes to "মূল হিসাবেও যোগ হবে?" (27 Oct: only then).
+      final p = Project(name: 'বাড়ির কাজ', inMain: true, mainAsked: true);
       b.data.projects.add(p);
       await b.saveCash(CashEntry(kind: CashKind.expense, amount: 4000, category: 'রড', date: now, projectId: p.id));
       expect(b.lastMainLine!.note, 'বাড়ির কাজ');
