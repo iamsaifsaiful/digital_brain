@@ -161,6 +161,9 @@ def _value(ctx, name, var):
     if name == 'note':
         w = ctx.once(name, lambda: random.choice(L.NOTE_FACTS))
         return w, 'text', w
+    if name == 'notedomain':
+        w = ctx.once(name, lambda: random.choice(L.NOTE_DOMAIN_FACTS))
+        return w, 'text', w
     if name == 'notemoney':
         w = ctx.once(name, lambda: random.choice(L.NOTE_MONEY_FACTS))
         return w, 'text', w
