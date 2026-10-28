@@ -39,6 +39,7 @@ flutter:
   assets:
     - assets/nlu/
     - assets/sky/
+    - assets/brand/
 
   fonts:
     # Noto Sans Bengali: the main font — plain, familiar letters and digits

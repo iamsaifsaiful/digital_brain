@@ -1744,9 +1744,9 @@ class _QuickAddSheet extends StatelessWidget {
           ]),
           const SizedBox(height: 8),
           Row(children: [
-            Expanded(child: tile(3, Icons.sticky_note_2_outlined, tr('নোট'), C.blue, C.blueTint)),
+            Expanded(child: tile(3, Icons.sticky_note_2_outlined, trm('নোট'), C.blue, C.blueTint)),
             const SizedBox(width: 8),
-            Expanded(child: tile(4, Icons.lock_outline_rounded, tr('পাসওয়ার্ড'), C.ink, C.soft)),
+            Expanded(child: tile(4, Icons.lock_outline_rounded, trm('পাসওয়ার্ড'), C.ink, C.soft)),
             const SizedBox(width: 8),
             Expanded(child: tile(5, Icons.call_outlined, tr('নম্বর রাখুন'), C.ink, C.soft)),
           ]),

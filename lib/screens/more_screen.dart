@@ -364,7 +364,7 @@ class _MoreScreenState extends State<MoreScreen> {
         // The things people come here for, as big tiles (two rows of two).
         for (final row in [
           [
-            _Tile(key: const Key('more-requests'), icon: Icons.bloodtype_outlined, fg: C.rose, bg: C.roseTint, title: tr('ব্লাড ডোনেশন'), sub: tr('রক্ত দিন, রক্ত চান — সারা দেশে'), onTap: () => push(const RequestsScreen())),
+            _Tile(key: const Key('more-requests'), icon: Icons.bloodtype_outlined, fg: C.rose, bg: C.roseTint, title: trm('ব্লাড ডোনেশন'), sub: tr('রক্ত দিন, রক্ত চান — সারা দেশে'), onTap: () => push(const RequestsScreen())),
             _Tile(
                 key: const Key('more-pro'),
                 icon: Icons.workspace_premium_outlined,
@@ -797,7 +797,7 @@ class _Tile extends StatelessWidget {
               Expanded(
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w600)),
-                  Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: badge ? C.greenDark : C.muted)),
+                  Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(11.5, color: badge ? C.greenDark : C.muted, height: 1.25)),
                 ]),
               ),
             ]),

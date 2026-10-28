@@ -30,8 +30,8 @@ class LibraryScreen extends StatelessWidget {
 
     final tiles = <_Tile>[
       _Tile(tr('যোগাযোগ'), trf('{0} জন', [bnDigits(d.contacts.length)]), Icons.contact_phone_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
-      _Tile(tr('নোট'), trf('{0}টি', [bnDigits(d.notes.length)]), Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, () => push(const NotesScreen())),
-      _Tile(tr('পাসওয়ার্ড'), trf('{0}টি · তালাবদ্ধ', [bnDigits(d.vault.length)]), Icons.key_rounded, C.blue, C.blueTint, () => push(const VaultPage())),
+      _Tile(trm('নোট'), trf('{0}টি', [bnDigits(d.notes.length)]), Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, () => push(const NotesScreen())),
+      _Tile(trm('পাসওয়ার্ড'), trf('{0}টি · তালাবদ্ধ', [bnDigits(d.vault.length)]), Icons.key_rounded, C.blue, C.blueTint, () => push(const VaultPage())),
       _Tile(tr('রিমাইন্ডার'), trf('{0}টি', [bnDigits(d.reminders.length)]), Icons.notifications_none_rounded, C.green, C.greenTint,
           () => push(const AllTasksScreen())),
       _Tile(tr('সব কাজ'), trf('{0}টি বাকি', [bnDigits(d.tasks.where((t) => !t.done).length)]), Icons.checklist_rounded, C.green, C.greenTint,
