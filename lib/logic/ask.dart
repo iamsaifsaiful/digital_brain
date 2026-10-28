@@ -115,7 +115,7 @@ String? infoAnswer(AppData d, String said, DateTime now) {
   final where = _at(place.label);
   switch (topic) {
     case 'privacy':
-      return tr('আপনার তথ্য আপনার ফোনেই থাকে, PIN দিয়ে তালা দেওয়া। পাসওয়ার্ড, পিন আর ওটিপি কখনো ফোনের বাইরে যায় না। ব্যাকআপ যায় আপনার নিজের Google Drive-এ, তালা দেওয়া অবস্থায়। ফ্যামিলিতে কিছু পাঠালে শুধু সেই মানুষটাই খুলতে পারেন। AI চালু থাকলে শুধু যে কথাটা বুঝতে সাহায্য লাগে সেটুকু যায়।');
+      return tr('আপনার তথ্য আপনার ফোনেই থাকে, PIN দিয়ে তালা দেওয়া। পাসওয়ার্ড, পিন আর ওটিপি কখনো ফোনের বাইরে যায় না। ব্যাকআপ যায় আপনার নিজের Google Drive-এ, তালা দেওয়া অবস্থায়। ফ্যামিলিতে কিছু পাঠালে শুধু সেই মানুষটাই খুলতে পারেন। কথা বুঝতে সাহায্য লাগলে শুধু সেই কথাটুকু আমাদের সার্ভারে যায়।');
     case 'sehri':
       // Sehri ends 5 minutes before Fajr begins.
       final s = now.isBefore(today.sehriEnd) ? today : tomorrow;

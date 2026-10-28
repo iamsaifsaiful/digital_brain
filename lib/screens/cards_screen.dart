@@ -184,7 +184,7 @@ class CardsScreen extends StatelessWidget {
                 onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CardFormScreen())),
               ),
               const SizedBox(height: 10),
-              InfoBanner(text: tr('শুধু এই ফোনে, তালাবদ্ধ অবস্থায় থাকে। পুরো নম্বর আর ছবি দেখতে আঙুলের ছাপ বা PIN লাগে। AI-তে বা সার্ভারে কখনো যায় না। কার্ডের PIN বা পিছনের CVV কোথাও লিখে রাখবেন না।')),
+              InfoBanner(text: tr('শুধু এই ফোনে, তালাবদ্ধ অবস্থায় থাকে। পুরো নম্বর আর ছবি দেখতে আঙুলের ছাপ বা PIN লাগে। আমাদের সার্ভারে কখনো যায় না। কার্ডের PIN বা পিছনের CVV কোথাও লিখে রাখবেন না।')),
               const SizedBox(height: 14),
               if (cards.isEmpty)
                 EmptyState(

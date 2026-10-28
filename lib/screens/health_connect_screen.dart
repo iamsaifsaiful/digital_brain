@@ -135,7 +135,7 @@ class HealthConnectIntro extends StatelessWidget {
                 child: Column(children: [
                   point(Icons.visibility_outlined, tr('কী পড়বে'), tr('হাঁটার স্টেপ, ঘুমের সময় (ঘুমের ধাপসহ) আর ব্যায়ামের সময় — শুধু “আমি”-র জন্য। কিছু লিখবে না, বদলাবে না।')),
                   point(Icons.lightbulb_outline_rounded, tr('কেন পড়বে'), tr('স্বাস্থ্য পাতায় “আজ কত পা হাঁটলেন”, গত রাতের ঘুম আর ব্যায়ামের মিনিট দেখাতে; আর জিজ্ঞেস করলে (“আজ কত হাঁটলাম?”, “গত রাতে কত ঘুমিয়েছি?”) আসল সংখ্যা দিয়ে উত্তর দিতে।')),
-                  point(Icons.phonelink_lock_outlined, tr('কোথায় থাকবে'), tr('শুধু এই ফোনে, অ্যাপের এনক্রিপ্ট করা ফাইলে। আমাদের সার্ভারে, AI-তে বা কারও কাছে যায় না।')),
+                  point(Icons.phonelink_lock_outlined, tr('কোথায় থাকবে'), tr('শুধু এই ফোনে, অ্যাপের এনক্রিপ্ট করা ফাইলে। আমাদের সার্ভারে বা কারও কাছে যায় না।')),
                   point(Icons.edit_note_rounded, tr('হাতে লেখা'), tr('হাতে বা মুখে লেখা মাপ আগের মতোই থাকবে। Health Connect থেকে আনা মাপের পাশে উৎস লেখা থাকে, একই মাপ দুবার আসে না।')),
                   point(Icons.toggle_off_outlined, tr('বন্ধ করা'), tr('যেকোনো সময় এখান থেকে বা Health Connect-এর অনুমতি থেকে বন্ধ করা যায়।')),
                 ]),

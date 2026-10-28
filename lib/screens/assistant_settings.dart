@@ -104,7 +104,7 @@ class MemoryScreen extends StatelessWidget {
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 100), children: [
               InfoBanner(
-                text: tr('এখানে লেখা কথাগুলো সহকারী উত্তর দেওয়ার সময় মনে রাখে। মুখেও বলা যায়: “মনে রেখো, রহিম আমার শ্যালক”। AI চালু থাকলে এগুলো উত্তর তৈরিতে পাঠানো হয়; পাসওয়ার্ড বা গোপন কিছু এখানে লিখবেন না।'),
+                text: tr('এখানে লেখা কথাগুলো সহকারী উত্তর দেওয়ার সময় মনে রাখে। মুখেও বলা যায়: “মনে রেখো, রহিম আমার শ্যালক”। উত্তর তৈরিতে এগুলো আমাদের সার্ভারে পাঠানো হয়; পাসওয়ার্ড বা গোপন কিছু এখানে লিখবেন না।'),
                 icon: Icons.psychology_alt_outlined,
               ),
               const SizedBox(height: 14),
