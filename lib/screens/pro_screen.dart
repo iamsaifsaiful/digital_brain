@@ -66,12 +66,17 @@ class _ProScreenState extends State<ProScreen> {
     final until = brain.proUntil;
     final status = !sell
         ? tr('এই অ্যাপে এখন সব সুবিধা খোলা — কিছুই তালাবদ্ধ নয়।')
-        : brain.pro
-            ? switch (brain.proKind) {
-                'test' => tr('প্রিমিয়াম চালু (প্রিভিউ পরীক্ষা)'),
-                _ => trf('প্রিমিয়াম চালু — {0} পর্যন্ত', [shortDate(until!)]),
-              }
-            : null;
+        : brain.onTrial
+            ? trf('৭ দিনের ফ্রি ট্রায়াল চলছে — {0} পর্যন্ত, আর {1} দিন। এর মধ্যে প্রিমিয়াম নিলে সব সুবিধা থাকবে।',
+                [shortDate(brain.trialEnds!), bnDigits(brain.trialEnds!.difference(brain.services.now()).inHours ~/ 24 + 1)])
+            : brain.pro
+                ? switch (brain.proKind) {
+                    'test' => tr('প্রিমিয়াম চালু (প্রিভিউ পরীক্ষা)'),
+                    _ => until == null ? tr('প্রিমিয়াম চালু') : trf('প্রিমিয়াম চালু — {0} পর্যন্ত', [shortDate(until)]),
+                  }
+                : brain.trialOver
+                    ? tr('৭ দিনের ফ্রি ট্রায়াল শেষ। এই কয়দিনে যা রেখেছেন সব আছে, দেখা যাবে; প্রিমিয়ামের সুবিধাগুলো আবার পেতে প্রিমিয়াম নিন।')
+                    : null;
 
     Widget getPro() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           if (showProLink) PrimaryButton(key: const Key('get-pro'), label: brain.pro && sell ? tr('মেয়াদ বাড়ান') : 'Get Premium', icon: Icons.workspace_premium_rounded, onPressed: () => _getPro(brain)),

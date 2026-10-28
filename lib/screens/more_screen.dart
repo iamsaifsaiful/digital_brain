@@ -35,7 +35,7 @@ import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '2.58.0';
+const appVersion = '2.59.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -372,7 +372,11 @@ class _MoreScreenState extends State<MoreScreen> {
                 fg: C.ochre,
                 bg: C.ochreTint,
                 title: tr('প্রিমিয়াম'),
-                sub: brain.gated && brain.pro ? tr('চালু আছে') : tr('কী কী পাবেন'),
+                sub: brain.onTrial
+                    ? trf('ফ্রি ট্রায়াল — আর {0} দিন', [bnDigits(brain.trialEnds!.difference(brain.services.now()).inHours ~/ 24 + 1)])
+                    : brain.gated && brain.pro
+                        ? tr('চালু আছে')
+                        : tr('কী কী পাবেন'),
                 onTap: () => push(const ProScreen())),
           ],
           [

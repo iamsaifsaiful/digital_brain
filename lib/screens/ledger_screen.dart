@@ -9,6 +9,9 @@ import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'ledger_form_screen.dart';
+import 'new_item_screen.dart';
+import '../logic/pro.dart' show ProFeature;
+import '../models/models.dart';
 import 'money_screens.dart';
 import 'money_more_screens.dart';
 import 'money_search_screen.dart';
@@ -162,9 +165,12 @@ class MoneyScreenState extends State<MoneyScreen> {
                   if (p.last != null) daysLeftLabel(p.last!, now).replaceAll(' আগে', ''),
                 ].join(' · '),
                 subtitleColor: p.phone.isEmpty && dupNames.contains(personKey(p.name)) ? C.orange : C.muted,
-                trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  Text(taka(p.balance), style: display(16, weight: 700, color: balanceColor(p.balance))),
-                  Text(p.balance == 0 ? tr('শোধ') : (p.balance > 0 ? tr('পাব') : tr('দেব')), style: body(12, color: C.muted)),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    Text(taka(p.balance), style: display(16, weight: 700, color: balanceColor(p.balance))),
+                    Text(p.balance == 0 ? tr('শোধ') : (p.balance > 0 ? tr('পাব') : tr('দেব')), style: body(12, color: C.muted)),
+                  ]),
+                  if (p.balance != 0) LedgerAlarmButton(accountKey: p.key, balance: p.balance),
                 ]),
                 onTap: () => push(PersonScreen(person: p.name, accountKey: p.key)),
               ),
@@ -172,5 +178,48 @@ class MoneyScreenState extends State<MoneyScreen> {
         ),
       ],
     ];
+  }
+}
+
+/// The ⏰ beside someone with money still owed (owner, 28 Oct — like the to-do
+/// list's): a reminder on a day and time, when no pay date was given. Set, it
+/// shows green; tapped again, it opens to change or remove.
+class LedgerAlarmButton extends StatelessWidget {
+  const LedgerAlarmButton({super.key, required this.accountKey, required this.balance});
+  final String accountKey;
+  final int balance;
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final r = brain.ledgerReminderOf(accountKey);
+    return IconButton(
+      key: Key('ledger-alarm-$accountKey'),
+      tooltip: r == null ? tr('রিমাইন্ডার দিন') : trf('রিমাইন্ডার: {0}, {1}', [shortDate(r.date), bnTime(r.hour, r.minute)]),
+      visualDensity: VisualDensity.compact,
+      icon: Icon(r == null ? Icons.alarm_add_outlined : Icons.alarm_on_rounded, size: 21, color: r == null ? C.muted : C.green),
+      onPressed: () async {
+        if (r != null) {
+          await Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewItemScreen(reminder: r)));
+          return;
+        }
+        if (!await needPro(context, ProFeature.reminders, allowed: brain.canAddReminder) || !context.mounted) return;
+        final keys = accountKeys(brain.data.ledger);
+        final kind = balance > 0 ? LedgerKind.lent : LedgerKind.borrowed;
+        final e = brain.data.ledger.reversed.where((x) => keys[x.id] == accountKey && x.kind == kind).firstOrNull ??
+            brain.data.ledger.reversed.where((x) => keys[x.id] == accountKey).firstOrNull;
+        if (e == null) return;
+        final now = brain.services.now();
+        final day = await showDatePicker(
+            context: context, helpText: tr('কবে মনে করাব?'), initialDate: now.add(const Duration(days: 1)), firstDate: dayOnly(now), lastDate: DateTime(now.year + 5));
+        if (day == null || !context.mounted) return;
+        final t = await showTimePicker(context: context, helpText: tr('কয়টায়?'), initialTime: const TimeOfDay(hour: 10, minute: 0));
+        if (t == null || !context.mounted) return;
+        var at = DateTime(day.year, day.month, day.day, t.hour, t.minute);
+        if (!at.isAfter(now)) at = now.add(const Duration(minutes: 1));
+        await brain.remindLedger(e, at);
+        if (context.mounted) toast(context, trf('{0}, {1}-এ মনে করাব', [fullDate(at), bnTime(at.hour, at.minute)]));
+      },
+    );
   }
 }

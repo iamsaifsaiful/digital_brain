@@ -838,7 +838,6 @@ Future<bool?> askProjectMain(BuildContext context, String name) {
 
 Future<(String, int, bool)?> askNewProject(BuildContext context) {
   final name = TextEditingController();
-  final budget = TextEditingController();
   bool? inMain;
   return showDialog<(String, int, bool)>(
     context: context,
@@ -854,7 +853,6 @@ Future<(String, int, bool)?> askNewProject(BuildContext context) {
             const SizedBox(height: 10),
             TextField(controller: name, onChanged: (_) => setD(() {}), decoration: InputDecoration(labelText: tr('নাম, যেমন: রহিম ভবন'))),
             const SizedBox(height: 10),
-            TextField(controller: budget, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: tr('বাজেট (ঐচ্ছিক)'), prefixText: '৳ ')),
             const SizedBox(height: 14),
             mainChoice(inMain, (x) => setD(() => inMain = x)),
           ]),
@@ -866,7 +864,7 @@ Future<(String, int, bool)?> askNewProject(BuildContext context) {
             // Both the name and the answer are needed.
             onPressed: name.text.trim().isEmpty || inMain == null
                 ? null
-                : () => Navigator.pop(ctx, (name.text.trim(), int.tryParse(asciiDigits(budget.text).replaceAll(RegExp(r'[,\s]'), '')) ?? 0, inMain!)),
+                : () => Navigator.pop(ctx, (name.text.trim(), 0, inMain!)),
             child: Text(tr('ঠিক আছে')),
           ),
         ],
@@ -896,10 +894,6 @@ class ProjectsView extends StatelessWidget {
       final r = await askNewProject(context);
       if (r == null || r.$1.isEmpty || !context.mounted) return;
       var p = await brain.projectNamed(r.$1);
-      if (r.$2 > 0) {
-        p = p.copyWith(budget: r.$2);
-        await brain.saveProject(p);
-      }
       if (!p.mainAsked) await brain.setProjectMain(p.id, r.$3);
       if (context.mounted) Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProjectScreen(id: p.id)));
     }
@@ -949,7 +943,7 @@ class ProjectsView extends StatelessWidget {
     Widget row(Project p) {
       final s = projectSums(d.cash, p.id);
       final (owed, _) = projectDueTotals(d, p.id);
-      final sub = p.budget > 0 ? trf('বাজেট {0} · খরচ {1}', [taka(p.budget), taka(s.expense)]) : trf('এসেছে {0} · খরচ {1}', [taka(s.income), taka(s.expense)]);
+      final sub = trf('এসেছে {0} · খরচ {1}', [taka(s.income), taka(s.expense)]);
       return ListRow(
         leading: Container(
           width: 40,
@@ -1047,20 +1041,6 @@ class _ProjectScreenState extends State<ProjectScreen> {
         case 'rename':
           final name = await askProjectName(context, initial: p.name);
           if (name != null && name.isNotEmpty) await brain.saveProject(p.copyWith(name: name));
-        case 'budget':
-          final c = TextEditingController(text: p.budget > 0 ? '${p.budget}' : '');
-          final v = await showDialog<String>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: Text(tr('বাজেট'), style: display(20)),
-              content: TextField(controller: c, autofocus: true, keyboardType: TextInputType.number, decoration: const InputDecoration(prefixText: '৳ ')),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
-                TextButton(onPressed: () => Navigator.pop(ctx, c.text), child: Text(tr('ঠিক আছে'))),
-              ],
-            ),
-          );
-          if (v != null) await brain.saveProject(p.copyWith(budget: int.tryParse(asciiDigits(v).replaceAll(RegExp(r'[,\s]'), '')) ?? 0));
         case 'main':
           final v = await askProjectMain(context, p.name);
           if (v != null) await brain.setProjectMain(p.id, v);
@@ -1085,7 +1065,6 @@ class _ProjectScreenState extends State<ProjectScreen> {
               onSelected: menu,
               itemBuilder: (_) => [
                 PopupMenuItem(value: 'rename', child: Text(tr('নাম বদলান'))),
-                PopupMenuItem(value: 'budget', child: Text(p.budget > 0 ? tr('বাজেট বদলান') : tr('বাজেট ঠিক করুন'))),
                 PopupMenuItem(value: 'main', child: Text(p.inMain ? tr('মূল হিসাব: যোগ হচ্ছে — বদলান') : tr('মূল হিসাব: আলাদা — বদলান'))),
                 PopupMenuItem(value: 'close', child: Text(p.closed ? tr('আবার চালু করুন') : tr('হিসাব শেষ'))),
                 PopupMenuItem(value: 'delete', child: Text(tr('মুছুন'))),
@@ -1100,29 +1079,6 @@ class _ProjectScreenState extends State<ProjectScreen> {
                 negative: s.balance < 0,
                 items: [(tr('মোট এসেছে'), s.income, C.green), (tr('মোট খরচ'), s.expense, C.ink)],
               ),
-              if (p.budget > 0) ...[
-                const SizedBox(height: 10),
-                Panel(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(
-                        s.expense <= p.budget
-                            ? trf('বাজেট {0} · বাকি {1}', [taka(p.budget), taka(p.budget - s.expense)])
-                            : trf('বাজেট {0} · {1} বেশি খরচ', [taka(p.budget), taka(s.expense - p.budget)]),
-                        style: body(15, weight: FontWeight.w600, color: s.expense <= p.budget ? C.ink : C.orange)),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: LinearProgressIndicator(
-                        value: (s.expense / p.budget).clamp(0, 1).toDouble(),
-                        minHeight: 10,
-                        color: s.expense <= p.budget ? C.green : C.orange,
-                        backgroundColor: C.chip,
-                      ),
-                    ),
-                  ]),
-                ),
-              ],
               const SizedBox(height: 12),
               // Another হিসাব has spending (from the main money) and বকেয়া; money
               // coming in is the main আয় (owner, 24 Oct).

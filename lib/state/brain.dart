@@ -257,7 +257,18 @@ class Brain extends ChangeNotifier {
   /// The first day the app was opened (no full-screen ad that day).
   DateTime? firstUse;
 
-  bool get pro => !gated || (proUntil != null && services.now().isBefore(proUntil!));
+  /// Premium bought (Google Play or our server), not the trial.
+  bool get paidPro => proUntil != null && services.now().isBefore(proUntil!);
+
+  /// Seven days of Premium from the first open (owner, 28 Oct). After that,
+  /// without buying, the Premium tools stop; everything kept stays (logic/pro.dart).
+  static const trialDays = 7;
+  DateTime? trialStart;
+  DateTime? get trialEnds => trialStart?.add(const Duration(days: trialDays));
+  bool get onTrial => gated && !paidPro && trialEnds != null && services.now().isBefore(trialEnds!);
+  bool get trialOver => gated && !paidPro && trialEnds != null && !services.now().isBefore(trialEnds!);
+
+  bool get pro => !gated || paidPro || onTrial;
   bool get showAds => gated && !pro;
 
   /// The preview draws sample ad spaces (real ads need AdMob).
@@ -369,6 +380,36 @@ class Brain extends ChangeNotifier {
       hour: 10,
       daysBefore: 1);
 
+  /// The bell on ধার-দেনা (owner, 28 Oct, like the to-do list's): a reminder at
+  /// [at] for money owed when no pay date was given — it becomes the pay date.
+  /// The one set before for the same entry is replaced.
+  Future<Reminder> remindLedger(LedgerEntry e, DateTime at) async {
+    final old = e.reminderId;
+    if (old != null) data.reminders.removeWhere((r) => r.id == old);
+    final r = Reminder(
+        title: e.kind == LedgerKind.lent ? trf('{0}-এর কাছে {1} পাওনা — তাগাদা দিন', [e.person, taka(e.amount)]) : trf('{0}-কে {1} শোধ করার কথা', [e.person, taka(e.amount)]),
+        date: dayOnly(at),
+        hour: at.hour,
+        minute: at.minute);
+    data.reminders.add(r);
+    _upsert(data.ledger, e.copyWith(due: dayOnly(at), reminderId: r.id), (y) => y.id);
+    await _save();
+    await _reschedule();
+    return r;
+  }
+
+  /// The reminder set on someone's money (the bell shows it), if any still to ring.
+  Reminder? ledgerReminderOf(String accountKey) {
+    final keys = accountKeys(data.ledger);
+    final now = services.now();
+    for (final e in data.ledger.reversed) {
+      if (keys[e.id] != accountKey || e.reminderId == null) continue;
+      final r = data.reminders.where((x) => x.id == e.reminderId && x.enabled).firstOrNull;
+      if (r != null && !r.nextDate(now).isBefore(dayOnly(now))) return r;
+    }
+    return null;
+  }
+
   Reminder _expiryReminder(Doc d) => Reminder(title: '${d.title} — মেয়াদ শেষ', date: d.expiry!, hour: 10, daysBefore: 30);
 
   Future<void> _loadPro() async {
@@ -384,6 +425,13 @@ class Brain extends ChangeNotifier {
         proKind = '';
         await keys.delete('pro_until');
         await keys.delete('pro_kind');
+      }
+      // The trial starts the first time this version (or a later one) opens —
+      // members from before get their seven days too, once.
+      trialStart = DateTime.tryParse(await keys.read('trial_start') ?? '');
+      if (trialStart == null) {
+        trialStart = services.now();
+        await keys.write('trial_start', trialStart!.toIso8601String());
       }
       firstUse = DateTime.tryParse(await keys.read('first_use') ?? '');
       if (firstUse == null) {
@@ -1228,6 +1276,7 @@ class Brain extends ChangeNotifier {
         quote: flag('n_quote', true),
         homeFix: flag('n_fix', true),
         rules: noticeRules,
+        trialEnds: onTrial ? trialEnds : null,
         groups: memberGroups(now: services.now(), firstUse: firstUse, openDays: openDays, pro: gated ? pro : true),
       );
 

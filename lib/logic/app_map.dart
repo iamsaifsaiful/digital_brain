@@ -54,7 +54,7 @@ const appPlaces = <AppPlace>[
       '“এখন আছে” কত টাকা আর কীভাবে হলো; নিজের আয় আর খরচ খাত ধরে; ধার আর অন্যান্য হিসাবের টাকা নিজে যুক্ত হয়।', ['বাজারে ৫০০ টাকা খরচ হলো', 'বেতন পেলাম ৩০ হাজার', 'এই মাসে কত খরচ হলো?']),
   AppPlace('ledger', 'লেনদেন (ধার-দেনা)', ['লেনদেন', 'ধার দেনা', 'ধার-দেনা', 'ধারদেনা', 'বাকির খাতা', 'বাকি খাতা', 'খাতা', 'পাওনা দেনা', 'ledger'],
       'কে কত পাবে, কাকে কত দিতে হবে, বকেয়াসহ; ফেরতের তারিখে মনে করায়; এক চাপে তাগাদার মেসেজ।', ['করিম ৫০০ টাকার মাল বাকিতে নিল', 'আমি কার কাছে কত পাব?']),
-  AppPlace('projects', 'অন্যান্য হিসাব', ['অন্যান্য হিসাব', 'আলাদা হিসাব', 'প্রজেক্ট', 'প্রকল্প', 'project', 'projects'], 'প্রতিটা কাজের (বাড়ি, বিয়ে, ব্যবসা) আলাদা খরচ, বকেয়া আর বাজেট; টাকা মূল হিসাবে নিজে যুক্ত হয় (প্রিমিয়াম)।',
+  AppPlace('projects', 'অন্যান্য হিসাব', ['অন্যান্য হিসাব', 'আলাদা হিসাব', 'প্রজেক্ট', 'প্রকল্প', 'project', 'projects'], 'প্রতিটা কাজের (বাড়ি, বিয়ে, ব্যবসা) আলাদা আয়, খরচ আর বকেয়া; চাইলে মূল হিসাবে যুক্ত হয় (প্রিমিয়াম)।',
       ['রহিম ভবন প্রজেক্টে রড কিনলাম ২০ হাজার']),
   AppPlace('report', 'মাসের রিপোর্ট', ['মাসের রিপোর্ট', 'রিপোর্ট', 'report'], 'মাসের আয়, খরচ, ব্যালেন্স; কোন খাতে বেশি গেল, গত মাসের সাথে তুলনা।'),
   AppPlace('accounts', 'অ্যাকাউন্ট', ['অ্যাকাউন্ট', 'একাউন্ট', 'account', 'accounts'], 'হাতের টাকা, বিকাশ, নগদ, ব্যাংক — কোথায় কত আছে, এক জায়গা থেকে আরেক জায়গায় পাঠানো।'),
@@ -318,7 +318,7 @@ const voiceCaps = <String, VoiceCap>{
   'backup': VoiceCap(VoiceLevel.partial, {'when': 'when the last backup was', 'now': 'back up to Google Drive now', 'status': 'whether Google backup is on, and the last one'}, notYet: ['ব্যাকআপ থেকে ফিরিয়ে আনা (পাতায় দেখে করতে হয়)']),
   'settings': VoiceCap(VoiceLevel.partial, {'call_me': 'the name to call the user (text)', 'look': 'dark or light (text)', 'letters': 'bigger or smaller (text)'},
       notYet: ['AI চালু/বন্ধ', 'তালা ও PIN', 'ভাষা']),
-  'project': VoiceCap(VoiceLevel.full, {'create': 'a new separate account named target', 'budget': 'budget amount for project target', 'close': 'mark project target finished (kept)'}),
+  'project': VoiceCap(VoiceLevel.full, {'create': 'a new separate account named target', 'close': 'mark project target finished (kept)'}),
   'shop': VoiceCap(VoiceLevel.partial, {
     'sale': 'a sale of amount at shop target (cash received)', 'credit_sale': 'goods of amount to person target, amount2 paid now — the rest owed',
     'today': "a shop's sales and costs today", 'calc': 'quantity amount × unit price amount2 (nothing written)', 'profit': 'profit needs costs (nothing written)',

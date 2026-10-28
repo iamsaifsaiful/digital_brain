@@ -71,7 +71,11 @@ class AssistantPrefs {
     this.homeFix = true,
     this.rules = NoticeRules.none,
     this.groups = const {'all'},
+    this.trialEnds,
   });
+
+  /// While on the free Premium trial: when it ends (a note the day before).
+  final DateTime? trialEnds;
 
   /// What the admin set on the site or in the admin app (logic/server_notices.dart).
   final NoticeRules rules;
@@ -174,6 +178,7 @@ const nudgeBmi = 'nudge:bmi:';
 const nudgeQuote = 'nudge:quote';
 const nudgeFix = 'nudge:fix';
 const nudgePass = 'nudge:pass';
+const nudgeTrial = 'nudge:trial';
 
 /// One sentence for each month: what to watch for in Bangladesh's seasons.
 const healthTips = [
@@ -624,6 +629,13 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
             fixes.length > 3 ? trf('{0} আর আরও {1}টা। হয়ে গেলে টিক দিন।', [names, bnDigits(fixes.length - 3)]) : trf('{0}। হয়ে গেলে টিক দিন।', [names]));
       }
     }
+  }
+
+  // The free Premium trial ends tomorrow (owner, 28 Oct): once, mid-morning the day before.
+  final trial = p.trialEnds;
+  if (trial != null) {
+    add(nudgeTrial, dayKey(trial), _at(dayOnly(trial).subtract(const Duration(days: 1)), 10 * 60 + 30), tr('কাল প্রিমিয়াম ট্রায়াল শেষ'),
+        tr('প্রিমিয়াম নিলে সব সুবিধা চালু থাকবে। না নিলেও এই কয়দিনে যা রেখেছেন সব থাকবে, দেখা যাবে।'));
   }
 
   final donor = p.donorNext;

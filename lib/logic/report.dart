@@ -363,7 +363,6 @@ void _projects(_Doc doc, AppData d, String? onlyId) {
       [tr('আয়'), taka(s.income), 'g'],
       [tr('খরচ'), taka(s.expense), 'o'],
       [tr('বাকি'), '${s.balance < 0 ? '−' : ''}${taka(s.balance)}', s.balance < 0 ? 'o' : 'g'],
-      if (p.budget > 0) [tr('বাজেট'), taka(p.budget), s.expense > p.budget ? 'o' : ''],
     ]);
     final dues = [for (final x in projectDues(d, p.id)) if (!x.settled) x];
     if (dues.isNotEmpty) {

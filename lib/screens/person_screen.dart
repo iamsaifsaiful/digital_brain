@@ -1,3 +1,4 @@
+import 'ledger_screen.dart' show LedgerAlarmButton;
 import '../logic/person_money.dart';
 import 'money_search_screen.dart';
 import 'package:flutter/material.dart';
@@ -184,6 +185,7 @@ class _PersonScreenState extends State<PersonScreen> {
         child: Column(
           children: [
             TopBar(title: '', trailing: [
+              if (bal != 0) LedgerAlarmButton(accountKey: p.key, balance: bal),
               PdfButton(const {ReportPart.ledger}, scope: ReportScope(personKey: p.key), title: isEn ? 'Dealings with ${p.name}' : '${possessive(p.name)} সাথে লেনদেন'),
               TextButton.icon(
                 onPressed: () => _edit(brain, p),
