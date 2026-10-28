@@ -50,6 +50,11 @@ function ma_admin_of(WP_REST_Request $req) {
  * 6-digit code from the admin's authenticator app. Five wrong tries for an
  * address or from a network wait 15 minutes. Each sign-in is e-mailed.
  */
+/** Whether the admin app also asks for the Authenticator code at sign-in (off unless the owner turns it on). */
+function ma_admin_app_otp() {
+    return get_option('ma_admin_app_otp', '0') === '1';
+}
+
 function ma_admin_login(WP_REST_Request $req) {
     global $wpdb;
     $old = ma_admin_app_update($req);
@@ -72,7 +77,10 @@ function ma_admin_login(WP_REST_Request $req) {
         }
         return new WP_Error('login', 'wrong email or password', ['status' => 401]);
     }
-    // Two-step sign-in (owner's review, 27 Oct): required for every admin.
+    // The admin app opens with the phone's fingerprint each time; the code from
+    // the Authenticator app is asked only when the site owner turned that on
+    // (owner, 28 Oct: "এডমিন এপের জন্যে এতো সিকিউরিটি লাগবে না। ফিংগার যথেষ্ট").
+    if (ma_admin_app_otp()) {
     if (!ma_totp_on($user->ID)) {
         // Which account (the password was right): two-step sign-in is set up per WordPress account.
         $who = ['login' => $user->user_login, 'email' => $user->user_email];
@@ -90,6 +98,7 @@ function ma_admin_login(WP_REST_Request $req) {
             set_transient($k, (int) get_transient($k) + 1, 15 * MINUTE_IN_SECONDS);
         }
         return new WP_Error('otp_wrong', 'wrong code', ['status' => 401]);
+    }
     }
     foreach ($keys as $k) {
         delete_transient($k);

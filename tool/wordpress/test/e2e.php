@@ -161,7 +161,21 @@ $GLOBALS['adminAppVersion'] = '1.12.0';
 [$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123']);
 check($code === 426, 'admin app: 1.12.0 → asked to update');
 $GLOBALS['adminAppVersion'] = '9.9.9';
-// Two-step sign-in (owner's review, 27 Oct): no code set up → refused; then the authenticator's code.
+// Owner, 28 Oct: the admin app opens with the fingerprint; the password alone signs in (no code) unless the owner asks for it.
+[$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123']);
+check($code === 200 && strlen($d['session'] ?? '') === 64, 'admin app: email + password is enough by default (fingerprint on the phone)');
+$quick = $d['session'];
+$qRow = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . ma_ai_sessions_table() . ' WHERE token_hash = %s', hash('sha256', $quick)), ARRAY_A);
+check($qRow && abs(ma_acc_ts($qRow['expires_at']) - time() - 90 * DAY_IN_SECONDS) < 120, 'admin sessions last 90 days');
+$wpdb->update(ma_ai_sessions_table(), ['expires_at' => gmdate('Y-m-d H:i:s', time() + 10 * DAY_IN_SECONDS)], ['id' => $qRow['id']]);
+[$code] = call('GET', '/admin/me', [], $quick);
+$qRow = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . ma_ai_sessions_table() . ' WHERE id = %d', $qRow['id']), ARRAY_A);
+check($code === 200 && ma_acc_ts($qRow['expires_at']) > time() + 85 * DAY_IN_SECONDS, 'an admin app in use keeps its sign-in (renewed to 90 days)');
+$wSes = ma_ai_new_session($plain, 'admin');
+wp_set_password('another-long-password-9', $plain);
+check(!$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM ' . ma_ai_sessions_table() . ' WHERE token_hash = %s', hash('sha256', $wSes))), 'a WordPress password change ends that admin\'s app sign-ins');
+update_option('ma_admin_app_otp', '1');
+// Two-step sign-in when the owner turns it on: no code set up → refused; then the authenticator's code.
 [$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123']);
 check($code === 403 && ($d['code'] ?? '') === 'otp_setup' && ($d['data']['account']['email'] ?? '') === 'boss@gmail.com', 'admin app: two-step sign-in must be set up first (says which account)');
 $totp = ma_b32_encode(random_bytes(20));
@@ -179,7 +193,7 @@ check(count($sent['mail']) === $mails0 + 1 && str_contains($sent['mail'][$mails0
 [$code] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123', 'code' => $otp]);
 check($code === 401, 'two-step: the same code cannot be used twice');
 $sesRow = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . ma_ai_sessions_table() . ' WHERE token_hash = %s', hash('sha256', $d['session'])), ARRAY_A);
-check($sesRow && abs(ma_acc_ts($sesRow['expires_at']) - time() - 7 * DAY_IN_SECONDS) < 120, 'admin sessions last 7 days');
+check($sesRow && abs(ma_acc_ts($sesRow['expires_at']) - time() - 90 * DAY_IN_SECONDS) < 120, 'admin sessions with a code last 90 days too');
 check(ma_totp_code('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', 1) === '287082', 'TOTP matches RFC 6238 (SHA-1, 59 s)');
 $boss = $d['session'];
 [$code] = call('GET', '/me', [], $boss);

@@ -274,7 +274,7 @@ function ma_ai_settings() {
 }
 
 /** A new session for a member (60 days); only its hash is kept. */
-/** A session (members: 60 days; admins: 30). $user_id is ma_users.id, or the WordPress user for 'admin'. */
+/** A session (members: 60 days; admins: 90, renewed while used). $user_id is ma_users.id, or the WordPress user for 'admin'. */
 function ma_ai_new_session($user_id, $app = 'member') {
     global $wpdb;
     $token = bin2hex(random_bytes(32));
@@ -283,7 +283,8 @@ function ma_ai_new_session($user_id, $app = 'member') {
         'user_id' => (int) $user_id,
         'token_hash' => hash('sha256', $token),
         'created_at' => $now,
-        'expires_at' => gmdate('Y-m-d H:i:s', time() + ($app === 'admin' ? 7 : 60) * DAY_IN_SECONDS),
+        // Admins: 90 days, renewed while the app is used (it opens with the fingerprint).
+        'expires_at' => gmdate('Y-m-d H:i:s', time() + ($app === 'admin' ? 90 : 60) * DAY_IN_SECONDS),
         'last_used' => $now,
         'app' => $app === 'admin' ? 'admin' : 'member',
     ]);
@@ -303,7 +304,12 @@ function ma_session_row(WP_REST_Request $req) {
     if (!$s || ma_acc_ts($s['expires_at']) < time()) {
         return null;
     }
-    $wpdb->update(ma_ai_sessions_table(), ['last_used' => current_time('mysql', true)], ['id' => $s['id']]);
+    $upd = ['last_used' => current_time('mysql', true)];
+    // An admin app in use keeps its sign-in: renewed to 90 days once under 60 left.
+    if ($s['app'] === 'admin' && ma_acc_ts($s['expires_at']) < time() + 60 * DAY_IN_SECONDS) {
+        $upd['expires_at'] = gmdate('Y-m-d H:i:s', time() + 90 * DAY_IN_SECONDS);
+    }
+    $wpdb->update(ma_ai_sessions_table(), $upd, ['id' => $s['id']]);
     return $s;
 }
 
