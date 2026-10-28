@@ -163,6 +163,12 @@ void main() {
     await settle(t);
     await t.tap(find.widgetWithText(ChoiceChip, 'B+'));
     await settle(t);
+    // The number and the last donation must come with it (owner, 28 Oct).
+    await t.enterText(find.byKey(const Key('blood-phone')), '01712345678');
+    await t.tap(find.byKey(const Key('blood-last-unknown')));
+    await t.pump();
+    await t.tap(find.byKey(const Key('blood-save')));
+    await settle(t);
     expect(rig.brain.data.emergency.blood, 'B+');
     expect(find.byKey(const Key('more-feedback')), findsOneWidget);
     final list = vScroll().first;
