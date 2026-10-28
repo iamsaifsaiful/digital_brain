@@ -2427,6 +2427,30 @@ class Brain extends ChangeNotifier {
 
   Future<Uint8List?> docBytes(DocFile f) => services.store.loadDocFile(f.id);
 
+  // ── ডকুমেন্টস › ব্যাংক কার্ড (owner, 28 Oct) ──
+
+  /// A card photo, kept encrypted like a document's page — never read for
+  /// text (the number would end up searchable).
+  Future<DocFile> keepCardPhoto(PickedDoc f) => keepFile(f, text: '');
+
+  Future<void> saveCard(BankCard c) async {
+    final old = data.cards.where((x) => x.id == c.id).firstOrNull;
+    // A photo replaced: the old one goes.
+    for (final (was, now) in [(old?.front, c.front), (old?.back, c.back)]) {
+      if (was != null && was.id != now?.id) await services.store.deleteDocFile(was.id);
+    }
+    _upsert(data.cards, c, (x) => x.id);
+    await _save();
+  }
+
+  Future<void> deleteCard(String id) async {
+    for (final c in data.cards.where((x) => x.id == id)) {
+      _trash('${c.bank} ${c.kind.label}', [('cards', c.toJson())], files: [if (c.front != null) c.front!.id, if (c.back != null) c.back!.id]);
+    }
+    data.cards.removeWhere((x) => x.id == id);
+    await _save();
+  }
+
   Future<void> deleteDoc(Doc d) async {
     _trash(d.title, [('docs', d.toJson()), ..._remindersJson([d.reminderId])], files: [for (final f in d.files) f.id]);
     data.docs.removeWhere((x) => x.id == d.id);

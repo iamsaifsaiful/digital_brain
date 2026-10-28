@@ -1161,6 +1161,7 @@ class AppData {
     List<HealthLog>? health,
     Map<String, String>? vaccines,
     List<Shop>? shops,
+    List<BankCard>? cards,
     List<Receipt>? receipts,
     List<TrashItem>? trash,
     ZakatBook? zakat,
@@ -1175,6 +1176,7 @@ class AppData {
         zakat = zakat ?? ZakatBook(),
         trash = trash ?? [],
         shops = shops ?? [],
+        cards = cards ?? [],
         receipts = receipts ?? [],
         members = members ?? [],
         health = health ?? [],
@@ -1246,6 +1248,10 @@ class AppData {
   /// The user's shops (দোকান), first one first.
   final List<Shop> shops;
 
+  /// ডকুমেন্টস › ব্যাংক কার্ড (owner, 28 Oct): kept in this file, which is
+  /// encrypted on the phone; never read by the AI or sent anywhere.
+  final List<BankCard> cards;
+
   /// Receipts made in the shops.
   final List<Receipt> receipts;
 
@@ -1292,6 +1298,7 @@ class AppData {
         'health': health.map((e) => e.toJson()).toList(),
         if (vaccines.isNotEmpty) 'vaccines': vaccines,
         if (shops.isNotEmpty) 'shops': shops.map((e) => e.toJson()).toList(),
+        if (cards.isNotEmpty) 'cards': cards.map((e) => e.toJson()).toList(),
         if (receipts.isNotEmpty) 'receipts': receipts.map((e) => e.toJson()).toList(),
         if (trash.isNotEmpty) 'trash': trash.map((e) => e.toJson()).toList(),
         if (!zakat.isEmpty) 'zakat': zakat.toJson(),
@@ -1330,6 +1337,7 @@ class AppData {
       emergency: j['emergency'] is Map ? EmergencyCard.fromJson((j['emergency'] as Map).cast<String, Object?>()) : const EmergencyCard(),
       members: list('members', FamilyMember.fromJson),
       shops: list('shops', Shop.fromJson),
+      cards: list('cards', BankCard.fromJson),
       receipts: list('receipts', Receipt.fromJson),
       trash: list('trash', TrashItem.fromJson),
       health: list('health', HealthLog.fromJson),
@@ -1342,4 +1350,85 @@ class AppData {
       ownDocFolders: [for (final x in (j['ownDocFolders'] as List?) ?? const []) '$x'],
     );
   }
+}
+
+
+// ───────────────────────── Bank cards ─────────────────────────
+
+enum CardKind {
+  debit('ডেবিট'),
+  credit('ক্রেডিট'),
+  prepaid('প্রিপেইড'),
+  atm('এটিএম');
+
+  const CardKind(this.label);
+  final String label;
+  static CardKind parse(Object? v) => CardKind.values.firstWhere((k) => k.name == v, orElse: () => CardKind.debit);
+}
+
+/// An ATM, debit or credit card (owner, 28 Oct): the bank, the kind, the
+/// number and/or photos of both sides. No PIN or CVV is ever kept.
+class BankCard {
+  BankCard({String? id, required this.bank, this.kind = CardKind.debit, this.number = '', this.holder = '', this.expiry = '', this.note = '', this.color = 0, this.front, this.back, DateTime? updatedAt})
+      : id = id ?? newId(),
+        updatedAt = updatedAt ?? DateTime.now();
+
+  final String id;
+  final String bank;
+  final CardKind kind;
+
+  /// Digits only ('' when only photos are kept).
+  final String number;
+  final String holder;
+
+  /// 'MM/YY' or ''.
+  final String expiry;
+  final String note;
+
+  /// Which of the card colours (0…5).
+  final int color;
+  final DocFile? front;
+  final DocFile? back;
+  final DateTime updatedAt;
+
+  String get last4 => number.length >= 4 ? number.substring(number.length - 4) : number;
+
+  /// Visa, Mastercard… from the first digits ('' when not known).
+  String get network {
+    if (number.startsWith('4')) return 'VISA';
+    final two = number.length >= 2 ? int.tryParse(number.substring(0, 2)) ?? 0 : 0;
+    final four = number.length >= 4 ? int.tryParse(number.substring(0, 4)) ?? 0 : 0;
+    if ((two >= 51 && two <= 55) || (four >= 2221 && four <= 2720)) return 'Mastercard';
+    if (two == 34 || two == 37) return 'AMEX';
+    if (two == 62) return 'UnionPay';
+    return '';
+  }
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'bank': bank,
+        'kind': kind.name,
+        if (number.isNotEmpty) 'number': number,
+        if (holder.isNotEmpty) 'holder': holder,
+        if (expiry.isNotEmpty) 'expiry': expiry,
+        if (note.isNotEmpty) 'note': note,
+        if (color != 0) 'color': color,
+        if (front != null) 'front': front!.toJson(),
+        if (back != null) 'back': back!.toJson(),
+        'updatedAt': updatedAt.toIso8601String(),
+      };
+
+  factory BankCard.fromJson(Map<String, Object?> j) => BankCard(
+        id: j['id'] as String?,
+        bank: (j['bank'] as String?) ?? '',
+        kind: CardKind.parse(j['kind']),
+        number: (j['number'] as String?) ?? '',
+        holder: (j['holder'] as String?) ?? '',
+        expiry: (j['expiry'] as String?) ?? '',
+        note: (j['note'] as String?) ?? '',
+        color: (j['color'] as num?)?.toInt() ?? 0,
+        front: j['front'] is Map ? DocFile.fromJson((j['front'] as Map).cast<String, Object?>()) : null,
+        back: j['back'] is Map ? DocFile.fromJson((j['back'] as Map).cast<String, Object?>()) : null,
+        updatedAt: _date(j['updatedAt']),
+      );
 }
