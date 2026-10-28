@@ -21,6 +21,9 @@ import 'server_notices.dart';
 import 'spend_health.dart';
 import 'money_quotes.dart';
 
+/// The morning summary rings at 9 unless the member picks a time (owner, 28 Oct; was 8).
+const defaultMorningAt = 9 * 60;
+
 /// Does [r] ring on [day]?
 bool remindsOn(Reminder r, DateTime day) {
   if (!r.enabled) return false;
@@ -40,7 +43,7 @@ bool remindsOn(Reminder r, DateTime day) {
 class AssistantPrefs {
   const AssistantPrefs({
     this.morningOn = true,
-    this.morningAt = 8 * 60,
+    this.morningAt = defaultMorningAt,
     this.nightOn = true,
     this.nightAt = 21 * 60,
     this.nudgesOn = true,
@@ -300,7 +303,7 @@ PlannedNotice? _ruled(PlannedNotice n, AssistantPrefs p, DateTime now) {
   }
   final m = r.minutes;
   // A summary time the member set themself stays theirs.
-  final ownTime = (n.reminderId == morningTag && p.morningAt != 8 * 60) || (n.reminderId == nightTag && p.nightAt != 21 * 60);
+  final ownTime = (n.reminderId == morningTag && p.morningAt != defaultMorningAt) || (n.reminderId == nightTag && p.nightAt != 21 * 60);
   if (m != null && !ownTime) {
     at = _at(dayOnly(at), m);
     if (!at.isAfter(now)) return null;

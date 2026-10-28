@@ -1097,7 +1097,7 @@ void main() {
       );
       final n = assistantNotices(d, now, const AssistantPrefs());
       final morning = n.where((x) => x.reminderId == morningTag).toList();
-      expect(morning.first.at, DateTime(2026, 10, 14, 8, 0)); // today's 8:00 has passed
+      expect(morning.first.at, DateTime(2026, 10, 14, 9, 0)); // the summary at 9 by default (owner, 28 Oct)
       expect(morning.first.body, contains('মিটিং'));
       expect(morning.first.body, contains('সুমি'));
       final night = n.firstWhere((x) => x.reminderId == nightTag);

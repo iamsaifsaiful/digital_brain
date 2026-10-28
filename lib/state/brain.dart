@@ -1226,7 +1226,7 @@ class Brain extends ChangeNotifier {
   // ── The assistant speaking first, and modes (সেটিংস › সহকারী) ──
 
   bool morningOn = true;
-  int morningAt = 8 * 60;
+  int morningAt = defaultMorningAt;
   bool nightOn = true;
   int nightAt = 21 * 60;
   bool nudgesOn = true;
@@ -1471,7 +1471,7 @@ class Brain extends ChangeNotifier {
       carryOver = await flag('carry_over', true);
       businessMode = await flag('business_mode', false);
       panelMic = await flag('panel_mic', false);
-      morningAt = int.tryParse(await keys.read('morning_at') ?? '') ?? 8 * 60;
+      morningAt = int.tryParse(await keys.read('morning_at') ?? '') ?? defaultMorningAt;
       nightAt = int.tryParse(await keys.read('night_at') ?? '') ?? 21 * 60;
       persona = await keys.read('persona') ?? '';
       for (final k in prefKeys) {
