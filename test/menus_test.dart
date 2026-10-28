@@ -389,11 +389,11 @@ void main() {
     testWidgets('"হাঁটা বন্ধ না, reminder বন্ধ": the reminder only; the habit stays', (t) async {
       await open(t);
       await say('হাঁটার রিমাইন্ডার সন্ধ্যা ৬টায় দাও');
+      // The habit's daily "করেছেন কি?" at 18:00 (owner, 28 Oct), not a plain reminder.
       final h = rig.brain.data.habits.firstWhere((x) => x.id == 'h1');
-      expect(h.reminderId, isNotNull);
-      expect(rig.brain.data.reminders.firstWhere((r) => r.id == h.reminderId).hour, 18);
+      expect(h.askAt, 18 * 60);
       await say('হাঁটা বন্ধ না, reminder বন্ধ');
-      expect(rig.brain.data.habits.firstWhere((x) => x.id == 'h1').reminderId, isNull);
+      expect(rig.brain.data.habits.firstWhere((x) => x.id == 'h1').askAt, isNull);
       expect(rig.brain.data.habits, hasLength(2));
     });
 

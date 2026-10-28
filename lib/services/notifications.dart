@@ -1,3 +1,4 @@
+import '../logic/repeat_text.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' show Color;
@@ -152,7 +153,7 @@ List<PlannedNotice> plannedNotices(List<Reminder> reminders, DateTime now) {
         id: stableId('rem:${r.id}'),
         at: at,
         title: r.title,
-        body: bodyFor(r.repeat == Repeat.none ? 'এখন · ${bnTime(r.hour, r.minute)}' : '${r.repeat.label} · ${bnTime(r.hour, r.minute)}'),
+        body: bodyFor(r.repeat == Repeat.none ? 'এখন · ${bnTime(r.hour, r.minute)}' : '${repeatText(r)} · ${bnTime(r.hour, r.minute)}'),
         reminderId: r.id,
         repeat: switch (r.repeat) {
           Repeat.daily => NoticeRepeat.daily,

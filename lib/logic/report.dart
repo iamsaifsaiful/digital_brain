@@ -7,6 +7,7 @@
 /// OTP or password.
 library;
 
+import 'repeat_text.dart';
 import '../models/models.dart';
 import 'bn.dart';
 import 'cash.dart';
@@ -188,7 +189,7 @@ void _reminders(_Doc doc, AppData d, DateTime now) {
       r.alarm ? '⏰ ${r.title}' : r.title,
       _d(at),
       bnTime(r.hour, r.minute),
-      tr(r.repeat.label),
+      repeatText(r),
       r.enabled ? cell(tr('চালু'), tone: 'g') : cell(tr('বন্ধ'), tone: 'm'),
     ];
   }

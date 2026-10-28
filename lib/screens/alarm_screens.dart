@@ -1,3 +1,4 @@
+import '../logic/repeat_text.dart';
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
@@ -70,7 +71,7 @@ class _AlarmScreenState extends State<AlarmScreen> {
     final r = _reminder;
     final now = BrainScope.of(context).services.now();
     final repeating = widget.info.repeating || (r?.repeat.isInterval ?? false);
-    final when = r == null ? bnTime(now.hour, now.minute) : (repeating ? r.repeat.label : bnTime(r.hour, r.minute));
+    final when = r == null ? bnTime(now.hour, now.minute) : (repeating ? repeatText(r) : bnTime(r.hour, r.minute));
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {

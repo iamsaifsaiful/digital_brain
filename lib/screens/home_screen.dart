@@ -1,3 +1,4 @@
+import '../logic/repeat_text.dart';
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
@@ -149,7 +150,7 @@ class _NextCard extends StatelessWidget {
             : (mins < 24 * 60 ? trf('{0} ঘণ্টা পর', [bnDigits((mins / 60).round())]) : '');
     final meta = [
       if (t != null && t.list.isNotEmpty) t.list,
-      if (r != null && r.repeat != Repeat.none) r.repeat.label,
+      if (r != null && r.repeat != Repeat.none) repeatText(r),
       if (t?.note.isNotEmpty ?? false) t!.note,
     ].join(' · ');
     // Someone in যোগাযোগ named in it: ফোন করুন first.

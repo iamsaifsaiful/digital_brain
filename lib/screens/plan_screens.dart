@@ -1,3 +1,4 @@
+import '../logic/repeat_text.dart';
 import 'package:flutter/material.dart';
 
 import '../logic/pro.dart';
@@ -42,7 +43,7 @@ String nextRingLabel(Reminder r, DateTime now) {
   // The date always (owner, 28 Oct: "তারিখ দেখা যায় না"); "আজ"/"আগামীকাল" before it when near.
   final near = dayOnly(at).difference(dayOnly(now)).inDays;
   final day = near == 0 || near == 1 ? '${relativeDay(at, now)} ${shortDate(at)}' : shortDate(at);
-  return r.repeat.isInterval ? '${r.repeat.label} · $day' : '${r.repeat.label} · $day, ${bnTime(at.hour, at.minute)}';
+  return r.repeat.isInterval ? '${repeatText(r)} · $day' : '${repeatText(r)} · $day, ${bnTime(at.hour, at.minute)}';
 }
 
 /// A task (with a tick box) or a reminder (with a bell).

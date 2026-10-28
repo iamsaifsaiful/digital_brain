@@ -315,6 +315,7 @@ PlannedNotice? _ruled(PlannedNotice n, AssistantPrefs p, DateTime now) {
 /// Summaries at the user's own times, and prayer/Ramadan times they asked
 /// for, are never held back or counted.
 bool _chosenByUser(String tag) =>
+    tag.startsWith('${nudgeHabit}ask:') ||
     tag.startsWith(nudgeQuote) || tag.startsWith(nudgeFix) || tag == morningTag || tag == nightTag || tag.startsWith(nudgePrayer) || tag.startsWith(nudgeRamadan) || tag.startsWith(nudgeDonor);
 
 int _rank(String tag) {
@@ -573,10 +574,23 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
     }
   }
 
+  // "করেছেন কি?" for the habits the user asked it for (owner, 28 Oct): each
+  // day at their time, the next three days, never on a day already ticked.
+  for (final h in d.habits) {
+    final m = h.askAt;
+    if (m == null) continue;
+    for (var i = 0; i < 3; i++) {
+      final day = today.add(Duration(days: i));
+      if (h.doneOn(day)) continue;
+      add('${nudgeHabit}ask:${h.id}', dayKey(day), _at(day, m), trf('{0} — আজ করেছেন?', [h.name]), tr('করে থাকলে চাপুন, টিক দিয়ে দিন। ধারা যেন না ভাঙে।'));
+    }
+  }
+
   if (p.streak) {
     for (final h in d.habits) {
       final s = h.streak(now);
-      if (s < 2 || h.doneOn(today)) continue;
+      // Asked "করেছেন কি?" at its own time already: no second note.
+      if (s < 2 || h.doneOn(today) || h.askAt != null) continue;
       add(nudgeHabit, '${h.id}:${dayKey(today)}', _at(today, 20 * 60), trf('টানা {0} দিন — {1}', [bnDigits(s), h.name]),
           tr('আজকেরটা হয়ে গেলে টিক দিয়ে দিন, ধারা যেন না ভাঙে।'));
     }

@@ -365,22 +365,19 @@ extension _MenuChat on ChatController {
               _ask(out, trf('{0}, নাকি {1}?', [bnTime(r[0].hour, r[0].minute), bnTime(r[1].hour, r[1].minute)]), ChatWait.clarify, choices: [for (final o in _clarifyOptions) ChatChoice(o.$1, o.$1)]);
               return;
             }
-            if (h.reminderId == null && !brain.canAddReminder) {
-              _say(out, trf('“{0}” অভ্যাস আছে, তবে রিমাইন্ডার চালু হয়নি — ফ্রিতে একসাথে {1}টা রিমাইন্ডার রাখা যায়।', [h.name, bnDigits(freeReminders)]), links: _pageLink('pro'));
-              return;
-            }
-            await brain.setHabitReminder(h, t);
+            // The daily "করেছেন কি?" (owner, 28 Oct) — asked for, so turned on.
+            await brain.setHabitAsk(h, t);
             _actions++;
             final on = (await brain.services.notifier.health()).notificationsOn;
             _say(out, on ? trf('“{0}” — প্রতিদিন {1}-এ মনে করিয়ে দেব।', [h.name, bnTime(t ~/ 60, t % 60)]) : trf('“{0}”-এর রিমাইন্ডার {1}-এ রাখা হয়েছে, কিন্তু ফোনে অ্যাপের নোটিফিকেশন বন্ধ — তাই এখন বাজবে না।', [h.name, bnTime(t ~/ 60, t % 60)]),
                 links: _pageLink('habits'));
             _offerUndo(snap);
           case 'reminder_off':
-            if (h.reminderId == null) {
+            if (h.reminderId == null && h.askAt == null) {
               _say(out, trf('“{0}”-এর কোনো রিমাইন্ডার ছিল না। অভ্যাসটা আছে।', [h.name]));
               return;
             }
-            await brain.setHabitReminder(h, null);
+            await brain.setHabitAsk(h, null);
             _actions++;
             _say(out, trf('“{0}”-এর রিমাইন্ডার বন্ধ করেছি; অভ্যাস আর তার টিক যেমন ছিল আছে।', [h.name]), links: _pageLink('habits'));
             _offerUndo(snap);

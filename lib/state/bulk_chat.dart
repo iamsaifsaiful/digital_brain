@@ -839,8 +839,8 @@ extension _BulkChat on ChatController {
       case ('habits', 'reminder_off'):
         await each((id) async {
           final h = brain.data.habits.firstWhere((x) => x.id == id);
-          if (h.reminderId == null) return false;
-          await brain.setHabitReminder(h, null);
+          if (h.reminderId == null && h.askAt == null) return false;
+          await brain.setHabitAsk(h, null);
           return true;
         });
         _say(out, trf('{0}টা অভ্যাসের রিমাইন্ডার বন্ধ করেছি; অভ্যাসগুলো আছে।', [bnDigits(ok)]));

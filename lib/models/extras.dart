@@ -132,7 +132,7 @@ class Memory {
 
 /// Something done every day ("হাঁটা", "নামাজ", "পানি খাওয়া"), ticked off day by day.
 class Habit {
-  Habit({String? id, required this.name, List<String>? done, DateTime? createdAt, this.reminderId})
+  Habit({String? id, required this.name, List<String>? done, DateTime? createdAt, this.reminderId, this.askAt})
       : id = id ?? newId(),
         done = done ?? [],
         createdAt = createdAt ?? DateTime.now();
@@ -143,6 +143,10 @@ class Habit {
   final List<String> done;
   final DateTime createdAt;
   final String? reminderId;
+
+  /// "করেছেন কি?" each day at this many minutes after midnight, only when the
+  /// user turned it on (owner, 28 Oct); not asked on a day already ticked.
+  final int? askAt;
 
   bool doneOn(DateTime d) => done.contains(dayKey(d));
 
@@ -171,12 +175,17 @@ class Habit {
     return best;
   }
 
-  Habit copyWith({String? name, List<String>? done, String? reminderId, bool clearReminder = false}) =>
-      Habit(id: id, name: name ?? this.name, done: done ?? this.done, createdAt: createdAt, reminderId: clearReminder ? null : (reminderId ?? this.reminderId));
+  Habit copyWith({String? name, List<String>? done, String? reminderId, bool clearReminder = false, int? askAt, bool clearAsk = false}) => Habit(
+      id: id,
+      name: name ?? this.name,
+      done: done ?? this.done,
+      createdAt: createdAt,
+      reminderId: clearReminder ? null : (reminderId ?? this.reminderId),
+      askAt: clearAsk ? null : (askAt ?? this.askAt));
 
-  Map<String, Object?> toJson() => {'id': id, 'name': name, 'done': done, 'createdAt': createdAt.toIso8601String(), 'reminderId': reminderId};
-  factory Habit.fromJson(Map<String, Object?> j) =>
-      Habit(id: j['id'] as String?, name: _s(j['name']), done: _ls(j['done']), createdAt: _d(j['createdAt']), reminderId: j['reminderId'] as String?);
+  Map<String, Object?> toJson() => {'id': id, 'name': name, 'done': done, 'createdAt': createdAt.toIso8601String(), 'reminderId': reminderId, if (askAt != null) 'askAt': askAt};
+  factory Habit.fromJson(Map<String, Object?> j) => Habit(
+      id: j['id'] as String?, name: _s(j['name']), done: _ls(j['done']), createdAt: _d(j['createdAt']), reminderId: j['reminderId'] as String?, askAt: (j['askAt'] as num?)?.toInt());
 }
 
 // ───────────────────────── Medicines ─────────────────────────
