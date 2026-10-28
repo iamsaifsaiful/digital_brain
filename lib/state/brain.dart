@@ -1419,12 +1419,47 @@ class Brain extends ChangeNotifier {
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly', 'n_quote', 'n_fix',
-    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'zakat_gold_carat', 'g_card_off', 'p_card_off', 'trace_on', 'trace_share', 'hc_on', 'hc_gone', 'steps_book',
+    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'blood_last_unknown', 'blood_phone', 'blood_sync', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'zakat_gold_carat', 'g_card_off', 'p_card_off', 'trace_on', 'trace_share', 'hc_on', 'hc_gone', 'steps_book',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
   int number(String key, [int or = 0]) => int.tryParse(prefs[key] ?? '') ?? or;
   String text(String key, [String or = '']) => prefs[key] ?? or;
+
+  /// The user's own blood group still lacks the number or the last donation
+  /// day (or "মনে নেই") that must go with it (owner, 28 Oct).
+  bool get bloodDetailsMissing {
+    if (data.emergency.blood.isEmpty) return false;
+    final phone = text('blood_phone');
+    return phone.isEmpty || (text('blood_last').isEmpty && !flag('blood_last_unknown'));
+  }
+
+  /// Keeps the number and last donation that go with the group, then sends them.
+  Future<String?> setBloodDetails({required String phone, DateTime? last, bool unknown = false}) async {
+    await setPref('blood_phone', phone);
+    if (last != null) {
+      await setPref('blood_last', last.toIso8601String());
+      await setPref('blood_last_unknown', false);
+    } else {
+      await setPref('blood_last_unknown', unknown);
+    }
+    return syncBloodGroup();
+  }
+
+  /// The group, number and last donation to our server (or taken away when
+  /// the group is cleared). Kept pending when it cannot go now.
+  Future<String?> syncBloodGroup() async {
+    final blood = data.emergency.blood;
+    if (blood.isNotEmpty && bloodDetailsMissing) return null;
+    if (!signedIn) {
+      await setPref('blood_sync', 'pending');
+      return null;
+    }
+    final e = await community.setBloodGroup(
+        blood: blood, phone: text('blood_phone'), lastDonated: DateTime.tryParse(text('blood_last')), lastUnknown: flag('blood_last_unknown'), district: district);
+    await setPref('blood_sync', e == null ? 'done' : 'pending');
+    return e;
+  }
 
   /// সমস্যা খোঁজার লগ › সার্ভারে পাঠান: the member's choice to send the log
   /// to us (off unless turned on).

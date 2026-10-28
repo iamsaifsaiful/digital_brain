@@ -27,6 +27,12 @@ function ma_bl_accepts() {
     return $wpdb->prefix . 'ma_blood_accepts';
 }
 
+/** রক্তের গ্রুপ (owner, 28 Oct): every member who gives their group, kept so we can help in an emergency. */
+function ma_bl_registry() {
+    global $wpdb;
+    return $wpdb->prefix . 'ma_blood_groups';
+}
+
 function ma_bl_install() {
     global $wpdb;
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -41,6 +47,17 @@ function ma_bl_install() {
         updated_at datetime NOT NULL,
         PRIMARY KEY  (user_id),
         KEY place (district, blood, active)
+    ) $cs;");
+    dbDelta('CREATE TABLE ' . ma_bl_registry() . " (
+        user_id bigint(20) unsigned NOT NULL,
+        blood varchar(4) NOT NULL,
+        phone varchar(20) NOT NULL,
+        last_donated date NULL DEFAULT NULL,
+        last_unknown tinyint(1) NOT NULL DEFAULT 0,
+        district varchar(64) NOT NULL DEFAULT '',
+        updated_at datetime NOT NULL,
+        PRIMARY KEY  (user_id),
+        KEY blood (blood, district)
     ) $cs;");
     dbDelta('CREATE TABLE ' . ma_bl_reqs() . " (
         id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -162,6 +179,10 @@ add_action('rest_api_init', function () {
         ['methods' => 'GET', 'callback' => 'ma_bl_donor_get', 'permission_callback' => $open],
         ['methods' => 'POST', 'callback' => 'ma_bl_donor_set', 'permission_callback' => $open],
     ]);
+    register_rest_route('my-assistant/v1', '/blood/group', [
+        ['methods' => 'POST', 'callback' => 'ma_bl_group_set', 'permission_callback' => $open],
+    ]);
+    ma_admin_route('/blood', 'GET', 'ma_bl_admin_list');
     register_rest_route('my-assistant/v1', '/blood/requests', [
         ['methods' => 'GET', 'callback' => 'ma_bl_list', 'permission_callback' => $open],
         ['methods' => 'POST', 'callback' => 'ma_bl_ask', 'permission_callback' => $open],
@@ -170,6 +191,66 @@ add_action('rest_api_init', function () {
         'methods' => 'POST', 'callback' => 'ma_bl_act', 'permission_callback' => $open,
     ]);
 });
+
+/**
+ * The member's own group, with a mobile number and the last donation day
+ * (or "মনে নেই") — all three needed. An empty group takes the record away.
+ */
+function ma_bl_group_set(WP_REST_Request $req) {
+    global $wpdb;
+    $m = ma_bl_member($req);
+    if (is_wp_error($m)) {
+        return $m;
+    }
+    $blood = ma_bl_group($req->get_param('blood'));
+    if ($blood === '') {
+        $wpdb->delete(ma_bl_registry(), ['user_id' => (int) $m['id']]);
+        return ['ok' => true, 'kept' => false];
+    }
+    $phone = ma_bl_phone($req->get_param('phone'));
+    $last = (string) $req->get_param('last_donated');
+    $last = preg_match('/^\d{4}-\d{2}-\d{2}$/', $last) && strtotime($last) <= time() ? $last : null;
+    $unknown = (bool) $req->get_param('last_unknown');
+    if ($phone === '' || ($last === null && !$unknown)) {
+        return new WP_Error('bad', 'a mobile number and the last donation day (or "don\'t remember") are needed', ['status' => 400]);
+    }
+    $wpdb->replace(ma_bl_registry(), [
+        'user_id' => (int) $m['id'],
+        'blood' => $blood,
+        'phone' => $phone,
+        'last_donated' => $last,
+        'last_unknown' => $last === null ? 1 : 0,
+        'district' => ma_bl_district($req->get_param('district')),
+        'updated_at' => current_time('mysql', true),
+    ]);
+    return ['ok' => true, 'kept' => true];
+}
+
+/** For the admin app: members by group (and district), to find help fast. */
+function ma_bl_admin_list(WP_REST_Request $req) {
+    global $wpdb;
+    $g = ma_bl_group($req->get_param('blood') ?: '');
+    $d = ma_bl_district($req->get_param('district') ?: '');
+    $where = '1=1' . ($g !== '' ? $wpdb->prepare(' AND b.blood = %s', $g) : '') . ($d !== '' ? $wpdb->prepare(' AND b.district = %s', $d) : '');
+    $rows = $wpdb->get_results('SELECT b.*, u.name, u.email FROM ' . ma_bl_registry() . ' b JOIN ' . ma_acc_table() . " u ON u.id = b.user_id WHERE $where ORDER BY b.updated_at DESC LIMIT 500", ARRAY_A) ?: [];
+    $counts = [];
+    foreach ($wpdb->get_results('SELECT blood, COUNT(*) n FROM ' . ma_bl_registry() . ' GROUP BY blood', ARRAY_A) ?: [] as $c) {
+        $counts[$c['blood']] = (int) $c['n'];
+    }
+    return [
+        'members' => array_map(fn($r) => [
+            'name' => (string) $r['name'],
+            'email' => (string) $r['email'],
+            'blood' => $r['blood'],
+            'phone' => $r['phone'],
+            'district' => $r['district'],
+            'last_donated' => $r['last_donated'],
+            'last_unknown' => (bool) (int) $r['last_unknown'],
+            'updated' => gmdate('c', ma_acc_ts($r['updated_at'])),
+        ], $rows),
+        'counts' => $counts,
+    ];
+}
 
 function ma_bl_donor_row($user_id) {
     global $wpdb;

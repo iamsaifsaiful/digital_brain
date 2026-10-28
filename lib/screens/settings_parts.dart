@@ -8,6 +8,7 @@ import 'pro_screen.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import 'blood_details.dart';
 
 /// The user's round photo, or their initial (or a person icon) without one.
 class UserPhoto extends StatelessWidget {
@@ -173,7 +174,7 @@ Future<void> pickBloodGroup(BuildContext context) async {
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(tr('আপনার রক্তের গ্রুপ'), style: display(20, weight: 700)),
           const SizedBox(height: 4),
-          Text(tr('জরুরি কার্ডে থাকবে; রক্তদাতা হলে মিলিয়ে দেখা যাবে।'), style: body(13.5, color: C.muted)),
+          Text(tr('জরুরি কার্ডে থাকবে; মোবাইল নম্বর আর শেষ রক্তদানের তারিখসহ আমাদের সার্ভারেও থাকবে, যেন বিপদে সাহায্য করা যায়।'), style: body(13.5, color: C.muted)),
           const SizedBox(height: 14),
           Wrap(spacing: 8, runSpacing: 8, children: [
             for (final g in [...bloodGroups, ''])
@@ -183,7 +184,10 @@ Future<void> pickBloodGroup(BuildContext context) async {
       ),
     ),
   );
-  if (picked != null && picked != current) await brain.saveEmergency(brain.data.emergency.copyWith(blood: picked));
+  if (picked == null || picked == current || !context.mounted) return;
+  // A group needs its number and last donation (owner, 28 Oct); not given → not kept.
+  if (picked.isNotEmpty && !await askBloodDetails(context, picked)) return;
+  await brain.saveEmergency(brain.data.emergency.copyWith(blood: picked));
 }
 
 /// সেটিংস › চেহারা ও ভাষা: language, light/dark, accent colour, letter size, easy mode.

@@ -15,6 +15,7 @@ import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import 'blood_details.dart';
 import 'docs_screen.dart';
 import 'health_screens.dart';
 import '../ui/pdf_export.dart';
@@ -432,8 +433,13 @@ Future<FamilyMember?> editMember(BuildContext context, FamilyMember? m) async {
     c.dispose();
   }
   if (saved != null) {
-    await brain.saveMember(saved);
-    if (saved.isMe && blood != brain.data.emergency.blood) await brain.saveEmergency(brain.data.emergency.copyWith(blood: blood));
+    var keep = saved;
+    // The user's own group needs its number and last donation (owner, 28 Oct).
+    if (saved.isMe && blood != brain.data.emergency.blood && blood.isNotEmpty && context.mounted && !await askBloodDetails(context, blood)) {
+      keep = saved.copyWith(blood: brain.data.emergency.blood);
+    }
+    await brain.saveMember(keep);
+    if (keep.isMe && keep.blood != brain.data.emergency.blood) await brain.saveEmergency(brain.data.emergency.copyWith(blood: keep.blood));
   }
   return saved;
 }

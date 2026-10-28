@@ -302,6 +302,8 @@ class Api {
   Future<List<Map<String, dynamic>>> traces() async => [for (final e in ((await _send('GET', '/admin/traces'))['traces'] as List? ?? const [])) (e as Map).cast<String, dynamic>()];
   Future<String> trace(int id) async => '${(await _send('GET', '/admin/traces/$id'))['body'] ?? ''}';
   Future<void> clearTraces() => _send('POST', '/admin/traces/clear');
+  /// Members who gave their blood group ([group] '' = all), with counts per group.
+  Future<Map<String, dynamic>> bloodGroups(String group) async => await _send('GET', '/admin/blood${group.isEmpty ? '' : '?blood=${Uri.encodeQueryComponent(group)}'}');
   Future<void> addFinanceEntry({required String kind, required String category, required int amount, required String date, String note = ''}) =>
       _send('POST', '/admin/finance/entry', {'kind': kind, 'category': category, 'amount': amount, 'date': date, 'note': note});
   Future<void> addInvestor({required String name, String contact = '', int amount = 0, String share = '', required String date, String note = ''}) =>

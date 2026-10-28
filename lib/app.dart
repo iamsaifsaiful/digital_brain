@@ -194,6 +194,8 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       ErrorLog.flush(brain.services.server, brain.services.ai.session);
       if (brain.loaded && brain.loadError == null) {
         brain.markOpened();
+        // A blood group that could not reach our server yet (owner, 28 Oct).
+        if (brain.text('blood_sync') == 'pending' && brain.signedIn) brain.syncBloodGroup().catchError((_) => null);
         // স্বাস্থ্য › Health Connect: today's steps, last night's sleep (when turned on).
         brain.syncHealthConnect().catchError((_) => 0);
         brain.refreshAccount();

@@ -247,6 +247,22 @@ class Community {
     return (DonorProfile.fromJson(r.data['donor']), r.error);
   }
 
+  /// রক্তের গ্রুপ (owner, 28 Oct): the member's group kept on our server for
+  /// emergencies, with a number and the last donation day (or "মনে নেই").
+  /// An empty [blood] takes it away.
+  Future<String?> setBloodGroup({required String blood, String phone = '', DateTime? lastDonated, bool lastUnknown = false, String district = ''}) async {
+    final r = await _send('POST', '/blood/group', {
+      'blood': blood.isEmpty ? '' : bloodKey(blood),
+      if (blood.isNotEmpty) ...{
+        'phone': phone,
+        'district': district,
+        'last_unknown': lastDonated == null && lastUnknown,
+        if (lastDonated != null) 'last_donated': '${lastDonated.year.toString().padLeft(4, '0')}-${lastDonated.month.toString().padLeft(2, '0')}-${lastDonated.day.toString().padLeft(2, '0')}',
+      },
+    });
+    return r.error;
+  }
+
   /// scope: all (the whole country; [district]/[blood] narrow it), near
   /// (what this donor can give to), district, or mine.
   Future<(List<BloodRequest>, String?)> requests({String scope = 'all', String district = '', String blood = ''}) async {

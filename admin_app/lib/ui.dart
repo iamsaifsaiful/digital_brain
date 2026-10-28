@@ -315,6 +315,27 @@ class _DashboardPageState extends State<DashboardPage> {
             Icon(Icons.chevron_right_rounded, color: c.muted),
           ]),
         ),
+        const SizedBox(height: 10),
+        CardBox(
+          key: const Key('open-blood'),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => BloodPage(api: widget.api, guard: widget.guard))),
+          child: Row(children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(color: c.tint, borderRadius: BorderRadius.circular(14)),
+              child: Icon(Icons.bloodtype_outlined, color: c.rose),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('রক্তের গ্রুপ', style: text(16, weight: FontWeight.w700, color: c.ink)),
+                Text('বিপদে খোঁজার জন্য — গ্রুপ, জেলা, নম্বর, শেষ রক্তদান', style: text(13.5, color: c.muted)),
+              ]),
+            ),
+            Icon(Icons.chevron_right_rounded, color: c.muted),
+          ]),
+        ),
       ]),
     );
   }
@@ -491,6 +512,92 @@ class _TracesPageState extends State<TracesPage> {
                       );
                     },
                   ),
+      ),
+    );
+  }
+}
+
+/// রক্তের গ্রুপ (owner, 28 Oct): members who gave their group, to find blood in an emergency.
+class BloodPage extends StatefulWidget {
+  const BloodPage({super.key, required this.api, required this.guard});
+  final Api api;
+  final Guard guard;
+
+  @override
+  State<BloodPage> createState() => _BloodPageState();
+}
+
+class _BloodPageState extends State<BloodPage> {
+  static const groups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  String _group = '';
+  Map<String, dynamic>? _data;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final r = await widget.guard(() => widget.api.bloodGroups(_group));
+    if (r != null && mounted) setState(() => _data = r);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Palette.of(context);
+    final rows = [for (final m in (_data?['members'] as List? ?? const [])) (m as Map).cast<String, dynamic>()];
+    final counts = (_data?['counts'] as Map?)?.cast<String, dynamic>() ?? const {};
+    return Scaffold(
+      appBar: AppBar(title: const Text('রক্তের গ্রুপ')),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            ChoiceChip(label: const Text('সব'), selected: _group.isEmpty, onSelected: (_) => setState(() {
+              _group = '';
+              _load();
+            })),
+            for (final g in groups)
+              ChoiceChip(
+                key: Key('blood-$g'),
+                label: Text('$g · ${bn(counts[g] ?? 0)}'),
+                selected: _group == g,
+                onSelected: (_) => setState(() {
+                  _group = g;
+                  _load();
+                }),
+              ),
+          ]),
+          const SizedBox(height: 12),
+          if (_data == null)
+            const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
+          else if (rows.isEmpty)
+            const Empty(Icons.bloodtype_outlined, 'কেউ নেই', 'সদস্য অ্যাপে নিজের রক্তের গ্রুপ দিলে এখানে আসে — নম্বর আর শেষ রক্তদানের তারিখসহ।')
+          else
+            for (final r in rows) ...[
+              CardBox(
+                child: Row(children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(color: c.tint, borderRadius: BorderRadius.circular(14)),
+                    child: Text('${r['blood']}', style: text(16, weight: FontWeight.w800, color: c.rose)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('${r['name']}'.isEmpty ? '${r['email']}' : '${r['name']}', style: text(15, weight: FontWeight.w700, color: c.ink)),
+                      SelectableText('${r['phone']}${'${r['district']}'.isEmpty ? '' : ' · ${r['district']}'}', style: text(13.5, color: c.ink)),
+                      Text(r['last_unknown'] == true || r['last_donated'] == null ? 'শেষ রক্তদান: মনে নেই' : 'শেষ রক্তদান: ${date('${r['last_donated']}')}', style: text(12.5, color: c.muted)),
+                    ]),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 8),
+            ],
+        ]),
       ),
     );
   }

@@ -393,8 +393,11 @@ extension BrainMore on Brain {
   // ── Emergency card ──
 
   Future<void> saveEmergency(EmergencyCard c) async {
+    final blood = data.emergency.blood != c.blood;
     data.emergency = c;
     await _save();
+    // The group goes to our server with its number and last donation (owner, 28 Oct).
+    if (blood) unawaited(syncBloodGroup().catchError((_) => null));
     await services.notifier.showEmergency(c.onLockScreen && !c.isEmpty ? emergencyText(c) : null);
   }
 

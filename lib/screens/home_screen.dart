@@ -10,6 +10,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart' show toast;
 import 'alarm_screens.dart';
 import 'calls_screen.dart';
+import 'blood_details.dart';
 import 'google_backup.dart' show restoreFromPhoneFile;
 import 'more_screen.dart' show BackupScreen;
 import 'help_screen.dart';
@@ -365,6 +366,17 @@ class _HomeAttentionState extends State<HomeAttention> with WidgetsBindingObserv
           await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReminderCheckScreen()));
           _load();
         },
+      ));
+    }
+    // A blood group given without its number or last donation (by voice, say): asked here (owner, 28 Oct).
+    if (brain.bloodDetailsMissing) {
+      return wrap(AttentionCard(
+        key: const Key('home-blood-details'),
+        icon: Icons.bloodtype_outlined,
+        title: trf('রক্তের গ্রুপ {0} — নম্বর আর শেষ রক্তদান দিন', [d.emergency.blood]),
+        text: tr('বিপদে সাহায্যের জন্য এগুলো আমাদের সার্ভারে থাকবে'),
+        action: tr('দিন'),
+        onAction: () => askBloodDetails(context, d.emergency.blood),
       ));
     }
     // 2. A new phone: bring back the Google backup, or one saved on the phone (owner, 28 Oct).

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: My Assistant Accounts
  * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, প্রিমিয়াম, পেমেন্ট, নোটিফিকেশন আর মতামত। শুধু নাম, ইমেইল, ছবি আর প্রিমিয়ামের তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.26.0
+ * Version: 1.27.0
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: My Assistant
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.26.0';
+const MA_ACC_VERSION = '1.27.0';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
 const MA_ACC_PER_PAGE = 20;
 
@@ -359,6 +359,10 @@ add_action('admin_post_ma_acc_delete', function () {
     $wpdb->delete(ma_ai_usage_table(), ['user_id' => $id]);
     ma_nlu_forget_member($id);
     ma_fam_forget_member($id);
+    if (function_exists('ma_bl_registry')) {
+        $wpdb->delete(ma_bl_registry(), ['user_id' => $id]);
+        $wpdb->delete(ma_bl_donors(), ['user_id' => $id]);
+    }
     ma_acc_back('সদস্যের তথ্য মুছে ফেলা হলো। আবার লগইন করলে নতুন করে যোগ হবেন।');
 });
 
