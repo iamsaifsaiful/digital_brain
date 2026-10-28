@@ -107,8 +107,11 @@ def build(n_int, n_slot):
 def train():
     import tensorflow as tf
     from transformers import AutoTokenizer
-    tf.random.set_seed(7)
-    np.random.seed(7)
+    # BERT_SEED: several trainings side by side differ only in it (the
+    # workflow keeps the one best on the dev split, never chosen by gold).
+    seed = int(os.environ.get('BERT_SEED', '7'))
+    tf.random.set_seed(seed)
+    np.random.seed(seed)
     tok = AutoTokenizer.from_pretrained(NAME)
     enc = Enc(tok)
     tr_segs, tr_seqs = C.examples(C.load_jsonl(os.path.join(C.DATA, 'train.jsonl')))
