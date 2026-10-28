@@ -68,7 +68,7 @@ void main() {
       b.data = AppData(projects: [Project(name: 'বাড়ি', closed: true)]);
       expect(b.canAddProject, isFalse);
 
-      // New limits: 20 people in ধার-দেনা, 20 ringing reminders, 20 documents (owner, 24 Oct night).
+      // New limits: 20 people in ধার-দেনা, 20 ringing reminders, 30 documents (owner, 28 Oct; was 20).
       b.data = AppData(
         ledger: [for (var i = 0; i < freeLedgerPeople; i++) LedgerEntry(person: 'মানুষ$i', kind: LedgerKind.lent, amount: 10, date: DateTime(2026, 10))],
         reminders: [for (var i = 0; i < freeReminders; i++) Reminder(title: 'r$i', date: DateTime(2026, 11), hour: 9)],

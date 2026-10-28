@@ -714,20 +714,20 @@ class _Tools extends StatelessWidget {
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
     final tools = <(String, IconData, VoidCallback)>[
       (tr('কাজের তালিকা'), Icons.checklist_rounded, () => goToTab(context, ShellTab.diary)),
-      (tr('রিমাইন্ডার'), Icons.notifications_none_rounded, () => push(const AllTasksScreen())),
-      (tr('হিসাব'), Icons.account_balance_wallet_outlined, () => goToTab(context, ShellTab.money)),
+      (trm('রিমাইন্ডার'), Icons.notifications_none_rounded, () => push(const AllTasksScreen())),
+      (trm('হিসাব'), Icons.account_balance_wallet_outlined, () => goToTab(context, ShellTab.money)),
       (tr('ডকুমেন্টস'), Icons.folder_outlined, () => push(const DocsScreen())),
-      (tr('নোট'), Icons.description_outlined, () => push(const NotesScreen())),
+      (trm('নোট'), Icons.description_outlined, () => push(const NotesScreen())),
       (tr('যোগাযোগ'), Icons.person_outline_rounded, () => push(const CallsScreen())),
       (tr('স্বাস্থ্য'), Icons.monitor_heart_outlined, () => push(const HealthScreen())),
-      (tr('অ্যালার্ম'), Icons.alarm_rounded, () => push(const AlarmsScreen())),
-      (tr('পাসওয়ার্ড'), Icons.lock_outline_rounded, () => push(const VaultPage())),
+      (trm('অ্যালার্ম'), Icons.alarm_rounded, () => push(const AlarmsScreen())),
+      (trm('পাসওয়ার্ড'), Icons.lock_outline_rounded, () => push(const VaultPage())),
       (tr('ক্যালেন্ডার'), Icons.calendar_month_outlined, () => push(const CalendarScreen())),
       (tr('কম্পাস'), Icons.explore_outlined, () => push(const CompassScreen())),
       (tr('যাকাত'), Icons.volunteer_activism_outlined, () => push(const ZakatScreen())),
       (tr('ফ্যামিলি'), Icons.family_restroom_rounded, () => push(const FamilyScreen())),
-      (tr('ওষুধ'), Icons.medication_outlined, () => push(const MedicinesScreen())),
-      (tr('ব্লাড ডোনেশন'), Icons.bloodtype_outlined, () => push(const RequestsScreen())),
+      (trm('ওষুধ'), Icons.medication_outlined, () => push(const MedicinesScreen())),
+      (trm('ব্লাড ডোনেশন'), Icons.bloodtype_outlined, () => push(const RequestsScreen())),
       (tr('প্রিমিয়াম'), Icons.workspace_premium_outlined, () => push(const ProScreen())),
     ];
     return AppCard(

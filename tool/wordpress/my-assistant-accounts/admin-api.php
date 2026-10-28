@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
  * release whose app the plugin needs; an older app is told to update — at
  * sign-in and on every call.
  */
-const MA_ADMIN_APP_MIN = '1.14.0';
+const MA_ADMIN_APP_MIN = '1.15.0';
 
 function ma_app_update_url() {
     $u = (string) get_option('ma_app_update_url', '');

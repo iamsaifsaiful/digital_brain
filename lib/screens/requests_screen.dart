@@ -416,6 +416,8 @@ class _DonorSheetState extends State<_DonorSheet> {
     // The app's own donor reminder (next donation day) follows this.
     await brain.setPref('donor_on', on);
     if (_last != null) await brain.setPref('blood_last', _last!.toIso8601String());
+    // The donor's number and last donation go with their group too (owner, 28 Oct).
+    if (on) await brain.setBloodDetails(phone: local, last: _last, unknown: _last == null);
     if (on && brain.data.emergency.blood.isEmpty) await brain.saveEmergency(brain.data.emergency.copyWith(blood: _blood));
     if (mounted) Navigator.pop(context, d);
   }

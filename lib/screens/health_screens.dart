@@ -66,6 +66,19 @@ class DoseStrip extends StatelessWidget {
 class HabitsScreen extends StatelessWidget {
   const HabitsScreen({super.key});
 
+  /// The habit's "করেছেন কি?" is on (or its older plain daily reminder).
+  static bool _asks(Habit h) => h.askAt != null || h.reminderId != null;
+
+  /// Turn on (or move) the daily "করেছেন কি?" — the user's own choice.
+  static Future<void> _ask(BuildContext context, Habit h) async {
+    final brain = BrainScope.read(context);
+    final r = h.reminderId == null ? null : brain.reminderById(h.reminderId!);
+    final m = await askTime(context, h.askAt ?? (r == null ? 21 * 60 : r.hour * 60 + r.minute));
+    if (m == null) return;
+    await brain.setHabitAsk(h, m);
+    if (context.mounted) toast(context, trf('প্রতিদিন {0}-এ জিজ্ঞেস করবো — টিক দেওয়া থাকলে করবো না', [bnTime(m ~/ 60, m % 60)]));
+  }
+
   Future<void> _add(BuildContext context) async {
     final brain = BrainScope.read(context);
     final name = await askText(context, tr('নতুন অভ্যাস'), hint: tr('যেমন: সকালে হাঁটা, ৮ গ্লাস পানি, কুরআন পড়া'));
@@ -79,8 +92,8 @@ class HabitsScreen extends StatelessWidget {
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          ListTile(leading: const Icon(Icons.alarm_rounded), title: Text(h.reminderId == null ? tr('প্রতিদিন মনে করাও') : tr('মনে করানোর সময় বদলান')), onTap: () => Navigator.pop(ctx, 0)),
-          if (h.reminderId != null) ListTile(leading: const Icon(Icons.alarm_off_rounded), title: Text(tr('মনে করানো বন্ধ')), onTap: () => Navigator.pop(ctx, 1)),
+          ListTile(leading: const Icon(Icons.alarm_rounded), title: Text(!_asks(h) ? tr('প্রতিদিন জিজ্ঞেস করুক “করেছেন কি?”') : tr('জিজ্ঞেস করার সময় বদলান')), onTap: () => Navigator.pop(ctx, 0)),
+          if (_asks(h)) ListTile(leading: const Icon(Icons.alarm_off_rounded), title: Text(tr('জিজ্ঞেস করা বন্ধ')), onTap: () => Navigator.pop(ctx, 1)),
           ListTile(leading: const Icon(Icons.edit_outlined), title: Text(tr('নাম বদলান')), onTap: () => Navigator.pop(ctx, 2)),
           ListTile(leading: Icon(Icons.delete_outline_rounded, color: C.red), title: Text(tr('মুছে ফেলুন'), style: TextStyle(color: C.red)), onTap: () => Navigator.pop(ctx, 3)),
           const SizedBox(height: 8),
@@ -90,11 +103,9 @@ class HabitsScreen extends StatelessWidget {
     if (!context.mounted) return;
     switch (pick) {
       case 0:
-        final r = h.reminderId == null ? null : brain.reminderById(h.reminderId!);
-        final m = await askTime(context, r == null ? 7 * 60 : r.hour * 60 + r.minute);
-        if (m != null) await brain.setHabitReminder(h, m);
+        await _ask(context, h);
       case 1:
-        await brain.setHabitReminder(h, null);
+        await brain.setHabitAsk(h, null);
       case 2:
         final n = await askText(context, tr('নাম বদলান'), initial: h.name);
         if (n != null && n.isNotEmpty) await brain.saveHabit(h.copyWith(name: n));
@@ -127,10 +138,20 @@ class HabitsScreen extends StatelessWidget {
                     child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                       Row(children: [
                         Expanded(child: Text(h.name, style: body(16, weight: FontWeight.w600))),
+                        // Off unless the user turns it on (owner, 28 Oct).
+                        IconButton(
+                          key: Key('habit-ask-${h.id}'),
+                          tooltip: _asks(h) && h.askAt != null ? trf('প্রতিদিন {0}-এ জিজ্ঞেস করবে', [bnTime(h.askAt! ~/ 60, h.askAt! % 60)]) : tr('“করেছেন কি?” নোটিফিকেশন'),
+                          onPressed: () => _asks(h) ? _menu(context, h) : _ask(context, h),
+                          icon: Icon(_asks(h) ? Icons.alarm_on_rounded : Icons.alarm_add_outlined, color: _asks(h) ? C.green : C.muted, size: 21),
+                        ),
                         IconButton(tooltip: tr('আরও'), onPressed: () => _menu(context, h), icon: Icon(Icons.more_horiz_rounded, color: C.muted)),
                       ]),
                       Text(
-                        h.streak(now) > 0 ? trf('টানা {0} দিন · সেরা {1} দিন', [bnDigits(h.streak(now)), bnDigits(h.best())]) : tr('আজ থেকে শুরু করুন'),
+                        [
+                          h.streak(now) > 0 ? trf('টানা {0} দিন · সেরা {1} দিন', [bnDigits(h.streak(now)), bnDigits(h.best())]) : tr('আজ থেকে শুরু করুন'),
+                          if (h.askAt != null) trf('রোজ {0}-এ জিজ্ঞেস', [bnTime(h.askAt! ~/ 60, h.askAt! % 60)]),
+                        ].join(' · '),
                         style: body(13.5, color: h.streak(now) > 0 ? C.orange : C.muted, weight: FontWeight.w500),
                       ),
                       const SizedBox(height: 10),

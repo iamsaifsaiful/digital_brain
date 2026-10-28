@@ -664,7 +664,6 @@ Command? _business(String said, String f, AppData? d, DateTime now, int? amount,
     }
   }
   if (_thas(f, r'(?:প্রজেক্ট|প্রকল্প)\S*\s.*(?:শেষ|বন্ধ\s+করো|আর্কাইভ)') && !asking) return MenuAction(said, domain: 'project', op: 'close', target: proj ?? '');
-  if (_thas(f, r'(?<=\s)বাজেট(?=\s)') && amount != null && !asking) return MenuAction(said, domain: 'project', op: 'budget', target: proj ?? '', amount: amount);
   if (proj != null) {
     // "মসজিদ ফান্ডে কত আছে", "শাড়ির ব্যবসায় কত লাভ হলো": that account.
     if (asking && _thas(f, r'(?:খরচ|আয়|এসেছে|হিসাব|আছে|লাভ|থাকল|থাকলো|বাকি|(?<=\s)কত(?=\s))')) return CashQuery(said, project: proj);

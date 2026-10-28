@@ -21,6 +21,9 @@ import 'server_notices.dart';
 import 'spend_health.dart';
 import 'money_quotes.dart';
 
+/// The morning summary rings at 9 unless the member picks a time (owner, 28 Oct; was 8).
+const defaultMorningAt = 9 * 60;
+
 /// Does [r] ring on [day]?
 bool remindsOn(Reminder r, DateTime day) {
   if (!r.enabled) return false;
@@ -40,7 +43,7 @@ bool remindsOn(Reminder r, DateTime day) {
 class AssistantPrefs {
   const AssistantPrefs({
     this.morningOn = true,
-    this.morningAt = 8 * 60,
+    this.morningAt = defaultMorningAt,
     this.nightOn = true,
     this.nightAt = 21 * 60,
     this.nudgesOn = true,
@@ -71,7 +74,11 @@ class AssistantPrefs {
     this.homeFix = true,
     this.rules = NoticeRules.none,
     this.groups = const {'all'},
+    this.trialEnds,
   });
+
+  /// While on the free Premium trial: when it ends (a note the day before).
+  final DateTime? trialEnds;
 
   /// What the admin set on the site or in the admin app (logic/server_notices.dart).
   final NoticeRules rules;
@@ -174,6 +181,7 @@ const nudgeBmi = 'nudge:bmi:';
 const nudgeQuote = 'nudge:quote';
 const nudgeFix = 'nudge:fix';
 const nudgePass = 'nudge:pass';
+const nudgeTrial = 'nudge:trial';
 
 /// One sentence for each month: what to watch for in Bangladesh's seasons.
 const healthTips = [
@@ -295,7 +303,7 @@ PlannedNotice? _ruled(PlannedNotice n, AssistantPrefs p, DateTime now) {
   }
   final m = r.minutes;
   // A summary time the member set themself stays theirs.
-  final ownTime = (n.reminderId == morningTag && p.morningAt != 8 * 60) || (n.reminderId == nightTag && p.nightAt != 21 * 60);
+  final ownTime = (n.reminderId == morningTag && p.morningAt != defaultMorningAt) || (n.reminderId == nightTag && p.nightAt != 21 * 60);
   if (m != null && !ownTime) {
     at = _at(dayOnly(at), m);
     if (!at.isAfter(now)) return null;
@@ -310,6 +318,7 @@ PlannedNotice? _ruled(PlannedNotice n, AssistantPrefs p, DateTime now) {
 /// Summaries at the user's own times, and prayer/Ramadan times they asked
 /// for, are never held back or counted.
 bool _chosenByUser(String tag) =>
+    tag.startsWith('${nudgeHabit}ask:') ||
     tag.startsWith(nudgeQuote) || tag.startsWith(nudgeFix) || tag == morningTag || tag == nightTag || tag.startsWith(nudgePrayer) || tag.startsWith(nudgeRamadan) || tag.startsWith(nudgeDonor);
 
 int _rank(String tag) {
@@ -568,10 +577,23 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
     }
   }
 
+  // "করেছেন কি?" for the habits the user asked it for (owner, 28 Oct): each
+  // day at their time, the next three days, never on a day already ticked.
+  for (final h in d.habits) {
+    final m = h.askAt;
+    if (m == null) continue;
+    for (var i = 0; i < 3; i++) {
+      final day = today.add(Duration(days: i));
+      if (h.doneOn(day)) continue;
+      add('${nudgeHabit}ask:${h.id}', dayKey(day), _at(day, m), trf('{0} — আজ করেছেন?', [h.name]), tr('করে থাকলে চাপুন, টিক দিয়ে দিন। ধারা যেন না ভাঙে।'));
+    }
+  }
+
   if (p.streak) {
     for (final h in d.habits) {
       final s = h.streak(now);
-      if (s < 2 || h.doneOn(today)) continue;
+      // Asked "করেছেন কি?" at its own time already: no second note.
+      if (s < 2 || h.doneOn(today) || h.askAt != null) continue;
       add(nudgeHabit, '${h.id}:${dayKey(today)}', _at(today, 20 * 60), trf('টানা {0} দিন — {1}', [bnDigits(s), h.name]),
           tr('আজকেরটা হয়ে গেলে টিক দিয়ে দিন, ধারা যেন না ভাঙে।'));
     }
@@ -624,6 +646,13 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
             fixes.length > 3 ? trf('{0} আর আরও {1}টা। হয়ে গেলে টিক দিন।', [names, bnDigits(fixes.length - 3)]) : trf('{0}। হয়ে গেলে টিক দিন।', [names]));
       }
     }
+  }
+
+  // The free Premium trial ends tomorrow (owner, 28 Oct): once, mid-morning the day before.
+  final trial = p.trialEnds;
+  if (trial != null) {
+    add(nudgeTrial, dayKey(trial), _at(dayOnly(trial).subtract(const Duration(days: 1)), 10 * 60 + 30), tr('কাল প্রিমিয়াম ট্রায়াল শেষ'),
+        tr('প্রিমিয়াম নিলে সব সুবিধা চালু থাকবে। না নিলেও এই কয়দিনে যা রেখেছেন সব থাকবে, দেখা যাবে।'));
   }
 
   final donor = p.donorNext;

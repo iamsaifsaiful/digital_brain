@@ -9,6 +9,7 @@ import '../ui/forms.dart';
 import '../ui/pin.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import 'blood_details.dart';
 import 'docs_screen.dart';
 import 'new_item_screen.dart';
 
@@ -440,6 +441,8 @@ class _EmergencyEditScreenState extends State<EmergencyEditScreen> {
               PrimaryButton(
                 label: tr('রাখুন'),
                 onPressed: () async {
+                  // A new group needs its number and last donation (owner, 28 Oct).
+                  if (_blood.isNotEmpty && _blood != _old.blood && !await askBloodDetails(context, _blood)) return;
                   await brain.saveEmergency(_old.copyWith(
                     name: _name.text.trim(),
                     blood: _blood,

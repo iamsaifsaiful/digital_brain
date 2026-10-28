@@ -908,6 +908,31 @@ check(!str_contains(json_encode($e0, JSON_UNESCAPED_UNICODE), 'রহিম') &&
 check(str_contains($e0['stack'], 'brain.dart:120') && $e0['version'] === '2.53.0+108', 'errors: code places and version kept');
 [$code] = call('GET', '/admin/errors', [], $sonSes);
 check($code === 403, 'errors: only admins read them');
+// সমস্যা খোঁজার লগ, sent by the member's choice: private lines never kept, numbers hidden.
+[$code, $d] = call('POST', '/trace', ['version' => '2.60.0+131', 'lines' => ['10:00 [c1] speech · whole speech sent · text=“কাল ০১৭১২৩৪৫৬৭৮ নম্বরে ফোন”', '10:01 [c2] understood · intent · text=“আমার ওষুধ কখন”', '10:02 [c3] chat · conversation started']], $sonSes);
+check($code === 200 && $d['kept'] === 2, 'trace: kept, the medicine line dropped');
+[$code, $d] = call('GET', '/admin/traces', [], $bossSes);
+$t0 = $d['traces'][0] ?? [];
+check($code === 200 && $t0['lines'] === 2 && $t0['version'] === '2.60.0+131', 'trace: listed for admins');
+[$code, $d] = call('GET', '/admin/traces/' . $t0['id'], [], $bossSes);
+check($code === 200 && !str_contains($d['body'], '01712345678') && !str_contains($d['body'], '০১৭১২৩৪৫৬৭৮') && !str_contains($d['body'], 'ওষুধ') && str_contains($d['body'], 'conversation started'), 'trace: numbers hidden, private words absent');
+[$code] = call('GET', '/admin/traces', [], $sonSes);
+check($code === 403, 'trace: only admins read it');
+// রক্তের গ্রুপ (owner, 28 Oct): kept for emergencies; a number and the last donation (or "মনে নেই") are needed.
+[$code] = call('POST', '/blood/group', ['blood' => 'B+', 'phone' => '01712345678'], $sonSes);
+check($code === 400, 'blood group: the last donation day (or মনে নেই) is needed');
+[$code] = call('POST', '/blood/group', ['blood' => 'B+', 'last_unknown' => true], $sonSes);
+check($code === 400, 'blood group: a mobile number is needed');
+[$code, $d] = call('POST', '/blood/group', ['blood' => 'b +', 'phone' => '০১৭১২৩৪৫৬৭৮', 'last_unknown' => true, 'district' => 'ঢাকা'], $sonSes);
+check($code === 200 && $d['kept'] === true, 'blood group: kept with "মনে নেই"');
+[$code, $d] = call('GET', '/admin/blood', ['blood' => 'B+'], $bossSes);
+$b0 = $d['members'][0] ?? [];
+check($code === 200 && count($d['members']) === 1 && $b0['phone'] === '01712345678' && $b0['last_unknown'] === true && $d['counts']['B+'] === 1, 'blood group: admins find members by group');
+[$code] = call('GET', '/admin/blood', [], $sonSes);
+check($code === 403, 'blood group: only admins see the list');
+call('POST', '/blood/group', ['blood' => ''], $sonSes);
+[$code, $d] = call('GET', '/admin/blood', [], $bossSes);
+check($code === 200 && count($d['members']) === 0, 'blood group: taken away when the member removes it');
 $_GET = ['page' => 'my-assistant', 'tab' => 'errors'];
 ob_start();
 ma_acc_admin();

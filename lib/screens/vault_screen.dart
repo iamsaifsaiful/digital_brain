@@ -93,7 +93,7 @@ class _VaultScreenState extends State<VaultScreen> {
           ]),
         ],
         const SizedBox(height: 12),
-        InfoBanner(text: tr('শুধু এই ফোনে, তালাবদ্ধ অবস্থায় থাকে। দেখতে আঙুলের ছাপ বা PIN লাগে। AI-তে কখনো যায় না, জোরে পড়াও হয় না।')),
+        InfoBanner(text: tr('শুধু এই ফোনে, তালাবদ্ধ অবস্থায় থাকে। দেখতে আঙুলের ছাপ বা PIN লাগে। আমাদের সার্ভারে কখনো যায় না, জোরে পড়াও হয় না।')),
         if (stale.isNotEmpty) ...[
           const SizedBox(height: 8),
           InfoBanner(

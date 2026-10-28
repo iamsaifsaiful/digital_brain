@@ -1384,7 +1384,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
           if (!_chat.started)
             Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: Text(_brain.aiOn ? tr('পাসওয়ার্ড ও নম্বর ফোনেই থাকে · AI চালু: আপনার কথা Anthropic-এ যায়') : tr('হিসাব আর পাসওয়ার্ড শুধু আপনার ফোনেই থাকে'), style: body(12, color: C.muted), textAlign: TextAlign.center),
+              child: Text(_brain.aiOn ? tr('পাসওয়ার্ড ও নম্বর ফোনেই থাকে · চালু থাকলে আপনার কথা আমাদের সার্ভারে যায়') : tr('হিসাব আর পাসওয়ার্ড শুধু আপনার ফোনেই থাকে'), style: body(12, color: C.muted), textAlign: TextAlign.center),
             ),
         ]),
       );
@@ -1509,6 +1509,12 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
               ],
             const SizedBox(height: 14),
             if (_listening) Text(hint, textAlign: TextAlign.center, style: body(14, color: C.muted, height: 1.5)),
+            // Said each time the mic opens, so a wrong reading does not worry (owner, 28 Oct).
+            if (_listening)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(improvingNote, key: const Key('mic-improving'), textAlign: TextAlign.center, style: body(12, color: C.muted2, height: 1.45)),
+              ),
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(top: 10),
@@ -1738,9 +1744,9 @@ class _QuickAddSheet extends StatelessWidget {
           ]),
           const SizedBox(height: 8),
           Row(children: [
-            Expanded(child: tile(3, Icons.sticky_note_2_outlined, tr('নোট'), C.blue, C.blueTint)),
+            Expanded(child: tile(3, Icons.sticky_note_2_outlined, trm('নোট'), C.blue, C.blueTint)),
             const SizedBox(width: 8),
-            Expanded(child: tile(4, Icons.lock_outline_rounded, tr('পাসওয়ার্ড'), C.ink, C.soft)),
+            Expanded(child: tile(4, Icons.lock_outline_rounded, trm('পাসওয়ার্ড'), C.ink, C.soft)),
             const SizedBox(width: 8),
             Expanded(child: tile(5, Icons.call_outlined, tr('নম্বর রাখুন'), C.ink, C.soft)),
           ]),

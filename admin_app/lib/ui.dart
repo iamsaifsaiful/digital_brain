@@ -315,6 +315,27 @@ class _DashboardPageState extends State<DashboardPage> {
             Icon(Icons.chevron_right_rounded, color: c.muted),
           ]),
         ),
+        const SizedBox(height: 10),
+        CardBox(
+          key: const Key('open-blood'),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => BloodPage(api: widget.api, guard: widget.guard))),
+          child: Row(children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(color: c.tint, borderRadius: BorderRadius.circular(14)),
+              child: Icon(Icons.bloodtype_outlined, color: c.rose),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('রক্তের গ্রুপ', style: text(16, weight: FontWeight.w700, color: c.ink)),
+                Text('বিপদে খোঁজার জন্য — গ্রুপ, জেলা, নম্বর, শেষ রক্তদান', style: text(13.5, color: c.muted)),
+              ]),
+            ),
+            Icon(Icons.chevron_right_rounded, color: c.muted),
+          ]),
+        ),
       ]),
     );
   }
@@ -366,6 +387,11 @@ class _ErrorsPageState extends State<ErrorsPage> {
     final rows = _rows;
     return Scaffold(
       appBar: AppBar(title: const Text('সমস্যার লগ'), actions: [
+        IconButton(
+            key: const Key('open-traces'),
+            tooltip: 'সদস্যদের পাঠানো লগ',
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => TracesPage(api: widget.api, guard: widget.guard))),
+            icon: const Icon(Icons.receipt_long_outlined)),
         if (rows != null && rows.isNotEmpty) IconButton(key: const Key('errors-clear'), tooltip: 'সব মুছুন', onPressed: _clear, icon: const Icon(Icons.delete_sweep_outlined)),
       ]),
       body: RefreshIndicator(
@@ -396,6 +422,182 @@ class _ErrorsPageState extends State<ErrorsPage> {
                       );
                     },
                   ),
+      ),
+    );
+  }
+}
+
+/// সমস্যা খোঁজার লগ that members chose to send (their conversations about
+/// passwords, health, medicines or messages never come).
+class TracesPage extends StatefulWidget {
+  const TracesPage({super.key, required this.api, required this.guard});
+  final Api api;
+  final Guard guard;
+
+  @override
+  State<TracesPage> createState() => _TracesPageState();
+}
+
+class _TracesPageState extends State<TracesPage> {
+  List<Map<String, dynamic>>? _rows;
+  final Map<int, String> _body = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final r = await widget.guard(() => widget.api.traces());
+    if (r != null && mounted) setState(() => _rows = r);
+  }
+
+  Future<void> _open(int id) async {
+    if (_body.containsKey(id)) return;
+    final b = await widget.guard(() => widget.api.trace(id));
+    if (b != null && mounted) setState(() => _body[id] = b);
+  }
+
+  Future<void> _clear() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('সব পাঠানো লগ মুছবেন?'),
+        actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('না')), TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('মুছুন'))],
+      ),
+    );
+    if (ok != true) return;
+    await widget.guard(() => widget.api.clearTraces());
+    await _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Palette.of(context);
+    final rows = _rows;
+    return Scaffold(
+      appBar: AppBar(title: const Text('সদস্যদের পাঠানো লগ'), actions: [
+        if (rows != null && rows.isNotEmpty) IconButton(key: const Key('traces-clear'), tooltip: 'সব মুছুন', onPressed: _clear, icon: const Icon(Icons.delete_sweep_outlined)),
+      ]),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: rows == null
+            ? ListView(children: const [Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))])
+            : rows.isEmpty
+                ? ListView(children: const [Empty(Icons.receipt_long_outlined, 'কোনো লগ আসেনি', 'সদস্য অ্যাপের আরও › সমস্যা খোঁজার লগ থেকে পাঠালে এখানে আসে — ৩০ দিন থাকে। পাসওয়ার্ড, স্বাস্থ্য, ওষুধ বা মেসেজের কথোপকথন আসে না, নম্বর লুকানো থাকে।')])
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                    itemCount: rows.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, i) {
+                      final r = rows[i];
+                      final id = (r['id'] as num).toInt();
+                      return CardBox(
+                        key: Key('trace-$id'),
+                        child: Theme(
+                          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                          child: ExpansionTile(
+                            tilePadding: EdgeInsets.zero,
+                            onExpansionChanged: (open) {
+                              if (open) _open(id);
+                            },
+                            title: Text('${bn(r['lines'] ?? 0)} লাইন · ${r['version']}', style: text(15, weight: FontWeight.w700, color: c.ink)),
+                            subtitle: Text('${date('${r['at']}')}${'${r['email'] ?? ''}'.isEmpty ? '' : ' · ${r['email']}'}', style: text(12.5, color: c.muted)),
+                            children: [
+                              Align(alignment: Alignment.centerLeft, child: SelectableText(_body[id] ?? 'খুলছে…', style: text(12, color: c.ink))),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+      ),
+    );
+  }
+}
+
+/// রক্তের গ্রুপ (owner, 28 Oct): members who gave their group, to find blood in an emergency.
+class BloodPage extends StatefulWidget {
+  const BloodPage({super.key, required this.api, required this.guard});
+  final Api api;
+  final Guard guard;
+
+  @override
+  State<BloodPage> createState() => _BloodPageState();
+}
+
+class _BloodPageState extends State<BloodPage> {
+  static const groups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  String _group = '';
+  Map<String, dynamic>? _data;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final r = await widget.guard(() => widget.api.bloodGroups(_group));
+    if (r != null && mounted) setState(() => _data = r);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Palette.of(context);
+    final rows = [for (final m in (_data?['members'] as List? ?? const [])) (m as Map).cast<String, dynamic>()];
+    final counts = (_data?['counts'] as Map?)?.cast<String, dynamic>() ?? const {};
+    return Scaffold(
+      appBar: AppBar(title: const Text('রক্তের গ্রুপ')),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            ChoiceChip(label: const Text('সব'), selected: _group.isEmpty, onSelected: (_) => setState(() {
+              _group = '';
+              _load();
+            })),
+            for (final g in groups)
+              ChoiceChip(
+                key: Key('blood-$g'),
+                label: Text('$g · ${bn(counts[g] ?? 0)}'),
+                selected: _group == g,
+                onSelected: (_) => setState(() {
+                  _group = g;
+                  _load();
+                }),
+              ),
+          ]),
+          const SizedBox(height: 12),
+          if (_data == null)
+            const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
+          else if (rows.isEmpty)
+            const Empty(Icons.bloodtype_outlined, 'কেউ নেই', 'সদস্য অ্যাপে নিজের রক্তের গ্রুপ দিলে এখানে আসে — নম্বর আর শেষ রক্তদানের তারিখসহ।')
+          else
+            for (final r in rows) ...[
+              CardBox(
+                child: Row(children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(color: c.tint, borderRadius: BorderRadius.circular(14)),
+                    child: Text('${r['blood']}', style: text(16, weight: FontWeight.w800, color: c.rose)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('${r['name']}'.isEmpty ? '${r['email']}' : '${r['name']}', style: text(15, weight: FontWeight.w700, color: c.ink)),
+                      SelectableText('${r['phone']}${'${r['district']}'.isEmpty ? '' : ' · ${r['district']}'}', style: text(13.5, color: c.ink)),
+                      Text(r['last_unknown'] == true || r['last_donated'] == null ? 'শেষ রক্তদান: মনে নেই' : 'শেষ রক্তদান: ${date('${r['last_donated']}')}', style: text(12.5, color: c.muted)),
+                    ]),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 8),
+            ],
+        ]),
       ),
     );
   }

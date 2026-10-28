@@ -1,3 +1,4 @@
+import 'cards_screen.dart' show CardsScreen;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -177,6 +178,30 @@ class _DocsScreenState extends State<DocsScreen> {
                     crossAxisSpacing: 8,
                     childAspectRatio: 1.05,
                     children: [
+                      // ব্যাংক কার্ড, the very first folder (owner, 28 Oct).
+                      Material(
+                        key: const Key('doc-cards'),
+                        color: C.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CardsScreen())),
+                          child: Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(11)),
+                                child: Icon(Icons.credit_card_rounded, color: C.green, size: 20),
+                              ),
+                              const Spacer(),
+                              Text(tr('ব্যাংক কার্ড'), maxLines: 2, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w600, height: 1.25)),
+                              Text(trf('{0}টি', [bnDigits(d.cards.length)]), style: body(11.5, color: C.muted)),
+                            ]),
+                          ),
+                        ),
+                      ),
                       for (final f in folders)
                         Material(
                           color: C.surface,

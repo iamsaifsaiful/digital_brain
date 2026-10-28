@@ -1,3 +1,4 @@
+import '../logic/repeat_text.dart';
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
@@ -90,7 +91,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
         title: r.title,
         subtitle: [
           weekdayShort(d),
-          if (r.repeat != Repeat.none) r.repeat.label,
+          if (r.repeat != Repeat.none) repeatText(r),
           if (d.year != now.year) bnDigits(d.year),
           if (!r.enabled) tr('বন্ধ'),
           if (r.note.isNotEmpty) r.note,

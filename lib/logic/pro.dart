@@ -45,13 +45,15 @@ const freeProjects = 0;
 const freeVaultItems = 20;
 const freeReminders = 20;
 const freeLedgerPeople = 20;
-const freeDocs = 20;
+/// Thirty on the free app (owner, 28 Oct; was 20).
+const freeDocs = 30;
 
 /// Reports: this month and the two before it.
 const freeReportMonths = 3;
 
-/// No free trial: the free app is useful on its own, and Premium is bought
-/// when its tools are wanted.
+/// A free trial (owner, 28 Oct): seven days of Premium from the first open
+/// (Brain.onTrial). After it, without buying, the Premium tools stop; what
+/// was kept in those days stays and can be seen (the rule above).
 enum ProFeature { ai, noAds, autoBackup, docAlerts, dueReminders, history, reminders, people, docs, shops, receipts, pdf, projects, vault, smartNudges, family, will, familyHealth }
 
 /// Open to everyone (owner, 24 Oct: only the list in [proInfo] is premium).
@@ -83,8 +85,8 @@ class ProInfo {
 /// up to date with every change: the Premium page and every lock read it.
 const proInfo = <ProFeature, ProInfo>{
   ProFeature.reminders: ProInfo('যত খুশি রিমাইন্ডার', 'চালু রিমাইন্ডারের কোনো সীমা নেই — কাজ, বিল, ধার-দেনা, কাগজের মেয়াদ সব মিলিয়ে', free: 'সব মিলিয়ে একসাথে ২০টা চালু রিমাইন্ডার'),
-  ProFeature.docs: ProInfo('যত খুশি ডকুমেন্ট', 'NID, পাসপোর্ট, দলিল, ছবি — কোনো সীমা নেই', free: '২০টা ডকুমেন্ট'),
-  ProFeature.projects: ProInfo('অন্যান্য হিসাব', 'বাড়ি, বিয়ে, ঈদ, ব্যবসা — আলাদা হিসাব, বকেয়া আর বাজেট; মূল টাকায় নিজে যুক্ত হয়'),
+  ProFeature.docs: ProInfo('যত খুশি ডকুমেন্ট', 'NID, পাসপোর্ট, দলিল, ছবি — কোনো সীমা নেই', free: '৩০টা ডকুমেন্ট'),
+  ProFeature.projects: ProInfo('অন্যান্য হিসাব', 'বাড়ি, বিয়ে, ঈদ, ব্যবসা — আলাদা আয়, খরচ আর বকেয়া; চাইলে মূল টাকায় যুক্ত হয়'),
   ProFeature.will: ProInfo('ওছিয়তনামা', 'নোটে নিজের ওছিয়ত লিখে রাখা, শেষ কবে বদলেছেন তারিখসহ'),
   ProFeature.familyHealth: ProInfo('পরিবারের স্বাস্থ্য', 'স্বাস্থ্যে পরিবারের সদস্য যুক্ত করে প্রত্যেকের BMI, প্রেশার, সুগার, টিকা আলাদা রাখা', free: 'নিজের স্বাস্থ্য'),
   ProFeature.vault: ProInfo('যত খুশি পাসওয়ার্ড', 'পাসওয়ার্ডের কোনো সীমা নেই', free: '২০টা পাসওয়ার্ড'),

@@ -288,11 +288,10 @@ class _LockScreenState extends State<LockScreen> {
                   children: [
                     Column(
                       children: [
-                        Container(
-                          width: 72,
-                          height: 72,
-                          decoration: BoxDecoration(color: C.green, borderRadius: BorderRadius.circular(22)),
-                          child: const Icon(Icons.psychology_outlined, color: Colors.white, size: 42),
+                        // Our own app icon (owner, 28 Oct).
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(18),
+                          child: Image.asset('assets/brand/app_mark.png', key: const Key('lock-app-mark'), width: 76, height: 76, filterQuality: FilterQuality.medium),
                         ),
                         const SizedBox(height: 12),
                         Text('My Assistant', style: display(30, weight: 700, color: Colors.white)),
@@ -368,6 +367,28 @@ class _LockScreenState extends State<LockScreen> {
                       style: body(13, color: const Color(0xFFA9B5AF), height: 1.5),
                       textAlign: TextAlign.center,
                     ),
+                    // The company behind the app (owner, 28 Oct).
+                    Padding(
+                      padding: const EdgeInsets.only(top: 14),
+                      child: InkWell(
+                        key: const Key('lock-company'),
+                        onTap: () => BrainScope.read(context).services.launcher.openUrl(Uri.parse('https://owlgorithmlabs.com/')),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          child: Text('a product of Owlgorithm Labs', style: body(12, color: const Color(0xFF8E9B95)), textAlign: TextAlign.center),
+                        ),
+                      ),
+                    ),
+                    // Said at the start, where a new member reads it (owner, 28 Oct; was under আরও › রিমাইন্ডার ও কণ্ঠ).
+                    if (_mode == _Mode.google || _mode == _Mode.create || _mode == _Mode.confirm) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        tr('মুখে বললে কথাকে লেখায় রূপান্তর করে ফোনের নিজের ভয়েস সেবা (সাধারণত Google)। সেজন্য আপনার কণ্ঠ ইন্টারনেটে Google-এর কাছে যেতে পারে — আমাদের সার্ভারে নয়। না চাইলে লিখে ব্যবহার করুন।'),
+                        key: const Key('welcome-voice-note'),
+                        style: body(12, color: const Color(0xFF8E9B95), height: 1.5),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ],
                 ),
               ),

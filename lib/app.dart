@@ -7,6 +7,7 @@ import 'logic/bn.dart';
 import 'logic/proactive.dart';
 import 'logic/calendar_bd.dart' show placeNamed, sunTimes;
 import 'logic/sky_light.dart';
+import 'screens/pro_screen.dart' show ProScreen;
 import 'screens/vault_screen.dart' show VaultPage;
 import 'screens/more_screen.dart' show BackupScreen;
 import 'screens/google_backup.dart' show restoreFromDrive;
@@ -21,6 +22,7 @@ import 'screens/person_screen.dart';
 import 'screens/plan_screens.dart';
 import 'screens/store_more_screens.dart';
 import 'services/error_log.dart';
+import 'services/trace.dart';
 import 'services/files.dart';
 import 'services/platform.dart';
 import 'ui/widgets.dart';
@@ -179,6 +181,8 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       _leftAt ??= brain.services.now();
       // সমস্যার লগ goes when the app steps away (and on coming back).
       ErrorLog.flush(brain.services.server, brain.services.ai.session);
+      // সমস্যা খোঁজার লগ goes too, when the member chose to send it.
+      if (brain.loaded && brain.traceShare && Trace.enabled) brain.sendTrace().catchError((_) => null);
       if (brain.loaded) brain.autoDriveBackup();
     } else if (state == AppLifecycleState.resumed) {
       final left = _leftAt;
@@ -190,6 +194,8 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       ErrorLog.flush(brain.services.server, brain.services.ai.session);
       if (brain.loaded && brain.loadError == null) {
         brain.markOpened();
+        // A blood group that could not reach our server yet (owner, 28 Oct).
+        if (brain.text('blood_sync') == 'pending' && brain.signedIn) brain.syncBloodGroup().catchError((_) => null);
         // স্বাস্থ্য › Health Connect: today's steps, last night's sleep (when turned on).
         brain.syncHealthConnect().catchError((_) => 0);
         brain.refreshAccount();
@@ -301,6 +307,8 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       push(const BackupScreen());
     } else if (id.startsWith(nudgeQuote)) {
       push(const SpendHealthScreen());
+    } else if (id.startsWith(nudgeTrial)) {
+      push(const ProScreen());
     } else if (id.startsWith(nudgePass)) {
       push(const VaultPage());
     } else if (id.startsWith(nudgeFix)) {

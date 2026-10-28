@@ -1,3 +1,4 @@
+import '../logic/repeat_text.dart';
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
@@ -9,6 +10,8 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart' show toast;
 import 'alarm_screens.dart';
 import 'calls_screen.dart';
+import 'blood_details.dart';
+import 'google_backup.dart' show restoreFromPhoneFile;
 import 'more_screen.dart' show BackupScreen;
 import 'help_screen.dart';
 import 'plan_screens.dart';
@@ -149,7 +152,7 @@ class _NextCard extends StatelessWidget {
             : (mins < 24 * 60 ? trf('{0} ঘণ্টা পর', [bnDigits((mins / 60).round())]) : '');
     final meta = [
       if (t != null && t.list.isNotEmpty) t.list,
-      if (r != null && r.repeat != Repeat.none) r.repeat.label,
+      if (r != null && r.repeat != Repeat.none) repeatText(r),
       if (t?.note.isNotEmpty ?? false) t!.note,
     ].join(' · ');
     // Someone in যোগাযোগ named in it: ফোন করুন first.
@@ -365,14 +368,36 @@ class _HomeAttentionState extends State<HomeAttention> with WidgetsBindingObserv
         },
       ));
     }
-    // 2. A new phone: bring back the Google backup.
+    // A blood group given without its number or last donation (by voice, say): asked here (owner, 28 Oct).
+    if (brain.bloodDetailsMissing) {
+      return wrap(AttentionCard(
+        key: const Key('home-blood-details'),
+        icon: Icons.bloodtype_outlined,
+        title: trf('রক্তের গ্রুপ {0} — নম্বর আর শেষ রক্তদান দিন', [d.emergency.blood]),
+        text: tr('বিপদে সাহায্যের জন্য এগুলো আমাদের সার্ভারে থাকবে'),
+        action: tr('দিন'),
+        onAction: () => askBloodDetails(context, d.emergency.blood),
+      ));
+    }
+    // 2. A new phone: bring back the Google backup, or one saved on the phone (owner, 28 Oct).
     final fresh = d.ledger.isEmpty && d.cash.isEmpty && d.notes.isEmpty && d.reminders.isEmpty && d.tasks.isEmpty && d.vault.isEmpty;
+    if (brain.signedIn && fresh && !brain.flag('p_card_off')) {
+      return wrap(AttentionCard(
+        key: const Key('home-phone-backup'),
+        icon: Icons.restore_rounded,
+        title: tr('ফোনে আগের ব্যাকআপ আছে?'),
+        text: tr('আগে “ফোনে সেভ” করা ব্যাকআপ ফাইল বেছে নিলে সব তথ্য ফিরে আসবে'),
+        action: tr('ফাইল বেছে নিন'),
+        onAction: () => restoreFromPhoneFile(context, fresh: true),
+        onClose: () => brain.setPref('p_card_off', true),
+      ));
+    }
     if (!brain.signedIn && fresh && !brain.flag('g_card_off')) {
       return wrap(AttentionCard(
         key: const Key('home-google'),
         icon: Icons.cloud_download_outlined,
         title: tr('আগে ব্যবহার করেছেন?'),
-        text: tr('Google দিয়ে লগইন করলে আগের ব্যাকআপ ফিরে আসবে'),
+        text: tr('Google দিয়ে লগইন করলে, বা ফোনে রাখা ব্যাকআপ ফাইল বেছে নিলে, আগের সব তথ্য ফিরে আসবে'),
         action: tr('লগইন'),
         onAction: () => push(const BackupScreen()),
         onClose: () => brain.setPref('g_card_off', true),

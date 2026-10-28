@@ -396,3 +396,40 @@ Future<void> restoreFromDrive(BuildContext context, {bool fresh = false, void Fu
     setBusy(false);
   }
 }
+
+/// A backup kept on the phone ("ফোনে সেভ", a .dbrain file) brought back:
+/// from আরও › ব্যাকআপ, or right after a new install (owner, 28 Oct).
+Future<void> restoreFromPhoneFile(BuildContext context, {bool fresh = false, void Function(bool)? busy}) async {
+  final brain = BrainScope.read(context);
+  void setBusy(bool v) => busy?.call(v);
+  if (!fresh && !await verifyUser(context, reason: tr('ব্যাকআপ ফিরিয়ে আনতে যাচাই করুন'))) return;
+  final Uint8List? bytes = await brain.services.files.pickFile();
+  if (bytes == null || !context.mounted) return;
+  final pass = await askBackupPassword(context, create: false);
+  if (pass == null || !context.mounted) return;
+  setBusy(true);
+  try {
+    final (restored, files) = await Backup.restore(bytes, pass);
+    if (!context.mounted) return;
+    final ok = await confirmDialog(
+      context,
+      title: tr('ব্যাকআপ ফিরিয়ে আনবেন?'),
+      text: trf('ব্যাকআপে আছে: {0}টি পাসওয়ার্ড, {1} জন যোগাযোগ, {2}টি ধার-দেনা, {3}টি আয়-ব্যয়, {4}টি নোট, {5}টি রিমাইন্ডার, {6}টি কাজ, {7}টি ছবি/ফাইল।\n\nএখনকার সব তথ্য এর বদলে যাবে (মেশানো হবে না)। কিছু ব্যর্থ হলে এখনকার তথ্য যেমন আছে থাকবে।', [bnDigits(restored.vault.length), bnDigits(restored.contacts.length), bnDigits(restored.ledger.length), bnDigits(restored.cash.length), bnDigits(restored.notes.length), bnDigits(restored.reminders.length), bnDigits(restored.tasks.length), bnDigits(files.length)]),
+      yes: tr('ফিরিয়ে আনুন'),
+      danger: !fresh,
+    );
+    if (!ok) return;
+    await brain.replaceAll(restored, files: files);
+    if (context.mounted) toast(context, tr('ব্যাকআপ ফিরিয়ে আনা হয়েছে'));
+  } on NotABackup {
+    if (context.mounted) toast(context, tr('এটা My Assistant-এর ব্যাকআপ ফাইল নয়, অথবা ফাইলটি নষ্ট। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
+  } on UnsupportedBackup {
+    if (context.mounted) toast(context, tr('এই ব্যাকআপ অ্যাপের নতুন সংস্করণে বানানো। আগে অ্যাপ হালনাগাদ করুন। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
+  } on WrongKey {
+    if (context.mounted) toast(context, tr('পাসওয়ার্ড মেলেনি, অথবা ফাইলটি নষ্ট। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
+  } catch (e) {
+    if (context.mounted) toast(context, trf('ফিরিয়ে আনা যায়নি: {0}', [e]));
+  } finally {
+    setBusy(false);
+  }
+}

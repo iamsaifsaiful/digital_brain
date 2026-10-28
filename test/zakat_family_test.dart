@@ -86,6 +86,7 @@ void main() {
     await settle(t);
     final before = t.widget<Text>(find.byKey(const Key('zakat-total'))).data;
     final countBefore = zakatCount(zakatLines(b.data, b.services.now(), b.zakatSaved), b.zakatSaved).net;
+    await t.scrollUntilVisible(find.text('পাওনা টাকা'), 200, scrollable: find.byType(Scrollable).last);
     expect(find.text('পাওনা টাকা'), findsOneWidget);
     final rahim = find.byKey(Key('zakat-line-person:${zakatLines(b.data, b.services.now(), b.zakatSaved).firstWhere((l) => l.key.startsWith('person:')).key.substring(7)}'));
     await t.scrollUntilVisible(rahim, 200, scrollable: find.byType(Scrollable).last);

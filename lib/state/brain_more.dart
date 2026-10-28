@@ -87,6 +87,19 @@ extension BrainMore on Brain {
     final done = [...h.done];
     done.contains(k) ? done.remove(k) : done.add(k);
     await saveHabit(h.copyWith(done: done));
+    // Ticked: that day's "করেছেন কি?" is not asked (and comes back when unticked).
+    if (h.askAt != null) await _reschedule();
+  }
+
+  /// "করেছেন কি?" for [h] each day at [minutes] (null turns it off) — only
+  /// on when the user asks (owner, 28 Oct). It replaces the older plain
+  /// daily reminder of the habit, if one was set.
+  Future<void> setHabitAsk(Habit h, int? minutes) async {
+    if (h.reminderId != null) data.reminders.removeWhere((r) => r.id == h.reminderId);
+    final next = minutes == null ? h.copyWith(clearReminder: true, clearAsk: true) : h.copyWith(clearReminder: true, askAt: minutes);
+    _upsert(data.habits, next, (x) => x.id);
+    await _save();
+    await _reschedule();
   }
 
   /// A daily reminder for a habit at [minutes] (null removes it).
@@ -281,6 +294,12 @@ extension BrainMore on Brain {
 
   /// Leaves a line of the zakat count out (or puts it back).
   Future<void> setZakatIncluded(String key, bool included) async {
+    // A হিসাব kept apart is off until ticked (lib/logic/zakat.dart).
+    if (key.startsWith('project:')) {
+      included ? data.zakat.excluded.add('+$key') : data.zakat.excluded.remove('+$key');
+      await _save();
+      return;
+    }
     if (included) {
       data.zakat.excluded.remove(key);
     } else {
@@ -374,8 +393,11 @@ extension BrainMore on Brain {
   // ── Emergency card ──
 
   Future<void> saveEmergency(EmergencyCard c) async {
+    final blood = data.emergency.blood != c.blood;
     data.emergency = c;
     await _save();
+    // The group goes to our server with its number and last donation (owner, 28 Oct).
+    if (blood) unawaited(syncBloodGroup().catchError((_) => null));
     await services.notifier.showEmergency(c.onLockScreen && !c.isEmpty ? emergencyText(c) : null);
   }
 

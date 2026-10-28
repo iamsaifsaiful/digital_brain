@@ -10,6 +10,13 @@ import 'lang.dart';
 import 'ledger.dart';
 import 'money_more.dart' show accountBalance, ZakatSaved, ZakatInput;
 
+/// নিসাব by weight: সাড়ে ৫২ তোলা (ভরি) রুপা ≈ ৬১২.৩৬ গ্রাম; সাড়ে ৭ তোলা সোনা ≈ ৮৭.৪৮ গ্রাম.
+const nisabSilverVori = 52.5;
+const nisabGoldVori = 7.5;
+
+/// The carats বাজুস gives a price for.
+const goldCarats = [('22k', '২২ ক্যারেট'), ('21k', '২১ ক্যারেট'), ('18k', '১৮ ক্যারেট'), ('traditional', 'সনাতন')];
+
 /// The groups, in the order shown.
 enum ZakatGroup {
   cash,
@@ -20,6 +27,7 @@ enum ZakatGroup {
   metal,
   business,
   manual,
+  apart,
   payable,
   loan;
 
@@ -32,6 +40,7 @@ enum ZakatGroup {
         metal => tr('সোনা ও রুপা'),
         business => tr('ব্যবসা ও অন্যান্য'),
         manual => tr('নিজে যোগ করা'),
+        apart => tr('আলাদা রাখা হিসাব — টাকা আপনার নিজের হলে টিক দিন'),
         payable => tr('দেনা (বাদ যাবে)'),
         loan => tr('লোনের কিস্তি — সামনের ১২ মাস (বাদ যাবে)'),
       };
@@ -78,7 +87,9 @@ List<ZakatLine> zakatLines(AppData d, DateTime now, ZakatSaved z) {
   final off = d.zakat.excluded;
   void add(String key, ZakatGroup g, String label, int amount, String how, {DateTime? at, bool debt = false, String? manualId}) {
     if (amount <= 0) return;
-    out.add(ZakatLine(key: key, group: g, label: label, amount: amount, how: how, at: at, debt: debt, included: !off.contains(key), manualId: manualId));
+    // A হিসাব kept apart is left out unless the member ticks it ("+project:…").
+    final on = key.startsWith('project:') ? off.contains('+$key') : !off.contains(key);
+    out.add(ZakatLine(key: key, group: g, label: label, amount: amount, how: how, at: at, debt: debt, included: on, manualId: manualId));
   }
 
   // "এখন আছে" said (owner, 24 Oct): zakat counts from it — the amount then,
@@ -126,6 +137,32 @@ List<ZakatLine> zakatLines(AppData d, DateTime now, ZakatSaved z) {
       add('owe:${p.key}', ZakatGroup.payable, '${p.name}$due', -p.balance, trf('ধার নিয়েছেন {0}, শোধ করেছেন {1} ({2}টা হিসাব)', [_tk(p.borrowedTotal), _tk(p.repaidTotal), bnDigits(p.count)]), at: p.last, debt: true);
     }
   }
+  // A হিসাব kept apart from the main money (a committee's, a mosque's, or
+  // someone else's money kept by the member) is not counted — but if the
+  // money is the member's own, zakat is due on it too: shown, unticked.
+  for (final p in d.projects.where((p) => !p.inMain)) {
+    var hand = 0;
+    final own = d.cash.where((e) => e.projectId == p.id).toList();
+    for (final e in own) {
+      hand += e.kind == CashKind.income ? e.amount : -e.amount;
+    }
+    var get = 0, give = 0;
+    for (final b in balances([for (final e in d.ledger) if (e.projectId == p.id) e])) {
+      if (b.balance > 0) get += b.balance;
+      if (b.balance < 0) give -= b.balance;
+    }
+    final net = hand + get - give;
+    final how = [
+      trf('হাতে {0}', [_tk(hand)]),
+      if (get > 0) trf('বকেয়া পাবেন {0}', [_tk(get)]),
+      if (give > 0) trf('বকেয়া দেবেন {0}', [_tk(give)]),
+    ].join(' · ');
+    if (net > 0) {
+      add('project:${p.id}', ZakatGroup.apart, p.name, net, how, at: _latest([for (final e in own) e.date]));
+    } else if (net < 0) {
+      add('project:${p.id}', ZakatGroup.apart, p.name, -net, how, at: _latest([for (final e in own) e.date]), debt: true);
+    }
+  }
   for (final i in d.installments.where((i) => i.kind == InstallmentKind.loan)) {
     final n = i.left < 12 ? i.left : 12;
     add('loan:${i.id}', ZakatGroup.loan, i.name, n * i.amount, trf('{0}টা কিস্তি × {1}', [bnDigits(n), _tk(i.amount)]), debt: true);
@@ -141,19 +178,25 @@ List<ZakatLine> zakatLines(AppData d, DateTime now, ZakatSaved z) {
   return out;
 }
 
-/// The totals from the included lines (nisab: 52.5 ভরি of silver at the price written).
+/// The totals from the included lines. Nisab (Hanafi, as in Bangladesh):
+/// 52.5 ভরি of silver at the price written — the lower one, for wealth of
+/// more than one kind; when the member has only gold, 7.5 ভরি of gold.
 ZakatInput zakatCount(List<ZakatLine> lines, ZakatSaved z) {
   int sum(bool Function(ZakatLine) f) => lines.where((l) => l.included && f(l)).fold(0, (s, l) => s + l.amount);
+  final gold = sum((l) => l.key == 'gold');
+  final others = sum((l) => !l.debt && l.key != 'gold');
+  final onlyGold = gold > 0 && others == 0;
   return ZakatInput(
+    byGold: onlyGold,
     cash: sum((l) => l.group == ZakatGroup.cash),
     bank: sum((l) => l.group == ZakatGroup.bank || l.group == ZakatGroup.savings || l.group == ZakatGroup.dps),
     gold: sum((l) => l.key == 'gold'),
     silver: sum((l) => l.key == 'silver'),
     business: sum((l) => l.group == ZakatGroup.business),
     receivable: sum((l) => l.group == ZakatGroup.receivable),
-    other: sum((l) => l.group == ZakatGroup.manual && !l.debt),
+    other: sum((l) => (l.group == ZakatGroup.manual || l.group == ZakatGroup.apart) && !l.debt),
     debts: sum((l) => l.debt),
-    nisab: (z.silverPrice * 52.5).round(),
+    nisab: onlyGold ? (z.goldPrice * nisabGoldVori).round() : (z.silverPrice * nisabSilverVori).round(),
   );
 }
 

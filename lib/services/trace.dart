@@ -25,7 +25,40 @@ class Trace {
     if (kDebugMode && const bool.fromEnvironment('TRACE_PRINT')) debugPrint('[trace] $e');
   }
 
-  static void clear() => _events.clear();
+  static void clear() {
+    _events.clear();
+    sentUpTo = null;
+  }
+
+  /// The newest event already sent to our server (আরও › সমস্যা খোঁজার লগ ›
+  /// সার্ভারে পাঠান); only newer ones go next time.
+  static DateTime? sentUpTo;
+
+  /// Words of what never leaves the phone (passwords, the vault, PIN/OTP,
+  /// health, medicines, other apps' messages): a conversation with any of
+  /// them is left out whole — its speech, what it was understood as and
+  /// what it found.
+  static final private = RegExp(
+      r'পাসওয়ার্ড|পাসওয়ার্ড|পাসওয়ার্ড|password|ভল্ট|vault|পিন|\bpin\b|otp|ওটিপি|কোড|\bcode\b|গোপন|কার্ড|card|'
+      r'স্বাস্থ্য|health|ওষুধ|ঔষধ|ওষুদ|medicine|\bmed|ট্যাবলেট|ক্যাপসুল|সিরাপ|ইনসুলিন|ডাক্তার|doctor|হাসপাতাল|প্রেসার|রক্ত|ডায়াবেটিস|সুগার|'
+      r'ওজন|weight|bmi|পিরিয়ড|মাসিক|গর্ভ|টিকা|vaccine|অসুখ|অসুস্থ|জ্বর|ব্যথা|ব্যাথা|রোগ|ঘুম|sleep|step|হাঁট|'
+      r'নোটিফিকেশন|notification|মেসেজ|message|sms|এসএমএস|বিকাশ|bkash|নগদ মেসেজ|ওছিয়ত|অসিয়ত|will_',
+      caseSensitive: false);
+
+  /// What may go to our server: the events after [sentUpTo], without any
+  /// conversation that touched a private subject. Returns the lines and how
+  /// many conversations were left out.
+  static ({List<String> lines, int left, DateTime? upTo}) forServer({bool all = false}) {
+    final fresh = [for (final e in _events) if (all || sentUpTo == null || e.at.isAfter(sentUpTo!)) e];
+    final touched = <String>{};
+    for (final e in _events) {
+      if (private.hasMatch(e.toString())) touched.add(e.conversation.isEmpty ? '#${e.at.microsecondsSinceEpoch}' : e.conversation);
+    }
+    String key(TraceEvent e) => e.conversation.isEmpty ? '#${e.at.microsecondsSinceEpoch}' : e.conversation;
+    final left = {for (final e in fresh) if (touched.contains(key(e))) key(e)};
+    final keep = [for (final e in fresh) if (!touched.contains(key(e))) e];
+    return (lines: [for (final e in keep) mask(e.toString())], left: left.length, upTo: fresh.isEmpty ? null : fresh.last.at);
+  }
 
   /// Six or more digits in a row (phone numbers, account numbers) are hidden.
   static String mask(String s) => s.replaceAllMapped(RegExp(r'[+]?[0-9০-৯][0-9০-৯ \-]{5,}[0-9০-৯]'), (m) => '•' * 6);

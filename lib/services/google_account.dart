@@ -392,6 +392,21 @@ class AccountServer {
     }
   }
 
+  /// সমস্যা খোঁজার লগ, only when the member chose to send it (already cleaned
+  /// on the phone: Trace.forServer). Works before sign-in too.
+  Future<bool> sendTrace(List<String> lines, String version, String session) async {
+    if (!configured) return false;
+    try {
+      final r = await _http
+          .post(Uri.parse('$base/wp-json/my-assistant/v1/trace'),
+              headers: {'Content-Type': 'application/json', if (session.isNotEmpty) 'authorization': 'Bearer $session'}, body: jsonEncode({'lines': lines, 'version': version}))
+          .timeout(const Duration(seconds: 30));
+      return r.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// One call to our server with this phone's session: the answer, or a
   /// plain Bangla reason it did not work (see logic in services/community.dart).
   Future<ServerReply> send(String method, String path, String session, [Map<String, Object?>? body]) async {

@@ -1,3 +1,4 @@
+import '../logic/repeat_text.dart';
 import '../logic/vault_age.dart' show usedBefore;
 import '../logic/services_list.dart';
 import 'package:flutter/material.dart';
@@ -106,6 +107,10 @@ class _NewItemScreenState extends State<NewItemScreen> {
   Repeat _repeat = Repeat.none;
   String? _vaultLink;
 
+  /// "প্রতি সপ্তাহে": which days; "প্রতিদিন": which days left out (owner, 28 Oct).
+  Set<int> _days = {};
+  Set<int> _skip = {};
+
   /// "কতক্ষণ আগে": a number and its unit.
   final _beforeN = TextEditingController();
   BeforeUnit _beforeUnit = BeforeUnit.minute;
@@ -176,6 +181,16 @@ class _NewItemScreenState extends State<NewItemScreen> {
       _minutesBefore = r.minutesBefore;
       _repeat = r.repeat;
       _showRepeat = r.repeat != Repeat.none;
+      if (r.repeat == Repeat.weekly) {
+        final days = r.ringDays;
+        // Five or six days a week reads as "প্রতিদিন, … বাদে".
+        if (days.length >= 5 && days.length < 7) {
+          _repeat = Repeat.daily;
+          _skip = {for (final d in weekOrder) if (!days.contains(d)) d};
+        } else {
+          _days = {...days};
+        }
+      }
       final (n, u) = beforeOf(r.daysBefore, r.minutesBefore);
       _beforeUnit = u;
       if (n > 0) _beforeN.text = bnDigits(n);
@@ -286,9 +301,14 @@ class _NewItemScreenState extends State<NewItemScreen> {
           minute: _time.minute,
           daysBefore: _minutesBefore > 0 ? 0 : _daysBefore,
           minutesBefore: _minutesBefore,
-          repeat: _repeat,
+          // "শুক্রবার বাদে প্রতিদিন" is kept as the other six days of the week.
+          repeat: _repeat == Repeat.daily && _skip.isNotEmpty ? Repeat.weekly : _repeat,
+          weekdays: _repeat == Repeat.weekly
+              ? (_days.isEmpty ? [_date.weekday] : [for (final d in weekOrder) if (_days.contains(d)) d])
+              : (_repeat == Repeat.daily && _skip.isNotEmpty ? [for (final d in weekOrder) if (!_skip.contains(d)) d] : const []),
           note: _noteText.text.trim(),
           vaultId: _vaultLink,
+          alarm: widget.reminder?.alarm ?? false,
         ));
         final task = widget.task;
         if (task != null) {
@@ -603,6 +623,13 @@ class _NewItemScreenState extends State<NewItemScreen> {
       ];
 
   /// Day units make no sense for a reminder that rings every day or every hour.
+  /// "প্রতি শনিবার", "শুক্রবার বাদে প্রতিদিন" — as it will be kept.
+  String get _repeatShown => repeatText(Reminder(
+      title: '',
+      date: _date,
+      repeat: _repeat == Repeat.daily && _skip.isNotEmpty ? Repeat.weekly : _repeat,
+      weekdays: _repeat == Repeat.weekly ? [..._days] : (_repeat == Repeat.daily && _skip.isNotEmpty ? [for (final d in weekOrder) if (!_skip.contains(d)) d] : const [])));
+
   bool get _dayUnits => _repeat == Repeat.none || _repeat == Repeat.monthly || _repeat == Repeat.yearly;
   BeforeUnit get _usableUnit => !_dayUnits && _beforeUnit.days ? BeforeUnit.hour : _beforeUnit;
 
@@ -680,7 +707,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
           child: Row(children: [
             Icon(Icons.repeat_rounded, size: 20, color: C.muted),
             const SizedBox(width: 8),
-            Expanded(child: Text(trf('কতবার: {0}', [tr(_repeat.label)]), style: body(15))),
+            Expanded(child: Text(trf('কতবার: {0}', [_repeatShown]), style: body(15))),
             Text(_showRepeat ? tr('লুকান') : tr('বদলান'), style: body(14, weight: FontWeight.w600, color: C.green)),
           ]),
         ),
@@ -697,9 +724,32 @@ class _NewItemScreenState extends State<NewItemScreen> {
               backgroundColor: C.surface,
               side: BorderSide(color: r == _repeat ? C.ink : C.border),
               shape: const StadiumBorder(),
-              onSelected: (_) => setState(() => _repeat = r),
+              onSelected: (_) => setState(() {
+                _repeat = r;
+                if (r == Repeat.weekly && _days.isEmpty) _days = {_date.weekday};
+              }),
             ),
         ]),
+        if (_repeat == Repeat.weekly || _repeat == Repeat.daily) ...[
+          const SizedBox(height: 10),
+          Text(_repeat == Repeat.weekly ? tr('কোন কোন দিন বাজবে?') : tr('কোনো দিন বাদ দেবেন? (যেমন শুক্রবার)'), style: body(13, color: C.muted)),
+          const SizedBox(height: 6),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final d in weekOrder)
+              FilterChip(
+                key: Key('rem-day-$d'),
+                label: Text(dayName(d), style: body(13.5)),
+                selected: _repeat == Repeat.weekly ? _days.contains(d) : _skip.contains(d),
+                onSelected: (on) => setState(() {
+                  final set = _repeat == Repeat.weekly ? _days : _skip;
+                  on ? set.add(d) : set.remove(d);
+                  // Never every day left out, never no day at all.
+                  if (_repeat == Repeat.daily && _skip.length == 7) _skip.remove(d);
+                  if (_repeat == Repeat.weekly && _days.isEmpty) _days.add(d);
+                }),
+              ),
+          ]),
+        ],
       ],
       _gap,
       TextFormField(controller: _noteText, decoration: InputDecoration(labelText: tr('নোট (ঐচ্ছিক)'))),

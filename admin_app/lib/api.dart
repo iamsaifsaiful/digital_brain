@@ -14,7 +14,7 @@ const apiBase = String.fromEnvironment('API_BASE', defaultValue: 'https://getmya
 
 /// This app's version, sent with every call: an older one than the server
 /// works with is told to update (keep equal to pubspec.yaml; a test checks).
-const adminAppVersion = '1.14.0';
+const adminAppVersion = '1.15.0';
 
 class ApiError implements Exception {
   const ApiError(this.message, {this.signedOut = false, this.code = '', this.url = ''});
@@ -298,6 +298,12 @@ class Api {
   /// সমস্যার লগ: errors the app ran into (cleaned on the phone and the server).
   Future<List<Map<String, dynamic>>> errors() async => [for (final e in ((await _send('GET', '/admin/errors'))['errors'] as List? ?? const [])) (e as Map).cast<String, dynamic>()];
   Future<void> clearErrors() => _send('POST', '/admin/errors/clear');
+  /// সমস্যা খোঁজার লগ the members chose to send.
+  Future<List<Map<String, dynamic>>> traces() async => [for (final e in ((await _send('GET', '/admin/traces'))['traces'] as List? ?? const [])) (e as Map).cast<String, dynamic>()];
+  Future<String> trace(int id) async => '${(await _send('GET', '/admin/traces/$id'))['body'] ?? ''}';
+  Future<void> clearTraces() => _send('POST', '/admin/traces/clear');
+  /// Members who gave their blood group ([group] '' = all), with counts per group.
+  Future<Map<String, dynamic>> bloodGroups(String group) async => await _send('GET', '/admin/blood${group.isEmpty ? '' : '?blood=${Uri.encodeQueryComponent(group)}'}');
   Future<void> addFinanceEntry({required String kind, required String category, required int amount, required String date, String note = ''}) =>
       _send('POST', '/admin/finance/entry', {'kind': kind, 'category': category, 'amount': amount, 'date': date, 'note': note});
   Future<void> addInvestor({required String name, String contact = '', int amount = 0, String share = '', required String date, String note = ''}) =>

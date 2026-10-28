@@ -18,6 +18,10 @@ on:
 
 permissions:
   contents: write
+  actions: read
+
+# tool/nlu/retrain/FROM_RUN holding a run id (28 Oct): no training — the
+# three seeds trained in that run go to the pick and the gate again.
 
 jobs:
   train:
@@ -29,12 +33,18 @@ jobs:
         seed: [7, 11, 23]
     steps:
       - uses: actions/checkout@v5
+      - name: Reuse an earlier run?
+        id: reuse
+        run: if [ -s tool/nlu/retrain/FROM_RUN ]; then echo "skip=1" >> $GITHUB_OUTPUT; echo "Reusing run $(cat tool/nlu/retrain/FROM_RUN)"; fi
       - uses: actions/setup-python@v5
+        if: steps.reuse.outputs.skip != '1'
         with:
           python-version: '3.11'
       - name: Install
+        if: steps.reuse.outputs.skip != '1'
         run: pip install "tensorflow-cpu==2.15.1" "numpy<2" scipy scikit-learn "transformers==4.40.2" "tf_keras==2.15.1" "torch==2.3.1" --extra-index-url https://download.pytorch.org/whl/cpu
       - name: Members' samples
+        if: steps.reuse.outputs.skip != '1'
         env:
           MA_NLU_CI_KEY: ${{ secrets.MA_NLU_CI_KEY }}
         run: |
@@ -42,10 +52,12 @@ jobs:
           python tool/nlu/retrain/fetch.py
           python tool/nlu/retrain/labels.py tool/nlu/out/real_samples.jsonl | tee labels.log
       - name: Make data
+        if: steps.reuse.outputs.skip != '1'
         run: |
           python tool/nlu/crowd/crowd.py
           python tool/nlu/data/generate.py | tee data.log
       - name: Train
+        if: steps.reuse.outputs.skip != '1'
         env:
           # Long one-breath speech (25 Oct): 96 word pieces (was 48).
           BERT_MAXT: '96'
@@ -64,6 +76,7 @@ jobs:
           print('dev accuracy', dev)
           PY
       - name: Keep the result
+        if: steps.reuse.outputs.skip != '1'
         uses: actions/upload-artifact@v4
         with:
           name: seed-${{ matrix.seed }}
@@ -88,9 +101,14 @@ jobs:
           python-version: '3.11'
       - name: Install
         run: pip install "tensorflow-cpu==2.15.1" "numpy<2" scipy scikit-learn "transformers==4.40.2" "tf_keras==2.15.1" "torch==2.3.1" --extra-index-url https://download.pytorch.org/whl/cpu
+      - name: Which run's seeds
+        id: from
+        run: echo "run=$(cat tool/nlu/retrain/FROM_RUN 2>/dev/null || echo ${{ github.run_id }})" >> $GITHUB_OUTPUT
       - uses: actions/download-artifact@v4
         with:
           path: seeds
+          run-id: ${{ steps.from.outputs.run }}
+          github-token: ${{ github.token }}
       - name: The best on the dev split
         id: pick
         run: |
@@ -115,7 +133,6 @@ jobs:
           D=$(ls -d seeds/seed-${{ steps.pick.outputs.seed }})
           mkdir -p tool/nlu/out/models tool/nlu/out/data
           cp -r "$D/tool/nlu/out/models/bert" tool/nlu/out/models/
-          cp "$D/tool/nlu/out/pred_bert.jsonl" tool/nlu/out/
           cp "$D/tool/nlu/out/data/stats.json" tool/nlu/out/data/ 2>/dev/null || true
           cp "$D/train.log" "$D/data.log" . 2>/dev/null || true
           cp "$D/labels.log" . 2>/dev/null || true
@@ -126,6 +143,10 @@ jobs:
           LIVE=$(cat tool/nlu/retrain/LIVE)
           gh release download "nlu-model-$LIVE" -p "*.tflite" -O /tmp/live.tflite || { echo "No live model asset: the gate uses the old file"; exit 0; }
           python tool/nlu/retrain/live_pred.py /tmp/live.tflite | tee live.log || echo "Live reading failed: the gate uses the old file"
+      - name: The chosen model's reading
+        # After the live reading: live_pred.py writes through out/pred_bert.jsonl
+        # and moves it away, which took the new model's reading with it (round 7).
+        run: cp "seeds/seed-${{ steps.pick.outputs.seed }}/tool/nlu/out/pred_bert.jsonl" tool/nlu/out/
       - name: Gate
         id: gate
         run: |

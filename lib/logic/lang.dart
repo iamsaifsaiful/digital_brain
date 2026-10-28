@@ -13,6 +13,21 @@ bool isEn = false;
 
 String tr(String bn) => isEn ? (enStrings[bn] ?? bn) : bn;
 
+/// A menu or tile name (owner, 28 Oct): in English the name a menu would
+/// have ("Notes", "Passwords"), not the word's plain meaning.
+String trm(String bn) => isEn ? (_menuEn[bn] ?? tr(bn)) : bn;
+
+const _menuEn = {
+  'নোট': 'Notes',
+  'পাসওয়ার্ড': 'Passwords',
+  'ব্লাড ডোনেশন': 'Blood',
+  'ডকুমেন্ট': 'Documents',
+  'অ্যালার্ম': 'Alarms',
+  'ওষুধ': 'Medicines',
+  'রিমাইন্ডার': 'Reminders',
+  'হিসাব': 'Money',
+};
+
 String trf(String bn, List<Object?> args) {
   var s = isEn ? (enStrings[bn] ?? bn) : bn;
   for (var i = 0; i < args.length; i++) {

@@ -257,7 +257,18 @@ class Brain extends ChangeNotifier {
   /// The first day the app was opened (no full-screen ad that day).
   DateTime? firstUse;
 
-  bool get pro => !gated || (proUntil != null && services.now().isBefore(proUntil!));
+  /// Premium bought (Google Play or our server), not the trial.
+  bool get paidPro => proUntil != null && services.now().isBefore(proUntil!);
+
+  /// Seven days of Premium from the first open (owner, 28 Oct). After that,
+  /// without buying, the Premium tools stop; everything kept stays (logic/pro.dart).
+  static const trialDays = 7;
+  DateTime? trialStart;
+  DateTime? get trialEnds => trialStart?.add(const Duration(days: trialDays));
+  bool get onTrial => gated && !paidPro && trialEnds != null && services.now().isBefore(trialEnds!);
+  bool get trialOver => gated && !paidPro && trialEnds != null && !services.now().isBefore(trialEnds!);
+
+  bool get pro => !gated || paidPro || onTrial;
   bool get showAds => gated && !pro;
 
   /// The preview draws sample ad spaces (real ads need AdMob).
@@ -369,6 +380,45 @@ class Brain extends ChangeNotifier {
       hour: 10,
       daysBefore: 1);
 
+  /// The bell on ধার-দেনা (owner, 28 Oct, like the to-do list's): a reminder at
+  /// [at] for money owed when no pay date was given — it becomes the pay date.
+  /// The one set before for the same entry is replaced.
+  Future<Reminder> remindLedger(LedgerEntry e, DateTime at) async {
+    final old = e.reminderId;
+    if (old != null) data.reminders.removeWhere((r) => r.id == old);
+    final r = Reminder(
+        title: e.projectId != null
+            ? (e.kind == LedgerKind.lent ? trf('{0}-এর কাছে {1} বকেয়া — তাগাদা দিন', [e.person, taka(e.amount)]) : trf('{0}-কে {1} বকেয়া শোধ করার কথা', [e.person, taka(e.amount)]))
+            : e.kind == LedgerKind.lent
+                ? trf('{0}-এর কাছে {1} পাওনা — তাগাদা দিন', [e.person, taka(e.amount)])
+                : trf('{0}-কে {1} শোধ করার কথা', [e.person, taka(e.amount)]),
+        date: dayOnly(at),
+        hour: at.hour,
+        minute: at.minute);
+    data.reminders.add(r);
+    _upsert(data.ledger, e.copyWith(due: dayOnly(at), reminderId: r.id), (y) => y.id);
+    await _save();
+    await _reschedule();
+    return r;
+  }
+
+  /// The reminder set on someone's money (the bell shows it), if any still to ring.
+  Reminder? ledgerReminderOf(String accountKey) {
+    final keys = accountKeys(data.ledger);
+    return ledgerReminderIn([for (final e in data.ledger) if (keys[e.id] == accountKey) e]);
+  }
+
+  /// The same for any one person's entries (also a হিসাব's বকেয়া).
+  Reminder? ledgerReminderIn(Iterable<LedgerEntry> lines) {
+    final now = services.now();
+    for (final e in lines.toList().reversed) {
+      if (e.reminderId == null) continue;
+      final r = data.reminders.where((x) => x.id == e.reminderId && x.enabled).firstOrNull;
+      if (r != null && !r.nextDate(now).isBefore(dayOnly(now))) return r;
+    }
+    return null;
+  }
+
   Reminder _expiryReminder(Doc d) => Reminder(title: '${d.title} — মেয়াদ শেষ', date: d.expiry!, hour: 10, daysBefore: 30);
 
   Future<void> _loadPro() async {
@@ -384,6 +434,13 @@ class Brain extends ChangeNotifier {
         proKind = '';
         await keys.delete('pro_until');
         await keys.delete('pro_kind');
+      }
+      // The trial starts the first time this version (or a later one) opens —
+      // members from before get their seven days too, once.
+      trialStart = DateTime.tryParse(await keys.read('trial_start') ?? '');
+      if (trialStart == null) {
+        trialStart = services.now();
+        await keys.write('trial_start', trialStart!.toIso8601String());
       }
       firstUse = DateTime.tryParse(await keys.read('first_use') ?? '');
       if (firstUse == null) {
@@ -1169,7 +1226,7 @@ class Brain extends ChangeNotifier {
   // ── The assistant speaking first, and modes (সেটিংস › সহকারী) ──
 
   bool morningOn = true;
-  int morningAt = 8 * 60;
+  int morningAt = defaultMorningAt;
   bool nightOn = true;
   int nightAt = 21 * 60;
   bool nudgesOn = true;
@@ -1228,6 +1285,7 @@ class Brain extends ChangeNotifier {
         quote: flag('n_quote', true),
         homeFix: flag('n_fix', true),
         rules: noticeRules,
+        trialEnds: onTrial ? trialEnds : null,
         groups: memberGroups(now: services.now(), firstUse: firstUse, openDays: openDays, pro: gated ? pro : true),
       );
 
@@ -1361,12 +1419,63 @@ class Brain extends ChangeNotifier {
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly', 'n_quote', 'n_fix',
-    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'g_card_off', 'trace_on', 'hc_on', 'hc_gone', 'steps_book',
+    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'blood_last_unknown', 'blood_phone', 'blood_sync', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'zakat_gold_carat', 'g_card_off', 'p_card_off', 'trace_on', 'trace_share', 'hc_on', 'hc_gone', 'steps_book',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
   int number(String key, [int or = 0]) => int.tryParse(prefs[key] ?? '') ?? or;
   String text(String key, [String or = '']) => prefs[key] ?? or;
+
+  /// The user's own blood group still lacks the number or the last donation
+  /// day (or "মনে নেই") that must go with it (owner, 28 Oct).
+  bool get bloodDetailsMissing {
+    if (data.emergency.blood.isEmpty) return false;
+    final phone = text('blood_phone');
+    return phone.isEmpty || (text('blood_last').isEmpty && !flag('blood_last_unknown'));
+  }
+
+  /// Keeps the number and last donation that go with the group, then sends them.
+  Future<String?> setBloodDetails({required String phone, DateTime? last, bool unknown = false}) async {
+    await setPref('blood_phone', phone);
+    if (last != null) {
+      await setPref('blood_last', last.toIso8601String());
+      await setPref('blood_last_unknown', false);
+    } else {
+      await setPref('blood_last_unknown', unknown);
+    }
+    return syncBloodGroup();
+  }
+
+  /// The group, number and last donation to our server (or taken away when
+  /// the group is cleared). Kept pending when it cannot go now.
+  Future<String?> syncBloodGroup() async {
+    final blood = data.emergency.blood;
+    if (blood.isNotEmpty && bloodDetailsMissing) return null;
+    if (!signedIn) {
+      await setPref('blood_sync', 'pending');
+      return null;
+    }
+    final e = await community.setBloodGroup(
+        blood: blood, phone: text('blood_phone'), lastDonated: DateTime.tryParse(text('blood_last')), lastUnknown: flag('blood_last_unknown'), district: district);
+    await setPref('blood_sync', e == null ? 'done' : 'pending');
+    return e;
+  }
+
+  /// সমস্যা খোঁজার লগ › সার্ভারে পাঠান: the member's choice to send the log
+  /// to us (off unless turned on).
+  bool get traceShare => flag('trace_share');
+
+  /// Sends what is new in the log (private conversations left out). Null when
+  /// it could not go; otherwise how many lines went and how many
+  /// conversations were kept back.
+  Future<({int sent, int left})?> sendTrace({bool all = false}) async {
+    final t = Trace.forServer(all: all);
+    if (t.lines.isEmpty) return (sent: 0, left: t.left);
+    final ok = await services.server.sendTrace(t.lines.length > 400 ? t.lines.sublist(t.lines.length - 400) : t.lines, ErrorLog.version, services.ai.session);
+    if (!ok) return null;
+    if (t.upTo != null) Trace.sentUpTo = t.upTo;
+    return (sent: t.lines.length > 400 ? 400 : t.lines.length, left: t.left);
+  }
 
   /// One switch or value from the assistant settings, saved and applied.
   Future<void> setPref(String key, Object value) async {
@@ -1413,7 +1522,7 @@ class Brain extends ChangeNotifier {
       carryOver = await flag('carry_over', true);
       businessMode = await flag('business_mode', false);
       panelMic = await flag('panel_mic', false);
-      morningAt = int.tryParse(await keys.read('morning_at') ?? '') ?? 8 * 60;
+      morningAt = int.tryParse(await keys.read('morning_at') ?? '') ?? defaultMorningAt;
       nightAt = int.tryParse(await keys.read('night_at') ?? '') ?? 21 * 60;
       persona = await keys.read('persona') ?? '';
       for (final k in prefKeys) {
@@ -1612,10 +1721,24 @@ class Brain extends ChangeNotifier {
     return p ?? _metal;
   }
 
-  /// Today's 22-carat prices into the যাকাত page (the user can still change them).
+  /// Today's prices into the যাকাত page — gold at the carat chosen (the user can still change them).
   Future<void> useMetalPrice(MetalPrice p) async {
-    await setZakatValue('gold_price', '${p.gold22}');
+    final g = p.gold[zakatCarat] ?? 0;
+    await setZakatValue('gold_price', '${g > 0 ? g : p.gold22}');
     await setZakatValue('silver_price', '${p.silver22}');
+  }
+
+  /// The carat of the member's gold ('22k' unless chosen).
+  String get zakatCarat => text('zakat_gold_carat', '22k');
+
+  /// Another carat: its price from today's বাজুস list when known.
+  Future<void> setZakatCarat(String k) async {
+    prefs['zakat_gold_carat'] = k;
+    await _put('zakat_gold_carat', k);
+    final p = todayMetal ?? _metal;
+    final g = p?.gold[k] ?? 0;
+    if (g > 0) await setZakatValue('gold_price', '$g');
+    notifyListeners();
   }
 
   /// Keeps one entered zakat value (no reschedule needed).
@@ -2377,6 +2500,30 @@ class Brain extends ChangeNotifier {
   }
 
   Future<Uint8List?> docBytes(DocFile f) => services.store.loadDocFile(f.id);
+
+  // ── ডকুমেন্টস › ব্যাংক কার্ড (owner, 28 Oct) ──
+
+  /// A card photo, kept encrypted like a document's page — never read for
+  /// text (the number would end up searchable).
+  Future<DocFile> keepCardPhoto(PickedDoc f) => keepFile(f, text: '');
+
+  Future<void> saveCard(BankCard c) async {
+    final old = data.cards.where((x) => x.id == c.id).firstOrNull;
+    // A photo replaced: the old one goes.
+    for (final (was, now) in [(old?.front, c.front), (old?.back, c.back)]) {
+      if (was != null && was.id != now?.id) await services.store.deleteDocFile(was.id);
+    }
+    _upsert(data.cards, c, (x) => x.id);
+    await _save();
+  }
+
+  Future<void> deleteCard(String id) async {
+    for (final c in data.cards.where((x) => x.id == id)) {
+      _trash('${c.bank} ${c.kind.label}', [('cards', c.toJson())], files: [if (c.front != null) c.front!.id, if (c.back != null) c.back!.id]);
+    }
+    data.cards.removeWhere((x) => x.id == id);
+    await _save();
+  }
 
   Future<void> deleteDoc(Doc d) async {
     _trash(d.title, [('docs', d.toJson()), ..._remindersJson([d.reminderId])], files: [for (final f in d.files) f.id]);
