@@ -70,9 +70,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk play-preview-arm64.apk
-          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk play-preview-armv7.apk
+          for a in arm64-v8a:arm64 armeabi-v7a:armv7; do
+            cp "build/app/outputs/flutter-apk/app-${a%%:*}-release.apk" "play-preview-${a##*:}.apk" || { echo "::error title=Publish pre-release::no ${a%%:*} APK: $(ls build/app/outputs/flutter-apk 2>&1 | tr '\n' ' ')"; exit 1; }
+          done
           VERSION=$(grep '^version:' pubspec.yaml | sed -E 's/version: *([^+]+).*/\1/')
           TAG="preview-${VERSION}-build.${{ github.run_number }}"
-          gh release create "$TAG" play-preview-arm64.apk play-preview-armv7.apk --prerelease --target "$GITHUB_SHA" \
-            --title "Play preview $VERSION (build ${{ github.run_number }})" --notes "প্লে স্টোর ভার্সনের প্রিভিউ — আলাদা অ্যাপ হিসেবে ইনস্টল হয়।"
+          # A failure says why as an annotation (the run's log may not be readable everywhere).
+          if ! out=$(gh release create "$TAG" play-preview-arm64.apk play-preview-armv7.apk --prerelease --target "$GITHUB_SHA" \
+            --title "Play preview $VERSION (build ${{ github.run_number }})" --notes "প্লে স্টোর ভার্সনের প্রিভিউ — আলাদা অ্যাপ হিসেবে ইনস্টল হয়।" 2>&1); then
+            echo "::error title=Publish pre-release::$(echo "$out" | tail -5 | tr '\n' ' ')"
+            exit 1
+          fi
