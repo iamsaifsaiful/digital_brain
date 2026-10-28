@@ -197,7 +197,7 @@ void main() {
     expect(cashOnHand(b.data), 8500);
     expect(totalBalance(b.data), 6500);
   });
-  testWidgets('ধার-দেনা counts বকেয়া too and says how much of it is বকেয়া', (t) async {
+  testWidgets('ধার-দেনা has only ধার-দেনা: a হিসাব\'s বকেয়া stays inside that হিসাব (owner, 28 Oct; was counted here since 24 Oct)', (t) async {
     final rig = await start(t);
     final b = rig.brain;
     final p = Project(name: 'বাড়ির কাজ');
@@ -208,7 +208,9 @@ void main() {
     await settle(t);
     await t.tap(find.text('ধার-দেনা'));
     await settle(t);
-    expect(find.byKey(const Key('loans-dues-note')), findsOneWidget);
-    expect(find.textContaining('বকেয়া · বাড়ির কাজ'), findsOneWidget);
+    expect(find.byKey(const Key('loans-dues-note')), findsNothing);
+    expect(find.text('রহিম'), findsOneWidget);
+    expect(find.text('সেলিম'), findsNothing);
+    expect(find.textContaining('৭,০০০'), findsNothing);
   });
 }

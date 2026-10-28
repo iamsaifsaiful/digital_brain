@@ -387,7 +387,11 @@ class Brain extends ChangeNotifier {
     final old = e.reminderId;
     if (old != null) data.reminders.removeWhere((r) => r.id == old);
     final r = Reminder(
-        title: e.kind == LedgerKind.lent ? trf('{0}-এর কাছে {1} পাওনা — তাগাদা দিন', [e.person, taka(e.amount)]) : trf('{0}-কে {1} শোধ করার কথা', [e.person, taka(e.amount)]),
+        title: e.projectId != null
+            ? (e.kind == LedgerKind.lent ? trf('{0}-এর কাছে {1} বকেয়া — তাগাদা দিন', [e.person, taka(e.amount)]) : trf('{0}-কে {1} বকেয়া শোধ করার কথা', [e.person, taka(e.amount)]))
+            : e.kind == LedgerKind.lent
+                ? trf('{0}-এর কাছে {1} পাওনা — তাগাদা দিন', [e.person, taka(e.amount)])
+                : trf('{0}-কে {1} শোধ করার কথা', [e.person, taka(e.amount)]),
         date: dayOnly(at),
         hour: at.hour,
         minute: at.minute);
@@ -401,9 +405,14 @@ class Brain extends ChangeNotifier {
   /// The reminder set on someone's money (the bell shows it), if any still to ring.
   Reminder? ledgerReminderOf(String accountKey) {
     final keys = accountKeys(data.ledger);
+    return ledgerReminderIn([for (final e in data.ledger) if (keys[e.id] == accountKey) e]);
+  }
+
+  /// The same for any one person's entries (also a হিসাব's বকেয়া).
+  Reminder? ledgerReminderIn(Iterable<LedgerEntry> lines) {
     final now = services.now();
-    for (final e in data.ledger.reversed) {
-      if (keys[e.id] != accountKey || e.reminderId == null) continue;
+    for (final e in lines.toList().reversed) {
+      if (e.reminderId == null) continue;
       final r = data.reminders.where((x) => x.id == e.reminderId && x.enabled).firstOrNull;
       if (r != null && !r.nextDate(now).isBefore(dayOnly(now))) return r;
     }

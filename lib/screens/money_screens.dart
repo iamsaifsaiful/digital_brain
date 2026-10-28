@@ -882,13 +882,6 @@ class ProjectsView extends StatelessWidget {
     final d = brain.data;
     final open = d.projects.where((p) => !p.closed).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     final closed = d.projects.where((p) => p.closed).toList();
-    var inTotal = 0, outTotal = 0;
-    for (final p in open) {
-      final s = projectSums(d.cash, p.id);
-      inTotal += s.income;
-      outTotal += s.expense;
-    }
-
     Future<void> create() async {
       if (!await needPro(context, ProFeature.projects, allowed: brain.canAddProject) || !context.mounted) return;
       final r = await askNewProject(context);
@@ -940,35 +933,11 @@ class ProjectsView extends StatelessWidget {
       await dueForm(context, target);
     }
 
-    Widget row(Project p) {
-      final s = projectSums(d.cash, p.id);
-      final (owed, _) = projectDueTotals(d, p.id);
-      final sub = trf('এসেছে {0} · খরচ {1}', [taka(s.income), taka(s.expense)]);
-      return ListRow(
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(color: C.blueTint, borderRadius: BorderRadius.circular(12)),
-          child: Icon(Icons.work_outline_rounded, color: C.blue, size: 20),
-        ),
-        title: p.name,
-        subtitle: owed > 0 ? '$sub · ${trf('বকেয়া {0}', [taka(owed)])}' : sub,
-        trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text(taka(s.balance.abs()), style: display(16, color: s.balance >= 0 ? C.green : C.orange)),
-          Text(s.balance >= 0 ? tr('অবশিষ্ট') : tr('বেশি খরচ'), style: body(12, color: C.muted)),
-        ]),
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProjectScreen(id: p.id))),
-      );
-    }
+    // Each হিসাব on its own cover (owner, 28 Oct): no totals across them —
+    // each is separate, and one let into the main money is counted there.
+    Widget row(Project p) => ProjectCover(project: p, onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProjectScreen(id: p.id))));
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      SummaryCard(
-        title: tr('চলমান হিসাবগুলোতে হাতে আছে'),
-        amount: (inTotal - outTotal).abs(),
-        negative: inTotal < outTotal,
-        items: [(tr('মোট এসেছে'), inTotal, C.green), (tr('মোট খরচ'), outTotal, C.ink)],
-      ),
-      const SizedBox(height: 12),
       Row(children: [
         Expanded(child: PrimaryButton(label: tr('নতুন হিসাব'), icon: Icons.add_rounded, height: 48, color: C.fill, onPressed: create)),
         const SizedBox(width: 8),
@@ -977,8 +946,6 @@ class ProjectsView extends StatelessWidget {
       const SizedBox(height: 8),
       Text(tr('মুখেও বলা যায়: “রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো”, “রহিম ভবন প্রজেক্টে রড কিনলাম ২০ হাজার”'), style: body(13, color: C.muted)),
       const SizedBox(height: 16),
-      AllDuesSection(projects: [...open, ...closed]),
-      if (open.isNotEmpty || closed.isNotEmpty) const SizedBox(height: 16),
       if (open.isEmpty && closed.isEmpty)
         EmptyState(
           icon: Icons.work_outline_rounded,
@@ -988,15 +955,107 @@ class ProjectsView extends StatelessWidget {
       else ...[
         if (open.isNotEmpty) ...[
           SectionTitle(tr('চলমান হিসাব')),
-          Panel(child: Rows(children: [for (final p in open) row(p)])),
+          for (final p in open) Padding(padding: const EdgeInsets.only(bottom: 12), child: row(p)),
         ],
         if (closed.isNotEmpty) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 4),
           SectionTitle(tr('শেষ হওয়া হিসাব')),
-          Panel(child: Rows(children: [for (final p in closed) row(p)])),
+          for (final p in closed) Padding(padding: const EdgeInsets.only(bottom: 12), child: row(p)),
         ],
+        const SizedBox(height: 4),
+        AllDuesSection(projects: [...open, ...closed]),
       ],
     ]);
+  }
+}
+
+/// One হিসাব's cover on the অন্যান্য হিসাব tab: its name big on its own
+/// colour, whether it joins the main money, and its overview — what came,
+/// what went, what is left, the বকেয়া both ways, and the last entry.
+class ProjectCover extends StatelessWidget {
+  const ProjectCover({super.key, required this.project, required this.onTap});
+  final Project project;
+  final VoidCallback onTap;
+
+  static const _covers = [
+    [Color(0xFF0E5A4A), Color(0xFF2A9D7E)],
+    [Color(0xFF1D3B6E), Color(0xFF4A78C2)],
+    [Color(0xFF6B2D4A), Color(0xFFB2557E)],
+    [Color(0xFF6B4A12), Color(0xFFC08A2D)],
+    [Color(0xFF3B2470), Color(0xFF7A5BD0)],
+    [Color(0xFF214B5C), Color(0xFF3F8EA8)],
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final d = BrainScope.of(context).data;
+    final p = project;
+    final s = projectSums(d.cash, p.id);
+    final (owed, owing) = projectDueTotals(d, p.id);
+    final entries = d.cash.where((e) => e.projectId == p.id).toList();
+    final last = entries.isEmpty ? null : entries.map((e) => e.date).reduce((a, b) => a.isAfter(b) ? a : b);
+    final c = _covers[p.id.codeUnits.fold<int>(0, (a, x) => a + x) % _covers.length];
+    const white = Colors.white;
+    Widget fig(String label, int v, {bool warn = false}) => Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: body(11.5, color: white.withValues(alpha: 0.75))),
+            const SizedBox(height: 2),
+            FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(taka(v), style: display(16, weight: 700, color: warn ? const Color(0xFFFFD7A8) : white))),
+          ]),
+        );
+    return Opacity(
+      opacity: p.closed ? 0.7 : 1,
+      child: Material(
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: Key('project-${p.id}'),
+          onTap: onTap,
+          child: Ink(
+            decoration: BoxDecoration(gradient: LinearGradient(colors: c, begin: Alignment.topLeft, end: Alignment.bottomRight)),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(color: white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.work_outline_rounded, color: white, size: 19),
+                ),
+                const SizedBox(width: 10),
+                Expanded(child: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(19, weight: 700, color: white))),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(8)),
+                  child: Text(p.closed ? tr('শেষ') : (p.inMain ? tr('মূল হিসাবে যুক্ত') : tr('আলাদা')), style: body(11.5, weight: FontWeight.w600, color: white)),
+                ),
+              ]),
+              const SizedBox(height: 14),
+              Row(children: [
+                fig(tr('এসেছে'), s.income),
+                fig(tr('খরচ'), s.expense),
+                fig(s.balance >= 0 ? tr('হাতে আছে') : tr('বেশি খরচ'), s.balance.abs(), warn: s.balance < 0),
+              ]),
+              if (owed > 0 || owing > 0) ...[
+                const SizedBox(height: 10),
+                Row(children: [
+                  if (owed > 0) fig(tr('বকেয়া পাব'), owed),
+                  if (owing > 0) fig(tr('বকেয়া দেব'), owing, warn: true),
+                  if (owed == 0 || owing == 0) const Expanded(child: SizedBox()),
+                  const Expanded(child: SizedBox()),
+                ]),
+              ],
+              const SizedBox(height: 10),
+              Text(
+                  last == null
+                      ? tr('এখনো কোনো লেনদেন নেই')
+                      : trf('{0}টা লেনদেন · শেষ {1}', [bnDigits(entries.length), relativeDay(last, BrainScope.of(context).services.now())]),
+                  style: body(12, color: white.withValues(alpha: 0.8))),
+            ]),
+          ),
+        ),
+      ),
+    );
   }
 }
 

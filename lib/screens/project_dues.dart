@@ -4,6 +4,7 @@
 /// loan entry tagged with the project, so it is on the person's page too.
 library;
 
+import 'ledger_screen.dart' show LedgerAlarmButton;
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
@@ -343,9 +344,13 @@ class ProjectDuesSection extends StatelessWidget {
                   subtitle: next != null
                       ? (late ? trf('পরিশোধের দিন পেরিয়েছে ({0})', [shortDate(next)]) : trf('পরিশোধ {0}', [shortDate(next)]))
                       : (p.last == null ? null : trf('শেষ লেনদেন {0}', [shortDate(p.last!)])),
-                  trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
-                    Text(taka(p.balance.abs()), style: display(16, color: p.balance > 0 ? (late ? C.red : C.green) : (p.balance < 0 ? C.orange : C.muted))),
-                    Text(p.balance > 0 ? tr('পাবো') : (p.balance < 0 ? tr('দেবো') : tr('শোধ')), style: body(12, color: C.muted)),
+                  trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+                      Text(taka(p.balance.abs()), style: display(16, color: p.balance > 0 ? (late ? C.red : C.green) : (p.balance < 0 ? C.orange : C.muted))),
+                      Text(p.balance > 0 ? tr('পাবো') : (p.balance < 0 ? tr('দেবো') : tr('শোধ')), style: body(12, color: C.muted)),
+                    ]),
+                    // A reminder for this বকেয়া (owner, 28 Oct), like ধার-দেনা's.
+                    if (p.balance != 0) LedgerAlarmButton(lines: _linesOf(brain.data, project, p), balance: p.balance),
                   ]),
                   onTap: () => dueDetails(context, project, p),
                 );
@@ -419,9 +424,12 @@ class AllDuesSection extends StatelessWidget {
                 ),
                 title: p.name,
                 subtitle: [pr.name, if (when != null) when].join(' · '),
-                trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
-                  Text(taka(p.balance.abs()), style: display(16, color: late ? C.red : (p.balance > 0 ? C.green : C.orange))),
-                  Text(p.balance > 0 ? tr('পাবো') : tr('দেবো'), style: body(12, color: C.muted)),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+                    Text(taka(p.balance.abs()), style: display(16, color: late ? C.red : (p.balance > 0 ? C.green : C.orange))),
+                    Text(p.balance > 0 ? tr('পাবো') : tr('দেবো'), style: body(12, color: C.muted)),
+                  ]),
+                  LedgerAlarmButton(lines: _linesOf(brain.data, pr, p), balance: p.balance),
                 ]),
                 onTap: () => dueDetails(context, pr, p),
               );

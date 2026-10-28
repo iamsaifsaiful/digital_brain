@@ -4345,4 +4345,11 @@ const enStrings = <String, String>{
   'ক্রেডিট': 'Credit',
   'প্রিপেইড': 'Prepaid',
   'এটিএম': 'ATM',
+  '{0}-এর কাছে {1} বকেয়া — তাগাদা দিন': '{0} has {1} due — remind them',
+  '{0}-কে {1} বকেয়া শোধ করার কথা': 'Pay {0} the {1} due',
+  'মূল হিসাবে যুক্ত': 'In the main account',
+  'আলাদা': 'Separate',
+  'বকেয়া পাব': 'Due to me',
+  'বকেয়া দেব': 'I owe',
+  '{0}টা লেনদেন · শেষ {1}': '{0} entries · last {1}',
 };
