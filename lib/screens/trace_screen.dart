@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../logic/bn.dart';
 import '../logic/lang.dart';
 import '../services/trace.dart';
 import '../state/brain.dart';
@@ -19,6 +20,18 @@ class TraceScreen extends StatefulWidget {
 }
 
 class _TraceScreenState extends State<TraceScreen> {
+  bool _sending = false;
+
+  Future<void> _send(Brain brain) async {
+    setState(() => _sending = true);
+    final r = await brain.sendTrace(all: true);
+    if (!mounted) return;
+    setState(() => _sending = false);
+    if (r == null) return toast(context, tr('পাঠানো গেল না — ইন্টারনেট দেখে আবার চেষ্টা করুন'));
+    if (r.sent == 0) return toast(context, r.left > 0 ? tr('পাঠানোর মতো কিছু নেই — সব কথোপকথনই ব্যক্তিগত বিষয়ের, তাই ফোনেই থাকল') : tr('পাঠানোর মতো কিছু নেই'));
+    toast(context, r.left > 0 ? trf('{0}টা লাইন পাঠানো হয়েছে; ব্যক্তিগত বিষয়ের {1}টা কথোপকথন বাদ রাখা হয়েছে', [bnDigits(r.sent), bnDigits(r.left)]) : trf('{0}টা লাইন পাঠানো হয়েছে — ধন্যবাদ', [bnDigits(r.sent)]));
+  }
+
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
@@ -53,6 +66,32 @@ class _TraceScreenState extends State<TraceScreen> {
                   await brain.setPref('trace_on', v);
                   if (mounted) setState(() {});
                 },
+              ),
+              SwitchListTile(
+                key: const Key('trace-share'),
+                contentPadding: EdgeInsets.zero,
+                title: Text(tr('লগ আমাদের সার্ভারে পাঠান'), style: body(16, weight: FontWeight.w600)),
+                subtitle: Text(
+                    tr('চালু থাকলে অ্যাপ থেকে বের হলে নতুন লগ আমাদের কাছে যায়, যাতে সমস্যা খুঁজে ঠিক করতে পারি। নম্বর লুকানো থাকে; পাসওয়ার্ড, ভল্ট, PIN/OTP, স্বাস্থ্য, ওষুধ বা মেসেজ নিয়ে যে কথোপকথন — সেটা পুরোটাই বাদ যায়, ফোনের বাইরে যায় না।'),
+                    style: body(13, color: C.muted)),
+                value: brain.traceShare,
+                onChanged: (v) async {
+                  await brain.setPref('trace_share', v);
+                  if (v && !Trace.enabled) {
+                    Trace.enabled = true;
+                    await brain.setPref('trace_on', true);
+                  }
+                  if (mounted) setState(() {});
+                },
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  key: const Key('trace-send'),
+                  onPressed: events.isEmpty || _sending ? null : () => _send(brain),
+                  icon: _sending ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send_rounded, size: 18),
+                  label: Text(tr('এখনই পাঠান')),
+                ),
               ),
             ]),
           ),

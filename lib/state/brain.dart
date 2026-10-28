@@ -1419,12 +1419,28 @@ class Brain extends ChangeNotifier {
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly', 'n_quote', 'n_fix',
-    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'g_card_off', 'trace_on', 'hc_on', 'hc_gone', 'steps_book',
+    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'g_card_off', 'trace_on', 'trace_share', 'hc_on', 'hc_gone', 'steps_book',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
   int number(String key, [int or = 0]) => int.tryParse(prefs[key] ?? '') ?? or;
   String text(String key, [String or = '']) => prefs[key] ?? or;
+
+  /// সমস্যা খোঁজার লগ › সার্ভারে পাঠান: the member's choice to send the log
+  /// to us (off unless turned on).
+  bool get traceShare => flag('trace_share');
+
+  /// Sends what is new in the log (private conversations left out). Null when
+  /// it could not go; otherwise how many lines went and how many
+  /// conversations were kept back.
+  Future<({int sent, int left})?> sendTrace({bool all = false}) async {
+    final t = Trace.forServer(all: all);
+    if (t.lines.isEmpty) return (sent: 0, left: t.left);
+    final ok = await services.server.sendTrace(t.lines.length > 400 ? t.lines.sublist(t.lines.length - 400) : t.lines, ErrorLog.version, services.ai.session);
+    if (!ok) return null;
+    if (t.upTo != null) Trace.sentUpTo = t.upTo;
+    return (sent: t.lines.length > 400 ? 400 : t.lines.length, left: t.left);
+  }
 
   /// One switch or value from the assistant settings, saved and applied.
   Future<void> setPref(String key, Object value) async {

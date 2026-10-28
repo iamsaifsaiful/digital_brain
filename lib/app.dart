@@ -22,6 +22,7 @@ import 'screens/person_screen.dart';
 import 'screens/plan_screens.dart';
 import 'screens/store_more_screens.dart';
 import 'services/error_log.dart';
+import 'services/trace.dart';
 import 'services/files.dart';
 import 'services/platform.dart';
 import 'ui/widgets.dart';
@@ -180,6 +181,8 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       _leftAt ??= brain.services.now();
       // সমস্যার লগ goes when the app steps away (and on coming back).
       ErrorLog.flush(brain.services.server, brain.services.ai.session);
+      // সমস্যা খোঁজার লগ goes too, when the member chose to send it.
+      if (brain.loaded && brain.traceShare && Trace.enabled) brain.sendTrace().catchError((_) => null);
       if (brain.loaded) brain.autoDriveBackup();
     } else if (state == AppLifecycleState.resumed) {
       final left = _leftAt;
