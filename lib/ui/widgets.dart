@@ -1012,3 +1012,6 @@ class ServiceBadge extends StatelessWidget {
         child: Text(service.letter, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: size * 0.5, height: 1)),
       );
 }
+
+/// কথা বোঝার মডেল (owner, 28 Oct): said on its row and whenever the mic opens.
+String get improvingNote => tr('কথা বোঝা আরও ভালো করতে আমরা প্রতিনিয়ত কাজ করছি — কোনো কথা ভুল বুঝলে আরেকভাবে বলুন বা লিখে দিন।');

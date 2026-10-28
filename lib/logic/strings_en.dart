@@ -3286,6 +3286,7 @@ const enStrings = <String, String>{
   '৩ দিন আগেও': '3 days before too',
   '৩০ সে.': '30 s',
   '৩০টা ডকুমেন্ট': '30 documents',
+  'কথা বোঝা আরও ভালো করতে আমরা প্রতিনিয়ত কাজ করছি — কোনো কথা ভুল বুঝলে আরেকভাবে বলুন বা লিখে দিন।': 'We keep working to understand you better — if something is misheard, say it another way or type it.',
   'ফোনে আগের ব্যাকআপ আছে?': 'Have a backup on this phone?',
   'আগে “ফোনে সেভ” করা ব্যাকআপ ফাইল বেছে নিলে সব তথ্য ফিরে আসবে': 'Pick a backup file you saved to the phone earlier to bring everything back',
   'ফাইল বেছে নিন': 'Pick file',

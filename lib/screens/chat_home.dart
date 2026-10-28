@@ -1509,6 +1509,12 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
               ],
             const SizedBox(height: 14),
             if (_listening) Text(hint, textAlign: TextAlign.center, style: body(14, color: C.muted, height: 1.5)),
+            // Said each time the mic opens, so a wrong reading does not worry (owner, 28 Oct).
+            if (_listening)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(improvingNote, key: const Key('mic-improving'), textAlign: TextAlign.center, style: body(12, color: C.muted2, height: 1.45)),
+              ),
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(top: 10),

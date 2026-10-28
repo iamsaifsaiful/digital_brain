@@ -467,6 +467,8 @@ class _MoreScreenState extends State<MoreScreen> {
             }),
           ]),
         ),
+        const SizedBox(height: 8),
+        Text(improvingNote, key: const Key('nlu-improving'), style: body(12, color: C.muted, height: 1.5)),
         const SizedBox(height: 16),
         SectionTitle(tr('তথ্য নিরাপদ রাখা')),
         Panel(
