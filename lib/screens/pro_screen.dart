@@ -68,11 +68,11 @@ class _ProScreenState extends State<ProScreen> {
         ? tr('এই অ্যাপে এখন সব সুবিধা খোলা — কিছুই তালাবদ্ধ নয়।')
         : brain.onTrial
             ? trf('৭ দিনের ফ্রি ট্রায়াল চলছে — {0} পর্যন্ত, আর {1} দিন। এর মধ্যে প্রিমিয়াম নিলে সব সুবিধা থাকবে।',
-                [shortDate(brain.trialEnds!), bnDigits(brain.trialEnds!.difference(brain.services.now()).inHours ~/ 24 + 1)])
+                [fullDate(brain.trialEnds!), bnDigits(brain.trialEnds!.difference(brain.services.now()).inHours ~/ 24 + 1)])
             : brain.pro
                 ? switch (brain.proKind) {
                     'test' => tr('প্রিমিয়াম চালু (প্রিভিউ পরীক্ষা)'),
-                    _ => until == null ? tr('প্রিমিয়াম চালু') : trf('প্রিমিয়াম চালু — {0} পর্যন্ত', [shortDate(until)]),
+                    _ => until == null ? tr('প্রিমিয়াম চালু') : trf('প্রিমিয়াম চালু — {0} পর্যন্ত', [fullDate(until)]),
                   }
                 : brain.trialOver
                     ? tr('৭ দিনের ফ্রি ট্রায়াল শেষ। এই কয়দিনে যা রেখেছেন সব আছে, দেখা যাবে; প্রিমিয়ামের সুবিধাগুলো আবার পেতে প্রিমিয়াম নিন।')
@@ -105,6 +105,25 @@ class _ProScreenState extends State<ProScreen> {
                 const SizedBox(width: 8),
                 Expanded(child: Text(tr(_short[f]?.$1 ?? proInfo[f]!.title), maxLines: 2, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w600, height: 1.25))),
               ]),
+            ),
+          // The last cell (owner, 28 Oct): the details on our website.
+          if (showProLink)
+            Material(
+              color: C.greenTint,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                key: const Key('pro-brief-website'),
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => _getPro(brain),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Row(children: [
+                    Icon(Icons.open_in_new_rounded, size: 19, color: C.green),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(tr('বিস্তারিত — ওয়েবসাইটে'), maxLines: 2, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w700, color: C.greenDark, height: 1.25))),
+                  ]),
+                ),
+              ),
             ),
         ],
       ),

@@ -3286,6 +3286,7 @@ const enStrings = <String, String>{
   '৩ দিন আগেও': '3 days before too',
   '৩০ সে.': '30 s',
   '৩০টা ডকুমেন্ট': '30 documents',
+  'বিস্তারিত — ওয়েবসাইটে': 'Details — on our website',
   'জরুরি কার্ডে থাকবে; মোবাইল নম্বর আর শেষ রক্তদানের তারিখসহ আমাদের সার্ভারেও থাকবে, যেন বিপদে সাহায্য করা যায়।': 'Kept on the emergency card, and on our server with your mobile number and last donation date, so we can help in an emergency.',
   'রক্তের গ্রুপ {0} — নম্বর আর শেষ রক্তদান দিন': 'Blood group {0} — add your number and last donation',
   'বিপদে সাহায্যের জন্য এগুলো আমাদের সার্ভারে থাকবে': 'Kept on our server so we can help in an emergency',

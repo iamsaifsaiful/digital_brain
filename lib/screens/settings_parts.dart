@@ -359,7 +359,7 @@ class PlanBadge extends StatelessWidget {
         : trial
             ? tr('ট্রায়াল')
             : tr('প্রিমিয়াম');
-    final sub = pro && until != null ? trf('{0} পর্যন্ত', [shortDate(until)]) : (pro ? '' : tr('প্রিমিয়াম নিন'));
+    final sub = pro && until != null ? trf('{0} পর্যন্ত', [fullDate(until)]) : (pro ? '' : tr('প্রিমিয়াম নিন'));
     final fg = pro ? C.ochre : C.muted;
     final bg = pro ? C.ochreTint : C.chip;
     return Align(
