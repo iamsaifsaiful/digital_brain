@@ -30,7 +30,7 @@ void main() {
     // Documents: ব্যাংক কার্ড is the first folder.
     Navigator.of(t.element(find.byTooltip('বলুন'))).push(MaterialPageRoute(builder: (_) => const DocsScreen()));
     await settle(t);
-    final grid = find.byType(GridView);
+    final grid = find.byWidgetPredicate((w) => w.runtimeType.toString().startsWith('DragGrid'));
     expect(t.widget<Material>(find.descendant(of: grid, matching: find.byType(Material)).first).key, const Key('doc-cards'), reason: 'the very first folder');
     await t.tap(find.byKey(const Key('doc-cards')));
     await settle(t);
