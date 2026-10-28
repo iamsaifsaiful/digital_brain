@@ -10,6 +10,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart' show toast;
 import 'alarm_screens.dart';
 import 'calls_screen.dart';
+import 'google_backup.dart' show restoreFromPhoneFile;
 import 'more_screen.dart' show BackupScreen;
 import 'help_screen.dart';
 import 'plan_screens.dart';
@@ -366,14 +367,25 @@ class _HomeAttentionState extends State<HomeAttention> with WidgetsBindingObserv
         },
       ));
     }
-    // 2. A new phone: bring back the Google backup.
+    // 2. A new phone: bring back the Google backup, or one saved on the phone (owner, 28 Oct).
     final fresh = d.ledger.isEmpty && d.cash.isEmpty && d.notes.isEmpty && d.reminders.isEmpty && d.tasks.isEmpty && d.vault.isEmpty;
+    if (brain.signedIn && fresh && !brain.flag('p_card_off')) {
+      return wrap(AttentionCard(
+        key: const Key('home-phone-backup'),
+        icon: Icons.restore_rounded,
+        title: tr('ফোনে আগের ব্যাকআপ আছে?'),
+        text: tr('আগে “ফোনে সেভ” করা ব্যাকআপ ফাইল বেছে নিলে সব তথ্য ফিরে আসবে'),
+        action: tr('ফাইল বেছে নিন'),
+        onAction: () => restoreFromPhoneFile(context, fresh: true),
+        onClose: () => brain.setPref('p_card_off', true),
+      ));
+    }
     if (!brain.signedIn && fresh && !brain.flag('g_card_off')) {
       return wrap(AttentionCard(
         key: const Key('home-google'),
         icon: Icons.cloud_download_outlined,
         title: tr('আগে ব্যবহার করেছেন?'),
-        text: tr('Google দিয়ে লগইন করলে আগের ব্যাকআপ ফিরে আসবে'),
+        text: tr('Google দিয়ে লগইন করলে, বা ফোনে রাখা ব্যাকআপ ফাইল বেছে নিলে, আগের সব তথ্য ফিরে আসবে'),
         action: tr('লগইন'),
         onAction: () => push(const BackupScreen()),
         onClose: () => brain.setPref('g_card_off', true),

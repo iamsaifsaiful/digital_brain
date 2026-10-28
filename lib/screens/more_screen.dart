@@ -8,7 +8,6 @@ import '../logic/bn.dart';
 import '../logic/world_places.dart';
 import '../logic/calendar_bd.dart';
 import '../logic/csv.dart';
-import '../services/crypto.dart';
 import '../services/data_store.dart';
 import '../services/lock.dart';
 import '../services/location_share.dart';
@@ -524,9 +523,6 @@ class _MoreScreenState extends State<MoreScreen> {
                 brain.bargeIn, (v) => brain.setBargeIn(v)),
           ]),
         ),
-        const SizedBox(height: 8),
-        Text(tr('মুখে বললে কথাকে লেখায় রূপান্তর করে ফোনের নিজের ভয়েস সেবা (সাধারণত Google)। সেজন্য আপনার কণ্ঠ ইন্টারনেটে Google-এর কাছে যেতে পারে — AI বন্ধ থাকলেও। না চাইলে লিখে ব্যবহার করুন।'),
-            style: body(12, color: C.muted, height: 1.5)),
         const SizedBox(height: 16),
         SectionTitle(tr('অন্যান্য')),
         Panel(
@@ -542,13 +538,6 @@ class _MoreScreenState extends State<MoreScreen> {
                 onTap: () => showLicensePage(context: context, applicationName: 'My Assistant', applicationVersion: appVersion)),
           ]),
         ),
-        if (brain.aiOn) ...[
-          const SizedBox(height: 8),
-          Text(brain.aiShareData
-                  ? tr('AI চালু থাকলে Anthropic-এ যায়: আপনার বলা বা লেখা বাক্য, টাকার হিসাবের সারাংশ (নাম ও অঙ্ক), রিমাইন্ডার, কাজ, নোট, অভ্যাসের নাম, বিশেষ দিন, ডকুমেন্টের নাম আর “মনে রেখো” কথাগুলো — যাতে আপনার জিনিস নিয়ে ঠিক উত্তর দিতে পারে। কখনো যায় না: পাসওয়ার্ড ও ভল্ট, PIN/OTP/পাসওয়ার্ড থাকা নোট, ওষুধ, স্বাস্থ্যের মাপ, ওষুধ-ডাক্তার-অসুখের কথা থাকা রিমাইন্ডার-কাজ-নোট, ফোন-কার্ড-NID নম্বর, ইমেইল আর অন্য অ্যাপের মেসেজ।')
-                  : tr('AI চালু থাকলে শুধু আপনার বলা বা লেখা বাক্য আর টাকার হিসাবের সারাংশ (নাম ও অঙ্ক) Anthropic-এ যায়। রিমাইন্ডার, কাজ, নোট, পাসওয়ার্ড, ভল্ট, ফোন-কার্ড-NID নম্বর বা অন্য অ্যাপের মেসেজ যায় না।'),
-              style: body(12, color: C.muted, height: 1.5)),
-        ],
       ],
     );
   }
@@ -655,39 +644,9 @@ class _BackupScreenState extends State<BackupScreen> {
     }
   }
 
-  Future<void> _restore() async {
-    final brain = BrainScope.read(context);
-    if (!await verifyUser(context, reason: tr('ব্যাকআপ ফিরিয়ে আনতে যাচাই করুন'))) return;
-    final Uint8List? bytes = await brain.services.files.pickFile();
-    if (bytes == null || !mounted) return;
-    final pass = await _askPassword(create: false);
-    if (pass == null || !mounted) return;
-    setState(() => _busy = true);
-    try {
-      final (restored, files) = await Backup.restore(bytes, pass);
-      if (!mounted) return;
-      final ok = await confirmDialog(
-        context,
-        title: tr('ব্যাকআপ ফিরিয়ে আনবেন?'),
-        text: trf('ব্যাকআপে আছে: {0}টি পাসওয়ার্ড, {1} জন যোগাযোগ, {2}টি ধার-দেনা, {3}টি আয়-ব্যয়, {4}টি নোট, {5}টি রিমাইন্ডার, {6}টি কাজ, {7}টি ছবি/ফাইল।\n\nএখনকার সব তথ্য এর বদলে যাবে (মেশানো হবে না)। কিছু ব্যর্থ হলে এখনকার তথ্য যেমন আছে থাকবে।', [bnDigits(restored.vault.length), bnDigits(restored.contacts.length), bnDigits(restored.ledger.length), bnDigits(restored.cash.length), bnDigits(restored.notes.length), bnDigits(restored.reminders.length), bnDigits(restored.tasks.length), bnDigits(files.length)]),
-        yes: tr('ফিরিয়ে আনুন'),
-        danger: true,
-      );
-      if (!ok) return;
-      await brain.replaceAll(restored, files: files);
-      if (mounted) toast(context, tr('ব্যাকআপ ফিরিয়ে আনা হয়েছে'));
-    } on NotABackup {
-      if (mounted) toast(context, tr('এটা My Assistant-এর ব্যাকআপ ফাইল নয়, অথবা ফাইলটি নষ্ট। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
-    } on UnsupportedBackup {
-      if (mounted) toast(context, tr('এই ব্যাকআপ অ্যাপের নতুন সংস্করণে বানানো। আগে অ্যাপ হালনাগাদ করুন। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
-    } on WrongKey {
-      if (mounted) toast(context, tr('পাসওয়ার্ড মেলেনি, অথবা ফাইলটি নষ্ট। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
-    } catch (e) {
-      if (mounted) toast(context, trf('ফিরিয়ে আনা যায়নি: {0}', [e]));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
+  Future<void> _restore() => restoreFromPhoneFile(context, busy: (v) {
+        if (mounted) setState(() => _busy = v);
+      });
 
   Widget _step(String n, String title, String text, List<Widget> actions) => Panel(
         padding: const EdgeInsets.all(16),
