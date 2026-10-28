@@ -2,6 +2,7 @@ import 'package:digital_brain/logic/ledger.dart' show accountKeys;
 import 'package:digital_brain/logic/proactive.dart';
 import 'package:digital_brain/state/brain.dart' show BrainScope;
 import 'package:digital_brain/models/models.dart';
+import 'package:digital_brain/services/crypto.dart' show MemoryKeyVault;
 import 'package:digital_brain/screens/ledger_screen.dart' show LedgerAlarmButton;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,7 +12,7 @@ import 'app_test.dart' show Rig, settle, start;
 void main() {
   group('seven days of Premium from the first open (owner, 28 Oct)', () {
     test('on for seven days, then off unless bought; what was kept stays', () async {
-      final rig = Rig();
+      final rig = Rig(keys: MemoryKeyVault());
       await rig.brain.load();
       final b = rig.brain..gated = true;
       expect(b.onTrial, isTrue);
@@ -32,7 +33,7 @@ void main() {
     });
 
     test('the start is kept: opening again does not start a new trial', () async {
-      final rig = Rig();
+      final rig = Rig(keys: MemoryKeyVault());
       await rig.brain.load();
       final first = rig.brain.trialStart;
       rig.nowAt = rig.nowAt.add(const Duration(days: 10));

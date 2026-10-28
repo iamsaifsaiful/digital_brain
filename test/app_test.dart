@@ -61,7 +61,9 @@ class Rig {
   factory Rig.sharing(Rig other, {required MemoryKeyVault keys}) => Rig(keys: keys, blob: other.blob);
 
   Rig({AppData? data, MemoryKeyVault? keys, MemoryBlobStore? blob, AccountServer? server, GoogleAccount? google}) {
-    final vault = keys ?? MemoryKeyVault();
+    // The seven-day trial (owner, 28 Oct) long over, so the Premium tests see
+    // the free app; a test of the trial passes its own empty [keys].
+    final vault = keys ?? (MemoryKeyVault()..values['trial_start'] = '2000-01-01T00:00:00.000');
     this.blob = blob ?? MemoryBlobStore();
     voice = FakeVoice();
     notifier = FakeNotifier();
