@@ -1,4 +1,5 @@
 import 'cards_screen.dart' show CardsScreen;
+import '../ui/drag_grid.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -169,62 +170,38 @@ class _DocsScreenState extends State<DocsScreen> {
                   ]),
                 ),
                 if (folder == null) ...[
-                  Padding(padding: const EdgeInsets.fromLTRB(4, 18, 4, 8), child: Text(tr('ফোল্ডার'), style: body(13, weight: FontWeight.w600, color: C.muted))),
-                  GridView.count(
-                    crossAxisCount: 3,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 8,
-                    childAspectRatio: 1.05,
-                    children: [
-                      // ব্যাংক কার্ড, the very first folder (owner, 28 Oct).
-                      Material(
-                        key: const Key('doc-cards'),
-                        color: C.surface,
-                        borderRadius: BorderRadius.circular(16),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CardsScreen())),
-                          child: Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(11)),
-                                child: Icon(Icons.credit_card_rounded, color: C.green, size: 20),
-                              ),
-                              const Spacer(),
-                              Text(tr('ব্যাংক কার্ড'), maxLines: 2, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w600, height: 1.25)),
-                              Text(trf('{0}টি', [bnDigits(d.cards.length)]), style: body(11.5, color: C.muted)),
-                            ]),
-                          ),
-                        ),
-                      ),
-                      for (final f in folders)
-                        Material(
-                          color: C.surface,
-                          borderRadius: BorderRadius.circular(16),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DocsScreen(folder: f))),
-                            child: Padding(
-                              padding: const EdgeInsets.all(10),
-                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(color: C.blueTint, borderRadius: BorderRadius.circular(11)),
-                                  child: Icon(Icons.folder_outlined, color: C.blue, size: 20),
-                                ),
-                                const Spacer(),
-                                Text(tr(f), maxLines: 2, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w600, height: 1.25)),
-                                Text(trf('{0}টি', [bnDigits(d.docs.where((x) => x.folder == f).length)]), style: body(11.5, color: C.muted)),
-                              ]),
-                            ),
-                          ),
-                        ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 12, 0, 2),
+                    child: Row(children: [
+                      Text(tr('ফোল্ডার'), style: body(13, weight: FontWeight.w600, color: C.muted)),
+                      const Spacer(),
+                      if (brain.orderOf('doc_folders').isNotEmpty)
+                        TextButton(
+                          key: const Key('doc-folders-reset'),
+                          style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: const EdgeInsets.symmetric(horizontal: 6)),
+                          onPressed: () => brain.setOrder('doc_folders', const []),
+                          child: Text(tr('আগের মতো করুন'), style: body(12, weight: FontWeight.w600, color: C.green)),
+                        )
+                      else
+                        SizedBox(height: 40, child: Center(child: Text(tr('চেপে ধরে টেনে সাজান'), style: body(11.5, color: C.muted)))),
+                    ]),
+                  ),
+                  // Held and dragged, the folders go in the member's own order (owner, 29 Oct).
+                  DragGrid<String>(
+                    columns: 3,
+                    spacing: 8,
+                    runSpacing: 8,
+                    aspect: 1.05,
+                    items: inOrder(['__cards', ...folders], (x) => x, brain.orderOf('doc_folders')),
+                    keyOf: (x) => x,
+                    onReorder: (keys) => brain.setOrder('doc_folders', keys),
+                    tile: (f) => f == '__cards'
+                        // ব্যাংক কার্ড, first unless moved (owner, 28 Oct).
+                        ? _folderTile(key: const Key('doc-cards'), icon: Icons.credit_card_rounded, tint: C.greenTint, color: C.green, title: tr('ব্যাংক কার্ড'), count: d.cards.length,
+                            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CardsScreen())))
+                        : _folderTile(key: Key('doc-folder-$f'), icon: Icons.folder_outlined, tint: C.blueTint, color: C.blue, title: tr(f), count: d.docs.where((x) => x.folder == f).length,
+                            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DocsScreen(folder: f)))),
+                    trailing:
                       // A folder of the user's own, named by them (owner, 24 Oct).
                       Material(
                         color: C.greenTint,
@@ -249,7 +226,6 @@ class _DocsScreenState extends State<DocsScreen> {
                           ),
                         ),
                       ),
-                    ],
                   ),
                 ],
                 Padding(
@@ -645,3 +621,28 @@ class _DocScreenState extends State<DocScreen> {
     );
   }
 }
+
+/// A folder in the grid: its icon, name and how many are in it.
+Widget _folderTile({required Key key, required IconData icon, required Color tint, required Color color, required String title, required int count, required VoidCallback onTap}) => Material(
+      key: key,
+      color: C.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(11)),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const Spacer(),
+            Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w600, height: 1.25)),
+            Text(trf('{0}টি', [bnDigits(count)]), style: body(11.5, color: C.muted)),
+          ]),
+        ),
+      ),
+    );

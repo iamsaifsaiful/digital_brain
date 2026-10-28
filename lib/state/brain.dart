@@ -1432,7 +1432,7 @@ class Brain extends ChangeNotifier {
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly', 'n_quote', 'n_fix',
-    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'blood_last_unknown', 'blood_phone', 'blood_sync', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'zakat_gold_carat', 'zakat_gold_list', 'g_card_off', 'p_card_off', 'trace_on', 'trace_share', 'hc_on', 'hc_gone', 'steps_book',
+    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'blood_last_unknown', 'blood_phone', 'blood_sync', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'zakat_gold_carat', 'zakat_gold_list', 'order_home_tools', 'order_doc_folders', 'order_projects', 'g_card_off', 'p_card_off', 'trace_on', 'trace_share', 'hc_on', 'hc_gone', 'steps_book',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
@@ -1774,6 +1774,24 @@ class Brain extends ChangeNotifier {
 
   /// Today's বাজুস price of a carat (0: not known).
   int metalGold(String carat) => (todayMetal ?? _metal)?.gold[carat] ?? 0;
+
+  /// An order the member arranged by hand (owner, 29 Oct): [what] is
+  /// 'home_tools', 'doc_folders' or 'projects'; empty = the app's own order.
+  List<String> orderOf(String what) {
+    try {
+      final l = jsonDecode(text('order_$what', '[]'));
+      return [if (l is List) for (final x in l) '$x'];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> setOrder(String what, List<String> keys) async {
+    final v = keys.isEmpty ? '' : jsonEncode(keys);
+    prefs['order_$what'] = v;
+    notifyListeners();
+    await _put('order_$what', v);
+  }
 
   /// Keeps one entered zakat value (no reschedule needed).
   Future<void> setZakatValue(String key, String value) async {

@@ -4471,4 +4471,6 @@ const enStrings = <String, String>{
   'ফ্রিতে ১টা অন্যান্য হিসাব খোলা যায়, সেটা খোলা আছে — আরও খুলতে প্রিমিয়াম লাগবে।': 'The free app opens one project, and it is already open — more need Premium.',
   'যত খুশি অন্যান্য হিসাব': 'Unlimited projects',
   '১টা অন্যান্য হিসাব': 'One project',
+  'আগের মতো করুন': 'Reset order',
+  'চেপে ধরে টেনে সাজান': 'Hold and drag to arrange',
 };
