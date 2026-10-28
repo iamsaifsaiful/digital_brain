@@ -1180,10 +1180,20 @@ check($code === 200 && $d['cap'] === 2 && $q['at'] === '07:30' && $q['who'] === 
 [$code, $d] = call('GET', '/notices');
 $pub = json_decode(wp_json_encode($d['rules']), true);
 check($code === 200 && ($pub['kinds']['brief:morning']['on'] ?? true) === false && ($pub['kinds']['nudge:quote']['at'] ?? '') === '07:30' && !isset($pub['kinds']['nudge:jumuah']) && $pub['cap'] === 2, 'phones get only the changed rules');
+// Owner, 28 Oct: grouped by how often each goes; one-weekday kinds can move to another day; the schedule says it plainly.
+[$code, $d] = call('POST', '/admin/notice-rules', ['kinds' => ['brief:morning' => ['on' => false], 'nudge:quote' => ['on' => true, 'at' => '07:30', 'who' => 'new'], 'nudge:week' => ['on' => true, 'wd' => 7, 'at' => '11:00'], 'nudge:jumuah' => ['on' => true, 'wd' => 3]], 'cap' => 2], $bossSes);
+$by = []; foreach ($d['kinds'] as $k) { $by[$k['key']] = $k; }
+check($code === 200 && isset($d['groups']['daily'], $d['groups']['weekly'], $d['groups']['monthly'], $d['groups']['special'], $d['groups']['trigger']) && $by['brief:morning']['group'] === 'daily' && $by['nudge:health']['group'] === 'monthly' && $by['nudge:due']['group'] === 'trigger', 'rules: each kind in a group (daily, weekly, monthly, special days, when something happens)');
+check($by['nudge:week']['wd'] === 7 && $by['nudge:week']['wd_editable'] && $by['nudge:jumuah']['wd'] === 0 && !$by['nudge:jumuah']['wd_editable'], 'rules: the day can move only for one-weekday kinds (not জুমা)');
+check(str_contains($by['nudge:week']['schedule'], 'রবিবার') && str_contains($by['nudge:week']['schedule'], '১১:০০') && str_contains($by['nudge:quote']['schedule'], 'প্রতিদিন সকাল ৭:৩০') && str_contains($by['brief:morning']['schedule'], 'বন্ধ'), 'rules: when it goes, in plain words, after the change');
+check($by['nudge:week']['changed'] && !$by['nudge:jumuah']['changed'] && is_int($by['nudge:week']['today']), 'rules: changed ones marked; today\'s count');
+[$code, $d] = call('GET', '/notices');
+$pub = json_decode(wp_json_encode($d['rules']), true);
+check(($pub['kinds']['nudge:week']['wd'] ?? 0) === 7 && !isset($pub['kinds']['nudge:jumuah']), 'phones get the new day');
 [$code] = call('GET', '/admin/notice-rules', [], $ses);
 check($code === 403, 'rules: admins only');
 $h = $render(['tab' => 'notices']);
-check(str_contains($h, 'অ্যাপের নোটিফিকেশন নিয়ন্ত্রণ') && str_contains($h, 'name="r[nudge:quote][at]"') && !preg_match($bad, $h), 'site: the rules table on the notifications tab');
+check(str_contains($h, 'অ্যাপের নোটিফিকেশন নিয়ন্ত্রণ') && str_contains($h, 'name="r[nudge:quote][at]"') && str_contains($h, 'name="r[nudge:week][wd]"') && str_contains($h, '>প্রতিদিন <') && str_contains($h, '>কিছু ঘটলে <') && str_contains($h, 'বদলানো') && !preg_match($bad, $h), 'site: the rules, grouped, on the notifications tab');
 call('POST', '/admin/notice-rules', ['kinds' => [], 'cap' => ''], $bossSes);
 
 echo "\n  — members' backup keys sealed with MA_DATA_KEY (owner's review, 27 Oct)\n";

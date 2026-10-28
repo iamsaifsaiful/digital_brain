@@ -95,7 +95,7 @@ List<ZakatLine> zakatLines(AppData d, DateTime now, ZakatSaved z) {
   } else {
     for (final a in d.accounts) {
       final bal = accountBalance(d, a);
-      final entries = d.cash.where((e) => e.accountId == a.id).toList();
+      final entries = d.cash.where((e) => e.accountId == a.id && e.projectId == null).toList();
       final moves = d.transfers.where((t) => t.to == a.id || t.from == a.id).toList();
       final n = entries.length + moves.length;
       add('account:${a.id}', a.kind == AccountKind.bank ? ZakatGroup.bank : ZakatGroup.cash, a.name, bal,
@@ -114,8 +114,11 @@ List<ZakatLine> zakatLines(AppData d, DateTime now, ZakatSaved z) {
     final last = i.paid.isEmpty ? null : DateTime.tryParse('${(i.paid.toList()..sort()).last}-01');
     add('dps:${i.id}', ZakatGroup.dps, i.name, i.paidTotal, trf('{0}টা কিস্তি × {1}', [bnDigits(i.paidCount), _tk(i.amount)]), at: last);
   }
-  final dueKeys = {for (final e in d.ledger.where((e) => e.projectId != null)) accountKeys(d.ledger)[e.id]};
-  for (final p in balances(d.ledger)) {
+  // A হিসাব kept apart from the main money (owner, 28 Oct): its বকেয়া is not the member's own wealth or debt.
+  final apart = {for (final p in d.projects) if (!p.inMain) p.id};
+  final ledger = [for (final e in d.ledger) if (e.projectId == null || !apart.contains(e.projectId)) e];
+  final dueKeys = {for (final e in ledger.where((e) => e.projectId != null)) accountKeys(ledger)[e.id]};
+  for (final p in balances(ledger)) {
     final due = dueKeys.contains(p.key) ? ' · ${tr('বকেয়া')}' : '';
     if (p.balance > 0) {
       add('person:${p.key}', ZakatGroup.receivable, '${p.name}$due', p.balance, trf('ধার দিয়েছেন {0}, ফেরত পেয়েছেন {1} ({2}টা হিসাব)', [_tk(p.lentTotal), _tk(p.receivedTotal), bnDigits(p.count)]), at: p.last);

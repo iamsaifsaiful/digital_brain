@@ -97,7 +97,7 @@ class _ZakatScreenState extends State<ZakatScreen> {
       }
     } else if (l.key.startsWith('account:')) {
       final id = l.key.substring(8);
-      for (final e in d.cash.where((e) => e.accountId == id)) {
+      for (final e in d.cash.where((e) => e.accountId == id && e.projectId == null)) {
         rows.add((e.date, e.category, e.kind == CashKind.income ? e.amount : -e.amount));
       }
       for (final t in d.transfers.where((t) => t.to == id || t.from == id)) {
