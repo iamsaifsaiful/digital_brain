@@ -1419,7 +1419,7 @@ class Brain extends ChangeNotifier {
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly', 'n_quote', 'n_fix',
-    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'g_card_off', 'p_card_off', 'trace_on', 'trace_share', 'hc_on', 'hc_gone', 'steps_book',
+    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'zakat_gold_carat', 'g_card_off', 'p_card_off', 'trace_on', 'trace_share', 'hc_on', 'hc_gone', 'steps_book',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
@@ -1686,10 +1686,24 @@ class Brain extends ChangeNotifier {
     return p ?? _metal;
   }
 
-  /// Today's 22-carat prices into the যাকাত page (the user can still change them).
+  /// Today's prices into the যাকাত page — gold at the carat chosen (the user can still change them).
   Future<void> useMetalPrice(MetalPrice p) async {
-    await setZakatValue('gold_price', '${p.gold22}');
+    final g = p.gold[zakatCarat] ?? 0;
+    await setZakatValue('gold_price', '${g > 0 ? g : p.gold22}');
     await setZakatValue('silver_price', '${p.silver22}');
+  }
+
+  /// The carat of the member's gold ('22k' unless chosen).
+  String get zakatCarat => text('zakat_gold_carat', '22k');
+
+  /// Another carat: its price from today's বাজুস list when known.
+  Future<void> setZakatCarat(String k) async {
+    prefs['zakat_gold_carat'] = k;
+    await _put('zakat_gold_carat', k);
+    final p = todayMetal ?? _metal;
+    final g = p?.gold[k] ?? 0;
+    if (g > 0) await setZakatValue('gold_price', '$g');
+    notifyListeners();
   }
 
   /// Keeps one entered zakat value (no reschedule needed).

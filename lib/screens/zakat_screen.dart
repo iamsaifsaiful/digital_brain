@@ -17,6 +17,7 @@ import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import 'zakat_principles.dart';
 
 class ZakatScreen extends StatefulWidget {
   const ZakatScreen({super.key});
@@ -29,7 +30,6 @@ class _ZakatScreenState extends State<ZakatScreen> {
   final _f = {for (final k in ['gold_vori', 'gold_price', 'silver_vori', 'silver_price', 'business', 'other']) k: TextEditingController()};
   bool _fetching = false;
   String _priceNote = '';
-  bool _learn = false;
   bool _editPrice = false;
 
   @override
@@ -73,16 +73,26 @@ class _ZakatScreenState extends State<ZakatScreen> {
     if (!mounted) return;
     setState(() {
       _fetching = false;
-      _f['gold_price']!.text = '${p.gold22}';
+      _f['gold_price']!.text = '${brain.zakatSaved.goldPrice}';
       _f['silver_price']!.text = '${p.silver22}';
       _editPrice = false;
-      _priceNote = trf('{0}, {1} থেকে কার্যকর — ২২ ক্যারেটের দাম বসানো হলো। গয়না অন্য ক্যারেটের হলে দাম বদলে নিন।', [p.source.isEmpty ? tr('বাজুস') : p.source, shortDate(p.date)]);
+      _priceNote = trf('{0}, {1} থেকে কার্যকর — আপনার বেছে নেওয়া ক্যারেটের দাম বসানো হলো। দোকানে বিক্রির দাম কম হলে নিজে বদলে দিন।', [p.source.isEmpty ? tr('বাজুস') : p.source, shortDate(p.date)]);
     });
   }
 
   Future<void> _addItem(Brain brain) async {
     final r = await showDialog<(String, int, bool)>(context: context, builder: (_) => const _ItemDialog());
     if (r != null && r.$1.isNotEmpty && r.$2 > 0) await brain.addZakatItem(r.$1, r.$2, debt: r.$3);
+  }
+
+  /// Rows grouped by month, newest first: (month, its rows, their sum).
+  static List<(DateTime, List<(DateTime, String, int)>, int)> _byMonth(List<(DateTime, String, int)> rows) {
+    final m = <DateTime, List<(DateTime, String, int)>>{};
+    for (final r in rows) {
+      m.putIfAbsent(DateTime(r.$1.year, r.$1.month), () => []).add(r);
+    }
+    final keys = m.keys.toList()..sort((a, b) => b.compareTo(a));
+    return [for (final k in keys) (k, m[k]!..sort((a, b) => b.$1.compareTo(a.$1)), m[k]!.fold(0, (s, r) => s + r.$3))];
   }
 
   /// The entries behind a line: a person's ধার-দেনা or an account's transactions.
@@ -111,6 +121,11 @@ class _ZakatScreenState extends State<ZakatScreen> {
         rows.add((e.date, e.note.isEmpty ? e.category : '${e.category} · ${e.note}', e.kind == CashKind.income ? e.amount : -e.amount));
       }
       rows.sort((a, b) => b.$1.compareTo(a.$1));
+    } else if (l.key.startsWith('project:')) {
+      final id = l.key.substring(8);
+      for (final e in d.cash.where((e) => e.projectId == id)) {
+        rows.add((e.date, e.note.isEmpty ? e.category : '${e.category} · ${e.note}', e.kind == CashKind.income ? e.amount : -e.amount));
+      }
     } else if (l.key.startsWith('goal:')) {
       for (final g in d.goals.where((g) => 'goal:${g.id}' == l.key)) {
         for (final x in g.deposits.reversed) {
@@ -130,14 +145,29 @@ class _ZakatScreenState extends State<ZakatScreen> {
           Text(l.how, style: body(13.5, color: C.muted, height: 1.4)),
           const SizedBox(height: 10),
           if (rows.isEmpty) Text(tr('আলাদা লেনদেন নেই — আপনার লেখা পরিমাণ'), style: body(14, color: C.muted)),
-          for (final r in rows.take(60))
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(children: [
-                SizedBox(width: 88, child: Text(shortDate(r.$1), style: body(13.5, color: C.muted))),
-                Expanded(child: Text(r.$2, style: body(14.5), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                Text('${r.$3 < 0 ? '−' : '+'}${taka(r.$3.abs())}', style: body(14.5, weight: FontWeight.w600, color: r.$3 < 0 ? C.orange : C.green)),
-              ]),
+          // Month by month (owner, 28 Oct): each month's total, opened to see its entries.
+          for (final (i, m) in _byMonth(rows).indexed)
+            Theme(
+              data: Theme.of(ctx).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                key: Key('zakat-month-${m.$1.year}-${m.$1.month}'),
+                tilePadding: EdgeInsets.zero,
+                initiallyExpanded: i == 0,
+                title: Text('${monthName(m.$1.month)} ${bnDigits(m.$1.year)}', style: body(15, weight: FontWeight.w600)),
+                subtitle: Text(trf('{0}টা লেনদেন', [bnDigits(m.$2.length)]), style: body(12.5, color: C.muted)),
+                trailing: Text('${m.$3 < 0 ? '−' : '+'}${taka(m.$3.abs())}', style: body(14.5, weight: FontWeight.w700, color: m.$3 < 0 ? C.orange : C.green)),
+                children: [
+                  for (final r in m.$2)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 5),
+                      child: Row(children: [
+                        SizedBox(width: 74, child: Text(shortDate(r.$1), style: body(13, color: C.muted))),
+                        Expanded(child: Text(r.$2, style: body(14), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                        Text('${r.$3 < 0 ? '−' : '+'}${taka(r.$3.abs())}', style: body(14, weight: FontWeight.w600, color: r.$3 < 0 ? C.orange : C.green)),
+                      ]),
+                    ),
+                ],
+              ),
             ),
         ]),
       ),
@@ -209,11 +239,13 @@ class _ZakatScreenState extends State<ZakatScreen> {
                   Text(trf('মোট সম্পদ {0} − দেনা {1}', [taka(z.wealth), taka(z.debts)]), style: body(12.5, color: C.muted)),
                   const SizedBox(height: 6),
                   Text(
-                    z.nisab <= 0 ? tr('নিসাব জানতে নিচে আজকের রুপার দাম দিন') : (z.due ? trf('যাকাত: {0}', [taka(z.zakat)]) : tr('নিসাবের কম — যাকাত ফরজ নয়')),
+                    z.nisab <= 0 ? (z.byGold ? tr('নিসাব জানতে নিচে আজকের সোনার দাম দিন') : tr('নিসাব জানতে নিচে আজকের রুপার দাম দিন')) : (z.due ? trf('যাকাত: {0}', [taka(z.zakat)]) : tr('নিসাবের কম — যাকাত ফরজ নয়')),
                     key: const Key('zakat-total'),
                     style: display(z.nisab <= 0 ? 17 : 24, weight: 700, color: z.due ? C.green : C.muted2),
                   ),
-                  if (z.nisab > 0) Text(trf('নিসাব (৫২.৫ ভরি রুপা): {0}', [taka(z.nisab)]), style: body(12.5, color: C.muted)),
+                  if (z.nisab > 0)
+                    Text(z.byGold ? trf('নিসাব (সাড়ে ৭ ভরি সোনা — শুধু সোনা আছে বলে): {0}', [taka(z.nisab)]) : trf('নিসাব (সাড়ে ৫২ ভরি রুপা): {0}', [taka(z.nisab)]),
+                        key: const Key('zakat-nisab'), style: body(12.5, color: C.muted)),
                   const Divider(height: 22),
                   Row(children: [
                     Expanded(
@@ -235,23 +267,20 @@ class _ZakatScreenState extends State<ZakatScreen> {
               const SizedBox(height: 10),
               Panel(
                 child: InkWell(
-                  onTap: () => setState(() => _learn = !_learn),
+                  key: const Key('zakat-principles'),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ZakatPrinciplesScreen())),
                   child: Padding(
                     padding: const EdgeInsets.all(14),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                      Row(children: [
-                        Icon(Icons.menu_book_outlined, color: C.green, size: 20),
-                        const SizedBox(width: 10),
-                        Expanded(child: Text(tr('যাকাত কী, কার ওপর, কীভাবে হিসাব'), style: body(15, weight: FontWeight.w600))),
-                        Icon(_learn ? Icons.expand_less_rounded : Icons.expand_more_rounded, color: C.muted),
-                      ]),
-                      if (_learn) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          tr('• নিসাব: সাড়ে ৫২ ভরি রুপা (বা সাড়ে ৭ ভরি সোনা) সমান সম্পদ এক চান্দ্র বছর ধরে থাকলে যাকাত ফরজ।\n• হার: যাকাতযোগ্য সম্পদের ২.৫% (৪০ ভাগের ১ ভাগ)।\n• ধরা হয়: নগদ, ব্যাংক ও মোবাইল ব্যাংকিংয়ের টাকা, সঞ্চয়, DPS-এ জমা, সোনা-রুপা, ব্যবসার মাল, ফেরত পাওয়ার আশা আছে এমন পাওনা।\n• ধরা হয় না: থাকার বাড়ি, নিজের ব্যবহারের গাড়ি-আসবাব, সংসারের জিনিস।\n• বাদ যায়: যে দেনা শোধ করতে হবে।\n• কাদের দেওয়া যায়: গরিব, মিসকিন, ঋণগ্রস্ত, মুসাফির ইত্যাদি (সূরা তাওবা ৬০)।\nএটা আনুমানিক হিসাব — নিশ্চিত হতে আলেমের পরামর্শ নিন।'),
-                          style: body(13.5, height: 1.5),
-                        ),
-                      ],
+                    child: Row(children: [
+                      Icon(Icons.menu_book_outlined, color: C.green, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(tr('যাকাতের মূলনীতি'), style: body(15, weight: FontWeight.w600)),
+                          Text(tr('নিসাব, বছর, কী ধরা হয়, কী হয় না, দেনা, সুদ, কাদের দেওয়া যায় — আর এই হিসাব কীভাবে মানে'), style: body(12.5, color: C.muted, height: 1.35)),
+                        ]),
+                      ),
+                      Icon(Icons.chevron_right_rounded, color: C.muted),
                     ]),
                   ),
                 ),
@@ -266,6 +295,12 @@ class _ZakatScreenState extends State<ZakatScreen> {
                 if (groups[g] != null) ...[
                   Padding(padding: const EdgeInsets.only(top: 10, bottom: 4), child: Text(g.title, style: body(13.5, weight: FontWeight.w600, color: C.muted2))),
                   Panel(child: Rows(children: [for (final l in groups[g]!) line(l)])),
+                  if (g == ZakatGroup.savings && (groups[ZakatGroup.bank] != null || groups[ZakatGroup.cash] != null))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(tr('এই টাকা কোনো অ্যাকাউন্টের ব্যালেন্সেই থাকলে একটির টিক তুলে দিন — একই টাকা দুবার ধরা যায় না।'),
+                          key: const Key('zakat-twice'), style: body(12, color: C.orangeDark, height: 1.4)),
+                    ),
                 ],
               const SizedBox(height: 10),
               Align(
@@ -304,6 +339,23 @@ class _ZakatScreenState extends State<ZakatScreen> {
                   const SizedBox(width: 10),
                   Expanded(child: field('silver_price', tr('১ ভরি রুপার দাম'), hint: tr('বাজারদর'))),
                 ]),
+              // The gold's carat (owner, 28 Oct): the price of that carat, from বাজুস when known.
+              Text(tr('আপনার সোনার গয়না কত ক্যারেটের?'), style: body(13, color: C.muted)),
+              const SizedBox(height: 6),
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                for (final (k, label) in goldCarats)
+                  ChoiceChip(
+                    key: Key('zakat-carat-$k'),
+                    label: Text(tr(label)),
+                    selected: brain.zakatCarat == k,
+                    onSelected: (_) async {
+                      await brain.setZakatCarat(k);
+                      if (!mounted) return;
+                      setState(() => _f['gold_price']!.text = '${brain.zakatSaved.goldPrice}');
+                    },
+                  ),
+              ]),
+              const SizedBox(height: 10),
               Row(children: [
                 Expanded(child: field('gold_vori', tr('আপনার সোনা'), vori: true)),
                 const SizedBox(width: 10),

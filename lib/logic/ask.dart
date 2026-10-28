@@ -9,7 +9,7 @@ import '../models/models.dart';
 import 'bn.dart';
 import 'calendar_bd.dart';
 import 'lang.dart';
-import 'money_more.dart' show accountBalance, ZakatSaved, zakatAuto, MetalPrice;
+import 'money_more.dart' show accountBalance, ZakatInput, ZakatSaved, zakatAuto, MetalPrice;
 import 'cash.dart';
 import 'parser.dart';
 import 'proactive.dart' show remindsOn, specialTitle;
@@ -185,14 +185,14 @@ String? infoAnswer(AppData d, String said, DateTime now) {
       final z = zakatAuto(d, now, askZakat.withPrices(todayMetal));
       final by = market ? trf(' (আজকের বাজুস দামে — রুপা ২২ ক্যারেট ভরি {0} টাকা, {1} থেকে কার্যকর)', [bnNumber(todayMetal!.silver22), shortDate(todayMetal!.date)]) : '';
       if (market && z.nisab > 0) {
-        if (!z.due) return trf('আপনার যাকাতযোগ্য সম্পদ {0} টাকা — নিসাব {1} টাকার কম, তাই যাকাত ফরজ নয় (আনুমানিক হিসাব){2}।', [bnNumber(z.net < 0 ? 0 : z.net), bnNumber(z.nisab), by]);
+        if (!z.due) return trf('আপনার যাকাতযোগ্য সম্পদ {0} টাকা — নিসাব {1} টাকার কম, তাই যাকাত ফরজ নয় (আনুমানিক হিসাব){2}।', [bnNumber(z.net < 0 ? 0 : z.net), bnNumber(z.nisab), by]) + _goldNisab(z);
         return trf('আপনার যাকাতযোগ্য সম্পদ {0} টাকা, যাকাত প্রায় {1} টাকা (২.৫%){2}। এটা আনুমানিক — নিশ্চিত হতে আলেমের পরামর্শ নিন।', [bnNumber(z.net), bnNumber(z.zakat), by]);
       }
       if (z.nisab <= 0) {
         final why = metalUnavailable ? tr(' আজকের দাম ইন্টারনেট থেকে আনতে পারিনি (ইন্টারনেট বা সার্ভার সাড়া দেয়নি) — বাজুসের সাইটে (bajus.org) দেখে নিতে পারেন।') : '';
         return trf('আপনার হিসাব থেকে যাকাতযোগ্য সম্পদ এখন প্রায় {0} টাকা (নগদ, ব্যাংক-সঞ্চয়, পাওনা থেকে দেনা বাদে)। নিসাব জানতে আজকের রুপার দাম লাগবে — যাকাত পাতায় রুপার দাম আর সোনা-রুপার পরিমাণ দিন, তারপর জিজ্ঞেস করলেই যাকাত বলে দেবো।', [bnNumber(z.net < 0 ? 0 : z.net)]) + why;
       }
-      if (!z.due) return trf('আপনার যাকাতযোগ্য সম্পদ {0} টাকা — নিসাব {1} টাকার কম, তাই যাকাত ফরজ নয় (আনুমানিক হিসাব)।', [bnNumber(z.net < 0 ? 0 : z.net), bnNumber(z.nisab)]);
+      if (!z.due) return trf('আপনার যাকাতযোগ্য সম্পদ {0} টাকা — নিসাব {1} টাকার কম, তাই যাকাত ফরজ নয় (আনুমানিক হিসাব)।', [bnNumber(z.net < 0 ? 0 : z.net), bnNumber(z.nisab)]) + _goldNisab(z);
       return trf('আপনার যাকাতযোগ্য সম্পদ {0} টাকা, যাকাত প্রায় {1} টাকা (২.৫%)। এটা আনুমানিক — নিশ্চিত হতে আলেমের পরামর্শ নিন।', [bnNumber(z.net), bnNumber(z.zakat)]);
     case 'savings':
       if (d.goals.isEmpty) {
@@ -291,3 +291,6 @@ String _left(Duration d) {
   if (h == 0) return trf('{0} মিনিট', [bnDigits(m)]);
   return m == 0 ? trf('{0} ঘণ্টা', [bnDigits(h)]) : trf('{0} ঘণ্টা {1} মিনিট', [bnDigits(h), bnDigits(m)]);
 }
+
+/// Only gold and nothing else: the nisab is the gold one (Hanafi), said so.
+String _goldNisab(ZakatInput z) => z.byGold ? tr(' শুধু সোনা আছে, অন্য কোনো যাকাতযোগ্য সম্পদ নেই — তাই নিসাব সাড়ে ৭ ভরি সোনা।') : '';

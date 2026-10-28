@@ -116,8 +116,12 @@ List<String> reportInsights(MonthReport r) {
 
 /// Zakat: 2.5% of zakatable wealth above the nisab (all in taka).
 class ZakatInput {
-  const ZakatInput({this.cash = 0, this.bank = 0, this.gold = 0, this.silver = 0, this.business = 0, this.receivable = 0, this.other = 0, this.debts = 0, this.nisab = 0});
+  const ZakatInput({this.cash = 0, this.bank = 0, this.gold = 0, this.silver = 0, this.business = 0, this.receivable = 0, this.other = 0, this.debts = 0, this.nisab = 0, this.byGold = false});
   final int cash, bank, gold, silver, business, receivable, other, debts, nisab;
+
+  /// Only gold and nothing else (Hanafi): the nisab is 7.5 ভরি of gold, not
+  /// the silver one — [nisab] is then its value at the gold price.
+  final bool byGold;
   int get wealth => cash + bank + gold + silver + business + receivable + other;
   int get net => wealth - debts;
   bool get due => nisab > 0 && net >= nisab;

@@ -294,6 +294,12 @@ extension BrainMore on Brain {
 
   /// Leaves a line of the zakat count out (or puts it back).
   Future<void> setZakatIncluded(String key, bool included) async {
+    // A হিসাব kept apart is off until ticked (lib/logic/zakat.dart).
+    if (key.startsWith('project:')) {
+      included ? data.zakat.excluded.add('+$key') : data.zakat.excluded.remove('+$key');
+      await _save();
+      return;
+    }
     if (included) {
       data.zakat.excluded.remove(key);
     } else {
