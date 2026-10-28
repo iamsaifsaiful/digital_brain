@@ -26,8 +26,57 @@ const cardColors = [
   [Color(0xFF3B2470), Color(0xFF6C4BC2)],
 ];
 
-/// "1234 5678 9012 3456".
-String groupedNumber(String digits) => [for (var i = 0; i < digits.length; i += 4) digits.substring(i, i + 4 > digits.length ? digits.length : i + 4)].join(' ');
+/// "1234 5678 9012 3456"; an AMEX card "3782 822463 10005".
+String groupedNumber(String digits, {String company = ''}) {
+  final amex = (company.isEmpty ? BankCard.networkOf(digits) : company) == 'AMEX';
+  final sizes = amex ? const [4, 6, 5] : const [4, 4, 4, 4, 4];
+  final out = <String>[];
+  var i = 0;
+  for (final n in sizes) {
+    if (i >= digits.length) break;
+    final end = i + n > digits.length ? digits.length : i + n;
+    out.add(digits.substring(i, end));
+    i = end;
+  }
+  if (i < digits.length) out.add(digits.substring(i));
+  return out.join(' ');
+}
+
+/// The card companies to pick from (the number usually tells it by itself).
+const cardCompanies = ['VISA', 'Mastercard', 'AMEX', 'UnionPay', 'Nexus', 'JCB'];
+
+/// Typing a card number (owner, 28 Oct): digits only, no more than the card
+/// has (AMEX 15, the others 16), with the gaps as printed on the card.
+class CardNumberFormatter extends TextInputFormatter {
+  CardNumberFormatter(this.company);
+
+  /// The company picked ('' = from the number).
+  final String Function() company;
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    var digits = asciiDigits(newValue.text).replaceAll(RegExp(r'\D'), '');
+    final c = company().isEmpty ? BankCard.networkOf(digits) : company();
+    final max = BankCard.digitsFor(c);
+    if (digits.length > max) digits = digits.substring(0, max);
+    final text = groupedNumber(digits, company: c);
+    return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
+  }
+}
+
+/// Typing the expiry: "MM/YY" — the slash put in by itself, four digits at most.
+class ExpiryFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    var digits = asciiDigits(newValue.text).replaceAll(RegExp(r'\D'), '');
+    if (digits.length > 4) digits = digits.substring(0, 4);
+    // Deleting the slash takes the digit before it too.
+    final deleting = newValue.text.length < oldValue.text.length;
+    var text = digits.length > 2 || (digits.length == 2 && !deleting) ? '${digits.substring(0, 2)}/${digits.substring(2)}' : digits;
+    if (deleting && oldValue.text.endsWith('/') && newValue.text.length == 2) text = digits.substring(0, 1);
+    return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
+  }
+}
 
 /// The Luhn check every card number passes (a typing mistake usually fails it).
 bool luhnOk(String digits) {
@@ -57,7 +106,7 @@ class CardFace extends StatelessWidget {
     final number = card.number.isEmpty
         ? tr('শুধু ছবি রাখা')
         : open
-            ? groupedNumber(card.number)
+            ? groupedNumber(card.number, company: card.network)
             : '•••• •••• •••• ${card.last4}';
     return AspectRatio(
       aspectRatio: 85.6 / 54,
@@ -306,12 +355,13 @@ class CardFormScreen extends StatefulWidget {
 
 class _CardFormScreenState extends State<CardFormScreen> {
   late final _bank = TextEditingController(text: widget.card?.bank ?? '');
-  late final _number = TextEditingController(text: groupedNumber(widget.card?.number ?? ''));
+  late final _number = TextEditingController(text: groupedNumber(widget.card?.number ?? '', company: widget.card?.network ?? ''));
   late final _holder = TextEditingController(text: widget.card?.holder ?? '');
   late final _expiry = TextEditingController(text: widget.card?.expiry ?? '');
   late final _note = TextEditingController(text: widget.card?.note ?? '');
   late CardKind _kind = widget.card?.kind ?? CardKind.debit;
   late int _color = widget.card?.color ?? 0;
+  late String _company = widget.card?.company ?? '';
   late DocFile? _front = widget.card?.front;
   late DocFile? _back = widget.card?.back;
   final _kept = <String>[];
@@ -350,7 +400,9 @@ class _CardFormScreenState extends State<CardFormScreen> {
     if (bank.isEmpty) return toast(context, tr('ব্যাংকের নাম লিখুন'));
     final digits = _digits;
     if (digits.isEmpty && _front == null && _back == null) return toast(context, tr('কার্ডের নম্বর লিখুন, অথবা ছবি তুলুন'));
-    if (digits.isNotEmpty && (digits.length < 12 || digits.length > 19)) return toast(context, tr('কার্ডের নম্বর ১২ থেকে ১৯ অঙ্কের হয় — আবার দেখুন'));
+    final company = _company.isNotEmpty ? _company : BankCard.networkOf(digits);
+    final need = BankCard.digitsFor(company);
+    if (digits.isNotEmpty && digits.length != need) return toast(context, trf('এই কার্ডের নম্বর {0} অঙ্কের — এখন {1}টা লেখা হয়েছে', [bnDigits(need), bnDigits(digits.length)]));
     final exp = asciiDigits(_expiry.text.trim());
     if (exp.isNotEmpty && !RegExp(r'^(0[1-9]|1[0-2])/\d{2}$').hasMatch(exp)) return toast(context, tr('মেয়াদ লিখুন মাস/বছর করে, যেমন 08/29'));
     setState(() => _saving = true);
@@ -363,6 +415,7 @@ class _CardFormScreenState extends State<CardFormScreen> {
       expiry: exp,
       note: _note.text.trim(),
       color: _color,
+      company: _company,
       front: _front,
       back: _back,
       updatedAt: brain.services.now(),
@@ -375,7 +428,8 @@ class _CardFormScreenState extends State<CardFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final preview = BankCard(bank: _bank.text.trim().isEmpty ? tr('ব্যাংকের নাম') : _bank.text.trim(), kind: _kind, number: _digits, holder: _holder.text, expiry: _expiry.text, color: _color);
+    final preview = BankCard(bank: _bank.text.trim().isEmpty ? tr('ব্যাংকের নাম') : _bank.text.trim(), kind: _kind, number: _digits, holder: _holder.text, expiry: _expiry.text, color: _color, company: _company);
+    final detected = BankCard.networkOf(_digits);
     Widget photoRow(String label, DocFile? f, bool front) => Panel(
           padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
           child: Row(children: [
@@ -421,9 +475,31 @@ class _CardFormScreenState extends State<CardFormScreen> {
                   keyboardType: TextInputType.number,
                   autocorrect: false,
                   enableSuggestions: false,
-                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9০-৯ ]')), LengthLimitingTextInputFormatter(23)],
-                  decoration: InputDecoration(labelText: tr('কার্ডের নম্বর (ঐচ্ছিক, ছবি থাকলে)'), hintText: '1234 5678 9012 3456'),
+                  inputFormatters: [CardNumberFormatter(() => _company)],
+                  decoration: InputDecoration(
+                    labelText: tr('কার্ডের নম্বর (ঐচ্ছিক, ছবি থাকলে)'),
+                    hintText: (_company.isEmpty ? detected : _company) == 'AMEX' ? '3782 822463 10005' : '1234 5678 9012 3456',
+                    helperText: trf('{0} অঙ্ক', [bnDigits(BankCard.digitsFor(_company.isEmpty ? detected : _company))]),
+                  ),
                 ),
+                const SizedBox(height: 10),
+                Text(tr('কার্ডের কোম্পানি'), style: body(13, color: C.muted)),
+                const SizedBox(height: 6),
+                Wrap(spacing: 6, runSpacing: 6, children: [
+                  for (final c in cardCompanies)
+                    ChoiceChip(
+                      key: Key('card-company-$c'),
+                      label: Text(c == detected && _company.isEmpty ? trf('{0} (নম্বর থেকে)', [c]) : c),
+                      selected: _company == c || (_company.isEmpty && detected == c),
+                      onSelected: (on) => setState(() {
+                        _company = on ? c : '';
+                        // Fewer digits for the new company: the extra ones go.
+                        final d = _digits;
+                        final max = BankCard.digitsFor(_company.isEmpty ? BankCard.networkOf(d) : _company);
+                        _number.text = groupedNumber(d.length > max ? d.substring(0, max) : d, company: _company.isEmpty ? BankCard.networkOf(d) : _company);
+                      }),
+                    ),
+                ]),
                 const SizedBox(height: 10),
                 Row(children: [
                   Expanded(flex: 3, child: TextField(controller: _holder, onChanged: (_) => setState(() {}), textCapitalization: TextCapitalization.characters, decoration: InputDecoration(labelText: tr('কার্ডে লেখা নাম (ঐচ্ছিক)')))),
@@ -434,8 +510,8 @@ class _CardFormScreenState extends State<CardFormScreen> {
                       key: const Key('card-expiry'),
                       controller: _expiry,
                       onChanged: (_) => setState(() {}),
-                      keyboardType: TextInputType.datetime,
-                      inputFormatters: [LengthLimitingTextInputFormatter(5)],
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [ExpiryFormatter()],
                       decoration: InputDecoration(labelText: tr('মেয়াদ'), hintText: 'MM/YY'),
                     ),
                   ),

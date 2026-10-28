@@ -1369,7 +1369,7 @@ enum CardKind {
 /// An ATM, debit or credit card (owner, 28 Oct): the bank, the kind, the
 /// number and/or photos of both sides. No PIN or CVV is ever kept.
 class BankCard {
-  BankCard({String? id, required this.bank, this.kind = CardKind.debit, this.number = '', this.holder = '', this.expiry = '', this.note = '', this.color = 0, this.front, this.back, DateTime? updatedAt})
+  BankCard({String? id, required this.bank, this.kind = CardKind.debit, this.number = '', this.holder = '', this.expiry = '', this.note = '', this.color = 0, this.front, this.back, DateTime? updatedAt, this.company = ''})
       : id = id ?? newId(),
         updatedAt = updatedAt ?? DateTime.now();
 
@@ -1387,14 +1387,23 @@ class BankCard {
 
   /// Which of the card colours (0…5).
   final int color;
+
+  /// The card company the user picked (VISA, Mastercard, …); '' = from the number.
+  final String company;
   final DocFile? front;
   final DocFile? back;
   final DateTime updatedAt;
 
   String get last4 => number.length >= 4 ? number.substring(number.length - 4) : number;
 
+  /// The company shown on the card: the one picked, else from the number.
+  String get network => company.isNotEmpty ? company : networkOf(number);
+
+  /// How many digits a card of [company] has (AMEX 15, the others 16).
+  static int digitsFor(String company) => company == 'AMEX' ? 15 : 16;
+
   /// Visa, Mastercard… from the first digits ('' when not known).
-  String get network {
+  static String networkOf(String number) {
     if (number.startsWith('4')) return 'VISA';
     final two = number.length >= 2 ? int.tryParse(number.substring(0, 2)) ?? 0 : 0;
     final four = number.length >= 4 ? int.tryParse(number.substring(0, 4)) ?? 0 : 0;
@@ -1413,6 +1422,7 @@ class BankCard {
         if (expiry.isNotEmpty) 'expiry': expiry,
         if (note.isNotEmpty) 'note': note,
         if (color != 0) 'color': color,
+        if (company.isNotEmpty) 'company': company,
         if (front != null) 'front': front!.toJson(),
         if (back != null) 'back': back!.toJson(),
         'updatedAt': updatedAt.toIso8601String(),
@@ -1427,6 +1437,7 @@ class BankCard {
         expiry: (j['expiry'] as String?) ?? '',
         note: (j['note'] as String?) ?? '',
         color: (j['color'] as num?)?.toInt() ?? 0,
+        company: (j['company'] as String?) ?? '',
         front: j['front'] is Map ? DocFile.fromJson((j['front'] as Map).cast<String, Object?>()) : null,
         back: j['back'] is Map ? DocFile.fromJson((j['back'] as Map).cast<String, Object?>()) : null,
         updatedAt: _date(j['updatedAt']),

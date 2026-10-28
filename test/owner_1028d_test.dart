@@ -44,6 +44,23 @@ void main() {
     await settle(t);
     await t.enterText(find.byKey(const Key('card-bank')), 'সিটি ব্যাংক');
     await t.tap(find.byKey(const Key('card-kind-credit')));
+    // Typing: the gaps come by themselves, no more digits than the card has.
+    await t.enterText(find.byKey(const Key('card-number-field')), '5555444433332222999');
+    await t.pump();
+    expect(t.widget<TextField>(find.byKey(const Key('card-number-field'))).controller!.text, '5555 4444 3333 2222');
+    expect(find.text('Mastercard (নম্বর থেকে)'), findsOneWidget, reason: 'the company read from the number');
+    await t.enterText(find.byKey(const Key('card-number-field')), '378282246310005777');
+    await t.pump();
+    expect(t.widget<TextField>(find.byKey(const Key('card-number-field'))).controller!.text, '3782 822463 10005', reason: 'AMEX: 15 digits, 4-6-5');
+    await t.scrollUntilVisible(find.byKey(const Key('card-expiry')), 100, scrollable: find.descendant(of: find.byType(CardFormScreen), matching: find.byType(Scrollable)).first);
+    await t.enterText(find.byKey(const Key('card-expiry')), '08299');
+    await t.pump();
+    expect(t.widget<TextField>(find.byKey(const Key('card-expiry'))).controller!.text, '08/29');
+    await t.enterText(find.byKey(const Key('card-expiry')), '');
+    await t.enterText(find.byKey(const Key('card-number-field')), '');
+    await t.scrollUntilVisible(find.byKey(const Key('card-company-VISA')), 100, scrollable: find.descendant(of: find.byType(CardFormScreen), matching: find.byType(Scrollable)).first);
+    await t.tap(find.byKey(const Key('card-company-VISA')));
+    await t.pump();
     await t.scrollUntilVisible(find.byKey(const Key('card-front-camera')), 200, scrollable: find.descendant(of: find.byType(CardFormScreen), matching: find.byType(Scrollable)).first);
     await settle(t);
     await t.tap(find.byKey(const Key('card-front-camera')));
@@ -52,7 +69,7 @@ void main() {
     await settle(t);
     expect(b.data.cards, hasLength(2));
     final city = b.data.cards.firstWhere((c) => c.bank == 'সিটি ব্যাংক');
-    expect((city.kind, city.number, city.front != null), (CardKind.credit, '', true));
+    expect((city.kind, city.number, city.front != null, city.company), (CardKind.credit, '', true, 'VISA'));
     expect(city.front!.text, '', reason: 'a card photo is never read for text (the number would be searchable)');
     expect(find.text('শুধু ছবি রাখা'), findsOneWidget);
     // Opening one asks for the PIN (a while after the last check), then the whole number shows on asking.
