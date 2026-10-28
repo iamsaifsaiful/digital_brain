@@ -277,9 +277,22 @@ class Brain extends ChangeNotifier {
   bool get canAddShop => true;
   bool get canAddProject => pro || data.projects.where((p) => !p.closed).length < freeProjects;
 
-  /// Writing anything into অন্যান্য হিসাব (premium, owner 24 Oct; what is
-  /// already there stays readable).
-  bool get canUseProjects => has(ProFeature.projects);
+  /// The one অন্যান্য হিসাব the free app writes into (owner, 29 Oct): the
+  /// first one opened that is still open. Others (from Premium or the trial)
+  /// stay readable, editable and deletable; new entries in them need Premium.
+  String? get freeProjectId {
+    final open = data.projects.where((p) => !p.closed).toList()..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return open.isEmpty ? null : open.first.id;
+  }
+
+  /// Writing into the হিসাব [id].
+  bool canUseProject(String id) => pro || id == freeProjectId;
+
+  /// Writing into the হিসাব named [name], or opening it when there is none.
+  bool canUseProjectNamed(String name) {
+    final p = projectByName(data, name);
+    return p == null ? canAddProject : canUseProject(p.id);
+  }
   bool get canAddVault => pro || data.vault.length < freeVaultItems;
   bool get canAddDoc => pro || data.docs.length < freeDocs;
 

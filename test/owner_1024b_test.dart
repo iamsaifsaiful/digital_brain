@@ -30,8 +30,8 @@ void main() {
     for (final f in [ProFeature.projects, ProFeature.will, ProFeature.familyHealth, ProFeature.family, ProFeature.autoBackup, ProFeature.pdf, ProFeature.ai]) {
       expect(b.has(f), isFalse, reason: '$f');
     }
-    expect(b.canAddProject, isFalse);
-    expect(b.canUseProjects, isFalse);
+    // One অন্যান্য হিসাব is free (owner, 29 Oct).
+    expect(b.canAddProject, isTrue);
     expect(freeVaultItems, 20);
     expect(freeReminders, 20);
     expect(freeDocs, 30);

@@ -61,12 +61,14 @@ void main() {
         projects: [Project(name: 'বাড়ি')],
         vault: [for (var i = 0; i < freeVaultItems; i++) VaultItem(name: 'site$i', password: 'x')],
       );
-      // Owner, 24 Oct: shops free; অন্যান্য হিসাব premium only.
+      // Owner, 24 Oct: shops free. Owner, 29 Oct: one অন্যান্য হিসাব free —
+      // 'বাড়ি' is open, so a second needs Premium.
       expect(b.canAddShop, isTrue);
       expect(b.canAddProject, isFalse);
+      expect(b.canUseProject(b.data.projects.single.id), isTrue);
       expect(b.canAddVault, isFalse);
       b.data = AppData(projects: [Project(name: 'বাড়ি', closed: true)]);
-      expect(b.canAddProject, isFalse);
+      expect(b.canAddProject, isTrue, reason: 'a closed one does not count');
 
       // New limits: 20 people in ধার-দেনা, 20 ringing reminders, 30 documents (owner, 28 Oct; was 20).
       b.data = AppData(

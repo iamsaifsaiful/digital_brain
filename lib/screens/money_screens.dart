@@ -894,7 +894,6 @@ class ProjectsView extends StatelessWidget {
     // বকেয়া right from this tab: one হিসাব → straight in; several → which
     // one; none → name one first (দোকান, ব্যবসা…).
     Future<void> addDue() async {
-      if (!await needPro(context, ProFeature.projects) || !context.mounted) return;
       Project? target;
       if (open.length == 1) {
         target = open.first;
@@ -1151,7 +1150,7 @@ class _ProjectScreenState extends State<ProjectScreen> {
                       icon: Icons.south_west_rounded,
                       height: 48,
                       onPressed: () async {
-                        if (await needPro(context, ProFeature.projects) && context.mounted) push(CashFormScreen(kind: CashKind.income, projectId: p.id));
+                        if (await needPro(context, ProFeature.projects, allowed: brain.canUseProject(p.id)) && context.mounted) push(CashFormScreen(kind: CashKind.income, projectId: p.id));
                       },
                     ),
                   ),
@@ -1164,7 +1163,7 @@ class _ProjectScreenState extends State<ProjectScreen> {
                     height: 48,
                     color: C.fill,
                     onPressed: () async {
-                      if (await needPro(context, ProFeature.projects) && context.mounted) push(CashFormScreen(kind: CashKind.expense, projectId: p.id));
+                      if (await needPro(context, ProFeature.projects, allowed: brain.canUseProject(p.id)) && context.mounted) push(CashFormScreen(kind: CashKind.expense, projectId: p.id));
                     },
                   ),
                 ),

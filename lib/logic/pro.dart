@@ -40,8 +40,8 @@ const showProLink = String.fromEnvironment('PRO_LINK', defaultValue: 'on') != 'o
 
 /// Free limits in the Play app.
 const freeShops = 1;
-/// অন্যান্য হিসাব is premium only (owner, 24 Oct).
-const freeProjects = 0;
+/// One অন্যান্য হিসাব on the free app (owner, 29 Oct; was premium only).
+const freeProjects = 1;
 const freeVaultItems = 20;
 const freeReminders = 20;
 const freeLedgerPeople = 20;
@@ -86,7 +86,7 @@ class ProInfo {
 const proInfo = <ProFeature, ProInfo>{
   ProFeature.reminders: ProInfo('যত খুশি রিমাইন্ডার', 'চালু রিমাইন্ডারের কোনো সীমা নেই — কাজ, বিল, ধার-দেনা, কাগজের মেয়াদ সব মিলিয়ে', free: 'সব মিলিয়ে একসাথে ২০টা চালু রিমাইন্ডার'),
   ProFeature.docs: ProInfo('যত খুশি ডকুমেন্ট', 'NID, পাসপোর্ট, দলিল, ছবি — কোনো সীমা নেই', free: '৩০টা ডকুমেন্ট'),
-  ProFeature.projects: ProInfo('অন্যান্য হিসাব', 'বাড়ি, বিয়ে, ঈদ, ব্যবসা — আলাদা আয়, খরচ আর বকেয়া; চাইলে মূল টাকায় যুক্ত হয়'),
+  ProFeature.projects: ProInfo('যত খুশি অন্যান্য হিসাব', 'বাড়ি, বিয়ে, ঈদ, ব্যবসা — আলাদা আয়, খরচ আর বকেয়া; চাইলে মূল টাকায় যুক্ত হয়', free: '১টা অন্যান্য হিসাব'),
   ProFeature.will: ProInfo('ওছিয়তনামা', 'নোটে নিজের ওছিয়ত লিখে রাখা, শেষ কবে বদলেছেন তারিখসহ'),
   ProFeature.familyHealth: ProInfo('পরিবারের স্বাস্থ্য', 'স্বাস্থ্যে পরিবারের সদস্য যুক্ত করে প্রত্যেকের BMI, প্রেশার, সুগার, টিকা আলাদা রাখা', free: 'নিজের স্বাস্থ্য'),
   ProFeature.vault: ProInfo('যত খুশি পাসওয়ার্ড', 'পাসওয়ার্ডের কোনো সীমা নেই', free: '২০টা পাসওয়ার্ড'),
