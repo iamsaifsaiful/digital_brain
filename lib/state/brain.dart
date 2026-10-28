@@ -22,7 +22,7 @@ import '../services/trace.dart';
 import '../logic/ai_map.dart';
 import '../logic/app_map.dart';
 import '../logic/ask.dart';
-import '../logic/money_more.dart' show ZakatSaved, MetalPrice;
+import '../logic/money_more.dart' show GoldPiece, ZakatSaved, MetalPrice;
 import '../logic/manage.dart';
 import '../logic/me.dart';
 import '../logic/phrases.dart' show possessive;
@@ -1419,7 +1419,7 @@ class Brain extends ChangeNotifier {
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly', 'n_quote', 'n_fix',
-    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'blood_last_unknown', 'blood_phone', 'blood_sync', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'zakat_gold_carat', 'g_card_off', 'p_card_off', 'trace_on', 'trace_share', 'hc_on', 'hc_gone', 'steps_book',
+    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'blood_last_unknown', 'blood_phone', 'blood_sync', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'zakat_gold_carat', 'zakat_gold_list', 'g_card_off', 'p_card_off', 'trace_on', 'trace_share', 'hc_on', 'hc_gone', 'steps_book',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
@@ -1673,7 +1673,30 @@ class Brain extends ChangeNotifier {
         silverPrice: number('zakat_silver_price'),
         business: number('zakat_business'),
         other: number('zakat_other'),
+        golds: _zakatGolds(),
       );
+
+  /// The gold, kind by kind ('zakat_gold_list'); null while only the old
+  /// single amount is kept — then that one, at its chosen carat.
+  List<GoldPiece>? _zakatGolds() {
+    final raw = text('zakat_gold_list');
+    if (raw.isEmpty) {
+      final v = double.tryParse(text('zakat_gold_vori')) ?? 0;
+      return v > 0 ? [GoldPiece(carat: zakatCarat, vori: v, price: number('zakat_gold_price'))] : null;
+    }
+    try {
+      final l = jsonDecode(raw);
+      return [if (l is List) for (final j in l) ...[if (GoldPiece.fromJson(j) case final g?) g]];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Keeps the member's gold, kind by kind.
+  Future<void> setZakatGolds(List<GoldPiece> l) async {
+    await setZakatValue('gold_list', jsonEncode([for (final g in l) g.toJson()]));
+    notifyListeners();
+  }
 
   Weather? _weather;
 
@@ -1721,25 +1744,23 @@ class Brain extends ChangeNotifier {
     return p ?? _metal;
   }
 
-  /// Today's prices into the যাকাত page — gold at the carat chosen (the user can still change them).
+  /// Today's prices into the যাকাত page — 22-carat gold and silver, and each
+  /// kind of the member's gold at its own carat ('other' keeps the member's
+  /// price). The user can still change them.
   Future<void> useMetalPrice(MetalPrice p) async {
-    final g = p.gold[zakatCarat] ?? 0;
-    await setZakatValue('gold_price', '${g > 0 ? g : p.gold22}');
+    final golds = zakatSaved.golds;
+    await setZakatValue('gold_price', '${p.gold22}');
     await setZakatValue('silver_price', '${p.silver22}');
+    if (golds != null && golds.isNotEmpty) {
+      await setZakatGolds([for (final g in golds) (p.gold[g.carat] ?? 0) > 0 ? g.copyWith(price: p.gold[g.carat]) : g]);
+    }
   }
 
   /// The carat of the member's gold ('22k' unless chosen).
   String get zakatCarat => text('zakat_gold_carat', '22k');
 
-  /// Another carat: its price from today's বাজুস list when known.
-  Future<void> setZakatCarat(String k) async {
-    prefs['zakat_gold_carat'] = k;
-    await _put('zakat_gold_carat', k);
-    final p = todayMetal ?? _metal;
-    final g = p?.gold[k] ?? 0;
-    if (g > 0) await setZakatValue('gold_price', '$g');
-    notifyListeners();
-  }
+  /// Today's বাজুস price of a carat (0: not known).
+  int metalGold(String carat) => (todayMetal ?? _metal)?.gold[carat] ?? 0;
 
   /// Keeps one entered zakat value (no reschedule needed).
   Future<void> setZakatValue(String key, String value) async {

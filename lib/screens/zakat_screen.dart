@@ -4,6 +4,7 @@
 // line with where it came from and when it last changed, and lets the user
 // leave a line out or add one by hand.
 import 'dart:math' as math;
+import 'dart:math' show Random;
 
 import 'package:flutter/material.dart';
 
@@ -11,7 +12,7 @@ import '../logic/bn.dart';
 import '../logic/cash.dart' show cashStartOf, cashSinceStart;
 import '../logic/lang.dart';
 import '../logic/ledger.dart';
-import '../logic/money_more.dart' show MetalPrice;
+import '../logic/money_more.dart' show GoldPiece, MetalPrice;
 import '../logic/zakat.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
@@ -27,7 +28,7 @@ class ZakatScreen extends StatefulWidget {
 
 class _ZakatScreenState extends State<ZakatScreen> {
   /// What the app cannot know: entered once, kept for next time.
-  final _f = {for (final k in ['gold_vori', 'gold_price', 'silver_vori', 'silver_price', 'business', 'other']) k: TextEditingController()};
+  final _f = {for (final k in ['gold_price', 'silver_vori', 'silver_price', 'business', 'other']) k: TextEditingController()};
   bool _fetching = false;
   String _priceNote = '';
   bool _editPrice = false;
@@ -38,7 +39,6 @@ class _ZakatScreenState extends State<ZakatScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final z = BrainScope.read(context).zakatSaved;
       String n(num v) => v == 0 ? '' : (v is double && v != v.roundToDouble() ? '$v' : '${v.round()}');
-      _f['gold_vori']!.text = n(z.goldVori);
       _f['gold_price']!.text = n(z.goldPrice);
       _f['silver_vori']!.text = n(z.silverVori);
       _f['silver_price']!.text = n(z.silverPrice);
@@ -76,13 +76,28 @@ class _ZakatScreenState extends State<ZakatScreen> {
       _f['gold_price']!.text = '${brain.zakatSaved.goldPrice}';
       _f['silver_price']!.text = '${p.silver22}';
       _editPrice = false;
-      _priceNote = trf('{0}, {1} থেকে কার্যকর — আপনার বেছে নেওয়া ক্যারেটের দাম বসানো হলো। দোকানে বিক্রির দাম কম হলে নিজে বদলে দিন।', [p.source.isEmpty ? tr('বাজুস') : p.source, shortDate(p.date)]);
+      _priceNote = trf('{0}, {1} থেকে কার্যকর — প্রতিটি সোনার দাম তার ক্যারেট অনুযায়ী বসানো হলো। দোকানে বিক্রির দাম কম হলে নিজে বদলে দিন।', [p.source.isEmpty ? tr('বাজুস') : p.source, shortDate(p.date)]);
     });
   }
 
   Future<void> _addItem(Brain brain) async {
     final r = await showDialog<(String, int, bool)>(context: context, builder: (_) => const _ItemDialog());
     if (r != null && r.$1.isNotEmpty && r.$2 > 0) await brain.addZakatItem(r.$1, r.$2, debt: r.$3);
+  }
+
+  /// Adds a kind of gold, or changes [old] (owner, 29 Oct: several carats, each at its price).
+  Future<void> _gold(Brain brain, {GoldPiece? old}) async {
+    final g = await showDialog<GoldPiece>(context: context, builder: (_) => _GoldDialog(old: old, priceOf: brain.metalGold));
+    if (g == null) return;
+    final list = [...brain.zakatSaved.pieces];
+    final i = old == null ? -1 : list.indexWhere((x) => x.key == old.key);
+    final piece = old == null ? GoldPiece(id: Random().nextInt(1 << 30).toRadixString(36), carat: g.carat, vori: g.vori, price: g.price, label: g.label) : GoldPiece(id: old.id, carat: g.carat, vori: g.vori, price: g.price, label: g.label);
+    if (i >= 0) {
+      list[i] = piece;
+    } else {
+      list.add(piece);
+    }
+    await brain.setZakatGolds(list);
   }
 
   /// Rows grouped by month, newest first: (month, its rows, their sum).
@@ -327,7 +342,7 @@ class _ZakatScreenState extends State<ZakatScreen> {
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Row(children: [
                     Expanded(
-                      child: Text(trf('১ ভরি: সোনা {0} · রুপা {1}', [taka(saved.goldPrice), taka(saved.silverPrice)]),
+                      child: Text(trf('১ ভরি (২২ ক্যারেট): সোনা {0} · রুপা {1}', [taka(saved.goldPrice), taka(saved.silverPrice)]),
                           key: const Key('zakat-price-line'), style: body(14, weight: FontWeight.w600)),
                     ),
                     TextButton(onPressed: () => setState(() => _editPrice = true), child: Text(tr('বদলান'))),
@@ -335,32 +350,53 @@ class _ZakatScreenState extends State<ZakatScreen> {
                 )
               else
                 Row(children: [
-                  Expanded(child: field('gold_price', tr('১ ভরি সোনার দাম'))),
+                  Expanded(child: field('gold_price', tr('১ ভরি সোনার দাম (২২ ক্যারেট)'))),
                   const SizedBox(width: 10),
                   Expanded(child: field('silver_price', tr('১ ভরি রুপার দাম'), hint: tr('বাজারদর'))),
                 ]),
-              // The gold's carat (owner, 28 Oct): the price of that carat, from বাজুস when known.
-              Text(tr('আপনার সোনার গয়না কত ক্যারেটের?'), style: body(13, color: C.muted)),
-              const SizedBox(height: 6),
-              Wrap(spacing: 6, runSpacing: 6, children: [
-                for (final (k, label) in goldCarats)
-                  ChoiceChip(
-                    key: Key('zakat-carat-$k'),
-                    label: Text(tr(label)),
-                    selected: brain.zakatCarat == k,
-                    onSelected: (_) async {
-                      await brain.setZakatCarat(k);
-                      if (!mounted) return;
-                      setState(() => _f['gold_price']!.text = '${brain.zakatSaved.goldPrice}');
-                    },
-                  ),
-              ]),
-              const SizedBox(height: 10),
-              Row(children: [
-                Expanded(child: field('gold_vori', tr('আপনার সোনা'), vori: true)),
-                const SizedBox(width: 10),
-                Expanded(child: field('silver_vori', tr('আপনার রুপা'), vori: true)),
-              ]),
+              // The gold, kind by kind (owner, 29 Oct): several carats, or
+              // another kind with its own price — each its own line.
+              Text(tr('আপনার সোনা'), style: body(15, weight: FontWeight.w600)),
+              const SizedBox(height: 2),
+              Text(tr('কয়েক রকম বা কয়েক ক্যারেটের সোনা থাকলে প্রতিটা আলাদা লিখুন — প্রতিটির দাম তার ক্যারেট অনুযায়ী। বাজুসের তালিকায় নেই এমন সোনা “অন্যান্য”-তে দাম দিয়ে লিখুন।'),
+                  style: body(12.5, color: C.muted, height: 1.4)),
+              const SizedBox(height: 8),
+              if (saved.pieces.isNotEmpty)
+                Panel(
+                  child: Rows(children: [
+                    for (final g in saved.pieces)
+                      InkWell(
+                        key: Key('zakat-gold-${g.key}'),
+                        onTap: () => _gold(brain, old: g),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
+                          child: Row(children: [
+                            Expanded(
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Text(goldPieceName(g), style: body(15, weight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                Text(trf('{0} ভরি × {1}', [bnDigits(g.vori == g.vori.roundToDouble() ? '${g.vori.round()}' : '${g.vori}'), taka(g.price)]), style: body(12.5, color: C.muted)),
+                              ]),
+                            ),
+                            Text(taka(g.value), style: body(15, weight: FontWeight.w600)),
+                            IconButton(
+                              key: Key('zakat-gold-del-${g.key}'),
+                              tooltip: tr('মুছুন'),
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                              onPressed: () => brain.setZakatGolds([for (final x in saved.pieces) if (x.key != g.key) x]),
+                            ),
+                          ]),
+                        ),
+                      ),
+                  ]),
+                ),
+              Padding(
+                padding: const EdgeInsets.only(top: 6, bottom: 12),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(key: const Key('zakat-gold-add'), onPressed: () => _gold(brain), icon: const Icon(Icons.add_rounded), label: Text(tr('সোনা যোগ করুন'))),
+                ),
+              ),
+              field('silver_vori', tr('আপনার রুপা'), vori: true),
               field('business', tr('ব্যবসার মাল (বিক্রয়মূল্যে)')),
               field('other', tr('অন্যান্য (শেয়ার, বন্ড…)')),
               InfoBanner(text: tr('মুখেও জিজ্ঞেস করা যায়: “আমার যাকাত কত?” — এই পাতার একই হিসাব থেকে উত্তর আসে।'), icon: Icons.info_outline_rounded),
@@ -413,4 +449,98 @@ class _ItemDialogState extends State<_ItemDialog> {
           ),
         ],
       );
+}
+
+/// One kind of gold: its carat (or "অন্যান্য" with a name), how many ভরি, and
+/// the price of 1 ভরি — today's বাজুস price for that carat when known.
+class _GoldDialog extends StatefulWidget {
+  const _GoldDialog({this.old, required this.priceOf});
+  final GoldPiece? old;
+  final int Function(String carat) priceOf;
+  @override
+  State<_GoldDialog> createState() => _GoldDialogState();
+}
+
+class _GoldDialogState extends State<_GoldDialog> {
+  late String _carat = widget.old?.carat ?? '22k';
+  late final _label = TextEditingController(text: widget.old?.label ?? '');
+  late final _vori = TextEditingController(text: widget.old == null ? '' : (widget.old!.vori == widget.old!.vori.roundToDouble() ? '${widget.old!.vori.round()}' : '${widget.old!.vori}'));
+  late final _price = TextEditingController(text: widget.old != null ? '${widget.old!.price}' : (widget.priceOf('22k') > 0 ? '${widget.priceOf('22k')}' : ''));
+
+  @override
+  void dispose() {
+    _label.dispose();
+    _vori.dispose();
+    _price.dispose();
+    super.dispose();
+  }
+
+  double get _v => double.tryParse(asciiDigits(_vori.text).replaceAll(',', '').trim()) ?? 0;
+  int get _p => int.tryParse(asciiDigits(_price.text).replaceAll(',', '').trim()) ?? 0;
+
+  void _pick(String k) => setState(() {
+        _carat = k;
+        final p = widget.priceOf(k);
+        // A carat with today's price: that price; "অন্যান্য": the member writes it.
+        if (p > 0) {
+          _price.text = '$p';
+        } else if (k == 'other') {
+          _price.text = '';
+        }
+      });
+
+  @override
+  Widget build(BuildContext context) {
+    final known = _carat != 'other' && widget.priceOf(_carat) > 0;
+    return AlertDialog(
+      title: Text(widget.old == null ? tr('সোনা যোগ করুন') : tr('সোনা বদলান')),
+      content: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(tr('কত ক্যারেটের?'), style: body(13, color: C.muted)),
+          const SizedBox(height: 6),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final (k, label) in [...goldCarats, ('other', 'অন্যান্য')])
+              ChoiceChip(key: Key('zakat-gold-carat-$k'), label: Text(tr(label)), selected: _carat == k, onSelected: (_) => _pick(k)),
+          ]),
+          if (_carat == 'other') ...[
+            const SizedBox(height: 8),
+            TextField(key: const Key('zakat-gold-label'), controller: _label, decoration: InputDecoration(labelText: tr('কী সোনা (যেমন: সোনার কয়েন, পুরোনো গয়না)'))),
+          ],
+          const SizedBox(height: 8),
+          TextField(
+            key: const Key('zakat-gold-vori'),
+            controller: _vori,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(labelText: tr('কত ভরি'), suffixText: tr('ভরি')),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            key: const Key('zakat-gold-price'),
+            controller: _price,
+            keyboardType: TextInputType.number,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              labelText: tr('১ ভরির দাম'),
+              prefixText: tr('৳ '),
+              helperMaxLines: 3,
+              helperText: _carat == 'other' ? tr('এই সোনার ১ ভরির দাম নিজে লিখুন') : (known ? tr('আজকের বাজুস দাম — দোকানে কম পেলে বদলে দিন') : tr('১ ভরির দাম লিখুন (বাজুসের দাম আনা যায়নি)')),
+            ),
+          ),
+          if (_v > 0 && _p > 0) ...[
+            const SizedBox(height: 10),
+            Text(trf('মোট: {0}', [taka((_v * _p).round())]), key: const Key('zakat-gold-sum'), style: body(14, weight: FontWeight.w600)),
+          ],
+        ]),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('বাতিল'))),
+        FilledButton(
+          key: const Key('zakat-gold-save'),
+          onPressed: _v > 0 && _p > 0 ? () => Navigator.pop(context, GoldPiece(carat: _carat, vori: _v, price: _p, label: _carat == 'other' ? _label.text.trim() : '')) : null,
+          child: Text(widget.old == null ? tr('যোগ করুন') : tr('রাখুন')),
+        ),
+      ],
+    );
+  }
 }
