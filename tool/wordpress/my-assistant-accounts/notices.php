@@ -787,6 +787,51 @@ function ma_note_day($day = '') {
 // stays off).
 
 /** Who: decided on the phone. */
+/** How often each kind goes, for grouping on the site and in the admin app (owner, 28 Oct). */
+function ma_note_groups() {
+    return ['daily' => 'প্রতিদিন', 'weekly' => 'সপ্তাহে', 'monthly' => 'মাসে', 'special' => 'বিশেষ দিনে', 'trigger' => 'কিছু ঘটলে'];
+}
+
+function ma_note_group_of($key) {
+    $g = [
+        'brief:morning' => 'daily', 'brief:night' => 'daily', 'nudge:quote' => 'daily', 'nudge:nocash' => 'daily', 'nudge:habit' => 'daily', 'nudge:prayer' => 'daily',
+        'nudge:jumuah' => 'weekly', 'nudge:week' => 'weekly', 'nudge:backup' => 'weekly', 'nudge:bmi' => 'weekly', 'nudge:plan' => 'weekly',
+        'nudge:health' => 'monthly',
+        'nudge:fest' => 'special', 'nudge:ramadan' => 'special', 'nudge:soon' => 'special', 'nudge:day2' => 'special', 'nudge:fix' => 'special', 'nudge:pass' => 'special',
+    ];
+    return $g[$key] ?? 'trigger';
+}
+
+/** Kinds that go on one weekday, which the admin may move (1 = Monday … 7 = Sunday, as on the phone). */
+function ma_note_wd_kinds() {
+    return ['nudge:week' => 6, 'nudge:backup' => 5, 'nudge:health' => 6];
+}
+
+function ma_note_weekdays() {
+    return [1 => 'সোমবার', 2 => 'মঙ্গলবার', 3 => 'বুধবার', 4 => 'বৃহস্পতিবার', 5 => 'শুক্রবার', 6 => 'শনিবার', 7 => 'রবিবার'];
+}
+
+/** A typical body, for the preview (the phone writes the real one). */
+function ma_note_body_sample($key) {
+    $b = [
+        'brief:morning' => '৯:০০ ডাক্তারের কাছে · ২টা কাজ · ঢাকা ২৮°',
+        'brief:night' => 'বাজার করা, বিল দেওয়া — কালকের তালিকায় নেব?',
+        'nudge:quote' => 'আয়ের আগে সঞ্চয়, তারপর খরচ।',
+        'nudge:nocash' => 'আজ কী কী খরচ হলো, বলে দিন — এক মিনিট লাগবে।',
+        'nudge:habit' => 'আজকেরটা হয়ে গেলে টিক দিয়ে দিন, ধারা যেন না ভাঙে।',
+        'nudge:jumuah' => 'আজ জুমার দিন। জোহর শুরু ১২:০৫ — আগেভাগে প্রস্তুতি নিন।',
+        'nudge:week' => 'খরচ ৮,৪০০ টাকা · ৬টা কাজ শেষ · ২টা বাকি। নতুন সপ্তাহ ভালো কাটুক!',
+        'nudge:backup' => 'ফোন হারালে তথ্য ফেরাতে ব্যাকআপ লাগবে। চাপুন — এক মিনিটে নিয়ে রাখুন।',
+        'nudge:health' => 'এই মৌসুমে যা খেয়াল রাখবেন — এক লাইনের পরামর্শ।',
+        'nudge:fest' => 'আজ ঈদুল ফিতর। পরিবার নিয়ে আনন্দে কাটুক দিনটি।',
+        'nudge:due' => 'শেষ লেনদেন ৩০ দিন আগে। তাগাদার মেসেজ পাঠাবো? চাপুন।',
+        'nudge:bill' => 'বৃহস্পতিবার, ৩০ অক্টোবর। আগেভাগে দিয়ে দিলে ঝামেলা থাকে না।',
+        'nudge:med' => 'ফুরিয়ে যাওয়ার আগে কিনে রাখুন।',
+        'nudge:pass' => 'আজ ছুটির দিন — বদলে নিলে অ্যাকাউন্ট নিরাপদ থাকে।',
+    ];
+    return $b[$key] ?? '';
+}
+
 function ma_note_who_options() {
     return [
         'all' => 'সবাই',
@@ -811,6 +856,7 @@ function ma_note_rules() {
             'title' => (string) ($r['title'] ?? ''),
             'body' => (string) ($r['body'] ?? ''),
             'who' => isset(ma_note_who_options()[$r['who'] ?? '']) ? $r['who'] : 'all',
+            'wd' => isset(ma_note_wd_kinds()[$c['key']]) ? max(0, min(7, (int) ($r['wd'] ?? 0))) : 0,
         ];
     }
     $cap = $saved['cap'] ?? null;
@@ -832,6 +878,7 @@ function ma_note_rules_save(array $in) {
             'title' => mb_substr(sanitize_text_field((string) ($r['title'] ?? '')), 0, 80),
             'body' => mb_substr(sanitize_textarea_field((string) ($r['body'] ?? '')), 0, 240),
             'who' => isset(ma_note_who_options()[$r['who'] ?? '']) ? $r['who'] : 'all',
+            'wd' => isset(ma_note_wd_kinds()[$k]) ? max(0, min(7, (int) ($r['wd'] ?? 0))) : 0,
         ];
     }
     $cap = $in['cap'] ?? '';
@@ -845,7 +892,7 @@ function ma_note_rules_public() {
     $r = ma_note_rules();
     $kinds = [];
     foreach ($r['kinds'] as $k => $x) {
-        if (!$x['on'] || $x['at'] !== '' || $x['title'] !== '' || $x['body'] !== '' || $x['who'] !== 'all') {
+        if (!$x['on'] || $x['at'] !== '' || $x['title'] !== '' || $x['body'] !== '' || $x['who'] !== 'all' || $x['wd'] > 0) {
             $kinds[$k] = $x;
         }
     }
@@ -855,11 +902,58 @@ function ma_note_rules_public() {
 /** For the site page and the admin app: each kind with its rule. */
 function ma_note_rules_view() {
     $r = ma_note_rules();
+    $today = [];
+    foreach (ma_note_day('')['app'] as $a) {
+        $today[$a['key'] ?? ''] = (int) ($a['count'] ?? 0);
+    }
+    $wdk = ma_note_wd_kinds();
+    $groups = ma_note_groups();
     $rows = [];
     foreach (ma_note_catalog() as $c) {
-        $rows[] = ['key' => $c['key'], 'label' => $c['label'], 'sample' => $c['sample'], 'when' => $c['when'], 'default_at' => $c['at'], 'cap' => $c['cap'], 'off_by_default' => !empty($c['off'])] + $r['kinds'][$c['key']];
+        $k = $c['key'];
+        $rule = $r['kinds'][$k];
+        $g = ma_note_group_of($k);
+        $rows[] = [
+            'key' => $k, 'label' => $c['label'], 'sample' => $c['sample'], 'sample_body' => ma_note_body_sample($k), 'when' => $c['when'],
+            'default_at' => $c['at'], 'cap' => $c['cap'], 'off_by_default' => !empty($c['off']),
+            'group' => $g, 'group_label' => $groups[$g],
+            'wd_default' => $wdk[$k] ?? 0, 'wd_editable' => isset($wdk[$k]),
+            'today' => $today[$k] ?? 0,
+            'schedule' => ma_note_schedule($c, $rule),
+            'changed' => !$rule['on'] || $rule['at'] !== '' || $rule['title'] !== '' || $rule['body'] !== '' || $rule['who'] !== 'all' || $rule['wd'] > 0,
+        ] + $rule;
     }
-    return ['kinds' => $rows, 'cap' => $r['cap'], 'who' => ma_note_who_options()];
+    return ['kinds' => $rows, 'cap' => $r['cap'], 'who' => ma_note_who_options(), 'groups' => $groups, 'weekdays' => ma_note_weekdays()];
+}
+
+/** When it goes now, in plain words: the admin's time and day if set, else the app's own. */
+function ma_note_schedule(array $c, array $rule) {
+    if (!$rule['on']) {
+        return 'বন্ধ — কারও কাছে যাবে না';
+    }
+    $at = $rule['at'] !== '' ? $rule['at'] : $c['at'];
+    $time = '';
+    if ($at !== '') {
+        [$h, $m] = array_map('intval', explode(':', $at));
+        $part = $h < 5 ? 'রাত' : ($h < 12 ? 'সকাল' : ($h < 16 ? 'দুপুর' : ($h < 18 ? 'বিকাল' : ($h < 20 ? 'সন্ধ্যা' : 'রাত'))));
+        $time = $part . ' ' . ma_note_bn(($h % 12 ?: 12) . ':' . sprintf('%02d', $m));
+    }
+    $wd = $rule['wd'] > 0 ? (ma_note_weekdays()[$rule['wd']] ?? '') : '';
+    $g = ma_note_group_of($c['key']);
+    if ($g === 'daily') {
+        return trim('প্রতিদিন ' . $time) . ($c['key'] === 'brief:morning' || $c['key'] === 'brief:night' ? ' (সদস্য নিজের সময় দিলে সেটা)' : '');
+    }
+    if ($wd !== '') {
+        return ($g === 'monthly' ? 'মাসের প্রথম ' : 'প্রতি ') . $wd . ' ' . $time;
+    }
+    if ($rule['at'] !== '') {
+        return preg_replace('/(সকাল|দুপুর|বিকাল|সন্ধ্যা|রাত)?\s*[০-৯0-9:.]+(টা|টায়)?/u', $time, $c['when'], 1);
+    }
+    return $c['when'];
+}
+
+function ma_note_bn($s) {
+    return strtr((string) $s, ['0' => '০', '1' => '১', '2' => '২', '3' => '৩', '4' => '৪', '5' => '৫', '6' => '৬', '7' => '৭', '8' => '৮', '9' => '৯']);
 }
 
 add_action('admin_post_ma_note_rules', function () {
@@ -868,7 +962,7 @@ add_action('admin_post_ma_note_rules', function () {
     $kinds = [];
     foreach (ma_note_catalog() as $c) {
         $f = $post['r'][$c['key']] ?? [];
-        $kinds[$c['key']] = ['on' => !empty($f['on']), 'at' => $f['at'] ?? '', 'title' => $f['title'] ?? '', 'body' => $f['body'] ?? '', 'who' => $f['who'] ?? 'all'];
+        $kinds[$c['key']] = ['on' => !empty($f['on']), 'at' => $f['at'] ?? '', 'title' => $f['title'] ?? '', 'body' => $f['body'] ?? '', 'who' => $f['who'] ?? 'all', 'wd' => $f['wd'] ?? 0];
     }
     ma_note_rules_save(['kinds' => $kinds, 'cap' => $post['cap'] ?? '']);
     ma_acc_back('নোটিফিকেশনের নিয়ম রাখা হয়েছে — সদস্যদের ফোন পরের বার খুললে বা কয়েক ঘণ্টার মধ্যে মানবে।', 'ok', ['tab' => 'notices']);
@@ -884,26 +978,35 @@ add_action('rest_api_init', function () {
     });
 });
 
-/** The site's notifications tab: the rules, one row per kind. */
+/** The site's notifications tab: the rules, grouped by how often each goes (owner, 28 Oct). */
 function ma_note_render_rules() {
     $v = ma_note_rules_view();
     $who = $v['who'];
     $post = esc_url(admin_url('admin-post.php'));
+    $by = [];
+    foreach ($v['kinds'] as $k) {
+        $by[$k['group']][] = $k;
+    }
     ?>
     <section class="ma-card" id="ma-rules">
         <div class="ma-bar"><div class="ma-bar-title"><h2>অ্যাপের নোটিফিকেশন নিয়ন্ত্রণ</h2><span class="ma-count">কোনটা যাবে, কখন, কোন লেখায়, কারা পাবেন</span></div></div>
-        <p class="muted ma-pad">সময় খালি রাখলে অ্যাপের নিজের সময়। লেখায় <code>{title}</code> = অ্যাপ যা লিখত, <code>{body}</code> = অ্যাপের বিস্তারিত (যেমন আজকের সূচি), <code>{name}</code> = সদস্যের নাম। খালি রাখলে অ্যাপের নিজের লেখা। “কারা পাবেন” প্রতিটা ফোন নিজেই ঠিক করে — কে কতদিন অ্যাপ খোলেন তা সার্ভারে আসে না। সদস্য নিজে কোনোটা বন্ধ করে থাকলে সেটা বন্ধই থাকে।</p>
+        <p class="muted ma-pad">প্রতিটা ঘরে খালি রাখলে অ্যাপের নিজের সময় ও লেখা। লেখায় <code>{title}</code> = অ্যাপ যা লিখত, <code>{body}</code> = অ্যাপের বিস্তারিত (যেমন আজকের সূচি), <code>{name}</code> = সদস্যের নাম। রাখার পর সদস্যদের ফোন পরের বার অ্যাপ খুললে নতুন নিয়ম নেয় এবং সেই অনুযায়ী নোটিফিকেশন সাজায়। “কারা পাবেন” প্রতিটা ফোন নিজেই ঠিক করে। সদস্য নিজে কোনোটা বন্ধ করে থাকলে সেটা বন্ধই থাকে।</p>
         <form method="post" action="<?php echo $post; ?>">
             <input type="hidden" name="action" value="ma_note_rules"><?php wp_nonce_field('ma_note_rules'); ?>
+            <?php foreach ($v['groups'] as $g => $gl) : if (empty($by[$g])) { continue; } ?>
+            <h3 class="ma-pad" style="margin:14px 0 4px"><?php echo esc_html($gl); ?> <span class="ma-count"><?php echo esc_html(ma_note_bn(count($by[$g]))); ?>টি</span></h3>
             <div class="ma-table-wrap">
                 <table class="ma-table ma-rules">
-                    <thead><tr><th>চালু</th><th>নোটিফিকেশন</th><th>সময়</th><th>শিরোনাম</th><th>লেখা</th><th>কারা পাবেন</th></tr></thead>
+                    <thead><tr><th>চালু</th><th>নোটিফিকেশন · কখন যায়</th><th>সময়</th><th>দিন</th><th>শিরোনাম</th><th>লেখা</th><th>কারা পাবেন</th></tr></thead>
                     <tbody>
-                    <?php foreach ($v['kinds'] as $k) : $n = 'r[' . esc_attr($k['key']) . ']'; ?>
+                    <?php foreach ($by[$g] as $k) : $n = 'r[' . esc_attr($k['key']) . ']'; ?>
                         <tr class="<?php echo $k['on'] ? '' : 'ma-dim'; ?>">
                             <td><input type="checkbox" name="<?php echo $n; ?>[on]" value="1" <?php checked($k['on']); ?> aria-label="চালু"></td>
-                            <td><strong><?php echo esc_html($k['label']); ?></strong><span class="ma-ver"><?php echo esc_html($k['when']); ?></span></td>
-                            <td><input type="time" name="<?php echo $n; ?>[at]" value="<?php echo esc_attr($k['at']); ?>" placeholder="<?php echo esc_attr($k['default_at']); ?>" style="width:110px"></td>
+                            <td><strong><?php echo esc_html($k['label']); ?></strong><?php if ($k['changed']) : ?> <span class="ma-tag">বদলানো</span><?php endif; ?>
+                                <span class="ma-ver"><?php echo esc_html($k['schedule']); ?> · আজ <?php echo esc_html(ma_note_bn($k['today'])); ?>টি গেছে</span>
+                                <span class="ma-ver" style="opacity:.8">দেখতে: “<?php echo esc_html($k['title'] !== '' ? $k['title'] : $k['sample']); ?>”<?php $b = $k['body'] !== '' ? $k['body'] : $k['sample_body']; if ($b !== '') : ?> — <?php echo esc_html($b); ?><?php endif; ?></span></td>
+                            <td><input type="time" name="<?php echo $n; ?>[at]" value="<?php echo esc_attr($k['at']); ?>" placeholder="<?php echo esc_attr($k['default_at']); ?>" style="width:110px"><?php if ($k['default_at'] !== '') : ?><span class="ma-ver">অ্যাপের: <?php echo esc_html($k['default_at']); ?></span><?php endif; ?></td>
+                            <td><?php if ($k['wd_editable']) : ?><select name="<?php echo $n; ?>[wd]"><option value="0">অ্যাপের (<?php echo esc_html($v['weekdays'][$k['wd_default']] ?? ''); ?>)</option><?php foreach ($v['weekdays'] as $wn => $wl) : ?><option value="<?php echo (int) $wn; ?>" <?php selected($k['wd'], $wn); ?>><?php echo esc_html($wl); ?></option><?php endforeach; ?></select><?php else : ?><span class="ma-dim">—</span><?php endif; ?></td>
                             <td><input type="text" name="<?php echo $n; ?>[title]" value="<?php echo esc_attr($k['title']); ?>" placeholder="<?php echo esc_attr($k['sample']); ?>" maxlength="80"></td>
                             <td><input type="text" name="<?php echo $n; ?>[body]" value="<?php echo esc_attr($k['body']); ?>" placeholder="{body}" maxlength="240"></td>
                             <td><select name="<?php echo $n; ?>[who]"><?php foreach ($who as $wk => $wl) : ?><option value="<?php echo esc_attr($wk); ?>" <?php selected($k['who'], $wk); ?>><?php echo esc_html($wl); ?></option><?php endforeach; ?></select></td>
@@ -912,6 +1015,7 @@ function ma_note_render_rules() {
                     </tbody>
                 </table>
             </div>
+            <?php endforeach; ?>
             <div class="ma-pad" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
                 <label>দিনে সর্বোচ্চ মনে করানো (সারাংশ, অর্থ-কথা বাদে): <input type="number" name="cap" min="0" max="10" value="<?php echo esc_attr($v['cap'] ?? ''); ?>" placeholder="৩" style="width:70px"></label>
                 <button class="ma-btn" type="submit">নিয়ম রাখুন</button>

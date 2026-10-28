@@ -288,11 +288,16 @@ PlannedNotice? _ruled(PlannedNotice n, AssistantPrefs p, DateTime now) {
   if (r == null) return n;
   if (!r.on || !p.groups.contains(r.who)) return null;
   var at = n.at;
+  // Moved to another weekday (owner, 28 Oct): the next such day on or after the app's own.
+  if (r.wd >= 1 && r.wd <= 7 && at.weekday != r.wd) {
+    at = at.add(Duration(days: (r.wd - at.weekday + 7) % 7));
+    if (!at.isAfter(now)) return null;
+  }
   final m = r.minutes;
   // A summary time the member set themself stays theirs.
   final ownTime = (n.reminderId == morningTag && p.morningAt != 8 * 60) || (n.reminderId == nightTag && p.nightAt != 21 * 60);
   if (m != null && !ownTime) {
-    at = _at(dayOnly(n.at), m);
+    at = _at(dayOnly(at), m);
     if (!at.isAfter(now)) return null;
   }
   final name = p.name.trim();

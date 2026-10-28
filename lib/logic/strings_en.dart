@@ -4295,4 +4295,6 @@ const enStrings = <String, String>{
   'এই হিসাব এখন আলাদা — মূল হিসাবে যোগ হবে না': 'This account is now separate — not added to the main account',
   'মূল হিসাব: যোগ হচ্ছে — বদলান': 'Main account: added — change',
   'মূল হিসাব: আলাদা — বদলান': 'Main account: separate — change',
+  'এই হিসাবের আয় আর খরচ মূল আয়-ব্যয়েও যোগ হয়। বকেয়া পেলে নিচে বকেয়া থেকে আদায় দিন।': 'This account’s income and spending also go into the main income-expense. When a due is paid, record it below under dues.',
+  'এই হিসাব মূল টাকার সাথে যুক্ত নয় — এর আয়, খরচ আর বকেয়া এখানেই থাকে, মূল আয়-ব্যয়ে বা যাকাতে ধরা হয় না।': 'This account is kept apart from the main money — its income, spending and dues stay here and are not counted in the main income-expense or in zakat.',
 };

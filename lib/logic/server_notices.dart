@@ -135,8 +135,11 @@ bool _condition(String cond, AppData d, DateTime day, DateTime? lastOpen) {
 /// Oct: controlled from the site or the admin app). Empty fields keep the
 /// app's own way.
 class NoticeRule {
-  const NoticeRule({this.on = true, this.at = '', this.title = '', this.body = '', this.who = 'all'});
+  const NoticeRule({this.on = true, this.at = '', this.title = '', this.body = '', this.who = 'all', this.wd = 0});
   final bool on;
+
+  /// Another weekday for a one-weekday kind (1 = Monday … 7 = Sunday), 0 = the app's own.
+  final int wd;
 
   /// 'HH:MM' or '' (the app's own time).
   final String at;
@@ -149,8 +152,8 @@ class NoticeRule {
   final String who;
 
   static NoticeRule fromJson(Map j) =>
-      NoticeRule(on: j['on'] != false, at: '${j['at'] ?? ''}', title: '${j['title'] ?? ''}', body: '${j['body'] ?? ''}', who: '${j['who'] ?? 'all'}');
-  Map<String, Object?> toJson() => {'on': on, 'at': at, 'title': title, 'body': body, 'who': who};
+      NoticeRule(on: j['on'] != false, at: '${j['at'] ?? ''}', title: '${j['title'] ?? ''}', body: '${j['body'] ?? ''}', who: '${j['who'] ?? 'all'}', wd: ((j['wd'] as num?)?.toInt() ?? 0).clamp(0, 7));
+  Map<String, Object?> toJson() => {'on': on, 'at': at, 'title': title, 'body': body, 'who': who, if (wd > 0) 'wd': wd};
 
   /// Minutes after midnight, or null.
   int? get minutes {

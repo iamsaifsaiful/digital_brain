@@ -5,6 +5,11 @@ name: NLU retrain
 # gold set → the gate (no intent more than 1 point worse, removals and money
 # not worse) → passed: published as a GitHub release and added on the server
 # as a DRAFT. An admin makes it live for a share of members in the admin app.
+#
+# 28 Oct: one training swings a few small intents up or down by chance, so
+# three run side by side with different seeds. The one best on the DEV split
+# (made data, never the gold set) is the only one that goes to the gate —
+# the gold set is never used to choose.
 # Runs when the nlu-retrain branch is pushed (a timed run would need this
 # file on the default branch).
 on:
@@ -15,9 +20,13 @@ permissions:
   contents: write
 
 jobs:
-  retrain:
+  train:
     runs-on: ubuntu-latest
     timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [7, 11, 23]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
@@ -36,6 +45,80 @@ jobs:
         run: |
           python tool/nlu/crowd/crowd.py
           python tool/nlu/data/generate.py | tee data.log
+      - name: Train
+        env:
+          # Long one-breath speech (25 Oct): 96 word pieces (was 48).
+          BERT_MAXT: '96'
+          BERT_SEED: ${{ matrix.seed }}
+        run: |
+          set -o pipefail
+          python tool/nlu/train/bert.py 2>&1 | tee train.log
+          python - <<'PY'
+          import ast, json, re
+          dev = 0.0
+          for line in open('train.log', encoding='utf-8'):
+              m = re.search(r"\{'dev_intent_acc':.*\}", line)
+              if m:
+                  dev = ast.literal_eval(m.group(0))['dev_intent_acc']
+          json.dump({'seed': ${{ matrix.seed }}, 'dev': dev}, open('summary.json', 'w'))
+          print('dev accuracy', dev)
+          PY
+      - name: Keep the result
+        uses: actions/upload-artifact@v4
+        with:
+          name: seed-${{ matrix.seed }}
+          retention-days: 7
+          path: |
+            summary.json
+            train.log
+            data.log
+            labels.log
+            tool/nlu/out/pred_bert.jsonl
+            tool/nlu/out/data/stats.json
+            tool/nlu/out/models/bert/
+
+  pick:
+    needs: train
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: pip install "tensorflow-cpu==2.15.1" "numpy<2" scipy scikit-learn "transformers==4.40.2" "tf_keras==2.15.1" "torch==2.3.1" --extra-index-url https://download.pytorch.org/whl/cpu
+      - uses: actions/download-artifact@v4
+        with:
+          path: seeds
+      - name: The best on the dev split
+        id: pick
+        run: |
+          python - <<'PY'
+          import json, glob, os
+          rows = []
+          for f in glob.glob('seeds/seed-*/summary.json'):
+              s = json.load(open(f))
+              s['dir'] = os.path.dirname(f)
+              if os.path.exists(os.path.join(s['dir'], 'tool/nlu/out/pred_bert.jsonl')):
+                  rows.append(s)
+          rows.sort(key=lambda s: -s['dev'])
+          print('\n'.join(f"seed {s['seed']}: dev {s['dev']}" for s in rows))
+          if not rows:
+              raise SystemExit('no training finished')
+          best = rows[0]
+          open(os.environ['GITHUB_OUTPUT'], 'a').write(f"dir={best['dir']}\nseed={best['seed']}\n")
+          open('seeds.md', 'w').write('\n'.join(['', '**বীজ (dev-এ ঠিক):** ' + ' · '.join(f"{s['seed']}: {s['dev']*100:.1f}%" for s in rows) + f" — গেটে গেল {best['seed']}", '']))
+          PY
+      - name: Put the chosen model in place
+        run: |
+          D=$(ls -d seeds/seed-${{ steps.pick.outputs.seed }})
+          mkdir -p tool/nlu/out/models tool/nlu/out/data
+          cp -r "$D/tool/nlu/out/models/bert" tool/nlu/out/models/
+          cp "$D/tool/nlu/out/pred_bert.jsonl" tool/nlu/out/
+          cp "$D/tool/nlu/out/data/stats.json" tool/nlu/out/data/ 2>/dev/null || true
+          cp "$D/train.log" "$D/data.log" . 2>/dev/null || true
+          cp "$D/labels.log" . 2>/dev/null || true
       - name: Today's gold read by the live model
         env:
           GH_TOKEN: ${{ github.token }}
@@ -43,13 +126,6 @@ jobs:
           LIVE=$(cat tool/nlu/retrain/LIVE)
           gh release download "nlu-model-$LIVE" -p "*.tflite" -O /tmp/live.tflite || { echo "No live model asset: the gate uses the old file"; exit 0; }
           python tool/nlu/retrain/live_pred.py /tmp/live.tflite | tee live.log || echo "Live reading failed: the gate uses the old file"
-      - name: Train
-        env:
-          # Long one-breath speech (25 Oct): 96 word pieces (was 48).
-          BERT_MAXT: '96'
-        run: |
-          set -o pipefail
-          python tool/nlu/train/bert.py 2>&1 | tee train.log
       - name: Gate
         id: gate
         run: |
@@ -57,6 +133,7 @@ jobs:
           BASE=tool/nlu/out/pred_live_now.jsonl; [ -s "$BASE" ] || BASE=tool/nlu/train/pred_live.jsonl
           echo "Compared with: $BASE"
           python tool/nlu/retrain/gate.py tool/nlu/out/pred_bert.jsonl "$BASE" --md gate.md && echo "ok=1" >> $GITHUB_OUTPUT || echo "ok=0" >> $GITHUB_OUTPUT
+          cat seeds.md >> gate.md
       - name: Publish as a draft
         if: steps.gate.outputs.ok == '1'
         env:

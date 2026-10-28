@@ -144,12 +144,22 @@ class FakeServer {
     } else if (p == '/admin/notice-rules') {
       if (r.method == 'POST') noticeRules = jsonDecode(r.body) as Map<String, dynamic>;
       final saved = (noticeRules['kinds'] as Map?) ?? const {};
-      Map<String, dynamic> row(String key, String label, String at) => {
-            'key': key, 'label': label, 'sample': label, 'when': 'প্রতিদিন', 'default_at': at, 'cap': false, 'off_by_default': false,
-            'on': (saved[key] as Map?)?['on'] ?? true, 'at': (saved[key] as Map?)?['at'] ?? '', 'title': (saved[key] as Map?)?['title'] ?? '', 'body': '', 'who': (saved[key] as Map?)?['who'] ?? 'all',
-          };
+      Map<String, dynamic> row(String key, String label, String at, String group, {int wdDefault = 0}) {
+        final r = (saved[key] as Map?) ?? const {};
+        final at2 = '${r['at'] ?? ''}';
+        final wd = (r['wd'] as num?)?.toInt() ?? 0;
+        return {
+          'key': key, 'label': label, 'sample': label, 'sample_body': 'নমুনা লেখা', 'when': 'অ্যাপের নিয়ম', 'default_at': at, 'cap': false, 'off_by_default': false,
+          'group': group, 'wd_default': wdDefault, 'wd_editable': wdDefault > 0, 'today': 4,
+          'schedule': r['on'] == false ? 'বন্ধ — কারও কাছে যাবে না' : '${wd > 0 ? 'প্রতি দিন-$wd ' : (group == 'daily' ? 'প্রতিদিন ' : '')}${at2.isEmpty ? at : at2}',
+          'changed': r.isNotEmpty && (r['on'] == false || at2.isNotEmpty || '${r['title'] ?? ''}'.isNotEmpty || wd > 0 || (r['who'] ?? 'all') != 'all'),
+          'on': r['on'] ?? true, 'at': at2, 'title': r['title'] ?? '', 'body': r['body'] ?? '', 'who': r['who'] ?? 'all', 'wd': wd,
+        };
+      }
       body = {
-        'kinds': [row('brief:morning', 'সুপ্রভাত — আজকের সূচি', '08:00'), row('nudge:quote', 'আজকের অর্থ-কথা', '09:15')],
+        'kinds': [row('brief:morning', 'সুপ্রভাত — আজকের সূচি', '08:00', 'daily'), row('nudge:quote', 'আজকের অর্থ-কথা', '09:15', 'daily'), row('nudge:week', 'গত সপ্তাহের হিসাব', '10:00', 'weekly', wdDefault: 6)],
+        'groups': {'daily': 'প্রতিদিন', 'weekly': 'সপ্তাহে', 'monthly': 'মাসে', 'special': 'বিশেষ দিনে', 'trigger': 'কিছু ঘটলে'},
+        'weekdays': {'1': 'সোমবার', '2': 'মঙ্গলবার', '3': 'বুধবার', '4': 'বৃহস্পতিবার', '5': 'শুক্রবার', '6': 'শনিবার', '7': 'রবিবার'},
         'cap': noticeRules['cap'] == null || '${noticeRules['cap']}'.isEmpty ? null : int.tryParse('${noticeRules['cap']}'),
         'who': {'all': 'সবাই', 'new': 'নতুন (প্রথম ৭ দিন)', 'old': 'পুরোনো (৮ দিন বা বেশি)'},
       };
@@ -582,7 +592,7 @@ void main() {
     await shot(t, 'errors');
   });
 
-  testWidgets('নোটিফিকেশন নিয়ন্ত্রণ: a kind off, another at 07:30 for new members only, a daily cap', (t) async {
+  testWidgets('নোটিফিকেশন নিয়ন্ত্রণ (owner, 28 Oct): grouped; a kind off at once; another\'s time, words and members; the weekly one moved to Sunday; back to the app\'s own', (t) async {
     final server = await open(t);
     await t.tap(find.text('নোটিফিকেশন').last);
     await settle(t);
@@ -591,28 +601,59 @@ void main() {
     await t.scrollUntilVisible(find.byKey(const Key('notice-rules')), 200);
     await t.tap(find.byKey(const Key('notice-rules')));
     await settle(t);
-    expect(find.text('আজকের অর্থ-কথা'), findsOneWidget);
+    expect(find.byKey(const Key('rules-group-daily')), findsOneWidget);
+    expect(find.byKey(const Key('rules-group-weekly')), findsOneWidget);
+    expect(find.textContaining('আজ ৪টি গেছে'), findsWidgets);
+    // A switch saves at once.
     await t.tap(find.byKey(const Key('rule-on-brief:morning')));
     await settle(t);
+    expect(((server.noticeRules['kinds'] as Map)['brief:morning'] as Map)['on'], isFalse);
+    expect(find.textContaining('বন্ধ — কারও কাছে যাবে না'), findsWidgets);
+    // Time from the clock (its own 09:15 kept, then OK), the words, the members.
     await t.tap(find.byKey(const Key('rule-nudge:quote')));
     await settle(t);
-    await t.enterText(find.byKey(const Key('rule-at')), '07:30');
+    await t.tap(find.byKey(const Key('rule-at')));
+    await settle(t);
+    await t.tap(find.text('OK'));
+    await settle(t);
     await t.enterText(find.byKey(const Key('rule-title')), '{name}, {title}');
+    await settle(t);
+    expect(find.descendant(of: find.byKey(const Key('rule-preview')), matching: find.text('সাইফ, আজকের অর্থ-কথা')), findsOneWidget);
     await t.tap(find.byKey(const Key('rule-who')));
     await settle(t);
     await t.tap(find.text('নতুন (প্রথম ৭ দিন)').last);
     await settle(t);
     await t.tap(find.byKey(const Key('rule-ok')));
     await settle(t);
+    var k = server.noticeRules['kinds'] as Map;
+    expect(((k['nudge:quote'] as Map)['at'], (k['nudge:quote'] as Map)['title'], (k['nudge:quote'] as Map)['who']), ('09:15', '{name}, {title}', 'new'));
+    // The weekly round-up to Sunday.
+    await t.ensureVisible(find.byKey(const Key('rule-nudge:week')));
+    await settle(t);
+    await t.tap(find.byKey(const Key('rule-nudge:week')));
+    await settle(t);
+    await t.tap(find.byKey(const Key('rule-wd-7')));
+    await settle(t);
+    await t.tap(find.byKey(const Key('rule-ok')));
+    await settle(t);
+    k = server.noticeRules['kinds'] as Map;
+    expect((k['nudge:week'] as Map)['wd'], 7);
+    expect(find.textContaining('বদলানো'), findsWidgets);
+    await shot(t, 'notice_rules');
+    // Back to the app's own.
+    await t.tap(find.byKey(const Key('rule-nudge:quote')));
+    await settle(t);
+    await t.tap(find.byKey(const Key('rule-reset')));
+    await settle(t);
+    k = server.noticeRules['kinds'] as Map;
+    expect(((k['nudge:quote'] as Map)['at'], (k['nudge:quote'] as Map)['title'], (k['nudge:quote'] as Map)['who']), ('', '', 'all'));
+    // The daily cap.
+    await t.ensureVisible(find.byKey(const Key('rules-cap')));
+    await settle(t);
     await t.enterText(find.byKey(const Key('rules-cap')), '2');
     await t.tap(find.byKey(const Key('rules-save')));
     await settle(t);
-    final k = server.noticeRules['kinds'] as Map;
-    expect((k['brief:morning'] as Map)['on'], isFalse);
-    expect(((k['nudge:quote'] as Map)['at'], (k['nudge:quote'] as Map)['title'], (k['nudge:quote'] as Map)['who']), ('07:30', '{name}, {title}', 'new'));
     expect(server.noticeRules['cap'], '2');
-    expect(find.textContaining('সময় 07:30'), findsOneWidget);
-    await shot(t, 'notice_rules');
   });
 
   test('the version the app says is the one in pubspec.yaml', () {

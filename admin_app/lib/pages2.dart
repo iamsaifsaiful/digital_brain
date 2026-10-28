@@ -973,11 +973,16 @@ class NoticeRulesPage extends StatefulWidget {
   State<NoticeRulesPage> createState() => _NoticeRulesPageState();
 }
 
+/// The app's own notifications, grouped by how often each goes (owner, 28 Oct):
+/// প্রতিদিন, সপ্তাহে, মাসে, বিশেষ দিনে, কিছু ঘটলে. Each card says when it goes now,
+/// how many went today and how it reads; a tap edits it, and every change is
+/// saved at once (phones take it the next time they open).
 class _NoticeRulesPageState extends State<NoticeRulesPage> {
   List<Map<String, dynamic>>? _kinds;
   Map<String, String> _who = const {};
+  Map<String, String> _groups = const {};
+  Map<int, String> _days = const {};
   final _cap = TextEditingController();
-  bool _dirty = false;
   bool _saving = false;
 
   @override
@@ -989,8 +994,9 @@ class _NoticeRulesPageState extends State<NoticeRulesPage> {
   void _take(Map<String, dynamic> d) {
     _kinds = [for (final k in (d['kinds'] as List? ?? const [])) Map<String, dynamic>.from(k as Map)];
     _who = {for (final e in ((d['who'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'};
+    _groups = {for (final e in ((d['groups'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'};
+    _days = {for (final e in ((d['weekdays'] as Map?) ?? const {}).entries) int.tryParse('${e.key}') ?? 0: '${e.value}'};
     _cap.text = d['cap'] == null ? '' : '${d['cap']}';
-    _dirty = false;
   }
 
   Future<void> _load() async {
@@ -998,10 +1004,13 @@ class _NoticeRulesPageState extends State<NoticeRulesPage> {
     if (d != null && mounted) setState(() => _take(d));
   }
 
-  Future<void> _save() async {
+  Map<String, Object?> _rule(Map<String, dynamic> k) =>
+      {'on': k['on'] == true, 'at': '${k['at'] ?? ''}', 'title': '${k['title'] ?? ''}', 'body': '${k['body'] ?? ''}', 'who': '${k['who'] ?? 'all'}', 'wd': (k['wd'] as num?)?.toInt() ?? 0};
+
+  Future<void> _save({String done = 'রাখা হয়েছে — ফোনগুলো পরের বার খুললে মানবে'}) async {
     setState(() => _saving = true);
     final body = {
-      'kinds': {for (final k in _kinds!) '${k['key']}': {'on': k['on'] == true, 'at': '${k['at'] ?? ''}', 'title': '${k['title'] ?? ''}', 'body': '${k['body'] ?? ''}', 'who': '${k['who'] ?? 'all'}'}},
+      'kinds': {for (final k in _kinds!) '${k['key']}': _rule(k)},
       'cap': _cap.text.trim(),
     };
     final d = await widget.guard(() => widget.api.saveNoticeRules(body));
@@ -1010,112 +1019,213 @@ class _NoticeRulesPageState extends State<NoticeRulesPage> {
       _saving = false;
       if (d != null) _take(d);
     });
-    if (d != null) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('রাখা হয়েছে — ফোনগুলো পরের বার খুললে মানবে')));
+    if (d != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(done)));
   }
 
+  String _fill(String t, Map<String, dynamic> k) => t.replaceAll('{title}', '${k['sample']}').replaceAll('{body}', '${k['sample_body']}').replaceAll('{name}', 'সাইফ').trim();
+
   Future<void> _edit(Map<String, dynamic> k) async {
-    final at = TextEditingController(text: '${k['at'] ?? ''}');
+    var at = '${k['at'] ?? ''}';
+    var wd = (k['wd'] as num?)?.toInt() ?? 0;
+    var who = '${k['who'] ?? 'all'}';
+    var on = k['on'] == true;
     final title = TextEditingController(text: '${k['title'] ?? ''}');
     final body = TextEditingController(text: '${k['body'] ?? ''}');
-    var who = '${k['who'] ?? 'all'}';
-    final ok = await showModalBottomSheet<bool>(
+    TextEditingController? last;
+    final res = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => Padding(
         padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(ctx).viewInsets.bottom),
-        child: StatefulBuilder(
-          builder: (ctx, set) => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text('${k['label']}', style: text(18, weight: FontWeight.w700)),
-            Text('${k['when']}', style: text(12.5, color: Palette.of(ctx).muted)),
-            const SizedBox(height: 12),
-            TextField(key: const Key('rule-at'), controller: at, keyboardType: TextInputType.datetime, decoration: InputDecoration(labelText: 'সময় (যেমন 07:30) — খালি: ${k['default_at']}')),
-            TextField(key: const Key('rule-title'), controller: title, decoration: InputDecoration(labelText: 'শিরোনাম', hintText: '${k['sample']}')),
-            TextField(key: const Key('rule-body'), controller: body, maxLines: 2, decoration: const InputDecoration(labelText: 'লেখা', hintText: '{body}')),
-            const SizedBox(height: 4),
-            Text('{title} = অ্যাপ যা লিখত, {body} = অ্যাপের বিস্তারিত, {name} = সদস্যের নাম। খালি = অ্যাপের নিজের লেখা।', style: text(12, color: Palette.of(ctx).muted)),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              key: const Key('rule-who'),
-              initialValue: _who.containsKey(who) ? who : 'all',
-              decoration: const InputDecoration(labelText: 'কারা পাবেন'),
-              items: [for (final e in _who.entries) DropdownMenuItem(value: e.key, child: Text(e.value, overflow: TextOverflow.ellipsis))],
-              onChanged: (v) => set(() => who = v ?? 'all'),
-            ),
-            const SizedBox(height: 14),
-            FilledButton(key: const Key('rule-ok'), onPressed: () => Navigator.pop(ctx, true), child: const Text('ঠিক আছে')),
-          ]),
-        ),
+        child: StatefulBuilder(builder: (ctx, set) {
+          final c = Palette.of(ctx);
+          void put(String tag) {
+            final t = last ?? body;
+            final sel = t.selection;
+            final at0 = sel.isValid ? sel.start : t.text.length;
+            t.text = t.text.replaceRange(at0, sel.isValid ? sel.end : at0, tag);
+            t.selection = TextSelection.collapsed(offset: at0 + tag.length);
+            set(() {});
+          }
+
+          final pt = title.text.trim().isEmpty ? '${k['sample']}' : _fill(title.text, k);
+          final pb = body.text.trim().isEmpty ? '${k['sample_body']}' : _fill(body.text, k);
+          return SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(children: [
+                Expanded(child: Text('${k['label']}', style: text(18, weight: FontWeight.w700))),
+                Switch(key: const Key('rule-on'), value: on, onChanged: (v) => set(() => on = v)),
+              ]),
+              Text('অ্যাপের নিজের নিয়ম: ${k['when']}', style: text(12.5, color: c.muted)),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const Key('rule-at'),
+                    icon: const Icon(Icons.schedule_rounded),
+                    label: Text(at.isEmpty ? 'সময়: অ্যাপের (${'${k['default_at']}'.isEmpty ? 'ঘটনা অনুযায়ী' : k['default_at']})' : 'সময়: $at'),
+                    onPressed: () async {
+                      final base = at.isNotEmpty ? at : '${k['default_at']}';
+                      final m = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(base);
+                      final t = await showTimePicker(context: ctx, initialTime: m == null ? const TimeOfDay(hour: 10, minute: 0) : TimeOfDay(hour: int.parse(m[1]!), minute: int.parse(m[2]!)));
+                      if (t != null) set(() => at = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}');
+                    },
+                  ),
+                ),
+                if (at.isNotEmpty) IconButton(tooltip: 'অ্যাপের সময়', onPressed: () => set(() => at = ''), icon: const Icon(Icons.restart_alt_rounded)),
+              ]),
+              if (k['wd_editable'] == true) ...[
+                const SizedBox(height: 8),
+                Text('কোন দিন', style: text(13, weight: FontWeight.w600)),
+                Wrap(spacing: 6, runSpacing: 6, children: [
+                  ChoiceChip(label: Text('অ্যাপের (${_days[(k['wd_default'] as num?)?.toInt() ?? 0] ?? ''})'), selected: wd == 0, onSelected: (_) => set(() => wd = 0)),
+                  for (final e in _days.entries) ChoiceChip(key: Key('rule-wd-${e.key}'), label: Text(e.value), selected: wd == e.key, onSelected: (_) => set(() => wd = e.key)),
+                ]),
+              ],
+              const SizedBox(height: 8),
+              TextField(key: const Key('rule-title'), controller: title, onTap: () => last = title, onChanged: (_) => set(() {}), maxLength: 80, decoration: InputDecoration(labelText: 'শিরোনাম (খালি = অ্যাপের)', hintText: '${k['sample']}')),
+              TextField(key: const Key('rule-body'), controller: body, onTap: () => last = body, onChanged: (_) => set(() {}), maxLines: 3, minLines: 1, maxLength: 240, decoration: const InputDecoration(labelText: 'লেখা (খালি = অ্যাপের)', hintText: '{body}')),
+              Wrap(spacing: 6, children: [
+                for (final (tag, what) in const [('{title}', 'অ্যাপের শিরোনাম'), ('{body}', 'অ্যাপের বিস্তারিত'), ('{name}', 'সদস্যের নাম')])
+                  ActionChip(label: Text('$tag · $what', style: text(12)), onPressed: () => put(tag)),
+              ]),
+              const SizedBox(height: 10),
+              Text('ফোনে যেমন দেখাবে', style: text(13, weight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Container(
+                key: const Key('rule-preview'),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: c.line.withValues(alpha: 0.35), borderRadius: BorderRadius.circular(12)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('My Assistant', style: text(11.5, color: c.muted)),
+                  Text(pt, style: text(14.5, weight: FontWeight.w700)),
+                  if (pb.isNotEmpty) Text(pb, style: text(13)),
+                ]),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                key: const Key('rule-who'),
+                initialValue: _who.containsKey(who) ? who : 'all',
+                decoration: const InputDecoration(labelText: 'কারা পাবেন'),
+                items: [for (final e in _who.entries) DropdownMenuItem(value: e.key, child: Text(e.value, overflow: TextOverflow.ellipsis))],
+                onChanged: (v) => set(() => who = v ?? 'all'),
+              ),
+              const SizedBox(height: 14),
+              Row(children: [
+                Expanded(child: OutlinedButton(key: const Key('rule-reset'), onPressed: () => Navigator.pop(ctx, 'reset'), child: const Text('আগের মতো করুন'))),
+                const SizedBox(width: 10),
+                Expanded(child: FilledButton(key: const Key('rule-ok'), onPressed: () => Navigator.pop(ctx, 'ok'), child: const Text('রাখুন'))),
+              ]),
+            ]),
+          );
+        }),
       ),
     );
-    if (ok != true || !mounted) return;
-    final t = at.text.trim();
+    if (res == null || !mounted) return;
     setState(() {
-      k['at'] = RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(t) ? t : '';
-      k['title'] = title.text.trim();
-      k['body'] = body.text.trim();
-      k['who'] = who;
-      _dirty = true;
+      if (res == 'reset') {
+        k
+          ..['on'] = k['off_by_default'] != true
+          ..['at'] = ''
+          ..['title'] = ''
+          ..['body'] = ''
+          ..['who'] = 'all'
+          ..['wd'] = 0;
+      } else {
+        k
+          ..['on'] = on
+          ..['at'] = at
+          ..['title'] = title.text.trim()
+          ..['body'] = body.text.trim()
+          ..['who'] = who
+          ..['wd'] = wd;
+      }
     });
+    await _save(done: res == 'reset' ? '“${k['label']}” আগের মতো — অ্যাপের নিজের নিয়মে' : '“${k['label']}” রাখা হয়েছে — ফোনগুলো পরের বার খুললে মানবে');
+  }
+
+  Widget _card(Map<String, dynamic> k, Palette c) {
+    final on = k['on'] == true;
+    final t = '${k['title']}'.isEmpty ? '${k['sample']}' : _fill('${k['title']}', k);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: CardBox(
+        key: Key('rule-${k['key']}'),
+        onTap: () => _edit(k),
+        padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+        child: Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Flexible(child: Text('${k['label']}', style: text(14.5, weight: FontWeight.w600, color: on ? c.ink : c.muted))),
+                if (k['changed'] == true) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(color: c.tint, borderRadius: BorderRadius.circular(8)),
+                    child: Text('বদলানো', style: text(11, color: c.green, weight: FontWeight.w600)),
+                  ),
+                ],
+              ]),
+              Text('${k['schedule']}${'${k['who']}' != 'all' ? ' · ${_who['${k['who']}'] ?? ''}' : ''}', style: text(12, color: c.muted)),
+              Text('“$t”', maxLines: 1, overflow: TextOverflow.ellipsis, style: text(12, color: c.muted)),
+              Text('আজ ${bn(k['today'] ?? 0)}টি গেছে', style: text(11.5, color: c.muted)),
+            ]),
+          ),
+          Switch(
+            key: Key('rule-on-${k['key']}'),
+            value: on,
+            onChanged: _saving
+                ? null
+                : (v) async {
+                    setState(() => k['on'] = v);
+                    await _save(done: v ? '“${k['label']}” চালু' : '“${k['label']}” বন্ধ — কারও কাছে যাবে না');
+                  },
+          ),
+        ]),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final c = Palette.of(context);
     final kinds = _kinds;
+    final by = <String, List<Map<String, dynamic>>>{};
+    for (final k in kinds ?? const <Map<String, dynamic>>[]) {
+      by.putIfAbsent('${k['group'] ?? 'trigger'}', () => []).add(k);
+    }
     return Scaffold(
-      appBar: AppBar(title: const Text('নোটিফিকেশন নিয়ন্ত্রণ'), actions: [
-        TextButton(key: const Key('rules-save'), onPressed: kinds == null || _saving || !_dirty ? null : _save, child: const Text('রাখুন')),
-      ]),
+      appBar: AppBar(title: const Text('নোটিফিকেশন নিয়ন্ত্রণ')),
       body: kinds == null
           ? const Center(child: CircularProgressIndicator())
-          : ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
-              Text('প্রতিটা ধরনে চাপলে সময়, লেখা আর কারা পাবেন বদলানো যায়। “কারা পাবেন” প্রতিটা ফোন নিজে ঠিক করে — কে কতদিন অ্যাপ খোলেন তা সার্ভারে আসে না। সদস্য নিজে বন্ধ করে থাকলে সেটা বন্ধই থাকে।',
-                  style: text(13, color: c.muted)),
-              const SizedBox(height: 10),
-              TextField(
-                key: const Key('rules-cap'),
-                controller: _cap,
-                keyboardType: TextInputType.number,
-                onChanged: (_) => setState(() => _dirty = true),
-                decoration: const InputDecoration(labelText: 'দিনে সর্বোচ্চ মনে করানো (খালি = ৩)', helperText: 'সকালের সূচি, অর্থ-কথা, নামাজ গোনা হয় না'),
-              ),
-              const SizedBox(height: 12),
-              for (final k in kinds)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: CardBox(
-                    key: Key('rule-${k['key']}'),
-                    onTap: () => _edit(k),
-                    padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
-                    child: Row(children: [
-                      Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text('${k['label']}', style: text(14.5, weight: FontWeight.w600, color: k['on'] == true ? c.ink : c.muted)),
-                          Text(
-                              [
-                                '${k['at']}'.isEmpty ? '${k['when']}' : 'সময় ${k['at']}',
-                                if ('${k['who']}' != 'all') _who['${k['who']}'] ?? '',
-                                if ('${k['title']}'.isNotEmpty) '“${k['title']}”',
-                              ].join(' · '),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: text(12, color: c.muted)),
-                        ]),
-                      ),
-                      Switch(
-                        key: Key('rule-on-${k['key']}'),
-                        value: k['on'] == true,
-                        onChanged: (v) => setState(() {
-                          k['on'] = v;
-                          _dirty = true;
-                        }),
-                      ),
-                    ]),
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
+                Text('কোনটা চাপলে সময়, দিন, লেখা আর কারা পাবেন বদলানো যায়; বদলালেই রাখা হয়। সদস্যদের ফোন পরের বার অ্যাপ খুললে নতুন নিয়মে সাজায়। “কারা পাবেন” প্রতিটা ফোন নিজে ঠিক করে। সদস্য নিজে বন্ধ করে থাকলে সেটা বন্ধই থাকে।',
+                    style: text(13, color: c.muted)),
+                const SizedBox(height: 10),
+                TextField(
+                  key: const Key('rules-cap'),
+                  controller: _cap,
+                  keyboardType: TextInputType.number,
+                  onSubmitted: (_) => _save(),
+                  decoration: InputDecoration(
+                    labelText: 'দিনে সর্বোচ্চ মনে করানো (খালি = ৩)',
+                    helperText: 'সকালের সূচি, অর্থ-কথা, নামাজ গোনা হয় না',
+                    suffixIcon: IconButton(key: const Key('rules-save'), tooltip: 'রাখুন', onPressed: _saving ? null : _save, icon: const Icon(Icons.check_rounded)),
                   ),
                 ),
-              const SizedBox(height: 8),
-              FilledButton(onPressed: _saving || !_dirty ? null : _save, child: Text(_saving ? 'রাখছি…' : 'নিয়ম রাখুন')),
-            ]),
+                for (final g in _groups.entries)
+                  if (by[g.key]?.isNotEmpty ?? false) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(2, 18, 2, 8),
+                      child: Text('${g.value} · ${bn(by[g.key]!.length)}টি', key: Key('rules-group-${g.key}'), style: text(16, weight: FontWeight.w700, color: c.ink)),
+                    ),
+                    for (final k in by[g.key]!) _card(k, c),
+                  ],
+              ]),
+            ),
     );
   }
 }

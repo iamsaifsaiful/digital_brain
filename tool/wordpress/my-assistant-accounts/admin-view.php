@@ -105,7 +105,7 @@ function ma_acc_render($v) {
                     <a class="<?php echo $tab === 'heirs' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'heirs']); ?>">উত্তরাধিকার<?php if (!empty($v['heirs_pending'])) : ?><i class="ma-badge"><?php echo esc_html(ma_acc_bn($v['heirs_pending'])); ?></i><?php endif; ?></a>
                     <a class="<?php echo $tab === 'nlu' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'nlu']); ?>">AI মডেল</a>
                     <a class="<?php echo $tab === 'errors' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'errors']); ?>">সমস্যার লগ</a>
-                    <a class="<?php echo $tab === 'security' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'security']); ?>">নিরাপত্তা<?php if (!ma_totp_on(get_current_user_id())) : ?><i class="ma-badge">!</i><?php endif; ?></a>
+                    <a class="<?php echo $tab === 'security' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'security']); ?>">নিরাপত্তা<?php if (ma_admin_app_otp() && !ma_totp_on(get_current_user_id())) : ?><i class="ma-badge">!</i><?php endif; ?></a>
                     <?php if (!empty($v['can_settings'])) : ?><a class="<?php echo $tab === 'finance' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'finance']); ?>">হিসাব</a><?php endif; ?>
                     <?php if (!empty($v['can_settings'])) : ?><a class="<?php echo $tab === 'ai' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'ai']); ?>">AI খরচ</a><?php endif; ?>
                     <?php if (!empty($v['can_settings'])) : ?><a class="<?php echo $tab === 'settings' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'settings']); ?>">সেটিংস</a><?php endif; ?>

@@ -179,10 +179,21 @@ function ma_acc_render_security() {
     $pending = ma_totp_secret($uid, 'ma_totp_pending');
     $post = esc_url(admin_url('admin-post.php'));
     ?>
+    <?php if (current_user_can('manage_options')) : $ask = ma_admin_app_otp(); ?>
+    <section class="ma-card pad" id="ma-applogin">
+        <div class="ma-bar-title"><h2>অ্যাডমিন অ্যাপে লগইন</h2><span class="ma-pill pro"><?php echo $ask ? 'পাসওয়ার্ড + কোড' : 'আঙুলের ছাপ'; ?></span></div>
+        <p class="muted">ফোনে প্রথমবার শুধু ইমেইল আর পাসওয়ার্ড; তারপর অ্যাপ খুলতে প্রতিবার ফোনের আঙুলের ছাপ (বা ফোনের লক)। লগইন ৯০ দিন থাকে, অ্যাপ ব্যবহার করলে নিজে থেকে বাড়ে। ফোন হারালে wp-admin-এ পাসওয়ার্ড বদলান — পুরোনো লগইন বন্ধ হয়ে যায়।</p>
+        <form method="post" action="<?php echo $post; ?>" class="ma-inline-form">
+            <input type="hidden" name="action" value="ma_admin_otp"><?php wp_nonce_field('ma_admin_otp'); ?>
+            <label><input type="checkbox" name="otp" value="1" <?php checked($ask); ?>> প্রথম লগইনে Authenticator-এর ৬ সংখ্যার কোডও চাইবে</label>
+            <button class="ma-btn ghost" type="submit">রাখুন</button>
+        </form>
+    </section>
+    <?php endif; ?>
     <section class="ma-card pad" id="ma-2fa">
         <div class="ma-bar-title"><h2>দুই ধাপের লগইন (অ্যাডমিন অ্যাপ)</h2><span class="ma-pill <?php echo $on ? 'pro' : 'expired'; ?>"><?php echo $on ? 'চালু' : 'চালু হয়নি'; ?></span></div>
         <p><strong>এই অ্যাকাউন্টের জন্য:</strong> <?php echo esc_html($user->user_login); ?> (<?php echo esc_html($user->user_email); ?>) — অ্যাডমিন অ্যাপে এই ইমেইল দিয়েই লগইন করবেন। অন্য অ্যাকাউন্টের জন্য সেই অ্যাকাউন্টে wp-admin-এ ঢুকে আলাদা করে চালু করতে হয়।</p>
-        <p class="muted">অ্যাডমিন অ্যাপে লগইনে পাসওয়ার্ডের পর ফোনের Authenticator অ্যাপের (Google Authenticator, Microsoft Authenticator…) ৬ সংখ্যার কোড লাগে। পাসওয়ার্ড কারও হাতে গেলেও কোড ছাড়া কেউ ঢুকতে পারবে না। প্রত্যেক অ্যাডমিন নিজের জন্য চালু করেন; চালু না করলে অ্যাডমিন অ্যাপে লগইন হয় না।</p>
+        <p class="muted">অ্যাডমিন অ্যাপে লগইনে পাসওয়ার্ডের পর ফোনের Authenticator অ্যাপের (Google Authenticator, Microsoft Authenticator…) ৬ সংখ্যার কোড লাগে। পাসওয়ার্ড কারও হাতে গেলেও কোড ছাড়া কেউ ঢুকতে পারবে না। প্রত্যেক অ্যাডমিন নিজের জন্য চালু করেন। উপরে “কোডও চাইবে” চালু থাকলে তবেই অ্যাপ এটা চায়।</p>
         <?php if ($on) : ?>
             <p><strong>চালু আছে।</strong> ফোন বদলালে: এখনকার কোড দিয়ে পুরোনো চাবি মুছুন, তারপর নতুন ফোনে আবার চালু করুন।</p>
             <form method="post" action="<?php echo $post; ?>" class="ma-inline-form">
@@ -314,6 +325,12 @@ function ma_ip_in_cloudflare($ip) {
     return false;
 }
 
+add_action('admin_post_ma_admin_otp', function () {
+    ma_acc_guard('ma_admin_otp', 'manage_options');
+    update_option('ma_admin_app_otp', ($_POST['otp'] ?? '') === '1' ? '1' : '0', false);
+    ma_acc_back('রাখা হয়েছে।', 'ok', ['tab' => 'security']);
+});
+
 add_action('admin_post_ma_app_versions', function () {
     ma_acc_guard('ma_app_versions', 'manage_options');
     $min = trim((string) wp_unslash($_POST['app_min'] ?? ''));
@@ -321,3 +338,21 @@ add_action('admin_post_ma_app_versions', function () {
     update_option('ma_app_update_url', esc_url_raw(trim((string) wp_unslash($_POST['url'] ?? ''))), false);
     ma_acc_back('রাখা হয়েছে।', 'ok', ['tab' => 'security']);
 });
+
+/** A WordPress password changed: that admin's app sign-ins end (a lost phone stops working). */
+function ma_sec_end_admin_sessions($user_id) {
+    global $wpdb;
+    $wpdb->delete(ma_ai_sessions_table(), ['user_id' => (int) $user_id, 'app' => 'admin']);
+}
+add_action('wp_set_password', function ($password, $user_id) {
+    ma_sec_end_admin_sessions($user_id);
+}, 10, 2);
+add_action('after_password_reset', function ($user) {
+    ma_sec_end_admin_sessions($user->ID);
+});
+add_action('profile_update', function ($user_id, $old) {
+    $new = get_userdata($user_id);
+    if ($new && $old && $new->user_pass !== $old->user_pass) {
+        ma_sec_end_admin_sessions($user_id);
+    }
+}, 10, 2);

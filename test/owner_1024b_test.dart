@@ -53,7 +53,7 @@ void main() {
         LedgerEntry(person: 'রহিম', kind: LedgerKind.lent, amount: 3000, date: at),
         LedgerEntry(person: 'করিম', kind: LedgerKind.lent, amount: 2000, date: at, projectId: 'p'),
       ],
-      projects: [Project(id: 'p', name: 'দোকান')],
+      projects: [Project(id: 'p', name: 'দোকান', inMain: true, mainAsked: true)], // let into the main money (a হিসাব kept apart stays out of zakat, owner 28 Oct)
     );
     d.cashStart = 50000;
     d.cashSetAt = at;

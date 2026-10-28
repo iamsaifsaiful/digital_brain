@@ -14,7 +14,9 @@ import 'parser.dart' show normalize;
 int accountBalance(AppData d, MoneyAccount a) {
   var b = a.opening;
   for (final e in d.cash) {
-    if (e.accountId != a.id) continue;
+    // Another হিসাব's own entry is never the account's money: when that হিসাব
+    // is in the main money, its main-money line (no project) counts instead.
+    if (e.accountId != a.id || e.projectId != null) continue;
     b += e.kind == CashKind.income ? e.amount : -e.amount;
   }
   for (final t in d.transfers) {
