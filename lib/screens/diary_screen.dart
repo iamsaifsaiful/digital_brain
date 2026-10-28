@@ -328,7 +328,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       _label(tr('নিয়মিত')),
       _box([
-        for (final r in reps) PlanRow(item: PlanItem.reminder(r, DateTime(now.year, now.month, now.day, r.hour, r.minute))),
+        for (final r in reps) PlanRow(item: PlanItem.reminder(r, DateTime(now.year, now.month, now.day, r.hour, r.minute)), next: true),
       ]),
     ]);
   }

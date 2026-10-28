@@ -36,11 +36,24 @@ String whenLabel(PlanItem i, DateTime now, {bool withDay = false}) {
   return withDay && dayOnly(at) != dayOnly(now) ? '${relativeDay(at, now)}, $t' : t;
 }
 
+/// "প্রতি মাসে · ৫ নভেম্বর, সকাল ১০টা": how often a reminder repeats, and when it rings next.
+String nextRingLabel(Reminder r, DateTime now) {
+  final at = r.notifyAt(now);
+  // The date always (owner, 28 Oct: "তারিখ দেখা যায় না"); "আজ"/"আগামীকাল" before it when near.
+  final near = dayOnly(at).difference(dayOnly(now)).inDays;
+  final day = near == 0 || near == 1 ? '${relativeDay(at, now)} ${shortDate(at)}' : shortDate(at);
+  return r.repeat.isInterval ? '${r.repeat.label} · $day' : '${r.repeat.label} · $day, ${bnTime(at.hour, at.minute)}';
+}
+
 /// A task (with a tick box) or a reminder (with a bell).
 class PlanRow extends StatelessWidget {
-  const PlanRow({super.key, required this.item, this.withDay = false, this.trailing});
+  const PlanRow({super.key, required this.item, this.withDay = false, this.trailing, this.next = false});
   final PlanItem item;
   final bool withDay;
+
+  /// A repeating reminder's own row (দিনলিপি › নিয়মিত, owner 28 Oct): how
+  /// often, and the day and time it rings next.
+  final bool next;
   final Widget? trailing;
 
   @override
@@ -50,7 +63,7 @@ class PlanRow extends StatelessWidget {
     final r = item.reminder;
     final t = item.task;
     final passed = r != null && r.repeat == Repeat.none && !r.notifyAt(now).isAfter(now);
-    final label = whenLabel(item, now, withDay: withDay);
+    final label = next && r != null && r.repeat != Repeat.none ? nextRingLabel(r, now) : whenLabel(item, now, withDay: withDay);
     return InkWell(
       onTap: () => t != null ? editTask(context, t) : Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewItemScreen(reminder: r))),
       child: Padding(
