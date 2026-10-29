@@ -3732,6 +3732,8 @@ const enStrings = <String, String>{
   'চালু — অ্যাপ বন্ধ থাকলেও “এখন কোথায়?” জিজ্ঞেস করলে ফোন নিজে জানাবে।': 'On — even with the app closed, the phone answers “Where now?” by itself.',
   'লোকেশনের অনুমতি দিন': 'Allow location',
   '“সবসময় অনুমতি দিন” বেছে নিন': 'Choose “Allow all the time”',
+  'My Assistant আপনার ফোনের লোকেশন নেয় শুধু তখন, যখন অ্যাপ ব্যবহারের সময় আপনি যাঁদের অনুমতি দিয়েছেন সেই পরিবারের কেউ “এখন কোথায়?” জিজ্ঞেস করেন। লোকেশন তালাবদ্ধ হয়ে শুধু তাঁদের কাছে যায়; আমরা দেখতে পারি না, বিজ্ঞাপনে বা অন্য কিছুতে ব্যবহার হয় না। ফ্যামিলি পাতা থেকে যেকোনো সময় বন্ধ করা যায়।': 'My Assistant reads your phone\'s location only when a family member you approved asks “Where now?” while the app is in use. The location is locked so only they can open it; we cannot see it, and it is never used for ads or anything else. You can turn it off on the Family page at any time.',
+  'চালু — অ্যাপ ব্যবহারের সময় “এখন কোথায়?” জিজ্ঞেস করলে লোকেশন যায়।': 'On — when someone asks “Where now?” while the app is in use, the location is sent.',
   'লোকেশন তালাবদ্ধ হয়ে যায় — শুধু যাঁদের অনুমতি দিয়েছেন তাঁরাই খুলতে পারেন, আমাদের সার্ভারও না।': 'Your location is locked — only the people you allowed can open it, not even our server.',
   'উত্তরাধিকারী': 'Heirs',
   'কোনো সদস্যকে খুলে “আমার উত্তরাধিকারী” চালু করলে, আপনার ইন্তেকালের পর (কাগজ যাচাই আর ১৪ দিন অপেক্ষার পর) বা আপনি এখনই অনুমতি দিলে তিনি নিচে বাছাই করা অংশ দেখতে পাবেন।': 'Open a member and turn on “My heir”: after your death (a document check and 14 days), or right away if you allow it, they can see the parts chosen below.',

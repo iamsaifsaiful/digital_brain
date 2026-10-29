@@ -40,6 +40,14 @@ jobs:
       - name: Create platform folders
         run: bash tool/setup_platforms.sh
 
+      # Google Play: no "all the time" location (owner, 30 Oct) — Play allows it
+      # only to apps whose main job is location; "Where now?" then works while
+      # the app is in use. The downloaded APK keeps it.
+      - name: Play - no background location
+        run: |
+          sed -i '/android.permission.ACCESS_BACKGROUND_LOCATION/d' android/app/src/main/AndroidManifest.xml
+          ! grep -q ACCESS_BACKGROUND_LOCATION android/app/src/main/AndroidManifest.xml
+
       - run: flutter pub get
 
       - name: Analyze
