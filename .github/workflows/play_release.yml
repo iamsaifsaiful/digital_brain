@@ -21,7 +21,8 @@ jobs:
     name: Play AAB
     runs-on: ubuntu-latest
     env:
-      ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID }}
+      # The owner's AdMob IDs (29 Oct; not secret). A repository variable, if set, wins.
+      ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID || 'ca-app-pub-4945800388084710~3064785563' }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
@@ -67,8 +68,8 @@ jobs:
 
       - name: Build AAB and APKs
         env:
-          ADMOB_BANNER: ${{ vars.ADMOB_BANNER }}
-          ADMOB_FULL: ${{ vars.ADMOB_FULL }}
+          ADMOB_BANNER: ${{ vars.ADMOB_BANNER || 'ca-app-pub-4945800388084710/2508371464' }}
+          ADMOB_FULL: ${{ vars.ADMOB_FULL || 'ca-app-pub-4945800388084710/3821453136' }}
         run: |
           set -o pipefail
           DEFINES="--dart-define=EDITION=play --dart-define=PRO_LINK=off"
