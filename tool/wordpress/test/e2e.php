@@ -1237,4 +1237,64 @@ check(ma_totp_secret($bossId) === $totp, 'two-step secrets do not depend on MA_D
 $h = $render(['tab' => 'security']);
 check(str_contains($h, 'MA_DATA_KEY</code> কখনো বদলাবেন') && !preg_match($bad, $h), 'security tab: the data key is on');
 
+
+echo "\n  — Google Play subscriptions, deleting an account, privacy page, app-ads.txt (owner, 29 Oct)\n";
+add_filter('ma_play_access_token', fn() => 'play-access');
+$GLOBALS['play'] = ['acked' => 0];
+add_filter('pre_http_request', function ($pre, $args, $url) {
+    if (!str_contains($url, 'androidpublisher.googleapis.com')) return $pre;
+    if (str_contains($url, ':acknowledge')) { $GLOBALS['play']['acked']++; return ['response' => ['code' => 200], 'body' => '{}', 'headers' => [], 'cookies' => []]; }
+    $tok = rawurldecode(basename(parse_url($url, PHP_URL_PATH)));
+    if ($tok === 'fake-token') return ['response' => ['code' => 400], 'body' => '{}', 'headers' => [], 'cookies' => []];
+    $state = $tok === 'ended-token' ? 'SUBSCRIPTION_STATE_EXPIRED' : 'SUBSCRIPTION_STATE_ACTIVE';
+    $end = $tok === 'ended-token' ? time() - 3600 : time() + 30 * DAY_IN_SECONDS;
+    return ['response' => ['code' => 200], 'body' => wp_json_encode(['subscriptionState' => $state, 'acknowledgementState' => 'ACKNOWLEDGEMENT_STATE_PENDING', 'latestOrderId' => 'GPA.1234',
+        'lineItems' => [['productId' => 'pro_monthly', 'expiryTime' => gmdate('Y-m-d\TH:i:s\Z', $end)]]]), 'headers' => [], 'cookies' => []];
+}, 9, 3);
+[$pId, $pSes] = $mk('play@gmail.com', 'প্লে', false);
+[$code] = call('POST', '/play/verify', ['product' => 'pro_monthly', 'token' => 'good-token']);
+check($code === 401, 'play: signed-in members only');
+[$code, $d] = call('POST', '/play/verify', ['product' => 'pro_monthly', 'token' => 'fake-token'], $pSes);
+check($code === 400, 'play: a token Google does not know gives nothing');
+[$code, $d] = call('POST', '/play/verify', ['product' => 'pro_monthly', 'token' => 'good-token'], $pSes);
+$row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . ma_acc_table() . ' WHERE id = %d', $pId), ARRAY_A);
+check($code === 200 && !empty($d['play_active']) && $row['pro_kind'] === 'play:pro_monthly' && ma_acc_ts($row['pro_until']) > time() + 29 * DAY_IN_SECONDS && $GLOBALS['play']['acked'] === 1, 'play: a real purchase turns Premium on to its end and is acknowledged');
+[$oId, $oSes] = $mk('other@gmail.com', 'অন্য', false);
+[$code] = call('POST', '/play/verify', ['product' => 'pro_monthly', 'token' => 'good-token'], $oSes);
+check($code === 409, 'play: one purchase cannot turn on Premium for another account');
+[$code, $d] = call('POST', '/play/verify', ['product' => 'pro_monthly', 'token' => 'ended-token'], $pSes);
+$row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . ma_acc_table() . ' WHERE id = %d', $pId), ARRAY_A);
+check($code === 200 && empty($d['play_active']) && ma_acc_ts($row['pro_until']) <= time() + 5, 'play: an ended subscription ends Play Premium');
+$h = $render(['tab' => 'settings']);
+check(str_contains($h, 'Google Play-র সাবস্ক্রিপশন') && str_contains($h, 'AdMob (app-ads.txt)'), 'play: the Play and AdMob cards are on the settings tab');
+
+// Deleting: from the app, everything of the member goes.
+call('POST', '/feedback', ['text' => 'একটা মতামত'], $pSes);
+[$code, $d] = call('POST', '/account/delete', [], $pSes);
+check($code === 200 && !$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM ' . ma_acc_table() . ' WHERE id = %d', $pId))
+    && !$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM ' . ma_ai_sessions_table() . ' WHERE user_id = %d', $pId))
+    && !$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM ' . ma_fb_table() . ' WHERE user_id = %d', $pId))
+    && !$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM ' . ma_play_table() . ' WHERE user_id = %d', $pId)), 'delete: the account, sessions, feedback and purchases go');
+[$code] = call('GET', '/me', [], $pSes);
+check($code === 401, 'delete: the old session no longer works');
+// From the website: an email link, then the account is gone.
+$nMail = count($sent['mail']);
+$_POST = ['ma_del_email' => 'other@gmail.com', 'ma_del_nonce' => wp_create_nonce('ma_del')];
+$h = do_shortcode('[my_assistant_delete_account]');
+$_POST = [];
+check(count($sent['mail']) === $nMail + 1 && str_contains($h, 'লিংক পাঠানো হয়েছে'), 'delete (web): a confirmation link is emailed');
+$link = ma_acc_delete_link('other@gmail.com');
+parse_str(parse_url($link, PHP_URL_QUERY), $q);
+check(hash_equals(hash_hmac('sha256', 'other@gmail.com|' . $q['exp'], wp_salt('auth') . 'ma-delete'), $q['sig']), 'delete (web): the link is signed');
+ma_acc_delete_member($oId);
+check(!$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM ' . ma_acc_table() . ' WHERE id = %d', $oId)), 'delete (web): the account goes');
+$_POST = ['ma_del_email' => 'nobody@gmail.com', 'ma_del_nonce' => wp_create_nonce('ma_del')];
+$h = do_shortcode('[my_assistant_delete_account]');
+$_POST = [];
+check(str_contains($h, 'লিংক পাঠানো হয়েছে') && count($sent['mail']) === $nMail + 1, 'delete (web): the same answer for an unknown email, nothing sent');
+
+$h = do_shortcode('[my_assistant_privacy]');
+check(str_contains($h, 'প্রাইভেসি পলিসি') && str_contains($h, 'Privacy Policy') && str_contains($h, 'AdMob') && str_contains($h, 'end-to-end') && str_contains($h, get_option('admin_email')), 'privacy: the page, Bangla and English');
+update_option('ma_admob_pub', 'pub-1234567890123456');
+check(ma_admob_pub() === 'pub-1234567890123456', 'app-ads.txt: the publisher ID is kept');
 echo $fail ? "\n$fail FAILED\n" : "\nALL OK\n";

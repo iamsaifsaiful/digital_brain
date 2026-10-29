@@ -1168,6 +1168,8 @@ function ma_acc_render_settings($v) {
             </form>
         <?php endif; ?>
     </section>
+    <?php if (function_exists('ma_play_settings_card')) { ma_play_settings_card(); } ?>
+    <?php if (function_exists('ma_admob_settings_card')) { ma_admob_settings_card(); } ?>
     <div class="ma-grid">
         <section class="ma-card pad">
             <h2>Google লগইন</h2>
