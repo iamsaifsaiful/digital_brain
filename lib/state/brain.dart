@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:cryptography/cryptography.dart' show Sha256;
+
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/widgets.dart';
 
@@ -52,6 +54,7 @@ import '../services/data_store.dart';
 import '../services/files.dart';
 import '../services/google_account.dart';
 import '../services/push.dart';
+import '../services/billing.dart';
 import '../services/launcher.dart';
 import '../services/lock.dart';
 import '../services/notifications.dart';
@@ -80,6 +83,7 @@ class Services {
     Phonebook? phonebook,
     GoogleAccount? google,
     PushSource? push,
+    BillingSource? billing,
     DriveStore? drive,
     AccountServer? server,
     TextReader? ocr,
@@ -94,6 +98,7 @@ class Services {
         compass = compass ?? FakeCompass(),
         google = google ?? FakeGoogle(),
         push = push ?? FakePush(),
+        billing = billing ?? FakeBilling(),
         drive = drive ?? FakeDrive(),
         server = server ?? AccountServer.off(),
         launcher = launcher ?? FakeLauncher(),
@@ -134,6 +139,9 @@ class Services {
   final DriveStore drive;
   final AccountServer server;
   final PushSource push;
+
+  /// Google Play Billing (the Play app's subscriptions).
+  final BillingSource billing;
   final DateTime Function() now;
 }
 
@@ -318,9 +326,97 @@ class Brain extends ChangeNotifier {
 
   bool canSeeMonth(DateTime m) => has(ProFeature.history) || !DateTime(m.year, m.month).isBefore(firstFreeMonth);
 
-  /// After Google Play confirms a purchase ('play:' + the plan; an internal
-  /// test build's button uses it too). Only these stand without our server.
-  Future<void> activatePro(ProPlan plan) => _setPro(services.now().add(Duration(days: plan.days)), 'play:${plan.id}');
+  /// A Play purchase our server could not check yet (offline, or Google was
+  /// slow): Premium for 3 days while the app asks again at every start.
+  static const playPending = 'play:pending';
+
+  /// Play's own prices for the plans (empty outside the Play app).
+  Map<String, String> playPrices = const {};
+
+  Future<void> loadPlayPrices() async {
+    if (!playEdition) return;
+    final p = await services.billing.prices([for (final p in proPlans) p.id]);
+    if (p.isNotEmpty) {
+      playPrices = p;
+      notifyListeners();
+    }
+  }
+
+  /// Buying Premium in the Play app: signed in with Google first (Premium
+  /// belongs to the account, so a new phone gets it back), Google Play's
+  /// sheet, then our server checks the purchase with Google. Null when
+  /// Premium is on; '' when the user closed the sheet; otherwise why not.
+  Future<String?> buyPlay(ProPlan plan) async {
+    if (!signedIn || services.ai.session.isEmpty) {
+      final e = await signInGoogle();
+      if (e != null) return e;
+      if (!signedIn) return '';
+      if (services.ai.session.isEmpty) return 'সার্ভারের সাথে যোগাযোগ হয়নি — ইন্টারনেট দেখে আবার চেষ্টা করুন';
+    }
+    final r = await services.billing.buy(plan.id, await _playAccount());
+    if (r.cancelled) return '';
+    if (r.sub == null) return r.error ?? 'Google Play-তে কেনা হয়নি';
+    return _verifyPlay(r.sub!);
+  }
+
+  /// "কেনা প্রিমিয়াম ফিরিয়ে আনুন": the subscriptions this phone's Play account owns, checked again.
+  Future<String?> restorePlay() async {
+    if (!signedIn || services.ai.session.isEmpty) return 'আগে Google দিয়ে লগইন করুন';
+    final subs = await services.billing.owned();
+    if (subs.isEmpty) return 'এই ফোনের Google Play অ্যাকাউন্টে কোনো প্রিমিয়াম কেনা পাওয়া যায়নি';
+    String? last;
+    for (final s in subs) {
+      last = await _verifyPlay(s);
+      if (last == null) return null;
+    }
+    return last;
+  }
+
+  /// At start in the Play app: a purchase not checked yet (or one Play still
+  /// waits to have acknowledged) goes to our server again.
+  Future<void> _playAtStart() async {
+    if (!playEdition || !signedIn || services.ai.session.isEmpty) return;
+    if (pro && proKind != playPending) {
+      final subs = await services.billing.owned();
+      for (final s in subs.where((s) => !s.acknowledged)) {
+        await _verifyPlay(s);
+      }
+      return;
+    }
+    for (final s in await services.billing.owned()) {
+      if (await _verifyPlay(s) == null) return;
+    }
+  }
+
+  /// A hash of the account, for Play's obfuscatedAccountId (never the email).
+  Future<String> _playAccount() async {
+    final h = await Sha256().hash(utf8.encode('my-assistant|${googleEmail.toLowerCase()}'));
+    return [for (final b in h.bytes) b.toRadixString(16).padLeft(2, '0')].join();
+  }
+
+  Future<String?> _verifyPlay(PlaySub s) async {
+    final r = await services.server.send('POST', '/play/verify', services.ai.session, {'product': s.product, 'token': s.token});
+    if (r.ok) {
+      final info = AccountInfo.fromJson(r.data);
+      final until = info.proUntil;
+      if (r.data['play_active'] == true && until != null && until.isAfter(services.now())) {
+        await _setPro(until, info.proKind.isEmpty ? 'play:${s.product}' : info.proKind);
+        await _applyServer(info);
+        return null;
+      }
+      await _applyServer(info);
+      return 'এই কেনার মেয়াদ শেষ বা ফেরত হয়েছে — Google Play-তে দেখুন';
+    }
+    if (r.status == 409) return 'এই কেনাটা অন্য একটা অ্যাকাউন্টের — সেই Google অ্যাকাউন্ট দিয়ে লগইন করুন';
+    if (r.status == 400) return 'Google এই কেনাটা চিনতে পারেনি';
+    if (r.status == 401) return r.error;
+    // Our server or Google could not answer now: Premium for 3 days, asked again at each start.
+    if (!pro) await _setPro(services.now().add(const Duration(days: 3)), playPending);
+    return null;
+  }
+
+  /// An internal test build's button: Premium for the plan's days on this phone only.
+  Future<void> activatePro(ProPlan plan) => _setPro(services.now().add(Duration(days: plan.days)), 'test');
 
   /// The preview's test switch.
   Future<void> setProForTest(bool on) => on ? _setPro(services.now().add(const Duration(days: 365)), 'test') : _setPro(null, '');
@@ -586,7 +682,7 @@ class Brain extends ChangeNotifier {
     // too. Only a Google Play purchase on this phone ('play…') stands on its own.
     final until = info.proUntil;
     final live = until != null && until.isAfter(services.now()) ? until : null;
-    if (gated && !proKind.startsWith('play') && (live != proUntil || (live != null && proKind != info.proKind))) {
+    if (gated && proKind != 'test' && proKind != playPending && (live != proUntil || (live != null && proKind != info.proKind))) {
       await _setPro(live, live == null ? '' : info.proKind, announce: await _noPush());
     }
     notifyListeners();
@@ -656,7 +752,9 @@ class Brain extends ChangeNotifier {
       serverAi = false;
       await services.lock.keys.delete('srv_session');
       notifyListeners();
+      return;
     }
+    await _playAtStart();
   }
 
   /// Signs out: automatic Drive backup stops and its password is forgotten

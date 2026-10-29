@@ -687,6 +687,9 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    /** Google Play subscriptions (the Play app's Premium). */
+    private val billing by lazy { PlayBilling(this) }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         io.flutter.plugin.common.EventChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/compass").setStreamHandler(Compass(this))
@@ -708,6 +711,9 @@ class MainActivity : FlutterFragmentActivity() {
         }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/push").setMethodCallHandler { call, result ->
             PushService.handle(this, call, result)
+        }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/billing").setMethodCallHandler { call, result ->
+            billing.handle(call, result)
         }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/google").setMethodCallHandler { call, result ->
             google.handle(call, result)

@@ -86,7 +86,7 @@ void main() {
 
       await b.activatePro(proPlans.first);
       expect(b.pro, isTrue);
-      expect(b.proKind, 'play:pro_yearly');
+      expect(b.proKind, 'test');
     });
 
     test('zakat, smart notices, paper expiry and pay-back reminders are free; their reminders count toward 20', () async {
@@ -114,7 +114,10 @@ void main() {
       final rig = Rig();
       rig.brain.gated = true;
       await rig.brain.load();
-      await rig.brain.activatePro(proPlans.first);
+      // What a Play purchase checked by our server leaves (owner_1029e_test).
+      final k = rig.services.lock.keys;
+      await k.write('pro_until', DateTime(2027, 10, 9).toIso8601String());
+      await k.write('pro_kind', 'play:pro_yearly');
       final again = Rig.sharing(rig, keys: rig.services.lock.keys as MemoryKeyVault);
       again.brain.gated = true;
       await again.brain.load();

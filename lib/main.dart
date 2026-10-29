@@ -8,6 +8,8 @@ import 'package:path_provider/path_provider.dart';
 import 'services/health_connect.dart';
 import 'services/google_account.dart';
 import 'services/push.dart';
+import 'services/billing.dart';
+import 'logic/pro.dart' show playEdition;
 
 import 'app.dart';
 import 'services/ai.dart';
@@ -48,6 +50,7 @@ Future<void> main() async {
     drive: HttpDrive(),
     server: AccountServer(),
     push: DevicePush(),
+    billing: playEdition ? PlayBilling() : FakeBilling(),
     ocr: DeviceTextReader(),
     weather: OpenMeteo(),
     compass: DeviceCompass(),

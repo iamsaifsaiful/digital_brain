@@ -47,6 +47,43 @@ const _short = <ProFeature, (String, IconData)>{
 class _ProScreenState extends State<ProScreen> {
   bool _details = false;
 
+  /// The Play app: which plan the buy button takes (0 = yearly).
+  int _plan = 0;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (playEdition) WidgetsBinding.instance.addPostFrameCallback((_) => mounted ? BrainScope.of(context).loadPlayPrices() : null);
+  }
+
+  /// Google Play's buy sheet, then our server checks it (Brain.buyPlay).
+  Future<void> _buy(Brain brain, {bool restore = false}) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final e = restore ? await brain.restorePlay() : await brain.buyPlay(proPlans[_plan]);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (e == null) {
+      toast(context, brain.proKind == Brain.playPending ? tr('কেনা হয়েছে — যাচাই শেষ হলেই পাকা হবে; প্রিমিয়াম এখনই চালু') : tr('প্রিমিয়াম চালু হলো — ধন্যবাদ!'));
+    } else if (e.isNotEmpty) {
+      toast(context, tr(e));
+    }
+  }
+
+  /// Play's page where the user changes or cancels the subscription.
+  Future<void> _manage(Brain brain) async {
+    final product = brain.proKind.startsWith('play:') ? brain.proKind.substring(5) : '';
+    final ok = await brain.services.launcher.openUrl(Uri.parse('https://play.google.com/store/account/subscriptions?${product.isEmpty || product == 'pending' ? '' : 'sku=$product&'}package=com.iamsaifsaiful.digital_brain'));
+    if (!ok && mounted) toast(context, tr('ব্রাউজার খোলা গেল না'));
+  }
+
+  /// The Play app's plain link to our website (no buying there — Play's rule).
+  Future<void> _site(Brain brain) async {
+    final ok = await brain.services.launcher.openUrl(Uri.parse(proWebPage));
+    if (!ok && mounted) toast(context, tr('ব্রাউজার খোলা গেল না'));
+  }
+
   /// "Get Premium": our website's Pro page, where any way of paying works.
   Future<void> _getPro(Brain brain) async {
     final ok = await brain.services.launcher.openUrl(Uri.parse(proWebPage));
@@ -78,8 +115,26 @@ class _ProScreenState extends State<ProScreen> {
                     ? tr('৭ দিনের ফ্রি ট্রায়াল শেষ। এই কয়দিনে যা রেখেছেন সব আছে, দেখা যাবে; প্রিমিয়ামের সুবিধাগুলো আবার পেতে প্রিমিয়াম নিন।')
                     : null;
 
+    final playSells = playEdition && sell;
     Widget getPro() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          if (showProLink) PrimaryButton(key: const Key('get-pro'), label: brain.pro && sell ? tr('মেয়াদ বাড়ান') : 'Get Premium', icon: Icons.workspace_premium_rounded, onPressed: () => _getPro(brain)),
+          if (playSells) ...[
+            if (!brain.pro || brain.proKind == Brain.playPending || brain.onTrial)
+              PrimaryButton(
+                key: const Key('buy-play'),
+                label: _busy ? tr('অপেক্ষা করুন…') : trf('প্রিমিয়াম নিন — {0}', [brain.playPrices[proPlans[_plan].id] ?? '${proPlans[_plan].price} / ${tr(proPlans[_plan].title)}']),
+                icon: Icons.workspace_premium_rounded,
+                onPressed: _busy ? null : () => _buy(brain),
+              ),
+            if (brain.proKind.startsWith('play:'))
+              TextButton.icon(key: const Key('play-manage'), onPressed: () => _manage(brain), icon: const Icon(Icons.manage_accounts_outlined), label: Text(tr('Google Play-তে সাবস্ক্রিপশন দেখুন বা বন্ধ করুন'))),
+            if (!brain.pro || brain.onTrial)
+              TextButton(key: const Key('play-restore'), onPressed: _busy ? null : () => _buy(brain, restore: true), child: Text(tr('আগে কেনা প্রিমিয়াম ফিরিয়ে আনুন'))),
+            Text(tr('Google Play-র মাধ্যমে কেনা হয়; Google Play থেকে যেকোনো সময় বন্ধ করা যায়। প্রিমিয়াম আপনার Google অ্যাকাউন্টের সাথে থাকে — নতুন ফোনেও পাবেন।'),
+                textAlign: TextAlign.center, style: body(12, color: C.muted2, height: 1.45)),
+            if (playEdition)
+              TextButton(key: const Key('pro-site'), onPressed: () => _site(brain), child: Text(trf('আমাদের ওয়েবসাইট: {0}', [proWebPage.replaceFirst('https://', '').replaceFirst(RegExp(r'/$'), '')]))),
+          ],
+          if (showProLink && !playSells) PrimaryButton(key: const Key('get-pro'), label: brain.pro && sell ? tr('মেয়াদ বাড়ান') : 'Get Premium', icon: Icons.workspace_premium_rounded, onPressed: () => _getPro(brain)),
           if (proTestSwitch && !brain.pro) ...[
             const SizedBox(height: 6),
             TextButton(onPressed: () => _tryPreview(brain), child: Text(tr('প্রিভিউ: টাকা ছাড়া প্রিমিয়াম চালু করে দেখুন'))),
@@ -107,7 +162,7 @@ class _ProScreenState extends State<ProScreen> {
               ]),
             ),
           // The last cell (owner, 28 Oct): the details on our website.
-          if (showProLink)
+          if (showProLink && !playEdition)
             Material(
               color: C.greenTint,
               borderRadius: BorderRadius.circular(12),
@@ -132,17 +187,21 @@ class _ProScreenState extends State<ProScreen> {
         for (final (i, p) in proPlans.indexed) ...[
           if (i > 0) const SizedBox(width: 10),
           Expanded(
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-              decoration: BoxDecoration(
-                color: i == 0 ? C.greenSoft : C.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: i == 0 ? C.green : C.line, width: i == 0 ? 1.5 : 1),
+            child: GestureDetector(
+              key: Key('plan-${p.id}'),
+              onTap: playSells ? () => setState(() => _plan = i) : null,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                decoration: BoxDecoration(
+                  color: i == (playSells ? _plan : 0) ? C.greenSoft : C.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: i == (playSells ? _plan : 0) ? C.green : C.line, width: i == (playSells ? _plan : 0) ? 1.5 : 1),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('${brain.playPrices[p.id] ?? p.price} / ${tr(p.title)}', style: display(18, weight: 700)),
+                  Text(tr(p.note), maxLines: 2, style: body(12, color: C.muted)),
+                ]),
               ),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${p.price} / ${tr(p.title)}', style: display(18, weight: 700)),
-                Text(tr(p.note), maxLines: 2, style: body(12, color: C.muted)),
-              ]),
             ),
           ),
         ],
@@ -160,7 +219,7 @@ class _ProScreenState extends State<ProScreen> {
     ];
 
     final details = <Widget>[
-      if (showProLink) ...[
+      if (showProLink && !playEdition) ...[
         Material(
           color: C.greenTint,
           borderRadius: BorderRadius.circular(16),
