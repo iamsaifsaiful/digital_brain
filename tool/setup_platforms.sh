@@ -149,7 +149,7 @@ if ! grep -q 'billingclient' "$GRADLE_KTS"; then
   cat >> "$GRADLE_KTS" <<'KTS'
 
 dependencies {
-    implementation("com.android.billingclient:billing:7.1.1")
+    implementation("com.android.billingclient:billing:8.0.0")
     // WorkManager (AdMob brings it): started by MainActivity, not at app start.
     implementation("androidx.work:work-runtime:2.10.0")
 }

@@ -55,8 +55,9 @@ class PlayBilling(private val activity: Activity) : PurchasesUpdatedListener {
         val params = QueryProductDetailsParams.newBuilder().setProductList(ids.map {
             QueryProductDetailsParams.Product.newBuilder().setProductId(it).setProductType(BillingClient.ProductType.SUBS).build()
         }).build()
-        client.queryProductDetailsAsync(params) { r, list ->
-            ui { then(if (r.responseCode == BillingClient.BillingResponseCode.OK) list else emptyList()) }
+        // Billing 8 (Google Play asks for 8.0.0 or newer, 29 Oct): the answer comes as a result object.
+        client.queryProductDetailsAsync(params) { r, result ->
+            ui { then(if (r.responseCode == BillingClient.BillingResponseCode.OK) result.productDetailsList else emptyList()) }
         }
     }
 

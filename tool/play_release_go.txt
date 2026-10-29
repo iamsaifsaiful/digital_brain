@@ -1,1 +1,1 @@
-1.0.0 (Firebase for app.getmyassistant)
+1.0.0 (Billing 8.0.0)
