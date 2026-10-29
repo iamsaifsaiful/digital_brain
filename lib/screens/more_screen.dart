@@ -36,9 +36,10 @@ import '../ui/pdf_export.dart';
 
 const appVersion = '2.65.0';
 
-/// The version people see. The Play app starts its own numbering at 1.0.0
-/// (owner, 29 Oct; the Play build's --dart-define=PLAY_VERSION), while
-/// [appVersion] stays the one our server, feedback and problem logs use.
+/// The app's version, shown and sent to our server (sign-in, feedback,
+/// problem logs). The Play app has its own numbering from 1.0.0 (owner, 29
+/// Oct; the Play build's --dart-define=PLAY_VERSION) and the server tells
+/// the two apart by the edition sent with it.
 const playVersion = String.fromEnvironment('PLAY_VERSION');
 String get shownVersion => playVersion.isNotEmpty ? playVersion : appVersion;
 

@@ -14,7 +14,7 @@ import '../state/brain.dart';
 import '../ui/pin.dart' show verifyUser;
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
-import 'more_screen.dart' show appVersion, BackupScreen;
+import 'more_screen.dart' show shownVersion, BackupScreen;
 
 /// Google sign-in and automatic backup to the app's hidden Google Drive
 /// folder; on a new phone, the same account brings the backup back.
@@ -84,7 +84,7 @@ class _GoogleBackupPanelState extends State<GoogleBackupPanel> {
 
   Future<void> _signIn() async {
     final brain = BrainScope.read(context);
-    await _run(() => brain.signInGoogle(appVersion: appVersion));
+    await _run(() => brain.signInGoogle(appVersion: shownVersion));
     if (!mounted || !brain.signedIn || _error != null) return;
     // A fresh phone: look for an earlier backup.
     if (looksEmpty(brain)) await _restore(fresh: true);

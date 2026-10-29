@@ -27,7 +27,7 @@ import 'services/phonebook.dart';
 import 'services/voice.dart';
 import 'state/brain.dart';
 import 'nlu/samples.dart' show nluAppVersion;
-import 'screens/more_screen.dart' show appVersion;
+import 'screens/more_screen.dart' show shownVersion;
 
 Future<void> main() async {
   // Release builds write nothing to the phone's log (owner, 29 Oct: security
@@ -59,22 +59,22 @@ Future<void> main() async {
   await services.notifier.init();
   // সমস্যার লগ: every error the app runs into, cleaned, for our server —
   // kept in a small file until sent, and sent a few seconds after.
-  ErrorLog.version = appVersion;
+  ErrorLog.version = shownVersion;
   try {
     await ErrorLog.open(await getApplicationSupportDirectory());
   } catch (_) {}
   final shown = FlutterError.onError;
   FlutterError.onError = (d) {
-    ErrorLog.record(d.exception, d.stack, version: appVersion);
+    ErrorLog.record(d.exception, d.stack, version: shownVersion);
     shown?.call(d);
   };
   PlatformDispatcher.instance.onError = (e, s) {
-    ErrorLog.record(e, s, version: appVersion);
+    ErrorLog.record(e, s, version: shownVersion);
     return false;
   };
   final brain = Brain(services);
   ErrorLog.connect(services.server, () => brain.services.ai.session);
-  nluAppVersion = appVersion;
+  nluAppVersion = shownVersion;
   runApp(DigitalBrainApp(brain: brain));
   await brain.load();
 }

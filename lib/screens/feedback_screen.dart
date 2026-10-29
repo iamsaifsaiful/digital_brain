@@ -10,7 +10,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'docs_screen.dart' show sizeText;
 import 'google_backup.dart' show GoogleBackupPanel;
-import 'more_screen.dart' show appVersion;
+import 'more_screen.dart' show shownVersion;
 
 /// সেটিংস › মতামত: the user's conversations with our team. A new feature
 /// wish or a problem, our answers, and their answers back — each message may
@@ -191,7 +191,7 @@ class _NewFeedbackScreenState extends State<NewFeedbackScreen> {
       _busy = true;
       _error = null;
     });
-    final (id, e) = await brain.community.startFeedback(kind: _kind, text: t, appVersion: appVersion, file: _file);
+    final (id, e) = await brain.community.startFeedback(kind: _kind, text: t, appVersion: shownVersion, file: _file);
     if (!mounted) return;
     setState(() {
       _busy = false;

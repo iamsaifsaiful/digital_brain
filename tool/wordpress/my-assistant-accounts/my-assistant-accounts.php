@@ -2,7 +2,7 @@
 /**
  * Plugin Name: My Assistant Accounts
  * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, প্রিমিয়াম, পেমেন্ট, নোটিফিকেশন আর মতামত। শুধু নাম, ইমেইল, ছবি আর প্রিমিয়ামের তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.28.0
+ * Version: 1.28.1
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: My Assistant
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.28.0';
+const MA_ACC_VERSION = '1.28.1';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
 const MA_ACC_PER_PAGE = 20;
 
@@ -226,10 +226,13 @@ function ma_acc_login(WP_REST_Request $req) {
         return new WP_Error('busy', 'too many requests', ['status' => 429]);
     }
     // Members' app older than the site's minimum (set on the settings page): asked to update first.
-    $min = (string) get_option('ma_app_min', '');
+    // The Google Play app has its own numbers (1.0.0 on, owner 29 Oct) and its own minimum; it updates from Google Play.
+    $play = sanitize_key((string) $req->get_param('edition')) === 'play';
+    $min = (string) get_option($play ? 'ma_app_min_play' : 'ma_app_min', '');
     $have = (string) $req->get_param('app_version');
     if ($min !== '' && version_compare(preg_replace('/[^0-9.]/', '', explode('+', $have)[0]), $min, '<')) {
-        return new WP_Error('update', 'update the app', ['status' => 426, 'min' => $min, 'url' => ma_app_update_url()]);
+        $url = $play ? 'https://play.google.com/store/apps/details?id=' . MA_PLAY_PACKAGE : ma_app_update_url();
+        return new WP_Error('update', 'update the app', ['status' => 426, 'min' => $min, 'url' => $url]);
     }
     $c = ma_acc_verify($req->get_param('id_token'));
     if (is_wp_error($c)) {
