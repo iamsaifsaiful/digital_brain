@@ -298,13 +298,8 @@ class Brain extends ChangeNotifier {
   bool get canAddVault => pro || data.vault.length < freeVaultItems;
   bool get canAddDoc => pro || data.docs.length < freeDocs;
 
-  /// Reminders that still ring (the app's own ones — bills, papers, habits —
-  /// count too). Medicine and vaccine reminders never count (owner, 29 Oct:
-  /// health is never held back for Premium).
-  int get activeReminders {
-    final health = {for (final m in data.medicines) ...m.reminderIds, for (final p in data.members) ...p.vaccineReminders};
-    return data.reminders.where((r) => r.enabled && r.vaultId == null && !health.contains(r.id)).length;
-  }
+  /// Reminders that still ring (the app's own ones — bills, papers, habits — count too).
+  int get activeReminders => data.reminders.where((r) => r.enabled && r.vaultId == null).length;
   bool get canAddReminder => pro || activeReminders < freeReminders;
 
   /// A new person in ধার-দেনা (someone already there is always fine).
