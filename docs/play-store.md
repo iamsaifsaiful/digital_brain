@@ -107,6 +107,8 @@ variable না বসালে Play release বিল্ডে Google-এর �
 ## ৬. ঘোষণা (Policy › App content)
 
 ### Background location (ACCESS_BACKGROUND_LOCATION)
+**৩০ অক্টোবর থেকে Play-র অ্যাপে এই অনুমতি নেই** (`play_release.yml` বিল্ডের আগে manifest থেকে সরায়; Google এটা শুধু লোকেশনই-মূল-কাজ অ্যাপকে দেয়)। Play-তে "এখন কোথায়?" কাজ করে অ্যাপ ব্যবহারের সময়। ওয়েবসাইটের APK-তে আছে। নিচের লেখা আর ভিডিও কেবল পরে আবেদন করলে লাগবে।
+
 **বাংলা:** ফ্যামিলি ফিচারে ব্যবহারকারী নিজে যাঁদের অনুমতি দেন, সেই পরিবারের সদস্য "এখন কোথায়?" জিজ্ঞেস করলে ফোন — অ্যাপ বন্ধ থাকলেও — নিজের লোকেশন জানায় (যেমন ফোন হারালে বা বয়স্ক বাবা-মায়ের খোঁজ নিতে)। লোকেশন end-to-end তালাবদ্ধ হয়ে শুধু অনুমতি পাওয়া সদস্যের কাছে যায়; আমাদের সার্ভার পড়তে পারে না; বিজ্ঞাপনে ব্যবহার হয় না। ফ্যামিলি পাতা থেকে যেকোনো সময় বন্ধ করা যায়।
 
 **English (Play Console-এ এটা দিন):** My Assistant's Family feature lets a user choose family members who may ask "Where is this phone now?". When such a member asks, the phone answers with its location even when the app is closed or not in use (for example to find a lost phone or check on an elderly parent). The location is end-to-end encrypted and only the members the user approved can read it; our server cannot read it and it is never used for ads. The user turns it on and off on the Family page. Before Android's permission dialog the app shows a full-screen explanation of this use.
