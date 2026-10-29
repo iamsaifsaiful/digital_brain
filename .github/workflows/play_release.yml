@@ -76,6 +76,14 @@ jobs:
           [ -n "$ADMOB_FULL" ] && DEFINES="$DEFINES --dart-define=ADMOB_FULL=$ADMOB_FULL"
           [ -z "$ADMOB_APP_ID" ] && echo "::warning::ADMOB_APP_ID is not set: Google's test ads only."
           OBF="--obfuscate --split-debug-info=build/symbols"
+          # Google Play has its own numbering from 1.0.0 (owner, 29 Oct): the
+          # name from tool/play_version.txt; the code is 10000 + the app's
+          # build number, so it is always above the website APKs' codes
+          # (build + 1000/2000) and Play can update a phone that has one.
+          PLAY_VERSION=$(tr -d ' \n' < tool/play_version.txt)
+          BUILD=$(grep '^version:' pubspec.yaml | sed -E 's/.*\+([0-9]+).*/\1/')
+          DEFINES="$DEFINES --dart-define=PLAY_VERSION=$PLAY_VERSION --build-name=$PLAY_VERSION --build-number=$((10000 + BUILD))"
+          echo "Play version $PLAY_VERSION, code $((10000 + BUILD))"
           flutter build appbundle --release $OBF $DEFINES 2>&1 | tee build.log || { bash tool/annotate_failures.sh build.log "AAB build failed"; exit 1; }
           flutter build apk --release --split-per-abi $OBF $DEFINES 2>&1 | tee -a build.log || { bash tool/annotate_failures.sh build.log "APK build failed"; exit 1; }
           # The symbols turn an obfuscated crash back into names (kept with the release, never in the app).
@@ -89,7 +97,7 @@ jobs:
           for a in arm64-v8a:arm64 armeabi-v7a:armv7; do
             cp "build/app/outputs/flutter-apk/app-${a%%:*}-release.apk" "play-${a##*:}.apk" || { echo "::error title=Publish pre-release::no ${a%%:*} APK"; exit 1; }
           done
-          VERSION=$(grep '^version:' pubspec.yaml | sed -E 's/version: *([^+]+).*/\1/')
+          VERSION=$(tr -d ' \n' < tool/play_version.txt)
           TAG="play-${VERSION}-build.${{ github.run_number }}"
           if ! out=$(gh release create "$TAG" play.aab play-arm64.apk play-armv7.apk play-symbols.zip --prerelease --target "$GITHUB_SHA" \
             --title "Play $VERSION (build ${{ github.run_number }})" --notes "Google Play-র জন্য: .aab প্লে কনসোলে আপলোডের জন্য, APK পরীক্ষার জন্য।" 2>&1); then

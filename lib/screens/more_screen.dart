@@ -36,6 +36,12 @@ import '../ui/pdf_export.dart';
 
 const appVersion = '2.65.0';
 
+/// The version people see. The Play app starts its own numbering at 1.0.0
+/// (owner, 29 Oct; the Play build's --dart-define=PLAY_VERSION), while
+/// [appVersion] stays the one our server, feedback and problem logs use.
+const playVersion = String.fromEnvironment('PLAY_VERSION');
+String get shownVersion => playVersion.isNotEmpty ? playVersion : appVersion;
+
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
   const MoreScreen({super.key});
@@ -503,8 +509,8 @@ class _MoreScreenState extends State<MoreScreen> {
                     : const SizedBox.shrink(),
               ),
             linkRow(Icons.info_outline_rounded, tr('লাইসেন্স ও সংস্করণ'),
-                sub: 'My Assistant ${bnDigits(appVersion)}${previewEdition ? ' · ${tr('প্লে স্টোর প্রিভিউ')}' : ''}',
-                onTap: () => showLicensePage(context: context, applicationName: 'My Assistant', applicationVersion: appVersion)),
+                sub: 'My Assistant ${bnDigits(shownVersion)}${previewEdition ? ' · ${tr('প্লে স্টোর প্রিভিউ')}' : ''}',
+                onTap: () => showLicensePage(context: context, applicationName: 'My Assistant', applicationVersion: shownVersion)),
           ]),
         ),
       ],
