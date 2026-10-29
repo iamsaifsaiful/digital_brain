@@ -2930,7 +2930,7 @@ const enStrings = <String, String>{
   'লগআউট': 'Sign out',
   'লগআউট করবেন?': 'Sign out?',
   'লবণ, চিনি': 'Salt, sugar',
-  'লম্বা, এলোমেলো কথাও বোঝে; যেকোনো প্রশ্নের উত্তর — দিনে ৫০টা পর্যন্ত': 'Understands long, loose speech; answers any question — up to 50 a day',
+  'লম্বা, এলোমেলো কথাও বোঝে; যেকোনো প্রশ্নের উত্তর দেয়': 'Understands long, loose speech; answers any question',
   'লাইট মোড চালু করেছি।': 'Light mode is on.',
   'লাইসেন্স ও সংস্করণ': 'Licences and version',
   'লাগবে না': 'Not needed',
