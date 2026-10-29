@@ -8,9 +8,10 @@ name: Play release
 # Run by hand; published as a pre-release (the "latest" link is not affected).
 on:
   workflow_dispatch:
-  # Until this file is on the default branch, a tag starts it: git tag play-go-<anything> && git push origin play-go-<anything>
+  # Until this file is on the default branch (workflow_dispatch needs it
+  # there), changing tool/play_release_go.txt on a branch starts it.
   push:
-    tags: ['play-go-*']
+    paths: ['tool/play_release_go.txt']
 
 permissions:
   contents: write
