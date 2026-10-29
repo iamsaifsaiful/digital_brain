@@ -323,7 +323,7 @@ def add_noise(rows):
         if r['kind'] in ('headed', 'multi_numbered', 'long'):
             continue
         if random.random() < rate:
-            toks, tags, kinds = noise.apply(r['tokens'], r['tags'], rate=0.9)
+            toks, tags, kinds = noise.apply(r['tokens'], r['tags'], rate=0.9, idle=r['state'] == 'idle')
             if kinds and len(r['segs']) == 1:
                 r['tokens'], r['tags'], r['noise'] = toks, tags, kinds
                 r['segs'][0]['end'] = len(toks)

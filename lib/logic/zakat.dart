@@ -8,7 +8,7 @@ import 'bn.dart';
 import 'cash.dart' show cashOnHand, cashStartOf, cashNowParts, cashSinceStart;
 import 'lang.dart';
 import 'ledger.dart';
-import 'money_more.dart' show accountBalance, ZakatSaved, ZakatInput;
+import 'money_more.dart' show accountBalance, GoldPiece, ZakatSaved, ZakatInput;
 
 /// নিসাব by weight: সাড়ে ৫২ তোলা (ভরি) রুপা ≈ ৬১২.৩৬ গ্রাম; সাড়ে ৭ তোলা সোনা ≈ ৮৭.৪৮ গ্রাম.
 const nisabSilverVori = 52.5;
@@ -16,6 +16,15 @@ const nisabGoldVori = 7.5;
 
 /// The carats বাজুস gives a price for.
 const goldCarats = [('22k', '২২ ক্যারেট'), ('21k', '২১ ক্যারেট'), ('18k', '১৮ ক্যারেট'), ('traditional', 'সনাতন')];
+
+/// A piece of gold's name: its carat, or what the member called an 'other' one.
+String goldPieceName(GoldPiece g) {
+  if (g.carat == 'other') return g.label.isEmpty ? tr('অন্যান্য সোনা') : g.label;
+  for (final (k, label) in goldCarats) {
+    if (k == g.carat) return trf('সোনা — {0}', [tr(label)]);
+  }
+  return tr('সোনা');
+}
 
 /// The groups, in the order shown.
 enum ZakatGroup {
@@ -168,7 +177,10 @@ List<ZakatLine> zakatLines(AppData d, DateTime now, ZakatSaved z) {
     add('loan:${i.id}', ZakatGroup.loan, i.name, n * i.amount, trf('{0}টা কিস্তি × {1}', [bnDigits(n), _tk(i.amount)]), debt: true);
   }
   String vori(double v) => v == v.roundToDouble() ? '${v.round()}' : '$v';
-  add('gold', ZakatGroup.metal, tr('সোনা'), (z.goldVori * z.goldPrice).round(), trf('{0} ভরি × {1} (আপনার লেখা)', [bnDigits(vori(z.goldVori)), _tk(z.goldPrice)]));
+  // Each kind of gold on its own line, at its own price (owner, 29 Oct).
+  for (final g in z.pieces) {
+    add(g.key, ZakatGroup.metal, goldPieceName(g), g.value, trf('{0} ভরি × {1} (আপনার লেখা)', [bnDigits(vori(g.vori)), _tk(g.price)]));
+  }
   add('silver', ZakatGroup.metal, tr('রুপা'), (z.silverVori * z.silverPrice).round(), trf('{0} ভরি × {1} (আপনার লেখা)', [bnDigits(vori(z.silverVori)), _tk(z.silverPrice)]));
   add('business', ZakatGroup.business, tr('ব্যবসার মাল'), z.business, tr('বিক্রয়মূল্যে (আপনার লেখা)'));
   add('other', ZakatGroup.business, tr('অন্যান্য (শেয়ার, বন্ড…)'), z.other, tr('আপনার লেখা'));
@@ -178,25 +190,31 @@ List<ZakatLine> zakatLines(AppData d, DateTime now, ZakatSaved z) {
   return out;
 }
 
-/// The totals from the included lines. Nisab (Hanafi, as in Bangladesh):
+bool _isGold(ZakatLine l) => l.key == 'gold' || l.key.startsWith('gold:');
+
+/// The totals from the included lines. Nisab, as renowned scholars advise:
 /// 52.5 ভরি of silver at the price written — the lower one, for wealth of
-/// more than one kind; when the member has only gold, 7.5 ভরি of gold.
+/// more than one kind; when the member has only gold, 7.5 ভরি of gold — by
+/// weight, whatever its carats (its value at the gold's own average price).
 ZakatInput zakatCount(List<ZakatLine> lines, ZakatSaved z) {
   int sum(bool Function(ZakatLine) f) => lines.where((l) => l.included && f(l)).fold(0, (s, l) => s + l.amount);
-  final gold = sum((l) => l.key == 'gold');
-  final others = sum((l) => !l.debt && l.key != 'gold');
+  final gold = sum(_isGold);
+  final others = sum((l) => !l.debt && !_isGold(l));
   final onlyGold = gold > 0 && others == 0;
+  final on = {for (final l in lines) if (l.included && _isGold(l)) l.key};
+  final goldVori = z.pieces.where((g) => on.contains(g.key)).fold<double>(0, (s, g) => s + g.vori);
+  final goldNisab = goldVori > 0 ? (gold / goldVori * nisabGoldVori).round() : (z.goldPrice * nisabGoldVori).round();
   return ZakatInput(
     byGold: onlyGold,
     cash: sum((l) => l.group == ZakatGroup.cash),
     bank: sum((l) => l.group == ZakatGroup.bank || l.group == ZakatGroup.savings || l.group == ZakatGroup.dps),
-    gold: sum((l) => l.key == 'gold'),
+    gold: gold,
     silver: sum((l) => l.key == 'silver'),
     business: sum((l) => l.group == ZakatGroup.business),
     receivable: sum((l) => l.group == ZakatGroup.receivable),
     other: sum((l) => (l.group == ZakatGroup.manual || l.group == ZakatGroup.apart) && !l.debt),
     debts: sum((l) => l.debt),
-    nisab: onlyGold ? (z.goldPrice * nisabGoldVori).round() : (z.silverPrice * nisabSilverVori).round(),
+    nisab: onlyGold ? goldNisab : (z.silverPrice * nisabSilverVori).round(),
   );
 }
 

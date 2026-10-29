@@ -164,19 +164,72 @@ class MetalPrice {
   }
 }
 
+/// One kind of the member's gold (owner, 29 Oct): gold of several carats, or
+/// of a kind বাজুস gives no price for ('other', named by the member), each
+/// with its own weight and price per ভরি.
+class GoldPiece {
+  const GoldPiece({this.id = '', required this.carat, required this.vori, required this.price, this.label = ''});
+
+  /// Empty for the one piece kept from before (its line key stays "gold").
+  final String id;
+
+  /// '22k', '21k', '18k', 'traditional' or 'other'.
+  final String carat;
+  final double vori;
+
+  /// Taka per ভরি.
+  final int price;
+
+  /// For 'other': what it is (সোনার কয়েন…), as the member wrote it.
+  final String label;
+
+  int get value => (vori * price).round();
+
+  /// The zakat line's key.
+  String get key => id.isEmpty ? 'gold' : 'gold:$id';
+
+  GoldPiece copyWith({double? vori, int? price}) => GoldPiece(id: id, carat: carat, vori: vori ?? this.vori, price: price ?? this.price, label: label);
+
+  Map<String, dynamic> toJson() => {'id': id, 'k': carat, 'v': vori, 'p': price, if (label.isNotEmpty) 'l': label};
+
+  static GoldPiece? fromJson(Object? j) {
+    if (j is! Map) return null;
+    final v = (j['v'] as num?)?.toDouble() ?? 0;
+    return v <= 0 ? null : GoldPiece(id: '${j['id'] ?? ''}', carat: '${j['k'] ?? '22k'}', vori: v, price: (j['p'] as num?)?.round() ?? 0, label: '${j['l'] ?? ''}');
+  }
+}
+
 class ZakatSaved {
-  const ZakatSaved({this.goldVori = 0, this.goldPrice = 0, this.silverVori = 0, this.silverPrice = 0, this.business = 0, this.other = 0});
+  const ZakatSaved({this.goldVori = 0, this.goldPrice = 0, this.silverVori = 0, this.silverPrice = 0, this.business = 0, this.other = 0, this.golds});
+
+  /// Gold written as one amount (before the kinds); [pieces] makes it one 22-carat piece.
   final double goldVori;
+
+  /// Taka per ভরি of 22-carat gold — today's বাজুস price unless changed; the
+  /// gold nisab when there is no gold written yet.
   final int goldPrice;
   final double silverVori;
   final int silverPrice;
   final int business;
   final int other;
 
+  /// The member's gold, kind by kind (null: written the old way, [goldVori]).
+  final List<GoldPiece>? golds;
+
+  List<GoldPiece> get pieces => golds ?? (goldVori > 0 ? [GoldPiece(carat: '22k', vori: goldVori, price: goldPrice)] : const []);
+
   /// The same, with today's market price where none was entered.
   ZakatSaved withPrices(MetalPrice? p) => p == null
       ? this
-      : ZakatSaved(goldVori: goldVori, goldPrice: goldPrice > 0 ? goldPrice : p.gold22, silverVori: silverVori, silverPrice: silverPrice > 0 ? silverPrice : p.silver22, business: business, other: other);
+      : ZakatSaved(
+          goldVori: goldVori,
+          goldPrice: goldPrice > 0 ? goldPrice : p.gold22,
+          silverVori: silverVori,
+          silverPrice: silverPrice > 0 ? silverPrice : p.silver22,
+          business: business,
+          other: other,
+          golds: golds == null ? null : [for (final g in golds!) g.price > 0 ? g : g.copyWith(price: p.gold[g.carat] ?? 0)],
+        );
 }
 
 /// The zakat parts the app works out from the user's own records:

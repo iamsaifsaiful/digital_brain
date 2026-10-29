@@ -15,6 +15,7 @@ import '../logic/sky_light.dart';
 import '../logic/spend_health.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
+import '../ui/drag_grid.dart';
 import '../ui/kit.dart';
 import '../ui/pro_gate.dart';
 import '../ui/theme.dart';
@@ -705,31 +706,36 @@ class _DateBox extends StatelessWidget {
       );
 }
 
-/// সব সুবিধা: every tool, always open (owner, 24 Oct night).
+/// সব সুবিধা: every tool, always open (owner, 24 Oct night). Held and
+/// dragged, the tiles go in the member's own order (owner, 29 Oct).
 class _Tools extends StatelessWidget {
   const _Tools();
 
   @override
   Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
-    final tools = <(String, IconData, VoidCallback)>[
-      (tr('কাজের তালিকা'), Icons.checklist_rounded, () => goToTab(context, ShellTab.diary)),
-      (trm('রিমাইন্ডার'), Icons.notifications_none_rounded, () => push(const AllTasksScreen())),
-      (trm('হিসাব'), Icons.account_balance_wallet_outlined, () => goToTab(context, ShellTab.money)),
-      (tr('ডকুমেন্টস'), Icons.folder_outlined, () => push(const DocsScreen())),
-      (trm('নোট'), Icons.description_outlined, () => push(const NotesScreen())),
-      (tr('যোগাযোগ'), Icons.person_outline_rounded, () => push(const CallsScreen())),
-      (tr('স্বাস্থ্য'), Icons.monitor_heart_outlined, () => push(const HealthScreen())),
-      (trm('অ্যালার্ম'), Icons.alarm_rounded, () => push(const AlarmsScreen())),
-      (trm('পাসওয়ার্ড'), Icons.lock_outline_rounded, () => push(const VaultPage())),
-      (tr('ক্যালেন্ডার'), Icons.calendar_month_outlined, () => push(const CalendarScreen())),
-      (tr('কম্পাস'), Icons.explore_outlined, () => push(const CompassScreen())),
-      (tr('যাকাত'), Icons.volunteer_activism_outlined, () => push(const ZakatScreen())),
-      (tr('ফ্যামিলি'), Icons.family_restroom_rounded, () => push(const FamilyScreen())),
-      (trm('ওষুধ'), Icons.medication_outlined, () => push(const MedicinesScreen())),
-      (trm('ব্লাড ডোনেশন'), Icons.bloodtype_outlined, () => push(const RequestsScreen())),
-      (tr('প্রিমিয়াম'), Icons.workspace_premium_outlined, () => push(const ProScreen())),
+    // (key kept with the order, label, icon, open)
+    final all = <(String, String, IconData, VoidCallback)>[
+      ('tasks', tr('কাজের তালিকা'), Icons.checklist_rounded, () => goToTab(context, ShellTab.diary)),
+      ('reminders', trm('রিমাইন্ডার'), Icons.notifications_none_rounded, () => push(const AllTasksScreen())),
+      ('money', trm('হিসাব'), Icons.account_balance_wallet_outlined, () => goToTab(context, ShellTab.money)),
+      ('docs', tr('ডকুমেন্টস'), Icons.folder_outlined, () => push(const DocsScreen())),
+      ('notes', trm('নোট'), Icons.description_outlined, () => push(const NotesScreen())),
+      ('contacts', tr('যোগাযোগ'), Icons.person_outline_rounded, () => push(const CallsScreen())),
+      ('health', tr('স্বাস্থ্য'), Icons.monitor_heart_outlined, () => push(const HealthScreen())),
+      ('alarms', trm('অ্যালার্ম'), Icons.alarm_rounded, () => push(const AlarmsScreen())),
+      ('vault', trm('পাসওয়ার্ড'), Icons.lock_outline_rounded, () => push(const VaultPage())),
+      ('calendar', tr('ক্যালেন্ডার'), Icons.calendar_month_outlined, () => push(const CalendarScreen())),
+      ('compass', tr('কম্পাস'), Icons.explore_outlined, () => push(const CompassScreen())),
+      ('zakat', tr('যাকাত'), Icons.volunteer_activism_outlined, () => push(const ZakatScreen())),
+      ('family', tr('ফ্যামিলি'), Icons.family_restroom_rounded, () => push(const FamilyScreen())),
+      ('medicines', trm('ওষুধ'), Icons.medication_outlined, () => push(const MedicinesScreen())),
+      ('blood', trm('ব্লাড ডোনেশন'), Icons.bloodtype_outlined, () => push(const RequestsScreen())),
+      ('pro', tr('প্রিমিয়াম'), Icons.workspace_premium_outlined, () => push(const ProScreen())),
     ];
+    final saved = brain.orderOf('home_tools');
+    final tools = inOrder(all, (x) => x.$1, saved);
     return AppCard(
       key: const Key('home-tools'),
       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -740,16 +746,26 @@ class _Tools extends StatelessWidget {
             Text(tr('সব সুবিধা'), style: body(14, weight: FontWeight.w600)),
             const SizedBox(width: 6),
             Text(trf('{0}টা', [bnDigits(tools.length)]), style: body(12, color: C.muted)),
+            const Spacer(),
+            if (saved.isNotEmpty)
+              TextButton(
+                key: const Key('home-tools-reset'),
+                style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: const EdgeInsets.symmetric(horizontal: 6)),
+                onPressed: () => brain.setOrder('home_tools', const []),
+                child: Text(tr('আগের মতো করুন'), style: body(12, weight: FontWeight.w600, color: C.green)),
+              )
+            else
+              Flexible(child: Text(tr('চেপে ধরে টেনে সাজান'), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted))),
           ]),
         ),
         Padding(
           padding: const EdgeInsets.only(bottom: 10),
-          child: LayoutBuilder(builder: (context, box) {
-            final w = (box.maxWidth - 18) / 4;
-            return Wrap(spacing: 6, runSpacing: 4, children: [
-              for (final (label, icon, onTap) in tools) SizedBox(width: w, child: ToolTile(icon: icon, label: label, onTap: onTap)),
-            ]);
-          }),
+          child: DragGrid<(String, String, IconData, VoidCallback)>(
+            items: tools,
+            keyOf: (x) => x.$1,
+            tile: (x) => ToolTile(key: Key('tool-${x.$1}'), icon: x.$3, label: x.$2, onTap: x.$4),
+            onReorder: (keys) => brain.setOrder('home_tools', keys),
+          ),
         ),
       ]),
     );

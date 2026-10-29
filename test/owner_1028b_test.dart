@@ -27,6 +27,7 @@ void main() {
       expect(b.trialOver, isTrue);
       expect(b.pro, isFalse, reason: 'over, nothing bought');
       expect(b.canAddProject, isFalse, reason: 'a new হিসাব needs Premium again');
+      expect(b.canUseProject(b.data.projects.single.id), isTrue, reason: 'one হিসাব is free (owner, 29 Oct)');
       expect(b.data.projects.single.name, 'দোকান', reason: 'what was made in the trial stays, to be seen');
       // Bought: Premium again, and no trial talk.
       b.proUntil = rig.nowAt.add(const Duration(days: 30));

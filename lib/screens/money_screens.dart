@@ -10,6 +10,7 @@ import '../logic/parser.dart' show normalize;
 import '../logic/money_more.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
+import '../ui/drag_grid.dart';
 import '../ui/forms.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
@@ -894,7 +895,6 @@ class ProjectsView extends StatelessWidget {
     // বকেয়া right from this tab: one হিসাব → straight in; several → which
     // one; none → name one first (দোকান, ব্যবসা…).
     Future<void> addDue() async {
-      if (!await needPro(context, ProFeature.projects) || !context.mounted) return;
       Project? target;
       if (open.length == 1) {
         target = open.first;
@@ -954,8 +954,29 @@ class ProjectsView extends StatelessWidget {
         )
       else ...[
         if (open.isNotEmpty) ...[
-          SectionTitle(tr('চলমান হিসাব')),
-          for (final p in open) Padding(padding: const EdgeInsets.only(bottom: 12), child: row(p)),
+          Row(children: [
+            Expanded(child: SectionTitle(tr('চলমান হিসাব'))),
+            if (open.length > 1)
+              if (brain.orderOf('projects').isNotEmpty)
+                TextButton(
+                  key: const Key('projects-reset'),
+                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: const EdgeInsets.symmetric(horizontal: 6)),
+                  onPressed: () => brain.setOrder('projects', const []),
+                  child: Text(tr('আগের মতো করুন'), style: body(12, weight: FontWeight.w600, color: C.green)),
+                )
+              else
+                Text(tr('চেপে ধরে টেনে সাজান'), style: body(11.5, color: C.muted)),
+          ]),
+          // Held and dragged, the হিসাব go in the member's own order (owner, 29 Oct).
+          DragGrid<Project>(
+            columns: 1,
+            runSpacing: 12,
+            items: inOrder(open, (p) => p.id, brain.orderOf('projects')),
+            keyOf: (p) => p.id,
+            tile: (p) => KeyedSubtree(key: Key('project-cover-${p.id}'), child: row(p)),
+            onReorder: (keys) => brain.setOrder('projects', keys),
+          ),
+          const SizedBox(height: 12),
         ],
         if (closed.isNotEmpty) ...[
           const SizedBox(height: 4),
@@ -1151,7 +1172,7 @@ class _ProjectScreenState extends State<ProjectScreen> {
                       icon: Icons.south_west_rounded,
                       height: 48,
                       onPressed: () async {
-                        if (await needPro(context, ProFeature.projects) && context.mounted) push(CashFormScreen(kind: CashKind.income, projectId: p.id));
+                        if (await needPro(context, ProFeature.projects, allowed: brain.canUseProject(p.id)) && context.mounted) push(CashFormScreen(kind: CashKind.income, projectId: p.id));
                       },
                     ),
                   ),
@@ -1164,7 +1185,7 @@ class _ProjectScreenState extends State<ProjectScreen> {
                     height: 48,
                     color: C.fill,
                     onPressed: () async {
-                      if (await needPro(context, ProFeature.projects) && context.mounted) push(CashFormScreen(kind: CashKind.expense, projectId: p.id));
+                      if (await needPro(context, ProFeature.projects, allowed: brain.canUseProject(p.id)) && context.mounted) push(CashFormScreen(kind: CashKind.expense, projectId: p.id));
                     },
                   ),
                 ),

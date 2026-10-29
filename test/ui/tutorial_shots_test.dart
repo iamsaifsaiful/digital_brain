@@ -128,7 +128,7 @@ void main() {
     final f = Flow(t, 'more');
     await f.step(find.text('আরও').last);
     for (final x in ['রক্তের গ্রুপ', 'কী কী করা যায়', 'রিমাইন্ডার ঠিকমতো বাজবে তো?', 'বড় লেখা, হোমে ৪টা বড় বোতাম, উত্তর কণ্ঠে শোনাবে — বয়স্কদের জন্য সুবিধা', 'Google অ্যাকাউন্ট ও ব্যাকআপ', 'PIN বদলান', 'রিমাইন্ডারের রিংটোন']) {
-      await f.step(find.text(x), press: false, below: 40);
+      await f.step(find.text(x, skipOffstage: false), press: false, below: 40);
     }
     debugDisableShadows = true;
   });

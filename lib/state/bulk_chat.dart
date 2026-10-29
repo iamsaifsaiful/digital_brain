@@ -1239,7 +1239,7 @@ extension _BulkChat on ChatController {
       return;
     }
     if (!brain.canAddProject) {
-      _say(out, tr('নতুন অন্যান্য হিসাব খোলা প্রিমিয়াম সুবিধা — প্রিমিয়াম চালু করলে খুলে দিতে পারব।'), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম ভার্সন'), page: 'pro')]);
+      _say(out, tr('ফ্রিতে ১টা অন্যান্য হিসাব খোলা যায়, সেটা খোলা আছে — আরও খুলতে প্রিমিয়াম লাগবে।'), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম ভার্সন'), page: 'pro')]);
       return;
     }
     final snap = brain.snapshot();

@@ -1358,8 +1358,8 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<bool> _moveCash(CashEntry e, Project p, List<String> out) async {
-    if (!brain.canUseProjects) {
-      _say(out, tr('অন্যান্য হিসাব প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
+    if (!brain.canUseProject(p.id)) {
+      _say(out, tr('ফ্রিতে ১টা অন্যান্য হিসাবে লেখা যায়; এর বেশি প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
       return true;
     }
     final snap = brain.snapshot();
@@ -3507,9 +3507,10 @@ class ChatController extends ChangeNotifier {
           if (e == null) return false;
           var name = tidy(cutWords(t, const ['প্রজেক্ট', 'প্রজেক্টে', 'প্রজেক্টের', 'প্রকল্প', 'প্রকল্পে', 'নামে', 'নাম', 'হিসাবে', 'হিসাব']));
           if (name.isEmpty) name = t.trim();
-          final p = !brain.canUseProjects ? null : projectByName(brain.data, name) ?? (brain.canAddProject ? await brain.projectNamed(name) : null);
+          final known = projectByName(brain.data, name);
+          final p = known != null ? (brain.canUseProject(known.id) ? known : null) : (brain.canAddProject ? await brain.projectNamed(name) : null);
           if (p == null) {
-            _say(out, tr('অন্যান্য হিসাব প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'));
+            _say(out, tr('ফ্রিতে ১টা অন্যান্য হিসাবে লেখা যায়; এর বেশি প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'));
             return true;
           }
           final moved = await _moveCash(e, p, out);
@@ -3687,8 +3688,8 @@ class ChatController extends ChangeNotifier {
     if (!RegExp(fold(r'(?:সরাও|সরিয়ে\s+দাও|সরিয়ে\s+দাও|নিয়ে\s+যাও|ট্রান্সফার\s+করো|স্থানান্তর\s+করো)\s*[।.!]?$')).hasMatch(f)) return false;
     final p = projectHinted(brain.data, t);
     if (p == null) return false;
-    if (!brain.canUseProjects) {
-      _say(out, tr('অন্যান্য হিসাব প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
+    if (!brain.canUseProject(p.id)) {
+      _say(out, tr('ফ্রিতে ১টা অন্যান্য হিসাবে লেখা যায়; এর বেশি প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
       return true;
     }
     final amount = findAmount(normalize(t));
@@ -4078,9 +4079,9 @@ class ChatController extends ChangeNotifier {
         Project? project;
         String proNote = '';
         if (c.project != null) {
-          if (!brain.canUseProjects) {
-            // অন্যান্য হিসাব is premium: nothing is written anywhere else unasked.
-            _say(out, trf('অন্যান্য হিসাব (“{0}”) প্রিমিয়াম সুবিধা, তাই কিছু লিখিনি। সাধারণ আয়-ব্যয়ে চাইলে বলুন।', [c.project!]), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
+          if (!brain.canUseProjectNamed(c.project!)) {
+            // Past the free one: nothing is written anywhere else unasked.
+            _say(out, trf('ফ্রিতে ১টা অন্যান্য হিসাব; “{0}”-এ লেখা প্রিমিয়াম সুবিধা, তাই কিছু লিখিনি। সাধারণ আয়-ব্যয়ে চাইলে বলুন।', [c.project!]), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
             await _done(out);
             return;
           } else {

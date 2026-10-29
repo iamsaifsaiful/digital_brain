@@ -37,13 +37,21 @@ JOIN = [('করে', 'দাও'), ('মুছে', 'দাও'), ('বাদ',
         ('কত', 'টাকা'), ('কী', 'কী'), ('দিয়ে', 'দাও'), ('সরিয়ে', 'দাও')]
 FILLERS_PRE = ['আচ্ছা', 'মানে', 'উমম', 'ইয়ে', 'শোনো', 'আচ্ছা শোনো', 'এই', 'হ্যালো', 'আরে', 'আচ্ছা মানে', 'জি']
 FILLERS_POST = ['প্লিজ', 'তো', 'ভাই', 'একটু']
+# Round 8 (gate of 28 Oct): a polite, forgetful or chatty run-up or tail is
+# not a request of its own — "দয়া করে", "ভুলে গেছিলাম," or "… বুঝছো" must not
+# add a complaint, small talk or a yes to what was asked. Idle rows only (in a
+# yes/no state "হ্যাঁ…" means something).
+RUNUPS = ['দয়া করে', 'প্লিজ', 'একটু', 'ও হ্যাঁ,', 'ভুলে গেছিলাম,', 'ভুলেই গেছিলাম,', 'ভাই একটা কথা,', 'আরেকটা কথা,', 'আচ্ছা শোনো,', 'শোনো ভাই,',
+          'আচ্ছা ভাই,', 'এই যে,', 'একটা কাজ করো,', 'মনে পড়ল,', 'বলতে ভুলে গেছি,', 'আপা শোনেন,', 'স্যার,']
+TAILS = ['বুঝছো', 'বুঝলে', 'ঠিক আছে', 'কেমন', 'ভুলে যেও না কিন্তু', 'ঠিকমতো রাখবে', 'মনে করে', 'বাবা', 'মা', 'ভাই', 'bro', 'প্লিজ', 'ঠিক করে লিখবা',
+         'ভুল করবা না', 'জলদি', 'একটু তাড়াতাড়ি']
 IMPERATIVE = ('দাও', 'করো', 'বলো', 'দেখাও', 'রাখো', 'দিও', 'দিয়ো', 'লেখো', 'খোলো', 'সরাও', 'নাও', 'মুছো', 'থামাও')
 PUNCT = '?,।!:;—'
 ASCII = str.maketrans('০১২৩৪৫৬৭৮৯', '0123456789')
 BN = str.maketrans('0123456789', '০১২৩৪৫৬৭৮৯')
 
 
-def apply(tokens, tags, rate=0.35):
+def apply(tokens, tags, rate=0.35, idle=False):
     """Returns (tokens, tags, kinds) — kinds lists the noise used."""
     toks, tg = list(tokens), list(tags)
     kinds = []
@@ -83,7 +91,17 @@ def apply(tokens, tags, rate=0.35):
         toks = f + toks
         tg = ['O'] * len(f) + tg
         kinds.append('filler')
-    if random.random() < rate * 0.25 and toks and toks[-1].strip(PUNCT).endswith(IMPERATIVE):
+    elif idle and random.random() < rate * 0.3:
+        f = random.choice(RUNUPS).split()
+        toks = f + toks
+        tg = ['O'] * len(f) + tg
+        kinds.append('filler')
+    if idle and random.random() < rate * 0.22:
+        f = random.choice(TAILS).split()
+        toks = toks + f
+        tg = tg + ['O'] * len(f)
+        kinds.append('filler_end')
+    elif random.random() < rate * 0.25 and toks and toks[-1].strip(PUNCT).endswith(IMPERATIVE):
         f = random.choice(FILLERS_POST).split()
         toks = toks + f
         tg = tg + ['O'] * len(f)

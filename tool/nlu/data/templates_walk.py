@@ -129,6 +129,18 @@ T['reminder_stop'] = '''
 {sdate} এর রিমাইন্ডার আর [লাগবে না|দরকার নেই|দিও না]
 '''
 
+# Round 8 (gate of 28 Oct): a medicine reminder, or one named by its day,
+# stopped with no removal word — a stop, never a delete (the delete
+# sentences always say মুছে/ডিলিট/বাদ). Not the specific medicine's name
+# ("নাপার রিমাইন্ডার বন্ধ করো" is the medicine page's own switch).
+T['reminder_stop'] += '''
+[ওষুধ খাওয়ার|ওষুধের|প্রেশারের ওষুধের|ডায়াবেটিসের ওষুধের] [রিমাইন্ডার|অ্যালার্ম|রিমাইন্ডারটা|অ্যালার্মটা] [আর দরকার নেই|আর লাগবে না|আর দিও না|আপাতত বন্ধ থাকুক|এখন বন্ধ রাখো]
+[রাতের|সকালের|দুপুরের] ওষুধের [রিমাইন্ডার|অ্যালার্ম] [আর বাজিও না|আর লাগবে না|বন্ধ থাকুক]
+
+{rem:gen} [রিমাইন্ডারটা|অ্যালার্মটা] এখন থেকে [বন্ধ থাকুক|অফ রাখো|আর বাজিও না]
+{dategen} [রিমাইন্ডারটা|অ্যালার্মটা] আর [লাগবে না|দরকার নেই|বাজিও না]
+'''
+
 # Round 3 tried more stop sentences ("আর বাজবে না", "বন্ধ করে দাও"): the
 # model then read 8 gold stops as removals — the dangerous way. Taken out
 # again (round 4); a stop must never look like a delete.
