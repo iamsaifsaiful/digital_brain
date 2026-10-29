@@ -7,6 +7,64 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:611798531174:android:791d840a164fcc381dc1a7",
+        "android_client_info": {
+          "package_name": "app.getmyassistant"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "611798531174-n31emvhp4bhvuh2he9rp9njirsi3ch47.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBoRYtwOTYokk_fQWKCd4K3Sh6pSJvooUU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "611798531174-n31emvhp4bhvuh2he9rp9njirsi3ch47.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:611798531174:android:07872ed96decccba1dc1a7",
+        "android_client_info": {
+          "package_name": "app.getmyassistant.preview"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "611798531174-n31emvhp4bhvuh2he9rp9njirsi3ch47.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBoRYtwOTYokk_fQWKCd4K3Sh6pSJvooUU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "611798531174-n31emvhp4bhvuh2he9rp9njirsi3ch47.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:611798531174:android:53b48801884e73691dc1a7",
         "android_client_info": {
           "package_name": "com.iamsaifsaiful.digital_brain"
