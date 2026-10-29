@@ -510,20 +510,27 @@ void main() {
     expect(find.text('সজীবের খাতা দেখুন →'), findsWidgets);
   });
 
-  testWidgets('chat: unclear money asks the kind with buttons', (t) async {
+  testWidgets('chat: unclear money asks the kind with buttons; owed money given is a paying back (owner, 29 Oct)', (t) async {
     final rig = await start(t,
         data: AppData(ledger: [LedgerEntry(person: 'রহিম', kind: LedgerKind.borrowed, amount: 1000, date: DateTime(2026, 10, 5))]));
     await openChat(t);
-    await tell(t, rig, 'রহিমকে ৫০০ টাকা দিলাম');
+    // Nothing between them: which kind is asked, with buttons.
+    await tell(t, rig, 'করিমকে ৫০০ টাকা দিলাম');
     await settle(t);
     expect(chip('শোধ করলাম'), findsOneWidget);
-    expect(rig.brain.data.ledger, hasLength(1));
-    await t.tap(chip('শোধ করলাম'));
+    await t.tap(chip(LedgerKind.lent.label));
     await settle(t);
     // Choosing is the answer: saved at once, no second "লিখে রাখি?".
     expect(rig.voice.spoken.last, isNot(contains('লিখে রাখি')));
-    expect(find.text('ফিরিয়ে নিন'), findsOneWidget);
     expect(rig.brain.data.ledger, hasLength(2));
+    expect(rig.brain.data.ledger.last.kind, LedgerKind.lent);
+    // The member owes রহিম: giving him money is paying back — asked as a yes.
+    await tell(t, rig, 'রহিমকে ৫০০ টাকা দিলাম');
+    await settle(t);
+    expect(rig.voice.spoken.last, contains('শোধ করলেন, তাই তো'));
+    await t.tap(chip('হ্যাঁ'));
+    await settle(t);
+    expect(rig.brain.data.ledger, hasLength(3));
     expect(rig.brain.data.ledger.last.kind, LedgerKind.repaid);
   });
 
