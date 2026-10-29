@@ -192,7 +192,7 @@ class Habit {
 
 /// A medicine taken at set times every day, with how many are left.
 class Medicine {
-  Medicine({String? id, required this.name, this.dose = 1, List<int>? times, this.stock = 0, this.note = '', List<String>? reminderIds, List<String>? taken, this.until, this.member = 'me'})
+  Medicine({String? id, required this.name, this.dose = 1, List<int>? times, this.stock = 0, this.note = '', List<String>? reminderIds, List<String>? taken, this.until, this.member = 'me', this.meal = ''})
       : id = id ?? newId(),
         times = times ?? [9 * 60],
         reminderIds = reminderIds ?? [],
@@ -206,6 +206,9 @@ class Medicine {
 
   /// Pills (or spoons) each time.
   final int dose;
+
+  /// With food (owner, 29 Oct): 'before', 'after', 'with' or '' (any time).
+  final String meal;
 
   /// Minutes after midnight for each dose (9:00 → 540).
   final List<int> times;
@@ -228,7 +231,8 @@ class Medicine {
 
   bool takenAt(DateTime day, int time) => taken.contains('${dayKey(day)} $time');
 
-  Medicine copyWith({String? member, String? name, int? dose, List<int>? times, int? stock, String? note, List<String>? reminderIds, List<String>? taken, DateTime? until, bool clearUntil = false}) => Medicine(
+  Medicine copyWith({String? member, String? name, int? dose, List<int>? times, int? stock, String? note, List<String>? reminderIds, List<String>? taken, DateTime? until, bool clearUntil = false, String? meal}) => Medicine(
+        meal: meal ?? this.meal,
         id: id,
         name: name ?? this.name,
         dose: dose ?? this.dose,
@@ -252,6 +256,7 @@ class Medicine {
         'reminderIds': reminderIds,
         'taken': taken.length > 400 ? taken.sublist(taken.length - 400) : taken,
         'until': until?.toIso8601String(),
+        if (meal.isNotEmpty) 'meal': meal,
       };
   factory Medicine.fromJson(Map<String, Object?> j) => Medicine(
         id: j['id'] as String?,
@@ -264,6 +269,7 @@ class Medicine {
         taken: _ls(j['taken']),
         until: _d(j['until']),
         member: j['member'] is String && (j['member'] as String).isNotEmpty ? j['member'] as String : 'me',
+        meal: _s(j['meal']),
       );
 }
 

@@ -472,6 +472,13 @@ class MainActivity : FlutterFragmentActivity() {
                 val at = LocationShare.here(applicationContext)
                 runOnUiThread { result.success(at) }
             }.start()
+            // The country the phone's network is in (roaming abroad too) —
+            // for that country's holidays (owner, 29 Oct). Stays on the phone.
+            "country" -> {
+                val tm = getSystemService(Context.TELEPHONY_SERVICE) as? android.telephony.TelephonyManager
+                val cc = (tm?.networkCountryIso?.takeIf { it.isNotBlank() } ?: tm?.simCountryIso ?: "").uppercase()
+                result.success(cc)
+            }
             else -> result.notImplemented()
         }
     }

@@ -1,12 +1,11 @@
 import 'notice_screen.dart';
+import 'place_picker.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
-import '../logic/world_places.dart';
-import '../logic/calendar_bd.dart';
 import '../logic/csv.dart';
 import '../services/data_store.dart';
 import '../services/lock.dart';
@@ -34,7 +33,7 @@ import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '2.63.0';
+const appVersion = '2.64.0';
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -108,52 +107,10 @@ class _MoreScreenState extends State<MoreScreen> {
 
   Future<void> _setDistrict() async {
     final brain = BrainScope.read(context);
-    final v = await showDialog<String>(
-      context: context,
-      builder: (ctx) => SimpleDialog(
-        title: Text(tr('আপনার জেলা/শহর'), style: body(18, weight: FontWeight.w600)),
-        children: [
-          SimpleDialogOption(
-            key: const Key('place-auto'),
-            onPressed: () => Navigator.pop(ctx, '*'),
-            child: Row(children: [
-              Icon(Icons.my_location_rounded, size: 20, color: brain.autoPlace ? C.green : C.muted2),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(tr('ফোনের লোকেশন অনুযায়ী'), style: body(16, weight: brain.autoPlace ? FontWeight.w700 : FontWeight.w500, color: brain.autoPlace ? C.green : C.ink)),
-                  Text(tr('অন্য জেলা বা দেশে গেলে নিজে বদলাবে — লোকেশন ফোনেই থাকে, কোথাও যায় না'), style: body(12.5, color: C.muted)),
-                ]),
-              ),
-            ]),
-          ),
-          const Divider(),
-          for (final p in bdPlaces)
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(ctx, p.name),
-              child: Text(p.label,
-                  style: body(16, weight: !brain.autoPlace && p.name == brain.district ? FontWeight.w700 : FontWeight.w400, color: !brain.autoPlace && p.name == brain.district ? C.green : C.ink)),
-            ),
-          // Anywhere in the world (owner, 25 Oct): prayer times on that city's clock.
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 14, 24, 4),
-            child: Text(tr('দেশের বাইরে'), style: body(13, weight: FontWeight.w600, color: C.muted)),
-          ),
-          for (final p in worldPlaces)
-            SimpleDialogOption(
-              key: Key('place-${p.name}'),
-              onPressed: () => Navigator.pop(ctx, p.key),
-              child: Text(p.label,
-                  style: body(16,
-                      weight: !brain.autoPlace && p.name == placeNamed(brain.district).name ? FontWeight.w700 : FontWeight.w400,
-                      color: !brain.autoPlace && p.name == placeNamed(brain.district).name ? C.green : C.ink)),
-            ),
-        ],
-      ),
-    );
+    final v = await pickPlace(context);
     if (v == null) return;
-    if (v != '*') {
-      await brain.setDistrict(v);
+    if (v is PickedPlace) {
+      await brain.setDistrict(v.place.key);
       return;
     }
     // Following the phone: location permission first (asked once by Android).

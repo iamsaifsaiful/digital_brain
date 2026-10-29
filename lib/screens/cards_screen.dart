@@ -460,7 +460,7 @@ class _CardFormScreenState extends State<CardFormScreen> {
                 TextField(key: const Key('card-bank'), controller: _bank, onChanged: (_) => setState(() {}), decoration: InputDecoration(labelText: tr('ব্যাংকের নাম'))),
                 const SizedBox(height: 6),
                 Wrap(spacing: 6, runSpacing: 6, children: [
-                  for (final b in banks) ActionChip(label: Text(b, style: body(12.5)), onPressed: () => setState(() => _bank.text = b)),
+                  for (final b in banks) ActionChip(label: Text(tr(b), style: body(12.5)), onPressed: () => setState(() => _bank.text = tr(b))),
                 ]),
                 const SizedBox(height: 12),
                 Text(tr('কার্ডের ধরন'), style: body(13, color: C.muted)),

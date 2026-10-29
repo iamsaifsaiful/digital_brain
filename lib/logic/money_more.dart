@@ -94,7 +94,7 @@ List<String> reportInsights(MonthReport r) {
   final out = <String>[];
   if (r.expense == 0) return out;
   final top = r.byCategory.first;
-  out.add(trf('সবচেয়ে বেশি খরচ হয়েছে {0}-এ — {1} (মোট খরচের {2}%)।', [top.key, taka(top.value), bnDigits((top.value * 100 / r.expense).round())]));
+  out.add(trf('সবচেয়ে বেশি খরচ হয়েছে {0}-এ — {1} (মোট খরচের {2}%)।', [tr(top.key), taka(top.value), bnDigits((top.value * 100 / r.expense).round())]));
   final rise = r.biggestRise;
   if (rise != null && r.lastExpense > 0) {
     out.add(trf('গত মাসের চেয়ে {0}-এ {1} বেশি গেছে।', [rise.key, taka(rise.value)]));

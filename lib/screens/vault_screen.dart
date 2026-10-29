@@ -122,7 +122,7 @@ class _VaultScreenState extends State<VaultScreen> {
                 ListRow(
                   leading: knownServiceOf(v.name) == null ? _KindIcon(kind: v.kind) : ServiceBadge(service: knownServiceOf(v.name)!),
                   title: v.name,
-                  subtitle: v.address.isEmpty || v.kind == VaultKind.wifi ? v.kind.label : '${v.kind.label} · ${v.address}',
+                  subtitle: v.address.isEmpty || v.kind == VaultKind.wifi ? tr(v.kind.label) : '${tr(v.kind.label)} · ${v.address}',
                   trailing: stale.contains(v.id) ? Pill(tr('পুরোনো'), fg: C.orangeDark, bg: C.orangeTint) : Text('••••', style: body(18, color: C.muted)),
                   onTap: () => _open(v),
                 ),

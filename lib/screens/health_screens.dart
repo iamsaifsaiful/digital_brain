@@ -254,7 +254,8 @@ class MedicinesScreen extends StatelessWidget {
                       subtitle: [
                         m.times.map(minutesText).join(', '),
                         if (m.dose > 1) trf('{0}টা করে', [bnDigits(m.dose)]),
-                        if (m.daysLeft != null) trf('আর {0} দিনের', [bnDigits(m.daysLeft!)]),
+                        if (m.meal.isNotEmpty) mealText(m.meal),
+                        if (m.daysLeft != null) m.daysLeft == 0 ? tr('আজই ফুরাবে') : trf('আর {0} দিনের', [bnDigits(m.daysLeft!)]),
                         if (m.until != null) trf('{0} পর্যন্ত', [shortDate(m.until!)]),
                       ].join(' · '),
                       subtitleColor: (m.daysLeft ?? 99) <= 5 ? C.orange : null,
@@ -292,6 +293,7 @@ class _MedicineSheetState extends State<_MedicineSheet> {
   late int _dose = widget.old?.dose ?? 1;
   late DateTime? _until = widget.old?.until;
   late String _member = widget.member;
+  late String _meal = widget.old?.meal ?? '';
 
   @override
   void initState() {
@@ -324,6 +326,7 @@ class _MedicineSheetState extends State<_MedicineSheet> {
       note: _note.text.trim(),
       until: _until,
       clearUntil: _until == null,
+      meal: _meal,
     ));
     if (mounted) Navigator.pop(context);
   }
@@ -335,14 +338,18 @@ class _MedicineSheetState extends State<_MedicineSheet> {
       child: SingleChildScrollView(
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text(widget.old == null ? tr('নতুন ওষুধ') : tr('ওষুধ বদলান'), style: display(20, weight: 700)),
-          FieldLabel(tr('ওষুধের নাম')),
-          TextField(controller: _name, autofocus: widget.old == null, decoration: InputDecoration(hintText: tr('যেমন: নাপা, সেকলো'))),
+          // Owner, 29 Oct: whose first, then the name, then before or after
+          // food, then how many times a day, then the times.
           FieldLabel(tr('কার জন্য')),
           MedicinePersonPicker(
             people: [for (final m in BrainScope.of(context).healthPeople) (m.id, m.isMe ? tr('আমি') : m.name)],
             selected: _member,
             onChanged: (id) => setState(() => _member = id),
           ),
+          FieldLabel(tr('ওষুধের নাম')),
+          TextField(key: const Key('med-name'), controller: _name, autofocus: widget.old == null, decoration: InputDecoration(hintText: tr('যেমন: নাপা, সেকলো'))),
+          FieldLabel(tr('খাবারের আগে না পরে')),
+          MealPicker(meal: _meal, onChanged: (v) => setState(() => _meal = v)),
           const SizedBox(height: 14),
           MedicineTimesPicker(times: _times, onChanged: (t) => setState(() => _times = t)),
           FieldLabel(trf('প্রতিবার কয়টা: {0}', [bnDigits(_dose)])),
@@ -364,7 +371,7 @@ class _MedicineSheetState extends State<_MedicineSheet> {
             label: Text(_until == null ? tr('চলতেই থাকবে') : fullDate(_until!)),
           ),
           FieldLabel(tr('নোট (ঐচ্ছিক)')),
-          TextField(controller: _note, decoration: InputDecoration(hintText: tr('যেমন: খাবারের পরে'))),
+          TextField(controller: _note, decoration: InputDecoration(hintText: tr('যেমন: পানির সাথে'))),
           const SizedBox(height: 16),
           PrimaryButton(label: tr('রাখুন'), onPressed: _save),
           if (widget.old != null)

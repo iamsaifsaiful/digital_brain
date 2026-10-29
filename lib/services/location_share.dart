@@ -52,4 +52,13 @@ class LocationShareChannel {
     } catch (_) {}
     return null;
   }
+
+  /// The two-letter code of the country the phone's network is in ('' unknown).
+  static Future<String> country() async {
+    try {
+      return (await _ch.invokeMethod<String>('country') ?? '').toUpperCase();
+    } catch (_) {
+      return '';
+    }
+  }
 }

@@ -841,7 +841,9 @@ class ChatController extends ChangeNotifier {
     // "দেনা পাওনা বলি নাই, বলেছি অন্যান্য হিসাব": only what was meant is heard.
     // "আইজকা কি কাম আছে", "kal doctor er kache jabo": in standard Bengali
     // first, so every rule below reads one language (the bubble keeps the words as said).
-    final t = shortOrdinal(standardSpeech(meantInstead(doneTail && body.isNotEmpty ? body : shown)));
+    // Banglish names: a person already in ধার-দেনা or contacts by sound (owner, 29 Oct).
+    final names = {for (final e in brain.data.ledger) e.person, for (final c in brain.data.contacts) c.name};
+    final t = shortOrdinal(standardSpeech(meantInstead(doneTail && body.isNotEmpty ? body : shown), names: names));
     if (doneTail) Trace.log('understood', 'closing words left out', {'kept': t});
     ended = false;
     _turn++;
@@ -2594,6 +2596,19 @@ class ChatController extends ChangeNotifier {
       ]);
       return;
     }
+    // "খালিদকে সব টাকা দিয়ে দিছি", "পুরো টাকা ফেরত দিল" (owner, 29 Oct): the
+    // whole of what is owed, either way — still asked as a yes/no.
+    if (_amount <= 0 && RegExp(fold(r'(?:^|\s)(?:সব|সবটা|সমস্ত|পুরো|পুরা|পুরোটা|বাকি|বাকিটা|যত)\s*(?:টাকা|টাকাই|দেনা|পাওনা|ধার)?(?:\s|$)')).hasMatch(fold(normalize(src.transcript)))) {
+      final bal = balanceWith(brain.data.ledger, _person, phone: _ledgerPhone);
+      if (bal != 0) {
+        _amount = bal.abs();
+        final opts = src.options.isEmpty ? LedgerKind.values : src.options;
+        if (_kind == null || _kind == LedgerKind.lent || _kind == LedgerKind.borrowed) {
+          if (bal < 0 && opts.contains(LedgerKind.repaid)) _kind = LedgerKind.repaid;
+          if (bal > 0 && opts.contains(LedgerKind.received)) _kind = LedgerKind.received;
+        }
+      }
+    }
     if (_amount <= 0) {
       _ask(out, trf('{0} নিয়ে কত টাকার কথা? অঙ্কটা বলেন।', [toPerson(_person)]), ChatWait.amount);
       return;
@@ -2639,6 +2654,15 @@ class ChatController extends ChangeNotifier {
       // "তুবাকে ৫০০ দিলাম। ফারুককে ১০ হাজার।": one verb for all — answered once.
       _kind = _batchKind;
       _chosen = true;
+    }
+    // "খালিদকে ৫০০ দিলাম" while the member owes খালিদ: paying it back (owner,
+    // 29 Oct) — still asked as a yes/no, never saved unasked. The same for
+    // money from someone who owes the member.
+    if (_kind == null && _person.isNotEmpty && _amount > 0) {
+      final opts = src.options.isEmpty ? LedgerKind.values : src.options;
+      final bal = balanceWith(brain.data.ledger, _person, phone: _ledgerPhone);
+      if (opts.contains(LedgerKind.repaid) && bal < 0 && _amount <= -bal) _kind = LedgerKind.repaid;
+      if (opts.contains(LedgerKind.received) && !opts.contains(LedgerKind.repaid) && bal > 0 && _amount <= bal) _kind = LedgerKind.received;
     }
     if (_kind == null) {
       final opts = src.options.isEmpty ? LedgerKind.values : src.options;

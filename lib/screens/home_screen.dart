@@ -19,8 +19,18 @@ import '../logic/lang.dart';
 
 /// আজকের কাজ on the home: the next thing with its actions, then what is
 /// late, today's list and a peek at tomorrow (approved design, 24 Oct).
-class TodaySections extends StatelessWidget {
+class TodaySections extends StatefulWidget {
   const TodaySections({super.key});
+
+  /// Rows shown before "আরও দেখুন" (owner, 29 Oct: a long list folds).
+  static const folded = 4;
+
+  @override
+  State<TodaySections> createState() => _TodaySectionsState();
+}
+
+class _TodaySectionsState extends State<TodaySections> {
+  bool _open = false;
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +73,12 @@ class TodaySections extends StatelessWidget {
       return at == null ? head : '$head, ${trf('প্রথমটা {0}', [bnTime(at.sort.hour, at.sort.minute)])}';
     }
 
+    // Folded: the late ones first, then today's, [TodaySections.folded] in all.
+    final total = plan.overdue.length + rest.length;
+    final fold = !_open && total > TodaySections.folded + 1;
+    final lateShown = fold ? plan.overdue.take(TodaySections.folded).toList() : plan.overdue;
+    final restShown = fold ? rest.take(TodaySections.folded - lateShown.length).toList() : rest;
+    final hidden = total - lateShown.length - restShown.length;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       SectionHeading(
         tr('আজকের কাজ'),
@@ -76,11 +92,26 @@ class TodaySections extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           if (plan.overdue.isNotEmpty) ...[
             group(trf('দেরি হয়ে গেছে · {0}', [bnDigits(plan.overdue.length)]), late: true, icon: Icons.schedule_rounded),
-            ...rows(plan.overdue, late: true),
+            ...rows(lateShown, late: true),
           ],
-          if (rest.isNotEmpty) ...[
+          if (restShown.isNotEmpty) ...[
             if (plan.overdue.isNotEmpty) group(tr('আজ')),
-            ...rows(rest),
+            ...rows(restShown),
+          ],
+          if (hidden > 0 || (_open && total > TodaySections.folded + 1)) ...[
+            const Hairline(),
+            InkWell(
+              key: const Key('home-today-more'),
+              onTap: () => setState(() => _open = !_open),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Text(_open ? tr('কম দেখুন') : trf('আরও {0}টা দেখুন', [bnDigits(hidden)]), style: body(13, weight: FontWeight.w600, color: C.green)),
+                  const SizedBox(width: 4),
+                  Icon(_open ? Icons.expand_less_rounded : Icons.expand_more_rounded, size: 18, color: C.green),
+                ]),
+              ),
+            ),
           ],
           if (plan.today.isEmpty && plan.overdue.isEmpty)
             Padding(

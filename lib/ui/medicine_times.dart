@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
 import '../logic/lang.dart';
+export '../logic/meal.dart';
 import 'forms.dart' show askTime, minutesText;
 import 'theme.dart';
 
@@ -19,12 +20,17 @@ const medicinePresets = <int, List<int>>{
   4: [8 * 60, 13 * 60, 18 * 60, 22 * 60],
 };
 
-/// The times offered, by part of the day.
+/// The times offered, by part of the day (owner, 29 Oct: সকাল, দুপুর,
+/// বিকাল and রাত each its own row; any other time in its own section).
 const _parts = <(String, List<int>)>[
   ('সকাল', [6 * 60, 7 * 60, 8 * 60, 9 * 60, 10 * 60]),
-  ('দুপুর-বিকেল', [12 * 60, 13 * 60, 14 * 60, 16 * 60, 18 * 60]),
+  ('দুপুর', [12 * 60, 13 * 60, 14 * 60]),
+  ('বিকাল', [15 * 60, 16 * 60, 17 * 60, 18 * 60]),
   ('রাত', [20 * 60, 21 * 60, 22 * 60, 23 * 60]),
 ];
+
+/// A part's name in the app's language (written out so the English list has them).
+String _partName(String p) => switch (p) { 'সকাল' => tr('সকাল'), 'দুপুর' => tr('দুপুর'), 'বিকাল' => tr('বিকাল'), _ => tr('রাত') };
 
 class MedicineTimesPicker extends StatelessWidget {
   const MedicineTimesPicker({super.key, required this.times, required this.onChanged});
@@ -66,18 +72,20 @@ class MedicineTimesPicker extends StatelessWidget {
       ]),
       for (final (part, ts) in _parts) ...[
         const SizedBox(height: 10),
-        Text(tr(part), style: body(12.5, color: C.muted)),
+        Text(_partName(part), style: body(12.5, color: C.muted)),
         const SizedBox(height: 6),
         Wrap(spacing: 8, runSpacing: 8, children: [
           for (final m in ts) _TimeChip(key: Key('med-time-$m'), label: minutesText(m), selected: times.contains(m), onTap: () => _toggle(m)),
         ]),
       ],
-      const SizedBox(height: 10),
+      const SizedBox(height: 14),
+      Text(tr('অন্য সময়'), style: body(12.5, color: C.muted)),
+      const SizedBox(height: 6),
       Wrap(spacing: 8, runSpacing: 8, children: [
         for (final m in own) _TimeChip(key: Key('med-time-$m'), label: minutesText(m), selected: true, onTap: () => _toggle(m)),
         _TimeChip(
           key: const Key('med-time-other'),
-          label: tr('অন্য সময়'),
+          label: tr('সময় যোগ করুন'),
           selected: false,
           icon: Icons.add_rounded,
           onTap: () async {
@@ -88,6 +96,19 @@ class MedicineTimesPicker extends StatelessWidget {
       ]),
     ]);
   }
+}
+
+/// Before, after or with food — or any time (owner, 29 Oct).
+class MealPicker extends StatelessWidget {
+  const MealPicker({super.key, required this.meal, required this.onChanged});
+  final String meal;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Wrap(spacing: 8, runSpacing: 8, children: [
+        for (final (k, label) in [('before', tr('খাবারের আগে')), ('after', tr('খাবারের পরে')), ('with', tr('খাবারের সাথে')), ('', tr('যেকোনো সময়'))])
+          _TimeChip(key: Key('med-meal-${k.isEmpty ? 'any' : k}'), label: label, selected: meal == k, onTap: () => onChanged(k)),
+      ]);
 }
 
 /// "কার জন্য": the user and each family member, one tap to choose.

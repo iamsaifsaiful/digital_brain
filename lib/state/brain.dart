@@ -60,6 +60,8 @@ import '../services/voice.dart';
 import '../services/platform.dart';
 import '../services/location_share.dart';
 import '../logic/calendar_bd.dart';
+import '../logic/holidays_abroad.dart' show builtInHolidays;
+import '../logic/meal.dart';
 import '../ui/theme.dart' show Look;
 import '../logic/lang.dart';
 
@@ -1086,8 +1088,15 @@ class Brain extends ChangeNotifier {
       autoPlace = false;
       await services.lock.keys.write('auto_place', 'false');
     }
+    // Chosen by hand: kept while the phone stays near where it was chosen;
+    // gone far (another district, another country), the place follows the
+    // phone again (owner, 29 Oct: "নোয়াখালী থাকলে নোয়াখালী, ঢাকায় থাকলে ঢাকায়").
+    if (!auto) await _put('place_hold', 'pending');
     notifyListeners();
-    if (moved) await refreshWeather();
+    if (moved) {
+      await refreshWeather();
+      unawaited(refreshHolidaysAbroad().catchError((_) {}));
+    }
   }
 
   /// The district follows where the phone is (sunrise, prayer times,
@@ -1106,6 +1115,7 @@ class Brain extends ChangeNotifier {
   Future<void> setAutoPlace(bool on) async {
     autoPlace = on;
     await services.lock.keys.write('auto_place', on ? 'true' : 'false');
+    if (on) await _put('place_hold', '');
     notifyListeners();
     if (on) {
       await askPlacePermission();
@@ -1123,13 +1133,20 @@ class Brain extends ChangeNotifier {
     await LocationShareChannel.ask();
   }
 
+  /// The country the phone's network is in (tests replace it).
+  Future<String> Function() whereCountry = LocationShareChannel.country;
+
   /// The phone's location permission (tests replace it).
   Future<Map<String, bool>> Function() placeStatus = LocationShareChannel.status;
 
   /// Moves [district] to where the phone is now (at most every 10 minutes
   /// unless [force]). Returns the new place's name when it changed.
   Future<String?> refreshPlace({bool force = false}) async {
-    if (!autoPlace) return null;
+    String hold = '';
+    if (!autoPlace) {
+      hold = await services.lock.keys.read('place_hold') ?? '';
+      if (hold.isEmpty) return null;
+    }
     final now = services.now();
     final last = _placeCheckedAt;
     if (!force && last != null && now.difference(last).inMinutes < 10) return null;
@@ -1137,13 +1154,92 @@ class Brain extends ChangeNotifier {
     // No fix (location off, no permission yet): tried again next time.
     if (at == null) return null;
     _placeCheckedAt = now;
+    if (!autoPlace) {
+      // Chosen by hand: where the phone was then is remembered; more than
+      // [placeHoldKm] away now, following the phone starts again.
+      final f = hold.split(',');
+      final hLat = f.length == 2 ? double.tryParse(f[0]) : null, hLon = f.length == 2 ? double.tryParse(f[1]) : null;
+      if (hLat == null || hLon == null) {
+        await _put('place_hold', '${at.$1.toStringAsFixed(4)},${at.$2.toStringAsFixed(4)}');
+        return null;
+      }
+      if (kmBetween(at.$1, at.$2, hLat, hLon) <= placeHoldKm) return null;
+      autoPlace = true;
+      await services.lock.keys.write('auto_place', 'true');
+      await _put('place_hold', '');
+    }
     // Anywhere in the world (owner, 25 Oct): a district in Bangladesh, else
     // the place itself on the phone's own clock.
-    final here = placeAt(at.$1, at.$2, tzMinutes: now.timeZoneOffset.inMinutes);
+    var here = placeAt(at.$1, at.$2, tzMinutes: now.timeZoneOffset.inMinutes);
+    // Abroad with no big city near: the country from the phone's network.
+    if (here.abroad && here.cc.isEmpty) {
+      final cc = await whereCountry();
+      if (cc.isNotEmpty && cc != 'BD') here = Place(here.name, here.lat, here.lon, tz: here.tz, region: here.region, cc: cc);
+    }
     final was = placeNamed(district);
     if (here.name == was.name && here.tz == was.tz && kmBetween(here.lat, here.lon, was.lat, was.lon) < 5) return null;
     await setDistrict(here.key, auto: true);
     return here.name;
+  }
+
+  /// How far the phone must go from where a place was chosen by hand before
+  /// the place follows the phone again.
+  static const placeHoldKm = 40.0;
+
+  /// A place found by search, kept as a place: a district when it is in
+  /// Bangladesh, else that town on its own clock (asked from the weather
+  /// service; the phone's clock when offline).
+  Future<Place> placeFromHit(PlaceHit h) async {
+    final bd = nearestPlace(h.lat, h.lon);
+    if (bd != null && (h.countryCode.isEmpty || h.countryCode == 'BD')) return bd.$1;
+    final tz = await services.weather.offsetAt(h.lat, h.lon) ?? services.now().timeZoneOffset.inMinutes;
+    return Place(h.name, h.lat, h.lon, tz: tz, region: regionAt(h.lat, h.lon), cc: h.countryCode.toUpperCase());
+  }
+
+  /// The public holidays of the country the member is in, abroad (owner,
+  /// 29 Oct: "যে দেশে সে দেশের ছুটি"), from the next [count] ahead — kept on
+  /// the phone by country and year; empty when not known (yet).
+  List<AbroadHoliday> holidaysAbroad(DateTime now, {int count = 2}) {
+    final cc = placeNamed(district).country;
+    if (cc == 'BD' || cc.isEmpty) return const [];
+    final today = DateTime(now.year, now.month, now.day);
+    final all = <AbroadHoliday>[];
+    final kept = _holidayBook();
+    for (final y in [now.year, now.year + 1]) {
+      final l = kept['${cc}_$y'];
+      if (l is List) all.addAll(l.map(AbroadHoliday.fromJson).whereType<AbroadHoliday>());
+    }
+    all.sort((a, b) => a.date.compareTo(b.date));
+    return all.where((h) => !h.date.isBefore(today)).take(count).toList();
+  }
+
+  /// Fetches this year's (and, late in the year, next year's) holidays of
+  /// the country the member is in, when not kept yet.
+  Future<void> refreshHolidaysAbroad() async {
+    final cc = placeNamed(district).country;
+    if (cc == 'BD' || cc.isEmpty) return;
+    final now = services.now();
+    for (final y in [now.year, if (now.month >= 10) now.year + 1]) {
+      final k = '${cc}_$y';
+      if (_holidayBook().containsKey(k)) continue;
+      // The Gulf, Malaysia, Pakistan: worked out on the phone; the rest asked.
+      final got = builtInHolidays(cc, y, adjust: hijriShift) ?? await services.weather.holidays(cc, y);
+      if (got == null) continue;
+      final book = _holidayBook()..[k] = [for (final h in got) h.toJson()];
+      prefs['hol_abroad'] = jsonEncode(book);
+      await _put('hol_abroad', prefs['hol_abroad']!);
+      notifyListeners();
+    }
+  }
+
+  /// Holidays kept by "CC_year".
+  Map<String, Object?> _holidayBook() {
+    try {
+      final m = jsonDecode(text('hol_abroad', '{}'));
+      return m is Map ? m.cast<String, Object?>() : <String, Object?>{};
+    } catch (_) {
+      return <String, Object?>{};
+    }
   }
 
   /// Days the Hijri date is moved: the user's own choice, else +1 outside
@@ -1193,9 +1289,23 @@ class Brain extends ChangeNotifier {
   }
 
   Future<void> setEnglish(bool on) async {
+    final was = english;
     english = on;
     notifyListeners();
     await _put('lang', on ? 'en' : 'bn');
+    // The medicine reminders' names are written in the app's language: made
+    // again in the new one (owner, 29 Oct: English left Bangla behind).
+    if (was != on && data.medicines.isNotEmpty) {
+      final keep = isEn;
+      isEn = on;
+      try {
+        for (final m in [...data.medicines]) {
+          await saveMedicine(m);
+        }
+      } finally {
+        isEn = keep;
+      }
+    }
   }
 
   Future<void> setLetterSize(double v) async {
@@ -1432,7 +1542,7 @@ class Brain extends ChangeNotifier {
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly', 'n_quote', 'n_fix',
-    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'blood_last_unknown', 'blood_phone', 'blood_sync', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'zakat_gold_carat', 'zakat_gold_list', 'order_home_tools', 'order_doc_folders', 'order_projects', 'g_card_off', 'p_card_off', 'trace_on', 'trace_share', 'hc_on', 'hc_gone', 'steps_book',
+    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'blood_last_unknown', 'blood_phone', 'blood_sync', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'zakat_gold_carat', 'zakat_gold_list', 'order_home_tools', 'order_doc_folders', 'order_projects', 'hol_abroad', 'g_card_off', 'p_card_off', 'trace_on', 'trace_share', 'hc_on', 'hc_gone', 'steps_book',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';

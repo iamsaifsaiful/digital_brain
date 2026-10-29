@@ -30,12 +30,27 @@ class _CompassScreenState extends State<CompassScreen> {
   double _turn = 0;
   bool _facing = false;
 
+  /// Where the phone is right now (owner, 29 Oct: the qibla from where the
+  /// member stands, not the district chosen); null until known.
+  (double, double)? _here;
+
+  /// No heading yet after a few seconds: say what to do.
+  bool _slow = false;
+  Timer? _slowTimer;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final brain = BrainScope.read(context);
+      _slowTimer = Timer(const Duration(seconds: 4), () {
+        if (mounted && _h == null && !_none) setState(() => _slow = true);
+      });
+      // Where the phone is, when it says (the dial starts at once meanwhile).
+      brain.whereAmI().then((here) {
+        if (mounted && here != null) setState(() => _here = here);
+      }).catchError((_) {});
       final place = placeNamed(brain.district);
       _sub = brain.services.compass.headings(lat: place.lat, lon: place.lon).listen((h) {
         if (!mounted) return;
@@ -48,6 +63,7 @@ class _CompassScreenState extends State<CompassScreen> {
           _turn += last == null ? h.degrees - _turn : turnTo(last.degrees, h.degrees);
           _h = h;
           _none = false;
+          _slow = false;
         });
       });
     });
@@ -55,6 +71,7 @@ class _CompassScreenState extends State<CompassScreen> {
 
   @override
   void dispose() {
+    _slowTimer?.cancel();
     _sub?.cancel();
     super.dispose();
   }
@@ -63,7 +80,8 @@ class _CompassScreenState extends State<CompassScreen> {
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final place = placeNamed(brain.district);
-    final qibla = qiblaFrom(place.lat, place.lon);
+    final here = _here;
+    final qibla = here != null ? qiblaFrom(here.$1, here.$2) : qiblaFrom(place.lat, place.lon);
     final h = _h;
     final off = h == null ? null : turnTo(h.degrees, qibla);
     final facing = off != null && off.abs() <= 4;
@@ -131,7 +149,7 @@ class _CompassScreenState extends State<CompassScreen> {
                         const SizedBox(height: 2),
                         Text(
                           off == null
-                              ? trf('{0} থেকে, উত্তর থেকে ঘড়ির কাঁটার দিকে', [place.label])
+                              ? (here != null ? tr('আপনি যেখানে আছেন সেখান থেকে, উত্তর থেকে ঘড়ির কাঁটার দিকে') : trf('{0} থেকে, উত্তর থেকে ঘড়ির কাঁটার দিকে', [place.label]))
                               : facing
                                   ? tr('ফোনের মাথা এখন কিবলার দিকে')
                                   : off > 0
@@ -144,6 +162,16 @@ class _CompassScreenState extends State<CompassScreen> {
                     ),
                   ]),
                 ),
+                if (_slow && h == null) ...[
+                  const SizedBox(height: 10),
+                  Panel(
+                    key: const Key('compass-slow'),
+                    color: C.orangeTint,
+                    padding: const EdgeInsets.all(12),
+                    child: Text(tr('ফোনের দিক-সেন্সর সাড়া দিচ্ছে না। ফোনটা বাতাসে ইংরেজি ৮-এর মতো কয়েকবার ঘোরান। তবু না হলে পাতাটা বন্ধ করে আবার খুলুন; কিছু ফোনে পাওয়ার সেভিং চালু থাকলে সেন্সর বন্ধ থাকে।'),
+                        style: body(13.5, color: C.orange, height: 1.4)),
+                  ),
+                ],
                 if (h != null && h.shaky) ...[
                   const SizedBox(height: 10),
                   Panel(
@@ -155,7 +183,7 @@ class _CompassScreenState extends State<CompassScreen> {
                 ],
                 const SizedBox(height: 12),
                 Text(
-                  tr('ফোন সমান করে বা সামনে খাড়া করে — যেভাবে সুবিধা ধরুন; ফোনের মাথা যেদিকে, দিক সেটাই। প্রথমবার ফোনটা বাতাসে কয়েকবার ৮ আঁকার মতো ঘোরান। লোহা, চুম্বক, স্পিকার, ল্যাপটপ বা চুম্বকওয়ালা কভার থেকে দূরে রাখুন — এগুলো দিক বদলে দেয়। কিবলার দিক আপনার জেলার হিসেবে; মসজিদের দিক মিলিয়ে নেওয়া ভালো।'),
+                  tr('ফোন সমান করে বা সামনে খাড়া করে — যেভাবে সুবিধা ধরুন; ফোনের মাথা যেদিকে, দিক সেটাই। প্রথমবার ফোনটা বাতাসে কয়েকবার ৮ আঁকার মতো ঘোরান। লোহা, চুম্বক, স্পিকার, ল্যাপটপ বা চুম্বকওয়ালা কভার থেকে দূরে রাখুন — এগুলো দিক বদলে দেয়। কিবলার দিক ফোনের লোকেশন থেকে (না পেলে বেছে নেওয়া জেলা থেকে); মসজিদের দিক মিলিয়ে নেওয়া ভালো।'),
                   style: body(13, color: C.muted, height: 1.45),
                 ),
               ],

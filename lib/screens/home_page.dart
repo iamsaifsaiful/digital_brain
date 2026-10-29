@@ -271,7 +271,10 @@ class _HomeHeroState extends State<HomeHero> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) BrainScope.read(context).refreshWeather();
+      if (!mounted) return;
+      final brain = BrainScope.read(context);
+      brain.refreshWeather();
+      brain.refreshHolidaysAbroad().catchError((_) {});
     });
     // While the home is open: the light moves on with the clock, the place
     // follows the phone (checked every 10 min at most) and the weather is
@@ -649,6 +652,42 @@ class _Holidays extends StatelessWidget {
     final brain = BrainScope.of(context);
     final now = brain.services.now();
     final today = dayOnly(now);
+    // Abroad: that country's holidays (owner, 29 Oct), not Bangladesh's.
+    if (placeNamed(brain.district).abroad) {
+      final hs = brain.holidaysAbroad(now);
+      if (hs.isEmpty) return const SizedBox.shrink();
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        SectionHeading(trf('সামনের ছুটি · {0}', [brain.placeLabel])),
+        AppCard(
+          key: const Key('home-holidays-abroad'),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          child: Column(children: [
+            for (final (i, h) in hs.indexed) ...[
+              if (i > 0) const Hairline(),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Builder(builder: (context) {
+                  final days = h.date.difference(today).inDays;
+                  return Row(children: [
+                    _DateBox(day: h.date.day, month: monthShort(h.date.month)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(days <= 0 ? trf('আজ ছুটি — {0}', [h.name]) : h.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w500)),
+                        Text(h.local.isNotEmpty && h.local != h.name ? '${weekdayName(h.date)} · ${h.local}' : weekdayName(h.date),
+                            maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted)),
+                      ]),
+                    ),
+                    const SizedBox(width: 8),
+                    Counter(days > 0 ? trf('{0} দিন পর', [bnDigits(days)]) : tr('আজ')),
+                  ]);
+                }),
+              ),
+            ],
+          ]),
+        ),
+      ]);
+    }
     final runs = upcomingHolidays(now, count: 2);
     if (runs.isEmpty) return const SizedBox.shrink();
     void cal() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen()));

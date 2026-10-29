@@ -135,7 +135,7 @@ class _DocsScreenState extends State<DocsScreen> {
             child: Icon(x.files.any((f) => f.isImage) ? Icons.image_outlined : Icons.description_outlined, color: C.blue, size: 20),
           ),
           title: x.title,
-          subtitle: trf('{0} · {1} পাতা · {2}{3}', [x.folder, bnDigits(x.files.length), sizeText(x.size), x.expiry != null ? ' · মেয়াদ ${bnDigits(x.expiry!.day)} ${monthShort(x.expiry!.month)} ${bnDigits(x.expiry!.year)}' : '']),
+          subtitle: trf('{0} · {1} পাতা · {2}{3}', [tr(x.folder), bnDigits(x.files.length), sizeText(x.size), x.expiry != null ? ' · ${trf('মেয়াদ {0}', ['${bnDigits(x.expiry!.day)} ${monthShort(x.expiry!.month)} ${bnDigits(x.expiry!.year)}'])}' : '']),
           onTap: () => _open(x),
         );
 

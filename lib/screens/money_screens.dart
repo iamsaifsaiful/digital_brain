@@ -577,7 +577,7 @@ class _CashViewState extends State<CashView> {
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Row(children: [
-                      Expanded(child: Text(c.key, style: body(15, weight: FontWeight.w600))),
+                      Expanded(child: Text(tr(c.key), style: body(15, weight: FontWeight.w600))),
                       Text(taka(c.value), style: display(15)),
                     ]),
                     const SizedBox(height: 4),
@@ -655,7 +655,7 @@ Widget cashRow(BuildContext context, CashEntry e, {Picks? picks}) {
             decoration: BoxDecoration(color: income ? C.greenTint : C.surface2, borderRadius: BorderRadius.circular(12)),
             child: Icon(income ? Icons.south_west_rounded : Icons.north_east_rounded, color: income ? C.green : C.muted2, size: 20),
           ),
-    title: e.category,
+    title: tr(e.category),
     subtitle: [shortDate(e.date), if (e.note.trim().isNotEmpty) e.note.trim()].join(' · ') + (e.projectId == null ? '' : mainMark(BrainScope.of(context).data, e.id)),
     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
       Text('${income ? '+' : '−'}${taka(e.amount)}', style: body(14.5, weight: FontWeight.w600, color: income ? C.green : C.ink)),

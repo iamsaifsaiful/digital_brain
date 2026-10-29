@@ -139,7 +139,8 @@ extension BrainMore on Brain {
         hour: t ~/ 60,
         minute: t % 60,
         repeat: Repeat.daily,
-        note: m.dose > 1 ? trf('{0}টা করে', [bnDigits(m.dose)]) : m.note,
+        // How many, before or after food, and the member's note (owner, 29 Oct).
+        note: [if (m.dose > 1) trf('{0}টা করে', [bnDigits(m.dose)]), if (m.meal.isNotEmpty) mealText(m.meal), if (m.note.isNotEmpty) m.note].join(' · '),
       );
       data.reminders.add(r);
       ids.add(r.id);
