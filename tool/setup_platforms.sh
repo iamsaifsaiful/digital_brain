@@ -167,6 +167,21 @@ android {
 KTS
 fi
 
+# Our own shrinker rules (android/app/proguard-rules.pro): keep what is
+# opened by reflection, like WorkManager's Room database (owner, 29 Oct).
+if ! grep -q 'proguard-rules.pro' "$GRADLE_KTS"; then
+  cat >> "$GRADLE_KTS" <<'KTS'
+
+android {
+    buildTypes {
+        getByName("release") {
+            proguardFiles("proguard-rules.pro")
+        }
+    }
+}
+KTS
+fi
+
 # Remove the sample test flutter create may add; this repo has its own tests.
 rm -f test/widget_test.dart
 
