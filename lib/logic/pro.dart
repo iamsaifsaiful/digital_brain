@@ -84,7 +84,7 @@ class ProInfo {
 /// What Premium adds — the owner's list of 24 Oct, in his order. Keep this
 /// up to date with every change: the Premium page and every lock read it.
 const proInfo = <ProFeature, ProInfo>{
-  ProFeature.reminders: ProInfo('যত খুশি রিমাইন্ডার', 'চালু রিমাইন্ডারের কোনো সীমা নেই — কাজ, বিল, ধার-দেনা, কাগজের মেয়াদ সব মিলিয়ে', free: 'সব মিলিয়ে একসাথে ২০টা চালু রিমাইন্ডার'),
+  ProFeature.reminders: ProInfo('যত খুশি রিমাইন্ডার', 'চালু রিমাইন্ডারের কোনো সীমা নেই — কাজ, বিল, ধার-দেনা, কাগজের মেয়াদ সব মিলিয়ে', free: 'সব মিলিয়ে একসাথে ২০টা চালু রিমাইন্ডার — ওষুধ আর টিকার রিমাইন্ডার গোনা হয় না, সেগুলো সবসময় ফ্রি'),
   ProFeature.docs: ProInfo('যত খুশি ডকুমেন্ট', 'NID, পাসপোর্ট, দলিল, ছবি — কোনো সীমা নেই', free: '৩০টা ডকুমেন্ট'),
   ProFeature.projects: ProInfo('যত খুশি অন্যান্য হিসাব', 'বাড়ি, বিয়ে, ঈদ, ব্যবসা — আলাদা আয়, খরচ আর বকেয়া; চাইলে মূল টাকায় যুক্ত হয়', free: '১টা অন্যান্য হিসাব'),
   ProFeature.will: ProInfo('ওছিয়তনামা', 'নোটে নিজের ওছিয়ত লিখে রাখা, শেষ কবে বদলেছেন তারিখসহ'),

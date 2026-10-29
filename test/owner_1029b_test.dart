@@ -3,10 +3,11 @@
 import 'package:digital_brain/logic/pro.dart';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/screens/money_screens.dart' show ProjectScreen;
+import 'package:digital_brain/state/brain.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'app_test.dart' show settle, start, tell;
+import 'app_test.dart' show Rig, settle, start, tell;
 
 void main() {
   test('free: one হিসাব — the first one opened that is still open', () async {
@@ -64,5 +65,22 @@ void main() {
     await settle(t);
     await income(second);
     expect(find.textContaining('যত খুশি অন্যান্য হিসাব'), findsOneWidget, reason: 'the Premium sheet');
+  });
+
+  test('medicine reminders never count toward the free 20 (owner, 29 Oct)', () async {
+    final rig = Rig();
+    await rig.brain.load();
+    final b = rig.brain..gated = true;
+    for (var i = 0; i < 6; i++) {
+      await b.saveMedicine(Medicine(name: 'ওষুধ $i', times: [8 * 60, 14 * 60, 22 * 60]));
+    }
+    expect(b.data.reminders.length, 18);
+    expect(b.activeReminders, 0);
+    for (var i = 0; i < freeReminders; i++) {
+      b.data.reminders.add(Reminder(title: 'r$i', date: DateTime(2026, 11), hour: 9));
+    }
+    expect(b.canAddReminder, isFalse, reason: 'the other 20 still count');
+    await b.saveMedicine(Medicine(name: 'আরেকটা', times: [9 * 60]));
+    expect(b.data.medicines.length, 7, reason: 'a medicine is never held back');
   });
 }

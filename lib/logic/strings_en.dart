@@ -4554,4 +4554,5 @@ const enStrings = <String, String>{
   'মেয়াদ {0}': 'expires {0}',
   'অ্যাপ': 'App',
   'ব্যাংক': 'Bank',
+  'সব মিলিয়ে একসাথে ২০টা চালু রিমাইন্ডার — ওষুধ আর টিকার রিমাইন্ডার গোনা হয় না, সেগুলো সবসময় ফ্রি': '20 ringing reminders in all — medicine and vaccine reminders never count and are always free',
 };
