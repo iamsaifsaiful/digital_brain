@@ -125,6 +125,17 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         CrashLog.install(this)
+        // AdMob brings Google's WorkManager, which started itself while the app
+        // opened and closed it on the owner's phone (29 Oct). It no longer starts
+        // itself (AndroidManifest.xml); it starts here, where a problem is caught
+        // and written to the সমস্যার লগ instead of closing the app.
+        try {
+            androidx.work.WorkManager.initialize(applicationContext, androidx.work.Configuration.Builder().build())
+        } catch (e: IllegalStateException) {
+            if (e.message?.contains("initialized") != true) CrashLog.note(this, "WorkManager", e)
+        } catch (e: Throwable) {
+            CrashLog.note(this, "WorkManager", e)
+        }
         // A reminder ringing (or its notification tapped): its own full-screen
         // page, and the app is not opened (owner, 27 Oct).
         if (savedInstanceState == null && AlarmActivity.reminderOf(intent) != null) {
