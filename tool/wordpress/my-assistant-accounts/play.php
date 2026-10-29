@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 }
 
 /** The Play app's package and the products sold. */
-const MA_PLAY_PACKAGE = 'com.iamsaifsaiful.digital_brain';
+const MA_PLAY_PACKAGE = 'app.getmyassistant';
 const MA_PLAY_PRODUCTS = ['pro_monthly', 'pro_yearly'];
 
 function ma_play_table() {

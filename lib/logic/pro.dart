@@ -37,6 +37,9 @@ const proTestSwitch = bool.fromEnvironment('PRO_TEST');
 /// off with `--dart-define=PRO_LINK=off`.
 const proWebPage = 'https://getmyassistant.app/';
 
+/// The app's package on Google Play (owner, 29 Oct: from 1.0.0).
+const appPackage = 'app.getmyassistant';
+
 /// The privacy policy and account deletion pages on our website (the
 /// plugin's [my_assistant_privacy] and [my_assistant_delete_account]
 /// shortcodes on pages with these addresses — docs/play-store.md).

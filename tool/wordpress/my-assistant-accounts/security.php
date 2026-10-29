@@ -238,6 +238,7 @@ function ma_acc_render_security() {
         </form>
     </section>
     <?php endif; ?>
+    <?php if (function_exists('ma_reset_card')) ma_reset_card(); ?>
     <?php if (current_user_can('manage_options')) : $has = ma_sec_key(true) !== null; ?>
     <section class="ma-card pad" id="ma-datakey">
         <div class="ma-bar-title"><h2>সদস্যদের ব্যাকআপ-চাবির তালা</h2><span class="ma-pill <?php echo $has ? 'pro' : 'expired'; ?>"><?php echo $has ? 'চালু' : 'বন্ধ'; ?></span></div>

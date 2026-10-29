@@ -74,7 +74,7 @@ class _ProScreenState extends State<ProScreen> {
   /// Play's page where the user changes or cancels the subscription.
   Future<void> _manage(Brain brain) async {
     final product = brain.proKind.startsWith('play:') ? brain.proKind.substring(5) : '';
-    final ok = await brain.services.launcher.openUrl(Uri.parse('https://play.google.com/store/account/subscriptions?${product.isEmpty || product == 'pending' ? '' : 'sku=$product&'}package=com.iamsaifsaiful.digital_brain'));
+    final ok = await brain.services.launcher.openUrl(Uri.parse('https://play.google.com/store/account/subscriptions?${product.isEmpty || product == 'pending' ? '' : 'sku=$product&'}package=$appPackage'));
     if (!ok && mounted) toast(context, tr('ব্রাউজার খোলা গেল না'));
   }
 

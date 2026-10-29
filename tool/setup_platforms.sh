@@ -122,7 +122,7 @@ KTS
 fi
 
 # Firebase (push): its settings for this app's package, from google-services.json.
-python3 tool/firebase_values.py tool/google-services.json "com.iamsaifsaiful.digital_brain$([ "${MY_ASSISTANT_PREVIEW:-}" = 1 ] && echo .preview)" android/app/src/main/res/values/firebase.xml
+python3 tool/firebase_values.py tool/google-services.json "app.getmyassistant$([ "${MY_ASSISTANT_PREVIEW:-}" = 1 ] && echo .preview)" android/app/src/main/res/values/firebase.xml
 
 # The app's name on the phone, and the Play Store preview: MY_ASSISTANT_PREVIEW=1
 # makes a separate app (".preview") that installs beside the real one, empty,
@@ -134,7 +134,10 @@ android {
     defaultConfig {
         val preview = System.getenv("MY_ASSISTANT_PREVIEW") == "1"
         manifestPlaceholders["appLabel"] = if (preview) "My Assistant Play প্রিভিউ" else "My Assistant"
-        if (preview) applicationIdSuffix = ".preview"
+        // The app's package from 1.0.0 (owner, 29 Oct: a fresh start, apart
+        // from the old com.iamsaifsaiful.digital_brain). The Kotlin code keeps
+        // its own package (the namespace); only the installed app's id changes.
+        applicationId = if (preview) "app.getmyassistant.preview" else "app.getmyassistant"
     }
 }
 KTS

@@ -620,7 +620,7 @@ class Brain extends ChangeNotifier {
     } on UpdateRequired catch (e) {
       // Signed in to Google, but our site wants a newer app first (its data here stays open).
       // The Play app is updated by Google Play, never from our website.
-      updateUrl = playEdition && !previewEdition ? 'https://play.google.com/store/apps/details?id=com.iamsaifsaiful.digital_brain' : e.url;
+      updateUrl = playEdition && !previewEdition ? 'https://play.google.com/store/apps/details?id=$appPackage' : e.url;
       notifyListeners();
       return trf('অ্যাপের নতুন সংস্করণ ({0}) এসেছে — আপডেট করে আবার লগইন করুন। ফোনে রাখা সব তথ্য আগের মতোই খোলা থাকবে।', [e.min]);
     } on GoogleError catch (e) {

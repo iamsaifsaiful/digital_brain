@@ -19,6 +19,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 import '../logic/money_more.dart' show MetalPrice;
+import '../logic/pro.dart' show appPackage;
 import '../logic/server_notices.dart';
 import 'error_log.dart';
 
@@ -307,7 +308,7 @@ class AccountServer {
     try {
       final r = await _http
           .post(Uri.parse('$base/wp-json/my-assistant/v1/login'),
-              headers: {'Content-Type': 'application/json'}, body: jsonEncode({'id_token': u.idToken, 'app_version': appVersion, 'edition': edition}))
+              headers: {'Content-Type': 'application/json'}, body: jsonEncode({'id_token': u.idToken, 'app_version': appVersion, 'edition': edition, 'pkg': appPackage}))
           .timeout(const Duration(seconds: 15));
       if (r.statusCode == 426) {
         final d = ((jsonDecode(r.body) as Map)['data'] as Map?) ?? const {};

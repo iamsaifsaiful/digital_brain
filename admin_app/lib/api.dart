@@ -14,7 +14,7 @@ const apiBase = String.fromEnvironment('API_BASE', defaultValue: 'https://getmya
 
 /// This app's version, sent with every call: an older one than the server
 /// works with is told to update (keep equal to pubspec.yaml; a test checks).
-const adminAppVersion = '1.15.0';
+const adminAppVersion = '1.0.0';
 
 class ApiError implements Exception {
   const ApiError(this.message, {this.signedOut = false, this.code = '', this.url = ''});

@@ -87,7 +87,7 @@ check($code === 200, 'members: the minimum or newer signs in');
 check($code === 200, 'members: the Google Play app (1.0.0 on) is not held to the website APK\'s minimum');
 update_option('ma_app_min_play', '1.2.0');
 [$code, $d] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '1.0.0', 'edition' => 'play']);
-check($code === 426 && ($d['data']['min'] ?? '') === '1.2.0' && str_contains($d['data']['url'] ?? '', 'play.google.com/store/apps/details?id=com.iamsaifsaiful.digital_brain'), 'members: the Play app has its own minimum and is sent to Google Play');
+check($code === 426 && ($d['data']['min'] ?? '') === '1.2.0' && str_contains($d['data']['url'] ?? '', 'play.google.com/store/apps/details?id=app.getmyassistant'), 'members: the Play app has its own minimum and is sent to Google Play');
 [$code] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '1.2.0', 'edition' => 'play']);
 check($code === 200, 'members: the Play app at its minimum signs in');
 delete_option('ma_app_min_play');
@@ -165,9 +165,9 @@ check($code === 401, 'wrong password refused');
 $GLOBALS['adminAppVersion'] = '';
 [$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123']);
 check($code === 426 && ($d['code'] ?? '') === 'update' && ($d['data']['min'] ?? '') === MA_ADMIN_APP_MIN && str_starts_with($d['data']['url'] ?? '', 'https://'), 'admin app: too old → asked to update, with where');
-$GLOBALS['adminAppVersion'] = '1.12.0';
+$GLOBALS['adminAppVersion'] = '0.9.0';
 [$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123']);
-check($code === 426, 'admin app: 1.12.0 → asked to update');
+check($code === 426, 'admin app: 0.9.0 → asked to update');
 $GLOBALS['adminAppVersion'] = '9.9.9';
 // Owner, 28 Oct: the admin app opens with the fingerprint; the password alone signs in (no code) unless the owner asks for it.
 [$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123']);
@@ -1305,4 +1305,33 @@ $h = do_shortcode('[my_assistant_privacy]');
 check(str_contains($h, 'প্রাইভেসি পলিসি') && str_contains($h, 'Privacy Policy') && str_contains($h, 'AdMob') && str_contains($h, 'end-to-end') && str_contains($h, get_option('admin_email')), 'privacy: the page, Bangla and English');
 update_option('ma_admob_pub', 'pub-1234567890123456');
 check(ma_admob_pub() === 'pub-1234567890123456', 'app-ads.txt: the publisher ID is kept');
+echo "\nfresh start (owner, 29 Oct)\n";
+global $wpdb;
+wp_set_current_user(1);
+$_GET = ['page' => 'my-assistant', 'tab' => 'security'];
+ob_start();
+ma_acc_admin();
+$html = ob_get_clean();
+check(str_contains($html, 'নতুন করে শুরু') && str_contains($html, 'ma_fresh_start'), 'fresh start: the card is on the settings page');
+$before = (int) $wpdb->get_var('SELECT COUNT(*) FROM ' . ma_acc_table());
+$_POST = $_REQUEST = ['action' => 'ma_fresh_start', '_wpnonce' => wp_create_nonce('ma_fresh_start'), 'words' => 'মুছুন'];
+try { do_action('admin_post_ma_fresh_start'); } catch (Exception $e) {}
+check($before > 0 && (int) $wpdb->get_var('SELECT COUNT(*) FROM ' . ma_acc_table()) === $before, 'fresh start: without the exact words nothing is deleted');
+update_option('ma_app_min', '2.56.0');
+$adminSessions = (int) $wpdb->get_var("SELECT COUNT(*) FROM " . ma_ai_sessions_table() . " WHERE app = 'admin'");
+$_POST = $_REQUEST = ['action' => 'ma_fresh_start', '_wpnonce' => wp_create_nonce('ma_fresh_start'), 'words' => MA_RESET_WORDS];
+try { do_action('admin_post_ma_fresh_start'); } catch (Exception $e) {}
+$left = 0;
+foreach ([ma_acc_table(), ma_pay_table(), ma_fb_table(), ma_err_table(), ma_play_table(), ma_bl_registry(), ma_nlu_table('samples'), ma_fam_table('links')] as $t) {
+    $left += (int) $wpdb->get_var("SELECT COUNT(*) FROM $t");
+}
+check($left === 0, 'fresh start: members, payments, feedback, logs, Play, blood, samples and family are empty');
+check((int) $wpdb->get_var("SELECT COUNT(*) FROM " . ma_ai_sessions_table() . " WHERE app <> 'admin'") === 0 && (int) $wpdb->get_var("SELECT COUNT(*) FROM " . ma_ai_sessions_table() . " WHERE app = 'admin'") === $adminSessions, 'fresh start: members signed out, admins not');
+check(get_option('ma_app_min', '') === '', 'fresh start: the old apps\' minimum is gone');
+[$code, $d] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '2.65.0', 'edition' => 'direct']);
+check($code === 426 && ($d['data']['url'] ?? '') === 'https://getmyassistant.app/', 'fresh start: an old app is asked to install the new one');
+[$code, $d] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '1.0.0', 'edition' => 'direct', 'pkg' => 'app.getmyassistant']);
+check($code === 200 && strlen($d['session'] ?? '') === 64, 'fresh start: the new app (1.0.0) signs in as a new member');
+$_POST = $_REQUEST = [];
+delete_option('ma_legacy_block');
 echo $fail ? "\n$fail FAILED\n" : "\nALL OK\n";

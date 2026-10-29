@@ -2,7 +2,7 @@
 /**
  * Plugin Name: My Assistant Accounts
  * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, প্রিমিয়াম, পেমেন্ট, নোটিফিকেশন আর মতামত। শুধু নাম, ইমেইল, ছবি আর প্রিমিয়ামের তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.28.1
+ * Version: 1.0.0
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: My Assistant
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.28.1';
+const MA_ACC_VERSION = '1.0.0';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
 const MA_ACC_PER_PAGE = 20;
 
@@ -39,6 +39,7 @@ require_once __DIR__ . '/security.php';
 require_once __DIR__ . '/play.php';
 require_once __DIR__ . '/account-delete.php';
 require_once __DIR__ . '/privacy.php';
+require_once __DIR__ . '/reset.php';
 
 /** The members table. */
 function ma_acc_table() {
@@ -226,6 +227,10 @@ function ma_acc_login(WP_REST_Request $req) {
         return new WP_Error('busy', 'too many requests', ['status' => 429]);
     }
     // Members' app older than the site's minimum (set on the settings page): asked to update first.
+    // An app from before the fresh start (owner, 29 Oct): install the new one.
+    if (function_exists('ma_legacy_app') && ma_legacy_app($req)) {
+        return new WP_Error('update', 'install the new app', ['status' => 426, 'min' => '1.0.0', 'url' => 'https://getmyassistant.app/']);
+    }
     // The Google Play app has its own numbers (1.0.0 on, owner 29 Oct) and its own minimum; it updates from Google Play.
     $play = sanitize_key((string) $req->get_param('edition')) === 'play';
     $min = (string) get_option($play ? 'ma_app_min_play' : 'ma_app_min', '');

@@ -1,1 +1,1 @@
-1.0.0 (2.65.0+136, WorkManager fix)
+1.0.0 (app.getmyassistant, fresh start)
