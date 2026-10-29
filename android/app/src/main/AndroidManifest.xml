@@ -50,12 +50,8 @@
         <!-- The text-reading model is fetched by Play Services when the app is installed. -->
         <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="ocr" />
         <!-- AdMob (the free Play app's ads only; see lib/services/ads.dart). -->
-        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="${admobAppId}" />
         <!-- Nothing of AdMob runs while the app opens: Google's measurement waits, and AdMob
              starts on a background thread only when the Play app asks for an ad (Ads.start). -->
-        <meta-data android:name="com.google.android.gms.ads.DELAY_APP_MEASUREMENT_INIT" android:value="true" />
-        <meta-data android:name="com.google.android.gms.ads.flag.OPTIMIZE_INITIALIZATION" android:value="true" />
-        <meta-data android:name="com.google.android.gms.ads.flag.OPTIMIZE_AD_LOADING" android:value="true" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
