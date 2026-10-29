@@ -356,3 +356,36 @@ add_action('profile_update', function ($user_id, $old) {
         ma_sec_end_admin_sessions($user_id);
     }
 }, 10, 2);
+
+// ── Security headers and CORS (owner, 29 Oct: security audit) ──
+
+/** Headers every page of the site sends: no sniffing, no framing by others,
+ *  a short referrer, no camera/mic/location for pages, and HTTPS remembered. */
+function ma_sec_headers() {
+    if (headers_sent()) {
+        return;
+    }
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: SAMEORIGIN');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()');
+    if (is_ssl()) {
+        header('Strict-Transport-Security: max-age=31536000');
+    }
+}
+add_action('send_headers', 'ma_sec_headers');
+add_action('admin_init', 'ma_sec_headers');
+
+/** The app's API is called by the app, never by another website: no CORS
+ *  for /my-assistant/v1 (WordPress would answer any origin). */
+add_filter('rest_pre_serve_request', function ($served, $result, $request) {
+    $route = is_object($request) && method_exists($request, 'get_route') ? (string) $request->get_route() : '';
+    if (str_starts_with($route, '/my-assistant/') && !headers_sent()) {
+        header_remove('Access-Control-Allow-Origin');
+        header_remove('Access-Control-Allow-Credentials');
+        header_remove('Access-Control-Allow-Methods');
+        header_remove('Access-Control-Allow-Headers');
+        ma_sec_headers();
+    }
+    return $served;
+}, 20, 3);

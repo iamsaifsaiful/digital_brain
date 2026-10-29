@@ -17,8 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 300
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.11'
       - name: Which model
@@ -55,7 +55,7 @@ jobs:
           cd /tmp/res && git init -q && git checkout -q -b nlu-results
           git -c user.name=ci -c user.email=ci@localhost add -A && git -c user.name=ci -c user.email=ci@localhost commit -qm "results ${GITHUB_SHA}"
           git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" nlu-results
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: nlu-${{ env.M }}
           path: |

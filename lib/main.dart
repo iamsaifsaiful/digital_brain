@@ -1,5 +1,6 @@
 import 'dart:ui' show PlatformDispatcher;
 
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -27,6 +28,9 @@ import 'nlu/samples.dart' show nluAppVersion;
 import 'screens/more_screen.dart' show appVersion;
 
 Future<void> main() async {
+  // Release builds write nothing to the phone's log (owner, 29 Oct: security
+  // audit); the app's own problem log (Trace) is where problems are kept.
+  if (kReleaseMode) debugPrint = (String? message, {int? wrapWidth}) {};
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
