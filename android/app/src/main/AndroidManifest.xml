@@ -49,6 +49,8 @@
         android:dataExtractionRules="@xml/data_extraction_rules">
         <!-- The text-reading model is fetched by Play Services when the app is installed. -->
         <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="ocr" />
+        <!-- AdMob (the free Play app's ads only; see lib/services/ads.dart). -->
+        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="${admobAppId}" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

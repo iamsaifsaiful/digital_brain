@@ -103,6 +103,25 @@ class _GoogleBackupPanelState extends State<GoogleBackupPanel> {
     }
   }
 
+  /// Deletes the account on our server (Google Play's rule), then signs out.
+  Future<void> _deleteAccount() async {
+    final brain = BrainScope.read(context);
+    final ok = await confirmDialog(context,
+        title: tr('অ্যাকাউন্ট মুছবেন?'),
+        text: tr('আমাদের সার্ভারে এই অ্যাকাউন্টের সব তথ্য মুছে যাবে — প্রিমিয়াম, ফ্যামিলি, রক্তের গ্রুপ, মতামত আর লগ। এটা ফেরানো যায় না। Google Play-তে কেনা সাবস্ক্রিপশন থাকলে Google Play থেকে আলাদা করে বন্ধ করুন। ফোনে রাখা তথ্য আর আপনার Drive-এর ব্যাকআপ থেকে যাবে।'),
+        yes: tr('মুছে ফেলুন'),
+        danger: true);
+    if (!ok || !mounted) return;
+    setState(() => _busy = true);
+    final e = await brain.deleteMyAccount();
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _error = e;
+    });
+    if (e == null) toast(context, tr('অ্যাকাউন্ট মুছে ফেলা হয়েছে'));
+  }
+
   Future<void> _restore({bool fresh = false}) => restoreFromDrive(context, fresh: fresh, busy: (v) {
         if (mounted) setState(() => _busy = v);
       }, error: (e) {
@@ -202,6 +221,12 @@ class _GoogleBackupPanelState extends State<GoogleBackupPanel> {
             ),
           const SizedBox(height: 4),
           TextButton.icon(onPressed: busy ? null : () => _restore(), icon: const Icon(Icons.restore_rounded), label: Text(tr('Drive থেকে ফিরিয়ে আনুন'))),
+          TextButton.icon(
+            key: const Key('account-delete'),
+            onPressed: busy ? null : _deleteAccount,
+            icon: Icon(Icons.person_remove_outlined, color: C.red),
+            label: Text(tr('অ্যাকাউন্ট মুছুন'), style: body(14, weight: FontWeight.w600, color: C.red)),
+          ),
         ],
         if (_error != null) ...[
           const SizedBox(height: 8),

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../logic/lang.dart';
 import '../logic/pro.dart';
 import '../screens/pro_screen.dart';
+import '../services/ads.dart';
 import '../state/brain.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -86,6 +87,7 @@ class AdSlot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
+    if (realAds && brain.showAds) return Padding(padding: padding, child: const Center(child: AdMobBanner()));
     if (!brain.showAds || !brain.adSamples) return const SizedBox.shrink();
     return Padding(
       padding: padding,
@@ -122,7 +124,7 @@ class AdBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
-    if (!brain.showAds || !brain.adSamples) return const SizedBox.shrink();
+    if (!brain.showAds || !(brain.adSamples || realAds)) return const SizedBox.shrink();
     return const SafeArea(top: false, child: AdSlot(padding: EdgeInsets.fromLTRB(12, 4, 12, 6)));
   }
 }
@@ -132,7 +134,14 @@ class AdBar extends StatelessWidget {
 /// day). The preview shows a labelled sample.
 Future<void> afterTaskDone(BuildContext context) async {
   final brain = BrainScope.read(context);
-  if (!await brain.taskFinished() || !brain.adSamples || !context.mounted) return;
+  if (!await brain.taskFinished() || !context.mounted) return;
+  if (realAds) {
+    // The app stops talking first; the ad never covers a spoken answer.
+    await brain.services.voice.stopSpeaking();
+    await Ads.showFull();
+    return;
+  }
+  if (!brain.adSamples) return;
   await showDialog<void>(
     context: context,
     builder: (ctx) => Dialog.fullscreen(

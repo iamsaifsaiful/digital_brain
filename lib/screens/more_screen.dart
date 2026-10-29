@@ -26,6 +26,7 @@ import 'family_screen.dart';
 import 'trash_screen.dart';
 import 'trace_screen.dart';
 import '../services/trace.dart';
+import '../services/ads.dart';
 import 'pro_screen.dart';
 import 'google_backup.dart';
 import '../logic/pro.dart';
@@ -492,6 +493,15 @@ class _MoreScreenState extends State<MoreScreen> {
                 trailing: Icon(Icons.ios_share_rounded, color: C.muted)),
             if (proTestSwitch)
               switchRow(Icons.science_outlined, tr('পরীক্ষা: প্রিমিয়াম চালু'), tr('শুধু প্রিভিউতে — ফ্রি আর প্রিমিয়াম ইউজার কী দেখবে দুটোই দেখে নিন'), brain.pro, (v) => brain.setProForTest(v)),
+            linkRow(Icons.privacy_tip_outlined, tr('প্রাইভেসি পলিসি'), sub: tr('কোন তথ্য ফোনেই থাকে, কোনটা কেন সার্ভারে যায়'),
+                onTap: () => brain.services.launcher.openUrl(Uri.parse(privacyPage)), trailing: Icon(Icons.open_in_new_rounded, color: C.muted)),
+            if (realAds && brain.showAds)
+              FutureBuilder<bool>(
+                future: Ads.privacyChoiceNeeded(),
+                builder: (_, s) => s.data == true
+                    ? linkRow(Icons.ads_click_outlined, tr('বিজ্ঞাপনের গোপনীয়তা'), sub: tr('Google বিজ্ঞাপনের জন্য আপনার সম্মতি বদলান'), onTap: Ads.changePrivacyChoice)
+                    : const SizedBox.shrink(),
+              ),
             linkRow(Icons.info_outline_rounded, tr('লাইসেন্স ও সংস্করণ'),
                 sub: 'My Assistant ${bnDigits(appVersion)}${previewEdition ? ' · ${tr('প্লে স্টোর প্রিভিউ')}' : ''}',
                 onTap: () => showLicensePage(context: context, applicationName: 'My Assistant', applicationVersion: appVersion)),

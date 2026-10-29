@@ -4573,4 +4573,12 @@ const enStrings = <String, String>{
   'এই কেনার মেয়াদ শেষ বা ফেরত হয়েছে — Google Play-তে দেখুন': 'This purchase has ended or was refunded — see Google Play',
   'এই কেনাটা অন্য একটা অ্যাকাউন্টের — সেই Google অ্যাকাউন্ট দিয়ে লগইন করুন': 'This purchase belongs to another account — sign in with that Google account',
   'Google এই কেনাটা চিনতে পারেনি': 'Google did not recognise this purchase',
+  'অ্যাকাউন্ট মুছবেন?': 'Delete the account?',
+  'আমাদের সার্ভারে এই অ্যাকাউন্টের সব তথ্য মুছে যাবে — প্রিমিয়াম, ফ্যামিলি, রক্তের গ্রুপ, মতামত আর লগ। এটা ফেরানো যায় না। Google Play-তে কেনা সাবস্ক্রিপশন থাকলে Google Play থেকে আলাদা করে বন্ধ করুন। ফোনে রাখা তথ্য আর আপনার Drive-এর ব্যাকআপ থেকে যাবে।': 'Everything our server keeps for this account is deleted — Premium, family, blood group, feedback and logs. This cannot be undone. A subscription bought on Google Play must be cancelled on Google Play separately. What is on the phone and your Drive backup stay.',
+  'অ্যাকাউন্ট মুছে ফেলা হয়েছে': 'The account was deleted',
+  'অ্যাকাউন্ট মুছুন': 'Delete account',
+  'প্রাইভেসি পলিসি': 'Privacy policy',
+  'কোন তথ্য ফোনেই থাকে, কোনটা কেন সার্ভারে যায়': 'What stays on the phone, and what goes to the server and why',
+  'বিজ্ঞাপনের গোপনীয়তা': 'Ad privacy',
+  'Google বিজ্ঞাপনের জন্য আপনার সম্মতি বদলান': 'Change your consent for Google ads',
 };

@@ -36,6 +36,12 @@ const proTestSwitch = bool.fromEnvironment('PRO_TEST');
 /// send people to pay another way, so the Play Store build can turn the link
 /// off with `--dart-define=PRO_LINK=off`.
 const proWebPage = 'https://getmyassistant.app/';
+
+/// The privacy policy and account deletion pages on our website (the
+/// plugin's [my_assistant_privacy] and [my_assistant_delete_account]
+/// shortcodes on pages with these addresses — docs/play-store.md).
+const privacyPage = 'https://getmyassistant.app/privacy/';
+const deleteAccountPage = 'https://getmyassistant.app/delete-account/';
 const showProLink = String.fromEnvironment('PRO_LINK', defaultValue: 'on') != 'off';
 
 /// Free limits in the Play app.

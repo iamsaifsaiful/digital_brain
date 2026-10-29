@@ -140,6 +140,31 @@ android {
 KTS
 fi
 
+# Premium in the Play app: Google Play subscriptions (PlayBilling.kt; checked
+# by our server, play.php).
+if ! grep -q 'billingclient' "$GRADLE_KTS"; then
+  cat >> "$GRADLE_KTS" <<'KTS'
+
+dependencies {
+    implementation("com.android.billingclient:billing:7.1.1")
+}
+KTS
+fi
+
+# AdMob's app ID for the manifest (the free Play app's ads): the real one from
+# the Play build's ADMOB_APP_ID, Google's own test ID otherwise.
+if ! grep -q 'admobAppId' "$GRADLE_KTS"; then
+  cat >> "$GRADLE_KTS" <<'KTS'
+
+android {
+    defaultConfig {
+        manifestPlaceholders["admobAppId"] = System.getenv("ADMOB_APP_ID")?.takeIf { it.matches(Regex("ca-app-pub-[0-9]{10,20}~[0-9]{6,12}")) }
+            ?: "ca-app-pub-3940256099942544~3347511713"
+    }
+}
+KTS
+fi
+
 # Remove the sample test flutter create may add; this repo has its own tests.
 rm -f test/widget_test.dart
 

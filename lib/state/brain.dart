@@ -757,6 +757,20 @@ class Brain extends ChangeNotifier {
     await _playAtStart();
   }
 
+  /// Settings › Google › "অ্যাকাউন্ট মুছুন" (Google Play's rule): everything
+  /// our server keeps for the account goes (play.php/account-delete.php),
+  /// then this phone signs out. The data on the phone and the backup in the
+  /// user's own Drive stay — they are the user's. Null when done.
+  Future<String?> deleteMyAccount() async {
+    if (!signedIn) return 'আগে Google দিয়ে লগইন করুন';
+    if (services.ai.session.isEmpty) await refreshAccount(force: true);
+    final r = await services.server.send('POST', '/account/delete', services.ai.session);
+    if (!r.ok && r.status != 401) return r.error;
+    await signOutGoogle();
+    if (gated && proKind != 'test') await _setPro(null, '', announce: false);
+    return null;
+  }
+
   /// Signs out: automatic Drive backup stops and its password is forgotten
   /// on this phone. Backups already in Drive stay there.
   Future<void> signOutGoogle() async {
