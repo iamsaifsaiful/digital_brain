@@ -36,6 +36,15 @@ NAMES = MALE + FEMALE
 FULL_NAMES = ['রবিন হায়দার', 'সাইফুল মিয়া', 'ইমরান হোসেন', 'নাসির উদ্দিন', 'আব্দুর রহমান', 'শফিক হাসান', 'জামাল মিয়া', 'রফিকুল ইসলাম', 'মোস্তফা কামাল', 'নাজমুল হক']
 RELATIONS = ['মা', 'আম্মা', 'আম্মু', 'আব্বা', 'আব্বু', 'বাবা', 'মামা', 'চাচা', 'কাকা', 'খালা', 'ফুপু', 'নানু', 'দাদু', 'ভাইয়া', 'আপু', 'ভাবি',
              'দুলাভাই', 'শ্বশুর', 'শাশুড়ি', 'ভাগ্নে', 'ভাতিজা', 'বন্ধু', 'বস', 'বাড়িওয়ালা', 'দোকানদার', 'দর্জি', 'ড্রাইভার', 'মিস্ত্রি']
+# Round 9 (30 Oct): the gold set has names and roles the made data never
+# used, and the model read an unknown name + "কত টাকা পাবে" as spending.
+# More names and roles (none taken from the gold set's sentences) teach that
+# any person-like word there is a person.
+MORE_MALE = ['জুবায়ের', 'তৌহিদ', 'মিজান', 'শাহিন', 'আজাদ', 'বেলাল', 'হেলাল', 'রাসেল', 'সাদ্দাম', 'ওয়াসিম', 'জুয়েল', 'মাহফুজ', 'মোস্তাক',
+             'নূর আলম', 'সবুজ', 'শরিফ', 'জহির', 'খোকন', 'বাদল', 'মিলন', 'সেলিম', 'মাসুম', 'রনি', 'সোহাগ', 'আল আমিন', 'আনোয়ার', 'এনামুল', 'তারেক', 'রায়হান']
+MORE_FEMALE = ['মৌসুমী', 'শাপলা', 'কেয়া', 'নাজমা', 'শারমিন', 'পারভীন', 'সুলতানা', 'মরিয়ম', 'খাদিজা', 'রাবেয়া', 'জান্নাত', 'মুন্নী', 'শিমু', 'চৈতি', 'তাসলিমা', 'হালিমা']
+ROLES = ['প্রতিবেশী', 'ক্লাসমেট', 'হুজুর', 'ইলেকট্রিশিয়ান', 'প্লাম্বার', 'রিকশাওয়ালা', 'জেঠা', 'জেঠু', 'ফুফা', 'খালু', 'ভাগ্নি', 'ভাতিজি', 'বেয়াই',
+         'বেয়াইন', 'শালা', 'শালিকা', 'দেবর', 'ননদ', 'পার্টনার', 'ক্যাশিয়ার']
 HONORIFIC_M = ['ভাই', 'ভাইয়া', 'সাহেব', 'মামা', 'চাচা']
 HONORIFIC_F = ['আপা', 'আপু', 'খালা', 'ভাবি']
 
@@ -45,12 +54,14 @@ def person():
     if r < 0.6:
         male = random.random() < 0.6
         n = random.choice(MALE if male else FEMALE)
+        if random.random() < 0.3:
+            n = random.choice(MORE_MALE if male else MORE_FEMALE)
         if random.random() < 0.15:
             n = f'{n} {random.choice(HONORIFIC_M if male else HONORIFIC_F)}'
         return n
     if r < 0.75:
         return random.choice(FULL_NAMES)
-    return random.choice(RELATIONS)
+    return random.choice(ROLES if random.random() < 0.3 else RELATIONS)
 
 
 def with_case(name, case):
