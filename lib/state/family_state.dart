@@ -11,6 +11,7 @@ import 'package:cryptography/cryptography.dart' show Sha256;
 import 'package:flutter/foundation.dart';
 
 import '../logic/lang.dart';
+import '../logic/pro.dart' show medicalOff;
 import '../models/models.dart';
 import '../services/crypto.dart' show randomBytes, WrongKey, seal, open;
 import '../services/family_crypto.dart';
@@ -24,7 +25,7 @@ Future<Uint8List> sealBytes(List<int> clear, List<int> key) => seal(clear, key);
 Future<Uint8List> openBytes(List<int> sealed, List<int> key) => open(sealed, key);
 
 /// What one member may let the other do (the order shown).
-const familyPerms = ['task', 'reminder', 'medicine', 'note', 'location'];
+List<String> get familyPerms => medicalOff ? const ['task', 'reminder', 'note', 'location'] : const ['task', 'reminder', 'medicine', 'note', 'location'];
 
 String familyPermLabel(String p) => switch (p) {
       'task' => tr('আমার জন্য কাজ যোগ করা'),
@@ -53,7 +54,7 @@ String heirPartLabel(String p) => switch (p) {
       'docs' => tr('ডকুমেন্টের তালিকা ও লেখা (ছবি নয়)'),
       'tasks' => tr('কাজ, রিমাইন্ডার, বিশেষ দিন'),
       'contacts' => tr('নম্বর'),
-      'health' => tr('স্বাস্থ্য ও ওষুধ'),
+      'health' => medicalOff ? tr('স্বাস্থ্য') : tr('স্বাস্থ্য ও ওষুধ'),
       'vault' => tr('পাসওয়ার্ড ও ভল্ট'),
       _ => p,
     };
@@ -315,6 +316,9 @@ class FamilyState extends ChangeNotifier {
         if (title.isEmpty || day == null) return null;
         await brain.saveReminder(Reminder(title: title, date: DateTime(day.year, day.month, day.day), hour: (p['hour'] as num?)?.toInt() ?? 9, minute: (p['minute'] as num?)?.toInt() ?? 0, note: note));
         return trf('রিমাইন্ডার: {0}', [title]);
+      case 'medicine' when medicalOff:
+        // The Play app keeps no medicines (pro.dart medicalOff): not kept.
+        return null;
       case 'medicine':
         final times = [for (final t in (p['times'] as List? ?? const [])) if (t is num && t >= 0 && t < 24 * 60) t.toInt()];
         if (title.isEmpty || times.isEmpty) return null;

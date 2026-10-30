@@ -34,7 +34,7 @@ import '../logic/match.dart' show wordsMatch;
 import '../logic/money_more.dart' show accountBalance, accountLabel, totalBalance, salesCategory;
 import '../ui/theme.dart' show Look;
 import '../logic/proactive.dart';
-import '../logic/pro.dart' show freeVaultItems, freeLedgerPeople, freeReminders;
+import '../logic/pro.dart' show freeVaultItems, freeLedgerPeople, freeReminders, medicalOff, medicalOffText;
 import '../logic/search.dart';
 import '../logic/talk.dart';
 import '../logic/when.dart';
@@ -1837,6 +1837,10 @@ class ChatController extends ChangeNotifier {
       if (c is HealthQuery && const {'steps', 'sleep', 'exercise'}.contains(c.what)) {
         await brain.syncHealthConnect(force: true).catchError((_) => 0);
         brain.noteStepsForAnswers();
+      }
+      if (medicalOff && c is HealthQuery && (c.what == HealthKind.bp.name || c.what == HealthKind.sugar.name)) {
+        _say(out, medicalOffText());
+        continue;
       }
       final text = (c is ProfileQuery ? _donorAnswer(c.transcript) : null) ?? answerText(brain.data, c, _now) ?? '';
       // Two parts of one message with the same answer ("এ বিষয়ে কোনো তথ্য
@@ -4003,6 +4007,8 @@ class ChatController extends ChangeNotifier {
       _idsBeforeSave = {for (final t in targetsIn(brain.data, _now)) t.id};
     }
     switch (c) {
+      case HealthAdd() when medicalOff && medicalReading(c.kind):
+        _say(out, medicalOffText());
       case LedgerAdd() when !brain.canAddPerson(_person):
         _say(out, trf('ফ্রিতে {0} জনের ধার-দেনা রাখা যায়, সেটা পূর্ণ হয়ে গেছে। প্রিমিয়াম নিলে যত খুশি মানুষ রাখতে পারবেন — আগের হিসাব যেমন আছে থাকবে।', [bnDigits(freeLedgerPeople)]),
             links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);

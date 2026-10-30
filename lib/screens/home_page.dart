@@ -40,6 +40,7 @@ import 'settings_parts.dart';
 import 'spend_health_screen.dart';
 import 'vault_screen.dart';
 import 'zakat_screen.dart';
+import '../logic/pro.dart' show medicalOff;
 
 String helloFor(DateTime now) {
   final h = now.hour;
@@ -769,7 +770,7 @@ class _Tools extends StatelessWidget {
       ('compass', tr('কম্পাস'), Icons.explore_outlined, () => push(const CompassScreen())),
       ('zakat', tr('যাকাত'), Icons.volunteer_activism_outlined, () => push(const ZakatScreen())),
       ('family', tr('ফ্যামিলি'), Icons.family_restroom_rounded, () => push(const FamilyScreen())),
-      ('medicines', trm('ওষুধ'), Icons.medication_outlined, () => push(const MedicinesScreen())),
+      if (!medicalOff) ('medicines', trm('ওষুধ'), Icons.medication_outlined, () => push(const MedicinesScreen())),
       ('blood', trm('ব্লাড ডোনেশন'), Icons.bloodtype_outlined, () => push(const RequestsScreen())),
       ('pro', tr('প্রিমিয়াম'), Icons.workspace_premium_outlined, () => push(const ProScreen())),
     ];

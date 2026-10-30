@@ -28,10 +28,14 @@ import 'requests_screen.dart';
 import 'zakat_screen.dart';
 import 'family_screen.dart';
 import '../ui/pdf_export.dart';
+import '../logic/app_map.dart' show medicalPlaces;
+import '../logic/pro.dart' show medicalOff;
 
 /// The page for a part of the app (see logic/app_map.dart), or null for the
 /// four main tabs (opened with [openPlace]).
-Widget? placePage(String id, {String? folder}) => switch (id) {
+Widget? placePage(String id, {String? folder}) => medicalOff && medicalPlaces.contains(id)
+    ? null
+    : switch (id) {
       'tasks' || 'reminders' => const AllTasksScreen(),
       'alarms' => const AlarmsScreen(),
       'calendar' => const CalendarScreen(),

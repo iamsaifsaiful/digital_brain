@@ -270,3 +270,6 @@ String healthAnswer(AppData d, String what, DateTime now, {String member = Famil
   }
   return tr('স্বাস্থ্য পাতায় সব মাপ দেখা যাবে।');
 }
+
+/// Blood pressure and sugar: medical readings, not kept in the Play app (pro.dart medicalOff).
+bool medicalReading(HealthKind k) => k == HealthKind.bp || k == HealthKind.sugar;

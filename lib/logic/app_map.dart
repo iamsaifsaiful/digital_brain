@@ -6,6 +6,7 @@ library;
 
 import 'lang.dart';
 import 'parser.dart' show normalize, fold, findAmount;
+import 'pro.dart' show medicalOff;
 
 class AppPlace {
   const AppPlace(this.id, this.title, this.words, this.what, [this.say = const []]);
@@ -24,8 +25,28 @@ class AppPlace {
   final List<String> say;
 }
 
-/// In the order they are shown on the help page.
-const appPlaces = <AppPlace>[
+/// In the order they are shown on the help page (the Play app without the
+/// medical pages — pro.dart medicalOff).
+List<AppPlace> get appPlaces => medicalOff
+    ? [
+        for (final p in _allPlaces)
+          if (!medicalPlaces.contains(p.id)) _playPlaces[p.id] ?? p,
+      ]
+    : _allPlaces;
+
+/// What the Play app says of the pages that lose their medical parts.
+const _playPlaces = {
+  'health': AppPlace('health', 'স্বাস্থ্য', ['স্বাস্থ্য', 'হেলথ', 'health', 'বিএমআই', 'bmi', 'ওজন'],
+      'BMI, ওজন, পানি, হাঁটা আর ঘুম — গ্রাফসহ; BMI বেশি হলে উৎসাহের নোটিফিকেশন। পরিবারের সদস্য যুক্ত করা প্রিমিয়ামে।', ['আজ ওজন ৬৫ কেজি', 'আমার বিএমআই কত?']),
+  'family': AppPlace('family', 'ফ্যামিলি', ['ফ্যামিলি', 'পরিবার', 'family'],
+      'পরিবারের সদস্যদের ইমেইলে যুক্ত করে কাজ, রিমাইন্ডার, নোট পাঠানো। অ্যাপ ব্যবহারের সময় “এখন কোথায়?” চেপে লোকেশন; উত্তরাধিকারী এক চাপে সব ব্যাকআপ পান (লোকেশন আর উত্তরাধিকার প্রিমিয়ামে)।', ['ফ্যামিলি খোলো']),
+  'diary': AppPlace('diary', 'ডায়েরি', ['ডায়েরি', 'ডায়রি', 'ডাইরি', 'দিনলিপি', 'diary'], 'দিনের কথা লিখে রাখা; নিচে অভ্যাস, বিশেষ দিন আর তৈরি তালিকা।'),
+};
+
+/// The pages left out of the Play app (pro.dart medicalOff).
+const medicalPlaces = {'medicines', 'emergency'};
+
+const _allPlaces = <AppPlace>[
   AppPlace('home', 'হোম', ['হোম', 'হোম পেজ', 'হোমপেজ', 'প্রথম পাতা', 'মূল পাতা', 'home'], 'আজকের তারিখ (বাংলা, হিজরি), আজকের কাজ ও রিমাইন্ডার, দরকারি শর্টকাট।',
       ['আজ আমার কী কী আছে?', 'আজ কত তারিখ?']),
   AppPlace('tasks', 'কাজের তালিকা', ['কাজের তালিকা', 'কাজের লিস্ট', 'কাজ', 'টুডু', 'to do', 'todo', 'tasks', 'task'],

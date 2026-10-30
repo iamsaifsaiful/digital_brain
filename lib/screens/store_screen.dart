@@ -16,6 +16,7 @@ import 'special_days_screen.dart';
 import 'store_more_screens.dart';
 import 'vault_screen.dart';
 import '../logic/lang.dart';
+import '../logic/pro.dart' show medicalOff;
 
 /// সংরক্ষণ: notes, passwords, contacts and the user's own categories —
 /// everything kept for later, locked on this phone.
@@ -83,14 +84,14 @@ class StoreScreen extends StatelessWidget {
             tile(tr('ডকুমেন্টস'), trf('{0}টি · তালাবদ্ধ', [bnDigits(d.docs.length)]), Icons.folder_copy_outlined, C.blue, C.blueTint, () => push(const DocsScreen())),
             tile(trm('পাসওয়ার্ড'), trf('{0}টি · তালাবদ্ধ', [bnDigits(d.vault.length)]), Icons.lock_outline_rounded, C.ink, C.soft, () => push(const VaultPage())),
             tile(tr('যোগাযোগ'), trf('{0} জন', [bnDigits(d.contacts.length)]), Icons.call_outlined, C.purple, C.purpleTint, () => push(const CallsScreen())),
-            tile(tr('স্বাস্থ্য'), tr('BMI, প্রেশার, সুগার, টিকা'), Icons.favorite_border_rounded, C.rose, C.roseTint, () => push(const HealthScreen())),
+            tile(tr('স্বাস্থ্য'), medicalOff ? tr('BMI, ওজন, পানি, হাঁটা, ঘুম') : tr('BMI, প্রেশার, সুগার, টিকা'), Icons.favorite_border_rounded, C.rose, C.roseTint, () => push(const HealthScreen())),
             tile(tr('বিশেষ দিন'), trf('{0}টি · জন্মদিন, বিবাহবার্ষিকী', [bnDigits(d.specialDays.length)]), Icons.cake_outlined, C.purple, C.purpleTint, () => push(const SpecialDaysScreen())),
           ],
         ),
         const SizedBox(height: 10),
         Row(children: [
           for (final (label, icon, _, _, page) in [
-            (tr('জরুরি কার্ড'), Icons.emergency_outlined, C.rose, C.roseTint, const EmergencyScreen() as Widget),
+            if (!medicalOff) (tr('জরুরি কার্ড'), Icons.emergency_outlined, C.rose, C.roseTint, const EmergencyScreen() as Widget),
             (tr('কাগজের মেয়াদ'), Icons.event_busy_outlined, C.orange, C.orangeTint, const ExpiryScreen() as Widget),
             (tr('ট্যাগ'), Icons.sell_outlined, C.green, C.greenTint, const TagsScreen() as Widget),
           ]) ...[

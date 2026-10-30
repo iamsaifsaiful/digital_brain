@@ -15,6 +15,8 @@
 /// using a Pro-only tool, asks for Pro.
 library;
 
+import 'lang.dart' show tr;
+
 /// `direct` (GitHub APK), `play` (Play Store) or `play_preview`.
 const String edition = String.fromEnvironment('EDITION', defaultValue: 'direct');
 
@@ -27,6 +29,19 @@ bool get previewEdition => edition == 'play_preview';
 /// Premium features are locked unless the member has Premium — in every
 /// build except an internal one made with `--dart-define=EDITION=open`.
 bool get gatedEdition => edition != 'open';
+
+/// The medical parts (medicines and their alarms, blood pressure and sugar,
+/// vaccines, check-ups, reports and prescriptions, the doctor's summary, the
+/// emergency card) are left out of the Play app (owner, 30 Oct): Google Play
+/// lets only organization accounts publish medical apps, and ours is a
+/// personal one until D-U-N-S. Fitness (weight, water, walking, sleep,
+/// Health Connect) stays. The downloaded APK keeps everything. Tests set
+/// [medicalOffForTests].
+bool get medicalOff => playEdition || medicalOffForTests;
+bool medicalOffForTests = false;
+
+/// What the assistant says when asked for a medical part in the Play app.
+String medicalOffText() => tr('ওষুধ, প্রেশার, সুগার আর জরুরি কার্ড Google Play-র এই অ্যাপে নেই। সময়মতো কিছু মনে করাতে সাধারণ রিমাইন্ডার দিতে পারেন।');
 
 /// Internal test builds only: a switch that turns Premium on without paying.
 const proTestSwitch = bool.fromEnvironment('PRO_TEST');
@@ -92,7 +107,16 @@ class ProInfo {
 
 /// What Premium adds — the owner's list of 24 Oct, in his order. Keep this
 /// up to date with every change: the Premium page and every lock read it.
-const proInfo = <ProFeature, ProInfo>{
+Map<ProFeature, ProInfo> get proInfo => medicalOff ? {..._proInfoAll, ..._proInfoPlay} : _proInfoAll;
+
+/// The Play app's words where the medical parts are left out (medicalOff).
+const _proInfoPlay = <ProFeature, ProInfo>{
+  ProFeature.familyHealth: ProInfo('পরিবারের স্বাস্থ্য', 'স্বাস্থ্যে পরিবারের সদস্য যুক্ত করে প্রত্যেকের BMI, ওজন, হাঁটা আর ঘুম আলাদা রাখা', free: 'নিজের স্বাস্থ্য'),
+  ProFeature.family: ProInfo('ফ্যামিলি: উত্তরাধিকার, পুরো অ্যাক্সেস, লোকেশন', 'উত্তরাধিকারী রাখা, এখনই পুরো অ্যাক্সেস দেওয়া, লাইভ লোকেশন দেখানো; উত্তরাধিকারী এক চাপে সব ব্যাকআপ নিতে পারেন',
+      free: 'সদস্য যুক্ত করা, কাজ, রিমাইন্ডার আর নোট পাঠানো'),
+};
+
+const _proInfoAll = <ProFeature, ProInfo>{
   ProFeature.reminders: ProInfo('যত খুশি রিমাইন্ডার', 'চালু রিমাইন্ডারের কোনো সীমা নেই — কাজ, বিল, ধার-দেনা, কাগজের মেয়াদ সব মিলিয়ে', free: 'সব মিলিয়ে একসাথে ২০টা চালু রিমাইন্ডার'),
   ProFeature.docs: ProInfo('যত খুশি ডকুমেন্ট', 'NID, পাসপোর্ট, দলিল, ছবি — কোনো সীমা নেই', free: '৩০টা ডকুমেন্ট'),
   ProFeature.projects: ProInfo('যত খুশি অন্যান্য হিসাব', 'বাড়ি, বিয়ে, ঈদ, ব্যবসা — আলাদা আয়, খরচ আর বকেয়া; চাইলে মূল টাকায় যুক্ত হয়', free: '১টা অন্যান্য হিসাব'),
@@ -108,7 +132,9 @@ const proInfo = <ProFeature, ProInfo>{
 };
 
 /// Everything else, open in the free app too (the Premium page lists it).
-const freeList = 'মুখে বলে সব কাজ, আয়-ব্যয়, এখন আছে, ধার-দেনা (যত জন খুশি) ও তার রিমাইন্ডার, তাগাদার মেসেজ, কাজের তালিকা, অ্যালার্ম, ক্যালেন্ডার ও নামাজের সময়, নোট, কাগজের মেয়াদের খবর, সব মাসের রিপোর্ট, নিজের স্বাস্থ্য, শিশুর টিকা, ওষুধের রিমাইন্ডার, অভ্যাস, বিশেষ দিন, যাকাতের হিসাব, সঞ্চয়, দোকান ও রসিদ, স্মার্ট খেয়াল, ফ্যামিলিতে কাজ-রিমাইন্ডার-নোট পাঠানো, নিজে চাপলে Google Drive-এ ব্যাকআপ আর নতুন ফোনে সব ফিরিয়ে আনা। আপনার রাখা কোনো তথ্য কখনো তালাবদ্ধ হবে না।';
+String get freeList => medicalOff ? _freeListPlay : _freeListAll;
+const _freeListPlay = 'মুখে বলে সব কাজ, আয়-ব্যয়, এখন আছে, ধার-দেনা (যত জন খুশি) ও তার রিমাইন্ডার, তাগাদার মেসেজ, কাজের তালিকা, অ্যালার্ম, ক্যালেন্ডার ও নামাজের সময়, নোট, কাগজের মেয়াদের খবর, সব মাসের রিপোর্ট, নিজের স্বাস্থ্য, অভ্যাস, বিশেষ দিন, যাকাতের হিসাব, সঞ্চয়, দোকান ও রসিদ, স্মার্ট খেয়াল, ফ্যামিলিতে কাজ-রিমাইন্ডার-নোট পাঠানো, নিজে চাপলে Google Drive-এ ব্যাকআপ আর নতুন ফোনে সব ফিরিয়ে আনা। আপনার রাখা কোনো তথ্য কখনো তালাবদ্ধ হবে না।';
+const _freeListAll = 'মুখে বলে সব কাজ, আয়-ব্যয়, এখন আছে, ধার-দেনা (যত জন খুশি) ও তার রিমাইন্ডার, তাগাদার মেসেজ, কাজের তালিকা, অ্যালার্ম, ক্যালেন্ডার ও নামাজের সময়, নোট, কাগজের মেয়াদের খবর, সব মাসের রিপোর্ট, নিজের স্বাস্থ্য, শিশুর টিকা, ওষুধের রিমাইন্ডার, অভ্যাস, বিশেষ দিন, যাকাতের হিসাব, সঞ্চয়, দোকান ও রসিদ, স্মার্ট খেয়াল, ফ্যামিলিতে কাজ-রিমাইন্ডার-নোট পাঠানো, নিজে চাপলে Google Drive-এ ব্যাকআপ আর নতুন ফোনে সব ফিরিয়ে আনা। আপনার রাখা কোনো তথ্য কখনো তালাবদ্ধ হবে না।';
 
 class ProPlan {
   const ProPlan(this.id, this.title, this.price, this.note, this.days);

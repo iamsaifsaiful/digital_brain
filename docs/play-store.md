@@ -143,7 +143,7 @@ variable না বসালে Play release বিল্ডে Google-এর �
 - **Content rating:** Utility/Productivity; কোনো সহিংসতা, জুয়া নেই; ব্যবহারকারীরা একে অপরের সাথে যোগাযোগ করতে পারে — **হ্যাঁ** (ফ্যামিলি আর রক্তের অনুরোধ)। শেয়ার করে লোকেশন — **হ্যাঁ**।
 - **Target audience:** ১৮+ (শিশুদের জন্য নয়)।
 - **News app:** না। **Government app:** না। **Financial features:** হিসাব রাখার অ্যাপ — "My app doesn't provide any financial features" বেছে নিন (লেনদেন করে না, শুধু খাতা)।
-- **Health apps declaration:** "Health and fitness" + "Medication reminders"।
+- **Health apps declaration (৩০ অক্টোবর থেকে):** শুধু Health & Fitness ভাগের **Activity and fitness** আর **Sleep management** (Health Connect থেকে হাঁটা, ব্যায়াম আর ঘুম পড়ে)। Medical ভাগের কিছু নয়, "Other"-ও নয়। Medical বাছলে অর্গানাইজেশন অ্যাকাউন্ট লাগে।
 
 ---
 
@@ -177,58 +177,58 @@ variable না বসালে Play release বিল্ডে Google-এর �
 
 ## ৮. স্টোর লিস্টিং
 
-**App name:** My Assistant
+**৩০ অক্টোবর:** Google "Medication and treatment management" (Medical) ঘোষণার কারণে প্রত্যাখ্যান করেছে। ব্যক্তিগত অ্যাকাউন্টে Medical অ্যাপ চলে না। তাই Play-র অ্যাপে ওষুধ, প্রেশার, সুগার, টিকা, চেকআপ, ডাক্তারের সারাংশ আর জরুরি কার্ড নেই (`lib/logic/pro.dart` `medicalOff`)। স্টোরের লেখা আর ছবিতেও এগুলো থাকবে না। অর্গানাইজেশন অ্যাকাউন্ট হলে ফেরানো যাবে।
+
+**App name:** My Assistant - বাংলা সহকারী
 
 **Short description (৮০ অক্ষরের মধ্যে):**
-- বাংলা: `কথা বলে কাজ, রিমাইন্ডার, ওষুধ, হিসাব আর পাসওয়ার্ড — সব এক অ্যাপে, ফোনেই নিরাপদ`
-- English: `Speak in Bangla: tasks, reminders, medicine, money and passwords — safe on your phone`
+- বাংলা: `রিমাইন্ডার, হিসাব, ডকুমেন্ট আর পাসওয়ার্ড: বাংলায় বলুন, তালাবদ্ধ থাকে ফোনেই`
+- English: `Reminders, money, documents and passwords: say it in Bangla, kept locked`
 
 **Full description (বাংলা):**
 ```
-My Assistant — বাংলায় কথা বললেই কাজ হয়ে যায়।
+My Assistant: বাংলায় বলুন, কাজ হয়ে যাবে নিজে থেকেই।
 
-"কাল সকাল ৮টায় ওষুধ খাওয়ার কথা মনে করিয়ে দিও", "রহিমকে ৫০০ টাকা দিলাম", "এই মাসে বাজারে কত খরচ হলো?" — বলুন, অ্যাপ বুঝে নিজেই রেখে দেয়।
+"কাল সকাল ৯টায় বিদ্যুৎ বিল দেওয়ার কথা মনে করিয়ে দিও", "রহিমকে ৫০০ টাকা দিলাম", "এই মাসে বাজারে কত খরচ হলো?" বলুন, অ্যাপ বুঝে নিজেই রেখে দেয়।
 
 যা যা করে:
-• কাজের তালিকা আর রিমাইন্ডার — অ্যালার্মের মতো বাজে, ফোন লক থাকলেও
-• ওষুধের সময় — কার জন্য, খাবারের আগে না পরে, দিনে কয়বার
-• আয়-ব্যয়, ধার-দেনা, দোকান আর অন্যান্য হিসাব; মাসের রিপোর্ট
-• যাকাতের হিসাব (কয়েক রকম স্বর্ণসহ)
-• নামাজের সময়, কিবলা কম্পাস, আবহাওয়া, ছুটির দিন — যে দেশে আছেন সেখানকার
-• পাসওয়ার্ড আর গোপন তথ্যের ভল্ট — শুধু আপনার ফোনে, তালাবদ্ধ
-• ডকুমেন্ট (NID, পাসপোর্ট…) আর মেয়াদ শেষের আগে খবর
-• ফ্যামিলি: পরিবারের সাথে রিমাইন্ডার, ওষুধ আর লোকেশন শেয়ার; উত্তরাধিকার
-• রক্তদাতা খোঁজা
+• রিমাইন্ডার আর কাজের তালিকা: অ্যালার্মের মতো বাজে, ফোন লক থাকলেও
+• হিসাব: আয়-ব্যয়, ধার-দেনা, দোকান আর অন্যান্য হিসাব; মাসের রিপোর্ট
+• ডকুমেন্টস: NID, পাসপোর্ট, দলিল গুছিয়ে রাখা; মেয়াদ শেষের আগে খবর
+• পাসওয়ার্ড: শুধু আপনার ফোনে, তালাবদ্ধ ভল্টে
+• ফ্যামিলি: পরিবারের সদস্যদের কাজ, রিমাইন্ডার আর নোট পাঠানো; লোকেশন; উত্তরাধিকার
+• যাকাত: এখন আছে, ধার-দেনা, সঞ্চয় আর সোনা-রুপা ধরে হিসাব
+• অটো ব্যাকআপ: আপনার নিজের Google Drive-এ, তালাবদ্ধ হয়ে
+• নামাজের সময়, কিবলা কম্পাস, আবহাওয়া, ছুটির দিন
 
-আপনার তথ্য আপনার: পাসওয়ার্ড, ভল্ট, PIN, স্বাস্থ্য আর ওষুধের তথ্য কখনো ফোনের বাইরে যায় না। ব্যাকআপ যায় আপনার নিজের Google Drive-এ, তালাবদ্ধ হয়ে।
+আপনার তথ্য আপনার: পাসওয়ার্ড, ভল্ট আর PIN কখনো ফোনের বাইরে যায় না। ব্যাকআপ end-to-end তালাবদ্ধ, আমরাও পড়তে পারি না।
 
 ফ্রিতে প্রায় সব কিছু। প্রিমিয়ামে: AI উত্তর, বিজ্ঞাপন নেই, অটো ব্যাকআপ, আরও বেশি রিমাইন্ডার-ডকুমেন্ট-পাসওয়ার্ড, পরিবারের পুরো সুবিধা। শুরুতে ৭ দিন সব ফ্রি।
 ```
 
 **Full description (English):**
 ```
-My Assistant — just say it in Bangla and it's done.
+My Assistant: say it in Bangla and it's done.
 
-"Remind me to take my medicine at 8 tomorrow morning", "I gave Rahim 500 taka", "How much did I spend on groceries this month?" — speak, and the app understands and keeps it.
+"Remind me to pay the electricity bill at 9 tomorrow", "I gave Rahim 500 taka", "How much did I spend on groceries this month?" Speak, and the app understands and keeps it.
 
-• Tasks and reminders that ring like an alarm, even on a locked phone
-• Medicine times — for whom, before or after meals, how many times a day
-• Income and expenses, money lent and owed, shop accounts, monthly reports
-• Zakat calculator (with several kinds of gold)
-• Prayer times, Qibla compass, weather and holidays — for the country you are in
-• A vault for passwords and secrets — on your phone only, locked
-• Documents (ID, passport…) with a reminder before they expire
-• Family: share reminders, medicine and location with family; inheritance
-• Find blood donors
+• Reminders and to-dos that ring like an alarm, even on a locked phone
+• Money: income and expenses, loans, shop and other accounts, monthly reports
+• Documents: ID, passport, deeds in one place, with a reminder before they expire
+• Passwords: on your phone only, in a locked vault
+• Family: send tasks, reminders and notes to family members; location; inheritance
+• Zakat: calculated from your money, loans, savings, gold and silver
+• Automatic backup to your own Google Drive, locked
+• Prayer times, Qibla compass, weather and holidays
 
-Your data is yours: passwords, the vault, PIN, health and medicine never leave your phone. Backups go to your own Google Drive, locked.
+Your data is yours: passwords, the vault and your PIN never leave your phone. Backups are end-to-end locked; we cannot read them.
 
 Almost everything is free. Premium adds AI answers, no ads, automatic backup, more reminders, documents and passwords, and the full family features. The first 7 days are fully free.
 ```
 
-**Category:** Productivity। **Tags:** Reminder, Personal assistant, Budget।
-**Contact email:** আপনার সাপোর্ট ইমেইল। **Website:** `https://getmyassistant.app`
-**Graphics:** আইকন ৫১২×৫১২ (`assets/brand/` থেকে), feature graphic ১০২৪×৫০০, অন্তত ৪টা ফোন স্ক্রিনশট (হোম, কথা বলা, রিমাইন্ডার অ্যালার্ম, হিসাব)। স্ক্রিনশটে আসল কারো নাম/নম্বর রাখবেন না।
+**স্ক্রিনশট:** হোম, রিমাইন্ডার অ্যালার্ম ("বিদ্যুৎ বিল দেওয়া"), হিসাব, ডকুমেন্টস, পাসওয়ার্ড, ফ্যামিলি (সদস্যের তালিকা), যাকাত, ব্যাকআপ। কোনো ছবিতে ওষুধ নেই (`test/ui/store_shots_test.dart`)।
+
+**Category:** Productivity। **Website:** `https://getmyassistant.app`
 
 ---
 

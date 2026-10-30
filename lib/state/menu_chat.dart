@@ -51,6 +51,10 @@ extension _MenuChat on ChatController {
     final d = brain.data;
     final snap = brain.snapshot();
     Trace.log('understood', 'menu', {'domain': c.domain, 'op': c.op});
+    if (medicalOff && (c.domain == 'medicine' || c.domain == 'emergency')) {
+      _say(out, medicalOffText());
+      return;
+    }
     switch ((c.domain, c.op)) {
       // ── Accounts ──
       case ('accounts', 'balance'):

@@ -7,8 +7,7 @@ import 'dart:io';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/screens/alarm_screens.dart';
 import 'package:digital_brain/screens/app_places.dart';
-import 'package:digital_brain/screens/health_screens.dart' show MedicinesScreen;
-import 'package:digital_brain/state/brain.dart' show BrainMore, BrainHealth;
+import 'package:digital_brain/state/family_state.dart' show FamilyLink;
 import 'package:digital_brain/services/notifications.dart';
 import 'package:digital_brain/ui/theme.dart';
 import 'package:flutter/material.dart';
@@ -80,7 +79,7 @@ void main() {
 
   testWidgets('store: alarm', (t) async {
     await rig0(t);
-    Navigator.of(t.element(find.byType(Scaffold).first)).push(MaterialPageRoute(builder: (_) => const AlarmScreen(info: NoticeInfo('x', 'আম্মার ওষুধ', 'রাত ১০টা', true))));
+    Navigator.of(t.element(find.byType(Scaffold).first)).push(MaterialPageRoute(builder: (_) => const AlarmScreen(info: NoticeInfo('x', 'বিদ্যুৎ বিল দেওয়া', 'রাত ১০টা', true))));
     for (var i = 0; i < 6; i++) {
       await t.pump(const Duration(milliseconds: 300));
     }
@@ -96,13 +95,30 @@ void main() {
     await snap(t, '2-money');
   });
 
-  testWidgets('store: family medicines', (t) async {
+  // The Play app has no medicines (owner, 30 Oct: pro.dart medicalOff): the
+  // family page with members instead.
+  testWidgets('store: family', (t) async {
     final rig = await rig0(t);
-    await rig.brain.saveMember(FamilyMember(id: 'amma', name: 'আম্মা'));
-    await rig.brain.saveMedicine(Medicine(name: 'অ্যামলোডিপিন', times: [8 * 60, 22 * 60], member: 'amma'));
-    await rig.brain.saveMedicine(Medicine(name: 'মেটফরমিন', times: [8 * 60, 14 * 60, 22 * 60], member: 'amma'));
-    await rig.brain.saveMedicine(Medicine(name: 'ক্যালসিয়াম', times: [14 * 60], member: 'amma'));
-    Navigator.of(t.element(find.byType(Scaffold).first)).push(MaterialPageRoute(builder: (_) => const MedicinesScreen(member: 'amma')));
+    rig.brain
+      ..googleEmail = 'saiful@gmail.com'
+      ..googleName = 'সাইফুল ইসলাম';
+    final fam = rig.brain.family;
+    Map<String, dynamic> link(int id, String name, String email, String call, List<String> allow, {bool heir = false}) => {
+          'id': id, 'status': 'active', 'incoming': false, 'name': name, 'email': email, 'i_call': call, 'they_call': '',
+          'i_allow': allow, 'they_allow': allow, 'they_are_my_heir': heir,
+        };
+    final links = [
+      FamilyLink.fromJson(link(1, 'রহিমা বেগম', 'amma@gmail.com', 'আম্মা', ['task', 'reminder', 'note', 'location'])),
+      FamilyLink.fromJson(link(2, 'রুমানা আক্তার', 'rumana@gmail.com', 'স্ত্রী', ['task', 'reminder', 'note', 'location'], heir: true)),
+      FamilyLink.fromJson(link(3, 'রাফি ইসলাম', 'rafi@gmail.com', 'ছেলে', ['task', 'reminder', 'note'])),
+    ];
+    await page(t, 'family');
+    fam
+      ..links = links
+      ..loaded = true
+      ..error = null;
+    // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
+    fam.notifyListeners();
     await settle(t);
     await snap(t, '5-family');
   });

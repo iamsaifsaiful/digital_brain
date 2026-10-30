@@ -9,6 +9,7 @@ import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'blood_details.dart';
+import '../logic/pro.dart' show medicalOff;
 
 /// The user's round photo, or their initial (or a person icon) without one.
 class UserPhoto extends StatelessWidget {
@@ -174,7 +175,7 @@ Future<void> pickBloodGroup(BuildContext context) async {
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(tr('আপনার রক্তের গ্রুপ'), style: display(20, weight: 700)),
           const SizedBox(height: 4),
-          Text(tr('জরুরি কার্ডে থাকবে; মোবাইল নম্বর আর শেষ রক্তদানের তারিখসহ আমাদের সার্ভারেও থাকবে, যেন বিপদে সাহায্য করা যায়।'), style: body(13.5, color: C.muted)),
+          Text(medicalOff ? tr('মোবাইল নম্বর আর শেষ রক্তদানের তারিখসহ আমাদের সার্ভারেও থাকবে, যেন বিপদে সাহায্য করা যায়।') : tr('জরুরি কার্ডে থাকবে; মোবাইল নম্বর আর শেষ রক্তদানের তারিখসহ আমাদের সার্ভারেও থাকবে, যেন বিপদে সাহায্য করা যায়।'), style: body(13.5, color: C.muted)),
           const SizedBox(height: 14),
           Wrap(spacing: 8, runSpacing: 8, children: [
             for (final g in [...bloodGroups, ''])
