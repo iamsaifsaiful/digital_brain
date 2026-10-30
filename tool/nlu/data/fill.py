@@ -176,6 +176,9 @@ def _value(ctx, name, var):
     if name == 'newtitle':
         w = ctx.once(name, lambda: random.choice([o[0] + ' ' + L.VERBS[o[1]][0] for o in L.TODO_OBJECTS] + ['শ্রমিক দিবস', 'বিজয় দিবস', 'অফিস মিটিং', 'শ্বশুর বাড়ি যাওয়া', 'ঈদের কেনাকাটা']))
         return w, 'new_title', w
+    if name == 'kintodo':
+        w = ctx.once(name, lambda: random.choice(L.KIN_OF) + ' ' + random.choice(L.KIN_CHORES))
+        return w, 'title', w
     if name == 'special':
         w, v = ctx.once(name, lambda: random.choice(L.SPECIAL_KINDS))
         return (gen(w) if var == 'gen' else w), 'special_kind', v
