@@ -125,6 +125,17 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         CrashLog.install(this)
+        // AdMob brings Google's WorkManager, which started itself while the app
+        // opened and closed it on the owner's phone (29 Oct). It no longer starts
+        // itself (AndroidManifest.xml); it starts here, where a problem is caught
+        // and written to the সমস্যার লগ instead of closing the app.
+        try {
+            androidx.work.WorkManager.initialize(applicationContext, androidx.work.Configuration.Builder().build())
+        } catch (e: IllegalStateException) {
+            if (e.message?.contains("initialized") != true) CrashLog.note(this, "WorkManager", e)
+        } catch (e: Throwable) {
+            CrashLog.note(this, "WorkManager", e)
+        }
         // A reminder ringing (or its notification tapped): its own full-screen
         // page, and the app is not opened (owner, 27 Oct).
         if (savedInstanceState == null && AlarmActivity.reminderOf(intent) != null) {
@@ -472,6 +483,13 @@ class MainActivity : FlutterFragmentActivity() {
                 val at = LocationShare.here(applicationContext)
                 runOnUiThread { result.success(at) }
             }.start()
+            // The country the phone's network is in (roaming abroad too) —
+            // for that country's holidays (owner, 29 Oct). Stays on the phone.
+            "country" -> {
+                val tm = getSystemService(Context.TELEPHONY_SERVICE) as? android.telephony.TelephonyManager
+                val cc = (tm?.networkCountryIso?.takeIf { it.isNotBlank() } ?: tm?.simCountryIso ?: "").uppercase()
+                result.success(cc)
+            }
             else -> result.notImplemented()
         }
     }
@@ -680,6 +698,9 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    /** Google Play subscriptions (the Play app's Premium). */
+    private val billing by lazy { PlayBilling(this) }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         io.flutter.plugin.common.EventChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/compass").setStreamHandler(Compass(this))
@@ -701,6 +722,9 @@ class MainActivity : FlutterFragmentActivity() {
         }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/push").setMethodCallHandler { call, result ->
             PushService.handle(this, call, result)
+        }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/billing").setMethodCallHandler { call, result ->
+            billing.handle(call, result)
         }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/google").setMethodCallHandler { call, result ->
             google.handle(call, result)

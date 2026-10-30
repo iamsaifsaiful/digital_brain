@@ -100,7 +100,7 @@ class _HealthScreenState extends State<HealthScreen> {
         child: Column(children: [
           TopBar(title: tr('স্বাস্থ্য'), trailing: [
             const PdfButton({ReportPart.health}),
-            IconButton(tooltip: tr('ডাক্তারকে দেখান'), onPressed: () => _push(DoctorSummaryScreen(member: m.id)), icon: const Icon(Icons.assignment_ind_outlined)),
+            if (!medicalOff) IconButton(tooltip: tr('ডাক্তারকে দেখান'), onPressed: () => _push(DoctorSummaryScreen(member: m.id)), icon: const Icon(Icons.assignment_ind_outlined)),
           ]),
           SizedBox(
             height: 44,
@@ -165,6 +165,17 @@ class _HealthScreenState extends State<HealthScreen> {
                   ]),
                 ),
                 const SizedBox(height: 12),
+                // The Play app: weight and water side by side, no blood
+                // pressure or sugar (pro.dart medicalOff).
+                if (medicalOff)
+                  Row(children: [
+                    tile(HealthKind.weight, Icons.monitor_weight_outlined, C.teal, w == null ? '—' : kg(w.a), w == null ? tr('লেখা হয়নি') : _changeText(d, m.id, now),
+                        quick: () => addReading(context, m.id, HealthKind.weight)),
+                    const SizedBox(width: 10),
+                    tile(HealthKind.water, Icons.water_drop_outlined, C.blue, trf('{0}/৮ গ্লাস', [bnDigits(water.round())]), tr('আজ পানি'),
+                        quick: () => brain.addHealth(HealthLog(member: m.id, kind: HealthKind.water, at: brain.services.now(), a: 1)), quickLabel: tr('+১ গ্লাস')),
+                  ])
+                else ...[
                 Row(children: [
                   tile(HealthKind.weight, Icons.monitor_weight_outlined, C.teal, w == null ? '—' : kg(w.a), w == null ? tr('লেখা হয়নি') : _changeText(d, m.id, now),
                       quick: () => addReading(context, m.id, HealthKind.weight)),
@@ -182,6 +193,7 @@ class _HealthScreenState extends State<HealthScreen> {
                   tile(HealthKind.water, Icons.water_drop_outlined, C.blue, trf('{0}/৮ গ্লাস', [bnDigits(water.round())]), tr('আজ পানি'),
                       quick: () => brain.addHealth(HealthLog(member: m.id, kind: HealthKind.water, at: brain.services.now(), a: 1)), quickLabel: tr('+১ গ্লাস')),
                 ]),
+                ],
                 const SizedBox(height: 10),
                 Row(children: [
                   tile(HealthKind.exercise, Icons.directions_walk_rounded, C.green, trf('{0} মিনিট', [bnDigits(walk.round())]), tr('আজ হাঁটা/ব্যায়াম'),
@@ -193,7 +205,7 @@ class _HealthScreenState extends State<HealthScreen> {
                 // The phone's own step count (the user's, not a family member's).
                 if (m.isMe) const HealthConnectCard(),
                 if (m.isMe && !(brain.hcOn && brain.hcGranted)) const StepsCard(),
-                if (needsVaccineCard(m, now) || (!m.isMe && m.birth != null && now.difference(m.birth!).inDays < 6 * 366)) ...[
+                if (!medicalOff && (needsVaccineCard(m, now) || (!m.isMe && m.birth != null && now.difference(m.birth!).inDays < 6 * 366))) ...[
                   const SizedBox(height: 12),
                   Panel(
                     child: ListRow(
@@ -205,6 +217,7 @@ class _HealthScreenState extends State<HealthScreen> {
                     ),
                   ),
                 ],
+                if (!medicalOff) ...[
                 const SizedBox(height: 16),
                 SectionTitle(tr('চেকআপ ও রিপোর্ট')),
                 Panel(
@@ -248,6 +261,7 @@ class _HealthScreenState extends State<HealthScreen> {
                 ),
                 const SizedBox(height: 14),
                 PrimaryButton(label: tr('ডাক্তারকে দেখানোর সারাংশ'), icon: Icons.assignment_ind_outlined, onPressed: () => _push(DoctorSummaryScreen(member: m.id))),
+                ],
                 const SizedBox(height: 12),
                 Text(tr('এখানে শুধু মাপ রাখা হয়; রোগ নির্ণয় করা হয় না। মাপ স্বাভাবিকের বাইরে গেলে ডাক্তার দেখান। সব তথ্য এই ফোনে তালাবদ্ধ থাকে।'), style: body(12.5, color: C.muted, height: 1.5)),
                 if (!m.isMe) ...[

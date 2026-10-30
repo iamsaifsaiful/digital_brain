@@ -79,10 +79,18 @@ $long = str_repeat('x', 120);
 
 echo "\nmember\n";
 update_option('ma_app_min', '2.56.0');
-[$code, $d] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '2.14.0', 'edition' => 'play']);
+[$code, $d] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '2.14.0', 'edition' => 'direct']);
 check($code === 426 && ($d['data']['min'] ?? '') === '2.56.0', 'members: an app older than the minimum is asked to update');
-[$code] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '2.56.0+127', 'edition' => 'play']);
+[$code] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '2.56.0+127', 'edition' => 'direct']);
 check($code === 200, 'members: the minimum or newer signs in');
+[$code] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '1.0.0', 'edition' => 'play']);
+check($code === 200, 'members: the Google Play app (1.0.0 on) is not held to the website APK\'s minimum');
+update_option('ma_app_min_play', '1.2.0');
+[$code, $d] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '1.0.0', 'edition' => 'play']);
+check($code === 426 && ($d['data']['min'] ?? '') === '1.2.0' && str_contains($d['data']['url'] ?? '', 'play.google.com/store/apps/details?id=app.getmyassistant'), 'members: the Play app has its own minimum and is sent to Google Play');
+[$code] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '1.2.0', 'edition' => 'play']);
+check($code === 200, 'members: the Play app at its minimum signs in');
+delete_option('ma_app_min_play');
 delete_option('ma_app_min');
 [$code, $d] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '2.14.0', 'edition' => 'play']);
 check($code === 200 && strlen($d['session'] ?? '') === 64, 'login gives a session');
@@ -157,9 +165,9 @@ check($code === 401, 'wrong password refused');
 $GLOBALS['adminAppVersion'] = '';
 [$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123']);
 check($code === 426 && ($d['code'] ?? '') === 'update' && ($d['data']['min'] ?? '') === MA_ADMIN_APP_MIN && str_starts_with($d['data']['url'] ?? '', 'https://'), 'admin app: too old → asked to update, with where');
-$GLOBALS['adminAppVersion'] = '1.12.0';
+$GLOBALS['adminAppVersion'] = '0.9.0';
 [$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123']);
-check($code === 426, 'admin app: 1.12.0 → asked to update');
+check($code === 426, 'admin app: 0.9.0 → asked to update');
 $GLOBALS['adminAppVersion'] = '9.9.9';
 // Owner, 28 Oct: the admin app opens with the fingerprint; the password alone signs in (no code) unless the owner asks for it.
 [$code, $d] = call('POST', '/admin/login', ['email' => 'BOSS@gmail.com', 'password' => 'long-password-123']);
@@ -1237,4 +1245,93 @@ check(ma_totp_secret($bossId) === $totp, 'two-step secrets do not depend on MA_D
 $h = $render(['tab' => 'security']);
 check(str_contains($h, 'MA_DATA_KEY</code> কখনো বদলাবেন') && !preg_match($bad, $h), 'security tab: the data key is on');
 
+
+echo "\n  — Google Play subscriptions, deleting an account, privacy page, app-ads.txt (owner, 29 Oct)\n";
+add_filter('ma_play_access_token', fn() => 'play-access');
+$GLOBALS['play'] = ['acked' => 0];
+add_filter('pre_http_request', function ($pre, $args, $url) {
+    if (!str_contains($url, 'androidpublisher.googleapis.com')) return $pre;
+    if (str_contains($url, ':acknowledge')) { $GLOBALS['play']['acked']++; return ['response' => ['code' => 200], 'body' => '{}', 'headers' => [], 'cookies' => []]; }
+    $tok = rawurldecode(basename(parse_url($url, PHP_URL_PATH)));
+    if ($tok === 'fake-token') return ['response' => ['code' => 400], 'body' => '{}', 'headers' => [], 'cookies' => []];
+    $state = $tok === 'ended-token' ? 'SUBSCRIPTION_STATE_EXPIRED' : 'SUBSCRIPTION_STATE_ACTIVE';
+    $end = $tok === 'ended-token' ? time() - 3600 : time() + 30 * DAY_IN_SECONDS;
+    return ['response' => ['code' => 200], 'body' => wp_json_encode(['subscriptionState' => $state, 'acknowledgementState' => 'ACKNOWLEDGEMENT_STATE_PENDING', 'latestOrderId' => 'GPA.1234',
+        'lineItems' => [['productId' => 'pro_monthly', 'expiryTime' => gmdate('Y-m-d\TH:i:s\Z', $end)]]]), 'headers' => [], 'cookies' => []];
+}, 9, 3);
+[$pId, $pSes] = $mk('play@gmail.com', 'প্লে', false);
+[$code] = call('POST', '/play/verify', ['product' => 'pro_monthly', 'token' => 'good-token']);
+check($code === 401, 'play: signed-in members only');
+[$code, $d] = call('POST', '/play/verify', ['product' => 'pro_monthly', 'token' => 'fake-token'], $pSes);
+check($code === 400, 'play: a token Google does not know gives nothing');
+[$code, $d] = call('POST', '/play/verify', ['product' => 'pro_monthly', 'token' => 'good-token'], $pSes);
+$row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . ma_acc_table() . ' WHERE id = %d', $pId), ARRAY_A);
+check($code === 200 && !empty($d['play_active']) && $row['pro_kind'] === 'play:pro_monthly' && ma_acc_ts($row['pro_until']) > time() + 29 * DAY_IN_SECONDS && $GLOBALS['play']['acked'] === 1, 'play: a real purchase turns Premium on to its end and is acknowledged');
+[$oId, $oSes] = $mk('other@gmail.com', 'অন্য', false);
+[$code] = call('POST', '/play/verify', ['product' => 'pro_monthly', 'token' => 'good-token'], $oSes);
+check($code === 409, 'play: one purchase cannot turn on Premium for another account');
+[$code, $d] = call('POST', '/play/verify', ['product' => 'pro_monthly', 'token' => 'ended-token'], $pSes);
+$row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . ma_acc_table() . ' WHERE id = %d', $pId), ARRAY_A);
+check($code === 200 && empty($d['play_active']) && ma_acc_ts($row['pro_until']) <= time() + 5, 'play: an ended subscription ends Play Premium');
+$h = $render(['tab' => 'settings']);
+check(str_contains($h, 'Google Play-র সাবস্ক্রিপশন') && str_contains($h, 'AdMob (app-ads.txt)'), 'play: the Play and AdMob cards are on the settings tab');
+
+// Deleting: from the app, everything of the member goes.
+call('POST', '/feedback', ['text' => 'একটা মতামত'], $pSes);
+[$code, $d] = call('POST', '/account/delete', [], $pSes);
+check($code === 200 && !$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM ' . ma_acc_table() . ' WHERE id = %d', $pId))
+    && !$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM ' . ma_ai_sessions_table() . ' WHERE user_id = %d', $pId))
+    && !$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM ' . ma_fb_table() . ' WHERE user_id = %d', $pId))
+    && !$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM ' . ma_play_table() . ' WHERE user_id = %d', $pId)), 'delete: the account, sessions, feedback and purchases go');
+[$code] = call('GET', '/me', [], $pSes);
+check($code === 401, 'delete: the old session no longer works');
+// From the website: an email link, then the account is gone.
+$nMail = count($sent['mail']);
+$_POST = ['ma_del_email' => 'other@gmail.com', 'ma_del_nonce' => wp_create_nonce('ma_del')];
+$h = do_shortcode('[my_assistant_delete_account]');
+$_POST = [];
+check(count($sent['mail']) === $nMail + 1 && str_contains($h, 'লিংক পাঠানো হয়েছে'), 'delete (web): a confirmation link is emailed');
+$link = ma_acc_delete_link('other@gmail.com');
+parse_str(parse_url($link, PHP_URL_QUERY), $q);
+check(hash_equals(hash_hmac('sha256', 'other@gmail.com|' . $q['exp'], wp_salt('auth') . 'ma-delete'), $q['sig']), 'delete (web): the link is signed');
+ma_acc_delete_member($oId);
+check(!$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM ' . ma_acc_table() . ' WHERE id = %d', $oId)), 'delete (web): the account goes');
+$_POST = ['ma_del_email' => 'nobody@gmail.com', 'ma_del_nonce' => wp_create_nonce('ma_del')];
+$h = do_shortcode('[my_assistant_delete_account]');
+$_POST = [];
+check(str_contains($h, 'লিংক পাঠানো হয়েছে') && count($sent['mail']) === $nMail + 1, 'delete (web): the same answer for an unknown email, nothing sent');
+
+$h = do_shortcode('[my_assistant_privacy]');
+check(str_contains($h, 'প্রাইভেসি পলিসি') && str_contains($h, 'Privacy Policy') && str_contains($h, 'AdMob') && str_contains($h, 'end-to-end') && str_contains($h, get_option('admin_email')), 'privacy: the page, Bangla and English');
+update_option('ma_admob_pub', 'pub-1234567890123456');
+check(ma_admob_pub() === 'pub-1234567890123456', 'app-ads.txt: the publisher ID is kept');
+echo "\nfresh start (owner, 29 Oct)\n";
+global $wpdb;
+wp_set_current_user(1);
+$_GET = ['page' => 'my-assistant', 'tab' => 'security'];
+ob_start();
+ma_acc_admin();
+$html = ob_get_clean();
+check(str_contains($html, 'নতুন করে শুরু') && str_contains($html, 'ma_fresh_start'), 'fresh start: the card is on the settings page');
+$before = (int) $wpdb->get_var('SELECT COUNT(*) FROM ' . ma_acc_table());
+$_POST = $_REQUEST = ['action' => 'ma_fresh_start', '_wpnonce' => wp_create_nonce('ma_fresh_start'), 'words' => 'মুছুন'];
+try { do_action('admin_post_ma_fresh_start'); } catch (Exception $e) {}
+check($before > 0 && (int) $wpdb->get_var('SELECT COUNT(*) FROM ' . ma_acc_table()) === $before, 'fresh start: without the exact words nothing is deleted');
+update_option('ma_app_min', '2.56.0');
+$adminSessions = (int) $wpdb->get_var("SELECT COUNT(*) FROM " . ma_ai_sessions_table() . " WHERE app = 'admin'");
+$_POST = $_REQUEST = ['action' => 'ma_fresh_start', '_wpnonce' => wp_create_nonce('ma_fresh_start'), 'words' => MA_RESET_WORDS];
+try { do_action('admin_post_ma_fresh_start'); } catch (Exception $e) {}
+$left = 0;
+foreach ([ma_acc_table(), ma_pay_table(), ma_fb_table(), ma_err_table(), ma_play_table(), ma_bl_registry(), ma_nlu_table('samples'), ma_fam_table('links')] as $t) {
+    $left += (int) $wpdb->get_var("SELECT COUNT(*) FROM $t");
+}
+check($left === 0, 'fresh start: members, payments, feedback, logs, Play, blood, samples and family are empty');
+check((int) $wpdb->get_var("SELECT COUNT(*) FROM " . ma_ai_sessions_table() . " WHERE app <> 'admin'") === 0 && (int) $wpdb->get_var("SELECT COUNT(*) FROM " . ma_ai_sessions_table() . " WHERE app = 'admin'") === $adminSessions, 'fresh start: members signed out, admins not');
+check(get_option('ma_app_min', '') === '', 'fresh start: the old apps\' minimum is gone');
+[$code, $d] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '2.65.0', 'edition' => 'direct']);
+check($code === 426 && ($d['data']['url'] ?? '') === 'https://getmyassistant.app/', 'fresh start: an old app is asked to install the new one');
+[$code, $d] = call('POST', '/login', ['id_token' => 'RAHIM' . $long, 'app_version' => '1.0.0', 'edition' => 'direct', 'pkg' => 'app.getmyassistant']);
+check($code === 200 && strlen($d['session'] ?? '') === 64, 'fresh start: the new app (1.0.0) signs in as a new member');
+$_POST = $_REQUEST = [];
+delete_option('ma_legacy_block');
 echo $fail ? "\n$fail FAILED\n" : "\nALL OK\n";

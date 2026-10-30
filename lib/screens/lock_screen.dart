@@ -9,7 +9,7 @@ import '../logic/lang.dart';
 import '../models/models.dart';
 import '../ui/widgets.dart';
 import 'store_more_screens.dart';
-import 'more_screen.dart' show appVersion;
+import 'more_screen.dart' show shownVersion;
 
 /// Off in tests, so they start straight at the PIN.
 bool googleFirst = true;
@@ -62,7 +62,7 @@ class _LockScreenState extends State<LockScreen> {
       _signing = true;
       _message = null;
     });
-    final e = await brain.signInGoogle(appVersion: appVersion);
+    final e = await brain.signInGoogle(appVersion: shownVersion);
     if (!mounted) return;
     setState(() => _signing = false);
     if (e != null) {

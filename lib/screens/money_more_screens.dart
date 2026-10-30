@@ -446,7 +446,7 @@ class _ReportScreenState extends State<ReportScreen> {
                                   child: Row(children: [
                                     Container(width: 10, height: 10, decoration: BoxDecoration(color: colors[i], shape: BoxShape.circle)),
                                     const SizedBox(width: 6),
-                                    Expanded(child: Text(e.key, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13))),
+                                    Expanded(child: Text(tr(e.key), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13))),
                                     Text('${bnDigits((e.value * 100 / r.expense).round())}%', style: body(13, weight: FontWeight.w600)),
                                   ]),
                                 ),
@@ -497,7 +497,7 @@ class _ReportScreenState extends State<ReportScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 6),
                               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                                 Row(children: [
-                                  Expanded(child: Text(e.key, style: body(14, weight: FontWeight.w500))),
+                                  Expanded(child: Text(tr(e.key), style: body(14, weight: FontWeight.w500))),
                                   Text(taka(e.value), style: body(14, weight: FontWeight.w600)),
                                 ]),
                                 const SizedBox(height: 4),

@@ -1,4 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Voice input. Bengali speech recognition usually runs on Google's servers. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -49,6 +49,18 @@
         android:dataExtractionRules="@xml/data_extraction_rules">
         <!-- The text-reading model is fetched by Play Services when the app is installed. -->
         <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="ocr" />
+        <!-- AdMob (the free Play app's ads only; see lib/services/ads.dart). -->
+        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="${admobAppId}" />
+        <!-- Nothing of AdMob runs while the app opens: Google's measurement waits, and AdMob
+             starts on a background thread only when the Play app asks for an ad (Ads.start). -->
+        <meta-data android:name="com.google.android.gms.ads.DELAY_APP_MEASUREMENT_INIT" android:value="true" />
+        <meta-data android:name="com.google.android.gms.ads.flag.OPTIMIZE_INITIALIZATION" android:value="true" />
+        <meta-data android:name="com.google.android.gms.ads.flag.OPTIMIZE_AD_LOADING" android:value="true" />
+        <!-- WorkManager (brought by AdMob) does not start itself while the app opens: on the
+             owner's phone that closed the app (29 Oct). MainActivity starts it, safely. -->
+        <provider android:name="androidx.startup.InitializationProvider" android:authorities="${applicationId}.androidx-startup" android:exported="false" tools:node="merge">
+            <meta-data android:name="androidx.work.WorkManagerInitializer" android:value="androidx.startup" tools:node="remove" />
+        </provider>
         <activity
             android:name=".MainActivity"
             android:exported="true"

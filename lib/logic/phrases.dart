@@ -23,18 +23,19 @@ String toPerson(String name) {
   return _latin(n) ? trf('{0}-কে', [n]) : trf('{0}কে', [n]);
 }
 
-String _amt(int a) => '${bnNumber(a)} টাকা';
+String _amt(int a) => trf('{0} টাকা', [bnNumber(a)]);
 
-/// "সজীবকে ৫০০ টাকা ধার দিলেন" — said the way people talk, not formally.
+/// "সজীবকে ৫০০ টাকা ধার দিলেন" — said the way people talk, not formally
+/// (in English: "you lent Sajib ৳500").
 String describe(LedgerKind kind, String person, int amount) => switch (kind) {
-      LedgerKind.lent => '${toPerson(person)} ${_amt(amount)} ধার দিলেন',
-      LedgerKind.borrowed => '${possessive(person)} কাছ থেকে ${_amt(amount)} ধার নিলেন',
-      LedgerKind.received => '$person আপনাকে ${_amt(amount)} ফেরত দিলেন',
-      LedgerKind.repaid => '${toPerson(person)} ${_amt(amount)} শোধ করলেন',
+      LedgerKind.lent => bnEn('${toPerson(person)} ${_amt(amount)} ধার দিলেন', 'you lent $person ${_amt(amount)}'),
+      LedgerKind.borrowed => bnEn('${possessive(person)} কাছ থেকে ${_amt(amount)} ধার নিলেন', 'you borrowed ${_amt(amount)} from $person'),
+      LedgerKind.received => bnEn('$person আপনাকে ${_amt(amount)} ফেরত দিলেন', '$person paid you back ${_amt(amount)}'),
+      LedgerKind.repaid => bnEn('${toPerson(person)} ${_amt(amount)} শোধ করলেন', 'you paid $person back ${_amt(amount)}'),
     };
 
 /// Asked before saving: "আচ্ছা, সজীবকে ৫০০ টাকা ধার দিলেন, তাই তো? লিখে রাখি?"
-String confirmQuestion(LedgerKind kind, String person, int amount) => 'আচ্ছা, ${describe(kind, person, amount)}, তাই তো? লিখে রাখি?';
+String confirmQuestion(LedgerKind kind, String person, int amount) => trf('আচ্ছা, {0}, তাই তো? লিখে রাখি?', [describe(kind, person, amount)]);
 
 /// "সজীবের কাছে আপনার ২০০ টাকা পাওনা আছে" (no full stop).
 String owesText(String person, int balance) {
@@ -44,11 +45,11 @@ String owesText(String person, int balance) {
 }
 
 /// "এখন সজীবের কাছে আপনার ২০০ টাকা পাওনা আছে।"
-String balanceSentence(String person, int balance) => 'এখন ${owesText(person, balance)}।';
+String balanceSentence(String person, int balance) => trf('এখন {0}।', [owesText(person, balance)]);
 
 /// Spoken after saving.
 String savedSentence(LedgerKind kind, String person, int amount, int newBalance) =>
-    'ঠিক আছে, লিখে রাখলাম। ${balanceSentence(person, newBalance)}';
+    trf('ঠিক আছে, লিখে রাখলাম। {0}', [balanceSentence(person, newBalance)]);
 
 /// "সজীবের কাছে আপনি পাবেন" / "সজীবকে আপনি দেবেন" heading for a balance card.
 String balanceHeading(String person, int balance) {

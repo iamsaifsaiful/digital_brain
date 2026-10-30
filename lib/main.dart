@@ -1,5 +1,6 @@
 import 'dart:ui' show PlatformDispatcher;
 
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -7,6 +8,8 @@ import 'package:path_provider/path_provider.dart';
 import 'services/health_connect.dart';
 import 'services/google_account.dart';
 import 'services/push.dart';
+import 'services/billing.dart';
+import 'logic/pro.dart' show playEdition;
 
 import 'app.dart';
 import 'services/ai.dart';
@@ -24,9 +27,12 @@ import 'services/phonebook.dart';
 import 'services/voice.dart';
 import 'state/brain.dart';
 import 'nlu/samples.dart' show nluAppVersion;
-import 'screens/more_screen.dart' show appVersion;
+import 'screens/more_screen.dart' show shownVersion;
 
 Future<void> main() async {
+  // Release builds write nothing to the phone's log (owner, 29 Oct: security
+  // audit); the app's own problem log (Trace) is where problems are kept.
+  if (kReleaseMode) debugPrint = (String? message, {int? wrapWidth}) {};
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
@@ -44,6 +50,7 @@ Future<void> main() async {
     drive: HttpDrive(),
     server: AccountServer(),
     push: DevicePush(),
+    billing: playEdition ? PlayBilling() : FakeBilling(),
     ocr: DeviceTextReader(),
     weather: OpenMeteo(),
     compass: DeviceCompass(),
@@ -52,22 +59,22 @@ Future<void> main() async {
   await services.notifier.init();
   // সমস্যার লগ: every error the app runs into, cleaned, for our server —
   // kept in a small file until sent, and sent a few seconds after.
-  ErrorLog.version = appVersion;
+  ErrorLog.version = shownVersion;
   try {
     await ErrorLog.open(await getApplicationSupportDirectory());
   } catch (_) {}
   final shown = FlutterError.onError;
   FlutterError.onError = (d) {
-    ErrorLog.record(d.exception, d.stack, version: appVersion);
+    ErrorLog.record(d.exception, d.stack, version: shownVersion);
     shown?.call(d);
   };
   PlatformDispatcher.instance.onError = (e, s) {
-    ErrorLog.record(e, s, version: appVersion);
+    ErrorLog.record(e, s, version: shownVersion);
     return false;
   };
   final brain = Brain(services);
   ErrorLog.connect(services.server, () => brain.services.ai.session);
-  nluAppVersion = appVersion;
+  nluAppVersion = shownVersion;
   runApp(DigitalBrainApp(brain: brain));
   await brain.load();
 }

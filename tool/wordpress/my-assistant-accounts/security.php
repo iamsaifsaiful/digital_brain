@@ -228,15 +228,17 @@ function ma_acc_render_security() {
     <?php if (current_user_can('manage_options')) : ?>
     <section class="ma-card pad" id="ma-versions">
         <div class="ma-bar-title"><h2>পুরোনো অ্যাপ: আপডেট করতে বলা</h2></div>
-        <p class="muted">অ্যাডমিন অ্যাপ: <?php echo esc_html(MA_ADMIN_APP_MIN); ?>-এর চেয়ে পুরোনো হলে লগইনেই আপডেট করতে বলে (প্লাগইনের সাথে নিজে থেকে বাড়ে)। সদস্যদের অ্যাপ: নিচে সর্বনিম্ন সংস্করণ দিলে তার চেয়ে পুরোনো অ্যাপে Google লগইনের সময় আপডেট করতে বলবে — খালি রাখলে বলবে না। ফোনে রাখা তথ্য সবসময় খোলা থাকে।</p>
+        <p class="muted">অ্যাডমিন অ্যাপ: <?php echo esc_html(MA_ADMIN_APP_MIN); ?>-এর চেয়ে পুরোনো হলে লগইনেই আপডেট করতে বলে (প্লাগইনের সাথে নিজে থেকে বাড়ে)। সদস্যদের অ্যাপ: নিচে সর্বনিম্ন সংস্করণ দিলে (ওয়েবসাইটের APK আর Google Play-র অ্যাপের নম্বর আলাদা — Play-রটা ১.০.০ থেকে শুরু) তার চেয়ে পুরোনো অ্যাপে Google লগইনের সময় আপডেট করতে বলবে — খালি রাখলে বলবে না। ফোনে রাখা তথ্য সবসময় খোলা থাকে।</p>
         <form method="post" action="<?php echo $post; ?>" class="ma-inline-form" style="flex-wrap:wrap;gap:10px">
             <input type="hidden" name="action" value="ma_app_versions"><?php wp_nonce_field('ma_app_versions'); ?>
             <label>সদস্যদের অ্যাপের সর্বনিম্ন সংস্করণ <input type="text" name="app_min" value="<?php echo esc_attr(get_option('ma_app_min', '')); ?>" placeholder="যেমন 2.56.0" pattern="[0-9]+(\.[0-9]+){1,3}" style="width:120px"></label>
-            <label>আপডেটের লিংক <input type="url" name="url" value="<?php echo esc_attr(get_option('ma_app_update_url', '')); ?>" placeholder="<?php echo esc_attr(ma_app_update_url()); ?>" style="width:320px"></label>
+            <label>Google Play অ্যাপের সর্বনিম্ন সংস্করণ <input type="text" name="app_min_play" value="<?php echo esc_attr(get_option('ma_app_min_play', '')); ?>" placeholder="যেমন 1.0.0" pattern="[0-9]+(\.[0-9]+){1,3}" style="width:120px"></label>
+            <label>আপডেটের লিংক (ওয়েবসাইটের APK) <input type="url" name="url" value="<?php echo esc_attr(get_option('ma_app_update_url', '')); ?>" placeholder="<?php echo esc_attr(ma_app_update_url()); ?>" style="width:320px"></label>
             <button class="ma-btn" type="submit">রাখুন</button>
         </form>
     </section>
     <?php endif; ?>
+    <?php if (function_exists('ma_reset_card')) ma_reset_card(); ?>
     <?php if (current_user_can('manage_options')) : $has = ma_sec_key(true) !== null; ?>
     <section class="ma-card pad" id="ma-datakey">
         <div class="ma-bar-title"><h2>সদস্যদের ব্যাকআপ-চাবির তালা</h2><span class="ma-pill <?php echo $has ? 'pro' : 'expired'; ?>"><?php echo $has ? 'চালু' : 'বন্ধ'; ?></span></div>
@@ -335,6 +337,8 @@ add_action('admin_post_ma_app_versions', function () {
     ma_acc_guard('ma_app_versions', 'manage_options');
     $min = trim((string) wp_unslash($_POST['app_min'] ?? ''));
     update_option('ma_app_min', preg_match('/^\d+(\.\d+){1,3}$/', $min) ? $min : '', false);
+    $play = trim((string) wp_unslash($_POST['app_min_play'] ?? ''));
+    update_option('ma_app_min_play', preg_match('/^\d+(\.\d+){1,3}$/', $play) ? $play : '', false);
     update_option('ma_app_update_url', esc_url_raw(trim((string) wp_unslash($_POST['url'] ?? ''))), false);
     ma_acc_back('রাখা হয়েছে।', 'ok', ['tab' => 'security']);
 });
@@ -356,3 +360,36 @@ add_action('profile_update', function ($user_id, $old) {
         ma_sec_end_admin_sessions($user_id);
     }
 }, 10, 2);
+
+// ── Security headers and CORS (owner, 29 Oct: security audit) ──
+
+/** Headers every page of the site sends: no sniffing, no framing by others,
+ *  a short referrer, no camera/mic/location for pages, and HTTPS remembered. */
+function ma_sec_headers() {
+    if (headers_sent()) {
+        return;
+    }
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: SAMEORIGIN');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()');
+    if (is_ssl()) {
+        header('Strict-Transport-Security: max-age=31536000');
+    }
+}
+add_action('send_headers', 'ma_sec_headers');
+add_action('admin_init', 'ma_sec_headers');
+
+/** The app's API is called by the app, never by another website: no CORS
+ *  for /my-assistant/v1 (WordPress would answer any origin). */
+add_filter('rest_pre_serve_request', function ($served, $result, $request) {
+    $route = is_object($request) && method_exists($request, 'get_route') ? (string) $request->get_route() : '';
+    if (str_starts_with($route, '/my-assistant/') && !headers_sent()) {
+        header_remove('Access-Control-Allow-Origin');
+        header_remove('Access-Control-Allow-Credentials');
+        header_remove('Access-Control-Allow-Methods');
+        header_remove('Access-Control-Allow-Headers');
+        ma_sec_headers();
+    }
+    return $served;
+}, 20, 3);

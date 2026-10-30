@@ -142,7 +142,9 @@ class _FamilyScreenState extends State<FamilyScreen> {
                             EmptyState(
                               icon: Icons.family_restroom_rounded,
                               title: tr('এখনো কেউ নেই'),
-                              text: tr(
+                              text: medicalOff
+                                  ? tr('মা-বাবা, স্বামী-স্ত্রী, সন্তান — তাঁদের ইমেইল দিয়ে যুক্ত করুন। তাঁরা যা অনুমতি দেবেন, শুধু তা-ই করতে পারবেন: কাজ, রিমাইন্ডার, নোট, লাইভ লোকেশন।')
+                                  : tr(
                                   'মা-বাবা, স্বামী-স্ত্রী, সন্তান — তাঁদের ইমেইল দিয়ে যুক্ত করুন। তাঁরা যা অনুমতি দেবেন, শুধু তা-ই করতে পারবেন: কাজ, রিমাইন্ডার, ওষুধের রিমাইন্ডার, নোট, লাইভ লোকেশন।'),
                             ),
                           if (mine.isNotEmpty)
@@ -184,7 +186,9 @@ class _FamilyScreenState extends State<FamilyScreen> {
                                 Text(
                                     _loc['fine'] != true
                                         ? tr('লোকেশন দেখাতে ফোনের অনুমতি লাগবে।')
-                                        : (_loc['background'] != true
+                                        : (playEdition
+                                            ? tr('চালু — অ্যাপ ব্যবহারের সময় “এখন কোথায়?” জিজ্ঞেস করলে লোকেশন যায়।')
+                                            : _loc['background'] != true
                                             ? tr('অ্যাপ খোলা থাকলে লোকেশন যায়। ফোন হারালেও খুঁজে পেতে “সবসময়” অনুমতি দিন।')
                                             : tr('চালু — অ্যাপ বন্ধ থাকলেও “এখন কোথায়?” জিজ্ঞেস করলে ফোন নিজে জানাবে।')),
                                     style: body(14, height: 1.45)),
@@ -199,7 +203,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                                         await Future<void>.delayed(const Duration(seconds: 2));
                                         await _load();
                                       })
-                                else if (_loc['background'] != true)
+                                else if (!playEdition && _loc['background'] != true)
                                   SecondaryButton(
                                       label: tr('“সবসময় অনুমতি দিন” বেছে নিন'),
                                       height: 44,
@@ -261,7 +265,9 @@ class _FamilyScreenState extends State<FamilyScreen> {
         builder: (ctx) => AlertDialog(
           title: Text(tr('লোকেশন কীভাবে ব্যবহার হয়')),
           content: Text(
-              tr('My Assistant আপনার ফোনের লোকেশন নেয় — অ্যাপ বন্ধ থাকলেও — শুধু তখন, যখন আপনি যাঁদের অনুমতি দিয়েছেন সেই পরিবারের কেউ “এখন কোথায়?” জিজ্ঞেস করেন (যেমন ফোন হারালে খুঁজতে)। লোকেশন তালাবদ্ধ হয়ে শুধু তাঁদের কাছে যায়; আমরা দেখতে পারি না, বিজ্ঞাপনে বা অন্য কিছুতে ব্যবহার হয় না। ফ্যামিলি পাতা থেকে যেকোনো সময় বন্ধ করা যায়।'),
+              playEdition
+                  ? tr('My Assistant আপনার ফোনের লোকেশন নেয় শুধু তখন, যখন অ্যাপ ব্যবহারের সময় আপনি যাঁদের অনুমতি দিয়েছেন সেই পরিবারের কেউ “এখন কোথায়?” জিজ্ঞেস করেন। লোকেশন তালাবদ্ধ হয়ে শুধু তাঁদের কাছে যায়; আমরা দেখতে পারি না, বিজ্ঞাপনে বা অন্য কিছুতে ব্যবহার হয় না। ফ্যামিলি পাতা থেকে যেকোনো সময় বন্ধ করা যায়।')
+                  : tr('My Assistant আপনার ফোনের লোকেশন নেয় — অ্যাপ বন্ধ থাকলেও — শুধু তখন, যখন আপনি যাঁদের অনুমতি দিয়েছেন সেই পরিবারের কেউ “এখন কোথায়?” জিজ্ঞেস করেন (যেমন ফোন হারালে খুঁজতে)। লোকেশন তালাবদ্ধ হয়ে শুধু তাঁদের কাছে যায়; আমরা দেখতে পারি না, বিজ্ঞাপনে বা অন্য কিছুতে ব্যবহার হয় না। ফ্যামিলি পাতা থেকে যেকোনো সময় বন্ধ করা যায়।'),
               style: body(14.5, height: 1.5)),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('এখন না'))),
@@ -292,7 +298,7 @@ class _AddSheet extends StatefulWidget {
 class _AddSheetState extends State<_AddSheet> {
   final _email = TextEditingController();
   final _relation = TextEditingController();
-  final _allow = <String>{'task', 'reminder', 'medicine', 'note'};
+  final _allow = <String>{'task', 'reminder', if (!medicalOff) 'medicine', 'note'};
   String? _error;
 
   @override
@@ -444,7 +450,7 @@ class _FamilyMemberScreenState extends State<FamilyMemberScreen> {
                     child: Rows(children: [
                       action('task', Icons.task_alt_rounded, tr('কাজ দিন'), () => _send(l, 'task')),
                       action('reminder', Icons.alarm_rounded, tr('রিমাইন্ডার দিন'), () => _send(l, 'reminder')),
-                      action('medicine', Icons.medication_outlined, tr('ওষুধের রিমাইন্ডার দিন'), () => _send(l, 'medicine')),
+                      if (!medicalOff) action('medicine', Icons.medication_outlined, tr('ওষুধের রিমাইন্ডার দিন'), () => _send(l, 'medicine')),
                       action('note', Icons.sticky_note_2_outlined, tr('নোট পাঠান'), () => _send(l, 'note')),
                       if (l.theyAllow.contains('location'))
                         ListRow(

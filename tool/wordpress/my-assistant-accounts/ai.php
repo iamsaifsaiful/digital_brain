@@ -397,6 +397,8 @@ function ma_ai_me(WP_REST_Request $req) {
     if (!$row) {
         return new WP_Error('session', 'sign in again', ['status' => 401]);
     }
+    // A Google Play subscription near its end: renewed or ended, read again.
+    $row = function_exists('ma_play_refresh') ? ma_play_refresh($row) : $row;
     $set = ma_ai_settings();
     return rest_ensure_response(ma_acc_answer($row) + [
         'ai' => $set['on'] && ma_ai_key() !== '',

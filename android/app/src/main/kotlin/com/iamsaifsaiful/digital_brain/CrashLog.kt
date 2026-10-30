@@ -43,6 +43,32 @@ class CrashLog private constructor(
     }
 
     companion object {
+        /**
+         * A problem the app survived (owner, 29 Oct: AdMob's WorkManager closed
+         * the app at start): its kind, message and where — Google's code too,
+         * so we can see whose — for the সমস্যার লগ next time.
+         */
+        fun note(c: Context, what: String, e: Throwable) {
+            try {
+                val places = mutableListOf<String>()
+                var x: Throwable? = e
+                val causes = mutableListOf<String>()
+                while (x != null && causes.size < 4) {
+                    causes.add(x.javaClass.name + ": " + (x.message ?: "").lineSequence().firstOrNull().orEmpty().take(160))
+                    for (f in x.stackTrace.take(8)) places.add("${f.className}.${f.methodName}:${f.lineNumber}")
+                    x = x.cause
+                }
+                val ver = try { c.packageManager.getPackageInfo(c.packageName, 0).versionName ?: "" } catch (_: Exception) { "" }
+                val j = JSONObject()
+                    .put("kind", "Android:$what")
+                    .put("message", causes.joinToString(" <- ").take(300))
+                    .put("stack", places.take(30).joinToString("\n"))
+                    .put("version", ver)
+                File(c.filesDir, "app_crash.json").writeText(j.toString())
+            } catch (_: Throwable) {
+            }
+        }
+
         fun install(c: Context) {
             val now = Thread.getDefaultUncaughtExceptionHandler()
             if (now is CrashLog) return

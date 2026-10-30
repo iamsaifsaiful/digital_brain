@@ -1,12 +1,11 @@
 import 'notice_screen.dart';
+import 'place_picker.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
-import '../logic/world_places.dart';
-import '../logic/calendar_bd.dart';
 import '../logic/csv.dart';
 import '../services/data_store.dart';
 import '../services/lock.dart';
@@ -27,6 +26,7 @@ import 'family_screen.dart';
 import 'trash_screen.dart';
 import 'trace_screen.dart';
 import '../services/trace.dart';
+import '../services/ads.dart';
 import 'pro_screen.dart';
 import 'google_backup.dart';
 import '../logic/pro.dart';
@@ -34,7 +34,14 @@ import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '2.63.0';
+const appVersion = '1.0.0';
+
+/// The app's version, shown and sent to our server (sign-in, feedback,
+/// problem logs). The Play app has its own numbering from 1.0.0 (owner, 29
+/// Oct; the Play build's --dart-define=PLAY_VERSION) and the server tells
+/// the two apart by the edition sent with it.
+const playVersion = String.fromEnvironment('PLAY_VERSION');
+String get shownVersion => playVersion.isNotEmpty ? playVersion : appVersion;
 
 /// "আমি": Pro, reminder check, backup and security, voice, and the rest.
 class MoreScreen extends StatefulWidget {
@@ -108,52 +115,10 @@ class _MoreScreenState extends State<MoreScreen> {
 
   Future<void> _setDistrict() async {
     final brain = BrainScope.read(context);
-    final v = await showDialog<String>(
-      context: context,
-      builder: (ctx) => SimpleDialog(
-        title: Text(tr('আপনার জেলা/শহর'), style: body(18, weight: FontWeight.w600)),
-        children: [
-          SimpleDialogOption(
-            key: const Key('place-auto'),
-            onPressed: () => Navigator.pop(ctx, '*'),
-            child: Row(children: [
-              Icon(Icons.my_location_rounded, size: 20, color: brain.autoPlace ? C.green : C.muted2),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(tr('ফোনের লোকেশন অনুযায়ী'), style: body(16, weight: brain.autoPlace ? FontWeight.w700 : FontWeight.w500, color: brain.autoPlace ? C.green : C.ink)),
-                  Text(tr('অন্য জেলা বা দেশে গেলে নিজে বদলাবে — লোকেশন ফোনেই থাকে, কোথাও যায় না'), style: body(12.5, color: C.muted)),
-                ]),
-              ),
-            ]),
-          ),
-          const Divider(),
-          for (final p in bdPlaces)
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(ctx, p.name),
-              child: Text(p.label,
-                  style: body(16, weight: !brain.autoPlace && p.name == brain.district ? FontWeight.w700 : FontWeight.w400, color: !brain.autoPlace && p.name == brain.district ? C.green : C.ink)),
-            ),
-          // Anywhere in the world (owner, 25 Oct): prayer times on that city's clock.
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 14, 24, 4),
-            child: Text(tr('দেশের বাইরে'), style: body(13, weight: FontWeight.w600, color: C.muted)),
-          ),
-          for (final p in worldPlaces)
-            SimpleDialogOption(
-              key: Key('place-${p.name}'),
-              onPressed: () => Navigator.pop(ctx, p.key),
-              child: Text(p.label,
-                  style: body(16,
-                      weight: !brain.autoPlace && p.name == placeNamed(brain.district).name ? FontWeight.w700 : FontWeight.w400,
-                      color: !brain.autoPlace && p.name == placeNamed(brain.district).name ? C.green : C.ink)),
-            ),
-        ],
-      ),
-    );
+    final v = await pickPlace(context);
     if (v == null) return;
-    if (v != '*') {
-      await brain.setDistrict(v);
+    if (v is PickedPlace) {
+      await brain.setDistrict(v.place.key);
       return;
     }
     // Following the phone: location permission first (asked once by Android).
@@ -535,9 +500,18 @@ class _MoreScreenState extends State<MoreScreen> {
                 trailing: Icon(Icons.ios_share_rounded, color: C.muted)),
             if (proTestSwitch)
               switchRow(Icons.science_outlined, tr('পরীক্ষা: প্রিমিয়াম চালু'), tr('শুধু প্রিভিউতে — ফ্রি আর প্রিমিয়াম ইউজার কী দেখবে দুটোই দেখে নিন'), brain.pro, (v) => brain.setProForTest(v)),
+            linkRow(Icons.privacy_tip_outlined, tr('প্রাইভেসি পলিসি'), sub: tr('কোন তথ্য ফোনেই থাকে, কোনটা কেন সার্ভারে যায়'),
+                onTap: () => brain.services.launcher.openUrl(Uri.parse(privacyPage)), trailing: Icon(Icons.open_in_new_rounded, color: C.muted)),
+            if (realAds && brain.showAds)
+              FutureBuilder<bool>(
+                future: Ads.privacyChoiceNeeded(),
+                builder: (_, s) => s.data == true
+                    ? linkRow(Icons.ads_click_outlined, tr('বিজ্ঞাপনের গোপনীয়তা'), sub: tr('Google বিজ্ঞাপনের জন্য আপনার সম্মতি বদলান'), onTap: Ads.changePrivacyChoice)
+                    : const SizedBox.shrink(),
+              ),
             linkRow(Icons.info_outline_rounded, tr('লাইসেন্স ও সংস্করণ'),
-                sub: 'My Assistant ${bnDigits(appVersion)}${previewEdition ? ' · ${tr('প্লে স্টোর প্রিভিউ')}' : ''}',
-                onTap: () => showLicensePage(context: context, applicationName: 'My Assistant', applicationVersion: appVersion)),
+                sub: 'My Assistant ${bnDigits(shownVersion)}${previewEdition ? ' · ${tr('প্লে স্টোর প্রিভিউ')}' : ''}',
+                onTap: () => showLicensePage(context: context, applicationName: 'My Assistant', applicationVersion: shownVersion)),
           ]),
         ),
       ],

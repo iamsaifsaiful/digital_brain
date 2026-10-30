@@ -35,6 +35,11 @@ class Compass(private val context: Context) : EventChannel.StreamHandler, Sensor
     /** The rotation vector's own error estimate (radians), when the phone gives one. */
     private var rvError = -1f
 
+    /** When the rotation vector last spoke: some phones list one that never
+     *  sends (no gyroscope) — then the accelerometer with the magnetometer
+     *  gives the heading instead (owner, 29 Oct: compass not working). */
+    private var lastRvAt = 0L
+
     override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
         sink = events
         val a = arguments as? Map<*, *>
@@ -49,11 +54,9 @@ class Compass(private val context: Context) : EventChannel.StreamHandler, Sensor
             events?.success(mapOf("none" to true))
             return
         }
-        if (rv != null) {
-            sm.registerListener(this, rv, SensorManager.SENSOR_DELAY_UI)
-        } else {
-            sm.registerListener(this, sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_UI)
-        }
+        if (rv != null) sm.registerListener(this, rv, SensorManager.SENSOR_DELAY_UI)
+        val acc = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        if (acc != null) sm.registerListener(this, acc, SensorManager.SENSOR_DELAY_UI)
         // The magnetometer's own accuracy tells when the phone needs a figure-8.
         if (mag != null) sm.registerListener(this, mag, SensorManager.SENSOR_DELAY_UI)
     }
@@ -75,10 +78,13 @@ class Compass(private val context: Context) : EventChannel.StreamHandler, Sensor
             Sensor.TYPE_ROTATION_VECTOR -> {
                 SensorManager.getRotationMatrixFromVector(r, e.values)
                 if (e.values.size > 4) rvError = e.values[4]
+                lastRvAt = System.currentTimeMillis()
             }
             Sensor.TYPE_ACCELEROMETER -> {
                 for (i in 0..2) gravity[i] = 0.85f * gravity[i] + 0.15f * e.values[i]
                 haveG = true
+                // The rotation vector is speaking: it leads.
+                if (System.currentTimeMillis() - lastRvAt < 600) return
                 if (!haveM || !SensorManager.getRotationMatrix(r, null, gravity, geomag)) return
             }
             Sensor.TYPE_MAGNETIC_FIELD -> {
@@ -110,7 +116,7 @@ class Compass(private val context: Context) : EventChannel.StreamHandler, Sensor
         deg = ((deg % 360.0) + 360.0) % 360.0
         // The fused sensor's own estimate overrides a hopeful magnetometer.
         var acc = accuracy
-        if (rvError > 0.35f) acc = minOf(acc, SensorManager.SENSOR_STATUS_ACCURACY_LOW)
+        if (rvError > 0.35f && now - lastRvAt < 600) acc = minOf(acc, SensorManager.SENSOR_STATUS_ACCURACY_LOW)
         sink?.success(mapOf("heading" to deg, "accuracy" to acc))
     }
 }

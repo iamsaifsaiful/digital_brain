@@ -68,7 +68,7 @@ DateTime nextBanglaMonthStart(DateTime g) {
 // ── Places, sun and prayer times ──
 
 class Place {
-  const Place(this.name, this.lat, this.lon, {this.tz = 360, this.region = 'sa'});
+  const Place(this.name, this.lat, this.lon, {this.tz = 360, this.region = 'sa', this.cc = ''});
   final String name;
 
   /// The name in the app's language.
@@ -84,12 +84,18 @@ class Place {
   /// (Muslim World League 18°/17°) or 'na' (ISNA 15°/15°). Asr is Hanafi everywhere.
   final String region;
 
+  /// The country's two-letter code when known ('' = not known).
+  final String cc;
+
+  /// The country, 'BD' for a district.
+  String get country => abroad ? cc : 'BD';
+
   /// Outside Bangladesh (anywhere in the world, owner 25 Oct).
   bool get abroad => key.startsWith('geo|');
 
   /// How it is kept in settings: a district's name, or
-  /// 'geo|name|lat|lon|tz|region' for anywhere else.
-  String get key => bdPlaces.any((p) => p.name == name && p.lat == lat) ? name : 'geo|$name|${lat.toStringAsFixed(4)}|${lon.toStringAsFixed(4)}|$tz|$region';
+  /// 'geo|name|lat|lon|tz|region|cc' for anywhere else.
+  String get key => bdPlaces.any((p) => p.name == name && p.lat == lat) ? name : 'geo|$name|${lat.toStringAsFixed(4)}|${lon.toStringAsFixed(4)}|$tz|$region${cc.isEmpty ? '' : '|$cc'}';
 }
 
 /// The region for prayer times at ([lat], [lon]) when no city says it.
@@ -104,7 +110,7 @@ String regionAt(double lat, double lon) {
 /// Bangladesh; elsewhere the nearest big city's name (within 150 km, else
 /// "আপনার এলাকা") at the phone's own position, with the phone's clock
 /// ([tzMinutes]) and the region's prayer method.
-Place placeAt(double lat, double lon, {required int tzMinutes}) {
+Place placeAt(double lat, double lon, {required int tzMinutes, String cc = ''}) {
   final bd = nearestPlace(lat, lon);
   if (bd != null) return bd.$1;
   Place? best;
@@ -117,7 +123,7 @@ Place placeAt(double lat, double lon, {required int tzMinutes}) {
     }
   }
   final near = best != null && d <= 150 ? best : null;
-  return Place(near?.name ?? 'আপনার এলাকা', lat, lon, tz: tzMinutes, region: near?.region ?? regionAt(lat, lon));
+  return Place(near?.name ?? 'আপনার এলাকা', lat, lon, tz: tzMinutes, region: near?.region ?? regionAt(lat, lon), cc: near?.cc ?? cc);
 }
 
 double kmBetween(double lat1, double lon1, double lat2, double lon2) {
@@ -224,7 +230,7 @@ Place placeNamed(String name) {
     final f = name.split('|');
     if (f.length >= 6) {
       final lat = double.tryParse(f[2]), lon = double.tryParse(f[3]), tz = int.tryParse(f[4]);
-      if (lat != null && lon != null && tz != null) return Place(f[1], lat, lon, tz: tz, region: f[5]);
+      if (lat != null && lon != null && tz != null) return Place(f[1], lat, lon, tz: tz, region: f[5], cc: f.length >= 7 ? f[6] : (worldPlaces.where((p) => p.name == f[1]).firstOrNull?.cc ?? ''));
     }
   }
   return bdPlaces.firstWhere((p) => p.name == name, orElse: () => bdPlaces.first);

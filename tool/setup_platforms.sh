@@ -122,7 +122,7 @@ KTS
 fi
 
 # Firebase (push): its settings for this app's package, from google-services.json.
-python3 tool/firebase_values.py tool/google-services.json "com.iamsaifsaiful.digital_brain$([ "${MY_ASSISTANT_PREVIEW:-}" = 1 ] && echo .preview)" android/app/src/main/res/values/firebase.xml
+python3 tool/firebase_values.py tool/google-services.json "app.getmyassistant$([ "${MY_ASSISTANT_PREVIEW:-}" = 1 ] && echo .preview)" android/app/src/main/res/values/firebase.xml
 
 # The app's name on the phone, and the Play Store preview: MY_ASSISTANT_PREVIEW=1
 # makes a separate app (".preview") that installs beside the real one, empty,
@@ -134,7 +134,52 @@ android {
     defaultConfig {
         val preview = System.getenv("MY_ASSISTANT_PREVIEW") == "1"
         manifestPlaceholders["appLabel"] = if (preview) "My Assistant Play প্রিভিউ" else "My Assistant"
-        if (preview) applicationIdSuffix = ".preview"
+        // The app's package from 1.0.0 (owner, 29 Oct: a fresh start, apart
+        // from the old com.iamsaifsaiful.digital_brain). The Kotlin code keeps
+        // its own package (the namespace); only the installed app's id changes.
+        applicationId = if (preview) "app.getmyassistant.preview" else "app.getmyassistant"
+    }
+}
+KTS
+fi
+
+# Premium in the Play app: Google Play subscriptions (PlayBilling.kt; checked
+# by our server, play.php).
+if ! grep -q 'billingclient' "$GRADLE_KTS"; then
+  cat >> "$GRADLE_KTS" <<'KTS'
+
+dependencies {
+    implementation("com.android.billingclient:billing:8.0.0")
+    // WorkManager (AdMob brings it): started by MainActivity, not at app start.
+    implementation("androidx.work:work-runtime:2.10.0")
+}
+KTS
+fi
+
+# AdMob's app ID for the manifest (the free Play app's ads): the real one from
+# the Play build's ADMOB_APP_ID, Google's own test ID otherwise.
+if ! grep -q 'admobAppId' "$GRADLE_KTS"; then
+  cat >> "$GRADLE_KTS" <<'KTS'
+
+android {
+    defaultConfig {
+        manifestPlaceholders["admobAppId"] = System.getenv("ADMOB_APP_ID")?.takeIf { it.matches(Regex("ca-app-pub-[0-9]{10,20}~[0-9]{6,12}")) }
+            ?: "ca-app-pub-3940256099942544~3347511713"
+    }
+}
+KTS
+fi
+
+# Our own shrinker rules (android/app/proguard-rules.pro): keep what is
+# opened by reflection, like WorkManager's Room database (owner, 29 Oct).
+if ! grep -q 'proguard-rules.pro' "$GRADLE_KTS"; then
+  cat >> "$GRADLE_KTS" <<'KTS'
+
+android {
+    buildTypes {
+        getByName("release") {
+            proguardFiles("proguard-rules.pro")
+        }
     }
 }
 KTS

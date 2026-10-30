@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:cryptography/cryptography.dart' show Sha256;
+
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/widgets.dart';
 
@@ -52,6 +54,7 @@ import '../services/data_store.dart';
 import '../services/files.dart';
 import '../services/google_account.dart';
 import '../services/push.dart';
+import '../services/billing.dart';
 import '../services/launcher.dart';
 import '../services/lock.dart';
 import '../services/notifications.dart';
@@ -60,6 +63,8 @@ import '../services/voice.dart';
 import '../services/platform.dart';
 import '../services/location_share.dart';
 import '../logic/calendar_bd.dart';
+import '../logic/holidays_abroad.dart' show builtInHolidays;
+import '../logic/meal.dart';
 import '../ui/theme.dart' show Look;
 import '../logic/lang.dart';
 
@@ -78,6 +83,7 @@ class Services {
     Phonebook? phonebook,
     GoogleAccount? google,
     PushSource? push,
+    BillingSource? billing,
     DriveStore? drive,
     AccountServer? server,
     TextReader? ocr,
@@ -92,6 +98,7 @@ class Services {
         compass = compass ?? FakeCompass(),
         google = google ?? FakeGoogle(),
         push = push ?? FakePush(),
+        billing = billing ?? FakeBilling(),
         drive = drive ?? FakeDrive(),
         server = server ?? AccountServer.off(),
         launcher = launcher ?? FakeLauncher(),
@@ -132,6 +139,9 @@ class Services {
   final DriveStore drive;
   final AccountServer server;
   final PushSource push;
+
+  /// Google Play Billing (the Play app's subscriptions).
+  final BillingSource billing;
   final DateTime Function() now;
 }
 
@@ -316,9 +326,97 @@ class Brain extends ChangeNotifier {
 
   bool canSeeMonth(DateTime m) => has(ProFeature.history) || !DateTime(m.year, m.month).isBefore(firstFreeMonth);
 
-  /// After Google Play confirms a purchase ('play:' + the plan; an internal
-  /// test build's button uses it too). Only these stand without our server.
-  Future<void> activatePro(ProPlan plan) => _setPro(services.now().add(Duration(days: plan.days)), 'play:${plan.id}');
+  /// A Play purchase our server could not check yet (offline, or Google was
+  /// slow): Premium for 3 days while the app asks again at every start.
+  static const playPending = 'play:pending';
+
+  /// Play's own prices for the plans (empty outside the Play app).
+  Map<String, String> playPrices = const {};
+
+  Future<void> loadPlayPrices() async {
+    if (!playEdition) return;
+    final p = await services.billing.prices([for (final p in proPlans) p.id]);
+    if (p.isNotEmpty) {
+      playPrices = p;
+      notifyListeners();
+    }
+  }
+
+  /// Buying Premium in the Play app: signed in with Google first (Premium
+  /// belongs to the account, so a new phone gets it back), Google Play's
+  /// sheet, then our server checks the purchase with Google. Null when
+  /// Premium is on; '' when the user closed the sheet; otherwise why not.
+  Future<String?> buyPlay(ProPlan plan) async {
+    if (!signedIn || services.ai.session.isEmpty) {
+      final e = await signInGoogle();
+      if (e != null) return e;
+      if (!signedIn) return '';
+      if (services.ai.session.isEmpty) return 'সার্ভারের সাথে যোগাযোগ হয়নি — ইন্টারনেট দেখে আবার চেষ্টা করুন';
+    }
+    final r = await services.billing.buy(plan.id, await _playAccount());
+    if (r.cancelled) return '';
+    if (r.sub == null) return r.error ?? 'Google Play-তে কেনা হয়নি';
+    return _verifyPlay(r.sub!);
+  }
+
+  /// "কেনা প্রিমিয়াম ফিরিয়ে আনুন": the subscriptions this phone's Play account owns, checked again.
+  Future<String?> restorePlay() async {
+    if (!signedIn || services.ai.session.isEmpty) return 'আগে Google দিয়ে লগইন করুন';
+    final subs = await services.billing.owned();
+    if (subs.isEmpty) return 'এই ফোনের Google Play অ্যাকাউন্টে কোনো প্রিমিয়াম কেনা পাওয়া যায়নি';
+    String? last;
+    for (final s in subs) {
+      last = await _verifyPlay(s);
+      if (last == null) return null;
+    }
+    return last;
+  }
+
+  /// At start in the Play app: a purchase not checked yet (or one Play still
+  /// waits to have acknowledged) goes to our server again.
+  Future<void> _playAtStart() async {
+    if (!playEdition || !signedIn || services.ai.session.isEmpty) return;
+    if (pro && proKind != playPending) {
+      final subs = await services.billing.owned();
+      for (final s in subs.where((s) => !s.acknowledged)) {
+        await _verifyPlay(s);
+      }
+      return;
+    }
+    for (final s in await services.billing.owned()) {
+      if (await _verifyPlay(s) == null) return;
+    }
+  }
+
+  /// A hash of the account, for Play's obfuscatedAccountId (never the email).
+  Future<String> _playAccount() async {
+    final h = await Sha256().hash(utf8.encode('my-assistant|${googleEmail.toLowerCase()}'));
+    return [for (final b in h.bytes) b.toRadixString(16).padLeft(2, '0')].join();
+  }
+
+  Future<String?> _verifyPlay(PlaySub s) async {
+    final r = await services.server.send('POST', '/play/verify', services.ai.session, {'product': s.product, 'token': s.token});
+    if (r.ok) {
+      final info = AccountInfo.fromJson(r.data);
+      final until = info.proUntil;
+      if (r.data['play_active'] == true && until != null && until.isAfter(services.now())) {
+        await _setPro(until, info.proKind.isEmpty ? 'play:${s.product}' : info.proKind);
+        await _applyServer(info);
+        return null;
+      }
+      await _applyServer(info);
+      return 'এই কেনার মেয়াদ শেষ বা ফেরত হয়েছে — Google Play-তে দেখুন';
+    }
+    if (r.status == 409) return 'এই কেনাটা অন্য একটা অ্যাকাউন্টের — সেই Google অ্যাকাউন্ট দিয়ে লগইন করুন';
+    if (r.status == 400) return 'Google এই কেনাটা চিনতে পারেনি';
+    if (r.status == 401) return r.error;
+    // Our server or Google could not answer now: Premium for 3 days, asked again at each start.
+    if (!pro) await _setPro(services.now().add(const Duration(days: 3)), playPending);
+    return null;
+  }
+
+  /// An internal test build's button: Premium for the plan's days on this phone only.
+  Future<void> activatePro(ProPlan plan) => _setPro(services.now().add(Duration(days: plan.days)), 'test');
 
   /// The preview's test switch.
   Future<void> setProForTest(bool on) => on ? _setPro(services.now().add(const Duration(days: 365)), 'test') : _setPro(null, '');
@@ -521,7 +619,8 @@ class Brain extends ChangeNotifier {
       return null;
     } on UpdateRequired catch (e) {
       // Signed in to Google, but our site wants a newer app first (its data here stays open).
-      updateUrl = e.url;
+      // The Play app is updated by Google Play, never from our website.
+      updateUrl = playEdition && !previewEdition ? 'https://play.google.com/store/apps/details?id=$appPackage' : e.url;
       notifyListeners();
       return trf('অ্যাপের নতুন সংস্করণ ({0}) এসেছে — আপডেট করে আবার লগইন করুন। ফোনে রাখা সব তথ্য আগের মতোই খোলা থাকবে।', [e.min]);
     } on GoogleError catch (e) {
@@ -584,7 +683,7 @@ class Brain extends ChangeNotifier {
     // too. Only a Google Play purchase on this phone ('play…') stands on its own.
     final until = info.proUntil;
     final live = until != null && until.isAfter(services.now()) ? until : null;
-    if (gated && !proKind.startsWith('play') && (live != proUntil || (live != null && proKind != info.proKind))) {
+    if (gated && proKind != 'test' && proKind != playPending && (live != proUntil || (live != null && proKind != info.proKind))) {
       await _setPro(live, live == null ? '' : info.proKind, announce: await _noPush());
     }
     notifyListeners();
@@ -654,7 +753,23 @@ class Brain extends ChangeNotifier {
       serverAi = false;
       await services.lock.keys.delete('srv_session');
       notifyListeners();
+      return;
     }
+    await _playAtStart();
+  }
+
+  /// Settings › Google › "অ্যাকাউন্ট মুছুন" (Google Play's rule): everything
+  /// our server keeps for the account goes (play.php/account-delete.php),
+  /// then this phone signs out. The data on the phone and the backup in the
+  /// user's own Drive stay — they are the user's. Null when done.
+  Future<String?> deleteMyAccount() async {
+    if (!signedIn) return 'আগে Google দিয়ে লগইন করুন';
+    if (services.ai.session.isEmpty) await refreshAccount(force: true);
+    final r = await services.server.send('POST', '/account/delete', services.ai.session);
+    if (!r.ok && r.status != 401) return r.error;
+    await signOutGoogle();
+    if (gated && proKind != 'test') await _setPro(null, '', announce: false);
+    return null;
   }
 
   /// Signs out: automatic Drive backup stops and its password is forgotten
@@ -1086,8 +1201,15 @@ class Brain extends ChangeNotifier {
       autoPlace = false;
       await services.lock.keys.write('auto_place', 'false');
     }
+    // Chosen by hand: kept while the phone stays near where it was chosen;
+    // gone far (another district, another country), the place follows the
+    // phone again (owner, 29 Oct: "নোয়াখালী থাকলে নোয়াখালী, ঢাকায় থাকলে ঢাকায়").
+    if (!auto) await _put('place_hold', 'pending');
     notifyListeners();
-    if (moved) await refreshWeather();
+    if (moved) {
+      await refreshWeather();
+      unawaited(refreshHolidaysAbroad().catchError((_) {}));
+    }
   }
 
   /// The district follows where the phone is (sunrise, prayer times,
@@ -1106,6 +1228,7 @@ class Brain extends ChangeNotifier {
   Future<void> setAutoPlace(bool on) async {
     autoPlace = on;
     await services.lock.keys.write('auto_place', on ? 'true' : 'false');
+    if (on) await _put('place_hold', '');
     notifyListeners();
     if (on) {
       await askPlacePermission();
@@ -1123,13 +1246,20 @@ class Brain extends ChangeNotifier {
     await LocationShareChannel.ask();
   }
 
+  /// The country the phone's network is in (tests replace it).
+  Future<String> Function() whereCountry = LocationShareChannel.country;
+
   /// The phone's location permission (tests replace it).
   Future<Map<String, bool>> Function() placeStatus = LocationShareChannel.status;
 
   /// Moves [district] to where the phone is now (at most every 10 minutes
   /// unless [force]). Returns the new place's name when it changed.
   Future<String?> refreshPlace({bool force = false}) async {
-    if (!autoPlace) return null;
+    String hold = '';
+    if (!autoPlace) {
+      hold = await services.lock.keys.read('place_hold') ?? '';
+      if (hold.isEmpty) return null;
+    }
     final now = services.now();
     final last = _placeCheckedAt;
     if (!force && last != null && now.difference(last).inMinutes < 10) return null;
@@ -1137,13 +1267,92 @@ class Brain extends ChangeNotifier {
     // No fix (location off, no permission yet): tried again next time.
     if (at == null) return null;
     _placeCheckedAt = now;
+    if (!autoPlace) {
+      // Chosen by hand: where the phone was then is remembered; more than
+      // [placeHoldKm] away now, following the phone starts again.
+      final f = hold.split(',');
+      final hLat = f.length == 2 ? double.tryParse(f[0]) : null, hLon = f.length == 2 ? double.tryParse(f[1]) : null;
+      if (hLat == null || hLon == null) {
+        await _put('place_hold', '${at.$1.toStringAsFixed(4)},${at.$2.toStringAsFixed(4)}');
+        return null;
+      }
+      if (kmBetween(at.$1, at.$2, hLat, hLon) <= placeHoldKm) return null;
+      autoPlace = true;
+      await services.lock.keys.write('auto_place', 'true');
+      await _put('place_hold', '');
+    }
     // Anywhere in the world (owner, 25 Oct): a district in Bangladesh, else
     // the place itself on the phone's own clock.
-    final here = placeAt(at.$1, at.$2, tzMinutes: now.timeZoneOffset.inMinutes);
+    var here = placeAt(at.$1, at.$2, tzMinutes: now.timeZoneOffset.inMinutes);
+    // Abroad with no big city near: the country from the phone's network.
+    if (here.abroad && here.cc.isEmpty) {
+      final cc = await whereCountry();
+      if (cc.isNotEmpty && cc != 'BD') here = Place(here.name, here.lat, here.lon, tz: here.tz, region: here.region, cc: cc);
+    }
     final was = placeNamed(district);
     if (here.name == was.name && here.tz == was.tz && kmBetween(here.lat, here.lon, was.lat, was.lon) < 5) return null;
     await setDistrict(here.key, auto: true);
     return here.name;
+  }
+
+  /// How far the phone must go from where a place was chosen by hand before
+  /// the place follows the phone again.
+  static const placeHoldKm = 40.0;
+
+  /// A place found by search, kept as a place: a district when it is in
+  /// Bangladesh, else that town on its own clock (asked from the weather
+  /// service; the phone's clock when offline).
+  Future<Place> placeFromHit(PlaceHit h) async {
+    final bd = nearestPlace(h.lat, h.lon);
+    if (bd != null && (h.countryCode.isEmpty || h.countryCode == 'BD')) return bd.$1;
+    final tz = await services.weather.offsetAt(h.lat, h.lon) ?? services.now().timeZoneOffset.inMinutes;
+    return Place(h.name, h.lat, h.lon, tz: tz, region: regionAt(h.lat, h.lon), cc: h.countryCode.toUpperCase());
+  }
+
+  /// The public holidays of the country the member is in, abroad (owner,
+  /// 29 Oct: "যে দেশে সে দেশের ছুটি"), from the next [count] ahead — kept on
+  /// the phone by country and year; empty when not known (yet).
+  List<AbroadHoliday> holidaysAbroad(DateTime now, {int count = 2}) {
+    final cc = placeNamed(district).country;
+    if (cc == 'BD' || cc.isEmpty) return const [];
+    final today = DateTime(now.year, now.month, now.day);
+    final all = <AbroadHoliday>[];
+    final kept = _holidayBook();
+    for (final y in [now.year, now.year + 1]) {
+      final l = kept['${cc}_$y'];
+      if (l is List) all.addAll(l.map(AbroadHoliday.fromJson).whereType<AbroadHoliday>());
+    }
+    all.sort((a, b) => a.date.compareTo(b.date));
+    return all.where((h) => !h.date.isBefore(today)).take(count).toList();
+  }
+
+  /// Fetches this year's (and, late in the year, next year's) holidays of
+  /// the country the member is in, when not kept yet.
+  Future<void> refreshHolidaysAbroad() async {
+    final cc = placeNamed(district).country;
+    if (cc == 'BD' || cc.isEmpty) return;
+    final now = services.now();
+    for (final y in [now.year, if (now.month >= 10) now.year + 1]) {
+      final k = '${cc}_$y';
+      if (_holidayBook().containsKey(k)) continue;
+      // The Gulf, Malaysia, Pakistan: worked out on the phone; the rest asked.
+      final got = builtInHolidays(cc, y, adjust: hijriShift) ?? await services.weather.holidays(cc, y);
+      if (got == null) continue;
+      final book = _holidayBook()..[k] = [for (final h in got) h.toJson()];
+      prefs['hol_abroad'] = jsonEncode(book);
+      await _put('hol_abroad', prefs['hol_abroad']!);
+      notifyListeners();
+    }
+  }
+
+  /// Holidays kept by "CC_year".
+  Map<String, Object?> _holidayBook() {
+    try {
+      final m = jsonDecode(text('hol_abroad', '{}'));
+      return m is Map ? m.cast<String, Object?>() : <String, Object?>{};
+    } catch (_) {
+      return <String, Object?>{};
+    }
   }
 
   /// Days the Hijri date is moved: the user's own choice, else +1 outside
@@ -1193,9 +1402,23 @@ class Brain extends ChangeNotifier {
   }
 
   Future<void> setEnglish(bool on) async {
+    final was = english;
     english = on;
     notifyListeners();
     await _put('lang', on ? 'en' : 'bn');
+    // The medicine reminders' names are written in the app's language: made
+    // again in the new one (owner, 29 Oct: English left Bangla behind).
+    if (was != on && data.medicines.isNotEmpty) {
+      final keep = isEn;
+      isEn = on;
+      try {
+        for (final m in [...data.medicines]) {
+          await saveMedicine(m);
+        }
+      } finally {
+        isEn = keep;
+      }
+    }
   }
 
   Future<void> setLetterSize(double v) async {
@@ -1432,7 +1655,7 @@ class Brain extends ChangeNotifier {
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly', 'n_quote', 'n_fix',
-    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'blood_last_unknown', 'blood_phone', 'blood_sync', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'zakat_gold_carat', 'zakat_gold_list', 'order_home_tools', 'order_doc_folders', 'order_projects', 'g_card_off', 'p_card_off', 'trace_on', 'trace_share', 'hc_on', 'hc_gone', 'steps_book',
+    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'blood_last_unknown', 'blood_phone', 'blood_sync', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'zakat_gold_carat', 'zakat_gold_list', 'order_home_tools', 'order_doc_folders', 'order_projects', 'hol_abroad', 'g_card_off', 'p_card_off', 'trace_on', 'trace_share', 'hc_on', 'hc_gone', 'steps_book',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';

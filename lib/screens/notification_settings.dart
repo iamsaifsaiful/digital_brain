@@ -6,6 +6,7 @@ import '../state/brain.dart';
 import '../ui/forms.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import '../logic/pro.dart' show medicalOff;
 
 /// সেটিংস › নোটিফিকেশন: every kind of note the assistant sends by itself,
 /// each with its own switch, and the two rules that keep them welcome —
@@ -76,7 +77,7 @@ class NotificationSettingsScreen extends StatelessWidget {
               SectionTitle(tr('কাজের কথা')),
               Panel(
                 child: Rows(children: [
-                  sw(Icons.tips_and_updates_outlined, tr('নিজে থেকে মনে করানো'), tr('পাওনা ৩০ দিন পার, বিলের শেষ দিন পরশু, কাগজের মেয়াদ, ওষুধ ফুরিয়ে আসা'), brain.nudgesOn,
+                  sw(Icons.tips_and_updates_outlined, tr('নিজে থেকে মনে করানো'), medicalOff ? tr('পাওনা ৩০ দিন পার, বিলের শেষ দিন পরশু, কাগজের মেয়াদ') : tr('পাওনা ৩০ দিন পার, বিলের শেষ দিন পরশু, কাগজের মেয়াদ, ওষুধ ফুরিয়ে আসা'), brain.nudgesOn,
                       (v) => brain.setPref('nudges_on', v)),
                   sw(Icons.local_fire_department_outlined, tr('অভ্যাসের ধারা'), tr('টানা কয়েক দিন করছেন, আজ টিক না দিলে রাত ৮টায় একবার'), brain.flag('n_streak', true),
                       (v) => brain.setPref('n_streak', v)),

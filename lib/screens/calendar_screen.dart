@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
 import '../logic/calendar_bd.dart';
+import '../services/weather.dart' show AbroadHoliday;
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
@@ -44,7 +45,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final nextStart = nextBanglaMonthStart(today);
     final toNext = nextStart.difference(today).inDays;
     final nextBd = banglaDate(nextStart);
-    final pickedHol = holidayOn(picked);
+    // Abroad: that country's holidays, not Bangladesh's (owner, 29 Oct).
+    final abroad = place.abroad;
+    final pickedHol = abroad ? null : holidayOn(picked);
+    final away = abroad ? brain.holidaysAbroad(today, count: 6) : const <AbroadHoliday>[];
     String t(DateTime d) => bnTime(d.hour, d.minute);
 
     Widget sunTile(IconData icon, Color c, String label, String value) => Expanded(
@@ -195,8 +199,40 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
-                child: Text(tr('সামনের সরকারি ছুটি'), style: body(13, weight: FontWeight.w600, color: C.muted)),
+                child: Text(abroad ? trf('সামনের ছুটি · {0}', [place.label]) : tr('সামনের সরকারি ছুটি'), style: body(13, weight: FontWeight.w600, color: C.muted)),
               ),
+              if (abroad && away.isEmpty)
+                Padding(padding: const EdgeInsets.fromLTRB(4, 0, 4, 8), child: Text(tr('এই দেশের ছুটির তালিকা এখনো আনা যায়নি — ইন্টারনেট চালু থাকলে নিজে আসবে।'), style: body(13, color: C.muted))),
+              if (abroad && away.isNotEmpty)
+                Container(
+                  key: const Key('cal-holidays-abroad'),
+                  decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16)),
+                  child: Column(children: [
+                    for (final (i, h) in away.indexed) ...[
+                      if (i > 0) Divider(height: 1, indent: 14, endIndent: 14, color: C.line),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                        child: Row(children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(color: C.roseTint, borderRadius: BorderRadius.circular(12)),
+                            child: Icon(Icons.flag_outlined, color: _red, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(h.name, style: body(15, weight: FontWeight.w600)),
+                              Text('${bnDigits(h.date.day)} ${monthName(h.date.month)} · ${weekdayName(h.date)}${h.local.isNotEmpty && h.local != h.name ? ' · ${h.local}' : ''}', style: body(12.5, color: C.muted)),
+                            ]),
+                          ),
+                          Text(_inDays(h.date.difference(today).inDays), style: body(12.5, weight: FontWeight.w600, color: _red)),
+                        ]),
+                      ),
+                    ],
+                  ]),
+                ),
+              if (!abroad)
               Container(
                 decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16)),
                 child: Column(children: [
@@ -215,7 +251,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         Expanded(
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Text(r.label, style: body(15, weight: FontWeight.w600)),
-                            Text('${holidayRange(r)}${r.days > 1 ? ' · টানা ${bnDigits(r.days)} দিন' : ' · ${weekdayName(r.start)}'}', style: body(12.5, color: C.muted)),
+                            Text('${holidayRange(r)}${r.days > 1 ? ' · ${trf('টানা {0} দিন', [bnDigits(r.days)])}' : ' · ${weekdayName(r.start)}'}', style: body(12.5, color: C.muted)),
                           ]),
                         ),
                         Text(_inDays(r.start.difference(today).inDays), style: body(12.5, weight: FontWeight.w600, color: _red)),
@@ -321,7 +357,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final isToday = d == today;
     final busy = itemsOn(brain.data, d, brain.services.now()).isNotEmpty;
     final isPicked = d == picked && !isToday;
-    final hol = holidayOn(d) != null;
+    final place = placeNamed(brain.district);
+    final hol = place.abroad ? brain.holidaysAbroad(d, count: 1).any((h) => h.date == d) : holidayOn(d) != null;
     final weekend = isWeekend(d);
     final bg = isToday ? C.green : (hol ? C.roseTint : Colors.transparent);
     final fg = isToday ? C.onAccent : (hol || weekend ? _red : C.ink);
@@ -353,7 +390,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Future<void> _dayDetails(DateTime d) async {
     final brain = BrainScope.read(context);
     final now = brain.services.now();
-    final hol = holidayOn(d);
+    final hol = placeNamed(brain.district).abroad ? null : holidayOn(d);
     final hj = hijriDate(d, adjust: brain.hijriShift);
     final past = d.isBefore(dayOnly(now));
     await showAppSheet<void>(
