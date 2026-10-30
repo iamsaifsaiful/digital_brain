@@ -1,0 +1,216 @@
+{
+ "seed": 7,
+ "total": 46528,
+ "train": 41166,
+ "dev": 5362,
+ "families": 1420,
+ "template_families": 212,
+ "kinds": {
+  "single": 32904,
+  "context": 2971,
+  "multi_numbered": 875,
+  "multi": 2625,
+  "long": 3000,
+  "headed": 1800,
+  "exit": 782,
+  "crowd": 1571
+ },
+ "states": {
+  "idle": 42867,
+  "confirm_delete": 507,
+  "confirm_save": 342,
+  "confirm_batch": 935,
+  "await_time": 345,
+  "await_ampm": 103,
+  "await_new_value": 356,
+  "await_person": 318,
+  "await_kind": 86,
+  "pick_one": 286,
+  "clarify": 130,
+  "dictating_list": 253
+ },
+ "noise": {
+  "join": 773,
+  "ascii_digits": 2767,
+  "filler": 7042,
+  "filler_end": 3483,
+  "no_punct": 2940,
+  "region": 1172,
+  "stt": 3287
+ },
+ "regions": {
+  "নোয়াখালী": 315,
+  "বরিশাল": 251,
+  "চট্টগ্রাম": 243,
+  "সিলেট": 171,
+  "ময়মনসিংহ": 169,
+  "রাজশাহী": 23
+ },
+ "per_intent": {
+  "cash_add": 9567,
+  "task_add": 8075,
+  "reminder_add": 4990,
+  "ledger_add": 4881,
+  "task_edit": 2617,
+  "note_add": 2224,
+  "task_done": 2155,
+  "task_delete": 2071,
+  "ledger_set": 1986,
+  "reminder_edit": 1534,
+  "task_remind": 1501,
+  "rename": 1104,
+  "reminder_delete": 1028,
+  "cash_query": 1014,
+  "task_query": 981,
+  "ledger_query": 970,
+  "health_add": 924,
+  "reminder_stop": 894,
+  "correct": 882,
+  "item_delete": 814,
+  "inform": 726,
+  "reminder_query": 671,
+  "select": 625,
+  "call": 597,
+  "open_page": 580,
+  "contact_add": 554,
+  "special_add": 549,
+  "menu_people": 500,
+  "contact_query": 492,
+  "menu_project": 484,
+  "special_query": 469,
+  "task_skip_once": 400,
+  "task_reopen": 397,
+  "menu_cash": 378,
+  "menu_habit": 365,
+  "complain_help": 353,
+  "menu_accounts": 346,
+  "menu_savings": 345,
+  "menu_shop": 307,
+  "confirm_yes": 306,
+  "dictate_start": 286,
+  "menu_special": 209,
+  "note_query": 165,
+  "doc_query": 159,
+  "menu_zakat": 121,
+  "cancel": 120,
+  "reminder_snooze": 108,
+  "calendar_query": 108,
+  "menu_health": 108,
+  "vault_query": 96,
+  "out_of_scope": 94,
+  "menu_medicine": 86,
+  "vault_add": 72,
+  "confirm_no": 67,
+  "smalltalk": 60,
+  "memory_add": 54,
+  "profile_query": 54,
+  "menu_notes": 52,
+  "menu_alarm": 50,
+  "briefing": 41,
+  "menu_backup": 40,
+  "menu_memory": 38,
+  "menu_installment": 36,
+  "menu_settings": 26,
+  "menu_trash": 20,
+  "dictate_end": 18
+ },
+ "missing_intents": [],
+ "dropped_gold": 247,
+ "dropped_gold_kinds": {
+  "exact": 135,
+  "near": 112
+ },
+ "gold_sentences": 6961,
+ "conflicts": 0,
+ "pairs": [
+  {
+   "pair": "প্রশ্ন বনাম রাখা",
+   "a": "ledger_query",
+   "a_n": 970,
+   "b": "ledger_add",
+   "b_n": 2814
+  },
+  {
+   "pair": "হয়ে গেছে / হবে / হয়নি",
+   "a": "ledger_add",
+   "a_n": 2814,
+   "b": "task_add",
+   "b_n": 3144
+  },
+  {
+   "pair": "কাজ বনাম রিমাইন্ডার",
+   "a": "task_add",
+   "a_n": 3144,
+   "b": "reminder_add",
+   "b_n": 2342
+  },
+  {
+   "pair": "ধার বনাম নিজের খরচ",
+   "a": "ledger_add",
+   "a_n": 2814,
+   "b": "cash_add",
+   "b_n": 3430
+  },
+  {
+   "pair": "নোট বনাম টাকার হিসাব",
+   "a": "ledger_add",
+   "a_n": 2814,
+   "b": "note_add",
+   "b_n": 911
+  },
+  {
+   "pair": "তালিকা দেখা বনাম লেখা",
+   "a": "task_query",
+   "a_n": 981,
+   "b": "dictate_start",
+   "b_n": 286
+  },
+  {
+   "pair": "বাকিতে মাল দেওয়া বনাম বাকি আদায়",
+   "a": "menu_shop",
+   "a_n": 307,
+   "b": "ledger_add",
+   "b_n": 2814
+  },
+  {
+   "pair": "\"সরাও\": দিন বদল বনাম মোছা",
+   "a": "task_edit",
+   "a_n": 1260,
+   "b": "task_delete",
+   "b_n": 1361
+  },
+  {
+   "pair": "রিমাইন্ডার বদল বনাম নতুন",
+   "a": "reminder_edit",
+   "a_n": 895,
+   "b": "reminder_add",
+   "b_n": 2342
+  },
+  {
+   "pair": "নাম বদল বনাম দিন বদল",
+   "a": "rename",
+   "a_n": 1104,
+   "b": "task_edit",
+   "b_n": 1260
+  },
+  {
+   "pair": "বন্ধ বনাম মোছা",
+   "a": "reminder_stop",
+   "a_n": 894,
+   "b": "reminder_delete",
+   "b_n": 1028
+  },
+  {
+   "pair": "অভিযোগ বনাম সংশোধন",
+   "a": "complain_help",
+   "a_n": 353,
+   "b": "correct",
+   "b_n": 882
+  }
+ ],
+ "sources": {
+  "template": 44957,
+  "crowd": 1571
+ },
+ "cost_usd": 0.0
+}
