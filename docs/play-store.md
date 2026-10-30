@@ -230,6 +230,8 @@ Almost everything is free. Premium adds AI answers, no ads, automatic backup, mo
 
 **Category:** Productivity। **Website:** `https://getmyassistant.app`
 
+**ট্যাগ:** Clock alarm & timer, Notebook, Password manager, Personal assistant, Productivity। **Personal finance ট্যাগ দেবেন না।** ৩০ অক্টোবর Health ঘোষণা ঠিক করার পরেও এই ট্যাগ থাকায় আবার প্রত্যাখ্যান হয়েছিল (অর্গানাইজেশন অ্যাকাউন্টের শর্ত)। ট্যাগ সরানোর পর ১০:৩২-এর জমা Published।
+
 ---
 
 ## ৯. ব্যক্তিগত না অর্গানাইজেশন অ্যাকাউন্ট
