@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData, HapticFeedback;
 import '../ui/widgets.dart';
 
 import '../logic/dictation.dart';
@@ -1099,12 +1100,24 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     _focus.requestFocus();
   }
 
+  /// Press and hold a message to copy it (owner, 31 Oct): the words, and an
+  /// answer's list of things found. Never a vault item's secret — only its
+  /// name is in the chat.
+  Future<void> _copy(ChatMessage m) async {
+    final t = [m.text.trim(), for (final (i, f) in m.facts.indexed) '${bnDigits(i + 1)}. $f'].where((x) => x.isNotEmpty).join('\n');
+    if (t.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: t));
+    HapticFeedback.selectionClick();
+    if (mounted) toast(context, tr('কপি হয়েছে'));
+  }
+
   Widget _message(ChatMessage m) {
     if (m.fromUser) {
       return Align(
         alignment: Alignment.centerRight,
         child: GestureDetector(
           onTap: () => _editAgain(m.text),
+          onLongPress: () => _copy(m),
           child: Container(
           margin: const EdgeInsets.only(top: 6, bottom: 8, left: 56),
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
@@ -1125,7 +1138,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
     if (m.info) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(38, 2, 8, 6),
-        child: Text(m.text, style: body(13, color: C.muted, height: 1.4)),
+        child: GestureDetector(onLongPress: () => _copy(m), child: Text(m.text, style: body(13, color: C.muted, height: 1.4))),
       );
     }
     return Padding(
@@ -1143,9 +1156,14 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   Widget _reply(ChatMessage m) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 3),
-            child: Text(m.text, style: body(16, height: 1.5)),
+          GestureDetector(
+            key: const Key('reply-copy'),
+            behavior: HitTestBehavior.opaque,
+            onLongPress: () => _copy(m),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Text(m.text, style: body(16, height: 1.5)),
+            ),
           ),
           if (m.facts.isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -1466,7 +1484,10 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
             ] else if (_listening && _live.isNotEmpty)
               Text(_live, textAlign: TextAlign.center, style: body(20, weight: FontWeight.w500, height: 1.5))
             else if (lastUser >= 0 && !_listening) ...[
-              Text('“${msgs[lastUser].text}”', textAlign: TextAlign.center, style: body(16, color: C.muted, height: 1.5)),
+              GestureDetector(
+                onLongPress: () => _copy(msgs[lastUser]),
+                child: Text('“${msgs[lastUser].text}”', textAlign: TextAlign.center, style: body(16, color: C.muted, height: 1.5)),
+              ),
               Center(
                 child: TextButton.icon(
                   onPressed: () => _editAgain(msgs[lastUser].text),
@@ -1480,17 +1501,23 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
                 if (m.info)
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
-                    child: Text(m.text, textAlign: TextAlign.center, style: body(13, color: C.muted, height: 1.4)),
+                    child: GestureDetector(onLongPress: () => _copy(m), child: Text(m.text, textAlign: TextAlign.center, style: body(13, color: C.muted, height: 1.4))),
                   )
                 else ...[
                   const SizedBox(height: 8),
-                  Text(m.text, textAlign: TextAlign.center, style: body(18, weight: FontWeight.w500, height: 1.5)),
-                  if (m.facts.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text([for (final (i, f) in m.facts.indexed) '${bnDigits(i + 1)}. $f'].join('\n'),
-                          textAlign: TextAlign.center, style: body(15, color: C.muted2, height: 1.6)),
-                    ),
+                  GestureDetector(
+                    key: const Key('voice-reply-copy'),
+                    onLongPress: () => _copy(m),
+                    child: Column(children: [
+                      Text(m.text, textAlign: TextAlign.center, style: body(18, weight: FontWeight.w500, height: 1.5)),
+                      if (m.facts.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text([for (final (i, f) in m.facts.indexed) '${bnDigits(i + 1)}. $f'].join('\n'),
+                              textAlign: TextAlign.center, style: body(15, color: C.muted2, height: 1.6)),
+                        ),
+                    ]),
+                  ),
                   for (final v in m.vault.take(4))
                     Center(
                       child: TextButton.icon(
