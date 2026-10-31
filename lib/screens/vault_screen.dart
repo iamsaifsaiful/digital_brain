@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../ui/secure.dart';
 
 import '../logic/bn.dart';
 import '../logic/parser.dart';
@@ -33,7 +34,9 @@ class _VaultScreenState extends State<VaultScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => SecureView(child: _secretBuild(context));
+
+  Widget _secretBuild(BuildContext context) {
     final brain = BrainScope.of(context);
     final all = [...brain.data.vault]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     final stale = {for (final v in stalePasswords(brain.data, brain.services.now())) v.id};

@@ -3,6 +3,7 @@
 // is locked, backed up and — when chosen — goes to the heirs with the notes.
 // Writing it is premium; one already written can always be read.
 import 'package:flutter/material.dart';
+import '../ui/secure.dart';
 
 import '../logic/bn.dart';
 import '../logic/lang.dart';
@@ -102,7 +103,9 @@ class _WillScreenState extends State<WillScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => SecureView(child: _secretBuild(context));
+
+  Widget _secretBuild(BuildContext context) {
     final brain = BrainScope.of(context);
     final w = willOf(brain.data);
     return Scaffold(

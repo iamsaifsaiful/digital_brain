@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../ui/secure.dart';
 
 import '../logic/bn.dart';
 import '../services/lock.dart';
@@ -268,7 +269,9 @@ class _LockScreenState extends State<LockScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => SecureView(child: _secretBuild(context));
+
+  Widget _secretBuild(BuildContext context) {
     final title = switch (_mode) {
       _Mode.create => tr('একটি ৪ অঙ্কের PIN ঠিক করুন'),
       _Mode.confirm => tr('PIN টি আবার দিন'),

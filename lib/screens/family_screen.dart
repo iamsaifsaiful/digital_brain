@@ -2,6 +2,7 @@
 // you, send them to-dos, reminders, medicine reminders and notes, see where
 // they are (if they allow), and heirs (lib/state/family_state.dart).
 import 'dart:typed_data';
+import '../ui/secure.dart';
 
 import 'package:flutter/material.dart';
 
@@ -761,7 +762,9 @@ class HeirViewScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => SecureView(child: _secretBuild(context));
+
+  Widget _secretBuild(BuildContext context) {
     final d = AppData.fromJson(data);
     final parts = [for (final p in (data['parts'] as List? ?? const [])) '$p'];
     final at = DateTime.tryParse('${data['at'] ?? ''}')?.toLocal();

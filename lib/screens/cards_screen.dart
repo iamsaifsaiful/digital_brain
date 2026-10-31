@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../ui/secure.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -168,7 +169,9 @@ class CardsScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => SecureView(child: _secretBuild(context));
+
+  Widget _secretBuild(BuildContext context) {
     final brain = BrainScope.of(context);
     final cards = [...brain.data.cards]..sort((a, b) => a.bank.compareTo(b.bank));
     return Scaffold(
@@ -248,7 +251,9 @@ class _CardDetailScreenState extends State<CardDetailScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => SecureView(child: _secretBuild(context));
+
+  Widget _secretBuild(BuildContext context) {
     final brain = BrainScope.of(context);
     final c = brain.data.cards.where((x) => x.id == widget.id).firstOrNull;
     if (c == null) return Scaffold(body: SafeArea(child: Column(children: [TopBar(title: tr('পাওয়া যায়নি'))])));
@@ -427,7 +432,9 @@ class _CardFormScreenState extends State<CardFormScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => SecureView(child: _secretBuild(context));
+
+  Widget _secretBuild(BuildContext context) {
     final preview = BankCard(bank: _bank.text.trim().isEmpty ? tr('ব্যাংকের নাম') : _bank.text.trim(), kind: _kind, number: _digits, holder: _holder.text, expiry: _expiry.text, color: _color, company: _company);
     final detected = BankCard.networkOf(_digits);
     Widget photoRow(String label, DocFile? f, bool front) => Panel(

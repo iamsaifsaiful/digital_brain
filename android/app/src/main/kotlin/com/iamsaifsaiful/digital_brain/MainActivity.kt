@@ -26,10 +26,12 @@ import io.flutter.plugin.common.MethodChannel
 
 /**
  * FlutterFragmentActivity is needed by local_auth (fingerprint dialog).
- * FLAG_SECURE keeps passwords out of screenshots, screen recordings and the
- * recent-apps preview. Only the test app (".preview", installed beside the
- * real one for testing) allows screenshots, so problems can be shown; the
- * real app and the Play Store app always block them.
+ * FLAG_SECURE keeps secrets out of screenshots, screen recordings and the
+ * recent-apps preview — only while a secret page is open (owner, 31 Oct:
+ * not every page): the "my_assistant/secure" channel turns it on and off
+ * (lib/ui/secure.dart — vault, PIN, will, health, medicines, documents,
+ * cards). The app starts with it on, until Flutter says which page is open.
+ * The test app (".preview") never blocks, so problems can be shown.
  *
  * The "my_assistant/files" channel saves a backup file where the user
  * chooses (Download, Drive folder…) through Android's own save dialog.
@@ -704,6 +706,15 @@ class MainActivity : FlutterFragmentActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         io.flutter.plugin.common.EventChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/compass").setStreamHandler(Compass(this))
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/secure").setMethodCallHandler { call, result ->
+            if (call.method != "set") return@setMethodCallHandler result.notImplemented()
+            val on = call.arguments as? Boolean ?: true
+            if (!packageName.endsWith(".preview")) runOnUiThread {
+                if (on) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            }
+            result.success(null)
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/ocr").setMethodCallHandler { call, result -> TextReader.handle(call, result, cacheDir) }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/alarm").setMethodCallHandler { call, result ->
             alarmChannel(call, result)

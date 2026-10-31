@@ -1,4 +1,5 @@
 import 'health_connect_screen.dart';
+import '../ui/secure.dart';
 import '../logic/health_connect.dart' show hcTag;
 import 'package:flutter/material.dart';
 
@@ -45,7 +46,9 @@ class _HealthScreenState extends State<HealthScreen> {
   void _push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => SecureView(child: _secretBuild(context));
+
+  Widget _secretBuild(BuildContext context) {
     final brain = BrainScope.of(context);
     final d = brain.data;
     final now = brain.services.now();
@@ -532,7 +535,9 @@ class HealthKindScreen extends StatelessWidget {
   final HealthKind kind;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => SecureView(child: _secretBuild(context));
+
+  Widget _secretBuild(BuildContext context) {
     final brain = BrainScope.of(context);
     final all = readings(brain.data, member, kind);
     final now = brain.services.now();
@@ -659,7 +664,9 @@ class VaccineScreen extends StatelessWidget {
   final String member;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => SecureView(child: _secretBuild(context));
+
+  Widget _secretBuild(BuildContext context) {
     final brain = BrainScope.of(context);
     final m = brain.personById(member);
     final now = brain.services.now();
@@ -711,7 +718,9 @@ class DoctorSummaryScreen extends StatelessWidget {
   final String member;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => SecureView(child: _secretBuild(context));
+
+  Widget _secretBuild(BuildContext context) {
     final brain = BrainScope.of(context);
     final m = brain.personById(member);
     final text = doctorSummary(brain.data, m.isMe ? m.copyWith(name: brain.userName.isEmpty ? m.name : brain.userName) : m, brain.services.now());

@@ -27,6 +27,7 @@ import 'services/phonebook.dart';
 import 'services/voice.dart';
 import 'state/brain.dart';
 import 'nlu/samples.dart' show nluAppVersion;
+import 'ui/secure.dart' show SecureScreens;
 import 'screens/more_screen.dart' show shownVersion;
 
 Future<void> main() async {
@@ -77,4 +78,7 @@ Future<void> main() async {
   nluAppVersion = shownVersion;
   runApp(DigitalBrainApp(brain: brain));
   await brain.load();
+  // The window starts blocked from screenshots; once the first page is up,
+  // only secret pages block them (lib/ui/secure.dart).
+  WidgetsBinding.instance.addPostFrameCallback((_) => SecureScreens.ready());
 }

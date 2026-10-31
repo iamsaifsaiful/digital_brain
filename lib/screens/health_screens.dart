@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../ui/secure.dart';
 
 import '../logic/bn.dart';
 import '../logic/lang.dart';
@@ -201,7 +202,9 @@ class MedicinesScreen extends StatelessWidget {
   final String member;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => SecureView(child: _secretBuild(context));
+
+  Widget _secretBuild(BuildContext context) {
     final brain = BrainScope.of(context);
     final now = brain.services.now();
     final me = member == FamilyMember.meId;

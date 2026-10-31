@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'widgets.dart';
+import 'secure.dart';
 
 import '../logic/bn.dart';
 import '../services/lock.dart';
@@ -26,6 +27,19 @@ class PinPad extends StatefulWidget {
 class _PinPadState extends State<PinPad> {
   String _pin = '';
   bool _busy = false;
+
+  // A PIN pad on screen blocks screenshots (lib/ui/secure.dart).
+  @override
+  void initState() {
+    super.initState();
+    SecureScreens.enter();
+  }
+
+  @override
+  void dispose() {
+    SecureScreens.leave();
+    super.dispose();
+  }
 
   void _clear() {
     if (mounted) setState(() => _pin = '');
