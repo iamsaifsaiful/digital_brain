@@ -52,6 +52,29 @@ function ma_pay_plans() {
 }
 
 /**
+ * What the website sells (owner, 1 Nov): bKash is paid by hand each time, so
+ * only the yearly plan — one Send Money a year. The monthly plan stays for
+ * Google Play (play.php) and the settings page; the website never offers it.
+ */
+function ma_pay_web_plans() {
+    return ['yearly' => ma_pay_plans()['yearly']];
+}
+
+/** What Premium adds, short, for the buy page (kept the same as lib/logic/pro.dart › proInfo). */
+function ma_pay_pro_points() {
+    return [
+        'যত খুশি রিমাইন্ডার, ডকুমেন্ট আর পাসওয়ার্ড',
+        'অন্যান্য হিসাব যত খুশি — বাড়ি, বিয়ে, ব্যবসা',
+        'নোটে ওছিয়তনামা, শেষ বদলের তারিখসহ',
+        'ফ্যামিলি: উত্তরাধিকারী, পুরো অ্যাক্সেস, লাইভ লোকেশন',
+        'Google Drive-এ নিজে থেকে ব্যাকআপ',
+        'সবকিছু PDF-এ — ডাউনলোড, শেয়ার, প্রিন্ট',
+        'AI উত্তর — লম্বা, এলোমেলো কথাও বোঝে',
+        'কোনো বিজ্ঞাপন নেই',
+    ];
+}
+
+/**
  * Payment methods, one per line on the settings page: "name | number | how".
  * e.g. "বিকাশ | 01XXXXXXXXX | Send Money (পার্সোনাল)".
  */
@@ -104,15 +127,12 @@ function ma_pay_color($name) {
 
 function ma_pay_form($atts = []) {
     $a = shortcode_atts(['nav' => 'yes', 'head' => 'yes'], $atts, 'my_assistant_payment');
-    $plans = ma_pay_plans();
+    $plans = ma_pay_web_plans();
     $methods = ma_pay_methods();
     $state = isset($_GET['ma_pay']) ? sanitize_key($_GET['ma_pay']) : '';
-    $want = isset($_GET['plan']) ? sanitize_key($_GET['plan']) : '';
-    $chosen = isset($plans[$want]) ? $want : 'yearly';
-    if (!isset($plans[$chosen])) {
-        $chosen = array_key_first($plans);
-    }
-    $save = max(0, $plans['monthly']['price'] * 12 - $plans['yearly']['price']);
+    $chosen = 'yearly';
+    $price = ma_acc_bn($plans['yearly']['price']);
+    $tick = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>';
     $icon = plugins_url('assets/icon.svg', __FILE__);
     $home = home_url('/');
     $lock = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
@@ -159,6 +179,24 @@ function ma_pay_form($atts = []) {
     .ma-pay .plan .price{display:block;margin-top:4px;font-family:'Anek Bangla','Noto Sans Bengali',sans-serif;font-size:38px;font-weight:700}
     .ma-pay .plan .price small{font-size:16px;font-weight:500;color:var(--mut)}
     .ma-pay .plan .ps{display:block;font-size:14px;color:var(--mut)}
+    .ma-pay .one{margin-top:20px;border:1.5px solid var(--g);background:var(--gt);border-radius:20px;padding:22px}
+    .ma-pay .one .top2{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+    .ma-pay .one .price{font-family:'Anek Bangla','Noto Sans Bengali',sans-serif;font-size:44px;font-weight:700;line-height:1}
+    .ma-pay .one .price small{font-size:17px;font-weight:500;color:var(--mut)}
+    .ma-pay .one .pm{font-size:15px;color:var(--mut);padding-bottom:4px}
+    .ma-pay .one ul{list-style:none;margin:16px 0 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px}
+    .ma-pay .one li{display:flex;gap:8px;font-size:15px;line-height:1.5;margin:0}
+    .ma-pay .one li svg{flex:none;color:var(--g);margin-top:2px}
+    .ma-pay .note{margin-top:16px;font-size:15px;line-height:1.7}
+    .ma-pay .note b{color:var(--ink)}
+    .ma-pay .faq h3{font-size:22px;font-weight:700;font-stretch:90%}
+    .ma-pay .faq details{border-top:1px solid var(--line);padding:14px 0}
+    .ma-pay .faq details:first-of-type{margin-top:12px}
+    .ma-pay .faq summary{cursor:pointer;font-weight:600;font-size:16px;list-style:none}
+    .ma-pay .faq summary::-webkit-details-marker{display:none}
+    .ma-pay .faq summary::after{content:"+";float:right;color:var(--mut);font-weight:400}
+    .ma-pay .faq details[open] summary::after{content:"−"}
+    .ma-pay .faq details p{margin-top:8px;font-size:15px;line-height:1.7;color:var(--mut)}
     .ma-pay .methods{margin-top:20px;display:grid;gap:12px}
     .ma-pay .method .card{display:grid;grid-template-columns:52px 1fr auto;gap:16px;align-items:center;padding:14px 56px 14px 16px;position:relative}
     .ma-pay .method .radio{top:50%;margin-top:-11px;right:18px}
@@ -203,6 +241,8 @@ function ma_pay_form($atts = []) {
       .ma-pay .head h1{font-size:38px}
       .ma-pay .layout{grid-template-columns:1fr}
       .ma-pay .plans{grid-template-columns:1fr}
+      .ma-pay .one ul{grid-template-columns:1fr}
+      .ma-pay .one .price{font-size:38px}
       .ma-pay .method .card{grid-template-columns:44px 1fr;padding-right:52px}
       .ma-pay .method .copy{grid-column:2;justify-self:start}
       .ma-pay .logo{width:44px;height:44px;font-size:12.5px}
@@ -235,7 +275,7 @@ function ma_pay_form($atts = []) {
     <?php if ($a['head'] !== 'no') : ?>
     <div class="wrap head">
         <h1>প্রিমিয়াম কিনুন</h1>
-        <p>নিচের নম্বরে টাকা পাঠিয়ে তথ্য জমা দিন। তথ্য সরাসরি আমাদের সার্ভারে আসে — পেমেন্ট মিলিয়ে আমরা আপনার Google অ্যাকাউন্টে প্রিমিয়াম চালু করি, বেশির ভাগ সময় সাথে সাথেই।</p>
+        <p>বছরে একবার ৳<?php echo esc_html($price); ?> বিকাশে Send Money করে তথ্য জমা দিন। পেমেন্ট মিলিয়ে আমরা আপনার Google অ্যাকাউন্টে এক বছরের প্রিমিয়াম চালু করি — বেশির ভাগ সময় সাথে সাথেই। নিজে থেকে কোনো টাকা কাটে না।</p>
     </div>
     <?php endif; ?>
 
@@ -247,17 +287,16 @@ function ma_pay_form($atts = []) {
 
         <div>
             <div class="box">
-                <p class="label"><span class="n">১</span>প্ল্যান বেছে নিন</p>
-                <div class="plans">
-                    <?php foreach ($plans as $key => $pl) : ?>
-                        <label class="opt plan"><input type="radio" name="plan" value="<?php echo esc_attr($key); ?>" <?php checked($key === $chosen); ?> data-price="<?php echo esc_attr(ma_acc_bn($pl['price'])); ?>" data-label="<?php echo esc_attr($pl['label']); ?>" required><span class="card"><span class="radio"></span>
-                            <?php if ($key === 'yearly' && $save > 0) : ?><span class="tag">বছরে ৳<?php echo esc_html(ma_acc_bn($save)); ?> সাশ্রয়</span><?php endif; ?>
-                            <span class="nm"><?php echo esc_html($pl['label']); ?></span>
-                            <span class="price">৳<?php echo esc_html(ma_acc_bn($pl['price'])); ?><small> / <?php echo esc_html(ma_acc_bn($pl['days'])); ?> দিন</small></span>
-                            <span class="ps"><?php echo $key === 'yearly' ? 'মাসে ৳' . esc_html(ma_acc_bn((int) round($pl['price'] / 12))) . '-এর মতো' : 'একবার চেখে দেখতে'; ?></span>
-                        </span></label>
-                    <?php endforeach; ?>
+                <p class="label"><span class="n">১</span>প্রিমিয়াম · এক বছর</p>
+                <input type="hidden" name="plan" value="yearly">
+                <div class="one">
+                    <div class="top2"><span class="price">৳<?php echo esc_html($price); ?><small> / বছর</small></span><span class="pm">মাসে ৳<?php echo esc_html(ma_acc_bn((int) round($plans['yearly']['price'] / 12))); ?>-এর মতো · <?php echo esc_html(ma_acc_bn($plans['yearly']['days'])); ?> দিন</span></div>
+                    <ul>
+                        <?php foreach (ma_pay_pro_points() as $pt) : ?><li><?php echo $tick; ?><span><?php echo esc_html($pt); ?></span></li><?php endforeach; ?>
+                    </ul>
                 </div>
+                <p class="note"><b>প্রতিটা মিলে যাওয়া পেমেন্টে এক বছর যোগ হয়।</b> নিজে থেকে নবায়ন হয় না, কিছু কাটেও না — মেয়াদ শেষে চাইলে আবার পেমেন্ট দেবেন। মেয়াদ থাকতেই দিলে বাকি দিনের সাথে যোগ হয়।</p>
+                <p class="sub">প্রিমিয়াম ছাড়াও অ্যাপের বেশির ভাগ সুবিধা ফ্রি — কাজ, রিমাইন্ডার, হিসাব, নোট, ক্যালেন্ডার, যাকাত, রক্তদান।</p>
             </div>
 
             <div class="box">
@@ -272,7 +311,7 @@ function ma_pay_form($atts = []) {
                         </span></label>
                     <?php $first = false; endforeach; ?>
                 </div>
-                <p class="tip">অ্যাপ থেকে <b>Send Money</b> করুন। টাকা পাঠানোর পর যে মেসেজ আসে, সেখানে <b>ট্রানজেকশন আইডি (TrxID)</b> থাকে — সেটা পাশের ফর্মে লাগবে।</p>
+                <p class="tip">বিকাশ অ্যাপ থেকে ঠিক <b>৳<?php echo esc_html($price); ?> Send Money</b> করুন (Payment নয়)। টাকা পাঠানোর পর যে মেসেজ আসে, সেখানে <b>ট্রানজেকশন আইডি (TrxID)</b> থাকে — সেটা ফর্মে লাগবে।</p>
             </div>
 
             <div class="box after">
@@ -282,6 +321,15 @@ function ma_pay_form($atts = []) {
                     <li><span class="n">খ</span><div><b>অ্যাপে প্রিমিয়াম চলে আসে</b>একই Google অ্যাকাউন্টে লগইন থাকলেই হবে। ফোনে নোটিফিকেশন আর ইমেইলেও জানাই।</div></li>
                     <li><span class="n">গ</span><div><b>না মিললে জানাই</b>কেন মেলেনি ইমেইলে লিখে দিই; উত্তর দিলেই আবার দেখি।</div></li>
                 </ol>
+            </div>
+
+            <div class="box faq">
+                <h3>প্রশ্ন ও উত্তর</h3>
+                <details><summary>মাসিক প্ল্যান নেই কেন?</summary><p>বিকাশে প্রতিবার নিজে হাতে টাকা পাঠাতে হয়। প্রতি মাসে পাঠানো ঝামেলা, তাই বছরে একবার — মাসে পড়ে ৳<?php echo esc_html(ma_acc_bn((int) round($plans['yearly']['price'] / 12))); ?>-এর মতো।</p></details>
+                <details><summary>নিজে থেকে নবায়ন হয়?</summary><p>না। এক বছর শেষে প্রিমিয়াম বন্ধ হয়, আপনার সব তথ্য থেকে যায়। চাইলে আবার পেমেন্ট দিলে আবার চালু হয়।</p></details>
+                <details><summary>ফ্রি সংস্করণে কী থাকে?</summary><p>মুখে বলে কাজ, রিমাইন্ডার, অ্যালার্ম, আয়-ব্যয়, ধার-দেনা, নোট, ক্যালেন্ডার, নামাজের সময়, যাকাত, রক্তদান — বেশির ভাগই ফ্রি। প্রিমিয়ামে সীমা ওঠে আর উপরের বাড়তি সুবিধাগুলো আসে।</p></details>
+                <details><summary>কোন অ্যাকাউন্টে চালু হবে?</summary><p>ফর্মে যে Google ইমেইল দেবেন, সেটাতে। অ্যাপে ওই ইমেইলে লগইন থাকলেই প্রিমিয়াম দেখাবে — নতুন ফোনেও।</p></details>
+                <details><summary>টাকা ফেরত হয়?</summary><p>না, কেনার পর টাকা ফেরত হয় না। ভুল নম্বরে পাঠালে বা টাকা না মিললে info@getmyassistant.app-এ লিখুন।</p></details>
             </div>
         </div>
 
@@ -295,7 +343,7 @@ function ma_pay_form($atts = []) {
             <label class="field">নাম<input type="text" name="name" maxlength="190" autocomplete="name" placeholder="আপনার নাম"></label>
             <label class="field">মোবাইল (ঐচ্ছিক)<input type="tel" name="phone" maxlength="32" autocomplete="tel" placeholder="যোগাযোগের নম্বর"></label>
             <label class="field">কিছু বলার থাকলে (ঐচ্ছিক)<textarea name="note" maxlength="500"></textarea></label>
-            <div class="sumline"><span id="ma-pay-sum-label"><?php echo esc_html($plans[$chosen]['label']); ?> প্রিমিয়াম</span><b id="ma-pay-sum-price">৳<?php echo esc_html(ma_acc_bn($plans[$chosen]['price'])); ?></b></div>
+            <div class="sumline"><span>প্রিমিয়াম · এক বছর</span><b>৳<?php echo esc_html($price); ?></b></div>
             <button class="submit" type="submit">তথ্য জমা দিন</button>
             <p class="secure"><?php echo $lock; ?><span>আমরা কখনো আপনার PIN, OTP বা পাসওয়ার্ড চাই না। একই TrxID দুবার জমা দেওয়া যায় না। জমা দিয়ে আপনি <a href="<?php echo esc_url(home_url('/terms-and-conditions/')); ?>">শর্তাবলি</a> মেনে নিচ্ছেন — কেনার পর টাকা ফেরত হয় না।</span></p>
         </div>
@@ -364,7 +412,7 @@ function ma_pay_submit() {
     }
     set_transient($rl, $n + 1, HOUR_IN_SECONDS);
 
-    $plans = ma_pay_plans();
+    $plans = ma_pay_web_plans(); // the website sells the yearly plan only (owner, 1 Nov)
     $methods = ma_pay_methods();
     $plan = sanitize_key($_POST['plan'] ?? '');
     $method = sanitize_key(wp_unslash($_POST['method'] ?? ''));

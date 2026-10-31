@@ -1,0 +1,142 @@
+<!-- My Assistant — শর্তাবলি — Elementor HTML উইজেটে পুরোটা পেস্ট করুন -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anek+Bangla:wdth,wght@75..100,400..800&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+.ma-lg{--g:#0B6B55;--gd:#084D3D;--gt:#E6F2EE;--ink:#10201B;--mut:#4A5752;--line:#DDE5E1;--ground:#F4F6F5;--amber:#F5B83D;
+background:#fff;color:var(--ink);font-family:'Noto Sans Bengali',sans-serif;font-size:16px;line-height:1.5;text-align:left}
+.ma-lg,.ma-lg *{box-sizing:border-box}
+.ma-lg h1,.ma-lg h2,.ma-lg h3{font-family:'Anek Bangla','Noto Sans Bengali',sans-serif;color:inherit;text-transform:none;margin:0;padding:0;border:0;letter-spacing:0}
+.ma-lg p,.ma-lg ul,.ma-lg ol{margin:0;padding:0}
+.ma-lg a{color:inherit;text-decoration:none;box-shadow:none}
+.ma-lg img{border:0;box-shadow:none;border-radius:0;max-width:100%}
+.ma-lg .wrap{max-width:1040px;margin:0 auto;padding:0 40px}
+.ma-lg nav{border-bottom:1px solid var(--line);background:#fff}
+.ma-lg nav .wrap{display:flex;align-items:center;gap:20px;height:72px}
+.ma-lg .brand{display:flex;align-items:center;gap:12px;font-family:'Anek Bangla','Noto Sans Bengali',sans-serif;font-weight:700;font-size:21px}
+.ma-lg .brand img{width:38px;height:38px}
+.ma-lg nav .r{margin-left:auto;display:flex;gap:22px;font-size:15.5px;color:var(--mut)}
+.ma-lg nav .r a.on{color:var(--g);font-weight:600}
+.ma-lg .head{background:var(--ground);padding:56px 0 44px}
+.ma-lg .eyebrow{font-size:15px;font-weight:600;color:var(--g)}
+.ma-lg .head h1{margin-top:8px;font-size:52px;line-height:1.1;font-weight:700;font-stretch:86%}
+.ma-lg .head .lead{margin-top:14px;font-size:18.5px;line-height:1.75;color:var(--mut);max-width:720px}
+.ma-lg .meta{margin-top:18px;font-size:14.5px;color:var(--mut)}
+.ma-lg .body{display:grid;grid-template-columns:240px 1fr;gap:56px;padding:48px 40px 80px;align-items:start}
+.ma-lg .toc{position:sticky;top:24px;font-size:14.5px;line-height:1.5}
+.ma-lg .toc b{display:block;font-size:13.5px;color:var(--mut);margin-bottom:10px}
+.ma-lg .toc ol{list-style:none;display:grid;gap:8px;counter-reset:t}
+.ma-lg .toc li{counter-increment:t;display:grid;grid-template-columns:30px 1fr;color:var(--mut)}
+.ma-lg .toc li::before{content:counter(t,bengali) ".";color:var(--g);font-weight:600}
+.ma-lg .sum{background:var(--gt);border-radius:22px;padding:26px 28px;margin-bottom:40px}
+.ma-lg .sum h2{font-size:24px;font-weight:700;font-stretch:90%;color:var(--gd)}
+.ma-lg .sum ul{margin-top:12px;list-style:none;display:grid;gap:10px}
+.ma-lg .sum li{display:grid;grid-template-columns:26px 1fr;font-size:16.5px;line-height:1.65;color:var(--gd)}
+.ma-lg .sum li::before{content:"✓";font-weight:700}
+.ma-lg .warn{background:#FFF6E0;border:1px solid #F3DCA2;border-radius:22px;padding:24px 28px;margin-bottom:40px}
+.ma-lg .warn h2{font-size:23px;font-weight:700;font-stretch:90%;color:#6B4200}
+.ma-lg .warn ul{margin-top:12px;list-style:none;display:grid;gap:10px}
+.ma-lg .warn li{display:grid;grid-template-columns:26px 1fr;font-size:16.5px;line-height:1.65;color:#5A3800}
+.ma-lg .warn li::before{content:"!";font-weight:700;color:#B26A00}
+.ma-lg section{padding:0;margin:0 0 40px;scroll-margin-top:24px}
+.ma-lg section h2{font-size:28px;font-weight:700;font-stretch:90%;line-height:1.25;display:flex;gap:12px;align-items:baseline}
+.ma-lg section h2 .n{color:var(--g);font-size:22px}
+.ma-lg section h3{margin-top:22px;font-size:19px;font-weight:700}
+.ma-lg section p{margin-top:12px;font-size:16.5px;line-height:1.85;color:#26332F}
+.ma-lg section ul{margin-top:12px;list-style:none;display:grid;gap:9px}
+.ma-lg section li{position:relative;padding-left:22px;font-size:16.5px;line-height:1.75;color:#26332F}
+.ma-lg section li::before{content:"";position:absolute;left:4px;top:.75em;width:7px;height:7px;border-radius:50%;background:var(--g)}
+.ma-lg section li b,.ma-lg section p b{color:var(--ink)}
+.ma-lg .tbl{margin-top:16px;border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.ma-lg .row{display:grid;grid-template-columns:200px 1fr;border-bottom:1px solid var(--line)}
+.ma-lg .row:last-child{border-bottom:0}
+.ma-lg .row>div{padding:14px 18px;font-size:15.5px;line-height:1.7}
+.ma-lg .row>div:first-child{background:var(--ground);font-weight:600}
+.ma-lg .contact{background:var(--ink);color:#fff;border-radius:22px;padding:28px}
+.ma-lg .contact h2{font-size:26px;font-weight:700;font-stretch:90%}
+.ma-lg .contact p{margin-top:8px;color:#B9C6C1;font-size:16px;line-height:1.7}
+.ma-lg .contact a.mail{display:inline-block;margin-top:14px;background:#fff;color:var(--gd);border-radius:999px;padding:11px 22px;font-weight:700}
+.ma-lg footer{border-top:1px solid var(--line);padding:30px 0;font-size:14.5px;color:var(--mut)}
+.ma-lg footer .wrap{display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+.ma-lg footer .r{margin-left:auto;display:flex;gap:22px;flex-wrap:wrap}
+@media (max-width:760px){
+.ma-lg .wrap{padding:0 16px}
+.ma-lg nav .r{display:none}
+.ma-lg .head{padding:36px 0 30px}
+.ma-lg .head h1{font-size:36px}
+.ma-lg .head .lead{font-size:17px}
+.ma-lg .body{grid-template-columns:1fr;gap:28px;padding:28px 16px 56px}
+.ma-lg .toc{position:static;background:var(--ground);border-radius:18px;padding:18px}
+.ma-lg .sum,.ma-lg .warn,.ma-lg .contact{padding:20px}
+.ma-lg section h2{font-size:23px}
+.ma-lg .row{grid-template-columns:1fr}
+.ma-lg footer .r{margin-left:0}
+}
+</style>
+<div class="ma-lg">
+<nav><div class="wrap"><a class="brand" href="/"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDggMTA4Ij48cmVjdCB3aWR0aD0iMTA4IiBoZWlnaHQ9IjEwOCIgcng9IjI2IiBmaWxsPSIjMEI2QjU1Ii8+PHBhdGggZD0iTTQyLjM5NzM3MDE3MzEwMjUyIDU2LjA2NzI0MzY3NTA5OTg3UTQyLjM5NzM3MDE3MzEwMjUyIDU3LjYxMzE4MjQyMzQzNTQyIDQxLjk2NTk0NTQwNjEyNTE2IDU4LjkwNzQ1NjcyNDM2NzUwNlE0NC4yMzA5MjU0MzI3NTYzMiA1OS4wNTEyNjQ5ODAwMjY2MyA0NS4zMDk0ODczNTAxOTk3MyA2MC42MzMxNTU3OTIyNzY5NjZWNDcuNDAyNzk2MjcxNjM3ODFIMTkuMjQ0MjQxMDExOTg0MDE2VjQzLjM3NjE2NTExMzE4MjQyNEg1My43NTgyMjIzNzAxNzMwOTRRNTQuOTQ0NjQwNDc5MzYwODUgNDMuMzc2MTY1MTEzMTgyNDI0IDU1LjU1NTgyNTU2NTkxMjExIDQ0LjU5ODUzNTI4NjI4NDk2UTU1LjE5NjMwNDkyNjc2NDMwNiA0Mi42NTcxMjM4MzQ4ODY4MiA1NS4xOTYzMDQ5MjY3NjQzMDYgNDEuMTQ3MTM3MTUwNDY2MDQ0VjQwLjVINjAuMDQ5ODMzNTU1MjU5NjQ2VjQzLjM3NjE2NTExMzE4MjQyNEg2My4xMDU3NTg5ODgwMTU5N1Y0Ny40MDI3OTYyNzE2Mzc4MUg2MC4wNDk4MzM1NTUyNTk2NDZWNjcuNUg1NS4wMTY1NDQ2MDcxOTA0MDRWNDkuNjMxODI0MjM0MzU0MlE1NS4wMTY1NDQ2MDcxOTA0MDQgNDguMjI5NjkzNzQxNjc3NzY0IDU0LjYzOTA0NzkzNjA4NTIxIDQ3LjgxNjI0NTAwNjY1Nzc5UTU0LjI2MTU1MTI2NDk4MDAyIDQ3LjQwMjc5NjI3MTYzNzgxIDUzLjExMTA4NTIxOTcwNzA1IDQ3LjQwMjc5NjI3MTYzNzgxSDUwLjM0Mjc3NjI5ODI2ODk3VjY3LjVINDUuMzA5NDg3MzUwMTk5NzNRNDUuMzA5NDg3MzUwMTk5NzMgNjIuOTM0MDg3ODgyODIyOSA0MC45MjMzMzU1NTI1OTY1MzQgNjIuOTM0MDg3ODgyODIyOUgzOS40MTMzNDg4NjgxNzU3NlEzNi41NzMxMzU4MTg5MDgxMSA2NS40ODY2ODQ0MjA3NzIzIDMyLjMzMDc5MjI3Njk2NDA1IDY1LjQ4NjY4NDQyMDc3MjNRMjcuNDQxMzExNTg0NTUzOTIyIDY1LjQ4NjY4NDQyMDc3MjMgMjQuMzY3NDEwMTE5ODQwMjEgNjIuNjEwNTE5MzA3NTg5ODhRMjEuMjkzNTA4NjU1MTI2NDk0IDU5LjczNDM1NDE5NDQwNzQ2IDIxLjI5MzUwODY1NTEyNjQ5NCA1My45ODIwMjM5NjgwNDI2MVEyMS4yOTM1MDg2NTUxMjY0OTQgNTIuNDcyMDM3MjgzNjIxODQgMjEuNTA5MjIxMDM4NjE1MTczIDUwLjgxODI0MjM0MzU0MTk0SDI2LjM2Mjc0OTY2NzExMDUxM1EyNi4xMTEwODUyMTk3MDcwNSA1Mi40NzIwMzcyODM2MjE4NCAyNi4xMTEwODUyMTk3MDcwNSA1NC4wNTM5MjgwOTU4NzIxNjZRMjYuMTExMDg1MjE5NzA3MDUgNTcuNjEzMTgyNDIzNDM1NDIgMjcuNzgyODU2MTkxNzQ0MzM3IDU5LjM5MjgwOTU4NzIxNzA0NVEyOS40NTQ2MjcxNjM3ODE2MiA2MS4xNzI0MzY3NTA5OTg2NyAzMi4xODY5ODQwMjEzMDQ5MiA2MS4xNzI0MzY3NTA5OTg2N1EzNC43Mzk1ODA1NTkyNTQzMiA2MS4xNzI0MzY3NTA5OTg2NyAzNi4wNTE4MzA4OTIxNDM4MDUgNTkuNjgwNDI2MDk4NTM1Mjg1UTM3LjM2NDA4MTIyNTAzMzI5IDU4LjE4ODQxNTQ0NjA3MTkgMzcuMzY0MDgxMjI1MDMzMjkgNTUuOTU5Mzg3NDgzMzU1NTNRMzcuMzY0MDgxMjI1MDMzMjkgNTQuNTkzMjA5MDU0NTkzODcgMzYuODYwNzUyMzMwMjI2MzYgNTMuNzMwMzU5NTIwNjM5MTVRMzYuMzU3NDIzNDM1NDE5NDM1IDUyLjg2NzUwOTk4NjY4NDQyNSAzNS4zNTA3NjU2NDU4MDU1OSA1Mi44Njc1MDk5ODY2ODQ0MjVRMzQuNDg3OTE2MTExODUwODYgNTIuODY3NTA5OTg2Njg0NDI1IDM0LjAwMjU2MzI0OTAwMTMzIDUzLjQ5NjY3MTEwNTE5MzA4UTMzLjUxNzIxMDM4NjE1MTc5IDU0LjEyNTgzMjIyMzcwMTczNSAzMy41MTcyMTAzODYxNTE3OSA1NS4xMzI0OTAwMTMzMTU1NzVRMzMuNTE3MjEwMzg2MTUxNzkgNTYuMTAzMTk1NzM5MDE0NjUgMzMuOTEyNjgzMDg5MjE0Mzc2IDU3LjIxNzcwOTcyMDM3Mjg0SDI5LjU5ODQzNTQxOTQ0MDc0UTI5LjAyMzIwMjM5NjgwNDI2IDU1Ljk5NTMzOTU0NzI3MDMwNSAyOS4wMjMyMDIzOTY4MDQyNiA1NC40NDk0MDA3OTg5MzQ3NTRRMjkuMDIzMjAyMzk2ODA0MjYgNTEuODYwODUyMTk3MDcwNTcgMzAuNjk0OTczMzY4ODQxNTQgNTAuMzUwODY1NTEyNjQ5OFEzMi4zNjY3NDQzNDA4Nzg4MjQgNDguODQwODc4ODI4MjI5MDIgMzUuMTM1MDUzMjYyMzE2OSA0OC44NDA4Nzg4MjgyMjkwMlEzOC40MDY2OTEwNzg1NjE5MSA0OC44NDA4Nzg4MjgyMjkwMiA0MC40MDIwMzA2MjU4MzIyMiA1MC44OTAxNDY0NzEzNzE1UTQyLjM5NzM3MDE3MzEwMjUyIDUyLjkzOTQxNDExNDUxMzk4IDQyLjM5NzM3MDE3MzEwMjUyIDU2LjA2NzI0MzY3NTA5OTg3WiIgZmlsbD0iI0ZGRkZGRiIvPjxwYXRoIGQ9Ik03MS44ODEsNDcuMjUwIGgwLjAwMCBhMi4yOTUsMi4yOTUgMCAwIDEgMi4yOTUsMi4yOTUgdjguOTEwIGEyLjI5NSwyLjI5NSAwIDAgMSAtMi4yOTUsMi4yOTUgaC0wLjAwMCBhMi4yOTUsMi4yOTUgMCAwIDEgLTIuMjk1LC0yLjI5NSB2LTguOTEwIGEyLjI5NSwyLjI5NSAwIDAgMSAyLjI5NSwtMi4yOTUgeiBNNzkuMTcxLDQxLjE3NSBoMC4wMDAgYTIuMjk1LDIuMjk1IDAgMCAxIDIuMjk1LDIuMjk1IHYyMS4wNjAgYTIuMjk1LDIuMjk1IDAgMCAxIC0yLjI5NSwyLjI5NSBoLTAuMDAwIGEyLjI5NSwyLjI5NSAwIDAgMSAtMi4yOTUsLTIuMjk1IHYtMjEuMDYwIGEyLjI5NSwyLjI5NSAwIDAgMSAyLjI5NSwtMi4yOTUgeiBNODYuNDYxLDQ5LjE0MCBoMC4wMDAgYTIuMjk1LDIuMjk1IDAgMCAxIDIuMjk1LDIuMjk1IHY1LjEzMCBhMi4yOTUsMi4yOTUgMCAwIDEgLTIuMjk1LDIuMjk1IGgtMC4wMDAgYTIuMjk1LDIuMjk1IDAgMCAxIC0yLjI5NSwtMi4yOTUgdi01LjEzMCBhMi4yOTUsMi4yOTUgMCAwIDEgMi4yOTUsLTIuMjk1IHoiIGZpbGw9IiNGNUI4M0QiLz48L3N2Zz4=" alt="">My Assistant</a>
+<div class="r"><a href="/">মূল পাতা</a><a href="/buy-pro/">প্রিমিয়াম কিনুন</a><a href="/privacy-policy/">গোপনীয়তা নীতি</a><a href="/terms-and-conditions/" class="on">শর্তাবলি</a></div></div></nav>
+<header class="head"><div class="wrap">
+<p class="eyebrow">ব্যবহারের নিয়ম</p><h1>শর্তাবলি</h1><p class="lead">My Assistant ব্যবহার করলে বা প্রিমিয়াম কিনলে আপনি নিচের শর্তগুলো মেনে নিচ্ছেন। পড়ে নিন — বিশেষ করে টাকা ফেরত আর ডিভাইসের নিয়ম।</p>
+<p class="meta">সর্বশেষ হালনাগাদ: ১ নভেম্বর ২০২৬ · My Assistant (getmyassistant.app)</p>
+</div></header>
+<div class="wrap body">
+<aside class="toc"><b>এই পাতায়</b><ol><li><a href="#s1">শর্ত মেনে নেওয়া</a></li><li><a href="#s2">সেবা কী, আর কী নয়</a></li><li><a href="#s3">অ্যাকাউন্ট</a></li><li><a href="#s4">এক অ্যাকাউন্ট, এক ফোন</a></li><li><a href="#s5">প্রিমিয়াম ও পেমেন্ট</a></li><li><a href="#s6">টাকা ফেরত নেই</a></li><li><a href="#s7">যা করা যাবে না</a></li><li><a href="#s8">রক্তদান</a></li><li><a href="#s9">আপনার তথ্যের দায়িত্ব</a></li><li><a href="#s10">সেবায় পরিবর্তন ও দায়ের সীমা</a></li><li><a href="#s11">প্রযোজ্য আইন</a></li><li><a href="#s12">শর্তে পরিবর্তন</a></li></ol></aside>
+<main>
+<div class="warn"><h2>আগে জেনে নিন</h2><ul><li><span>প্রিমিয়াম কেনার পর <b>কোনো অবস্থাতেই টাকা ফেরত দেওয়া হয় না।</b></span></li><li><span>একটা Google অ্যাকাউন্ট (Gmail) দিয়ে <b>একই সময়ে একটাই ফোনে</b> লগইন করা যায়।</span></li><li><span>একাধিক ফোনে একসাথে লগইন বা অ্যাকাউন্ট শেয়ার করলে <b>অ্যাকাউন্ট ব্যান হয়ে যায়</b>, টাকা ফেরত ছাড়া।</span></li><li><span>ভুয়া বা অন্যের ট্রানজেকশন আইডি দিলে প্রিমিয়াম বাতিল ও অ্যাকাউন্ট বন্ধ হয়।</span></li></ul></div>
+<section id="s1"><h2><span class="n">১.</span>শর্ত মেনে নেওয়া</h2><p>অ্যাপ ইনস্টল, লগইন বা প্রিমিয়াম কেনার মাধ্যমে আপনি এই শর্তাবলি আর আমাদের <a href="/privacy-policy/"><b>গোপনীয়তা নীতি</b></a> মেনে নিচ্ছেন। না মানলে অ্যাপটি ব্যবহার করবেন না।</p></section>
+<section id="s2"><h2><span class="n">২.</span>সেবা কী, আর কী নয়</h2><p>My Assistant একটি ব্যক্তিগত সহকারী অ্যাপ — মুখে বলে বা লিখে হিসাব, কাজ, রিমাইন্ডার, নোট, ডকুমেন্ট আর পরিবারের স্বাস্থ্যের তথ্য গুছিয়ে রাখতে সাহায্য করে।</p>
+<ul>
+<li>সহকারী কথা বুঝতে ভুল করতে পারে। গুরুত্বপূর্ণ হিসাব, ওষুধের মাত্রা বা সময় নিজে একবার মিলিয়ে নিন।</li>
+<li>অ্যাপের কোনো তথ্য বা উত্তর <b>চিকিৎসা, আইনি বা আর্থিক পরামর্শ নয়।</b> অসুস্থতায় ডাক্তারের পরামর্শ নিন।</li>
+<li>নামাজ, সেহরি-ইফতার আর সূর্যোদয়-সূর্যাস্তের সময় হিসাব করে বের করা — স্থানীয় ঘোষণার সাথে সামান্য পার্থক্য থাকতে পারে।</li>
+<li>ইন্টারনেট, ফোনের সেটিংস (যেমন ব্যাটারি সেভার) বা ফোন বন্ধ থাকার কারণে রিমাইন্ডার দেরিতে বা না বাজলে তার দায় আমাদের নয়।</li>
+</ul></section>
+<section id="s3"><h2><span class="n">৩.</span>অ্যাকাউন্ট</h2><ul>
+<li>লগইন হয় আপনার Google অ্যাকাউন্ট দিয়ে। অ্যাকাউন্টের নিরাপত্তা আর সেখানে যা হয়, তার দায়িত্ব আপনার।</li>
+<li>অ্যাপটি ব্যবহার করতে আপনার বয়স অন্তত ১৩ বছর হতে হবে।</li>
+<li>অ্যাকাউন্ট ব্যক্তিগত — বিক্রি, ভাড়া বা হস্তান্তর করা যায় না।</li>
+</ul></section>
+<section id="s4"><h2><span class="n">৪.</span>এক অ্যাকাউন্ট, এক ফোন</h2><p>প্রতিটি অ্যাকাউন্ট একজন মানুষের, একটি ফোনের জন্য।</p>
+<ul>
+<li>একই Gmail দিয়ে <b>একই সময়ে একাধিক ফোন, ট্যাবলেট বা ডিভাইসে লগইন করা যায় না।</b></li>
+<li>ফোন বদলালে নতুন ফোনে লগইন করুন — আগের ফোন থেকে অ্যাকাউন্ট বের হয়ে যাবে, আর ব্যাকআপ থেকে সব তথ্য নতুন ফোনে ফিরে আসবে।</li>
+<li>একসাথে একাধিক ডিভাইসে ব্যবহার, অন্যকে অ্যাকাউন্ট দেওয়া, বা এই নিয়ম এড়ানোর চেষ্টা করলে <b>অ্যাকাউন্ট সাময়িক বা স্থায়ীভাবে ব্যান করা হবে।</b> ব্যান হলে প্রিমিয়াম-র বাকি মেয়াদের কোনো টাকা ফেরত দেওয়া হয় না।</li>
+</ul></section>
+<section id="s5"><h2><span class="n">৫.</span>প্রিমিয়াম ও পেমেন্ট</h2><ul>
+<li>ওয়েবসাইট থেকে প্রিমিয়ামের দাম বার্ষিক ৳৯৯৯ (৩৬৫ দিন), বিকাশে বছরে একবার; নিজে থেকে নবায়ন হয় না, কিছু কাটে না। Google Play-র অ্যাপে Google Play-র মাধ্যমেও কেনা যায় — সেখানে দাম, নবায়ন আর বাতিল Google Play-র নিয়মে। দাম বদলাতে পারে; চলতি মেয়াদে তার প্রভাব পড়ে না।</li>
+<li>ওয়েবসাইটে পেমেন্ট হয় বিকাশে, প্রিমিয়াম কিনুন পাতায় দেওয়া নম্বরে Send Money করে। অন্য নম্বরে পাঠানো টাকার দায় আমাদের নয়।</li>
+<li>তথ্য জমা দিলে আমরা পেমেন্ট মিলিয়ে প্রিমিয়াম চালু করি — বেশির ভাগ সময় সাথে সাথেই। পরে যদি দেখা যায় পেমেন্ট মেলেনি, অঙ্ক কম, বা ট্রানজেকশন আইডি ভুয়া, অন্যের বা আগে ব্যবহৃত — তাহলে প্রিমিয়াম বন্ধ করা হয়।</li>
+<li>মেয়াদ নিজে থেকে নবায়ন হয় না, আর অ্যাকাউন্ট থেকে কখনো নিজে থেকে টাকা কাটা হয় না।</li>
+<li>মেয়াদ শেষ হলে অ্যাপ ফ্রি সংস্করণে ফিরে যায়; আপনার তথ্য যেমন আছে থাকে।</li>
+</ul></section>
+<section id="s6"><h2><span class="n">৬.</span>টাকা ফেরত নেই</h2><p><b>প্রিমিয়াম কেনার পর কোনো অবস্থাতেই টাকা ফেরত দেওয়া হয় না</b> — যেমন:</p>
+<ul>
+<li>মেয়াদের মাঝখানে ব্যবহার বন্ধ করলে বা একেবারেই ব্যবহার না করলে</li>
+<li>ভুল প্ল্যান (মাসিক/বার্ষিক) কিনলে</li>
+<li>ফোন হারালে, বদলালে বা অ্যাপ মুছে ফেললে</li>
+<li>এই শর্ত ভাঙার কারণে অ্যাকাউন্ট ব্যান বা বন্ধ হলে</li>
+</ul>
+<p>তাই কেনার আগে ফ্রি সংস্করণ ব্যবহার করে দেখে নিন — বেশির ভাগ সুবিধা ফ্রিতেই আছে।</p></section>
+<section id="s7"><h2><span class="n">৭.</span>যা করা যাবে না</h2><ul>
+<li>ভুয়া, অন্যের বা চুরি করা ট্রানজেকশন আইডি দিয়ে প্রিমিয়াম নেওয়া</li>
+<li>রক্তদানের সুবিধায় ভুয়া অনুরোধ দেওয়া, দাতাদের হয়রানি করা, বা রক্তের বিনিময়ে টাকা চাওয়া</li>
+<li>AI সহকারী দিয়ে বেআইনি, ক্ষতিকর বা অন্যকে হয়রানির কাজ করানো</li>
+<li>অ্যাপ বা সার্ভার ভাঙার, কপি করার, রিভার্স ইঞ্জিনিয়ারিং বা অতিরিক্ত অনুরোধ পাঠিয়ে সেবা বাধাগ্রস্ত করার চেষ্টা</li>
+<li>অ্যাপ বা এর অংশ নিজের নামে বিক্রি বা বিতরণ করা</li>
+</ul>
+<p>এর যেকোনোটা করলে কোনো নোটিশ ছাড়াই, টাকা ফেরত ছাড়া অ্যাকাউন্ট বন্ধ করা হতে পারে।</p></section>
+<section id="s8"><h2><span class="n">৮.</span>রক্তদান</h2><p>রক্তদানের সুবিধা শুধু দাতা আর গ্রহীতাকে যোগাযোগ করিয়ে দেয়। রক্তের গ্রুপ মেলানো, দাতার সুস্থতা আর রক্ত পরীক্ষা হাসপাতাল ও সংশ্লিষ্টদের দায়িত্ব। দাতা-গ্রহীতার মধ্যে যা ঘটে, তার দায় আমাদের নয়। রক্ত কেনা-বেচা সম্পূর্ণ নিষেধ।</p></section>
+<section id="s9"><h2><span class="n">৯.</span>আপনার তথ্যের দায়িত্ব</h2><p>আপনার বেশির ভাগ তথ্য আপনার ফোনেই থাকে। নিয়মিত Google Drive-এ ব্যাকআপ রাখুন। ব্যাকআপ না থাকা অবস্থায় ফোন হারালে, নষ্ট হলে বা অ্যাপ মুছলে তথ্য ফেরত আনা সম্ভব নাও হতে পারে — আমরা আপনার ফোনের তথ্য দেখতে বা ফিরিয়ে দিতে পারি না।</p></section>
+<section id="s10"><h2><span class="n">১০.</span>সেবায় পরিবর্তন ও দায়ের সীমা</h2><ul>
+<li>আমরা যেকোনো সময় সুবিধা যোগ, বদল বা বন্ধ করতে পারি। প্রিমিয়াম-র কোনো মূল সুবিধা স্থায়ীভাবে বন্ধ হলে আগে জানানোর চেষ্টা করব।</li>
+<li>অ্যাপটি “যেমন আছে” ভিত্তিতে দেওয়া হয়। আইনের অনুমতি সাপেক্ষে, অ্যাপ ব্যবহারের কারণে কোনো পরোক্ষ ক্ষতি, তথ্য হারানো বা আর্থিক ক্ষতির দায় আমাদের নয়।</li>
+</ul></section>
+<section id="s11"><h2><span class="n">১১.</span>প্রযোজ্য আইন</h2><p>এই শর্তাবলি বাংলাদেশের আইন অনুযায়ী পরিচালিত হবে। কোনো বিরোধ হলে আগে আলোচনার মাধ্যমে মেটানোর চেষ্টা করা হবে।</p></section>
+<section id="s12"><h2><span class="n">১২.</span>শর্তে পরিবর্তন</h2><p>প্রয়োজনে এই শর্তাবলি বদলাতে পারে। পরিবর্তনের পরেও অ্যাপ ব্যবহার করলে আপনি নতুন শর্ত মেনে নিচ্ছেন বলে ধরা হবে। ওপরে “সর্বশেষ হালনাগাদ” তারিখ দেখে নিন।</p></section>
+<div class="contact"><h2>প্রশ্ন থাকলে লিখুন</h2><p>এই শর্তাবলি নিয়ে কিছু জানতে চাইলে, বা আপনার তথ্য দেখতে, ঠিক করতে বা মুছতে চাইলে আমাদের ইমেইল করুন।</p><a class="mail" href="mailto:info@getmyassistant.app">info@getmyassistant.app</a></div>
+</main>
+</div>
+<footer><div class="wrap"><span class="brand" style="font-size:17px"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDggMTA4Ij48cmVjdCB3aWR0aD0iMTA4IiBoZWlnaHQ9IjEwOCIgcng9IjI2IiBmaWxsPSIjMEI2QjU1Ii8+PHBhdGggZD0iTTQyLjM5NzM3MDE3MzEwMjUyIDU2LjA2NzI0MzY3NTA5OTg3UTQyLjM5NzM3MDE3MzEwMjUyIDU3LjYxMzE4MjQyMzQzNTQyIDQxLjk2NTk0NTQwNjEyNTE2IDU4LjkwNzQ1NjcyNDM2NzUwNlE0NC4yMzA5MjU0MzI3NTYzMiA1OS4wNTEyNjQ5ODAwMjY2MyA0NS4zMDk0ODczNTAxOTk3MyA2MC42MzMxNTU3OTIyNzY5NjZWNDcuNDAyNzk2MjcxNjM3ODFIMTkuMjQ0MjQxMDExOTg0MDE2VjQzLjM3NjE2NTExMzE4MjQyNEg1My43NTgyMjIzNzAxNzMwOTRRNTQuOTQ0NjQwNDc5MzYwODUgNDMuMzc2MTY1MTEzMTgyNDI0IDU1LjU1NTgyNTU2NTkxMjExIDQ0LjU5ODUzNTI4NjI4NDk2UTU1LjE5NjMwNDkyNjc2NDMwNiA0Mi42NTcxMjM4MzQ4ODY4MiA1NS4xOTYzMDQ5MjY3NjQzMDYgNDEuMTQ3MTM3MTUwNDY2MDQ0VjQwLjVINjAuMDQ5ODMzNTU1MjU5NjQ2VjQzLjM3NjE2NTExMzE4MjQyNEg2My4xMDU3NTg5ODgwMTU5N1Y0Ny40MDI3OTYyNzE2Mzc4MUg2MC4wNDk4MzM1NTUyNTk2NDZWNjcuNUg1NS4wMTY1NDQ2MDcxOTA0MDRWNDkuNjMxODI0MjM0MzU0MlE1NS4wMTY1NDQ2MDcxOTA0MDQgNDguMjI5NjkzNzQxNjc3NzY0IDU0LjYzOTA0NzkzNjA4NTIxIDQ3LjgxNjI0NTAwNjY1Nzc5UTU0LjI2MTU1MTI2NDk4MDAyIDQ3LjQwMjc5NjI3MTYzNzgxIDUzLjExMTA4NTIxOTcwNzA1IDQ3LjQwMjc5NjI3MTYzNzgxSDUwLjM0Mjc3NjI5ODI2ODk3VjY3LjVINDUuMzA5NDg3MzUwMTk5NzNRNDUuMzA5NDg3MzUwMTk5NzMgNjIuOTM0MDg3ODgyODIyOSA0MC45MjMzMzU1NTI1OTY1MzQgNjIuOTM0MDg3ODgyODIyOUgzOS40MTMzNDg4NjgxNzU3NlEzNi41NzMxMzU4MTg5MDgxMSA2NS40ODY2ODQ0MjA3NzIzIDMyLjMzMDc5MjI3Njk2NDA1IDY1LjQ4NjY4NDQyMDc3MjNRMjcuNDQxMzExNTg0NTUzOTIyIDY1LjQ4NjY4NDQyMDc3MjMgMjQuMzY3NDEwMTE5ODQwMjEgNjIuNjEwNTE5MzA3NTg5ODhRMjEuMjkzNTA4NjU1MTI2NDk0IDU5LjczNDM1NDE5NDQwNzQ2IDIxLjI5MzUwODY1NTEyNjQ5NCA1My45ODIwMjM5NjgwNDI2MVEyMS4yOTM1MDg2NTUxMjY0OTQgNTIuNDcyMDM3MjgzNjIxODQgMjEuNTA5MjIxMDM4NjE1MTczIDUwLjgxODI0MjM0MzU0MTk0SDI2LjM2Mjc0OTY2NzExMDUxM1EyNi4xMTEwODUyMTk3MDcwNSA1Mi40NzIwMzcyODM2MjE4NCAyNi4xMTEwODUyMTk3MDcwNSA1NC4wNTM5MjgwOTU4NzIxNjZRMjYuMTExMDg1MjE5NzA3MDUgNTcuNjEzMTgyNDIzNDM1NDIgMjcuNzgyODU2MTkxNzQ0MzM3IDU5LjM5MjgwOTU4NzIxNzA0NVEyOS40NTQ2MjcxNjM3ODE2MiA2MS4xNzI0MzY3NTA5OTg2NyAzMi4xODY5ODQwMjEzMDQ5MiA2MS4xNzI0MzY3NTA5OTg2N1EzNC43Mzk1ODA1NTkyNTQzMiA2MS4xNzI0MzY3NTA5OTg2NyAzNi4wNTE4MzA4OTIxNDM4MDUgNTkuNjgwNDI2MDk4NTM1Mjg1UTM3LjM2NDA4MTIyNTAzMzI5IDU4LjE4ODQxNTQ0NjA3MTkgMzcuMzY0MDgxMjI1MDMzMjkgNTUuOTU5Mzg3NDgzMzU1NTNRMzcuMzY0MDgxMjI1MDMzMjkgNTQuNTkzMjA5MDU0NTkzODcgMzYuODYwNzUyMzMwMjI2MzYgNTMuNzMwMzU5NTIwNjM5MTVRMzYuMzU3NDIzNDM1NDE5NDM1IDUyLjg2NzUwOTk4NjY4NDQyNSAzNS4zNTA3NjU2NDU4MDU1OSA1Mi44Njc1MDk5ODY2ODQ0MjVRMzQuNDg3OTE2MTExODUwODYgNTIuODY3NTA5OTg2Njg0NDI1IDM0LjAwMjU2MzI0OTAwMTMzIDUzLjQ5NjY3MTEwNTE5MzA4UTMzLjUxNzIxMDM4NjE1MTc5IDU0LjEyNTgzMjIyMzcwMTczNSAzMy41MTcyMTAzODYxNTE3OSA1NS4xMzI0OTAwMTMzMTU1NzVRMzMuNTE3MjEwMzg2MTUxNzkgNTYuMTAzMTk1NzM5MDE0NjUgMzMuOTEyNjgzMDg5MjE0Mzc2IDU3LjIxNzcwOTcyMDM3Mjg0SDI5LjU5ODQzNTQxOTQ0MDc0UTI5LjAyMzIwMjM5NjgwNDI2IDU1Ljk5NTMzOTU0NzI3MDMwNSAyOS4wMjMyMDIzOTY4MDQyNiA1NC40NDk0MDA3OTg5MzQ3NTRRMjkuMDIzMjAyMzk2ODA0MjYgNTEuODYwODUyMTk3MDcwNTcgMzAuNjk0OTczMzY4ODQxNTQgNTAuMzUwODY1NTEyNjQ5OFEzMi4zNjY3NDQzNDA4Nzg4MjQgNDguODQwODc4ODI4MjI5MDIgMzUuMTM1MDUzMjYyMzE2OSA0OC44NDA4Nzg4MjgyMjkwMlEzOC40MDY2OTEwNzg1NjE5MSA0OC44NDA4Nzg4MjgyMjkwMiA0MC40MDIwMzA2MjU4MzIyMiA1MC44OTAxNDY0NzEzNzE1UTQyLjM5NzM3MDE3MzEwMjUyIDUyLjkzOTQxNDExNDUxMzk4IDQyLjM5NzM3MDE3MzEwMjUyIDU2LjA2NzI0MzY3NTA5OTg3WiIgZmlsbD0iI0ZGRkZGRiIvPjxwYXRoIGQ9Ik03MS44ODEsNDcuMjUwIGgwLjAwMCBhMi4yOTUsMi4yOTUgMCAwIDEgMi4yOTUsMi4yOTUgdjguOTEwIGEyLjI5NSwyLjI5NSAwIDAgMSAtMi4yOTUsMi4yOTUgaC0wLjAwMCBhMi4yOTUsMi4yOTUgMCAwIDEgLTIuMjk1LC0yLjI5NSB2LTguOTEwIGEyLjI5NSwyLjI5NSAwIDAgMSAyLjI5NSwtMi4yOTUgeiBNNzkuMTcxLDQxLjE3NSBoMC4wMDAgYTIuMjk1LDIuMjk1IDAgMCAxIDIuMjk1LDIuMjk1IHYyMS4wNjAgYTIuMjk1LDIuMjk1IDAgMCAxIC0yLjI5NSwyLjI5NSBoLTAuMDAwIGEyLjI5NSwyLjI5NSAwIDAgMSAtMi4yOTUsLTIuMjk1IHYtMjEuMDYwIGEyLjI5NSwyLjI5NSAwIDAgMSAyLjI5NSwtMi4yOTUgeiBNODYuNDYxLDQ5LjE0MCBoMC4wMDAgYTIuMjk1LDIuMjk1IDAgMCAxIDIuMjk1LDIuMjk1IHY1LjEzMCBhMi4yOTUsMi4yOTUgMCAwIDEgLTIuMjk1LDIuMjk1IGgtMC4wMDAgYTIuMjk1LDIuMjk1IDAgMCAxIC0yLjI5NSwtMi4yOTUgdi01LjEzMCBhMi4yOTUsMi4yOTUgMCAwIDEgMi4yOTUsLTIuMjk1IHoiIGZpbGw9IiNGNUI4M0QiLz48L3N2Zz4=" alt="" style="width:28px;height:28px">My Assistant</span><span>getmyassistant.app</span>
+<div class="r"><a href="/privacy-policy/">গোপনীয়তা নীতি</a><a href="mailto:info@getmyassistant.app">info@getmyassistant.app</a></div></div></footer>
+</div>

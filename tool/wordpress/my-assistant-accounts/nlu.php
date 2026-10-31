@@ -228,6 +228,9 @@ function ma_nlu_unsafe($text) {
     if (preg_match('/\d{6,}/', preg_replace('/[\s\-]/', '', $digits)) && !preg_match('/\d{6,}\s*(টাকা|tk|\/=)/u', $digits)) {
         return true; // a long code (OTP, card, account)
     }
+    if (preg_match('/(ওষুধ|ঔষধ|ট্যাবলেট|ক্যাপসুল|ইনসুলিন|প্রেশার|প্রেসার|ডায়াবেটিস|সুগার|ডাক্তার|হাসপাতাল|অসুখ|জ্বর|medicine|doctor|insulin)/iu', $t)) {
+        return true; // health and medicine stay on the phone (owner's rule)
+    }
     return (bool) preg_match('/(পাসওয়ার্ড|পাসওয়ার্ড|password|পিন\b|pin\b|otp|ওটিপি|সিভিভি|cvv)/iu', $t);
 }
 

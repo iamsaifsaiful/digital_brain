@@ -2221,6 +2221,13 @@ class Brain extends ChangeNotifier {
   /// Health and medicine stay on the phone (never sent for a cloud reading).
   static final _healthWords = RegExp(r'(ওষুধ|ঔষধ|ট্যাবলেট|ক্যাপসুল|ইনসুলিন|প্রেশার|প্রেসার|ডায়াবেটিস|ডায়াবেটিস|সুগার|রক্ত|ডাক্তার|হাসপাতাল|অসুখ|জ্বর|ওজন|পালস|bp\b|sugar|medicine|doctor)', caseSensitive: false);
 
+  /// Health, medicine, secrets and contacts never leave the phone — not even
+  /// as a learning sample (samples are on by default since 31 Oct).
+  bool nluStaysPrivate(String said, Iterable<String> intents) =>
+      _healthWords.hasMatch(said) ||
+      mentionsSecret(said) ||
+      intents.any(const {'health_add', 'health_query', 'menu_health', 'menu_medicine', 'vault_add', 'vault_query', 'contact_add'}.contains);
+
   bool _nluPrivate(String said, List<Command> rules, List<NluPiece> pieces) =>
       _healthWords.hasMatch(said) ||
       rules.any((c) => c is HealthAdd || c is HealthQuery || c is VaultAdd || c is VaultQuery) ||

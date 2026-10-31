@@ -248,6 +248,7 @@ class ChatController extends ChangeNotifier {
     brain.signalLastSample(text, complained: old.contains('complain_help') || old.contains('correct'));
     brain.signalLastSample(text, complained: false);
     if (!brain.nluSamplesOn) return;
+    if (brain.nluStaysPrivate(text, [for (final p in pieces) p.intent, ...old])) return;
     if (same && _sampleRandom.nextDouble() > 0.1) return;
     final names = [
       for (final e in brain.data.ledger) e.person,

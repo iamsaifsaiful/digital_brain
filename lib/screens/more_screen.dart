@@ -34,7 +34,7 @@ import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '1.0.2';
+const appVersion = '1.0.3';
 
 /// The app's version, shown and sent to our server (sign-in, feedback,
 /// problem logs). The Play app has its own numbering from 1.0.0 (owner, 29

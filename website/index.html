@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Assistant — আপনার ব্যক্তিগত সহকারী</title>
+<style>
+@font-face{font-family:Anek;src:url(AnekBangla.ttf);font-weight:100 900;font-stretch:75% 100%}
+@font-face{font-family:Noto;src:url(NotoSansBengali-Regular.ttf);font-weight:400}
+@font-face{font-family:Noto;src:url(NotoSansBengali-Medium.ttf);font-weight:500}
+@font-face{font-family:Noto;src:url(NotoSansBengali-SemiBold.ttf);font-weight:600}
+@font-face{font-family:Noto;src:url(NotoSansBengali-Bold.ttf);font-weight:700}
+:root{--g:#0B6B55;--gd:#084D3D;--gt:#E6F2EE;--ink:#10201B;--mut:#4A5752;--line:#DDE5E1;--ground:#F4F6F5;--amber:#F5B83D;--amberd:#9A5B00}
+*{box-sizing:border-box}
+html,body{margin:0;background:#fff;color:var(--ink);font-family:Noto,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.wrap{max-width:1160px;margin:0 auto;padding:0 40px}
+a{color:inherit;text-decoration:none}
+h1,h2,h3,p{margin:0}
+h1,h2,h3,.price,.brand,.step .n{font-family:Anek,Noto,sans-serif}
+h2{font-size:44px;line-height:1.15;font-weight:700;font-stretch:88%;letter-spacing:-.2px}
+.lead{font-size:18.5px;line-height:1.75;color:var(--mut)}
+.btn{display:inline-flex;align-items:center;gap:10px;border-radius:999px;padding:14px 26px;font-size:17px;font-weight:600}
+.btn-main{background:var(--g);color:#fff}
+.btn-ghost{border:1.5px solid var(--line);color:var(--ink);background:#fff}
+section{padding:96px 0}
+.eyebrow{font-size:15px;font-weight:600;color:var(--g)}
+
+/* nav */
+nav{border-bottom:1px solid var(--line);position:sticky;top:var(--wp-admin--admin-bar--height,0px);z-index:999;background:rgba(255,255,255,.94);-webkit-backdrop-filter:saturate(1.4) blur(10px);backdrop-filter:saturate(1.4) blur(10px)}
+section,header{scroll-margin-top:84px}
+nav .mpro{display:none;margin-left:auto;font-size:15.5px;font-weight:600;color:var(--g)}
+nav .wrap{display:flex;align-items:center;gap:28px;height:76px}
+.brand{display:flex;align-items:center;gap:12px;font-weight:700;font-size:21px}
+.brand img{width:40px;height:40px}
+nav .links{display:flex;gap:26px;margin-left:auto;font-size:16px;color:var(--mut)}
+nav .btn{padding:10px 20px;font-size:15px}
+
+/* hero */
+.hero{padding:72px 0 40px;background:#fff}
+.hero .wrap{display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center}
+.hero h1{font-size:68px;line-height:1.08;font-weight:700;font-stretch:85%;letter-spacing:-.3px}
+.hero h1 span{color:var(--g)}
+.hero .lead{margin-top:22px;max-width:520px}
+.said{margin-top:30px;display:flex;flex-direction:column;gap:12px;max-width:520px}
+.said div{display:flex;align-items:center;gap:14px;font-size:17px}
+.said .q{background:var(--ground);border-radius:18px 18px 18px 6px;padding:10px 16px;font-weight:500}
+.said .arrow{color:var(--mut);font-size:14px;white-space:nowrap}
+.cta{margin-top:34px;display:flex;gap:14px;flex-wrap:wrap}
+.phones{position:relative;height:620px}
+.phone{position:absolute;width:286px;border-radius:44px;background:#0d1512;padding:11px;box-shadow:0 30px 60px -20px rgba(16,32,27,.35)}
+.phone img{display:block;width:100%;border-radius:34px}
+.phone.a{left:10px;top:20px;transform:rotate(-4deg)}
+.phone.b{right:10px;top:0;transform:rotate(4deg)}
+
+/* how it works */
+.voice{background:var(--ground)}
+.voice .grid{margin-top:46px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}
+.card{background:#fff;border:1px solid var(--line);border-radius:22px;padding:26px}
+.voice .card .say{font-size:18px;font-weight:600;line-height:1.5}
+.voice .card .say::before{content:"“"}.voice .card .say::after{content:"”"}
+.voice .card .res{margin-top:16px;padding-top:16px;border-top:1px dashed var(--line);font-size:16px;line-height:1.6;color:var(--mut)}
+.bars{display:inline-flex;gap:3px;align-items:center;margin-bottom:14px}
+.bars i{display:block;width:5px;border-radius:3px;background:var(--amber)}
+
+/* features */
+.feat .grid{margin-top:46px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
+.care{background:var(--ground)}
+.care .grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.feat .card{padding:24px}
+.ico{width:46px;height:46px;border-radius:14px;background:var(--gt);display:grid;place-items:center;color:var(--g);margin-bottom:16px}
+.feat h3{font-size:19px;font-weight:700}
+.feat p{margin-top:6px;font-size:15.5px;line-height:1.6;color:var(--mut)}
+
+/* light/dark */
+.looks{background:var(--ink);color:#fff}
+.looks .lead{color:#B9C6C1}
+.looks .eyebrow{color:var(--amber)}
+.shots{margin-top:46px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:18px}
+.shots figure{margin:0}
+.shots img{width:100%;border-radius:22px;display:block;border:1px solid rgba(255,255,255,.12)}
+.shots figcaption{margin-top:10px;font-size:14px;color:#B9C6C1;text-align:center}
+
+/* security */
+.sec .wrap{display:grid;grid-template-columns:.9fr 1.1fr;gap:56px;align-items:start}
+.sec ul{list-style:none;padding:0;margin:0;display:grid;gap:14px}
+.sec li{display:grid;grid-template-columns:42px 1fr;gap:16px;align-items:start;background:var(--ground);border-radius:18px;padding:18px}
+.sec li b{display:block;font-size:17.5px}
+.sec li span{display:block;margin-top:2px;font-size:15.5px;line-height:1.6;color:var(--mut)}
+.shield{width:42px;height:42px;border-radius:12px;background:#fff;display:grid;place-items:center;color:var(--g)}
+
+/* pro */
+.pro{background:var(--ground)}
+.plans{margin-top:44px;display:grid;grid-template-columns:minmax(0,420px);gap:22px;max-width:760px}
+.plan{background:#fff;border:1.5px solid var(--line);border-radius:24px;padding:28px}
+.plan.best{border-color:var(--g);position:relative}
+.plan .tag{position:absolute;top:-13px;left:24px;background:var(--amber);color:#3d2600;border-radius:999px;padding:3px 12px;font-size:13.5px;font-weight:700}
+.plan .name{font-size:18px;font-weight:600;color:var(--mut)}
+.plan .price{margin-top:6px;font-size:46px;font-weight:700}
+.plan .price small{font-size:18px;font-weight:500;color:var(--mut)}
+.plan .note{margin-top:4px;font-size:15px;color:var(--mut)}
+table{margin-top:40px;width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid var(--line);border-radius:22px;overflow:hidden;font-size:15.5px}
+th,td{padding:13px 20px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+th{background:#fff;font-size:15px;color:var(--mut);font-weight:600}
+td.f{font-weight:500}
+td.p{color:var(--gd);font-weight:600}
+td.n{color:#9AA5A1}
+.free-all{margin-top:26px;display:flex;flex-wrap:wrap;gap:10px}
+.free-all span{background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:15px}
+
+/* how to buy */
+.steps{margin-top:44px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
+.step .n{width:40px;height:40px;border-radius:50%;background:var(--g);color:#fff;display:grid;place-items:center;font-weight:700;font-size:18px;margin-bottom:14px}
+.step h3{font-size:18.5px;font-weight:700}
+.step p{margin-top:6px;font-size:15.5px;line-height:1.6;color:var(--mut)}
+.methods{margin-top:34px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.method{border:1px solid var(--line);border-radius:18px;padding:18px 20px}
+.method b{font-size:18px}
+.method .num{margin-top:6px;font-size:16px;color:var(--mut)}
+.method .how{margin-top:2px;font-size:14px;color:var(--mut)}
+.form{margin-top:28px;background:var(--ground);border-radius:22px;padding:26px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:14px;align-items:end}
+.form label{display:grid;gap:6px;font-size:14.5px;font-weight:600}
+.form .in{background:#fff;border:1px solid var(--line);border-radius:12px;height:46px;padding:0 14px;display:flex;align-items:center;color:#8A9692;font-weight:400}
+.instant{margin-top:18px;display:flex;align-items:center;gap:12px;font-size:16.5px;color:var(--gd);font-weight:600}
+
+/* faq */
+.faq .grid{margin-top:36px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.faq .card b{font-size:17.5px}
+.faq .card p{margin-top:8px;font-size:15.5px;line-height:1.65;color:var(--mut)}
+
+/* final */
+.final{background:var(--g);color:#fff;text-align:center}
+.final h2{font-size:44px}
+.final .lead{color:#D6EBE4;margin:14px auto 0;max-width:620px}
+.final .cta{justify-content:center}
+.final .btn-main{background:#fff;color:var(--gd)}
+.final .btn-ghost{background:transparent;border-color:rgba(255,255,255,.45);color:#fff}
+footer{padding:34px 0;font-size:14.5px;color:var(--mut)}
+footer .wrap{display:flex;gap:24px;align-items:center}
+footer .r{margin-left:auto;display:flex;gap:22px}
+.ph{background:#FFF4D6;color:#7A4B00;border-radius:6px;padding:0 6px}
+
+/* phone width */
+@media (max-width:760px){
+  .wrap{padding:0 18px}
+  nav .links{display:none}
+  nav .mpro{display:inline}
+  nav .wrap{gap:14px;height:64px}
+  nav .brand{font-size:18px}
+  nav .brand img{width:34px;height:34px}
+  section{padding:64px 0}
+  h2{font-size:30px}
+  .hero{padding-top:40px}
+  .hero .wrap,.sec .wrap{grid-template-columns:1fr}
+  .hero h1{font-size:38px}
+  .phones{height:470px}
+  .phone{width:210px;border-radius:34px;padding:8px}
+  .phone img{border-radius:27px}
+  .phone.a{left:0}.phone.b{right:0}
+  .voice .grid,.feat .grid,.plans,.steps,.methods,.faq .grid{grid-template-columns:1fr}
+  .feat .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .care .grid{grid-template-columns:1fr}
+  .shots{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .form{grid-template-columns:1fr}
+  table{font-size:14px}
+  th,td{padding:10px 12px}
+  .final h2{font-size:32px}
+  footer .wrap{flex-direction:column;align-items:flex-start}
+  footer .r{margin-left:0;flex-wrap:wrap}
+}
+
+/* story intro */
+.story{padding:88px 0}
+.story .wrap{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}
+.story .tell{font-size:21px;line-height:1.85;color:var(--ink)}
+.story .tell p+p{margin-top:18px}
+.story .tell em{font-style:normal;color:var(--g);font-weight:600}
+.letter{background:var(--ground);border-radius:28px;padding:34px 34px 30px;position:relative}
+.letter::before{content:"“";position:absolute;top:-6px;left:26px;font-family:Anek,Noto,sans-serif;font-size:120px;line-height:1;color:var(--amber)}
+.letter h2{margin-top:40px}
+.letter .sig{margin-top:22px;display:flex;align-items:center;gap:12px;font-size:15.5px;color:var(--mut)}
+.letter .sig img{width:34px;height:34px}
+/* unique — bento of small conversations */
+.uniq{background:var(--ink);color:#fff}
+.uniq .eyebrow{color:var(--amber)}
+.uniq .lead{color:#B9C6C1}
+.bento{margin-top:48px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:20px}
+.tile{background:#17302A;border:1px solid rgba(255,255,255,.08);border-radius:26px;padding:26px;display:flex;flex-direction:column;gap:18px}
+.modes{margin-top:22px;display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.modes span{display:inline-flex;align-items:center;gap:8px;background:var(--gt);color:var(--gd);border-radius:999px;padding:8px 14px;font-weight:600;font-size:15.5px}
+.modes em{font-style:normal;color:var(--mut);font-size:15px}
+.said .q{display:inline-flex;align-items:center;gap:10px}
+i.m{font-style:normal;display:inline-flex;color:var(--g);flex:none}
+.said2 i.m{vertical-align:-3px;margin-right:6px}
+.tile.s6{grid-column:span 6}
+.tile.both{display:grid;grid-template-columns:1fr 1.25fr;gap:32px;align-items:center}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.pair .chat{margin-top:0;background:rgba(255,255,255,.05);border-radius:20px;padding:14px}
+.chat .who{display:inline-flex;align-items:center;gap:6px}
+.tile.s2{grid-column:span 2}.tile.s3{grid-column:span 3}.tile.s4{grid-column:span 4}
+.tile .k{display:inline-flex;align-self:flex-start;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:var(--amber);background:rgba(245,184,61,.12);border-radius:999px;padding:4px 12px}
+.tile h3{font-size:25px;font-weight:700;font-stretch:90%;line-height:1.25}
+.tile p.t{font-size:16px;line-height:1.7;color:#B9C6C1}
+.chat{margin-top:auto;display:flex;flex-direction:column;gap:9px}
+.chat .u,.chat .a{max-width:88%;padding:10px 14px;font-size:15.5px;line-height:1.55}
+.chat .u{align-self:flex-end;background:#1E8A6C;color:#fff;border-radius:18px 18px 5px 18px}
+.chat .a{align-self:flex-start;background:#fff;color:var(--ink);border-radius:18px 18px 18px 5px}
+.chat .a b{color:var(--g)}
+.chat .who{font-size:12.5px;color:#8FA59D;margin:2px 4px -4px}
+.chat .who.r{align-self:flex-end}
+.dialects{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:end;margin-top:auto}
+.dialects .chat{margin-top:0}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips span{background:rgba(255,255,255,.08);border-radius:10px;padding:6px 10px;font-size:14.5px;color:#DCE7E3}
+/* a day */
+.day{background:var(--ground)}
+.timeline{margin-top:48px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;position:relative}
+.timeline::before{content:"";position:absolute;left:0;right:0;top:27px;height:2px;background:var(--line)}
+.slot{padding-right:22px;position:relative}
+.slot .t{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1.5px solid var(--line);border-radius:999px;padding:6px 14px;font-family:Anek,Noto,sans-serif;font-weight:600;font-size:16px;position:relative}
+.slot .t i{width:10px;height:10px;border-radius:50%;background:var(--amber)}
+.slot h3{margin-top:18px;font-size:20px;font-weight:700;font-stretch:90%}
+.slot p{margin-top:8px;font-size:15.5px;line-height:1.7;color:var(--mut)}
+.slot .said2{margin-top:12px;display:inline-block;background:#fff;border-radius:14px 14px 14px 4px;padding:8px 12px;font-size:15px;font-weight:500;border:1px solid var(--line)}
+.impact{margin-top:52px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}
+.impact div{background:var(--g);color:#fff;border-radius:22px;padding:26px}
+.impact b{display:block;font-family:Anek,Noto,sans-serif;font-size:24px;font-stretch:90%}
+.impact span{display:block;margin-top:6px;font-size:16px;line-height:1.65;color:#D6EBE4}
+/* buy band */
+.buyband{margin-top:40px;background:#fff;border:1.5px solid var(--g);border-radius:24px;padding:28px 30px;display:flex;align-items:center;gap:24px}
+.buyband .txt{flex:1}
+.buyband b{font-family:Anek,Noto,sans-serif;font-size:24px;font-stretch:90%}
+.buyband p{margin-top:4px;color:var(--mut);font-size:16px;line-height:1.6}
+@media (max-width:760px){
+  .story .wrap{grid-template-columns:1fr;gap:32px}
+  .story .tell{font-size:18px}
+  .letter{padding:26px 22px}
+  .bento{grid-template-columns:1fr}
+  .tile.s2,.tile.s3,.tile.s4,.tile.s6{grid-column:auto}
+  .tile.both,.pair{grid-template-columns:1fr}
+  .dialects{grid-template-columns:1fr}
+  .tile h3{font-size:22px}
+  .impact{grid-template-columns:1fr}
+  .timeline{grid-template-columns:1fr;gap:22px}
+  .timeline::before{display:none}
+  .buyband{flex-direction:column;align-items:flex-start}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#"><img src="img/icon.svg" alt="">My Assistant</a>
+    <div class="links"><a href="#unique">যা আলাদা</a><a href="#day">একটা দিন</a><a href="#features">ফিচার</a><a href="#care">বিপদে পাশে</a><a href="#security">নিরাপত্তা</a><a href="pro.html">প্রিমিয়াম</a><a href="#faq">প্রশ্ন-উত্তর</a></div>
+    <a class="mpro" href="pro.html">প্রিমিয়াম</a>
+    <a class="btn btn-main" href="#download">ডাউনলোড</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow">এটা আরেকটা অ্যাপ না</p>
+      <h1 style="margin-top:10px">আপনার একান্ত<br><span>সহকারী।</span></h1>
+      <p class="lead">যাকে মুখে বলে দিলেই হয় — আর বলা না গেলে, দুই লাইন লিখে দিলেই। সে লিখে রাখে, হিসাব মেলায়, আর ঠিক সময়ে আস্তে করে মনে করিয়ে দেয় — টাকা, কাজ, ওষুধ, মিটিং, সব।</p>
+      <div class="modes"><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>মুখে বলুন</span><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M7 14h10"/></svg>লিখে দিন</span><em>দুইভাবেই সব কাজ</em></div>
+      <div class="said">
+        <div><span class="q"><i class="m"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></i>রহিমকে ৫০০ টাকা ধার দিলাম</span><span class="arrow">→ খাতায় লেখা হলো</span></div>
+        <div><span class="q"><i class="m"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M7 14h10"/></svg></i>কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও</span><span class="arrow">→ রিমাইন্ডার</span></div>
+      </div>
+      <div class="cta" id="download">
+        <a class="btn btn-main" href="#">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+          অ্যাপ ডাউনলোড করুন
+        </a>
+        <a class="btn btn-ghost" href="#pro">প্রিমিয়াম দেখুন — ৳৯৯৯/বছর</a>
+      </div>
+    </div>
+    <div class="phones">
+      <div class="phone a"><img src="img/home_light.png" alt="হোম পেইজ, লাইট"></div>
+      <div class="phone b"><img src="img/home_dark.png" alt="হোম পেইজ, ডার্ক"></div>
+    </div>
+  </div>
+</header>
+
+<section class="story">
+  <div class="wrap">
+    <div class="tell">
+      <p>বড় অফিসের বসদের একজন পিএ থাকেন। তিনি জানেন কার কাছে কত টাকা পাওনা, কাল কটায় মিটিং, কোন বিলের শেষ তারিখ সামনে।</p>
+      <p>বস শুধু বলেন — <em>“মনে রেখো।”</em> কখনো মিটিংয়ের মাঝে একটা চিরকুটে লিখে দেন। বাকিটা পিএ-র কাজ।</p>
+      <p>আমরা ভাবলাম, এমন একজন সবার থাকা উচিত। দোকানদার, চাকরিজীবী, মা, ছাত্র — সবার।</p>
+    </div>
+    <div class="letter">
+      <h2>এখন থেকে আপনারও একজন সহকারী আছে।</h2>
+      <p class="lead" style="margin-top:14px">তাকে মুখে বলুন বা লিখে দিন — দুটোই সে বোঝে, আপনার মতো করে। না বুঝলে আন্দাজ করে না — জিজ্ঞেস করে নেয়। আর আপনার কথা কখনো বাইরে বলে না।</p>
+      <p class="sig"><img src="img/icon.svg" alt="">My Assistant — আপনার ব্যক্তিগত সহকারী</p>
+    </div>
+  </div>
+</section>
+
+<section class="uniq" id="unique">
+  <div class="wrap">
+    <p class="eyebrow">একজন ভালো সহকারী যেমন হয়</p>
+    <h2 style="margin-top:8px">শোনে বা পড়ে, বোঝে — তারপর কাজ করে</h2>
+    <p class="lead" style="margin-top:12px;max-width:720px">ফর্ম পূরণ নেই, বোতাম খোঁজা নেই। একজন মানুষকে যেভাবে বলেন বা মেসেজ লেখেন, তাকেও সেভাবেই — যখন যেটা সুবিধা।</p>
+    <div class="bento">
+      <div class="tile s6 both">
+        <div>
+          <span class="k">বলুন বা লিখুন</span>
+          <h3 style="margin-top:14px">কথা বলা না গেলে, লিখে দিন</h3>
+          <p class="t" style="margin-top:10px">মিটিংয়ে, মসজিদে, বাসে বা রাতে ঘুমন্ত বাচ্চার পাশে — জোরে বলা যায় না। তখন লিখে দিন। যা মুখে বলে করা যায়, তার সবই লিখেও করা যায়: হিসাব, রিমাইন্ডার, প্রশ্ন, সব।</p>
+        </div>
+        <div class="pair">
+          <div class="chat"><span class="who r"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg> বলে</span><span class="u">কাল সকাল ১০টায় ডাক্তার, মনে করিয়ে দিও</span><span class="a">কাল সকাল ১০টায় <b>রিমাইন্ডার</b> — রাখি?</span></div>
+          <div class="chat"><span class="who r"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M7 14h10"/></svg> লিখে</span><span class="u">বাসা ভাড়া ৮০০০ দিলাম</span><span class="a">বাসা ভাড়া <b>৮,০০০ টাকা</b> খরচ — রাখি?</span></div>
+        </div>
+      </div>
+
+      <div class="tile s4">
+        <span class="k">আপনার ভাষায়</span>
+        <h3>যেভাবে বলেন, সেভাবেই বোঝে</h3>
+        <div class="dialects">
+          <div>
+            <p class="t">ঢাকার কথ্য, চাটগাঁইয়া, সিলেটি, নোয়াখাইল্লা — কিংবা ইংরেজি অক্ষরে লেখা বাংলা। শুদ্ধ করে বলার দরকার নেই।</p>
+            <div class="chips" style="margin-top:14px"><span>হাওলাত দিছি</span><span>টেহা দিলাম</span><span>dhar dilam</span><span>ধার দিলাম</span></div>
+          </div>
+          <div class="chat">
+            <span class="who r">আপনি</span>
+            <span class="u">মামুনরে ৫০০ টেকা হাওলাত দিছি</span>
+            <span class="who">সহকারী</span>
+            <span class="a">মামুনকে <b>৫০০ টাকা ধার</b> দিলেন — লিখে রাখি?</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tile s2">
+        <span class="k">আন্দাজ করে না</span>
+        <h3>বুঝতে না পারলে জিজ্ঞেস করে</h3>
+        <p class="t">ভুল হিসাব রাখার চেয়ে একবার জিজ্ঞেস করা ভালো।</p>
+        <div class="chat">
+          <span class="u">রহিমকে ২০০০ টাকা দিলাম</span>
+          <span class="a">ধার দিলেন, আগের ধার শোধ করলেন, নাকি খরচ?</span>
+          <span class="u">ধার দিলাম</span>
+        </div>
+      </div>
+
+      <div class="tile s2">
+        <span class="k">মত বদলালেও ঠিক থাকে</span>
+        <h3>“না, সাতশ” — বললেই শোধরায়</h3>
+        <p class="t">কথার মাঝে ভুল শুধরে নিলে আগেরটা বাদ দেয়।</p>
+        <div class="chat">
+          <span class="u">বাজারে পাঁচশ টাকা… না, সাতশ</span>
+          <span class="a">বাজারে <b>৭০০ টাকা</b> খরচ — ঠিক আছে?</span>
+        </div>
+      </div>
+
+      <div class="tile s4">
+        <span class="k">সময়মতো মনে করায়</span>
+        <h3>পাওনার দিন সে-ই মনে রাখে, তাগাদাও লিখে দেয়</h3>
+        <p class="t">কাকে কত দিলেন, কবে ফেরত দেবে বলেছিল — দিন এলে আপনাকে জানায়। এক চাপে WhatsApp-এ ভদ্র ভাষায় মনে করিয়ে দেওয়ার মেসেজ।</p>
+        <div class="chat">
+          <span class="u">কার কাছে কত পাই?</span>
+          <span class="a">রহিমের কাছে <b>২,০০০</b>, মামুনের কাছে <b>৫০০</b> — মোট <b>২,৫০০ টাকা</b>।</span>
+        </div>
+      </div>
+
+      <div class="tile s3">
+        <span class="k">আপনার দেশের সময়</span>
+        <h3>বাংলা, ইংরেজি আর হিজরি — তিন ক্যালেন্ডার</h3>
+        <p class="t">সরকারি ছুটি, নামাজের সময়, সেহরি-ইফতার, সূর্যোদয়-সূর্যাস্ত — আপনার জেলা ধরে।</p>
+        <div class="chat">
+          <span class="u">সামনের সরকারি ছুটি কবে?</span>
+          <span class="a">বিজয় দিবস, ১৬ ডিসেম্বর — <b>আর ৬১ দিন</b>।</span>
+        </div>
+      </div>
+
+      <div class="tile s3">
+        <span class="k">বিপদে পাশে</span>
+        <h3>রক্ত লাগলে আপনার জেলার দাতাদের কাছে খবর</h3>
+        <p class="t">যার গ্রুপ মেলে, শুধু তিনি জানেন। কেউ রাজি হলে কেবল তখনই দুজন দুজনের নম্বর দেখেন।</p>
+        <div class="chat">
+          <span class="u">B+ রক্ত লাগবে, ঢাকা মেডিকেল</span>
+          <span class="a">ঢাকার B+ দাতাদের কাছে অনুরোধ পাঠালাম।</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section class="day" id="day">
+  <div class="wrap">
+    <p class="eyebrow">একটা সাধারণ দিনের গল্প</p>
+    <h2 style="margin-top:8px">নাসরিনের দিনটা এখন একটু হালকা</h2>
+    <p class="lead" style="margin-top:12px;max-width:760px">নাসরিন চাকরি করেন, সংসার সামলান, আম্মার ওষুধের খেয়াল রাখেন। আগে সব মাথায় রাখতে হতো। এখন বলে বা লিখে রাখেন — বাকিটা তার সহকারী দেখে।</p>
+    <div class="timeline">
+      <div class="slot"><span class="t"><i></i>সকাল ৭টা</span><h3>“আম্মার প্রেশারের ওষুধ”</h3><p>নাস্তার টেবিলেই ফোন জানিয়ে দেয়। সাথে আজকের কাজ আর মিটিংয়ের কথা — এক নজরে।</p></div>
+      <div class="slot"><span class="t"><i></i>দুপুর ১টা</span><h3>মিটিংয়ের মাঝে, চুপচাপ</h3><p>জোরে বলা যাচ্ছিল না, তাই লিখে দিলেন। খাতটাও সহকারী নিজে বুঝে নিল।</p><span class="said2"><i class="m"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M7 14h10"/></svg></i>“বাজারে ৮৫০ টাকা খরচ”</span></div>
+      <div class="slot"><span class="t"><i></i>বিকেল ৪টা</span><h3>ভুলে যাওয়া পাওনা</h3><p>মাস দুয়েক আগে ভাইকে ৩,০০০ টাকা দিয়েছিলেন। আজ ফেরতের দিন — সহকারী মনে করাল।</p></div>
+      <div class="slot"><span class="t"><i></i>সন্ধ্যা ৭টা</span><h3>কালকের কথা আজই</h3><p>রাস্তায় হাঁটতে হাঁটতে বলে রাখলেন। লিখতে হলো না একটা অক্ষরও।</p><span class="said2"><i class="m"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></i>“কাল সকাল ১০টায় ডাক্তার”</span></div>
+      <div class="slot"><span class="t"><i></i>রাত ১০টা</span><h3>নিশ্চিন্তে ঘুম</h3><p>কিছু বাকি থাকলে জানিয়ে দেয়। প্রিমিয়ামে দিনের সব তথ্য তার নিজের Google Drive-এ নিজে থেকে ব্যাকআপ।</p></div>
+    </div>
+    <div class="impact">
+      <div><b>মাথাটা হালকা</b><span>বিল, ওষুধ, মিটিং, জন্মদিন — মনে রাখার দায়িত্ব এখন সহকারীর।</span></div>
+      <div><b>টাকার হিসাব পরিষ্কার</b><span>কে কত পাবে, কাকে কত দেবেন, মাসে কোথায় কত গেল — জিজ্ঞেস করলেই উত্তর।</span></div>
+      <div><b>পরিবারের যত্ন</b><span>সবার প্রেশার-সুগার, ওষুধ আর শিশুর টিকা এক জায়গায়, ফোনেই তালাবদ্ধ।</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="feat" id="features">
+  <div class="wrap">
+    <p class="eyebrow">সব কিছু এক জায়গায়</p>
+    <h2 style="margin-top:8px">আপনার সহকারী যা যা সামলায়</h2>
+    <div class="grid">
+      <div class="card"><div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M16 12h2M3 10h18"/></svg></div><h3>হিসাব ও ধার-দেনা</h3><p>“এখন আছে” কত, কীভাবে হলো; আয়-ব্যয়, কে কত পাবে-দেবে, বকেয়া আর অন্যান্য হিসাব।</p></div>
+      <div class="card"><div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21h4"/></svg></div><h3>রিমাইন্ডার ও অ্যালার্ম</h3><p>একবার, প্রতিদিন, প্রতি সপ্তাহে বা মাসে — বিলের তারিখও।</p></div>
+      <div class="card"><div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg></div><h3>কাজের তালিকা</h3><p>আজকের, কালকের কাজ; শেষ হলে বললে বা লিখলেই টিক।</p></div>
+      <div class="card"><div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></div><h3>নোট ও ডকুমেন্টস</h3><p>NID, পাসপোর্ট, দলিলের ছবি নাম-ট্যাগসহ; ওছিয়তনামা; পাসওয়ার্ড তালাবদ্ধ ভল্টে।</p></div>
+      <div class="card"><div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21.2l8.8-8.8a5.5 5.5 0 0 0 0-7.8z"/></svg></div><h3>পরিবারের স্বাস্থ্য</h3><p>প্রেশার, সুগার, ওজন ও BMI, ওষুধের সময়, শিশুর টিকার কার্ড; ওজন বেশি হলে উৎসাহের ছোট নোটিফিকেশন।</p></div>
+      <div class="card"><div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></div><h3>তিন ক্যালেন্ডার</h3><p>বাংলা, ইংরেজি আর হিজরি তারিখ; ছুটি, নামাজের সময়।</p></div>
+      <div class="card"><div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg></div><h3>ফোন আর মেসেজ</h3><p>“রহিমকে ফোন দাও”, WhatsApp-এ লিখে দেয়।</p></div>
+      <div class="card"><div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.7S6 9.5 6 14a6 6 0 0 0 12 0c0-4.5-6-11.3-6-11.3z"/></svg></div><h3>রক্তদান ও যাকাত</h3><p>জেলায় রক্তের অনুরোধ; “এখন আছে” আর ধার-দেনা ধরে যাকাতের হিসাব; ৩০ দিনের “মুছে ফেলা”।</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="feat care" id="care">
+  <div class="wrap">
+    <p class="eyebrow">বিপদের দিনে পাশে</p>
+    <h2 style="margin-top:8px">ফোন হারালেও, দুঃসময়েও — আপনার সব ঠিক থাকে</h2>
+    <p class="lead" style="margin-top:12px;max-width:760px">শুধু হিসাব রাখা না — পরিবার, রক্ত, যাকাত আর হারানো ফোনের দিনেও আপনার সহকারী কাজে লাগে।</p>
+    <div class="grid">
+      <div class="card"><div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a5 5 0 0 1-.9-9.9A6 6 0 0 1 17.6 7 4.5 4.5 0 0 1 17 18z"/><path d="M12 11v6M9.5 13.5 12 11l2.5 2.5"/></svg></div><h3>ফোন হারালেও সব থাকে</h3><p>সব তথ্য তালাবদ্ধ হয়ে আপনার নিজের Google Drive-এ ব্যাকআপ। নতুন ফোনে একই Google অ্যাকাউন্টে লগইন করলেই হিসাব, নোট, ডকুমেন্ট — সব ফিরে আসে। প্রিমিয়ামে ব্যাকআপ হয় নিজে থেকে।</p></div>
+      <div class="card"><div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></div><h3>হারানো ফোন খুঁজে পান</h3><p>পরিবারের যাঁকে অনুমতি দিয়েছেন, তিনি “এখন কোথায়?” চাপলেই ফোন নিজে লোকেশন জানায় — ম্যাপে দেখা যায়, চার্জ কত তাও। লোকেশন তালাবদ্ধ যায়, আমরাও দেখতে পারি না।</p></div>
+      <div class="card"><div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20a6 6 0 0 1 12 0M14 20a4.5 4.5 0 0 1 7 0"/></svg></div><h3>পরিবার এক জায়গায়</h3><p>আব্বা-আম্মা, স্বামী-স্ত্রী, সন্তানকে কাজ, রিমাইন্ডার আর ওষুধের রিমাইন্ডার পাঠান। উত্তরাধিকারী রাখলে দরকারের দিনে তিনি এক চাপে সব ব্যাকআপ পান।</p></div>
+      <div class="card"><div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.7S6 9.5 6 14a6 6 0 0 0 12 0c0-4.5-6-11.3-6-11.3z"/><path d="M12 11v6M9 14h6"/></svg></div><h3>রক্ত লাগলে মিনিটেই খবর</h3><p>আপনার জেলায় যাঁদের গ্রুপ মেলে, শুধু তাঁদের ফোনে অনুরোধ যায়। কেউ রাজি হলে তখনই দুজন দুজনের নম্বর দেখেন। নিজেও দাতা হতে পারেন।</p></div>
+      <div class="card"><div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="18" cy="17" r="2"/></svg></div><h3>যাকাত নিজে থেকে হিসাব</h3><p>“এখন আছে” কত, কে কত পাবে-দেবে, সঞ্চয়, সোনা-রুপা — আজকের ভরির দাম এনে হিসাব করে দেয়। প্রতিটা লাইন কোথা থেকে এল, দেখা যায়।</p></div>
+      <div class="card"><div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></div><h3>ওছিয়তনামা</h3><p>নিজের ওছিয়ত লিখে রাখুন, কবে শেষ বদলেছেন তারিখসহ। উত্তরাধিকারী পরে দেখতে পান।</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="looks">
+  <div class="wrap">
+    <p class="eyebrow">লাইট আর ডার্ক</p>
+    <h2 style="margin-top:8px">দিনে আলোয়, রাতে চোখের আরামে</h2>
+    <p class="lead" style="margin-top:12px;max-width:700px">হোমে আজকের আকাশ — সময়ের সাথে রং বদলায়। নিজের পছন্দের রং বেছে নেওয়া যায়, অক্ষর বড় করা যায়।</p>
+    <div class="shots">
+      <figure><img src="img/home_light.png" alt=""><figcaption>হোম</figcaption></figure>
+      <figure><img src="img/report_light.png" alt=""><figcaption>মাসের রিপোর্ট</figcaption></figure>
+      <figure><img src="img/chat_light.png" alt=""><figcaption>সহকারীর সাথে কথা</figcaption></figure>
+      <figure><img src="img/home_dark.png" alt=""><figcaption>হোম, ডার্ক</figcaption></figure>
+      <figure><img src="img/report_dark.png" alt=""><figcaption>রিপোর্ট, ডার্ক</figcaption></figure>
+      <figure><img src="img/chat_dark.png" alt=""><figcaption>কথা, ডার্ক</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="security">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow">ভালো সহকারী কথা বাইরে বলে না</p>
+      <h2 style="margin-top:8px">হিসাব আর গোপন তথ্য থাকে আপনার ফোনে</h2>
+      <p class="lead" style="margin-top:14px">আমাদের সার্ভারে থাকে শুধু আপনার অ্যাকাউন্ট আর প্রিমিয়ামের মেয়াদ। আপনার হিসাব, নোট, পাসওয়ার্ড বা স্বাস্থ্যের তথ্য সেখানে যায় না।</p>
+    </div>
+    <ul>
+      <li><span class="shield"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span><div><b>PIN আর আঙুলের ছাপে তালা</b><span>অ্যাপ খুলতে PIN বা আঙুলের ছাপ লাগে; ফোনে সব তথ্য এনক্রিপ্ট করে রাখা।</span></div></li>
+      <li><span class="shield"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.4 8.6-8 9.9C7.4 20.6 4 17 4 12V6z"/><path d="M9 12l2 2 4-4"/></svg></span><div><b>পাসওয়ার্ড কখনো AI-তে যায় না</b><span>পাসওয়ার্ড, PIN আর OTP — AI-কে পাঠানো হয় না, জোরে পড়েও শোনানো হয় না।</span></div></li>
+      <li><span class="shield"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a5 5 0 0 1-.9-9.9A6 6 0 0 1 17.6 7 4.5 4.5 0 0 1 17 18z"/><path d="M12 11v6M9.5 13.5 12 11l2.5 2.5"/></svg></span><div><b>ব্যাকআপ আপনার নিজের Google Drive-এ</b><span>এনক্রিপ্ট করা অবস্থায় থাকে — Google বা আমাদের সার্ভার কেউ একা খুলতে পারে না। নতুন ফোনে একই Google অ্যাকাউন্টে সব ফিরে আসে।</span></div></li>
+      <li><span class="shield"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21.2l8.8-8.8a5.5 5.5 0 0 0 0-7.8z"/></svg></span><div><b>স্বাস্থ্যের তথ্য ফোনেই</b><span>শুধু রক্তদাতা হতে চাইলে আপনার রক্তের গ্রুপ, জেলা আর নম্বর অনুরোধের জন্য সার্ভারে যায় — আপনি বন্ধ করলে মুছে যায়।</span></div></li>
+      <li><span class="shield"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></span><div><b>ভুল করে মুছলেও ৩০ দিন ফেরত আনা যায়</b><span>আরও › মুছে ফেলা — তারপর নিজে থেকে চিরতরে মুছে যায়।</span></div></li>
+    </ul>
+  </div>
+</section>
+
+<section class="pro" id="pro">
+  <div class="wrap">
+    <p class="eyebrow">প্রিমিয়াম</p>
+    <h2 style="margin-top:8px">প্রায় সবই ফ্রি, প্রিমিয়ামে আরও বেশি</h2>
+    <p class="lead" style="margin-top:12px;max-width:700px">যত খুশি রিমাইন্ডার, ডকুমেন্ট আর পাসওয়ার্ড; অন্যান্য হিসাব, ওছিয়তনামা, পরিবারের স্বাস্থ্য আর উত্তরাধিকার; নিজে থেকে ব্যাকআপ, PDF আর AI — বিজ্ঞাপন ছাড়া। কোনো ট্রায়াল নেই, লুকানো খরচ নেই।</p>
+    <div class="plans">
+      <div class="plan best"><span class="tag">বিকাশে বছরে একবার</span><p class="name">প্রিমিয়াম · এক বছর</p><p class="price">৳৯৯৯<small> / বছর</small></p><p class="note">মাসে ৳৮৩-এর মতো · নিজে থেকে কোনো টাকা কাটে না</p></div>
+    </div>
+    <table>
+      <thead><tr><th style="width:52%">সুবিধা</th><th>ফ্রি</th><th>প্রিমিয়াম</th></tr></thead>
+      <tbody>
+        <tr><td class="f">একসাথে চালু রিমাইন্ডার — কাজ, বিল, ধার-দেনা, কাগজের মেয়াদ সব মিলিয়ে</td><td>২০টা</td><td class="p">যত খুশি</td></tr>
+        <tr><td class="f">ডকুমেন্ট ও ছবি (NID, পাসপোর্ট, দলিল)</td><td>৩০টা</td><td class="p">যত খুশি</td></tr>
+        <tr><td class="f">পাসওয়ার্ড</td><td>২০টা</td><td class="p">যত খুশি</td></tr>
+        <tr><td class="f">অন্যান্য হিসাব (বাড়ি, বিয়ে, ব্যবসা — বকেয়া, বাজেট)</td><td class="n">—</td><td class="p">✓</td></tr>
+        <tr><td class="f">নোটে ওছিয়তনামা, শেষ বদলের তারিখসহ</td><td class="n">—</td><td class="p">✓</td></tr>
+        <tr><td class="f">স্বাস্থ্যে পরিবারের সদস্য</td><td>নিজের স্বাস্থ্য</td><td class="p">পরিবারের সবার</td></tr>
+        <tr><td class="f">ফ্যামিলি: উত্তরাধিকারী, এখনই পুরো অ্যাক্সেস, লাইভ লোকেশন</td><td>সদস্য যুক্ত করা; কাজ, রিমাইন্ডার, ওষুধ, নোট পাঠানো</td><td class="p">✓ — উত্তরাধিকারী এক চাপে সব ব্যাকআপ নেন</td></tr>
+        <tr><td class="f">Google Drive-এ ব্যাকআপ</td><td>নিজে চাপলে</td><td class="p">নিজে থেকে, প্রতিবার কিছু বদলালে</td></tr>
+        <tr><td class="f">সবকিছু PDF-এ — ডাউনলোড, শেয়ার, প্রিন্ট</td><td class="n">—</td><td class="p">✓</td></tr>
+        <tr><td class="f">AI উত্তর — লম্বা, এলোমেলো কথাও বোঝে</td><td>অ্যাপ নিজের নিয়মে বোঝে</td><td class="p">✓</td></tr>
+        <tr><td class="f">বিজ্ঞাপন</td><td>নিচে ছোট বিজ্ঞাপন</td><td class="p">কোনো বিজ্ঞাপন নেই</td></tr>
+      </tbody>
+    </table>
+    <div class="buyband"><div class="txt"><b>প্রিমিয়াম কিনুন — বিকাশে</b><p>বিকাশে Send Money করে আলাদা পাতায় তথ্য জমা দিন। পেমেন্ট মিলিয়ে আমরা প্রিমিয়াম চালু করি — বেশির ভাগ সময় সাথে সাথেই।</p></div><a class="btn btn-main" href="pro.html">প্রিমিয়াম কিনুন</a></div>
+    <p style="margin-top:30px;font-size:18px;font-weight:700">সবার জন্য সবসময় ফ্রি</p>
+    <div class="free-all">
+      <span>মুখে বলে বা লিখে সব কাজ</span><span>আয়-ব্যয় আর “এখন আছে”</span><span>ধার-দেনা, যত জন খুশি</span><span>পাওনার দিনে রিমাইন্ডার</span><span>কাগজের মেয়াদের খবর</span><span>সব মাসের রিপোর্ট</span><span>কাজের তালিকা</span><span>অ্যালার্ম</span><span>বাংলা, ইংরেজি, হিজরি ক্যালেন্ডার</span><span>নামাজের সময়, সেহরি-ইফতার</span><span>নোট ও দিনলিপি</span><span>নিজের স্বাস্থ্য ও BMI</span><span>শিশুর টিকার কার্ড</span><span>ওষুধের রিমাইন্ডার</span><span>বিশেষ দিন</span><span>যাকাতের হিসাব</span><span>দোকান ও রসিদ</span><span>রক্তদান</span><span>ফ্যামিলিতে কাজ-রিমাইন্ডার পাঠানো</span><span>PIN, আঙুলের ছাপ, এনক্রিপশন</span><span>নতুন ফোনে সব ফিরিয়ে আনা</span>
+    </div>
+  </div>
+</section>
+
+<section class="faq" id="faq" style="background:var(--ground)">
+  <div class="wrap">
+    <p class="eyebrow">প্রশ্ন-উত্তর</p>
+    <h2 style="margin-top:8px">যা সবাই জানতে চান</h2>
+    <div class="grid">
+      <div class="card"><b>নতুন ফোনে কি প্রিমিয়াম থাকবে?</b><p>হ্যাঁ। প্রিমিয়াম আপনার Google অ্যাকাউন্টের সাথে থাকে — যেকোনো ফোনে একই অ্যাকাউন্টে লগইন করলেই চালু।</p></div>
+      <div class="card"><b>মাসিক প্ল্যান নেই কেন?</b><p>বিকাশে প্রতিবার নিজে হাতে টাকা পাঠাতে হয় — প্রতি মাসে সেটা ঝামেলা। তাই বছরে একবার ৳৯৯৯, মাসে পড়ে ৳৮৩-এর মতো। নিজে থেকে নবায়ন হয় না।</p></div>
+      <div class="card"><b>মেয়াদ শেষ হলে কী হবে?</b><p>অ্যাপ ফ্রি সংস্করণে ফিরে যাবে। আপনার সব তথ্য যেমন আছে থাকবে; শুধু প্রিমিয়াম সুবিধাগুলো বন্ধ হবে।</p></div>
+      <div class="card"><b>ইন্টারনেট ছাড়া চলে?</b><p>হিসাব, নোট, রিমাইন্ডার, কাজের তালিকা ফোনেই চলে। AI, ব্যাকআপ আর রক্তের অনুরোধে ইন্টারনেট লাগে।</p></div>
+      <div class="card"><b>প্রিমিয়াম কিনলে কখন চালু হয়?</b><p>বেশির ভাগ সময় সাথে সাথেই। তথ্য জমা দিলে আমরা পেমেন্ট মিলিয়ে প্রিমিয়াম চালু করি, আর ফোনে নোটিফিকেশন ও ইমেইলে জানাই।</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="final">
+  <div class="wrap">
+    <h2>আজ থেকে আপনারও একজন সহকারী আছে</h2>
+    <p class="lead">বলুন বা লিখুন — সে সামলে নেবে। ফ্রিতে পরিচয় করুন, ভালো লাগলে যেকোনো দিন প্রিমিয়াম।</p>
+    <div class="cta"><a class="btn btn-main" href="#">অ্যাপ ডাউনলোড করুন</a><a class="btn btn-ghost" href="pro.html">প্রিমিয়াম কিনুন</a></div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span class="brand" style="font-size:17px"><img src="img/icon.svg" alt="" style="width:30px;height:30px">My Assistant</span>
+    <span>getmyassistant.app</span>
+    <div class="r"><a href="#">গোপনীয়তা নীতি</a><a href="#">শর্তাবলি</a><span class="ph">[যোগাযোগের ইমেইল]</span></div>
+  </div>
+</footer>
+</body>
+</html>

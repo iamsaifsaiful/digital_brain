@@ -409,8 +409,10 @@ check(str_contains($form, 'তথ্য জমা দিন') && str_contains($f
 $_GET = ['plan' => 'monthly'];
 $pro = do_shortcode('[my_assistant_pro]');
 file_put_contents(dirname(__FILE__) . '/page-pro.html', '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="margin:0;padding:24px 16px;background:#F6F7F9">' . $pro);
-check(str_contains($pro, 'ফ্রি আর প্রিমিয়ামে কী কী') && str_contains($pro, 'মাসিক প্রিমিয়াম কিনুন') && str_contains($pro, 'তথ্য জমা দিন'), 'Pro page: features, plans and the form');
-check((bool) preg_match('/value="monthly"\s+checked/', $pro), 'the plan chosen above is ticked in the form');
+check(str_contains($pro, 'ফ্রি আর প্রিমিয়ামে কী কী') && str_contains($pro, 'বার্ষিক প্রিমিয়াম কিনুন') && str_contains($pro, 'তথ্য জমা দিন'), 'Pro page: features, the yearly plan and the form');
+// Owner, 1 Nov: bKash once a year — the website offers no monthly plan, even when asked for one.
+check(!str_contains($pro, 'মাসিক প্রিমিয়াম') && !str_contains($pro, 'value="monthly"') && str_contains($pro, 'name="plan" value="yearly"') && str_contains($pro, '৳৯৯৯'), 'website: the yearly plan only (৳৯৯৯), no monthly');
+check(str_contains($form, 'প্রশ্ন ও উত্তর') && str_contains($form, 'নিজে থেকে নবায়ন হয়?') && str_contains($form, 'Send Money'), 'buy page: the plan card, bKash steps and questions');
 check(!str_contains(do_shortcode('[my_assistant_pro form="no"]'), 'তথ্য জমা দিন'), 'form="no" leaves the form out');
 
 echo "\nunderstanding (NLU): switch, models, cloud reading, samples\n";
