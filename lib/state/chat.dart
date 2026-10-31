@@ -258,7 +258,7 @@ class ChatController extends ChangeNotifier {
     final words = delexicalize(text, names);
     if (words == null) return;
     brain.addNluSample(
-      nluSample(textDelex: words, state: state, local: [for (final p in pieces) (p.intent, p.conf)], finalIntents: old, appVer: nluAppVersion, modelVer: 'bundled-1'),
+      nluSample(textDelex: words, state: state, local: [for (final p in pieces) (p.intent, p.conf)], finalIntents: old, appVer: nluAppVersion, modelVer: brain.nluModelVersion.isEmpty ? 'bundled-1' : brain.nluModelVersion),
       text,
     );
   }

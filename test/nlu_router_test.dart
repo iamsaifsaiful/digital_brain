@@ -98,7 +98,7 @@ void main() {
         ],
         'sure': 0.9,
       });
-      final b = rig.brain;
+      final b = rig.brain..nluSamplesOn = false; // on by default (31 Oct); this member turned it off
       expect(intentsOfCommands(parseAll(said, b.data.ledger, now: DateTime.now())), ['ledger_add']);
       final (cmds, _) = await b.understandAll(said, model: Future.value([piece('cash_add')]), nluState: 'idle');
       final asked = calls.where((r) => r.url.path.endsWith('/nlu/resolve')).toList();
@@ -156,6 +156,27 @@ void main() {
         await rig.brain.understandAll(s, model: Future.value([piece('out_of_scope')]));
       }
       expect(calls.where((r) => r.url.path.endsWith('/nlu/resolve')), isEmpty);
+    });
+
+    test('the rules make a new reminder, the model is very sure it is a question: the question (owner, 31 Oct)', () async {
+      const ask = 'আজকের রিমাইন্ডার দাও';
+      final calls = <http.Request>[];
+      final rig = rigWith(calls, const {});
+      final b = rig.brain;
+      final rules = parseAll(ask, b.data.ledger, now: DateTime.now());
+      if (rules.single is! ReminderAdd) {
+        markTestSkipped('the rules read this one right now');
+        return;
+      }
+      var (cmds, _) = await b.understandAll(ask, model: Future.value([piece('reminder_query', conf: 0.94)]));
+      expect(cmds.single, isA<ReminderQuery>());
+      expect(b.answerSources.values.expand((m) => m.keys), contains('nlu_phone_query'));
+      // Not sure enough, or not a question: the rules.
+      (cmds, _) = await b.understandAll(ask, model: Future.value([piece('reminder_query', conf: 0.6)]));
+      expect(cmds.single, isA<ReminderAdd>());
+      (cmds, _) = await b.understandAll('কাল সকালে ব্যাংকে যাব', model: Future.value([piece('reminder_delete', conf: 0.99)]));
+      expect(cmds.single, isNot(isA<ReminderQuery>()));
+      expect(calls.where((r) => r.url.path.endsWith('/nlu/resolve')), isEmpty, reason: 'decided on the phone');
     });
 
     test('shadow mode: the model changes nothing', () async {

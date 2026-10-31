@@ -392,12 +392,15 @@ class DeviceVoice extends Voice {
   void _handleError(SpeechRecognitionError e) {
     if (_finished) return;
     final code = e.errorMsg;
-    // সমস্যার লগ: the recogniser's own code (never what was heard); the
-    // everyday "nothing said yet" ones are left out.
-    if (code != 'error_no_match' && code != 'error_speech_timeout') ErrorLog.problem('Voice', code);
     // The session the app itself just cancelled complaining late: not this turn's error.
     if ((code == 'error_client' || code == 'error_busy' || code == 'error_recognizer_busy') && DateTime.now().difference(_cancelledAt) < const Duration(milliseconds: 700)) return;
+    // The app itself stopped the recogniser to end the turn: its late "client" error is expected.
     if (_finalizing) return _finish();
+    // সমস্যার লগ: the recogniser's own code (never what was heard); the
+    // everyday "nothing said yet" ones are left out, and so are the ones the
+    // app caused itself (above), so the log shows the failures a member felt
+    // (owner's log, 31 Oct: 219 voice reports on the first day).
+    if (code != 'error_no_match' && code != 'error_speech_timeout') ErrorLog.problem('Voice', code);
     if (_words.isNotEmpty) {
       // A pause after some words (no_match / speech_timeout on a restarted
       // session, or a dropped connection): keep what was heard and let the
