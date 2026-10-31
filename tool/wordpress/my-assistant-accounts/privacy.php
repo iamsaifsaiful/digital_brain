@@ -13,14 +13,13 @@ if (!defined('ABSPATH')) {
 /** The date the policy last changed (shown on the page). */
 const MA_PRIVACY_DATE = '2026-11-01';
 
-add_shortcode('my_assistant_privacy', function () {
+add_shortcode('my_assistant_privacy', function ($atts = []) {
+    $a = shortcode_atts(['nav' => 'yes'], $atts, 'my_assistant_privacy');
     $mail = esc_html(get_option('admin_email'));
     $date = esc_html(MA_PRIVACY_DATE);
     $del = esc_url(ma_page_with('my_assistant_delete_account'));
-    return <<<HTML
-<div class="ma-privacy">
-<h2>My Assistant — প্রাইভেসি পলিসি</h2>
-<p><em>সর্বশেষ বদল: $date · Owlgorithm Labs</em></p>
+    $html = <<<HTML
+<div class="doc ma-privacy">
 
 <h3>মূল কথা</h3>
 <p>My Assistant আপনার তথ্য প্রথমে আপনার ফোনেই রাখে, এনক্রিপ্ট করে। পাসওয়ার্ড, ভল্ট, PIN, OTP, স্বাস্থ্য, ওষুধ, ব্যাংক কার্ড আর অন্য অ্যাপের মেসেজ কখনো ফোনের বাইরে যায় না। আমরা আপনার তথ্য বিক্রি করি না।</p>
@@ -73,6 +72,7 @@ add_shortcode('my_assistant_privacy', function () {
 <p><strong>Your choices:</strong> delete everything our server keeps from the app (Settings › Google account › “Delete account”) or from the <a href="$del">website's deletion page</a>; payment records stay as the law requires. Uninstalling removes the phone's data; delete Drive backups from your Drive. Contact: $mail. Not meant for children under 13. Changes are posted here with the date.</p>
 </div>
 HTML;
+    return ma_site_page('privacy', 'গোপনীয়তা নীতি', 'My Assistant — প্রাইভেসি পলিসি', 'আপনার তথ্য প্রথমে আপনার ফোনেই থাকে, এনক্রিপ্ট করে। কী ফোনে থাকে, কী আমাদের সার্ভারে যায় আর কেন — সব এখানে।', 'সর্বশেষ বদল: ' . MA_PRIVACY_DATE . ' · Owlgorithm Labs', $html, $a['nav'] !== 'no');
 });
 
 /** The published page that carries [shortcode] (the site's home when none does). */

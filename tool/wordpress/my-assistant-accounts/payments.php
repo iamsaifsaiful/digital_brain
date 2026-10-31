@@ -155,7 +155,9 @@ function ma_pay_form($atts = []) {
     .ma-pay .top .wrap{display:flex;align-items:center;height:72px;gap:20px}
     .ma-pay .brand{display:flex;align-items:center;gap:12px;font-family:'Anek Bangla','Noto Sans Bengali',sans-serif;font-weight:700;font-size:21px}
     .ma-pay .brand img{width:38px;height:38px}
-    .ma-pay .top .back{margin-left:auto;font-size:15.5px;color:var(--mut)}
+    .ma-pay .top .links{margin-left:auto;display:flex;gap:22px;font-size:15.5px;color:var(--mut)}
+    .ma-pay .top .links a.on{color:var(--g);font-weight:600}
+    .ma-pay .top .back{display:none;margin-left:auto;font-size:15.5px;color:var(--mut)}
     .ma-pay .head{padding-top:48px;padding-bottom:28px}
     .ma-pay .head h1{font-size:54px;font-weight:700;font-stretch:86%;line-height:1.1}
     .ma-pay .head p{margin-top:10px;font-size:18px;line-height:1.7;color:var(--mut);max-width:680px}
@@ -237,6 +239,8 @@ function ma_pay_form($atts = []) {
     .ma-pay.bare .wrap{padding:0}
     @media (max-width:760px){
       .ma-pay .wrap{padding:0 16px}
+      .ma-pay .top .links{display:none}
+      .ma-pay .top .back{display:block}
       .ma-pay .head{padding-top:32px}
       .ma-pay .head h1{font-size:38px}
       .ma-pay .layout{grid-template-columns:1fr}
@@ -252,7 +256,7 @@ function ma_pay_form($atts = []) {
     </style>
 
     <?php if ($a['nav'] !== 'no') : ?>
-    <div class="top"><div class="wrap"><a class="brand" href="<?php echo esc_url($home); ?>"><img src="<?php echo esc_url($icon); ?>" alt="">My Assistant</a><a class="back" href="<?php echo esc_url($home); ?>">← মূল পাতায় ফিরুন</a></div></div>
+    <div class="top"><div class="wrap"><a class="brand" href="<?php echo esc_url($home); ?>"><img src="<?php echo esc_url($icon); ?>" alt="">My Assistant</a><div class="links"><a href="<?php echo esc_url($home); ?>">মূল পাতা</a><a class="on" href="<?php echo esc_url(get_permalink() ?: home_url('/buy-pro/')); ?>">প্রিমিয়াম কিনুন</a><a href="<?php echo esc_url(home_url(ma_site_privacy_path())); ?>">গোপনীয়তা নীতি</a><a href="<?php echo esc_url(home_url('/terms-and-conditions/')); ?>">শর্তাবলি</a></div><a class="back" href="<?php echo esc_url($home); ?>">← মূল পাতা</a></div></div>
     <?php endif; ?>
 
     <?php if ($state === 'ok' || $state === 'auto') : ?>
@@ -372,7 +376,7 @@ function ma_pay_form($atts = []) {
     <?php endif; ?>
 
     <?php if ($a['nav'] !== 'no') : ?>
-    <div class="foot"><div class="wrap"><span>My Assistant · getmyassistant.app</span><div class="r"><a href="<?php echo esc_url(home_url('/privacy-policy/')); ?>">গোপনীয়তা নীতি</a><a href="<?php echo esc_url(home_url('/terms-and-conditions/')); ?>">শর্তাবলি</a><a href="mailto:info@getmyassistant.app">info@getmyassistant.app</a></div></div></div>
+    <div class="foot"><div class="wrap"><span>My Assistant · getmyassistant.app · Owlgorithm Labs</span><div class="r"><a href="<?php echo esc_url(home_url(ma_site_privacy_path())); ?>">গোপনীয়তা নীতি</a><a href="<?php echo esc_url(home_url('/terms-and-conditions/')); ?>">শর্তাবলি</a><a href="mailto:info@getmyassistant.app">info@getmyassistant.app</a></div></div></div>
     <?php endif; ?>
     </div>
     <?php

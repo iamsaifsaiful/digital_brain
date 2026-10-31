@@ -89,7 +89,7 @@ body = body.replace('<a class="btn btn-main" href="#download">ডাউনলো
 body = body.replace('<a class="btn btn-main" href="#">', f'<a class="btn btn-main" href="{DOWNLOAD}">')
 body = body.replace('<a class="brand" href="#">', '<a class="brand" href="/">')
 body = body.replace('<a href="#">গোপনীয়তা নীতি</a><a href="#">শর্তাবলি</a><span class="ph">[যোগাযোগের ইমেইল]</span>',
-                    '<a href="/privacy-policy/">গোপনীয়তা নীতি</a><a href="/terms-and-conditions/">শর্তাবলি</a><a href="mailto:info@getmyassistant.app">info@getmyassistant.app</a>')
+                    '<a href="/privacy/">গোপনীয়তা নীতি</a><a href="/terms-and-conditions/">শর্তাবলি</a><a href="mailto:info@getmyassistant.app">info@getmyassistant.app</a>')
 # plan cards open the payment page with the plan already chosen
 body = body.replace('<div class="plan best"><span class="tag">', f'<a class="plan best" href="{PRO}?plan=yearly"><span class="tag">')
 body = re.sub(r'(<a class="plan[^>]*>.*?<p class="note">[^<]*</p>)</div>', r'\1</a>', body)
