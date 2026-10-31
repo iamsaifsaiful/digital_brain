@@ -121,6 +121,8 @@ class MainActivity : FlutterFragmentActivity() {
     }
     private var launchChannel: MethodChannel? = null
     private val google by lazy { GoogleAuth(this) }
+    /** Google Play's in-app update (PlayUpdate.kt); made with the activity, before it starts. */
+    private val playUpdate = PlayUpdate(this)
 
     /** How the app was opened (a share, the assistant gesture, the widget mic), until Dart asks. */
     private var firstLaunch: Map<String, Any>? = null
@@ -706,6 +708,7 @@ class MainActivity : FlutterFragmentActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         io.flutter.plugin.common.EventChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/compass").setStreamHandler(Compass(this))
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/update").setMethodCallHandler { call, result -> playUpdate.handle(call, result) }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/secure").setMethodCallHandler { call, result ->
             if (call.method != "set") return@setMethodCallHandler result.notImplemented()
             val on = call.arguments as? Boolean ?: true

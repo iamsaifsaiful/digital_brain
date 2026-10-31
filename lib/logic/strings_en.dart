@@ -4594,4 +4594,11 @@ const enStrings = <String, String>{
   'কোন তথ্য ফোনেই থাকে, কোনটা কেন সার্ভারে যায়': 'What stays on the phone, and what goes to the server and why',
   'বিজ্ঞাপনের গোপনীয়তা': 'Ad privacy',
   'Google বিজ্ঞাপনের জন্য আপনার সম্মতি বদলান': 'Change your consent for Google ads',
+  'নতুন সংস্করণ এসেছে': 'A new version is out',
+  'My Assistant-এর নতুন সংস্করণ Google Play-তে এসেছে। আপডেট করলে নতুন সুবিধা আর ঠিক করা ভুলগুলো পাবেন। আপনার সব তথ্য ফোনে আগের মতোই থাকবে।': 'A new version of My Assistant is on Google Play. Update to get the new features and fixes. Everything on your phone stays as it is.',
+  'এখন আপডেট করুন': 'Update now',
+  'আপডেট হচ্ছে… শেষ হলে অ্যাপ নিজেই আবার খুলবে।': 'Updating… the app will open again by itself when it is done.',
+  'আপডেট বাতিল হয়েছে। চাইলে আবার চাপুন।': 'The update was cancelled. Tap again if you like.',
+  'এখন আর কোনো আপডেট নেই।': 'There is no update now.',
+  'আপডেট শুরু করা গেল না। Play Store থেকে My Assistant খুলে আপডেট করুন।': 'The update could not start. Open My Assistant in the Play Store and update it there.',
 };
