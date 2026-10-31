@@ -1,1 +1,1 @@
-1.0.2 (code 10007): update page; screenshots only on secret pages; copy chat messages
+1.0.2 (code 10007): update page; samples on by default; model answers sure questions; screenshots only on secret pages; copy chat messages
