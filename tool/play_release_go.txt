@@ -1,1 +1,1 @@
-1.0.3 (code 10008): learning samples never carry health; update page; model answers sure questions
+1.0.3 (code 10008): rebuild after the analyzer warning

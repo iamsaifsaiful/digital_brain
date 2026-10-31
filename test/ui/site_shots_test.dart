@@ -4,7 +4,6 @@
 // them. Without SHOTS the pages are only built.
 import 'dart:io';
 
-import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/services/notifications.dart' show AlarmHealth;
 import 'package:digital_brain/ui/theme.dart';
 import 'package:flutter/material.dart';
