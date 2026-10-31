@@ -1,1 +1,1 @@
-1.0.1 (code 10006): screenshots blocked only on secret pages; hold a chat message to copy it
+1.0.2 (code 10007): update page; screenshots only on secret pages; copy chat messages
