@@ -6,12 +6,20 @@
 /// Bangla, so a missing translation never breaks a screen.
 library;
 
+import 'region.dart';
 import 'strings_en.dart';
 
 /// True while the app shows English.
 bool isEn = false;
 
-String tr(String bn) => isEn ? (enStrings[bn] ?? bn) : bn;
+String tr(String bn) {
+  final s = isEn ? (enStrings[bn] ?? bn) : bn;
+  return takaMoney ? s : inCurrency(s, english: isEn);
+}
+
+/// [tr] without the currency change: for a text whose ৳ is really taka
+/// (the Bangladesh price of Premium).
+String trTaka(String bn) => isEn ? (enStrings[bn] ?? bn) : bn;
 
 /// A menu or tile name (owner, 28 Oct): in English the name a menu would
 /// have ("Notes", "Passwords"), not the word's plain meaning.
@@ -30,6 +38,8 @@ const _menuEn = {
 
 String trf(String bn, List<Object?> args) {
   var s = isEn ? (enStrings[bn] ?? bn) : bn;
+  // Amounts in the member's currency (global version; taka: unchanged).
+  if (!takaMoney) s = inCurrency(s, english: isEn);
   for (var i = 0; i < args.length; i++) {
     s = s.replaceAll('{$i}', '${args[i]}');
   }

@@ -81,7 +81,7 @@ Future<void> dueForm(BuildContext context, Project project, {String person = '',
             const SizedBox(height: 10),
             TextField(key: const Key('due-what'), controller: what, decoration: InputDecoration(labelText: owe ? tr('কী নিয়েছি বা কেন বকেয়া') : tr('কী নিয়েছে বা কেন বকেয়া'))),
             const SizedBox(height: 10),
-            TextField(key: const Key('due-amount'), controller: money, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: tr('টাকা'), prefixText: '৳ ')),
+            TextField(key: const Key('due-amount'), controller: money, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: tr('টাকা'), prefixText: tr('৳ '))),
             const SizedBox(height: 10),
             OutlinedButton.icon(
               key: const Key('due-date'),
@@ -156,7 +156,7 @@ Future<void> collectDue(BuildContext context, Project project, String person, in
         Text(iPay ? trf('দেওয়ার ছিল {0}। যত দিলেন, লিখুন — ব্যয়ে যোগ হবে।', [taka(owed)]) : trf('বাকি ছিল {0}। যত পেলেন, লিখুন — আয়ে যোগ হবে।', [taka(owed)]),
             style: body(14, color: C.muted)),
         const SizedBox(height: 12),
-        TextField(key: const Key('due-amount'), controller: money, autofocus: true, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: tr('টাকা'), prefixText: '৳ ')),
+        TextField(key: const Key('due-amount'), controller: money, autofocus: true, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: tr('টাকা'), prefixText: tr('৳ '))),
         const SizedBox(height: 14),
         PrimaryButton(
           label: tr('রাখুন'),

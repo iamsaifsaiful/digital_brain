@@ -1,1 +1,2 @@
 1.0.3 (code 10008): rebuild after the analyzer warning
+1.0.4 (code 10009): global step 1 — currency, world phone numbers, Bangladesh-only parts abroad

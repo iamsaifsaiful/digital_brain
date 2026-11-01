@@ -650,6 +650,10 @@ extension _MenuChat on ChatController {
         // never made up; offline, said plainly where to see it.
         final p = await brain.metalPriceToday();
         final z = brain.zakatSaved;
+        if (p == null && !takaMoney) {
+          _say(out, tr('বাজুসের দাম শুধু টাকায় আসে — আপনার মুদ্রায় ১ ভরি (১১.৬৬৪ গ্রাম) সোনা আর রুপার দাম নিজে লিখুন।'), links: _pageLink('zakat'));
+          return;
+        }
         if (p == null) {
           final price = c.text == 'gold' ? z.goldPrice : z.silverPrice;
           final what = c.text == 'gold' ? tr('সোনা') : tr('রুপা');

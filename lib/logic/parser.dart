@@ -13,6 +13,7 @@ import 'ask.dart';
 import 'manage.dart';
 import 'me.dart';
 import 'bn.dart';
+import 'region.dart' show spokenCurrency, appCurrency;
 import 'ledger.dart';
 import 'cash.dart';
 import 'meaning.dart';
@@ -483,6 +484,9 @@ String normalize(String s) {
   t = t.replaceAllMapped(RegExp(r'(\d),(\d)'), (m) => '${m[1]}${m[2]}');
   t = t.replaceAll(RegExp(r'[।?!,;:"“”‘’()\[\]]'), ' ');
   t = t.replaceAll('৳', ' ');
+  // The member's own currency said by name or sign ("৫০০ দিরহাম", "AED 500",
+  // "\$20") reads as an amount, like টাকা (global version).
+  t = _ownCurrencyAsTaka(t);
   // Banglish clock times: "8tay" → "8টায়", "10ta" → "10টা".
   t = t.replaceAllMapped(RegExp(r'(\d)(?:tay|tai|te)(?![a-z])'), (m) => '${m[1]}টায়').replaceAllMapped(RegExp(r'(\d)ta(?![a-z])'), (m) => '${m[1]}টা');
   t = t.replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -490,6 +494,30 @@ String normalize(String s) {
   // Everyday and regional speech → the standard forms the rules know.
   final mapped = t.split(' ').map(_standardWord).toList();
   return _joinParticles(mapped).join(' ');
+}
+
+String _currencyKey = '';
+RegExp? _currencyAfter, _currencyBefore;
+
+String _ownCurrencyAsTaka(String t) {
+  final words = spokenCurrency();
+  if (words.isEmpty) return t;
+  if (_currencyKey != appCurrency.code) {
+    _currencyKey = appCurrency.code;
+    final alt = words.map((w) => RegExp.escape(fold(w))).join('|');
+    // After a number or a number word: "৫০০ দিরহাম", "পাঁচ হাজার দিরহামের".
+    _currencyAfter = RegExp('(?<=\\d|হাজার|শো|শ|লাখ|লক্ষ|কোটি|thousand|hundred|\\dk)\\s*(?:$alt)(ের|এর|র|ে)?(?![a-z\u0980-\u09FF])');
+    // Before the digits: "aed 500", "\$20", "rm50".
+    _currencyBefore = RegExp('(?<![a-z\u0980-\u09FF])(?:$alt)\\s*(\\d+)');
+  }
+  // After the number first, so "৫০০ দিরহাম ২০ তারিখে" keeps its date.
+  var out = t.replaceAllMapped(_currencyAfter!, (m) => switch (m[1]) {
+        'ের' || 'এর' || 'র' => ' টাকার',
+        'ে' => fold(' টাকায়'),
+        _ => ' টাকা',
+      });
+  out = out.replaceAllMapped(_currencyBefore!, (m) => '${m[1]} টাকা');
+  return out.replaceAll(RegExp(r'\s+'), ' ');
 }
 
 const _englishKe = {'smoke', 'spoke', 'brake', 'stroke', 'awake', 'mistake', 'snake', 'shake', 'strike', 'handshake', 'remake', 'intake', 'stake'};
@@ -2468,15 +2496,26 @@ int? everyMinutes(String text) {
   return null;
 }
 
-/// A Bangladeshi mobile number in [said] ("০১৭১২-৩৪৫৬৭৮", "+8801712345678").
+/// A Bangladeshi mobile number in [said] ("০১৭১২-৩৪৫৬৭৮", "+8801712345678"),
+/// or any country's number written with its code ("+971 50 123 4567",
+/// "0044 7700 900123" → "+447700900123"; global version).
 String? findPhone(String said) {
   final t = asciiDigits(fold(said));
   final m = RegExp(r'(?<!\d)(\+?88)?0?1[3-9]\d{2}[\s-]?\d{6}(?!\d)').firstMatch(t);
-  if (m == null) return null;
+  if (m == null) {
+    for (final w in _worldPhone.allMatches(t)) {
+      final d = w[0]!.replaceAll(RegExp(r'[\s\-()]'), '');
+      final digits = d.startsWith('+') ? d.substring(1) : d.substring(2);
+      if (digits.length >= 8 && digits.length <= 15) return '+$digits';
+    }
+    return null;
+  }
   var p = m[0]!.replaceAll(RegExp(r'[\s-]'), '');
   if (p.startsWith('1')) p = '0$p';
   return p;
 }
+
+final _worldPhone = RegExp(r'(?<![\d+])(?:\+|00)[1-9](?:[\s\-()]?\d){7,14}(?!\d)');
 
 /// The words after "যে" or after "মেসেজ দাও": "রহিমকে মেসেজ দাও যে আমি আসছি" → "আমি আসছি".
 String messageText(String said) {

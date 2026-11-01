@@ -19,6 +19,7 @@ import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'zakat_principles.dart';
+import '../logic/region.dart' show takaMoney;
 
 class ZakatScreen extends StatefulWidget {
   const ZakatScreen({super.key});
@@ -46,7 +47,11 @@ class _ZakatScreenState extends State<ZakatScreen> {
       _f['other']!.text = n(z.other);
       setState(() {});
       // No price yet: today's is fetched at once (the boxes stay for when it fails).
-      if (z.goldPrice <= 0 || z.silverPrice <= 0) _todayPrice(BrainScope.read(context));
+      if (!takaMoney) {
+        _priceNote = tr('বাজুসের দাম শুধু টাকায় আসে — আপনার মুদ্রায় ১ ভরি (১১.৬৬৪ গ্রাম) সোনা আর রুপার দাম নিজে লিখুন।');
+      } else if (z.goldPrice <= 0 || z.silverPrice <= 0) {
+        _todayPrice(BrainScope.read(context));
+      }
     });
   }
 
@@ -324,7 +329,7 @@ class _ZakatScreenState extends State<ZakatScreen> {
               ),
               const SizedBox(height: 18),
               SectionTitle(tr('একবার লিখে দিন — মনে রাখবো')),
-              Align(
+              if (takaMoney) Align(
                 alignment: Alignment.centerLeft,
                 child: OutlinedButton.icon(
                   key: const Key('zakat-today-price'),

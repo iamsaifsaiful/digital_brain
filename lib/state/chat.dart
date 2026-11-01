@@ -42,6 +42,7 @@ import '../models/models.dart';
 import '../services/ai.dart';
 import '../ui/yes_no.dart' show pickSpokenOption;
 import 'brain.dart';
+import '../logic/region.dart' show takaMoney;
 
 part 'todo_chat.dart';
 part 'menu_chat.dart';

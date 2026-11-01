@@ -125,7 +125,7 @@ class _CashNowCardState extends State<CashNowCard> {
               key: const Key('cash-now-field'),
               controller: _amount,
               keyboardType: TextInputType.number,
-              decoration: InputDecoration(prefixText: '৳ ', hintText: tr('যেমন ১২,০০০'), isDense: true),
+              decoration: InputDecoration(prefixText: tr('৳ '), hintText: tr('যেমন ১২,০০০'), isDense: true),
               onSubmitted: (v) => _save(brain, v),
             ),
           ),
@@ -163,7 +163,7 @@ class _AmountDialogState extends State<_AmountDialog> {
           controller: _c,
           autofocus: true,
           keyboardType: TextInputType.number,
-          decoration: InputDecoration(prefixText: '৳ ', helperText: tr('এখন থেকে নতুন করে হিসাব শুরু হবে'), helperMaxLines: 2),
+          decoration: InputDecoration(prefixText: tr('৳ '), helperText: tr('এখন থেকে নতুন করে হিসাব শুরু হবে'), helperMaxLines: 2),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('বাতিল'))),

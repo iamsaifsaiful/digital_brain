@@ -2,6 +2,7 @@
 library;
 
 import 'lang.dart';
+import 'region.dart';
 
 const _bnDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
 
@@ -29,11 +30,14 @@ String asciiDigits(String s) {
   return b.toString();
 }
 
-/// Groups the way Bangladesh does: 1,00,000 (lakh), then 1,00,00,000.
+/// Groups the way Bangladesh does: 1,00,000 (lakh), then 1,00,00,000 —
+/// or in thousands (100,000) when the money is in a currency that does.
 String groupLakh(int n) {
   final neg = n < 0;
   var s = n.abs().toString();
-  if (s.length > 3) {
+  if (!appCurrency.lakh) {
+    s = s.replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
+  } else if (s.length > 3) {
     final last3 = s.substring(s.length - 3);
     var rest = s.substring(0, s.length - 3);
     final parts = <String>[];
@@ -47,8 +51,8 @@ String groupLakh(int n) {
   return neg ? '-$s' : s;
 }
 
-/// 1050 → "৳১,০৫০".
-String taka(int amount) => '৳${bnDigits(groupLakh(amount.abs()))}';
+/// 1050 → "৳১,০৫০" (in the member's currency abroad: "AED ১,০৫০").
+String taka(int amount) => '$moneySign${bnDigits(groupLakh(amount.abs()))}';
 
 /// 1050 → "১,০৫০" (no sign).
 String bnNumber(int n) => bnDigits(groupLakh(n));

@@ -19,6 +19,7 @@ import 'compass.dart' show qiblaSaid;
 import 'spend_health.dart';
 import 'answers.dart' show taskLine;
 import 'app_map.dart' show howToAsked, howToAnswer, abilityAsked, abilityAnswer;
+import 'region.dart' show takaMoney;
 
 /// The user's place (for prayer times) and name, set by the app.
 String askPlace = 'ঢাকা';
@@ -189,7 +190,7 @@ String? infoAnswer(AppData d, String said, DateTime now) {
         return trf('আপনার যাকাতযোগ্য সম্পদ {0} টাকা, যাকাত প্রায় {1} টাকা (২.৫%){2}। এটা আনুমানিক — নিশ্চিত হতে আলেমের পরামর্শ নিন।', [bnNumber(z.net), bnNumber(z.zakat), by]);
       }
       if (z.nisab <= 0) {
-        final why = metalUnavailable ? tr(' আজকের দাম ইন্টারনেট থেকে আনতে পারিনি (ইন্টারনেট বা সার্ভার সাড়া দেয়নি) — বাজুসের সাইটে (bajus.org) দেখে নিতে পারেন।') : '';
+        final why = !takaMoney ? tr(' বাজুসের দাম শুধু টাকায় আসে — আপনার মুদ্রায় ১ ভরি (১১.৬৬৪ গ্রাম) সোনা আর রুপার দাম নিজে লিখুন।') : metalUnavailable ? tr(' আজকের দাম ইন্টারনেট থেকে আনতে পারিনি (ইন্টারনেট বা সার্ভার সাড়া দেয়নি) — বাজুসের সাইটে (bajus.org) দেখে নিতে পারেন।') : '';
         return trf('আপনার হিসাব থেকে যাকাতযোগ্য সম্পদ এখন প্রায় {0} টাকা (নগদ, ব্যাংক-সঞ্চয়, পাওনা থেকে দেনা বাদে)। নিসাব জানতে আজকের রুপার দাম লাগবে — যাকাত পাতায় রুপার দাম আর সোনা-রুপার পরিমাণ দিন, তারপর জিজ্ঞেস করলেই যাকাত বলে দেবো।', [bnNumber(z.net < 0 ? 0 : z.net)]) + why;
       }
       if (!z.due) return trf('আপনার যাকাতযোগ্য সম্পদ {0} টাকা — নিসাব {1} টাকার কম, তাই যাকাত ফরজ নয় (আনুমানিক হিসাব)।', [bnNumber(z.net < 0 ? 0 : z.net), bnNumber(z.nisab)]) + _goldNisab(z);

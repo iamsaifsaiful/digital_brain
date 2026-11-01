@@ -378,7 +378,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
     for (final k in widget.command.options) {
       final after = bal + k.signed(_amount);
       final sub = switch (k) {
-        LedgerKind.repaid => '${toPerson(_person)} দেবেন ${taka(-bal)} → ${after < 0 ? taka(-after) : '৳০'}',
+        LedgerKind.repaid => '${toPerson(_person)} দেবেন ${taka(-bal)} → ${after < 0 ? taka(-after) : taka(0)}',
         LedgerKind.lent => '$_person পরে এটা ফেরত দেবেন',
         LedgerKind.received => '${possessive(_person)} কাছে পাওনা ${taka(bal)} → ${taka(after > 0 ? after : 0)}',
         LedgerKind.borrowed => 'আপনি পরে ${toPerson(_person)} ফেরত দেবেন',

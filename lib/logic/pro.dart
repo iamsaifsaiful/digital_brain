@@ -15,7 +15,8 @@
 /// using a Pro-only tool, asks for Pro.
 library;
 
-import 'lang.dart' show tr;
+import 'lang.dart' show tr, trTaka;
+import 'region.dart' show takaMoney;
 
 /// `direct` (GitHub APK), `play` (Play Store) or `play_preview`.
 const String edition = String.fromEnvironment('EDITION', defaultValue: 'direct');
@@ -143,6 +144,15 @@ class ProPlan {
   final String price;
   final String note;
   final int days;
+
+  /// The line under the price. Its "৳৮৩" is the taka price, so it shows
+  /// only when the price is in taka (Play's price follows the member's Play
+  /// country, not the app's currency); anywhere else a line with no amount.
+  String noteFor(String? playPrice) {
+    final inTaka = playPrice == null ? takaMoney : (playPrice.contains('৳') || playPrice.toUpperCase().contains('BDT'));
+    if (inTaka) return trTaka(note);
+    return tr(id == 'pro_yearly' ? 'এক বছরের জন্য একবার দাম' : note);
+  }
 }
 
 /// Two plans only: monthly and yearly.

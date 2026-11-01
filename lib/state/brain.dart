@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:cryptography/cryptography.dart' show Sha256;
 
@@ -30,6 +31,7 @@ import '../logic/me.dart';
 import '../logic/phrases.dart' show possessive;
 import '../logic/answers.dart';
 import '../logic/bn.dart';
+import '../logic/region.dart';
 import '../logic/cash.dart';
 import '../logic/health.dart';
 import '../logic/ledger.dart';
@@ -1189,7 +1191,10 @@ class Brain extends ChangeNotifier {
   /// the phone (see [refreshPlace]).
   Future<void> setDistrict(String v, {bool auto = false}) async {
     final moved = v != district;
+    // Money already written in the old place's currency stays in it.
+    if (moved) await _keepCurrency();
     district = v;
+    applyRegion();
     askPlace = v;
     hijriAdjust = hijriShift;
     // A new place: its own weather now, never the last place's (owner, 25 Oct).
@@ -1423,6 +1428,45 @@ class Brain extends ChangeNotifier {
     }
   }
 
+  // ── Country and currency (global version, owner 2 Nov 2026) ──
+
+  /// The member's own choice of currency ('' = the country's own until the
+  /// first money is written).
+  String currencyCode = '';
+
+  /// The phone's own country (from its language settings), for a place
+  /// abroad whose country is not known.
+  String Function() phoneCountry = () => PlatformDispatcher.instance.locale.countryCode ?? '';
+
+  /// Where the app is used: the place's country.
+  String get country {
+    final c = placeNamed(district).country;
+    return c.isNotEmpty ? c : phoneCountry().toUpperCase();
+  }
+
+  /// Puts the country and the currency where every text reads them.
+  void applyRegion() {
+    final c = country;
+    setRegion(country: c, currency: currencyCode.isNotEmpty ? currencyCode : currencyOf(c));
+  }
+
+  bool get _hasMoney => data.cash.isNotEmpty || data.ledger.isNotEmpty || data.cashOffset != null || data.accounts.isNotEmpty;
+
+  /// Once money is written, its currency is kept (travelling never
+  /// relabels old amounts).
+  Future<void> _keepCurrency() async {
+    if (currencyCode.isNotEmpty || !_hasMoney) return;
+    currencyCode = appCurrency.code;
+    await _put('currency', currencyCode);
+  }
+
+  Future<void> setCurrency(String code) async {
+    currencyCode = code;
+    applyRegion();
+    notifyListeners();
+    await _put('currency', code);
+  }
+
   Future<void> setLetterSize(double v) async {
     letterSize = v;
     notifyListeners();
@@ -1456,6 +1500,7 @@ class Brain extends ChangeNotifier {
       look = Look.values.firstWhere((l) => l.name == saved, orElse: () => Look.sun);
       accentKey = await keys.read('accent') ?? 'amber';
       english = (await keys.read('lang')) == 'en';
+      currencyCode = await keys.read('currency') ?? '';
       letterSize = double.tryParse(await keys.read('letter_size') ?? '') ?? 1.0;
       easyMode = (await keys.read('easy_mode')) == 'true';
     } catch (_) {}
@@ -1970,6 +2015,12 @@ class Brain extends ChangeNotifier {
   /// Today's gold and silver price from the server (BAJUS), asked at most
   /// every few hours; the last one known when offline, or null.
   Future<MetalPrice?> metalPriceToday() async {
+    // বাজুস prices are taka per ভরি: never put under another currency
+    // (global version); the member writes the price.
+    if (!takaMoney) {
+      metalUnavailable = false;
+      return null;
+    }
     final now = services.now();
     if (_metal != null && _metalAt != null && now.difference(_metalAt!).inHours < 6) return _metal;
     final p = await services.server.metalPrice();
@@ -2329,6 +2380,8 @@ class Brain extends ChangeNotifier {
       loadError = '$e';
       ErrorLog.problem('DataLoad', e.runtimeType.toString(), st: st);
     }
+    applyRegion();
+    if (loadError == null) await _keepCurrency();
     loaded = true;
     notifyListeners();
     await carryOverTasks();

@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../logic/ai_safe.dart';
 import '../logic/app_map.dart';
 import '../logic/lang.dart';
+import '../logic/region.dart' show appCurrency, moneySign, takaMoney;
 import '../logic/parser.dart' show SelKind;
 
 /// What the AI understood: the fields of the `route` tool (see [_tool]).
@@ -394,7 +395,7 @@ User's note categories: ${ctx.categories.isEmpty ? '(none)' : ctx.categories.joi
 Money summary (from the app, accurate):
 ${ctx.money.isEmpty ? '(nothing yet)' : ctx.money}
 User's records (from the app; lists may be shortened — if something is not listed, add the matching query item and let the app answer from the phone):
-${ctx.records.isEmpty ? '(the user has not allowed the AI to see reminders, to-dos and notes; for such questions add the query item and keep the reply to a few words — the app answers from the phone)' : ctx.records}${ctx.shown.isEmpty ? '' : '\n\nThe list the app showed last (numbers as shown; "৩নং", "শেষের দুটো", "এগুলো" mean these):\n${ctx.shown}'}${isEn ? '\n\nLANGUAGE: the user has set the app to English. Write `reply` in clear, natural, polite English (names as the user said them; times like 6:20 PM; amounts like ৳500). The user may still speak Bengali; understand it as usual. Item fields (text, category, title) stay as described above.' : ''}''';
+${ctx.records.isEmpty ? '(the user has not allowed the AI to see reminders, to-dos and notes; for such questions add the query item and keep the reply to a few words — the app answers from the phone)' : ctx.records}${ctx.shown.isEmpty ? '' : '\n\nThe list the app showed last (numbers as shown; "৩নং", "শেষের দুটো", "এগুলো" mean these):\n${ctx.shown}'}${isEn ? '\n\nLANGUAGE: the user has set the app to English. Write `reply` in clear, natural, polite English (names as the user said them; times like 6:20 PM; amounts like ${moneySign}500). The user may still speak Bengali; understand it as usual. Item fields (text, category, title) stay as described above.' : ''}${takaMoney ? '' : '\n\nCURRENCY: the user\'s money is in ${appCurrency.en} (${appCurrency.code}), not taka. Amounts said in it ("${appCurrency.bn}", "${appCurrency.en}") are plain amounts, like টাকা; in `reply` write them as ${moneySign}500 (Bengali: 500 ${appCurrency.bn}).'}''';
 }
 
 final _item = {

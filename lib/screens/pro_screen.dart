@@ -199,7 +199,7 @@ class _ProScreenState extends State<ProScreen> {
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('${brain.playPrices[p.id] ?? p.price} / ${tr(p.title)}', style: display(18, weight: 700)),
-                  Text(tr(p.note), maxLines: 2, style: body(12, color: C.muted)),
+                  Text(p.noteFor(brain.playPrices[p.id]), maxLines: 2, style: body(12, color: C.muted)),
                 ]),
               ),
             ),

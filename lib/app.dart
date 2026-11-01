@@ -1,3 +1,4 @@
+import 'logic/region.dart' show appCurrency;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -112,7 +113,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       Look.sun => duskMix(brain),
     };
     final size = brain.easyMode ? (brain.letterSize < 1.15 ? 1.15 : brain.letterSize) : brain.letterSize;
-    final stamp = '${mix.toStringAsFixed(2)}|${brain.accentKey}|${brain.english}|$size';
+    final stamp = '${mix.toStringAsFixed(2)}|${brain.accentKey}|${brain.english}|$size|${appCurrency.code}';
     if (stamp == _lookStamp) return false;
     _lookStamp = stamp;
     C.mix = mix;

@@ -4,6 +4,7 @@ import '../logic/me.dart' show bloodGroups;
 
 import '../logic/bn.dart';
 import '../logic/lang.dart';
+import '../logic/region.dart';
 import 'pro_screen.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
@@ -215,6 +216,9 @@ class LookSection extends StatelessWidget {
           onChanged: (v) => brain.setEnglish(v),
         ),
         const SizedBox(height: 18),
+        label(tr('মুদ্রা'), tr('আপনার লেখা অঙ্কগুলো যে মুদ্রায়। বদলালে আগের অঙ্ক বদলায় না, শুধু চিহ্ন বদলায়।')),
+        CurrencyRow(code: appCurrency.code, onPick: (c) => brain.setCurrency(c)),
+        const SizedBox(height: 18),
         label(tr('থিম')),
         SegTabs<Look>(
           items: [(Look.sun, tr('সময়ের সাথে')), (Look.system, tr('ফোনের মতো')), (Look.light, tr('আলো')), (Look.dark, tr('অন্ধকার'))],
@@ -381,6 +385,58 @@ class PlanBadge extends StatelessWidget {
               if (sub.isNotEmpty) Text(' · $sub', style: body(12.5, color: fg)),
             ]),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+
+/// The currency of the member's amounts (global version): tap to choose.
+class CurrencyRow extends StatelessWidget {
+  const CurrencyRow({super.key, required this.code, required this.onPick});
+  final String code;
+  final ValueChanged<String> onPick;
+
+  static String nameOf(Currency c) => '${c.sign.trim()}  ${isEn ? c.en : c.bn} (${c.code})';
+
+  @override
+  Widget build(BuildContext context) {
+    final now = currencyByCode(code);
+    return Material(
+      color: C.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: C.line)),
+      child: InkWell(
+        key: const Key('currency-row'),
+        customBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        onTap: () async {
+          final picked = await showAppSheet<String>(
+            context: context,
+            isScrollControlled: true,
+            useSafeArea: true,
+            builder: (ctx) => DraggableScrollableSheet(
+              expand: false,
+              initialChildSize: 0.7,
+              builder: (ctx, scroll) => ListView(controller: scroll, children: [
+                Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 8), child: Text(tr('মুদ্রা'), style: body(16, weight: FontWeight.w600))),
+                for (final c in currencies)
+                  ListTile(
+                    key: Key('currency-${c.code}'),
+                    title: Text(nameOf(c)),
+                    trailing: c.code == code ? Icon(Icons.check_rounded, color: C.green) : null,
+                    onTap: () => Navigator.of(ctx).pop(c.code),
+                  ),
+              ]),
+            ),
+          );
+          if (picked != null && picked != code) onPick(picked);
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(children: [
+            Expanded(child: Text(nameOf(now), style: body(14.5))),
+            Icon(Icons.chevron_right_rounded, color: C.muted),
+          ]),
         ),
       ),
     );

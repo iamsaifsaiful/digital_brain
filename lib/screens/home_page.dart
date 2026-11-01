@@ -41,6 +41,7 @@ import 'spend_health_screen.dart';
 import 'vault_screen.dart';
 import 'zakat_screen.dart';
 import '../logic/pro.dart' show medicalOff;
+import '../logic/region.dart' show inBangladesh;
 
 String helloFor(DateTime now) {
   final h = now.hour;
@@ -771,7 +772,8 @@ class _Tools extends StatelessWidget {
       ('zakat', tr('যাকাত'), Icons.volunteer_activism_outlined, () => push(const ZakatScreen())),
       ('family', tr('ফ্যামিলি'), Icons.family_restroom_rounded, () => push(const FamilyScreen())),
       if (!medicalOff) ('medicines', trm('ওষুধ'), Icons.medication_outlined, () => push(const MedicinesScreen())),
-      ('blood', trm('ব্লাড ডোনেশন'), Icons.bloodtype_outlined, () => push(const RequestsScreen())),
+      // Blood requests are Bangladesh's districts and hospitals (global version).
+      if (inBangladesh) ('blood', trm('ব্লাড ডোনেশন'), Icons.bloodtype_outlined, () => push(const RequestsScreen())),
       ('pro', tr('প্রিমিয়াম'), Icons.workspace_premium_outlined, () => push(const ProScreen())),
     ];
     final saved = brain.orderOf('home_tools');

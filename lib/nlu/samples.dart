@@ -18,6 +18,8 @@ String? delexicalize(String text, Iterable<String> names, {Map<String, String>? 
   if (mentionsSecret(text)) return null;
   final digits = text.replaceAllMapped(RegExp('[০-৯]'), (m) => '${m[0]!.codeUnitAt(0) - 0x09E6}').replaceAll(RegExp(r'[\s\-]'), '');
   if (RegExp(r'0?1[3-9]\d{8}').hasMatch(digits)) return null;
+  // Any country's number with its code (global version).
+  if (RegExp(r'(?:\+|(?<!\d)00)[1-9]\d{7,}').hasMatch(digits)) return null;
   if (RegExp(r'\d{6,}').hasMatch(digits) && !RegExp(r'\d{6,}(টাকা|tk|/=)').hasMatch(digits)) return null;
   var out = text;
   var n = 0;

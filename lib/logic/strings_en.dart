@@ -4601,4 +4601,11 @@ const enStrings = <String, String>{
   'আপডেট বাতিল হয়েছে। চাইলে আবার চাপুন।': 'The update was cancelled. Tap again if you like.',
   'এখন আর কোনো আপডেট নেই।': 'There is no update now.',
   'আপডেট শুরু করা গেল না। Play Store থেকে My Assistant খুলে আপডেট করুন।': 'The update could not start. Open My Assistant in the Play Store and update it there.',
+  // Global version (2 Nov 2026): currency, gold price abroad.
+  'মুদ্রা': 'Currency',
+  'আপনার লেখা অঙ্কগুলো যে মুদ্রায়। বদলালে আগের অঙ্ক বদলায় না, শুধু চিহ্ন বদলায়।': 'The currency your amounts are in. Changing it does not convert old amounts; only the sign changes.',
+  'বাজুসের দাম শুধু টাকায় আসে — আপনার মুদ্রায় ১ ভরি (১১.৬৬৪ গ্রাম) সোনা আর রুপার দাম নিজে লিখুন।': 'Today\'s price (BAJUS) is in taka only — write the price of 1 bhori (11.664 g) of gold and silver in your currency.',
+  ' বাজুসের দাম শুধু টাকায় আসে — আপনার মুদ্রায় ১ ভরি (১১.৬৬৪ গ্রাম) সোনা আর রুপার দাম নিজে লিখুন।': ' Today\'s price (BAJUS) is in taka only — write the price of 1 bhori (11.664 g) of gold and silver in your currency.',
+  'নগদ আর প্রতিটা ব্যাংক — আলাদা রাখুন': 'Cash and each bank — kept apart',
+  'এক বছরের জন্য একবার দাম': 'One price for the whole year',
 };
