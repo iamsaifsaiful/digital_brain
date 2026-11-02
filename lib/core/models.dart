@@ -148,7 +148,7 @@ class Customer {
 
 /// A bKash agent (or anyone in Bangladesh who sends the taka).
 class Agent {
-  Agent({required this.id, required this.name, required this.whatsapp, this.commissionPerThousand = 0, required this.created});
+  Agent({required this.id, required this.name, required this.whatsapp, this.commissionPerThousand = 0, required this.created, this.channel = 'whatsapp'});
   final String id;
   String name;
 
@@ -159,14 +159,21 @@ class Agent {
   double commissionPerThousand;
   DateTime created;
 
+  /// 'whatsapp' (the message opens in WhatsApp) or 'app' (the agent uses
+  /// this app and is told by notification).
+  String channel;
+  bool get usesApp => channel == 'app';
+
   Map<String, Object?> toJson() => {
         'id': id,
         'name': name,
         'whatsapp': whatsapp,
         'commission': commissionPerThousand,
         'created': created.toIso8601String(),
+        'channel': channel,
       };
   factory Agent.fromJson(Map<String, Object?> j) => Agent(
+        channel: _s(j['channel'], 'whatsapp'),
         id: _s(j['id']),
         name: _s(j['name']),
         whatsapp: _s(j['whatsapp']),
@@ -204,6 +211,9 @@ class Txn {
     this.replyTail = '',
     this.fault,
     this.faultNote = '',
+    this.by = 0,
+    this.byName = '',
+    this.replyFrom = '',
   });
 
   final String id;
@@ -243,13 +253,22 @@ class Txn {
   String operator;
   String pack;
 
-  /// The agent's reply as copied ("10000-667"), and the 3 digits in it.
+  /// The agent's reply as copied ("10000-667"), and the 3 digits in it
+  /// (of the agent's own number it was sent from).
   String agentReply;
   String replyTail;
+
+  /// How the reply got here: 'auto' (filled from the copied reply),
+  /// 'manual' (an admin typed it), 'agent' (the agent in their app).
+  String replyFrom;
 
   /// Set when the money went to a wrong number: whose mistake it was.
   Fault? fault;
   String faultNote;
+
+  /// The admin who did it (server user id and name; 0 = before the server).
+  int by;
+  String byName;
 
   bool get cancelled => status == TxnStatus.cancelled;
 
@@ -288,6 +307,9 @@ class Txn {
         'replyTail': replyTail,
         'fault': fault?.name,
         'faultNote': faultNote,
+        'by': by,
+        'byName': byName,
+        'replyFrom': replyFrom,
       };
 
   factory Txn.fromJson(Map<String, Object?> j) => Txn(
@@ -317,26 +339,33 @@ class Txn {
         replyTail: _s(j['replyTail']),
         fault: j['fault'] == null ? null : Fault.values.firstWhere((f) => f.name == j['fault'], orElse: () => Fault.mine),
         faultNote: _s(j['faultNote']),
+        by: _i(j['by']),
+        byName: _s(j['byName']),
+        replyFrom: _s(j['replyFrom']),
       );
 }
 
 /// Riyal a customer owed that will not come back (left without paying).
 /// It takes the amount off their due but brings no riyal into hand.
 class Loss {
-  Loss({required this.id, required this.customerId, required this.sarAmount, required this.at, this.note = ''});
+  Loss({required this.id, required this.customerId, required this.sarAmount, required this.at, this.note = '', this.by = 0, this.byName = ''});
   final String id;
   final String customerId;
   double sarAmount;
   DateTime at;
   String note;
+  /// The admin who did it (server user id and name; 0 = before the server).
+  int by;
+  String byName;
 
-  Map<String, Object?> toJson() => {'id': id, 'customerId': customerId, 'sar': sarAmount, 'at': at.toIso8601String(), 'note': note};
-  factory Loss.fromJson(Map<String, Object?> j) => Loss(id: _s(j['id']), customerId: _s(j['customerId']), sarAmount: _d(j['sar']), at: _t(j['at']), note: _s(j['note']));
+  Map<String, Object?> toJson() => {'id': id, 'customerId': customerId, 'sar': sarAmount, 'at': at.toIso8601String(), 'note': note, 'by': by, 'byName': byName};
+  factory Loss.fromJson(Map<String, Object?> j) =>
+      Loss(id: _s(j['id']), customerId: _s(j['customerId']), sarAmount: _d(j['sar']), at: _t(j['at']), note: _s(j['note']), by: _i(j['by']), byName: _s(j['byName']));
 }
 
 /// Riyal a customer paid later, against what they owe.
 class Deposit {
-  Deposit({required this.id, required this.customerId, required this.sarAmount, required this.at, this.way = 'cash', this.note = ''});
+  Deposit({required this.id, required this.customerId, required this.sarAmount, required this.at, this.way = 'cash', this.note = '', this.by = 0, this.byName = ''});
   final String id;
   final String customerId;
   double sarAmount;
@@ -345,8 +374,11 @@ class Deposit {
   /// 'cash' or 'bank'.
   String way;
   String note;
+  /// The admin who did it (server user id and name; 0 = before the server).
+  int by;
+  String byName;
 
-  Map<String, Object?> toJson() => {'id': id, 'customerId': customerId, 'sar': sarAmount, 'at': at.toIso8601String(), 'way': way, 'note': note};
+  Map<String, Object?> toJson() => {'id': id, 'customerId': customerId, 'sar': sarAmount, 'at': at.toIso8601String(), 'way': way, 'note': note, 'by': by, 'byName': byName};
   factory Deposit.fromJson(Map<String, Object?> j) => Deposit(
         id: _s(j['id']),
         customerId: _s(j['customerId']),
@@ -354,6 +386,8 @@ class Deposit {
         at: _t(j['at']),
         way: _s(j['way'], 'cash'),
         note: _s(j['note']),
+        by: _i(j['by']),
+        byName: _s(j['byName']),
       );
 }
 
@@ -370,6 +404,9 @@ class AgentPayment {
     this.ref = '',
     this.fromAccount = '',
     this.receipt,
+    this.sarAmount = 0,
+    this.by = 0,
+    this.byName = '',
   }) : txnIds = txnIds ?? [];
   final String id;
   final String agentId;
@@ -390,6 +427,12 @@ class AgentPayment {
   /// Id of the encrypted photo of the bank receipt, if kept.
   String? receipt;
 
+  /// Riyal that went out of hand for this taka (must be given).
+  double sarAmount;
+  /// The admin who did it (server user id and name; 0 = before the server).
+  int by;
+  String byName;
+
   Map<String, Object?> toJson() => {
         'id': id,
         'agentId': agentId,
@@ -401,6 +444,9 @@ class AgentPayment {
         'ref': ref,
         'fromAccount': fromAccount,
         'receipt': receipt,
+        'sar': sarAmount,
+        'by': by,
+        'byName': byName,
       };
   factory AgentPayment.fromJson(Map<String, Object?> j) => AgentPayment(
         id: _s(j['id']),
@@ -413,6 +459,9 @@ class AgentPayment {
         ref: _s(j['ref']),
         fromAccount: _s(j['fromAccount']),
         receipt: j['receipt'] == null ? null : _s(j['receipt']),
+        sarAmount: _d(j['sar']),
+        by: _i(j['by']),
+        byName: _s(j['byName']),
       );
 }
 
@@ -423,35 +472,72 @@ String payWayName(String w) => payWays[w] ?? w;
 
 /// Riyal going out of hand: costs, or riyal sold/handed over.
 class Expense {
-  Expense({required this.id, required this.category, required this.sarAmount, required this.at, this.note = ''});
+  Expense({required this.id, required this.category, required this.sarAmount, required this.at, this.note = '', this.by = 0, this.byName = ''});
   final String id;
   String category;
   double sarAmount;
   DateTime at;
   String note;
+  /// The admin who did it (server user id and name; 0 = before the server).
+  int by;
+  String byName;
 
-  Map<String, Object?> toJson() => {'id': id, 'category': category, 'sar': sarAmount, 'at': at.toIso8601String(), 'note': note};
-  factory Expense.fromJson(Map<String, Object?> j) => Expense(id: _s(j['id']), category: _s(j['category']), sarAmount: _d(j['sar']), at: _t(j['at']), note: _s(j['note']));
+  Map<String, Object?> toJson() => {'id': id, 'category': category, 'sar': sarAmount, 'at': at.toIso8601String(), 'note': note, 'by': by, 'byName': byName};
+  factory Expense.fromJson(Map<String, Object?> j) =>
+      Expense(id: _s(j['id']), category: _s(j['category']), sarAmount: _d(j['sar']), at: _t(j['at']), note: _s(j['note']), by: _i(j['by']), byName: _s(j['byName']));
 }
 
 /// End-of-day count of riyal in hand.
 class DayClose {
-  DayClose({required this.id, required this.at, required this.expected, required this.counted, this.note = ''});
+  DayClose({required this.id, required this.at, required this.expected, required this.counted, this.note = '', this.by = 0, this.byName = ''});
   final String id;
   final DateTime at;
   final double expected;
   final double counted;
   final String note;
 
+  /// Whose hand was counted.
+  final int by;
+  final String byName;
+
   double get difference => counted - expected;
 
-  Map<String, Object?> toJson() => {'id': id, 'at': at.toIso8601String(), 'expected': expected, 'counted': counted, 'note': note};
-  factory DayClose.fromJson(Map<String, Object?> j) => DayClose(id: _s(j['id']), at: _t(j['at']), expected: _d(j['expected']), counted: _d(j['counted']), note: _s(j['note']));
+  Map<String, Object?> toJson() => {'id': id, 'at': at.toIso8601String(), 'expected': expected, 'counted': counted, 'note': note, 'by': by, 'byName': byName};
+  factory DayClose.fromJson(Map<String, Object?> j) =>
+      DayClose(id: _s(j['id']), at: _t(j['at']), expected: _d(j['expected']), counted: _d(j['counted']), note: _s(j['note']), by: _i(j['by']), byName: _s(j['byName']));
+}
+
+/// Riyal handed from one admin to another ("কালেকশন বুঝে নেওয়া"). It moves
+/// riyal between their hands; the shop's total does not change.
+class Handover {
+  Handover({required this.id, required this.at, required this.from, required this.fromName, required this.to, required this.toName, required this.sarAmount, this.note = ''});
+  final String id;
+  final DateTime at;
+  final int from;
+  final String fromName;
+  final int to;
+  final String toName;
+  final double sarAmount;
+  final String note;
+
+  Map<String, Object?> toJson() => {'id': id, 'at': at.toIso8601String(), 'from': from, 'fromName': fromName, 'to': to, 'toName': toName, 'sar': sarAmount, 'note': note};
+  factory Handover.fromJson(Map<String, Object?> j) => Handover(
+        id: _s(j['id']),
+        at: _t(j['at']),
+        from: _i(j['from']),
+        fromName: _s(j['fromName']),
+        to: _i(j['to']),
+        toName: _s(j['toName']),
+        sarAmount: _d(j['sar']),
+        note: _s(j['note']),
+      );
 }
 
 /// One line of the activity log. The log is only ever added to.
 class LogEntry {
-  LogEntry({required this.at, required this.kind, required this.title, required this.detail, this.who = 'me', this.ref = ''});
+  LogEntry({String? id, required this.at, required this.kind, required this.title, required this.detail, this.who = 'me', this.ref = ''})
+      : id = id ?? 'L${at.microsecondsSinceEpoch.toRadixString(36)}${(title.hashCode ^ detail.hashCode).toUnsigned(32).toRadixString(36)}';
+  final String id;
   final DateTime at;
 
   /// txn, recv, agent, edit, cust, sys
@@ -459,14 +545,16 @@ class LogEntry {
   final String title;
   final String detail;
 
-  /// 'me' (the owner on this phone) or 'app' (done by the app itself).
+  /// 'me' (this phone, no server), 'app' (done by the app itself), or the
+  /// name of the admin/agent who did it.
   final String who;
 
   /// Id of the thing it is about, if any.
   final String ref;
 
-  Map<String, Object?> toJson() => {'at': at.toIso8601String(), 'kind': kind, 'title': title, 'detail': detail, 'who': who, 'ref': ref};
+  Map<String, Object?> toJson() => {'id': id, 'at': at.toIso8601String(), 'kind': kind, 'title': title, 'detail': detail, 'who': who, 'ref': ref};
   factory LogEntry.fromJson(Map<String, Object?> j) => LogEntry(
+        id: j['id'] == null || '${j['id']}'.isEmpty ? null : _s(j['id']),
         at: _t(j['at']),
         kind: _s(j['kind'], 'sys'),
         title: _s(j['title']),
@@ -477,13 +565,31 @@ class LogEntry {
 }
 
 class Settings {
-  Settings({this.ownerName = '', this.defaultDueLimit = 1000, this.oldDueDays = 7, this.dupMinutes = 10, this.nextNo = 1001, this.lastBackup});
+  Settings({this.ownerName = '', this.defaultDueLimit = 1000, this.oldDueDays = 7, this.dupMinutes = 10, this.nextNo = 1001, this.lastBackup, Map<String, String>? templates}) : templates = templates ?? {};
   String ownerName;
   double defaultDueLimit;
   int oldDueDays;
   int dupMinutes;
   int nextNo;
   DateTime? lastBackup;
+
+  /// Admin-edited message texts, by template key (missing = the default).
+  final Map<String, String> templates;
+
+  /// What all admins share (kept on the server).
+  Map<String, Object?> shared() => {'ownerName': ownerName, 'defaultDueLimit': defaultDueLimit, 'oldDueDays': oldDueDays, 'dupMinutes': dupMinutes, 'templates': templates};
+
+  void applyShared(Map<String, Object?> j) {
+    ownerName = _s(j['ownerName'], ownerName);
+    defaultDueLimit = _d(j['defaultDueLimit'], defaultDueLimit);
+    oldDueDays = _i(j['oldDueDays'], oldDueDays);
+    dupMinutes = _i(j['dupMinutes'], dupMinutes);
+    if (j['templates'] is Map) {
+      templates
+        ..clear()
+        ..addAll(_tpl(j['templates']));
+    }
+  }
 
   Map<String, Object?> toJson() => {
         'ownerName': ownerName,
@@ -492,6 +598,7 @@ class Settings {
         'dupMinutes': dupMinutes,
         'nextNo': nextNo,
         'lastBackup': lastBackup?.toIso8601String(),
+        'templates': templates,
       };
   factory Settings.fromJson(Map<String, Object?> j) => Settings(
         ownerName: _s(j['ownerName']),
@@ -500,8 +607,11 @@ class Settings {
         dupMinutes: _i(j['dupMinutes'], 10),
         nextNo: _i(j['nextNo'], 1001),
         lastBackup: j['lastBackup'] == null ? null : _t(j['lastBackup']),
+        templates: _tpl(j['templates']),
       );
 }
+
+Map<String, String> _tpl(Object? j) => j is Map ? {for (final e in j.entries) if (e.value is String) '${e.key}': e.value as String} : {};
 
 class AppData {
   AppData({
@@ -514,6 +624,7 @@ class AppData {
     List<Expense>? expenses,
     List<DayClose>? closes,
     List<Loss>? losses,
+    List<Handover>? handovers,
     List<LogEntry>? log,
   })  : settings = settings ?? Settings(),
         customers = customers ?? [],
@@ -524,9 +635,14 @@ class AppData {
         expenses = expenses ?? [],
         closes = closes ?? [],
         losses = losses ?? [],
+        handovers = handovers ?? [],
         log = log ?? [];
 
   Settings settings;
+
+  /// This phone's place in the server's changes, what it last sent or got
+  /// of each record (hash), which photos are up, and its send numbers.
+  SyncState sync = SyncState();
   List<Customer> customers;
   List<Agent> agents;
   List<Txn> txns;
@@ -535,11 +651,13 @@ class AppData {
   List<Expense> expenses;
   List<DayClose> closes;
   List<Loss> losses;
+  List<Handover> handovers;
   List<LogEntry> log;
 
   Map<String, Object?> toJson() => {
         'v': 1,
         'settings': settings.toJson(),
+        'sync': sync.toJson(),
         'customers': [for (final x in customers) x.toJson()],
         'agents': [for (final x in agents) x.toJson()],
         'txns': [for (final x in txns) x.toJson()],
@@ -548,19 +666,81 @@ class AppData {
         'expenses': [for (final x in expenses) x.toJson()],
         'closes': [for (final x in closes) x.toJson()],
         'losses': [for (final x in losses) x.toJson()],
+        'handovers': [for (final x in handovers) x.toJson()],
         'log': [for (final x in log) x.toJson()],
       };
 
-  factory AppData.fromJson(Map<String, Object?> j) => AppData(
-        settings: Settings.fromJson(((j['settings'] as Map?) ?? const {}).cast<String, Object?>()),
-        customers: [for (final x in _l(j['customers'])) Customer.fromJson(x)],
-        agents: [for (final x in _l(j['agents'])) Agent.fromJson(x)],
-        txns: [for (final x in _l(j['txns'])) Txn.fromJson(x)],
-        deposits: [for (final x in _l(j['deposits'])) Deposit.fromJson(x)],
-        agentPayments: [for (final x in _l(j['agentPayments'])) AgentPayment.fromJson(x)],
-        expenses: [for (final x in _l(j['expenses'])) Expense.fromJson(x)],
-        closes: [for (final x in _l(j['closes'])) DayClose.fromJson(x)],
-        losses: [for (final x in _l(j['losses'])) Loss.fromJson(x)],
-        log: [for (final x in _l(j['log'])) LogEntry.fromJson(x)],
+  factory AppData.fromJson(Map<String, Object?> j) {
+    final p = _AppDataParts(j);
+    return AppData(
+      settings: p.settings,
+      customers: p.customers,
+      agents: p.agents,
+      txns: p.txns,
+      deposits: p.deposits,
+      agentPayments: p.agentPayments,
+      expenses: p.expenses,
+      closes: p.closes,
+      losses: p.losses,
+      handovers: p.handovers,
+      log: p.log,
+    )..sync = SyncState.fromJson(((j['sync'] as Map?) ?? const {}).cast<String, Object?>());
+  }
+}
+
+class _AppDataParts {
+  _AppDataParts(Map<String, Object?> j)
+      : settings = Settings.fromJson(((j['settings'] as Map?) ?? const {}).cast<String, Object?>()),
+        customers = [for (final x in _l(j['customers'])) Customer.fromJson(x)],
+        agents = [for (final x in _l(j['agents'])) Agent.fromJson(x)],
+        txns = [for (final x in _l(j['txns'])) Txn.fromJson(x)],
+        deposits = [for (final x in _l(j['deposits'])) Deposit.fromJson(x)],
+        agentPayments = [for (final x in _l(j['agentPayments'])) AgentPayment.fromJson(x)],
+        expenses = [for (final x in _l(j['expenses'])) Expense.fromJson(x)],
+        closes = [for (final x in _l(j['closes'])) DayClose.fromJson(x)],
+        losses = [for (final x in _l(j['losses'])) Loss.fromJson(x)],
+        handovers = [for (final x in _l(j['handovers'])) Handover.fromJson(x)],
+        log = [for (final x in _l(j['log'])) LogEntry.fromJson(x)];
+  final Settings settings;
+  final List<Customer> customers;
+  final List<Agent> agents;
+  final List<Txn> txns;
+  final List<Deposit> deposits;
+  final List<AgentPayment> agentPayments;
+  final List<Expense> expenses;
+  final List<DayClose> closes;
+  final List<Loss> losses;
+  final List<Handover> handovers;
+  final List<LogEntry> log;
+}
+
+/// See [AppData.sync].
+class SyncState {
+  SyncState({this.rev = 0, Map<String, String>? hashes, Set<String>? photosUp, List<int>? numbers, this.numbersYm = ''})
+      : hashes = hashes ?? {},
+        photosUp = photosUp ?? {},
+        numbers = numbers ?? [];
+  int rev;
+  Map<String, String> hashes;
+  Set<String> photosUp;
+  List<int> numbers;
+
+  /// The month ("2611") the kept numbers belong to.
+  String numbersYm;
+
+  Map<String, Object?> toJson() => {'rev': rev, 'hashes': hashes, 'photosUp': photosUp.toList(), 'numbers': numbers, 'numbersYm': numbersYm};
+  factory SyncState.fromJson(Map<String, Object?> j) => SyncState(
+        rev: _i(j['rev']),
+        hashes: {for (final e in ((j['hashes'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
+        photosUp: {for (final x in (j['photosUp'] as List?) ?? const []) '$x'},
+        numbers: [for (final x in (j['numbers'] as List?) ?? const []) _i(x)],
+        numbersYm: _s(j['numbersYm']),
       );
 }
+
+/// "2611" for November 2026: the first part of a send's number.
+String yearMonth(DateTime t) => '${(t.year % 100).toString().padLeft(2, '0')}${t.month.toString().padLeft(2, '0')}';
+
+/// Send numbers are year, month and the month's serial: 26110001 is the
+/// first send of November 2026.
+int sendNumber(String ym, int serial) => int.parse(ym) * 10000 + serial;

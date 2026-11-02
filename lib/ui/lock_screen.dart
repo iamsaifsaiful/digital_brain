@@ -33,7 +33,7 @@ class PinPad extends StatelessWidget {
                   onTap: onTap,
                   child: SizedBox(
                     height: 60,
-                    child: Center(child: icon != null ? Icon(icon, size: 26, color: K.navy) : Text(label, style: t(24, w: FontWeight.w500))),
+                    child: Center(child: icon != null ? Icon(icon, size: 26, color: K.navy) : Tx(label, style: t(24, w: FontWeight.w500))),
                   ),
                 ),
               ),
@@ -124,7 +124,7 @@ class _ExchangeAnimState extends State<ExchangeAnim> with SingleTickerProviderSt
                         height: r * 2,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(color: bg, shape: BoxShape.circle, boxShadow: [BoxShadow(color: bg.withValues(alpha: 0.35), blurRadius: 14, offset: const Offset(0, 6))]),
-                        child: Text(label, style: t2(label.length > 2 ? 17 : 26)),
+                        child: Tx(label, style: t2(label.length > 2 ? 17 : 26)),
                       ),
                       if (extra != null) extra,
                     ]),
@@ -293,9 +293,9 @@ class _LockScreenState extends State<LockScreen> {
             const Spacer(),
             const ExchangeAnim(),
             const SizedBox(height: 18),
-            Text('রিয়াল-বিকাশ হিসাব', style: t(21, w: FontWeight.w600)),
+            Tx('রিয়াল-বিকাশ হিসাব', style: t(21, w: FontWeight.w600)),
             const SizedBox(height: 6),
-            Text(
+            Tx(
               _until != null ? '${bn('$wait')} সেকেন্ড পর আবার চেষ্টা করুন' : (_msg.isEmpty ? 'পিন দিন' : _msg),
               style: t(14.5, c: _msg.isEmpty && _until == null ? K.muted : K.red),
               textAlign: TextAlign.center,
@@ -366,9 +366,9 @@ class _PinSetupState extends State<PinSetup> {
               const Spacer(),
               const ExchangeAnim(width: 230),
               const SizedBox(height: 14),
-              Text(widget.title, style: t(20, w: FontWeight.w600)),
+              Tx(widget.title, style: t(20, w: FontWeight.w600)),
               const SizedBox(height: 6),
-              Text(
+              Tx(
                 _msg.isNotEmpty ? _msg : (_first.isEmpty ? '৪ সংখ্যার পিন দিন। অ্যাপ খুলতে এটা লাগবে।' : 'আরেকবার একই পিন দিন'),
                 textAlign: TextAlign.center,
                 style: t(14.5, c: _msg.isNotEmpty ? K.red : K.muted, h: 1.5),

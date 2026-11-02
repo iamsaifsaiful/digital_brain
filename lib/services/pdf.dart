@@ -13,6 +13,16 @@ class PdfDoc {
   final String footer;
   final _blocks = <_Block>[];
 
+  /// The drawn pages, kept after [build] for the preview screen. Whoever
+  /// shows them calls [disposePages] when done.
+  final pages = <ui.Image>[];
+  void disposePages() {
+    for (final i in pages) {
+      i.dispose();
+    }
+    pages.clear();
+  }
+
   // A4 at 150 dpi.
   static const w = 1240.0, h = 1754.0, margin = 80.0;
   static const _ink = Color(0xFF1A1A1A), _muted = Color(0xFF6B6B6B), _line = Color(0xFFE2E2E2), _blue = Color(0xFF2F6BEA), _navy = Color(0xFF14284B);
@@ -147,6 +157,7 @@ class PdfDoc {
       }
     }
 
+    disposePages();
     final images = <(int, int, Uint8List)>[];
     for (var i = 0; i < pages.length; i++) {
       final rec = ui.PictureRecorder();
@@ -159,7 +170,7 @@ class PdfDoc {
       foot.paint(c, Offset(margin, h - margin + 4));
       final img = await rec.endRecording().toImage(w.toInt(), h.toInt());
       final data = await img.toByteData(format: ui.ImageByteFormat.rawRgba);
-      img.dispose();
+      this.pages.add(img);
       final rgba = data!.buffer.asUint8List();
       final rgb = Uint8List(w.toInt() * h.toInt() * 3);
       for (var s = 0, d = 0; s < rgba.length; s += 4, d += 3) {

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../core/format.dart';
@@ -6,6 +8,7 @@ import '../core/models.dart';
 import '../services/pdf.dart';
 import '../state/hisab.dart';
 import 'kit.dart';
+import 'more.dart' show topCustomers;
 
 /// A span of days: [from] inclusive, [to] exclusive.
 class Period {
@@ -83,7 +86,7 @@ String _footer(Hisab h) => 'রিয়াল-বিকাশ হিসাব${
 String _when(DateTime t) => '${dateShort(t)}\n${timeText(t)}';
 
 String _status(Txn x) => switch (x.status) {
-      TxnStatus.pending => 'উত্তর বাকি',
+      TxnStatus.pending => 'পাঠানোর অপেক্ষায়',
       TxnStatus.sent => proofText(x).isEmpty ? 'পৌঁছেছে' : proofText(x),
       TxnStatus.cancelled => 'বাতিল',
     };
@@ -91,7 +94,7 @@ String _status(Txn x) => switch (x.status) {
 List<List<String>> _txnRows(Hisab h, Iterable<Txn> list) => [
       for (final x in list)
         [
-          '#${bn('${x.no}')}\n${_when(x.at)}',
+          '#${bn('${x.no}')}\n${_when(x.at)}${x.byName.isEmpty ? '' : '\n${x.byName}'}',
           '${customerById(h.d, x.customerId)?.name ?? ''}${x.recipientLabel.isEmpty ? '' : '\nপ্রাপক: ${x.recipientLabel}'}',
           '${serviceName(x)}${x.kind == Kind.mb && x.pack.isNotEmpty ? ' (${x.pack})' : ''}\n${bdShow(x.number)}',
           '${bnNum(x.sarAmount, decimals: 2)}\n× ${rateText(x.rate)}',
@@ -101,7 +104,7 @@ List<List<String>> _txnRows(Hisab h, Iterable<Txn> list) => [
         ],
     ];
 
-const _txnHead = ['নং / সময়', 'গ্রাহক', 'কী / নম্বর', 'রিয়াল', 'টাকা', 'রিয়াল পরিশোধ', 'অবস্থা'];
+const _txnHead = ['নং / সময় / এডমিন', 'গ্রাহক', 'কী / নম্বর', 'রিয়াল', 'টাকা', 'রিয়াল পরিশোধ', 'অবস্থা'];
 const _txnFlex = [1.2, 1.7, 1.9, 1.2, 1.1, 1.2, 1.6];
 
 /// A list of sends (as filtered on screen).
@@ -145,6 +148,14 @@ PdfDoc periodPdf(Hisab h, Period p) {
     ('এখন মোট বাকি', sar(totalCustomerDue(d))),
     ('এখন হাতে থাকা উচিত', sar(cashInHand(d))),
   ]);
+  for (final (which, title) in const [(0, 'যে গ্রাহকরা বেশি পাঠান'), (1, 'যে গ্রাহকরা বেশি নগদ দেন'), (2, 'যাদের বাকি বেশি (এখন)')]) {
+    final top = topCustomers(d, which, p.has, h.now).take(10).toList();
+    if (top.isEmpty) continue;
+    doc.heading(title);
+    doc.table(['#', 'গ্রাহক', 'বিস্তারিত', 'রিয়াল'], [
+      for (final (i, r) in top.indexed) [bn('${i + 1}'), r.$1.name, r.$3, bnNum(r.$2, decimals: 2)],
+    ], flex: [0.4, 2, 3, 1.2], right: {3});
+  }
   doc.heading('লেনদেন');
   doc.table(_txnHead, _txnRows(h, txns), flex: _txnFlex, right: {3, 4});
   doc.heading('রিয়াল জমা');
@@ -199,21 +210,33 @@ PdfDoc periodPdf(Hisab h, Period p) {
     3
   });
   doc.heading('এজেন্টকে দেওয়া টাকা');
-  doc.table([
-    'সময়',
-    'এজেন্ট',
-    'কীভাবে',
-    'টাকা'
-  ], [
-    for (final x in pays) [_when(x.at), agentById(d, x.agentId)?.name ?? '', payDetail(x), bnNum(x.taka)],
-  ], flex: [
-    1.2,
-    2,
-    2.6,
-    1.2
-  ], right: {
-    3
-  });
+  doc.table(['সময় / এডমিন', 'এজেন্ট', 'কীভাবে', 'টাকা', 'রিয়াল'], [
+    for (final x in pays) ['${_when(x.at)}${x.byName.isEmpty ? '' : '\n${x.byName}'}', agentById(d, x.agentId)?.name ?? '', payDetail(x), bnNum(x.taka), x.sarAmount > 0 ? bnNum(x.sarAmount, decimals: 2) : '—'],
+  ], flex: [1.3, 1.8, 2.4, 1.1, 1.1], right: {3, 4});
+  // Each admin's hand in this period; handovers move riyal between hands.
+  final admins = adminsIn(d);
+  if (admins.length > 1 || h.session != null) {
+    doc.heading('এডমিনদের হাতের হিসাব');
+    doc.table(['এডমিন', 'এসেছে', 'গেছে', 'এখন হাতে'], [
+      for (final e in admins.entries)
+        () {
+          final lines = cashLines(d, me: e.key, owner: e.key == 0).where((l) => p.has(l.at));
+          return [
+            e.value,
+            bnNum(lines.fold<double>(0, (s, l) => s + l.inSar), decimals: 2),
+            bnNum(lines.fold<double>(0, (s, l) => s + l.outSar), decimals: 2),
+            bnNum(cashInHand(d, me: e.key, owner: e.key == 0), decimals: 2),
+          ];
+        }(),
+    ], flex: [2, 1.3, 1.3, 1.3], right: {1, 2, 3});
+    final hs = d.handovers.where((x) => p.has(x.at)).toList()..sort((a, b) => a.at.compareTo(b.at));
+    if (hs.isNotEmpty) {
+      doc.heading('কালেকশন হাতবদল');
+      doc.table(['সময়', 'কার কাছ থেকে', 'কে বুঝে নিলেন', 'নোট', 'রিয়াল'], [
+        for (final x in hs) [_when(x.at), x.fromName, x.toName, x.note, bnNum(x.sarAmount, decimals: 2)],
+      ], flex: [1.2, 1.6, 1.6, 2, 1.1], right: {4});
+    }
+  }
   if (closes.isNotEmpty) {
     doc.heading('দিন শেষের হিসাব');
     doc.table([
@@ -372,8 +395,13 @@ PdfDoc lossPdf(Hisab h) {
   return doc;
 }
 
-/// Builds the PDF and opens the share sheet (save to Files/Drive, WhatsApp…).
+/// Builds the PDF and opens its preview; from there it can be saved to
+/// Downloads, printed, shared, or just looked at.
 Future<void> sharePdf(BuildContext context, Hisab h, PdfDoc doc, String name) async {
+  if (!h.can('reports')) {
+    snack(context, 'PDF বানানোর অনুমতি আপনার নেই');
+    return;
+  }
   showDialog<void>(
     context: context,
     barrierDismissible: false,
@@ -384,12 +412,93 @@ Future<void> sharePdf(BuildContext context, Hisab h, PdfDoc doc, String name) as
     if (context.mounted) Navigator.of(context).pop();
     final n = h.now;
     final safe = name.replaceAll(RegExp(r'[^\wঀ-৿-]+'), '-');
-    await h.s.device.shareFile(bytes, '$safe-${n.year}-${n.month}-${n.day}.pdf', 'application/pdf');
+    final file = '$safe-${n.year}-${n.month}-${n.day}.pdf';
     await h.note('sys', 'PDF বানানো', doc.title);
+    if (context.mounted) await Navigator.of(context).push<void>(MaterialPageRoute(builder: (_) => PdfPreview(h: h, doc: doc, bytes: bytes, file: file)));
+    doc.disposePages();
   } catch (e) {
     if (context.mounted) {
       Navigator.of(context).pop();
       snack(context, 'PDF বানানো যায়নি');
     }
   }
+}
+
+class PdfPreview extends StatelessWidget {
+  const PdfPreview({super.key, required this.h, required this.doc, required this.bytes, required this.file});
+  final Hisab h;
+  final PdfDoc doc;
+  final Uint8List bytes;
+  final String file;
+
+  @override
+  Widget build(BuildContext context) {
+    return Screen(
+      title: doc.title,
+      body: Column(children: [
+        Expanded(
+          child: Container(
+            color: K.chip,
+            child: InteractiveViewer(
+              maxScale: 4,
+              child: ListView.separated(
+                padding: const EdgeInsets.all(12),
+                itemCount: doc.pages.length,
+                separatorBuilder: (_, i) => const SizedBox(height: 10),
+                itemBuilder: (_, i) => AspectRatio(
+                  aspectRatio: PdfDoc.w / PdfDoc.h,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .08), blurRadius: 6)]),
+                    child: RawImage(image: doc.pages[i], fit: BoxFit.contain),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            child: Row(children: [
+              Expanded(
+                child: _Act(Icons.download_outlined, 'ডাউনলোড', () async {
+                  final at = await h.s.device.saveDownload(bytes, file, 'application/pdf');
+                  if (context.mounted) snack(context, at == null ? 'সেভ করা যায়নি' : 'সেভ হয়েছে: $at');
+                }),
+              ),
+              Expanded(
+                child: _Act(Icons.print_outlined, 'প্রিন্ট', () async {
+                  final ok = await h.s.device.printPdf(bytes, file);
+                  if (!ok && context.mounted) snack(context, 'প্রিন্ট খোলা যায়নি');
+                }),
+              ),
+              Expanded(child: _Act(Icons.share_outlined, 'শেয়ার', () => h.s.device.shareFile(bytes, file, 'application/pdf'))),
+              Expanded(child: _Act(Icons.visibility_outlined, 'শুধু দেখা', () => Navigator.of(context).pop())),
+            ]),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _Act extends StatelessWidget {
+  const _Act(this.icon, this.label, this.onTap);
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, color: K.navy),
+            const SizedBox(height: 4),
+            Tx(label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+          ]),
+        ),
+      );
 }

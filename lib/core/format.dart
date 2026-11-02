@@ -5,6 +5,9 @@ library;
 
 const _bnDigits = '০১২৩৪৫৬৭৮৯';
 
+/// The app shows English instead of Bangla (see lang.dart).
+bool appEnglish = false;
+
 /// "123" → "১২৩". Other characters stay.
 String bn(String s) => s.replaceAllMapped(RegExp('[0-9]'), (m) => _bnDigits[int.parse(m[0]!)]);
 
@@ -152,3 +155,67 @@ String ago(DateTime t, DateTime now) {
 }
 
 bool sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+
+/// A Saudi mobile number as "05XXXXXXXX", from 05…, 5…, 9665… or +9665…;
+/// null when it is not one.
+String? saMobile(String s) {
+  var d = en(s).replaceAll(RegExp(r'[^0-9]'), '');
+  if (d.startsWith('00966')) d = d.substring(2);
+  if (d.startsWith('966')) d = '0${d.substring(3)}';
+  if (d.startsWith('5')) d = '0$d';
+  return RegExp(r'^05[0-9]{8}$').hasMatch(d) ? d : null;
+}
+
+/// How many digits a Saudi mobile number may have, as it is being typed.
+int saMaxDigits(String typed) {
+  final d = en(typed).replaceAll(RegExp(r'[^0-9]'), '');
+  if (d.startsWith('00966')) return 14;
+  if (d.startsWith('966')) return 12;
+  if (d.startsWith('5')) return 9;
+  return 10;
+}
+
+/// A rough "sound" of a name in either script, so "karim" finds "করিম" and
+/// "রহিম" finds "Rahim": consonants only, look-alike sounds merged.
+String soundKey(String s) {
+  const bnMap = {
+    'ক': 'k', 'খ': 'k', 'গ': 'g', 'ঘ': 'g', 'ঙ': 'n', 'চ': 'c', 'ছ': 'c', 'জ': 'j', 'ঝ': 'j', 'য': 'j', 'ঞ': 'n', //
+    'ট': 't', 'ঠ': 't', 'ড': 'd', 'ঢ': 'd', 'ণ': 'n', 'ত': 't', 'থ': 't', 'দ': 'd', 'ধ': 'd', 'ন': 'n', //
+    'প': 'p', 'ফ': 'f', 'ব': 'b', 'ভ': 'b', 'ম': 'm', 'র': 'r', 'ড়': 'r', 'ঢ়': 'r', 'ল': 'l', 'শ': 's', 'ষ': 's', 'স': 's', //
+    'হ': 'h', 'ৎ': 't', 'ং': 'ng', 'ঃ': 'h', 'য়': '',
+  };
+  final t = s.toLowerCase().replaceAll('়', '').replaceAll('ড়', 'ড়').replaceAll('ঢ়', 'ঢ়').replaceAll('য়', 'য়');
+  final out = StringBuffer();
+  final latin = t
+      .replaceAll(RegExp(r'[^a-zঀ-৿]'), '')
+      .replaceAll('kh', 'k')
+      .replaceAll('gh', 'g')
+      .replaceAll('ch', 'c')
+      .replaceAll('jh', 'j')
+      .replaceAll('th', 't')
+      .replaceAll('dh', 'd')
+      .replaceAll('ph', 'f')
+      .replaceAll('bh', 'b')
+      .replaceAll('sh', 's');
+  for (final r in latin.runes) {
+    final c = String.fromCharCode(r);
+    if (bnMap.containsKey(c)) {
+      out.write(bnMap[c]);
+    } else if (RegExp('[bcdfghjklmnprst]').hasMatch(c)) {
+      out.write(c);
+    } else if (c == 'q') {
+      out.write('k');
+    } else if (c == 'z') {
+      out.write('j');
+    } else if (c == 'v' || c == 'w') {
+      out.write('b');
+    } else if (c == 'x') {
+      out.write('ks');
+    }
+    // Vowels, vowel signs, য়/y and the rest carry no weight here.
+  }
+  // Doubled letters (মম্মদ / mohammad) count once.
+  return out.toString().replaceAllMapped(RegExp(r'(.)\1+'), (m) => m[1]!);
+}
+
+String weekdayName(DateTime d) => const ['সোমবার', 'মঙ্গলবার', 'বুধবার', 'বৃহস্পতিবার', 'শুক্রবার', 'শনিবার', 'রবিবার'][d.weekday - 1];

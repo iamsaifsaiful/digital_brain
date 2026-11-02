@@ -20,6 +20,12 @@ abstract class Device {
   Future<void> shareText(String text);
   Future<void> shareFile(Uint8List bytes, String name, String mime, {String text = ''});
   Future<Uint8List?> pickFile();
+
+  /// Saves into the phone's Downloads; returns where, or null.
+  Future<String?> saveDownload(Uint8List bytes, String name, String mime);
+
+  /// Opens the system print dialog for a PDF.
+  Future<bool> printPdf(Uint8List bytes, String name);
   Future<Uint8List?> takePhoto();
 
   /// A photo from the gallery, or from the camera when [camera] is true
@@ -64,6 +70,29 @@ class PhoneDevice implements Device {
     final f = File('${dir.path}/$name');
     await f.writeAsBytes(bytes, flush: true);
     await SharePlus.instance.share(ShareParams(files: [XFile(f.path, mimeType: mime, name: name)], text: text.isEmpty ? null : text));
+  }
+
+  static const _pdf = MethodChannel('riyal/pdf');
+
+  @override
+  Future<String?> saveDownload(Uint8List bytes, String name, String mime) async {
+    try {
+      return await _pdf.invokeMethod<String>('save', {'bytes': bytes, 'name': name, 'mime': mime});
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<bool> printPdf(Uint8List bytes, String name) async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final f = File('${dir.path}/$name');
+      await f.writeAsBytes(bytes, flush: true);
+      return await _pdf.invokeMethod<bool>('print', {'path': f.path, 'name': name}) ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 
   @override
@@ -116,6 +145,21 @@ class FakeDevice implements Device {
 
   @override
   Future<void> shareFile(Uint8List bytes, String name, String mime, {String text = ''}) async => shared.add(name);
+
+  final saved = <String>[];
+  final printed = <String>[];
+
+  @override
+  Future<String?> saveDownload(Uint8List bytes, String name, String mime) async {
+    saved.add(name);
+    return 'Download/$name';
+  }
+
+  @override
+  Future<bool> printPdf(Uint8List bytes, String name) async {
+    printed.add(name);
+    return true;
+  }
 
   @override
   Future<Uint8List?> pickFile() async => file;

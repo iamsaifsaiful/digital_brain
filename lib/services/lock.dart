@@ -133,6 +133,9 @@ class LockService {
 
   Future<void> setAutoLockSeconds(int s) => keys.write('auto_lock', '$s');
 
+  Future<bool> english() async => await keys.read('lang') == 'en';
+  Future<void> setEnglish(bool on) => keys.write('lang', on ? 'en' : 'bn');
+
   /// Tries the fingerprint when it is on and the phone has one.
   Future<bool> tryBiometrics(String reason) async {
     if (!await biometricsOn()) return false;

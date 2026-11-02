@@ -4,6 +4,8 @@ library;
 
 import 'format.dart';
 import 'models.dart';
+import 'templates.dart';
+export 'templates.dart';
 
 /// Riyal a customer owes now (negative = riyal paid in advance).
 double customerDue(AppData d, String customerId) {
@@ -99,23 +101,98 @@ Customer? customerById(AppData d, String id) {
   return null;
 }
 
-/// Riyal that should be in hand: paid at send + later payments − costs and
-/// riyal handed over, corrected by every day-end count.
-double cashInHand(AppData d) {
-  var v = 0.0;
+/// One movement of riyal in an admin's hand.
+class CashLine {
+  CashLine({required this.at, required this.title, required this.sub, this.inSar = 0, this.outSar = 0, required this.kind, this.ref = '', required this.by, required this.byName});
+  final DateTime at;
+  final String title;
+  final String sub;
+  final double inSar;
+  final double outSar;
+
+  /// txn, deposit, expense, payment, handover, close
+  final String kind;
+  final String ref;
+  final int by;
+  final String byName;
+}
+
+/// Is a record by [recBy] in the hand of [me]? Records from before the
+/// server (no admin) belong to the main admin.
+bool inHandOf(int recBy, int me, {bool owner = false}) => recBy == me || (owner && recBy == 0);
+
+/// Every riyal that came into or went out of hand, oldest first. With
+/// [me], only that admin's hand (handovers move riyal between hands, so
+/// the shop's total never counts them twice).
+List<CashLine> cashLines(AppData d, {int? me, bool owner = false}) {
+  bool mine(int by) => me == null || inHandOf(by, me, owner: owner);
+  String who(int by, String name) => name.isEmpty ? (by == 0 ? 'মূল হিসাব' : '') : name;
+  final out = <CashLine>[];
   for (final t in d.txns) {
-    if (!t.cancelled) v += t.sarPaid;
+    if (t.cancelled || t.sarPaid <= 0 || !mine(t.by)) continue;
+    final c = customerById(d, t.customerId);
+    out.add(CashLine(at: t.at, title: '${c?.name ?? ''} · #${t.no}', sub: '${t.pay == Pay.partial ? 'আংশিক' : 'নগদে'} · ${serviceName(t)}', inSar: t.sarPaid, kind: 'txn', ref: t.id, by: t.by, byName: who(t.by, t.byName)));
   }
   for (final p in d.deposits) {
-    v += p.sarAmount;
+    if (!mine(p.by)) continue;
+    out.add(CashLine(at: p.at, title: '${customerById(d, p.customerId)?.name ?? ''} · জমা', sub: p.way == 'cash' ? 'নগদ হাতে' : 'ব্যাংক/ট্রান্সফার', inSar: p.sarAmount, kind: 'deposit', ref: p.customerId, by: p.by, byName: who(p.by, p.byName)));
   }
   for (final e in d.expenses) {
-    v -= e.sarAmount;
+    if (!mine(e.by)) continue;
+    out.add(CashLine(at: e.at, title: e.category, sub: e.note, outSar: e.sarAmount, kind: 'expense', by: e.by, byName: who(e.by, e.byName)));
+  }
+  for (final p in d.agentPayments) {
+    if (p.sarAmount <= 0 || !mine(p.by)) continue;
+    out.add(CashLine(at: p.at, title: 'এজেন্টকে ${groupEn(p.taka.round())} টাকা', sub: '${agentById(d, p.agentId)?.name ?? ''} · ${payWayName(p.way)}', outSar: p.sarAmount, kind: 'payment', ref: p.id, by: p.by, byName: who(p.by, p.byName)));
+  }
+  for (final h in d.handovers) {
+    if (me == null) continue; // a handover changes no total
+    if (inHandOf(h.from, me, owner: owner)) out.add(CashLine(at: h.at, title: '${h.toName}-কে দিলাম', sub: 'হাতবদল${h.note.isEmpty ? '' : ' · ${h.note}'}', outSar: h.sarAmount, kind: 'handover', by: h.from, byName: h.fromName));
+    if (inHandOf(h.to, me, owner: owner)) out.add(CashLine(at: h.at, title: '${h.fromName}-এর কাছ থেকে বুঝে নিলাম', sub: 'হাতবদল${h.note.isEmpty ? '' : ' · ${h.note}'}', inSar: h.sarAmount, kind: 'handover', by: h.to, byName: h.toName));
   }
   for (final c in d.closes) {
-    v += c.difference;
+    if (c.difference.abs() < 0.005 || !mine(c.by)) continue;
+    out.add(CashLine(
+        at: c.at,
+        title: 'দিন শেষে গুনে ${c.difference > 0 ? 'বেশি' : 'কম'}',
+        sub: c.note,
+        inSar: c.difference > 0 ? c.difference : 0,
+        outSar: c.difference < 0 ? -c.difference : 0,
+        kind: 'close',
+        by: c.by,
+        byName: who(c.by, c.byName)));
   }
-  return _round2(v);
+  out.sort((a, b) => a.at.compareTo(b.at));
+  return out;
+}
+
+/// Riyal that should be in hand: the shop's, or one admin's.
+double cashInHand(AppData d, {int? me, bool owner = false}) => _round2(cashLines(d, me: me, owner: owner).fold<double>(0, (s, l) => s + l.inSar - l.outSar));
+
+/// The admins who appear in the account: id → name (0 = before the server).
+Map<int, String> adminsIn(AppData d) {
+  final out = <int, String>{};
+  void add(int by, String name) {
+    if (!out.containsKey(by) || (out[by]!.isEmpty && name.isNotEmpty)) out[by] = by == 0 ? 'মূল হিসাব' : name;
+  }
+
+  for (final t in d.txns) {
+    add(t.by, t.byName);
+  }
+  for (final x in d.deposits) {
+    add(x.by, x.byName);
+  }
+  for (final x in d.expenses) {
+    add(x.by, x.byName);
+  }
+  for (final x in d.agentPayments) {
+    add(x.by, x.byName);
+  }
+  for (final h in d.handovers) {
+    add(h.from, h.fromName);
+    add(h.to, h.toName);
+  }
+  return out;
 }
 
 /// Riyal owed by all customers together (only those who owe).
@@ -178,7 +255,7 @@ class AgentReply {
 final _amountTail = RegExp(r'(?<![0-9A-Za-z#])(\d{1,3}(?:,\d{2,3})+|\d{2,7})(?:\.\d+)?\s*[-–—/]\s*(\d{3})(?![0-9])');
 final _amount = RegExp(r'(?<![0-9A-Za-z#.])(\d{1,3}(?:,\d{2,3})+|\d{3,7})(?:\.\d+)?(?![0-9A-Za-z])');
 
-final _leadNo = RegExp(r'^\s*#?\s*(\d{3,7})(?![0-9,\-–—/])');
+final _leadNo = RegExp(r'^\s*#?\s*(\d{3,9})(?![0-9,\-–—/])');
 
 /// [nos] are the send numbers in use: a reply that starts with one of them
 /// ("1042 10000-667" or "#1042 …") names its send.
@@ -195,7 +272,7 @@ AgentReply parseReply(String text, {Iterable<int> nos = const []}) {
     }
   }
   if (no == null) {
-    for (final m in RegExp(r'#\s*(\d{3,7})').allMatches(t)) {
+    for (final m in RegExp(r'#\s*(\d{3,9})').allMatches(t)) {
       final n = int.parse(m[1]!);
       if (nos.contains(n)) {
         no = n;
@@ -230,11 +307,9 @@ List<Txn> matchReply(String text, List<Txn> waiting) {
   if (r.no != null) return waiting.where((x) => x.no == r.no).toList();
   final amount = r.amount;
   if (amount != null) {
-    var byAmount = waiting.where((x) => (x.agentTaka - amount).abs() < 0.5 || (x.taka - amount).abs() < 0.5).toList();
-    if (byAmount.length > 1 && r.tail.isNotEmpty) {
-      final narrowed = byAmount.where((x) => x.number.endsWith(r.tail)).toList();
-      if (narrowed.isNotEmpty) byAmount = narrowed;
-    }
+    // The 3 digits are of the agent's own number it went from, so they do
+    // not tell sends apart: several sends with the same taka → ask.
+    final byAmount = waiting.where((x) => (x.agentTaka - amount).abs() < 0.5 || (x.taka - amount).abs() < 0.5).toList();
     if (byAmount.isNotEmpty) return byAmount;
     // Taka given but no send has it: do not guess.
     if (r.tail.isNotEmpty) return [];
@@ -252,28 +327,40 @@ List<Txn> matchReply(String text, List<Txn> waiting) {
 
 String _methodWord(Txn t) => t.method == Method.bank ? 'ব্যাংক' : t.method.bnName;
 
-/// What the agent writes back: first the send's number, then
-/// taka-last 3 digits, e.g. "1042 10000-667".
-String _replyAsk(Txn t) => 'পাঠানোর পর এই মেসেজে রিপ্লাই দিন — আগে লেনদেন নং, তারপর টাকা-শেষের ৩ সংখ্যা।\n'
-    'যেমন: ${t.no} ${t.agentTaka.round()}-XXX (TrxID থাকলে সেটাও)';
+/// The admin's wording if set, else the default.
+String _tpl(AppData? d, String key) {
+  final own = d?.settings.templates[key];
+  return own != null && own.trim().isNotEmpty ? own : templateOf(key).def;
+}
+
+/// What the agent writes back: first the send's number, then the taka and
+/// the last 3 digits of the agent's own number it was sent from, e.g.
+/// "26110001 10000-667".
+String _replyAsk(AppData? d, Txn t) => fillTemplate(_tpl(d, 'agent_reply_rule'), {'নং': '${t.no}', 'টাকা': '${t.agentTaka.round()}'});
 
 /// What the agent gets on WhatsApp. Taka only: riyal is never mentioned.
-String agentMessage(Txn t) {
+String agentMessage(Txn t, [AppData? d]) {
   final amount = groupEn(t.agentTaka.round());
   if (t.kind.isTopUp) {
-    return 'নতুন ${t.kind.bnName} — #${t.no}\n'
-        'নম্বর: ${bdShowEn(t.number)}\n'
-        '${t.operator.isEmpty ? '' : 'অপারেটর: ${t.operator}\n'}'
-        '${t.kind == Kind.mb && t.pack.isNotEmpty ? 'প্যাক: ${t.pack}\n' : ''}'
-        'টাকা: $amount\n'
-        '${_replyAsk(t)}';
+    return fillTemplate(_tpl(d, 'agent_topup'), {
+      'নং': '${t.no}',
+      'ধরন': t.kind.bnName,
+      'নম্বর': bdShowEn(t.number),
+      'অপারেটর': t.operator,
+      'প্যাক': t.kind == Kind.mb ? t.pack : '',
+      'টাকা': amount,
+      'উত্তরের_নিয়ম': _replyAsk(d, t),
+    });
   }
-  final feeLine = t.fee > 0 ? ' (খরচসহ, মূল ${groupEn(t.taka.round())})' : '';
-  return 'নতুন ${_methodWord(t)} — #${t.no}\n'
-      'নম্বর: ${bdShowEn(t.number)}\n'
-      'টাকা: $amount$feeLine\n'
-      'ধরন: ${t.kind.bnName}\n'
-      '${_replyAsk(t)}';
+  return fillTemplate(_tpl(d, 'agent_send'), {
+    'নং': '${t.no}',
+    'মাধ্যম': _methodWord(t),
+    'নম্বর': bdShowEn(t.number),
+    'টাকা': amount,
+    'খরচ': t.fee > 0 ? ' (খরচসহ, মূল ${groupEn(t.taka.round())})' : '',
+    'ধরন': t.kind.bnName,
+    'উত্তরের_নিয়ম': _replyAsk(d, t),
+  });
 }
 
 /// How a send is named in lists: "বিকাশ", "রিচার্জ · রবি", "এমবি · রবি".
@@ -287,9 +374,11 @@ String serviceName(Txn t) => switch (t.kind) {
 String proofText(Txn t) => t.trxId.isNotEmpty ? t.trxId : (t.agentReply.isNotEmpty ? t.agentReply : '');
 
 /// The send again, when it was changed after the first message.
-String agentChangeMessage(Txn t) => 'সংশোধন — #${t.no}\n${agentMessage(t).split('\n').skip(1).join('\n')}';
+String agentChangeMessage(Txn t, [AppData? d]) =>
+    fillTemplate(_tpl(d, 'agent_change'), {'নং': '${t.no}', 'বিস্তারিত': agentMessage(t, d).split('\n').skip(1).join('\n')});
 
-String agentCancelMessage(Txn t) => 'বাতিল — #${t.no}\nনম্বর: ${bdShowEn(t.number)}\nটাকা: ${groupEn(t.agentTaka.round())}\nএটা পাঠাবেন না।';
+String agentCancelMessage(Txn t, [AppData? d]) =>
+    fillTemplate(_tpl(d, 'agent_cancel'), {'নং': '${t.no}', 'নম্বর': bdShowEn(t.number), 'টাকা': groupEn(t.agentTaka.round())});
 
 /// The day's list for the agent: taka only.
 String agentDayStatement(AppData d, Agent a, DateTime day) {
@@ -297,46 +386,52 @@ String agentDayStatement(AppData d, Agent a, DateTime day) {
   final total = list.fold<double>(0, (s, t) => s + t.agentTaka);
   final lines = [
     for (final t in list)
-      '#${t.no} · ${t.kind.isTopUp ? '${t.kind.bnName} · ' : ''}${bdShowEn(t.number)} · ${groupEn(t.agentTaka.round())}${t.status == TxnStatus.sent ? ' · ${proofText(t).isEmpty ? 'পাঠানো' : proofText(t)}' : ' · উত্তর বাকি'}',
+      '#${t.no} · ${t.kind.isTopUp ? '${t.kind.bnName} · ' : ''}${bdShowEn(t.number)} · ${groupEn(t.agentTaka.round())}${t.status == TxnStatus.sent ? ' · ${proofText(t).isEmpty ? 'পাঠানো' : proofText(t)}' : ' · পাঠানোর অপেক্ষায়'}',
   ];
-  return 'হিসাব — ${en(dateShort(day))}\n'
-      '${lines.isEmpty ? 'আজ কোনো লেনদেন নেই।' : lines.join('\n')}\n'
-      'আজ মোট: ${groupEn(total.round())} টাকা (${list.length}টা)\n'
-      'আপনার মোট পাওনা: ${groupEn(agentOwed(d, a.id).round())} টাকা';
+  return fillTemplate(_tpl(d, 'agent_day'), {
+    'তারিখ': en(dateShort(day)),
+    'তালিকা': lines.isEmpty ? 'আজ কোনো লেনদেন নেই।' : lines.join('\n'),
+    'মোট': groupEn(total.round()),
+    'সংখ্যা': '${list.length}',
+    'পাওনা': groupEn(agentOwed(d, a.id).round()),
+  });
 }
 
-String _owner(AppData d) => d.settings.ownerName.trim().isEmpty ? '' : '\n— ${d.settings.ownerName.trim()}';
+String _sign(AppData d) => d.settings.ownerName.trim();
+String _dueText(double due) => due > 0 ? '${groupEn(due, decimals: 2)} রিয়াল' : 'নেই';
 
 /// Receipt for the customer once the taka arrived.
 String customerReceipt(AppData d, Txn t) {
   final c = customerById(d, t.customerId);
-  final due = customerDue(d, t.customerId);
-  return 'আসসালামু আলাইকুম${c == null ? '' : ' ${c.name}'},\n'
-      '${t.kind.isTopUp ? 'আপনার ${t.kind.bnName} হয়ে গেছে।' : 'আপনার টাকা পৌঁছেছে।'}\n'
-      'প্রাপক: ${t.recipientLabel.isEmpty ? '' : '${t.recipientLabel} · '}${bdShowEn(t.number)} (${t.kind.isTopUp ? serviceName(t) : _methodWord(t)})\n'
-      '${t.kind == Kind.mb && t.pack.isNotEmpty ? 'প্যাক: ${t.pack}\n' : ''}'
-      'টাকা: ${groupEn(t.taka.round())}\n'
-      '${t.trxId.isEmpty ? '' : 'TrxID: ${t.trxId}\n'}'
-      'রিয়াল: ${groupEn(t.sarAmount, decimals: 2)}${t.pay == Pay.cash ? ' (পরিশোধ)' : ''}\n'
-      'আপনার মোট বাকি: ${due > 0 ? '${groupEn(due, decimals: 2)} রিয়াল' : 'নেই'}'
-      '${_owner(d)}';
+  return fillTemplate(_tpl(d, 'cust_receipt'), {
+    'নাম': c?.name ?? '',
+    'খবর': t.kind.isTopUp ? 'আপনার ${t.kind.bnName} হয়ে গেছে।' : 'আপনার টাকা পৌঁছেছে।',
+    'প্রাপক': '${t.recipientLabel.isEmpty ? '' : '${t.recipientLabel} · '}${bdShowEn(t.number)}',
+    'মাধ্যম': t.kind.isTopUp ? serviceName(t) : _methodWord(t),
+    'প্যাক': t.kind == Kind.mb ? t.pack : '',
+    'টাকা': groupEn(t.taka.round()),
+    'TrxID': t.trxId,
+    'রিয়াল': '${groupEn(t.sarAmount, decimals: 2)}${t.pay == Pay.cash ? ' (পরিশোধ)' : ''}',
+    'বাকি': _dueText(customerDue(d, t.customerId)),
+    'স্বাক্ষর': _sign(d),
+  }).replaceAll('আসসালামু আলাইকুম ,', 'আসসালামু আলাইকুম,');
 }
 
 String depositReceipt(AppData d, Deposit p) {
   final c = customerById(d, p.customerId);
-  final due = customerDue(d, p.customerId);
-  return 'আসসালামু আলাইকুম${c == null ? '' : ' ${c.name}'},\n'
-      '${groupEn(p.sarAmount, decimals: 2)} রিয়াল জমা পেয়েছি, ধন্যবাদ।\n'
-      'এখন বাকি: ${due > 0 ? '${groupEn(due, decimals: 2)} রিয়াল' : 'নেই'}'
-      '${_owner(d)}';
+  return fillTemplate(_tpl(d, 'cust_deposit'), {
+    'নাম': c?.name ?? '',
+    'রিয়াল': groupEn(p.sarAmount, decimals: 2),
+    'বাকি': _dueText(customerDue(d, p.customerId)),
+    'স্বাক্ষর': _sign(d),
+  }).replaceAll('আসসালামু আলাইকুম ,', 'আসসালামু আলাইকুম,');
 }
 
-String dueReminder(AppData d, Customer c) {
-  final due = customerDue(d, c.id);
-  return 'আসসালামু আলাইকুম ${c.name},\n'
-      'আপনার কাছে ${groupEn(due, decimals: 2)} রিয়াল বাকি আছে। সুবিধামতো দিয়ে দিলে উপকার হয়।\n'
-      'ধন্যবাদ।${_owner(d)}';
-}
+String dueReminder(AppData d, Customer c) => fillTemplate(_tpl(d, 'cust_due'), {
+      'নাম': c.name,
+      'বাকি': groupEn(customerDue(d, c.id), decimals: 2),
+      'স্বাক্ষর': _sign(d),
+    });
 
 /// A customer's statement, riyal only.
 String customerStatement(AppData d, Customer c) {
@@ -350,9 +445,12 @@ String customerStatement(AppData d, Customer c) {
     for (final p in d.deposits.where((p) => p.customerId == c.id)) (p.at, '${en(dateShort(p.at))}: জমা ${groupEn(p.sarAmount, decimals: 2)} রিয়াল'),
     for (final l in d.losses.where((l) => l.customerId == c.id)) (l.at, '${en(dateShort(l.at))}: আদায় হবে না ধরা হলো ${groupEn(l.sarAmount, decimals: 2)} রিয়াল'),
   ]..sort((a, b) => a.$1.compareTo(b.$1));
-  final due = customerDue(d, c.id);
-  return '${c.name} — হিসাব\n${rows.map((r) => r.$2).join('\n')}\n'
-      'মোট বাকি: ${due > 0 ? '${groupEn(due, decimals: 2)} রিয়াল' : 'নেই'}${_owner(d)}';
+  return fillTemplate(_tpl(d, 'cust_statement'), {
+    'নাম': c.name,
+    'তালিকা': rows.map((r) => r.$2).join('\n'),
+    'বাকি': _dueText(customerDue(d, c.id)),
+    'স্বাক্ষর': _sign(d),
+  });
 }
 
 /// All sends as CSV (opens in Excel).

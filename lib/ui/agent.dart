@@ -8,6 +8,7 @@ import '../core/models.dart';
 import '../state/hisab.dart';
 import 'home.dart';
 import 'kit.dart';
+import '../core/lang.dart';
 import 'reports.dart';
 import 'txn.dart';
 
@@ -40,13 +41,15 @@ class _AgentTabState extends State<AgentTab> {
         final days = [for (var i = 6; i >= 0; i--) DateTime(now.year, now.month, now.day - i)];
         final vals = [for (final day in days) d.txns.where((x) => x.agentId == a.id && !x.cancelled && sameDay(x.at, day)).fold<double>(0, (s, x) => s + x.agentTaka)];
         final pays = d.agentPayments.where((p) => p.agentId == a.id).toList()..sort((x, y) => y.at.compareTo(x.at));
-        const wd = ['সোম', 'মঙ্গল', 'বুধ', 'বৃহ', 'শুক্র', 'শনি', 'রবি'];
+        final wd = appEnglish ? const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] : const ['সোম', 'মঙ্গল', 'বুধ', 'বৃহ', 'শুক্র', 'শনি', 'রবি'];
         return ListView(padding: const EdgeInsets.fromLTRB(18, 12, 18, 24), children: [
           Row(children: [
-            Expanded(child: Text('এজেন্ট', style: t(22, w: FontWeight.w700))),
-            CircleBtn(icon: Icons.picture_as_pdf_outlined, label: 'এজেন্টের হিসাব PDF', onTap: () => _pdf(context, h, a)),
-            const SizedBox(width: 8),
-            CircleBtn(icon: Icons.edit_outlined, label: 'এজেন্টের তথ্য', onTap: () => push(context, AgentEdit(h: h, a: a))),
+            Expanded(child: Tx('এজেন্ট', style: t(22, w: FontWeight.w700))),
+            if (h.can('reports')) CircleBtn(icon: Icons.picture_as_pdf_outlined, label: 'এজেন্টের হিসাব PDF', onTap: () => _pdf(context, h, a)),
+            if (h.can('agents')) ...[
+              const SizedBox(width: 8),
+              CircleBtn(icon: Icons.edit_outlined, label: 'এজেন্টের তথ্য', onTap: () => push(context, AgentEdit(h: h, a: a))),
+            ],
           ]),
           if (d.agents.length > 1) ...[
             const SizedBox(height: 8),
@@ -63,47 +66,51 @@ class _AgentTabState extends State<AgentTab> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(a.name, style: t(16, w: FontWeight.w600)),
-                    Text('হোয়াটসঅ্যাপ ${bn(a.whatsapp)}', style: t(12.5, c: K.muted)),
+                    Tx(a.name, style: t(16, w: FontWeight.w600)),
+                    Tx('${a.usesApp ? 'অ্যাপে কাজ করেন' : 'হোয়াটসঅ্যাপে'} · ${bn(a.whatsapp)}', style: t(12.5, c: K.muted)),
                   ]),
                 ),
               ]),
               const SizedBox(height: 14),
-              Text(owed >= 0 ? 'এজেন্টকে দিতে হবে' : 'এজেন্টের কাছে অগ্রিম', style: t(13, c: K.muted)),
-              Text(taka(owed.abs()), style: t(30, w: FontWeight.w700, c: owed > 0 ? K.navy : K.green)),
-              if (a.commissionPerThousand > 0) Text('কমিশন হাজারে ${bnNum(a.commissionPerThousand, decimals: 2)} টাকা ধরে', style: t(12.5, c: K.muted)),
+              Tx(owed >= 0 ? 'এজেন্টকে দিতে হবে' : 'এজেন্টের কাছে অগ্রিম', style: t(13, c: K.muted)),
+              Tx(taka(owed.abs()), style: t(30, w: FontWeight.w700, c: owed > 0 ? K.navy : K.green)),
+              if (a.commissionPerThousand > 0) Tx('কমিশন হাজারে ${bnNum(a.commissionPerThousand, decimals: 2)} টাকা ধরে', style: t(12.5, c: K.muted)),
               const SizedBox(height: 14),
               Row(children: [
-                Expanded(
-                  child: Pill(
-                    label: 'টাকা দিলাম',
-                    height: 48,
-                    onTap: () => push(context, AgentPayScreen(h: h, a: a, txns: const [])),
+                if (h.can('agent_pay'))
+                  Expanded(
+                    child: Pill(
+                      label: 'টাকা দিলাম',
+                      height: 48,
+                      onTap: () => push(context, AgentPayScreen(h: h, a: a, txns: const [])),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Pill(
-                    label: 'আজকের হিসাব',
-                    color: K.navy,
-                    height: 48,
-                    onTap: () async {
-                      await h.s.device.whatsapp(a.whatsapp, agentDayStatement(d, a, now));
-                      await h.note('agent', 'এজেন্টকে দিনের হিসাব', a.name);
-                    },
+                if (h.can('agent_pay') && !a.usesApp) const SizedBox(width: 10),
+                if (!a.usesApp)
+                  Expanded(
+                    child: Pill(
+                      label: 'আজকের হিসাব',
+                      color: K.navy,
+                      height: 48,
+                      onTap: () async {
+                        await h.s.device.whatsapp(a.whatsapp, agentDayStatement(d, a, now));
+                        await h.note('agent', 'এজেন্টকে দিনের হিসাব', a.name);
+                      },
+                    ),
                   ),
-                ),
               ]),
             ]),
           ),
           const SizedBox(height: 12),
           CardBox(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('গত ৭ দিনে এজেন্ট যত টাকা পাঠালেন', style: t(15, w: FontWeight.w600)),
+              Tx('গত ৭ দিনে এজেন্ট যত টাকা পাঠালেন', style: t(15, w: FontWeight.w600)),
               const SizedBox(height: 10),
               LineChart(values: vals, labels: [for (final day in days) wd[day.weekday - 1]], caption: 'গত সাত দিনে এজেন্টের পাঠানো টাকা', markLabel: taka(vals.reduce((x, y) => x > y ? x : y))),
             ]),
           ),
+          const SizedBox(height: 12),
+          SoftPill(label: 'দিনভিত্তিক অনুরোধ ও এজেন্টের কাজ', icon: Icons.event_note_outlined, onTap: () => push(context, AgentDayScreen(h: h, a: a))),
           SectionHead('যেগুলোর টাকা দেওয়া হয়নি', action: unpaid.isEmpty ? null : (_picked.length == unpaid.length ? 'কোনোটা না' : 'সবগুলো'), onAction: () {
             setState(() {
               if (_picked.length == unpaid.length) {
@@ -125,14 +132,14 @@ class _AgentTabState extends State<AgentTab> {
                     value: _picked.contains(x.id),
                     onChanged: (v) => setState(() => v == true ? _picked.add(x.id) : _picked.remove(x.id)),
                     controlAffinity: ListTileControlAffinity.leading,
-                    title: Text('#${bn('${x.no}')} · ${bdMasked(x.number)}', style: t(14.5, w: FontWeight.w500)),
-                    subtitle: Text('${dateShort(x.at)} · ${x.status == TxnStatus.pending ? 'উত্তর বাকি' : (proofText(x).isEmpty ? 'পাঠানো' : proofText(x))}',
+                    title: Tx('#${bn('${x.no}')} · ${bdMasked(x.number)}', style: t(14.5, w: FontWeight.w500)),
+                    subtitle: Tx('${dateShort(x.at)} · ${x.status == TxnStatus.pending ? 'পাঠানোর অপেক্ষায়' : (proofText(x).isEmpty ? 'পাঠানো' : proofText(x))}',
                         style: t(12.5, c: x.status == TxnStatus.pending ? K.red : K.muted)),
-                    secondary: Text(taka(x.agentTaka), style: t(14.5, w: FontWeight.w600)),
+                    secondary: Tx(taka(x.agentTaka), style: t(14.5, w: FontWeight.w600)),
                   ),
               ]),
             ),
-          if (pickedList.isNotEmpty) ...[
+          if (pickedList.isNotEmpty && h.can('agent_pay')) ...[
             const SizedBox(height: 10),
             Pill(
               label: '${bn('${pickedList.length}')}টার টাকা দিলাম · ${taka(pickedSum)}',
@@ -171,9 +178,9 @@ Future<void> _pdf(BuildContext context, Hisab h, Agent a) async {
     builder: (ctx) => SafeArea(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         const SizedBox(height: 14),
-        Text('কোন সময়ের হিসাব?', style: t(17, w: FontWeight.w600)),
+        Tx('কোন সময়ের হিসাব?', style: t(17, w: FontWeight.w600)),
         for (final k in ['today', 'week', 'month', 'lastMonth', 'all'])
-          ListTile(title: Text(k == 'all' ? 'সব সময়' : Period.of(k, h.now).label, style: t(15)), onTap: () => Navigator.pop(ctx, k == 'all' ? Period.all() : Period.of(k, h.now))),
+          ListTile(title: Tx(k == 'all' ? 'সব সময়' : Period.of(k, h.now).label, style: t(15)), onTap: () => Navigator.pop(ctx, k == 'all' ? Period.all() : Period.of(k, h.now))),
       ]),
     ),
   );
@@ -198,6 +205,7 @@ class AgentPayScreen extends StatefulWidget {
 class _AgentPayScreenState extends State<AgentPayScreen> {
   late final double _due = widget.txns.fold<double>(0, (s, x) => s + x.agentTaka + commissionOf(x, widget.a)).roundToDouble();
   late final _amount = TextEditingController(text: widget.txns.isEmpty ? '' : _due.round().toString());
+  final _sar = TextEditingController();
   final _from = TextEditingController();
   final _ref = TextEditingController();
   final _note = TextEditingController();
@@ -217,12 +225,17 @@ class _AgentPayScreenState extends State<AgentPayScreen> {
       snack(context, 'কত টাকা দিলেন লিখুন');
       return;
     }
+    final r = parseNum(_sar.text);
+    if (r == null || r <= 0) {
+      snack(context, 'এই টাকার জন্য কত রিয়াল গেল, লিখুন — রিয়ালের হিসাব মেলাতে লাগবে');
+      return;
+    }
     setState(() => _busy = true);
     final h = widget.h;
     if (widget.txns.isEmpty) {
-      await h.advanceAgent(widget.a, n, way: _way, note: _note.text, ref: _ref.text, fromAccount: _from.text, receipt: _receipt, at: _at);
+      await h.advanceAgent(widget.a, n, sarOut: r, way: _way, note: _note.text, ref: _ref.text, fromAccount: _from.text, receipt: _receipt, at: _at);
     } else {
-      await h.payAgent(widget.a, widget.txns, way: _way, note: _note.text, ref: _ref.text, fromAccount: _from.text, receipt: _receipt, at: _at, amount: n);
+      await h.payAgent(widget.a, widget.txns, sarOut: r, way: _way, note: _note.text, ref: _ref.text, fromAccount: _from.text, receipt: _receipt, at: _at, amount: n);
     }
     if (mounted) Navigator.pop(context, true);
   }
@@ -244,8 +257,15 @@ class _AgentPayScreenState extends State<AgentPayScreen> {
           const SizedBox(height: 8),
           Note(n < _due ? '${taka(_due - n)} কম দিচ্ছেন — বাকিটা এজেন্টের পাওনা থেকে যাবে' : '${taka(n - _due)} বেশি দিচ্ছেন — অগ্রিম হিসেবে থাকবে', color: K.amberTint, textColor: K.amberText),
         ],
+        const SizedBox(height: 12),
+        Field(label: 'এর জন্য কত রিয়াল গেল (বাধ্যতামূলক)', controller: _sar, number: true, suffix: 'SAR', onChanged: (_) => setState(() {})),
+        if (n != null && (parseNum(_sar.text) ?? 0) > 0)
+          Padding(
+            padding: const EdgeInsets.only(left: 6, top: 6),
+            child: Tx('রেট দাঁড়াল ${rateText(n / parseNum(_sar.text)!)} · আপনার হাতের রিয়াল থেকে বাদ যাবে', style: t(12.5, c: K.muted)),
+          ),
         const SizedBox(height: 14),
-        Text('কীভাবে দিলেন', style: t(13, c: K.muted)),
+        Tx('কীভাবে দিলেন', style: t(13, c: K.muted)),
         const SizedBox(height: 6),
         Wrap(spacing: 8, runSpacing: 8, children: [
           for (final e in payWays.entries) ChoiceChipX(label: e.value, on: _way == e.key, onTap: () => setState(() => _way = e.key)),
@@ -261,8 +281,8 @@ class _AgentPayScreenState extends State<AgentPayScreen> {
           child: Row(children: [
             dotIcon(Icons.event_outlined, K.blueTint, K.blue, size: 38),
             const SizedBox(width: 12),
-            Expanded(child: Text('কবে: ${dateShort(_at)} ${bn('${_at.year}')}, ${timeText(_at)}', style: t(15))),
-            Text('বদলান', style: t(13, c: K.blue)),
+            Expanded(child: Tx('কবে: ${dateShort(_at)} ${bn('${_at.year}')}, ${timeText(_at)}', style: t(15))),
+            Tx('বদলান', style: t(13, c: K.blue)),
           ]),
         ),
         const SizedBox(height: 12),
@@ -272,7 +292,7 @@ class _AgentPayScreenState extends State<AgentPayScreen> {
         const SizedBox(height: 12),
         Field(label: 'নোট (ইচ্ছা হলে)', controller: _note),
         const SizedBox(height: 14),
-        Text('ব্যাংকের রসিদ (ইচ্ছা হলে)', style: t(13, c: K.muted)),
+        Tx('ব্যাংকের রসিদ (ইচ্ছা হলে)', style: t(13, c: K.muted)),
         const SizedBox(height: 6),
         if (_receipt != null)
           Stack(children: [
@@ -306,8 +326,8 @@ class PaymentScreen extends StatelessWidget {
     Widget kv(String k, String v) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SizedBox(width: 110, child: Text(k, style: t(13.5, c: K.muted))),
-            Expanded(child: Text(v, textAlign: TextAlign.right, style: t(14.5, w: FontWeight.w500))),
+            SizedBox(width: 110, child: Tx(k, style: t(13.5, c: K.muted))),
+            Expanded(child: Tx(v, textAlign: TextAlign.right, style: t(14.5, w: FontWeight.w500))),
           ]),
         );
     return Screen(
@@ -315,7 +335,7 @@ class PaymentScreen extends StatelessWidget {
       body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 24), children: [
         CardBox(
           child: Column(children: [
-            Text(taka(p.taka), style: t(30, w: FontWeight.w700, c: K.green)),
+            Tx(taka(p.taka), style: t(30, w: FontWeight.w700, c: K.green)),
             const SizedBox(height: 8),
             kv('এজেন্ট', agentById(h.d, p.agentId)?.name ?? ''),
             kv('কবে', '${dateShort(p.at)} ${bn('${p.at.year}')}, ${timeText(p.at)}'),
@@ -365,6 +385,7 @@ class _AgentEditState extends State<AgentEdit> {
   late final _name = TextEditingController(text: widget.a?.name ?? '');
   late final _wa = TextEditingController(text: widget.a?.whatsapp ?? '');
   late final _comm = TextEditingController(text: widget.a == null ? '0' : groupEn(widget.a!.commissionPerThousand, decimals: 2).replaceAll(',', ''));
+  late String _channel = widget.a?.channel ?? 'whatsapp';
 
   @override
   Widget build(BuildContext context) => Screen(
@@ -379,9 +400,11 @@ class _AgentEditState extends State<AgentEdit> {
             }
             final comm = parseNum(_comm.text) ?? 0;
             if (widget.a == null) {
-              await widget.h.addAgent(_name.text, wa, comm);
+              final a = await widget.h.addAgent(_name.text, wa, comm);
+              await widget.h.setAgentChannel(a, _channel);
             } else {
               await widget.h.updateAgent(widget.a!, name: _name.text, whatsapp: wa, commission: comm);
+              await widget.h.setAgentChannel(widget.a!, _channel);
             }
             if (context.mounted) Navigator.pop(context);
           },
@@ -393,6 +416,14 @@ class _AgentEditState extends State<AgentEdit> {
           const SizedBox(height: 12),
           Field(label: 'কমিশন (প্রতি হাজার টাকায়)', controller: _comm, number: true, suffix: '৳/হাজার'),
           const SizedBox(height: 14),
+          Tx('অনুরোধ কীভাবে যাবে', style: t(13, c: K.muted)),
+          const SizedBox(height: 6),
+          Seg<String>(items: const [('whatsapp', 'হোয়াটসঅ্যাপে'), ('app', 'অ্যাপে (নোটিফিকেশন)')], value: _channel, onChanged: (v) => setState(() => _channel = v)),
+          const SizedBox(height: 8),
+          Note(_channel == 'app'
+              ? 'এজেন্ট নিজের লগইনে এই অ্যাপ ব্যবহার করবেন। প্রতিটা অনুরোধ, সংশোধন, বাতিল আর টাকা দেওয়ার নোটিফিকেশন তাঁর ফোনে যাবে। লগইন বানাতে: অন্যান্য → লগইন ও অনুমতি।'
+              : 'প্রতিটা অনুরোধ এজেন্টের হোয়াটসঅ্যাপ চ্যাটে লেখা অবস্থায় খুলবে, আপনি Send চাপবেন।'),
+          const SizedBox(height: 14),
           if (widget.a != null)
             SoftPill(
               label: 'আরেকজন এজেন্ট যোগ করুন',
@@ -400,5 +431,96 @@ class _AgentEditState extends State<AgentEdit> {
               onTap: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => AgentEdit(h: widget.h))),
             ),
         ]),
+      );
+}
+
+/// One day of an agent: what was asked of them, what they sent, what was
+/// changed or cancelled, payments, and every logged step, by time.
+class AgentDayScreen extends StatefulWidget {
+  const AgentDayScreen({super.key, required this.h, required this.a});
+  final Hisab h;
+  final Agent a;
+  @override
+  State<AgentDayScreen> createState() => _AgentDayScreenState();
+}
+
+class _AgentDayScreenState extends State<AgentDayScreen> {
+  late DateTime _day = DateTime(widget.h.now.year, widget.h.now.month, widget.h.now.day);
+
+  @override
+  Widget build(BuildContext context) => Live(
+      h: widget.h,
+      builder: (context) {
+        final h = widget.h, d = h.d, a = widget.a;
+        final today = DateTime(h.now.year, h.now.month, h.now.day);
+        final mine = d.txns.where((x) => x.agentId == a.id).toList();
+        final asked = mine.where((x) => sameDay(x.at, _day)).toList()..sort((x, y) => x.at.compareTo(y.at));
+        final sent = mine.where((x) => !x.cancelled && x.sentAt != null && sameDay(x.sentAt!, _day)).toList();
+        final cancelled = asked.where((x) => x.cancelled).toList();
+        final waiting = asked.where((x) => !x.cancelled && x.status == TxnStatus.pending).toList();
+        final faults = asked.where((x) => x.fault == Fault.agent).length;
+        final paid = d.agentPayments.where((p) => p.agentId == a.id && sameDay(p.at, _day)).toList();
+        final refs = {a.id, for (final x in mine) x.id};
+        final log = d.log.where((e) => refs.contains(e.ref) && sameDay(e.at, _day)).toList()..sort((x, y) => y.at.compareTo(x.at));
+        final label = sameDay(_day, today) ? 'আজ' : (sameDay(_day, today.subtract(const Duration(days: 1))) ? 'গতকাল' : dateShort(_day));
+        return Screen(
+          title: '${a.name} · দিনের কাজ',
+          body: ListView(padding: const EdgeInsets.fromLTRB(18, 8, 18, 24), children: [
+            Row(children: [
+              IconButton(tooltip: tr('আগের দিন'), icon: const Icon(Icons.chevron_left_rounded), onPressed: () => setState(() => _day = DateTime(_day.year, _day.month, _day.day - 1))),
+              Expanded(
+                child: InkWell(
+                  onTap: () async {
+                    final p = await showDatePicker(context: context, initialDate: _day, firstDate: DateTime(2024), lastDate: today);
+                    if (p != null) setState(() => _day = p);
+                  },
+                  child: Column(children: [
+                    Tx(label, style: t(17, w: FontWeight.w700)),
+                    Tx('${weekdayName(_day)} · ${dateShort(_day)}', style: t(12, c: K.muted)),
+                  ]),
+                ),
+              ),
+              IconButton(
+                tooltip: tr('পরের দিন'),
+                icon: const Icon(Icons.chevron_right_rounded),
+                onPressed: sameDay(_day, today) ? null : () => setState(() => _day = DateTime(_day.year, _day.month, _day.day + 1)),
+              ),
+            ]),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              _stat('অনুরোধ', '${bn('${asked.length}')}টা', taka(asked.where((x) => !x.cancelled).fold<double>(0, (s, x) => s + x.agentTaka))),
+              _stat('পাঠালেন', '${bn('${sent.length}')}টা', taka(sent.fold<double>(0, (s, x) => s + x.agentTaka))),
+              _stat('পাঠানোর অপেক্ষায়', '${bn('${waiting.length}')}টা', taka(waiting.fold<double>(0, (s, x) => s + x.agentTaka)), warn: waiting.isNotEmpty),
+              _stat('বাতিল', '${bn('${cancelled.length}')}টা', faults > 0 ? 'এজেন্টের ভুল ${bn('$faults')}টা' : '', warn: faults > 0),
+              _stat('পরিশোধ পেলেন', '${bn('${paid.length}')} বার', taka(paid.fold<double>(0, (s, p) => s + p.taka))),
+            ]),
+            SectionHead('এই দিনে পাঠানো অনুরোধ'),
+            if (asked.isEmpty) const Note('এই দিনে কোনো অনুরোধ পাঠানো হয়নি।'),
+            if (asked.isNotEmpty)
+              CardBox(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Column(children: [for (final (i, x) in asked.reversed.indexed) TxnRow(h: h, t: x, last: i == asked.length - 1)]),
+              ),
+            SectionHead('কখন কী হলো'),
+            if (log.isEmpty) const Note('এই দিনের কোনো কাজের রেকর্ড নেই।'),
+            if (log.isNotEmpty)
+              CardBox(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Column(children: [for (final (i, e) in log.indexed) LogRow(e: e, last: i == log.length - 1)]),
+              ),
+          ]),
+        );
+      });
+
+  Widget _stat(String label, String big, String small, {bool warn = false}) => SizedBox(
+        width: (MediaQuery.sizeOf(context).width - 36 - 8) / 2,
+        child: CardBox(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Tx(label, style: t(12.5, c: K.muted)),
+            Tx(big, style: t(18, w: FontWeight.w700, c: warn ? K.red : K.ink)),
+            if (small.isNotEmpty) Tx(small, style: t(12.5, c: K.muted)),
+          ]),
+        ),
       );
 }

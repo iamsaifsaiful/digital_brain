@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riyal_hisab/core/format.dart';
+import 'package:riyal_hisab/core/lang.dart';
 import 'package:riyal_hisab/core/ledger.dart';
 import 'package:riyal_hisab/core/models.dart';
+import 'package:riyal_hisab/services/api.dart';
 import 'package:riyal_hisab/services/crypto.dart';
 import 'package:riyal_hisab/services/device.dart';
 import 'package:riyal_hisab/services/lock.dart';
@@ -67,6 +70,23 @@ void main() {
       expect(parseNum('১,৬২৫০'), 16250);
       expect(parseNum(''), isNull);
       expect(parseNum('abc'), isNull);
+    });
+
+    test('names found in English or Bangla', () {
+      expect(soundKey('করিম মিয়া').contains(soundKey('karim')), isTrue);
+      expect(soundKey('রহিম উদ্দিন').contains(soundKey('rahim')), isTrue);
+      expect(soundKey('মোহাম্মদ সাইফুল').contains(soundKey('mohammad')), isTrue);
+      expect(soundKey('মোহাম্মদ সাইফুল').contains(soundKey('muhammed saiful')), isTrue);
+      expect(soundKey('জাহাঙ্গীর আলম').contains(soundKey('jahangir')), isTrue);
+      expect(soundKey('সুমন হোসেন').contains(soundKey('sumon')), isTrue);
+      expect(soundKey('Rahim Uddin').contains(soundKey('রহিম')), isTrue);
+      expect(soundKey('করিম মিয়া').contains(soundKey('sumon')), isFalse);
+      expect(saMobile('0551234567'), '0551234567');
+      expect(saMobile('+966 55 123 4567'), '0551234567');
+      expect(saMobile('551234567'), '0551234567');
+      expect(saMobile('05512345'), isNull);
+      expect(saMaxDigits('05'), 10);
+      expect(saMaxDigits('+9665'), 12);
     });
 
     test('Bangladeshi mobile numbers', () {
@@ -159,11 +179,9 @@ void main() {
       expect(matchReply('1043 BJ7K9X2Q1M', ab).single.id, 'y');
       expect(parseReply('1043 16250-901', nos: [1042, 1043]).amount, 16250);
       // A number that is not a waiting send is not taken as one.
-      expect(matchReply('1099 16250-901', ab).single.id, 'x');
-      // Same taka twice: the 3 digits pick the one whose number ends so.
-      expect(matchReply('16250-667', [a, b, c]).single.id, 'c');
-      // Same taka, digits match neither number (agent's own number): ask.
-      expect(matchReply('16250-123', [a, b, c]).map((x) => x.id), ['a', 'c']);
+      expect(matchReply('1099 16250-901', ab).map((x) => x.id), ['x', 'y']);
+      // Same taka twice: the 3 digits are the agent's own number, so ask.
+      expect(matchReply('16250-667', [a, b, c]).map((x) => x.id), ['a', 'c']);
       // Taka that no send has: nothing, even with one send waiting.
       expect(matchReply('9999-667', [a]), isEmpty);
       expect(matchReply('16250 BJ7K9X2Q1M', [a, b]).single.id, 'a');
@@ -193,6 +211,38 @@ void main() {
       expect(operatorOf('01712345678'), 'গ্রামীণফোন');
     });
 
+    test('message templates: own wording, empty lines dropped, default kept', () {
+      expect(fillTemplate('a {x}\nb: {y}\nc', {'x': '1', 'y': ''}), 'a 1\nc');
+      expect(fillTemplate('{z} stays', {'x': '1'}), '{z} stays');
+      final d = AppData();
+      final t = Txn.fromJson({...draft().toJson(), 'no': 26110001});
+      final before = agentMessage(t, d);
+      expect(before, agentMessage(t));
+      d.settings.templates['agent_send'] = 'ভাই, {নম্বর} এ {টাকা} টাকা {মাধ্যম} করুন। নং {নং}\nনোট: {খরচ}';
+      final m = agentMessage(t, d);
+      expect(m, 'ভাই, 01812-345901 এ 16,250 টাকা বিকাশ করুন। নং 26110001');
+      final back = Settings.fromJson(d.settings.toJson());
+      expect(back.templates['agent_send'], d.settings.templates['agent_send']);
+      final other = Settings()..applyShared(d.settings.shared());
+      expect(other.templates, d.settings.templates);
+      expect(unknownFields(templateOf('cust_due'), '{নাম} {ভুল}'), ['ভুল']);
+    });
+
+    test('English switch: phrases, words in longer text, digits; names kept', () {
+      appEnglish = true;
+      addTearDown(() => appEnglish = false);
+      expect(tr('সব লেনদেন'), 'All transactions');
+      expect(tr('আজ ১০টা লেনদেন · ৪,০০০ SAR'), 'Today 10 Transactions · 4,000 SAR');
+      expect(tr('করিম মিয়া'), 'করিম মিয়া');
+      expect(tr('${bn('7')} দিন পর'), '7 days later');
+      appEnglish = false;
+      expect(tr('সব লেনদেন'), 'সব লেনদেন');
+    });
+
+    test('the server address is scrambled the same way as tool/hide_server.py', () {
+      expect(hideServer('https://shop.example.com'), '1a3c5749051b635e442817201c3b153b1f384f5c5842231c');
+    });
+
     test('agent message has taka only, never riyal', () {
       final t = Txn.fromJson({...draft(fee: 300).toJson(), 'no': 1042});
       final m = agentMessage(t);
@@ -204,6 +254,7 @@ void main() {
       expect(m, isNot(contains('32')));
       expect(m, contains('আগে লেনদেন নং'));
       expect(m, contains('1042 16550-XXX'));
+      expect(m, contains('যে নম্বর থেকে পাঠালেন'));
     });
   });
 
@@ -218,7 +269,7 @@ void main() {
       final c = await h.addCustomer(name: 'করিম মিয়া', phone: '+966 55 123 4567');
       final a = h.d.agents.single;
       final t = await h.addTxn(draft(customerId: c.id, agentId: a.id));
-      expect(t.no, 1001);
+      expect(t.no, 26100001);
       expect(c.recipients.single.number, '01812345901');
       expect(customerDue(h.d, c.id), 500);
       expect(agentOwed(h.d, a.id), 16250);
@@ -237,7 +288,7 @@ void main() {
 
       await h.addDeposit(c, 200);
       expect(customerDue(h.d, c.id), 250);
-      await h.payAgent(a, unpaidForAgent(h.d, a.id));
+      await h.payAgent(a, unpaidForAgent(h.d, a.id), sarOut: 500);
       expect(agentOwed(h.d, a.id), 0);
       expect(unpaidForAgent(h.d, a.id), isEmpty);
 
@@ -293,7 +344,22 @@ void main() {
       expect(customerDue(h.d, c.id), 0);
       // Nothing owed any more: the reminder is taken off.
       expect(rem.scheduled, isEmpty);
-      expect(h.d.log.map((e) => e.title), containsAll(['বাকি ফেরতের তারিখ', 'এজেন্ট পাঠিয়েছেন · #১০০১', 'ভুল নম্বরে গেছে · #১০০১', 'লস ধরা হলো (আদায় হবে না)']));
+      expect(h.d.log.map((e) => e.title), containsAll(['বাকি ফেরতের তারিখ', 'এজেন্ট পাঠিয়েছেন · #২৬১১০০০১', 'ভুল নম্বরে গেছে · #২৬১১০০০১', 'লস ধরা হলো (আদায় হবে না)']));
+    });
+
+    test('a backup made by the server (Drive / download) opens in the app', () async {
+      // Made by server/test/e2e.php (RH_BACKUP_OUT) with the password below.
+      final bytes = File('test/fixtures/server_backup.rhb').readAsBytesSync();
+      final h = makeHisab(() => DateTime(2026, 11, 2));
+      await h.load();
+      await expectLater(h.restoreBackup(bytes, 'nope'), throwsA(isA<WrongKey>()));
+      await h.restoreBackup(bytes, 'backup-pass-1');
+      expect(h.d.customers.single.name, 'করিম মিয়া');
+      expect(h.d.txns, hasLength(3));
+      expect(h.d.agents.single.usesApp, isTrue);
+      expect(customerDue(h.d, 'c1'), 200);
+      expect(h.d.txns.firstWhere((t) => t.id == 't1').agentReply, endsWith('16450-667'));
+      expect(await h.photo('rc1'), isNotNull);
     });
 
     test('clipboard TrxID is offered for the waiting send', () async {

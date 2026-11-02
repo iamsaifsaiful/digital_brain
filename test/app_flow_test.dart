@@ -3,16 +3,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:riyal_hisab/core/ledger.dart';
 import 'package:riyal_hisab/core/models.dart';
 import 'package:riyal_hisab/main.dart';
+import 'package:riyal_hisab/ui/agent.dart';
 import 'package:riyal_hisab/ui/kit.dart';
+import 'package:riyal_hisab/ui/more.dart';
 import 'package:riyal_hisab/services/crypto.dart';
 import 'package:riyal_hisab/services/device.dart';
 import 'package:riyal_hisab/services/lock.dart';
 import 'package:riyal_hisab/services/store.dart';
 import 'package:riyal_hisab/state/hisab.dart';
 
+import 'fake_server.dart';
+
 Future<void> tapText(WidgetTester tester, String s) async {
   if (find.text(s).evaluate().isEmpty) {
-    await tester.scrollUntilVisible(find.text(s), 300, scrollable: find.byType(Scrollable).hitTestable().first);
+    final list = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).hitTestable().first;
+    try {
+      await tester.scrollUntilVisible(find.text(s), 300, scrollable: list, maxScrolls: 15);
+    } catch (_) {
+      await tester.scrollUntilVisible(find.text(s), -300, scrollable: list, maxScrolls: 30);
+    }
   }
   await tester.ensureVisible(find.text(s).first);
   await tester.pumpAndSettle();
@@ -36,10 +45,13 @@ void main() {
     addTearDown(tester.view.reset);
     final keys = MemoryKeyVault();
     final dev = FakeDevice();
+    final server = FakeServer()..addUser('owner', 'সাইফুল', 'saiful', 'owner-pass');
     final h = Hisab(Services(
       store: DataStore(keys: keys, blob: MemoryBlobStore(), photos: MemoryPhotoFiles()),
       lock: LockService(keys: keys, biometrics: FakeBiometrics(has: false), iterations: 1000),
       device: dev,
+      api: server.api(),
+      clock: () => DateTime(2026, 11, 2, 21, 40),
     ));
     await tester.pumpWidget(RiyalApp(hisab: h));
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
@@ -48,6 +60,19 @@ void main() {
     expect(find.text('অ্যাপের পিন ঠিক করুন'), findsOneWidget);
     await pin(tester, '1234');
     await pin(tester, '1234');
+
+    // Sign in to the server.
+    expect(find.text('এডমিন বা এজেন্ট — নিজের লগইন দিয়ে ঢুকুন'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).at(0), 'saiful');
+    await tester.enterText(find.byType(TextField).at(1), 'wrong');
+    await tester.tap(find.text('লগইন').last);
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('লগইন হয়নি'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).at(1), 'owner-pass');
+    await tester.tap(find.text('লগইন').last);
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
+    await tester.pumpAndSettle();
 
     expect(find.text('শুরু করা যাক'), findsOneWidget);
     await tester.enterText(find.byType(TextField).at(2), '01811111111');
@@ -103,7 +128,7 @@ void main() {
     expect(customerDue(h.d, h.d.customers.single.id), 300);
 
     // Back from WhatsApp with the reply copied.
-    dev.clip = '1001 16250-667';
+    dev.clip = '26110001 16250-667';
     await tester.tap(find.byTooltip('পেছনে').last);
     await tester.pumpAndSettle();
     await tester.runAsync(() async {
@@ -119,7 +144,7 @@ void main() {
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pumpAndSettle();
     expect(h.d.txns.single.status, TxnStatus.sent);
-    expect(h.d.txns.single.agentReply, '1001 16250-667');
+    expect(h.d.txns.single.agentReply, '26110001 16250-667');
 
     // Tabs swipe.
     await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
@@ -160,11 +185,34 @@ void main() {
     await tapText(tester, 'বিকাশ');
     await tester.enterText(find.descendant(of: find.ancestor(of: find.text('রেফারেন্স / ট্রানজেকশন নম্বর (ইচ্ছা হলে)'), matching: find.byType(Field)), matching: find.byType(TextField)), 'REF123');
     await tapText(tester, 'সংরক্ষণ');
+    expect(h.d.agentPayments, isEmpty, reason: 'riyal must be given');
+    await tester.scrollUntilVisible(find.text('এর জন্য কত রিয়াল গেল (বাধ্যতামূলক)'), -200,
+        scrollable: find.descendant(of: find.byType(AgentPayScreen), matching: find.byType(Scrollable)).first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.descendant(of: find.ancestor(of: find.text('এর জন্য কত রিয়াল গেল (বাধ্যতামূলক)'), matching: find.byType(Field)), matching: find.byType(TextField)), '500');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('রেট দাঁড়াল ৩২.৫০'), findsOneWidget);
+    await tapText(tester, 'সংরক্ষণ');
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pumpAndSettle();
     expect(agentOwed(h.d, h.d.agents.single.id), 0);
     expect(h.d.agentPayments.single.way, 'bkash');
     expect(h.d.agentPayments.single.ref, 'REF123');
+    expect(h.d.agentPayments.single.sarAmount, 500);
+    expect(h.d.agentPayments.single.byName, 'সাইফুল');
+    expect(h.d.txns.single.byName, 'সাইফুল');
+
+    // The cash card opens every riyal in and out of my hand.
+    await tester.tap(find.text('হোম').last);
+    await tester.pumpAndSettle();
+    await tapText(tester, 'আমার হাতে থাকা উচিত');
+    expect(find.text('হাতের হিসাব'), findsOneWidget);
+    expect(find.text('−৫০০ SAR'), findsOneWidget);
+    expect(find.text('+২০০ SAR'), findsOneWidget);
+    expect(find.text('+৩০০ SAR'), findsOneWidget);
+    expect(h.myCash, 0);
+    await tester.tap(find.byTooltip('পেছনে').last);
+    await tester.pumpAndSettle();
 
     // Customer page, send detail and edit open.
     await tester.tap(find.text('গ্রাহক').last);
@@ -176,7 +224,7 @@ void main() {
     await tester.tap(find.text('অন্যান্য').last);
     await tester.pumpAndSettle();
     await tapText(tester, 'দিন শেষের হিসাব');
-    await tester.enterText(find.byType(TextField).first, '500');
+    await tester.enterText(find.descendant(of: find.byType(DayCloseScreen), matching: find.byType(TextField)).first, '0');
     await tester.pumpAndSettle();
     expect(find.text('মিলেছে।'), findsOneWidget);
     await tapText(tester, 'হিসাব মিলিয়ে রাখুন');
@@ -184,9 +232,9 @@ void main() {
     await tester.pumpAndSettle();
     await tapText(tester, 'সব লেনদেন');
     await tapText(tester, 'আজ');
-    await tester.tap(find.textContaining('#১০০১').first);
+    await tester.tap(find.textContaining('#২৬১১০০০১').first);
     await tester.pumpAndSettle();
-    expect(find.text('১০০১ ১৬২৫০-৬৬৭'), findsOneWidget);
+    expect(find.text('২৬১১০০০১ ১৬২৫০-৬৬৭ · কপি থেকে অটো'), findsOneWidget);
     // Sent by the agent: no cancel, but a wrong number can be marked.
     expect(find.text('লেনদেন বাতিল'), findsNothing);
     await tapText(tester, 'ভুল নম্বরে গেছে?');
@@ -200,8 +248,20 @@ void main() {
     expect(find.text('ভুল নম্বরে গেছে — এজেন্টের ভুল'), findsOneWidget);
     await tester.tap(find.byTooltip('সংশোধন'));
     await tester.pumpAndSettle();
-    expect(find.text('লেনদেন সংশোধন #১০০১'), findsOneWidget);
+    expect(find.text('লেনদেন সংশোধন #২৬১১০০০১'), findsOneWidget);
     expect(find.textContaining('টাকা, নম্বর আর খরচ বদলানো যাবে না'), findsOneWidget);
     expect(tester.takeException(), isNull);
+
+    // Everything is on the server.
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await h.sync();
+    });
+    expect(server.one('txn', h.d.txns.single.id)!['fault'], 'agent');
+    expect(server.records.keys.where((k) => k.startsWith('log:')).length, h.d.log.length);
+    expect(server.records.containsKey('payment:${h.d.agentPayments.single.id}'), isTrue);
+    expect(h.d.txns.single.no, 26110001);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 2));
   });
 }

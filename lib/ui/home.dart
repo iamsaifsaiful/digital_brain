@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/format.dart';
@@ -5,8 +7,10 @@ import '../core/ledger.dart';
 import '../core/models.dart';
 import '../state/hisab.dart';
 import 'agent.dart';
+import 'cash.dart';
 import 'customers.dart';
 import 'kit.dart';
+import '../core/lang.dart';
 import 'more.dart';
 import 'send.dart';
 import 'txn.dart';
@@ -33,14 +37,19 @@ class HomeShellState extends State<HomeShell> {
     (Icons.grid_view_rounded, 'অন্যান্য'),
   ];
 
+  Timer? _timer;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => checkClipboard());
+    // Other admins' and the agents' changes come in while the app is open.
+    if (h.session != null) _timer = Timer.periodic(const Duration(seconds: 30), (_) => h.sync());
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     _pages.dispose();
     super.dispose();
   }
@@ -72,7 +81,7 @@ class HomeShellState extends State<HomeShell> {
           controller: _pages,
           physics: const PageScrollPhysics(parent: BouncingScrollPhysics()),
           onPageChanged: (i) => setState(() => _tab = i),
-          children: [for (final p in pages) KeepAlive(child: p)],
+          children: [for (final p in pages) KeepTab(child: p)],
         ),
       ),
       bottomNavigationBar: Container(
@@ -97,7 +106,7 @@ class HomeShellState extends State<HomeShell> {
                         child: Icon(icon, size: 23, color: _tab == i ? K.blue : const Color(0xFF8A8A8A)),
                       ),
                       const SizedBox(height: 2),
-                      Text(label, style: t(11.5, w: _tab == i ? FontWeight.w600 : FontWeight.w400, c: _tab == i ? K.blue : const Color(0xFF8A8A8A))),
+                      Tx(label, style: t(11.5, w: _tab == i ? FontWeight.w600 : FontWeight.w400, c: _tab == i ? K.blue : const Color(0xFF8A8A8A))),
                     ]),
                   ),
                 ),
@@ -110,15 +119,15 @@ class HomeShellState extends State<HomeShell> {
 }
 
 /// Keeps a tab's scroll position and state while swiping between tabs.
-class KeepAlive extends StatefulWidget {
-  const KeepAlive({super.key, required this.child});
+class KeepTab extends StatefulWidget {
+  const KeepTab({super.key, required this.child});
   final Widget child;
 
   @override
-  State<KeepAlive> createState() => _KeepAliveState();
+  State<KeepTab> createState() => _KeepTabState();
 }
 
-class _KeepAliveState extends State<KeepAlive> with AutomaticKeepAliveClientMixin {
+class _KeepTabState extends State<KeepTab> with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
@@ -159,22 +168,31 @@ class HomeTab extends StatelessWidget {
           Row(children: [
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('আসসালামু আলাইকুম,', style: t(13.5, c: K.muted)),
-                Text(d.settings.ownerName, style: t(21, w: FontWeight.w700)),
+                Tx('আসসালামু আলাইকুম,', style: t(13.5, c: K.muted)),
+                Tx(d.settings.ownerName, style: t(21, w: FontWeight.w700)),
               ]),
             ),
-            CircleBtn(icon: Icons.settings_outlined, label: 'সেটিংস', dot: backupOld, onTap: () => push(context, SettingsScreen(h: h))),
+            SyncBadge(h: h),
+            const SizedBox(width: 8),
+            CircleBtn(icon: Icons.settings_outlined, label: 'সেটিংস', dot: backupOld && h.session == null, onTap: () => push(context, SettingsScreen(h: h))),
           ]),
           const SizedBox(height: 16),
           if (clip != null) ...[ClipCard(h: h, clip: clip!, onDone: onClipDone), const SizedBox(height: 12)],
           CardBox(
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+            onTap: () => push(context, CashScreen(h: h)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('হাতে থাকা উচিত', style: t(13.5, c: K.muted)),
+              Row(children: [
+                Expanded(child: Tx(h.session == null ? 'হাতে থাকা উচিত' : 'আমার হাতে থাকা উচিত', style: t(13.5, c: K.muted))),
+                Tx('সব লেনদেন', style: t(13, c: K.blue)),
+                const Icon(Icons.chevron_right_rounded, color: K.blue, size: 20),
+              ]),
               const SizedBox(height: 2),
-              Text(sar(cashInHand(d)), style: t(32, w: FontWeight.w700)),
+              Tx(sar(h.myCash), style: t(32, w: FontWeight.w700)),
               const SizedBox(height: 4),
-              Text('আজ ${bn('${today.length}')}টা লেনদেন · ${sar(todaySar)} · ${taka(todayTaka)}', style: t(13, c: K.muted)),
+              Tx('আজ ${bn('${today.length}')}টা লেনদেন · ${sar(todaySar)} · ${taka(todayTaka)}', style: t(13, c: K.muted)),
+              if (h.session != null && h.isOwner && adminsIn(d).keys.any((k) => k != 0 && k != h.meId))
+                Tx('সব এডমিন মিলে ${sar(cashInHand(d))}', style: t(13, w: FontWeight.w600, c: K.navy)),
             ]),
           ),
           const SizedBox(height: 12),
@@ -183,10 +201,10 @@ class HomeTab extends StatelessWidget {
               child: CardBox(
                 onTap: () => onTab(1),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('গ্রাহকের বাকি', style: t(13, c: K.muted)),
+                  Tx('গ্রাহকের বাকি', style: t(13, c: K.muted)),
                   const SizedBox(height: 4),
-                  Text(sar(due), style: t(18, w: FontWeight.w700, c: due > 0 ? K.red : K.ink)),
-                  Text(dueCount > 0 ? '${bn('$dueCount')} জনের কাছে' : 'কারও বাকি নেই', style: t(12.5, c: K.muted)),
+                  Tx(sar(due), style: t(18, w: FontWeight.w700, c: due > 0 ? K.red : K.ink)),
+                  Tx(dueCount > 0 ? '${bn('$dueCount')} জনের কাছে' : 'কারও বাকি নেই', style: t(12.5, c: K.muted)),
                 ]),
               ),
             ),
@@ -195,20 +213,25 @@ class HomeTab extends StatelessWidget {
               child: CardBox(
                 onTap: () => onTab(2),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(owed >= 0 ? 'এজেন্টকে দিতে হবে' : 'এজেন্টের কাছে অগ্রিম', style: t(13, c: K.muted)),
+                  Tx(owed >= 0 ? 'এজেন্টকে দিতে হবে' : 'এজেন্টের কাছে অগ্রিম', style: t(13, c: K.muted)),
                   const SizedBox(height: 4),
-                  Text(taka(owed.abs()), style: t(18, w: FontWeight.w700, c: owed > 0 ? K.navy : K.ink)),
-                  Text(agent?.name ?? '', style: t(12.5, c: K.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Tx(taka(owed.abs()), style: t(18, w: FontWeight.w700, c: owed > 0 ? K.navy : K.ink)),
+                  Tx(agent?.name ?? '', style: t(12.5, c: K.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
                 ]),
               ),
             ),
           ]),
           const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: Pill(label: 'নতুন পাঠানো', icon: Icons.north_east_rounded, onTap: () => push(context, PickCustomer(h: h, forDeposit: false)))),
-            const SizedBox(width: 10),
-            Expanded(child: Pill(label: 'রিয়াল জমা', icon: Icons.south_west_rounded, color: K.navy, onTap: () => push(context, PickCustomer(h: h, forDeposit: true)))),
-          ]),
+          if (h.can('send') || h.can('deposit'))
+            Row(children: [
+              if (h.can('send')) Expanded(child: Pill(label: 'নতুন পাঠানো', icon: Icons.north_east_rounded, onTap: () => push(context, PickCustomer(h: h, forDeposit: false)))),
+              if (h.can('send') && h.can('deposit')) const SizedBox(width: 10),
+              if (h.can('deposit')) Expanded(child: Pill(label: 'রিয়াল জমা', icon: Icons.south_west_rounded, color: K.navy, onTap: () => push(context, PickCustomer(h: h, forDeposit: true)))),
+            ]),
+          if (h.can('agent_pay') && d.agents.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Pill(label: 'এজেন্টকে পরিশোধ', icon: Icons.payments_outlined, color: K.green, onTap: () => payAgentFlow(context, h)),
+          ],
           if (waiting.isNotEmpty) ...[
             const SizedBox(height: 12),
             CardBox(
@@ -219,8 +242,8 @@ class HomeTab extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('${bn('${waiting.length}')}টা লেনদেনে এজেন্টের উত্তর বাকি', style: t(15, w: FontWeight.w600, c: K.red)),
-                    Text('এজেন্টের রিপ্লাই (যেমন 1042 10000-667) কপি করে অ্যাপে ফিরুন', style: t(12.5, c: K.red)),
+                    Tx('${bn('${waiting.length}')}টা লেনদেন এজেন্টের পাঠানোর অপেক্ষায়', style: t(15, w: FontWeight.w600, c: K.red)),
+                    Tx('এজেন্টের রিপ্লাই (যেমন 1042 10000-667) কপি করে অ্যাপে ফিরুন', style: t(12.5, c: K.red)),
                   ]),
                 ),
                 const Icon(Icons.chevron_right_rounded, color: K.red),
@@ -237,8 +260,8 @@ class HomeTab extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('${bn('${promises.length}')} জনের বাকি দেওয়ার দিন এসেছে', style: t(15, w: FontWeight.w600, c: K.amberText)),
-                    Text(promises.map((c) => c.name).take(3).join(', '), style: t(12.5, c: K.amberText), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Tx('${bn('${promises.length}')} জনের বাকি দেওয়ার দিন এসেছে', style: t(15, w: FontWeight.w600, c: K.amberText)),
+                    Tx(promises.map((c) => c.name).take(3).join(', '), style: t(12.5, c: K.amberText), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ]),
                 ),
                 const Icon(Icons.chevron_right_rounded, color: K.amberText),
@@ -274,7 +297,7 @@ class TxnRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = customerById(h.d, t.customerId);
     final (label, color) = switch (t.status) {
-      TxnStatus.pending => ('উত্তর বাকি', K.red),
+      TxnStatus.pending => ('পাঠানোর অপেক্ষায়', K.red),
       TxnStatus.sent => ('পৌঁছেছে', K.green),
       TxnStatus.cancelled => ('বাতিল', K.muted),
     };
@@ -287,7 +310,7 @@ class TxnRow extends StatelessWidget {
     return Row2(
       lead: showCustomer ? Avatar(h: h, name: c?.name ?? '?', photo: c?.photo, size: 42) : dotIcon(t.kind.isTopUp ? Icons.phone_android_rounded : Icons.north_east_rounded, K.blueTint, K.blue),
       title: showCustomer ? (c?.name ?? 'গ্রাহক নেই') : (t.recipientLabel.isEmpty ? bdShow(t.number) : t.recipientLabel),
-      sub: '#${bn('${t.no}')} · ${dateShort(t.at)}, ${timeText(t.at)} · ${serviceName(t)} ${bdMasked(t.number)}',
+      sub: '#${bn('${t.no}')} · ${dateShort(t.at)}, ${timeText(t.at)} · ${serviceName(t)} ${bdMasked(t.number)}${t.byName.isEmpty ? '' : ' · ${t.byName}'}',
       value: sar(t.sarAmount),
       valueColor: t.cancelled ? K.muted : K.ink,
       valueSub: subLabel,
@@ -312,7 +335,7 @@ class ClipCard extends StatelessWidget {
       final ok = await confirm(context, 'টাকা মিলছে না', 'উত্তরে ${bnNum(amount)} টাকা, কিন্তু #${bn('${w.no}')}-এ ${taka(w.agentTaka)}। তবুও এটাতে বসাবেন?', yes: 'বসান');
       if (!ok) return;
     }
-    await h.markSent(w, trxId: clip.trxId, reply: clip.text.length <= 80 ? clip.text : clip.shown, tail: clip.reply.tail, who: 'me', from: 'কপি থেকে');
+    await h.markSent(w, trxId: clip.trxId, reply: clip.text.length <= 80 ? clip.text : clip.shown, tail: clip.reply.tail, who: 'me', from: 'auto');
     onDone();
     if (context.mounted) snack(context, '#${bn('${w.no}')} পৌঁছেছে');
   }
@@ -329,31 +352,30 @@ class ClipCard extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('এজেন্টের উত্তর কপি করা আছে', style: t(15, w: FontWeight.w600, c: K.green)),
-              Text(clip.shown, style: t(16, w: FontWeight.w700, c: K.ink)),
+              Tx('এজেন্টের উত্তর কপি করা আছে', style: t(15, w: FontWeight.w600, c: K.green)),
+              Tx(clip.shown, style: t(16, w: FontWeight.w700, c: K.ink)),
             ]),
           ),
-          IconButton(onPressed: onDone, icon: const Icon(Icons.close_rounded), tooltip: 'বাদ দিন'),
+          IconButton(onPressed: onDone, icon: const Icon(Icons.close_rounded), tooltip: tr('বাদ দিন')),
         ]),
         const SizedBox(height: 8),
         if (clip.reply.no == null) ...[
-          Text('এজেন্ট লেনদেন নং দেননি — নিজে মিলিয়ে দেখুন', style: t(12.5, w: FontWeight.w600, c: K.amberText)),
+          Tx('এজেন্ট লেনদেন নং দেননি — নিজে মিলিয়ে দেখুন', style: t(12.5, w: FontWeight.w600, c: K.amberText)),
           const SizedBox(height: 4),
         ],
         if (one != null) ...[
-          Text('মিলেছে: #${bn('${one.no}')} · ${customerById(h.d, one.customerId)?.name ?? ''} · ${bdShow(one.number)} · ${taka(one.agentTaka)}', style: t(13.5)),
-          if (clip.reply.tail.isNotEmpty && !one.number.endsWith(clip.reply.tail))
-            Text('শেষ ৩ সংখ্যা ${bn(clip.reply.tail)} — প্রাপকের নম্বরের সাথে মেলে না (এজেন্টের নম্বর হতে পারে)', style: t(12.5, c: K.muted)),
+          Tx('মিলেছে: #${bn('${one.no}')} · ${customerById(h.d, one.customerId)?.name ?? ''} · ${bdShow(one.number)} · ${taka(one.agentTaka)}', style: t(13.5)),
+          if (clip.reply.tail.isNotEmpty) Tx('এজেন্ট যে নম্বর থেকে পাঠালেন তার শেষ ৩ সংখ্যা: ${bn(clip.reply.tail)}', style: t(12.5, c: K.muted)),
           const SizedBox(height: 10),
           Pill(label: 'ঠিক আছে, এই লেনদেনে বসান', color: K.green, height: 46, onTap: () => _use(context, one)),
         ] else ...[
-          Text(clip.matches.isEmpty ? 'কোনো লেনদেনের সাথে নিশ্চিত মিলছে না। নিজে দেখে বেছে নিন:' : 'একাধিক লেনদেনের সাথে মিলছে। কোনটা? বেছে নিন:', style: t(13.5)),
+          Tx(clip.matches.isEmpty ? 'কোনো লেনদেনের সাথে নিশ্চিত মিলছে না। নিজে দেখে বেছে নিন:' : 'একাধিক লেনদেনের সাথে মিলছে। কোনটা? বেছে নিন:', style: t(13.5)),
           const SizedBox(height: 6),
           for (final w in choices)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text('#${bn('${w.no}')} · ${customerById(h.d, w.customerId)?.name ?? ''}', style: t(14.5, w: FontWeight.w500)),
-              subtitle: Text('${serviceName(w)} ${bdShow(w.number)} · ${taka(w.agentTaka)}', style: t(12.5, c: K.muted)),
+              title: Tx('#${bn('${w.no}')} · ${customerById(h.d, w.customerId)?.name ?? ''}', style: t(14.5, w: FontWeight.w500)),
+              subtitle: Tx('${serviceName(w)} ${bdShow(w.number)} · ${taka(w.agentTaka)}', style: t(12.5, c: K.muted)),
               trailing: const Icon(Icons.check_circle_outline_rounded, color: K.green),
               onTap: () => _use(context, w),
             ),
@@ -361,4 +383,60 @@ class ClipCard extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// Whether this phone and the server agree: tap to sync now.
+class SyncBadge extends StatelessWidget {
+  const SyncBadge({super.key, required this.h});
+  final Hisab h;
+
+  @override
+  Widget build(BuildContext context) {
+    if (h.session == null) return const SizedBox();
+    final (icon, label, color) = h.syncing
+        ? (Icons.sync_rounded, 'মিলছে…', K.blue)
+        : h.syncError != null
+            ? (Icons.cloud_off_rounded, 'সার্ভারে পৌঁছানো যায়নি — চাপ দিয়ে আবার চেষ্টা করুন', K.red)
+            : (Icons.cloud_done_rounded, h.syncedAt == null ? 'সার্ভার' : 'সার্ভারের সাথে মিলেছে · ${timeText(h.syncedAt!)}', K.green);
+    return Tooltip(
+      message: tr(label),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: () async {
+          await h.sync();
+          if (context.mounted) snack(context, h.syncError == null ? 'সার্ভারের সাথে মিলেছে' : 'সার্ভারে পৌঁছানো যাচ্ছে না — ইন্টারনেট দেখুন');
+        },
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(color: K.card, shape: BoxShape.circle, border: Border.all(color: const Color(0xFFE6E6E6))),
+          child: Icon(icon, size: 21, color: color),
+        ),
+      ),
+    );
+  }
+}
+
+/// From the home page: choose the agent (when there are several), then pay
+/// for the sends not paid yet.
+Future<void> payAgentFlow(BuildContext context, Hisab h) async {
+  var agents = h.d.agents;
+  Agent? a = agents.length == 1 ? agents.first : null;
+  a ??= await showModalBottomSheet<Agent>(
+    context: context,
+    builder: (ctx) => SafeArea(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const SizedBox(height: 14),
+        Tx('কোন এজেন্টকে?', style: t(17, w: FontWeight.w600)),
+        for (final x in agents)
+          ListTile(
+            title: Tx(x.name, style: t(15)),
+            subtitle: Tx('দিতে হবে ${taka(agentOwed(h.d, x.id))}', style: t(12.5, c: K.muted)),
+            onTap: () => Navigator.pop(ctx, x),
+          ),
+      ]),
+    ),
+  );
+  if (a == null || !context.mounted) return;
+  await push(context, AgentPayScreen(h: h, a: a, txns: unpaidForAgent(h.d, a.id)));
 }

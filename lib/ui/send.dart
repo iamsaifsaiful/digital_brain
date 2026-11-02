@@ -9,6 +9,7 @@ import '../state/hisab.dart';
 import 'customers.dart';
 import 'home.dart';
 import 'kit.dart';
+import '../core/lang.dart';
 import 'txn.dart';
 
 /// Step 1: find the customer by name or number, or make a quick profile.
@@ -48,7 +49,7 @@ class _PickCustomerState extends State<PickCustomer> {
             onChanged: (_) => setState(() {}),
             style: t(16),
             decoration: InputDecoration(
-              hintText: 'নাম বা মোবাইল নম্বর',
+              hintText: tr('নাম বা মোবাইল নম্বর'),
               hintStyle: t(15, c: const Color(0xFFA0A0A0)),
               prefixIcon: const Icon(Icons.search_rounded),
               filled: true,
@@ -72,7 +73,7 @@ class _PickCustomerState extends State<PickCustomer> {
               child: Row(children: [
                 dotIcon(Icons.person_add_alt_1_rounded, Colors.white, K.blue),
                 const SizedBox(width: 12),
-                Expanded(child: Text(q.isEmpty ? 'নতুন গ্রাহক (দ্রুত প্রোফাইল)' : 'নতুন গ্রাহক: "$q"', style: t(15, w: FontWeight.w600, c: K.navy))),
+                Expanded(child: Tx(q.isEmpty ? 'নতুন গ্রাহক (দ্রুত প্রোফাইল)' : 'নতুন গ্রাহক: "$q"', style: t(15, w: FontWeight.w600, c: K.navy))),
                 const Icon(Icons.chevron_right_rounded, color: K.navy),
               ]),
             ),
@@ -139,7 +140,12 @@ class _QuickProfileState extends State<QuickProfile> {
       setState(() => _err = 'নাম লিখুন');
       return;
     }
-    final phone = en(_phone.text).replaceAll(RegExp(r'[^0-9+]'), '');
+    final typed = _phone.text.trim();
+    final phone = typed.isEmpty ? '' : (saMobile(typed) ?? '');
+    if (typed.isNotEmpty && phone.isEmpty) {
+      setState(() => _err = 'সৌদি মোবাইল নম্বর ঠিক নেই — 05 দিয়ে শুরু, মোট ১০ সংখ্যা');
+      return;
+    }
     final same = phone.length >= 6 ? widget.h.d.customers.where((c) => en(c.phone).replaceAll(RegExp(r'[^0-9+]'), '') == phone).toList() : <Customer>[];
     if (same.isNotEmpty) {
       final use = await confirm(context, 'এই নম্বর আগেই আছে', '${same.first.name} — ${bn(same.first.phone)}। তাঁর প্রোফাইল নেবেন?', yes: 'হ্যাঁ, ওটা নিন', no: 'না, নতুন বানান');
@@ -178,7 +184,7 @@ class _QuickProfileState extends State<QuickProfile> {
                       ? Image.memory(_photo!, fit: BoxFit.cover)
                       : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                           const Icon(Icons.photo_camera_outlined, size: 34, color: K.blue),
-                          Text('ছবি তুলুন', style: t(13, c: K.blue)),
+                          Tx('ছবি তুলুন', style: t(13, c: K.blue)),
                         ]),
                 ),
               ),
@@ -187,7 +193,7 @@ class _QuickProfileState extends State<QuickProfile> {
           const SizedBox(height: 18),
           Field(label: 'নাম', controller: _name, autofocus: widget.name.isEmpty && widget.phone.isNotEmpty ? true : widget.name.isEmpty),
           const SizedBox(height: 12),
-          Field(label: 'মোবাইল (সৌদি বা দেশের)', controller: _phone, phone: true, hint: '05XXXXXXXX'),
+          Field(label: 'সৌদি মোবাইল (হোয়াটসঅ্যাপ — রসিদ ও তাগাদা এখানে যায়)', controller: _phone, saudi: true, hint: '05XXXXXXXX'),
           const SizedBox(height: 12),
           Field(label: 'কোথায় থাকেন / কাজ করেন (ইচ্ছা হলে)', controller: _area),
           if (_err != null) ...[const SizedBox(height: 12), Note(_err!, color: K.redTint, textColor: K.red)],
@@ -378,13 +384,13 @@ class _EntryScreenState extends State<EntryScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(c.name, style: t(16, w: FontWeight.w600)),
-                Text(bn(c.phone), style: t(12.5, c: K.muted)),
+                Tx(c.name, style: t(16, w: FontWeight.w600)),
+                Tx(bn(c.phone), style: t(12.5, c: K.muted)),
               ]),
             ),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text(due > 0 ? sar(due) : 'বাকি নেই', style: t(14.5, w: FontWeight.w700, c: due > 0 ? K.red : K.ink)),
-              if (due > 0) Text('আগের বাকি', style: t(12, c: K.muted)),
+              Tx(due > 0 ? sar(due) : 'বাকি নেই', style: t(14.5, w: FontWeight.w700, c: due > 0 ? K.red : K.ink)),
+              if (due > 0) Tx('আগের বাকি', style: t(12, c: K.muted)),
             ]),
           ]),
         ),
@@ -448,13 +454,13 @@ class _EntryScreenState extends State<EntryScreen> {
         ]),
         Padding(
           padding: const EdgeInsets.only(left: 6, top: 6),
-          child: Text(
+          child: Tx(
             _locked ? 'টাকা ঠিক রেখে রিয়াল ↔ রেট মিলছে' : 'রিয়াল লিখলে টাকা, টাকা লিখলে রিয়াল নিজে হিসাব হবে',
             style: t(12, c: K.muted),
           ),
         ),
         const SizedBox(height: 16),
-        Text(topUp ? 'কোন নম্বরে' : 'কার কাছে যাবে', style: t(13, c: K.muted)),
+        Tx(topUp ? 'কোন নম্বরে' : 'কার কাছে যাবে', style: t(13, c: K.muted)),
         const SizedBox(height: 6),
         if (c.recipients.isNotEmpty && !_locked) ...[
           Wrap(spacing: 8, runSpacing: 8, children: [
@@ -479,12 +485,19 @@ class _EntryScreenState extends State<EntryScreen> {
           error: _numErr,
           readOnly: _locked,
           onChanged: (_) => setState(() {
-            if (!_operatorByHand) _operator = operatorOf(bdMobile(_number.text) ?? '');
+            // A new number: its operator again (can still be changed by hand).
+            final op = operatorOf(bdMobile(_number.text) ?? '');
+            if (op.isNotEmpty) {
+              _operator = op;
+              _operatorByHand = false;
+            } else if (!_operatorByHand) {
+              _operator = '';
+            }
           }),
         ),
         if (topUp) ...[
           const SizedBox(height: 10),
-          Text('অপারেটর', style: t(13, c: K.muted)),
+          Tx('অপারেটর', style: t(13, c: K.muted)),
           const SizedBox(height: 6),
           Wrap(spacing: 8, runSpacing: 8, children: [
             for (final o in operators)
@@ -518,8 +531,8 @@ class _EntryScreenState extends State<EntryScreen> {
                 contentPadding: EdgeInsets.zero,
                 value: _withFee,
                 onChanged: (v) => setState(() => _withFee = v),
-                title: Text('খরচ (ক্যাশ আউট চার্জ) দেবেন?', style: t(15, w: FontWeight.w500)),
-                subtitle: Text('দিলে এজেন্টকে মূল টাকার সাথে খরচও পাঠাতে বলা হবে', style: t(12.5, c: K.muted)),
+                title: Tx('খরচ (ক্যাশ আউট চার্জ) দেবেন?', style: t(15, w: FontWeight.w500)),
+                subtitle: Tx('দিলে এজেন্টকে মূল টাকার সাথে খরচও পাঠাতে বলা হবে', style: t(12.5, c: K.muted)),
               ),
               if (_withFee)
                 Padding(
@@ -531,7 +544,7 @@ class _EntryScreenState extends State<EntryScreen> {
         ],
         if (h.d.agents.length > 1 && !_locked) ...[
           const SizedBox(height: 14),
-          Text('কোন এজেন্ট', style: t(13, c: K.muted)),
+          Tx('কোন এজেন্ট', style: t(13, c: K.muted)),
           const SizedBox(height: 6),
           Wrap(spacing: 8, runSpacing: 8, children: [
             for (final a in h.d.agents) ChoiceChipX(label: a.name, on: a.id == _agentId, onTap: () => setState(() => _agentId = a.id)),
@@ -595,9 +608,23 @@ class _ConfirmSheetState extends State<ConfirmSheet> {
     final agent = agentById(h.d, widget.draft.agentId) ?? h.d.agents.first;
     final e = widget.editing;
     if (e == null) {
-      final saved = await h.addTxn(_txn);
-      final ok = await h.s.device.whatsapp(agent.whatsapp, agentMessage(saved));
-      await h.logMessage(saved, ok ? 'এজেন্টকে হোয়াটসঅ্যাপ খোলা হলো' : 'হোয়াটসঅ্যাপ খোলা যায়নি');
+      final Txn saved;
+      try {
+        saved = await h.addTxn(_txn);
+      } on NoNumbers {
+        if (mounted) {
+          setState(() => _busy = false);
+          snack(context, 'ইন্টারনেট নেই — নতুন লেনদেনের নম্বর পাওয়া যায়নি। ইন্টারনেট চালু করে আবার চাপুন।');
+        }
+        return;
+      }
+      if (agent.usesApp) {
+        // The server tells the agent (notification in their app).
+        await h.sync();
+      } else {
+        final ok = await h.s.device.whatsapp(agent.whatsapp, agentMessage(saved, h.d));
+        await h.logMessage(saved, ok ? 'এজেন্টকে হোয়াটসঅ্যাপ খোলা হলো' : 'হোয়াটসঅ্যাপ খোলা যায়নি');
+      }
       nav.popUntil((r) => r.isFirst);
       nav.push(MaterialPageRoute(builder: (_) => TxnScreen(h: h, id: saved.id, fresh: true)));
     } else {
@@ -613,8 +640,8 @@ class _ConfirmSheetState extends State<ConfirmSheet> {
           e.pack != changed.pack;
       nav.popUntil((r) => r.isFirst);
       nav.push(MaterialPageRoute(builder: (_) => TxnScreen(h: h, id: e.id)));
-      if (diffs.isNotEmpty && agentSide && e.status == TxnStatus.pending) {
-        final ok = await h.s.device.whatsapp(agent.whatsapp, agentChangeMessage(h.txnById(e.id)!));
+      if (diffs.isNotEmpty && agentSide && e.status == TxnStatus.pending && !agent.usesApp) {
+        final ok = await h.s.device.whatsapp(agent.whatsapp, agentChangeMessage(h.txnById(e.id)!, h.d));
         await h.logMessage(h.txnById(e.id)!, ok ? 'এজেন্টকে সংশোধনের মেসেজ' : 'হোয়াটসঅ্যাপ খোলা যায়নি');
       }
     }
@@ -636,7 +663,7 @@ class _ConfirmSheetState extends State<ConfirmSheet> {
         Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFCFCFCF), borderRadius: BorderRadius.circular(2))),
         Flexible(
           child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(18, 14, 18, 8), children: [
-            Text('মিলিয়ে দেখুন', style: t(19, w: FontWeight.w600), textAlign: TextAlign.center),
+            Tx('মিলিয়ে দেখুন', style: t(19, w: FontWeight.w600), textAlign: TextAlign.center),
             const SizedBox(height: 12),
             CardBox(
               child: Column(children: [
@@ -652,9 +679,9 @@ class _ConfirmSheetState extends State<ConfirmSheet> {
               ]),
             ),
             const SizedBox(height: 14),
-            Text('রিয়াল কীভাবে পেলেন', style: t(13, c: K.muted)),
+            Tx('রিয়াল কীভাবে পেলেন', style: t(13, c: K.muted)),
             const SizedBox(height: 6),
-            Seg<Pay>(items: const [(Pay.cash, 'নগদ'), (Pay.due, 'বাকি'), (Pay.partial, 'আংশিক')], value: _pay, onChanged: (p) => setState(() => _pay = p)),
+            Seg<Pay>(items: const [(Pay.cash, 'নগদে'), (Pay.due, 'বাকি'), (Pay.partial, 'আংশিক')], value: _pay, onChanged: (p) => setState(() => _pay = p)),
             if (_pay == Pay.partial) ...[
               const SizedBox(height: 10),
               Field(label: 'এখন কত রিয়াল দিলেন', controller: _paid, number: true, suffix: 'SAR', autofocus: true, onChanged: (_) => setState(() {})),
@@ -666,8 +693,8 @@ class _ConfirmSheetState extends State<ConfirmSheet> {
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('এরপর মোট বাকি: ${sar(dueAfter > 0 ? dueAfter : 0)}', style: t(15, w: FontWeight.w600, c: dueAfter > 0 ? K.red : K.green)),
-                    Text('বাকির সীমা ${sar(limit)}', style: t(12.5, c: K.muted)),
+                    Tx('এরপর মোট বাকি: ${sar(dueAfter > 0 ? dueAfter : 0)}', style: t(15, w: FontWeight.w600, c: dueAfter > 0 ? K.red : K.green)),
+                    Tx('বাকির সীমা ${sar(limit)}', style: t(12.5, c: K.muted)),
                   ]),
                 ),
               ]),
@@ -677,12 +704,12 @@ class _ConfirmSheetState extends State<ConfirmSheet> {
               Note('সীমার বেশি বাকি হয়ে যাচ্ছে। ঠিক থাকলে তবুও পাঠাতে পারেন।', color: K.redTint, textColor: K.red, icon: Icons.error_outline_rounded),
             ],
             const SizedBox(height: 14),
-            Text('${agent.name}-কে হোয়াটসঅ্যাপে যাবে (রিয়ালের কথা নেই)', style: t(13, c: K.muted)),
+            Tx(agent.usesApp ? '${agent.name}-এর অ্যাপে নোটিফিকেশন যাবে (রিয়ালের কথা নেই)' : '${agent.name}-কে হোয়াটসঅ্যাপে যাবে (রিয়ালের কথা নেই)', style: t(13, c: K.muted)),
             const SizedBox(height: 6),
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(color: const Color(0xFFE7F6E3), borderRadius: BorderRadius.circular(14)),
-              child: Text(widget.editing == null ? agentMessage(_withNo(t0)) : agentChangeMessage(t0), style: t(14, h: 1.55)),
+              child: Text(widget.editing == null ? agentMessage(_withNo(t0), h.d) : agentChangeMessage(t0, h.d), style: t(14, h: 1.55)),
             ),
             const SizedBox(height: 8),
           ]),
@@ -691,7 +718,7 @@ class _ConfirmSheetState extends State<ConfirmSheet> {
           padding: EdgeInsets.fromLTRB(18, 10, 18, 12 + MediaQuery.of(context).padding.bottom),
           decoration: const BoxDecoration(color: K.card, border: Border(top: BorderSide(color: K.line))),
           child: Pill(
-            label: widget.editing == null ? 'সংরক্ষণ ও হোয়াটসঅ্যাপে পাঠান' : 'সংশোধন সংরক্ষণ',
+            label: widget.editing == null ? (agent.usesApp ? 'সংরক্ষণ ও এজেন্টকে পাঠান' : 'সংরক্ষণ ও হোয়াটসঅ্যাপে পাঠান') : 'সংশোধন সংরক্ষণ',
             icon: Icons.send_rounded,
             onTap: _busy ? null : _save,
           ),
@@ -701,15 +728,15 @@ class _ConfirmSheetState extends State<ConfirmSheet> {
   }
 
   /// Preview with the number the send will get.
-  Txn _withNo(Txn t) => Txn.fromJson({...t.toJson(), 'no': h.d.settings.nextNo});
+  Txn _withNo(Txn t) => Txn.fromJson({...t.toJson(), 'no': h.nextNoPreview});
 
   Widget _kv(String k, String v, {bool bold = false, bool last = false}) => Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(border: last ? null : const Border(bottom: BorderSide(color: K.line))),
         child: Row(children: [
-          Text(k, style: t(14, c: K.muted)),
+          Tx(k, style: t(14, c: K.muted)),
           const SizedBox(width: 12),
-          Expanded(child: Text(v, textAlign: TextAlign.right, style: t(bold ? 16 : 14.5, w: bold ? FontWeight.w700 : FontWeight.w500))),
+          Expanded(child: Tx(v, textAlign: TextAlign.right, style: t(bold ? 16 : 14.5, w: bold ? FontWeight.w700 : FontWeight.w500))),
         ]),
       );
 }

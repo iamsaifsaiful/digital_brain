@@ -7,6 +7,7 @@ import '../state/hisab.dart';
 import 'customers.dart';
 import 'home.dart';
 import 'kit.dart';
+import '../core/lang.dart';
 import 'reports.dart';
 import 'send.dart';
 
@@ -81,7 +82,7 @@ class _TxnBody extends StatelessWidget {
         if (!await confirm(context, 'এই TrxID আগে ব্যবহার হয়েছে', '#${bn('${usedBy.first.no}')}-এ এই TrxID আছে। তবুও বসাবেন?', yes: 'বসান')) return;
       }
     }
-    await h.markSent(x, trxId: trx, reply: r.amount != null ? text : '', tail: r.tail, from: fromClip.isNotEmpty && text == en(fromClip) ? 'কপি থেকে' : 'হাতে লেখা');
+    await h.markSent(x, trxId: trx, reply: r.amount != null ? text : '', tail: r.tail, from: fromClip.isNotEmpty && text == en(fromClip) ? 'auto' : 'manual');
   }
 
   Future<void> _markFault(BuildContext context) async {
@@ -95,9 +96,9 @@ class _TxnBody extends StatelessWidget {
         builder: (ctx, set) => Padding(
           padding: EdgeInsets.fromLTRB(18, 18, 18, 18 + MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).padding.bottom),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text('ভুল নম্বরে গেছে — কার ভুল?', style: t(18, w: FontWeight.w600), textAlign: TextAlign.center),
+            Tx('ভুল নম্বরে গেছে — কার ভুল?', style: t(18, w: FontWeight.w600), textAlign: TextAlign.center),
             const SizedBox(height: 4),
-            Text('${bdShow(x.number)} · ${taka(x.agentTaka)}', style: t(13.5, c: K.muted), textAlign: TextAlign.center),
+            Tx('${bdShow(x.number)} · ${taka(x.agentTaka)}', style: t(13.5, c: K.muted), textAlign: TextAlign.center),
             const SizedBox(height: 14),
             for (final f in Fault.values)
               Padding(
@@ -108,7 +109,7 @@ class _TxnBody extends StatelessWidget {
                   child: Row(children: [
                     Icon(f == fault ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded, color: f == fault ? K.blue : K.muted),
                     const SizedBox(width: 10),
-                    Expanded(child: Text(f.bnName, style: t(15, w: FontWeight.w500))),
+                    Expanded(child: Tx(f.bnName, style: t(15, w: FontWeight.w500))),
                   ]),
                 ),
               ),
@@ -128,14 +129,13 @@ class _TxnBody extends StatelessWidget {
     final c = customerById(h.d, x.customerId);
     final a = agentById(h.d, x.agentId);
     final (status, color, tint) = switch (x.status) {
-      TxnStatus.pending => ('এজেন্টের উত্তর বাকি', K.red, K.redTint),
+      TxnStatus.pending => ('এজেন্টের পাঠানোর অপেক্ষায়', K.red, K.redTint),
       TxnStatus.sent => ('পৌঁছেছে', K.green, K.greenTint),
       TxnStatus.cancelled => ('বাতিল', K.muted, K.chip),
     };
-    final logs = h.d.log.where((e) => e.ref == x.id).toList().reversed.toList();
     return Screen(
       title: 'লেনদেন #${bn('${x.no}')}',
-      trailing: x.cancelled
+      trailing: x.cancelled || !h.can('edit')
           ? null
           : CircleBtn(
               icon: Icons.edit_outlined,
@@ -158,8 +158,8 @@ class _TxnBody extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('ভুল নম্বরে গেছে — ${x.fault!.short} ভুল', style: t(15, w: FontWeight.w600, c: K.red)),
-                  if (x.faultNote.isNotEmpty) Text(x.faultNote, style: t(13, c: K.red)),
+                  Tx('ভুল নম্বরে গেছে — ${x.fault!.short} ভুল', style: t(15, w: FontWeight.w600, c: K.red)),
+                  if (x.faultNote.isNotEmpty) Tx(x.faultNote, style: t(13, c: K.red)),
                 ]),
               ),
             ]),
@@ -172,11 +172,11 @@ class _TxnBody extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
               decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(20)),
-              child: Text(status, style: t(13, w: FontWeight.w600, c: color)),
+              child: Tx(status, style: t(13, w: FontWeight.w600, c: color)),
             ),
             const SizedBox(height: 10),
-            Text(taka(x.taka), style: t(30, w: FontWeight.w700, c: x.cancelled ? K.muted : K.ink)),
-            Text('${sar(x.sarAmount)} × ${rateText(x.rate)}${x.fee > 0 ? ' · খরচ ${taka(x.fee)}' : ''}', style: t(13.5, c: K.muted)),
+            Tx(taka(x.taka), style: t(30, w: FontWeight.w700, c: x.cancelled ? K.muted : K.ink)),
+            Tx('${sar(x.sarAmount)} × ${rateText(x.rate)}${x.fee > 0 ? ' · খরচ ${taka(x.fee)}' : ''}', style: t(13.5, c: K.muted)),
             const SizedBox(height: 14),
             _Steps(x: x),
           ]),
@@ -192,30 +192,33 @@ class _TxnBody extends StatelessWidget {
             _kv('রিয়াল', '${x.pay.bnName}${x.pay == Pay.partial ? ' · দিলেন ${sar(x.sarPaid)}' : ''}${x.sarDueAtSend > 0 ? ' · বাকি ${sar(x.sarDueAtSend)}' : ''}'),
             _kv('এজেন্ট', '${a?.name ?? '—'} · ${taka(x.agentTaka)}${x.agentPaymentId != null ? ' · শোধ' : ''}'),
             _kv('সময়', '${dateShort(x.at)}, ${timeText(x.at)}'),
-            _kv('উত্তর', x.agentReply.isEmpty ? '—' : bn(x.agentReply)),
+            if (x.byName.isNotEmpty) _kv('এডমিন', x.byName),
+            _kv('এজেন্টের উত্তর', x.agentReply.isEmpty && x.trxId.isEmpty ? '—' : '${x.agentReply.isEmpty ? '' : bn(x.agentReply)}${switch (x.replyFrom) { 'auto' => ' · কপি থেকে অটো', 'manual' => ' · এডমিন নিজে বসালেন', 'agent' => ' · এজেন্টের অ্যাপ থেকে', _ => '' }}'),
+            if (x.replyTail.isNotEmpty) _kv('পাঠানোর নম্বর', 'শেষ ৩ সংখ্যা ${bn(x.replyTail)}'),
             _kv('TrxID', x.trxId.isEmpty ? '—' : x.trxId, last: true, bold: true),
           ]),
         ),
         const SizedBox(height: 14),
         if (!x.cancelled) ...[
-          if (x.status == TxnStatus.pending) ...[
+          if (x.status == TxnStatus.pending && (h.can('send') || h.can('edit'))) ...[
             Pill(label: 'এজেন্টের উত্তর বসান', icon: Icons.content_paste_rounded, color: K.green, onTap: () => _enterReply(context)),
             const SizedBox(height: 10),
           ],
           Row(children: [
-            Expanded(
-              child: SoftPill(
-                label: 'এজেন্টকে আবার',
-                icon: Icons.chat_outlined,
-                onTap: a == null
-                    ? null
-                    : () async {
-                        final ok = await h.s.device.whatsapp(a.whatsapp, agentMessage(x));
-                        await h.logMessage(x, ok ? 'এজেন্টকে আবার মেসেজ' : 'হোয়াটসঅ্যাপ খোলা যায়নি');
-                      },
+            if (a == null || !a.usesApp)
+              Expanded(
+                child: SoftPill(
+                  label: 'এজেন্টকে আবার',
+                  icon: Icons.chat_outlined,
+                  onTap: a == null
+                      ? null
+                      : () async {
+                          final ok = await h.s.device.whatsapp(a.whatsapp, agentMessage(x, h.d));
+                          await h.logMessage(x, ok ? 'এজেন্টকে আবার মেসেজ' : 'হোয়াটসঅ্যাপ খোলা যায়নি');
+                        },
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
+            if (a == null || !a.usesApp) const SizedBox(width: 8),
             Expanded(
               child: SoftPill(
                 label: 'গ্রাহককে রসিদ',
@@ -224,8 +227,9 @@ class _TxnBody extends StatelessWidget {
                     ? null
                     : () async {
                         final text = customerReceipt(h.d, x);
-                        if (c.phone.trim().isNotEmpty) {
-                          await h.s.device.whatsapp(c.phone, text);
+                        final wa = await whatsappOf(context, h, c);
+                        if (wa != null) {
+                          await h.s.device.whatsapp(wa, text);
                         } else {
                           await h.s.device.shareText(text);
                         }
@@ -234,7 +238,7 @@ class _TxnBody extends StatelessWidget {
               ),
             ),
           ]),
-          if (x.status == TxnStatus.sent) ...[
+          if (x.status == TxnStatus.sent && h.can('edit')) ...[
             const SizedBox(height: 8),
             Row(children: [
               Expanded(
@@ -257,12 +261,12 @@ class _TxnBody extends StatelessWidget {
             if (x.fault != null)
               Align(
                 alignment: Alignment.centerRight,
-                child: TextButton(onPressed: () => h.markFault(x, null, ''), child: Text('ভুলের চিহ্ন তুলে দিন', style: t(13, c: K.muted))),
+                child: TextButton(onPressed: () => h.markFault(x, null, ''), child: Tx('ভুলের চিহ্ন তুলে দিন', style: t(13, c: K.muted))),
               ),
             const SizedBox(height: 8),
             const Note('এজেন্ট পাঠিয়ে দিয়েছেন, তাই এই লেনদেন বাতিল করা যায় না। ভুল নম্বরে গেলে ওপরের বোতামে চিহ্ন দিন।', icon: Icons.lock_outline_rounded),
           ],
-          if (x.status == TxnStatus.pending) ...[
+          if (x.status == TxnStatus.pending && h.can('edit')) ...[
             const SizedBox(height: 8),
             SoftPill(
               label: 'লেনদেন বাতিল',
@@ -272,8 +276,8 @@ class _TxnBody extends StatelessWidget {
                 final reason = await askText(context, 'কেন বাতিল?', hint: 'যেমন ভুল নম্বর', ok: 'বাতিল করুন');
                 if (reason == null) return;
                 await h.cancelTxn(x, reason);
-                if (a != null && context.mounted && await confirm(context, 'এজেন্টকে জানাবেন?', 'এজেন্টকে "এটা পাঠাবেন না" মেসেজ যাবে।', yes: 'জানান')) {
-                  await h.s.device.whatsapp(a.whatsapp, agentCancelMessage(x));
+                if (a != null && !a.usesApp && context.mounted && await confirm(context, 'এজেন্টকে জানাবেন?', 'এজেন্টকে "এটা পাঠাবেন না" মেসেজ যাবে।', yes: 'জানান')) {
+                  await h.s.device.whatsapp(a.whatsapp, agentCancelMessage(x, h.d));
                   await h.logMessage(x, 'এজেন্টকে বাতিলের মেসেজ');
                 }
               },
@@ -281,11 +285,8 @@ class _TxnBody extends StatelessWidget {
           ],
         ],
         const SizedBox(height: 10),
-        SectionHead('এই লেনদেনের লগ'),
-        CardBox(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Column(children: [for (final (i, e) in logs.indexed) LogRow(e: e, last: i == logs.length - 1)]),
-        ),
+        SectionHead('টাইমলাইন — কখন কী হয়েছে'),
+        CardBox(padding: const EdgeInsets.fromLTRB(14, 14, 14, 4), child: TxnTimeline(h: h, x: x)),
       ]),
     );
   }
@@ -296,8 +297,8 @@ class _TxnBody extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(border: last ? null : const Border(bottom: BorderSide(color: K.line))),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SizedBox(width: 72, child: Text(k, style: t(13.5, c: K.muted))),
-            Expanded(child: Text(v, textAlign: TextAlign.right, style: t(14.5, w: bold ? FontWeight.w700 : FontWeight.w500, c: onTap != null ? K.blue : K.ink))),
+            SizedBox(width: 72, child: Tx(k, style: t(13.5, c: K.muted))),
+            Expanded(child: Tx(v, textAlign: TextAlign.right, style: t(14.5, w: bold ? FontWeight.w700 : FontWeight.w500, c: onTap != null ? K.blue : K.ink))),
           ]),
         ),
       );
@@ -323,7 +324,7 @@ class _Steps extends StatelessWidget {
               child: Icon(i < done ? Icons.check_rounded : Icons.more_horiz_rounded, size: 16, color: i < done ? Colors.white : K.muted),
             ),
             const SizedBox(height: 4),
-            Text(labels[i], style: t(11.5, c: i < done ? K.ink : K.muted), textAlign: TextAlign.center),
+            Tx(labels[i], style: t(11.5, c: i < done ? K.ink : K.muted), textAlign: TextAlign.center),
           ]),
         ),
       ],
@@ -357,12 +358,12 @@ class LogRow extends StatelessWidget {
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Expanded(child: Text(e.title, style: t(14.5, w: FontWeight.w600))),
-              Text(timeText(e.at), style: t(12, c: K.muted)),
+              Expanded(child: Tx(e.title, style: t(14.5, w: FontWeight.w600))),
+              Tx(timeText(e.at), style: t(12, c: K.muted)),
             ]),
             const SizedBox(height: 2),
-            Text(e.detail, style: t(13, c: const Color(0xFF4A4A4A), h: 1.45)),
-            Text('${dateShort(e.at)} · ${e.who == 'app' ? 'অ্যাপ নিজে' : 'আপনি'}', style: t(11.5, c: K.muted)),
+            Tx(e.detail, style: t(13, c: const Color(0xFF4A4A4A), h: 1.45)),
+            Tx('${dateShort(e.at)} · ${switch (e.who) { 'app' => 'অ্যাপ নিজে', 'me' || '' => 'আপনি', _ => e.who }}', style: t(11.5, c: K.muted)),
           ]),
         ),
       ]),
@@ -380,7 +381,7 @@ class WaitingScreen extends StatelessWidget {
       builder: (context) {
         final w = h.waiting;
         return Screen(
-          title: 'এজেন্টের উত্তর বাকি',
+          title: 'এজেন্টের পাঠানোর অপেক্ষায়',
           body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 24), children: [
             if (w.isEmpty) const Note('সব লেনদেনের TrxID এসে গেছে।', color: K.greenTint, textColor: K.green),
             if (w.isNotEmpty)
@@ -398,7 +399,7 @@ class AllTxnsScreen extends StatefulWidget {
   const AllTxnsScreen({super.key, required this.h, this.filter = 0, this.title = 'সব লেনদেন'});
   final Hisab h;
 
-  /// 0 সব, 1 উত্তর বাকি, 2 বাকিতে, 3 বাতিল, 4 ভুল নম্বর, 5 রিচার্জ/এমবি.
+  /// 0 সব, 1 পাঠানোর অপেক্ষায়, 2 বাকিতে, 3 বাতিল, 4 ভুল নম্বর, 5 রিচার্জ/এমবি.
   final int filter;
   final String title;
 
@@ -411,7 +412,7 @@ class _AllTxnsScreenState extends State<AllTxnsScreen> {
   late int _f = widget.filter;
   Period _p = Period.all();
 
-  static const filters = [(0, 'সব'), (1, 'উত্তর বাকি'), (2, 'বাকিতে'), (3, 'বাতিল'), (4, 'ভুল নম্বর'), (5, 'রিচার্জ/এমবি')];
+  static const filters = [(0, 'সব'), (1, 'পাঠানোর অপেক্ষায়'), (2, 'বাকিতে'), (3, 'বাতিল'), (4, 'ভুল নম্বর'), (5, 'রিচার্জ/এমবি')];
 
   @override
   Widget build(BuildContext context) => Live(
@@ -433,7 +434,8 @@ class _AllTxnsScreenState extends State<AllTxnsScreen> {
               x.number.contains(q) ||
               x.trxId.toLowerCase().contains(q) ||
               x.agentReply.toLowerCase().contains(q) ||
-              (c?.name.toLowerCase().contains(q) ?? false);
+              (c?.name.toLowerCase().contains(q) ?? false) ||
+              (soundKey(q).length >= 2 && c != null && soundKey(c.name).contains(soundKey(q)));
         }).toList();
         final live = list.where((x) => !x.cancelled);
         final sumSar = live.fold<double>(0, (s, x) => s + x.sarAmount);
@@ -456,7 +458,7 @@ class _AllTxnsScreenState extends State<AllTxnsScreen> {
               onChanged: (_) => setState(() {}),
               style: t(15),
               decoration: InputDecoration(
-                hintText: 'নাম, নম্বর, #নং বা TrxID',
+                hintText: tr('নাম, নম্বর, #নং বা TrxID'),
                 prefixIcon: const Icon(Icons.search_rounded),
                 filled: true,
                 fillColor: K.card,
@@ -474,7 +476,7 @@ class _AllTxnsScreenState extends State<AllTxnsScreen> {
               ]),
             ),
             const SizedBox(height: 10),
-            Text('${bn('${list.length}')}টা লেনদেন · ${sar(sumSar)} · ${taka(sumTaka)}', style: t(13, c: K.muted)),
+            Tx('${bn('${list.length}')}টা লেনদেন · ${sar(sumSar)} · ${taka(sumTaka)}', style: t(13, c: K.muted)),
             if (list.isEmpty) const Padding(padding: EdgeInsets.only(top: 12), child: Note('কিছু পাওয়া যায়নি।')),
             for (final g in groups.entries) ...[
               SectionHead(g.key),
@@ -486,4 +488,52 @@ class _AllTxnsScreenState extends State<AllTxnsScreen> {
           ]),
         );
       });
+}
+
+/// Everything that happened to one send, oldest first, with who did it:
+/// saved, message to the agent, changes, the agent's reply (auto from the
+/// copied reply, typed by an admin, or from the agent's app), wrong-number
+/// marks, the agent paid for it, cancelled.
+class TxnTimeline extends StatelessWidget {
+  const TxnTimeline({super.key, required this.h, required this.x});
+  final Hisab h;
+  final Txn x;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <(DateTime, String, String, String, String)>[
+      for (final e in h.d.log.where((e) => e.ref == x.id)) (e.at, e.kind, e.title, e.detail, e.who == 'me' ? 'আপনি' : (e.who == 'app' ? 'অ্যাপ নিজে' : e.who)),
+      for (final p in h.d.agentPayments.where((p) => p.txnIds.contains(x.id)))
+        (p.at, 'agent', 'এজেন্টকে এর টাকা দেওয়া হলো', '${taka(p.taka)}${p.txnIds.length > 1 ? ' (${bn('${p.txnIds.length}')}টা লেনদেন একসাথে)' : ''} · ${payWayName(p.way)}${p.ref.isEmpty ? '' : ' · রেফ ${p.ref}'}', p.byName.isEmpty ? 'আপনি' : p.byName),
+    ]..sort((a, b) => a.$1.compareTo(b.$1));
+    if (items.isEmpty) return Padding(padding: const EdgeInsets.only(bottom: 10), child: Tx('এখনো কিছু নেই', style: t(13, c: K.muted)));
+    return Column(children: [
+      for (final (i, it) in items.indexed)
+        IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            SizedBox(
+              width: 34,
+              child: Column(children: [
+                () {
+                  final (icon, bg, fg) = LogRow.look(it.$2);
+                  return dotIcon(icon, bg, fg, size: 30);
+                }(),
+                if (i < items.length - 1) Expanded(child: Container(width: 2, color: K.line)),
+              ]),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Tx(it.$3, style: t(14.5, w: FontWeight.w600)),
+                  if (it.$4.isNotEmpty) Tx(it.$4, style: t(13, c: const Color(0xFF4A4A4A), h: 1.45)),
+                  Tx('${dateShort(it.$1)}, ${timeText(it.$1)} · ${it.$5}', style: t(11.5, c: K.muted)),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+    ]);
+  }
 }

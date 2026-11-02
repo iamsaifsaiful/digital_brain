@@ -19,7 +19,7 @@ fi
 # local_auth needs Android 7.0 (API 24) or newer.
 sed -i -E 's/minSdk = flutter\.minSdkVersion/minSdk = maxOf(24, flutter.minSdkVersion)/' "$GRADLE_KTS"
 
-# Core library desugaring (some plugins need it); the AppCompat theme
+# Core library desugaring (some plugins need it), Firebase messaging (push); the AppCompat theme
 # (for the fingerprint dialog) needs androidx.appcompat.
 if ! grep -q 'desugar_jdk_libs' "$GRADLE_KTS"; then
   cat >> "$GRADLE_KTS" <<'KTS'
@@ -32,7 +32,11 @@ android {
 
 dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.core:core-ktx:1.13.1")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // Push from the shop's server; started at run time with the server's settings.
+    implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
+    implementation("com.google.firebase:firebase-messaging")
 }
 KTS
 fi

@@ -12,7 +12,51 @@ permissions:
   contents: write
 
 jobs:
+  server:
+    name: Server plugin (real WordPress)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: sqlite3, pdo_sqlite, openssl, mbstring
+      - name: PHP syntax
+        run: for f in server/riyal-hisab-server/*.php server/test/*.php; do php -l "$f"; done
+      - name: WordPress with SQLite
+        run: |
+          set -e
+          cd server/test
+          git clone -q --depth 1 --branch 6.6.2 https://github.com/WordPress/WordPress.git wp
+          git clone -q --depth 1 --branch v2.1.16 https://github.com/WordPress/sqlite-database-integration.git wp/wp-content/plugins/sqlite-database-integration
+          sed -e "s#{SQLITE_IMPLEMENTATION_FOLDER_PATH}#$PWD/wp/wp-content/plugins/sqlite-database-integration#" -e "s#{SQLITE_PLUGIN}#sqlite-database-integration/load.php#" wp/wp-content/plugins/sqlite-database-integration/db.copy > wp/wp-content/db.php
+          cat > wp/wp-config.php <<'PHP'
+          <?php
+          define('DB_NAME', 'wp'); define('DB_USER', 'x'); define('DB_PASSWORD', 'x'); define('DB_HOST', 'localhost');
+          define('DB_CHARSET', 'utf8mb4'); define('DB_COLLATE', ''); define('DB_ENGINE', 'sqlite');
+          define('AUTH_KEY','a'); define('SECURE_AUTH_KEY','b'); define('LOGGED_IN_KEY','c'); define('NONCE_KEY','d');
+          define('AUTH_SALT','e'); define('SECURE_AUTH_SALT','f'); define('LOGGED_IN_SALT','g'); define('NONCE_SALT','h');
+          $table_prefix = 'wp_';
+          define('WP_DEBUG', true);
+          if (!defined('ABSPATH')) define('ABSPATH', __DIR__ . '/');
+          require_once ABSPATH . 'wp-settings.php';
+          PHP
+          ln -s "$PWD/../riyal-hisab-server" wp/wp-content/plugins/riyal-hisab-server
+      - name: Plugin check
+        run: |
+          cd server/test
+          php install.php wp
+          php e2e.php wp 2>&1 | tee e2e.log
+          ! grep -E "FAIL|PHP (Warning|Notice|Fatal)" e2e.log
+      - name: Plugin zip
+        run: cd server && zip -qr ../riyal-hisab-server.zip riyal-hisab-server
+      - uses: actions/upload-artifact@v4
+        with:
+          name: riyal-hisab-server
+          path: riyal-hisab-server.zip
+
   android:
+    needs: server
     name: Android APK
     runs-on: ubuntu-latest
     steps:
@@ -46,6 +90,22 @@ jobs:
           set -o pipefail
           flutter test --reporter expanded 2>&1 | tee test.log || { bash tool/annotate_failures.sh test.log "Tests failed"; exit 1; }
 
+      # The server's address is a secret (repository secret RH_SERVER) and
+      # goes into the APK only scrambled (tool/hide_server.py), so it is not
+      # in this public repository, the build log or the APK as text.
+      - name: Server address
+        env:
+          RH_SERVER: ${{ secrets.RH_SERVER }}
+        run: |
+          if [ -z "$RH_SERVER" ]; then
+            echo "::error::Repository secret RH_SERVER (the server's https address) is not set — the app could not sign in."
+            exit 1
+          fi
+          echo "::add-mask::$RH_SERVER"
+          X=$(python3 tool/hide_server.py "$RH_SERVER")
+          echo "::add-mask::$X"
+          echo "RH_X=$X" >> "$GITHUB_ENV"
+
       - name: Release signing key
         env:
           KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -62,13 +122,17 @@ jobs:
       - name: Build APK
         run: |
           set -o pipefail
-          flutter build apk --release 2>&1 | tee build.log || { bash tool/annotate_failures.sh build.log "Build failed"; exit 1; }
-          flutter build apk --release --split-per-abi 2>&1 | tee -a build.log || { bash tool/annotate_failures.sh build.log "Build failed"; exit 1; }
+          flutter build apk --release --dart-define=RH_X="$RH_X" 2>&1 | tee build.log || { bash tool/annotate_failures.sh build.log "Build failed"; exit 1; }
+          flutter build apk --release --split-per-abi --dart-define=RH_X="$RH_X" 2>&1 | tee -a build.log || { bash tool/annotate_failures.sh build.log "Build failed"; exit 1; }
 
       - uses: actions/upload-artifact@v4
         with:
           name: riyal-hisab-android
           path: build/app/outputs/flutter-apk/*release.apk
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: riyal-hisab-server
 
       - name: Publish pre-release
         env:
@@ -80,4 +144,4 @@ jobs:
           VERSION=$(grep '^version:' pubspec.yaml | sed -E 's/version: *([^+]+).*/\1/')
           TAG="riyal-hisab-v${VERSION}-build.${{ github.run_number }}"
           NOTE="রিয়াল-বিকাশ হিসাব ${VERSION} (build ${{ github.run_number }}) · commit ${GITHUB_SHA::7}. riyal-hisab.apk সব ফোনে (Android 7.0+) চলে; riyal-hisab-arm64.apk ছোট, শুধু ৬৪-বিট ফোনে।"
-          gh release create "$TAG" riyal-hisab.apk riyal-hisab-arm64.apk riyal-hisab-armv7.apk --title "রিয়াল-বিকাশ হিসাব $VERSION (build ${{ github.run_number }})" --notes "$NOTE" --prerelease --latest=false --target "$GITHUB_SHA"
+          gh release create "$TAG" riyal-hisab.apk riyal-hisab-arm64.apk riyal-hisab-armv7.apk riyal-hisab-server.zip --title "রিয়াল-বিকাশ হিসাব $VERSION (build ${{ github.run_number }})" --notes "$NOTE" --prerelease --latest=false --target "$GITHUB_SHA"

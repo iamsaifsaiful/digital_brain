@@ -14,7 +14,7 @@ class SetupScreen extends StatefulWidget {
 }
 
 class _SetupScreenState extends State<SetupScreen> {
-  final _owner = TextEditingController(text: 'সাইফুল');
+  late final _owner = TextEditingController(text: widget.h.d.settings.ownerName.isNotEmpty ? widget.h.d.settings.ownerName : (widget.h.session?.name ?? 'সাইফুল'));
   final _agent = TextEditingController(text: 'মনোয়ারা স্টোর (তন্তু ভাই)');
   final _wa = TextEditingController();
   final _comm = TextEditingController(text: '0');
@@ -39,7 +39,25 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Screen(
+  Widget build(BuildContext context) {
+    final h = widget.h;
+    if (h.session != null && !h.can('agents')) {
+      return Screen(
+        title: 'অপেক্ষা',
+        back: false,
+        body: ListView(padding: const EdgeInsets.all(18), children: [
+          const Note('এখনো কোনো এজেন্ট যোগ করা হয়নি। মূল এডমিন এজেন্ট যোগ করলে এখানে কাজ শুরু হবে।', icon: Icons.hourglass_empty_rounded),
+          const SizedBox(height: 14),
+          Pill(label: 'আবার দেখুন', icon: Icons.refresh_rounded, onTap: h.sync),
+          const SizedBox(height: 10),
+          SoftPill(label: 'লগআউট', icon: Icons.logout_rounded, color: K.red, onTap: h.logout),
+        ]),
+      );
+    }
+    return _form();
+  }
+
+  Widget _form() => Screen(
         title: 'শুরু করা যাক',
         back: false,
         bottom: Pill(label: 'শুরু করুন', icon: Icons.arrow_forward_rounded, onTap: _busy ? null : _save),

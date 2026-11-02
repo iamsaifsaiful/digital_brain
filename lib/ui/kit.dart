@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+
+import '../core/lang.dart';
 import 'package:flutter/services.dart';
 
 import '../core/format.dart';
@@ -51,7 +53,7 @@ TextStyle t(double size, {FontWeight w = FontWeight.w400, Color c = K.ink, doubl
 void snack(BuildContext context, String text) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(text, style: t(14, c: Colors.white))));
+    ..showSnackBar(SnackBar(content: Tx(text, style: t(14, c: Colors.white))));
 }
 
 /// Round white button with an icon (back, search, edit …).
@@ -67,7 +69,7 @@ class CircleBtn extends StatelessWidget {
         button: true,
         label: label,
         child: Tooltip(
-          message: label,
+          message: tr(label),
           child: InkWell(
             onTap: onTap,
             customBorder: const CircleBorder(),
@@ -108,8 +110,8 @@ class Screen extends StatelessWidget {
                 if (back) CircleBtn(icon: Icons.chevron_left_rounded, label: 'পেছনে', onTap: () => Navigator.of(context).maybePop()) else const SizedBox(width: 48),
                 Expanded(
                   child: Column(children: [
-                    Text(title, textAlign: TextAlign.center, style: t(18, w: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    if (subtitle != null) Text(subtitle!, style: t(12.5, c: K.muted)),
+                    Tx(title, textAlign: TextAlign.center, style: t(18, w: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    if (subtitle != null) Tx(subtitle!, style: t(12.5, c: K.muted)),
                   ]),
                 ),
                 trailing ?? const SizedBox(width: 48),
@@ -172,7 +174,7 @@ class Pill extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14),
           ),
           child: Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
-            Flexible(child: Text(label, style: t(15.5, w: FontWeight.w500, c: onTap == null ? Colors.white : textColor), maxLines: 1, overflow: TextOverflow.ellipsis)),
+            Flexible(child: Tx(label, style: t(15.5, w: FontWeight.w500, c: onTap == null ? Colors.white : textColor), maxLines: 1, overflow: TextOverflow.ellipsis)),
             if (icon != null) ...[const SizedBox(width: 8), Icon(icon, size: 18)],
           ]),
         ),
@@ -201,7 +203,7 @@ class SoftPill extends StatelessWidget {
           ),
           child: Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
             if (icon != null) ...[Icon(icon, size: 18), const SizedBox(width: 6)],
-            Flexible(child: Text(label, style: t(14, c: color), maxLines: 1, overflow: TextOverflow.ellipsis)),
+            Flexible(child: Tx(label, style: t(14, c: color), maxLines: 1, overflow: TextOverflow.ellipsis)),
           ]),
         ),
       );
@@ -231,7 +233,7 @@ class Seg<T> extends StatelessWidget {
                     height: 44,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(color: v == value ? K.navy : Colors.transparent, borderRadius: BorderRadius.circular(22)),
-                    child: Text(label,
+                    child: Tx(label,
                         maxLines: 1, overflow: TextOverflow.ellipsis, style: t(13.5, w: v == value ? FontWeight.w600 : FontWeight.w400, c: v == value ? Colors.white : const Color(0xFF4A4A4A))),
                   ),
                 ),
@@ -265,7 +267,7 @@ class ChoiceChipX extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: on ? K.navy : K.border),
               ),
-              child: Text(label, style: t(13.5, w: on ? FontWeight.w600 : FontWeight.w400, c: on ? Colors.white : K.ink)),
+              child: Tx(label, style: t(13.5, w: on ? FontWeight.w600 : FontWeight.w400, c: on ? Colors.white : K.ink)),
             ),
           ),
         ),
@@ -297,7 +299,7 @@ class Ring extends StatelessWidget {
           height: size,
           child: CustomPaint(
             painter: _RingPainter(percent.clamp(0, 100) / 100, _c),
-            child: Center(child: Text('${bnNum(percent.round())}%', style: t(size * 0.24, w: FontWeight.w700, c: percent <= 0 ? K.green : K.ink))),
+            child: Center(child: Tx('${bnNum(percent.round())}%', style: t(size * 0.24, w: FontWeight.w700, c: percent <= 0 ? K.green : K.ink))),
           ),
         ),
       );
@@ -354,7 +356,7 @@ class LineChart extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Row(children: [
-            for (final l in labels) Expanded(child: Text(l, textAlign: TextAlign.center, style: t(12, c: K.muted), maxLines: 1, overflow: TextOverflow.clip)),
+            for (final l in labels) Expanded(child: Tx(l, textAlign: TextAlign.center, style: t(12, c: K.muted), maxLines: 1, overflow: TextOverflow.clip)),
           ]),
         ]),
       );
@@ -409,7 +411,7 @@ class _LinePainter extends CustomPainter {
     canvas.drawCircle(m, 4.5, Paint()..color = K.blue);
     final label = mark;
     if (label != null && label.isNotEmpty) {
-      final tp = TextPainter(text: TextSpan(text: label, style: t(12, w: FontWeight.w600)), textDirection: TextDirection.ltr)..layout();
+      final tp = TextPainter(text: TextSpan(text: tr(label), style: t(12, w: FontWeight.w600)), textDirection: TextDirection.ltr)..layout();
       final w = tp.width + 18;
       var x = m.dx - w / 2;
       x = x.clamp(0, size.width - w);
@@ -443,7 +445,7 @@ class Avatar extends StatelessWidget {
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(color: _bgs[i], shape: BoxShape.circle),
-      child: Text(name.isEmpty ? '?' : name.characters.first, style: t(size * 0.38, w: FontWeight.w700, c: _fgs[i])),
+      child: Tx(name.isEmpty ? '?' : name.characters.first, style: t(size * 0.38, w: FontWeight.w700, c: _fgs[i])),
     );
     final id = photo;
     if (id == null) return letter;
@@ -469,12 +471,12 @@ class SectionHead extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(top: 6, bottom: 4),
         child: Row(children: [
-          Expanded(child: Text(title, style: t(16.5, w: FontWeight.w600))),
+          Expanded(child: Tx(title, style: t(16.5, w: FontWeight.w600))),
           if (action != null)
             TextButton(
               onPressed: onAction,
               style: TextButton.styleFrom(foregroundColor: K.navy, minimumSize: const Size(44, 44)),
-              child: Text(action!, style: t(14, c: K.navy)),
+              child: Tx(action!, style: t(14, c: K.navy)),
             ),
         ]),
       );
@@ -498,6 +500,7 @@ class Field extends StatelessWidget {
     this.obscure = false,
     this.error,
     this.readOnly = false,
+    this.saudi = false,
   });
   final String label;
   final TextEditingController controller;
@@ -514,9 +517,12 @@ class Field extends StatelessWidget {
   final String? error;
   final bool readOnly;
 
+  /// A Saudi mobile number: no more digits than one can have.
+  final bool saudi;
+
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Padding(padding: const EdgeInsets.only(left: 6, bottom: 4), child: Text(label, style: t(13, c: K.muted))),
+        Padding(padding: const EdgeInsets.only(left: 6, bottom: 4), child: Tx(label, style: t(13, c: K.muted))),
         TextField(
           controller: controller,
           readOnly: readOnly,
@@ -525,14 +531,18 @@ class Field extends StatelessWidget {
           maxLines: maxLines,
           keyboardType: number
               ? const TextInputType.numberWithOptions(decimal: true)
-              : phone
+              : phone || saudi
                   ? TextInputType.phone
                   : TextInputType.text,
-          inputFormatters: number ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9০-৯.,]'))] : null,
+          inputFormatters: number
+              ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9০-৯.,]'))]
+              : saudi
+                  ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9০-৯+ ]')), const SaudiPhoneLimit()]
+                  : null,
           onChanged: onChanged,
           style: t(big ? 26 : 16, w: big ? FontWeight.w700 : FontWeight.w400),
           decoration: InputDecoration(
-            hintText: hint,
+            hintText: hint == null ? null : tr(hint!),
             hintStyle: t(big ? 22 : 15, c: const Color(0xFFA0A0A0)),
             errorText: error,
             prefixText: prefix,
@@ -586,15 +596,15 @@ class Row2 extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, style: t(15, w: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
-                if (sub != null) Text(sub!, style: t(12.5, c: subColor), maxLines: 2, overflow: TextOverflow.ellipsis),
+                Tx(title, style: t(15, w: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                if (sub != null) Tx(sub!, style: t(12.5, c: subColor), maxLines: 2, overflow: TextOverflow.ellipsis),
               ]),
             ),
             if (value != null) ...[
               const SizedBox(width: 8),
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(value!, style: t(15, w: FontWeight.w600, c: valueColor)),
-                if (valueSub != null) Text(valueSub!, style: t(12, c: valueSubColor)),
+                Tx(value!, style: t(15, w: FontWeight.w600, c: valueColor)),
+                if (valueSub != null) Tx(valueSub!, style: t(12, c: valueSubColor)),
               ]),
             ],
           ]),
@@ -608,7 +618,7 @@ Widget dotLetter(String s, Color bg, Color fg, {double size = 42}) => Container(
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
-      child: Text(s, style: t(size * 0.31, w: FontWeight.w700, c: fg)),
+      child: Tx(s, style: t(size * 0.31, w: FontWeight.w700, c: fg)),
     );
 
 Widget dotIcon(IconData i, Color bg, Color fg, {double size = 42}) => Container(
@@ -633,7 +643,7 @@ class Note extends StatelessWidget {
         decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(14)),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           if (icon != null) ...[Icon(icon, size: 19, color: textColor), const SizedBox(width: 10)],
-          Expanded(child: Text(text, style: t(13, c: textColor, h: 1.5))),
+          Expanded(child: Tx(text, style: t(13, c: textColor, h: 1.5))),
         ]),
       );
 }
@@ -642,11 +652,11 @@ Future<bool> confirm(BuildContext context, String title, String body, {String ye
   final r = await showDialog<bool>(
     context: context,
     builder: (c) => AlertDialog(
-      title: Text(title, style: t(18, w: FontWeight.w600)),
-      content: Text(body, style: t(14.5, h: 1.5)),
+      title: Tx(title, style: t(18, w: FontWeight.w600)),
+      content: Tx(body, style: t(14.5, h: 1.5)),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(c, false), child: Text(no, style: t(14.5, c: K.muted))),
-        TextButton(onPressed: () => Navigator.pop(c, true), child: Text(yes, style: t(14.5, w: FontWeight.w600, c: danger ? K.red : K.blue))),
+        TextButton(onPressed: () => Navigator.pop(c, false), child: Tx(no, style: t(14.5, c: K.muted))),
+        TextButton(onPressed: () => Navigator.pop(c, true), child: Tx(yes, style: t(14.5, w: FontWeight.w600, c: danger ? K.red : K.blue))),
       ],
     ),
   );
@@ -659,21 +669,88 @@ Future<String?> askText(BuildContext context, String title, {String hint = '', S
   final r = await showDialog<String>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: Text(title, style: t(17, w: FontWeight.w600)),
+      title: Tx(title, style: t(17, w: FontWeight.w600)),
       content: TextField(
         controller: c,
         autofocus: true,
         obscureText: obscure,
         keyboardType: number ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
         style: t(16),
-        decoration: InputDecoration(hintText: hint, hintStyle: t(15, c: K.muted)),
+        decoration: InputDecoration(hintText: tr(hint), hintStyle: t(15, c: K.muted)),
         onSubmitted: (v) => Navigator.pop(ctx, v),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: Text('বাতিল', style: t(14.5, c: K.muted))),
-        TextButton(onPressed: () => Navigator.pop(ctx, c.text), child: Text(ok, style: t(14.5, w: FontWeight.w600, c: K.blue))),
+        TextButton(onPressed: () => Navigator.pop(ctx), child: Tx('বাতিল', style: t(14.5, c: K.muted))),
+        TextButton(onPressed: () => Navigator.pop(ctx, c.text), child: Tx(ok, style: t(14.5, w: FontWeight.w600, c: K.blue))),
       ],
     ),
   );
   return r;
+}
+
+/// Stops a Saudi mobile number at its full length (05XXXXXXXX: 10 digits,
+/// 9665XXXXXXXX: 12).
+class SaudiPhoneLimit extends TextInputFormatter {
+  const SaudiPhoneLimit();
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final digits = en(newValue.text).replaceAll(RegExp(r'[^0-9]'), '').length;
+    return digits > saMaxDigits(newValue.text) ? oldValue : newValue;
+  }
+}
+
+
+/// Text that follows the app language. Every screen uses this in place
+/// of Text, so the English switch reaches all of them.
+class Tx extends StatelessWidget {
+  const Tx(this.data, {super.key, this.style, this.maxLines, this.overflow, this.textAlign, this.softWrap, this.textScaler});
+  final String data;
+  final TextStyle? style;
+  final int? maxLines;
+  final TextOverflow? overflow;
+  final TextAlign? textAlign;
+  final bool? softWrap;
+  final TextScaler? textScaler;
+
+  @override
+  Widget build(BuildContext context) => Text(tr(data), style: style, maxLines: maxLines, overflow: overflow, textAlign: textAlign, softWrap: softWrap, textScaler: textScaler);
+}
+
+/// The one-tap language button: "English" while in Bangla, "বাংলা" in English.
+class LangButton extends StatelessWidget {
+  const LangButton({super.key, required this.h});
+  final Hisab h;
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: appEnglish ? 'বাংলায় দেখুন' : 'Show in English',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () async {
+            setEnglish(!appEnglish);
+            await h.s.lock.setEnglish(appEnglish);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(color: K.chip, borderRadius: BorderRadius.circular(20)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.translate_rounded, size: 17, color: K.navy),
+              const SizedBox(width: 6),
+              Text(appEnglish ? 'বাংলা' : 'English', style: t(13, w: FontWeight.w600, c: K.navy)),
+            ]),
+          ),
+        ),
+      );
+}
+
+/// Switches the whole app between Bangla and English, at once.
+void setEnglish(bool on) {
+  appEnglish = on;
+  void again(Element e) {
+    e.markNeedsBuild();
+    e.visitChildren(again);
+  }
+
+  WidgetsBinding.instance.rootElement?.visitChildren(again);
 }

@@ -139,6 +139,13 @@ class DataStore {
     }
   }
 
+  /// Keeps this phone's own account aside (encrypted) before taking the
+  /// server's.
+  Future<void> putAside(AppData data) async {
+    final sealed = await seal(utf8.encode(jsonEncode(data.toJson())), await _key());
+    await photos.write('before-server-${DateTime.now().millisecondsSinceEpoch}', sealed);
+  }
+
   /// After restoring a backup on a phone that lost its key: keep the old
   /// file aside and start a new key.
   Future<void> startOver() async {
