@@ -148,7 +148,7 @@ class Customer {
 
 /// A bKash agent (or anyone in Bangladesh who sends the taka).
 class Agent {
-  Agent({required this.id, required this.name, required this.whatsapp, this.commissionPerThousand = 0, required this.created, this.channel = 'whatsapp'});
+  Agent({required this.id, required this.name, required this.whatsapp, this.commissionPerThousand = 0, required this.created, this.channel = 'whatsapp', this.deleted = false});
   final String id;
   String name;
 
@@ -164,6 +164,10 @@ class Agent {
   String channel;
   bool get usesApp => channel == 'app';
 
+  /// Deleted by the main admin: gone from every list and choice. Its old
+  /// sends and payments keep its name.
+  bool deleted;
+
   Map<String, Object?> toJson() => {
         'id': id,
         'name': name,
@@ -171,9 +175,11 @@ class Agent {
         'commission': commissionPerThousand,
         'created': created.toIso8601String(),
         'channel': channel,
+        if (deleted) 'deleted': true,
       };
   factory Agent.fromJson(Map<String, Object?> j) => Agent(
         channel: _s(j['channel'], 'whatsapp'),
+        deleted: j['deleted'] == true,
         id: _s(j['id']),
         name: _s(j['name']),
         whatsapp: _s(j['whatsapp']),
@@ -740,6 +746,9 @@ class AppData {
   SyncState sync = SyncState();
   List<Customer> customers;
   List<Agent> agents;
+
+  /// The agents still in use (not deleted).
+  List<Agent> get liveAgents => agents.where((a) => !a.deleted).toList();
   List<Txn> txns;
   List<Deposit> deposits;
   List<AgentPayment> agentPayments;

@@ -160,10 +160,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('হোম').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('সেটিংস'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('পেছনে').last);
-    await tester.pumpAndSettle();
+    // No settings icon on home any more: notifications in its place.
+    expect(find.byTooltip('সেটিংস'), findsNothing);
+    expect(find.byTooltip('নোটিফিকেশন'), findsOneWidget);
 
     await tapText(tester, 'রিয়াল জমা');
     await tapText(tester, 'করিম');

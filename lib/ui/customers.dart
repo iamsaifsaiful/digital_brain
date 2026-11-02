@@ -10,10 +10,14 @@ import '../core/lang.dart';
 import 'reports.dart';
 import 'send.dart';
 import 'txn.dart';
+import 'more.dart' show CustomerSettingsScreen;
 
 class CustomersTab extends StatefulWidget {
-  const CustomersTab({super.key, required this.h});
+  const CustomersTab({super.key, required this.h, this.onTab});
   final Hisab h;
+
+  /// Swiping past the first or last list goes to the next main tab.
+  final ValueChanged<int>? onTab;
 
   @override
   State<CustomersTab> createState() => _CustomersTabState();
@@ -22,6 +26,26 @@ class CustomersTab extends StatefulWidget {
 class _CustomersTabState extends State<CustomersTab> {
   final _q = TextEditingController();
   int _f = 0;
+
+  /// Swipe left or right over the list: the next or previous of সবাই ·
+  /// বাকি · পুরনো · বাকি নেই (and past the ends, the next main tab).
+  void _swipe(DragEndDetails e) {
+    final v = e.primaryVelocity ?? 0;
+    if (v.abs() < 250) return;
+    if (v < 0) {
+      if (_f < 3) {
+        setState(() => _f++);
+      } else {
+        widget.onTab?.call(2);
+      }
+    } else {
+      if (_f > 0) {
+        setState(() => _f--);
+      } else {
+        widget.onTab?.call(0);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Live(
@@ -41,46 +65,59 @@ class _CustomersTabState extends State<CustomersTab> {
           };
         }).toList();
         if (_f == 1 || _f == 2) list.sort((a, b) => customerDue(d, b.id).compareTo(customerDue(d, a.id)));
-        return ListView(padding: const EdgeInsets.fromLTRB(18, 12, 18, 24), children: [
-          Row(children: [
-            Expanded(child: Tx('গ্রাহক', style: t(22, w: FontWeight.w700))),
-            CircleBtn(
-              icon: Icons.person_add_alt_1_rounded,
-              label: 'নতুন গ্রাহক',
-              onTap: () async {
-                final c = await push<Customer>(context, QuickProfile(h: h));
-                if (c != null && context.mounted) push(context, CustomerScreen(h: h, id: c.id));
-              },
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onHorizontalDragEnd: _swipe,
+          child: ListView(padding: const EdgeInsets.fromLTRB(18, 12, 18, 24), children: [
+            Row(children: [
+              Expanded(child: Tx('গ্রাহক', style: t(22, w: FontWeight.w700))),
+              CircleBtn(icon: Icons.settings_outlined, label: 'গ্রাহকের সেটিংস', onTap: () => push(context, CustomerSettingsScreen(h: h))),
+              const SizedBox(width: 8),
+              CircleBtn(
+                icon: Icons.person_add_alt_1_rounded,
+                label: 'নতুন গ্রাহক',
+                onTap: () async {
+                  final c = await push<Customer>(context, QuickProfile(h: h));
+                  if (c != null && context.mounted) push(context, CustomerScreen(h: h, id: c.id));
+                },
+              ),
+            ]),
+            const SizedBox(height: 4),
+            Tx('মোট বাকি ${sar(totalCustomerDue(d))} · ${bn('${d.customers.length}')} জন গ্রাহক', style: t(13.5, c: K.muted)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _q,
+              onChanged: (_) => setState(() {}),
+              style: t(15),
+              decoration: InputDecoration(
+                hintText: tr('নাম বা নম্বর দিয়ে খুঁজুন'),
+                prefixIcon: const Icon(Icons.search_rounded),
+                filled: true,
+                fillColor: K.card,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(26), borderSide: const BorderSide(color: K.border)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(26), borderSide: const BorderSide(color: K.border)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Seg<int>(items: [(0, 'সবাই'), (1, 'বাকি'), (2, '${bn('$oldDays')}+ দিন'), (3, 'বাকি নেই')], value: _f, onChanged: (v) => setState(() => _f = v)),
+            const SizedBox(height: 12),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              transitionBuilder: (child, a) => FadeTransition(opacity: a, child: SlideTransition(position: Tween(begin: const Offset(0.06, 0), end: Offset.zero).animate(a), child: child)),
+              child: KeyedSubtree(
+                key: ValueKey(_f),
+                child: list.isEmpty
+                    ? const Note('কেউ নেই।')
+                    : CardBox(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: Column(children: [
+                          for (final (i, c) in list.indexed) _CustomerRow(h: h, c: c, last: i == list.length - 1),
+                        ]),
+                      ),
+              ),
             ),
           ]),
-          const SizedBox(height: 4),
-          Tx('মোট বাকি ${sar(totalCustomerDue(d))} · ${bn('${d.customers.length}')} জন গ্রাহক', style: t(13.5, c: K.muted)),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _q,
-            onChanged: (_) => setState(() {}),
-            style: t(15),
-            decoration: InputDecoration(
-              hintText: tr('নাম বা নম্বর দিয়ে খুঁজুন'),
-              prefixIcon: const Icon(Icons.search_rounded),
-              filled: true,
-              fillColor: K.card,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(26), borderSide: const BorderSide(color: K.border)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(26), borderSide: const BorderSide(color: K.border)),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Seg<int>(items: [(0, 'সবাই'), (1, 'বাকি'), (2, '${bn('$oldDays')}+ দিন'), (3, 'বাকি নেই')], value: _f, onChanged: (v) => setState(() => _f = v)),
-          const SizedBox(height: 12),
-          if (list.isEmpty) const Note('কেউ নেই।'),
-          if (list.isNotEmpty)
-            CardBox(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Column(children: [
-                for (final (i, c) in list.indexed) _CustomerRow(h: h, c: c, last: i == list.length - 1),
-              ]),
-            ),
-        ]);
+        );
       });
 }
 
@@ -399,11 +436,11 @@ class PromiseCard extends StatelessWidget {
               label: 'তাগাদা পাঠান',
               icon: Icons.chat_outlined,
               onTap: () async {
-                      final wa = await whatsappOf(context, h, c);
-                      if (wa == null) return;
-                      await h.s.device.whatsapp(wa, dueReminder(h.d, c));
-                      await h.note('cust', 'বাকির তাগাদা পাঠানো', '${c.name} · ${sar(customerDue(h.d, c.id))}');
-                    },
+                final wa = await whatsappOf(context, h, c);
+                if (wa == null) return;
+                await h.s.device.whatsapp(wa, dueReminder(h.d, c));
+                await h.note('cust', 'বাকির তাগাদা পাঠানো', '${c.name} · ${sar(customerDue(h.d, c.id))}');
+              },
             ),
           ),
         ]),

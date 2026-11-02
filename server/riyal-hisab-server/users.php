@@ -13,6 +13,7 @@ add_action('rest_api_init', function () {
     rh_route('/users', 'GET', 'rh_users_list', 'admin');
     rh_route('/users', 'POST', 'rh_users_add', 'admin');
     rh_route('/users/update', 'POST', 'rh_users_update', 'admin');
+    rh_route('/users/delete', 'POST', 'rh_users_delete', 'admin');
 });
 
 /** An admin can give another admin only what they have themselves. */
@@ -46,7 +47,7 @@ function rh_users_add(WP_REST_Request $req, $u) {
     if (!in_array($role, ['admin', 'agent'], true) || $name === '' || !preg_match('/^[a-z0-9_.+@]{4,64}$/', $login) || strlen($pass) < 6) {
         return new WP_Error('bad', 'name, login (4+), password (6+)', ['status' => 400]);
     }
-    if ($role === 'agent' && !rh_one('agent', $agent)) {
+    if ($role === 'agent' && (!rh_one('agent', $agent) || !empty(rh_one('agent', $agent)['deleted']))) {
         return new WP_Error('agent', 'unknown agent', ['status' => 400]);
     }
     if ($wpdb->get_var($wpdb->prepare('SELECT id FROM ' . rh_t('users') . ' WHERE login = %s', $login))) {
@@ -156,4 +157,37 @@ function rh_hand_to_owner($row, $u) {
         'auto' => true,
     ], (int) $u['id']);
     rh_add_log('কালেকশন মূল এডমিনের কাছে', $row['name'] . ' → ' . $owner['name'] . ' · ' . rh_sar(abs($bal)) . ($bal < 0 ? ' (ঘাটতি)' : ''), $u['name'], '', 'recv');
+}
+
+
+/** The main admin deletes an agent's login for good (the agent's records stay). */
+function rh_users_delete(WP_REST_Request $req, $u) {
+    global $wpdb;
+    if ($u['role'] !== 'owner') {
+        return new WP_Error('perm', 'main admin only', ['status' => 403]);
+    }
+    $id = (int) $req->get_param('id');
+    $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . rh_t('users') . ' WHERE id = %d', $id), ARRAY_A);
+    if (!$row || $row['role'] !== 'agent') {
+        return new WP_Error('role', 'only an agent login can be deleted', ['status' => 400]);
+    }
+    rh_delete_user($row);
+    rh_add_log('এজেন্টের লগইন ডিলিট', $row['name'] . ' · ' . $row['login'], $u['name'], (string) $row['agent_rid'], 'sys');
+    return rest_ensure_response(['ok' => true]);
+}
+
+function rh_delete_user($row) {
+    global $wpdb;
+    $wpdb->delete(rh_t('sessions'), ['user_id' => (int) $row['id']]);
+    $wpdb->delete(rh_t('notes'), ['user_id' => (int) $row['id']]);
+    $wpdb->delete(rh_t('users'), ['id' => (int) $row['id']]);
+}
+
+/** An agent deleted: every login of theirs goes too. */
+function rh_drop_agent_logins($agent_rid, $u) {
+    global $wpdb;
+    foreach ($wpdb->get_results($wpdb->prepare('SELECT * FROM ' . rh_t('users') . " WHERE role = 'agent' AND agent_rid = %s", $agent_rid), ARRAY_A) as $row) {
+        rh_delete_user($row);
+        rh_add_log('এজেন্টের লগইন ডিলিট', $row['name'] . ' · ' . $row['login'] . ' (এজেন্ট ডিলিট হওয়ায়)', $u['name'], (string) $agent_rid, 'sys');
+    }
 }

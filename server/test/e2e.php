@@ -255,6 +255,29 @@ call('POST', '/push', ['records' => [['kind' => 'settings', 'rid' => 'main', 'da
 $got = array_values(array_filter($d['records'], fn($r) => $r['kind'] === 'settings'));
 check(($got[0]['data']['templates']['cust_due'] ?? '') === 'ভাই {নাম}, {বাকি} রিয়াল বাকি।', 'message templates reach the other admins');
 
+echo "\ndeleting an agent and a login (main admin only)\n";
+call('POST', '/push', ['records' => [['kind' => 'agent', 'rid' => 'ag3', 'data' => ['id' => 'ag3', 'name' => 'পুরনো এজেন্ট', 'whatsapp' => '01733333333', 'created' => '2026-11-01T10:00:00.000']]]], $owner);
+[$code, $d] = call('POST', '/users', ['role' => 'agent', 'name' => 'পুরনো', 'login' => 'old-agent', 'password' => 'agent-pass', 'agent_rid' => 'ag3'], $owner);
+$oldLogin = $d['user']['id'];
+[, $d] = call('POST', '/users', ['role' => 'agent', 'name' => 'পুরনো ২', 'login' => 'old-agent2', 'password' => 'agent-pass', 'agent_rid' => 'ag3'], $owner);
+[$code] = call('POST', '/users/delete', ['id' => $oldLogin], $admin2);
+check($code === 403 && $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$wpdb->prefix}rh_users WHERE id = %d", $oldLogin)) == 1, 'another admin cannot delete a login');
+[$code] = call('POST', '/users/delete', ['id' => $ownerId], $owner);
+check($code === 400, 'the main admin\'s own login cannot be deleted');
+[$code] = call('POST', '/users/delete', ['id' => $oldLogin], $owner);
+check($code === 200 && $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$wpdb->prefix}rh_users WHERE id = %d", $oldLogin)) == 0, 'the main admin deletes an agent\'s login');
+$ag3 = rh_one('agent', 'ag3');
+[, $d] = call('POST', '/push', ['records' => [['kind' => 'agent', 'rid' => 'ag3', 'data' => ['deleted' => true] + $ag3]]], $admin2);
+check($d['saved'] === 0 && empty(rh_one('agent', 'ag3')['deleted']), 'another admin cannot delete an agent');
+[, $d] = call('POST', '/push', ['records' => [['kind' => 'agent', 'rid' => 'ag3', 'data' => ['deleted' => true] + $ag3]]], $owner);
+check($d['saved'] === 1 && !empty(rh_one('agent', 'ag3')['deleted']) && $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}rh_users WHERE agent_rid = 'ag3'") == 0, 'the main admin deletes an agent: all its logins go too');
+[$code] = call('POST', '/login', ['login' => 'old-agent2', 'password' => 'agent-pass']);
+check($code === 404, 'a deleted agent cannot sign in');
+[$code] = call('POST', '/users', ['role' => 'agent', 'name' => 'X', 'login' => 'old-agent3', 'password' => 'agent-pass', 'agent_rid' => 'ag3'], $owner);
+check($code === 400, 'no new login for a deleted agent');
+[, $d] = call('POST', '/push', ['records' => [['kind' => 'agent', 'rid' => 'ag3', 'data' => $ag3]]], $owner);
+check($d['saved'] === 0, 'a deleted agent stays deleted');
+
 echo "\nsent sends are locked; অতিরিক্ত হিসাব\n";
 $t0 = rh_one('txn', 't0');
 [, $d] = call('POST', '/push', ['records' => [['kind' => 'txn', 'rid' => 't0', 'data' => ['sar' => 999] + $t0]]], $owner);
@@ -277,6 +300,18 @@ check(str_contains($html, 'রিয়াল কম লিখেছিলাম
 call('POST', '/push', ['records' => [['kind' => 'txn', 'rid' => 'tw', 'data' => ['id' => 'tw', 'no' => 27010009, 'customerId' => '', 'walkIn' => 'রাস্তার ভাই', 'walkInPhone' => '0559999999', 'agentId' => 'ag1', 'number' => '01812345999', 'method' => 'bkash', 'kind' => 'send', 'sar' => 100, 'rate' => 32.5, 'taka' => 3250, 'fee' => 0, 'pay' => 'cash', 'sarPaid' => 100, 'at' => '2026-11-02T20:40:00.000', 'status' => 'pending']]]], $owner);
 $html = page('txns', ['q' => 'রাস্তার']);
 check(str_contains($html, 'রাস্তার ভাই') && str_contains($html, '#২৭০১০০০৯'), 'a send without a profile shows its typed name');
+
+echo "\nthe main admin's own name and password\n";
+[$code] = call('POST', '/me/name', ['name' => 'সাইফুল ইসলাম'], $owner);
+check($code === 200 && $wpdb->get_var($wpdb->prepare("SELECT name FROM {$wpdb->prefix}rh_users WHERE id = %d", $ownerId)) === 'সাইফুল ইসলাম', 'the main admin renames themself from the app');
+[$code] = call('POST', '/me/name', ['name' => ''], $owner);
+check($code === 400, 'an empty name is refused');
+[$code] = call('POST', '/me/name', ['name' => 'X'], $agentTok);
+check($code === 404, 'an agent cannot use it');
+[$code] = call('POST', '/password', ['old' => 'owner-pass-1', 'new' => 'owner-pass-2'], $owner);
+[$code2] = call('POST', '/login', ['login' => '0551234567', 'password' => 'owner-pass-2']);
+check($code === 200 && $code2 === 200, 'the main admin changes their own password and signs in with it');
+call('POST', '/me/name', ['name' => 'সাইফুল'], $owner);
 
 echo "\nturning off, passwords\n";
 [$code] = call('POST', '/password', ['old' => 'wrong', 'new' => 'newpass1'], $admin2);

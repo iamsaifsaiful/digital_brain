@@ -449,7 +449,7 @@ class WaitingScreen extends StatelessWidget {
 
 /// Every send, newest first: search, status and date filters, PDF.
 class AllTxnsScreen extends StatefulWidget {
-  const AllTxnsScreen({super.key, required this.h, this.filter = 0, this.title = 'সব লেনদেন', this.search = false});
+  const AllTxnsScreen({super.key, required this.h, this.filter = 0, this.title = 'সব লেনদেন', this.search = false, this.byAdmin, this.withOld = false});
   final Hisab h;
 
   /// 0 সব, 1 পাঠানোর অপেক্ষায়, 2 বাকিতে, 3 বাতিল, 4 ভুল নম্বর, 5 রিচার্জ/এমবি.
@@ -458,6 +458,11 @@ class AllTxnsScreen extends StatefulWidget {
 
   /// Opened from the search button: the keyboard comes up at once.
   final bool search;
+
+  /// Only one admin's sends ([withOld]: also those from before the server,
+  /// which are the main admin's).
+  final int? byAdmin;
+  final bool withOld;
 
   @override
   State<AllTxnsScreen> createState() => _AllTxnsScreenState();
@@ -479,6 +484,7 @@ class _AllTxnsScreenState extends State<AllTxnsScreen> {
         var list = [...h.d.txns]..sort((a, b) => b.at.compareTo(a.at));
         list = list.where((x) {
           if (!_p.has(x.at)) return false;
+          if (widget.byAdmin != null && x.by != widget.byAdmin && !(widget.withOld && x.by == 0)) return false;
           if (_f == 1 && x.status != TxnStatus.pending) return false;
           if (_f == 2 && x.sarDueAtSend <= 0) return false;
           if (_f == 3 && !x.cancelled) return false;

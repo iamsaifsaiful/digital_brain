@@ -10,7 +10,8 @@ import 'home.dart' show KeepTab, push;
 import 'kit.dart';
 import '../core/lang.dart';
 import 'reports.dart';
-import 'txn.dart' show Live;
+import 'txn.dart' show Live, TxnScreen;
+import 'agent.dart' show PaymentScreen;
 
 /// The agent's app: requests to send, everything done, money received,
 /// and their profile with notifications. Taka only.
@@ -454,12 +455,7 @@ class _Profile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Column(children: [
               for (final (i, n) in st.notes.take(100).indexed)
-                Row2(
-                  lead: dotIcon(_noteIcon(n.kind), _noteBg(n.kind), _noteFg(n.kind), size: 38),
-                  title: n.title,
-                  sub: '${n.body}\n${dateShort(n.at)}, ${timeText(n.at)}',
-                  last: i == st.notes.take(100).length - 1,
-                ),
+                noteRow(n, last: i == st.notes.take(100).length - 1, onTap: () => openNote(context, st, n)),
             ]),
           ),
         const SizedBox(height: 14),
@@ -521,12 +517,73 @@ Color _noteFg(String k) => switch (k) {
     };
 
 /// For the admins' notification list too.
-Widget noteRow(ServerNote n, {bool last = false}) => Row2(
+Widget noteRow(ServerNote n, {bool last = false, VoidCallback? onTap}) => Row2(
       lead: dotIcon(_noteIcon(n.kind), _noteBg(n.kind), _noteFg(n.kind), size: 38),
       title: n.title,
       sub: '${n.body}\n${dateShort(n.at)}, ${timeText(n.at)}',
       last: last,
+      onTap: onTap,
+      value: onTap == null ? null : '›',
+      valueColor: K.muted,
     );
+
+/// A tapped notification: all of it, and what it is about. An admin goes on
+/// to the send (or the payment); an agent sees the request itself, with its
+/// buttons.
+Future<void> openNote(BuildContext context, AgentState st, ServerNote n) async {
+  final h = st.h;
+  final admin = h.session != null && !h.session!.isAgent;
+  final txn = admin ? h.txnById(n.ref) : null;
+  final pay = admin ? h.d.agentPayments.where((p) => p.id == n.ref).firstOrNull : null;
+  final req = admin ? null : st.txns.where((x) => x.id == n.ref).firstOrNull;
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (ctx) => Padding(
+      padding: EdgeInsets.fromLTRB(18, 18, 18, 18 + MediaQuery.of(ctx).padding.bottom),
+      child: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            dotIcon(_noteIcon(n.kind), _noteBg(n.kind), _noteFg(n.kind), size: 44),
+            const SizedBox(width: 12),
+            Expanded(child: Tx(n.title, style: t(17, w: FontWeight.w600))),
+          ]),
+          const SizedBox(height: 12),
+          SelectableText(n.body, style: t(15, h: 1.5)),
+          const SizedBox(height: 8),
+          Tx('${weekdayName(n.at)}, ${dateShort(n.at)} ${bn('${n.at.year}')} · ${timeText(n.at)}', style: t(12.5, c: K.muted)),
+          if (req != null) ...[
+            const SizedBox(height: 14),
+            RequestCard(st: st, tx: req),
+          ],
+          if (txn != null) ...[
+            const SizedBox(height: 16),
+            Pill(
+              label: 'লেনদেন #${bn('${txn.no}')} দেখুন',
+              onTap: () {
+                Navigator.pop(ctx);
+                push(context, TxnScreen(h: h, id: txn.id));
+              },
+            ),
+          ],
+          if (pay != null) ...[
+            const SizedBox(height: 16),
+            Pill(
+              label: 'পরিশোধের বিস্তারিত',
+              onTap: () {
+                Navigator.pop(ctx);
+                push(context, PaymentScreen(h: h, p: pay));
+              },
+            ),
+          ],
+          const SizedBox(height: 8),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Tx('বন্ধ করুন', style: t(14, c: K.muted))),
+        ]),
+      ),
+    ),
+  );
+}
 
 /// Live list for the admin app.
 class NotesScreen extends StatefulWidget {
@@ -556,7 +613,7 @@ class _NotesScreenState extends State<NotesScreen> {
               if (widget.st.notes.isNotEmpty)
                 CardBox(
                   padding: const EdgeInsets.symmetric(horizontal: 14),
-                  child: Column(children: [for (final (i, n) in widget.st.notes.indexed) noteRow(n, last: i == widget.st.notes.length - 1)]),
+                  child: Column(children: [for (final (i, n) in widget.st.notes.indexed) noteRow(n, last: i == widget.st.notes.length - 1, onTap: () => openNote(context, widget.st, n))]),
                 ),
             ]),
           ),

@@ -159,7 +159,7 @@ class _UserEditState extends State<UserEdit> {
   late final Set<String> _perms = {
     ...(widget.user?.perms ?? const ['send', 'deposit', 'customers', 'reports'])
   };
-  late String? _agent = widget.user?.agentRid ?? (widget.h.d.agents.isEmpty ? null : widget.h.d.agents.first.id);
+  late String? _agent = widget.user?.agentRid ?? (widget.h.d.liveAgents.isEmpty ? null : widget.h.d.liveAgents.first.id);
   late bool _active = widget.user?.active ?? true;
   bool _busy = false;
   String? _msg;
@@ -212,11 +212,11 @@ class _UserEditState extends State<UserEdit> {
         bottom: Pill(label: _busy ? 'রাখা হচ্ছে…' : 'রাখুন', onTap: _busy ? null : _save),
         body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 24), children: [
           if (!_admin && _isNew) ...[
-            if (h.d.agents.isEmpty) const Note('আগে এজেন্ট ট্যাবে এজেন্ট যোগ করুন।', color: K.amberTint, textColor: K.amberText),
+            if (h.d.liveAgents.isEmpty) const Note('আগে এজেন্ট ট্যাবে এজেন্ট যোগ করুন।', color: K.amberTint, textColor: K.amberText),
             Tx('কোন এজেন্টের লগইন', style: t(13, c: K.muted)),
             const SizedBox(height: 6),
             Wrap(spacing: 8, runSpacing: 8, children: [
-              for (final a in h.d.agents) ChoiceChipX(label: a.name, on: a.id == _agent, onTap: () => setState(() => _agent = a.id)),
+              for (final a in h.d.liveAgents) ChoiceChipX(label: a.name, on: a.id == _agent, onTap: () => setState(() => _agent = a.id)),
             ]),
             const SizedBox(height: 14),
           ],
@@ -257,6 +257,26 @@ class _UserEditState extends State<UserEdit> {
             ),
           ],
           if (_msg != null) ...[const SizedBox(height: 12), Note(_msg!, color: K.redTint, textColor: K.red)],
+          if (!_isNew && !_admin && h.isOwner) ...[
+            const SizedBox(height: 16),
+            SoftPill(
+              label: 'লগইন ডিলিট করুন',
+              icon: Icons.delete_outline_rounded,
+              color: K.red,
+              onTap: () async {
+                if (!await confirm(context, 'লগইন ডিলিট করবেন?', '${widget.user!.name}-এর লগইন (${bn(widget.user!.login)}) মুছে যাবে, তাঁর ফোন থেকে সাথে সাথে বের করে দেওয়া হবে। এজেন্ট আর তাঁর লেনদেন থাকবে। এটা ফেরানো যাবে না।',
+                    yes: 'ডিলিট', danger: true)) {
+                  return;
+                }
+                try {
+                  await h.s.api.post('/users/delete', {'id': widget.user!.id});
+                  if (context.mounted) Navigator.of(context).pop(true);
+                } catch (_) {
+                  if (context.mounted) snack(context, 'ডিলিট করা যায়নি — ইন্টারনেট দেখে আবার চেষ্টা করুন');
+                }
+              },
+            ),
+          ],
         ]),
       );
 }

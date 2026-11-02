@@ -10,6 +10,8 @@ import 'agent.dart';
 import 'cash.dart';
 import 'customers.dart';
 import 'kit.dart';
+import 'agent_app.dart' show NotesScreen;
+import '../state/agent_state.dart';
 import '../core/lang.dart';
 import 'more.dart';
 import 'send.dart';
@@ -69,7 +71,7 @@ class HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     final pages = [
       HomeTab(h: h, clip: _clip, onClipDone: () => setState(() => _clip = null), onTab: goTab),
-      CustomersTab(h: h),
+      CustomersTab(h: h, onTab: goTab),
       AgentTab(h: h),
       ReportTab(h: h),
       OthersTab(h: h),
@@ -145,6 +147,75 @@ class HomeTab extends StatelessWidget {
   final VoidCallback onClipDone;
   final ValueChanged<int> onTab;
 
+  /// The first card is everyone's (for the main admin when there are
+  /// other admins): all sends today and all riyal in hand. Then one card
+  /// per admin; a tap opens that admin's sends.
+  List<Widget> _summaries(BuildContext context, AppData d, List<Txn> today, double todaySar, double todayTaka) {
+    final others = h.session != null && h.isOwner ? (Map.of(adminsIn(d))..remove(0)..remove(h.meId)) : <int, String>{};
+    final all = others.isNotEmpty;
+    Widget big({required String title, required double cash, required List<Txn> txns, required VoidCallback onAll, required VoidCallback onCash}) => CardBox(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+          onTap: onCash,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(child: Tx(title, style: t(13.5, c: K.muted))),
+              InkWell(
+                onTap: onAll,
+                child: Row(children: [
+                  Tx('সব লেনদেন', style: t(13, c: K.blue)),
+                  const Icon(Icons.chevron_right_rounded, color: K.blue, size: 20),
+                ]),
+              ),
+            ]),
+            const SizedBox(height: 2),
+            Tx(sar(cash), style: t(32, w: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Tx('আজ ${bn('${txns.length}')}টা লেনদেন · ${sar(txns.fold<double>(0, (s, x) => s + x.sarAmount))} · ${taka(txns.fold<double>(0, (s, x) => s + x.taka))}', style: t(13, c: K.muted)),
+          ]),
+        );
+    if (!all) {
+      final mine = h.session == null ? today : today.where((x) => x.by == h.meId || (h.isOwner && x.by == 0)).toList();
+      return [
+        big(
+          title: h.session == null ? 'হাতে থাকা উচিত' : 'আমার হাতে থাকা উচিত',
+          cash: h.myCash,
+          txns: h.session == null || h.isOwner ? today : mine,
+          onAll: () => push(context, AllTxnsScreen(h: h)),
+          onCash: () => push(context, CashScreen(h: h)),
+        ),
+      ];
+    }
+    final people = <(int, String, bool)>[(h.meId, '${h.meName} (আপনি)', true), for (final e in others.entries) (e.key, e.value, false)];
+    return [
+      big(
+        title: 'সবার হিসাব — হাতে থাকা উচিত',
+        cash: cashInHand(d),
+        txns: today,
+        onAll: () => push(context, AllTxnsScreen(h: h)),
+        onCash: () => push(context, CashScreen(h: h)),
+      ),
+      const SizedBox(height: 10),
+      CardBox(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        child: Column(children: [
+          for (final (i, (id, name, me)) in people.indexed)
+            Row2(
+              lead: dotIcon(me ? Icons.verified_user_rounded : Icons.person_rounded, K.blueTint, K.blue, size: 38),
+              title: name,
+              sub: () {
+                final mine = today.where((x) => x.by == id || (me && x.by == 0)).toList();
+                return 'আজ ${bn('${mine.length}')}টা · ${sar(mine.fold<double>(0, (s, x) => s + x.sarAmount))}';
+              }(),
+              value: sar(cashInHand(d, me: id, owner: me)),
+              valueSub: 'হাতে',
+              last: i == people.length - 1,
+              onTap: () => push(context, AllTxnsScreen(h: h, byAdmin: id, withOld: me, title: me ? 'আমার লেনদেন' : '$name-এর লেনদেন')),
+            ),
+        ]),
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) => Live(
       h: h,
@@ -156,11 +227,10 @@ class HomeTab extends StatelessWidget {
         final todayTaka = today.fold<double>(0, (s, x) => s + x.taka);
         final due = totalCustomerDue(d);
         final dueCount = d.customers.where((c) => customerDue(d, c.id) > 0).length;
-        final agent = d.agents.isEmpty ? null : d.agents.first;
+        final agent = d.liveAgents.isEmpty ? null : d.liveAgents.first;
         final owed = agent == null ? 0.0 : agentOwed(d, agent.id);
         final waiting = h.waiting;
         final promises = h.promisesDue;
-        final backupOld = d.settings.lastBackup == null ? d.txns.length > 5 : now.difference(d.settings.lastBackup!).inDays >= 7;
         final recent = [...d.txns]..sort((a, b) => b.at.compareTo(a.at));
         final shown = recent.take(8).toList();
 
@@ -176,27 +246,21 @@ class HomeTab extends StatelessWidget {
             const SizedBox(width: 8),
             CircleBtn(icon: Icons.search_rounded, label: 'সব লেনদেনে খুঁজুন', onTap: () => push(context, AllTxnsScreen(h: h, search: true))),
             const SizedBox(width: 8),
-            CircleBtn(icon: Icons.settings_outlined, label: 'সেটিংস', dot: backupOld && h.session == null, onTap: () => push(context, SettingsScreen(h: h))),
+            CircleBtn(
+              icon: Icons.notifications_outlined,
+              label: 'নোটিফিকেশন',
+              onTap: () {
+                if (h.session == null) {
+                  snack(context, 'নোটিফিকেশন আসে সার্ভারে লগইন থাকলে');
+                  return;
+                }
+                push(context, NotesScreen(st: AgentState(h)));
+              },
+            ),
           ]),
           const SizedBox(height: 16),
           if (clip != null) ...[ClipCard(h: h, clip: clip!, onDone: onClipDone), const SizedBox(height: 12)],
-          CardBox(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-            onTap: () => push(context, CashScreen(h: h)),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Expanded(child: Tx(h.session == null ? 'হাতে থাকা উচিত' : 'আমার হাতে থাকা উচিত', style: t(13.5, c: K.muted))),
-                Tx('সব লেনদেন', style: t(13, c: K.blue)),
-                const Icon(Icons.chevron_right_rounded, color: K.blue, size: 20),
-              ]),
-              const SizedBox(height: 2),
-              Tx(sar(h.myCash), style: t(32, w: FontWeight.w700)),
-              const SizedBox(height: 4),
-              Tx('আজ ${bn('${today.length}')}টা লেনদেন · ${sar(todaySar)} · ${taka(todayTaka)}', style: t(13, c: K.muted)),
-              if (h.session != null && h.isOwner && adminsIn(d).keys.any((k) => k != 0 && k != h.meId))
-                Tx('সব এডমিন মিলে ${sar(cashInHand(d))}', style: t(13, w: FontWeight.w600, c: K.navy)),
-            ]),
-          ),
+          ..._summaries(context, d, today, todaySar, todayTaka),
           const SizedBox(height: 12),
           Row(children: [
             Expanded(
@@ -230,7 +294,7 @@ class HomeTab extends StatelessWidget {
               if (h.can('send') && h.can('deposit')) const SizedBox(width: 10),
               if (h.can('deposit')) Expanded(child: Pill(label: 'রিয়াল জমা', icon: Icons.south_west_rounded, color: K.navy, onTap: () => push(context, PickCustomer(h: h, forDeposit: true)))),
             ]),
-          if (h.can('agent_pay') && d.agents.isNotEmpty) ...[
+          if (h.can('agent_pay') && d.liveAgents.isNotEmpty) ...[
             const SizedBox(height: 10),
             Pill(label: 'এজেন্টকে পরিশোধ', icon: Icons.payments_outlined, color: K.green, onTap: () => payAgentFlow(context, h)),
           ],
@@ -422,7 +486,7 @@ class SyncBadge extends StatelessWidget {
 /// From the home page: choose the agent (when there are several), then pay
 /// for the sends not paid yet.
 Future<void> payAgentFlow(BuildContext context, Hisab h) async {
-  var agents = h.d.agents;
+  var agents = h.d.liveAgents;
   Agent? a = agents.length == 1 ? agents.first : null;
   a ??= await showModalBottomSheet<Agent>(
     context: context,

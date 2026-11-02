@@ -228,7 +228,7 @@ function rh_filters($tab, array $selects = [], $search = 'খুঁজুন') {
 function rh_agent_options() {
     $o = ['' => 'সব এজেন্ট'];
     foreach (rh_all('agent') as $id => $a) {
-        $o[$id] = (string) ($a['name'] ?? $id);
+        $o[$id] = (string) ($a['name'] ?? $id) . (!empty($a['deleted']) ? ' (ডিলিট)' : '');
     }
     return $o;
 }
@@ -491,7 +491,7 @@ function rh_tab_agents() {
         $logins = array_filter($users, fn($u) => $u['agent_rid'] === $id);
         $o = rh_agent_owed($id); ?>
         <tr>
-            <td><b><?php echo esc_html($a['name'] ?? ''); ?></b></td>
+            <td><b><?php echo esc_html($a['name'] ?? ''); ?></b><?php if (!empty($a['deleted'])) : ?> <span class="rh-pill gray">ডিলিট</span><?php endif; ?></td>
             <td><?php echo esc_html(rh_bn($a['whatsapp'] ?? '')); ?></td>
             <td><?php echo esc_html(($a['channel'] ?? '') === 'app' ? 'অ্যাপে' : 'হোয়াটসঅ্যাপে'); ?></td>
             <td><?php echo $logins ? esc_html(implode(', ', array_map(fn($u) => rh_bn($u['login']) . ($u['status'] === 'off' ? ' (বন্ধ)' : ''), $logins))) : '—'; ?></td>

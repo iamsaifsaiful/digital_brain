@@ -262,7 +262,7 @@ class _EntryScreenState extends State<EntryScreen> {
   @override
   void initState() {
     super.initState();
-    _agentId = h.d.agents.first.id;
+    _agentId = h.d.liveAgents.first.id;
     final e = widget.editing;
     if (e != null) {
       _sar.text = _plain(e.sarAmount);
@@ -565,12 +565,12 @@ class _EntryScreenState extends State<EntryScreen> {
             ]),
           ),
         ],
-        if (h.d.agents.length > 1 && !_locked) ...[
+        if (h.d.liveAgents.length > 1 && !_locked) ...[
           const SizedBox(height: 14),
           Tx('কোন এজেন্ট', style: t(13, c: K.muted)),
           const SizedBox(height: 6),
           Wrap(spacing: 8, runSpacing: 8, children: [
-            for (final a in h.d.agents) ChoiceChipX(label: a.name, on: a.id == _agentId, onTap: () => setState(() => _agentId = a.id)),
+            for (final a in h.d.liveAgents) ChoiceChipX(label: a.name, on: a.id == _agentId, onTap: () => setState(() => _agentId = a.id)),
           ]),
         ],
       ]),
@@ -629,7 +629,7 @@ class _ConfirmSheetState extends State<ConfirmSheet> {
     }
     setState(() => _busy = true);
     final nav = Navigator.of(context);
-    final agent = agentById(h.d, widget.draft.agentId) ?? h.d.agents.first;
+    final agent = agentById(h.d, widget.draft.agentId) ?? h.d.liveAgents.first;
     final e = widget.editing;
     if (e == null) {
       final Txn saved;
@@ -682,7 +682,7 @@ class _ConfirmSheetState extends State<ConfirmSheet> {
     final dueAfter = dueBefore + t0.sarDueAtSend;
     final limit = dueLimitOf(h.d, c);
     final pct = limit <= 0 ? 0.0 : dueAfter / limit * 100;
-    final agent = agentById(h.d, t0.agentId) ?? h.d.agents.first;
+    final agent = agentById(h.d, t0.agentId) ?? h.d.liveAgents.first;
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Column(mainAxisSize: MainAxisSize.min, children: [

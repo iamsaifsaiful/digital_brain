@@ -111,6 +111,9 @@ function rh_push(WP_REST_Request $req, $u) {
             }
         }
         [$old, $new] = rh_put($kind, $rid, $data, $u['id']);
+        if ($kind === 'agent' && !empty($data['deleted']) && empty($old['deleted'] ?? null)) {
+            rh_drop_agent_logins($rid, $u);
+        }
         if ($old !== $new) {
             rh_tell_agents($kind, $old, $new);
         }
@@ -156,6 +159,13 @@ function rh_may_write($u, $kind, $rid, $data) {
         case 'payment':
             return rh_can($u, 'agent_pay');
         case 'agent':
+            // Deleting an agent is the main admin's alone.
+            if (!empty($data['deleted']) && empty($old['deleted'] ?? null)) {
+                return $u['role'] === 'owner';
+            }
+            if (!empty($old['deleted']) && empty($data['deleted'])) {
+                return false;
+            }
             return rh_can($u, 'agents');
         case 'expense':
         case 'close':

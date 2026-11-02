@@ -315,6 +315,7 @@ add_action('rest_api_init', function () {
     rh_route('/me', 'GET', fn($req, $u) => rest_ensure_response(['user' => rh_user_public($u), 'firebase' => rh_firebase_options()]), 'any');
     rh_route('/device', 'POST', 'rh_device', 'any');
     rh_route('/password', 'POST', 'rh_own_password', 'any');
+    rh_route('/me/name', 'POST', 'rh_own_name', 'admin');
     rh_route('/errors', 'POST', 'rh_errors_put', 'any');
 });
 
@@ -358,6 +359,20 @@ function rh_device(WP_REST_Request $req, $u) {
     // One phone, one session: the token moves to the newest one.
     $wpdb->update(rh_t('sessions'), ['fcm_token' => ''], ['fcm_token' => $token]);
     $wpdb->update(rh_t('sessions'), ['fcm_token' => $token], ['id' => (int) $u['session_id']]);
+    return rest_ensure_response(['ok' => true]);
+}
+
+/** An admin (the main admin too) changes their own name. */
+function rh_own_name(WP_REST_Request $req, $u) {
+    global $wpdb;
+    $name = trim(sanitize_text_field((string) $req->get_param('name')));
+    if ($name === '' || mb_strlen($name) > 190) {
+        return new WP_Error('rh_bad', 'name', ['status' => 400]);
+    }
+    if ($name !== $u['name']) {
+        $wpdb->update(rh_t('users'), ['name' => $name], ['id' => (int) $u['id']]);
+        rh_add_log(($u['role'] === 'owner' ? 'মূল এডমিনের' : 'এডমিনের') . ' নাম বদল', $u['name'] . ' → ' . $name, $name, '', 'sys');
+    }
     return rest_ensure_response(['ok' => true]);
 }
 

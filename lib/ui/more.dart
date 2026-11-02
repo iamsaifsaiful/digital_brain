@@ -193,35 +193,95 @@ List<(Customer, double, String)> topCustomers(AppData d, int which, bool Functio
 
 // ------------------------------------------------------------------ others
 
-/// অন্যান্য: everything that is not daily work on the home page.
-class OthersTab extends StatelessWidget {
+/// অন্যান্য: everything that is not daily work on the home page, in
+/// sections that say what they hold. The settings live here too.
+class OthersTab extends StatefulWidget {
   const OthersTab({super.key, required this.h});
   final Hisab h;
+
+  @override
+  State<OthersTab> createState() => _OthersTabState();
+}
+
+class _OthersTabState extends State<OthersTab> {
+  bool? _bio;
+  bool _hasBio = false;
+  int _auto = 30;
+
+  Hisab get h => widget.h;
+
+  @override
+  void initState() {
+    super.initState();
+    () async {
+      final on = await h.s.lock.biometricsOn();
+      final has = await h.s.lock.biometrics.available();
+      final a = await h.s.lock.autoLockSeconds();
+      if (mounted) {
+        setState(() {
+          _bio = on;
+          _hasBio = has;
+          _auto = a;
+        });
+      }
+    }();
+  }
+
+  Future<void> _edit(String title, String now, Future<void> Function(String v) save, {bool number = false}) async {
+    final v = await askText(context, title, initial: now, number: number);
+    if (v == null || v.trim().isEmpty) return;
+    await save(v.trim());
+  }
+
+  String _autoText(int s) => switch (s) {
+        0 => 'সাথে সাথে',
+        < 60 => '${bn('$s')} সেকেন্ড পর',
+        _ => '${bn('${s ~/ 60}')} মিনিট পর',
+      };
+
+  /// One section: a heading and its rows in one card.
+  List<Widget> _section(String title, List<Widget> rows) {
+    if (rows.isEmpty) return const [];
+    return [
+      SectionHead(title),
+      CardBox(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        child: Column(children: [
+          for (final (i, r) in rows.indexed) i == rows.length - 1 ? r : DecoratedBox(decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: K.line))), child: r),
+        ]),
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) => Live(
       h: h,
       builder: (context) {
         final d = h.d;
+        final st = d.settings;
         final wrong = d.txns.where((x) => x.fault != null && !x.cancelled).length;
         final promises = d.customers.where((c) => c.promiseAt != null && customerDue(d, c.id) > 0).length;
+        final apart = d.adjusts.where((x) => !x.applied).length;
         final backupOld = d.settings.lastBackup == null || h.now.difference(d.settings.lastBackup!).inDays >= 7;
-        Widget tile(IconData i, Color bg, Color fg, String title, String sub, VoidCallback onTap, {bool last = false}) => Row2(
+        Widget tile(IconData i, Color bg, Color fg, String title, String sub, VoidCallback? onTap, {Widget? trailing}) => Row2(
               lead: dotIcon(i, bg, fg, size: 40),
               title: title,
               sub: sub,
               onTap: onTap,
-              last: last,
-              value: '›',
+              last: true,
+              value: trailing == null ? '›' : '',
               valueColor: K.muted,
+              trailing: trailing,
             );
-        return ListView(padding: const EdgeInsets.fromLTRB(18, 12, 18, 24), children: [
+        Widget setting(IconData i, String title, String sub, VoidCallback onTap) => tile(i, K.blueTint, K.blue, title, sub, onTap);
+
+        return ListView(padding: const EdgeInsets.fromLTRB(18, 12, 18, 28), children: [
           Row(children: [
             Expanded(child: Tx('অন্যান্য', style: t(22, w: FontWeight.w700))),
             LangButton(h: h),
           ]),
           const SizedBox(height: 12),
-          if (h.session != null) ...[
+          if (h.session != null)
             CardBox(
               child: Row(children: [
                 dotIcon(h.session!.isOwner ? Icons.verified_user_rounded : Icons.admin_panel_settings_rounded, K.blueTint, K.blue, size: 44),
@@ -235,64 +295,179 @@ class OthersTab extends StatelessWidget {
                 SyncBadge(h: h),
               ]),
             ),
-            const SizedBox(height: 4),
-          ],
-          if (h.can('expense')) ...[
-            SectionHead('দিনের হিসাব'),
-            CardBox(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Column(children: [
-                tile(Icons.receipt_long_outlined, K.redTint, K.red, 'খরচ / রিয়াল বের', 'হাত থেকে যে রিয়াল বের হলো', () => push(context, ExpenseScreen(h: h))),
-                tile(Icons.nightlight_outlined, K.navySoft, K.navy, 'দিন শেষের হিসাব', 'হাতের রিয়াল গুনে মিলিয়ে রাখুন', () => push(context, DayCloseScreen(h: h)), last: true),
-              ]),
+
+          // The signed-in admin: name and password.
+          if (h.session != null)
+            ..._section('আমার লগইন', [
+              tile(Icons.badge_outlined, K.blueTint, K.blue, h.isOwner ? 'মূল এডমিনের নাম বদলান' : 'আমার নাম বদলান', h.session!.name, () async {
+                final v = await askText(context, h.isOwner ? 'মূল এডমিনের নাম' : 'আপনার নাম', initial: h.session!.name);
+                if (v == null || v.trim().isEmpty || !context.mounted) return;
+                try {
+                  await h.renameMe(v);
+                  if (context.mounted) snack(context, 'নাম বদলেছে');
+                } catch (_) {
+                  if (context.mounted) snack(context, 'বদলানো যায়নি — ইন্টারনেট দেখে আবার চেষ্টা করুন');
+                }
+              }),
+              tile(Icons.password_rounded, K.blueTint, K.blue, 'পাসওয়ার্ড বদলান', 'সার্ভারে লগইনের পাসওয়ার্ড', () async {
+                final old = await askText(context, 'এখনকার পাসওয়ার্ড', obscure: true);
+                if (old == null || old.isEmpty || !context.mounted) return;
+                final nw = await askText(context, 'নতুন পাসওয়ার্ড (৬+ অক্ষর)', obscure: true);
+                if (nw == null || !context.mounted) return;
+                if (nw.length < 6) {
+                  snack(context, 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষর');
+                  return;
+                }
+                final again = await askText(context, 'আরেকবার একই পাসওয়ার্ড', obscure: true);
+                if (again != nw) {
+                  if (context.mounted) snack(context, 'দুইবার একই হয়নি, আবার দিন');
+                  return;
+                }
+                try {
+                  await h.changeMyPassword(old, nw);
+                  if (context.mounted) snack(context, 'পাসওয়ার্ড বদলেছে');
+                } catch (_) {
+                  if (context.mounted) snack(context, 'বদলানো যায়নি — এখনকার পাসওয়ার্ড ঠিক আছে?');
+                }
+              }),
+            ]),
+
+          // Riyal in hand, day by day.
+          ..._section('হাতের রিয়াল', [
+            tile(Icons.account_balance_wallet_outlined, K.greenTint, K.green, h.isOwner ? 'হাতের হিসাব (সব এডমিন)' : 'আমার হাতের হিসাব', 'প্রতিদিনের রিয়াল আসা-যাওয়া, কালেকশন বুঝে নেওয়া', () => push(context, CashScreen(h: h))),
+            if (h.can('expense')) tile(Icons.receipt_long_outlined, K.redTint, K.red, 'খরচ / রিয়াল বের', 'হাত থেকে যে রিয়াল বের হলো', () => push(context, ExpenseScreen(h: h))),
+            if (h.can('expense')) tile(Icons.nightlight_outlined, K.navySoft, K.navy, 'দিন শেষের হিসাব', 'হাতের রিয়াল গুনে মিলিয়ে রাখুন', () => push(context, DayCloseScreen(h: h))),
+          ]),
+
+          // Sends.
+          ..._section('লেনদেন', [
+            tile(Icons.list_alt_rounded, K.blueTint, K.blue, 'সব লেনদেন', 'খুঁজুন, তারিখ দিয়ে দেখুন, PDF', () => push(context, AllTxnsScreen(h: h))),
+            tile(Icons.phone_android_rounded, K.blueTint, K.blue, 'রিচার্জ ও এমবি', 'মোবাইল রিচার্জ আর এমবি প্যাক', () => push(context, AllTxnsScreen(h: h, filter: 5, title: 'রিচার্জ ও এমবি'))),
+            tile(Icons.report_gmailerrorred_rounded, K.redTint, K.red, 'ভুল নম্বরে যাওয়া', wrong == 0 ? 'নেই' : '${bn('$wrong')}টা লেনদেন', () => push(context, AllTxnsScreen(h: h, filter: 4, title: 'ভুল নম্বরে যাওয়া'))),
+            tile(Icons.playlist_add_check_rounded, K.amberTint, K.amberText, 'অতিরিক্ত হিসাব', apart == 0 ? 'পাঠানো লেনদেনের ভুল — আলাদা রাখা কিছু নেই' : '${bn('$apart')}টা আলাদা রাখা আছে', () => push(context, AdjustsScreen(h: h))),
+          ]),
+
+          // Customers' dues.
+          ..._section('গ্রাহকের বাকি', [
+            tile(Icons.notifications_active_outlined, K.amberTint, K.amberText, 'তাগাদার তালিকা', promises == 0 ? 'কোনো তারিখ দেওয়া নেই' : '${bn('$promises')} জনের তারিখ দেওয়া', () => push(context, PromisesScreen(h: h))),
+            tile(Icons.money_off_rounded, K.redTint, K.red, 'লস (আদায় হবে না)', lossOf(d) > 0 ? 'মোট ${sar(lossOf(d))}' : 'নেই', () => push(context, LossScreen(h: h))),
+          ]),
+
+          // Agents, and how messages to them and customers read.
+          ..._section('এজেন্ট ও মেসেজ', [
+            if (h.can('agents')) tile(Icons.storefront_outlined, K.navySoft, K.navy, 'এজেন্টের তালিকা', d.liveAgents.map((a) => a.name).join(', '), () => push(context, AgentListScreen(h: h))),
+            if (h.session != null) tile(Icons.notifications_rounded, K.amberTint, K.amberText, 'নোটিফিকেশন', 'এজেন্টরা কী জানালেন', () => push(context, NotesScreen(st: AgentState(h)))),
+            tile(Icons.chat_outlined, K.greenTint, K.green, 'মেসেজের টেমপ্লেট', 'এজেন্ট ও গ্রাহককে যাওয়া সব মেসেজের লেখা', () => push(context, TemplatesScreen(h: h))),
+          ]),
+
+          // The account's rules.
+          if (h.can('settings'))
+            ..._section('হিসাবের নিয়ম', [
+              if (h.session == null)
+                setting(Icons.person_outline_rounded, 'আপনার নাম', st.ownerName, () => _edit('নাম', st.ownerName, (v) async {
+                      final old = st.ownerName;
+                      st.ownerName = v;
+                      await h.saveSettings('নাম $old → $v');
+                    })),
+              setting(Icons.speed_rounded, 'সাধারণ বাকির সীমা', sar(st.defaultDueLimit), () => _edit('বাকির সীমা (রিয়াল)', groupEn(st.defaultDueLimit).replaceAll(',', ''), (v) async {
+                    final n = parseNum(v);
+                    if (n == null) return;
+                    final old = st.defaultDueLimit;
+                    st.defaultDueLimit = n;
+                    await h.saveSettings('বাকির সীমা ${sar(old)} → ${sar(n)}');
+                  }, number: true)),
+              setting(Icons.schedule_rounded, 'পুরনো বাকি ধরা হবে', '${bn('${st.oldDueDays}')} দিন পর', () => _edit('কত দিন পর পুরনো বাকি?', '${st.oldDueDays}', (v) async {
+                    final n = parseNum(v);
+                    if (n == null || n < 1) return;
+                    st.oldDueDays = n.round();
+                    await h.saveSettings('পুরনো বাকি ${bn('${n.round()}')} দিন');
+                  }, number: true)),
+              setting(Icons.copy_all_rounded, 'একই লেনদেন দুইবারের সতর্কতা', '${bn('${st.dupMinutes}')} মিনিটের মধ্যে', () => _edit('কত মিনিটের মধ্যে?', '${st.dupMinutes}', (v) async {
+                    final n = parseNum(v);
+                    if (n == null || n < 1) return;
+                    st.dupMinutes = n.round();
+                    await h.saveSettings('দুইবারের সতর্কতা ${bn('${n.round()}')} মিনিট');
+                  }, number: true)),
+            ]),
+
+          // Logins, the log and backups.
+          ..._section('লগইন ও রেকর্ড', [
+            if (h.can('users')) tile(Icons.manage_accounts_rounded, K.blueTint, K.blue, 'লগইন ও অনুমতি', 'এডমিন ও এজেন্টের লগইন, কে কী করতে পারবেন', () => push(context, UsersScreen(h: h))),
+            if (h.can('reports')) tile(Icons.history_rounded, K.chip, K.ink, 'কাজের লগ', 'কখন কী হয়েছে, PDF', () => push(context, LogScreen(h: h))),
+            if (h.can('settings'))
+              tile(Icons.cloud_upload_outlined, backupOld ? K.redTint : K.blueTint, backupOld ? K.red : K.blue, 'ব্যাকআপ', backupOld ? 'ব্যাকআপ নেওয়া দরকার' : 'ব্যাকআপ ফাইল বানান বা ফিরিয়ে আনুন', () => push(context, BackupScreen(h: h))),
+          ]),
+
+          // This phone: lock, notifications, language.
+          ..._section('এই ফোন', [
+            tile(Icons.pin_outlined, K.blueTint, K.blue, 'পিন বদলান', '৪ সংখ্যা', () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (ctx) => PinSetup(
+                  lock: h.s.lock,
+                  title: 'নতুন পিন',
+                  onDone: () async {
+                    Navigator.of(ctx).pop();
+                    await h.saveSettings('পিন বদল');
+                  },
+                ),
+              ));
+            }),
+            if (_hasBio)
+              tile(Icons.fingerprint_rounded, K.blueTint, K.blue, 'আঙুলের ছাপে খোলা', (_bio ?? true) ? 'চালু' : 'বন্ধ', null,
+                  trailing: Switch(
+                    value: _bio ?? true,
+                    onChanged: (v) async {
+                      await h.s.lock.setBiometricsOn(v);
+                      setState(() => _bio = v);
+                      await h.saveSettings('আঙুলের ছাপ ${v ? 'চালু' : 'বন্ধ'}');
+                    },
+                  )),
+            tile(Icons.lock_clock_outlined, K.blueTint, K.blue, 'নিজে থেকে লক', _autoText(_auto), () async {
+              final v = await showDialog<int>(
+                context: context,
+                builder: (c) => SimpleDialog(title: Tx('অ্যাপ থেকে বের হলে কতক্ষণ পর লক', style: t(16, w: FontWeight.w600)), children: [
+                  for (final s in const [0, 30, 60, 300, 900])
+                    SimpleDialogOption(onPressed: () => Navigator.pop(c, s), child: Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Tx(_autoText(s), style: t(15)))),
+                ]),
+              );
+              if (v == null) return;
+              await h.s.lock.setAutoLockSeconds(v);
+              setState(() => _auto = v);
+              await h.saveSettings('নিজে থেকে লক: ${_autoText(v)}');
+            }),
+            tile(Icons.notifications_active_outlined, K.blueTint, K.blue, 'নোটিফিকেশন পরীক্ষা', 'সাউন্ড আর ভাইব্রেশন ঠিক আছে কি না শুনে দেখুন', () async {
+              await h.s.reminders.askPermission();
+              final ok = await h.s.push.test('রেমিট খাতা', 'এই সাউন্ড আর ভাইব্রেশনেই নতুন অনুরোধ আর তাগাদা আসবে।');
+              if (context.mounted) snack(context, ok ? 'নোটিফিকেশন পাঠানো হলো' : 'নোটিফিকেশন দেখানো যায়নি — ফোনের সেটিংসে অ্যাপের নোটিফিকেশন চালু করুন');
+            }),
+            tile(Icons.translate_rounded, K.blueTint, K.blue, 'English', appEnglish ? 'The whole app is in English' : 'পুরো অ্যাপ ইংরেজিতে দেখাবে', null,
+                trailing: Switch(
+                  value: appEnglish,
+                  onChanged: (v) async {
+                    setEnglish(v);
+                    await h.s.lock.setEnglish(v);
+                  },
+                )),
+          ]),
+
+          if (h.session != null) ...[
+            const SizedBox(height: 16),
+            SoftPill(
+              label: 'লগআউট',
+              icon: Icons.logout_rounded,
+              color: K.red,
+              onTap: () async {
+                if (await confirm(context, 'লগআউট করবেন?', 'হিসাব সার্ভারে থাকবে। এই ফোনের কপি মুছে যাবে, আবার লগইন করলে ফিরে আসবে।', yes: 'লগআউট', danger: true)) {
+                  await h.sync();
+                  await h.logout();
+                  if (context.mounted) Navigator.of(context).popUntil((r) => r.isFirst);
+                }
+              },
             ),
           ],
-          SectionHead('লেনদেন'),
-          CardBox(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Column(children: [
-              tile(Icons.account_balance_wallet_outlined, K.greenTint, K.green, h.isOwner ? 'এডমিনদের হাতের হিসাব' : 'আমার হাতের হিসাব', 'প্রতিদিনের রিয়াল আসা-যাওয়া, কালেকশন বুঝে নেওয়া', () => push(context, CashScreen(h: h))),
-              tile(Icons.list_alt_rounded, K.blueTint, K.blue, 'সব লেনদেন', 'তারিখ দিয়ে খুঁজুন, PDF', () => push(context, AllTxnsScreen(h: h))),
-              tile(Icons.report_gmailerrorred_rounded, K.redTint, K.red, 'ভুল নম্বরে যাওয়া', wrong == 0 ? 'নেই' : '${bn('$wrong')}টা লেনদেন',
-                  () => push(context, AllTxnsScreen(h: h, filter: 4, title: 'ভুল নম্বরে যাওয়া'))),
-              tile(Icons.phone_android_rounded, K.blueTint, K.blue, 'রিচার্জ ও এমবি', 'মোবাইল রিচার্জ আর এমবি প্যাক', () => push(context, AllTxnsScreen(h: h, filter: 5, title: 'রিচার্জ ও এমবি')),
-                  last: true),
-            ]),
-          ),
-          SectionHead('গ্রাহকের বাকি'),
-          CardBox(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Column(children: [
-              tile(Icons.notifications_active_outlined, K.amberTint, K.amberText, 'তাগাদার তালিকা', promises == 0 ? 'কোনো তারিখ দেওয়া নেই' : '${bn('$promises')} জনের তারিখ দেওয়া',
-                  () => push(context, PromisesScreen(h: h))),
-              tile(Icons.playlist_add_check_rounded, K.amberTint, K.amberText, 'অতিরিক্ত হিসাব',
-                  d.adjusts.where((x) => !x.applied).isEmpty ? 'পাঠানো লেনদেনের ভুল — আলাদা রাখা কিছু নেই' : '${bn('${d.adjusts.where((x) => !x.applied).length}')}টা আলাদা রাখা আছে',
-                  () => push(context, AdjustsScreen(h: h))),
-              tile(Icons.money_off_rounded, K.redTint, K.red, 'লস (আদায় হবে না)', lossOf(d) > 0 ? 'মোট ${sar(lossOf(d))}' : 'নেই', () => push(context, LossScreen(h: h)), last: true),
-            ]),
-          ),
-          SectionHead('রেকর্ড ও নিরাপত্তা'),
-          CardBox(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Column(children: [
-              if (h.session != null) tile(Icons.notifications_rounded, K.amberTint, K.amberText, 'নোটিফিকেশন', 'এজেন্টরা কী জানালেন', () => push(context, NotesScreen(st: AgentState(h)))),
-              if (h.can('users')) tile(Icons.manage_accounts_rounded, K.blueTint, K.blue, 'লগইন ও অনুমতি', 'এডমিন ও এজেন্টের লগইন, কে কী করতে পারবেন', () => push(context, UsersScreen(h: h))),
-              if (h.can('reports')) tile(Icons.history_rounded, K.chip, K.ink, 'কাজের লগ', 'কখন কী হয়েছে, PDF', () => push(context, LogScreen(h: h))),
-              tile(Icons.chat_outlined, K.greenTint, K.green, 'মেসেজের টেমপ্লেট', 'এজেন্ট ও গ্রাহককে যাওয়া মেসেজের লেখা', () => push(context, TemplatesScreen(h: h))),
-              tile(Icons.settings_outlined, K.chip, K.ink, 'সেটিংস', 'পিন, আঙুলের ছাপ, এজেন্ট, বাকির সীমা', () => push(context, SettingsScreen(h: h))),
-              if (h.can('settings'))
-                tile(Icons.cloud_upload_outlined, backupOld ? K.redTint : K.blueTint, backupOld ? K.red : K.blue, 'ব্যাকআপ', backupOld ? 'ব্যাকআপ নেওয়া দরকার' : 'ব্যাকআপ ফাইল বানান বা ফিরিয়ে আনুন', () => push(context, BackupScreen(h: h)),
-                    last: h.session == null),
-              if (h.session != null)
-                tile(Icons.logout_rounded, K.redTint, K.red, 'লগআউট', 'এই ফোন থেকে বের হন (হিসাব সার্ভারে থাকবে)', () async {
-                  if (await confirm(context, 'লগআউট করবেন?', 'হিসাব সার্ভারে থাকবে। এই ফোনের কপি মুছে যাবে, আবার লগইন করলে ফিরে আসবে।', yes: 'লগআউট', danger: true)) {
-                    await h.sync();
-                    await h.logout();
-                    if (context.mounted) Navigator.of(context).popUntil((r) => r.isFirst);
-                  }
-                }, last: true),
-            ]),
-          ),
+          const SizedBox(height: 18),
+          Center(child: Tx('রেমিট খাতা · সংস্করণ ১.২.০', style: t(12, c: K.muted))),
+          MadeBy(h: h),
         ]);
       });
 }
@@ -595,188 +770,6 @@ class _LogScreenState extends State<LogScreen> {
 
 // --------------------------------------------------------------- settings
 
-class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key, required this.h});
-  final Hisab h;
-
-  @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<SettingsScreen> {
-  bool? _bio;
-  bool _hasBio = false;
-  int _auto = 30;
-
-  Hisab get h => widget.h;
-
-  @override
-  void initState() {
-    super.initState();
-    () async {
-      final on = await h.s.lock.biometricsOn();
-      final has = await h.s.lock.biometrics.available();
-      final a = await h.s.lock.autoLockSeconds();
-      if (mounted) {
-        setState(() {
-          _bio = on;
-          _hasBio = has;
-          _auto = a;
-        });
-      }
-    }();
-  }
-
-  Future<void> _edit(String title, String now, Future<void> Function(String v) save, {bool number = false}) async {
-    final v = await askText(context, title, initial: now, number: number);
-    if (v == null || v.trim().isEmpty) return;
-    await save(v.trim());
-  }
-
-  @override
-  Widget build(BuildContext context) => Live(
-      h: h,
-      builder: (context) {
-        final st = h.d.settings;
-        Widget row(IconData i, String title, String sub, VoidCallback? onTap, {Widget? trailing}) => ListTile(
-              leading: dotIcon(i, K.blueTint, K.blue, size: 38),
-              title: Tx(title, style: t(15, w: FontWeight.w500)),
-              subtitle: Tx(sub, style: t(12.5, c: K.muted)),
-              trailing: trailing ?? (onTap == null ? null : const Icon(Icons.chevron_right_rounded)),
-              onTap: onTap,
-            );
-        return Screen(
-          title: 'সেটিংস',
-          body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 28), children: [
-            SectionHead('ভাষা / Language'),
-            CardBox(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: SwitchListTile(
-                secondary: dotIcon(Icons.translate_rounded, K.blueTint, K.blue, size: 38),
-                title: Text('English', style: t(15, w: FontWeight.w500)),
-                subtitle: Text(appEnglish ? 'The whole app is in English' : 'পুরো অ্যাপ ইংরেজিতে দেখাবে', style: t(12.5, c: K.muted)),
-                value: appEnglish,
-                onChanged: (v) async {
-                  setEnglish(v);
-                  await h.s.lock.setEnglish(v);
-                },
-              ),
-            ),
-            if (h.can('settings')) ...[
-              SectionHead('হিসাব'),
-              CardBox(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Column(children: [
-                  row(
-                      Icons.person_outline_rounded,
-                      h.session == null ? 'আপনার নাম' : 'মূল এডমিনের নাম (রসিদে যায়)',
-                      st.ownerName,
-                      () => _edit('আপনার নাম', st.ownerName, (v) async {
-                            final old = st.ownerName;
-                            st.ownerName = v;
-                            await h.saveSettings('নাম $old → $v');
-                          })),
-                  if (h.can('agents'))
-                    row(Icons.storefront_outlined, 'এজেন্ট', h.d.agents.map((a) => a.name).join(', '), () => push(context, AgentListScreen(h: h))),
-                  row(Icons.chat_outlined, 'মেসেজের টেমপ্লেট', 'এজেন্ট ও গ্রাহককে যাওয়া সব মেসেজের লেখা', () => push(context, TemplatesScreen(h: h))),
-                  row(
-                      Icons.speed_rounded,
-                      'সাধারণ বাকির সীমা',
-                      sar(st.defaultDueLimit),
-                      () => _edit('বাকির সীমা (রিয়াল)', groupEn(st.defaultDueLimit).replaceAll(',', ''), (v) async {
-                            final n = parseNum(v);
-                            if (n == null) return;
-                            final old = st.defaultDueLimit;
-                            st.defaultDueLimit = n;
-                            await h.saveSettings('বাকির সীমা ${sar(old)} → ${sar(n)}');
-                          }, number: true)),
-                  row(
-                      Icons.schedule_rounded,
-                      'পুরনো বাকি ধরা হবে',
-                      '${bn('${st.oldDueDays}')} দিন পর',
-                      () => _edit('কত দিন পর পুরনো বাকি?', '${st.oldDueDays}', (v) async {
-                            final n = parseNum(v);
-                            if (n == null || n < 1) return;
-                            st.oldDueDays = n.round();
-                            await h.saveSettings('পুরনো বাকি ${bn('${n.round()}')} দিন');
-                          }, number: true)),
-                  row(
-                      Icons.copy_all_rounded,
-                      'একই লেনদেন দুইবারের সতর্কতা',
-                      '${bn('${st.dupMinutes}')} মিনিটের মধ্যে',
-                      () => _edit('কত মিনিটের মধ্যে?', '${st.dupMinutes}', (v) async {
-                            final n = parseNum(v);
-                            if (n == null || n < 1) return;
-                            st.dupMinutes = n.round();
-                            await h.saveSettings('দুইবারের সতর্কতা ${bn('${n.round()}')} মিনিট');
-                          }, number: true)),
-                ]),
-              ),
-            ],
-            SectionHead('নোটিফিকেশন'),
-            CardBox(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: row(Icons.notifications_active_outlined, 'নোটিফিকেশন পরীক্ষা', 'সাউন্ড আর ভাইব্রেশন ঠিক আছে কি না শুনে দেখুন', () async {
-                await h.s.reminders.askPermission();
-                final ok = await h.s.push.test('রেমিট খাতা', 'এই সাউন্ড আর ভাইব্রেশনেই নতুন অনুরোধ আর তাগাদা আসবে।');
-                if (context.mounted) snack(context, ok ? 'নোটিফিকেশন পাঠানো হলো' : 'নোটিফিকেশন দেখানো যায়নি — ফোনের সেটিংসে অ্যাপের নোটিফিকেশন চালু করুন');
-              }),
-            ),
-            SectionHead('নিরাপত্তা'),
-            CardBox(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Column(children: [
-                row(Icons.pin_outlined, 'পিন বদলান', '৪ সংখ্যা', () {
-                  Navigator.of(context).push(MaterialPageRoute(
-                    builder: (ctx) => PinSetup(
-                      lock: h.s.lock,
-                      title: 'নতুন পিন',
-                      onDone: () async {
-                        Navigator.of(ctx).pop();
-                        await h.saveSettings('পিন বদল');
-                      },
-                    ),
-                  ));
-                }),
-                if (_hasBio)
-                  SwitchListTile(
-                    secondary: dotIcon(Icons.fingerprint_rounded, K.blueTint, K.blue, size: 38),
-                    title: Tx('আঙুলের ছাপে খোলা', style: t(15, w: FontWeight.w500)),
-                    value: _bio ?? true,
-                    onChanged: (v) async {
-                      await h.s.lock.setBiometricsOn(v);
-                      setState(() => _bio = v);
-                      await h.saveSettings('আঙুলের ছাপ ${v ? 'চালু' : 'বন্ধ'}');
-                    },
-                  ),
-                row(Icons.lock_clock_outlined, 'নিজে থেকে লক', _autoText(_auto), () async {
-                  final v = await showDialog<int>(
-                    context: context,
-                    builder: (c) => SimpleDialog(title: Tx('অ্যাপ থেকে বের হলে কতক্ষণ পর লক', style: t(16, w: FontWeight.w600)), children: [
-                      for (final s in const [0, 30, 60, 300, 900])
-                        SimpleDialogOption(onPressed: () => Navigator.pop(c, s), child: Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Tx(_autoText(s), style: t(15)))),
-                    ]),
-                  );
-                  if (v == null) return;
-                  await h.s.lock.setAutoLockSeconds(v);
-                  setState(() => _auto = v);
-                  await h.saveSettings('নিজে থেকে লক: ${_autoText(v)}');
-                }),
-              ]),
-            ),
-            const SizedBox(height: 16),
-            Center(child: Tx('রেমিট খাতা · সংস্করণ ১.২.০', style: t(12, c: K.muted))),
-            MadeBy(h: h),
-          ]),
-        );
-      });
-
-  String _autoText(int s) => switch (s) {
-        0 => 'সাথে সাথে',
-        < 60 => '${bn('$s')} সেকেন্ড পর',
-        _ => '${bn('${s ~/ 60}')} মিনিট পর',
-      };
-}
 
 /// Backup on its own: make a file, bring one back.
 class BackupScreen extends StatefulWidget {
@@ -870,14 +863,14 @@ class AgentListScreen extends StatelessWidget {
               CardBox(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: Column(children: [
-                  for (final (i, a) in h.d.agents.indexed)
+                  for (final (i, a) in h.d.liveAgents.indexed)
                     Row2(
                       lead: dotIcon(Icons.storefront_rounded, K.navySoft, K.navy, size: 38),
                       title: a.name,
                       sub: '${a.usesApp ? 'অ্যাপে কাজ করেন' : 'হোয়াটসঅ্যাপে'} · ${bn(a.whatsapp)}${a.commissionPerThousand > 0 ? ' · কমিশন হাজারে ${bnNum(a.commissionPerThousand, decimals: 2)}' : ''}',
                       value: taka(agentOwed(h.d, a.id)),
                       onTap: () => push(context, AgentEdit(h: h, a: a)),
-                      last: i == h.d.agents.length - 1,
+                      last: i == h.d.liveAgents.length - 1,
                     ),
                 ]),
               ),
@@ -1084,3 +1077,79 @@ class AdjustsScreen extends StatelessWidget {
 }
 
 TextStyle t2(double size, Color c) => t(size, w: FontWeight.w600, c: c);
+
+
+/// Asks for a number and saves one of the account's settings.
+Future<void> editSetting(BuildContext context, Hisab h, String title, String now, Future<void> Function(double v) save) async {
+  final v = await askText(context, title, initial: now, number: true);
+  final n = v == null ? null : parseNum(v);
+  if (n == null || n <= 0) return;
+  await save(n);
+}
+
+/// Customers' settings, from the gear on the গ্রাহক tab (the same rules are
+/// also on the অন্যান্য page).
+class CustomerSettingsScreen extends StatelessWidget {
+  const CustomerSettingsScreen({super.key, required this.h});
+  final Hisab h;
+
+  @override
+  Widget build(BuildContext context) => Live(
+      h: h,
+      builder: (context) {
+        final st = h.d.settings;
+        final promises = h.d.customers.where((c) => c.promiseAt != null && customerDue(h.d, c.id) > 0).length;
+        Widget row(IconData i, String title, String sub, VoidCallback? onTap, {bool last = false}) => Row2(
+              lead: dotIcon(i, K.blueTint, K.blue, size: 40),
+              title: title,
+              sub: sub,
+              onTap: onTap,
+              last: last,
+              value: onTap == null ? null : '›',
+              valueColor: K.muted,
+            );
+        final can = h.can('settings');
+        return Screen(
+          title: 'গ্রাহকের সেটিংস',
+          body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 24), children: [
+            if (!can) const Note('এই সেটিংস বদলানোর অনুমতি আপনার নেই, শুধু দেখতে পারবেন।'),
+            SectionHead('বাকি'),
+            CardBox(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Column(children: [
+                row(Icons.speed_rounded, 'সাধারণ বাকির সীমা', '${sar(st.defaultDueLimit)} · যাদের আলাদা সীমা দেওয়া নেই', !can
+                    ? null
+                    : () => editSetting(context, h, 'বাকির সীমা (রিয়াল)', groupEn(st.defaultDueLimit).replaceAll(',', ''), (n) async {
+                          final old = st.defaultDueLimit;
+                          st.defaultDueLimit = n;
+                          await h.saveSettings('বাকির সীমা ${sar(old)} → ${sar(n)}');
+                        })),
+                row(Icons.schedule_rounded, 'পুরনো বাকি ধরা হবে', '${bn('${st.oldDueDays}')} দিন পর', !can
+                    ? null
+                    : () => editSetting(context, h, 'কত দিন পর পুরনো বাকি?', '${st.oldDueDays}', (n) async {
+                          st.oldDueDays = n.round();
+                          await h.saveSettings('পুরনো বাকি ${bn('${n.round()}')} দিন');
+                        }), last: true),
+              ]),
+            ),
+            SectionHead('তাগাদা ও লস'),
+            CardBox(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Column(children: [
+                row(Icons.notifications_active_outlined, 'তাগাদার তালিকা', promises == 0 ? 'কোনো তারিখ দেওয়া নেই' : '${bn('$promises')} জনের তারিখ দেওয়া', () => push(context, PromisesScreen(h: h))),
+                row(Icons.money_off_rounded, 'লস (আদায় হবে না)', lossOf(h.d) > 0 ? 'মোট ${sar(lossOf(h.d))}' : 'নেই', () => push(context, LossScreen(h: h)), last: true),
+              ]),
+            ),
+            SectionHead('গ্রাহককে মেসেজ'),
+            CardBox(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Column(children: [
+                for (final (i, x) in msgTemplates.where((x) => x.to == 'customer').indexed)
+                  row(Icons.chat_outlined, x.title, h.d.settings.templates.containsKey(x.key) ? 'নিজের লেখা' : 'আগের মতো (অ্যাপের লেখা)', () => push(context, TemplateEdit(h: h, tpl: x)),
+                      last: i == msgTemplates.where((x) => x.to == 'customer').length - 1),
+              ]),
+            ),
+          ]),
+        );
+      });
+}

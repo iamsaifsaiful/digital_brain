@@ -169,6 +169,24 @@ class Hisab extends ChangeNotifier {
   }
 
   /// After opening the app: Firebase may have been set on the server since.
+  /// The signed-in admin's own name (for the main admin, also the name
+  /// the account goes by and receipts are signed with).
+  Future<void> renameMe(String name) async {
+    final n = name.trim();
+    if (n.isEmpty) return;
+    if (session != null) {
+      await s.api.post('/me/name', {'name': n});
+      await refreshSession();
+    }
+    if (isOwner) {
+      final old = d.settings.ownerName;
+      d.settings.ownerName = n;
+      await saveSettings('মূল এডমিনের নাম $old → $n');
+    }
+  }
+
+  Future<void> changeMyPassword(String old, String now) => s.api.post('/password', {'old': old, 'new': now});
+
   Future<void> refreshSession() async {
     if (session == null) return;
     try {
@@ -466,7 +484,7 @@ class Hisab extends ChangeNotifier {
   /// What the signed-in admin may do. Without a server (tests): everything.
   bool can(String p) => session?.can(p) ?? true;
 
-  bool get needsSetup => d.agents.isEmpty || d.settings.ownerName.trim().isEmpty;
+  bool get needsSetup => d.liveAgents.isEmpty || d.settings.ownerName.trim().isEmpty;
 
   /// The next send's number, for the preview before saving.
   int get nextNoPreview => session == null ? _localNumber() : (d.sync.numbers.isEmpty || d.sync.numbersYm != yearMonth(now) ? 0 : d.sync.numbers.first);
@@ -660,6 +678,16 @@ class Hisab extends ChangeNotifier {
   }
 
   /// WhatsApp or the app: how this agent gets the requests.
+  /// The main admin deletes an agent: gone from every list, its logins
+  /// removed on the server, its old records keep its name.
+  Future<void> deleteAgent(Agent a) async {
+    if (!isOwner) throw StateError('main admin only');
+    if (d.liveAgents.length <= 1) throw StateError('last agent');
+    a.deleted = true;
+    _log('agent', 'এজেন্ট ডিলিট', '${a.name} · ${bn(a.whatsapp)} · তখন পাওনা ${taka(agentOwed(d, a.id))}', who: meName, ref: a.id);
+    await _save();
+  }
+
   Future<void> setAgentChannel(Agent a, String channel) async {
     if (a.channel == channel) return;
     a.channel = channel;

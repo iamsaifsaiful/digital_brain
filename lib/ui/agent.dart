@@ -31,7 +31,8 @@ class _AgentTabState extends State<AgentTab> {
       builder: (context) {
         final h = widget.h;
         final d = h.d;
-        final a = agentById(d, _agentId ?? '') ?? d.agents.first;
+        final live = d.liveAgents;
+        final a = live.firstWhere((x) => x.id == _agentId, orElse: () => live.first);
         final owed = agentOwed(d, a.id);
         final unpaid = unpaidForAgent(d, a.id);
         _picked.removeWhere((id) => !unpaid.any((x) => x.id == id));
@@ -51,10 +52,10 @@ class _AgentTabState extends State<AgentTab> {
               CircleBtn(icon: Icons.edit_outlined, label: 'এজেন্টের তথ্য', onTap: () => push(context, AgentEdit(h: h, a: a))),
             ],
           ]),
-          if (d.agents.length > 1) ...[
+          if (live.length > 1) ...[
             const SizedBox(height: 8),
             Wrap(spacing: 8, runSpacing: 8, children: [
-              for (final x in d.agents) ChoiceChipX(label: x.name, on: x.id == a.id, onTap: () => setState(() => _agentId = x.id)),
+              for (final x in live) ChoiceChipX(label: x.name, on: x.id == a.id, onTap: () => setState(() => _agentId = x.id)),
             ]),
           ],
           const SizedBox(height: 12),
@@ -413,6 +414,32 @@ class AgentEdit extends StatefulWidget {
 }
 
 class _AgentEditState extends State<AgentEdit> {
+  Future<void> _delete(BuildContext context) async {
+    final h = widget.h, a = widget.a!;
+    if (h.d.liveAgents.length <= 1) {
+      snack(context, 'এটাই একমাত্র এজেন্ট — আগে আরেকজন এজেন্ট যোগ করুন, তারপর এটা ডিলিট করুন');
+      return;
+    }
+    final owed = agentOwed(h.d, a.id);
+    final pending = h.d.txns.where((x) => x.agentId == a.id && x.status == TxnStatus.pending).length;
+    final warn = [
+      if (owed > 0) 'এজেন্টকে এখনো ${taka(owed)} দেওয়া বাকি।',
+      if (owed < 0) 'এজেন্টের কাছে ${taka(-owed)} অগ্রিম আছে।',
+      if (pending > 0) '${bn('$pending')}টা লেনদেন এখনো পাঠানোর অপেক্ষায়।',
+    ].join(' ');
+    if (!await confirm(context, '${a.name}-কে ডিলিট করবেন?',
+        '${warn.isEmpty ? '' : '$warn\n\n'}এজেন্ট আর কোনো তালিকায় থাকবে না, নতুন লেনদেনে বাছাই করা যাবে না, আর তাঁর সব লগইন মুছে যাবে। আগের লেনদেন আর পরিশোধে তাঁর নাম থাকবে। এটা ফেরানো যাবে না।',
+        yes: 'ডিলিট', danger: true)) {
+      return;
+    }
+    await h.deleteAgent(a);
+    await h.sync();
+    if (context.mounted) {
+      Navigator.of(context).popUntil((r) => r.isFirst);
+      snack(context, '${a.name} ডিলিট হলো');
+    }
+  }
+
   late final _name = TextEditingController(text: widget.a?.name ?? '');
   late final _wa = TextEditingController(text: widget.a?.whatsapp ?? '');
   late final _comm = TextEditingController(text: widget.a == null ? '0' : groupEn(widget.a!.commissionPerThousand, decimals: 2).replaceAll(',', ''));
@@ -461,6 +488,10 @@ class _AgentEditState extends State<AgentEdit> {
               icon: Icons.add_rounded,
               onTap: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => AgentEdit(h: widget.h))),
             ),
+          if (widget.a != null && widget.h.isOwner) ...[
+            const SizedBox(height: 10),
+            SoftPill(label: 'এজেন্ট ডিলিট করুন', icon: Icons.delete_outline_rounded, color: K.red, onTap: () => _delete(context)),
+          ],
         ]),
       );
 }

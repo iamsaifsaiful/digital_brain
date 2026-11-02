@@ -573,8 +573,12 @@ class Row2 extends StatelessWidget {
       this.subColor = K.muted,
       this.valueSubColor = K.muted,
       this.onTap,
-      this.last = false});
+      this.last = false,
+      this.trailing});
   final Widget lead;
+
+  /// A control at the end (a switch), in place of [value].
+  final Widget? trailing;
   final String title;
   final String? sub;
   final String? value;
@@ -600,7 +604,8 @@ class Row2 extends StatelessWidget {
                 if (sub != null) Tx(sub!, style: t(12.5, c: subColor), maxLines: 2, overflow: TextOverflow.ellipsis),
               ]),
             ),
-            if (value != null) ...[
+            if (trailing != null) trailing!,
+            if (value != null && trailing == null) ...[
               const SizedBox(width: 8),
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                 Tx(value!, style: t(15, w: FontWeight.w600, c: valueColor)),
