@@ -24,6 +24,7 @@ import 'requests_screen.dart';
 import 'zakat_screen.dart';
 import 'family_screen.dart';
 import 'trash_screen.dart';
+import 'nlu_model_screen.dart';
 import 'trace_screen.dart';
 import '../services/trace.dart';
 import '../services/ads.dart';
@@ -326,10 +327,12 @@ class _MoreScreenState extends State<MoreScreen> {
         const SizedBox(height: 14),
         ProfileCard(onName: _setName, onPlace: _setDistrict),
         const SizedBox(height: 12),
-        // The things people come here for, as big tiles (two rows of two).
+        // Owner, 2 Nov: in a logical order — what you use (Premium, family,
+        // zakat, blood), your data (recycle bin, PDF, CSV), the settings
+        // (look, reminders and notifications, assistant and voice, the phone's
+        // model, keeping data safe), and last help and the app itself.
         for (final row in [
           [
-            _Tile(key: const Key('more-requests'), icon: Icons.bloodtype_outlined, fg: C.rose, bg: C.roseTint, title: trm('ব্লাড ডোনেশন'), sub: tr('রক্ত দিন, রক্ত চান — সারা দেশে'), onTap: () => push(const RequestsScreen())),
             _Tile(
                 key: const Key('more-pro'),
                 icon: Icons.workspace_premium_outlined,
@@ -342,18 +345,14 @@ class _MoreScreenState extends State<MoreScreen> {
                         ? tr('চালু আছে')
                         : tr('কী কী পাবেন'),
                 onTap: () => push(const ProScreen())),
-          ],
-          [
             _Tile(
-                key: const Key('more-feedback'),
-                icon: Icons.forum_outlined,
-                fg: C.blue,
-                bg: C.blueTint,
-                title: tr('সমস্যা বা পরামর্শ দিন'),
-                sub: brain.feedbackUnread > 0 ? trf('{0}টা নতুন উত্তর', [bnDigits(brain.feedbackUnread)]) : tr('আমাদের লিখুন, উত্তর এখানেই'),
-                badge: brain.feedbackUnread > 0,
-                onTap: () => push(const FeedbackScreen())),
-            _Tile(icon: Icons.lightbulb_outline_rounded, fg: C.green, bg: C.greenTint, title: tr('কী কী করা যায়'), sub: tr('সব সুবিধা, মাইকে কী বলবেন'), onTap: () => push(const HelpScreen())),
+                key: const Key('more-family'),
+                icon: Icons.family_restroom_rounded,
+                fg: C.purple,
+                bg: C.purpleTint,
+                title: tr('ফ্যামিলি'),
+                sub: tr('পরিবারের জন্য কাজ ও রিমাইন্ডার'),
+                onTap: () => push(const FamilyScreen())),
           ],
           [
             _Tile(
@@ -364,30 +363,23 @@ class _MoreScreenState extends State<MoreScreen> {
                 title: tr('যাকাত'),
                 sub: tr('আপনার হিসাব থেকে নিজে হিসাব'),
                 onTap: () => push(const ZakatScreen())),
-            _Tile(
-                key: const Key('more-family'),
-                icon: Icons.family_restroom_rounded,
-                fg: C.purple,
-                bg: C.purpleTint,
-                title: tr('ফ্যামিলি'),
-                sub: tr('পরিবারের জন্য কাজ ও রিমাইন্ডার'),
-                onTap: () => push(const FamilyScreen())),
+            _Tile(key: const Key('more-requests'), icon: Icons.bloodtype_outlined, fg: C.rose, bg: C.roseTint, title: trm('ব্লাড ডোনেশন'), sub: tr('রক্ত দিন, রক্ত চান — সারা দেশে'), onTap: () => push(const RequestsScreen())),
           ],
         ]) ...[
           Row(children: [Expanded(child: SizedBox(height: 70, child: row[0])), const SizedBox(width: 10), Expanded(child: SizedBox(height: 70, child: row[1]))]),
           const SizedBox(height: 10),
         ],
-        const SizedBox(height: 10),
+        const SizedBox(height: 6),
+        SectionTitle(tr('আপনার তথ্য')),
         Panel(
           child: Rows(children: [
             linkRow(Icons.delete_outline_rounded, tr('রিসাইকেল বিন'),
                 sub: brain.data.trash.isEmpty ? tr('যা মুছবেন, ৩০ দিন এখানে থাকবে') : trf('{0}টা — ৩০ দিনের মধ্যে ফিরিয়ে আনা যায়', [bnDigits(brain.data.trash.length)]),
                 onTap: () => push(const TrashScreen())),
-            linkRow(Icons.notifications_none_rounded, tr('নোটিফিকেশন প্যানেল'),
-                sub: tr('কোনটা কখন আসবে, আগে কী এসেছে'), onTap: () => push(const NoticeScreen())),
-            linkRow(Icons.notifications_active_outlined, tr('রিমাইন্ডার ঠিকমতো বাজবে তো?'), sub: tr('ফোনের সেটিং দেখে নিন, ১ মিনিটে পরীক্ষা করুন'), onTap: () => push(const ReminderCheckScreen())),
-            linkRow(Icons.bug_report_outlined, tr('সমস্যা খোঁজার লগ'),
-                sub: Trace.enabled ? tr('চালু — মাইক কী শুনল, কী বুঝল') : tr('বন্ধ — ভয়েসে সমস্যা হলে চালু করুন'), onTap: () => push(const TraceScreen())),
+            linkRow(Icons.picture_as_pdf_outlined, tr('সবকিছু PDF আকারে'), sub: tr('কাজ, হিসাব, নোট, স্বাস্থ্য… যা চান বেছে নিয়ে এক PDF-এ'), onTap: () => exportEverything(context),
+                trailing: brain.has(ProFeature.pdf) ? Icon(Icons.download_rounded, color: C.muted) : const ProMark()),
+            linkRow(Icons.table_view_outlined, tr('ধার-দেনার রিপোর্ট (CSV)'), sub: tr('Excel বা Google Sheets-এ খোলা যায়'), onTap: _csv,
+                trailing: Icon(Icons.ios_share_rounded, color: C.muted)),
           ]),
         ),
         const SizedBox(height: 22),
@@ -395,6 +387,19 @@ class _MoreScreenState extends State<MoreScreen> {
         const SizedBox(height: 16),
         SectionTitle(tr('চেহারা ও ভাষা')),
         const LookSection(),
+        const SizedBox(height: 16),
+        SectionTitle(tr('রিমাইন্ডার ও নোটিফিকেশন')),
+        Panel(
+          child: Rows(children: [
+            linkRow(Icons.notifications_none_rounded, tr('নোটিফিকেশন প্যানেল'),
+                sub: tr('কোনটা কখন আসবে, আগে কী এসেছে'), onTap: () => push(const NoticeScreen())),
+            linkRow(Icons.notifications_active_outlined, tr('রিমাইন্ডার ঠিকমতো বাজবে তো?'), sub: tr('ফোনের সেটিং দেখে নিন, ১ মিনিটে পরীক্ষা করুন'), onTap: () => push(const ReminderCheckScreen())),
+            switchRow(Icons.alarm_rounded, tr('অ্যালার্মের মতো বাজবে'), tr('বন্ধ না করা পর্যন্ত, ফোন পকেটে থাকলেও শোনা যায়'), brain.alarmInsistent,
+                (v) => brain.setAlarmInsistent(v)),
+            linkRow(Icons.music_note_outlined, tr('রিমাইন্ডারের রিংটোন'),
+                sub: brain.alarmSoundTitle.isEmpty ? tr('ফোনের অ্যালার্ম টোন') : brain.alarmSoundTitle, onTap: _pickRingtone),
+          ]),
+        ),
         const SizedBox(height: 16),
         SectionTitle(tr('সহকারী')),
         const AssistantSection(),
@@ -414,22 +419,29 @@ class _MoreScreenState extends State<MoreScreen> {
         const SizedBox(height: 10),
         Panel(
           child: Rows(children: [
-            switchRow(Icons.school_outlined, tr('কথা বোঝা আরও ভালো করতে সাহায্য করুন'),
-                tr('কিছু বার্তা নাম সরিয়ে সার্ভারে যায় — পাসওয়ার্ড, ফোন নম্বর বা কোড কখনো না; ১৮০ দিন পর নিজে মুছে যায়'),
-                brain.nluSamplesOn, (v) => brain.setNluSamplesOn(v)),
-            if (brain.nluModelState.isNotEmpty)
-              linkRow(Icons.psychology_outlined, tr('ফোনে কথা বোঝার মডেল'),
+            switchRow(Icons.volume_up_outlined, tr('উত্তর কণ্ঠে শোনাও'), tr('পাসওয়ার্ড কখনো জোরে পড়া হয় না'), brain.speakOn, (v) => brain.setSpeakOn(v)),
+            linkRow(Icons.record_voice_over_outlined, tr('কণ্ঠ বেছে নিন'), sub: tr('ফোনে থাকা বাংলা কণ্ঠগুলো শুনে দেখুন'), onTap: _pickVoice),
+            switchRow(Icons.record_voice_over_rounded, tr('উত্তরের মাঝে কথা বলে থামানো'), tr('বন্ধ থাকলে অ্যাপ কথা শেষ করে তারপর শোনে — নিজের কথা ভুল করে ধরে না। চালু করলে লম্বা উত্তরের মাঝেই বলতে পারবেন (কিছু ফোনে ভুল ধরতে পারে)'),
+                brain.bargeIn, (v) => brain.setBargeIn(v)),
+          ]),
+        ),
+        const SizedBox(height: 16),
+        SectionTitle(tr('ফোনে কথা বোঝা')),
+        Panel(
+          child: Rows(children: [
+            linkRow(Icons.psychology_outlined, tr('ফোনে কথা বোঝার মডেল'),
                   sub: switch (brain.nluModelState) {
                     'ready' => trf('নামানো আছে · {0}', [brain.nluModelVersion]),
                     'wait-wifi' => tr('Wi-Fi পেলে নিজে নামবে (প্রায় ১৪ MB) — মোবাইল ডেটায় নয়'),
                     'builtin' => tr('এখনো চালু হয়নি — অ্যাপ নিজের নিয়মে বুঝছে'),
+                    '' => tr('কেন, কীভাবে শিখছে, কী উন্নতি হলো'),
                     _ => tr('নামানো যায়নি — পরে আবার চেষ্টা হবে'),
-                  }),
-            linkRow(Icons.delete_sweep_outlined, tr('আমার পাঠানো বার্তা সার্ভার থেকে মুছে দিন'), onTap: () async {
-              final why = await brain.deleteMyNluSamples();
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(why ?? tr('মুছে দেওয়া হয়েছে'))));
-            }),
+                  },
+                  onTap: () => push(const NluModelScreen())),
+            switchRow(Icons.school_outlined, tr('কথা বোঝা আরও ভালো করতে সাহায্য করুন'),
+                tr('কিছু বার্তা নাম সরিয়ে সার্ভারে যায় — পাসওয়ার্ড, ফোন নম্বর, কোড বা স্বাস্থ্যের কথা কখনো না; ১৮০ দিন পর নিজে মুছে যায়'),
+                brain.nluSamplesOn, (v) => brain.setNluSamplesOn(v)),
+            linkRow(Icons.delete_sweep_outlined, tr('আমার পাঠানো বার্তা সার্ভার থেকে মুছে দিন'), sub: tr('কী নিই, কেন নিই — আর মুছে দেওয়া'), onTap: () => push(const NluSamplesScreen())),
           ]),
         ),
         const SizedBox(height: 8),
@@ -476,28 +488,29 @@ class _MoreScreenState extends State<MoreScreen> {
             ),
           ]),
         ),
-        const SizedBox(height: 16),
-        SectionTitle(tr('রিমাইন্ডার ও কণ্ঠ')),
+        const SizedBox(height: 22),
+        SectionTitle(tr('সাহায্য ও যোগাযোগ')),
+        for (final row in [
+          [
+            _Tile(icon: Icons.lightbulb_outline_rounded, fg: C.green, bg: C.greenTint, title: tr('কী কী করা যায়'), sub: tr('সব সুবিধা, মাইকে কী বলবেন'), onTap: () => push(const HelpScreen())),
+            _Tile(
+                key: const Key('more-feedback'),
+                icon: Icons.forum_outlined,
+                fg: C.blue,
+                bg: C.blueTint,
+                title: tr('সমস্যা বা পরামর্শ দিন'),
+                sub: brain.feedbackUnread > 0 ? trf('{0}টা নতুন উত্তর', [bnDigits(brain.feedbackUnread)]) : tr('আমাদের লিখুন, উত্তর এখানেই'),
+                badge: brain.feedbackUnread > 0,
+                onTap: () => push(const FeedbackScreen())),
+          ],
+        ]) ...[
+          Row(children: [Expanded(child: SizedBox(height: 70, child: row[0])), const SizedBox(width: 10), Expanded(child: SizedBox(height: 70, child: row[1]))]),
+          const SizedBox(height: 10),
+        ],
         Panel(
           child: Rows(children: [
-            switchRow(Icons.alarm_rounded, tr('অ্যালার্মের মতো বাজবে'), tr('বন্ধ না করা পর্যন্ত, ফোন পকেটে থাকলেও শোনা যায়'), brain.alarmInsistent,
-                (v) => brain.setAlarmInsistent(v)),
-            linkRow(Icons.music_note_outlined, tr('রিমাইন্ডারের রিংটোন'),
-                sub: brain.alarmSoundTitle.isEmpty ? tr('ফোনের অ্যালার্ম টোন') : brain.alarmSoundTitle, onTap: _pickRingtone),
-            switchRow(Icons.volume_up_outlined, tr('উত্তর কণ্ঠে শোনাও'), tr('পাসওয়ার্ড কখনো জোরে পড়া হয় না'), brain.speakOn, (v) => brain.setSpeakOn(v)),
-            linkRow(Icons.record_voice_over_outlined, tr('কণ্ঠ বেছে নিন'), sub: tr('ফোনে থাকা বাংলা কণ্ঠগুলো শুনে দেখুন'), onTap: _pickVoice),
-            switchRow(Icons.record_voice_over_rounded, tr('উত্তরের মাঝে কথা বলে থামানো'), tr('বন্ধ থাকলে অ্যাপ কথা শেষ করে তারপর শোনে — নিজের কথা ভুল করে ধরে না। চালু করলে লম্বা উত্তরের মাঝেই বলতে পারবেন (কিছু ফোনে ভুল ধরতে পারে)'),
-                brain.bargeIn, (v) => brain.setBargeIn(v)),
-          ]),
-        ),
-        const SizedBox(height: 16),
-        SectionTitle(tr('অন্যান্য')),
-        Panel(
-          child: Rows(children: [
-            linkRow(Icons.picture_as_pdf_outlined, tr('সবকিছু PDF আকারে'), sub: tr('কাজ, হিসাব, নোট, স্বাস্থ্য… যা চান বেছে নিয়ে এক PDF-এ'), onTap: () => exportEverything(context),
-                trailing: brain.has(ProFeature.pdf) ? Icon(Icons.download_rounded, color: C.muted) : const ProMark()),
-            linkRow(Icons.table_view_outlined, tr('ধার-দেনার রিপোর্ট (CSV)'), sub: tr('Excel বা Google Sheets-এ খোলা যায়'), onTap: _csv,
-                trailing: Icon(Icons.ios_share_rounded, color: C.muted)),
+            linkRow(Icons.bug_report_outlined, tr('সমস্যা খোঁজার লগ'),
+                sub: Trace.enabled ? tr('চালু — মাইক কী শুনল, কী বুঝল') : tr('বন্ধ — ভয়েসে সমস্যা হলে চালু করুন'), onTap: () => push(const TraceScreen())),
             if (proTestSwitch)
               switchRow(Icons.science_outlined, tr('পরীক্ষা: প্রিমিয়াম চালু'), tr('শুধু প্রিভিউতে — ফ্রি আর প্রিমিয়াম ইউজার কী দেখবে দুটোই দেখে নিন'), brain.pro, (v) => brain.setProForTest(v)),
             linkRow(Icons.privacy_tip_outlined, tr('প্রাইভেসি পলিসি'), sub: tr('কোন তথ্য ফোনেই থাকে, কোনটা কেন সার্ভারে যায়'),
