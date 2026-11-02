@@ -120,10 +120,15 @@ class _ReportTabState extends State<ReportTab> {
           const SizedBox(height: 10),
           Row(children: [tile('লস (আদায় হবে না)', sar(lost), c: lost > 0 ? K.red : K.ink), const SizedBox(width: 10), tile('ভুল নম্বরে গেছে', '${bn('$wrong')}টা', c: wrong > 0 ? K.red : K.ink)]),
           const SizedBox(height: 10),
-          Row(children: [tile('এখন মোট বাকি', sar(totalCustomerDue(d)), c: K.red), const SizedBox(width: 10), tile('হাতে থাকা উচিত', sar(cashInHand(d)))]),
+          Row(children: [
+            for (final (i, (label, v, red)) in periodBalances(d, period, now).indexed) ...[
+              if (i > 0) const SizedBox(width: 10),
+              tile(label, sar(v), c: red ? K.red : K.ink),
+            ],
+          ]),
           const SizedBox(height: 6),
           SectionHead('গ্রাহকদের তালিকা'),
-          Seg<int>(items: const [(0, 'বেশি পাঠান'), (1, 'বেশি নগদ দেন'), (2, 'বেশি বাকি')], value: _top, onChanged: (v) => setState(() => _top = v)),
+          Seg<int>(items: [(0, 'বেশি পাঠান'), (1, 'বেশি নগদ দেন'), (2, period.isAll ? 'বেশি বাকি' : '${period.inWords} বাকি')], value: _top, onChanged: (v) => setState(() => _top = v)),
           const SizedBox(height: 8),
           ..._topList(h, period),
           const SizedBox(height: 12),
@@ -134,7 +139,7 @@ class _ReportTabState extends State<ReportTab> {
       });
 
   List<Widget> _topList(Hisab h, Period period) {
-    final rows = topCustomers(h.d, _top, period.has, h.now);
+    final rows = topCustomers(h.d, _top, period.has, h.now, all: period.isAll);
     if (rows.isEmpty) return [Note(_top == 2 ? 'কারও কাছে বাকি নেই।' : 'এই সময়ে কিছু নেই।')];
     return [
       CardBox(
@@ -158,7 +163,7 @@ class _ReportTabState extends State<ReportTab> {
 
 /// Top customers: 0 most riyal sent, 1 most riyal paid in cash (at the
 /// send and deposits), 2 most owed now. (customer, riyal, detail).
-List<(Customer, double, String)> topCustomers(AppData d, int which, bool Function(DateTime) inP, DateTime now) {
+List<(Customer, double, String)> topCustomers(AppData d, int which, bool Function(DateTime) inP, DateTime now, {bool all = true}) {
   final out = <(Customer, double, String)>[];
   for (final c in d.customers) {
     final txns = d.txns.where((t) => t.customerId == c.id && !t.cancelled && inP(t.at)).toList();
@@ -171,6 +176,12 @@ List<(Customer, double, String)> topCustomers(AppData d, int which, bool Functio
         final dep = d.deposits.where((p) => p.customerId == c.id && inP(p.at)).fold<double>(0, (s, p) => s + p.sarAmount);
         if (paid + dep > 0) out.add((c, paid + dep, 'পাঠানোর সময় ${sar(paid)} · পরে জমা ${sar(dep)}'));
       default:
+        if (!all) {
+          // Due that piled up in the period.
+          final v = txns.fold<double>(0, (s, t) => s + t.sarDueAtSend);
+          if (v > 0) out.add((c, v, '${bn('${txns.where((t) => t.sarDueAtSend > 0).length}')}টা লেনদেনে · এখন মোট বাকি ${sar(customerDue(d, c.id))}'));
+          continue;
+        }
         final due = customerDue(d, c.id);
         final days = oldestDueDays(d, c.id, now) ?? 0;
         if (due > 0) out.add((c, due, days > 0 ? '${bn('$days')} দিন ধরে' : 'আজকের'));
@@ -254,6 +265,9 @@ class OthersTab extends StatelessWidget {
             child: Column(children: [
               tile(Icons.notifications_active_outlined, K.amberTint, K.amberText, 'তাগাদার তালিকা', promises == 0 ? 'কোনো তারিখ দেওয়া নেই' : '${bn('$promises')} জনের তারিখ দেওয়া',
                   () => push(context, PromisesScreen(h: h))),
+              tile(Icons.playlist_add_check_rounded, K.amberTint, K.amberText, 'অতিরিক্ত হিসাব',
+                  d.adjusts.where((x) => !x.applied).isEmpty ? 'পাঠানো লেনদেনের ভুল — আলাদা রাখা কিছু নেই' : '${bn('${d.adjusts.where((x) => !x.applied).length}')}টা আলাদা রাখা আছে',
+                  () => push(context, AdjustsScreen(h: h))),
               tile(Icons.money_off_rounded, K.redTint, K.red, 'লস (আদায় হবে না)', lossOf(d) > 0 ? 'মোট ${sar(lossOf(d))}' : 'নেই', () => push(context, LossScreen(h: h)), last: true),
             ]),
           ),
@@ -699,6 +713,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ]),
               ),
             ],
+            SectionHead('নোটিফিকেশন'),
+            CardBox(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: row(Icons.notifications_active_outlined, 'নোটিফিকেশন পরীক্ষা', 'সাউন্ড আর ভাইব্রেশন ঠিক আছে কি না শুনে দেখুন', () async {
+                await h.s.reminders.askPermission();
+                final ok = await h.s.push.test('রেমিট খাতা', 'এই সাউন্ড আর ভাইব্রেশনেই নতুন অনুরোধ আর তাগাদা আসবে।');
+                if (context.mounted) snack(context, ok ? 'নোটিফিকেশন পাঠানো হলো' : 'নোটিফিকেশন দেখানো যায়নি — ফোনের সেটিংসে অ্যাপের নোটিফিকেশন চালু করুন');
+              }),
+            ),
             SectionHead('নিরাপত্তা'),
             CardBox(
               padding: const EdgeInsets.symmetric(vertical: 4),
@@ -946,6 +969,7 @@ class _TemplateEditState extends State<TemplateEdit> {
           'খবর' => 'আপনার টাকা পৌঁছেছে।',
           'প্রাপক' => 'মা · 01712-345678',
           'TrxID' => 'BK7X2Q9',
+          'পিন' => '167',
           'রিয়াল' => '300.00',
           'বাকি' => '150.00 রিয়াল',
           'স্বাক্ষর' => widget.h.d.settings.ownerName,
@@ -1016,3 +1040,47 @@ class _TemplateEditState extends State<TemplateEdit> {
     );
   }
 }
+
+
+/// Every correction: apart first, then those added to the main account.
+class AdjustsScreen extends StatelessWidget {
+  const AdjustsScreen({super.key, required this.h});
+  final Hisab h;
+  @override
+  Widget build(BuildContext context) => Live(
+      h: h,
+      builder: (context) {
+        final apart = h.d.adjusts.where((x) => !x.applied).toList()..sort((a, b) => b.at.compareTo(a.at));
+        final done = h.d.adjusts.where((x) => x.applied).toList()..sort((a, b) => b.at.compareTo(a.at));
+        Widget one(Adjust x) {
+          final t = h.txnById(x.txnId);
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (t != null)
+              InkWell(
+                onTap: () => push(context, TxnScreen(h: h, id: t.id)),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 4, left: 4),
+                  child: Tx('#${bn('${t.no}')} · ${customerNameOf(h.d, t)} · ${taka(t.taka)}', style: t2(13, K.blue)),
+                ),
+              ),
+            AdjustCard(h: h, x: x),
+          ]);
+        }
+
+        return Screen(
+          title: 'অতিরিক্ত হিসাব',
+          body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 24), children: [
+            const Note('এজেন্ট পাঠানোর পর লেনদেন আর বদলায় না। ভুল হলে লেনদেনের পাতা থেকে অতিরিক্ত হিসাব লিখুন। "মূল হিসাবে যোগ করুন" না চাপা পর্যন্ত এটা কোনো হিসাবে ধরা হয় না।'),
+            SectionHead('আলাদা রাখা'),
+            if (apart.isEmpty) const Note('কিছু নেই।'),
+            for (final x in apart) one(x),
+            if (done.isNotEmpty) ...[
+              SectionHead('মূল হিসাবে যোগ হয়েছে'),
+              for (final x in done) one(x),
+            ],
+          ]),
+        );
+      });
+}
+
+TextStyle t2(double size, Color c) => t(size, w: FontWeight.w600, c: c);

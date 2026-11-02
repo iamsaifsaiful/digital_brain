@@ -301,6 +301,62 @@ void main() {
       expect(h2.d.log.length, h.d.log.length);
     });
 
+    test('receipt: no "বাকি নেই" line, পিন from the agent or as typed', () {
+      final d = AppData(customers: [Customer(id: 'c1', name: 'করিম', phone: '0551234567', created: DateTime(2026))]);
+      final t = Txn.fromJson({...draft(pay: Pay.cash, sarPaid: 500).toJson(), 'no': 26110001, 'status': 'sent', 'replyTail': '667'});
+      d.txns.add(t);
+      final m = customerReceipt(d, t);
+      expect(m, isNot(contains('বাকি')));
+      expect(m, contains('পিন: 667'));
+      expect(customerReceipt(d, t, pin: '1667'), contains('পিন: 1667'));
+      expect(customerReceipt(d, t, pin: ''), isNot(contains('পিন')));
+      d.txns.add(Txn.fromJson({...draft(sarAmount: 100).toJson(), 'id': 't2', 'no': 26110002}));
+      expect(customerReceipt(d, t), contains('আপনার মোট বাকি: 100 রিয়াল'));
+    });
+
+    test('a sent send is never edited; অতিরিক্ত হিসাব counts only once added', () async {
+      final h = makeHisab(() => DateTime(2026, 11, 2, 10));
+      await h.load();
+      await h.setup(owner: 'সাইফুল', agentName: 'এ', agentWhatsapp: '01800000000');
+      final c = await h.addCustomer(name: 'করিম', phone: '0551234567');
+      final t = await h.addTxn(Txn.fromJson({...draft(customerId: c.id, agentId: h.d.agents.single.id).toJson()}));
+      await h.markSent(t, trxId: 'BK7X2Q9');
+      await expectLater(h.editTxn(t, t.copy()..sarAmount = 600), throwsStateError);
+      final due = customerDue(h.d, c.id), cash = h.myCash, owed = agentOwed(h.d, t.agentId);
+      final x = await h.addAdjust(t, sarDue: 50, sarCash: -20, takaAgent: 650, note: 'রিয়াল কম লিখেছিলাম');
+      expect((customerDue(h.d, c.id), h.myCash, agentOwed(h.d, t.agentId)), (due, cash, owed));
+      await h.applyAdjust(x);
+      expect((customerDue(h.d, c.id), h.myCash, agentOwed(h.d, t.agentId)), (due + 50, cash - 20, owed + 650));
+      expect(adjustText(x), 'গ্রাহকের বাকি +৫০ SAR · হাতে −২০ SAR · এজেন্টের পাওনা +৳ ৬৫০');
+    });
+
+    test('a change of amount before sending must be told to a WhatsApp agent', () async {
+      final h = makeHisab(() => DateTime(2026, 11, 2, 10));
+      await h.load();
+      await h.setup(owner: 'সাইফুল', agentName: 'এ', agentWhatsapp: '01800000000');
+      final c = await h.addCustomer(name: 'করিম', phone: '0551234567');
+      final t = await h.addTxn(Txn.fromJson({...draft(customerId: c.id, agentId: h.d.agents.single.id).toJson()}));
+      await h.editTxn(t, t.copy()..recipientLabel = 'মা');
+      expect(h.txnById(t.id)!.changeNotice, '', reason: 'nothing the agent sends changed');
+      final t1 = h.txnById(t.id)!;
+      await h.editTxn(t1, t1.copy()..taka = 17000);
+      expect(h.txnById(t.id)!.changeNotice, 'pending');
+      await h.changeNoticeSent(h.txnById(t.id)!);
+      expect(h.txnById(t.id)!.changeNotice, '');
+    });
+
+    test('a send without a profile: cash only, named on the send', () async {
+      final h = makeHisab(() => DateTime(2026, 11, 2, 10));
+      await h.load();
+      await h.setup(owner: 'সাইফুল', agentName: 'এ', agentWhatsapp: '01800000000');
+      final t = await h.addTxn(Txn.fromJson({...draft(customerId: '', agentId: h.d.agents.single.id, pay: Pay.cash, sarPaid: 500).toJson(), 'walkIn': 'রাস্তার ভাই', 'walkInPhone': '0559999999'}));
+      expect(customerNameOf(h.d, t), 'রাস্তার ভাই');
+      expect(h.d.customers, isEmpty);
+      expect(h.myCash, 500);
+      expect(customerReceipt(h.d, t), contains('রাস্তার ভাই'));
+      expect(customerNameOf(h.d, Txn.fromJson({...t.toJson(), 'walkIn': ''})), 'প্রোফাইল ছাড়া');
+    });
+
     test('agent payment: only the riyal can be corrected, and the hand follows', () async {
       final h = makeHisab(() => DateTime(2026, 11, 2, 10));
       await h.load();

@@ -54,15 +54,46 @@ class RiyalApp extends StatelessWidget {
         title: 'রেমিট খাতা',
         debugShowCheckedModeBanner: false,
         theme: appTheme(),
-        home: Gate(h: hisab),
+        navigatorKey: rootNav,
+        // The lock sits above every screen instead of replacing them, so
+        // after the PIN the user is back exactly where they were.
+        builder: (context, child) => Gate(h: hisab, child: child ?? const SizedBox()),
+        home: AppHome(h: hisab),
       );
 }
 
-/// Loads the data, asks for the PIN, then shows the app. Locks again after
-/// the chosen time in the background.
-class Gate extends StatefulWidget {
-  const Gate({super.key, required this.h});
+final rootNav = GlobalKey<NavigatorState>();
+final _homeKey = GlobalKey<HomeShellState>();
+AgentState? _agent;
+
+/// What is under the lock: login, the agent's app, first setup or the
+/// admin's app.
+class AppHome extends StatelessWidget {
+  const AppHome({super.key, required this.h});
   final Hisab h;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+      listenable: h,
+      builder: (context, _) {
+        if (!h.loaded || h.loadError != null) return const Scaffold();
+        final ses = h.session;
+        if (ses == null) {
+          _agent = null;
+          return SplashThen(h: h, child: LoginScreen(h: h));
+        }
+        if (ses.isAgent) return AgentShell(st: _agent ??= AgentState(h));
+        if (h.needsSetup) return SetupScreen(h: h);
+        return HomeShell(key: _homeKey, h: h);
+      });
+}
+
+/// Loads the data and keeps the lock: the opening animation, then the PIN,
+/// over whatever screen is open. Locks again after the chosen time away.
+class Gate extends StatefulWidget {
+  const Gate({super.key, required this.h, required this.child});
+  final Hisab h;
+  final Widget child;
 
   @override
   State<Gate> createState() => _GateState();
@@ -71,14 +102,13 @@ class Gate extends StatefulWidget {
 class _GateState extends State<Gate> with WidgetsBindingObserver {
   bool? _hasPin;
 
-  /// The opening animation plays first, then the PIN or the login.
+  /// The opening animation plays before every PIN screen.
   bool _splash = true;
   bool _unlocked = false;
   DateTime? _leftAt;
 
   /// A customer to open, from a tapped reminder, once the app is unlocked.
   String? _openCustomer;
-  final _homeKey = GlobalKey<HomeShellState>();
 
   Hisab get h => widget.h;
 
@@ -106,8 +136,7 @@ class _GateState extends State<Gate> with WidgetsBindingObserver {
     if (id == null || !_unlocked || h.needsSetup || !mounted) return;
     _openCustomer = null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => CustomerScreen(h: h, id: id)));
+      rootNav.currentState?.push(MaterialPageRoute(builder: (_) => CustomerScreen(h: h, id: id)));
     });
   }
 
@@ -117,8 +146,6 @@ class _GateState extends State<Gate> with WidgetsBindingObserver {
     h.refreshSession();
     h.sync();
   }
-
-  AgentState? _agent;
 
   void _changed() {
     if (mounted) setState(() {});
@@ -141,9 +168,12 @@ class _GateState extends State<Gate> with WidgetsBindingObserver {
       if (left != null && _unlocked) {
         final secs = await h.s.lock.autoLockSeconds();
         if (secs >= 0 && DateTime.now().difference(left).inSeconds >= secs) {
+          // Nothing is closed: the lock covers the open screen.
           if (mounted) {
-            Navigator.of(context).popUntil((r) => r.isFirst);
-            setState(() => _unlocked = false);
+            setState(() {
+              _unlocked = false;
+              _splash = true;
+            });
           }
           return;
         }
@@ -155,32 +185,45 @@ class _GateState extends State<Gate> with WidgetsBindingObserver {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
+  /// What covers the app now, or null when it is open.
+  (String, Widget)? _cover() {
     if (_splash || !h.loaded || _hasPin == null) {
-      return SplashScreen(h: h, onDone: () => setState(() => _splash = false));
+      return ('splash', SplashScreen(h: h, onDone: () => setState(() => _splash = false)));
     }
-    if (h.loadError != null) return _LoadError(h: h, onFixed: () => setState(() {}));
+    if (h.loadError != null) return ('error', _LoadError(h: h, onFixed: () => setState(() {})));
     if (_hasPin == false) {
-      return PinSetup(
-        lock: h.s.lock,
-        onDone: () => setState(() {
-          _hasPin = true;
-          _unlocked = true;
-        }),
+      return (
+        'setpin',
+        PinSetup(
+          lock: h.s.lock,
+          onDone: () => setState(() {
+            _hasPin = true;
+            _unlocked = true;
+          }),
+        )
       );
     }
-    if (!_unlocked) return LockScreen(h: h, onOpen: _unlock);
-    final ses = h.session;
-    if (ses == null) {
-      _agent = null;
-      return LoginScreen(h: h);
-    }
-    if (ses.isAgent) {
-      return AgentShell(st: _agent ??= AgentState(h));
-    }
-    if (h.needsSetup) return SetupScreen(h: h);
-    return HomeShell(key: _homeKey, h: h);
+    if (!_unlocked) return ('lock', LockScreen(h: h, onOpen: _unlock));
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cover = _cover();
+    final ready = h.loaded && _hasPin == true;
+    return Stack(children: [
+      // The app is built only once it may be shown, and kept while locked.
+      if (ready || _unlocked) Positioned.fill(child: widget.child),
+      if (cover != null)
+        Positioned.fill(
+          child: HeroControllerScope.none(
+            child: Navigator(
+              key: ValueKey(cover.$1),
+              onGenerateRoute: (_) => PageRouteBuilder<void>(pageBuilder: (_, a, b) => cover.$2, transitionDuration: Duration.zero),
+            ),
+          ),
+        ),
+    ]);
   }
 }
 

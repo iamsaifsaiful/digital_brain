@@ -58,7 +58,7 @@ function rh_gd_state() {
  */
 function rh_backup_bytes($password) {
     global $wpdb;
-    $lists = ['customer' => 'customers', 'agent' => 'agents', 'txn' => 'txns', 'deposit' => 'deposits', 'payment' => 'agentPayments', 'expense' => 'expenses', 'close' => 'closes', 'loss' => 'losses', 'log' => 'log'];
+    $lists = ['customer' => 'customers', 'agent' => 'agents', 'txn' => 'txns', 'deposit' => 'deposits', 'payment' => 'agentPayments', 'expense' => 'expenses', 'close' => 'closes', 'loss' => 'losses', 'handover' => 'handovers', 'adjust' => 'adjusts', 'log' => 'log'];
     $data = ['v' => 1];
     foreach ($lists as $kind => $key) {
         $data[$key] = array_values(rh_all($kind));

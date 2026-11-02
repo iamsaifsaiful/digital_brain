@@ -258,6 +258,9 @@ class Hisab extends ChangeNotifier {
     for (final x in d.handovers) {
       yield ('handover', x.id, x.toJson());
     }
+    for (final x in d.adjusts) {
+      yield ('adjust', x.id, x.toJson());
+    }
     for (final x in d.log) {
       yield ('log', x.id, x.toJson());
     }
@@ -314,6 +317,10 @@ class Hisab extends ChangeNotifier {
       case 'handover':
         final x = Handover.fromJson(j);
         put(d.handovers, x, (e) => e.id);
+        return x.toJson();
+      case 'adjust':
+        final x = Adjust.fromJson(j);
+        put(d.adjusts, x, (e) => e.id);
         return x.toJson();
       case 'log':
         final x = LogEntry.fromJson(j);
@@ -682,7 +689,7 @@ class Hisab extends ChangeNotifier {
     _log(
       'txn',
       'নতুন লেনদেন · #${bn('${t.no}')}',
-      '${c?.name ?? ''} → ${t.recipientLabel.isEmpty ? bdShow(t.number) : t.recipientLabel} · ${serviceName(t)}${t.kind == Kind.mb && t.pack.isNotEmpty ? ' (${t.pack})' : ''} · '
+      '${customerNameOf(d, t)} → ${t.recipientLabel.isEmpty ? bdShow(t.number) : t.recipientLabel} · ${serviceName(t)}${t.kind == Kind.mb && t.pack.isNotEmpty ? ' (${t.pack})' : ''} · '
           '${sar(t.sarAmount)} × ${rateText(t.rate)} = ${taka(t.taka)}${t.fee > 0 ? ' + খরচ ${taka(t.fee)}' : ''} · '
           '${t.pay.bnName}${t.pay == Pay.partial ? ' (${sar(t.sarPaid)})' : ''} · বাকি দাঁড়াল ${sar(dueAfter > 0 ? dueAfter : 0)}',
       ref: t.id,
@@ -693,6 +700,9 @@ class Hisab extends ChangeNotifier {
 
   /// Saves a changed copy of [old]; the log keeps before → after.
   Future<List<String>> editTxn(Txn old, Txn changed) async {
+    // Once the agent has sent it, a send is never changed: mistakes go to
+    // "অতিরিক্ত হিসাব" (addAdjust).
+    if (old.status != TxnStatus.pending) throw StateError('already sent');
     final diffs = <String>[
       if (old.sarAmount != changed.sarAmount) 'রিয়াল ${sar(old.sarAmount)} → ${sar(changed.sarAmount)}',
       if (old.rate != changed.rate) 'রেট ${rateText(old.rate)} → ${rateText(changed.rate)}',
@@ -710,6 +720,18 @@ class Hisab extends ChangeNotifier {
     if (diffs.isEmpty) return diffs;
     final i = d.txns.indexWhere((t) => t.id == old.id);
     if (i < 0) return const [];
+    // A change in what the agent sends: the WhatsApp agent must be told,
+    // and the send shows it until the admin says the message went.
+    final agentSide = old.number != changed.number ||
+        old.taka != changed.taka ||
+        old.fee != changed.fee ||
+        old.method != changed.method ||
+        old.kind != changed.kind ||
+        old.agentId != changed.agentId ||
+        old.operator != changed.operator ||
+        old.pack != changed.pack;
+    final ag = agentById(d, changed.agentId);
+    if (agentSide && ag != null && !ag.usesApp) changed.changeNotice = 'pending';
     d.txns[i] = changed;
     final c = customerById(d, changed.customerId);
     if (c != null) rememberRecipient(c, changed.recipientLabel, changed.number, changed.method);
@@ -825,6 +847,50 @@ class Hisab extends ChangeNotifier {
       ].join(' · ');
 
   /// [sarOut]: the riyal that went out of hand for this taka (required).
+  /// A mistake on a sent send, written down apart ("অতিরিক্ত হিসাব"). It
+  /// changes no account until [applyAdjust].
+  Future<Adjust> addAdjust(Txn t, {double sarDue = 0, double sarCash = 0, double takaAgent = 0, required String note}) async {
+    final x = Adjust(
+      id: newId(),
+      at: now,
+      txnId: t.id,
+      customerId: t.customerId,
+      agentId: t.agentId,
+      sarDue: sarDue,
+      sarCash: sarCash,
+      takaAgent: takaAgent,
+      note: note.trim(),
+      by: meId,
+      byName: meName,
+    );
+    d.adjusts.add(x);
+    _log('edit', 'অতিরিক্ত হিসাব · #${bn('${t.no}')}', '${adjustText(x)}${x.note.isEmpty ? '' : ' · ${x.note}'} · এখনো মূল হিসাবে নেই', who: meName, ref: t.id);
+    await _save();
+    return x;
+  }
+
+  /// Adds a correction to the main account: from now it counts in the
+  /// customer's due, the cash in hand and the agent's account. Once added it
+  /// stays.
+  Future<void> applyAdjust(Adjust x) async {
+    if (x.applied) return;
+    x
+      ..applied = true
+      ..appliedAt = now
+      ..appliedByName = meName;
+    final t = txnById(x.txnId);
+    _log('edit', 'অতিরিক্ত হিসাব মূল হিসাবে যোগ${t == null ? '' : ' · #${bn('${t.no}')}'}', adjustText(x), who: meName, ref: x.txnId);
+    await _save();
+  }
+
+  /// The admin confirms the change message reached the agent.
+  Future<void> changeNoticeSent(Txn t) async {
+    if (t.changeNotice.isEmpty) return;
+    t.changeNotice = '';
+    _log('agent', 'সংশোধনের মেসেজ এজেন্টকে পাঠানো হয়েছে · #${bn('${t.no}')}', '${agentById(d, t.agentId)?.name ?? ''} · ${taka(t.agentTaka)}', who: meName, ref: t.id);
+    await _save();
+  }
+
   /// The riyal a payment to the agent cost, corrected. Only this can change
   /// on a payment: the taka the agent got stays as it was.
   Future<void> editPaymentSar(AgentPayment p, double sarAmount, {String why = ''}) async {

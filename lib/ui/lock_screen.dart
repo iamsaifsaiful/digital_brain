@@ -409,7 +409,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   // The exchange takes 2.4 s; the name stays a moment longer.
   late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 3000))
     ..addStatusListener((s) {
-      if (s == AnimationStatus.completed) widget.onDone();
+      if (s == AnimationStatus.completed) {
+        lastSplash = DateTime.now();
+        widget.onDone();
+      }
     })
     ..forward();
 
@@ -440,4 +443,24 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           ]),
         ),
       );
+}
+
+
+/// When the opening animation last finished: the login page does not play
+/// it again right after the PIN.
+DateTime? lastSplash;
+
+/// The opening animation, then [child] (the login page).
+class SplashThen extends StatefulWidget {
+  const SplashThen({super.key, required this.h, required this.child});
+  final Hisab h;
+  final Widget child;
+  @override
+  State<SplashThen> createState() => _SplashThenState();
+}
+
+class _SplashThenState extends State<SplashThen> {
+  late bool _done = lastSplash != null && DateTime.now().difference(lastSplash!).inSeconds < 8;
+  @override
+  Widget build(BuildContext context) => _done ? widget.child : SplashScreen(h: widget.h, onDone: () => setState(() => _done = true));
 }

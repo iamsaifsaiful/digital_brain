@@ -68,14 +68,15 @@ class PhoneReminders implements Reminders {
         scheduledDate: tz.TZDateTime.from(at, tz.UTC),
         notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
-            'due_promises_v2',
-            'বাকির তাগাদা',
-            channelDescription: 'গ্রাহক যেদিন বাকি দেবেন বলেছেন, সেদিন মনে করানো',
+            // The app's own channel, made natively at start with the
+            // chime and the buzz (some phones ignore a sound set here).
+            'rh_alert',
+            'লেনদেনের খবর',
+            channelDescription: 'নতুন অনুরোধ, এজেন্ট পাঠালেন, টাকা দেওয়া, বাকির তাগাদা',
             icon: 'ic_stat_reminder',
             color: Color(0xFF2F6BEA),
             importance: Importance.max,
             priority: Priority.high,
-            sound: const RawResourceAndroidNotificationSound('remit_alert'),
             playSound: true,
             enableVibration: true,
             vibrationPattern: _vibrate,

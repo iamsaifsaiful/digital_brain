@@ -38,6 +38,36 @@ class Period {
 
   bool has(DateTime t) => !t.isBefore(from) && t.isBefore(to);
   bool get isAll => key == 'all';
+
+  /// How the period is said in a sentence: "এ মাসে", "গত মাসে", "আজ"…
+  String get inWords => switch (key) {
+        'all' => 'এখন',
+        'today' => 'আজ',
+        'yesterday' => 'গতকাল',
+        'week' => 'এই ৭ দিনে',
+        'month' => 'এ মাসে',
+        'lastMonth' => 'গত মাসে',
+        _ => 'এই সময়ে',
+      };
+
+  /// Is the period still running (ends after [now])?
+  bool runningAt(DateTime now) => to.isAfter(now);
+}
+
+/// The two figures that depend on the period. For all time: what is owed
+/// now and what should be in hand now. For a month (or any span): the due
+/// that piled up in it, and what was in hand at its end.
+List<(String, double, bool)> periodBalances(AppData d, Period p, DateTime now) {
+  if (p.isAll) {
+    return [('এখন মোট বাকি', totalCustomerDue(d), true), ('হাতে থাকা উচিত', cashInHand(d), false)];
+  }
+  final due = d.txns.where((x) => !x.cancelled && p.has(x.at)).fold<double>(0, (s, x) => s + x.sarDueAtSend);
+  final end = p.runningAt(now) ? now : p.to;
+  final hand = cashLines(d).where((l) => l.at.isBefore(end)).fold<double>(0, (s, l) => s + l.inSar - l.outSar);
+  return [
+    ('${p.inWords} বাকি পড়েছে', (due * 100).roundToDouble() / 100, true),
+    (p.runningAt(now) ? '${p.inWords} — এখন হাতে আছে' : '${p.inWords} শেষে হাতে ছিল', (hand * 100).roundToDouble() / 100, false),
+  ];
 }
 
 /// সব সময় · আজ · গতকাল · ৭ দিন · এই মাস · গত মাস · তারিখ বাছুন
@@ -95,7 +125,7 @@ List<List<String>> _txnRows(Hisab h, Iterable<Txn> list) => [
       for (final x in list)
         [
           '#${bn('${x.no}')}\n${_when(x.at)}${x.byName.isEmpty ? '' : '\n${x.byName}'}',
-          '${customerById(h.d, x.customerId)?.name ?? ''}${x.recipientLabel.isEmpty ? '' : '\nপ্রাপক: ${x.recipientLabel}'}',
+          '${customerNameOf(h.d, x)}${x.recipientLabel.isEmpty ? '' : '\nপ্রাপক: ${x.recipientLabel}'}',
           '${serviceName(x)}${x.kind == Kind.mb && x.pack.isNotEmpty ? ' (${x.pack})' : ''}\n${bdShow(x.number)}',
           '${bnNum(x.sarAmount, decimals: 2)}\n× ${rateText(x.rate)}',
           '${bnNum(x.taka)}${x.fee > 0 ? '\n+${bnNum(x.fee)}' : ''}',
@@ -145,11 +175,10 @@ PdfDoc periodPdf(Hisab h, Period p) {
     ('লস (আদায় হবে না)', sar(losses.fold<double>(0, (s, x) => s + x.sarAmount))),
     ('এজেন্টকে দিলাম', taka(pays.fold<double>(0, (s, x) => s + x.taka))),
     ('ভুল নম্বরে গেছে', '${bn('${live.where((x) => x.fault != null).length}')}টা'),
-    ('এখন মোট বাকি', sar(totalCustomerDue(d))),
-    ('এখন হাতে থাকা উচিত', sar(cashInHand(d))),
+    for (final (label, v, _) in periodBalances(d, p, h.now)) (label, sar(v)),
   ]);
-  for (final (which, title) in const [(0, 'যে গ্রাহকরা বেশি পাঠান'), (1, 'যে গ্রাহকরা বেশি নগদ দেন'), (2, 'যাদের বাকি বেশি (এখন)')]) {
-    final top = topCustomers(d, which, p.has, h.now).take(10).toList();
+  for (final (which, title) in [(0, 'যে গ্রাহকরা বেশি পাঠান'), (1, 'যে গ্রাহকরা বেশি নগদ দেন'), (2, p.isAll ? 'যাদের বাকি বেশি (এখন)' : '${p.inWords} যাদের বাকি বেশি')]) {
+    final top = topCustomers(d, which, p.has, h.now, all: p.isAll).take(10).toList();
     if (top.isEmpty) continue;
     doc.heading(title);
     doc.table(['#', 'গ্রাহক', 'বিস্তারিত', 'রিয়াল'], [

@@ -55,6 +55,11 @@ function rh_customer_due($cid) {
             }
         }
     }
+    foreach (rh_all('adjust') as $x) {
+        if (!empty($x['applied']) && ($x['customerId'] ?? '') === $cid) {
+            $due += (float) ($x['sarDue'] ?? 0);
+        }
+    }
     return round($due, 2);
 }
 
@@ -82,6 +87,11 @@ function rh_agent_owed($aid) {
             $owed -= (float) ($p['taka'] ?? 0);
         }
     }
+    foreach (rh_all('adjust') as $x) {
+        if (!empty($x['applied']) && ($x['agentId'] ?? '') === $aid) {
+            $owed += (float) ($x['takaAgent'] ?? 0);
+        }
+    }
     return round($owed);
 }
 
@@ -97,7 +107,7 @@ function rh_cash_lines($by = null) {
     $out = [];
     foreach (rh_all('txn') as $t) {
         if (!rh_cancelled($t) && (float) ($t['sarPaid'] ?? 0) > 0 && $mine($t)) {
-            $out[] = [$t['at'], ($cust[$t['customerId'] ?? '']['name'] ?? '') . ' · #' . rh_bn($t['no'] ?? ''), (($t['pay'] ?? '') === 'partial' ? 'আংশিক' : 'নগদে') . ' · ' . rh_service($t), (float) $t['sarPaid'], 0.0, 'txn', (int) ($t['by'] ?? 0), (string) ($t['byName'] ?? '')];
+            $out[] = [$t['at'], ($cust[$t['customerId'] ?? '']['name'] ?? (($t['walkIn'] ?? '') !== '' ? $t['walkIn'] : 'প্রোফাইল ছাড়া')) . ' · #' . rh_bn($t['no'] ?? ''), (($t['pay'] ?? '') === 'partial' ? 'আংশিক' : 'নগদে') . ' · ' . rh_service($t), (float) $t['sarPaid'], 0.0, 'txn', (int) ($t['by'] ?? 0), (string) ($t['byName'] ?? '')];
         }
     }
     foreach (rh_all('deposit') as $p) {
@@ -125,6 +135,14 @@ function rh_cash_lines($by = null) {
             }
         }
     }
+    $txns = rh_all('txn');
+    foreach (rh_all('adjust') as $x) {
+        $v = (float) ($x['sarCash'] ?? 0);
+        if (!empty($x['applied']) && abs($v) >= 0.005 && $mine($x)) {
+            $no = $txns[$x['txnId'] ?? '']['no'] ?? '';
+            $out[] = [$x['appliedAt'] ?? $x['at'], 'অতিরিক্ত হিসাব' . ($no !== '' ? ' · #' . rh_bn($no) : ''), (string) ($x['note'] ?? ''), max(0, $v), max(0, -$v), 'adjust', (int) ($x['by'] ?? 0), (string) ($x['byName'] ?? '')];
+        }
+    }
     foreach (rh_all('close') as $c) {
         $d = (float) ($c['counted'] ?? 0) - (float) ($c['expected'] ?? 0);
         if (abs($d) >= 0.005 && $mine($c)) {
@@ -142,7 +160,7 @@ function rh_cash_in_hand($by = null) {
 /** Admins seen in the records: id => name (0 = before the server). */
 function rh_admins_in() {
     $out = [];
-    foreach (['txn', 'deposit', 'expense', 'payment', 'close', 'loss'] as $k) {
+    foreach (['txn', 'deposit', 'expense', 'payment', 'close', 'loss', 'adjust'] as $k) {
         foreach (rh_all($k) as $r) {
             $id = (int) ($r['by'] ?? 0);
             if (!isset($out[$id]) || $out[$id] === '') {

@@ -11,10 +11,10 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const RH_KINDS = ['customer', 'agent', 'txn', 'deposit', 'payment', 'expense', 'close', 'loss', 'handover', 'log', 'settings'];
+const RH_KINDS = ['customer', 'agent', 'txn', 'deposit', 'payment', 'expense', 'close', 'loss', 'handover', 'adjust', 'log', 'settings'];
 
 /** Records that belong to the admin who made them (their hand). */
-const RH_OWNED = ['txn', 'deposit', 'payment', 'expense', 'close', 'loss'];
+const RH_OWNED = ['txn', 'deposit', 'payment', 'expense', 'close', 'loss', 'adjust'];
 
 add_action('rest_api_init', function () {
     rh_route('/push', 'POST', 'rh_push', 'admin');
@@ -129,6 +129,15 @@ function rh_may_write($u, $kind, $rid, $data) {
             if (!$old) {
                 return rh_can($u, 'send');
             }
+            // Once the agent has sent it, the money side never changes:
+            // mistakes are written as "অতিরিক্ত হিসাব" (adjust).
+            if (($old['status'] ?? '') === 'sent') {
+                foreach (['customerId', 'agentId', 'number', 'method', 'kind', 'sar', 'rate', 'taka', 'fee', 'pay', 'sarPaid', 'operator', 'pack'] as $f) {
+                    if (wp_json_encode($old[$f] ?? null) !== wp_json_encode($data[$f] ?? null)) {
+                        return false;
+                    }
+                }
+            }
             // Paying the agent marks the sends paid; anything else is an edit.
             $a = $old;
             $b = $data;
@@ -153,6 +162,15 @@ function rh_may_write($u, $kind, $rid, $data) {
             return rh_can($u, 'expense');
         case 'settings':
             return rh_can($u, 'settings') || ($old && wp_json_encode($old) === wp_json_encode($data));
+        case 'adjust':
+            if (!$old) {
+                return rh_can($u, 'edit');
+            }
+            // The only change: adding it to the main account, once.
+            $a = $old;
+            $b = $data;
+            unset($a['applied'], $a['appliedAt'], $a['appliedByName'], $b['applied'], $b['appliedAt'], $b['appliedByName'], $a['by'], $a['byName'], $b['by'], $b['byName']);
+            return rh_can($u, 'edit') && empty($old['applied']) && !empty($data['applied']) && wp_json_encode($a) === wp_json_encode($b);
         case 'handover':
             // Only the one who takes the riyal records it, once.
             return !$old && (int) ($data['to'] ?? 0) === (int) $u['id'] && (int) ($data['from'] ?? 0) !== (int) $u['id'] && (float) ($data['sar'] ?? 0) > 0;

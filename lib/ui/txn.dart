@@ -135,19 +135,51 @@ class _TxnBody extends StatelessWidget {
     };
     return Screen(
       title: 'লেনদেন #${bn('${x.no}')}',
-      trailing: x.cancelled || !h.can('edit')
+      // Only before the agent sends it; after that, অতিরিক্ত হিসাব.
+      trailing: x.status != TxnStatus.pending || !h.can('edit')
           ? null
           : CircleBtn(
               icon: Icons.edit_outlined,
               label: 'সংশোধন',
               onTap: () {
-                if (c == null) return;
-                push(context, EntryScreen(h: h, c: c, editing: x));
+                push(context, EntryScreen(h: h, c: c ?? walkInCustomer(x.walkIn, x.walkInPhone), editing: x));
               },
             ),
       body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 28), children: [
         if (fresh && x.status == TxnStatus.pending) ...[
           Note('মেসেজ হোয়াটসঅ্যাপে লেখা আছে — সেখানে Send চাপুন। এজেন্ট রিপ্লাই দিলে (যেমন ${x.no} ${x.agentTaka.round()}-667) সেটা কপি করে অ্যাপে ফিরে আসুন।', icon: Icons.info_outline_rounded),
+          const SizedBox(height: 12),
+        ],
+        if (x.changeNotice == 'pending' && x.status == TxnStatus.pending) ...[
+          CardBox(
+            color: K.redTint,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(children: [
+                dotIcon(Icons.campaign_rounded, Colors.white, K.red, size: 40),
+                const SizedBox(width: 12),
+                Expanded(child: Tx('সংশোধনের মেসেজ এজেন্টকে পাঠাতেই হবে', style: t(15, w: FontWeight.w600, c: K.red))),
+              ]),
+              const SizedBox(height: 6),
+              Tx('টাকা বা নম্বর বদলেছে। এজেন্ট যেন পুরনো টাকা বা নম্বরে না পাঠান — হোয়াটসঅ্যাপে মেসেজটা Send করে নিচে "পাঠিয়েছি" চাপুন।', style: t(13, c: K.red, h: 1.45)),
+              const SizedBox(height: 10),
+              Row(children: [
+                if (a != null)
+                  Expanded(
+                    child: Pill(
+                      label: 'মেসেজ খুলুন',
+                      height: 44,
+                      color: K.red,
+                      onTap: () async {
+                        final ok = await h.s.device.whatsapp(a.whatsapp, agentChangeMessage(x, h.d));
+                        await h.logMessage(x, ok ? 'এজেন্টকে সংশোধনের মেসেজ' : 'হোয়াটসঅ্যাপ খোলা যায়নি');
+                      },
+                    ),
+                  ),
+                const SizedBox(width: 8),
+                Expanded(child: Pill(label: 'পাঠিয়েছি', height: 44, color: K.green, onTap: () => h.changeNoticeSent(x))),
+              ]),
+            ]),
+          ),
           const SizedBox(height: 12),
         ],
         if (x.fault != null) ...[
@@ -184,7 +216,7 @@ class _TxnBody extends StatelessWidget {
         const SizedBox(height: 12),
         CardBox(
           child: Column(children: [
-            _kv('গ্রাহক', c?.name ?? '—', onTap: c == null ? null : () => push(context, CustomerScreen(h: h, id: c.id))),
+            _kv('গ্রাহক', c != null ? c.name : '${customerNameOf(h.d, x)}${x.walkInPhone.isEmpty ? '' : ' · ${bn(x.walkInPhone)}'} (প্রোফাইল ছাড়া)', onTap: c == null ? null : () => push(context, CustomerScreen(h: h, id: c.id))),
             _kv('কী', '${x.kind.bnName}${x.kind.isTopUp ? (x.operator.isEmpty ? '' : ' · ${x.operator}') : ' · ${x.method.bnName}'}'),
             if (x.kind == Kind.mb) _kv('প্যাক', x.pack),
             _kv('প্রাপক', x.recipientLabel.isEmpty ? '—' : x.recipientLabel),
@@ -223,10 +255,23 @@ class _TxnBody extends StatelessWidget {
               child: SoftPill(
                 label: 'গ্রাহককে রসিদ',
                 icon: Icons.receipt_outlined,
-                onTap: c == null
-                    ? null
-                    : () async {
-                        final text = customerReceipt(h.d, x);
+                onTap: c == null && x.walkInPhone.isEmpty
+                    ? () async {
+                        final pin = await askPin(context, x);
+                        if (pin == null || !context.mounted) return;
+                        await h.s.device.shareText(customerReceipt(h.d, x, pin: pin));
+                      }
+                    : c == null
+                        ? () async {
+                            final pin = await askPin(context, x);
+                            if (pin == null || !context.mounted) return;
+                            await h.s.device.whatsapp(x.walkInPhone, customerReceipt(h.d, x, pin: pin));
+                            await h.note('txn', 'গ্রাহককে রসিদ · #${bn('${x.no}')}', customerNameOf(h.d, x));
+                          }
+                        : () async {
+                        final pin = await askPin(context, x);
+                        if (pin == null || !context.mounted) return;
+                        final text = customerReceipt(h.d, x, pin: pin);
                         final wa = await whatsappOf(context, h, c);
                         if (wa != null) {
                           await h.s.device.whatsapp(wa, text);
@@ -241,14 +286,16 @@ class _TxnBody extends StatelessWidget {
           if (x.status == TxnStatus.sent && h.can('edit')) ...[
             const SizedBox(height: 8),
             Row(children: [
-              Expanded(
-                child: SoftPill(
-                  label: x.trxId.isEmpty ? 'TrxID যুক্ত করুন' : 'উত্তর/TrxID বদলান',
-                  icon: Icons.edit_note_rounded,
-                  onTap: () => _enterReply(context, onlyTrx: x.trxId.isEmpty),
+              if (x.trxId.isEmpty) ...[
+                Expanded(
+                  child: SoftPill(
+                    label: 'TrxID যুক্ত করুন',
+                    icon: Icons.edit_note_rounded,
+                    onTap: () => _enterReply(context, onlyTrx: true),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
+                const SizedBox(width: 8),
+              ],
               Expanded(
                 child: SoftPill(
                   label: x.fault == null ? 'ভুল নম্বরে গেছে?' : 'ভুলের চিহ্ন বদলান',
@@ -264,7 +311,13 @@ class _TxnBody extends StatelessWidget {
                 child: TextButton(onPressed: () => h.markFault(x, null, ''), child: Tx('ভুলের চিহ্ন তুলে দিন', style: t(13, c: K.muted))),
               ),
             const SizedBox(height: 8),
-            const Note('এজেন্ট পাঠিয়ে দিয়েছেন, তাই এই লেনদেন বাতিল করা যায় না। ভুল নম্বরে গেলে ওপরের বোতামে চিহ্ন দিন।', icon: Icons.lock_outline_rounded),
+            SoftPill(label: 'ভুল হয়েছে? অতিরিক্ত হিসাব লিখুন', icon: Icons.playlist_add_rounded, onTap: () => push(context, AdjustScreen(h: h, x: x))),
+            const SizedBox(height: 8),
+            const Note('এজেন্ট পাঠিয়ে দিয়েছেন, তাই এই লেনদেন আর বদলানো বা বাতিল করা যায় না। ভুল হলে "অতিরিক্ত হিসাব" লিখুন — চাইলে পরে সেটা মূল হিসাবে যোগ করবেন।', icon: Icons.lock_outline_rounded),
+          ],
+          if (h.d.adjusts.any((j) => j.txnId == x.id)) ...[
+            SectionHead('অতিরিক্ত হিসাব'),
+            for (final j in h.d.adjusts.where((j) => j.txnId == x.id)) AdjustCard(h: h, x: j),
           ],
           if (x.status == TxnStatus.pending && h.can('edit')) ...[
             const SizedBox(height: 8),
@@ -443,6 +496,7 @@ class _AllTxnsScreenState extends State<AllTxnsScreen> {
               x.agentReply.toLowerCase().contains(q) ||
               (amount != null && (x.sarAmount == amount || x.taka.round() == amount || x.agentTaka.round() == amount)) ||
               (c != null && (named(c.name) || c.phone.contains(q))) ||
+              (c == null && (named(x.walkIn) || x.walkInPhone.contains(q))) ||
               named(x.recipientLabel) ||
               (a != null && named(a.name)) ||
               named(x.byName) ||
@@ -548,5 +602,140 @@ class TxnTimeline extends StatelessWidget {
           ]),
         ),
     ]);
+  }
+}
+
+
+/// Before a receipt goes out: the পিন line (last digits of the number the
+/// agent sent from), which the admin can change or leave out.
+Future<String?> askPin(BuildContext context, Txn x) async {
+  if (x.kind.isTopUp) return '';
+  final c = TextEditingController(text: en(x.replyTail));
+  var on = x.replyTail.isNotEmpty;
+  return showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, set) => Padding(
+        padding: EdgeInsets.fromLTRB(18, 18, 18, 18 + MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).padding.bottom),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Tx('গ্রাহককে রসিদ', style: t(18, w: FontWeight.w600), textAlign: TextAlign.center),
+          const SizedBox(height: 8),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: on,
+            onChanged: (v) => set(() => on = v),
+            title: Tx('মেসেজে পিন দিন', style: t(15, w: FontWeight.w500)),
+            subtitle: Tx('যে নম্বর থেকে টাকা গেছে তার শেষ কয়েক সংখ্যা — গ্রাহক মিলিয়ে নিতে পারবেন', style: t(12.5, c: K.muted)),
+          ),
+          if (on) Field(label: 'পিন (শেষ কয়েক সংখ্যা)', controller: c, number: true, hint: 'যেমন 167'),
+          const SizedBox(height: 14),
+          Pill(label: 'মেসেজ তৈরি করুন', onTap: () => Navigator.pop(ctx, on ? en(c.text).replaceAll(RegExp(r'[^0-9]'), '') : '')),
+        ]),
+      ),
+    ),
+  );
+}
+
+/// One correction, with "add to the main account" while it is apart.
+class AdjustCard extends StatelessWidget {
+  const AdjustCard({super.key, required this.h, required this.x});
+  final Hisab h;
+  final Adjust x;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: CardBox(
+          color: x.applied ? K.card : K.amberTint,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(child: Tx(adjustText(x), style: t(15, w: FontWeight.w600))),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: x.applied ? K.greenTint : Colors.white, borderRadius: BorderRadius.circular(14)),
+                child: Tx(x.applied ? 'মূল হিসাবে আছে' : 'আলাদা রাখা', style: t(12, w: FontWeight.w600, c: x.applied ? K.green : K.amberText)),
+              ),
+            ]),
+            if (x.note.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Tx(x.note, style: t(13.5))),
+            const SizedBox(height: 4),
+            Tx('${dateShort(x.at)}, ${timeText(x.at)}${x.byName.isEmpty ? '' : ' · ${x.byName}'}${x.applied && x.appliedAt != null ? ' · মূল হিসাবে যোগ ${dateShort(x.appliedAt!)}${x.appliedByName.isEmpty ? '' : ' (${x.appliedByName})'}' : ''}', style: t(12, c: K.muted)),
+            if (!x.applied && h.can('edit')) ...[
+              const SizedBox(height: 10),
+              Pill(
+                label: 'মূল হিসাবে যোগ করুন',
+                height: 44,
+                onTap: () async {
+                  if (await confirm(context, 'মূল হিসাবে যোগ করবেন?', '${adjustText(x)} — এরপর থেকে এটা গ্রাহকের বাকি, হাতের রিয়াল আর এজেন্টের হিসাবে ধরা হবে। যোগ করার পর আর ফেরানো যাবে না।', yes: 'যোগ করুন')) {
+                    await h.applyAdjust(x);
+                  }
+                },
+              ),
+            ],
+          ]),
+        ),
+      );
+}
+
+/// Writing a correction for a sent send.
+class AdjustScreen extends StatefulWidget {
+  const AdjustScreen({super.key, required this.h, required this.x});
+  final Hisab h;
+  final Txn x;
+  @override
+  State<AdjustScreen> createState() => _AdjustScreenState();
+}
+
+class _AdjustScreenState extends State<AdjustScreen> {
+  final _due = TextEditingController(), _cash = TextEditingController(), _agent = TextEditingController(), _note = TextEditingController();
+  final _up = [true, true, true];
+
+  double _v(TextEditingController c, int i) => (parseNum(c.text) ?? 0).abs() * (_up[i] ? 1 : -1);
+
+  Widget _row(int i, String label, String hint, TextEditingController c, String plus, String minus) => Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Tx(label, style: t(14, w: FontWeight.w600)),
+          const SizedBox(height: 6),
+          Seg<bool>(items: [(true, plus), (false, minus)], value: _up[i], onChanged: (v) => setState(() => _up[i] = v)),
+          const SizedBox(height: 6),
+          Field(label: '', controller: c, number: true, hint: hint, onChanged: (_) => setState(() {})),
+        ]),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final h = widget.h, x = widget.x;
+    final sarDue = _v(_due, 0), sarCash = _v(_cash, 1), takaAgent = _v(_agent, 2);
+    final any = sarDue != 0 || sarCash != 0 || takaAgent != 0;
+    return Screen(
+      title: 'অতিরিক্ত হিসাব · #${bn('${x.no}')}',
+      bottom: Pill(
+        label: 'আলাদা করে রাখুন',
+        onTap: !any
+            ? null
+            : () async {
+                if (_note.text.trim().isEmpty) {
+                  snack(context, 'কী ভুল হয়েছিল লিখুন');
+                  return;
+                }
+                await h.addAdjust(x, sarDue: sarDue, sarCash: sarCash, takaAgent: takaAgent, note: _note.text);
+                if (context.mounted) Navigator.of(context).pop();
+              },
+      ),
+      body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 24), children: [
+        const Note('পাঠানো লেনদেন বদলায় না। যা ভুল হয়েছে তা এখানে লিখুন — এটা আলাদা থাকবে, মূল হিসাবে ধরা হবে না। পরে লেনদেনের পাতায় "মূল হিসাবে যোগ করুন" চাপলে তবেই হিসাবে ঢুকবে।'),
+        const SizedBox(height: 14),
+        _row(0, 'গ্রাহকের বাকি (রিয়াল)', 'যেমন 50', _due, 'বাকি বাড়বে', 'বাকি কমবে'),
+        _row(1, 'হাতের রিয়াল', 'যেমন 50', _cash, 'হাতে বেশি', 'হাতে কম'),
+        _row(2, 'এজেন্টের পাওনা (টাকা)', 'যেমন 1625', _agent, 'পাওনা বাড়বে', 'পাওনা কমবে'),
+        Field(label: 'কী ভুল হয়েছিল', controller: _note, hint: 'যেমন রিয়াল ৩০০ লিখেছিলাম, আসলে ৩৫০', maxLines: 3),
+        if (any) ...[
+          const SizedBox(height: 12),
+          Tx('যা লেখা হবে: ${adjustText(Adjust(id: '', at: h.now, sarDue: sarDue, sarCash: sarCash, takaAgent: takaAgent))}', style: t(13.5, c: K.muted)),
+        ],
+      ]),
+    );
   }
 }

@@ -255,6 +255,29 @@ call('POST', '/push', ['records' => [['kind' => 'settings', 'rid' => 'main', 'da
 $got = array_values(array_filter($d['records'], fn($r) => $r['kind'] === 'settings'));
 check(($got[0]['data']['templates']['cust_due'] ?? '') === 'ভাই {নাম}, {বাকি} রিয়াল বাকি।', 'message templates reach the other admins');
 
+echo "\nsent sends are locked; অতিরিক্ত হিসাব\n";
+$t0 = rh_one('txn', 't0');
+[, $d] = call('POST', '/push', ['records' => [['kind' => 'txn', 'rid' => 't0', 'data' => ['sar' => 999] + $t0]]], $owner);
+check($d['saved'] === 0 && (float) rh_one('txn', 't0')['sar'] === 300.0, 'a sent send cannot be changed, not even by the main admin');
+[, $d] = call('POST', '/push', ['records' => [['kind' => 'txn', 'rid' => 't0', 'data' => ['fault' => 'mine', 'faultNote' => 'x'] + $t0]]], $owner);
+check($d['saved'] === 1, 'a wrong-number mark still can be set');
+$dueBefore = rh_customer_due('c1');
+$owedBefore = rh_agent_owed('ag1');
+$adj = ['id' => 'a1', 'at' => '2026-11-02T20:30:00.000', 'txnId' => 't0', 'customerId' => 'c1', 'agentId' => 'ag1', 'sarDue' => 50, 'sarCash' => 0, 'takaAgent' => 1625, 'note' => 'রিয়াল কম লিখেছিলাম', 'applied' => false];
+[, $d] = call('POST', '/push', ['records' => [['kind' => 'adjust', 'rid' => 'a1', 'data' => $adj]]], $admin2);
+check($d['saved'] === 1 && rh_customer_due('c1') == $dueBefore && rh_agent_owed('ag1') == $owedBefore, 'অতিরিক্ত হিসাব is kept apart: no account changes');
+[, $d] = call('POST', '/push', ['records' => [['kind' => 'adjust', 'rid' => 'a1', 'data' => ['sarDue' => 5000, 'applied' => true] + $adj]]], $owner);
+check($d['saved'] === 0, 'its amounts cannot be changed afterwards');
+[, $d] = call('POST', '/push', ['records' => [['kind' => 'adjust', 'rid' => 'a1', 'data' => ['applied' => true, 'appliedAt' => '2026-11-02T21:00:00.000', 'appliedByName' => 'সাইফুল'] + $adj]]], $owner);
+check($d['saved'] === 1 && rh_customer_due('c1') == $dueBefore + 50 && rh_agent_owed('ag1') == $owedBefore + 1625 && (int) rh_one('adjust', 'a1')['by'] === (int) $rahimId, 'added to the main account: due and agent change, who wrote it is kept');
+[, $d] = call('POST', '/push', ['records' => [['kind' => 'adjust', 'rid' => 'a1', 'data' => ['applied' => false] + $adj]]], $owner);
+check($d['saved'] === 0 && !empty(rh_one('adjust', 'a1')['applied']), 'once added it stays added');
+$html = page('adjusts');
+check(str_contains($html, 'রিয়াল কম লিখেছিলাম') && str_contains($html, 'মূল হিসাবে যোগ হয়েছে') && str_contains($html, '+৫০'), 'অতিরিক্ত হিসাব page');
+call('POST', '/push', ['records' => [['kind' => 'txn', 'rid' => 'tw', 'data' => ['id' => 'tw', 'no' => 27010009, 'customerId' => '', 'walkIn' => 'রাস্তার ভাই', 'walkInPhone' => '0559999999', 'agentId' => 'ag1', 'number' => '01812345999', 'method' => 'bkash', 'kind' => 'send', 'sar' => 100, 'rate' => 32.5, 'taka' => 3250, 'fee' => 0, 'pay' => 'cash', 'sarPaid' => 100, 'at' => '2026-11-02T20:40:00.000', 'status' => 'pending']]]], $owner);
+$html = page('txns', ['q' => 'রাস্তার']);
+check(str_contains($html, 'রাস্তার ভাই') && str_contains($html, '#২৭০১০০০৯'), 'a send without a profile shows its typed name');
+
 echo "\nturning off, passwords\n";
 [$code] = call('POST', '/password', ['old' => 'wrong', 'new' => 'newpass1'], $admin2);
 check($code === 403, 'own password: the old one is needed');
@@ -287,7 +310,7 @@ call('POST', '/push', ['records' => [
     ['kind' => 'expense', 'rid' => 'e1', 'data' => ['id' => 'e1', 'category' => 'যাতায়াত', 'sar' => 15, 'at' => '2026-11-02T12:00:00.000']],
     ['kind' => 'close', 'rid' => 'k1', 'data' => ['id' => 'k1', 'at' => '2026-11-02T23:00:00.000', 'expected' => 485, 'counted' => 480]],
 ]], $owner);
-check(rh_customer_due('c1') == 500 - 200 - 100, 'customer due: sends − deposits − losses');
+check(rh_customer_due('c1') == 500 - 200 - 100 + 50, 'customer due: sends − deposits − losses + added corrections');
 foreach (array_keys(rh_tabs()) as $tab) {
     $html = page($tab);
     check(str_contains($html, 'rh-tabs') && !str_contains($html, 'Warning') && !str_contains($html, 'Fatal'), "page: $tab");
@@ -299,7 +322,7 @@ check(str_contains($html, '#১০০১') && !str_contains($html, '#' . rh_bn($
 $html = page('txns', ['q' => '345901']);
 check(str_contains($html, '#' . rh_bn($no)) && !str_contains($html, '#১০০১<'), 'txns: search by number');
 $html = page('customers', ['due' => 'yes']);
-check(str_contains($html, 'করিম মিয়া') && str_contains($html, '২০০'), 'customers: due shown');
+check(str_contains($html, 'করিম মিয়া') && str_contains($html, '২৫০'), 'customers: due shown');
 $html = page('payments');
 check(str_contains($html, 'IBFT5') && str_contains($html, 'data:image/jpeg;base64'), 'payments: reference and receipt');
 $html = page('log', ['who' => 'তন্তু ভাই']);
@@ -336,7 +359,7 @@ function rh_open_backup($file, $pass) {
     return $clear === false ? null : json_decode($clear, true);
 }
 $j = rh_open_backup($file, 'backup-pass-1');
-check(str_starts_with($file, 'RHSBBK1') && $j && count($j['data']['txns']) === 3 && $j['data']['customers'][0]['name'] === 'করিম মিয়া' && isset($j['photos']['rc1']), 'the backup holds the whole account and photos, in the app\'s format');
+check(str_starts_with($file, 'RHSBBK1') && $j && count($j['data']['txns']) === 4 && count($j['data']['handovers']) >= 1 && count($j['data']['adjusts']) === 1 && $j['data']['customers'][0]['name'] === 'করিম মিয়া' && isset($j['photos']['rc1']), 'the backup holds the whole account and photos, in the app\'s format');
 check(rh_open_backup($file, 'wrong-pass') === null, 'useless without its password');
 if (getenv('RH_BACKUP_OUT')) file_put_contents(getenv('RH_BACKUP_OUT'), $file);
 

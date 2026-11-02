@@ -77,6 +77,27 @@ class _PickCustomerState extends State<PickCustomer> {
                 const Icon(Icons.chevron_right_rounded, color: K.navy),
               ]),
             ),
+            if (!widget.forDeposit) ...[
+              const SizedBox(height: 10),
+              CardBox(
+                onTap: () async {
+                  final digits = en(q).replaceAll(RegExp(r'[^0-9+]'), '');
+                  final c = await _askWalkIn(context, name: digits.length >= 5 ? '' : q, phone: digits.length >= 5 ? digits : '');
+                  if (c != null && mounted) _open(c);
+                },
+                child: Row(children: [
+                  dotIcon(Icons.flash_on_rounded, K.amberTint, K.amberText),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Tx('প্রোফাইল ছাড়া পাঠান', style: t(15, w: FontWeight.w600)),
+                      Tx('নাম-নম্বর ইচ্ছা হলে দিন · পুরো রিয়াল নগদে', style: t(12.5, c: K.muted)),
+                    ]),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, color: K.muted),
+                ]),
+              ),
+            ],
             const SizedBox(height: 12),
             if (list.isEmpty && q.isNotEmpty) Note('"$q" নামে বা নম্বরে কেউ নেই। ওপরে চাপ দিয়ে প্রোফাইল বানান।'),
             if (list.isNotEmpty)
@@ -329,6 +350,8 @@ class _EntryScreenState extends State<EntryScreen> {
           id: '',
           no: 0,
           customerId: widget.c.id,
+          walkIn: widget.c.id.isEmpty ? (widget.c.name == 'প্রোফাইল ছাড়া' ? '' : widget.c.name) : '',
+          walkInPhone: widget.c.id.isEmpty ? widget.c.phone : '',
           recipientLabel: '',
           number: '',
           method: Method.bkash,
@@ -581,7 +604,8 @@ class ConfirmSheet extends StatefulWidget {
 
 class _ConfirmSheetState extends State<ConfirmSheet> {
   Hisab get h => widget.h;
-  late Pay _pay = widget.editing?.pay ?? Pay.due;
+  // Without a profile there is no account to owe on: cash only.
+  late Pay _pay = widget.c.id.isEmpty ? Pay.cash : (widget.editing?.pay ?? Pay.due);
   late final _paid = TextEditingController(text: widget.editing != null && widget.editing!.pay == Pay.partial ? groupEn(widget.editing!.sarPaid, decimals: 2).replaceAll(',', '') : '');
   bool _busy = false;
 
@@ -640,7 +664,8 @@ class _ConfirmSheetState extends State<ConfirmSheet> {
           e.pack != changed.pack;
       nav.popUntil((r) => r.isFirst);
       nav.push(MaterialPageRoute(builder: (_) => TxnScreen(h: h, id: e.id)));
-      if (diffs.isNotEmpty && agentSide && e.status == TxnStatus.pending && !agent.usesApp) {
+      if (diffs.isNotEmpty && agentSide && !agent.usesApp) {
+        // Required: the agent must not send the old amount or number.
         final ok = await h.s.device.whatsapp(agent.whatsapp, agentChangeMessage(h.txnById(e.id)!, h.d));
         await h.logMessage(h.txnById(e.id)!, ok ? 'এজেন্টকে সংশোধনের মেসেজ' : 'হোয়াটসঅ্যাপ খোলা যায়নি');
       }
@@ -681,7 +706,10 @@ class _ConfirmSheetState extends State<ConfirmSheet> {
             const SizedBox(height: 14),
             Tx('রিয়াল কীভাবে পেলেন', style: t(13, c: K.muted)),
             const SizedBox(height: 6),
-            Seg<Pay>(items: const [(Pay.cash, 'নগদে'), (Pay.due, 'বাকি'), (Pay.partial, 'আংশিক')], value: _pay, onChanged: (p) => setState(() => _pay = p)),
+            if (widget.c.id.isEmpty)
+              const Note('প্রোফাইল ছাড়া পাঠানো: পুরো রিয়াল নগদে নিতে হবে, বাকি রাখা যায় না।')
+            else
+              Seg<Pay>(items: const [(Pay.cash, 'নগদে'), (Pay.due, 'বাকি'), (Pay.partial, 'আংশিক')], value: _pay, onChanged: (p) => setState(() => _pay = p)),
             if (_pay == Pay.partial) ...[
               const SizedBox(height: 10),
               Field(label: 'এখন কত রিয়াল দিলেন', controller: _paid, number: true, suffix: 'SAR', autofocus: true, onChanged: (_) => setState(() {})),
@@ -739,4 +767,39 @@ class _ConfirmSheetState extends State<ConfirmSheet> {
           Expanded(child: Tx(v, textAlign: TextAlign.right, style: t(bold ? 16 : 14.5, w: bold ? FontWeight.w700 : FontWeight.w500))),
         ]),
       );
+}
+
+
+/// Name and Saudi number for one send without a profile; both optional.
+Future<Customer?> _askWalkIn(BuildContext context, {String name = '', String phone = ''}) {
+  final n = TextEditingController(text: name), p = TextEditingController(text: phone);
+  return showModalBottomSheet<Customer>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (ctx) => Padding(
+      padding: EdgeInsets.fromLTRB(18, 18, 18, 18 + MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).padding.bottom),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Tx('প্রোফাইল ছাড়া পাঠান', style: t(18, w: FontWeight.w600), textAlign: TextAlign.center),
+        const SizedBox(height: 4),
+        Tx('গ্রাহকের তালিকায় যাবে না। শুধু এই লেনদেনে নাম-নম্বর থাকবে।', style: t(13, c: K.muted), textAlign: TextAlign.center),
+        const SizedBox(height: 14),
+        Field(label: 'নাম (ইচ্ছা হলে)', controller: n),
+        const SizedBox(height: 10),
+        Field(label: 'সৌদি মোবাইল (ইচ্ছা হলে, রসিদ পাঠাতে)', controller: p, saudi: true),
+        const SizedBox(height: 16),
+        Pill(
+          label: 'এগোন',
+          onTap: () {
+            final ph = p.text.trim().isEmpty ? '' : saMobile(p.text);
+            if (ph == null) {
+              snack(ctx, 'সৌদি মোবাইল নম্বর ঠিক নেই — 05 দিয়ে শুরু, মোট ১০ সংখ্যা');
+              return;
+            }
+            Navigator.pop(ctx, walkInCustomer(n.text, ph));
+          },
+        ),
+      ]),
+    ),
+  );
 }

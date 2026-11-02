@@ -310,8 +310,8 @@ class TxnRow extends StatelessWidget {
             ? ('বাকি ${bnNum(due, decimals: 2)}', K.red)
             : (label, color);
     return Row2(
-      lead: showCustomer ? Avatar(h: h, name: c?.name ?? '?', photo: c?.photo, size: 42) : dotIcon(t.kind.isTopUp ? Icons.phone_android_rounded : Icons.north_east_rounded, K.blueTint, K.blue),
-      title: showCustomer ? (c?.name ?? 'গ্রাহক নেই') : (t.recipientLabel.isEmpty ? bdShow(t.number) : t.recipientLabel),
+      lead: showCustomer ? Avatar(h: h, name: customerNameOf(h.d, t), photo: c?.photo, size: 42) : dotIcon(t.kind.isTopUp ? Icons.phone_android_rounded : Icons.north_east_rounded, K.blueTint, K.blue),
+      title: showCustomer ? customerNameOf(h.d, t) : (t.recipientLabel.isEmpty ? bdShow(t.number) : t.recipientLabel),
       sub: '#${bn('${t.no}')} · ${dateShort(t.at)}, ${timeText(t.at)} · ${serviceName(t)} ${bdMasked(t.number)}${t.byName.isEmpty ? '' : ' · ${t.byName}'}',
       value: sar(t.sarAmount),
       valueColor: t.cancelled ? K.muted : K.ink,

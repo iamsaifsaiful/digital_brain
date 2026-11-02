@@ -200,7 +200,7 @@ void main() {
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
     await tester.pumpAndSettle();
     for (final d in ['1', '2', '3', '4']) {
-      await tester.tap(find.text(String.fromCharCode(0x09E6 + int.parse(d))).first);
+      await tester.tap(find.text(String.fromCharCode(0x09E6 + int.parse(d))).last);
       await tester.pump();
     }
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 400)));
@@ -253,7 +253,7 @@ void main() {
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
     await tester.pumpAndSettle();
     for (final d in ['1', '2', '3', '4']) {
-      await tester.tap(find.text(String.fromCharCode(0x09E6 + int.parse(d))).first);
+      await tester.tap(find.text(String.fromCharCode(0x09E6 + int.parse(d))).last);
       await tester.pump();
     }
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 400)));

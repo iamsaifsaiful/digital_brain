@@ -19,6 +19,9 @@ double customerDue(AppData d, String customerId) {
   for (final l in d.losses) {
     if (l.customerId == customerId) due -= l.sarAmount;
   }
+  for (final a in d.adjusts) {
+    if (a.applied && a.customerId == customerId) due += a.sarDue;
+  }
   return _round2(due);
 }
 
@@ -81,6 +84,9 @@ double agentOwed(AppData d, String agentId) {
   for (final p in d.agentPayments) {
     if (p.agentId == agentId) owed -= p.taka;
   }
+  for (final x in d.adjusts) {
+    if (x.applied && x.agentId == agentId) owed += x.takaAgent;
+  }
   return owed.roundToDouble();
 }
 
@@ -94,7 +100,19 @@ Agent? agentById(AppData d, String id) {
   return null;
 }
 
+/// The customer's name for a send: the profile's, or the name typed for a
+/// send without a profile.
+String customerNameOf(AppData d, Txn t) {
+  final c = customerById(d, t.customerId);
+  if (c != null) return c.name;
+  return t.walkIn.trim().isEmpty ? 'প্রোফাইল ছাড়া' : t.walkIn.trim();
+}
+
+/// A stand-in customer for a send without a profile (never saved).
+Customer walkInCustomer(String name, String phone) => Customer(id: '', name: name.trim().isEmpty ? 'প্রোফাইল ছাড়া' : name.trim(), phone: phone, created: DateTime(2000));
+
 Customer? customerById(AppData d, String id) {
+  if (id.isEmpty) return null;
   for (final c in d.customers) {
     if (c.id == id) return c;
   }
@@ -130,8 +148,7 @@ List<CashLine> cashLines(AppData d, {int? me, bool owner = false}) {
   final out = <CashLine>[];
   for (final t in d.txns) {
     if (t.cancelled || t.sarPaid <= 0 || !mine(t.by)) continue;
-    final c = customerById(d, t.customerId);
-    out.add(CashLine(at: t.at, title: '${c?.name ?? ''} · #${t.no}', sub: '${t.pay == Pay.partial ? 'আংশিক' : 'নগদে'} · ${serviceName(t)}', inSar: t.sarPaid, kind: 'txn', ref: t.id, by: t.by, byName: who(t.by, t.byName)));
+    out.add(CashLine(at: t.at, title: '${customerNameOf(d, t)} · #${t.no}', sub: '${t.pay == Pay.partial ? 'আংশিক' : 'নগদে'} · ${serviceName(t)}', inSar: t.sarPaid, kind: 'txn', ref: t.id, by: t.by, byName: who(t.by, t.byName)));
   }
   for (final p in d.deposits) {
     if (!mine(p.by)) continue;
@@ -149,6 +166,20 @@ List<CashLine> cashLines(AppData d, {int? me, bool owner = false}) {
     if (me == null) continue; // a handover changes no total
     if (inHandOf(h.from, me, owner: owner)) out.add(CashLine(at: h.at, title: '${h.toName}-কে দিলাম', sub: 'হাতবদল${h.note.isEmpty ? '' : ' · ${h.note}'}', outSar: h.sarAmount, kind: 'handover', by: h.from, byName: h.fromName));
     if (inHandOf(h.to, me, owner: owner)) out.add(CashLine(at: h.at, title: '${h.fromName}-এর কাছ থেকে বুঝে নিলাম', sub: 'হাতবদল${h.note.isEmpty ? '' : ' · ${h.note}'}', inSar: h.sarAmount, kind: 'handover', by: h.to, byName: h.toName));
+  }
+  for (final a in d.adjusts) {
+    if (!a.applied || a.sarCash.abs() < 0.005 || !mine(a.by)) continue;
+    final t = d.txns.where((x) => x.id == a.txnId).firstOrNull;
+    out.add(CashLine(
+        at: a.appliedAt ?? a.at,
+        title: 'অতিরিক্ত হিসাব${t == null ? '' : ' · #${t.no}'}',
+        sub: a.note,
+        inSar: a.sarCash > 0 ? a.sarCash : 0,
+        outSar: a.sarCash < 0 ? -a.sarCash : 0,
+        kind: 'adjust',
+        ref: a.txnId,
+        by: a.by,
+        byName: who(a.by, a.byName)));
   }
   for (final c in d.closes) {
     if (c.difference.abs() < 0.005 || !mine(c.by)) continue;
@@ -188,11 +219,24 @@ Map<int, String> adminsIn(AppData d) {
   for (final x in d.agentPayments) {
     add(x.by, x.byName);
   }
+  for (final x in d.adjusts) {
+    add(x.by, x.byName);
+  }
   for (final h in d.handovers) {
     add(h.from, h.fromName);
     add(h.to, h.toName);
   }
   return out;
+}
+
+/// "গ্রাহকের বাকি +৫০ SAR · হাতে −২০ SAR · এজেন্টের পাওনা +৳ ৬৫০".
+String adjustText(Adjust x) {
+  String signed(double v, String Function(double) f) => '${v > 0 ? '+' : '−'}${f(v.abs())}';
+  return [
+    if (x.sarDue.abs() >= 0.005) 'গ্রাহকের বাকি ${signed(x.sarDue, sar)}',
+    if (x.sarCash.abs() >= 0.005) 'হাতে ${signed(x.sarCash, sar)}',
+    if (x.takaAgent.abs() >= 0.5) 'এজেন্টের পাওনা ${signed(x.takaAgent, taka)}',
+  ].join(' · ');
 }
 
 /// Riyal owed by all customers together (only those who owe).
@@ -398,19 +442,24 @@ String agentDayStatement(AppData d, Agent a, DateTime day) {
 }
 
 String _sign(AppData d) => d.settings.ownerName.trim();
-String _dueText(double due) => due > 0 ? '${groupEn(due, decimals: 2)} রিয়াল' : 'নেই';
+/// The due line's value; empty when nothing is owed, so the line is left
+/// out of the message (no "বাকি নেই").
+String _dueText(double due) => due > 0 ? '${groupEn(due, decimals: 2)} রিয়াল' : '';
 
 /// Receipt for the customer once the taka arrived.
-String customerReceipt(AppData d, Txn t) {
+/// [pin]: last digits of the number the agent sent from (null = as the
+/// agent reported, '' = leave the line out).
+String customerReceipt(AppData d, Txn t, {String? pin}) {
   final c = customerById(d, t.customerId);
   return fillTemplate(_tpl(d, 'cust_receipt'), {
-    'নাম': c?.name ?? '',
+    'নাম': c?.name ?? t.walkIn.trim(),
     'খবর': t.kind.isTopUp ? 'আপনার ${t.kind.bnName} হয়ে গেছে।' : 'আপনার টাকা পৌঁছেছে।',
     'প্রাপক': '${t.recipientLabel.isEmpty ? '' : '${t.recipientLabel} · '}${bdShowEn(t.number)}',
     'মাধ্যম': t.kind.isTopUp ? serviceName(t) : _methodWord(t),
     'প্যাক': t.kind == Kind.mb ? t.pack : '',
     'টাকা': groupEn(t.taka.round()),
     'TrxID': t.trxId,
+    'পিন': t.kind.isTopUp ? '' : (pin ?? t.replyTail),
     'রিয়াল': '${groupEn(t.sarAmount, decimals: 2)}${t.pay == Pay.cash ? ' (পরিশোধ)' : ''}',
     'বাকি': _dueText(customerDue(d, t.customerId)),
     'স্বাক্ষর': _sign(d),
@@ -462,7 +511,7 @@ String txnsCsv(AppData d) {
     b.writeln([
       t.no,
       t.at.toIso8601String().substring(0, 16).replaceFirst('T', ' '),
-      q(customerById(d, t.customerId)?.name ?? ''),
+      q(customerNameOf(d, t)),
       q(t.recipientLabel),
       t.number,
       t.method.name,

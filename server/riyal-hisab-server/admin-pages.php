@@ -27,6 +27,7 @@ function rh_tabs() {
         'cash' => 'হাতের হিসাব',
         'expenses' => 'খরচ',
         'losses' => 'লস',
+        'adjusts' => 'অতিরিক্ত হিসাব',
         'closes' => 'দিন শেষ',
         'promises' => 'তাগাদা',
         'notes' => 'নোটিফিকেশন',
@@ -337,7 +338,7 @@ function rh_tab_txns() {
         if (rh_f('by') !== '' && (int) ($t['by'] ?? 0) !== (int) rh_f('by')) {
             return false;
         }
-        return rh_search_hit($q, $t['no'] ?? '', $t['number'] ?? '', $t['trxId'] ?? '', $t['agentReply'] ?? '', $customers[$t['customerId'] ?? '']['name'] ?? '', $t['recipientLabel'] ?? '');
+        return rh_search_hit($q, $t['no'] ?? '', $t['number'] ?? '', $t['trxId'] ?? '', $t['agentReply'] ?? '', $customers[$t['customerId'] ?? '']['name'] ?? '', $t['recipientLabel'] ?? '', $t['walkIn'] ?? '', $t['walkInPhone'] ?? '');
     }));
     $live = array_filter($rows, fn($t) => !rh_cancelled($t));
     echo '<p class="rh-sum">' . esc_html(rh_bn(count($rows)) . 'টা লেনদেন · ' . rh_sar(array_sum(array_map(fn($t) => (float) $t['sar'], $live))) . ' · ' . rh_taka(array_sum(array_map(fn($t) => (float) $t['taka'], $live)))) . '</p>';
@@ -347,7 +348,7 @@ function rh_tab_txns() {
     <?php foreach ($page as $t) : [$sl, $sc] = rh_status_label($t); ?>
         <tr class="<?php echo rh_cancelled($t) ? 'dim' : ''; ?>">
             <td><b>#<?php echo esc_html(rh_bn($t['no'] ?? '')); ?></b><br><small><?php echo esc_html(rh_when($t['at'] ?? '')); ?></small></td>
-            <td><?php echo esc_html($customers[$t['customerId'] ?? '']['name'] ?? '—'); ?><?php if (($t['recipientLabel'] ?? '') !== '') : ?><br><small>প্রাপক: <?php echo esc_html($t['recipientLabel']); ?></small><?php endif; ?></td>
+            <td><?php echo esc_html($customers[$t['customerId'] ?? '']['name'] ?? ((($t['walkIn'] ?? '') !== '' ? $t['walkIn'] : 'প্রোফাইল ছাড়া') . (($t['walkInPhone'] ?? '') !== '' ? ' · ' . rh_bn($t['walkInPhone']) : ''))); ?><?php if (($t['recipientLabel'] ?? '') !== '') : ?><br><small>প্রাপক: <?php echo esc_html($t['recipientLabel']); ?></small><?php endif; ?></td>
             <td><?php echo esc_html(rh_service($t)); ?><?php if (($t['kind'] ?? '') === 'mb' && ($t['pack'] ?? '') !== '') : ?> <small>(<?php echo esc_html($t['pack']); ?>)</small><?php endif; ?><br><small><?php echo esc_html(rh_phone_show($t['number'] ?? '')); ?></small></td>
             <td class="r"><?php echo esc_html(rh_num($t['sar'] ?? 0, 2)); ?></td>
             <td class="r"><?php echo esc_html(rh_num($t['rate'] ?? 0, 2)); ?></td>
@@ -526,6 +527,37 @@ function rh_tab_payments() {
     }, fn($rows) => rh_bn(count($rows)) . 'বার · ' . rh_taka(array_sum(array_map(fn($p) => (float) $p['taka'], $rows))) . ' · ' . rh_sar(array_sum(array_map(fn($p) => (float) ($p['sar'] ?? 0), $rows))));
 }
 
+/** Corrections to sent sends, apart until added to the main account. */
+function rh_tab_adjusts() {
+    $txns = rh_all('txn');
+    $customers = rh_all('customer');
+    $agents = rh_all('agent');
+    $sign = fn($v, $f) => (float) $v === 0.0 ? '—' : ((float) $v > 0 ? '+' : '−') . $f(abs((float) $v));
+    rh_simple_table('adjusts', 'adjust', ['সময়', 'লেনদেন', 'গ্রাহক / এজেন্ট', 'কেন', 'এডমিন', '>গ্রাহকের বাকি', '>হাতে', '>এজেন্টের পাওনা', 'অবস্থা'], function ($x) use ($txns, $customers, $agents, $sign) {
+        $t = $txns[$x['txnId'] ?? ''] ?? null;
+        return [
+            esc_html(rh_when($x['at'] ?? '')),
+            esc_html($t ? '#' . rh_bn($t['no'] ?? '') : '—'),
+            esc_html(($customers[$x['customerId'] ?? '']['name'] ?? '—') . ' / ' . ($agents[$x['agentId'] ?? '']['name'] ?? '—')),
+            esc_html($x['note'] ?? ''),
+            esc_html(rh_admin_name($x)),
+            esc_html($sign($x['sarDue'] ?? 0, fn($v) => rh_num($v, 2))),
+            esc_html($sign($x['sarCash'] ?? 0, fn($v) => rh_num($v, 2))),
+            esc_html($sign($x['takaAgent'] ?? 0, fn($v) => rh_num($v))),
+            !empty($x['applied']) ? '<span class="rh-pill green">মূল হিসাবে যোগ হয়েছে</span><br><small>' . esc_html(rh_when($x['appliedAt'] ?? '') . ' · ' . ($x['appliedByName'] ?? '')) . '</small>' : '<span class="rh-pill gray">আলাদা রাখা</span>',
+        ];
+    }, ['state' => ['অবস্থা', ['' => 'সব', 'apart' => 'আলাদা রাখা', 'applied' => 'মূল হিসাবে যোগ হয়েছে']]], 'কেন', function ($x, $q) {
+        $st = rh_f('state');
+        if ($st === 'apart' && !empty($x['applied'])) {
+            return false;
+        }
+        if ($st === 'applied' && empty($x['applied'])) {
+            return false;
+        }
+        return rh_search_hit($q, $x['note'] ?? '');
+    });
+}
+
 function rh_admin_options() {
     $o = ['' => 'সব এডমিন'];
     foreach (rh_admins_in() as $id => $name) {
@@ -575,7 +607,7 @@ function rh_tab_cash() {
     $in = array_sum(array_column($lines, 3));
     $out = array_sum(array_column($lines, 4));
     echo '<p class="rh-sum">' . esc_html(($by === null ? rh_owner_name() . '-এর মোট' : ($admins[$by] ?? '') . '-এর') . ' হাত · আগে থেকে ' . rh_sar($before) . ' · এসেছে ' . rh_sar($in) . ' · গেছে ' . rh_sar($out) . ' · শেষে ' . rh_sar($before + $in - $out)) . '</p>';
-    $kinds = ['txn' => 'লেনদেন', 'deposit' => 'জমা', 'expense' => 'খরচ', 'payment' => 'এজেন্টকে', 'handover' => 'হাতবদল', 'close' => 'দিন শেষ'];
+    $kinds = ['txn' => 'লেনদেন', 'deposit' => 'জমা', 'expense' => 'খরচ', 'payment' => 'এজেন্টকে', 'handover' => 'হাতবদল', 'adjust' => 'অতিরিক্ত', 'close' => 'দিন শেষ'];
     $bal = $before;
     $rows = [];
     foreach ($lines as $l) {

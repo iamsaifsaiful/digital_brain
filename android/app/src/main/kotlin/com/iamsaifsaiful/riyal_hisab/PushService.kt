@@ -83,6 +83,8 @@ class PushService : FirebaseMessagingService() {
             if (Build.VERSION.SDK_INT < 26) return
             val nm = context.getSystemService(NotificationManager::class.java) ?: return
             nm.deleteNotificationChannel(OLD_CHANNEL)
+            nm.deleteNotificationChannel("due_promises")
+            nm.deleteNotificationChannel("due_promises_v2")
             if (nm.getNotificationChannel(CHANNEL) != null) return
             nm.createNotificationChannel(NotificationChannel(CHANNEL, "লেনদেনের খবর", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "নতুন অনুরোধ, এজেন্ট পাঠালেন, টাকা দেওয়া"
@@ -140,6 +142,10 @@ class PushService : FirebaseMessagingService() {
                     } catch (_: Exception) {
                         result.success(null)
                     }
+                }
+                "test" -> {
+                    show(context, call.argument<String>("title") ?: "রেমিট খাতা", call.argument<String>("body") ?: "")
+                    result.success(true)
                 }
                 else -> result.notImplemented()
             }

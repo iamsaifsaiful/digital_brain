@@ -31,7 +31,7 @@ Future<void> tapText(WidgetTester tester, String s) async {
 
 Future<void> pin(WidgetTester tester, String p) async {
   for (final ch in p.split('')) {
-    await tester.tap(find.text(String.fromCharCode('০'.codeUnitAt(0) + int.parse(ch))).first);
+    await tester.tap(find.text(String.fromCharCode('০'.codeUnitAt(0) + int.parse(ch))).last);
     await tester.pump();
   }
   await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
@@ -246,10 +246,24 @@ void main() {
     await tester.fling(find.byType(Scrollable).hitTestable().first, const Offset(0, 3000), 3000);
     await tester.pumpAndSettle();
     expect(find.text('ভুল নম্বরে গেছে — এজেন্টের ভুল'), findsOneWidget);
-    await tester.tap(find.byTooltip('সংশোধন'));
+    // A sent send is never edited: a mistake goes to অতিরিক্ত হিসাব.
+    expect(find.byTooltip('সংশোধন'), findsNothing);
+    final dueBefore = customerDue(h.d, h.d.customers.single.id);
+    await tapText(tester, 'ভুল হয়েছে? অতিরিক্ত হিসাব লিখুন');
+    await tester.enterText(find.byType(TextField).first, '50');
+    await tester.enterText(find.byType(TextField).last, 'রিয়াল ৫০ কম লিখেছিলাম');
     await tester.pumpAndSettle();
-    expect(find.text('লেনদেন সংশোধন #২৬১১০০০১'), findsOneWidget);
-    expect(find.textContaining('টাকা, নম্বর আর খরচ বদলানো যাবে না'), findsOneWidget);
+    await tester.tap(find.text('আলাদা করে রাখুন'));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+    await tester.pumpAndSettle();
+    expect(h.d.adjusts.single.sarDue, 50);
+    expect(customerDue(h.d, h.d.customers.single.id), dueBefore, reason: 'apart until added');
+    await tapText(tester, 'মূল হিসাবে যোগ করুন');
+    await tapText(tester, 'যোগ করুন');
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+    await tester.pumpAndSettle();
+    expect(customerDue(h.d, h.d.customers.single.id), dueBefore + 50);
+    expect(find.text('মূল হিসাবে আছে'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     // Everything is on the server.
@@ -260,6 +274,7 @@ void main() {
     expect(server.one('txn', h.d.txns.single.id)!['fault'], 'agent');
     expect(server.records.keys.where((k) => k.startsWith('log:')).length, h.d.log.length);
     expect(server.records.containsKey('payment:${h.d.agentPayments.single.id}'), isTrue);
+    expect(server.one('adjust', h.d.adjusts.single.id)!['applied'], isTrue);
     expect(h.d.txns.single.no, 26110001);
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 2));

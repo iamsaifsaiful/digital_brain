@@ -209,6 +209,9 @@ class Txn {
     this.pack = '',
     this.agentReply = '',
     this.replyTail = '',
+    this.changeNotice = '',
+    this.walkIn = '',
+    this.walkInPhone = '',
     this.fault,
     this.faultNote = '',
     this.by = 0,
@@ -262,6 +265,15 @@ class Txn {
   /// 'manual' (an admin typed it), 'agent' (the agent in their app).
   String replyFrom;
 
+  /// Sent without a customer profile: the name (and Saudi number) typed
+  /// for this send only. Such a send is always paid in cash.
+  String walkIn;
+  String walkInPhone;
+
+  /// 'pending' after a change the agent must be told about (amount,
+  /// number…), until the admin confirms the message went.
+  String changeNotice;
+
   /// Set when the money went to a wrong number: whose mistake it was.
   Fault? fault;
   String faultNote;
@@ -310,6 +322,9 @@ class Txn {
         'by': by,
         'byName': byName,
         'replyFrom': replyFrom,
+        'changeNotice': changeNotice,
+        'walkIn': walkIn,
+        'walkInPhone': walkInPhone,
       };
 
   factory Txn.fromJson(Map<String, Object?> j) => Txn(
@@ -342,6 +357,9 @@ class Txn {
         by: _i(j['by']),
         byName: _s(j['byName']),
         replyFrom: _s(j['replyFrom']),
+        changeNotice: _s(j['changeNotice']),
+        walkIn: _s(j['walkIn']),
+        walkInPhone: _s(j['walkInPhone']),
       );
 }
 
@@ -533,6 +551,81 @@ class Handover {
       );
 }
 
+/// A correction for a send the agent already sent ("অতিরিক্ত হিসাব"): a sent
+/// send is never edited, so a mistake is written down here instead. It counts
+/// nowhere until an admin adds it to the main account ([applied]).
+class Adjust {
+  Adjust({
+    required this.id,
+    required this.at,
+    this.txnId = '',
+    this.customerId = '',
+    this.agentId = '',
+    this.sarDue = 0,
+    this.sarCash = 0,
+    this.takaAgent = 0,
+    this.note = '',
+    this.applied = false,
+    this.appliedAt,
+    this.appliedByName = '',
+    this.by = 0,
+    this.byName = '',
+  });
+  final String id;
+  final DateTime at;
+  final String txnId;
+  final String customerId;
+  final String agentId;
+
+  /// Riyal more (+) or less (−) the customer owes.
+  final double sarDue;
+
+  /// Riyal more (+) or less (−) in hand.
+  final double sarCash;
+
+  /// Taka more (+) or less (−) owed to the agent.
+  final double takaAgent;
+  final String note;
+  bool applied;
+  DateTime? appliedAt;
+  String appliedByName;
+  int by;
+  String byName;
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'at': at.toIso8601String(),
+        'txnId': txnId,
+        'customerId': customerId,
+        'agentId': agentId,
+        'sarDue': sarDue,
+        'sarCash': sarCash,
+        'takaAgent': takaAgent,
+        'note': note,
+        'applied': applied,
+        'appliedAt': appliedAt?.toIso8601String(),
+        'appliedByName': appliedByName,
+        'by': by,
+        'byName': byName,
+      };
+  factory Adjust.fromJson(Map<String, Object?> j) => Adjust(
+        id: _s(j['id']),
+        at: _t(j['at']),
+        txnId: _s(j['txnId']),
+        customerId: _s(j['customerId']),
+        agentId: _s(j['agentId']),
+        sarDue: _d(j['sarDue']),
+        sarCash: _d(j['sarCash']),
+        takaAgent: _d(j['takaAgent']),
+        note: _s(j['note']),
+        applied: j['applied'] == true,
+        appliedAt: j['appliedAt'] == null ? null : _t(j['appliedAt']),
+        appliedByName: _s(j['appliedByName']),
+        by: _i(j['by']),
+        byName: _s(j['byName']),
+      );
+}
+
 /// One line of the activity log. The log is only ever added to.
 class LogEntry {
   LogEntry({String? id, required this.at, required this.kind, required this.title, required this.detail, this.who = 'me', this.ref = ''})
@@ -625,6 +718,7 @@ class AppData {
     List<DayClose>? closes,
     List<Loss>? losses,
     List<Handover>? handovers,
+    List<Adjust>? adjusts,
     List<LogEntry>? log,
   })  : settings = settings ?? Settings(),
         customers = customers ?? [],
@@ -636,6 +730,7 @@ class AppData {
         closes = closes ?? [],
         losses = losses ?? [],
         handovers = handovers ?? [],
+        adjusts = adjusts ?? [],
         log = log ?? [];
 
   Settings settings;
@@ -652,6 +747,7 @@ class AppData {
   List<DayClose> closes;
   List<Loss> losses;
   List<Handover> handovers;
+  List<Adjust> adjusts;
   List<LogEntry> log;
 
   Map<String, Object?> toJson() => {
@@ -667,6 +763,7 @@ class AppData {
         'closes': [for (final x in closes) x.toJson()],
         'losses': [for (final x in losses) x.toJson()],
         'handovers': [for (final x in handovers) x.toJson()],
+        'adjusts': [for (final x in adjusts) x.toJson()],
         'log': [for (final x in log) x.toJson()],
       };
 
@@ -683,6 +780,7 @@ class AppData {
       closes: p.closes,
       losses: p.losses,
       handovers: p.handovers,
+      adjusts: p.adjusts,
       log: p.log,
     )..sync = SyncState.fromJson(((j['sync'] as Map?) ?? const {}).cast<String, Object?>());
   }
@@ -700,6 +798,7 @@ class _AppDataParts {
         closes = [for (final x in _l(j['closes'])) DayClose.fromJson(x)],
         losses = [for (final x in _l(j['losses'])) Loss.fromJson(x)],
         handovers = [for (final x in _l(j['handovers'])) Handover.fromJson(x)],
+        adjusts = [for (final x in _l(j['adjusts'])) Adjust.fromJson(x)],
         log = [for (final x in _l(j['log'])) LogEntry.fromJson(x)];
   final Settings settings;
   final List<Customer> customers;
@@ -711,6 +810,7 @@ class _AppDataParts {
   final List<DayClose> closes;
   final List<Loss> losses;
   final List<Handover> handovers;
+  final List<Adjust> adjusts;
   final List<LogEntry> log;
 }
 
