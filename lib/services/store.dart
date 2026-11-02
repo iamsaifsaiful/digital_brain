@@ -159,7 +159,10 @@ class Backup {
   static Future<Uint8List> export(AppData data, String password, {Map<String, Uint8List> photos = const {}, int iterations = defaultIterations}) async {
     final salt = randomBytes(16);
     final key = await deriveKey(password, salt, iterations);
-    final payload = {'data': data.toJson(), 'photos': {for (final e in photos.entries) e.key: base64Encode(e.value)}};
+    final payload = {
+      'data': data.toJson(),
+      'photos': {for (final e in photos.entries) e.key: base64Encode(e.value)}
+    };
     final sealed = await seal(utf8.encode(jsonEncode(payload)), key);
     final it = ByteData(4)..setUint32(0, iterations);
     return Uint8List.fromList([..._prefix, ...salt, ...it.buffer.asUint8List(), ...sealed]);

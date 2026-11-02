@@ -22,6 +22,22 @@
 - Riyal deposits: any amount; shown against the oldest sends first.
 - Activity log keeps when and what for everything.
 
+## Added in 1.1
+- Opening animation on the PIN screen (riyal coin → taka), swipeable tabs, a 5th tab "অন্যান্য"
+  (expenses, day close, log, settings, losses, promises, wrong-number list).
+- Entry works both ways live: riyal × rate → taka, or taka ÷ rate → riyal (whichever was typed last).
+- Customer "promise to pay" date → local notification (flutter_local_notifications, same setup as My Assistant).
+- Loss ("আদায় হবে না"): takes riyal off the due, adds nothing to cash in hand.
+- Wrong number: mark whose mistake on a sent transaction. A sent transaction cannot be cancelled;
+  editing it keeps taka, number and fee fixed.
+- Agent payments keep way, date, from-account, reference and an optional receipt photo (encrypted, in backups).
+- Mobile recharge and MB packs (operator, pack) as transaction kinds; the agent's message says so.
+- Agent reply format: "<send no> <taka>-<last 3 digits>", e.g. `1042 10000-667`, TrxID optional.
+  The send number decides the match; without it the app matches by taka and asks. Nothing is put on a
+  send until the user taps it.
+- PDF for every report (`lib/services/pdf.dart`): pages drawn with Flutter's text engine so Bangla joins
+  correctly, stored as images in the PDF (text is not selectable).
+
 ## Build / release
 - `.github/workflows/riyal_hisab.yml` runs on push to branch `riyal-hisab` of
   `iamsaifsaiful/digital_brain`: analyze, test, sign with the same release-key secrets as

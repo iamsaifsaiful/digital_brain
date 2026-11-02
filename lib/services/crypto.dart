@@ -89,8 +89,7 @@ Future<Uint8List> seal(List<int> clear, List<int> key) async {
 /// was changed.
 Future<Uint8List> open(List<int> sealed, List<int> key) async {
   try {
-    final box = SecretBox.fromConcatenation(sealed,
-        nonceLength: _aes.nonceLength, macLength: _aes.macAlgorithm.macLength);
+    final box = SecretBox.fromConcatenation(sealed, nonceLength: _aes.nonceLength, macLength: _aes.macAlgorithm.macLength);
     return Uint8List.fromList(await _aes.decrypt(box, secretKey: SecretKey(key)));
   } on SecretBoxAuthenticationError {
     throw const WrongKey();

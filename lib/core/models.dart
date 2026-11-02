@@ -18,11 +18,35 @@ extension MethodText on Method {
 
 Method methodOf(String s) => Method.values.firstWhere((m) => m.name == s, orElse: () => Method.bkash);
 
-/// সেন্ড মানি বা ক্যাশ আউট.
-enum Kind { send, cashout }
+/// সেন্ড মানি, ক্যাশ আউট, মোবাইল রিচার্জ বা ইন্টারনেট (এমবি) প্যাক.
+enum Kind { send, cashout, recharge, mb }
 
 extension KindText on Kind {
-  String get bnName => this == Kind.send ? 'সেন্ড মানি' : 'ক্যাশ আউট';
+  String get bnName => const {Kind.send: 'সেন্ড মানি', Kind.cashout: 'ক্যাশ আউট', Kind.recharge: 'মোবাইল রিচার্জ', Kind.mb: 'এমবি প্যাক'}[this]!;
+
+  /// Recharge and MB go to a phone, not to a bKash/Nagad account.
+  bool get isTopUp => this == Kind.recharge || this == Kind.mb;
+}
+
+/// Bangladeshi mobile operators, for recharge and MB.
+const operators = ['গ্রামীণফোন', 'রবি', 'এয়ারটেল', 'বাংলালিংক', 'টেলিটক'];
+
+/// The operator a number belongs to, from its prefix (013/017 GP …).
+String operatorOf(String number) => switch (number.length >= 3 ? number.substring(0, 3) : '') {
+      '013' || '017' => 'গ্রামীণফোন',
+      '018' => 'রবি',
+      '016' => 'এয়ারটেল',
+      '014' || '019' => 'বাংলালিংক',
+      '015' => 'টেলিটক',
+      _ => '',
+    };
+
+/// Whose mistake it was when money went to a wrong number.
+enum Fault { mine, agent, customer }
+
+extension FaultText on Fault {
+  String get bnName => const {Fault.mine: 'আমার ভুল', Fault.agent: 'এজেন্টের ভুল', Fault.customer: 'গ্রাহকের ভুল (ভুল নম্বর দিয়েছেন)'}[this]!;
+  String get short => const {Fault.mine: 'আমার', Fault.agent: 'এজেন্টের', Fault.customer: 'গ্রাহকের'}[this]!;
 }
 
 /// How the customer paid the riyal for this transaction.
@@ -43,8 +67,7 @@ class Recipient {
   Method method;
 
   Map<String, Object?> toJson() => {'id': id, 'label': label, 'number': number, 'method': method.name};
-  factory Recipient.fromJson(Map<String, Object?> j) =>
-      Recipient(id: _s(j['id']), label: _s(j['label']), number: _s(j['number']), method: methodOf(_s(j['method'])));
+  factory Recipient.fromJson(Map<String, Object?> j) => Recipient(id: _s(j['id']), label: _s(j['label']), number: _s(j['number']), method: methodOf(_s(j['method'])));
 }
 
 class Customer {
@@ -58,6 +81,8 @@ class Customer {
     this.home = '',
     this.salaryDay = '',
     this.dueLimit,
+    this.promiseAt,
+    this.promiseNote = '',
     this.referrer = '',
     this.note = '',
     List<Recipient>? recipients,
@@ -77,6 +102,10 @@ class Customer {
 
   /// Riyal; null = the default limit from settings.
   double? dueLimit;
+
+  /// When the customer said they would pay what they owe (rings then).
+  DateTime? promiseAt;
+  String promiseNote;
   String referrer;
   String note;
   List<Recipient> recipients;
@@ -91,6 +120,8 @@ class Customer {
         'home': home,
         'salaryDay': salaryDay,
         'dueLimit': dueLimit,
+        'promiseAt': promiseAt?.toIso8601String(),
+        'promiseNote': promiseNote,
         'referrer': referrer,
         'note': note,
         'recipients': [for (final r in recipients) r.toJson()],
@@ -106,6 +137,8 @@ class Customer {
         home: _s(j['home']),
         salaryDay: _s(j['salaryDay']),
         dueLimit: j['dueLimit'] == null ? null : _d(j['dueLimit']),
+        promiseAt: j['promiseAt'] == null ? null : _t(j['promiseAt']),
+        promiseNote: _s(j['promiseNote']),
         referrer: _s(j['referrer']),
         note: _s(j['note']),
         recipients: [for (final r in _l(j['recipients'])) Recipient.fromJson(r)],
@@ -165,6 +198,12 @@ class Txn {
     this.sentAt,
     this.agentPaymentId,
     this.note = '',
+    this.operator = '',
+    this.pack = '',
+    this.agentReply = '',
+    this.replyTail = '',
+    this.fault,
+    this.faultNote = '',
   });
 
   final String id;
@@ -200,6 +239,18 @@ class Txn {
   String? agentPaymentId;
   String note;
 
+  /// Recharge / MB: the operator, and the pack for MB ("৩০ জিবি ৩০ দিন").
+  String operator;
+  String pack;
+
+  /// The agent's reply as copied ("10000-667"), and the 3 digits in it.
+  String agentReply;
+  String replyTail;
+
+  /// Set when the money went to a wrong number: whose mistake it was.
+  Fault? fault;
+  String faultNote;
+
   bool get cancelled => status == TxnStatus.cancelled;
 
   /// What the agent sends (taka + charge).
@@ -231,6 +282,12 @@ class Txn {
         'sentAt': sentAt?.toIso8601String(),
         'agentPaymentId': agentPaymentId,
         'note': note,
+        'operator': operator,
+        'pack': pack,
+        'agentReply': agentReply,
+        'replyTail': replyTail,
+        'fault': fault?.name,
+        'faultNote': faultNote,
       };
 
   factory Txn.fromJson(Map<String, Object?> j) => Txn(
@@ -254,7 +311,27 @@ class Txn {
         sentAt: j['sentAt'] == null ? null : _t(j['sentAt']),
         agentPaymentId: j['agentPaymentId'] == null ? null : _s(j['agentPaymentId']),
         note: _s(j['note']),
+        operator: _s(j['operator']),
+        pack: _s(j['pack']),
+        agentReply: _s(j['agentReply']),
+        replyTail: _s(j['replyTail']),
+        fault: j['fault'] == null ? null : Fault.values.firstWhere((f) => f.name == j['fault'], orElse: () => Fault.mine),
+        faultNote: _s(j['faultNote']),
       );
+}
+
+/// Riyal a customer owed that will not come back (left without paying).
+/// It takes the amount off their due but brings no riyal into hand.
+class Loss {
+  Loss({required this.id, required this.customerId, required this.sarAmount, required this.at, this.note = ''});
+  final String id;
+  final String customerId;
+  double sarAmount;
+  DateTime at;
+  String note;
+
+  Map<String, Object?> toJson() => {'id': id, 'customerId': customerId, 'sar': sarAmount, 'at': at.toIso8601String(), 'note': note};
+  factory Loss.fromJson(Map<String, Object?> j) => Loss(id: _s(j['id']), customerId: _s(j['customerId']), sarAmount: _d(j['sar']), at: _t(j['at']), note: _s(j['note']));
 }
 
 /// Riyal a customer paid later, against what they owe.
@@ -269,8 +346,7 @@ class Deposit {
   String way;
   String note;
 
-  Map<String, Object?> toJson() =>
-      {'id': id, 'customerId': customerId, 'sar': sarAmount, 'at': at.toIso8601String(), 'way': way, 'note': note};
+  Map<String, Object?> toJson() => {'id': id, 'customerId': customerId, 'sar': sarAmount, 'at': at.toIso8601String(), 'way': way, 'note': note};
   factory Deposit.fromJson(Map<String, Object?> j) => Deposit(
         id: _s(j['id']),
         customerId: _s(j['customerId']),
@@ -283,18 +359,49 @@ class Deposit {
 
 /// Taka paid to an agent: for chosen transactions, or as an advance.
 class AgentPayment {
-  AgentPayment({required this.id, required this.agentId, required this.taka, required this.at, List<String>? txnIds, this.way = 'bank', this.note = ''})
-      : txnIds = txnIds ?? [];
+  AgentPayment({
+    required this.id,
+    required this.agentId,
+    required this.taka,
+    required this.at,
+    List<String>? txnIds,
+    this.way = 'bank',
+    this.note = '',
+    this.ref = '',
+    this.fromAccount = '',
+    this.receipt,
+  }) : txnIds = txnIds ?? [];
   final String id;
   final String agentId;
   double taka;
   DateTime at;
   List<String> txnIds;
+
+  /// How it was paid: one of [payWays].
   String way;
   String note;
 
-  Map<String, Object?> toJson() =>
-      {'id': id, 'agentId': agentId, 'taka': taka, 'at': at.toIso8601String(), 'txnIds': txnIds, 'way': way, 'note': note};
+  /// Bank/bKash transaction or reference number.
+  String ref;
+
+  /// Which account or number it was paid from.
+  String fromAccount;
+
+  /// Id of the encrypted photo of the bank receipt, if kept.
+  String? receipt;
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'agentId': agentId,
+        'taka': taka,
+        'at': at.toIso8601String(),
+        'txnIds': txnIds,
+        'way': way,
+        'note': note,
+        'ref': ref,
+        'fromAccount': fromAccount,
+        'receipt': receipt,
+      };
   factory AgentPayment.fromJson(Map<String, Object?> j) => AgentPayment(
         id: _s(j['id']),
         agentId: _s(j['agentId']),
@@ -303,8 +410,16 @@ class AgentPayment {
         txnIds: [for (final t in (j['txnIds'] as List?) ?? const []) '$t'],
         way: _s(j['way'], 'bank'),
         note: _s(j['note']),
+        ref: _s(j['ref']),
+        fromAccount: _s(j['fromAccount']),
+        receipt: j['receipt'] == null ? null : _s(j['receipt']),
       );
 }
+
+/// Ways of paying an agent, with their Bangla names.
+const payWays = {'bank': 'ব্যাংক', 'bkash': 'বিকাশ', 'nagad': 'নগদ (অ্যাপ)', 'cash': 'হাতে নগদ', 'hundi': 'অন্যের মাধ্যমে', 'other': 'অন্যভাবে'};
+
+String payWayName(String w) => payWays[w] ?? w;
 
 /// Riyal going out of hand: costs, or riyal sold/handed over.
 class Expense {
@@ -316,8 +431,7 @@ class Expense {
   String note;
 
   Map<String, Object?> toJson() => {'id': id, 'category': category, 'sar': sarAmount, 'at': at.toIso8601String(), 'note': note};
-  factory Expense.fromJson(Map<String, Object?> j) =>
-      Expense(id: _s(j['id']), category: _s(j['category']), sarAmount: _d(j['sar']), at: _t(j['at']), note: _s(j['note']));
+  factory Expense.fromJson(Map<String, Object?> j) => Expense(id: _s(j['id']), category: _s(j['category']), sarAmount: _d(j['sar']), at: _t(j['at']), note: _s(j['note']));
 }
 
 /// End-of-day count of riyal in hand.
@@ -332,8 +446,7 @@ class DayClose {
   double get difference => counted - expected;
 
   Map<String, Object?> toJson() => {'id': id, 'at': at.toIso8601String(), 'expected': expected, 'counted': counted, 'note': note};
-  factory DayClose.fromJson(Map<String, Object?> j) =>
-      DayClose(id: _s(j['id']), at: _t(j['at']), expected: _d(j['expected']), counted: _d(j['counted']), note: _s(j['note']));
+  factory DayClose.fromJson(Map<String, Object?> j) => DayClose(id: _s(j['id']), at: _t(j['at']), expected: _d(j['expected']), counted: _d(j['counted']), note: _s(j['note']));
 }
 
 /// One line of the activity log. The log is only ever added to.
@@ -400,6 +513,7 @@ class AppData {
     List<AgentPayment>? agentPayments,
     List<Expense>? expenses,
     List<DayClose>? closes,
+    List<Loss>? losses,
     List<LogEntry>? log,
   })  : settings = settings ?? Settings(),
         customers = customers ?? [],
@@ -409,6 +523,7 @@ class AppData {
         agentPayments = agentPayments ?? [],
         expenses = expenses ?? [],
         closes = closes ?? [],
+        losses = losses ?? [],
         log = log ?? [];
 
   Settings settings;
@@ -419,6 +534,7 @@ class AppData {
   List<AgentPayment> agentPayments;
   List<Expense> expenses;
   List<DayClose> closes;
+  List<Loss> losses;
   List<LogEntry> log;
 
   Map<String, Object?> toJson() => {
@@ -431,6 +547,7 @@ class AppData {
         'agentPayments': [for (final x in agentPayments) x.toJson()],
         'expenses': [for (final x in expenses) x.toJson()],
         'closes': [for (final x in closes) x.toJson()],
+        'losses': [for (final x in losses) x.toJson()],
         'log': [for (final x in log) x.toJson()],
       };
 
@@ -443,6 +560,7 @@ class AppData {
         agentPayments: [for (final x in _l(j['agentPayments'])) AgentPayment.fromJson(x)],
         expenses: [for (final x in _l(j['expenses'])) Expense.fromJson(x)],
         closes: [for (final x in _l(j['closes'])) DayClose.fromJson(x)],
+        losses: [for (final x in _l(j['losses'])) Loss.fromJson(x)],
         log: [for (final x in _l(j['log'])) LogEntry.fromJson(x)],
       );
 }

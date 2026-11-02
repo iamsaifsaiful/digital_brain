@@ -12,6 +12,8 @@ import 'agent.dart';
 import 'home.dart';
 import 'kit.dart';
 import 'lock_screen.dart';
+import 'reports.dart';
+import 'customers.dart';
 import 'txn.dart';
 
 // ------------------------------------------------------------------ report
@@ -25,20 +27,18 @@ class ReportTab extends StatefulWidget {
 }
 
 class _ReportTabState extends State<ReportTab> {
-  int _p = 1; // 0 today, 1 week, 2 month, 3 all
+  Period? _period;
 
   @override
-  Widget build(BuildContext context) => Live(h: widget.h, builder: (context) {
+  Widget build(BuildContext context) => Live(
+      h: widget.h,
+      builder: (context) {
         final h = widget.h;
         final d = h.d;
         final now = h.now;
-        final start = switch (_p) {
-          0 => DateTime(now.year, now.month, now.day),
-          1 => DateTime(now.year, now.month, now.day - 6),
-          2 => DateTime(now.year, now.month, 1),
-          _ => DateTime(2000),
-        };
-        bool inP(DateTime t) => !t.isBefore(start);
+        final period = _period ?? Period.of('week', now);
+        bool inP(DateTime t) => period.has(t);
+        final daily = period.to.difference(period.from).inDays <= 8;
         final txns = d.txns.where((x) => !x.cancelled && inP(x.at)).toList();
         final sarSum = txns.fold<double>(0, (s, x) => s + x.sarAmount);
         final takaSum = txns.fold<double>(0, (s, x) => s + x.taka);
@@ -46,20 +46,22 @@ class _ReportTabState extends State<ReportTab> {
         final got = txns.fold<double>(0, (s, x) => s + x.sarPaid) + d.deposits.where((p) => inP(p.at)).fold<double>(0, (s, p) => s + p.sarAmount);
         final exp = d.expenses.where((e) => inP(e.at)).fold<double>(0, (s, e) => s + e.sarAmount);
         final paidAgent = d.agentPayments.where((p) => inP(p.at)).fold<double>(0, (s, p) => s + p.taka);
+        final lost = d.losses.where((l) => inP(l.at)).fold<double>(0, (s, l) => s + l.sarAmount);
+        final wrong = txns.where((x) => x.fault != null).length;
         final avgRate = sarSum == 0 ? 0.0 : takaSum / sarSum;
         // Chart: riyal per day for 7 days, or per month for 6 months.
         final List<DateTime> buckets;
         final List<String> labels;
-        if (_p <= 1) {
-          buckets = [for (var i = 6; i >= 0; i--) DateTime(now.year, now.month, now.day - i)];
+        if (daily) {
+          final end = period.isAll || period.to.isAfter(now) ? now : period.to.subtract(const Duration(days: 1));
+          buckets = [for (var i = 6; i >= 0; i--) DateTime(end.year, end.month, end.day - i)];
           labels = [for (final b in buckets) bn('${b.day}')];
         } else {
           buckets = [for (var i = 5; i >= 0; i--) DateTime(now.year, now.month - i)];
           labels = [for (final b in buckets) monthShort(b.month)];
         }
         final vals = [
-          for (final b in buckets)
-            d.txns.where((x) => !x.cancelled && (_p <= 1 ? sameDay(x.at, b) : x.at.year == b.year && x.at.month == b.month)).fold<double>(0, (s, x) => s + x.sarAmount),
+          for (final b in buckets) d.txns.where((x) => !x.cancelled && (daily ? sameDay(x.at, b) : x.at.year == b.year && x.at.month == b.month)).fold<double>(0, (s, x) => s + x.sarAmount),
         ];
         Widget tile(String label, String value, {Color c = K.ink}) => Expanded(
               child: CardBox(
@@ -73,6 +75,8 @@ class _ReportTabState extends State<ReportTab> {
         return ListView(padding: const EdgeInsets.fromLTRB(18, 12, 18, 24), children: [
           Row(children: [
             Expanded(child: Text('রিপোর্ট', style: t(22, w: FontWeight.w700))),
+            CircleBtn(icon: Icons.picture_as_pdf_outlined, label: 'রিপোর্ট PDF', onTap: () => sharePdf(context, h, periodPdf(h, period), 'report')),
+            const SizedBox(width: 8),
             CircleBtn(
               icon: Icons.file_download_outlined,
               label: 'CSV (এক্সেল) ফাইল',
@@ -84,7 +88,7 @@ class _ReportTabState extends State<ReportTab> {
             ),
           ]),
           const SizedBox(height: 12),
-          Seg<int>(items: const [(0, 'আজ'), (1, '৭ দিন'), (2, 'এই মাস'), (3, 'সব')], value: _p, onChanged: (v) => setState(() => _p = v)),
+          PeriodChips(value: period, now: now, wrap: true, onChanged: (p) => setState(() => _period = p)),
           const SizedBox(height: 12),
           CardBox(
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
@@ -101,18 +105,22 @@ class _ReportTabState extends State<ReportTab> {
           const SizedBox(height: 10),
           Row(children: [tile('এজেন্টকে দিলাম', taka(paidAgent)), const SizedBox(width: 10), tile('গ্রাহকদের খরচ (টাকা)', taka(feeSum))]),
           const SizedBox(height: 10),
+          Row(children: [tile('লস (আদায় হবে না)', sar(lost), c: lost > 0 ? K.red : K.ink), const SizedBox(width: 10), tile('ভুল নম্বরে গেছে', '${bn('$wrong')}টা', c: wrong > 0 ? K.red : K.ink)]),
+          const SizedBox(height: 10),
           Row(children: [tile('এখন মোট বাকি', sar(totalCustomerDue(d)), c: K.red), const SizedBox(width: 10), tile('হাতে থাকা উচিত', sar(cashInHand(d)))]),
           const SizedBox(height: 6),
           SectionHead('সবচেয়ে বেশি বাকি'),
           ..._topDue(h),
           const SizedBox(height: 12),
           SoftPill(label: 'সব লেনদেন দেখুন', icon: Icons.list_alt_rounded, onTap: () => push(context, AllTxnsScreen(h: h))),
+          const SizedBox(height: 8),
+          SoftPill(label: 'এই সময়ের পুরো রিপোর্ট PDF', icon: Icons.picture_as_pdf_outlined, onTap: () => sharePdf(context, h, periodPdf(h, period), 'report')),
         ]);
       });
 
   List<Widget> _topDue(Hisab h) {
     final list = [...h.d.customers.where((c) => customerDue(h.d, c.id) > 0)]..sort((a, b) => customerDue(h.d, b.id).compareTo(customerDue(h.d, a.id)));
-    if (list.isEmpty) return [const Note('কারও কাছে বাকি নেই।', color: K.greenTint, textColor: K.green)];
+    if (list.isEmpty) return [const Note('কারও কাছে বাকি নেই।')];
     return [
       CardBox(
         padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -130,6 +138,155 @@ class _ReportTabState extends State<ReportTab> {
       ),
     ];
   }
+}
+
+// ------------------------------------------------------------------ others
+
+/// অন্যান্য: everything that is not daily work on the home page.
+class OthersTab extends StatelessWidget {
+  const OthersTab({super.key, required this.h});
+  final Hisab h;
+
+  @override
+  Widget build(BuildContext context) => Live(
+      h: h,
+      builder: (context) {
+        final d = h.d;
+        final wrong = d.txns.where((x) => x.fault != null && !x.cancelled).length;
+        final promises = d.customers.where((c) => c.promiseAt != null && customerDue(d, c.id) > 0).length;
+        final backupOld = d.settings.lastBackup == null || h.now.difference(d.settings.lastBackup!).inDays >= 7;
+        Widget tile(IconData i, Color bg, Color fg, String title, String sub, VoidCallback onTap, {bool last = false}) => Row2(
+              lead: dotIcon(i, bg, fg, size: 40),
+              title: title,
+              sub: sub,
+              onTap: onTap,
+              last: last,
+              value: '›',
+              valueColor: K.muted,
+            );
+        return ListView(padding: const EdgeInsets.fromLTRB(18, 12, 18, 24), children: [
+          Text('অন্যান্য', style: t(22, w: FontWeight.w700)),
+          const SizedBox(height: 12),
+          SectionHead('দিনের হিসাব'),
+          CardBox(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Column(children: [
+              tile(Icons.receipt_long_outlined, K.redTint, K.red, 'খরচ / রিয়াল বের', 'হাত থেকে যে রিয়াল বের হলো', () => push(context, ExpenseScreen(h: h))),
+              tile(Icons.nightlight_outlined, K.navySoft, K.navy, 'দিন শেষের হিসাব', 'হাতের রিয়াল গুনে মিলিয়ে রাখুন', () => push(context, DayCloseScreen(h: h)), last: true),
+            ]),
+          ),
+          SectionHead('লেনদেন'),
+          CardBox(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Column(children: [
+              tile(Icons.list_alt_rounded, K.blueTint, K.blue, 'সব লেনদেন', 'তারিখ দিয়ে খুঁজুন, PDF', () => push(context, AllTxnsScreen(h: h))),
+              tile(Icons.report_gmailerrorred_rounded, K.redTint, K.red, 'ভুল নম্বরে যাওয়া', wrong == 0 ? 'নেই' : '${bn('$wrong')}টা লেনদেন',
+                  () => push(context, AllTxnsScreen(h: h, filter: 4, title: 'ভুল নম্বরে যাওয়া'))),
+              tile(Icons.phone_android_rounded, K.blueTint, K.blue, 'রিচার্জ ও এমবি', 'মোবাইল রিচার্জ আর এমবি প্যাক', () => push(context, AllTxnsScreen(h: h, filter: 5, title: 'রিচার্জ ও এমবি')),
+                  last: true),
+            ]),
+          ),
+          SectionHead('গ্রাহকের বাকি'),
+          CardBox(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Column(children: [
+              tile(Icons.notifications_active_outlined, K.amberTint, K.amberText, 'তাগাদার তালিকা', promises == 0 ? 'কোনো তারিখ দেওয়া নেই' : '${bn('$promises')} জনের তারিখ দেওয়া',
+                  () => push(context, PromisesScreen(h: h))),
+              tile(Icons.money_off_rounded, K.redTint, K.red, 'লস (আদায় হবে না)', lossOf(d) > 0 ? 'মোট ${sar(lossOf(d))}' : 'নেই', () => push(context, LossScreen(h: h)), last: true),
+            ]),
+          ),
+          SectionHead('রেকর্ড ও নিরাপত্তা'),
+          CardBox(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Column(children: [
+              tile(Icons.history_rounded, K.chip, K.ink, 'কাজের লগ', 'কখন কী হয়েছে, PDF', () => push(context, LogScreen(h: h))),
+              tile(Icons.settings_outlined, K.chip, K.ink, 'সেটিংস ও ব্যাকআপ', backupOld ? 'ব্যাকআপ নেওয়া দরকার' : 'পিন, এজেন্ট, বাকির সীমা', () => push(context, SettingsScreen(h: h)), last: true),
+            ]),
+          ),
+        ]);
+      });
+}
+
+/// Customers who said when they would pay.
+class PromisesScreen extends StatelessWidget {
+  const PromisesScreen({super.key, required this.h});
+  final Hisab h;
+
+  @override
+  Widget build(BuildContext context) => Live(
+      h: h,
+      builder: (context) {
+        final list = h.d.customers.where((c) => c.promiseAt != null && customerDue(h.d, c.id) > 0).toList()..sort((a, b) => a.promiseAt!.compareTo(b.promiseAt!));
+        return Screen(
+          title: 'তাগাদার তালিকা',
+          body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 24), children: [
+            if (list.isEmpty) const Note('কোনো গ্রাহকের বাকি ফেরতের তারিখ দেওয়া নেই। গ্রাহকের পাতায় "তারিখ দিন" চাপুন।'),
+            if (list.isNotEmpty)
+              CardBox(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Column(children: [
+                  for (final (i, c) in list.indexed)
+                    Row2(
+                      lead: Avatar(h: h, name: c.name, photo: c.photo, size: 42),
+                      title: c.name,
+                      sub: '${dayLabel(c.promiseAt!, h.now)}, ${timeText(c.promiseAt!)}${c.promiseNote.isEmpty ? '' : ' · ${c.promiseNote}'}',
+                      subColor: c.promiseAt!.isAfter(h.now) ? K.muted : K.amberText,
+                      value: sar(customerDue(h.d, c.id)),
+                      valueColor: K.red,
+                      valueSub: c.promiseAt!.isAfter(h.now) ? 'সামনে' : 'দিন এসেছে',
+                      valueSubColor: c.promiseAt!.isAfter(h.now) ? K.muted : K.amberText,
+                      last: i == list.length - 1,
+                      onTap: () => push(context, CustomerScreen(h: h, id: c.id)),
+                    ),
+                ]),
+              ),
+          ]),
+        );
+      });
+}
+
+/// Riyal that will not come back.
+class LossScreen extends StatelessWidget {
+  const LossScreen({super.key, required this.h});
+  final Hisab h;
+
+  @override
+  Widget build(BuildContext context) => Live(
+      h: h,
+      builder: (context) {
+        final list = [...h.d.losses]..sort((a, b) => b.at.compareTo(a.at));
+        return Screen(
+          title: 'লস (আদায় হবে না)',
+          trailing: CircleBtn(icon: Icons.picture_as_pdf_outlined, label: 'লস PDF', onTap: () => sharePdf(context, h, lossPdf(h), 'loss')),
+          body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 24), children: [
+            CardBox(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('মোট লস', style: t(13, c: K.muted)),
+                Text(sar(lossOf(h.d)), style: t(28, w: FontWeight.w700, c: K.red)),
+              ]),
+            ),
+            const SizedBox(height: 10),
+            const Note('গ্রাহক টাকা না দিয়ে চলে গেলে তাঁর পাতায় "আদায় হবে না (লস)" চাপুন। বাকি থেকে বাদ যাবে, এখানে আর রিপোর্টে লস হিসেবে থাকবে।'),
+            const SizedBox(height: 10),
+            if (list.isNotEmpty)
+              CardBox(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Column(children: [
+                  for (final (i, l) in list.indexed)
+                    Row2(
+                      lead: dotIcon(Icons.money_off_rounded, K.redTint, K.red, size: 40),
+                      title: customerById(h.d, l.customerId)?.name ?? '',
+                      sub: '${dateShort(l.at)} ${bn('${l.at.year}')}${l.note.isEmpty ? '' : ' · ${l.note}'}',
+                      value: sar(l.sarAmount),
+                      valueColor: K.red,
+                      last: i == list.length - 1,
+                      onTap: () => push(context, CustomerScreen(h: h, id: l.customerId)),
+                    ),
+                ]),
+              ),
+          ]),
+        );
+      });
 }
 
 // ---------------------------------------------------------------- day close
@@ -281,12 +438,16 @@ class LogScreen extends StatefulWidget {
 class _LogScreenState extends State<LogScreen> {
   String _k = '';
   final _q = TextEditingController();
+  Period _p = Period.all();
 
   @override
-  Widget build(BuildContext context) => Live(h: widget.h, builder: (context) {
+  Widget build(BuildContext context) => Live(
+      h: widget.h,
+      builder: (context) {
         final h = widget.h;
         final q = en(_q.text).trim().toLowerCase();
-        final list = h.d.log.reversed.where((e) => (_k.isEmpty || e.kind == _k) && (q.isEmpty || '${e.title} ${en(e.detail)}'.toLowerCase().contains(q))).take(500).toList();
+        final all = h.d.log.reversed.where((e) => _p.has(e.at) && (_k.isEmpty || e.kind == _k) && (q.isEmpty || '${e.title} ${en(e.detail)}'.toLowerCase().contains(q))).toList();
+        final list = all.take(500).toList();
         final groups = <String, List<LogEntry>>{};
         for (final e in list) {
           groups.putIfAbsent(dayLabel(e.at, h.now), () => []).add(e);
@@ -294,6 +455,11 @@ class _LogScreenState extends State<LogScreen> {
         return Screen(
           title: 'কাজের লগ',
           subtitle: 'কখন কী হয়েছে — কিছুই মোছা যায় না',
+          trailing: CircleBtn(
+            icon: Icons.picture_as_pdf_outlined,
+            label: 'লগ PDF',
+            onTap: () => sharePdf(context, h, logPdf(h, all.reversed.toList(), _p.label), 'log'),
+          ),
           body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 24), children: [
             TextField(
               controller: _q,
@@ -309,6 +475,8 @@ class _LogScreenState extends State<LogScreen> {
               ),
             ),
             const SizedBox(height: 10),
+            PeriodChips(value: _p, now: h.now, onChanged: (p) => setState(() => _p = p)),
+            const SizedBox(height: 8),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(children: [
@@ -409,7 +577,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Live(h: h, builder: (context) {
+  Widget build(BuildContext context) => Live(
+      h: h,
+      builder: (context) {
         final st = h.d.settings;
         Widget row(IconData i, String title, String sub, VoidCallback? onTap, {Widget? trailing}) => ListTile(
               leading: dotIcon(i, K.blueTint, K.blue, size: 38),
@@ -425,31 +595,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
             CardBox(
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Column(children: [
-                row(Icons.person_outline_rounded, 'আপনার নাম', st.ownerName, () => _edit('আপনার নাম', st.ownerName, (v) async {
-                      final old = st.ownerName;
-                      st.ownerName = v;
-                      await h.saveSettings('নাম $old → $v');
-                    })),
+                row(
+                    Icons.person_outline_rounded,
+                    'আপনার নাম',
+                    st.ownerName,
+                    () => _edit('আপনার নাম', st.ownerName, (v) async {
+                          final old = st.ownerName;
+                          st.ownerName = v;
+                          await h.saveSettings('নাম $old → $v');
+                        })),
                 for (final a in h.d.agents) row(Icons.storefront_outlined, a.name, 'হোয়াটসঅ্যাপ ${bn(a.whatsapp)}', () => push(context, AgentEdit(h: h, a: a))),
-                row(Icons.speed_rounded, 'সাধারণ বাকির সীমা', sar(st.defaultDueLimit), () => _edit('বাকির সীমা (রিয়াল)', groupEn(st.defaultDueLimit).replaceAll(',', ''), (v) async {
-                      final n = parseNum(v);
-                      if (n == null) return;
-                      final old = st.defaultDueLimit;
-                      st.defaultDueLimit = n;
-                      await h.saveSettings('বাকির সীমা ${sar(old)} → ${sar(n)}');
-                    }, number: true)),
-                row(Icons.schedule_rounded, 'পুরনো বাকি ধরা হবে', '${bn('${st.oldDueDays}')} দিন পর', () => _edit('কত দিন পর পুরনো বাকি?', '${st.oldDueDays}', (v) async {
-                      final n = parseNum(v);
-                      if (n == null || n < 1) return;
-                      st.oldDueDays = n.round();
-                      await h.saveSettings('পুরনো বাকি ${bn('${n.round()}')} দিন');
-                    }, number: true)),
-                row(Icons.copy_all_rounded, 'একই লেনদেন দুইবারের সতর্কতা', '${bn('${st.dupMinutes}')} মিনিটের মধ্যে', () => _edit('কত মিনিটের মধ্যে?', '${st.dupMinutes}', (v) async {
-                      final n = parseNum(v);
-                      if (n == null || n < 1) return;
-                      st.dupMinutes = n.round();
-                      await h.saveSettings('দুইবারের সতর্কতা ${bn('${n.round()}')} মিনিট');
-                    }, number: true)),
+                row(
+                    Icons.speed_rounded,
+                    'সাধারণ বাকির সীমা',
+                    sar(st.defaultDueLimit),
+                    () => _edit('বাকির সীমা (রিয়াল)', groupEn(st.defaultDueLimit).replaceAll(',', ''), (v) async {
+                          final n = parseNum(v);
+                          if (n == null) return;
+                          final old = st.defaultDueLimit;
+                          st.defaultDueLimit = n;
+                          await h.saveSettings('বাকির সীমা ${sar(old)} → ${sar(n)}');
+                        }, number: true)),
+                row(
+                    Icons.schedule_rounded,
+                    'পুরনো বাকি ধরা হবে',
+                    '${bn('${st.oldDueDays}')} দিন পর',
+                    () => _edit('কত দিন পর পুরনো বাকি?', '${st.oldDueDays}', (v) async {
+                          final n = parseNum(v);
+                          if (n == null || n < 1) return;
+                          st.oldDueDays = n.round();
+                          await h.saveSettings('পুরনো বাকি ${bn('${n.round()}')} দিন');
+                        }, number: true)),
+                row(
+                    Icons.copy_all_rounded,
+                    'একই লেনদেন দুইবারের সতর্কতা',
+                    '${bn('${st.dupMinutes}')} মিনিটের মধ্যে',
+                    () => _edit('কত মিনিটের মধ্যে?', '${st.dupMinutes}', (v) async {
+                          final n = parseNum(v);
+                          if (n == null || n < 1) return;
+                          st.dupMinutes = n.round();
+                          await h.saveSettings('দুইবারের সতর্কতা ${bn('${n.round()}')} মিনিট');
+                        }, number: true)),
               ]),
             ),
             SectionHead('নিরাপত্তা'),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -61,6 +62,143 @@ class PinPad extends StatelessWidget {
       ]),
     ]);
   }
+}
+
+/// The opening animation: a riyal coin leaves the SAR side, travels along
+/// the arc and lands as taka on the phone in Bangladesh, which then ticks.
+/// It tells what the app does in two seconds.
+class ExchangeAnim extends StatefulWidget {
+  const ExchangeAnim({super.key, this.width = 270});
+  final double width;
+
+  @override
+  State<ExchangeAnim> createState() => _ExchangeAnimState();
+}
+
+class _ExchangeAnimState extends State<ExchangeAnim> with SingleTickerProviderStateMixin {
+  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 2400))..forward();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  static double _seg(double t, double a, double b) => ((t - a) / (b - a)).clamp(0.0, 1.0);
+
+  @override
+  Widget build(BuildContext context) {
+    final w = widget.width;
+    final hgt = w * 0.46;
+    return Semantics(
+      label: 'রিয়াল থেকে টাকা যাচ্ছে',
+      child: SizedBox(
+        width: w,
+        height: hgt,
+        child: AnimatedBuilder(
+          animation: _c,
+          builder: (context, _) {
+            final t = _c.value;
+            final inL = Curves.easeOutBack.transform(_seg(t, 0, 0.22));
+            final inR = Curves.easeOutBack.transform(_seg(t, 0.1, 0.32));
+            final fly = Curves.easeInOutCubic.transform(_seg(t, 0.3, 0.78));
+            final done = Curves.elasticOut.transform(_seg(t, 0.78, 1));
+            const r = 34.0;
+            final a = Offset(r + 6, hgt - r - 6);
+            final b = Offset(w - r - 6, hgt - r - 6);
+            final ctrl = Offset(w / 2, -hgt * 0.25);
+            Offset at(double u) => Offset(
+                  math.pow(1 - u, 2) * a.dx + 2 * (1 - u) * u * ctrl.dx + u * u * b.dx,
+                  math.pow(1 - u, 2) * a.dy + 2 * (1 - u) * u * ctrl.dy + u * u * b.dy,
+                );
+            final coin = at(fly);
+            final showCoin = t > 0.3 && t < 0.8;
+            Widget badge(Offset c, double scale, Color bg, String label, {Widget? extra}) => Positioned(
+                  left: c.dx - r,
+                  top: c.dy - r,
+                  child: Transform.scale(
+                    scale: scale,
+                    child: Stack(clipBehavior: Clip.none, children: [
+                      Container(
+                        width: r * 2,
+                        height: r * 2,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(color: bg, shape: BoxShape.circle, boxShadow: [BoxShadow(color: bg.withValues(alpha: 0.35), blurRadius: 14, offset: const Offset(0, 6))]),
+                        child: Text(label, style: t2(label.length > 2 ? 17 : 26)),
+                      ),
+                      if (extra != null) extra,
+                    ]),
+                  ),
+                );
+            return Stack(clipBehavior: Clip.none, children: [
+              Positioned.fill(child: CustomPaint(painter: _ArcPainter(a, ctrl, b, fly, t > 0.3))),
+              badge(a, inL, K.navy, 'SAR'),
+              badge(
+                b,
+                inR * (1 + 0.12 * math.sin(done * math.pi)),
+                Color.lerp(K.blue, const Color(0xFF1E9E3A), _seg(t, 0.78, 0.86))!,
+                '৳',
+                extra: t > 0.8
+                    ? Positioned(
+                        right: -4,
+                        top: -4,
+                        child: Transform.scale(
+                          scale: done,
+                          child: const CircleAvatar(radius: 13, backgroundColor: Colors.white, child: Icon(Icons.check_circle_rounded, size: 26, color: Color(0xFF1E9E3A))),
+                        ),
+                      )
+                    : null,
+              ),
+              if (showCoin)
+                Positioned(
+                  left: coin.dx - 13,
+                  top: coin.dy - 13,
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(color: K.amber, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 3)),
+                  ),
+                ),
+            ]);
+          },
+        ),
+      ),
+    );
+  }
+
+  TextStyle t2(double size) => t(size, w: FontWeight.w700, c: Colors.white);
+}
+
+class _ArcPainter extends CustomPainter {
+  _ArcPainter(this.a, this.c, this.b, this.f, this.on);
+  final Offset a, c, b;
+  final double f;
+  final bool on;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(a.dx, a.dy)
+      ..quadraticBezierTo(c.dx, c.dy, b.dx, b.dy);
+    final dash = Paint()
+      ..color = const Color(0xFFC9D5EE)
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+    final done = Paint()
+      ..color = K.blue
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+    for (final m in path.computeMetrics()) {
+      for (var d = 44.0; d < m.length - 44; d += 14) {
+        final p = m.getTangentForOffset(d)!.position;
+        final reached = on && d / m.length <= f;
+        canvas.drawCircle(p, reached ? 2.6 : 2, reached ? done : dash);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ArcPainter o) => o.f != f || o.on != on;
 }
 
 class LockScreen extends StatefulWidget {
@@ -153,13 +291,8 @@ class _LockScreenState extends State<LockScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 30),
           child: Column(children: [
             const Spacer(),
-            Container(
-              width: 64,
-              height: 64,
-              decoration: const BoxDecoration(color: K.blue, shape: BoxShape.circle),
-              child: const Icon(Icons.lock_rounded, color: Colors.white, size: 30),
-            ),
-            const SizedBox(height: 16),
+            const ExchangeAnim(),
+            const SizedBox(height: 18),
             Text('রিয়াল-বিকাশ হিসাব', style: t(21, w: FontWeight.w600)),
             const SizedBox(height: 6),
             Text(
@@ -231,7 +364,7 @@ class _PinSetupState extends State<PinSetup> {
             padding: const EdgeInsets.symmetric(horizontal: 30),
             child: Column(children: [
               const Spacer(),
-              const Icon(Icons.shield_outlined, size: 52, color: K.blue),
+              const ExchangeAnim(width: 230),
               const SizedBox(height: 14),
               Text(widget.title, style: t(20, w: FontWeight.w600)),
               const SizedBox(height: 6),

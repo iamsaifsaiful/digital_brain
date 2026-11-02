@@ -106,7 +106,7 @@ class _CustomerPickRow extends StatelessWidget {
       lead: Avatar(h: h, name: c.name, photo: c.photo),
       title: c.name,
       sub: '${bn(c.phone)}${c.area.isEmpty ? '' : ' · ${c.area}'}',
-      value: due > 0 ? sar(due) : (due < 0 ? 'অগ্রিম' : 'পরিষ্কার'),
+      value: due > 0 ? sar(due) : (due < 0 ? 'অগ্রিম' : 'বাকি নেই'),
       valueColor: due > 0 ? K.red : K.green,
       valueSub: due > 0 ? 'বাকি' : (due < 0 ? sar(-due) : null),
       last: last,
@@ -218,11 +218,22 @@ class _EntryScreenState extends State<EntryScreen> {
   final _number = TextEditingController();
   final _label = TextEditingController();
   final _fee = TextEditingController();
+  final _pack = TextEditingController();
   Method _method = Method.bkash;
   Kind _kind = Kind.send;
+
+  /// 0 টাকা পাঠানো, 1 রিচার্জ, 2 এমবি.
+  int _svc = 0;
+  String _operator = '';
+  bool _operatorByHand = false;
   bool _withFee = false;
   late String _agentId;
-  bool _takaByHand = false;
+
+  /// Which of riyal / taka was typed last; the other one is worked out.
+  String _src = 'sar';
+
+  /// Editing a send the agent already sent: taka, number and fee stay.
+  bool get _locked => widget.editing?.status == TxnStatus.sent;
 
   @override
   void initState() {
@@ -230,8 +241,8 @@ class _EntryScreenState extends State<EntryScreen> {
     _agentId = h.d.agents.first.id;
     final e = widget.editing;
     if (e != null) {
-      _sar.text = groupEn(e.sarAmount, decimals: 2).replaceAll(',', '');
-      _rate.text = e.rate.toStringAsFixed(2);
+      _sar.text = _plain(e.sarAmount);
+      _rate.text = _plain(e.rate);
       _taka.text = e.taka.round().toString();
       _number.text = e.number;
       _label.text = e.recipientLabel;
@@ -239,62 +250,104 @@ class _EntryScreenState extends State<EntryScreen> {
       _withFee = e.fee > 0;
       _method = e.method;
       _kind = e.kind;
+      _svc = switch (e.kind) { Kind.recharge => 1, Kind.mb => 2, _ => 0 };
+      _operator = e.operator;
+      _operatorByHand = e.operator.isNotEmpty;
+      _pack.text = e.pack;
       _agentId = agentById(h.d, e.agentId)?.id ?? _agentId;
-      _takaByHand = (takaFor(e.sarAmount, e.rate) - e.taka).abs() > 0.5;
+      _src = _locked || (takaFor(e.sarAmount, e.rate) - e.taka).abs() > 0.5 ? 'taka' : 'sar';
     } else {
       // Last rate used, so it is only typed when it changes.
       final last = [...h.d.txns.where((t) => !t.cancelled)]..sort((a, b) => b.at.compareTo(a.at));
-      if (last.isNotEmpty) _rate.text = last.first.rate.toStringAsFixed(2);
+      if (last.isNotEmpty) _rate.text = _plain(last.first.rate);
       if (widget.c.recipients.isNotEmpty) _pickRecipient(widget.c.recipients.last);
     }
+  }
+
+  /// 307.69, 32.5, 500 — no trailing zeros, no commas.
+  static String _plain(double v, {int decimals = 2}) {
+    var s = v.toStringAsFixed(decimals);
+    if (s.contains('.')) s = s.replaceFirst(RegExp(r'\.?0+$'), '');
+    return s;
   }
 
   void _pickRecipient(Recipient r) {
     _number.text = bdShowEn(r.number);
     _label.text = r.label;
     _method = r.method;
+    if (!_operatorByHand) _operator = operatorOf(r.number);
   }
 
-  void _recalc() {
-    if (_takaByHand) return;
-    final s = parseNum(_sar.text), r = parseNum(_rate.text);
-    _taka.text = s != null && r != null ? takaFor(s, r).round().toString() : '';
+  Kind get _kindNow => switch (_svc) { 1 => Kind.recharge, 2 => Kind.mb, _ => _kind };
+
+  /// Live: riyal × rate = taka, or taka ÷ rate = riyal, whichever was typed
+  /// last. A wrong entry only blanks the result until it is put right.
+  void _derive() {
+    final r = parseNum(_rate.text);
+    if (_locked) {
+      final tk = parseNum(_taka.text);
+      if (_src == 'rate') {
+        _sar.text = tk != null && r != null && r > 0 ? _plain(tk / r) : '';
+      } else {
+        final s = parseNum(_sar.text);
+        _rate.text = tk != null && s != null && s > 0 ? _plain(tk / s, decimals: 4) : _rate.text;
+      }
+      return;
+    }
+    if (_src == 'taka') {
+      final tk = parseNum(_taka.text);
+      _sar.text = tk != null && r != null && r > 0 ? _plain(tk / r) : '';
+    } else {
+      final s = parseNum(_sar.text);
+      _taka.text = s != null && r != null && r > 0 ? takaFor(s, r).round().toString() : '';
+    }
   }
+
+  bool get _bank => _svc == 0 && _method == Method.bank;
 
   String? get _numErr {
-    if (_number.text.trim().isEmpty) return null;
-    if (_method == Method.bank) return null;
+    if (_number.text.trim().isEmpty || _bank) return null;
     return bdMobile(_number.text) == null ? '১১ সংখ্যার নম্বর দিন (01XXXXXXXXX)' : null;
   }
 
   Txn? _draft() {
     final s = parseNum(_sar.text), r = parseNum(_rate.text), tk = parseNum(_taka.text);
-    final num = _method == Method.bank ? en(_number.text.trim()) : bdMobile(_number.text);
+    final num = _bank ? en(_number.text.trim()) : bdMobile(_number.text);
     if (s == null || s <= 0 || r == null || r <= 0 || tk == null || tk <= 0 || num == null || num.isEmpty) return null;
-    final fee = _withFee ? (parseNum(_fee.text) ?? 0) : 0.0;
+    if (_svc == 2 && _pack.text.trim().isEmpty) return null;
+    final kind = _kindNow;
+    final fee = !kind.isTopUp && _withFee ? (parseNum(_fee.text) ?? 0) : 0.0;
     final e = widget.editing;
-    return Txn(
-      id: e?.id ?? '',
-      no: e?.no ?? 0,
-      customerId: widget.c.id,
-      recipientLabel: _label.text.trim(),
-      number: num,
-      method: _method,
-      kind: _kind,
-      sarAmount: s,
-      rate: r,
-      taka: tk.roundToDouble(),
-      fee: fee,
-      agentId: _agentId,
-      pay: e?.pay ?? Pay.due,
-      sarPaid: e?.sarPaid ?? 0,
-      at: e?.at ?? h.now,
-      status: e?.status ?? TxnStatus.pending,
-      trxId: e?.trxId ?? '',
-      sentAt: e?.sentAt,
-      agentPaymentId: e?.agentPaymentId,
-      note: e?.note ?? '',
-    );
+    final base = e?.copy() ??
+        Txn(
+          id: '',
+          no: 0,
+          customerId: widget.c.id,
+          recipientLabel: '',
+          number: '',
+          method: Method.bkash,
+          kind: Kind.send,
+          sarAmount: 0,
+          rate: 0,
+          taka: 0,
+          fee: 0,
+          agentId: _agentId,
+          pay: Pay.due,
+          sarPaid: 0,
+          at: h.now,
+        );
+    return base
+      ..recipientLabel = _label.text.trim()
+      ..number = num
+      ..method = kind.isTopUp ? Method.bkash : _method
+      ..kind = kind
+      ..sarAmount = s
+      ..rate = r
+      ..taka = tk.roundToDouble()
+      ..fee = fee
+      ..agentId = _agentId
+      ..operator = kind.isTopUp ? (_operator.isEmpty ? operatorOf(num) : _operator) : ''
+      ..pack = kind == Kind.mb ? _pack.text.trim() : '';
   }
 
   @override
@@ -302,6 +355,8 @@ class _EntryScreenState extends State<EntryScreen> {
     final c = widget.c;
     final due = customerDue(h.d, c.id);
     final draft = _draft();
+    final topUp = _svc != 0;
+    final sarAuto = _src == 'taka' || (_locked && _src == 'rate');
     return Screen(
       title: widget.editing == null ? 'কত পাঠাবেন' : 'লেনদেন সংশোধন #${bn('${widget.editing!.no}')}',
       bottom: Pill(
@@ -328,42 +383,80 @@ class _EntryScreenState extends State<EntryScreen> {
               ]),
             ),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text(due > 0 ? sar(due) : 'পরিষ্কার', style: t(14.5, w: FontWeight.w700, c: due > 0 ? K.red : K.green)),
-              Text(due > 0 ? 'আগের বাকি' : 'বাকি নেই', style: t(12, c: K.muted)),
+              Text(due > 0 ? sar(due) : 'বাকি নেই', style: t(14.5, w: FontWeight.w700, c: due > 0 ? K.red : K.ink)),
+              if (due > 0) Text('আগের বাকি', style: t(12, c: K.muted)),
             ]),
           ]),
         ),
+        if (_locked) ...[
+          const SizedBox(height: 12),
+          const Note('এজেন্ট এটা পাঠিয়ে দিয়েছেন, তাই টাকা, নম্বর আর খরচ বদলানো যাবে না। রিয়াল বা রেট বদলালে অন্যটা মিলিয়ে নেবে।',
+              color: K.amberTint, textColor: K.amberText, icon: Icons.lock_outline_rounded),
+        ],
         const SizedBox(height: 14),
-        Field(label: 'কত রিয়াল', controller: _sar, number: true, big: true, suffix: 'SAR', autofocus: widget.editing == null, hint: '০', onChanged: (_) => setState(_recalc)),
+        if (!_locked)
+          Seg<int>(
+            items: const [(0, 'টাকা পাঠানো'), (1, 'রিচার্জ'), (2, 'এমবি প্যাক')],
+            value: _svc,
+            onChanged: (v) => setState(() {
+              _svc = v;
+              if (!_operatorByHand) _operator = operatorOf(bdMobile(_number.text) ?? '');
+            }),
+          ),
+        if (!_locked) const SizedBox(height: 14),
+        Field(
+          label: sarAuto ? 'কত রিয়াল (অটো)' : 'কত রিয়াল',
+          controller: _sar,
+          number: true,
+          big: true,
+          suffix: 'SAR',
+          autofocus: widget.editing == null,
+          hint: '০',
+          onChanged: (_) => setState(() {
+            _src = 'sar';
+            _derive();
+          }),
+        ),
         const SizedBox(height: 12),
         Row(children: [
-          Expanded(child: Field(label: 'রেট (১ রিয়াল = ? টাকা)', controller: _rate, number: true, hint: '৩২.৫০', onChanged: (_) => setState(_recalc))),
+          Expanded(
+            child: Field(
+              label: _locked && !sarAuto ? 'রেট (অটো)' : 'রেট (১ রিয়াল = ? টাকা)',
+              controller: _rate,
+              number: true,
+              hint: '৩২.৫০',
+              onChanged: (_) => setState(() {
+                if (_locked) _src = 'rate';
+                _derive();
+              }),
+            ),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Field(
-              label: _takaByHand ? 'টাকা (হাতে লেখা)' : 'টাকা (অটো)',
+              label: _locked ? 'টাকা (বদলাবে না)' : (_src == 'sar' ? 'টাকা (অটো)' : 'টাকা'),
               controller: _taka,
               number: true,
               prefix: '৳ ',
-              onChanged: (_) => setState(() => _takaByHand = true),
+              readOnly: _locked,
+              onChanged: (_) => setState(() {
+                _src = 'taka';
+                _derive();
+              }),
             ),
           ),
         ]),
-        if (_takaByHand)
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () => setState(() {
-                _takaByHand = false;
-                _recalc();
-              }),
-              child: Text('রিয়াল × রেট থেকে আবার হিসাব', style: t(13, c: K.blue)),
-            ),
+        Padding(
+          padding: const EdgeInsets.only(left: 6, top: 6),
+          child: Text(
+            _locked ? 'টাকা ঠিক রেখে রিয়াল ↔ রেট মিলছে' : 'রিয়াল লিখলে টাকা, টাকা লিখলে রিয়াল নিজে হিসাব হবে',
+            style: t(12, c: K.muted),
           ),
+        ),
         const SizedBox(height: 16),
-        Text('কার কাছে যাবে', style: t(13, c: K.muted)),
+        Text(topUp ? 'কোন নম্বরে' : 'কার কাছে যাবে', style: t(13, c: K.muted)),
         const SizedBox(height: 6),
-        if (c.recipients.isNotEmpty) ...[
+        if (c.recipients.isNotEmpty && !_locked) ...[
           Wrap(spacing: 8, runSpacing: 8, children: [
             for (final r in c.recipients)
               ChoiceChipX(
@@ -374,42 +467,69 @@ class _EntryScreenState extends State<EntryScreen> {
           ]),
           const SizedBox(height: 10),
         ],
-        Seg<Method>(items: [for (final m in Method.values) (m, m.bnName)], value: _method, onChanged: (m) => setState(() => _method = m)),
-        const SizedBox(height: 10),
+        if (!topUp && !_locked) ...[
+          Seg<Method>(items: [for (final m in Method.values) (m, m.bnName)], value: _method, onChanged: (m) => setState(() => _method = m)),
+          const SizedBox(height: 10),
+        ],
         Field(
-          label: _method == Method.bank ? 'অ্যাকাউন্ট নম্বর' : '${_method.bnName} নম্বর',
+          label: topUp ? 'মোবাইল নম্বর' : (_method == Method.bank ? 'অ্যাকাউন্ট নম্বর' : '${_method.bnName} নম্বর'),
           controller: _number,
-          phone: _method != Method.bank,
+          phone: !_bank,
           hint: '01XXXXXXXXX',
           error: _numErr,
-          onChanged: (_) => setState(() {}),
+          readOnly: _locked,
+          onChanged: (_) => setState(() {
+            if (!_operatorByHand) _operator = operatorOf(bdMobile(_number.text) ?? '');
+          }),
         ),
-        const SizedBox(height: 10),
-        Field(label: 'প্রাপক কে (যেমন স্ত্রী, বাবা — ইচ্ছা হলে)', controller: _label, onChanged: (_) => setState(() {})),
-        if (bdMobile(_number.text) != null && parseNum(_taka.text) != null) ..._dupWarning(),
-        const SizedBox(height: 14),
-        if (_method != Method.bank) ...[
-          Seg<Kind>(items: [for (final k in Kind.values) (k, k.bnName)], value: _kind, onChanged: (k) => setState(() => _kind = k)),
-          const SizedBox(height: 14),
-        ],
-        CardBox(
-          padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
-          child: Column(children: [
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _withFee,
-              onChanged: (v) => setState(() => _withFee = v),
-              title: Text('খরচ (ক্যাশ আউট চার্জ) দেবেন?', style: t(15, w: FontWeight.w500)),
-              subtitle: Text('দিলে এজেন্টকে মূল টাকার সাথে খরচও পাঠাতে বলা হবে', style: t(12.5, c: K.muted)),
-            ),
-            if (_withFee)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(0, 0, 8, 8),
-                child: Field(label: 'খরচ কত টাকা', controller: _fee, number: true, prefix: '৳ ', onChanged: (_) => setState(() {})),
+        if (topUp) ...[
+          const SizedBox(height: 10),
+          Text('অপারেটর', style: t(13, c: K.muted)),
+          const SizedBox(height: 6),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final o in operators)
+              ChoiceChipX(
+                label: o,
+                on: o == _operator,
+                onTap: _locked
+                    ? () {}
+                    : () => setState(() {
+                          _operator = o;
+                          _operatorByHand = true;
+                        }),
               ),
           ]),
-        ),
-        if (h.d.agents.length > 1) ...[
+          if (_svc == 2) ...[
+            const SizedBox(height: 10),
+            Field(label: 'কোন প্যাক (যেমন ৩০ জিবি ৩০ দিন)', controller: _pack, readOnly: _locked, onChanged: (_) => setState(() {})),
+          ],
+        ],
+        const SizedBox(height: 10),
+        Field(label: 'প্রাপক কে (যেমন স্ত্রী, বাবা — ইচ্ছা হলে)', controller: _label, onChanged: (_) => setState(() {})),
+        if (bdMobile(_number.text) != null && parseNum(_taka.text) != null && !_locked) ..._dupWarning(),
+        const SizedBox(height: 14),
+        if (!topUp && !_locked) ...[
+          Seg<Kind>(items: const [(Kind.send, 'সেন্ড মানি'), (Kind.cashout, 'ক্যাশ আউট')], value: _kind == Kind.cashout ? Kind.cashout : Kind.send, onChanged: (k) => setState(() => _kind = k)),
+          const SizedBox(height: 14),
+          CardBox(
+            padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+            child: Column(children: [
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _withFee,
+                onChanged: (v) => setState(() => _withFee = v),
+                title: Text('খরচ (ক্যাশ আউট চার্জ) দেবেন?', style: t(15, w: FontWeight.w500)),
+                subtitle: Text('দিলে এজেন্টকে মূল টাকার সাথে খরচও পাঠাতে বলা হবে', style: t(12.5, c: K.muted)),
+              ),
+              if (_withFee)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 0, 8, 8),
+                  child: Field(label: 'খরচ কত টাকা', controller: _fee, number: true, prefix: '৳ ', onChanged: (_) => setState(() {})),
+                ),
+            ]),
+          ),
+        ],
+        if (h.d.agents.length > 1 && !_locked) ...[
           const SizedBox(height: 14),
           Text('কোন এজেন্ট', style: t(13, c: K.muted)),
           const SizedBox(height: 6),
@@ -483,7 +603,14 @@ class _ConfirmSheetState extends State<ConfirmSheet> {
     } else {
       final changed = _txn;
       final diffs = await h.editTxn(e, changed);
-      final agentSide = e.number != changed.number || e.taka != changed.taka || e.fee != changed.fee || e.method != changed.method || e.kind != changed.kind || e.agentId != changed.agentId;
+      final agentSide = e.number != changed.number ||
+          e.taka != changed.taka ||
+          e.fee != changed.fee ||
+          e.method != changed.method ||
+          e.kind != changed.kind ||
+          e.agentId != changed.agentId ||
+          e.operator != changed.operator ||
+          e.pack != changed.pack;
       nav.popUntil((r) => r.isFirst);
       nav.push(MaterialPageRoute(builder: (_) => TxnScreen(h: h, id: e.id)));
       if (diffs.isNotEmpty && agentSide && e.status == TxnStatus.pending) {
@@ -518,7 +645,8 @@ class _ConfirmSheetState extends State<ConfirmSheet> {
                 _kv('রেট', rateText(t0.rate)),
                 _kv('টাকা যাবে', taka(t0.taka), bold: true),
                 if (t0.fee > 0) _kv('খরচ', taka(t0.fee)),
-                _kv('প্রাপক', '${t0.recipientLabel.isEmpty ? '' : '${t0.recipientLabel} · '}${t0.method.bnName}'),
+                _kv('প্রাপক', '${t0.recipientLabel.isEmpty ? '' : '${t0.recipientLabel} · '}${serviceName(t0)}'),
+                if (t0.kind == Kind.mb) _kv('প্যাক', t0.pack),
                 _kv('নম্বর', t0.method == Method.bank ? bn(t0.number) : bdShow(t0.number), bold: true),
                 _kv('ধরন', t0.kind.bnName, last: true),
               ]),

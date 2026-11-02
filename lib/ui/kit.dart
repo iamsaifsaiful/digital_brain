@@ -232,9 +232,7 @@ class Seg<T> extends StatelessWidget {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(color: v == value ? K.navy : Colors.transparent, borderRadius: BorderRadius.circular(22)),
                     child: Text(label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: t(13.5, w: v == value ? FontWeight.w600 : FontWeight.w400, c: v == value ? Colors.white : const Color(0xFF4A4A4A))),
+                        maxLines: 1, overflow: TextOverflow.ellipsis, style: t(13.5, w: v == value ? FontWeight.w600 : FontWeight.w400, c: v == value ? Colors.white : const Color(0xFF4A4A4A))),
                   ),
                 ),
               ),
@@ -257,16 +255,18 @@ class ChoiceChipX extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(20),
-          child: Container(
-            height: 40,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: on ? K.navy : K.card,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: on ? K.navy : K.border),
+          child: IntrinsicWidth(
+            child: Container(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: on ? K.navy : K.card,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: on ? K.navy : K.border),
+              ),
+              child: Text(label, style: t(13.5, w: on ? FontWeight.w600 : FontWeight.w400, c: on ? Colors.white : K.ink)),
             ),
-            child: Text(label, style: t(13.5, w: on ? FontWeight.w600 : FontWeight.w400, c: on ? Colors.white : K.ink)),
           ),
         ),
       );
@@ -279,7 +279,15 @@ class Ring extends StatelessWidget {
   final double size;
   final Color? color;
 
-  Color get _c => color ?? (percent > 100 ? const Color(0xFFD93025) : percent >= 70 ? K.amber : percent <= 0 ? const Color(0xFF1E9E3A) : K.blue);
+  Color get _c =>
+      color ??
+      (percent > 100
+          ? const Color(0xFFD93025)
+          : percent >= 70
+              ? K.amber
+              : percent <= 0
+                  ? const Color(0xFF1E9E3A)
+                  : K.blue);
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -379,8 +387,7 @@ class _LinePainter extends CustomPainter {
     canvas.drawPath(
         area,
         Paint()
-          ..shader = LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [K.blue.withValues(alpha: 0.26), K.blue.withValues(alpha: 0)])
-              .createShader(Offset.zero & size));
+          ..shader = LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [K.blue.withValues(alpha: 0.26), K.blue.withValues(alpha: 0)]).createShader(Offset.zero & size));
     canvas.drawPath(
         path,
         Paint()
@@ -490,6 +497,7 @@ class Field extends StatelessWidget {
     this.maxLines = 1,
     this.obscure = false,
     this.error,
+    this.readOnly = false,
   });
   final String label;
   final TextEditingController controller;
@@ -504,12 +512,14 @@ class Field extends StatelessWidget {
   final int maxLines;
   final bool obscure;
   final String? error;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Padding(padding: const EdgeInsets.only(left: 6, bottom: 4), child: Text(label, style: t(13, c: K.muted))),
         TextField(
           controller: controller,
+          readOnly: readOnly,
           autofocus: autofocus,
           obscureText: obscure,
           maxLines: maxLines,
@@ -530,8 +540,8 @@ class Field extends StatelessWidget {
             suffixText: suffix,
             suffixStyle: t(14, w: FontWeight.w600),
             filled: true,
-            fillColor: K.card,
-            contentPadding: EdgeInsets.symmetric(horizontal: 18, vertical: big ? 14 : 14),
+            fillColor: readOnly ? const Color(0xFFEDEDED) : K.card,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(maxLines > 1 ? 16 : 26), borderSide: const BorderSide(color: K.border)),
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(maxLines > 1 ? 16 : 26), borderSide: const BorderSide(color: K.border)),
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(maxLines > 1 ? 16 : 26), borderSide: const BorderSide(color: K.blue, width: 2)),
@@ -542,7 +552,18 @@ class Field extends StatelessWidget {
 
 /// A row with a coloured round letter/icon, two lines and a value on the right.
 class Row2 extends StatelessWidget {
-  const Row2({super.key, required this.lead, required this.title, this.sub, this.value, this.valueSub, this.valueColor = K.ink, this.subColor = K.muted, this.valueSubColor = K.muted, this.onTap, this.last = false});
+  const Row2(
+      {super.key,
+      required this.lead,
+      required this.title,
+      this.sub,
+      this.value,
+      this.valueSub,
+      this.valueColor = K.ink,
+      this.subColor = K.muted,
+      this.valueSubColor = K.muted,
+      this.onTap,
+      this.last = false});
   final Widget lead;
   final String title;
   final String? sub;

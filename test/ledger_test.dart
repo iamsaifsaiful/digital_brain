@@ -7,6 +7,7 @@ import 'package:riyal_hisab/core/models.dart';
 import 'package:riyal_hisab/services/crypto.dart';
 import 'package:riyal_hisab/services/device.dart';
 import 'package:riyal_hisab/services/lock.dart';
+import 'package:riyal_hisab/services/reminders.dart';
 import 'package:riyal_hisab/services/store.dart';
 import 'package:riyal_hisab/state/hisab.dart';
 
@@ -134,6 +135,64 @@ void main() {
       expect(matchReply('BJ7K9X2Q1M', [w1]).single.id, 't1');
     });
 
+    test('agent reply "10000-667": taka, then 3 digits; never a guess', () {
+      final r = parseReply('10000-667');
+      expect(r.amount, 10000);
+      expect(r.tail, '667');
+      expect(parseReply('১০,০০০ - ৬৬৭').amount, 10000);
+      final both = parseReply('16250 TrxID BJ7K9X2Q1M');
+      expect(both.amount, 16250);
+      expect(both.trxIds, ['BJ7K9X2Q1M']);
+      expect(parseReply('ok').useful, isFalse);
+      expect(parseReply('01812345901').useful, isFalse);
+
+      Txn w(String id, int no, double sarAmt, String number) => Txn.fromJson({...draft(sarAmount: sarAmt, number: number).toJson(), 'id': id, 'no': no});
+      final a = w('a', 1, 500, '01812345901'); // 16,250
+      final b = w('b', 2, 400, '01911222338'); // 13,000
+      final c = w('c', 3, 500, '01711000667'); // 16,250 again
+      expect(matchReply('13000-555', [a, b]).single.id, 'b');
+      // The send's number first: that one, whatever else matches.
+      expect(parseReply('1002 13000-555', nos: [1001, 1002]).no, 1002);
+      final ab = [w('x', 1042, 500, '01812345901'), w('y', 1043, 500, '01711000667')];
+      expect(matchReply('1043 16250-901', ab).single.id, 'y');
+      expect(matchReply('#1042 16250-667', ab).single.id, 'x');
+      expect(matchReply('1043 BJ7K9X2Q1M', ab).single.id, 'y');
+      expect(parseReply('1043 16250-901', nos: [1042, 1043]).amount, 16250);
+      // A number that is not a waiting send is not taken as one.
+      expect(matchReply('1099 16250-901', ab).single.id, 'x');
+      // Same taka twice: the 3 digits pick the one whose number ends so.
+      expect(matchReply('16250-667', [a, b, c]).single.id, 'c');
+      // Same taka, digits match neither number (agent's own number): ask.
+      expect(matchReply('16250-123', [a, b, c]).map((x) => x.id), ['a', 'c']);
+      // Taka that no send has: nothing, even with one send waiting.
+      expect(matchReply('9999-667', [a]), isEmpty);
+      expect(matchReply('16250 BJ7K9X2Q1M', [a, b]).single.id, 'a');
+    });
+
+    test('loss takes riyal off the due but adds nothing to cash', () {
+      final d = AppData();
+      d.txns.add(draft(sarAmount: 500));
+      final cash = cashInHand(d);
+      d.losses.add(Loss(id: 'l', customerId: 'c1', sarAmount: 300, at: DateTime(2026)));
+      expect(customerDue(d, 'c1'), 200);
+      expect(lossOf(d), 300);
+      expect(cashInHand(d), cash);
+      expect(openSends(d, 'c1').single.left, 200);
+    });
+
+    test('recharge and MB messages: number, operator, pack, taka; no riyal', () {
+      final t = Txn.fromJson({...draft(sarAmount: 20, rate: 32.5, number: '01812345901').toJson(), 'no': 1050, 'kind': 'mb', 'operator': 'রবি', 'pack': '৩০ জিবি ৩০ দিন'});
+      final m = agentMessage(t);
+      expect(m, contains('এমবি প্যাক'));
+      expect(m, contains('রবি'));
+      expect(m, contains('৩০ জিবি'));
+      expect(m, contains('650'));
+      expect(m, isNot(contains('SAR')));
+      expect(m, isNot(contains('রিয়াল')));
+      expect(operatorOf('01812345901'), 'রবি');
+      expect(operatorOf('01712345678'), 'গ্রামীণফোন');
+    });
+
     test('agent message has taka only, never riyal', () {
       final t = Txn.fromJson({...draft(fee: 300).toJson(), 'no': 1042});
       final m = agentMessage(t);
@@ -143,6 +202,8 @@ void main() {
       expect(m, isNot(contains('রিয়াল')));
       expect(m, isNot(contains('SAR')));
       expect(m, isNot(contains('32')));
+      expect(m, contains('আগে লেনদেন নং'));
+      expect(m, contains('1042 16550-XXX'));
     });
   });
 
@@ -203,6 +264,38 @@ void main() {
       expect(await other.photo(other.d.customers.single.photo!), [1, 2, 3]);
     });
 
+    test('promise reminder, loss, wrong-number mark, no cancel after sent', () async {
+      final rem = FakeReminders();
+      final keys = MemoryKeyVault();
+      final h = Hisab(Services(
+        store: DataStore(keys: keys, blob: MemoryBlobStore(), photos: MemoryPhotoFiles()),
+        lock: LockService(keys: keys, biometrics: FakeBiometrics(has: false), iterations: 1000),
+        device: FakeDevice(),
+        reminders: rem,
+        clock: () => DateTime(2026, 11, 1, 10),
+      ));
+      await h.load();
+      await h.setup(owner: 'সাইফুল', agentName: 'এ', agentWhatsapp: '01800000000');
+      final c = await h.addCustomer(name: 'করিম', phone: '0551234567');
+      final t = await h.addTxn(draft(customerId: c.id, agentId: h.d.agents.single.id));
+      await h.setPromise(c, DateTime(2026, 11, 5, 9), 'বেতন পেলে');
+      expect(rem.scheduled[c.id], DateTime(2026, 11, 5, 9));
+      expect(h.promisesDue, isEmpty);
+
+      await h.markSent(t, reply: '16250-667', tail: '667');
+      expect(t.status, TxnStatus.sent);
+      expect(t.agentReply, '16250-667');
+      expect(() => h.cancelTxn(t, 'x'), throwsStateError);
+      await h.markFault(t, Fault.agent, 'শেষ সংখ্যা ভুল');
+      expect(h.d.txns.single.fault, Fault.agent);
+
+      await h.addLoss(c, 500, 'দেশে চলে গেছেন');
+      expect(customerDue(h.d, c.id), 0);
+      // Nothing owed any more: the reminder is taken off.
+      expect(rem.scheduled, isEmpty);
+      expect(h.d.log.map((e) => e.title), containsAll(['বাকি ফেরতের তারিখ', 'এজেন্ট পাঠিয়েছেন · #১০০১', 'ভুল নম্বরে গেছে · #১০০১', 'লস ধরা হলো (আদায় হবে না)']));
+    });
+
     test('clipboard TrxID is offered for the waiting send', () async {
       final dev = FakeDevice();
       final h = makeHisab(() => DateTime(2026, 11, 1), device: dev);
@@ -214,6 +307,12 @@ void main() {
       final hit = await h.clipboardTrx();
       expect(hit!.trxId, 'BJ7K9X2Q1M');
       expect(hit.matches, hasLength(1));
+      dev.clip = '16250-667';
+      final hit2 = await h.clipboardTrx();
+      expect(hit2!.reply.amount, 16250);
+      expect(hit2.matches, hasLength(1));
+      dev.clip = '5000-667';
+      expect((await h.clipboardTrx())!.matches, isEmpty);
     });
   });
 }

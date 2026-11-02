@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riyal_hisab/core/ledger.dart';
+import 'package:riyal_hisab/core/models.dart';
 import 'package:riyal_hisab/main.dart';
+import 'package:riyal_hisab/ui/kit.dart';
 import 'package:riyal_hisab/services/crypto.dart';
 import 'package:riyal_hisab/services/device.dart';
 import 'package:riyal_hisab/services/lock.dart';
@@ -9,7 +11,11 @@ import 'package:riyal_hisab/services/store.dart';
 import 'package:riyal_hisab/state/hisab.dart';
 
 Future<void> tapText(WidgetTester tester, String s) async {
+  if (find.text(s).evaluate().isEmpty) {
+    await tester.scrollUntilVisible(find.text(s), 300, scrollable: find.byType(Scrollable).hitTestable().first);
+  }
   await tester.ensureVisible(find.text(s).first);
+  await tester.pumpAndSettle();
   await tester.tap(find.text(s).first);
   await tester.pumpAndSettle();
 }
@@ -61,8 +67,20 @@ void main() {
 
     expect(find.text('কত পাঠাবেন'), findsOneWidget);
     final fields = find.byType(TextField);
-    await tester.enterText(fields.at(0), '500');
     await tester.enterText(fields.at(1), '32.5');
+    // Taka first: riyal is worked out.
+    await tester.enterText(fields.at(2), '13000');
+    await tester.pumpAndSettle();
+    expect(find.text('400'), findsOneWidget);
+    // A wrong rate blanks the result; putting it right brings it back.
+    await tester.enterText(fields.at(1), '');
+    await tester.pumpAndSettle();
+    expect(find.text('400'), findsNothing);
+    await tester.enterText(fields.at(1), '32.5');
+    await tester.pumpAndSettle();
+    expect(find.text('400'), findsOneWidget);
+    // Riyal typed: taka follows, live.
+    await tester.enterText(fields.at(0), '500');
     await tester.pumpAndSettle();
     expect(find.text('16250'), findsOneWidget);
     await tester.enterText(fields.at(3), '01812345901');
@@ -85,7 +103,7 @@ void main() {
     expect(customerDue(h.d, h.d.customers.single.id), 300);
 
     // Back from WhatsApp with the reply copied.
-    dev.clip = 'ok 901 BJ7K9X2Q1M';
+    dev.clip = '1001 16250-667';
     await tester.tap(find.byTooltip('পেছনে').last);
     await tester.pumpAndSettle();
     await tester.runAsync(() async {
@@ -96,21 +114,26 @@ void main() {
     });
     await tester.pumpAndSettle();
     // Auto-lock default is 30 s, so it is still open.
-    expect(find.text('কপি করা TrxID পাওয়া গেছে'), findsOneWidget);
-    await tapText(tester, 'এই লেনদেনে বসান');
+    expect(find.text('এজেন্টের উত্তর কপি করা আছে'), findsOneWidget);
+    await tapText(tester, 'ঠিক আছে, এই লেনদেনে বসান');
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pumpAndSettle();
-    expect(h.d.txns.single.trxId, 'BJ7K9X2Q1M');
+    expect(h.d.txns.single.status, TxnStatus.sent);
+    expect(h.d.txns.single.agentReply, '1001 16250-667');
 
-    // Other tabs and screens open without errors.
-    for (final tab in ['গ্রাহক', 'এজেন্ট', 'রিপোর্ট', 'হোম']) {
+    // Tabs swipe.
+    await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
+    await tester.pumpAndSettle();
+    expect(find.text('মোট বাকি ৩০০ SAR · ১ জন গ্রাহক'), findsOneWidget);
+    for (final tab in ['এজেন্ট', 'রিপোর্ট', 'অন্যান্য']) {
       await tester.tap(find.text(tab).last);
       await tester.pumpAndSettle();
     }
-    await tester.tap(find.byTooltip('কাজের লগ'));
-    await tester.pumpAndSettle();
+    await tapText(tester, 'কাজের লগ');
     expect(find.textContaining('নতুন লেনদেন'), findsWidgets);
     await tester.tap(find.byTooltip('পেছনে').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('হোম').last);
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('সেটিংস'));
     await tester.pumpAndSettle();
@@ -121,7 +144,7 @@ void main() {
     await tapText(tester, 'করিম');
     await tester.enterText(find.byType(TextField).first, '300');
     await tester.pumpAndSettle();
-    expect(find.text('বাকি শেষ'), findsOneWidget);
+    expect(find.text('বাকি নেই'), findsOneWidget);
     await tapText(tester, 'জমা সংরক্ষণ');
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pumpAndSettle();
@@ -133,10 +156,15 @@ void main() {
     await tester.pumpAndSettle();
     await tapText(tester, 'সবগুলো');
     await tapText(tester, '১টার টাকা দিলাম · ৳ ১৬,২৫০');
-    await tapText(tester, 'হ্যাঁ, দিয়েছি');
+    expect(find.text('এজেন্টকে টাকা দিলাম'), findsOneWidget);
+    await tapText(tester, 'বিকাশ');
+    await tester.enterText(find.descendant(of: find.ancestor(of: find.text('রেফারেন্স / ট্রানজেকশন নম্বর (ইচ্ছা হলে)'), matching: find.byType(Field)), matching: find.byType(TextField)), 'REF123');
+    await tapText(tester, 'সংরক্ষণ');
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pumpAndSettle();
     expect(agentOwed(h.d, h.d.agents.single.id), 0);
+    expect(h.d.agentPayments.single.way, 'bkash');
+    expect(h.d.agentPayments.single.ref, 'REF123');
 
     // Customer page, send detail and edit open.
     await tester.tap(find.text('গ্রাহক').last);
@@ -145,22 +173,35 @@ void main() {
     expect(find.text('হিসাবের খাতা'), findsOneWidget);
     await tester.tap(find.byTooltip('পেছনে').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('হোম').last);
+    await tester.tap(find.text('অন্যান্য').last);
     await tester.pumpAndSettle();
-    await tapText(tester, 'দিন শেষ');
+    await tapText(tester, 'দিন শেষের হিসাব');
     await tester.enterText(find.byType(TextField).first, '500');
     await tester.pumpAndSettle();
     expect(find.text('মিলেছে।'), findsOneWidget);
     await tapText(tester, 'হিসাব মিলিয়ে রাখুন');
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pumpAndSettle();
-    await tapText(tester, 'সব দেখুন');
+    await tapText(tester, 'সব লেনদেন');
+    await tapText(tester, 'আজ');
     await tester.tap(find.textContaining('#১০০১').first);
     await tester.pumpAndSettle();
-    expect(find.text('BJ7K9X2Q1M'), findsOneWidget);
+    expect(find.text('১০০১ ১৬২৫০-৬৬৭'), findsOneWidget);
+    // Sent by the agent: no cancel, but a wrong number can be marked.
+    expect(find.text('লেনদেন বাতিল'), findsNothing);
+    await tapText(tester, 'ভুল নম্বরে গেছে?');
+    await tapText(tester, 'এজেন্টের ভুল');
+    await tapText(tester, 'চিহ্ন দিন');
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+    await tester.pumpAndSettle();
+    expect(h.d.txns.single.fault, Fault.agent);
+    await tester.fling(find.byType(Scrollable).hitTestable().first, const Offset(0, 3000), 3000);
+    await tester.pumpAndSettle();
+    expect(find.text('ভুল নম্বরে গেছে — এজেন্টের ভুল'), findsOneWidget);
     await tester.tap(find.byTooltip('সংশোধন'));
     await tester.pumpAndSettle();
     expect(find.text('লেনদেন সংশোধন #১০০১'), findsOneWidget);
+    expect(find.textContaining('টাকা, নম্বর আর খরচ বদলানো যাবে না'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

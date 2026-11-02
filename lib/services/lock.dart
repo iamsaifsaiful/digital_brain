@@ -78,8 +78,7 @@ class PinLocked extends PinResult {
 /// The app PIN (stored only as a salted PBKDF2 hash), biometric choice and
 /// auto-lock time, all in the Keystore/Keychain.
 class LockService {
-  LockService({required this.keys, required this.biometrics, this.iterations = 30000, DateTime Function()? clock})
-      : _now = clock ?? DateTime.now;
+  LockService({required this.keys, required this.biometrics, this.iterations = 30000, DateTime Function()? clock}) : _now = clock ?? DateTime.now;
 
   final KeyVault keys;
   final Biometrics biometrics;

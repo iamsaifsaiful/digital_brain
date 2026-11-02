@@ -21,6 +21,10 @@ abstract class Device {
   Future<void> shareFile(Uint8List bytes, String name, String mime, {String text = ''});
   Future<Uint8List?> pickFile();
   Future<Uint8List?> takePhoto();
+
+  /// A photo from the gallery, or from the camera when [camera] is true
+  /// (back camera, for receipts).
+  Future<Uint8List?> pickImage({bool camera = false});
   Future<String?> clipboard();
 }
 
@@ -75,6 +79,12 @@ class PhoneDevice implements Device {
   }
 
   @override
+  Future<Uint8List?> pickImage({bool camera = false}) async {
+    final x = await ImagePicker().pickImage(source: camera ? ImageSource.camera : ImageSource.gallery, maxWidth: 1600, maxHeight: 1600, imageQuality: 80);
+    return x?.readAsBytes();
+  }
+
+  @override
   Future<String?> clipboard() async {
     try {
       return (await Clipboard.getData(Clipboard.kTextPlain))?.text;
@@ -112,6 +122,9 @@ class FakeDevice implements Device {
 
   @override
   Future<Uint8List?> takePhoto() async => photo;
+
+  @override
+  Future<Uint8List?> pickImage({bool camera = false}) async => photo;
 
   @override
   Future<String?> clipboard() async => clip;

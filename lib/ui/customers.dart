@@ -6,6 +6,7 @@ import '../core/models.dart';
 import '../state/hisab.dart';
 import 'home.dart';
 import 'kit.dart';
+import 'reports.dart';
 import 'send.dart';
 import 'txn.dart';
 
@@ -22,7 +23,9 @@ class _CustomersTabState extends State<CustomersTab> {
   int _f = 0;
 
   @override
-  Widget build(BuildContext context) => Live(h: widget.h, builder: (context) {
+  Widget build(BuildContext context) => Live(
+      h: widget.h,
+      builder: (context) {
         final h = widget.h;
         final d = h.d;
         final oldDays = d.settings.oldDueDays;
@@ -66,7 +69,7 @@ class _CustomersTabState extends State<CustomersTab> {
             ),
           ),
           const SizedBox(height: 10),
-          Seg<int>(items: [(0, 'সবাই'), (1, 'বাকি'), (2, '${bn('$oldDays')}+ দিন'), (3, 'পরিষ্কার')], value: _f, onChanged: (v) => setState(() => _f = v)),
+          Seg<int>(items: [(0, 'সবাই'), (1, 'বাকি'), (2, '${bn('$oldDays')}+ দিন'), (3, 'বাকি নেই')], value: _f, onChanged: (v) => setState(() => _f = v)),
           const SizedBox(height: 12),
           if (list.isEmpty) const Note('কেউ নেই।'),
           if (list.isNotEmpty)
@@ -104,11 +107,16 @@ class _CustomerRow extends StatelessWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(c.name, style: t(15, w: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
               Text(
-                due > 0 ? '${sar(due)} বাকি${days != null && days > 0 ? ' · ${bn('$days')} দিন' : ''}' : (due < 0 ? 'অগ্রিম ${sar(-due)}' : 'পরিষ্কার'),
-                style: t(12.5, c: due > 0 ? ((days ?? 0) >= d.settings.oldDueDays ? K.red : K.muted) : K.green),
+                due > 0 ? '${sar(due)} বাকি${days != null && days > 0 ? ' · ${bn('$days')} দিন' : ''}' : (due < 0 ? 'অগ্রিম ${sar(-due)}' : 'বাকি নেই'),
+                style: t(12.5, c: due > 0 ? ((days ?? 0) >= d.settings.oldDueDays ? K.red : K.muted) : K.muted),
               ),
             ]),
           ),
+          if (c.promiseAt != null && due > 0)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Icon(Icons.notifications_active_outlined, size: 20, color: c.promiseAt!.isAfter(h.now) ? K.blue : K.amberText),
+            ),
           Ring(percent: limit <= 0 ? 0 : (due > 0 ? due : 0) / limit * 100, size: 48),
         ]),
       ),
@@ -123,7 +131,9 @@ class CustomerScreen extends StatelessWidget {
   final String id;
 
   @override
-  Widget build(BuildContext context) => Live(h: h, builder: (context) {
+  Widget build(BuildContext context) => Live(
+      h: h,
+      builder: (context) {
         final c = customerById(h.d, id);
         if (c == null) return const Screen(title: 'গ্রাহক', body: SizedBox());
         final d = h.d;
@@ -148,7 +158,19 @@ class CustomerScreen extends StatelessWidget {
                 valueColor: K.green,
               )
             ),
+          for (final l in d.losses.where((l) => l.customerId == c.id))
+            (
+              l.at,
+              Row2(
+                lead: dotIcon(Icons.money_off_rounded, K.redTint, K.red),
+                title: 'লস — আদায় হবে না',
+                sub: '${dateShort(l.at)} · ${timeText(l.at)}${l.note.isEmpty ? '' : ' · ${l.note}'}',
+                value: sar(l.sarAmount),
+                valueColor: K.red,
+              )
+            ),
         ]..sort((a, b) => b.$1.compareTo(a.$1));
+        final lost = lossOf(d, c.id);
         return Screen(
           title: c.name,
           trailing: CircleBtn(icon: Icons.edit_outlined, label: 'প্রোফাইল বদলান', onTap: () => push(context, EditCustomer(h: h, c: c))),
@@ -162,8 +184,9 @@ class CustomerScreen extends StatelessWidget {
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(due > 0 ? 'বাকি' : (due < 0 ? 'অগ্রিম দেওয়া' : 'বাকি নেই'), style: t(13, c: K.muted)),
-                      Text(sar(due.abs()), style: t(26, w: FontWeight.w700, c: due > 0 ? K.red : K.green)),
+                      Text(due == 0 ? '—' : sar(due.abs()), style: t(26, w: FontWeight.w700, c: due > 0 ? K.red : K.ink)),
                       Text('সীমা ${sar(limit)}${c.phone.isEmpty ? '' : ' · ${bn(c.phone)}'}', style: t(12.5, c: K.muted)),
+                      if (lost > 0) Text('লস ধরা হয়েছে ${sar(lost)}', style: t(12.5, w: FontWeight.w600, c: K.red)),
                     ]),
                   ),
                   Ring(percent: limit <= 0 ? 0 : (due > 0 ? due : 0) / limit * 100, size: 56),
@@ -176,23 +199,20 @@ class CustomerScreen extends StatelessWidget {
                 ]),
               ]),
             ),
+            if (due > 0) ...[
+              const SizedBox(height: 12),
+              PromiseCard(h: h, c: c),
+            ],
             const SizedBox(height: 10),
             Row(children: [
-              if (due > 0) ...[
-                Expanded(
-                  child: SoftPill(
-                    label: 'রিমাইন্ডার',
-                    icon: Icons.notifications_none_rounded,
-                    onTap: c.phone.isEmpty
-                        ? null
-                        : () async {
-                            await h.s.device.whatsapp(c.phone, dueReminder(d, c));
-                            await h.note('cust', 'বাকির রিমাইন্ডার', '${c.name} · ${sar(due)}');
-                          },
-                  ),
+              Expanded(
+                child: SoftPill(
+                  label: 'PDF হিসাব',
+                  icon: Icons.picture_as_pdf_outlined,
+                  onTap: () => sharePdf(context, h, customerPdf(h, c), 'hisab-${c.name}'),
                 ),
-                const SizedBox(width: 8),
-              ],
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: SoftPill(
                   label: 'হিসাব পাঠান',
@@ -209,10 +229,20 @@ class CustomerScreen extends StatelessWidget {
                 ),
               ),
             ]),
-            if (c.phone.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              SoftPill(label: 'ফোন করুন', icon: Icons.call_outlined, onTap: () => h.s.device.call(c.phone)),
-            ],
+            const SizedBox(height: 8),
+            Row(children: [
+              if (c.phone.isNotEmpty) Expanded(child: SoftPill(label: 'ফোন করুন', icon: Icons.call_outlined, onTap: () => h.s.device.call(c.phone))),
+              if (c.phone.isNotEmpty && due > 0) const SizedBox(width: 8),
+              if (due > 0)
+                Expanded(
+                  child: SoftPill(
+                    label: 'আদায় হবে না',
+                    icon: Icons.money_off_rounded,
+                    color: K.red,
+                    onTap: () => _writeOff(context, h, c, due),
+                  ),
+                ),
+            ]),
             if (vals.any((v) => v > 0)) ...[
               const SizedBox(height: 14),
               CardBox(
@@ -262,6 +292,110 @@ class CustomerScreen extends StatelessWidget {
           ]),
         );
       });
+}
+
+Future<void> _writeOff(BuildContext context, Hisab h, Customer c, double due) async {
+  final v = await askText(context, 'কত রিয়াল আর পাওয়া যাবে না?', initial: groupEn(due, decimals: 2).replaceAll(',', ''), number: true, ok: 'এগোন');
+  final amount = v == null ? null : parseNum(v);
+  if (amount == null || amount <= 0 || !context.mounted) return;
+  if (amount > due + 0.001) {
+    snack(context, 'বাকির (${sar(due)}) চেয়ে বেশি লস ধরা যায় না');
+    return;
+  }
+  final note = await askText(context, 'কারণ (ইচ্ছা হলে)', hint: 'যেমন দেশে চলে গেছেন, যোগাযোগ নেই', ok: 'লস হিসেবে রাখুন');
+  if (note == null || !context.mounted) return;
+  if (!await confirm(context, 'লস হিসেবে রাখবেন?', '${c.name}-এর ${sar(amount)} বাকি থেকে বাদ যাবে আর রিপোর্টে "লস" হিসেবে দেখাবে। হাতের রিয়ালে কিছু যোগ হবে না।', yes: 'হ্যাঁ, রাখুন', danger: true)) {
+    return;
+  }
+  await h.addLoss(c, amount, note);
+  if (context.mounted) snack(context, '${sar(amount)} লস হিসেবে রাখা হলো');
+}
+
+/// When the customer said they would pay. The phone rings that day; then
+/// the reminder message goes to them on WhatsApp with one tap.
+class PromiseCard extends StatelessWidget {
+  const PromiseCard({super.key, required this.h, required this.c});
+  final Hisab h;
+  final Customer c;
+
+  Future<void> _set(BuildContext context) async {
+    final now = h.now;
+    final init = c.promiseAt ?? DateTime(now.year, now.month, now.day + 3, 10);
+    final day = await showDatePicker(
+      context: context,
+      initialDate: init.isBefore(now) ? now : init,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: DateTime(now.year + 2),
+      helpText: 'কবে বাকি দেবেন বলেছেন?',
+      cancelText: 'বাতিল',
+      confirmText: 'ঠিক আছে',
+    );
+    if (day == null || !context.mounted) return;
+    final time = await showTimePicker(context: context, initialTime: TimeOfDay(hour: init.hour, minute: init.minute), helpText: 'কখন মনে করাবে?', cancelText: 'বাতিল', confirmText: 'ঠিক আছে');
+    if (time == null || !context.mounted) return;
+    final note = await askText(context, 'নোট (ইচ্ছা হলে)', hint: 'যেমন বেতন পেলে দেবেন', initial: c.promiseNote, ok: 'রিমাইন্ডার দিন');
+    if (note == null) return;
+    final at = DateTime(day.year, day.month, day.day, time.hour, time.minute);
+    if (!at.isAfter(h.now)) {
+      if (context.mounted) snack(context, 'সময়টা পেরিয়ে গেছে, পরের কোনো সময় দিন');
+      return;
+    }
+    await h.s.reminders.askPermission();
+    await h.setPromise(c, at, note);
+    if (context.mounted) snack(context, '${dateShort(at)}, ${timeText(at)}-এ মনে করাবে');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final at = c.promiseAt;
+    final came = at != null && !at.isAfter(h.now);
+    return CardBox(
+      color: came ? K.amberTint : K.card,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          dotIcon(came ? Icons.notifications_active_rounded : Icons.event_outlined, came ? Colors.white : K.blueTint, came ? K.amberText : K.blue, size: 40),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(at == null ? 'বাকি কবে দেবেন বলেছেন?' : (came ? 'বাকি দেওয়ার দিন এসেছে' : 'বাকি দেওয়ার কথা'), style: t(15, w: FontWeight.w600, c: came ? K.amberText : K.ink)),
+              Text(
+                at == null ? 'তারিখ দিলে সেদিন ফোনে রিমাইন্ডার বাজবে' : '${dayLabel(at, h.now)}, ${timeText(at)}${c.promiseNote.isEmpty ? '' : ' · ${c.promiseNote}'}',
+                style: t(12.5, c: came ? K.amberText : K.muted),
+              ),
+            ]),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+            child: SoftPill(
+              label: at == null ? 'তারিখ দিন' : 'তারিখ বদলান',
+              icon: Icons.edit_calendar_outlined,
+              onTap: () => _set(context),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SoftPill(
+              label: 'তাগাদা পাঠান',
+              icon: Icons.chat_outlined,
+              onTap: c.phone.isEmpty
+                  ? null
+                  : () async {
+                      await h.s.device.whatsapp(c.phone, dueReminder(h.d, c));
+                      await h.note('cust', 'বাকির তাগাদা পাঠানো', '${c.name} · ${sar(customerDue(h.d, c.id))}');
+                    },
+            ),
+          ),
+        ]),
+        if (at != null)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(onPressed: () => h.clearPromise(c), child: Text('রিমাইন্ডার বন্ধ করুন', style: t(13, c: K.muted))),
+          ),
+      ]),
+    );
+  }
 }
 
 /// Full profile form.
@@ -428,7 +562,7 @@ class _DepositScreenState extends State<DepositScreen> {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('জমার পর', style: t(13, c: K.muted)),
-                Text(after > 0 ? '${sar(after)} বাকি' : (after < 0 ? 'অগ্রিম ${sar(-after)}' : 'বাকি শেষ'), style: t(18, w: FontWeight.w700, c: after > 0 ? K.red : K.green)),
+                Text(after > 0 ? '${sar(after)} বাকি' : (after < 0 ? 'অগ্রিম ${sar(-after)}' : 'বাকি নেই'), style: t(18, w: FontWeight.w700, c: after > 0 ? K.red : K.green)),
               ]),
             ),
             Ring(percent: dueLimitOf(d, c) <= 0 ? 0 : (after > 0 ? after : 0) / dueLimitOf(d, c) * 100, size: 52),

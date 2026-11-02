@@ -4,8 +4,10 @@ import 'package:flutter/services.dart';
 import 'services/crypto.dart';
 import 'services/device.dart';
 import 'services/lock.dart';
+import 'services/reminders.dart';
 import 'services/store.dart';
 import 'state/hisab.dart';
+import 'ui/customers.dart';
 import 'ui/home.dart';
 import 'ui/kit.dart';
 import 'ui/lock_screen.dart';
@@ -19,6 +21,7 @@ void main() {
     store: DataStore(keys: keys, blob: FileBlobStore(), photos: FilePhotoFiles()),
     lock: LockService(keys: keys, biometrics: DeviceBiometrics()),
     device: PhoneDevice(),
+    reminders: PhoneReminders(),
   );
   runApp(RiyalApp(hisab: Hisab(s)));
 }
@@ -50,6 +53,9 @@ class _GateState extends State<Gate> with WidgetsBindingObserver {
   bool? _hasPin;
   bool _unlocked = false;
   DateTime? _leftAt;
+
+  /// A customer to open, from a tapped reminder, once the app is unlocked.
+  String? _openCustomer;
   final _homeKey = GlobalKey<HomeShellState>();
 
   Hisab get h => widget.h;
@@ -64,8 +70,27 @@ class _GateState extends State<Gate> with WidgetsBindingObserver {
 
   Future<void> _start() async {
     await h.load();
+    await h.s.reminders.init((id) {
+      _openCustomer = id;
+      _openPending();
+    });
     final has = await h.s.lock.hasPin();
     if (mounted) setState(() => _hasPin = has);
+  }
+
+  void _openPending() {
+    final id = _openCustomer;
+    if (id == null || !_unlocked || h.needsSetup || !mounted) return;
+    _openCustomer = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => CustomerScreen(h: h, id: id)));
+    });
+  }
+
+  void _unlock() {
+    setState(() => _unlocked = true);
+    _openPending();
   }
 
   void _changed() {
@@ -116,7 +141,7 @@ class _GateState extends State<Gate> with WidgetsBindingObserver {
         }),
       );
     }
-    if (!_unlocked) return LockScreen(h: h, onOpen: () => setState(() => _unlocked = true));
+    if (!_unlocked) return LockScreen(h: h, onOpen: _unlock);
     if (h.needsSetup) return SetupScreen(h: h);
     return HomeShell(key: _homeKey, h: h);
   }
