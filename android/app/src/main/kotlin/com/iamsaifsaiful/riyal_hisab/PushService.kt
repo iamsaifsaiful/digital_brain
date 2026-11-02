@@ -3,6 +3,8 @@ package com.iamsaifsaiful.riyal_hisab
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.media.AudioAttributes
+import android.net.Uri
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -34,7 +36,13 @@ class PushService : FirebaseMessagingService() {
     }
 
     companion object {
-        const val CHANNEL = "rh_server"
+        // A channel's sound cannot change once made, so the sound has its
+        // own channel id; the old silent-default one is removed.
+        const val CHANNEL = "rh_alert"
+        private const val OLD_CHANNEL = "rh_server"
+        val VIBRATE = longArrayOf(0, 220, 120, 220, 120, 420)
+
+        fun soundUri(context: Context): Uri = Uri.parse("android.resource://${context.packageName}/${R.raw.remit_alert}")
         const val PREFS = "rh_push"
 
         private fun options(p: Map<String, String>): FirebaseOptions? {
@@ -74,9 +82,17 @@ class PushService : FirebaseMessagingService() {
         fun channel(context: Context) {
             if (Build.VERSION.SDK_INT < 26) return
             val nm = context.getSystemService(NotificationManager::class.java) ?: return
+            nm.deleteNotificationChannel(OLD_CHANNEL)
             if (nm.getNotificationChannel(CHANNEL) != null) return
             nm.createNotificationChannel(NotificationChannel(CHANNEL, "লেনদেনের খবর", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "নতুন অনুরোধ, এজেন্ট পাঠালেন, টাকা দেওয়া"
+                setSound(soundUri(context), AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build())
+                enableVibration(true)
+                vibrationPattern = VIBRATE
+                enableLights(true)
             })
         }
 
@@ -92,6 +108,8 @@ class PushService : FirebaseMessagingService() {
                 .setContentText(body)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(body))
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setSound(soundUri(context))
+                .setVibrate(VIBRATE)
                 .setAutoCancel(true)
                 .setContentIntent(pi)
             try {

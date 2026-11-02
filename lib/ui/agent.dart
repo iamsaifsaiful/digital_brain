@@ -320,9 +320,25 @@ class PaymentScreen extends StatelessWidget {
   final Hisab h;
   final AgentPayment p;
 
+  Future<void> _editSar(BuildContext context) async {
+    final v = await askText(context, 'এই ${taka(p.taka)}-এর জন্য আসলে কত রিয়াল গেল?', initial: p.sarAmount > 0 ? groupEn(p.sarAmount, decimals: 2).replaceAll(',', '') : '', number: true, hint: 'SAR');
+    final n = v == null ? null : parseNum(v);
+    if (n == null || n <= 0 || !context.mounted) {
+      if (v != null && context.mounted) snack(context, 'সঠিক রিয়াল লিখুন');
+      return;
+    }
+    final why = await askText(context, 'কেন বদলালেন? (ইচ্ছা হলে)', ok: 'বদলান');
+    if (why == null) return;
+    await h.editPaymentSar(p, n, why: why);
+    if (context.mounted) snack(context, 'রিয়াল ঠিক করা হলো');
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => Live(h: h, builder: (context) => _body(context));
+
+  Widget _body(BuildContext context) {
     final txns = [for (final id in p.txnIds) h.txnById(id)].whereType<Txn>().toList();
+    final edits = h.d.log.where((e) => e.ref == p.agentId && e.title == 'এজেন্টকে পরিশোধের রিয়াল বদল' && e.detail.contains(dateShort(p.at)) && e.detail.contains(taka(p.taka))).toList();
     Widget kv(String k, String v) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -339,6 +355,11 @@ class PaymentScreen extends StatelessWidget {
             const SizedBox(height: 8),
             kv('এজেন্ট', agentById(h.d, p.agentId)?.name ?? ''),
             kv('কবে', '${dateShort(p.at)} ${bn('${p.at.year}')}, ${timeText(p.at)}'),
+            Row(children: [
+              Expanded(child: kv('রিয়াল', p.sarAmount > 0 ? sar(p.sarAmount) : 'লেখা হয়নি')),
+              if (h.can('agent_pay'))
+                IconButton(tooltip: tr('রিয়াল ঠিক করুন'), icon: const Icon(Icons.edit_outlined, size: 20, color: K.blue), onPressed: () => _editSar(context)),
+            ]),
             kv('কীভাবে', payWayName(p.way)),
             if (p.fromAccount.isNotEmpty) kv('কোথা থেকে', p.fromAccount),
             if (p.ref.isNotEmpty) kv('রেফারেন্স', p.ref),
@@ -358,6 +379,17 @@ class PaymentScreen extends StatelessWidget {
                 SoftPill(label: 'রসিদ শেয়ার করুন', icon: Icons.ios_share_rounded, onTap: () => h.s.device.shareFile(b, 'rosid-${p.at.year}-${p.at.month}-${p.at.day}.jpg', 'image/jpeg')),
               ]);
             },
+          ),
+        ],
+        if (h.can('agent_pay')) ...[
+          const SizedBox(height: 10),
+          const Note('টাকার অঙ্ক বদলানো বা পরিশোধ মোছা যায় না। শুধু রিয়াল ভুল হলে ঠিক করা যায়, আর প্রতিটা বদল নিচে আর কাজের লগে থাকে।'),
+        ],
+        if (edits.isNotEmpty) ...[
+          SectionHead('রিয়ালের বদল'),
+          CardBox(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Column(children: [for (final (i, e) in edits.reversed.indexed) LogRow(e: e, last: i == edits.length - 1)]),
           ),
         ],
         if (txns.isNotEmpty) ...[

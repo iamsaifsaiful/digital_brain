@@ -396,12 +396,15 @@ class WaitingScreen extends StatelessWidget {
 
 /// Every send, newest first: search, status and date filters, PDF.
 class AllTxnsScreen extends StatefulWidget {
-  const AllTxnsScreen({super.key, required this.h, this.filter = 0, this.title = 'সব লেনদেন'});
+  const AllTxnsScreen({super.key, required this.h, this.filter = 0, this.title = 'সব লেনদেন', this.search = false});
   final Hisab h;
 
   /// 0 সব, 1 পাঠানোর অপেক্ষায়, 2 বাকিতে, 3 বাতিল, 4 ভুল নম্বর, 5 রিচার্জ/এমবি.
   final int filter;
   final String title;
+
+  /// Opened from the search button: the keyboard comes up at once.
+  final bool search;
 
   @override
   State<AllTxnsScreen> createState() => _AllTxnsScreenState();
@@ -430,12 +433,21 @@ class _AllTxnsScreenState extends State<AllTxnsScreen> {
           if (_f == 5 && !x.kind.isTopUp) return false;
           if (q.isEmpty) return true;
           final c = customerById(h.d, x.customerId);
-          return '${x.no}' == q.replaceAll('#', '') ||
-              x.number.contains(q) ||
+          final a = agentById(h.d, x.agentId);
+          final digits = q.replaceAll(RegExp(r'[^0-9.]'), '');
+          final amount = double.tryParse(digits);
+          bool named(String s) => s.toLowerCase().contains(q) || (soundKey(q).length >= 2 && soundKey(s).contains(soundKey(q)));
+          return (digits.isNotEmpty && '${x.no}'.contains(q.replaceAll('#', ''))) ||
+              (digits.length >= 3 && x.number.contains(digits)) ||
               x.trxId.toLowerCase().contains(q) ||
               x.agentReply.toLowerCase().contains(q) ||
-              (c?.name.toLowerCase().contains(q) ?? false) ||
-              (soundKey(q).length >= 2 && c != null && soundKey(c.name).contains(soundKey(q)));
+              (amount != null && (x.sarAmount == amount || x.taka.round() == amount || x.agentTaka.round() == amount)) ||
+              (c != null && (named(c.name) || c.phone.contains(q))) ||
+              named(x.recipientLabel) ||
+              (a != null && named(a.name)) ||
+              named(x.byName) ||
+              x.operator.toLowerCase().contains(q) ||
+              x.note.toLowerCase().contains(q);
         }).toList();
         final live = list.where((x) => !x.cancelled);
         final sumSar = live.fold<double>(0, (s, x) => s + x.sarAmount);
@@ -455,10 +467,11 @@ class _AllTxnsScreenState extends State<AllTxnsScreen> {
           body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 24), children: [
             TextField(
               controller: _q,
+              autofocus: widget.search,
               onChanged: (_) => setState(() {}),
               style: t(15),
               decoration: InputDecoration(
-                hintText: tr('নাম, নম্বর, #নং বা TrxID'),
+                hintText: tr('নাম, নম্বর, #নং, TrxID, টাকা বা রিয়াল'),
                 prefixIcon: const Icon(Icons.search_rounded),
                 filled: true,
                 fillColor: K.card,

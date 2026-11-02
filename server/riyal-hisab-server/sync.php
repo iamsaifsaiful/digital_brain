@@ -280,7 +280,7 @@ function rh_tell_agents($kind, $old, $new) {
             rh_note_agent($aid, 'edit', 'সংশোধন ' . $no, 'এখন: ' . rh_txn_line($new), (string) $new['id']);
         }
         if (empty($old['fault']) && !empty($new['fault'])) {
-            $who = ['mine' => 'দোকানের ভুল', 'agent' => 'আপনার ভুল', 'customer' => 'গ্রাহকের ভুল'][$new['fault']] ?? '';
+            $who = ['mine' => 'এডমিনের ভুল', 'agent' => 'আপনার ভুল', 'customer' => 'গ্রাহকের ভুল'][$new['fault']] ?? '';
             rh_note_agent($aid, 'fault', 'ভুল নম্বরে গেছে ' . $no, trim($who . (($new['faultNote'] ?? '') !== '' ? ' · ' . $new['faultNote'] : '')), (string) $new['id']);
         }
         return;

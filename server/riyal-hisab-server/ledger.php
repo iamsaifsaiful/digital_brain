@@ -157,6 +157,17 @@ function rh_admins_in() {
     return $out;
 }
 
+/** The main admin's name, which the whole account goes by. */
+function rh_owner_name() {
+    $s = rh_one('settings', 'main');
+    $n = trim((string) ($s['ownerName'] ?? ''));
+    if ($n === '') {
+        global $wpdb;
+        $n = (string) $wpdb->get_var('SELECT name FROM ' . rh_t('users') . " WHERE role = 'owner' LIMIT 1");
+    }
+    return $n !== '' ? $n : 'মূল এডমিন';
+}
+
 function rh_kind_name($t) {
     $kinds = ['send' => 'সেন্ড মানি', 'cashout' => 'ক্যাশ আউট', 'recharge' => 'মোবাইল রিচার্জ', 'mb' => 'এমবি প্যাক'];
     return $kinds[$t['kind'] ?? 'send'] ?? 'সেন্ড মানি';

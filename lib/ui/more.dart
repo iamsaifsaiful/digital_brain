@@ -453,7 +453,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   final _amount = TextEditingController();
   final _note = TextEditingController();
   String _cat = 'নিজের খরচ';
-  static const cats = ['নিজের খরচ', 'দোকান/ভাড়া', 'যাতায়াত', 'রিয়াল জমা দিলাম (ব্যাংকে/কাউকে)', 'অন্যান্য'];
+  static const cats = ['নিজের খরচ', 'ঘর/ভাড়া', 'যাতায়াত', 'রিয়াল জমা দিলাম (ব্যাংকে/কাউকে)', 'অন্যান্য'];
 
   @override
   Widget build(BuildContext context) {
@@ -655,7 +655,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Column(children: [
                   row(
                       Icons.person_outline_rounded,
-                      h.session == null ? 'আপনার নাম' : 'দোকানের মালিকের নাম (রসিদে যায়)',
+                      h.session == null ? 'আপনার নাম' : 'মূল এডমিনের নাম (রসিদে যায়)',
                       st.ownerName,
                       () => _edit('আপনার নাম', st.ownerName, (v) async {
                             final old = st.ownerName;

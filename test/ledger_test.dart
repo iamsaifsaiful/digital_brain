@@ -301,6 +301,22 @@ void main() {
       expect(h2.d.log.length, h.d.log.length);
     });
 
+    test('agent payment: only the riyal can be corrected, and the hand follows', () async {
+      final h = makeHisab(() => DateTime(2026, 11, 2, 10));
+      await h.load();
+      await h.setup(owner: 'সাইফুল', agentName: 'এ', agentWhatsapp: '01800000000');
+      final c = await h.addCustomer(name: 'করিম', phone: '0551234567');
+      await h.addDeposit(c, 500);
+      final p = await h.advanceAgent(h.d.agents.single, 10000, sarOut: 310);
+      expect(h.myCash, 190);
+      await h.editPaymentSar(p, 300, why: 'ভুল লিখেছিলাম');
+      expect(h.myCash, 200);
+      expect(p.taka, 10000);
+      expect(h.d.log.last.title, 'এজেন্টকে পরিশোধের রিয়াল বদল');
+      expect(h.d.log.last.detail, contains('৩১০ SAR → ৩০০ SAR'));
+      expect(h.d.log.last.detail, contains('ভুল লিখেছিলাম'));
+    });
+
     test('backup restores data and photos with the password only', () async {
       final h = makeHisab(() => DateTime(2026, 11, 1));
       await h.load();

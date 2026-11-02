@@ -121,5 +121,39 @@ function rh_users_update(WP_REST_Request $req, $u) {
         $wpdb->delete(rh_t('sessions'), ['user_id' => $id]);
     }
     rh_add_log(rh_role_bn($row['role']) . ' লগইন বদল', $row['name'] . ' · ' . implode(' · ', $what), $u['name'], '', 'sys');
+    if (($set['status'] ?? '') === 'off' && $row['role'] === 'admin') {
+        rh_hand_to_owner($row, $u);
+    }
     return rest_ensure_response(['ok' => true]);
+}
+
+/**
+ * An admin turned off: whatever riyal is in their hand goes to the main
+ * admin, as a handover. Their records keep their name.
+ */
+function rh_hand_to_owner($row, $u) {
+    $owner = rh_owner();
+    if (!$owner) {
+        return;
+    }
+    $bal = rh_cash_in_hand((int) $row['id']);
+    if (abs($bal) < 0.005) {
+        return;
+    }
+    $at = current_time('Y-m-d\TH:i:s');
+    $from = $bal > 0 ? $row : $owner;
+    $to = $bal > 0 ? $owner : $row;
+    $rid = 'off-' . (int) $row['id'] . '-' . time();
+    rh_put('handover', $rid, [
+        'id' => $rid,
+        'at' => $at,
+        'from' => (int) $from['id'],
+        'fromName' => (string) $from['name'],
+        'to' => (int) $to['id'],
+        'toName' => (string) $to['name'],
+        'sar' => round(abs($bal), 2),
+        'note' => $row['name'] . '-এর লগইন বন্ধ হওয়ায় তাঁর হাতের হিসাব মূল এডমিনের কাছে গেল',
+        'auto' => true,
+    ], (int) $u['id']);
+    rh_add_log('কালেকশন মূল এডমিনের কাছে', $row['name'] . ' → ' . $owner['name'] . ' · ' . rh_sar(abs($bal)) . ($bal < 0 ? ' (ঘাটতি)' : ''), $u['name'], '', 'recv');
 }

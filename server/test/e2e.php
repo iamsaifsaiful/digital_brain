@@ -208,6 +208,7 @@ call('POST', '/photo', ['pid' => 'face1', 'data' => $jpg], $owner);
 [$code] = call('GET', '/photo', ['pid' => 'face1'], $agentTok);
 check($code === 404, 'agent cannot see other photos (customers)');
 [, $f] = call('GET', '/agent/feed', [], $agentTok);
+check(($f['owner'] ?? '') === 'সাইফুল', 'the agent sees the main admin\'s name');
 check(count($f['payments']) === 1 && $f['payments'][0]['count'] === 1 && $f['unread'] >= 5, 'agent feed: payments and notifications');
 [, $n] = call('GET', '/notes', [], $agentTok);
 check(count($n['notes']) >= 5 && $n['notes'][0]['title'] !== '', 'agent\'s notification list');
@@ -236,7 +237,7 @@ check(abs(rh_cash_in_hand() - ($shopBefore + 120)) < 0.001, 'the shop total coun
 $html = page('cash', ['by' => (string) $rahimId]);
 check(str_contains($html, 'সাইফুল-কে দিলাম') && str_contains($html, '১২০'), 'cash page: one admin\'s lines with the handover');
 $html = page('cash');
-check(str_contains($html, 'দোকানের হাতে থাকা উচিত') && str_contains($html, 'রহিম'), 'cash page: every admin and the shop');
+check(str_contains($html, 'সাইফুল-এর মোট হিসাবে হাতে থাকা উচিত') && str_contains($html, 'রহিম') && !str_contains($html, 'দোকান'), 'cash page: every admin and the total, named after the main admin');
 $html = page('txns', ['by' => (string) $rahimId]);
 check(str_contains($html, '#' . rh_bn($no)) && !str_contains($html, '#১০০১<'), 'txns: filter by admin, with the admin\'s name');
 call('POST', '/push', ['records' => [['kind' => 'payment', 'rid' => 'p9', 'data' => ['id' => 'p9', 'agentId' => 'ag1', 'taka' => 3250, 'sar' => 100.5, 'at' => '2026-11-02T19:00:00.000', 'txnIds' => [], 'way' => 'cash']]]], $owner);
@@ -270,6 +271,14 @@ check($code === 404, 'and cannot sign in');
 call('POST', '/logout', [], $admin2);
 [$code] = call('GET', '/pull', ['since' => 0], $admin2);
 check($code === 404, 'signed out');
+$rahimBal = rh_cash_in_hand($rahimId);
+$ownerBal = rh_cash_in_hand($ownerId);
+$total = rh_cash_in_hand();
+[$code] = call('POST', '/users/update', ['id' => $rahimId, 'status' => 'off'], $owner);
+$auto = array_values(array_filter(rh_all('handover'), fn($x) => !empty($x['auto'])));
+check($code === 200 && count($auto) === 1 && (int) $auto[0]['from'] === (int) $rahimId && abs((float) $auto[0]['sar'] - $rahimBal) < 0.001, 'an admin turned off: their riyal goes to the main admin');
+check(abs(rh_cash_in_hand($rahimId)) < 0.001 && abs(rh_cash_in_hand($ownerId) - ($ownerBal + $rahimBal)) < 0.001 && abs(rh_cash_in_hand() - $total) < 0.001, 'his hand is empty, the main admin\'s grew, the total stayed');
+check((int) rh_one('deposit', 'd9')['by'] === (int) $rahimId && rh_one('deposit', 'd9')['byName'] === 'রহিম', 'his records keep his name');
 
 echo "\nrecord pages\n";
 call('POST', '/push', ['records' => [

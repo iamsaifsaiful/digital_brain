@@ -72,6 +72,7 @@ function rh_agent_feed(WP_REST_Request $req, $u) {
     return rest_ensure_response([
         'agent' => ['name' => $agent['name'] ?? $u['name'], 'commission' => (float) ($agent['commission'] ?? 0)],
         'owed' => rh_agent_owed($aid),
+        'owner' => rh_owner_name(),
         'txns' => $txns,
         'payments' => $pays,
         'unread' => $unread,

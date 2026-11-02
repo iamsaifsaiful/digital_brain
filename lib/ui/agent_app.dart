@@ -162,15 +162,15 @@ class RequestCard extends StatelessWidget {
 
   Future<void> _sent(BuildContext context) async {
     final ok = await showModalBottomSheet<bool>(context: context, isScrollControlled: true, useSafeArea: true, builder: (_) => _SentSheet(st: st, t: tx));
-    if (ok == true && context.mounted) snack(context, '#${bn('${tx.no}')} — পাঠানো হয়েছে, দোকানকে জানানো হলো');
+    if (ok == true && context.mounted) snack(context, '#${bn('${tx.no}')} — পাঠানো হয়েছে, ${st.owner}-কে জানানো হলো');
   }
 
   Future<void> _problem(BuildContext context) async {
-    final why = await askText(context, 'কী সমস্যা?', hint: 'যেমন নম্বর বন্ধ, ব্যালেন্স নেই', ok: 'দোকানকে জানান');
+    final why = await askText(context, 'কী সমস্যা?', hint: 'যেমন নম্বর বন্ধ, ব্যালেন্স নেই', ok: '${st.owner}-কে জানান');
     if (why == null) return;
     try {
       await st.problem(tx, why);
-      if (context.mounted) snack(context, 'দোকানকে জানানো হলো');
+      if (context.mounted) snack(context, '${st.owner}-কে জানানো হলো');
     } catch (_) {
       if (context.mounted) snack(context, 'পাঠানো যায়নি — ইন্টারনেট দেখুন');
     }
@@ -264,7 +264,7 @@ class _SentSheetState extends State<_SentSheet> {
           Field(label: 'TrxID (থাকলে)', controller: _trx, hint: 'যেমন BJ7K9X2Q1M'),
           if (_err != null) ...[const SizedBox(height: 10), Note(_err!, color: K.redTint, textColor: K.red)],
           const SizedBox(height: 16),
-          Pill(label: _busy ? 'পাঠানো হচ্ছে…' : 'দোকানকে জানান', icon: Icons.send_rounded, color: K.green, onTap: _busy ? null : _go),
+          Pill(label: _busy ? 'পাঠানো হচ্ছে…' : '${widget.st.owner}-কে জানান', icon: Icons.send_rounded, color: K.green, onTap: _busy ? null : _go),
         ]),
       );
 }
@@ -353,12 +353,12 @@ class _Money extends StatelessWidget {
         CardBox(
           padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Tx(st.owed >= 0 ? 'দোকান আপনাকে দেবে' : 'আপনার কাছে দোকানের অগ্রিম', style: t(13.5, c: K.muted)),
+            Tx(st.owed >= 0 ? '${st.owner} আপনাকে দেবেন' : 'আপনার কাছে ${st.owner}-এর অগ্রিম', style: t(13.5, c: K.muted)),
             Tx(taka(st.owed.abs()), style: t(32, w: FontWeight.w700, c: K.navy)),
             if (st.commission > 0) Tx('কমিশন হাজারে ${bnNum(st.commission, decimals: 2)} টাকা · মোট কমিশন ${taka(comm)}', style: t(12.5, c: K.muted)),
           ]),
         ),
-        SectionHead('দোকান যা দিয়েছে'),
+        SectionHead('${st.owner} যা দিয়েছেন'),
         if (st.payments.isEmpty) const Note('এখনো কিছু দেওয়া হয়নি।'),
         if (st.payments.isNotEmpty)
           CardBox(
@@ -446,7 +446,7 @@ class _Profile extends StatelessWidget {
         const SizedBox(height: 10),
         Row(children: [tile('এ মাসে পাঠালেন', taka(month.fold<double>(0, (s, x) => s + x.total))), const SizedBox(width: 10), tile('মোট পাঠালেন', taka(live.fold<double>(0, (s, x) => s + x.total)))]),
         const SizedBox(height: 10),
-        Row(children: [tile('দোকান থেকে পেয়েছেন', taka(received)), const SizedBox(width: 10), tile(st.owed >= 0 ? 'আরও পাবেন' : 'অগ্রিম আছে', taka(st.owed.abs()))]),
+        Row(children: [tile('${st.owner}-এর কাছ থেকে পেয়েছেন', taka(received)), const SizedBox(width: 10), tile(st.owed >= 0 ? 'আরও পাবেন' : 'অগ্রিম আছে', taka(st.owed.abs()))]),
         SectionHead('নোটিফিকেশন'),
         if (st.notes.isEmpty) const Note('কোনো নোটিফিকেশন নেই।'),
         if (st.notes.isNotEmpty)

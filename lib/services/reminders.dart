@@ -66,15 +66,19 @@ class PhoneReminders implements Reminders {
       await _plugin.zonedSchedule(
         id: reminderIdFor(customerId),
         scheduledDate: tz.TZDateTime.from(at, tz.UTC),
-        notificationDetails: const NotificationDetails(
+        notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
-            'due_promises',
+            'due_promises_v2',
             'বাকির তাগাদা',
             channelDescription: 'গ্রাহক যেদিন বাকি দেবেন বলেছেন, সেদিন মনে করানো',
             icon: 'ic_stat_reminder',
             color: Color(0xFF2F6BEA),
             importance: Importance.max,
             priority: Priority.high,
+            sound: const RawResourceAndroidNotificationSound('remit_alert'),
+            playSound: true,
+            enableVibration: true,
+            vibrationPattern: _vibrate,
             category: AndroidNotificationCategory.reminder,
             visibility: NotificationVisibility.private,
             autoCancel: true,
@@ -112,3 +116,6 @@ class FakeReminders implements Reminders {
   @override
   Future<void> cancel(String customerId) async => scheduled.remove(customerId);
 }
+
+/// The same buzz as the server's notifications.
+final _vibrate = Int64List.fromList([0, 220, 120, 220, 120, 420]);

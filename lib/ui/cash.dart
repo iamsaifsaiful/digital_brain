@@ -63,7 +63,7 @@ class _CashScreenState extends State<CashScreen> {
               CardBox(
                 padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Tx(who == null ? 'দোকানের হাতে থাকা উচিত (সবাই মিলে)' : 'হাতে থাকা উচিত', style: t(13, c: K.muted)),
+                  Tx(who == null ? '${h.ownerLabel}-এর মোট হিসাবে হাতে থাকা উচিত (সব এডমিন মিলে)' : 'হাতে থাকা উচিত', style: t(13, c: K.muted)),
                   Tx(sar(bal), style: t(30, w: FontWeight.w700)),
                   Tx('এই সময়ে এসেছে ${sar(inP)} · গেছে ${sar(outP)}', style: t(12.5, c: K.muted)),
                 ]),
@@ -83,7 +83,7 @@ class _CashScreenState extends State<CashScreen> {
                       ),
                     Row2(
                       lead: dotIcon(Icons.groups_rounded, _who == null ? K.navy : K.greenTint, _who == null ? Colors.white : K.green, size: 38),
-                      title: 'সবাই মিলে (দোকানের মোট)',
+                      title: '${h.ownerLabel}-এর মোট (সব এডমিন মিলে)',
                       value: sar(cashInHand(d)),
                       last: true,
                       onTap: () => setState(() => _who = null),
@@ -165,7 +165,7 @@ class _CashScreenState extends State<CashScreen> {
     if (n == null || n <= 0 || !context.mounted) return;
     final note = await askText(context, 'নোট (ইচ্ছা হলে)', ok: 'বুঝে নিলাম');
     if (note == null || !context.mounted) return;
-    if (!await confirm(context, 'কালেকশন বুঝে নিলেন?', '${others[from]}-এর হাত থেকে ${sar(n)} আপনার হাতে আসবে। দোকানের মোটে কোনো বদল হবে না।', yes: 'হ্যাঁ, বুঝে নিলাম')) return;
+    if (!await confirm(context, 'কালেকশন বুঝে নিলেন?', '${others[from]}-এর হাত থেকে ${sar(n)} আপনার হাতে আসবে। মোট হিসাবে কোনো বদল হবে না।', yes: 'হ্যাঁ, বুঝে নিলাম')) return;
     await h.receiveFrom(from, others[from]!, n, note);
     if (context.mounted) snack(context, '${sar(n)} বুঝে নেওয়া হলো');
   }

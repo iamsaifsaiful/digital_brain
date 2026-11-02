@@ -169,10 +169,12 @@ class HomeTab extends StatelessWidget {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Tx('আসসালামু আলাইকুম,', style: t(13.5, c: K.muted)),
-                Tx(d.settings.ownerName, style: t(21, w: FontWeight.w700)),
+                Tx(h.meName, style: t(21, w: FontWeight.w700)),
               ]),
             ),
             SyncBadge(h: h),
+            const SizedBox(width: 8),
+            CircleBtn(icon: Icons.search_rounded, label: 'সব লেনদেনে খুঁজুন', onTap: () => push(context, AllTxnsScreen(h: h, search: true))),
             const SizedBox(width: 8),
             CircleBtn(icon: Icons.settings_outlined, label: 'সেটিংস', dot: backupOld && h.session == null, onTap: () => push(context, SettingsScreen(h: h))),
           ]),

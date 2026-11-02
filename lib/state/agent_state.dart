@@ -99,6 +99,9 @@ class AgentState extends ChangeNotifier {
   Api get api => h.s.api;
 
   String name = '';
+
+  /// The main admin, named in the agent's screens.
+  String owner = 'মূল এডমিন';
   double commission = 0;
   double owed = 0;
   List<AgentTxn> txns = [];
@@ -120,6 +123,8 @@ class AgentState extends ChangeNotifier {
       final a = ((f['agent'] as Map?) ?? const {}).cast<String, Object?>();
       name = '${a['name'] ?? h.session?.name ?? ''}';
       commission = (a['commission'] as num?)?.toDouble() ?? 0;
+      final o = '${f['owner'] ?? ''}'.trim();
+      if (o.isNotEmpty) owner = o;
       owed = (f['owed'] as num?)?.toDouble() ?? 0;
       txns = [for (final t in ((f['txns'] as List?) ?? const []).cast<Map>()) AgentTxn(t.cast<String, Object?>())];
       payments = [for (final p in ((f['payments'] as List?) ?? const []).cast<Map>()) AgentPay(p.cast<String, Object?>())];

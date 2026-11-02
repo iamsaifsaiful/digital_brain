@@ -450,6 +450,9 @@ class Hisab extends ChangeNotifier {
   String get meName => session?.name ?? d.settings.ownerName;
   bool get isOwner => session == null || session!.isOwner;
 
+  /// The main admin's name: what the whole account is called.
+  String get ownerLabel => d.settings.ownerName.trim().isEmpty ? 'মূল এডমিন' : d.settings.ownerName.trim();
+
   /// Riyal that should be in my hand now.
   double get myCash => cashInHand(d, me: meId, owner: isOwner);
 
@@ -822,6 +825,18 @@ class Hisab extends ChangeNotifier {
       ].join(' · ');
 
   /// [sarOut]: the riyal that went out of hand for this taka (required).
+  /// The riyal a payment to the agent cost, corrected. Only this can change
+  /// on a payment: the taka the agent got stays as it was.
+  Future<void> editPaymentSar(AgentPayment p, double sarAmount, {String why = ''}) async {
+    final old = p.sarAmount;
+    if ((old - sarAmount).abs() < 0.005) return;
+    p.sarAmount = sarAmount;
+    final a = agentById(d, p.agentId);
+    _log('edit', 'এজেন্টকে পরিশোধের রিয়াল বদল', '${a?.name ?? ''} · ${taka(p.taka)} · ${dateShort(p.at)} · ${sar(old)} → ${sar(sarAmount)}${why.trim().isEmpty ? '' : ' · কারণ: ${why.trim()}'}',
+        who: meName, ref: p.agentId);
+    await _save();
+  }
+
   Future<AgentPayment> payAgent(Agent a, List<Txn> txns,
       {required double sarOut, String way = 'bank', String note = '', String ref = '', String fromAccount = '', Uint8List? receipt, DateTime? at, double? amount}) async {
     final due = txns.fold<double>(0, (s, t) => s + t.agentTaka + commissionOf(t, a)).roundToDouble();

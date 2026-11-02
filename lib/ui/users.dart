@@ -239,7 +239,7 @@ class _UserEditState extends State<UserEdit> {
                 value: _active,
                 onChanged: (v) => setState(() => _active = v),
                 title: Tx('লগইন চালু', style: t(15, w: FontWeight.w500)),
-                subtitle: Tx('বন্ধ করলে সাথে সাথে তাঁর ফোন থেকে বের করে দেওয়া হবে', style: t(12.5, c: K.muted)),
+                subtitle: Tx(_admin ? 'বন্ধ করলে সাথে সাথে তাঁর ফোন থেকে বের করে দেওয়া হবে, আর তাঁর হাতের রিয়াল মূল এডমিনের হিসাবে চলে যাবে। তাঁর লেনদেনে তাঁর নামই থাকবে।' : 'বন্ধ করলে সাথে সাথে তাঁর ফোন থেকে বের করে দেওয়া হবে', style: t(12.5, c: K.muted)),
               ),
             ),
           ],

@@ -2,4 +2,4 @@
 <!-- The reminder icon is named only from Dart, so the release shrinker
      would otherwise delete it and Android drops the notification. -->
 <resources xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@drawable/ic_stat_reminder,@mipmap/ic_launcher" />
+    tools:keep="@drawable/ic_stat_reminder,@mipmap/ic_launcher,@raw/remit_alert" />

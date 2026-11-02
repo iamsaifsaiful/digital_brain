@@ -102,7 +102,7 @@ function rh_push_send(array $tokens, $title, $body, array $data = []) {
                 'token' => $t,
                 'notification' => ['title' => $title, 'body' => $body],
                 'data' => (object) array_map('strval', $data),
-                'android' => ['priority' => 'high', 'notification' => ['channel_id' => 'rh_server']],
+                'android' => ['priority' => 'high', 'notification' => ['channel_id' => 'rh_alert', 'sound' => 'remit_alert', 'default_vibrate_timings' => false, 'vibrate_timings' => ['0s', '0.22s', '0.12s', '0.22s', '0.12s', '0.42s'], 'notification_priority' => 'PRIORITY_HIGH', 'visibility' => 'PRIVATE']],
             ]]),
         ]);
         $code = is_wp_error($res) ? 0 : (int) wp_remote_retrieve_response_code($res);

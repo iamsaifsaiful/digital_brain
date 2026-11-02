@@ -357,7 +357,7 @@ function rh_tab_txns() {
             <td><?php echo esc_html(rh_admin_name($t)); ?></td>
             <td><span class="rh-pill <?php echo esc_attr($sc); ?>"><?php echo esc_html($sl); ?></span>
                 <?php if (($t['agentReply'] ?? '') !== '' || ($t['trxId'] ?? '') !== '') : ?><br><small><?php echo esc_html(trim(($t['agentReply'] ?? '') . ' ' . ($t['trxId'] ?? ''))); ?></small><?php endif; ?>
-                <?php if (!empty($t['fault'])) : ?><br><span class="rh-pill red">ভুল নম্বর · <?php echo esc_html(['mine' => 'দোকানের', 'agent' => 'এজেন্টের', 'customer' => 'গ্রাহকের'][$t['fault']] ?? ''); ?></span><?php endif; ?>
+                <?php if (!empty($t['fault'])) : ?><br><span class="rh-pill red">ভুল নম্বর · <?php echo esc_html(['mine' => 'এডমিনের', 'agent' => 'এজেন্টের', 'customer' => 'গ্রাহকের'][$t['fault']] ?? ''); ?></span><?php endif; ?>
             </td>
         </tr>
     <?php endforeach; ?>
@@ -542,7 +542,7 @@ function rh_admin_name($r) {
 /** Riyal in and out of hands, per admin or for the whole shop, with handovers. */
 function rh_tab_cash() {
     $admins = rh_admins_in();
-    $opts = ['' => 'সবাই মিলে (দোকানের মোট)'];
+    $opts = ['' => rh_owner_name() . '-এর মোট (সব এডমিন মিলে)'];
     foreach ($admins as $id => $name) {
         $opts[(string) $id] = $name;
     }
@@ -550,7 +550,7 @@ function rh_tab_cash() {
     $by = rh_f('by') === '' ? null : (int) rh_f('by');
     if ($by === null) {
         echo '<div class="rh-figs">';
-        echo '<div><span>দোকানের হাতে থাকা উচিত</span><strong>' . esc_html(rh_sar(rh_cash_in_hand())) . '</strong><em>সব এডমিন মিলে, হাতবদল বাদে</em></div>';
+        echo '<div><span>' . esc_html(rh_owner_name()) . '-এর মোট হিসাবে হাতে থাকা উচিত</span><strong>' . esc_html(rh_sar(rh_cash_in_hand())) . '</strong><em>সব এডমিন মিলে, হাতবদল বাদে</em></div>';
         foreach ($admins as $id => $name) {
             printf('<div><span>%s</span><strong>%s</strong><em><a href="%s">লাইন ধরে দেখুন</a></em></div>', esc_html($name), esc_html(rh_sar(rh_cash_in_hand($id))), esc_url(rh_url('cash', ['by' => (string) $id])));
         }
@@ -574,7 +574,7 @@ function rh_tab_cash() {
     }
     $in = array_sum(array_column($lines, 3));
     $out = array_sum(array_column($lines, 4));
-    echo '<p class="rh-sum">' . esc_html(($by === null ? 'দোকানের' : ($admins[$by] ?? '') . '-এর') . ' হাত · আগে থেকে ' . rh_sar($before) . ' · এসেছে ' . rh_sar($in) . ' · গেছে ' . rh_sar($out) . ' · শেষে ' . rh_sar($before + $in - $out)) . '</p>';
+    echo '<p class="rh-sum">' . esc_html(($by === null ? rh_owner_name() . '-এর মোট' : ($admins[$by] ?? '') . '-এর') . ' হাত · আগে থেকে ' . rh_sar($before) . ' · এসেছে ' . rh_sar($in) . ' · গেছে ' . rh_sar($out) . ' · শেষে ' . rh_sar($before + $in - $out)) . '</p>';
     $kinds = ['txn' => 'লেনদেন', 'deposit' => 'জমা', 'expense' => 'খরচ', 'payment' => 'এজেন্টকে', 'handover' => 'হাতবদল', 'close' => 'দিন শেষ'];
     $bal = $before;
     $rows = [];

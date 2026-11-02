@@ -70,6 +70,9 @@ class Gate extends StatefulWidget {
 
 class _GateState extends State<Gate> with WidgetsBindingObserver {
   bool? _hasPin;
+
+  /// The opening animation plays first, then the PIN or the login.
+  bool _splash = true;
   bool _unlocked = false;
   DateTime? _leftAt;
 
@@ -154,8 +157,8 @@ class _GateState extends State<Gate> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    if (!h.loaded || _hasPin == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_splash || !h.loaded || _hasPin == null) {
+      return SplashScreen(h: h, onDone: () => setState(() => _splash = false));
     }
     if (h.loadError != null) return _LoadError(h: h, onFixed: () => setState(() {}));
     if (_hasPin == false) {

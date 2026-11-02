@@ -136,6 +136,7 @@ class _FakeApi implements Api {
         return {
           'agent': {'name': u['name'], 'commission': 0},
           'owed': owed,
+          'owner': s.users.firstWhere((x) => x['role'] == 'owner', orElse: () => const {'name': ''})['name'],
           'txns': txns,
           'payments': pays,
           'unread': s.notes.where((n) => n['user'] == u['id'] && n['read'] != true).length,

@@ -7,6 +7,9 @@ import android.app.Application
 class App : Application() {
     override fun onCreate() {
         super.onCreate()
+        // The channel (with its sound) exists before any push arrives,
+        // also when the app has not been opened since the phone started.
+        PushService.channel(this)
         PushService.startSaved(this)
     }
 }

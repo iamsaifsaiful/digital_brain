@@ -291,8 +291,8 @@ class _LockScreenState extends State<LockScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 30),
           child: Column(children: [
             const Spacer(),
-            const ExchangeAnim(),
-            const SizedBox(height: 18),
+            const AppMark(),
+            const SizedBox(height: 16),
             Tx('রেমিট খাতা', style: t(21, w: FontWeight.w600)),
             const SizedBox(height: 6),
             Tx(
@@ -366,7 +366,7 @@ class _PinSetupState extends State<PinSetup> {
             padding: const EdgeInsets.symmetric(horizontal: 30),
             child: Column(children: [
               const Spacer(),
-              const ExchangeAnim(width: 230),
+              const AppMark(),
               const SizedBox(height: 14),
               Tx(widget.title, style: t(20, w: FontWeight.w600)),
               const SizedBox(height: 6),
@@ -380,6 +380,64 @@ class _PinSetupState extends State<PinSetup> {
               const Spacer(),
             ]),
           ),
+        ),
+      );
+}
+
+
+/// The app's mark (the launcher icon), for the PIN and login screens.
+class AppMark extends StatelessWidget {
+  const AppMark({super.key, this.size = 84});
+  final double size;
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+        borderRadius: BorderRadius.circular(size * 0.22),
+        child: Image.asset('assets/icon.png', width: size, height: size, semanticLabel: 'রেমিট খাতা'),
+      );
+}
+
+/// Opening screen: riyal turns into taka, then the app goes on.
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key, required this.h, required this.onDone});
+  final Hisab h;
+  final VoidCallback onDone;
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+  // The exchange takes 2.4 s; the name stays a moment longer.
+  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 3000))
+    ..addStatusListener((s) {
+      if (s == AnimationStatus.completed) widget.onDone();
+    })
+    ..forward();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: SafeArea(
+          child: Column(children: [
+            const Spacer(flex: 3),
+            const Center(child: ExchangeAnim(width: 290)),
+            const SizedBox(height: 22),
+            FadeTransition(
+              opacity: CurvedAnimation(parent: _c, curve: const Interval(0.45, 0.75)),
+              child: Column(children: [
+                Tx('রেমিট খাতা', style: t(26, w: FontWeight.w700, c: K.navy)),
+                const SizedBox(height: 4),
+                Tx('সৌদি থেকে দেশে টাকা পাঠানোর হিসাব', style: t(14, c: K.muted)),
+              ]),
+            ),
+            const Spacer(flex: 4),
+            MadeBy(h: widget.h),
+            const SizedBox(height: 14),
+          ]),
         ),
       );
 }

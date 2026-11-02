@@ -212,7 +212,7 @@ void main() {
     await tester.tap(find.text('পাঠিয়েছি'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, '667');
-    await tester.tap(find.text('দোকানকে জানান'));
+    await tester.tap(find.text('সাইফুল-কে জানান'));
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
     await tester.pumpAndSettle();
     expect(server.one('txn', txnId)!['status'], 'sent');

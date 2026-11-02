@@ -51,7 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: ListView(padding: const EdgeInsets.fromLTRB(22, 30, 22, 24), children: [
           Align(alignment: Alignment.centerRight, child: LangButton(h: widget.h)),
-          const Center(child: ExchangeAnim(width: 230)),
+          const Center(child: AppMark(size: 92)),
           const SizedBox(height: 14),
           Tx('রেমিট খাতা', textAlign: TextAlign.center, style: t(22, w: FontWeight.w700)),
           const SizedBox(height: 4),
@@ -88,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 22),
           Pill(label: _busy ? 'লগইন হচ্ছে…' : 'লগইন', icon: Icons.login_rounded, onTap: _busy || !ready ? null : _go),
           const SizedBox(height: 18),
-          Tx('লগইন না থাকলে দোকানের মূল এডমিনের কাছে চান।', textAlign: TextAlign.center, style: t(13, c: K.muted)),
+          Tx('লগইন না থাকলে মূল এডমিনের কাছে চান।', textAlign: TextAlign.center, style: t(13, c: K.muted)),
           const SizedBox(height: 26),
           MadeBy(h: widget.h),
         ]),
