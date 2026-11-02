@@ -10,13 +10,14 @@ import 'package:digital_brain/ui/theme.dart';
 import 'package:digital_brain/ui/widgets.dart' show PrimaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:digital_brain/screens/more_screen.dart' show MoreScreen;
 import 'package:digital_brain/state/family_state.dart' show FamilyLink;
 
 import 'package:digital_brain/app.dart';
 import 'package:digital_brain/screens/lock_screen.dart' show googleFirst;
 import 'package:digital_brain/state/brain.dart' show BrainHealth;
 
-import '../app_test.dart' show Rig, loadFonts, settle, start;
+import '../app_test.dart' show Rig, loadFonts, settle, start, vScroll;
 import 'home_final_shots_test.dart' show icons, sample;
 
 final shots = Platform.environment['SHOTS'] == '1';
@@ -127,7 +128,10 @@ void main() {
     await rig0(t);
     final f = Flow(t, 'more');
     await f.step(find.text('আরও').last);
-    for (final x in ['রক্তের গ্রুপ', 'কী কী করা যায়', 'রিমাইন্ডার ঠিকমতো বাজবে তো?', 'বড় লেখা, হোমে ৪টা বড় বোতাম, উত্তর কণ্ঠে শোনাবে — বয়স্কদের জন্য সুবিধা', 'Google অ্যাকাউন্ট ও ব্যাকআপ', 'PIN বদলান', 'রিমাইন্ডারের রিংটোন']) {
+    // In আরও's order (owner, 2 Nov): look, reminders, keeping data safe, then help.
+    for (final x in ['রক্তের গ্রুপ', 'বড় লেখা, হোমে ৪টা বড় বোতাম, উত্তর কণ্ঠে শোনাবে — বয়স্কদের জন্য সুবিধা', 'রিমাইন্ডার ঠিকমতো বাজবে তো?', 'রিমাইন্ডারের রিংটোন', 'Google অ্যাকাউন্ট ও ব্যাকআপ', 'PIN বদলান', 'কী কী করা যায়']) {
+      // Help is last in আরও now: scroll to each before its step.
+      await t.scrollUntilVisible(find.text(x, skipOffstage: false), 200, scrollable: find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first);
       await f.step(find.text(x, skipOffstage: false), press: false, below: 40);
     }
     debugDisableShadows = true;

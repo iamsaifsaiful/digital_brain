@@ -16,6 +16,7 @@ import 'package:digital_brain/services/launcher.dart';
 import 'package:digital_brain/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:digital_brain/screens/more_screen.dart' show MoreScreen;
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -170,8 +171,11 @@ void main() {
     await t.tap(find.byKey(const Key('blood-save')));
     await settle(t);
     expect(rig.brain.data.emergency.blood, 'B+');
-    expect(find.byKey(const Key('more-feedback')), findsOneWidget);
     final list = vScroll().first;
+    // Help and contact are last in আরও (owner, 2 Nov).
+    await t.scrollUntilVisible(find.byKey(const Key('more-feedback')), 300, scrollable: list);
+    expect(find.byKey(const Key('more-feedback')), findsOneWidget);
+    await t.scrollUntilVisible(find.byKey(const Key('more-pro')), -300, scrollable: list);
     // Blood donation has its own page now (no donor switch here).
     await t.scrollUntilVisible(find.text('তথ্য নিরাপদ রাখা'), 200, scrollable: list);
     expect(find.text('আমি রক্ত দিতে আগ্রহী'), findsNothing);
@@ -340,10 +344,13 @@ void main() {
     await settle(t);
     expect(find.byKey(const Key('more-requests')), findsOneWidget);
     expect(find.byKey(const Key('more-pro')), findsOneWidget);
-    expect(find.byKey(const Key('more-feedback')), findsOneWidget);
     expect(find.byKey(const Key('more-zakat')), findsOneWidget);
     expect(find.byKey(const Key('more-family')), findsOneWidget);
+    // Help and contact are last in আরও (owner, 2 Nov).
+    await t.scrollUntilVisible(find.byKey(const Key('more-feedback')), 300, scrollable: find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first);
+    expect(find.byKey(const Key('more-feedback')), findsOneWidget);
     expect(find.text('রক্তের অনুরোধ'), findsNothing, reason: 'no separate request row in আরও');
+    await t.scrollUntilVisible(find.byKey(const Key('more-requests')), -300, scrollable: find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first);
     await t.tap(find.byKey(const Key('more-requests')));
     await settle(t);
     expect(find.text('ব্লাড ডোনেশন'), findsOneWidget);

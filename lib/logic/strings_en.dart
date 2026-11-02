@@ -3,8 +3,8 @@
 // ignore_for_file: lines_longer_than_80_chars
 
 const enStrings = <String, String>{
-  'সমস্যা বা পরামর্শ দিন': 'Report a problem or suggest',
-  'আমাদের লিখুন, উত্তর এখানেই': 'Write to us; replies come here',
+  'সমস্যা বা পরামর্শ দিন': 'Problems & ideas',
+  'লিখুন, উত্তর এখানেই': 'Replies come here',
   'নোটিফিকেশন প্যানেল': 'Notification panel',
   ' (Google Drive-এ)': ' (on Google Drive)',
   ' ({0} থেকে)': ' (from {0})',

@@ -499,7 +499,7 @@ class _MoreScreenState extends State<MoreScreen> {
                 fg: C.blue,
                 bg: C.blueTint,
                 title: tr('সমস্যা বা পরামর্শ দিন'),
-                sub: brain.feedbackUnread > 0 ? trf('{0}টা নতুন উত্তর', [bnDigits(brain.feedbackUnread)]) : tr('আমাদের লিখুন, উত্তর এখানেই'),
+                sub: brain.feedbackUnread > 0 ? trf('{0}টা নতুন উত্তর', [bnDigits(brain.feedbackUnread)]) : tr('লিখুন, উত্তর এখানেই'),
                 badge: brain.feedbackUnread > 0,
                 onTap: () => push(const FeedbackScreen())),
           ],
