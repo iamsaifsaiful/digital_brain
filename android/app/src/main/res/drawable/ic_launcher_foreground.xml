@@ -1,25 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- টাকাসেতু: a bridge with a coin over water, riyal across to taka
+<!-- আমানত: a coin coming into two cupped hands, kept safe
      (108dp canvas, kept inside the 66dp safe zone). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group android:pivotX="54" android:pivotY="56" android:scaleX="1.12" android:scaleY="1.12">
-        <path android:strokeColor="#BFFFFFFF" android:strokeWidth="2" android:strokeLineCap="round"
-            android:pathData="M36,64V51.7M45,64V45.2M54,64V43M63,64V45.2M72,64V51.7" />
-        <path android:strokeColor="#FFFFFF" android:strokeWidth="4.5" android:strokeLineCap="round"
-            android:pathData="M26,64Q54,22 82,64" />
-        <path android:strokeColor="#9FD8FF" android:strokeWidth="2.4" android:strokeLineCap="round"
-            android:pathData="M31,77q5.5,-3 11,0t11,0t11,0t11,0" />
-        <path android:strokeColor="#B39FD8FF" android:strokeWidth="2.4" android:strokeLineCap="round"
-            android:pathData="M40,84q5.5,-3 11,0t11,0t11,0" />
-        <path android:fillColor="#FFFFFF" android:pathData="M25,63h58a3,3 0 0 1 0,6h-58a3,3 0 0 1 0,-6z" />
-        <path android:fillColor="#F7B733" android:pathData="M54,21.5a9.5,9.5 0 1 1 0,19a9.5,9.5 0 1 1 0,-19z" />
-        <path android:strokeColor="#FFF1C9" android:strokeWidth="1.4"
-            android:pathData="M54,24.4a6.6,6.6 0 1 1 0,13.2a6.6,6.6 0 1 1 0,-13.2z" />
-        <path android:strokeColor="#FFFFFF" android:strokeWidth="1.6" android:strokeLineCap="round"
-            android:pathData="M50.6,28.2a4.2,4.2 0 0 1 3.4,-2.6" />
-    </group>
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M24,58C24,58 27,56 31,57.5L52.5,64V84C42,84 30,78 26,68C24.8,65 24,61 24,58Z" />
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M84,58C84,58 81,56 77,57.5L55.5,64V84C66,84 78,78 82,68C83.2,65 84,61 84,58Z" />
+    <path android:fillColor="#F7B733" android:pathData="M54,29a13,13 0 1 1 0,26a13,13 0 1 1 0,-26z" />
+    <path android:strokeColor="#FFF1C9" android:strokeWidth="1.7"
+        android:pathData="M54,32.8a9.2,9.2 0 1 1 0,18.4a9.2,9.2 0 1 1 0,-18.4z" />
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="2" android:strokeLineCap="round"
+        android:pathData="M49.2,37.4a5.8,5.8 0 0 1 4.8,-3.6" />
 </vector>

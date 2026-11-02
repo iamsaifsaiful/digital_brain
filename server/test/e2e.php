@@ -308,7 +308,7 @@ check(str_contains($html, 'রিয়াল জমা') && str_contains($html,
 update_option('gmt_offset', 0);
 $_GET = ['page' => 'riyal-hisab-txns', 'print' => '1', 'status' => 'fault'];
 $printed = rh_print_page('txns');
-check(str_contains($printed, 'window.print()') && str_contains($printed, 'টাকাসেতু — লেনদেন') && !str_contains($printed, 'class="rh-tabs"') && str_contains($printed, '#' . rh_bn($no)), 'PDF / print: the filtered list on a clean page');
+check(str_contains($printed, 'window.print()') && str_contains($printed, 'আমানত — লেনদেন') && !str_contains($printed, 'class="rh-tabs"') && str_contains($printed, '#' . rh_bn($no)), 'PDF / print: the filtered list on a clean page');
 foreach (array_keys(rh_tabs()) as $tab) {
     if (in_array($tab, ['settings', 'backup'], true)) continue;
     $_GET = ['page' => 'riyal-hisab-' . $tab, 'print' => '1'];

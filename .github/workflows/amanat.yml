@@ -1,6 +1,6 @@
-name: TakaSetu APK
+name: Amanat APK
 
-# TakaSetu's own repository: every push to main checks the server plugin in a
+# Amanat's own repository: every push to main checks the server plugin in a
 # real WordPress, builds the APK and publishes a release with the plugin zip.
 on:
   push:
@@ -137,10 +137,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp build/app/outputs/flutter-apk/app-release.apk takasetu.apk
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk takasetu-arm64.apk
-          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk takasetu-armv7.apk
+          cp build/app/outputs/flutter-apk/app-release.apk amanat.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk amanat-arm64.apk
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk amanat-armv7.apk
           VERSION=$(grep '^version:' pubspec.yaml | sed -E 's/version: *([^+]+).*/\1/')
           TAG="v${VERSION}-build.${{ github.run_number }}"
-          NOTE="টাকাসেতু ${VERSION} (build ${{ github.run_number }}) · commit ${GITHUB_SHA::7}. takasetu.apk সব ফোনে (Android 7.0+) চলে; takasetu-arm64.apk ছোট, শুধু ৬৪-বিট ফোনে।"
-          gh release create "$TAG" takasetu.apk takasetu-arm64.apk takasetu-armv7.apk riyal-hisab-server.zip --title "টাকাসেতু $VERSION (build ${{ github.run_number }})" --notes "$NOTE" --target "$GITHUB_SHA"
+          NOTE="আমানত ${VERSION} (build ${{ github.run_number }}) · commit ${GITHUB_SHA::7}. amanat.apk সব ফোনে (Android 7.0+) চলে; amanat-arm64.apk ছোট, শুধু ৬৪-বিট ফোনে।"
+          gh release create "$TAG" amanat.apk amanat-arm64.apk amanat-armv7.apk riyal-hisab-server.zip --title "আমানত $VERSION (build ${{ github.run_number }})" --notes "$NOTE" --target "$GITHUB_SHA"

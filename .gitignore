@@ -22,7 +22,7 @@ android/app/build.gradle*
 android/build.gradle*
 android/settings.gradle*
 android/gradle.properties
-# mipmap-*dpi PNGs are the TakaSetu icon for Android 7 (kept in git)
+# mipmap-*dpi PNGs are the Amanat icon for Android 7 (kept in git)
 android/app/src/debug/
 android/app/src/profile/
 android/app/src/main/java/

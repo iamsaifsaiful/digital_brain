@@ -81,7 +81,7 @@ class PeriodChips extends StatelessWidget {
   }
 }
 
-String _footer(Hisab h) => 'টাকাসেতু${h.d.settings.ownerName.isEmpty ? '' : ' · ${h.d.settings.ownerName}'} · তৈরি ${dateShort(h.now)} ${bn('${h.now.year}')}, ${timeText(h.now)}';
+String _footer(Hisab h) => 'আমানত${h.d.settings.ownerName.isEmpty ? '' : ' · ${h.d.settings.ownerName}'} · তৈরি ${dateShort(h.now)} ${bn('${h.now.year}')}, ${timeText(h.now)}';
 
 String _when(DateTime t) => '${dateShort(t)}\n${timeText(t)}';
 

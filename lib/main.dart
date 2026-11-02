@@ -51,7 +51,7 @@ class RiyalApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'টাকাসেতু',
+        title: 'আমানত',
         debugShowCheckedModeBanner: false,
         theme: appTheme(),
         home: Gate(h: hisab),
