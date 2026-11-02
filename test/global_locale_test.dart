@@ -309,4 +309,20 @@ void main() {
     await settle(t);
     expect(appCurrency.code, 'BDT');
   });
+
+  test('test app: picking a country makes the app as it is there, and back to Bangladesh', () async {
+    final rig = Rig();
+    await rig.brain.load();
+    final b = rig.brain;
+    await b.setPart('islam', false);
+    await b.tryCountry('GB');
+    expect(appCountry, 'GB');
+    expect(appCurrency.code, 'GBP');
+    expect(weekStart, DateTime.monday);
+    expect(islamicPart, isTrue, reason: 'the choice is reset to automatic: the app is in Bangla');
+    expect(bloodHere, isFalse);
+    await b.tryCountry('BD');
+    expect(appCurrency.code, 'BDT');
+    expect(bloodHere, isTrue);
+  });
 }

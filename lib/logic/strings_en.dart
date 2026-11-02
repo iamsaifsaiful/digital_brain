@@ -4616,4 +4616,7 @@ const enStrings = <String, String>{
   'দ্বিতীয় মুদ্রা': 'Second currency',
   'প্রবাসে থাকলে দেশের টাকা, বা দেশে থেকে বিদেশের আয় — নিজের আলাদা হিসাবে থাকে, মূল টাকায় যোগ হয় না।': 'Money from home while living abroad, or foreign income at home — kept in its own account, never added to your main money.',
   'এই হিসাব {0}-এ — মূল টাকার ({1}) সাথে যোগ হয় না। কথায় বললে “{2}” শব্দ থাকলেই এখানে লেখা হবে।': 'This account is in {0} — it is not added to your main money ({1}). When you speak, saying “{2}” writes it here.',
+  'পরীক্ষা: দেশ বদলান': 'Test: change country',
+  'শুধু টেস্ট অ্যাপে — বেছে নেওয়া দেশে অ্যাপ কেমন চলে দেখুন (জায়গা, মুদ্রা, অংশ সব সেই দেশের)।': 'Test app only — see how the app works in the chosen country (place, currency and features all of that country).',
+  'দেশ': 'Country',
 };

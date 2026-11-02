@@ -209,6 +209,11 @@ class LookSection extends StatelessWidget {
     return Panel(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        if (globalTest) ...[
+          label(tr('পরীক্ষা: দেশ বদলান'), tr('শুধু টেস্ট অ্যাপে — বেছে নেওয়া দেশে অ্যাপ কেমন চলে দেখুন (জায়গা, মুদ্রা, অংশ সব সেই দেশের)।')),
+          TestCountryRow(cc: brain.country, onPick: (c) => brain.tryCountry(c)),
+          const SizedBox(height: 18),
+        ],
         label(tr('ভাষা') + (isEn ? '' : ' · Language')),
         SegTabs<bool>(
           items: const [(false, 'বাংলা'), (true, 'English')],
@@ -466,6 +471,63 @@ class CurrencyRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(children: [
             Expanded(child: Text(now == null ? tr('নেই') : nameOf(now), style: body(14.5))),
+            Icon(Icons.chevron_right_rounded, color: C.muted),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Test app only: pick any country to see the app as it is there.
+class TestCountryRow extends StatelessWidget {
+  const TestCountryRow({super.key, required this.cc, required this.onPick});
+  final String cc;
+  final ValueChanged<String> onPick;
+
+  static String nameOf(String cc) {
+    final n = countryNames[cc];
+    return n == null ? cc : (isEn ? n.$2 : n.$1);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: C.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: C.line)),
+      child: InkWell(
+        key: const Key('test-country'),
+        customBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        onTap: () async {
+          final picked = await showAppSheet<String>(
+            context: context,
+            isScrollControlled: true,
+            useSafeArea: true,
+            builder: (ctx) => DraggableScrollableSheet(
+              expand: false,
+              initialChildSize: 0.7,
+              builder: (ctx, scroll) => ListView(controller: scroll, children: [
+                Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 8), child: Text(tr('দেশ'), style: body(16, weight: FontWeight.w600))),
+                for (final c in countryNames.keys)
+                  ListTile(
+                    key: Key('test-country-$c'),
+                    title: Text(nameOf(c)),
+                    subtitle: Text(currencyByCode(currencyOf(c)).code),
+                    trailing: c == cc ? Icon(Icons.check_rounded, color: C.green) : null,
+                    onTap: () => Navigator.of(ctx).pop(c),
+                  ),
+              ]),
+            ),
+          );
+          if (picked != null) onPick(picked);
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(children: [
+            Icon(Icons.public_rounded, color: C.green),
+            const SizedBox(width: 10),
+            Expanded(child: Text(nameOf(cc), style: body(14.5))),
             Icon(Icons.chevron_right_rounded, color: C.muted),
           ]),
         ),

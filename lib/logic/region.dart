@@ -143,6 +143,26 @@ bool islamicPart = true;
 /// the phone is in Bangladesh (owner, 2 Nov).
 bool get bloodHere => appCountry == 'BD';
 
+/// The global version's test app (owner, 2 Nov: "যেকোন দেশ সিলেক্ট করে
+/// চেক"): a country picker in settings. Only in the test build.
+const globalTest = bool.fromEnvironment('GLOBAL_TEST');
+
+/// Country names for the test picker (Bangla, English).
+const countryNames = <String, (String, String)>{
+  'BD': ('বাংলাদেশ', 'Bangladesh'), 'SA': ('সৌদি আরব', 'Saudi Arabia'), 'AE': ('সংযুক্ত আরব আমিরাত', 'United Arab Emirates'),
+  'QA': ('কাতার', 'Qatar'), 'KW': ('কুয়েত', 'Kuwait'), 'OM': ('ওমান', 'Oman'), 'BH': ('বাহরাইন', 'Bahrain'),
+  'MY': ('মালয়েশিয়া', 'Malaysia'), 'SG': ('সিঙ্গাপুর', 'Singapore'), 'GB': ('যুক্তরাজ্য', 'United Kingdom'), 'US': ('যুক্তরাষ্ট্র', 'United States'),
+  'CA': ('কানাডা', 'Canada'), 'AU': ('অস্ট্রেলিয়া', 'Australia'), 'NZ': ('নিউজিল্যান্ড', 'New Zealand'), 'IT': ('ইতালি', 'Italy'),
+  'FR': ('ফ্রান্স', 'France'), 'DE': ('জার্মানি', 'Germany'), 'ES': ('স্পেন', 'Spain'), 'PT': ('পর্তুগাল', 'Portugal'),
+  'GR': ('গ্রিস', 'Greece'), 'NL': ('নেদারল্যান্ডস', 'Netherlands'), 'SE': ('সুইডেন', 'Sweden'), 'RU': ('রাশিয়া', 'Russia'),
+  'TR': ('তুরস্ক', 'Türkiye'), 'JO': ('জর্ডান', 'Jordan'), 'LB': ('লেবানন', 'Lebanon'), 'EG': ('মিশর', 'Egypt'),
+  'IQ': ('ইরাক', 'Iraq'), 'IR': ('ইরান', 'Iran'), 'LY': ('লিবিয়া', 'Libya'), 'IN': ('ভারত', 'India'), 'PK': ('পাকিস্তান', 'Pakistan'),
+  'NP': ('নেপাল', 'Nepal'), 'BT': ('ভুটান', 'Bhutan'), 'LK': ('শ্রীলঙ্কা', 'Sri Lanka'), 'MV': ('মালদ্বীপ', 'Maldives'),
+  'MM': ('মিয়ানমার', 'Myanmar'), 'TH': ('থাইল্যান্ড', 'Thailand'), 'ID': ('ইন্দোনেশিয়া', 'Indonesia'), 'BN': ('ব্রুনাই', 'Brunei'),
+  'HK': ('হংকং', 'Hong Kong'), 'CN': ('চীন', 'China'), 'JP': ('জাপান', 'Japan'), 'KR': ('দক্ষিণ কোরিয়া', 'South Korea'),
+  'MU': ('মরিশাস', 'Mauritius'), 'KE': ('কেনিয়া', 'Kenya'), 'NG': ('নাইজেরিয়া', 'Nigeria'), 'ZA': ('দক্ষিণ আফ্রিকা', 'South Africa'),
+};
+
 /// Countries where most people are Muslim (the Islamic part's default).
 const muslimMajority = {
   'BD', 'PK', 'AF', 'ID', 'MY', 'BN', 'MV', 'SA', 'AE', 'QA', 'KW', 'OM', 'BH', 'YE', 'IQ', 'IR', 'JO', 'SY', 'PS',

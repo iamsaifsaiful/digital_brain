@@ -27,6 +27,7 @@ import 'services/trace.dart';
 import 'services/files.dart';
 import 'services/platform.dart';
 import 'ui/widgets.dart';
+import 'ui/splash.dart';
 import 'screens/lock_screen.dart';
 import 'screens/alarm_screens.dart';
 import 'logic/lang.dart';
@@ -399,19 +400,36 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
   }
 }
 
-class _Gate extends StatelessWidget {
+class _Gate extends StatefulWidget {
   const _Gate();
+
+  @override
+  State<_Gate> createState() => _GateState();
+}
+
+class _GateState extends State<_Gate> {
+  /// The opening has played (every cold start; owner, 2 Nov).
+  bool _opened = !splashOn;
 
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
-    if (!brain.loaded) {
-      return const Scaffold(backgroundColor: C.night, body: Center(child: CircularProgressIndicator(color: C.mint)));
+    final Widget page;
+    if (!_opened) {
+      page = Splash(onDone: () => setState(() => _opened = true));
+    } else if (!brain.loaded) {
+      page = const Scaffold(backgroundColor: C.night, body: Center(child: CircularProgressIndicator(color: C.mint)));
+    } else if (!brain.unlocked && !brain.unlockedOnce) {
+      // Only the first lock replaces the app; later ones cover it (_LockCover).
+      page = const LockScreen();
+    } else if (brain.loadError != null) {
+      page = const _LoadError();
+    } else {
+      page = const HomeShell();
     }
-    // Only the first lock replaces the app; later ones cover it (_LockCover).
-    if (!brain.unlocked && !brain.unlockedOnce) return const LockScreen();
-    if (brain.loadError != null) return const _LoadError();
-    return const HomeShell();
+    if (!splashOn) return page;
+    // The opening fades into the PIN page (or home).
+    return AnimatedSwitcher(duration: const Duration(milliseconds: 420), child: KeyedSubtree(key: ValueKey(page.runtimeType), child: page));
   }
 }
 

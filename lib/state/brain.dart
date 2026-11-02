@@ -69,6 +69,7 @@ import '../logic/holidays_abroad.dart' show builtInHolidays;
 import '../logic/meal.dart';
 import '../ui/theme.dart' show Look;
 import '../logic/lang.dart';
+import '../logic/world_places.dart' show worldPlaces;
 
 part 'brain_more.dart';
 
@@ -1452,6 +1453,21 @@ class Brain extends ChangeNotifier {
     setRegion(country: c, currency: currencyCode.isNotEmpty ? currencyCode : currencyOf(c), second: secondCode);
     bangladeshPart = partOn(text('part_bd'), bangladeshAuto(country: c, english: english));
     islamicPart = partOn(text('part_islam'), islamicAuto(country: c, english: english));
+  }
+
+  /// Test app only: the app as it is in [cc] — that country's first big city
+  /// as the place (prayer times, weather, holidays), its currency, and both
+  /// parts back to automatic. Bangladesh: Dhaka, taka.
+  Future<void> tryCountry(String cc) async {
+    final place = cc == 'BD' ? 'ঢাকা' : worldPlaces.where((p) => p.cc == cc).firstOrNull?.key;
+    if (place == null) return;
+    await setPref('part_bd', '');
+    await setPref('part_islam', '');
+    currencyCode = currencyOf(cc);
+    await _put('currency', currencyCode);
+    await setDistrict(place);
+    applyRegion();
+    notifyListeners();
   }
 
   /// The member's choice for a part: 'bd' or 'islam', true/false (null = auto).
