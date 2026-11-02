@@ -53,8 +53,11 @@ String _err(Object e) => switch (e) {
 
 /// Admins and agents who can sign in, and what each admin may do.
 class UsersScreen extends StatefulWidget {
-  const UsersScreen({super.key, required this.h});
+  const UsersScreen({super.key, required this.h, this.only});
   final Hisab h;
+
+  /// 'agent': only agents' logins (from the agent settings).
+  final String? only;
 
   @override
   State<UsersScreen> createState() => _UsersScreenState();
@@ -91,19 +94,20 @@ class _UsersScreenState extends State<UsersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final list = _users;
+    final list = widget.only == null ? _users : _users?.where((u) => u.role == widget.only).toList();
     final mine = h.session;
+    final agentsOnly = widget.only == 'agent';
     return Screen(
-      title: 'লগইন ও অনুমতি',
+      title: agentsOnly ? 'এজেন্টের লগইন' : 'লগইন ও অনুমতি',
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 24), children: [
-          const Note('মূল এডমিন ঠিক করা হয় সার্ভারে। এখানে অন্য এডমিন আর এজেন্টদের লগইন যোগ, বন্ধ আর অনুমতি ঠিক করা যায়।', icon: Icons.info_outline_rounded),
+          Note(agentsOnly ? 'এজেন্ট নিজের লগইনে অ্যাপে অনুরোধ দেখবেন আর "পাঠিয়েছি" জানাবেন। লগইনে চাপলে বন্ধ, পাসওয়ার্ড বদল বা ডিলিট করা যায়।' : 'মূল এডমিন ঠিক করা হয় সার্ভারে। এখানে অন্য এডমিন আর এজেন্টদের লগইন যোগ, বন্ধ আর অনুমতি ঠিক করা যায়।', icon: Icons.info_outline_rounded),
           const SizedBox(height: 12),
           Row(children: [
-            Expanded(child: Pill(label: 'নতুন এডমিন', icon: Icons.admin_panel_settings_outlined, height: 48, onTap: () => _edit(null, 'admin'))),
-            const SizedBox(width: 10),
-            Expanded(child: Pill(label: 'এজেন্টের লগইন', icon: Icons.storefront_outlined, color: K.navy, height: 48, onTap: () => _edit(null, 'agent'))),
+            if (!agentsOnly) Expanded(child: Pill(label: 'নতুন এডমিন', icon: Icons.admin_panel_settings_outlined, height: 48, onTap: () => _edit(null, 'admin'))),
+            if (!agentsOnly) const SizedBox(width: 10),
+            Expanded(child: Pill(label: agentsOnly ? 'নতুন এজেন্টের লগইন' : 'এজেন্টের লগইন', icon: Icons.storefront_outlined, color: K.navy, height: 48, onTap: () => _edit(null, 'agent'))),
           ]),
           const SizedBox(height: 12),
           if (_error != null) Note(_err(_error!), color: K.redTint, textColor: K.red),

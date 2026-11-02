@@ -59,6 +59,7 @@ class _ReportTabState extends State<ReportTab> {
         final got = txns.fold<double>(0, (s, x) => s + x.sarPaid) + d.deposits.where((p) => inP(p.at)).fold<double>(0, (s, p) => s + p.sarAmount);
         final exp = d.expenses.where((e) => inP(e.at)).fold<double>(0, (s, e) => s + e.sarAmount);
         final paidAgent = d.agentPayments.where((p) => inP(p.at)).fold<double>(0, (s, p) => s + p.taka);
+        final paidAgentSar = d.agentPayments.where((p) => inP(p.at)).fold<double>(0, (s, p) => s + p.sarAmount);
         final lost = d.losses.where((l) => inP(l.at)).fold<double>(0, (s, l) => s + l.sarAmount);
         final wrong = txns.where((x) => x.fault != null).length;
         final avgRate = sarSum == 0 ? 0.0 : takaSum / sarSum;
@@ -76,12 +77,13 @@ class _ReportTabState extends State<ReportTab> {
         final vals = [
           for (final b in buckets) d.txns.where((x) => !x.cancelled && (daily ? sameDay(x.at, b) : x.at.year == b.year && x.at.month == b.month)).fold<double>(0, (s, x) => s + x.sarAmount),
         ];
-        Widget tile(String label, String value, {Color c = K.ink}) => Expanded(
+        Widget tile(String label, String value, {Color c = K.ink, String sub = ''}) => Expanded(
               child: CardBox(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Tx(label, style: t(12.5, c: K.muted)),
                   const SizedBox(height: 4),
                   Tx(value, style: t(16, w: FontWeight.w700, c: c), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  if (sub.isNotEmpty) Tx(sub, style: t(12, c: K.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
                 ]),
               ),
             );
@@ -114,9 +116,9 @@ class _ReportTabState extends State<ReportTab> {
             ]),
           ),
           const SizedBox(height: 10),
-          Row(children: [tile('রিয়াল হাতে পেলাম', sar(got), c: K.green), const SizedBox(width: 10), tile('খরচ / বের', sar(exp), c: K.red)]),
+          Row(children: [tile('গ্রাহক থেকে সংগ্রহ', sar(got), c: K.green), const SizedBox(width: 10), tile('খরচ / বের', sar(exp), c: K.red)]),
           const SizedBox(height: 10),
-          Row(children: [tile('এজেন্টকে দিলাম', taka(paidAgent)), const SizedBox(width: 10), tile('গ্রাহকদের খরচ (টাকা)', taka(feeSum))]),
+          Row(children: [tile('এজেন্টকে দিলাম', sar(paidAgentSar), sub: taka(paidAgent)), const SizedBox(width: 10), tile('গ্রাহকদের খরচ (টাকা)', taka(feeSum))]),
           const SizedBox(height: 10),
           Row(children: [tile('লস (আদায় হবে না)', sar(lost), c: lost > 0 ? K.red : K.ink), const SizedBox(width: 10), tile('ভুল নম্বরে গেছে', '${bn('$wrong')}টা', c: wrong > 0 ? K.red : K.ink)]),
           const SizedBox(height: 10),
@@ -296,49 +298,6 @@ class _OthersTabState extends State<OthersTab> {
               ]),
             ),
 
-          // The signed-in admin: name and password.
-          if (h.session != null)
-            ..._section('আমার লগইন', [
-              tile(Icons.badge_outlined, K.blueTint, K.blue, h.isOwner ? 'মূল এডমিনের নাম বদলান' : 'আমার নাম বদলান', h.session!.name, () async {
-                final v = await askText(context, h.isOwner ? 'মূল এডমিনের নাম' : 'আপনার নাম', initial: h.session!.name);
-                if (v == null || v.trim().isEmpty || !context.mounted) return;
-                try {
-                  await h.renameMe(v);
-                  if (context.mounted) snack(context, 'নাম বদলেছে');
-                } catch (_) {
-                  if (context.mounted) snack(context, 'বদলানো যায়নি — ইন্টারনেট দেখে আবার চেষ্টা করুন');
-                }
-              }),
-              tile(Icons.password_rounded, K.blueTint, K.blue, 'পাসওয়ার্ড বদলান', 'সার্ভারে লগইনের পাসওয়ার্ড', () async {
-                final old = await askText(context, 'এখনকার পাসওয়ার্ড', obscure: true);
-                if (old == null || old.isEmpty || !context.mounted) return;
-                final nw = await askText(context, 'নতুন পাসওয়ার্ড (৬+ অক্ষর)', obscure: true);
-                if (nw == null || !context.mounted) return;
-                if (nw.length < 6) {
-                  snack(context, 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষর');
-                  return;
-                }
-                final again = await askText(context, 'আরেকবার একই পাসওয়ার্ড', obscure: true);
-                if (again != nw) {
-                  if (context.mounted) snack(context, 'দুইবার একই হয়নি, আবার দিন');
-                  return;
-                }
-                try {
-                  await h.changeMyPassword(old, nw);
-                  if (context.mounted) snack(context, 'পাসওয়ার্ড বদলেছে');
-                } catch (_) {
-                  if (context.mounted) snack(context, 'বদলানো যায়নি — এখনকার পাসওয়ার্ড ঠিক আছে?');
-                }
-              }),
-            ]),
-
-          // Riyal in hand, day by day.
-          ..._section('হাতের রিয়াল', [
-            tile(Icons.account_balance_wallet_outlined, K.greenTint, K.green, h.isOwner ? 'হাতের হিসাব (সব এডমিন)' : 'আমার হাতের হিসাব', 'প্রতিদিনের রিয়াল আসা-যাওয়া, কালেকশন বুঝে নেওয়া', () => push(context, CashScreen(h: h))),
-            if (h.can('expense')) tile(Icons.receipt_long_outlined, K.redTint, K.red, 'খরচ / রিয়াল বের', 'হাত থেকে যে রিয়াল বের হলো', () => push(context, ExpenseScreen(h: h))),
-            if (h.can('expense')) tile(Icons.nightlight_outlined, K.navySoft, K.navy, 'দিন শেষের হিসাব', 'হাতের রিয়াল গুনে মিলিয়ে রাখুন', () => push(context, DayCloseScreen(h: h))),
-          ]),
-
           // Sends.
           ..._section('লেনদেন', [
             tile(Icons.list_alt_rounded, K.blueTint, K.blue, 'সব লেনদেন', 'খুঁজুন, তারিখ দিয়ে দেখুন, PDF', () => push(context, AllTxnsScreen(h: h))),
@@ -347,15 +306,23 @@ class _OthersTabState extends State<OthersTab> {
             tile(Icons.playlist_add_check_rounded, K.amberTint, K.amberText, 'অতিরিক্ত হিসাব', apart == 0 ? 'পাঠানো লেনদেনের ভুল — আলাদা রাখা কিছু নেই' : '${bn('$apart')}টা আলাদা রাখা আছে', () => push(context, AdjustsScreen(h: h))),
           ]),
 
+          // Riyal in hand, day by day.
+          ..._section('হাতের রিয়াল', [
+            tile(Icons.account_balance_wallet_outlined, K.greenTint, K.green, h.isOwner ? 'হাতের হিসাব (সব এডমিন)' : 'আমার হাতের হিসাব', 'প্রতিদিনের রিয়াল আসা-যাওয়া, কালেকশন বুঝে নেওয়া', () => push(context, CashScreen(h: h))),
+            if (h.can('expense')) tile(Icons.receipt_long_outlined, K.redTint, K.red, 'খরচ / রিয়াল বের', 'হাত থেকে যে রিয়াল বের হলো', () => push(context, ExpenseScreen(h: h))),
+          ]),
+
           // Customers' dues.
-          ..._section('গ্রাহকের বকেয়া', [
+          ..._section('গ্রাহক', [
             tile(Icons.notifications_active_outlined, K.amberTint, K.amberText, 'তাগাদার তালিকা', promises == 0 ? 'কোনো তারিখ দেওয়া নেই' : '${bn('$promises')} জনের তারিখ দেওয়া', () => push(context, PromisesScreen(h: h))),
+            tile(Icons.waving_hand_outlined, K.amberTint, K.amberText, 'অনেকদিন লেনদেন নেই', '${bn('${quietCustomers(d, h.now).length}')} জন · খোঁজ নেওয়ার মেসেজ', () => push(context, QuietCustomersScreen(h: h))),
+            tile(Icons.settings_outlined, K.blueTint, K.blue, 'গ্রাহকের সেটিংস', 'বকেয়ার সীমা, পুরনো বকেয়া, গ্রাহককে মেসেজ', () => push(context, CustomerSettingsScreen(h: h))),
             tile(Icons.money_off_rounded, K.redTint, K.red, 'লস (আদায় হবে না)', lossOf(d) > 0 ? 'মোট ${sar(lossOf(d))}' : 'নেই', () => push(context, LossScreen(h: h))),
           ]),
 
           // Agents, and how messages to them and customers read.
           ..._section('এজেন্ট ও মেসেজ', [
-            if (h.can('agents')) tile(Icons.storefront_outlined, K.navySoft, K.navy, 'এজেন্টের তালিকা', d.liveAgents.map((a) => a.name).join(', '), () => push(context, AgentListScreen(h: h))),
+            tile(Icons.storefront_outlined, K.navySoft, K.navy, 'এজেন্টের সেটিংস', '${d.liveAgents.map((a) => a.name).join(', ')} · যোগ, বাদ, লগইন', () => push(context, AgentSettingsScreen(h: h))),
             if (h.session != null) tile(Icons.notifications_rounded, K.amberTint, K.amberText, 'নোটিফিকেশন', 'এজেন্টরা কী জানালেন', () => push(context, NotesScreen(st: AgentState(h)))),
             tile(Icons.chat_outlined, K.greenTint, K.green, 'মেসেজের টেমপ্লেট', 'এজেন্ট ও গ্রাহককে যাওয়া সব মেসেজের লেখা', () => push(context, TemplatesScreen(h: h))),
           ]),
@@ -397,6 +364,42 @@ class _OthersTabState extends State<OthersTab> {
             if (h.can('settings'))
               tile(Icons.cloud_upload_outlined, backupOld ? K.redTint : K.blueTint, backupOld ? K.red : K.blue, 'ব্যাকআপ', backupOld ? 'ব্যাকআপ নেওয়া দরকার' : 'ব্যাকআপ ফাইল বানান বা ফিরিয়ে আনুন', () => push(context, BackupScreen(h: h))),
           ]),
+
+          // The signed-in admin: name and password.
+          if (h.session != null)
+            ..._section('আমার লগইন', [
+              tile(Icons.badge_outlined, K.blueTint, K.blue, h.isOwner ? 'মূল এডমিনের নাম বদলান' : 'আমার নাম বদলান', h.session!.name, () async {
+                final v = await askText(context, h.isOwner ? 'মূল এডমিনের নাম' : 'আপনার নাম', initial: h.session!.name);
+                if (v == null || v.trim().isEmpty || !context.mounted) return;
+                try {
+                  await h.renameMe(v);
+                  if (context.mounted) snack(context, 'নাম বদলেছে');
+                } catch (_) {
+                  if (context.mounted) snack(context, 'বদলানো যায়নি — ইন্টারনেট দেখে আবার চেষ্টা করুন');
+                }
+              }),
+              tile(Icons.password_rounded, K.blueTint, K.blue, 'পাসওয়ার্ড বদলান', 'সার্ভারে লগইনের পাসওয়ার্ড', () async {
+                final old = await askText(context, 'এখনকার পাসওয়ার্ড', obscure: true);
+                if (old == null || old.isEmpty || !context.mounted) return;
+                final nw = await askText(context, 'নতুন পাসওয়ার্ড (৬+ অক্ষর)', obscure: true);
+                if (nw == null || !context.mounted) return;
+                if (nw.length < 6) {
+                  snack(context, 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষর');
+                  return;
+                }
+                final again = await askText(context, 'আরেকবার একই পাসওয়ার্ড', obscure: true);
+                if (again != nw) {
+                  if (context.mounted) snack(context, 'দুইবার একই হয়নি, আবার দিন');
+                  return;
+                }
+                try {
+                  await h.changeMyPassword(old, nw);
+                  if (context.mounted) snack(context, 'পাসওয়ার্ড বদলেছে');
+                } catch (_) {
+                  if (context.mounted) snack(context, 'বদলানো যায়নি — এখনকার পাসওয়ার্ড ঠিক আছে?');
+                }
+              }),
+            ]),
 
           // This phone: lock, notifications, language.
           ..._section('এই ফোন', [
@@ -1123,6 +1126,12 @@ class CustomerSettingsScreen extends StatelessWidget {
                           final old = st.defaultDueLimit;
                           st.defaultDueLimit = n;
                           await h.saveSettings('বকেয়ার সীমা ${sar(old)} → ${sar(n)}');
+                        })),
+                row(Icons.waving_hand_outlined, 'অনেকদিন লেনদেন নেই ধরা হবে', '${bn('${st.inactiveDays}')} দিন পর · খোঁজ নেওয়ার তালিকায় আসবেন', !can
+                    ? null
+                    : () => editSetting(context, h, 'কত দিন লেনদেন না থাকলে?', '${st.inactiveDays}', (n) async {
+                          st.inactiveDays = n.round();
+                          await h.saveSettings('খোঁজ নেওয়ার তালিকা ${bn('${n.round()}')} দিন');
                         })),
                 row(Icons.schedule_rounded, 'পুরনো বকেয়া ধরা হবে', '${bn('${st.oldDueDays}')} দিন পর', !can
                     ? null

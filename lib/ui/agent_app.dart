@@ -10,6 +10,7 @@ import 'home.dart' show KeepTab, push;
 import 'kit.dart';
 import '../core/lang.dart';
 import 'reports.dart';
+import 'lock_screen.dart' show PinSetup;
 import 'txn.dart' show Live, TxnScreen;
 import 'agent.dart' show PaymentScreen;
 
@@ -55,10 +56,11 @@ class _AgentShellState extends State<AgentShell> {
         listenable: st,
         builder: (context, _) {
           final tabs = [
-            (Icons.notifications_active_rounded, 'অনুরোধ', st.waiting.length),
+            (Icons.home_rounded, 'হোম', st.waiting.length),
             (Icons.task_alt_rounded, 'সব কাজ', 0),
-            (Icons.account_balance_wallet_rounded, 'টাকা', 0),
+            (Icons.account_balance_wallet_rounded, 'হিসাব', 0),
             (Icons.person_rounded, 'প্রোফাইল', st.unread),
+            (Icons.settings_rounded, 'সেটিংস', 0),
           ];
           return Scaffold(
             body: SafeArea(
@@ -75,6 +77,7 @@ class _AgentShellState extends State<AgentShell> {
                   KeepTab(child: _AllWork(st: st)),
                   KeepTab(child: _Money(st: st)),
                   KeepTab(child: _Profile(st: st)),
+                  KeepTab(child: _AgentSettings(st: st)),
                 ],
               ),
             ),
@@ -143,14 +146,62 @@ class _Requests extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final w = st.waiting;
+    final now = DateTime.now();
+    final today = st.txns.where((x) => !x.cancelled && sameDay(x.at, now)).toList();
+    final sentToday = st.txns.where((x) => x.status == 'sent' && x.sentAt != null && sameDay(x.sentAt!.toLocal(), now)).toList();
+    final recent = st.txns.where((x) => !x.pending).toList()..sort((a, b) => (b.sentAt ?? b.at).compareTo(a.sentAt ?? a.at));
+    Widget tile(String label, String big, String small, {Color c = K.ink}) => Expanded(
+          child: CardBox(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Tx(label, style: t(12.5, c: K.muted)),
+              Tx(big, style: t(17, w: FontWeight.w700, c: c)),
+              if (small.isNotEmpty) Tx(small, style: t(12, c: K.muted)),
+            ]),
+          ),
+        );
     return RefreshIndicator(
       onRefresh: st.refresh,
       child: ListView(padding: const EdgeInsets.fromLTRB(18, 12, 18, 24), children: [
-        _header('অনুরোধ', 'আসসালামু আলাইকুম, ${st.name}', trailing: CircleBtn(icon: Icons.refresh_rounded, label: 'নতুন করে আনুন', onTap: st.refresh)),
+        _header('আসসালামু আলাইকুম,', st.name, trailing: CircleBtn(icon: Icons.refresh_rounded, label: 'নতুন করে আনুন', onTap: st.refresh)),
         if (st.error != null && st.at == null) const Note('সার্ভারে পৌঁছানো যাচ্ছে না। ইন্টারনেট দেখে নিচে টেনে আবার চেষ্টা করুন।', color: K.redTint, textColor: K.red),
         if (st.loading && st.at == null) const Padding(padding: EdgeInsets.all(30), child: Center(child: CircularProgressIndicator())),
+        if (st.at != null) ...[
+          // At a glance: today, what waits, what is owed.
+          Row(children: [
+            tile('পাঠাতে হবে', '${bn('${w.length}')}টা', taka(w.fold<double>(0, (s, x) => s + x.total)), c: w.isEmpty ? K.ink : K.red),
+            const SizedBox(width: 10),
+            tile('আজ পাঠালেন', '${bn('${sentToday.length}')}টা', taka(sentToday.fold<double>(0, (s, x) => s + x.total)), c: K.green),
+          ]),
+          const SizedBox(height: 10),
+          Row(children: [
+            tile('আজ অনুরোধ', '${bn('${today.length}')}টা', taka(today.fold<double>(0, (s, x) => s + x.total))),
+            const SizedBox(width: 10),
+            tile(st.owed >= 0 ? 'আরও পাবেন' : 'অগ্রিম আছে', taka(st.owed.abs()), st.owner),
+          ]),
+        ],
+        SectionHead('নতুন অনুরোধ'),
         if (st.at != null && w.isEmpty) const Note('এখন পাঠানোর মতো কিছু নেই। নতুন অনুরোধ এলে নোটিফিকেশন আসবে।', icon: Icons.check_circle_outline_rounded),
         for (final x in w) ...[RequestCard(st: st, tx: x), const SizedBox(height: 12)],
+        if (recent.isNotEmpty) ...[
+          SectionHead('সাম্প্রতিক লেনদেন'),
+          CardBox(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Column(children: [
+              for (final (i, x) in recent.take(8).indexed)
+                Row2(
+                  lead: dotIcon(x.cancelled ? Icons.block_rounded : Icons.check_rounded, x.cancelled ? K.chip : K.greenTint, x.cancelled ? K.muted : K.green, size: 38),
+                  title: '#${bn('${x.no}')} · ${bdShow(x.number)}',
+                  sub: '${_service(x)} · ${dateShort(x.sentAt ?? x.at)}, ${timeText(x.sentAt ?? x.at)}${x.reply.isNotEmpty ? ' · ${bn(x.reply)}' : ''}',
+                  value: taka(x.total),
+                  valueColor: x.cancelled ? K.muted : K.ink,
+                  valueSub: x.cancelled ? 'বাতিল' : (x.paid ? 'টাকা পেয়েছি' : 'টাকা পাইনি'),
+                  valueSubColor: x.paid ? K.green : K.muted,
+                  last: i == recent.take(8).length - 1,
+                ),
+            ]),
+          ),
+        ],
       ]),
     );
   }
@@ -340,45 +391,119 @@ class _AllWorkState extends State<_AllWork> {
 }
 
 /// What the shop owes and what it paid, with receipts.
-class _Money extends StatelessWidget {
+/// হিসাব: the agent's account for a chosen period — a summary first
+/// (requests, sent, cancelled, commission, received, still owed), then each
+/// payment and each send, filterable.
+class _Money extends StatefulWidget {
   const _Money({required this.st});
   final AgentState st;
+  @override
+  State<_Money> createState() => _MoneyState();
+}
+
+class _MoneyState extends State<_Money> {
+  Period _p = Period.of('month', DateTime.now());
+  String _show = 'all';
 
   @override
   Widget build(BuildContext context) {
-    final comm = st.txns.where((x) => !x.cancelled).fold<double>(0, (s, x) => s + x.commission);
+    final st = widget.st;
+    final inP = st.txns.where((x) => _p.has(x.at)).toList()..sort((a, b) => b.at.compareTo(a.at));
+    final live = inP.where((x) => !x.cancelled).toList();
+    final sent = live.where((x) => x.status == 'sent').toList();
+    final waiting = live.where((x) => x.pending).toList();
+    final cancelled = inP.where((x) => x.cancelled).toList();
+    final comm = live.fold<double>(0, (s, x) => s + x.commission);
+    final pays = st.payments.where((p) => _p.has(p.at)).toList();
+    final got = pays.fold<double>(0, (s, p) => s + p.taka);
+    Widget tile(String label, String big, String small, {Color c = K.ink}) => Expanded(
+          child: CardBox(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Tx(label, style: t(12.5, c: K.muted)),
+              Tx(big, style: t(17, w: FontWeight.w700, c: c)),
+              if (small.isNotEmpty) Tx(small, style: t(12, c: K.muted)),
+            ]),
+          ),
+        );
     return RefreshIndicator(
       onRefresh: st.refresh,
       child: ListView(padding: const EdgeInsets.fromLTRB(18, 12, 18, 24), children: [
-        _header('টাকা', ''),
+        _header('হিসাব', ''),
         CardBox(
           padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Tx(st.owed >= 0 ? '${st.owner} আপনাকে দেবেন' : 'আপনার কাছে ${st.owner}-এর অগ্রিম', style: t(13.5, c: K.muted)),
+            Tx(st.owed >= 0 ? '${st.owner} আপনাকে দেবেন (এখন পর্যন্ত মোট)' : 'আপনার কাছে ${st.owner}-এর অগ্রিম', style: t(13.5, c: K.muted)),
             Tx(taka(st.owed.abs()), style: t(32, w: FontWeight.w700, c: K.navy)),
-            if (st.commission > 0) Tx('কমিশন হাজারে ${bnNum(st.commission, decimals: 2)} টাকা · মোট কমিশন ${taka(comm)}', style: t(12.5, c: K.muted)),
+            if (st.commission > 0) Tx('কমিশন হাজারে ${bnNum(st.commission, decimals: 2)} টাকা', style: t(12.5, c: K.muted)),
           ]),
         ),
-        SectionHead('${st.owner} যা দিয়েছেন'),
-        if (st.payments.isEmpty) const Note('এখনো কিছু দেওয়া হয়নি।'),
-        if (st.payments.isNotEmpty)
-          CardBox(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Column(children: [
-              for (final (i, p) in st.payments.indexed)
-                Row2(
-                  lead: dotIcon(p.receipt != null ? Icons.receipt_long_rounded : Icons.payments_outlined, K.greenTint, K.green, size: 38),
-                  title: '${payWayName(p.way)}${p.count > 0 ? ' · ${bn('${p.count}')}টা লেনদেনের' : ''}',
-                  sub: '${dateShort(p.at)}, ${timeText(p.at)}${p.ref.isEmpty ? '' : ' · রেফ ${p.ref}'}${p.note.isEmpty ? '' : ' · ${p.note}'}',
-                  value: taka(p.taka),
-                  valueColor: K.green,
-                  valueSub: p.receipt != null ? 'রসিদ দেখুন' : null,
-                  valueSubColor: K.blue,
-                  last: i == st.payments.length - 1,
-                  onTap: p.receipt == null ? null : () => push(context, _Receipt(st: st, p: p)),
-                ),
-            ]),
-          ),
+        const SizedBox(height: 12),
+        PeriodChips(value: _p, now: DateTime.now(), wrap: true, onChanged: (p) => setState(() => _p = p)),
+        SectionHead('সারসংক্ষেপ · ${_p.label}'),
+        Row(children: [
+          tile('অনুরোধ', '${bn('${live.length}')}টা', taka(live.fold<double>(0, (s, x) => s + x.total))),
+          const SizedBox(width: 10),
+          tile('পাঠিয়েছেন', '${bn('${sent.length}')}টা', taka(sent.fold<double>(0, (s, x) => s + x.total)), c: K.green),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          tile('পাঠানোর অপেক্ষায়', '${bn('${waiting.length}')}টা', taka(waiting.fold<double>(0, (s, x) => s + x.total)), c: waiting.isEmpty ? K.ink : K.red),
+          const SizedBox(width: 10),
+          tile('বাতিল', '${bn('${cancelled.length}')}টা', taka(cancelled.fold<double>(0, (s, x) => s + x.total))),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          tile('${st.owner}-এর কাছ থেকে পেয়েছেন', taka(got), '${bn('${pays.length}')} বার', c: K.green),
+          const SizedBox(width: 10),
+          tile('কমিশন', taka(comm), ''),
+        ]),
+        const SizedBox(height: 12),
+        Seg<String>(items: const [('all', 'সব'), ('pay', 'পেয়েছেন'), ('sent', 'পাঠানো'), ('unpaid', 'টাকা পাইনি')], value: _show, onChanged: (v) => setState(() => _show = v)),
+        if (_show == 'all' || _show == 'pay') ...[
+          SectionHead('${st.owner} যা দিয়েছেন'),
+          if (pays.isEmpty) const Note('এই সময়ে কিছু দেওয়া হয়নি।'),
+          if (pays.isNotEmpty)
+            CardBox(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Column(children: [
+                for (final (i, p) in pays.indexed)
+                  Row2(
+                    lead: dotIcon(p.receipt != null ? Icons.receipt_long_rounded : Icons.payments_outlined, K.greenTint, K.green, size: 38),
+                    title: '${payWayName(p.way)}${p.count > 0 ? ' · ${bn('${p.count}')}টা লেনদেনের' : ''}',
+                    sub: '${dateShort(p.at)}, ${timeText(p.at)}${p.ref.isEmpty ? '' : ' · রেফ ${p.ref}'}${p.note.isEmpty ? '' : ' · ${p.note}'}',
+                    value: taka(p.taka),
+                    valueColor: K.green,
+                    valueSub: p.receipt != null ? 'রসিদ দেখুন' : null,
+                    valueSubColor: K.blue,
+                    last: i == pays.length - 1,
+                    onTap: p.receipt == null ? null : () => push(context, _Receipt(st: st, p: p)),
+                  ),
+              ]),
+            ),
+        ],
+        if (_show != 'pay') ...[
+          SectionHead(_show == 'unpaid' ? 'যেগুলোর টাকা পাননি' : 'পাঠানো লেনদেন'),
+          () {
+            final list = sent.where((x) => _show != 'unpaid' || !x.paid).toList();
+            if (list.isEmpty) return const Note('কিছু নেই।');
+            return CardBox(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Column(children: [
+                for (final (i, x) in list.take(300).indexed)
+                  Row2(
+                    lead: dotIcon(Icons.check_rounded, K.greenTint, K.green, size: 36),
+                    title: '#${bn('${x.no}')} · ${bdShow(x.number)}',
+                    sub: '${_service(x)} · ${dateShort(x.at)}${x.reply.isNotEmpty ? ' · ${bn(x.reply)}' : ''}',
+                    value: taka(x.total),
+                    valueSub: x.paid ? 'টাকা পেয়েছি' : 'টাকা পাইনি',
+                    valueSubColor: x.paid ? K.green : K.red,
+                    last: i == list.take(300).length - 1,
+                  ),
+              ]),
+            );
+          }(),
+        ],
       ]),
     );
   }
@@ -431,7 +556,7 @@ class _Profile extends StatelessWidget {
         await st.loadNotes();
       },
       child: ListView(padding: const EdgeInsets.fromLTRB(18, 12, 18, 24), children: [
-        _header('প্রোফাইল', '', trailing: LangButton(h: st.h)),
+        _header('প্রোফাইল', ''),
         CardBox(
           child: Row(children: [
             dotIcon(Icons.storefront_rounded, K.navySoft, K.navy, size: 52),
@@ -458,36 +583,121 @@ class _Profile extends StatelessWidget {
                 noteRow(n, last: i == st.notes.take(100).length - 1, onTap: () => openNote(context, st, n)),
             ]),
           ),
-        const SizedBox(height: 14),
-        SoftPill(
-          label: 'পাসওয়ার্ড বদলান',
-          icon: Icons.password_rounded,
-          onTap: () async {
+      ]),
+    );
+  }
+}
+
+/// সেটিংস (agent): password, this phone, language, sign out.
+class _AgentSettings extends StatefulWidget {
+  const _AgentSettings({required this.st});
+  final AgentState st;
+  @override
+  State<_AgentSettings> createState() => _AgentSettingsState();
+}
+
+class _AgentSettingsState extends State<_AgentSettings> {
+  int _auto = 30;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.st.h.s.lock.autoLockSeconds().then((v) {
+      if (mounted) setState(() => _auto = v);
+    });
+  }
+
+  String _autoText(int s) => switch (s) {
+        0 => 'সাথে সাথে',
+        < 60 => '${bn('$s')} সেকেন্ড পর',
+        _ => '${bn('${s ~/ 60}')} মিনিট পর',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final st = widget.st, h = st.h;
+    Widget row(IconData i, String title, String sub, VoidCallback? onTap, {Widget? trailing, bool last = false, Color fg = K.blue, Color bg = K.blueTint}) => Row2(
+          lead: dotIcon(i, bg, fg, size: 40),
+          title: title,
+          sub: sub,
+          onTap: onTap,
+          trailing: trailing,
+          value: trailing == null && onTap != null ? '›' : null,
+          valueColor: K.muted,
+          last: last,
+        );
+    return ListView(padding: const EdgeInsets.fromLTRB(18, 12, 18, 24), children: [
+      _header('সেটিংস', ''),
+      SectionHead('আমার লগইন'),
+      CardBox(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        child: Column(children: [
+          row(Icons.password_rounded, 'পাসওয়ার্ড বদলান', 'লগইন ${bn(h.session?.login ?? '')}', () async {
             final old = await askText(context, 'এখনকার পাসওয়ার্ড', obscure: true);
             if (old == null || old.isEmpty || !context.mounted) return;
             final nw = await askText(context, 'নতুন পাসওয়ার্ড (৬+ অক্ষর)', obscure: true);
-            if (nw == null || nw.length < 6 || !context.mounted) return;
+            if (nw == null || !context.mounted) return;
+            if (nw.length < 6) {
+              snack(context, 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষর');
+              return;
+            }
             try {
               await st.changePassword(old, nw);
               if (context.mounted) snack(context, 'পাসওয়ার্ড বদলেছে');
             } catch (_) {
               if (context.mounted) snack(context, 'বদলানো যায়নি — এখনকার পাসওয়ার্ড ঠিক আছে?');
             }
-          },
-        ),
-        const SizedBox(height: 8),
-        SoftPill(
-          label: 'লগআউট',
-          icon: Icons.logout_rounded,
-          color: K.red,
-          onTap: () async {
-            if (await confirm(context, 'লগআউট করবেন?', 'আবার ঢুকতে লগইন আর পাসওয়ার্ড লাগবে।', yes: 'লগআউট', danger: true)) await st.h.logout();
-          },
-        ),
-        const SizedBox(height: 16),
-        MadeBy(h: st.h),
-      ]),
-    );
+          }, last: true),
+        ]),
+      ),
+      SectionHead('এই ফোন'),
+      CardBox(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        child: Column(children: [
+          row(Icons.pin_outlined, 'পিন বদলান', '৪ সংখ্যা', () {
+            Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => PinSetup(lock: h.s.lock, title: 'নতুন পিন', onDone: () => Navigator.of(ctx).pop())));
+          }),
+          row(Icons.lock_clock_outlined, 'নিজে থেকে লক', _autoText(_auto), () async {
+            final v = await showDialog<int>(
+              context: context,
+              builder: (c) => SimpleDialog(title: Tx('অ্যাপ থেকে বের হলে কতক্ষণ পর লক', style: t(16, w: FontWeight.w600)), children: [
+                for (final s in const [0, 30, 60, 300, 900])
+                  SimpleDialogOption(onPressed: () => Navigator.pop(c, s), child: Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Tx(_autoText(s), style: t(15)))),
+              ]),
+            );
+            if (v == null) return;
+            await h.s.lock.setAutoLockSeconds(v);
+            setState(() => _auto = v);
+          }),
+          row(Icons.notifications_active_outlined, 'নোটিফিকেশন পরীক্ষা', 'সাউন্ড আর ভাইব্রেশন ঠিক আছে কি না শুনে দেখুন', () async {
+            await h.s.reminders.askPermission();
+            final ok = await h.s.push.test('রেমিট খাতা', 'এই সাউন্ড আর ভাইব্রেশনেই নতুন অনুরোধ আসবে।');
+            if (context.mounted) snack(context, ok ? 'নোটিফিকেশন পাঠানো হলো' : 'নোটিফিকেশন দেখানো যায়নি — ফোনের সেটিংসে অ্যাপের নোটিফিকেশন চালু করুন');
+          }),
+          row(Icons.translate_rounded, 'English', appEnglish ? 'The whole app is in English' : 'পুরো অ্যাপ ইংরেজিতে দেখাবে', null,
+              trailing: Switch(
+                value: appEnglish,
+                onChanged: (v) async {
+                  setEnglish(v);
+                  await h.s.lock.setEnglish(v);
+                },
+              ),
+              last: true),
+        ]),
+      ),
+      const SizedBox(height: 16),
+      SoftPill(
+        label: 'লগআউট',
+        icon: Icons.logout_rounded,
+        color: K.red,
+        onTap: () async {
+          if (await confirm(context, 'লগআউট করবেন?', 'আবার ঢুকতে লগইন আর পাসওয়ার্ড লাগবে।', yes: 'লগআউট', danger: true)) await h.logout();
+        },
+      ),
+      const SizedBox(height: 18),
+      Center(child: Tx('রেমিট খাতা · সংস্করণ ১.২.০', style: t(12, c: K.muted))),
+      MadeBy(h: h),
+    ]);
   }
 }
 

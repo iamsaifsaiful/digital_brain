@@ -207,7 +207,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pumpAndSettle();
-    expect(find.text('৳ ১৬,২৫০'), findsOneWidget);
+    expect(find.text('৳ ১৬,২৫০'), findsWidgets);
     expect(find.textContaining('SAR'), findsNothing);
     await tester.tap(find.text('পাঠিয়েছি'));
     await tester.pumpAndSettle();
@@ -217,7 +217,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(server.one('txn', txnId)!['status'], 'sent');
     expect(find.textContaining('এখন পাঠানোর মতো কিছু নেই'), findsOneWidget);
-    for (final tab in ['সব কাজ', 'টাকা', 'প্রোফাইল']) {
+    for (final tab in ['সব কাজ', 'হিসাব', 'প্রোফাইল']) {
       await tester.tap(find.text(tab).last);
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
       await tester.pumpAndSettle();

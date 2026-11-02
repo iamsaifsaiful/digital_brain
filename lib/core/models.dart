@@ -664,7 +664,7 @@ class LogEntry {
 }
 
 class Settings {
-  Settings({this.ownerName = '', this.defaultDueLimit = 1000, this.oldDueDays = 7, this.dupMinutes = 10, this.nextNo = 1001, this.lastBackup, Map<String, String>? templates}) : templates = templates ?? {};
+  Settings({this.ownerName = '', this.defaultDueLimit = 1000, this.oldDueDays = 7, this.dupMinutes = 10, this.nextNo = 1001, this.lastBackup, Map<String, String>? templates, this.inactiveDays = 30}) : templates = templates ?? {};
   String ownerName;
   double defaultDueLimit;
   int oldDueDays;
@@ -672,17 +672,22 @@ class Settings {
   int nextNo;
   DateTime? lastBackup;
 
+  /// A customer with no send or deposit for this many days is listed to
+  /// be checked on.
+  int inactiveDays;
+
   /// Admin-edited message texts, by template key (missing = the default).
   final Map<String, String> templates;
 
   /// What all admins share (kept on the server).
-  Map<String, Object?> shared() => {'ownerName': ownerName, 'defaultDueLimit': defaultDueLimit, 'oldDueDays': oldDueDays, 'dupMinutes': dupMinutes, 'templates': templates};
+  Map<String, Object?> shared() => {'ownerName': ownerName, 'defaultDueLimit': defaultDueLimit, 'oldDueDays': oldDueDays, 'dupMinutes': dupMinutes, 'templates': templates, 'inactiveDays': inactiveDays};
 
   void applyShared(Map<String, Object?> j) {
     ownerName = _s(j['ownerName'], ownerName);
     defaultDueLimit = _d(j['defaultDueLimit'], defaultDueLimit);
     oldDueDays = _i(j['oldDueDays'], oldDueDays);
     dupMinutes = _i(j['dupMinutes'], dupMinutes);
+    inactiveDays = _i(j['inactiveDays'], inactiveDays);
     if (j['templates'] is Map) {
       templates
         ..clear()
@@ -698,6 +703,7 @@ class Settings {
         'nextNo': nextNo,
         'lastBackup': lastBackup?.toIso8601String(),
         'templates': templates,
+        'inactiveDays': inactiveDays,
       };
   factory Settings.fromJson(Map<String, Object?> j) => Settings(
         ownerName: _s(j['ownerName']),
@@ -707,6 +713,7 @@ class Settings {
         nextNo: _i(j['nextNo'], 1001),
         lastBackup: j['lastBackup'] == null ? null : _t(j['lastBackup']),
         templates: _tpl(j['templates']),
+        inactiveDays: _i(j['inactiveDays'], 30),
       );
 }
 

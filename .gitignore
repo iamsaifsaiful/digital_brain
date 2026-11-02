@@ -35,3 +35,5 @@ web/
 windows/
 pubspec.lock
 test_shots/
+
+!android/app/remitkhata-release.jks

@@ -357,6 +357,22 @@ void main() {
       expect(customerNameOf(h.d, Txn.fromJson({...t.toJson(), 'walkIn': ''})), 'প্রোফাইল ছাড়া');
     });
 
+    test('quiet customers: no send or payment for the set days, longest first', () {
+      final now = DateTime(2026, 11, 30);
+      final d = AppData(customers: [
+        Customer(id: 'a', name: 'ক', phone: '0551', created: DateTime(2026, 1, 1)),
+        Customer(id: 'b', name: 'খ', phone: '0552', created: DateTime(2026, 1, 1)),
+        Customer(id: 'c', name: 'গ', phone: '0553', created: DateTime(2026, 11, 25)),
+      ]);
+      d.txns.add(Txn.fromJson({...draft(customerId: 'a').toJson(), 'id': 't1', 'at': DateTime(2026, 11, 20).toIso8601String()}));
+      d.deposits.add(Deposit(id: 'p1', customerId: 'b', sarAmount: 10, at: DateTime(2026, 9, 1)));
+      final q = quietCustomers(d, now);
+      expect(q.map((x) => x.$1.id), ['b']);
+      expect(q.single.$2, 90);
+      expect(checkInMessage(d, d.customers[1], 90), contains('অনেকদিন আপনার খবর পাই না'));
+      expect(quietCustomers(d, now, days: 5).map((x) => x.$1.id), ['b', 'a', 'c']);
+    });
+
     test('agent payment: only the riyal can be corrected, and the hand follows', () async {
       final h = makeHisab(() => DateTime(2026, 11, 2, 10));
       await h.load();

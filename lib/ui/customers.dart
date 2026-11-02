@@ -86,6 +86,24 @@ class _CustomersTabState extends State<CustomersTab> {
             const SizedBox(height: 4),
             Tx('মোট বকেয়া ${sar(totalCustomerDue(d))} · ${bn('${d.customers.length}')} জন গ্রাহক', style: t(13.5, c: K.muted)),
             const SizedBox(height: 12),
+            if (quietCustomers(d, h.now).isNotEmpty) ...[
+              CardBox(
+                color: K.amberTint,
+                onTap: () => push(context, QuietCustomersScreen(h: h)),
+                child: Row(children: [
+                  dotIcon(Icons.waving_hand_outlined, Colors.white, K.amberText, size: 40),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Tx('${bn('${quietCustomers(d, h.now).length}')} জন অনেকদিন লেনদেন করেননি', style: t(14.5, w: FontWeight.w600, c: K.amberText)),
+                      Tx('${bn('${d.settings.inactiveDays}')} দিনের বেশি · খোঁজ নেওয়ার মেসেজ দিন', style: t(12.5, c: K.amberText)),
+                    ]),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, color: K.amberText),
+                ]),
+              ),
+              const SizedBox(height: 12),
+            ],
             TextField(
               controller: _q,
               onChanged: (_) => setState(() {}),
@@ -654,4 +672,67 @@ class _DepositScreenState extends State<DepositScreen> {
       ]),
     );
   }
+}
+
+
+/// Customers not heard from in a while, each with a friendly message to
+/// ask after them; the last time they were asked is shown.
+class QuietCustomersScreen extends StatelessWidget {
+  const QuietCustomersScreen({super.key, required this.h});
+  final Hisab h;
+
+  @override
+  Widget build(BuildContext context) => Live(
+      h: h,
+      builder: (context) {
+        final list = quietCustomers(h.d, h.now);
+        DateTime? asked(Customer c) {
+          DateTime? last;
+          for (final e in h.d.log) {
+            if (e.ref == c.id && e.title == 'খোঁজ নেওয়ার মেসেজ' && (last == null || e.at.isAfter(last))) last = e.at;
+          }
+          return last;
+        }
+
+        return Screen(
+          title: 'অনেকদিন লেনদেন নেই',
+          subtitle: '${bn('${h.d.settings.inactiveDays}')} দিনের বেশি · ${bn('${list.length}')} জন',
+          body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 24), children: [
+            const Note('যাঁরা অনেকদিন টাকা পাঠাননি বা রিয়াল দেননি, তাঁদের খোঁজ নিন। মেসেজের লেখা বদলাতে: গ্রাহক → সেটিংস → গ্রাহককে মেসেজ।'),
+            const SizedBox(height: 12),
+            if (list.isEmpty) const Note('সবাই সম্প্রতি লেনদেন করেছেন।'),
+            for (final (c, days) in list)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: CardBox(
+                  onTap: () => push(context, CustomerScreen(h: h, id: c.id)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Row(children: [
+                      Avatar(h: h, name: c.name, photo: c.photo),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Tx(c.name, style: t(15, w: FontWeight.w600)),
+                          Tx('${bn('$days')} দিন লেনদেন নেই${customerDue(h.d, c.id) > 0 ? ' · বকেয়া ${sar(customerDue(h.d, c.id))}' : ''}', style: t(12.5, c: K.muted)),
+                          if (asked(c) != null) Tx('শেষ খোঁজ: ${dateShort(asked(c)!)}', style: t(12, c: K.green)),
+                        ]),
+                      ),
+                    ]),
+                    const SizedBox(height: 10),
+                    SoftPill(
+                      label: 'খোঁজ নিন (হোয়াটসঅ্যাপ)',
+                      icon: Icons.chat_outlined,
+                      onTap: () async {
+                        final wa = await whatsappOf(context, h, c);
+                        if (wa == null) return;
+                        await h.s.device.whatsapp(wa, checkInMessage(h.d, c, days));
+                        await h.noteRef('cust', 'খোঁজ নেওয়ার মেসেজ', '${c.name} · ${bn('$days')} দিন লেনদেন নেই', c.id);
+                      },
+                    ),
+                  ]),
+                ),
+              ),
+          ]),
+        );
+      });
 }

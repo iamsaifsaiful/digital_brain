@@ -59,14 +59,14 @@ class Period {
 /// that piled up in it, and what was in hand at its end.
 List<(String, double, bool)> periodBalances(AppData d, Period p, DateTime now) {
   if (p.isAll) {
-    return [('এখন মোট বকেয়া', totalCustomerDue(d), true), ('হাতে থাকা উচিত', cashInHand(d), false)];
+    return [('এখন মোট বকেয়া', totalCustomerDue(d), true), ('ব্যালেন্স', cashInHand(d), false)];
   }
   final due = d.txns.where((x) => !x.cancelled && p.has(x.at)).fold<double>(0, (s, x) => s + x.sarDueAtSend);
   final end = p.runningAt(now) ? now : p.to;
   final hand = cashLines(d).where((l) => l.at.isBefore(end)).fold<double>(0, (s, l) => s + l.inSar - l.outSar);
   return [
     ('${p.inWords} বকেয়া পড়েছে', (due * 100).roundToDouble() / 100, true),
-    (p.runningAt(now) ? '${p.inWords} — এখন হাতে আছে' : '${p.inWords} শেষে হাতে ছিল', (hand * 100).roundToDouble() / 100, false),
+    (p.runningAt(now) ? '${p.inWords} — এখন ব্যালেন্স' : '${p.inWords} শেষে ব্যালেন্স ছিল', (hand * 100).roundToDouble() / 100, false),
   ];
 }
 
@@ -170,10 +170,10 @@ PdfDoc periodPdf(Hisab h, Period p) {
     ('মোট পাঠানো (রিয়াল)', sar(sarSum)),
     ('মোট পাঠানো (টাকা)', taka(takaSum)),
     ('লেনদেন', '${bn('${live.length}')}টা${sarSum == 0 ? '' : ' · গড় রেট ${rateText(takaSum / sarSum)}'}'),
-    ('রিয়াল হাতে পেলাম', sar(got)),
+    ('গ্রাহক থেকে সংগ্রহ', sar(got)),
     ('খরচ / রিয়াল বের', sar(exps.fold<double>(0, (s, x) => s + x.sarAmount))),
     ('লস (আদায় হবে না)', sar(losses.fold<double>(0, (s, x) => s + x.sarAmount))),
-    ('এজেন্টকে দিলাম', taka(pays.fold<double>(0, (s, x) => s + x.taka))),
+    ('এজেন্টকে দিলাম', '${sar(pays.fold<double>(0, (s, x) => s + x.sarAmount))} · ${taka(pays.fold<double>(0, (s, x) => s + x.taka))}'),
     ('ভুল নম্বরে গেছে', '${bn('${live.where((x) => x.fault != null).length}')}টা'),
     for (final (label, v, _) in periodBalances(d, p, h.now)) (label, sar(v)),
   ]);

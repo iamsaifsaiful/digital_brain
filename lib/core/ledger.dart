@@ -63,6 +63,38 @@ List<Open> openSends(AppData d, String customerId, {double extraPayment = 0}) {
 }
 
 /// Days since the oldest riyal still owed, or null when nothing is owed.
+/// When the customer last sent money or paid riyal (null = never).
+DateTime? lastActivity(AppData d, String customerId) {
+  DateTime? last;
+  for (final t in d.txns) {
+    if (t.customerId == customerId && !t.cancelled && (last == null || t.at.isAfter(last))) last = t.at;
+  }
+  for (final p in d.deposits) {
+    if (p.customerId == customerId && (last == null || p.at.isAfter(last))) last = p.at;
+  }
+  return last;
+}
+
+/// Customers with nothing for [days] days or more (counted from their last
+/// send or payment, or from when their profile was made), longest first.
+List<(Customer, int)> quietCustomers(AppData d, DateTime now, {int? days}) {
+  final n = days ?? d.settings.inactiveDays;
+  final out = <(Customer, int)>[];
+  for (final c in d.customers) {
+    final since = now.difference(lastActivity(d, c.id) ?? c.created).inDays;
+    if (since >= n) out.add((c, since));
+  }
+  out.sort((a, b) => b.$2.compareTo(a.$2));
+  return out;
+}
+
+/// A friendly message to a customer not heard from in a while.
+String checkInMessage(AppData d, Customer c, int days) => fillTemplate(_tpl(d, 'cust_checkin'), {
+      'নাম': c.name,
+      'দিন': '$days',
+      'স্বাক্ষর': _sign(d),
+    });
+
 int? oldestDueDays(AppData d, String customerId, DateTime now) {
   for (final o in openSends(d, customerId)) {
     if (o.left > 0) return now.difference(o.txn.at).inDays;

@@ -465,6 +465,12 @@ class Hisab extends ChangeNotifier {
   }
 
   /// Something the user did that changes nothing (app opened, backup made).
+  /// A log line about one record (a customer, a send).
+  Future<void> noteRef(String kind, String title, String detail, String ref) async {
+    _log(kind, title, detail, who: meName, ref: ref);
+    await _save();
+  }
+
   Future<void> note(String kind, String title, String detail, {String who = 'me'}) async {
     _log(kind, title, detail, who: who);
     await _save();

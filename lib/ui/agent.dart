@@ -11,6 +11,7 @@ import 'kit.dart';
 import '../core/lang.dart';
 import 'reports.dart';
 import 'txn.dart';
+import 'users.dart' show UsersScreen;
 
 /// The agent's account, in taka only.
 class AgentTab extends StatefulWidget {
@@ -24,6 +25,9 @@ class AgentTab extends StatefulWidget {
 class _AgentTabState extends State<AgentTab> {
   String? _agentId;
   final _picked = <String>{};
+
+  /// Payments shown: this month at first; any period can be chosen.
+  Period? _payP;
 
   @override
   Widget build(BuildContext context) => Live(
@@ -41,16 +45,16 @@ class _AgentTabState extends State<AgentTab> {
         final now = h.now;
         final days = [for (var i = 6; i >= 0; i--) DateTime(now.year, now.month, now.day - i)];
         final vals = [for (final day in days) d.txns.where((x) => x.agentId == a.id && !x.cancelled && sameDay(x.at, day)).fold<double>(0, (s, x) => s + x.agentTaka)];
-        final pays = d.agentPayments.where((p) => p.agentId == a.id).toList()..sort((x, y) => y.at.compareTo(x.at));
+        final payP = _payP ?? Period.of('month', now);
+        final pays = d.agentPayments.where((p) => p.agentId == a.id && payP.has(p.at)).toList()..sort((x, y) => y.at.compareTo(x.at));
+        final allPays = d.agentPayments.any((p) => p.agentId == a.id);
         final wd = appEnglish ? const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] : const ['সোম', 'মঙ্গল', 'বুধ', 'বৃহ', 'শুক্র', 'শনি', 'রবি'];
         return ListView(padding: const EdgeInsets.fromLTRB(18, 12, 18, 24), children: [
           Row(children: [
             Expanded(child: Tx('এজেন্ট', style: t(22, w: FontWeight.w700))),
             if (h.can('reports')) CircleBtn(icon: Icons.picture_as_pdf_outlined, label: 'এজেন্টের হিসাব PDF', onTap: () => _pdf(context, h, a)),
-            if (h.can('agents')) ...[
-              const SizedBox(width: 8),
-              CircleBtn(icon: Icons.edit_outlined, label: 'এজেন্টের তথ্য', onTap: () => push(context, AgentEdit(h: h, a: a))),
-            ],
+            const SizedBox(width: 8),
+            CircleBtn(icon: Icons.settings_outlined, label: 'এজেন্টের সেটিংস', onTap: () => push(context, AgentSettingsScreen(h: h))),
           ]),
           if (live.length > 1) ...[
             const SizedBox(height: 8),
@@ -92,15 +96,13 @@ class _AgentTabState extends State<AgentTab> {
                       label: 'আজকের হিসাব',
                       color: K.navy,
                       height: 48,
-                      onTap: () async {
-                        await h.s.device.whatsapp(a.whatsapp, agentDayStatement(d, a, now));
-                        await h.note('agent', 'এজেন্টকে দিনের হিসাব', a.name);
-                      },
+                      onTap: () => _previewDay(context, h, a),
                     ),
                   ),
               ]),
             ]),
           ),
+          ..._agentSummary(context, h, a),
           const SizedBox(height: 12),
           CardBox(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -109,8 +111,8 @@ class _AgentTabState extends State<AgentTab> {
               LineChart(values: vals, labels: [for (final day in days) wd[day.weekday - 1]], caption: 'গত সাত দিনে এজেন্টের পাঠানো টাকা', markLabel: taka(vals.reduce((x, y) => x > y ? x : y))),
             ]),
           ),
-          const SizedBox(height: 12),
-          SoftPill(label: 'দিনভিত্তিক অনুরোধ ও এজেন্টের কাজ', icon: Icons.event_note_outlined, onTap: () => push(context, AgentDayScreen(h: h, a: a))),
+          SectionHead('দিনভিত্তিক অনুরোধ ও এজেন্টের কাজ'),
+          AgentDaySection(key: ValueKey(a.id), h: h, a: a),
           SectionHead('যেগুলোর টাকা দেওয়া হয়নি', action: unpaid.isEmpty ? null : (_picked.length == unpaid.length ? 'কোনোটা না' : 'সবগুলো'), onAction: () {
             setState(() {
               if (_picked.length == unpaid.length) {
@@ -150,12 +152,18 @@ class _AgentTabState extends State<AgentTab> {
               },
             ),
           ],
-          if (pays.isNotEmpty) ...[
+          if (allPays) ...[
             SectionHead('এজেন্টকে দেওয়া টাকা'),
+            PeriodChips(value: payP, now: now, onChanged: (p) => setState(() => _payP = p)),
+            const SizedBox(height: 8),
+            Tx('${payP.label}: ${bn('${pays.length}')} বার · ${taka(pays.fold<double>(0, (s, p) => s + p.taka))}${pays.any((p) => p.sarAmount > 0) ? ' · ${sar(pays.fold<double>(0, (s, p) => s + p.sarAmount))}' : ''}', style: t(13, c: K.muted)),
+            const SizedBox(height: 8),
+            if (pays.isEmpty) const Note('এই সময়ে এজেন্টকে কিছু দেওয়া হয়নি।'),
+            if (pays.isNotEmpty)
             CardBox(
               padding: const EdgeInsets.symmetric(horizontal: 14),
               child: Column(children: [
-                for (final (i, p) in pays.take(30).indexed)
+                for (final (i, p) in pays.take(200).indexed)
                   Row2(
                     lead: dotIcon(p.receipt != null ? Icons.receipt_long_rounded : Icons.payments_outlined, K.greenTint, K.green, size: 38),
                     title: p.txnIds.isEmpty ? 'টাকা দিলাম · ${payWayName(p.way)}' : '${bn('${p.txnIds.length}')}টা লেনদেনের টাকা · ${payWayName(p.way)}',
@@ -163,7 +171,8 @@ class _AgentTabState extends State<AgentTab> {
                     onTap: () => push(context, PaymentScreen(h: h, p: p)),
                     value: taka(p.taka),
                     valueColor: K.green,
-                    last: i == pays.take(30).length - 1,
+                    valueSub: p.sarAmount > 0 ? sar(p.sarAmount) : null,
+                    last: i == pays.take(200).length - 1,
                   ),
               ]),
             ),
@@ -498,15 +507,109 @@ class _AgentEditState extends State<AgentEdit> {
 
 /// One day of an agent: what was asked of them, what they sent, what was
 /// changed or cancelled, payments, and every logged step, by time.
-class AgentDayScreen extends StatefulWidget {
+/// The day's statement for the agent: shown first, sent only if wanted.
+Future<void> _previewDay(BuildContext context, Hisab h, Agent a) async {
+  final text = agentDayStatement(h.d, a, h.now);
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (ctx) => Padding(
+      padding: EdgeInsets.fromLTRB(18, 18, 18, 18 + MediaQuery.of(ctx).padding.bottom),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Tx('আজকের হিসাব · ${a.name}', style: t(18, w: FontWeight.w600), textAlign: TextAlign.center),
+        const SizedBox(height: 12),
+        Flexible(child: SingleChildScrollView(child: CardBox(child: SelectableText(text, style: t(14, h: 1.55))))),
+        const SizedBox(height: 14),
+        Pill(
+          label: 'হোয়াটসঅ্যাপে পাঠান',
+          icon: Icons.send_rounded,
+          color: K.green,
+          onTap: () async {
+            Navigator.pop(ctx);
+            await h.s.device.whatsapp(a.whatsapp, text);
+            await h.note('agent', 'এজেন্টকে দিনের হিসাব', a.name);
+          },
+        ),
+        const SizedBox(height: 8),
+        TextButton(onPressed: () => Navigator.pop(ctx), child: Tx('শুধু দেখা', style: t(14, c: K.muted))),
+      ]),
+    ),
+  );
+}
+
+/// Agents and their logins, from the gear on the এজেন্ট tab.
+class AgentSettingsScreen extends StatelessWidget {
+  const AgentSettingsScreen({super.key, required this.h});
+  final Hisab h;
+
+  @override
+  Widget build(BuildContext context) => Live(
+      h: h,
+      builder: (context) => Screen(
+            title: 'এজেন্টের সেটিংস',
+            body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 24), children: [
+              SectionHead('এজেন্ট', action: h.can('agents') ? 'নতুন এজেন্ট' : null, onAction: () => push(context, AgentEdit(h: h))),
+              CardBox(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Column(children: [
+                  for (final (i, a) in h.d.liveAgents.indexed)
+                    Row2(
+                      lead: dotIcon(Icons.storefront_rounded, K.navySoft, K.navy, size: 38),
+                      title: a.name,
+                      sub: '${a.usesApp ? 'অ্যাপে কাজ করেন' : 'হোয়াটসঅ্যাপে'} · ${bn(a.whatsapp)}${a.commissionPerThousand > 0 ? ' · কমিশন হাজারে ${bnNum(a.commissionPerThousand, decimals: 2)}' : ''}',
+                      value: h.can('agents') ? '›' : null,
+                      valueColor: K.muted,
+                      onTap: h.can('agents') ? () => push(context, AgentEdit(h: h, a: a)) : null,
+                      last: i == h.d.liveAgents.length - 1,
+                    ),
+                ]),
+              ),
+              const SizedBox(height: 8),
+              Tx(h.isOwner ? 'কোনো এজেন্টে চাপলে তথ্য বদলানো, যোগাযোগের ধরন আর ডিলিট করা যায়।' : 'এজেন্ট ডিলিট শুধু মূল এডমিন করতে পারেন।', style: t(12.5, c: K.muted)),
+              if (h.session != null && h.can('users')) ...[
+                SectionHead('এজেন্টের লগইন'),
+                CardBox(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Row2(
+                    lead: dotIcon(Icons.manage_accounts_rounded, K.blueTint, K.blue, size: 38),
+                    title: 'এজেন্টের লগইন বানান ও মুছুন',
+                    sub: 'এজেন্ট নিজের লগইনে অ্যাপে অনুরোধ দেখবেন',
+                    value: '›',
+                    valueColor: K.muted,
+                    onTap: () => push(context, UsersScreen(h: h, only: 'agent')),
+                    last: true,
+                  ),
+                ),
+              ],
+            ]),
+          ));
+}
+
+class AgentDayScreen extends StatelessWidget {
   const AgentDayScreen({super.key, required this.h, required this.a});
   final Hisab h;
   final Agent a;
   @override
-  State<AgentDayScreen> createState() => _AgentDayScreenState();
+  Widget build(BuildContext context) => Screen(
+        title: '${a.name} · দিনের কাজ',
+        body: ListView(padding: const EdgeInsets.fromLTRB(18, 8, 18, 24), children: [AgentDaySection(h: h, a: a)]),
+      );
 }
 
-class _AgentDayScreenState extends State<AgentDayScreen> {
+/// One day of an agent, inside the এজেন্ট tab: a day picker, the counts,
+/// the requests and everything that happened.
+class AgentDaySection extends StatefulWidget {
+  const AgentDaySection({super.key, required this.h, required this.a});
+  final Hisab h;
+  final Agent a;
+  @override
+  State<AgentDaySection> createState() => _AgentDaySectionState();
+}
+
+class _AgentDaySectionState extends State<AgentDaySection> {
+  bool _allLog = false;
+
   late DateTime _day = DateTime(widget.h.now.year, widget.h.now.month, widget.h.now.day);
 
   @override
@@ -525,9 +628,8 @@ class _AgentDayScreenState extends State<AgentDayScreen> {
         final refs = {a.id, for (final x in mine) x.id};
         final log = d.log.where((e) => refs.contains(e.ref) && sameDay(e.at, _day)).toList()..sort((x, y) => y.at.compareTo(x.at));
         final label = sameDay(_day, today) ? 'আজ' : (sameDay(_day, today.subtract(const Duration(days: 1))) ? 'গতকাল' : dateShort(_day));
-        return Screen(
-          title: '${a.name} · দিনের কাজ',
-          body: ListView(padding: const EdgeInsets.fromLTRB(18, 8, 18, 24), children: [
+        final logShown = _allLog ? log : log.take(6).toList();
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
               IconButton(tooltip: tr('আগের দিন'), icon: const Icon(Icons.chevron_left_rounded), onPressed: () => setState(() => _day = DateTime(_day.year, _day.month, _day.day - 1))),
               Expanded(
@@ -556,22 +658,27 @@ class _AgentDayScreenState extends State<AgentDayScreen> {
               _stat('বাতিল', '${bn('${cancelled.length}')}টা', faults > 0 ? 'এজেন্টের ভুল ${bn('$faults')}টা' : '', warn: faults > 0),
               _stat('পরিশোধ পেলেন', '${bn('${paid.length}')} বার', taka(paid.fold<double>(0, (s, p) => s + p.taka))),
             ]),
-            SectionHead('এই দিনে পাঠানো অনুরোধ'),
+            const SizedBox(height: 10),
+            Tx('এই দিনে পাঠানো অনুরোধ', style: t(14, w: FontWeight.w600)),
+            const SizedBox(height: 6),
             if (asked.isEmpty) const Note('এই দিনে কোনো অনুরোধ পাঠানো হয়নি।'),
             if (asked.isNotEmpty)
               CardBox(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: Column(children: [for (final (i, x) in asked.reversed.indexed) TxnRow(h: h, t: x, last: i == asked.length - 1)]),
               ),
-            SectionHead('কখন কী হলো'),
+            const SizedBox(height: 10),
+            Tx('কখন কী হলো', style: t(14, w: FontWeight.w600)),
+            const SizedBox(height: 6),
             if (log.isEmpty) const Note('এই দিনের কোনো কাজের রেকর্ড নেই।'),
             if (log.isNotEmpty)
               CardBox(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: Column(children: [for (final (i, e) in log.indexed) LogRow(e: e, last: i == log.length - 1)]),
+                child: Column(children: [for (final (i, e) in logShown.indexed) LogRow(e: e, last: i == logShown.length - 1)]),
               ),
-          ]),
-        );
+            if (log.length > logShown.length)
+              TextButton(onPressed: () => setState(() => _allLog = true), child: Tx('আরও ${bn('${log.length - logShown.length}')}টা দেখুন', style: t(13, c: K.blue))),
+          ]);
       });
 
   Widget _stat(String label, String big, String small, {bool warn = false}) => SizedBox(
@@ -585,4 +692,51 @@ class _AgentDayScreenState extends State<AgentDayScreen> {
           ]),
         ),
       );
+}
+
+
+/// The agent at a glance: this month's requests, what was sent, what still
+/// waits, what was paid to them, and the commission.
+List<Widget> _agentSummary(BuildContext context, Hisab h, Agent a) {
+  final d = h.d, now = h.now;
+  final month = Period.of('month', now);
+  final mine = d.txns.where((x) => x.agentId == a.id && !x.cancelled).toList();
+  final inMonth = mine.where((x) => month.has(x.at)).toList();
+  final sent = inMonth.where((x) => x.status == TxnStatus.sent).toList();
+  final waiting = mine.where((x) => x.status == TxnStatus.pending).toList();
+  final paid = d.agentPayments.where((p) => p.agentId == a.id && month.has(p.at)).toList();
+  final comm = inMonth.fold<double>(0, (s, x) => s + commissionOf(x, a));
+  final wrong = inMonth.where((x) => x.fault == Fault.agent).length;
+  Widget box(String label, String big, String small, {Color c = K.ink}) => Expanded(
+        child: CardBox(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Tx(label, style: t(12.5, c: K.muted)),
+            Tx(big, style: t(17, w: FontWeight.w700, c: c)),
+            if (small.isNotEmpty) Tx(small, style: t(12, c: K.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
+          ]),
+        ),
+      );
+  return [
+    SectionHead('সারসংক্ষেপ · এ মাসে'),
+    Row(children: [
+      box('অনুরোধ', '${bn('${inMonth.length}')}টা', taka(inMonth.fold<double>(0, (s, x) => s + x.agentTaka))),
+      const SizedBox(width: 10),
+      box('পাঠিয়েছেন', '${bn('${sent.length}')}টা', taka(sent.fold<double>(0, (s, x) => s + x.agentTaka)), c: K.green),
+    ]),
+    const SizedBox(height: 10),
+    Row(children: [
+      box('পাঠানোর অপেক্ষায়', '${bn('${waiting.length}')}টা', taka(waiting.fold<double>(0, (s, x) => s + x.agentTaka)), c: waiting.isEmpty ? K.ink : K.red),
+      const SizedBox(width: 10),
+      box('এ মাসে দিলাম', taka(paid.fold<double>(0, (s, p) => s + p.taka)), paid.any((p) => p.sarAmount > 0) ? sar(paid.fold<double>(0, (s, p) => s + p.sarAmount)) : '${bn('${paid.length}')} বার'),
+    ]),
+    if (comm > 0 || wrong > 0) ...[
+      const SizedBox(height: 10),
+      Row(children: [
+        box('কমিশন', taka(comm), 'হাজারে ${bnNum(a.commissionPerThousand, decimals: 2)}'),
+        const SizedBox(width: 10),
+        box('এজেন্টের ভুল', '${bn('$wrong')}টা', 'ভুল নম্বরে', c: wrong > 0 ? K.red : K.ink),
+      ]),
+    ],
+  ];
 }

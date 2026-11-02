@@ -5,7 +5,6 @@ import 'package:riyal_hisab/core/models.dart';
 import 'package:riyal_hisab/main.dart';
 import 'package:riyal_hisab/ui/agent.dart';
 import 'package:riyal_hisab/ui/kit.dart';
-import 'package:riyal_hisab/ui/more.dart';
 import 'package:riyal_hisab/services/crypto.dart';
 import 'package:riyal_hisab/services/device.dart';
 import 'package:riyal_hisab/services/lock.dart';
@@ -206,6 +205,12 @@ void main() {
     await tester.pumpAndSettle();
     await tapText(tester, 'আমার হাতে থাকা উচিত');
     expect(find.text('হাতের হিসাব'), findsOneWidget);
+    // The handover sheet: cash from sends, dues collected, paid to the agent.
+    expect(find.textContaining('লেনদেনে নগদ পেলাম'), findsOneWidget);
+    expect(find.textContaining('আগের বকেয়া আদায়'), findsOneWidget);
+    expect(find.textContaining('এজেন্টকে দিলাম'), findsOneWidget);
+    expect(find.text('৫০০.০০ SAR').evaluate().isNotEmpty || find.text('৫০০ SAR').evaluate().isNotEmpty, isTrue);
+    await tapText(tester, 'প্রতিটা আসা-যাওয়া দেখুন (৩টা)');
     expect(find.text('−৫০০ SAR'), findsOneWidget);
     expect(find.text('+২০০ SAR'), findsOneWidget);
     expect(find.text('+৩০০ SAR'), findsOneWidget);
@@ -222,13 +227,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('অন্যান্য').last);
     await tester.pumpAndSettle();
-    await tapText(tester, 'দিন শেষের হিসাব');
-    await tester.enterText(find.descendant(of: find.byType(DayCloseScreen), matching: find.byType(TextField)).first, '0');
-    await tester.pumpAndSettle();
-    expect(find.text('মিলেছে।'), findsOneWidget);
-    await tapText(tester, 'হিসাব মিলিয়ে রাখুন');
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
-    await tester.pumpAndSettle();
+    // The day-end count is gone from the menu.
+    expect(find.text('দিন শেষের হিসাব'), findsNothing);
     await tapText(tester, 'সব লেনদেন');
     await tapText(tester, 'আজ');
     await tester.tap(find.textContaining('#২৬১১০০০১').first);
