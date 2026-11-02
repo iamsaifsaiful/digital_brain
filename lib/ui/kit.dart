@@ -754,3 +754,28 @@ void setEnglish(bool on) {
 
   WidgetsBinding.instance.rootElement?.visitChildren(again);
 }
+
+
+const companyUrl = 'https://owlgorithmlabs.com/';
+
+/// "Owlgorithm Labs-এর একটি প্রোডাক্ট", opening the company's site.
+class MadeBy extends StatelessWidget {
+  const MadeBy({super.key, required this.h});
+  final Hisab h;
+  @override
+  Widget build(BuildContext context) => Center(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => h.s.device.openLink(companyUrl),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Text.rich(
+              TextSpan(style: t(12, c: K.muted), children: [
+                const TextSpan(text: 'Owlgorithm Labs', style: TextStyle(fontWeight: FontWeight.w600, color: K.navy)),
+                TextSpan(text: appEnglish ? ' product' : '-এর একটি প্রোডাক্ট'),
+              ]),
+            ),
+          ),
+        ),
+      );
+}

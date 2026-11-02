@@ -488,6 +488,8 @@ class _Profile extends StatelessWidget {
             if (await confirm(context, 'লগআউট করবেন?', 'আবার ঢুকতে লগইন আর পাসওয়ার্ড লাগবে।', yes: 'লগআউট', danger: true)) await st.h.logout();
           },
         ),
+        const SizedBox(height: 16),
+        MadeBy(h: st.h),
       ]),
     );
   }

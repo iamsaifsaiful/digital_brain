@@ -89,6 +89,8 @@ class _LoginScreenState extends State<LoginScreen> {
           Pill(label: _busy ? 'লগইন হচ্ছে…' : 'লগইন', icon: Icons.login_rounded, onTap: _busy || !ready ? null : _go),
           const SizedBox(height: 18),
           Tx('লগইন না থাকলে দোকানের মূল এডমিনের কাছে চান।', textAlign: TextAlign.center, style: t(13, c: K.muted)),
+          const SizedBox(height: 26),
+          MadeBy(h: widget.h),
         ]),
       ),
     );

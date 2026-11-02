@@ -244,7 +244,7 @@ function rh_page() {
     <div class="wrap rh">
         <h1 class="screen-reader-text">রিয়াল হিসাব</h1>
         <header class="rh-head">
-            <div class="rh-brand"><span class="rh-mark">⇄</span><div><b>রেমিট খাতা</b><em>সব রেকর্ড — শুধু দেখার জন্য; কাজ অ্যাপ থেকে</em></div></div>
+            <div class="rh-brand"><span class="rh-mark">⇄</span><div><b>রেমিট খাতা</b><em>সব রেকর্ড — শুধু দেখার জন্য; কাজ অ্যাপ থেকে · <a href="https://owlgorithmlabs.com/" target="_blank" rel="noopener" style="color:inherit">Owlgorithm Labs</a>-এর একটি প্রোডাক্ট</em></div></div>
             <nav class="rh-tabs">
                 <?php foreach (rh_tabs() as $k => $label) : ?>
                     <a class="<?php echo $k === $tab ? 'on' : ''; ?>" href="<?php echo rh_url($k); ?>"><?php echo esc_html($label); ?></a>

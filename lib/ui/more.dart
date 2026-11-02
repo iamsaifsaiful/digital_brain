@@ -743,6 +743,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 16),
             Center(child: Tx('রেমিট খাতা · সংস্করণ ১.২.০', style: t(12, c: K.muted))),
+            MadeBy(h: h),
           ]),
         );
       });

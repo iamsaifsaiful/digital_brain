@@ -21,6 +21,9 @@ abstract class Device {
   Future<void> shareFile(Uint8List bytes, String name, String mime, {String text = ''});
   Future<Uint8List?> pickFile();
 
+  /// Opens a web page in the browser.
+  Future<void> openLink(String url);
+
   /// Saves into the phone's Downloads; returns where, or null.
   Future<String?> saveDownload(Uint8List bytes, String name, String mime);
 
@@ -70,6 +73,13 @@ class PhoneDevice implements Device {
     final f = File('${dir.path}/$name');
     await f.writeAsBytes(bytes, flush: true);
     await SharePlus.instance.share(ShareParams(files: [XFile(f.path, mimeType: mime, name: name)], text: text.isEmpty ? null : text));
+  }
+
+  @override
+  Future<void> openLink(String url) async {
+    try {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    } catch (_) {}
   }
 
   static const _pdf = MethodChannel('riyal/pdf');
@@ -145,6 +155,11 @@ class FakeDevice implements Device {
 
   @override
   Future<void> shareFile(Uint8List bytes, String name, String mime, {String text = ''}) async => shared.add(name);
+
+  final links = <String>[];
+
+  @override
+  Future<void> openLink(String url) async => links.add(url);
 
   final saved = <String>[];
   final printed = <String>[];

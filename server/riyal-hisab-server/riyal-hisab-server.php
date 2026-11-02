@@ -5,7 +5,8 @@
  * Version: 1.2.0
  * Requires at least: 6.0
  * Requires PHP: 8.0
- * Author: Remit Khata
+ * Author: Owlgorithm Labs
+ * Author URI: https://owlgorithmlabs.com/
  * License: GPL-2.0-or-later
  */
 

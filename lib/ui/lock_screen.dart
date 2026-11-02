@@ -308,6 +308,8 @@ class _LockScreenState extends State<LockScreen> {
               onBio: _bio ? _tryBio : null,
             ),
             const Spacer(),
+            MadeBy(h: widget.h),
+            const SizedBox(height: 6),
           ]),
         ),
       ),
