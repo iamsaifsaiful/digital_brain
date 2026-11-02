@@ -22,7 +22,7 @@ import 'when.dart';
 import 'calendar_bd.dart' show hijriDate;
 import 'phrases.dart' show toPerson;
 import 'match.dart' show wordsMatch;
-import 'lang.dart' show tr, trf;
+import 'lang.dart' show tr, trf, bnEn;
 
 part 'todo.dart';
 part 'aspect.dart';

@@ -738,13 +738,13 @@ Command? _cashQuestion(String said, String f, AppData? d, DateTime now, bool ask
   DateTime? from, to;
   var label = '';
   if (_thas(f, r'(?<=\s)(?:আজ|আজকে|আজকের)(?=\s)')) {
-    (from, to, label) = (today, today.add(const Duration(days: 1)), 'আজ');
+    (from, to, label) = (today, today.add(const Duration(days: 1)), bnEn('আজ', 'today'));
   } else if (_thas(f, r'(?:গতকাল|গত\s+কাল)')) {
-    (from, to, label) = (today.subtract(const Duration(days: 1)), today, 'গতকাল');
+    (from, to, label) = (today.subtract(const Duration(days: 1)), today, bnEn('গতকাল', 'yesterday'));
   } else if (_thas(f, r'এই\s+সপ্তাহ')) {
-    (from, to, label) = (weekStartOf(today), weekStartOf(today).add(const Duration(days: 7)), 'এই সপ্তাহে');
+    (from, to, label) = (weekStartOf(today), weekStartOf(today).add(const Duration(days: 7)), bnEn('এই সপ্তাহে', 'this week'));
   } else if (_thas(f, r'গত\s+সপ্তাহ')) {
-    (from, to, label) = (weekStartOf(today).subtract(const Duration(days: 7)), weekStartOf(today), 'গত সপ্তাহে');
+    (from, to, label) = (weekStartOf(today).subtract(const Duration(days: 7)), weekStartOf(today), bnEn('গত সপ্তাহে', 'last week'));
   } else if (_thas(f, r'গত\s+মাস')) {
     (from, to, label) = (DateTime(now.year, now.month - 1), DateTime(now.year, now.month), 'গত মাসে');
   } else if (_thas(f, r'(?:এই|এ)\s+মাস')) {

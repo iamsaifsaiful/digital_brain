@@ -521,13 +521,13 @@ BulkAction? singleIndexCommand(String said, DateTime now) {
     if (RegExp('(?:^|\\s)\\d{1,2}\\s*(?:${fold('তারিখ')}\\S*)?\\s+${fold(m)}').hasMatch(f)) return null;
   }
   if (RegExp(fold(r'(?<=\s)(?:এ|এই)\s+মাস')).hasMatch(f)) {
-    return (from: DateTime(now.year, now.month, 1), to: DateTime(now.year, now.month + 1, 0), label: 'এ মাসের');
+    return (from: DateTime(now.year, now.month, 1), to: DateTime(now.year, now.month + 1, 0), label: bnEn('এ মাসের', "this month's"));
   }
   if (month != null) {
     final yy = y ?? (month < now.month ? now.year + 1 : now.year);
-    return (from: DateTime(yy, month, 1), to: DateTime(yy, month + 1, 0), label: y == null ? '${bnMonths[month - 1]}ের' : '${bnMonths[month - 1]} ${bnDigits(yy)}-এর');
+    return (from: DateTime(yy, month, 1), to: DateTime(yy, month + 1, 0), label: y == null ? bnEn('${bnMonths[month - 1]}ের', "${monthName(month)}'s") : bnEn('${bnMonths[month - 1]} ${bnDigits(yy)}-এর', "${monthName(month)} $yy's"));
   }
-  if (y != null) return (from: DateTime(y, 1, 1), to: DateTime(y, 12, 31), label: '${bnDigits(y)} সালের');
+  if (y != null) return (from: DateTime(y, 1, 1), to: DateTime(y, 12, 31), label: bnEn('${bnDigits(y)} সালের', "$y's"));
   return null;
 }
 

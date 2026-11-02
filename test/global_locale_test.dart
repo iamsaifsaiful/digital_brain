@@ -14,6 +14,9 @@ import 'package:digital_brain/state/chat.dart';
 import 'package:digital_brain/screens/money_screens.dart' show ProjectScreen;
 import 'package:flutter_test/flutter_test.dart';
 
+import 'dart:async';
+
+import 'package:digital_brain/screens/settings_parts.dart' show askKeepLanguage;
 import 'package:flutter/material.dart';
 
 import 'app_test.dart' show Rig, settle, start;
@@ -319,10 +322,31 @@ void main() {
     expect(appCountry, 'GB');
     expect(appCurrency.code, 'GBP');
     expect(weekStart, DateTime.monday);
-    expect(islamicPart, isTrue, reason: 'the choice is reset to automatic: the app is in Bangla');
+    expect(b.english, isTrue, reason: "Britain's language");
+    expect(islamicPart, isFalse, reason: 'back to automatic: English in Britain');
     expect(bloodHere, isFalse);
     await b.tryCountry('BD');
     expect(appCurrency.code, 'BDT');
     expect(bloodHere, isTrue);
+  });
+
+  testWidgets('test app: a country picked sets its language and asks whether to keep it', (t) async {
+    final rig = await start(t);
+    final b = rig.brain;
+    await b.tryCountry('GB');
+    expect(b.english, isTrue);
+    await b.tryCountry('BD');
+    expect(b.english, isFalse);
+    // The question, and "বাংলা"/"English" switches.
+    await b.tryCountry('MY');
+    final nav = t.element(find.byType(Scaffold).first);
+    unawaited(askKeepLanguage(nav, b, 'MY'));
+    await settle(t);
+    expect(find.byKey(const Key('keep-language')), findsOneWidget);
+    expect(find.textContaining('Malaysia'), findsOneWidget);
+    await t.tap(find.byKey(const Key('language-other')));
+    await settle(t);
+    expect(b.english, isFalse);
+    isEn = false;
   });
 }

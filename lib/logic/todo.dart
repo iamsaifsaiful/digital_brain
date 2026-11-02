@@ -750,7 +750,7 @@ TaskQuery? _tdQuery(String said, String f, DateTime now) {
       final y = said != null ? int.parse(asciiDigits(said[2]!)) : (mi < today.month ? today.year + 1 : today.year);
       from = DateTime(y, mi, 1);
       to = DateTime(y, mi + 1, 0);
-      label = said != null ? '${bnMonths[mi - 1]} ${bnDigits(y)}-এ' : '${bnMonths[mi - 1]} মাসে';
+      label = said != null ? bnEn('${bnMonths[mi - 1]} ${bnDigits(y)}-এ', 'in ${monthName(mi)} $y') : bnEn('${bnMonths[mi - 1]} মাসে', 'in ${monthName(mi)}');
     } else if (_thas(f, r'(?<=\s)(?:এই|এ)\s+মাস')) {
       from = today;
       to = DateTime(today.year, today.month + 1, 0);
@@ -1234,7 +1234,7 @@ Command? _tdAdd(String said, String f, List<Task> tasks, DateTime now) {
   // A to-do said on its weekday ("শুক্রবার মাসের বাজার করব" on a Friday).
   if (w.sameWeekday && w.day != null) {
     final next = w.day!.add(const Duration(days: 7));
-    return Clarify(said, question: 'আজই ${weekdayName(w.day!)}, নাকি আগামী ${weekdayName(w.day!)}?', options: [
+    return Clarify(said, question: trf('আজই {0}, নাকি আগামী {0}?', [weekdayName(w.day!)]), options: [
       ('আজ (${weekdayName(w.day!)})', TaskAdd(said, title: title, due: w.day, deadline: w.deadline, condition: cond)),
       ('আগামী ${weekdayName(next)}, ${bnDigits(next.day)} ${bnMonths[next.month - 1]}', TaskAdd(said, title: title, due: next, deadline: w.deadline, condition: cond)),
     ]);

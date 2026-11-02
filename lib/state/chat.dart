@@ -4124,7 +4124,7 @@ class ChatController extends ChangeNotifier {
           break;
         }
         final what = c.needsTitle ? '' : '“${c.title}” ';
-        final again = c.repeat == Repeat.none || c.repeat.isInterval || c.repeat == Repeat.daily ? '' : ', ${c.repeat.label}';
+        final again = c.repeat == Repeat.none || c.repeat.isInterval || c.repeat == Repeat.daily ? '' : ', ${tr(c.repeat.label)}';
         // "রবিবার থেকে বৃহস্পতিবার": the days said back, not "প্রতি সপ্তাহে".
         final days = c.repeat == Repeat.weekly && c.weekdays.length >= 2
             ? trf('ঠিক আছে, প্রতি {0} {1}-এ {2}{3}।', [weekdaysSaid(c.weekdays), bnTime(c.at.hour, c.at.minute), what, c.alarm ? tr('অ্যালার্ম বাজবে') : tr('মনে করিয়ে দেব')])

@@ -747,7 +747,7 @@ Future<String?> askCategory(BuildContext context, List<String> known) {
 Future<void> cashActions(BuildContext context, CashEntry e) async {
   final brain = BrainScope.read(context);
   final line = mainMenuLine(brain.data, e.id);
-  final pick = await editOrDelete(context, title: '${e.category} · ${taka(e.amount)}', extra: line == null ? null : (line.$1, line.$2, 'main'));
+  final pick = await editOrDelete(context, title: '${tr(e.category)} · ${taka(e.amount)}', extra: line == null ? null : (line.$1, line.$2, 'main'));
   if (!context.mounted) return;
   if (pick == 'main') return toggleMain(context, e.id);
   if (pick == 'edit') {

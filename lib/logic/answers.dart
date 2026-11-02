@@ -459,8 +459,8 @@ String taskAnswer(AppData d, DateTime now, [String asked = '']) {
     final year = (m + 1 < now.month) ? now.year + 1 : now.year;
     // A week, month or year plan that covers the month counts too.
     final those = [for (final t in open) if (t.touches(DateTime(year, m + 1), DateTime(year, m + 2, 0))) t];
-    if (those.isEmpty) return trf('{0} মাসে কোনো কাজ রাখা নেই।', [bnMonths[m]]);
-    return trf('{0} মাসে {1}টা কাজ — {2}।', [bnMonths[m], bnDigits(those.length), nameList([for (final t in those) taskLine(t, now)], unit: 'টা')]);
+    if (those.isEmpty) return trf('{0} মাসে কোনো কাজ রাখা নেই।', [monthName(m + 1)]);
+    return trf('{0} মাসে {1}টা কাজ — {2}।', [monthName(m + 1), bnDigits(those.length), nameList([for (final t in those) taskLine(t, now)], unit: 'টা')]);
   }
   final w = asked.isEmpty ? null : parseWhen(tidySpeech(asked), now);
   if (w != null && w.hasDay) {
@@ -592,7 +592,7 @@ String? taskWhen(Task t, DateTime now) {
       TaskSpan.week => d == _weekStartOf(today)
           ? tr('এই সপ্তাহের যেকোনো দিন')
           : (d == _weekStartOf(today).add(const Duration(days: 7)) ? tr('আগামী সপ্তাহের যেকোনো দিন') : trf('{0}-এর সপ্তাহে, দিন ঠিক নেই', [shortDate(d)])),
-      TaskSpan.month => d.year == today.year ? trf('{0} মাসের যেকোনো সময়', [bnMonths[d.month - 1]]) : trf('{0} {1}-এর যেকোনো সময়', [bnMonths[d.month - 1], bnDigits(d.year)]),
+      TaskSpan.month => d.year == today.year ? trf('{0} মাসের যেকোনো সময়', [monthName(d.month)]) : trf('{0} {1}-এর যেকোনো সময়', [monthName(d.month), bnDigits(d.year)]),
       TaskSpan.year => trf('{0} সালের যেকোনো সময়', [bnDigits(d.year)]),
       TaskSpan.day => sayWhen(d, now, withTime: false),
     };
@@ -604,7 +604,7 @@ String? taskWhen(Task t, DateTime now) {
       // "late" on a date that was never said.
       when = switch (t.span) {
         TaskSpan.week => trf('{0}-এর সপ্তাহের পরিকল্পনা — সময় পেরিয়েছে', [shortDate(d)]),
-        TaskSpan.month => trf('{0} মাসের পরিকল্পনা — সময় পেরিয়েছে', [bnMonths[d.month - 1]]),
+        TaskSpan.month => trf('{0} মাসের পরিকল্পনা — সময় পেরিয়েছে', [monthName(d.month)]),
         _ => trf('{0} সালের পরিকল্পনা — সময় পেরিয়েছে', [bnDigits(d.year)]),
       };
     } else {
@@ -920,7 +920,7 @@ bool ownMoneyAsked(String said, AppData? d) {
 /// "আজ আমার কী কী আছে?" — the day at a glance.
 String briefingAnswer(AppData d, DateTime now) {
   final today = dayOnly(now);
-  final parts = <String>['আজ ${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)}।'];
+  final parts = <String>[trf('আজ {0}, {1}।', [weekdayName(now), '${bnDigits(now.day)} ${monthName(now.month)}'])];
   final dueNow = openTasksOf(d, now).where((t) => t.due == null || !t.due!.isAfter(today)).toList();
   if (dueNow.isNotEmpty) {
     parts.add(trf('কাজ বাকি {0}টা — {1}।', [bnDigits(dueNow.length), nameList([for (final t in dueNow) t.title], unit: 'টা')]));

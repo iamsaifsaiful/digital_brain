@@ -4,6 +4,7 @@ library;
 
 import 'bn.dart';
 import 'parser.dart';
+import 'lang.dart' show isEn, bnEn;
 
 class When {
   const When(this.at, {required this.hasTime, required this.hasDay});
@@ -282,18 +283,18 @@ String sayWhen(DateTime at, DateTime now, {bool withTime = true}) {
   // 00:00 belongs to the night before: "শনিবার দিবাগত রাত ১২টা".
   if (withTime && at.hour == 0 && at.minute == 0) {
     final eve = DateTime(at.year, at.month, at.day).subtract(const Duration(days: 1));
-    return '${sayWhen(eve, now, withTime: false)} দিবাগত রাত ১২টা';
+    return isEn ? 'midnight after ${sayWhen(eve, now, withTime: false)}' : '${sayWhen(eve, now, withTime: false)} দিবাগত রাত ১২টা';
   }
   final today = DateTime(now.year, now.month, now.day);
   final day = DateTime(at.year, at.month, at.day);
   final diff = day.difference(today).inDays;
   final dayText = switch (diff) {
-    0 => 'আজ',
-    1 => 'কাল (${weekdayName(day)})',
-    2 => 'পরশু (${weekdayName(day)})',
+    0 => bnEn('আজ', 'today'),
+    1 => bnEn('কাল (${weekdayName(day)})', 'tomorrow (${weekdayName(day)})'),
+    2 => bnEn('পরশু (${weekdayName(day)})', 'the day after tomorrow (${weekdayName(day)})'),
     // Another year, far off: the year too ("বুধবার, ১ মে ২০৪১").
-    _ when day.year != today.year => '${weekdayName(day)}, ${bnDigits(day.day)} ${bnMonths[day.month - 1]} ${bnDigits(day.year)}',
-    _ => '${weekdayName(day)}, ${bnDigits(day.day)} ${bnMonths[day.month - 1]}',
+    _ when day.year != today.year => '${weekdayName(day)}, ${bnDigits(day.day)} ${monthName(day.month)} ${bnDigits(day.year)}',
+    _ => '${weekdayName(day)}, ${bnDigits(day.day)} ${monthName(day.month)}',
   };
   return withTime ? '$dayText ${bnTime(at.hour, at.minute)}' : dayText;
 }

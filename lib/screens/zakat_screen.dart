@@ -138,13 +138,13 @@ class _ZakatScreenState extends State<ZakatScreen> {
       final start = cashStartOf(d);
       if (start != null) rows.add((start.$2, tr('শুরুতে ছিল'), start.$1));
       for (final e in cashSinceStart(d)) {
-        rows.add((e.date, e.note.isEmpty ? e.category : '${e.category} · ${e.note}', e.kind == CashKind.income ? e.amount : -e.amount));
+        rows.add((e.date, e.note.isEmpty ? tr(e.category) : '${tr(e.category)} · ${e.note}', e.kind == CashKind.income ? e.amount : -e.amount));
       }
       rows.sort((a, b) => b.$1.compareTo(a.$1));
     } else if (l.key.startsWith('project:')) {
       final id = l.key.substring(8);
       for (final e in d.cash.where((e) => e.projectId == id)) {
-        rows.add((e.date, e.note.isEmpty ? e.category : '${e.category} · ${e.note}', e.kind == CashKind.income ? e.amount : -e.amount));
+        rows.add((e.date, e.note.isEmpty ? tr(e.category) : '${tr(e.category)} · ${e.note}', e.kind == CashKind.income ? e.amount : -e.amount));
       }
     } else if (l.key.startsWith('goal:')) {
       for (final g in d.goals.where((g) => 'goal:${g.id}' == l.key)) {

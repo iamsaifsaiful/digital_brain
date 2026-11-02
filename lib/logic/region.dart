@@ -362,3 +362,77 @@ String _bnPossessive(String w) => _endsInVowelSign(w) ? 'র' : 'ের';
 
 /// "দিরহাম" → "দিরহামে", "রুপি" → "রুপিতে".
 String _bnLocative(String w) => _endsInVowelSign(w) ? 'তে' : 'ে';
+
+
+// ── English as it is said where the app is used (owner, 2 Nov: "সে দেশের
+// প্রচলিত শব্দ গুলো ইংরেজির মেনু নাম, বিবরণে, উদাহরণ ইত্যাদি সব জায়গায়") ──
+//
+// The app's English is written in British English with Bangladeshi example
+// names. Where the app is used, the words people use there take their place:
+// American spelling and words in the US; "city" for "district" outside
+// Bangladesh; example names people there know. Only the app's own texts are
+// changed (in [tr]/[trf], before the member's words are put in).
+
+/// The English of a country: 'bd', 'us', 'gulf', 'sea' (Malaysia,
+/// Singapore…), 'sa' (South Asia), 'uk' (Britain, Europe and the rest).
+String englishOf(String cc) {
+  if (cc == 'BD') return 'bd';
+  if (const {'US'}.contains(cc)) return 'us';
+  if (const {'SA', 'AE', 'QA', 'KW', 'OM', 'BH', 'JO', 'LB', 'IQ', 'EG', 'LY'}.contains(cc)) return 'gulf';
+  if (const {'MY', 'SG', 'BN', 'ID', 'TH', 'HK', 'MM'}.contains(cc)) return 'sea';
+  if (const {'IN', 'PK', 'NP', 'LK', 'BT', 'MV'}.contains(cc)) return 'sa';
+  return 'uk';
+}
+
+/// Example names in the app's English (Bangladesh's), and who stands for
+/// them elsewhere: the same person in every example of one place.
+const _exampleNames = ['Rahim', 'Karim', 'Robin', 'Faisal', 'Mahi', 'Tuba', 'Saiful'];
+const _namesBy = <String, List<String>>{
+  'us': ['Mike', 'John', 'Chris', 'David', 'Emma', 'Sarah', 'Alex'],
+  'uk': ['James', 'Tom', 'Oliver', 'Harry', 'Emily', 'Sophie', 'Jack'],
+  'gulf': ['Ahmed', 'Omar', 'Khalid', 'Yousef', 'Fatima', 'Mariam', 'Ali'],
+  'sea': ['Aiman', 'Hafiz', 'Daniel', 'Irfan', 'Aisyah', 'Nurul', 'Amir'],
+  'sa': ['Rahul', 'Arjun', 'Vikram', 'Imran', 'Priya', 'Anjali', 'Rohan'],
+};
+
+/// Words of British English and what the US says (whole words, case kept
+/// for a capital first letter).
+const _usWords = <String, String>{
+  'colour': 'color', 'colours': 'colors', 'centre': 'center', 'centres': 'centers', 'favourite': 'favorite', 'favourites': 'favorites',
+  'mobile number': 'cell phone number', 'mobile numbers': 'cell phone numbers', 'petrol': 'gas', 'cheque': 'check', 'cheques': 'checks',
+  'Mum': 'Mom', 'mum': 'mom', 'organise': 'organize', 'organised': 'organized', 'realise': 'realize', 'cancelled': 'canceled', 'travelling': 'traveling',
+  'licence': 'license', 'programme': 'program', 'catalogue': 'catalog', 'jewellery': 'jewelry', 'litre': 'liter', 'litres': 'liters', 'metre': 'meter', 'metres': 'meters',
+};
+
+/// Words of Bangladesh that mean nothing elsewhere.
+const _abroadWords = <String, String>{
+  'district/city': 'city', 'District/city': 'City', 'districts': 'cities', 'district': 'city', 'Districts': 'Cities', 'District': 'City',
+};
+
+String _englishKey = '';
+Map<String, String> _englishCache = {};
+RegExp? _englishRe;
+Map<String, String> _englishMap = {};
+
+/// [en] (an English text of the app) as it is said in the country in use.
+String localEnglish(String en) {
+  final region = englishOf(appCountry);
+  if (region == 'bd') return en;
+  if (_englishKey != region) {
+    _englishKey = region;
+    _englishCache = {};
+    final map = <String, String>{
+      ..._abroadWords,
+      if (region == 'us') ..._usWords,
+      for (var i = 0; i < _exampleNames.length; i++) _exampleNames[i]: _namesBy[region]![i],
+    };
+    final keys = map.keys.toList()..sort((a, b) => b.length.compareTo(a.length));
+    _englishMap = map;
+    _englishRe = RegExp('\\b(?:${keys.map(RegExp.escape).join('|')})\\b');
+  }
+  return _englishCache[en] ??= en.replaceAllMapped(_englishRe!, (m) => _englishMap[m[0]!] ?? m[0]!);
+}
+
+/// The app's language where a country is picked: Bangla in Bangladesh,
+/// English elsewhere (the only two the app has now).
+bool englishIn(String cc) => cc != 'BD';

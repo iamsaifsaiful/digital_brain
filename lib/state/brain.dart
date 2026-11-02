@@ -1466,6 +1466,8 @@ class Brain extends ChangeNotifier {
     currencyCode = currencyOf(cc);
     await _put('currency', currencyCode);
     await setDistrict(place);
+    // The country's language (owner, 2 Nov): the page then asks whether to keep it.
+    await setEnglish(englishIn(cc));
     applyRegion();
     notifyListeners();
   }

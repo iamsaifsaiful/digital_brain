@@ -211,7 +211,13 @@ class LookSection extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         if (globalTest) ...[
           label(tr('পরীক্ষা: দেশ বদলান'), tr('শুধু টেস্ট অ্যাপে — বেছে নেওয়া দেশে অ্যাপ কেমন চলে দেখুন (জায়গা, মুদ্রা, অংশ সব সেই দেশের)।')),
-          TestCountryRow(cc: brain.country, onPick: (c) => brain.tryCountry(c)),
+          TestCountryRow(
+            cc: brain.country,
+            onPick: (c) async {
+              await brain.tryCountry(c);
+              if (context.mounted) await askKeepLanguage(context, brain, c);
+            },
+          ),
           const SizedBox(height: 18),
         ],
         label(tr('ভাষা') + (isEn ? '' : ' · Language')),
@@ -534,4 +540,23 @@ class TestCountryRow extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// After a country is picked (test app): the language was set to that
+/// country's; asked whether to keep it (owner, 2 Nov).
+Future<void> askKeepLanguage(BuildContext context, Brain brain, String cc) async {
+  final other = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      key: const Key('keep-language'),
+      title: Text(tr('ভাষা')),
+      content: Text(trf('{0}-এর জন্য অ্যাপ এখন বাংলায়। ভাষা বদলাতে চান?', [TestCountryRow.nameOf(cc)])),
+      actions: [
+        TextButton(key: const Key('language-keep'), onPressed: () => Navigator.of(ctx).pop(false), child: Text(tr('এভাবেই থাক'))),
+        TextButton(key: const Key('language-other'), onPressed: () => Navigator.of(ctx).pop(true), child: Text(isEn ? 'বাংলা' : 'English')),
+      ],
+    ),
+  );
+  if (other == true) await brain.setEnglish(!brain.english);
 }

@@ -152,7 +152,7 @@ class StoreScreen extends StatelessWidget {
                           Expanded(
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               Text(n.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w500)),
-                              Text('${n.category} · ${notePreview(n)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted)),
+                              Text('${tr(n.category)} · ${notePreview(n)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted)),
                             ]),
                           ),
                           Icon(Icons.chevron_right_rounded, color: C.muted),

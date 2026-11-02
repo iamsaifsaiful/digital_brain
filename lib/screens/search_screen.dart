@@ -219,7 +219,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   if (notes.isNotEmpty)
                     _group(trf('নোট · {0}', [bnDigits(notes.length)]), [
                       for (final n in notes.take(8))
-                        _row(Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, n.title, '${n.category} · ${n.body.replaceAll('\n', ' ')}', () => _push(NewItemScreen(note: n))),
+                        _row(Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, n.title, '${tr(n.category)} · ${n.body.replaceAll('\n', ' ')}', () => _push(NewItemScreen(note: n))),
                     ]),
                   if (docs.isNotEmpty)
                     _group(trf('ডকুমেন্টস · {0}', [bnDigits(docs.length)]), [

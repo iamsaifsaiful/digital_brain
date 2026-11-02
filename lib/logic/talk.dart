@@ -14,7 +14,10 @@ final _rnd = Random();
 
 String _pick(List<String> options) => options[_rnd.nextInt(options.length)];
 
-String talkReply(Talk kind, DateTime now) => switch (kind) {
+/// The reply in the app's language (each fixed line has its English in strings_en).
+String talkReply(Talk kind, DateTime now) => tr(_talkReply(kind, now));
+
+String _talkReply(Talk kind, DateTime now) => switch (kind) {
       Talk.howAreYou => _pick([
           'ভালো আছি, জিজ্ঞেস করার জন্য ধন্যবাদ! আপনি কেমন আছেন? কোনো কাজ থাকলে বলেন।',
           'আলহামদুলিল্লাহ, ভালো আছি! আপনার দিন কেমন যাচ্ছে? কী করে দিতে পারি বলেন।',
@@ -27,7 +30,7 @@ String talkReply(Talk kind, DateTime now) => switch (kind) {
       Talk.whatCanYouDo => capabilitiesSpoken(),
       Talk.thanks => _pick(['আপনাকেও ধন্যবাদ! আর কিছু লাগলে বলবেন।', 'কোনো ব্যাপার না! আর কিছু?']),
       Talk.bye => 'ঠিক আছে, ভালো থাকবেন! দরকার হলে আবার ডাকবেন।',
-      Talk.time => 'এখন ${bnTime(now.hour, now.minute)}।',
+      Talk.time => trf('এখন {0}।', [bnTime(now.hour, now.minute)]),
       Talk.cancelled => 'ঠিক আছে। বাতিল করার মতো কিছু চলছিল না — কিছুই বদলাইনি।',
       Talk.nothingDone => 'ঠিক আছে, কোনো লেনদেন লিখলাম না। কিছু লেখার থাকলে বলুন।',
       Talk.wontDo => 'ঠিক আছে, কিছু করছি না — যেমন আছে তেমনই থাকবে।',
