@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
 }
 
 add_action('admin_menu', function () {
-    add_menu_page('রিয়াল হিসাব', 'রিয়াল হিসাব', 'manage_options', 'riyal-hisab', 'rh_page', 'dashicons-money-alt', 3);
+    add_menu_page('টাকাসেতু', 'টাকাসেতু', 'manage_options', 'riyal-hisab', 'rh_page', 'dashicons-money-alt', 3);
     foreach (rh_tabs() as $key => $label) {
         add_submenu_page('riyal-hisab', $label, $label, 'manage_options', $key === 'summary' ? 'riyal-hisab' : 'riyal-hisab-' . $key, 'rh_page');
     }
@@ -146,11 +146,11 @@ function rh_print_page($tab) {
     $from = rh_date_ok(rh_f('from'));
     $to = rh_date_ok(rh_f('to'));
     $span = $from || $to ? ($from ? rh_when($from, false) : '…') . ' – ' . ($to ? rh_when($to, false) : '…') : 'সব সময়';
-    echo '<!doctype html><html lang="bn"><head><meta charset="utf-8"><title>' . esc_html('রিয়াল-বিকাশ হিসাব — ' . $title) . '</title>';
+    echo '<!doctype html><html lang="bn"><head><meta charset="utf-8"><title>' . esc_html('টাকাসেতু — ' . $title) . '</title>';
     echo '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap">';
     rh_styles();
     echo '<style>body{background:#fff;margin:24px}.rh-filters,.rh-pager,.rh-pdf,.rh-link{display:none!important}.rh-table{font-size:12px}.rh-table th,.rh-table td{padding:6px}.rh-figs div,.rh-table{border:1px solid #ddd}@page{size:A4;margin:12mm}</style>';
-    echo '</head><body class="rh"><h1 style="margin:0;color:#14284B">রিয়াল-বিকাশ হিসাব — ' . esc_html($title) . '</h1>';
+    echo '</head><body class="rh"><h1 style="margin:0;color:#14284B">টাকাসেতু — ' . esc_html($title) . '</h1>';
     echo '<p class="rh-muted">' . esc_html($span . ' · তৈরি ' . rh_when(current_time('Y-m-d\TH:i:s'))) . '</p>';
     $fn = 'rh_tab_' . $tab;
     $fn();
@@ -244,7 +244,7 @@ function rh_page() {
     <div class="wrap rh">
         <h1 class="screen-reader-text">রিয়াল হিসাব</h1>
         <header class="rh-head">
-            <div class="rh-brand"><span class="rh-mark">⇄</span><div><b>রিয়াল-বিকাশ হিসাব</b><em>সব রেকর্ড — শুধু দেখার জন্য; কাজ অ্যাপ থেকে</em></div></div>
+            <div class="rh-brand"><span class="rh-mark">⇄</span><div><b>টাকাসেতু</b><em>সব রেকর্ড — শুধু দেখার জন্য; কাজ অ্যাপ থেকে</em></div></div>
             <nav class="rh-tabs">
                 <?php foreach (rh_tabs() as $k => $label) : ?>
                     <a class="<?php echo $k === $tab ? 'on' : ''; ?>" href="<?php echo rh_url($k); ?>"><?php echo esc_html($label); ?></a>

@@ -1,4 +1,4 @@
-# Handoff — রিয়াল-বিকাশ হিসাব
+# Handoff — টাকাসেতু
 
 ## Where things are
 - `lib/core/` — numbers and Bangla formatting (`format.dart`), data (`models.dart`),

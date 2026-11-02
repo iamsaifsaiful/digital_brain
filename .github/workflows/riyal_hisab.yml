@@ -143,5 +143,5 @@ jobs:
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk riyal-hisab-armv7.apk
           VERSION=$(grep '^version:' pubspec.yaml | sed -E 's/version: *([^+]+).*/\1/')
           TAG="riyal-hisab-v${VERSION}-build.${{ github.run_number }}"
-          NOTE="রিয়াল-বিকাশ হিসাব ${VERSION} (build ${{ github.run_number }}) · commit ${GITHUB_SHA::7}. riyal-hisab.apk সব ফোনে (Android 7.0+) চলে; riyal-hisab-arm64.apk ছোট, শুধু ৬৪-বিট ফোনে।"
-          gh release create "$TAG" riyal-hisab.apk riyal-hisab-arm64.apk riyal-hisab-armv7.apk riyal-hisab-server.zip --title "রিয়াল-বিকাশ হিসাব $VERSION (build ${{ github.run_number }})" --notes "$NOTE" --prerelease --latest=false --target "$GITHUB_SHA"
+          NOTE="টাকাসেতু ${VERSION} (build ${{ github.run_number }}) · commit ${GITHUB_SHA::7}. riyal-hisab.apk সব ফোনে (Android 7.0+) চলে; riyal-hisab-arm64.apk ছোট, শুধু ৬৪-বিট ফোনে।"
+          gh release create "$TAG" riyal-hisab.apk riyal-hisab-arm64.apk riyal-hisab-armv7.apk riyal-hisab-server.zip --title "টাকাসেতু $VERSION (build ${{ github.run_number }})" --notes "$NOTE" --prerelease --latest=false --target "$GITHUB_SHA"

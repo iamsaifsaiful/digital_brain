@@ -53,7 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
           Align(alignment: Alignment.centerRight, child: LangButton(h: widget.h)),
           const Center(child: ExchangeAnim(width: 230)),
           const SizedBox(height: 14),
-          Tx('রিয়াল-বিকাশ হিসাব', textAlign: TextAlign.center, style: t(22, w: FontWeight.w700)),
+          Tx('টাকাসেতু', textAlign: TextAlign.center, style: t(22, w: FontWeight.w700)),
           const SizedBox(height: 4),
           Tx('এডমিন বা এজেন্ট — নিজের লগইন দিয়ে ঢুকুন', textAlign: TextAlign.center, style: t(14, c: K.muted)),
           const SizedBox(height: 26),

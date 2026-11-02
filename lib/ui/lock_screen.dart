@@ -293,7 +293,7 @@ class _LockScreenState extends State<LockScreen> {
             const Spacer(),
             const ExchangeAnim(),
             const SizedBox(height: 18),
-            Tx('রিয়াল-বিকাশ হিসাব', style: t(21, w: FontWeight.w600)),
+            Tx('টাকাসেতু', style: t(21, w: FontWeight.w600)),
             const SizedBox(height: 6),
             Tx(
               _until != null ? '${bn('$wait')} সেকেন্ড পর আবার চেষ্টা করুন' : (_msg.isEmpty ? 'পিন দিন' : _msg),
