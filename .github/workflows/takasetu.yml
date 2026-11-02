@@ -1,11 +1,10 @@
-name: Riyal Hisab APK
+name: TakaSetu APK
 
-# This branch holds only the riyal-bKash ledger app. Its builds are
-# pre-releases with their own tags, so My Assistant's "latest" link on main
-# is never touched.
+# TakaSetu's own repository: every push to main checks the server plugin in a
+# real WordPress, builds the APK and publishes a release with the plugin zip.
 on:
   push:
-    branches: [riyal-hisab]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -138,10 +137,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp build/app/outputs/flutter-apk/app-release.apk riyal-hisab.apk
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk riyal-hisab-arm64.apk
-          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk riyal-hisab-armv7.apk
+          cp build/app/outputs/flutter-apk/app-release.apk takasetu.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk takasetu-arm64.apk
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk takasetu-armv7.apk
           VERSION=$(grep '^version:' pubspec.yaml | sed -E 's/version: *([^+]+).*/\1/')
-          TAG="riyal-hisab-v${VERSION}-build.${{ github.run_number }}"
-          NOTE="টাকাসেতু ${VERSION} (build ${{ github.run_number }}) · commit ${GITHUB_SHA::7}. riyal-hisab.apk সব ফোনে (Android 7.0+) চলে; riyal-hisab-arm64.apk ছোট, শুধু ৬৪-বিট ফোনে।"
-          gh release create "$TAG" riyal-hisab.apk riyal-hisab-arm64.apk riyal-hisab-armv7.apk riyal-hisab-server.zip --title "টাকাসেতু $VERSION (build ${{ github.run_number }})" --notes "$NOTE" --prerelease --latest=false --target "$GITHUB_SHA"
+          TAG="v${VERSION}-build.${{ github.run_number }}"
+          NOTE="টাকাসেতু ${VERSION} (build ${{ github.run_number }}) · commit ${GITHUB_SHA::7}. takasetu.apk সব ফোনে (Android 7.0+) চলে; takasetu-arm64.apk ছোট, শুধু ৬৪-বিট ফোনে।"
+          gh release create "$TAG" takasetu.apk takasetu-arm64.apk takasetu-armv7.apk riyal-hisab-server.zip --title "টাকাসেতু $VERSION (build ${{ github.run_number }})" --notes "$NOTE" --target "$GITHUB_SHA"

@@ -5,9 +5,7 @@
 হিসাব হয়; মেসেজ এজেন্টের একই হোয়াটসঅ্যাপ চ্যাটে যায় (রিয়ালের কথা নেই),
 এজেন্ট রিপ্লাইতে TrxID দিলে সেটা কপি করে অ্যাপে ফিরলেই বসে যায়।
 
-APK: এই ব্রাঞ্চে push হলে GitHub Actions বানায় এবং
-[Releases](https://github.com/iamsaifsaiful/digital_brain/releases)-এ
-`riyal-hisab-v…` নামে pre-release হিসেবে রাখে (My Assistant-এর latest লিংক বদলায় না)।
+APK: `main`-এ push হলে GitHub Actions বানায় এবং এই repository-র Releases-এ রাখে (সাথে সার্ভার প্লাগিনের zip)।
 
 হাতে চালাতে:
 

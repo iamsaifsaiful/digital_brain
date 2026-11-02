@@ -64,10 +64,10 @@
 - Server check: `server/test/e2e.php` runs the plugin inside a real WordPress (SQLite) in CI.
 
 ## Build / release
-- `.github/workflows/riyal_hisab.yml` runs on push to branch `riyal-hisab` of
-  `iamsaifsaiful/digital_brain`: analyze, test, sign with the same release-key secrets as
-  My Assistant (alias `myassistant`), build, and publish a **pre-release** tagged
-  `riyal-hisab-v<version>-build.<n>`.
+- `.github/workflows/riyal_hisab.yml` runs on push to `main` of this repository
+  (`iamsaifsaiful/takasetu`): analyze, test, sign with the same release-key secrets as
+  My Assistant (alias `myassistant`), build, and publish a release tagged
+  `v<version>-build.<n>`.
 - Bump `version:` in `pubspec.yaml` for a new client version; the build number comes from the run.
 - Android files kept in git are only the customised ones; `tool/setup_platforms.sh` creates the rest.
 
