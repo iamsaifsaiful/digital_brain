@@ -1,4 +1,4 @@
-# Handoff — আমানত
+# Handoff — রেমিট খাতা
 
 ## Where things are
 - `lib/core/` — numbers and Bangla formatting (`format.dart`), data (`models.dart`),
@@ -65,7 +65,7 @@
 
 ## Build / release
 - `.github/workflows/riyal_hisab.yml` runs on push to `main` of this repository
-  (`iamsaifsaiful/amanat`): analyze, test, sign with the same release-key secrets as
+  (`iamsaifsaiful/remit-khata`): analyze, test, sign with the same release-key secrets as
   My Assistant (alias `myassistant`), build, and publish a release tagged
   `v<version>-build.<n>`.
 - Bump `version:` in `pubspec.yaml` for a new client version; the build number comes from the run.

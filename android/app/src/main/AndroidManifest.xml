@@ -19,7 +19,7 @@
       unreadable file. The app's own password-locked backup is used instead.
     -->
     <application
-        android:label="আমানত"
+        android:label="রেমিট খাতা"
         android:name=".App"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"

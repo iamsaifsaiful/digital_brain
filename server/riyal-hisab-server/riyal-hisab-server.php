@@ -1,11 +1,11 @@
 <?php
 /**
- * Plugin Name: Amanat Server (আমানত)
- * Description: আমানত অ্যাপের সার্ভার — এডমিন ও এজেন্টদের লগইন, সব ফোনে একই হিসাব, এজেন্টকে নোটিফিকেশন। এখানে শুধু মূল এডমিন আর Firebase ঠিক করা যায়; বাকি সব অ্যাপ থেকে। রেকর্ড এখানে শুধু দেখা যায়।
+ * Plugin Name: Remit Khata Server (রেমিট খাতা)
+ * Description: রেমিট খাতা অ্যাপের সার্ভার — এডমিন ও এজেন্টদের লগইন, সব ফোনে একই হিসাব, এজেন্টকে নোটিফিকেশন। এখানে শুধু মূল এডমিন আর Firebase ঠিক করা যায়; বাকি সব অ্যাপ থেকে। রেকর্ড এখানে শুধু দেখা যায়।
  * Version: 1.2.0
  * Requires at least: 6.0
  * Requires PHP: 8.0
- * Author: Amanat
+ * Author: Remit Khata
  * License: GPL-2.0-or-later
  */
 

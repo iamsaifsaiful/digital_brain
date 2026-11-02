@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- আমানত: a coin coming into two cupped hands, kept safe
+<!-- রেমিট খাতা: the account book, with a gold "sent" badge
      (108dp canvas, kept inside the 66dp safe zone). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -7,12 +7,12 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path android:fillColor="#FFFFFF"
-        android:pathData="M24,58C24,58 27,56 31,57.5L52.5,64V84C42,84 30,78 26,68C24.8,65 24,61 24,58Z" />
-    <path android:fillColor="#FFFFFF"
-        android:pathData="M84,58C84,58 81,56 77,57.5L55.5,64V84C66,84 78,78 82,68C83.2,65 84,61 84,58Z" />
-    <path android:fillColor="#F7B733" android:pathData="M54,29a13,13 0 1 1 0,26a13,13 0 1 1 0,-26z" />
-    <path android:strokeColor="#FFF1C9" android:strokeWidth="1.7"
-        android:pathData="M54,32.8a9.2,9.2 0 1 1 0,18.4a9.2,9.2 0 1 1 0,-18.4z" />
-    <path android:strokeColor="#FFFFFF" android:strokeWidth="2" android:strokeLineCap="round"
-        android:pathData="M49.2,37.4a5.8,5.8 0 0 1 4.8,-3.6" />
+        android:pathData="M35,25h33a5,5 0 0 1 5,5v44a5,5 0 0 1 -5,5h-33a5,5 0 0 1 -5,-5v-44a5,5 0 0 1 5,-5z" />
+    <path android:strokeColor="#C9D7EE" android:strokeWidth="2.4" android:pathData="M38,25v54" />
+    <path android:strokeColor="#9DB3D6" android:strokeWidth="2.6" android:strokeLineCap="round"
+        android:pathData="M45,37h20M45,45h20M45,53h13" />
+    <path android:fillColor="#F7B733" android:strokeColor="#FFFFFF" android:strokeWidth="3"
+        android:pathData="M70,54a14,14 0 1 1 0,28a14,14 0 1 1 0,-28z" />
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="3" android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M64.5,73.5L75,63M68,62.6h7.4v7.4" />
 </vector>

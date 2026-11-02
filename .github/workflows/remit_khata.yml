@@ -1,6 +1,6 @@
-name: Amanat APK
+name: Remit Khata APK
 
-# Amanat's own repository: every push to main checks the server plugin in a
+# Remit Khata's own repository: every push to main checks the server plugin in a
 # real WordPress, builds the APK and publishes a release with the plugin zip.
 on:
   push:
@@ -137,10 +137,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp build/app/outputs/flutter-apk/app-release.apk amanat.apk
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk amanat-arm64.apk
-          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk amanat-armv7.apk
+          cp build/app/outputs/flutter-apk/app-release.apk remitkhata.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk remitkhata-arm64.apk
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk remitkhata-armv7.apk
           VERSION=$(grep '^version:' pubspec.yaml | sed -E 's/version: *([^+]+).*/\1/')
           TAG="v${VERSION}-build.${{ github.run_number }}"
-          NOTE="আমানত ${VERSION} (build ${{ github.run_number }}) · commit ${GITHUB_SHA::7}. amanat.apk সব ফোনে (Android 7.0+) চলে; amanat-arm64.apk ছোট, শুধু ৬৪-বিট ফোনে।"
-          gh release create "$TAG" amanat.apk amanat-arm64.apk amanat-armv7.apk riyal-hisab-server.zip --title "আমানত $VERSION (build ${{ github.run_number }})" --notes "$NOTE" --target "$GITHUB_SHA"
+          NOTE="রেমিট খাতা ${VERSION} (build ${{ github.run_number }}) · commit ${GITHUB_SHA::7}. remitkhata.apk সব ফোনে (Android 7.0+) চলে; remitkhata-arm64.apk ছোট, শুধু ৬৪-বিট ফোনে।"
+          gh release create "$TAG" remitkhata.apk remitkhata-arm64.apk remitkhata-armv7.apk riyal-hisab-server.zip --title "রেমিট খাতা $VERSION (build ${{ github.run_number }})" --notes "$NOTE" --target "$GITHUB_SHA"

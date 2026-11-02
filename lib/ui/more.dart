@@ -742,7 +742,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ]),
             ),
             const SizedBox(height: 16),
-            Center(child: Tx('আমানত · সংস্করণ ১.২.০', style: t(12, c: K.muted))),
+            Center(child: Tx('রেমিট খাতা · সংস্করণ ১.২.০', style: t(12, c: K.muted))),
           ]),
         );
       });
@@ -779,7 +779,7 @@ class _BackupScreenState extends State<BackupScreen> {
     }
     final bytes = await h.exportBackup(p1);
     final n = h.now;
-    await h.s.device.shareFile(bytes, 'riyal-hisab-backup-${n.year}-${n.month}-${n.day}.rhb', 'application/octet-stream', text: 'আমানতের ব্যাকআপ (পাসওয়ার্ড ছাড়া খোলা যাবে না)');
+    await h.s.device.shareFile(bytes, 'riyal-hisab-backup-${n.year}-${n.month}-${n.day}.rhb', 'application/octet-stream', text: 'রেমিট খাতার ব্যাকআপ (পাসওয়ার্ড ছাড়া খোলা যাবে না)');
   }
 
   Future<void> _restore() async {

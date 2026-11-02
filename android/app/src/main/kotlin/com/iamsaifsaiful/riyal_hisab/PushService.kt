@@ -26,7 +26,7 @@ class PushService : FirebaseMessagingService() {
         // In the background Android shows "notification" messages itself;
         // with the app open they arrive here.
         val n = message.notification ?: return
-        show(this, n.title ?: "আমানত", n.body ?: "")
+        show(this, n.title ?: "রেমিট খাতা", n.body ?: "")
     }
 
     override fun onNewToken(token: String) {
