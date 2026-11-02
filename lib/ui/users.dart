@@ -186,11 +186,8 @@ class _UserEditState extends State<UserEdit> {
           if (_admin) 'perms': _perms.toList(),
           if (!_admin) 'agent_rid': _agent,
         });
-        if (!_admin && _agent != null) {
-          // The agent now gets requests in the app, not on WhatsApp.
-          final a = h.d.agents.firstWhere((x) => x.id == _agent);
-          if (!a.usesApp) await h.setAgentChannel(a, 'app');
-        }
+        // Making a login does not change how requests go: that is chosen
+        // in the agent's own settings (WhatsApp or the app).
       } else {
         await h.s.api.post('/users/update', {
           'id': widget.user!.id,

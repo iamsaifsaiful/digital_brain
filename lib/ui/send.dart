@@ -643,7 +643,8 @@ class _ConfirmSheetState extends State<ConfirmSheet> {
         return;
       }
       if (agent.usesApp) {
-        // The server tells the agent (notification in their app).
+        // The server tells the agent (notification in their app); WhatsApp
+        // stays on the send's page if wanted.
         await h.sync();
       } else {
         final ok = await h.s.device.whatsapp(agent.whatsapp, agentMessage(saved, h.d));
@@ -664,8 +665,9 @@ class _ConfirmSheetState extends State<ConfirmSheet> {
           e.pack != changed.pack;
       nav.popUntil((r) => r.isFirst);
       nav.push(MaterialPageRoute(builder: (_) => TxnScreen(h: h, id: e.id)));
-      if (diffs.isNotEmpty && agentSide && !agent.usesApp) {
-        // Required: the agent must not send the old amount or number.
+      if (diffs.isNotEmpty && agentSide) {
+        // Required: the agent must not send the old amount or number. An
+        // agent in the app also gets a notification from the server.
         final ok = await h.s.device.whatsapp(agent.whatsapp, agentChangeMessage(h.txnById(e.id)!, h.d));
         await h.logMessage(h.txnById(e.id)!, ok ? 'এজেন্টকে সংশোধনের মেসেজ' : 'হোয়াটসঅ্যাপ খোলা যায়নি');
       }

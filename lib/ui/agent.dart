@@ -85,9 +85,8 @@ class _AgentTabState extends State<AgentTab> {
                       onTap: () => push(context, AgentPayScreen(h: h, a: a, txns: const [])),
                     ),
                   ),
-                if (h.can('agent_pay') && !a.usesApp) const SizedBox(width: 10),
-                if (!a.usesApp)
-                  Expanded(
+                if (h.can('agent_pay')) const SizedBox(width: 10),
+                Expanded(
                     child: Pill(
                       label: 'আজকের হিসাব',
                       color: K.navy,

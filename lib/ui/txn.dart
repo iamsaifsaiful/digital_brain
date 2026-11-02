@@ -237,20 +237,20 @@ class _TxnBody extends StatelessWidget {
             const SizedBox(height: 10),
           ],
           Row(children: [
-            if (a == null || !a.usesApp)
+            // WhatsApp to the agent is always there, also for an agent who
+            // works in the app.
+            if (a != null && a.whatsapp.isNotEmpty)
               Expanded(
                 child: SoftPill(
-                  label: 'এজেন্টকে আবার',
+                  label: 'এজেন্টকে হোয়াটসঅ্যাপে',
                   icon: Icons.chat_outlined,
-                  onTap: a == null
-                      ? null
-                      : () async {
-                          final ok = await h.s.device.whatsapp(a.whatsapp, agentMessage(x, h.d));
-                          await h.logMessage(x, ok ? 'এজেন্টকে আবার মেসেজ' : 'হোয়াটসঅ্যাপ খোলা যায়নি');
-                        },
+                  onTap: () async {
+                    final ok = await h.s.device.whatsapp(a.whatsapp, agentMessage(x, h.d));
+                    await h.logMessage(x, ok ? 'এজেন্টকে হোয়াটসঅ্যাপে মেসেজ' : 'হোয়াটসঅ্যাপ খোলা যায়নি');
+                  },
                 ),
               ),
-            if (a == null || !a.usesApp) const SizedBox(width: 8),
+            if (a != null && a.whatsapp.isNotEmpty) const SizedBox(width: 8),
             Expanded(
               child: SoftPill(
                 label: 'গ্রাহককে রসিদ',
@@ -329,7 +329,7 @@ class _TxnBody extends StatelessWidget {
                 final reason = await askText(context, 'কেন বাতিল?', hint: 'যেমন ভুল নম্বর', ok: 'বাতিল করুন');
                 if (reason == null) return;
                 await h.cancelTxn(x, reason);
-                if (a != null && !a.usesApp && context.mounted && await confirm(context, 'এজেন্টকে জানাবেন?', 'এজেন্টকে "এটা পাঠাবেন না" মেসেজ যাবে।', yes: 'জানান')) {
+                if (a != null && a.whatsapp.isNotEmpty && context.mounted && await confirm(context, a.usesApp ? 'হোয়াটসঅ্যাপেও জানাবেন?' : 'এজেন্টকে জানাবেন?', a.usesApp ? 'এজেন্টের অ্যাপে নোটিফিকেশন গেছে। হোয়াটসঅ্যাপেও "এটা পাঠাবেন না" মেসেজ যাবে।' : 'এজেন্টকে "এটা পাঠাবেন না" মেসেজ যাবে।', yes: 'জানান')) {
                   await h.s.device.whatsapp(a.whatsapp, agentCancelMessage(x, h.d));
                   await h.logMessage(x, 'এজেন্টকে বাতিলের মেসেজ');
                 }
