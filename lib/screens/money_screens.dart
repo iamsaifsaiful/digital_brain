@@ -707,7 +707,7 @@ Widget cashPickBar(BuildContext context, Picks picks, Iterable<String> shown) {
       }),
       PickAction(Icons.delete_outline_rounded, tr('মুছুন'), danger: true, () async {
         final messenger = ScaffoldMessenger.of(context);
-        if (!await confirmDialog(context, title: trf('{0}টা হিসাব মুছবেন?', [bnDigits(picked.length)]), text: tr('৩০ দিন “মুছে ফেলা”-তে থাকবে।'), yes: tr('মুছুন'), danger: true)) return;
+        if (!await confirmDialog(context, title: trf('{0}টা হিসাব মুছবেন?', [bnDigits(picked.length)]), text: tr('৩০ দিন “রিসাইকেল বিন”-এ থাকবে।'), yes: tr('মুছুন'), danger: true)) return;
         for (final e in picked) {
           await brain.deleteCash(e.id);
         }
@@ -757,7 +757,7 @@ Future<void> cashActions(BuildContext context, CashEntry e) async {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(
-          content: Text(tr('মুছে দিলাম — ৩০ দিন “মুছে ফেলা”-তে থাকবে')),
+          content: Text(tr('মুছে দিলাম — ৩০ দিন “রিসাইকেল বিন”-এ থাকবে')),
           persist: false,
           duration: const Duration(seconds: 5),
           action: SnackBarAction(label: tr('ফিরিয়ে আনুন'), onPressed: () => brain.undoLastDelete()),

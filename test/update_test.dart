@@ -370,7 +370,7 @@ void main() {
 
     await t.tap(find.text('আরও').last);
     await settle(t);
-    final row = find.text('মুছে ফেলা');
+    final row = find.text('রিসাইকেল বিন');
     await t.ensureVisible(row);
     await settle(t);
     await t.tap(row);

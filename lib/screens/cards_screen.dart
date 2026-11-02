@@ -334,7 +334,7 @@ class _CardDetailScreenState extends State<CardDetailScreen> {
                   fg: C.red,
                   height: 52,
                   onPressed: () async {
-                    final ok = await confirmDialog(context, title: trf('{0} কার্ড মুছবেন?', [c.bank]), text: tr('৩০ দিন “মুছে ফেলা”-তে থাকবে, সেখান থেকে ফেরানো যাবে।'), yes: tr('মুছুন'), danger: true);
+                    final ok = await confirmDialog(context, title: trf('{0} কার্ড মুছবেন?', [c.bank]), text: tr('৩০ দিন “রিসাইকেল বিন”-এ থাকবে, সেখান থেকে ফেরানো যাবে।'), yes: tr('মুছুন'), danger: true);
                     if (!ok || !context.mounted) return;
                     await brain.deleteCard(c.id);
                     if (context.mounted) Navigator.of(context).pop();

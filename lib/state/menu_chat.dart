@@ -485,7 +485,7 @@ extension _MenuChat on ChatController {
         final kind = _trashKind(c.target);
         final item = [for (final t in d.trash) if (kind == null || t.kind == kind) t].lastOrNull;
         if (item == null) {
-          _say(out, kind == null ? tr('মুছে ফেলা কিছু নেই।') : trf('মুছে ফেলা কোনো {0} নেই।', [c.target]), links: _pageLink('settings'));
+          _say(out, kind == null ? tr('রিসাইকেল বিনে কিছু নেই।') : trf('রিসাইকেল বিনে কোনো {0} নেই।', [c.target]), links: _pageLink('settings'));
           return;
         }
         await brain.restoreTrash(item);
@@ -635,7 +635,7 @@ extension _MenuChat on ChatController {
           (tr('হ্যাঁ, একটা মুছো'), MenuAction(c.transcript, domain: 'cash', op: 'delete_one', target: e.id)),
           (tr('না'), SmallTalk(c.transcript, kind: Talk.cancelled)),
         ];
-        _ask(out, trf('এই দুটো একই রকম: {0}, {1} টাকা ({2})। একটা মুছে দিই? (৩০ দিন “মুছে ফেলা” থেকে ফেরত আনা যাবে)', [e.category, bnNumber(e.amount), shortDate(e.date)]), ChatWait.clarify,
+        _ask(out, trf('এই দুটো একই রকম: {0}, {1} টাকা ({2})। একটা মুছে দিই? (৩০ দিন “রিসাইকেল বিন” থেকে ফেরত আনা যাবে)', [e.category, bnNumber(e.amount), shortDate(e.date)]), ChatWait.clarify,
             choices: [for (final o in _clarifyOptions) ChatChoice(o.$1, o.$1)]);
       case ('cash', 'delete_one'):
         if (!d.cash.any((x) => x.id == c.target)) return;

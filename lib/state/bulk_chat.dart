@@ -487,7 +487,7 @@ extension _BulkChat on ChatController {
       final what = _bulkWhat(set, live);
       final cashSum = set.domain == 'money' ? brain.data.cash.where((e) => live.contains(e.id)).fold<int>(0, (a, e) => a + e.amount) : 0;
       final q = set.domain == 'money'
-          ? trf('{0}-এর {1}টা এন্ট্রি, মোট {2} টাকা — সব মুছে দেব? (মুছে ফেলা পাতায় ফেরত আনা যাবে)', [set.label, bnDigits(live.length), bnNumber(cashSum)])
+          ? trf('{0}-এর {1}টা এন্ট্রি, মোট {2} টাকা — সব মুছে দেব? (রিসাইকেল বিন থেকে ফেরত আনা যাবে)', [set.label, bnDigits(live.length), bnNumber(cashSum)])
           : set.label == tr('সব') && live.length == set.ids.length
           ? trf('আপনার সব {0}টা {1} মুছে দেব?', [bnDigits(live.length), _domainBn[set.domain] ?? ''])
           : trf('{0} এই {1}টা {2} মুছে দেব?', [set.label.isEmpty ? '' : set.label, bnDigits(live.length), _domainBn[set.domain] ?? '']).trim();
@@ -942,7 +942,7 @@ extension _BulkChat on ChatController {
   Future<void> _bulkRestore(List<String> out) async {
     final b = _lastBatch;
     if (b == null || b.trashIds.isEmpty || _now.difference(b.at).inHours > 24) {
-      _say(out, tr('একসাথে মোছা কিছু মনে নেই। মুছে ফেলা পাতা থেকে বেছে ফেরত আনতে পারেন।'), links: [ChatLink(LinkKind.page, tr('মুছে ফেলা'), page: 'settings')]);
+      _say(out, tr('একসাথে মোছা কিছু মনে নেই। রিসাইকেল বিন থেকে বেছে ফেরত আনতে পারেন।'), links: [ChatLink(LinkKind.page, tr('রিসাইকেল বিন'), page: 'settings')]);
       return;
     }
     var n = 0;
@@ -954,7 +954,7 @@ extension _BulkChat on ChatController {
     }
     _lastBatch = null;
     _actions++;
-    _say(out, n == b.trashIds.length ? trf('{0}টাই ফেরত এনেছি।', [bnDigits(n)]) : trf('{0}টা ফেরত এনেছি; {1}টা আর মুছে ফেলা-তে ছিল না।', [bnDigits(n), bnDigits(b.trashIds.length - n)]));
+    _say(out, n == b.trashIds.length ? trf('{0}টাই ফেরত এনেছি।', [bnDigits(n)]) : trf('{0}টা ফেরত এনেছি; {1}টা আর রিসাইকেল বিনে ছিল না।', [bnDigits(n), bnDigits(b.trashIds.length - n)]));
   }
 
   /// A reminder answer listed some: those are "এগুলো".

@@ -349,8 +349,8 @@ class _MoreScreenState extends State<MoreScreen> {
                 icon: Icons.forum_outlined,
                 fg: C.blue,
                 bg: C.blueTint,
-                title: tr('মতামত'),
-                sub: brain.feedbackUnread > 0 ? trf('{0}টা নতুন উত্তর', [bnDigits(brain.feedbackUnread)]) : tr('সমস্যা বা নতুন সুবিধা'),
+                title: tr('সমস্যা বা পরামর্শ দিন'),
+                sub: brain.feedbackUnread > 0 ? trf('{0}টা নতুন উত্তর', [bnDigits(brain.feedbackUnread)]) : tr('আমাদের লিখুন, উত্তর এখানেই'),
                 badge: brain.feedbackUnread > 0,
                 onTap: () => push(const FeedbackScreen())),
             _Tile(icon: Icons.lightbulb_outline_rounded, fg: C.green, bg: C.greenTint, title: tr('কী কী করা যায়'), sub: tr('সব সুবিধা, মাইকে কী বলবেন'), onTap: () => push(const HelpScreen())),
@@ -380,10 +380,10 @@ class _MoreScreenState extends State<MoreScreen> {
         const SizedBox(height: 10),
         Panel(
           child: Rows(children: [
-            linkRow(Icons.delete_outline_rounded, tr('মুছে ফেলা'),
+            linkRow(Icons.delete_outline_rounded, tr('রিসাইকেল বিন'),
                 sub: brain.data.trash.isEmpty ? tr('যা মুছবেন, ৩০ দিন এখানে থাকবে') : trf('{0}টা — ৩০ দিনের মধ্যে ফিরিয়ে আনা যায়', [bnDigits(brain.data.trash.length)]),
                 onTap: () => push(const TrashScreen())),
-            linkRow(Icons.notifications_none_rounded, tr('নোটিফিকেশন'),
+            linkRow(Icons.notifications_none_rounded, tr('নোটিফিকেশন প্যানেল'),
                 sub: tr('কোনটা কখন আসবে, আগে কী এসেছে'), onTap: () => push(const NoticeScreen())),
             linkRow(Icons.notifications_active_outlined, tr('রিমাইন্ডার ঠিকমতো বাজবে তো?'), sub: tr('ফোনের সেটিং দেখে নিন, ১ মিনিটে পরীক্ষা করুন'), onTap: () => push(const ReminderCheckScreen())),
             linkRow(Icons.bug_report_outlined, tr('সমস্যা খোঁজার লগ'),

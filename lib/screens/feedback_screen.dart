@@ -339,7 +339,7 @@ class _FeedbackThreadScreenState extends State<FeedbackThreadScreen> {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: t == null ? tr('মতামত') : t.kindLabel),
+          TopBar(title: t == null ? tr('সমস্যা বা পরামর্শ দিন') : t.kindLabel),
           Expanded(
             child: !_loaded
                 ? const Center(child: CircularProgressIndicator())

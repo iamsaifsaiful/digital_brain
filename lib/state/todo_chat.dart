@@ -205,7 +205,7 @@ extension _TodoChat on ChatController {
       case TaskRestore():
         final gone = brain.data.trash.where((x) => x.kind == 'tasks').lastOrNull;
         if (gone == null) {
-          _say(out, tr('মুছে ফেলা কোনো কাজ ফেরত আনার মতো নেই।'));
+          _say(out, tr('রিসাইকেল বিনে ফেরত আনার মতো কোনো কাজ নেই।'));
           return;
         }
         await brain.restoreTrash(gone);

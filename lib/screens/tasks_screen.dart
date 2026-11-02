@@ -144,7 +144,7 @@ class _TasksScreenState extends State<TasksScreen> {
       }),
       PickAction(Icons.delete_outline_rounded, tr('মুছুন'), danger: true, () async {
         final messenger = ScaffoldMessenger.of(context);
-        if (!await confirmDialog(context, title: trf('{0}টা কাজ মুছবেন?', [bnDigits(picked.length)]), text: tr('৩০ দিন “মুছে ফেলা”-তে থাকবে।'), yes: tr('মুছুন'), danger: true)) return;
+        if (!await confirmDialog(context, title: trf('{0}টা কাজ মুছবেন?', [bnDigits(picked.length)]), text: tr('৩০ দিন “রিসাইকেল বিন”-এ থাকবে।'), yes: tr('মুছুন'), danger: true)) return;
         for (final t in picked) {
           await brain.deleteTask(t.id);
         }
