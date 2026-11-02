@@ -287,18 +287,18 @@ class Brain extends ChangeNotifier {
   bool adSamples = previewEdition;
   bool has(ProFeature f) => pro || freeFeatures.contains(f);
   bool get canAddShop => true;
-  bool get canAddProject => pro || data.projects.where((p) => !p.closed).length < freeProjects;
+  bool get canAddProject => pro || data.projects.where((p) => !p.closed && p.currency == null).length < freeProjects;
 
   /// The one অন্যান্য হিসাব the free app writes into (owner, 29 Oct): the
   /// first one opened that is still open. Others (from Premium or the trial)
   /// stay readable, editable and deletable; new entries in them need Premium.
   String? get freeProjectId {
-    final open = data.projects.where((p) => !p.closed).toList()..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    final open = data.projects.where((p) => !p.closed && p.currency == null).toList()..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     return open.isEmpty ? null : open.first.id;
   }
 
-  /// Writing into the হিসাব [id].
-  bool canUseProject(String id) => pro || id == freeProjectId;
+  /// Writing into the হিসাব [id] (a second currency's হিসাব is always open).
+  bool canUseProject(String id) => pro || id == freeProjectId || data.projects.any((p) => p.id == id && p.currency != null);
 
   /// Writing into the হিসাব named [name], or opening it when there is none.
   bool canUseProjectNamed(String name) {
@@ -1411,6 +1411,7 @@ class Brain extends ChangeNotifier {
   Future<void> setEnglish(bool on) async {
     final was = english;
     english = on;
+    applyRegion();
     notifyListeners();
     await _put('lang', on ? 'en' : 'bn');
     // The medicine reminders' names are written in the app's language: made
@@ -1444,10 +1445,20 @@ class Brain extends ChangeNotifier {
     return c.isNotEmpty ? c : phoneCountry().toUpperCase();
   }
 
-  /// Puts the country and the currency where every text reads them.
+  /// Puts the country, the currency and the parts that follow them where
+  /// every page reads them.
   void applyRegion() {
     final c = country;
-    setRegion(country: c, currency: currencyCode.isNotEmpty ? currencyCode : currencyOf(c));
+    setRegion(country: c, currency: currencyCode.isNotEmpty ? currencyCode : currencyOf(c), second: secondCode);
+    bangladeshPart = partOn(text('part_bd'), bangladeshAuto(country: c, english: english));
+    islamicPart = partOn(text('part_islam'), islamicAuto(country: c, english: english));
+  }
+
+  /// The member's choice for a part: 'bd' or 'islam', true/false (null = auto).
+  Future<void> setPart(String part, bool? on) async {
+    await setPref('part_$part', on == null ? '' : (on ? 'on' : 'off'));
+    applyRegion();
+    notifyListeners();
   }
 
   bool get _hasMoney => data.cash.isNotEmpty || data.ledger.isNotEmpty || data.cashOffset != null || data.accounts.isNotEmpty;
@@ -1458,6 +1469,34 @@ class Brain extends ChangeNotifier {
     if (currencyCode.isNotEmpty || !_hasMoney) return;
     currencyCode = appCurrency.code;
     await _put('currency', currencyCode);
+  }
+
+  /// Every page builds again (a second-currency page closed: the amounts
+  /// behind it go back to the main currency).
+  void redraw() => notifyListeners();
+
+  /// The second currency ('' = none): its money in its own হিসাব.
+  String secondCode = '';
+
+  Future<void> setSecondCurrency(String code) async {
+    secondCode = code == mainCurrency.code ? '' : code;
+    await _put('currency2', secondCode);
+    applyRegion();
+    if (secondCode.isNotEmpty) await currencyBook(secondCode);
+    notifyListeners();
+  }
+
+  /// The হিসাব of the currency [code], opened the first time it is needed
+  /// ("টাকা হিসাব" for a member on riyal). Apart from the main money, and
+  /// never counted against the free app's one হিসাব.
+  Future<Project> currencyBook(String code) async {
+    final have = data.projects.where((p) => p.currency == code && !p.closed).firstOrNull;
+    if (have != null) return have;
+    final c = currencyByCode(code);
+    final p = Project(name: english ? '${c.en[0].toUpperCase()}${c.en.substring(1)} account' : '${c.bn} হিসাব', createdAt: services.now(), mainAsked: true, currency: code);
+    data.projects.add(p);
+    await _save();
+    return p;
   }
 
   Future<void> setCurrency(String code) async {
@@ -1501,6 +1540,7 @@ class Brain extends ChangeNotifier {
       accentKey = await keys.read('accent') ?? 'amber';
       english = (await keys.read('lang')) == 'en';
       currencyCode = await keys.read('currency') ?? '';
+      secondCode = await keys.read('currency2') ?? '';
       letterSize = double.tryParse(await keys.read('letter_size') ?? '') ?? 1.0;
       easyMode = (await keys.read('easy_mode')) == 'true';
     } catch (_) {}

@@ -41,7 +41,7 @@ import 'spend_health_screen.dart';
 import 'vault_screen.dart';
 import 'zakat_screen.dart';
 import '../logic/pro.dart' show medicalOff;
-import '../logic/region.dart' show inBangladesh;
+import '../logic/region.dart' show bloodHere, bangladeshPart, islamicPart, degrees;
 
 String helloFor(DateTime now) {
   final h = now.hour;
@@ -359,7 +359,7 @@ class _HomeHeroState extends State<HomeHero> {
             const SizedBox(height: 10),
             _weather(brain, sun, now),
             const SizedBox(height: 14),
-            _prayer(context, facts.first),
+            if (islamicPart) _prayer(context, facts.first),
             const Spacer(),
             _sunRow(facts.last),
           ]),
@@ -387,7 +387,9 @@ class _HomeHeroState extends State<HomeHero> {
             const SizedBox(height: 2),
             Text('${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)}', style: body(13.5, color: _soft).copyWith(shadows: _shade)),
             const SizedBox(height: 2),
-            Text('${bd.text}  •  ${hj.dayMonth} ${bnDigits(hj.year)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: _soft).copyWith(shadows: _shade)),
+            if (bangladeshPart || islamicPart)
+              Text([if (bangladeshPart) bd.text, if (islamicPart) '${hj.dayMonth} ${bnDigits(hj.year)}'].join('  •  '),
+                  maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: _soft).copyWith(shadows: _shade)),
           ]),
         ),
       ),
@@ -472,9 +474,9 @@ class _HomeHeroState extends State<HomeHero> {
             Text.rich(
               TextSpan(children: [
                 WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.arrow_upward_rounded, size: 13, color: _soft, shadows: _shade)),
-                TextSpan(text: '${bnDigits(w.max.round())}°  '),
+                TextSpan(text: '${bnDigits(degrees(w.max))}°  '),
                 WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.arrow_downward_rounded, size: 13, color: _soft, shadows: _shade)),
-                TextSpan(text: '${bnDigits(w.min.round())}° · ${trf('অনুভূত {0}°', [bnDigits(w.feels.round())])}'),
+                TextSpan(text: '${bnDigits(degrees(w.min))}° · ${trf('অনুভূত {0}°', [bnDigits(degrees(w.feels))])}'),
               ]),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -769,11 +771,11 @@ class _Tools extends StatelessWidget {
       ('vault', trm('পাসওয়ার্ড'), Icons.lock_outline_rounded, () => push(const VaultPage())),
       ('calendar', tr('ক্যালেন্ডার'), Icons.calendar_month_outlined, () => push(const CalendarScreen())),
       ('compass', tr('কম্পাস'), Icons.explore_outlined, () => push(const CompassScreen())),
-      ('zakat', tr('যাকাত'), Icons.volunteer_activism_outlined, () => push(const ZakatScreen())),
+      if (islamicPart) ('zakat', tr('যাকাত'), Icons.volunteer_activism_outlined, () => push(const ZakatScreen())),
       ('family', tr('ফ্যামিলি'), Icons.family_restroom_rounded, () => push(const FamilyScreen())),
       if (!medicalOff) ('medicines', trm('ওষুধ'), Icons.medication_outlined, () => push(const MedicinesScreen())),
       // Blood requests are Bangladesh's districts and hospitals (global version).
-      if (inBangladesh) ('blood', trm('ব্লাড ডোনেশন'), Icons.bloodtype_outlined, () => push(const RequestsScreen())),
+      if (bloodHere) ('blood', trm('ব্লাড ডোনেশন'), Icons.bloodtype_outlined, () => push(const RequestsScreen())),
       ('pro', tr('প্রিমিয়াম'), Icons.workspace_premium_outlined, () => push(const ProScreen())),
     ];
     final saved = brain.orderOf('home_tools');

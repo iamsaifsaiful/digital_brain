@@ -135,7 +135,7 @@ List<ZakatLine> zakatLines(AppData d, DateTime now, ZakatSaved z) {
     add('dps:${i.id}', ZakatGroup.dps, i.name, i.paidTotal, trf('{0}টা কিস্তি × {1}', [bnDigits(i.paidCount), _tk(i.amount)]), at: last);
   }
   // A হিসাব kept apart from the main money (owner, 28 Oct): its বকেয়া is not the member's own wealth or debt.
-  final apart = {for (final p in d.projects) if (!p.inMain) p.id};
+  final apart = {for (final p in d.projects) if (!p.inMain || p.currency != null) p.id};
   final ledger = [for (final e in d.ledger) if (e.projectId == null || !apart.contains(e.projectId)) e];
   final dueKeys = {for (final e in ledger.where((e) => e.projectId != null)) accountKeys(ledger)[e.id]};
   for (final p in balances(ledger)) {
@@ -149,7 +149,8 @@ List<ZakatLine> zakatLines(AppData d, DateTime now, ZakatSaved z) {
   // A হিসাব kept apart from the main money (a committee's, a mosque's, or
   // someone else's money kept by the member) is not counted — but if the
   // money is the member's own, zakat is due on it too: shown, unticked.
-  for (final p in d.projects.where((p) => !p.inMain)) {
+  // A second currency's হিসাব is not added in: its amounts are another money.
+  for (final p in d.projects.where((p) => !p.inMain && p.currency == null)) {
     var hand = 0;
     final own = d.cash.where((e) => e.projectId == p.id).toList();
     for (final e in own) {

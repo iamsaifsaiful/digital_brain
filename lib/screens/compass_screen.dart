@@ -12,6 +12,7 @@ import '../services/compass.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import '../logic/region.dart' show islamicPart;
 
 /// কম্পাস: north, south, east, west from the phone's sensor, and the qibla
 /// from the user's district.
@@ -85,7 +86,7 @@ class _CompassScreenState extends State<CompassScreen> {
     final h = _h;
     final off = h == null ? null : turnTo(h.degrees, qibla);
     final facing = off != null && off.abs() <= 4;
-    if (facing && !_facing) HapticFeedback.mediumImpact();
+    if (facing && !_facing && islamicPart) HapticFeedback.mediumImpact();
     _facing = facing;
 
     return Scaffold(
@@ -98,7 +99,7 @@ class _CompassScreenState extends State<CompassScreen> {
                 EmptyState(
                   icon: Icons.explore_off_outlined,
                   title: tr('এই ফোনে কম্পাস সেন্সর নেই'),
-                  text: trf('তবু কিবলার দিক: উত্তর থেকে ঘড়ির কাঁটার দিকে {0} ({1})।', [degreesText(qibla), directionName(qibla)]),
+                  text: islamicPart ? trf('তবু কিবলার দিক: উত্তর থেকে ঘড়ির কাঁটার দিকে {0} ({1})।', [degreesText(qibla), directionName(qibla)]) : '',
                 )
               else ...[
                 Center(
@@ -122,18 +123,18 @@ class _CompassScreenState extends State<CompassScreen> {
                             builder: (_, t, child) => Transform.rotate(angle: t * math.pi / 180, child: child),
                             child: CustomPaint(
                               size: Size.square(size),
-                              painter: _Dial(qibla: qibla, ink: C.ink, muted: C.muted, line: C.line, face: C.surface, red: C.red, green: C.green, lit: facing),
+                              painter: _Dial(qibla: islamicPart ? qibla : null, ink: C.ink, muted: C.muted, line: C.line, face: C.surface, red: C.red, green: C.green, lit: facing),
                             ),
                           ),
                         ),
                         // The phone's top: where it points.
-                        Icon(Icons.arrow_drop_down_rounded, size: 40, color: facing ? C.green : C.ink),
+                        Icon(Icons.arrow_drop_down_rounded, size: 40, color: facing && islamicPart ? C.green : C.ink),
                       ]),
                     ),
                   );
                 }),
-                const SizedBox(height: 16),
-                Panel(
+                if (islamicPart) const SizedBox(height: 16),
+                if (islamicPart) Panel(
                   padding: const EdgeInsets.all(14),
                   child: Row(children: [
                     Container(
@@ -197,7 +198,8 @@ class _CompassScreenState extends State<CompassScreen> {
 
 class _Dial extends CustomPainter {
   _Dial({required this.qibla, required this.ink, required this.muted, required this.line, required this.face, required this.red, required this.green, required this.lit});
-  final double qibla;
+  /// Null: no qibla on the dial (the Islamic part is off).
+  final double? qibla;
   final Color ink, muted, line, face, red, green;
   final bool lit;
 
@@ -257,6 +259,8 @@ class _Dial extends CustomPainter {
     canvas.drawCircle(c, r * 0.05, Paint()..color = ink);
 
     // The qibla: a green line out to a dot at the rim.
+    final qibla = this.qibla;
+    if (qibla == null) return;
     canvas.drawLine(c, at(qibla, r * 0.52), Paint()
       ..color = green.withValues(alpha: lit ? 1 : 0.7)
       ..strokeWidth = 3

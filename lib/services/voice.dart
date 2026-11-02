@@ -11,6 +11,7 @@ import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 import '../logic/lang.dart';
+import '../logic/region.dart' show appCountry;
 
 /// Listening (speech to text) and speaking (text to speech), in Bengali.
 abstract class Voice {
@@ -114,6 +115,10 @@ class DeviceVoice extends Voice {
   Future<void>? _ttsSetup;
   String? _locale;
 
+  /// The English recogniser (the app in English, global version): the
+  /// place's own English when the phone lists it, else US English.
+  String _enLocale = 'en-US';
+
   // One "turn" of listening can span several recogniser sessions: Android
   // ends a session at any short pause, so the app restarts it and joins the
   // words until the user has been quiet for [_silence].
@@ -134,7 +139,7 @@ class DeviceVoice extends Voice {
   /// The recogniser listed a Bengali language (null: it could not say —
   /// Android 13+ lists only the offline languages).
   bool? banglaListed;
-  String get localeInUse => _locale ?? '';
+  String get localeInUse => isEn ? _enLocale : (_locale ?? '');
   Duration _silence = sentenceSilence;
   DateTime _turnStarted = DateTime.now();
   void Function(String)? _onWords;
@@ -280,6 +285,8 @@ class DeviceVoice extends Voice {
         // Not listed (common: the online recogniser supports Bengali but
         // only offline languages are listed): ask for Bangladesh Bengali.
         _locale ??= 'bn-BD';
+        final cc = appCountry.toLowerCase();
+        _enLocale = pick('en_$cc') ?? pick('en_us') ?? pick('en_gb') ?? locales.where((l) => l.localeId.toLowerCase().startsWith('en')).map((l) => l.localeId).firstOrNull ?? 'en-US';
       }
       // The voice is set up alongside: listening must not wait for it.
       _ttsSetup ??= _setupTts();
@@ -533,7 +540,7 @@ class DeviceVoice extends Voice {
           }
         },
         listenOptions: SpeechListenOptions(
-          localeId: _locale,
+          localeId: isEn ? _enLocale : _locale,
           listenFor: Duration(seconds: _short ? 10 : 60),
           // Our own quiet timer ends the turn; this is only a safety net.
           pauseFor: Duration(seconds: _short ? 4 : 8),

@@ -5,6 +5,7 @@ library;
 import 'dart:math';
 
 import 'extras.dart';
+import '../logic/region.dart' show weekStart;
 
 export 'extras.dart';
 
@@ -634,7 +635,7 @@ class CashEntry {
 
 /// A piece of work with its own money: "রহিম ভবন", "অফিস সাজানো".
 class Project {
-  Project({String? id, required this.name, DateTime? createdAt, this.closed = false, this.budget = 0, this.inMain = false, this.mainAsked = false})
+  Project({String? id, required this.name, DateTime? createdAt, this.closed = false, this.budget = 0, this.inMain = false, this.mainAsked = false, this.currency})
       : id = id ?? newId(),
         createdAt = createdAt ?? DateTime.now();
 
@@ -654,17 +655,23 @@ class Project {
   /// A হিসাব from before this was asked keeps going in, as it did, until asked.
   final bool mainAsked;
 
+  /// A হিসাব in another currency (global version, "দুই মুদ্রা"): the second
+  /// currency's code ('BDT' for a member who lives on riyal). Null = the
+  /// main currency, as every হিসাব before. Never counted into the main money.
+  final String? currency;
+
   Project copyWith({String? name, bool? closed, int? budget, bool? inMain, bool? mainAsked}) => Project(
       id: id,
       name: name ?? this.name,
       createdAt: createdAt,
       closed: closed ?? this.closed,
       budget: budget ?? this.budget,
-      inMain: inMain ?? this.inMain,
-      mainAsked: mainAsked ?? this.mainAsked);
+      inMain: currency != null ? false : (inMain ?? this.inMain),
+      mainAsked: mainAsked ?? this.mainAsked,
+      currency: currency);
 
   Map<String, Object?> toJson() =>
-      {'id': id, 'name': name, 'createdAt': createdAt.toIso8601String(), 'closed': closed, if (budget > 0) 'budget': budget, 'inMain': inMain, 'mainAsked': mainAsked};
+      {'id': id, 'name': name, 'createdAt': createdAt.toIso8601String(), 'closed': closed, if (budget > 0) 'budget': budget, 'inMain': inMain, 'mainAsked': mainAsked, if (currency != null) 'currency': currency};
 
   factory Project.fromJson(Map<String, Object?> j) => Project(
         id: j['id'] as String?,
@@ -675,6 +682,7 @@ class Project {
         // Saved before 27 Oct: its entries went into the main money.
         inMain: j['inMain'] is bool ? j['inMain'] as bool : true,
         mainAsked: j['mainAsked'] == true,
+        currency: (j['currency'] as String?)?.isEmpty ?? true ? null : j['currency'] as String,
       );
 }
 
@@ -685,7 +693,8 @@ enum Via { call, sms, whatsapp }
 
 /// The first day of the app's week (Saturday, as weeks are counted in
 /// Bangladesh). One rule for the rules, the AI, the answers and the screens.
-const firstWeekday = DateTime.saturday;
+/// Saturday in Bangladesh; the place's own first day elsewhere (global version).
+int get firstWeekday => weekStart;
 
 /// The first day of the week [d] is in.
 DateTime weekStartOf(DateTime d) => DateTime(d.year, d.month, d.day).subtract(Duration(days: (d.weekday - firstWeekday + 7) % 7));

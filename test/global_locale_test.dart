@@ -11,6 +11,7 @@ import 'package:digital_brain/logic/pro.dart';
 import 'package:digital_brain/logic/region.dart';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/state/chat.dart';
+import 'package:digital_brain/screens/money_screens.dart' show ProjectScreen;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter/material.dart';
@@ -21,6 +22,9 @@ void main() {
   tearDown(() {
     setRegion(country: 'BD', currency: 'BDT');
     isEn = false;
+    bangladeshPart = true;
+    islamicPart = true;
+    setRegion(second: '');
   });
 
   group('amounts', () {
@@ -164,5 +168,145 @@ void main() {
       await settle(t);
       expect(find.byKey(const Key('tool-blood'), skipOffstage: false), findsNothing);
     });
+  });
+
+  group('parts by language and country (owner, 2 Nov: "ভাষা + দেশ")', () {
+    test('Bangladeshi part: Bangla, or in Bangladesh; Islamic part: Bangla or a Muslim-majority country', () {
+      expect(bangladeshAuto(country: 'BD', english: true), isTrue);
+      expect(bangladeshAuto(country: 'SA', english: false), isTrue, reason: 'a Bangla speaker abroad keeps bKash and the Bangla date');
+      expect(bangladeshAuto(country: 'GB', english: true), isFalse);
+      expect(islamicAuto(country: 'SA', english: true), isTrue);
+      expect(islamicAuto(country: 'GB', english: true), isFalse);
+      expect(islamicAuto(country: 'GB', english: false), isTrue);
+      expect(partOn('off', true), isFalse);
+      expect(partOn('on', false), isTrue);
+      expect(partOn('', true), isTrue);
+    });
+
+    test('the brain: English in London has neither part; the member can turn one on; blood only in Bangladesh', () async {
+      final rig = Rig();
+      await rig.brain.load();
+      final b = rig.brain;
+      await b.setDistrict(const Place('লন্ডন', 51.5074, -0.1278, tz: 0, region: 'mwl', cc: 'GB').key);
+      await b.setEnglish(true);
+      expect(bangladeshPart, isFalse);
+      expect(islamicPart, isFalse);
+      expect(bloodHere, isFalse);
+      await b.setPart('islam', true);
+      expect(islamicPart, isTrue);
+      await b.setEnglish(false);
+      expect(bangladeshPart, isTrue, reason: 'Bangla brings the Bangladeshi part back');
+      expect(bloodHere, isFalse, reason: 'blood requests are Bangladesh\'s');
+    });
+
+    testWidgets('home without the parts: no prayer pill, no zakat, no Bangla date', (t) async {
+      final rig = await start(t);
+      await settle(t);
+      expect(find.byKey(const Key('home-slot')), findsOneWidget);
+      expect(find.byKey(const Key('tool-zakat'), skipOffstage: false), findsOneWidget);
+      await rig.brain.setPart('islam', false);
+      await rig.brain.setPart('bd', false);
+      await settle(t);
+      expect(find.byKey(const Key('home-slot')), findsNothing);
+      expect(find.byKey(const Key('tool-zakat'), skipOffstage: false), findsNothing);
+    });
+  });
+
+  group('week, weekend and temperature by country', () {
+    test('Bangladesh as always; the Gulf on Sunday; the US on Sunday with °F; Britain on Monday', () {
+      expect(weekStart, DateTime.saturday);
+      expect(weekendDays, {DateTime.friday, DateTime.saturday});
+      expect(degrees(30), 30);
+      setRegion(country: 'SA');
+      expect(weekStart, DateTime.sunday);
+      setRegion(country: 'US');
+      expect(weekStart, DateTime.sunday);
+      expect(weekendDays, {DateTime.saturday, DateTime.sunday});
+      expect(degrees(30), 86);
+      setRegion(country: 'GB');
+      expect(weekStart, DateTime.monday);
+      expect(weekStartOf(DateTime(2026, 11, 4)), DateTime(2026, 11, 2), reason: 'a Wednesday: its Monday');
+    });
+  });
+
+  group('two currencies (owner, 2 Nov: "দুই মুদ্রা, দুই দেশের জীবন")', () {
+    test('a member on riyal: "দেশের টাকা" goes to the taka হিসাব; riyal stays main; old data reads the same', () async {
+      final rig = Rig();
+      await rig.brain.load();
+      final b = rig.brain;
+      await b.setCurrency('SAR');
+      await b.setSecondCurrency('BDT');
+      final chat = ChatController(b);
+      await chat.hear('আজ বাজারে ৫০ রিয়াল খরচ');
+      await chat.hear('হ্যাঁ');
+      final reply = await chat.hear('দেশের টাকা ১০ হাজার বাজারে খরচ হলো');
+      await chat.hear('হ্যাঁ');
+      final book = b.data.projects.where((p) => p.currency == 'BDT').single;
+      expect(book.inMain, isFalse);
+      final main = b.data.cash.where((e) => e.projectId == null).map((e) => e.amount).toList();
+      final inBook = b.data.cash.where((e) => e.projectId == book.id).map((e) => e.amount).toList();
+      expect(main, contains(50), reason: reply);
+      expect(main, isNot(contains(10000)), reason: reply);
+      expect(inBook, [10000], reason: reply);
+      // Saved and read back: the currency stays with the হিসাব.
+      expect(Project.fromJson(book.toJson()).currency, 'BDT');
+      expect(Project.fromJson({'id': 'x', 'name': 'পুরনো'}).currency, isNull, reason: 'a হিসাব from before reads as before');
+    });
+
+    test('a member on taka: "৫০০ রিয়াল" goes to the riyal হিসাব, shown in riyal; never in zakat', () async {
+      final rig = Rig();
+      await rig.brain.load();
+      final b = rig.brain;
+      await b.setSecondCurrency('SAR');
+      final chat = ChatController(b);
+      await chat.hear('বেতন পেলাম ২০০০ রিয়াল');
+      await chat.hear('হ্যাঁ');
+      final book = b.data.projects.where((p) => p.currency == 'SAR').single;
+      expect(b.data.cash.where((e) => e.projectId == book.id).map((e) => e.amount), [2000]);
+      expect(b.data.cash.where((e) => e.projectId == null), isEmpty);
+      expect(moneyIn(2000, 'SAR'), 'SAR ২,০০০');
+      expect(moneyIn(2000, null), '৳২,০০০');
+      expect(b.canAddProject, isTrue, reason: 'the currency\'s হিসাব does not use up the free one');
+    });
+
+    test('a loan said in the second currency is a বকেয়া of its হিসাব', () async {
+      final rig = Rig();
+      await rig.brain.load();
+      final b = rig.brain;
+      await b.setSecondCurrency('SAR');
+      final chat = ChatController(b);
+      final r1 = await chat.hear('করিমকে ৩০০ রিয়াল ধার দিলাম');
+      final r2 = await chat.hear('হ্যাঁ');
+      final book = b.data.projects.where((p) => p.currency == 'SAR').single;
+      final loans = b.data.ledger.where((e) => e.person.contains('করিম')).toList();
+      expect(loans.map((e) => e.projectId), [book.id], reason: '$r1 / $r2');
+      expect(r2, allOf(contains('রিয়াল'), isNot(contains('টাকা'))));
+    });
+
+    test('words: only the second currency\'s own words route there', () {
+      setRegion(currency: 'SAR', second: 'BDT');
+      expect(mentionsSecond('দেশের টাকা ৫০০০'), isTrue);
+      expect(mentionsSecond('৫০০ টাকা খরচ'), isFalse, reason: 'plain টাকা may mean the main money');
+      setRegion(currency: 'BDT', second: 'SAR');
+      expect(mentionsSecond('৫০০ রিয়াল'), isTrue);
+      expect(mentionsSecond('two hours'), isFalse);
+    });
+  });
+
+  testWidgets('the riyal হিসাব page shows riyal; going back, taka again', (t) async {
+    final rig = await start(t);
+    final b = rig.brain;
+    await b.setSecondCurrency('SAR');
+    final book = await b.currencyBook('SAR');
+    await b.saveCash(CashEntry(kind: CashKind.income, amount: 2000, category: 'বেতন', date: DateTime(2026, 11, 2), projectId: book.id));
+    await settle(t);
+    final nav = t.state<NavigatorState>(find.byType(Navigator).first);
+    nav.push(MaterialPageRoute(builder: (_) => ProjectScreen(id: book.id)));
+    await settle(t);
+    expect(appCurrency.code, 'SAR');
+    expect(find.textContaining('SAR'), findsWidgets);
+    nav.pop();
+    await settle(t);
+    expect(appCurrency.code, 'BDT');
   });
 }

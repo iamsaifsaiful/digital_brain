@@ -19,6 +19,9 @@ import '../ui/pdf_export.dart';
 import '../ui/pick.dart';
 import 'project_dues.dart';
 import 'to_main.dart';
+import '../logic/region.dart' show startCurrencyView, endCurrencyView, currencyByCode, mainCurrency, Currency;
+
+String nameIn(Currency c) => isEn ? c.en : c.bn;
 
 /// White card: one big figure ("এই মাসের ব্যালেন্স") and two under it.
 class SummaryCard extends StatelessWidget {
@@ -1021,7 +1024,7 @@ class ProjectCover extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(label, style: body(11.5, color: white.withValues(alpha: 0.75))),
             const SizedBox(height: 2),
-            FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(taka(v), style: display(16, weight: 700, color: warn ? const Color(0xFFFFD7A8) : white))),
+            FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(moneyIn(v, p.currency), style: display(16, weight: 700, color: warn ? const Color(0xFFFFD7A8) : white))),
           ]),
         );
     return Opacity(
@@ -1091,6 +1094,33 @@ class ProjectScreen extends StatefulWidget {
 class _ProjectScreenState extends State<ProjectScreen> {
   String get id => widget.id;
 
+  /// A second currency's হিসাব: every amount on this page (and the forms
+  /// opened from it) in that currency while it is open.
+  String? _view;
+  Brain? _brain;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _brain = BrainScope.read(context);
+    if (_view != null) return;
+    final cur = BrainScope.read(context).data.projects.where((x) => x.id == id).firstOrNull?.currency;
+    if (cur != null) {
+      _view = cur;
+      startCurrencyView(cur);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_view != null) {
+      endCurrencyView();
+      final brain = _brain;
+      if (brain != null) WidgetsBinding.instance.addPostFrameCallback((_) => brain.redraw());
+    }
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1145,7 +1175,7 @@ class _ProjectScreenState extends State<ProjectScreen> {
               onSelected: menu,
               itemBuilder: (_) => [
                 PopupMenuItem(value: 'rename', child: Text(tr('নাম বদলান'))),
-                PopupMenuItem(value: 'main', child: Text(p.inMain ? tr('মূল হিসাব: যোগ হচ্ছে — বদলান') : tr('মূল হিসাব: আলাদা — বদলান'))),
+                if (p.currency == null) PopupMenuItem(value: 'main', child: Text(p.inMain ? tr('মূল হিসাব: যোগ হচ্ছে — বদলান') : tr('মূল হিসাব: আলাদা — বদলান'))),
                 PopupMenuItem(value: 'close', child: Text(p.closed ? tr('আবার চালু করুন') : tr('হিসাব শেষ'))),
                 PopupMenuItem(value: 'delete', child: Text(tr('মুছুন'))),
               ],
@@ -1192,7 +1222,9 @@ class _ProjectScreenState extends State<ProjectScreen> {
               ]),
               const SizedBox(height: 6),
               Text(
-                  p.inMain
+                  p.currency != null
+                      ? trf('এই হিসাব {0}-এ — মূল টাকার ({1}) সাথে যোগ হয় না। কথায় বললে “{2}” শব্দ থাকলেই এখানে লেখা হবে।', [nameIn(currencyByCode(p.currency!)), nameIn(mainCurrency), p.currency == 'BDT' ? bnEn('দেশের টাকা', 'BDT') : nameIn(currencyByCode(p.currency!))])
+                      : p.inMain
                       ? tr('এই হিসাবের আয় আর খরচ মূল আয়-ব্যয়েও যোগ হয়। বকেয়া পেলে নিচে বকেয়া থেকে আদায় দিন।')
                       : tr('এই হিসাব মূল টাকার সাথে যুক্ত নয় — এর আয়, খরচ আর বকেয়া এখানেই থাকে, মূল আয়-ব্যয়ে বা যাকাতে ধরা হয় না।'),
                   style: body(12.5, color: C.muted, height: 1.45)),

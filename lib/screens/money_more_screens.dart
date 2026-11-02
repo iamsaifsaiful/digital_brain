@@ -23,7 +23,7 @@ import 'spend_health_screen.dart';
 export 'shop_screens.dart' show ShopScreen, ShopDetailScreen;
 export 'spend_health_screen.dart' show SpendHealthScreen;
 import '../ui/pdf_export.dart';
-import '../logic/region.dart' show inBangladesh;
+import '../logic/region.dart' show bangladeshPart;
 
 void _push(BuildContext context, Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
 
@@ -174,7 +174,7 @@ class AccountsScreen extends StatelessWidget {
   Future<void> _edit(BuildContext context, MoneyAccount? old) async {
     final brain = BrainScope.read(context);
     // bKash, Nagad and Rocket are Bangladesh's own (global version).
-    var kind = old?.kind ?? (inBangladesh ? AccountKind.bkash : AccountKind.bank);
+    var kind = old?.kind ?? (bangladeshPart ? AccountKind.bkash : AccountKind.bank);
     final bdOnly = {AccountKind.bkash, AccountKind.nagad, AccountKind.rocket};
     final name = TextEditingController(text: old?.name ?? '');
     final opening = TextEditingController(text: old == null ? '' : '${old.opening}');
@@ -187,7 +187,7 @@ class AccountsScreen extends StatelessWidget {
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text(old == null ? tr('নতুন অ্যাকাউন্ট') : tr('অ্যাকাউন্ট বদলান'), style: display(20, weight: 700)),
             FieldLabel(tr('ধরন')),
-            ChoiceChips<AccountKind>(items: [for (final k in AccountKind.values) if (inBangladesh || !bdOnly.contains(k) || k == kind) (k, isEn ? k.en : k.bn)], value: kind, onChanged: (v) => set(() => kind = v)),
+            ChoiceChips<AccountKind>(items: [for (final k in AccountKind.values) if (bangladeshPart || !bdOnly.contains(k) || k == kind) (k, isEn ? k.en : k.bn)], value: kind, onChanged: (v) => set(() => kind = v)),
             FieldLabel(tr('নাম (ঐচ্ছিক)')),
             TextField(controller: name, decoration: InputDecoration(hintText: tr('যেমন: ডাচ-বাংলা সেভিংস, পকেটের টাকা'))),
             FieldLabel(tr('এখন কত আছে')),
@@ -281,7 +281,7 @@ class AccountsScreen extends StatelessWidget {
               if (d.accounts.isEmpty)
                 EmptyState(
                   icon: Icons.account_balance_wallet_outlined,
-                  title: inBangladesh ? tr('নগদ, বিকাশ, ব্যাংক — আলাদা রাখুন') : tr('নগদ আর প্রতিটা ব্যাংক — আলাদা রাখুন'),
+                  title: bangladeshPart ? tr('নগদ, বিকাশ, ব্যাংক — আলাদা রাখুন') : tr('নগদ আর প্রতিটা ব্যাংক — আলাদা রাখুন'),
                   text: tr('প্রতিটার এখনকার টাকা দিয়ে যোগ করুন। এরপর আয়-ব্যয় লেখার সময় কোন অ্যাকাউন্ট, তা বেছে নিলে ব্যালেন্স নিজে থেকে মিলবে।'),
                   action: tr('প্রথম অ্যাকাউন্ট যোগ'),
                   onAction: () => _edit(context, null),

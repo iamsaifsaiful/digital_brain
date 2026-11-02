@@ -3,6 +3,7 @@ library;
 
 import 'bn.dart';
 import 'lang.dart';
+import 'region.dart' show degrees, fahrenheit;
 
 class Weather {
   const Weather({required this.temp, required this.feels, required this.min, required this.max, required this.humidity, required this.code, required this.place, required this.at});
@@ -35,13 +36,17 @@ class Weather {
   }
 
   /// "২৮°" — the label on the home sky.
-  String get short => '${bnDigits(temp.round())}°';
+  String get short => '${bnDigits(degrees(temp))}°';
 
   String get sky => weatherWords(code);
 
   /// The full answer to "আজ তাপমাত্রা কত?".
-  String said() => trf('{0}: এখন {1}°সে ({2}) — অনুভূত {3}°, আজ সর্বনিম্ন {4}° আর সর্বোচ্চ {5}°, আর্দ্রতা {6}%।',
-      [tr(place), bnDigits(temp.round()), sky, bnDigits(feels.round()), bnDigits(min.round()), bnDigits(max.round()), bnDigits(humidity)]);
+  String said() {
+    final t = trf('{0}: এখন {1}°সে ({2}) — অনুভূত {3}°, আজ সর্বনিম্ন {4}° আর সর্বোচ্চ {5}°, আর্দ্রতা {6}%।',
+        [tr(place), bnDigits(degrees(temp)), sky, bnDigits(degrees(feels)), bnDigits(degrees(min)), bnDigits(degrees(max)), bnDigits(humidity)]);
+    // °F where the place counts in it (global version).
+    return fahrenheit ? t.replaceFirst('°সে', '°F').replaceFirst('°C', '°F') : t;
+  }
 }
 
 /// The WMO weather code in words.

@@ -33,6 +33,7 @@ import '../logic/pro.dart';
 import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
+import '../logic/region.dart' show bloodHere, islamicPart;
 
 const appVersion = '1.0.4';
 
@@ -327,9 +328,8 @@ class _MoreScreenState extends State<MoreScreen> {
         ProfileCard(onName: _setName, onPlace: _setDistrict),
         const SizedBox(height: 12),
         // The things people come here for, as big tiles (two rows of two).
-        for (final row in [
-          [
-            _Tile(key: const Key('more-requests'), icon: Icons.bloodtype_outlined, fg: C.rose, bg: C.roseTint, title: trm('ব্লাড ডোনেশন'), sub: tr('রক্ত দিন, রক্ত চান — সারা দেশে'), onTap: () => push(const RequestsScreen())),
+        for (final row in _pairs([
+            if (bloodHere) _Tile(key: const Key('more-requests'), icon: Icons.bloodtype_outlined, fg: C.rose, bg: C.roseTint, title: trm('ব্লাড ডোনেশন'), sub: tr('রক্ত দিন, রক্ত চান — সারা দেশে'), onTap: () => push(const RequestsScreen())),
             _Tile(
                 key: const Key('more-pro'),
                 icon: Icons.workspace_premium_outlined,
@@ -342,8 +342,6 @@ class _MoreScreenState extends State<MoreScreen> {
                         ? tr('চালু আছে')
                         : tr('কী কী পাবেন'),
                 onTap: () => push(const ProScreen())),
-          ],
-          [
             _Tile(
                 key: const Key('more-feedback'),
                 icon: Icons.forum_outlined,
@@ -354,9 +352,7 @@ class _MoreScreenState extends State<MoreScreen> {
                 badge: brain.feedbackUnread > 0,
                 onTap: () => push(const FeedbackScreen())),
             _Tile(icon: Icons.lightbulb_outline_rounded, fg: C.green, bg: C.greenTint, title: tr('কী কী করা যায়'), sub: tr('সব সুবিধা, মাইকে কী বলবেন'), onTap: () => push(const HelpScreen())),
-          ],
-          [
-            _Tile(
+            if (islamicPart) _Tile(
                 key: const Key('more-zakat'),
                 icon: Icons.volunteer_activism_outlined,
                 fg: C.ochre,
@@ -372,9 +368,12 @@ class _MoreScreenState extends State<MoreScreen> {
                 title: tr('ফ্যামিলি'),
                 sub: tr('পরিবারের জন্য কাজ ও রিমাইন্ডার'),
                 onTap: () => push(const FamilyScreen())),
-          ],
-        ]) ...[
-          Row(children: [Expanded(child: SizedBox(height: 70, child: row[0])), const SizedBox(width: 10), Expanded(child: SizedBox(height: 70, child: row[1]))]),
+        ])) ...[
+          Row(children: [
+            Expanded(child: SizedBox(height: 70, child: row[0])),
+            const SizedBox(width: 10),
+            Expanded(child: row.length > 1 ? SizedBox(height: 70, child: row[1]) : const SizedBox.shrink()),
+          ]),
           const SizedBox(height: 10),
         ],
         const SizedBox(height: 10),
@@ -779,3 +778,6 @@ class _Tile extends StatelessWidget {
         ),
       );
 }
+
+/// Tiles two to a row (a part switched off leaves no hole).
+List<List<Widget>> _pairs(List<Widget> tiles) => [for (var i = 0; i < tiles.length; i += 2) tiles.sublist(i, i + 2 > tiles.length ? tiles.length : i + 2)];

@@ -11,6 +11,7 @@ import 'diary_screen.dart' show itemsOn;
 import 'plan_screens.dart' show showAddSheet, PlanRow;
 import 'special_days_screen.dart';
 import '../logic/lang.dart';
+import '../logic/region.dart' show bangladeshPart, islamicPart, weekStart, weekendDays;
 
 /// বাংলা তারিখ, ঋতু, সূর্যোদয়-সূর্যাস্ত, নামাজের সময় আর সরকারি ছুটি। The
 /// month shows Bangla or Arabic (Hijri) dates under each day; tapping a day
@@ -89,15 +90,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(picked == today ? tr('আজ বাংলা তারিখ') : tr('বাংলা তারিখ'), style: body(12, color: C.muted)),
-                        Text(bd.text, style: display(25, weight: 600, height: 1.3)),
-                        Text('${weekdayName(picked)} · ${bnDigits(picked.day)} ${monthName(picked.month)} ${bnDigits(picked.year)}', style: body(13, color: C.muted)),
-                        const SizedBox(height: 2),
-                        Text(trf('হিজরি · {0}', [hj.short]), style: body(13.5, weight: FontWeight.w600, color: C.green)),
-                        Text(hj.arabic, textDirection: TextDirection.rtl, style: TextStyle(fontSize: 15, color: C.muted2, height: 1.5)),
+                        if (bangladeshPart) ...[
+                          Text(picked == today ? tr('আজ বাংলা তারিখ') : tr('বাংলা তারিখ'), style: body(12, color: C.muted)),
+                          Text(bd.text, style: display(25, weight: 600, height: 1.3)),
+                          Text('${weekdayName(picked)} · ${bnDigits(picked.day)} ${monthName(picked.month)} ${bnDigits(picked.year)}', style: body(13, color: C.muted)),
+                        ] else ...[
+                          Text(picked == today ? tr('আজ') : weekdayName(picked), style: body(12, color: C.muted)),
+                          Text('${bnDigits(picked.day)} ${monthName(picked.month)} ${bnDigits(picked.year)}', style: display(25, weight: 600, height: 1.3)),
+                          Text(weekdayName(picked), style: body(13, color: C.muted)),
+                        ],
+                        if (islamicPart) ...[
+                          const SizedBox(height: 2),
+                          Text(trf('হিজরি · {0}', [hj.short]), style: body(13.5, weight: FontWeight.w600, color: C.green)),
+                          Text(hj.arabic, textDirection: TextDirection.rtl, style: TextStyle(fontSize: 15, color: C.muted2, height: 1.5)),
+                        ],
                       ]),
                     ),
-                    Container(
+                    if (bangladeshPart) Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(12)),
                       child: Column(children: [
@@ -116,13 +125,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   Text(
                       trf('{0} অনুযায়ী · জেলা সেটিংসে বদলানো যায়{1}', [
                         place.label,
-                        picked == today ? ' · ${bnDigits(toNext)} ${tr('দিন পর')} ${bnDigits(1)} ${nextBd.monthName}${nextBd.month % 2 == 0 ? ', ${trf('{0}কাল শুরু', [nextBd.season])}' : ''}' : ''
+                        picked == today && bangladeshPart ? ' · ${bnDigits(toNext)} ${tr('দিন পর')} ${bnDigits(1)} ${nextBd.monthName}${nextBd.month % 2 == 0 ? ', ${trf('{0}কাল শুরু', [nextBd.season])}' : ''}' : ''
                       ]),
                       style: body(11.5, color: C.muted, height: 1.45)),
                 ]),
               ),
-              const SizedBox(height: 10),
-              Container(
+              if (islamicPart) const SizedBox(height: 10),
+              if (islamicPart) Container(
                 padding: const EdgeInsets.fromLTRB(4, 10, 4, 10),
                 decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(17), border: Border.all(color: C.border)),
                 child: Column(children: [
@@ -141,7 +150,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   ]),
                 ]),
               ),
-              if (hj.isRamadan) ...[
+              if (islamicPart && hj.isRamadan) ...[
                 const SizedBox(height: 10),
                 Panel(
                   padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -155,9 +164,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   ]),
                 ),
               ],
-              const SizedBox(height: 10),
+              if (islamicPart) const SizedBox(height: 10),
               // The Hijri date follows the moon seen in Bangladesh: a day either way can be set here.
-              Panel(
+              if (islamicPart) Panel(
                 padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
                 child: Row(children: [
                   Expanded(
@@ -180,11 +189,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ]),
               ),
               const SizedBox(height: 10),
-              SegTabs<CalSide>(
-                items: [(CalSide.bangla, tr('বাংলা তারিখ')), (CalSide.arabic, tr('আরবি (হিজরি) তারিখ'))],
-                value: _side,
-                onChanged: (v) => setState(() => _side = v),
-              ),
+              if (bangladeshPart && islamicPart)
+                SegTabs<CalSide>(
+                  items: [(CalSide.bangla, tr('বাংলা তারিখ')), (CalSide.arabic, tr('আরবি (হিজরি) তারিখ'))],
+                  value: _side,
+                  onChanged: (v) => setState(() => _side = v),
+                ),
               const SizedBox(height: 8),
               _monthGrid(month, today, picked),
               Padding(
@@ -281,10 +291,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
         _month = DateTime(month.year, month.month + by);
       });
 
+  /// The second calendar under each day: the one chosen, or the only part
+  /// that is on; null when both parts are off.
+  CalSide? get _shown => bangladeshPart && islamicPart ? _side : (bangladeshPart ? CalSide.bangla : (islamicPart ? CalSide.arabic : null));
+
   Widget _monthGrid(DateTime month, DateTime today, DateTime picked) {
     final days = DateTime(month.year, month.month + 1, 0).day;
-    final lead = (DateTime(month.year, month.month).weekday + 1) % 7; // Saturday first
-    final heads = [tr('শনি'), tr('রবি'), tr('সোম'), tr('মঙ্গল'), tr('বুধ'), tr('বৃহঃ'), tr('শুক্র')];
+    // The week starts where the place starts it (Saturday in Bangladesh).
+    final lead = (DateTime(month.year, month.month).weekday - weekStart + 7) % 7;
+    final order = [for (var i = 0; i < 7; i++) (weekStart - 1 + i) % 7 + 1];
+    final heads = [for (final w in order) dayShort(w)];
     final first = banglaDate(DateTime(month.year, month.month));
     final last = banglaDate(DateTime(month.year, month.month, days));
     final adjust = BrainScope.of(context).hijriShift;
@@ -299,14 +315,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
           Expanded(
             child: Column(children: [
               Text('${monthName(month.month)} ${bnDigits(month.year)}', style: body(15, weight: FontWeight.w600)),
-              Text(_side == CalSide.bangla ? '${first.monthName} – ${last.monthName} ${bnDigits(last.year)}' : '${hFirst.monthName} – ${hLast.monthName} ${bnDigits(hLast.year)}',
-                  style: body(12, color: C.muted)),
+              if (_shown != null)
+                Text(_shown == CalSide.bangla ? '${first.monthName} – ${last.monthName} ${bnDigits(last.year)}' : '${hFirst.monthName} – ${hLast.monthName} ${bnDigits(hLast.year)}',
+                    style: body(12, color: C.muted)),
             ]),
           ),
           IconButton(tooltip: tr('পরের মাস'), onPressed: () => _turn(month, 1), icon: const Icon(Icons.chevron_right_rounded)),
         ]),
         Row(children: [
-          for (final (i, h) in heads.indexed) Expanded(child: Text(h, textAlign: TextAlign.center, style: body(11.5, color: i == 0 || i == 6 ? _red : C.muted))),
+          for (final (i, h) in heads.indexed) Expanded(child: Text(h, textAlign: TextAlign.center, style: body(11.5, color: weekendDays.contains(order[i]) ? _red : C.muted))),
         ]),
         const SizedBox(height: 4),
         // Swipe the days left or right to turn the month; the new month
@@ -373,8 +390,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
         decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10), border: isPicked ? Border.all(color: C.green, width: 1.5) : null),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Text(bnDigits(d.day), style: body(14.5, weight: FontWeight.w600, color: fg, height: 1.2)),
-          Text(_side == CalSide.bangla ? bnDigits(banglaDate(d).day) : bnDigits(hijriDate(d, adjust: brain.hijriShift).day),
-              style: body(10, color: isToday ? C.onAccent.withValues(alpha: 0.75) : (_side == CalSide.arabic ? C.teal : C.muted), height: 1.2)),
+          if (_shown != null)
+            Text(_shown == CalSide.bangla ? bnDigits(banglaDate(d).day) : bnDigits(hijriDate(d, adjust: brain.hijriShift).day),
+                style: body(10, color: isToday ? C.onAccent.withValues(alpha: 0.75) : (_shown == CalSide.arabic ? C.teal : C.muted), height: 1.2)),
           Container(
             width: 5,
             height: 5,
@@ -403,7 +421,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.8),
             child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(20, 0, 20, 20), children: [
               Text('${weekdayName(d)}, ${bnDigits(d.day)} ${monthName(d.month)} ${bnDigits(d.year)}', style: display(20, weight: 700)),
-              Text('${banglaDate(d).text} · ${hj.dayMonth}', style: body(13.5, color: C.muted)),
+              if (bangladeshPart || islamicPart) Text([if (bangladeshPart) banglaDate(d).text, if (islamicPart) hj.dayMonth].join(' · '), style: body(13.5, color: C.muted)),
               if (hol != null) Text(trf('ছুটি: {0}', [hol.label]), style: body(14, weight: FontWeight.w600, color: _red)),
               const SizedBox(height: 14),
               if (items.isEmpty) Text(tr('এই দিনে কিছু রাখা নেই।'), style: body(14.5, color: C.muted)) else Panel(child: Rows(children: [for (final i in items) PlanRow(item: i)])),

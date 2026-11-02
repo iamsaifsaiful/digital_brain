@@ -54,6 +54,19 @@ String groupLakh(int n) {
 /// 1050 → "৳১,০৫০" (in the member's currency abroad: "AED ১,০৫০").
 String taka(int amount) => '$moneySign${bnDigits(groupLakh(amount.abs()))}';
 
+/// An amount in the currency [code] (null = the one in use): a second-
+/// currency হিসাব's lines shown anywhere ("৳১,০৫০" for a member on riyal).
+String moneyIn(int amount, String? code) {
+  if (code == null || code == appCurrency.code) return taka(amount);
+  final keep = appCurrency;
+  appCurrency = currencyByCode(code);
+  try {
+    return taka(amount);
+  } finally {
+    appCurrency = keep;
+  }
+}
+
 /// 1050 → "১,০৫০" (no sign).
 String bnNumber(int n) => bnDigits(groupLakh(n));
 

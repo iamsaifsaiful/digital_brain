@@ -8,6 +8,7 @@ import 'dart:math';
 
 import 'bn.dart';
 import 'lang.dart';
+import 'region.dart' show weekendDays;
 
 const banglaMonths = ['বৈশাখ', 'জ্যৈষ্ঠ', 'আষাঢ়', 'শ্রাবণ', 'ভাদ্র', 'আশ্বিন', 'কার্তিক', 'অগ্রহায়ণ', 'পৌষ', 'মাঘ', 'ফাল্গুন', 'চৈত্র'];
 const banglaSeasons = ['গ্রীষ্ম', 'বর্ষা', 'শরৎ', 'হেমন্ত', 'শীত', 'বসন্ত'];
@@ -367,7 +368,7 @@ Holiday? holidayOn(DateTime day) {
 }
 
 /// Friday and Saturday are the weekly holidays.
-bool isWeekend(DateTime d) => d.weekday == DateTime.friday || d.weekday == DateTime.saturday;
+bool isWeekend(DateTime d) => weekendDays.contains(d.weekday);
 
 /// A run of holidays together, e.g. দুর্গাপূজা 20–24 Oct with the weekend.
 class HolidayRun {

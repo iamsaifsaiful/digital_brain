@@ -4608,4 +4608,12 @@ const enStrings = <String, String>{
   ' বাজুসের দাম শুধু টাকায় আসে — আপনার মুদ্রায় ১ ভরি (১১.৬৬৪ গ্রাম) সোনা আর রুপার দাম নিজে লিখুন।': ' Today\'s price (BAJUS) is in taka only — write the price of 1 bhori (11.664 g) of gold and silver in your currency.',
   'নগদ আর প্রতিটা ব্যাংক — আলাদা রাখুন': 'Cash and each bank — kept apart',
   'এক বছরের জন্য একবার দাম': 'One price for the whole year',
+  'ইসলামি অংশ': 'Islamic features',
+  'নামাজের সময়, সেহরি-ইফতার, কিবলা, হিজরি তারিখ, যাকাত': 'Prayer times, sehri and iftar, qibla, Hijri date, zakat',
+  'বাংলাদেশি অংশ': 'Bangladesh features',
+  'বিকাশ-নগদ-রকেট, বাজুসের সোনার দাম, বাংলা তারিখ ও ঋতু': 'bKash, Nagad, Rocket, BAJUS gold price, Bangla date and seasons',
+  '{0}-এ লিখলাম: {1}।': 'Written in {0}: {1}.',
+  'দ্বিতীয় মুদ্রা': 'Second currency',
+  'প্রবাসে থাকলে দেশের টাকা, বা দেশে থেকে বিদেশের আয় — নিজের আলাদা হিসাবে থাকে, মূল টাকায় যোগ হয় না।': 'Money from home while living abroad, or foreign income at home — kept in its own account, never added to your main money.',
+  'এই হিসাব {0}-এ — মূল টাকার ({1}) সাথে যোগ হয় না। কথায় বললে “{2}” শব্দ থাকলেই এখানে লেখা হবে।': 'This account is in {0} — it is not added to your main money ({1}). When you speak, saying “{2}” writes it here.',
 };

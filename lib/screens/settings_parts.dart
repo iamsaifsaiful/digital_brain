@@ -217,8 +217,29 @@ class LookSection extends StatelessWidget {
         ),
         const SizedBox(height: 18),
         label(tr('মুদ্রা'), tr('আপনার লেখা অঙ্কগুলো যে মুদ্রায়। বদলালে আগের অঙ্ক বদলায় না, শুধু চিহ্ন বদলায়।')),
-        CurrencyRow(code: appCurrency.code, onPick: (c) => brain.setCurrency(c)),
-        const SizedBox(height: 18),
+        CurrencyRow(code: mainCurrency.code, onPick: (c) => brain.setCurrency(c)),
+        const SizedBox(height: 14),
+        label(tr('দ্বিতীয় মুদ্রা'), tr('প্রবাসে থাকলে দেশের টাকা, বা দেশে থেকে বিদেশের আয় — নিজের আলাদা হিসাবে থাকে, মূল টাকায় যোগ হয় না।')),
+        CurrencyRow(key: const Key('currency2-row'), code: brain.secondCode, none: true, onPick: (c) => brain.setSecondCurrency(c)),
+        const SizedBox(height: 14),
+        // The parts that are not for everyone (global version, owner 2 Nov).
+        for (final (key, on, title, sub) in [
+          ('islam', islamicPart, tr('ইসলামি অংশ'), tr('নামাজের সময়, সেহরি-ইফতার, কিবলা, হিজরি তারিখ, যাকাত')),
+          ('bd', bangladeshPart, tr('বাংলাদেশি অংশ'), tr('বিকাশ-নগদ-রকেট, বাজুসের সোনার দাম, বাংলা তারিখ ও ঋতু')),
+        ])
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(title, style: body(15, weight: FontWeight.w500)),
+                  Text(sub, style: body(12.5, color: C.muted)),
+                ]),
+              ),
+              Switch(key: Key('part-$key'), value: on, onChanged: (v) => brain.setPart(key, v)),
+            ]),
+          ),
+        const SizedBox(height: 10),
         label(tr('থিম')),
         SegTabs<Look>(
           items: [(Look.sun, tr('সময়ের সাথে')), (Look.system, tr('ফোনের মতো')), (Look.light, tr('আলো')), (Look.dark, tr('অন্ধকার'))],
@@ -394,15 +415,18 @@ class PlanBadge extends StatelessWidget {
 
 /// The currency of the member's amounts (global version): tap to choose.
 class CurrencyRow extends StatelessWidget {
-  const CurrencyRow({super.key, required this.code, required this.onPick});
+  const CurrencyRow({super.key, required this.code, required this.onPick, this.none = false});
   final String code;
   final ValueChanged<String> onPick;
+
+  /// "নেই" as a choice ('' — the second currency).
+  final bool none;
 
   static String nameOf(Currency c) => '${c.sign.trim()}  ${isEn ? c.en : c.bn} (${c.code})';
 
   @override
   Widget build(BuildContext context) {
-    final now = currencyByCode(code);
+    final now = code.isEmpty ? null : currencyByCode(code);
     return Material(
       color: C.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: C.line)),
@@ -419,6 +443,13 @@ class CurrencyRow extends StatelessWidget {
               initialChildSize: 0.7,
               builder: (ctx, scroll) => ListView(controller: scroll, children: [
                 Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 8), child: Text(tr('মুদ্রা'), style: body(16, weight: FontWeight.w600))),
+                if (none)
+                  ListTile(
+                    key: const Key('currency-none'),
+                    title: Text(tr('নেই')),
+                    trailing: code.isEmpty ? Icon(Icons.check_rounded, color: C.green) : null,
+                    onTap: () => Navigator.of(ctx).pop(''),
+                  ),
                 for (final c in currencies)
                   ListTile(
                     key: Key('currency-${c.code}'),
@@ -434,7 +465,7 @@ class CurrencyRow extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(children: [
-            Expanded(child: Text(nameOf(now), style: body(14.5))),
+            Expanded(child: Text(now == null ? tr('নেই') : nameOf(now), style: body(14.5))),
             Icon(Icons.chevron_right_rounded, color: C.muted),
           ]),
         ),

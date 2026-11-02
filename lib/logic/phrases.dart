@@ -4,6 +4,7 @@ library;
 import '../models/models.dart';
 import 'bn.dart';
 import 'lang.dart';
+import 'region.dart' show startCurrencyView, endCurrencyView;
 
 const _vowelEnd = 'ািীুূৃেৈোৌঅআইঈউঊঋএঐওঔ';
 
@@ -33,6 +34,16 @@ String describe(LedgerKind kind, String person, int amount) => switch (kind) {
       LedgerKind.received => bnEn('$person আপনাকে ${_amt(amount)} ফেরত দিলেন', '$person paid you back ${_amt(amount)}'),
       LedgerKind.repaid => bnEn('${toPerson(person)} ${_amt(amount)} শোধ করলেন', 'you paid $person back ${_amt(amount)}'),
     };
+
+/// [describe] in the currency [code] (a loan in the second currency).
+String describeIn(LedgerKind kind, String person, int amount, String code) {
+  startCurrencyView(code);
+  try {
+    return describe(kind, person, amount);
+  } finally {
+    endCurrencyView();
+  }
+}
 
 /// Asked before saving: "আচ্ছা, সজীবকে ৫০০ টাকা ধার দিলেন, তাই তো? লিখে রাখি?"
 String confirmQuestion(LedgerKind kind, String person, int amount) => trf('আচ্ছা, {0}, তাই তো? লিখে রাখি?', [describe(kind, person, amount)]);

@@ -42,7 +42,7 @@ import '../models/models.dart';
 import '../services/ai.dart';
 import '../ui/yes_no.dart' show pickSpokenOption;
 import 'brain.dart';
-import '../logic/region.dart' show takaMoney;
+import '../logic/region.dart' show takaMoney, secondCurrency, mentionsSecond, startCurrencyView, endCurrencyView;
 
 part 'todo_chat.dart';
 part 'menu_chat.dart';
@@ -835,6 +835,30 @@ class ChatController extends ChangeNotifier {
 
   /// One thing the user said, typed or tapped. Returns what to say aloud.
   Future<String> hear(String said, {bool echo = true}) async {
+    // About the second currency's হিসাব (said now, or the one being written):
+    // the reply's amounts in that currency (global version).
+    final view = _bookCurrency(said);
+    if (view == null) return _hear(said, echo: echo);
+    startCurrencyView(view);
+    try {
+      return await _hear(said, echo: echo);
+    } finally {
+      endCurrencyView();
+    }
+  }
+
+  String? _bookCurrency(String said) {
+    final second = secondCurrency;
+    if (second == null) return null;
+    if (mentionsSecond(said)) return second.code;
+    final cur = _current;
+    if (cur is LedgerAdd && mentionsSecond(_src?.transcript ?? cur.transcript)) return second.code;
+    final name = cur is CashAdd ? cur.project : null;
+    if (name == null) return null;
+    return projectByName(brain.data, name)?.currency;
+  }
+
+  Future<String> _hear(String said, {bool echo = true}) async {
     final shown = said.trim();
     if (shown.isEmpty) return '';
     // "…, না আর বলতে চাই না": the closing words only say the person is done
@@ -2278,6 +2302,12 @@ class ChatController extends ChangeNotifier {
         if (c.amount <= 0) {
           _ask(out, tr('কত টাকা?'), ChatWait.amount);
           return;
+        }
+        // "৫০০ রিয়াল খরচ" for a member on taka (or "দেশের টাকা" for one on
+        // riyal): into that currency's own হিসাব, never the main money.
+        if (c.project == null && secondCurrency != null && mentionsSecond(c.transcript)) {
+          final book = await brain.currencyBook(secondCurrency!.code);
+          return _start(CashAdd(c.transcript, kind: c.kind, amount: c.amount, category: c.category, project: book.name), out);
         }
         // "এই কাজে আরও ১৫০০০ টাকা পেয়েছি" right after that account was shown:
         // into it, not the monthly income.
@@ -4014,6 +4044,13 @@ class ChatController extends ChangeNotifier {
       case LedgerAdd() when !brain.canAddPerson(_person):
         _say(out, trf('ফ্রিতে {0} জনের ধার-দেনা রাখা যায়, সেটা পূর্ণ হয়ে গেছে। প্রিমিয়াম নিলে যত খুশি মানুষ রাখতে পারবেন — আগের হিসাব যেমন আছে থাকবে।', [bnDigits(freeLedgerPeople)]),
             links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
+      case LedgerAdd() when secondCurrency != null && mentionsSecond(_src?.transcript ?? c.transcript):
+        // A loan in the second currency: a বকেয়া of that currency's হিসাব.
+        final book = await brain.currencyBook(secondCurrency!.code);
+        final entry = LedgerEntry(person: _person, phone: _ledgerPhone, kind: _kind!, amount: _amount, date: _ledgerDate ?? dayOnly(_now), note: '', projectId: book.id);
+        await brain.saveEntry(entry, guessPhone: _ledgerPhone.isEmpty);
+        _say(out, trf('{0}-এ লিখলাম: {1}।', [book.name, describe(_kind!, _person, _amount)]),
+            links: [ChatLink(LinkKind.page, tr('অন্যান্য হিসাব'), page: 'projects')]);
       case LedgerAdd():
         final kind = _kind!;
         final after = balanceAfter(brain.data.ledger, _person, kind, _amount);

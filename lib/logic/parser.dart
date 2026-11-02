@@ -13,7 +13,7 @@ import 'ask.dart';
 import 'manage.dart';
 import 'me.dart';
 import 'bn.dart';
-import 'region.dart' show spokenCurrency, appCurrency;
+import 'region.dart' show spokenCurrency, appCurrency, secondCurrency;
 import 'ledger.dart';
 import 'cash.dart';
 import 'meaning.dart';
@@ -502,13 +502,14 @@ RegExp? _currencyAfter, _currencyBefore;
 String _ownCurrencyAsTaka(String t) {
   final words = spokenCurrency();
   if (words.isEmpty) return t;
-  if (_currencyKey != appCurrency.code) {
-    _currencyKey = appCurrency.code;
+  final key = '${appCurrency.code}|${secondCurrency?.code}';
+  if (_currencyKey != key) {
+    _currencyKey = key;
     final alt = words.map((w) => RegExp.escape(fold(w))).join('|');
     // After a number or a number word: "৫০০ দিরহাম", "পাঁচ হাজার দিরহামের".
     _currencyAfter = RegExp('(?<=\\d|হাজার|শো|শ|লাখ|লক্ষ|কোটি|thousand|hundred|\\dk)\\s*(?:$alt)(ের|এর|র|ে)?(?![a-z\u0980-\u09FF])');
     // Before the digits: "aed 500", "\$20", "rm50".
-    _currencyBefore = RegExp('(?<![a-z\u0980-\u09FF])(?:$alt)\\s*(\\d+)');
+    _currencyBefore = RegExp('(?<![a-z\u0980-\u09FF])(?:$alt)\\s*(\\d+(?:\\s*(?:হাজার|লাখ|লক্ষ|কোটি|শো|thousand|hundred|k)(?![a-z\u0980-\u09FF]))?)');
   }
   // After the number first, so "৫০০ দিরহাম ২০ তারিখে" keeps its date.
   var out = t.replaceAllMapped(_currencyAfter!, (m) => switch (m[1]) {

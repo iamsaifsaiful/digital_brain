@@ -20,6 +20,7 @@ import 'phrases.dart';
 import 'server_notices.dart';
 import 'spend_health.dart';
 import 'money_quotes.dart';
+import 'region.dart' show islamicPart;
 
 /// The morning summary rings at 9 unless the member picks a time (owner, 28 Oct; was 8).
 const defaultMorningAt = 9 * 60;
@@ -902,8 +903,8 @@ List<PlannedNotice> _noticed(AppData d, DateTime now, AssistantPrefs p) {
     break;
   }
 
-  // Eid and Ramadan, ten days ahead.
-  for (final h in bdHolidays) {
+  // Eid and Ramadan, ten days ahead (the Islamic part only, global version).
+  for (final h in islamicPart ? bdHolidays : const <Holiday>[]) {
     if (h.name != 'ঈদুল ফিতর' && h.name != 'ঈদুল আজহা') continue;
     final at = _at(dayOnly(h.date).subtract(const Duration(days: 10)), 10 * 60);
     add(nudgeSoon, dayKey(h.date), at, trf('{0} আর ১০ দিন', [h.label]),
@@ -911,7 +912,7 @@ List<PlannedNotice> _noticed(AppData d, DateTime now, AssistantPrefs p) {
             ? tr('কোরবানি, কেনাকাটা আর বাড়ি যাওয়ার পরিকল্পনা করবেন? চাপুন আর বলুন — তালিকা করে দেবো।')
             : tr('ঈদের কেনাকাটা আর বাড়ি যাওয়ার তালিকা করবেন? চাপুন আর বলুন — তালিকা করে দেবো।'));
   }
-  for (var i = 1; i < 60; i++) {
+  for (var i = 1; i < (islamicPart ? 60 : 0); i++) {
     final day = today.add(Duration(days: i));
     if (!hijriDate(day).isRamadan || hijriDate(day.subtract(const Duration(days: 1))).isRamadan) continue;
     add(nudgeSoon, 'ramadan:${dayKey(day)}', _at(day.subtract(const Duration(days: 10)), 10 * 60), tr('রমজান আসছে ১০ দিন পর'),

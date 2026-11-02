@@ -128,6 +128,60 @@ Currency appCurrency = currencies.first;
 /// Bangladesh's holidays and blood requests apply.
 bool get inBangladesh => appCountry == 'BD';
 
+/// The Bangladeshi part (bKash, Nagad, Rocket, BAJUS gold price, the
+/// Bangla calendar and seasons): on when the app is in Bangla or the phone
+/// is in Bangladesh — a Bangla-speaking member abroad keeps the family's
+/// bKash and the Bangla date (owner, 2 Nov: "ভাষা + দেশ"). Can be switched.
+bool bangladeshPart = true;
+
+/// The Islamic part (prayer times, sehri and iftar, the qibla, the Hijri
+/// date, zakat): on by default where most people are Muslim or the app is in
+/// Bangla; anyone can switch it on or off.
+bool islamicPart = true;
+
+/// Blood requests: Bangladesh's districts and hospitals only, so only while
+/// the phone is in Bangladesh (owner, 2 Nov).
+bool get bloodHere => appCountry == 'BD';
+
+/// Countries where most people are Muslim (the Islamic part's default).
+const muslimMajority = {
+  'BD', 'PK', 'AF', 'ID', 'MY', 'BN', 'MV', 'SA', 'AE', 'QA', 'KW', 'OM', 'BH', 'YE', 'IQ', 'IR', 'JO', 'SY', 'PS',
+  'EG', 'LY', 'TN', 'DZ', 'MA', 'MR', 'SD', 'SO', 'DJ', 'TR', 'AZ', 'KZ', 'UZ', 'TM', 'TJ', 'KG', 'SN', 'GM', 'GN',
+  'ML', 'NE', 'BF', 'SL', 'TD', 'KM', 'XK', 'AL', 'LB',
+};
+
+/// The default of each part, before the member chooses ([choice] '' = auto,
+/// 'on' or 'off').
+bool partOn(String choice, bool auto) => choice == 'on' ? true : (choice == 'off' ? false : auto);
+bool bangladeshAuto({required String country, required bool english}) => country == 'BD' || !english;
+bool islamicAuto({required String country, required bool english}) => !english || muslimMajority.contains(country.toUpperCase());
+
+/// The first day of the week where the app is used: Saturday in Bangladesh
+/// (as always), Sunday in the Gulf and the Americas, Monday elsewhere.
+int get weekStart => _weekStartOf(appCountry);
+int _weekStartOf(String c) {
+  if (const {'BD', 'AF', 'IR', 'EG', 'LY', 'DZ', 'SY', 'IQ', 'JO'}.contains(c)) return DateTime.saturday;
+  if (const {'SA', 'QA', 'KW', 'OM', 'BH', 'YE', 'IL', 'US', 'CA', 'MX', 'BR', 'JP', 'PH', 'TH', 'HK', 'TW', 'ZA', 'KE', 'IN', 'PK', 'NP', 'BT'}.contains(c)) {
+    return DateTime.sunday;
+  }
+  return DateTime.monday;
+}
+
+/// The weekend: Friday and Saturday in Bangladesh and most of the Gulf,
+/// Friday alone in Iran, Saturday and Sunday elsewhere.
+Set<int> get weekendDays {
+  final c = appCountry;
+  if (const {'BD', 'SA', 'QA', 'KW', 'OM', 'BH', 'YE', 'EG', 'JO', 'IQ', 'LY', 'DZ', 'SY', 'SD', 'MV'}.contains(c)) return const {DateTime.friday, DateTime.saturday};
+  if (c == 'IR' || c == 'AF') return const {DateTime.friday};
+  return const {DateTime.saturday, DateTime.sunday};
+}
+
+/// Temperatures in °F (the US and a few others), else °C.
+bool get fahrenheit => const {'US', 'BS', 'BZ', 'KY', 'PW', 'LR', 'FM', 'MH'}.contains(appCountry);
+
+/// A °C reading in the unit of the place, rounded.
+int degrees(double celsius) => (fahrenheit ? celsius * 9 / 5 + 32 : celsius).round();
+
 /// Taka: every text reads exactly as it always has.
 bool get takaMoney => appCurrency.code == 'BDT';
 
@@ -172,18 +226,78 @@ const _spoken = <String, List<String>>{
   'ZAR': ['zar', 'rand', 'র‍্যান্ড'],
 };
 
-/// The member's currency words (lower case), longest first; empty for taka.
-List<String> spokenCurrency() {
-  if (takaMoney) return const [];
-  final w = {...?_spoken[appCurrency.code], appCurrency.code.toLowerCase(), appCurrency.en.toLowerCase(), appCurrency.bn};
+/// Taka said as the second currency: only words that cannot mean the main
+/// money (a member on riyal often calls riyal "টাকা" too).
+const _takaSecond = ['bdt', '৳', 'দেশি টাকা', 'দেশের টাকা', 'বাংলাদেশি টাকা', 'বাংলাদেশের টাকা', 'deshi taka'];
+
+/// The words of the currency [code] (lower case), longest first.
+List<String> currencyWords(String code, {bool second = false}) {
+  if (code == 'BDT') return second ? (List.of(_takaSecond)..sort((a, b) => b.length.compareTo(a.length))) : const [];
+  final c = currencyByCode(code);
+  final w = {...?_spoken[code], code.toLowerCase(), c.en.toLowerCase(), c.bn};
   w.remove('টাকা');
   return w.toList()..sort((a, b) => b.length.compareTo(a.length));
 }
 
+/// The member's currency words (lower case), longest first; empty for taka.
+/// With a second currency, its words too: both are read as amounts (which
+/// one was meant is found by [mentionsSecond]).
+List<String> spokenCurrency() {
+  final w = <String>{if (!takaMoney) ...currencyWords(appCurrency.code), if (secondCurrency case final c?) ...currencyWords(c.code, second: true)};
+  return w.toList()..sort((a, b) => b.length.compareTo(a.length));
+}
+
+/// The second currency (global version: "দুই মুদ্রা, দুই দেশের জীবন") —
+/// its money is kept in its own হিসাব, never added to the main money.
+Currency? secondCurrency;
+
+/// The words said name the second currency ("৫০০ রিয়াল খরচ", "দেশের টাকা ১০ হাজার").
+bool mentionsSecond(String said) {
+  final c = secondCurrency;
+  if (c == null) return false;
+  String fold(String x) => x.toLowerCase().replaceAll('\u09DF', '\u09AF\u09BC').replaceAll('\u09DC', '\u09A1\u09BC');
+  final t = fold(said);
+  for (final w0 in currencyWords(c.code, second: true)) {
+    final w = fold(w0);
+    final at = t.indexOf(w);
+    if (at < 0) continue;
+    // A word, not part of another ("rs" in "hours").
+    final before = at == 0 ? ' ' : t[at - 1];
+    final after = at + w.length >= t.length ? ' ' : t[at + w.length];
+    bool letter(String ch) => RegExp('[a-z]').hasMatch(ch);
+    if (RegExp('[a-z]').hasMatch(w) && (letter(before) || letter(after))) continue;
+    return true;
+  }
+  return false;
+}
+
+final _shown = <Currency>[];
+
+/// A page about the second currency's হিসাব is open: amounts show in that
+/// currency until [endCurrencyView] (the page's own life).
+void startCurrencyView(String code) {
+  _shown.add(appCurrency);
+  appCurrency = currencyByCode(code);
+}
+
+void endCurrencyView() {
+  if (_shown.isNotEmpty) appCurrency = _shown.removeLast();
+}
+
+/// The currency of the main money, even while a second-currency page is open.
+Currency get mainCurrency => _shown.isEmpty ? appCurrency : _shown.first;
+
 /// Sets both at once (tests and the brain).
-void setRegion({String? country, String? currency}) {
+void setRegion({String? country, String? currency, String? second}) {
   if (country != null) appCountry = country.toUpperCase();
-  if (currency != null) appCurrency = currencyByCode(currency);
+  if (currency != null) {
+    if (_shown.isEmpty) {
+      appCurrency = currencyByCode(currency);
+    } else {
+      _shown[0] = currencyByCode(currency);
+    }
+  }
+  if (second != null) secondCurrency = second.isEmpty || second == mainCurrency.code ? null : currencyByCode(second);
 }
 
 final _tkAfterValue = RegExp('(\\{\\d\\}) টাকা(র|\u09DF|\u09AF\u09BC)?(?![\u0980-\u09FF])');

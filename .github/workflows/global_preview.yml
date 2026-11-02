@@ -1,0 +1,85 @@
+name: Global preview
+
+# The global version (branch `global`, owner 2 Nov 2026) as its own test app
+# (app.getmyassistant.global, "My Assistant Global") that installs beside the
+# Play app. Started by a change to tool/global_go.txt (a new workflow runs by
+# hand only from the default branch). Published as a pre-release.
+on:
+  workflow_dispatch:
+  push:
+    paths: ['tool/global_go.txt']
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    name: Global APK
+    runs-on: ubuntu-latest
+    env:
+      MY_ASSISTANT_PREVIEW: '1'
+      MY_ASSISTANT_GLOBAL: '1'
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          # The same Flutter as the tests were run with (reproducible builds).
+          flutter-version: '3.47.7'
+          cache: true
+
+      - name: Create platform folders
+        run: bash tool/setup_platforms.sh
+
+      - run: flutter pub get
+
+      - name: Analyze
+        run: |
+          set -o pipefail
+          flutter analyze --no-fatal-infos 2>&1 | tee analyze.log || { bash tool/annotate_failures.sh analyze.log "Analyze failed"; exit 1; }
+
+      # Every APK given out has passed the tests (owner's review, 27 Oct).
+      - name: Tests
+        run: |
+          set -o pipefail
+          flutter test 2>&1 | tee test.log || { bash tool/annotate_failures.sh test.log "Tests failed"; exit 1; }
+
+      - name: Release signing key
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PW: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -n "$KS" ] && [ -n "$KS_PW" ]; then
+            echo "$KS" | base64 -d > android/app/release.jks
+            printf 'storeFile=release.jks\nstorePassword=%s\nkeyAlias=myassistant\nkeyPassword=%s\n' "$KS_PW" "$KS_PW" > android/key.properties
+            echo "Signing with the permanent release key."
+          else
+            echo "::warning::No release key secret: the APK gets a throwaway key and cannot update an older install."
+          fi
+
+      - name: Build APK
+        run: |
+          set -o pipefail
+          DEFINES="--dart-define=EDITION=play_preview"
+          flutter build apk --release --split-per-abi $DEFINES 2>&1 | tee build.log || { bash tool/annotate_failures.sh build.log "Build failed"; exit 1; }
+
+      - name: Publish pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for a in arm64-v8a:arm64 armeabi-v7a:armv7; do
+            cp "build/app/outputs/flutter-apk/app-${a%%:*}-release.apk" "global-${a##*:}.apk" || { echo "::error title=Publish pre-release::no ${a%%:*} APK: $(ls build/app/outputs/flutter-apk 2>&1 | tr '\n' ' ')"; exit 1; }
+          done
+          VERSION=$(grep '^version:' pubspec.yaml | sed -E 's/version: *([^+]+).*/\1/')
+          TAG="global-${VERSION}-build.${{ github.run_number }}"
+          # A failure says why as an annotation (the run's log may not be readable everywhere).
+          if ! out=$(gh release create "$TAG" global-arm64.apk global-armv7.apk --prerelease --target "$GITHUB_SHA" \
+            --title "Global preview $VERSION (build ${{ github.run_number }})" --notes "গ্লোবাল ভার্সনের পরীক্ষা — Play-র অ্যাপের পাশে আলাদা অ্যাপ হিসেবে ইনস্টল হয়।" 2>&1); then
+            echo "::error title=Publish pre-release::$(echo "$out" | tail -5 | tr '\n' ' ')"
+            exit 1
+          fi
