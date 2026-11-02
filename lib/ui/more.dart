@@ -128,7 +128,7 @@ class _ReportTabState extends State<ReportTab> {
           ]),
           const SizedBox(height: 6),
           SectionHead('গ্রাহকদের তালিকা'),
-          Seg<int>(items: [(0, 'বেশি পাঠান'), (1, 'বেশি নগদ দেন'), (2, period.isAll ? 'বেশি বাকি' : '${period.inWords} বাকি')], value: _top, onChanged: (v) => setState(() => _top = v)),
+          Seg<int>(items: [(0, 'বেশি পাঠান'), (1, 'বেশি নগদ দেন'), (2, period.isAll ? 'বেশি বকেয়া' : '${period.inWords} বকেয়া')], value: _top, onChanged: (v) => setState(() => _top = v)),
           const SizedBox(height: 8),
           ..._topList(h, period),
           const SizedBox(height: 12),
@@ -140,7 +140,7 @@ class _ReportTabState extends State<ReportTab> {
 
   List<Widget> _topList(Hisab h, Period period) {
     final rows = topCustomers(h.d, _top, period.has, h.now, all: period.isAll);
-    if (rows.isEmpty) return [Note(_top == 2 ? 'কারও কাছে বাকি নেই।' : 'এই সময়ে কিছু নেই।')];
+    if (rows.isEmpty) return [Note(_top == 2 ? 'কারও কাছে বকেয়া নেই।' : 'এই সময়ে কিছু নেই।')];
     return [
       CardBox(
         padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -179,7 +179,7 @@ List<(Customer, double, String)> topCustomers(AppData d, int which, bool Functio
         if (!all) {
           // Due that piled up in the period.
           final v = txns.fold<double>(0, (s, t) => s + t.sarDueAtSend);
-          if (v > 0) out.add((c, v, '${bn('${txns.where((t) => t.sarDueAtSend > 0).length}')}টা লেনদেনে · এখন মোট বাকি ${sar(customerDue(d, c.id))}'));
+          if (v > 0) out.add((c, v, '${bn('${txns.where((t) => t.sarDueAtSend > 0).length}')}টা লেনদেনে · এখন মোট বকেয়া ${sar(customerDue(d, c.id))}'));
           continue;
         }
         final due = customerDue(d, c.id);
@@ -348,7 +348,7 @@ class _OthersTabState extends State<OthersTab> {
           ]),
 
           // Customers' dues.
-          ..._section('গ্রাহকের বাকি', [
+          ..._section('গ্রাহকের বকেয়া', [
             tile(Icons.notifications_active_outlined, K.amberTint, K.amberText, 'তাগাদার তালিকা', promises == 0 ? 'কোনো তারিখ দেওয়া নেই' : '${bn('$promises')} জনের তারিখ দেওয়া', () => push(context, PromisesScreen(h: h))),
             tile(Icons.money_off_rounded, K.redTint, K.red, 'লস (আদায় হবে না)', lossOf(d) > 0 ? 'মোট ${sar(lossOf(d))}' : 'নেই', () => push(context, LossScreen(h: h))),
           ]),
@@ -369,18 +369,18 @@ class _OthersTabState extends State<OthersTab> {
                       st.ownerName = v;
                       await h.saveSettings('নাম $old → $v');
                     })),
-              setting(Icons.speed_rounded, 'সাধারণ বাকির সীমা', sar(st.defaultDueLimit), () => _edit('বাকির সীমা (রিয়াল)', groupEn(st.defaultDueLimit).replaceAll(',', ''), (v) async {
+              setting(Icons.speed_rounded, 'সাধারণ বকেয়ার সীমা', sar(st.defaultDueLimit), () => _edit('বকেয়ার সীমা (রিয়াল)', groupEn(st.defaultDueLimit).replaceAll(',', ''), (v) async {
                     final n = parseNum(v);
                     if (n == null) return;
                     final old = st.defaultDueLimit;
                     st.defaultDueLimit = n;
-                    await h.saveSettings('বাকির সীমা ${sar(old)} → ${sar(n)}');
+                    await h.saveSettings('বকেয়ার সীমা ${sar(old)} → ${sar(n)}');
                   }, number: true)),
-              setting(Icons.schedule_rounded, 'পুরনো বাকি ধরা হবে', '${bn('${st.oldDueDays}')} দিন পর', () => _edit('কত দিন পর পুরনো বাকি?', '${st.oldDueDays}', (v) async {
+              setting(Icons.schedule_rounded, 'পুরনো বকেয়া ধরা হবে', '${bn('${st.oldDueDays}')} দিন পর', () => _edit('কত দিন পর পুরনো বকেয়া?', '${st.oldDueDays}', (v) async {
                     final n = parseNum(v);
                     if (n == null || n < 1) return;
                     st.oldDueDays = n.round();
-                    await h.saveSettings('পুরনো বাকি ${bn('${n.round()}')} দিন');
+                    await h.saveSettings('পুরনো বকেয়া ${bn('${n.round()}')} দিন');
                   }, number: true)),
               setting(Icons.copy_all_rounded, 'একই লেনদেন দুইবারের সতর্কতা', '${bn('${st.dupMinutes}')} মিনিটের মধ্যে', () => _edit('কত মিনিটের মধ্যে?', '${st.dupMinutes}', (v) async {
                     final n = parseNum(v);
@@ -485,7 +485,7 @@ class PromisesScreen extends StatelessWidget {
         return Screen(
           title: 'তাগাদার তালিকা',
           body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 24), children: [
-            if (list.isEmpty) const Note('কোনো গ্রাহকের বাকি ফেরতের তারিখ দেওয়া নেই। গ্রাহকের পাতায় "তারিখ দিন" চাপুন।'),
+            if (list.isEmpty) const Note('কোনো গ্রাহকের বকেয়া ফেরতের তারিখ দেওয়া নেই। গ্রাহকের পাতায় "তারিখ দিন" চাপুন।'),
             if (list.isNotEmpty)
               CardBox(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -531,7 +531,7 @@ class LossScreen extends StatelessWidget {
               ]),
             ),
             const SizedBox(height: 10),
-            const Note('গ্রাহক টাকা না দিয়ে চলে গেলে তাঁর পাতায় "আদায় হবে না (লস)" চাপুন। বাকি থেকে বাদ যাবে, এখানে আর রিপোর্টে লস হিসেবে থাকবে।'),
+            const Note('গ্রাহক টাকা না দিয়ে চলে গেলে তাঁর পাতায় "আদায় হবে না (লস)" চাপুন। বকেয়া থেকে বাদ যাবে, এখানে আর রিপোর্টে লস হিসেবে থাকবে।'),
             const SizedBox(height: 10),
             if (list.isNotEmpty)
               CardBox(
@@ -964,7 +964,7 @@ class _TemplateEditState extends State<TemplateEdit> {
           'TrxID' => 'BK7X2Q9',
           'পিন' => '167',
           'রিয়াল' => '300.00',
-          'বাকি' => '150.00 রিয়াল',
+          'বকেয়া' => '150.00 রিয়াল',
           'স্বাক্ষর' => widget.h.d.settings.ownerName,
           _ => f,
         },
@@ -1113,22 +1113,22 @@ class CustomerSettingsScreen extends StatelessWidget {
           title: 'গ্রাহকের সেটিংস',
           body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 24), children: [
             if (!can) const Note('এই সেটিংস বদলানোর অনুমতি আপনার নেই, শুধু দেখতে পারবেন।'),
-            SectionHead('বাকি'),
+            SectionHead('বকেয়া'),
             CardBox(
               padding: const EdgeInsets.symmetric(horizontal: 14),
               child: Column(children: [
-                row(Icons.speed_rounded, 'সাধারণ বাকির সীমা', '${sar(st.defaultDueLimit)} · যাদের আলাদা সীমা দেওয়া নেই', !can
+                row(Icons.speed_rounded, 'সাধারণ বকেয়ার সীমা', '${sar(st.defaultDueLimit)} · যাদের আলাদা সীমা দেওয়া নেই', !can
                     ? null
-                    : () => editSetting(context, h, 'বাকির সীমা (রিয়াল)', groupEn(st.defaultDueLimit).replaceAll(',', ''), (n) async {
+                    : () => editSetting(context, h, 'বকেয়ার সীমা (রিয়াল)', groupEn(st.defaultDueLimit).replaceAll(',', ''), (n) async {
                           final old = st.defaultDueLimit;
                           st.defaultDueLimit = n;
-                          await h.saveSettings('বাকির সীমা ${sar(old)} → ${sar(n)}');
+                          await h.saveSettings('বকেয়ার সীমা ${sar(old)} → ${sar(n)}');
                         })),
-                row(Icons.schedule_rounded, 'পুরনো বাকি ধরা হবে', '${bn('${st.oldDueDays}')} দিন পর', !can
+                row(Icons.schedule_rounded, 'পুরনো বকেয়া ধরা হবে', '${bn('${st.oldDueDays}')} দিন পর', !can
                     ? null
-                    : () => editSetting(context, h, 'কত দিন পর পুরনো বাকি?', '${st.oldDueDays}', (n) async {
+                    : () => editSetting(context, h, 'কত দিন পর পুরনো বকেয়া?', '${st.oldDueDays}', (n) async {
                           st.oldDueDays = n.round();
-                          await h.saveSettings('পুরনো বাকি ${bn('${n.round()}')} দিন');
+                          await h.saveSettings('পুরনো বকেয়া ${bn('${n.round()}')} দিন');
                         }), last: true),
               ]),
             ),

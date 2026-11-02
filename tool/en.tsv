@@ -33,7 +33,7 @@
 থেকে	from
 বন্ধ	Off
 বসান	Set
-বাকি	Due
+বকেয়া	Due
 যেমন	e.g.
 রকেট	Rocket
 রসিদ	Receipt
@@ -59,7 +59,7 @@
 পেছনে	Back
 প্যাক	Pack
 বদলান	Change
-বাকির	Due
+বকেয়ার	Due
 বাড়ি	Home
 বাতিল	Cancelled
 বিকাশ	bKash
@@ -96,7 +96,7 @@
 পরিশোধ	Paid
 পাঠানো	Sent
 প্রাপক	Recipient
-বাকিতে	On credit
+বকেয়ায়	On credit
 ব্যাংক	Bank
 মাধ্যম	Method
 মিলছে…	Matching…
@@ -145,7 +145,7 @@
 আগের খরচ	Earlier expenses
 আগের দিন	Previous day
 আমার ভুল	My mistake
-এখন বাকি	Due now
+এখন বকেয়া	Due now
 এখন হাতে	In hand now
 এজেন্টকে	To agent
 এজেন্টের	Agent's
@@ -166,11 +166,11 @@
 পার্থক্য	Difference
 প্রোফাইল	Profile
 ফোন করুন	Call
-বাকি ছিল	was due
-বাকি নেই	No due
+বকেয়া ছিল	was due
+বকেয়া নেই	No due
 বেশি আছে	extra
 মোট টাকা	Total taka
-মোট বাকি	Total due
+মোট বকেয়া	Total due
 যাতায়াত	Transport
 রেট (অটো	Rate (auto
 সংরক্ষিত	Saved
@@ -178,7 +178,7 @@
 স্বাক্ষর	Signature
 হাতে নগদ	Cash in hand
 PDF হিসাব	PDF account
-আগের বাকি	Earlier due
+আগের বকেয়া	Earlier due
 আপনার নাম	Your name
 আরও পাবেন	will get more
 কত রিয়াল	How many riyal
@@ -204,10 +204,10 @@ PDF হিসাব	PDF account
 নিরাপত্তা	Security
 পাঠিয়েছি	I have sent
 পিন বদলান	Change PIN
-পুরো বাকি	Full due
+পুরো বকেয়া	Full due
 বাংলালিংক	Banglalink
 বিস্তারিত	Details
-বেশি বাকি	Most due
+বেশি বকেয়া	Most due
 ভুল নম্বর	Wrong number
 মূল এডমিন	Main admin
 মূল হিসাব	Main account
@@ -244,7 +244,7 @@ PDF বানানো	PDF made
 পাঠাতে হবে	To send
 পাসওয়ার্ড	Password
 ফাইল বাছুন	Choose file
-বাকির সীমা	Due limit
+বকেয়ার সীমা	Due limit
 বাতিল করুন	Cancel
 বুঝে নিলাম	Received
 বেশি পাঠান	Send most
@@ -258,7 +258,7 @@ PDF বানানো	PDF made
 TrxID লিখুন	Enter TrxID
 আজকের হিসাব	Today's account
 এ মনে করাবে	will remind on
-এখনকার বাকি	Current due
+এখনকার বকেয়া	Current due
 এর হাত থেকে	from the hands of
 কার মাধ্যমে	Through whom
 খরচ কত টাকা	Fee in taka
@@ -288,7 +288,7 @@ TrxID লিখুন	Enter TrxID
 TrxID (থাকলে	TrxID (if any
 আগের দিনগুলো	Earlier days
 আদায় হবে না	Won't be recovered
-এখন মোট বাকি	Total due now
+এখন মোট বকেয়া	Total due now
 এখনো ঢোকেননি	Not logged in yet
 এজেন্টের নাম	Agent's name
 এজেন্টের ভুল	Agent's mistake
@@ -323,16 +323,16 @@ TrxID (থাকলে	TrxID (if any
 এজেন্টের তথ্য	Agent details
 এজেন্টের লগইন	Agent login
 এডমিনদের হাতে	in admins' hands
-এরপর মোট বাকি	Total due after
+এরপর মোট বকেয়া	Total due after
 কখন মনে করাবে	When to remind
 কত টাকা দিলেন	How much taka paid
 কার কাছে যাবে	Who receives
-কারও বাকি নেই	No one owes
+কারও বকেয়া নেই	No one owes
 কে বুঝে নিলেন	Received by
 গুনে কত পেলেন	Counted amount
 গ্যালারি থেকে	From gallery
 গ্রাহককে রসিদ	Receipt to customer
-গ্রাহকের বাকি	Customer dues
+গ্রাহকের বকেয়া	Customer dues
 টাকা মিলছে না	Taka doesn't match
 দিলেন (রিয়াল	paid (riyal
 দেখতে এমন হবে	It will look like
@@ -410,7 +410,7 @@ TrxID যুক্ত করুন	Add TrxID
 দুইবার একই হয়নি	The two don't match
 নম্বর কপি হয়েছে	Number copied
 পাসওয়ার্ড বদলান	Change password
-বাকি দেওয়ার কথা	Promised to pay
+বকেয়া দেওয়ার কথা	Promised to pay
 মেসেজের টেমপ্লেট	Message templates
 মোট পাঠানো (টাকা	Total sent (taka
 যাদের কাছে পাঠান	Recipients
@@ -434,14 +434,14 @@ PDF বানানো যায়নি	Could not make PDF
 নং / সময় / এডমিন	No. / time / admin
 পাঠানোর অপেক্ষায়	Waiting to be sent
 পাসওয়ার্ড বদলেছে	Password changed
-বাকি ফেরতের তারিখ	Due payback date
+বকেয়া ফেরতের তারিখ	Due payback date
 ব্যাংক/ট্রান্সফার	Bank/transfer
 ভুল নম্বরে যাওয়া	Sent to wrong number
 ভুলের চিহ্ন বদলান	Change the mistake mark
 রিয়াল জমা নেওয়া	Riyal deposit taken
 রিয়াল হাতে পেলাম	Riyal received in hand
 লস — আদায় হবে না	Loss — won't be recovered
-সাধারণ বাকির সীমা	Default due limit
+সাধারণ বকেয়ার সীমা	Default due limit
 সাম্প্রতিক লেনদেন	Recent transactions
 হ্যাঁ, বুঝে নিলাম	Yes, received
 অনুরোধ কীভাবে যাবে	How requests go
@@ -451,12 +451,12 @@ PDF বানানো যায়নি	Could not make PDF
 এজেন্টের হিসাব PDF	Agent account PDF
 কখন কী হয়েছে, PDF	What happened when, PDF
 কার মাধ্যমে এসেছেন	Who referred them
-কারও কাছে বাকি নেই	No one owes anything
+কারও কাছে বকেয়া নেই	No one owes anything
 কালেকশন বুঝে নিলাম	Took over collection
 কালেকশন বুঝে নিলেন	Took over collection
 কিছু পাওয়া যায়নি	Nothing found
-পুরনো বাকি ধরা হবে	Old due after
-বাকির সীমা (রিয়াল	Due limit (riyal
+পুরনো বকেয়া ধরা হবে	Old due after
+বকেয়ার সীমা (রিয়াল	Due limit (riyal
 ব্যাকআপ ফাইল বানান	Make backup file
 মোট পাঠানো (রিয়াল	Total sent (riyal
 রেমিট খাতা	Remit Khata
@@ -479,7 +479,7 @@ PDF বানানো যায়নি	Could not make PDF
 তাঁর হাতে থাকা উচিত	Should be in their hand
 নাম বা মোবাইল নম্বর	Name or mobile number
 প্রিন্ট খোলা যায়নি	Could not open print
-বাকির তাগাদা পাঠানো	Due reminder sent
+বকেয়ার তাগাদা পাঠানো	Due reminder sent
 ব্যাংক / ট্রান্সফার	Bank / transfer
 যে লেনদেনগুলোর টাকা	Transactions paid for
 রিয়াল কীভাবে পেলেন	How riyal was received
@@ -493,7 +493,7 @@ PDF বানানো যায়নি	Could not make PDF
 এজেন্টের কাছে অগ্রিম	Advance with agent
 এজেন্টের যোগাযোগ বদল	Agent contact changed
 এডমিনদের হাতের হিসাব	Admins' cash in hand
-কত দিন পর পুরনো বাকি	Old due after how many days
+কত দিন পর পুরনো বকেয়া	Old due after how many days
 নতুন গ্রাহক প্রোফাইল	New customer profile
 নতুন ফোনে বা ভুল হলে	On a new phone or after a mistake
 ব্যাকআপ নেওয়া দরকার	Backup needed
@@ -501,7 +501,7 @@ PDF বানানো যায়নি	Could not make PDF
 ভুলের চিহ্ন তুলে দিন	Remove the mistake mark
 মাসে কত রিয়াল পাঠান	Riyal sent per month
 মেসেজের টেমপ্লেট বদল	Message template changed
-যাদের বাকি বেশি (এখন	Most due (now
+যাদের বকেয়া বেশি (এখন	Most due (now
 যেমন বেতন পেলে দেবেন	e.g. will pay on payday
 রিমাইন্ডার বন্ধ করুন	Turn off reminder
 হিসাব খুলতে আঙুল দিন	Touch to open the ledger
@@ -510,13 +510,13 @@ PDF বানানো যায়নি	Could not make PDF
 এডমিন ও এজেন্টের লগইন	Admin and agent logins
 এর কাছ থেকে কত রিয়াল	how many riyal from
 এর হোয়াটসঅ্যাপ নম্বর	's WhatsApp number
-কবে বাকি দেবেন বলেছেন	When they said they'd pay
+কবে বকেয়া দেবেন বলেছেন	When they said they'd pay
 কী হয়েছিল (ইচ্ছা হলে	What happened (optional
 কোনো তারিখ দেওয়া নেই	No date set
 খরচ ও দিন শেষের হিসাব	Expenses and day-end count
 গ্রাহককে হিসাব পাঠানো	Account sent to customer
 গ্রাহকের প্রোফাইল বদল	Customer profile changed
-বাকি কবে দেবেন বলেছেন	When they said they'd pay
+বকেয়া কবে দেবেন বলেছেন	When they said they'd pay
 লেনদেন সংশোধন ও বাতিল	Correct and cancel transactions
 সার্ভারের সাথে মিলেছে	Synced with server
 হিসাবে হাতে থাকার কথা	Should be in hand per account
@@ -526,8 +526,8 @@ PDF বানানো যায়নি	Could not make PDF
 এখনো কিছু দেওয়া হয়নি	Nothing paid yet
 এজেন্টকে বাতিলের মেসেজ	Cancel message to agent
 এর কাছ থেকে বুঝে নিলাম	Received from
-পুরনো বাকি আগে শোধ হবে	Older dues are paid first
-বাকি দেওয়ার দিন এসেছে	Payback day has come
+পুরনো বকেয়া আগে শোধ হবে	Older dues are paid first
+বকেয়া দেওয়ার দিন এসেছে	Payback day has come
 যে গ্রাহকরা বেশি পাঠান	Customers who send most
 রিপোর্ট, লগ ও PDF দেখা	See reports, log and PDFs
 রেট (১ রিয়াল = ? টাকা	Rate (1 riyal = ? taka
@@ -566,7 +566,7 @@ PDF বানানো যায়নি	Could not make PDF
 নতুন পাসওয়ার্ড (৬+ অক্ষর	New password (6+ characters
 নাম বা নম্বর দিয়ে খুঁজুন	Search by name or number
 পাসওয়ার্ড (অন্তত ৬ অক্ষর	Password (at least 6 characters
-বাকির সীমা (খালি = সাধারণ	Due limit (empty = default
+বকেয়ার সীমা (খালি = সাধারণ	Due limit (empty = default
 ব্যাকআপ থেকে ফিরিয়ে আনুন	Restore from backup
 ভুল নম্বরে গেছে — কার ভুল	Went to wrong number — whose mistake
 যেগুলোর টাকা দেওয়া হয়নি	Not paid yet
@@ -626,7 +626,7 @@ PDF বানানোর অনুমতি আপনার নেই	You don't
 ব্যাকআপ ফাইল বানান বা ফিরিয়ে আনুন	Make a backup file or restore one
 রেমিট খাতা · সংস্করণ ১.২.০	Remit Khata · version 1.2.0
 আবার ঢুকতে লগইন আর পাসওয়ার্ড লাগবে	Login and password needed to come back
-পিন, আঙুলের ছাপ, এজেন্ট, বাকির সীমা	PIN, fingerprint, agents, due limit
+পিন, আঙুলের ছাপ, এজেন্ট, বকেয়ার সীমা	PIN, fingerprint, agents, due limit
 এজেন্টকে "এটা পাঠাবেন না" মেসেজ যাবে	The agent gets a "don't send this" message
 কোন নম্বর/অ্যাকাউন্ট থেকে (ইচ্ছা হলে	From which number/account (optional
 নতুন করে শুরু (পুরনো ফাইল আলাদা রেখে	Start fresh (keep old file aside
@@ -672,7 +672,7 @@ PDF বানানোর অনুমতি আপনার নেই	You don't
 নামে বা নম্বরে কেউ নেই। ওপরে চাপ দিয়ে প্রোফাইল বানান	No one by that name or number. Tap above to make a profile
 যে নম্বর থেকে পাঠালেন তার শেষ ৩ সংখ্যা দিন (অথবা TrxID	Enter last 3 digits of the sending number (or TrxID
 কোনো লেনদেনের সাথে নিশ্চিত মিলছে না। নিজে দেখে বেছে নিন	Doesn't surely match any transaction. Choose yourself
-সীমার বেশি বাকি হয়ে যাচ্ছে। ঠিক থাকলে তবুও পাঠাতে পারেন	Due goes over the limit. If fine, you can still send
+সীমার বেশি বকেয়া হয়ে যাচ্ছে। ঠিক থাকলে তবুও পাঠাতে পারেন	Due goes over the limit. If fine, you can still send
 সৌদি মোবাইল নম্বর ঠিক নেই — 05 দিয়ে শুরু, মোট ১০ সংখ্যা	Saudi mobile number is wrong — starts with 05, 10 digits
 এখন পাঠানোর মতো কিছু নেই। নতুন অনুরোধ এলে নোটিফিকেশন আসবে	Nothing to send now. You'll be notified of new requests
 এজেন্টের রিপ্লাই (যেমন 1042 10000-667) কপি করে অ্যাপে ফিরুন	Copy the agent's reply (e.g. 1042 10000-667) and come back
@@ -688,11 +688,11 @@ PDF বানানোর অনুমতি আপনার নেই	You don't
 মেসেজ হোয়াটসঅ্যাপে লেখা আছে — সেখানে Send চাপুন। এজেন্ট রিপ্লাই দিলে (যেমন	The message is written in WhatsApp — tap Send there. When the agent replies (e.g.
 এখনো কোনো এজেন্ট যোগ করা হয়নি। মূল এডমিন এজেন্ট যোগ করলে এখানে কাজ শুরু হবে	No agent yet. Work starts here once the main admin adds one
 পুরনো ফাইল মুছবে না, আলাদা রাখা থাকবে। কিন্তু অ্যাপে আগের হিসাব দেখা যাবে না	The old file isn't deleted, it's kept aside. But the app won't show the old account
-কোনো গ্রাহকের বাকি ফেরতের তারিখ দেওয়া নেই। গ্রাহকের পাতায় "তারিখ দিন" চাপুন	No customer has a payback date. Tap "Set date" on a customer's page
+কোনো গ্রাহকের বকেয়া ফেরতের তারিখ দেওয়া নেই। গ্রাহকের পাতায় "তারিখ দিন" চাপুন	No customer has a payback date. Tap "Set date" on a customer's page
 ফোনের নিরাপদ চাবি হারিয়ে গেছে। ব্যাকআপ ফাইল থাকলে সেটা দিয়ে সব ফিরিয়ে আনুন	The phone's secure key is lost. Restore everything from a backup file if you have one
-বাকি তথ্য (বাড়ি, বেতনের তারিখ, বাকির সীমা) পরে গ্রাহকের পাতা থেকে যোগ করা যাবে	Other details (home, payday, due limit) can be added later on the customer's page
+বাকি তথ্য (বাড়ি, বেতনের তারিখ, বকেয়ার সীমা) পরে গ্রাহকের পাতা থেকে যোগ করা যাবে	Other details (home, payday, due limit) can be added later on the customer's page
 ইন্টারনেট নেই — নতুন লেনদেনের নম্বর পাওয়া যায়নি। ইন্টারনেট চালু করে আবার চাপুন	No internet — couldn't get a new transaction number. Turn on the internet and tap again
-বাকি থেকে বাদ যাবে আর রিপোর্টে "লস" হিসেবে দেখাবে। হাতের রিয়ালে কিছু যোগ হবে না	It's removed from the due and shown as "loss" in reports. Nothing is added to riyal in hand
+বকেয়া থেকে বাদ যাবে আর রিপোর্টে "লস" হিসেবে দেখাবে। হাতের রিয়ালে কিছু যোগ হবে না	It's removed from the due and shown as "loss" in reports. Nothing is added to riyal in hand
 প্রতিটা অনুরোধ এজেন্টের হোয়াটসঅ্যাপ চ্যাটে লেখা অবস্থায় খুলবে, আপনি Send চাপবেন	Each request opens written in the agent's WhatsApp chat; you tap Send
 এই তথ্য পরে সেটিংস থেকে বদলানো যাবে। এজেন্টের নম্বরে প্রতিটা লেনদেনের মেসেজ একই চ্যাটে যাবে	You can change this later in Settings. Every transaction message goes to the agent's same chat
 এজেন্ট পাঠিয়ে দিয়েছেন, তাই এই লেনদেন বাতিল করা যায় না। ভুল নম্বরে গেলে ওপরের বোতামে চিহ্ন দিন	The agent has sent it, so it can't be cancelled. If it went to a wrong number, mark it above
@@ -701,7 +701,7 @@ PDF বানানোর অনুমতি আপনার নেই	You don't
 সার্ভারের পাতা থেকেও পুরো ব্যাকআপ নামানো যায়, আর চালু থাকলে প্রতিদিন গুগল ড্রাইভে নিজে থেকে ব্যাকআপ যায়	A full backup can also be downloaded from the server page, and if on, a backup goes to Google Drive every day
 এজেন্ট এটা পাঠিয়ে দিয়েছেন, তাই টাকা, নম্বর আর খরচ বদলানো যাবে না। রিয়াল বা রেট বদলালে অন্যটা মিলিয়ে নেবে	The agent has sent this, so taka, number and fee can't change. Changing riyal or rate adjusts the other
 এজেন্টের রিপ্লাই "লেনদেন নং টাকা-শেষ ৩ সংখ্যা" ধরনেই অ্যাপ নিজে পড়ে নেয়। নিয়মের লেখা বদলালেও এই ধরনটা রাখুন	The app reads the agent's reply in the form "txn no. taka-last 3 digits". Keep that form even if you change the wording
-গ্রাহক টাকা না দিয়ে চলে গেলে তাঁর পাতায় "আদায় হবে না (লস)" চাপুন। বাকি থেকে বাদ যাবে, এখানে আর রিপোর্টে লস হিসেবে থাকবে	If a customer leaves without paying, tap "Won't be recovered (loss)" on their page. It leaves the due and shows as loss here and in reports
+গ্রাহক টাকা না দিয়ে চলে গেলে তাঁর পাতায় "আদায় হবে না (লস)" চাপুন। বকেয়া থেকে বাদ যাবে, এখানে আর রিপোর্টে লস হিসেবে থাকবে	If a customer leaves without paying, tap "Won't be recovered (loss)" on their page. It leaves the due and shows as loss here and in reports
 এজেন্ট নিজের লগইনে এই অ্যাপ ব্যবহার করবেন। প্রতিটা অনুরোধ, সংশোধন, বাতিল আর টাকা দেওয়ার নোটিফিকেশন তাঁর ফোনে যাবে। লগইন বানাতে: অন্যান্য → লগইন ও অনুমতি	The agent uses this app with their own login. Every request, correction, cancel and payment is notified on their phone. To make a login: More → Logins & permissions
 টা
 বার	 times
@@ -718,7 +718,7 @@ PDF বানানোর অনুমতি আপনার নেই	You don't
 গড় রেট	average rate
 জনের কাছে	people owe
 জনের তারিখ দেওয়া	people have a date
-বাকি দাঁড়াল	due now
+বকেয়া দাঁড়াল	due now
 তৈরি	made
 পাঠিয়েছেন	sent
 নিশ্চিত করলেন	confirmed
@@ -806,11 +806,11 @@ PDF বানানোর অনুমতি আপনার নেই	You don't
 আলাদা করে রাখুন	Keep apart
 কী ভুল হয়েছিল লিখুন	Write what went wrong
 পাঠানো লেনদেন বদলায় না। যা ভুল হয়েছে তা এখানে লিখুন — এটা আলাদা থাকবে, মূল হিসাবে ধরা হবে না। পরে লেনদেনের পাতায় "মূল হিসাবে যোগ করুন" চাপলে তবেই হিসাবে ঢুকবে।	A sent transaction doesn't change. Write the mistake here — it stays apart and isn't counted. It enters the accounts only when you tap "Add to the main account" on the transaction.
-গ্রাহকের বাকি (রিয়াল)	Customer's due (riyal)
+গ্রাহকের বকেয়া (রিয়াল)	Customer's due (riyal)
 হাতের রিয়াল	Riyal in hand
 এজেন্টের পাওনা (টাকা)	Owed to agent (taka)
-বাকি বাড়বে	Due up
-বাকি কমবে	Due down
+বকেয়া বাড়বে	Due up
+বকেয়া কমবে	Due down
 হাতে বেশি	More in hand
 হাতে কম	Less in hand
 পাওনা বাড়বে	Owed up
@@ -829,9 +829,9 @@ PDF বানানোর অনুমতি আপনার নেই	You don't
 গ্রাহকের তালিকায় যাবে না। শুধু এই লেনদেনে নাম-নম্বর থাকবে।	Not added to customers. The name and number stay on this transaction only.
 নাম (ইচ্ছা হলে)	Name (optional)
 সৌদি মোবাইল (ইচ্ছা হলে, রসিদ পাঠাতে)	Saudi mobile (optional, for the receipt)
-প্রোফাইল ছাড়া পাঠানো: পুরো রিয়াল নগদে নিতে হবে, বাকি রাখা যায় না।	Without a profile: take the full riyal in cash, no due.
+প্রোফাইল ছাড়া পাঠানো: পুরো রিয়াল নগদে নিতে হবে, বকেয়া রাখা যায় না।	Without a profile: take the full riyal in cash, no due.
 প্রোফাইল ছাড়া	No profile
-বাকি পড়েছে	due added
+বকেয়া পড়েছে	due added
 শেষে হাতে ছিল	in hand at the end
 এখন হাতে আছে	in hand now
 এ মাসে	This month
@@ -867,3 +867,6 @@ PDF বানানোর অনুমতি আপনার নেই	You don't
 আমার লেনদেন	My transactions
 হাতে	in hand
 ডিলিট	Delete
+আজ বকেয়ায় দেওয়া	Given on credit today
+বকেয়ায় দিয়েছেন	given on credit
+বকেয়া দেননি	nothing on credit

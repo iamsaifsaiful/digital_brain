@@ -301,17 +301,17 @@ void main() {
       expect(h2.d.log.length, h.d.log.length);
     });
 
-    test('receipt: no "বাকি নেই" line, পিন from the agent or as typed', () {
+    test('receipt: no "বকেয়া নেই" line, পিন from the agent or as typed', () {
       final d = AppData(customers: [Customer(id: 'c1', name: 'করিম', phone: '0551234567', created: DateTime(2026))]);
       final t = Txn.fromJson({...draft(pay: Pay.cash, sarPaid: 500).toJson(), 'no': 26110001, 'status': 'sent', 'replyTail': '667'});
       d.txns.add(t);
       final m = customerReceipt(d, t);
-      expect(m, isNot(contains('বাকি')));
+      expect(m, isNot(contains('বকেয়া')));
       expect(m, contains('পিন: 667'));
       expect(customerReceipt(d, t, pin: '1667'), contains('পিন: 1667'));
       expect(customerReceipt(d, t, pin: ''), isNot(contains('পিন')));
       d.txns.add(Txn.fromJson({...draft(sarAmount: 100).toJson(), 'id': 't2', 'no': 26110002}));
-      expect(customerReceipt(d, t), contains('আপনার মোট বাকি: 100 রিয়াল'));
+      expect(customerReceipt(d, t), contains('আপনার মোট বকেয়া: 100 রিয়াল'));
     });
 
     test('a sent send is never edited; অতিরিক্ত হিসাব counts only once added', () async {
@@ -327,7 +327,7 @@ void main() {
       expect((customerDue(h.d, c.id), h.myCash, agentOwed(h.d, t.agentId)), (due, cash, owed));
       await h.applyAdjust(x);
       expect((customerDue(h.d, c.id), h.myCash, agentOwed(h.d, t.agentId)), (due + 50, cash - 20, owed + 650));
-      expect(adjustText(x), 'গ্রাহকের বাকি +৫০ SAR · হাতে −২০ SAR · এজেন্টের পাওনা +৳ ৬৫০');
+      expect(adjustText(x), 'গ্রাহকের বকেয়া +৫০ SAR · হাতে −২০ SAR · এজেন্টের পাওনা +৳ ৬৫০');
     });
 
     test('a change of amount before sending must be told to a WhatsApp agent', () async {
@@ -416,7 +416,7 @@ void main() {
       expect(customerDue(h.d, c.id), 0);
       // Nothing owed any more: the reminder is taken off.
       expect(rem.scheduled, isEmpty);
-      expect(h.d.log.map((e) => e.title), containsAll(['বাকি ফেরতের তারিখ', 'এজেন্ট পাঠিয়েছেন · #২৬১১০০০১', 'ভুল নম্বরে গেছে · #২৬১১০০০১', 'লস ধরা হলো (আদায় হবে না)']));
+      expect(h.d.log.map((e) => e.title), containsAll(['বকেয়া ফেরতের তারিখ', 'এজেন্ট পাঠিয়েছেন · #২৬১১০০০১', 'ভুল নম্বরে গেছে · #২৬১১০০০১', 'লস ধরা হলো (আদায় হবে না)']));
     });
 
     test('a backup made by the server (Drive / download) opens in the app', () async {

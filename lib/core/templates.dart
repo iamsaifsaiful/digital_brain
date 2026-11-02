@@ -67,26 +67,26 @@ const msgTemplates = <MsgTemplate>[
     ('TrxID', 'TrxID (না থাকলে খালি)'),
     ('পিন', 'যে নম্বর থেকে গেছে তার শেষ কয়েক সংখ্যা (না দিলে খালি)'),
     ('রিয়াল', 'রিয়াল, নগদ দিলে "(পরিশোধ)" সহ'),
-    ('বাকি', 'গ্রাহকের মোট বাকি (বাকি না থাকলে খালি)'),
+    ('বকেয়া', 'গ্রাহকের মোট বকেয়া (বকেয়া না থাকলে খালি)'),
     ('স্বাক্ষর', 'মালিকের নাম'),
-  ], 'আসসালামু আলাইকুম {নাম},\n{খবর}\nপ্রাপক: {প্রাপক} ({মাধ্যম})\nপ্যাক: {প্যাক}\nটাকা: {টাকা}\nTrxID: {TrxID}\nপিন: {পিন}\nরিয়াল: {রিয়াল}\nআপনার মোট বাকি: {বাকি}\n— {স্বাক্ষর}'),
+  ], 'আসসালামু আলাইকুম {নাম},\n{খবর}\nপ্রাপক: {প্রাপক} ({মাধ্যম})\nপ্যাক: {প্যাক}\nটাকা: {টাকা}\nTrxID: {TrxID}\nপিন: {পিন}\nরিয়াল: {রিয়াল}\nআপনার মোট বকেয়া: {বকেয়া}\n— {স্বাক্ষর}'),
   MsgTemplate('cust_deposit', 'customer', 'রিয়াল জমার রসিদ', [
     ('নাম', 'গ্রাহকের নাম'),
     ('রিয়াল', 'যত রিয়াল জমা'),
-    ('বাকি', 'এখন বাকি (বাকি না থাকলে খালি)'),
+    ('বকেয়া', 'এখন বকেয়া (বকেয়া না থাকলে খালি)'),
     ('স্বাক্ষর', 'মালিকের নাম'),
-  ], 'আসসালামু আলাইকুম {নাম},\n{রিয়াল} রিয়াল জমা পেয়েছি, ধন্যবাদ।\nএখন বাকি: {বাকি}\n— {স্বাক্ষর}'),
-  MsgTemplate('cust_due', 'customer', 'বাকির তাগাদা', [
+  ], 'আসসালামু আলাইকুম {নাম},\n{রিয়াল} রিয়াল জমা পেয়েছি, ধন্যবাদ।\nএখন বকেয়া: {বকেয়া}\n— {স্বাক্ষর}'),
+  MsgTemplate('cust_due', 'customer', 'বকেয়ার তাগাদা', [
     ('নাম', 'গ্রাহকের নাম'),
-    ('বাকি', 'বাকি রিয়াল'),
+    ('বকেয়া', 'বকেয়া রিয়াল'),
     ('স্বাক্ষর', 'মালিকের নাম'),
-  ], 'আসসালামু আলাইকুম {নাম},\nআপনার কাছে {বাকি} রিয়াল বাকি আছে। সুবিধামতো দিয়ে দিলে উপকার হয়।\nধন্যবাদ।\n— {স্বাক্ষর}'),
+  ], 'আসসালামু আলাইকুম {নাম},\nআপনার কাছে {বকেয়া} রিয়াল বকেয়া আছে। সুবিধামতো দিয়ে দিলে উপকার হয়।\nধন্যবাদ।\n— {স্বাক্ষর}'),
   MsgTemplate('cust_statement', 'customer', 'গ্রাহকের পুরো হিসাব', [
     ('নাম', 'গ্রাহকের নাম'),
     ('তালিকা', 'সব লেনদেন ও জমা, এক লাইনে একটা'),
-    ('বাকি', 'মোট বাকি (বাকি না থাকলে খালি)'),
+    ('বকেয়া', 'মোট বকেয়া (বকেয়া না থাকলে খালি)'),
     ('স্বাক্ষর', 'মালিকের নাম'),
-  ], '{নাম} — হিসাব\n{তালিকা}\nমোট বাকি: {বাকি}\n— {স্বাক্ষর}'),
+  ], '{নাম} — হিসাব\n{তালিকা}\nমোট বকেয়া: {বকেয়া}\n— {স্বাক্ষর}'),
 ];
 
 MsgTemplate templateOf(String key) => msgTemplates.firstWhere((t) => t.key == key);
@@ -95,7 +95,10 @@ final _field = RegExp(r'\{([^{}\n]+)\}');
 
 /// Fills [text] with [values]. Unknown fields are left as typed; a line
 /// whose known fields are all empty is dropped.
-String fillTemplate(String text, Map<String, String> values) {
+String fillTemplate(String text, Map<String, String> given) {
+  // {বাকি} from wording saved before the word became বকেয়া still works.
+  final values = {...given};
+  if (values.containsKey('বকেয়া')) values.putIfAbsent('বাকি', () => values['বকেয়া']!);
   final out = <String>[];
   for (final line in text.split('\n')) {
     final found = _field.allMatches(line).map((m) => m[1]!).where(values.containsKey).toList();
@@ -107,6 +110,6 @@ String fillTemplate(String text, Map<String, String> values) {
 
 /// Fields used in [text] that the template does not know.
 List<String> unknownFields(MsgTemplate t, String text) {
-  final known = {for (final f in t.fields) f.$1};
+  final known = {for (final f in t.fields) f.$1, if (t.fields.any((f) => f.$1 == 'বকেয়া')) 'বাকি'};
   return {for (final m in _field.allMatches(text)) m[1]!}.where((f) => !known.contains(f)).toList();
 }

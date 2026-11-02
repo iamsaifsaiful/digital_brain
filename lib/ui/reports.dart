@@ -59,13 +59,13 @@ class Period {
 /// that piled up in it, and what was in hand at its end.
 List<(String, double, bool)> periodBalances(AppData d, Period p, DateTime now) {
   if (p.isAll) {
-    return [('এখন মোট বাকি', totalCustomerDue(d), true), ('হাতে থাকা উচিত', cashInHand(d), false)];
+    return [('এখন মোট বকেয়া', totalCustomerDue(d), true), ('হাতে থাকা উচিত', cashInHand(d), false)];
   }
   final due = d.txns.where((x) => !x.cancelled && p.has(x.at)).fold<double>(0, (s, x) => s + x.sarDueAtSend);
   final end = p.runningAt(now) ? now : p.to;
   final hand = cashLines(d).where((l) => l.at.isBefore(end)).fold<double>(0, (s, l) => s + l.inSar - l.outSar);
   return [
-    ('${p.inWords} বাকি পড়েছে', (due * 100).roundToDouble() / 100, true),
+    ('${p.inWords} বকেয়া পড়েছে', (due * 100).roundToDouble() / 100, true),
     (p.runningAt(now) ? '${p.inWords} — এখন হাতে আছে' : '${p.inWords} শেষে হাতে ছিল', (hand * 100).roundToDouble() / 100, false),
   ];
 }
@@ -129,7 +129,7 @@ List<List<String>> _txnRows(Hisab h, Iterable<Txn> list) => [
           '${serviceName(x)}${x.kind == Kind.mb && x.pack.isNotEmpty ? ' (${x.pack})' : ''}\n${bdShow(x.number)}',
           '${bnNum(x.sarAmount, decimals: 2)}\n× ${rateText(x.rate)}',
           '${bnNum(x.taka)}${x.fee > 0 ? '\n+${bnNum(x.fee)}' : ''}',
-          x.cancelled ? '—' : (x.sarDueAtSend > 0 ? 'বাকি ${bnNum(x.sarDueAtSend, decimals: 2)}' : 'পরিশোধ'),
+          x.cancelled ? '—' : (x.sarDueAtSend > 0 ? 'বকেয়া ${bnNum(x.sarDueAtSend, decimals: 2)}' : 'পরিশোধ'),
           '${_status(x)}${x.fault != null ? '\nভুল নম্বর (${x.fault!.short})' : ''}',
         ],
     ];
@@ -177,7 +177,7 @@ PdfDoc periodPdf(Hisab h, Period p) {
     ('ভুল নম্বরে গেছে', '${bn('${live.where((x) => x.fault != null).length}')}টা'),
     for (final (label, v, _) in periodBalances(d, p, h.now)) (label, sar(v)),
   ]);
-  for (final (which, title) in [(0, 'যে গ্রাহকরা বেশি পাঠান'), (1, 'যে গ্রাহকরা বেশি নগদ দেন'), (2, p.isAll ? 'যাদের বাকি বেশি (এখন)' : '${p.inWords} যাদের বাকি বেশি')]) {
+  for (final (which, title) in [(0, 'যে গ্রাহকরা বেশি পাঠান'), (1, 'যে গ্রাহকরা বেশি নগদ দেন'), (2, p.isAll ? 'যাদের বকেয়া বেশি (এখন)' : '${p.inWords} যাদের বকেয়া বেশি')]) {
     final top = topCustomers(d, which, p.has, h.now, all: p.isAll).take(10).toList();
     if (top.isEmpty) continue;
     doc.heading(title);
@@ -320,12 +320,12 @@ PdfDoc customerPdf(Hisab h, Customer c) {
   final due = customerDue(d, c.id);
   final doc = PdfDoc('${c.name} — হিসাব', subtitle: '${c.phone.isEmpty ? '' : '${bn(c.phone)} · '}সব হিসাব রিয়ালে', footer: _footer(h));
   doc.tiles([
-    ('এখন বাকি', due > 0 ? sar(due) : (due < 0 ? 'অগ্রিম ${sar(-due)}' : 'বাকি নেই')),
+    ('এখন বকেয়া', due > 0 ? sar(due) : (due < 0 ? 'অগ্রিম ${sar(-due)}' : 'বকেয়া নেই')),
     ('মোট পাঠানো', sar(d.txns.where((x) => x.customerId == c.id && !x.cancelled).fold<double>(0, (s, x) => s + x.sarAmount))),
     if (lossOf(d, c.id) > 0) ('লস ধরা হয়েছে', sar(lossOf(d, c.id))),
-    if (c.promiseAt != null) ('বাকি দেওয়ার কথা', '${dateShort(c.promiseAt!)}, ${timeText(c.promiseAt!)}'),
+    if (c.promiseAt != null) ('বকেয়া দেওয়ার কথা', '${dateShort(c.promiseAt!)}, ${timeText(c.promiseAt!)}'),
   ]);
-  doc.table(['সময়', 'বিবরণ', 'পাঠানো (রিয়াল)', 'দিলেন (রিয়াল)', 'বাকি'], table, flex: [1.1, 3, 1.3, 1.3, 1.3], right: {2, 3, 4});
+  doc.table(['সময়', 'বিবরণ', 'পাঠানো (রিয়াল)', 'দিলেন (রিয়াল)', 'বকেয়া'], table, flex: [1.1, 3, 1.3, 1.3, 1.3], right: {2, 3, 4});
   return doc;
 }
 
@@ -356,7 +356,7 @@ PdfDoc agentPdf(Hisab h, Agent a, Period p) {
         '${serviceName(x)}\n${bdShow(x.number)}',
         bnNum(x.agentTaka),
         '${_status(x)}${x.fault != null ? '\nভুল নম্বর (${x.fault!.short})' : ''}',
-        x.agentPaymentId == null ? 'বাকি' : 'দেওয়া',
+        x.agentPaymentId == null ? 'বকেয়া' : 'দেওয়া',
       ],
   ], flex: [
     1.3,

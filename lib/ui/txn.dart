@@ -221,7 +221,7 @@ class _TxnBody extends StatelessWidget {
             if (x.kind == Kind.mb) _kv('প্যাক', x.pack),
             _kv('প্রাপক', x.recipientLabel.isEmpty ? '—' : x.recipientLabel),
             _kv('নম্বর', x.method == Method.bank && !x.kind.isTopUp ? bn(x.number) : bdShow(x.number)),
-            _kv('রিয়াল', '${x.pay.bnName}${x.pay == Pay.partial ? ' · দিলেন ${sar(x.sarPaid)}' : ''}${x.sarDueAtSend > 0 ? ' · বাকি ${sar(x.sarDueAtSend)}' : ''}'),
+            _kv('রিয়াল', '${x.pay.bnName}${x.pay == Pay.partial ? ' · দিলেন ${sar(x.sarPaid)}' : ''}${x.sarDueAtSend > 0 ? ' · বকেয়া ${sar(x.sarDueAtSend)}' : ''}'),
             _kv('এজেন্ট', '${a?.name ?? '—'} · ${taka(x.agentTaka)}${x.agentPaymentId != null ? ' · শোধ' : ''}'),
             _kv('সময়', '${dateShort(x.at)}, ${timeText(x.at)}'),
             if (x.byName.isNotEmpty) _kv('এডমিন', x.byName),
@@ -452,7 +452,7 @@ class AllTxnsScreen extends StatefulWidget {
   const AllTxnsScreen({super.key, required this.h, this.filter = 0, this.title = 'সব লেনদেন', this.search = false, this.byAdmin, this.withOld = false});
   final Hisab h;
 
-  /// 0 সব, 1 পাঠানোর অপেক্ষায়, 2 বাকিতে, 3 বাতিল, 4 ভুল নম্বর, 5 রিচার্জ/এমবি.
+  /// 0 সব, 1 পাঠানোর অপেক্ষায়, 2 বকেয়ায়, 3 বাতিল, 4 ভুল নম্বর, 5 রিচার্জ/এমবি.
   final int filter;
   final String title;
 
@@ -473,7 +473,7 @@ class _AllTxnsScreenState extends State<AllTxnsScreen> {
   late int _f = widget.filter;
   Period _p = Period.all();
 
-  static const filters = [(0, 'সব'), (1, 'পাঠানোর অপেক্ষায়'), (2, 'বাকিতে'), (3, 'বাতিল'), (4, 'ভুল নম্বর'), (5, 'রিচার্জ/এমবি')];
+  static const filters = [(0, 'সব'), (1, 'পাঠানোর অপেক্ষায়'), (2, 'বকেয়ায়'), (3, 'বাতিল'), (4, 'ভুল নম্বর'), (5, 'রিচার্জ/এমবি')];
 
   @override
   Widget build(BuildContext context) => Live(
@@ -673,7 +673,7 @@ class AdjustCard extends StatelessWidget {
                 label: 'মূল হিসাবে যোগ করুন',
                 height: 44,
                 onTap: () async {
-                  if (await confirm(context, 'মূল হিসাবে যোগ করবেন?', '${adjustText(x)} — এরপর থেকে এটা গ্রাহকের বাকি, হাতের রিয়াল আর এজেন্টের হিসাবে ধরা হবে। যোগ করার পর আর ফেরানো যাবে না।', yes: 'যোগ করুন')) {
+                  if (await confirm(context, 'মূল হিসাবে যোগ করবেন?', '${adjustText(x)} — এরপর থেকে এটা গ্রাহকের বকেয়া, হাতের রিয়াল আর এজেন্টের হিসাবে ধরা হবে। যোগ করার পর আর ফেরানো যাবে না।', yes: 'যোগ করুন')) {
                     await h.applyAdjust(x);
                   }
                 },
@@ -733,7 +733,7 @@ class _AdjustScreenState extends State<AdjustScreen> {
       body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 24), children: [
         const Note('পাঠানো লেনদেন বদলায় না। যা ভুল হয়েছে তা এখানে লিখুন — এটা আলাদা থাকবে, মূল হিসাবে ধরা হবে না। পরে লেনদেনের পাতায় "মূল হিসাবে যোগ করুন" চাপলে তবেই হিসাবে ঢুকবে।'),
         const SizedBox(height: 14),
-        _row(0, 'গ্রাহকের বাকি (রিয়াল)', 'যেমন 50', _due, 'বাকি বাড়বে', 'বাকি কমবে'),
+        _row(0, 'গ্রাহকের বকেয়া (রিয়াল)', 'যেমন 50', _due, 'বকেয়া বাড়বে', 'বকেয়া কমবে'),
         _row(1, 'হাতের রিয়াল', 'যেমন 50', _cash, 'হাতে বেশি', 'হাতে কম'),
         _row(2, 'এজেন্টের পাওনা (টাকা)', 'যেমন 1625', _agent, 'পাওনা বাড়বে', 'পাওনা কমবে'),
         Field(label: 'কী ভুল হয়েছিল', controller: _note, hint: 'যেমন রিয়াল ৩০০ লিখেছিলাম, আসলে ৩৫০', maxLines: 3),

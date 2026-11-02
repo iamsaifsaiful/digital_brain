@@ -229,11 +229,11 @@ Map<int, String> adminsIn(AppData d) {
   return out;
 }
 
-/// "গ্রাহকের বাকি +৫০ SAR · হাতে −২০ SAR · এজেন্টের পাওনা +৳ ৬৫০".
+/// "গ্রাহকের বকেয়া +৫০ SAR · হাতে −২০ SAR · এজেন্টের পাওনা +৳ ৬৫০".
 String adjustText(Adjust x) {
   String signed(double v, String Function(double) f) => '${v > 0 ? '+' : '−'}${f(v.abs())}';
   return [
-    if (x.sarDue.abs() >= 0.005) 'গ্রাহকের বাকি ${signed(x.sarDue, sar)}',
+    if (x.sarDue.abs() >= 0.005) 'গ্রাহকের বকেয়া ${signed(x.sarDue, sar)}',
     if (x.sarCash.abs() >= 0.005) 'হাতে ${signed(x.sarCash, sar)}',
     if (x.takaAgent.abs() >= 0.5) 'এজেন্টের পাওনা ${signed(x.takaAgent, taka)}',
   ].join(' · ');
@@ -443,7 +443,7 @@ String agentDayStatement(AppData d, Agent a, DateTime day) {
 
 String _sign(AppData d) => d.settings.ownerName.trim();
 /// The due line's value; empty when nothing is owed, so the line is left
-/// out of the message (no "বাকি নেই").
+/// out of the message (no "বকেয়া নেই").
 String _dueText(double due) => due > 0 ? '${groupEn(due, decimals: 2)} রিয়াল' : '';
 
 /// Receipt for the customer once the taka arrived.
@@ -461,7 +461,7 @@ String customerReceipt(AppData d, Txn t, {String? pin}) {
     'TrxID': t.trxId,
     'পিন': t.kind.isTopUp ? '' : (pin ?? t.replyTail),
     'রিয়াল': '${groupEn(t.sarAmount, decimals: 2)}${t.pay == Pay.cash ? ' (পরিশোধ)' : ''}',
-    'বাকি': _dueText(customerDue(d, t.customerId)),
+    'বকেয়া': _dueText(customerDue(d, t.customerId)),
     'স্বাক্ষর': _sign(d),
   }).replaceAll('আসসালামু আলাইকুম ,', 'আসসালামু আলাইকুম,');
 }
@@ -471,14 +471,14 @@ String depositReceipt(AppData d, Deposit p) {
   return fillTemplate(_tpl(d, 'cust_deposit'), {
     'নাম': c?.name ?? '',
     'রিয়াল': groupEn(p.sarAmount, decimals: 2),
-    'বাকি': _dueText(customerDue(d, p.customerId)),
+    'বকেয়া': _dueText(customerDue(d, p.customerId)),
     'স্বাক্ষর': _sign(d),
   }).replaceAll('আসসালামু আলাইকুম ,', 'আসসালামু আলাইকুম,');
 }
 
 String dueReminder(AppData d, Customer c) => fillTemplate(_tpl(d, 'cust_due'), {
       'নাম': c.name,
-      'বাকি': groupEn(customerDue(d, c.id), decimals: 2),
+      'বকেয়া': groupEn(customerDue(d, c.id), decimals: 2),
       'স্বাক্ষর': _sign(d),
     });
 
@@ -489,7 +489,7 @@ String customerStatement(AppData d, Customer c) {
       (
         t.at,
         '${en(dateShort(t.at))}: ${t.recipientLabel.isEmpty ? bdShowEn(t.number) : t.recipientLabel} — ${groupEn(t.sarAmount, decimals: 2)} রিয়াল'
-            '${t.sarPaid > 0 ? ', দিয়েছেন ${groupEn(t.sarPaid, decimals: 2)}' : ', বাকি'}'
+            '${t.sarPaid > 0 ? ', দিয়েছেন ${groupEn(t.sarPaid, decimals: 2)}' : ', বকেয়া'}'
       ),
     for (final p in d.deposits.where((p) => p.customerId == c.id)) (p.at, '${en(dateShort(p.at))}: জমা ${groupEn(p.sarAmount, decimals: 2)} রিয়াল'),
     for (final l in d.losses.where((l) => l.customerId == c.id)) (l.at, '${en(dateShort(l.at))}: আদায় হবে না ধরা হলো ${groupEn(l.sarAmount, decimals: 2)} রিয়াল'),
@@ -497,7 +497,7 @@ String customerStatement(AppData d, Customer c) {
   return fillTemplate(_tpl(d, 'cust_statement'), {
     'নাম': c.name,
     'তালিকা': rows.map((r) => r.$2).join('\n'),
-    'বাকি': _dueText(customerDue(d, c.id)),
+    'বকেয়া': _dueText(customerDue(d, c.id)),
     'স্বাক্ষর': _sign(d),
   });
 }

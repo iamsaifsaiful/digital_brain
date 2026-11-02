@@ -72,7 +72,7 @@ class PhoneReminders implements Reminders {
             // chime and the buzz (some phones ignore a sound set here).
             'rh_alert',
             'লেনদেনের খবর',
-            channelDescription: 'নতুন অনুরোধ, এজেন্ট পাঠালেন, টাকা দেওয়া, বাকির তাগাদা',
+            channelDescription: 'নতুন অনুরোধ, এজেন্ট পাঠালেন, টাকা দেওয়া, বকেয়ার তাগাদা',
             icon: 'ic_stat_reminder',
             color: Color(0xFF2F6BEA),
             importance: Importance.max,

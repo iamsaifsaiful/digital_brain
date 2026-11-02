@@ -149,7 +149,7 @@ void main() {
     // Tabs swipe.
     await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
     await tester.pumpAndSettle();
-    expect(find.text('মোট বাকি ৩০০ SAR · ১ জন গ্রাহক'), findsOneWidget);
+    expect(find.text('মোট বকেয়া ৩০০ SAR · ১ জন গ্রাহক'), findsOneWidget);
     for (final tab in ['এজেন্ট', 'রিপোর্ট', 'অন্যান্য']) {
       await tester.tap(find.text(tab).last);
       await tester.pumpAndSettle();
@@ -168,7 +168,7 @@ void main() {
     await tapText(tester, 'করিম');
     await tester.enterText(find.byType(TextField).first, '300');
     await tester.pumpAndSettle();
-    expect(find.text('বাকি নেই'), findsOneWidget);
+    expect(find.text('বকেয়া নেই'), findsOneWidget);
     await tapText(tester, 'জমা সংরক্ষণ');
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pumpAndSettle();

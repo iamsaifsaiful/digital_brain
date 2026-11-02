@@ -125,9 +125,9 @@ class _CustomerPickRow extends StatelessWidget {
       lead: Avatar(h: h, name: c.name, photo: c.photo),
       title: c.name,
       sub: '${bn(c.phone)}${c.area.isEmpty ? '' : ' · ${c.area}'}',
-      value: due > 0 ? sar(due) : (due < 0 ? 'অগ্রিম' : 'বাকি নেই'),
+      value: due > 0 ? sar(due) : (due < 0 ? 'অগ্রিম' : 'বকেয়া নেই'),
       valueColor: due > 0 ? K.red : K.green,
-      valueSub: due > 0 ? 'বাকি' : (due < 0 ? sar(-due) : null),
+      valueSub: due > 0 ? 'বকেয়া' : (due < 0 ? sar(-due) : null),
       last: last,
       onTap: onTap,
     );
@@ -216,7 +216,7 @@ class _QuickProfileState extends State<QuickProfile> {
           Field(label: 'কোথায় থাকেন / কাজ করেন (ইচ্ছা হলে)', controller: _area),
           if (_err != null) ...[const SizedBox(height: 12), Note(_err!, color: K.redTint, textColor: K.red)],
           const SizedBox(height: 12),
-          const Note('বাকি তথ্য (বাড়ি, বেতনের তারিখ, বাকির সীমা) পরে গ্রাহকের পাতা থেকে যোগ করা যাবে।'),
+          const Note('বাকি তথ্য (বাড়ি, বেতনের তারিখ, বকেয়ার সীমা) পরে গ্রাহকের পাতা থেকে যোগ করা যাবে।'),
         ]),
       );
 }
@@ -412,8 +412,8 @@ class _EntryScreenState extends State<EntryScreen> {
               Tx('পুরো রিয়াল নগদে', style: t(13, c: K.muted))
             else
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Tx(due > 0 ? sar(due) : 'বাকি নেই', style: t(14.5, w: FontWeight.w700, c: due > 0 ? K.red : K.ink)),
-                if (due > 0) Tx('আগের বাকি', style: t(12, c: K.muted)),
+                Tx(due > 0 ? sar(due) : 'বকেয়া নেই', style: t(14.5, w: FontWeight.w700, c: due > 0 ? K.red : K.ink)),
+                if (due > 0) Tx('আগের বকেয়া', style: t(12, c: K.muted)),
               ]),
           ]),
         ),
@@ -589,7 +589,7 @@ class _EntryScreenState extends State<EntryScreen> {
   }
 }
 
-/// Step 3: check everything, choose নগদ / বাকি / আংশিক, see the agent's
+/// Step 3: check everything, choose নগদ / বকেয়া / আংশিক, see the agent's
 /// message (taka only), save and open WhatsApp.
 class ConfirmSheet extends StatefulWidget {
   const ConfirmSheet({super.key, required this.h, required this.c, required this.draft, this.editing});
@@ -709,9 +709,9 @@ class _ConfirmSheetState extends State<ConfirmSheet> {
             Tx('রিয়াল কীভাবে পেলেন', style: t(13, c: K.muted)),
             const SizedBox(height: 6),
             if (widget.c.id.isEmpty)
-              const Note('প্রোফাইল ছাড়া পাঠানো: পুরো রিয়াল নগদে নিতে হবে, বাকি রাখা যায় না।')
+              const Note('প্রোফাইল ছাড়া পাঠানো: পুরো রিয়াল নগদে নিতে হবে, বকেয়া রাখা যায় না।')
             else
-              Seg<Pay>(items: const [(Pay.cash, 'নগদে'), (Pay.due, 'বাকি'), (Pay.partial, 'আংশিক')], value: _pay, onChanged: (p) => setState(() => _pay = p)),
+              Seg<Pay>(items: const [(Pay.cash, 'নগদে'), (Pay.due, 'বকেয়া'), (Pay.partial, 'আংশিক')], value: _pay, onChanged: (p) => setState(() => _pay = p)),
             if (_pay == Pay.partial) ...[
               const SizedBox(height: 10),
               Field(label: 'এখন কত রিয়াল দিলেন', controller: _paid, number: true, suffix: 'SAR', autofocus: true, onChanged: (_) => setState(() {})),
@@ -723,15 +723,15 @@ class _ConfirmSheetState extends State<ConfirmSheet> {
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Tx('এরপর মোট বাকি: ${sar(dueAfter > 0 ? dueAfter : 0)}', style: t(15, w: FontWeight.w600, c: dueAfter > 0 ? K.red : K.green)),
-                    Tx('বাকির সীমা ${sar(limit)}', style: t(12.5, c: K.muted)),
+                    Tx('এরপর মোট বকেয়া: ${sar(dueAfter > 0 ? dueAfter : 0)}', style: t(15, w: FontWeight.w600, c: dueAfter > 0 ? K.red : K.green)),
+                    Tx('বকেয়ার সীমা ${sar(limit)}', style: t(12.5, c: K.muted)),
                   ]),
                 ),
               ]),
             ),
             if (pct > 100) ...[
               const SizedBox(height: 10),
-              Note('সীমার বেশি বাকি হয়ে যাচ্ছে। ঠিক থাকলে তবুও পাঠাতে পারেন।', color: K.redTint, textColor: K.red, icon: Icons.error_outline_rounded),
+              Note('সীমার বেশি বকেয়া হয়ে যাচ্ছে। ঠিক থাকলে তবুও পাঠাতে পারেন।', color: K.redTint, textColor: K.red, icon: Icons.error_outline_rounded),
             ],
             const SizedBox(height: 14),
             Tx(agent.usesApp ? '${agent.name}-এর অ্যাপে নোটিফিকেশন যাবে (রিয়ালের কথা নেই)' : '${agent.name}-কে হোয়াটসঅ্যাপে যাবে (রিয়ালের কথা নেই)', style: t(13, c: K.muted)),

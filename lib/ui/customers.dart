@@ -28,7 +28,7 @@ class _CustomersTabState extends State<CustomersTab> {
   int _f = 0;
 
   /// Swipe left or right over the list: the next or previous of সবাই ·
-  /// বাকি · পুরনো · বাকি নেই (and past the ends, the next main tab).
+  /// বকেয়া · পুরনো · বকেয়া নেই (and past the ends, the next main tab).
   void _swipe(DragEndDetails e) {
     final v = e.primaryVelocity ?? 0;
     if (v.abs() < 250) return;
@@ -57,14 +57,15 @@ class _CustomersTabState extends State<CustomersTab> {
         var list = h.searchCustomers(_q.text);
         list = list.where((c) {
           final due = customerDue(d, c.id);
+          final days = oldestDueDays(d, c.id, h.now) ?? -1;
           return switch (_f) {
             1 => due > 0,
-            2 => (oldestDueDays(d, c.id, h.now) ?? -1) >= oldDays,
-            3 => due <= 0,
+            2 => due > 0 && days >= oldDays,
+            3 => due > 0 && days >= 30,
             _ => true,
           };
         }).toList();
-        if (_f == 1 || _f == 2) list.sort((a, b) => customerDue(d, b.id).compareTo(customerDue(d, a.id)));
+        if (_f > 0) list.sort((a, b) => customerDue(d, b.id).compareTo(customerDue(d, a.id)));
         return GestureDetector(
           behavior: HitTestBehavior.translucent,
           onHorizontalDragEnd: _swipe,
@@ -83,7 +84,7 @@ class _CustomersTabState extends State<CustomersTab> {
               ),
             ]),
             const SizedBox(height: 4),
-            Tx('মোট বাকি ${sar(totalCustomerDue(d))} · ${bn('${d.customers.length}')} জন গ্রাহক', style: t(13.5, c: K.muted)),
+            Tx('মোট বকেয়া ${sar(totalCustomerDue(d))} · ${bn('${d.customers.length}')} জন গ্রাহক', style: t(13.5, c: K.muted)),
             const SizedBox(height: 12),
             TextField(
               controller: _q,
@@ -99,7 +100,7 @@ class _CustomersTabState extends State<CustomersTab> {
               ),
             ),
             const SizedBox(height: 10),
-            Seg<int>(items: [(0, 'সবাই'), (1, 'বাকি'), (2, '${bn('$oldDays')}+ দিন'), (3, 'বাকি নেই')], value: _f, onChanged: (v) => setState(() => _f = v)),
+            Seg<int>(items: [(0, 'সবাই'), (1, 'বকেয়া'), (2, '${bn('$oldDays')}+ দিন'), (3, '${bn('30')}+ দিন')], value: _f, onChanged: (v) => setState(() => _f = v)),
             const SizedBox(height: 12),
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
@@ -145,7 +146,7 @@ class _CustomerRow extends StatelessWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Tx(c.name, style: t(15, w: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
               Tx(
-                due > 0 ? '${sar(due)} বাকি${days != null && days > 0 ? ' · ${bn('$days')} দিন' : ''}' : (due < 0 ? 'অগ্রিম ${sar(-due)}' : 'বাকি নেই'),
+                due > 0 ? '${sar(due)} বকেয়া${days != null && days > 0 ? ' · ${bn('$days')} দিন' : ''}' : (due < 0 ? 'অগ্রিম ${sar(-due)}' : 'বকেয়া নেই'),
                 style: t(12.5, c: due > 0 ? ((days ?? 0) >= d.settings.oldDueDays ? K.red : K.muted) : K.muted),
               ),
             ]),
@@ -221,7 +222,7 @@ class CustomerScreen extends StatelessWidget {
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Tx(due > 0 ? 'বাকি' : (due < 0 ? 'অগ্রিম দেওয়া' : 'বাকি নেই'), style: t(13, c: K.muted)),
+                      Tx(due > 0 ? 'বকেয়া' : (due < 0 ? 'অগ্রিম দেওয়া' : 'বকেয়া নেই'), style: t(13, c: K.muted)),
                       Tx(due == 0 ? '—' : sar(due.abs()), style: t(26, w: FontWeight.w700, c: due > 0 ? K.red : K.ink)),
                       Tx('সীমা ${sar(limit)}${c.phone.isEmpty ? '' : ' · ${bn(c.phone)}'}', style: t(12.5, c: K.muted)),
                       if (lost > 0) Tx('লস ধরা হয়েছে ${sar(lost)}', style: t(12.5, w: FontWeight.w600, c: K.red)),
@@ -338,12 +339,12 @@ Future<void> _writeOff(BuildContext context, Hisab h, Customer c, double due) as
   final amount = v == null ? null : parseNum(v);
   if (amount == null || amount <= 0 || !context.mounted) return;
   if (amount > due + 0.001) {
-    snack(context, 'বাকির (${sar(due)}) চেয়ে বেশি লস ধরা যায় না');
+    snack(context, 'বকেয়ার (${sar(due)}) চেয়ে বেশি লস ধরা যায় না');
     return;
   }
   final note = await askText(context, 'কারণ (ইচ্ছা হলে)', hint: 'যেমন দেশে চলে গেছেন, যোগাযোগ নেই', ok: 'লস হিসেবে রাখুন');
   if (note == null || !context.mounted) return;
-  if (!await confirm(context, 'লস হিসেবে রাখবেন?', '${c.name}-এর ${sar(amount)} বাকি থেকে বাদ যাবে আর রিপোর্টে "লস" হিসেবে দেখাবে। হাতের রিয়ালে কিছু যোগ হবে না।',
+  if (!await confirm(context, 'লস হিসেবে রাখবেন?', '${c.name}-এর ${sar(amount)} বকেয়া থেকে বাদ যাবে আর রিপোর্টে "লস" হিসেবে দেখাবে। হাতের রিয়ালে কিছু যোগ হবে না।',
       yes: 'হ্যাঁ, রাখুন', danger: true)) {
     return;
   }
@@ -382,7 +383,7 @@ class PromiseCard extends StatelessWidget {
       initialDate: init.isBefore(now) ? now : init,
       firstDate: DateTime(now.year, now.month, now.day),
       lastDate: DateTime(now.year + 2),
-      helpText: 'কবে বাকি দেবেন বলেছেন?',
+      helpText: 'কবে বকেয়া দেবেন বলেছেন?',
       cancelText: 'বাতিল',
       confirmText: 'ঠিক আছে',
     );
@@ -413,7 +414,7 @@ class PromiseCard extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Tx(at == null ? 'বাকি কবে দেবেন বলেছেন?' : (came ? 'বাকি দেওয়ার দিন এসেছে' : 'বাকি দেওয়ার কথা'), style: t(15, w: FontWeight.w600, c: came ? K.amberText : K.ink)),
+              Tx(at == null ? 'বকেয়া কবে দেবেন বলেছেন?' : (came ? 'বকেয়া দেওয়ার দিন এসেছে' : 'বকেয়া দেওয়ার কথা'), style: t(15, w: FontWeight.w600, c: came ? K.amberText : K.ink)),
               Tx(
                 at == null ? 'তারিখ দিলে সেদিন ফোনে রিমাইন্ডার বাজবে' : '${dayLabel(at, h.now)}, ${timeText(at)}${c.promiseNote.isEmpty ? '' : ' · ${c.promiseNote}'}',
                 style: t(12.5, c: came ? K.amberText : K.muted),
@@ -439,7 +440,7 @@ class PromiseCard extends StatelessWidget {
                 final wa = await whatsappOf(context, h, c);
                 if (wa == null) return;
                 await h.s.device.whatsapp(wa, dueReminder(h.d, c));
-                await h.note('cust', 'বাকির তাগাদা পাঠানো', '${c.name} · ${sar(customerDue(h.d, c.id))}');
+                await h.note('cust', 'বকেয়ার তাগাদা পাঠানো', '${c.name} · ${sar(customerDue(h.d, c.id))}');
               },
             ),
           ),
@@ -494,7 +495,7 @@ class _EditCustomerState extends State<EditCustomer> {
       if (c.area != _area.text.trim()) 'থাকেন ${_area.text.trim()}',
       if (c.home != _home.text.trim()) 'বাড়ি ${_home.text.trim()}',
       if (c.salaryDay != _salary.text.trim()) 'বেতনের তারিখ ${_salary.text.trim()}',
-      if (c.dueLimit != limit) 'বাকির সীমা ${c.dueLimit == null ? 'সাধারণ' : sar(c.dueLimit!)} → ${limit == null ? 'সাধারণ' : sar(limit)}',
+      if (c.dueLimit != limit) 'বকেয়ার সীমা ${c.dueLimit == null ? 'সাধারণ' : sar(c.dueLimit!)} → ${limit == null ? 'সাধারণ' : sar(limit)}',
       if (c.referrer != _ref.text.trim()) 'কার মাধ্যমে ${_ref.text.trim()}',
       if (c.note != _note.text.trim()) 'নোট বদল',
     ];
@@ -541,7 +542,7 @@ class _EditCustomerState extends State<EditCustomer> {
           const SizedBox(height: 12),
           Field(label: 'বেতনের তারিখ (যেমন মাসের ২৮)', controller: _salary),
           const SizedBox(height: 12),
-          Field(label: 'বাকির সীমা (খালি = সাধারণ ${sar(widget.h.d.settings.defaultDueLimit)})', controller: _limit, number: true, suffix: 'SAR'),
+          Field(label: 'বকেয়ার সীমা (খালি = সাধারণ ${sar(widget.h.d.settings.defaultDueLimit)})', controller: _limit, number: true, suffix: 'SAR'),
           const SizedBox(height: 12),
           Field(label: 'কার মাধ্যমে এসেছেন', controller: _ref),
           const SizedBox(height: 12),
@@ -604,7 +605,7 @@ class _DepositScreenState extends State<DepositScreen> {
             Expanded(child: Tx(c.name, style: t(16, w: FontWeight.w600))),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Tx(sar(due > 0 ? due : 0), style: t(15, w: FontWeight.w700, c: due > 0 ? K.red : K.green)),
-              Tx('এখনকার বাকি', style: t(12, c: K.muted)),
+              Tx('এখনকার বকেয়া', style: t(12, c: K.muted)),
             ]),
           ]),
         ),
@@ -613,7 +614,7 @@ class _DepositScreenState extends State<DepositScreen> {
         if (due > 0) ...[
           const SizedBox(height: 8),
           Wrap(spacing: 8, children: [
-            ChoiceChipX(label: 'পুরো বাকি ${sar(due)}', on: amt == due, onTap: () => setState(() => _amount.text = groupEn(due, decimals: 2).replaceAll(',', ''))),
+            ChoiceChipX(label: 'পুরো বকেয়া ${sar(due)}', on: amt == due, onTap: () => setState(() => _amount.text = groupEn(due, decimals: 2).replaceAll(',', ''))),
           ]),
         ],
         const SizedBox(height: 14),
@@ -626,7 +627,7 @@ class _DepositScreenState extends State<DepositScreen> {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Tx('জমার পর', style: t(13, c: K.muted)),
-                Tx(after > 0 ? '${sar(after)} বাকি' : (after < 0 ? 'অগ্রিম ${sar(-after)}' : 'বাকি নেই'), style: t(18, w: FontWeight.w700, c: after > 0 ? K.red : K.green)),
+                Tx(after > 0 ? '${sar(after)} বকেয়া' : (after < 0 ? 'অগ্রিম ${sar(-after)}' : 'বকেয়া নেই'), style: t(18, w: FontWeight.w700, c: after > 0 ? K.red : K.green)),
               ]),
             ),
             Ring(percent: dueLimitOf(d, c) <= 0 ? 0 : (after > 0 ? after : 0) / dueLimitOf(d, c) * 100, size: 52),
@@ -634,7 +635,7 @@ class _DepositScreenState extends State<DepositScreen> {
         ),
         if (open.isNotEmpty && amt > 0) ...[
           const SizedBox(height: 6),
-          SectionHead('পুরনো বাকি আগে শোধ হবে'),
+          SectionHead('পুরনো বকেয়া আগে শোধ হবে'),
           CardBox(
             padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Column(children: [
@@ -642,8 +643,8 @@ class _DepositScreenState extends State<DepositScreen> {
                 Row2(
                   lead: dotIcon(o.left <= 0 ? Icons.check_rounded : Icons.more_horiz_rounded, o.left <= 0 ? K.greenTint : K.redTint, o.left <= 0 ? K.green : K.red, size: 36),
                   title: '#${bn('${o.txn.no}')} · ${dateShort(o.txn.at)}',
-                  sub: '${o.txn.recipientLabel.isEmpty ? bdShow(o.txn.number) : o.txn.recipientLabel} · বাকি ছিল ${sar(before[o.txn.id] ?? 0)}',
-                  value: o.left <= 0 ? 'শোধ' : '${sar(o.left)} বাকি',
+                  sub: '${o.txn.recipientLabel.isEmpty ? bdShow(o.txn.number) : o.txn.recipientLabel} · বকেয়া ছিল ${sar(before[o.txn.id] ?? 0)}',
+                  value: o.left <= 0 ? 'শোধ' : '${sar(o.left)} বকেয়া',
                   valueColor: o.left <= 0 ? K.green : K.red,
                   last: i == open.length - 1,
                 ),

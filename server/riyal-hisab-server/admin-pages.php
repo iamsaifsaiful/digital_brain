@@ -283,7 +283,7 @@ function rh_tab_summary() {
     <div class="rh-figs">
         <div><span>হাতে থাকা উচিত</span><strong><?php echo esc_html(rh_sar(rh_cash_in_hand())); ?></strong></div>
         <div><span>আজ পাঠানো</span><strong><?php echo esc_html(rh_sar(array_sum(array_map(fn($t) => (float) $t['sar'], $todayTx)))); ?></strong><em><?php echo esc_html(rh_bn(count($todayTx)) . 'টা লেনদেন · ' . rh_taka(array_sum(array_map(fn($t) => (float) $t['taka'], $todayTx)))); ?></em></div>
-        <div><span>গ্রাহকের বাকি</span><strong class="red"><?php echo esc_html(rh_sar($due)); ?></strong><em><?php echo esc_html(rh_bn($dueN)); ?> জনের কাছে</em></div>
+        <div><span>গ্রাহকের বকেয়া</span><strong class="red"><?php echo esc_html(rh_sar($due)); ?></strong><em><?php echo esc_html(rh_bn($dueN)); ?> জনের কাছে</em></div>
         <div><span>পাঠানোর অপেক্ষায়</span><strong><?php echo esc_html(rh_bn($waiting)); ?>টা</strong></div>
         <div><span>লস (আদায় হবে না)</span><strong class="red"><?php echo esc_html(rh_sar($loss)); ?></strong></div>
         <div><span>ভুল নম্বরে গেছে</span><strong><?php echo esc_html(rh_bn($wrong)); ?>টা</strong></div>
@@ -311,7 +311,7 @@ function rh_status_label($t) {
 
 function rh_tab_txns() {
     rh_filters('txns', [
-        'status' => ['অবস্থা', ['' => 'সব', 'pending' => 'পাঠানোর অপেক্ষায়', 'sent' => 'পৌঁছেছে', 'cancelled' => 'বাতিল', 'due' => 'রিয়াল বাকি', 'fault' => 'ভুল নম্বর']],
+        'status' => ['অবস্থা', ['' => 'সব', 'pending' => 'পাঠানোর অপেক্ষায়', 'sent' => 'পৌঁছেছে', 'cancelled' => 'বাতিল', 'due' => 'রিয়াল বকেয়া', 'fault' => 'ভুল নম্বর']],
         'kind' => ['ধরন', ['' => 'সব', 'money' => 'টাকা পাঠানো', 'recharge' => 'রিচার্জ', 'mb' => 'এমবি']],
         'agent' => ['এজেন্ট', rh_agent_options()],
         'by' => ['এডমিন', rh_admin_options()],
@@ -353,7 +353,7 @@ function rh_tab_txns() {
             <td class="r"><?php echo esc_html(rh_num($t['sar'] ?? 0, 2)); ?></td>
             <td class="r"><?php echo esc_html(rh_num($t['rate'] ?? 0, 2)); ?></td>
             <td class="r"><?php echo esc_html(rh_num(round($t['taka'] ?? 0))); ?><?php if ((float) ($t['fee'] ?? 0) > 0) : ?><br><small>খরচ <?php echo esc_html(rh_num($t['fee'])); ?></small><?php endif; ?></td>
-            <td><?php $d = rh_due_at_send($t); echo esc_html(rh_cancelled($t) ? '—' : ($d > 0 ? 'বাকি ' . rh_num($d, 2) : 'পরিশোধ')); ?></td>
+            <td><?php $d = rh_due_at_send($t); echo esc_html(rh_cancelled($t) ? '—' : ($d > 0 ? 'বকেয়া ' . rh_num($d, 2) : 'পরিশোধ')); ?></td>
             <td><?php echo esc_html($agents[$t['agentId'] ?? '']['name'] ?? '—'); ?></td>
             <td><?php echo esc_html(rh_admin_name($t)); ?></td>
             <td><span class="rh-pill <?php echo esc_attr($sc); ?>"><?php echo esc_html($sl); ?></span>
@@ -374,7 +374,7 @@ function rh_tab_customers() {
         rh_customer_view($view);
         return;
     }
-    rh_filters('customers', ['due' => ['বাকি', ['' => 'সবাই', 'yes' => 'বাকি আছে', 'no' => 'বাকি নেই', 'promise' => 'তারিখ দেওয়া']]], 'নাম বা নম্বর');
+    rh_filters('customers', ['due' => ['বকেয়া', ['' => 'সবাই', 'yes' => 'বকেয়া আছে', 'no' => 'বকেয়া নেই', 'promise' => 'তারিখ দেওয়া']]], 'নাম বা নম্বর');
     global $wpdb;
     $q = rh_f('q');
     $rows = [];
@@ -397,17 +397,17 @@ function rh_tab_customers() {
         $rows[] = $c;
     }
     usort($rows, fn($a, $b) => $b['due'] <=> $a['due']);
-    echo '<p class="rh-sum">' . esc_html(rh_bn(count($rows)) . ' জন · মোট বাকি ' . rh_sar(array_sum(array_map(fn($c) => max(0, $c['due']), $rows)))) . '</p>';
+    echo '<p class="rh-sum">' . esc_html(rh_bn(count($rows)) . ' জন · মোট বকেয়া ' . rh_sar(array_sum(array_map(fn($c) => max(0, $c['due']), $rows)))) . '</p>';
     $page = rh_paged($rows, $pager);
     ?>
-    <table class="rh-table"><thead><tr><th>গ্রাহক</th><th>মোবাইল</th><th>থাকেন</th><th class="r">মোট পাঠানো</th><th class="r">বাকি</th><th class="r">লস</th><th>বাকি দেওয়ার কথা</th><th>যোগ হয়েছেন</th></tr></thead><tbody>
+    <table class="rh-table"><thead><tr><th>গ্রাহক</th><th>মোবাইল</th><th>থাকেন</th><th class="r">মোট পাঠানো</th><th class="r">বকেয়া</th><th class="r">লস</th><th>বকেয়া দেওয়ার কথা</th><th>যোগ হয়েছেন</th></tr></thead><tbody>
     <?php foreach ($page as $c) : ?>
         <tr>
             <td><?php rh_photo_thumb($c['photo'] ?? null); ?><a href="<?php echo rh_url('customers', ['view' => $c['id']]); ?>"><b><?php echo esc_html($c['name'] ?? ''); ?></b></a></td>
             <td><?php echo esc_html(rh_bn($c['phone'] ?? '')); ?></td>
             <td><?php echo esc_html($c['area'] ?? ''); ?></td>
             <td class="r"><?php echo esc_html(rh_num($c['sent'], 2)); ?></td>
-            <td class="r <?php echo $c['due'] > 0 ? 'red' : ''; ?>"><?php echo esc_html($c['due'] > 0 ? rh_num($c['due'], 2) : ($c['due'] < 0 ? 'অগ্রিম ' . rh_num(-$c['due'], 2) : 'বাকি নেই')); ?></td>
+            <td class="r <?php echo $c['due'] > 0 ? 'red' : ''; ?>"><?php echo esc_html($c['due'] > 0 ? rh_num($c['due'], 2) : ($c['due'] < 0 ? 'অগ্রিম ' . rh_num(-$c['due'], 2) : 'বকেয়া নেই')); ?></td>
             <td class="r"><?php echo esc_html($c['loss'] > 0 ? rh_num($c['loss'], 2) : '—'); ?></td>
             <td><?php echo esc_html(!empty($c['promiseAt']) && $c['due'] > 0 ? rh_when($c['promiseAt']) . (($c['promiseNote'] ?? '') !== '' ? ' · ' . $c['promiseNote'] : '') : '—'); ?></td>
             <td><small><?php echo esc_html(rh_when($c['created'] ?? '', false)); ?></small></td>
@@ -533,7 +533,7 @@ function rh_tab_adjusts() {
     $customers = rh_all('customer');
     $agents = rh_all('agent');
     $sign = fn($v, $f) => (float) $v === 0.0 ? '—' : ((float) $v > 0 ? '+' : '−') . $f(abs((float) $v));
-    rh_simple_table('adjusts', 'adjust', ['সময়', 'লেনদেন', 'গ্রাহক / এজেন্ট', 'কেন', 'এডমিন', '>গ্রাহকের বাকি', '>হাতে', '>এজেন্টের পাওনা', 'অবস্থা'], function ($x) use ($txns, $customers, $agents, $sign) {
+    rh_simple_table('adjusts', 'adjust', ['সময়', 'লেনদেন', 'গ্রাহক / এজেন্ট', 'কেন', 'এডমিন', '>গ্রাহকের বকেয়া', '>হাতে', '>এজেন্টের পাওনা', 'অবস্থা'], function ($x) use ($txns, $customers, $agents, $sign) {
         $t = $txns[$x['txnId'] ?? ''] ?? null;
         return [
             esc_html(rh_when($x['at'] ?? '')),
@@ -806,10 +806,10 @@ function rh_customer_view($cid) {
     ?>
     <div class="rh-figs">
         <div><span>গ্রাহক</span><strong><?php echo esc_html($c['name'] ?? ''); ?></strong><em><?php echo esc_html(rh_bn($c['phone'] ?? '') . (($c['area'] ?? '') !== '' ? ' · ' . $c['area'] : '')); ?></em></div>
-        <div><span>এখন বাকি</span><strong class="<?php echo $due > 0 ? 'red' : ''; ?>"><?php echo esc_html($due > 0 ? rh_sar($due) : ($due < 0 ? 'অগ্রিম ' . rh_sar(-$due) : 'বাকি নেই')); ?></strong></div>
-        <?php if (!empty($c['promiseAt']) && $due > 0) : ?><div><span>বাকি দেওয়ার কথা</span><strong><?php echo esc_html(rh_when($c['promiseAt'])); ?></strong><em><?php echo esc_html($c['promiseNote'] ?? ''); ?></em></div><?php endif; ?>
+        <div><span>এখন বকেয়া</span><strong class="<?php echo $due > 0 ? 'red' : ''; ?>"><?php echo esc_html($due > 0 ? rh_sar($due) : ($due < 0 ? 'অগ্রিম ' . rh_sar(-$due) : 'বকেয়া নেই')); ?></strong></div>
+        <?php if (!empty($c['promiseAt']) && $due > 0) : ?><div><span>বকেয়া দেওয়ার কথা</span><strong><?php echo esc_html(rh_when($c['promiseAt'])); ?></strong><em><?php echo esc_html($c['promiseNote'] ?? ''); ?></em></div><?php endif; ?>
     </div>
-    <table class="rh-table"><thead><tr><th>সময়</th><th>বিবরণ</th><th class="r">পাঠানো (রিয়াল)</th><th class="r">দিলেন (রিয়াল)</th><th class="r">বাকি</th></tr></thead><tbody>
+    <table class="rh-table"><thead><tr><th>সময়</th><th>বিবরণ</th><th class="r">পাঠানো (রিয়াল)</th><th class="r">দিলেন (রিয়াল)</th><th class="r">বকেয়া</th></tr></thead><tbody>
     <?php $run = 0.0; foreach ($rows as [$at, $what, $sent, $paid]) : $run += $sent - $paid; ?>
         <tr><td><?php echo esc_html(rh_when($at)); ?></td><td><?php echo esc_html($what); ?></td><td class="r"><?php echo $sent ? esc_html(rh_num($sent, 2)) : ''; ?></td><td class="r"><?php echo $paid ? esc_html(rh_num($paid, 2)) : ''; ?></td><td class="r"><?php echo esc_html($run > 0.004 ? rh_num($run, 2) : ($run < -0.004 ? 'অগ্রিম ' . rh_num(-$run, 2) : '—')); ?></td></tr>
     <?php endforeach; ?>
@@ -839,7 +839,7 @@ function rh_tab_promises() {
     usort($rows, fn($a, $b) => strcmp($a['promiseAt'], $b['promiseAt']));
     echo '<p class="rh-sum">' . esc_html(rh_bn(count($rows)) . ' জন · ' . rh_sar(array_sum(array_column($rows, 'due')))) . '</p>';
     ?>
-    <table class="rh-table"><thead><tr><th>বাকি দেওয়ার কথা</th><th>গ্রাহক</th><th>মোবাইল</th><th>নোট</th><th class="r">বাকি</th></tr></thead><tbody>
+    <table class="rh-table"><thead><tr><th>বকেয়া দেওয়ার কথা</th><th>গ্রাহক</th><th>মোবাইল</th><th>নোট</th><th class="r">বকেয়া</th></tr></thead><tbody>
     <?php foreach ($rows as $c) : ?>
         <tr><td class="<?php echo $c['promiseAt'] <= $now ? 'red' : ''; ?>"><?php echo esc_html(rh_when($c['promiseAt'])); ?></td><td><a href="<?php echo rh_url('customers', ['view' => $c['id']]); ?>"><?php echo esc_html($c['name'] ?? ''); ?></a></td><td><?php echo esc_html(rh_bn($c['phone'] ?? '')); ?></td><td><?php echo esc_html($c['promiseNote'] ?? ''); ?></td><td class="r red"><?php echo esc_html(rh_num($c['due'], 2)); ?></td></tr>
     <?php endforeach; ?>

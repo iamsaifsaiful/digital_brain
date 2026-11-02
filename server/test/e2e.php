@@ -249,11 +249,11 @@ check($code === 200 && $d['saved'] === 1, 'the app sends its problems');
 check($code === 200 && $code2 === 404, 'agents can send problems too; without a session nothing');
 $html = page('errors', ['user' => (string) $rahimId]);
 check(str_contains($html, 'SocketException: boom') && !str_contains($html, 'agent side') && str_contains($html, 'রহিম'), 'problem log page with filter');
-$set = ['ownerName' => 'সাইফুল', 'templates' => ['cust_due' => 'ভাই {নাম}, {বাকি} রিয়াল বাকি।']];
+$set = ['ownerName' => 'সাইফুল', 'templates' => ['cust_due' => 'ভাই {নাম}, {বকেয়া} রিয়াল বকেয়া।']];
 call('POST', '/push', ['records' => [['kind' => 'settings', 'rid' => 'main', 'data' => $set]]], $owner);
 [, $d] = call('GET', '/pull', ['since' => 0], $admin2);
 $got = array_values(array_filter($d['records'], fn($r) => $r['kind'] === 'settings'));
-check(($got[0]['data']['templates']['cust_due'] ?? '') === 'ভাই {নাম}, {বাকি} রিয়াল বাকি।', 'message templates reach the other admins');
+check(($got[0]['data']['templates']['cust_due'] ?? '') === 'ভাই {নাম}, {বকেয়া} রিয়াল বকেয়া।', 'message templates reach the other admins');
 
 echo "\ndeleting an agent and a login (main admin only)\n";
 call('POST', '/push', ['records' => [['kind' => 'agent', 'rid' => 'ag3', 'data' => ['id' => 'ag3', 'name' => 'পুরনো এজেন্ট', 'whatsapp' => '01733333333', 'created' => '2026-11-01T10:00:00.000']]]], $owner);

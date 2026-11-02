@@ -53,7 +53,7 @@ extension FaultText on Fault {
 enum Pay { cash, due, partial }
 
 extension PayText on Pay {
-  String get bnName => const {Pay.cash: 'নগদ পেয়েছি', Pay.due: 'বাকি', Pay.partial: 'আংশিক'}[this]!;
+  String get bnName => const {Pay.cash: 'নগদ পেয়েছি', Pay.due: 'বকেয়া', Pay.partial: 'আংশিক'}[this]!;
 }
 
 enum TxnStatus { pending, sent, cancelled }

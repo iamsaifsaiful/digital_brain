@@ -171,6 +171,8 @@ class HomeTab extends StatelessWidget {
             Tx(sar(cash), style: t(32, w: FontWeight.w700)),
             const SizedBox(height: 4),
             Tx('আজ ${bn('${txns.length}')}টা লেনদেন · ${sar(txns.fold<double>(0, (s, x) => s + x.sarAmount))} · ${taka(txns.fold<double>(0, (s, x) => s + x.taka))}', style: t(13, c: K.muted)),
+            if (txns.any((x) => x.sarDueAtSend > 0))
+              Tx('আজ বকেয়ায় দেওয়া ${sar(txns.fold<double>(0, (s, x) => s + x.sarDueAtSend))}', style: t(13, w: FontWeight.w600, c: K.red)),
           ]),
         );
     if (!all) {
@@ -204,7 +206,8 @@ class HomeTab extends StatelessWidget {
               title: name,
               sub: () {
                 final mine = today.where((x) => x.by == id || (me && x.by == 0)).toList();
-                return 'আজ ${bn('${mine.length}')}টা · ${sar(mine.fold<double>(0, (s, x) => s + x.sarAmount))}';
+                final due = mine.fold<double>(0, (s, x) => s + x.sarDueAtSend);
+                return 'আজ ${bn('${mine.length}')}টা · ${sar(mine.fold<double>(0, (s, x) => s + x.sarAmount))}${due > 0 ? '\nবকেয়ায় দিয়েছেন ${sar(due)}' : ' · বকেয়া দেননি'}';
               }(),
               value: sar(cashInHand(d, me: id, owner: me)),
               valueSub: 'হাতে',
@@ -267,10 +270,10 @@ class HomeTab extends StatelessWidget {
               child: CardBox(
                 onTap: () => onTab(1),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Tx('গ্রাহকের বাকি', style: t(13, c: K.muted)),
+                  Tx('গ্রাহকের বকেয়া', style: t(13, c: K.muted)),
                   const SizedBox(height: 4),
                   Tx(sar(due), style: t(18, w: FontWeight.w700, c: due > 0 ? K.red : K.ink)),
-                  Tx(dueCount > 0 ? '${bn('$dueCount')} জনের কাছে' : 'কারও বাকি নেই', style: t(12.5, c: K.muted)),
+                  Tx(dueCount > 0 ? '${bn('$dueCount')} জনের কাছে' : 'কারও বকেয়া নেই', style: t(12.5, c: K.muted)),
                 ]),
               ),
             ),
@@ -326,7 +329,7 @@ class HomeTab extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Tx('${bn('${promises.length}')} জনের বাকি দেওয়ার দিন এসেছে', style: t(15, w: FontWeight.w600, c: K.amberText)),
+                    Tx('${bn('${promises.length}')} জনের বকেয়া দেওয়ার দিন এসেছে', style: t(15, w: FontWeight.w600, c: K.amberText)),
                     Tx(promises.map((c) => c.name).take(3).join(', '), style: t(12.5, c: K.amberText), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ]),
                 ),
@@ -371,7 +374,7 @@ class TxnRow extends StatelessWidget {
     final (subLabel, subColor) = t.fault != null
         ? ('ভুল নম্বর', K.red)
         : t.status == TxnStatus.sent && due > 0
-            ? ('বাকি ${bnNum(due, decimals: 2)}', K.red)
+            ? ('বকেয়া ${bnNum(due, decimals: 2)}', K.red)
             : (label, color);
     return Row2(
       lead: showCustomer ? Avatar(h: h, name: customerNameOf(h.d, t), photo: c?.photo, size: 42) : dotIcon(t.kind.isTopUp ? Icons.phone_android_rounded : Icons.north_east_rounded, K.blueTint, K.blue),

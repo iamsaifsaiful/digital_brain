@@ -577,8 +577,8 @@ class Hisab extends ChangeNotifier {
       ..promiseAt = at
       ..promiseNote = note.trim();
     final due = customerDue(d, c.id);
-    await s.reminders.schedule(c.id, at, 'তাগাদা: ${c.name}', 'আজ ${due > 0 ? sar(due) : 'বাকি'} দেওয়ার কথা${c.promiseNote.isEmpty ? '' : ' · ${c.promiseNote}'}');
-    _log('cust', 'বাকি ফেরতের তারিখ', '${c.name} · ${dateShort(at)}, ${timeText(at)}${c.promiseNote.isEmpty ? '' : ' · ${c.promiseNote}'}', ref: c.id);
+    await s.reminders.schedule(c.id, at, 'তাগাদা: ${c.name}', 'আজ ${due > 0 ? sar(due) : 'বকেয়া'} দেওয়ার কথা${c.promiseNote.isEmpty ? '' : ' · ${c.promiseNote}'}');
+    _log('cust', 'বকেয়া ফেরতের তারিখ', '${c.name} · ${dateShort(at)}, ${timeText(at)}${c.promiseNote.isEmpty ? '' : ' · ${c.promiseNote}'}', ref: c.id);
     await _save();
   }
 
@@ -602,7 +602,7 @@ class Hisab extends ChangeNotifier {
     for (final c in d.customers) {
       final at = c.promiseAt;
       if (at != null && at.isAfter(now)) {
-        await s.reminders.schedule(c.id, at, 'তাগাদা: ${c.name}', 'আজ বাকি দেওয়ার কথা${c.promiseNote.isEmpty ? '' : ' · ${c.promiseNote}'}');
+        await s.reminders.schedule(c.id, at, 'তাগাদা: ${c.name}', 'আজ বকেয়া দেওয়ার কথা${c.promiseNote.isEmpty ? '' : ' · ${c.promiseNote}'}');
       }
     }
   }
@@ -612,7 +612,7 @@ class Hisab extends ChangeNotifier {
     final before = customerDue(d, c.id);
     final l = Loss(id: newId(), customerId: c.id, sarAmount: amount, at: now, note: note.trim(), by: meId, byName: meName);
     d.losses.add(l);
-    _log('recv', 'লস ধরা হলো (আদায় হবে না)', '${c.name} · ${sar(amount)} · বাকি ${sar(before)} → ${sar(customerDue(d, c.id))}${l.note.isEmpty ? '' : ' · ${l.note}'}', ref: c.id);
+    _log('recv', 'লস ধরা হলো (আদায় হবে না)', '${c.name} · ${sar(amount)} · বকেয়া ${sar(before)} → ${sar(customerDue(d, c.id))}${l.note.isEmpty ? '' : ' · ${l.note}'}', ref: c.id);
     if (customerDue(d, c.id) <= 0 && c.promiseAt != null) {
       c.promiseAt = null;
       await s.reminders.cancel(c.id);
@@ -719,7 +719,7 @@ class Hisab extends ChangeNotifier {
       'নতুন লেনদেন · #${bn('${t.no}')}',
       '${customerNameOf(d, t)} → ${t.recipientLabel.isEmpty ? bdShow(t.number) : t.recipientLabel} · ${serviceName(t)}${t.kind == Kind.mb && t.pack.isNotEmpty ? ' (${t.pack})' : ''} · '
           '${sar(t.sarAmount)} × ${rateText(t.rate)} = ${taka(t.taka)}${t.fee > 0 ? ' + খরচ ${taka(t.fee)}' : ''} · '
-          '${t.pay.bnName}${t.pay == Pay.partial ? ' (${sar(t.sarPaid)})' : ''} · বাকি দাঁড়াল ${sar(dueAfter > 0 ? dueAfter : 0)}',
+          '${t.pay.bnName}${t.pay == Pay.partial ? ' (${sar(t.sarPaid)})' : ''} · বকেয়া দাঁড়াল ${sar(dueAfter > 0 ? dueAfter : 0)}',
       ref: t.id,
     );
     await _save();
@@ -844,7 +844,7 @@ class Hisab extends ChangeNotifier {
     _log(
       'recv',
       'রিয়াল জমা',
-      '${c.name} · ${sar(amount)} · ${way == 'cash' ? 'নগদ হাতে' : 'ব্যাংক/ট্রান্সফার'} · বাকি ${sar(before)} → ${sar(after)}${note.trim().isEmpty ? '' : ' · ${note.trim()}'}',
+      '${c.name} · ${sar(amount)} · ${way == 'cash' ? 'নগদ হাতে' : 'ব্যাংক/ট্রান্সফার'} · বকেয়া ${sar(before)} → ${sar(after)}${note.trim().isEmpty ? '' : ' · ${note.trim()}'}',
       ref: c.id,
     );
     if (after <= 0 && c.promiseAt != null) {

@@ -144,7 +144,7 @@ void main() {
     final agent = owner.d.agents.single;
     final c = await owner.addCustomer(name: 'করিম', phone: '0551234567');
     await owner.addTxn(Txn.fromJson({...draft(c.id, agent.id, sar: 200).toJson(), 'pay': 'cash', 'sarPaid': 200}));
-    owner.d.settings.templates['cust_due'] = 'ভাই {নাম}, {বাকি} রিয়াল বাকি।';
+    owner.d.settings.templates['cust_due'] = 'ভাই {নাম}, {বকেয়া} রিয়াল বকেয়া।';
     await owner.saveSettings('টেমপ্লেট');
     await owner.s.api.post('/users', {'role': 'admin', 'name': 'রহিম', 'login': 'rahim', 'password': 'rahim-pass', 'perms': ['send', 'deposit']});
     await owner.sync();
