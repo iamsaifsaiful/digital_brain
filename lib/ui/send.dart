@@ -80,18 +80,15 @@ class _PickCustomerState extends State<PickCustomer> {
             if (!widget.forDeposit) ...[
               const SizedBox(height: 10),
               CardBox(
-                onTap: () async {
-                  final digits = en(q).replaceAll(RegExp(r'[^0-9+]'), '');
-                  final c = await _askWalkIn(context, name: digits.length >= 5 ? '' : q, phone: digits.length >= 5 ? digits : '');
-                  if (c != null && mounted) _open(c);
-                },
+                // Straight to the amount: only the riyal and the number it goes to.
+                onTap: () => _open(walkInCustomer('', '')),
                 child: Row(children: [
                   dotIcon(Icons.flash_on_rounded, K.amberTint, K.amberText),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Tx('প্রোফাইল ছাড়া পাঠান', style: t(15, w: FontWeight.w600)),
-                      Tx('নাম-নম্বর ইচ্ছা হলে দিন · পুরো রিয়াল নগদে', style: t(12.5, c: K.muted)),
+                      Tx('শুধু রিয়াল আর যে নম্বরে যাবে · পুরো রিয়াল নগদে', style: t(12.5, c: K.muted)),
                     ]),
                   ),
                   const Icon(Icons.chevron_right_rounded, color: K.muted),
@@ -408,13 +405,16 @@ class _EntryScreenState extends State<EntryScreen> {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Tx(c.name, style: t(16, w: FontWeight.w600)),
-                Tx(bn(c.phone), style: t(12.5, c: K.muted)),
+                if (c.phone.isNotEmpty) Tx(bn(c.phone), style: t(12.5, c: K.muted)),
               ]),
             ),
-            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Tx(due > 0 ? sar(due) : 'বাকি নেই', style: t(14.5, w: FontWeight.w700, c: due > 0 ? K.red : K.ink)),
-              if (due > 0) Tx('আগের বাকি', style: t(12, c: K.muted)),
-            ]),
+            if (c.id.isEmpty)
+              Tx('পুরো রিয়াল নগদে', style: t(13, c: K.muted))
+            else
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Tx(due > 0 ? sar(due) : 'বাকি নেই', style: t(14.5, w: FontWeight.w700, c: due > 0 ? K.red : K.ink)),
+                if (due > 0) Tx('আগের বাকি', style: t(12, c: K.muted)),
+              ]),
           ]),
         ),
         if (_locked) ...[
@@ -541,7 +541,7 @@ class _EntryScreenState extends State<EntryScreen> {
           ],
         ],
         const SizedBox(height: 10),
-        Field(label: 'প্রাপক কে (যেমন স্ত্রী, বাবা — ইচ্ছা হলে)', controller: _label, onChanged: (_) => setState(() {})),
+        if (widget.c.id.isNotEmpty) Field(label: 'প্রাপক কে (যেমন স্ত্রী, বাবা — ইচ্ছা হলে)', controller: _label, onChanged: (_) => setState(() {})),
         if (bdMobile(_number.text) != null && parseNum(_taka.text) != null && !_locked) ..._dupWarning(),
         const SizedBox(height: 14),
         if (!topUp && !_locked) ...[
@@ -767,39 +767,4 @@ class _ConfirmSheetState extends State<ConfirmSheet> {
           Expanded(child: Tx(v, textAlign: TextAlign.right, style: t(bold ? 16 : 14.5, w: bold ? FontWeight.w700 : FontWeight.w500))),
         ]),
       );
-}
-
-
-/// Name and Saudi number for one send without a profile; both optional.
-Future<Customer?> _askWalkIn(BuildContext context, {String name = '', String phone = ''}) {
-  final n = TextEditingController(text: name), p = TextEditingController(text: phone);
-  return showModalBottomSheet<Customer>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    builder: (ctx) => Padding(
-      padding: EdgeInsets.fromLTRB(18, 18, 18, 18 + MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).padding.bottom),
-      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Tx('প্রোফাইল ছাড়া পাঠান', style: t(18, w: FontWeight.w600), textAlign: TextAlign.center),
-        const SizedBox(height: 4),
-        Tx('গ্রাহকের তালিকায় যাবে না। শুধু এই লেনদেনে নাম-নম্বর থাকবে।', style: t(13, c: K.muted), textAlign: TextAlign.center),
-        const SizedBox(height: 14),
-        Field(label: 'নাম (ইচ্ছা হলে)', controller: n),
-        const SizedBox(height: 10),
-        Field(label: 'সৌদি মোবাইল (ইচ্ছা হলে, রসিদ পাঠাতে)', controller: p, saudi: true),
-        const SizedBox(height: 16),
-        Pill(
-          label: 'এগোন',
-          onTap: () {
-            final ph = p.text.trim().isEmpty ? '' : saMobile(p.text);
-            if (ph == null) {
-              snack(ctx, 'সৌদি মোবাইল নম্বর ঠিক নেই — 05 দিয়ে শুরু, মোট ১০ সংখ্যা');
-              return;
-            }
-            Navigator.pop(ctx, walkInCustomer(n.text, ph));
-          },
-        ),
-      ]),
-    ),
-  );
 }
