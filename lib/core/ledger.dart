@@ -200,7 +200,7 @@ List<CashLine> cashLines(AppData d, {int? me, bool owner = false}) {
     if (inHandOf(h.to, me, owner: owner)) out.add(CashLine(at: h.at, title: '${h.fromName}-এর কাছ থেকে বুঝে নিলাম', sub: 'হাতবদল${h.note.isEmpty ? '' : ' · ${h.note}'}', inSar: h.sarAmount, kind: 'handover', by: h.to, byName: h.toName));
   }
   for (final a in d.adjusts) {
-    if (!a.applied || a.sarCash.abs() < 0.005 || !mine(a.by)) continue;
+    if (!a.applied || a.sarCash.abs() < 0.005 || !mine(a.handOf)) continue;
     final t = d.txns.where((x) => x.id == a.txnId).firstOrNull;
     out.add(CashLine(
         at: a.appliedAt ?? a.at,
@@ -210,8 +210,8 @@ List<CashLine> cashLines(AppData d, {int? me, bool owner = false}) {
         outSar: a.sarCash < 0 ? -a.sarCash : 0,
         kind: 'adjust',
         ref: a.txnId,
-        by: a.by,
-        byName: who(a.by, a.byName)));
+        by: a.handOf,
+        byName: who(a.handOf, a.handOfName)));
   }
   for (final c in d.closes) {
     if (c.difference.abs() < 0.005 || !mine(c.by)) continue;
@@ -252,7 +252,7 @@ Map<int, String> adminsIn(AppData d) {
     add(x.by, x.byName);
   }
   for (final x in d.adjusts) {
-    add(x.by, x.byName);
+    add(x.handOf, x.handOfName);
   }
   for (final h in d.handovers) {
     add(h.from, h.fromName);
@@ -269,6 +269,13 @@ String adjustText(Adjust x) {
     if (x.sarCash.abs() >= 0.005) 'হাতে ${signed(x.sarCash, sar)}',
     if (x.takaAgent.abs() >= 0.5) 'এজেন্টের পাওনা ${signed(x.takaAgent, taka)}',
   ].join(' · ');
+}
+
+/// "রেট ভুল হয়েছিল · এজেন্টের ভুল · note".
+String adjustWhy(Adjust x) {
+  var who = adjustWhos[x.who] ?? '';
+  if (x.who == 'admin' && x.handByName.isNotEmpty) who = '$who (${x.handByName})';
+  return [adjustWhats[x.what] ?? '', who, x.note].where((v) => v.isNotEmpty).join(' · ');
 }
 
 /// Riyal owed by all customers together (only those who owe).

@@ -138,6 +138,11 @@ function rh_cash_lines($by = null) {
     $txns = rh_all('txn');
     foreach (rh_all('adjust') as $x) {
         $v = (float) ($x['sarCash'] ?? 0);
+        // An admin's mistake goes into that admin's hand (handBy).
+        if (($x['handByName'] ?? '') !== '') {
+            $x['by'] = (int) ($x['handBy'] ?? 0);
+            $x['byName'] = (string) $x['handByName'];
+        }
         if (!empty($x['applied']) && abs($v) >= 0.005 && $mine($x)) {
             $no = $txns[$x['txnId'] ?? '']['no'] ?? '';
             $out[] = [$x['appliedAt'] ?? $x['at'], 'অতিরিক্ত হিসাব' . ($no !== '' ? ' · #' . rh_bn($no) : ''), (string) ($x['note'] ?? ''), max(0, $v), max(0, -$v), 'adjust', (int) ($x['by'] ?? 0), (string) ($x['byName'] ?? '')];

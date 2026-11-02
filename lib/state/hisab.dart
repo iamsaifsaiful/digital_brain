@@ -798,6 +798,7 @@ class Hisab extends ChangeNotifier {
     t.replyFrom = from == 'auto' ? 'auto' : 'manual';
     final parts = <String>[
       if (reply.trim().isNotEmpty) 'উত্তর: ${reply.trim()}',
+      if (tail.isNotEmpty && reply.trim().isEmpty) 'পিন $tail',
       if (trxId.trim().isNotEmpty) 'TrxID ${oldId.isNotEmpty && oldId != t.trxId ? '$oldId → ' : ''}${t.trxId}',
       from == 'auto' ? 'কপি করা উত্তর থেকে অটো বসানো (${session?.name ?? 'আপনি'} নিশ্চিত করলেন)' : 'এডমিন নিজে লিখে বসালেন (${session?.name ?? 'আপনি'})',
       if (!wasSent) 'লেনদেন "পৌঁছেছে"',
@@ -883,7 +884,7 @@ class Hisab extends ChangeNotifier {
   /// [sarOut]: the riyal that went out of hand for this taka (required).
   /// A mistake on a sent send, written down apart ("অতিরিক্ত হিসাব"). It
   /// changes no account until [applyAdjust].
-  Future<Adjust> addAdjust(Txn t, {double sarDue = 0, double sarCash = 0, double takaAgent = 0, required String note}) async {
+  Future<Adjust> addAdjust(Txn t, {double sarDue = 0, double sarCash = 0, double takaAgent = 0, required String note, String what = '', String who = '', int handBy = 0, String handByName = ''}) async {
     final x = Adjust(
       id: newId(),
       at: now,
@@ -896,9 +897,14 @@ class Hisab extends ChangeNotifier {
       note: note.trim(),
       by: meId,
       byName: meName,
+      what: what,
+      who: who,
+      handBy: handBy,
+      handByName: handByName,
     );
     d.adjusts.add(x);
-    _log('edit', 'অতিরিক্ত হিসাব · #${bn('${t.no}')}', '${adjustText(x)}${x.note.isEmpty ? '' : ' · ${x.note}'} · এখনো মূল হিসাবে নেই', who: meName, ref: t.id);
+    final why = adjustWhy(x);
+    _log('edit', 'অতিরিক্ত হিসাব · #${bn('${t.no}')}', '${why.isEmpty ? '' : '$why · '}${adjustText(x)} · এখনো মূল হিসাবে নেই', who: meName, ref: t.id);
     await _save();
     return x;
   }

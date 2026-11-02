@@ -539,7 +539,7 @@ function rh_tab_adjusts() {
             esc_html(rh_when($x['at'] ?? '')),
             esc_html($t ? '#' . rh_bn($t['no'] ?? '') : '—'),
             esc_html(($customers[$x['customerId'] ?? '']['name'] ?? '—') . ' / ' . ($agents[$x['agentId'] ?? '']['name'] ?? '—')),
-            esc_html($x['note'] ?? ''),
+            esc_html(rh_adjust_why($x)),
             esc_html(rh_admin_name($x)),
             esc_html($sign($x['sarDue'] ?? 0, fn($v) => rh_num($v, 2))),
             esc_html($sign($x['sarCash'] ?? 0, fn($v) => rh_num($v, 2))),
@@ -554,7 +554,7 @@ function rh_tab_adjusts() {
         if ($st === 'applied' && empty($x['applied'])) {
             return false;
         }
-        return rh_search_hit($q, $x['note'] ?? '');
+        return rh_search_hit($q, rh_adjust_why($x));
     });
 }
 
@@ -564,6 +564,17 @@ function rh_admin_options() {
         $o[(string) $id] = $name;
     }
     return $o;
+}
+
+/** "রেট ভুল হয়েছিল · এজেন্টের ভুল · note" for a correction. */
+function rh_adjust_why($x) {
+    $whats = ['sar' => 'রিয়াল কম বা বেশি লেখা হয়েছিল', 'rate' => 'রেট ভুল হয়েছিল', 'taka' => 'এজেন্ট কম বা বেশি টাকা পাঠিয়েছেন', 'number' => 'ভুল নম্বরে টাকা গেছে', 'pay' => 'নগদ / বকেয়া ভুল লেখা হয়েছিল', 'other' => 'অন্য কিছু'];
+    $whos = ['customer' => 'গ্রাহকের ভুল', 'agent' => 'এজেন্টের ভুল', 'admin' => 'এডমিনের ভুল'];
+    $who = $whos[$x['who'] ?? ''] ?? '';
+    if (($x['who'] ?? '') === 'admin' && ($x['handByName'] ?? '') !== '') {
+        $who .= ' (' . $x['handByName'] . ')';
+    }
+    return implode(' · ', array_filter([$whats[$x['what'] ?? ''] ?? '', $who, (string) ($x['note'] ?? '')], fn($v) => $v !== ''));
 }
 
 function rh_admin_name($r) {

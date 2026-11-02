@@ -43,46 +43,71 @@ class _TxnBody extends StatelessWidget {
   final Txn x;
   final bool fresh;
 
-  /// The agent's reply, typed or pasted: "10000-667", a TrxID, or both.
-  Future<void> _enterReply(BuildContext context, {bool onlyTrx = false}) async {
+  /// The agent's reply: the PIN (last digits of the number it went from)
+  /// or the TrxID — one of the two is enough. A copied reply fills them in.
+  Future<void> _enterReply(BuildContext context) async {
     final clip = await h.s.device.clipboard();
     final nos = [for (final o in h.d.txns) o.no];
-    final fromClip = clip != null && parseReply(clip, nos: nos).useful ? clip.trim() : '';
+    final r0 = clip == null ? null : parseReply(clip, nos: nos);
+    final fromClip = r0 != null && r0.useful && clip!.trim().length <= 200;
+    final pin = TextEditingController(text: x.replyTail.isNotEmpty ? x.replyTail : (fromClip ? r0.tail : ''));
+    final trx = TextEditingController(text: x.trxId.isNotEmpty ? x.trxId : (fromClip ? (r0.trxIds.firstOrNull ?? '') : ''));
     if (!context.mounted) return;
-    final v = await askText(
-      context,
-      onlyTrx ? 'TrxID লিখুন' : 'এজেন্টের উত্তর',
-      hint: onlyTrx ? 'যেমন BJ7K9X2Q1M' : 'যেমন ${x.no} ${x.agentTaka.round()}-667 বা TrxID',
-      initial: fromClip.length <= 60 ? fromClip : (parseReply(fromClip, nos: nos).trxIds.firstOrNull ?? ''),
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, set) {
+        final any = en(pin.text).trim().isNotEmpty || trx.text.trim().isNotEmpty;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(18, 18, 18, 18 + MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).padding.bottom),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Tx('এজেন্টের উত্তর', style: t(18, w: FontWeight.w600), textAlign: TextAlign.center),
+            const SizedBox(height: 4),
+            Tx('পিন বা TrxID — যেকোনো একটা দিলেই হবে', style: t(13.5, c: K.muted), textAlign: TextAlign.center),
+            if (fromClip) ...[
+              const SizedBox(height: 10),
+              Note('কপি করা উত্তর থেকে বসানো হয়েছে: ${clip.trim()}', icon: Icons.content_paste_rounded),
+            ],
+            const SizedBox(height: 14),
+            Field(label: 'পিন (যে নম্বর থেকে গেছে, তার শেষ কয়েক সংখ্যা)', controller: pin, number: true, hint: 'যেমন 667', autofocus: !fromClip, onChanged: (_) => set(() {})),
+            const SizedBox(height: 10),
+            Field(label: 'TrxID', controller: trx, hint: 'যেমন BJ7K9X2Q1M', onChanged: (_) => set(() {})),
+            const SizedBox(height: 16),
+            Pill(label: 'বসান', color: K.green, onTap: any ? () => Navigator.pop(ctx, true) : null),
+          ]),
+        );
+      }),
     );
-    if (v == null || v.trim().isEmpty || !context.mounted) return;
-    final text = en(v).trim();
-    final r = parseReply(text, nos: nos);
-    if (r.no != null && r.no != x.no) {
-      if (!await confirm(context, 'অন্য লেনদেনের উত্তর?', 'উত্তরে লেনদেন নং #${bn('${r.no}')}, কিন্তু এটা #${bn('${x.no}')}। তবুও এখানে বসাবেন?', yes: 'বসান')) return;
-      if (!context.mounted) return;
-    }
-    var trx = r.trxIds.isEmpty ? '' : r.trxIds.first;
-    if (trx.isEmpty && !r.useful) {
-      // Just letters and digits typed: take it as the TrxID if it looks like one.
-      final one = text.replaceAll(RegExp(r'\s'), '').toUpperCase();
-      if (RegExp(r'^[A-Z0-9]{6,14}$').hasMatch(one)) trx = one;
-    }
-    if (trx.isEmpty && r.amount == null) {
-      snack(context, 'লেনদেন নং, টাকা-শেষের ৩ সংখ্যা (যেমন ${x.no} ${x.agentTaka.round()}-667) বা TrxID দিন');
+    if (ok != true || !context.mounted) return;
+    final p = en(pin.text).replaceAll(RegExp(r'[^0-9]'), '');
+    final id = trx.text.replaceAll(RegExp(r'\s'), '').toUpperCase();
+    if (p.isEmpty && id.isEmpty) return;
+    if (p.isNotEmpty && (p.length < 2 || p.length > 6)) {
+      snack(context, 'পিন ২ থেকে ৬ সংখ্যার হয়');
       return;
     }
-    final amount = r.amount;
+    if (id.isNotEmpty && !RegExp(r'^[A-Z0-9]{6,20}$').hasMatch(id)) {
+      snack(context, 'TrxID-তে শুধু ইংরেজি অক্ষর আর সংখ্যা থাকে');
+      return;
+    }
+    final auto = fromClip && p == r0.tail && id == (r0.trxIds.firstOrNull ?? '').toUpperCase();
+    if (auto && r0.no != null && r0.no != x.no) {
+      if (!await confirm(context, 'অন্য লেনদেনের উত্তর?', 'উত্তরে লেনদেন নং #${bn('${r0.no}')}, কিন্তু এটা #${bn('${x.no}')}। তবুও এখানে বসাবেন?', yes: 'বসান')) return;
+      if (!context.mounted) return;
+    }
+    final amount = auto ? r0.amount : null;
     if (amount != null && (x.agentTaka - amount).abs() >= 0.5 && (x.taka - amount).abs() >= 0.5) {
       if (!await confirm(context, 'টাকা মিলছে না', 'উত্তরে ${bnNum(amount)} টাকা, কিন্তু এই লেনদেনে ${taka(x.agentTaka)}। তবুও বসাবেন?', yes: 'বসান')) return;
+      if (!context.mounted) return;
     }
-    if (trx.isNotEmpty) {
-      final usedBy = h.d.txns.where((o) => o.id != x.id && o.trxId == trx).toList();
-      if (usedBy.isNotEmpty && context.mounted) {
+    if (id.isNotEmpty && id != x.trxId) {
+      final usedBy = h.d.txns.where((o) => o.id != x.id && o.trxId == id).toList();
+      if (usedBy.isNotEmpty) {
         if (!await confirm(context, 'এই TrxID আগে ব্যবহার হয়েছে', '#${bn('${usedBy.first.no}')}-এ এই TrxID আছে। তবুও বসাবেন?', yes: 'বসান')) return;
       }
     }
-    await h.markSent(x, trxId: trx, reply: r.amount != null ? text : '', tail: r.tail, from: fromClip.isNotEmpty && text == en(fromClip) ? 'auto' : 'manual');
+    await h.markSent(x, trxId: id, reply: auto && amount != null ? en(clip.trim()) : '', tail: p, from: auto ? 'auto' : 'manual');
   }
 
   Future<void> _markFault(BuildContext context) async {
@@ -226,7 +251,7 @@ class _TxnBody extends StatelessWidget {
             _kv('সময়', '${dateShort(x.at)}, ${timeText(x.at)}'),
             if (x.byName.isNotEmpty) _kv('এডমিন', x.byName),
             _kv('এজেন্টের উত্তর', x.agentReply.isEmpty && x.trxId.isEmpty ? '—' : '${x.agentReply.isEmpty ? '' : bn(x.agentReply)}${switch (x.replyFrom) { 'auto' => ' · কপি থেকে অটো', 'manual' => ' · এডমিন নিজে বসালেন', 'agent' => ' · এজেন্টের অ্যাপ থেকে', _ => '' }}'),
-            if (x.replyTail.isNotEmpty) _kv('পাঠানোর নম্বর', 'শেষ ৩ সংখ্যা ${bn(x.replyTail)}'),
+            if (x.replyTail.isNotEmpty) _kv('পিন', bn(x.replyTail)),
             _kv('TrxID', x.trxId.isEmpty ? '—' : x.trxId, last: true, bold: true),
           ]),
         ),
@@ -237,9 +262,9 @@ class _TxnBody extends StatelessWidget {
             const SizedBox(height: 10),
           ],
           Row(children: [
-            // WhatsApp to the agent is always there, also for an agent who
-            // works in the app.
-            if (a != null && a.whatsapp.isNotEmpty)
+            // WhatsApp to the agent until it is sent (also for an agent who
+            // works in the app); once sent there is nothing to tell them.
+            if (a != null && a.whatsapp.isNotEmpty && x.status == TxnStatus.pending)
               Expanded(
                 child: SoftPill(
                   label: 'এজেন্টকে হোয়াটসঅ্যাপে',
@@ -250,7 +275,7 @@ class _TxnBody extends StatelessWidget {
                   },
                 ),
               ),
-            if (a != null && a.whatsapp.isNotEmpty) const SizedBox(width: 8),
+            if (a != null && a.whatsapp.isNotEmpty && x.status == TxnStatus.pending) const SizedBox(width: 8),
             Expanded(
               child: SoftPill(
                 label: 'গ্রাহককে রসিদ',
@@ -289,9 +314,9 @@ class _TxnBody extends StatelessWidget {
               if (x.trxId.isEmpty) ...[
                 Expanded(
                   child: SoftPill(
-                    label: 'TrxID যুক্ত করুন',
+                    label: 'পিন / TrxID',
                     icon: Icons.edit_note_rounded,
-                    onTap: () => _enterReply(context, onlyTrx: true),
+                    onTap: () => _enterReply(context),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -651,40 +676,46 @@ class AdjustCard extends StatelessWidget {
   final Adjust x;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: CardBox(
-          color: x.applied ? K.card : K.amberTint,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Expanded(child: Tx(adjustText(x), style: t(15, w: FontWeight.w600))),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: x.applied ? K.greenTint : Colors.white, borderRadius: BorderRadius.circular(14)),
-                child: Tx(x.applied ? 'মূল হিসাবে আছে' : 'আলাদা রাখা', style: t(12, w: FontWeight.w600, c: x.applied ? K.green : K.amberText)),
-              ),
-            ]),
-            if (x.note.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Tx(x.note, style: t(13.5))),
-            const SizedBox(height: 4),
-            Tx('${dateShort(x.at)}, ${timeText(x.at)}${x.byName.isEmpty ? '' : ' · ${x.byName}'}${x.applied && x.appliedAt != null ? ' · মূল হিসাবে যোগ ${dateShort(x.appliedAt!)}${x.appliedByName.isEmpty ? '' : ' (${x.appliedByName})'}' : ''}', style: t(12, c: K.muted)),
-            if (!x.applied && h.can('edit')) ...[
-              const SizedBox(height: 10),
-              Pill(
-                label: 'মূল হিসাবে যোগ করুন',
-                height: 44,
-                onTap: () async {
-                  if (await confirm(context, 'মূল হিসাবে যোগ করবেন?', '${adjustText(x)} — এরপর থেকে এটা গ্রাহকের বকেয়া, হাতের রিয়াল আর এজেন্টের হিসাবে ধরা হবে। যোগ করার পর আর ফেরানো যাবে না।', yes: 'যোগ করুন')) {
-                    await h.applyAdjust(x);
-                  }
-                },
-              ),
-            ],
+  Widget build(BuildContext context) {
+    final why = adjustWhy(x);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: CardBox(
+        color: x.applied ? K.card : K.amberTint,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: Tx(why.isEmpty ? adjustText(x) : why, style: t(15, w: FontWeight.w600, h: 1.4))),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: x.applied ? K.greenTint : Colors.white, borderRadius: BorderRadius.circular(14)),
+              child: Tx(x.applied ? 'মূল হিসাবে আছে' : 'আলাদা রাখা', style: t(12, w: FontWeight.w600, c: x.applied ? K.green : K.amberText)),
+            ),
           ]),
-        ),
-      );
+          if (why.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Tx(adjustText(x), style: t(13.5, w: FontWeight.w500))),
+          const SizedBox(height: 4),
+          Tx('${dateShort(x.at)}, ${timeText(x.at)}${x.byName.isEmpty ? '' : ' · ${x.byName}'}${x.applied && x.appliedAt != null ? ' · মূল হিসাবে যোগ ${dateShort(x.appliedAt!)}${x.appliedByName.isEmpty ? '' : ' (${x.appliedByName})'}' : ''}', style: t(12, c: K.muted)),
+          if (!x.applied && h.can('edit')) ...[
+            const SizedBox(height: 10),
+            Pill(
+              label: 'মূল হিসাবে যোগ করুন',
+              height: 44,
+              onTap: () async {
+                if (await confirm(context, 'মূল হিসাবে যোগ করবেন?', '${adjustText(x)} — এরপর থেকে এটা হিসাবে ধরা হবে। যোগ করার পর আর ফেরানো যাবে না।', yes: 'যোগ করুন')) {
+                  await h.applyAdjust(x);
+                }
+              },
+            ),
+          ],
+        ]),
+      ),
+    );
+  }
 }
 
-/// Writing a correction for a sent send.
+/// Writing a correction for a sent send, step by step: what went wrong,
+/// whose mistake it was, then the riyal and taka that go to that one's
+/// account (the customer's due, the agent's account or the admin's hand).
 class AdjustScreen extends StatefulWidget {
   const AdjustScreen({super.key, required this.h, required this.x});
   final Hisab h;
@@ -694,52 +725,171 @@ class AdjustScreen extends StatefulWidget {
 }
 
 class _AdjustScreenState extends State<AdjustScreen> {
-  final _due = TextEditingController(), _cash = TextEditingController(), _agent = TextEditingController(), _note = TextEditingController();
-  final _up = [true, true, true];
+  final _sar = TextEditingController(), _taka = TextEditingController(), _note = TextEditingController();
+  String? _what, _who;
+  late int _admin = widget.x.by;
 
-  double _v(TextEditingController c, int i) => (parseNum(c.text) ?? 0).abs() * (_up[i] ? 1 : -1);
+  /// true: the one at fault makes it good (pays); false: they get it back.
+  bool _pays = true;
 
-  Widget _row(int i, String label, String hint, TextEditingController c, String plus, String minus) => Padding(
-        padding: const EdgeInsets.only(bottom: 14),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Tx(label, style: t(14, w: FontWeight.w600)),
-          const SizedBox(height: 6),
-          Seg<bool>(items: [(true, plus), (false, minus)], value: _up[i], onChanged: (v) => setState(() => _up[i] = v)),
-          const SizedBox(height: 6),
-          Field(label: '', controller: c, number: true, hint: hint, onChanged: (_) => setState(() {})),
+  @override
+  void initState() {
+    super.initState();
+    final f = widget.x.fault;
+    if (f != null) {
+      _what = 'number';
+      _who = switch (f) { Fault.mine => 'admin', Fault.agent => 'agent', Fault.customer => 'customer' };
+    }
+  }
+
+  double get _rate => widget.x.rate > 0 ? widget.x.rate : 1;
+
+  /// Typing one fills the other at this send's rate.
+  void _typed(bool sarSide) {
+    final v = parseNum(sarSide ? _sar.text : _taka.text);
+    final other = sarSide ? _taka : _sar;
+    other.text = v == null ? '' : (sarSide ? '${(v * _rate).round()}' : (v / _rate).toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), ''));
+    setState(() {});
+  }
+
+  Map<int, String> _admins() {
+    final h = widget.h, x = widget.x;
+    final m = adminsIn(h.d);
+    if (h.session != null) m[h.meId] = h.meName;
+    m.putIfAbsent(x.by, () => x.byName.isEmpty ? h.ownerLabel : x.byName);
+    if (m.containsKey(0)) {
+      if (m.length > 1 && m.entries.any((e) => e.key != 0 && e.value == h.ownerLabel)) {
+        m.remove(0);
+      } else {
+        m[0] = h.ownerLabel;
+      }
+    }
+    return m;
+  }
+
+  Widget _option(String label, bool on, VoidCallback tap, {String sub = ''}) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: CardBox(
+          border: on ? K.blue : null,
+          onTap: tap,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(children: [
+            Icon(on ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded, color: on ? K.blue : K.muted),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Tx(label, style: t(15, w: FontWeight.w500)),
+                if (sub.isNotEmpty) Tx(sub, style: t(12.5, c: K.muted)),
+              ]),
+            ),
+          ]),
+        ),
+      );
+
+  Widget _step(int n, String title, {bool on = true}) => Padding(
+        padding: const EdgeInsets.only(top: 14, bottom: 8),
+        child: Row(children: [
+          Container(
+            width: 26,
+            height: 26,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: on ? K.navy : K.chip),
+            child: Tx(bn('$n'), style: t(13, w: FontWeight.w700, c: on ? Colors.white : K.muted)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Tx(title, style: t(16, w: FontWeight.w600, c: on ? K.ink : K.muted))),
         ]),
       );
 
   @override
   Widget build(BuildContext context) {
     final h = widget.h, x = widget.x;
-    final sarDue = _v(_due, 0), sarCash = _v(_cash, 1), takaAgent = _v(_agent, 2);
-    final any = sarDue != 0 || sarCash != 0 || takaAgent != 0;
+    final c = customerById(h.d, x.customerId);
+    final a = agentById(h.d, x.agentId);
+    final admins = _admins();
+    final adminName = admins[_admin] ?? (x.byName.isEmpty ? h.ownerLabel : x.byName);
+    final sarV = (parseNum(_sar.text) ?? 0).abs(), takaV = (parseNum(_taka.text) ?? 0).abs();
+    final sign = _pays ? 1 : -1;
+    // Where it goes: the customer's due, the agent's account or the admin's hand.
+    final adj = Adjust(
+      id: '',
+      at: h.now,
+      sarDue: _who == 'customer' ? sign * sarV : 0,
+      takaAgent: _who == 'agent' ? -sign * takaV : 0,
+      sarCash: _who == 'admin' ? sign * sarV : 0,
+    );
+    final amountOk = _who == 'agent' ? takaV >= 0.5 : sarV >= 0.005;
+    final ready = _what != null && _who != null && amountOk && (_what != 'other' || _note.text.trim().isNotEmpty);
+    final custName = c?.name ?? customerNameOf(h.d, x);
+    final (payLabel, backLabel, payEffect, backEffect) = switch (_who) {
+      'customer' => ('গ্রাহক দেবেন', 'গ্রাহক ফেরত পাবেন', '$custName-এর বকেয়া বাড়বে', '$custName-এর বকেয়া কমবে'),
+      'agent' => ('এজেন্ট দেবেন', 'এজেন্ট পাবেন', '${a?.name ?? 'এজেন্ট'}-এর পাওনা কমবে', '${a?.name ?? 'এজেন্ট'}-এর পাওনা বাড়বে'),
+      _ => ('এডমিন পূরণ করবেন', 'এডমিন ফেরত পাবেন', '$adminName-এর হাতে রিয়াল যোগ হবে', '$adminName-এর হাত থেকে রিয়াল কমবে'),
+    };
     return Screen(
       title: 'অতিরিক্ত হিসাব · #${bn('${x.no}')}',
       bottom: Pill(
         label: 'আলাদা করে রাখুন',
-        onTap: !any
+        onTap: !ready
             ? null
             : () async {
-                if (_note.text.trim().isEmpty) {
-                  snack(context, 'কী ভুল হয়েছিল লিখুন');
-                  return;
-                }
-                await h.addAdjust(x, sarDue: sarDue, sarCash: sarCash, takaAgent: takaAgent, note: _note.text);
+                await h.addAdjust(x,
+                    sarDue: adj.sarDue,
+                    sarCash: adj.sarCash,
+                    takaAgent: adj.takaAgent,
+                    note: _note.text,
+                    what: _what!,
+                    who: _who!,
+                    handBy: _who == 'admin' ? _admin : 0,
+                    handByName: _who == 'admin' ? adminName : '');
                 if (context.mounted) Navigator.of(context).pop();
               },
       ),
       body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 24), children: [
-        const Note('পাঠানো লেনদেন বদলায় না। যা ভুল হয়েছে তা এখানে লিখুন — এটা আলাদা থাকবে, মূল হিসাবে ধরা হবে না। পরে লেনদেনের পাতায় "মূল হিসাবে যোগ করুন" চাপলে তবেই হিসাবে ঢুকবে।'),
-        const SizedBox(height: 14),
-        _row(0, 'গ্রাহকের বকেয়া (রিয়াল)', 'যেমন 50', _due, 'বকেয়া বাড়বে', 'বকেয়া কমবে'),
-        _row(1, 'হাতের রিয়াল', 'যেমন 50', _cash, 'হাতে বেশি', 'হাতে কম'),
-        _row(2, 'এজেন্টের পাওনা (টাকা)', 'যেমন 1625', _agent, 'পাওনা বাড়বে', 'পাওনা কমবে'),
-        Field(label: 'কী ভুল হয়েছিল', controller: _note, hint: 'যেমন রিয়াল ৩০০ লিখেছিলাম, আসলে ৩৫০', maxLines: 3),
-        if (any) ...[
+        CardBox(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Tx('$custName · ${sar(x.sarAmount)} × ${rateText(x.rate)} = ${taka(x.taka)}\n${bdShow(x.number)} · ${a?.name ?? '—'}${x.byName.isEmpty ? '' : ' · ${x.byName}'}', style: t(13.5, c: K.muted, h: 1.5)),
+        ),
+        _step(1, 'কী ভুল হয়েছে?'),
+        for (final e in adjustWhats.entries) _option(e.value, _what == e.key, () => setState(() => _what = e.key)),
+        _step(2, 'কার ভুলে হয়েছে?', on: _what != null),
+        if (_what != null) ...[
+          _option('গ্রাহকের ভুল', _who == 'customer', () => setState(() => _who = 'customer'), sub: 'ক্ষতিপূরণ গ্রাহকের বকেয়ায় যাবে'),
+          _option('এজেন্টের ভুল', _who == 'agent', () => setState(() => _who = 'agent'), sub: 'ক্ষতিপূরণ এজেন্টের হিসাবে যাবে'),
+          _option('এডমিনের ভুল', _who == 'admin', () => setState(() => _who = 'admin'), sub: 'ক্ষতিপূরণ সেই এডমিনের হাতের হিসাবে যাবে'),
+          if (_who == 'admin' && admins.length > 1)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Wrap(spacing: 8, runSpacing: 8, children: [
+                for (final e in admins.entries) ChoiceChipX(label: e.value, on: _admin == e.key, onTap: () => setState(() => _admin = e.key)),
+              ]),
+            ),
+        ],
+        _step(3, 'ক্ষতিপূরণ কত?', on: _who != null),
+        if (_who != null) ...[
+          Seg<bool>(items: [(true, payLabel), (false, backLabel)], value: _pays, onChanged: (v) => setState(() => _pays = v)),
+          const SizedBox(height: 10),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: Field(label: 'রিয়াল', controller: _sar, number: true, hint: 'যেমন 50', onChanged: (_) => _typed(true))),
+            const SizedBox(width: 10),
+            Expanded(child: Field(label: 'টাকা', controller: _taka, number: true, hint: 'যেমন ${(50 * _rate).round()}', onChanged: (_) => _typed(false))),
+          ]),
+          Tx('একটা লিখলে অন্যটা এই লেনদেনের রেট (${rateText(x.rate)}) দিয়ে বসে যায়, চাইলে বদলাতে পারেন।', style: t(12.5, c: K.muted)),
           const SizedBox(height: 12),
-          Tx('যা লেখা হবে: ${adjustText(Adjust(id: '', at: h.now, sarDue: sarDue, sarCash: sarCash, takaAgent: takaAgent))}', style: t(13.5, c: K.muted)),
+          Field(label: _what == 'other' ? 'কী হয়েছিল' : 'কী হয়েছিল (ইচ্ছা হলে)', controller: _note, hint: 'যেমন রিয়াল ৩০০ লিখেছিলাম, আসলে ৩৫০', maxLines: 3, onChanged: (_) => setState(() {})),
+          if (amountOk) ...[
+            const SizedBox(height: 12),
+            CardBox(
+              color: K.amberTint,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Tx('যা হবে', style: t(13, c: K.amberText, w: FontWeight.w600)),
+                const SizedBox(height: 4),
+                Tx('${_pays ? payEffect : backEffect}: ${adjustText(adj)}', style: t(14.5, w: FontWeight.w600)),
+                const SizedBox(height: 4),
+                Tx('এখন আলাদা থাকবে। লেনদেনের পাতায় "মূল হিসাবে যোগ করুন" চাপলে তবেই হিসাবে ঢুকবে।', style: t(12.5, c: K.amberText, h: 1.4)),
+              ]),
+            ),
+          ],
         ],
       ]),
     );

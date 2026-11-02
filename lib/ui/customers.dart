@@ -25,26 +25,80 @@ class CustomersTab extends StatefulWidget {
 
 class _CustomersTabState extends State<CustomersTab> {
   final _q = TextEditingController();
+  final _pc = PageController();
   int _f = 0;
 
-  /// Swipe left or right over the list: the next or previous of সবাই ·
-  /// বকেয়া · পুরনো · বকেয়া নেই (and past the ends, the next main tab).
-  void _swipe(DragEndDetails e) {
-    final v = e.primaryVelocity ?? 0;
-    if (v.abs() < 250) return;
-    if (v < 0) {
-      if (_f < 3) {
-        setState(() => _f++);
-      } else {
-        widget.onTab?.call(2);
-      }
-    } else {
-      if (_f > 0) {
-        setState(() => _f--);
-      } else {
-        widget.onTab?.call(0);
+  /// Sideways overscroll past the first or last list, to go to the next
+  /// main tab.
+  double _over = 0;
+  bool _left = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pc.addListener(() {
+      final p = (_pc.page ?? 0).round();
+      if (p != _f) setState(() => _f = p);
+    });
+  }
+
+  @override
+  void dispose() {
+    _pc.dispose();
+    _q.dispose();
+    super.dispose();
+  }
+
+  bool _edge(ScrollNotification n) {
+    if (n.depth != 0 || n.metrics.axis != Axis.horizontal) return false;
+    if (n is ScrollStartNotification) {
+      _over = 0;
+      _left = false;
+    } else if (n is OverscrollNotification && n.dragDetails != null && !_left) {
+      _over += n.overscroll;
+      if (_over.abs() > 70) {
+        _left = true;
+        widget.onTab?.call(_over < 0 ? 0 : 2);
       }
     }
+    return false;
+  }
+
+  List<Customer> _list(int f) {
+    final h = widget.h, d = h.d;
+    final oldDays = d.settings.oldDueDays;
+    final list = h.searchCustomers(_q.text).where((c) {
+      final due = customerDue(d, c.id);
+      final days = oldestDueDays(d, c.id, h.now) ?? -1;
+      return switch (f) {
+        1 => due > 0,
+        2 => due > 0 && days >= oldDays,
+        3 => due > 0 && days >= 30,
+        _ => true,
+      };
+    }).toList();
+    if (f > 0) list.sort((a, b) => customerDue(d, b.id).compareTo(customerDue(d, a.id)));
+    return list;
+  }
+
+  Widget _page(BuildContext context, int f) {
+    final list = _list(f);
+    return CustomScrollView(key: PageStorageKey('cust$f'), slivers: [
+      SliverOverlapInjector(handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context)),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+        sliver: SliverToBoxAdapter(
+          child: list.isEmpty
+              ? const Note('কেউ নেই।')
+              : CardBox(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Column(children: [
+                    for (final (i, c) in list.indexed) _CustomerRow(h: widget.h, c: c, last: i == list.length - 1),
+                  ]),
+                ),
+        ),
+      ),
+    ]);
   }
 
   @override
@@ -54,90 +108,108 @@ class _CustomersTabState extends State<CustomersTab> {
         final h = widget.h;
         final d = h.d;
         final oldDays = d.settings.oldDueDays;
-        var list = h.searchCustomers(_q.text);
-        list = list.where((c) {
-          final due = customerDue(d, c.id);
-          final days = oldestDueDays(d, c.id, h.now) ?? -1;
-          return switch (_f) {
-            1 => due > 0,
-            2 => due > 0 && days >= oldDays,
-            3 => due > 0 && days >= 30,
-            _ => true,
-          };
-        }).toList();
-        if (_f > 0) list.sort((a, b) => customerDue(d, b.id).compareTo(customerDue(d, a.id)));
-        return GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onHorizontalDragEnd: _swipe,
-          child: ListView(padding: const EdgeInsets.fromLTRB(18, 12, 18, 24), children: [
-            Row(children: [
-              Expanded(child: Tx('গ্রাহক', style: t(22, w: FontWeight.w700))),
-              CircleBtn(icon: Icons.settings_outlined, label: 'গ্রাহকের সেটিংস', onTap: () => push(context, CustomerSettingsScreen(h: h))),
-              const SizedBox(width: 8),
-              CircleBtn(
-                icon: Icons.person_add_alt_1_rounded,
-                label: 'নতুন গ্রাহক',
-                onTap: () async {
-                  final c = await push<Customer>(context, QuickProfile(h: h));
-                  if (c != null && context.mounted) push(context, CustomerScreen(h: h, id: c.id));
-                },
-              ),
-            ]),
-            const SizedBox(height: 4),
-            Tx('মোট বকেয়া ${sar(totalCustomerDue(d))} · ${bn('${d.customers.length}')} জন গ্রাহক', style: t(13.5, c: K.muted)),
-            const SizedBox(height: 12),
-            if (quietCustomers(d, h.now).isNotEmpty) ...[
-              CardBox(
-                color: K.amberTint,
-                onTap: () => push(context, QuietCustomersScreen(h: h)),
-                child: Row(children: [
-                  dotIcon(Icons.waving_hand_outlined, Colors.white, K.amberText, size: 40),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Tx('${bn('${quietCustomers(d, h.now).length}')} জন অনেকদিন লেনদেন করেননি', style: t(14.5, w: FontWeight.w600, c: K.amberText)),
-                      Tx('${bn('${d.settings.inactiveDays}')} দিনের বেশি · খোঁজ নেওয়ার মেসেজ দিন', style: t(12.5, c: K.amberText)),
-                    ]),
+        final quiet = quietCustomers(d, h.now);
+        return NestedScrollView(
+          headerSliverBuilder: (context, _) => [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  Row(children: [
+                    Expanded(child: Tx('গ্রাহক', style: t(22, w: FontWeight.w700))),
+                    CircleBtn(icon: Icons.settings_outlined, label: 'গ্রাহকের সেটিংস', onTap: () => push(context, CustomerSettingsScreen(h: h))),
+                    const SizedBox(width: 8),
+                    CircleBtn(
+                      icon: Icons.person_add_alt_1_rounded,
+                      label: 'নতুন গ্রাহক',
+                      onTap: () async {
+                        final c = await push<Customer>(context, QuickProfile(h: h));
+                        if (c != null && context.mounted) push(context, CustomerScreen(h: h, id: c.id));
+                      },
+                    ),
+                  ]),
+                  const SizedBox(height: 4),
+                  Tx('মোট বকেয়া ${sar(totalCustomerDue(d))} · ${bn('${d.customers.length}')} জন গ্রাহক', style: t(13.5, c: K.muted)),
+                  const SizedBox(height: 12),
+                  if (quiet.isNotEmpty) ...[
+                    CardBox(
+                      color: K.amberTint,
+                      onTap: () => push(context, QuietCustomersScreen(h: h)),
+                      child: Row(children: [
+                        dotIcon(Icons.waving_hand_outlined, Colors.white, K.amberText, size: 40),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Tx('${bn('${quiet.length}')} জন অনেকদিন লেনদেন করেননি', style: t(14.5, w: FontWeight.w600, c: K.amberText)),
+                            Tx('${bn('${d.settings.inactiveDays}')} দিনের বেশি · খোঁজ নেওয়ার মেসেজ দিন', style: t(12.5, c: K.amberText)),
+                          ]),
+                        ),
+                        const Icon(Icons.chevron_right_rounded, color: K.amberText),
+                      ]),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  TextField(
+                    controller: _q,
+                    onChanged: (_) => setState(() {}),
+                    style: t(15),
+                    decoration: InputDecoration(
+                      hintText: tr('নাম বা নম্বর দিয়ে খুঁজুন'),
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      filled: true,
+                      fillColor: K.card,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(26), borderSide: const BorderSide(color: K.border)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(26), borderSide: const BorderSide(color: K.border)),
+                    ),
                   ),
-                  const Icon(Icons.chevron_right_rounded, color: K.amberText),
+                  const SizedBox(height: 10),
                 ]),
               ),
-              const SizedBox(height: 12),
-            ],
-            TextField(
-              controller: _q,
-              onChanged: (_) => setState(() {}),
-              style: t(15),
-              decoration: InputDecoration(
-                hintText: tr('নাম বা নম্বর দিয়ে খুঁজুন'),
-                prefixIcon: const Icon(Icons.search_rounded),
-                filled: true,
-                fillColor: K.card,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(26), borderSide: const BorderSide(color: K.border)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(26), borderSide: const BorderSide(color: K.border)),
+            ),
+            // The filter bar stays on top while the list scrolls.
+            SliverOverlapAbsorber(
+              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+              sliver: SliverPersistentHeader(
+                pinned: true,
+                delegate: _Bar(Seg<int>(
+                  items: [(0, 'সবাই'), (1, 'বকেয়া'), (2, '${bn('$oldDays')}+ দিন'), (3, '${bn('30')}+ দিন')],
+                  value: _f,
+                  onChanged: (v) {
+                    setState(() => _f = v);
+                    _pc.animateToPage(v, duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
+                  },
+                )),
               ),
             ),
-            const SizedBox(height: 10),
-            Seg<int>(items: [(0, 'সবাই'), (1, 'বকেয়া'), (2, '${bn('$oldDays')}+ দিন'), (3, '${bn('30')}+ দিন')], value: _f, onChanged: (v) => setState(() => _f = v)),
-            const SizedBox(height: 12),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              transitionBuilder: (child, a) => FadeTransition(opacity: a, child: SlideTransition(position: Tween(begin: const Offset(0.06, 0), end: Offset.zero).animate(a), child: child)),
-              child: KeyedSubtree(
-                key: ValueKey(_f),
-                child: list.isEmpty
-                    ? const Note('কেউ নেই।')
-                    : CardBox(
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        child: Column(children: [
-                          for (final (i, c) in list.indexed) _CustomerRow(h: h, c: c, last: i == list.length - 1),
-                        ]),
-                      ),
-              ),
+          ],
+          body: NotificationListener<ScrollNotification>(
+            onNotification: _edge,
+            child: PageView(
+              controller: _pc,
+              children: [for (var f = 0; f < 4; f++) Builder(builder: (context) => _page(context, f))],
             ),
-          ]),
+          ),
         );
       });
+}
+
+/// The pinned filter bar.
+class _Bar extends SliverPersistentHeaderDelegate {
+  _Bar(this.child);
+  final Widget child;
+  @override
+  double get minExtent => 60;
+  @override
+  double get maxExtent => 60;
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlaps) => Container(
+        color: K.ground,
+        padding: const EdgeInsets.fromLTRB(18, 4, 18, 4),
+        alignment: Alignment.center,
+        child: child,
+      );
+  @override
+  bool shouldRebuild(_Bar old) => true;
 }
 
 class _CustomerRow extends StatelessWidget {

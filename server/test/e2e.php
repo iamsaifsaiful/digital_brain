@@ -297,6 +297,15 @@ check($d['saved'] === 1 && rh_customer_due('c1') == $dueBefore + 50 && rh_agent_
 check($d['saved'] === 0 && !empty(rh_one('adjust', 'a1')['applied']), 'once added it stays added');
 $html = page('adjusts');
 check(str_contains($html, 'রিয়াল কম লিখেছিলাম') && str_contains($html, 'মূল হিসাবে যোগ হয়েছে') && str_contains($html, '+৫০'), 'অতিরিক্ত হিসাব page');
+// An admin's mistake: written by the main admin, the riyal goes into রহিম's hand.
+$rBefore = rh_cash_in_hand($rahimId);
+$oBefore = rh_cash_in_hand($ownerId);
+$adj2 = ['id' => 'a2', 'at' => '2026-11-02T20:35:00.000', 'txnId' => 't0', 'customerId' => 'c1', 'agentId' => 'ag1', 'sarDue' => 0, 'sarCash' => 20, 'takaAgent' => 0, 'note' => '', 'what' => 'rate', 'who' => 'admin', 'handBy' => (int) $rahimId, 'handByName' => 'রহিম', 'applied' => false];
+call('POST', '/push', ['records' => [['kind' => 'adjust', 'rid' => 'a2', 'data' => $adj2]]], $owner);
+[, $d] = call('POST', '/push', ['records' => [['kind' => 'adjust', 'rid' => 'a2', 'data' => ['applied' => true, 'appliedAt' => '2026-11-02T21:05:00.000', 'appliedByName' => 'সাইফুল'] + $adj2]]], $owner);
+check($d['saved'] === 1 && abs(rh_cash_in_hand($rahimId) - ($rBefore + 20)) < 0.001 && abs(rh_cash_in_hand($ownerId) - $oBefore) < 0.001, 'an admin\'s mistake goes into that admin\'s hand, not the writer\'s');
+$html = page('adjusts');
+check(str_contains($html, 'রেট ভুল হয়েছিল') && str_contains($html, 'এডমিনের ভুল (রহিম)'), 'what went wrong and whose mistake on the page');
 call('POST', '/push', ['records' => [['kind' => 'txn', 'rid' => 'tw', 'data' => ['id' => 'tw', 'no' => 27010009, 'customerId' => '', 'walkIn' => 'রাস্তার ভাই', 'walkInPhone' => '0559999999', 'agentId' => 'ag1', 'number' => '01812345999', 'method' => 'bkash', 'kind' => 'send', 'sar' => 100, 'rate' => 32.5, 'taka' => 3250, 'fee' => 0, 'pay' => 'cash', 'sarPaid' => 100, 'at' => '2026-11-02T20:40:00.000', 'status' => 'pending']]]], $owner);
 $html = page('txns', ['q' => 'রাস্তার']);
 check(str_contains($html, 'রাস্তার ভাই') && str_contains($html, '#২৭০১০০০৯'), 'a send without a profile shows its typed name');
@@ -394,7 +403,7 @@ function rh_open_backup($file, $pass) {
     return $clear === false ? null : json_decode($clear, true);
 }
 $j = rh_open_backup($file, 'backup-pass-1');
-check(str_starts_with($file, 'RHSBBK1') && $j && count($j['data']['txns']) === 4 && count($j['data']['handovers']) >= 1 && count($j['data']['adjusts']) === 1 && $j['data']['customers'][0]['name'] === 'করিম মিয়া' && isset($j['photos']['rc1']), 'the backup holds the whole account and photos, in the app\'s format');
+check(str_starts_with($file, 'RHSBBK1') && $j && count($j['data']['txns']) === 4 && count($j['data']['handovers']) >= 1 && count($j['data']['adjusts']) === 2 && $j['data']['customers'][0]['name'] === 'করিম মিয়া' && isset($j['photos']['rc1']), 'the backup holds the whole account and photos, in the app\'s format');
 check(rh_open_backup($file, 'wrong-pass') === null, 'useless without its password');
 if (getenv('RH_BACKUP_OUT')) file_put_contents(getenv('RH_BACKUP_OUT'), $file);
 

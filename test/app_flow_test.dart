@@ -248,14 +248,22 @@ void main() {
     // A sent send is never edited: a mistake goes to অতিরিক্ত হিসাব.
     expect(find.byTooltip('সংশোধন'), findsNothing);
     final dueBefore = customerDue(h.d, h.d.customers.single.id);
+    // Sent: nothing more to tell the agent.
+    expect(find.text('এজেন্টকে হোয়াটসঅ্যাপে'), findsNothing);
     await tapText(tester, 'ভুল হয়েছে? অতিরিক্ত হিসাব লিখুন');
+    // What went wrong, whose mistake, then the riyal (taka fills in).
+    await tapText(tester, 'রিয়াল কম বা বেশি লেখা হয়েছিল');
+    await tapText(tester, 'গ্রাহকের ভুল');
     await tester.enterText(find.byType(TextField).first, '50');
+    await tester.pumpAndSettle();
+    expect(find.text('${(50 * h.d.txns.single.rate).round()}'), findsOneWidget);
     await tester.enterText(find.byType(TextField).last, 'রিয়াল ৫০ কম লিখেছিলাম');
     await tester.pumpAndSettle();
     await tester.tap(find.text('আলাদা করে রাখুন'));
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pumpAndSettle();
     expect(h.d.adjusts.single.sarDue, 50);
+    expect((h.d.adjusts.single.what, h.d.adjusts.single.who), ('sar', 'customer'));
     expect(customerDue(h.d, h.d.customers.single.id), dueBefore, reason: 'apart until added');
     await tapText(tester, 'মূল হিসাবে যোগ করুন');
     await tapText(tester, 'যোগ করুন');

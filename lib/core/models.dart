@@ -576,12 +576,27 @@ class Adjust {
     this.appliedByName = '',
     this.by = 0,
     this.byName = '',
+    this.what = '',
+    this.who = '',
+    this.handBy = 0,
+    this.handByName = '',
   });
   final String id;
   final DateTime at;
   final String txnId;
   final String customerId;
   final String agentId;
+
+  /// What went wrong: one of [adjustWhats] (empty on older entries).
+  final String what;
+
+  /// Whose mistake: customer, agent or admin (empty on older entries).
+  final String who;
+
+  /// For an admin's mistake: the admin whose hand the riyal goes into
+  /// (0 with an empty name = the one who wrote it).
+  final int handBy;
+  final String handByName;
 
   /// Riyal more (+) or less (−) the customer owes.
   final double sarDue;
@@ -613,6 +628,10 @@ class Adjust {
         'appliedByName': appliedByName,
         'by': by,
         'byName': byName,
+        'what': what,
+        'who': who,
+        'handBy': handBy,
+        'handByName': handByName,
       };
   factory Adjust.fromJson(Map<String, Object?> j) => Adjust(
         id: _s(j['id']),
@@ -629,8 +648,33 @@ class Adjust {
         appliedByName: _s(j['appliedByName']),
         by: _i(j['by']),
         byName: _s(j['byName']),
+        what: _s(j['what']),
+        who: _s(j['who']),
+        handBy: _i(j['handBy']),
+        handByName: _s(j['handByName']),
       );
+
+  /// Whose hand the riyal of this entry is in.
+  int get handOf => handByName.isEmpty ? by : handBy;
+  String get handOfName => handByName.isEmpty ? byName : handByName;
 }
+
+/// What can go wrong on a sent transaction.
+const adjustWhats = <String, String>{
+  'sar': 'রিয়াল কম বা বেশি লেখা হয়েছিল',
+  'rate': 'রেট ভুল হয়েছিল',
+  'taka': 'এজেন্ট কম বা বেশি টাকা পাঠিয়েছেন',
+  'number': 'ভুল নম্বরে টাকা গেছে',
+  'pay': 'নগদ / বকেয়া ভুল লেখা হয়েছিল',
+  'other': 'অন্য কিছু',
+};
+
+/// Whose mistake it was.
+const adjustWhos = <String, String>{
+  'customer': 'গ্রাহকের ভুল',
+  'agent': 'এজেন্টের ভুল',
+  'admin': 'এডমিনের ভুল',
+};
 
 /// One line of the activity log. The log is only ever added to.
 class LogEntry {
