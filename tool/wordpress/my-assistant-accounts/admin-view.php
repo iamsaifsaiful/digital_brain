@@ -122,6 +122,7 @@ function ma_acc_render($v) {
 
         </main>
         </div>
+        <?php ma_ui_confirm_markup(); ?>
     </div>
     <?php
     ma_acc_script();
@@ -459,7 +460,7 @@ function ma_acc_render_inbox_one($one, $post) {
                     <div class="ma-chat-sep">
                         <span class="ma-pill <?php echo esc_attr($k[1]); ?>"><?php echo esc_html($k[0]); ?></span>
                         <span><?php echo esc_html(ma_acc_date(gmdate('Y-m-d H:i:s', strtotime($t['created'])))); ?><?php echo $t['version'] !== '' ? ' · অ্যাপ v' . esc_html($t['version']) : ''; ?><?php echo $t['status'] === 'done' ? ' · শেষ' : ''; ?></span>
-                        <form method="post" action="<?php echo $post; ?>" onsubmit="return confirm('এই কথোপকথন আর তার সংযুক্তি মুছে ফেলবেন?')"><input type="hidden" name="action" value="ma_fb_set"><input type="hidden" name="id" value="<?php echo (int) $thread; ?>"><input type="hidden" name="status" value="delete"><?php wp_nonce_field('ma_fb_set'); ?><button class="ma-icon danger" type="submit" title="এই কথোপকথন মুছুন" aria-label="এই কথোপকথন মুছুন"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M9 3h6a1 1 0 0 1 1 1v1h4a1 1 0 1 1 0 2h-1l-.9 12.1A2 2 0 0 1 16.1 21H7.9a2 2 0 0 1-2-1.9L5 7H4a1 1 0 0 1 0-2h4V4a1 1 0 0 1 1-1Zm-2 4 .9 12h8.2L17 7H7Z"/></svg></button></form>
+                        <form method="post" action="<?php echo $post; ?>" data-confirm="এই কথোপকথন আর তার সংযুক্তি মুছে ফেলবেন?"><input type="hidden" name="action" value="ma_fb_set"><input type="hidden" name="id" value="<?php echo (int) $thread; ?>"><input type="hidden" name="status" value="delete"><?php wp_nonce_field('ma_fb_set'); ?><button class="ma-icon danger" type="submit" title="এই কথোপকথন মুছুন" aria-label="এই কথোপকথন মুছুন"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M9 3h6a1 1 0 0 1 1 1v1h4a1 1 0 1 1 0 2h-1l-.9 12.1A2 2 0 0 1 16.1 21H7.9a2 2 0 0 1-2-1.9L5 7H4a1 1 0 0 1 0-2h4V4a1 1 0 0 1 1-1Zm-2 4 .9 12h8.2L17 7H7Z"/></svg></button></form>
                     </div>
                 <?php endif;
                 $mine = $m['from'] === 'admin';
@@ -563,7 +564,7 @@ function ma_acc_render_finance($f) {
                             <td><?php echo esc_html($e['category']); ?><?php if ($e['auto']) : ?><span class="ma-ver">নিজে থেকে</span><?php endif; ?></td>
                             <td class="hide-s muted"><?php echo esc_html($e['note']); ?></td>
                             <td class="right"><strong class="<?php echo $e['kind'] === 'income' ? 'ma-in' : 'ma-out'; ?>"><?php echo esc_html(($e['kind'] === 'income' ? '+' : '−') . $tk($e['amount'])); ?></strong></td>
-                            <td class="right"><?php if (!$e['auto']) : ?><form method="post" action="<?php echo $post; ?>" onsubmit="return confirm('মুছে ফেলবেন?')"><input type="hidden" name="action" value="ma_fin_delete"><input type="hidden" name="which" value="entry"><input type="hidden" name="id" value="<?php echo (int) $e['id']; ?>"><?php wp_nonce_field('ma_fin_delete'); ?><button class="ma-icon danger" type="submit" title="মুছুন" aria-label="মুছুন"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M9 3h6a1 1 0 0 1 1 1v1h4a1 1 0 1 1 0 2h-1l-.9 12.1A2 2 0 0 1 16.1 21H7.9a2 2 0 0 1-2-1.9L5 7H4a1 1 0 0 1 0-2h4V4a1 1 0 0 1 1-1Zm-2 4 .9 12h8.2L17 7H7Z"/></svg></button></form><?php endif; ?></td>
+                            <td class="right"><?php if (!$e['auto']) : ?><form method="post" action="<?php echo $post; ?>" data-confirm="মুছে ফেলবেন?"><input type="hidden" name="action" value="ma_fin_delete"><input type="hidden" name="which" value="entry"><input type="hidden" name="id" value="<?php echo (int) $e['id']; ?>"><?php wp_nonce_field('ma_fin_delete'); ?><button class="ma-icon danger" type="submit" title="মুছুন" aria-label="মুছুন"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M9 3h6a1 1 0 0 1 1 1v1h4a1 1 0 1 1 0 2h-1l-.9 12.1A2 2 0 0 1 16.1 21H7.9a2 2 0 0 1-2-1.9L5 7H4a1 1 0 0 1 0-2h4V4a1 1 0 0 1 1-1Zm-2 4 .9 12h8.2L17 7H7Z"/></svg></button></form><?php endif; ?></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
@@ -607,7 +608,7 @@ function ma_acc_render_finance($f) {
                     <?php foreach ($f['investors'] as $i) : ?>
                         <tr><td><strong><?php echo esc_html($i['name']); ?></strong><?php if ($i['note'] !== '') : ?><span class="ma-ver"><?php echo esc_html($i['note']); ?></span><?php endif; ?></td><td class="hide-s muted"><?php echo esc_html($i['contact']); ?></td><td class="muted"><?php echo esc_html(ma_acc_date($i['on_date'] . ' 06:00:00')); ?></td>
                             <td class="right"><?php echo $i['share'] !== '' ? esc_html(ma_acc_bn($i['share']) . '%') : '—'; ?></td><td class="right"><strong><?php echo esc_html($tk($i['amount'])); ?></strong></td>
-                            <td class="right"><form method="post" action="<?php echo $post; ?>" onsubmit="return confirm('মুছে ফেলবেন?')"><input type="hidden" name="action" value="ma_fin_delete"><input type="hidden" name="which" value="investor"><input type="hidden" name="id" value="<?php echo (int) $i['id']; ?>"><?php wp_nonce_field('ma_fin_delete'); ?><button class="ma-icon danger" type="submit" title="মুছুন" aria-label="মুছুন"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M9 3h6a1 1 0 0 1 1 1v1h4a1 1 0 1 1 0 2h-1l-.9 12.1A2 2 0 0 1 16.1 21H7.9a2 2 0 0 1-2-1.9L5 7H4a1 1 0 0 1 0-2h4V4a1 1 0 0 1 1-1Zm-2 4 .9 12h8.2L17 7H7Z"/></svg></button></form></td></tr>
+                            <td class="right"><form method="post" action="<?php echo $post; ?>" data-confirm="মুছে ফেলবেন?"><input type="hidden" name="action" value="ma_fin_delete"><input type="hidden" name="which" value="investor"><input type="hidden" name="id" value="<?php echo (int) $i['id']; ?>"><?php wp_nonce_field('ma_fin_delete'); ?><button class="ma-icon danger" type="submit" title="মুছুন" aria-label="মুছুন"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M9 3h6a1 1 0 0 1 1 1v1h4a1 1 0 1 1 0 2h-1l-.9 12.1A2 2 0 0 1 16.1 21H7.9a2 2 0 0 1-2-1.9L5 7H4a1 1 0 0 1 0-2h4V4a1 1 0 0 1 1-1Zm-2 4 .9 12h8.2L17 7H7Z"/></svg></button></form></td></tr>
                     <?php endforeach; ?>
                     </tbody>
                 </table>
@@ -731,7 +732,7 @@ function ma_acc_render_settings($v) {
                     <?php if ($site) : ?>
                         <span class="ma-pill pro">সাইটের মূল অ্যাডমিন</span>
                     <?php else : ?>
-                        <form method="post" action="<?php echo $post; ?>" onsubmit="return confirm('এই অ্যাডমিনের অনুমতি তুলে নেবেন?')"><input type="hidden" name="action" value="ma_admin_remove"><input type="hidden" name="id" value="<?php echo (int) $a->ID; ?>"><?php wp_nonce_field('ma_admin_remove'); ?><button class="ma-btn small ghost" type="submit">সরান</button></form>
+                        <form method="post" action="<?php echo $post; ?>" data-confirm="এই অ্যাডমিনের অনুমতি তুলে নেবেন?"><input type="hidden" name="action" value="ma_admin_remove"><input type="hidden" name="id" value="<?php echo (int) $a->ID; ?>"><?php wp_nonce_field('ma_admin_remove'); ?><button class="ma-btn small ghost" type="submit">সরান</button></form>
                     <?php endif; ?>
                 </div>
             <?php endforeach; ?>
@@ -1224,7 +1225,7 @@ function ma_acc_render_ai_costs($c) {
         <form method="post" action="<?php echo $post; ?>" class="ma-ai-form">
             <input type="hidden" name="action" value="ma_ai_costs"><?php wp_nonce_field('ma_ai_costs'); ?>
             <h3>দাম (ডলার, প্রতি ১০ লাখ টোকেন)</h3>
-            <table class="ma-table">
+            <div class="ma-table-wrap ma-price-wrap"><table class="ma-table">
                 <thead><tr><th>মডেল</th><th>ইনপুট</th><th>ক্যাশে লেখা</th><th>ক্যাশ থেকে পড়া</th><th>আউটপুট</th></tr></thead>
                 <tbody>
                 <?php foreach ($c['prices'] as $model => $p) : $m = esc_attr($model); ?>
@@ -1232,7 +1233,7 @@ function ma_acc_render_ai_costs($c) {
                     <?php foreach (['in', 'cw', 'cr', 'out'] as $k) : ?><td><input type="text" inputmode="decimal" name="price[<?php echo $m; ?>][<?php echo $k; ?>]" value="<?php echo esc_attr((string) ($p[$k] ?? 0)); ?>"></td><?php endforeach; ?></tr>
                 <?php endforeach; ?>
                 </tbody>
-            </table>
+            </table></div>
             <label>নতুন মডেল যোগ (নাম)<input type="text" name="new_model" placeholder="gemini-…"></label>
             <h3>বাজেট (ডলার; ০ = সীমা নেই)</h3>
             <label class="ma-check"><input type="checkbox" name="budget_auto" value="1" <?php checked(!empty($c['budget']['auto'])); ?>> আয় অনুযায়ী নিজে ঠিক হোক (লোকসান যেন না হয়): প্রিমিয়ামের আয়ের ২০% পর্যন্ত AI-তে, একজন প্রিমিয়াম সদস্যের খরচ তাঁর মাসিক দামের ৩০% পর্যন্ত, ফ্রি সবার জন্য মাসে $৩</label>
@@ -1348,7 +1349,7 @@ function ma_acc_render_nlu($n) {
             <?php if (!empty($n['review_all'])) : ?>
                 <div style="display:flex;gap:8px;flex-wrap:wrap">
                     <button type="button" class="ma-btn small" id="ma-review-copy-btn" data-copy="ma-review-copy">সব কপি করুন (<?php echo esc_html(ma_acc_bn((string) count($n['review_all']))); ?>টা)</button>
-                    <form method="post" action="<?php echo $post; ?>" onsubmit="return confirm('পর্যালোচনার সব বার্তা তালিকা থেকে সরাবেন? বার্তাগুলো শেখানোর জন্য থেকে যাবে, শুধু এখানে আর আসবে না।')" style="margin:0">
+                    <form method="post" action="<?php echo $post; ?>" data-confirm="পর্যালোচনার সব বার্তা তালিকা থেকে সরাবেন? বার্তাগুলো শেখানোর জন্য থেকে যাবে, শুধু এখানে আর আসবে না।" style="margin:0">
                         <input type="hidden" name="action" value="ma_nlu_review_clear"><?php wp_nonce_field('ma_nlu_review_clear'); ?>
                         <button class="ma-btn ghost small" type="submit">সব মুছুন</button>
                     </form>

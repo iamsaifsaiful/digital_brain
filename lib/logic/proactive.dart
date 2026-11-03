@@ -22,7 +22,7 @@ import 'spend_health.dart';
 import 'money_quotes.dart';
 
 /// The morning summary rings at 9 unless the member picks a time (owner, 28 Oct; was 8).
-const defaultMorningAt = 9 * 60;
+const defaultMorningAt = 8 * 60;
 
 /// Does [r] ring on [day]?
 bool remindsOn(Reminder r, DateTime day) {
@@ -285,8 +285,43 @@ List<PlannedNotice> assistantNotices(AppData d, DateTime now, AssistantPrefs p) 
     }
     kept.add(n);
   }
-  kept.sort((a, b) => a.at.compareTo(b.at));
-  return kept;
+  return _spaced(kept, p);
+}
+
+/// At least this long between two of the app's own notifications (owner,
+/// 4 Nov: সুপ্রভাত first, then nothing for 30 minutes, and so on).
+const noticeGap = Duration(minutes: 30);
+
+/// Times the member chose (the summaries, prayers, Ramadan, a habit's own
+/// time) stay put; every other notice moves past them and past each other,
+/// at least [noticeGap] apart, the most useful first when two share a time.
+/// One that finds no room that day (it would run into the quiet hours or the
+/// next day) is left out — it is a nudge, not a reminder.
+List<PlannedNotice> _spaced(List<PlannedNotice> list, AssistantPrefs p) {
+  bool fixed(String t) => t == morningTag || t == nightTag || t.startsWith(nudgePrayer) || t.startsWith(nudgeRamadan) || t.startsWith('${nudgeHabit}ask:');
+  final placed = <DateTime>[for (final n in list) if (fixed(n.reminderId)) n.at];
+  final out = <PlannedNotice>[for (final n in list) if (fixed(n.reminderId)) n];
+  final rest = [for (final n in list) if (!fixed(n.reminderId)) n]
+    ..sort((a, b) {
+      final c = a.at.compareTo(b.at);
+      return c != 0 ? c : _rank(a.reminderId).compareTo(_rank(b.reminderId));
+    });
+  for (final n in rest) {
+    var at = n.at;
+    for (var i = 0; i < 64; i++) {
+      final near = [for (final t in placed) if (t.difference(at).abs() < noticeGap) t];
+      if (near.isEmpty) break;
+      near.sort();
+      at = near.last.add(noticeGap);
+    }
+    if (dayOnly(at) != dayOnly(n.at) || (p.quietOn && at != n.at && _inQuiet(at, p))) continue;
+    placed.add(at);
+    out.add(at == n.at
+        ? n
+        : PlannedNotice(id: n.id, at: at, title: n.title, body: n.body, reminderId: n.reminderId, gentle: n.gentle, repeat: n.repeat, every: n.every, early: n.early));
+  }
+  out.sort((a, b) => a.at.compareTo(b.at));
+  return out;
 }
 
 /// [n] after the admin's rule for its kind: null when it does not go (off,
@@ -341,7 +376,8 @@ PlannedNotice _afterQuiet(PlannedNotice n, AssistantPrefs p) {
   final m = n.at.hour * 60 + n.at.minute;
   // Late evening: the next morning. After midnight: this morning.
   if (p.quietFrom > p.quietTo && m >= p.quietFrom) day = day.add(const Duration(days: 1));
-  final at = _at(day, p.quietTo);
+  // Not before সুপ্রভাত (owner, 4 Nov): the day starts with the summary.
+  final at = _at(day, p.morningOn && p.morningAt >= p.quietTo ? p.morningAt + noticeGap.inMinutes : p.quietTo);
   return PlannedNotice(id: n.id, at: at, title: n.title, body: n.body, reminderId: n.reminderId, gentle: true);
 }
 
@@ -547,8 +583,8 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
     }
   }
 
-  // BMI above normal (owner, 24 Oct): a kind push twice a week, at 7:30 on
-  // Monday and Thursday — one small step, never the number (it shows on the
+  // BMI above normal (owner, 24 Oct): a kind push twice a week, at 11:00 on
+  // Monday and Thursday (was 7:30; owner, 4 Nov: the day starts with সুপ্রভাত) — one small step, never the number (it shows on the
   // lock screen).
   if (p.health) {
     for (final m in d.members) {
@@ -556,7 +592,7 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
       if (w == null || m.heightCm == null || m.heightCm! <= 0) continue;
       if (bmiOf(w.a, m.heightCm!) < 23) continue;
       for (final wd in const [DateTime.monday, DateTime.thursday]) {
-        final at = nextWeekday(wd, 7 * 60 + 30);
+        final at = nextWeekday(wd, 11 * 60);
         final n = at.difference(DateTime(2026)).inDays ~/ 3;
         final step = tr(bmiSteps[n % bmiSteps.length]);
         final who = m.isMe ? tr('আজ নিজের জন্য ছোট একটা ধাপ') : trf('{0}-এর জন্য ছোট একটা ধাপ', [m.relation.isNotEmpty ? m.relation : m.name]);
@@ -630,7 +666,7 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
     for (var i = 0; i < 3; i++) {
       final day = today.add(Duration(days: i));
       final q = quoteFor(day);
-      add(nudgeQuote, dayKey(day), _at(day, 9 * 60 + 15), tr('আজকের অর্থ-কথা'), quoteText(q));
+      add(nudgeQuote, dayKey(day), _at(day, 9 * 60), tr('আজকের অর্থ-কথা'), quoteText(q));
     }
   }
 
@@ -687,7 +723,7 @@ List<PlannedNotice> passwordNudges(AppData d, DateTime now) {
     for (final due in [if (!last.isBefore(v.passwordSince.add(passwordMaxAge))) last, next]) {
       final from = due.isBefore(passNudgeStart) ? passNudgeStart : due;
       final day = nextFridayOrHoliday(from);
-      if (_at(day, 11 * 60 + 45).isAfter(now)) byDay[day] = (byDay[day] ?? 0) + 1;
+      if (_at(day, 12 * 60).isAfter(now)) byDay[day] = (byDay[day] ?? 0) + 1;
     }
   }
   final days = byDay.keys.toList()..sort();
@@ -695,7 +731,7 @@ List<PlannedNotice> passwordNudges(AppData d, DateTime now) {
     for (final day in days.take(2))
       PlannedNotice(
         id: stableId('$nudgePass:${dayKey(day)}'),
-        at: _at(day, 11 * 60 + 45),
+        at: _at(day, 12 * 60),
         title: byDay[day] == 1 ? tr('একটা পাসওয়ার্ড ৬ মাস বদলানো হয়নি') : trf('{0}টা পাসওয়ার্ড ৬ মাস বদলানো হয়নি', [bnDigits(byDay[day]!)]),
         body: tr('আজ ছুটির দিন — বদলে নিলে অ্যাকাউন্ট নিরাপদ থাকে। চাপুন, ভল্টে কোনগুলো পুরোনো দেখুন।'),
         reminderId: nudgePass,
@@ -781,7 +817,7 @@ List<PlannedNotice> _plans(AppData d, DateTime now, AssistantPrefs p) {
     final day = today.add(Duration(days: i));
     if (day.weekday != DateTime.sunday || off(day) || day.day == 1) continue;
     final week = [for (var k = 0; k < 7; k++) ..._dayItems(d, day.add(Duration(days: k)))];
-    add('week', dayKey(day), _at(day, 9 * 60 + 15), tr('নতুন সপ্তাহ শুরু'),
+    add('week', dayKey(day), _at(day, 9 * 60 + 30), tr('নতুন সপ্তাহ শুরু'),
         week.isEmpty
             ? tr('এই সপ্তাহের বড় কাজগুলো কী? চাপুন আর বলুন — তালিকা করে দেবো।')
             : trf('এই সপ্তাহে {0}টা কাজ/রিমাইন্ডার রাখা আছে। আর কিছু যোগ করবেন? চাপুন আর বলুন।', [bnDigits(week.length)]));
@@ -807,7 +843,7 @@ List<PlannedNotice> _plans(AppData d, DateTime now, AssistantPrefs p) {
     if (p.nightOn && tasksLeft(d, day).isNotEmpty) continue;
     final tomorrow = day.add(const Duration(days: 1));
     final items = _dayItems(d, tomorrow);
-    final at = _at(day, (p.nightOn ? p.nightAt : 21 * 60) + 5);
+    final at = _at(day, (p.nightOn ? p.nightAt : 21 * 60) + 30);
     if (items.length >= 3) {
       final f = items.first;
       final firstText = f.$1 >= 24 * 60 ? f.$2 : '${bnTime(f.$1 ~/ 60, f.$1 % 60)} — ${f.$2}';
@@ -854,7 +890,7 @@ List<PlannedNotice> _noticed(AppData d, DateTime now, AssistantPrefs p) {
   final personal = [for (final e in d.cash) if (e.projectId == null) e];
   final recentDays = {for (final e in personal) if (!e.date.isBefore(today.subtract(const Duration(days: 14)))) dayKey(e.date)};
   if (recentDays.length >= 3 && !personal.any((e) => dayOnly(e.date) == today)) {
-    add(nudgeNoCash, dayKey(today), _at(today, 21 * 60 + 15), tr('আজকের খরচ লেখা হয়নি'), tr('আজ কিছু খরচ হয়েছে? চাপুন আর বলুন, যেমন “বাজারে ৫০০ টাকা খরচ”।'));
+    add(nudgeNoCash, dayKey(today), _at(today, 20 * 60 + 30), tr('আজকের খরচ লেখা হয়নি'), tr('আজ কিছু খরচ হয়েছে? চাপুন আর বলুন, যেমন “বাজারে ৫০০ টাকা খরচ”।'));
   }
 
   // A category this month already well past all of last month.

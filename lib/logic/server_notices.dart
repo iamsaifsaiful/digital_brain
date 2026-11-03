@@ -209,5 +209,9 @@ Set<String> memberGroups({required DateTime now, DateTime? firstUse, required It
 }
 
 /// "{title}", "{body}", "{name}" filled in.
-String fillNotice(String template, {required String title, required String body, required String name}) =>
-    template.replaceAll('{title}', title).replaceAll('{body}', body).replaceAll('{name}', name).trim();
+/// No name known: "{name}, " goes away with its comma, so "{name}, আজ…"
+/// reads "আজ…" (owner, 4 Nov: the site's guide promises it).
+String fillNotice(String template, {required String title, required String body, required String name}) {
+  final named = name.trim().isEmpty ? template.replaceAll(RegExp(r'\{name\}\s*[,،]?\s*'), '') : template.replaceAll('{name}', name.trim());
+  return named.replaceAll('{title}', title).replaceAll('{body}', body).trim();
+}

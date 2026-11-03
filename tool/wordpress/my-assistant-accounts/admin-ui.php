@@ -246,7 +246,7 @@ function ma_acc_render_notices($v) {
         </div>
         <div class="ma-note-rules">
             <?php echo ma_ui_icon('clock', 17); ?>
-            <span><strong>দিনে সর্বোচ্চ <?php echo esc_html(ma_acc_bn($cap !== null ? $cap : 3)); ?>টা</strong> (সূচি, সারাংশ আর অর্থ-কথা বাদে) · <strong>চুপ থাকার সময়</strong> রাত ১০টা – সকাল ৭টা, এর মধ্যেরগুলো সকাল ৭টায় যায় · সদস্য নিজে কোনোটা বন্ধ করলে সেটা বন্ধই থাকে</span>
+            <span><strong>দিন শুরু সুপ্রভাত দিয়ে (সকাল ৮টা)</strong> · <strong>দুটোর মাঝে অন্তত ৩০ মিনিট</strong> — একই সময়ে কয়েকটা পড়লে বেশি দরকারিটা আগে, বাকিগুলো ৩০ মিনিট পর পর · <strong>দিনে সর্বোচ্চ <?php echo esc_html(ma_acc_bn($cap !== null ? $cap : 3)); ?>টা</strong> (সূচি, সারাংশ আর অর্থ-কথা বাদে) · <strong>চুপ থাকার সময়</strong> রাত ১০টা – সকাল ৭টা, এর মধ্যেরগুলো সুপ্রভাতের পরে যায় · সদস্য নিজে কোনোটা বন্ধ করলে সেটা বন্ধই থাকে</span>
             <button type="button" class="ma-btn ghost small" data-open="ma-cap">বদলান</button>
         </div>
         <section class="ma-card ma-nlist">
@@ -312,7 +312,23 @@ function ma_acc_render_notices($v) {
                         <button type="button" class="ma-chip" data-ne-add="body" data-w="[নাম]">+ সদস্যের নাম</button>
                         <button type="button" class="ma-chip" data-ne-add="body" data-w="[অ্যাপের লেখা]">+ অ্যাপের লেখা</button>
                     </div>
-                    <p class="muted ma-small">খালি রাখলে অ্যাপের নিজের লেখা যায়। [অ্যাপের লেখা] = অ্যাপ যা বিস্তারিত লিখত (যেমন আজকের সূচি)।</p>
+                    <p class="ma-warn" data-ne-bad hidden></p>
+                    <details class="ma-guide" open>
+                        <summary>[ ] দিয়ে কীভাবে লিখবেন</summary>
+                        <p>শিরোনাম বা লেখা খালি রাখলে অ্যাপের নিজেরটা যায়। নিজে লিখলে এই তিনটা [ ] শব্দ প্রতিটা সদস্যের ফোনে আসল জিনিসে বদলে যায় — ওপরের বোতাম চাপলেই বসে:</p>
+                        <dl>
+                            <dt>[নাম]</dt><dd>সদস্যের নাম, যেমন “রাকিব”। নাম জানা না থাকলে [নাম] আর তার পরের কমা বাদ যায় — তাই বাকিটা এমনভাবে লিখুন যেন নাম ছাড়াও পড়া যায়।</dd>
+                            <dt>[অ্যাপের শিরোনাম]</dt><dd>এই নোটিফিকেশনে অ্যাপ নিজে যে শিরোনাম দিত — এখানে: “<span data-ne-text="sample"></span>”।</dd>
+                            <dt>[অ্যাপের লেখা]</dt><dd>অ্যাপের বিস্তারিত — দিন অনুযায়ী বদলানো জিনিস (সূচি, কার কাছে কত, কয়টা কাজ)। এখানে: “<span data-ne-text="sample_body"></span>”। লেখা বদলালেও এটা রাখুন, নইলে সদস্য আসল তথ্য পাবেন না।</dd>
+                        </dl>
+                        <p><strong>উদাহরণ:</strong> শিরোনাম “[নাম], [অ্যাপের শিরোনাম]” → “রাকিব, <span data-ne-text="sample"></span>”।</p>
+                        <ul>
+                            <li>শুধু এই তিনটা [ ] কাজ করে; অন্য কিছু [ ]-এর ভেতরে লিখলে হুবহু চলে যাবে।</li>
+                            <li>শিরোনাম ৮০, লেখা ২৪০ অক্ষরের মধ্যে — ছোট আর পরিষ্কার রাখুন।</li>
+                            <li>লক স্ক্রিনে দেখা যায়: টাকার অঙ্ক, ওষুধ বা রোগের নাম শিরোনামে না রাখাই ভালো।</li>
+                            <li>অন্য নোটিফিকেশনের ৩০ মিনিটের মধ্যে সময় দিলে ফোন এটাকে একটু পরে সরিয়ে দেবে।</li>
+                        </ul>
+                    </details>
                     <div class="ma-ai-row two">
                         <label>সময়<input type="time" name="at" data-ne="at"><span class="ma-ver" data-ne-text="at_hint"></span></label>
                         <label data-ne-wd>কোন দিন<select name="wd" data-ne="wd"><option value="0" data-ne-wd0>অ্যাপের দিন</option><?php foreach ($rv['weekdays'] as $wn => $wl) : ?><option value="<?php echo (int) $wn; ?>"><?php echo esc_html($wl); ?></option><?php endforeach; ?></select></label>
@@ -326,7 +342,7 @@ function ma_acc_render_notices($v) {
                     <div class="ma-sent"><?php echo ma_ui_icon('phone', 16); ?> <span>আজ <b data-ne-text="today"></b>টা গেছে</span></div>
                 </div>
                 <div class="ma-drawer-foot">
-                    <button type="submit" name="op" value="reset" class="ma-btn ghost small" formnovalidate onclick="return confirm('অ্যাপের নিজের সময় আর লেখায় ফেরাবেন?')">আগের মতো করুন</button>
+                    <button type="submit" name="op" value="reset" class="ma-btn ghost small" formnovalidate data-confirm="অ্যাপের নিজের সময় আর লেখায় ফেরাবেন?" data-yes="হ্যাঁ, ফেরান">আগের মতো করুন</button>
                     <span style="flex:1"></span>
                     <button type="button" class="ma-btn ghost" data-close>বাতিল</button>
                     <button type="submit" class="ma-btn">রাখুন</button>
@@ -355,7 +371,7 @@ function ma_acc_render_notices($v) {
             <label>শিরোনাম<input type="text" name="title" maxlength="120" required></label>
             <label>লেখা<input type="text" name="body" maxlength="400"></label>
             <label>কাকে<select name="audience"><?php foreach (ma_note_options()['audience'] as $k => $l) : ?><option value="<?php echo esc_attr($k); ?>"><?php echo esc_html($l); ?></option><?php endforeach; ?></select></label>
-            <div class="ma-dialog-actions"><button type="button" class="ma-btn ghost" data-close>বাতিল</button><button class="ma-btn" type="submit" onclick="return confirm('এখনই পাঠাবেন?')"><?php echo ma_ui_icon('send', 15); ?> পাঠান</button></div>
+            <div class="ma-dialog-actions"><button type="button" class="ma-btn ghost" data-close>বাতিল</button><button class="ma-btn" type="submit" data-confirm="এখনই পাঠাবেন?"><?php echo ma_ui_icon('send', 15); ?> পাঠান</button></div>
         </form>
     </dialog>
     <?php ma_ui_note_dialog($post); ?>
@@ -393,7 +409,7 @@ function ma_ui_render_mine($v, $post) {
                         </span>
                         <span class="e">
                             <button type="button" class="ma-icon" title="বদলান" aria-label="বদলান" data-open="ma-note" data-m="<?php echo esc_attr(wp_json_encode($n + ['mic' => (bool) $n['mic']])); ?>"><?php echo ma_ui_icon('edit', 17); ?></button>
-                            <form method="post" action="<?php echo $post; ?>" class="ma-inline-form" onsubmit="return confirm('মুছে ফেলবেন?')"><input type="hidden" name="action" value="ma_note_toggle"><input type="hidden" name="delete" value="1"><input type="hidden" name="id" value="<?php echo (int) $n['id']; ?>"><?php wp_nonce_field('ma_note_toggle'); ?><button class="ma-icon danger" type="submit" title="মুছুন" aria-label="মুছুন"><?php echo ma_ui_icon('x', 17); ?></button></form>
+                            <form method="post" action="<?php echo $post; ?>" class="ma-inline-form" data-confirm="মুছে ফেলবেন?"><input type="hidden" name="action" value="ma_note_toggle"><input type="hidden" name="delete" value="1"><input type="hidden" name="id" value="<?php echo (int) $n['id']; ?>"><?php wp_nonce_field('ma_note_toggle'); ?><button class="ma-icon danger" type="submit" title="মুছুন" aria-label="মুছুন"><?php echo ma_ui_icon('x', 17); ?></button></form>
                         </span>
                     </div>
                 <?php endforeach; ?>
@@ -627,7 +643,7 @@ function ma_acc_render_payments($v) {
     <section class="ma-card">
         <div class="ma-bar"><div class="ma-bar-title"><h2>অনুমোদন বাকি</h2><span class="ma-count"><?php echo esc_html(ma_acc_bn(count($pending))); ?>টা</span></div>
             <?php if ($matched) : ?>
-                <form method="post" action="<?php echo $post; ?>" class="ma-inline-form" onsubmit="return confirm('বিকাশে মিলে যাওয়া <?php echo esc_attr(ma_acc_bn($matched)); ?>টা পেমেন্টে প্রিমিয়াম দেবেন?')">
+                <form method="post" action="<?php echo $post; ?>" class="ma-inline-form" data-confirm="বিকাশে মিলে যাওয়া <?php echo esc_attr(ma_acc_bn($matched)); ?>টা পেমেন্টে প্রিমিয়াম দেবেন?">
                     <input type="hidden" name="action" value="ma_pay_matched"><?php wp_nonce_field('ma_pay_matched'); ?>
                     <button class="ma-btn soft small" type="submit"><?php echo ma_ui_icon('check', 15); ?> মিলে যাওয়া <?php echo esc_html(ma_acc_bn($matched)); ?>টা একসাথে অনুমোদন</button>
                 </form>
@@ -894,6 +910,14 @@ function ma_ui_styles() {
     .ma-preview-k{font-size:12px;color:#A8BCB4;margin-bottom:8px}
     .ma-words{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px}
     .ma-words .ma-chip{cursor:pointer;font:inherit;font-size:12.5px;padding:3px 10px}
+    .ma-guide{background:var(--bg);border-radius:12px;padding:10px 14px;margin:12px 0 4px;font-size:13px;line-height:1.6;color:var(--mut2)}
+    .ma-guide summary{font-weight:700;cursor:pointer;color:var(--ink)}
+    .ma-guide p{margin:8px 0 0}
+    .ma-guide dl{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;margin:8px 0 0}
+    .ma-guide dt{font-weight:700;color:var(--gd);white-space:nowrap}
+    .ma-guide dd{margin:0}
+    .ma-guide ul{margin:8px 0 0;padding-left:18px}
+    .ma-warn{background:var(--amt);color:var(--amber);border-radius:10px;padding:8px 12px;font-size:13px;margin:8px 0 0}
     .ma-sent{display:flex;gap:8px;align-items:center;background:var(--bg);border-radius:10px;padding:10px 12px;color:var(--mut2);font-size:13px;margin-top:12px}
     .ma-pays{display:flex;flex-direction:column;border-top:1px solid var(--line)}
     .ma-pay{display:grid;grid-template-columns:40px minmax(150px,1.3fr) minmax(110px,.8fr) minmax(170px,1fr) minmax(170px,1fr) auto;gap:14px;align-items:center;padding:13px 20px;border-bottom:1px solid #F1F2F4}
@@ -910,6 +934,37 @@ function ma_ui_styles() {
     .ma-details summary::-webkit-details-marker{display:none}
     .ma-details summary::after{content:"▾";color:var(--mut)}
     .ma-details[open] summary::after{content:"▴"}
+    .ma-main{container-type:inline-size}
+    .ma-grid>*,.ma-two>*,.ma-ai-row>*{min-width:0}
+    .ma-code{min-width:0}
+    /* Pop-ups (owner, 4 Nov: "কনফার্মেশন বা মডেল সুন্দর কর") */
+    .ma-dialog{border-radius:18px;padding:22px 24px 20px;border:1px solid var(--line);box-shadow:0 24px 64px -16px rgba(17,24,39,.35)}
+    .ma-dialog[open],.ma-drawer[open]{animation:ma-pop .16s ease-out}
+    .ma-drawer[open]{animation-name:ma-slide}
+    .ma-dialog::backdrop,.ma-drawer::backdrop{background:rgba(17,24,39,.42);backdrop-filter:blur(2px);animation:ma-fade .16s ease-out}
+    @keyframes ma-pop{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+    @keyframes ma-slide{from{transform:translateX(32px);opacity:.4}to{transform:none;opacity:1}}
+    @keyframes ma-fade{from{opacity:0}to{opacity:1}}
+    @media (prefers-reduced-motion:reduce){.ma-dialog[open],.ma-drawer[open],.ma-dialog::backdrop,.ma-drawer::backdrop{animation:none}}
+    .ma-dialog h3{font-size:18px;line-height:1.4}
+    .ma-dialog-actions{border-top:1px solid var(--line);margin:18px -24px 0;padding:14px 24px 0}
+    .ma-dialog-actions .ma-btn{min-width:96px;justify-content:center}
+    .ma-confirm{width:min(400px,calc(100vw - 32px));text-align:center;padding-top:26px}
+    .ma-confirm-ic{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;margin:0 auto 12px;background:var(--gt);color:var(--g)}
+    .ma-confirm.danger .ma-confirm-ic{background:var(--rot);color:var(--rose)}
+    .ma-confirm h3{margin:0 0 4px}
+    .ma-confirm p{color:var(--mut);margin:0}
+    .ma-confirm .ma-dialog-actions{justify-content:center}
+    .ma-confirm .ma-dialog-actions .ma-btn{flex:1}
+    .ma-dialog .ma-dl{background:var(--bg);border-radius:12px;padding:12px 14px;margin-top:12px}
+    @media (max-width:960px){.ma-main{width:100%}}
+    .ma-main .ma-who{min-width:0}
+    .ma-main .ma-who-text strong,.ma-main .ma-who-text span{max-width:220px}
+    .ma-main .ma-ops .ma-btn{min-width:0}
+    .ma-price-wrap input{width:100%;min-width:64px;height:34px;border:1px solid var(--line);border-radius:8px;padding:0 8px;font:inherit;font-size:13px}
+    .ma-price-wrap{border-top:0}
+    @container (max-width:1000px){.ma-main .hide-m{display:none}}
+    @container (max-width:820px){.ma-main .hide-s{display:none}}
     @media (max-width:1100px){.ma-nhead,.ma-nrow{grid-template-columns:54px minmax(0,1fr) 150px 52px 86px}.ma-nhead .c,.ma-nrow .c{display:none}.ma-pay{grid-template-columns:40px minmax(0,1fr) auto;row-gap:6px}.ma-pay .trx,.ma-pay .m{grid-column:2/4}}
     @media (max-width:960px){.ma-shell{flex-direction:column}.ma-side{width:100%;position:static}.ma-side .ma-tabs{flex-direction:row;flex-wrap:wrap}.ma-side-grp,.ma-side-foot{display:none}.ma-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.ma-two{grid-template-columns:1fr}}
     @media (max-width:700px){.ma-nhead{display:none}.ma-nrow{grid-template-columns:44px minmax(0,1fr) auto;row-gap:6px}.ma-nrow .w{grid-column:2/4}.ma-nrow .o{grid-row:1;grid-column:3}.ma-nrow .e{grid-column:2/4;justify-content:flex-start}}
@@ -917,8 +972,24 @@ function ma_ui_styles() {
     <?php
 }
 
+/** The styled "are you sure?" window; inside the page's wrapper so it takes its colours. */
+function ma_ui_confirm_markup() {
+    ?>
+    <dialog class="ma-dialog ma-confirm" id="ma-confirm" aria-labelledby="ma-confirm-q">
+        <div class="ma-confirm-ic" data-cf-ic></div>
+        <h3 id="ma-confirm-q"></h3>
+        <p data-cf-sub></p>
+        <div class="ma-dialog-actions">
+            <button type="button" class="ma-btn ghost" data-cf="no">না, থাক</button>
+            <button type="button" class="ma-btn" data-cf="yes">হ্যাঁ</button>
+        </div>
+    </dialog>
+    <?php
+}
+
 function ma_ui_script() {
     ?>
+
     <script>
     (function () {
         function fillPv(dlg) {
@@ -928,6 +999,11 @@ function ma_ui_script() {
             function f(s) { return s.split('[নাম]').join('রাকিব').split('[অ্যাপের শিরোনাম]').join(d.sample || '').split('[অ্যাপের লেখা]').join(d.sample_body || ''); }
             dlg.querySelector('[data-ne-pv="title"]').textContent = t ? f(t) : (d.sample || '');
             dlg.querySelector('[data-ne-pv="body"]').textContent = b ? f(b) : (d.sample_body || '');
+            var bad = (t + ' ' + b).match(/\[[^\]]*\]/g) || [];
+            bad = bad.filter(function (w) { return ['[নাম]', '[অ্যাপের শিরোনাম]', '[অ্যাপের লেখা]'].indexOf(w) < 0; });
+            var warn = dlg.querySelector('[data-ne-bad]');
+            warn.hidden = !bad.length;
+            warn.textContent = bad.length ? bad.join(', ') + ' — এটা চেনা শব্দ নয়, ফোনে হুবহু দেখাবে। চেনা: [নাম], [অ্যাপের শিরোনাম], [অ্যাপের লেখা]।' : '';
         }
         document.addEventListener('click', function (e) {
             var ed = e.target.closest('[data-note-edit]');
@@ -940,6 +1016,8 @@ function ma_ui_script() {
                 var title = dlg.querySelector('[data-ne="title"]'); title.value = d.title || ''; title.placeholder = d.sample || '';
                 var body = dlg.querySelector('[data-ne="body"]'); body.value = d.body || ''; body.placeholder = d.sample_body || 'অ্যাপের নিজের লেখা';
                 dlg.querySelector('[data-ne="at"]').value = d.at || d.default_at || '';
+                dlg.querySelectorAll('[data-ne-text="sample"]').forEach(function (x) { x.textContent = d.sample || ''; });
+                dlg.querySelectorAll('[data-ne-text="sample_body"]').forEach(function (x) { x.textContent = d.sample_body || '(এর আলাদা লেখা নেই)'; });
                 dlg.querySelector('[data-ne-text="label"]').textContent = d.label;
                 dlg.querySelector('[data-ne-text="when"]').textContent = d.when;
                 dlg.querySelector('[data-ne-text="today"]').textContent = String(d.today).replace(/\d/g, function (c) { return '০১২৩৪৫৬৭৮৯'[c]; });
@@ -976,6 +1054,36 @@ function ma_ui_script() {
                 });
             }
         });
+        // A styled "are you sure?" instead of the browser's own box: data-confirm on a form or its button.
+        var cf = document.getElementById('ma-confirm');
+        var icons = {warn: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>', ok: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6M12 17h.01"/></svg>'};
+        document.addEventListener('submit', function (e) {
+            var f = e.target, sub = e.submitter;
+            if (!cf || f.dataset.cfOk) { if (f.dataset) { delete f.dataset.cfOk; } return; }
+            var src = sub && sub.dataset.confirm ? sub : (f.dataset.confirm ? f : null);
+            if (!src) { return; }
+            e.preventDefault();
+            var msg = src.dataset.confirm, parts = msg.split(/(?<=[?？])\s+/);
+            var danger = /মুছ|বাতিল|তুলে নে|সরাব/.test(msg);
+            cf.classList.toggle('danger', danger);
+            cf.querySelector('[data-cf-ic]').innerHTML = danger ? icons.warn : icons.ok;
+            cf.querySelector('h3').textContent = parts[0];
+            cf.querySelector('[data-cf-sub]').textContent = parts.slice(1).join(' ');
+            var yes = cf.querySelector('[data-cf="yes"]');
+            yes.textContent = src.dataset.yes || (/মুছ/.test(msg) ? 'হ্যাঁ, মুছুন' : (/সরাব/.test(msg) ? 'হ্যাঁ, সরান' : (/পাঠাব/.test(msg) ? 'হ্যাঁ, পাঠান' : 'হ্যাঁ')));
+            yes.className = 'ma-btn' + (danger ? ' danger' : '');
+            cf._go = function () { f.dataset.cfOk = '1'; if (f.requestSubmit) { f.requestSubmit(sub || undefined); } else { f.submit(); } };
+            cf.showModal();
+            yes.focus();
+        }, true);
+        if (cf) {
+            cf.addEventListener('click', function (e) {
+                var b = e.target.closest('[data-cf]');
+                if (!b) { return; }
+                cf.close();
+                if (b.getAttribute('data-cf') === 'yes' && cf._go) { cf._go(); }
+            });
+        }
         document.addEventListener('input', function (e) {
             if (e.target.closest && e.target.closest('#ma-note-edit')) { fillPv(document.getElementById('ma-note-edit')); }
         });
