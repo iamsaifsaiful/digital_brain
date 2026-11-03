@@ -53,6 +53,7 @@ class FakeServer {
     ],
   };
   final labels = <Map<String, dynamic>>[];
+  final cleared = <List<int>?>[];
   final decisions = <Map<String, dynamic>>[];
   final aiSettings = <String, Object?>{
     'nlu': {'mode': 'shadow', 'pct': 100, 'free_model': 'gemini-3.1-flash-lite', 'pro_model': 'claude-haiku-5-5', 'escalate_model': 'claude-sonnet-5-5', 'free_per_user': 20, 'pro_per_user': 60},
@@ -63,6 +64,7 @@ class FakeServer {
   };
   final reviews = <Map<String, Object?>>[
     {'id': 11, 'created': '2026-10-22 04:00:00', 'state': 'idle', 'text': '<নাম১>কে ৫০০ টাকা দিলাম', 'phone': ['cash_add'], 'phone_conf': 0.62, 'cloud': ['ledger_add'], 'cloud_provider': 'gemini', 'final': ['ledger_add'], 'signal': 'edited'},
+    {'id': 12, 'created': '2026-10-22 03:00:00', 'state': 'idle', 'text': 'আরে থাকবে না কেন', 'phone': ['reminder_query'], 'phone_conf': 0.4, 'cloud': ['correct'], 'cloud_provider': 'gemini', 'final': ['reminder_query'], 'signal': ''},
   ];
   final models = <Map<String, Object?>>[
     {'version': 'm2', 'url': 'https://x/m2.tflite', 'sha256': 'a' * 64, 'size': 14068808, 'rollout_pct': 0, 'status': 'draft', 'created': '2026-10-22 04:00:00', 'thresholds': {}, 'eval': {'exact': 0.808}},
@@ -269,6 +271,10 @@ class FakeServer {
       body = {'gemini': {'ok': true, 'ms': 900}, 'anthropic': {'ok': false, 'ms': 300, 'error': '401 invalid key'}};
     } else if (p == '/admin/nlu/review') {
       body = {'samples': reviews, 'intents': ['task_add', 'ledger_add', 'cash_add'], 'text': 'My Assistant — AI মডেল পর্যালোচনা\nবাক্য: <নাম১>কে ৫০০ টাকা দিলাম'};
+    } else if (p == '/admin/nlu/review/clear') {
+      final ids = ((jsonDecode(r.body) as Map)['ids'] as List?)?.cast<int>();
+      cleared.add(ids);
+      body = {'ok': true, 'cleared': ids?.length ?? reviews.length, 'samples': []};
     } else if (p.startsWith('/admin/nlu/review/')) {
       labels.add({'id': p.split('/').last, ...jsonDecode(r.body) as Map<String, dynamic>});
       body = {'ok': true};
@@ -544,10 +550,24 @@ void main() {
     await settle(t);
     expect(copied, contains('বাক্য: <নাম১>কে ৫০০ টাকা দিলাম'));
     expect(find.textContaining('সব কপি হয়েছে'), findsOneWidget);
+    // "সব মুছুন" asks first; "না" keeps everything.
+    await t.tap(find.byKey(const Key('review-clear')));
+    await settle(t);
+    expect(find.text('পর্যালোচনা খালি করবেন?'), findsOneWidget);
+    await t.tap(find.text('না'));
+    await settle(t);
+    expect(server.cleared, isEmpty);
     await t.tap(find.text('ক্লাউড ঠিক'));
     await settle(t);
     expect(server.labels.single['intents'], ['ledger_add']);
     expect(server.labels.single['pick'], 'cloud');
+    // The next one is not worth teaching: off the list, not labelled.
+    expect(find.text('আরে থাকবে না কেন'), findsOneWidget);
+    await t.ensureVisible(find.byKey(const Key('review-skip-12')));
+    await t.tap(find.byKey(const Key('review-skip-12')));
+    await settle(t);
+    expect(server.cleared.single, [12]);
+    expect(server.labels, hasLength(1));
     expect(find.text('দেখার মতো কিছু নেই'), findsOneWidget);
     await t.tap(find.text('মডেল'));
     await settle(t);

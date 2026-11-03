@@ -130,7 +130,7 @@ void deletedSnack(ScaffoldMessengerState messenger, int n, Future<void> Function
   messenger
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(
-      content: Text(trf('{0}টা মুছে দিলাম — ৩০ দিন “মুছে ফেলা”-তে থাকবে', [bnDigits(n)])),
+      content: Text(trf('{0}টা মুছে দিলাম — ৩০ দিন “রিসাইকেল বিন”-এ থাকবে', [bnDigits(n)])),
       persist: false,
       duration: const Duration(seconds: 6),
       action: SnackBarAction(label: tr('ফিরিয়ে আনুন'), onPressed: undo),

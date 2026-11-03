@@ -12,11 +12,14 @@ import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/drag_grid.dart';
 import '../ui/forms.dart';
+import '../ui/cat_style.dart';
+import '../ui/motion.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 import '../ui/pick.dart';
+import 'cash_categories.dart';
 import 'project_dues.dart';
 import 'to_main.dart';
 
@@ -134,6 +137,49 @@ class _CashNowCardState extends State<CashNowCard> {
         ]),
       ]),
     );
+  }
+}
+
+/// "এখন আছে ৳… · নতুন করে দিন": one line at the foot of the summary card
+/// once the money in hand is set (approved design, 3 Nov); a tap opens it.
+class CashNowLine extends StatelessWidget {
+  const CashNowLine({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final now = cashOnHand(brain.data);
+    if (now == null) return const SizedBox.shrink();
+    return Column(key: const Key('cash-now'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      const SizedBox(height: 10),
+      const Divider(height: 1),
+      InkWell(
+        key: const Key('cash-now-open'),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CashNowScreen())),
+        child: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Row(children: [
+            Icon(Icons.account_balance_wallet_outlined, size: 18, color: C.muted),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text.rich(TextSpan(children: [
+                TextSpan(text: '${tr('এখন আছে')} ', style: body(13, color: C.muted)),
+                TextSpan(text: '${now < 0 ? '−' : ''}${taka(now.abs())}', style: body(14.5, weight: FontWeight.w700, color: now < 0 ? C.red : C.ink)),
+              ])),
+            ),
+            TextButton(
+              key: const Key('cash-now-change'),
+              onPressed: () async {
+                final v = await showDialog<String>(context: context, builder: (_) => _AmountDialog(initial: now));
+                final n = v == null ? null : readInt(v);
+                if (n != null && n >= 0) await brain.setCashOnHand(n);
+              },
+              child: Text(tr('নতুন করে দিন')),
+            ),
+          ]),
+        ),
+      ),
+    ]);
   }
 }
 
@@ -296,8 +342,6 @@ class _CashViewState extends State<CashView> {
     }
   }
 
-  void _push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
-
   void _go(VoidCallback f) {
     _picks.clear();
     setState(f);
@@ -387,7 +431,6 @@ class _CashViewState extends State<CashView> {
     _picks.keepOnly(_shown);
     final incomeSide = _kind == CashKind.income;
     final top = incomeSide ? shownSums.topIncome : shownSums.topExpenses;
-    final maxCat = top.isEmpty ? 1 : top.first.value;
     // Day by day (all but the day view): each day with its own totals.
     final days = <DateTime, List<CashEntry>>{};
     for (final e in entries) {
@@ -403,6 +446,97 @@ class _CashViewState extends State<CashView> {
         _span = v;
       });
     }
+
+    final balance = sums.balance;
+    final ratio = sums.income <= 0 ? (sums.expense > 0 ? 1.0 : 0.0) : (sums.expense / sums.income).clamp(0.0, 1.0);
+    // The figures roll to a new amount rather than jump (owner, 3 Nov).
+    Widget fig(String label, int value, Color color, {bool first = false, bool signed = false}) => Expanded(
+          child: Container(
+            padding: EdgeInsets.only(left: first ? 0 : 12),
+            decoration: first ? null : BoxDecoration(border: Border(left: BorderSide(color: C.border))),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, maxLines: 2, style: body(12, color: C.muted, height: 1.3)),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: RollingAmount(value: value, format: (v) => '${signed && v < 0 ? '−' : ''}${taka(v.abs())}', style: display(17, weight: 700, color: color, height: 1.35)),
+              ),
+            ]),
+          ),
+        );
+
+    // The period and its sums in one card, with what is in hand now under them (approved design, 3 Nov).
+    final summary = AnimatedSwitcher(
+      duration: const Duration(milliseconds: 260),
+      transitionBuilder: (child, a) {
+        final incoming = child.key == ValueKey('${_span.name}-$from');
+        final off = Offset((incoming ? 0.25 : -0.25) * _dir, 0);
+        return FadeTransition(
+          opacity: a,
+          child: SlideTransition(position: Tween(begin: off, end: Offset.zero).animate(CurvedAnimation(parent: a, curve: Curves.easeOutCubic)), child: child),
+        );
+      },
+      child: Panel(
+        key: ValueKey('${_span.name}-$from'),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            _NavButton(
+              key: const Key('cash-prev'),
+              icon: Icons.chevron_left_rounded,
+              tooltip: tr('আগে'),
+              onTap: () => _go(() {
+                _dir = -1;
+                _at = spanShift(_span, from, -1);
+              }),
+            ),
+            Expanded(
+              child: InkWell(
+                key: const Key('cash-when'),
+                borderRadius: BorderRadius.circular(10),
+                onTap: () async {
+                  final d = await showDatePicker(context: context, initialDate: from.isAfter(now) ? now : from, firstDate: DateTime(2000), lastDate: now);
+                  if (d != null) _go(() => _at = d);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 7),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Flexible(child: Text(_label(from, now), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(15.5, weight: 700))),
+                    const SizedBox(width: 6),
+                    Icon(Icons.calendar_today_outlined, size: 15, color: C.muted),
+                  ]),
+                ),
+              ),
+            ),
+            _NavButton(
+              key: const Key('cash-next'),
+              icon: Icons.chevron_right_rounded,
+              tooltip: tr('পরে'),
+              onTap: current
+                  ? null
+                  : () => _go(() {
+                        _dir = 1;
+                        _at = spanShift(_span, from, 1);
+                      }),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          IntrinsicHeight(
+            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              fig(tr('আয়'), sums.income, C.blue, first: true),
+              fig(tr('খরচ'), sums.expense, C.red),
+              fig(_title(current), balance, balance < 0 ? C.red : C.ink, signed: true),
+            ]),
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(value: ratio.toDouble(), minHeight: 6, color: C.red, backgroundColor: C.surface2),
+          ),
+          const CashNowLine(),
+        ]),
+      ),
+    );
 
     final period = GestureDetector(
       key: const Key('cash-swipe'),
@@ -421,116 +555,38 @@ class _CashViewState extends State<CashView> {
         }
       },
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      SegTabs<CashSpan>(
-        key: const Key('cash-span'),
-        items: [for (final v in CashSpan.values) (v, _spanName(v))],
-        value: _span,
-        onChanged: (v) => setSpan(v),
-      ),
-      const SizedBox(height: 6),
-      Row(children: [
-        IconButton(
-          key: const Key('cash-prev'),
-          tooltip: tr('আগে'),
-          onPressed: () => _go(() {
-            _dir = -1;
-            _at = spanShift(_span, from, -1);
-          }),
-          icon: const Icon(Icons.chevron_left_rounded),
+        SegTabs<CashSpan>(
+          key: const Key('cash-span'),
+          items: [for (final v in CashSpan.values) (v, _spanName(v))],
+          value: _span,
+          onChanged: (v) => setSpan(v),
         ),
-        Expanded(
-          child: InkWell(
-            key: const Key('cash-when'),
-            borderRadius: BorderRadius.circular(10),
-            onTap: () async {
-              final d = await showDatePicker(context: context, initialDate: from.isAfter(now) ? now : from, firstDate: DateTime(2000), lastDate: now);
-              if (d != null) _go(() => _at = d);
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(_label(from, now), textAlign: TextAlign.center, style: display(18)),
-            ),
-          ),
-        ),
-        IconButton(
-          key: const Key('cash-next'),
-          tooltip: tr('পরে'),
-          onPressed: current ? null : () => _go(() {
-                    _dir = 1;
-                    _at = spanShift(_span, from, 1);
-                  }),
-          icon: const Icon(Icons.chevron_right_rounded),
-        ),
-      ]),
-      const SizedBox(height: 6),
-      AnimatedSwitcher(
-        duration: const Duration(milliseconds: 260),
-        transitionBuilder: (child, a) {
-          final incoming = child.key == ValueKey('${_span.name}-$from');
-          final off = Offset((incoming ? 0.25 : -0.25) * _dir, 0);
-          return FadeTransition(
-            opacity: a,
-            child: SlideTransition(position: Tween(begin: off, end: Offset.zero).animate(CurvedAnimation(parent: a, curve: Curves.easeOutCubic)), child: child),
-          );
-        },
-        child: SummaryCard(
-          key: ValueKey('${_span.name}-$from'),
-          title: _title(current),
-          amount: sums.balance.abs(),
-          negative: sums.balance < 0,
-          items: [(tr('আয়'), sums.income, C.green), (tr('খরচ'), sums.expense, C.ink)],
-        ),
-      ),
+        const SizedBox(height: 10),
+        summary,
       ]),
     );
 
+    Widget chip(Key key, String label, bool on, VoidCallback onTap) => ChoiceChip(
+          key: key,
+          label: Text(label),
+          selected: on,
+          showCheckmark: false,
+          onSelected: (_) => onTap(),
+        );
+
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const CashNowCard(),
-      const SizedBox(height: 12),
+      if (cashOnHand(brain.data) == null) ...[const CashNowCard(), const SizedBox(height: 12)],
       period,
-      const SizedBox(height: 4),
-      Text(tr('বাঁয়ে-ডানে সরিয়ে দৈনিক, সাপ্তাহিক, মাসিক, বাৎসরিক বদলান'), textAlign: TextAlign.center, style: body(11.5, color: C.muted)),
       const SizedBox(height: 12),
-      Row(children: [
-        Expanded(
-          child: PrimaryButton(
-            label: tr('আয়'),
-            icon: Icons.add_rounded,
-            height: 48,
-            onPressed: () => _push(const CashFormScreen(kind: CashKind.income)),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: PrimaryButton(
-            label: tr('খরচ'),
-            icon: Icons.add_rounded,
-            height: 48,
-            color: C.fill,
-            onPressed: () => _push(const CashFormScreen(kind: CashKind.expense)),
-          ),
-        ),
-      ]),
-      const SizedBox(height: 8),
-      Text(tr('মুখেও বলা যায়: “বাজারে ৫০০ টাকা খরচ হলো”, “বেতন পেলাম ৩০ হাজার”'), style: body(13, color: C.muted)),
-      const SizedBox(height: 14),
       // ফিল্টার
       SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(children: [
-          Icon(Icons.filter_list_rounded, size: 20, color: C.muted),
-          const SizedBox(width: 8),
           for (final (k, label) in [(null, tr('সব')), (CashKind.income, tr('শুধু আয়')), (CashKind.expense, tr('শুধু খরচ'))]) ...[
-            ChoiceChip(
-              key: Key('cash-kind-${k?.name ?? 'all'}'),
-              label: Text(label),
-              selected: _kind == k,
-              showCheckmark: false,
-              onSelected: (_) => _go(() {
-                _kind = k;
-                _cat = null;
-              }),
-            ),
+            chip(Key('cash-kind-${k?.name ?? 'all'}'), label, _kind == k, () => _go(() {
+                  _kind = k;
+                  _cat = null;
+                })),
             const SizedBox(width: 6),
           ],
           if (cat != null)
@@ -564,31 +620,23 @@ class _CashViewState extends State<CashView> {
             style: body(13.5, weight: FontWeight.w600, color: C.muted2),
           ),
         ),
-      const SizedBox(height: 6),
+      const SizedBox(height: 10),
       if (top.length > 1 || (top.isNotEmpty && cat == null)) ...[
-        SectionTitle(incomeSide ? tr('খাত অনুযায়ী আয়') : tr('খাত অনুযায়ী খরচ')),
-        Panel(
-          padding: const EdgeInsets.all(14),
-          child: Column(children: [
-            for (final c in top)
-              InkWell(
-                onTap: () => _go(() => _cat = c.key),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(children: [
-                      Expanded(child: Text(tr(c.key), style: body(15, weight: FontWeight.w600))),
-                      Text(taka(c.value), style: display(15)),
-                    ]),
-                    const SizedBox(height: 4),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(value: c.value / maxCat, minHeight: 6, color: C.green, backgroundColor: C.surface2),
-                    ),
-                  ]),
-                ),
+        _CatStrip(
+          title: incomeSide ? tr('খাত অনুযায়ী আয়') : tr('খাত অনুযায়ী খরচ'),
+          parts: top,
+          onTap: () async {
+            final prevFrom = spanShift(_span, from, -1);
+            final picked = await Navigator.of(context).push<String>(MaterialPageRoute(
+              builder: (_) => CategoryScreen(
+                title: _label(from, now),
+                entries: inSpan,
+                before: spanEntries(brain.data.cash, prevFrom, from),
+                income: incomeSide,
               ),
-          ]),
+            ));
+            if (picked != null && mounted) _go(() => _cat = picked);
+          },
         ),
         const SizedBox(height: 10),
       ],
@@ -598,24 +646,99 @@ class _CashViewState extends State<CashView> {
           title: filtered ? tr('এই ফিল্টারে কিছু নেই') : _empty,
           text: filtered ? tr('ফিল্টার বদলে বা “সব” বেছে দেখুন।') : tr('বাজার, ভাড়া, বিল, বেতন — নিজের আয় আর খরচ এখানে রাখুন। মাস শেষে কত জমলো, এক নজরে দেখবেন।'),
         )
-      else ...[
-        SectionTitle(tr('লেনদেন')),
-        if (!_picks.on && entries.length > 1)
-          Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(tr('চেপে ধরে কয়েকটা বেছে একসাথে মুছা বা খাত বদলানো যায়'), style: body(12, color: C.muted))),
-        if (_span == CashSpan.day)
-          Panel(child: Rows(children: [for (final e in entries) cashRow(context, e, picks: _picks)]))
-        else
-          for (final MapEntry(key: day, value: list) in days.entries) ...[
-            _DayHead(day: day, entries: list, now: now),
-            Panel(child: Rows(children: [for (final e in list) cashRow(context, e, picks: _picks)])),
-            const SizedBox(height: 10),
-          ],
-      ],
+      else if (_span == CashSpan.day)
+        Panel(child: Rows(children: [for (final e in entries) cashRow(context, e, picks: _picks, withDate: false)]))
+      else
+        for (final MapEntry(key: day, value: list) in days.entries) ...[
+          Panel(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              _DayHead(day: day, entries: list, now: now),
+              const Divider(height: 1),
+              Rows(children: [for (final e in list) cashRow(context, e, picks: _picks, withDate: false)]),
+            ]),
+          ),
+          const SizedBox(height: 10),
+        ],
+      const SizedBox(height: 10),
+      Text(tr('মুখেও বলা যায়: “বাজারে ৫০০ টাকা খরচ হলো”, “বেতন পেলাম ৩০ হাজার”'), style: body(12.5, color: C.muted, height: 1.45)),
     ]);
   }
 }
 
-/// A day's heading in the list: the date, and that day's income and spending.
+/// ‹ and › beside the period.
+class _NavButton extends StatelessWidget {
+  const _NavButton({super.key, required this.icon, required this.tooltip, required this.onTap});
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+        message: tooltip,
+        child: Material(
+          color: C.surface2,
+          borderRadius: BorderRadius.circular(11),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(11),
+            onTap: onTap,
+            child: SizedBox(width: 40, height: 40, child: Icon(icon, size: 20, color: onTap == null ? C.disabled : C.ink)),
+          ),
+        ),
+      );
+}
+
+/// খাত অনুযায়ী খরচ, small: one bar in each খাত's colour and the biggest
+/// three; a tap opens the whole breakdown.
+class _CatStrip extends StatelessWidget {
+  const _CatStrip({required this.title, required this.parts, required this.onTap});
+  final String title;
+  final List<MapEntry<String, int>> parts;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = parts.fold<int>(0, (a, e) => a + e.value);
+    return Panel(
+      key: const Key('cash-cats'),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              Expanded(child: Text(title, style: body(14, weight: FontWeight.w700))),
+              Icon(Icons.chevron_right_rounded, color: C.muted, size: 20),
+            ]),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: SizedBox(
+                height: 8,
+                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  for (final (i, e) in parts.indexed) ...[
+                    if (i > 0) const SizedBox(width: 2),
+                    Expanded(flex: total == 0 ? 1 : (e.value * 1000 ~/ total).clamp(1, 1000), child: ColoredBox(color: catStyle(e.key).color)),
+                  ],
+                ]),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(spacing: 12, runSpacing: 4, children: [
+              for (final e in parts.take(3))
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  Container(width: 8, height: 8, decoration: BoxDecoration(color: catStyle(e.key).color, borderRadius: BorderRadius.circular(3))),
+                  const SizedBox(width: 5),
+                  Text('${tr(e.key)} ${bnDigits(total == 0 ? 0 : (e.value * 100 / total).round())}%', style: body(12, color: C.muted)),
+                ]),
+            ]),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// A day's heading in the list: its date, and that day's income and spending.
 class _DayHead extends StatelessWidget {
   const _DayHead({required this.day, required this.entries, required this.now});
   final DateTime day;
@@ -627,38 +750,49 @@ class _DayHead extends StatelessWidget {
     final s = sumsOf(entries);
     final today = DateTime(now.year, now.month, now.day);
     final diff = day.difference(today).inDays;
-    final name = diff == 0 ? tr('আজ') : diff == -1 ? tr('গতকাল') : weekdayName(day);
+    final rel = diff == 0 ? tr('আজ') : diff == -1 ? tr('গতকাল') : null;
+    final red = day.weekday == DateTime.friday;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
+      padding: const EdgeInsets.fromLTRB(14, 9, 14, 9),
       child: Row(children: [
-        Expanded(child: Text('${shortDate(day)} · $name', style: body(13.5, weight: FontWeight.w600, color: C.muted2))),
-        if (s.income > 0) Text('+${taka(s.income)}', style: body(13, weight: FontWeight.w600, color: C.green)),
-        if (s.income > 0 && s.expense > 0) const SizedBox(width: 10),
-        if (s.expense > 0) Text('−${taka(s.expense)}', style: body(13, weight: FontWeight.w600, color: C.muted2)),
+        Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(color: C.surface2, borderRadius: BorderRadius.circular(12)),
+          child: Text(bnDigits(day.day), style: display(17, weight: 700, color: red ? C.red : C.ink)),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(weekdayName(day), style: body(13.5, weight: FontWeight.w600, color: red ? C.red : C.ink, height: 1.3)),
+            Text(rel == null ? shortDate(day) : '${shortDate(day)} · $rel', style: body(11.5, color: C.muted, height: 1.3)),
+          ]),
+        ),
+        if (s.income > 0) Text('+${taka(s.income)}', style: body(13.5, weight: FontWeight.w700, color: C.blue)),
+        if (s.income > 0 && s.expense > 0) const SizedBox(width: 8),
+        if (s.expense > 0) Text('−${taka(s.expense)}', style: body(13.5, weight: FontWeight.w700, color: C.red)),
       ]),
     );
   }
 }
 
-Widget cashRow(BuildContext context, CashEntry e, {Picks? picks}) {
+Widget cashRow(BuildContext context, CashEntry e, {Picks? picks, bool withDate = true}) {
   final income = e.kind == CashKind.income;
   final picking = picks != null && picks.on;
+  final data = BrainScope.of(context).data;
+  final account = e.accountId == null ? null : data.accounts.where((a) => a.id == e.accountId).firstOrNull;
   return ListRow(
     key: Key('cash-${e.id}'),
     picked: picks?.has(e.id) ?? false,
     onLongPress: picks == null ? null : () => picks.toggle(e.id),
-    leading: picking
-        ? PickMark(picks.has(e.id))
-        : Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(color: income ? C.greenTint : C.surface2, borderRadius: BorderRadius.circular(12)),
-            child: Icon(income ? Icons.south_west_rounded : Icons.north_east_rounded, color: income ? C.green : C.muted2, size: 20),
-          ),
+    // The খাত's own icon and colour (approved design, 3 Nov).
+    leading: picking ? PickMark(picks.has(e.id)) : CatIcon(e.category),
     title: tr(e.category),
-    subtitle: [shortDate(e.date), if (e.note.trim().isNotEmpty) e.note.trim()].join(' · ') + (e.projectId == null ? '' : mainMark(BrainScope.of(context).data, e.id)),
+    subtitle: [if (withDate) shortDate(e.date), if (e.note.trim().isNotEmpty) e.note.trim(), if (account != null) accountLabel(account)].join(' · ') +
+        (e.projectId == null ? '' : mainMark(data, e.id)),
     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-      Text('${income ? '+' : '−'}${taka(e.amount)}', style: body(14.5, weight: FontWeight.w600, color: income ? C.green : C.ink)),
+      Text('${income ? '+' : '−'}${taka(e.amount)}', style: body(15, weight: FontWeight.w700, color: income ? C.blue : C.red)),
       if (!picking)
         IconButton(
           tooltip: tr('বদলান বা মুছুন'),
@@ -707,7 +841,7 @@ Widget cashPickBar(BuildContext context, Picks picks, Iterable<String> shown) {
       }),
       PickAction(Icons.delete_outline_rounded, tr('মুছুন'), danger: true, () async {
         final messenger = ScaffoldMessenger.of(context);
-        if (!await confirmDialog(context, title: trf('{0}টা হিসাব মুছবেন?', [bnDigits(picked.length)]), text: tr('৩০ দিন “মুছে ফেলা”-তে থাকবে।'), yes: tr('মুছুন'), danger: true)) return;
+        if (!await confirmDialog(context, title: trf('{0}টা হিসাব মুছবেন?', [bnDigits(picked.length)]), text: tr('৩০ দিন “রিসাইকেল বিন”-এ থাকবে।'), yes: tr('মুছুন'), danger: true)) return;
         for (final e in picked) {
           await brain.deleteCash(e.id);
         }
@@ -757,7 +891,7 @@ Future<void> cashActions(BuildContext context, CashEntry e) async {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(
-          content: Text(tr('মুছে দিলাম — ৩০ দিন “মুছে ফেলা”-তে থাকবে')),
+          content: Text(tr('মুছে দিলাম — ৩০ দিন “রিসাইকেল বিন”-এ থাকবে')),
           persist: false,
           duration: const Duration(seconds: 5),
           action: SnackBarAction(label: tr('ফিরিয়ে আনুন'), onPressed: () => brain.undoLastDelete()),
@@ -772,12 +906,17 @@ class CashPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
+        floatingActionButton: AddButton(
+          key: const Key('cash-add'),
+          label: tr('লেনদেন যোগ করুন'),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CashFormScreen(kind: CashKind.expense))),
+        ),
         body: SafeArea(
           child: Column(children: [
             TopBar(title: tr('আয়-ব্যয়'), trailing: const [
               PdfButton({ReportPart.money})
             ]),
-            Expanded(child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: const [CashView()])),
+            Expanded(child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 96), children: const [CashView()])),
           ]),
         ),
       );
@@ -941,10 +1080,10 @@ class ProjectsView extends StatelessWidget {
       Row(children: [
         Expanded(child: PrimaryButton(label: tr('নতুন হিসাব'), icon: Icons.add_rounded, height: 48, color: C.fill, onPressed: create)),
         const SizedBox(width: 8),
-        Expanded(child: PrimaryButton(key: const Key('due-add-top'), label: tr('বকেয়া যোগ'), icon: Icons.receipt_long_outlined, height: 48, onPressed: addDue)),
+        Expanded(child: SecondaryButton(key: const Key('due-add-top'), label: tr('বকেয়া যোগ'), icon: Icons.receipt_long_outlined, onPressed: addDue)),
       ]),
       const SizedBox(height: 8),
-      Text(tr('মুখেও বলা যায়: “রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো”, “রহিম ভবন প্রজেক্টে রড কিনলাম ২০ হাজার”'), style: body(13, color: C.muted)),
+      Text(tr('মুখেও বলা যায়: “রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো”, “রহিম ভবন প্রজেক্টে রড কিনলাম ২০ হাজার”'), style: body(12.5, color: C.muted, height: 1.45)),
       const SizedBox(height: 16),
       if (open.isEmpty && closed.isEmpty)
         EmptyState(
@@ -998,80 +1137,102 @@ class ProjectCover extends StatelessWidget {
   final Project project;
   final VoidCallback onTap;
 
-  static const _covers = [
-    [Color(0xFF0E5A4A), Color(0xFF2A9D7E)],
-    [Color(0xFF1D3B6E), Color(0xFF4A78C2)],
-    [Color(0xFF6B2D4A), Color(0xFFB2557E)],
-    [Color(0xFF6B4A12), Color(0xFFC08A2D)],
-    [Color(0xFF3B2470), Color(0xFF7A5BD0)],
-    [Color(0xFF214B5C), Color(0xFF3F8EA8)],
-  ];
-
   @override
   Widget build(BuildContext context) {
-    final d = BrainScope.of(context).data;
+    final brain = BrainScope.of(context);
+    final d = brain.data;
     final p = project;
     final s = projectSums(d.cash, p.id);
     final (owed, owing) = projectDueTotals(d, p.id);
     final entries = d.cash.where((e) => e.projectId == p.id).toList();
     final last = entries.isEmpty ? null : entries.map((e) => e.date).reduce((a, b) => a.isAfter(b) ? a : b);
-    final c = _covers[p.id.codeUnits.fold<int>(0, (a, x) => a + x) % _covers.length];
-    const white = Colors.white;
-    Widget fig(String label, int v, {bool warn = false}) => Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: body(11.5, color: white.withValues(alpha: 0.75))),
-            const SizedBox(height: 2),
-            FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(taka(v), style: display(16, weight: 700, color: warn ? const Color(0xFFFFD7A8) : white))),
-          ]),
+    // A white card like the rest of the app (approved design, 3 Nov; no gradients).
+    Widget fig(String label, int v, Color color, {bool first = false}) => Expanded(
+          child: Container(
+            padding: EdgeInsets.only(left: first ? 0 : 10),
+            decoration: first ? null : BoxDecoration(border: Border(left: BorderSide(color: C.border))),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, style: body(11.5, color: C.muted)),
+              FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(taka(v), style: display(15.5, weight: 700, color: color, height: 1.35))),
+            ]),
+          ),
         );
+    final budget = p.budget;
+    final ratio = budget > 0 ? s.expense / budget : (s.income > 0 ? s.expense / s.income : (s.expense > 0 ? 1.0 : 0.0));
+    final ratioText = budget > 0
+        ? trf('বাজেটের {0}%', [bnDigits((s.expense * 100 / budget).round())])
+        : (s.income > 0 ? trf('খরচ আয়ের {0}%', [bnDigits((s.expense * 100 / s.income).round())]) : '');
     return Opacity(
-      opacity: p.closed ? 0.7 : 1,
-      child: Material(
-        borderRadius: BorderRadius.circular(18),
-        clipBehavior: Clip.antiAlias,
+      opacity: p.closed ? 0.75 : 1,
+      child: Panel(
         child: InkWell(
           key: Key('project-${p.id}'),
           onTap: onTap,
-          child: Ink(
-            decoration: BoxDecoration(gradient: LinearGradient(colors: c, begin: Alignment.topLeft, end: Alignment.bottomRight)),
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 10, 14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Row(children: [
                 Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(color: white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.work_outline_rounded, color: white, size: 19),
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(12)),
+                  child: Icon(Icons.work_outline_rounded, color: C.green, size: 20),
                 ),
                 const SizedBox(width: 10),
-                Expanded(child: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(19, weight: 700, color: white))),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(8)),
-                  child: Text(p.closed ? tr('শেষ') : (p.inMain ? tr('মূল হিসাবে যুক্ত') : tr('আলাদা')), style: body(11.5, weight: FontWeight.w600, color: white)),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(16.5, weight: 700)),
+                    Text(
+                        last == null ? tr('এখনো কোনো লেনদেন নেই') : trf('{0}টা লেনদেন · শেষ {1}', [bnDigits(entries.length), relativeDay(last, brain.services.now())]),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: body(12, color: C.muted)),
+                  ]),
                 ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                  decoration: BoxDecoration(color: C.surface2, borderRadius: BorderRadius.circular(999)),
+                  child: Text(p.closed ? tr('শেষ') : (p.inMain ? tr('মূল হিসাবে যুক্ত') : tr('আলাদা')), style: body(11, weight: FontWeight.w600, color: C.muted2)),
+                ),
+                if (!p.closed)
+                  IconButton(
+                    key: Key('project-add-${p.id}'),
+                    tooltip: tr('এই হিসাবে লিখুন'),
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CashFormScreen(kind: CashKind.expense, projectId: p.id))),
+                    icon: Icon(Icons.add_rounded, color: C.green),
+                  ),
               ]),
-              const SizedBox(height: 14),
-              Row(children: [
-                fig(tr('এসেছে'), s.income),
-                fig(tr('খরচ'), s.expense),
-                fig(s.balance >= 0 ? tr('হাতে আছে') : tr('বেশি খরচ'), s.balance.abs(), warn: s.balance < 0),
-              ]),
-              if (owed > 0 || owing > 0) ...[
-                const SizedBox(height: 10),
-                Row(children: [
-                  if (owed > 0) fig(tr('বকেয়া পাব'), owed),
-                  if (owing > 0) fig(tr('বকেয়া দেব'), owing, warn: true),
-                  if (owed == 0 || owing == 0) const Expanded(child: SizedBox()),
-                  const Expanded(child: SizedBox()),
+              const SizedBox(height: 12),
+              IntrinsicHeight(
+                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  fig(tr('এসেছে'), s.income, C.blue, first: true),
+                  fig(tr('খরচ'), s.expense, C.red),
+                  fig(s.balance >= 0 ? tr('হাতে আছে') : tr('বেশি খরচ'), s.balance.abs(), s.balance < 0 ? C.warn : C.ink),
                 ]),
+              ),
+              if (owed > 0 || owing > 0) ...[
+                const SizedBox(height: 8),
+                const Divider(height: 1),
+                const SizedBox(height: 8),
+                IntrinsicHeight(
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    if (owed > 0) fig(tr('বকেয়া পাব'), owed, C.blue, first: true),
+                    if (owing > 0) fig(tr('বকেয়া দেব'), owing, C.red, first: owed == 0),
+                    const Expanded(child: SizedBox()),
+                    if (owed == 0 || owing == 0) const Expanded(child: SizedBox()),
+                  ]),
+                ),
               ],
-              const SizedBox(height: 10),
-              Text(
-                  last == null
-                      ? tr('এখনো কোনো লেনদেন নেই')
-                      : trf('{0}টা লেনদেন · শেষ {1}', [bnDigits(entries.length), relativeDay(last, BrainScope.of(context).services.now())]),
-                  style: body(12, color: white.withValues(alpha: 0.8))),
+              if (ratioText.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(value: ratio.clamp(0.0, 1.0).toDouble(), minHeight: 6, color: ratio > 1 ? C.red : C.green, backgroundColor: C.surface2),
+                ),
+                const SizedBox(height: 5),
+                Text(ratioText, style: body(11.5, color: C.muted)),
+              ],
             ]),
           ),
         ),
@@ -1254,6 +1415,10 @@ class _CashFormScreenState extends State<CashFormScreen> {
   late DateTime _date = widget.entry?.date ?? widget.date ?? BrainScope.read(context).services.now();
   late String? _projectId = widget.entry?.projectId ?? widget.projectId;
 
+  /// All the খাত, not only the first eight; or a new one typed.
+  bool _allCats = false;
+  bool _typeCat = false;
+
   @override
   void dispose() {
     _amount.dispose();
@@ -1316,25 +1481,96 @@ class _CashFormScreenState extends State<CashFormScreen> {
                 value: _kind,
                 onChanged: (v) => setState(() => _kind = v),
               ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _amount,
-                keyboardType: TextInputType.number,
-                autofocus: widget.entry == null,
-                style: display(24),
-                decoration: InputDecoration(labelText: tr('টাকা'), prefixText: tr('৳ ')),
-              ),
-              const SizedBox(height: 14),
-              TextField(controller: _category, decoration: InputDecoration(labelText: tr('খাত (যেমন: বাজার, ভাড়া, বেতন)'))),
-              const SizedBox(height: 8),
-              Wrap(spacing: 6, runSpacing: 6, children: [
-                for (final c in cats.take(14))
-                  ChoiceChip(
-                    label: Text(c, style: body(13)),
-                    selected: _category.text.trim() == c,
-                    onSelected: (_) => setState(() => _category.text = c),
+              const SizedBox(height: 18),
+              // The amount big in the middle, in the colour of its kind (approved design, 3 Nov).
+              Text(tr('টাকা'), textAlign: TextAlign.center, style: body(12.5, color: C.muted)),
+              Row(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.center, children: [
+                Text(tr('৳'), style: display(26, weight: 700, color: _kind == CashKind.income ? C.blue : C.red)),
+                const SizedBox(width: 6),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 80, maxWidth: 260),
+                  child: IntrinsicWidth(
+                    child: TextField(
+                      key: const Key('cash-amount'),
+                      controller: _amount,
+                      keyboardType: TextInputType.number,
+                      autofocus: widget.entry == null,
+                      onChanged: (_) => setState(() {}),
+                      style: display(38, weight: 700, color: _kind == CashKind.income ? C.blue : C.red),
+                      decoration: InputDecoration(
+                        hintText: '০',
+                        hintStyle: display(38, weight: 700, color: C.disabled),
+                        isCollapsed: true,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 6),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        filled: false,
+                      ),
+                    ),
                   ),
+                ),
               ]),
+              const SizedBox(height: 6),
+              Center(child: Container(width: 200, height: 2, color: _kind == CashKind.income ? C.blue : C.red)),
+              const SizedBox(height: 10),
+              Panel(
+                padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Row(children: [
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(tr('খাত'), style: body(14, weight: FontWeight.w700))),
+                    TextButton(
+                      key: const Key('cash-cat-new'),
+                      onPressed: () => setState(() => _typeCat = !_typeCat),
+                      child: Text(tr('+ নতুন খাত')),
+                    ),
+                  ]),
+                  GridView.count(
+                    crossAxisCount: 4,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    childAspectRatio: 0.92,
+                    children: [
+                      for (final c in cats.take(_allCats ? 16 : (cats.length > 8 ? 7 : 8)))
+                        InkWell(
+                          key: Key('cash-pick-$c'),
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => setState(() {
+                            _category.text = c;
+                            _typeCat = false;
+                          }),
+                          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            CatIcon(c, size: 44, filled: _category.text.trim() == c),
+                            const SizedBox(height: 5),
+                            Text(tr(c), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, weight: _category.text.trim() == c ? FontWeight.w700 : FontWeight.w500)),
+                          ]),
+                        ),
+                      if (!_allCats && cats.length > 8)
+                        InkWell(
+                          key: const Key('cash-cat-more'),
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => setState(() => _allCats = true),
+                          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(color: C.surface2, borderRadius: BorderRadius.circular(13)),
+                              child: Icon(Icons.more_horiz_rounded, color: C.ink),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(tr('আরও'), style: body(12)),
+                          ]),
+                        ),
+                    ],
+                  ),
+                  if (_typeCat || (_category.text.trim().isNotEmpty && !cats.take(_allCats ? 16 : 8).contains(_category.text.trim())))
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
+                      child: TextField(controller: _category, onChanged: (_) => setState(() {}), decoration: InputDecoration(labelText: tr('খাত (যেমন: বাজার, ভাড়া, বেতন)'))),
+                    ),
+                ]),
+              ),
               const SizedBox(height: 14),
               TextField(controller: _note, minLines: 1, maxLines: 3, decoration: InputDecoration(labelText: tr('নোট (ইচ্ছামতো)'))),
               const SizedBox(height: 14),

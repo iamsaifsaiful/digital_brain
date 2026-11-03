@@ -52,7 +52,7 @@ class TrashScreen extends StatelessWidget {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('মুছে ফেলা'), trailing: [
+          TopBar(title: tr('রিসাইকেল বিন'), trailing: [
             if (list.isNotEmpty)
               TextButton(
                 onPressed: () async {

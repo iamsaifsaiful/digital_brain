@@ -66,13 +66,13 @@ void main() {
     expect(find.text('অক্টোবর ২০২৬'), findsOneWidget);
   });
 
-  testWidgets('দিনলিপি: habits, medicines, special days and ready lists sit at the bottom, each with an example', (t) async {
+  testWidgets('দিনলিপি: habits, medicines, special days and ready lists sit at the bottom as chips, each with an example (owner, 3 Nov)', (t) async {
     await start(t);
     await t.tap(find.text('দিনলিপি').last);
     await settle(t);
     final habits = find.byKey(const Key('diary-habits'));
     await t.scrollUntilVisible(habits, 300, scrollable: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first);
-    expect(find.textContaining('যেমন: প্রতিদিন ৩০ মিনিট হাঁটা'), findsOneWidget);
+    expect(find.byTooltip('যেমন: প্রতিদিন ৩০ মিনিট হাঁটা, ৫ ওয়াক্ত নামাজ'), findsOneWidget);
     expect(find.byKey(const Key('diary-medicines')), findsOneWidget);
     expect(find.byKey(const Key('diary-templates')), findsOneWidget);
     await t.tap(habits);

@@ -162,6 +162,23 @@ function ma_err_list($limit = 200, $level = '') {
     }, $rows);
 }
 
+/** The list as plain text (for copying): level, count, kind, meaning, version, times, message and code places — no e-mails. */
+function ma_err_text(array $list) {
+    $out = ['My Assistant — সমস্যার লগ', 'সময় (UTC): ' . gmdate('Y-m-d H:i') . ' · প্লাগিন ' . MA_ACC_VERSION . ' · মোট ' . count($list) . 'টা', ''];
+    foreach ($list as $i => $e) {
+        $out[] = '#' . ($i + 1) . ' ' . $e['level_label'] . ' · ' . $e['count'] . ' বার · ' . $e['kind'] . ' · ' . $e['meaning'];
+        $out[] = 'অ্যাপ ' . $e['version'] . ' · প্রথম ' . substr($e['first_at'], 0, 16) . ' · শেষ ' . substr($e['last_at'], 0, 16) . ' (UTC)';
+        if ((string) $e['message'] !== '') {
+            $out[] = 'বার্তা: ' . $e['message'];
+        }
+        if ((string) $e['stack'] !== '') {
+            $out[] = trim((string) $e['stack']);
+        }
+        $out[] = '';
+    }
+    return implode("\n", $out);
+}
+
 add_action('rest_api_init', function () {
     register_rest_route('my-assistant/v1', '/errors', [
         'methods' => 'POST',
@@ -208,6 +225,7 @@ function ma_acc_render_errors() {
             <div class="ma-bar-title"><h2>সমস্যার লগ</h2><span class="ma-count"><?php echo esc_html(ma_acc_bn(count($list))); ?>টা</span></div>
             <?php if ($list) : ?>
                 <div class="ma-bar-actions">
+                    <button class="ma-chip" type="button" id="ma-err-copy" onclick="maErrCopy(this)">সব কপি করুন</button>
                     <form method="post" action="<?php echo $post; ?>" onsubmit="return confirm('সব লগ মুছে ফেলবেন?')">
                         <input type="hidden" name="action" value="ma_err_clear"><?php wp_nonce_field('ma_err_clear'); ?>
                         <button class="ma-chip" type="submit">সব মুছুন</button>
@@ -225,6 +243,18 @@ function ma_acc_render_errors() {
         <?php if (!$list) : ?>
             <div class="ma-empty"><h3>কোনো সমস্যা আসেনি</h3><p>সদস্যদের ফোনে ভুল বা সমস্যা হলে কয়েক সেকেন্ডের মধ্যে এখানে দেখা যাবে (অ্যাপ ২.৫৫.১২ থেকে; আগের অ্যাপ শুধু ক্র্যাশ পাঠায়, অ্যাপ সরালে)।</p></div>
         <?php else : ?>
+            <?php /* Everything on this list as one text, for "সব কপি করুন" (owner, 31 Oct: to paste to Claude). Members' e-mails are left out. */ ?>
+            <textarea id="ma-err-text" readonly hidden><?php echo esc_textarea(ma_err_text($list)); ?></textarea>
+            <script>
+            function maErrCopy(b) {
+                var t = document.getElementById('ma-err-text');
+                var done = function () { b.textContent = 'কপি হয়েছে ✓'; setTimeout(function () { b.textContent = 'সব কপি করুন'; }, 2500); };
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(t.value).then(done, function () { maErrCopyOld(t); done(); });
+                } else { maErrCopyOld(t); done(); }
+            }
+            function maErrCopyOld(t) { t.hidden = false; t.select(); document.execCommand('copy'); t.hidden = true; }
+            </script>
             <div class="ma-fb">
                 <?php foreach ($list as $e) : ?>
                     <details class="ma-fb-item" style="display:block">

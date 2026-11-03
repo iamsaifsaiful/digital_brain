@@ -382,7 +382,7 @@ Command? menuCommand(String said, AppData? d, DateTime now) {
   if (_thas(f, r'(?:সব|সবগুলো|সকল)\s+(?:অ্যালার্ম|এলার্ম|alarm)') && _thas(f, r'(?:বন্ধ|অফ|off)')) return MenuAction(said, domain: 'alarm', op: 'all_off');
 
   // ── The bin ──
-  final restore = _tre(r'(?:মুছে\s+ফেলা|ডিলিট\s+করা|মোছা)\s+(\S+)').firstMatch(f);
+  final restore = _tre(r'(?:মুছে\s+ফেলা|ডিলিট\s+করা|মোছা|(?:রিসাইকেল\s*বিন|ট্র্যাশ|recycle\s+bin|trash)\s+থেকে)\s+(\S+)').firstMatch(f);
   if (restore != null && _thas(f, r'(?:ফেরত|ফিরিয়ে|ফিরিয়ে\s+আনো|restore|রিস্টোর)')) return MenuAction(said, domain: 'trash', op: 'restore', target: restore[1]!);
 
   // ── Calendar and time ──

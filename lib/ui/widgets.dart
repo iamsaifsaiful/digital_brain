@@ -1,3 +1,4 @@
+import 'motion.dart';
 import 'dart:math' as math;
 import '../logic/services_list.dart' show KnownService;
 import 'package:flutter/material.dart';
@@ -155,7 +156,9 @@ class PrimaryButton extends StatelessWidget {
     return _filled();
   }
 
-  Widget _filled() => SizedBox(
+  Widget _filled() => Pressable(
+        enabled: onPressed != null,
+        child: SizedBox(
         height: height,
         width: double.infinity,
         child: FilledButton(
@@ -176,6 +179,7 @@ class PrimaryButton extends StatelessWidget {
             ],
           ),
         ),
+        ),
       );
 }
 
@@ -193,7 +197,9 @@ class SecondaryButton extends StatelessWidget {
   final double height;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
+  Widget build(BuildContext context) => Pressable(
+        enabled: onPressed != null,
+        child: SizedBox(
         height: height,
         width: double.infinity,
         child: OutlinedButton(
@@ -212,6 +218,7 @@ class SecondaryButton extends StatelessWidget {
               Flexible(child: Text(label, style: body(14, weight: FontWeight.w500, color: fg), overflow: TextOverflow.ellipsis)),
             ],
           ),
+        ),
         ),
       );
 }
@@ -546,7 +553,8 @@ class AddButton extends StatelessWidget {
   final IconData icon;
 
   @override
-  Widget build(BuildContext context) => FloatingActionButton.extended(
+  Widget build(BuildContext context) => Pressable(
+      child: FloatingActionButton.extended(
         heroTag: null,
         onPressed: onPressed,
         backgroundColor: C.green,
@@ -556,6 +564,7 @@ class AddButton extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)),
         icon: Icon(icon),
         label: Text(label, style: body(14.5, weight: FontWeight.w600, color: C.onAccent)),
+      ),
       );
 }
 

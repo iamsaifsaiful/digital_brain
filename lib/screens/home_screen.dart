@@ -6,6 +6,7 @@ import '../models/models.dart';
 import '../services/notifications.dart';
 import '../state/brain.dart';
 import '../ui/kit.dart';
+import '../ui/motion.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart' show toast;
 import 'alarm_screens.dart';
@@ -190,10 +191,9 @@ class _NextCard extends StatelessWidget {
     final title = item.title;
     final who = brain.data.contacts.where((c) => c.phone.trim().isNotEmpty && c.name.trim().length > 1 && title.contains(c.name.trim().split(' ').first)).firstOrNull;
     final time = bnTime(item.sort.hour, item.sort.minute);
-    final part = time.split(' ').first;
-    // "৭:০০", not "৭টা", on the big clock.
+    // "সন্ধ্যা ৭:০০" under the title.
     final h12 = item.sort.hour % 12 == 0 ? 12 : item.sort.hour % 12;
-    final clock = isEn ? time : '${bnDigits(h12)}:${bnDigits(item.sort.minute.toString().padLeft(2, '0'))}';
+    final clock = isEn ? time : '${time.split(' ').first} ${bnDigits(h12)}:${bnDigits(item.sort.minute.toString().padLeft(2, '0'))}';
 
     Future<void> done() async {
       if (t != null) {
@@ -219,42 +219,68 @@ class _NextCard extends StatelessWidget {
     }
 
     final canDone = t != null || (r != null && r.repeat == Repeat.none);
+    // The title, its time under it, the actions on the right (owner, 3 Nov).
+    final line = [if (timed) clock, if (meta.isNotEmpty) meta].join(' · ');
     return AppCard(
       key: const Key('home-next'),
       onTap: () => t != null ? editTask(context, t) : null,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
-          Container(width: 5, height: 5, decoration: BoxDecoration(color: C.green, shape: BoxShape.circle)),
-          const SizedBox(width: 6),
-          Text(soon.isEmpty ? tr('এরপর') : '${tr('এরপর')} · $soon', style: body(11.5, weight: FontWeight.w600, color: C.green)),
-        ]),
-        const SizedBox(height: 8),
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(16, weight: FontWeight.w600, height: 1.35)),
-              if (meta.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 3), child: Text(meta, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: C.muted))),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(width: 5, height: 5, decoration: BoxDecoration(color: C.green, shape: BoxShape.circle)),
+              const SizedBox(width: 6),
+              Flexible(child: Text(soon.isEmpty ? tr('এরপর') : '${tr('এরপর')} · $soon', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, weight: FontWeight.w600, color: C.green))),
             ]),
-          ),
-          if (timed)
-            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text(clock, style: body(22, weight: FontWeight.w600, color: C.green, height: 1.2)),
-              if (part != clock) Text(part, style: body(11, color: C.muted)),
-            ]),
-        ]),
-        const SizedBox(height: 12),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          if (who != null)
-            SmallButton(primary: true, icon: Icons.call_outlined, label: tr('ফোন করুন'), onTap: () => brain.services.launcher.open(Via.call, who.phone)),
-          if (canDone) SmallButton(primary: who == null, icon: Icons.check_rounded, label: tr('হয়ে গেছে'), onTap: done),
-          SmallButton(icon: Icons.snooze_rounded, label: tr('পরে'), onTap: later),
-        ]),
+            const SizedBox(height: 4),
+            Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(16, weight: FontWeight.w600, height: 1.35)),
+            if (line.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(line, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, weight: timed ? FontWeight.w600 : FontWeight.w400, color: timed ? C.green : C.muted)),
+              ),
+          ]),
+        ),
+        const SizedBox(width: 8),
+        _Action(icon: Icons.snooze_rounded, tip: tr('পরে'), onTap: later),
+        if (who != null) ...[const SizedBox(width: 8), _Action(icon: Icons.call_outlined, tip: tr('ফোন করুন'), primary: true, onTap: () => brain.services.launcher.open(Via.call, who.phone))],
+        if (canDone) ...[const SizedBox(width: 8), _Action(icon: Icons.check_rounded, tip: tr('হয়ে গেছে'), primary: who == null, onTap: done)],
       ]),
     );
   }
 }
 
-/// One line of the list: a tick box (a to-do) or a bell (a reminder).
+/// A square 44 button with an icon, its words in the tooltip.
+class _Action extends StatelessWidget {
+  const _Action({required this.icon, required this.tip, required this.onTap, this.primary = false});
+  final IconData icon;
+  final String tip;
+  final VoidCallback onTap;
+  final bool primary;
+
+  @override
+  Widget build(BuildContext context) => Pressable(
+      child: Tooltip(
+        message: tip,
+        child: Semantics(
+          button: true,
+          label: tip,
+          excludeSemantics: true,
+          child: Material(
+            color: primary ? C.green : C.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: primary ? C.green : C.border)),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: onTap,
+              child: SizedBox(width: 44, height: 44, child: Icon(icon, size: 21, color: primary ? C.onAccent : C.ink)),
+            ),
+          ),
+        ),
+      ),
+      );
+}
+
+/// One line of the list: the title, its time, the actions on the right.
 class _TaskRow extends StatelessWidget {
   const _TaskRow({required this.item, this.late = false, this.onLater});
   final PlanItem item;
@@ -271,45 +297,27 @@ class _TaskRow extends StatelessWidget {
     final done = (t?.done ?? false) || passed;
     final label = whenLabel(item, now, withDay: late);
     final sub = late && t != null && r == null ? trf('{0} ছিল', [label]) : (passed ? trf('{0} · বেজেছে', [label]) : label);
+    // The title, its time under it, the actions on the right (owner, 3 Nov).
     return InkWell(
       onTap: () => t != null ? editTask(context, t) : null,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 9),
+        padding: const EdgeInsets.symmetric(vertical: 3),
         child: Row(children: [
-          if (t != null)
-            InkWell(
-              borderRadius: BorderRadius.circular(7),
-              onTap: () => brain.setTaskDone(t, !t.done),
-              child: SizedBox(
-                width: 34,
-                height: 34,
-                child: Center(
-                  child: Container(
-                    width: 22,
-                    height: 22,
-                    decoration: BoxDecoration(
-                      color: t.done ? C.green : Colors.transparent,
-                      borderRadius: BorderRadius.circular(7),
-                      border: Border.all(color: t.done ? C.green : C.border, width: 1.6),
-                    ),
-                    child: t.done ? Icon(Icons.check_rounded, size: 15, color: C.onAccent) : null,
-                  ),
-                ),
-              ),
-            )
-          else
-            SizedBox(width: 34, height: 34, child: Icon(passed ? Icons.notifications_off_outlined : Icons.notifications_none_rounded, size: 20, color: passed ? C.muted : C.green)),
-          const SizedBox(width: 8),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(item.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: body(14, color: done ? C.muted : C.ink).copyWith(decoration: t?.done ?? false ? TextDecoration.lineThrough : null, decorationColor: C.muted)),
-              Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: late ? C.warn : C.muted)),
-            ]),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(item.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: body(14.5, color: done ? C.muted : C.ink).copyWith(decoration: t?.done ?? false ? TextDecoration.lineThrough : null, decorationColor: C.muted)),
+                const SizedBox(height: 1),
+                WhenLine(sub, bell: r != null, color: late ? C.warn : (r != null && !passed ? C.green : C.muted)),
+              ]),
+            ),
           ),
-          if (onLater != null) ...[const SizedBox(width: 8), SoftChip(tr('কাল করব'), onTap: onLater)] else if (t != null && !t.done) TaskAlarmButton(t),
+          if (onLater != null) ...[const SizedBox(width: 8), SoftChip(tr('কাল করব'), warn: true, onTap: onLater)] else if (t != null && !t.done) TaskAlarmButton(t),
+          if (t != null) DoneCircle(done: t.done, onTap: () => brain.setTaskDone(t, !t.done)) else const SizedBox(width: 8),
         ]),
       ),
     );

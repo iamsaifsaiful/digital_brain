@@ -131,9 +131,7 @@ class DeviceVoice extends Voice {
   /// it does not hear the end of the app's own voice.
   DateTime _spokeAt = DateTime(2000);
 
-  /// The recogniser listed a Bengali language (null: it could not say —
-  /// Android 13+ lists only the offline languages).
-  bool? banglaListed;
+  /// The language asked of the recogniser (bn-BD).
   String get localeInUse => _locale ?? '';
   Duration _silence = sentenceSilence;
   DateTime _turnStarted = DateTime.now();
@@ -262,24 +260,13 @@ class DeviceVoice extends Voice {
     try {
       _ready = await _stt.initialize(onError: _handleError, onStatus: _handleStatus);
       if (_ready) {
-        // On Android 13+ the plugin asks only for the *offline* languages, and
-        // on some phones that call never answers: never wait more than 3 s.
-        var locales = <LocaleName>[];
-        try {
-          locales = await _stt.locales().timeout(const Duration(seconds: 3));
-        } catch (_) {}
-        banglaListed = locales.isEmpty ? null : locales.any((l) => l.localeId.toLowerCase().startsWith('bn'));
-        String? pick(String id) {
-          for (final l in locales) {
-            if (l.localeId.toLowerCase().replaceAll('-', '_') == id) return l.localeId;
-          }
-          return null;
-        }
-        _locale = pick('bn_bd') ?? pick('bn_in') ?? pick('bn');
-        _locale ??= locales.where((l) => l.localeId.toLowerCase().startsWith('bn')).map((l) => l.localeId).firstOrNull;
-        // Not listed (common: the online recogniser supports Bengali but
-        // only offline languages are listed): ask for Bangladesh Bengali.
-        _locale ??= 'bn-BD';
+        // The plugin's list of languages is not asked for (problem log, 3 Nov:
+        // "Reply already submitted" closed the app 29 times). On Android 13+ the
+        // plugin answers that call from a callback the phone may fire twice —
+        // the second answer crashes the app — and on some phones never at all.
+        // Bangladesh Bengali is asked for directly; the online recogniser
+        // takes it whether or not the offline list names it.
+        _locale = 'bn-BD';
       }
       // The voice is set up alongside: listening must not wait for it.
       _ttsSetup ??= _setupTts();
@@ -392,11 +379,9 @@ class DeviceVoice extends Voice {
   void _handleError(SpeechRecognitionError e) {
     if (_finished) return;
     final code = e.errorMsg;
-    // সমস্যার লগ: the recogniser's own code (never what was heard); the
-    // everyday "nothing said yet" ones are left out.
-    if (code != 'error_no_match' && code != 'error_speech_timeout') ErrorLog.problem('Voice', code);
     // The session the app itself just cancelled complaining late: not this turn's error.
     if ((code == 'error_client' || code == 'error_busy' || code == 'error_recognizer_busy') && DateTime.now().difference(_cancelledAt) < const Duration(milliseconds: 700)) return;
+    // The app itself stopped the recogniser to end the turn: its late "client" error is expected.
     if (_finalizing) return _finish();
     if (_words.isNotEmpty) {
       // A pause after some words (no_match / speech_timeout on a restarted
@@ -424,6 +409,11 @@ class DeviceVoice extends Voice {
       _restart(Duration(milliseconds: 300 * _retries), cancelFirst: true);
       return;
     }
+    // সমস্যার লগ: the recogniser's own code (never what was heard), only for
+    // a turn that failed for the member — not each busy try the app got past
+    // on its own (owner's log, 3 Nov: 101 "busy" in an hour, nearly all
+    // retried away), and not the everyday "nothing said".
+    if (code != 'error_no_match' && code != 'error_speech_timeout') ErrorLog.problem('Voice', _retries > 0 ? '$code (after $_retries tries)' : code);
     _finished = true;
     _quiet?.cancel();
     _onError?.call(voiceErrorMessage(code));

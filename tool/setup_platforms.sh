@@ -156,6 +156,16 @@ dependencies {
 KTS
 fi
 
+# A newer version on Google Play: the in-app update (PlayUpdate.kt, owner 31 Oct).
+if ! grep -q 'play:app-update' "$GRADLE_KTS"; then
+  cat >> "$GRADLE_KTS" <<'KTS'
+
+dependencies {
+    implementation("com.google.android.play:app-update:2.1.0")
+}
+KTS
+fi
+
 # AdMob's app ID for the manifest (the free Play app's ads): the real one from
 # the Play build's ADMOB_APP_ID, Google's own test ID otherwise.
 if ! grep -q 'admobAppId' "$GRADLE_KTS"; then

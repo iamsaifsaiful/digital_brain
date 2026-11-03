@@ -7,16 +7,16 @@ import 'dart:io';
 
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/ui/theme.dart';
-import 'package:digital_brain/ui/widgets.dart' show PrimaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:digital_brain/screens/more_screen.dart' show MoreScreen;
 import 'package:digital_brain/state/family_state.dart' show FamilyLink;
 
 import 'package:digital_brain/app.dart';
 import 'package:digital_brain/screens/lock_screen.dart' show googleFirst;
 import 'package:digital_brain/state/brain.dart' show BrainHealth;
 
-import '../app_test.dart' show Rig, loadFonts, settle, start;
+import '../app_test.dart' show Rig, loadFonts, settle, start, vScroll;
 import 'home_final_shots_test.dart' show icons, sample;
 
 final shots = Platform.environment['SHOTS'] == '1';
@@ -28,11 +28,14 @@ class Flow {
   final steps = <Map<String, Object?>>[];
 
   /// The screen as it is now; [tap] is pressed after (its place is kept).
-  Future<void> step(Finder? tap, {String? type, Finder? field, bool press = true, double below = 0}) async {
+  Future<void> step(Finder? tap, {String? type, Finder? field, bool press = true, double below = 0, bool scroll = true}) async {
     Rect? r;
     if (tap != null) {
-      await t.ensureVisible(tap.first);
-      await settle(t);
+      // A floating button is on screen already: scrolling to it would slide the tabs.
+      if (scroll) {
+        await t.ensureVisible(tap.first);
+        await settle(t);
+      }
       r = t.getRect(tap.first);
       if (below > 0) r = Rect.fromLTWH(12, r.top - 6, 366, r.height + below);
     }
@@ -127,7 +130,10 @@ void main() {
     await rig0(t);
     final f = Flow(t, 'more');
     await f.step(find.text('আরও').last);
-    for (final x in ['রক্তের গ্রুপ', 'কী কী করা যায়', 'রিমাইন্ডার ঠিকমতো বাজবে তো?', 'বড় লেখা, হোমে ৪টা বড় বোতাম, উত্তর কণ্ঠে শোনাবে — বয়স্কদের জন্য সুবিধা', 'Google অ্যাকাউন্ট ও ব্যাকআপ', 'PIN বদলান', 'রিমাইন্ডারের রিংটোন']) {
+    // In আরও's order (owner, 2 Nov; settings as rows, 3 Nov): look, reminders, assistant, keeping data safe, then help.
+    for (final x in ['রক্তের গ্রুপ', 'চেহারা ও ভাষা', 'রিমাইন্ডার ও নোটিফিকেশন', 'সহকারী ও কণ্ঠ', 'তথ্য নিরাপদ রাখা', 'কী কী করা যায়']) {
+      // Help is last in আরও now: scroll to each before its step.
+      await t.scrollUntilVisible(find.text(x, skipOffstage: false), 200, scrollable: find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first);
       await f.step(find.text(x, skipOffstage: false), press: false, below: 40);
     }
     debugDisableShadows = true;
@@ -162,7 +168,8 @@ void main() {
     await rig0(t);
     final f = Flow(t, 'cash');
     await f.step(find.text('হিসাব').last);
-    await f.step(find.widgetWithText(PrimaryButton, 'খরচ'));
+    // One add button at the bottom (owner, 3 Nov); it opens on খরচ.
+    await f.step(find.byKey(const Key('cash-add')), scroll: false);
     final amount = find.byType(TextField).first;
     await f.step(amount, type: '৫০০', field: amount);
     await f.step(find.text('বাজার').first);
@@ -176,7 +183,7 @@ void main() {
     final f = Flow(t, 'ledger');
     await f.step(find.text('হিসাব').last);
     await f.step(find.text('ধার-দেনা').first);
-    await f.step(find.text('নতুন লেনদেন'));
+    await f.step(find.byKey(const Key('loan-add')), scroll: false);
     await f.step(find.text('ধার দিলাম'));
     final who = field('কাকে');
     await f.step(who, type: 'রবিন', field: who);

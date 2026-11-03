@@ -1,4 +1,5 @@
 import 'cards_screen.dart' show CardsScreen;
+import '../ui/secure.dart';
 import '../ui/drag_grid.dart';
 import 'dart:typed_data';
 
@@ -120,7 +121,9 @@ class _DocsScreenState extends State<DocsScreen> {
       );
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => SecureView(child: _secretBuild(context));
+
+  Widget _secretBuild(BuildContext context) {
     final brain = BrainScope.of(context);
     final d = brain.data;
     final folder = widget.folder;
@@ -383,7 +386,9 @@ class _DocScreenState extends State<DocScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => SecureView(child: _secretBuild(context));
+
+  Widget _secretBuild(BuildContext context) {
     final brain = BrainScope.of(context);
     final d = _doc(brain);
     if (d == null) {

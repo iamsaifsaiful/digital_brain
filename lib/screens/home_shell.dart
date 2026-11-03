@@ -10,6 +10,7 @@ import 'home_page.dart';
 import 'ledger_screen.dart';
 import 'store_screen.dart';
 import 'more_screen.dart' show MoreScreen;
+import 'update_screen.dart' show offerUpdate;
 import '../logic/lang.dart';
 
 /// হোম · দিনলিপি · হিসাব · সংরক্ষণ · আরও — an organiser, with the
@@ -39,6 +40,8 @@ class HomeShellState extends State<HomeShell> {
     // The recogniser starts in the background, so the first mic tap listens at once.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) BrainScope.read(context).services.voice.warmUp();
+      // A newer version on Google Play: its page, once per opening (update_screen.dart).
+      if (mounted) offerUpdate(context);
     });
   }
 

@@ -1,5 +1,6 @@
 import 'will_screen.dart' show WillScreen;
 import 'package:flutter/material.dart';
+import 'trash_screen.dart' show TrashScreen;
 
 import 'alarm_list_screen.dart';
 import 'assistant_settings.dart';
@@ -67,6 +68,7 @@ Widget? placePage(String id, {String? folder}) => medicalOff && medicalPlaces.co
       'notifications' => const NotificationSettingsScreen(),
       'sound' => const SoundScreen(),
       'backup' => const BackupScreen(),
+      'trash' => const TrashScreen(),
       'help' => const HelpScreen(),
       'pro' => const ProScreen(),
       _ => null,

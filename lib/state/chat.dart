@@ -248,6 +248,7 @@ class ChatController extends ChangeNotifier {
     brain.signalLastSample(text, complained: old.contains('complain_help') || old.contains('correct'));
     brain.signalLastSample(text, complained: false);
     if (!brain.nluSamplesOn) return;
+    if (brain.nluStaysPrivate(text, [for (final p in pieces) p.intent, ...old])) return;
     if (same && _sampleRandom.nextDouble() > 0.1) return;
     final names = [
       for (final e in brain.data.ledger) e.person,
@@ -258,7 +259,7 @@ class ChatController extends ChangeNotifier {
     final words = delexicalize(text, names);
     if (words == null) return;
     brain.addNluSample(
-      nluSample(textDelex: words, state: state, local: [for (final p in pieces) (p.intent, p.conf)], finalIntents: old, appVer: nluAppVersion, modelVer: 'bundled-1'),
+      nluSample(textDelex: words, state: state, local: [for (final p in pieces) (p.intent, p.conf)], finalIntents: old, appVer: nluAppVersion, modelVer: brain.nluModelVersion.isEmpty ? 'bundled-1' : brain.nluModelVersion),
       text,
     );
   }
@@ -2115,7 +2116,7 @@ class ChatController extends ChangeNotifier {
           return;
         }
         if (c.doneOnly) {
-          _ask(out, trf('শেষ করা {0}টা কাজ তালিকা থেকে মুছে দেব? ৩০ দিন “মুছে ফেলা”-তে থাকবে।', [bnDigits(gone.length)]), ChatWait.yesNo,
+          _ask(out, trf('শেষ করা {0}টা কাজ তালিকা থেকে মুছে দেব? ৩০ দিন “রিসাইকেল বিন”-এ থাকবে।', [bnDigits(gone.length)]), ChatWait.yesNo,
               choices: _yesNoChoices, facts: [for (final t in gone.take(8)) t.title]);
           return;
         }
@@ -4044,7 +4045,7 @@ class ChatController extends ChangeNotifier {
         for (final t in gone) {
           await brain.deleteTask(t.id);
         }
-        _say(out, trf('মুছে দিলাম — {0}টা কাজ। ৩০ দিন “মুছে ফেলা” থেকে ফেরত আনা যাবে।', [bnDigits(gone.length)]),
+        _say(out, trf('মুছে দিলাম — {0}টা কাজ। ৩০ দিন “রিসাইকেল বিন” থেকে ফেরত আনা যাবে।', [bnDigits(gone.length)]),
             links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
         _history.add(AiTurn.app('[${gone.length}টা কাজ মুছে দেওয়া হলো]'));
       case TaskAdd():
@@ -4293,7 +4294,7 @@ class ChatController extends ChangeNotifier {
     if (!RegExp(fold(r'^(?:ওটা\s+|এটা\s+|শেষেরটা\s+|শেষটা\s+|আগেরটা\s+)?(?:ফিরিয়ে\s+(?:নাও|নিন|নেও|নে)|আনডু(?:\s+করো)?|undo|আগের\s+অবস্থায়\s+ফিরিয়ে\s+দাও)$')).hasMatch(f)) return false;
     final m = messages.lastWhere((x) => x.undo != null, orElse: () => ChatMessage.app(''));
     if (m.undo == null || _undoAfter == null || brain.snapshot() != _undoAfter) {
-      _say(out, tr('ফিরিয়ে নেওয়ার মতো শেষ কোনো পরিবর্তন পেলাম না — মুছে ফেলা জিনিস “মুছে ফেলা” পাতা থেকে ফেরত আনা যায়।'));
+      _say(out, tr('ফিরিয়ে নেওয়ার মতো শেষ কোনো পরিবর্তন পেলাম না — মুছে ফেলা জিনিস “রিসাইকেল বিন” থেকে ফেরত আনা যায়।'));
       return true;
     }
     final snap = m.undo!;

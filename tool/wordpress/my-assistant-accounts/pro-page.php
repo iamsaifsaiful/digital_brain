@@ -39,13 +39,12 @@ add_shortcode('my_assistant_pro', 'ma_pro_page');
 
 function ma_pro_page($atts = []) {
     $a = shortcode_atts(['form' => 'yes'], $atts, 'my_assistant_pro');
-    $plans = ma_pay_plans();
+    $plans = ma_pay_web_plans();
     $here = get_permalink() ?: home_url('/');
     $tick = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6L20.1 8.4 18.7 7z"/></svg>';
     $dash = '<span class="ma-pro-no" aria-label="নেই">—</span>';
-    $monthly = $plans['monthly']['price'];
+    // The website sells the yearly plan only (owner, 1 Nov: bKash is paid by hand).
     $yearly = $plans['yearly']['price'];
-    $save = max(0, $monthly * 12 - $yearly);
     ob_start();
     ?>
     <div class="ma-pro">
@@ -57,7 +56,7 @@ function ma_pro_page($atts = []) {
         .ma-pro-hero h2{color:#fff;margin:6px 0 8px;font-size:clamp(28px,5vw,40px);line-height:1.2}
         .ma-pro-hero p{margin:0 auto;max-width:560px;color:#D1FAE5;font-size:17px;line-height:1.6}
         .ma-pro-tag{display:inline-block;background:rgba(255,255,255,.16);border-radius:999px;padding:4px 14px;font-weight:600;font-size:14px}
-        .ma-pro-plans{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:-28px 20px 0;position:relative;z-index:1}
+        .ma-pro-plans{display:grid;grid-template-columns:minmax(0,460px);justify-content:center;gap:16px;margin:-28px 20px 0;position:relative;z-index:1}
         .ma-pro-plan{background:#fff;border:1.5px solid var(--line);border-radius:22px;padding:22px;box-shadow:0 18px 40px -26px rgba(17,24,39,.45);display:flex;flex-direction:column}
         .ma-pro-plan.best{border-color:var(--g)}
         .ma-pro-plan .name{font-weight:600;color:var(--mut)}
@@ -110,18 +109,11 @@ function ma_pro_page($atts = []) {
 
         <div class="ma-pro-plans" id="ma-pro-plans">
             <div class="ma-pro-plan best">
-                <span class="ma-pro-badge">সবচেয়ে লাভ<?php echo $save ? ' · ৳' . esc_html(ma_acc_bn($save)) . ' বাঁচে' : ''; ?></span>
-                <span class="name">বার্ষিক</span>
+                <span class="ma-pro-badge">বিকাশে বছরে একবার · নিজে থেকে কাটে না</span>
+                <span class="name">প্রিমিয়াম · এক বছর</span>
                 <span class="price">৳<?php echo esc_html(ma_acc_bn($yearly)); ?> <small>/ বছর</small></span>
                 <span class="note">মাসে মাত্র ৳<?php echo esc_html(ma_acc_bn((int) round($yearly / 12))); ?></span>
                 <a class="ma-pro-buy" href="<?php echo esc_url(add_query_arg('plan', 'yearly', $here) . '#ma-pay'); ?>">বার্ষিক প্রিমিয়াম কিনুন</a>
-            </div>
-            <div class="ma-pro-plan">
-                <span class="ma-pro-badge" style="visibility:hidden">—</span>
-                <span class="name">মাসিক</span>
-                <span class="price">৳<?php echo esc_html(ma_acc_bn($monthly)); ?> <small>/ মাস</small></span>
-                <span class="note">একবার চেখে দেখতে</span>
-                <a class="ma-pro-buy" href="<?php echo esc_url(add_query_arg('plan', 'monthly', $here) . '#ma-pay'); ?>">মাসিক প্রিমিয়াম কিনুন</a>
             </div>
         </div>
 

@@ -24,6 +24,7 @@ import 'requests_screen.dart';
 import 'zakat_screen.dart';
 import 'family_screen.dart';
 import 'trash_screen.dart';
+import 'nlu_model_screen.dart';
 import 'trace_screen.dart';
 import '../services/trace.dart';
 import '../services/ads.dart';
@@ -34,7 +35,7 @@ import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '1.0.0';
+const appVersion = '1.0.5';
 
 /// The app's version, shown and sent to our server (sign-in, feedback,
 /// problem logs). The Play app has its own numbering from 1.0.0 (owner, 29
@@ -52,6 +53,22 @@ class MoreScreen extends StatefulWidget {
 }
 
 class _MoreScreenState extends State<MoreScreen> {
+  /// Bumped on every change here, so an open settings page redraws too.
+  final _changed = ValueNotifier<int>(0);
+  Map<String, List<Widget> Function()> _parts = const {};
+
+  @override
+  void setState(VoidCallback fn) {
+    super.setState(fn);
+    _changed.value++;
+  }
+
+  @override
+  void dispose() {
+    _changed.dispose();
+    super.dispose();
+  }
+
   bool? _bioOn;
   bool _bioAvailable = false;
   int _autoLock = 30;
@@ -319,6 +336,130 @@ class _MoreScreenState extends State<MoreScreen> {
           onTap: onTap,
         );
 
+    // Each settings page's insides; built afresh whenever the page redraws.
+    _parts = {
+      'look': () => [
+      const LookSection(),
+      ],
+      'remind': () => [
+      Panel(
+        child: Rows(children: [
+          linkRow(Icons.notifications_none_rounded, tr('নোটিফিকেশন প্যানেল'),
+              sub: tr('কোনটা কখন আসবে, আগে কী এসেছে'), onTap: () => push(const NoticeScreen())),
+          linkRow(Icons.notifications_active_outlined, tr('রিমাইন্ডার ঠিকমতো বাজবে তো?'), sub: tr('ফোনের সেটিং দেখে নিন, ১ মিনিটে পরীক্ষা করুন'), onTap: () => push(const ReminderCheckScreen())),
+          switchRow(Icons.alarm_rounded, tr('অ্যালার্মের মতো বাজবে'), tr('বন্ধ না করা পর্যন্ত, ফোন পকেটে থাকলেও শোনা যায়'), brain.alarmInsistent,
+              (v) => brain.setAlarmInsistent(v)),
+          linkRow(Icons.music_note_outlined, tr('রিমাইন্ডারের রিংটোন'),
+              sub: brain.alarmSoundTitle.isEmpty ? tr('ফোনের অ্যালার্ম টোন') : brain.alarmSoundTitle, onTap: _pickRingtone),
+        ]),
+      ),
+      ],
+      'assistant': () => [
+      const AssistantSection(),
+      // The downloaded APK runs AI on the user's own key (the Play app's AI comes with Pro).
+      if (!brain.gated) ...[
+        const SizedBox(height: 10),
+        Panel(
+          child: Rows(children: [
+            linkRow(Icons.auto_awesome_outlined, tr('AI সহকারী (Claude)'),
+                sub: brain.aiOn ? tr('চালু আছে') : tr('বন্ধ · নিজের API key দিয়ে চালু করা যায়'), subColor: brain.aiOn ? C.green : C.muted, onTap: _setAiKey),
+            if (brain.aiOn)
+              switchRow(Icons.manage_search_rounded, tr('AI আমার তথ্য দেখে উত্তর দিক'), tr('রিমাইন্ডার, কাজ, নোট ও হিসাব দেখে ঠিক উত্তর — পাসওয়ার্ড কখনো না'),
+                  brain.aiShareData, (v) => brain.setAiShareData(v)),
+          ]),
+        ),
+      ],
+      const SizedBox(height: 10),
+      Panel(
+        child: Rows(children: [
+          switchRow(Icons.volume_up_outlined, tr('উত্তর কণ্ঠে শোনাও'), tr('পাসওয়ার্ড কখনো জোরে পড়া হয় না'), brain.speakOn, (v) => brain.setSpeakOn(v)),
+          linkRow(Icons.record_voice_over_outlined, tr('কণ্ঠ বেছে নিন'), sub: tr('ফোনে থাকা বাংলা কণ্ঠগুলো শুনে দেখুন'), onTap: _pickVoice),
+          switchRow(Icons.record_voice_over_rounded, tr('উত্তরের মাঝে কথা বলে থামানো'), tr('বন্ধ থাকলে অ্যাপ কথা শেষ করে তারপর শোনে — নিজের কথা ভুল করে ধরে না। চালু করলে লম্বা উত্তরের মাঝেই বলতে পারবেন (কিছু ফোনে ভুল ধরতে পারে)'),
+              brain.bargeIn, (v) => brain.setBargeIn(v)),
+        ]),
+      ),
+      ],
+      'model': () => [
+      Panel(
+        child: Rows(children: [
+          linkRow(Icons.psychology_outlined, tr('ফোনে কথা বোঝার মডেল'),
+                sub: switch (brain.nluModelState) {
+                  'ready' => trf('নামানো আছে · {0}', [brain.nluModelVersion]),
+                  'wait-wifi' => tr('Wi-Fi পেলে নিজে নামবে (প্রায় ১৪ MB) — মোবাইল ডেটায় নয়'),
+                  'builtin' => tr('এখনো চালু হয়নি — অ্যাপ নিজের নিয়মে বুঝছে'),
+                  '' => tr('কেন, কীভাবে শিখছে, কী উন্নতি হলো'),
+                  _ => tr('নামানো যায়নি — পরে আবার চেষ্টা হবে'),
+                },
+                onTap: () => push(const NluModelScreen())),
+          switchRow(Icons.school_outlined, tr('কথা বোঝা আরও ভালো করতে সাহায্য করুন'),
+              tr('কিছু বার্তা নাম সরিয়ে সার্ভারে যায় — পাসওয়ার্ড, ফোন নম্বর, কোড বা স্বাস্থ্যের কথা কখনো না; ১৮০ দিন পর নিজে মুছে যায়'),
+              brain.nluSamplesOn, (v) => brain.setNluSamplesOn(v)),
+          linkRow(Icons.delete_sweep_outlined, tr('আমার পাঠানো বার্তা সার্ভার থেকে মুছে দিন'), sub: tr('কী নিই, কেন নিই — আর মুছে দেওয়া'), onTap: () => push(const NluSamplesScreen())),
+        ]),
+      ),
+      const SizedBox(height: 8),
+      Text(improvingNote, key: const Key('nlu-improving'), style: body(12, color: C.muted, height: 1.5)),
+      ],
+      'safety': () => [
+      Panel(
+        child: Rows(children: [
+          linkRow(Icons.cloud_download_outlined, tr('Google অ্যাকাউন্ট ও ব্যাকআপ'),
+              sub: brain.driveOn
+                  ? (brain.has(ProFeature.autoBackup)
+                      ? trf('{0} · Drive-এ অটো ব্যাকআপ চালু', [brain.googleEmail])
+                      : trf('{0} · শেষ Drive ব্যাকআপ {1}', [brain.googleEmail, brain.lastDrive == null ? tr('হয়নি') : daysLeftLabel(brain.lastDrive!, now)]))
+                  : (last == null ? tr('এখনো নেওয়া হয়নি') : trf('শেষ ব্যাকআপ {0}', [daysLeftLabel(last, now)])),
+              subColor: backupOld && !brain.driveOn ? C.orange : C.muted,
+              onTap: () => push(const BackupScreen())),
+          linkRow(Icons.lock_outline_rounded, tr('PIN বদলান'), onTap: _changePin),
+          switchRow(
+            Icons.fingerprint_rounded,
+            tr('আঙুলের ছাপে খোলা'),
+            _bioAvailable ? tr('না হলে PIN লাগবে') : tr('এই ফোনে আঙুলের ছাপ চালু নেই'),
+            (_bioOn ?? false) && _bioAvailable,
+            !_bioAvailable
+                ? null
+                : (v) async {
+                    await lock.setBiometricsOn(v);
+                    setState(() => _bioOn = v);
+                  },
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tr('অ্যাপ বন্ধ করলে নিজে থেকে লক হবে'), style: body(15)),
+              const SizedBox(height: 8),
+              SegTabs<int>(
+                items: [(0, tr('তখনই')), (30, tr('৩০ সে.')), (60, tr('১ মি.')), (300, tr('৫ মি.'))],
+                value: _autoLock,
+                onChanged: (v) async {
+                  await lock.setAutoLockSeconds(v);
+                  setState(() => _autoLock = v);
+                },
+              ),
+            ]),
+          ),
+        ]),
+      ),
+      ],
+    };
+    Widget setRow(Key key, IconData icon, Color fg, Color bg, String title, String sub, String part, {Color? subColor}) => ListRow(
+          key: key,
+          leading: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(11)),
+            child: Icon(icon, color: fg, size: 20),
+          ),
+          title: title,
+          subtitle: sub,
+          subtitleColor: subColor,
+          trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
+          onTap: () => Navigator.of(context)
+              .push(MaterialPageRoute(builder: (_) => _SettingsPage(key: Key('settings-$part'), title: title, changed: _changed, parts: () => _parts[part]!())))
+              .then((_) => _load()),
+        );
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       children: [
@@ -326,10 +467,12 @@ class _MoreScreenState extends State<MoreScreen> {
         const SizedBox(height: 14),
         ProfileCard(onName: _setName, onPlace: _setDistrict),
         const SizedBox(height: 12),
-        // The things people come here for, as big tiles (two rows of two).
+        // Owner, 2 Nov: in a logical order — what you use (Premium, family,
+        // zakat, blood), your data (recycle bin, PDF, CSV), the settings
+        // (look, reminders and notifications, assistant and voice, the phone's
+        // model, keeping data safe), and last help and the app itself.
         for (final row in [
           [
-            _Tile(key: const Key('more-requests'), icon: Icons.bloodtype_outlined, fg: C.rose, bg: C.roseTint, title: trm('ব্লাড ডোনেশন'), sub: tr('রক্ত দিন, রক্ত চান — সারা দেশে'), onTap: () => push(const RequestsScreen())),
             _Tile(
                 key: const Key('more-pro'),
                 icon: Icons.workspace_premium_outlined,
@@ -342,18 +485,14 @@ class _MoreScreenState extends State<MoreScreen> {
                         ? tr('চালু আছে')
                         : tr('কী কী পাবেন'),
                 onTap: () => push(const ProScreen())),
-          ],
-          [
             _Tile(
-                key: const Key('more-feedback'),
-                icon: Icons.forum_outlined,
-                fg: C.blue,
-                bg: C.blueTint,
-                title: tr('মতামত'),
-                sub: brain.feedbackUnread > 0 ? trf('{0}টা নতুন উত্তর', [bnDigits(brain.feedbackUnread)]) : tr('সমস্যা বা নতুন সুবিধা'),
-                badge: brain.feedbackUnread > 0,
-                onTap: () => push(const FeedbackScreen())),
-            _Tile(icon: Icons.lightbulb_outline_rounded, fg: C.green, bg: C.greenTint, title: tr('কী কী করা যায়'), sub: tr('সব সুবিধা, মাইকে কী বলবেন'), onTap: () => push(const HelpScreen())),
+                key: const Key('more-family'),
+                icon: Icons.family_restroom_rounded,
+                fg: C.purple,
+                bg: C.purpleTint,
+                title: tr('ফ্যামিলি'),
+                sub: tr('পরিবারের জন্য কাজ ও রিমাইন্ডার'),
+                onTap: () => push(const FamilyScreen())),
           ],
           [
             _Tile(
@@ -364,140 +503,72 @@ class _MoreScreenState extends State<MoreScreen> {
                 title: tr('যাকাত'),
                 sub: tr('আপনার হিসাব থেকে নিজে হিসাব'),
                 onTap: () => push(const ZakatScreen())),
-            _Tile(
-                key: const Key('more-family'),
-                icon: Icons.family_restroom_rounded,
-                fg: C.purple,
-                bg: C.purpleTint,
-                title: tr('ফ্যামিলি'),
-                sub: tr('পরিবারের জন্য কাজ ও রিমাইন্ডার'),
-                onTap: () => push(const FamilyScreen())),
+            _Tile(key: const Key('more-requests'), icon: Icons.bloodtype_outlined, fg: C.rose, bg: C.roseTint, title: trm('ব্লাড ডোনেশন'), sub: tr('রক্ত দিন, রক্ত চান — সারা দেশে'), onTap: () => push(const RequestsScreen())),
           ],
         ]) ...[
           Row(children: [Expanded(child: SizedBox(height: 70, child: row[0])), const SizedBox(width: 10), Expanded(child: SizedBox(height: 70, child: row[1]))]),
           const SizedBox(height: 10),
         ],
-        const SizedBox(height: 10),
+        const SizedBox(height: 6),
+        SectionTitle(tr('আপনার তথ্য')),
         Panel(
           child: Rows(children: [
-            linkRow(Icons.delete_outline_rounded, tr('মুছে ফেলা'),
+            linkRow(Icons.delete_outline_rounded, tr('রিসাইকেল বিন'),
                 sub: brain.data.trash.isEmpty ? tr('যা মুছবেন, ৩০ দিন এখানে থাকবে') : trf('{0}টা — ৩০ দিনের মধ্যে ফিরিয়ে আনা যায়', [bnDigits(brain.data.trash.length)]),
                 onTap: () => push(const TrashScreen())),
-            linkRow(Icons.notifications_none_rounded, tr('নোটিফিকেশন'),
-                sub: tr('কোনটা কখন আসবে, আগে কী এসেছে'), onTap: () => push(const NoticeScreen())),
-            linkRow(Icons.notifications_active_outlined, tr('রিমাইন্ডার ঠিকমতো বাজবে তো?'), sub: tr('ফোনের সেটিং দেখে নিন, ১ মিনিটে পরীক্ষা করুন'), onTap: () => push(const ReminderCheckScreen())),
-            linkRow(Icons.bug_report_outlined, tr('সমস্যা খোঁজার লগ'),
-                sub: Trace.enabled ? tr('চালু — মাইক কী শুনল, কী বুঝল') : tr('বন্ধ — ভয়েসে সমস্যা হলে চালু করুন'), onTap: () => push(const TraceScreen())),
-          ]),
-        ),
-        const SizedBox(height: 22),
-        Text(tr('সেটিংস'), style: display(20, weight: 700)),
-        const SizedBox(height: 16),
-        SectionTitle(tr('চেহারা ও ভাষা')),
-        const LookSection(),
-        const SizedBox(height: 16),
-        SectionTitle(tr('সহকারী')),
-        const AssistantSection(),
-        // The downloaded APK runs AI on the user's own key (the Play app's AI comes with Pro).
-        if (!brain.gated) ...[
-          const SizedBox(height: 10),
-          Panel(
-            child: Rows(children: [
-              linkRow(Icons.auto_awesome_outlined, tr('AI সহকারী (Claude)'),
-                  sub: brain.aiOn ? tr('চালু আছে') : tr('বন্ধ · নিজের API key দিয়ে চালু করা যায়'), subColor: brain.aiOn ? C.green : C.muted, onTap: _setAiKey),
-              if (brain.aiOn)
-                switchRow(Icons.manage_search_rounded, tr('AI আমার তথ্য দেখে উত্তর দিক'), tr('রিমাইন্ডার, কাজ, নোট ও হিসাব দেখে ঠিক উত্তর — পাসওয়ার্ড কখনো না'),
-                    brain.aiShareData, (v) => brain.setAiShareData(v)),
-            ]),
-          ),
-        ],
-        const SizedBox(height: 10),
-        Panel(
-          child: Rows(children: [
-            switchRow(Icons.school_outlined, tr('কথা বোঝা আরও ভালো করতে সাহায্য করুন'),
-                tr('কিছু বার্তা নাম সরিয়ে সার্ভারে যায় — পাসওয়ার্ড, ফোন নম্বর বা কোড কখনো না; ১৮০ দিন পর নিজে মুছে যায়'),
-                brain.nluSamplesOn, (v) => brain.setNluSamplesOn(v)),
-            if (brain.nluModelState.isNotEmpty)
-              linkRow(Icons.psychology_outlined, tr('ফোনে কথা বোঝার মডেল'),
-                  sub: switch (brain.nluModelState) {
-                    'ready' => trf('নামানো আছে · {0}', [brain.nluModelVersion]),
-                    'wait-wifi' => tr('Wi-Fi পেলে নিজে নামবে (প্রায় ১৪ MB) — মোবাইল ডেটায় নয়'),
-                    'builtin' => tr('এখনো চালু হয়নি — অ্যাপ নিজের নিয়মে বুঝছে'),
-                    _ => tr('নামানো যায়নি — পরে আবার চেষ্টা হবে'),
-                  }),
-            linkRow(Icons.delete_sweep_outlined, tr('আমার পাঠানো বার্তা সার্ভার থেকে মুছে দিন'), onTap: () async {
-              final why = await brain.deleteMyNluSamples();
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(why ?? tr('মুছে দেওয়া হয়েছে'))));
-            }),
-          ]),
-        ),
-        const SizedBox(height: 8),
-        Text(improvingNote, key: const Key('nlu-improving'), style: body(12, color: C.muted, height: 1.5)),
-        const SizedBox(height: 16),
-        SectionTitle(tr('তথ্য নিরাপদ রাখা')),
-        Panel(
-          child: Rows(children: [
-            linkRow(Icons.cloud_download_outlined, tr('Google অ্যাকাউন্ট ও ব্যাকআপ'),
-                sub: brain.driveOn
-                    ? (brain.has(ProFeature.autoBackup)
-                        ? trf('{0} · Drive-এ অটো ব্যাকআপ চালু', [brain.googleEmail])
-                        : trf('{0} · শেষ Drive ব্যাকআপ {1}', [brain.googleEmail, brain.lastDrive == null ? tr('হয়নি') : daysLeftLabel(brain.lastDrive!, now)]))
-                    : (last == null ? tr('এখনো নেওয়া হয়নি') : trf('শেষ ব্যাকআপ {0}', [daysLeftLabel(last, now)])),
-                subColor: backupOld && !brain.driveOn ? C.orange : C.muted,
-                onTap: () => push(const BackupScreen())),
-            linkRow(Icons.lock_outline_rounded, tr('PIN বদলান'), onTap: _changePin),
-            switchRow(
-              Icons.fingerprint_rounded,
-              tr('আঙুলের ছাপে খোলা'),
-              _bioAvailable ? tr('না হলে PIN লাগবে') : tr('এই ফোনে আঙুলের ছাপ চালু নেই'),
-              (_bioOn ?? false) && _bioAvailable,
-              !_bioAvailable
-                  ? null
-                  : (v) async {
-                      await lock.setBiometricsOn(v);
-                      setState(() => _bioOn = v);
-                    },
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(tr('অ্যাপ বন্ধ করলে নিজে থেকে লক হবে'), style: body(15)),
-                const SizedBox(height: 8),
-                SegTabs<int>(
-                  items: [(0, tr('তখনই')), (30, tr('৩০ সে.')), (60, tr('১ মি.')), (300, tr('৫ মি.'))],
-                  value: _autoLock,
-                  onChanged: (v) async {
-                    await lock.setAutoLockSeconds(v);
-                    setState(() => _autoLock = v);
-                  },
-                ),
-              ]),
-            ),
-          ]),
-        ),
-        const SizedBox(height: 16),
-        SectionTitle(tr('রিমাইন্ডার ও কণ্ঠ')),
-        Panel(
-          child: Rows(children: [
-            switchRow(Icons.alarm_rounded, tr('অ্যালার্মের মতো বাজবে'), tr('বন্ধ না করা পর্যন্ত, ফোন পকেটে থাকলেও শোনা যায়'), brain.alarmInsistent,
-                (v) => brain.setAlarmInsistent(v)),
-            linkRow(Icons.music_note_outlined, tr('রিমাইন্ডারের রিংটোন'),
-                sub: brain.alarmSoundTitle.isEmpty ? tr('ফোনের অ্যালার্ম টোন') : brain.alarmSoundTitle, onTap: _pickRingtone),
-            switchRow(Icons.volume_up_outlined, tr('উত্তর কণ্ঠে শোনাও'), tr('পাসওয়ার্ড কখনো জোরে পড়া হয় না'), brain.speakOn, (v) => brain.setSpeakOn(v)),
-            linkRow(Icons.record_voice_over_outlined, tr('কণ্ঠ বেছে নিন'), sub: tr('ফোনে থাকা বাংলা কণ্ঠগুলো শুনে দেখুন'), onTap: _pickVoice),
-            switchRow(Icons.record_voice_over_rounded, tr('উত্তরের মাঝে কথা বলে থামানো'), tr('বন্ধ থাকলে অ্যাপ কথা শেষ করে তারপর শোনে — নিজের কথা ভুল করে ধরে না। চালু করলে লম্বা উত্তরের মাঝেই বলতে পারবেন (কিছু ফোনে ভুল ধরতে পারে)'),
-                brain.bargeIn, (v) => brain.setBargeIn(v)),
-          ]),
-        ),
-        const SizedBox(height: 16),
-        SectionTitle(tr('অন্যান্য')),
-        Panel(
-          child: Rows(children: [
             linkRow(Icons.picture_as_pdf_outlined, tr('সবকিছু PDF আকারে'), sub: tr('কাজ, হিসাব, নোট, স্বাস্থ্য… যা চান বেছে নিয়ে এক PDF-এ'), onTap: () => exportEverything(context),
                 trailing: brain.has(ProFeature.pdf) ? Icon(Icons.download_rounded, color: C.muted) : const ProMark()),
             linkRow(Icons.table_view_outlined, tr('ধার-দেনার রিপোর্ট (CSV)'), sub: tr('Excel বা Google Sheets-এ খোলা যায়'), onTap: _csv,
                 trailing: Icon(Icons.ios_share_rounded, color: C.muted)),
+          ]),
+        ),
+        // Owner, 3 Nov: the settings as five rows, each opening its own page —
+        // the same switches and choices as before, in the 2 Nov order.
+        SectionTitle(tr('সেটিংস')),
+        Panel(
+          child: Rows(children: [
+            setRow(const Key('more-set-look'), Icons.palette_outlined, C.green, C.greenTint, tr('চেহারা ও ভাষা'), tr('আলো-আঁধার, রং, ভাষা, লেখার মাপ'), 'look'),
+            setRow(const Key('more-set-remind'), Icons.notifications_none_rounded, C.ochre, C.ochreTint, tr('রিমাইন্ডার ও নোটিফিকেশন'), tr('নোটিফিকেশন প্যানেল, ঠিকমতো বাজবে কিনা, রিংটোন'), 'remind'),
+            setRow(const Key('more-set-assistant'), Icons.mic_none_rounded, C.blue, C.blueTint, tr('সহকারী ও কণ্ঠ'),
+                brain.speakOn ? tr('কণ্ঠে উত্তর চালু · কণ্ঠ বেছে নিন') : tr('কণ্ঠে উত্তর বন্ধ · কণ্ঠ বেছে নিন'), 'assistant'),
+            setRow(const Key('more-set-model'), Icons.psychology_outlined, C.purple, C.purpleTint, tr('ফোনে কথা বোঝা'), switch (brain.nluModelState) {
+                    'ready' => trf('নামানো আছে · {0}', [brain.nluModelVersion]),
+                    'wait-wifi' => tr('Wi-Fi পেলে নিজে নামবে (প্রায় ১৪ MB) — মোবাইল ডেটায় নয়'),
+                    'builtin' => tr('এখনো চালু হয়নি — অ্যাপ নিজের নিয়মে বুঝছে'),
+                    '' => tr('কেন, কীভাবে শিখছে, কী উন্নতি হলো'),
+                    _ => tr('নামানো যায়নি — পরে আবার চেষ্টা হবে'),
+                  }, 'model'),
+            setRow(const Key('more-set-safety'), Icons.shield_outlined, C.teal, C.tealTint, tr('তথ্য নিরাপদ রাখা'), brain.driveOn
+                    ? (brain.has(ProFeature.autoBackup)
+                        ? trf('{0} · Drive-এ অটো ব্যাকআপ চালু', [brain.googleEmail])
+                        : trf('{0} · শেষ Drive ব্যাকআপ {1}', [brain.googleEmail, brain.lastDrive == null ? tr('হয়নি') : daysLeftLabel(brain.lastDrive!, now)]))
+                    : (last == null ? tr('এখনো নেওয়া হয়নি') : trf('শেষ ব্যাকআপ {0}', [daysLeftLabel(last, now)])), 'safety',
+                subColor: backupOld && !brain.driveOn ? C.orange : null),
+          ]),
+        ),
+        const SizedBox(height: 22),
+        SectionTitle(tr('সাহায্য ও যোগাযোগ')),
+        for (final row in [
+          [
+            _Tile(icon: Icons.lightbulb_outline_rounded, fg: C.green, bg: C.greenTint, title: tr('কী কী করা যায়'), sub: tr('সব সুবিধা, মাইকে কী বলবেন'), onTap: () => push(const HelpScreen())),
+            _Tile(
+                key: const Key('more-feedback'),
+                icon: Icons.forum_outlined,
+                fg: C.blue,
+                bg: C.blueTint,
+                title: tr('সমস্যা বা পরামর্শ দিন'),
+                sub: brain.feedbackUnread > 0 ? trf('{0}টা নতুন উত্তর', [bnDigits(brain.feedbackUnread)]) : tr('লিখুন, উত্তর এখানেই'),
+                badge: brain.feedbackUnread > 0,
+                onTap: () => push(const FeedbackScreen())),
+          ],
+        ]) ...[
+          Row(children: [Expanded(child: SizedBox(height: 70, child: row[0])), const SizedBox(width: 10), Expanded(child: SizedBox(height: 70, child: row[1]))]),
+          const SizedBox(height: 10),
+        ],
+        Panel(
+          child: Rows(children: [
+            linkRow(Icons.bug_report_outlined, tr('সমস্যা খোঁজার লগ'),
+                sub: Trace.enabled ? tr('চালু — মাইক কী শুনল, কী বুঝল') : tr('বন্ধ — ভয়েসে সমস্যা হলে চালু করুন'), onTap: () => push(const TraceScreen())),
             if (proTestSwitch)
               switchRow(Icons.science_outlined, tr('পরীক্ষা: প্রিমিয়াম চালু'), tr('শুধু প্রিভিউতে — ফ্রি আর প্রিমিয়াম ইউজার কী দেখবে দুটোই দেখে নিন'), brain.pro, (v) => brain.setProForTest(v)),
             linkRow(Icons.privacy_tip_outlined, tr('প্রাইভেসি পলিসি'), sub: tr('কোন তথ্য ফোনেই থাকে, কোনটা কেন সার্ভারে যায়'),
@@ -517,6 +588,33 @@ class _MoreScreenState extends State<MoreScreen> {
       ],
     );
   }
+}
+
+/// One settings page opened from আরও (owner, 3 Nov): its rows come from
+/// আরও itself, so they work exactly as they did there.
+class _SettingsPage extends StatelessWidget {
+  const _SettingsPage({super.key, required this.title, required this.changed, required this.parts});
+  final String title;
+  final ValueNotifier<int> changed;
+  final List<Widget> Function() parts;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: SafeArea(
+          child: Column(children: [
+            TopBar(title: title),
+            Expanded(
+              child: ListenableBuilder(
+                listenable: Listenable.merge([changed, BrainScope.read(context)]),
+                builder: (context, _) => ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+                  children: [const SizedBox(height: 4), ...parts()],
+                ),
+              ),
+            ),
+          ]),
+        ),
+      );
 }
 
 /// Backup in three plain steps: take it, keep it somewhere safe, bring it back.

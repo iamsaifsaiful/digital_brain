@@ -22,9 +22,12 @@ void main() {
     final w = await Walk.begin(t, 'p17', 'হালিমা খাতুন, ৭২, চোখে কম দেখেন');
     await w.tap(find.byTooltip('প্রোফাইল'), 'প্রোফাইল');
     await w.shot('more');
+    // আরও › চেহারা ও ভাষা (owner, 3 Nov: each setting on its own page).
+    await w.tap(find.byKey(const Key('more-set-look')), 'চেহারা ও ভাষা');
     final easy = find.textContaining('বয়স্কদের');
     await w.tap(easy, 'বয়স্কদের সুবিধা');
     await w.shot('easy-setting');
+    await w.back();
     await w.back();
     await w.tap(find.text('হোম').last, 'হোম');
     await w.shot('home-after');

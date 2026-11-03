@@ -18,6 +18,7 @@ import '../state/brain.dart';
 import '../ui/drag_grid.dart';
 import '../ui/kit.dart';
 import '../ui/pro_gate.dart';
+import '../ui/motion.dart';
 import '../ui/theme.dart';
 import 'alarm_list_screen.dart';
 import 'app_places.dart' show openPlace;
@@ -572,7 +573,7 @@ class _MoneyCard extends StatelessWidget {
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: Text(taka(hand ?? month.balance), style: display(27, weight: 600, height: 1.45)),
+                  child: RollingAmount(value: hand ?? month.balance, format: taka, style: display(27, weight: 600, height: 1.45)),
                 ),
               ]),
             ),

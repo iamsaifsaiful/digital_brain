@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:digital_brain/nlu/samples.dart';
 
+import 'app_test.dart' show Rig;
+
 void main() {
   test('names are replaced; secrets, phone numbers and codes never leave', () {
     expect(delexicalize('রবিন হায়দারকে ৫০০ টাকা দিলাম, রবিন কাল দেবে', ['রবিন', 'রবিন হায়দার']), '<নাম১>কে ৫০০ টাকা দিলাম, <নাম২> কাল দেবে');
@@ -17,5 +19,14 @@ void main() {
     expect(s['local_conf'], 0.62);
     expect((s['final_json'] as Map)['pieces'], [{'intent': 'ledger_add'}]);
     expect(s.containsKey('user'), isFalse);
+  });
+
+  test('samples are on by default; health, medicine and secrets never become one', () {
+    final b = Rig().brain;
+    expect(b.nluSamplesOn, isTrue);
+    expect(b.nluStaysPrivate('প্রেশারের ওষুধ খেলাম দুপুরে', ['health_add']), isTrue);
+    expect(b.nluStaysPrivate('ডাক্তারের কাছে যাব কাল', ['task_add']), isTrue);
+    expect(b.nluStaysPrivate('জিমেইলের পাসওয়ার্ড কী', ['vault_query']), isTrue);
+    expect(b.nluStaysPrivate('আজকের রিমাইন্ডার দাও', ['reminder_query', 'reminder_add']), isFalse);
   });
 }

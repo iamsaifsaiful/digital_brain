@@ -48,7 +48,11 @@ jobs:
         env:
           MA_NLU_CI_KEY: ${{ secrets.MA_NLU_CI_KEY }}
         run: |
-          if [ -z "$MA_NLU_CI_KEY" ]; then echo "No MA_NLU_CI_KEY secret: training on the made data only"; exit 0; fi
+          if [ -z "$MA_NLU_CI_KEY" ]; then
+            echo "No MA_NLU_CI_KEY secret: the made data and the owner's reviewed rows only"
+            python tool/nlu/retrain/labels.py | tee labels.log
+            exit 0
+          fi
           python tool/nlu/retrain/fetch.py
           python tool/nlu/retrain/labels.py tool/nlu/out/real_samples.jsonl | tee labels.log
       - name: Make data

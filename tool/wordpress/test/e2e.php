@@ -409,8 +409,10 @@ check(str_contains($form, 'তথ্য জমা দিন') && str_contains($f
 $_GET = ['plan' => 'monthly'];
 $pro = do_shortcode('[my_assistant_pro]');
 file_put_contents(dirname(__FILE__) . '/page-pro.html', '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="margin:0;padding:24px 16px;background:#F6F7F9">' . $pro);
-check(str_contains($pro, 'ফ্রি আর প্রিমিয়ামে কী কী') && str_contains($pro, 'মাসিক প্রিমিয়াম কিনুন') && str_contains($pro, 'তথ্য জমা দিন'), 'Pro page: features, plans and the form');
-check((bool) preg_match('/value="monthly"\s+checked/', $pro), 'the plan chosen above is ticked in the form');
+check(str_contains($pro, 'ফ্রি আর প্রিমিয়ামে কী কী') && str_contains($pro, 'বার্ষিক প্রিমিয়াম কিনুন') && str_contains($pro, 'তথ্য জমা দিন'), 'Pro page: features, the yearly plan and the form');
+// Owner, 1 Nov: bKash once a year — the website offers no monthly plan, even when asked for one.
+check(!str_contains($pro, 'মাসিক প্রিমিয়াম') && !str_contains($pro, 'value="monthly"') && str_contains($pro, 'name="plan" value="yearly"') && str_contains($pro, '৳৯৯৯'), 'website: the yearly plan only (৳৯৯৯), no monthly');
+check(str_contains($form, 'প্রশ্ন ও উত্তর') && str_contains($form, 'নিজে থেকে নবায়ন হয়?') && str_contains($form, 'Send Money'), 'buy page: the plan card, bKash steps and questions');
 check(!str_contains(do_shortcode('[my_assistant_pro form="no"]'), 'তথ্য জমা দিন'), 'form="no" leaves the form out');
 
 echo "\nunderstanding (NLU): switch, models, cloud reading, samples\n";
@@ -540,6 +542,26 @@ check($code === 400, 'a label must be a spec intent');
 [$code] = call('POST', "/admin/nlu/review/$sid", ['intents' => ['ledger_add'], 'pick' => 'user'], $bossSes);
 [$c2, $d2] = call('GET', '/admin/nlu/review', [], $bossSes);
 check($code === 200 && !in_array($sid, array_column($d2['samples'], 'id'), true), 'labelled → leaves the review list');
+// Owner, 3 Nov: "সব মুছুন" like the problem log — off the list, kept for training.
+$two = [
+    ['text_delex' => 'আজকে কোন মিটিং আছে', 'state' => 'idle', 'local_json' => ['pieces' => [['intent' => 'task_add']]], 'local_conf' => 0.5, 'final_json' => ['pieces' => [['intent' => 'task_query']]], 'signal' => 'edited'],
+    ['text_delex' => 'মানে বুঝি নাই', 'state' => 'idle', 'local_json' => ['pieces' => [['intent' => 'note_query']]], 'local_conf' => 0.4, 'final_json' => ['pieces' => [['intent' => 'note_query']]], 'signal' => 'edited'],
+];
+call('POST', '/nlu/samples', ['consent_ver' => '1', 'samples' => $two], $ses);
+[$c2, $d2] = call('GET', '/admin/nlu/review', [], $bossSes);
+$left = array_column($d2['samples'], 'id');
+check(count($left) >= 2, 'two more on the review list');
+check(str_contains($html, 'value="ma_nlu_review_clear"') && str_contains($html, 'সব মুছুন') && str_contains($html, 'বাদ দিন'), 'site পর্যালোচনা: "সব মুছুন" and a "বাদ দিন" on each');
+if ($left) {
+    [$code, $d] = call('POST', '/admin/nlu/review/clear', ['ids' => [$left[0]]], $bossSes);
+    [$c2, $d3] = call('GET', '/admin/nlu/review', [], $bossSes);
+    check($code === 200 && $d['cleared'] === 1 && !in_array($left[0], array_column($d3['samples'], 'id'), true) && count($d3['samples']) === count($left) - 1, 'বাদ দিন: one row off the review list');
+}
+[$code, $d] = call('POST', '/admin/nlu/review/clear', [], $bossSes);
+[$c2, $d3] = call('GET', '/admin/nlu/review', [], $bossSes);
+check($code === 200 && $d3['samples'] === [], 'সব মুছুন: the review list is empty');
+global $wpdb;
+check((int) $wpdb->get_var('SELECT COUNT(*) FROM ' . ma_nlu_table('samples')) >= 1, 'সব মুছুন: the samples themselves are kept');
 [$code, $d] = call('GET', '/admin/nlu/export', [], $bossSes);
 $ex = array_values(array_filter($d['samples'] ?? [], function ($x) use ($sid) { return (int) $x['id'] === $sid; }));
 check($code === 200 && $ex && str_contains($ex[0]['admin_label'], 'ledger_add'), 'export with the admin label (site owner)');

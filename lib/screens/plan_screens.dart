@@ -11,6 +11,7 @@ export '../logic/day_plan.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/early_picker.dart';
+import '../ui/motion.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'alarm_screens.dart';
@@ -46,9 +47,57 @@ String nextRingLabel(Reminder r, DateTime now) {
   return r.repeat.isInterval ? '${repeatText(r)} · $day' : '${repeatText(r)} · $day, ${bnTime(at.hour, at.minute)}';
 }
 
-/// A task (with a tick box) or a reminder (with a bell).
+/// The round "শেষ" button at the right end of a to-do (owner, 3 Nov:
+/// the actions sit on the right): empty, or filled with a tick when done.
+class DoneCircle extends StatelessWidget {
+  const DoneCircle({super.key, required this.done, required this.onTap, this.size = 26});
+  final bool done;
+  final VoidCallback onTap;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        checked: done,
+        button: true,
+        child: Tooltip(
+          message: done ? tr('আবার বাকি রাখুন') : tr('শেষ হয়েছে'),
+          child: InkResponse(
+            radius: 24,
+            onTap: onTap,
+            child: SizedBox(
+              width: 44,
+              height: 44,
+              child: Center(
+                // Drawn, not switched on (owner, 3 Nov).
+                child: DrawnTick(done: done, size: size, color: C.green, tickColor: C.onAccent, borderColor: C.inputBorder),
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
+/// The time line under a title: a small bell first when it is a reminder.
+class WhenLine extends StatelessWidget {
+  const WhenLine(this.text, {super.key, this.bell = false, this.color});
+  final String text;
+  final bool bell;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color ?? C.muted;
+    return Row(children: [
+      if (bell) ...[Icon(Icons.notifications_none_rounded, size: 13, color: c), const SizedBox(width: 3)],
+      Flexible(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: c))),
+    ]);
+  }
+}
+
+/// A task or a reminder: the title, its time under it, the actions on the
+/// right (owner, 3 Nov).
 class PlanRow extends StatelessWidget {
-  const PlanRow({super.key, required this.item, this.withDay = false, this.trailing, this.next = false});
+  const PlanRow({super.key, required this.item, this.withDay = false, this.trailing, this.next = false, this.sub});
   final PlanItem item;
   final bool withDay;
 
@@ -57,6 +106,9 @@ class PlanRow extends StatelessWidget {
   final bool next;
   final Widget? trailing;
 
+  /// Said instead of the time (the দিনলিপি timeline shows the time on its left).
+  final String? sub;
+
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
@@ -64,57 +116,28 @@ class PlanRow extends StatelessWidget {
     final r = item.reminder;
     final t = item.task;
     final passed = r != null && r.repeat == Repeat.none && !r.notifyAt(now).isAfter(now);
-    final label = next && r != null && r.repeat != Repeat.none ? nextRingLabel(r, now) : whenLabel(item, now, withDay: withDay);
+    final label = sub ?? (next && r != null && r.repeat != Repeat.none ? nextRingLabel(r, now) : whenLabel(item, now, withDay: withDay));
+    final line = passed ? (label.isEmpty ? tr('বেজেছে') : trf('{0} · বেজেছে', [label])) : label;
     return InkWell(
       onTap: () => t != null ? editTask(context, t) : Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewItemScreen(reminder: r))),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 4, 12, 4),
+        padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
         child: Row(children: [
-          if (t != null)
-            // The design's tick box: 22, radius 7, accent when done.
-            Semantics(
-              checked: t.done,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: () => brain.setTaskDone(t, !t.done),
-                child: SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Center(
-                    child: Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        color: t.done ? C.green : Colors.transparent,
-                        borderRadius: BorderRadius.circular(7),
-                        border: Border.all(color: t.done ? C.green : C.inputBorder, width: 1.6),
-                      ),
-                      child: t.done ? Icon(Icons.check_rounded, size: 15, color: C.onAccent) : null,
-                    ),
-                  ),
-                ),
-              ),
-            )
-          else
-            SizedBox(
-              width: 44,
-              height: 44,
-              child: Icon(passed ? Icons.notifications_off_outlined : Icons.notifications_none_rounded, color: passed ? C.muted : C.green, size: 21),
-            ),
-          const SizedBox(width: 4),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.symmetric(vertical: 7),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(item.title,
                     style: body(14, color: (t?.done ?? false) || passed ? C.muted : C.ink).copyWith(decoration: t?.done ?? false ? TextDecoration.lineThrough : null, decorationColor: C.muted),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis),
-                Text(passed ? trf('{0} · বেজেছে', [label]) : label, style: body(11.5, color: r != null && !passed ? C.green : C.muted)),
+                if (line.isNotEmpty) WhenLine(line, bell: r != null, color: r != null && !passed ? C.green : C.muted),
               ]),
             ),
           ),
           if (trailing != null) trailing! else if (t != null && !t.done) TaskAlarmButton(t),
+          if (t != null) DoneCircle(done: t.done, onTap: () => brain.setTaskDone(t, !t.done)),
+          if (t == null && trailing == null) const SizedBox(width: 10),
         ]),
       ),
     );

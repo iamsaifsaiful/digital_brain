@@ -1038,8 +1038,10 @@ class Brain extends ChangeNotifier {
   /// /nlu/config, once a day; shadow until the server says otherwise).
   String nluMode = 'shadow';
 
-  /// The member agreed to send learning samples (off until they turn it on).
-  bool nluSamplesOn = false;
+  /// Learning samples are sent — on unless the member turned it off (owner,
+  /// 31 Oct: on by default; the switch in আরও turns it off, and the samples
+  /// sent can be deleted from the server).
+  bool nluSamplesOn = true;
 
   /// Samples waiting to be sent (at most 200 kept; the oldest go first).
   final List<Map<String, Object?>> nluSamples = [];
@@ -1141,7 +1143,7 @@ class Brain extends ChangeNotifier {
 
   Future<void> loadNluConfig() async {
     try {
-      nluSamplesOn = (await services.lock.keys.read('nlu_samples_on')) == 'true';
+      nluSamplesOn = (await services.lock.keys.read('nlu_samples_on')) != 'false';
       final raw = await services.lock.keys.read('nlu_samples');
       if (nluSamplesOn && raw != null && raw.isNotEmpty) {
         nluSamples
@@ -2092,6 +2094,18 @@ class Brain extends ChangeNotifier {
       } catch (_) {}
     }
     final here = _staysHere(rules, said);
+    // The rules would make something new (a to-do, a reminder) but the
+    // on-phone model is very sure it is a question about what is kept
+    // ("আজকের রিমাইন্ডার দাও" read as a new reminder — owner's review, 31
+    // Oct): a question makes nothing, so the model's reading answers. Never
+    // the other way round — making or removing stays with the rules.
+    if (pieces != null && _makesNew(rules) && pieces.every((p) => p.conf >= nluQueryOverride) && !_nluPrivate(said, rules, pieces) && !mentionsSecret(said) && findPhone(said) == null) {
+      final phone = phoneModelCommands(said, pieces, data.ledger, now);
+      if (phone != null) {
+        Trace.log('nlu', 'model: a question, not a new item', {'rules': ruleIntents.join(','), 'model': pieces.map((p) => p.intent).join(',')});
+        return (phone, null, 'nlu_phone_query');
+      }
+    }
     // The rules only half understood ("এই মাসে কী কী দিন আছে", "মেয়ের
     // জন্মদিন কবে"), and the on-phone model is sure of a question or a
     // special day: its reading answers, on the phone — free, no network.
@@ -2207,6 +2221,13 @@ class Brain extends ChangeNotifier {
   /// Health and medicine stay on the phone (never sent for a cloud reading).
   static final _healthWords = RegExp(r'(ওষুধ|ঔষধ|ট্যাবলেট|ক্যাপসুল|ইনসুলিন|প্রেশার|প্রেসার|ডায়াবেটিস|ডায়াবেটিস|সুগার|রক্ত|ডাক্তার|হাসপাতাল|অসুখ|জ্বর|ওজন|পালস|bp\b|sugar|medicine|doctor)', caseSensitive: false);
 
+  /// Health, medicine, secrets and contacts never leave the phone — not even
+  /// as a learning sample (samples are on by default since 31 Oct).
+  bool nluStaysPrivate(String said, Iterable<String> intents) =>
+      _healthWords.hasMatch(said) ||
+      mentionsSecret(said) ||
+      intents.any(const {'health_add', 'health_query', 'menu_health', 'menu_medicine', 'vault_add', 'vault_query', 'contact_add'}.contains);
+
   bool _nluPrivate(String said, List<Command> rules, List<NluPiece> pieces) =>
       _healthWords.hasMatch(said) ||
       rules.any((c) => c is HealthAdd || c is HealthQuery || c is VaultAdd || c is VaultQuery) ||
@@ -2241,6 +2262,12 @@ class Brain extends ChangeNotifier {
       return null;
     }
   }
+
+  /// The model's confidence above which its question wins over the rules' new item.
+  static const nluQueryOverride = 0.9;
+
+  /// A new to-do or reminder (not an alarm): what [nluQueryOverride] may turn into a question.
+  static bool _makesNew(List<Command> c) => c.length == 1 && (c.first is TaskAdd || (c.first is ReminderAdd && !(c.first as ReminderAdd).alarm));
 
   /// To-do and reminder commands the rules settle by themselves.
   static bool _decidedHere(Command c) =>

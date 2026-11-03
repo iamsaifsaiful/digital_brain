@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../ui/secure.dart';
 
 import 'package:flutter/material.dart';
 
@@ -56,7 +57,9 @@ class _VaultItemScreenState extends State<VaultItemScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => SecureView(child: _secretBuild(context));
+
+  Widget _secretBuild(BuildContext context) {
     final brain = BrainScope.of(context);
     final v = brain.vaultById(widget.id);
     if (v == null) {
