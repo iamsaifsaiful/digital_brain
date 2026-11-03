@@ -9,7 +9,7 @@ import 'package:digital_brain/ui/intro_splash.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../app_test.dart' show Rig, loadFonts;
+import '../app_test.dart' show Rig, loadFonts, start;
 import 'home_final_shots_test.dart' show icons;
 
 final shots = Platform.environment['SHOTS'] == '1';
@@ -48,6 +48,21 @@ void main() {
     await t.pump(const Duration(milliseconds: 200));
     await t.tap(find.byKey(const Key('intro')));
     await t.pump(const Duration(milliseconds: 500));
+    expect(find.byType(LockScreen), findsOneWidget);
+  });
+
+  testWidgets('it plays again when the app locks again', (t) async {
+    introOn = false;
+    final rig = await start(t);
+    expect(find.byType(LockScreen), findsNothing);
+    introOn = true;
+    rig.brain.lockNow();
+    await t.pump();
+    expect(find.byKey(const Key('intro')), findsOneWidget);
+    await t.pump(const Duration(seconds: 3));
+    await t.pump(const Duration(milliseconds: 500));
+    await t.pump(const Duration(milliseconds: 500));
+    expect(find.byKey(const Key('intro')), findsNothing);
     expect(find.byType(LockScreen), findsOneWidget);
   });
 }

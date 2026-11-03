@@ -439,8 +439,11 @@ class _LockCover extends StatelessWidget {
         ColoredBox(
           key: const Key('lock-cover'),
           color: C.night,
-          child: HeroControllerScope.none(
-            child: Navigator(onGenerateRoute: (_) => MaterialPageRoute(builder: (_) => const LockScreen())),
+          // The intro every time, before the PIN page (owner, 3 Nov: "সব সময়").
+          child: IntroGate(
+            child: HeroControllerScope.none(
+              child: Navigator(onGenerateRoute: (_) => MaterialPageRoute(builder: (_) => const LockScreen())),
+            ),
           ),
         ),
     ]);

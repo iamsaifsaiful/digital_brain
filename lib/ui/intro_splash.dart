@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import '../logic/lang.dart';
 import 'theme.dart';
 
-/// Plays on every start of the app, before the PIN page (owner, 3 Nov).
+/// Plays every time before the PIN page (owner, 3 Nov): when the app starts
+/// and when it locks again.
 /// Release builds only, so tests open straight on the PIN page; a test
 /// that wants it turns it on.
 bool introOn = const bool.fromEnvironment('dart.vm.product');
