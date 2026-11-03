@@ -7,7 +7,6 @@ import 'dart:io';
 
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/ui/theme.dart';
-import 'package:digital_brain/ui/widgets.dart' show PrimaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:digital_brain/screens/more_screen.dart' show MoreScreen;
