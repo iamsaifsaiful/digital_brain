@@ -164,7 +164,7 @@ PdfDoc periodPdf(Hisab h, Period p) {
   final closes = d.closes.where((x) => p.has(x.at)).toList()..sort((a, b) => a.at.compareTo(b.at));
   final sarSum = live.fold<double>(0, (s, x) => s + x.sarAmount);
   final takaSum = live.fold<double>(0, (s, x) => s + x.taka);
-  final got = live.fold<double>(0, (s, x) => s + x.sarPaid) + deps.fold<double>(0, (s, x) => s + x.sarAmount);
+  final got = live.where((x) => x.status == TxnStatus.sent).fold<double>(0, (s, x) => s + x.sarPaid) + deps.fold<double>(0, (s, x) => s + x.sarAmount);
   final doc = PdfDoc('রিপোর্ট', subtitle: p.label, footer: _footer(h));
   doc.tiles([
     ('মোট পাঠানো (রিয়াল)', sar(sarSum)),
@@ -332,7 +332,7 @@ PdfDoc customerPdf(Hisab h, Customer c) {
 /// An agent's account, taka only.
 PdfDoc agentPdf(Hisab h, Agent a, Period p) {
   final d = h.d;
-  final txns = d.txns.where((x) => x.agentId == a.id && !x.cancelled && p.has(x.at)).toList()..sort((x, y) => x.at.compareTo(y.at));
+  final txns = d.txns.where((x) => x.agentId == a.id && x.status == TxnStatus.sent && p.has(x.at)).toList()..sort((x, y) => x.at.compareTo(y.at));
   final pays = d.agentPayments.where((x) => x.agentId == a.id && p.has(x.at)).toList()..sort((x, y) => x.at.compareTo(y.at));
   final owed = agentOwed(d, a.id);
   final doc = PdfDoc('${a.name} — হিসাব', subtitle: '${p.label} · সব হিসাব টাকায়', footer: _footer(h));

@@ -487,7 +487,7 @@ function rh_tab_agents() {
     ?>
     <table class="rh-table"><thead><tr><th>এজেন্ট</th><th>হোয়াটসঅ্যাপ</th><th>যোগাযোগ</th><th>অ্যাপের লগইন</th><th class="r">কমিশন/হাজার</th><th class="r">মোট পাঠালেন</th><th class="r">দিতে হবে</th></tr></thead><tbody>
     <?php foreach (rh_all('agent') as $id => $a) :
-        $sent = array_sum(array_map(fn($t) => ($t['agentId'] ?? '') === $id && !rh_cancelled($t) ? rh_agent_taka($t) : 0, rh_all('txn')));
+        $sent = array_sum(array_map(fn($t) => ($t['agentId'] ?? '') === $id && rh_sent($t) ? rh_agent_taka($t) : 0, rh_all('txn')));
         $logins = array_filter($users, fn($u) => $u['agent_rid'] === $id);
         $o = rh_agent_owed($id); ?>
         <tr>

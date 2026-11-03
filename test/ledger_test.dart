@@ -114,6 +114,11 @@ void main() {
       expect(open.length, 2);
       expect(open[0].left, 0);
       expect(open[1].left, 200);
+      // Riyal from a send counts in hand only once the agent has sent it.
+      expect(cashInHand(d), 600);
+      for (final t in d.txns) {
+        t.status = TxnStatus.sent;
+      }
       expect(cashInHand(d), 1100);
     });
 
@@ -127,6 +132,9 @@ void main() {
     test('agent owed in taka with fee and commission, less payments', () {
       final d = AppData(agents: [Agent(id: 'a1', name: 'এ', whatsapp: '01700000000', commissionPerThousand: 4, created: DateTime(2026))]);
       d.txns.add(draft(sarAmount: 500, rate: 32.5, fee: 300));
+      // Waiting for the agent: not owed yet.
+      expect(agentOwed(d, 'a1'), 0);
+      d.txns.single.status = TxnStatus.sent;
       // 16250 + 300 = 16550; commission 4/1000 → 66.2 → 66
       expect(agentOwed(d, 'a1'), 16616);
       d.agentPayments.add(AgentPayment(id: 'x', agentId: 'a1', taka: 20000, at: DateTime(2026)));
@@ -272,7 +280,7 @@ void main() {
       expect(t.no, 26100001);
       expect(c.recipients.single.number, '01812345901');
       expect(customerDue(h.d, c.id), 500);
-      expect(agentOwed(h.d, a.id), 16250);
+      expect(agentOwed(h.d, a.id), 0, reason: 'not sent yet');
 
       final changed = t.copy()
         ..sarAmount = 450
@@ -352,6 +360,8 @@ void main() {
       final t = await h.addTxn(Txn.fromJson({...draft(customerId: '', agentId: h.d.agents.single.id, pay: Pay.cash, sarPaid: 500).toJson(), 'walkIn': 'রাস্তার ভাই', 'walkInPhone': '0559999999'}));
       expect(customerNameOf(h.d, t), 'রাস্তার ভাই');
       expect(h.d.customers, isEmpty);
+      expect(h.myCash, 0, reason: 'not in hand before the agent sends');
+      await h.markSent(t, trxId: 'ABC123XYZ');
       expect(h.myCash, 500);
       expect(customerReceipt(h.d, t), contains('রাস্তার ভাই'));
       expect(customerNameOf(h.d, Txn.fromJson({...t.toJson(), 'walkIn': ''})), 'প্রোফাইল ছাড়া');

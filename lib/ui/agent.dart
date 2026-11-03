@@ -44,7 +44,7 @@ class _AgentTabState extends State<AgentTab> {
         final pickedSum = pickedList.fold<double>(0, (s, x) => s + x.agentTaka + commissionOf(x, a));
         final now = h.now;
         final days = [for (var i = 6; i >= 0; i--) DateTime(now.year, now.month, now.day - i)];
-        final vals = [for (final day in days) d.txns.where((x) => x.agentId == a.id && !x.cancelled && sameDay(x.at, day)).fold<double>(0, (s, x) => s + x.agentTaka)];
+        final vals = [for (final day in days) d.txns.where((x) => x.agentId == a.id && x.status == TxnStatus.sent && sameDay(x.at, day)).fold<double>(0, (s, x) => s + x.agentTaka)];
         final payP = _payP ?? Period.of('month', now);
         final pays = d.agentPayments.where((p) => p.agentId == a.id && payP.has(p.at)).toList()..sort((x, y) => y.at.compareTo(x.at));
         final allPays = d.agentPayments.any((p) => p.agentId == a.id);

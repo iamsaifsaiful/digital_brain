@@ -158,12 +158,13 @@ check(str_contains($m['title'], 'নতুন অনুরোধ') && str_contai
 $t1 = array_values(array_filter($f['txns'], fn($t) => $t['id'] === 't1'))[0] ?? null;
 check($t1 && !isset($t1['sar']) && !isset($t1['rate']) && !isset($t1['customerId']) && !isset($t1['pay']) && $t1['taka'] == 16250, 'agent sees no riyal, rate or customer');
 check(!str_contains(wp_json_encode($f), 'করিম') && !str_contains(wp_json_encode($f), '"sar"'), 'nothing about the customer anywhere in the feed');
-check($f['owed'] == 9750 + 39 + 16450 + 66 && $f['unread'] === 1, 'agent\'s due with commission; one unread notification');
+check($f['owed'] == 9750 + 39 && $f['unread'] === 1, 'agent\'s due with commission, a waiting request not owed yet; one unread notification');
 [$code] = call('POST', '/agent/sent', ['id' => 't1'], $agentTok);
 check($code === 400, '"sent" needs 3 digits or a TrxID');
 $sent['fcm'] = [];
 [$code, $d] = call('POST', '/agent/sent', ['id' => 't1', 'tail' => '৬৬৭'], $agentTok);
 check($code === 200 && $d['txn']['status'] === 'sent' && $d['txn']['agentReply'] === "$no 16450-667", 'agent: sent, reply in the usual form');
+check(rh_agent_owed('ag1') == 9750 + 39 + 16450 + 66, 'once sent, it is owed to the agent');
 check(count($sent['fcm']) === 1 && $sent['fcm'][0]['message']['token'] === 'owner-phone-token-0123456789' && str_contains($sent['fcm'][0]['message']['notification']['title'], 'এজেন্ট পাঠিয়েছেন'), 'the admins are told');
 [, $p] = call('GET', '/pull', ['since' => 0], $owner);
 $recs = $p['records'];

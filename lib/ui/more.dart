@@ -56,7 +56,7 @@ class _ReportTabState extends State<ReportTab> {
         final sarSum = txns.fold<double>(0, (s, x) => s + x.sarAmount);
         final takaSum = txns.fold<double>(0, (s, x) => s + x.taka);
         final feeSum = txns.fold<double>(0, (s, x) => s + x.fee);
-        final got = txns.fold<double>(0, (s, x) => s + x.sarPaid) + d.deposits.where((p) => inP(p.at)).fold<double>(0, (s, p) => s + p.sarAmount);
+        final got = txns.where((x) => x.status == TxnStatus.sent).fold<double>(0, (s, x) => s + x.sarPaid) + d.deposits.where((p) => inP(p.at)).fold<double>(0, (s, p) => s + p.sarAmount);
         final exp = d.expenses.where((e) => inP(e.at)).fold<double>(0, (s, e) => s + e.sarAmount);
         final paidAgent = d.agentPayments.where((p) => inP(p.at)).fold<double>(0, (s, p) => s + p.taka);
         final paidAgentSar = d.agentPayments.where((p) => inP(p.at)).fold<double>(0, (s, p) => s + p.sarAmount);

@@ -111,7 +111,8 @@ double agentOwed(AppData d, String agentId) {
   final a = agentById(d, agentId);
   var owed = 0.0;
   for (final t in d.txns) {
-    if (t.agentId == agentId && !t.cancelled) owed += t.agentTaka + commissionOf(t, a);
+    // Only what the agent has sent: a waiting request is not owed yet.
+    if (t.agentId == agentId && t.status == TxnStatus.sent) owed += t.agentTaka + commissionOf(t, a);
   }
   for (final p in d.agentPayments) {
     if (p.agentId == agentId) owed -= p.taka;
@@ -123,7 +124,7 @@ double agentOwed(AppData d, String agentId) {
 }
 
 /// Sends the agent has not been paid for yet, oldest first.
-List<Txn> unpaidForAgent(AppData d, String agentId) => d.txns.where((t) => t.agentId == agentId && !t.cancelled && t.agentPaymentId == null).toList()..sort((a, b) => a.at.compareTo(b.at));
+List<Txn> unpaidForAgent(AppData d, String agentId) => d.txns.where((t) => t.agentId == agentId && t.status == TxnStatus.sent && t.agentPaymentId == null).toList()..sort((a, b) => a.at.compareTo(b.at));
 
 Agent? agentById(AppData d, String id) {
   for (final a in d.agents) {
@@ -179,8 +180,9 @@ List<CashLine> cashLines(AppData d, {int? me, bool owner = false}) {
   String who(int by, String name) => name.isEmpty ? (by == 0 ? 'মূল হিসাব' : '') : name;
   final out = <CashLine>[];
   for (final t in d.txns) {
-    if (t.cancelled || t.sarPaid <= 0 || !mine(t.by)) continue;
-    out.add(CashLine(at: t.at, title: '${customerNameOf(d, t)} · #${t.no}', sub: '${t.pay == Pay.partial ? 'আংশিক' : 'নগদে'} · ${serviceName(t)}', inSar: t.sarPaid, kind: 'txn', ref: t.id, by: t.by, byName: who(t.by, t.byName)));
+    // The riyal counts in the hand only once the agent has sent the money.
+    if (t.status != TxnStatus.sent || t.sarPaid <= 0 || !mine(t.by)) continue;
+    out.add(CashLine(at: t.sentAt ?? t.at, title: '${customerNameOf(d, t)} · #${t.no}', sub: '${t.pay == Pay.partial ? 'আংশিক' : 'নগদে'} · ${serviceName(t)}', inSar: t.sarPaid, kind: 'txn', ref: t.id, by: t.by, byName: who(t.by, t.byName)));
   }
   for (final p in d.deposits) {
     if (!mine(p.by)) continue;
