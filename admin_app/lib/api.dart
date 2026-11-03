@@ -373,6 +373,12 @@ class Api {
     return '${r['text'] ?? ''}';
   }
 
+  /// Takes samples off the review list (they stay for training); no ids = all of it.
+  Future<int> reviewClear([List<int>? ids]) async {
+    final r = await _send('POST', '/admin/nlu/review/clear', {if (ids != null) 'ids': ids});
+    return (r['cleared'] as num?)?.toInt() ?? 0;
+  }
+
   /// The right reading of a sample; pick = phone | cloud | other.
   Future<bool> label(int id, List<String> intents, String pick) async {
     await _send('POST', '/admin/nlu/review/$id', {'intents': intents, 'pick': pick});

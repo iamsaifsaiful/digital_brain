@@ -346,6 +346,33 @@ class _AiReviewState extends State<AiReview> {
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('সব কপি হয়েছে — যেখানে চান পেস্ট করুন')));
   }
 
+  /// Owner, 3 Nov: like the problem log's "সব মুছুন", so the same rows
+  /// don't come back every time. They stay on the server for training.
+  Future<void> _clearAll() async {
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('পর্যালোচনা খালি করবেন?'),
+        content: const Text('সব বার্তা এই তালিকা থেকে সরে যাবে। শেখানোর জন্য সেগুলো থেকে যাবে, শুধু এখানে আর আসবে না।'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('না')),
+          FilledButton(key: const Key('review-clear-yes'), onPressed: () => Navigator.pop(ctx, true), child: const Text('সব মুছুন')),
+        ],
+      ),
+    );
+    if (yes != true || !mounted) return;
+    final n = await widget.guard(() => widget.api.reviewClear());
+    if (n == null || !mounted) return;
+    setState(() => _items = []);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${bn(n)}টা সরানো হলো')));
+  }
+
+  Future<void> _skip(Map<String, dynamic> s) async {
+    final n = await widget.guard(() => widget.api.reviewClear([_i(s['id'])]));
+    if (n == null || !mounted) return;
+    setState(() => _items!.remove(s));
+  }
+
   Future<void> _decide(Map<String, dynamic> s, String pick) async {
     var intents = switch (pick) {
       'phone' => (s['phone'] as List).cast<String>(),
@@ -392,9 +419,12 @@ class _AiReviewState extends State<AiReview> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-          child: SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(key: const Key('review-copy'), onPressed: _copyAll, icon: const Icon(Icons.copy_all_rounded), label: const Text('সব কপি করুন')),
+          child: Row(
+            children: [
+              Expanded(child: OutlinedButton.icon(key: const Key('review-copy'), onPressed: _copyAll, icon: const Icon(Icons.copy_all_rounded), label: const Text('সব কপি করুন'))),
+              const SizedBox(width: 8),
+              Expanded(child: OutlinedButton.icon(key: const Key('review-clear'), onPressed: _clearAll, icon: const Icon(Icons.delete_sweep_outlined), label: const Text('সব মুছুন'))),
+            ],
           ),
         ),
         Expanded(
@@ -452,6 +482,8 @@ class _AiReviewState extends State<AiReview> {
                   ),
                   const SizedBox(height: 8),
                   OutlinedButton.icon(onPressed: () => _decide(s, 'other'), icon: const Icon(Icons.edit_outlined), label: const Text('দুটোই ভুল — ঠিকটা বাছুন')),
+                  const SizedBox(height: 4),
+                  TextButton(key: Key('review-skip-${s['id']}'), onPressed: () => _skip(s), child: const Text('বাদ দিন — শেখানোর মতো না')),
                   const SizedBox(height: 10),
                   Text(
                     'পরেরটায় যেতে বাঁয়ে সোয়াইপ করুন',

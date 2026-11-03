@@ -1741,7 +1741,13 @@ function ma_acc_render_nlu($n) {
         <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap">
             <h2 style="margin:0">পর্যালোচনা</h2>
             <?php if (!empty($n['review_all'])) : ?>
-                <button type="button" class="ma-btn small" id="ma-review-copy-btn" data-copy="ma-review-copy">সব কপি করুন (<?php echo esc_html(ma_acc_bn((string) count($n['review_all']))); ?>টা)</button>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <button type="button" class="ma-btn small" id="ma-review-copy-btn" data-copy="ma-review-copy">সব কপি করুন (<?php echo esc_html(ma_acc_bn((string) count($n['review_all']))); ?>টা)</button>
+                    <form method="post" action="<?php echo $post; ?>" onsubmit="return confirm('পর্যালোচনার সব বার্তা তালিকা থেকে সরাবেন? বার্তাগুলো শেখানোর জন্য থেকে যাবে, শুধু এখানে আর আসবে না।')" style="margin:0">
+                        <input type="hidden" name="action" value="ma_nlu_review_clear"><?php wp_nonce_field('ma_nlu_review_clear'); ?>
+                        <button class="ma-btn ghost small" type="submit">সব মুছুন</button>
+                    </form>
+                </div>
             <?php endif; ?>
         </div>
         <?php if (!empty($n['review_all'])) : ?><textarea id="ma-review-copy" readonly hidden><?php echo esc_textarea(ma_nlu_review_text($n['review_all'], $ov)); ?></textarea><?php endif; ?>
@@ -1761,7 +1767,12 @@ function ma_acc_render_nlu($n) {
                     <select name="intents[]"><?php echo $intent_opts(); ?></select>
                     <select name="intents[]"><?php echo $intent_opts(); ?></select>
                     <button class="ma-btn small" name="pick" value="other">এটাই ঠিক</button>
+                    <button class="ma-btn ghost small" type="submit" form="ma-review-skip-<?php echo (int) $r['id']; ?>">বাদ দিন</button>
                 </div>
+            </form>
+            <form method="post" action="<?php echo $post; ?>" id="ma-review-skip-<?php echo (int) $r['id']; ?>" hidden>
+                <input type="hidden" name="action" value="ma_nlu_review_clear"><?php wp_nonce_field('ma_nlu_review_clear'); ?>
+                <input type="hidden" name="sample" value="<?php echo (int) $r['id']; ?>">
             </form>
         <?php endforeach; ?>
     </section>

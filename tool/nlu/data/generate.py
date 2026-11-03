@@ -479,7 +479,7 @@ def main():
         raise SystemExit(f'slots not in the spec: {bad_slots}')
     for i, r in enumerate(rows):
         r['id'] = f'gen-{i:06d}'
-        r['split'] = 'dev' if is_dev(r['family']) else 'train'
+        r['split'] = 'train' if r.pop('force_train', False) else ('dev' if is_dev(r['family']) else 'train')
         assert len(r['tokens']) == len(r['tags']), r
     train = [r for r in rows if r['split'] == 'train']
     dev = [r for r in rows if r['split'] == 'dev']

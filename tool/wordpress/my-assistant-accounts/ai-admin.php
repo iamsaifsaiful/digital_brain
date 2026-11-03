@@ -46,7 +46,7 @@ function ma_nlu_review_list($limit = 50) {
     global $wpdb;
     $s = ma_nlu_table('samples');
     $l = ma_nlu_table('labels');
-    $rows = $wpdb->get_results("SELECT s.* FROM $s s LEFT JOIN $l l ON l.sample_id = s.id AND l.source = 'admin' WHERE l.sample_id IS NULL ORDER BY (s.signal_kind <> '') DESC, s.created DESC LIMIT 500", ARRAY_A) ?: [];
+    $rows = $wpdb->get_results("SELECT s.* FROM $s s LEFT JOIN $l l ON l.sample_id = s.id AND l.source IN ('admin', 'seen') WHERE l.sample_id IS NULL ORDER BY (s.signal_kind <> '') DESC, s.created DESC LIMIT 500", ARRAY_A) ?: [];
     $intents = function ($j) {
         $d = json_decode((string) $j, true);
         $out = [];
@@ -128,6 +128,43 @@ function ma_nlu_label_sample($id, $intents, $pick, $admin_id) {
     $wpdb->query($wpdb->prepare('DELETE FROM ' . ma_nlu_table('labels') . " WHERE sample_id = %d AND source = 'admin'", $id));
     $wpdb->insert(ma_nlu_table('labels'), ['sample_id' => $id, 'label_json' => wp_json_encode(['intents' => $intents, 'pick' => sanitize_key((string) $pick)]), 'source' => 'admin', 'admin_id' => (int) $admin_id, 'created' => current_time('mysql', true)]);
     return true;
+}
+
+/**
+ * Takes rows off the review list without deleting them (owner, 3 Nov: "লগ
+ * মুছে দেওয়ার মত", so the same rows don't come back every time). Each is
+ * marked 'seen'; the sample itself stays, and training only reads 'admin'
+ * labels, so nothing is lost for the next model. No ids: everything listed now.
+ */
+function ma_nlu_review_clear($ids = null, $admin_id = 0) {
+    global $wpdb;
+    $t = ma_nlu_table('labels');
+    $now = current_time('mysql', true);
+    $done = 0;
+    $mark = function ($id) use ($wpdb, $t, $now, $admin_id, &$done) {
+        if ($wpdb->replace($t, ['sample_id' => (int) $id, 'label_json' => '{}', 'source' => 'seen', 'admin_id' => (int) $admin_id, 'created' => $now]) !== false) {
+            $done++;
+        }
+    };
+    if ($ids !== null) {
+        foreach (array_map('intval', (array) $ids) as $id) {
+            if ($id > 0) {
+                $mark($id);
+            }
+        }
+        return $done;
+    }
+    // The list looks at 500 rows at a time; go round until it is empty.
+    for ($i = 0; $i < 40; $i++) {
+        $rows = ma_nlu_review_list(500);
+        if (!$rows) {
+            break;
+        }
+        foreach ($rows as $r) {
+            $mark($r['id']);
+        }
+    }
+    return $done;
 }
 
 /** The kill switch, the old /ai limits and the budgets. */
@@ -266,6 +303,11 @@ add_action('rest_api_init', function () {
         $rows = ma_nlu_review_list((int) ($req->get_param('limit') ?: 50));
         return ['samples' => $rows, 'intents' => array_keys(MA_NLU_INTENTS), 'text' => ma_nlu_review_text($rows, ma_nlu_overview())];
     });
+    ma_admin_route('/nlu/review/clear', 'POST', function (WP_REST_Request $req) {
+        $in = json_decode($req->get_body(), true) ?: [];
+        $n = ma_nlu_review_clear(isset($in['ids']) ? (array) $in['ids'] : null, (int) ma_admin_of($req)['id']);
+        return ['ok' => true, 'cleared' => $n, 'samples' => []];
+    });
     ma_admin_route('/nlu/review/(?P<id>\d+)', 'POST', function (WP_REST_Request $req) {
         $in = json_decode($req->get_body(), true) ?: [];
         $r = ma_nlu_label_sample((int) $req['id'], $in['intents'] ?? [], $in['pick'] ?? '', (int) ma_admin_of($req)['id']);
@@ -309,6 +351,13 @@ add_action('admin_post_ma_nlu_draft', function () {
     ma_acc_guard('ma_nlu_draft');
     $r = ma_nlu_add_draft(['version' => wp_unslash($_POST['version'] ?? ''), 'url' => wp_unslash($_POST['url'] ?? ''), 'sha256' => trim((string) wp_unslash($_POST['sha256'] ?? '')), 'size' => (int) ($_POST['size'] ?? 0)]);
     ma_acc_back(is_wp_error($r) ? 'হলো না: নতুন সংস্করণের নাম, https ঠিকানা আর SHA-256 লাগবে।' : 'draft হিসেবে রাখা হলো — এখন চালু করতে পারেন।', is_wp_error($r) ? 'error' : 'ok', ['tab' => 'nlu']);
+});
+
+add_action('admin_post_ma_nlu_review_clear', function () {
+    ma_acc_guard('ma_nlu_review_clear');
+    $one = (int) ($_POST['sample'] ?? 0);
+    $n = ma_nlu_review_clear($one > 0 ? [$one] : null, get_current_user_id());
+    ma_acc_back($one > 0 ? 'তালিকা থেকে সরানো হয়েছে।' : sprintf('পর্যালোচনা খালি করা হয়েছে (%sটা সরানো হলো)। নতুন বার্তা এলে আবার দেখা যাবে।', ma_acc_bn((string) $n)), 'ok', ['tab' => 'nlu']);
 });
 
 add_action('admin_post_ma_nlu_label', function () {
