@@ -36,7 +36,7 @@ function rh_cancelled($t) {
     return ($t['status'] ?? '') === 'cancelled';
 }
 
-/** The agent has sent it: only then it counts in hands and in the agent's account. */
+/** The agent has sent it: only then it counts in the agent's account. */
 function rh_sent($t) {
     return ($t['status'] ?? '') === 'sent';
 }
@@ -111,8 +111,8 @@ function rh_cash_lines($by = null) {
     $agents = rh_all('agent');
     $out = [];
     foreach (rh_all('txn') as $t) {
-        if (rh_sent($t) && (float) ($t['sarPaid'] ?? 0) > 0 && $mine($t)) {
-            $out[] = [$t['sentAt'] ?? $t['at'], ($cust[$t['customerId'] ?? '']['name'] ?? (($t['walkIn'] ?? '') !== '' ? $t['walkIn'] : 'প্রোফাইল ছাড়া')) . ' · #' . rh_bn($t['no'] ?? ''), (($t['pay'] ?? '') === 'partial' ? 'আংশিক' : 'নগদে') . ' · ' . rh_service($t), (float) $t['sarPaid'], 0.0, 'txn', (int) ($t['by'] ?? 0), (string) ($t['byName'] ?? '')];
+        if (!rh_cancelled($t) && (float) ($t['sarPaid'] ?? 0) > 0 && $mine($t)) {
+            $out[] = [$t['at'], ($cust[$t['customerId'] ?? '']['name'] ?? (($t['walkIn'] ?? '') !== '' ? $t['walkIn'] : 'প্রোফাইল ছাড়া')) . ' · #' . rh_bn($t['no'] ?? ''), (($t['pay'] ?? '') === 'partial' ? 'আংশিক' : 'নগদে') . ' · ' . rh_service($t), (float) $t['sarPaid'], 0.0, 'txn', (int) ($t['by'] ?? 0), (string) ($t['byName'] ?? '')];
         }
     }
     foreach (rh_all('deposit') as $p) {

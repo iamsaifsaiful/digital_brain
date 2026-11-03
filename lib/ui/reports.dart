@@ -164,7 +164,7 @@ PdfDoc periodPdf(Hisab h, Period p) {
   final closes = d.closes.where((x) => p.has(x.at)).toList()..sort((a, b) => a.at.compareTo(b.at));
   final sarSum = live.fold<double>(0, (s, x) => s + x.sarAmount);
   final takaSum = live.fold<double>(0, (s, x) => s + x.taka);
-  final got = live.where((x) => x.status == TxnStatus.sent).fold<double>(0, (s, x) => s + x.sarPaid) + deps.fold<double>(0, (s, x) => s + x.sarAmount);
+  final got = live.fold<double>(0, (s, x) => s + x.sarPaid) + deps.fold<double>(0, (s, x) => s + x.sarAmount);
   final doc = PdfDoc('রিপোর্ট', subtitle: p.label, footer: _footer(h));
   doc.tiles([
     ('মোট পাঠানো (রিয়াল)', sar(sarSum)),

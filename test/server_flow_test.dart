@@ -143,8 +143,7 @@ void main() {
     await owner.setup(owner: 'সাইফুল', agentName: 'মনোয়ারা স্টোর', agentWhatsapp: '01811111111');
     final agent = owner.d.agents.single;
     final c = await owner.addCustomer(name: 'করিম', phone: '0551234567');
-    final t0 = await owner.addTxn(Txn.fromJson({...draft(c.id, agent.id, sar: 200).toJson(), 'pay': 'cash', 'sarPaid': 200}));
-    await owner.markSent(t0, trxId: 'OWNER12345');
+    await owner.addTxn(Txn.fromJson({...draft(c.id, agent.id, sar: 200).toJson(), 'pay': 'cash', 'sarPaid': 200}));
     owner.d.settings.templates['cust_due'] = 'ভাই {নাম}, {বকেয়া} রিয়াল বকেয়া।';
     await owner.saveSettings('টেমপ্লেট');
     await owner.s.api.post('/users', {'role': 'admin', 'name': 'রহিম', 'login': 'rahim', 'password': 'rahim-pass', 'perms': ['send', 'deposit']});
@@ -156,9 +155,7 @@ void main() {
     expect(dueReminder(second.d, second.d.customers.single), startsWith('ভাই করিম,'), reason: 'the owner\'s wording reached this phone');
     final t = await second.addTxn(Txn.fromJson({...draft(c.id, agent.id, sar: 300).toJson(), 'pay': 'cash', 'sarPaid': 300}));
     expect(t.byName, 'রহিম');
-    expect(second.myCash, 0, reason: 'not in hand before the agent sends');
-    await second.markSent(t, trxId: 'RAHIM12345');
-    expect(second.myCash, 300);
+    expect(second.myCash, 300, reason: 'in hand as soon as the send is made');
     await second.sync();
     await owner.sync();
     expect(owner.myCash, 200, reason: 'the owner\'s own hand');

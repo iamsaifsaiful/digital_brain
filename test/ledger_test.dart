@@ -114,11 +114,8 @@ void main() {
       expect(open.length, 2);
       expect(open[0].left, 0);
       expect(open[1].left, 200);
-      // Riyal from a send counts in hand only once the agent has sent it.
-      expect(cashInHand(d), 600);
-      for (final t in d.txns) {
-        t.status = TxnStatus.sent;
-      }
+      // The customer's riyal is in hand as soon as the send is made, even
+      // while the agent has not sent it yet.
       expect(cashInHand(d), 1100);
     });
 
@@ -360,9 +357,11 @@ void main() {
       final t = await h.addTxn(Txn.fromJson({...draft(customerId: '', agentId: h.d.agents.single.id, pay: Pay.cash, sarPaid: 500).toJson(), 'walkIn': 'রাস্তার ভাই', 'walkInPhone': '0559999999'}));
       expect(customerNameOf(h.d, t), 'রাস্তার ভাই');
       expect(h.d.customers, isEmpty);
-      expect(h.myCash, 0, reason: 'not in hand before the agent sends');
+      expect(h.myCash, 500, reason: 'in hand at once');
+      expect(agentOwed(h.d, h.d.agents.single.id), 0, reason: 'the agent: only once sent');
       await h.markSent(t, trxId: 'ABC123XYZ');
       expect(h.myCash, 500);
+      expect(agentOwed(h.d, h.d.agents.single.id), t.agentTaka);
       expect(customerReceipt(h.d, t), contains('রাস্তার ভাই'));
       expect(customerNameOf(h.d, Txn.fromJson({...t.toJson(), 'walkIn': ''})), 'প্রোফাইল ছাড়া');
     });
