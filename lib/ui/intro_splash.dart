@@ -10,9 +10,9 @@ import 'theme.dart';
 /// that wants it turns it on.
 bool introOn = const bool.fromEnvironment('dart.vm.product');
 
-/// The app's mark grows in, voice rings spread out from it as if it is
-/// listening, then the name and the line under it come up. About 1.8
-/// seconds; a tap skips it. With animations turned off on the phone it is
+/// What the app keeps — reminders, money, notes, passwords, papers,
+/// people — comes in from around and goes into the mark, a lock closes on
+/// it, then the name and "all in one place, locked". About 2.8 seconds; a tap skips it. With animations turned off on the phone it is
 /// a short still picture.
 class IntroGate extends StatefulWidget {
   const IntroGate({super.key, required this.child});
@@ -42,7 +42,7 @@ class IntroSplash extends StatefulWidget {
 }
 
 class _IntroSplashState extends State<IntroSplash> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800));
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 2800));
   bool _ended = false;
 
   @override
@@ -72,6 +72,17 @@ class _IntroSplashState extends State<IntroSplash> with SingleTickerProviderStat
 
   double _part(double t, double from, double to) => ((t - from) / (to - from)).clamp(0.0, 1.0);
 
+  /// What the app keeps, each coming in to the mark (owner, 3 Nov: "সব এক
+  /// জায়গায়, তালাবদ্ধ").
+  static final _things = <(IconData?, String, Color)>[
+    (Icons.notifications_none_rounded, 'রিমাইন্ডার', const Color(0xFFE5C487)),
+    (null, 'হিসাব', const Color(0xFF9DB7D6)),
+    (Icons.sticky_note_2_outlined, 'নোট', const Color(0xFFF2BB8E)),
+    (Icons.key_outlined, 'পাসওয়ার্ড', const Color(0xFFBBA9E0)),
+    (Icons.folder_copy_outlined, 'ডকুমেন্টস', const Color(0xFF8FD3C3)),
+    (Icons.call_outlined, 'যোগাযোগ', const Color(0xFFE99AA0)),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -84,26 +95,73 @@ class _IntroSplashState extends State<IntroSplash> with SingleTickerProviderStat
           animation: _c,
           builder: (context, _) {
             final t = _c.value;
-            final grow = Curves.easeOutBack.transform(_part(t, 0, 0.32));
-            final markIn = Curves.easeOut.transform(_part(t, 0, 0.2));
-            final name = Curves.easeOutCubic.transform(_part(t, 0.38, 0.62));
-            final line = Curves.easeOutCubic.transform(_part(t, 0.5, 0.74));
+            // 1. The things appear around, one after another.
+            // 2. They fly into the middle as the mark grows there.
+            // 3. A lock closes on the mark. 4. The name and the line.
+            final gather = Curves.easeInCubic.transform(_part(t, 0.36, 0.6));
+            final mark = Curves.easeOutBack.transform(_part(t, 0.5, 0.68));
+            final lock = Curves.elasticOut.transform(_part(t, 0.64, 0.86));
+            final ring = _part(t, 0.66, 0.92);
+            final name = Curves.easeOutCubic.transform(_part(t, 0.74, 0.88));
+            final line = Curves.easeOutCubic.transform(_part(t, 0.8, 0.95));
             return Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 SizedBox(
-                  width: 220,
-                  height: 220,
-                  child: Stack(alignment: Alignment.center, children: [
-                    // Voice rings: spread out from the mark and fade, one after another.
-                    CustomPaint(size: const Size(220, 220), painter: _Rings(_part(t, 0.18, 1))),
+                  width: 320,
+                  height: 320,
+                  child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
+                    CustomPaint(size: const Size(320, 320), painter: _Rings(ring)),
+                    for (final (i, (icon, label, color)) in _things.indexed)
+                      Builder(builder: (_) {
+                        final show = Curves.easeOutBack.transform(_part(t, i * 0.04, 0.14 + i * 0.04));
+                        final a = -math.pi / 2 + i * 2 * math.pi / _things.length;
+                        final r = 118 * (1 - gather);
+                        final fade = (show * (1 - _part(t, 0.52, 0.6))).clamp(0.0, 1.0);
+                        return Transform.translate(
+                          offset: Offset(math.cos(a) * r, math.sin(a) * r),
+                          child: Opacity(
+                            opacity: fade,
+                            child: Transform.scale(
+                              scale: show * (1 - 0.55 * gather),
+                              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                                Container(
+                                  width: 50,
+                                  height: 50,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(color: color.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(15), border: Border.all(color: color.withValues(alpha: 0.45))),
+                                  child: icon == null ? Text('৳', style: display(24, weight: 700, color: color, height: 1)) : Icon(icon, color: color, size: 25),
+                                ),
+                                const SizedBox(height: 4),
+                                Opacity(opacity: 1 - gather, child: Text(tr(label), style: body(11.5, color: const Color(0xFFC7CEE0)))),
+                              ]),
+                            ),
+                          ),
+                        );
+                      }),
                     Opacity(
-                      opacity: markIn,
+                      opacity: _part(t, 0.5, 0.58),
                       child: Transform.scale(
-                        scale: 0.6 + 0.4 * grow,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(24),
-                          child: Image.asset('assets/brand/app_mark.png', width: 96, height: 96, filterQuality: FilterQuality.medium),
-                        ),
+                        scale: 0.4 + 0.6 * mark,
+                        child: Stack(clipBehavior: Clip.none, children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(24),
+                            child: Image.asset('assets/brand/app_mark.png', width: 100, height: 100, filterQuality: FilterQuality.medium),
+                          ),
+                          // The lock that closes on everything kept.
+                          Positioned(
+                            right: -12,
+                            bottom: -12,
+                            child: Transform.scale(
+                              scale: lock,
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(color: const Color(0xFFF3B93C), shape: BoxShape.circle, border: Border.all(color: C.night, width: 3)),
+                                child: const Icon(Icons.lock_rounded, color: Color(0xFF2A1C04), size: 20),
+                              ),
+                            ),
+                          ),
+                        ]),
                       ),
                     ),
                   ]),
@@ -120,7 +178,7 @@ class _IntroSplashState extends State<IntroSplash> with SingleTickerProviderStat
                   opacity: line,
                   child: Transform.translate(
                     offset: Offset(0, 10 * (1 - line)),
-                    child: Text(tr('আপনার ব্যক্তিগত সহকারী'), style: body(14.5, color: const Color(0xFFA9B5AF))),
+                    child: Text(tr('সব দরকারি জিনিস এক জায়গায়, তালাবদ্ধ'), textAlign: TextAlign.center, style: body(14.5, color: const Color(0xFFA9B5AF))),
                   ),
                 ),
               ]),
@@ -132,7 +190,7 @@ class _IntroSplashState extends State<IntroSplash> with SingleTickerProviderStat
   }
 }
 
-/// Three rings in the mark's yellow, each widening and fading in turn.
+/// Two rings in the mark's yellow as the lock closes.
 class _Rings extends CustomPainter {
   _Rings(this.t);
   final double t;
@@ -141,25 +199,21 @@ class _Rings extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (t <= 0) return;
+    if (t <= 0 || t >= 1) return;
     final c = size.center(Offset.zero);
-    for (var i = 0; i < 3; i++) {
-      final p = ((t * 1.6) - i * 0.3).clamp(0.0, 1.0);
+    for (var i = 0; i < 2; i++) {
+      final p = ((t * 1.3) - i * 0.3).clamp(0.0, 1.0);
       if (p <= 0 || p >= 1) continue;
-      final r = 52 + 58 * Curves.easeOut.transform(p);
-      final a = (1 - p) * 0.55;
+      final r = 60 + 70 * Curves.easeOut.transform(p);
       canvas.drawCircle(
         c,
         r,
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2.5 * (1 - p) + 1
-          ..color = _yellow.withValues(alpha: a),
+          ..color = _yellow.withValues(alpha: (1 - p) * 0.5),
       );
     }
-    // A soft glow behind the mark while the rings run.
-    final glow = math.sin(math.pi * t.clamp(0.0, 1.0)) * 0.12;
-    canvas.drawCircle(c, 60, Paint()..color = _yellow.withValues(alpha: glow));
   }
 
   @override

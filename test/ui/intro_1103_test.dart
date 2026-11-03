@@ -34,7 +34,7 @@ void main() {
     await open(t);
     expect(find.byKey(const Key('intro')), findsOneWidget);
     expect(find.byType(LockScreen), findsNothing);
-    for (var ms = 0; ms <= 1800; ms += 60) {
+    for (var ms = 0; ms <= 2800; ms += 60) {
       if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/intro/f${ms.toString().padLeft(4, '0')}.png'));
       await t.pump(const Duration(milliseconds: 60));
     }

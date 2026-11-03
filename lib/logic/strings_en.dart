@@ -4711,4 +4711,5 @@ const enStrings = <String, String>{
   'জন্মদিন, বিবাহবার্ষিকী': 'Birthdays, anniversaries',
   'রক্তের গ্রুপ, জরুরি নম্বর': 'Blood group, emergency numbers',
   'সব জিনিস নিজের মতো সাজান': 'Sort everything your own way',
+  'সব দরকারি জিনিস এক জায়গায়, তালাবদ্ধ': 'Everything that matters, in one place, locked',
 };
