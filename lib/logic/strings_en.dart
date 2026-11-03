@@ -4667,4 +4667,8 @@ const enStrings = <String, String>{
   'টাকার সব কথা': 'Everything about money',
   'জন্মদিন-বিবাহবার্ষিকী': 'Birthdays and anniversaries',
   'সমস্যা বা সাহায্য চাওয়া': 'Reporting a problem or asking for help',
+  'যেকোনো সময় · {0}টার {1}টা শেষ': 'Any time · {1} of {0} done',
+  '{0}টা কাজ · {1}টা রিমাইন্ডার': '{0} to-dos · {1} reminders',
+  'আবার বাকি রাখুন': 'Mark as not done',
+  'বেজেছে': 'Rang',
 };

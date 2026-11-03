@@ -106,7 +106,7 @@ void main() {
           expect(find.byKey(const Key('home-google')), findsNothing);
           expect(find.byKey(const Key('home-premium-badge')), findsOneWidget);
           expect(find.text('আম্মাকে ফোন'), findsOneWidget);
-          expect(find.text('ফোন করুন'), findsOneWidget);
+          expect(find.byTooltip('ফোন করুন'), findsOneWidget);
         }
         expect(C.dark, look == Look.dark);
         if (shots) {
