@@ -1,1 +1,1 @@
-1.0.3 (code 10008): rebuild after the analyzer warning
+1.0.4 (code 10009): home list, দিনলিপি, হিসাব, আরও, সংরক্ষণ redesigns, the intro, recycle bin and the 2 Nov names
