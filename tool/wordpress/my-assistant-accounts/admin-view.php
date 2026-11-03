@@ -243,9 +243,8 @@ function ma_acc_render_members($v, $labels) {
                             <th>সদস্য</th>
                             <th class="hide-s">যোগ দিয়েছেন</th>
                             <th class="hide-m">শেষ দেখা</th>
-                            <th>অবস্থা · কোথা থেকে</th>
-                            <th class="hide-s">প্রিমিয়াম পর্যন্ত</th>
-                            <th class="right">কাজ</th>
+                            <th class="hide-s">প্রিমিয়াম · কোথা থেকে</th>
+                            <th class="right"><span class="screen-reader-text">কাজ</span></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -276,28 +275,24 @@ function ma_acc_render_members($v, $labels) {
                                         <span class="ma-av" style="--h:<?php echo (int) ma_acc_hue($r['email']); ?>"><?php echo esc_html(ma_acc_initials($r['name'], $r['email'])); ?></span>
                                     <?php endif; ?>
                                     <div class="ma-who-text">
-                                        <strong><?php echo esc_html($data['name']); ?></strong>
+                                        <span class="ma-name-line"><strong><?php echo esc_html($data['name']); ?></strong><span class="ma-pill <?php echo esc_attr($cls); ?>"><?php echo esc_html($label); ?></span></span>
                                         <span><?php echo esc_html($r['email']); ?></span>
                                     </div>
                                 </div>
                             </td>
                             <td class="hide-s muted"><?php echo esc_html($data['joined']); ?></td>
                             <td class="hide-m muted"><?php echo esc_html($data['seen']); ?><?php if ($data['version'] !== '') : ?><span class="ma-ver"><?php echo esc_html($data['version']); ?></span><?php endif; ?></td>
-                            <td><span class="ma-pill <?php echo esc_attr($cls); ?>"><?php echo esc_html($label); ?></span><?php if ($data['kind'] !== '—' && $st !== 'free') : ?><span class="ma-ver"><?php echo esc_html($data['kind']); ?></span><?php endif; ?></td>
-                            <td class="hide-s muted"><?php echo esc_html(in_array($st, ['pro', 'trial', 'waiting'], true) ? $data['until'] : '—'); ?></td>
+                            <td class="hide-s muted"><?php if (in_array($st, ['pro', 'trial', 'waiting'], true)) : ?><?php echo esc_html($data['until'] . ' পর্যন্ত'); ?><?php if ($data['kind'] !== '—') : ?><span class="ma-ver"><?php echo esc_html($data['kind']); ?></span><?php endif; ?><?php else : ?>—<?php endif; ?></td>
                             <td class="right">
-                                <div class="ma-ops">
-                                    <button type="button" class="ma-icon" title="বিস্তারিত" aria-label="বিস্তারিত: <?php echo esc_attr($data['name']); ?>" data-open="ma-view" data-m="<?php echo esc_attr(wp_json_encode($data)); ?>">
-                                        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 5c5 0 8.6 4.3 9.7 6.4a1.3 1.3 0 0 1 0 1.2C20.6 14.7 17 19 12 19s-8.6-4.3-9.7-6.4a1.3 1.3 0 0 1 0-1.2C3.4 9.3 7 5 12 5Zm0 2c-3.6 0-6.4 3-7.6 5 1.2 2 4 5 7.6 5s6.4-3 7.6-5c-1.2-2-4-5-7.6-5Zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6Z"/></svg>
-                                    </button>
-                                    <button type="button" class="ma-icon" title="প্রিমিয়াম ও নোট" aria-label="প্রিমিয়াম ও নোট: <?php echo esc_attr($data['name']); ?>" data-open="ma-edit" data-m="<?php echo esc_attr(wp_json_encode($data)); ?>">
-                                        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M15.6 3.6a2 2 0 0 1 2.8 0l2 2a2 2 0 0 1 0 2.8L9.2 19.6a2 2 0 0 1-1 .5l-3.9.9a1 1 0 0 1-1.2-1.2l.9-3.9c.1-.4.3-.7.5-1L15.6 3.6ZM17 5l-11 11-.5 2.5L8 18 19 7l-2-2Z"/></svg>
-                                    </button>
-                                    <button type="button" class="ma-icon danger" title="মুছুন" aria-label="মুছুন: <?php echo esc_attr($data['name']); ?>" data-open="ma-delete" data-m="<?php echo esc_attr(wp_json_encode($data)); ?>">
-                                        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M9 3h6a1 1 0 0 1 1 1v1h4a1 1 0 1 1 0 2h-1l-.9 12.1A2 2 0 0 1 16.1 21H7.9a2 2 0 0 1-2-1.9L5 7H4a1 1 0 0 1 0-2h4V4a1 1 0 0 1 1-1Zm-2 4 .9 12h8.2L17 7H7Zm3 2a1 1 0 0 1 1 1v6a1 1 0 1 1-2 0v-6a1 1 0 0 1 1-1Zm4 0a1 1 0 0 1 1 1v6a1 1 0 1 1-2 0v-6a1 1 0 0 1 1-1Z"/></svg>
-                                    </button>
-                                    <button type="button" class="ma-btn small <?php echo $data['pro'] ? 'soft' : ''; ?>" data-open="ma-edit" data-m="<?php echo esc_attr(wp_json_encode($data)); ?>"><?php echo $data['pro'] ? 'মেয়াদ বাড়ান' : 'প্রিমিয়াম দিন'; ?></button>
-                                </div>
+                                <details class="ma-menu">
+                                    <summary class="ma-icon" title="আরও" aria-label="আরও: <?php echo esc_attr($data['name']); ?>"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="5" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="19" r="1.8" fill="currentColor"/></svg></summary>
+                                    <div class="ma-menu-list" role="menu">
+                                        <button type="button" role="menuitem" data-open="ma-edit" data-m="<?php echo esc_attr(wp_json_encode($data)); ?>"><?php echo ma_ui_icon('plus', 16); ?> <?php echo $data['pro'] ? 'মেয়াদ বাড়ান' : 'প্রিমিয়াম দিন'; ?></button>
+                                        <button type="button" role="menuitem" data-open="ma-view" data-m="<?php echo esc_attr(wp_json_encode($data)); ?>"><?php echo ma_ui_icon('users', 16); ?> বিস্তারিত</button>
+                                        <button type="button" role="menuitem" data-open="ma-edit" data-m="<?php echo esc_attr(wp_json_encode($data)); ?>"><?php echo ma_ui_icon('edit', 16); ?> নোট লিখুন</button>
+                                        <button type="button" role="menuitem" class="danger" data-open="ma-delete" data-m="<?php echo esc_attr(wp_json_encode($data)); ?>"><?php echo ma_ui_icon('x', 16); ?> মুছুন</button>
+                                    </div>
+                                </details>
                             </td>
                         </tr>
                     <?php endforeach; ?>
