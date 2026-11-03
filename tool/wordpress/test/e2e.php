@@ -889,7 +889,7 @@ $n0 = count($sent['fcm']);
 [$code, $d] = call('POST', '/admin/push', ['title' => 'নতুন সুবিধা', 'body' => 'দেখুন', 'audience' => 'all'], $bossSes);
 check($code === 200 && $d['sent'] >= 1 && (int) $wpdb->get_var("SELECT COUNT(*) FROM $t WHERE user_id = $logId AND kind = 'news'") === 1, 'a push to everyone is logged per member');
 wp_set_current_user(1);
-$_GET = ['page' => 'my-assistant', 'tab' => 'notices', 'nq' => 'log@gmail'];
+$_GET = ['page' => 'my-assistant', 'tab' => 'notices', 'nv' => 'stats', 'nq' => 'log@gmail'];
 ob_start();
 ma_acc_admin();
 $html = ob_get_clean();
@@ -1213,8 +1213,15 @@ $h = $render(['tab' => 'payments', 'pst' => 'all']);
 check(str_contains($h, 'বিকাশে আসা টাকা') && str_contains($h, '9A7KX2PQ1M') && str_contains($h, 'মিলেছে — প্রিমিয়াম চালু') && !preg_match($bad, $h), 'site: payments show bKash');
 $h = $render(['tab' => 'security']);
 check(str_contains($h, 'দুই ধাপের লগইন') && str_contains($h, 'নিরাপত্তা') && !preg_match($bad, $h), 'site: the নিরাপত্তা tab (two-step sign-in)');
+// Owner, 4 Nov (approved design): one list of what members get, as on the phone, changed in a side panel.
 $h = $render(['tab' => 'notices']);
-check(str_contains($h, 'আজ আর কাল কী যাবে') && str_contains($h, 'দিনে কতটি') && str_contains($h, 'অ্যাপ থেকে কোন কোন নোটিফিকেশন যায়') && str_contains($h, 'জুমা মোবারক') && str_contains($h, 'সীমার বাইরে') && str_contains($h, 'সদস্যের নিজের রিমাইন্ডার') && str_contains($h, 'কে দিনে কতগুলো পাচ্ছে') && str_contains($h, 'এখনকার নোটিফিকেশন') && str_contains($h, 'সার্ভার থেকে পুশ') && !str_contains($h, '<h2>কার কাছে কী গেছে</h2>') && !preg_match($bad, $h), 'site: notifications overview instead of the per-member log');
+check(str_contains($h, 'সদস্যরা যা পান') && str_contains($h, 'ফোনে যেমন দেখায়') && str_contains($h, 'জুমা মোবারক') && str_contains($h, 'সীমার বাইরে') && str_contains($h, 'data-note-edit') && str_contains($h, 'id="ma-note-edit"') && str_contains($h, 'value="ma_note_rule_one"') && str_contains($h, '+ সদস্যের নাম') && !str_contains($h, 'placeholder="{body}"') && !preg_match($bad, $h), 'site: notifications — one list as on the phone, a side panel to change one');
+$h = $render(['tab' => 'notices', 'nv' => 'mine']);
+check(str_contains($h, 'এখনকার নোটিফিকেশন') && str_contains($h, 'ma_note_toggle') && !preg_match($bad, $h), 'site: notifications — the admin\'s own');
+$h = $render(['tab' => 'notices', 'nv' => 'stats']);
+check(str_contains($h, 'আজ আর কাল কী যাবে') && str_contains($h, 'দিনে কতটি') && str_contains($h, 'অ্যাপ থেকে কোন কোন নোটিফিকেশন যায়') && str_contains($h, 'সদস্যের নিজের রিমাইন্ডার') && str_contains($h, 'কে দিনে কতগুলো পাচ্ছে') && str_contains($h, 'সার্ভার থেকে পুশ') && !str_contains($h, '<h2>কার কাছে কী গেছে</h2>') && !preg_match($bad, $h), 'site: notifications — what went (counts, not the per-member log)');
+$h = $render([]);
+check(str_contains($h, 'আপনার কাজ বাকি') && str_contains($h, 'ma-side') && str_contains($h, 'নতুন সদস্য, গত ৩০ দিন') && !preg_match($bad, $h), 'site: no tab → the dashboard, with the side menu');
 $h = $render(['tab' => 'feedback', 'fst' => 'all']);
 check(str_contains($h, 'জন সদস্য') && str_contains($h, 'ma-inbox-row') && !preg_match($bad, $h), 'site: feedback inbox list');
 $h = $render(['tab' => 'feedback', 'who' => (string) $u['id']]);
@@ -1248,7 +1255,21 @@ check(($pub['kinds']['nudge:week']['wd'] ?? 0) === 7 && !isset($pub['kinds']['nu
 [$code] = call('GET', '/admin/notice-rules', [], $ses);
 check($code === 403, 'rules: admins only');
 $h = $render(['tab' => 'notices']);
-check(str_contains($h, 'অ্যাপের নোটিফিকেশন নিয়ন্ত্রণ') && str_contains($h, 'name="r[nudge:quote][at]"') && str_contains($h, 'name="r[nudge:week][wd]"') && str_contains($h, '>প্রতিদিন <') && str_contains($h, '>কিছু ঘটলে <') && str_contains($h, 'বদলানো') && !preg_match($bad, $h), 'site: the rules, grouped, on the notifications tab');
+check(str_contains($h, 'data-nf="daily"') && str_contains($h, 'data-nf="trigger"') && str_contains($h, '&quot;key&quot;:&quot;nudge:week&quot;') && str_contains($h, '&quot;wd_editable&quot;:true') && str_contains($h, 'বদলানো') && !preg_match($bad, $h), 'site: the rules, grouped, on the notifications tab');
+// The side panel (owner, 4 Nov): plain words instead of {name}; one kind changed, the others kept.
+$before = ma_note_rules()['kinds'];
+ma_ui_note_rule_apply(['op' => 'save', 'key' => 'brief:night', 'on' => '1', 'at' => '21:30', 'title' => '[নাম], আজ কাজ বাকি', 'body' => '[অ্যাপের লেখা]', 'who' => 'regular', 'wd' => '0']);
+$after = ma_note_rules()['kinds'];
+check($after['brief:night']['title'] === '{name}, আজ কাজ বাকি' && $after['brief:night']['body'] === '{body}' && $after['brief:night']['at'] === '21:30' && $after['brief:night']['who'] === 'regular' && $after['nudge:week'] == $before['nudge:week'], 'panel: one notification saved, [নাম] → {name}, the rest untouched');
+ma_ui_note_rule_apply(['op' => 'toggle', 'key' => 'brief:night']);
+check(ma_note_rules()['kinds']['brief:night']['on'] === false, 'panel: the switch turns one off');
+ma_ui_note_rule_apply(['op' => 'reset', 'key' => 'brief:night']);
+$x = ma_note_rules()['kinds']['brief:night'];
+check($x['on'] && $x['at'] === '' && $x['title'] === '' && $x['who'] === 'all', 'panel: "আগের মতো করুন" puts the app\'s own back');
+ma_ui_note_rule_apply(['op' => 'cap', 'cap' => '4']);
+check(ma_note_rules()['cap'] === 4 && ma_note_rules()['kinds']['nudge:week'] == $before['nudge:week'], 'panel: the daily limit alone');
+$h = $render(['tab' => 'notices']);
+check(str_contains($h, 'ma-nrow') && !preg_match($bad, $h), 'panel: the list still renders after changes');
 call('POST', '/admin/notice-rules', ['kinds' => [], 'cap' => ''], $bossSes);
 
 echo "\n  — members' backup keys sealed with MA_DATA_KEY (owner's review, 27 Oct)\n";

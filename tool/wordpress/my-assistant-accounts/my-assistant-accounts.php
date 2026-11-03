@@ -2,7 +2,7 @@
 /**
  * Plugin Name: My Assistant Accounts
  * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, প্রিমিয়াম, পেমেন্ট, নোটিফিকেশন আর মতামত। শুধু নাম, ইমেইল, ছবি আর প্রিমিয়ামের তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.0.4
+ * Version: 1.0.5
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: My Assistant
@@ -13,11 +13,12 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.0.4';
+const MA_ACC_VERSION = '1.0.5';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
 const MA_ACC_PER_PAGE = 20;
 
 require_once __DIR__ . '/admin-view.php';
+require_once __DIR__ . '/admin-ui.php';
 require_once __DIR__ . '/ai.php';
 require_once __DIR__ . '/nlu.php';
 require_once __DIR__ . '/ai-admin.php';
@@ -401,7 +402,11 @@ function ma_acc_admin() {
     }
     global $wpdb;
     $table = ma_acc_table();
-    $tab = sanitize_key($_GET['tab'] ?? 'members');
+    // No tab: the dashboard — unless the link filters members (old links, the growth bars).
+    $tab = sanitize_key($_GET['tab'] ?? '');
+    if ($tab === '') {
+        $tab = array_intersect(['q', 'status', 'joined', 'jd', 'jm', 'src', 'paged'], array_keys(array_filter($_GET, fn($x) => $x !== ''))) ? 'members' : 'home';
+    }
     $q = sanitize_text_field(wp_unslash($_GET['q'] ?? ''));
     $status = sanitize_key($_GET['status'] ?? '');
     $page = max(1, (int) ($_GET['paged'] ?? 1));
@@ -422,7 +427,7 @@ function ma_acc_admin() {
     $extra = [];
     if ($tab === 'payments') {
         $extra['bkash'] = ma_bk_overview();
-        $pst = sanitize_key($_GET['pst'] ?? 'pending');
+        $pst = sanitize_key($_GET['pst'] ?? 'all');
         $pt = ma_pay_table();
         $extra['pst'] = $pst;
         $extra['payments'] = $pst === 'all'
@@ -432,6 +437,7 @@ function ma_acc_admin() {
         foreach ($wpdb->get_results("SELECT status, COUNT(*) n, COALESCE(SUM(amount),0) amt FROM $pt GROUP BY status", ARRAY_A) as $c) {
             $extra['pay_counts'][$c['status']] = ['n' => (int) $c['n'], 'amt' => (int) $c['amt']];
         }
+        $extra['pay_pending'] = $wpdb->get_results("SELECT * FROM $pt WHERE status = 'pending' ORDER BY created_at DESC LIMIT 100", ARRAY_A) ?: [];
         $extra['pay_month'] = (int) $wpdb->get_var($wpdb->prepare("SELECT COALESCE(SUM(amount),0) FROM $pt WHERE status = 'approved' AND reviewed_at >= %s", gmdate('Y-m-01')));
         $extra['methods_raw'] = (string) get_option('ma_pay_methods', implode("\n", array_map(function ($m) {
             return $m['name'] . ' | ' . $m['number'] . ' | ' . $m['how'];
@@ -468,6 +474,23 @@ function ma_acc_admin() {
         $extra['note_overview'] = ma_note_overview();
         $extra['note_day'] = ma_note_day(sanitize_text_field((string) ($_GET['nday'] ?? '')));
     }
+    if ($tab === 'home') {
+        $pt = ma_pay_table();
+        $pend = $wpdb->get_results("SELECT * FROM $pt WHERE status = 'pending' LIMIT 200", ARRAY_A) ?: [];
+        $rec = ma_bk_overview()['received'];
+        $plans = ma_pay_plans();
+        $nd = ma_note_day('');
+        $fb = ma_fb_inbox('open', '');
+        $first = $fb ? reset($fb) : null;
+        $extra['home'] = [
+            'pay_matched' => count(array_filter($pend, fn($p) => ma_ui_pay_match($p, $rec, $plans)[0] === 'ok')),
+            'pay_month' => (int) $wpdb->get_var($wpdb->prepare("SELECT COALESCE(SUM(amount),0) FROM $pt WHERE status = 'approved' AND reviewed_at >= %s", gmdate('Y-m-01'))),
+            'notes_total' => (int) ($nd['total'] ?? 0),
+            'notes_people' => (int) ($nd['people'] ?? 0),
+            'fb_last' => $first && !empty($first['last']['text']) ? ($first['name'] !== '' ? $first['name'] : $first['email']) . ': “' . mb_substr((string) $first['last']['text'], 0, 60) . '”' : '',
+        ];
+    }
+    $extra['err_day'] = function_exists('ma_err_counts') ? (int) ma_err_counts()['day'] : 0;
     $extra['pending'] = ma_pay_pending_count();
     $extra['fb_new'] = ma_fb_new_count();
     $extra['heirs_pending'] = ma_fam_claims_pending();
@@ -478,7 +501,7 @@ function ma_acc_admin() {
         'status' => $status,
         'joined' => $joined,
         'src' => $src,
-        'growth' => $tab === 'members' ? ma_acc_growth() : null,
+        'growth' => in_array($tab, ['members', 'home'], true) ? ma_acc_growth() : null,
         'page' => $page,
         'pages' => max(1, (int) ceil($found / MA_ACC_PER_PAGE)),
         'found' => $found,

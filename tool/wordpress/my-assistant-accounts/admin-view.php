@@ -76,54 +76,27 @@ function ma_acc_url($args) {
 function ma_acc_render($v) {
     $labels = ma_acc_status_labels();
     $s = $v['stats'];
-    $tab = in_array($v['tab'], ['settings', 'ai', 'nlu', 'heirs', 'payments', 'notices', 'feedback', 'finance', 'errors', 'security'], true) ? $v['tab'] : 'members';
+    $tab = in_array($v['tab'], ['home', 'settings', 'ai', 'nlu', 'heirs', 'payments', 'notices', 'feedback', 'finance', 'errors', 'security'], true) ? $v['tab'] : 'members';
     $fb_new = (int) ($v['fb_new'] ?? 0);
     $pending = (int) ($v['pending'] ?? 0);
     $paying_rate = $s['total'] ? round($s['pro'] * 100 / $s['total'], 1) : 0;
     ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap">
-    <?php ma_acc_styles(); ?>
+    <?php ma_acc_styles(); ma_ui_styles(); ?>
     <div class="wrap ma">
         <h1 class="screen-reader-text">My Assistant</h1>
-        <header class="ma-hero">
-            <div class="ma-hero-top">
-                <div class="ma-brand">
-                    <span class="ma-mark" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M12 2a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4Zm0 2a2 2 0 0 0-2 2v6a2 2 0 1 0 4 0V6a2 2 0 0 0-2-2Zm-7 7a1 1 0 0 1 1 1 6 6 0 0 0 12 0 1 1 0 1 1 2 0 8 8 0 0 1-7 7.9V21h2a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2h2v-2.1A8 8 0 0 1 4 12a1 1 0 0 1 1-1Z"/></svg>
-                    </span>
-                    <div>
-                        <div class="ma-brand-name">My Assistant</div>
-                        <div class="ma-brand-sub">সদস্য ও প্রিমিয়াম · getmyassistant.app</div>
-                    </div>
-                </div>
-                <nav class="ma-tabs" aria-label="বিভাগ">
-                    <a class="<?php echo $tab === 'members' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'members']); ?>">সদস্য</a>
-                    <a class="<?php echo $tab === 'payments' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'payments']); ?>">পেমেন্ট<?php if ($pending) : ?><i class="ma-badge"><?php echo esc_html(ma_acc_bn($pending)); ?></i><?php endif; ?></a>
-                    <a class="<?php echo $tab === 'notices' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'notices']); ?>">নোটিফিকেশন</a>
-                    <a class="<?php echo $tab === 'feedback' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'feedback']); ?>">মতামত<?php if ($fb_new) : ?><i class="ma-badge"><?php echo esc_html(ma_acc_bn($fb_new)); ?></i><?php endif; ?></a>
-                    <a class="<?php echo $tab === 'heirs' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'heirs']); ?>">উত্তরাধিকার<?php if (!empty($v['heirs_pending'])) : ?><i class="ma-badge"><?php echo esc_html(ma_acc_bn($v['heirs_pending'])); ?></i><?php endif; ?></a>
-                    <a class="<?php echo $tab === 'nlu' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'nlu']); ?>">AI মডেল</a>
-                    <a class="<?php echo $tab === 'errors' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'errors']); ?>">সমস্যার লগ</a>
-                    <a class="<?php echo $tab === 'security' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'security']); ?>">নিরাপত্তা<?php if (ma_admin_app_otp() && !ma_totp_on(get_current_user_id())) : ?><i class="ma-badge">!</i><?php endif; ?></a>
-                    <?php if (!empty($v['can_settings'])) : ?><a class="<?php echo $tab === 'finance' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'finance']); ?>">হিসাব</a><?php endif; ?>
-                    <?php if (!empty($v['can_settings'])) : ?><a class="<?php echo $tab === 'ai' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'ai']); ?>">AI খরচ</a><?php endif; ?>
-                    <?php if (!empty($v['can_settings'])) : ?><a class="<?php echo $tab === 'settings' ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'settings']); ?>">সেটিংস</a><?php endif; ?>
-                </nav>
-            </div>
-            <div class="ma-figures">
-                <div class="ma-fig"><span>মোট সদস্য</span><strong><?php echo esc_html(ma_acc_bn(number_format($s['total']))); ?></strong><em>এ মাসে নতুন <?php echo esc_html(ma_acc_bn($s['month_new'] ?? 0)); ?> · আজ <?php echo esc_html(ma_acc_bn($s['today_new'] ?? 0)); ?></em></div>
-                <div class="ma-fig"><span>প্রিমিয়াম</span><strong><?php echo esc_html(ma_acc_bn(number_format($s['pro']))); ?></strong><em><?php echo esc_html(ma_acc_bn($paying_rate)); ?>% সদস্য প্রিমিয়াম নিয়েছেন</em></div>
-                <div class="ma-fig"><span>নতুন মতামত</span><strong><?php echo esc_html(ma_acc_bn(number_format($fb_new))); ?></strong><em>অ্যাপ থেকে সদস্যদের লেখা</em></div>
-                <div class="ma-fig"><span>সক্রিয় (৭ দিনে)</span><strong><?php echo esc_html(ma_acc_bn(number_format($s['active']))); ?></strong><em>গত ৭ দিনে অ্যাপ খুলেছেন</em></div>
-            </div>
-        </header>
+        <div class="ma-shell">
+        <?php ma_ui_side($v, $tab); ?>
+        <main class="ma-main">
 
         <?php if ($v['msg'] !== '') : ?>
             <div class="ma-toast <?php echo $v['msg_type'] === 'error' ? 'bad' : ''; ?>" role="status"><?php echo esc_html($v['msg']); ?></div>
         <?php endif; ?>
 
-        <?php if ($tab === 'ai' && !empty($v['can_settings'])) {
+        <?php if ($tab === 'home') {
+            ma_acc_render_home($v);
+        } elseif ($tab === 'ai' && !empty($v['can_settings'])) {
             ma_acc_render_ai_report($v);
         } elseif ($tab === 'heirs') {
             ma_acc_render_heirs($v['heirs'] ?? []);
@@ -147,13 +120,12 @@ function ma_acc_render($v) {
             ma_acc_render_members($v, $labels);
         } ?>
 
-        <p class="ma-foot">
-            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Zm0 2.2 6 2.2V11c0 4-2.6 7.8-6 9-3.4-1.2-6-5-6-9V6.4l6-2.2Z"/></svg>
-            এখানে শুধু নাম, ইমেইল, ছবি আর প্রিমিয়ামের তথ্য পড়া যায়। সদস্যের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ পড়ার মতো করে কখনো এই সার্ভারে আসে না — ফ্যামিলি বা উত্তরাধিকারীর জন্য যা আসে, তা তালাবদ্ধ; সার্ভার খুলতে পারে না।
-        </p>
+        </main>
+        </div>
     </div>
     <?php
     ma_acc_script();
+    ma_ui_script();
 }
 
 function ma_acc_render_members($v, $labels) {
@@ -403,172 +375,6 @@ function ma_acc_render_members($v, $labels) {
             <h3>সদস্যের তথ্য মুছবেন?</h3>
             <p class="muted"><strong data-f="name"></strong> (<span data-f="email"></span>)-এর নাম, ইমেইল আর প্রিমিয়ামের তথ্য মুছে যাবে। অ্যাপে তাঁর নিজের তথ্য যেমন আছে থাকবে।</p>
             <div class="ma-dialog-actions"><button type="button" class="ma-btn ghost" data-close>বাতিল</button><button class="ma-btn danger" type="submit">মুছুন</button></div>
-        </form>
-    </dialog>
-    <?php
-}
-
-function ma_acc_render_payments($v) {
-    $labels = ma_pay_labels();
-    $plans = $v['plans'];
-    $c = $v['pay_counts'];
-    $post = esc_url(admin_url('admin-post.php'));
-    $tabs = ['pending' => 'দেখার অপেক্ষায়', 'approved' => 'অনুমোদিত', 'rejected' => 'বাতিল', 'all' => 'সব'];
-    ?>
-    <div class="ma-ai-stats ma-pay-sum">
-        <div><strong><?php echo esc_html(ma_acc_bn($c['pending']['n'] ?? 0)); ?></strong><span>দেখার অপেক্ষায়</span></div>
-        <div><strong>৳<?php echo esc_html(ma_acc_bn(number_format($v['pay_month']))); ?></strong><span>এই মাসে অনুমোদিত</span></div>
-        <div><strong><?php echo esc_html(ma_acc_bn($c['approved']['n'] ?? 0)); ?></strong><span>মোট অনুমোদিত</span></div>
-        <div><strong>৳<?php echo esc_html(ma_acc_bn(number_format($c['approved']['amt'] ?? 0))); ?></strong><span>মোট আয় (ওয়েবসাইট)</span></div>
-    </div>
-    <?php $bk = $v['bkash'] ?? null; if ($bk) : $bl = ma_bk_status_labels(); ?>
-    <section class="ma-card">
-        <div class="ma-bar">
-            <div class="ma-bar-title"><h2>বিকাশে আসা টাকা</h2><span class="ma-count">পেমেন্টের সিমের ফোন থেকে</span></div>
-            <div class="ma-bar-actions">
-                <button class="ma-btn ghost" type="button" data-open="ma-bk-paste">বিকাশের SMS পেস্ট করুন</button>
-                <form method="post" action="<?php echo $post; ?>" class="ma-inline-form">
-                    <input type="hidden" name="action" value="ma_bk_settings"><?php wp_nonce_field('ma_bk_settings'); ?>
-                    <input type="hidden" name="auto" value="<?php echo $bk['auto'] ? '' : '1'; ?>">
-                    <button class="ma-btn <?php echo $bk['auto'] ? 'soft' : ''; ?>" type="submit"><?php echo $bk['auto'] ? '✓ নিজে থেকে অনুমোদন চালু' : 'নিজে থেকে অনুমোদন চালু করুন'; ?></button>
-                </form>
-            </div>
-        </div>
-        <div class="ma-bk-status">
-            <div class="<?php echo $bk['phone_set'] ? 'ok' : 'bad'; ?>">
-                <strong><?php echo $bk['phone_set'] ? 'ফোন যুক্ত আছে' : 'ফোন এখনো যুক্ত হয়নি'; ?></strong>
-                <span><?php echo $bk['last_sms'] ? 'শেষ SMS এসেছে ' . esc_html(ma_acc_ago(gmdate('Y-m-d H:i:s', strtotime($bk['last_sms'])))) : 'যে ফোনে পেমেন্টের বিকাশ সিম আছে, তাতে অ্যাডমিন অ্যাপ খুলে: পেমেন্ট › বিকাশ মেলানো › “এই ফোনে চালু করুন”।'; ?></span>
-            </div>
-            <div class="ok"><strong>যা আসে</strong><span>শুধু টাকা, TrxID, কোন নম্বর থেকে, কখন, আর ব্যালেন্স মিলেছে কিনা (হ্যাঁ/না) — ব্যালেন্সের অঙ্ক, মেসেজের বাকি লেখা বা ফোনের অন্য কিছু আসে না।</span></div>
-            <div class="ok"><strong>কখন চালু হয়</strong><span>নিজে থেকে অনুমোদন চালু থাকলে: TrxID মিললে, অন্তত প্ল্যানের দাম এলে, আর পেমেন্টের ফোন বিকাশের ব্যালেন্স মিলিয়ে মেসেজটা আসল বলে নিশ্চিত হলে। ভুয়া “bKash” SMS ব্যালেন্স জানে না, তাই সেটা আপনার জন্য অপেক্ষা করে। ফোন যুক্ত করার পর প্রথম মেসেজটাও অপেক্ষা করে (তখনো আগের ব্যালেন্স জানা থাকে না)।</span></div>
-        </div>
-        <?php if ($bk['received']) : ?>
-            <div class="ma-table-wrap">
-                <table class="ma-table">
-                    <thead><tr><th>TrxID</th><th>টাকা</th><th>কোন নম্বর থেকে</th><th class="hide-s">কখন</th><th>অবস্থা</th></tr></thead>
-                    <tbody>
-                    <?php foreach ($bk['received'] as $r) : $l = $bl[$r['status']] ?? [$r['status'], 'free']; ?>
-                        <tr>
-                            <td class="ma-mono"><?php echo esc_html($r['trx']); ?><?php if ($r['source'] === 'manual') : ?><span class="ma-ver">হাতে পেস্ট</span><?php endif; ?></td>
-                            <td><strong>৳<?php echo esc_html(ma_acc_bn(number_format($r['amount']))); ?></strong></td>
-                            <td class="ma-mono"><?php echo esc_html($r['sender'] !== '' ? $r['sender'] : '—'); ?></td>
-                            <td class="hide-s muted"><?php echo esc_html(ma_acc_ago(gmdate('Y-m-d H:i:s', strtotime($r['at'])))); ?></td>
-                            <td><span class="ma-pill <?php echo esc_attr($l[1]); ?>"><?php echo esc_html($l[0]); ?></span></td>
-                        </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        <?php else : ?>
-            <p class="muted ma-pad">এখনো বিকাশ থেকে কিছু আসেনি।</p>
-        <?php endif; ?>
-    </section>
-    <dialog class="ma-dialog" id="ma-bk-paste">
-        <form method="post" action="<?php echo $post; ?>">
-            <input type="hidden" name="action" value="ma_bk_paste"><?php wp_nonce_field('ma_bk_paste'); ?>
-            <h3>বিকাশের SMS পেস্ট করুন</h3>
-            <p class="muted">ফোন যুক্ত না থাকলে বা কোনো SMS বাদ পড়লে: বিকাশের “You have received Tk …” মেসেজটা পুরোটা পেস্ট করুন। এখান থেকে শুধু টাকা, TrxID, নম্বর আর সময় পড়ে রাখা হয়।</p>
-            <label>মেসেজ<textarea name="text" rows="5" required placeholder="You have received Tk 999.00 from 01XXXXXXXXX. … TrxID 9A7KX2PQ1M at 27/10/2026 15:02"></textarea></label>
-            <div class="ma-dialog-actions"><button type="button" class="ma-btn ghost" data-close>বাতিল</button><button class="ma-btn" type="submit">মেলান</button></div>
-        </form>
-    </dialog>
-    <?php endif; ?>
-    <section class="ma-card">
-        <div class="ma-bar">
-            <div class="ma-bar-title"><h2>পেমেন্ট</h2><span class="ma-count">ওয়েবসাইট থেকে জমা</span></div>
-            <div class="ma-bar-actions"><button class="ma-btn ghost" type="button" data-open="ma-pay-set">পেমেন্টের মাধ্যম ও দাম</button></div>
-        </div>
-        <div class="ma-tools">
-            <div class="ma-chips">
-                <?php foreach ($tabs as $k => $l) : ?>
-                    <a class="ma-chip <?php echo $v['pst'] === $k ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'payments', 'pst' => $k]); ?>"><?php echo esc_html($l); ?><?php if ($k !== 'all' && !empty($c[$k]['n'])) : ?> · <?php echo esc_html(ma_acc_bn($c[$k]['n'])); ?><?php endif; ?></a>
-                <?php endforeach; ?>
-            </div>
-        </div>
-        <?php if (!$v['payments']) : ?>
-            <div class="ma-empty">
-                <div class="ma-empty-art" aria-hidden="true"><svg viewBox="0 0 24 24" width="34" height="34"><path fill="currentColor" d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 2v2h16V7H4Zm0 5v5h16v-5H4Zm2 2h5v2H6v-2Z"/></svg></div>
-                <h3><?php echo $v['pst'] === 'pending' ? 'দেখার মতো কোনো পেমেন্ট নেই' : 'এখানে কিছু নেই'; ?></h3>
-                <p>ওয়েবসাইটের যেকোনো পাতায় <code>[my_assistant_payment]</code> লিখলে পেমেন্টের ফর্ম দেখাবে। কেউ জমা দিলে এখানে আসবে, আর আপনার ইমেইলেও জানানো হবে।</p>
-            </div>
-        <?php else : ?>
-            <div class="ma-table-wrap">
-                <table class="ma-table">
-                    <thead><tr><th>কে</th><th>প্ল্যান</th><th>মাধ্যম ও নম্বর</th><th>ট্রানজেকশন আইডি</th><th class="hide-s">কবে</th><th>অবস্থা</th><th class="right">কাজ</th></tr></thead>
-                    <tbody>
-                    <?php foreach ($v['payments'] as $p) :
-                        [$label, $cls] = $labels[$p['status']] ?? $labels['pending'];
-                        $data = ['id' => (int) $p['id'], 'name' => $p['name'] !== '' ? $p['name'] : $p['email'], 'email' => $p['email'], 'trx' => $p['trx'], 'method' => $p['method'], 'sender' => $p['sender'],
-                            'amount' => '৳' . ma_acc_bn($p['amount']), 'plan' => $plans[$p['plan']]['label'] ?? $p['plan'], 'note' => $p['note'], 'phone' => $p['phone']];
-                        ?>
-                        <tr>
-                            <td><div class="ma-who-text"><strong><?php echo esc_html($data['name']); ?></strong><span><?php echo esc_html($p['email']); ?></span></div></td>
-                            <td><strong>৳<?php echo esc_html(ma_acc_bn($p['amount'])); ?></strong><span class="ma-ver"><?php echo esc_html($data['plan']); ?></span></td>
-                            <td><?php echo esc_html($p['method']); ?><span class="ma-ver ma-mono"><?php echo esc_html($p['sender']); ?></span></td>
-                            <td><span class="ma-code"><code id="trx-<?php echo (int) $p['id']; ?>"><?php echo esc_html($p['trx']); ?></code><button type="button" class="ma-icon" data-copy="trx-<?php echo (int) $p['id']; ?>" title="কপি" aria-label="কপি"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M8 3h10a2 2 0 0 1 2 2v12h-2V5H8V3Zm-3 4h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm0 2v10h10V9H5Z"/></svg></button></span></td>
-                            <td class="hide-s muted"><?php echo esc_html(ma_acc_ago($p['created_at'])); ?></td>
-                            <td><span class="ma-pill <?php echo esc_attr($cls); ?>"><?php echo esc_html($label); ?></span><?php if ($p['reason'] !== '') : ?><span class="ma-ver"><?php echo esc_html($p['reason']); ?></span><?php endif; ?></td>
-                            <td class="right">
-                                <?php if ($p['status'] === 'pending') : ?>
-                                    <div class="ma-ops">
-                                        <button type="button" class="ma-btn small ghost" data-open="ma-pay-no" data-m="<?php echo esc_attr(wp_json_encode($data)); ?>">বাতিল</button>
-                                        <button type="button" class="ma-btn small" data-open="ma-pay-yes" data-m="<?php echo esc_attr(wp_json_encode($data)); ?>">অনুমোদন</button>
-                                    </div>
-                                <?php else : ?>
-                                    <span class="muted"><?php echo esc_html(ma_acc_date($p['reviewed_at'])); ?></span>
-                                <?php endif; ?>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        <?php endif; ?>
-    </section>
-
-    <dialog class="ma-dialog" id="ma-pay-yes">
-        <form method="post" action="<?php echo $post; ?>">
-            <input type="hidden" name="action" value="ma_pay_review"><input type="hidden" name="decision" value="approve"><input type="hidden" name="id" data-f="id">
-            <?php wp_nonce_field('ma_pay_review'); ?>
-            <h3>পেমেন্ট মিলেছে?</h3>
-            <p class="muted">আগে নিজের <strong data-f="method"></strong> অ্যাকাউন্টে দেখে নিন — এই নম্বর থেকে এই TrxID-তে টাকা এসেছে কি না।</p>
-            <dl class="ma-dl">
-                <dt>টাকা</dt><dd><span data-f="amount"></span> · <span data-f="plan"></span></dd>
-                <dt>যে নম্বর থেকে</dt><dd class="ma-mono" data-f="sender"></dd>
-                <dt>TrxID</dt><dd class="ma-mono" data-f="trx"></dd>
-                <dt>প্রিমিয়াম পাবেন</dt><dd data-f="email"></dd>
-                <dt>নোট</dt><dd data-f="note"></dd>
-            </dl>
-            <div class="ma-dialog-actions"><button type="button" class="ma-btn ghost" data-close>পরে</button><button class="ma-btn" type="submit">মিলেছে — প্রিমিয়াম দিন</button></div>
-        </form>
-    </dialog>
-
-    <dialog class="ma-dialog" id="ma-pay-no">
-        <form method="post" action="<?php echo $post; ?>">
-            <input type="hidden" name="action" value="ma_pay_review"><input type="hidden" name="decision" value="reject"><input type="hidden" name="id" data-f="id">
-            <?php wp_nonce_field('ma_pay_review'); ?>
-            <h3>পেমেন্ট বাতিল করবেন?</h3>
-            <p class="muted"><span data-f="name"></span> · <span data-f="method"></span> · <span class="ma-mono" data-f="trx"></span></p>
-            <label>কারণ (ঐচ্ছিক)<input type="text" name="reason" maxlength="300" placeholder="যেমন: এই TrxID-তে কোনো টাকা আসেনি"></label>
-            <label class="ma-check"><input type="checkbox" name="tell" value="1" checked> ইমেইলে জানিয়ে দিন</label>
-            <div class="ma-dialog-actions"><button type="button" class="ma-btn ghost" data-close>ফিরে যান</button><button class="ma-btn danger" type="submit">বাতিল করুন</button></div>
-        </form>
-    </dialog>
-
-    <dialog class="ma-dialog" id="ma-pay-set">
-        <form method="post" action="<?php echo $post; ?>">
-            <input type="hidden" name="action" value="ma_pay_settings">
-            <?php wp_nonce_field('ma_pay_settings'); ?>
-            <h3>পেমেন্টের মাধ্যম ও দাম</h3>
-            <div class="ma-ai-row two">
-                <label>বার্ষিক (৳)<input type="text" inputmode="numeric" name="yearly" value="<?php echo (int) $plans['yearly']['price']; ?>"></label>
-                <label>মাসিক (৳)<input type="text" inputmode="numeric" name="monthly" value="<?php echo (int) $plans['monthly']['price']; ?>"></label>
-            </div>
-            <label>মাধ্যম — প্রতি লাইনে একটা: <span class="ma-mono">নাম | নম্বর | কীভাবে পাঠাবেন</span>
-                <textarea name="methods" rows="6" spellcheck="false"><?php echo esc_textarea($v['methods_raw']); ?></textarea>
-            </label>
-            <p class="muted ma-tip">ওয়েবসাইটের একটা পাতায় লিখুন <code>[my_assistant_pro]</code> — প্রিমিয়ামের সব সুবিধা, দুই প্ল্যান আর তার নিচে পেমেন্ট ফর্ম একসাথে দেখাবে (শুধু ফর্ম চাইলে <code>[my_assistant_payment]</code>)। Play Store-এর অ্যাপের ভেতরে এই পাতার লিংক বা উল্লেখ দেওয়া যাবে না — এটা Google-এর নিয়ম।</p>
-            <div class="ma-dialog-actions"><button type="button" class="ma-btn ghost" data-close>বাতিল</button><button class="ma-btn" type="submit">রাখুন</button></div>
         </form>
     </dialog>
     <?php
@@ -841,207 +647,6 @@ function ma_acc_render_finance($f) {
             <label>তারিখ<input type="date" name="on_date" value="<?php echo esc_attr(current_time('Y-m-d')); ?>"></label>
             <label>নোট<input type="text" name="note" maxlength="400"></label>
             <div class="ma-dialog-actions"><button type="button" class="ma-btn ghost" data-close>বাতিল</button><button class="ma-btn" type="submit">যোগ করুন</button></div>
-        </form>
-    </dialog>
-    <?php
-}
-
-function ma_acc_render_notices($v) {
-    $o = ma_note_options();
-    $post = esc_url(admin_url('admin-post.php'));
-    ?>
-    <section class="ma-card">
-        <div class="ma-bar">
-            <div class="ma-bar-title"><h2>নোটিফিকেশন</h2><span class="ma-count">সদস্যদের ফোনে</span></div>
-            <div class="ma-bar-actions"><button class="ma-btn" type="button" data-open="ma-note" data-m="<?php echo esc_attr(wp_json_encode(['id' => '', 'title' => '', 'body' => '', 'kind' => 'daily', 'at_time' => '21:00', 'weekday' => 5, 'audience' => 'all', 'cond' => '', 'mic' => true, 'on_date' => '', 'start_date' => '', 'end_date' => ''])); ?>">
-                <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M12 5a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H6a1 1 0 1 1 0-2h5V6a1 1 0 0 1 1-1Z"/></svg> নতুন নোটিফিকেশন</button></div>
-        </div>
-        <p class="muted ma-pad">শর্ত ছাড়া নোটিফিকেশন সার্ভার নিজে ঠিক সময়ে পুশ করে (অ্যাপ বন্ধ থাকলেও যায়)। শর্ত দিলে ফোন নিজে দেখে দেখায় — সদস্যের “চুপ থাকার সময়” আর দিনের সীমা মেনে।</p>
-        <?php if (!$v['notices']) : ?>
-            <div class="ma-empty">
-                <div class="ma-empty-art" aria-hidden="true"><svg viewBox="0 0 24 24" width="34" height="34"><path fill="currentColor" d="M12 2a6 6 0 0 1 6 6v3.6l1.7 3.4A1 1 0 0 1 18.8 16H5.2a1 1 0 0 1-.9-1.4L6 11.6V8a6 6 0 0 1 6-6Zm0 2a4 4 0 0 0-4 4v3.8c0 .2 0 .3-.1.5L6.8 14h10.4l-1.1-1.7a1 1 0 0 1-.1-.5V8a4 4 0 0 0-4-4Zm-2 14h4a2 2 0 1 1-4 0Z"/></svg></div>
-                <h3>এখনো কোনো নোটিফিকেশন নেই</h3>
-                <p>যেমন: প্রতিদিন রাত ৯টায় “আজকের কাজের লিস্ট করেছেন?” — শুধু যাঁরা সেদিন তালিকা করেননি, তাঁদের।</p>
-            </div>
-        <?php else : ?>
-            <div class="ma-notes">
-                <?php foreach ($v['notices'] as $n) :
-                    $when = $n['kind'] === 'once' ? ma_acc_date($n['on_date'] . ' 00:00:00') : ($n['kind'] === 'weekly' ? 'প্রতি ' . $o['weekday'][(int) $n['weekday']] : 'প্রতিদিন');
-                    ?>
-                    <article class="ma-note <?php echo $n['active'] ? '' : 'off'; ?>">
-                        <div class="ma-note-phone" aria-hidden="true">
-                            <span class="ma-note-app"><i></i>My Assistant · <?php echo esc_html(ma_acc_bn($n['at_time'])); ?></span>
-                            <strong><?php echo esc_html($n['title']); ?></strong>
-                            <span><?php echo esc_html($n['body']); ?></span>
-                        </div>
-                        <div class="ma-note-meta">
-                            <span class="ma-pill <?php echo $n['active'] ? 'pro' : 'free'; ?>"><?php echo $n['active'] ? 'চালু' : 'বন্ধ'; ?></span>
-                            <span><?php echo esc_html($when . ' · ' . ma_acc_bn($n['at_time'])); ?></span>
-                            <span><?php echo esc_html($o['audience'][$n['audience']] ?? 'সবাই'); ?></span>
-                            <?php if ($n['cond'] !== '') : ?><span><?php echo esc_html($o['cond'][$n['cond']] ?? ''); ?></span><?php endif; ?>
-                            <?php if ($n['end_date']) : ?><span>শেষ <?php echo esc_html(ma_acc_date($n['end_date'] . ' 00:00:00')); ?></span><?php endif; ?>
-                            <?php $run = $v['note_overview']['runs'][(int) $n['id']] ?? null; if ($run) : ?><span>পাঠানো হয়েছে <?php echo esc_html(ma_acc_bn($run['times'])); ?> বার · <?php echo esc_html(ma_acc_bn($run['sent'])); ?> জনের ফোনে<?php echo $run['failed'] ? ' · পৌঁছায়নি ' . esc_html(ma_acc_bn($run['failed'])) : ''; ?></span><?php endif; ?>
-                        </div>
-                        <div class="ma-note-ops">
-                            <button type="button" class="ma-icon" title="বদলান" aria-label="বদলান" data-open="ma-note" data-m="<?php echo esc_attr(wp_json_encode($n + ['mic' => (bool) $n['mic']])); ?>"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M15.6 3.6a2 2 0 0 1 2.8 0l2 2a2 2 0 0 1 0 2.8L9.2 19.6a2 2 0 0 1-1 .5l-3.9.9a1 1 0 0 1-1.2-1.2l.9-3.9c.1-.4.3-.7.5-1L15.6 3.6ZM17 5l-11 11-.5 2.5L8 18 19 7l-2-2Z"/></svg></button>
-                            <form method="post" action="<?php echo $post; ?>"><input type="hidden" name="action" value="ma_note_toggle"><input type="hidden" name="id" value="<?php echo (int) $n['id']; ?>"><?php wp_nonce_field('ma_note_toggle'); ?><button class="ma-btn small ghost" type="submit"><?php echo $n['active'] ? 'বন্ধ করুন' : 'চালু করুন'; ?></button></form>
-                            <form method="post" action="<?php echo $post; ?>" onsubmit="return confirm('মুছে ফেলবেন?')"><input type="hidden" name="action" value="ma_note_toggle"><input type="hidden" name="delete" value="1"><input type="hidden" name="id" value="<?php echo (int) $n['id']; ?>"><?php wp_nonce_field('ma_note_toggle'); ?><button class="ma-icon danger" type="submit" title="মুছুন" aria-label="মুছুন"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M9 3h6a1 1 0 0 1 1 1v1h4a1 1 0 1 1 0 2h-1l-.9 12.1A2 2 0 0 1 16.1 21H7.9a2 2 0 0 1-2-1.9L5 7H4a1 1 0 0 1 0-2h4V4a1 1 0 0 1 1-1Zm-2 4 .9 12h8.2L17 7H7Z"/></svg></button></form>
-                        </div>
-                    </article>
-                <?php endforeach; ?>
-            </div>
-        <?php endif; ?>
-    </section>
-
-    <?php $ov = $v['note_overview'] ?? null; if ($ov) : $gl = $ov['groups'];
-        // Today and tomorrow here (the cards above say each one's schedule; the admin app shows 7 days).
-        $two = gmdate('Y-m-d', time() + ma_acc_tz_off() + DAY_IN_SECONDS);
-        $ov['upcoming'] = array_values(array_filter($ov['upcoming'], fn($u) => $u['day'] <= $two)); ?>
-    <section class="ma-card" id="ma-next">
-        <div class="ma-bar">
-            <div class="ma-bar-title"><h2>আজ আর কাল কী যাবে</h2><span class="ma-count"><?php echo esc_html(ma_acc_bn(count($ov['upcoming']))); ?>টি</span></div>
-        </div>
-        <p class="muted ma-pad">
-            <?php if ($ov['push_on']) : ?>
-                শর্ত ছাড়া নোটিফিকেশন সার্ভার নিজেই ঠিক সময়ে পুশ করে — অ্যাপ বন্ধ থাকলেও আসে। পুশ পাচ্ছে <?php echo esc_html(ma_acc_bn($ov['phones'])); ?>টি ফোন, তার মধ্যে নতুন অ্যাপে (২.৫৫.১১ বা পরে) <?php echo esc_html(ma_acc_bn($ov['phones_new_app'])); ?>টি; পুরোনো অ্যাপ নিজে খোলার পর তালিকা নিয়ে দেখায়। শর্ত দেওয়া থাকলে ফোন নিজে দেখে দেখায়।
-            <?php else : ?>
-                <strong>Firebase বসানো নেই</strong> — তাই সার্ভার পুশ করতে পারছে না; ফোন নিজে অ্যাপ খোলার পর তালিকা নিয়ে দেখায়। সেটিংস › পুশ নোটিফিকেশনে Firebase বসান।
-            <?php endif; ?>
-        </p>
-        <?php if (!$ov['upcoming']) : ?>
-            <div class="ma-empty"><h3>আজ-কাল কিছু নেই</h3><p>চালু থাকা কোনো নোটিফিকেশন আজ বা কাল পড়েনি।</p></div>
-        <?php else : ?>
-            <div class="ma-table-wrap">
-                <table class="ma-table">
-                    <thead><tr><th>কবে</th><th>সময়</th><th>কী</th><th>কাদের</th><th>কীভাবে যাবে</th></tr></thead>
-                    <tbody>
-                    <?php $prev = ''; foreach ($ov['upcoming'] as $u) : ?>
-                        <tr>
-                            <td><?php echo $u['day'] !== $prev ? '<strong>' . esc_html(ma_acc_date($u['day'] . ' 06:00:00')) . '</strong>' : ''; $prev = $u['day']; ?></td>
-                            <td><?php echo esc_html(ma_acc_bn($u['time'])); ?></td>
-                            <td><strong><?php echo esc_html($u['title']); ?></strong><?php if ($u['body'] !== '') : ?><span class="ma-ver"><?php echo esc_html(mb_substr($u['body'], 0, 90)); ?></span><?php endif; ?></td>
-                            <td><?php echo esc_html($u['audience']); ?><span class="ma-ver"><?php echo esc_html(ma_acc_bn($u['members'])); ?> জন সদস্য</span></td>
-                            <td><span class="ma-pill <?php echo $u['how'] === 'push' ? 'pro' : 'free'; ?>"><?php echo esc_html($u['how'] === 'push' ? 'সার্ভার থেকে পুশ' : 'ফোন নিজে দেখাবে'); ?></span><span class="ma-ver"><?php echo esc_html($u['how'] === 'push' ? ma_acc_bn((int) $u['phones']) . 'টি ফোনে' : $u['how_label']); ?></span></td>
-                        </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        <?php endif; ?>
-    </section>
-
-    <?php $nd = $v['note_day'] ?? null; if ($nd) : $today = gmdate('Y-m-d', time() + ma_acc_tz_off()); ?>
-    <section class="ma-card" id="ma-day">
-        <div class="ma-bar">
-            <div class="ma-bar-title"><h2>অ্যাপ থেকে কোন কোন নোটিফিকেশন যায়</h2><span class="ma-count"><?php echo $nd['day'] === $today ? 'আজ' : esc_html(ma_acc_date($nd['day'] . ' 06:00:00')); ?> · মোট <?php echo esc_html(ma_acc_bn($nd['total'])); ?>টি · <?php echo esc_html(ma_acc_bn($nd['people'])); ?> জন সদস্য</span></div>
-            <div class="ma-chips">
-                <?php for ($i = 0; $i < 7; $i++) : $d = gmdate('Y-m-d', strtotime($today . ' UTC') - $i * DAY_IN_SECONDS); ?>
-                    <a class="ma-chip <?php echo $nd['day'] === $d ? 'on' : ''; ?>" href="<?php echo ma_acc_url(['tab' => 'notices', 'nday' => $d]); ?>#ma-day"><?php echo $i === 0 ? 'আজ' : ($i === 1 ? 'গতকাল' : esc_html(ma_acc_bn((int) substr($d, 8)) . ' ' . ma_acc_month_name(substr($d, 0, 7)))); ?></a>
-                <?php endfor; ?>
-            </div>
-        </div>
-        <div class="ma-rules">
-            <div><strong>দিনে কয়টা:</strong> <?php echo esc_html($nd['rules']['daily']); ?></div>
-            <div><strong>চুপ থাকার সময়:</strong> <?php echo esc_html($nd['rules']['quiet']); ?> — এ সময়ের মনে করানো সকাল ৭টায় যায়। সদস্য সেটিংসে যেকোনোটা বন্ধ করতে পারেন।</div>
-        </div>
-        <div class="ma-day-grid">
-            <div class="ma-table-wrap">
-                <table class="ma-table ma-cat">
-                    <thead><tr><th>কখন</th><th>কোন নোটিফিকেশন</th><th class="right">এদিন কতজন</th><th class="right">কয়টি</th></tr></thead>
-                    <tbody>
-                    <?php foreach ($nd['app'] as $it) : $none = $it['count'] === 0 && $it['failed'] === 0; ?>
-                        <tr class="<?php echo $none ? 'ma-dim' : ''; ?>">
-                            <td><strong><?php echo esc_html($it['times'] ? ma_acc_bn(implode(', ', $it['times'])) : ($it['at'] !== '' ? ma_acc_bn($it['at']) : '—')); ?></strong><?php if ($it['ahead']) : ?><span class="ma-ver"><?php echo esc_html(ma_acc_bn($it['ahead'])); ?>টি আসবে</span><?php endif; ?></td>
-                            <td>
-                                <strong><?php echo esc_html($it['label']); ?></strong>
-                                <?php if (!$it['cap']) : ?><span class="ma-tag">সীমার বাইরে</span><?php endif; ?>
-                                <?php if ($it['by'] === 'server') : ?><span class="ma-tag srv">সার্ভার থেকে পুশ</span><?php endif; ?>
-                                <?php if ($it['off']) : ?><span class="ma-tag">চালু করলে</span><?php endif; ?>
-                                <span class="ma-ver">“<?php echo esc_html($it['sample']); ?>” · <?php echo esc_html($it['when']); ?></span>
-                            </td>
-                            <td class="right"><?php echo $none ? '—' : esc_html(ma_acc_bn($it['people'])); ?></td>
-                            <td class="right"><strong><?php echo $none ? '—' : esc_html(ma_acc_bn($it['count'])); ?></strong><?php if ($it['failed']) : ?> <span class="ma-pill expired"><?php echo esc_html(ma_acc_bn($it['failed'])); ?> পৌঁছায়নি</span><?php endif; ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                    <tr class="ma-dim"><td>—</td><td><strong>সদস্যের নিজের রিমাইন্ডার</strong><span class="ma-ver">অ্যাপ নিজে পাঠায় না — সদস্য যা রাখেন। লেখা ফোনেই থাকে, এখানে শুধু সংখ্যা।</span></td><td class="right"><?php echo esc_html(ma_acc_bn($nd['reminders']['people'])); ?></td><td class="right"><?php echo esc_html(ma_acc_bn($nd['reminders']['count'])); ?></td></tr>
-                    </tbody>
-                </table>
-            </div>
-            <div class="ma-table-wrap">
-                <table class="ma-table">
-                    <thead><tr><th>কে দিনে কতগুলো পাচ্ছে</th><th class="right">গড় <?php echo esc_html(ma_acc_bn($nd['avg'])); ?> · সর্বোচ্চ <?php echo esc_html(ma_acc_bn($nd['max'])); ?></th></tr></thead>
-                    <tbody>
-                    <?php if (!$nd['members']) : ?><tr><td colspan="2" class="muted">এই দিনে কিছু নেই। সদস্যরা নতুন অ্যাপ খুললে তাঁদের ফোনের তালিকা এখানে আসে।</td></tr><?php endif; ?>
-                    <?php foreach (array_slice($nd['members'], 0, 100) as $m) : ?>
-                        <tr><td><?php echo esc_html($m['name'] !== '' ? $m['name'] : $m['email']); ?><span class="ma-ver"><?php echo esc_html($m['email']); ?></span></td><td class="right"><strong><?php echo esc_html(ma_acc_bn($m['count'])); ?></strong><?php if ($m['reminders']) : ?><span class="ma-ver">+ নিজের রিমাইন্ডার <?php echo esc_html(ma_acc_bn($m['reminders'])); ?></span><?php endif; ?><?php if ($m['failed']) : ?><span class="ma-ver" style="color:var(--rose)"><?php echo esc_html(ma_acc_bn($m['failed'])); ?> পৌঁছায়নি</span><?php endif; ?></td></tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </section>
-    <?php endif; ?>
-
-    <?php ma_note_render_rules(); ?>
-
-    <section class="ma-card" id="ma-daily">
-        <div class="ma-bar"><div class="ma-bar-title"><h2>গত ১৪ দিনে দিনে কতটি</h2><span class="ma-count">সব সদস্য মিলে · দিনে চাপলে সেদিনের তালিকা</span></div></div>
-        <p class="muted ma-pad">সদস্যদের ফোনে যা দেখানো হয়েছে আর আমরা যা পুশ করেছি, ধরন অনুযায়ী গোনা।</p>
-        <?php $mx = max(1, max(array_column($ov['days'], 'total'))); ?>
-        <div class="ma-table-wrap">
-            <table class="ma-table ma-daily">
-                <thead><tr><th>দিন</th><th>মোট</th><?php foreach ($gl as $k => $l) : ?><th class="right hide-s"><?php echo esc_html($l); ?></th><?php endforeach; ?><th class="right">পৌঁছায়নি</th></tr></thead>
-                <tbody>
-                <?php foreach ($ov['days'] as $d) : ?>
-                    <tr>
-                        <td><a href="<?php echo ma_acc_url(['tab' => 'notices', 'nday' => $d['day']]); ?>#ma-day"><?php echo esc_html(ma_acc_date($d['day'] . ' 06:00:00')); ?></a></td>
-                        <td><div class="ma-meter"><i style="width:<?php echo (int) round($d['total'] / $mx * 100); ?>%"></i><b><?php echo esc_html(ma_acc_bn($d['total'])); ?></b></div></td>
-                        <?php foreach ($gl as $k => $l) : ?><td class="right hide-s <?php echo $d[$k] ? '' : 'muted'; ?>"><?php echo esc_html(ma_acc_bn($d[$k])); ?></td><?php endforeach; ?>
-                        <td class="right"><?php echo $d['failed'] ? '<span class="ma-pill expired">' . esc_html(ma_acc_bn($d['failed'])) . '</span>' : '<span class="muted">০</span>'; ?></td>
-                    </tr>
-                <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </section>
-    <?php endif; ?>
-
-    <section class="ma-card">
-        <div class="ma-bar"><div class="ma-bar-title"><h2>এখনই পাঠান</h2><span class="ma-count">পুশ</span></div></div>
-        <form class="ma-pad" method="post" action="<?php echo $post; ?>">
-            <input type="hidden" name="action" value="ma_push_now"><?php wp_nonce_field('ma_push_now'); ?>
-            <div class="ma-ai-row three">
-                <label>শিরোনাম<input type="text" name="title" maxlength="120" required></label>
-                <label>লেখা<input type="text" name="body" maxlength="400"></label>
-                <label>কাকে<select name="audience"><?php foreach (ma_note_options()['audience'] as $k => $l) : ?><option value="<?php echo esc_attr($k); ?>"><?php echo esc_html($l); ?></option><?php endforeach; ?></select></label>
-            </div>
-            <button class="ma-btn" type="submit" onclick="return confirm('এখনই পাঠাবেন?')">পাঠান</button>
-        </form>
-    </section>
-
-    <dialog class="ma-dialog wide" id="ma-note">
-        <form method="post" action="<?php echo $post; ?>">
-            <input type="hidden" name="action" value="ma_note_save"><input type="hidden" name="id" data-f="id">
-            <?php wp_nonce_field('ma_note_save'); ?>
-            <h3>নোটিফিকেশন</h3>
-            <label>শিরোনাম<input type="text" name="title" data-f="title" maxlength="120" required placeholder="আজকের কাজের লিস্ট করেছেন?"></label>
-            <label>লেখা<input type="text" name="body" data-f="body" maxlength="400" placeholder="চাপুন আর বলুন — কাল কী কী করবেন, লিখে রাখবো।"></label>
-            <div class="ma-ai-row three">
-                <label>কখন<select name="kind" data-f="kind"><?php foreach ($o['kind'] as $k => $l) : ?><option value="<?php echo esc_attr($k); ?>"><?php echo esc_html($l); ?></option><?php endforeach; ?></select></label>
-                <label>সময়<input type="time" name="at_time" data-f="at_time" required></label>
-                <label>কোন দিন (সাপ্তাহিক)<select name="weekday" data-f="weekday"><?php foreach ($o['weekday'] as $k => $l) : ?><option value="<?php echo (int) $k; ?>"><?php echo esc_html($l); ?></option><?php endforeach; ?></select></label>
-            </div>
-            <div class="ma-ai-row three">
-                <label>তারিখ (একবারের)<input type="date" name="on_date" data-f="on_date"></label>
-                <label>শুরু (ঐচ্ছিক)<input type="date" name="start_date" data-f="start_date"></label>
-                <label>শেষ (ঐচ্ছিক)<input type="date" name="end_date" data-f="end_date"></label>
-            </div>
-            <div class="ma-ai-row two">
-                <label>কাদের<select name="audience" data-f="audience"><?php foreach ($o['audience'] as $k => $l) : ?><option value="<?php echo esc_attr($k); ?>"><?php echo esc_html($l); ?></option><?php endforeach; ?></select></label>
-                <label>শর্ত (ফোন নিজে দেখে নেয়)<select name="cond" data-f="cond"><?php foreach ($o['cond'] as $k => $l) : ?><option value="<?php echo esc_attr($k); ?>"><?php echo esc_html($l); ?></option><?php endforeach; ?></select></label>
-            </div>
-            <label class="ma-check"><input type="checkbox" name="mic" value="1" data-f="mic"> চাপলে মাইক খুলবে (সদস্য সাথে সাথে বলতে পারবেন)</label>
-            <div class="ma-dialog-actions"><button type="button" class="ma-btn ghost" data-close>বাতিল</button><button class="ma-btn" type="submit">রাখুন</button></div>
         </form>
     </dialog>
     <?php
