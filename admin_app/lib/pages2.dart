@@ -136,7 +136,9 @@ class _MembersPageState extends State<MembersPage> {
               if ('${m['source_label'] ?? ''}'.isNotEmpty && m['source_label'] != '—') Pill('${m['source_label']}', c.brand, c.tint),
               if (m['pro_until'] != null) Pill('প্রিমিয়াম পর্যন্ত ${date('${m['pro_until']}')}', c.ink, c.ground),
               Pill('যোগ ${date('${m['joined']}')}', c.muted, c.ground),
-              Pill('শেষ দেখা ${ago('${m['last_seen']}')}', c.muted, c.ground),
+              Pill('শেষ খুলেছেন ${ago('${m['last_seen']}')}', c.muted, c.ground),
+              // Average time in the app a day, the last 14 days (owner, 4 Nov).
+              if (((m['use_days'] as num?) ?? 0) > 0) Pill('দিনে গড় ${useWords((m['use_avg_secs'] as num).toInt())} · ১৪ দিনে ${bn(m['use_days'])} দিন', c.ink, c.ground),
               if ('${m['version']}'.isNotEmpty) Pill('${m['version']}', c.muted, c.ground),
             ]),
             if ('${m['note']}'.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 10), child: Text('নোট: ${m['note']}', style: text(14, color: c.ink))),

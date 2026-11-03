@@ -325,10 +325,13 @@ class AccountServer {
 
   /// The plan now (Pro given on the website shows up without signing in
   /// again). Null when offline; [SessionExpired] when the server forgot us.
-  Future<AccountInfo?> me(String session) async {
+  /// [usage]: seconds the app was in front, per day — only how long, for
+  /// the site's members list (owner, 4 Nov).
+  Future<AccountInfo?> me(String session, {Map<String, int> usage = const {}}) async {
     if (!configured || session.isEmpty) return null;
     try {
-      final r = await _http.get(Uri.parse('$base/wp-json/my-assistant/v1/me'), headers: {'authorization': 'Bearer $session'}).timeout(const Duration(seconds: 15));
+      final headers = {'authorization': 'Bearer $session', if (usage.isNotEmpty) 'x-ma-usage': [for (final e in usage.entries) '${e.key}:${e.value}'].join(',')};
+      final r = await _http.get(Uri.parse('$base/wp-json/my-assistant/v1/me'), headers: headers).timeout(const Duration(seconds: 15));
       if (r.statusCode == 401) throw const SessionExpired();
       if (r.statusCode != 200) return null;
       return AccountInfo.fromJson(jsonDecode(r.body) as Map<String, dynamic>);

@@ -46,6 +46,14 @@ ThemeData adminTheme(Brightness b) {
 TextStyle text(double size, {FontWeight weight = FontWeight.w400, Color? color, double? height}) =>
     TextStyle(fontFamily: 'Hind', fontSize: size, fontWeight: weight, color: color, height: height);
 
+/// Seconds as plain words, as on the site: "৪৫ সেকেন্ড", "১২ মিনিট", "১ ঘণ্টা ২০ মিনিট".
+String useWords(int secs) {
+  if (secs < 60) return '${bn(secs)} সেকেন্ড';
+  final m = (secs / 60).round();
+  if (m < 60) return '${bn(m)} মিনিট';
+  return '${bn(m ~/ 60)} ঘণ্টা${m % 60 > 0 ? ' ${bn(m % 60)} মিনিট' : ''}';
+}
+
 String bn(Object n) => '$n'.replaceAllMapped(RegExp('[0-9]'), (m) => '০১২৩৪৫৬৭৮৯'[int.parse(m[0]!)]);
 
 /// "১,২৮৪".

@@ -369,3 +369,76 @@ add_action('init', function () {
     }
     ma_acc_print_page($job['q'], $job['status'], $job['joined'], $job['src']);
 });
+
+// ── How long each member uses the app (owner, 4 Nov) ──
+// The phone sends only seconds in front per day (x-ma-usage with /me); the
+// list shows the average a day over the last 14 days and on how many days.
+
+function ma_use_table() {
+    global $wpdb;
+    return $wpdb->prefix . 'ma_usage';
+}
+
+function ma_use_install() {
+    global $wpdb;
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta('CREATE TABLE ' . ma_use_table() . " (
+        user_id bigint(20) unsigned NOT NULL,
+        day date NOT NULL,
+        secs int(10) unsigned NOT NULL DEFAULT 0,
+        PRIMARY KEY  (user_id,day)
+    ) " . $wpdb->get_charset_collate() . ';');
+}
+
+/** "2026-11-03:720,2026-11-02:1800" from the phone → kept (a day's total only grows). */
+function ma_use_receive($user_id, $header) {
+    global $wpdb;
+    $t = ma_use_table();
+    $from = gmdate('Y-m-d', time() - 15 * DAY_IN_SECONDS);
+    $to = gmdate('Y-m-d', time() + DAY_IN_SECONDS);
+    $n = 0;
+    foreach (array_slice(explode(',', (string) $header), 0, 20) as $part) {
+        if (!preg_match('/^(\d{4}-\d{2}-\d{2}):(\d{1,6})$/', trim($part), $m) || $m[1] < $from || $m[1] > $to) {
+            continue;
+        }
+        $secs = min(86400, (int) $m[2]);
+        $old = $wpdb->get_var($wpdb->prepare("SELECT secs FROM $t WHERE user_id = %d AND day = %s", $user_id, $m[1]));
+        if ($old === null) {
+            $wpdb->insert($t, ['user_id' => (int) $user_id, 'day' => $m[1], 'secs' => $secs]);
+        } elseif ($secs > (int) $old) {
+            $wpdb->update($t, ['secs' => $secs], ['user_id' => (int) $user_id, 'day' => $m[1]]);
+        }
+        $n++;
+    }
+    $wpdb->query($wpdb->prepare("DELETE FROM $t WHERE day < %s", gmdate('Y-m-d', time() - 60 * DAY_IN_SECONDS)));
+    return $n;
+}
+
+/** user id → ['avg' => seconds a day on days used, 'days' => days used] over the last 14 days. */
+function ma_use_summary(array $ids) {
+    global $wpdb;
+    $ids = array_values(array_filter(array_map('intval', $ids)));
+    if (!$ids) {
+        return [];
+    }
+    $in = implode(',', $ids);
+    $out = [];
+    foreach ($wpdb->get_results($wpdb->prepare('SELECT user_id, COUNT(*) AS days, SUM(secs) AS total FROM ' . ma_use_table() . " WHERE user_id IN ($in) AND day >= %s AND secs > 0 GROUP BY user_id", gmdate('Y-m-d', time() - 14 * DAY_IN_SECONDS)), ARRAY_A) ?: [] as $r) {
+        $out[(int) $r['user_id']] = ['avg' => (int) round($r['total'] / max(1, $r['days'])), 'days' => (int) $r['days']];
+    }
+    return $out;
+}
+
+/** Seconds as plain words: "৪৫ সেকেন্ড", "১২ মিনিট", "১ ঘণ্টা ২০ মিনিট". */
+function ma_use_words($secs) {
+    $secs = (int) $secs;
+    if ($secs < 60) {
+        return ma_acc_bn($secs) . ' সেকেন্ড';
+    }
+    $m = (int) round($secs / 60);
+    if ($m < 60) {
+        return ma_acc_bn($m) . ' মিনিট';
+    }
+    return ma_acc_bn(intdiv($m, 60)) . ' ঘণ্টা' . ($m % 60 ? ' ' . ma_acc_bn($m % 60) . ' মিনিট' : '');
+}
+

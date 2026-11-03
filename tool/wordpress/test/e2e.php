@@ -116,6 +116,17 @@ check($code === 400, 'other models refused');
 check((int) $wpdb->get_var("SELECT requests FROM {$wpdb->prefix}ma_ai_usage") === 1, 'usage counted (no text kept)');
 [$code, $d] = call('GET', '/me', [], $ses);
 check($code === 200 && $d['ai_left'] === 29, '/me: 29 left');
+// Time in the app (owner, 4 Nov): only seconds a day come, with /me.
+$req = new WP_REST_Request('GET', '/my-assistant/v1/me');
+$req->set_header('authorization', 'Bearer ' . $ses);
+$today = gmdate('Y-m-d'); $yday = gmdate('Y-m-d', time() - DAY_IN_SECONDS);
+$req->set_header('x-ma-usage', "$today:600,$yday:1800,1999-01-01:999,bad,$today:abc");
+rest_do_request($req);
+$req->set_header('x-ma-usage', "$today:300");
+rest_do_request($req); // an older, smaller total never lowers the day
+$meId = (int) $wpdb->get_var($wpdb->prepare('SELECT user_id FROM ' . ma_ai_sessions_table() . ' WHERE token_hash = %s', hash('sha256', $ses)));
+$us = ma_use_summary([$meId])[$meId] ?? null;
+check($us && $us['days'] === 2 && $us['avg'] === 1200 && (int) $wpdb->get_var('SELECT COUNT(*) FROM ' . ma_use_table()) === 2 && ma_use_words(1200) === '২০ মিনিট' && ma_use_words(5400) === '১ ঘণ্টা ৩০ মিনিট', 'usage: minutes a day kept, old or bad days dropped, average 20 minutes');
 
 echo "\nAI cost by model, budgets and answer sources\n";
 $usage = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}ma_ai_usage WHERE model = 'claude-haiku-5-5'", ARRAY_A);
@@ -1205,6 +1216,8 @@ $render = function ($get) {
 $bad = '/(Warning|Notice|Fatal|Deprecated)\b.*on line/';
 $h = $render(['joined' => 'today']);
 check(str_contains($h, 'নতুন সদস্য') && str_contains($h, 'দৈনিক') && str_contains($h, 'মাসিক') && str_contains($h, 'today1@x.com') && !str_contains($h, 'old@x.com') && str_contains($h, 'ma_acc_print') && !preg_match($bad, $h), 'site: members by day, bars, PDF button');
+$h = $render(['tab' => 'members']);
+check(str_contains($h, 'শেষ খুলেছেন') && str_contains($h, 'দিনে গড় ব্যবহার') && str_contains($h, 'ma-name-line') && str_contains($h, 'class="ma-menu"') && !preg_match($bad, $h), 'site: members — plan by the name, last opened, average use, actions behind ⋮');
 $h = $render(['jm' => $oldMonth]);
 check(str_contains($h, 'old@x.com') && !str_contains($h, 'today1@x.com') && !preg_match($bad, $h), 'site: the month picker');
 $h = $render(['src' => 'web']);

@@ -242,13 +242,14 @@ function ma_acc_render_members($v, $labels) {
                         <tr>
                             <th>সদস্য</th>
                             <th class="hide-s">যোগ দিয়েছেন</th>
-                            <th class="hide-m">শেষ দেখা</th>
+                            <th>শেষ খুলেছেন</th>
+                            <th>দিনে গড় ব্যবহার</th>
                             <th class="hide-s">প্রিমিয়াম · কোথা থেকে</th>
                             <th class="right"><span class="screen-reader-text">কাজ</span></th>
                         </tr>
                     </thead>
                     <tbody>
-                    <?php foreach ($v['rows'] as $r) :
+                    <?php $use = ma_use_summary(array_column($v['rows'], 'id')); foreach ($v['rows'] as $r) :
                         $st = ma_acc_status($r);
                         [$label, $cls] = $labels[$st];
                         $data = [
@@ -281,7 +282,8 @@ function ma_acc_render_members($v, $labels) {
                                 </div>
                             </td>
                             <td class="hide-s muted"><?php echo esc_html($data['joined']); ?></td>
-                            <td class="hide-m muted"><?php echo esc_html($data['seen']); ?><?php if ($data['version'] !== '') : ?><span class="ma-ver"><?php echo esc_html($data['version']); ?></span><?php endif; ?></td>
+                            <td class="muted"><?php if ($st === 'waiting') : ?>—<?php else : ?><span class="ma-strong"><?php echo esc_html(ma_acc_date($r['last_seen']) . ', ' . ma_ui_clock($r['last_seen'])); ?></span><span class="ma-ver"><?php echo esc_html($data['seen'] . ($data['version'] !== '' ? ' · ' . $data['version'] : '')); ?></span><?php endif; ?></td>
+                            <td><?php $u = $use[(int) $r['id']] ?? null; if ($u) : ?><span class="ma-strong"><?php echo esc_html(ma_use_words($u['avg'])); ?></span><span class="ma-ver">১৪ দিনে <?php echo esc_html(ma_acc_bn($u['days'])); ?> দিন খুলেছেন</span><?php else : ?><span class="muted">—</span><span class="ma-ver">নতুন অ্যাপে আসবে</span><?php endif; ?></td>
                             <td class="hide-s muted"><?php if (in_array($st, ['pro', 'trial', 'waiting'], true)) : ?><?php echo esc_html($data['until'] . ' পর্যন্ত'); ?><?php if ($data['kind'] !== '—') : ?><span class="ma-ver"><?php echo esc_html($data['kind']); ?></span><?php endif; ?><?php else : ?>—<?php endif; ?></td>
                             <td class="right">
                                 <details class="ma-menu">
@@ -794,7 +796,7 @@ function ma_acc_render_settings($v) {
                 </li>
             </ul>
             <h3>কী রাখা হয়</h3>
-            <p class="muted">Google অ্যাকাউন্টের নাম, ইমেইল, ছবির লিংক, কবে যোগ দিয়েছেন ও শেষ কবে খুলেছেন, অ্যাপের সংস্করণ, ট্রায়াল আর প্রিমিয়াম। এর বেশি কিছু না।</p>
+            <p class="muted">Google অ্যাকাউন্টের নাম, ইমেইল, ছবির লিংক, কবে যোগ দিয়েছেন ও শেষ কবে খুলেছেন, দিনে কত মিনিট অ্যাপ খোলা থাকে (শুধু সময়), অ্যাপের সংস্করণ, ট্রায়াল আর প্রিমিয়াম। এর বেশি কিছু না।</p>
         </section>
     </div>
     <?php

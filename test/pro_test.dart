@@ -432,9 +432,14 @@ void main() {
       expect(b.pro, isTrue);
       expect(await rig.services.lock.keys.read('srv_session'), 'a' * 64);
 
+      // Twelve minutes in the app (owner, 4 Nov): only the seconds of the day go with /me.
+      b.usageStart();
+      rig.nowAt = rig.nowAt.add(const Duration(minutes: 12));
+      await b.usageStop();
       // The server ends Pro: AI goes off at the next refresh.
       await b.refreshAccount(force: true);
       expect(calls.lastWhere((r) => r.url.path.endsWith('/me')).headers['authorization'], 'Bearer ${'a' * 64}');
+      expect(calls.lastWhere((r) => r.url.path.endsWith('/me')).headers['x-ma-usage'], endsWith(':720'));
       expect(b.aiByServer, isFalse);
 
       await b.signOutGoogle();

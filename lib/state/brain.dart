@@ -746,7 +746,7 @@ class Brain extends ChangeNotifier {
     }
     if (session.isEmpty) return;
     try {
-      final info = await services.server.me(session);
+      final info = await services.server.me(session, usage: usageDays());
       if (info != null) await _applyServer(info);
     } on SessionExpired {
       services.ai.session = '';
@@ -1548,6 +1548,43 @@ class Brain extends ChangeNotifier {
     await setPref('open_days', days.skip(days.length > 30 ? days.length - 30 : 0).join(','));
   }
 
+  // ── How long the app is used (owner, 4 Nov: the site shows each member's
+  // average a day). Only minutes per day leave the phone — never what was
+  // done in the app.
+
+  DateTime? _fgSince;
+
+  /// The app came to the front (started, or back from the background).
+  void usageStart() => _fgSince ??= services.now();
+
+  /// The app went to the background: the time in front added to today.
+  Future<void> usageStop() async {
+    final from = _fgSince;
+    _fgSince = null;
+    if (from == null || !loaded) return;
+    final now = services.now();
+    var secs = now.difference(from).inSeconds;
+    if (secs <= 0) return;
+    if (secs > 4 * 3600) secs = 4 * 3600; // a phone left on with the app open is not use
+    final days = usageDays();
+    final k = dayKey(now);
+    days[k] = (days[k] ?? 0) + secs;
+    final keep = (days.keys.toList()..sort()).reversed.take(14).toSet();
+    await setPref('usage_days', [for (final e in days.entries) if (keep.contains(e.key)) '${e.key}:${e.value}'].join(','));
+  }
+
+  /// Seconds in front, per day (yyyy-mm-dd), the last 14 days that had any.
+  Map<String, int> usageDays() {
+    final out = <String, int>{};
+    for (final part in text('usage_days').split(',')) {
+      final i = part.lastIndexOf(':');
+      if (i <= 0) continue;
+      final n = int.tryParse(part.substring(i + 1));
+      if (n != null && n > 0) out[part.substring(0, i)] = n;
+    }
+    return out;
+  }
+
   // ── Health Connect, read only (owner, 27 Oct) ──
 
   /// Whether this phone has it; checked when the health page opens and on resume.
@@ -2333,6 +2370,7 @@ class Brain extends ChangeNotifier {
     notifyListeners();
     await carryOverTasks();
     if (loadError == null) await markOpened();
+    if (loadError == null) usageStart();
     if (loadError == null) await purgeTrash();
     refreshAccount();
     await _reschedule();

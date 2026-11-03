@@ -83,6 +83,14 @@ function ma_ui_side($v, $tab) {
     <?php
 }
 
+/** A UTC "Y-m-d H:i:s" as the site's clock in plain words: "রাত ১০:১৫". */
+function ma_ui_clock($mysql) {
+    $t = ma_acc_ts($mysql) + ma_acc_tz_off();
+    $h = (int) gmdate('G', $t);
+    $part = $h < 5 ? 'রাত' : ($h < 12 ? 'সকাল' : ($h < 16 ? 'দুপুর' : ($h < 18 ? 'বিকাল' : ($h < 20 ? 'সন্ধ্যা' : 'রাত'))));
+    return $part . ' ' . ma_acc_bn(($h % 12 ?: 12) . ':' . gmdate('i', $t));
+}
+
 /** A page's own title line. */
 function ma_ui_head($title, $sub, $actions = '') {
     ?>
@@ -910,6 +918,7 @@ function ma_ui_styles() {
     .ma-preview-k{font-size:12px;color:#A8BCB4;margin-bottom:8px}
     .ma-words{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px}
     .ma-words .ma-chip{cursor:pointer;font:inherit;font-size:12.5px;padding:3px 10px}
+    .ma-strong{color:var(--ink);font-weight:500;white-space:nowrap}
     .ma-name-line{display:flex;align-items:center;gap:8px;min-width:0}
     .ma-name-line strong{min-width:0}
     .ma-name-line .ma-pill{font-size:11.5px;padding:1px 9px 1px 7px;flex:none}

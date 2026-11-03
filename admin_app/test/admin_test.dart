@@ -194,7 +194,7 @@ class FakeServer {
     } else if (p == '/admin/members') {
       memberQueries.add(r.url.queryParameters);
       body = {'count': 3, 'words': r.url.queryParameters['joined'] == 'today' ? 'আজ যোগ দিয়েছেন' : 'সব সদস্য', 'members': [
-        {'id': 1, 'name': 'সাইফুল ইসলাম', 'email': 'saiful.islam@gmail.com', 'picture': '', 'status': 'pro', 'source': 'web', 'source_label': 'ওয়েবসাইট (বিকাশ)', 'pro_until': '2027-08-12T00:00:00Z', 'joined': _ago(const Duration(days: 20)), 'last_seen': _ago(const Duration(hours: 1)), 'version': '2.14.0 play', 'note': ''},
+        {'id': 1, 'name': 'সাইফুল ইসলাম', 'email': 'saiful.islam@gmail.com', 'picture': '', 'status': 'pro', 'source': 'web', 'source_label': 'ওয়েবসাইট (বিকাশ)', 'pro_until': '2027-08-12T00:00:00Z', 'joined': _ago(const Duration(days: 20)), 'last_seen': _ago(const Duration(hours: 1)), 'version': '2.14.0 play', 'note': '', 'use_avg_secs': 1200, 'use_days': 9},
         {'id': 2, 'name': 'Nusrat Jahan', 'email': 'nusrat.j@gmail.com', 'picture': '', 'status': 'trial', 'pro_until': _now.add(const Duration(days: 5)).toIso8601String(), 'joined': _ago(const Duration(days: 2)), 'last_seen': _ago(const Duration(hours: 3)), 'version': '2.14.0 play', 'note': ''},
         {'id': 3, 'name': '', 'email': 'sumon.dhaka@gmail.com', 'picture': '', 'status': 'free', 'pro_until': null, 'joined': _ago(const Duration(days: 30)), 'last_seen': _ago(const Duration(days: 1)), 'version': '2.14.0 direct', 'note': ''},
       ]};
@@ -389,6 +389,7 @@ void main() {
     await t.tap(find.text('সাইফুল ইসলাম'));
     await settle(t);
     expect(find.text('+১ বছর'), findsOneWidget);
+    expect(find.text('দিনে গড় ২০ মিনিট · ১৪ দিনে ৯ দিন'), findsOneWidget);
     await t.tapAt(const Offset(20, 40));
     await settle(t);
     await t.tap(find.text('নোটিফিকেশন').last);
