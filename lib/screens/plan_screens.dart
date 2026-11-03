@@ -11,6 +11,7 @@ export '../logic/day_plan.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/early_picker.dart';
+import '../ui/motion.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'alarm_screens.dart';
@@ -67,16 +68,8 @@ class DoneCircle extends StatelessWidget {
               width: 44,
               height: 44,
               child: Center(
-                child: Container(
-                  width: size,
-                  height: size,
-                  decoration: BoxDecoration(
-                    color: done ? C.green : Colors.transparent,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: done ? C.green : C.inputBorder, width: 2),
-                  ),
-                  child: done ? Icon(Icons.check_rounded, size: size * 0.62, color: C.onAccent) : null,
-                ),
+                // Drawn, not switched on (owner, 3 Nov).
+                child: DrawnTick(done: done, size: size, color: C.green, tickColor: C.onAccent, borderColor: C.inputBorder),
               ),
             ),
           ),

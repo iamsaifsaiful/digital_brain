@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../logic/bn.dart';
 import '../state/brain.dart';
 import '../ui/note_parts.dart';
+import '../ui/motion.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart' show TabTitle, ListRow;
 import 'calls_screen.dart';
@@ -33,6 +34,7 @@ class StoreScreen extends StatelessWidget {
     // Owner, 3 Nov (approved design): the three used most as big cards on
     // their own colour, the rest in one list with what each is for.
     Widget big(Key key, String label, int count, String sub, IconData icon, Color fg, Color bg, VoidCallback onTap) => Expanded(
+          child: Pressable(
           child: Material(
             key: key,
             color: bg,
@@ -59,6 +61,7 @@ class StoreScreen extends StatelessWidget {
                 ),
               ),
             ),
+          ),
           ),
         );
     Widget item(Key key, String label, String sub, IconData icon, Color fg, Color bg, VoidCallback onTap, {int? count, bool warn = false}) => ListRow(

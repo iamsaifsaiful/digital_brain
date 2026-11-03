@@ -13,6 +13,7 @@ import '../state/brain.dart';
 import '../ui/drag_grid.dart';
 import '../ui/forms.dart';
 import '../ui/cat_style.dart';
+import '../ui/motion.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import '../logic/lang.dart';
@@ -448,13 +449,18 @@ class _CashViewState extends State<CashView> {
 
     final balance = sums.balance;
     final ratio = sums.income <= 0 ? (sums.expense > 0 ? 1.0 : 0.0) : (sums.expense / sums.income).clamp(0.0, 1.0);
-    Widget fig(String label, String value, Color color, {Key? key, bool first = false}) => Expanded(
+    // The figures roll to a new amount rather than jump (owner, 3 Nov).
+    Widget fig(String label, int value, Color color, {bool first = false, bool signed = false}) => Expanded(
           child: Container(
             padding: EdgeInsets.only(left: first ? 0 : 12),
             decoration: first ? null : BoxDecoration(border: Border(left: BorderSide(color: C.border))),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(label, key: key, maxLines: 2, style: body(12, color: C.muted, height: 1.3)),
-              FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(value, style: display(17, weight: 700, color: color, height: 1.35))),
+              Text(label, maxLines: 2, style: body(12, color: C.muted, height: 1.3)),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: RollingAmount(value: value, format: (v) => '${signed && v < 0 ? '−' : ''}${taka(v.abs())}', style: display(17, weight: 700, color: color, height: 1.35)),
+              ),
             ]),
           ),
         );
@@ -517,9 +523,9 @@ class _CashViewState extends State<CashView> {
           const SizedBox(height: 12),
           IntrinsicHeight(
             child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              fig(tr('আয়'), taka(sums.income), C.blue, first: true),
-              fig(tr('খরচ'), taka(sums.expense), C.red),
-              fig(_title(current), '${balance < 0 ? '−' : ''}${taka(balance.abs())}', balance < 0 ? C.red : C.ink),
+              fig(tr('আয়'), sums.income, C.blue, first: true),
+              fig(tr('খরচ'), sums.expense, C.red),
+              fig(_title(current), balance, balance < 0 ? C.red : C.ink, signed: true),
             ]),
           ),
           const SizedBox(height: 12),

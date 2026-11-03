@@ -6,6 +6,7 @@ import '../logic/bn.dart';
 import '../logic/cash.dart';
 import '../logic/ledger.dart';
 import '../state/brain.dart';
+import '../ui/motion.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'ledger_form_screen.dart';
@@ -136,7 +137,7 @@ class MoneyScreenState extends State<MoneyScreen> {
             decoration: first ? null : BoxDecoration(border: Border(left: BorderSide(color: C.border))),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(label, style: body(12.5, color: C.muted)),
-              FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(taka(amount), style: display(22, weight: 700, color: color, height: 1.3))),
+              FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: RollingAmount(value: amount, format: taka, style: display(22, weight: 700, color: color, height: 1.3))),
               Text(sub, maxLines: 2, style: body(11.5, color: C.muted, height: 1.35)),
             ]),
           ),

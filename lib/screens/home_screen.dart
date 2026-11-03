@@ -6,6 +6,7 @@ import '../models/models.dart';
 import '../services/notifications.dart';
 import '../state/brain.dart';
 import '../ui/kit.dart';
+import '../ui/motion.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart' show toast;
 import 'alarm_screens.dart';
@@ -258,7 +259,8 @@ class _Action extends StatelessWidget {
   final bool primary;
 
   @override
-  Widget build(BuildContext context) => Tooltip(
+  Widget build(BuildContext context) => Pressable(
+      child: Tooltip(
         message: tip,
         child: Semantics(
           button: true,
@@ -274,6 +276,7 @@ class _Action extends StatelessWidget {
             ),
           ),
         ),
+      ),
       );
 }
 

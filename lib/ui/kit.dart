@@ -2,6 +2,7 @@
 // flat cards with a 1 px hairline, a heading with a counter or a link, the
 // one attention card, small buttons, chips, the tool tile, and the slot that
 // turns between two short facts. Colours come from [C].
+import 'motion.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -125,7 +126,9 @@ class SmallButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fg = primary ? C.onAccent : C.ink;
-    return Material(
+    return Pressable(
+      enabled: onTap != null,
+      child: Material(
       color: primary ? C.green : C.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11), side: BorderSide(color: primary ? C.green : C.border)),
       child: InkWell(
@@ -139,6 +142,7 @@ class SmallButton extends StatelessWidget {
             Text(label, style: body(12.5, weight: primary ? FontWeight.w600 : FontWeight.w500, color: fg)),
           ]),
         ),
+      ),
       ),
     );
   }
