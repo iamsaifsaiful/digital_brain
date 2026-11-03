@@ -1336,7 +1336,10 @@ void main() {
   testWidgets('ringtones can be heard before choosing', (t) async {
     final rig = await start(t);
     await openMenu(t, 'আমি');
-    await t.scrollUntilVisible(find.text('রিমাইন্ডারের রিংটোন'), 200, scrollable: vScroll().first);
+    // আরও › রিমাইন্ডার ও নোটিফিকেশন (owner, 3 Nov: each setting on its own page).
+    await t.scrollUntilVisible(find.byKey(const Key('more-set-remind')), 200, scrollable: vScroll().first);
+    await t.tap(find.byKey(const Key('more-set-remind')));
+    await settle(t);
     await t.ensureVisible(find.text('রিমাইন্ডারের রিংটোন'));
     await settle(t);
     await t.tap(find.text('রিমাইন্ডারের রিংটোন'));
@@ -1651,6 +1654,10 @@ void main() {
     final rig = await start(t);
     await openMenu(t, 'সেটিংস');
     expect(find.byKey(const Key('more-zakat')), findsOneWidget);
+    // আরও › চেহারা ও ভাষা (owner, 3 Nov: each setting on its own page).
+    await t.scrollUntilVisible(find.byKey(const Key('more-set-look')), 200, scrollable: find.byType(Scrollable).last);
+    await t.tap(find.byKey(const Key('more-set-look')));
+    await settle(t);
     await t.scrollUntilVisible(find.text('English'), 200, scrollable: find.byType(Scrollable).last);
     await t.ensureVisible(find.text('English'));
     await settle(t);

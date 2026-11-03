@@ -37,6 +37,9 @@ class MoneyScreen extends StatefulWidget {
 class MoneyScreenState extends State<MoneyScreen> {
   late MoneyPart _part = widget.initial;
 
+  /// ধার-দেনা's filter: everyone, those who owe me, those I owe, settled.
+  String _who = 'all';
+
   void show(MoneyPart p) => setState(() => _part = p);
 
   @override
@@ -44,7 +47,15 @@ class MoneyScreenState extends State<MoneyScreen> {
     final brain = BrainScope.of(context);
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
 
-    return TabPages<MoneyPart>(
+    // One add button at the bottom, by the thumb, as on দিনলিপি (approved design, 3 Nov).
+    final add = switch (_part) {
+      MoneyPart.cash => AddButton(key: const Key('cash-add'), label: tr('লেনদেন যোগ করুন'), onPressed: () => push(const CashFormScreen(kind: CashKind.expense))),
+      MoneyPart.loans => AddButton(key: const Key('loan-add'), label: tr('নতুন লেনদেন'), onPressed: () => push(const LedgerFormScreen())),
+      MoneyPart.projects => null,
+    };
+    return Stack(children: [
+      TabPages<MoneyPart>(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
       items: [(MoneyPart.cash, tr('আয়-ব্যয়')), (MoneyPart.loans, tr('ধার-দেনা')), (MoneyPart.projects, tr('অন্যান্য হিসাব'))],
       value: _part,
       onChanged: show,
@@ -75,7 +86,9 @@ class MoneyScreenState extends State<MoneyScreen> {
         },
         const AdSlot(padding: EdgeInsets.only(top: 16)),
       ],
-    );
+      ),
+      if (add != null) Positioned(right: 16, bottom: 16, child: add),
+    ]);
   }
 
   List<Widget> _loans(BuildContext context, Brain brain, void Function(Widget) push) {
@@ -96,39 +109,107 @@ class MoneyScreenState extends State<MoneyScreen> {
       if (!seen.add(personKey(p.name))) dupNames.add(personKey(p.name));
     }
 
+    final today = dayOnly(now);
+    // The earliest pay date still open for each person.
+    final dueOf = <String, DateTime>{};
+    for (final e in entries) {
+      final k = keys[e.id];
+      final d = e.due;
+      if (k == null || d == null) continue;
+      if (dueOf[k] == null || d.isBefore(dueOf[k]!)) dueOf[k] = d;
+    }
+    final open = people.where((p) => p.balance != 0).toList();
+    final dueNow = [for (final p in open) if (dueOf[p.key] != null && !dayOnly(dueOf[p.key]!).isAfter(today)) p];
+    final getN = people.where((p) => p.balance > 0).length;
+    final giveN = people.where((p) => p.balance < 0).length;
+    final doneN = people.where((p) => p.balance == 0).length;
+    final shown = [
+      for (final p in people)
+        if (_who == 'all' || (_who == 'get' && p.balance > 0) || (_who == 'give' && p.balance < 0) || (_who == 'done' && p.balance == 0)) p
+    ];
+    final net = loans.receivable - loans.payable;
+    final both = loans.receivable + loans.payable;
+
+    Widget half(String label, int amount, Color color, String sub, {bool first = true}) => Expanded(
+          child: Container(
+            padding: EdgeInsets.only(left: first ? 0 : 14),
+            decoration: first ? null : BoxDecoration(border: Border(left: BorderSide(color: C.border))),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, style: body(12.5, color: C.muted)),
+              FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(taka(amount), style: display(22, weight: 700, color: color, height: 1.3))),
+              Text(sub, maxLines: 2, style: body(11.5, color: C.muted, height: 1.35)),
+            ]),
+          ),
+        );
+    String dueText(DateTime d) {
+      final diff = dayOnly(d).difference(today).inDays;
+      if (diff == 0) return tr('ফেরতের দিন আজ');
+      if (diff < 0) return trf('ফেরতের দিন পার হয়েছে · {0}', [shortDate(d)]);
+      return trf('ফেরত {0}', [shortDate(d)]);
+    }
+
     return [
-      Row(children: [
-        Expanded(
-          child: Panel(
-            padding: const EdgeInsets.all(14),
-            child: Figure(
-              label: tr('আমি পাব'),
-              amount: taka(loans.receivable),
-              color: C.green,
-              size: 22,
-              sub: trf('দিয়েছি {0} · ফেরত {1}', [taka(loans.lent), taka(loans.received)]),
-            ),
+      Panel(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          IntrinsicHeight(
+            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              half(tr('আমি পাব'), loans.receivable, C.blue, trf('দিয়েছি {0} · ফেরত {1}', [taka(loans.lent), taka(loans.received)])),
+              half(tr('আমি দেব'), loans.payable, C.red, trf('নিয়েছি {0} · শোধ {1}', [taka(loans.borrowed), taka(loans.repaid)]), first: false),
+            ]),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Panel(
-            padding: const EdgeInsets.all(14),
-            child: Figure(
-              label: tr('আমি দেব'),
-              amount: taka(loans.payable),
-              color: C.orange,
-              size: 22,
-              sub: trf('নিয়েছি {0} · শোধ {1}', [taka(loans.borrowed), taka(loans.repaid)]),
+          if (both > 0) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: SizedBox(
+                height: 6,
+                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  if (loans.receivable > 0) Expanded(flex: loans.receivable, child: ColoredBox(color: C.blue)),
+                  if (loans.payable > 0) Expanded(flex: loans.payable, child: ColoredBox(color: C.red)),
+                ]),
+              ),
             ),
-          ),
+            const SizedBox(height: 6),
+            Text(
+              net == 0 ? tr('সব মিলিয়ে সমান সমান') : trf(net > 0 ? 'সব মিলিয়ে আপনি পাবেন {0}' : 'সব মিলিয়ে আপনি দেবেন {0}', [taka(net.abs())]),
+              key: const Key('loans-net'),
+              style: body(12.5, color: C.muted),
+            ),
+          ],
+        ]),
+      ),
+      // Whose pay date has come: first, with a call (approved design, 3 Nov).
+      for (final p in dueNow.take(2)) ...[
+        const SizedBox(height: 10),
+        Container(
+          key: Key('loan-due-${p.key}'),
+          padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
+          decoration: BoxDecoration(color: C.warnBg, borderRadius: BorderRadius.circular(14), border: Border.all(color: C.warnBorder)),
+          child: Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${p.name} · ${dueText(dueOf[p.key]!)}', style: body(13.5, weight: FontWeight.w600, color: C.warn)),
+                Text(p.balance > 0 ? trf('{0} পাবেন', [taka(p.balance)]) : trf('{0} দেবেন', [taka(-p.balance)]), style: body(12, color: C.warn)),
+              ]),
+            ),
+            if (p.phone.isNotEmpty)
+              IconButton(
+                tooltip: tr('ফোন করুন'),
+                onPressed: () => brain.services.launcher.open(Via.call, p.phone),
+                icon: Icon(Icons.call_outlined, color: C.warn),
+              ),
+            IconButton(
+              tooltip: tr('খুলুন'),
+              onPressed: () => push(PersonScreen(person: p.name, accountKey: p.key)),
+              icon: Icon(Icons.chevron_right_rounded, color: C.warn),
+            ),
+          ]),
         ),
-      ]),
-      const SizedBox(height: 12),
-      PrimaryButton(label: tr('নতুন লেনদেন'), icon: Icons.add_rounded, color: C.fill, height: 48, onPressed: () => push(const LedgerFormScreen())),
+      ],
+      const SizedBox(height: 10),
+      Text(tr('মুখেও বলা যায়: “রহিমকে ৫০০ টাকা ধার দিলাম”'), style: body(12.5, color: C.muted)),
       const SizedBox(height: 6),
-      Text(tr('মুখেও বলা যায়: “রহিমকে ৫০০ টাকা ধার দিলাম”'), style: body(13, color: C.muted)),
-      const SizedBox(height: 16),
       if (people.isEmpty)
         EmptyState(
           icon: Icons.payments_outlined,
@@ -138,29 +219,52 @@ class MoneyScreenState extends State<MoneyScreen> {
           onAction: () => push(const LedgerFormScreen()),
         )
       else ...[
-        SectionTitle(trf('মানুষ · {0}', [bnDigits(people.length)])),
-        Panel(
-          child: Rows(children: [
-            for (final p in people)
-              ListRow(
-                leading: Avatar(name: p.name, fg: balanceColors(p.balance).$1, bg: balanceColors(p.balance).$2),
-                title: p.name,
-                subtitle: [
-                  if (p.phone.isNotEmpty) showPhone(p.phone) else if (dupNames.contains(personKey(p.name))) tr('নম্বর নেই — যোগ করুন'),
-                  if (p.last != null) daysLeftLabel(p.last!, now).replaceAll(' আগে', ''),
-                ].join(' · '),
-                subtitleColor: p.phone.isEmpty && dupNames.contains(personKey(p.name)) ? C.orange : C.muted,
-                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Text(taka(p.balance), style: display(16, weight: 700, color: balanceColor(p.balance))),
-                    Text(p.balance == 0 ? tr('শোধ') : (p.balance > 0 ? tr('পাব') : tr('দেব')), style: body(12, color: C.muted)),
-                  ]),
-                  if (p.balance != 0) LedgerAlarmButton(lines: [for (final e in entries) if (keys[e.id] == p.key) e], balance: p.balance),
-                ]),
-                onTap: () => push(PersonScreen(person: p.name, accountKey: p.key)),
-              ),
+        const SizedBox(height: 6),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: [
+            for (final (k, label) in [
+              ('all', trf('সবাই · {0}', [bnDigits(people.length)])),
+              ('get', trf('পাব · {0}', [bnDigits(getN)])),
+              ('give', trf('দেব · {0}', [bnDigits(giveN)])),
+              ('done', trf('শোধ · {0}', [bnDigits(doneN)])),
+            ]) ...[
+              ChoiceChip(key: Key('loans-$k'), label: Text(label), selected: _who == k, showCheckmark: false, onSelected: (_) => setState(() => _who = k)),
+              const SizedBox(width: 6),
+            ],
           ]),
         ),
+        SectionTitle(trf('মানুষ · {0}', [bnDigits(shown.length)])),
+        if (shown.isEmpty)
+          Panel(padding: const EdgeInsets.all(14), child: Text(tr('এই ভাগে কেউ নেই'), style: body(14, color: C.muted)))
+        else
+          Panel(
+            child: Rows(children: [
+              for (final p in shown)
+                ListRow(
+                  leading: Avatar(
+                    name: p.name,
+                    fg: p.balance > 0 ? C.blue : (p.balance < 0 ? C.red : C.muted),
+                    bg: p.balance > 0 ? C.blueTint : (p.balance < 0 ? C.roseTint : C.surface2),
+                  ),
+                  title: p.name,
+                  subtitle: [
+                    if (p.balance != 0 && dueOf[p.key] != null) dueText(dueOf[p.key]!),
+                    if (p.phone.isNotEmpty) showPhone(p.phone) else if (dupNames.contains(personKey(p.name))) tr('নম্বর নেই — যোগ করুন'),
+                    if (p.last != null) daysLeftLabel(p.last!, now).replaceAll(' আগে', ''),
+                  ].join(' · '),
+                  subtitleColor: (p.balance != 0 && dueOf[p.key] != null && !dayOnly(dueOf[p.key]!).isAfter(today)) || (p.phone.isEmpty && dupNames.contains(personKey(p.name))) ? C.warn : C.muted,
+                  trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text(taka(p.balance.abs()), style: display(16, weight: 700, color: p.balance > 0 ? C.blue : (p.balance < 0 ? C.red : C.muted))),
+                      Text(p.balance == 0 ? tr('শোধ') : (p.balance > 0 ? tr('পাব') : tr('দেব')), style: body(12, color: C.muted)),
+                    ]),
+                    if (p.balance != 0) LedgerAlarmButton(lines: [for (final e in entries) if (keys[e.id] == p.key) e], balance: p.balance) else const SizedBox(width: 48),
+                  ]),
+                  onTap: () => push(PersonScreen(person: p.name, accountKey: p.key)),
+                ),
+            ]),
+          ),
       ],
     ];
   }

@@ -128,8 +128,8 @@ void main() {
     await rig0(t);
     final f = Flow(t, 'more');
     await f.step(find.text('আরও').last);
-    // In আরও's order (owner, 2 Nov): look, reminders, keeping data safe, then help.
-    for (final x in ['রক্তের গ্রুপ', 'বড় লেখা, হোমে ৪টা বড় বোতাম, উত্তর কণ্ঠে শোনাবে — বয়স্কদের জন্য সুবিধা', 'রিমাইন্ডার ঠিকমতো বাজবে তো?', 'রিমাইন্ডারের রিংটোন', 'Google অ্যাকাউন্ট ও ব্যাকআপ', 'PIN বদলান', 'কী কী করা যায়']) {
+    // In আরও's order (owner, 2 Nov; settings as rows, 3 Nov): look, reminders, assistant, keeping data safe, then help.
+    for (final x in ['রক্তের গ্রুপ', 'চেহারা ও ভাষা', 'রিমাইন্ডার ও নোটিফিকেশন', 'সহকারী ও কণ্ঠ', 'তথ্য নিরাপদ রাখা', 'কী কী করা যায়']) {
       // Help is last in আরও now: scroll to each before its step.
       await t.scrollUntilVisible(find.text(x, skipOffstage: false), 200, scrollable: find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first);
       await f.step(find.text(x, skipOffstage: false), press: false, below: 40);
