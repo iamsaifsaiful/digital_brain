@@ -1,3 +1,4 @@
+import 'ui/intro_splash.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -376,7 +377,8 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
         debugShowCheckedModeBanner: false,
         theme: buildTheme(),
         themeAnimationDuration: Duration.zero,
-        home: const _Gate(),
+        // The intro on every start, before the PIN page (owner, 3 Nov).
+        home: const IntroGate(child: _Gate()),
         // The phone's own bars follow the look: the bottom navigation bar
         // takes the screen's colour (it stayed light grey in the dark look).
         builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
