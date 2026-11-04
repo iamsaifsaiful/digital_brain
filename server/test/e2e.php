@@ -180,8 +180,8 @@ check(count($p['records']) === 1 && $p['records'][0]['rid'] === 't1', 'pull sinc
 [$code] = call('POST', '/agent/sent', ['id' => 't0x', 'tail' => '123'], $agentTok);
 check($code === 404, 'an agent cannot touch a send that is not theirs');
 $sent['fcm'] = [];
-call('POST', '/agent/problem', ['id' => 't1', 'note' => 'নম্বর বন্ধ'], $agentTok);
-check(count($sent['fcm']) === 1 && str_contains($sent['fcm'][0]['message']['notification']['body'], 'নম্বর বন্ধ'), 'problem: admins told');
+[$code] = call('POST', '/agent/problem', ['id' => 't1', 'note' => 'নম্বর বন্ধ'], $agentTok);
+check($code === 409 && count($sent['fcm']) === 0, 'no problem on a send already sent');
 
 echo "\nedit, cancel, fault, payment\n";
 $tx2 = ['id' => 't2', 'no' => $no + 1, 'number' => '01712000111', 'taka' => 1000] + $tx;
@@ -444,8 +444,14 @@ check(wp_next_scheduled('rh_gd_daily') !== false, 'daily backup scheduled');
 
 echo "\nagent's problem\n";
 $t7 = ['id' => 't7', 'no' => 27110077, 'customerId' => 'c1', 'agentId' => 'ag1', 'number' => '01812345977', 'method' => 'bkash', 'kind' => 'send', 'sar' => 100, 'rate' => 32.5, 'taka' => 3250, 'fee' => 0, 'pay' => 'cash', 'sarPaid' => 100, 'at' => '2026-11-04T10:00:00.000', 'status' => 'pending'];
+call('POST', '/users/update', ['id' => $agentUser, 'status' => 'active'], $owner);
+[, $d] = call('POST', '/login', ['login' => '01811111111', 'password' => 'agent-pass']);
+$agentTok = $d['token'];
+call('POST', '/device', ['token' => 'agent-phone-token-0123456789'], $agentTok);
 call('POST', '/push', ['records' => [['kind' => 'txn', 'rid' => 't7', 'data' => $t7]]], $owner);
+$sent['fcm'] = [];
 [$code] = call('POST', '/agent/problem', ['id' => 't7', 'note' => 'নম্বর বন্ধ'], $agentTok);
+check(count($sent['fcm']) >= 1 && str_contains($sent['fcm'][0]['message']['notification']['body'], 'নম্বর বন্ধ'), 'problem: admins told');
 $p7 = rh_one('txn', 't7');
 check($code === 200 && $p7['problem'] === 'নম্বর বন্ধ' && ($p7['problemAt'] ?? '') !== '' && rh_has_problem($p7), 'the problem is kept on the send');
 [, $f] = call('GET', '/agent/feed', [], $agentTok);
@@ -462,7 +468,7 @@ check(!rh_has_problem(rh_one('txn', 't7')) && count($sent['fcm']) === 1 && str_c
 $f7 = array_values(array_filter($f['txns'], fn($t) => $t['id'] === 't7'))[0];
 check($f7['problem'] === '' && $f7['status'] === 'pending', 'and it is a request again');
 [$code] = call('POST', '/agent/problem', ['id' => 't0'], $agentTok);
-check($code === 409, 'no problem on a send already sent');
+check($code === 409, 'no problem on a send already sent (t0)');
 call('POST', '/push', ['records' => [['kind' => 'txn', 'rid' => 't7', 'data' => ['status' => 'cancelled'] + rh_one('txn', 't7')]]], $owner);
 
 echo "\ncustomer profile deleted\n";
