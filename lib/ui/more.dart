@@ -7,6 +7,7 @@ import '../core/format.dart';
 import '../core/ledger.dart';
 import '../core/models.dart';
 import '../services/crypto.dart';
+import '../services/api.dart' show ApiError, ApiOffline;
 import '../state/hisab.dart';
 import 'agent.dart';
 import 'home.dart';
@@ -399,6 +400,7 @@ class _OthersTabState extends State<OthersTab> {
                   if (context.mounted) snack(context, 'বদলানো যায়নি — এখনকার পাসওয়ার্ড ঠিক আছে?');
                 }
               }),
+              if (h.isOwner) tile(Icons.restart_alt_rounded, K.redTint, K.red, 'সব হিসাব রিসেট', 'ব্যাকআপ রেখে সব মুছে নতুন করে শুরু', () => resetAll(context, h)),
             ]),
 
           // This phone: lock, notifications, language.
@@ -1161,4 +1163,64 @@ class CustomerSettingsScreen extends StatelessWidget {
           ]),
         );
       });
+}
+
+
+/// The main admin starts over: confirm, password, then the server keeps a
+/// backup and every record, and everything is removed.
+Future<void> resetAll(BuildContext context, Hisab h) async {
+  final ok = await confirm(
+    context,
+    'সব হিসাব মুছে ফেলবেন?',
+    'সব গ্রাহক, লেনদেন, জমা, খরচ, এজেন্ট, লগ — সব মুছে যাবে। আপনি ছাড়া সব এডমিন আর এজেন্টের লগইনও মুছে যাবে, তাদের ফোন থেকে হিসাব চলে যাবে।\n\n'
+        'মোছার আগে একটা ব্যাকআপ নেওয়া হবে: সার্ভারে থাকবে (৩০ দিনের আগে মোছা যাবে না), এই ফোনের Download-এও আসবে। সার্ভারে আগের সব রেকর্ড লগ আকারে থেকে যাবে।',
+    yes: 'হ্যাঁ, রিসেট করব',
+    danger: true,
+  );
+  if (!ok || !context.mounted) return;
+  final pass = await askText(context, 'আপনার সার্ভারের পাসওয়ার্ড', hint: 'লগইনের পাসওয়ার্ড', obscure: true, ok: 'রিসেট করুন');
+  if (pass == null || pass.isEmpty || !context.mounted) return;
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => PopScope(
+      canPop: false,
+      child: AlertDialog(
+        content: Row(children: [
+          const CircularProgressIndicator(),
+          const SizedBox(width: 18),
+          Expanded(child: Tx('ব্যাকআপ নিয়ে রিসেট হচ্ছে…', style: t(15))),
+        ]),
+      ),
+    ),
+  );
+  String? error;
+  (String, int)? done;
+  try {
+    done = await h.resetAll(pass);
+  } on ApiError catch (e) {
+    error = e.status == 403 ? 'পাসওয়ার্ড ভুল — কিছু মোছা হয়নি' : (e.status == 429 ? 'অনেকবার চেষ্টা হয়েছে, ১৫ মিনিট পর আবার' : 'রিসেট হয়নি — কিছু মোছা হয়নি');
+  } on ApiOffline {
+    error = 'ইন্টারনেট নেই — কিছু মোছা হয়নি';
+  } catch (_) {
+    error = 'রিসেট হয়নি — কিছু মোছা হয়নি';
+  }
+  if (!context.mounted) return;
+  Navigator.of(context, rootNavigator: true).pop();
+  if (error != null) {
+    snack(context, error);
+    return;
+  }
+  final (where, no) = done!;
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Tx('রিসেট হয়েছে', style: t(18, w: FontWeight.w600)),
+      content: Tx(
+        'আগের হিসাব সার্ভারে রাখা আছে (রিসেট #${bn('$no')})।${where.isEmpty ? '' : '\nব্যাকআপ ফাইল: $where'}\n\nব্যাকআপ খোলার পাসওয়ার্ড: আপনার সার্ভারের পাসওয়ার্ড (এইমাত্র যা দিলেন)। এখন নতুন করে এজেন্ট যোগ করে শুরু করুন।',
+        style: t(14.5, h: 1.5),
+      ),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Tx('ঠিক আছে', style: t(15, w: FontWeight.w600)))],
+    ),
+  );
 }

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:riyal_hisab/core/ledger.dart';
 import 'package:riyal_hisab/core/models.dart';
 import 'package:riyal_hisab/main.dart';
+import 'package:riyal_hisab/services/api.dart';
 import 'package:riyal_hisab/services/crypto.dart';
 import 'package:riyal_hisab/services/device.dart';
 import 'package:riyal_hisab/services/lock.dart';
@@ -168,6 +169,43 @@ void main() {
     await second.sync();
     expect(second.myCash, 50);
     expect(cashInHand(second.d, me: owner.meId, owner: true), 450);
+  });
+
+  test('reset: wrong password changes nothing; then backup, all gone, other phones signed out', () async {
+    final server = FakeServer()..addUser('owner', 'সাইফুল', 'saiful', 'owner-pass');
+    final dev = FakeDevice();
+    final owner = phone(server, device: dev);
+    await owner.load();
+    await owner.login('saiful', 'owner-pass');
+    await owner.setup(owner: 'সাইফুল', agentName: 'মনোয়ারা স্টোর', agentWhatsapp: '01811111111');
+    final c = await owner.addCustomer(name: 'করিম', phone: '0551234567');
+    await owner.addTxn(draft(c.id, owner.d.agents.single.id));
+    await owner.s.api.post('/users', {'role': 'admin', 'name': 'রহিম', 'login': 'rahim', 'password': 'rahim-pass'});
+    await owner.s.api.post('/users', {'role': 'agent', 'name': 'তন্তু', 'login': 'tontu', 'password': 'agent-pass', 'agent_rid': owner.d.agents.single.id});
+    await owner.sync();
+    final second = phone(server);
+    await second.load();
+    await second.login('rahim', 'rahim-pass');
+    expect(second.d.txns.length, 1);
+
+    await expectLater(owner.resetAll('wrong'), throwsA(isA<ApiError>().having((e) => e.status, 'status', 403)));
+    expect(owner.d.txns.length, 1);
+    expect(server.records.keys.where((k) => k.startsWith('txn:')).length, 1);
+
+    final (where, no) = await owner.resetAll('owner-pass');
+    expect(no, 1);
+    expect(where, 'Download/remit-khata-reset-test.rhb');
+    expect(dev.saved, ['remit-khata-reset-test.rhb']);
+    expect(server.archives.single.keys.where((k) => k.startsWith('txn:')).length, 1, reason: 'kept on the server');
+    expect([...owner.d.txns, ...owner.d.customers, ...owner.d.agents], isEmpty);
+    expect(owner.needsSetup, isTrue);
+    expect(owner.session, isNotNull, reason: 'the main admin stays signed in');
+    expect(owner.d.log.map((e) => e.title), contains('সব হিসাব রিসেট'));
+    expect(server.users.map((u) => u['role']), ['owner']);
+
+    await second.sync();
+    expect(second.session, isNull, reason: 'the other admin is signed out');
+    expect(second.d.txns, isEmpty);
   });
 
   testWidgets('agent app: request, "পাঠিয়েছি" with 3 digits', (tester) async {

@@ -16,6 +16,9 @@ if (!defined('ABSPATH')) {
 
 const RH_VERSION = '1.2.0';
 
+/** The database tables' version: a new one makes rh_install run once. */
+const RH_DB_VERSION = '2';
+
 /** What an admin may do; the main admin may do all of it. */
 const RH_PERMS = [
     'send' => 'নতুন পাঠানো (গ্রাহক যোগসহ)',
@@ -55,6 +58,7 @@ require_once __DIR__ . '/agent.php';
 require_once __DIR__ . '/users.php';
 require_once __DIR__ . '/admin-pages.php';
 require_once __DIR__ . '/gdrive.php';
+require_once __DIR__ . '/reset.php';
 
 function rh_t($name) {
     global $wpdb;
@@ -148,7 +152,19 @@ function rh_install() {
         PRIMARY KEY  (id),
         KEY at (at)
     ) $c;");
-    update_option('rh_db_version', RH_VERSION);
+    // What a reset removed, kept: a backup file and every record in plain.
+    dbDelta('CREATE TABLE ' . rh_t('archives') . " (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        at datetime NOT NULL,
+        by_id bigint(20) unsigned NOT NULL DEFAULT 0,
+        by_name varchar(190) NOT NULL DEFAULT '',
+        summary text NULL,
+        users longtext NULL,
+        data longtext NULL,
+        backup longtext NULL,
+        PRIMARY KEY  (id)
+    ) $c;");
+    update_option('rh_db_version', RH_DB_VERSION);
     if (function_exists('rh_gd_schedule')) {
         rh_gd_schedule();
     }
@@ -159,7 +175,7 @@ register_deactivation_hook(__FILE__, function () {
 });
 
 add_action('init', function () {
-    if (get_option('rh_db_version') !== RH_VERSION) {
+    if (get_option('rh_db_version') !== RH_DB_VERSION) {
         rh_install();
     }
 });

@@ -187,6 +187,31 @@ class Hisab extends ChangeNotifier {
 
   Future<void> changeMyPassword(String old, String now) => s.api.post('/password', {'old': old, 'new': now});
 
+  /// The main admin starts over. The server first keeps a backup of
+  /// everything (locked with [password]) and every record and login; then
+  /// every record, admin and agent login goes, except this one. The backup
+  /// also comes to this phone's Downloads. Returns where it was saved and the
+  /// server's number for the kept copy. Throws [ApiError] 403 for a wrong
+  /// password, [ApiOffline] without internet.
+  Future<(String, int)> resetAll(String password) async {
+    if (session == null || !isOwner) throw const ApiDenied();
+    // What this phone has not sent yet goes into the backup too.
+    await sync();
+    final r = await s.api.post('/reset', {'password': password});
+    final name = '${r['name'] ?? 'remit-khata-reset.rhb'}';
+    String? saved;
+    try {
+      saved = await s.device.saveDownload(base64Decode('${r['backup'] ?? ''}'), name, 'application/octet-stream');
+    } catch (_) {}
+    d = AppData();
+    _photoCache.clear();
+    await s.store.save(d);
+    await rescheduleAll();
+    notifyListeners();
+    await sync();
+    return (saved ?? '', (r['archive'] as num?)?.toInt() ?? 0);
+  }
+
   Future<void> refreshSession() async {
     if (session == null) return;
     try {

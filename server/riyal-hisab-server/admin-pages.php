@@ -35,6 +35,7 @@ function rh_tabs() {
         'errors' => 'সমস্যার লগ',
         'users' => 'লগইন',
         'backup' => 'ব্যাকআপ',
+        'resets' => 'রিসেট',
         'settings' => 'সেটিংস',
     ];
 }
@@ -914,7 +915,7 @@ function rh_tab_backup() {
     </div>
     <h2 class="rh-h">সব রেকর্ডের PDF</h2>
     <p class="rh-muted">প্রতিটা মেনুর ফিল্টারের পাশে "PDF / প্রিন্ট" আছে — যেভাবে ফিল্টার করা, সেভাবেই। খুললে প্রিন্টের ঘরে "Save as PDF" বাছুন। নিচে এক চাপে পুরোটা:</p>
-    <p><?php foreach (rh_tabs() as $k => $label) { if (in_array($k, ['backup', 'settings'], true)) { continue; } printf('<a class="rh-btn rh-pdf" style="margin:3px" target="_blank" href="%s">%s</a>', rh_url($k, ['print' => 1]), esc_html($label)); } ?></p>
+    <p><?php foreach (rh_tabs() as $k => $label) { if (in_array($k, ['backup', 'resets', 'settings'], true)) { continue; } printf('<a class="rh-btn rh-pdf" style="margin:3px" target="_blank" href="%s">%s</a>', rh_url($k, ['print' => 1]), esc_html($label)); } ?></p>
     <?php
 }
 

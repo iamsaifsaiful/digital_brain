@@ -158,9 +158,13 @@ function rh_gd_run() {
         return $done(false, $up->get_error_message());
     }
     // Old backups beyond the newest N go to the bin.
-    $list = rh_gd_api('GET', 'https://www.googleapis.com/drive/v3/files?' . http_build_query(['q' => "'$folder' in parents and trashed = false", 'orderBy' => 'createdTime desc', 'fields' => 'files(id,name)', 'pageSize' => 200]), $token);
+    // Never one younger than 30 days, whatever the setting.
+    $list = rh_gd_api('GET', 'https://www.googleapis.com/drive/v3/files?' . http_build_query(['q' => "'$folder' in parents and trashed = false", 'orderBy' => 'createdTime desc', 'fields' => 'files(id,name,createdTime)', 'pageSize' => 200]), $token);
     if (!is_wp_error($list)) {
         foreach (array_slice($list['files'] ?? [], $s['keep']) as $f) {
+            if (!empty($f['createdTime']) && strtotime($f['createdTime']) > time() - 30 * DAY_IN_SECONDS) {
+                continue;
+            }
             rh_gd_api('PATCH', 'https://www.googleapis.com/drive/v3/files/' . rawurlencode($f['id']), $token, wp_json_encode(['trashed' => true]), ['content-type' => 'application/json']);
         }
     }
@@ -291,7 +295,7 @@ function rh_gd_card() {
             <label>Google OAuth Client ID <input name="client_id" value="<?php echo esc_attr($s['client_id']); ?>" placeholder="….apps.googleusercontent.com"></label>
             <label>Client secret <?php echo $s['client_secret'] !== '' ? '(দেওয়া আছে — বদলাতে চাইলে লিখুন)' : ''; ?><input name="client_secret" type="password" autocomplete="off"></label>
             <label>ব্যাকআপের পাসওয়ার্ড (অন্তত ৮ অক্ষর; ভুলে গেলে ফাইল খোলা যাবে না) <?php echo $s['password'] !== '' ? '(দেওয়া আছে)' : ''; ?><input name="password" type="password" autocomplete="new-password"></label>
-            <label>কতগুলো ব্যাকআপ রাখবে <input name="keep" type="number" min="3" max="365" value="<?php echo esc_attr($s['keep']); ?>"></label>
+            <label>কতগুলো ব্যাকআপ রাখবে (৩০ দিনের কম পুরনো কোনোটা মোছা হয় না) <input name="keep" type="number" min="3" max="365" value="<?php echo esc_attr($s['keep']); ?>"></label>
             <p class="rh-muted">Google Cloud-এ OAuth client (Web application) বানানোর সময় Authorized redirect URI দিন: <code><?php echo esc_html(rh_gd_redirect()); ?></code></p>
             <button class="rh-btn">রাখুন</button>
         </form>

@@ -13,6 +13,7 @@ class FakeServer {
   int rev = 0;
   final serials = <String, int>{};
   final errors = <Map<String, Object?>>[];
+  final archives = <Map<String, Map<String, Object?>>>[];
   bool offline = false;
 
   void addUser(String role, String name, String login, String password, {String agentRid = '', List<String>? perms}) {
@@ -215,6 +216,18 @@ class _FakeApi implements Api {
         return {'ok': true};
       case '/agent/problem':
         return {'ok': true};
+      case '/reset':
+        if (u['role'] != 'owner') _denied();
+        if (u['password'] != body['password']) throw const ApiError(403, 'wrong');
+        s.archives.add(Map.of(s.records));
+        final kept = s.records.length;
+        s.records.clear();
+        s.photos.clear();
+        s.notes.clear();
+        s.users.removeWhere((x) => x['id'] != u['id']);
+        s.sessions.removeWhere((k, _) => k != token);
+        s.put('log', 'sreset', {'id': 'sreset', 'at': DateTime.now().toIso8601String(), 'kind': 'sys', 'title': 'সব হিসাব রিসেট', 'detail': 'রেকর্ড #${s.archives.length}', 'who': u['name'], 'ref': ''});
+        return {'ok': true, 'archive': s.archives.length, 'name': 'remit-khata-reset-test.rhb', 'backup': base64Encode(utf8.encode('RHSBBK1 $kept'))};
       case '/password':
         if (u['password'] != body['old']) throw const ApiError(403, 'wrong');
         u['password'] = body['new'];
