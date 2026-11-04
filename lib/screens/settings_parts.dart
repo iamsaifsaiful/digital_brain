@@ -276,6 +276,39 @@ class LookSection extends StatelessWidget {
           ),
         ]),
         const SizedBox(height: 18),
+        // Owner, 4 Nov: the dark look's colour, from dark ones only.
+        label(tr('অন্ধকারের রঙ'), tr('থিম অন্ধকার হলে পেছনের রঙ — সবগুলোই গাঢ়')),
+        Wrap(spacing: 10, runSpacing: 10, children: [
+          for (final d in darkSets)
+            Semantics(
+              selected: brain.darkKey == d.key,
+              button: true,
+              label: isEn ? d.nameEn : d.name,
+              child: InkWell(
+                key: Key('dark-${d.key}'),
+                borderRadius: BorderRadius.circular(14),
+                onTap: () => brain.setDarkSet(d.key),
+                child: Container(
+                  width: 92,
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
+                  decoration: BoxDecoration(
+                    color: d.ground,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: brain.darkKey == d.key ? C.green : d.line, width: brain.darkKey == d.key ? 2.5 : 1),
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Expanded(child: Container(height: 18, decoration: BoxDecoration(color: d.surface, borderRadius: BorderRadius.circular(6), border: Border.all(color: d.line)))),
+                      if (brain.darkKey == d.key) ...[const SizedBox(width: 4), Icon(Icons.check_circle_rounded, size: 16, color: C.green)],
+                    ]),
+                    const SizedBox(height: 6),
+                    Text(isEn ? d.nameEn : d.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: d.muted2, height: 1.2)),
+                  ]),
+                ),
+              ),
+            ),
+        ]),
+        const SizedBox(height: 18),
         label(tr('লেখার আকার')),
         SegTabs<double>(
           items: [(1.0, tr('সাধারণ')), (1.15, tr('বড়')), (1.3, tr('আরও বড়'))],

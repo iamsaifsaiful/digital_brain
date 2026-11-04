@@ -113,12 +113,13 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       Look.sun => duskMix(brain),
     };
     final size = brain.easyMode ? (brain.letterSize < 1.15 ? 1.15 : brain.letterSize) : brain.letterSize;
-    final stamp = '${mix.toStringAsFixed(2)}|${brain.accentKey}|${brain.english}|$size';
+    final stamp = '${mix.toStringAsFixed(2)}|${brain.accentKey}|${brain.darkKey}|${brain.english}|$size';
     if (stamp == _lookStamp) return false;
     _lookStamp = stamp;
     C.mix = mix;
     C.dark = mix >= 0.5;
     C.accent = accentFor(brain.accentKey);
+    C.darkSet = darkSetFor(brain.darkKey);
     isEn = brain.english;
     textScale = size;
     return true;

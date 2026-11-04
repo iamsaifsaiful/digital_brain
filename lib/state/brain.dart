@@ -1397,6 +1397,15 @@ class Brain extends ChangeNotifier {
     await _put('look', v.name);
   }
 
+  /// The dark look's colours (owner, 4 Nov): 'night' … see [darkSets].
+  String darkKey = 'night';
+
+  Future<void> setDarkSet(String key) async {
+    darkKey = key;
+    notifyListeners();
+    await _put('dark_set', key);
+  }
+
   Future<void> setAccent(String key) async {
     accentKey = key;
     notifyListeners();
@@ -1455,6 +1464,7 @@ class Brain extends ChangeNotifier {
       final saved = await keys.read('look');
       look = Look.values.firstWhere((l) => l.name == saved, orElse: () => Look.sun);
       accentKey = await keys.read('accent') ?? 'amber';
+      darkKey = await keys.read('dark_set') ?? 'night';
       english = (await keys.read('lang')) == 'en';
       letterSize = double.tryParse(await keys.read('letter_size') ?? '') ?? 1.0;
       easyMode = (await keys.read('easy_mode')) == 'true';
@@ -1695,6 +1705,8 @@ class Brain extends ChangeNotifier {
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly', 'n_quote', 'n_fix',
     'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'blood_last_unknown', 'blood_phone', 'blood_sync', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'zakat_gold_carat', 'zakat_gold_list', 'order_home_tools', 'order_doc_folders', 'order_projects', 'hol_abroad', 'g_card_off', 'p_card_off', 'trace_on', 'trace_share', 'hc_on', 'hc_gone', 'steps_book',
+    // Owner, 4 Nov: time in the app a day; the home picture and what lives on it.
+    'usage_days', 'home_scene', 'scene_weather', 'scene_motion', 'scene_special',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
@@ -1981,6 +1993,14 @@ class Brain extends ChangeNotifier {
   /// The weather last fetched for the user's place (kept 30 minutes) — only
   /// while that is still the place.
   Weather? get weatherNow => _weatherKey == district ? _weather : null;
+
+  /// A test sets the weather the home picture shows.
+  @visibleForTesting
+  void debugWeather(Weather w) {
+    _weather = w;
+    _weatherKey = district;
+    notifyListeners();
+  }
 
   /// Fetches it when older than 30 minutes; the last one when offline.
   Future<Weather?> refreshWeather() async {
