@@ -442,6 +442,17 @@ $patched = array_values(array_filter($drive, fn($d) => $d[0] === 'PATCH'));
 check(count($patched) === 1 && str_contains($patched[0][1], 'old5'), 'only the newest 3 kept, but never one younger than 30 days');
 check(wp_next_scheduled('rh_gd_daily') !== false, 'daily backup scheduled');
 
+echo "\ncustomer profile deleted\n";
+[, $d] = call('POST', '/push', ['records' => [['kind' => 'customer', 'rid' => 'c1', 'data' => ['deleted' => true] + rh_one('customer', 'c1')]]], $owner);
+check($d['saved'] === 0 && empty(rh_one('customer', 'c1')['deleted']), 'a customer who owes cannot be deleted');
+$c5 = ['id' => 'c5', 'name' => 'পুরনো ভাই', 'phone' => '0557777777', 'created' => '2026-11-01T10:00:00.000', 'recipients' => []];
+call('POST', '/push', ['records' => [['kind' => 'customer', 'rid' => 'c5', 'data' => $c5]]], $owner);
+[, $d] = call('POST', '/push', ['records' => [['kind' => 'customer', 'rid' => 'c5', 'data' => ['deleted' => true] + $c5]]], $owner);
+check($d['saved'] === 1 && !empty(rh_one('customer', 'c5')['deleted']), 'nothing owed: the profile is deleted');
+[, $d] = call('POST', '/push', ['records' => [['kind' => 'customer', 'rid' => 'c5', 'data' => $c5]]], $owner);
+check($d['saved'] === 0 && !empty(rh_one('customer', 'c5')['deleted']), 'and stays deleted');
+check(str_contains(page('customers', ['q' => 'পুরনো']), 'ডিলিট'), 'marked in the customers menu');
+
 echo "\nreset: backup, keep, then everything goes\n";
 global $wpdb;
 $txnsBefore = count(rh_all('txn'));

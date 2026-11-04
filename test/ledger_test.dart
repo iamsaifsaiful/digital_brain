@@ -350,6 +350,26 @@ void main() {
       expect(h.txnById(t.id)!.changeNotice, '');
     });
 
+    test('a customer profile deleted: only with nothing owed; gone from lists, sends keep the name', () async {
+      final h = makeHisab(() => DateTime(2026, 11, 4, 10));
+      await h.load();
+      await h.setup(owner: 'সাইফুল', agentName: 'এ', agentWhatsapp: '01800000000');
+      final c = await h.addCustomer(name: 'করিম মিয়া', phone: '+966 55 123 4567');
+      final t = await h.addTxn(draft(customerId: c.id, agentId: h.d.agents.single.id));
+      expect(() => h.deleteCustomer(c), throwsStateError, reason: 'owes 500');
+      expect(c.deleted, isFalse);
+      await h.addDeposit(c, 500);
+      await h.deleteCustomer(c);
+      expect(c.deleted, isTrue);
+      expect(h.searchCustomers(''), isEmpty);
+      expect(h.searchCustomers('করিম'), isEmpty);
+      expect(h.d.liveCustomers, isEmpty);
+      expect(quietCustomers(h.d, h.now.add(const Duration(days: 90))), isEmpty);
+      expect(customerNameOf(h.d, t), 'করিম মিয়া');
+      expect(h.d.log.last.title, 'গ্রাহকের প্রোফাইল ডিলিট');
+      expect(Customer.fromJson(c.toJson()).deleted, isTrue);
+    });
+
     test('a send without a profile: cash only, named on the send', () async {
       final h = makeHisab(() => DateTime(2026, 11, 2, 10));
       await h.load();

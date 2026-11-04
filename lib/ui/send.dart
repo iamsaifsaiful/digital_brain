@@ -164,7 +164,7 @@ class _QuickProfileState extends State<QuickProfile> {
       setState(() => _err = 'সৌদি মোবাইল নম্বর ঠিক নেই — 05 দিয়ে শুরু, মোট ১০ সংখ্যা');
       return;
     }
-    final same = phone.length >= 6 ? widget.h.d.customers.where((c) => en(c.phone).replaceAll(RegExp(r'[^0-9+]'), '') == phone).toList() : <Customer>[];
+    final same = phone.length >= 6 ? widget.h.d.liveCustomers.where((c) => en(c.phone).replaceAll(RegExp(r'[^0-9+]'), '') == phone).toList() : <Customer>[];
     if (same.isNotEmpty) {
       final use = await confirm(context, 'এই নম্বর আগেই আছে', '${same.first.name} — ${bn(same.first.phone)}। তাঁর প্রোফাইল নেবেন?', yes: 'হ্যাঁ, ওটা নিন', no: 'না, নতুন বানান');
       if (!mounted) return;

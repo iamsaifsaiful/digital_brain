@@ -85,6 +85,7 @@ class Customer {
     this.promiseNote = '',
     this.referrer = '',
     this.note = '',
+    this.deleted = false,
     List<Recipient>? recipients,
   }) : recipients = recipients ?? [];
 
@@ -111,6 +112,9 @@ class Customer {
   List<Recipient> recipients;
   DateTime created;
 
+  /// Deleted from the lists; old sends keep the name.
+  bool deleted;
+
   Map<String, Object?> toJson() => {
         'id': id,
         'name': name,
@@ -126,6 +130,7 @@ class Customer {
         'note': note,
         'recipients': [for (final r in recipients) r.toJson()],
         'created': created.toIso8601String(),
+        if (deleted) 'deleted': true,
       };
 
   factory Customer.fromJson(Map<String, Object?> j) => Customer(
@@ -142,6 +147,7 @@ class Customer {
         referrer: _s(j['referrer']),
         note: _s(j['note']),
         recipients: [for (final r in _l(j['recipients'])) Recipient.fromJson(r)],
+        deleted: j['deleted'] == true,
         created: _t(j['created']),
       );
 }
@@ -797,6 +803,9 @@ class AppData {
   SyncState sync = SyncState();
   List<Customer> customers;
   List<Agent> agents;
+
+  /// The customers still in the lists (not deleted).
+  List<Customer> get liveCustomers => customers.where((c) => !c.deleted).toList();
 
   /// The agents still in use (not deleted).
   List<Agent> get liveAgents => agents.where((a) => !a.deleted).toList();

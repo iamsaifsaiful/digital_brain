@@ -981,4 +981,9 @@ const enWords = <String, String>{
   'রিসেট হয়নি — কিছু মোছা হয়নি': 'Reset failed — nothing was erased',
   'ইন্টারনেট নেই — কিছু মোছা হয়নি': 'No internet — nothing was erased',
   'রিসেট হয়েছে': 'Reset done',
+  'গ্রাহকের প্রোফাইল ডিলিট করুন': 'Delete customer profile',
+  'এখন ডিলিট করা যাবে না': 'Can\'t delete now',
+  'ডিলিট করুন': 'Delete',
+  'এই গ্রাহকের প্রোফাইল ডিলিট করা হয়েছে — শুধু আগের হিসাব দেখা যাচ্ছে।': 'This customer\'s profile was deleted — only the old account is shown.',
+  'গ্রাহকের প্রোফাইল ডিলিট': 'Customer profile deleted',
 };

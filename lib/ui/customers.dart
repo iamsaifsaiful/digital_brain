@@ -129,7 +129,7 @@ class _CustomersTabState extends State<CustomersTab> {
                     ),
                   ]),
                   const SizedBox(height: 4),
-                  Tx('মোট বকেয়া ${sar(totalCustomerDue(d))} · ${bn('${d.customers.length}')} জন গ্রাহক', style: t(13.5, c: K.muted)),
+                  Tx('মোট বকেয়া ${sar(totalCustomerDue(d))} · ${bn('${d.liveCustomers.length}')} জন গ্রাহক', style: t(13.5, c: K.muted)),
                   const SizedBox(height: 12),
                   if (quiet.isNotEmpty) ...[
                     CardBox(
@@ -302,8 +302,12 @@ class CustomerScreen extends StatelessWidget {
         final lost = lossOf(d, c.id);
         return Screen(
           title: c.name,
-          trailing: h.can('customers') ? CircleBtn(icon: Icons.edit_outlined, label: 'প্রোফাইল বদলান', onTap: () => push(context, EditCustomer(h: h, c: c))) : null,
+          trailing: h.can('customers') && !c.deleted ? CircleBtn(icon: Icons.edit_outlined, label: 'প্রোফাইল বদলান', onTap: () => push(context, EditCustomer(h: h, c: c))) : null,
           body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 28), children: [
+            if (c.deleted) ...[
+              const Note('এই গ্রাহকের প্রোফাইল ডিলিট করা হয়েছে — শুধু আগের হিসাব দেখা যাচ্ছে।', icon: Icons.delete_outline_rounded, color: K.redTint, textColor: K.red),
+              const SizedBox(height: 12),
+            ],
             CardBox(
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
               child: Column(children: [
@@ -322,9 +326,9 @@ class CustomerScreen extends StatelessWidget {
                 ]),
                 const SizedBox(height: 16),
                 Row(children: [
-                  if (h.can('send')) Expanded(child: Pill(label: 'পাঠান', icon: Icons.north_east_rounded, height: 48, onTap: () => push(context, EntryScreen(h: h, c: c)))),
-                  if (h.can('send') && h.can('deposit')) const SizedBox(width: 10),
-                  if (h.can('deposit')) Expanded(child: Pill(label: 'জমা নিন', icon: Icons.south_west_rounded, height: 48, color: K.navy, onTap: () => push(context, DepositScreen(h: h, c: c)))),
+                  if (!c.deleted && h.can('send')) Expanded(child: Pill(label: 'পাঠান', icon: Icons.north_east_rounded, height: 48, onTap: () => push(context, EntryScreen(h: h, c: c)))),
+                  if (!c.deleted && h.can('send') && h.can('deposit')) const SizedBox(width: 10),
+                  if (!c.deleted && h.can('deposit')) Expanded(child: Pill(label: 'জমা নিন', icon: Icons.south_west_rounded, height: 48, color: K.navy, onTap: () => push(context, DepositScreen(h: h, c: c)))),
                 ]),
               ]),
             ),
@@ -637,8 +641,42 @@ class _EditCustomerState extends State<EditCustomer> {
           Field(label: 'কার মাধ্যমে এসেছেন', controller: _ref),
           const SizedBox(height: 12),
           Field(label: 'নোট', controller: _note, maxLines: 3),
+          if (!c.deleted) ...[
+            const SizedBox(height: 24),
+            SoftPill(label: 'গ্রাহকের প্রোফাইল ডিলিট করুন', icon: Icons.delete_outline_rounded, color: K.red, onTap: _delete),
+          ],
         ]),
       );
+
+  Future<void> _delete() async {
+    final h = widget.h;
+    final due = customerDue(h.d, c.id);
+    if (due.abs() >= 0.005) {
+      await confirm(
+        context,
+        'এখন ডিলিট করা যাবে না',
+        due > 0 ? '${c.name}-এর ${sar(due)} বকেয়া আছে। আগে বকেয়া জমা নিন বা লস ধরুন, তারপর ডিলিট করুন।' : '${c.name}-এর ${sar(-due)} অগ্রিম জমা আছে। আগে সেটা মিলিয়ে নিন, তারপর ডিলিট করুন।',
+        yes: 'ঠিক আছে',
+        no: 'বন্ধ',
+      );
+      return;
+    }
+    final n = h.d.txns.where((t) => t.customerId == c.id && !t.cancelled).length;
+    final ok = await confirm(
+      context,
+      '${c.name}-এর প্রোফাইল ডিলিট করবেন?',
+      'গ্রাহকের তালিকা আর খোঁজ থেকে সরে যাবেন, তাগাদার রিমাইন্ডার বন্ধ হবে।${n > 0 ? ' আগের ${bn('$n')}টা লেনদেন আর জমা রিপোর্টে নামসহ থেকে যাবে।' : ''} ফেরানো যাবে না।',
+      yes: 'ডিলিট করুন',
+      danger: true,
+    );
+    if (!ok || !mounted) return;
+    await h.deleteCustomer(c);
+    if (!mounted) return;
+    snack(context, '${c.name}-এর প্রোফাইল ডিলিট হয়েছে');
+    Navigator.of(context)
+      ..pop()
+      ..pop();
+  }
 }
 
 /// Riyal paid in: any amount, shown against the oldest sends first.

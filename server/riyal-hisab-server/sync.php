@@ -150,6 +150,14 @@ function rh_may_write($u, $kind, $rid, $data) {
             }
             return rh_can($u, 'edit');
         case 'customer':
+            // Deleting a profile: with the right to change customers, and
+            // only when nothing is owed either way. It is not undone.
+            if (!empty($data['deleted']) && empty($old['deleted'] ?? null)) {
+                return rh_can($u, 'customers') && $old && abs(rh_customer_due((string) ($old['id'] ?? ''))) < 0.005;
+            }
+            if (!empty($old['deleted']) && empty($data['deleted'])) {
+                return false;
+            }
             // A send or a deposit also keeps the customer's numbers up to date.
             return rh_can($u, 'customers') || rh_can($u, 'send') || (!$old && rh_can($u, 'deposit'));
         case 'deposit':

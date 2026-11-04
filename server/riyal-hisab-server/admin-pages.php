@@ -404,7 +404,7 @@ function rh_tab_customers() {
     <table class="rh-table"><thead><tr><th>গ্রাহক</th><th>মোবাইল</th><th>থাকেন</th><th class="r">মোট পাঠানো</th><th class="r">বকেয়া</th><th class="r">লস</th><th>বকেয়া দেওয়ার কথা</th><th>যোগ হয়েছেন</th></tr></thead><tbody>
     <?php foreach ($page as $c) : ?>
         <tr>
-            <td><?php rh_photo_thumb($c['photo'] ?? null); ?><a href="<?php echo rh_url('customers', ['view' => $c['id']]); ?>"><b><?php echo esc_html($c['name'] ?? ''); ?></b></a></td>
+            <td><?php rh_photo_thumb($c['photo'] ?? null); ?><a href="<?php echo rh_url('customers', ['view' => $c['id']]); ?>"><b><?php echo esc_html($c['name'] ?? ''); ?></b></a><?php if (!empty($c['deleted'])) : ?> <span class="rh-pill gray">ডিলিট</span><?php endif; ?></td>
             <td><?php echo esc_html(rh_bn($c['phone'] ?? '')); ?></td>
             <td><?php echo esc_html($c['area'] ?? ''); ?></td>
             <td class="r"><?php echo esc_html(rh_num($c['sent'], 2)); ?></td>

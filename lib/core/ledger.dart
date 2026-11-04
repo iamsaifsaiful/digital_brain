@@ -80,7 +80,7 @@ DateTime? lastActivity(AppData d, String customerId) {
 List<(Customer, int)> quietCustomers(AppData d, DateTime now, {int? days}) {
   final n = days ?? d.settings.inactiveDays;
   final out = <(Customer, int)>[];
-  for (final c in d.customers) {
+  for (final c in d.liveCustomers) {
     final since = now.difference(lastActivity(d, c.id) ?? c.created).inDays;
     if (since >= n) out.add((c, since));
   }

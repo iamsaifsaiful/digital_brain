@@ -545,7 +545,7 @@ class Hisab extends ChangeNotifier {
 
   List<Customer> searchCustomers(String q) {
     final t = en(q).trim().toLowerCase();
-    final list = [...d.customers];
+    final list = [...d.liveCustomers];
     list.sort((a, b) => lastActivity(b).compareTo(lastActivity(a)));
     if (t.isEmpty) return list;
     final digits = t.replaceAll(RegExp(r'[^0-9]'), '');
@@ -630,7 +630,7 @@ class Hisab extends ChangeNotifier {
 
   /// Puts back the scheduled reminders (after a restore or a new install).
   Future<void> rescheduleAll() async {
-    for (final c in d.customers) {
+    for (final c in d.liveCustomers) {
       final at = c.promiseAt;
       if (at != null && at.isAfter(now)) {
         await s.reminders.schedule(c.id, at, 'তাগাদা: ${c.name}', 'আজ বকেয়া দেওয়ার কথা${c.promiseNote.isEmpty ? '' : ' · ${c.promiseNote}'}');
@@ -705,6 +705,22 @@ class Hisab extends ChangeNotifier {
       ..commissionPerThousand = commission;
     if (changes.isEmpty) return;
     _log('edit', 'এজেন্টের তথ্য বদল', changes.join(' · '), ref: a.id);
+    await _save();
+  }
+
+  /// A customer's profile deleted: gone from every list, the reminder off;
+  /// old sends and deposits keep the name. Only with nothing owed either way.
+  Future<void> deleteCustomer(Customer c) async {
+    if (!can('customers')) throw StateError('no permission');
+    final due = customerDue(d, c.id);
+    if (due.abs() >= 0.005) throw StateError('due');
+    c
+      ..deleted = true
+      ..promiseAt = null
+      ..promiseNote = '';
+    await s.reminders.cancel(c.id);
+    final n = d.txns.where((t) => t.customerId == c.id && !t.cancelled).length;
+    _log('cust', 'গ্রাহকের প্রোফাইল ডিলিট', '${c.name}${c.phone.isEmpty ? '' : ' · ${bn(c.phone)}'} · ${bn('$n')}টা লেনদেন ছিল, সেগুলো নামসহ থাকবে', who: meName, ref: c.id);
     await _save();
   }
 
