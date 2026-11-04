@@ -224,6 +224,9 @@ class Txn {
     this.changeNotice = '',
     this.walkIn = '',
     this.walkInPhone = '',
+    this.problem = '',
+    this.problemAt = '',
+    this.problemSolved = '',
     this.fault,
     this.faultNote = '',
     this.by = 0,
@@ -286,6 +289,16 @@ class Txn {
   /// number…), until the admin confirms the message went.
   String changeNotice;
 
+  /// The agent said they cannot send it: their words and the server's stamp
+  /// of when. After fixing it the admin asks again, which marks that very
+  /// stamp solved; a new problem from the agent gets a new stamp.
+  String problem;
+  String problemAt;
+  String problemSolved;
+
+  /// The agent's problem is still open (and the send still waits).
+  bool get hasProblem => status == TxnStatus.pending && problem.isNotEmpty && problemAt != problemSolved;
+
   /// Set when the money went to a wrong number: whose mistake it was.
   Fault? fault;
   String faultNote;
@@ -337,6 +350,9 @@ class Txn {
         'changeNotice': changeNotice,
         'walkIn': walkIn,
         'walkInPhone': walkInPhone,
+        if (problem.isNotEmpty) 'problem': problem,
+        if (problemAt.isNotEmpty) 'problemAt': problemAt,
+        if (problemSolved.isNotEmpty) 'problemSolved': problemSolved,
       };
 
   factory Txn.fromJson(Map<String, Object?> j) => Txn(
@@ -372,6 +388,9 @@ class Txn {
         changeNotice: _s(j['changeNotice']),
         walkIn: _s(j['walkIn']),
         walkInPhone: _s(j['walkInPhone']),
+        problem: _s(j['problem']),
+        problemAt: _s(j['problemAt']),
+        problemSolved: _s(j['problemSolved']),
       );
 }
 

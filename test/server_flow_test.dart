@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:riyal_hisab/core/format.dart';
 import 'package:riyal_hisab/core/ledger.dart';
 import 'package:riyal_hisab/core/models.dart';
 import 'package:riyal_hisab/main.dart';
+import 'package:riyal_hisab/ui/reports.dart' show PdfPreview;
 import 'package:riyal_hisab/services/api.dart';
 import 'package:riyal_hisab/services/crypto.dart';
 import 'package:riyal_hisab/services/device.dart';
@@ -171,6 +173,49 @@ void main() {
     expect(cashInHand(second.d, me: owner.meId, owner: true), 450);
   });
 
+  test('agent problem: held apart until the admin asks again; a stale phone cannot clear it', () async {
+    final server = FakeServer()..addUser('owner', 'সাইফুল', 'saiful', 'owner-pass');
+    final owner = phone(server);
+    await owner.load();
+    await owner.login('saiful', 'owner-pass');
+    await owner.setup(owner: 'সাইফুল', agentName: 'মনোয়ারা স্টোর', agentWhatsapp: '01811111111');
+    final a = owner.d.agents.single;
+    await owner.s.api.post('/users', {'role': 'agent', 'name': 'তন্তু', 'login': 'tontu', 'password': 'agent-pass', 'agent_rid': a.id});
+    final c = await owner.addCustomer(name: 'করিম', phone: '0551234567');
+    final t = await owner.addTxn(draft(c.id, a.id));
+    await owner.sync();
+    final second = phone(server);
+    await second.load();
+    await second.login('saiful', 'owner-pass');
+
+    final agentApi = server.api();
+    final lr = await agentApi.post('/login', {'login': 'tontu', 'password': 'agent-pass'});
+    agentApi.token = '${lr['token']}';
+    await agentApi.post('/agent/problem', {'id': t.id, 'note': 'নম্বর বন্ধ'});
+    var feed = await agentApi.get('/agent/feed');
+    expect(((feed['txns'] as List).single as Map)['problem'], 'নম্বর বন্ধ');
+
+    await owner.sync();
+    final x = owner.txnById(t.id)!;
+    expect(x.hasProblem, isTrue);
+    expect(x.problem, 'নম্বর বন্ধ');
+    // The second phone has the old copy (no problem) and changes a note: the problem stays.
+    final y = second.txnById(t.id)!;
+    expect(y.hasProblem, isFalse);
+    y.note = 'x';
+    await second.sync();
+    expect(FakeServer.hasProblem(server.one('txn', t.id)!), isTrue, reason: 'a stale phone cannot clear it');
+
+    await owner.reRequest(owner.txnById(t.id)!);
+    await owner.sync();
+    expect(owner.txnById(t.id)!.hasProblem, isFalse);
+    expect(FakeServer.hasProblem(server.one('txn', t.id)!), isFalse);
+    expect(server.notes.map((n) => n['title']), contains('আবার অনুরোধ #${t.no}'));
+    feed = await agentApi.get('/agent/feed');
+    expect(((feed['txns'] as List).single as Map)['problem'], '');
+    expect(owner.d.log.map((e) => e.title), contains('আবার অনুরোধ · #${bn('${t.no}')}'));
+  });
+
   test('reset: wrong password changes nothing; then backup, all gone, other phones signed out', () async {
     final server = FakeServer()..addUser('owner', 'সাইফুল', 'saiful', 'owner-pass');
     final dev = FakeDevice();
@@ -255,6 +300,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(server.one('txn', txnId)!['status'], 'sent');
     expect(find.textContaining('এখন পাঠানোর মতো কিছু নেই'), findsOneWidget);
+    // The agent's own account as a PDF.
+    await tester.tap(find.text('হিসাব').last);
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('PDF ডাউনলোড'));
+    for (var i = 0; i < 20 && find.byType(PdfPreview).evaluate().isEmpty; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await tester.pump();
+    }
+    expect(find.byType(PdfPreview), findsOneWidget);
+    expect(find.text('তন্তু ভাই — হিসাব'), findsWidgets);
+    await tester.tap(find.byTooltip('পেছনে').last);
+    await tester.pumpAndSettle();
     for (final tab in ['সব কাজ', 'হিসাব', 'প্রোফাইল']) {
       await tester.tap(find.text(tab).last);
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));

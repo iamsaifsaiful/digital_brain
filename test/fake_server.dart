@@ -50,8 +50,22 @@ class FakeServer {
       final agent = '${data['agentId']}';
       if (old == null && data['status'] == 'pending') _noteAgent(agent, 'new', 'নতুন অনুরোধ #${data['no']}');
       if (old != null && old['status'] != 'cancelled' && data['status'] == 'cancelled') _noteAgent(agent, 'cancel', 'বাতিল #${data['no']}');
+      if (old != null && hasProblem(old) && !hasProblem(data) && data['status'] == 'pending') _noteAgent(agent, 'new', 'আবার অনুরোধ #${data['no']}');
     }
     if (kind == 'payment' && old == null) _noteAgent('${data['agentId']}', 'paid', 'টাকা পেয়েছেন');
+  }
+
+  static bool hasProblem(Map t) => t['status'] == 'pending' && '${t['problem'] ?? ''}'.isNotEmpty && t['problemAt'] != t['problemSolved'];
+
+  /// As the plugin: the problem is the server's; a phone only marks the one it saw solved.
+  Map<String, Object?> problemFields(Map<String, Object?> data, Map<String, Object?>? old) {
+    final out = {...data}..remove('problem')..remove('problemAt')..remove('problemSolved');
+    for (final f in ['problem', 'problemAt', 'problemSolved']) {
+      if ('${old?[f] ?? ''}'.isNotEmpty) out[f] = old![f];
+    }
+    final solved = '${data['problemSolved'] ?? ''}';
+    if (solved.isNotEmpty && solved == out['problemAt']) out['problemSolved'] = solved;
+    return out;
   }
 
   void _noteAgent(String agentRid, String kind, String title) {
@@ -121,11 +135,13 @@ class _FakeApi implements Api {
                 k: (r['data'] as Map)[k],
               'paid': (r['data'] as Map)['agentPaymentId'] != null,
               'commission': 0,
+              'problem': FakeServer.hasProblem(r['data'] as Map) ? (r['data'] as Map)['problem'] : '',
+              'problemAt': FakeServer.hasProblem(r['data'] as Map) ? (r['data'] as Map)['problemAt'] : '',
             }
         ];
         var owed = 0.0;
         for (final t in txns) {
-          if (t['status'] != 'cancelled') owed += (t['taka'] as num) + ((t['fee'] as num?) ?? 0);
+          if (t['status'] == 'sent') owed += (t['taka'] as num) + ((t['fee'] as num?) ?? 0);
         }
         final pays = [
           for (final r in s.records.values.where((r) => r['kind'] == 'payment' && (r['data'] as Map)['agentId'] == aid))
@@ -164,7 +180,9 @@ class _FakeApi implements Api {
         return {'ok': true};
       case '/push':
         for (final r in (body['records'] as List).cast<Map>()) {
-          s.put('${r['kind']}', '${r['rid']}', jsonDecode(jsonEncode(r['data'])) as Map<String, Object?>);
+          var data = jsonDecode(jsonEncode(r['data'])) as Map<String, Object?>;
+          if (r['kind'] == 'txn') data = s.problemFields(data, s.one('txn', '${r['rid']}'));
+          s.put('${r['kind']}', '${r['rid']}', data);
         }
         return {'ok': true};
       case '/reserve':
@@ -215,6 +233,10 @@ class _FakeApi implements Api {
         });
         return {'ok': true};
       case '/agent/problem':
+        final t = s.one('txn', '${body['id']}');
+        if (t == null || t['agentId'] != u['agent_rid']) _denied();
+        if (t['status'] != 'pending') throw const ApiError(409, 'rh_state');
+        s.put('txn', '${t['id']}', {...t, 'problem': '${body['note']}'.isEmpty ? 'কারণ লেখেননি' : '${body['note']}', 'problemAt': '2026-11-04T12:00:${(s.rev % 60).toString().padLeft(2, '0')}'});
         return {'ok': true};
       case '/reset':
         if (u['role'] != 'owner') _denied();

@@ -154,7 +154,7 @@ class _TxnBody extends StatelessWidget {
     final c = customerById(h.d, x.customerId);
     final a = agentById(h.d, x.agentId);
     final (status, color, tint) = switch (x.status) {
-      TxnStatus.pending => ('এজেন্টের পাঠানোর অপেক্ষায়', K.red, K.redTint),
+      TxnStatus.pending => (x.hasProblem ? 'এজেন্টের সমস্যা — আটকে আছে' : 'এজেন্টের পাঠানোর অপেক্ষায়', K.red, K.redTint),
       TxnStatus.sent => ('পৌঁছেছে', K.green, K.greenTint),
       TxnStatus.cancelled => ('বাতিল', K.muted, K.chip),
     };
@@ -203,6 +203,48 @@ class _TxnBody extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(child: Pill(label: 'পাঠিয়েছি', height: 44, color: K.green, onTap: () => h.changeNoticeSent(x))),
               ]),
+            ]),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (x.hasProblem) ...[
+          CardBox(
+            color: K.redTint,
+            border: K.red,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(children: [
+                dotIcon(Icons.report_outlined, Colors.white, K.red, size: 40),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Tx('এজেন্ট সমস্যা জানিয়েছেন', style: t(15, w: FontWeight.w600, c: K.red)),
+                    if (DateTime.tryParse(x.problemAt) != null) Tx('${dateShort(DateTime.parse(x.problemAt))}, ${timeText(DateTime.parse(x.problemAt))} · ${a?.name ?? ''}', style: t(12, c: K.red)),
+                  ]),
+                ),
+              ]),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                child: Tx('"${x.problem}"', style: t(15, w: FontWeight.w500, h: 1.45)),
+              ),
+              const SizedBox(height: 8),
+              Tx('এজেন্ট এটা পাঠাবেন না যতক্ষণ না আবার অনুরোধ যায়। দরকার হলে উপরের পেন্সিল বোতাম দিয়ে নম্বর বা টাকা ঠিক করুন, বা লেনদেন বাতিল করুন। ঠিক হলে নিচে চাপুন।', style: t(13, c: K.red, h: 1.45)),
+              if (h.can('send') || h.can('edit')) ...[
+                const SizedBox(height: 10),
+                Pill(
+                  label: 'সমাধান হয়েছে — আবার অনুরোধ পাঠান',
+                  icon: Icons.replay_rounded,
+                  height: 46,
+                  color: K.red,
+                  onTap: () async {
+                    if (await confirm(context, 'আবার অনুরোধ পাঠাবেন?', '${a?.name ?? 'এজেন্ট'}-এর কাছে #${bn('${x.no}')} (${taka(x.agentTaka)} · ${bdShow(x.number)}) আবার নতুন অনুরোধ হিসেবে যাবে।', yes: 'পাঠান')) {
+                      await h.reRequest(x);
+                      if (context.mounted) snack(context, 'এজেন্টের কাছে আবার অনুরোধ গেছে');
+                    }
+                  },
+                ),
+              ],
             ]),
           ),
           const SizedBox(height: 12),

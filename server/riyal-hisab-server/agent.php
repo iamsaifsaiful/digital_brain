@@ -37,6 +37,8 @@ function rh_txn_for_agent($t, $agent) {
         'paid' => !empty($t['agentPaymentId']),
         'fault' => $t['fault'] ?? null,
         'faultNote' => (string) ($t['faultNote'] ?? ''),
+        'problem' => rh_has_problem($t) ? (string) $t['problem'] : '',
+        'problemAt' => rh_has_problem($t) ? (string) $t['problemAt'] : '',
     ];
 }
 
@@ -145,8 +147,18 @@ function rh_agent_problem(WP_REST_Request $req, $u) {
     if (!$t) {
         return rh_hidden();
     }
+    if (($t['status'] ?? '') !== 'pending') {
+        return new WP_Error('rh_state', 'not waiting', ['status' => 409]);
+    }
     $note = mb_substr(sanitize_text_field((string) $req->get_param('note')), 0, 300);
     $bnNo = '#' . rh_bn((string) ($t['no'] ?? ''));
+    // Kept on the send: it waits in "সমস্যা" until the admin asks again.
+    $t['problem'] = $note !== '' ? $note : 'কারণ লেখেননি';
+    $t['problemAt'] = rh_local_iso();
+    if (($t['problemSolved'] ?? '') === $t['problemAt']) {
+        $t['problemAt'] .= '.1';
+    }
+    rh_put('txn', (string) $t['id'], $t, (int) $u['id']);
     rh_add_log('এজেন্ট জানালেন: সমস্যা · ' . $bnNo, ($note !== '' ? $note : 'কারণ লেখেননি') . ' · ' . rh_phone_show($t['number'] ?? ''), $u['name'], (string) $t['id']);
     rh_note_admins('problem', 'সমস্যা ' . $bnNo . ' · ' . $u['name'], $note !== '' ? $note : 'এজেন্ট পাঠাতে পারছেন না', (string) $t['id']);
     return rest_ensure_response(['ok' => true]);

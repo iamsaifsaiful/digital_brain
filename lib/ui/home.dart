@@ -232,7 +232,8 @@ class HomeTab extends StatelessWidget {
         final dueCount = d.customers.where((c) => customerDue(d, c.id) > 0).length;
         final agent = d.liveAgents.isEmpty ? null : d.liveAgents.first;
         final owed = agent == null ? 0.0 : agentOwed(d, agent.id);
-        final waiting = h.waiting;
+        final problems = h.waiting.where((x) => x.hasProblem).toList();
+        final waiting = h.waiting.where((x) => !x.hasProblem).toList();
         final promises = h.promisesDue;
         final recent = [...d.txns]..sort((a, b) => b.at.compareTo(a.at));
         final shown = recent.take(8).toList();
@@ -301,6 +302,28 @@ class HomeTab extends StatelessWidget {
             const SizedBox(height: 10),
             Pill(label: 'এজেন্টকে পরিশোধ', icon: Icons.payments_outlined, color: K.green, onTap: () => payAgentFlow(context, h)),
           ],
+          // Sends the agent said they cannot do: until the admin asks again.
+          if (problems.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            SectionHead('এজেন্ট সমস্যা জানিয়েছেন'),
+            CardBox(
+              color: K.redTint,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Column(children: [
+                for (final (i, x) in problems.indexed)
+                  Row2(
+                    lead: dotIcon(Icons.report_outlined, Colors.white, K.red),
+                    title: '#${bn('${x.no}')} · ${customerNameOf(d, x)}',
+                    sub: '${x.problem} · ${agentById(d, x.agentId)?.name ?? ''}',
+                    value: taka(x.agentTaka),
+                    valueSub: 'দেখুন',
+                    valueSubColor: K.red,
+                    last: i == problems.length - 1,
+                    onTap: () => push(context, TxnScreen(h: h, id: x.id)),
+                  ),
+              ]),
+            ),
+          ],
           if (waiting.isNotEmpty) ...[
             const SizedBox(height: 12),
             CardBox(
@@ -366,7 +389,7 @@ class TxnRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = customerById(h.d, t.customerId);
     final (label, color) = switch (t.status) {
-      TxnStatus.pending => ('পাঠানোর অপেক্ষায়', K.red),
+      TxnStatus.pending => (t.hasProblem ? 'এজেন্টের সমস্যা' : 'পাঠানোর অপেক্ষায়', K.red),
       TxnStatus.sent => ('পৌঁছেছে', K.green),
       TxnStatus.cancelled => ('বাতিল', K.muted),
     };

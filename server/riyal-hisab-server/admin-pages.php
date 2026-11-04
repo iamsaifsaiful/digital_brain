@@ -307,12 +307,15 @@ function rh_last_seen_note() {
 
 function rh_status_label($t) {
     $s = $t['status'] ?? 'pending';
+    if (rh_has_problem($t)) {
+        return ['এজেন্টের সমস্যা: ' . $t['problem'], 'red'];
+    }
     return $s === 'cancelled' ? ['বাতিল', 'gray'] : ($s === 'sent' ? ['পৌঁছেছে', 'green'] : ['পাঠানোর অপেক্ষায়', 'red']);
 }
 
 function rh_tab_txns() {
     rh_filters('txns', [
-        'status' => ['অবস্থা', ['' => 'সব', 'pending' => 'পাঠানোর অপেক্ষায়', 'sent' => 'পৌঁছেছে', 'cancelled' => 'বাতিল', 'due' => 'রিয়াল বকেয়া', 'fault' => 'ভুল নম্বর']],
+        'status' => ['অবস্থা', ['' => 'সব', 'pending' => 'পাঠানোর অপেক্ষায়', 'sent' => 'পৌঁছেছে', 'cancelled' => 'বাতিল', 'due' => 'রিয়াল বকেয়া', 'fault' => 'ভুল নম্বর', 'problem' => 'এজেন্টের সমস্যা']],
         'kind' => ['ধরন', ['' => 'সব', 'money' => 'টাকা পাঠানো', 'recharge' => 'রিচার্জ', 'mb' => 'এমবি']],
         'agent' => ['এজেন্ট', rh_agent_options()],
         'by' => ['এডমিন', rh_admin_options()],
@@ -323,7 +326,7 @@ function rh_tab_txns() {
     $rows = array_values(array_filter(rh_rows('txn'), function ($t) use ($q, $customers) {
         $st = rh_f('status');
         $k = rh_f('kind');
-        if ($st === 'due' ? rh_due_at_send($t) <= 0 : ($st === 'fault' ? empty($t['fault']) : ($st !== '' && ($t['status'] ?? '') !== $st))) {
+        if ($st === 'due' ? rh_due_at_send($t) <= 0 : ($st === 'fault' ? empty($t['fault']) : ($st === 'problem' ? !rh_has_problem($t) : ($st !== '' && ($t['status'] ?? '') !== $st)))) {
             return false;
         }
         $kind = $t['kind'] ?? 'send';

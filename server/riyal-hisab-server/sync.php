@@ -94,6 +94,9 @@ function rh_push(WP_REST_Request $req, $u) {
         if (!in_array($kind, RH_KINDS, true) || !preg_match('/^[A-Za-z0-9_\-]{1,64}$/', $rid) || !is_array($data)) {
             continue;
         }
+        if ($kind === 'txn') {
+            $data = rh_txn_problem_fields($data, rh_one('txn', $rid));
+        }
         if (!rh_may_write($u, $kind, $rid, $data)) {
             $refused[] = ['kind' => $kind, 'rid' => $rid];
             continue;
@@ -122,6 +125,29 @@ function rh_push(WP_REST_Request $req, $u) {
     return rest_ensure_response(['ok' => true, 'saved' => $n, 'refused' => $refused]);
 }
 
+/**
+ * The agent's problem on a send is the server's to write (from the agent's
+ * "সমস্যা"); a phone can only mark the problem it saw as solved, by its
+ * stamp, which asks the agent again.
+ */
+function rh_txn_problem_fields(array $data, $old) {
+    $data['problem'] = (string) ($old['problem'] ?? '');
+    $data['problemAt'] = (string) ($old['problemAt'] ?? '');
+    $solved = (string) ($data['problemSolved'] ?? '');
+    $data['problemSolved'] = $solved !== '' && $solved === $data['problemAt'] ? $solved : (string) ($old['problemSolved'] ?? '');
+    foreach (['problem', 'problemAt', 'problemSolved'] as $f) {
+        if ($data[$f] === '') {
+            unset($data[$f]);
+        }
+    }
+    return $data;
+}
+
+/** The agent's problem is open: said, not yet solved, still waiting. */
+function rh_has_problem($t) {
+    return ($t['status'] ?? '') === 'pending' && ($t['problem'] ?? '') !== '' && ($t['problemAt'] ?? '') !== ($t['problemSolved'] ?? '');
+}
+
 /** May this admin write this record (their access checklist)? */
 function rh_may_write($u, $kind, $rid, $data) {
     $old = rh_one($kind, $rid);
@@ -147,6 +173,13 @@ function rh_may_write($u, $kind, $rid, $data) {
             unset($a['agentPaymentId'], $b['agentPaymentId']);
             if (wp_json_encode($a) === wp_json_encode($b)) {
                 return rh_can($u, 'agent_pay') || rh_can($u, 'edit');
+            }
+            // Asking the agent again after their problem: whoever may send.
+            $a = $old;
+            $b = $data;
+            unset($a['problemSolved'], $b['problemSolved']);
+            if (wp_json_encode($a) === wp_json_encode($b)) {
+                return rh_can($u, 'send') || rh_can($u, 'edit');
             }
             return rh_can($u, 'edit');
         case 'customer':
@@ -314,6 +347,9 @@ function rh_tell_agents($kind, $old, $new) {
         }
         if ($changed && $status === 'pending') {
             rh_note_agent($aid, 'edit', 'সংশোধন ' . $no, 'এখন: ' . rh_txn_line($new), (string) $new['id']);
+        }
+        if (rh_has_problem($old) && !rh_has_problem($new) && $status === 'pending') {
+            rh_note_agent($aid, 'new', 'আবার অনুরোধ ' . $no, 'সমস্যার সমাধান হয়েছে — এখন পাঠান · ' . rh_txn_line($new), (string) $new['id']);
         }
         if (empty($old['fault']) && !empty($new['fault'])) {
             $who = ['mine' => 'এডমিনের ভুল', 'agent' => 'আপনার ভুল', 'customer' => 'গ্রাহকের ভুল'][$new['fault']] ?? '';

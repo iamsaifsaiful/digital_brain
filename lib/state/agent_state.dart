@@ -26,7 +26,9 @@ class AgentTxn {
         sentAt = DateTime.tryParse('${j['sentAt']}'),
         paid = j['paid'] == true,
         fault = j['fault'] == null ? null : '${j['fault']}',
-        faultNote = '${j['faultNote'] ?? ''}';
+        faultNote = '${j['faultNote'] ?? ''}',
+        problem = '${j['problem'] ?? ''}',
+        problemAt = DateTime.tryParse('${j['problemAt'] ?? ''}');
   final String id;
   final int no;
   final String number;
@@ -46,8 +48,13 @@ class AgentTxn {
   final String? fault;
   final String faultNote;
 
+  /// What this agent said was wrong, while the admin has not asked again.
+  final String problem;
+  final DateTime? problemAt;
+
   double get total => taka + fee;
   bool get pending => status == 'pending';
+  bool get hasProblem => pending && problem.isNotEmpty;
   bool get cancelled => status == 'cancelled';
   bool get topUp => kind == 'recharge' || kind == 'mb';
 }
@@ -113,7 +120,11 @@ class AgentState extends ChangeNotifier {
   DateTime? at;
   final _photos = <String, Uint8List>{};
 
-  List<AgentTxn> get waiting => txns.where((t) => t.pending).toList()..sort((a, b) => a.at.compareTo(b.at));
+  /// Requests to send now (not the ones held by a problem).
+  List<AgentTxn> get waiting => txns.where((t) => t.pending && !t.hasProblem).toList()..sort((a, b) => a.at.compareTo(b.at));
+
+  /// Sends this agent reported a problem with, until the admin asks again.
+  List<AgentTxn> get problems => txns.where((t) => t.hasProblem).toList()..sort((a, b) => a.at.compareTo(b.at));
 
   Future<void> refresh() async {
     loading = true;
@@ -163,6 +174,7 @@ class AgentState extends ChangeNotifier {
 
   Future<void> problem(AgentTxn t, String note) async {
     await api.post('/agent/problem', {'id': t.id, 'note': note});
+    await refresh();
   }
 
   Future<void> changePassword(String old, String now) async {

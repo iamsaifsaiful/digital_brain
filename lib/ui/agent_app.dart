@@ -10,6 +10,7 @@ import 'home.dart' show KeepTab, push;
 import 'kit.dart';
 import '../core/lang.dart';
 import 'reports.dart';
+import '../services/pdf.dart';
 import 'lock_screen.dart' show PinSetup;
 import 'txn.dart' show Live, TxnScreen;
 import 'agent.dart' show PaymentScreen;
@@ -183,6 +184,12 @@ class _Requests extends StatelessWidget {
         SectionHead('নতুন অনুরোধ'),
         if (st.at != null && w.isEmpty) const Note('এখন পাঠানোর মতো কিছু নেই। নতুন অনুরোধ এলে নোটিফিকেশন আসবে।', icon: Icons.check_circle_outline_rounded),
         for (final x in w) ...[RequestCard(st: st, tx: x), const SizedBox(height: 12)],
+        if (st.problems.isNotEmpty) ...[
+          SectionHead('সমস্যা জানানো লেনদেন'),
+          Tx('${st.owner} ঠিক করে আবার অনুরোধ দিলে এগুলো আবার "নতুন অনুরোধ"-এ আসবে।', style: t(12.5, c: K.muted)),
+          const SizedBox(height: 8),
+          for (final x in st.problems) ...[RequestCard(st: st, tx: x), const SizedBox(height: 12)],
+        ],
         if (recent.isNotEmpty) ...[
           SectionHead('সাম্প্রতিক লেনদেন'),
           CardBox(
@@ -257,12 +264,32 @@ class RequestCard extends StatelessWidget {
           Tx(taka(tx.total), style: t(28, w: FontWeight.w700, c: K.blue)),
           if (tx.fee > 0) Tx('খরচসহ — মূল ${taka(tx.taka)}, খরচ ${taka(tx.fee)}', style: t(13, c: K.muted)),
           if (tx.kind == 'mb' && tx.pack.isNotEmpty) Tx('প্যাক: ${tx.pack}', style: t(15, w: FontWeight.w600)),
+          if (tx.hasProblem) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: K.redTint, borderRadius: BorderRadius.circular(12)),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Icon(Icons.report_outlined, color: K.red, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Tx('আপনি জানিয়েছেন: ${tx.problem}', style: t(14, w: FontWeight.w600, c: K.red)),
+                    Tx('${tx.problemAt == null ? '' : '${dateShort(tx.problemAt!)}, ${timeText(tx.problemAt!)} · '}${st.owner}-এর আবার অনুরোধের অপেক্ষায়', style: t(12.5, c: K.red)),
+                  ]),
+                ),
+              ]),
+            ),
+          ],
           const SizedBox(height: 12),
-          Row(children: [
-            Expanded(flex: 2, child: Pill(label: 'পাঠিয়েছি', icon: Icons.check_rounded, color: K.green, height: 48, onTap: () => _sent(context))),
-            const SizedBox(width: 8),
-            Expanded(child: SoftPill(label: 'সমস্যা', icon: Icons.report_outlined, color: K.red, onTap: () => _problem(context))),
-          ]),
+          if (tx.hasProblem)
+            SoftPill(label: 'তবুও পাঠিয়ে দিয়েছি', icon: Icons.check_rounded, color: K.green, onTap: () => _sent(context))
+          else
+            Row(children: [
+              Expanded(flex: 2, child: Pill(label: 'পাঠিয়েছি', icon: Icons.check_rounded, color: K.green, height: 48, onTap: () => _sent(context))),
+              const SizedBox(width: 8),
+              Expanded(child: SoftPill(label: 'সমস্যা', icon: Icons.report_outlined, color: K.red, onTap: () => _problem(context))),
+            ]),
         ]),
       );
 }
@@ -429,7 +456,7 @@ class _MoneyState extends State<_Money> {
     return RefreshIndicator(
       onRefresh: st.refresh,
       child: ListView(padding: const EdgeInsets.fromLTRB(18, 12, 18, 24), children: [
-        _header('হিসাব', ''),
+        _header('হিসাব', '', trailing: CircleBtn(icon: Icons.picture_as_pdf_outlined, label: 'PDF ডাউনলোড', onTap: () => sharePdf(context, st.h, agentOwnPdf(st, _p), 'hisab-${st.name}'))),
         CardBox(
           padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -829,4 +856,56 @@ class _NotesScreenState extends State<NotesScreen> {
           ),
         ),
       );
+}
+
+
+/// The agent's own account as a PDF, in taka only: what came, what was
+/// sent, commission, what is still owed, for the chosen period.
+PdfDoc agentOwnPdf(AgentState st, Period p) {
+  final now = DateTime.now();
+  final txns = st.txns.where((x) => p.has(x.at)).toList()..sort((a, b) => a.at.compareTo(b.at));
+  final sent = txns.where((x) => x.status == 'sent').toList();
+  final waiting = txns.where((x) => x.pending).toList();
+  final pays = st.payments.where((x) => p.has(x.at)).toList()..sort((a, b) => a.at.compareTo(b.at));
+  final doc = PdfDoc(
+    '${st.name} — হিসাব',
+    subtitle: '${p.label} · ${st.owner}-এর সাথে · সব হিসাব টাকায়',
+    footer: 'রেমিট খাতা (Owlgorithm Labs) · ${st.name} · তৈরি ${dateShort(now)} ${bn('${now.year}')}, ${timeText(now)}',
+  );
+  doc.tiles([
+    (st.owed >= 0 ? '${st.owner} আপনাকে দেবেন (এখন পর্যন্ত মোট)' : 'আপনার কাছে ${st.owner}-এর অগ্রিম', taka(st.owed.abs())),
+    ('এই সময়ে পাঠালেন', '${bn('${sent.length}')}টা · ${taka(sent.fold<double>(0, (s, x) => s + x.total))}'),
+    ('এই সময়ে কমিশন', taka(sent.fold<double>(0, (s, x) => s + x.commission))),
+    ('এই সময়ে পেয়েছেন', '${bn('${pays.length}')} বার · ${taka(pays.fold<double>(0, (s, x) => s + x.taka))}'),
+    if (waiting.isNotEmpty) ('পাঠানোর অপেক্ষায়', '${bn('${waiting.length}')}টা · ${taka(waiting.fold<double>(0, (s, x) => s + x.total))}'),
+  ]);
+  doc.heading('যা পাঠালেন');
+  doc.table(['নং / সময়', 'কী / নম্বর', 'টাকা', 'উত্তর / TrxID', 'টাকা পেয়েছেন'], [
+    for (final x in sent)
+      [
+        '#${bn('${x.no}')}\n${dateShort(x.sentAt ?? x.at)}\n${timeText(x.sentAt ?? x.at)}',
+        '${_service(x)}\n${bdShow(x.number)}',
+        bnNum(x.total),
+        [if (x.reply.isNotEmpty) bn(x.reply), if (x.trxId.isNotEmpty) x.trxId, if (x.fault != null) 'ভুল নম্বর'].join('\n'),
+        x.paid ? 'পেয়েছি' : 'পাইনি',
+      ],
+  ], flex: [1.3, 2, 1.2, 2, 1.1], right: {2});
+  doc.heading('${st.owner} যা দিলেন');
+  doc.table(['সময়', 'কীভাবে', 'রেফ / নোট', 'টাকা'], [
+    for (final x in pays)
+      [
+        '${dateShort(x.at)}\n${timeText(x.at)}',
+        '${payWayName(x.way)}${x.count > 0 ? '\n${bn('${x.count}')}টা লেনদেনের' : ''}',
+        [if (x.ref.isNotEmpty) 'রেফ ${x.ref}', if (x.note.isNotEmpty) x.note].join('\n'),
+        bnNum(x.taka),
+      ],
+  ], flex: [1.3, 1.6, 2, 1.2], right: {3});
+  if (waiting.isNotEmpty) {
+    doc.heading('এখনো পাঠানো হয়নি');
+    doc.table(['নং / সময়', 'কী / নম্বর', 'টাকা', 'অবস্থা'], [
+      for (final x in waiting)
+        ['#${bn('${x.no}')}\n${dateShort(x.at)}', '${_service(x)}\n${bdShow(x.number)}', bnNum(x.total), x.hasProblem ? 'সমস্যা: ${x.problem}' : 'অপেক্ষায়'],
+    ], flex: [1.3, 2, 1.2, 2], right: {2});
+  }
+  return doc;
 }

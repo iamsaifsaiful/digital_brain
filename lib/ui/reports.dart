@@ -427,7 +427,8 @@ PdfDoc lossPdf(Hisab h) {
 /// Builds the PDF and opens its preview; from there it can be saved to
 /// Downloads, printed, shared, or just looked at.
 Future<void> sharePdf(BuildContext context, Hisab h, PdfDoc doc, String name) async {
-  if (!h.can('reports')) {
+  final agent = h.session?.isAgent ?? false;
+  if (!agent && !h.can('reports')) {
     snack(context, 'PDF বানানোর অনুমতি আপনার নেই');
     return;
   }
@@ -442,7 +443,7 @@ Future<void> sharePdf(BuildContext context, Hisab h, PdfDoc doc, String name) as
     final n = h.now;
     final safe = name.replaceAll(RegExp(r'[^\wঀ-৿-]+'), '-');
     final file = '$safe-${n.year}-${n.month}-${n.day}.pdf';
-    await h.note('sys', 'PDF বানানো', doc.title);
+    if (!agent) await h.note('sys', 'PDF বানানো', doc.title);
     if (context.mounted) await Navigator.of(context).push<void>(MaterialPageRoute(builder: (_) => PdfPreview(h: h, doc: doc, bytes: bytes, file: file)));
     doc.disposePages();
   } catch (e) {

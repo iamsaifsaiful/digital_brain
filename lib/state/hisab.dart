@@ -964,6 +964,15 @@ class Hisab extends ChangeNotifier {
     await _save();
   }
 
+  /// The agent's problem was sorted out: the send goes to the agent again
+  /// as a request (the server tells them).
+  Future<void> reRequest(Txn t) async {
+    if (!t.hasProblem) return;
+    t.problemSolved = t.problemAt;
+    _log('agent', 'আবার অনুরোধ · #${bn('${t.no}')}', 'এজেন্টের সমস্যা ছিল: ${t.problem} · সমাধান করে আবার পাঠানো হলো · ${taka(t.agentTaka)}', who: meName, ref: t.id);
+    await _save();
+  }
+
   /// The admin confirms the change message reached the agent.
   Future<void> changeNoticeSent(Txn t) async {
     if (t.changeNotice.isEmpty) return;
