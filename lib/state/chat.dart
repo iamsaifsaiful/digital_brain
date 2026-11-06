@@ -204,6 +204,10 @@ class ChatController extends ChangeNotifier {
   /// it is fresh (30 minutes), never an older or re-sorted one.
   DateTime? _shownAt;
 
+  /// The reminders the last day's list named with the to-dos ("এই তালিকা
+  /// থেকে …" can mean one of them too).
+  List<String> _shownReminders = const [];
+
   /// The ids of the to-do list last said, in order (for tests).
   @visibleForTesting
   List<String> get debugShownTasks => _shownTasks;
@@ -1081,6 +1085,12 @@ class ChatController extends ChangeNotifier {
         notifyListeners();
         return out.join(' ');
       }
+    }
+    // "এই তালিকা থেকে পড়ানোটা কালকের তালিকায় যুক্ত কর" right after a day's
+    // list: that item (to-do or reminder) on the other day.
+    if (wait == ChatWait.none && await _fromShownList(t, out)) {
+      notifyListeners();
+      return out.join(' ');
     }
     // "না, এগারোটায়" right after a to-do's reminder: that one, changed.
     if (await _todoCorrection(t, out)) {

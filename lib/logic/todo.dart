@@ -989,7 +989,15 @@ Command? _tdOne(String said0, List<Task> tasks, DateTime now) {
     if (_thas(f, r'(?:সময়ের|সময়\s+থেকে)\s+(?:\S+\s+)?(?:\S+\s+)?(?:আগে|পরে)')) {
       return TaskEdit(said, ref: ref.isEmpty ? TaskRef(it: true, said: said) : ref, remindNeedsTime: true, say: 'কাজটার নিজের কোনো সময় রাখা নেই। কখন মনে করাব? যেমন “সকাল ৯টায়”।');
     }
-    final w = parseWhen(f, now);
+    // "সকাল ১০ টায় পড়ানো কাজটার রিমাইন্ডার সাড়ে ৯টায়": a time inside the
+    // to-do's own name is not the reminder's time.
+    var fw = f;
+    for (final t in open) {
+      final parts = _tf(t.title).toLowerCase().split(RegExp(r'\s+')).where((x) => x.isNotEmpty).toList();
+      if (parts.join().length <= 3) continue;
+      fw = fw.replaceFirst(RegExp([for (final x in parts) RegExp.escape(x)].join(r'\s*')), ' ');
+    }
+    final w = parseWhen(fw, now);
     final r = ref.isEmpty ? TaskRef(it: true, said: said) : ref;
     if (w == null || !w.hasTime) {
       final part = _thas(f, r'(?<=\s)(?:সকালে|সকাল|দুপুরে|বিকেলে|সন্ধ্যায়|রাতে)(?=\s)');
@@ -1079,15 +1087,29 @@ TaskEdit? _tdEdit(String said, String f, List<Task> open, DateTime now) {
   final aboutReminder = _thas(f, r'(?:রিমাইন্ডার|reminder|মনে\s+করি|মনে\s+করা|অ্যালার্ম|এলার্ম)');
 
   // "বাজার করার বদলে মাসের বাজার করা লিখো".
-  final rename = _tre(r'^\s*(.+?)\s*(?:এর|ের)?\s+(?:বদলে|পরিবর্তে|জায়গায়)\s+(.+?)\s+(?:লিখো|লেখো|লিখে\s+দাও|লিখে\s+রাখো|করো|রাখো|দাও|করে\s+দাও)\s*$').firstMatch(f);
+  // Also "…কাজটা বদলে মাছ কেনা কর" and "…এর বদলে লেখো মাছ কেনা".
+  final rename = _tre(r'^\s*(.+?)\s*(?:এর|ের)?\s+(?:বদলে|পরিবর্তে|জায়গায়)\s+(.+?)\s+(?:লিখো|লেখো|লিখ|লেখ|লিখুন|লিখে\s+দাও|লিখে\s+রাখো|করো|কর|করুন|করে\s+দাও|রাখো|রাখ|দাও|দিন)\s*$').firstMatch(f) ??
+      _tre(r'^\s*(.+?)\s*(?:এর|ের)?\s+(?:বদলে|পরিবর্তে|জায়গায়)\s+(?:লিখো|লেখো|লিখ|লেখ|লিখুন|লিখে\s+দাও|লিখে\s+রাখো|দাও|দিন|রাখো)\s+(.+?)\s*$').firstMatch(f);
   if (rename != null && !_thas(rename[1]!, r'(?:টাকা|সময়|তারিখ|দিন|টাইম)\S{0,3}\s*$') && !(parseWhen(rename[2]!, now)?.hasDay ?? false)) {
     final r = _tdRef(' ${rename[1]} ', rename[1]!);
     final title = todoTitle(rename[2]!);
     if (title.isNotEmpty && !r.isEmpty) return TaskEdit(said, ref: r, title: title);
   }
   // "এর সঙ্গে লিখো, কাগজপত্র নিতে হবে".
-  final note = _tre(r'(?:^|\s)(?:এর|এটার|ওটার|এই\s+কাজের|কাজটার)?\s*(?:সঙ্গে|সাথে)\s+(?:লিখো|লেখো|লিখে\s+রাখো|যোগ\s+করো|লিখে\s+দাও)\s+(.+)$').firstMatch(f);
-  if (note != null) return TaskEdit(said, ref: TaskRef(it: true, said: said), note: tidy(note[1]!));
+  // "বাজার করা কাজের সাথে লিখে রাখো …": that to-do, when one is named.
+  final note = _tre(r'^(.*?)(?:^|\s)(?:এর|এটার|ওটার|এই\s+কাজের|কাজটার|কাজের|কাজটির)?\s*(?:সঙ্গে|সাথে)\s+(?:লিখো|লেখো|লিখে\s+রাখো|যোগ\s+করো|লিখে\s+দাও)\s+(.+)$').firstMatch(f);
+  if (note != null) {
+    final r = note[1]!.trim().isEmpty ? null : _tdRef(' ${note[1]} ', note[1]!);
+    final hit = r == null || r.terms.isEmpty ? const <Task>[] : tdMatch(open, r.terms);
+    return TaskEdit(said, ref: hit.isNotEmpty ? r! : TaskRef(it: true, said: said), note: tidy(note[2]!));
+  }
+  // "বাজার করা কাজটা পরিবর্তন করো": which one is clear, what is not — asked.
+  if (named && _thas(f, r'(?<=\s)(?:পরিবর্তন|বদল|এডিট|edit|সম্পাদনা)\s*(?:করো|কর|করতে\s+চাই|করব|করুন|করে\s+দাও|দাও)?\s*$')) {
+    final hit = tdMatch(open, ref.terms);
+    if (hit.length == 1) {
+      return TaskEdit(said, ref: TaskRef(ids: [hit.single.id], said: said), say: '“${hit.single.title}” — কী বদলাব? নাম, দিন, রিমাইন্ডারের সময়, নাকি জরুরি করা? যেমন “নাম বদলে মাছ কেনা করো” বা “কাল সরাও”।');
+    }
+  }
   // "তারিখ বাদ দাও, কাজটা থাক".
   if (_thas(f, r'(?<=\s)তারিখ(?:টা)?\s+(?:বাদ|সরাও|সরিয়ে|মুছে|উঠিয়ে|তুলে)')) {
     return TaskEdit(said, ref: named ? ref : TaskRef(it: true, said: said), clearDue: true);
@@ -1153,11 +1175,17 @@ TaskEdit? _tdEdit(String said, String f, List<Task> open, DateTime now) {
   final moveVerb = _thas(f, r'(?<=\s)(?:রাখো|রাখ|রেখো|সরাও|সরিয়ে\s+দাও|নাও|নিয়ে\s+যাও|দাও|করো|move\s+করো|move|শিফট\s+করো|নিয়ে\s+নাও|পাঠাও)(?=\s|$)');
   final explicitAdd = _thas(f, r'(?:লিখে\s+রাখ|যোগ\s+কর|যুক্ত\s+কর|নতুন\s+কাজ|add)') || _thas(f, _listP);
   final named0 = ref.terms.isNotEmpty && defin;
-  if (!aboutReminder && (notToday != null || onlyWhen || (moveVerb && !explicitAdd && (ref.it || ref.index != null || named || named0)))) {
+  // "বাজার করাটা কাল সকালে করব": a to-do on the list, named with "-টা",
+  // and "I will" — that one on the new day, never a second one.
+  final loose = [for (final x in ref.terms) x.replaceAll(_tre(r'(?:টা|টি|টাকে|টার)$'), '')];
+  final namedLoose = named || (defin && loose.isNotEmpty && tdMatch(open, loose).length == 1);
+  final willMove = namedLoose && defin && _thas(f, r'(?<=\s)(?:করব|করবো|করমু|করবো|করিব)\s*$');
+  if (!aboutReminder && (notToday != null || onlyWhen || ((moveVerb || willMove) && !explicitAdd && (ref.it || ref.index != null || named || named0)))) {
     final w = _tdWhen(notToday != null ? notToday[1]! : f, now);
     // "বুধবার রাখো" with a to-do of a whole week: that day of its week.
     final wdOnly = _tre(r'^\s*' + _wdP + r'\s+(?:রাখো|রাখ|দাও|করো|সরাও|করব|করবো)\s*$').firstMatch(f);
-    final r = notToday != null || ref.isEmpty ? TaskRef(it: true, said: said) : ref;
+    var r = notToday != null || ref.isEmpty ? TaskRef(it: true, said: said) : ref;
+    if (willMove && !named) r = TaskRef(ids: [tdMatch(open, loose).single.id], said: said);
     if (wdOnly != null) return TaskEdit(said, ref: r, weekday: _wdIndex(wdOnly[1]!), due: w.day);
     final dom = _tre(r'^\s*([০-৯0-9]{1,2})\s+তারিখ\S*\s+(?:রাখো|রাখ|দাও|করো|সরাও|করব|করবো)\s*$').firstMatch(f);
     if (dom != null) return TaskEdit(said, ref: r, due: w.day, dayOfMonth: int.parse(asciiDigits(dom[1]!)));

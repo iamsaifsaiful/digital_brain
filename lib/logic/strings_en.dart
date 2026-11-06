@@ -5169,4 +5169,11 @@ const enStrings = <String, String>{
   '+ আরও পণ্য': '+ More items',
   'কত শতাংশ': 'What percent',
   'টাকা কীভাবে': 'How paid',
+  'তালিকার কোনটা — {0}? নামটা আরেকটু বলুন।': 'Which one on the list — {0}? Say a little more of the name.',
+  '“{0}” {1}-এর তালিকাতেও রাখলাম{2}। আগেরটাও আছে।': 'Added “{0}” to {1}\'s list as well{2}. The earlier one stays.',
+  ', রিমাইন্ডার {0}': ', reminder {0}',
+  '“{0}” নিয়মিত রিমাইন্ডার — রিমাইন্ডারের পাতা থেকে দিন বদলান।': '“{0}” repeats — change its days on the Reminders page.',
+  '“{0}” {1} {2} রাখলাম। আগেরটাও আছে।': 'Set “{0}” for {1} {2}. The earlier one stays.',
+  '“{0}” {1} {2} সরিয়েছি।': 'Moved “{0}” to {1} {2}.',
+  '{0} — রিমাইন্ডার {1}': '{0} — reminder {1}',
 };
