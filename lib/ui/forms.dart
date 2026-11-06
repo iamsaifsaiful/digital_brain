@@ -47,6 +47,7 @@ class _AskTextState extends State<_AskText> {
         autofocus: true,
         minLines: lines,
         maxLines: lines == 1 ? 1 : lines + 3,
+        textCapitalization: widget.number ? TextCapitalization.none : TextCapitalization.sentences,
         keyboardType: widget.number ? TextInputType.number : (lines > 1 ? TextInputType.multiline : TextInputType.text),
         inputFormatters: widget.number ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9০-৯]'))] : null,
         style: body(16),

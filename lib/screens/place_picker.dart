@@ -112,7 +112,7 @@ class _PlaceDialogState extends State<_PlaceDialog> {
         Padding(padding: const EdgeInsets.fromLTRB(24, 20, 24, 8), child: Text(tr('আপনার জেলা/শহর'), style: body(18, weight: FontWeight.w600))),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: TextField(
+          child: TextField(textCapitalization: TextCapitalization.sentences, 
             key: const Key('place-search'),
             controller: _q,
             onChanged: _changed,

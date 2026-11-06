@@ -63,7 +63,7 @@ class _TasksScreenState extends State<TasksScreen> {
         builder: (ctx, setD) => AlertDialog(
           title: Text(tr('কাজ'), style: display(20)),
           content: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextField(controller: c, minLines: 1, maxLines: 3, decoration: InputDecoration(labelText: tr('কী করতে হবে'))),
+            TextField(textCapitalization: TextCapitalization.sentences, controller: c, minLines: 1, maxLines: 3, decoration: InputDecoration(labelText: tr('কী করতে হবে'))),
             const SizedBox(height: 10),
             Row(children: [
               Expanded(child: Text(due == null ? tr('তারিখ নেই') : fullDate(due!), style: body(15))),
@@ -172,7 +172,7 @@ class _TasksScreenState extends State<TasksScreen> {
             for (final l in lists) ActionChip(label: Text(l), onPressed: () => Navigator.pop(ctx, l)),
           ]),
           const SizedBox(height: 10),
-          TextField(controller: c, decoration: InputDecoration(labelText: tr('নতুন তালিকার নাম'))),
+          TextField(textCapitalization: TextCapitalization.sentences, controller: c, decoration: InputDecoration(labelText: tr('নতুন তালিকার নাম'))),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
@@ -315,7 +315,7 @@ class _TasksScreenState extends State<TasksScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
                   child: Row(children: [
                     Expanded(
-                      child: TextField(
+                      child: TextField(textCapitalization: TextCapitalization.sentences, 
                         controller: _text,
                         textInputAction: TextInputAction.done,
                         onSubmitted: (_) => _add(),

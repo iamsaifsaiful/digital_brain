@@ -267,7 +267,7 @@ class _ProductFormState extends State<ProductForm> {
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
               Padding(padding: const EdgeInsets.fromLTRB(2, 6, 2, 6), child: Text(tr('পণ্যের নাম'), style: body(12.5, color: C.muted))),
-              TextField(
+              TextField(textCapitalization: TextCapitalization.sentences, 
                 key: const Key('biz-product-name'),
                 controller: _name,
                 autofocus: _p == null,
@@ -322,7 +322,7 @@ class _ProductFormState extends State<ProductForm> {
                   ),
               ]),
               const SizedBox(height: 10),
-              TextField(
+              TextField(textCapitalization: TextCapitalization.sentences, 
                 key: const Key('biz-product-shelf'),
                 controller: _shelf,
                 style: body(14.5),
@@ -359,7 +359,7 @@ class _ProductFormState extends State<ProductForm> {
                       TextField(key: const Key('biz-product-barcode'), controller: _barcode, keyboardType: TextInputType.number, style: body(15), decoration: InputDecoration(hintText: tr('বারকোডের নম্বর'), isDense: true))),
                   extra('supplier', _hasSupplier, tr('কোন ডিলারের কাছ থেকে কেনা'), tr('অর্ডার তালিকায় ডিলার ধরে ভাগ হবে'), (v) => _hasSupplier = v,
                       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        TextField(key: const Key('biz-product-supplier'), controller: _supplier, style: body(15), decoration: InputDecoration(hintText: tr('যেমন: করিম ট্রেডার্স'), isDense: true)),
+                        TextField(textCapitalization: TextCapitalization.sentences, key: const Key('biz-product-supplier'), controller: _supplier, style: body(15), decoration: InputDecoration(hintText: tr('যেমন: করিম ট্রেডার্স'), isDense: true)),
                         if (suppliers.isNotEmpty) ...[
                           const SizedBox(height: 6),
                           Wrap(spacing: 6, runSpacing: 6, children: [for (final s in suppliers.take(6)) ActionChip(label: Text(s, style: body(12)), onPressed: () => setState(() => _supplier.text = s))]),

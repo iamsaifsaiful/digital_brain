@@ -267,7 +267,7 @@ class _PickDealerState extends State<_PickDealer> {
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text(tr('কোন ডিলার?'), style: display(18, weight: 600)),
         const SizedBox(height: 10),
-        TextField(
+        TextField(textCapitalization: TextCapitalization.sentences, 
           key: const Key('biz-dealer-name'),
           controller: _c,
           autofocus: true,

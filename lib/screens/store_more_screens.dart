@@ -415,7 +415,7 @@ class _EmergencyEditScreenState extends State<EmergencyEditScreen> {
           TopBar(title: tr('জরুরি কার্ড')),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
-              TextField(controller: _name, decoration: InputDecoration(labelText: tr('নাম'))),
+              TextField(textCapitalization: TextCapitalization.sentences, controller: _name, decoration: InputDecoration(labelText: tr('নাম'))),
               FieldLabel(tr('রক্তের গ্রুপ')),
               ChoiceChips<String>(items: [for (final b in bloodGroups) (b, b), ('', tr('জানি না'))], value: _blood, onChanged: (v) => setState(() => _blood = v)),
               FieldLabel(tr('জরুরি যোগাযোগ')),
@@ -423,20 +423,20 @@ class _EmergencyEditScreenState extends State<EmergencyEditScreen> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Row(children: [
-                    Expanded(flex: 4, child: TextField(controller: r.$1, decoration: InputDecoration(hintText: tr('নাম'), isDense: true))),
+                    Expanded(flex: 4, child: TextField(textCapitalization: TextCapitalization.sentences, controller: r.$1, decoration: InputDecoration(hintText: tr('নাম'), isDense: true))),
                     const SizedBox(width: 6),
-                    Expanded(flex: 3, child: TextField(controller: r.$3, decoration: InputDecoration(hintText: tr('সম্পর্ক'), isDense: true))),
+                    Expanded(flex: 3, child: TextField(textCapitalization: TextCapitalization.sentences, controller: r.$3, decoration: InputDecoration(hintText: tr('সম্পর্ক'), isDense: true))),
                     const SizedBox(width: 6),
                     Expanded(flex: 4, child: TextField(controller: r.$2, keyboardType: TextInputType.phone, decoration: InputDecoration(hintText: tr('নম্বর'), isDense: true))),
                     IconButton(tooltip: tr('যোগাযোগ থেকে'), onPressed: () => _pickContact(i), icon: Icon(Icons.contacts_outlined, color: C.green)),
                   ]),
                 ),
               FieldLabel(tr('রোগ / অবস্থা')),
-              TextField(controller: _cond, decoration: InputDecoration(hintText: tr('যেমন: ডায়াবেটিস, উচ্চ রক্তচাপ'))),
+              TextField(textCapitalization: TextCapitalization.sentences, controller: _cond, decoration: InputDecoration(hintText: tr('যেমন: ডায়াবেটিস, উচ্চ রক্তচাপ'))),
               FieldLabel(tr('নিয়মিত ওষুধ')),
-              TextField(controller: _med, decoration: InputDecoration(hintText: tr('যেমন: ইনসুলিন সকাল-রাত'))),
+              TextField(textCapitalization: TextCapitalization.sentences, controller: _med, decoration: InputDecoration(hintText: tr('যেমন: ইনসুলিন সকাল-রাত'))),
               FieldLabel(tr('অ্যালার্জি')),
-              TextField(controller: _all, decoration: InputDecoration(hintText: tr('যেমন: পেনিসিলিন'))),
+              TextField(textCapitalization: TextCapitalization.sentences, controller: _all, decoration: InputDecoration(hintText: tr('যেমন: পেনিসিলিন'))),
               const SizedBox(height: 18),
               PrimaryButton(
                 label: tr('রাখুন'),

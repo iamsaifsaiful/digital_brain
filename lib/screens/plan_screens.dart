@@ -180,7 +180,7 @@ Future<void> editTask(BuildContext context, Task t) async {
       builder: (ctx, setD) => AlertDialog(
         title: Text(tr('কাজ'), style: display(20)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: c, minLines: 1, maxLines: 3, decoration: InputDecoration(labelText: tr('কী করতে হবে'))),
+          TextField(textCapitalization: TextCapitalization.sentences, controller: c, minLines: 1, maxLines: 3, decoration: InputDecoration(labelText: tr('কী করতে হবে'))),
           const SizedBox(height: 10),
           Row(children: [
             Expanded(child: Text(due == null ? tr('যেকোনো দিন') : fullDate(due!), style: body(15))),

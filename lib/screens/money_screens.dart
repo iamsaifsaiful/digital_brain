@@ -863,7 +863,7 @@ Future<String?> askCategory(BuildContext context, List<String> known) {
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Wrap(spacing: 6, runSpacing: 6, children: [for (final k in known.take(16)) ActionChip(label: Text(k), onPressed: () => Navigator.pop(ctx, k))]),
           const SizedBox(height: 10),
-          TextField(controller: c, decoration: InputDecoration(labelText: tr('নতুন খাত'))),
+          TextField(textCapitalization: TextCapitalization.sentences, controller: c, decoration: InputDecoration(labelText: tr('নতুন খাত'))),
         ]),
       ),
       actions: [
@@ -930,7 +930,7 @@ Future<String?> askProjectName(BuildContext context, {String initial = ''}) {
     context: context,
     builder: (ctx) => AlertDialog(
       title: Text(initial.isEmpty ? tr('নতুন হিসাব') : tr('হিসাবের নাম'), style: display(20)),
-      content: TextField(controller: c, autofocus: true, decoration: InputDecoration(labelText: tr('নাম, যেমন: রহিম ভবন'))),
+      content: TextField(textCapitalization: TextCapitalization.sentences, controller: c, autofocus: true, decoration: InputDecoration(labelText: tr('নাম, যেমন: রহিম ভবন'))),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
         TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: Text(tr('ঠিক আছে'))),
@@ -991,7 +991,7 @@ Future<(String, int, bool)?> askNewProject(BuildContext context) {
                 ActionChip(label: Text(t), onPressed: () => setD(() => name.text = t)),
             ]),
             const SizedBox(height: 10),
-            TextField(controller: name, onChanged: (_) => setD(() {}), decoration: InputDecoration(labelText: tr('নাম, যেমন: রহিম ভবন'))),
+            TextField(textCapitalization: TextCapitalization.sentences, controller: name, onChanged: (_) => setD(() {}), decoration: InputDecoration(labelText: tr('নাম, যেমন: রহিম ভবন'))),
             const SizedBox(height: 10),
             const SizedBox(height: 14),
             mainChoice(inMain, (x) => setD(() => inMain = x)),
@@ -1567,12 +1567,12 @@ class _CashFormScreenState extends State<CashFormScreen> {
                   if (_typeCat || (_category.text.trim().isNotEmpty && !cats.take(_allCats ? 16 : 8).contains(_category.text.trim())))
                     Padding(
                       padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
-                      child: TextField(controller: _category, onChanged: (_) => setState(() {}), decoration: InputDecoration(labelText: tr('খাত (যেমন: বাজার, ভাড়া, বেতন)'))),
+                      child: TextField(textCapitalization: TextCapitalization.sentences, controller: _category, onChanged: (_) => setState(() {}), decoration: InputDecoration(labelText: tr('খাত (যেমন: বাজার, ভাড়া, বেতন)'))),
                     ),
                 ]),
               ),
               const SizedBox(height: 14),
-              TextField(controller: _note, minLines: 1, maxLines: 3, decoration: InputDecoration(labelText: tr('নোট (ইচ্ছামতো)'))),
+              TextField(textCapitalization: TextCapitalization.sentences, controller: _note, minLines: 1, maxLines: 3, decoration: InputDecoration(labelText: tr('নোট (ইচ্ছামতো)'))),
               const SizedBox(height: 14),
               ListRow(
                 leading: Icon(Icons.event_outlined, color: C.ink),

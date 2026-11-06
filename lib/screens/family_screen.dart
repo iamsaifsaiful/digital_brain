@@ -323,7 +323,7 @@ class _AddSheetState extends State<_AddSheet> {
                 key: const Key('family-email'), controller: _email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: tr('তাঁর ইমেইল (যেটা দিয়ে অ্যাপে লগইন করেন)'))),
             const SizedBox(height: 10),
           ],
-          TextField(key: const Key('family-relation'), controller: _relation, decoration: InputDecoration(labelText: tr('তিনি আপনার কে?'), hintText: tr('যেমন: আম্মা, ছেলে, স্ত্রী'))),
+          TextField(textCapitalization: TextCapitalization.sentences, key: const Key('family-relation'), controller: _relation, decoration: InputDecoration(labelText: tr('তিনি আপনার কে?'), hintText: tr('যেমন: আম্মা, ছেলে, স্ত্রী'))),
           const SizedBox(height: 12),
           Text(tr('তিনি আমার জন্য যা করতে পারবেন'), style: body(13.5, weight: FontWeight.w600, color: C.muted2)),
           for (final p in familyPerms)
@@ -644,14 +644,14 @@ class _SendSheetState extends State<_SendSheet> {
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text('$heading · ${widget.to}', style: display(19, weight: 700)),
           const SizedBox(height: 12),
-          TextField(
+          TextField(textCapitalization: TextCapitalization.sentences, 
             key: const Key('family-item-title'),
             controller: _title,
             decoration: InputDecoration(labelText: k == 'medicine' ? tr('ওষুধের নাম') : (k == 'note' ? tr('শিরোনাম') : tr('কী'))),
           ),
           if (k == 'note') ...[
             const SizedBox(height: 10),
-            TextField(controller: _body, maxLines: 4, decoration: InputDecoration(labelText: tr('লেখা'))),
+            TextField(textCapitalization: TextCapitalization.sentences, controller: _body, maxLines: 4, decoration: InputDecoration(labelText: tr('লেখা'))),
           ],
           if (k == 'task' || k == 'reminder') ...[
             const SizedBox(height: 10),
@@ -857,7 +857,7 @@ class _ClaimDialogState extends State<_ClaimDialog> {
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(tr('মৃত্যু সনদের ছবি লাগবে। আমরা যাচাই করব, তাঁর ফোন আর ইমেইলে জানাব; ১৪ দিনের মধ্যে কেউ বাতিল না করলে তিনি যা বেছে রেখেছেন, আপনি দেখতে পাবেন।'), style: body(14, height: 1.45)),
           const SizedBox(height: 10),
-          TextField(controller: _note, maxLines: 2, decoration: InputDecoration(labelText: tr('কিছু লিখতে চাইলে (তারিখ, কোথায়)'))),
+          TextField(textCapitalization: TextCapitalization.sentences, controller: _note, maxLines: 2, decoration: InputDecoration(labelText: tr('কিছু লিখতে চাইলে (তারিখ, কোথায়)'))),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('বাতিল'))),

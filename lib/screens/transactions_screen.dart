@@ -126,7 +126,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               ]),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-                child: TextField(
+                child: TextField(textCapitalization: TextCapitalization.sentences, 
                   onChanged: (v) => setState(() => _q = v),
                   decoration: InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: tr('নাম বা পরিমাণ দিয়ে খুঁজুন')),
                 ),

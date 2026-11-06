@@ -123,7 +123,7 @@ class _MoreScreenState extends State<MoreScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(tr('আপনাকে কী নামে ডাকবো?'), style: body(18, weight: FontWeight.w600)),
-        content: TextField(controller: c, autofocus: true, style: body(16), decoration: InputDecoration(hintText: tr('যেমন: সাইফুল ভাই'))),
+        content: TextField(textCapitalization: TextCapitalization.sentences, controller: c, autofocus: true, style: body(16), decoration: InputDecoration(hintText: tr('যেমন: সাইফুল ভাই'))),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাদ দিন'))),
           TextButton(onPressed: () => Navigator.pop(ctx, c.text), child: Text(tr('রাখুন'), style: body(15, weight: FontWeight.w600, color: C.green))),

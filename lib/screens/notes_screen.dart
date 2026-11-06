@@ -60,7 +60,7 @@ class _NotesScreenState extends State<NotesScreen> {
               child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 Wrap(spacing: 6, runSpacing: 6, children: [for (final k in cats) ActionChip(label: Text(k), onPressed: () => Navigator.pop(ctx, k))]),
                 const SizedBox(height: 10),
-                TextField(controller: c, decoration: InputDecoration(labelText: tr('নতুন বিভাগ'))),
+                TextField(textCapitalization: TextCapitalization.sentences, controller: c, decoration: InputDecoration(labelText: tr('নতুন বিভাগ'))),
               ]),
             ),
             actions: [
@@ -138,7 +138,7 @@ class _NotesScreenState extends State<NotesScreen> {
               ]),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-                child: TextField(
+                child: TextField(textCapitalization: TextCapitalization.sentences, 
                   onChanged: (v) => setState(() => _q = v),
                   decoration: InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: tr('খুঁজুন')),
                 ),

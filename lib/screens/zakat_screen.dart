@@ -431,7 +431,7 @@ class _ItemDialogState extends State<_ItemDialog> {
   Widget build(BuildContext context) => AlertDialog(
         title: Text(tr('যাকাতের হিসাবে যোগ করুন')),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(key: const Key('zakat-item-label'), controller: _label, decoration: InputDecoration(labelText: tr('কী (যেমন: জমির বায়নার টাকা, প্রাইজবন্ড)'))),
+          TextField(textCapitalization: TextCapitalization.sentences, key: const Key('zakat-item-label'), controller: _label, decoration: InputDecoration(labelText: tr('কী (যেমন: জমির বায়নার টাকা, প্রাইজবন্ড)'))),
           const SizedBox(height: 8),
           TextField(key: const Key('zakat-item-amount'), controller: _amount, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: tr('টাকা'), prefixText: tr('৳ '))),
           const SizedBox(height: 8),
@@ -505,7 +505,7 @@ class _GoldDialogState extends State<_GoldDialog> {
           ]),
           if (_carat == 'other') ...[
             const SizedBox(height: 8),
-            TextField(key: const Key('zakat-gold-label'), controller: _label, decoration: InputDecoration(labelText: tr('কী সোনা (যেমন: সোনার কয়েন, পুরোনো গয়না)'))),
+            TextField(textCapitalization: TextCapitalization.sentences, key: const Key('zakat-gold-label'), controller: _label, decoration: InputDecoration(labelText: tr('কী সোনা (যেমন: সোনার কয়েন, পুরোনো গয়না)'))),
           ],
           const SizedBox(height: 8),
           TextField(

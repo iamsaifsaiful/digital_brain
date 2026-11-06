@@ -210,6 +210,7 @@ class LabeledField extends StatelessWidget {
             key: fieldKey,
             controller: controller,
             keyboardType: keyboard,
+            textCapitalization: keyboard == null || keyboard == TextInputType.text || keyboard == TextInputType.multiline ? TextCapitalization.sentences : TextCapitalization.none,
             minLines: lines,
             maxLines: lines,
             onChanged: onChanged,

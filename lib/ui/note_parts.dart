@@ -78,7 +78,7 @@ class _ChecklistEditorState extends State<ChecklistEditor> {
               },
             ),
             Expanded(
-              child: TextField(
+              child: TextField(textCapitalization: TextCapitalization.sentences, 
                 controller: _rows[i].$2,
                 focusNode: _rows[i].$3,
                 onChanged: (_) => _emit(),

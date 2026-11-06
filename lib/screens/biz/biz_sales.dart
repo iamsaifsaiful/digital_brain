@@ -344,7 +344,7 @@ class _SellPageState extends State<SellPage> {
     final count = _cart.length;
 
     final page = ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 16), children: [
-      TextField(
+      TextField(textCapitalization: TextCapitalization.sentences, 
         key: const Key('biz-sell-find'),
         controller: _find,
         onChanged: (_) => setState(() {}),

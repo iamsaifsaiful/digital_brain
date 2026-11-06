@@ -303,7 +303,7 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
                         ),
                     ],
                     const SizedBox(height: 14),
-                    TextFormField(
+                    TextFormField(textCapitalization: TextCapitalization.sentences, 
                       controller: _note,
                       decoration: InputDecoration(labelText: tr('নোট (ঐচ্ছিক)'), hintText: tr('কেন বা কীভাবে — যেমন “বিকাশে”')),
                     ),

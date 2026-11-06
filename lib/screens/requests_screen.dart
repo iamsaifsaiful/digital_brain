@@ -91,7 +91,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
           const SizedBox(height: 12),
           TextField(key: const Key('accept-phone'), controller: phone, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: tr('আপনার মোবাইল নম্বর'))),
           const SizedBox(height: 10),
-          TextField(controller: note, decoration: InputDecoration(labelText: tr('কিছু বলার থাকলে (ঐচ্ছিক)'), hintText: tr('যেমন: বিকেল ৪টায় আসতে পারব'))),
+          TextField(textCapitalization: TextCapitalization.sentences, controller: note, decoration: InputDecoration(labelText: tr('কিছু বলার থাকলে (ঐচ্ছিক)'), hintText: tr('যেমন: বিকেল ৪টায় আসতে পারব'))),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('বাতিল'))),
@@ -573,14 +573,14 @@ class _AskBloodScreenState extends State<AskBloodScreen> {
                 IconButton.outlined(onPressed: _bags < 10 ? () => setState(() => _bags++) : null, icon: const Icon(Icons.add_rounded)),
               ]),
               const SizedBox(height: 14),
-              TextField(key: const Key('ask-patient'), controller: _patient, decoration: InputDecoration(labelText: tr('কার জন্যে'), hintText: tr('যেমন: আমার বাবা, রহিম (৪৫)'))),
+              TextField(textCapitalization: TextCapitalization.sentences, key: const Key('ask-patient'), controller: _patient, decoration: InputDecoration(labelText: tr('কার জন্যে'), hintText: tr('যেমন: আমার বাবা, রহিম (৪৫)'))),
               const SizedBox(height: 12),
-              TextField(
+              TextField(textCapitalization: TextCapitalization.sentences, 
                   key: const Key('ask-problem'), controller: _problem, decoration: InputDecoration(labelText: tr('রোগীর সমস্যা'), hintText: tr('যেমন: সিজারিয়ান অপারেশন, থ্যালাসেমিয়া, দুর্ঘটনা'))),
               const SizedBox(height: 12),
-              TextField(key: const Key('ask-hospital'), controller: _hospital, decoration: InputDecoration(labelText: tr('হাসপাতাল'), hintText: tr('যেমন: ঢাকা মেডিকেল কলেজ হাসপাতাল'))),
+              TextField(textCapitalization: TextCapitalization.sentences, key: const Key('ask-hospital'), controller: _hospital, decoration: InputDecoration(labelText: tr('হাসপাতাল'), hintText: tr('যেমন: ঢাকা মেডিকেল কলেজ হাসপাতাল'))),
               const SizedBox(height: 12),
-              TextField(
+              TextField(textCapitalization: TextCapitalization.sentences, 
                   key: const Key('ask-location'),
                   controller: _location,
                   decoration: InputDecoration(labelText: tr('হাসপাতালের অবস্থান (এলাকা, ঠিকানা, ওয়ার্ড)'), hintText: tr('যেমন: বকশিবাজার, ওয়ার্ড ৩'))),
@@ -606,7 +606,7 @@ class _AskBloodScreenState extends State<AskBloodScreen> {
               const SizedBox(height: 12),
               TextField(key: const Key('ask-phone'), controller: _phone, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: tr('যোগাযোগের মোবাইল নম্বর'))),
               const SizedBox(height: 12),
-              TextField(controller: _note, maxLines: 2, decoration: InputDecoration(labelText: tr('আর কিছু বলার থাকলে (ঐচ্ছিক)'), hintText: tr('যেমন: সকাল ১০টার আগে আসুন'))),
+              TextField(textCapitalization: TextCapitalization.sentences, controller: _note, maxLines: 2, decoration: InputDecoration(labelText: tr('আর কিছু বলার থাকলে (ঐচ্ছিক)'), hintText: tr('যেমন: সকাল ১০টার আগে আসুন'))),
               const SizedBox(height: 8),
               Text(
                   tr('অনুরোধটা সারা দেশের সবাই দেখবেন — কার জন্যে, সমস্যা, হাসপাতাল, তারিখ আর আপনার নম্বরসহ। আপনার জেলার যাঁরা দাতা আর এই গ্রুপে দিতে পারেন, তাঁরা নোটিফিকেশনও পাবেন। একসাথে ৩টা পর্যন্ত অনুরোধ খোলা রাখা যায়।'),

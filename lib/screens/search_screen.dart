@@ -122,7 +122,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     Icon(Icons.search_rounded, color: C.muted, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: TextField(
+                      child: TextField(textCapitalization: TextCapitalization.sentences, 
                         controller: _q,
                         autofocus: widget.initial.isEmpty,
                         onChanged: (_) => setState(() {}),

@@ -118,7 +118,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
             for (final e in {...existing, defaultNoteCategory}) ActionChip(label: Text(e), onPressed: () => Navigator.pop(ctx, e)),
           ]),
           const SizedBox(height: 12),
-          TextField(controller: c, decoration: InputDecoration(labelText: tr('অথবা নতুন বিভাগের নাম'))),
+          TextField(textCapitalization: TextCapitalization.sentences, controller: c, decoration: InputDecoration(labelText: tr('অথবা নতুন বিভাগের নাম'))),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),

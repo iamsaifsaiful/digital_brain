@@ -61,7 +61,7 @@ Future<Shop?> shopForm(BuildContext context, {Shop? shop}) async {
         const SizedBox(height: 10),
         TextField(key: const Key('shop-phone'), controller: phone, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: tr('মোবাইল নম্বর'))),
         const SizedBox(height: 10),
-        TextField(key: const Key('shop-address'), controller: address, decoration: InputDecoration(labelText: tr('ঠিকানা'))),
+        TextField(textCapitalization: TextCapitalization.sentences, key: const Key('shop-address'), controller: address, decoration: InputDecoration(labelText: tr('ঠিকানা'))),
         const SizedBox(height: 16),
         PrimaryButton(
           label: tr('রাখুন'),

@@ -60,7 +60,7 @@ class _BizCustomersState extends State<BizCustomers> {
           ]),
         ),
         const SizedBox(height: 12),
-        TextField(
+        TextField(textCapitalization: TextCapitalization.sentences, 
           key: const Key('biz-customer-find'),
           controller: _find,
           onChanged: (_) => setState(() {}),
@@ -211,7 +211,7 @@ class _PickCustomerState extends State<_PickCustomer> {
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text(tr('গ্রাহক'), style: display(18, weight: 600)),
         const SizedBox(height: 10),
-        TextField(
+        TextField(textCapitalization: TextCapitalization.sentences, 
           key: const Key('biz-customer-name'),
           controller: _c,
           autofocus: true,

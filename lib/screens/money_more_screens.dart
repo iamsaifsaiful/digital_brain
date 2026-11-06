@@ -183,7 +183,7 @@ class AccountsScreen extends StatelessWidget {
             FieldLabel(tr('ধরন')),
             ChoiceChips<AccountKind>(items: [for (final k in AccountKind.values) (k, isEn ? k.en : k.bn)], value: kind, onChanged: (v) => set(() => kind = v)),
             FieldLabel(tr('নাম (ঐচ্ছিক)')),
-            TextField(controller: name, decoration: InputDecoration(hintText: tr('যেমন: ডাচ-বাংলা সেভিংস, পকেটের টাকা'))),
+            TextField(textCapitalization: TextCapitalization.sentences, controller: name, decoration: InputDecoration(hintText: tr('যেমন: ডাচ-বাংলা সেভিংস, পকেটের টাকা'))),
             FieldLabel(tr('এখন কত আছে')),
             TextField(controller: opening, keyboardType: TextInputType.number, decoration: InputDecoration(prefixText: tr('৳ '))),
             const SizedBox(height: 16),
@@ -561,7 +561,7 @@ class FixCategoriesScreen extends StatelessWidget {
             for (final c in cats) ActionChip(label: Text(c, style: body(14)), onPressed: () => Navigator.pop(ctx, c)),
           ]),
           const SizedBox(height: 12),
-          TextField(
+          TextField(textCapitalization: TextCapitalization.sentences, 
             controller: custom,
             textInputAction: TextInputAction.done,
             decoration: InputDecoration(labelText: tr('নতুন খাত লিখুন')),
@@ -712,7 +712,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text(old == null ? tr('নতুন সঞ্চয়ের লক্ষ্য') : tr('লক্ষ্য বদলান'), style: display(20, weight: 700)),
             FieldLabel(tr('কীসের জন্য')),
-            TextField(controller: name, autofocus: old == null, decoration: InputDecoration(hintText: tr('যেমন: ঈদের খরচ, নতুন ফোন'))),
+            TextField(textCapitalization: TextCapitalization.sentences, controller: name, autofocus: old == null, decoration: InputDecoration(hintText: tr('যেমন: ঈদের খরচ, নতুন ফোন'))),
             FieldLabel(tr('কত টাকা জমাতে চান')),
             TextField(controller: target, keyboardType: TextInputType.number, decoration: InputDecoration(prefixText: tr('৳ '))),
             FieldLabel(tr('কবের মধ্যে (ঐচ্ছিক)')),
@@ -768,7 +768,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
               FieldLabel(tr('ধরন')),
               ChoiceChips<InstallmentKind>(items: [for (final k in InstallmentKind.values) (k, isEn ? k.en : k.bn)], value: kind, onChanged: (v) => set(() => kind = v)),
               FieldLabel(tr('নাম')),
-              TextField(controller: name, decoration: InputDecoration(hintText: tr('যেমন: সোনালী ব্যাংক DPS, বাইকের লোন'))),
+              TextField(textCapitalization: TextCapitalization.sentences, controller: name, decoration: InputDecoration(hintText: tr('যেমন: সোনালী ব্যাংক DPS, বাইকের লোন'))),
               FieldLabel(tr('প্রতি মাসে কত')),
               TextField(controller: amount, keyboardType: TextInputType.number, decoration: InputDecoration(prefixText: tr('৳ '))),
               FieldLabel(tr('মোট কয় মাস')),
@@ -967,7 +967,7 @@ class _SplitScreenState extends State<SplitScreen> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(children: [
-                    Expanded(child: TextField(controller: c, decoration: InputDecoration(hintText: trf('{0} নম্বর জনের নাম', [bnDigits(i + 2)])))),
+                    Expanded(child: TextField(textCapitalization: TextCapitalization.sentences, controller: c, decoration: InputDecoration(hintText: trf('{0} নম্বর জনের নাম', [bnDigits(i + 2)])))),
                     IconButton(
                       tooltip: tr('সরান'),
                       onPressed: _names.length <= 1 ? null : () => setState(() => _names.removeAt(i).dispose()),
@@ -1142,11 +1142,11 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
               if (widget.shop == null) ...[
-                TextField(controller: _shop, decoration: InputDecoration(labelText: tr('দোকানের নাম'))),
+                TextField(textCapitalization: TextCapitalization.sentences, controller: _shop, decoration: InputDecoration(labelText: tr('দোকানের নাম'))),
                 const SizedBox(height: 10),
               ],
               Row(children: [
-                Expanded(child: TextField(controller: _customer, decoration: InputDecoration(labelText: tr('গ্রাহকের নাম')))),
+                Expanded(child: TextField(textCapitalization: TextCapitalization.sentences, controller: _customer, decoration: InputDecoration(labelText: tr('গ্রাহকের নাম')))),
                 const SizedBox(width: 8),
                 Expanded(child: TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: tr('মোবাইল (ঐচ্ছিক)')))),
               ]),
@@ -1155,7 +1155,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(children: [
-                    Expanded(flex: 5, child: TextField(controller: r.$1, onChanged: (_) => setState(() {}), decoration: InputDecoration(hintText: tr('জিনিসের নাম'), isDense: true))),
+                    Expanded(flex: 5, child: TextField(textCapitalization: TextCapitalization.sentences, controller: r.$1, onChanged: (_) => setState(() {}), decoration: InputDecoration(hintText: tr('জিনিসের নাম'), isDense: true))),
                     const SizedBox(width: 6),
                     Expanded(
                         flex: 2,

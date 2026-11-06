@@ -214,7 +214,7 @@ class _SpecialSheetState extends State<_SpecialSheet> {
             TextField(controller: _phone, keyboardType: TextInputType.phone),
           ],
           FieldLabel(tr('নোট (ঐচ্ছিক)')),
-          TextField(controller: _note, decoration: InputDecoration(hintText: tr('যেমন: উপহার কিনতে হবে'))),
+          TextField(textCapitalization: TextCapitalization.sentences, controller: _note, decoration: InputDecoration(hintText: tr('যেমন: উপহার কিনতে হবে'))),
           const SizedBox(height: 18),
           PrimaryButton(label: tr('রাখুন'), onPressed: _save),
           if (widget.old != null) ...[

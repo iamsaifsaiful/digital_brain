@@ -216,7 +216,7 @@ class _NewFeedbackScreenState extends State<NewFeedbackScreen> {
                   onChanged: (v) => setState(() => _kind = v),
                 ),
                 const SizedBox(height: 14),
-                TextField(
+                TextField(textCapitalization: TextCapitalization.sentences, 
                   key: const Key('feedback-text'),
                   controller: _text,
                   minLines: 5,
@@ -373,7 +373,7 @@ class _FeedbackThreadScreenState extends State<FeedbackThreadScreen> {
                 icon: Icon(Icons.attach_file_rounded, color: C.muted2),
               ),
               Expanded(
-                child: TextField(
+                child: TextField(textCapitalization: TextCapitalization.sentences, 
                   key: const Key('reply-text'),
                   controller: _text,
                   minLines: 1,

@@ -100,7 +100,7 @@ class _MoneySearchScreenState extends State<MoneySearchScreen> {
           TopBar(title: tr('হিসাবে খুঁজুন')),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-            child: TextField(
+            child: TextField(textCapitalization: TextCapitalization.sentences, 
               key: const Key('money-search'),
               controller: _q,
               autofocus: widget.query.isEmpty,
