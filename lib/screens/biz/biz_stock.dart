@@ -157,12 +157,12 @@ class ProductForm extends StatefulWidget {
 class _ProductFormState extends State<ProductForm> {
   late final Product? _p = widget.product;
   late final _name = TextEditingController(text: _p?.name ?? '');
-  late final _buy = TextEditingController(text: _p == null || _p.buy == 0 ? '' : '${_p.buy}');
-  late final _sell = TextEditingController(text: _p == null || _p.sell == 0 ? '' : '${_p.sell}');
-  late final _stock = TextEditingController(text: _p == null ? '' : qtyText(_p.stock));
-  late final _low = TextEditingController(text: _p == null || _p.low == 0 ? '' : qtyText(_p.low));
-  late final _bulkFrom = TextEditingController(text: _p?.bulkFrom == null ? '' : qtyText(_p!.bulkFrom!));
-  late final _bulkPrice = TextEditingController(text: _p?.bulkPrice == null ? '' : '${_p!.bulkPrice}');
+  late final _buy = TextEditingController(text: _p == null || _p.buy == 0 ? '' : bnDigits(_p.buy));
+  late final _sell = TextEditingController(text: _p == null || _p.sell == 0 ? '' : bnDigits(_p.sell));
+  late final _stock = TextEditingController(text: _p == null ? '' : bnDigits(qtyText(_p.stock)));
+  late final _low = TextEditingController(text: _p == null || _p.low == 0 ? '' : bnDigits(qtyText(_p.low)));
+  late final _bulkFrom = TextEditingController(text: _p?.bulkFrom == null ? '' : bnDigits(qtyText(_p!.bulkFrom!)));
+  late final _bulkPrice = TextEditingController(text: _p?.bulkPrice == null ? '' : bnDigits(_p!.bulkPrice!));
   late final _barcode = TextEditingController(text: _p?.barcode ?? '');
   late final _supplier = TextEditingController(text: _p?.supplier ?? '');
   late final _shelf = TextEditingController(text: _p == null ? widget.category : sectionOf(_p));
