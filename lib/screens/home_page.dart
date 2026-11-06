@@ -104,7 +104,7 @@ class HomePage extends StatelessWidget {
               ),
             ]),
           ),
-          const _Holidays(),
+          const HomeHolidays(),
           const SizedBox(height: 14),
           const _Tools(),
           const SizedBox(height: 12),
@@ -665,8 +665,8 @@ class _MoneyCard extends StatelessWidget {
 }
 
 /// সামনের ছুটি: the holiday going on now or the next two (always on the home).
-class _Holidays extends StatelessWidget {
-  const _Holidays();
+class HomeHolidays extends StatelessWidget {
+  const HomeHolidays();
 
   @override
   Widget build(BuildContext context) {

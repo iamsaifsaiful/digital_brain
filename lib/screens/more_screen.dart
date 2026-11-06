@@ -501,6 +501,35 @@ class _MoreScreenState extends State<MoreScreen> {
         const SizedBox(height: 14),
         ProfileCard(onName: _setName, onPlace: _setDistrict),
         const SizedBox(height: 12),
+        // ব্যবসায়ী মোড (owner, 6 Nov): one switch — on, the five tabs are the
+        // shop's (হোম · বিক্রি · হিসাব · স্টক); off, the app as it was.
+        Panel(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(17),
+            onTap: () => brain.setPref('business_mode', !brain.businessMode),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+              child: Row(children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(color: brain.businessMode ? C.green : C.greenTint, borderRadius: BorderRadius.circular(12)),
+                  child: Icon(Icons.storefront_outlined, color: brain.businessMode ? C.onAccent : C.green, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(tr('ব্যবসায়ী মোড'), style: body(15, weight: FontWeight.w600)),
+                    Text(brain.businessMode ? tr('চালু — হোম, বিক্রি, হিসাব, স্টক দোকানের জন্য। বন্ধ করলে আগের মতো।') : tr('দোকান চালালে চালু করুন — বিক্রি, বাকি খাতা, স্টক, দিনের হিসাব'),
+                        style: body(12, color: C.muted, height: 1.4)),
+                  ]),
+                ),
+                Switch(key: const Key('more-business'), value: brain.businessMode, onChanged: (v) => brain.setPref('business_mode', v)),
+              ]),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         // Owner, 2 Nov: in a logical order — what you use (Premium, family,
         // zakat, blood), your data (recycle bin, PDF, CSV), the settings
         // (look, reminders and notifications, assistant and voice, the phone's

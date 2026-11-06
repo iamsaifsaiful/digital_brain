@@ -1,6 +1,7 @@
 import 'package:digital_brain/logic/ledger.dart';
 import 'package:digital_brain/logic/shop_logic.dart';
 import 'package:digital_brain/models/models.dart';
+import 'package:digital_brain/state/brain.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'app_test.dart' show Rig;

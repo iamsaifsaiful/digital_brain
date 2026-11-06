@@ -66,7 +66,7 @@ List<PersonBalance> owed(AppData d) => balances(d.ledger).where((p) => p.balance
 Buyer buyerOf(ShopBook b, String name) => b.buyers.firstWhere((x) => x.name == name, orElse: () => Buyer(name: name));
 
 /// Today's cash box: the morning's cash, cash sales, credit collected in
-/// cash today, less the shop's cash costs today.
+/// cash today, less the shop's cash costs today (goods paid for in cash too).
 class CashBox {
   const CashBox({required this.opening, required this.sales, required this.collected, required this.costs});
   final int opening;
@@ -88,7 +88,7 @@ CashBox cashBox(AppData d, DateTime now) {
   }
   final sales = salesOn(b, today).where((s) => s.pay == SalePay.cash).fold(0, (s, x) => s + x.total);
   final collected = d.ledger.where((e) => e.kind == LedgerKind.received && sameDay(e.date, today)).fold(0, (s, e) => s + e.amount);
-  final costs = d.cash.where((e) => e.kind == CashKind.expense && sameDay(e.date, today) && e.category != 'মাল কেনা').fold(0, (s, e) => s + e.amount);
+  final costs = d.cash.where((e) => e.kind == CashKind.expense && sameDay(e.date, today)).fold(0, (s, e) => s + e.amount);
   return CashBox(opening: opening, sales: sales, collected: collected, costs: costs);
 }
 

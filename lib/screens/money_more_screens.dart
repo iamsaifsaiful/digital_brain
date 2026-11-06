@@ -66,7 +66,6 @@ class MoneyTools extends StatelessWidget {
     return SizedBox(
       height: 104,
       child: ListView(scrollDirection: Axis.horizontal, children: [
-        if (brain.businessMode) tile(tr('দোকান'), Icons.storefront_outlined, C.orange, C.orangeTint, const ShopScreen()),
         tile(tr('অ্যাকাউন্ট'), Icons.account_balance_outlined, C.blue, C.blueTint, const AccountsScreen()),
         tile(tr('খরচ বিশ্লেষণ'), Icons.pie_chart_outline_rounded, C.orange, C.orangeTint, const SpendHealthScreen()),
         tile(tr('মাসের রিপোর্ট'), Icons.insert_chart_outlined_rounded, C.green, C.greenTint, const ReportScreen()),
@@ -83,9 +82,7 @@ class MoneyToolsMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brain = BrainScope.of(context);
     final items = <(String, IconData, Widget)>[
-      if (brain.businessMode) (tr('দোকান'), Icons.storefront_outlined, const ShopScreen()),
       (tr('অ্যাকাউন্ট'), Icons.account_balance_outlined, const AccountsScreen()),
       (tr('খরচ বিশ্লেষণ'), Icons.pie_chart_outline_rounded, const SpendHealthScreen()),
       (tr('মাসের রিপোর্ট'), Icons.insert_chart_outlined_rounded, const ReportScreen()),

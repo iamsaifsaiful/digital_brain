@@ -178,6 +178,9 @@ const nudgeSalary = 'nudge:salary';
 const nudgeSoon = 'nudge:soon';
 const nudgeBackup = 'nudge:backup';
 const nudgeBmi = 'nudge:bmi:';
+
+/// A shop buyer's weekly তাগাদা (ব্যবসায়ী মোড).
+const nudgeTagada = 'nudge:tagada:';
 const nudgeQuote = 'nudge:quote';
 const nudgeFix = 'nudge:fix';
 const nudgePass = 'nudge:pass';
@@ -358,7 +361,7 @@ bool _chosenByUser(String tag) =>
 
 int _rank(String tag) {
   // Our own notices first (owner, 27 Oct): a few a week, and the daily cap must not drop them.
-  const order = ['nudge:srv:', 'nudge:plan:srv', morningTag, nightTag, nudgePrayer, nudgeRamadan, nudgeDue, nudgeBill, nudgeMed, nudgeDoc, nudgeBackup, nudgeDonor, nudgeDay2, '${nudgePlan}eve', nudgeSoon, nudgeSalary, nudgeSpend, nudgeNoCash, nudgePlan, nudgeHabit, nudgeBmi, nudgeJumuah, nudgeWeek, nudgeFest, nudgeHealth, nudgeBack];
+  const order = ['nudge:srv:', 'nudge:plan:srv', morningTag, nightTag, nudgePrayer, nudgeRamadan, nudgeDue, nudgeTagada, nudgeBill, nudgeMed, nudgeDoc, nudgeBackup, nudgeDonor, nudgeDay2, '${nudgePlan}eve', nudgeSoon, nudgeSalary, nudgeSpend, nudgeNoCash, nudgePlan, nudgeHabit, nudgeBmi, nudgeJumuah, nudgeWeek, nudgeFest, nudgeHealth, nudgeBack];
   for (var i = 0; i < order.length; i++) {
     if (tag.startsWith(order[i])) return i;
   }
@@ -531,6 +534,18 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
   void add(String tag, String key, DateTime at, String title, String body) {
     if (!at.isAfter(now)) return;
     out.add(PlannedNotice(id: stableId('$tag:$key'), at: at, title: title, body: body, reminderId: tag, gentle: true));
+  }
+
+  // ব্যবসায়ী মোড (owner, 6 Nov): a buyer on the weekly তাগাদা — Friday 10:00,
+  // while they still owe.
+  final owe = {for (final b in balances(d.ledger)) b.name: b.balance};
+  for (final b in d.shop.buyers.where((b) => b.weekly && (owe[b.name] ?? 0) > 0)) {
+    for (var i = 0; i < 8; i++) {
+      final day = today.add(Duration(days: i));
+      if (day.weekday != DateTime.friday) continue;
+      add('${nudgeTagada}${b.name}', dayKey(day), _at(day, 10 * 60), trf('তাগাদার দিন: {0}', [b.name]), trf('বাকি {0}। চাপুন — মেসেজ পাঠানো যাবে।', [taka(owe[b.name]!)]));
+      break;
+    }
   }
 
   // Next occurrence of [weekday] (today counts when the time is still ahead).

@@ -30,7 +30,8 @@ Future<String?> askText(BuildContext context, String title, {String initial = ''
       ],
     ),
   );
-  c.dispose();
+  // The dialog still draws the field while it fades out; free it after.
+  Future.delayed(const Duration(milliseconds: 400), c.dispose);
   return v?.trim();
 }
 

@@ -10,6 +10,10 @@ import 'home_page.dart';
 import 'ledger_screen.dart';
 import 'store_screen.dart';
 import 'more_screen.dart' show MoreScreen;
+import 'biz/biz_hisab.dart';
+import 'biz/biz_home.dart';
+import 'biz/biz_sales.dart';
+import 'biz/biz_stock.dart';
 import 'update_screen.dart' show offerUpdate;
 import '../logic/lang.dart';
 
@@ -96,19 +100,39 @@ class HomeShellState extends State<HomeShell> {
                 onPageChanged: (i) {
                   if (_tab.index != i) setState(() => _tab = ShellTab.values[i]);
                 },
-                children: [
-                  const _Kept(HomePage()),
-                  const _Kept(SafeArea(bottom: false, child: DiaryScreen())),
-                  _Kept(SafeArea(bottom: false, child: MoneyScreen(key: _money))),
-                  const _Kept(SafeArea(bottom: false, child: StoreScreen())),
-                  const _Kept(SafeArea(bottom: false, child: MoreScreen())),
-                ],
+                // ব্যবসায়ী মোড (owner, 6 Nov): the same five places, the shop's own pages.
+                children: BrainScope.of(context).businessMode
+                    ? [
+                        const _Kept(BizHome(), key: ValueKey('biz-home')),
+                        const _Kept(SafeArea(bottom: false, child: BizSales()), key: ValueKey('biz-sales')),
+                        _Kept(SafeArea(bottom: false, child: BizHisab(key: bizHisabKey)), key: const ValueKey('biz-hisab')),
+                        const _Kept(SafeArea(bottom: false, child: BizStock()), key: ValueKey('biz-stock')),
+                        const _Kept(SafeArea(bottom: false, child: MoreScreen()), key: ValueKey('biz-more')),
+                      ]
+                    : [
+                        const _Kept(HomePage(), key: ValueKey('home')),
+                        const _Kept(SafeArea(bottom: false, child: DiaryScreen()), key: ValueKey('diary')),
+                        _Kept(SafeArea(bottom: false, child: MoneyScreen(key: _money)), key: const ValueKey('money')),
+                        const _Kept(SafeArea(bottom: false, child: StoreScreen()), key: ValueKey('store')),
+                        const _Kept(SafeArea(bottom: false, child: MoreScreen()), key: ValueKey('more')),
+                      ],
               ),
             ),
           ),
           // One box for every page: find, save or ask; the mic beside it.
           // (Easy mode has its own big buttons.) In the body, so it rides above the keyboard.
-          if ((!BrainScope.of(context).easyMode || _tab != ShellTab.home) && _tab != ShellTab.more) AssistantBar(questions: _tab == ShellTab.home),
+          if ((!BrainScope.of(context).easyMode || _tab != ShellTab.home) && _tab != ShellTab.more)
+            AssistantBar(
+              questions: _tab == ShellTab.home && !BrainScope.of(context).businessMode,
+              hint: BrainScope.of(context).businessMode
+                  ? switch (_tab) {
+                      ShellTab.diary => tr('বলুন বা লিখুন — “এক কেজি চিনি বিক্রি”'),
+                      ShellTab.money => tr('বলুন বা লিখুন — “সালমা ৫০০ দিল”'),
+                      ShellTab.store => tr('বলুন বা লিখুন — “চাল কত কেজি আছে?”'),
+                      _ => tr('বলুন বা লিখুন — “রহিমকে ৫০০ বাকি”'),
+                    }
+                  : null,
+            ),
         ]),
         bottomNavigationBar: _Nav(current: _tab, onTab: go, pages: _pages),
       ),
@@ -183,13 +207,21 @@ class _Nav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unread = BrainScope.of(context).feedbackUnread > 0;
-    const tabs = [
-      (ShellTab.home, Icons.home_outlined, 'হোম'),
-      (ShellTab.diary, Icons.description_outlined, 'দিনলিপি'),
-      (ShellTab.money, Icons.account_balance_wallet_outlined, 'হিসাব'),
-      (ShellTab.store, Icons.inventory_2_outlined, 'সংরক্ষণ'),
-      (ShellTab.more, Icons.menu_rounded, 'আরও'),
-    ];
+    final tabs = BrainScope.of(context).businessMode
+        ? const [
+            (ShellTab.home, Icons.home_outlined, 'হোম'),
+            (ShellTab.diary, Icons.shopping_cart_outlined, 'বিক্রি'),
+            (ShellTab.money, Icons.account_balance_wallet_outlined, 'হিসাব'),
+            (ShellTab.store, Icons.inventory_2_outlined, 'স্টক'),
+            (ShellTab.more, Icons.menu_rounded, 'আরও'),
+          ]
+        : const [
+            (ShellTab.home, Icons.home_outlined, 'হোম'),
+            (ShellTab.diary, Icons.description_outlined, 'দিনলিপি'),
+            (ShellTab.money, Icons.account_balance_wallet_outlined, 'হিসাব'),
+            (ShellTab.store, Icons.inventory_2_outlined, 'সংরক্ষণ'),
+            (ShellTab.more, Icons.menu_rounded, 'আরও'),
+          ];
     // The composer above has the top hairline on the pages that show it.
     final bare = current == ShellTab.more || (BrainScope.of(context).easyMode && current == ShellTab.home);
     return Container(
@@ -247,7 +279,7 @@ class _Nav extends StatelessWidget {
 
 /// A tab page kept alive while another is shown (its scroll place and state stay).
 class _Kept extends StatefulWidget {
-  const _Kept(this.child);
+  const _Kept(this.child, {super.key});
   final Widget child;
 
   @override
