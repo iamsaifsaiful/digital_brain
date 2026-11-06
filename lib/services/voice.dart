@@ -39,6 +39,11 @@ abstract class Voice {
     void Function()? onReady,
   });
 
+  /// The language the recogniser listens for (owner, 6 Nov: members who
+  /// speak English were heard as Bangla): 'bn-BD' or 'en-IN' (English as
+  /// spoken in the region; Google's recogniser takes it on any phone).
+  String listenLocale = 'bn-BD';
+
   /// Speak over the microphone: the user may interrupt a long answer by
   /// talking. Off by default — the microphone opens after the app finishes
   /// speaking, so it can never hear itself.
@@ -131,7 +136,7 @@ class DeviceVoice extends Voice {
   /// it does not hear the end of the app's own voice.
   DateTime _spokeAt = DateTime(2000);
 
-  /// The language asked of the recogniser (bn-BD).
+  /// The language asked of the recogniser ([listenLocale]).
   String get localeInUse => _locale ?? '';
   Duration _silence = sentenceSilence;
   DateTime _turnStarted = DateTime.now();
@@ -266,7 +271,7 @@ class DeviceVoice extends Voice {
         // the second answer crashes the app — and on some phones never at all.
         // Bangladesh Bengali is asked for directly; the online recogniser
         // takes it whether or not the offline list names it.
-        _locale = 'bn-BD';
+        _locale = listenLocale;
       }
       // The voice is set up alongside: listening must not wait for it.
       _ttsSetup ??= _setupTts();
@@ -520,7 +525,7 @@ class DeviceVoice extends Voice {
           }
         },
         listenOptions: SpeechListenOptions(
-          localeId: _locale,
+          localeId: _locale = listenLocale,
           listenFor: Duration(seconds: _short ? 10 : 60),
           // Our own quiet timer ends the turn; this is only a safety net.
           pauseFor: Duration(seconds: _short ? 4 : 8),

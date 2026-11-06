@@ -378,6 +378,32 @@ class _MoreScreenState extends State<MoreScreen> {
         ),
       ],
       const SizedBox(height: 10),
+      // Owner, 6 Nov: members who speak English were heard as Bangla.
+      Panel(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Icon(Icons.translate_rounded, color: C.muted2, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(tr('কোন ভাষায় বলবেন'), style: body(15)),
+                  Text(tr('মাইক এই ভাষায় শোনে। লিখে দিলে দুই ভাষাই চলে।'), style: body(12, color: C.muted)),
+                ]),
+              ),
+            ]),
+            const SizedBox(height: 10),
+            SegTabs<String>(
+              key: const Key('voice-lang'),
+              items: [('', tr('অ্যাপের ভাষা')), ('bn', 'বাংলা'), ('en', 'English')],
+              value: brain.voiceLang,
+              onChanged: (v) => brain.setPref('voice_lang', v),
+            ),
+          ]),
+        ),
+      ),
+      const SizedBox(height: 10),
       Panel(
         child: Rows(children: [
           switchRow(Icons.volume_up_outlined, tr('উত্তর কণ্ঠে শোনাও'), tr('পাসওয়ার্ড কখনো জোরে পড়া হয় না'), brain.speakOn, (v) => brain.setSpeakOn(v)),

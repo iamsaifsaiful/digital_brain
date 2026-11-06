@@ -4740,4 +4740,7 @@ const enStrings = <String, String>{
   'চট্টগ্রামের পাহাড়': 'Chattogram hills',
   'রাজশাহীর পদ্মা': 'Padma at Rajshahi',
   'ঢাকার আকাশরেখা': 'Dhaka skyline',
+  'কোন ভাষায় বলবেন': 'Language you speak in',
+  'মাইক এই ভাষায় শোনে। লিখে দিলে দুই ভাষাই চলে।': 'The microphone listens in this language. Typed, both work.',
+  'অ্যাপের ভাষা': 'App language',
 };

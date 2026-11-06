@@ -1412,9 +1412,16 @@ class Brain extends ChangeNotifier {
     await _put('accent', key);
   }
 
+  /// Which language the microphone listens for (owner, 6 Nov): 'bn', 'en',
+  /// or empty = the app's language.
+  String get voiceLang => text('voice_lang');
+
+  void _applyVoiceLang() => services.voice.listenLocale = (voiceLang == 'en' || (voiceLang.isEmpty && english)) ? 'en-IN' : 'bn-BD';
+
   Future<void> setEnglish(bool on) async {
     final was = english;
     english = on;
+    _applyVoiceLang();
     notifyListeners();
     await _put('lang', on ? 'en' : 'bn');
     // The medicine reminders' names are written in the app's language: made
@@ -1466,6 +1473,7 @@ class Brain extends ChangeNotifier {
       accentKey = await keys.read('accent') ?? 'amber';
       darkKey = await keys.read('dark_set') ?? 'night';
       english = (await keys.read('lang')) == 'en';
+      _applyVoiceLang();
       letterSize = double.tryParse(await keys.read('letter_size') ?? '') ?? 1.0;
       easyMode = (await keys.read('easy_mode')) == 'true';
     } catch (_) {}
@@ -1707,6 +1715,8 @@ class Brain extends ChangeNotifier {
     'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'blood_last_unknown', 'blood_phone', 'blood_sync', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'zakat_gold_carat', 'zakat_gold_list', 'order_home_tools', 'order_doc_folders', 'order_projects', 'hol_abroad', 'g_card_off', 'p_card_off', 'trace_on', 'trace_share', 'hc_on', 'hc_gone', 'steps_book',
     // Owner, 4 Nov: time in the app a day; the home picture and what lives on it.
     'usage_days', 'home_scene', 'scene_weather', 'scene_motion', 'scene_special',
+    // Owner, 6 Nov: the microphone's language.
+    'voice_lang',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
@@ -1789,6 +1799,7 @@ class Brain extends ChangeNotifier {
       default:
         prefs[key] = '$value';
         if (key == 'hijri_adjust') hijriAdjust = hijriShift;
+        if (key == 'voice_lang') _applyVoiceLang();
     }
     notifyListeners();
     await _put(key, '$value');
@@ -1816,6 +1827,7 @@ class Brain extends ChangeNotifier {
         final v = await keys.read(k);
         if (v != null) prefs[k] = v;
       }
+      _applyVoiceLang();
       // The diagnostic trace: on in development builds, or when the user turned it on.
       Trace.enabled = kDebugMode || prefs['trace_on'] == 'true';
       askZakat = zakatSaved;
@@ -2150,7 +2162,13 @@ class Brain extends ChangeNotifier {
         pieces = await model.timeout(const Duration(milliseconds: 500), onTimeout: () => null);
       } catch (_) {}
     }
-    final here = _staysHere(rules, said);
+    // Said in English (owner, 6 Nov: "ইংরেজি বললে বুঝে না"): the phone's
+    // model learnt Bangla only and the rules know few English words, so an
+    // English message is read by the AI (Premium) or the cloud reading
+    // (others) even where the rules made something — never one with a
+    // password or a phone number in it.
+    final english = mostlyEnglish(said) && !mentionsSecret(said) && findPhone(said) == null;
+    final here = !english && _staysHere(rules, said);
     // The rules would make something new (a to-do, a reminder) but the
     // on-phone model is very sure it is a question about what is kept
     // ("আজকের রিমাইন্ডার দাও" read as a new reminder — owner's review, 31
@@ -2173,6 +2191,15 @@ class Brain extends ChangeNotifier {
         return (phone, null, 'nlu_phone');
       }
     }
+    if (!aiOn && english && nluMode != 'off') {
+      final got = await _cloudReading(said, pieces ?? const [], nluState, nluKind);
+      if (got == null) return (rules, null, 'nlu_cloud_fail');
+      final (cloud, names) = got;
+      final real = cloud.intents.where((i) => i != 'none' && i != 'out_of_scope').toList();
+      final cmds = real.isEmpty || cloud.sure < 0.5 ? null : commandsFromReading(said, cloud, data.ledger, now, names: names);
+      Trace.log('nlu', 'english: cloud reading', {'rules': ruleIntents.join(','), 'cloud': cloud.intents.join(','), 'used': cmds != null});
+      return cmds == null ? (rules, null, 'nlu_cloud_rules') : (cmds, null, 'nlu_cloud_en');
+    }
     if (!aiOn) {
       // Without the AI: the cloud reading only where the model and the rules
       // disagree — two readings of three decide.
@@ -2187,7 +2214,7 @@ class Brain extends ChangeNotifier {
     }
     if (here) return (rules, null, 'rules');
     // The rules and the model read the same action: the AI is not asked.
-    if (nluMaySkipAi(pieces, ruleIntents)) return (rules, null, 'nlu_agree');
+    if (!english && nluMaySkipAi(pieces, ruleIntents)) return (rules, null, 'nlu_agree');
     try {
       final clean = stripAddress(said).$1;
       var text = clean.isEmpty ? said : clean;
@@ -2308,7 +2335,7 @@ class Brain extends ChangeNotifier {
         'state': state,
         'kind': kind,
         'top': [for (final p in pieces) {'intent': p.intent, 'conf': double.parse(p.conf.toStringAsFixed(3))}],
-        'local_conf': pieces.map((p) => p.conf).reduce((a, b) => a < b ? a : b),
+        'local_conf': pieces.isEmpty ? 0 : pieces.map((p) => p.conf).reduce((a, b) => a < b ? a : b),
         if (nluSamplesOn) 'consent_ver': nluConsentVer,
         'app_ver': nluAppVersion,
         'model_ver': 'bundled-1',

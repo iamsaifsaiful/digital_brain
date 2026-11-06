@@ -6,6 +6,7 @@ import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/nlu/labels.dart';
 import 'package:digital_brain/nlu/reader.dart';
 import 'package:digital_brain/nlu/router.dart';
+import 'package:digital_brain/nlu/values.dart';
 import 'package:digital_brain/services/ai.dart';
 import 'package:digital_brain/services/google_account.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -204,6 +205,80 @@ void main() {
       b.nluMode = 'shadow';
       await b.understandAll(money, model: Future.value([piece('cash_add')]));
       expect(ai.asked, hasLength(2), reason: 'shadow: as before');
+    });
+  });
+
+  // Owner, 6 Nov: "ইংরেজি বললে বুঝে না".
+  group('English', () {
+    test('what counts as English', () {
+      expect(mostlyEnglish('remind me to call mom at 5 pm'), isTrue);
+      expect(mostlyEnglish('I gave Karim 500 taka'), isTrue);
+      expect(mostlyEnglish('কাল সকাল ১০টায় meeting আছে'), isFalse);
+      expect(mostlyEnglish('ok'), isFalse);
+    });
+
+    test('English date words go through the same date rules', () {
+      final at = DateTime(2026, 11, 6, 17);
+      expect(whenOf('tomorrow', '5 pm', at)!.at, DateTime(2026, 11, 7, 17));
+      expect(whenOf('next monday', '10:30 am', at)!.at, DateTime(2026, 11, 9, 10, 30));
+      expect(whenOf('on 20 November', null, at)!.at.day, 20);
+      expect(whenOf('day after tomorrow', '9 am', at)!.at, DateTime(2026, 11, 8, 9));
+      expect(whenOf(null, 'evening 7', at)!.at.hour, 19);
+      expect(englishWhen('কাল সকাল ৯টায়'), 'কাল সকাল ৯টায়');
+    });
+
+    Rig rigEn(List<http.Request> calls, Map<String, Object?> answer) {
+      final rig = Rig(
+          server: AccountServer(
+              MockClient((r) async {
+                calls.add(r);
+                if (r.url.path.endsWith('/nlu/resolve')) return http.Response.bytes(utf8.encode(jsonEncode(answer)), 200);
+                return http.Response('{}', 404);
+              }),
+              'https://example.test'));
+      rig.brain.gated = true;
+      rig.services.ai.session = 's' * 64;
+      rig.brain.nluMode = 'on';
+      return rig;
+    }
+
+    test('free member, English: the cloud reads it even where the rules made something', () async {
+      const said = 'remind me to call mom tomorrow at 5 pm';
+      final calls = <http.Request>[];
+      final rig = rigEn(calls, {
+        'pieces': [
+          {'intent': 'reminder_add', 'slots': [{'name': 'title', 'words': 'call mom'}, {'name': 'date', 'words': 'tomorrow'}, {'name': 'time', 'words': 'at 5 pm'}]}
+        ],
+        'sure': 0.9,
+      });
+      final b = rig.brain..nluSamplesOn = false;
+      final (cmds, _) = await b.understandAll(said, model: Future.value([piece('none', conf: 0.3)]));
+      expect(calls.where((r) => r.url.path.endsWith('/nlu/resolve')), hasLength(1));
+      final r = cmds.single as ReminderAdd;
+      expect(r.title, 'call mom');
+      expect(r.at.hour, 17);
+      expect(b.answerSources.values.expand((m) => m.keys), contains('nlu_cloud_en'));
+    });
+
+    test('English with a password or a phone number never goes to the cloud', () async {
+      final calls = <http.Request>[];
+      final rig = rigEn(calls, {'pieces': [], 'sure': 0.9});
+      await rig.brain.understandAll('my email password is abc123', model: Future.value([piece('none')]));
+      await rig.brain.understandAll('save Rahim number 01711223344', model: Future.value([piece('none')]));
+      expect(calls.where((r) => r.url.path.endsWith('/nlu/resolve')), isEmpty);
+    });
+
+    test('the microphone listens in the chosen language', () async {
+      final rig = Rig();
+      await rig.brain.load();
+      expect(rig.services.voice.listenLocale, 'bn-BD');
+      await rig.brain.setEnglish(true);
+      expect(rig.services.voice.listenLocale, 'en-IN', reason: 'app in English, nothing chosen');
+      await rig.brain.setPref('voice_lang', 'bn');
+      expect(rig.services.voice.listenLocale, 'bn-BD');
+      await rig.brain.setEnglish(false);
+      await rig.brain.setPref('voice_lang', 'en');
+      expect(rig.services.voice.listenLocale, 'en-IN');
     });
   });
 }
