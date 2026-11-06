@@ -1338,6 +1338,9 @@ void main() {
     await openMenu(t, 'আমি');
     // আরও › রিমাইন্ডার ও নোটিফিকেশন (owner, 3 Nov: each setting on its own page).
     await t.scrollUntilVisible(find.byKey(const Key('more-set-remind')), 200, scrollable: vScroll().first);
+    // Clear of the composer at the bottom (the business-mode card sits above it now).
+    await t.ensureVisible(find.byKey(const Key('more-set-remind')));
+    await settle(t);
     await t.tap(find.byKey(const Key('more-set-remind')));
     await settle(t);
     await t.ensureVisible(find.text('রিমাইন্ডারের রিংটোন'));
