@@ -7,6 +7,7 @@ import 'package:cryptography/cryptography.dart' show Sha256;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/widgets.dart';
 
+import '../logic/shop_logic.dart';
 import '../logic/vault_age.dart';
 import '../logic/steps.dart' show StepBook, stepDay;
 import '../logic/ai_safe.dart';
@@ -69,6 +70,7 @@ import '../ui/theme.dart' show Look;
 import '../logic/lang.dart';
 
 part 'brain_more.dart';
+part 'brain_shop.dart';
 
 /// Everything the screens need from outside Flutter.
 class Services {
@@ -2635,9 +2637,13 @@ class Brain extends ChangeNotifier {
   Future<void> restoreTrash(TrashItem t) async {
     final j = data.toJson();
     for (final (k, item) in t.items) {
-      final list = [...((j[k] as List?) ?? const [])]..removeWhere((x) => x is Map && x['id'] == item['id']);
+      // The shop's products sit one level down (owner, 6 Nov: ব্যবসায়ী মোড).
+      final into = k == 'product' ? ((j['shop'] as Map?)?.cast<String, Object?>() ?? <String, Object?>{}) : j;
+      final key = k == 'product' ? 'products' : k;
+      final list = [...((into[key] as List?) ?? const [])]..removeWhere((x) => x is Map && x['id'] == item['id']);
       list.add(item);
-      j[k] = list;
+      into[key] = list;
+      if (k == 'product') j['shop'] = into;
     }
     final keep = [for (final x in data.trash) if (x.id != t.id) x];
     final next = AppData.fromJson(j);
