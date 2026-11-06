@@ -584,14 +584,22 @@ class _GoodsInState extends State<_GoodsIn> {
             rows: [
               for (final (i, (p, q, a)) in _lines.indexed)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
-                  child: Row(children: [
-                    Expanded(flex: 3, child: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(14))),
-                    const SizedBox(width: 8),
-                    Expanded(flex: 2, child: TextField(key: Key('biz-in-qty-$i'), controller: q, keyboardType: const TextInputType.numberWithOptions(decimal: true), style: body(14), decoration: InputDecoration(isDense: true, suffixText: tr(p.unit)), onChanged: (_) => setState(() {}))),
-                    const SizedBox(width: 8),
-                    Expanded(flex: 2, child: TextField(key: Key('biz-in-amount-$i'), controller: a, keyboardType: TextInputType.number, style: body(14), decoration: const InputDecoration(isDense: true, prefixText: '৳'), onChanged: (_) => setState(() {}))),
-                    IconButton(tooltip: tr('বাদ দিন'), onPressed: () => setState(() => _lines.removeAt(i)), icon: Icon(Icons.close_rounded, color: C.muted, size: 20)),
+                  padding: const EdgeInsets.fromLTRB(14, 8, 6, 12),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Row(children: [
+                      LetterTile(p.name, size: 30),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14.5, weight: FontWeight.w600))),
+                      IconButton(tooltip: tr('বাদ দিন'), onPressed: () => setState(() => _lines.removeAt(i)), icon: Icon(Icons.close_rounded, color: C.muted, size: 20)),
+                    ]),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Row(children: [
+                        Expanded(child: TextField(key: Key('biz-in-qty-$i'), controller: q, keyboardType: const TextInputType.numberWithOptions(decimal: true), style: body(14), decoration: InputDecoration(isDense: true, labelText: trf('কত {0}', [tr(p.unit)])), onChanged: (_) => setState(() {}))),
+                        const SizedBox(width: 10),
+                        Expanded(child: TextField(key: Key('biz-in-amount-$i'), controller: a, keyboardType: TextInputType.number, style: body(14), decoration: InputDecoration(isDense: true, labelText: tr('দাম'), prefixText: '৳ '), onChanged: (_) => setState(() {}))),
+                      ]),
+                    ),
                   ]),
                 ),
             ],
