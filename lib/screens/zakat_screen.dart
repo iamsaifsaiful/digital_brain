@@ -397,7 +397,8 @@ class _ZakatScreenState extends State<ZakatScreen> {
                 ),
               ),
               field('silver_vori', tr('আপনার রুপা'), vori: true),
-              field('business', tr('ব্যবসার মাল (বিক্রয়মূল্যে)')),
+              // The shop's own stock is counted above (ব্যবসায়ী মোড); this is any other.
+              field('business', BrainScope.of(context).shop.products.isEmpty ? tr('ব্যবসার মাল (বিক্রয়মূল্যে)') : tr('অন্য ব্যবসার মাল (দোকানের স্টক ওপরে ধরা আছে)')),
               field('other', tr('অন্যান্য (শেয়ার, বন্ড…)')),
               InfoBanner(text: tr('মুখেও জিজ্ঞেস করা যায়: “আমার যাকাত কত?” — এই পাতার একই হিসাব থেকে উত্তর আসে।'), icon: Icons.info_outline_rounded),
             ]),

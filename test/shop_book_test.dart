@@ -1,4 +1,6 @@
+import 'package:digital_brain/logic/money_more.dart' show ZakatSaved;
 import 'package:digital_brain/logic/shop_logic.dart';
+import 'package:digital_brain/logic/zakat.dart';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/state/brain.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -143,5 +145,31 @@ void main() {
     expect(b.shop.products, isEmpty);
     await b.undoLastDelete();
     expect(b.shop.products.single.name, egg.name);
+  });
+
+  // Owner, 6 Nov: "ব্যবসায়ী হিসাব এই প্রোফাইলেই থাকবে। যাকাতের ক্ষেত্রে হিসাব নিবে
+  // শুধু, ব্যবসা থেকে এসেছে তা উল্লেখ থাকবে।"
+  test('zakat counts the shop: stock at selling price, customer dues, dealer debts — marked from the business', () async {
+    final r = await rig();
+    final b = r.brain;
+    await b.saveProduct(Product(name: 'চাল', buy: 60, sell: 70, stock: 100));
+    await b.saveProduct(Product(name: 'ডিম', unit: 'হালি', buy: 46, sell: 52, stock: 10));
+    final c = await b.customerFor('রহিম');
+    await b.customerOwes(c.id, 1500);
+    final d = await b.dealerFor('করিম');
+    await b.recordPurchase(d.id, const [], paid: 0, total: 4000);
+    final lines = zakatLines(b.data, r.nowAt, const ZakatSaved());
+    final stock = lines.singleWhere((l) => l.key == 'shop:stock');
+    expect((stock.amount, stock.group), (7520, ZakatGroup.business));
+    expect(stock.label, contains('ব্যবসা থেকে'));
+    final dues = lines.singleWhere((l) => l.key == 'shop:customers');
+    expect((dues.amount, dues.group, dues.debt), (1500, ZakatGroup.receivable, false));
+    expect(dues.label, contains('ব্যবসা থেকে'));
+    final debt = lines.singleWhere((l) => l.key == 'shop:dealers');
+    expect((debt.amount, debt.debt), (4000, true));
+    final sum = zakatCount(lines, const ZakatSaved(silverPrice: 2500));
+    expect(sum.business, 7520);
+    expect(sum.receivable, 1500);
+    expect(sum.debts, 4000);
   });
 }

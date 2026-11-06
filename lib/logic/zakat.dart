@@ -9,6 +9,7 @@ import 'cash.dart' show cashOnHand, cashStartOf, cashNowParts, cashSinceStart;
 import 'lang.dart';
 import 'ledger.dart';
 import 'money_more.dart' show accountBalance, GoldPiece, ZakatSaved, ZakatInput;
+import 'shop_logic.dart' show customerAccount, dealerAccount, qtyText;
 
 /// নিসাব by weight: সাড়ে ৫২ তোলা (ভরি) রুপা ≈ ৬১২.৩৬ গ্রাম; সাড়ে ৭ তোলা সোনা ≈ ৮৭.৪৮ গ্রাম.
 const nisabSilverVori = 52.5;
@@ -182,7 +183,32 @@ List<ZakatLine> zakatLines(AppData d, DateTime now, ZakatSaved z) {
     add(g.key, ZakatGroup.metal, goldPieceName(g), g.value, trf('{0} ভরি × {1} (আপনার লেখা)', [bnDigits(vori(g.vori)), _tk(g.price)]));
   }
   add('silver', ZakatGroup.metal, tr('রুপা'), (z.silverVori * z.silverPrice).round(), trf('{0} ভরি × {1} (আপনার লেখা)', [bnDigits(vori(z.silverVori)), _tk(z.silverPrice)]));
-  add('business', ZakatGroup.business, tr('ব্যবসার মাল'), z.business, tr('বিক্রয়মূল্যে (আপনার লেখা)'));
+  // ব্যবসায়ী মোড (owner, 6 Nov: "ব্যবসায়ী হিসাব এই প্রোফাইলেই থাকবে। যাকাতের
+  // ক্ষেত্রে হিসাব নিবে শুধু, ব্যবসা থেকে এসেছে তা উল্লেখ থাকবে"): the shop's
+  // stock at its selling price, what customers owe and what is owed to
+  // dealers, each marked as from the business. (The shop's cash is in
+  // আয়-ব্যয় already, so it is counted with the rest of the cash.)
+  final shop = d.shop;
+  final stocked = [for (final p in shop.products) if (p.stock > 0 && (p.sell > 0 || p.buy > 0)) p];
+  if (stocked.isNotEmpty) {
+    final value = stocked.fold<int>(0, (s, p) => s + (p.stock * (p.sell > 0 ? p.sell : p.buy)).round());
+    final units = stocked.fold<double>(0, (s, p) => s + p.stock);
+    add('shop:stock', ZakatGroup.business, '${tr('দোকানের স্টক')} · ${tr('ব্যবসা থেকে')}', value,
+        trf('{0}টি পণ্য, মোট {1} একক — বিক্রয়মূল্যে; ব্যবসায়ী মোডের স্টক থেকে', [bnDigits(stocked.length), bnDigits(qtyText(units))]));
+  }
+  final owing = [for (final c in shop.customers) customerAccount(shop, c)].where((a) => a.due > 0).toList();
+  if (owing.isNotEmpty) {
+    add('shop:customers', ZakatGroup.receivable, '${tr('গ্রাহকের বাকি')} · ${tr('ব্যবসা থেকে')}', owing.fold<int>(0, (s, a) => s + a.due),
+        trf('{0} জন গ্রাহকের কাছে পাওনা — ব্যবসায়ী মোডের হিসাব থেকে; আদায় হবে না এমন বাকি থাকলে বাদ দিন', [bnDigits(owing.length)]),
+        at: _latest([for (final a in owing) if (a.last != null) a.last!]));
+  }
+  final owed = [for (final x in shop.dealers) dealerAccount(shop, x)].where((a) => a.due > 0).toList();
+  if (owed.isNotEmpty) {
+    add('shop:dealers', ZakatGroup.payable, '${tr('ডিলারের দেনা')} · ${tr('ব্যবসা থেকে')}', owed.fold<int>(0, (s, a) => s + a.due),
+        trf('{0} জন ডিলারকে দিতে হবে — ব্যবসায়ী মোডের হিসাব থেকে', [bnDigits(owed.length)]),
+        at: _latest([for (final a in owed) if (a.last != null) a.last!]), debt: true);
+  }
+  add('business', ZakatGroup.business, stocked.isEmpty ? tr('ব্যবসার মাল') : tr('অন্য ব্যবসার মাল'), z.business, tr('বিক্রয়মূল্যে (আপনার লেখা)'));
   add('other', ZakatGroup.business, tr('অন্যান্য (শেয়ার, বন্ড…)'), z.other, tr('আপনার লেখা'));
   for (final m in d.zakat.items) {
     add('manual:${m.id}', ZakatGroup.manual, m.label, m.amount, m.debt ? tr('নিজে যোগ করা দেনা') : tr('নিজে যোগ করা'), at: m.date, debt: m.debt, manualId: m.id);
