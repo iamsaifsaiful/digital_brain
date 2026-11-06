@@ -20,6 +20,7 @@ class BizStock extends StatefulWidget {
 
 class _BizStockState extends State<BizStock> {
   String _part = 'all';
+  String _section = ''; // '' = every section
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +35,9 @@ class _BizStockState extends State<BizStock> {
       'expiry' => [for (final p in b.products) if (p.expiry != null) p]..sort((a, c) => a.expiry!.compareTo(c.expiry!)),
       _ => b.products,
     };
+    final sections = shelves(shown);
+    final showSection = _section.isNotEmpty && sections.any((x) => x.$1 == _section);
+    final listed = showSection ? sections.where((x) => x.$1 == _section).toList() : sections;
     return ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 96), children: [
       TabTitle(tr('স্টক'),
           sub: trf('{0}টি পণ্য · কেনা দামে {1}', [bnDigits(b.products.length), taka(worth)]),
@@ -66,18 +70,62 @@ class _BizStockState extends State<BizStock> {
         ),
       ] else if (shown.isEmpty)
         Padding(padding: const EdgeInsets.only(top: 18), child: Text(_part == 'low' ? tr('কোনো পণ্য কম নেই।') : tr('মেয়াদ দেওয়া কোনো পণ্য নেই।'), style: body(14, color: C.muted)))
-      else
-        for (final (shelf, ps) in shelves(shown)) ...[
-          SectionHeading(shelf, counter: trf('{0}টি', [bnDigits(ps.length)])),
+      else ...[
+        if (sections.length > 1) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 38,
+            child: ListView(scrollDirection: Axis.horizontal, children: [
+              _sectionChip('', tr('সব সেকশন'), Icons.apps_rounded, shown.length, !showSection),
+              for (final (name, ps) in sections) _sectionChip(name, tr(name), sectionIcon(name), ps.length, showSection && _section == name),
+            ]),
+          ),
+        ],
+        for (final (shelf, ps) in listed) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 16, bottom: 6),
+            child: Row(children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(9)),
+                child: Icon(sectionIcon(shelf), size: 17, color: C.green),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Text(tr(shelf), key: Key('biz-section-$shelf'), maxLines: 1, overflow: TextOverflow.ellipsis, style: display(17, weight: 600))),
+              Counter(trf('{0}টি', [bnDigits(ps.length)])),
+              const SizedBox(width: 6),
+              IconButton(
+                key: Key('biz-section-add-$shelf'),
+                tooltip: trf('{0}-এ পণ্য যোগ', [tr(shelf)]),
+                visualDensity: VisualDensity.compact,
+                onPressed: () => pushPage(context, ProductForm(category: shelf == otherSection ? '' : shelf)),
+                icon: Icon(Icons.add_rounded, size: 20, color: C.green),
+              ),
+            ]),
+          ),
           ListCard(
             rows: [for (final p in ps) _productRow(context, p, now)],
-            foot: shelf == shelves(shown).last.$1
-                ? CardFoot(left: tr('+ পণ্য যোগ'), onLeft: () => pushPage(context, ProductForm(category: shelf == 'অন্যান্য' ? '' : shelf)), right: tr('মাল কেনা'), onRight: () => pushPage(context, const PurchasePage()), leftKey: const Key('biz-add-product'), rightKey: const Key('biz-open-purchase'))
+            foot: shelf == listed.last.$1
+                ? CardFoot(left: tr('+ পণ্য যোগ'), onLeft: () => pushPage(context, ProductForm(category: shelf == otherSection ? '' : shelf)), right: tr('মাল কেনা'), onRight: () => pushPage(context, const PurchasePage()), leftKey: const Key('biz-add-product'), rightKey: const Key('biz-open-purchase'))
                 : null,
           ),
         ],
+      ],
     ]);
   }
+
+  Widget _sectionChip(String key, String label, IconData icon, int count, bool on) => Padding(
+        padding: const EdgeInsets.only(right: 6),
+        child: ChoiceChip(
+          key: Key('biz-section-chip-$key'),
+          avatar: Icon(icon, size: 16, color: on ? C.green : C.muted),
+          label: Text('$label · ${bnDigits(count)}'),
+          selected: on,
+          showCheckmark: false,
+          onSelected: (_) => setState(() => _section = key),
+        ),
+      );
 
   Widget _productRow(BuildContext context, Product p, DateTime now) {
     final exp = p.expiry;
@@ -117,7 +165,9 @@ class _ProductFormState extends State<ProductForm> {
   late final _bulkPrice = TextEditingController(text: _p?.bulkPrice == null ? '' : '${_p!.bulkPrice}');
   late final _barcode = TextEditingController(text: _p?.barcode ?? '');
   late final _supplier = TextEditingController(text: _p?.supplier ?? '');
-  late final _shelf = TextEditingController(text: _p?.category ?? widget.category);
+  late final _shelf = TextEditingController(text: _p == null ? widget.category : sectionOf(_p));
+  // Picked by hand (or given): the name no longer moves it.
+  late bool _shelfSet = _p != null || widget.category.isNotEmpty;
   late String _unit = _p?.unit ?? 'কেজি';
   late bool _loose = _p?.loose ?? true;
   late bool _bulk = _p?.bulkFrom != null;
@@ -155,7 +205,7 @@ class _ProductFormState extends State<ProductForm> {
       expiry: _hasExpiry ? _expiry : null,
       barcode: _hasBarcode ? _barcode.text.trim() : '',
       supplier: _hasSupplier ? _supplier.text.trim() : '',
-      category: _shelf.text.trim(),
+      category: _shelf.text.trim().isNotEmpty ? _shelf.text.trim() : (guessSection(name) ?? ''),
     );
     await brain.saveProduct(p);
     await brain.refreshOrders();
@@ -206,7 +256,19 @@ class _ProductFormState extends State<ProductForm> {
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
               Padding(padding: const EdgeInsets.fromLTRB(2, 6, 2, 6), child: Text(tr('পণ্যের নাম'), style: body(12.5, color: C.muted))),
-              TextField(key: const Key('biz-product-name'), controller: _name, autofocus: _p == null, style: body(15), decoration: InputDecoration(hintText: tr('যেমন: মসুর ডাল'), isDense: true)),
+              TextField(
+                key: const Key('biz-product-name'),
+                controller: _name,
+                autofocus: _p == null,
+                style: body(15),
+                decoration: InputDecoration(hintText: tr('যেমন: মসুর ডাল'), isDense: true),
+                // The section follows the name until one is picked: "ডাল" → চাল-ডাল-আটা.
+                onChanged: (v) {
+                  if (_shelfSet) return;
+                  final g = guessSection(v) ?? '';
+                  if (g != _shelf.text) setState(() => _shelf.text = g);
+                },
+              ),
               const SizedBox(height: 14),
               Text(tr('কীভাবে বিক্রি হয়'), style: body(12.5, color: C.muted)),
               const SizedBox(height: 8),
@@ -230,10 +292,34 @@ class _ProductFormState extends State<ProductForm> {
                 ],
               ),
               const SizedBox(height: 6),
-              Padding(padding: const EdgeInsets.fromLTRB(2, 6, 2, 6), child: Text(tr('তাক (বিভাগ)'), style: body(12.5, color: C.muted))),
-              TextField(key: const Key('biz-product-shelf'), controller: _shelf, style: body(15), decoration: InputDecoration(hintText: tr('যেমন: চাল-ডাল'), isDense: true)),
-              const SizedBox(height: 8),
-              Wrap(spacing: 6, runSpacing: 6, children: [for (final s in shelvesUsed) ActionChip(label: Text(tr(s), style: body(12)), onPressed: () => setState(() => _shelf.text = s))]),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(2, 6, 2, 8),
+                child: Text(tr('সেকশন (পণ্যের ধরণ)'), style: body(12.5, color: C.muted)),
+              ),
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                for (final s in shelvesUsed)
+                  ChoiceChip(
+                    key: Key('biz-shelf-$s'),
+                    avatar: Icon(sectionIcon(s), size: 16, color: _shelf.text == s ? C.green : C.muted),
+                    label: Text(tr(s), style: body(12.5)),
+                    selected: _shelf.text == s,
+                    showCheckmark: false,
+                    onSelected: (_) => setState(() {
+                      _shelfSet = true;
+                      _shelf.text = _shelf.text == s ? '' : s;
+                    }),
+                  ),
+              ]),
+              const SizedBox(height: 10),
+              TextField(
+                key: const Key('biz-product-shelf'),
+                controller: _shelf,
+                style: body(14.5),
+                onChanged: (_) => setState(() => _shelfSet = true),
+                decoration: InputDecoration(hintText: tr('নিজের সেকশনের নাম, যেমন: কসমেটিকস'), isDense: true, prefixIcon: const Icon(Icons.edit_outlined, size: 18)),
+              ),
+              if (!_shelfSet && _shelf.text.isNotEmpty)
+                Padding(padding: const EdgeInsets.fromLTRB(2, 6, 2, 0), child: Text(tr('নাম দেখে বেছে দেওয়া — বদলাতে অন্যটায় চাপুন'), style: body(11.5, color: C.muted))),
               SectionHeading(tr('বাড়তি তথ্য'), counter: tr('ইচ্ছামতো')),
               Panel(
                 child: Column(children: [

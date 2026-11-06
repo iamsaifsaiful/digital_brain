@@ -264,7 +264,7 @@ class _SellPageState extends State<SellPage> {
     final best = bestSellers(b, brain.services.now()).map((x) => x.$1).toList();
     final shelfNames = shelves(b.products).map((x) => x.$1).toList();
     var shown = b.products.where((p) => q.isEmpty || p.name.toLowerCase().contains(q) || (p.barcode.isNotEmpty && p.barcode == asciiDigits(q))).toList();
-    if (_shelf.isNotEmpty) shown = shown.where((p) => (p.category.isEmpty ? 'অন্যান্য' : p.category) == _shelf).toList();
+    if (_shelf.isNotEmpty) shown = shown.where((p) => sectionOf(p) == _shelf).toList();
     int rank(Product p) {
       final i = best.indexOf(p.name);
       return i < 0 ? 999 : i;
