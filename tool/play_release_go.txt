@@ -1,1 +1,1 @@
-1.0.5 (code 10010): the crash "Reply already submitted" (the speech plugin answering twice) and only felt voice failures in the log, on top of 1.0.4
+1.0.6 (code 10011): business mode (customers, dealers, PDF receipts, zakat), English, home pictures, dark colours, crash guard for double replies, on top of 1.0.5
