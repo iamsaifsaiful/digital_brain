@@ -20,17 +20,21 @@ import java.io.ByteArrayOutputStream
  * Blocks: {t:"h1"|"h2"|"p", text}, {t:"stats", items:[[label, value, tone]]},
  * {t:"kv", rows:[[k, v]]}, {t:"table", cols, w, a, rows}, {t:"break"}.
  * A table cell is a string or {s, c ("g" green, "o" orange, "m" muted), b (bold)}.
+ * Optional: "page" [width, height] in points (A4 when left out; a receipt
+ * is A5), "logo" (picture bytes, drawn at the top right of the first page).
  */
 class PdfMaker(context: Context) {
     private val regular: Typeface = font(context, "NotoSansBengali-Regular.ttf", Typeface.NORMAL)
     private val bold: Typeface = font(context, "NotoSansBengali-SemiBold.ttf", Typeface.BOLD)
 
+    /** The page size: A4 unless the spec asks for another ("page"). */
+    private var W = 595f
+    private var H = 842f
+    private val BOTTOM get() = H - 46f
+
     private companion object {
-        const val W = 595f
-        const val H = 842f
         const val M = 40f
         const val TOP = 44f
-        const val BOTTOM = H - 46f
         val INK = Color.rgb(0x1F, 0x29, 0x37)
         val MUTED = Color.rgb(0x6B, 0x72, 0x80)
         val GREEN = Color.rgb(0x0F, 0x7A, 0x55)
@@ -48,6 +52,9 @@ class PdfMaker(context: Context) {
     }
 
     fun make(spec: Map<*, *>): ByteArray {
+        val size = spec["page"] as? List<*>
+        W = (size?.getOrNull(0) as? Number)?.toFloat() ?: 595f
+        H = (size?.getOrNull(1) as? Number)?.toFloat() ?: 842f
         // First pass counts the pages (for "পাতা ২ / ৫"), the second draws.
         val pages = Run(spec, null, 0).go()
         val doc = PdfDocument()
@@ -162,22 +169,43 @@ class PdfMaker(context: Context) {
             if (y + h > BOTTOM && y > TOP + 1) newPage()
         }
 
+        /** The logo, decoded once; null when there is none or it is not a picture. */
+        val logo: android.graphics.Bitmap? = (spec["logo"] as? ByteArray)?.let {
+            try {
+                android.graphics.BitmapFactory.decodeByteArray(it, 0, it.size)
+            } catch (e: Exception) {
+                null
+            }
+        }
+
         fun header() {
+            val logoSide = 54f
+            val textW = if (logo != null) width - logoSide - 12f else width
+            val startY = y
+            val bmp = logo
+            if (bmp != null) {
+                val scale = minOf(logoSide / bmp.width, logoSide / bmp.height)
+                val w = bmp.width * scale
+                val h = bmp.height * scale
+                val left = W - M - w
+                canvas?.drawBitmap(bmp, null, RectF(left, y, left + w, y + h), Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
+            }
             val brand = spec["brand"] as? String ?: ""
             if (brand.isNotEmpty()) {
                 val b = layout(brand, paint(9.5f, true, GREEN), width)
                 draw(b, M, y)
                 y += b.height + 4
             }
-            val t = layout(title, paint(21f, true), width)
+            val t = layout(title, paint(21f, true), textW)
             draw(t, M, y)
             y += t.height + 4
             val sub = spec["subtitle"] as? String ?: ""
             if (sub.isNotEmpty()) {
-                val s = layout(sub, paint(10f, color = MUTED), width)
+                val s = layout(sub, paint(10f, color = MUTED), textW)
                 draw(s, M, y)
                 y += s.height
             }
+            if (bmp != null) y = maxOf(y, startY + logoSide)
             y += 10
             canvas?.drawRect(M, y, M + 46f, y + 3f, Paint().apply { color = GREEN })
             y += 16

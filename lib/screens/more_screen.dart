@@ -79,7 +79,9 @@ class _MoreScreenState extends State<MoreScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _load();
+    });
   }
 
   Future<void> _load() async {
@@ -501,8 +503,9 @@ class _MoreScreenState extends State<MoreScreen> {
         const SizedBox(height: 14),
         ProfileCard(onName: _setName, onPlace: _setDistrict),
         const SizedBox(height: 12),
-        // ব্যবসায়ী মোড (owner, 6 Nov): one switch — on, the five tabs are the
-        // shop's (হোম · বিক্রি · হিসাব · স্টক); off, the app as it was.
+        // ব্যবসায়ী মোড (owner, 6 Nov): one switch — on, the tabs are the
+        // shop's (হোম · বিক্রি · গ্রাহক · হিসাব · স্টক); off, the app as it was.
+        // Premium; a free user may switch it on and look around.
         Panel(
           child: InkWell(
             borderRadius: BorderRadius.circular(17),
@@ -519,8 +522,11 @@ class _MoreScreenState extends State<MoreScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(tr('ব্যবসায়ী মোড'), style: body(15, weight: FontWeight.w600)),
-                    Text(brain.businessMode ? tr('চালু — হোম, বিক্রি, হিসাব, স্টক দোকানের জন্য। বন্ধ করলে আগের মতো।') : tr('দোকান চালালে চালু করুন — বিক্রি, বাকি খাতা, স্টক, দিনের হিসাব'),
+                    Row(children: [
+                      Flexible(child: Text(tr('ব্যবসায়ী মোড'), style: body(15, weight: FontWeight.w600))),
+                      if (!brain.has(ProFeature.business)) ...[const SizedBox(width: 6), const ProMark()],
+                    ]),
+                    Text(brain.businessMode ? tr('চালু — হোম, বিক্রি, গ্রাহক, হিসাব, স্টক দোকানের জন্য। বন্ধ করলে আগের মতো।') : tr('দোকান চালালে চালু করুন — বিক্রি, গ্রাহকের বাকি, ডিলার, স্টক, PDF রসিদ'),
                         style: body(12, color: C.muted, height: 1.4)),
                   ]),
                 ),

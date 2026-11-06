@@ -1,8 +1,8 @@
 // ব্যবসায়ী মোড (owner, 6 Nov — the "দোকানি" handoff): a grocer's book kept on
-// the phone with everything else. Sales and purchases also write the
-// money they move into আয়-ব্যয় and the credit into the ledger (পাবো /
-// দেবো), so the rest of the app — reports, the assistant, backups — keeps
-// seeing one set of money.
+// the phone with everything else. The cash a sale, a collection or a
+// payment moves is written into আয়-ব্যয় too, so reports and backups see
+// one set of money; the customers' বাকি and the dealers' দেনা stay here, in
+// the shop's own book (owner, 6 Nov: not the personal ধার-দেনা).
 import 'models.dart' show newId;
 
 DateTime? _d(Object? v) => v is String ? DateTime.tryParse(v) : null;
@@ -153,29 +153,47 @@ enum SalePay {
 }
 
 class Sale {
-  Sale({String? id, required this.at, required this.lines, this.discount = 0, this.pay = SalePay.cash, this.customer = '', this.amountOnly = 0, this.cashId, this.ledgerId, this.no = 0})
-      : id = id ?? newId();
+  Sale({
+    String? id,
+    required this.at,
+    required this.lines,
+    this.discount = 0,
+    this.discountPct = 0,
+    this.pay = SalePay.cash,
+    this.customerId = '',
+    this.customer = '',
+    this.amountOnly = 0,
+    this.cashId,
+    this.no = 0,
+  }) : id = id ?? newId();
 
   final String id;
   final DateTime at;
   final List<SaleLine> lines;
+
+  /// The discount in taka (worked out from [discountPct] when that was given).
   final int discount;
+
+  /// The discount as typed in percent (0 = given in taka).
+  final double discountPct;
   final SalePay pay;
 
-  /// The buyer's name (required for a sale on credit).
+  /// The customer (required for a sale on credit); [customer] is their name
+  /// as it was, for the receipt.
+  final String customerId;
   final String customer;
 
   /// "শুধু টাকা": a sale with no products picked, only an amount.
   final int amountOnly;
 
-  /// The আয়-ব্যয় income it wrote (cash and QR) or the ledger entry (on credit).
+  /// The আয়-ব্যয় income it wrote (cash and QR).
   final String? cashId;
-  final String? ledgerId;
 
   /// The receipt number (#১, #২ …).
   final int no;
 
-  int get total => amountOnly > 0 ? amountOnly : (lines.fold<int>(0, (s, l) => s + l.amount) - discount).clamp(0, 1 << 40);
+  int get subtotal => amountOnly > 0 ? amountOnly : lines.fold<int>(0, (s, l) => s + l.amount);
+  int get total => amountOnly > 0 ? amountOnly : (subtotal - discount).clamp(0, 1 << 40);
   int get cost => lines.fold<int>(0, (s, l) => s + l.cost);
 
   Map<String, Object?> toJson() => {
@@ -183,11 +201,12 @@ class Sale {
         'at': at.toIso8601String(),
         'lines': [for (final l in lines) l.toJson()],
         if (discount > 0) 'discount': discount,
+        if (discountPct > 0) 'discountPct': discountPct,
         'pay': pay.name,
+        if (customerId.isNotEmpty) 'customerId': customerId,
         if (customer.isNotEmpty) 'customer': customer,
         if (amountOnly > 0) 'amountOnly': amountOnly,
         if (cashId != null) 'cashId': cashId,
-        if (ledgerId != null) 'ledgerId': ledgerId,
         if (no > 0) 'no': no,
       };
 
@@ -196,11 +215,12 @@ class Sale {
         at: _d(j['at']) ?? DateTime(2000),
         lines: [for (final l in (j['lines'] as List? ?? const [])) if (l is Map) SaleLine.fromJson(l.cast<String, Object?>())],
         discount: _i(j['discount']),
+        discountPct: _n(j['discountPct']),
         pay: SalePay.of(j['pay']),
+        customerId: '${j['customerId'] ?? ''}',
         customer: '${j['customer'] ?? ''}',
         amountOnly: _i(j['amountOnly']),
         cashId: j['cashId'] as String?,
-        ledgerId: j['ledgerId'] as String?,
         no: _i(j['no']),
       );
 }
@@ -226,86 +246,293 @@ class OrderLine {
       id: j['id'] as String?, productId: '${j['p'] ?? ''}', name: '${j['name'] ?? ''}', qty: _n(j['qty']), unit: '${j['unit'] ?? ''}', supplier: '${j['supplier'] ?? ''}', picked: j['picked'] != false);
 }
 
-/// The day closed: the cash box counted.
-class DayClose {
-  const DayClose({required this.day, required this.opening, required this.expected, required this.counted});
-  final DateTime day;
-  final int opening;
-  final int expected;
-  final int counted;
+/// A customer's profile (owner, 6 Nov: "গ্রাহকদের প্রোফাইল দরকার"): who they
+/// are, how to reach them, their credit limit and pay day, and the reminder
+/// set to collect.
+class Customer {
+  Customer({
+    String? id,
+    required this.name,
+    this.phone = '',
+    this.whatsapp = '',
+    this.address = '',
+    this.note = '',
+    this.limit = 0,
+    this.opening = 0,
+    this.dueDay,
+    this.reminderId,
+    this.lastSent,
+    DateTime? added,
+  })  : id = id ?? newId(),
+        added = added ?? DateTime(2000);
 
-  int get diff => counted - expected;
-
-  Map<String, Object?> toJson() => {'day': day.toIso8601String(), 'opening': opening, 'expected': expected, 'counted': counted};
-  factory DayClose.fromJson(Map<String, Object?> j) =>
-      DayClose(day: _d(j['day']) ?? DateTime(2000), opening: _i(j['opening']), expected: _i(j['expected']), counted: _i(j['counted']));
-}
-
-/// What the shop keeps about a buyer on credit, beyond the ledger: a limit,
-/// the day they said they would pay, and the weekly reminder.
-class Buyer {
-  const Buyer({required this.name, this.limit = 0, this.dueDay, this.weekly = false, this.lastSent});
+  final String id;
   final String name;
+  final String phone;
+
+  /// The WhatsApp number when it is not [phone] (the তাগাদা goes there).
+  final String whatsapp;
+  final String address;
+  final String note;
+
+  /// The most they may owe (0 = no limit).
   final int limit;
+
+  /// What they owed before the app (written in once).
+  final int opening;
+
+  /// The day they said they would pay.
   final DateTime? dueDay;
 
-  /// "প্রতি শুক্রবার নিজে থেকে পাঠাবে": a reminder each Friday to send the তাগাদা.
-  final bool weekly;
+  /// The app reminder set to collect from them.
+  final String? reminderId;
   final DateTime? lastSent;
+  final DateTime added;
 
-  Buyer copyWith({int? limit, DateTime? dueDay, bool clearDue = false, bool? weekly, DateTime? lastSent}) =>
-      Buyer(name: name, limit: limit ?? this.limit, dueDay: clearDue ? null : dueDay ?? this.dueDay, weekly: weekly ?? this.weekly, lastSent: lastSent ?? this.lastSent);
+  String get whatsappNumber => whatsapp.isNotEmpty ? whatsapp : phone;
+
+  Customer copyWith({String? name, String? phone, String? whatsapp, String? address, String? note, int? limit, int? opening, DateTime? dueDay, bool clearDue = false, String? reminderId, bool clearReminder = false, DateTime? lastSent}) => Customer(
+        id: id,
+        name: name ?? this.name,
+        phone: phone ?? this.phone,
+        whatsapp: whatsapp ?? this.whatsapp,
+        address: address ?? this.address,
+        note: note ?? this.note,
+        limit: limit ?? this.limit,
+        opening: opening ?? this.opening,
+        dueDay: clearDue ? null : dueDay ?? this.dueDay,
+        reminderId: clearReminder ? null : reminderId ?? this.reminderId,
+        lastSent: lastSent ?? this.lastSent,
+        added: added,
+      );
 
   Map<String, Object?> toJson() => {
+        'id': id,
         'name': name,
+        if (phone.isNotEmpty) 'phone': phone,
+        if (whatsapp.isNotEmpty) 'whatsapp': whatsapp,
+        if (address.isNotEmpty) 'address': address,
+        if (note.isNotEmpty) 'note': note,
         if (limit > 0) 'limit': limit,
+        if (opening != 0) 'opening': opening,
         if (dueDay != null) 'dueDay': dueDay!.toIso8601String(),
-        if (weekly) 'weekly': true,
+        if (reminderId != null) 'reminderId': reminderId,
         if (lastSent != null) 'lastSent': lastSent!.toIso8601String(),
+        'added': added.toIso8601String(),
       };
-  factory Buyer.fromJson(Map<String, Object?> j) =>
-      Buyer(name: '${j['name'] ?? ''}', limit: _i(j['limit']), dueDay: _d(j['dueDay']), weekly: j['weekly'] == true, lastSent: _d(j['lastSent']));
+
+  factory Customer.fromJson(Map<String, Object?> j) => Customer(
+        id: j['id'] as String?,
+        name: '${j['name'] ?? ''}',
+        phone: '${j['phone'] ?? ''}',
+        whatsapp: '${j['whatsapp'] ?? ''}',
+        address: '${j['address'] ?? ''}',
+        note: '${j['note'] ?? ''}',
+        limit: _i(j['limit']),
+        opening: _i(j['opening']),
+        dueDay: _d(j['dueDay']),
+        reminderId: j['reminderId'] as String?,
+        lastSent: _d(j['lastSent']),
+        added: _d(j['added']),
+      );
+}
+
+/// A dealer (ডিলার, মহাজন, সাপ্লায়ার) the shop buys from.
+class Dealer {
+  Dealer({String? id, required this.name, this.phone = '', this.whatsapp = '', this.address = '', this.note = '', this.opening = 0}) : id = id ?? newId();
+  final String id;
+  final String name;
+  final String phone;
+  final String whatsapp;
+  final String address;
+  final String note;
+
+  /// What the shop owed them before the app.
+  final int opening;
+
+  String get whatsappNumber => whatsapp.isNotEmpty ? whatsapp : phone;
+
+  Dealer copyWith({String? name, String? phone, String? whatsapp, String? address, String? note, int? opening}) =>
+      Dealer(id: id, name: name ?? this.name, phone: phone ?? this.phone, whatsapp: whatsapp ?? this.whatsapp, address: address ?? this.address, note: note ?? this.note, opening: opening ?? this.opening);
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'name': name,
+        if (phone.isNotEmpty) 'phone': phone,
+        if (whatsapp.isNotEmpty) 'whatsapp': whatsapp,
+        if (address.isNotEmpty) 'address': address,
+        if (note.isNotEmpty) 'note': note,
+        if (opening != 0) 'opening': opening,
+      };
+  factory Dealer.fromJson(Map<String, Object?> j) => Dealer(
+        id: j['id'] as String?,
+        name: '${j['name'] ?? ''}',
+        phone: '${j['phone'] ?? ''}',
+        whatsapp: '${j['whatsapp'] ?? ''}',
+        address: '${j['address'] ?? ''}',
+        note: '${j['note'] ?? ''}',
+        opening: _i(j['opening']),
+      );
+}
+
+/// Goods bought from a dealer: what came, what it came to, and how much was
+/// paid there and then (the rest is owed to the dealer).
+class Purchase {
+  Purchase({String? id, required this.at, required this.dealerId, this.dealer = '', required this.lines, required this.total, this.paid = 0, this.cashId, this.note = ''}) : id = id ?? newId();
+  final String id;
+  final DateTime at;
+  final String dealerId;
+  final String dealer;
+  final List<SaleLine> lines;
+  final int total;
+  final int paid;
+  final String? cashId;
+  final String note;
+
+  int get owed => (total - paid).clamp(0, 1 << 40);
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'at': at.toIso8601String(),
+        'dealerId': dealerId,
+        if (dealer.isNotEmpty) 'dealer': dealer,
+        'lines': [for (final l in lines) l.toJson()],
+        'total': total,
+        if (paid > 0) 'paid': paid,
+        if (cashId != null) 'cashId': cashId,
+        if (note.isNotEmpty) 'note': note,
+      };
+  factory Purchase.fromJson(Map<String, Object?> j) => Purchase(
+        id: j['id'] as String?,
+        at: _d(j['at']) ?? DateTime(2000),
+        dealerId: '${j['dealerId'] ?? ''}',
+        dealer: '${j['dealer'] ?? ''}',
+        lines: [for (final l in (j['lines'] as List? ?? const [])) if (l is Map) SaleLine.fromJson(l.cast<String, Object?>())],
+        total: _i(j['total']),
+        paid: _i(j['paid']),
+        cashId: j['cashId'] as String?,
+        note: '${j['note'] ?? ''}',
+      );
+}
+
+/// Money between the shop and a customer (they paid their বাকি) or a dealer
+/// (the shop paid them).
+class ShopPayment {
+  ShopPayment({String? id, required this.at, required this.party, required this.amount, this.cashId, this.note = ''}) : id = id ?? newId();
+  final String id;
+  final DateTime at;
+
+  /// The customer's or the dealer's id.
+  final String party;
+  final int amount;
+  final String? cashId;
+  final String note;
+
+  Map<String, Object?> toJson() => {'id': id, 'at': at.toIso8601String(), 'party': party, 'amount': amount, if (cashId != null) 'cashId': cashId, if (note.isNotEmpty) 'note': note};
+  factory ShopPayment.fromJson(Map<String, Object?> j) =>
+      ShopPayment(id: j['id'] as String?, at: _d(j['at']) ?? DateTime(2000), party: '${j['party'] ?? ''}', amount: _i(j['amount']), cashId: j['cashId'] as String?, note: '${j['note'] ?? ''}');
+}
+
+/// The default তাগাদা; the shopkeeper can write their own (the [] words
+/// are filled in).
+const defaultTagada = 'আসসালামু আলাইকুম [নাম], [দোকান]-এ আপনার বাকি [বাকি]। সুবিধামতো পরিশোধ করবেন। ধন্যবাদ।';
+
+/// The shop on its receipts and messages: name, address, mobile, logo.
+class ShopProfile {
+  const ShopProfile({this.name = '', this.address = '', this.phone = '', this.logo = '', this.tagada = '', this.receiptNote = ''});
+  final String name;
+  final String address;
+  final String phone;
+
+  /// The logo, a small picture (base64), '' = none.
+  final String logo;
+
+  /// The shopkeeper's own তাগাদা ('' = [defaultTagada]).
+  final String tagada;
+
+  /// A line at the foot of the receipt ("আবার আসবেন").
+  final String receiptNote;
+
+  String get tagadaText => tagada.trim().isEmpty ? defaultTagada : tagada;
+
+  ShopProfile copyWith({String? name, String? address, String? phone, String? logo, String? tagada, String? receiptNote}) => ShopProfile(
+      name: name ?? this.name, address: address ?? this.address, phone: phone ?? this.phone, logo: logo ?? this.logo, tagada: tagada ?? this.tagada, receiptNote: receiptNote ?? this.receiptNote);
+
+  bool get isEmpty => name.isEmpty && address.isEmpty && phone.isEmpty && logo.isEmpty && tagada.isEmpty && receiptNote.isEmpty;
+
+  Map<String, Object?> toJson() => {
+        if (name.isNotEmpty) 'name': name,
+        if (address.isNotEmpty) 'address': address,
+        if (phone.isNotEmpty) 'phone': phone,
+        if (logo.isNotEmpty) 'logo': logo,
+        if (tagada.isNotEmpty) 'tagada': tagada,
+        if (receiptNote.isNotEmpty) 'receiptNote': receiptNote,
+      };
+  factory ShopProfile.fromJson(Map<String, Object?> j) => ShopProfile(
+      name: '${j['name'] ?? ''}', address: '${j['address'] ?? ''}', phone: '${j['phone'] ?? ''}', logo: '${j['logo'] ?? ''}', tagada: '${j['tagada'] ?? ''}', receiptNote: '${j['receiptNote'] ?? ''}');
 }
 
 class ShopBook {
-  ShopBook({List<Product>? products, List<Sale>? sales, List<OrderLine>? orders, List<DayClose>? closes, List<Buyer>? buyers, this.opening})
-      : products = products ?? [],
+  ShopBook({
+    List<Product>? products,
+    List<Sale>? sales,
+    List<OrderLine>? orders,
+    List<Customer>? customers,
+    List<Dealer>? dealers,
+    List<Purchase>? purchases,
+    List<ShopPayment>? collections,
+    List<ShopPayment>? payouts,
+    this.profile = const ShopProfile(),
+  })  : products = products ?? [],
         sales = sales ?? [],
         orders = orders ?? [],
-        closes = closes ?? [],
-        buyers = buyers ?? [];
+        customers = customers ?? [],
+        dealers = dealers ?? [],
+        purchases = purchases ?? [],
+        collections = collections ?? [],
+        payouts = payouts ?? [];
 
   final List<Product> products;
   final List<Sale> sales;
   final List<OrderLine> orders;
-  final List<DayClose> closes;
-  final List<Buyer> buyers;
+  final List<Customer> customers;
+  final List<Dealer> dealers;
+  final List<Purchase> purchases;
 
-  /// The cash in the box this morning (set when the day opens; else the
-  /// last day's count carries over).
-  ({DateTime day, int amount})? opening;
+  /// Customers paying back their বাকি.
+  final List<ShopPayment> collections;
 
-  bool get isEmpty => products.isEmpty && sales.isEmpty && orders.isEmpty && closes.isEmpty && buyers.isEmpty && opening == null;
+  /// The shop paying its dealers.
+  final List<ShopPayment> payouts;
+  ShopProfile profile;
+
+  bool get isEmpty => products.isEmpty && sales.isEmpty && orders.isEmpty && customers.isEmpty && dealers.isEmpty && purchases.isEmpty && collections.isEmpty && payouts.isEmpty && profile.isEmpty;
 
   Map<String, Object?> toJson() => {
         if (products.isNotEmpty) 'products': [for (final p in products) p.toJson()],
         if (sales.isNotEmpty) 'sales': [for (final s in sales) s.toJson()],
         if (orders.isNotEmpty) 'orders': [for (final o in orders) o.toJson()],
-        if (closes.isNotEmpty) 'closes': [for (final c in closes) c.toJson()],
-        if (buyers.isNotEmpty) 'buyers': [for (final b in buyers) b.toJson()],
-        if (opening != null) 'opening': {'day': opening!.day.toIso8601String(), 'amount': opening!.amount},
+        if (customers.isNotEmpty) 'customers': [for (final c in customers) c.toJson()],
+        if (dealers.isNotEmpty) 'dealers': [for (final d in dealers) d.toJson()],
+        if (purchases.isNotEmpty) 'purchases': [for (final p in purchases) p.toJson()],
+        if (collections.isNotEmpty) 'collections': [for (final p in collections) p.toJson()],
+        if (payouts.isNotEmpty) 'payouts': [for (final p in payouts) p.toJson()],
+        if (!profile.isEmpty) 'profile': profile.toJson(),
       };
 
   factory ShopBook.fromJson(Map<String, Object?> j) {
     List<T> list<T>(String k, T Function(Map<String, Object?>) f) => [for (final x in (j[k] as List? ?? const [])) if (x is Map) f(x.cast<String, Object?>())];
-    final o = j['opening'];
+    final p = j['profile'];
     return ShopBook(
       products: list('products', Product.fromJson),
       sales: list('sales', Sale.fromJson),
       orders: list('orders', OrderLine.fromJson),
-      closes: list('closes', DayClose.fromJson),
-      buyers: list('buyers', Buyer.fromJson),
-      opening: o is Map && _d(o['day']) != null ? (day: _d(o['day'])!, amount: _i(o['amount'])) : null,
+      customers: list('customers', Customer.fromJson),
+      dealers: list('dealers', Dealer.fromJson),
+      purchases: list('purchases', Purchase.fromJson),
+      collections: list('collections', ShopPayment.fromJson),
+      payouts: list('payouts', ShopPayment.fromJson),
+      profile: p is Map ? ShopProfile.fromJson(p.cast<String, Object?>()) : const ShopProfile(),
     );
   }
 }

@@ -1,4 +1,3 @@
-import 'package:digital_brain/logic/ledger.dart';
 import 'package:digital_brain/logic/shop_logic.dart';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/state/brain.dart';
@@ -34,16 +33,19 @@ void main() {
     expect(b.shop.orders.single.supplier, 'করিম ট্রেডার্স');
   });
 
-  test('on credit: the buyer owes it in the ledger; paid back in cash goes into the box', () async {
+  test('on credit: the customer owes it on their own account (not the personal ledger); paid back goes into আয়-ব্যয়', () async {
     final r = await rig();
     final b = r.brain;
-    await b.recordSale(Sale(at: r.nowAt, lines: const [], amountOnly: 780, pay: SalePay.credit, customer: 'রহিম মিয়া'));
-    expect(owing(b.data).single.name, 'রহিম মিয়া');
-    expect(owing(b.data).single.balance, 780);
-    expect(b.data.cash, isEmpty, reason: 'nothing came in yet');
-    await b.buyerPaid('রহিম মিয়া', 500);
-    expect(owing(b.data).single.balance, 280);
-    expect(cashBox(b.data, r.nowAt).collected, 500);
+    final c = await b.customerFor('রহিম মিয়া');
+    await b.recordSale(Sale(at: r.nowAt, lines: const [], amountOnly: 780, pay: SalePay.credit, customerId: c.id));
+    expect(b.data.ledger, isEmpty, reason: 'owner, 6 Nov: not the ধার-দেনা');
+    expect(b.data.cash, isEmpty);
+    expect(customerAccount(b.shop, c).due, 780);
+    expect(owing(b.shop).single.name, 'রহিম মিয়া');
+    await b.customerPaid(c.id, 500);
+    expect(customerAccount(b.shop, c).due, 280);
+    expect(b.data.cash.single.category, 'বাকি আদায়');
+    expect(todayCash(b.data, r.nowAt).collected, 500);
   });
 
   test('wholesale price and loose weights', () {
@@ -54,34 +56,74 @@ void main() {
     expect(qtyText(5), '5');
   });
 
-  test('goods in: back on the shelf; owed to the supplier or paid', () async {
+  test('dues: the oldest unpaid day, and older than 30 days shows', () async {
+    final r = await rig();
+    final b = r.brain;
+    final c = await b.customerFor('সালমা');
+    await b.recordSale(Sale(at: DateTime(2026, 9, 20), lines: const [], amountOnly: 600, pay: SalePay.credit, customerId: c.id));
+    await b.recordSale(Sale(at: DateTime(2026, 10, 25), lines: const [], amountOnly: 400, pay: SalePay.credit, customerId: c.id));
+    expect(customerAccount(b.shop, c).since, DateTime(2026, 9, 20));
+    expect(longOwing(b.shop, r.nowAt).single.name, 'সালমা');
+    // 600 paid: the September sale is cleared, the October one is left.
+    await b.customerPaid(c.id, 600);
+    final a = customerAccount(b.shop, c);
+    expect(a.due, 400);
+    expect(a.since, DateTime(2026, 10, 25));
+    expect(longOwing(b.shop, r.nowAt), isEmpty);
+  });
+
+  test('a dealer: goods bought part paid, the rest owed; paying clears it', () async {
     final r = await rig();
     final b = r.brain;
     final oil = Product(name: 'সয়াবিন তেল ১ লি.', unit: 'বোতল', buy: 175, sell: 185, stock: 2, low: 5, supplier: 'করিম ট্রেডার্স');
     await b.saveProduct(oil);
     await b.refreshOrders();
     expect(b.shop.orders, hasLength(1));
-    await b.goodsIn('করিম ট্রেডার্স', [(oil, 20, 3500)], paid: false);
+    final d = await b.dealerFor('করিম ট্রেডার্স');
+    final p = await b.recordPurchase(d.id, [(oil, 20, 3500)], paid: 1000);
     expect(b.shop.products.single.stock, 22);
     expect(b.shop.orders, isEmpty);
-    expect(owed(b.data).single.name, 'করিম ট্রেডার্স');
-    expect(owed(b.data).single.balance, -3500);
-    await b.goodsIn('', [(oil, 5, 875)], paid: true);
+    expect(p.owed, 2500);
+    expect(dealerAccount(b.shop, d).due, 2500);
+    expect(owedToDealers(b.shop).single.name, 'করিম ট্রেডার্স');
     expect(b.data.cash.single.category, 'মাল কেনা');
+    expect(b.data.ledger, isEmpty);
+    await b.dealerPaid(d.id, 2500);
+    expect(dealerAccount(b.shop, d).due, 0);
+    expect(todayCash(b.data, r.nowAt).out, 3500);
+    // Undone: the goods leave the shelf, the cash entry goes.
+    await b.undoShopEntry(p.id);
+    expect(b.shop.products.single.stock, 2);
+    expect(b.data.cash.where((e) => e.category == 'মাল কেনা'), isEmpty);
   });
 
-  test('the day closes: the box counted against what it should hold', () async {
+  test('the collection reminder is an app reminder (free limit counts) and goes when paid off', () async {
     final r = await rig();
     final b = r.brain;
-    await b.setOpening(1000);
-    await b.recordSale(Sale(at: r.nowAt, lines: const [], amountOnly: 9850));
-    await b.shopCost(580, 'দোকান খরচ');
-    final box = cashBox(b.data, r.nowAt);
-    expect(box.expected, 1000 + 9850 - 580);
-    final c = await b.closeDay(10250);
-    expect(c.diff, -20);
-    // Tomorrow starts with the count.
-    expect(cashBox(b.data, r.nowAt.add(const Duration(days: 1))).opening, 10250);
+    final c = await b.customerFor('করিম');
+    await b.customerOwes(c.id, 900);
+    expect(await b.setCollectReminder(c.id, DateTime(2026, 11, 10, 10)), isTrue);
+    final rem = b.data.reminders.single;
+    expect(rem.title, 'করিম-এর কাছে বাকি আদায়');
+    expect((rem.hour, rem.minute), (10, 0));
+    expect(customerById(b.shop, c.id)!.reminderId, rem.id);
+    await b.customerPaid(c.id, 900);
+    expect(b.data.reminders, isEmpty);
+    expect(customerById(b.shop, c.id)!.reminderId, isNull);
+  });
+
+  test('the তাগাদা fills its [] words; the receipt carries the shop', () {
+    expect(fillTagada(defaultTagada, name: 'রহিম', due: '৳১,২৫০', shop: 'মা স্টোর'), 'আসসালামু আলাইকুম রহিম, মা স্টোর-এ আপনার বাকি ৳১,২৫০। সুবিধামতো পরিশোধ করবেন। ধন্যবাদ।');
+    final s = Sale(at: DateTime(2026, 11, 6, 15, 5), lines: [const SaleLine(name: 'চিনি', qty: 2, unit: 'কেজি', amount: 260)], discount: 26, discountPct: 10, no: 7, customer: 'রহিম');
+    const profile = ShopProfile(name: 'মা স্টোর', address: 'স্টেশন রোড', phone: '01711000000');
+    final t = receiptText(s, (n) => '৳$n', (x) => x, profile: profile);
+    expect(t, contains('মা স্টোর'));
+    expect(t, contains('ছাড় (10%) — ৳26'));
+    expect(t, contains('মোট: ৳234'));
+    final spec = receiptSpec(s, profile, taka: (n) => '৳$n', digits: (x) => x, logo: [1, 2, 3]);
+    expect(spec['title'], 'মা স্টোর');
+    expect(spec['page'], [420, 595]);
+    expect(spec['logo'], [1, 2, 3]);
   });
 
   test('a deleted sale gives its products and money back; the book survives a save', () async {
@@ -102,10 +144,4 @@ void main() {
     await b.undoLastDelete();
     expect(b.shop.products.single.name, egg.name);
   });
-
-  test('the ledger balances see shop credit like any loan', () {
-    final d = AppData(ledger: [LedgerEntry(person: 'সালমা', kind: LedgerKind.lent, amount: 1850, date: DateTime(2026, 11, 3))]);
-    expect(balances(d.ledger).single.balance, 1850);
-  });
 }
-

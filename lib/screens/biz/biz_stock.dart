@@ -9,6 +9,7 @@ import '../../ui/forms.dart' show askText;
 import '../../ui/kit.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
+import 'biz_hisab.dart' show pickDealer;
 import 'biz_parts.dart';
 
 /// স্টক (business mode tab; My Assistant's "সংরক্ষণ" in its place).
@@ -42,6 +43,7 @@ class _BizStockState extends State<BizStock> {
       TabTitle(tr('স্টক'),
           sub: trf('{0}টি পণ্য · কেনা দামে {1}', [bnDigits(b.products.length), taka(worth)]),
           trailing: IconButton(key: const Key('biz-stock-add'), tooltip: tr('নতুন পণ্য'), onPressed: () => pushPage(context, const ProductForm()), icon: const Icon(Icons.add_box_outlined))),
+      const BizFreeBanner(),
       if (exp.isNotEmpty) ...[
         const SizedBox(height: 12),
         AttentionCard(
@@ -191,6 +193,7 @@ class _ProductFormState extends State<ProductForm> {
       toast(context, tr('পণ্যের নাম লিখুন'));
       return;
     }
+    if (!await bizCan(context) || !mounted) return;
     final p = Product(
       id: _p?.id,
       name: name,
@@ -216,7 +219,7 @@ class _ProductFormState extends State<ProductForm> {
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final weighable = _unit == 'কেজি' || _unit == 'গ্রাম' || _unit == 'লিটার';
-    final suppliers = {for (final p in brain.shop.products) if (p.supplier.isNotEmpty) p.supplier, for (final o in owed(brain.data)) o.name}.toList();
+    final suppliers = {for (final d in brain.shop.dealers) d.name, for (final p in brain.shop.products) if (p.supplier.isNotEmpty) p.supplier}.toList();
     final shelvesUsed = {...shelfSuggestions, for (final p in brain.shop.products) if (p.category.isNotEmpty) p.category}.toList();
 
     Widget extra(String key, bool on, String title, String sub, ValueChanged<bool> set, Widget field) => Column(children: [
@@ -244,6 +247,7 @@ class _ProductFormState extends State<ProductForm> {
                   key: const Key('biz-product-delete'),
                   tooltip: tr('মুছুন'),
                   onPressed: () async {
+                    if (!await bizCan(context) || !context.mounted) return;
                     final ok = await confirmDialog(context, title: trf('‘{0}’ মুছবেন?', [_p.name]), text: tr('বিক্রির পুরোনো হিসাব থেকে যাবে। মুছে ফেলা থেকে ৩০ দিন ফেরানো যায়।'), yes: tr('মুছুন'), danger: true);
                     if (!ok || !context.mounted) return;
                     await BrainScope.read(context).deleteProduct(_p.id);
@@ -346,7 +350,7 @@ class _ProductFormState extends State<ProductForm> {
                       )),
                   extra('barcode', _hasBarcode, tr('বারকোড'), tr('প্যাকেটের নিচের নম্বর — খুঁজলে এই নম্বরেও পাওয়া যাবে'), (v) => _hasBarcode = v,
                       TextField(key: const Key('biz-product-barcode'), controller: _barcode, keyboardType: TextInputType.number, style: body(15), decoration: InputDecoration(hintText: tr('বারকোডের নম্বর'), isDense: true))),
-                  extra('supplier', _hasSupplier, tr('কার কাছ থেকে কেনা'), tr('অর্ডার তালিকায় সাপ্লায়ার ধরে ভাগ হবে'), (v) => _hasSupplier = v,
+                  extra('supplier', _hasSupplier, tr('কোন ডিলারের কাছ থেকে কেনা'), tr('অর্ডার তালিকায় ডিলার ধরে ভাগ হবে'), (v) => _hasSupplier = v,
                       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         TextField(key: const Key('biz-product-supplier'), controller: _supplier, style: body(15), decoration: InputDecoration(hintText: tr('যেমন: করিম ট্রেডার্স'), isDense: true)),
                         if (suppliers.isNotEmpty) ...[
@@ -367,13 +371,15 @@ class _ProductFormState extends State<ProductForm> {
 
 /// মাল কেনা: the order list (by supplier) and goods coming in.
 class PurchasePage extends StatefulWidget {
-  const PurchasePage({super.key});
+  const PurchasePage({super.key, this.part = 'order', this.dealerId = ''});
+  final String part;
+  final String dealerId;
   @override
   State<PurchasePage> createState() => _PurchasePageState();
 }
 
 class _PurchasePageState extends State<PurchasePage> {
-  String _part = 'order';
+  late String _part = widget.part;
 
   @override
   void initState() {
@@ -389,7 +395,7 @@ class _PurchasePageState extends State<PurchasePage> {
     final b = brain.shop;
     final bySup = <String, List<OrderLine>>{};
     for (final o in b.orders) {
-      bySup.putIfAbsent(o.supplier.isEmpty ? tr('সাপ্লায়ার দেওয়া নেই') : o.supplier, () => []).add(o);
+      bySup.putIfAbsent(o.supplier.isEmpty ? tr('ডিলার দেওয়া নেই') : o.supplier, () => []).add(o);
     }
     Product? productOf(OrderLine o) => b.products.where((p) => p.id == o.productId).firstOrNull;
     int estimate(List<OrderLine> lines) => lines.where((o) => o.picked).fold(0, (s, o) => s + ((productOf(o)?.buy ?? 0) * o.qty).round());
@@ -401,25 +407,26 @@ class _PurchasePageState extends State<PurchasePage> {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          InnerTop(title: tr('মাল কেনা'), sub: tr('কম স্টকের পণ্য নিজে থেকেই তালিকায় আসে')),
+          InnerTop(title: tr('মাল কেনা'), sub: tr('ডিলারের কাছ থেকে কেনা — স্টক আর দেনা নিজে বসবে')),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
             child: SegTabs<String>(key: const Key('biz-purchase-part'), items: [('order', tr('অর্ডার তালিকা')), ('in', tr('মাল এল'))], value: _part, onChanged: (v) => setState(() => _part = v)),
           ),
           Expanded(
             child: _part == 'in'
-                ? const _GoodsIn()
+                ? _GoodsIn(dealerId: widget.dealerId)
                 : ListView(padding: const EdgeInsets.fromLTRB(20, 0, 20, 24), children: [
                     if (b.orders.isEmpty)
                       Padding(padding: const EdgeInsets.only(top: 12), child: Text(tr('তালিকা খালি। কোনো পণ্য কম হলে এখানে নিজে থেকে উঠবে, বা নিচ থেকে যোগ করুন।'), style: body(14, color: C.muted, height: 1.5))),
                     for (final MapEntry(key: sup, value: lines) in bySup.entries) ...[
                       Builder(builder: (_) {
-                        final debt = owed(brain.data).where((p) => p.name == sup).firstOrNull;
+                        final d = dealerNamed(b, sup);
+                        final debt = d == null ? 0 : dealerAccount(b, d).due;
                         return Padding(
                           padding: const EdgeInsets.only(top: 16, bottom: 6),
                           child: Row(children: [
                             Expanded(child: Text(sup, style: display(17, weight: 600))),
-                            if (debt != null) WarnChip(trf('দেনা {0}', [taka(-debt.balance)])),
+                            if (debt > 0) WarnChip(trf('দেনা {0}', [taka(debt)])),
                           ]),
                         );
                       }),
@@ -454,7 +461,7 @@ class _PurchasePageState extends State<PurchasePage> {
                           left: tr('শেয়ার / প্রিন্ট'),
                           onLeft: () => brain.services.files.shareText(listText(sup, lines)),
                           right: tr('হোয়াটসঅ্যাপে অর্ডার'),
-                          onRight: () => brain.services.launcher.open(Via.whatsapp, '', text: listText(sup, lines)),
+                          onRight: () => brain.services.launcher.open(Via.whatsapp, dealerNamed(b, sup)?.whatsappNumber ?? '', text: listText(sup, lines)),
                         ),
                       ),
                     ],
@@ -488,21 +495,28 @@ Future<Product?> _pickProduct(BuildContext context, List<Product> ps) => showApp
       ),
     );
 
-/// মাল এল: what came in, how much it cost, paid now or owed.
+/// মাল এল: from which dealer, what came in, what it came to, and how much
+/// was paid now (the rest is owed to the dealer).
 class _GoodsIn extends StatefulWidget {
-  const _GoodsIn();
+  const _GoodsIn({this.dealerId = ''});
+  final String dealerId;
   @override
   State<_GoodsIn> createState() => _GoodsInState();
 }
 
 class _GoodsInState extends State<_GoodsIn> {
-  final _supplier = TextEditingController();
+  late String _dealerId = widget.dealerId;
   final _lines = <(Product, TextEditingController qty, TextEditingController amount)>[];
-  bool _paid = true;
+  final _bill = TextEditingController();
+  final _paidNow = TextEditingController();
+
+  /// all · part · none
+  String _pay = 'all';
 
   @override
   void dispose() {
-    _supplier.dispose();
+    _bill.dispose();
+    _paidNow.dispose();
     for (final l in _lines) {
       l.$2.dispose();
       l.$3.dispose();
@@ -512,36 +526,61 @@ class _GoodsInState extends State<_GoodsIn> {
 
   void _add(Product p, {double? qty}) {
     final q = qty ?? suggestedOrder(p);
-    setState(() => _lines.add((p, TextEditingController(text: qtyText(q)), TextEditingController(text: p.buy > 0 ? '${(p.buy * q).round()}' : ''))));
+    setState(() => _lines.add((p, TextEditingController(text: bnDigits(qtyText(q))), TextEditingController(text: p.buy > 0 ? bnDigits((p.buy * q).round()) : ''))));
+  }
+
+  Future<void> _pickDealer() async {
+    final d = await pickDealer(context);
+    if (d != null && mounted) setState(() => _dealerId = d.id);
   }
 
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final b = brain.shop;
-    final total = _lines.fold<int>(0, (s, l) => s + (readNum(l.$3.text) ?? 0).round());
+    final dealer = _dealerId.isEmpty ? null : dealerById(b, _dealerId);
+    final total = _lines.isEmpty ? (readNum(_bill.text) ?? 0).round() : _lines.fold<int>(0, (s, l) => s + (readNum(l.$3.text) ?? 0).round());
+    final paid = switch (_pay) { 'none' => 0, 'part' => (readNum(_paidNow.text) ?? 0).round().clamp(0, total), _ => total };
     return Column(children: [
       Expanded(
         child: ListView(padding: const EdgeInsets.fromLTRB(20, 0, 20, 16), children: [
-          if (_lines.isEmpty && b.orders.any((o) => o.picked))
+          Padding(padding: const EdgeInsets.fromLTRB(2, 8, 2, 6), child: Text(tr('কোন ডিলারের কাছ থেকে'), style: body(12.5, color: C.muted))),
+          OutlinedButton(
+            key: const Key('biz-in-dealer'),
+            onPressed: _pickDealer,
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48), alignment: Alignment.centerLeft),
+            child: Row(children: [
+              const Icon(Icons.storefront_outlined, size: 20),
+              const SizedBox(width: 8),
+              Expanded(child: Text(dealer?.name ?? tr('ডিলার বাছুন'), style: body(14.5, color: dealer == null ? C.muted : C.ink))),
+              if (dealer != null && dealerAccount(b, dealer).due > 0) Text(trf('আগের দেনা {0}', [taka(dealerAccount(b, dealer).due)]), style: body(12, color: C.warn)),
+              const SizedBox(width: 6),
+              Text(dealer == null ? tr('বাছুন') : tr('বদলান'), style: body(13, weight: FontWeight.w600, color: C.green)),
+            ]),
+          ),
+          const SizedBox(height: 12),
+          if (_lines.isEmpty && b.orders.any((o) => o.picked && (dealer == null || o.supplier.isEmpty || o.supplier == dealer.name))) ...[
             SecondaryButton(
               key: const Key('biz-in-from-order'),
               label: tr('অর্ডার তালিকা থেকে নিন'),
               icon: Icons.playlist_add_check_rounded,
               onPressed: () {
-                for (final o in b.orders.where((o) => o.picked)) {
+                final want = dealer?.name;
+                final picked = b.orders.where((o) => o.picked && (want == null || o.supplier.isEmpty || o.supplier == want)).toList();
+                for (final o in picked) {
                   final p = b.products.where((p) => p.id == o.productId).firstOrNull;
                   if (p != null) _add(p, qty: o.qty);
                 }
-                final sup = b.orders.firstWhere((o) => o.picked).supplier;
-                if (_supplier.text.isEmpty) _supplier.text = sup;
+                if (dealer == null && picked.isNotEmpty && picked.first.supplier.isNotEmpty) {
+                  final d = dealerNamed(b, picked.first.supplier);
+                  if (d != null) setState(() => _dealerId = d.id);
+                }
               },
             ),
-          Padding(padding: const EdgeInsets.fromLTRB(2, 12, 2, 6), child: Text(tr('কার কাছ থেকে'), style: body(12.5, color: C.muted))),
-          TextField(key: const Key('biz-in-supplier'), controller: _supplier, style: body(15), decoration: InputDecoration(hintText: tr('যেমন: করিম ট্রেডার্স'), isDense: true)),
-          const SizedBox(height: 12),
+            const SizedBox(height: 12),
+          ],
           ListCard(
-            empty: tr('কোন কোন পণ্য এল, যোগ করুন।'),
+            empty: tr('কোন কোন পণ্য এল, যোগ করুন — স্টকে নিজে বাড়বে। শুধু বিলের টাকা রাখতে চাইলে নিচে মোট লিখুন।'),
             rows: [
               for (final (i, (p, q, a)) in _lines.indexed)
                 Padding(
@@ -565,24 +604,39 @@ class _GoodsInState extends State<_GoodsIn> {
               },
             ),
           ),
+          if (_lines.isEmpty) ...[
+            const SizedBox(height: 12),
+            NumField(controller: _bill, label: tr('শুধু মোট বিল (পণ্য আলাদা না লিখলে)'), hint: '৳', fieldKey: const Key('biz-in-bill'), onChanged: (_) => setState(() {})),
+          ],
           const SizedBox(height: 14),
-          SegTabs<bool>(key: const Key('biz-in-paid'), items: [(true, tr('টাকা দিয়েছি')), (false, tr('বাকিতে (দেনা)'))], value: _paid, onChanged: (v) => setState(() => _paid = v)),
+          Text(tr('টাকা'), style: body(12.5, color: C.muted)),
+          const SizedBox(height: 6),
+          SegTabs<String>(key: const Key('biz-in-paid'), items: [('all', tr('পুরো দিয়েছি')), ('part', tr('কিছু দিয়েছি')), ('none', tr('পুরোটা বাকি'))], value: _pay, onChanged: (v) => setState(() => _pay = v)),
+          if (_pay == 'part') ...[
+            const SizedBox(height: 10),
+            NumField(controller: _paidNow, label: tr('এখন কত দিলেন'), hint: '৳', fieldKey: const Key('biz-in-paid-now'), onChanged: (_) => setState(() {})),
+          ],
         ]),
       ),
       PageFoot(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Row(children: [Expanded(child: Text(tr('মোট'), style: body(14, color: C.muted))), Text(taka(total), style: display(24, weight: 600))]),
+          Row(children: [Expanded(child: Text(tr('মোট'), style: body(14, color: C.muted))), Text(taka(total), key: const Key('biz-in-total'), style: display(24, weight: 600))]),
+          if (total > 0 && paid < total) Padding(padding: const EdgeInsets.only(top: 2), child: Row(children: [Expanded(child: Text(tr('ডিলারের কাছে দেনা হবে'), style: body(12.5, color: C.warn))), Text(taka(total - paid), style: body(13.5, weight: FontWeight.w600, color: C.warn))])),
           const SizedBox(height: 10),
           PrimaryButton(
             key: const Key('biz-in-save'),
             label: tr('মাল তুলুন'),
             icon: Icons.move_to_inbox_outlined,
             onPressed: () async {
-              if (_lines.isEmpty) return toast(context, tr('কোন পণ্য এল, যোগ করুন'));
-              if (!_paid && _supplier.text.trim().isEmpty) return toast(context, tr('বাকিতে হলে কার কাছ থেকে, লিখুন'));
-              await brain.goodsIn(_supplier.text, [for (final (p, q, a) in _lines) (p, readNum(q.text) ?? 0, (readNum(a.text) ?? 0).round())], paid: _paid);
+              if (dealer == null) {
+                toast(context, tr('কোন ডিলারের কাছ থেকে, বাছুন'));
+                return _pickDealer();
+              }
+              if (total <= 0 && _lines.isEmpty) return toast(context, tr('কোন পণ্য এল, বা মোট বিল কত, লিখুন'));
+              if (!await bizCan(context) || !context.mounted) return;
+              await brain.recordPurchase(dealer.id, [for (final (p, q, a) in _lines) (p, readNum(q.text) ?? 0, (readNum(a.text) ?? 0).round())], paid: paid, total: total);
               if (!context.mounted) return;
-              toast(context, tr('স্টকে তোলা হয়েছে'));
+              toast(context, paid < total ? trf('রাখা হলো — {0}-এর কাছে দেনা {1}', [dealer.name, taka(total - paid)]) : tr('রাখা হলো — স্টকে তোলা হয়েছে'));
               Navigator.of(context).pop();
             },
           ),

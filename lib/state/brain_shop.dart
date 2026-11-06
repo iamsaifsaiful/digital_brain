@@ -1,9 +1,9 @@
 part of 'brain.dart';
 
 /// ব্যবসায়ী মোড (owner, 6 Nov): the shop's own actions. A sale writes its
-/// money into আয়-ব্যয় (cash or QR) or the ledger (on credit) and takes the
-/// products off the shelf; goods that came in go back on it and the cost
-/// or the debt to the supplier is written the same way.
+/// cash into আয়-ব্যয় (cash or QR) or onto the customer's account (on
+/// credit) and takes the products off the shelf; goods bought from a dealer
+/// go back on it, paid in cash or owed to the dealer.
 extension BrainShop on Brain {
   ShopBook get shop => data.shop;
 
@@ -24,21 +24,26 @@ extension BrainShop on Brain {
   /// The next receipt number.
   int get nextSaleNo => shop.sales.fold<int>(0, (m, s) => s.no > m ? s.no : m) + 1;
 
-  /// A sale: stock down, money where it belongs. Returns the sale as kept.
+  String _cashIn(int amount, String category, String note, DateTime at) {
+    final e = CashEntry(kind: CashKind.income, amount: amount, category: category, note: note, date: at, accountId: defaultAccountId(data), addedAt: services.now());
+    _upsert(data.cash, e, (x) => x.id);
+    return e.id;
+  }
+
+  String _cashOut(int amount, String category, String note, DateTime at) {
+    final e = CashEntry(kind: CashKind.expense, amount: amount, category: category, note: note, date: at, accountId: defaultAccountId(data), addedAt: services.now());
+    _upsert(data.cash, e, (x) => x.id);
+    return e.id;
+  }
+
+  /// A sale: stock down; cash and QR into আয়-ব্যয়, credit onto the
+  /// customer's account. Returns the sale as kept.
   Future<Sale> recordSale(Sale s) async {
-    final now = services.now();
-    String? cashId, ledgerId;
+    String? cashId;
     final what = s.amountOnly > 0 ? tr('বিক্রি') : s.lines.map((l) => l.name).take(4).join(', ');
-    if (s.total > 0) {
-      if (s.pay == SalePay.credit && s.customer.trim().isNotEmpty) {
-        final e = LedgerEntry(person: s.customer.trim(), kind: LedgerKind.lent, amount: s.total, date: s.at, note: '${tr('বাকিতে কেনা')} · $what', createdAt: now);
-        _upsert(data.ledger, e, (x) => x.id);
-        ledgerId = e.id;
-      } else {
-        final e = CashEntry(kind: CashKind.income, amount: s.total, category: tr('বিক্রি'), note: s.pay == SalePay.qr ? '${s.pay.label} · $what' : what, date: s.at, accountId: defaultAccountId(data), addedAt: now);
-        _upsert(data.cash, e, (x) => x.id);
-        cashId = e.id;
-      }
+    final c = s.customerId.isEmpty ? null : customerById(shop, s.customerId);
+    if (s.total > 0 && s.pay != SalePay.credit) {
+      cashId = _cashIn(s.total, 'বিক্রি', [if (s.pay == SalePay.qr) s.pay.label, if (c != null) c.name, what].join(' · '), s.at);
     }
     for (final l in s.lines) {
       final i = shop.products.indexWhere((p) => p.id == l.productId);
@@ -46,7 +51,18 @@ extension BrainShop on Brain {
       final p = shop.products[i];
       shop.products[i] = p.copyWith(stock: (p.stock - l.qty) < 0 ? 0 : p.stock - l.qty);
     }
-    final kept = Sale(id: s.id, at: s.at, lines: s.lines, discount: s.discount, pay: s.pay, customer: s.customer.trim(), amountOnly: s.amountOnly, cashId: cashId, ledgerId: ledgerId, no: s.no > 0 ? s.no : nextSaleNo);
+    final kept = Sale(
+        id: s.id,
+        at: s.at,
+        lines: s.lines,
+        discount: s.discount,
+        discountPct: s.discountPct,
+        pay: s.pay,
+        customerId: s.customerId,
+        customer: c?.name ?? s.customer.trim(),
+        amountOnly: s.amountOnly,
+        cashId: cashId,
+        no: s.no > 0 ? s.no : nextSaleNo);
     _upsert(shop.sales, kept, (x) => x.id);
     _refillOrders();
     await _save();
@@ -58,7 +74,6 @@ extension BrainShop on Brain {
     final s = shop.sales.where((x) => x.id == id).firstOrNull;
     if (s == null) return;
     data.cash.removeWhere((e) => e.id == s.cashId);
-    data.ledger.removeWhere((e) => e.id == s.ledgerId);
     for (final l in s.lines) {
       final i = shop.products.indexWhere((p) => p.id == l.productId);
       if (i >= 0) shop.products[i] = shop.products[i].copyWith(stock: shop.products[i].stock + l.qty);
@@ -67,45 +82,177 @@ extension BrainShop on Brain {
     await _save();
   }
 
-  /// "টাকা পেলাম": a buyer paid back [amount] (in cash, so it is in the box).
-  Future<void> buyerPaid(String name, int amount) async {
-    if (amount <= 0) return;
-    _upsert(data.ledger, LedgerEntry(person: name, kind: LedgerKind.received, amount: amount, date: services.now(), note: tr('দোকানের বাকি আদায়'), createdAt: services.now()), (x) => x.id);
+  // গ্রাহক ---------------------------------------------------------------
+
+  /// A customer added or changed (a new one with the same name is the same customer).
+  Future<Customer> saveCustomer(Customer c) async {
+    final same = shop.customers.where((x) => x.id != c.id && x.name.trim() == c.name.trim()).firstOrNull;
+    final kept = same == null ? (c.added.year == 2000 ? Customer.fromJson({...c.toJson(), 'added': services.now().toIso8601String()}) : c) : same;
+    if (same == null) _upsert(shop.customers, kept, (x) => x.id);
+    await _save();
+    return kept;
+  }
+
+  /// The customer named [name], made if there is none.
+  Future<Customer> customerFor(String name) async => customerNamed(shop, name) ?? await saveCustomer(Customer(name: name.trim()));
+
+  Future<void> deleteCustomer(String id) async {
+    final c = customerById(shop, id);
+    if (c == null) return;
+    if (c.reminderId != null) await deleteReminder(c.reminderId!, trash: false);
+    _trash(c.name, [('customer', c.toJson())]);
+    shop.customers.removeWhere((x) => x.id == id);
     await _save();
   }
 
-  /// "+ বাকি দিলাম" without a sale (an old due written in, or goods by hand).
-  Future<void> buyerOwes(String name, int amount, {String note = ''}) async {
-    if (amount <= 0) return;
-    _upsert(data.ledger, LedgerEntry(person: name, kind: LedgerKind.lent, amount: amount, date: services.now(), note: note.isEmpty ? tr('বাকি') : note, createdAt: services.now()), (x) => x.id);
-    await _save();
-  }
-
-  Future<void> saveBuyer(Buyer b) async {
-    _upsert(shop.buyers, b, (x) => x.name);
+  /// "টাকা পেলাম": a customer paid [amount] of their বাকি (into আয়-ব্যয়
+  /// as বাকি আদায়). Paid off: the collection reminder goes.
+  Future<void> customerPaid(String id, int amount, {String note = ''}) async {
+    final c = customerById(shop, id);
+    if (c == null || amount <= 0) return;
+    final at = services.now();
+    final cashId = _cashIn(amount, 'বাকি আদায়', c.name, at);
+    shop.collections.add(ShopPayment(at: at, party: id, amount: amount, cashId: cashId, note: note));
+    if (customerAccount(shop, c).due <= 0 && c.reminderId != null) {
+      data.reminders.removeWhere((r) => r.id == c.reminderId);
+      _upsert(shop.customers, c.copyWith(clearReminder: true, clearDue: true), (x) => x.id);
+      await services.notifier.stopRinging(c.reminderId!);
+    }
     await _save();
     await _reschedule();
   }
 
-  /// Goods came in from [supplier]: back on the shelf; paid now (a cost in
-  /// আয়-ব্যয়, খাত "মাল কেনা") or owed (দেবো in the ledger).
-  Future<void> goodsIn(String supplier, List<(Product, double qty, int amount)> lines, {required bool paid}) async {
-    final now = services.now();
-    var total = 0;
-    for (final (p, qty, amount) in lines) {
+  /// "আগের বাকি": a due from before the app, written in by hand (not a sale,
+  /// so today's sales stay as they were).
+  Future<void> customerOwes(String id, int amount, {String note = ''}) async {
+    final c = customerById(shop, id);
+    if (c == null || amount <= 0) return;
+    _upsert(shop.customers, c.copyWith(opening: c.opening + amount), (x) => x.id);
+    await _save();
+  }
+
+  /// The reminder to collect from a customer (owner, 6 Nov: "বাকির
+  /// রিমাইন্ডার সেট করার অপশন"): an ordinary app reminder, so it rings in
+  /// either mode and counts like any other on the free app. False when the
+  /// free app's reminders are full.
+  Future<bool> setCollectReminder(String customerId, DateTime at, {Repeat repeat = Repeat.none}) async {
+    final c = customerById(shop, customerId);
+    if (c == null) return false;
+    final old = c.reminderId == null ? null : reminderById(c.reminderId!);
+    if (old == null && !canAddReminder) return false;
+    final due = customerAccount(shop, c).due;
+    final r = Reminder(
+      id: old?.id,
+      title: trf('{0}-এর কাছে বাকি আদায়', [c.name]),
+      date: dayOnly(at),
+      hour: at.hour,
+      minute: at.minute,
+      repeat: repeat,
+      weekdays: repeat == Repeat.weekly ? [at.weekday] : const [],
+      note: due > 0 ? trf('বাকি {0}', [taka(due)]) : '',
+    );
+    _upsert(shop.customers, c.copyWith(reminderId: r.id, dueDay: dayOnly(at)), (x) => x.id);
+    await saveReminder(r);
+    return true;
+  }
+
+  Future<void> clearCollectReminder(String customerId) async {
+    final c = customerById(shop, customerId);
+    if (c == null) return;
+    if (c.reminderId != null) await deleteReminder(c.reminderId!, trash: false);
+    _upsert(shop.customers, c.copyWith(clearReminder: true, clearDue: true), (x) => x.id);
+    await _save();
+  }
+
+  Future<void> markTagadaSent(String customerId) async {
+    final c = customerById(shop, customerId);
+    if (c == null) return;
+    _upsert(shop.customers, c.copyWith(lastSent: services.now()), (x) => x.id);
+    await _save();
+  }
+
+  // ডিলার -------------------------------------------------------------------
+
+  Future<Dealer> saveDealer(Dealer d) async {
+    final same = shop.dealers.where((x) => x.id != d.id && x.name.trim() == d.name.trim()).firstOrNull;
+    if (same != null) return same;
+    _upsert(shop.dealers, d, (x) => x.id);
+    await _save();
+    return d;
+  }
+
+  Future<Dealer> dealerFor(String name) async => dealerNamed(shop, name) ?? await saveDealer(Dealer(name: name.trim()));
+
+  Future<void> deleteDealer(String id) async {
+    final d = dealerById(shop, id);
+    if (d == null) return;
+    _trash(d.name, [('dealer', d.toJson())]);
+    shop.dealers.removeWhere((x) => x.id == id);
+    await _save();
+  }
+
+  /// Goods bought from a dealer: back on the shelf; [paid] of [total] paid
+  /// now (a cost in আয়-ব্যয়, খাত "মাল কেনা"), the rest owed to the dealer.
+  Future<Purchase> recordPurchase(String dealerId, List<(Product, double qty, int amount)> lines, {required int paid, int? total, String note = ''}) async {
+    final at = services.now();
+    final d = dealerById(shop, dealerId);
+    final sum = total ?? lines.fold<int>(0, (s, l) => s + l.$3);
+    for (final (p, qty, _) in lines) {
       final i = shop.products.indexWhere((x) => x.id == p.id);
       if (i >= 0) shop.products[i] = shop.products[i].copyWith(stock: shop.products[i].stock + qty);
-      total += amount;
       shop.orders.removeWhere((o) => o.productId == p.id);
     }
     final what = lines.map((l) => l.$1.name).take(4).join(', ');
-    if (total > 0) {
-      if (paid || supplier.trim().isEmpty) {
-        _upsert(data.cash, CashEntry(kind: CashKind.expense, amount: total, category: tr('মাল কেনা'), note: [if (supplier.trim().isNotEmpty) supplier.trim(), what].join(' · '), date: now, accountId: defaultAccountId(data), addedAt: now), (x) => x.id);
-      } else {
-        _upsert(data.ledger, LedgerEntry(person: supplier.trim(), kind: LedgerKind.borrowed, amount: total, date: now, note: '${tr('মাল কেনা')} · $what', createdAt: now), (x) => x.id);
+    final pay = paid.clamp(0, sum);
+    final cashId = pay > 0 ? _cashOut(pay, 'মাল কেনা', [if (d != null) d.name, what].join(' · '), at) : null;
+    final p = Purchase(
+      at: at,
+      dealerId: dealerId,
+      dealer: d?.name ?? '',
+      lines: [for (final (pr, qty, amount) in lines) SaleLine(productId: pr.id, name: pr.name, qty: qty, unit: pr.unit, amount: amount, cost: amount)],
+      total: sum,
+      paid: pay,
+      cashId: cashId,
+      note: note,
+    );
+    shop.purchases.add(p);
+    await _save();
+    return p;
+  }
+
+  /// The shop paid a dealer (into আয়-ব্যয় as ডিলারকে পরিশোধ).
+  Future<void> dealerPaid(String id, int amount, {String note = ''}) async {
+    final d = dealerById(shop, id);
+    if (d == null || amount <= 0) return;
+    final at = services.now();
+    final cashId = _cashOut(amount, 'ডিলারকে পরিশোধ', d.name, at);
+    shop.payouts.add(ShopPayment(at: at, party: id, amount: amount, cashId: cashId, note: note));
+    await _save();
+  }
+
+  /// An entry undone (a purchase, a collection or a payout): its cash goes
+  /// too, and a purchase's goods leave the shelf again.
+  Future<void> undoShopEntry(String id) async {
+    final p = shop.purchases.where((x) => x.id == id).firstOrNull;
+    if (p != null) {
+      for (final l in p.lines) {
+        final i = shop.products.indexWhere((x) => x.id == l.productId);
+        if (i >= 0) shop.products[i] = shop.products[i].copyWith(stock: (shop.products[i].stock - l.qty).clamp(0, double.infinity));
+      }
+      data.cash.removeWhere((e) => e.id == p.cashId);
+      shop.purchases.removeWhere((x) => x.id == id);
+    }
+    for (final list in [shop.collections, shop.payouts]) {
+      for (final x in list.where((x) => x.id == id).toList()) {
+        data.cash.removeWhere((e) => e.id == x.cashId);
+        list.remove(x);
       }
     }
+    await _save();
+  }
+
+  Future<void> saveShopProfile(ShopProfile p) async {
+    shop.profile = p;
     await _save();
   }
 
@@ -131,23 +278,6 @@ extension BrainShop on Brain {
   Future<void> removeOrder(String id) async {
     shop.orders.removeWhere((o) => o.id == id);
     await _save();
-  }
-
-  /// The cash in the box when the shop opened today.
-  Future<void> setOpening(int amount) async {
-    shop.opening = (day: dayOnly(services.now()), amount: amount);
-    await _save();
-  }
-
-  /// "দিন বন্ধ করুন": the box counted and kept; tomorrow starts with it.
-  Future<DayClose> closeDay(int counted) async {
-    final now = services.now();
-    final box = cashBox(data, now);
-    final c = DayClose(day: dayOnly(now), opening: box.opening, expected: box.expected, counted: counted);
-    shop.closes.removeWhere((x) => sameDay(x.day, now));
-    shop.closes.add(c);
-    await _save();
-    return c;
   }
 
   /// A shop cost (rent, electricity, a helper's pay): into আয়-ব্যয়.

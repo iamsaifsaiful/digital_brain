@@ -2637,13 +2637,15 @@ class Brain extends ChangeNotifier {
   Future<void> restoreTrash(TrashItem t) async {
     final j = data.toJson();
     for (final (k, item) in t.items) {
-      // The shop's products sit one level down (owner, 6 Nov: ব্যবসায়ী মোড).
-      final into = k == 'product' ? ((j['shop'] as Map?)?.cast<String, Object?>() ?? <String, Object?>{}) : j;
-      final key = k == 'product' ? 'products' : k;
+      // The shop's products, customers and dealers sit one level down (owner, 6 Nov: ব্যবসায়ী মোড).
+      const shopKinds = {'product': 'products', 'customer': 'customers', 'dealer': 'dealers'};
+      final inShop = shopKinds.containsKey(k);
+      final into = inShop ? ((j['shop'] as Map?)?.cast<String, Object?>() ?? <String, Object?>{}) : j;
+      final key = shopKinds[k] ?? k;
       final list = [...((into[key] as List?) ?? const [])]..removeWhere((x) => x is Map && x['id'] == item['id']);
       list.add(item);
       into[key] = list;
-      if (k == 'product') j['shop'] = into;
+      if (inShop) j['shop'] = into;
     }
     final keep = [for (final x in data.trash) if (x.id != t.id) x];
     final next = AppData.fromJson(j);

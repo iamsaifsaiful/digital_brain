@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../logic/bn.dart';
 import '../../logic/lang.dart';
-import '../../logic/ledger.dart' show balances;
 import '../../logic/shop_logic.dart';
 import '../../models/models.dart';
 import '../../state/brain.dart';
@@ -11,7 +10,9 @@ import '../../ui/kit.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../home_shell.dart' show openVoice;
+import 'biz_customers.dart' show pickCustomer, CustomerPage;
 import 'biz_parts.dart';
+import 'biz_shop.dart' show showReceiptPdf;
 
 /// বিক্রি (business mode tab; My Assistant's "দিনলিপি" in its place).
 class BizSales extends StatefulWidget {
@@ -47,6 +48,7 @@ class _BizSalesState extends State<BizSales> {
 
     return ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 96), children: [
       TabTitle(tr('বিক্রি'), sub: trf('আজ {0}টি বিক্রি · {1}', [bnDigits(todaySum.count), taka(todaySum.total)])),
+      const BizFreeBanner(),
       const SizedBox(height: 12),
       SegTabs<String>(
         key: const Key('biz-sales-when'),
@@ -118,18 +120,29 @@ Widget saleRow(BuildContext context, Sale s) {
   );
 }
 
-/// The receipt sheet: the lines, send it, or take the sale back.
+/// The receipt sheet: the lines, a PDF with the shop's name and logo, send
+/// it, or take the sale back.
 Future<void> showReceipt(BuildContext context, Sale s) => showAppSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) {
         final brain = BrainScope.read(ctx);
-        final text = receiptText(s, taka, bnDigits);
-        final phone = s.customer.isEmpty ? '' : (balances(brain.data.ledger).where((p) => p.name == s.customer).firstOrNull?.phone ?? '');
+        final text = receiptText(s, taka, bnDigits, profile: brain.shop.profile);
+        final c = s.customerId.isEmpty ? null : customerById(brain.shop, s.customerId);
         return Padding(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(trf('রসিদ #{0}', [bnDigits(s.no)]), style: display(19, weight: 600)),
+            Row(children: [
+              Expanded(child: Text(trf('রসিদ #{0}', [bnDigits(s.no)]), style: display(19, weight: 600))),
+              if (c != null)
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    pushPage(context, CustomerPage(id: c.id));
+                  },
+                  child: Text(c.name, style: body(13.5, color: C.green, weight: FontWeight.w600)),
+                ),
+            ]),
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(14),
@@ -137,14 +150,17 @@ Future<void> showReceipt(BuildContext context, Sale s) => showAppSheet<void>(
               child: Text(text, key: const Key('biz-receipt-text'), style: body(13.5, height: 1.6)),
             ),
             const SizedBox(height: 12),
+            PrimaryButton(key: const Key('biz-receipt-pdf'), label: tr('PDF রসিদ'), icon: Icons.picture_as_pdf_outlined, height: 46, onPressed: () => showReceiptPdf(ctx, s)),
+            const SizedBox(height: 8),
             Row(children: [
-              Expanded(child: SmallButton(label: tr('শেয়ার'), icon: Icons.share_outlined, onTap: () => brain.services.files.shareText(text))),
+              Expanded(child: SmallButton(label: tr('লেখা শেয়ার'), icon: Icons.share_outlined, onTap: () => brain.services.files.shareText(text))),
               const SizedBox(width: 8),
-              Expanded(child: SmallButton(label: tr('হোয়াটসঅ্যাপে'), icon: Icons.chat_outlined, primary: true, onTap: () => brain.services.launcher.open(Via.whatsapp, phone, text: text))),
+              Expanded(child: SmallButton(key: const Key('biz-receipt-wa'), label: tr('হোয়াটসঅ্যাপে'), icon: Icons.chat_outlined, onTap: () => brain.services.launcher.open(Via.whatsapp, c?.whatsappNumber ?? '', text: text))),
             ]),
             TextButton(
               key: const Key('biz-sale-delete'),
               onPressed: () async {
+                if (!await bizCan(ctx) || !ctx.mounted) return;
                 final ok = await confirmDialog(ctx, title: tr('বিক্রিটা বাতিল করবেন?'), text: tr('পণ্য স্টকে ফিরবে, টাকা বা বাকির হিসাবও মুছে যাবে।'), yes: tr('বাতিল করুন'), danger: true);
                 if (!ok) return;
                 await brain.deleteSale(s.id);
@@ -160,9 +176,9 @@ Future<void> showReceipt(BuildContext context, Sale s) => showAppSheet<void>(
 /// নতুন বিক্রি: search or pick products, quantities (weights for loose
 /// ones), the buyer, the payment, and the receipt.
 class SellPage extends StatefulWidget {
-  const SellPage({super.key, this.amountOnly = false, this.customer = ''});
+  const SellPage({super.key, this.amountOnly = false, this.customerId = ''});
   final bool amountOnly;
-  final String customer;
+  final String customerId;
   @override
   State<SellPage> createState() => _SellPageState();
 }
@@ -173,8 +189,12 @@ class _SellPageState extends State<SellPage> {
   final _discount = TextEditingController();
   final _cart = <String, double>{}; // product id → quantity
   String _shelf = '';
-  late String _customer = widget.customer;
-  late SalePay _pay = widget.customer.isEmpty ? SalePay.cash : SalePay.credit;
+  late String _customerId = widget.customerId;
+  late SalePay _pay = widget.customerId.isEmpty ? SalePay.cash : SalePay.credit;
+
+  /// The discount typed as taka or as percent (owner, 6 Nov: "ছাড়, টাকাতেও
+  /// দিতে পারবে, পারসেন্ট এ। সেটা অটো লাইভ ক্যালকুলেট হবে।").
+  bool _pct = false;
 
   @override
   void dispose() {
@@ -207,49 +227,50 @@ class _SellPageState extends State<SellPage> {
           if (_p(id) case final p?) SaleLine(productId: p.id, name: p.name, qty: q, unit: p.unit, amount: p.priceOf(q), cost: (p.buy * q).round()),
       ];
 
-  int get _total => widget.amountOnly ? (readNum(_amount.text) ?? 0).round() : (_lines.fold<int>(0, (s, l) => s + l.amount) - (readNum(_discount.text) ?? 0).round()).clamp(0, 1 << 40);
+  int get _subtotal => _lines.fold<int>(0, (s, l) => s + l.amount);
+
+  /// The discount in taka, worked out live from what is typed.
+  int get _off {
+    final v = readNum(_discount.text) ?? 0;
+    if (v <= 0) return 0;
+    final off = _pct ? (_subtotal * v.clamp(0, 100) / 100).round() : v.round();
+    return off.clamp(0, _subtotal);
+  }
+
+  int get _total => widget.amountOnly ? (readNum(_amount.text) ?? 0).round() : (_subtotal - _off).clamp(0, 1 << 40);
 
   Future<void> _pickCustomer() async {
-    final brain = BrainScope.read(context);
-    final names = {for (final p in balances(brain.data.ledger)) p.name, for (final c in brain.data.contacts) c.name}.toList();
-    final v = await showAppSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) {
-        final c = TextEditingController();
-        return Padding(
-          padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + MediaQuery.of(ctx).viewInsets.bottom),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(tr('ক্রেতা'), style: display(18, weight: 600)),
-            const SizedBox(height: 10),
-            TextField(key: const Key('biz-customer-name'), controller: c, autofocus: true, style: body(15), decoration: InputDecoration(hintText: tr('নাম লিখুন'), isDense: true), onSubmitted: (t) => Navigator.pop(ctx, t.trim())),
-            const SizedBox(height: 10),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 260),
-              child: ListView(shrinkWrap: true, children: [for (final n in names.take(30)) ListTile(dense: true, title: Text(n, style: body(14.5)), onTap: () => Navigator.pop(ctx, n))]),
-            ),
-            PrimaryButton(key: const Key('biz-customer-ok'), label: tr('ঠিক আছে'), height: 46, onPressed: () => Navigator.pop(ctx, c.text.trim())),
-          ]),
-        );
-      },
-    );
-    if (v != null) setState(() => _customer = v);
+    final c = await pickCustomer(context);
+    if (c != null && mounted) setState(() => _customerId = c.id);
   }
 
   Future<void> _done() async {
     final brain = BrainScope.read(context);
     if (_total <= 0) return toast(context, widget.amountOnly ? tr('কত টাকার বিক্রি, লিখুন') : tr('কোনো পণ্য বাছা হয়নি'));
-    if (_pay == SalePay.credit && _customer.trim().isEmpty) {
+    if (!await bizCan(context) || !mounted) return;
+    if (_pay == SalePay.credit && _customerId.isEmpty) {
+      toast(context, tr('বাকিতে বিক্রির জন্য গ্রাহক বাছুন'));
       await _pickCustomer();
-      if (_customer.trim().isEmpty || !mounted) return;
+      if (_customerId.isEmpty || !mounted) return;
     }
+    final c = customerById(brain.shop, _customerId);
+    if (_pay == SalePay.credit && c != null && c.limit > 0) {
+      final after = customerAccount(brain.shop, c).due + _total;
+      if (after > c.limit) {
+        final ok = await confirmDialog(context, title: tr('বাকির সীমা পার হবে'), text: trf('{0}-এর সীমা {1}, এই বিক্রিতে বাকি হবে {2}। তবুও বাকিতে দেবেন?', [c.name, taka(c.limit), taka(after)]), yes: tr('হ্যাঁ, দিন'));
+        if (!ok || !mounted) return;
+      }
+    }
+    final pct = _pct ? (readNum(_discount.text) ?? 0).clamp(0, 100).toDouble() : 0.0;
     final s = await brain.recordSale(Sale(
       at: brain.services.now(),
       lines: widget.amountOnly ? const [] : _lines,
-      discount: widget.amountOnly ? 0 : (readNum(_discount.text) ?? 0).round(),
+      discount: widget.amountOnly ? 0 : _off,
+      discountPct: widget.amountOnly || _off == 0 ? 0 : pct,
       amountOnly: widget.amountOnly ? _total : 0,
       pay: _pay,
-      customer: _customer,
+      customerId: c?.id ?? '',
+      customer: c?.name ?? '',
     ));
     if (!mounted) return;
     Navigator.of(context).pop();
@@ -271,7 +292,8 @@ class _SellPageState extends State<SellPage> {
     }
 
     if (q.isEmpty && _shelf.isEmpty) shown.sort((a, c) => rank(a).compareTo(rank(c)));
-    final owe = _customer.isEmpty ? null : balances(brain.data.ledger).where((p) => p.name == _customer).firstOrNull;
+    final customer = _customerId.isEmpty ? null : customerById(b, _customerId);
+    final owe = customer == null ? 0 : customerAccount(b, customer).due;
 
     Widget productRow(Product p) {
       final inCart = _cart[p.id];
@@ -361,21 +383,44 @@ class _SellPageState extends State<SellPage> {
                   Expanded(
                     child: Text.rich(
                       TextSpan(children: [
-                        TextSpan(text: _customer.isEmpty ? tr('ক্রেতা (ঐচ্ছিক)') : _customer, style: body(14, color: C.ink)),
-                        if (owe != null && owe.balance > 0) TextSpan(text: ' · ${trf('আগের বাকি {0}', [taka(owe.balance)])}', style: body(13, color: C.warn)),
+                        TextSpan(text: customer == null ? (_pay == SalePay.credit ? tr('গ্রাহক বাছুন (বাকির জন্য দরকার)') : tr('গ্রাহক (ঐচ্ছিক)')) : customer.name, style: body(14, color: customer == null && _pay == SalePay.credit ? C.warn : C.ink)),
+                        if (owe > 0) TextSpan(text: ' · ${trf('আগের বাকি {0}', [taka(owe)])}', style: body(13, color: C.warn)),
                       ]),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Text(_customer.isEmpty ? tr('বাছুন') : tr('বদলান'), style: body(13, weight: FontWeight.w600, color: C.green)),
+                  Text(customer == null ? tr('বাছুন') : tr('বদলান'), style: body(13, weight: FontWeight.w600, color: C.green)),
                 ]),
               ),
               const SizedBox(height: 10),
+              if (!widget.amountOnly) ...[
+                Row(children: [
+                  Text(tr('ছাড়'), style: body(14, color: C.muted)),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 96,
+                    child: TextField(
+                      key: const Key('biz-sell-discount'),
+                      controller: _discount,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (_) => setState(() {}),
+                      style: body(14),
+                      decoration: InputDecoration(isDense: true, hintText: _pct ? '%' : '৳'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 104,
+                    child: SegTabs<bool>(key: const Key('biz-sell-discount-kind'), items: const [(false, '৳'), (true, '%')], value: _pct, onChanged: (v) => setState(() => _pct = v)),
+                  ),
+                  const Spacer(),
+                  if (_off > 0) Text('− ${taka(_off)}', key: const Key('biz-sell-off'), style: body(13.5, color: C.green, weight: FontWeight.w600)),
+                ]),
+                const SizedBox(height: 8),
+              ],
               Row(children: [
-                Expanded(child: Text(tr('মোট'), style: body(14, color: C.muted))),
-                if (!widget.amountOnly)
-                  SizedBox(width: 90, child: TextField(key: const Key('biz-sell-discount'), controller: _discount, keyboardType: TextInputType.number, onChanged: (_) => setState(() {}), style: body(13), decoration: InputDecoration(isDense: true, hintText: tr('ছাড় ৳')))),
+                Expanded(child: Text(_off > 0 ? trf('মোট ({0} থেকে)', [taka(_subtotal)]) : tr('মোট'), style: body(14, color: C.muted))),
                 const SizedBox(width: 12),
                 Text(taka(_total), key: const Key('biz-sell-total'), style: display(27, weight: 600)),
               ]),

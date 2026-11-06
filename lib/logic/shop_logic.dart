@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart' show IconData, Icons;
 
 import '../models/models.dart';
-import 'ledger.dart';
 import 'bn.dart' show dayOnly;
 
 /// A quantity as the shop says it: "৫", "১.২৫০", "১২.৫".
@@ -116,39 +115,110 @@ List<(String, List<Product>)> shelves(Iterable<Product> ps) {
 /// Section names to offer in the product form.
 List<String> get shelfSuggestions => [for (final s in shopSections) s.$1];
 
-/// The buyers who owe the shop (পাবো), most first.
-List<PersonBalance> owing(AppData d) => balances(d.ledger).where((p) => p.balance > 0).toList()..sort((a, b) => b.balance.compareTo(a.balance));
+/// A customer's or a dealer's account: what is owed now, and when it began.
+class Account {
+  const Account({required this.id, required this.name, required this.due, this.since, this.last});
+  final String id;
+  final String name;
 
-/// Those the shop owes (দেবো — suppliers, the মহাজন), most first.
-List<PersonBalance> owed(AppData d) => balances(d.ledger).where((p) => p.balance < 0).toList()..sort((a, b) => a.balance.compareTo(b.balance));
+  /// For a customer, what they owe the shop; for a dealer, what the shop owes.
+  final int due;
 
-Buyer buyerOf(ShopBook b, String name) => b.buyers.firstWhere((x) => x.name == name, orElse: () => Buyer(name: name));
+  /// The oldest day still unpaid (payments clear the oldest first).
+  final DateTime? since;
 
-/// Today's cash box: the morning's cash, cash sales, credit collected in
-/// cash today, less the shop's cash costs today (goods paid for in cash too).
-class CashBox {
-  const CashBox({required this.opening, required this.sales, required this.collected, required this.costs});
-  final int opening;
-  final int sales;
-  final int collected;
-  final int costs;
-  int get expected => opening + sales + collected - costs;
+  /// The last sale, purchase or payment.
+  final DateTime? last;
+
+  int daysOwed(DateTime now) => since == null || due <= 0 ? 0 : dayOnly(now).difference(dayOnly(since!)).inDays;
 }
 
-CashBox cashBox(AppData d, DateTime now) {
-  final b = d.shop;
-  final today = dayOnly(now);
-  var opening = 0;
-  if (b.opening != null && sameDay(b.opening!.day, today)) {
-    opening = b.opening!.amount;
-  } else {
-    final past = [for (final c in b.closes) if (c.day.isBefore(today)) c]..sort((a, b) => b.day.compareTo(a.day));
-    if (past.isNotEmpty) opening = past.first.counted;
+/// Owed amounts (+ on a day) less payments, oldest paid first: what is left
+/// and the day the oldest unpaid part began.
+(int, DateTime?) _fifo(List<(DateTime, int)> owed, int paid) {
+  owed.sort((a, b) => a.$1.compareTo(b.$1));
+  var left = paid;
+  var due = 0;
+  DateTime? since;
+  for (final (at, amount) in owed) {
+    if (left >= amount) {
+      left -= amount;
+      continue;
+    }
+    final rest = amount - left;
+    left = 0;
+    due += rest;
+    since ??= at;
   }
-  final sales = salesOn(b, today).where((s) => s.pay == SalePay.cash).fold(0, (s, x) => s + x.total);
-  final collected = d.ledger.where((e) => e.kind == LedgerKind.received && sameDay(e.date, today)).fold(0, (s, e) => s + e.amount);
-  final costs = d.cash.where((e) => e.kind == CashKind.expense && sameDay(e.date, today)).fold(0, (s, e) => s + e.amount);
-  return CashBox(opening: opening, sales: sales, collected: collected, costs: costs);
+  return (due - left, since);
+}
+
+Account customerAccount(ShopBook b, Customer c) {
+  final owed = <(DateTime, int)>[
+    if (c.opening > 0) (c.added, c.opening),
+    for (final s in b.sales) if (s.customerId == c.id && s.pay == SalePay.credit) (s.at, s.total),
+  ];
+  final pays = [for (final p in b.collections) if (p.party == c.id) p];
+  final paid = pays.fold<int>(0, (s, p) => s + p.amount);
+  final (due, since) = _fifo(owed, paid);
+  final times = [...owed.map((x) => x.$1), ...pays.map((p) => p.at)]..sort();
+  return Account(id: c.id, name: c.name, due: due, since: due > 0 ? since : null, last: times.isEmpty ? null : times.last);
+}
+
+Account dealerAccount(ShopBook b, Dealer d) {
+  final owed = <(DateTime, int)>[
+    if (d.opening > 0) (DateTime(2000), d.opening),
+    for (final p in b.purchases) if (p.dealerId == d.id && p.owed > 0) (p.at, p.owed),
+  ];
+  final pays = [for (final p in b.payouts) if (p.party == d.id) p];
+  final paid = pays.fold<int>(0, (s, p) => s + p.amount);
+  final (due, since) = _fifo(owed, paid);
+  final times = [for (final p in b.purchases) if (p.dealerId == d.id) p.at, ...pays.map((p) => p.at)]..sort();
+  return Account(id: d.id, name: d.name, due: due, since: due > 0 ? since : null, last: times.isEmpty ? null : times.last);
+}
+
+/// The customers who owe the shop, most first.
+List<Account> owing(ShopBook b) => [for (final c in b.customers) customerAccount(b, c)].where((a) => a.due > 0).toList()..sort((a, b) => b.due.compareTo(a.due));
+
+/// The dealers the shop owes, most first.
+List<Account> owedToDealers(ShopBook b) => [for (final d in b.dealers) dealerAccount(b, d)].where((a) => a.due > 0).toList()..sort((a, b) => b.due.compareTo(a.due));
+
+/// Owing for more than [days] days (owner, 6 Nov: "বাকি ৩০ দিনের বেশি হলে
+/// হোমে দেখাবে"), the oldest first.
+List<Account> longOwing(ShopBook b, DateTime now, {int days = 30}) =>
+    owing(b).where((a) => a.daysOwed(now) > days).toList()..sort((a, c) => c.daysOwed(now).compareTo(a.daysOwed(now)));
+
+Customer? customerById(ShopBook b, String id) => b.customers.where((c) => c.id == id).firstOrNull;
+Dealer? dealerById(ShopBook b, String id) => b.dealers.where((d) => d.id == id).firstOrNull;
+Customer? customerNamed(ShopBook b, String name) => b.customers.where((c) => c.name.trim() == name.trim()).firstOrNull;
+Dealer? dealerNamed(ShopBook b, String name) => b.dealers.where((d) => d.name.trim() == name.trim()).firstOrNull;
+
+/// Today's cash: what came in (cash sales, বাকি collected) and what went out
+/// (dealers paid, goods paid for, shop costs).
+class TodayCash {
+  const TodayCash({required this.sales, required this.collected, required this.out});
+  final int sales;
+  final int collected;
+  final int out;
+  int get net => sales + collected - out;
+}
+
+TodayCash todayCash(AppData d, DateTime now) {
+  final b = d.shop;
+  final sales = salesOn(b, now).where((s) => s.pay == SalePay.cash).fold(0, (s, x) => s + x.total);
+  final collected = b.collections.where((p) => sameDay(p.at, now)).fold(0, (s, p) => s + p.amount);
+  final out = d.cash.where((e) => e.kind == CashKind.expense && sameDay(e.date, now) && e.category.isNotEmpty && shopCostKinds.contains(e.category)).fold(0, (s, e) => s + e.amount);
+  return TodayCash(sales: sales, collected: collected, out: out);
+}
+
+/// The আয়-ব্যয় খাত the shop writes its costs under.
+const shopCostKinds = {'মাল কেনা', 'ডিলারকে পরিশোধ', 'দোকান ভাড়া', 'বিদ্যুৎ বিল', 'কর্মচারীর বেতন', 'পরিবহন', 'দোকান খরচ'};
+
+/// The তাগাদা with its [] words filled in.
+String fillTagada(String template, {required String name, required String due, required String shop, String phone = ''}) {
+  var t = template.replaceAll('[নাম]', name).replaceAll('[বাকি]', due).replaceAll('[দোকান]', shop.isEmpty ? 'দোকান' : shop).replaceAll('[মোবাইল]', phone);
+  t = t.replaceAllMapped(RegExp(r'\s+([,।])'), (m) => m[1]!).replaceAll(RegExp(r'  +'), ' ');
+  return t.trim();
 }
 
 /// Sales a day for the last [days] days, oldest first (the week chart).
@@ -180,16 +250,67 @@ double suggestedOrder(Product p) {
   return want <= 0 ? (p.low > 0 ? p.low : 1) : want.ceilToDouble();
 }
 
+/// The discount line: "ছাড় (১০%)" or "ছাড়".
+String discountLabel(Sale s, String Function(String) digits) =>
+    s.discountPct > 0 ? 'ছাড় (${digits(qtyText(s.discountPct))}%)' : 'ছাড়';
+
 /// The receipt as text (to send by SMS or WhatsApp).
-String receiptText(Sale s, String Function(int) taka, String Function(String) digits) {
+String receiptText(Sale s, String Function(int) taka, String Function(String) digits, {ShopProfile profile = const ShopProfile()}) {
   final lines = <String>[
+    if (profile.name.isNotEmpty) profile.name,
+    if (profile.address.isNotEmpty) profile.address,
+    if (profile.phone.isNotEmpty) 'মোবাইল: ${digits(profile.phone)}',
+    if (!profile.isEmpty && (profile.name.isNotEmpty || profile.phone.isNotEmpty)) '',
     'রসিদ #${digits('${s.no}')} · ${digits('${s.at.day}/${s.at.month}/${s.at.year}')}',
     if (s.customer.isNotEmpty) 'ক্রেতা: ${s.customer}',
     for (final l in s.lines) '${l.name} ${digits(qtyText(l.qty))} ${l.unit} — ${taka(l.amount)}',
     if (s.amountOnly > 0) 'মোট বিক্রি — ${taka(s.amountOnly)}',
-    if (s.discount > 0) 'ছাড় — ${taka(s.discount)}',
+    if (s.discount > 0) '${discountLabel(s, digits)} — ${taka(s.discount)}',
     'মোট: ${taka(s.total)} (${s.pay.label})',
-    'ধন্যবাদ!',
+    profile.receiptNote.isNotEmpty ? profile.receiptNote : 'ধন্যবাদ!',
   ];
   return lines.join('\n');
 }
+
+/// The receipt as a PDF (owner, 6 Nov): the shop's name, address, mobile and
+/// logo on top, the lines in a table, the total, a note at the foot.
+Map<String, Object?> receiptSpec(Sale s, ShopProfile profile, {required String Function(int) taka, required String Function(String) digits, Object? logo, int? due}) => {
+      'title': profile.name.isEmpty ? 'রসিদ' : profile.name,
+      'subtitle': [
+        if (profile.address.isNotEmpty) profile.address,
+        if (profile.phone.isNotEmpty) 'মোবাইল: ${digits(profile.phone)}',
+      ].join('\n'),
+      if (logo != null) 'logo': logo,
+      'page': [420, 595],
+      'footer': profile.receiptNote.isNotEmpty ? profile.receiptNote : 'ধন্যবাদ, আবার আসবেন।',
+      'pageWord': 'পাতা',
+      'bnDigits': true,
+      'blocks': [
+        {
+          't': 'kv',
+          'rows': [
+            ['রসিদ নং', '#${digits('${s.no}')}'],
+            ['তারিখ', digits('${s.at.day}/${s.at.month}/${s.at.year}  ${s.at.hour % 12 == 0 ? 12 : s.at.hour % 12}:${'${s.at.minute}'.padLeft(2, '0')}')],
+            if (s.customer.isNotEmpty) ['ক্রেতা', s.customer],
+            ['পরিশোধ', s.pay.label],
+          ],
+        },
+        {
+          't': 'table',
+          'cols': ['পণ্য', 'পরিমাণ', 'দাম'],
+          'w': [5, 2.4, 2.6],
+          'a': ['l', 'r', 'r'],
+          'rows': [
+            for (final l in s.lines) [l.name, '${digits(qtyText(l.qty))} ${l.unit}', taka(l.amount)],
+            if (s.amountOnly > 0) ['বিক্রি', '', taka(s.amountOnly)],
+            if (s.discount > 0) [discountLabel(s, digits), '', '− ${taka(s.discount)}'],
+            [
+              {'s': 'মোট', 'b': true},
+              '',
+              {'s': taka(s.total), 'b': true, 'c': 'g'},
+            ],
+          ],
+        },
+        if (due != null && due > 0) {'t': 'p', 'text': 'আগের বাকিসহ মোট পাওনা: ${taka(due)}', 'muted': true},
+      ],
+    };

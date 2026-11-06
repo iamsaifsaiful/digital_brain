@@ -536,18 +536,6 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
     out.add(PlannedNotice(id: stableId('$tag:$key'), at: at, title: title, body: body, reminderId: tag, gentle: true));
   }
 
-  // ব্যবসায়ী মোড (owner, 6 Nov): a buyer on the weekly তাগাদা — Friday 10:00,
-  // while they still owe.
-  final owe = {for (final b in balances(d.ledger)) b.name: b.balance};
-  for (final b in d.shop.buyers.where((b) => b.weekly && (owe[b.name] ?? 0) > 0)) {
-    for (var i = 0; i < 8; i++) {
-      final day = today.add(Duration(days: i));
-      if (day.weekday != DateTime.friday) continue;
-      add('${nudgeTagada}${b.name}', dayKey(day), _at(day, 10 * 60), trf('তাগাদার দিন: {0}', [b.name]), trf('বাকি {0}। চাপুন — মেসেজ পাঠানো যাবে।', [taka(owe[b.name]!)]));
-      break;
-    }
-  }
-
   // Next occurrence of [weekday] (today counts when the time is still ahead).
   DateTime nextWeekday(int weekday, int minutes) {
     for (var i = 0; i < 8; i++) {
