@@ -6,6 +6,7 @@ import '../logic/standard.dart';
 import '../nlu/labels.dart';
 import '../nlu/model.dart' show TfliteRunner;
 import '../nlu/reader.dart' show NluPiece;
+import '../nlu/router.dart' show mostlyEnglish;
 import '../nlu/samples.dart';
 import '../nlu/shadow.dart';
 import 'package:flutter/foundation.dart';
@@ -242,14 +243,16 @@ class ChatController extends ChangeNotifier {
       count: brain.countSource, enabled: () => brain.nluMode != 'off', onCompare: _nluSample, force: nluLoaderForTests != null);
 
   /// A learning sample (consent only): every reading the model and the rules
-  /// disagreed on, and one in ten they agreed on; names replaced, secrets,
-  /// numbers and codes never (see lib/nlu/samples.dart).
+  /// disagreed on, every unsure one and every English one (owner, 6 Nov: the
+  /// model should learn from what members ask), and one in four they agreed
+  /// on; names replaced, secrets, numbers and codes never (see lib/nlu/samples.dart).
   void _nluSample(String text, String state, List<NluPiece> pieces, List<String> old, bool same) {
     brain.signalLastSample(text, complained: old.contains('complain_help') || old.contains('correct'));
     brain.signalLastSample(text, complained: false);
     if (!brain.nluSamplesOn) return;
     if (brain.nluStaysPrivate(text, [for (final p in pieces) p.intent, ...old])) return;
-    if (same && _sampleRandom.nextDouble() > 0.1) return;
+    final unsure = pieces.isEmpty || pieces.any((p) => p.conf < 0.6);
+    if (same && !unsure && !mostlyEnglish(text) && _sampleRandom.nextDouble() > 0.25) return;
     final names = [
       for (final e in brain.data.ledger) e.person,
       for (final c in brain.data.contacts) c.name,
