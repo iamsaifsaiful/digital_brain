@@ -411,7 +411,9 @@ class DeviceVoice extends Voice {
     // couple more tries for this turn.
     if ((code == 'error_busy' || code == 'error_client' || code == 'error_recognizer_busy') && _retries < 3) {
       _retries++;
-      _restart(Duration(milliseconds: 300 * _retries), cancelFirst: true);
+      // Longer each time (owner's log, 6 Nov: still "busy after 3 tries" at
+      // 0.3 / 0.6 / 0.9 s on some phones): 0.4, 1 and 1.8 s.
+      _restart(Duration(milliseconds: const [400, 1000, 1800][_retries - 1]), cancelFirst: true);
       return;
     }
     // সমস্যার লগ: the recogniser's own code (never what was heard), only for

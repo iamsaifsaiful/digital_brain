@@ -74,7 +74,8 @@ class ErrorLog {
         final j = jsonDecode(await crash.readAsString());
         await crash.delete();
         if (j is Map) {
-          _add('crash', clean('${j['kind'] ?? 'NativeCrash'}', max: 80), clean('${j['message'] ?? ''}'), clean('${j['stack'] ?? ''}', max: 2000, digits: 6), '${j['version'] ?? version}');
+          // A problem the app survived (ReplyGuard.kt) says so; anything else closed it.
+          _add(j['level'] == 'problem' ? 'problem' : 'crash', clean('${j['kind'] ?? 'NativeCrash'}', max: 80), clean('${j['message'] ?? ''}'), clean('${j['stack'] ?? ''}', max: 2000, digits: 6), '${j['version'] ?? version}');
         }
       }
     } catch (_) {}

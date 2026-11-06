@@ -132,6 +132,9 @@ function ma_err_meaning($level, $kind, $msg) {
     if ($kind === 'Server') {
         return 'আমাদের সার্ভার ভুল উত্তর দিয়েছে';
     }
+    if ($kind === 'Android:ReplyTwice') {
+        return 'একটা অংশ দুইবার উত্তর দিয়েছে — অ্যাপ বন্ধ হয়নি, সামলানো হয়েছে';
+    }
     if (str_starts_with($kind, 'Android:')) {
         return 'অ্যাপ বন্ধ হয়ে গেছে (Android অংশে)';
     }
