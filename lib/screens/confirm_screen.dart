@@ -174,7 +174,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: c, autofocus: true, decoration: InputDecoration(labelText: tr('নাম'))),
+            TextField(textCapitalization: TextCapitalization.sentences, controller: c, autofocus: true, decoration: InputDecoration(labelText: tr('নাম'))),
             if (known.isNotEmpty) ...[
               const SizedBox(height: 10),
               Wrap(spacing: 6, runSpacing: 6, children: [
@@ -333,7 +333,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
         style: body(15, color: C.muted, height: 1.5),
       ),
       const SizedBox(height: 14),
-      TextField(
+      TextField(textCapitalization: TextCapitalization.sentences, 
         controller: _nameCtl,
         textInputAction: TextInputAction.done,
         onSubmitted: _setName,

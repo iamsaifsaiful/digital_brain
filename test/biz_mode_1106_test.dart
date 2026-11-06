@@ -75,6 +75,10 @@ void main() {
     await t.enterText(find.byType(TextField).last, '1.5');
     await t.tap(find.text('রাখুন').last);
     await settle(t);
+    // Step two (owner, 7 Nov): the checkout.
+    expect(t.widget<Text>(find.byKey(const Key('biz-sell-subtotal'))).data, '৳৩৬৫');
+    await t.tap(find.byKey(const Key('biz-sell-next')));
+    await settle(t);
     String total() => t.widget<Text>(find.byKey(const Key('biz-sell-total'))).data!;
     expect(total(), '৳৩৬৫');
     // ১০% off: ৳৩৭ (365 × 10% rounded), the total follows as it is typed.
@@ -228,6 +232,8 @@ void main() {
     nav.push(MaterialPageRoute(builder: (_) => const SellPage()));
     await settle(t);
     await t.tap(find.byKey(Key('biz-plus-${egg.id}')));
+    await settle(t);
+    await t.tap(find.byKey(const Key('biz-sell-next')));
     await settle(t);
     await t.tap(find.byKey(const Key('biz-sell-done')));
     await settle(t);

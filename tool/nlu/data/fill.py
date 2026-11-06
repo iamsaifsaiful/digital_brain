@@ -9,6 +9,7 @@
 import random, re
 import lexicon as L
 import render as R
+import english as E
 
 ALT = re.compile(r'\[([^\[\]]*)\]')
 PH = re.compile(r'\{([a-z_0-9]+)(?::([a-z_0-9]+))?\}')
@@ -69,6 +70,10 @@ def value(ctx, name, var):
 
 
 def _value(ctx, name, var):
+    if name.startswith(('en_', 'bl_')):
+        got = E.value(ctx, name, var)
+        if got is not None:
+            return got
     if name in ('person', 'person2'):
         w, v = _person(ctx, name, var)
         return w, 'person', v

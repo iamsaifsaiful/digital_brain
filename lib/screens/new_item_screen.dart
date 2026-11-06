@@ -453,7 +453,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
         ),
         const SizedBox(height: 14),
       ],
-      TextFormField(
+      TextFormField(textCapitalization: TextCapitalization.sentences, 
         controller: _a,
         decoration: InputDecoration(labelText: _vaultKind == VaultKind.wifi ? tr('নাম (যেমন: বাসার Wi-Fi)') : tr('ওয়েবসাইট বা অ্যাপের নাম')),
         validator: _required,
@@ -515,20 +515,20 @@ class _NewItemScreenState extends State<NewItemScreen> {
         ),
       ),
       _gap,
-      TextFormField(controller: _noteText, maxLines: 2, decoration: InputDecoration(labelText: tr('নোট (ঐচ্ছিক)'), hintText: tr('যেমন: ২-ধাপের যাচাই চালু'))),
+      TextFormField(textCapitalization: TextCapitalization.sentences, controller: _noteText, maxLines: 2, decoration: InputDecoration(labelText: tr('নোট (ঐচ্ছিক)'), hintText: tr('যেমন: ২-ধাপের যাচাই চালু'))),
       const SizedBox(height: 14),
       InfoBanner(text: tr('ফোনের সুরক্ষিত চাবি দিয়ে এনক্রিপ্ট করে রাখা হবে। খুলতে আঙুলের ছাপ বা PIN লাগবে।')),
     ];
   }
 
   List<Widget> _contactForm() => [
-        TextFormField(controller: _a, decoration: InputDecoration(labelText: tr('নাম'), hintText: tr('যেমন: ইলেকট্রিশিয়ান করিম')), validator: _required),
+        TextFormField(textCapitalization: TextCapitalization.sentences, controller: _a, decoration: InputDecoration(labelText: tr('নাম'), hintText: tr('যেমন: ইলেকট্রিশিয়ান করিম')), validator: _required),
         _gap,
         TextFormField(controller: _b, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: tr('মোবাইল নম্বর'))),
         _gap,
         TextFormField(controller: _c, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: tr('ইমেইল (ঐচ্ছিক)'))),
         _gap,
-        TextFormField(
+        TextFormField(textCapitalization: TextCapitalization.sentences, 
           controller: _address,
           decoration: InputDecoration(
             labelText: tr('ঠিকানা (ঐচ্ছিক)'),
@@ -537,7 +537,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
           ),
         ),
         _gap,
-        TextFormField(controller: _noteText, maxLines: 3, decoration: InputDecoration(labelText: tr('নোট'), hintText: tr('কোথায় পরিচয়, কী কাজে লাগে'))),
+        TextFormField(textCapitalization: TextCapitalization.sentences, controller: _noteText, maxLines: 3, decoration: InputDecoration(labelText: tr('নোট'), hintText: tr('কোথায় পরিচয়, কী কাজে লাগে'))),
         _gap,
         AttachmentsEditor(
           files: _files,
@@ -572,9 +572,9 @@ class _NewItemScreenState extends State<NewItemScreen> {
       ];
 
   List<Widget> _noteForm() => [
-        TextFormField(controller: _a, decoration: InputDecoration(labelText: tr('শিরোনাম'), hintText: tr('যেমন: বাজারের তালিকা')), validator: _required),
+        TextFormField(textCapitalization: TextCapitalization.sentences, controller: _a, decoration: InputDecoration(labelText: tr('শিরোনাম'), hintText: tr('যেমন: বাজারের তালিকা')), validator: _required),
         _gap,
-        TextFormField(controller: _noteCat, decoration: InputDecoration(labelText: tr('বিভাগ'), hintText: tr('যেমন: নোট, যানবাহন, স্বাস্থ্য'))),
+        TextFormField(textCapitalization: TextCapitalization.sentences, controller: _noteCat, decoration: InputDecoration(labelText: tr('বিভাগ'), hintText: tr('যেমন: নোট, যানবাহন, স্বাস্থ্য'))),
         const SizedBox(height: 8),
         Wrap(spacing: 6, runSpacing: 6, children: [
           for (final c in {defaultNoteCategory, ...BrainScope.of(context).data.noteCategories})
@@ -599,7 +599,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
         if (_list)
           ChecklistEditor(key: const ValueKey('checklist'), items: _items, onChanged: (v) => _items = v)
         else
-          TextFormField(
+          TextFormField(textCapitalization: TextCapitalization.sentences, 
             controller: _b,
             minLines: 6,
             maxLines: 14,
@@ -637,7 +637,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
     final brain = BrainScope.of(context);
     final vault = [...brain.data.vault]..sort((a, b) => a.name.compareTo(b.name));
     return [
-      TextFormField(controller: _a, decoration: InputDecoration(labelText: tr('কাজের নাম'), hintText: tr('যেমন: ডোমেইন রিনিউ')), validator: _required),
+      TextFormField(textCapitalization: TextCapitalization.sentences, controller: _a, decoration: InputDecoration(labelText: tr('কাজের নাম'), hintText: tr('যেমন: ডোমেইন রিনিউ')), validator: _required),
       _gap,
       Row(children: [
         Expanded(
@@ -752,7 +752,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
         ],
       ],
       _gap,
-      TextFormField(controller: _noteText, decoration: InputDecoration(labelText: tr('নোট (ঐচ্ছিক)'))),
+      TextFormField(textCapitalization: TextCapitalization.sentences, controller: _noteText, decoration: InputDecoration(labelText: tr('নোট (ঐচ্ছিক)'))),
       if (vault.isNotEmpty) ...[
         _gap,
         DropdownButtonFormField<String?>(

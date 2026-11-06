@@ -123,7 +123,7 @@ class _WillScreenState extends State<WillScreen> {
               Text(tr('এই ফোনে তালাবদ্ধ থাকে। ফ্যামিলিতে উত্তরাধিকারী রাখলে আর “নোট” দেখার অনুমতি দিলে তিনি পরে দেখতে পাবেন। বদলালে নতুন তারিখ দেখাবে।'),
                   style: body(12.5, color: C.muted, height: 1.45)),
               const SizedBox(height: 12),
-              TextField(
+              TextField(textCapitalization: TextCapitalization.sentences, 
                 key: const Key('will-text'),
                 controller: _text,
                 minLines: 12,

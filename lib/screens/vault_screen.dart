@@ -84,7 +84,7 @@ class _VaultScreenState extends State<VaultScreen> {
           ],
         ),
         const SizedBox(height: 14),
-        TextField(
+        TextField(textCapitalization: TextCapitalization.sentences, 
           onChanged: (v) => setState(() => _q = v),
           decoration: InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: tr('ওয়েবসাইট বা অ্যাপের নাম')),
         ),

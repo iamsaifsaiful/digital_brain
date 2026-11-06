@@ -130,6 +130,13 @@ String bnTime(int hour, int minute) {
   return '$part ${bnDigits(h12)}$m';
 }
 
+/// "সকাল ১০টায়", "সকাল ৯:৩০-এ"; "at 9:30 AM".
+String bnTimeAt(int hour, int minute) {
+  final t = bnTime(hour, minute);
+  if (isEn) return 'at $t';
+  return minute == 0 ? '$tয়' : '$t-এ';
+}
+
 /// Days from today until [d] ("আজ" when 0).
 String daysLeftLabel(DateTime d, DateTime now) {
   final diff = dayOnly(d).difference(dayOnly(now)).inDays;

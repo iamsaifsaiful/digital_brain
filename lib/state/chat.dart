@@ -6,6 +6,7 @@ import '../logic/standard.dart';
 import '../nlu/labels.dart';
 import '../nlu/model.dart' show TfliteRunner;
 import '../nlu/reader.dart' show NluPiece;
+import '../nlu/router.dart' show mostlyEnglish;
 import '../nlu/samples.dart';
 import '../nlu/shadow.dart';
 import 'package:flutter/foundation.dart';
@@ -203,6 +204,10 @@ class ChatController extends ChangeNotifier {
   /// it is fresh (30 minutes), never an older or re-sorted one.
   DateTime? _shownAt;
 
+  /// The reminders the last day's list named with the to-dos ("এই তালিকা
+  /// থেকে …" can mean one of them too).
+  List<String> _shownReminders = const [];
+
   /// The ids of the to-do list last said, in order (for tests).
   @visibleForTesting
   List<String> get debugShownTasks => _shownTasks;
@@ -242,14 +247,16 @@ class ChatController extends ChangeNotifier {
       count: brain.countSource, enabled: () => brain.nluMode != 'off', onCompare: _nluSample, force: nluLoaderForTests != null);
 
   /// A learning sample (consent only): every reading the model and the rules
-  /// disagreed on, and one in ten they agreed on; names replaced, secrets,
-  /// numbers and codes never (see lib/nlu/samples.dart).
+  /// disagreed on, every unsure one and every English one (owner, 6 Nov: the
+  /// model should learn from what members ask), and one in four they agreed
+  /// on; names replaced, secrets, numbers and codes never (see lib/nlu/samples.dart).
   void _nluSample(String text, String state, List<NluPiece> pieces, List<String> old, bool same) {
     brain.signalLastSample(text, complained: old.contains('complain_help') || old.contains('correct'));
     brain.signalLastSample(text, complained: false);
     if (!brain.nluSamplesOn) return;
     if (brain.nluStaysPrivate(text, [for (final p in pieces) p.intent, ...old])) return;
-    if (same && _sampleRandom.nextDouble() > 0.1) return;
+    final unsure = pieces.isEmpty || pieces.any((p) => p.conf < 0.6);
+    if (same && !unsure && !mostlyEnglish(text) && _sampleRandom.nextDouble() > 0.25) return;
     final names = [
       for (final e in brain.data.ledger) e.person,
       for (final c in brain.data.contacts) c.name,
@@ -1078,6 +1085,12 @@ class ChatController extends ChangeNotifier {
         notifyListeners();
         return out.join(' ');
       }
+    }
+    // "এই তালিকা থেকে পড়ানোটা কালকের তালিকায় যুক্ত কর" right after a day's
+    // list: that item (to-do or reminder) on the other day.
+    if (wait == ChatWait.none && await _fromShownList(t, out)) {
+      notifyListeners();
+      return out.join(' ');
     }
     // "না, এগারোটায়" right after a to-do's reminder: that one, changed.
     if (await _todoCorrection(t, out)) {

@@ -380,9 +380,9 @@ Future<FamilyMember?> editMember(BuildContext context, FamilyMember? m) async {
         content: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             if (m == null || !m.isMe) ...[
-              TextField(controller: name, decoration: InputDecoration(labelText: tr('নাম'))),
+              TextField(textCapitalization: TextCapitalization.sentences, controller: name, decoration: InputDecoration(labelText: tr('নাম'))),
               const SizedBox(height: 10),
-              TextField(controller: relation, decoration: InputDecoration(labelText: tr('সম্পর্ক'), hintText: tr('যেমন: আব্বা, আম্মা, মেয়ে'))),
+              TextField(textCapitalization: TextCapitalization.sentences, controller: relation, decoration: InputDecoration(labelText: tr('সম্পর্ক'), hintText: tr('যেমন: আব্বা, আম্মা, মেয়ে'))),
               const SizedBox(height: 10),
             ],
             OutlinedButton.icon(

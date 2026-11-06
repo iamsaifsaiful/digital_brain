@@ -832,8 +832,18 @@ const _futureVerbs = [
 ];
 final _futureRe = RegExp('(?<=^|[\\s,।!?;:“”"(])(${_futureVerbs.join('|')})(?=\$|[\\s,।!?;:“”")—-])');
 
-String forSpeech(String text) =>
-    text.replaceAll('•', '').replaceAllMapped(_futureRe, (m) => '${m[1]}ো');
+/// Also: brackets are not read out — "(সকাল ১০টা)" is said as a pause and
+/// the words — and a clock time "৯:৩০" is said "৯টা ৩০".
+String forSpeech(String text) => text
+    .replaceAll('•', '')
+    .replaceAllMapped(_futureRe, (m) => '${m[1]}ো')
+    .replaceAllMapped(RegExp(r'\s*\(([^()]*)\)'), (m) => ', ${m[1]!.trim()},')
+    .replaceAllMapped(RegExp(r'([০-৯]{1,2}):([০-৯]{2})'), (m) {
+      final mm = m[2]!.startsWith('০') ? m[2]!.substring(1) : m[2]!;
+      return mm == '০' ? '${m[1]}টা' : '${m[1]}টা $mm';
+    })
+    .replaceAllMapped(RegExp(r',\s*([।?!,;])'), (m) => m[1]!)
+    .replaceAll(RegExp(r',\s*$'), '');
 
 /// A word compared loosely (digits, punctuation and spelling variants
 /// aside), to tell the app's own voice from the user's.

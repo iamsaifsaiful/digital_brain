@@ -11,7 +11,7 @@ import '../services/data_store.dart';
 import '../services/lock.dart';
 import '../services/location_share.dart';
 import '../state/brain.dart';
-import '../logic/home_scene.dart' show sceneNames;
+import '../logic/home_scene.dart' show sceneNames, defaultScene;
 import 'home_picture_screen.dart';
 import '../ui/pin.dart';
 import '../ui/theme.dart';
@@ -37,7 +37,7 @@ import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '1.0.5';
+const appVersion = '1.0.6';
 
 /// The app's version, shown and sent to our server (sign-in, feedback,
 /// problem logs). The Play app has its own numbering from 1.0.0 (owner, 29
@@ -123,7 +123,7 @@ class _MoreScreenState extends State<MoreScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(tr('আপনাকে কী নামে ডাকবো?'), style: body(18, weight: FontWeight.w600)),
-        content: TextField(controller: c, autofocus: true, style: body(16), decoration: InputDecoration(hintText: tr('যেমন: সাইফুল ভাই'))),
+        content: TextField(textCapitalization: TextCapitalization.sentences, controller: c, autofocus: true, style: body(16), decoration: InputDecoration(hintText: tr('যেমন: সাইফুল ভাই'))),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাদ দিন'))),
           TextButton(onPressed: () => Navigator.pop(ctx, c.text), child: Text(tr('রাখুন'), style: body(15, weight: FontWeight.w600, color: C.green))),
@@ -347,7 +347,7 @@ class _MoreScreenState extends State<MoreScreen> {
       const SizedBox(height: 12),
       Panel(
         child: Rows(children: [
-          linkRow(Icons.landscape_outlined, tr('হোমের ছবি'), sub: trf('{0} · আবহাওয়া, নড়াচড়া, বিশেষ দিন', [tr(sceneNames[brain.text('home_scene', 'auto')] ?? sceneNames['auto']!)]), onTap: () => push(const HomePictureScreen())),
+          linkRow(Icons.landscape_outlined, tr('হোমের ছবি'), sub: trf('{0} · আবহাওয়া, নড়াচড়া, বিশেষ দিন', [tr(sceneNames[brain.text('home_scene', defaultScene)] ?? sceneNames['auto']!)]), onTap: () => push(const HomePictureScreen())),
         ]),
       ),
       ],

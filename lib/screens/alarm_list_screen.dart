@@ -343,7 +343,7 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
                     ),
                 ]),
                 const SizedBox(height: 16),
-                TextField(
+                TextField(textCapitalization: TextCapitalization.sentences, 
                   controller: _name,
                   style: body(16),
                   decoration: InputDecoration(labelText: tr('নাম (বাজলে এটা দেখাবে)'), hintText: tr('যেমন: ঘুম থেকে ওঠা')),

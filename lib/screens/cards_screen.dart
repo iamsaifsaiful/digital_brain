@@ -464,7 +464,7 @@ class _CardFormScreenState extends State<CardFormScreen> {
               child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 16), children: [
                 CardFace(card: preview, open: true),
                 const SizedBox(height: 14),
-                TextField(key: const Key('card-bank'), controller: _bank, onChanged: (_) => setState(() {}), decoration: InputDecoration(labelText: tr('ব্যাংকের নাম'))),
+                TextField(textCapitalization: TextCapitalization.sentences, key: const Key('card-bank'), controller: _bank, onChanged: (_) => setState(() {}), decoration: InputDecoration(labelText: tr('ব্যাংকের নাম'))),
                 const SizedBox(height: 6),
                 Wrap(spacing: 6, runSpacing: 6, children: [
                   for (final b in banks) ActionChip(label: Text(tr(b), style: body(12.5)), onPressed: () => setState(() => _bank.text = tr(b))),
@@ -546,7 +546,7 @@ class _CardFormScreenState extends State<CardFormScreen> {
                 const SizedBox(height: 8),
                 photoRow(tr('পিছনের ছবি'), _back, false),
                 const SizedBox(height: 12),
-                TextField(controller: _note, maxLines: 2, decoration: InputDecoration(labelText: tr('নোট (ঐচ্ছিক)'), hintText: tr('যেমন: বেতনের একাউন্টের কার্ড'))),
+                TextField(textCapitalization: TextCapitalization.sentences, controller: _note, maxLines: 2, decoration: InputDecoration(labelText: tr('নোট (ঐচ্ছিক)'), hintText: tr('যেমন: বেতনের একাউন্টের কার্ড'))),
                 const SizedBox(height: 10),
                 Text(tr('কার্ডের PIN বা পিছনের ৩ অঙ্কের CVV এখানে রাখার কোনো ঘর নেই — এগুলো কোথাও লিখে রাখবেন না।'), style: body(12.5, color: C.muted, height: 1.5)),
               ]),

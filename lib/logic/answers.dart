@@ -385,6 +385,16 @@ List<Task> openTasksOf(AppData d, DateTime now) {
   return open;
 }
 
+/// One item of a day, said plainly with its time once: "সকাল ১১:৩০-এ ওষুধ
+/// খাওয়া" for a reminder, "পড়াতে যাওয়া — রিমাইন্ডার সকাল ৯:৩০-এ" for a
+/// to-do with its own reminder, the name alone for a to-do without one.
+String planLine(PlanItem i) {
+  if (i.timed == null) return i.title;
+  final at = bnTimeAt(i.sort.hour, i.sort.minute);
+  if (i.task != null) return trf('{0} — রিমাইন্ডার {1}', [i.title, at]);
+  return isEn ? '${i.title} $at' : '$at ${i.title}';
+}
+
 /// "ব্যাংকে যাওয়া (আজ)", "রিপোর্ট জমা (১২ অক্টোবর)".
 String taskLabel(Task t, DateTime now) => taskLine(t, now);
 
@@ -421,7 +431,7 @@ String spanAnswer(AppData d, DateTime now, (DateTime, DateTime, String) span) {
     count += items.length + specials.length;
     final what = [
       for (final x in specials) '${x.person} ${x.kind.bn}',
-      for (final i in items) i.reminder != null ? '${i.title} (${bnTime(i.sort.hour, i.sort.minute)})' : i.title,
+      for (final i in items) planLine(i),
     ];
     lines.add('${sayWhen(day, now, withTime: false)}: ${what.join(', ')}');
   }
@@ -474,8 +484,7 @@ String taskAnswer(AppData d, DateTime now, [String asked = '']) {
       final rest = open.length;
       return trf('{0} কোনো কাজ বা রিমাইন্ডার নেই।{1}', [when, rest > 0 ? trf(' অন্য দিনের বা তারিখ ছাড়া {0}টা কাজ আছে।', [bnDigits(rest)]) : '']);
     }
-    String label(PlanItem i) => i.reminder != null ? '${i.title} (${bnTime(i.sort.hour, i.sort.minute)})' : i.title;
-    return trf('{0} {1}টা — {2}।', [when, bnDigits(items.length), nameList([for (final i in items) label(i)], unit: 'টা')]);
+    return trf('{0} {1}টা — {2}।', [when, bnDigits(items.length), nameList([for (final i in items) planLine(i)], unit: 'টা')]);
   }
   if (open.isEmpty) return tr('এখন কোনো কাজ বাকি নেই। নতুন কাজ বললে তালিকায় তুলে রাখব।');
   return trf('{0}টা কাজ বাকি — {1}।', [bnDigits(open.length), nameList([for (final t in open) taskLabel(t, now)], unit: 'টা')]);
@@ -501,16 +510,16 @@ String taskAnswer(AppData d, DateTime now, [String asked = '']) {
 /// A day's items in one part of it: those with a time then, and the ones
 /// with no time said, told apart.
 String dayPartAnswer(AppData d, List<PlanItem> items, (String, int, int) part, String when) {
-  int? hourOf(PlanItem i) {
-    if (i.reminder != null) return i.sort.hour;
+  Reminder? ringOf(PlanItem i) {
+    if (i.timed != null) return i.timed;
     final rid = i.task?.reminderId;
-    final r = rid == null ? null : d.reminders.where((x) => x.id == rid).firstOrNull;
-    return r?.hour;
+    return rid == null ? null : d.reminders.where((x) => x.id == rid).firstOrNull;
   }
+  int? hourOf(PlanItem i) => i.timed != null ? i.sort.hour : ringOf(i)?.hour;
   String label(PlanItem i) {
-    final h = hourOf(i);
-    final r = i.reminder ?? (i.task?.reminderId == null ? null : d.reminders.where((x) => x.id == i.task!.reminderId).firstOrNull);
-    return h == null || r == null ? i.title : '${i.title} (${bnTime(r.hour, r.minute)})';
+    final r = ringOf(i);
+    if (r == null) return i.title;
+    return i.timed != null ? planLine(i) : planLine(PlanItem.task(i.task!, DateTime(2000, 1, 1, r.hour, r.minute), ring: r));
   }
   final inPart = [for (final i in items) if (hourOf(i) case final h? when h >= part.$2 && h < part.$3) i];
   final untimed = [for (final i in items) if (hourOf(i) == null) i];
@@ -673,7 +682,7 @@ DateTime _weekStartOf(DateTime d) => weekStartOf(d);
     if (items.isEmpty) {
       return (s.free ? trf('{0} এই অ্যাপের তালিকায় কোনো কাজ বা রিমাইন্ডার রাখা নেই।', [when]) : trf('{0} কোনো কাজ বা রিমাইন্ডার রাখা নেই।', [when]), const []);
     }
-    String line(PlanItem i) => i.reminder != null ? '${i.title} (${bnTime(i.sort.hour, i.sort.minute)})' : taskLine(i.task!, now).replaceAll(' (${sayWhen(s.from!, now, withTime: false)})', '');
+    String line(PlanItem i) => i.timed != null ? planLine(i) : taskLine(i.task!, now).replaceAll(' (${sayWhen(s.from!, now, withTime: false)})', '');
     final head = s.free ? trf('{0} তালিকায় {1}টা রাখা আছে', [when, bnDigits(items.length)]) : trf('{0} {1}টা', [when, bnDigits(items.length)]);
     return (trf('{0} — {1}।', [head, nameList([for (final i in items) line(i)], unit: 'টা')]), shown);
   }

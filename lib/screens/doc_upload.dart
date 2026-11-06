@@ -328,7 +328,7 @@ class _DocInfoSheetState extends State<_DocInfoSheet> {
                   context: context,
                   builder: (ctx) => AlertDialog(
                     title: Text(tr('নতুন ফোল্ডারের নাম'), style: body(18, weight: FontWeight.w600)),
-                    content: TextField(controller: c, autofocus: true, style: body(16)),
+                    content: TextField(textCapitalization: TextCapitalization.sentences, controller: c, autofocus: true, style: body(16)),
                     actions: [
                       TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
                       TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: Text(tr('রাখুন'))),

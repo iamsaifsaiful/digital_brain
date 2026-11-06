@@ -406,7 +406,8 @@ extension _TodoChat on ChatController {
         also = trf(' রিমাইন্ডারও {0}-এ সরিয়েছি।', [sayWhen(DateTime(n.due!.year, n.due!.month, n.due!.day, r.hour, r.minute), _now)]);
       }
     }
-    _say(out, trf('“{0}” — {1}।{2}', [t.title, said.join('; '), also]), links: links);
+    // A rename alone already names both: said once, not "“X” — “X”-এর নাম …".
+    _say(out, c.title != null && said.length == 1 ? '${said.single}।$also' : trf('“{0}” — {1}।{2}', [t.title, said.join('; '), also]), links: links);
     _history.add(AiTurn.app('[কাজ বদলানো হলো: ${t.title}]'));
     return true;
   }
@@ -783,12 +784,101 @@ extension _TodoChat on ChatController {
     final list = s == null ? openTasksOf(brain.data, _now) : taskScopeAnswer(brain.data, s, _now).$2;
     _shownTasks = [for (final t in list) t.id];
     _shownAt = _now;
+    // The reminders said with them, for a one-day list ("আজ কী কী কাজ").
+    final w = s == null ? parseWhen(tidySpeech(q.transcript), _now) : null;
+    final day = s?.from != null && s!.from == s.to ? s.from! : (w != null && w.hasDay ? w.day : null);
+    _shownReminders = day == null ? const [] : [for (final i in planItemsOn(brain.data, day, _now)) if (i.reminder != null) i.reminder!.id];
     // The same list as a result set: "এগুলো সব …" means exactly these.
     // On screen: up to 30 lines (the facts under the answer).
     if (list.length > 1 || (s != null && list.isNotEmpty)) {
       _rememberSet('tasks', _scopeLabel(q), _shownTasks, matching: list.length, shown: list.length > 30 ? 30 : list.length, source: q.transcript);
     }
     if (list.length == 1) _focusTask(list.single);
+  }
+
+  /// "এই তালিকা থেকে পড়ানোটা কালকের তালিকায় যুক্ত কর", "ওখান থেকে বাজারটা
+  /// পরশু সরাও": right after a list was said, one item named from it, and a
+  /// day: moved there ("কালকেও", "আবার": kept on both days).
+  /// Its reminder goes with it at the same time. Nothing else is touched.
+  Future<bool> _fromShownList(String t, List<String> out) async {
+    if (!_shownFresh || (_shownTasks.isEmpty && _shownReminders.isEmpty)) return false;
+    final f = ' ${fold(normalize(t))} ';
+    final w = parseWhen(tidySpeech(t), _now);
+    if (w == null || !w.hasDay || w.hasTime) return false;
+    if (!RegExp(fold(r'\s(?:যুক্ত|যোগ|সরা|সরিয়ে|নিয়ে\s+যা|নাও|পিছি|শিফট|রাখ|দাও|দিন|কর|add|move)')).hasMatch(f)) return false;
+    // Taken "from this list" to another day is moved; "কালকেও", "আবার"
+    // keeps it on both days.
+    final copy = RegExp(fold(r'(?:তেও|কেও|এও|য়ও|দিনেও)\s|\sআবার\s|\sদুই\s+দিন')).hasMatch(f);
+    // The words that name the item: the day, the list and the order taken out.
+    const skip = ['এই', 'ওই', 'সেই', 'তালিকা', 'লিস্ট', 'list', 'থেকে', 'থে', 'এখান', 'ওখান', 'সেখান', 'কাজ', 'কাজটা', 'কাজটি', 'যুক্ত', 'যোগ', 'কর', 'করো', 'করে', 'দাও', 'দিন', 'রাখো', 'রাখ', 'সরাও', 'সরিয়ে', 'নিয়ে', 'যাও', 'নাও', 'পিছিয়ে', 'শিফট', 'আমার', 'এর', 'মধ্যে', 'দিয়ে', 'টা', 'টি', 'ও', 'তে', 'এ', 'কালকের', 'আজকের', 'পরশুর'];
+    final skipF = {for (final x in skip) fold(normalize(x))};
+    final said = [
+      for (final x in words(fold(normalize(withoutWhen(tidySpeech(t))))))
+        if (x.length >= 2 && !skipF.contains(x) && !x.startsWith(fold('তালিক')) && !x.startsWith(fold('লিস্ট'))) x.replaceAll(RegExp(fold(r'(?:টা|টি|টাকে|গুলো)$')), ''),
+    ];
+    if (said.isEmpty) return false;
+    int common(String a, String b) {
+      var i = 0;
+      while (i < a.length && i < b.length && a[i] == b[i]) {
+        i++;
+      }
+      return i;
+    }
+    int score(String title) {
+      var n = 0;
+      for (final a in said) {
+        if (words(fold(normalize(title))).any((b) => a == b || common(a, b) >= 3 && common(a, b) * 10 >= (a.length < b.length ? a.length : b.length) * 6)) n++;
+      }
+      return n;
+    }
+    final cands = <(Task?, Reminder?, int)>[
+      for (final id in _shownTasks) if (_taskById(id) case final x? when !x.done) (x, null, score(x.title)),
+      for (final id in _shownReminders) if (brain.data.reminders.where((r) => r.id == id).firstOrNull case final r?) (null, r, score(r.title)),
+    ]..removeWhere((c) => c.$3 == 0);
+    if (cands.isEmpty) return false;
+    cands.sort((a, b) => b.$3.compareTo(a.$3));
+    if (cands.length > 1 && cands[1].$3 == cands[0].$3) {
+      final names = [for (final c in cands.where((c) => c.$3 == cands[0].$3)) c.$1?.title ?? c.$2!.title];
+      _say(out, trf('তালিকার কোনটা — {0}? নামটা আরেকটু বলুন।', [nameList(names, unit: 'টা')]));
+      return true;
+    }
+    final day = dayOnly(w.day);
+    final when = sayWhen(day, _now, withTime: false);
+    final snap = brain.snapshot();
+    final (task, rem, _) = cands.first;
+    if (task != null) {
+      if (copy) {
+        final rid = task.reminderId;
+        final r0 = rid == null ? null : brain.data.reminders.where((x) => x.id == rid).firstOrNull;
+        Reminder? r1;
+        if (r0 != null) {
+          r1 = Reminder(title: r0.title, date: day, hour: r0.hour, minute: r0.minute, alarm: r0.alarm, minutesBefore: r0.minutesBefore);
+          await brain.saveReminder(r1);
+        }
+        final n = Task(title: task.title, due: day, createdAt: _now, list: task.list, urgent: task.urgent, note: task.note, reminderId: r1?.id);
+        await brain.saveTask(n);
+        _focusTask(n);
+        _say(out, trf('“{0}” {1}-এর তালিকাতেও রাখলাম{2}। আগেরটাও আছে।', [task.title, when, r1 == null ? '' : trf(', রিমাইন্ডার {0}', [bnTimeAt(r1.hour, r1.minute)])]), links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
+      } else {
+        await _taskEdit(TaskEdit(t, ref: TaskRef(ids: [task.id]), due: day), out);
+      }
+    } else if (rem != null) {
+      if (rem.repeat != Repeat.none) {
+        _say(out, trf('“{0}” নিয়মিত রিমাইন্ডার — রিমাইন্ডারের পাতা থেকে দিন বদলান।', [rem.title]), links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
+        return true;
+      }
+      if (copy) {
+        await brain.saveReminder(Reminder(title: rem.title, date: day, hour: rem.hour, minute: rem.minute, alarm: rem.alarm, minutesBefore: rem.minutesBefore));
+        _say(out, trf('“{0}” {1} {2} রাখলাম। আগেরটাও আছে।', [rem.title, when, bnTimeAt(rem.hour, rem.minute)]), links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
+      } else {
+        await brain.saveReminder(rem.copyWith(date: day, enabled: true));
+        _say(out, trf('“{0}” {1} {2} সরিয়েছি।', [rem.title, when, bnTimeAt(rem.hour, rem.minute)]), links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
+      }
+      _focusReminderId = rem.id;
+      _focusReminderAt = _now;
+    }
+    _offerUndo(snap);
+    return true;
   }
 
   /// "না, পাঁচটায় নয়, ছয়টায়": only a "no" and time words.

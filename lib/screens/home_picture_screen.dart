@@ -16,11 +16,11 @@ class HomePictureScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final now = brain.services.now();
-    final choice = brain.text('home_scene', 'auto');
+    final choice = brain.text('home_scene', defaultScene);
     final current = sceneFor(choice, now);
 
     Widget tile(String key) {
-      final on = choice == key || (key == 'auto' && !sceneNames.containsKey(choice));
+      final on = choice == key || (key == defaultScene && !sceneNames.containsKey(choice));
       final shown = key == 'auto' ? seasonOf(now) : key;
       return Semantics(
         selected: on,

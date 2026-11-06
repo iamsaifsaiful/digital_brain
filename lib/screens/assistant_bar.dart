@@ -197,7 +197,7 @@ class _AssistantBarState extends State<AssistantBar> {
                     Icon(Icons.keyboard_outlined, color: C.muted, size: 20),
                     const SizedBox(width: 9),
                     Expanded(
-                      child: TextField(
+                      child: TextField(textCapitalization: TextCapitalization.sentences, 
                         controller: _text,
                         focusNode: _focus,
                         textInputAction: TextInputAction.send,

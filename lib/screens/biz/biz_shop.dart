@@ -205,7 +205,7 @@ class _TagadaPageState extends State<TagadaPage> {
           InnerTop(title: tr('তাগাদার মেসেজ'), sub: tr('সব গ্রাহকের জন্য একই মেসেজ, নাম আর টাকা নিজে বসবে')),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 24), children: [
-              TextField(key: const Key('biz-tagada-field'), controller: _c, minLines: 4, maxLines: 8, onChanged: (_) => setState(() {}), style: body(15, height: 1.5), decoration: const InputDecoration(isDense: true)),
+              TextField(textCapitalization: TextCapitalization.sentences, key: const Key('biz-tagada-field'), controller: _c, minLines: 4, maxLines: 8, onChanged: (_) => setState(() {}), style: body(15, height: 1.5), decoration: const InputDecoration(isDense: true)),
               const SizedBox(height: 10),
               Text(tr('চাপ দিলে লেখায় বসবে:'), style: body(12.5, color: C.muted)),
               const SizedBox(height: 6),

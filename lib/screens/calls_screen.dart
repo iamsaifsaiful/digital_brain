@@ -125,7 +125,7 @@ class _CallsScreenState extends State<CallsScreen> {
             ]),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-              child: TextField(
+              child: TextField(textCapitalization: TextCapitalization.sentences, 
                 onChanged: (v) => setState(() => _q = v),
                 keyboardType: TextInputType.text,
                 decoration: InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: tr('নাম খুঁজুন, বা নম্বর লিখুন')),
@@ -203,7 +203,7 @@ class _ContactPickerState extends State<_ContactPicker> {
       child: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: TextField(
+          child: TextField(textCapitalization: TextCapitalization.sentences, 
             autofocus: false,
             onChanged: (v) => setState(() => _q = v),
             decoration: InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: tr('নাম বা নম্বর খুঁজুন')),

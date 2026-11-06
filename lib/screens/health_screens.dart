@@ -350,7 +350,7 @@ class _MedicineSheetState extends State<_MedicineSheet> {
             onChanged: (id) => setState(() => _member = id),
           ),
           FieldLabel(tr('ওষুধের নাম')),
-          TextField(key: const Key('med-name'), controller: _name, autofocus: widget.old == null, decoration: InputDecoration(hintText: tr('যেমন: নাপা, সেকলো'))),
+          TextField(textCapitalization: TextCapitalization.sentences, key: const Key('med-name'), controller: _name, autofocus: widget.old == null, decoration: InputDecoration(hintText: tr('যেমন: নাপা, সেকলো'))),
           FieldLabel(tr('খাবারের আগে না পরে')),
           MealPicker(meal: _meal, onChanged: (v) => setState(() => _meal = v)),
           const SizedBox(height: 14),
@@ -374,7 +374,7 @@ class _MedicineSheetState extends State<_MedicineSheet> {
             label: Text(_until == null ? tr('চলতেই থাকবে') : fullDate(_until!)),
           ),
           FieldLabel(tr('নোট (ঐচ্ছিক)')),
-          TextField(controller: _note, decoration: InputDecoration(hintText: tr('যেমন: পানির সাথে'))),
+          TextField(textCapitalization: TextCapitalization.sentences, controller: _note, decoration: InputDecoration(hintText: tr('যেমন: পানির সাথে'))),
           const SizedBox(height: 16),
           PrimaryButton(label: tr('রাখুন'), onPressed: _save),
           if (widget.old != null)

@@ -76,7 +76,7 @@ class _DocsScreenState extends State<DocsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(tr('নতুন ফোল্ডারের নাম'), style: body(18, weight: FontWeight.w600)),
-        content: TextField(
+        content: TextField(textCapitalization: TextCapitalization.sentences, 
           key: const Key('doc-folder-name'),
           controller: c,
           autofocus: true,
@@ -288,7 +288,7 @@ class _DocScreenState extends State<DocScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(title, style: body(18, weight: FontWeight.w600)),
-        content: TextField(controller: c, autofocus: true, style: body(16), decoration: InputDecoration(hintText: hint)),
+        content: TextField(textCapitalization: TextCapitalization.sentences, controller: c, autofocus: true, style: body(16), decoration: InputDecoration(hintText: hint)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাদ দিন'))),
           TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: Text(tr('রাখুন'), style: body(15, weight: FontWeight.w600, color: C.green))),

@@ -5,13 +5,23 @@ library;
 
 import '../models/models.dart';
 import 'bn.dart' show dayOnly;
+import 'parser.dart' show fold, normalize;
 
 /// One line in "আজ" / "কাজ ও রিমাইন্ডার": a task or a reminder's next ring.
 class PlanItem {
-  PlanItem.task(Task this.task, this.sort) : reminder = null;
-  PlanItem.reminder(Reminder this.reminder, this.sort) : task = null;
+  PlanItem.task(Task this.task, this.sort, {this.ring}) : reminder = null;
+  PlanItem.reminder(Reminder this.reminder, this.sort)
+      : task = null,
+        ring = null;
   final Task? task;
   final Reminder? reminder;
+
+  /// For a to-do: its own reminder, when that rings on the same day (one
+  /// thing, said once — never counted as a to-do and a reminder).
+  final Reminder? ring;
+
+  /// The reminder that gives it a time: its own, or the one set for the to-do.
+  Reminder? get timed => reminder ?? ring;
 
   /// When it is (tasks without a time sort after timed ones of the day).
   final DateTime sort;
@@ -83,8 +93,25 @@ Plan planOf(AppData d, DateTime now) {
 List<PlanItem> planItemsOn(AppData d, DateTime day, DateTime now) {
   final plan = planOf(d, now);
   final want = dayOnly(day);
-  if (want == dayOnly(now)) return [...plan.overdue, ...plan.today];
+  if (want == dayOnly(now)) return joinTaskReminders([...plan.overdue, ...plan.today]);
   // A week/month/year plan is on every day of its span (said as the span,
   // never as that day); a one-day to-do and a reminder on their own day.
-  return [for (final i in plan.ahead) if (i.task != null ? i.task!.onDay(want) : dayOnly(i.sort) == want) i];
+  return joinTaskReminders([for (final i in plan.ahead) if (i.task != null ? i.task!.onDay(want) : dayOnly(i.sort) == want) i]);
+}
+
+/// A day's items with each to-do and its own reminder as one: the reminder
+/// set for it (or one of the same name that day) gives the to-do its time
+/// and place in the day, and is not listed again.
+List<PlanItem> joinTaskReminders(List<PlanItem> items) {
+  String key(String t) => fold(normalize(t)).replaceAll(RegExp(r'\s+'), ' ').trim();
+  final out = [...items];
+  for (final t in items.where((i) => i.task != null && !i.task!.done)) {
+    final task = t.task!;
+    final r = out.indexWhere((i) => i.reminder != null && (i.reminder!.id == task.reminderId || key(i.reminder!.title) == key(task.title)));
+    if (r < 0) continue;
+    final rem = out[r];
+    out[r] = PlanItem.task(task, rem.sort, ring: rem.reminder);
+    out.remove(t);
+  }
+  return out;
 }

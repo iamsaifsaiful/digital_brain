@@ -10,6 +10,7 @@
 | `intent500.jsonl`, `intent_holdout.jsonl` | `test/intent500_test.dart`, `test/intent_holdout_test.dart` |
 | `angles.jsonl`, `angles_holdout.jsonl` | `test/angles_test.dart`, `test/angles_holdout_test.dart` |
 | `real.jsonl` | **আপনার আসল বাক্য** (এখনো খালি) |
+| `english.jsonl` | ইংরেজি, বাংলিশ আর মেশানো বাক্য (৬ নভেম্বর, হাতে লেখা; শেখানোর ছাঁচ থেকে আলাদা) |
 
 `build_gold.py` আবার চালালে প্রথম পাঁচটা নতুন করে তৈরি হয়; `real.jsonl` হাত দেওয়া হয় না।
 

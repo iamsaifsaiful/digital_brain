@@ -21,12 +21,16 @@ const accents = [
   Accent('green', 'সবুজ', 'Green', Color(0xFF087866), Color(0xFF06594C), Color(0xFFE7F3EE), Color(0xFF223C31)),
   Accent('blue', 'নীল', 'Blue', Color(0xFF1D5FD8), Color(0xFF17459E), Color(0xFFE8F0FE), Color(0xFF15284A)),
   Accent('purple', 'বেগুনি', 'Purple', Color(0xFF6D3FD6), Color(0xFF4F2BA3), Color(0xFFF1ECFE), Color(0xFF2A1F4A)),
-  Accent('teal', 'ফিরোজা', 'Teal', Color(0xFF0E7490), Color(0xFF0B5468), Color(0xFFE3F4F8), Color(0xFF113541)),
+  // The owner's pick (7 Nov), the default since: #13718A.
+  Accent('teal', 'ফিরোজা', 'Teal', Color(0xFF13718A), Color(0xFF0E5567), Color(0xFFE3F3F6), Color(0xFF123541)),
   Accent('rose', 'গোলাপি', 'Rose', Color(0xFFBE185D), Color(0xFF8E1246), Color(0xFFFCE8F1), Color(0xFF431628)),
   Accent('amber', 'কমলা', 'Amber', Color(0xFFC2570C), Color(0xFF8F3F08), Color(0xFFFEF0E2), Color(0xFF45260F)),
 ];
 
 /// A preset ('green'…) or the user's own colour ('#1D5FD8').
+/// The colour the app starts with.
+const defaultAccentKey = 'teal';
+
 Accent accentFor(String key) {
   if (key.startsWith('#') && key.length == 7) {
     final v = int.tryParse(key.substring(1), radix: 16);
@@ -90,7 +94,8 @@ class C {
   /// true from half way (bars, the platform brightness).
   static bool dark = false;
   static double mix = 0;
-  static Accent accent = accentFor('amber');
+  /// The default (owner, 7 Nov: "কমলা রং এর পরিবর্তে" the teal of his screenshot).
+  static Accent accent = accentFor(defaultAccentKey);
   static DarkSet darkSet = darkSets.first;
   static Color _pd(int light, Color night) => mix <= 0 ? Color(light) : (mix >= 1 ? night : Color.lerp(Color(light), night, mix)!);
   static Color _fd(int light, Color night) => mix < 0.5 ? Color(light) : night;

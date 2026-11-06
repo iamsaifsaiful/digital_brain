@@ -88,7 +88,7 @@ class _PersonScreenState extends State<PersonScreen> {
       builder: (ctx) => AlertDialog(
         title: Text(tr('নাম ও নম্বর'), style: display(20)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: name, autofocus: true, decoration: InputDecoration(labelText: tr('নাম'))),
+          TextField(textCapitalization: TextCapitalization.sentences, controller: name, autofocus: true, decoration: InputDecoration(labelText: tr('নাম'))),
           const SizedBox(height: 10),
           TextField(controller: phone, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: tr('মোবাইল নম্বর'))),
         ]),

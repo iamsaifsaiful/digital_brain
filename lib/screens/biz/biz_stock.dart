@@ -31,15 +31,12 @@ class _BizStockState extends State<BizStock> {
     final low = lowStock(b);
     final exp = expiring(b, now);
     final worth = b.products.fold<int>(0, (s, p) => s + (p.buy * p.stock).round());
-    final shown = switch (_part) {
-      'low' => low,
-      'expiry' => [for (final p in b.products) if (p.expiry != null) p]..sort((a, c) => a.expiry!.compareTo(c.expiry!)),
-      _ => b.products,
-    };
-    final sections = shelves(shown);
-    final showSection = _section.isNotEmpty && sections.any((x) => x.$1 == _section);
-    final listed = showSection ? sections.where((x) => x.$1 == _section).toList() : sections;
-    return ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 96), children: [
+    return TabPages<String>(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
+      items: [('all', tr('সব পণ্য')), ('low', low.isEmpty ? tr('কম স্টক') : trf('কম স্টক · {0}', [bnDigits(low.length)])), ('expiry', tr('মেয়াদ'))],
+      value: _part,
+      onChanged: (v) => setState(() => _part = v),
+      top: (tabs) => [
       TabTitle(tr('স্টক'),
           sub: trf('{0}টি পণ্য · কেনা দামে {1}', [bnDigits(b.products.length), taka(worth)]),
           trailing: IconButton(key: const Key('biz-stock-add'), tooltip: tr('নতুন পণ্য'), onPressed: () => pushPage(context, const ProductForm()), icon: const Icon(Icons.add_box_outlined))),
@@ -54,13 +51,23 @@ class _BizStockState extends State<BizStock> {
           onAction: () => setState(() => _part = 'expiry'),
         ),
       ],
-      const SizedBox(height: 12),
-      SegTabs<String>(
-        key: const Key('biz-stock-part'),
-        items: [('all', tr('সব পণ্য')), ('low', low.isEmpty ? tr('কম স্টক') : trf('কম স্টক · {0}', [bnDigits(low.length)])), ('expiry', tr('মেয়াদ'))],
-        value: _part,
-        onChanged: (v) => setState(() => _part = v),
-      ),
+        const SizedBox(height: 12),
+        tabs,
+      ],
+      page: (part) => _page(context, b, part, low, now),
+    );
+  }
+
+  List<Widget> _page(BuildContext context, ShopBook b, String part, List<Product> low, DateTime now) {
+    final shown = switch (part) {
+      'low' => low,
+      'expiry' => [for (final p in b.products) if (p.expiry != null) p]..sort((a, c) => a.expiry!.compareTo(c.expiry!)),
+      _ => b.products,
+    };
+    final sections = shelves(shown);
+    final showSection = _section.isNotEmpty && sections.any((x) => x.$1 == _section);
+    final listed = showSection ? sections.where((x) => x.$1 == _section).toList() : sections;
+    return [
       if (b.products.isEmpty) ...[
         const SizedBox(height: 16),
         EmptyState(
@@ -71,7 +78,7 @@ class _BizStockState extends State<BizStock> {
           onAction: () => pushPage(context, const ProductForm()),
         ),
       ] else if (shown.isEmpty)
-        Padding(padding: const EdgeInsets.only(top: 18), child: Text(_part == 'low' ? tr('কোনো পণ্য কম নেই।') : tr('মেয়াদ দেওয়া কোনো পণ্য নেই।'), style: body(14, color: C.muted)))
+        Padding(padding: const EdgeInsets.only(top: 18), child: Text(part == 'low' ? tr('কোনো পণ্য কম নেই।') : tr('মেয়াদ দেওয়া কোনো পণ্য নেই।'), style: body(14, color: C.muted)))
       else ...[
         if (sections.length > 1) ...[
           const SizedBox(height: 12),
@@ -114,7 +121,7 @@ class _BizStockState extends State<BizStock> {
           ),
         ],
       ],
-    ]);
+    ];
   }
 
   Widget _sectionChip(String key, String label, IconData icon, int count, bool on) => Padding(
@@ -260,7 +267,7 @@ class _ProductFormState extends State<ProductForm> {
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
               Padding(padding: const EdgeInsets.fromLTRB(2, 6, 2, 6), child: Text(tr('পণ্যের নাম'), style: body(12.5, color: C.muted))),
-              TextField(
+              TextField(textCapitalization: TextCapitalization.sentences, 
                 key: const Key('biz-product-name'),
                 controller: _name,
                 autofocus: _p == null,
@@ -315,7 +322,7 @@ class _ProductFormState extends State<ProductForm> {
                   ),
               ]),
               const SizedBox(height: 10),
-              TextField(
+              TextField(textCapitalization: TextCapitalization.sentences, 
                 key: const Key('biz-product-shelf'),
                 controller: _shelf,
                 style: body(14.5),
@@ -352,7 +359,7 @@ class _ProductFormState extends State<ProductForm> {
                       TextField(key: const Key('biz-product-barcode'), controller: _barcode, keyboardType: TextInputType.number, style: body(15), decoration: InputDecoration(hintText: tr('বারকোডের নম্বর'), isDense: true))),
                   extra('supplier', _hasSupplier, tr('কোন ডিলারের কাছ থেকে কেনা'), tr('অর্ডার তালিকায় ডিলার ধরে ভাগ হবে'), (v) => _hasSupplier = v,
                       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        TextField(key: const Key('biz-product-supplier'), controller: _supplier, style: body(15), decoration: InputDecoration(hintText: tr('যেমন: করিম ট্রেডার্স'), isDense: true)),
+                        TextField(textCapitalization: TextCapitalization.sentences, key: const Key('biz-product-supplier'), controller: _supplier, style: body(15), decoration: InputDecoration(hintText: tr('যেমন: করিম ট্রেডার্স'), isDense: true)),
                         if (suppliers.isNotEmpty) ...[
                           const SizedBox(height: 6),
                           Wrap(spacing: 6, runSpacing: 6, children: [for (final s in suppliers.take(6)) ActionChip(label: Text(s, style: body(12)), onPressed: () => setState(() => _supplier.text = s))]),

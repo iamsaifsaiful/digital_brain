@@ -16,6 +16,7 @@ from templates_other import T as T3  # noqa: E402
 from templates_context import CTX  # noqa: E402
 from templates_extra import T as T4  # noqa: E402
 from templates_walk import T as T5  # noqa: E402
+from templates_english import T as T6  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, '..'))
 OUT = os.path.join(ROOT, 'out', 'data')
@@ -31,6 +32,10 @@ BUDGET = defaultdict(lambda: 500, {
     'smalltalk': 120, 'out_of_scope': 300, 'menu_alarm': 120, 'menu_backup': 120, 'menu_settings': 200, 'menu_zakat': 400, 'briefing': 80,
     'calendar_query': 200, 'profile_query': 120, 'menu_trash': 200, 'menu_installment': 200, 'menu_health': 300, 'health_add': 600, 'open_page': 700, 'menu_special': 250,
 })
+# English and Banglish (owner, 6 Nov): their own budget per intent, on top
+# of the Bangla one, so the Bangla share does not shrink.
+EN_BUDGET = defaultdict(lambda: 120, {'reminder_add': 500, 'task_add': 500, 'ledger_add': 500, 'cash_add': 500, 'task_query': 250, 'reminder_query': 200,
+                                      'ledger_query': 200, 'cash_query': 200, 'call': 200, 'note_add': 200, 'task_done': 200, 'task_delete': 200})
 CTX_BUDGET = 260          # per (state, shown, intent)
 MULTI = 3500              # several requests in one message
 LONG = 3000               # one long spoken breath: 2–4 requests, no punctuation, run-ups and fillers
@@ -100,10 +105,19 @@ def shown_list(kind):
 
 def singles():
     fams = families(T1) + families(T2) + families(T3) + families(T4, 'x:') + families(T5, 'w:')
+    en = families(T6, 'en:')
     by_intent = defaultdict(list)
     for f in fams:
         by_intent[f['intent']].append(f)
+    by_en = defaultdict(list)
+    for f in en:
+        by_en[f['intent']].append(f)
     rows = []
+    for intent, fs in by_en.items():
+        total_lines = sum(len(f['lines']) for f in fs)
+        for f in fs:
+            rows += gen_family(f, max(8, round(EN_BUDGET[intent] * len(f['lines']) / total_lines)))
+    fams = fams + en
     for intent, fs in by_intent.items():
         want = BUDGET[intent]
         if not want:

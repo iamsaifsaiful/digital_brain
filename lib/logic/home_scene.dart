@@ -34,10 +34,16 @@ const sceneNames = {
 /// হেমন্ত, পৌষ–মাঘ শীত, ফাল্গুন–চৈত্র বসন্ত.
 String seasonOf(DateTime now) => seasonKeys[banglaDate(now).month ~/ 2];
 
-/// The painting to show: the member's choice, or the season ("auto" and anything unknown).
+/// The picture when the member has not chosen one (owner, 7 Nov: "হোমের
+/// ওয়ালপেপার সব সময় কক্সবাজার রাখো"). "অটো" (by the season) stays a choice.
+const defaultScene = 'cox';
+
+/// The painting to show: the member's choice; "auto" follows the season;
+/// nothing chosen (or anything unknown) is [defaultScene].
 String sceneFor(String choice, DateTime now) {
   if (choice == 'river' || seasonKeys.contains(choice) || regionKeys.contains(choice)) return choice;
-  return seasonOf(now);
+  if (choice == 'auto') return seasonOf(now);
+  return defaultScene;
 }
 
 String sceneAsset(String scene, {required bool night}) => 'assets/sky/${scene}_${night ? 'night' : 'day'}.webp';

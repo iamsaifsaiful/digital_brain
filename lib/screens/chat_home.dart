@@ -198,7 +198,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(tr('যে প্রশ্ন প্রায়ই করেন, লিখে রাখুন — এক চাপে জিজ্ঞেস করা যাবে।'), style: body(14, color: C.muted, height: 1.4)),
           const SizedBox(height: 10),
-          TextField(
+          TextField(textCapitalization: TextCapitalization.sentences, 
             controller: c,
             autofocus: true,
             style: body(16),
@@ -1368,7 +1368,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
               _Round(icon: Icons.add_rounded, tooltip: tr('দ্রুত যোগ'), bg: C.surface2, fg: C.ink, size: 40, onTap: _quickAdd),
               const SizedBox(width: 6),
               Expanded(
-                child: TextField(
+                child: TextField(textCapitalization: TextCapitalization.sentences, 
                   controller: _text,
                   focusNode: _focus,
                   minLines: 1,

@@ -19,7 +19,8 @@ void main() {
     expect(seasonOf(DateTime(2027, 1, 10)), 'sheet');
     expect(seasonOf(DateTime(2027, 3, 1)), 'boshonto');
     expect(sceneFor('auto', DateTime(2026, 11, 4)), 'hemonto');
-    expect(sceneFor('', DateTime(2026, 11, 4)), 'hemonto');
+    // Nothing chosen: Cox's Bazar (owner, 7 Nov).
+    expect(sceneFor('', DateTime(2026, 11, 4)), 'cox');
     expect(sceneFor('cox', DateTime(2026, 11, 4)), 'cox');
     expect(sceneAsset('cox', night: true), 'assets/sky/cox_night.webp');
   });
