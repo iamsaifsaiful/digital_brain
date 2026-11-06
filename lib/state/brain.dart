@@ -66,7 +66,7 @@ import '../services/location_share.dart';
 import '../logic/calendar_bd.dart';
 import '../logic/holidays_abroad.dart' show builtInHolidays;
 import '../logic/meal.dart';
-import '../ui/theme.dart' show Look;
+import '../ui/theme.dart' show Look, defaultAccentKey;
 import '../logic/lang.dart';
 
 part 'brain_more.dart';
@@ -1373,7 +1373,7 @@ class Brain extends ChangeNotifier {
 
   /// The accent colour's key (see `accents`).
   /// Default: কমলা (owner, 25 Oct); a colour the user chose stays.
-  String accentKey = 'amber';
+  String accentKey = defaultAccentKey;
 
   /// The app's words in English instead of Bangla.
   bool english = false;
@@ -1472,7 +1472,7 @@ class Brain extends ChangeNotifier {
       final keys = services.lock.keys;
       final saved = await keys.read('look');
       look = Look.values.firstWhere((l) => l.name == saved, orElse: () => Look.sun);
-      accentKey = await keys.read('accent') ?? 'amber';
+      accentKey = await keys.read('accent') ?? defaultAccentKey;
       darkKey = await keys.read('dark_set') ?? 'night';
       english = (await keys.read('lang')) == 'en';
       _applyVoiceLang();

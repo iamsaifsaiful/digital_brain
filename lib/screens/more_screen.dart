@@ -11,7 +11,7 @@ import '../services/data_store.dart';
 import '../services/lock.dart';
 import '../services/location_share.dart';
 import '../state/brain.dart';
-import '../logic/home_scene.dart' show sceneNames;
+import '../logic/home_scene.dart' show sceneNames, defaultScene;
 import 'home_picture_screen.dart';
 import '../ui/pin.dart';
 import '../ui/theme.dart';
@@ -347,7 +347,7 @@ class _MoreScreenState extends State<MoreScreen> {
       const SizedBox(height: 12),
       Panel(
         child: Rows(children: [
-          linkRow(Icons.landscape_outlined, tr('হোমের ছবি'), sub: trf('{0} · আবহাওয়া, নড়াচড়া, বিশেষ দিন', [tr(sceneNames[brain.text('home_scene', 'auto')] ?? sceneNames['auto']!)]), onTap: () => push(const HomePictureScreen())),
+          linkRow(Icons.landscape_outlined, tr('হোমের ছবি'), sub: trf('{0} · আবহাওয়া, নড়াচড়া, বিশেষ দিন', [tr(sceneNames[brain.text('home_scene', defaultScene)] ?? sceneNames['auto']!)]), onTap: () => push(const HomePictureScreen())),
         ]),
       ),
       ],

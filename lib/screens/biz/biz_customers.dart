@@ -40,9 +40,44 @@ class _BizCustomersState extends State<BizCustomers> {
     final owingN = accounts.values.where((a) => a.due > 0).length;
     final dueSum = accounts.values.fold<int>(0, (s, a) => s + (a.due > 0 ? a.due : 0));
     final longN = accounts.values.where((a) => a.daysOwed(now) > 30).length;
+    // Owner, 7 Nov: the inner tabs slide with the finger.
+    return TabPages<String>(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
+      items: [('all', tr('সবাই')), ('due', owingN == 0 ? tr('বাকি আছে') : trf('বাকি আছে · {0}', [bnDigits(owingN)])), ('long', longN == 0 ? tr('৩০ দিন+') : trf('৩০ দিন+ · {0}', [bnDigits(longN)]))],
+      value: _part,
+      onChanged: (v) => setState(() => _part = v),
+      top: (tabs) => [
+        TabTitle(tr('গ্রাহক'),
+            sub: trf('{0} জন · বাকি {1}', [bnDigits(b.customers.length), taka(dueSum)]),
+            trailing: IconButton(key: const Key('biz-customer-add'), tooltip: tr('নতুন গ্রাহক'), onPressed: () => pushPage(context, const CustomerForm()), icon: const Icon(Icons.person_add_alt_outlined))),
+        const BizFreeBanner(),
+        const SizedBox(height: 12),
+        Panel(
+          padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+          child: Row(children: [
+            Expanded(child: Figure(label: trf('পাবো · {0} জনের কাছে', [bnDigits(owingN)]), amount: taka(dueSum), color: C.green, size: 20)),
+            Expanded(child: Figure(label: tr('৩০ দিনের বেশি বাকি'), amount: trf('{0} জন', [bnDigits(longN)]), color: longN > 0 ? C.warn : C.ink, size: 20)),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          key: const Key('biz-customer-find'),
+          controller: _find,
+          onChanged: (_) => setState(() {}),
+          style: body(14.5),
+          decoration: InputDecoration(hintText: tr('নাম বা মোবাইল দিয়ে খুঁজুন'), prefixIcon: const Icon(Icons.search_rounded), isDense: true),
+        ),
+        const SizedBox(height: 10),
+        tabs,
+      ],
+      page: (part) => _page(context, b, part, accounts, now, owingN),
+    );
+  }
+
+  List<Widget> _page(BuildContext context, ShopBook b, String part, Map<String, Account> accounts, DateTime now, int owingN) {
     final q = _find.text.trim().toLowerCase();
     var shown = b.customers.where((c) => q.isEmpty || c.name.toLowerCase().contains(q) || asciiDigits(c.phone).contains(asciiDigits(q))).toList();
-    shown = switch (_part) {
+    shown = switch (part) {
       'due' => shown.where((c) => accounts[c.id]!.due > 0).toList(),
       'long' => shown.where((c) => accounts[c.id]!.daysOwed(now) > 30).toList(),
       _ => shown,
@@ -51,36 +86,7 @@ class _BizCustomersState extends State<BizCustomers> {
       final x = accounts[c.id]!.due.compareTo(accounts[a.id]!.due);
       return x != 0 ? x : a.name.compareTo(c.name);
     });
-
-    return ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 96), children: [
-      TabTitle(tr('গ্রাহক'),
-          sub: trf('{0} জন · বাকি {1}', [bnDigits(b.customers.length), taka(dueSum)]),
-          trailing: IconButton(key: const Key('biz-customer-add'), tooltip: tr('নতুন গ্রাহক'), onPressed: () => pushPage(context, const CustomerForm()), icon: const Icon(Icons.person_add_alt_outlined))),
-      const BizFreeBanner(),
-      const SizedBox(height: 12),
-      Panel(
-        padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
-        child: Row(children: [
-          Expanded(child: Figure(label: trf('পাবো · {0} জনের কাছে', [bnDigits(owingN)]), amount: taka(dueSum), color: C.green, size: 20)),
-          Expanded(child: Figure(label: tr('৩০ দিনের বেশি বাকি'), amount: trf('{0} জন', [bnDigits(longN)]), color: longN > 0 ? C.warn : C.ink, size: 20)),
-        ]),
-      ),
-      const SizedBox(height: 12),
-      TextField(
-        key: const Key('biz-customer-find'),
-        controller: _find,
-        onChanged: (_) => setState(() {}),
-        style: body(14.5),
-        decoration: InputDecoration(hintText: tr('নাম বা মোবাইল দিয়ে খুঁজুন'), prefixIcon: const Icon(Icons.search_rounded), isDense: true),
-      ),
-      const SizedBox(height: 10),
-      SegTabs<String>(
-        key: const Key('biz-customer-part'),
-        items: [('all', tr('সবাই')), ('due', owingN == 0 ? tr('বাকি আছে') : trf('বাকি আছে · {0}', [bnDigits(owingN)])), ('long', longN == 0 ? tr('৩০ দিন+') : trf('৩০ দিন+ · {0}', [bnDigits(longN)]))],
-        value: _part,
-        onChanged: (v) => setState(() => _part = v),
-      ),
-      const SizedBox(height: 12),
+    return [
       if (b.customers.isEmpty)
         EmptyState(
           icon: Icons.people_outline_rounded,
@@ -101,7 +107,7 @@ class _BizCustomersState extends State<BizCustomers> {
             onRight: () => _remindAll(context),
           ),
         ),
-    ]);
+    ];
   }
 
   Widget _row(BuildContext context, Customer c, Account a, DateTime now) {

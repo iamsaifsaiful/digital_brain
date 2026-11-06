@@ -34,21 +34,23 @@ class BizHisabState extends State<BizHisab> {
     final brain = BrainScope.of(context);
     final now = brain.services.now();
     final dealersDue = owedToDealers(brain.shop).fold<int>(0, (s, a) => s + a.due);
-    return ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 96), children: [
-      TabTitle(tr('হিসাব'), sub: trf('{0} · ডিলারের দেনা {1}', [monthName(now.month), taka(dealersDue)])),
-      const BizFreeBanner(),
-      const SizedBox(height: 12),
-      SegTabs<String>(
-        key: const Key('biz-hisab-part'),
-        items: [('money', tr('আয়-ব্যয়')), ('dealers', tr('ডিলার ও মাল কেনা'))],
-        value: _part,
-        onChanged: show,
-      ),
-      ...switch (_part) {
+    // Owner, 7 Nov: the inner tabs slide with the finger.
+    return TabPages<String>(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
+      items: [('money', tr('আয়-ব্যয়')), ('dealers', tr('ডিলার ও মাল কেনা'))],
+      value: _part,
+      onChanged: show,
+      top: (tabs) => [
+        TabTitle(tr('হিসাব'), sub: trf('{0} · ডিলারের দেনা {1}', [monthName(now.month), taka(dealersDue)])),
+        const BizFreeBanner(),
+        const SizedBox(height: 12),
+        tabs,
+      ],
+      page: (part) => switch (part) {
         'dealers' => _dealers(context, brain, now),
         _ => _money(context, brain, now),
       },
-    ]);
+    );
   }
 
   List<Widget> _dealers(BuildContext context, Brain brain, DateTime now) {

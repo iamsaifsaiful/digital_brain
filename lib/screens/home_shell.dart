@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../state/brain.dart';
@@ -61,12 +63,13 @@ class HomeShellState extends State<HomeShell> {
   @override
   void dispose() {
     if (current == this) current = null;
+    _retire();
     _pages.dispose();
     super.dispose();
   }
 
   /// The tabs side by side: a swipe drags the page along with the finger.
-  final _pages = PageController();
+  PageController _pages = PageController();
 
   /// [slide]: moved there with the pages sliding (a swipe that went past an
   /// inner tab's end); a tap on the bottom bar jumps.
@@ -96,14 +99,29 @@ class HomeShellState extends State<HomeShell> {
   /// pages so the same tab stays in view (আরও is 5th in one, 6th in the other).
   bool? _laidOutFor;
 
+  /// The last mode's controller, kept while its pages fade out.
+  PageController? _old;
+  Timer? _oldTimer;
+
+  void _retire() {
+    _oldTimer?.cancel();
+    _oldTimer = null;
+    _old?.dispose();
+    _old = null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final business = BrainScope.of(context).businessMode;
     if (_laidOutFor != null && _laidOutFor != business) {
+      // Owner, 7 Nov: switching the mode jerked (a frame of the wrong page,
+      // then a jump). Now the new set of pages starts on the same tab with
+      // its own controller and fades in over the old one.
       if (!shellTabs(business).contains(_tab)) _tab = ShellTab.home;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _pages.hasClients) _pages.jumpToPage(_at(_tab));
-      });
+      _retire();
+      _old = _pages;
+      _pages = PageController(initialPage: shellTabs(business).indexOf(_tab));
+      _oldTimer = Timer(const Duration(milliseconds: 800), _retire);
     }
     _laidOutFor = business;
     return PopScope(
@@ -126,7 +144,12 @@ class HomeShellState extends State<HomeShell> {
                 go(_order[i], slide: true);
                 return true;
               },
-              child: PageView(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 260),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                child: PageView(
+                key: ValueKey('pages-$business'),
                 controller: _pages,
                 onPageChanged: (i) {
                   if (_at(_tab) != i && i < _order.length) setState(() => _tab = _order[i]);
@@ -149,6 +172,7 @@ class HomeShellState extends State<HomeShell> {
                         const _Kept(SafeArea(bottom: false, child: StoreScreen()), key: ValueKey('store')),
                         const _Kept(SafeArea(bottom: false, child: MoreScreen()), key: ValueKey('more')),
                       ],
+              ),
               ),
             ),
           ),
