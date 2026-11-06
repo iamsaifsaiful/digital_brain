@@ -15,6 +15,8 @@ import '../logic/sky_light.dart';
 import '../logic/spend_health.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
+import '../logic/home_scene.dart';
+import '../ui/scene_layers.dart';
 import '../ui/drag_grid.dart';
 import '../ui/kit.dart';
 import '../ui/pro_gate.dart';
@@ -102,7 +104,7 @@ class HomePage extends StatelessWidget {
               ),
             ]),
           ),
-          const _Holidays(),
+          const HomeHolidays(),
           const SizedBox(height: 14),
           const _Tools(),
           const SizedBox(height: 12),
@@ -294,8 +296,10 @@ class _HomeHeroState extends State<HomeHero> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Both pictures ready before the light needs them (no day flash at night).
-    precacheImage(const AssetImage('assets/sky/day.jpg'), context);
-    precacheImage(const AssetImage('assets/sky/night.jpg'), context);
+    final brain = BrainScope.read(context);
+    final scene = sceneFor(brain.text('home_scene'), brain.services.now());
+    precacheImage(AssetImage(sceneAsset(scene, night: false)), context);
+    precacheImage(AssetImage(sceneAsset(scene, night: true)), context);
   }
 
   @override
@@ -322,13 +326,28 @@ class _HomeHeroState extends State<HomeHero> {
     // In the dark look the day is a little dimmer, so it sits with the page.
     final dim = (light.dim + 0.16 * C.mix * (1 - light.night)).clamp(0.0, 0.6);
 
+    // Owner, 4 Nov: the season's painting (or the one chosen), with the
+    // real moon, the weather, small movements and the special days on it.
+    final scene = sceneFor(brain.text('home_scene'), now);
+    final weatherOn = brain.text('scene_weather') != 'off';
+    final specialOn = brain.text('scene_special') != 'off';
     Widget picture = Stack(fit: StackFit.expand, children: [
-      Image.asset('assets/sky/day.jpg', fit: BoxFit.cover, alignment: const Alignment(0, 0.55), gaplessPlayback: true, excludeFromSemantics: true),
+      Image.asset(sceneAsset(scene, night: false), fit: BoxFit.cover, alignment: sceneAlign, gaplessPlayback: true, excludeFromSemantics: true),
       if (light.night > 0)
         Opacity(
           opacity: light.night.clamp(0.0, 1.0),
-          child: Image.asset('assets/sky/night.jpg', fit: BoxFit.cover, alignment: const Alignment(0, 0.55), gaplessPlayback: true, excludeFromSemantics: true),
+          child: Image.asset(sceneAsset(scene, night: true), fit: BoxFit.cover, alignment: sceneAlign, gaplessPlayback: true, excludeFromSemantics: true),
         ),
+      SceneLayers(
+        key: const Key('home-scene'),
+        scene: scene,
+        night: light.night,
+        phase: light.phase,
+        moon: moonOf(hj),
+        weather: weatherOn ? weatherKind(brain.weatherNow?.code) : '',
+        special: specialOn ? specialDayOf(now, hj) : null,
+        motion: brain.text('scene_motion') != 'off',
+      ),
     ]);
     if (light.tintAmount > 0.01) {
       // Clipped: a colour filter's layer has no edge of its own and would tint the whole page.
@@ -646,8 +665,8 @@ class _MoneyCard extends StatelessWidget {
 }
 
 /// সামনের ছুটি: the holiday going on now or the next two (always on the home).
-class _Holidays extends StatelessWidget {
-  const _Holidays();
+class HomeHolidays extends StatelessWidget {
+  const HomeHolidays();
 
   @override
   Widget build(BuildContext context) {

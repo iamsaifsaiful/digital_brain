@@ -10,13 +10,26 @@ import 'home_page.dart';
 import 'ledger_screen.dart';
 import 'store_screen.dart';
 import 'more_screen.dart' show MoreScreen;
+import 'biz/biz_customers.dart';
+import 'biz/biz_hisab.dart';
+import 'biz/biz_home.dart';
+import 'biz/biz_sales.dart';
+import 'biz/biz_stock.dart';
 import 'update_screen.dart' show offerUpdate;
 import '../logic/lang.dart';
 
 /// হোম · দিনলিপি · হিসাব · সংরক্ষণ · আরও — an organiser, with the
 /// assistant's box and mic at the bottom of every page. আরও holds the
 /// settings, requests, Pro and feedback.
-enum ShellTab { home, diary, money, store, more }
+/// The bottom tabs. In business mode the pages are the shop's (diary = বিক্রি,
+/// money = হিসাব, store = স্টক) and [people] (গ্রাহক) comes after বিক্রি
+/// (owner, 6 Nov: হোম → বিক্রি → গ্রাহক → হিসাব → স্টক).
+enum ShellTab { home, diary, money, store, more, people }
+
+/// The tabs in their order for the mode.
+List<ShellTab> shellTabs(bool business) => business
+    ? const [ShellTab.home, ShellTab.diary, ShellTab.people, ShellTab.money, ShellTab.store, ShellTab.more]
+    : const [ShellTab.home, ShellTab.diary, ShellTab.money, ShellTab.store, ShellTab.more];
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -57,20 +70,42 @@ class HomeShellState extends State<HomeShell> {
 
   /// [slide]: moved there with the pages sliding (a swipe that went past an
   /// inner tab's end); a tap on the bottom bar jumps.
+  List<ShellTab> get _order => shellTabs(BrainScope.read(context).businessMode);
+
+  /// Where [t] sits now (a tab the mode does not have goes home).
+  int _at(ShellTab t) {
+    final i = _order.indexOf(t);
+    return i < 0 ? 0 : i;
+  }
+
   void go(ShellTab t, {MoneyPart? money, bool slide = false}) {
+    if (!_order.contains(t)) t = ShellTab.home;
     setState(() => _tab = t);
-    if (_pages.hasClients && (_pages.page?.round() ?? -1) != t.index) {
+    final i = _at(t);
+    if (_pages.hasClients && (_pages.page?.round() ?? -1) != i) {
       if (slide) {
-        _pages.animateToPage(t.index, duration: const Duration(milliseconds: 320), curve: Curves.easeOutCubic);
+        _pages.animateToPage(i, duration: const Duration(milliseconds: 320), curve: Curves.easeOutCubic);
       } else {
-        _pages.jumpToPage(t.index);
+        _pages.jumpToPage(i);
       }
     }
     if (money != null) WidgetsBinding.instance.addPostFrameCallback((_) => _money.currentState?.show(money));
   }
 
+  /// The mode the pages were last laid out for: switching it moves the
+  /// pages so the same tab stays in view (আরও is 5th in one, 6th in the other).
+  bool? _laidOutFor;
+
   @override
   Widget build(BuildContext context) {
+    final business = BrainScope.of(context).businessMode;
+    if (_laidOutFor != null && _laidOutFor != business) {
+      if (!shellTabs(business).contains(_tab)) _tab = ShellTab.home;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _pages.hasClients) _pages.jumpToPage(_at(_tab));
+      });
+    }
+    _laidOutFor = business;
     return PopScope(
       canPop: _tab == ShellTab.home,
       onPopInvokedWithResult: (didPop, _) {
@@ -86,29 +121,43 @@ class HomeShellState extends State<HomeShell> {
               key: const Key('shell-swipe'),
               gestures: false,
               onStep: (step) {
-                final i = _tab.index + step;
-                if (i < 0 || i >= ShellTab.values.length) return false;
-                go(ShellTab.values[i], slide: true);
+                final i = _at(_tab) + step;
+                if (i < 0 || i >= _order.length) return false;
+                go(_order[i], slide: true);
                 return true;
               },
               child: PageView(
                 controller: _pages,
                 onPageChanged: (i) {
-                  if (_tab.index != i) setState(() => _tab = ShellTab.values[i]);
+                  if (_at(_tab) != i && i < _order.length) setState(() => _tab = _order[i]);
                 },
-                children: [
-                  const _Kept(HomePage()),
-                  const _Kept(SafeArea(bottom: false, child: DiaryScreen())),
-                  _Kept(SafeArea(bottom: false, child: MoneyScreen(key: _money))),
-                  const _Kept(SafeArea(bottom: false, child: StoreScreen())),
-                  const _Kept(SafeArea(bottom: false, child: MoreScreen())),
-                ],
+                // ব্যবসায়ী মোড (owner, 6 Nov): the same five places, the shop's own pages.
+                children: BrainScope.of(context).businessMode
+                    ? [
+                        const _Kept(BizHome(), key: ValueKey('biz-home')),
+                        const _Kept(SafeArea(bottom: false, child: BizSales()), key: ValueKey('biz-sales')),
+                        const _Kept(SafeArea(bottom: false, child: BizCustomers()), key: ValueKey('biz-customers')),
+                        _Kept(SafeArea(bottom: false, child: BizHisab(key: bizHisabKey)), key: const ValueKey('biz-hisab')),
+                        const _Kept(SafeArea(bottom: false, child: BizStock()), key: ValueKey('biz-stock')),
+                        // The same key in both modes: আরও stays as it was when the mode switches.
+                        const _Kept(SafeArea(bottom: false, child: MoreScreen()), key: ValueKey('more')),
+                      ]
+                    : [
+                        const _Kept(HomePage(), key: ValueKey('home')),
+                        const _Kept(SafeArea(bottom: false, child: DiaryScreen()), key: ValueKey('diary')),
+                        _Kept(SafeArea(bottom: false, child: MoneyScreen(key: _money)), key: const ValueKey('money')),
+                        const _Kept(SafeArea(bottom: false, child: StoreScreen()), key: ValueKey('store')),
+                        const _Kept(SafeArea(bottom: false, child: MoreScreen()), key: ValueKey('more')),
+                      ],
               ),
             ),
           ),
           // One box for every page: find, save or ask; the mic beside it.
           // (Easy mode has its own big buttons.) In the body, so it rides above the keyboard.
-          if ((!BrainScope.of(context).easyMode || _tab != ShellTab.home) && _tab != ShellTab.more) AssistantBar(questions: _tab == ShellTab.home),
+          if ((!BrainScope.of(context).easyMode || _tab != ShellTab.home) && _tab != ShellTab.more)
+            AssistantBar(
+              questions: _tab == ShellTab.home && !BrainScope.of(context).businessMode,
+            ),
         ]),
         bottomNavigationBar: _Nav(current: _tab, onTab: go, pages: _pages),
       ),
@@ -183,13 +232,22 @@ class _Nav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unread = BrainScope.of(context).feedbackUnread > 0;
-    const tabs = [
-      (ShellTab.home, Icons.home_outlined, 'হোম'),
-      (ShellTab.diary, Icons.description_outlined, 'দিনলিপি'),
-      (ShellTab.money, Icons.account_balance_wallet_outlined, 'হিসাব'),
-      (ShellTab.store, Icons.inventory_2_outlined, 'সংরক্ষণ'),
-      (ShellTab.more, Icons.menu_rounded, 'আরও'),
-    ];
+    final tabs = BrainScope.of(context).businessMode
+        ? const [
+            (ShellTab.home, Icons.home_outlined, 'হোম'),
+            (ShellTab.diary, Icons.shopping_cart_outlined, 'বিক্রি'),
+            (ShellTab.people, Icons.people_outline_rounded, 'গ্রাহক'),
+            (ShellTab.money, Icons.account_balance_wallet_outlined, 'হিসাব'),
+            (ShellTab.store, Icons.inventory_2_outlined, 'স্টক'),
+            (ShellTab.more, Icons.menu_rounded, 'আরও'),
+          ]
+        : const [
+            (ShellTab.home, Icons.home_outlined, 'হোম'),
+            (ShellTab.diary, Icons.description_outlined, 'দিনলিপি'),
+            (ShellTab.money, Icons.account_balance_wallet_outlined, 'হিসাব'),
+            (ShellTab.store, Icons.inventory_2_outlined, 'সংরক্ষণ'),
+            (ShellTab.more, Icons.menu_rounded, 'আরও'),
+          ];
     // The composer above has the top hairline on the pages that show it.
     final bare = current == ShellTab.more || (BrainScope.of(context).easyMode && current == ShellTab.home);
     return Container(
@@ -202,7 +260,8 @@ class _Nav extends StatelessWidget {
             animation: pages,
             builder: (context, _) {
               // Where the pages are now (between two tabs while swiping).
-              final at = pages.hasClients && pages.position.haveDimensions ? (pages.page ?? current.index.toDouble()) : current.index.toDouble();
+              final here = tabs.indexWhere((x) => x.$1 == current).toDouble();
+              final at = pages.hasClients && pages.position.haveDimensions ? (pages.page ?? here) : here;
               return Row(children: [
                 for (final (i, (t, icon, label)) in tabs.indexed)
                   () {
@@ -247,7 +306,7 @@ class _Nav extends StatelessWidget {
 
 /// A tab page kept alive while another is shown (its scroll place and state stay).
 class _Kept extends StatefulWidget {
-  const _Kept(this.child);
+  const _Kept(this.child, {super.key});
   final Widget child;
 
   @override

@@ -38,7 +38,7 @@ String familyPermLabel(String p) => switch (p) {
 
 /// What the heirs' copy may hold (the member chooses; passwords and health are off unless ticked).
 const heirParts = {
-  'money': ['ledger', 'cash', 'accounts', 'transfers', 'goals', 'installments', 'projects', 'shops', 'receipts'],
+  'money': ['ledger', 'cash', 'accounts', 'transfers', 'goals', 'installments', 'projects', 'shops', 'receipts', 'shop'],
   'notes': ['notes', 'memories'],
   'docs': ['docs'],
   'tasks': ['tasks', 'reminders', 'specialDays'],

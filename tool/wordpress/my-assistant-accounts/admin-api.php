@@ -138,6 +138,9 @@ function ma_admin_member_json($r) {
         'source_label' => ma_acc_source_label($r),
         'joined' => gmdate('c', ma_acc_ts($r['created_at'])),
         'last_seen' => gmdate('c', ma_acc_ts($r['last_seen'])),
+        // Average time in the app a day, on the days used in the last 14 (owner, 4 Nov).
+        'use_avg_secs' => (ma_use_summary([(int) $r['id']])[(int) $r['id']] ?? ['avg' => 0])['avg'],
+        'use_days' => (ma_use_summary([(int) $r['id']])[(int) $r['id']] ?? ['days' => 0])['days'],
         'version' => trim($r['app_version'] . ' ' . $r['edition']),
         'note' => $r['note'],
     ];

@@ -47,6 +47,35 @@ Accent customAccent(Color c) {
       h.withLightness(0.95).withSaturation(h.saturation * 0.7).toColor(), Color.alphaBlend(main.withValues(alpha: 0.24), const Color(0xFF1A2342)));
 }
 
+/// The dark look's own colours (owner, 4 Nov: the user picks, dark ones
+/// only). Every set keeps light letters readable on its ground and cards.
+class DarkSet {
+  const DarkSet(this.key, this.name, this.nameEn, this.ground, this.surface, this.surface2, this.line, this.input, this.disabled, this.fill, this.muted, this.muted2);
+  final String key;
+  final String name;
+  final String nameEn;
+  final Color ground;
+  final Color surface;
+  final Color surface2;
+  final Color line;
+  final Color input;
+  final Color disabled;
+  final Color fill;
+  final Color muted;
+  final Color muted2;
+}
+
+const darkSets = [
+  DarkSet('night', 'রাতের নীল', 'Night blue', Color(0xFF121A33), Color(0xFF1A2342), Color(0xFF242E50), Color(0xFF2E3859), Color(0xFF3A456A), Color(0xFF283252), Color(0xFF2A3558), Color(0xFFA3ADC6), Color(0xFFC7CEE0)),
+  DarkSet('black', 'কালো', 'Black', Color(0xFF0A0A0C), Color(0xFF16161A), Color(0xFF212126), Color(0xFF2C2C33), Color(0xFF3A3A43), Color(0xFF242429), Color(0xFF2A2A31), Color(0xFFA6A6B0), Color(0xFFD4D4DA)),
+  DarkSet('forest', 'গাঢ় সবুজ', 'Forest', Color(0xFF0D1915), Color(0xFF14231E), Color(0xFF1D2F28), Color(0xFF293D36), Color(0xFF354F46), Color(0xFF21332C), Color(0xFF24382F), Color(0xFF9EB5AC), Color(0xFFC8D7D1)),
+  DarkSet('coffee', 'কফি', 'Coffee', Color(0xFF191311), Color(0xFF231B17), Color(0xFF2E2520), Color(0xFF3C312A), Color(0xFF4A3D35), Color(0xFF2B221D), Color(0xFF332822), Color(0xFFB6A89D), Color(0xFFDDD2C8)),
+  DarkSet('plum', 'গাঢ় বেগুনি', 'Plum', Color(0xFF181225), Color(0xFF221932), Color(0xFF2D2241), Color(0xFF3A2E51), Color(0xFF493B63), Color(0xFF2A203F), Color(0xFF322749), Color(0xFFB4A9C9), Color(0xFFD9D1E7)),
+  DarkSet('slate', 'স্লেট', 'Slate', Color(0xFF14171C), Color(0xFF1C2027), Color(0xFF262B34), Color(0xFF323843), Color(0xFF3F4655), Color(0xFF242932), Color(0xFF2B313B), Color(0xFFA4ACB9), Color(0xFFCED4DE)),
+];
+
+DarkSet darkSetFor(String key) => darkSets.firstWhere((d) => d.key == key, orElse: () => darkSets.first);
+
 /// The colour as saved ('#RRGGBB').
 String colorKey(Color c) => '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
 
@@ -62,6 +91,9 @@ class C {
   static bool dark = false;
   static double mix = 0;
   static Accent accent = accentFor('amber');
+  static DarkSet darkSet = darkSets.first;
+  static Color _pd(int light, Color night) => mix <= 0 ? Color(light) : (mix >= 1 ? night : Color.lerp(Color(light), night, mix)!);
+  static Color _fd(int light, Color night) => mix < 0.5 ? Color(light) : night;
 
   static Color _p(int light, int night) => mix <= 0 ? Color(light) : (mix >= 1 ? Color(night) : Color.lerp(Color(light), Color(night), mix)!);
 
@@ -72,19 +104,19 @@ class C {
   static Color _mix(Color light, Color night) => mix <= 0 ? light : (mix >= 1 ? night : Color.lerp(light, night, mix)!);
 
   /// bg: the screen.
-  static Color get ground => _p(0xFFF5F7F6, 0xFF121A33);
-  static Color get surface => _p(0xFFFFFFFF, 0xFF1A2342);
+  static Color get ground => _pd(0xFFF5F7F6, darkSet.ground);
+  static Color get surface => _pd(0xFFFFFFFF, darkSet.surface);
 
   /// surface2: counters, date blocks, quiet chips, the tabs' track.
-  static Color get surface2 => _p(0xFFEDF2F0, 0xFF242E50);
+  static Color get surface2 => _pd(0xFFEDF2F0, darkSet.surface2);
   static Color get ink => _f(0xFF192E28, 0xFFEEF1F8);
-  static Color get muted => _f(0xFF667871, 0xFFA3ADC6);
-  static Color get muted2 => _f(0xFF3E524B, 0xFFC7CEE0);
-  static Color get line => _p(0xFFDFE7E3, 0xFF2E3859);
-  static Color get line2 => _p(0xFFDFE7E3, 0xFF2E3859);
-  static Color get border => _p(0xFFDFE7E3, 0xFF2E3859);
-  static Color get inputBorder => _p(0xFFD3DED9, 0xFF3A456A);
-  static Color get disabled => _p(0xFFE3E9E6, 0xFF283252);
+  static Color get muted => _fd(0xFF667871, darkSet.muted);
+  static Color get muted2 => _fd(0xFF3E524B, darkSet.muted2);
+  static Color get line => _pd(0xFFDFE7E3, darkSet.line);
+  static Color get line2 => _pd(0xFFDFE7E3, darkSet.line);
+  static Color get border => _pd(0xFFDFE7E3, darkSet.line);
+  static Color get inputBorder => _pd(0xFFD3DED9, darkSet.input);
+  static Color get disabled => _pd(0xFFE3E9E6, darkSet.disabled);
   static Color get chip => surface2;
 
   /// Attention (late, may-not-ring, money to give).
@@ -93,7 +125,7 @@ class C {
   static Color get warnBorder => _p(0xFFEBDFC5, 0xFF4A4232);
 
   /// A solid dark fill for buttons and cards with white text (dark in both looks).
-  static Color get fill => _p(0xFF192E28, 0xFF2A3558);
+  static Color get fill => _pd(0xFF192E28, darkSet.fill);
 
   /// Always dark (lock screen, alarm page).
   static const night = Color(0xFF111827);
@@ -106,7 +138,7 @@ class C {
   static Color get greenDark => mix < 0.5 ? accent.dark : (accent.key == 'green' ? const Color(0xFFA9E6D2) : _glow(accent.main, 0.82));
 
   /// accentSoft: icon tiles, the active tab's pill, soft chips.
-  static Color get greenTint => _mix(accent.tint, accent.key == 'green' ? const Color(0xFF1F3B47) : Color.alphaBlend(_glow(accent.main, 0.45).withValues(alpha: 0.22), surface));
+  static Color get greenTint => _mix(accent.tint, accent.key == 'green' && darkSet.key == 'night' ? const Color(0xFF1F3B47) : Color.alphaBlend(_glow(accent.main, 0.45).withValues(alpha: 0.22), surface));
   static Color get greenSoft => _mix(Color.lerp(accent.tint, Colors.white, 0.45)!, Color.alphaBlend(_glow(accent.main, 0.45).withValues(alpha: 0.12), surface));
 
   /// Letters and icons on the accent: dark on a light fill, white on a deep

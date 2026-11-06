@@ -132,6 +132,9 @@ function ma_err_meaning($level, $kind, $msg) {
     if ($kind === 'Server') {
         return 'আমাদের সার্ভার ভুল উত্তর দিয়েছে';
     }
+    if ($kind === 'Android:ReplyTwice') {
+        return 'একটা অংশ দুইবার উত্তর দিয়েছে — অ্যাপ বন্ধ হয়নি, সামলানো হয়েছে';
+    }
     if (str_starts_with($kind, 'Android:')) {
         return 'অ্যাপ বন্ধ হয়ে গেছে (Android অংশে)';
     }
@@ -226,7 +229,7 @@ function ma_acc_render_errors() {
             <?php if ($list) : ?>
                 <div class="ma-bar-actions">
                     <button class="ma-chip" type="button" id="ma-err-copy" onclick="maErrCopy(this)">সব কপি করুন</button>
-                    <form method="post" action="<?php echo $post; ?>" onsubmit="return confirm('সব লগ মুছে ফেলবেন?')">
+                    <form method="post" action="<?php echo $post; ?>" data-confirm="সব লগ মুছে ফেলবেন?">
                         <input type="hidden" name="action" value="ma_err_clear"><?php wp_nonce_field('ma_err_clear'); ?>
                         <button class="ma-chip" type="submit">সব মুছুন</button>
                     </form>

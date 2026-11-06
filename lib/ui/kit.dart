@@ -137,9 +137,10 @@ class SmallButton extends StatelessWidget {
         child: Container(
           height: 40,
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
+          child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
             if (icon != null) ...[Icon(icon, size: 17, color: fg), const SizedBox(width: 6)],
-            Text(label, style: body(12.5, weight: primary ? FontWeight.w600 : FontWeight.w500, color: fg)),
+            // Shrinks with an ellipsis when three share a narrow row.
+            Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, weight: primary ? FontWeight.w600 : FontWeight.w500, color: fg))),
           ]),
         ),
       ),

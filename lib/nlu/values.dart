@@ -20,7 +20,7 @@ class SpanWhen {
 /// Date and time spans together ("কাল" + "সকাল ৯টায়"). A date without a year
 /// is the next one to come; "রাত ১২টা" is 00:00 of the next day.
 SpanWhen? whenOf(String? date, String? time, DateTime now) {
-  final said = [date, time].whereType<String>().where((s) => s.trim().isNotEmpty).join(' ');
+  final said = englishWhen([date, time].whereType<String>().where((s) => s.trim().isNotEmpty).join(' '));
   if (said.isEmpty) return null;
   final w = parseWhen(said, now);
   if (w == null) return null;
@@ -51,3 +51,42 @@ int? amountOf(String? span) {
   }
   return null;
 }
+
+/// English date and time words in Bangla (owner, 6 Nov: English messages):
+/// the words the cloud reading marked go through the same date rules.
+/// "next monday" → "আগামী সোমবার", "20 November" → "20 নভেম্বর",
+/// "evening 7" → "সন্ধ্যা 7". Bangla passes through unchanged.
+String englishWhen(String s) {
+  if (!RegExp(r'[A-Za-z]').hasMatch(s)) return s;
+  var t = ' ${s.toLowerCase()} ';
+  const phrases = {
+    'day after tomorrow': 'পরশু', 'the day after tomorrow': 'পরশু', 'tomorrow': 'কাল', 'tmrw': 'কাল', 'tonight': 'আজ রাত', 'today': 'আজ', 'yesterday': 'গতকাল',
+    'next week': 'আগামী সপ্তাহে', 'this week': 'এই সপ্তাহে', 'next month': 'আগামী মাসে', 'this month': 'এই মাসে',
+    'this morning': 'আজ সকাল', 'this evening': 'আজ সন্ধ্যা', 'in the morning': 'সকাল', 'in the evening': 'সন্ধ্যা', 'in the afternoon': 'বিকাল', 'at night': 'রাত',
+    'morning': 'সকাল', 'afternoon': 'বিকাল', 'evening': 'সন্ধ্যা', 'night': 'রাত', 'noon': 'দুপুর', 'midday': 'দুপুর', 'midnight': 'রাত ১২টা',
+    'next': 'আগামী', 'coming': 'আগামী',
+  };
+  const days = {'monday': 'সোমবার', 'tuesday': 'মঙ্গলবার', 'wednesday': 'বুধবার', 'thursday': 'বৃহস্পতিবার', 'friday': 'শুক্রবার', 'saturday': 'শনিবার', 'sunday': 'রবিবার',
+    'mon': 'সোমবার', 'tue': 'মঙ্গলবার', 'wed': 'বুধবার', 'thu': 'বৃহস্পতিবার', 'fri': 'শুক্রবার', 'sat': 'শনিবার', 'sun': 'রবিবার'};
+  const months = {'january': 'জানুয়ারি', 'february': 'ফেব্রুয়ারি', 'march': 'মার্চ', 'april': 'এপ্রিল', 'may': 'মে', 'june': 'জুন', 'july': 'জুলাই', 'august': 'আগস্ট',
+    'september': 'সেপ্টেম্বর', 'october': 'অক্টোবর', 'november': 'নভেম্বর', 'december': 'ডিসেম্বর',
+    'jan': 'জানুয়ারি', 'feb': 'ফেব্রুয়ারি', 'mar': 'মার্চ', 'apr': 'এপ্রিল', 'jun': 'জুন', 'jul': 'জুলাই', 'aug': 'আগস্ট', 'sep': 'সেপ্টেম্বর', 'sept': 'সেপ্টেম্বর', 'oct': 'অক্টোবর', 'nov': 'নভেম্বর', 'dec': 'ডিসেম্বর'};
+  String swap(String text, Map<String, String> words) {
+    final keys = words.keys.toList()..sort((a, b) => b.length.compareTo(a.length));
+    for (final k in keys) {
+      text = text.replaceAll(RegExp('(?<![a-z])${RegExp.escape(k)}(?![a-z])'), words[k]!);
+    }
+    return text;
+  }
+
+  t = swap(t, phrases);
+  t = swap(t, days);
+  t = swap(t, months);
+  // "on", "at", "the", "of", ordinal endings: not needed by the date rules.
+  t = t.replaceAllMapped(RegExp(r'(\d+)(st|nd|rd|th)\b'), (m) => m[1]!);
+  t = t.replaceAll(RegExp(r'(?<![a-z])(on|at|the|of|by|in)(?![a-z])'), ' ');
+  // "o'clock" and a lone "pm"/"am" stay as the rules know them.
+  t = t.replaceAll("o'clock", 'টা');
+  return t.replaceAll(RegExp(r'\s+'), ' ').trim();
+}
+

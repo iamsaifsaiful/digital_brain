@@ -48,7 +48,7 @@ class CrashLog private constructor(
          * the app at start): its kind, message and where — Google's code too,
          * so we can see whose — for the সমস্যার লগ next time.
          */
-        fun note(c: Context, what: String, e: Throwable) {
+        fun note(c: Context, what: String, e: Throwable, level: String = "crash") {
             try {
                 val places = mutableListOf<String>()
                 var x: Throwable? = e
@@ -64,6 +64,7 @@ class CrashLog private constructor(
                     .put("message", causes.joinToString(" <- ").take(300))
                     .put("stack", places.take(30).joinToString("\n"))
                     .put("version", ver)
+                    .put("level", level)
                 File(c.filesDir, "app_crash.json").writeText(j.toString())
             } catch (_: Throwable) {
             }

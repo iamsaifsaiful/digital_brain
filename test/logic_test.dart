@@ -30,6 +30,7 @@ import 'package:digital_brain/services/launcher.dart';
 import 'package:digital_brain/services/notifications.dart';
 import 'package:digital_brain/services/voice.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:digital_brain/logic/server_notices.dart';
 
 LedgerEntry e(String p, LedgerKind k, int a, DateTime d) => LedgerEntry(person: p, kind: k, amount: a, date: d);
 
@@ -1097,7 +1098,7 @@ void main() {
       );
       final n = assistantNotices(d, now, const AssistantPrefs());
       final morning = n.where((x) => x.reminderId == morningTag).toList();
-      expect(morning.first.at, DateTime(2026, 10, 14, 9, 0)); // the summary at 9 by default (owner, 28 Oct)
+      expect(morning.first.at, DateTime(2026, 10, 14, 8, 0)); // the summary at 8 by default (owner, 4 Nov)
       expect(morning.first.body, contains('মিটিং'));
       expect(morning.first.body, contains('সুমি'));
       final night = n.firstWhere((x) => x.reminderId == nightTag);
@@ -1227,6 +1228,34 @@ void main() {
     });
   });
 
+  group('owner 4 Nov: the site\'s [নাম] words', () {
+    test('no name known: [নাম] and its comma go away', () {
+      expect(fillNotice('{name}, আজ কাজ বাকি', title: 't', body: 'b', name: ''), 'আজ কাজ বাকি');
+      expect(fillNotice('{name}, {title}', title: 'সুপ্রভাত!', body: 'b', name: 'রাকিব'), 'রাকিব, সুপ্রভাত!');
+      expect(fillNotice('{body}', title: 't', body: '২টা কাজ', name: ''), '২টা কাজ');
+    });
+  });
+
+  group('owner 4 Nov: সুপ্রভাত first, then at least 30 minutes between notices', () {
+    test('a busy day: nothing in the 30 minutes after another, the summary at 8 first', () {
+      final now = DateTime(2026, 10, 14, 6, 0);
+      final d = AppData(
+        ledger: [for (final n in ['রহিম', 'করিম', 'সজীব', 'রনি']) LedgerEntry(person: n, kind: LedgerKind.lent, amount: 500, date: DateTime(2026, 9, 14))],
+        tasks: [Task(title: 'ব্যাংকে যাওয়া', due: DateTime(2026, 10, 14))],
+        habits: [Habit(name: 'হাঁটা', done: ['2026-10-12', '2026-10-13'])],
+        medicines: [Medicine(name: 'নাপা', times: [540, 1260], stock: 3)],
+      );
+      final ns = assistantNotices(d, now, const AssistantPrefs(dailyCap: 10));
+      final today = [for (final n in ns) if (dayKey(n.at) == '2026-10-14') n]..sort((a, b) => a.at.compareTo(b.at));
+      expect(today.length, greaterThan(3));
+      expect(today.first.reminderId, morningTag);
+      expect(today.first.at, DateTime(2026, 10, 14, 8));
+      for (var i = 1; i < today.length; i++) {
+        expect(today[i].at.difference(today[i - 1].at) >= noticeGap, isTrue, reason: '${today[i - 1].reminderId} ${today[i - 1].at} → ${today[i].reminderId} ${today[i].at}');
+      }
+    });
+  });
+
   group('v2.10: notification plan', () {
     final now = DateTime(2026, 10, 14, 9, 0); // Wednesday
     test('quiet hours move nudges to the morning; the daily cap keeps the most useful', () {
@@ -1239,7 +1268,8 @@ void main() {
       // Four people owe for 30 days on 15 Oct: only three nudges that day (the cap), and the habit note today.
       final dues = ns.where((n) => n.reminderId.startsWith(nudgeDue)).toList();
       expect(dues.length, 3);
-      expect(dues.every((n) => n.at == DateTime(2026, 10, 15, 10)), isTrue);
+      // Not all at 10: 30 minutes apart (owner, 4 Nov).
+      expect([for (final n in dues) n.at]..sort(), [DateTime(2026, 10, 15, 10), DateTime(2026, 10, 15, 10, 30), DateTime(2026, 10, 15, 11)]);
       expect(ns.where((n) => n.reminderId.startsWith(nudgeHabit)).single.at, DateTime(2026, 10, 14, 20));
       // Fajr is in the quiet hours but was asked for, so it stays at its time.
       final fajr = ns.where((n) => n.reminderId.startsWith(nudgePrayer)).first;
@@ -1540,7 +1570,7 @@ void main() {
       final puja = n.firstWhere((x) => x.reminderId == '${nudgePlan}eve' && x.at == DateTime(2026, 10, 19, 20, 30));
       expect(puja.title, contains('৫ দিনের ছুটি')); // Tue–Thu plus the weekend
       expect(puja.title, contains('দুর্গাপূজা'));
-      expect(n.any((x) => x.reminderId == '${nudgePlan}week' && x.at == DateTime(2026, 10, 18, 9, 15)), isTrue);
+      expect(n.any((x) => x.reminderId == '${nudgePlan}week' && x.at == DateTime(2026, 10, 18, 9, 30)), isTrue);
       expect(n.any((x) => x.reminderId == '${nudgePlan}month' && x.at == DateTime(2026, 11, 1, 9, 30)), isTrue);
       // Thursday's evening question already covers tonight; Friday night asks about Saturday.
       expect(n.where((x) => x.reminderId == '${nudgePlan}night' && x.at.day == 15), isEmpty);
@@ -1579,7 +1609,7 @@ void main() {
       expect(n.firstWhere((x) => x.reminderId == nudgeSalary).at, DateTime(2026, 10, 16, 10));
 
       final quiet = assistantNotices(AppData(cash: [for (final day in [10, 12, 14]) CashEntry(kind: CashKind.expense, amount: 100, date: DateTime(2026, 10, day))]), now, smart);
-      expect(quiet.firstWhere((x) => x.reminderId == nudgeNoCash).at, DateTime(2026, 10, 15, 21, 15));
+      expect(quiet.firstWhere((x) => x.reminderId == nudgeNoCash).at, DateTime(2026, 10, 15, 20, 30));
 
       final beforeEid = assistantNotices(AppData(), DateTime(2026, 5, 1), smart);
       expect(beforeEid.firstWhere((x) => x.title.contains('ঈদুল আজহা')).at, DateTime(2026, 5, 18, 10));

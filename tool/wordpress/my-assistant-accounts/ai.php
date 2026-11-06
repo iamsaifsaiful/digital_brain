@@ -397,6 +397,11 @@ function ma_ai_me(WP_REST_Request $req) {
     if (!$row) {
         return new WP_Error('session', 'sign in again', ['status' => 401]);
     }
+    // How long the app was used, per day (minutes only; owner, 4 Nov).
+    $use = (string) $req->get_header('x-ma-usage');
+    if ($use !== '' && function_exists('ma_use_receive')) {
+        ma_use_receive((int) $row['id'], $use);
+    }
     // A Google Play subscription near its end: renewed or ended, read again.
     $row = function_exists('ma_play_refresh') ? ma_play_refresh($row) : $row;
     $set = ma_ai_settings();

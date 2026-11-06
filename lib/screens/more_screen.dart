@@ -11,6 +11,8 @@ import '../services/data_store.dart';
 import '../services/lock.dart';
 import '../services/location_share.dart';
 import '../state/brain.dart';
+import '../logic/home_scene.dart' show sceneNames;
+import 'home_picture_screen.dart';
 import '../ui/pin.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
@@ -77,7 +79,9 @@ class _MoreScreenState extends State<MoreScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _load();
+    });
   }
 
   Future<void> _load() async {
@@ -340,6 +344,12 @@ class _MoreScreenState extends State<MoreScreen> {
     _parts = {
       'look': () => [
       const LookSection(),
+      const SizedBox(height: 12),
+      Panel(
+        child: Rows(children: [
+          linkRow(Icons.landscape_outlined, tr('হোমের ছবি'), sub: trf('{0} · আবহাওয়া, নড়াচড়া, বিশেষ দিন', [tr(sceneNames[brain.text('home_scene', 'auto')] ?? sceneNames['auto']!)]), onTap: () => push(const HomePictureScreen())),
+        ]),
+      ),
       ],
       'remind': () => [
       Panel(
@@ -369,6 +379,32 @@ class _MoreScreenState extends State<MoreScreen> {
           ]),
         ),
       ],
+      const SizedBox(height: 10),
+      // Owner, 6 Nov: members who speak English were heard as Bangla.
+      Panel(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Icon(Icons.translate_rounded, color: C.muted2, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(tr('কোন ভাষায় বলবেন'), style: body(15)),
+                  Text(tr('মাইক এই ভাষায় শোনে। লিখে দিলে দুই ভাষাই চলে।'), style: body(12, color: C.muted)),
+                ]),
+              ),
+            ]),
+            const SizedBox(height: 10),
+            SegTabs<String>(
+              key: const Key('voice-lang'),
+              items: [('', tr('অ্যাপের ভাষা')), ('bn', 'বাংলা'), ('en', 'English')],
+              value: brain.voiceLang,
+              onChanged: (v) => brain.setPref('voice_lang', v),
+            ),
+          ]),
+        ),
+      ),
       const SizedBox(height: 10),
       Panel(
         child: Rows(children: [
@@ -466,6 +502,39 @@ class _MoreScreenState extends State<MoreScreen> {
         TabTitle(tr('আরও'), sub: tr('প্রোফাইল, সেটিংস আর আরও সুবিধা')),
         const SizedBox(height: 14),
         ProfileCard(onName: _setName, onPlace: _setDistrict),
+        const SizedBox(height: 12),
+        // ব্যবসায়ী মোড (owner, 6 Nov): one switch — on, the tabs are the
+        // shop's (হোম · বিক্রি · গ্রাহক · হিসাব · স্টক); off, the app as it was.
+        // Premium; a free user may switch it on and look around.
+        Panel(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(17),
+            onTap: () => brain.setPref('business_mode', !brain.businessMode),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+              child: Row(children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(color: brain.businessMode ? C.green : C.greenTint, borderRadius: BorderRadius.circular(12)),
+                  child: Icon(Icons.storefront_outlined, color: brain.businessMode ? C.onAccent : C.green, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Flexible(child: Text(tr('ব্যবসায়ী মোড'), style: body(15, weight: FontWeight.w600))),
+                      if (!brain.has(ProFeature.business)) ...[const SizedBox(width: 6), const ProMark()],
+                    ]),
+                    Text(brain.businessMode ? tr('চালু — হোম, বিক্রি, গ্রাহক, হিসাব, স্টক দোকানের জন্য। বন্ধ করলে আগের মতো।') : tr('দোকান চালালে চালু করুন — বিক্রি, গ্রাহকের বাকি, ডিলার, স্টক, PDF রসিদ'),
+                        style: body(12, color: C.muted, height: 1.4)),
+                  ]),
+                ),
+                Switch(key: const Key('more-business'), value: brain.businessMode, onChanged: (v) => brain.setPref('business_mode', v)),
+              ]),
+            ),
+          ),
+        ),
         const SizedBox(height: 12),
         // Owner, 2 Nov: in a logical order — what you use (Premium, family,
         // zakat, blood), your data (recycle bin, PDF, CSV), the settings

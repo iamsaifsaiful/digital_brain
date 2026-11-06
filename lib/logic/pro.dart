@@ -78,7 +78,7 @@ const freeReportMonths = 3;
 /// A free trial (owner, 28 Oct): seven days of Premium from the first open
 /// (Brain.onTrial). After it, without buying, the Premium tools stop; what
 /// was kept in those days stays and can be seen (the rule above).
-enum ProFeature { ai, noAds, autoBackup, docAlerts, dueReminders, history, reminders, people, docs, shops, receipts, pdf, projects, vault, smartNudges, family, will, familyHealth }
+enum ProFeature { ai, business, noAds, autoBackup, docAlerts, dueReminders, history, reminders, people, docs, shops, receipts, pdf, projects, vault, smartNudges, family, will, familyHealth }
 
 /// Open to everyone (owner, 24 Oct: only the list in [proInfo] is premium).
 const freeFeatures = {
@@ -117,6 +117,7 @@ const _proInfoPlay = <ProFeature, ProInfo>{
 };
 
 const _proInfoAll = <ProFeature, ProInfo>{
+  ProFeature.business: ProInfo('ব্যবসায়ী মোড', 'দোকানের বিক্রি, গ্রাহকের বাকি ও প্রোফাইল, ডিলারের হিসাব, স্টক আর PDF রসিদ — সব এক জায়গায়', free: 'চালু করে সব পাতা দেখা যায়; নতুন কিছু যোগ করা যায় না'),
   ProFeature.reminders: ProInfo('যত খুশি রিমাইন্ডার', 'চালু রিমাইন্ডারের কোনো সীমা নেই — কাজ, বিল, ধার-দেনা, কাগজের মেয়াদ সব মিলিয়ে', free: 'সব মিলিয়ে একসাথে ২০টা চালু রিমাইন্ডার'),
   ProFeature.docs: ProInfo('যত খুশি ডকুমেন্ট', 'NID, পাসপোর্ট, দলিল, ছবি — কোনো সীমা নেই', free: '৩০টা ডকুমেন্ট'),
   ProFeature.projects: ProInfo('যত খুশি অন্যান্য হিসাব', 'বাড়ি, বিয়ে, ঈদ, ব্যবসা — আলাদা আয়, খরচ আর বকেয়া; চাইলে মূল টাকায় যুক্ত হয়', free: '১টা অন্যান্য হিসাব'),

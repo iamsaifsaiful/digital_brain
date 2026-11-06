@@ -5,8 +5,10 @@ library;
 import 'dart:math';
 
 import 'extras.dart';
+import 'shop_book.dart';
 
 export 'extras.dart';
+export 'shop_book.dart';
 
 String newId() {
   final r = Random.secure();
@@ -1165,6 +1167,7 @@ class AppData {
     List<Receipt>? receipts,
     List<TrashItem>? trash,
     ZakatBook? zakat,
+    ShopBook? shop,
     this.cashOffset,
     this.cashSetAt,
     this.cashStart,
@@ -1174,6 +1177,7 @@ class AppData {
         notInMain = notInMain ?? {},
         ownDocFolders = ownDocFolders ?? [],
         zakat = zakat ?? ZakatBook(),
+        shop = shop ?? ShopBook(),
         trash = trash ?? [],
         shops = shops ?? [],
         cards = cards ?? [],
@@ -1261,6 +1265,9 @@ class AppData {
   /// The user's own changes to the zakat count (lines left out or added).
   final ZakatBook zakat;
 
+  /// ব্যবসায়ী মোড (owner, 6 Nov): products, sales, the order list, day closes.
+  final ShopBook shop;
+
   static const schema = 1;
 
   /// Every tag in use, by name.
@@ -1302,6 +1309,7 @@ class AppData {
         if (receipts.isNotEmpty) 'receipts': receipts.map((e) => e.toJson()).toList(),
         if (trash.isNotEmpty) 'trash': trash.map((e) => e.toJson()).toList(),
         if (!zakat.isEmpty) 'zakat': zakat.toJson(),
+        if (!shop.isEmpty) 'shop': shop.toJson(),
         if (cashOffset != null) 'cashOffset': cashOffset,
         if (cashSetAt != null) 'cashSetAt': cashSetAt!.toIso8601String(),
         if (cashStart != null) 'cashStart': cashStart,
@@ -1343,6 +1351,7 @@ class AppData {
       health: list('health', HealthLog.fromJson),
       vaccines: {for (final e in ((j['vaccines'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
       zakat: j['zakat'] is Map ? ZakatBook.fromJson((j['zakat'] as Map).cast<String, Object?>()) : null,
+      shop: j['shop'] is Map ? ShopBook.fromJson((j['shop'] as Map).cast<String, Object?>()) : null,
       cashOffset: (j['cashOffset'] as num?)?.toInt(),
       cashSetAt: j['cashSetAt'] is String ? DateTime.tryParse(j['cashSetAt'] as String) : null,
       cashStart: (j['cashStart'] as num?)?.toInt(),

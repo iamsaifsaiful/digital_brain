@@ -75,7 +75,6 @@ class MoneyScreenState extends State<MoneyScreen> {
               const MoneyToolsMenu(),
             ])),
         const SizedBox(height: 12),
-        if (brain.businessMode) ...[const ShopTodayCard(), const SizedBox(height: 12)],
         tabs,
         const SizedBox(height: 14),
       ],

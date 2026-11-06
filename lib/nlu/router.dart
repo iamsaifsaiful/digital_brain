@@ -200,3 +200,12 @@ List<Command>? phoneModelCommands(String said, List<NluPiece> pieces, List<Ledge
   }
   return out;
 }
+
+/// Said mostly in English (owner, 6 Nov): at least two English words and
+/// more English letters than Bangla ones. "কাল meeting আছে" is Bangla.
+bool mostlyEnglish(String said) {
+  final latin = RegExp(r'[A-Za-z]').allMatches(said).length;
+  final bangla = RegExp(r'[ঀ-৿]').allMatches(said).length;
+  final words = RegExp(r'[A-Za-z]{2,}').allMatches(said).length;
+  return words >= 2 && latin > bangla * 2;
+}

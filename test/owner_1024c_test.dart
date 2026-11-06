@@ -134,8 +134,8 @@ void main() {
       // The two pictures are read from the bundle off the test clock.
       await t.runAsync(() async {
         final ctx = t.element(find.byType(HomeShell));
-        await precacheImage(const AssetImage('assets/sky/day.jpg'), ctx);
-        await precacheImage(const AssetImage('assets/sky/night.jpg'), ctx);
+        await precacheImage(const AssetImage('assets/sky/hemonto_day.webp'), ctx);
+        await precacheImage(const AssetImage('assets/sky/hemonto_night.webp'), ctx);
       });
       for (final (name, at) in [
         ('a-dawn', sun.sunrise.subtract(const Duration(minutes: 40))),

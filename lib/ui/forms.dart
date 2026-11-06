@@ -8,30 +8,57 @@ import 'theme.dart';
 
 /// A one-line question in a dialog ("নাম", "টাকার পরিমাণ"…). Null when cancelled.
 Future<String?> askText(BuildContext context, String title, {String initial = '', String? hint, bool number = false, int lines = 1}) async {
-  final c = TextEditingController(text: initial);
   final v = await showDialog<String>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(title, style: body(18, weight: FontWeight.w600)),
+    builder: (ctx) => _AskText(title: title, initial: initial, hint: hint, number: number, lines: lines),
+  );
+  return v?.trim();
+}
+
+/// The dialog owns its field, so the field lives exactly as long as the
+/// dialog (it still draws while fading out).
+class _AskText extends StatefulWidget {
+  const _AskText({required this.title, required this.initial, this.hint, required this.number, required this.lines});
+  final String title;
+  final String initial;
+  final String? hint;
+  final bool number;
+  final int lines;
+  @override
+  State<_AskText> createState() => _AskTextState();
+}
+
+class _AskTextState extends State<_AskText> {
+  late final c = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = widget.lines;
+    return AlertDialog(
+      title: Text(widget.title, style: body(18, weight: FontWeight.w600)),
       content: TextField(
         controller: c,
         autofocus: true,
         minLines: lines,
         maxLines: lines == 1 ? 1 : lines + 3,
-        keyboardType: number ? TextInputType.number : (lines > 1 ? TextInputType.multiline : TextInputType.text),
-        inputFormatters: number ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9০-৯]'))] : null,
+        keyboardType: widget.number ? TextInputType.number : (lines > 1 ? TextInputType.multiline : TextInputType.text),
+        inputFormatters: widget.number ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9০-৯]'))] : null,
         style: body(16),
-        decoration: InputDecoration(hintText: hint),
-        onSubmitted: lines == 1 ? (t) => Navigator.pop(ctx, t) : null,
+        decoration: InputDecoration(hintText: widget.hint),
+        onSubmitted: lines == 1 ? (t) => Navigator.pop(context, t) : null,
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
-        TextButton(onPressed: () => Navigator.pop(ctx, c.text), child: Text(tr('রাখুন'), style: body(15, weight: FontWeight.w600, color: C.green))),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('বাতিল'))),
+        TextButton(onPressed: () => Navigator.pop(context, c.text), child: Text(tr('রাখুন'), style: body(15, weight: FontWeight.w600, color: C.green))),
       ],
-    ),
-  );
-  c.dispose();
-  return v?.trim();
+    );
+  }
 }
 
 /// A number typed in Bengali or English digits.

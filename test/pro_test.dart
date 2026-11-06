@@ -337,8 +337,9 @@ void main() {
     await t.scrollUntilVisible(find.text('ফ্রি ভার্সনে বিজ্ঞাপন কোথায় দেখাবে'), 300, scrollable: list);
     // The shop's lines are hidden now (business mode later): the page is
     // shorter, so scroll on to the line itself.
-    await t.scrollUntilVisible(find.textContaining('দিনে সর্বোচ্চ ২টা'), 200, scrollable: list);
-    expect(find.textContaining('দিনে সর্বোচ্চ ২টা'), findsOneWidget);
+    // (ব্যবসায়ী মোড's line made the page longer: the ads line is the last match.)
+    await t.scrollUntilVisible(find.textContaining('দিনে সর্বোচ্চ ২টা').last, 200, scrollable: list);
+    expect(find.textContaining('দিনে সর্বোচ্চ ২টা'), findsWidgets);
   });
 
   testWidgets('forgot PIN: the backup password lets the owner set a new PIN', (t) async {
@@ -432,9 +433,14 @@ void main() {
       expect(b.pro, isTrue);
       expect(await rig.services.lock.keys.read('srv_session'), 'a' * 64);
 
+      // Twelve minutes in the app (owner, 4 Nov): only the seconds of the day go with /me.
+      b.usageStart();
+      rig.nowAt = rig.nowAt.add(const Duration(minutes: 12));
+      await b.usageStop();
       // The server ends Pro: AI goes off at the next refresh.
       await b.refreshAccount(force: true);
       expect(calls.lastWhere((r) => r.url.path.endsWith('/me')).headers['authorization'], 'Bearer ${'a' * 64}');
+      expect(calls.lastWhere((r) => r.url.path.endsWith('/me')).headers['x-ma-usage'], endsWith(':720'));
       expect(b.aiByServer, isFalse);
 
       await b.signOutGoogle();

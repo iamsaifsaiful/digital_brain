@@ -720,7 +720,8 @@ class DateBlock extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(top, style: body(17, weight: FontWeight.w700, height: 1.1)),
+            // "১২:৫৩" is wider than the tile: shrink it, never wrap it.
+            FittedBox(fit: BoxFit.scaleDown, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 3), child: Text(top, maxLines: 1, style: body(17, weight: FontWeight.w700, height: 1.1)))),
             Text(bottom, style: body(10.5, color: C.muted, height: 1.2), maxLines: 1, overflow: TextOverflow.clip),
           ],
         ),

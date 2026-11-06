@@ -113,12 +113,13 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       Look.sun => duskMix(brain),
     };
     final size = brain.easyMode ? (brain.letterSize < 1.15 ? 1.15 : brain.letterSize) : brain.letterSize;
-    final stamp = '${mix.toStringAsFixed(2)}|${brain.accentKey}|${brain.english}|$size';
+    final stamp = '${mix.toStringAsFixed(2)}|${brain.accentKey}|${brain.darkKey}|${brain.english}|$size';
     if (stamp == _lookStamp) return false;
     _lookStamp = stamp;
     C.mix = mix;
     C.dark = mix >= 0.5;
     C.accent = accentFor(brain.accentKey);
+    C.darkSet = darkSetFor(brain.darkKey);
     isEn = brain.english;
     textScale = size;
     return true;
@@ -180,6 +181,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
       _leftAt ??= brain.services.now();
+      if (brain.loaded) brain.usageStop();
       // সমস্যার লগ goes when the app steps away (and on coming back).
       ErrorLog.flush(brain.services.server, brain.services.ai.session);
       // সমস্যা খোঁজার লগ goes too, when the member chose to send it.
@@ -195,6 +197,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       ErrorLog.flush(brain.services.server, brain.services.ai.session);
       if (brain.loaded && brain.loadError == null) {
         brain.markOpened();
+        brain.usageStart();
         // A blood group that could not reach our server yet (owner, 28 Oct).
         if (brain.text('blood_sync') == 'pending' && brain.signedIn) brain.syncBloodGroup().catchError((_) => null);
         // স্বাস্থ্য › Health Connect: today's steps, last night's sleep (when turned on).

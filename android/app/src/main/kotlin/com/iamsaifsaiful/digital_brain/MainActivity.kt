@@ -129,6 +129,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         CrashLog.install(this)
+        ReplyGuard.install(this)
         // AdMob brings Google's WorkManager, which started itself while the app
         // opened and closed it on the owner's phone (29 Oct). It no longer starts
         // itself (AndroidManifest.xml); it starts here, where a problem is caught

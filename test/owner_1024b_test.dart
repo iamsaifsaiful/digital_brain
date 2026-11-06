@@ -27,7 +27,7 @@ void main() {
     for (final f in [ProFeature.history, ProFeature.people, ProFeature.dueReminders, ProFeature.docAlerts, ProFeature.shops, ProFeature.receipts, ProFeature.smartNudges]) {
       expect(b.has(f), isTrue, reason: '$f');
     }
-    for (final f in [ProFeature.projects, ProFeature.will, ProFeature.familyHealth, ProFeature.family, ProFeature.autoBackup, ProFeature.pdf, ProFeature.ai]) {
+    for (final f in [ProFeature.business, ProFeature.projects, ProFeature.will, ProFeature.familyHealth, ProFeature.family, ProFeature.autoBackup, ProFeature.pdf, ProFeature.ai]) {
       expect(b.has(f), isFalse, reason: '$f');
     }
     // One অন্যান্য হিসাব is free (owner, 29 Oct).
@@ -41,7 +41,8 @@ void main() {
     expect(b.canAddVault, isFalse);
     expect(b.canSeeMonth(DateTime(2020, 1)), isTrue);
     // The Premium page lists every premium item, and nothing free.
-    expect(proInfo.keys.toSet(), {ProFeature.reminders, ProFeature.docs, ProFeature.projects, ProFeature.will, ProFeature.familyHealth, ProFeature.vault, ProFeature.family, ProFeature.autoBackup, ProFeature.pdf, ProFeature.ai, ProFeature.noAds});
+    // ব্যবসায়ী মোড is Premium (owner, 6 Nov).
+    expect(proInfo.keys.toSet(), {ProFeature.business, ProFeature.reminders, ProFeature.docs, ProFeature.projects, ProFeature.will, ProFeature.familyHealth, ProFeature.vault, ProFeature.family, ProFeature.autoBackup, ProFeature.pdf, ProFeature.ai, ProFeature.noAds});
     expect(proInfo.keys.where(freeFeatures.contains), isEmpty);
   });
 

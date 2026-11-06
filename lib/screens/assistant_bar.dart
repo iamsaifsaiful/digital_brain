@@ -14,7 +14,10 @@ import 'search_screen.dart';
 /// ask, or tap the big mic and speak. On Home the one-tap questions sit
 /// just above it.
 class AssistantBar extends StatefulWidget {
-  const AssistantBar({super.key, this.questions = false});
+  const AssistantBar({super.key, this.questions = false, this.hint});
+
+  /// The example in the box (business mode has one per tab).
+  final String? hint;
 
   /// Show the one-tap questions (Home).
   final bool questions;
@@ -207,7 +210,7 @@ class _AssistantBarState extends State<AssistantBar> {
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
                           contentPadding: EdgeInsets.zero,
-                          hintText: tr('বলুন বা লিখুন — “রবিনকে ৫০০ দিলাম”'),
+                          hintText: widget.hint ?? tr('বলুন বা লিখুন — “রবিনকে ৫০০ দিলাম”'),
                           hintStyle: body(13.5, color: C.muted),
                         ),
                       ),
