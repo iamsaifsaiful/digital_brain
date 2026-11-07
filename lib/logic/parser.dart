@@ -459,12 +459,15 @@ class NotUnderstood extends Command {
   const NotUnderstood(super.transcript);
 }
 
-enum Talk { greeting, salam, howAreYou, imFine, whoAreYou, whatCanYouDo, thanks, bye, time, date, nothingDone, cancelled, wontDo, listenOverMe, understand, sorry, calendar }
+enum Talk { greeting, salam, howAreYou, imFine, whoAreYou, whatCanYouDo, thanks, bye, time, date, nothingDone, cancelled, wontDo, listenOverMe, understand, sorry, calendar, appHelp }
 
 /// Conversation, not data: "তুমি কেমন আছো?", "ধন্যবাদ", "আজ কত তারিখ?".
 class SmallTalk extends Command {
-  const SmallTalk(super.transcript, {required this.kind});
+  const SmallTalk(super.transcript, {required this.kind, this.page});
   final Talk kind;
+
+  /// [Talk.appHelp]: the part of the app asked about (an app_map id), if known.
+  final String? page;
 }
 
 // ───────────────────────── Text helpers ─────────────────────────
@@ -2413,7 +2416,7 @@ const _addVerbs = [
   // "এগুলো কাজের তালিকায় যুক্ত করো": every form of "যুক্ত/যোগ করা".
   'যুক্ত কর', 'যুক্ত করে', 'যোগ করে', 'ঢুকিয়ে', 'সেভ কর', 'তুলে দাও', 'তুলে দিও',
 ];
-const _fillers = ['আমাকে', 'আমারে', 'প্লিজ', 'একটু', 'please', 'তো'];
+const _fillers = ['আমাকে', 'আমারে', 'প্লিজ', 'একটু', 'please', 'তো', 'সেটা হলো', 'সেটা হল', 'সেটা হইল', 'আচ্ছা শোন', 'আচ্ছা শোনো'];
 const _remindKeys = [
   'মনে করিয়ে দিও', 'মনে করিয়ে দিবা', 'মনে করিয়ে দেবে', 'মনে করিয়ে দিবে', 'মনে করিয়ে দাও', 'মনে করিয়ে দিয়ো', 'মনে করিয়ে দিবেন',
   'মনে করিয়ে দিন', 'মনে করিয়ে দেবেন', 'মনে করিয়ে দিও তো', 'মনে করিয়ে', 'মনে করাবে', 'মনে করাবা', 'মনে করাইও', 'মনে করিও', 'মনে করিয়ো', 'মনে করাইয়ো', 'মনে করাইয়া দিও',

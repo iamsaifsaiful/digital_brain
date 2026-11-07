@@ -27,7 +27,7 @@ OUT = os.path.join(C.ROOT, 'out', 'models', 'tiny')
 DELETE = {'task_delete', 'reminder_delete', 'item_delete'}
 MONEY = {'ledger_add', 'ledger_set', 'cash_add', 'menu_accounts', 'menu_savings', 'menu_shop', 'menu_cash', 'menu_project', 'menu_installment'}
 LOOKUPS = {'task_query', 'reminder_query', 'ledger_query', 'cash_query', 'note_query', 'contact_query', 'special_query', 'calendar_query',
-           'open_page', 'briefing', 'doc_query', 'profile_query', 'smalltalk', 'out_of_scope', 'complain_help'}
+           'open_page', 'briefing', 'doc_query', 'profile_query', 'smalltalk', 'out_of_scope', 'complain_help', 'app_help'}
 
 
 class Vocab:

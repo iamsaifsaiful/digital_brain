@@ -21,6 +21,7 @@ import '../logic/meaning.dart';
 import '../services/trace.dart';
 import '../logic/me.dart';
 import '../logic/answers.dart';
+import '../logic/shop_logic.dart' show bizCash, bizMonthSums;
 import '../logic/bn.dart';
 import '../logic/cash.dart';
 import '../logic/dictation.dart' show splitDoneTail;
@@ -35,7 +36,7 @@ import '../logic/match.dart' show wordsMatch;
 import '../logic/money_more.dart' show accountBalance, accountLabel, totalBalance, salesCategory;
 import '../ui/theme.dart' show Look;
 import '../logic/proactive.dart';
-import '../logic/pro.dart' show freeVaultItems, freeLedgerPeople, freeReminders, medicalOff, medicalOffText;
+import '../logic/pro.dart' show ProFeature, freeVaultItems, freeLedgerPeople, freeReminders, medicalOff, medicalOffText;
 import '../logic/search.dart';
 import '../logic/talk.dart';
 import '../logic/when.dart';
@@ -1856,7 +1857,7 @@ class ChatController extends ChangeNotifier {
         _say(out, medicalOffText());
         continue;
       }
-      final text = (c is ProfileQuery ? _donorAnswer(c.transcript) : null) ?? answerText(brain.data, c, _now) ?? '';
+      final text = (c is ProfileQuery ? _donorAnswer(c.transcript) : null) ?? (c is SearchQuery ? _premiumAnswer(c.transcript) : null) ?? answerText(brain.data, c, _now) ?? '';
       // Two parts of one message with the same answer ("এ বিষয়ে কোনো তথ্য
       // নেই" twice): said once.
       if (text.isNotEmpty && !answered.add(text)) continue;
@@ -1948,6 +1949,11 @@ class ChatController extends ChangeNotifier {
     }
     if (c is ReminderQuery && searchReminders(d, c.terms).isNotEmpty) return [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))];
     if (c is TaskQuery || c is Briefing) return [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))];
+    if (c is SmallTalk && c.kind == Talk.appHelp) {
+      final p = (c.page == null ? null : placeById(c.page!)) ?? placeMentioned(normalize(c.transcript));
+      if (p != null && p.id != 'help' && p.id != 'store') return [ChatLink(LinkKind.page, trf('খুলুন: {0}', [tr(p.title)]), page: p.id)];
+      return [ChatLink(LinkKind.page, tr('কী কী করা যায় — বিস্তারিত'), page: 'help')];
+    }
     if (c is CashQuery) return [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন'))];
     if (c is ContactsQuery) return [ChatLink(LinkKind.contacts, tr('যোগাযোগ দেখুন'))];
     if (c is HealthQuery) return [ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন'))];
@@ -2748,6 +2754,19 @@ class ChatController extends ChangeNotifier {
   }
 
   /// "আবার কবে রক্ত দিতে পারব?": three months after the last time kept.
+  /// "আমার প্রিমিয়াম কি চালু আছে?", "প্রিমিয়াম কবে শেষ": the app's own
+  /// answer, from what it knows — not "এ বিষয়ে কোনো তথ্য নেই".
+  String? _premiumAnswer(String said) {
+    if (placeMentioned(normalize(said))?.id != 'pro') return null;
+    final w = words(normalize(said));
+    if (!w.any((x) => const ['চালু', 'কিনা', 'আছে', 'কবে', 'মেয়াদ', 'শেষ', 'কতদিন', 'বাকি'].map(normalize).contains(x))) return null;
+    final until = brain.proUntil;
+    if (!brain.gated) return tr('জি, এই সংস্করণে প্রিমিয়ামের সব সুবিধা খোলা।');
+    if (brain.paidPro && until != null) return trf('জি, প্রিমিয়াম চালু আছে — {0} পর্যন্ত।', [sayWhen(until, _now, withTime: false)]);
+    if (brain.onTrial && brain.trialEnds != null) return trf('এখন প্রিমিয়ামের ফ্রি ট্রায়াল চলছে — {0} পর্যন্ত। এরপর চালু রাখতে প্রিমিয়াম নিতে হবে।', [sayWhen(brain.trialEnds!, _now, withTime: false)]);
+    return tr('প্রিমিয়াম এখন চালু নেই। প্রিমিয়াম পাতা থেকে নিতে পারেন — নিচে চাপুন।');
+  }
+
   String? _donorAnswer(String said) {
     final f = fold(normalize(said));
     if (!RegExp(fold(r'কবে.*(?:রক্ত|ব্লাড)\s+(?:দিতে|দেওয়া|দেয়া)|(?:রক্ত|ব্লাড)\s+(?:দিতে|দেওয়া|দেয়া)\s+(?:পারব|পারবো|যাবে|পারি).*কবে|আবার\s+কবে\s+(?:রক্ত|ব্লাড)')).hasMatch(f)) return null;
@@ -4133,6 +4152,9 @@ class ChatController extends ChangeNotifier {
           }
         }
         final cashId = newId();
+        // In ব্যবসায়ী মোড (Premium) money said goes to the business's own
+        // আয়-ব্যয়, never the personal one (owner, 7 Nov).
+        final biz = project == null && brain.businessMode && brain.has(ProFeature.business);
         await brain.saveCash(CashEntry(
           id: cashId,
           kind: c.kind,
@@ -4140,7 +4162,7 @@ class ChatController extends ChangeNotifier {
           category: c.category,
           note: c.transcript.trim(),
           date: _now,
-          projectId: project?.id,
+          projectId: project?.id ?? (biz ? bizCash : null),
           // "বড় দোকানে ৫০০০ টাকা বিক্রি": the shop named in the sentence.
           shopId: brain.data.shops.length < 2 ? null : brain.data.shops.where((x) => normalize(c.transcript).contains(normalize(x.name))).firstOrNull?.id,
         ));
@@ -4152,6 +4174,9 @@ class ChatController extends ChangeNotifier {
               : (ps.balance >= 0
                   ? trf('লিখলাম। ‘{0}’ হিসাবে এখন হাতে আছে {1} টাকা।', [project.name, bnNumber(ps.balance)])
                   : trf('লিখলাম। ‘{0}’ হিসাবে আসার চেয়ে {1} টাকা বেশি খরচ হয়েছে।', [project.name, bnNumber(-ps.balance)]));
+        } else if (biz) {
+          final m = bizMonthSums(brain.data.cash, _now);
+          done = c.kind == CashKind.expense ? trf('ব্যবসার হিসাবে লিখলাম। এই মাসে ব্যবসার মোট খরচ {0} টাকা।', [bnNumber(m.expense)]) : trf('ব্যবসার হিসাবে লিখলাম। এই মাসে ব্যবসার মোট আয় {0} টাকা।', [bnNumber(m.income)]);
         } else {
           final m = monthSums(brain.data.cash, _now);
           done = c.kind == CashKind.expense ? trf('লিখলাম। এই মাসে মোট খরচ {0} টাকা।', [bnNumber(m.expense)]) : trf('লিখলাম। এই মাসে মোট আয় {0} টাকা।', [bnNumber(m.income)]);

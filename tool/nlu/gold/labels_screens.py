@@ -45,7 +45,7 @@ L = {
  (40, 0): ['task_add', 'special_add'], (40, 1): 'confirm_yes', (40, 2): ['task_add', 'special_add'], (40, 3): 'confirm_yes',
  (41, 0): 'dictate_start', (41, 1): 'dictate_start',
  (42, 0): 'task_query',
- (43, 0): 'complain_help',
+ (43, 0): 'app_help',
  (44, 0): 'task_add', (44, 1): 'inform', (44, 2): 'correct',
  (45, 0): 'correct',
  (46, 0): 'cash_add', (46, 1): 'confirm_yes', (46, 2): 'cash_query', (46, 3): 'menu_project',

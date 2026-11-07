@@ -3,6 +3,7 @@ import 'package:flutter/material.dart' show IconData, Icons;
 
 import '../models/models.dart';
 import 'bn.dart' show dayOnly;
+import 'cash.dart' show MoneySums;
 
 /// A quantity as the shop says it: "৫", "১.২৫০", "১২.৫".
 String qtyText(double q) {
@@ -203,11 +204,31 @@ class TodayCash {
   int get net => sales + collected - out;
 }
 
+/// ব্যবসায়ী মোডের টাকা (owner, 7 Nov: "ব্যবসায়ী মোডের আয় ব্যয় সাধারণ মোডের
+/// আয় ব্যয় আলাদা হবে"): its entries carry this in place of a project, so
+/// every personal sum (which counts only entries without one) leaves them
+/// out by itself, and the business sums count only them.
+const bizCash = 'biz';
+
+bool isBizCash(CashEntry e) => e.projectId == bizCash;
+
+/// The business's money in [month]'s calendar month.
+MoneySums bizMonthSums(Iterable<CashEntry> cash, DateTime month) {
+  final s = MoneySums();
+  for (final e in cash) {
+    if (isBizCash(e) && e.date.year == month.year && e.date.month == month.month) s.add(e);
+  }
+  return s;
+}
+
+/// All the business's money in less money out, ever (the shop's cash).
+int bizCashBalance(Iterable<CashEntry> cash) => cash.where(isBizCash).fold(0, (s, e) => s + (e.kind == CashKind.income ? e.amount : -e.amount));
+
 TodayCash todayCash(AppData d, DateTime now) {
   final b = d.shop;
   final sales = salesOn(b, now).where((s) => s.pay == SalePay.cash).fold(0, (s, x) => s + x.total);
   final collected = b.collections.where((p) => sameDay(p.at, now)).fold(0, (s, p) => s + p.amount);
-  final out = d.cash.where((e) => e.kind == CashKind.expense && sameDay(e.date, now) && e.category.isNotEmpty && shopCostKinds.contains(e.category)).fold(0, (s, e) => s + e.amount);
+  final out = d.cash.where((e) => isBizCash(e) && e.kind == CashKind.expense && sameDay(e.date, now)).fold(0, (s, e) => s + e.amount);
   return TodayCash(sales: sales, collected: collected, out: out);
 }
 

@@ -59,7 +59,7 @@
 {"id": "persona-058", "source": "persona", "tuned": true, "fixture": "empty", "now": "2026-10-09T15:53", "before": [], "state": "idle", "text": "আজ কত তারিখ হিজরি", "intent": ["calendar_query"], "slots": {}}
 {"id": "persona-059", "source": "persona", "tuned": true, "fixture": "empty", "now": "2026-10-09T15:53", "before": [], "state": "idle", "text": "আমার যাকাত কত দিতে হবে", "intent": ["menu_zakat"], "slots": {}}
 {"id": "persona-060", "source": "persona", "tuned": true, "fixture": "empty", "now": "2026-10-09T15:53", "before": [], "state": "idle", "text": "প্রতি শুক্রবার জুমার আগে সূরা কাহাফ পড়ার কথা মনে করাবে", "intent": ["reminder_add"], "slots": {}}
-{"id": "persona-061", "source": "persona", "tuned": true, "fixture": "empty", "now": "2026-10-09T15:53", "before": [], "state": "idle", "text": "তুমি কী কী পারো", "intent": ["complain_help"], "slots": {}}
+{"id": "persona-061", "source": "persona", "tuned": true, "fixture": "empty", "now": "2026-10-09T15:53", "before": [], "state": "idle", "text": "তুমি কী কী পারো", "intent": ["app_help"], "slots": {}}
 {"id": "persona-062", "source": "persona", "tuned": true, "fixture": "empty", "now": "2026-10-09T15:53", "before": [], "state": "idle", "text": "বিকেল পাঁচটায় ক্রিকেট খেলা", "intent": ["task_add"], "slots": {}}
 {"id": "persona-063", "source": "persona", "tuned": true, "fixture": "empty", "now": "2026-10-09T15:53", "before": [], "state": "idle", "text": "আম্মু টিফিনের জন্য একশো টাকা দিলো", "intent": ["cash_add"], "slots": {}}
 {"id": "persona-064", "source": "persona", "tuned": true, "fixture": "empty", "now": "2026-10-09T15:53", "before": [], "state": "idle", "text": "কাল স্কুলে বিজ্ঞান খাতা নিয়ে যেতে হবে", "intent": ["task_add"], "slots": {}}

@@ -858,7 +858,7 @@
    },
    {
     "text": "রিমাইন্ডার কিভাবে দেয়?",
-    "intent": "complain_help"
+    "intent": "app_help"
    },
    {
     "text": "মিটিংয়ের রিমাইন্ডার ৮টায় করো",
@@ -1412,7 +1412,7 @@
    },
    {
     "text": "পাসওয়ার্ড কিভাবে রাখব?",
-    "intent": "complain_help"
+    "intent": "app_help"
    }
   ],
   "note": ""
@@ -2572,7 +2572,7 @@
    },
    {
     "text": "ব্যাকআপ কী?",
-    "intent": "complain_help"
+    "intent": "app_help"
    }
   ],
   "note": ""
@@ -2779,7 +2779,7 @@
    },
    {
     "text": "খাত কী?",
-    "intent": "complain_help"
+    "intent": "app_help"
    }
   ],
   "note": ""
@@ -2983,7 +2983,7 @@
    },
    {
     "text": "বয়স কিভাবে গুনব?",
-    "intent": "complain_help"
+    "intent": "app_help"
    }
   ],
   "note": ""
@@ -3556,9 +3556,9 @@
  {
   "id": "complain_help",
   "group": "নিয়ন্ত্রণ",
-  "maps_to": "AboutMe.complaint / confusedOrHelp / SmallTalk(whatCanYouDo)",
-  "when": "অভিযোগ (\"ভুল দেখাচ্ছো\", \"আগের মতো হচ্ছে না\"), বিভ্রান্তি (\"কি?\"), অ্যাপ কিভাবে চালাতে হয়, কী কী পারে। কিছু খোঁজা বা রাখা নয়।",
-  "not_when": "নির্দিষ্ট সংশোধন (correct)।",
+  "maps_to": "AboutMe.complaint / confusedOrHelp",
+  "when": "অভিযোগ (\"ভুল দেখাচ্ছো\", \"আগের মতো হচ্ছে না\", \"রিমাইন্ডার বাজে না কেন\"), বিভ্রান্তি (\"কি?\", \"বুঝি নাই\")। কিছু খোঁজা, রাখা বা অ্যাপ নিয়ে জানতে চাওয়া নয়।",
+  "not_when": "নির্দিষ্ট সংশোধন (correct); অ্যাপের কোনো সুবিধা কী বা কীভাবে চালায় জানতে চাওয়া (app_help)।",
   "confusable": [
    {
     "intent": "correct",
@@ -3567,6 +3567,10 @@
    {
     "intent": "out_of_scope",
     "difference": "অ্যাপের বাইরের প্রশ্ন"
+   },
+   {
+    "intent": "app_help",
+    "difference": "অভিযোগ নয়, অ্যাপের সুবিধা জানতে চাওয়া"
    }
   ],
   "required": [],
@@ -3576,13 +3580,13 @@
    "তুমি ভুল রিমাইন্ডার দেখাচ্ছো",
    "আগের মতো হচ্ছে না",
    "কি?",
-   "কিভাবে কাজ যোগ করব?",
+   "রিমাইন্ডার বাজে না কেন",
    "এটা হলো কিছু?",
    "আমি এটা বলি নাই",
    "কিছুই বুঝো না",
-   "রিমাইন্ডার কিভাবে দেয়?",
+   "মানে বুঝলাম না",
    "এভাবে হবে না",
-   "তুমি কি কি পারো?"
+   "আবার ভুল করলা"
   ],
   "negatives": [
    {
@@ -3598,12 +3602,73 @@
     "intent": "smalltalk"
    },
    {
-    "text": "বাতিল",
-    "intent": "cancel"
-   },
-   {
     "text": "৫০০ না ৬০০",
     "intent": "correct"
+   },
+   {
+    "text": "রিমাইন্ডার কিভাবে দেয়?",
+    "intent": "app_help"
+   }
+  ],
+  "note": ""
+ },
+ {
+  "id": "app_help",
+  "group": "নিয়ন্ত্রণ",
+  "maps_to": "AppHelp(page) — অ্যাপের মানচিত্র থেকে উত্তর",
+  "when": "অ্যাপ নিয়ে জানতে চাওয়া: কোনো সুবিধা কী, কী কাজে লাগে, কীভাবে চালায়, কোথায় পাওয়া যায়, ফ্রিতে আছে কিনা, তুমি কী কী পারো। কিছু করতে বা খুলতে বলা নয়।",
+  "not_when": "সেই কাজটাই করতে বলা (রিমাইন্ডার দাও = reminder_add), পাতা খুলতে বলা (open_page), অভিযোগ (complain_help)।",
+  "confusable": [
+   {
+    "intent": "open_page",
+    "difference": "\"খোলো\" = পাতা খোলা"
+   },
+   {
+    "intent": "complain_help",
+    "difference": "\"কাজ করে না কেন\" = অভিযোগ"
+   },
+   {
+    "intent": "out_of_scope",
+    "difference": "অ্যাপের বাইরের প্রশ্ন"
+   }
+  ],
+  "required": [],
+  "optional": [
+   "page"
+  ],
+  "phone_only": false,
+  "examples": [
+   "কিভাবে কাজ যোগ করব?",
+   "রিমাইন্ডার কিভাবে দেয়?",
+   "তুমি কি কি পারো?",
+   "যাকাতের হিসাব কীভাবে হয়?",
+   "ভল্টে কী রাখা যায়?",
+   "ব্যাকআপ কী?",
+   "ওছিয়তনামা কোথায় পাব?",
+   "এই অ্যাপে কি দোকানের হিসাব রাখা যায়?",
+   "how do I add a reminder?",
+   "zakat er hisab kivabe kore?"
+  ],
+  "negatives": [
+   {
+    "text": "রিমাইন্ডার দাও কাল ৯টায়",
+    "intent": "reminder_add"
+   },
+   {
+    "text": "যাকাতের পাতা খোলো",
+    "intent": "open_page"
+   },
+   {
+    "text": "রিমাইন্ডার বাজে না কেন",
+    "intent": "complain_help"
+   },
+   {
+    "text": "আমার যাকাত কত",
+    "intent": "menu_zakat"
+   },
+   {
+    "text": "আকাশ কেন নীল",
+    "intent": "out_of_scope"
    }
   ],
   "note": ""
@@ -3642,7 +3707,7 @@
    },
    {
     "text": "তুমি কি কি পারো",
-    "intent": "complain_help"
+    "intent": "app_help"
    },
    {
     "text": "আজ কত তারিখ",
@@ -3671,7 +3736,7 @@
     "difference": "নিজের রাখা তথ্য"
    },
    {
-    "intent": "complain_help",
+    "intent": "app_help",
     "difference": "অ্যাপ চালানো নিয়ে প্রশ্ন"
    },
    {

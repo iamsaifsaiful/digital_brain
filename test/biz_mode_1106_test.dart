@@ -99,6 +99,7 @@ void main() {
     expect((s.subtotal, s.discount, s.discountPct, s.total), (365, 37, 10.0, 328));
     expect(b.shop.products.firstWhere((p) => p.id == sugar.id).stock, 8);
     expect(b.data.cash.single.amount, 328);
+    expect(b.data.cash.single.projectId, 'biz');
 
     // On credit with no customer: the picker opens; a new name is a new customer.
     await t.pump(const Duration(seconds: 5));

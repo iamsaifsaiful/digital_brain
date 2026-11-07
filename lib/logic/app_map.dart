@@ -272,6 +272,40 @@ String howToAnswer(AppPlace p) {
   return trf('{0}: {1} নিচের বোতাম চেপে {0} পাতা খুলুন — সেখানে নতুন যোগ করা, দেখা আর বদলানো যায়।{2}', [tr(p.title), tr(p.what), say]);
 }
 
+/// Where each part is (the bottom menu › its place), for "… কোথায় পাব?".
+const placeMenu = {
+  'tasks': 'দিনলিপি', 'reminders': 'দিনলিপি', 'alarms': 'দিনলিপি', 'diary': 'দিনলিপি', 'habits': 'দিনলিপি', 'medicines': 'দিনলিপি',
+  'money': 'হিসাব', 'ledger': 'হিসাব',
+  'notes': 'সংরক্ষণ', 'docs': 'সংরক্ষণ', 'vault': 'সংরক্ষণ', 'contacts': 'সংরক্ষণ', 'special': 'সংরক্ষণ', 'health': 'সংরক্ষণ', 'tags': 'সংরক্ষণ', 'search': 'সংরক্ষণ',
+  'settings': 'আরও', 'backup': 'আরও', 'pro': 'আরও', 'zakat': 'আরও', 'family': 'আরও',
+};
+
+/// ব্যবসায়ী মোড and its tabs: not pages of the usual app, so said here.
+const _bizHelp = {
+  'business': 'ব্যবসায়ী মোড (প্রিমিয়াম): দোকান চালানোর আলাদা মোড — হোম, বিক্রি, গ্রাহক, হিসাব আর স্টক; ব্যবসার আয়-ব্যয় নিজের আয়-ব্যয় থেকে আলাদা থাকে, যাকাতে “ব্যবসা থেকে” লেখা থাকে। “আরও” মেনুতে ব্যবসায়ী মোড চালু করুন।',
+  'biz_sell': 'বিক্রি: পণ্য বেছে বিক্রি, ছাড় টাকায় বা শতাংশে, নগদ/QR/বাকিতে; বিক্রির পরে PDF রসিদ হোয়াটসঅ্যাপে পাঠানো যায়। ব্যবসায়ী মোডের “বিক্রি” ট্যাবে।',
+  'biz_customers': 'গ্রাহক: প্রতিটা গ্রাহকের প্রোফাইল, কেনাকাটা আর বাকি; বাকির রিমাইন্ডার আর হোয়াটসঅ্যাপে তাগাদা। ব্যবসায়ী মোডের “গ্রাহক” ট্যাবে।',
+  'biz_hisab': 'ব্যবসার হিসাব: ব্যবসার আয়-ব্যয়, আজকের নগদ, ডিলারের কাছ থেকে মাল কেনা আর পরিশোধ। ব্যবসায়ী মোডের “হিসাব” ট্যাবে।',
+  'biz_stock': 'স্টক: পণ্যের স্টক, কেনা-বেচার দাম, ধরন ধরে সেকশন; কম পড়লে অর্ডারের তালিকায় ওঠে। ব্যবসায়ী মোডের “স্টক” ট্যাবে।',
+};
+
+const _bizWords = ['ব্যবসায়ী মোড', 'বিজনেস মোড', 'ব্যবসার মোড', 'business mode'];
+
+/// "যাকাত জিনিসটা কী?", "ভল্ট কোথায় পাব?", "ব্যবসায়ী মোড চালু করলে কী হয়?":
+/// what the part is and what to say for it — from this map, never made up.
+/// [page] is what the on-phone model marked (an id); else the part named.
+String appHelpAnswer(String? page, String said) {
+  final text = normalize(said);
+  final biz = _bizHelp[page] ?? (_bizWords.any((w) => text.contains(normalize(w))) ? _bizHelp['business'] : null);
+  if (biz != null) return tr(biz);
+  final p = (page == null ? null : placeById(page)) ?? placeMentioned(text);
+  if (p == null || p.id == 'help' || p.id == 'store') return capabilitiesSpoken();
+  final menu = placeMenu[p.id];
+  final where = menu == null ? '' : trf(' নিচের “{0}” মেনুতে পাবেন।', [tr(menu)]);
+  final say = p.say.isEmpty ? '' : trf(' আমাকে বলেও করা যায় — যেমন “{0}”।', [tr(p.say.first)]);
+  return trf('{0}: {1}{2}{3}', [tr(p.title), tr(p.what), where, say]);
+}
+
 /// "তুমি কী কী পারো?" — spoken: short; shown: one line per part.
 String capabilitiesSpoken() => tr(
     'অনেক কিছু পারি — কাজের তালিকা, সময়মতো মনে করানো, ফোন-মেসেজ, ধার-দেনা আর আয়-ব্যয়ের হিসাব, নোট, কাগজপত্র, পাসওয়ার্ড, স্বাস্থ্য আর বিশেষ দিন। যেকোনো পাতাও খুলে দিতে পারি — যেমন বলুন “নোট খোলো”। পুরো তালিকা নিচে দিলাম।');

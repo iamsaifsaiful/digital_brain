@@ -145,6 +145,9 @@ String reminderAnswer(AppData d, ReminderQuery q, DateTime now) {
   return '${r.title} ${weekdayName(day)}, ${bnDigits(day.day)} ${monthName(day.month)}। $when।';
 }
 
+/// A search that found nothing at all.
+String noInfoAnswer() => tr('এ বিষয়ে কোনো তথ্য নেই। তথ্যটি যুক্ত করতে পারেন — বলুন “মনে রাখো: …” — পরে যেকোনো সময় জিজ্ঞেস করলে উত্তর দেবো।');
+
 String searchAnswer(AppData d, SearchQuery q, DateTime now) {
   // "আমার এখানে কোন ছবি আছে কিনা?": the photos kept in ডকুমেন্টস, in general.
   const photoWords = ['ছবি', 'ছবিগুলো', 'ছবিগুলা', 'ফটো', 'photo', 'photos', 'ছবিটবি'];
@@ -194,12 +197,21 @@ String searchAnswer(AppData d, SearchQuery q, DateTime now) {
     // "রহিমের নম্বর কত?" with no such number: say whose, and how to add it.
     final w = words(normalize(q.transcript));
     if (w.any((x) => x.startsWith(normalize('নম্বর')) || x.startsWith(normalize('নাম্বার')))) {
-      final whose = w.firstWhere((x) => x != 'আমার' && stripPossessive(x) != x, orElse: () => '');
+      // "আমার যত নম্বর আছে দেখাও", "নম্বরগুলো দেখাও": the phone book itself.
+      final many = w.any((x) => RegExp('(?:গুলো|গুলা|গুলি)\$').hasMatch(x)) || w.any((x) => const ['যত', 'সব', 'সবগুলো', 'লিস্ট', 'তালিকা'].map(normalize).contains(x));
+      if (many) {
+        final c = d.contacts;
+        if (c.isEmpty) return tr('এখনো কোনো নম্বর রাখা নেই। যোগাযোগ পাতা থেকে ফোনবুকের নম্বর আনুন, বা বলুন “রহিমের নম্বর ০১৭… রাখো”।');
+        return trf('{0}টা নম্বর রাখা আছে — {1}{2}। সব দেখতে যোগাযোগ পাতা খুলুন।', [bnDigits(c.length), c.take(5).map((x) => x.name).join(', '), c.length > 5 ? tr(' এবং আরও') : '']);
+      }
+      // "তোমার কাছে …": you = the app, never whose number.
+      const notWhose = ['আমার', 'তোমার', 'তোর', 'আপনার', 'তোমাদের', 'আমাদের'];
+      final whose = w.firstWhere((x) => !notWhose.map(normalize).contains(x) && stripPossessive(x) != x, orElse: () => '');
       if (whose.isNotEmpty) {
         return trf('{0} নম্বরের কোনো তথ্য নেই। বলুন “{0} নম্বর ০১৭… রাখো”, অথবা যোগাযোগ পাতা থেকে ফোনবুকের নম্বর আনুন — পরে নাম বললেই ফোন করে দেবো।', [whose]);
       }
     }
-    return tr('এ বিষয়ে কোনো তথ্য নেই। তথ্যটি যুক্ত করতে পারেন — বলুন “মনে রাখো: …” — পরে যেকোনো সময় জিজ্ঞেস করলে উত্তর দেবো।');
+    return noInfoAnswer();
   }
   // Say the best match itself, not just "found N things".
   final best = hits.first;
@@ -966,7 +978,7 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       VaultQuery() => vaultAnswer(d, cmd),
       ReminderQuery() => specialDayAnswer(d, cmd.transcript, now) ?? taskForReminderQuery(d, cmd, now) ?? reminderAnswer(d, cmd, now),
       SearchQuery() => searchAnswer(d, cmd, now),
-      SmallTalk() => cmd.kind == Talk.calendar ? calendarAnswer(cmd.transcript, now) : talkReply(cmd.kind, now),
+      SmallTalk() => cmd.kind == Talk.calendar ? calendarAnswer(cmd.transcript, now) : (cmd.kind == Talk.appHelp ? appHelpAnswer(cmd.page, cmd.transcript) : talkReply(cmd.kind, now)),
       AiReply() => cmd.text,
       TaskQuery(:final scope?, :final transcript) => taskScopeAnswer(d, scope, now, transcript).$1,
       TaskQuery(:final transcript) => taskAnswer(d, now, transcript),
