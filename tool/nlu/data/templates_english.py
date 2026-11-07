@@ -151,17 +151,24 @@ T['smalltalk'] = '''
 [lol|haha|hahaha]
 [kemon acho|ki khobor|ki koro][?|]
 [dhonnobad|thank you vai|thanks bhai]
+[cheers|great|nice one|awesome|cool][!| buddy| bro|]
+[good afternoon|good day|see you|bye for now][!|]
+[you are nice|you are helpful|love this app][!|]
 '''
 
 T['complain_help'] = '''
 [that's wrong|that is not what i said|you got it wrong]
 [you don't understand me|you are not listening][!|]
 [bujhlam na|ki bolle][?|]
+[still not fixed|you did it wrong again|this is not working][!|]
+[why did you|why did it] [save it there|open the wrong page|change the date][?|]
 '''
 
 T['out_of_scope'] = '''
 [order a pizza|book a cab|buy me a ticket][ for me|]
 [write my essay|do my homework|apply for the job for me]
+[how do i lose weight|how to cook biryani|how can i learn english fast|how do i fix my fridge][?|]
+[who won the match|what's the dollar rate|tell me a joke][?|]
 '''
 
 # More menus in English and Banglish (owner, 7 Nov: every feature, many ways).
