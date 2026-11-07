@@ -1856,7 +1856,7 @@ class ChatController extends ChangeNotifier {
         _say(out, medicalOffText());
         continue;
       }
-      final text = (c is ProfileQuery ? _donorAnswer(c.transcript) : null) ?? answerText(brain.data, c, _now) ?? '';
+      final text = (c is ProfileQuery ? _donorAnswer(c.transcript) : null) ?? (c is SearchQuery ? _premiumAnswer(c.transcript) : null) ?? answerText(brain.data, c, _now) ?? '';
       // Two parts of one message with the same answer ("এ বিষয়ে কোনো তথ্য
       // নেই" twice): said once.
       if (text.isNotEmpty && !answered.add(text)) continue;
@@ -2748,6 +2748,19 @@ class ChatController extends ChangeNotifier {
   }
 
   /// "আবার কবে রক্ত দিতে পারব?": three months after the last time kept.
+  /// "আমার প্রিমিয়াম কি চালু আছে?", "প্রিমিয়াম কবে শেষ": the app's own
+  /// answer, from what it knows — not "এ বিষয়ে কোনো তথ্য নেই".
+  String? _premiumAnswer(String said) {
+    if (placeMentioned(normalize(said))?.id != 'pro') return null;
+    final w = words(normalize(said));
+    if (!w.any((x) => const ['চালু', 'কিনা', 'আছে', 'কবে', 'মেয়াদ', 'শেষ', 'কতদিন', 'বাকি'].map(normalize).contains(x))) return null;
+    final until = brain.proUntil;
+    if (!brain.gated) return tr('জি, এই সংস্করণে প্রিমিয়ামের সব সুবিধা খোলা।');
+    if (brain.paidPro && until != null) return trf('জি, প্রিমিয়াম চালু আছে — {0} পর্যন্ত।', [sayWhen(until, _now, withTime: false)]);
+    if (brain.onTrial && brain.trialEnds != null) return trf('এখন প্রিমিয়ামের ফ্রি ট্রায়াল চলছে — {0} পর্যন্ত। এরপর চালু রাখতে প্রিমিয়াম নিতে হবে।', [sayWhen(brain.trialEnds!, _now, withTime: false)]);
+    return tr('প্রিমিয়াম এখন চালু নেই। প্রিমিয়াম পাতা থেকে নিতে পারেন — নিচে চাপুন।');
+  }
+
   String? _donorAnswer(String said) {
     final f = fold(normalize(said));
     if (!RegExp(fold(r'কবে.*(?:রক্ত|ব্লাড)\s+(?:দিতে|দেওয়া|দেয়া)|(?:রক্ত|ব্লাড)\s+(?:দিতে|দেওয়া|দেয়া)\s+(?:পারব|পারবো|যাবে|পারি).*কবে|আবার\s+কবে\s+(?:রক্ত|ব্লাড)')).hasMatch(f)) return null;

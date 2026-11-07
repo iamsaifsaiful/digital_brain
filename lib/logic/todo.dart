@@ -980,8 +980,12 @@ Command? _tdOne(String said0, List<Task> tasks, DateTime now) {
   if (_thas(f, r'^\s*(?:শুধু\s+)?(?:আর\s+)?(?:মনে\s+(?:করিও|করাইও|করাবে|করিয়ো|করিয়ে\s+দিও)\s+না|(?:রিমাইন্ডার|reminder)(?:টা)?\s+(?:বন্ধ|অফ|off)\s+করো(?:\s+(?:কাজ|task)\s+(?:থাকবে|থাকুক|থাক))?)\s*$')) {
     return TaskEdit(said, ref: TaskRef(it: true, said: said), stopReminder: true);
   }
-  if (remindWord && pointsAtTask) {
-    final ref = _tdRef(f, said);
+  // "…সেটা হল কাল ১০টায় আমার একটা মিটিং আছে, রিমাইন্ডার সেট করো": words
+  // that name no to-do on the list are a new reminder, never "no such to-do".
+  final remindRef = remindWord && pointsAtTask ? _tdRef(f, said) : null;
+  final namesNone = remindRef != null && remindRef.terms.isNotEmpty && remindRef.index == null && tdMatch(open, remindRef.terms).isEmpty && !_thas(f, r'(?<=\s)\S+\s+কাজ(?:টা|টি|টার|টায়|টাকে)(?=\s)');
+  if (remindWord && pointsAtTask && !namesNone) {
+    final ref = remindRef!;
     if (_thas(f, r'(?:মনে\s+(?:করিও|করাইও|করাবে|করিয়ো|করিয়ে\s+দিও)\s+না|(?:রিমাইন্ডার|reminder)(?:টা)?\s+(?:বন্ধ|অফ|off))')) {
       return TaskEdit(said, ref: ref.isEmpty ? TaskRef(it: true, said: said) : ref, stopReminder: true);
     }

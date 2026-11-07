@@ -5176,4 +5176,11 @@ const enStrings = <String, String>{
   '“{0}” {1} {2} রাখলাম। আগেরটাও আছে।': 'Set “{0}” for {1} {2}. The earlier one stays.',
   '“{0}” {1} {2} সরিয়েছি।': 'Moved “{0}” to {1} {2}.',
   '{0} — রিমাইন্ডার {1}': '{0} — reminder {1}',
+  'জি, এই সংস্করণে প্রিমিয়ামের সব সুবিধা খোলা।': 'Yes, every Premium feature is open in this version.',
+  'জি, প্রিমিয়াম চালু আছে — {0} পর্যন্ত।': 'Yes, Premium is on — until {0}.',
+  'এখন প্রিমিয়ামের ফ্রি ট্রায়াল চলছে — {0} পর্যন্ত। এরপর চালু রাখতে প্রিমিয়াম নিতে হবে।': 'Your free Premium trial runs until {0}. After that, buy Premium to keep it on.',
+  'প্রিমিয়াম এখন চালু নেই। প্রিমিয়াম পাতা থেকে নিতে পারেন — নিচে চাপুন।': 'Premium is not on. You can get it from the Premium page — tap below.',
+  'এখনো কোনো নম্বর রাখা নেই। যোগাযোগ পাতা থেকে ফোনবুকের নম্বর আনুন, বা বলুন “রহিমের নম্বর ০১৭… রাখো”।': 'No numbers kept yet. Bring them from your phone book on the Contacts page, or say “save Rahim\'s number 017…”.',
+  '{0}টা নম্বর রাখা আছে — {1}{2}। সব দেখতে যোগাযোগ পাতা খুলুন।': '{0} numbers kept — {1}{2}. Open Contacts to see them all.',
+  ' এবং আরও': ' and more',
 };

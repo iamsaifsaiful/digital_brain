@@ -61,7 +61,9 @@ CategoryGuess guessCategory(AppData d, String text) {
   final ws = words(norm);
   bool hit(String k) {
     final nk = normalize(k);
-    return nk.contains(' ') ? norm.contains(nk) : ws.any((w) => w.startsWith(nk));
+    // "বিলের", "বিলটা" — but never "বিলিয়ন": only a case ending may follow.
+    const ends = ['', 'ের', 'এর', 'র', 'টা', 'টি', 'টার', 'গুলো', 'গুলা', 'ে', 'য়', 'তে', 'ও', 'কে'];
+    return nk.contains(' ') ? norm.contains(nk) : ws.any((w) => w.startsWith(nk) && ends.map(normalize).contains(w.substring(nk.length)));
   }
 
   for (final e in _topicsRaw.entries) {

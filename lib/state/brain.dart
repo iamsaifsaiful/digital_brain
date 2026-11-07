@@ -2193,6 +2193,14 @@ class Brain extends ChangeNotifier {
         return (phone, null, 'nlu_phone');
       }
     }
+    // Talk the rules took for a search that finds nothing ("কিরে খবর কি",
+    // "কি শুনছো"): the on-phone model, when sure it is talk or a complaint,
+    // answers as talk — never "এ বিষয়ে কোনো তথ্য নেই". Without the AI only
+    // (the AI's own words are better for talk).
+    if (!aiOn && !here && pieces != null && pieces.length == 1 && pieces.single.sure && const {'smalltalk', 'complain_help'}.contains(pieces.single.intent) && _findsNothing(rules, now) && !mentionsSecret(said)) {
+      Trace.log('nlu', 'phone model: talk', {'rules': ruleIntents.join(','), 'model': pieces.single.intent});
+      return ([SmallTalk(said, kind: pieces.single.intent == 'smalltalk' ? Talk.greeting : Talk.sorry)], null, 'nlu_phone_talk');
+    }
     if (!aiOn && english && nluMode != 'off') {
       final got = await _cloudReading(said, pieces ?? const [], nluState, nluKind);
       if (got == null) return (rules, null, 'nlu_cloud_fail');
@@ -2363,6 +2371,10 @@ class Brain extends ChangeNotifier {
   static bool _lost(List<Command> c) => c.isEmpty || c.every((x) => x is NotUnderstood);
 
   /// Rules that only half understood: nothing, a search, or a plain note.
+  /// Nothing the rules made, or a search with nothing found.
+  bool _findsNothing(List<Command> c, DateTime now) =>
+      c.length == 1 && (c.first is NotUnderstood || (c.first is SearchQuery && answerText(data, c.first, now) == noInfoAnswer()));
+
   static bool _weak(List<Command> c) => c.length == 1 && (c.first is NotUnderstood || c.first is SearchQuery || c.first is NoteAdd);
 
   /// The user's own paper folders and note categories, for "… ফোল্ডার খোলো".
