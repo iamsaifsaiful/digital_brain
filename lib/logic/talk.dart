@@ -24,7 +24,7 @@ String talkReply(Talk kind, DateTime now) => switch (kind) {
       Talk.salam => 'ওয়ালাইকুম আসসালাম! বলেন, কী করতে পারি?',
       Talk.whoAreYou =>
         'আমি My Assistant, আপনার ব্যক্তিগত সহকারী। কাজ, রিমাইন্ডার, হিসাব, নোট, কাগজপত্র, স্বাস্থ্য — আপনি বলবেন, আমি সামলাবো।',
-      Talk.whatCanYouDo => capabilitiesSpoken(),
+      Talk.whatCanYouDo || Talk.appHelp => capabilitiesSpoken(),
       Talk.thanks => _pick(['আপনাকেও ধন্যবাদ! আর কিছু লাগলে বলবেন।', 'কোনো ব্যাপার না! আর কিছু?']),
       Talk.bye => 'ঠিক আছে, ভালো থাকবেন! দরকার হলে আবার ডাকবেন।',
       Talk.time => 'এখন ${bnTime(now.hour, now.minute)}।',

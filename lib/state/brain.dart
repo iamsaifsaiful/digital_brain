@@ -2193,6 +2193,14 @@ class Brain extends ChangeNotifier {
         return (phone, null, 'nlu_phone');
       }
     }
+    // A question about the app itself ("যাকাত জিনিসটা কী?", "ভল্ট কোথায়
+    // পাব?", "how do I back up?") that the rules took for a search, talk or a
+    // complaint: when the on-phone model is sure, answered from the app's
+    // own map (app_map.dart) — never a search of the user's data.
+    if (pieces != null && pieces.length == 1 && pieces.single.sure && pieces.single.intent == 'app_help' && _appQuestionMissed(rules, now) && !mentionsSecret(said)) {
+      Trace.log('nlu', 'phone model: app help', {'rules': ruleIntents.join(',')});
+      return ([SmallTalk(said, kind: Talk.appHelp)], null, 'nlu_phone_help');
+    }
     // Talk the rules took for a search that finds nothing ("কিরে খবর কি",
     // "কি শুনছো"): the on-phone model, when sure it is talk or a complaint,
     // answers as talk — never "এ বিষয়ে কোনো তথ্য নেই". Without the AI only
@@ -2371,6 +2379,23 @@ class Brain extends ChangeNotifier {
   static bool _lost(List<Command> c) => c.isEmpty || c.every((x) => x is NotUnderstood);
 
   /// Rules that only half understood: nothing, a search, or a plain note.
+  /// The rules read no request worth keeping: nothing, a search, talk, a
+  /// complaint or a how-to they answered in general.
+  bool _appQuestionMissed(List<Command> c, DateTime now) =>
+      c.length == 1 &&
+      (c.first is NotUnderstood ||
+          (c.first is SearchQuery && _searchEmpty(c.first as SearchQuery, now)) ||
+          // A "what is kept about me" reading with nothing of the user's own to say.
+          (c.first is ProfileQuery && profileAnswer(data, c.first.transcript) == null) ||
+          (c.first is SmallTalk && const {Talk.sorry, Talk.understand, Talk.whatCanYouDo, Talk.greeting}.contains((c.first as SmallTalk).kind)));
+
+  /// A search that found none of the user's own things (only "no such
+  /// information", or a page to look in).
+  bool _searchEmpty(SearchQuery q, DateTime now) {
+    final a = answerText(data, q, now) ?? '';
+    return a == noInfoAnswer() || a.startsWith(tr('এ বিষয়ে আলাদা কোনো তথ্য নেই'));
+  }
+
   /// Nothing the rules made, or a search with nothing found.
   bool _findsNothing(List<Command> c, DateTime now) =>
       c.length == 1 && (c.first is NotUnderstood || (c.first is SearchQuery && answerText(data, c.first, now) == noInfoAnswer()));

@@ -5190,4 +5190,11 @@ const enStrings = <String, String>{
   'ব্যবসার আয়-ব্যয়': 'Business income & spending',
   'নিজের আয়-ব্যয় থেকে আলাদা': 'Kept apart from your own',
   'এই মাসে ব্যবসার কোনো আয়-ব্যয় নেই।': 'No business income or spending this month.',
+  'এ বিষয়ে আলাদা কোনো তথ্য নেই': 'There is nothing separate on this',
+  ' নিচের “{0}” মেনুতে পাবেন।': ' You\'ll find it in the “{0}” menu at the bottom.',
+  'ব্যবসায়ী মোড (প্রিমিয়াম): দোকান চালানোর আলাদা মোড — হোম, বিক্রি, গ্রাহক, হিসাব আর স্টক; ব্যবসার আয়-ব্যয় নিজের আয়-ব্যয় থেকে আলাদা থাকে, যাকাতে “ব্যবসা থেকে” লেখা থাকে। “আরও” মেনুতে ব্যবসায়ী মোড চালু করুন।': 'Business mode (Premium): a separate mode for running a shop — home, sales, customers, accounts and stock; business money stays apart from your own, and zakat marks it “from the business”. Turn it on in the “More” menu.',
+  'বিক্রি: পণ্য বেছে বিক্রি, ছাড় টাকায় বা শতাংশে, নগদ/QR/বাকিতে; বিক্রির পরে PDF রসিদ হোয়াটসঅ্যাপে পাঠানো যায়। ব্যবসায়ী মোডের “বিক্রি” ট্যাবে।': 'Sales: pick products, give a discount in taka or percent, take cash, QR or credit; after a sale a PDF receipt can go on WhatsApp. In business mode\'s “Sales” tab.',
+  'গ্রাহক: প্রতিটা গ্রাহকের প্রোফাইল, কেনাকাটা আর বাকি; বাকির রিমাইন্ডার আর হোয়াটসঅ্যাপে তাগাদা। ব্যবসায়ী মোডের “গ্রাহক” ট্যাবে।': 'Customers: each customer\'s profile, purchases and dues; due reminders and WhatsApp payment reminders. In business mode\'s “Customers” tab.',
+  'ব্যবসার হিসাব: ব্যবসার আয়-ব্যয়, আজকের নগদ, ডিলারের কাছ থেকে মাল কেনা আর পরিশোধ। ব্যবসায়ী মোডের “হিসাব” ট্যাবে।': 'Business accounts: the business\'s income and spending, today\'s cash, stock bought from dealers and payments to them. In business mode\'s “Accounts” tab.',
+  'স্টক: পণ্যের স্টক, কেনা-বেচার দাম, ধরন ধরে সেকশন; কম পড়লে অর্ডারের তালিকায় ওঠে। ব্যবসায়ী মোডের “স্টক” ট্যাবে।': 'Stock: products in stock, buying and selling prices, sections by kind; running low puts them on the order list. In business mode\'s “Stock” tab.',
 };

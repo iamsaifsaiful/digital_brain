@@ -978,7 +978,7 @@ String? answerText(AppData d, Command cmd, DateTime now) => switch (cmd) {
       VaultQuery() => vaultAnswer(d, cmd),
       ReminderQuery() => specialDayAnswer(d, cmd.transcript, now) ?? taskForReminderQuery(d, cmd, now) ?? reminderAnswer(d, cmd, now),
       SearchQuery() => searchAnswer(d, cmd, now),
-      SmallTalk() => cmd.kind == Talk.calendar ? calendarAnswer(cmd.transcript, now) : talkReply(cmd.kind, now),
+      SmallTalk() => cmd.kind == Talk.calendar ? calendarAnswer(cmd.transcript, now) : (cmd.kind == Talk.appHelp ? appHelpAnswer(cmd.page, cmd.transcript) : talkReply(cmd.kind, now)),
       AiReply() => cmd.text,
       TaskQuery(:final scope?, :final transcript) => taskScopeAnswer(d, scope, now, transcript).$1,
       TaskQuery(:final transcript) => taskAnswer(d, now, transcript),

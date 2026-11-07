@@ -1,6 +1,7 @@
 // The NLU spec's intent names (docs/nlu-spec.md) for the app's Command
 // classes: how the old rules' (and later the AI's) readings are compared
 // with the gold set and with the new understanding (shadow mode).
+import '../logic/app_map.dart' show abilityAsked, howToAsked;
 import '../logic/parser.dart';
 
 /// The spec intent of one command.
@@ -61,8 +62,9 @@ String intentOfCommand(Command c) {
       return 'special_add';
     case MemoryAdd() || ProfileSet():
       return 'memory_add';
-    case ProfileQuery():
-      return 'profile_query';
+    case ProfileQuery(:final transcript):
+      // "কিভাবে ডকুমেন্টস যুক্ত করব?": a question about the app.
+      return howToAsked(transcript) != null || abilityAsked(transcript) != null ? 'app_help' : 'profile_query';
     case HealthAdd():
       return 'health_add';
     case HealthQuery():
@@ -90,7 +92,8 @@ String intentOfCommand(Command c) {
         Talk.time || Talk.date || Talk.calendar => 'calendar_query',
         Talk.cancelled => 'cancel',
         Talk.wontDo => 'correct',
-        Talk.whatCanYouDo || Talk.understand || Talk.sorry || Talk.listenOverMe || Talk.nothingDone => 'complain_help',
+        Talk.whatCanYouDo || Talk.appHelp => 'app_help',
+        Talk.understand || Talk.sorry || Talk.listenOverMe || Talk.nothingDone => 'complain_help',
         _ => 'smalltalk',
       };
     case Clarify(:final options):

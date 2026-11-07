@@ -459,12 +459,15 @@ class NotUnderstood extends Command {
   const NotUnderstood(super.transcript);
 }
 
-enum Talk { greeting, salam, howAreYou, imFine, whoAreYou, whatCanYouDo, thanks, bye, time, date, nothingDone, cancelled, wontDo, listenOverMe, understand, sorry, calendar }
+enum Talk { greeting, salam, howAreYou, imFine, whoAreYou, whatCanYouDo, thanks, bye, time, date, nothingDone, cancelled, wontDo, listenOverMe, understand, sorry, calendar, appHelp }
 
 /// Conversation, not data: "তুমি কেমন আছো?", "ধন্যবাদ", "আজ কত তারিখ?".
 class SmallTalk extends Command {
-  const SmallTalk(super.transcript, {required this.kind});
+  const SmallTalk(super.transcript, {required this.kind, this.page});
   final Talk kind;
+
+  /// [Talk.appHelp]: the part of the app asked about (an app_map id), if known.
+  final String? page;
 }
 
 // ───────────────────────── Text helpers ─────────────────────────

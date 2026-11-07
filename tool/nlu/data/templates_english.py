@@ -156,11 +156,69 @@ T['smalltalk'] = '''
 T['complain_help'] = '''
 [that's wrong|that is not what i said|you got it wrong]
 [you don't understand me|you are not listening][!|]
-how do i use this[ app|][?|]
 [bujhlam na|ki bolle][?|]
 '''
 
 T['out_of_scope'] = '''
 [order a pizza|book a cab|buy me a ticket][ for me|]
 [write my essay|do my homework|apply for the job for me]
+'''
+
+# More menus in English and Banglish (owner, 7 Nov: every feature, many ways).
+T['contact_query'] = '''
+[what's|what is|tell me] {en_name}'s [number|phone number][?|]
+{bl_name} er number [koto|ta dao|dekhao][?|]
+[show|show me] [my contacts|all my numbers|the saved numbers]
+'''
+
+T['reminder_stop'] = '''
+[stop|turn off|cancel] the {en_remn} reminder
+{bl_rem} er reminder [bondho koro|off koro|ar dio na]
+'''
+
+T['task_edit'] = '''
+[move|shift|reschedule] {en_todo} {en_date}
+{bl_todo} [kaj ta|task ta] {bl_date} [koro|sorao|niye jao]
+'''
+
+T['special_query'] = '''
+when is {en_name}'s [birthday|anniversary][?|]
+{bl_name} er [birthday|jonmodin] kobe[?|]
+[any birthdays|whose birthday is] [this month|coming up][?|]
+'''
+
+T['menu_zakat'] = '''
+@op=calc
+[how much zakat do i owe|calculate my zakat|what is my zakat this year][?|]
+[amar|] [zakat|jakat] koto [hobe|ashe|dite hobe][?|]
+
+@op=price
+[what's|what is] [today's|the] [gold|silver] price[?|]
+ajker [sonar|rupar] dam koto[?|]
+'''
+
+T['menu_backup'] = '''
+@op=now
+[back up|backup] [now|my data now|everything now]
+[ekhon|akhon] backup [nao|koro|niye nao]
+
+@op=when
+when was [my|the] last backup[?|]
+last backup kobe [hoise|hoyeche][?|]
+'''
+
+T['menu_trash'] = '''
+@op=restore
+[restore|bring back|undo deleting] [what i deleted|the note i deleted|my deleted task]
+[vul kore|bhul kore] delete [korsi|korechi], [ferot ano|firiye ano]
+'''
+
+T['briefing'] = '''
+[give me|read me] [today's|my] [briefing|summary|update]
+[ajker|ajke] [update|summary] [dao|bolo|shonao]
+'''
+
+T['profile_query'] = '''
+what is my blood group[?|]
+amar blood group [ki|koto][?|]
 '''

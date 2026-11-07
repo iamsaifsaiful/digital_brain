@@ -133,6 +133,9 @@ def none_intent(text):
         return 'confirm_yes'
     if t == 'না':
         return 'confirm_no'
+    # Asking how the app works or what it can do (not a complaint).
+    if re.search(r'(কিভাবে|কীভাবে|কোথায় পাব|কী কী পার|কি কি পার)', t) and 'কেন' not in t:
+        return 'app_help'
     return 'complain_help'
 
 

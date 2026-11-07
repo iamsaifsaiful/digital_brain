@@ -10,6 +10,7 @@ import random, re
 import lexicon as L
 import render as R
 import english as E
+import help_values as H
 
 ALT = re.compile(r'\[([^\[\]]*)\]')
 PH = re.compile(r'\{([a-z_0-9]+)(?::([a-z_0-9]+))?\}')
@@ -70,6 +71,10 @@ def value(ctx, name, var):
 
 
 def _value(ctx, name, var):
+    if name.startswith('hp_'):
+        got = H.value(ctx, name, var)
+        if got is not None:
+            return got
     if name.startswith(('en_', 'bl_')):
         got = E.value(ctx, name, var)
         if got is not None:

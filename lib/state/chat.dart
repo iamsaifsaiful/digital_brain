@@ -1949,6 +1949,11 @@ class ChatController extends ChangeNotifier {
     }
     if (c is ReminderQuery && searchReminders(d, c.terms).isNotEmpty) return [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))];
     if (c is TaskQuery || c is Briefing) return [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))];
+    if (c is SmallTalk && c.kind == Talk.appHelp) {
+      final p = (c.page == null ? null : placeById(c.page!)) ?? placeMentioned(normalize(c.transcript));
+      if (p != null && p.id != 'help' && p.id != 'store') return [ChatLink(LinkKind.page, trf('খুলুন: {0}', [tr(p.title)]), page: p.id)];
+      return [ChatLink(LinkKind.page, tr('কী কী করা যায় — বিস্তারিত'), page: 'help')];
+    }
     if (c is CashQuery) return [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন'))];
     if (c is ContactsQuery) return [ChatLink(LinkKind.contacts, tr('যোগাযোগ দেখুন'))];
     if (c is HealthQuery) return [ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন'))];
