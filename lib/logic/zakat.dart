@@ -9,7 +9,7 @@ import 'cash.dart' show cashOnHand, cashStartOf, cashNowParts, cashSinceStart;
 import 'lang.dart';
 import 'ledger.dart';
 import 'money_more.dart' show accountBalance, GoldPiece, ZakatSaved, ZakatInput;
-import 'shop_logic.dart' show customerAccount, dealerAccount, qtyText;
+import 'shop_logic.dart' show bizCashBalance, customerAccount, dealerAccount, isBizCash, qtyText;
 
 /// নিসাব by weight: সাড়ে ৫২ তোলা (ভরি) রুপা ≈ ৬১২.৩৬ গ্রাম; সাড়ে ৭ তোলা সোনা ≈ ৮৭.৪৮ গ্রাম.
 const nisabSilverVori = 52.5;
@@ -195,6 +195,12 @@ List<ZakatLine> zakatLines(AppData d, DateTime now, ZakatSaved z) {
     final units = stocked.fold<double>(0, (s, p) => s + p.stock);
     add('shop:stock', ZakatGroup.business, '${tr('দোকানের স্টক')} · ${tr('ব্যবসা থেকে')}', value,
         trf('{0}টি পণ্য, মোট {1} একক — বিক্রয়মূল্যে; ব্যবসায়ী মোডের স্টক থেকে', [bnDigits(stocked.length), bnDigits(qtyText(units))]));
+  }
+  // The business's own cash (sales and collections in, costs out).
+  final bizNet = bizCashBalance(d.cash);
+  if (bizNet > 0) {
+    add('shop:cash', ZakatGroup.cash, '${tr('ব্যবসার নগদ')} · ${tr('ব্যবসা থেকে')}', bizNet, tr('ব্যবসায়ী মোডের আয় থেকে খরচ বাদ — বিক্রি, বাকি আদায়, মাল কেনা আর দোকানের খরচ'),
+        at: _latest([for (final e in d.cash.where(isBizCash)) e.date]));
   }
   final owing = [for (final c in shop.customers) customerAccount(shop, c)].where((a) => a.due > 0).toList();
   if (owing.isNotEmpty) {

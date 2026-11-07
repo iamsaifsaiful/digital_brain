@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../logic/bn.dart';
-import '../../logic/cash.dart' show monthSums;
 import '../../logic/lang.dart';
 import '../../logic/shop_logic.dart';
 import '../../models/models.dart';
@@ -10,8 +9,6 @@ import '../../ui/forms.dart' show askText;
 import '../../ui/kit.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
-import '../home_shell.dart' show MenuPage;
-import '../ledger_screen.dart' show MoneyScreen;
 import 'biz_parts.dart';
 import 'biz_stock.dart' show PurchasePage;
 
@@ -113,7 +110,7 @@ class BizHisabState extends State<BizHisab> {
   }
 
   List<Widget> _money(BuildContext context, Brain brain, DateTime now) {
-    final m = monthSums(brain.data.cash, now);
+    final m = bizMonthSums(brain.data.cash, now);
     final week = salesByDay(brain.shop, now);
     final top = week.fold<int>(1, (s, x) => x.$2 > s ? x.$2 : s);
     final cash = todayCash(brain.data, now);
@@ -124,7 +121,7 @@ class BizHisabState extends State<BizHisab> {
         child: Row(children: [
           Expanded(child: Figure(label: tr('এ মাসে আয়'), amount: taka(m.income), color: C.green, size: 20)),
           Expanded(child: Figure(label: tr('এ মাসে খরচ'), amount: taka(m.expense), size: 20)),
-          Expanded(child: Figure(label: tr('থাকল'), amount: taka(m.balance), color: m.balance < 0 ? C.warn : C.ink, size: 20)),
+          Expanded(child: Figure(label: tr('থাকল'), amount: '${m.balance < 0 ? '− ' : ''}${taka(m.balance.abs())}', color: m.balance < 0 ? C.warn : C.ink, size: 20)),
         ]),
       ),
       SectionHeading(tr('গত ৭ দিনের বিক্রি')),
@@ -178,8 +175,9 @@ class BizHisabState extends State<BizHisab> {
             left: tr('+ দোকানের খরচ'),
             leftKey: const Key('biz-cost-add'),
             onLeft: () => addShopCost(context),
-            right: tr('পুরো আয়-ব্যয়'),
-            onRight: () => pushPage(context, const MenuPage(child: MoneyScreen())),
+            right: tr('ব্যবসার আয়-ব্যয়'),
+            rightKey: const Key('biz-cash-all'),
+            onRight: () => pushPage(context, const BizCashPage()),
           ),
         ]),
       ),
@@ -470,4 +468,64 @@ class _DealerFormState extends State<DealerForm> {
           ]),
         ),
       );
+}
+
+/// The business's own আয়-ব্যয় (owner, 7 Nov: kept apart from the personal
+/// one): month by month, every entry the shop wrote.
+class BizCashPage extends StatefulWidget {
+  const BizCashPage({super.key});
+  @override
+  State<BizCashPage> createState() => _BizCashPageState();
+}
+
+class _BizCashPageState extends State<BizCashPage> {
+  int _back = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final now = brain.services.now();
+    final month = DateTime(now.year, now.month - _back);
+    final m = bizMonthSums(brain.data.cash, month);
+    final rows = [for (final e in brain.data.cash) if (isBizCash(e) && e.date.year == month.year && e.date.month == month.month) e]..sort((a, b) => b.date.compareTo(a.date));
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: Column(children: [
+          InnerTop(title: tr('ব্যবসার আয়-ব্যয়'), sub: tr('নিজের আয়-ব্যয় থেকে আলাদা')),
+          Expanded(
+            child: ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 24), children: [
+              Row(children: [
+                IconButton(key: const Key('biz-cash-prev'), onPressed: () => setState(() => _back++), icon: const Icon(Icons.chevron_left_rounded)),
+                Expanded(child: Text('${monthName(month.month)} ${bnDigits(month.year)}', textAlign: TextAlign.center, style: body(15, weight: FontWeight.w600))),
+                IconButton(key: const Key('biz-cash-next'), onPressed: _back == 0 ? null : () => setState(() => _back--), icon: const Icon(Icons.chevron_right_rounded)),
+              ]),
+              Panel(
+                padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+                child: Row(children: [
+                  Expanded(child: Figure(label: tr('আয়'), amount: taka(m.income), color: C.green, size: 19)),
+                  Expanded(child: Figure(label: tr('খরচ'), amount: taka(m.expense), size: 19)),
+                  Expanded(child: Figure(label: tr('থাকল'), amount: '${m.balance < 0 ? '− ' : ''}${taka(m.balance.abs())}', color: m.balance < 0 ? C.warn : C.ink, size: 19)),
+                ]),
+              ),
+              const SizedBox(height: 12),
+              if (rows.isEmpty)
+                Padding(padding: const EdgeInsets.symmetric(vertical: 24), child: Text(tr('এই মাসে ব্যবসার কোনো আয়-ব্যয় নেই।'), textAlign: TextAlign.center, style: body(14, color: C.muted)))
+              else
+                ListCard(rows: [
+                  for (final e in rows)
+                    ListRow(
+                      key: Key('biz-cash-${e.id}'),
+                      leading: DateBlock(top: bnDigits(e.date.day), bottom: monthShort(e.date.month)),
+                      title: tr(e.category),
+                      subtitle: e.note.isEmpty ? null : e.note,
+                      trailing: Text('${e.kind == CashKind.income ? '+ ' : '− '}${taka(e.amount)}', style: body(14, weight: FontWeight.w600, color: e.kind == CashKind.income ? C.green : C.ink)),
+                    ),
+                ]),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
 }

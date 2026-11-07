@@ -2428,6 +2428,7 @@ class Brain extends ChangeNotifier {
       ErrorLog.problem('DataLoad', e.runtimeType.toString(), st: st);
     }
     loaded = true;
+    if (loadError == null && moveBizCash()) await _save();
     notifyListeners();
     await carryOverTasks();
     if (loadError == null) await markOpened();

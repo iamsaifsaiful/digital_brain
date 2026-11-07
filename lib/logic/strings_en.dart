@@ -5183,4 +5183,11 @@ const enStrings = <String, String>{
   'এখনো কোনো নম্বর রাখা নেই। যোগাযোগ পাতা থেকে ফোনবুকের নম্বর আনুন, বা বলুন “রহিমের নম্বর ০১৭… রাখো”।': 'No numbers kept yet. Bring them from your phone book on the Contacts page, or say “save Rahim\'s number 017…”.',
   '{0}টা নম্বর রাখা আছে — {1}{2}। সব দেখতে যোগাযোগ পাতা খুলুন।': '{0} numbers kept — {1}{2}. Open Contacts to see them all.',
   ' এবং আরও': ' and more',
+  'ব্যবসার হিসাবে লিখলাম। এই মাসে ব্যবসার মোট খরচ {0} টাকা।': 'Written in the business accounts. Business spending this month: {0} taka.',
+  'ব্যবসার হিসাবে লিখলাম। এই মাসে ব্যবসার মোট আয় {0} টাকা।': 'Written in the business accounts. Business income this month: {0} taka.',
+  'ব্যবসার নগদ': 'Business cash',
+  'ব্যবসায়ী মোডের আয় থেকে খরচ বাদ — বিক্রি, বাকি আদায়, মাল কেনা আর দোকানের খরচ': 'Business mode income less spending — sales, dues collected, stock bought and shop costs',
+  'ব্যবসার আয়-ব্যয়': 'Business income & spending',
+  'নিজের আয়-ব্যয় থেকে আলাদা': 'Kept apart from your own',
+  'এই মাসে ব্যবসার কোনো আয়-ব্যয় নেই।': 'No business income or spending this month.',
 };

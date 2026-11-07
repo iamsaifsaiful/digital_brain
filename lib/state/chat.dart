@@ -21,6 +21,7 @@ import '../logic/meaning.dart';
 import '../services/trace.dart';
 import '../logic/me.dart';
 import '../logic/answers.dart';
+import '../logic/shop_logic.dart' show bizCash, bizMonthSums;
 import '../logic/bn.dart';
 import '../logic/cash.dart';
 import '../logic/dictation.dart' show splitDoneTail;
@@ -35,7 +36,7 @@ import '../logic/match.dart' show wordsMatch;
 import '../logic/money_more.dart' show accountBalance, accountLabel, totalBalance, salesCategory;
 import '../ui/theme.dart' show Look;
 import '../logic/proactive.dart';
-import '../logic/pro.dart' show freeVaultItems, freeLedgerPeople, freeReminders, medicalOff, medicalOffText;
+import '../logic/pro.dart' show ProFeature, freeVaultItems, freeLedgerPeople, freeReminders, medicalOff, medicalOffText;
 import '../logic/search.dart';
 import '../logic/talk.dart';
 import '../logic/when.dart';
@@ -4146,6 +4147,9 @@ class ChatController extends ChangeNotifier {
           }
         }
         final cashId = newId();
+        // In ব্যবসায়ী মোড (Premium) money said goes to the business's own
+        // আয়-ব্যয়, never the personal one (owner, 7 Nov).
+        final biz = project == null && brain.businessMode && brain.has(ProFeature.business);
         await brain.saveCash(CashEntry(
           id: cashId,
           kind: c.kind,
@@ -4153,7 +4157,7 @@ class ChatController extends ChangeNotifier {
           category: c.category,
           note: c.transcript.trim(),
           date: _now,
-          projectId: project?.id,
+          projectId: project?.id ?? (biz ? bizCash : null),
           // "বড় দোকানে ৫০০০ টাকা বিক্রি": the shop named in the sentence.
           shopId: brain.data.shops.length < 2 ? null : brain.data.shops.where((x) => normalize(c.transcript).contains(normalize(x.name))).firstOrNull?.id,
         ));
@@ -4165,6 +4169,9 @@ class ChatController extends ChangeNotifier {
               : (ps.balance >= 0
                   ? trf('লিখলাম। ‘{0}’ হিসাবে এখন হাতে আছে {1} টাকা।', [project.name, bnNumber(ps.balance)])
                   : trf('লিখলাম। ‘{0}’ হিসাবে আসার চেয়ে {1} টাকা বেশি খরচ হয়েছে।', [project.name, bnNumber(-ps.balance)]));
+        } else if (biz) {
+          final m = bizMonthSums(brain.data.cash, _now);
+          done = c.kind == CashKind.expense ? trf('ব্যবসার হিসাবে লিখলাম। এই মাসে ব্যবসার মোট খরচ {0} টাকা।', [bnNumber(m.expense)]) : trf('ব্যবসার হিসাবে লিখলাম। এই মাসে ব্যবসার মোট আয় {0} টাকা।', [bnNumber(m.income)]);
         } else {
           final m = monthSums(brain.data.cash, _now);
           done = c.kind == CashKind.expense ? trf('লিখলাম। এই মাসে মোট খরচ {0} টাকা।', [bnNumber(m.expense)]) : trf('লিখলাম। এই মাসে মোট আয় {0} টাকা।', [bnNumber(m.income)]);

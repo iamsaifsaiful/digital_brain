@@ -25,13 +25,13 @@ extension BrainShop on Brain {
   int get nextSaleNo => shop.sales.fold<int>(0, (m, s) => s.no > m ? s.no : m) + 1;
 
   String _cashIn(int amount, String category, String note, DateTime at) {
-    final e = CashEntry(kind: CashKind.income, amount: amount, category: category, note: note, date: at, accountId: defaultAccountId(data), addedAt: services.now());
+    final e = CashEntry(kind: CashKind.income, amount: amount, category: category, note: note, date: at, projectId: bizCash, addedAt: services.now());
     _upsert(data.cash, e, (x) => x.id);
     return e.id;
   }
 
   String _cashOut(int amount, String category, String note, DateTime at) {
-    final e = CashEntry(kind: CashKind.expense, amount: amount, category: category, note: note, date: at, accountId: defaultAccountId(data), addedAt: services.now());
+    final e = CashEntry(kind: CashKind.expense, amount: amount, category: category, note: note, date: at, projectId: bizCash, addedAt: services.now());
     _upsert(data.cash, e, (x) => x.id);
     return e.id;
   }
@@ -280,7 +280,34 @@ extension BrainShop on Brain {
     await _save();
   }
 
-  /// A shop cost (rent, electricity, a helper's pay): into আয়-ব্যয়.
+  /// A shop cost (rent, electricity, a helper's pay): the business's own
+  /// আয়-ব্যয়, never the personal one.
   Future<void> shopCost(int amount, String category, {String note = ''}) =>
-      saveCash(CashEntry(kind: CashKind.expense, amount: amount, category: category, note: note, date: services.now()));
+      saveCash(CashEntry(kind: CashKind.expense, amount: amount, category: category, note: note, date: services.now(), projectId: bizCash));
+
+  /// Money the business took in or paid out, said or typed in ব্যবসায়ী মোড.
+  Future<void> bizMoney(CashKind kind, int amount, String category, {String note = '', DateTime? at}) =>
+      saveCash(CashEntry(kind: kind, amount: amount, category: category, note: note, date: at ?? services.now(), projectId: bizCash));
+
+  /// From before 7 Nov the shop's money was written into the personal
+  /// আয়-ব্যয়: the entries a sale, a collection, a purchase or a payout made
+  /// (and the shop's own costs) move to the business's — once, nothing lost.
+  bool moveBizCash() {
+    final linked = {
+      for (final s in shop.sales) if (s.cashId != null) s.cashId!,
+      for (final p in shop.purchases) if (p.cashId != null) p.cashId!,
+      for (final x in [...shop.collections, ...shop.payouts]) if (x.cashId != null) x.cashId!,
+    };
+    const shopOnly = {'দোকান ভাড়া', 'কর্মচারীর বেতন', 'দোকান খরচ', 'মাল কেনা', 'ডিলারকে পরিশোধ'};
+    final used = shop.products.isNotEmpty || shop.sales.isNotEmpty;
+    var moved = false;
+    for (var i = 0; i < data.cash.length; i++) {
+      final e = data.cash[i];
+      if (e.projectId != null || e.shopId != null || e.linkId != null) continue;
+      if (!linked.contains(e.id) && !(used && e.kind == CashKind.expense && shopOnly.contains(e.category))) continue;
+      data.cash[i] = CashEntry(id: e.id, kind: e.kind, amount: e.amount, category: e.category, note: e.note, date: e.date, projectId: bizCash, addedAt: e.addedAt);
+      moved = true;
+    }
+    return moved;
+  }
 }
