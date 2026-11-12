@@ -44,8 +44,11 @@ void main() {
     expect(find.text('এই মাসের ব্যালেন্স'), findsOneWidget);
     expect(find.text('আমি পাব'), findsNothing, reason: 'still on আয়-ব্যয়, not ধার-দেনা');
     expect(find.text('৳২৯,০০০'), findsWidgets);
-    expect(find.textContaining('· আজ'), findsOneWidget);
-    expect(find.textContaining('· গতকাল'), findsOneWidget);
+    // Each day as a card (owner, 13 Nov), today's marked আজ.
+    final now = rig.brain.services.now();
+    final yest = now.subtract(const Duration(days: 1));
+    expect(find.byKey(Key('cash-day-${now.year}-${now.month}-${now.day}')), findsOneWidget);
+    expect(find.byKey(Key('cash-day-${yest.year}-${yest.month}-${yest.day}')), findsOneWidget);
 
     // Daily: today only.
     await t.tap(find.text('দৈনিক'));

@@ -1171,7 +1171,7 @@ void main() {
     await t.tap(find.text('মাসিক'));
     await settle(t);
     expect(find.text('এই মাসের ব্যালেন্স'), findsOneWidget);
-    expect(find.text('বাজার'), findsWidgets);
+    expect(find.textContaining('বাজার', findRichText: true), findsWidgets);
     await t.tap(find.text('ধার-দেনা'));
     await settle(t);
     expect(find.text('আমি পাব'), findsOneWidget);

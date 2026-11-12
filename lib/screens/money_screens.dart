@@ -4,6 +4,7 @@ import '../logic/pro.dart';
 import '../ui/pro_gate.dart';
 
 import '../logic/bn.dart';
+import '../logic/calendar_bd.dart' show holidayOn, isWeekend;
 import '../logic/cash.dart';
 import '../logic/ledger.dart' show projectDueTotals;
 import '../logic/parser.dart' show normalize;
@@ -628,16 +629,21 @@ class _CashViewState extends State<CashView> {
       else if (_span == CashSpan.day)
         Panel(child: Rows(children: [for (final e in entries) cashRow(context, e, picks: _picks, withDate: false)]))
       else
-        for (final MapEntry(key: day, value: list) in days.entries) ...[
-          Panel(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              _DayHead(day: day, entries: list, now: now),
-              const Divider(height: 1),
-              Rows(children: [for (final e in list) cashRow(context, e, picks: _picks, withDate: false)]),
-            ]),
+        // Each day as one card, as দিনলিপি's week (owner, 13 Nov): a tap opens that day.
+        for (final MapEntry(key: day, value: list) in days.entries)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _DayCard(
+              day: day,
+              entries: list,
+              now: now,
+              onTap: () => _go(() {
+                _dir = -1;
+                _span = CashSpan.day;
+                _at = day;
+              }),
+            ),
           ),
-          const SizedBox(height: 10),
-        ],
       const SizedBox(height: 10),
       Text(tr('মুখেও বলা যায়: “বাজারে ৫০০ টাকা খরচ হলো”, “বেতন পেলাম ৩০ হাজার”'), style: body(12.5, color: C.muted, height: 1.45)),
     ]);
@@ -718,40 +724,66 @@ class _CatStrip extends StatelessWidget {
 }
 
 /// A day's heading in the list: its date, and that day's income and spending.
-class _DayHead extends StatelessWidget {
-  const _DayHead({required this.day, required this.entries, required this.now});
+/// One day of a week, month or year (owner, 13 Nov: as দিনলিপি's week):
+/// its date on the left, two of its লেনদেন, the day's আয় and খরচ on the right.
+class _DayCard extends StatelessWidget {
+  const _DayCard({required this.day, required this.entries, required this.now, required this.onTap});
   final DateTime day;
   final List<CashEntry> entries;
   final DateTime now;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final s = sumsOf(entries);
-    final today = DateTime(now.year, now.month, now.day);
-    final diff = day.difference(today).inDays;
-    final rel = diff == 0 ? tr('আজ') : diff == -1 ? tr('গতকাল') : null;
-    final red = day.weekday == DateTime.friday;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 9, 14, 9),
-      child: Row(children: [
-        Container(
-          width: 40,
-          height: 40,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(color: C.surface2, borderRadius: BorderRadius.circular(12)),
-          child: Text(bnDigits(day.day), style: display(17, weight: 700, color: red ? C.red : C.ink)),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(weekdayName(day), style: body(13.5, weight: FontWeight.w600, color: red ? C.red : C.ink, height: 1.3)),
-            Text(rel == null ? shortDate(day) : '${shortDate(day)} · $rel', style: body(11.5, color: C.muted, height: 1.3)),
+    final today = dayOnly(day) == dayOnly(now);
+    final red = holidayOn(day) != null || isWeekend(day);
+    final shown = entries.take(2).toList();
+    final more = entries.length - shown.length;
+    return Material(
+      key: Key('cash-day-${day.year}-${day.month}-${day.day}'),
+      color: C.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: today ? C.green : C.border, width: today ? 2 : 1)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+          child: Row(children: [
+            SizedBox(
+              width: 54,
+              child: Column(children: [
+                if (today) Text(tr('আজ'), style: body(11, weight: FontWeight.w600, color: C.green, height: 1.2)),
+                Text(bnDigits(day.day), style: body(20, weight: FontWeight.w700, color: today ? C.green : (red ? C.rose : C.ink), height: 1.2)),
+                Text(weekdayShort(day), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11, color: red ? C.rose : C.muted, height: 1.2)),
+              ]),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                for (final e in shown)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 1.5),
+                    child: Text.rich(
+                      TextSpan(children: [
+                        TextSpan(text: tr(e.category), style: body(13.5, color: C.ink)),
+                        TextSpan(text: '  ${e.kind == CashKind.income ? '+' : '−'}${taka(e.amount)}', style: body(13, weight: FontWeight.w600, color: e.kind == CashKind.income ? C.blue : C.red)),
+                      ]),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                if (more > 0) Text(trf('আরও {0}টা', [bnDigits(more)]), style: body(12, color: C.muted)),
+              ]),
+            ),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              if (s.income > 0) Text('+${taka(s.income)}', style: body(13.5, weight: FontWeight.w700, color: C.blue)),
+              if (s.expense > 0) Text('−${taka(s.expense)}', style: body(13.5, weight: FontWeight.w700, color: C.red)),
+            ]),
+            Icon(Icons.chevron_right_rounded, color: C.muted, size: 20),
           ]),
         ),
-        if (s.income > 0) Text('+${taka(s.income)}', style: body(13.5, weight: FontWeight.w700, color: C.blue)),
-        if (s.income > 0 && s.expense > 0) const SizedBox(width: 8),
-        if (s.expense > 0) Text('−${taka(s.expense)}', style: body(13.5, weight: FontWeight.w700, color: C.red)),
-      ]),
+      ),
     );
   }
 }
