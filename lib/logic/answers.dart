@@ -142,7 +142,7 @@ String reminderAnswer(AppData d, ReminderQuery q, DateTime now) {
   final day = r.nextDate(now);
   final left = dayOnly(day).difference(dayOnly(now)).inDays;
   final when = left == 0 ? tr('মানে আজকেই') : (left == 1 ? tr('মানে কালকেই') : (left > 0 ? trf('আর {0} দিন আছে', [bnDigits(left)]) : trf('{0} দিন আগে চলে গেছে', [bnDigits(-left)])));
-  return '${r.title} ${weekdayName(day)}, ${bnDigits(day.day)} ${monthName(day.month)}। $when।';
+  return isEn ? '${r.title}: ${weekdayName(day)}, ${day.day} ${monthName(day.month)}. $when.' : '${r.title} ${weekdayName(day)}, ${bnDigits(day.day)} ${monthName(day.month)}। $when।';
 }
 
 /// A search that found nothing at all.
@@ -288,17 +288,17 @@ String ledgerAnswer(AppData d, LedgerQuery q, [DateTime? now]) {
         if (inPeriod.isEmpty) return trf('{0} {1} সাথে কোনো লেনদেন হয়নি। {2}।', [label, possessive(p.name), owesText(p.name, p.balance)]);
         int sum(LedgerKind k) => inPeriod.where((e) => e.kind == k).fold(0, (a, e) => a + e.amount);
         final parts = [
-          if (sum(LedgerKind.lent) > 0) '${toPerson(p.name)} দিয়েছেন ${bnNumber(sum(LedgerKind.lent))} টাকা',
-          if (sum(LedgerKind.received) > 0) 'ফেরত পেয়েছেন ${bnNumber(sum(LedgerKind.received))} টাকা',
-          if (sum(LedgerKind.borrowed) > 0) '${possessive(p.name)} কাছ থেকে নিয়েছেন ${bnNumber(sum(LedgerKind.borrowed))} টাকা',
-          if (sum(LedgerKind.repaid) > 0) 'শোধ করেছেন ${bnNumber(sum(LedgerKind.repaid))} টাকা',
+          if (sum(LedgerKind.lent) > 0) isEn ? 'lent ${p.name} ${taka(sum(LedgerKind.lent))}' : '${toPerson(p.name)} দিয়েছেন ${bnNumber(sum(LedgerKind.lent))} টাকা',
+          if (sum(LedgerKind.received) > 0) isEn ? 'got back ${taka(sum(LedgerKind.received))}' : 'ফেরত পেয়েছেন ${bnNumber(sum(LedgerKind.received))} টাকা',
+          if (sum(LedgerKind.borrowed) > 0) isEn ? 'borrowed ${taka(sum(LedgerKind.borrowed))} from ${p.name}' : '${possessive(p.name)} কাছ থেকে নিয়েছেন ${bnNumber(sum(LedgerKind.borrowed))} টাকা',
+          if (sum(LedgerKind.repaid) > 0) isEn ? 'repaid ${taka(sum(LedgerKind.repaid))}' : 'শোধ করেছেন ${bnNumber(sum(LedgerKind.repaid))} টাকা',
         ];
         return trf('{0} {1} ({2} বার)। এখন {3}।', [label, parts.join(', '), bnDigits(inPeriod.length), owesText(p.name, p.balance)]);
       }
       final hist = runningFor(d.ledger, p.name);
       final last = hist.isEmpty ? null : hist.last.$1;
       final lastText = last == null ? '' : trf(' শেষ লেনদেন ছিল {0} {1}।', [bnDigits(last.date.day), monthName(last.date.month)]);
-      return '${owesText(p.name, p.balance)}।$lastText$allText';
+      return '${owesText(p.name, p.balance)}${isEn ? '.' : '।'}$lastText$allText';
     case LedgerAsk.receivable:
       final owe = all.where((p) => p.balance > 0).toList();
       if (owe.isEmpty) return tr('এখন কারও কাছে আপনার কিছু পাওনা নেই।');
@@ -941,7 +941,7 @@ bool ownMoneyAsked(String said, AppData? d) {
 /// "আজ আমার কী কী আছে?" — the day at a glance.
 String briefingAnswer(AppData d, DateTime now) {
   final today = dayOnly(now);
-  final parts = <String>['আজ ${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)}।'];
+  final parts = <String>[trf('আজ {0}, {1} {2}।', [weekdayName(now), bnDigits(now.day), monthName(now.month)])];
   final dueNow = openTasksOf(d, now).where((t) => t.due == null || !t.due!.isAfter(today)).toList();
   if (dueNow.isNotEmpty) {
     parts.add(trf('কাজ বাকি {0}টা — {1}।', [bnDigits(dueNow.length), nameList([for (final t in dueNow) t.title], unit: 'টা')]));
@@ -968,7 +968,7 @@ String contactsAnswer(AppData d) {
   final n = d.contacts.length;
   if (n == 0) return tr('এখনো কোনো নম্বর রাখা নেই। “যোগাযোগ” পাতা থেকে ফোনবুকের সব নম্বর এক চাপে আনতে পারেন।');
   final names = ([...d.contacts]..sort((a, b) => a.name.compareTo(b.name))).take(4).map((c) => c.name).toList();
-  return trf('{0} জনের নম্বর রাখা আছে{1}। সব দেখতে নিচে চাপুন।', [bnDigits(n), n > names.length ? ' — যেমন ${nameList(names, unit: 'জন')}' : ' — ${nameList(names, unit: 'জন')}']);
+  return trf('{0} জনের নম্বর রাখা আছে{1}। সব দেখতে নিচে চাপুন।', [bnDigits(n), n > names.length ? '${tr(' — যেমন ')}${nameList(names, unit: 'জন')}' : ' — ${nameList(names, unit: 'জন')}']);
 }
 
 /// The answer to a question or a bit of conversation. Null for commands

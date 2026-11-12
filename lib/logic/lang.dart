@@ -26,18 +26,29 @@ const _menuEn = {
   'ওষুধ': 'Medicines',
   'রিমাইন্ডার': 'Reminders',
   'হিসাব': 'Money',
+  'গ্রাহক': 'Customers',
+  'বিক্রি': 'Sales',
+  'স্টক': 'Inventory',
 };
 
 String trf(String bn, List<Object?> args) {
   var s = isEn ? (enStrings[bn] ?? bn) : bn;
   for (var i = 0; i < args.length; i++) {
-    s = s.replaceAll('{$i}', '${args[i]}');
+    final a = args[i];
+    // In English a value that is one of the app's own words (a category,
+    // a unit, a kind) shows in English too; anything else as it is.
+    s = s.replaceAll('{$i}', isEn && a is String ? (enStrings[a] ?? a) : '$a');
   }
   // A clock time put before "-এ"/"-এর": "৫টা" + "-এ" is said "৫টায়", and
   // "৫টা" + "-এর" is "৫টার" (a time with minutes keeps "৫:৩০-এ").
   if (!isEn) s = s.replaceAll(_taE, 'টায়').replaceAll(_taEr, 'টার');
+  // "1 products" → "1 product": counts read naturally in English.
+  if (isEn) s = s.replaceAllMapped(_onePlural, (m) => '${m[1]}1 ${_singular[m[2]!] ?? m[2]!.substring(0, m[2]!.length - 1)}');
   return s;
 }
+
+const _singular = {'people': 'person', 'entries': 'entry', 'categories': 'category', 'times': 'time', 'pcs': 'pc'};
+final _onePlural = RegExp(r'(^|[^\d.,])1 (products|items|receipts|customers|suppliers|days|tasks|reminders|notes|entries|transactions|people|hours|minutes|months|years|weeks|installments|deposits|members|numbers|photos|files|documents|lines|categories|accounts|projects|goals|habits|passwords|cards|sales|requests|alarms|readings|medicines|folders|contacts|messages|digits|sections|dealers|units|orders|purchases|payments|debts|loans|records|rows|pages|steps)\b');
 
 final _taE = RegExp(r'টা-এ(?![র\u0980-\u09FF])');
 final _taEr = RegExp(r'টা-এর(?![\u0980-\u09FF])');

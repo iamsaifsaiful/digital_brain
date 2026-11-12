@@ -47,7 +47,7 @@ class _BizCustomersState extends State<BizCustomers> {
       value: _part,
       onChanged: (v) => setState(() => _part = v),
       top: (tabs) => [
-        TabTitle(tr('গ্রাহক'),
+        TabTitle(trm('গ্রাহক'),
             sub: trf('{0} জন · বাকি {1}', [bnDigits(b.customers.length), taka(dueSum)]),
             trailing: IconButton(key: const Key('biz-customer-add'), tooltip: tr('নতুন গ্রাহক'), onPressed: () => pushPage(context, const CustomerForm()), icon: const Icon(Icons.person_add_alt_outlined))),
         const BizFreeBanner(),
@@ -288,7 +288,7 @@ class CustomerPage extends StatelessWidget {
             key: Key('biz-cust-sale-${s.id}'),
             leading: DateBlock(top: bnDigits(s.at.day), bottom: monthShort(s.at.month)),
             title: s.amountOnly > 0 && s.lines.isEmpty ? (s.pay == SalePay.credit ? tr('বাকি') : tr('বিক্রি')) : s.lines.map((l) => l.name).join(', '),
-            subtitle: [s.pay.label, if (s.no > 0) trf('রসিদ #{0}', [bnDigits(s.no)])].join(' · '),
+            subtitle: [tr(s.pay.label), if (s.no > 0) trf('রসিদ #{0}', [bnDigits(s.no)])].join(' · '),
             trailing: Text(s.pay == SalePay.credit ? '+ ${taka(s.total)}' : taka(s.total), style: body(14, weight: FontWeight.w600, color: s.pay == SalePay.credit ? C.warn : C.ink)),
             onTap: () => showReceipt(context, s),
           )

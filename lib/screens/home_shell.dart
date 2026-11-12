@@ -296,7 +296,7 @@ class _Nav extends StatelessWidget {
                       child: Semantics(
                         selected: t == current,
                         button: true,
-                        label: tr(label),
+                        label: trm(label),
                         excludeSemantics: true,
                         child: InkWell(
                           highlightColor: Colors.transparent,
@@ -313,7 +313,7 @@ class _Nav extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 3),
-                            Text(tr(label), style: body(11, weight: near > 0.5 ? FontWeight.w600 : FontWeight.w400, color: color, height: 1.2)),
+                            Text(trm(label), style: body(11, weight: near > 0.5 ? FontWeight.w600 : FontWeight.w400, color: color, height: 1.2)),
                           ]),
                         ),
                       ),

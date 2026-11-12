@@ -3,6 +3,7 @@
 // payment moves is written into আয়-ব্যয় too, so reports and backups see
 // one set of money; the customers' বাকি and the dealers' দেনা stay here, in
 // the shop's own book (owner, 6 Nov: not the personal ধার-দেনা).
+import '../logic/lang.dart' show tr;
 import 'models.dart' show newId;
 
 DateTime? _d(Object? v) => v is String ? DateTime.tryParse(v) : null;
@@ -453,7 +454,7 @@ class ShopProfile {
   /// A line at the foot of the receipt ("আবার আসবেন").
   final String receiptNote;
 
-  String get tagadaText => tagada.trim().isEmpty ? defaultTagada : tagada;
+  String get tagadaText => tagada.trim().isEmpty ? tr(defaultTagada) : tagada;
 
   ShopProfile copyWith({String? name, String? address, String? phone, String? logo, String? tagada, String? receiptNote}) => ShopProfile(
       name: name ?? this.name, address: address ?? this.address, phone: phone ?? this.phone, logo: logo ?? this.logo, tagada: tagada ?? this.tagada, receiptNote: receiptNote ?? this.receiptNote);

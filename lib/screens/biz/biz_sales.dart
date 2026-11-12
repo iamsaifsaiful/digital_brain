@@ -41,7 +41,7 @@ class _BizSalesState extends State<BizSales> {
       value: _when,
       onChanged: (v) => setState(() => _when = v),
       top: (tabs) => [
-        TabTitle(tr('বিক্রি'), sub: trf('আজ {0}টি বিক্রি · {1}', [bnDigits(todaySum.count), taka(todaySum.total)])),
+        TabTitle(trm('বিক্রি'), sub: trf('আজ {0}টি বিক্রি · {1}', [bnDigits(todaySum.count), taka(todaySum.total)])),
         const BizFreeBanner(),
         const SizedBox(height: 12),
         // The one big action, by the thumb's reach.
@@ -145,9 +145,9 @@ Widget saleRow(BuildContext context, Sale s) {
     key: Key('biz-sale-${s.id}'),
     leading: DateBlock(top: bnTime(s.at.hour, s.at.minute).split(' ').last, bottom: '#${bnDigits(s.no)}'),
     title: title,
-    subtitle: [s.pay.label, if (s.lines.isNotEmpty) trf('{0}টি পণ্য', [bnDigits(s.lines.length)])].join(' · '),
+    subtitle: [tr(s.pay.label), if (s.lines.isNotEmpty) trf('{0}টি পণ্য', [bnDigits(s.lines.length)])].join(' · '),
     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-      if (s.pay == SalePay.credit) ...[const WarnChip('বাকি'), const SizedBox(width: 6)],
+      if (s.pay == SalePay.credit) ...[WarnChip(tr('বাকি')), const SizedBox(width: 6)],
       Text(taka(s.total), style: body(14.5, weight: FontWeight.w600, color: C.green)),
     ]),
     onTap: () => showReceipt(context, s),

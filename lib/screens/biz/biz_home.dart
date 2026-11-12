@@ -297,7 +297,7 @@ class _ShopTools extends StatelessWidget {
       (tr('বিক্রি'), Icons.add_shopping_cart_rounded, () => pushPage(context, const SellPage())),
       (tr('শুধু টাকা'), Icons.payments_outlined, () => pushPage(context, const SellPage(amountOnly: true))),
       (tr('নতুন গ্রাহক'), Icons.person_add_alt_outlined, () => pushPage(context, const CustomerForm())),
-      (tr('গ্রাহক'), Icons.people_outline_rounded, () => goToTab(context, ShellTab.people)),
+      (trm('গ্রাহক'), Icons.people_outline_rounded, () => goToTab(context, ShellTab.people)),
       (tr('খরচ'), Icons.receipt_outlined, () => addShopCost(context)),
       (tr('আয়-ব্যয়'), Icons.account_balance_wallet_outlined, () => hisab('money')),
       (tr('মাল কেনা'), Icons.local_shipping_outlined, () => pushPage(context, const PurchasePage(part: 'in'))),

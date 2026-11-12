@@ -30,6 +30,7 @@ import 'health_hub.dart';
 import 'person_screen.dart';
 import 'plan_screens.dart';
 import 'vault_item_screen.dart';
+import '../logic/examples.dart' show asShown;
 import '../logic/lang.dart';
 
 /// সহকারী: speak or type; it keeps, finds and answers. Opened from the
@@ -250,11 +251,11 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
                   shape: const StadiumBorder(),
                   child: InkWell(
                     customBorder: const StadiumBorder(),
-                    onTap: _busy ? null : () => _send(q),
+                    onTap: _busy ? null : () => _send(asShown(q)),
                     onLongPress: _questions.contains(q) ? () => _removeQuestion(q) : null,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 14),
-                      child: Center(child: Text(q, style: body(14, color: C.muted2))),
+                      child: Center(child: Text(asShown(q), style: body(14, color: C.muted2))),
                     ),
                   ),
                 ),

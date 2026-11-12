@@ -144,11 +144,11 @@ class _BizStockState extends State<BizStock> {
       leading: LetterTile(p.name),
       title: p.name,
       subtitle: [
-        trf('বিক্রি {0} / {1}', [taka(p.sell), p.unit]),
+        trf('বিক্রি {0} / {1}', [taka(p.sell), tr(p.unit)]),
         if (exp != null) trf('মেয়াদ {0}', [shortDate(exp)]),
       ].join(' · '),
       subtitleColor: soon ? C.warn : null,
-      trailing: p.isLow ? WarnChip('${bnDigits(qtyText(p.stock))} ${p.unit}') : Text('${bnDigits(qtyText(p.stock))} ${p.unit}', style: body(14, weight: FontWeight.w600)),
+      trailing: p.isLow ? WarnChip('${bnDigits(qtyText(p.stock))} ${tr(p.unit)}') : Text('${bnDigits(qtyText(p.stock))} ${tr(p.unit)}', style: body(14, weight: FontWeight.w600)),
       onTap: () => pushPage(context, ProductForm(product: p)),
     );
   }
@@ -408,7 +408,7 @@ class _PurchasePageState extends State<PurchasePage> {
     int estimate(List<OrderLine> lines) => lines.where((o) => o.picked).fold(0, (s, o) => s + ((productOf(o)?.buy ?? 0) * o.qty).round());
     String listText(String sup, List<OrderLine> lines) => [
           trf('অর্ডার — {0}', [sup]),
-          for (final o in lines.where((o) => o.picked)) '• ${o.name} — ${bnDigits(qtyText(o.qty))} ${o.unit}',
+          for (final o in lines.where((o) => o.picked)) '• ${o.name} — ${bnDigits(qtyText(o.qty))} ${tr(o.unit)}',
         ].join('\n');
 
     return Scaffold(
@@ -446,7 +446,7 @@ class _PurchasePageState extends State<PurchasePage> {
                                 key: Key('biz-order-${o.id}'),
                                 leading: Checkbox(value: o.picked, onChanged: (v) => brain.saveOrder(o.copyWith(picked: v ?? true))),
                                 title: o.name,
-                                subtitle: p == null ? null : trf('আছে {0} {1}', [bnDigits(qtyText(p.stock)), p.unit]),
+                                subtitle: p == null ? null : trf('আছে {0} {1}', [bnDigits(qtyText(p.stock)), tr(p.unit)]),
                                 subtitleColor: p != null && p.isLow ? C.warn : null,
                                 trailing: SoftChip('${bnDigits(qtyText(o.qty))} ${tr(o.unit)}', onTap: () async {
                                   final v = await askText(context, trf('{0} — কত {1}?', [o.name, tr(o.unit)]), initial: qtyText(o.qty), number: true);
@@ -497,7 +497,7 @@ Future<Product?> _pickProduct(BuildContext context, List<Product> ps) => showApp
         child: ps.isEmpty
             ? Padding(padding: const EdgeInsets.all(24), child: Text(tr('যোগ করার মতো আর কোনো পণ্য নেই।'), style: body(14, color: C.muted)))
             : ListView(shrinkWrap: true, children: [
-                for (final p in ps) ListTile(leading: LetterTile(p.name, size: 36), title: Text(p.name, style: body(15)), subtitle: Text('${bnDigits(qtyText(p.stock))} ${p.unit}', style: body(12, color: C.muted)), onTap: () => Navigator.pop(ctx, p)),
+                for (final p in ps) ListTile(leading: LetterTile(p.name, size: 36), title: Text(p.name, style: body(15)), subtitle: Text('${bnDigits(qtyText(p.stock))} ${tr(p.unit)}', style: body(12, color: C.muted)), onTap: () => Navigator.pop(ctx, p)),
               ]),
       ),
     );

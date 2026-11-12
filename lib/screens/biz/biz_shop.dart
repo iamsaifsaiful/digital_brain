@@ -197,7 +197,7 @@ class _TagadaPageState extends State<TagadaPage> {
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final p = brain.shop.profile;
-    final preview = fillTagada(_c.text, name: tr('রহিম মিয়া'), due: taka(1250), shop: p.name.isEmpty ? tr('আমার দোকান') : p.name, phone: bnDigits(p.phone));
+    final preview = fillTagada(_c.text, name: tr('রহিম মিয়া'), due: taka(1250), shop: p.name.isEmpty ? tr('দোকান') : p.name, phone: bnDigits(p.phone));
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -210,7 +210,7 @@ class _TagadaPageState extends State<TagadaPage> {
               Text(tr('চাপ দিলে লেখায় বসবে:'), style: body(12.5, color: C.muted)),
               const SizedBox(height: 6),
               Wrap(spacing: 8, runSpacing: 8, children: [
-                for (final (w, what) in [('[নাম]', tr('গ্রাহকের নাম')), ('[বাকি]', tr('কত টাকা বাকি')), ('[দোকান]', tr('দোকানের নাম')), ('[মোবাইল]', tr('দোকানের মোবাইল'))])
+                for (final (w, what) in [(bnEn('[নাম]', '[name]'), tr('গ্রাহকের নাম')), (bnEn('[বাকি]', '[due]'), tr('কত টাকা বাকি')), (bnEn('[দোকান]', '[shop]'), tr('দোকানের নাম')), (bnEn('[মোবাইল]', '[mobile]'), tr('দোকানের মোবাইল'))])
                   ActionChip(key: Key('biz-tagada-word-$w'), label: Text('$w · $what', style: body(12.5)), onPressed: () => _insert(w)),
               ]),
               SectionHeading(tr('গ্রাহক যেমন পাবেন')),

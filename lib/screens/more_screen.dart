@@ -938,7 +938,8 @@ class _Tile extends StatelessWidget {
               Expanded(
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w600)),
-                  Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(11.5, color: badge ? C.greenDark : C.muted, height: 1.25)),
+                  // English lines run a little taller in this box than Bangla ones.
+                  Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(11.5, color: badge ? C.greenDark : C.muted, height: isEn ? 1.15 : 1.25)),
                 ]),
               ),
             ]),

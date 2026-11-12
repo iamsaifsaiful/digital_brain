@@ -4,6 +4,7 @@ import 'package:flutter/material.dart' show IconData, Icons;
 import '../models/models.dart';
 import 'bn.dart' show dayOnly;
 import 'cash.dart' show MoneySums;
+import 'lang.dart' show tr;
 
 /// A quantity as the shop says it: "৫", "১.২৫০", "১২.৫".
 String qtyText(double q) {
@@ -237,7 +238,9 @@ const shopCostKinds = {'মাল কেনা', 'ডিলারকে পর�
 
 /// The তাগাদা with its [] words filled in.
 String fillTagada(String template, {required String name, required String due, required String shop, String phone = ''}) {
-  var t = template.replaceAll('[নাম]', name).replaceAll('[বাকি]', due).replaceAll('[দোকান]', shop.isEmpty ? 'দোকান' : shop).replaceAll('[মোবাইল]', phone);
+  // The [] words in Bangla or, for the English app, in English.
+  var t = template.replaceAll('[নাম]', name).replaceAll('[name]', name).replaceAll('[বাকি]', due).replaceAll('[due]', due);
+  t = t.replaceAll('[দোকান]', shop.isEmpty ? tr('দোকান') : shop).replaceAll('[shop]', shop.isEmpty ? tr('দোকান') : shop).replaceAll('[মোবাইল]', phone).replaceAll('[mobile]', phone);
   t = t.replaceAllMapped(RegExp(r'\s+([,।])'), (m) => m[1]!).replaceAll(RegExp(r'  +'), ' ');
   return t.trim();
 }
@@ -284,7 +287,7 @@ String receiptText(Sale s, String Function(int) taka, String Function(String) di
     if (!profile.isEmpty && (profile.name.isNotEmpty || profile.phone.isNotEmpty)) '',
     'রসিদ #${digits('${s.no}')} · ${digits('${s.at.day}/${s.at.month}/${s.at.year}')}',
     if (s.customer.isNotEmpty) 'ক্রেতা: ${s.customer}',
-    for (final l in s.lines) '${l.name} ${digits(qtyText(l.qty))} ${l.unit} — ${taka(l.amount)}',
+    for (final l in s.lines) '${l.name} ${digits(qtyText(l.qty))} ${tr(l.unit)} — ${taka(l.amount)}',
     if (s.amountOnly > 0) 'মোট বিক্রি — ${taka(s.amountOnly)}',
     if (s.discount > 0) '${discountLabel(s, digits)} — ${taka(s.discount)}',
     'মোট: ${taka(s.total)} (${s.pay.label})',
@@ -322,7 +325,7 @@ Map<String, Object?> receiptSpec(Sale s, ShopProfile profile, {required String F
           'w': [5, 2.4, 2.6],
           'a': ['l', 'r', 'r'],
           'rows': [
-            for (final l in s.lines) [l.name, '${digits(qtyText(l.qty))} ${l.unit}', taka(l.amount)],
+            for (final l in s.lines) [l.name, '${digits(qtyText(l.qty))} ${tr(l.unit)}', taka(l.amount)],
             if (s.amountOnly > 0) ['বিক্রি', '', taka(s.amountOnly)],
             if (s.discount > 0) [discountLabel(s, digits), '', '− ${taka(s.discount)}'],
             [

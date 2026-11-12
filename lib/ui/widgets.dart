@@ -360,8 +360,9 @@ class SegTabs<T> extends StatelessWidget {
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () => onChanged(v),
+                    // A long English label shrinks to fit its tab instead of being cut.
                     child: Center(
-                      child: animate
+                      child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: FittedBox(fit: BoxFit.scaleDown, child: animate
                           ? AnimatedDefaultTextStyle(
                               duration: const Duration(milliseconds: 200),
                               style: body(13, weight: v == value ? FontWeight.w600 : FontWeight.w400, color: v == value ? C.ink : C.muted),
@@ -369,7 +370,7 @@ class SegTabs<T> extends StatelessWidget {
                             )
                           : Text(label,
                               maxLines: 1,
-                              style: body(13, weight: (at - i).abs() < 0.5 ? FontWeight.w600 : FontWeight.w400, color: Color.lerp(C.ink, C.muted, (at - i).abs().clamp(0.0, 1.0).toDouble()))),
+                              style: body(13, weight: (at - i).abs() < 0.5 ? FontWeight.w600 : FontWeight.w400, color: Color.lerp(C.ink, C.muted, (at - i).abs().clamp(0.0, 1.0).toDouble()))))),
                     ),
                   ),
                 ),

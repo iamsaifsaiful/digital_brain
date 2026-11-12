@@ -833,7 +833,7 @@ Widget cashPickBar(BuildContext context, Picks picks, Iterable<String> shown) {
       }),
       PickAction(Icons.share_outlined, tr('পাঠান'), () async {
         final lines = [
-          for (final e in picked) '${shortDate(e.date)} · ${e.category}${e.note.trim().isEmpty ? '' : ' (${e.note.trim()})'} · ${e.kind == CashKind.income ? '+' : '−'}${taka(e.amount)}',
+          for (final e in picked) '${shortDate(e.date)} · ${tr(e.category)}${e.note.trim().isEmpty ? '' : ' (${e.note.trim()})'} · ${e.kind == CashKind.income ? '+' : '−'}${taka(e.amount)}',
           if (income > 0) trf('মোট আয় {0}', [taka(income)]),
           if (expense > 0) trf('মোট খরচ {0}', [taka(expense)]),
         ];
@@ -878,7 +878,7 @@ Future<String?> askCategory(BuildContext context, List<String> known) {
 Future<void> cashActions(BuildContext context, CashEntry e) async {
   final brain = BrainScope.read(context);
   final line = mainMenuLine(brain.data, e.id);
-  final pick = await editOrDelete(context, title: '${e.category} · ${taka(e.amount)}', extra: line == null ? null : (line.$1, line.$2, 'main'));
+  final pick = await editOrDelete(context, title: '${tr(e.category)} · ${taka(e.amount)}', extra: line == null ? null : (line.$1, line.$2, 'main'));
   if (!context.mounted) return;
   if (pick == 'main') return toggleMain(context, e.id);
   if (pick == 'edit') {

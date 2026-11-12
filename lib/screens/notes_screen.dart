@@ -194,7 +194,7 @@ class _NotesScreenState extends State<NotesScreen> {
                                         style: body(14, color: C.muted2, height: 1.5), maxLines: 4, overflow: TextOverflow.ellipsis),
                                   ],
                                   const SizedBox(height: 6),
-                                  Text(_cat == null ? '${n.category} · ${shortDate(n.updatedAt)}' : shortDate(n.updatedAt), style: body(12, color: C.muted)),
+                                  Text(_cat == null ? '${tr(n.category)} · ${shortDate(n.updatedAt)}' : shortDate(n.updatedAt), style: body(12, color: C.muted)),
                                 ],
                               ),
                             ),

@@ -37,7 +37,7 @@ class LibraryScreen extends StatelessWidget {
       _Tile(tr('সব কাজ'), trf('{0}টি বাকি', [bnDigits(d.tasks.where((t) => !t.done).length)]), Icons.checklist_rounded, C.green, C.greenTint,
           () => push(const AllTasksScreen())),
       for (final c in d.noteCategories.where((c) => c != defaultNoteCategory))
-        _Tile(c, trf('নিজের বিভাগ · {0}', [bnDigits(d.notes.where((n) => n.category == c).length)]), Icons.folder_outlined, C.orange, C.orangeTint,
+        _Tile(tr(c), trf('নিজের বিভাগ · {0}', [bnDigits(d.notes.where((n) => n.category == c).length)]), Icons.folder_outlined, C.orange, C.orangeTint,
             () => push(NotesScreen(category: c))),
     ];
 

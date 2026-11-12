@@ -7,6 +7,7 @@ import 'package:cryptography/cryptography.dart' show Sha256;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/widgets.dart';
 
+import '../logic/examples.dart' show exampleInBangla;
 import '../logic/shop_logic.dart';
 import '../logic/vault_age.dart';
 import '../logic/steps.dart' show StepBook, stepDay;
@@ -2122,6 +2123,8 @@ class Brain extends ChangeNotifier {
   /// the message came); used only in the server's "on" mode (lib/nlu/router.dart).
   Future<(List<Command>, String?)> understandAll(String said,
       {List<AiTurn> history = const [], bool fast = false, String shown = '', Future<List<NluPiece>?>? model, String nluState = 'idle', String nluKind = 'none'}) async {
+    // One of the English app's own examples is understood as its Bangla original.
+    said = exampleInBangla(said);
     final (cmds, problem, source) = await _understandAll(said, history: history, fast: fast, shown: shown, model: model, nluState: nluState, nluKind: nluKind);
     countSource(source);
     return (cmds, problem);

@@ -11,7 +11,9 @@ import '../nlu/samples.dart';
 import '../nlu/shadow.dart';
 import 'package:flutter/foundation.dart';
 
+import '../logic/examples.dart' show exampleInBangla;
 import '../logic/lang.dart';
+import '../logic/strings_en.dart' show enStrings;
 import '../logic/ai_map.dart' show answeredByAi;
 import '../logic/app_map.dart';
 import '../logic/ask.dart' show infoTopic;
@@ -842,6 +844,22 @@ class ChatController extends ChangeNotifier {
 
   /// One thing the user said, typed or tapped. Returns what to say aloud.
   Future<String> hear(String said, {bool echo = true}) async {
+    // One of the English app's own examples is understood as its Bangla
+    // original; what it adds is then named in English, as it was shown.
+    if (exampleInBangla(said.trim()) == said.trim()) return _hear(said, echo: echo);
+    final tasks = {for (final x in brain.data.tasks) x.id};
+    final reminders = {for (final x in brain.data.reminders) x.id};
+    final out = await _hear(said, echo: echo);
+    for (final x in [...brain.data.tasks.where((x) => !tasks.contains(x.id))]) {
+      if (enStrings[x.title] case final en?) await brain.saveTask(x.copyWith(title: en));
+    }
+    for (final x in [...brain.data.reminders.where((x) => !reminders.contains(x.id))]) {
+      if (enStrings[x.title] case final en?) await brain.saveReminder(x.copyWith(title: en));
+    }
+    return out;
+  }
+
+  Future<String> _hear(String said, {bool echo = true}) async {
     final shown = said.trim();
     if (shown.isEmpty) return '';
     // "…, না আর বলতে চাই না": the closing words only say the person is done
@@ -852,7 +870,8 @@ class ChatController extends ChangeNotifier {
     // first, so every rule below reads one language (the bubble keeps the words as said).
     // Banglish names: a person already in ধার-দেনা or contacts by sound (owner, 29 Oct).
     final names = {for (final e in brain.data.ledger) e.person, for (final c in brain.data.contacts) c.name};
-    final t = shortOrdinal(standardSpeech(meantInstead(doneTail && body.isNotEmpty ? body : shown), names: names));
+    // One of the English app's own examples: understood as its Bangla original.
+    final t = shortOrdinal(standardSpeech(meantInstead(exampleInBangla(doneTail && body.isNotEmpty ? body : shown)), names: names));
     if (doneTail) Trace.log('understood', 'closing words left out', {'kept': t});
     ended = false;
     _turn++;
@@ -2013,6 +2032,8 @@ class ChatController extends ChangeNotifier {
   void _say(List<String> out, String text,
       {List<String> facts = const [], List<VaultItem> vault = const [], List<ChatLink> links = const [], bool speak = true}) {
     if (text.isEmpty) return;
+    // Sentences pieced together from Bangla parts end with "।"; English with ".".
+    if (isEn) text = text.replaceAll('।', '.');
     messages.add(ChatMessage.app(text, facts: facts, vault: vault, links: links));
     if (speak) out.add(speakableNumbers(text));
   }
@@ -4117,7 +4138,7 @@ class ChatController extends ChangeNotifier {
           _history.add(AiTurn.app('[রিমাইন্ডার রাখা হলো, কিন্তু নোটিফিকেশন বন্ধ: ${summaryLine(c)}]'));
           break;
         }
-        final what = c.needsTitle ? '' : '“${c.title}” ';
+        final what = c.needsTitle ? '' : '“${tr(c.title)}” ';
         final again = c.repeat == Repeat.none || c.repeat.isInterval || c.repeat == Repeat.daily ? '' : ', ${c.repeat.label}';
         // "রবিবার থেকে বৃহস্পতিবার": the days said back, not "প্রতি সপ্তাহে".
         final days = c.repeat == Repeat.weekly && c.weekdays.length >= 2
