@@ -2761,7 +2761,9 @@ Talk? smallTalk(String text) {
   final aboutApp = _hasPhrase(text, ['এপ', 'অ্যাপ', 'অ্যাপস', 'এপস', 'app', 'তুমি', 'তোমাকে', 'তোমার', 'আপনি', 'আপনাকে', 'সহকারী', 'অ্যাসিস্ট্যান্ট', 'assistant']);
   final how = _hasPhrase(text, ['কি কি', 'কী কী', 'কিভাবে', 'কীভাবে', 'কি ভাবে', 'কী ভাবে', 'কেমনে', 'কোন কোন']);
   if (aboutApp && how && _hasPhrase(text, ['করা যায়', 'করা যায়', 'করতে পার', 'হেল্প', 'সাহায্য', 'কাজে লাগ', 'কাজ কর', 'help'])) return Talk.whatCanYouDo;
-  if (_hasPhrase(text, ['কয়টা বাজে', 'কটা বাজে', 'কয়টা বাজে', 'এখন সময় কত', 'সময় কত', 'what time'])) return Talk.time;
+  // At a word's start: "একটা বাজে" (a clock time, as in "দুপুর একটা বাজে মনে করিয়ে দিও")
+  // holds "কটা বাজে" but asks nothing (problem log, 12 Nov).
+  if (['কয়টা বাজে', 'কটা বাজে', 'কয়টা বাজে', 'এখন সময় কত', 'সময় কত', 'what time'].any((p) => ' $text'.contains(' ${fold(p)}'))) return Talk.time;
   if (_hasPhrase(text, ['আজ কত তারিখ', 'আজকে কত তারিখ', 'আজকের তারিখ', 'আরবি তারিখ', 'আরবী তারিখ', 'হিজরি তারিখ', 'হিজরী তারিখ', 'চাঁদের তারিখ', 'বাংলা তারিখ', 'আরবি মাস', 'হিজরি সন', 'আজ কী বার', 'আজ কি বার', 'আজকে কী বার', 'আজকে কি বার', 'আজ কোন বার'])) {
     return Talk.date;
   }
