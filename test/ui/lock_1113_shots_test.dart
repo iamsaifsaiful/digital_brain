@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show debugDisableShadows;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:digital_brain/screens/lock_screen.dart' show lockChoiceStyle;
 
 import '../app_test.dart' show settle, start;
 import 'new_ui_shots_test.dart' as four show icons;
@@ -13,9 +12,7 @@ import 'new_ui_shots_test.dart' as four show icons;
 final shots = Platform.environment['SHOTS'] == '1';
 
 void main() {
-  for (final style in [1, 2])
-  testWidgets('lock: the choice ($style), then the PIN pad', (t) async {
-    lockChoiceStyle = style;
+  testWidgets('lock: the choice, then the PIN pad', (t) async {
     if (shots) {
       await four.icons();
       debugDisableShadows = false;
@@ -29,7 +26,7 @@ void main() {
     // The app mark is an asset: loaded before the shot.
     await t.runAsync(() => precacheImage(const AssetImage('assets/brand/app_mark.png'), t.element(find.byKey(const Key('lock-app-mark')))));
     await settle(t);
-    if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/lock/1-choice-$style.png'));
+    if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/lock/1-choice.png'));
     await t.tap(find.byKey(const Key('lock-choose-pin')));
     await settle(t);
     if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/lock/2-pin.png'));
