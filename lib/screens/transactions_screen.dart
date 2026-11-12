@@ -169,7 +169,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                             ),
                             const SizedBox(height: 16),
                           ],
-                          Text(tr('বাঁ দিকে টানলে মুছে যায় · চাপলে সংশোধন · চেপে ধরলে কয়েকটা বাছাই'), style: body(13, color: C.muted), textAlign: TextAlign.center),
+                          Text(tr('বাঁ দিকে টানলে মুছে যায় · চাপলে বদলানো যায় · চেপে ধরলে কয়েকটা বাছাই'), style: body(13, color: C.muted), textAlign: TextAlign.center),
                         ],
                       ),
               ),
@@ -254,7 +254,7 @@ class _EntryRow extends StatelessWidget {
                       ),
                       ListTile(
                         leading: const Icon(Icons.edit_outlined),
-                        title: Text(tr('সংশোধন করুন')),
+                        title: Text(tr('বদলান')),
                         onTap: () {
                           Navigator.pop(ctx);
                           Navigator.of(context).push(MaterialPageRoute(builder: (_) => LedgerFormScreen(entry: e)));

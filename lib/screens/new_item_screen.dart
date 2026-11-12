@@ -395,7 +395,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
               if (_cat != ItemCategory.ledger)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  child: PrimaryButton(label: tr('সেভ করুন'), icon: Icons.check_rounded, onPressed: _save),
+                  child: PrimaryButton(label: tr('রাখুন'), icon: Icons.check_rounded, onPressed: _save),
                 ),
             ],
           ),

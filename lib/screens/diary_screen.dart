@@ -124,7 +124,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
         chip(const Key('diary-habits'), tr('অভ্যাস'), Icons.local_fire_department_outlined, tr('যেমন: প্রতিদিন ৩০ মিনিট হাঁটা, ৫ ওয়াক্ত নামাজ'), const HabitsScreen()),
         if (!medicalOff) chip(const Key('diary-medicines'), tr('ওষুধ'), Icons.medication_outlined, tr('যেমন: নাপা — সকাল ৮টা আর রাত ৯টা, খাবারের পরে'), const MedicinesScreen()),
         chip(const Key('diary-special'), tr('বিশেষ দিন'), Icons.cake_outlined, tr('যেমন: আম্মার জন্মদিন ১২ মার্চ — প্রতি বছর আগের দিন মনে করাবে'), const SpecialDaysScreen()),
-        chip(const Key('diary-templates'), tr('তৈরি তালিকা'), Icons.checklist_rtl_rounded, tr('যেমন: ঈদের কেনাকাটা, মাসের বাজার — এক চাপে পুরো তালিকা'), const TemplatesScreen()),
+        chip(const Key('diary-templates'), tr('রেডিমেড তালিকা'), Icons.checklist_rtl_rounded, tr('যেমন: ঈদের কেনাকাটা, মাসের বাজার — এক চাপে পুরো তালিকা'), const TemplatesScreen()),
       ]),
       Padding(
         padding: const EdgeInsets.fromLTRB(4, 10, 4, 0),

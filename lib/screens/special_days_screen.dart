@@ -35,7 +35,7 @@ class SpecialDaysScreen extends StatelessWidget {
                     EmptyState(
                       icon: Icons.cake_outlined,
                       title: tr('কোনো বিশেষ দিন রাখা নেই'),
-                      text: tr('জন্মদিন, বিবাহবার্ষিকী, মৃত্যুবার্ষিকী — রেখে দিন, প্রতি বছর আগের দিন আর সেদিন সকালে মনে করিয়ে দেবো। মুখেও বলা যায়: “রহিমের জন্মদিন ১২ মার্চ”।'),
+                      text: tr('জন্মদিন, বিবাহবার্ষিকী, মৃত্যুবার্ষিকী — রেখে দিন, প্রতি বছর আগের দিন আর সেদিন সকালে মনে করিয়ে দেব। মুখেও বলা যায়: “রহিমের জন্মদিন ১২ মার্চ”।'),
                       action: tr('প্রথমটা যোগ করুন'),
                       onAction: () => editSpecialDay(context, null),
                     ),
@@ -203,7 +203,7 @@ class _SpecialSheetState extends State<_SpecialSheet> {
               onChanged: (v) => setState(() => _year = v == true ? (_year ?? DateTime.now().year - 1) : null),
               title: Text(tr('বছরও রাখুন (কত বছর হলো দেখাবে)'), style: body(14)),
             ),
-          FieldLabel(tr('কবে মনে করাবো')),
+          FieldLabel(tr('কবে মনে করাব')),
           ChoiceChips<int>(
             items: [(0, tr('শুধু সেদিন')), (1, tr('আগের দিনও')), (3, tr('৩ দিন আগেও')), (7, tr('৭ দিন আগেও'))],
             value: _before,

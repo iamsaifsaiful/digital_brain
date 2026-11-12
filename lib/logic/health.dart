@@ -212,13 +212,13 @@ String healthAnswer(AppData d, String what, DateTime now, {String member = Famil
       return trf('আপনার BMI {0} — {1}। আপনার উচ্চতায় ({2}) সুস্থ ওজন {3}–{4} কেজি; এখন {5}।',
           [bnDigits(b.toStringAsFixed(1)), bmiLevel(b).$2, heightText(m.heightCm!), bnDigits(lo), bnDigits(hi), kg(w.a)]);
     case 'weight':
-      if (w == null) return tr('ওজনের কোনো তথ্য নেই। বলুন, যেমন “আজ ওজন ৬৮ কেজি” — পরে যেকোনো সময় জিজ্ঞেস করলে হিসাব দেবো।');
+      if (w == null) return tr('ওজনের কোনো তথ্য নেই। বলুন, যেমন “আজ ওজন ৬৮ কেজি” — পরে যেকোনো সময় জিজ্ঞেস করলে হিসাব দেব।');
       final ch = weightChange(d, member, now);
       final trend = ch == null || ch.abs() < 0.1 ? '' : (ch < 0 ? trf(' গত এক মাসে {0} কমেছে।', [kg(-ch)]) : trf(' গত এক মাসে {0} বেড়েছে।', [kg(ch)]));
       return trf('শেষ ওজন {0} ({1})।{2}', [kg(w.a), shortDate(w.at), trend]);
     case 'bp':
       final r = latest(d, member, HealthKind.bp);
-      if (r == null) return tr('প্রেশারের কোনো তথ্য নেই। মেপে বলুন, যেমন “প্রেশার ১৩০ বাই ৮৫” — পরে যেকোনো সময় জিজ্ঞেস করলে হিসাব দেবো।');
+      if (r == null) return tr('প্রেশারের কোনো তথ্য নেই। মেপে বলুন, যেমন “প্রেশার ১৩০ বাই ৮৫” — পরে যেকোনো সময় জিজ্ঞেস করলে হিসাব দেব।');
       final week = readings(d, member, HealthKind.bp).where((h) => h.at.isAfter(now.subtract(const Duration(days: 7)))).toList();
       final avg = week.length < 2
           ? ''
@@ -226,7 +226,7 @@ String healthAnswer(AppData d, String what, DateTime now, {String member = Famil
       return trf('শেষ মাপ {0} ({1}) — {2}।{3}', [readingText(r), shortDate(r.at), bpLevel(r.a, r.b ?? 0).$2, avg]);
     case 'sugar':
       final r = readings(d, member, HealthKind.sugar);
-      if (r.isEmpty) return tr('সুগারের কোনো তথ্য নেই। মেপে বলুন, যেমন “খালি পেটে সুগার ৬.৮” — পরে যেকোনো সময় জিজ্ঞেস করলে হিসাব দেবো।');
+      if (r.isEmpty) return tr('সুগারের কোনো তথ্য নেই। মেপে বলুন, যেমন “খালি পেটে সুগার ৬.৮” — পরে যেকোনো সময় জিজ্ঞেস করলে হিসাব দেব।');
       final f = r.lastWhere((h) => h.tag == 'fasting', orElse: () => r.last);
       final last = r.last;
       final parts = [
@@ -238,7 +238,7 @@ String healthAnswer(AppData d, String what, DateTime now, {String member = Famil
       final s = LiveSteps.today;
       if (member != FamilyMember.meId) return tr('হাঁটার হিসাব শুধু আপনার নিজের (“আমি”) ফোন থেকে পাওয়া যায়।');
       if (s == null || s.day != dayOnly(now)) {
-        return tr('আজকের হাঁটার হিসাব এখনো পাইনি। স্বাস্থ্য পাতায় Health Connect (বা ফোনের ধাপ গোনা) চালু করুন — তারপর জিজ্ঞেস করলেই বলে দেবো।');
+        return tr('আজকের হাঁটার হিসাব এখনো পাইনি। স্বাস্থ্য পাতায় Health Connect (বা ফোনের ধাপ গোনা) চালু করুন — তারপর জিজ্ঞেস করলেই বলে দেব।');
       }
       final km = stepsKm(s.steps);
       return trf('আজ এ পর্যন্ত {0} পা হেঁটেছেন — প্রায় {1} কিমি।{2}',
@@ -265,7 +265,7 @@ String healthAnswer(AppData d, String what, DateTime now, {String member = Famil
           if (latest(d, member, HealthKind.values.byName(k)) != null) '${HealthKind.values.byName(k).bn}: ${healthAnswer(d, k, now, member: member)}',
         if (m.heightCm != null && w != null) healthAnswer(d, 'bmi', now, member: member),
       ];
-      if (parts.isEmpty) return tr('স্বাস্থ্যের কোনো মাপ এখনো রাখা নেই। বলুন, যেমন “আজ ওজন ৬৮ কেজি” বা “প্রেশার ১৩০ বাই ৮৫” — তারপর জিজ্ঞেস করলে অবস্থা বলে দেবো।');
+      if (parts.isEmpty) return tr('স্বাস্থ্যের কোনো মাপ এখনো রাখা নেই। বলুন, যেমন “আজ ওজন ৬৮ কেজি” বা “প্রেশার ১৩০ বাই ৮৫” — তারপর জিজ্ঞেস করলে অবস্থা বলে দেব।');
       return [tr('আপনার রাখা শেষ মাপগুলো:'), ...parts.map((x) => '• $x')].join('\n');
   }
   return tr('স্বাস্থ্য পাতায় সব মাপ দেখা যাবে।');

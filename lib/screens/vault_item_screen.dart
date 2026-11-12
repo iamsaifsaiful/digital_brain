@@ -164,7 +164,7 @@ class _VaultItemScreenState extends State<VaultItemScreen> {
                     Panel(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(trf('আগের পাসওয়ার্ড ({0}টি)', [bnDigits(v.old.length)]), style: body(13, color: C.muted)),
+                        Text(trf('আগের পাসওয়ার্ড ({0}টা)', [bnDigits(v.old.length)]), style: body(13, color: C.muted)),
                         for (final o in v.old)
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 6),

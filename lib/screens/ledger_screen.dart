@@ -57,7 +57,7 @@ class MoneyScreenState extends State<MoneyScreen> {
     return Stack(children: [
       TabPages<MoneyPart>(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
-      items: [(MoneyPart.cash, tr('আয়-ব্যয়')), (MoneyPart.loans, tr('ধার-দেনা')), (MoneyPart.projects, tr('অন্যান্য হিসাব'))],
+      items: [(MoneyPart.cash, tr('আয়-ব্যয়')), (MoneyPart.loans, tr('ধার-দেনা')), (MoneyPart.projects, tr('আলাদা হিসাব'))],
       value: _part,
       onChanged: show,
       top: (tabs) => [

@@ -139,19 +139,19 @@ class ShopScreen extends StatelessWidget {
           ]),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
-              if (shops.length > 1) Text(trf('{0}টি দোকান মিলিয়ে', [bnDigits(shops.length)]), style: body(13.5, color: C.muted)),
+              if (shops.length > 1) Text(trf('{0}টা দোকান মিলিয়ে', [bnDigits(shops.length)]), style: body(13.5, color: C.muted)),
               const SizedBox(height: 6),
               Panel(
                 padding: const EdgeInsets.all(14),
                 child: Column(children: [
                   Row(children: [
-                    Expanded(child: Figure(label: tr('আজকের বিক্রি'), amount: taka(today.total), color: C.green, size: 22, sub: trf('{0}টি বিক্রি', [bnDigits(today.count)]))),
+                    Expanded(child: Figure(label: tr('আজকের বিক্রি'), amount: taka(today.total), color: C.green, size: 22, sub: trf('{0}টা বিক্রি', [bnDigits(today.count)]))),
                     Expanded(child: Figure(label: trf('{0}-এর বিক্রি', [monthName(now.month)]), amount: taka(month), color: C.green, size: 22)),
                   ]),
                   const SizedBox(height: 10),
                   Row(children: [
                     Expanded(child: Figure(label: tr('এ মাসের দোকান খরচ'), amount: taka(costs), color: C.orange, size: 20)),
-                    Expanded(child: Figure(label: tr('কাস্টমারের বাকি'), amount: taka(due), color: C.orange, size: 20)),
+                    Expanded(child: Figure(label: tr('গ্রাহকের বাকি'), amount: taka(due), color: C.orange, size: 20)),
                   ]),
                 ]),
               ),
@@ -240,7 +240,7 @@ class ShopDetailScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(14),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   Row(children: [
-                    Expanded(child: Figure(label: tr('আজকের বিক্রি'), amount: taka(today.total), color: C.green, size: 22, sub: trf('{0}টি বিক্রি', [bnDigits(today.count)]))),
+                    Expanded(child: Figure(label: tr('আজকের বিক্রি'), amount: taka(today.total), color: C.green, size: 22, sub: trf('{0}টা বিক্রি', [bnDigits(today.count)]))),
                     Expanded(child: Figure(label: trf('{0}-এর বিক্রি', [monthName(now.month)]), amount: taka(m.sales), color: C.green, size: 22)),
                   ]),
                   const SizedBox(height: 10),
@@ -291,7 +291,7 @@ class ShopDetailScreen extends StatelessWidget {
                 ]),
               ),
               const SizedBox(height: 14),
-              SectionTitle(trf('রসিদ · {0}টি', [bnDigits(receipts.length)])),
+              SectionTitle(trf('রসিদ · {0}টা', [bnDigits(receipts.length)])),
               if (receipts.isEmpty)
                 Text(tr('এই দোকানে এখনো কোনো রসিদ দেওয়া হয়নি। “রসিদ” চাপলে তৈরি করা যাবে, এখানে জমা থাকবে।'), style: body(14, color: C.muted, height: 1.5))
               else
@@ -307,7 +307,7 @@ class ShopDetailScreen extends StatelessWidget {
                   ]),
                 ),
               const SizedBox(height: 14),
-              SectionTitle(trf('কাস্টমারের বাকি · {0} জন', [bnDigits(owing.length)])),
+              SectionTitle(trf('গ্রাহকের বাকি · {0} জন', [bnDigits(owing.length)])),
               if (owing.isEmpty)
                 Text(tr('কারো কাছে বাকি নেই। “করিম ৫০০ টাকার মাল বাকিতে নিল” বললেই খাতায় উঠবে।'), style: body(14, color: C.muted, height: 1.5))
               else
@@ -322,7 +322,7 @@ class ShopDetailScreen extends StatelessWidget {
                             ? Icon(Icons.chevron_right_rounded, color: C.muted)
                             : TextButton(
                                 onPressed: () => brain.services.launcher.open(Via.whatsapp, p.phone, text: dueMessage(p.name, p.balance)),
-                                child: Text(tr('তাগাদা'), style: body(14, weight: FontWeight.w600, color: C.green)),
+                                child: Text(tr('মনে করিয়ে দিন'), style: body(14, weight: FontWeight.w600, color: C.green)),
                               ),
                         onTap: () => _push(context, PersonScreen(person: p.name, accountKey: p.key)),
                       ),
@@ -351,7 +351,7 @@ Future<void> _showReceipt(BuildContext context, Receipt r, Shop shop) async {
           Text(text.replaceAll('*', ''), style: body(15, height: 1.55)),
           const SizedBox(height: 14),
           PrimaryButton(
-            label: r.phone.isEmpty ? tr('পাঠান') : tr('WhatsApp-এ পাঠান'),
+            label: r.phone.isEmpty ? tr('পাঠান') : tr('হোয়াটসঅ্যাপে পাঠান'),
             icon: Icons.send_rounded,
             onPressed: () {
               Navigator.pop(ctx);

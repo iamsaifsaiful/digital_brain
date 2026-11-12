@@ -228,7 +228,7 @@ class _HealthScreenState extends State<HealthScreen> {
                     ListRow(
                       leading: Icon(Icons.event_available_outlined, color: C.green),
                       title: m.nextCheckup == null ? tr('পরের চেকআপের তারিখ') : trf('পরের চেকআপ: {0}', [fullDate(m.nextCheckup!)]),
-                      subtitle: m.nextCheckup == null ? tr('দিলে আগের দিন আর সেদিন সকালে মনে করাবো') : daysLeftLabel(m.nextCheckup!, now),
+                      subtitle: m.nextCheckup == null ? tr('দিলে আগের দিন আর সেদিন সকালে মনে করাব') : daysLeftLabel(m.nextCheckup!, now),
                       trailing: m.nextCheckup == null ? null : IconButton(tooltip: tr('তারিখ মুছুন'), onPressed: () => brain.setCheckup(m, null), icon: Icon(Icons.close_rounded, color: C.muted)),
                       onTap: () async {
                         final p = await showDatePicker(context: context, initialDate: m.nextCheckup ?? now.add(const Duration(days: 30)), firstDate: dayOnly(now), lastDate: DateTime(now.year + 3));
@@ -679,7 +679,7 @@ class VaccineScreen extends StatelessWidget {
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
               InfoBanner(
                 icon: Icons.vaccines_outlined,
-                text: tr('বাংলাদেশের ইপিআই সময়সূচি অনুযায়ী। প্রতিটা টিকার আগের দিন আর সেদিন সকালে মনে করাবো। টিকা কার্ডের তারিখের সাথে মিলিয়ে নিন — কেন্দ্রের দেওয়া তারিখই মানবেন।'),
+                text: tr('বাংলাদেশের ইপিআই সময়সূচি অনুযায়ী। প্রতিটা টিকার আগের দিন আর সেদিন সকালে মনে করাব। টিকা কার্ডের তারিখের সাথে মিলিয়ে নিন — কেন্দ্রের দেওয়া তারিখই মানবেন।'),
               ),
               const SizedBox(height: 12),
               if (m.birth == null)
@@ -734,7 +734,7 @@ class DoctorSummaryScreen extends StatelessWidget {
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
               Panel(padding: const EdgeInsets.all(16), child: SelectableText(text, style: body(15, height: 1.6))),
               const SizedBox(height: 12),
-              PrimaryButton(label: tr('পাঠান (WhatsApp ইত্যাদি)'), icon: Icons.share_outlined, onPressed: () => brain.services.files.shareText(text)),
+              PrimaryButton(label: tr('পাঠান (হোয়াটসঅ্যাপ ইত্যাদি)'), icon: Icons.share_outlined, onPressed: () => brain.services.files.shareText(text)),
             ]),
           ),
         ]),

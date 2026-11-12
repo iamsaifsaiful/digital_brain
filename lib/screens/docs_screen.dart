@@ -233,7 +233,7 @@ class _DocsScreenState extends State<DocsScreen> {
                 ],
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
-                  child: Text(folder == null ? tr('সম্প্রতি রাখা') : trf('এই ফোল্ডারে · {0}টি', [bnDigits(docs.length)]), style: body(13, weight: FontWeight.w600, color: C.muted)),
+                  child: Text(folder == null ? tr('সম্প্রতি রাখা') : trf('এই ফোল্ডারে · {0}টা', [bnDigits(docs.length)]), style: body(13, weight: FontWeight.w600, color: C.muted)),
                 ),
                 if (folder != null && docs.isEmpty && d.ownDocFolders.contains(folder))
                   Align(
@@ -580,7 +580,7 @@ class _DocScreenState extends State<DocScreen> {
                             ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))
                             : Icon(Icons.document_scanner_outlined, color: C.green),
                         title: _reading ? tr('ছবি থেকে লেখা পড়ছি…') : tr('ছবি থেকে তথ্য পড়ুন'),
-                        subtitle: tr('নম্বর, নাম, জন্মতারিখ, মেয়াদ — ফোনেই পড়ে বসিয়ে দেবো, আপনি মিলিয়ে নেবেন'),
+                        subtitle: tr('নম্বর, নাম, জন্মতারিখ, মেয়াদ — ফোনেই পড়ে বসিয়ে দেব, আপনি মিলিয়ে নেবেন'),
                         onTap: _reading ? null : () => _readDoc(brain, d),
                       ),
                     ListRow(
@@ -599,8 +599,8 @@ class _DocScreenState extends State<DocScreen> {
                     subtitle: !brain.has(ProFeature.docAlerts)
                         ? tr('তারিখ লেখা থাকবে। মেয়াদ শেষের আগে মনে করানো প্রিমিয়াম সুবিধা।')
                         : d.expiry == null
-                            ? tr('দিলে ৬ মাস আগে, এক মাস আগে আর শেষের দিন মনে করাবো')
-                            : tr('৬ মাস আগে, এক মাস আগে আর শেষের দিন মনে করাবো'),
+                            ? tr('দিলে ৬ মাস আগে, এক মাস আগে আর শেষের দিন মনে করাব')
+                            : tr('৬ মাস আগে, এক মাস আগে আর শেষের দিন মনে করাব'),
                     trailing: d.expiry == null
                         ? (brain.has(ProFeature.docAlerts) ? null : const ProMark())
                         : IconButton(tooltip: tr('মেয়াদ সরান'), onPressed: () => brain.setDocExpiry(d, null), icon: Icon(Icons.close_rounded, color: C.muted)),
@@ -646,7 +646,7 @@ Widget _folderTile({required Key key, required IconData icon, required Color tin
             ),
             const Spacer(),
             Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w600, height: 1.25)),
-            Text(trf('{0}টি', [bnDigits(count)]), style: body(11.5, color: C.muted)),
+            Text(trf('{0}টা', [bnDigits(count)]), style: body(11.5, color: C.muted)),
           ]),
         ),
       ),

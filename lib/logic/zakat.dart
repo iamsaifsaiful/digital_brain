@@ -194,7 +194,7 @@ List<ZakatLine> zakatLines(AppData d, DateTime now, ZakatSaved z) {
     final value = stocked.fold<int>(0, (s, p) => s + (p.stock * (p.sell > 0 ? p.sell : p.buy)).round());
     final units = stocked.fold<double>(0, (s, p) => s + p.stock);
     add('shop:stock', ZakatGroup.business, '${tr('দোকানের স্টক')} · ${tr('ব্যবসা থেকে')}', value,
-        trf('{0}টি পণ্য, মোট {1} একক — বিক্রয়মূল্যে; ব্যবসায়ী মোডের স্টক থেকে', [bnDigits(stocked.length), bnDigits(qtyText(units))]));
+        trf('{0}টা পণ্য, মোট {1} একক — বিক্রয়মূল্যে; ব্যবসায়ী মোডের স্টক থেকে', [bnDigits(stocked.length), bnDigits(qtyText(units))]));
   }
   // The business's own cash (sales and collections in, costs out).
   final bizNet = bizCashBalance(d.cash);

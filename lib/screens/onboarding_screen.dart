@@ -20,7 +20,7 @@ class TemplatesScreen extends StatelessWidget {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('তৈরি তালিকা')),
+          TopBar(title: tr('রেডিমেড তালিকা')),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
               Text(tr('একটা বেছে নিলে তার সব জিনিস কাজের তালিকায় আলাদা নামে উঠে যাবে। টিক দিয়ে দিয়ে শেষ করুন, দরকারমতো বাদ দিন বা যোগ করুন।'),

@@ -239,7 +239,7 @@ class _ShopMoney extends StatelessWidget {
           Row(children: [
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(trf('আজ বিক্রি · {0}টি', [bnDigits(today.count)]), style: body(11.5, color: C.muted)),
+                Text(trf('আজ বিক্রি · {0}টা', [bnDigits(today.count)]), style: body(11.5, color: C.muted)),
                 FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: RollingAmount(value: today.total, format: taka, style: display(27, weight: 600, height: 1.45))),
               ]),
             ),
@@ -255,9 +255,9 @@ class _ShopMoney extends StatelessWidget {
           const Hairline(),
           IntrinsicHeight(
             child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              half(trf('পাবো · {0} জন গ্রাহক', [bnDigits(get.length)]), get.fold(0, (s, a) => s + a.due), C.green, () => goToTab(context, ShellTab.people), const Key('biz-home-get')),
+              half(trf('পাব · {0} জন গ্রাহক', [bnDigits(get.length)]), get.fold(0, (s, a) => s + a.due), C.green, () => goToTab(context, ShellTab.people), const Key('biz-home-get')),
               Container(width: 1, color: C.border, margin: const EdgeInsets.symmetric(horizontal: 12)),
-              half(trf('দেবো · {0} জন ডিলার', [bnDigits(give.length)]), give.fold(0, (s, a) => s + a.due), give.isEmpty ? C.ink : C.warn, dealers, const Key('biz-home-give')),
+              half(trf('দেব · {0} জন ডিলার', [bnDigits(give.length)]), give.fold(0, (s, a) => s + a.due), give.isEmpty ? C.ink : C.warn, dealers, const Key('biz-home-give')),
             ]),
           ),
           const Hairline(),

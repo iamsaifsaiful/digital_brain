@@ -267,7 +267,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
       case ProfileSet():
         return _Answer(summaryLine(cmd));
       case ManageItem():
-        return _Answer(tr('সহকারীর পাতায় বলুন — খুঁজে বদলে বা মুছে দেবো।'));
+        return _Answer(tr('সহকারীর পাতায় বলুন — খুঁজে বদলে বা মুছে দেব।'));
       case OpenPlace():
         final name = cmd.folder ?? tr(placeById(cmd.place)?.title ?? cmd.place);
         return _Answer(trf('{0} খুলছি।', [name]), actions: [
@@ -344,7 +344,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
     switch (q.ask) {
       case LedgerAsk.person:
         final p = balanceOf(d.ledger, q.person!);
-        return _Answer(text, items: [if (p != null) row(p, trf('{0}টি লেনদেন', [bnDigits(p.count)]))]);
+        return _Answer(text, items: [if (p != null) row(p, trf('{0}টা লেনদেন', [bnDigits(p.count)]))]);
       case LedgerAsk.receivable:
         return _Answer(text, items: [
           for (final p in all.where((p) => p.balance > 0)) row(p, p.last == null ? '' : trf('শেষ লেনদেন {0}', [shortDate(p.last!)])),

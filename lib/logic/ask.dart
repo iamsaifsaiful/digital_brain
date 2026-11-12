@@ -115,7 +115,7 @@ String? infoAnswer(AppData d, String said, DateTime now) {
   final where = _at(place.label);
   switch (topic) {
     case 'privacy':
-      return tr('আপনার তথ্য আপনার ফোনেই থাকে, PIN দিয়ে তালা দেওয়া। পাসওয়ার্ড, পিন আর ওটিপি কখনো ফোনের বাইরে যায় না। ব্যাকআপ যায় আপনার নিজের Google Drive-এ, তালা দেওয়া অবস্থায়। ফ্যামিলিতে কিছু পাঠালে শুধু সেই মানুষটাই খুলতে পারেন। কথা বুঝতে সাহায্য লাগলে শুধু সেই কথাটুকু আমাদের সার্ভারে যায়।');
+      return tr('আপনার তথ্য আপনার ফোনেই থাকে, PIN দিয়ে তালা দেওয়া। পাসওয়ার্ড, পিন আর ওটিপি কখনো ফোনের বাইরে যায় না। ব্যাকআপ যায় আপনার নিজের Google Drive-এ, তালা দেওয়া অবস্থায়। পরিবারে কিছু পাঠালে শুধু সেই মানুষটাই খুলতে পারেন। কথা বুঝতে সাহায্য লাগলে শুধু সেই কথাটুকু আমাদের সার্ভারে যায়।');
     case 'sehri':
       // Sehri ends 5 minutes before Fajr begins.
       final s = now.isBefore(today.sehriEnd) ? today : tomorrow;
@@ -175,7 +175,7 @@ String? infoAnswer(AppData d, String said, DateTime now) {
       }
       final m = monthSums(d.cash, now);
       if (m.income == 0 && m.expense == 0) {
-        return tr('টাকার হিসাবের কোনো তথ্য নেই। অ্যাকাউন্ট পাতায় হাতের টাকা, বিকাশ, ব্যাংকের জমা যুক্ত করতে পারেন — পরে জিজ্ঞেস করলেই কোথায় কত আছে বলে দেবো।');
+        return tr('টাকার হিসাবের কোনো তথ্য নেই। অ্যাকাউন্ট পাতায় হাতের টাকা, বিকাশ, ব্যাংকের জমা যুক্ত করতে পারেন — পরে জিজ্ঞেস করলেই কোথায় কত আছে বলে দেব।');
       }
       return trf('এই মাসে আয় {0}, খরচ {1} টাকা — ব্যালেন্স {2} টাকা। কোন অ্যাকাউন্টে কত আছে জানতে অ্যাকাউন্ট পাতায় হিসাব যুক্ত করুন।',
           [bnNumber(m.income), bnNumber(m.expense), m.balance >= 0 ? bnNumber(m.balance) : trf('মাইনাস {0}', [bnNumber(-m.balance)])]);
@@ -190,32 +190,32 @@ String? infoAnswer(AppData d, String said, DateTime now) {
       }
       if (z.nisab <= 0) {
         final why = metalUnavailable ? tr(' আজকের দাম ইন্টারনেট থেকে আনতে পারিনি (ইন্টারনেট বা সার্ভার সাড়া দেয়নি) — বাজুসের সাইটে (bajus.org) দেখে নিতে পারেন।') : '';
-        return trf('আপনার হিসাব থেকে যাকাতযোগ্য সম্পদ এখন প্রায় {0} টাকা (নগদ, ব্যাংক-সঞ্চয়, পাওনা থেকে দেনা বাদে)। নিসাব জানতে আজকের রুপার দাম লাগবে — যাকাত পাতায় রুপার দাম আর সোনা-রুপার পরিমাণ দিন, তারপর জিজ্ঞেস করলেই যাকাত বলে দেবো।', [bnNumber(z.net < 0 ? 0 : z.net)]) + why;
+        return trf('আপনার হিসাব থেকে যাকাতযোগ্য সম্পদ এখন প্রায় {0} টাকা (নগদ, ব্যাংক-সঞ্চয়, পাওনা থেকে দেনা বাদে)। নিসাব জানতে আজকের রুপার দাম লাগবে — যাকাত পাতায় রুপার দাম আর সোনা-রুপার পরিমাণ দিন, তারপর জিজ্ঞেস করলেই যাকাত বলে দেব।', [bnNumber(z.net < 0 ? 0 : z.net)]) + why;
       }
       if (!z.due) return trf('আপনার যাকাতযোগ্য সম্পদ {0} টাকা — নিসাব {1} টাকার কম, তাই যাকাত ফরজ নয় (আনুমানিক হিসাব)।', [bnNumber(z.net < 0 ? 0 : z.net), bnNumber(z.nisab)]) + _goldNisab(z);
       return trf('আপনার যাকাতযোগ্য সম্পদ {0} টাকা, যাকাত প্রায় {1} টাকা (২.৫%)। এটা আনুমানিক — নিশ্চিত হতে আলেমের পরামর্শ নিন।', [bnNumber(z.net), bnNumber(z.zakat)]);
     case 'savings':
       if (d.goals.isEmpty) {
-        return tr('সঞ্চয়ের কোনো তথ্য নেই। “সঞ্চয় ও কিস্তি” পাতায় লক্ষ্য যুক্ত করতে পারেন — পরে জিজ্ঞেস করলেই কত জমল বলে দেবো।');
+        return tr('সঞ্চয়ের কোনো তথ্য নেই। “সঞ্চয় ও কিস্তি” পাতায় লক্ষ্য যুক্ত করতে পারেন — পরে জিজ্ঞেস করলেই কত জমল বলে দেব।');
       }
       final saved = d.goals.fold<int>(0, (s, g) => s + g.saved);
       final parts = [for (final g in d.goals) trf('{0} {1} টাকা ({2}%)', [g.name, bnNumber(g.saved), bnDigits((g.progress * 100).round())])];
       return trf('সঞ্চয়ে মোট জমেছে {0} টাকা — {1}।', [bnNumber(saved), parts.join(', ')]);
     case 'medicines':
       if (d.medicines.isEmpty) {
-        return tr('ওষুধের কোনো তথ্য নেই। ওষুধ পাতায় নাম আর খাওয়ার সময় যুক্ত করতে পারেন — সময়মতো মনে করিয়ে দেবো।');
+        return tr('ওষুধের কোনো তথ্য নেই। ওষুধ পাতায় নাম আর খাওয়ার সময় যুক্ত করতে পারেন — সময়মতো মনে করিয়ে দেব।');
       }
       final lines = [for (final m in d.medicines) '• ${m.name} — ${m.times.map((t) => bnTime(t ~/ 60, t % 60)).join(', ')}'];
       return trf('{0}টা ওষুধ চলছে:\n{1}', [bnDigits(d.medicines.length), lines.join('\n')]);
     case 'habits':
-      if (d.habits.isEmpty) return tr('অভ্যাসের কোনো তথ্য নেই। অভ্যাস পাতায় যুক্ত করতে পারেন — প্রতিদিন টিক দিলে কত দিন টানা হলো বলে দেবো।');
+      if (d.habits.isEmpty) return tr('অভ্যাসের কোনো তথ্য নেই। অভ্যাস পাতায় যুক্ত করতে পারেন — প্রতিদিন টিক দিলে কত দিন টানা হলো বলে দেব।');
       final parts = [
         for (final h in d.habits)
           '${h.name} — ${h.doneOn(now) ? tr('আজ হয়েছে') : tr('আজ বাকি')}${h.streak(now) > 1 ? trf(', টানা {0} দিন', [bnDigits(h.streak(now))]) : ''}',
       ];
       return parts.join('; ');
     case 'notes':
-      if (d.notes.isEmpty) return tr('কোনো নোট নেই। বলুন “মনে রাখো: …” — রেখে দেবো, পরে জিজ্ঞেস করলেই বলবো।');
+      if (d.notes.isEmpty) return tr('কোনো নোট নেই। বলুন “মনে রাখো: …” — রেখে দেব, পরে জিজ্ঞেস করলেই বলব।');
       final cats = <String, int>{};
       for (final n in d.notes) {
         cats[n.category] = (cats[n.category] ?? 0) + 1;
@@ -224,7 +224,7 @@ String? infoAnswer(AppData d, String said, DateTime now) {
     case 'special':
       final upcoming = [...d.specialDays]..sort((a, b) => a.next(now).compareTo(b.next(now)));
       final soon = upcoming.where((s) => s.next(now).difference(dayOnly(now)).inDays <= 60).take(5).toList();
-      if (d.specialDays.isEmpty) return tr('বিশেষ দিনের কোনো তথ্য নেই। বলুন, যেমন “রহিমের জন্মদিন ১২ মার্চ” — প্রতি বছর মনে করিয়ে দেবো।');
+      if (d.specialDays.isEmpty) return tr('বিশেষ দিনের কোনো তথ্য নেই। বলুন, যেমন “রহিমের জন্মদিন ১২ মার্চ” — প্রতি বছর মনে করিয়ে দেব।');
       if (soon.isEmpty) return tr('সামনের দুই মাসে কোনো বিশেষ দিন নেই।');
       return trf('সামনে: {0}।', [soon.map((s) => '${specialTitle(s, on: s.next(now))} ${sayWhen(s.next(now), now, withTime: false)}').join('; ')]);
     case 'day':
@@ -265,9 +265,9 @@ String? infoAnswer(AppData d, String said, DateTime now) {
           for (final r in d.reminders) if (about(r.title)) '“${r.title}” (${sayWhen(r.nextDate(now), now, withTime: false)})',
         ];
         if (kept.isNotEmpty) {
-          return trf('আপনি রেখেছিলেন: {0}। ডকুমেন্টসে কাগজটি রেখে মেয়াদের তারিখ দিলে শেষ হওয়ার আগে মনে করিয়ে দেবো।', [kept.take(2).join('; ')]);
+          return trf('আপনি রেখেছিলেন: {0}। ডকুমেন্টসে কাগজটি রেখে মেয়াদের তারিখ দিলে শেষ হওয়ার আগে মনে করিয়ে দেব।', [kept.take(2).join('; ')]);
         }
-        return tr('মেয়াদের কোনো তথ্য নেই। ডকুমেন্টসে কাগজটি রেখে মেয়াদের তারিখ দিলে শেষ হওয়ার আগে মনে করিয়ে দেবো।');
+        return tr('মেয়াদের কোনো তথ্য নেই। ডকুমেন্টসে কাগজটি রেখে মেয়াদের তারিখ দিলে শেষ হওয়ার আগে মনে করিয়ে দেব।');
       }
       return docs.take(4).map((x) {
         final left = dayOnly(x.expiry!).difference(dayOnly(now)).inDays;

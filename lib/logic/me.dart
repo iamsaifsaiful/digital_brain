@@ -78,7 +78,7 @@ double? heightIn(String text) {
 }
 
 /// "এ বিষয়ে তথ্য নেই" — and how to add it, the way the app works.
-String noInfo(String what, String example) => trf('{0} কোনো তথ্য নেই। তথ্যটি যুক্ত করতে পারেন — বলুন, যেমন “{1}”। পরে যেকোনো সময় জিজ্ঞেস করলে উত্তর দেবো।', [what, example]);
+String noInfo(String what, String example) => trf('{0} কোনো তথ্য নেই। তথ্যটি যুক্ত করতে পারেন — বলুন, যেমন “{1}”। পরে যেকোনো সময় জিজ্ঞেস করলে উত্তর দেব।', [what, example]);
 
 bool mentionsBlood(String text) => _bloodWords.any((w) => text.contains(normalize(w)));
 
@@ -136,7 +136,7 @@ String? profileAnswer(AppData d, String said) {
     case 'name':
       final n = askUserName.isNotEmpty ? askUserName : (d.emergency.name.trim().isNotEmpty ? d.emergency.name.trim() : (me != null && me.name != 'আমি' && me.name != 'Me' ? me.name : ''));
       return n.isEmpty
-          ? tr('আপনার নামের কোনো তথ্য নেই। সেটিংসে প্রোফাইলে নামটি যুক্ত করতে পারেন — তারপর নাম ধরেই কথা বলবো।')
+          ? tr('আপনার নামের কোনো তথ্য নেই। সেটিংসে প্রোফাইলে নামটি যুক্ত করতে পারেন — তারপর নাম ধরেই কথা বলব।')
           : trf('আপনার নাম {0}।', [n]);
     case 'height':
       final cm = me?.heightCm;
@@ -144,22 +144,22 @@ String? profileAnswer(AppData d, String said) {
     case 'age':
       final age = me?.ageOn(now);
       return age == null
-          ? tr('আপনার জন্মতারিখের কোনো তথ্য নেই। স্বাস্থ্য পাতায় “বদলান” চেপে জন্মতারিখ দিতে পারেন — তারপর জিজ্ঞেস করলেই বয়স বলে দেবো।')
+          ? tr('আপনার জন্মতারিখের কোনো তথ্য নেই। স্বাস্থ্য পাতায় “বদলান” চেপে জন্মতারিখ দিতে পারেন — তারপর জিজ্ঞেস করলেই বয়স বলে দেব।')
           : trf('আপনার বয়স {0} বছর।', [bnDigits(age)]);
     case 'birth':
       final b = me?.birth;
       return b == null
-          ? tr('আপনার জন্মতারিখের কোনো তথ্য নেই। স্বাস্থ্য পাতায় “বদলান” চেপে জন্মতারিখ দিতে পারেন — পরে যেকোনো সময় জিজ্ঞেস করলে উত্তর দেবো।')
+          ? tr('আপনার জন্মতারিখের কোনো তথ্য নেই। স্বাস্থ্য পাতায় “বদলান” চেপে জন্মতারিখ দিতে পারেন — পরে যেকোনো সময় জিজ্ঞেস করলে উত্তর দেব।')
           : trf('আপনার জন্মতারিখ {0}।', [fullDate(b)]);
     case 'allergy':
       final a = d.emergency.allergies.trim();
       return a.isEmpty
-          ? tr('আপনার অ্যালার্জির কোনো তথ্য নেই। জরুরি কার্ডে তথ্যটি যুক্ত করতে পারেন — পরে যেকোনো সময় জিজ্ঞেস করলে উত্তর দেবো।')
+          ? tr('আপনার অ্যালার্জির কোনো তথ্য নেই। জরুরি কার্ডে তথ্যটি যুক্ত করতে পারেন — পরে যেকোনো সময় জিজ্ঞেস করলে উত্তর দেব।')
           : trf('আপনার অ্যালার্জি: {0}।', [a]);
     case 'illness':
       final c = d.emergency.conditions.trim();
       return c.isEmpty
-          ? tr('আপনার কোনো রোগের তথ্য নেই। জরুরি কার্ডে তথ্যটি যুক্ত করতে পারেন — পরে যেকোনো সময় জিজ্ঞেস করলে উত্তর দেবো।')
+          ? tr('আপনার কোনো রোগের তথ্য নেই। জরুরি কার্ডে তথ্যটি যুক্ত করতে পারেন — পরে যেকোনো সময় জিজ্ঞেস করলে উত্তর দেব।')
           : trf('জরুরি কার্ডে লেখা আছে: {0}।', [c]);
   }
   return null;

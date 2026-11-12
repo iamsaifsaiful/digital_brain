@@ -449,7 +449,7 @@ class Brain extends ChangeNotifier {
           id: stableId('pro-on'),
           at: services.now().add(const Duration(seconds: 5)),
           title: tr('প্রিমিয়াম চালু হয়েছে'),
-          body: tr('রিমাইন্ডার, ব্যাকআপ, ফ্যামিলি — সব প্রিমিয়াম সুবিধা এখন চালু। ধন্যবাদ!'),
+          body: tr('রিমাইন্ডার, ব্যাকআপ, পরিবার — সব প্রিমিয়াম সুবিধা এখন চালু। ধন্যবাদ!'),
           reminderId: 'nudge:pro',
           gentle: true,
         ));
@@ -502,9 +502,9 @@ class Brain extends ChangeNotifier {
     if (old != null) data.reminders.removeWhere((r) => r.id == old);
     final r = Reminder(
         title: e.projectId != null
-            ? (e.kind == LedgerKind.lent ? trf('{0}-এর কাছে {1} বকেয়া — তাগাদা দিন', [e.person, taka(e.amount)]) : trf('{0}-কে {1} বকেয়া শোধ করার কথা', [e.person, taka(e.amount)]))
+            ? (e.kind == LedgerKind.lent ? trf('{0}-এর কাছে {1} বকেয়া — মনে করিয়ে দিন', [e.person, taka(e.amount)]) : trf('{0}-কে {1} বকেয়া শোধ করার কথা', [e.person, taka(e.amount)]))
             : e.kind == LedgerKind.lent
-                ? trf('{0}-এর কাছে {1} পাওনা — তাগাদা দিন', [e.person, taka(e.amount)])
+                ? trf('{0}-এর কাছে {1} পাওনা — মনে করিয়ে দিন', [e.person, taka(e.amount)])
                 : trf('{0}-কে {1} শোধ করার কথা', [e.person, taka(e.amount)]),
         date: dayOnly(at),
         hour: at.hour,

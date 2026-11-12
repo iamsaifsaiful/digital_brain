@@ -1462,7 +1462,7 @@ class Parser {
     // "এখানে অনেক গুলো কাজ, একটি না": a complaint that several to-dos were
     // read as one — never a note; said how to give them.
     if (RegExp(fold(r'(?:অনেক\s*গুলো\s+কাজ|অনেকগুলো\s+কাজ|কয়েকটা\s+কাজ|আলাদা\s+আলাদা\s+কাজ)')).hasMatch(text) && RegExp(fold(r'(?:একটি|একটা|এক)\s+(?:না|নয়)|আলাদা')).hasMatch(text)) {
-      return AiReply(said, text: tr('বুঝেছি — কাজগুলো আলাদা আলাদা হবে। আগের কথাটা আবার বলুন, শুরুতে দিন আর “কাজ”, তারপর কমা দিয়ে একেকটা কাজ — যেমন “১০ জানুয়ারি কাজ গুলো, রবিনকে কল করব, নাস্তা করব, মসজিদে যাবো”। প্রতিটা আলাদা কাজ হিসেবে রাখব।'));
+      return AiReply(said, text: tr('বুঝেছি — কাজগুলো আলাদা আলাদা হবে। আগের কথাটা আবার বলুন, শুরুতে দিন আর “কাজ”, তারপর কমা দিয়ে একেকটা কাজ — যেমন “১০ জানুয়ারি কাজ গুলো, রবিনকে কল করব, নাস্তা করব, মসজিদে যাব”। প্রতিটা আলাদা কাজ হিসেবে রাখব।'));
     }
     if (!asking && w.length >= 3 && !toYou) return NoteAdd(said, text: said.trim(), fromStatement: true);
     return SearchQuery(said, terms: terms);

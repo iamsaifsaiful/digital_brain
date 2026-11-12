@@ -22,7 +22,7 @@ String noticeKindLabel(String kind) {
   return switch (kind) {
     'pro' => tr('প্রিমিয়াম'),
     'blood' => tr('রক্তদান'),
-    'family' || 'family_item' => tr('ফ্যামিলি'),
+    'family' || 'family_item' => tr('পরিবার'),
     'feedback' => tr('মতামতের উত্তর'),
     'heir_claim' => tr('উত্তরাধিকার'),
     _ => tr('সহকারী'),

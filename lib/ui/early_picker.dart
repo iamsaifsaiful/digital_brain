@@ -26,7 +26,7 @@ class EarlyPicker extends StatelessWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setD) => AlertDialog(
-          title: Text(tr('কতক্ষণ আগে মনে করাবো?'), style: body(18, weight: FontWeight.w600)),
+          title: Text(tr('কতক্ষণ আগে মনে করাব?'), style: body(18, weight: FontWeight.w600)),
           content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             TextField(
               controller: c,

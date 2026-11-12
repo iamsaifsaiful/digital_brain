@@ -1168,7 +1168,7 @@ extension _BulkChat on ChatController {
       if (!ok(name)) return false;
       final known = projectByName(brain.data, name) ?? projectMeant(brain.data, name);
       if (known != null) {
-        _say(out, trf('‘{0}’ নামে হিসাব আগেই খোলা আছে — অন্যান্য হিসাবে পাবেন।', [known.name]), links: [ChatLink(LinkKind.page, tr('অন্যান্য হিসাব'), page: 'projects')]);
+        _say(out, trf('‘{0}’ নামে হিসাব আগেই খোলা আছে — আলাদা হিসাবে পাবেন।', [known.name]), links: [ChatLink(LinkKind.page, tr('আলাদা হিসাব'), page: 'projects')]);
         return true;
       }
       await _openAccount(name, out);
@@ -1181,7 +1181,7 @@ extension _BulkChat on ChatController {
       if (ok(name) && name.split(' ').length <= 4) {
         final known = projectByName(brain.data, name) ?? projectMeant(brain.data, name);
         if (known != null) {
-          _say(out, trf('‘{0}’ নামে হিসাব আগেই খোলা আছে — অন্যান্য হিসাবে পাবেন।', [known.name]), links: [ChatLink(LinkKind.page, tr('অন্যান্য হিসাব'), page: 'projects')]);
+          _say(out, trf('‘{0}’ নামে হিসাব আগেই খোলা আছে — আলাদা হিসাবে পাবেন।', [known.name]), links: [ChatLink(LinkKind.page, tr('আলাদা হিসাব'), page: 'projects')]);
           return true;
         }
         await _openAccount(name, out);
@@ -1198,7 +1198,7 @@ extension _BulkChat on ChatController {
       final known = projectByName(brain.data, name) ?? projectMeant(brain.data, name);
       if (known != null) return false; // the account's own answer (its entries) comes from the usual rules
       _accountWanted = (name, _now);
-      _ask(out, trf('‘{0}’ নামে আলাদা কোনো হিসাব এখনো নেই। অন্যান্য হিসাবে ‘{0}’ খুলে দিই?', [name]), ChatWait.newAccount, choices: [ChatChoice(tr('হ্যাঁ, খুলে দাও'), 'হ্যাঁ'), ChatChoice(tr('না'), 'না')]);
+      _ask(out, trf('‘{0}’ নামে আলাদা কোনো হিসাব এখনো নেই। আলাদা হিসাবে ‘{0}’ খুলে দিই?', [name]), ChatWait.newAccount, choices: [ChatChoice(tr('হ্যাঁ, খুলে দাও'), 'হ্যাঁ'), ChatChoice(tr('না'), 'না')]);
       return true;
     }
     return false;
@@ -1235,17 +1235,17 @@ extension _BulkChat on ChatController {
     _accountWanted = null;
     final known = projectByName(brain.data, name);
     if (known != null) {
-      _say(out, trf('‘{0}’ নামে হিসাব আগেই খোলা আছে।', [known.name]), links: [ChatLink(LinkKind.page, tr('অন্যান্য হিসাব'), page: 'projects')]);
+      _say(out, trf('‘{0}’ নামে হিসাব আগেই খোলা আছে।', [known.name]), links: [ChatLink(LinkKind.page, tr('আলাদা হিসাব'), page: 'projects')]);
       return;
     }
     if (!brain.canAddProject) {
-      _say(out, tr('ফ্রিতে ১টা অন্যান্য হিসাব খোলা যায়, সেটা খোলা আছে — আরও খুলতে প্রিমিয়াম লাগবে।'), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম ভার্সন'), page: 'pro')]);
+      _say(out, tr('ফ্রিতে ১টা আলাদা হিসাব খোলা যায়, সেটা খোলা আছে — আরও খুলতে প্রিমিয়াম লাগবে।'), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম ভার্সন'), page: 'pro')]);
       return;
     }
     final snap = brain.snapshot();
     final made = await brain.projectNamed(name);
     _actions++;
-    _say(out, trf('খুলে দিলাম — অন্যান্য হিসাবে ‘{0}’। এখন বলুন, যেমন “মাহি ২০০০ টাকা দিয়েছে, {0} হিসাবে”।', [name]), links: [ChatLink(LinkKind.page, tr('অন্যান্য হিসাব'), page: 'projects')]);
+    _say(out, trf('খুলে দিলাম — আলাদা হিসাবে ‘{0}’। এখন বলুন, যেমন “মাহি ২০০০ টাকা দিয়েছে, {0} হিসাবে”।', [name]), links: [ChatLink(LinkKind.page, tr('আলাদা হিসাব'), page: 'projects')]);
     _offerUndo(snap);
     _askProjectMain(made, out);
   }

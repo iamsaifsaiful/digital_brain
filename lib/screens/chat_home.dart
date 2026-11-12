@@ -1023,7 +1023,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
         const Align(alignment: Alignment.centerLeft, child: _Mark(size: 44)),
         const SizedBox(height: 14),
         Text(tr('আপনার সহকারী'), style: display(26, weight: 700, height: 1.2)),
-        Text(tr('বলুন বা লিখুন — রেখে দেবো, খুঁজে দেবো, উত্তর দেবো'), style: body(15.5, color: C.muted, height: 1.45)),
+        Text(tr('বলুন বা লিখুন — রেখে দেব, খুঁজে দেব, উত্তর দেব'), style: body(15.5, color: C.muted, height: 1.45)),
         const SizedBox(height: 10),
         can(Icons.bookmark_add_outlined, tr('রাখা: টাকা, কাজ, রিমাইন্ডার, নোট, নম্বর, পাসওয়ার্ড')),
         can(Icons.search_rounded, tr('খোঁজা: “রহিমের নম্বর কত?”, “গাড়ির কাগজ কোথায়?”')),
@@ -1419,7 +1419,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
         : _paused
         ? tr('থেমে আছি — আরও বলবেন, নাকি বলা শেষ?')
         : _listening && _speaking
-        ? tr('বলছি — আপনি কথা বললেই থেমে শুনবো')
+        ? tr('বলছি — আপনি কথা বললেই থেমে শুনব')
         : _listening
         ? (_ready ? tr('শুনছি…') : tr('প্রস্তুত হচ্ছে… একটু পরে বলুন'))
         : (_busy || _chat.thinking)

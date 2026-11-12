@@ -198,7 +198,7 @@ class _NewFeedbackScreenState extends State<NewFeedbackScreen> {
       _error = e;
     });
     if (e == null) {
-      toast(context, tr('পাঠানো হয়েছে। ধন্যবাদ — উত্তর এলে জানাবো।'));
+      toast(context, tr('পাঠানো হয়েছে। ধন্যবাদ — উত্তর এলে জানাব।'));
       Navigator.of(context).pop(id);
     }
   }

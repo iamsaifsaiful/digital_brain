@@ -99,7 +99,7 @@ class StoreScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
-        TabTitle(tr('সংরক্ষণ'), sub: tr('আপনার সব দরকারি জিনিস, এই ফোনে তালাবদ্ধ')),
+        TabTitle(tr('আমার তথ্য'), sub: tr('আপনার সব দরকারি জিনিস, এই ফোনে তালাবদ্ধ')),
         const SizedBox(height: 14),
         Material(
           color: C.surface,

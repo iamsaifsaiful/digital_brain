@@ -50,7 +50,7 @@ class AssistantSection extends StatelessWidget {
             () => push(const NotificationSettingsScreen())),
         sw(Icons.redo_rounded, tr('বাকি কাজ পরের দিনে'), tr('আগের দিনের না-হওয়া কাজ নিজে থেকে আজকের তালিকায় আসবে'), brain.carryOver, (v) => brain.setPref('carry_over', v)),
         link(Icons.psychology_alt_outlined, tr('সহকারীর স্মৃতি'),
-            brain.data.memories.isEmpty ? tr('আপনার সম্পর্কে যা মনে রাখবে') : trf('{0}টি কথা মনে রাখা আছে', [bnDigits(brain.data.memories.length)]), () => push(const MemoryScreen())),
+            brain.data.memories.isEmpty ? tr('আপনার সম্পর্কে যা মনে রাখবে') : trf('{0}টা কথা মনে রাখা আছে', [bnDigits(brain.data.memories.length)]), () => push(const MemoryScreen())),
         // ব্যবসায়ী মোড: its switch is on the আরও page itself now (owner, 6 Nov).
         sw(Icons.mic_none_rounded, tr('নোটিফিকেশনে মাইক'), tr('উপর থেকে টেনে নামিয়ে এক চাপে বলুন'), brain.panelMic, (v) => brain.setPref('panel_mic', v)),
         link(Icons.touch_app_outlined, tr('ফোনের সহকারী বানান'), tr('হোম বোতাম চেপে ধরলেই My Assistant খুলবে'), () async {

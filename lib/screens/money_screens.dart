@@ -121,7 +121,7 @@ class _CashNowCardState extends State<CashNowCard> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text(tr('এখন আপনার কাছে কত টাকা আছে?'), style: body(15.5, weight: FontWeight.w600)),
         const SizedBox(height: 2),
-        Text(tr('হাতে, ব্যাংকে, বিকাশে — সব মিলিয়ে লিখুন। এরপর আয়, খরচ, ধার আর অন্যান্য হিসাবের খরচ লিখলে নিজে বাড়বে-কমবে।'), style: body(13, color: C.muted, height: 1.45)),
+        Text(tr('হাতে, ব্যাংকে, বিকাশে — সব মিলিয়ে লিখুন। এরপর আয়, খরচ, ধার আর আলাদা হিসাবের খরচ লিখলে নিজে বাড়বে-কমবে।'), style: body(13, color: C.muted, height: 1.45)),
         const SizedBox(height: 10),
         Row(children: [
           Expanded(
@@ -263,11 +263,11 @@ class CashNowScreen extends StatelessWidget {
                       ]),
                     ),
                     const SizedBox(height: 8),
-                    Text(tr('ধার দিলে ব্যয়ে দেখায়, ধার নিলে আয়ে — খরচ বা আয় নয়, টাকা আসা-যাওয়া। অন্যান্য হিসাবের খরচ এখান থেকেই যায়; বকেয়া পেলে আয়ে আসে।'),
+                    Text(tr('ধার দিলে ব্যয়ে দেখায়, ধার নিলে আয়ে — খরচ বা আয় নয়, টাকা আসা-যাওয়া। আলাদা হিসাবের খরচ এখান থেকেই যায়; বকেয়া পেলে আয়ে আসে।'),
                         style: body(12.5, color: C.muted, height: 1.5)),
                     if (lines.isNotEmpty) ...[
                       const SizedBox(height: 14),
-                      SectionTitle(trf('এর পরের লেনদেন · {0}টি', [bnDigits(lines.length)])),
+                      SectionTitle(trf('এর পরের লেনদেন · {0}টা', [bnDigits(lines.length)])),
                       Panel(child: Rows(children: [for (final e in lines) cashRow(context, e)])),
                     ],
                   ]),
@@ -1322,7 +1322,7 @@ class _ProjectScreenState extends State<ProjectScreen> {
     final brain = BrainScope.of(context);
     final p = brain.data.projects.where((x) => x.id == id).firstOrNull;
     if (p == null) {
-      return Scaffold(body: SafeArea(child: Column(children: [TopBar(title: tr('অন্যান্য হিসাব'))])));
+      return Scaffold(body: SafeArea(child: Column(children: [TopBar(title: tr('আলাদা হিসাব'))])));
     }
     final s = projectSums(brain.data.cash, p.id);
     final entries = brain.data.cash.where((e) => e.projectId == p.id).toList()..sort((a, b) => b.date.compareTo(a.date));

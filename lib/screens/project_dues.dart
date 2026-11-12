@@ -26,9 +26,9 @@ const dueOutCategory = 'বকেয়া শোধ';
 bool _isDue(LedgerEntry e) => e.kind == LedgerKind.lent || e.kind == LedgerKind.borrowed;
 
 String dueKindLabel(LedgerKind k) => switch (k) {
-      LedgerKind.lent => tr('বকেয়া পাবো'),
+      LedgerKind.lent => tr('বকেয়া পাব'),
       LedgerKind.received => tr('বকেয়া আদায়'),
-      LedgerKind.borrowed => tr('বকেয়া দেবো'),
+      LedgerKind.borrowed => tr('বকেয়া দেব'),
       LedgerKind.repaid => tr('বকেয়া শোধ'),
     };
 
@@ -60,7 +60,7 @@ Future<void> dueForm(BuildContext context, Project project, {String person = '',
             const SizedBox(height: 12),
             // Like ধার-দেনা: they owe me, or I owe them.
             SegTabs<bool>(
-              items: [(false, tr('আমি পাবো')), (true, tr('আমি দেবো'))],
+              items: [(false, tr('আমি পাব')), (true, tr('আমি দেব'))],
               value: owe,
               onChanged: (v) => setS(() => owe = v),
             ),
@@ -70,7 +70,7 @@ Future<void> dueForm(BuildContext context, Project project, {String person = '',
               controller: name,
               autofocus: person.isEmpty,
               textCapitalization: TextCapitalization.words,
-              decoration: InputDecoration(labelText: owe ? tr('কাকে দেবো (নাম)') : tr('কার কাছে (নাম)')),
+              decoration: InputDecoration(labelText: owe ? tr('কাকে দেব (নাম)') : tr('কার কাছে (নাম)')),
             ),
             if (person.isEmpty && known.isNotEmpty) ...[
               const SizedBox(height: 6),
@@ -98,7 +98,7 @@ Future<void> dueForm(BuildContext context, Project project, {String person = '',
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
-                    brain.has(ProFeature.dueReminders) ? tr('আগের দিন আর সেদিন সকাল ১০টায় মনে করিয়ে দেবো।') : tr('তারিখ রাখা থাকবে; মনে করিয়ে দেওয়া প্রিমিয়ামে।'),
+                    brain.has(ProFeature.dueReminders) ? tr('আগের দিন আর সেদিন সকাল ১০টায় মনে করিয়ে দেব।') : tr('তারিখ রাখা থাকবে; মনে করিয়ে দেওয়া প্রিমিয়ামে।'),
                     style: body(13, color: C.muted)),
               ),
             const SizedBox(height: 14),
@@ -222,7 +222,7 @@ Future<void> dueDetails(BuildContext context, Project project, PersonBalance p) 
         child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(20, 0, 20, 20), children: [
           Text(p.name, style: display(19, weight: 700)),
           const SizedBox(height: 4),
-          Text(p.balance > 0 ? trf('বকেয়া পাবো {0}', [taka(p.balance)]) : (p.balance < 0 ? trf('বকেয়া দেবো {0}', [taka(-p.balance)]) : tr('বকেয়া নেই')),
+          Text(p.balance > 0 ? trf('বকেয়া পাব {0}', [taka(p.balance)]) : (p.balance < 0 ? trf('বকেয়া দেব {0}', [taka(-p.balance)]) : tr('বকেয়া নেই')),
               style: body(16, weight: FontWeight.w600, color: p.balance > 0 ? C.green : (p.balance < 0 ? C.orange : C.muted))),
           const SizedBox(height: 12),
           Row(children: [
@@ -306,7 +306,7 @@ class ProjectDuesSection extends StatelessWidget {
       if (dues.isEmpty)
         Panel(
           padding: const EdgeInsets.all(14),
-          child: Text(tr('ধার-দেনার মতোই: কেউ বাকিতে নিলে বা আপনি বাকিতে নিলে লিখুন — কে, কী, কত টাকা, কবে শোধ। সেদিন মনে করিয়ে দেবো।'), style: body(14, color: C.muted)),
+          child: Text(tr('ধার-দেনার মতোই: কেউ বাকিতে নিলে বা আপনি বাকিতে নিলে লিখুন — কে, কী, কত টাকা, কবে শোধ। সেদিন মনে করিয়ে দেব।'), style: body(14, color: C.muted)),
         )
       else ...[
         Panel(
@@ -314,13 +314,13 @@ class ProjectDuesSection extends StatelessWidget {
           child: Row(children: [
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(tr('আমি পাবো'), style: body(13, color: C.muted)),
+                Text(tr('আমি পাব'), style: body(13, color: C.muted)),
                 Text(taka(owed), style: display(19, color: C.green)),
               ]),
             ),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(tr('আমি দেবো'), style: body(13, color: C.muted)),
+                Text(tr('আমি দেব'), style: body(13, color: C.muted)),
                 Text(taka(owing), style: display(19, color: C.orange)),
               ]),
             ),
@@ -347,7 +347,7 @@ class ProjectDuesSection extends StatelessWidget {
                   trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                     Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
                       Text(taka(p.balance.abs()), style: display(16, color: p.balance > 0 ? (late ? C.red : C.green) : (p.balance < 0 ? C.orange : C.muted))),
-                      Text(p.balance > 0 ? tr('পাবো') : (p.balance < 0 ? tr('দেবো') : tr('শোধ')), style: body(12, color: C.muted)),
+                      Text(p.balance > 0 ? tr('পাব') : (p.balance < 0 ? tr('দেব') : tr('শোধ')), style: body(12, color: C.muted)),
                     ]),
                     // A reminder for this বকেয়া (owner, 28 Oct), like ধার-দেনা's.
                     if (p.balance != 0) LedgerAlarmButton(lines: _linesOf(brain.data, project, p), balance: p.balance),
@@ -397,13 +397,13 @@ class AllDuesSection extends StatelessWidget {
         child: Row(children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tr('আমি পাবো'), style: body(13, color: C.muted)),
+              Text(tr('আমি পাব'), style: body(13, color: C.muted)),
               Text(taka(owed), style: display(19, color: C.green)),
             ]),
           ),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text(tr('আমি দেবো'), style: body(13, color: C.muted)),
+              Text(tr('আমি দেব'), style: body(13, color: C.muted)),
               Text(taka(owing), style: display(19, color: C.orange)),
             ]),
           ),
@@ -427,7 +427,7 @@ class AllDuesSection extends StatelessWidget {
                 trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                   Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
                     Text(taka(p.balance.abs()), style: display(16, color: late ? C.red : (p.balance > 0 ? C.green : C.orange))),
-                    Text(p.balance > 0 ? tr('পাবো') : tr('দেবো'), style: body(12, color: C.muted)),
+                    Text(p.balance > 0 ? tr('পাব') : tr('দেব'), style: body(12, color: C.muted)),
                   ]),
                   LedgerAlarmButton(lines: _linesOf(brain.data, pr, p), balance: p.balance),
                 ]),

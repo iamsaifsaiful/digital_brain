@@ -55,7 +55,7 @@ class _BizCustomersState extends State<BizCustomers> {
         Panel(
           padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
           child: Row(children: [
-            Expanded(child: Figure(label: trf('পাবো · {0} জনের কাছে', [bnDigits(owingN)]), amount: taka(dueSum), color: C.green, size: 20)),
+            Expanded(child: Figure(label: trf('পাব · {0} জনের কাছে', [bnDigits(owingN)]), amount: taka(dueSum), color: C.green, size: 20)),
             Expanded(child: Figure(label: tr('৩০ দিনের বেশি বাকি'), amount: trf('{0} জন', [bnDigits(longN)]), color: longN > 0 ? C.warn : C.ink, size: 20)),
           ]),
         ),
@@ -390,10 +390,10 @@ class CustomerPage extends StatelessWidget {
                 (Icons.chat_outlined, tr('হোয়াটসঅ্যাপ'), bnDigits(c.whatsapp.isNotEmpty ? c.whatsapp : (c.phone.isNotEmpty ? trf('{0} (মোবাইলই)', [c.phone]) : ''))),
                 (Icons.place_outlined, tr('ঠিকানা'), c.address),
                 (Icons.sticky_note_2_outlined, tr('নোট'), c.note),
-                (Icons.shopping_bag_outlined, tr('মোট কেনা'), sales.isEmpty ? '' : trf('{0} · {1}টি রসিদ', [taka(bought), bnDigits(sales.length)])),
+                (Icons.shopping_bag_outlined, tr('মোট কেনা'), sales.isEmpty ? '' : trf('{0} · {1}টা রসিদ', [taka(bought), bnDigits(sales.length)])),
                 (Icons.event_outlined, tr('গ্রাহক যেদিন থেকে'), c.added.year == 2000 ? '' : shortDate(c.added)),
               ]),
-              SectionHeading(tr('কেনাকাটা ও লেনদেন'), counter: trf('{0}টি', [bnDigits(entries.length)])),
+              SectionHeading(tr('কেনাকাটা ও লেনদেন'), counter: trf('{0}টা', [bnDigits(entries.length)])),
               ListCard(rows: [for (final e in entries) e.$2], empty: tr('এখনো কোনো কেনাকাটা নেই।')),
               Padding(
                 padding: const EdgeInsets.only(top: 12),

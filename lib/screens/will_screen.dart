@@ -44,10 +44,10 @@ class WillCard extends StatelessWidget {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  Flexible(child: Text(tr('ওছিয়তনামা'), style: body(15.5, weight: FontWeight.w600))),
+                  Flexible(child: Text(tr('ওসিয়তনামা'), style: body(15.5, weight: FontWeight.w600))),
                   if (!brain.has(ProFeature.will)) ...[const SizedBox(width: 6), const ProMark()],
                 ]),
-                Text(w == null ? tr('এখনো লেখা হয়নি — নিজের ওছিয়ত লিখে রাখুন') : trf('শেষ ওছিয়ত: {0}', [fullDate(w.updatedAt)]),
+                Text(w == null ? tr('এখনো লেখা হয়নি — নিজের ওসিয়ত লিখে রাখুন') : trf('শেষ ওসিয়ত: {0}', [fullDate(w.updatedAt)]),
                     key: const Key('will-date'), style: body(12.5, color: C.muted)),
               ]),
             ),
@@ -85,7 +85,7 @@ class _WillScreenState extends State<WillScreen> {
   String _sample(Brain brain) {
     final name = brain.userName.isEmpty ? tr('[আপনার নাম]') : brain.userName;
     return trf(
-        'বিসমিল্লাহির রাহমানির রাহীম।\n\nআমি, {0}, সুস্থ মস্তিষ্কে, কারো চাপ ছাড়া এই ওছিয়ত করছি।\n\n১. আমার দেনা: …\n২. আমার পাওনা: …\n৩. আমার সম্পদের এক-তৃতীয়াংশের মধ্যে ওছিয়ত: …\n৪. জানাজা ও দাফন: …\n৫. পরিবারের জন্য কথা: …\n\nবাকি সম্পদ ইসলামি উত্তরাধিকার আইন অনুযায়ী ভাগ হবে।',
+        'বিসমিল্লাহির রাহমানির রাহীম।\n\nআমি, {0}, সুস্থ মস্তিষ্কে, কারো চাপ ছাড়া এই ওসিয়ত করছি।\n\n১. আমার দেনা: …\n২. আমার পাওনা: …\n৩. আমার সম্পদের এক-তৃতীয়াংশের মধ্যে ওসিয়ত: …\n৪. জানাজা ও দাফন: …\n৫. পরিবারের জন্য কথা: …\n\nবাকি সম্পদ ইসলামি উত্তরাধিকার আইন অনুযায়ী ভাগ হবে।',
         [name]);
   }
 
@@ -96,10 +96,10 @@ class _WillScreenState extends State<WillScreen> {
       toast(context, tr('কিছু লেখা নেই'));
       return;
     }
-    await brain.saveNote(Note(id: willNoteId, title: tr('ওছিয়তনামা'), body: body, category: willCategory, updatedAt: brain.services.now()));
+    await brain.saveNote(Note(id: willNoteId, title: tr('ওসিয়তনামা'), body: body, category: willCategory, updatedAt: brain.services.now()));
     if (!mounted) return;
     setState(() => _changed = false);
-    toast(context, trf('ওছিয়তনামা রাখা হলো — {0}', [fullDate(brain.services.now())]));
+    toast(context, trf('ওসিয়তনামা রাখা হলো — {0}', [fullDate(brain.services.now())]));
   }
 
   @override
@@ -111,16 +111,16 @@ class _WillScreenState extends State<WillScreen> {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          TopBar(title: tr('ওছিয়তনামা')),
+          TopBar(title: tr('ওসিয়তনামা')),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
               Text(
-                w == null ? tr('এখনো লেখা হয়নি') : trf('শেষ ওছিয়ত: {0}', [fullDate(w.updatedAt)]),
+                w == null ? tr('এখনো লেখা হয়নি') : trf('শেষ ওসিয়ত: {0}', [fullDate(w.updatedAt)]),
                 key: const Key('will-last'),
                 style: body(14, weight: FontWeight.w600, color: w == null ? C.muted : C.green),
               ),
               const SizedBox(height: 4),
-              Text(tr('এই ফোনে তালাবদ্ধ থাকে। ফ্যামিলিতে উত্তরাধিকারী রাখলে আর “নোট” দেখার অনুমতি দিলে তিনি পরে দেখতে পাবেন। বদলালে নতুন তারিখ দেখাবে।'),
+              Text(tr('এই ফোনে তালাবদ্ধ থাকে। পরিবারে উত্তরাধিকারী রাখলে আর “নোট” দেখার অনুমতি দিলে তিনি পরে দেখতে পাবেন। বদলালে নতুন তারিখ দেখাবে।'),
                   style: body(12.5, color: C.muted, height: 1.45)),
               const SizedBox(height: 12),
               TextField(textCapitalization: TextCapitalization.sentences, 
@@ -132,7 +132,7 @@ class _WillScreenState extends State<WillScreen> {
                 onChanged: (_) {
                   if (!_changed) setState(() => _changed = true);
                 },
-                decoration: InputDecoration(hintText: tr('আপনার ওছিয়ত এখানে লিখুন…'), alignLabelWithHint: true),
+                decoration: InputDecoration(hintText: tr('আপনার ওসিয়ত এখানে লিখুন…'), alignLabelWithHint: true),
               ),
               if (_text.text.trim().isEmpty)
                 Align(

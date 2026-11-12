@@ -38,7 +38,7 @@ class _BizStockState extends State<BizStock> {
       onChanged: (v) => setState(() => _part = v),
       top: (tabs) => [
       TabTitle(tr('স্টক'),
-          sub: trf('{0}টি পণ্য · কেনা দামে {1}', [bnDigits(b.products.length), taka(worth)]),
+          sub: trf('{0}টা পণ্য · কেনা দামে {1}', [bnDigits(b.products.length), taka(worth)]),
           trailing: IconButton(key: const Key('biz-stock-add'), tooltip: tr('নতুন পণ্য'), onPressed: () => pushPage(context, const ProductForm()), icon: const Icon(Icons.add_box_outlined))),
       const BizFreeBanner(),
       if (exp.isNotEmpty) ...[
@@ -46,7 +46,7 @@ class _BizStockState extends State<BizStock> {
         AttentionCard(
           icon: Icons.schedule_rounded,
           title: trf('{0}-এর মেয়াদ {1}', [exp.first.name, dayOnly(exp.first.expiry!).isAfter(dayOnly(now)) ? trf('{0} শেষ', [shortDate(exp.first.expiry!)]) : tr('শেষ হয়ে গেছে')]),
-          text: exp.length > 1 ? trf('আরও {0}টি পণ্যের মেয়াদ কাছে · কম দামে বিক্রি করতে পারেন', [bnDigits(exp.length - 1)]) : tr('আজ কম দামে বিক্রি করতে পারেন'),
+          text: exp.length > 1 ? trf('আরও {0}টা পণ্যের মেয়াদ কাছে · কম দামে বিক্রি করতে পারেন', [bnDigits(exp.length - 1)]) : tr('আজ কম দামে বিক্রি করতে পারেন'),
           action: tr('দেখুন'),
           onAction: () => setState(() => _part = 'expiry'),
         ),
@@ -102,7 +102,7 @@ class _BizStockState extends State<BizStock> {
               ),
               const SizedBox(width: 10),
               Expanded(child: Text(tr(shelf), key: Key('biz-section-$shelf'), maxLines: 1, overflow: TextOverflow.ellipsis, style: display(17, weight: 600))),
-              Counter(trf('{0}টি', [bnDigits(ps.length)])),
+              Counter(trf('{0}টা', [bnDigits(ps.length)])),
               const SizedBox(width: 6),
               IconButton(
                 key: Key('biz-section-add-$shelf'),
@@ -459,7 +459,7 @@ class _PurchasePageState extends State<PurchasePage> {
                           Padding(
                             padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                             child: Row(children: [
-                              Expanded(child: Text(trf('{0}টি পণ্য · আনুমানিক', [bnDigits(lines.where((o) => o.picked).length)]), style: body(13, color: C.muted))),
+                              Expanded(child: Text(trf('{0}টা পণ্য · আনুমানিক', [bnDigits(lines.where((o) => o.picked).length)]), style: body(13, color: C.muted))),
                               Text(taka(estimate(lines)), style: display(18, weight: 600)),
                             ]),
                           ),

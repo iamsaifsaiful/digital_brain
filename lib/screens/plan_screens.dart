@@ -198,7 +198,7 @@ Future<void> editTask(BuildContext context, Task t) async {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, 'delete'), child: Text(tr('মুছুন'), style: body(15, color: C.red))),
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
-          TextButton(onPressed: () => Navigator.pop(ctx, 'save'), child: Text(tr('সেভ'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, 'save'), child: Text(tr('রাখুন'))),
         ],
       ),
     ),
@@ -610,7 +610,7 @@ class BillList extends StatelessWidget {
     var date = DateTime(now.year, now.month, picked);
     if (DateTime(date.year, date.month, date.day, 10).isBefore(now)) date = DateTime(now.year, now.month + 1, picked);
     await brain.saveReminder(old == null ? Reminder(title: tr(name), date: date, hour: 10, repeat: Repeat.monthly) : old.copyWith(date: date, enabled: true));
-    if (context.mounted) toast(context, trf('{0}: প্রতি মাসের {1} তারিখে মনে করাবো', [tr(name), bnDigits(picked)]));
+    if (context.mounted) toast(context, trf('{0}: প্রতি মাসের {1} তারিখে মনে করাব', [tr(name), bnDigits(picked)]));
   }
 
   @override
@@ -653,7 +653,7 @@ class BillList extends StatelessWidget {
         Panel(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(kept.isEmpty ? tr('কোন বিল দেন? চাপ দিয়ে তারিখ দিন — প্রতি মাসে মনে করাবো।') : tr('আরও কোনো বিল? চাপ দিয়ে তারিখ দিন।'), style: body(14, color: C.muted)),
+            Text(kept.isEmpty ? tr('কোন বিল দেন? চাপ দিয়ে তারিখ দিন — প্রতি মাসে মনে করাব।') : tr('আরও কোনো বিল? চাপ দিয়ে তারিখ দিন।'), style: body(14, color: C.muted)),
             const SizedBox(height: 10),
             Wrap(spacing: 8, runSpacing: 8, children: [
               for (final (name, day, _) in unset)
@@ -684,7 +684,7 @@ Future<void> showBillPresets(BuildContext context) async {
       builder: (ctx, setS) => SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text(tr('মাসের বিলগুলো মনে করাবো'), style: display(19)),
+          Text(tr('মাসের বিলগুলো মনে করাব'), style: display(19)),
           const SizedBox(height: 4),
           Text(tr('যেগুলো দেন টিক দিন, দিনটা ঠিক করে দিন। প্রতি মাসে সেদিন সকালে বাজবে, দুই দিন আগে একবার জানাবে।'), style: body(13, color: C.muted, height: 1.5)),
           const SizedBox(height: 8),

@@ -122,7 +122,7 @@ class _MoreScreenState extends State<MoreScreen> {
     final v = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(tr('আপনাকে কী নামে ডাকবো?'), style: body(18, weight: FontWeight.w600)),
+        title: Text(tr('আপনাকে কী নামে ডাকব?'), style: body(18, weight: FontWeight.w600)),
         content: TextField(textCapitalization: TextCapitalization.sentences, controller: c, autofocus: true, style: body(16), decoration: InputDecoration(hintText: tr('যেমন: সাইফুল ভাই'))),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাদ দিন'))),
@@ -245,7 +245,7 @@ class _MoreScreenState extends State<MoreScreen> {
                 return Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                   child: Text(
-                    tr('ফোনে কোনো বাংলা কণ্ঠ পাওয়া যায়নি। Play Store থেকে “Speech Services by Google” হালনাগাদ করে, ফোনের Settings › ভাষা › Text-to-speech থেকে বাংলা (বাংলাদেশ) কণ্ঠ ডাউনলোড করে নিন।'),
+                    tr('ফোনে কোনো বাংলা কণ্ঠ পাওয়া যায়নি। Play Store থেকে “Speech Services by Google” আপডেট করে, ফোনের Settings › ভাষা › Text-to-speech থেকে বাংলা (বাংলাদেশ) কণ্ঠ ডাউনলোড করে নিন।'),
                     style: body(15, height: 1.6),
                   ),
                 );
@@ -418,7 +418,7 @@ class _MoreScreenState extends State<MoreScreen> {
       'model': () => [
       Panel(
         child: Rows(children: [
-          linkRow(Icons.psychology_outlined, tr('ফোনে কথা বোঝার মডেল'),
+          linkRow(Icons.psychology_outlined, tr('কথা বোঝার মডেল'),
                 sub: switch (brain.nluModelState) {
                   'ready' => trf('নামানো আছে · {0}', [brain.nluModelVersion]),
                   'wait-wifi' => tr('Wi-Fi পেলে নিজে নামবে (প্রায় ১৪ MB) — মোবাইল ডেটায় নয়'),
@@ -428,7 +428,7 @@ class _MoreScreenState extends State<MoreScreen> {
                 },
                 onTap: () => push(const NluModelScreen())),
           switchRow(Icons.school_outlined, tr('কথা বোঝা আরও ভালো করতে সাহায্য করুন'),
-              tr('কিছু বার্তা নাম সরিয়ে সার্ভারে যায় — পাসওয়ার্ড, ফোন নম্বর, কোড বা স্বাস্থ্যের কথা কখনো না; ১৮০ দিন পর নিজে মুছে যায়'),
+              tr('কিছু বার্তা নাম সরিয়ে সার্ভারে যায় — পাসওয়ার্ড, মোবাইল নম্বর, কোড বা স্বাস্থ্যের কথা কখনো না; ১৮০ দিন পর নিজে মুছে যায়'),
               brain.nluSamplesOn, (v) => brain.setNluSamplesOn(v)),
           linkRow(Icons.delete_sweep_outlined, tr('আমার পাঠানো বার্তা সার্ভার থেকে মুছে দিন'), sub: tr('কী নিই, কেন নিই — আর মুছে দেওয়া'), onTap: () => push(const NluSamplesScreen())),
         ]),
@@ -559,7 +559,7 @@ class _MoreScreenState extends State<MoreScreen> {
                 icon: Icons.family_restroom_rounded,
                 fg: C.purple,
                 bg: C.purpleTint,
-                title: tr('ফ্যামিলি'),
+                title: tr('পরিবার'),
                 sub: tr('পরিবারের জন্য কাজ ও রিমাইন্ডার'),
                 onTap: () => push(const FamilyScreen())),
           ],
@@ -600,7 +600,7 @@ class _MoreScreenState extends State<MoreScreen> {
             setRow(const Key('more-set-remind'), Icons.notifications_none_rounded, C.ochre, C.ochreTint, tr('রিমাইন্ডার ও নোটিফিকেশন'), tr('নোটিফিকেশন প্যানেল, ঠিকমতো বাজবে কিনা, রিংটোন'), 'remind'),
             setRow(const Key('more-set-assistant'), Icons.mic_none_rounded, C.blue, C.blueTint, tr('সহকারী ও কণ্ঠ'),
                 brain.speakOn ? tr('কণ্ঠে উত্তর চালু · কণ্ঠ বেছে নিন') : tr('কণ্ঠে উত্তর বন্ধ · কণ্ঠ বেছে নিন'), 'assistant'),
-            setRow(const Key('more-set-model'), Icons.psychology_outlined, C.purple, C.purpleTint, tr('ফোনে কথা বোঝা'), switch (brain.nluModelState) {
+            setRow(const Key('more-set-model'), Icons.psychology_outlined, C.purple, C.purpleTint, tr('কথা বোঝা'), switch (brain.nluModelState) {
                     'ready' => trf('নামানো আছে · {0}', [brain.nluModelVersion]),
                     'wait-wifi' => tr('Wi-Fi পেলে নিজে নামবে (প্রায় ১৪ MB) — মোবাইল ডেটায় নয়'),
                     'builtin' => tr('এখনো চালু হয়নি — অ্যাপ নিজের নিয়মে বুঝছে'),
@@ -771,7 +771,7 @@ class _BackupScreenState extends State<BackupScreen> {
       if (toPhone) {
         final saved = await brain.services.files.saveFile(bytes, name);
         if (!saved) {
-          if (mounted) toast(context, tr('সেভ করা হয়নি'));
+          if (mounted) toast(context, tr('রাখা হয়নি'));
           return;
         }
         if (mounted) toast(context, trf('ব্যাকআপ ফোনে সেভ হয়েছে: {0}', [name]));
@@ -845,7 +845,7 @@ class _BackupScreenState extends State<BackupScreen> {
                 ]),
               ]),
               const SizedBox(height: 10),
-              _step(tr('২'), tr('নিরাপদ জায়গায় রাখুন'), tr('“শেয়ার” চেপে Google Drive বা নিজের WhatsApp-এ পাঠিয়ে রাখুন — ফোন হারালেও ফাইল থাকবে।'), const []),
+              _step(tr('২'), tr('নিরাপদ জায়গায় রাখুন'), tr('“শেয়ার” চেপে Google Drive বা নিজের হোয়াটসঅ্যাপে পাঠিয়ে রাখুন — ফোন হারালেও ফাইল থাকবে।'), const []),
               const SizedBox(height: 10),
               _step(tr('৩'), tr('নতুন ফোনে ফিরিয়ে আনুন'), tr('অ্যাপ খুলে এখানে এসে ফাইলটা বেছে দিন, আর একই পাসওয়ার্ড দিন।'), [
                 SecondaryButton(label: tr('ফাইল থেকে ফিরিয়ে আনুন'), icon: Icons.restore_rounded, onPressed: _busy ? null : _restore),

@@ -269,7 +269,7 @@ class _Nav extends StatelessWidget {
             (ShellTab.home, Icons.home_outlined, 'হোম'),
             (ShellTab.diary, Icons.description_outlined, 'দিনলিপি'),
             (ShellTab.money, Icons.account_balance_wallet_outlined, 'হিসাব'),
-            (ShellTab.store, Icons.inventory_2_outlined, 'সংরক্ষণ'),
+            (ShellTab.store, Icons.inventory_2_outlined, 'আমার তথ্য'),
             (ShellTab.more, Icons.menu_rounded, 'আরও'),
           ];
     // The composer above has the top hairline on the pages that show it.

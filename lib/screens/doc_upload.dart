@@ -69,7 +69,7 @@ Future<void> addDocuments(BuildContext context, {required int source, String? fo
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-            child: Text(trf('{0}টা বেছে নিয়েছেন — কীভাবে রাখবো?', [bnDigits(picked.length)]), style: display(18)),
+            child: Text(trf('{0}টা বেছে নিয়েছেন — কীভাবে রাখব?', [bnDigits(picked.length)]), style: display(18)),
           ),
           ListTile(
             leading: Icon(Icons.collections_outlined, color: C.green),

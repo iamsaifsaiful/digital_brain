@@ -41,8 +41,8 @@ String vaultAnswer(AppData d, VaultQuery q) {
   }
   if (found.isEmpty) {
     return q.wifiOnly
-        ? tr('Wi-Fi-এর কোনো তথ্য নেই। পাসওয়ার্ড ভল্টে তথ্যটি যুক্ত করতে পারেন — পরে জিজ্ঞেস করলে আঙুলের ছাপ নিয়ে দেখাবো।')
-        : tr('কোনো পাসওয়ার্ডের তথ্য নেই। পাসওয়ার্ড ভল্টে তথ্যটি যুক্ত করতে পারেন — পরে জিজ্ঞেস করলে আঙুলের ছাপ নিয়ে দেখাবো।');
+        ? tr('Wi-Fi-এর কোনো তথ্য নেই। পাসওয়ার্ড ভল্টে তথ্যটি যুক্ত করতে পারেন — পরে জিজ্ঞেস করলে আঙুলের ছাপ নিয়ে দেখাব।')
+        : tr('কোনো পাসওয়ার্ডের তথ্য নেই। পাসওয়ার্ড ভল্টে তথ্যটি যুক্ত করতে পারেন — পরে জিজ্ঞেস করলে আঙুলের ছাপ নিয়ে দেখাব।');
   }
   if (found.length == 1) {
     return trf('{0} তথ্য পেয়েছি! তবে পাসওয়ার্ড গোপন জিনিস, তাই জোরে বলব না। আঙুলের ছাপ দিয়ে খুলুন, স্ক্রিনে দেখাব।', [possessive(found.first.name)]);
@@ -146,7 +146,7 @@ String reminderAnswer(AppData d, ReminderQuery q, DateTime now) {
 }
 
 /// A search that found nothing at all.
-String noInfoAnswer() => tr('এ বিষয়ে কোনো তথ্য নেই। তথ্যটি যুক্ত করতে পারেন — বলুন “মনে রাখো: …” — পরে যেকোনো সময় জিজ্ঞেস করলে উত্তর দেবো।');
+String noInfoAnswer() => tr('এ বিষয়ে কোনো তথ্য নেই। তথ্যটি যুক্ত করতে পারেন — বলুন “মনে রাখো: …” — পরে যেকোনো সময় জিজ্ঞেস করলে উত্তর দেব।');
 
 String searchAnswer(AppData d, SearchQuery q, DateTime now) {
   // "আমার এখানে কোন ছবি আছে কিনা?": the photos kept in ডকুমেন্টস, in general.
@@ -208,7 +208,7 @@ String searchAnswer(AppData d, SearchQuery q, DateTime now) {
       const notWhose = ['আমার', 'তোমার', 'তোর', 'আপনার', 'তোমাদের', 'আমাদের'];
       final whose = w.firstWhere((x) => !notWhose.map(normalize).contains(x) && stripPossessive(x) != x, orElse: () => '');
       if (whose.isNotEmpty) {
-        return trf('{0} নম্বরের কোনো তথ্য নেই। বলুন “{0} নম্বর ০১৭… রাখো”, অথবা যোগাযোগ পাতা থেকে ফোনবুকের নম্বর আনুন — পরে নাম বললেই ফোন করে দেবো।', [whose]);
+        return trf('{0} নম্বরের কোনো তথ্য নেই। বলুন “{0} নম্বর ০১৭… রাখো”, অথবা যোগাযোগ পাতা থেকে ফোনবুকের নম্বর আনুন — পরে নাম বললেই ফোন করে দেব।', [whose]);
       }
     }
     return noInfoAnswer();
@@ -736,7 +736,7 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
   final name = q.project;
   // "অন্যান্য হিসাব দাও": every separate account at a glance.
   if (name != null && name.isEmpty) {
-    if (d.projects.isEmpty) return tr('এখনো অন্যান্য কোনো হিসাব খোলা হয়নি। বলুন, যেমন “মৃত্তিকা ফাউন্ডেশন নামে অন্যান্য হিসাব খোলো”।');
+    if (d.projects.isEmpty) return tr('এখনো অন্যান্য কোনো হিসাব খোলা হয়নি। বলুন, যেমন “মৃত্তিকা ফাউন্ডেশন নামে আলাদা হিসাব খোলো”।');
     final lines = [
       for (final p in d.projects)
         () {
@@ -753,14 +753,14 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
     final inside = RegExp(fold(r'(?:সব|সকল|ভেত|ভিত|বিস্তারিত|লেনদেন|এন্ট্রি)')).hasMatch(fold(normalize(q.transcript)));
     if (inside) {
       return [
-        trf('অন্যান্য হিসাব {0}টা:', [bnDigits(d.projects.length)]),
+        trf('আলাদা হিসাব {0}টা:', [bnDigits(d.projects.length)]),
         for (final p in d.projects) ...[
           lines[d.projects.indexOf(p)],
           ...projectEntryLines(d, p.id),
         ],
       ].join('\n');
     }
-    return [trf('অন্যান্য হিসাব {0}টা:', [bnDigits(d.projects.length)]), ...lines].join('\n');
+    return [trf('আলাদা হিসাব {0}টা:', [bnDigits(d.projects.length)]), ...lines].join('\n');
   }
   if (name != null) {
     final p = projectByName(d, name);
@@ -846,7 +846,7 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
   final span = _spanCashAnswer(d, q.transcript, now);
   if (span != null) return span;
   final s = monthSums(d.cash, now);
-  if (s.income == 0 && s.expense == 0) return tr('এই মাসের আয়-খরচের কোনো তথ্য নেই। বলুন, যেমন “বাজারে ৫০০ টাকা খরচ হলো” — পরে জিজ্ঞেস করলেই হিসাব দেবো।');
+  if (s.income == 0 && s.expense == 0) return tr('এই মাসের আয়-খরচের কোনো তথ্য নেই। বলুন, যেমন “বাজারে ৫০০ টাকা খরচ হলো” — পরে জিজ্ঞেস করলেই হিসাব দেব।');
   final top = s.topExpenses;
   final most = top.isEmpty ? '' : trf(' সবচেয়ে বেশি খরচ {0} খাতে — {1} টাকা।', [top.first.key, bnNumber(top.first.value)]);
   if (s.income == 0) return trf('এই মাসে খরচ হয়েছে {0} টাকা।{1}', [bnNumber(s.expense), most]);

@@ -278,7 +278,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
         context: ctx,
         builder: (c) => AlertDialog(
           title: Text(trf('আজ {0}টা কাজ বাকি রইল', [bnDigits(left.length)]), style: display(20)),
-          content: Text('${left.take(6).map((t) => '• ${t.title}').join('\n')}\n\n${tr('সবগুলো কালকের তালিকায় সরিয়ে দেবো?')}', style: body(15, height: 1.5)),
+          content: Text('${left.take(6).map((t) => '• ${t.title}').join('\n')}\n\n${tr('সবগুলো কালকের তালিকায় সরিয়ে দেব?')}', style: body(15, height: 1.5)),
           actions: [
             TextButton(onPressed: () => Navigator.pop(c, false), child: Text(tr('না, থাক'))),
             TextButton(onPressed: () => Navigator.pop(c, true), child: Text(tr('হ্যাঁ, কালকে সরাও'), style: body(15, weight: FontWeight.w600, color: C.green))),

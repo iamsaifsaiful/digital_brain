@@ -125,8 +125,8 @@ class ShopTodayCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          Expanded(child: Figure(label: tr('আজকের বিক্রি'), amount: taka(s.total), color: C.green, size: 22, sub: trf('{0}টি বিক্রি', [bnDigits(s.count)]))),
-          Expanded(child: Figure(label: tr('কাস্টমারের বাকি'), amount: taka(due), color: C.orange, size: 22)),
+          Expanded(child: Figure(label: tr('আজকের বিক্রি'), amount: taka(s.total), color: C.green, size: 22, sub: trf('{0}টা বিক্রি', [bnDigits(s.count)]))),
+          Expanded(child: Figure(label: tr('গ্রাহকের বাকি'), amount: taka(due), color: C.orange, size: 22)),
         ]),
         const SizedBox(height: 10),
         Row(children: [
@@ -878,7 +878,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
                           EmptyState(
                               icon: Icons.event_repeat_outlined,
                               title: tr('কোনো কিস্তি নেই'),
-                              text: tr('DPS, লোনের কিস্তি, বীমার প্রিমিয়াম — প্রতি মাসে আগের দিন মনে করাবো, টিক দিলে কত বাকি দেখাবে।'))
+                              text: tr('DPS, লোনের কিস্তি, বীমার প্রিমিয়াম — প্রতি মাসে আগের দিন মনে করাব, টিক দিলে কত বাকি দেখাবে।'))
                         else
                           for (final i in d.installments) ...[
                             Panel(
@@ -896,7 +896,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
                                 const SizedBox(height: 8),
                                 Bar(value: i.months == 0 ? 0 : i.paidCount / i.months, height: 10, color: C.purple),
                                 const SizedBox(height: 6),
-                                Text(trf('{0}/{1} কিস্তি দেওয়া ({2}) · বাকি {3}টি · শেষ {4}', [bnDigits(i.paidCount), bnDigits(i.months), taka(i.paidTotal), bnDigits(i.left), monthTitle(i.end)]),
+                                Text(trf('{0}/{1} কিস্তি দেওয়া ({2}) · বাকি {3}টা · শেষ {4}', [bnDigits(i.paidCount), bnDigits(i.months), taka(i.paidTotal), bnDigits(i.left), monthTitle(i.end)]),
                                     style: body(13, color: C.muted2)),
                                 const SizedBox(height: 8),
                                 Row(children: [

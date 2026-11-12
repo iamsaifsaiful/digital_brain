@@ -94,7 +94,7 @@ class _PersonScreenState extends State<PersonScreen> {
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('সেভ করুন'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('রাখুন'))),
         ],
       ),
     );
@@ -112,7 +112,7 @@ class _PersonScreenState extends State<PersonScreen> {
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          ListTile(leading: const Icon(Icons.edit_outlined), title: Text(tr('সংশোধন করুন')), onTap: () => Navigator.pop(ctx, 'edit')),
+          ListTile(leading: const Icon(Icons.edit_outlined), title: Text(tr('বদলান')), onTap: () => Navigator.pop(ctx, 'edit')),
           if (mainMenuLine(brain.data, e.id) case final line?)
             ListTile(leading: Icon(line.$2), title: Text(line.$1), onTap: () => Navigator.pop(ctx, 'main')),
           ListTile(
@@ -131,7 +131,7 @@ class _PersonScreenState extends State<PersonScreen> {
 
   Future<void> _open(Brain brain, Via via, String phone, {String text = ''}) async {
     final ok = await brain.services.launcher.open(via, phone, text: text);
-    if (!ok && mounted) toast(context, via == Via.whatsapp ? tr('WhatsApp খোলা গেল না') : tr('খোলা গেল না'));
+    if (!ok && mounted) toast(context, via == Via.whatsapp ? tr('হোয়াটসঅ্যাপ খোলা গেল না') : tr('খোলা গেল না'));
   }
 
   @override
@@ -278,7 +278,7 @@ class _PersonScreenState extends State<PersonScreen> {
                       borderColor: C.greenTint,
                       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(tr('তাগাদা পাঠান'), style: body(15, weight: FontWeight.w600)),
+                        Text(tr('মনে করিয়ে দিন'), style: body(15, weight: FontWeight.w600)),
                         Text(trf('“{0} বাকি আছে” — লেখা তৈরি থাকবে, আপনি শুধু Send চাপবেন', [taka(bal)]), style: body(13, color: C.muted)),
                         const SizedBox(height: 8),
                         Row(children: [

@@ -545,7 +545,7 @@ extension _MenuChat on ChatController {
           return;
         }
         if (!brain.canAddProject) {
-          _say(out, tr('ফ্রিতে ১টা অন্যান্য হিসাব খোলা যায়, সেটা খোলা আছে; আরও খুলতে প্রিমিয়াম লাগবে। নতুনটা খোলা হয়নি।'), links: _pageLink('pro'));
+          _say(out, tr('ফ্রিতে ১টা আলাদা হিসাব খোলা যায়, সেটা খোলা আছে; আরও খুলতে প্রিমিয়াম লাগবে। নতুনটা খোলা হয়নি।'), links: _pageLink('pro'));
           return;
         }
         final made = Project(name: c.target.trim(), createdAt: _now);

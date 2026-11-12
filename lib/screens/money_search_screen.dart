@@ -21,7 +21,7 @@ class PersonMoneyView extends StatelessWidget {
   Widget build(BuildContext context) {
     final d = BrainScope.of(context).data;
     String where(PersonLine l) {
-      if (l.projectId != null) return d.projects.where((p) => p.id == l.projectId).firstOrNull?.name ?? tr('অন্যান্য হিসাব');
+      if (l.projectId != null) return d.projects.where((p) => p.id == l.projectId).firstOrNull?.name ?? tr('আলাদা হিসাব');
       return l.loan != null ? tr('ধার-দেনা') : tr('আয়-ব্যয়');
     }
 
@@ -45,7 +45,7 @@ class PersonMoneyView extends StatelessWidget {
           Row(children: [
             fig(tr('আয়'), m.income, C.green),
             fig(tr('ব্যয়'), m.expense, C.orange),
-            fig(m.owing > 0 ? tr('দেবো') : tr('পাবো / বকেয়া'), m.owing > 0 ? m.owing : m.owed, m.owing > 0 ? C.orange : C.green),
+            fig(m.owing > 0 ? tr('দেব') : tr('পাব / বকেয়া'), m.owing > 0 ? m.owing : m.owed, m.owing > 0 ? C.orange : C.green),
           ]),
         ]),
       ),
