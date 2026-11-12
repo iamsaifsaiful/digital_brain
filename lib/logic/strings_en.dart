@@ -5382,4 +5382,6 @@ const enStrings = <String, String>{
   'লেনদেন · {0}': 'Transactions · {0}',
   'খাত বেছে নিন': 'Choose a category',
   'ফিল্টার': 'Filter',
+  'আগের দিন': 'Previous day',
+  'পরের দিন': 'Next day',
 };
