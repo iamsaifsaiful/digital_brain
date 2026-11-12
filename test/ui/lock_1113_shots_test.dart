@@ -23,6 +23,9 @@ void main() {
     rig.brain.lockNow();
     await settle(t);
     expect(find.byKey(const Key('lock-choose-finger')), findsOneWidget);
+    // The app mark is an asset: loaded before the shot.
+    await t.runAsync(() => precacheImage(const AssetImage('assets/brand/app_mark.png'), t.element(find.byKey(const Key('lock-app-mark')))));
+    await settle(t);
     if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/lock/1-choice.png'));
     await t.tap(find.byKey(const Key('lock-choose-pin')));
     await settle(t);
