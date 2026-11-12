@@ -5379,4 +5379,7 @@ const enStrings = <String, String>{
   'কীভাবে খুলবেন?': 'How would you like to unlock?',
   'আঙুলের ছাপ দিয়ে খুলুন': 'Unlock with fingerprint',
   'PIN দিয়ে খুলুন': 'Unlock with PIN',
+  'লেনদেন · {0}': 'Transactions · {0}',
+  'খাত বেছে নিন': 'Choose a category',
+  'ফিল্টার': 'Filter',
 };

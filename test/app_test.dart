@@ -1658,7 +1658,13 @@ void main() {
     await openMenu(t, 'সেটিংস');
     expect(find.byKey(const Key('more-zakat')), findsOneWidget);
     // আরও › চেহারা ও ভাষা (owner, 3 Nov: each setting on its own page).
-    await t.scrollUntilVisible(find.byKey(const Key('more-set-look')), 200, scrollable: find.byType(Scrollable).last);
+    // Drag and settle a step at a time (scrollUntilVisible loses the list mid-way).
+    for (var i = 0; i < 12 && find.byKey(const Key('more-set-look')).evaluate().isEmpty; i++) {
+      await t.drag(find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first, const Offset(0, -200));
+      await settle(t);
+    }
+    await t.ensureVisible(find.byKey(const Key('more-set-look')));
+    await settle(t);
     await t.tap(find.byKey(const Key('more-set-look')));
     await settle(t);
     await t.scrollUntilVisible(find.text('English'), 200, scrollable: find.byType(Scrollable).last);

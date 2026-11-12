@@ -197,39 +197,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
   /// সকাল, দুপুর, বিকেল, সন্ধ্যা, রাত: the timeline's groups.
   String _part(int hour) => tr(hour < 4 ? 'রাত' : hour < 6 ? 'ভোর' : hour < 12 ? 'সকাল' : hour < 15 ? 'দুপুর' : hour < 18 ? 'বিকেল' : hour < 20 ? 'সন্ধ্যা' : 'রাত');
 
-  /// The day at a glance: its dates, and how many to-dos are done.
-  Widget _summary(DateTime day, DateTime now, int done, int all) {
-    final diff = dayOnly(day).difference(dayOnly(now)).inDays;
-    final rel = switch (diff) { 0 => '${tr('আজ')}, ', 1 => '${tr('কাল')}, ', -1 => '${tr('গতকাল')}, ', _ => '' };
-    return Container(
-      key: const Key('diary-summary'),
-      padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-      decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(17), border: Border.all(color: C.border)),
-      child: Row(children: [
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('$rel${weekdayName(day)}, ${bnDigits(day.day)} ${monthName(day.month)}', style: display(17, weight: 700)),
-            const SizedBox(height: 2),
-            Text('${banglaDate(day).dayMonth} · ${hijriDate(day).dayMonth}', style: body(12.5, color: C.muted)),
-          ]),
-        ),
-        if (all > 0)
-          SizedBox(
-            width: 50,
-            height: 50,
-            child: Stack(alignment: Alignment.center, children: [
-              SizedBox(
-                width: 46,
-                height: 46,
-                child: CircularProgressIndicator(value: done / all, strokeWidth: 4, backgroundColor: C.border, color: C.green),
-              ),
-              Text('${bnDigits(done)}/${bnDigits(all)}', style: body(12, weight: FontWeight.w700)),
-            ]),
-          ),
-      ]),
-    );
-  }
-
   /// One timed row: the time on the left, the card on the right.
   Widget _timed(PlanItem i) {
     final r = i.reminder!;
@@ -293,7 +260,8 @@ class _DiaryScreenState extends State<DiaryScreen> {
       Container(
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(17), border: Border.all(color: C.border)),
-        child: Row(children: [
+        child: Column(children: [
+        Row(children: [
           IconButton(
             tooltip: tr('আগের সপ্তাহ'),
             visualDensity: VisualDensity.compact,
@@ -308,9 +276,15 @@ class _DiaryScreenState extends State<DiaryScreen> {
             icon: const Icon(Icons.chevron_right_rounded),
           ),
         ]),
+          // The day and its weekday are in the strip; the Bangla and Hijri
+          // dates go with it here (owner, 13 Nov: the date card said it twice).
+          Padding(
+            key: const Key('diary-summary'),
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+            child: Text('${banglaDate(day).dayMonth} · ${hijriDate(day).dayMonth}', textAlign: TextAlign.center, style: body(12.5, color: C.muted)),
+          ),
+        ]),
       ),
-      const SizedBox(height: 10),
-      _summary(day, now, tasks.where((x) => x.task!.done).length, tasks.length),
       if (hol != null)
         Padding(
           padding: const EdgeInsets.only(top: 10),
@@ -504,20 +478,20 @@ class _DiaryScreenState extends State<DiaryScreen> {
         customBorder: const CircleBorder(),
         onTap: () => setState(() => _picked = dayOnly(d)),
         child: SizedBox(
-          height: 48,
+          height: 38,
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
             Container(
-              width: 34,
-              height: 34,
+              width: 30,
+              height: 30,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: on ? C.green : Colors.transparent,
                 border: today && !on ? Border.all(color: C.green, width: 1.5) : null,
               ),
-              child: Text(bnDigits(d.day), style: body(14, weight: on || today ? FontWeight.w700 : FontWeight.w500, color: on ? C.onAccent : (red ? C.rose : C.ink), height: 1.1)),
+              child: Text(bnDigits(d.day), style: body(13.5, weight: on || today ? FontWeight.w700 : FontWeight.w500, color: on ? C.onAccent : (red ? C.rose : C.ink), height: 1.1)),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 1),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               for (var k = 0; k < (n > 3 ? 3 : n); k++)
                 Container(margin: const EdgeInsets.symmetric(horizontal: 1), width: 4, height: 4, decoration: BoxDecoration(shape: BoxShape.circle, color: red ? C.rose : C.warn)),
@@ -529,15 +503,16 @@ class _DiaryScreenState extends State<DiaryScreen> {
     }
 
     final cells = <Widget>[
-      for (var i = 0; i < lead; i++) const SizedBox(height: 48),
+      for (var i = 0; i < lead; i++) const SizedBox(height: 38),
       for (var i = 0; i < days; i++) cell(first.add(Duration(days: i))),
     ];
     while (cells.length % 7 != 0) {
-      cells.add(const SizedBox(height: 48));
+      cells.add(const SizedBox(height: 38));
     }
     return [
       Container(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+        // Smaller, so the day's list shows too (owner, 13 Nov).
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
         decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(17), border: Border.all(color: C.border)),
         child: Column(children: [
           _nav(
@@ -550,7 +525,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
               Text('${banglaDate(first).monthName} – ${banglaDate(DateTime(day.year, day.month, days)).monthName} ${bnDigits(banglaDate(first).year)}', textAlign: TextAlign.center, style: body(12, color: C.muted)),
             ]),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Row(children: [
             for (final h in heads) Expanded(child: Text(weekdayShort(h), textAlign: TextAlign.center, style: body(11, color: isWeekend(h) ? C.rose : C.muted))),
           ]),

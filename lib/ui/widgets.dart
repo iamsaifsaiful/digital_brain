@@ -1027,3 +1027,96 @@ class ServiceBadge extends StatelessWidget {
 
 /// কথা বোঝার মডেল (owner, 28 Oct): said on its row and whenever the mic opens.
 String get improvingNote => tr('কথা বোঝা আরও ভালো করতে আমরা প্রতিনিয়ত কাজ করছি — কোনো কথা ভুল বুঝলে আরেকভাবে বলুন বা লিখে দিন।');
+
+/// A section's title with its filter behind ⋮ (owner, 13 Nov: the chips over
+/// a list moved here, so the list shows whole). A filter that is on shows as
+/// one small chip beside the title, ✕ to clear it.
+class FilterTitle<T> extends StatelessWidget {
+  const FilterTitle(this.title, {super.key, required this.menuKey, required this.items, required this.value, required this.onChanged, this.extra = const [], this.on});
+
+  final String title;
+  final Key menuKey;
+
+  /// (value, label, key); the first is "all".
+  final List<(T, String, Key)> items;
+  final T value;
+  final ValueChanged<T> onChanged;
+
+  /// More entries under the choices (label, key, on tap).
+  final List<(String, Key, VoidCallback)> extra;
+
+  /// Another filter that is on (its label, key, clear).
+  final (String, Key, VoidCallback)? on;
+
+  @override
+  Widget build(BuildContext context) {
+    final all = items.first.$1;
+    final chips = <(String, Key, VoidCallback)>[
+      if (value != all) (items.firstWhere((x) => x.$1 == value).$2, Key('${(menuKey as ValueKey).value}-on'), () => onChanged(all)),
+      if (on != null) on!,
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(top: 24, bottom: 8),
+      child: Row(children: [
+        Flexible(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(17, weight: 600))),
+        for (final (label, key, clear) in chips)
+          Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: Material(
+              color: C.greenTint,
+              shape: const StadiumBorder(),
+              child: InkWell(
+                key: key,
+                customBorder: const StadiumBorder(),
+                onTap: clear,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 4, 6, 4),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Text(label, style: body(12.5, weight: FontWeight.w600, color: C.green)),
+                    const SizedBox(width: 2),
+                    Icon(Icons.close_rounded, size: 15, color: C.green),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+        const Spacer(),
+        PopupMenuButton<Object>(
+          key: menuKey,
+          tooltip: tr('ফিল্টার'),
+          icon: Icon(Icons.more_vert_rounded, color: C.muted),
+          onSelected: (v) {
+            if (v is _Extra) {
+              v.onTap();
+            } else {
+              onChanged(v as T);
+            }
+          },
+          itemBuilder: (_) => [
+            for (final (v, label, key) in items)
+              PopupMenuItem<Object>(
+                key: key,
+                value: v as Object,
+                child: Row(children: [
+                  SizedBox(width: 26, child: v == value ? Icon(Icons.check_rounded, size: 18, color: C.green) : null),
+                  Text(label),
+                ]),
+              ),
+            if (extra.isNotEmpty) const PopupMenuDivider(),
+            for (final (label, key, tap) in extra)
+              PopupMenuItem<Object>(
+                key: key,
+                value: _Extra(tap),
+                child: Row(children: [const SizedBox(width: 26), Text(label)]),
+              ),
+          ],
+        ),
+      ]),
+    );
+  }
+}
+
+class _Extra {
+  const _Extra(this.onTap);
+  final VoidCallback onTap;
+}

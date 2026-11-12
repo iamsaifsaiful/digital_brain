@@ -219,22 +219,19 @@ class MoneyScreenState extends State<MoneyScreen> {
           onAction: () => push(const LedgerFormScreen()),
         )
       else ...[
-        const SizedBox(height: 6),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(children: [
-            for (final (k, label) in [
-              ('all', trf('সবাই · {0}', [bnDigits(people.length)])),
-              ('get', trf('পাব · {0}', [bnDigits(getN)])),
-              ('give', trf('দেব · {0}', [bnDigits(giveN)])),
-              ('done', trf('শোধ · {0}', [bnDigits(doneN)])),
-            ]) ...[
-              ChoiceChip(key: Key('loans-$k'), label: Text(label), selected: _who == k, showCheckmark: false, onSelected: (_) => setState(() => _who = k)),
-              const SizedBox(width: 6),
-            ],
-          ]),
+        // Who to show sits behind ⋮ (owner, 13 Nov), so the list shows whole.
+        FilterTitle<String>(
+          trf('মানুষ · {0}', [bnDigits(shown.length)]),
+          menuKey: const ValueKey('loans-filter'),
+          items: [
+            ('all', trf('সবাই · {0}', [bnDigits(people.length)]), const Key('loans-all')),
+            ('get', trf('পাব · {0}', [bnDigits(getN)]), const Key('loans-get')),
+            ('give', trf('দেব · {0}', [bnDigits(giveN)]), const Key('loans-give')),
+            ('done', trf('শোধ · {0}', [bnDigits(doneN)]), const Key('loans-done')),
+          ],
+          value: _who,
+          onChanged: (k) => setState(() => _who = k),
         ),
-        SectionTitle(trf('মানুষ · {0}', [bnDigits(shown.length)])),
         if (shown.isEmpty)
           Panel(padding: const EdgeInsets.all(14), child: Text(tr('এই ভাগে কেউ নেই'), style: body(14, color: C.muted)))
         else

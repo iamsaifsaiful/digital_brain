@@ -566,60 +566,25 @@ class _CashViewState extends State<CashView> {
       ]),
     );
 
-    Widget chip(Key key, String label, bool on, VoidCallback onTap) => ChoiceChip(
-          key: key,
-          label: Text(label),
-          selected: on,
-          showCheckmark: false,
-          onSelected: (_) => onTap(),
-        );
+    // The filter sits behind ⋮ on the লেনদেন heading (owner, 13 Nov): the
+    // day's লেনদেন show whole, together.
+    final kindKey = switch (_kind) { CashKind.income => 'income', CashKind.expense => 'expense', null => 'all' };
+    final listHead = FilterTitle<String>(
+      trf('লেনদেন · {0}', [bnDigits(entries.length)]),
+      menuKey: const ValueKey('cash-filter'),
+      items: [('all', tr('সব'), const Key('cash-kind-all')), ('income', tr('শুধু আয়'), const Key('cash-kind-income')), ('expense', tr('শুধু খরচ'), const Key('cash-kind-expense'))],
+      value: kindKey,
+      onChanged: (v) => _go(() {
+        _kind = v == 'income' ? CashKind.income : (v == 'expense' ? CashKind.expense : null);
+        _cat = null;
+      }),
+      extra: [if (cats.length > 1) (tr('খাত বেছে নিন'), const Key('cash-cat'), () => _pickCategory(cats))],
+      on: cat == null ? null : (cat, const Key('cash-cat-on'), () => _go(() => _cat = null)),
+    );
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (cashOnHand(brain.data) == null) ...[const CashNowCard(), const SizedBox(height: 12)],
       period,
-      const SizedBox(height: 12),
-      // ফিল্টার
-      SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(children: [
-          for (final (k, label) in [(null, tr('সব')), (CashKind.income, tr('শুধু আয়')), (CashKind.expense, tr('শুধু খরচ'))]) ...[
-            chip(Key('cash-kind-${k?.name ?? 'all'}'), label, _kind == k, () => _go(() {
-                  _kind = k;
-                  _cat = null;
-                })),
-            const SizedBox(width: 6),
-          ],
-          if (cat != null)
-            InputChip(
-              key: const Key('cash-cat-on'),
-              label: Text(cat),
-              selected: true,
-              showCheckmark: false,
-              onPressed: () => _pickCategory(cats),
-              onDeleted: () => _go(() => _cat = null),
-            )
-          else if (cats.length > 1)
-            ActionChip(
-              key: const Key('cash-cat'),
-              avatar: const Icon(Icons.label_outline_rounded, size: 18),
-              label: Text(tr('খাত')),
-              onPressed: () => _pickCategory(cats),
-            ),
-        ]),
-      ),
-      if (filtered && entries.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Text(
-            key: const Key('cash-filter-total'),
-            [
-              if (shownSums.income > 0) trf('আয় {0}', [taka(shownSums.income)]),
-              if (shownSums.expense > 0) trf('খরচ {0}', [taka(shownSums.expense)]),
-              trf('{0}টা লেনদেন', [bnDigits(entries.length)]),
-            ].join(' · '),
-            style: body(13.5, weight: FontWeight.w600, color: C.muted2),
-          ),
-        ),
       const SizedBox(height: 10),
       if (top.length > 1 || (top.isNotEmpty && cat == null)) ...[
         _CatStrip(
@@ -640,6 +605,20 @@ class _CashViewState extends State<CashView> {
         ),
         const SizedBox(height: 10),
       ],
+      if (inSpan.isNotEmpty) listHead,
+      if (filtered && entries.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            key: const Key('cash-filter-total'),
+            [
+              if (shownSums.income > 0) trf('আয় {0}', [taka(shownSums.income)]),
+              if (shownSums.expense > 0) trf('খরচ {0}', [taka(shownSums.expense)]),
+              trf('{0}টা লেনদেন', [bnDigits(entries.length)]),
+            ].join(' · '),
+            style: body(13.5, weight: FontWeight.w600, color: C.muted2),
+          ),
+        ),
       if (entries.isEmpty)
         EmptyState(
           icon: Icons.account_balance_wallet_outlined,
@@ -1252,6 +1231,9 @@ class ProjectScreen extends StatefulWidget {
 class _ProjectScreenState extends State<ProjectScreen> {
   String get id => widget.id;
 
+  /// all, income or expense.
+  String _kind = 'all';
+
   @override
   void initState() {
     super.initState();
@@ -1275,6 +1257,7 @@ class _ProjectScreenState extends State<ProjectScreen> {
     }
     final s = projectSums(brain.data.cash, p.id);
     final entries = brain.data.cash.where((e) => e.projectId == p.id).toList()..sort((a, b) => b.date.compareTo(a.date));
+    final shown = [for (final e in entries) if (_kind == 'all' || e.kind.name == _kind) e];
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
 
     Future<void> menu(String v) async {
@@ -1372,8 +1355,18 @@ class _ProjectScreenState extends State<ProjectScreen> {
               if (entries.isEmpty)
                 EmptyState(icon: Icons.receipt_long_outlined, title: tr('এখনো কিছু লেখা নেই'), text: tr('টাকা এলে বা খরচ হলে উপরের বোতাম চাপুন, অথবা মুখে বলুন।'))
               else ...[
-                SectionTitle(tr('সব হিসাব')),
-                Panel(child: Rows(children: [for (final e in entries) cashRow(context, e)])),
+                // আয় or খরচ only, behind ⋮ (owner, 13 Nov).
+                FilterTitle<String>(
+                  trf('লেনদেন · {0}', [bnDigits(shown.length)]),
+                  menuKey: const ValueKey('project-filter'),
+                  items: [('all', tr('সব'), const Key('project-kind-all')), ('income', tr('শুধু আয়'), const Key('project-kind-income')), ('expense', tr('শুধু খরচ'), const Key('project-kind-expense'))],
+                  value: _kind,
+                  onChanged: (v) => setState(() => _kind = v),
+                ),
+                if (shown.isEmpty)
+                  Panel(padding: const EdgeInsets.all(14), child: Text(tr('এই ফিল্টারে কিছু নেই'), style: body(14, color: C.muted)))
+                else
+                  Panel(child: Rows(children: [for (final e in shown) cashRow(context, e)])),
               ],
             ]),
           ),

@@ -77,13 +77,20 @@ void main() {
       await settle(t);
     }
 
-    await show(find.byKey(const Key('cash-kind-expense')));
+    // The filters are behind ⋮ on the লেনদেন heading (owner, 13 Nov).
+    Future<void> menu() async {
+      await show(find.byKey(const ValueKey('cash-filter')));
+      await t.tap(find.byKey(const ValueKey('cash-filter')));
+      await settle(t);
+    }
+
+    await menu();
     await t.tap(find.byKey(const Key('cash-kind-expense')));
     await settle(t);
     expect(total(), contains('খরচ ৳৯,০০০'));
     expect(total(), contains('৪টা লেনদেন'));
     expect(find.text('বেতন'), findsNothing);
-    await show(find.byKey(const Key('cash-cat')));
+    await menu();
     await t.tap(find.byKey(const Key('cash-cat')));
     await settle(t);
     await t.tap(find.byKey(const Key('cash-cat-বাজার')));
@@ -92,9 +99,9 @@ void main() {
     expect(total(), contains('২টা লেনদেন'));
     // Clear the খাত, then only income.
     await show(find.byKey(const Key('cash-cat-on')));
-    await t.tap(find.descendant(of: find.byKey(const Key('cash-cat-on')), matching: find.byIcon(Icons.clear)));
+    await t.tap(find.byKey(const Key('cash-cat-on')));
     await settle(t);
-    await show(find.byKey(const Key('cash-kind-income')));
+    await menu();
     await t.tap(find.byKey(const Key('cash-kind-income')));
     await settle(t);
     expect(total(), contains('আয় ৳৩০,০০০'));
