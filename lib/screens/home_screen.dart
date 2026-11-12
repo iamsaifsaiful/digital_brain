@@ -224,6 +224,9 @@ class _NextCard extends StatelessWidget {
     final line = [if (timed) clock, if (meta.isNotEmpty) meta].join(' · ');
     return AppCard(
       key: const Key('home-next'),
+      // The one thing next, given room (owner, 12 Nov).
+      padding: const EdgeInsets.fromLTRB(20, 20, 16, 20),
+      color: C.greenSoft,
       onTap: () => t != null ? editTask(context, t) : null,
       child: Row(children: [
         Expanded(
@@ -233,12 +236,17 @@ class _NextCard extends StatelessWidget {
               const SizedBox(width: 6),
               Flexible(child: Text(soon.isEmpty ? tr('এরপর') : '${tr('এরপর')} · $soon', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, weight: FontWeight.w600, color: C.green))),
             ]),
-            const SizedBox(height: 4),
-            Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(16, weight: FontWeight.w600, height: 1.35)),
+            const SizedBox(height: 6),
+            Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: display(19, weight: 700, height: 1.35)),
             if (line.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(line, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, weight: timed ? FontWeight.w600 : FontWeight.w400, color: timed ? C.green : C.muted)),
+                padding: const EdgeInsets.only(top: 8),
+                // The time in a pill, so it reads at a glance.
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(20)),
+                  child: Text(line, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, weight: timed ? FontWeight.w600 : FontWeight.w400, color: timed ? C.green : C.muted)),
+                ),
               ),
           ]),
         ),
@@ -306,12 +314,12 @@ class _TaskRow extends StatelessWidget {
         child: Row(children: [
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.symmetric(vertical: 9),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(item.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: body(14.5, color: done ? C.muted : C.ink).copyWith(decoration: t?.done ?? false ? TextDecoration.lineThrough : null, decorationColor: C.muted)),
+                    style: body(15.5, color: done ? C.muted : C.ink).copyWith(decoration: t?.done ?? false ? TextDecoration.lineThrough : null, decorationColor: C.muted)),
                 const SizedBox(height: 1),
                 WhenLine(sub, bell: r != null, color: late ? C.warn : (r != null && !passed ? C.green : C.muted)),
               ]),

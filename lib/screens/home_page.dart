@@ -570,94 +570,114 @@ class _MoneyCard extends StatelessWidget {
         .firstOrNull;
     void money() => goToTab(context, ShellTab.money);
 
-    Widget stat(IconData icon, String label, String value, Color color) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [Icon(icon, size: 14, color: C.muted), const SizedBox(width: 4), Text(label, style: body(11.5, color: C.muted))]),
-          const SizedBox(height: 4),
-          Text(value, style: body(14, weight: FontWeight.w600, color: color)),
-        ]);
-
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      SectionHeading(tr('টাকার হিসাব'), link: '${monthName(now.month)} · ${tr('খুলুন')}', onLink: money),
-      AppCard(
-        key: const Key('home-stat-spent'),
-        onTap: money,
-        padding: const EdgeInsets.fromLTRB(14, 13, 14, 0),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(hand != null ? tr('এখন আছে') : tr('হাতে থাকল'), style: body(11.5, color: C.muted)),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: RollingAmount(value: hand ?? month.balance, format: taka, style: display(27, weight: 600, height: 1.45)),
-                ),
-              ]),
-            ),
-            const IconTile(Icons.account_balance_wallet_outlined),
-          ]),
-          const SizedBox(height: 4),
-          Row(children: [
-            stat(Icons.south_rounded, tr('আয়'), taka(month.income), C.green),
-            const SizedBox(width: 26),
-            stat(Icons.north_rounded, tr('খরচ'), taka(month.expense), C.ink),
-          ]),
-          const SizedBox(height: 12),
-          if (owe.receivable > 0 || owe.payable > 0) ...[
-            const Hairline(),
-            IntrinsicHeight(
-              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(trf('পাবো · {0} জনের কাছে', [bnDigits(owe.owingPeople)]), style: body(11.5, color: C.muted)),
-                      Text(taka(owe.receivable), style: body(15, weight: FontWeight.w600)),
-                      if (dueToday.isNotEmpty)
-                        Text(trf('আজ {0} ফেরতের দিন', [dueToday.map(possessive).join(', ')]), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11, color: C.warn)),
-                    ]),
-                  ),
-                ),
-                VerticalDivider(width: 1, thickness: 1, color: C.border),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 0, 10),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(trf('দেবো · {0} জনকে', [bnDigits(owe.owedPeople)]), style: body(11.5, color: C.muted)),
-                      Text(taka(owe.payable), style: body(15, weight: FontWeight.w600, color: owe.payable > 0 ? C.warn : C.ink)),
-                      if (nextGive != null) Text('${nextGive.person} · ${bnDigits(nextGive.due!.day)} ${monthName(nextGive.due!.month)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11, color: C.muted)),
-                    ]),
-                  ),
-                ),
-              ]),
-            ),
-          ],
-          if (week.spent > 0) ...[
-            const Hairline(),
-            InkWell(
-              key: const Key('home-spend-health'),
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SpendHealthScreen())),
+    // Four tiles, one number each, big (owner, 12 Nov: room to breathe, inspired by his
+    // examples' "Monthly review" tiles): in hand (tall), income, spent, and what is owed.
+    Widget tile({required Key key, required String label, required String value, Color? color, String? note, Color? noteColor, double height = 104, double size = 21, VoidCallback? onTap}) => Material(
+          key: key,
+          color: C.surface,
+          borderRadius: BorderRadius.circular(20),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap ?? money,
+            child: SizedBox(
+              height: height,
+              width: double.infinity,
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 11),
-                child: Row(children: [
-                  Icon(Icons.pie_chart_outline_rounded, size: 17, color: weekWarn ? C.warn : C.green),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      week.hasIncome
-                          ? trf('এ সপ্তাহে আয়ের {0}% খরচ — শখের খাতে {1}%', [bnDigits(week.pct(week.spent)), bnDigits(week.pct(week.wants))])
-                          : trf('এ সপ্তাহে খরচ {0} — কোথায় যাচ্ছে দেখুন', [taka(week.spent)]),
-                      style: body(12.5, color: weekWarn ? C.warn : C.ink),
-                    ),
-                  ),
-                  Icon(Icons.chevron_right_rounded, size: 18, color: C.muted),
+                padding: EdgeInsets.fromLTRB(18, height < 90 ? 8 : 16, 14, height < 90 ? 8 : 14),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.end, children: [
+                  Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted)),
+                  const SizedBox(height: 2),
+                  FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(value, style: display(size, weight: 700, color: color ?? C.ink, height: 1.3))),
+                  if (note != null) Text(note, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: noteColor ?? C.muted)),
                 ]),
               ),
             ),
-          ] else
-            const SizedBox(height: 2),
-        ]),
-      ),
+          ),
+        );
+    final owed = owe.receivable > 0 || owe.payable > 0;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      SectionHeading(tr('টাকার হিসাব'), link: '${monthName(now.month)} · ${tr('খুলুন')}', onLink: money),
+      Row(key: const Key('home-stat-spent'), crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(
+          child: Column(children: [
+            Material(
+              color: C.green,
+              borderRadius: BorderRadius.circular(20),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: money,
+                child: SizedBox(
+                  height: 152,
+                  width: double.infinity,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Icon(Icons.account_balance_wallet_outlined, size: 22, color: C.onAccent),
+                      const Spacer(),
+                      Text(hand != null ? tr('এখন আছে') : tr('হাতে থাকল'), style: body(12.5, color: C.onAccent.withValues(alpha: 0.85))),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: RollingAmount(value: hand ?? month.balance, format: taka, style: display(26, weight: 700, color: C.onAccent, height: 1.35)),
+                      ),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+            if (owed) ...[
+              const SizedBox(height: 12),
+              tile(
+                key: const Key('home-stat-owed'),
+                label: tr('পাবো'),
+                value: taka(owe.receivable),
+                note: dueToday.isNotEmpty ? trf('আজ {0} ফেরতের দিন', [dueToday.map(possessive).join(', ')]) : trf('{0} জনের কাছে', [bnDigits(owe.owingPeople)]),
+                noteColor: dueToday.isNotEmpty ? C.warn : null,
+                height: 96,
+                size: 19,
+              ),
+            ],
+          ]),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(children: [
+            tile(key: const Key('home-stat-income'), label: tr('আয়'), value: taka(month.income), color: C.green, height: owed ? 96 : 70, size: 19),
+            const SizedBox(height: 12),
+            tile(key: const Key('home-stat-expense'), label: tr('খরচ'), value: taka(month.expense), height: owed ? 152 : 70, size: owed ? 24 : 19,
+                note: owe.payable > 0 ? trf('দেবো {0}', [taka(owe.payable)]) : (nextGive != null ? '${nextGive.person} · ${bnDigits(nextGive.due!.day)} ${monthName(nextGive.due!.month)}' : null),
+                noteColor: owe.payable > 0 ? C.warn : null),
+          ]),
+        ),
+      ]),
+      if (week.spent > 0) ...[
+        const SizedBox(height: 12),
+        Material(
+          color: C.surface,
+          borderRadius: BorderRadius.circular(20),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            key: const Key('home-spend-health'),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SpendHealthScreen())),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+              child: Row(children: [
+                Icon(Icons.pie_chart_outline_rounded, size: 18, color: weekWarn ? C.warn : C.green),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    week.hasIncome
+                        ? trf('এ সপ্তাহে আয়ের {0}% খরচ — শখের খাতে {1}%', [bnDigits(week.pct(week.spent)), bnDigits(week.pct(week.wants))])
+                        : trf('এ সপ্তাহে খরচ {0} — কোথায় যাচ্ছে দেখুন', [taka(week.spent)]),
+                    style: body(13, color: weekWarn ? C.warn : C.ink),
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, size: 18, color: C.muted),
+              ]),
+            ),
+          ),
+        ),
+      ],
     ]);
   }
 }

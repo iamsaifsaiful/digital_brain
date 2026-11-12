@@ -354,6 +354,8 @@ void main() {
     expect(find.byKey(const Key('more-feedback')), findsOneWidget);
     expect(find.text('রক্তের অনুরোধ'), findsNothing, reason: 'no separate request row in আরও');
     await t.scrollUntilVisible(find.byKey(const Key('more-requests')), -300, scrollable: find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first);
+    await Scrollable.ensureVisible(t.element(find.byKey(const Key('more-requests'))), alignment: 0.4);
+    await settle(t);
     await t.tap(find.byKey(const Key('more-requests')));
     await settle(t);
     expect(find.text('ব্লাড ডোনেশন'), findsOneWidget);
@@ -464,9 +466,9 @@ void main() {
     expect(find.text('টাকার হিসাব'), findsOneWidget);
     expect(find.descendant(of: find.byKey(const Key('home-stat-spent')), matching: find.textContaining('২৫০')), findsWidgets);
     // The floating "কিছু যুক্ত করুন" sits over the bottom: bring the card to the middle first.
-    await Scrollable.ensureVisible(t.element(find.byKey(const Key('home-stat-spent'))), alignment: 0.3);
+    await Scrollable.ensureVisible(t.element(find.byKey(const Key('home-stat-expense'))), alignment: 0.3);
     await settle(t);
-    await t.tap(find.byKey(const Key('home-stat-spent')));
+    await t.tap(find.byKey(const Key('home-stat-expense')));
     await settle(t);
     expect(find.text('অন্যান্য হিসাব'), findsOneWidget);
   });

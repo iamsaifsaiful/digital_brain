@@ -121,14 +121,14 @@ class PlanRow extends StatelessWidget {
     return InkWell(
       onTap: () => t != null ? editTask(context, t) : Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewItemScreen(reminder: r))),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+        padding: const EdgeInsets.fromLTRB(16, 6, 6, 6),
         child: Row(children: [
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 7),
+              padding: const EdgeInsets.symmetric(vertical: 9),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(item.title,
-                    style: body(14, color: (t?.done ?? false) || passed ? C.muted : C.ink).copyWith(decoration: t?.done ?? false ? TextDecoration.lineThrough : null, decorationColor: C.muted),
+                    style: body(15.5, color: (t?.done ?? false) || passed ? C.muted : C.ink).copyWith(decoration: t?.done ?? false ? TextDecoration.lineThrough : null, decorationColor: C.muted),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis),
                 if (line.isNotEmpty) WhenLine(line, bell: r != null, color: r != null && !passed ? C.green : C.muted),
@@ -479,14 +479,26 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
     final plan = planOf(brain.data, now);
     final openCount = plan.overdue.length + plan.today.length + plan.ahead.length;
 
+    // Each day-group under a real heading, each item its own card with room
+    // around it (owner, 12 Nov: negative space).
     Widget section(String title, List<PlanItem> items, {Color? color, bool withDay = false}) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(padding: const EdgeInsets.fromLTRB(2, 14, 2, 6), child: Text(title, style: body(14, weight: FontWeight.w600, color: color ?? C.muted2))),
-            Panel(
-              borderColor: color == C.orange ? C.orangeTint : C.line,
-              child: Rows(children: [for (final i in items) PlanRow(item: i, withDay: withDay)]),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(2, 24, 2, 10),
+              child: Row(children: [
+                Flexible(child: Text(title, style: display(19, weight: 700, color: color ?? C.ink))),
+                const SizedBox(width: 8),
+                Text(bnDigits(items.length), style: body(13, weight: FontWeight.w600, color: C.muted)),
+              ]),
             ),
+            for (final (n, i) in items.indexed) ...[
+              if (n > 0) const SizedBox(height: 8),
+              Panel(
+                borderColor: color == C.orange ? C.orangeTint : null,
+                child: PlanRow(item: i, withDay: withDay),
+              ),
+            ],
           ],
         );
 

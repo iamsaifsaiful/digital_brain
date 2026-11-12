@@ -5308,4 +5308,6 @@ const enStrings = <String, String>{
   'লিখুন': 'Enter',
   'হাতে, ব্যাংকে, বিকাশে — সব মিলিয়ে লিখুন': 'Cash, bank, bKash — enter the combined total',
   'সব দেখুন · {0}টা': 'See all · {0}',
+  '{0} জনের কাছে': 'from {0}',
+  'দেবো {0}': 'I owe {0}',
 };

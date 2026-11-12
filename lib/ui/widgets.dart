@@ -114,13 +114,13 @@ class SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         // Space above too, so a heading never sits on the card before it.
-        padding: const EdgeInsets.only(top: 16, bottom: 6),
+        padding: const EdgeInsets.only(top: 24, bottom: 8),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 32),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(child: Text(title, style: display(17, weight: 600))),
+              Expanded(child: Text(title, style: display(19, weight: 700))),
               if (action != null)
                 InkWell(
                   borderRadius: BorderRadius.circular(8),

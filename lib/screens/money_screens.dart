@@ -479,30 +479,37 @@ class _CashViewState extends State<CashView> {
     // The figures roll to a new amount rather than jump (owner, 3 Nov).
     // আয় or খরচ tapped: only those below; tapped again, or the balance: all
     // (owner, 12 Nov: the filter chips folded into the figures).
-    Widget fig(String label, int value, Color color, {bool first = false, bool signed = false, CashKind? kind, Key? key}) => Expanded(
+    Widget tile(String label, int value, Color color, CashKind kind, Key key) {
+      final on = _kind == kind;
+      return Expanded(
+        child: Material(
+          color: on ? color.withValues(alpha: 0.10) : C.surface2,
+          borderRadius: BorderRadius.circular(14),
+          clipBehavior: Clip.antiAlias,
           child: InkWell(
             key: key,
             onTap: () => _go(() {
-              _kind = kind == null || _kind == kind ? null : kind;
+              _kind = on ? null : kind;
               _cat = null;
             }),
-            child: Container(
-            padding: EdgeInsets.only(left: first ? 0 : 12, top: 2, bottom: 2),
-            decoration: first ? null : BoxDecoration(border: Border(left: BorderSide(color: C.border))),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Flexible(child: Text(label, maxLines: 2, style: body(12, color: kind != null && _kind == kind ? color : C.muted, weight: kind != null && _kind == kind ? FontWeight.w700 : FontWeight.w400, height: 1.3))),
-                if (kind != null && _kind == kind) Padding(padding: const EdgeInsets.only(left: 3), child: Icon(Icons.filter_alt_rounded, size: 13, color: color)),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 12, 12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Flexible(child: Text(label, maxLines: 1, style: body(12.5, color: on ? color : C.muted, weight: on ? FontWeight.w700 : FontWeight.w400))),
+                  if (on) Padding(padding: const EdgeInsets.only(left: 3), child: Icon(Icons.filter_alt_rounded, size: 13, color: color)),
+                ]),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: RollingAmount(value: value, format: (v) => taka(v), style: display(18, weight: 700, color: color, height: 1.35)),
+                ),
               ]),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: RollingAmount(value: value, format: (v) => '${signed && v < 0 ? '−' : ''}${taka(v.abs())}', style: display(17, weight: 700, color: color, height: 1.35)),
-              ),
-            ]),
+            ),
           ),
-          ),
-        );
+        ),
+      );
+    }
 
     // The period and its sums in one card, with what is in hand now under them (approved design, 3 Nov).
     final summary = AnimatedSwitcher(
@@ -517,7 +524,7 @@ class _CashViewState extends State<CashView> {
       },
       child: Panel(
         key: ValueKey('${_span.name}-$from'),
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
             _NavButton(
@@ -559,15 +566,35 @@ class _CashViewState extends State<CashView> {
                       }),
             ),
           ]),
-          const SizedBox(height: 12),
-          IntrinsicHeight(
-            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              fig(tr('আয়'), sums.income, C.blue, first: true, kind: CashKind.income, key: const Key('cash-kind-income')),
-              fig(tr('খরচ'), sums.expense, C.red, kind: CashKind.expense, key: const Key('cash-kind-expense')),
-              fig(_title(current), balance, balance < 0 ? C.red : C.ink, signed: true, key: const Key('cash-kind-all')),
-            ]),
+          // The balance big on its own, আয় and খরচ as two tiles under it (owner, 12 Nov:
+          // room to breathe, one number that matters first).
+          const SizedBox(height: 18),
+          InkWell(
+            key: const Key('cash-kind-all'),
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => _go(() {
+              _kind = null;
+              _cat = null;
+            }),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(_title(current), style: body(13, color: C.muted)),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: RollingAmount(value: balance, format: (v) => '${v < 0 ? '−' : ''}${taka(v.abs())}', style: display(34, weight: 700, color: balance < 0 ? C.red : C.ink, height: 1.3)),
+                ),
+              ]),
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
+          Row(children: [
+            tile(tr('আয়'), sums.income, C.blue, CashKind.income, const Key('cash-kind-income')),
+            const SizedBox(width: 10),
+            tile(tr('খরচ'), sums.expense, C.red, CashKind.expense, const Key('cash-kind-expense')),
+          ]),
+          const SizedBox(height: 16),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(value: ratio.toDouble(), minHeight: 6, color: C.red, backgroundColor: C.surface2),
