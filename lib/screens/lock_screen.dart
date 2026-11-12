@@ -17,6 +17,9 @@ bool googleFirst = true;
 
 /// First run: sign in with Google, then choose a PIN. Every other time:
 /// unlock with fingerprint or PIN.
+/// Which look the fingerprint-or-PIN choice takes (1 or 2); for the owner to pick.
+int lockChoiceStyle = 1;
+
 class LockScreen extends StatefulWidget {
   const LockScreen({super.key});
 
@@ -119,41 +122,81 @@ class _LockScreenState extends State<LockScreen> {
         ),
       ]);
 
-  /// Two choices, side by side: the fingerprint or the PIN.
+  void _pickPin() => setState(() {
+        _usePin = true;
+        _message = null;
+      });
+
+  /// The fingerprint or the PIN, the member's pick (owner, 13 Nov).
+  /// [lockChoiceStyle] 1: one round fingerprint button, the PIN as a quiet
+  /// line under it. 2: two full-width buttons, one above the other.
   Widget _choose() {
-    Widget option(Key key, IconData icon, String label, VoidCallback onTap) => Expanded(
+    if (lockChoiceStyle == 2) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 28),
+        child: Column(children: [
+          SizedBox(
+            width: double.infinity,
+            height: 58,
+            child: FilledButton.icon(
+              key: const Key('lock-choose-finger'),
+              style: FilledButton.styleFrom(backgroundColor: C.mint, foregroundColor: C.night, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
+              onPressed: _biometric,
+              icon: const Icon(Icons.fingerprint_rounded, size: 26),
+              label: Text(tr('আঙুলের ছাপ দিয়ে খুলুন'), style: body(16, weight: FontWeight.w700, color: C.night)),
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 58,
+            child: OutlinedButton.icon(
+              key: const Key('lock-choose-pin'),
+              style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: BorderSide(color: Colors.white.withValues(alpha: 0.22)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
+              onPressed: _pickPin,
+              icon: const Icon(Icons.dialpad_rounded, size: 22),
+              label: Text(tr('PIN দিয়ে খুলুন'), style: body(16, weight: FontWeight.w600, color: Colors.white)),
+            ),
+          ),
+        ]),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 28),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        const SizedBox(width: double.infinity),
+        Semantics(
+          button: true,
+          label: tr('আঙুলের ছাপ দিয়ে খুলুন'),
           child: Material(
-            color: Colors.white.withValues(alpha: 0.05),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: BorderSide(color: Colors.white.withValues(alpha: 0.09))),
+            color: Colors.transparent,
+            shape: CircleBorder(side: BorderSide(color: C.mint.withValues(alpha: 0.45), width: 1.5)),
             child: InkWell(
-              key: key,
-              customBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              onTap: onTap,
+              key: const Key('lock-choose-finger'),
+              customBorder: const CircleBorder(),
+              onTap: _biometric,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 30, 8, 26),
-                child: Column(children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(color: C.mint.withValues(alpha: 0.14), shape: BoxShape.circle),
-                    child: Icon(icon, size: 38, color: C.mint),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(label, textAlign: TextAlign.center, style: body(16, weight: FontWeight.w600, color: Colors.white)),
-                ]),
+                padding: const EdgeInsets.all(10),
+                child: Container(
+                  width: 96,
+                  height: 96,
+                  decoration: BoxDecoration(color: C.mint.withValues(alpha: 0.14), shape: BoxShape.circle),
+                  child: Icon(Icons.fingerprint_rounded, size: 56, color: C.mint),
+                ),
               ),
             ),
           ),
-        );
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 24),
-      child: Row(children: [
-        option(const Key('lock-choose-finger'), Icons.fingerprint_rounded, tr('আঙুলের ছাপ'), _biometric),
-        const SizedBox(width: 16),
-        option(const Key('lock-choose-pin'), Icons.dialpad_rounded, tr('PIN'), () => setState(() {
-              _usePin = true;
-              _message = null;
-            })),
+        ),
+        const SizedBox(height: 16),
+        Text(tr('আঙুলের ছাপ দিয়ে খুলুন'), style: body(16, weight: FontWeight.w600, color: Colors.white)),
+        const SizedBox(height: 36),
+        TextButton.icon(
+          key: const Key('lock-choose-pin'),
+          onPressed: _pickPin,
+          icon: Icon(Icons.dialpad_rounded, size: 20, color: Colors.white.withValues(alpha: 0.8)),
+          label: Text(tr('PIN দিয়ে খুলুন'), style: body(15, weight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.85))),
+          style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12), shape: const StadiumBorder(), backgroundColor: Colors.white.withValues(alpha: 0.06)),
+        ),
       ]),
     );
   }

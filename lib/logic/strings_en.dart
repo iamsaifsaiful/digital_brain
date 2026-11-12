@@ -5377,4 +5377,6 @@ const enStrings = <String, String>{
   'রমজানের বাজার, যাকাতের হিসাব আর সেহরি-ইফতারের প্রস্তুতি এখন থেকেই একটু একটু গুছিয়ে নিতে পারেন।': 'You can start preparing now: Ramadan shopping, your zakat and suhoor and iftar.',
   'আঙুলের ছাপ': 'Fingerprint',
   'কীভাবে খুলবেন?': 'How would you like to unlock?',
+  'আঙুলের ছাপ দিয়ে খুলুন': 'Unlock with fingerprint',
+  'PIN দিয়ে খুলুন': 'Unlock with PIN',
 };
