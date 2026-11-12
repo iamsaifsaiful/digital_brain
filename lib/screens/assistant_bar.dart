@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../logic/suggest.dart';
+import '../logic/examples.dart' show asShown;
 import '../logic/lang.dart';
 import '../logic/parser.dart';
 import '../logic/search.dart';
@@ -175,7 +176,7 @@ class _AssistantBarState extends State<AssistantBar> {
                 padding: const EdgeInsets.symmetric(horizontal: 15),
                 children: [
                   chip(tr('আগের কথা'), () => openAssistant(context), icon: Icons.forum_outlined),
-                  for (final x in brain.quickQuestions) chip(x, () => openChatWith(context, x)),
+                  for (final x in brain.quickQuestions) chip(asShown(x), () => openChatWith(context, asShown(x))),
                 ],
               ),
             ),

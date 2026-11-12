@@ -60,13 +60,12 @@ void main() {
         // A day card opens that day.
         await t.tap(find.byKey(const Key('week-2026-10-25')));
         await settle(t);
-        expect(find.textContaining('কাল, রবিবার'), findsWidgets);
+        expect(find.descendant(of: find.byKey(const Key('diary-summary')), matching: find.textContaining('কার্তিক')), findsOneWidget);
 
         await t.tap(find.text('মাসিক'));
         await settle(t);
-        await t.tap(find.byKey(const Key('month-2026-10-28')));
-        await settle(t);
-        expect(find.text('পাসপোর্ট অফিস'), findsWidgets);
+        // The month is a list of the days that have something (owner, 13 Nov).
+        expect(find.descendant(of: find.byKey(const Key('week-2026-10-28')), matching: find.textContaining('পাসপোর্ট অফিস')), findsOneWidget);
         await shot('month');
       });
     }

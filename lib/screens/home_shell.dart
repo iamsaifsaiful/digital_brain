@@ -269,7 +269,7 @@ class _Nav extends StatelessWidget {
             (ShellTab.home, Icons.home_outlined, 'হোম'),
             (ShellTab.diary, Icons.description_outlined, 'দিনলিপি'),
             (ShellTab.money, Icons.account_balance_wallet_outlined, 'হিসাব'),
-            (ShellTab.store, Icons.inventory_2_outlined, 'সংরক্ষণ'),
+            (ShellTab.store, Icons.inventory_2_outlined, 'আমার তথ্য'),
             (ShellTab.more, Icons.menu_rounded, 'আরও'),
           ];
     // The composer above has the top hairline on the pages that show it.
@@ -296,7 +296,7 @@ class _Nav extends StatelessWidget {
                       child: Semantics(
                         selected: t == current,
                         button: true,
-                        label: tr(label),
+                        label: trm(label),
                         excludeSemantics: true,
                         child: InkWell(
                           highlightColor: Colors.transparent,
@@ -313,7 +313,7 @@ class _Nav extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 3),
-                            Text(tr(label), style: body(11, weight: near > 0.5 ? FontWeight.w600 : FontWeight.w400, color: color, height: 1.2)),
+                            Text(trm(label), style: body(11, weight: near > 0.5 ? FontWeight.w600 : FontWeight.w400, color: color, height: 1.2)),
                           ]),
                         ),
                       ),

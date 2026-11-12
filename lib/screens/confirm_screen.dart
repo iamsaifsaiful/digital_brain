@@ -56,7 +56,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
 
   void _speakQuestion() {
     if (_needName) {
-      _q.ask(tr('টাকার হিসাব লেনদেনের খাতায় রাখি। কার সাথে লেনদেন হলো? নামটা বলেন।'));
+      _q.ask(tr('টাকার হিসাব লেনদেনের খাতায় রাখি। কার সাথে লেনদেন হলো? নামটা বলুন।'));
     } else if (_needAmount) {
       _q.ask(tr('কত টাকা?'));
     } else {
@@ -74,7 +74,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
 
   void _setAmount(int? a) {
     if (a == null || a <= 0) {
-      setState(() => _q.hint = tr('টাকার অঙ্কটা ধরতে পারিনি। আবার বলেন, বা লিখে দিন।'));
+      setState(() => _q.hint = tr('টাকার অঙ্কটা ধরতে পারিনি। আবার বলুন, বা লিখে দিন।'));
       return;
     }
     _q.stop();
@@ -95,7 +95,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
       }
       final n = spokenName(heard, knownPeople(BrainScope.read(context).data.ledger));
       if (n.isEmpty) {
-        setState(() => _q.hint = tr('নামটা ধরতে পারিনি। আবার বলেন, বা লিখে দিন।'));
+        setState(() => _q.hint = tr('নামটা ধরতে পারিনি। আবার বলুন, বা লিখে দিন।'));
       } else {
         _setName(n);
       }
@@ -110,7 +110,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
       final yn = yesNo(heard);
       final choice = pick ?? (yn == true ? widget.command.suggested?.name : null);
       if (choice == null) {
-        setState(() => _q.hint = tr('ঠিক ধরতে পারিনি। একটা বেছে নিন, বা বলেন — যেমন “শোধ” বা “নতুন ধার”।'));
+        setState(() => _q.hint = tr('ঠিক ধরতে পারিনি। একটা বেছে নিন, বা বলুন — যেমন “শোধ” বা “নতুন ধার”।'));
         return;
       }
       setState(() => _picked = choice);
@@ -123,7 +123,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
       case false:
         setState(() => _q.hint = tr('আচ্ছা, লিখিনি। কিছু ভুল থাকলে “বদলান” চেপে ঠিক করে নিন।'));
       case null:
-        setState(() => _q.hint = tr('ঠিক ধরতে পারিনি। “হ্যাঁ” বা “না” বলেন, অথবা বোতাম চাপুন।'));
+        setState(() => _q.hint = tr('ঠিক ধরতে পারিনি। “হ্যাঁ” বা “না” বলুন, অথবা বোতাম চাপুন।'));
     }
   }
 
@@ -140,12 +140,12 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
   String _clarifyQuestion() {
     final o = widget.command.options;
     if (o.contains(LedgerKind.repaid) && widget.command.allowExpense) {
-      return tr('একটু বুঝিয়ে বলেন — এটা কি আগের দেনা শোধ করলেন, নাকি নতুন করে ধার দিলেন? নাকি অন্য কোনো খরচ?');
+      return tr('একটু বুঝিয়ে বলুন — এটা কি আগের দেনা শোধ করলেন, নাকি নতুন করে ধার দিলেন? নাকি অন্য কোনো খরচ?');
     }
     if (o.contains(LedgerKind.received) && o.contains(LedgerKind.borrowed)) {
-      return tr('একটু বুঝিয়ে বলেন — উনি কি আগের টাকা ফেরত দিলেন, নাকি আপনি নতুন করে ধার নিলেন?');
+      return tr('একটু বুঝিয়ে বলুন — উনি কি আগের টাকা ফেরত দিলেন, নাকি আপনি নতুন করে ধার নিলেন?');
     }
-    return tr('একটু বুঝিয়ে বলেন — এটা কোন ধরনের লেনদেন?');
+    return tr('একটু বুঝিয়ে বলুন — এটা কোন ধরনের লেনদেন?');
   }
 
   Future<void> _save() async {
@@ -286,7 +286,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
                       onPressed: _picked == null ? null : _proceed,
                     )
                   else
-                    PrimaryButton(label: tr('হ্যাঁ, সেভ করুন'), icon: Icons.check_rounded, onPressed: _saving ? null : _save),
+                    PrimaryButton(label: tr('হ্যাঁ, রাখুন'), icon: Icons.check_rounded, onPressed: _saving ? null : _save),
                   const SizedBox(height: 10),
                   Row(
                     children: [

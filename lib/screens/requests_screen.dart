@@ -214,7 +214,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
       body: SafeArea(
         bottom: !widget.inTab,
         child: Column(children: [
-          if (widget.inTab) Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 4), child: TabTitle(tr('ব্লাড ডোনেশন'))) else TopBar(title: tr('ব্লাড ডোনেশন')),
+          if (widget.inTab) Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 4), child: TabTitle(tr('রক্তদান'))) else TopBar(title: tr('রক্তদান')),
           Expanded(child: content),
         ]),
       ),

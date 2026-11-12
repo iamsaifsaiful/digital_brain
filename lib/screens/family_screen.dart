@@ -88,11 +88,11 @@ class _FamilyScreenState extends State<FamilyScreen> {
           floatingActionButton: brain.signedIn ? AddButton(key: const Key('family-add'), label: tr('সদস্য যোগ'), icon: Icons.person_add_alt_1_rounded, onPressed: _invite) : null,
           body: SafeArea(
             child: Column(children: [
-              TopBar(title: tr('ফ্যামিলি')),
+              TopBar(title: tr('পরিবার')),
               Expanded(
                 child: !brain.signedIn
                     ? ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
-                        Text(tr('ফ্যামিলিতে যুক্ত হতে আগে Google দিয়ে লগইন করুন — সবাই নিজের ইমেইলে যুক্ত হন।'), style: body(15, color: C.muted2, height: 1.55)),
+                        Text(tr('পরিবারে যুক্ত হতে আগে Google দিয়ে লগইন করুন — সবাই নিজের ইমেইলে যুক্ত হন।'), style: body(15, color: C.muted2, height: 1.55)),
                         const SizedBox(height: 12),
                         const GoogleBackupPanel(),
                       ])
@@ -113,7 +113,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                           if (fam.error != null) Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(fam.error!, style: body(14, color: C.red))),
                           if (!fam.loaded && _busy) const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator())),
                           if (fam.received.isNotEmpty) ...[
-                            SectionTitle(tr('ফ্যামিলি থেকে এসেছে')),
+                            SectionTitle(tr('পরিবার থেকে এসেছে')),
                             Panel(
                               child: Rows(children: [
                                 for (final r in fam.received.take(5))
@@ -127,7 +127,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                               Panel(
                                 padding: const EdgeInsets.all(14),
                                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                                  Text(trf('{0} আপনাকে ফ্যামিলিতে যুক্ত করতে চান', [l.name]), style: body(15.5, weight: FontWeight.w600)),
+                                  Text(trf('{0} আপনাকে পরিবারে যুক্ত করতে চান', [l.name]), style: body(15.5, weight: FontWeight.w600)),
                                   if (l.theyCall.isNotEmpty) Text(trf('তিনি আপনাকে বলেছেন: {0}', [l.theyCall]), style: body(13.5, color: C.muted)),
                                   const SizedBox(height: 10),
                                   Row(children: [
@@ -138,7 +138,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                                 ]),
                               ),
                           ],
-                          SectionTitle(tr('আমার ফ্যামিলি')),
+                          SectionTitle(tr('আমার পরিবার')),
                           if (fam.loaded && mine.isEmpty)
                             EmptyState(
                               icon: Icons.family_restroom_rounded,
@@ -267,8 +267,8 @@ class _FamilyScreenState extends State<FamilyScreen> {
           title: Text(tr('লোকেশন কীভাবে ব্যবহার হয়')),
           content: Text(
               playEdition
-                  ? tr('My Assistant আপনার ফোনের লোকেশন নেয় শুধু তখন, যখন অ্যাপ ব্যবহারের সময় আপনি যাঁদের অনুমতি দিয়েছেন সেই পরিবারের কেউ “এখন কোথায়?” জিজ্ঞেস করেন। লোকেশন তালাবদ্ধ হয়ে শুধু তাঁদের কাছে যায়; আমরা দেখতে পারি না, বিজ্ঞাপনে বা অন্য কিছুতে ব্যবহার হয় না। ফ্যামিলি পাতা থেকে যেকোনো সময় বন্ধ করা যায়।')
-                  : tr('My Assistant আপনার ফোনের লোকেশন নেয় — অ্যাপ বন্ধ থাকলেও — শুধু তখন, যখন আপনি যাঁদের অনুমতি দিয়েছেন সেই পরিবারের কেউ “এখন কোথায়?” জিজ্ঞেস করেন (যেমন ফোন হারালে খুঁজতে)। লোকেশন তালাবদ্ধ হয়ে শুধু তাঁদের কাছে যায়; আমরা দেখতে পারি না, বিজ্ঞাপনে বা অন্য কিছুতে ব্যবহার হয় না। ফ্যামিলি পাতা থেকে যেকোনো সময় বন্ধ করা যায়।'),
+                  ? tr('My Assistant আপনার ফোনের লোকেশন নেয় শুধু তখন, যখন অ্যাপ ব্যবহারের সময় আপনি যাঁদের অনুমতি দিয়েছেন সেই পরিবারের কেউ “এখন কোথায়?” জিজ্ঞেস করেন। লোকেশন তালাবদ্ধ হয়ে শুধু তাঁদের কাছে যায়; আমরা দেখতে পারি না, বিজ্ঞাপনে বা অন্য কিছুতে ব্যবহার হয় না। পরিবার পাতা থেকে যেকোনো সময় বন্ধ করা যায়।')
+                  : tr('My Assistant আপনার ফোনের লোকেশন নেয় — অ্যাপ বন্ধ থাকলেও — শুধু তখন, যখন আপনি যাঁদের অনুমতি দিয়েছেন সেই পরিবারের কেউ “এখন কোথায়?” জিজ্ঞেস করেন (যেমন ফোন হারালে খুঁজতে)। লোকেশন তালাবদ্ধ হয়ে শুধু তাঁদের কাছে যায়; আমরা দেখতে পারি না, বিজ্ঞাপনে বা অন্য কিছুতে ব্যবহার হয় না। পরিবার পাতা থেকে যেকোনো সময় বন্ধ করা যায়।'),
               style: body(14.5, height: 1.5)),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('এখন না'))),
@@ -316,7 +316,7 @@ class _AddSheetState extends State<_AddSheet> {
       padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text(acc == null ? tr('ফ্যামিলিতে যোগ করুন') : trf('{0}-এর সাথে যুক্ত হোন', [acc.name]), style: display(20, weight: 700)),
+          Text(acc == null ? tr('পরিবারে যোগ করুন') : trf('{0}-এর সাথে যুক্ত হোন', [acc.name]), style: display(20, weight: 700)),
           const SizedBox(height: 12),
           if (acc == null) ...[
             TextField(
@@ -433,7 +433,7 @@ class _FamilyMemberScreenState extends State<FamilyMemberScreen> {
       listenable: fam,
       builder: (context, _) {
         final l = fam.links.where((x) => x.id == widget.linkId).firstOrNull;
-        if (l == null) return Scaffold(body: SafeArea(child: Column(children: [TopBar(title: tr('ফ্যামিলি')), Expanded(child: Center(child: Text(tr('আর ফ্যামিলিতে নেই'))))])));
+        if (l == null) return Scaffold(body: SafeArea(child: Column(children: [TopBar(title: tr('পরিবার')), Expanded(child: Center(child: Text(tr('আর পরিবারে নেই'))))])));
         Widget action(String perm, IconData icon, String label, VoidCallback onTap) => l.theyAllow.contains(perm)
             ? ListRow(key: Key('family-do-$perm'), leading: Icon(icon, color: C.green), title: label, trailing: Icon(Icons.chevron_right_rounded, color: C.muted), onTap: onTap)
             : ListRow(leading: Icon(icon, color: C.muted2), title: label, subtitle: tr('তিনি অনুমতি দেননি'), subtitleColor: C.muted2);
@@ -517,7 +517,7 @@ class _FamilyMemberScreenState extends State<FamilyMemberScreen> {
                           await fam.setAllow(l, heir: v);
                         },
                         title: Text(tr('আমার উত্তরাধিকারী'), style: body(15, weight: FontWeight.w600)),
-                        subtitle: Text(tr('আমার ইন্তেকালের পর (কাগজ যাচাই আর ১৪ দিন পর) ফ্যামিলি পাতায় বাছাই করা অংশ দেখবেন'), style: body(12.5, color: C.muted)),
+                        subtitle: Text(tr('আমার ইন্তেকালের পর (কাগজ যাচাই আর ১৪ দিন পর) পরিবার পাতায় বাছাই করা অংশ দেখবেন'), style: body(12.5, color: C.muted)),
                       ),
                       if (l.theyAreMyHeir)
                         SwitchListTile(
@@ -565,12 +565,12 @@ class _FamilyMemberScreenState extends State<FamilyMemberScreen> {
                   const SizedBox(height: 16),
                   TextButton(
                     onPressed: () async {
-                      if (await confirmDialog(context, title: tr('ফ্যামিলি থেকে সরাবেন?'), text: tr('দুজনের দেওয়া সব অনুমতি, উত্তরাধিকার আর লোকেশন দেখা বন্ধ হবে।'), yes: tr('সরান'), danger: true)) {
+                      if (await confirmDialog(context, title: tr('পরিবার থেকে সরাবেন?'), text: tr('দুজনের দেওয়া সব অনুমতি, উত্তরাধিকার আর লোকেশন দেখা বন্ধ হবে।'), yes: tr('সরান'), danger: true)) {
                         await fam.remove(l);
                         if (context.mounted) Navigator.of(context).pop();
                       }
                     },
-                    child: Text(tr('ফ্যামিলি থেকে সরান'), style: body(14, color: C.red)),
+                    child: Text(tr('পরিবার থেকে সরান'), style: body(14, color: C.red)),
                   ),
                 ]),
               ),
@@ -894,7 +894,7 @@ Future<void> heirBackup(BuildContext context, String title, Map<String, dynamic>
   final name = 'my-assistant-$safe-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.dbrain';
   final ok = await brain.services.files.saveFile(bytes, name);
   if (!context.mounted) return;
-  toast(context, !ok ? tr('সেভ করা হয়নি') : (missing == 0 ? trf('সব ব্যাকআপ সেভ হলো: {0}', [name]) : trf('ব্যাকআপ সেভ হলো: {0} — {1}টা ছবি/ফাইল এখনো আসেনি', [name, bnDigits(missing)])));
+  toast(context, !ok ? tr('রাখা হয়নি') : (missing == 0 ? trf('সব ব্যাকআপ সেভ হলো: {0}', [name]) : trf('ব্যাকআপ সেভ হলো: {0} — {1}টা ছবি/ফাইল এখনো আসেনি', [name, bnDigits(missing)])));
 }
 
 class _BackupPassDialog extends StatefulWidget {

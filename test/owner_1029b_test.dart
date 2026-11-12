@@ -11,7 +11,7 @@ import 'app_test.dart' show settle, start, tell;
 void main() {
   test('free: one হিসাব — the first one opened that is still open', () async {
     expect(freeProjects, 1);
-    expect(proInfo[ProFeature.projects]!.free, '১টা অন্যান্য হিসাব');
+    expect(proInfo[ProFeature.projects]!.free, '১টা আলাদা হিসাব');
   });
 
   testWidgets('free: by voice the first হিসাব opens and takes the money; a second is not opened', (t) async {
@@ -59,10 +59,10 @@ void main() {
 
     await income(first);
     expect(find.text('প্রিমিয়াম নিন'), findsNothing);
-    expect(find.textContaining('যত খুশি অন্যান্য হিসাব'), findsNothing, reason: 'the form opens, no Premium sheet');
+    expect(find.textContaining('যত খুশি আলাদা হিসাব'), findsNothing, reason: 'the form opens, no Premium sheet');
     nav.popUntil((r) => r.isFirst);
     await settle(t);
     await income(second);
-    expect(find.textContaining('যত খুশি অন্যান্য হিসাব'), findsOneWidget, reason: 'the Premium sheet');
+    expect(find.textContaining('যত খুশি আলাদা হিসাব'), findsOneWidget, reason: 'the Premium sheet');
   });
 }

@@ -100,9 +100,9 @@ void main() {
     ]);
     final l = await say('বর্তমানে রিমাইন্ডার গুলো কি কি');
     expect(l, isNot(contains('এই নামে')));
-    expect(l, contains('মাঠে খেলবো'));
+    expect(l, contains('মাঠে খেলব'));
     final q = await say('প্রথম রিমাইন্ডার বাদ দাও');
-    expect(q, contains('মাঠে খেলবো'));
+    expect(q, contains('মাঠে খেলব'));
     await say('হ্যাঁ');
     expect(data().reminders.map((r) => r.id), ['r2']);
   });

@@ -62,7 +62,7 @@ class BizHisabState extends State<BizHisab> {
       Panel(
         padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
         child: Row(children: [
-          Expanded(child: Figure(label: tr('দেবো (ডিলার)'), amount: taka(due), color: due > 0 ? C.warn : C.ink, size: 20)),
+          Expanded(child: Figure(label: tr('দেব (ডিলার)'), amount: taka(due), color: due > 0 ? C.warn : C.ink, size: 20)),
           Expanded(child: Figure(label: tr('এ মাসে মাল কেনা'), amount: taka(bought), size: 20)),
           Expanded(child: Figure(label: tr('এ মাসে পরিশোধ'), amount: taka(paid), color: C.green, size: 20)),
         ]),
@@ -351,7 +351,7 @@ class DealerPage extends StatelessWidget {
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
               AppCard(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(a.due >= 0 ? tr('তাঁকে দেবো') : tr('অগ্রিম দেওয়া আছে'), style: body(11.5, color: C.muted)),
+                  Text(a.due >= 0 ? tr('তাঁকে দেব') : tr('অগ্রিম দেওয়া আছে'), style: body(11.5, color: C.muted)),
                   Text(taka(a.due.abs()), key: const Key('biz-dealer-due'), style: display(27, weight: 600, color: a.due > 0 ? C.warn : C.green)),
                   if (a.since != null && a.due > 0) Text(trf('{0} থেকে বাকি', [shortDate(a.since!)]), style: body(12, color: C.muted)),
                   const SizedBox(height: 12),
@@ -370,7 +370,7 @@ class DealerPage extends StatelessWidget {
                 (Icons.sticky_note_2_outlined, tr('নোট'), d.note),
                 (Icons.local_shipping_outlined, tr('মোট মাল কেনা'), purchases.isEmpty ? '' : trf('{0} · {1} বার', [taka(bought), bnDigits(purchases.length)])),
               ]),
-              SectionHeading(tr('মাল কেনা ও পরিশোধ'), counter: trf('{0}টি', [bnDigits(entries.length)])),
+              SectionHeading(tr('মাল কেনা ও পরিশোধ'), counter: trf('{0}টা', [bnDigits(entries.length)])),
               ListCard(rows: [for (final e in entries) e.$2], empty: tr('এখনো কোনো লেনদেন নেই।')),
               if (entries.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(tr('কোনোটা ভুল হলে চেপে ধরে মুছুন।'), textAlign: TextAlign.center, style: body(12, color: C.muted))),
             ]),

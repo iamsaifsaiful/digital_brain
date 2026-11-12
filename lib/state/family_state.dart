@@ -176,14 +176,14 @@ class FamilyState extends ChangeNotifier {
     if (!r.ok) {
       // The site's plugin is older than the family part.
       if (r.status == 404 && r.data['code'] == 'rest_no_route') {
-        error = tr('সার্ভারে ফ্যামিলি এখনো চালু হয়নি — সাইটের প্লাগিন হালনাগাদ করতে হবে');
+        error = tr('সার্ভারে পরিবার এখনো চালু হয়নি — সাইটের প্লাগিন আপডেট করতে হবে');
         notifyListeners();
         return null;
       }
       error = switch (r.status) {
-        409 => tr('আগেই ফ্যামিলিতে আছেন (বা অনুরোধ আগেই গেছে)'),
+        409 => tr('আগেই পরিবারে আছেন (বা অনুরোধ আগেই গেছে)'),
         403 => tr('তিনি এটার অনুমতি দেননি'),
-        429 => tr('ফ্যামিলিতে ২০ জনের বেশি রাখা যায় না'),
+        429 => tr('পরিবারে ২০ জনের বেশি রাখা যায় না'),
         _ => r.error,
       };
       notifyListeners();
@@ -254,7 +254,7 @@ class FamilyState extends ChangeNotifier {
   /// A to-do, a reminder, a medicine reminder or a note for [l], sealed for their phone.
   Future<bool> send(FamilyLink l, String kind, Map<String, Object?> payload) async {
     if (l.theirKey.isEmpty) {
-      error = tr('তাঁর ফোন এখনো ফ্যামিলির জন্য তৈরি হয়নি — তাঁকে একবার অ্যাপ খুলতে বলুন');
+      error = tr('তাঁর ফোন এখনো পরিবারের জন্য তৈরি হয়নি — তাঁকে একবার অ্যাপ খুলতে বলুন');
       notifyListeners();
       return false;
     }
@@ -303,7 +303,7 @@ class FamilyState extends ChangeNotifier {
 
   Future<String?> _apply(String kind, Map<String, dynamic> p) async {
     final from = '${p['from'] ?? ''}';
-    final by = from.isEmpty ? tr('ফ্যামিলি থেকে') : trf('{0} দিয়েছেন', [from]);
+    final by = from.isEmpty ? tr('পরিবার থেকে') : trf('{0} দিয়েছেন', [from]);
     final title = '${p['title'] ?? ''}'.trim();
     final note = ['${p['note'] ?? ''}'.trim(), by].where((x) => x.isNotEmpty).join(' · ');
     switch (kind) {
@@ -327,7 +327,7 @@ class FamilyState extends ChangeNotifier {
       case 'note':
         final body = '${p['body'] ?? ''}';
         if (title.isEmpty && body.isEmpty) return null;
-        await brain.saveNote(Note(title: title, body: body.isEmpty ? note : '$body\n\n$by', category: tr('ফ্যামিলি')));
+        await brain.saveNote(Note(title: title, body: body.isEmpty ? note : '$body\n\n$by', category: tr('পরিবার')));
         return trf('নোট: {0}', [title.isEmpty ? body : title]);
     }
     return null;
@@ -494,7 +494,7 @@ class FamilyState extends ChangeNotifier {
     try {
       return await openSealedPackage('${d['blob']}', '${d['key']}', await keys());
     } on WrongKey {
-      error = tr('এই ফোনে খোলা গেল না — যে ফোনে ফ্যামিলি চালু করেছিলেন সেখানে খুলুন, অথবা তাঁর পাঠানো নতুন কপির জন্য অপেক্ষা করুন');
+      error = tr('এই ফোনে খোলা গেল না — যে ফোনে পরিবার চালু করেছিলেন সেখানে খুলুন, অথবা তাঁর পাঠানো নতুন কপির জন্য অপেক্ষা করুন');
       notifyListeners();
       return null;
     }

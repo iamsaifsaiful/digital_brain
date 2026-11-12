@@ -265,10 +265,10 @@ extension _TodoChat on ChatController {
     await brain.setTaskDone(t, true);
     final now = _taskById(t.id);
     if (t.repeat != null && now?.due != null) {
-      _say(out, trf('“{0}” — এবারেরটা সম্পন্ন করেছি। আবার {1}।', [t.title, sayWhen(now!.due!, _now, withTime: false)]), links: links);
+      _say(out, trf('“{0}” — এবারেরটা শেষ করেছি। আবার {1}।', [t.title, sayWhen(now!.due!, _now, withTime: false)]), links: links);
     } else {
       final left = brain.data.tasks.where((x) => !x.done).length;
-      _say(out, trf('“{0}” কাজটি সম্পন্ন করেছি।{1}', [t.title, left > 0 ? trf(' আর {0}টা কাজ বাকি।', [bnDigits(left)]) : tr(' সব কাজ শেষ!')]), links: links);
+      _say(out, trf('“{0}” কাজটা শেষ করেছি।{1}', [t.title, left > 0 ? trf(' আর {0}টা কাজ বাকি।', [bnDigits(left)]) : tr(' সব কাজ শেষ!')]), links: links);
     }
     _history.add(AiTurn.app('[কাজ শেষ হিসেবে টিক দেওয়া হলো]'));
     return true;

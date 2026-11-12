@@ -196,7 +196,7 @@ class ExpiryScreen extends StatelessWidget {
                 EmptyState(
                   icon: Icons.event_busy_outlined,
                   title: tr('কোনো মেয়াদ দেওয়া নেই'),
-                  text: tr('পাসপোর্ট, ড্রাইভিং লাইসেন্স, ট্রেড লাইসেন্স — ডকুমেন্ট খুলে মেয়াদ শেষের তারিখ দিন। ৬ মাস আগে, ১ মাস আগে আর শেষের দিন মনে করাবো।'),
+                  text: tr('পাসপোর্ট, ড্রাইভিং লাইসেন্স, ট্রেড লাইসেন্স — ডকুমেন্ট খুলে মেয়াদ শেষের তারিখ দিন। ৬ মাস আগে, ১ মাস আগে আর শেষের দিন মনে করাব।'),
                 )
               else
                 Panel(
@@ -221,7 +221,7 @@ class ExpiryScreen extends StatelessWidget {
                 ),
               if (noDate.isNotEmpty) ...[
                 const SizedBox(height: 14),
-                Text(trf('{0}টি ডকুমেন্টে মেয়াদ দেওয়া নেই', [bnDigits(noDate.length)]), style: body(13, color: C.muted)),
+                Text(trf('{0}টা ডকুমেন্টে মেয়াদ দেওয়া নেই', [bnDigits(noDate.length)]), style: body(13, color: C.muted)),
               ],
             ]),
           ),
@@ -538,7 +538,7 @@ class DonorPanel extends StatelessWidget {
           if (next != null)
             Text(
                 next.isAfter(now)
-                    ? trf('আবার দিতে পারবেন {0} থেকে ({1}) — সেদিন সকালে মনে করাবো।', [fullDate(next), daysLeftLabel(next, now)])
+                    ? trf('আবার দিতে পারবেন {0} থেকে ({1}) — সেদিন সকালে মনে করাব।', [fullDate(next), daysLeftLabel(next, now)])
                     : tr('এখন আবার রক্ত দিতে পারবেন।'),
                 style: body(13, color: C.muted2, height: 1.5)),
           const SizedBox(height: 6),

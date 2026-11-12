@@ -189,7 +189,7 @@ void main() {
     }
     test('someone named: still the লেনদেন book', () {
       final ledger = [LedgerEntry(person: 'রহিম', kind: LedgerKind.lent, amount: 1000, date: DateTime(2026, 10, 1))];
-      expect(one('রহিমের কাছে কত পাবো', ledger: ledger), isNot(isA<CashQuery>()));
+      expect(one('রহিমের কাছে কত পাব', ledger: ledger), isNot(isA<CashQuery>()));
     });
     test('the answer: that time, in or left, and one খাত', () {
       final d = AppData(cash: [

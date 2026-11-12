@@ -755,7 +755,7 @@ String voiceErrorMessage(String code) => switch (code) {
       'error_busy' || 'error_client' => tr('ফোনের ভয়েস সেবা আগের কাজ শেষ করছে। মাইক আবার চাপুন।'),
       'error_language_not_supported' || 'error_language_unavailable' =>
         tr('এই ফোনের ভয়েস সেবায় বাংলা চালু নেই। Google অ্যাপ → Settings → Voice → Languages থেকে “বাংলা (বাংলাদেশ)” যোগ করুন।'),
-      'unavailable' => tr('এই ফোনে কথা শুনে লেখার সেবা (Google ভয়েস) পাওয়া যায়নি। Google অ্যাপ চালু/হালনাগাদ করুন, অথবা লিখে দিন।'),
+      'unavailable' => tr('এই ফোনে কথা শুনে লেখার সেবা (Google ভয়েস) পাওয়া যায়নি। Google অ্যাপ চালু/আপডেট করুন, অথবা লিখে দিন।'),
       _ => tr('শুনতে সমস্যা হয়েছে। আবার চেষ্টা করুন, অথবা লিখে দিন।'),
     };
 

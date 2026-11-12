@@ -41,8 +41,8 @@ String vaultAnswer(AppData d, VaultQuery q) {
   }
   if (found.isEmpty) {
     return q.wifiOnly
-        ? tr('Wi-Fi-এর কোনো তথ্য নেই। পাসওয়ার্ড ভল্টে তথ্যটি যুক্ত করতে পারেন — পরে জিজ্ঞেস করলে আঙুলের ছাপ নিয়ে দেখাবো।')
-        : tr('কোনো পাসওয়ার্ডের তথ্য নেই। পাসওয়ার্ড ভল্টে তথ্যটি যুক্ত করতে পারেন — পরে জিজ্ঞেস করলে আঙুলের ছাপ নিয়ে দেখাবো।');
+        ? tr('Wi-Fi-এর কোনো তথ্য নেই। পাসওয়ার্ড ভল্টে তথ্যটি যুক্ত করতে পারেন — পরে জিজ্ঞেস করলে আঙুলের ছাপ নিয়ে দেখাব।')
+        : tr('কোনো পাসওয়ার্ডের তথ্য নেই। পাসওয়ার্ড ভল্টে তথ্যটি যুক্ত করতে পারেন — পরে জিজ্ঞেস করলে আঙুলের ছাপ নিয়ে দেখাব।');
   }
   if (found.length == 1) {
     return trf('{0} তথ্য পেয়েছি! তবে পাসওয়ার্ড গোপন জিনিস, তাই জোরে বলব না। আঙুলের ছাপ দিয়ে খুলুন, স্ক্রিনে দেখাব।', [possessive(found.first.name)]);
@@ -142,11 +142,11 @@ String reminderAnswer(AppData d, ReminderQuery q, DateTime now) {
   final day = r.nextDate(now);
   final left = dayOnly(day).difference(dayOnly(now)).inDays;
   final when = left == 0 ? tr('মানে আজকেই') : (left == 1 ? tr('মানে কালকেই') : (left > 0 ? trf('আর {0} দিন আছে', [bnDigits(left)]) : trf('{0} দিন আগে চলে গেছে', [bnDigits(-left)])));
-  return '${r.title} ${weekdayName(day)}, ${bnDigits(day.day)} ${monthName(day.month)}। $when।';
+  return isEn ? '${r.title}: ${weekdayName(day)}, ${day.day} ${monthName(day.month)}. $when.' : '${r.title} ${weekdayName(day)}, ${bnDigits(day.day)} ${monthName(day.month)}। $when।';
 }
 
 /// A search that found nothing at all.
-String noInfoAnswer() => tr('এ বিষয়ে কোনো তথ্য নেই। তথ্যটি যুক্ত করতে পারেন — বলুন “মনে রাখো: …” — পরে যেকোনো সময় জিজ্ঞেস করলে উত্তর দেবো।');
+String noInfoAnswer() => tr('এ বিষয়ে কোনো তথ্য নেই। তথ্যটি যুক্ত করতে পারেন — বলুন “মনে রাখো: …” — পরে যেকোনো সময় জিজ্ঞেস করলে উত্তর দেব।');
 
 String searchAnswer(AppData d, SearchQuery q, DateTime now) {
   // "আমার এখানে কোন ছবি আছে কিনা?": the photos kept in ডকুমেন্টস, in general.
@@ -208,7 +208,7 @@ String searchAnswer(AppData d, SearchQuery q, DateTime now) {
       const notWhose = ['আমার', 'তোমার', 'তোর', 'আপনার', 'তোমাদের', 'আমাদের'];
       final whose = w.firstWhere((x) => !notWhose.map(normalize).contains(x) && stripPossessive(x) != x, orElse: () => '');
       if (whose.isNotEmpty) {
-        return trf('{0} নম্বরের কোনো তথ্য নেই। বলুন “{0} নম্বর ০১৭… রাখো”, অথবা যোগাযোগ পাতা থেকে ফোনবুকের নম্বর আনুন — পরে নাম বললেই ফোন করে দেবো।', [whose]);
+        return trf('{0} নম্বরের কোনো তথ্য নেই। বলুন “{0} নম্বর ০১৭… রাখো”, অথবা যোগাযোগ পাতা থেকে ফোনবুকের নম্বর আনুন — পরে নাম বললেই ফোন করে দেব।', [whose]);
       }
     }
     return noInfoAnswer();
@@ -288,17 +288,17 @@ String ledgerAnswer(AppData d, LedgerQuery q, [DateTime? now]) {
         if (inPeriod.isEmpty) return trf('{0} {1} সাথে কোনো লেনদেন হয়নি। {2}।', [label, possessive(p.name), owesText(p.name, p.balance)]);
         int sum(LedgerKind k) => inPeriod.where((e) => e.kind == k).fold(0, (a, e) => a + e.amount);
         final parts = [
-          if (sum(LedgerKind.lent) > 0) '${toPerson(p.name)} দিয়েছেন ${bnNumber(sum(LedgerKind.lent))} টাকা',
-          if (sum(LedgerKind.received) > 0) 'ফেরত পেয়েছেন ${bnNumber(sum(LedgerKind.received))} টাকা',
-          if (sum(LedgerKind.borrowed) > 0) '${possessive(p.name)} কাছ থেকে নিয়েছেন ${bnNumber(sum(LedgerKind.borrowed))} টাকা',
-          if (sum(LedgerKind.repaid) > 0) 'শোধ করেছেন ${bnNumber(sum(LedgerKind.repaid))} টাকা',
+          if (sum(LedgerKind.lent) > 0) isEn ? 'lent ${p.name} ${taka(sum(LedgerKind.lent))}' : '${toPerson(p.name)} দিয়েছেন ${bnNumber(sum(LedgerKind.lent))} টাকা',
+          if (sum(LedgerKind.received) > 0) isEn ? 'got back ${taka(sum(LedgerKind.received))}' : 'ফেরত পেয়েছেন ${bnNumber(sum(LedgerKind.received))} টাকা',
+          if (sum(LedgerKind.borrowed) > 0) isEn ? 'borrowed ${taka(sum(LedgerKind.borrowed))} from ${p.name}' : '${possessive(p.name)} কাছ থেকে নিয়েছেন ${bnNumber(sum(LedgerKind.borrowed))} টাকা',
+          if (sum(LedgerKind.repaid) > 0) isEn ? 'repaid ${taka(sum(LedgerKind.repaid))}' : 'শোধ করেছেন ${bnNumber(sum(LedgerKind.repaid))} টাকা',
         ];
         return trf('{0} {1} ({2} বার)। এখন {3}।', [label, parts.join(', '), bnDigits(inPeriod.length), owesText(p.name, p.balance)]);
       }
       final hist = runningFor(d.ledger, p.name);
       final last = hist.isEmpty ? null : hist.last.$1;
       final lastText = last == null ? '' : trf(' শেষ লেনদেন ছিল {0} {1}।', [bnDigits(last.date.day), monthName(last.date.month)]);
-      return '${owesText(p.name, p.balance)}।$lastText$allText';
+      return '${owesText(p.name, p.balance)}${isEn ? '.' : '।'}$lastText$allText';
     case LedgerAsk.receivable:
       final owe = all.where((p) => p.balance > 0).toList();
       if (owe.isEmpty) return tr('এখন কারও কাছে আপনার কিছু পাওনা নেই।');
@@ -736,7 +736,7 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
   final name = q.project;
   // "অন্যান্য হিসাব দাও": every separate account at a glance.
   if (name != null && name.isEmpty) {
-    if (d.projects.isEmpty) return tr('এখনো অন্যান্য কোনো হিসাব খোলা হয়নি। বলুন, যেমন “মৃত্তিকা ফাউন্ডেশন নামে অন্যান্য হিসাব খোলো”।');
+    if (d.projects.isEmpty) return tr('এখনো অন্যান্য কোনো হিসাব খোলা হয়নি। বলুন, যেমন “মৃত্তিকা ফাউন্ডেশন নামে আলাদা হিসাব খোলো”।');
     final lines = [
       for (final p in d.projects)
         () {
@@ -753,14 +753,14 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
     final inside = RegExp(fold(r'(?:সব|সকল|ভেত|ভিত|বিস্তারিত|লেনদেন|এন্ট্রি)')).hasMatch(fold(normalize(q.transcript)));
     if (inside) {
       return [
-        trf('অন্যান্য হিসাব {0}টা:', [bnDigits(d.projects.length)]),
+        trf('আলাদা হিসাব {0}টা:', [bnDigits(d.projects.length)]),
         for (final p in d.projects) ...[
           lines[d.projects.indexOf(p)],
           ...projectEntryLines(d, p.id),
         ],
       ].join('\n');
     }
-    return [trf('অন্যান্য হিসাব {0}টা:', [bnDigits(d.projects.length)]), ...lines].join('\n');
+    return [trf('আলাদা হিসাব {0}টা:', [bnDigits(d.projects.length)]), ...lines].join('\n');
   }
   if (name != null) {
     final p = projectByName(d, name);
@@ -846,7 +846,7 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
   final span = _spanCashAnswer(d, q.transcript, now);
   if (span != null) return span;
   final s = monthSums(d.cash, now);
-  if (s.income == 0 && s.expense == 0) return tr('এই মাসের আয়-খরচের কোনো তথ্য নেই। বলুন, যেমন “বাজারে ৫০০ টাকা খরচ হলো” — পরে জিজ্ঞেস করলেই হিসাব দেবো।');
+  if (s.income == 0 && s.expense == 0) return tr('এই মাসের আয়-খরচের কোনো তথ্য নেই। বলুন, যেমন “বাজারে ৫০০ টাকা খরচ হলো” — পরে জিজ্ঞেস করলেই হিসাব দেব।');
   final top = s.topExpenses;
   final most = top.isEmpty ? '' : trf(' সবচেয়ে বেশি খরচ {0} খাতে — {1} টাকা।', [top.first.key, bnNumber(top.first.value)]);
   if (s.income == 0) return trf('এই মাসে খরচ হয়েছে {0} টাকা।{1}', [bnNumber(s.expense), most]);
@@ -941,7 +941,7 @@ bool ownMoneyAsked(String said, AppData? d) {
 /// "আজ আমার কী কী আছে?" — the day at a glance.
 String briefingAnswer(AppData d, DateTime now) {
   final today = dayOnly(now);
-  final parts = <String>['আজ ${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)}।'];
+  final parts = <String>[trf('আজ {0}, {1} {2}।', [weekdayName(now), bnDigits(now.day), monthName(now.month)])];
   final dueNow = openTasksOf(d, now).where((t) => t.due == null || !t.due!.isAfter(today)).toList();
   if (dueNow.isNotEmpty) {
     parts.add(trf('কাজ বাকি {0}টা — {1}।', [bnDigits(dueNow.length), nameList([for (final t in dueNow) t.title], unit: 'টা')]));
@@ -968,7 +968,7 @@ String contactsAnswer(AppData d) {
   final n = d.contacts.length;
   if (n == 0) return tr('এখনো কোনো নম্বর রাখা নেই। “যোগাযোগ” পাতা থেকে ফোনবুকের সব নম্বর এক চাপে আনতে পারেন।');
   final names = ([...d.contacts]..sort((a, b) => a.name.compareTo(b.name))).take(4).map((c) => c.name).toList();
-  return trf('{0} জনের নম্বর রাখা আছে{1}। সব দেখতে নিচে চাপুন।', [bnDigits(n), n > names.length ? ' — যেমন ${nameList(names, unit: 'জন')}' : ' — ${nameList(names, unit: 'জন')}']);
+  return trf('{0} জনের নম্বর রাখা আছে{1}। সব দেখতে নিচে চাপুন।', [bnDigits(n), n > names.length ? '${tr(' — যেমন ')}${nameList(names, unit: 'জন')}' : ' — ${nameList(names, unit: 'জন')}']);
 }
 
 /// The answer to a question or a bit of conversation. Null for commands

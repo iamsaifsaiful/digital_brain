@@ -117,7 +117,7 @@ void main() {
     await say('হ্যাঁ');
     expect(await say('রহিমের লেনদেন মুছে দিও না'), contains('কিছু করছি না'));
     expect(rig.brain.data.ledger, hasLength(1));
-    expect(await say('রহিমের ৫০০ টাকার লেনদেনটা মুছে দাও'), contains('মুছে দেবো'));
+    expect(await say('রহিমের ৫০০ টাকার লেনদেনটা মুছে দাও'), contains('মুছে দেব'));
     await say('না, মুছো না');
     expect(rig.brain.data.ledger, hasLength(1));
   });
@@ -129,7 +129,7 @@ void main() {
     await say('হ্যাঁ');
     expect(await say('মিটিংয়ের রিমাইন্ডার বন্ধ কোরো না'), contains('কিছু করছি না'));
     expect(rig.brain.data.reminders.single.enabled, isTrue);
-    expect(await say('মিটিংয়ের রিমাইন্ডার বন্ধ করো'), contains('বন্ধ করে দেবো'));
+    expect(await say('মিটিংয়ের রিমাইন্ডার বন্ধ করো'), contains('বন্ধ করে দেব'));
     await say('হ্যাঁ');
     expect(rig.brain.data.reminders.single.enabled, isFalse);
   });

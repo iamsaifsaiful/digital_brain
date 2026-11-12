@@ -153,7 +153,7 @@ Future<void> openMenu(WidgetTester t, String item) async {
   } else if (item == 'আমি' || item == 'সেটিংস') {
     await t.tap(find.byTooltip('প্রোফাইল'));
   } else {
-    await t.tap(find.text('সংরক্ষণ').last);
+    await t.tap(find.text('আমার তথ্য').last);
     await settle(t);
     await t.tap(find.text(item).last);
   }
@@ -222,7 +222,7 @@ void main() {
     await t.enterText(find.widgetWithText(TextFormField, 'ওয়েবসাইট বা অ্যাপের নাম'), 'ABC ওয়েবসাইট');
     await t.enterText(find.widgetWithText(TextFormField, 'ইউজারনেম'), 'saif_admin');
     await t.enterText(find.widgetWithText(TextFormField, 'পাসওয়ার্ড'), 'Kp7#vR2!qz');
-    await t.tap(find.text('সেভ করুন'));
+    await t.tap(find.text('রাখুন'));
     await settle(t);
     expect(rig.brain.data.vault.single.password, 'Kp7#vR2!qz');
 
@@ -389,7 +389,7 @@ void main() {
     await yes();
     expect(rig.brain.data.ledger.single.amount, 6000);
     await type('মিটিংয়ের রিমাইন্ডার মুছে দাও');
-    expect(find.textContaining('মুছে দেবো?'), findsOneWidget);
+    expect(find.textContaining('মুছে দেব?'), findsOneWidget);
     await yes();
     expect(rig.brain.data.reminders, isEmpty);
     await type('শেষটা মুছে দাও');
@@ -729,7 +729,7 @@ void main() {
     await tell(t, rig, 'ব্যাংকের কাজ হয়ে গেছে');
     await settle(t);
     expect(rig.brain.data.tasks.single.done, isTrue);
-    expect(rig.voice.spoken.last, contains('সম্পন্ন করেছি'));
+    expect(rig.voice.spoken.last, contains('শেষ করেছি'));
   });
 
   testWidgets('assistant: a timed reminder is scheduled', (t) async {
@@ -791,7 +791,7 @@ void main() {
     await settle(t);
     await t.tap(find.text('ঘণ্টা আগে').last);
     await settle(t);
-    await t.tap(find.text('সেভ করুন'));
+    await t.tap(find.text('রাখুন'));
     await settle(t);
     final r = rig.brain.data.reminders.single;
     expect(r.title, 'গ্যাস বিল দেওয়া');
@@ -1171,7 +1171,7 @@ void main() {
     await t.tap(find.text('মাসিক'));
     await settle(t);
     expect(find.text('এই মাসের ব্যালেন্স'), findsOneWidget);
-    expect(find.text('বাজার'), findsWidgets);
+    expect(find.textContaining('বাজার', findRichText: true), findsWidgets);
     await t.tap(find.text('ধার-দেনা'));
     await settle(t);
     expect(find.text('আমি পাব'), findsOneWidget);
@@ -1523,7 +1523,7 @@ void main() {
   testWidgets('a document photo is kept encrypted in a folder', (t) async {
     final rig = await start(t);
     rig.files.photo = PickedDoc(Uint8List.fromList(List.generate(3000, (i) => i % 251)), 'nid.jpg', 'image/jpeg');
-    await t.tap(find.text('সংরক্ষণ').last);
+    await t.tap(find.text('আমার তথ্য').last);
     await settle(t);
     await t.tap(find.text('ডকুমেন্টস'));
     await settle(t);
@@ -1547,7 +1547,7 @@ void main() {
     final rig = await start(t);
     PickedDoc photo(String n) => PickedDoc(Uint8List.fromList(List.generate(500, (i) => i % 251)), n, 'image/jpeg');
     rig.files.photos = [photo('1.jpg'), photo('2.jpg'), photo('3.jpg')];
-    await t.tap(find.text('সংরক্ষণ').last);
+    await t.tap(find.text('আমার তথ্য').last);
     await settle(t);
     await t.tap(find.text('ডকুমেন্টস'));
     await settle(t);
@@ -1612,7 +1612,7 @@ void main() {
     await t.tap(find.text('গ্যালারি থেকে (একাধিক)'));
     await settle(t);
     expect(find.text('ছবি ও ফাইল · ২'), findsOneWidget);
-    await t.tap(find.text('সেভ করুন').last);
+    await t.tap(find.text('রাখুন').last);
     await settle(t);
     final n = rig.brain.data.notes.single;
     expect(n.files, hasLength(2));
@@ -1625,7 +1625,7 @@ void main() {
     await t.enterText(find.byType(TextField).first, 'রহিমের জন্মদিন ১২ মার্চ');
     await sendTyped(t);
     await settle(t);
-    expect(find.textContaining('মনে করিয়ে দেবো'), findsWidgets);
+    expect(find.textContaining('মনে করিয়ে দেব'), findsWidgets);
     await t.tap(find.widgetWithText(ActionChip, 'হ্যাঁ'));
     await settle(t);
     final s = rig.brain.data.specialDays.single;
@@ -1658,7 +1658,13 @@ void main() {
     await openMenu(t, 'সেটিংস');
     expect(find.byKey(const Key('more-zakat')), findsOneWidget);
     // আরও › চেহারা ও ভাষা (owner, 3 Nov: each setting on its own page).
-    await t.scrollUntilVisible(find.byKey(const Key('more-set-look')), 200, scrollable: find.byType(Scrollable).last);
+    // Drag and settle a step at a time (scrollUntilVisible loses the list mid-way).
+    for (var i = 0; i < 12 && find.byKey(const Key('more-set-look')).evaluate().isEmpty; i++) {
+      await t.drag(find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first, const Offset(0, -200));
+      await settle(t);
+    }
+    await t.ensureVisible(find.byKey(const Key('more-set-look')));
+    await settle(t);
     await t.tap(find.byKey(const Key('more-set-look')));
     await settle(t);
     await t.scrollUntilVisible(find.text('English'), 200, scrollable: find.byType(Scrollable).last);

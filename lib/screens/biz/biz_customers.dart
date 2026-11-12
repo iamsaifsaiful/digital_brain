@@ -47,7 +47,7 @@ class _BizCustomersState extends State<BizCustomers> {
       value: _part,
       onChanged: (v) => setState(() => _part = v),
       top: (tabs) => [
-        TabTitle(tr('গ্রাহক'),
+        TabTitle(trm('গ্রাহক'),
             sub: trf('{0} জন · বাকি {1}', [bnDigits(b.customers.length), taka(dueSum)]),
             trailing: IconButton(key: const Key('biz-customer-add'), tooltip: tr('নতুন গ্রাহক'), onPressed: () => pushPage(context, const CustomerForm()), icon: const Icon(Icons.person_add_alt_outlined))),
         const BizFreeBanner(),
@@ -55,7 +55,7 @@ class _BizCustomersState extends State<BizCustomers> {
         Panel(
           padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
           child: Row(children: [
-            Expanded(child: Figure(label: trf('পাবো · {0} জনের কাছে', [bnDigits(owingN)]), amount: taka(dueSum), color: C.green, size: 20)),
+            Expanded(child: Figure(label: trf('পাব · {0} জনের কাছে', [bnDigits(owingN)]), amount: taka(dueSum), color: C.green, size: 20)),
             Expanded(child: Figure(label: tr('৩০ দিনের বেশি বাকি'), amount: trf('{0} জন', [bnDigits(longN)]), color: longN > 0 ? C.warn : C.ink, size: 20)),
           ]),
         ),
@@ -288,7 +288,7 @@ class CustomerPage extends StatelessWidget {
             key: Key('biz-cust-sale-${s.id}'),
             leading: DateBlock(top: bnDigits(s.at.day), bottom: monthShort(s.at.month)),
             title: s.amountOnly > 0 && s.lines.isEmpty ? (s.pay == SalePay.credit ? tr('বাকি') : tr('বিক্রি')) : s.lines.map((l) => l.name).join(', '),
-            subtitle: [s.pay.label, if (s.no > 0) trf('রসিদ #{0}', [bnDigits(s.no)])].join(' · '),
+            subtitle: [tr(s.pay.label), if (s.no > 0) trf('রসিদ #{0}', [bnDigits(s.no)])].join(' · '),
             trailing: Text(s.pay == SalePay.credit ? '+ ${taka(s.total)}' : taka(s.total), style: body(14, weight: FontWeight.w600, color: s.pay == SalePay.credit ? C.warn : C.ink)),
             onTap: () => showReceipt(context, s),
           )
@@ -390,10 +390,10 @@ class CustomerPage extends StatelessWidget {
                 (Icons.chat_outlined, tr('হোয়াটসঅ্যাপ'), bnDigits(c.whatsapp.isNotEmpty ? c.whatsapp : (c.phone.isNotEmpty ? trf('{0} (মোবাইলই)', [c.phone]) : ''))),
                 (Icons.place_outlined, tr('ঠিকানা'), c.address),
                 (Icons.sticky_note_2_outlined, tr('নোট'), c.note),
-                (Icons.shopping_bag_outlined, tr('মোট কেনা'), sales.isEmpty ? '' : trf('{0} · {1}টি রসিদ', [taka(bought), bnDigits(sales.length)])),
+                (Icons.shopping_bag_outlined, tr('মোট কেনা'), sales.isEmpty ? '' : trf('{0} · {1}টা রসিদ', [taka(bought), bnDigits(sales.length)])),
                 (Icons.event_outlined, tr('গ্রাহক যেদিন থেকে'), c.added.year == 2000 ? '' : shortDate(c.added)),
               ]),
-              SectionHeading(tr('কেনাকাটা ও লেনদেন'), counter: trf('{0}টি', [bnDigits(entries.length)])),
+              SectionHeading(tr('কেনাকাটা ও লেনদেন'), counter: trf('{0}টা', [bnDigits(entries.length)])),
               ListCard(rows: [for (final e in entries) e.$2], empty: tr('এখনো কোনো কেনাকাটা নেই।')),
               Padding(
                 padding: const EdgeInsets.only(top: 12),

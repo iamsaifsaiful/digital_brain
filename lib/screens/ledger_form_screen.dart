@@ -82,7 +82,7 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
     if (!mounted) return;
     // A loan goes into the main money by itself (owner, 24 Oct): say so too.
     final main = brain.lastMainLine;
-    toast(context, trf('সেভ হয়েছে। {0}', [balanceSentence(person, after)]) + (main == null ? '' : '\n${mainAddedText(main)}'));
+    toast(context, trf('রাখা হয়েছে। {0}', [balanceSentence(person, after)]) + (main == null ? '' : '\n${mainAddedText(main)}'));
     final nav = Navigator.of(context);
     nav.pop();
     if (nav.mounted) await afterTaskDone(nav.context);
@@ -128,7 +128,7 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
           child: Column(
             children: [
               TopBar(
-                title: widget.entry == null ? tr('লেনদেন যোগ') : tr('লেনদেন সংশোধন'),
+                title: widget.entry == null ? tr('লেনদেন যোগ') : tr('লেনদেন বদলান'),
                 trailing: [
                   if (widget.entry == null)
                     TextButton.icon(
@@ -284,7 +284,7 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
                           decoration: InputDecoration(
                             labelText: _kind == LedgerKind.lent ? tr('ফেরত পাওয়ার তারিখ (ঐচ্ছিক)') : tr('শোধের তারিখ (ঐচ্ছিক)'),
                             helperText: BrainScope.of(context).has(ProFeature.dueReminders)
-                                ? tr('দিলে আগের দিন আর সেদিন সকালে মনে করাবো')
+                                ? tr('দিলে আগের দিন আর সেদিন সকালে মনে করাব')
                                 : tr('তারিখ লেখা থাকবে। সেদিন মনে করানো প্রিমিয়াম সুবিধা।'),
                             prefixIcon: const Icon(Icons.event_available_outlined, size: 20),
                             suffixIcon: _due == null ? null : IconButton(tooltip: tr('তারিখ মুছুন'), onPressed: () => setState(() => _due = null), icon: const Icon(Icons.close_rounded)),
@@ -314,7 +314,7 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
                         decoration: BoxDecoration(color: after < 0 ? C.orangeTint : C.greenTint, borderRadius: BorderRadius.circular(14)),
                         child: Text.rich(
                           TextSpan(children: [
-                            TextSpan(text: trf('সেভ করলে {0}: ', [balanceHeading(person, after).replaceAll('আপনি ', '')])),
+                            TextSpan(text: trf('রাখলে {0}: ', [balanceHeading(person, after).replaceAll('আপনি ', '')])),
                             TextSpan(text: '${taka(before)} → ', style: display(17)),
                             TextSpan(text: taka(after), style: display(17, weight: 700, color: balanceColor(after))),
                           ]),
@@ -326,7 +326,7 @@ class _LedgerFormScreenState extends State<LedgerFormScreen> {
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                child: PrimaryButton(label: tr('সেভ করুন'), icon: Icons.check_rounded, onPressed: _save),
+                child: PrimaryButton(label: tr('রাখুন'), icon: Icons.check_rounded, onPressed: _save),
               ),
             ],
           ),

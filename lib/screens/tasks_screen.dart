@@ -86,7 +86,7 @@ class _TasksScreenState extends State<TasksScreen> {
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, 'delete'), child: Text(tr('মুছুন'), style: body(15, color: C.red))),
             TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
-            TextButton(onPressed: () => Navigator.pop(ctx, 'save'), child: Text(tr('সেভ'))),
+            TextButton(onPressed: () => Navigator.pop(ctx, 'save'), child: Text(tr('রাখুন'))),
           ],
         ),
       ),
@@ -234,7 +234,7 @@ class _TasksScreenState extends State<TasksScreen> {
               TopBar(title: tr('কাজের তালিকা'), trailing: [
                 const PdfButton({ReportPart.tasks}),
                 IconButton(
-                  tooltip: tr('তৈরি তালিকা'),
+                  tooltip: tr('রেডিমেড তালিকা'),
                   onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TemplatesScreen())),
                   icon: const Icon(Icons.playlist_add_rounded),
                 ),

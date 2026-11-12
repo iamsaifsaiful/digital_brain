@@ -22,7 +22,7 @@ class TrashScreen extends StatelessWidget {
     'reminders': ('রিমাইন্ডার', Icons.notifications_none_rounded),
     'tasks': ('কাজ', Icons.checklist_rounded),
     'cash': ('আয়-ব্যয়', Icons.account_balance_wallet_outlined),
-    'projects': ('অন্যান্য হিসাব', Icons.folder_special_outlined),
+    'projects': ('আলাদা হিসাব', Icons.folder_special_outlined),
     'specialDays': ('বিশেষ দিন', Icons.cake_outlined),
     'memories': ('মনে রাখা কথা', Icons.psychology_outlined),
     'habits': ('অভ্যাস', Icons.local_fire_department_outlined),

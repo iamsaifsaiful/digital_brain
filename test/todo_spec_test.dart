@@ -168,7 +168,7 @@ void main() {
       final (_, r) = await talk(t, ['বাজার করেছি, ওষুধ আনিনি।']);
       expect(task('বাজার করা').done, isTrue);
       expect(task('ওষুধ আনা').done, isFalse);
-      expect(r.single, allOf(contains('“বাজার করা” কাজটি সম্পন্ন'), contains('“ওষুধ আনা” কাজটি বাকি')));
+      expect(r.single, allOf(contains('“বাজার করা” কাজটা শেষ'), contains('“ওষুধ আনা” কাজটি বাকি')));
     });
 
     testWidgets('two bills: "বিল দিয়ে দিয়েছি" asks which; "ইন্টারনেটেরটা" answers', (t) async {
@@ -241,7 +241,7 @@ void main() {
 
     testWidgets('"আজকের কাজগুলো বলো" → "দ্বিতীয়টা হয়ে গেছে" → "শেষেরটা কাল দাও"', (t) async {
       final (_, r) = await talk(t, ['আজকের কাজগুলো বলো।', 'দ্বিতীয়টা হয়ে গেছে।', 'শেষেরটা কাল দাও।']);
-      expect(r[1], contains('“বাজার করা” কাজটি সম্পন্ন'));
+      expect(r[1], contains('“বাজার করা” কাজটা শেষ'));
       expect(task('বাজার করা').done, isTrue);
       expect(task('ব্যাংকে যাওয়া').due, DateTime(2026, 10, 10));
     });
@@ -333,7 +333,7 @@ void main() {
   group('10. removing — asked once', () {
     testWidgets('one to-do: asked, removed, brought back', (t) async {
       final (c, r) = await talk(t, ['বাজারের কাজটা তালিকা থেকে বাদ দাও।', 'হ্যাঁ', 'ভুল করে মুছে ফেলেছি, ফেরত আনো।']);
-      expect(r[0], contains('মুছে দেবো?'));
+      expect(r[0], contains('মুছে দেব?'));
       expect(r[2], contains('ফেরত এনেছি'));
       expect(c.brain.data.tasks.where((x) => x.title == 'বাজার করা'), hasLength(1));
     });

@@ -3,6 +3,7 @@
 library;
 
 import 'bn.dart';
+import 'lang.dart' show isEn;
 import 'parser.dart';
 
 class When {
@@ -279,6 +280,7 @@ When? parseWhen(String said0, DateTime now) {
 
 /// "কাল (শনিবার) সকাল ১০টা" — how the app says a moment back.
 String sayWhen(DateTime at, DateTime now, {bool withTime = true}) {
+  if (isEn) return _sayWhenEn(at, now, withTime: withTime);
   // 00:00 belongs to the night before: "শনিবার দিবাগত রাত ১২টা".
   if (withTime && at.hour == 0 && at.minute == 0) {
     final eve = DateTime(at.year, at.month, at.day).subtract(const Duration(days: 1));
@@ -296,6 +298,28 @@ String sayWhen(DateTime at, DateTime now, {bool withTime = true}) {
     _ => '${weekdayName(day)}, ${bnDigits(day.day)} ${bnMonths[day.month - 1]}',
   };
   return withTime ? '$dayText ${bnTime(at.hour, at.minute)}' : dayText;
+}
+
+/// [sayWhen] in English, to follow "at": "7:00 PM today", "9:00 AM
+/// tomorrow (Saturday)", "9:00 AM on Monday, 17 November"; midnight is the
+/// night before's. Without the time: "today", "Monday, 17 November".
+String _sayWhenEn(DateTime at, DateTime now, {bool withTime = true}) {
+  if (withTime && at.hour == 0 && at.minute == 0) {
+    final eve = DateTime(at.year, at.month, at.day).subtract(const Duration(days: 1));
+    final d = _sayWhenEn(eve, now, withTime: false);
+    return 'midnight, ${d.startsWith(RegExp('[A-Z]')) ? '$d night' : d == 'today' ? 'tonight' : '$d night'}';
+  }
+  final today = DateTime(now.year, now.month, now.day);
+  final day = DateTime(at.year, at.month, at.day);
+  final dayText = switch (day.difference(today).inDays) {
+    0 => 'today',
+    1 => 'tomorrow (${weekdayName(day)})',
+    2 => 'the day after tomorrow (${weekdayName(day)})',
+    _ when day.year != today.year => '${weekdayName(day)}, ${day.day} ${monthName(day.month)} ${day.year}',
+    _ => '${weekdayName(day)}, ${day.day} ${monthName(day.month)}',
+  };
+  if (!withTime) return dayText;
+  return '${bnTime(at.hour, at.minute)} ${dayText.startsWith(RegExp('[A-Z]')) ? 'on ' : ''}$dayText';
 }
 
 final _timeBits = RegExp(

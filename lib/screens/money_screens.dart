@@ -4,6 +4,7 @@ import '../logic/pro.dart';
 import '../ui/pro_gate.dart';
 
 import '../logic/bn.dart';
+import '../logic/calendar_bd.dart' show holidayOn, isWeekend;
 import '../logic/cash.dart';
 import '../logic/ledger.dart' show projectDueTotals;
 import '../logic/parser.dart' show normalize;
@@ -120,7 +121,7 @@ class _CashNowCardState extends State<CashNowCard> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text(tr('এখন আপনার কাছে কত টাকা আছে?'), style: body(15.5, weight: FontWeight.w600)),
         const SizedBox(height: 2),
-        Text(tr('হাতে, ব্যাংকে, বিকাশে — সব মিলিয়ে লিখুন। এরপর আয়, খরচ, ধার আর অন্যান্য হিসাবের খরচ লিখলে নিজে বাড়বে-কমবে।'), style: body(13, color: C.muted, height: 1.45)),
+        Text(tr('হাতে, ব্যাংকে, বিকাশে — সব মিলিয়ে লিখুন। এরপর আয়, খরচ, ধার আর আলাদা হিসাবের খরচ লিখলে নিজে বাড়বে-কমবে।'), style: body(13, color: C.muted, height: 1.45)),
         const SizedBox(height: 10),
         Row(children: [
           Expanded(
@@ -262,11 +263,11 @@ class CashNowScreen extends StatelessWidget {
                       ]),
                     ),
                     const SizedBox(height: 8),
-                    Text(tr('ধার দিলে ব্যয়ে দেখায়, ধার নিলে আয়ে — খরচ বা আয় নয়, টাকা আসা-যাওয়া। অন্যান্য হিসাবের খরচ এখান থেকেই যায়; বকেয়া পেলে আয়ে আসে।'),
+                    Text(tr('ধার দিলে ব্যয়ে দেখায়, ধার নিলে আয়ে — খরচ বা আয় নয়, টাকা আসা-যাওয়া। আলাদা হিসাবের খরচ এখান থেকেই যায়; বকেয়া পেলে আয়ে আসে।'),
                         style: body(12.5, color: C.muted, height: 1.5)),
                     if (lines.isNotEmpty) ...[
                       const SizedBox(height: 14),
-                      SectionTitle(trf('এর পরের লেনদেন · {0}টি', [bnDigits(lines.length)])),
+                      SectionTitle(trf('এর পরের লেনদেন · {0}টা', [bnDigits(lines.length)])),
                       Panel(child: Rows(children: [for (final e in lines) cashRow(context, e)])),
                     ],
                   ]),
@@ -566,60 +567,25 @@ class _CashViewState extends State<CashView> {
       ]),
     );
 
-    Widget chip(Key key, String label, bool on, VoidCallback onTap) => ChoiceChip(
-          key: key,
-          label: Text(label),
-          selected: on,
-          showCheckmark: false,
-          onSelected: (_) => onTap(),
-        );
+    // The filter sits behind ⋮ on the লেনদেন heading (owner, 13 Nov): the
+    // day's লেনদেন show whole, together.
+    final kindKey = switch (_kind) { CashKind.income => 'income', CashKind.expense => 'expense', null => 'all' };
+    final listHead = FilterTitle<String>(
+      trf('লেনদেন · {0}', [bnDigits(entries.length)]),
+      menuKey: const ValueKey('cash-filter'),
+      items: [('all', tr('সব'), const Key('cash-kind-all')), ('income', tr('শুধু আয়'), const Key('cash-kind-income')), ('expense', tr('শুধু খরচ'), const Key('cash-kind-expense'))],
+      value: kindKey,
+      onChanged: (v) => _go(() {
+        _kind = v == 'income' ? CashKind.income : (v == 'expense' ? CashKind.expense : null);
+        _cat = null;
+      }),
+      extra: [if (cats.length > 1) (tr('খাত বেছে নিন'), const Key('cash-cat'), () => _pickCategory(cats))],
+      on: cat == null ? null : (cat, const Key('cash-cat-on'), () => _go(() => _cat = null)),
+    );
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (cashOnHand(brain.data) == null) ...[const CashNowCard(), const SizedBox(height: 12)],
       period,
-      const SizedBox(height: 12),
-      // ফিল্টার
-      SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(children: [
-          for (final (k, label) in [(null, tr('সব')), (CashKind.income, tr('শুধু আয়')), (CashKind.expense, tr('শুধু খরচ'))]) ...[
-            chip(Key('cash-kind-${k?.name ?? 'all'}'), label, _kind == k, () => _go(() {
-                  _kind = k;
-                  _cat = null;
-                })),
-            const SizedBox(width: 6),
-          ],
-          if (cat != null)
-            InputChip(
-              key: const Key('cash-cat-on'),
-              label: Text(cat),
-              selected: true,
-              showCheckmark: false,
-              onPressed: () => _pickCategory(cats),
-              onDeleted: () => _go(() => _cat = null),
-            )
-          else if (cats.length > 1)
-            ActionChip(
-              key: const Key('cash-cat'),
-              avatar: const Icon(Icons.label_outline_rounded, size: 18),
-              label: Text(tr('খাত')),
-              onPressed: () => _pickCategory(cats),
-            ),
-        ]),
-      ),
-      if (filtered && entries.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Text(
-            key: const Key('cash-filter-total'),
-            [
-              if (shownSums.income > 0) trf('আয় {0}', [taka(shownSums.income)]),
-              if (shownSums.expense > 0) trf('খরচ {0}', [taka(shownSums.expense)]),
-              trf('{0}টা লেনদেন', [bnDigits(entries.length)]),
-            ].join(' · '),
-            style: body(13.5, weight: FontWeight.w600, color: C.muted2),
-          ),
-        ),
       const SizedBox(height: 10),
       if (top.length > 1 || (top.isNotEmpty && cat == null)) ...[
         _CatStrip(
@@ -640,6 +606,20 @@ class _CashViewState extends State<CashView> {
         ),
         const SizedBox(height: 10),
       ],
+      if (inSpan.isNotEmpty) listHead,
+      if (filtered && entries.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            key: const Key('cash-filter-total'),
+            [
+              if (shownSums.income > 0) trf('আয় {0}', [taka(shownSums.income)]),
+              if (shownSums.expense > 0) trf('খরচ {0}', [taka(shownSums.expense)]),
+              trf('{0}টা লেনদেন', [bnDigits(entries.length)]),
+            ].join(' · '),
+            style: body(13.5, weight: FontWeight.w600, color: C.muted2),
+          ),
+        ),
       if (entries.isEmpty)
         EmptyState(
           icon: Icons.account_balance_wallet_outlined,
@@ -647,18 +627,24 @@ class _CashViewState extends State<CashView> {
           text: filtered ? tr('ফিল্টার বদলে বা “সব” বেছে দেখুন।') : tr('বাজার, ভাড়া, বিল, বেতন — নিজের আয় আর খরচ এখানে রাখুন। মাস শেষে কত জমলো, এক নজরে দেখবেন।'),
         )
       else if (_span == CashSpan.day)
-        Panel(child: Rows(children: [for (final e in entries) cashRow(context, e, picks: _picks, withDate: false)]))
+        // The day as one card too (owner, 13 Nov), every লেনদেন in it.
+        _DayCard(day: from, entries: entries, now: now, picks: _picks)
       else
-        for (final MapEntry(key: day, value: list) in days.entries) ...[
-          Panel(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              _DayHead(day: day, entries: list, now: now),
-              const Divider(height: 1),
-              Rows(children: [for (final e in list) cashRow(context, e, picks: _picks, withDate: false)]),
-            ]),
+        // Each day as one card, as দিনলিপি's week (owner, 13 Nov): a tap opens that day.
+        for (final MapEntry(key: day, value: list) in days.entries)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _DayCard(
+              day: day,
+              entries: list,
+              now: now,
+              onTap: () => _go(() {
+                _dir = -1;
+                _span = CashSpan.day;
+                _at = day;
+              }),
+            ),
           ),
-          const SizedBox(height: 10),
-        ],
       const SizedBox(height: 10),
       Text(tr('মুখেও বলা যায়: “বাজারে ৫০০ টাকা খরচ হলো”, “বেতন পেলাম ৩০ হাজার”'), style: body(12.5, color: C.muted, height: 1.45)),
     ]);
@@ -739,40 +725,102 @@ class _CatStrip extends StatelessWidget {
 }
 
 /// A day's heading in the list: its date, and that day's income and spending.
-class _DayHead extends StatelessWidget {
-  const _DayHead({required this.day, required this.entries, required this.now});
+/// One day of a week, month or year (owner, 13 Nov: as দিনলিপি's week):
+/// its date on the left, two of its লেনদেন, the day's আয় and খরচ on the right.
+class _DayCard extends StatelessWidget {
+  const _DayCard({required this.day, required this.entries, required this.now, this.onTap, this.picks});
   final DateTime day;
   final List<CashEntry> entries;
   final DateTime now;
 
+  /// Opens the day (a week, month or year). Without it, the day itself:
+  /// every লেনদেন shown, each a tap to change (long press picks).
+  final VoidCallback? onTap;
+  final Picks? picks;
+
   @override
   Widget build(BuildContext context) {
     final s = sumsOf(entries);
-    final today = DateTime(now.year, now.month, now.day);
-    final diff = day.difference(today).inDays;
-    final rel = diff == 0 ? tr('আজ') : diff == -1 ? tr('গতকাল') : null;
-    final red = day.weekday == DateTime.friday;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 9, 14, 9),
-      child: Row(children: [
-        Container(
-          width: 40,
-          height: 40,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(color: C.surface2, borderRadius: BorderRadius.circular(12)),
-          child: Text(bnDigits(day.day), style: display(17, weight: 700, color: red ? C.red : C.ink)),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(weekdayName(day), style: body(13.5, weight: FontWeight.w600, color: red ? C.red : C.ink, height: 1.3)),
-            Text(rel == null ? shortDate(day) : '${shortDate(day)} · $rel', style: body(11.5, color: C.muted, height: 1.3)),
+    final today = dayOnly(day) == dayOnly(now);
+    final red = holidayOn(day) != null || isWeekend(day);
+    final whole = onTap == null;
+    final shown = whole ? entries : entries.take(2).toList();
+    final more = entries.length - shown.length;
+    final picking = picks != null && picks!.on;
+    return Material(
+      key: Key('cash-day-${day.year}-${day.month}-${day.day}'),
+      color: C.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: today ? C.green : C.border, width: today ? 2 : 1)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+          child: Row(children: [
+            SizedBox(
+              width: 54,
+              child: Column(children: [
+                if (today) Text(tr('আজ'), style: body(11, weight: FontWeight.w600, color: C.green, height: 1.2)),
+                Text(bnDigits(day.day), style: body(20, weight: FontWeight.w700, color: today ? C.green : (red ? C.rose : C.ink), height: 1.2)),
+                Text(weekdayShort(day), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11, color: red ? C.rose : C.muted, height: 1.2)),
+              ]),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                for (final e in shown)
+                  if (whole)
+                    InkWell(
+                      key: Key('cash-${e.id}'),
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: picking ? () => picks!.toggle(e.id) : () => cashActions(context, e),
+                      onLongPress: picks == null ? null : () => picks!.toggle(e.id),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(children: [
+                          if (picking) Padding(padding: const EdgeInsets.only(right: 6), child: PickMark(picks!.has(e.id))),
+                          Expanded(
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(tr(e.category), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14.5, weight: FontWeight.w600)),
+                              if (e.note.trim().isNotEmpty) Text(e.note.trim(), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: C.muted)),
+                            ]),
+                          ),
+                          Text('${e.kind == CashKind.income ? '+' : '−'}${taka(e.amount)}', style: body(14.5, weight: FontWeight.w700, color: e.kind == CashKind.income ? C.blue : C.red)),
+                          if (!picking)
+                            IconButton(
+                              tooltip: tr('বদলান বা মুছুন'),
+                              visualDensity: VisualDensity.compact,
+                              icon: Icon(Icons.more_vert_rounded, color: C.muted, size: 20),
+                              onPressed: () => cashActions(context, e),
+                            ),
+                        ]),
+                      ),
+                    )
+                  else
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 1.5),
+                    child: Text.rich(
+                      TextSpan(children: [
+                        TextSpan(text: tr(e.category), style: body(13.5, color: C.ink)),
+                        TextSpan(text: '  ${e.kind == CashKind.income ? '+' : '−'}${taka(e.amount)}', style: body(13, weight: FontWeight.w600, color: e.kind == CashKind.income ? C.blue : C.red)),
+                      ]),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                if (more > 0) Text(trf('আরও {0}টা', [bnDigits(more)]), style: body(12, color: C.muted)),
+              ]),
+            ),
+            if (!whole) ...[
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                if (s.income > 0) Text('+${taka(s.income)}', style: body(13.5, weight: FontWeight.w700, color: C.blue)),
+                if (s.expense > 0) Text('−${taka(s.expense)}', style: body(13.5, weight: FontWeight.w700, color: C.red)),
+              ]),
+              Icon(Icons.chevron_right_rounded, color: C.muted, size: 20),
+            ],
           ]),
         ),
-        if (s.income > 0) Text('+${taka(s.income)}', style: body(13.5, weight: FontWeight.w700, color: C.blue)),
-        if (s.income > 0 && s.expense > 0) const SizedBox(width: 8),
-        if (s.expense > 0) Text('−${taka(s.expense)}', style: body(13.5, weight: FontWeight.w700, color: C.red)),
-      ]),
+      ),
     );
   }
 }
@@ -833,7 +881,7 @@ Widget cashPickBar(BuildContext context, Picks picks, Iterable<String> shown) {
       }),
       PickAction(Icons.share_outlined, tr('পাঠান'), () async {
         final lines = [
-          for (final e in picked) '${shortDate(e.date)} · ${e.category}${e.note.trim().isEmpty ? '' : ' (${e.note.trim()})'} · ${e.kind == CashKind.income ? '+' : '−'}${taka(e.amount)}',
+          for (final e in picked) '${shortDate(e.date)} · ${tr(e.category)}${e.note.trim().isEmpty ? '' : ' (${e.note.trim()})'} · ${e.kind == CashKind.income ? '+' : '−'}${taka(e.amount)}',
           if (income > 0) trf('মোট আয় {0}', [taka(income)]),
           if (expense > 0) trf('মোট খরচ {0}', [taka(expense)]),
         ];
@@ -878,7 +926,7 @@ Future<String?> askCategory(BuildContext context, List<String> known) {
 Future<void> cashActions(BuildContext context, CashEntry e) async {
   final brain = BrainScope.read(context);
   final line = mainMenuLine(brain.data, e.id);
-  final pick = await editOrDelete(context, title: '${e.category} · ${taka(e.amount)}', extra: line == null ? null : (line.$1, line.$2, 'main'));
+  final pick = await editOrDelete(context, title: '${tr(e.category)} · ${taka(e.amount)}', extra: line == null ? null : (line.$1, line.$2, 'main'));
   if (!context.mounted) return;
   if (pick == 'main') return toggleMain(context, e.id);
   if (pick == 'edit') {
@@ -1252,6 +1300,9 @@ class ProjectScreen extends StatefulWidget {
 class _ProjectScreenState extends State<ProjectScreen> {
   String get id => widget.id;
 
+  /// all, income or expense.
+  String _kind = 'all';
+
   @override
   void initState() {
     super.initState();
@@ -1271,10 +1322,11 @@ class _ProjectScreenState extends State<ProjectScreen> {
     final brain = BrainScope.of(context);
     final p = brain.data.projects.where((x) => x.id == id).firstOrNull;
     if (p == null) {
-      return Scaffold(body: SafeArea(child: Column(children: [TopBar(title: tr('অন্যান্য হিসাব'))])));
+      return Scaffold(body: SafeArea(child: Column(children: [TopBar(title: tr('আলাদা হিসাব'))])));
     }
     final s = projectSums(brain.data.cash, p.id);
     final entries = brain.data.cash.where((e) => e.projectId == p.id).toList()..sort((a, b) => b.date.compareTo(a.date));
+    final shown = [for (final e in entries) if (_kind == 'all' || e.kind.name == _kind) e];
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
 
     Future<void> menu(String v) async {
@@ -1372,8 +1424,22 @@ class _ProjectScreenState extends State<ProjectScreen> {
               if (entries.isEmpty)
                 EmptyState(icon: Icons.receipt_long_outlined, title: tr('এখনো কিছু লেখা নেই'), text: tr('টাকা এলে বা খরচ হলে উপরের বোতাম চাপুন, অথবা মুখে বলুন।'))
               else ...[
-                SectionTitle(tr('সব হিসাব')),
-                Panel(child: Rows(children: [for (final e in entries) cashRow(context, e)])),
+                // আয় or খরচ only, behind ⋮ (owner, 13 Nov).
+                FilterTitle<String>(
+                  trf('লেনদেন · {0}', [bnDigits(shown.length)]),
+                  menuKey: const ValueKey('project-filter'),
+                  items: [('all', tr('সব'), const Key('project-kind-all')), ('income', tr('শুধু আয়'), const Key('project-kind-income')), ('expense', tr('শুধু খরচ'), const Key('project-kind-expense'))],
+                  value: _kind,
+                  onChanged: (v) => setState(() => _kind = v),
+                ),
+                if (shown.isEmpty)
+                  Panel(padding: const EdgeInsets.all(14), child: Text(tr('এই ফিল্টারে কিছু নেই'), style: body(14, color: C.muted)))
+                else
+                  // Day by day, each day one card (owner, 13 Nov: as the main হিসাব).
+                  for (final MapEntry(key: day, value: list) in {
+                    for (final e in shown) DateTime(e.date.year, e.date.month, e.date.day): [for (final x in shown) if (dayOnly(x.date) == DateTime(e.date.year, e.date.month, e.date.day)) x],
+                  }.entries)
+                    Padding(padding: const EdgeInsets.only(bottom: 8), child: _DayCard(day: day, entries: list, now: brain.services.now())),
               ],
             ]),
           ),

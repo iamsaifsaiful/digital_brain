@@ -89,8 +89,8 @@ void main() {
     expect(first.dy < alarm.dy || first.dx < alarm.dx, isTrue);
     await t.tap(find.text('হিসাব').last);
     await settle(t);
-    expect(find.text('অন্যান্য হিসাব'), findsOneWidget);
-    expect(find.text('আলাদা হিসাব'), findsNothing);
+    expect(find.text('আলাদা হিসাব'), findsOneWidget);
+    expect(find.text('অন্যান্য হিসাব'), findsNothing);
   });
 
   testWidgets('দিনলিপি: the add button is at the bottom and makes a to-do, not a reminder', (t) async {
@@ -335,9 +335,9 @@ void main() {
     await start(t);
     await openTools(t);
     final grid = find.byKey(const Key('home-tools'));
-    expect(find.descendant(of: grid, matching: find.text('ব্লাড ডোনেশন')), findsOneWidget);
+    expect(find.descendant(of: grid, matching: find.text('রক্তদান')), findsOneWidget);
     expect(find.descendant(of: grid, matching: find.text('যাকাত')), findsOneWidget);
-    expect(find.descendant(of: grid, matching: find.text('ফ্যামিলি')), findsOneWidget);
+    expect(find.descendant(of: grid, matching: find.text('পরিবার')), findsOneWidget);
     expect(find.descendant(of: grid, matching: find.text('অনুরোধ')), findsNothing, reason: 'not called অনুরোধ any more');
     expect(find.descendant(of: grid, matching: find.text('প্রিমিয়াম')), findsOneWidget);
     await t.tap(find.text('আরও').last);
@@ -353,7 +353,7 @@ void main() {
     await t.scrollUntilVisible(find.byKey(const Key('more-requests')), -300, scrollable: find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first);
     await t.tap(find.byKey(const Key('more-requests')));
     await settle(t);
-    expect(find.text('ব্লাড ডোনেশন'), findsOneWidget);
+    expect(find.text('রক্তদান'), findsOneWidget);
     expect(find.textContaining('Google দিয়ে লগইন করুন'), findsWidgets, reason: 'not signed in yet');
   });
 
@@ -465,7 +465,7 @@ void main() {
     await settle(t);
     await t.tap(find.byKey(const Key('home-stat-spent')));
     await settle(t);
-    expect(find.text('অন্যান্য হিসাব'), findsOneWidget);
+    expect(find.text('আলাদা হিসাব'), findsOneWidget);
   });
 
   testWidgets('report: spending without a খাত is split by its note, and can be given one', (t) async {

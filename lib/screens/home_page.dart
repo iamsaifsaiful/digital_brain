@@ -89,7 +89,7 @@ class HomePage extends StatelessWidget {
           const TodaySections(),
           const _MoneyCard(),
           // আজকের অর্থ-কথা right under the money (owner, 24 Oct night).
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           AppCard(
             key: const Key('home-quote'),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -105,13 +105,13 @@ class HomePage extends StatelessWidget {
             ]),
           ),
           const HomeHolidays(),
-          const SizedBox(height: 14),
+          const SizedBox(height: 20),
           const _Tools(),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           // Free Play app only: a quiet ad card under the quote.
           const AdSlot(padding: EdgeInsets.only(top: 12)),
           Padding(
-            padding: const EdgeInsets.only(top: 14),
+            padding: const EdgeInsets.only(top: 20),
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.lock_outline_rounded, size: 14, color: C.muted),
               const SizedBox(width: 5),
@@ -613,7 +613,7 @@ class _MoneyCard extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(trf('পাবো · {0} জনের কাছে', [bnDigits(owe.owingPeople)]), style: body(11.5, color: C.muted)),
+                      Text(trf('পাব · {0} জনের কাছে', [bnDigits(owe.owingPeople)]), style: body(11.5, color: C.muted)),
                       Text(taka(owe.receivable), style: body(15, weight: FontWeight.w600)),
                       if (dueToday.isNotEmpty)
                         Text(trf('আজ {0} ফেরতের দিন', [dueToday.map(possessive).join(', ')]), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11, color: C.warn)),
@@ -625,7 +625,7 @@ class _MoneyCard extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(12, 10, 0, 10),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(trf('দেবো · {0} জনকে', [bnDigits(owe.owedPeople)]), style: body(11.5, color: C.muted)),
+                      Text(trf('দেব · {0} জনকে', [bnDigits(owe.owedPeople)]), style: body(11.5, color: C.muted)),
                       Text(taka(owe.payable), style: body(15, weight: FontWeight.w600, color: owe.payable > 0 ? C.warn : C.ink)),
                       if (nextGive != null) Text('${nextGive.person} · ${bnDigits(nextGive.due!.day)} ${monthName(nextGive.due!.month)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11, color: C.muted)),
                     ]),
@@ -789,9 +789,9 @@ class _Tools extends StatelessWidget {
       ('calendar', tr('ক্যালেন্ডার'), Icons.calendar_month_outlined, () => push(const CalendarScreen())),
       ('compass', tr('কম্পাস'), Icons.explore_outlined, () => push(const CompassScreen())),
       ('zakat', tr('যাকাত'), Icons.volunteer_activism_outlined, () => push(const ZakatScreen())),
-      ('family', tr('ফ্যামিলি'), Icons.family_restroom_rounded, () => push(const FamilyScreen())),
+      ('family', tr('পরিবার'), Icons.family_restroom_rounded, () => push(const FamilyScreen())),
       if (!medicalOff) ('medicines', trm('ওষুধ'), Icons.medication_outlined, () => push(const MedicinesScreen())),
-      ('blood', trm('ব্লাড ডোনেশন'), Icons.bloodtype_outlined, () => push(const RequestsScreen())),
+      ('blood', trm('রক্তদান'), Icons.bloodtype_outlined, () => push(const RequestsScreen())),
       ('pro', tr('প্রিমিয়াম'), Icons.workspace_premium_outlined, () => push(const ProScreen())),
     ];
     final saved = brain.orderOf('home_tools');

@@ -38,7 +38,7 @@ class _BizStockState extends State<BizStock> {
       onChanged: (v) => setState(() => _part = v),
       top: (tabs) => [
       TabTitle(tr('স্টক'),
-          sub: trf('{0}টি পণ্য · কেনা দামে {1}', [bnDigits(b.products.length), taka(worth)]),
+          sub: trf('{0}টা পণ্য · কেনা দামে {1}', [bnDigits(b.products.length), taka(worth)]),
           trailing: IconButton(key: const Key('biz-stock-add'), tooltip: tr('নতুন পণ্য'), onPressed: () => pushPage(context, const ProductForm()), icon: const Icon(Icons.add_box_outlined))),
       const BizFreeBanner(),
       if (exp.isNotEmpty) ...[
@@ -46,7 +46,7 @@ class _BizStockState extends State<BizStock> {
         AttentionCard(
           icon: Icons.schedule_rounded,
           title: trf('{0}-এর মেয়াদ {1}', [exp.first.name, dayOnly(exp.first.expiry!).isAfter(dayOnly(now)) ? trf('{0} শেষ', [shortDate(exp.first.expiry!)]) : tr('শেষ হয়ে গেছে')]),
-          text: exp.length > 1 ? trf('আরও {0}টি পণ্যের মেয়াদ কাছে · কম দামে বিক্রি করতে পারেন', [bnDigits(exp.length - 1)]) : tr('আজ কম দামে বিক্রি করতে পারেন'),
+          text: exp.length > 1 ? trf('আরও {0}টা পণ্যের মেয়াদ কাছে · কম দামে বিক্রি করতে পারেন', [bnDigits(exp.length - 1)]) : tr('আজ কম দামে বিক্রি করতে পারেন'),
           action: tr('দেখুন'),
           onAction: () => setState(() => _part = 'expiry'),
         ),
@@ -102,7 +102,7 @@ class _BizStockState extends State<BizStock> {
               ),
               const SizedBox(width: 10),
               Expanded(child: Text(tr(shelf), key: Key('biz-section-$shelf'), maxLines: 1, overflow: TextOverflow.ellipsis, style: display(17, weight: 600))),
-              Counter(trf('{0}টি', [bnDigits(ps.length)])),
+              Counter(trf('{0}টা', [bnDigits(ps.length)])),
               const SizedBox(width: 6),
               IconButton(
                 key: Key('biz-section-add-$shelf'),
@@ -144,11 +144,11 @@ class _BizStockState extends State<BizStock> {
       leading: LetterTile(p.name),
       title: p.name,
       subtitle: [
-        trf('বিক্রি {0} / {1}', [taka(p.sell), p.unit]),
+        trf('বিক্রি {0} / {1}', [taka(p.sell), tr(p.unit)]),
         if (exp != null) trf('মেয়াদ {0}', [shortDate(exp)]),
       ].join(' · '),
       subtitleColor: soon ? C.warn : null,
-      trailing: p.isLow ? WarnChip('${bnDigits(qtyText(p.stock))} ${p.unit}') : Text('${bnDigits(qtyText(p.stock))} ${p.unit}', style: body(14, weight: FontWeight.w600)),
+      trailing: p.isLow ? WarnChip('${bnDigits(qtyText(p.stock))} ${tr(p.unit)}') : Text('${bnDigits(qtyText(p.stock))} ${tr(p.unit)}', style: body(14, weight: FontWeight.w600)),
       onTap: () => pushPage(context, ProductForm(product: p)),
     );
   }
@@ -408,7 +408,7 @@ class _PurchasePageState extends State<PurchasePage> {
     int estimate(List<OrderLine> lines) => lines.where((o) => o.picked).fold(0, (s, o) => s + ((productOf(o)?.buy ?? 0) * o.qty).round());
     String listText(String sup, List<OrderLine> lines) => [
           trf('অর্ডার — {0}', [sup]),
-          for (final o in lines.where((o) => o.picked)) '• ${o.name} — ${bnDigits(qtyText(o.qty))} ${o.unit}',
+          for (final o in lines.where((o) => o.picked)) '• ${o.name} — ${bnDigits(qtyText(o.qty))} ${tr(o.unit)}',
         ].join('\n');
 
     return Scaffold(
@@ -446,7 +446,7 @@ class _PurchasePageState extends State<PurchasePage> {
                                 key: Key('biz-order-${o.id}'),
                                 leading: Checkbox(value: o.picked, onChanged: (v) => brain.saveOrder(o.copyWith(picked: v ?? true))),
                                 title: o.name,
-                                subtitle: p == null ? null : trf('আছে {0} {1}', [bnDigits(qtyText(p.stock)), p.unit]),
+                                subtitle: p == null ? null : trf('আছে {0} {1}', [bnDigits(qtyText(p.stock)), tr(p.unit)]),
                                 subtitleColor: p != null && p.isLow ? C.warn : null,
                                 trailing: SoftChip('${bnDigits(qtyText(o.qty))} ${tr(o.unit)}', onTap: () async {
                                   final v = await askText(context, trf('{0} — কত {1}?', [o.name, tr(o.unit)]), initial: qtyText(o.qty), number: true);
@@ -459,7 +459,7 @@ class _PurchasePageState extends State<PurchasePage> {
                           Padding(
                             padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                             child: Row(children: [
-                              Expanded(child: Text(trf('{0}টি পণ্য · আনুমানিক', [bnDigits(lines.where((o) => o.picked).length)]), style: body(13, color: C.muted))),
+                              Expanded(child: Text(trf('{0}টা পণ্য · আনুমানিক', [bnDigits(lines.where((o) => o.picked).length)]), style: body(13, color: C.muted))),
                               Text(taka(estimate(lines)), style: display(18, weight: 600)),
                             ]),
                           ),
@@ -497,7 +497,7 @@ Future<Product?> _pickProduct(BuildContext context, List<Product> ps) => showApp
         child: ps.isEmpty
             ? Padding(padding: const EdgeInsets.all(24), child: Text(tr('যোগ করার মতো আর কোনো পণ্য নেই।'), style: body(14, color: C.muted)))
             : ListView(shrinkWrap: true, children: [
-                for (final p in ps) ListTile(leading: LetterTile(p.name, size: 36), title: Text(p.name, style: body(15)), subtitle: Text('${bnDigits(qtyText(p.stock))} ${p.unit}', style: body(12, color: C.muted)), onTap: () => Navigator.pop(ctx, p)),
+                for (final p in ps) ListTile(leading: LetterTile(p.name, size: 36), title: Text(p.name, style: body(15)), subtitle: Text('${bnDigits(qtyText(p.stock))} ${tr(p.unit)}', style: body(12, color: C.muted)), onTap: () => Navigator.pop(ctx, p)),
               ]),
       ),
     );

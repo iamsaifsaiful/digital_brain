@@ -101,7 +101,7 @@ void main() {
       await b.saveCash(CashEntry(kind: CashKind.income, amount: 2000, category: 'বকেয়া আদায়', note: 'সেলিম', date: now, projectId: p.id));
       expect(b.lastMainLine!.category, 'বকেয়া থেকে আয়');
       expect(cashOnHand(b.data), 5000 + 20000 - 3000 - 2000 + 1000 - 4000 + 2000);
-      expect(cashNowParts(b.data), [('আয়', 20000), ('খরচ', -3000), ('ধার নেওয়া', 1000), ('ধার দেওয়া', -2000), ('বকেয়া থেকে আয়', 2000), ('অন্যান্য হিসাবের খরচ', -4000)]);
+      expect(cashNowParts(b.data), [('আয়', 20000), ('খরচ', -3000), ('ধার নেওয়া', 1000), ('ধার দেওয়া', -2000), ('বকেয়া থেকে আয়', 2000), ('আলাদা হিসাবের খরচ', -4000)]);
       final m = monthSums(b.data.cash, now);
       expect(m.incomeByCategory['ধার নেওয়া'], 1000, reason: 'shown in আয়');
       expect(m.byCategory['ধার দেওয়া'], 2000, reason: 'shown in ব্যয়');
@@ -148,7 +148,7 @@ void main() {
       final rig = await start(t);
       Navigator.of(t.element(find.byType(Scaffold).first)).push(MaterialPageRoute(builder: (_) => const LedgerFormScreen(person: 'রহিম', kind: LedgerKind.lent, amount: 500)));
       await settle(t);
-      await t.tap(find.text('সেভ করুন').last);
+      await t.tap(find.text('রাখুন').last);
       for (var i = 0; i < 6; i++) {
         await t.pump(const Duration(milliseconds: 100));
       }

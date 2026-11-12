@@ -22,7 +22,8 @@ class SectionHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: 16, bottom: 6),
+        // A little more room between sections (owner, 13 Nov).
+        padding: const EdgeInsets.only(top: 24, bottom: 8),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 32),
           child: Row(children: [

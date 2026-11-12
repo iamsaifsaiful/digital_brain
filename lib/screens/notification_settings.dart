@@ -79,7 +79,7 @@ class NotificationSettingsScreen extends StatelessWidget {
                 child: Rows(children: [
                   sw(Icons.tips_and_updates_outlined, tr('নিজে থেকে মনে করানো'), medicalOff ? tr('পাওনা ৩০ দিন পার, বিলের শেষ দিন পরশু, কাগজের মেয়াদ') : tr('পাওনা ৩০ দিন পার, বিলের শেষ দিন পরশু, কাগজের মেয়াদ, ওষুধ ফুরিয়ে আসা'), brain.nudgesOn,
                       (v) => brain.setPref('nudges_on', v)),
-                  sw(Icons.local_fire_department_outlined, tr('অভ্যাসের ধারা'), tr('টানা কয়েক দিন করছেন, আজ টিক না দিলে রাত ৮টায় একবার'), brain.flag('n_streak', true),
+                  sw(Icons.local_fire_department_outlined, tr('টানা কত দিন'), tr('টানা কয়েক দিন করছেন, আজ টিক না দিলে রাত ৮টায় একবার'), brain.flag('n_streak', true),
                       (v) => brain.setPref('n_streak', v)),
                   sw(Icons.insights_outlined, tr('সাপ্তাহিক হিসাব'), tr('শনিবার সকালে: গত সপ্তাহের খরচ, শেষ আর বাকি কাজ'), brain.flag('n_weekly', true), (v) => brain.setPref('n_weekly', v)),
                 ]),

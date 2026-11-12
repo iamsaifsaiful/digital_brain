@@ -77,7 +77,7 @@ class HabitsScreen extends StatelessWidget {
     final m = await askTime(context, h.askAt ?? (r == null ? 21 * 60 : r.hour * 60 + r.minute));
     if (m == null) return;
     await brain.setHabitAsk(h, m);
-    if (context.mounted) toast(context, trf('প্রতিদিন {0}-এ জিজ্ঞেস করবো — টিক দেওয়া থাকলে করবো না', [bnTime(m ~/ 60, m % 60)]));
+    if (context.mounted) toast(context, trf('প্রতিদিন {0}-এ জিজ্ঞেস করব — টিক দেওয়া থাকলে করব না', [bnTime(m ~/ 60, m % 60)]));
   }
 
   Future<void> _add(BuildContext context) async {
@@ -131,7 +131,7 @@ class HabitsScreen extends StatelessWidget {
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 100), children: [
               if (brain.data.habits.isEmpty)
-                EmptyState(icon: Icons.local_fire_department_outlined, title: tr('ভালো অভ্যাস গড়ুন'), text: tr('প্রতিদিন টিক দিন — টানা কত দিন হলো দেখাবে, চাইলে রোজ নির্দিষ্ট সময়ে মনে করাবো।'))
+                EmptyState(icon: Icons.local_fire_department_outlined, title: tr('ভালো অভ্যাস গড়ুন'), text: tr('প্রতিদিন টিক দিন — টানা কত দিন হলো দেখাবে, চাইলে রোজ নির্দিষ্ট সময়ে মনে করাব।'))
               else
                 for (final h in brain.data.habits) ...[
                   Panel(
@@ -224,7 +224,7 @@ class MedicinesScreen extends StatelessWidget {
                     key: const Key('med-send-family'),
                     leading: Icon(Icons.send_to_mobile_outlined, color: C.green),
                     title: tr('ওঁর নিজের ফোনেও রিমাইন্ডার দিন'),
-                    subtitle: tr('ফ্যামিলিতে যুক্ত থাকলে ওঁর ফোনে বাজবে — তালাবদ্ধ হয়ে যায়'),
+                    subtitle: tr('পরিবারে যুক্ত থাকলে ওঁর ফোনে বাজবে — তালাবদ্ধ হয়ে যায়'),
                     trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
                     onTap: () => sendMedicineToFamily(context, senders),
                   ),
@@ -236,7 +236,7 @@ class MedicinesScreen extends StatelessWidget {
                   icon: Icons.medication_outlined,
                   title: tr('কোনো ওষুধ রাখা নেই'),
                   text: me
-                      ? tr('ওষুধের নাম, দিনে কয়বার আর কয়টা আছে লিখুন — সময়মতো বাজবে, খেলে টিক দিন, ফুরানোর আগে মনে করাবো।')
+                      ? tr('ওষুধের নাম, দিনে কয়বার আর কয়টা আছে লিখুন — সময়মতো বাজবে, খেলে টিক দিন, ফুরানোর আগে মনে করাব।')
                       : trf('{0}-এর ওষুধের নাম আর সময় লিখুন — সময়মতো আপনার ফোনে বাজবে, যেন খাইয়ে দিতে বা মনে করিয়ে দিতে পারেন।', [who.name]),
                 )
               else ...[
@@ -362,7 +362,7 @@ class _MedicineSheetState extends State<_MedicineSheet> {
             IconButton(onPressed: () => setState(() => _dose++), icon: const Icon(Icons.add_circle_outline_rounded)),
           ]),
           FieldLabel(tr('এখন কয়টা আছে (ঐচ্ছিক)')),
-          TextField(controller: _stock, keyboardType: TextInputType.number, decoration: InputDecoration(hintText: tr('দিলে ফুরানোর আগে মনে করাবো'))),
+          TextField(controller: _stock, keyboardType: TextInputType.number, decoration: InputDecoration(hintText: tr('দিলে ফুরানোর আগে মনে করাব'))),
           FieldLabel(tr('কোর্স কবে শেষ (ঐচ্ছিক)')),
           OutlinedButton.icon(
             onPressed: () async {

@@ -44,8 +44,11 @@ void main() {
     expect(find.text('এই মাসের ব্যালেন্স'), findsOneWidget);
     expect(find.text('আমি পাব'), findsNothing, reason: 'still on আয়-ব্যয়, not ধার-দেনা');
     expect(find.text('৳২৯,০০০'), findsWidgets);
-    expect(find.textContaining('· আজ'), findsOneWidget);
-    expect(find.textContaining('· গতকাল'), findsOneWidget);
+    // Each day as a card (owner, 13 Nov), today's marked আজ.
+    final now = rig.brain.services.now();
+    final yest = now.subtract(const Duration(days: 1));
+    expect(find.byKey(Key('cash-day-${now.year}-${now.month}-${now.day}')), findsOneWidget);
+    expect(find.byKey(Key('cash-day-${yest.year}-${yest.month}-${yest.day}')), findsOneWidget);
 
     // Daily: today only.
     await t.tap(find.text('দৈনিক'));
@@ -77,13 +80,20 @@ void main() {
       await settle(t);
     }
 
-    await show(find.byKey(const Key('cash-kind-expense')));
+    // The filters are behind ⋮ on the লেনদেন heading (owner, 13 Nov).
+    Future<void> menu() async {
+      await show(find.byKey(const ValueKey('cash-filter')));
+      await t.tap(find.byKey(const ValueKey('cash-filter')));
+      await settle(t);
+    }
+
+    await menu();
     await t.tap(find.byKey(const Key('cash-kind-expense')));
     await settle(t);
     expect(total(), contains('খরচ ৳৯,০০০'));
     expect(total(), contains('৪টা লেনদেন'));
     expect(find.text('বেতন'), findsNothing);
-    await show(find.byKey(const Key('cash-cat')));
+    await menu();
     await t.tap(find.byKey(const Key('cash-cat')));
     await settle(t);
     await t.tap(find.byKey(const Key('cash-cat-বাজার')));
@@ -92,9 +102,9 @@ void main() {
     expect(total(), contains('২টা লেনদেন'));
     // Clear the খাত, then only income.
     await show(find.byKey(const Key('cash-cat-on')));
-    await t.tap(find.descendant(of: find.byKey(const Key('cash-cat-on')), matching: find.byIcon(Icons.clear)));
+    await t.tap(find.byKey(const Key('cash-cat-on')));
     await settle(t);
-    await show(find.byKey(const Key('cash-kind-income')));
+    await menu();
     await t.tap(find.byKey(const Key('cash-kind-income')));
     await settle(t);
     expect(total(), contains('আয় ৳৩০,০০০'));

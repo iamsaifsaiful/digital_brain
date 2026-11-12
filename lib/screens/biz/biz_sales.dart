@@ -41,7 +41,7 @@ class _BizSalesState extends State<BizSales> {
       value: _when,
       onChanged: (v) => setState(() => _when = v),
       top: (tabs) => [
-        TabTitle(tr('বিক্রি'), sub: trf('আজ {0}টি বিক্রি · {1}', [bnDigits(todaySum.count), taka(todaySum.total)])),
+        TabTitle(trm('বিক্রি'), sub: trf('আজ {0}টা বিক্রি · {1}', [bnDigits(todaySum.count), taka(todaySum.total)])),
         const BizFreeBanner(),
         const SizedBox(height: 12),
         // The one big action, by the thumb's reach.
@@ -124,7 +124,7 @@ class _BizSalesState extends State<BizSales> {
       groups.putIfAbsent(k, () => []).add(s);
     }
     return [
-      SectionHeading(when == 'today' ? tr('আজকের বিক্রি') : (when == 'yesterday' ? tr('গতকালের বিক্রি') : tr('এই সপ্তাহের বিক্রি')), counter: trf('{0}টি · {1}', [bnDigits(sum.count), taka(sum.total)])),
+      SectionHeading(when == 'today' ? tr('আজকের বিক্রি') : (when == 'yesterday' ? tr('গতকালের বিক্রি') : tr('এই সপ্তাহের বিক্রি')), counter: trf('{0}টা · {1}', [bnDigits(sum.count), taka(sum.total)])),
       if (list.isEmpty)
         ListCard(rows: const [], empty: tr('এখনো কোনো বিক্রি নেই। ওপরের “নতুন বিক্রি” চাপুন।'))
       else
@@ -145,9 +145,9 @@ Widget saleRow(BuildContext context, Sale s) {
     key: Key('biz-sale-${s.id}'),
     leading: DateBlock(top: bnTime(s.at.hour, s.at.minute).split(' ').last, bottom: '#${bnDigits(s.no)}'),
     title: title,
-    subtitle: [s.pay.label, if (s.lines.isNotEmpty) trf('{0}টি পণ্য', [bnDigits(s.lines.length)])].join(' · '),
+    subtitle: [tr(s.pay.label), if (s.lines.isNotEmpty) trf('{0}টা পণ্য', [bnDigits(s.lines.length)])].join(' · '),
     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-      if (s.pay == SalePay.credit) ...[const WarnChip('বাকি'), const SizedBox(width: 6)],
+      if (s.pay == SalePay.credit) ...[WarnChip(tr('বাকি')), const SizedBox(width: 6)],
       Text(taka(s.total), style: body(14.5, weight: FontWeight.w600, color: C.green)),
     ]),
     onTap: () => showReceipt(context, s),
@@ -393,7 +393,7 @@ class _SellPageState extends State<SellPage> {
       child: Row(children: [
         Expanded(
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(count == 0 ? tr('কিছু বাছা হয়নি') : trf('{0}টি পণ্য', [bnDigits(count)]), style: body(12.5, color: C.muted)),
+            Text(count == 0 ? tr('কিছু বাছা হয়নি') : trf('{0}টা পণ্য', [bnDigits(count)]), style: body(12.5, color: C.muted)),
             Text(taka(_subtotal), key: const Key('biz-sell-subtotal'), style: display(24, weight: 600)),
           ]),
         ),
@@ -481,7 +481,7 @@ class _SellPageState extends State<SellPage> {
       if (widget.amountOnly)
         NumField(controller: _amount, label: tr('কত টাকার বিক্রি'), hint: '৳', fieldKey: const Key('biz-sell-amount-field'), onChanged: (_) => setState(() {}))
       else ...[
-        SectionHeading(tr('কার্ট'), counter: trf('{0}টি পণ্য', [bnDigits(_cart.length)]), link: tr('+ আরও পণ্য'), onLink: () => setState(() => _checkout = false)),
+        SectionHeading(tr('কার্ট'), counter: trf('{0}টা পণ্য', [bnDigits(_cart.length)]), link: tr('+ আরও পণ্য'), onLink: () => setState(() => _checkout = false)),
         ListCard(rows: [
           for (final l in _lines)
             ListRow(
@@ -550,7 +550,7 @@ class _SellPageState extends State<SellPage> {
             Text(taka(_total), key: const Key('biz-sell-total'), style: display(27, weight: 600)),
           ]),
           const SizedBox(height: 10),
-          PrimaryButton(key: const Key('biz-sell-done'), label: tr('বিক্রি সম্পন্ন'), icon: Icons.check_rounded, onPressed: _done),
+          PrimaryButton(key: const Key('biz-sell-done'), label: tr('বিক্রি হয়ে গেছে'), icon: Icons.check_rounded, onPressed: _done),
         ]),
       );
 }

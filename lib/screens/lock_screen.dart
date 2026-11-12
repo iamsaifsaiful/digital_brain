@@ -32,6 +32,9 @@ class _LockScreenState extends State<LockScreen> {
   String? _message;
   DateTime? _lockedUntil;
   bool _bioAvailable = false;
+
+  /// The PIN pad chosen over the fingerprint (owner, 13 Nov: the member picks).
+  bool _usePin = false;
   int _padKey = 0;
   bool _signing = false;
 
@@ -51,8 +54,8 @@ class _LockScreenState extends State<LockScreen> {
       _mode = has ? _Mode.unlock : (googleFirst && !brain.signedIn ? _Mode.google : _Mode.create);
       _bioAvailable = bio;
     });
-    // Not while a ringing reminder's page is open (or about to open).
-    if (bio && !brain.alarmOpen && brain.services.notifier.tapped.value == null) _biometric();
+    // No fingerprint prompt by itself (owner, 13 Nov: it felt forced): the
+    // member picks the fingerprint or the PIN, then that one is shown.
   }
 
   /// First step on a new phone: Google sign-in (the account, Pro bought on
@@ -115,6 +118,44 @@ class _LockScreenState extends State<LockScreen> {
           child: Text(tr('এখন না, পরে করব'), style: body(14, color: const Color(0xFFA9B5AF))),
         ),
       ]);
+
+  void _pickPin() => setState(() {
+        _usePin = true;
+        _message = null;
+      });
+
+  /// The fingerprint or the PIN, the member's pick (owner, 13 Nov): two
+  /// full-width buttons, the fingerprint first.
+  Widget _choose() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 28),
+      child: Column(children: [
+        SizedBox(
+          width: double.infinity,
+          height: 58,
+          child: FilledButton.icon(
+            key: const Key('lock-choose-finger'),
+            style: FilledButton.styleFrom(backgroundColor: C.mint, foregroundColor: C.night, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
+            onPressed: _biometric,
+            icon: const Icon(Icons.fingerprint_rounded, size: 26),
+            label: Text(tr('আঙুলের ছাপ দিয়ে খুলুন'), style: body(16, weight: FontWeight.w700, color: C.night)),
+          ),
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          width: double.infinity,
+          height: 58,
+          child: OutlinedButton.icon(
+            key: const Key('lock-choose-pin'),
+            style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: BorderSide(color: Colors.white.withValues(alpha: 0.22)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
+            onPressed: _pickPin,
+            icon: const Icon(Icons.dialpad_rounded, size: 22),
+            label: Text(tr('PIN দিয়ে খুলুন'), style: body(16, weight: FontWeight.w600, color: Colors.white)),
+          ),
+        ),
+      ]),
+    );
+  }
 
   Future<void> _biometric() async {
     final brain = BrainScope.read(context);
@@ -275,6 +316,8 @@ class _LockScreenState extends State<LockScreen> {
     final title = switch (_mode) {
       _Mode.create => tr('একটি ৪ অঙ্কের PIN ঠিক করুন'),
       _Mode.confirm => tr('PIN টি আবার দিন'),
+      // The two choices speak for themselves (owner, 13 Nov).
+      _Mode.unlock when _bioAvailable && !_usePin && _lockedUntil == null => '',
       _ => tr('PIN দিন'),
     };
     return Scaffold(
@@ -311,7 +354,7 @@ class _LockScreenState extends State<LockScreen> {
                     else
                       Column(
                         children: [
-                          Text(title, style: body(17, color: const Color(0xFFE4EAE7), weight: FontWeight.w500)),
+                          if (title.isNotEmpty) Text(title, style: body(17, color: const Color(0xFFE4EAE7), weight: FontWeight.w500)),
                           const SizedBox(height: 6),
                           SizedBox(
                             height: 44,
@@ -321,11 +364,14 @@ class _LockScreenState extends State<LockScreen> {
                                 ? null
                                 : Text(_message!, style: body(14, color: C.peach, weight: FontWeight.w600), textAlign: TextAlign.center),
                           ),
-                          PinPad(
-                            key: ValueKey(_padKey),
-                            onComplete: _entered,
-                            onBiometric: _mode == _Mode.unlock && _bioAvailable ? _biometric : null,
-                          ),
+                          if (_mode == _Mode.unlock && _bioAvailable && !_usePin && _lockedUntil == null)
+                            _choose()
+                          else
+                            PinPad(
+                              key: ValueKey(_padKey),
+                              onComplete: _entered,
+                              onBiometric: _mode == _Mode.unlock && _bioAvailable ? _biometric : null,
+                            ),
                           if (_mode == _Mode.unlock)
                             TextButton(
                               key: const Key('forgot-pin'),
@@ -361,15 +407,15 @@ class _LockScreenState extends State<LockScreen> {
                         ),
                       ),
                     const SizedBox(height: 24),
-                    Text(
-                      _mode == _Mode.google
-                          ? tr('ব্যাকআপ তালাবদ্ধ থাকে — Google একা বা আমরা একা খুলতে পারি না।')
-                          : _mode == _Mode.create || _mode == _Mode.confirm
-                          ? tr('PIN শুধু এই ফোনে, এনক্রিপ্ট করে রাখা হয়। ভুলে গেলে আঙুলের ছাপ বা একই Google অ্যাকাউন্ট দিয়ে নতুন PIN দেওয়া যাবে।')
-                          : tr('কিছুক্ষণ ব্যবহার না করলে অ্যাপ নিজে থেকে লক হয়ে যায়'),
-                      style: body(13, color: const Color(0xFFA9B5AF), height: 1.5),
-                      textAlign: TextAlign.center,
-                    ),
+                    // Nothing said under the unlock (owner, 13 Nov): only while setting up.
+                    if (_mode != _Mode.unlock && _mode != _Mode.loading)
+                      Text(
+                        _mode == _Mode.google
+                            ? tr('ব্যাকআপ তালাবদ্ধ থাকে — Google একা বা আমরা একা খুলতে পারি না।')
+                            : tr('PIN শুধু এই ফোনে, এনক্রিপ্ট করে রাখা হয়। ভুলে গেলে আঙুলের ছাপ বা একই Google অ্যাকাউন্ট দিয়ে নতুন PIN দেওয়া যাবে।'),
+                        style: body(13, color: const Color(0xFFA9B5AF), height: 1.5),
+                        textAlign: TextAlign.center,
+                      ),
                     // The company behind the app (owner, 28 Oct).
                     Padding(
                       padding: const EdgeInsets.only(top: 14),

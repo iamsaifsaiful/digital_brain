@@ -107,6 +107,11 @@ class _NewItemScreenState extends State<NewItemScreen> {
   Repeat _repeat = Repeat.none;
   String? _vaultLink;
 
+  /// A medicine reminder (owner, 13 Nov): the medicine's name and the times
+  /// of day it is taken, each a daily reminder. No medical record is kept.
+  bool _med = false;
+  final Set<int> _medTimes = {8 * 60, 21 * 60};
+
   /// "প্রতি সপ্তাহে": which days; "প্রতিদিন": which days left out (owner, 28 Oct).
   Set<int> _days = {};
   Set<int> _skip = {};
@@ -281,6 +286,27 @@ class _NewItemScreenState extends State<NewItemScreen> {
         _saved = true;
         done = tr('নোট রাখা হয়েছে');
       case ItemCategory.reminder:
+        if (_med) {
+          if (_medTimes.isEmpty) {
+            toast(context, tr('অন্তত একটা সময় বেছে নিন'));
+            return;
+          }
+          if (!await needPro(context, ProFeature.reminders, allowed: brain.canAddReminder)) return;
+          if (!mounted) return;
+          final name = _a.text.trim();
+          for (final m in (_medTimes.toList()..sort())) {
+            await brain.saveReminder(Reminder(
+              title: trf('{0} খাওয়ার সময়', [name]),
+              date: dayOnly(now),
+              hour: m ~/ 60,
+              minute: m % 60,
+              repeat: Repeat.daily,
+              note: _noteText.text.trim(),
+            ));
+          }
+          done = trf('{0} — প্রতিদিন {1} বার মনে করাব', [name, bnDigits(_medTimes.length)]);
+          break;
+        }
         final at = DateTime(_date.year, _date.month, _date.day, _time.hour, _time.minute);
         if (_repeat == Repeat.none && !at.isAfter(now)) {
           toast(context, tr('এই সময় পার হয়ে গেছে — তারিখ বা সময় বদলান'));
@@ -395,7 +421,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
               if (_cat != ItemCategory.ledger)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  child: PrimaryButton(label: tr('সেভ করুন'), icon: Icons.check_rounded, onPressed: _save),
+                  child: PrimaryButton(label: tr('রাখুন'), icon: Icons.check_rounded, onPressed: _save),
                 ),
             ],
           ),
@@ -636,7 +662,61 @@ class _NewItemScreenState extends State<NewItemScreen> {
   List<Widget> _reminderForm() {
     final brain = BrainScope.of(context);
     final vault = [...brain.data.vault]..sort((a, b) => a.name.compareTo(b.name));
+    String at(int m) => bnTime(m ~/ 60, m % 60);
     return [
+      // ওষুধ খাওয়ার রিমাইন্ডার: name and times only (owner, 13 Nov).
+      if (widget.reminder == null) ...[
+        Material(
+          color: _med ? C.greenTint : C.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: _med ? C.green : C.border)),
+          child: InkWell(
+            key: const Key('rem-med'),
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => setState(() => _med = !_med),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+              child: Row(children: [
+                Icon(Icons.medication_outlined, color: C.green),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(tr('ওষুধ খাওয়ার রিমাইন্ডার'), style: body(15, weight: FontWeight.w600)),
+                    Text(tr('নাম আর সময় দিন — প্রতিদিন মনে করাব'), style: body(12.5, color: C.muted)),
+                  ]),
+                ),
+                Switch(value: _med, onChanged: (v) => setState(() => _med = v)),
+              ]),
+            ),
+          ),
+        ),
+        _gap,
+      ],
+      if (_med) ...[
+        TextFormField(textCapitalization: TextCapitalization.sentences, controller: _a, decoration: InputDecoration(labelText: tr('ওষুধের নাম'), hintText: tr('যেমন: নাপা')), validator: _required),
+        _gap,
+        Text(tr('কখন কখন খাবেন?'), style: body(14, weight: FontWeight.w600, color: C.muted)),
+        const SizedBox(height: 6),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final m in {8 * 60, 14 * 60, 21 * 60, ..._medTimes}.toList()..sort())
+            FilterChip(
+              key: Key('rem-med-$m'),
+              label: Text(at(m), style: body(14)),
+              selected: _medTimes.contains(m),
+              onSelected: (on) => setState(() => on ? _medTimes.add(m) : _medTimes.remove(m)),
+            ),
+          ActionChip(
+            key: const Key('rem-med-other'),
+            avatar: Icon(Icons.add_rounded, size: 18, color: C.green),
+            label: Text(tr('অন্য সময়'), style: body(14)),
+            onPressed: () async {
+              final t = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 13, minute: 0));
+              if (t != null) setState(() => _medTimes.add(t.hour * 60 + t.minute));
+            },
+          ),
+        ]),
+        _gap,
+        TextFormField(textCapitalization: TextCapitalization.sentences, controller: _noteText, decoration: InputDecoration(labelText: tr('নোট (ঐচ্ছিক)'), hintText: tr('যেমন: খাবারের পরে, ১টা করে'))),
+      ] else ...[
       TextFormField(textCapitalization: TextCapitalization.sentences, controller: _a, decoration: InputDecoration(labelText: tr('কাজের নাম'), hintText: tr('যেমন: ডোমেইন রিনিউ')), validator: _required),
       _gap,
       Row(children: [
@@ -764,6 +844,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
           ],
           onChanged: (v) => setState(() => _vaultLink = v),
         ),
+      ],
       ],
     ];
   }

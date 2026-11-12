@@ -69,7 +69,7 @@ void main() {
       expect(ChatController.mainAnswer('না'), isFalse);
       expect(ChatController.mainAnswer('আলাদা রাখো'), isFalse);
       expect(ChatController.mainAnswer('যোগ করো না'), isFalse);
-      expect(ChatController.mainAnswer('অন্যান্য হিসাবের সব দাও'), isNull);
+      expect(ChatController.mainAnswer('আলাদা হিসাবের সব দাও'), isNull);
       expect(ChatController.mainAnswer('মিস্ত্রির বিল ৫০০ টাকা'), isNull);
     });
 

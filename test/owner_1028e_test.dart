@@ -29,7 +29,7 @@ void main() {
       await t.tap(find.textContaining('কতবার'));
       await settle(t);
       await pick();
-      await t.tap(find.text('সেভ করুন').last);
+      await t.tap(find.text('রাখুন').last);
       await settle(t);
       return b.data.reminders.firstWhere((r) => r.title == title);
     }
@@ -71,7 +71,7 @@ void main() {
       await t.tap(find.textContaining('কতবার'));
       await settle(t);
       await pick();
-      await t.tap(find.text('সেভ করুন').last);
+      await t.tap(find.text('রাখুন').last);
       await settle(t);
       return b.data.reminders.firstWhere((r) => r.title == title);
     }
@@ -104,7 +104,7 @@ void main() {
     final on = Habit(id: 'h', name: 'হাঁটা', askAt: 21 * 60, done: ['2026-10-29']);
     final n = assistantNotices(AppData(habits: [on]), now, const AssistantPrefs()).where((n) => n.reminderId.startsWith('nudge:habit:ask:')).toList();
     expect([for (final x in n) x.at], [DateTime(2026, 10, 28, 21), DateTime(2026, 10, 30, 21)], reason: '29 Oct is ticked already');
-    expect(n.first.title, 'হাঁটা — আজ করেছেন?');
+    expect(n.first.title, 'হাঁটা — আজ হয়েছে?');
     expect(Habit.fromJson(on.toJson()).askAt, 21 * 60);
   });
 }

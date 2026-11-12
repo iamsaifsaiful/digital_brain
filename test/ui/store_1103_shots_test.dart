@@ -22,7 +22,7 @@ void main() {
         await rig.brain.setLook(look);
         rig.brain.data = sample(rig.nowAt);
         await settle(t);
-        await t.tap(find.text('সংরক্ষণ').last);
+        await t.tap(find.text('আমার তথ্য').last);
         await settle(t);
         expect(find.byKey(const Key('store-notes')), findsOneWidget);
         // The passport in the sample runs out in 12 days.

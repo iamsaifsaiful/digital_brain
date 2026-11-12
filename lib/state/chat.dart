@@ -11,7 +11,9 @@ import '../nlu/samples.dart';
 import '../nlu/shadow.dart';
 import 'package:flutter/foundation.dart';
 
+import '../logic/examples.dart' show exampleInBangla;
 import '../logic/lang.dart';
+import '../logic/strings_en.dart' show enStrings;
 import '../logic/ai_map.dart' show answeredByAi;
 import '../logic/app_map.dart';
 import '../logic/ask.dart' show infoTopic;
@@ -842,6 +844,22 @@ class ChatController extends ChangeNotifier {
 
   /// One thing the user said, typed or tapped. Returns what to say aloud.
   Future<String> hear(String said, {bool echo = true}) async {
+    // One of the English app's own examples is understood as its Bangla
+    // original; what it adds is then named in English, as it was shown.
+    if (exampleInBangla(said.trim()) == said.trim()) return _hear(said, echo: echo);
+    final tasks = {for (final x in brain.data.tasks) x.id};
+    final reminders = {for (final x in brain.data.reminders) x.id};
+    final out = await _hear(said, echo: echo);
+    for (final x in [...brain.data.tasks.where((x) => !tasks.contains(x.id))]) {
+      if (enStrings[x.title] case final en?) await brain.saveTask(x.copyWith(title: en));
+    }
+    for (final x in [...brain.data.reminders.where((x) => !reminders.contains(x.id))]) {
+      if (enStrings[x.title] case final en?) await brain.saveReminder(x.copyWith(title: en));
+    }
+    return out;
+  }
+
+  Future<String> _hear(String said, {bool echo = true}) async {
     final shown = said.trim();
     if (shown.isEmpty) return '';
     // "…, না আর বলতে চাই না": the closing words only say the person is done
@@ -852,7 +870,8 @@ class ChatController extends ChangeNotifier {
     // first, so every rule below reads one language (the bubble keeps the words as said).
     // Banglish names: a person already in ধার-দেনা or contacts by sound (owner, 29 Oct).
     final names = {for (final e in brain.data.ledger) e.person, for (final c in brain.data.contacts) c.name};
-    final t = shortOrdinal(standardSpeech(meantInstead(doneTail && body.isNotEmpty ? body : shown), names: names));
+    // One of the English app's own examples: understood as its Bangla original.
+    final t = shortOrdinal(standardSpeech(meantInstead(exampleInBangla(doneTail && body.isNotEmpty ? body : shown)), names: names));
     if (doneTail) Trace.log('understood', 'closing words left out', {'kept': t});
     ended = false;
     _turn++;
@@ -1343,7 +1362,7 @@ class ChatController extends ChangeNotifier {
       // Only "অন্যান্য হিসাবে": which account is asked first.
       _moveCashId = e.id;
       final open = brain.data.projects.where((x) => !x.closed).toList();
-      _ask(out, trf('{0} টাকার “{1}” অন্যান্য হিসাবের কোনটায় সরাব? বেছে নিন, বা নতুন নাম বলুন।', [bnNumber(e.amount), e.category]), ChatWait.project,
+      _ask(out, trf('{0} টাকার “{1}” আলাদা হিসাবের কোনটায় সরাব? বেছে নিন, বা নতুন নাম বলুন।', [bnNumber(e.amount), e.category]), ChatWait.project,
           choices: [for (final x in open.take(5)) ChatChoice(x.name, x.name)]);
       return true;
     }
@@ -1358,10 +1377,11 @@ class ChatController extends ChangeNotifier {
 
   /// The answer to "মূল হিসাবেও যোগ হবে?": a plain yes or no, or "যোগ করো" /
   /// "আলাদা রাখো"; anything else is not an answer (null).
+  /// "আলাদা হিসাব" is the page's name (owner, 13 Nov), not "keep it apart".
   static bool? mainAnswer(String said) {
     final f = said.trim().toLowerCase().replaceAll(RegExp(r'[,।!.?]+'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
     if (f.isEmpty || f.split(' ').length > 5) return null;
-    if (RegExp(r'^(?:না|নাহ|জি না|no)(?: |$)').hasMatch(f) || RegExp(r'^(?:আলাদা|যোগ কর(?:ো|বে|বেন|িও)? না|যোগ হবে না)').hasMatch(f)) return false;
+    if (RegExp(r'^(?:না|নাহ|জি না|no)(?: |$)').hasMatch(f) || RegExp(r'^(?:আলাদা(?! হিসাব)|যোগ কর(?:ো|বে|বেন|িও)? না|যোগ হবে না)').hasMatch(f)) return false;
     if (RegExp(r'^(?:হ্যাঁ|হ্যা|হাঁ|হা|জি|জ্বি|ঠিক আছে|আচ্ছা|yes|ok|okay)(?: |$)').hasMatch(f) || RegExp(r'^যোগ (?:করো|কর|করুন|করেন|হবে)$').hasMatch(f)) return true;
     return null;
   }
@@ -1376,7 +1396,7 @@ class ChatController extends ChangeNotifier {
 
   Future<bool> _moveCash(CashEntry e, Project p, List<String> out) async {
     if (!brain.canUseProject(p.id)) {
-      _say(out, tr('ফ্রিতে ১টা অন্যান্য হিসাবে লেখা যায়; এর বেশি প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
+      _say(out, tr('ফ্রিতে ১টা আলাদা হিসাবে লেখা যায়; এর বেশি প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
       return true;
     }
     final snap = brain.snapshot();
@@ -1389,7 +1409,7 @@ class ChatController extends ChangeNotifier {
             ? trf('‘{0}’-এ এখন হাতে আছে {1} টাকা।', [p.name, bnNumber(ps.balance)])
             : trf('‘{0}’-এ আসার চেয়ে {1} টাকা বেশি খরচ হয়েছে।', [p.name, bnNumber(-ps.balance)]);
     _say(out, trf('ঠিক আছে, {0} টাকার “{1}” এখন ‘{2}’ হিসাবে — সাধারণ আয়-ব্যয় থেকে সরিয়েছি। {3}', [bnNumber(e.amount), e.category, p.name, state]),
-        links: [ChatLink(LinkKind.page, tr('অন্যান্য হিসাব'), page: 'projects')]);
+        links: [ChatLink(LinkKind.page, tr('আলাদা হিসাব'), page: 'projects')]);
     _offerUndo(snap);
     return true;
   }
@@ -1638,7 +1658,7 @@ class ChatController extends ChangeNotifier {
       found = [for (final t in targetsIn(brain.data, _now)) if (!_idsBeforeSave.contains(t.id)) t].take(1).toList();
     }
     if (found.isEmpty) found = findTargets(brain.data, c.transcript, _now);
-    final verb = c.action == 'delete' ? tr('মুছবো') : (c.action == 'stop' ? tr('বন্ধ করবো') : tr('বদলাবো'));
+    final verb = c.action == 'delete' ? tr('মুছব') : (c.action == 'stop' ? tr('বন্ধ করব') : tr('বদলাব'));
     if (c.action == 'stop') found = [for (final t in found) if (t.kind == ItemKind.reminder && (brain.data.reminders.where((r) => r.id == t.id).firstOrNull?.enabled ?? false)) t];
     final kind = kindNamed(text);
     if (found.isEmpty) {
@@ -1669,11 +1689,11 @@ class ChatController extends ChangeNotifier {
     final c = _current as ManageItem;
     _target = t;
     if (c.action == 'delete') {
-      _ask(out, trf('“{0}” মুছে দেবো?', [t.label]), ChatWait.yesNo, choices: _yesNoChoices);
+      _ask(out, trf('“{0}” মুছে দেব?', [t.label]), ChatWait.yesNo, choices: _yesNoChoices);
       return;
     }
     if (c.action == 'stop') {
-      _ask(out, trf('“{0}” বন্ধ করে দেবো? মুছবে না, পরে আবার চালু করা যাবে।', [t.label]), ChatWait.yesNo, choices: _yesNoChoices);
+      _ask(out, trf('“{0}” বন্ধ করে দেব? মুছবে না, পরে আবার চালু করা যাবে।', [t.label]), ChatWait.yesNo, choices: _yesNoChoices);
       return;
     }
     _change = changeIn(t, c.transcript, _now);
@@ -1706,7 +1726,7 @@ class ChatController extends ChangeNotifier {
     final now = _change.amount != null
         ? trf('{0} টাকা', [bnNumber(_change.amount!)])
         : (_change.at != null && t.kind == ItemKind.reminder ? sayWhen(_change.at!, _now) : sayWhen(_change.day!, _now, withTime: false));
-    _ask(out, trf('“{0}” বদলে {1} করে দেবো?', [t.label, now]), ChatWait.yesNo, choices: _yesNoChoices);
+    _ask(out, trf('“{0}” বদলে {1} করে দেব?', [t.label, now]), ChatWait.yesNo, choices: _yesNoChoices);
   }
 
   String? _pageOf(ItemKind k) => switch (k) {
@@ -1889,7 +1909,7 @@ class ChatController extends ChangeNotifier {
       // A complaint right after an account was asked for: that offer again.
       final want = _accountWanted;
       if (c is SmallTalk && c.kind == Talk.sorry && want != null && _now.difference(want.$2).inMinutes <= 15 && projectByName(brain.data, want.$1) == null) {
-        _ask(out, trf('আপনি ‘{0}’ নামে আলাদা হিসাব চেয়েছিলেন — অন্যান্য হিসাবে খুলে দিই?', [want.$1]), ChatWait.newAccount, choices: [ChatChoice(tr('হ্যাঁ, খুলে দাও'), 'হ্যাঁ'), ChatChoice(tr('না'), 'না')]);
+        _ask(out, trf('আপনি ‘{0}’ নামে আলাদা হিসাব চেয়েছিলেন — আলাদা হিসাবে খুলে দিই?', [want.$1]), ChatWait.newAccount, choices: [ChatChoice(tr('হ্যাঁ, খুলে দাও'), 'হ্যাঁ'), ChatChoice(tr('না'), 'না')]);
       }
       // "আমি কথা বললে তুমি থেমে শুনবা": the setting itself is turned on.
       if (c is SmallTalk && c.kind == Talk.listenOverMe && !brain.bargeIn) await brain.setBargeIn(true);
@@ -2013,6 +2033,8 @@ class ChatController extends ChangeNotifier {
   void _say(List<String> out, String text,
       {List<String> facts = const [], List<VaultItem> vault = const [], List<ChatLink> links = const [], bool speak = true}) {
     if (text.isEmpty) return;
+    // Sentences pieced together from Bangla parts end with "।"; English with ".".
+    if (isEn) text = text.replaceAll('।', '.');
     messages.add(ChatMessage.app(text, facts: facts, vault: vault, links: links));
     if (speak) out.add(speakableNumbers(text));
   }
@@ -2139,7 +2161,7 @@ class ChatController extends ChangeNotifier {
               choices: _yesNoChoices, facts: [for (final t in gone.take(8)) t.title]);
           return;
         }
-        _ask(out, trf('{0} সব — {1}টা কাজ মুছে দেবো?', [whose, bnDigits(gone.length)]), ChatWait.yesNo,
+        _ask(out, trf('{0} সব — {1}টা কাজ মুছে দেব?', [whose, bnDigits(gone.length)]), ChatWait.yesNo,
             choices: _yesNoChoices, facts: [for (final t in gone.take(8)) t.title]);
       case TaskAdd():
         if (c.title.trim().isEmpty) {
@@ -2308,7 +2330,7 @@ class ChatController extends ChangeNotifier {
         if (c.project != null && c.project!.trim().isEmpty) {
           // Which account (folder) is always asked; a new name opens a new one.
           final open = brain.data.projects.where((p) => !p.closed).toList();
-          _ask(out, open.isEmpty ? tr('কোন নামে অন্যান্য হিসাব খুলে লিখব? নামটা বলুন।') : tr('অন্যান্য হিসাবের কোনটায় লিখব? বেছে নিন, বা নতুন নাম বলুন।'), ChatWait.project,
+          _ask(out, open.isEmpty ? tr('কোন নামে আলাদা হিসাব খুলে লিখব? নামটা বলুন।') : tr('আলাদা হিসাবের কোনটায় লিখব? বেছে নিন, বা নতুন নাম বলুন।'), ChatWait.project,
               choices: [for (final p in open.take(5)) ChatChoice(p.name, p.name)]);
           return;
         }
@@ -2316,7 +2338,7 @@ class ChatController extends ChangeNotifier {
         // income-expense on its own — asked, and nothing is kept without a yes.
         if (c.project != null && projectByName(brain.data, c.project!) == null && !brain.canAddProject) {
           _current = CashAdd(c.transcript, kind: c.kind, amount: c.amount, category: c.category);
-          _ask(out, trf('নতুন হিসাব “{0}” খোলা প্রিমিয়াম সুবিধা (ফ্রিতে ১টা অন্যান্য হিসাব), তাই ওখানে লিখতে পারছি না। {1} টাকা সাধারণ আয়-ব্যয়ে লিখব, নাকি এখন রাখব না?', [c.project!, bnNumber(c.amount)]), ChatWait.yesNo,
+          _ask(out, trf('নতুন হিসাব “{0}” খোলা প্রিমিয়াম সুবিধা (ফ্রিতে ১টা আলাদা হিসাব), তাই ওখানে লিখতে পারছি না। {1} টাকা সাধারণ আয়-ব্যয়ে লিখব, নাকি এখন রাখব না?', [c.project!, bnNumber(c.amount)]), ChatWait.yesNo,
               choices: [ChatChoice(tr('সাধারণ আয়-ব্যয়ে লিখুন'), 'হ্যাঁ'), ChatChoice(tr('রাখবেন না'), 'না')]);
           return;
         }
@@ -2373,8 +2395,8 @@ class ChatController extends ChangeNotifier {
           return;
         }
         _ask(out, c.hour == null
-            ? trf('{0}, {1} — প্রতি বছর আগের দিন আর সেদিন সকালে মনে করিয়ে দেবো?', [what, when])
-            : trf('{0}, {1} — প্রতি বছর আগের দিন আর সেদিন {2}-এ মনে করিয়ে দেবো?', [what, when, bnTime(c.hour!, c.minute)]), ChatWait.yesNo, choices: _yesNoChoices);
+            ? trf('{0}, {1} — প্রতি বছর আগের দিন আর সেদিন সকালে মনে করিয়ে দেব?', [what, when])
+            : trf('{0}, {1} — প্রতি বছর আগের দিন আর সেদিন {2}-এ মনে করিয়ে দেব?', [what, when, bnTime(c.hour!, c.minute)]), ChatWait.yesNo, choices: _yesNoChoices);
       default:
         await _done(out);
     }
@@ -2614,7 +2636,7 @@ class ChatController extends ChangeNotifier {
     final src = _src!;
     if (_person.isEmpty) {
       final known = knownPeople(brain.data.ledger).take(4);
-      _ask(out, tr('টাকার হিসাব লেনদেনের খাতায় রাখি। কার সাথে লেনদেন হলো? নামটা বলেন।'), ChatWait.name, choices: [
+      _ask(out, tr('টাকার হিসাব লেনদেনের খাতায় রাখি। কার সাথে লেনদেন হলো? নামটা বলুন।'), ChatWait.name, choices: [
         for (final k in known) ChatChoice(k, k),
         if (src.allowExpense) ChatChoice(tr('নিজের খরচ'), 'অন্য খরচ'),
       ]);
@@ -2634,7 +2656,7 @@ class ChatController extends ChangeNotifier {
       }
     }
     if (_amount <= 0) {
-      _ask(out, trf('{0} নিয়ে কত টাকার কথা? অঙ্কটা বলেন।', [toPerson(_person)]), ChatWait.amount);
+      _ask(out, trf('{0} নিয়ে কত টাকার কথা? অঙ্কটা বলুন।', [toPerson(_person)]), ChatWait.amount);
       return;
     }
     if (!_phoneChecked) {
@@ -2732,13 +2754,13 @@ class ChatController extends ChangeNotifier {
 
   String _clarifyQuestion(List<LedgerKind> o, bool allowExpense) {
     if (o.contains(LedgerKind.repaid) && allowExpense) {
-      return tr('একটু বুঝিয়ে বলেন — এটা কি আগের দেনা শোধ করলেন, নাকি নতুন করে ধার দিলেন? নাকি অন্য কোনো খরচ?');
+      return tr('একটু বুঝিয়ে বলুন — এটা কি আগের দেনা শোধ করলেন, নাকি নতুন করে ধার দিলেন? নাকি অন্য কোনো খরচ?');
     }
     if (o.contains(LedgerKind.received) && o.contains(LedgerKind.borrowed) && !o.contains(LedgerKind.repaid)) {
-      if (_person.isNotEmpty) return trf('একটু বুঝিয়ে বলেন — {0} কি আগের টাকা ফেরত দিলেন, নাকি আপনি নতুন করে ধার নিলেন?', [_person]);
-      return tr('একটু বুঝিয়ে বলেন — উনি কি আগের টাকা ফেরত দিলেন, নাকি আপনি নতুন করে ধার নিলেন?');
+      if (_person.isNotEmpty) return trf('একটু বুঝিয়ে বলুন — {0} কি আগের টাকা ফেরত দিলেন, নাকি আপনি নতুন করে ধার নিলেন?', [_person]);
+      return tr('একটু বুঝিয়ে বলুন — উনি কি আগের টাকা ফেরত দিলেন, নাকি আপনি নতুন করে ধার নিলেন?');
     }
-    return tr('একটু বুঝিয়ে বলেন — এটা কোন ধরনের লেনদেন?');
+    return tr('একটু বুঝিয়ে বলুন — এটা কোন ধরনের লেনদেন?');
   }
 
   /// A long new sentence instead of an answer.
@@ -2771,7 +2793,7 @@ class ChatController extends ChangeNotifier {
     final f = fold(normalize(said));
     if (!RegExp(fold(r'কবে.*(?:রক্ত|ব্লাড)\s+(?:দিতে|দেওয়া|দেয়া)|(?:রক্ত|ব্লাড)\s+(?:দিতে|দেওয়া|দেয়া)\s+(?:পারব|পারবো|যাবে|পারি).*কবে|আবার\s+কবে\s+(?:রক্ত|ব্লাড)')).hasMatch(f)) return null;
     final last = DateTime.tryParse(brain.text('blood_last'));
-    if (last == null) return tr('শেষ কবে রক্ত দিয়েছেন জানা নেই। বলুন, যেমন “শেষ রক্ত দিয়েছি ১০ আগস্ট” — তিন মাস পরের দিনটা বলে দেবো।');
+    if (last == null) return tr('শেষ কবে রক্ত দিয়েছেন জানা নেই। বলুন, যেমন “শেষ রক্ত দিয়েছি ১০ আগস্ট” — তিন মাস পরের দিনটা বলে দেব।');
     final next = DateTime(last.year, last.month + 3, last.day);
     final today = dayOnly(_now);
     return next.isAfter(today)
@@ -3270,7 +3292,7 @@ class ChatController extends ChangeNotifier {
         final yn = refused ? false : yesNo(t);
         if (yn == null) {
           if (_looksNew(t)) return false;
-          _say(out, tr('ঠিক ধরতে পারিনি। “হ্যাঁ” বা “না” বলেন।'));
+          _say(out, tr('ঠিক ধরতে পারিনি। “হ্যাঁ” বা “না” বলুন।'));
           return true;
         }
         wait = ChatWait.none;
@@ -3315,7 +3337,7 @@ class ChatController extends ChangeNotifier {
         }
         final n = spokenName(t, knownPeople(brain.data.ledger));
         if (n.isEmpty) {
-          _say(out, tr('নামটা ধরতে পারিনি। আবার বলেন।'));
+          _say(out, tr('নামটা ধরতে পারিনি। আবার বলুন।'));
           return true;
         }
         _person = n;
@@ -3522,7 +3544,7 @@ class ChatController extends ChangeNotifier {
         final a = findAmount(normalize(t));
         if (a == null || a <= 0) {
           if (_looksNew(t)) return false;
-          _say(out, tr('টাকার অঙ্কটা ধরতে পারিনি। আবার বলেন।'));
+          _say(out, tr('টাকার অঙ্কটা ধরতে পারিনি। আবার বলুন।'));
           return true;
         }
         wait = ChatWait.none;
@@ -3538,14 +3560,14 @@ class ChatController extends ChangeNotifier {
         // "নির্দেশনা কি দিই, আর উত্তর কি দাও": a complaint, not a yes.
         if (aboutTheAssistant(t) == AboutMe.complaint) {
           final name = _accountWanted?.$1 ?? '';
-          _ask(out, trf('দুঃখিত, আগে ঠিক উত্তর দিইনি। আপনি ‘{0}’ নামে আলাদা হিসাব চেয়েছেন — অন্যান্য হিসাবে খুলে দিই?', [name]), ChatWait.newAccount,
+          _ask(out, trf('দুঃখিত, আগে ঠিক উত্তর দিইনি। আপনি ‘{0}’ নামে আলাদা হিসাব চেয়েছেন — আলাদা হিসাবে খুলে দিই?', [name]), ChatWait.newAccount,
               choices: [ChatChoice(tr('হ্যাঁ, খুলে দাও'), 'হ্যাঁ'), ChatChoice(tr('না'), 'না')]);
           return true;
         }
         final yn = yesNo(t);
         if (yn == null) {
           if (_looksNew(t)) return false;
-          _say(out, tr('খুলে দেবো কিনা — হ্যাঁ বা না বলুন।'));
+          _say(out, tr('খুলে দেব কিনা — হ্যাঁ বা না বলুন।'));
           return true;
         }
         wait = ChatWait.none;
@@ -3571,7 +3593,7 @@ class ChatController extends ChangeNotifier {
           final known = projectByName(brain.data, name);
           final p = known != null ? (brain.canUseProject(known.id) ? known : null) : (brain.canAddProject ? await brain.projectNamed(name) : null);
           if (p == null) {
-            _say(out, tr('ফ্রিতে ১টা অন্যান্য হিসাবে লেখা যায়; এর বেশি প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'));
+            _say(out, tr('ফ্রিতে ১টা আলাদা হিসাবে লেখা যায়; এর বেশি প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'));
             return true;
           }
           final moved = await _moveCash(e, p, out);
@@ -3604,7 +3626,7 @@ class ChatController extends ChangeNotifier {
         final choice = pick ?? (yesNo(t) == true ? src.suggested?.name : null);
         if (choice == null) {
           if (_looksNew(t)) return false;
-          _say(out, tr('ঠিক ধরতে পারিনি। একটা বেছে নিন, বা বলেন — যেমন “শোধ” বা “নতুন ধার”।'));
+          _say(out, tr('ঠিক ধরতে পারিনি। একটা বেছে নিন, বা বলুন — যেমন “শোধ” বা “নতুন ধার”।'));
           return true;
         }
         wait = ChatWait.none;
@@ -3750,7 +3772,7 @@ class ChatController extends ChangeNotifier {
     final p = projectHinted(brain.data, t);
     if (p == null) return false;
     if (!brain.canUseProject(p.id)) {
-      _say(out, tr('ফ্রিতে ১টা অন্যান্য হিসাবে লেখা যায়; এর বেশি প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
+      _say(out, tr('ফ্রিতে ১টা আলাদা হিসাবে লেখা যায়; এর বেশি প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
       return true;
     }
     final amount = findAmount(normalize(t));
@@ -3771,7 +3793,7 @@ class ChatController extends ChangeNotifier {
     }
     final snap = brain.snapshot();
     await brain.saveCash(CashEntry(id: pick.id, kind: pick.kind, amount: pick.amount, category: pick.category, note: pick.note, date: pick.date, projectId: p.id, accountId: pick.accountId, shopId: pick.shopId));
-    _say(out, trf('{0} টাকার এন্ট্রিটা ‘{1}’ হিসাবে সরিয়েছি — নতুন করে কিছু যোগ হয়নি।', [bnNumber(pick.amount), p.name]), links: [ChatLink(LinkKind.page, tr('অন্যান্য হিসাব'), page: 'projects')]);
+    _say(out, trf('{0} টাকার এন্ট্রিটা ‘{1}’ হিসাবে সরিয়েছি — নতুন করে কিছু যোগ হয়নি।', [bnNumber(pick.amount), p.name]), links: [ChatLink(LinkKind.page, tr('আলাদা হিসাব'), page: 'projects')]);
     _offerUndo(snap);
     return true;
   }
@@ -3895,7 +3917,7 @@ class ChatController extends ChangeNotifier {
     _current = ManageItem(t, action: 'edit');
     if (hits.length > 1) {
       _targets = hits;
-      _ask(out, trf('কয়েকটা মিলেছে — কোনটা {0}?', [tr('বদলাবো')]), ChatWait.whichItem,
+      _ask(out, trf('কয়েকটা মিলেছে — কোনটা {0}?', [tr('বদলাব')]), ChatWait.whichItem,
           facts: [for (var i = 0; i < hits.length; i++) '${bnDigits(i + 1)}. ${hits[i].label}'],
           choices: [for (var i = 0; i < hits.length; i++) ChatChoice(bnDigits(i + 1), '${i + 1}')]);
       return true;
@@ -4117,7 +4139,7 @@ class ChatController extends ChangeNotifier {
           _history.add(AiTurn.app('[রিমাইন্ডার রাখা হলো, কিন্তু নোটিফিকেশন বন্ধ: ${summaryLine(c)}]'));
           break;
         }
-        final what = c.needsTitle ? '' : '“${c.title}” ';
+        final what = c.needsTitle ? '' : '“${tr(c.title)}” ';
         final again = c.repeat == Repeat.none || c.repeat.isInterval || c.repeat == Repeat.daily ? '' : ', ${c.repeat.label}';
         // "রবিবার থেকে বৃহস্পতিবার": the days said back, not "প্রতি সপ্তাহে".
         final days = c.repeat == Repeat.weekly && c.weekdays.length >= 2
@@ -4144,7 +4166,7 @@ class ChatController extends ChangeNotifier {
         if (c.project != null) {
           if (!brain.canUseProjectNamed(c.project!)) {
             // Past the free one: nothing is written anywhere else unasked.
-            _say(out, trf('ফ্রিতে ১টা অন্যান্য হিসাব; “{0}”-এ লেখা প্রিমিয়াম সুবিধা, তাই কিছু লিখিনি। সাধারণ আয়-ব্যয়ে চাইলে বলুন।', [c.project!]), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
+            _say(out, trf('ফ্রিতে ১টা আলাদা হিসাব; “{0}”-এ লেখা প্রিমিয়াম সুবিধা, তাই কিছু লিখিনি। সাধারণ আয়-ব্যয়ে চাইলে বলুন।', [c.project!]), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
             await _done(out);
             return;
           } else {
@@ -4252,12 +4274,12 @@ class ChatController extends ChangeNotifier {
         await brain.setPref('blood_last', day.toIso8601String());
         final next = DateTime(day.year, day.month + 3, day.day);
         _say(out, trf('রেখে দিলাম — শেষ রক্ত দিয়েছেন {0}। আবার দিতে পারবেন {1} থেকে।', [fullDate(day), fullDate(next)]),
-            links: [ChatLink(LinkKind.page, tr('ব্লাড ডোনেশন'), page: 'requests')], speak: !quiet);
+            links: [ChatLink(LinkKind.page, tr('রক্তদান'), page: 'requests')], speak: !quiet);
         _history.add(AiTurn.app(tr('[শেষ রক্তদানের দিন রাখা হলো]')));
       case ProfileSet() when c.field == 'height':
         final cm = double.parse(c.value);
         final whose = await brain.setHeight(c.who, cm);
-        _say(out, trf('রেখে দিলাম — {0} উচ্চতা {1}। ওজন বললে BMI-ও বলে দিতে পারবো।', [whose, heightText(cm)]),
+        _say(out, trf('রেখে দিলাম — {0} উচ্চতা {1}। ওজন বললে BMI-ও বলে দিতে পারব।', [whose, heightText(cm)]),
             links: [ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন'))], speak: !quiet);
         _history.add(AiTurn.app(tr('[উচ্চতা রাখা হলো]')));
       case ProfileSet():
@@ -4276,7 +4298,7 @@ class ChatController extends ChangeNotifier {
             minute: c.minute);
         _lastSpecial = (saved.id, _now);
         final moved = same != null ? trf('বদলে দিলাম — এখন {0} {1}। ', [bnDigits(c.day), monthName(c.month)]) : tr('রেখে দিলাম। ');
-        _say(out, quiet ? trf('বিশেষ দিন: {0}', [c.person]) : moved + trf('প্রতি বছর আগের দিন আর সেদিন {0}-এ মনে করিয়ে দেবো।', [bnTime(c.hour ?? 9, c.minute)]),
+        _say(out, quiet ? trf('বিশেষ দিন: {0}', [c.person]) : moved + trf('প্রতি বছর আগের দিন আর সেদিন {0}-এ মনে করিয়ে দেব।', [bnTime(c.hour ?? 9, c.minute)]),
             links: [ChatLink(LinkKind.special, tr('বিশেষ দিনগুলো দেখুন'))], speak: !quiet);
         _history.add(AiTurn.app('[বিশেষ দিন রাখা হলো: ${summaryLine(c)}]'));
       default:

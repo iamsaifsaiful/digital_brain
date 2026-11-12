@@ -25,7 +25,7 @@ enum ReportPart {
   reminders('তারিখ ও রিমাইন্ডার', 'reminders'),
   money('আয়-ব্যয়', 'income-expense'),
   ledger('ধার-দেনা', 'loans'),
-  projects('অন্যান্য হিসাব', 'separate-accounts'),
+  projects('আলাদা হিসাব', 'separate-accounts'),
   accounts('অ্যাকাউন্ট, সঞ্চয় ও কিস্তি', 'accounts'),
   shops('দোকান', 'shops'),
   notes('নোট ও অন্যান্য', 'notes'),
@@ -341,7 +341,7 @@ void _ledger(_Doc doc, AppData d, String? onlyKey) {
 
 void _projects(_Doc doc, AppData d, String? onlyId) {
   final ps = [for (final p in d.projects) if (onlyId == null || p.id == onlyId) p];
-  if (ps.isEmpty) return doc.none(tr('অন্যান্য হিসাব'));
+  if (ps.isEmpty) return doc.none(tr('আলাদা হিসাব'));
   if (onlyId == null && ps.length > 1) {
     doc.table(
       [tr('হিসাব'), tr('আয়'), tr('খরচ'), tr('বাকি')],
@@ -368,7 +368,7 @@ void _projects(_Doc doc, AppData d, String? onlyId) {
     final dues = [for (final x in projectDues(d, p.id)) if (!x.settled) x];
     if (dues.isNotEmpty) {
       final (owed, owing) = projectDueTotals(d, p.id);
-      doc.p(trf('বকেয়া — পাবো {0}, দেবো {1}', [taka(owed), taka(owing)]));
+      doc.p(trf('বকেয়া — পাব {0}, দেব {1}', [taka(owed), taka(owing)]));
       final keys = accountKeys(d.ledger.where((e) => e.projectId == p.id));
       String what(PersonBalance x) => {
             for (final e in d.ledger)
@@ -383,7 +383,7 @@ void _projects(_Doc doc, AppData d, String? onlyId) {
       }
 
       doc.table(
-        [tr('নাম'), tr('কী বাবদ'), tr('পরিশোধ'), tr('পাবো'), tr('দেবো')],
+        [tr('নাম'), tr('কী বাবদ'), tr('পরিশোধ'), tr('পাব'), tr('দেব')],
         [
           for (final x in dues)
             [x.name, what(x), due(x), x.balance > 0 ? cell(taka(x.balance), tone: 'g', bold: true) : '', x.balance < 0 ? cell(taka(-x.balance), tone: 'o', bold: true) : ''],
@@ -489,13 +489,13 @@ void _notes(_Doc doc, AppData d) {
       if (n.body.trim().isNotEmpty && n.body.trim() != n.title.trim()) doc.p(n.body.trim());
       doc.p(
           [
-            trf('হালনাগাদ: {0}', [_d(n.updatedAt)]),
-            if (n.files.isNotEmpty) trf('সাথে {0}টি ফাইল (অ্যাপে আছে)', [bnDigits(n.files.length)]),
+            trf('আপডেট: {0}', [_d(n.updatedAt)]),
+            if (n.files.isNotEmpty) trf('সাথে {0}টা ফাইল (অ্যাপে আছে)', [bnDigits(n.files.length)]),
           ].join(' · '),
           muted: true);
     }
   }
-  if (hidden > 0) doc.p(trf('গোপন তথ্য (পাসওয়ার্ড/PIN) থাকা {0}টি নোট এই PDF-এ রাখা হয়নি।', [bnDigits(hidden)]), muted: true);
+  if (hidden > 0) doc.p(trf('গোপন তথ্য (পাসওয়ার্ড/PIN) থাকা {0}টা নোট এই PDF-এ রাখা হয়নি।', [bnDigits(hidden)]), muted: true);
 }
 
 void _contacts(_Doc doc, AppData d) {
@@ -604,7 +604,7 @@ void _health(_Doc doc, AppData d, DateTime now, String userName) {
             [x.name, if (x.note.isNotEmpty) '(${x.note})'].join(' '),
             bnDigits(x.dose),
             x.times.map((t) => bnTime(t ~/ 60, t % 60)).join(', '),
-            x.stock <= 0 ? '—' : (x.daysLeft == null ? bnDigits(x.stock) : trf('{0}টি (~{1} দিন)', [bnDigits(x.stock), bnDigits(x.daysLeft!)])),
+            x.stock <= 0 ? '—' : (x.daysLeft == null ? bnDigits(x.stock) : trf('{0}টা (~{1} দিন)', [bnDigits(x.stock), bnDigits(x.daysLeft!)])),
             x.until == null ? '—' : _d(x.until!),
           ],
       ],
@@ -676,7 +676,7 @@ void _shops(_Doc doc, AppData d, DateTime now, String? onlyId) {
     }
     final owing = shopCustomersOwing(d, shop);
     if (owing.isNotEmpty) {
-      doc.table([tr('কাস্টমার'), tr('বাকি')], [for (final p in owing) [p.name, cell(taka(p.balance), tone: 'o', bold: true)]], w: [5, 2], a: ['l', 'r']);
+      doc.table([tr('গ্রাহক'), tr('বাকি')], [for (final p in owing) [p.name, cell(taka(p.balance), tone: 'o', bold: true)]], w: [5, 2], a: ['l', 'r']);
     }
   }
 }

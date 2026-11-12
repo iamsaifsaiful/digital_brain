@@ -57,7 +57,7 @@ class MoneyScreenState extends State<MoneyScreen> {
     return Stack(children: [
       TabPages<MoneyPart>(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
-      items: [(MoneyPart.cash, tr('আয়-ব্যয়')), (MoneyPart.loans, tr('ধার-দেনা')), (MoneyPart.projects, tr('অন্যান্য হিসাব'))],
+      items: [(MoneyPart.cash, tr('আয়-ব্যয়')), (MoneyPart.loans, tr('ধার-দেনা')), (MoneyPart.projects, tr('আলাদা হিসাব'))],
       value: _part,
       onChanged: show,
       top: (tabs) => [
@@ -219,52 +219,66 @@ class MoneyScreenState extends State<MoneyScreen> {
           onAction: () => push(const LedgerFormScreen()),
         )
       else ...[
-        const SizedBox(height: 6),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(children: [
-            for (final (k, label) in [
-              ('all', trf('সবাই · {0}', [bnDigits(people.length)])),
-              ('get', trf('পাব · {0}', [bnDigits(getN)])),
-              ('give', trf('দেব · {0}', [bnDigits(giveN)])),
-              ('done', trf('শোধ · {0}', [bnDigits(doneN)])),
-            ]) ...[
-              ChoiceChip(key: Key('loans-$k'), label: Text(label), selected: _who == k, showCheckmark: false, onSelected: (_) => setState(() => _who = k)),
-              const SizedBox(width: 6),
-            ],
-          ]),
+        // Who to show sits behind ⋮ (owner, 13 Nov), so the list shows whole.
+        FilterTitle<String>(
+          trf('মানুষ · {0}', [bnDigits(shown.length)]),
+          menuKey: const ValueKey('loans-filter'),
+          items: [
+            ('all', trf('সবাই · {0}', [bnDigits(people.length)]), const Key('loans-all')),
+            ('get', trf('পাব · {0}', [bnDigits(getN)]), const Key('loans-get')),
+            ('give', trf('দেব · {0}', [bnDigits(giveN)]), const Key('loans-give')),
+            ('done', trf('শোধ · {0}', [bnDigits(doneN)]), const Key('loans-done')),
+          ],
+          value: _who,
+          onChanged: (k) => setState(() => _who = k),
         ),
-        SectionTitle(trf('মানুষ · {0}', [bnDigits(shown.length)])),
         if (shown.isEmpty)
           Panel(padding: const EdgeInsets.all(14), child: Text(tr('এই ভাগে কেউ নেই'), style: body(14, color: C.muted)))
         else
-          Panel(
-            child: Rows(children: [
-              for (final p in shown)
-                ListRow(
-                  leading: Avatar(
-                    name: p.name,
-                    fg: p.balance > 0 ? C.blue : (p.balance < 0 ? C.red : C.muted),
-                    bg: p.balance > 0 ? C.blueTint : (p.balance < 0 ? C.roseTint : C.surface2),
-                  ),
-                  title: p.name,
-                  subtitle: [
-                    if (p.balance != 0 && dueOf[p.key] != null) dueText(dueOf[p.key]!),
-                    if (p.phone.isNotEmpty) showPhone(p.phone) else if (dupNames.contains(personKey(p.name))) tr('নম্বর নেই — যোগ করুন'),
-                    if (p.last != null) daysLeftLabel(p.last!, now).replaceAll(' আগে', ''),
-                  ].join(' · '),
-                  subtitleColor: (p.balance != 0 && dueOf[p.key] != null && !dayOnly(dueOf[p.key]!).isAfter(today)) || (p.phone.isEmpty && dupNames.contains(personKey(p.name))) ? C.warn : C.muted,
-                  trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                      Text(taka(p.balance.abs()), style: display(16, weight: 700, color: p.balance > 0 ? C.blue : (p.balance < 0 ? C.red : C.muted))),
-                      Text(p.balance == 0 ? tr('শোধ') : (p.balance > 0 ? tr('পাব') : tr('দেব')), style: body(12, color: C.muted)),
-                    ]),
-                    if (p.balance != 0) LedgerAlarmButton(lines: [for (final e in entries) if (keys[e.id] == p.key) e], balance: p.balance) else const SizedBox(width: 48),
-                  ]),
+          // Each person as one card (owner, 13 Nov: as দিনলিপি and হিসাব):
+          // who, their last two লেনদেন, and what is owed.
+          for (final p in shown)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Material(
+                key: Key('loan-${p.key}'),
+                color: C.surface,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: C.border)),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
                   onTap: () => push(PersonScreen(person: p.name, accountKey: p.key)),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+                    child: Row(children: [
+                      Avatar(
+                        name: p.name,
+                        fg: p.balance > 0 ? C.blue : (p.balance < 0 ? C.red : C.muted),
+                        bg: p.balance > 0 ? C.blueTint : (p.balance < 0 ? C.roseTint : C.surface2),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15, weight: FontWeight.w700)),
+                          // Two of the same name: their numbers tell them apart.
+                          if (p.phone.isNotEmpty && dupNames.contains(personKey(p.name))) Text(showPhone(p.phone), style: body(12.5, color: C.muted, height: 1.4)),
+                          for (final e in ([for (final e in entries) if (keys[e.id] == p.key) e]..sort((a, b) => b.date.compareTo(a.date))).take(2))
+                            Text('${tr(e.kind.label)} ${taka(e.amount)} · ${shortDate(e.date)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted, height: 1.4)),
+                          if (p.balance != 0 && dueOf[p.key] != null)
+                            Text(dueText(dueOf[p.key]!), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, weight: FontWeight.w600, color: !dayOnly(dueOf[p.key]!).isAfter(today) ? C.warn : C.muted, height: 1.4))
+                          else if (p.phone.isEmpty && dupNames.contains(personKey(p.name)))
+                            Text(tr('নম্বর নেই — যোগ করুন'), style: body(12.5, color: C.warn, height: 1.4)),
+                        ]),
+                      ),
+                      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                        Text(taka(p.balance.abs()), style: display(16, weight: 700, color: p.balance > 0 ? C.blue : (p.balance < 0 ? C.red : C.muted))),
+                        Text(p.balance == 0 ? tr('শোধ') : (p.balance > 0 ? tr('পাব') : tr('দেব')), style: body(12, color: C.muted)),
+                      ]),
+                      if (p.balance != 0) LedgerAlarmButton(lines: [for (final e in entries) if (keys[e.id] == p.key) e], balance: p.balance) else Icon(Icons.chevron_right_rounded, color: C.muted, size: 20),
+                    ]),
+                  ),
                 ),
-            ]),
-          ),
+              ),
+            ),
       ],
     ];
   }

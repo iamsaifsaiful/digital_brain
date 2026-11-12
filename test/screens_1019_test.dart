@@ -153,7 +153,7 @@ void main() {
     final first = n.first;
     expect(holidayOn(first.at) != null || isWeekend(first.at), isTrue);
     expect(first.at.hour, 10);
-    expect(first.title, contains('২টা'));
+    expect(first.body, contains('২টা'));
     expect(first.body, contains('ফ্যান'));
     // Not a repair: a call to make.
     expect(isHomeFix('রহিমকে কল করতে হবে'), isFalse);

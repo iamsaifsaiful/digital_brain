@@ -122,7 +122,7 @@ void main() {
     await f.step(find.text('সামনের ছুটি'), press: false, below: 140);
     await f.step(find.byKey(const Key('home-tools')), press: false);
     await f.step(find.byTooltip('বলুন'), press: false);
-    await f.step(find.text('সংরক্ষণ').last, press: false);
+    await f.step(find.text('আমার তথ্য').last, press: false);
     debugDisableShadows = true;
   });
 
@@ -189,7 +189,7 @@ void main() {
     await f.step(who, type: 'রবিন', field: who);
     final amount = field('পরিমাণ (৳)');
     await f.step(amount, type: '৫০০০', field: amount);
-    await f.step(find.text('সেভ করুন'));
+    await f.step(find.text('রাখুন'));
     await f.step(null);
     f.dump();
     debugDisableShadows = true;
@@ -214,7 +214,7 @@ void main() {
     await f.step(user, type: 'saiful.islam', field: user);
     final pass = field('পাসওয়ার্ড');
     await f.step(pass, type: 'Amar#Pass2026', field: pass);
-    await f.step(find.text('সেভ করুন'));
+    await f.step(find.text('রাখুন'));
     await f.step(null);
     debugDisableShadows = true;
   });
@@ -237,7 +237,7 @@ void main() {
   testWidgets('tutorial: emergency', (t) async {
     await rig0(t);
     final f = Flow(t, 'emergency');
-    await f.step(find.text('সংরক্ষণ').last);
+    await f.step(find.text('আমার তথ্য').last);
     await f.step(find.text('জরুরি কার্ড'));
     await f.step(find.text('এখনই বানাই'));
     final name = field('নাম');
@@ -274,8 +274,8 @@ void main() {
     ];
     await settle(t);
     final f = Flow(t, 'family');
-    await f.step(tool('ফ্যামিলি'));
-    await f.step(find.text('আমার ফ্যামিলি'), press: false, below: 150);
+    await f.step(tool('পরিবার'));
+    await f.step(find.text('আমার পরিবার'), press: false, below: 150);
     await f.step(find.byKey(const Key('family-add')));
     await f.step(find.byKey(const Key('family-email')), type: 'amma@gmail.com', field: find.byKey(const Key('family-email')));
     await f.step(find.byKey(const Key('family-relation')), type: 'আম্মা', field: find.byKey(const Key('family-relation')));

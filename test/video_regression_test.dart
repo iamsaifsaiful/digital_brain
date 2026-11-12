@@ -488,7 +488,7 @@ void main() {
     testWidgets('"ওই যে এক নাম্বারটা" picks the first; a question while a save waits is answered, not a yes', (t) async {
       final (chat, r) = await talk(t, ['আচ্ছা এরপরে সোনাইমুড়ী যাইতে হবে সেটা মুছে দাও', 'ওই যে এক নাম্বারটা'], tasks: [Task(title: 'সোনা মরে যাইতে হবে'), Task(title: 'আগামীকালকে দশটায় সোনার মণি যাইতে হবে এটা একটা')]);
       expect(r[0], contains('কোনটা'));
-      expect(r[1], contains('মুছে দেবো?'));
+      expect(r[1], contains('মুছে দেব?'));
       final (chat2, r2) = await talk(t, ['তুমি এক কাজ কর ২০ শে অক্টোবর এর কাজের তালিকাতে লেখ যে ঢাকায় যাইতে হবে', 'কোন তারিখে তুলবা ঢাকায় যেতে হবে']);
       expect(r2[0], contains('২০ অক্টোবর'));
       // Kept at once; the question about it is answered from the list.
@@ -499,7 +499,7 @@ void main() {
 
     testWidgets('"… কাজের তালিকা থেকে … মুছে দাও" deletes, never adds', (t) async {
       final (chat, r) = await talk(t, ['আজকের কাজের তালিকা থেকে ঢাকায় যেতে হবে এটা মুছে দাও'], tasks: [Task(title: 'ঢাকায় যাইতে হবে', due: DateTime(2026, 10, 9))]);
-      expect(r.single, contains('মুছে দেবো?'));
+      expect(r.single, contains('মুছে দেব?'));
       expect(chat.brain.data.tasks, hasLength(1));
     });
 
@@ -544,7 +544,7 @@ void main() {
 
     testWidgets('"আজকের যতগুলো কাজ আছে সবগুলো বাদ দিয়ে দাও": today\'s, confirmed once, all removed', (t) async {
       final (chat, r) = await talk(t, ['হ্যাঁ আমি তো বলা শেষ করছি আমার আজকের যতগুলো কাজ আছে সবগুলো বাদ দিয়ে দাও', 'হ্যাঁ'], tasks: some);
-      expect(r[0], contains('আজকের সব — ২টা কাজ মুছে দেবো?'));
+      expect(r[0], contains('আজকের সব — ২টা কাজ মুছে দেব?'));
       expect(chat.brain.data.tasks.map((x) => x.title), unorderedEquals(['সোনা মরে যাইতে হবে', 'স্কুলে যেতে হবে']));
       final (chat2, r2) = await talk(t, ['আমার কাজের তালিকার মধ্যে যতগুলো কাজ আছে সবকটা মুছে দাও ডিলিট করে দাও', 'হ্যাঁ'], tasks: some);
       expect(r2[0], contains('৪টা কাজ'));
@@ -581,7 +581,7 @@ void main() {
 
     testWidgets('"৩১ শে জানুয়ারিতে যে কাজটা আছে সেটা মুছে দাও": that day\'s, no list of six', (t) async {
       final (chat, r) = await talk(t, ['তোমাকে বললাম এই যে ৩১ শে জানুয়ারিতে যে কাজটা আছে সেটা মুছে দাও বাদ দিয়ে দাও ডিলিট করে দাও', 'হ্যাঁ'], tasks: some);
-      expect(r[0], contains('১টা কাজ মুছে দেবো?'));
+      expect(r[0], contains('১টা কাজ মুছে দেব?'));
       expect(chat.brain.data.tasks.map((x) => x.title), isNot(contains('বাচ্চাকে স্কুলে নিতে হবে')));
       expect(chat.brain.data.tasks, hasLength(2));
     });

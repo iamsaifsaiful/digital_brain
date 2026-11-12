@@ -411,7 +411,7 @@ void main() {
   group('the meaning helpers', () {
     test('owed to me, or owed by me', () {
       expect(owedToMe(normalize('কে আমার কাছে টাকা পাবে')), isFalse);
-      expect(owedToMe(normalize('আমি কার কাছে টাকা পাবো')), isTrue);
+      expect(owedToMe(normalize('আমি কার কাছে টাকা পাব')), isTrue);
       expect(owedToMe(normalize('রহিম আমাকে কত দেবে')), isTrue);
       expect(owedToMe(normalize('আমাকে কত দিতে হবে')), isFalse);
     });

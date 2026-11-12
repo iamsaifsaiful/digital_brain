@@ -87,7 +87,7 @@ void main() {
         // The row itself, by its key (a summary above may carry the same word).
         final cash = rig.brain.data.cash.where((e) => e.category == row).firstOrNull;
         // A row of the page's own list (one that can be picked), not the summary above it.
-        final pickable = find.byWidgetPredicate((w) => w is ListRow && w.onLongPress != null && w.key is ValueKey<String> && '${(w.key as ValueKey<String>).value}'.startsWith('cash-'));
+        final pickable = find.byWidgetPredicate((w) => ((w is ListRow && w.onLongPress != null) || (w is InkWell && w.onLongPress != null)) && w.key is ValueKey<String> && '${(w.key as ValueKey<String>).value}'.startsWith('cash-') && !'${(w.key as ValueKey<String>).value}'.startsWith('cash-day'));
         final hit = cash == null ? find.text(row).last : pickable.first;
         await t.ensureVisible(hit);
         // The cash page's only row sits under the floating buttons on this

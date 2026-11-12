@@ -393,7 +393,7 @@ String summaryLine(Command c) => switch (c) {
       ContactAdd() => 'নম্বর: ${c.name.isEmpty ? '' : '${c.name} — '}${bnDigits(c.phone)}',
       CashAdd() => c.project != null
           ? trf('{0} — {1} {2} টাকা', [
-              c.project!.isEmpty ? 'অন্যান্য হিসাব' : '‘${c.project}’ হিসাব',
+              c.project!.isEmpty ? 'আলাদা হিসাব' : '‘${c.project}’ হিসাব',
               c.kind == CashKind.income ? 'এসেছে' : 'খরচ',
               bnNumber(c.amount),
             ]) + (cashItem(c.transcript).isEmpty ? '' : ' (${cashItem(c.transcript)})')

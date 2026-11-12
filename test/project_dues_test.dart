@@ -34,7 +34,7 @@ void main() {
     expect(projectDueTotals(b.data, p.id).$1, 1200);
     expect(b.data.cash.where((e) => e.projectId == p.id), isEmpty, reason: 'giving on credit is not আয় or ব্যয়');
     expect(b.data.ledger.single.note, 'চাল-ডাল');
-    expect(find.text('আমি পাবো'), findsOneWidget);
+    expect(find.text('আমি পাব'), findsOneWidget);
 
     final row = find.text('করিম');
     await t.ensureVisible(row.first);
@@ -68,7 +68,7 @@ void main() {
     await settle(t);
     await t.tap(add);
     await settle(t);
-    await t.tap(find.text('আমি দেবো').last);
+    await t.tap(find.text('আমি দেব').last);
     await settle(t);
     await t.enterText(find.byKey(const Key('due-person')), 'সেলিম পাইকার');
     await t.enterText(find.byKey(const Key('due-what')), '১০ বস্তা চাল');

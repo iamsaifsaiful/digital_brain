@@ -323,7 +323,7 @@ class _ZakatScreenState extends State<ZakatScreen> {
                 child: OutlinedButton.icon(key: const Key('zakat-add'), onPressed: () => _addItem(brain), icon: const Icon(Icons.add_rounded), label: Text(tr('নিজে কিছু যোগ করুন'))),
               ),
               const SizedBox(height: 18),
-              SectionTitle(tr('একবার লিখে দিন — মনে রাখবো')),
+              SectionTitle(tr('একবার লিখে দিন — মনে রাখব')),
               Align(
                 alignment: Alignment.centerLeft,
                 child: OutlinedButton.icon(

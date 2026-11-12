@@ -1,1 +1,1 @@
-1.0.6 (code 10011): business mode (customers, dealers, PDF receipts, zakat), English, home pictures, dark colours, crash guard for double replies, on top of 1.0.5
+1.0.8 (code 10013): English app; Premium in dollars; notifications in plain, polite words with English; fingerprint or PIN chosen on the lock; দিনলিপি day and month as cards; হিসাব, ধার-দেনা and আলাদা হিসাব as cards, filters behind ⋮; more room between sections; menu names and Bangla words reviewed; a medicine reminder in the reminder form; fixes from the problem log (ব্যয়, একটা বাজে); on top of 1.0.7

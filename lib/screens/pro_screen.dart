@@ -36,11 +36,11 @@ const _short = <ProFeature, (String, IconData)>{
   ProFeature.shops: ('একাধিক দোকান', Icons.storefront_outlined),
   ProFeature.receipts: ('রসিদ', Icons.receipt_long_outlined),
   ProFeature.pdf: ('PDF ডাউনলোড', Icons.picture_as_pdf_outlined),
-  ProFeature.projects: ('অন্যান্য হিসাব', Icons.folder_special_outlined),
+  ProFeature.projects: ('আলাদা হিসাব', Icons.folder_special_outlined),
   ProFeature.vault: ('যত খুশি পাসওয়ার্ড', Icons.lock_outline_rounded),
-  ProFeature.smartNudges: ('স্মার্ট খেয়াল', Icons.tips_and_updates_outlined),
+  ProFeature.smartNudges: ('নিজে থেকে মনে করানো', Icons.tips_and_updates_outlined),
   ProFeature.family: ('উত্তরাধিকার, পুরো অ্যাক্সেস, লোকেশন', Icons.family_restroom_rounded),
-  ProFeature.will: ('ওছিয়তনামা', Icons.history_edu_outlined),
+  ProFeature.will: ('ওসিয়তনামা', Icons.history_edu_outlined),
   ProFeature.familyHealth: ('পরিবারের স্বাস্থ্য', Icons.favorite_border_rounded),
 };
 
@@ -121,7 +121,7 @@ class _ProScreenState extends State<ProScreen> {
             if (!brain.pro || brain.proKind == Brain.playPending || brain.onTrial)
               PrimaryButton(
                 key: const Key('buy-play'),
-                label: _busy ? tr('অপেক্ষা করুন…') : trf('প্রিমিয়াম নিন — {0}', [brain.playPrices[proPlans[_plan].id] ?? '${proPlans[_plan].price} / ${tr(proPlans[_plan].title)}']),
+                label: _busy ? tr('অপেক্ষা করুন…') : trf('প্রিমিয়াম নিন — {0}', [brain.playPrices[proPlans[_plan].id] ?? '${tr(proPlans[_plan].price)} / ${tr(proPlans[_plan].title)}']),
                 icon: Icons.workspace_premium_rounded,
                 onPressed: _busy ? null : () => _buy(brain),
               ),
@@ -198,7 +198,7 @@ class _ProScreenState extends State<ProScreen> {
                   border: Border.all(color: i == (playSells ? _plan : 0) ? C.green : C.line, width: i == (playSells ? _plan : 0) ? 1.5 : 1),
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${brain.playPrices[p.id] ?? p.price} / ${tr(p.title)}', style: display(18, weight: 700)),
+                  Text('${brain.playPrices[p.id] ?? tr(p.price)} / ${tr(p.title)}', style: display(18, weight: 700)),
                   Text(tr(p.note), maxLines: 2, style: body(12, color: C.muted)),
                 ]),
               ),

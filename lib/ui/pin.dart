@@ -88,7 +88,7 @@ class _PinPadState extends State<PinPad> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Semantics(
-          label: trf('{0}টি অঙ্ক দেওয়া হয়েছে', [bnDigits(_pin.length)]),
+          label: trf('{0}টা অঙ্ক দেওয়া হয়েছে', [bnDigits(_pin.length)]),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

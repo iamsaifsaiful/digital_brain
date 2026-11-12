@@ -16,7 +16,7 @@ void main() {
     ];
     int at(String s) => labels.indexOf(s);
     expect(at('হিসাব'), at('রিমাইন্ডার') + 1, reason: labels.join(', '));
-    expect(at('ওষুধ'), at('ফ্যামিলি') + 1, reason: labels.join(', '));
+    expect(at('ওষুধ'), at('পরিবার') + 1, reason: labels.join(', '));
 
     Future<void> tap(String label) async {
       final f = find.descendant(of: grid, matching: find.text(label));

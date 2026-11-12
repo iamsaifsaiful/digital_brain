@@ -68,7 +68,7 @@ void main() {
     final r = await say('আমার কাজের তালিকা দাও');
     expect(r, isNot(contains('((')));
     expect(r, isNot(contains('))')));
-    expect(r, contains('সোনাইমুড়ী যাবো'));
+    expect(r, contains('সোনাইমুড়ী যাব'));
   });
 
   testWidgets('৩. "দিলাম" said once for several people is asked once', (t) async {

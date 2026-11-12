@@ -184,8 +184,8 @@ List<PlannedNotice> plannedNotices(List<Reminder> reminders, DateTime now) {
       out.add(PlannedNotice(
         id: stableId('rem:${r.id}:early'),
         at: early,
-        title: 'আগাম মনে করানো: ${r.title}',
-        body: bodyFor('${fullDate(at)}, ${bnTime(r.hour, r.minute)} (${bnDigits(r.daysBefore)} দিন পর)'),
+        title: trf('{0} দিন পর: {1}', [bnDigits(r.daysBefore), r.title]),
+        body: bodyFor('${fullDate(at)}, ${bnTime(r.hour, r.minute)}'),
         reminderId: r.id,
         early: true,
       ));
@@ -198,8 +198,8 @@ List<PlannedNotice> plannedNotices(List<Reminder> reminders, DateTime now) {
 PlannedNotice _minutesEarly(Reminder r, DateTime at, DateTime main, String tag, NoticeRepeat repeat) => PlannedNotice(
       id: stableId('rem:${r.id}:before:$tag'),
       at: at,
-      title: '${tr('আগাম মনে করানো: ')}${r.title}',
-      body: trf('{0} পরে · {1}', [beforeLabel(r.minutesBefore), bnTime(r.hour, r.minute)]),
+      title: trf('{0} পর: {1}', [beforeLabel(r.minutesBefore), r.title]),
+      body: trf('{0}-এ। এখন থেকে প্রস্তুতি নিতে পারেন।', [bnTime(r.hour, r.minute)]),
       reminderId: r.id,
       repeat: repeat,
       early: true,
@@ -363,13 +363,13 @@ NotificationDetails _details({required bool insistent, required bool repeating, 
         // FLAG_INSISTENT: the sound repeats until the notification is opened or swiped.
         additionalFlags: insistent ? Int32List.fromList([4]) : null,
         actions: repeating
-            ? const [
-                AndroidNotificationAction('dismiss', 'ঠিক আছে'),
-                AndroidNotificationAction('stop', 'আর বাজাবে না', showsUserInterface: true),
+            ? [
+                AndroidNotificationAction('dismiss', tr('ঠিক আছে')),
+                AndroidNotificationAction('stop', tr('আর বাজবে না'), showsUserInterface: true),
               ]
-            : const [
-                AndroidNotificationAction('snooze', '১০ মিনিট পরে'),
-                AndroidNotificationAction('dismiss', 'হয়ে গেছে'),
+            : [
+                AndroidNotificationAction('snooze', tr('১০ মিনিট পর')),
+                AndroidNotificationAction('dismiss', tr('হয়ে গেছে')),
               ],
       ),
     );
@@ -428,7 +428,7 @@ Future<void> _ring(FlutterLocalNotificationsPlugin plugin, String reminderId, St
     notificationDetails: _details(insistent: insistent, repeating: false, sound: sound),
     androidScheduleMode: exact ? AndroidScheduleMode.alarmClock : AndroidScheduleMode.inexactAllowWhileIdle,
     title: title,
-    body: body.isEmpty ? 'আবার মনে করাচ্ছি' : body,
+    body: body.isEmpty ? tr('আবার মনে করিয়ে দিচ্ছি') : body,
     payload: noticePayload(reminderId, title, body, false, sound: sound),
   );
 }

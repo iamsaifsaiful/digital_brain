@@ -10,8 +10,8 @@ import 'app_test.dart' show start;
 void main() {
   test('the answer names the part, what it does and where it is', () {
     final vault = appHelpAnswer(null, 'ভল্টে কী রাখা যায়');
-    expect(vault, startsWith('পাসওয়ার্ড ভল্ট:'));
-    expect(vault, contains('“সংরক্ষণ” মেনুতে'));
+    expect(vault, startsWith('পাসওয়ার্ড:'));
+    expect(vault, contains('“আমার তথ্য” মেনুতে'));
     expect(appHelpAnswer('zakat', 'এটা কী'), startsWith('যাকাত:'));
     expect(appHelpAnswer(null, 'ব্যবসায়ী মোড চালু করলে কী হয়'), contains('আলাদা'));
     expect(appHelpAnswer('biz_stock', 'stock ki'), startsWith('স্টক:'));
