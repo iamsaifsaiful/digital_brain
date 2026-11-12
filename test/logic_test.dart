@@ -1584,7 +1584,7 @@ void main() {
         for (final (h, t) in [(9, 'ব্যাংকে যাওয়া'), (12, 'মিটিং'), (17, 'ডাক্তার')]) Reminder(title: t, date: DateTime(2026, 10, 15), hour: h),
       ]);
       final night = assistantNotices(d, wed, only).firstWhere((x) => x.reminderId == '${nudgePlan}night');
-      expect(night.title, 'কাল ৩টা কাজ/রিমাইন্ডার আছে');
+      expect(night.title, 'কাল ৩টা কাজ আছে');
       expect(night.body, contains('ব্যাংকে যাওয়া'));
     });
 
@@ -1603,7 +1603,7 @@ void main() {
       final n = assistantNotices(d, now, smart);
       expect(n.where((x) => x.reminderId == nudgeNoCash), isEmpty); // written today
       final spend = n.firstWhere((x) => x.reminderId == nudgeSpend);
-      expect(spend.title, 'এ মাসে বাজার-এ খরচ বেশি');
+      expect(spend.title, 'এ মাসে বাজার-এ খরচ একটু বেশি হচ্ছে');
       expect(spend.at, DateTime(2026, 10, 15, 19, 30));
       expect(n.firstWhere((x) => x.reminderId == nudgeDay2).title, contains('পরশু রিমার জন্মদিন'));
       expect(n.firstWhere((x) => x.reminderId == nudgeSalary).at, DateTime(2026, 10, 16, 10));

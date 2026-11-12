@@ -101,7 +101,7 @@ class _AlarmScreenState extends State<AlarmScreen> {
               if (repeating) ...[
                 _AlarmButton(label: tr('ঠিক আছে'), onTap: () => _close()),
                 const SizedBox(height: 12),
-                _AlarmButton(label: tr('আর বাজাবে না'), primary: true, onTap: () => _close(stop: true)),
+                _AlarmButton(label: tr('আর বাজবে না'), primary: true, onTap: () => _close(stop: true)),
               ] else ...[
                 Text(tr('পরে মনে করাও'), style: body(14, color: const Color(0xFFCDE7DE))),
                 const SizedBox(height: 10),

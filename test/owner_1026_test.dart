@@ -102,7 +102,11 @@ void main() {
     rig.biometrics.ok = false;
     rig.brain.lockNow();
     await settle(t);
-    expect(rig.biometrics.asked, 1, reason: 'the lock asks as usual');
+    // No prompt by itself (owner, 13 Nov): the member picks the fingerprint.
+    expect(rig.biometrics.asked, 0);
+    await t.tap(find.byKey(const Key('lock-choose-finger')));
+    await settle(t);
+    expect(rig.biometrics.asked, 1);
     rig.notifier.tapped.value = const NoticeTap(NoticeInfo('r9', 'আম্মাকে ফোন', '', false));
     await settle(t);
     expect(rig.biometrics.cancelled, 1);

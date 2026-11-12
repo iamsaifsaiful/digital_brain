@@ -32,6 +32,9 @@ class _LockScreenState extends State<LockScreen> {
   String? _message;
   DateTime? _lockedUntil;
   bool _bioAvailable = false;
+
+  /// The PIN pad chosen over the fingerprint (owner, 13 Nov: the member picks).
+  bool _usePin = false;
   int _padKey = 0;
   bool _signing = false;
 
@@ -51,8 +54,8 @@ class _LockScreenState extends State<LockScreen> {
       _mode = has ? _Mode.unlock : (googleFirst && !brain.signedIn ? _Mode.google : _Mode.create);
       _bioAvailable = bio;
     });
-    // Not while a ringing reminder's page is open (or about to open).
-    if (bio && !brain.alarmOpen && brain.services.notifier.tapped.value == null) _biometric();
+    // No fingerprint prompt by itself (owner, 13 Nov: it felt forced): the
+    // member picks the fingerprint or the PIN, then that one is shown.
   }
 
   /// First step on a new phone: Google sign-in (the account, Pro bought on
@@ -115,6 +118,40 @@ class _LockScreenState extends State<LockScreen> {
           child: Text(tr('এখন না, পরে করব'), style: body(14, color: const Color(0xFFA9B5AF))),
         ),
       ]);
+
+  /// Two choices, side by side: the fingerprint or the PIN.
+  Widget _choose() {
+    Widget option(Key key, IconData icon, String label, VoidCallback onTap) => Expanded(
+          child: Material(
+            color: Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(20),
+            child: InkWell(
+              key: key,
+              borderRadius: BorderRadius.circular(20),
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 8),
+                child: Column(children: [
+                  Icon(icon, size: 40, color: C.mint),
+                  const SizedBox(height: 12),
+                  Text(label, textAlign: TextAlign.center, style: body(15, weight: FontWeight.w600, color: Colors.white)),
+                ]),
+              ),
+            ),
+          ),
+        );
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 8),
+      child: Row(children: [
+        option(const Key('lock-choose-finger'), Icons.fingerprint_rounded, tr('আঙুলের ছাপ'), _biometric),
+        const SizedBox(width: 14),
+        option(const Key('lock-choose-pin'), Icons.dialpad_rounded, tr('PIN'), () => setState(() {
+              _usePin = true;
+              _message = null;
+            })),
+      ]),
+    );
+  }
 
   Future<void> _biometric() async {
     final brain = BrainScope.read(context);
@@ -275,6 +312,7 @@ class _LockScreenState extends State<LockScreen> {
     final title = switch (_mode) {
       _Mode.create => tr('একটি ৪ অঙ্কের PIN ঠিক করুন'),
       _Mode.confirm => tr('PIN টি আবার দিন'),
+      _Mode.unlock when _bioAvailable && !_usePin && _lockedUntil == null => tr('কীভাবে খুলবেন?'),
       _ => tr('PIN দিন'),
     };
     return Scaffold(
@@ -321,11 +359,14 @@ class _LockScreenState extends State<LockScreen> {
                                 ? null
                                 : Text(_message!, style: body(14, color: C.peach, weight: FontWeight.w600), textAlign: TextAlign.center),
                           ),
-                          PinPad(
-                            key: ValueKey(_padKey),
-                            onComplete: _entered,
-                            onBiometric: _mode == _Mode.unlock && _bioAvailable ? _biometric : null,
-                          ),
+                          if (_mode == _Mode.unlock && _bioAvailable && !_usePin && _lockedUntil == null)
+                            _choose()
+                          else
+                            PinPad(
+                              key: ValueKey(_padKey),
+                              onComplete: _entered,
+                              onBiometric: _mode == _Mode.unlock && _bioAvailable ? _biometric : null,
+                            ),
                           if (_mode == _Mode.unlock)
                             TextButton(
                               key: const Key('forgot-pin'),
