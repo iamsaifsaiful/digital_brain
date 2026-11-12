@@ -123,28 +123,33 @@ class _LockScreenState extends State<LockScreen> {
   Widget _choose() {
     Widget option(Key key, IconData icon, String label, VoidCallback onTap) => Expanded(
           child: Material(
-            color: Colors.white.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(20),
+            color: Colors.white.withValues(alpha: 0.05),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: BorderSide(color: Colors.white.withValues(alpha: 0.09))),
             child: InkWell(
               key: key,
-              borderRadius: BorderRadius.circular(20),
+              customBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               onTap: onTap,
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 8),
+                padding: const EdgeInsets.fromLTRB(8, 30, 8, 26),
                 child: Column(children: [
-                  Icon(icon, size: 40, color: C.mint),
-                  const SizedBox(height: 12),
-                  Text(label, textAlign: TextAlign.center, style: body(15, weight: FontWeight.w600, color: Colors.white)),
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(color: C.mint.withValues(alpha: 0.14), shape: BoxShape.circle),
+                    child: Icon(icon, size: 38, color: C.mint),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(label, textAlign: TextAlign.center, style: body(16, weight: FontWeight.w600, color: Colors.white)),
                 ]),
               ),
             ),
           ),
         );
     return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 8),
+      padding: const EdgeInsets.symmetric(vertical: 24),
       child: Row(children: [
         option(const Key('lock-choose-finger'), Icons.fingerprint_rounded, tr('আঙুলের ছাপ'), _biometric),
-        const SizedBox(width: 14),
+        const SizedBox(width: 16),
         option(const Key('lock-choose-pin'), Icons.dialpad_rounded, tr('PIN'), () => setState(() {
               _usePin = true;
               _message = null;
@@ -312,7 +317,8 @@ class _LockScreenState extends State<LockScreen> {
     final title = switch (_mode) {
       _Mode.create => tr('একটি ৪ অঙ্কের PIN ঠিক করুন'),
       _Mode.confirm => tr('PIN টি আবার দিন'),
-      _Mode.unlock when _bioAvailable && !_usePin && _lockedUntil == null => tr('কীভাবে খুলবেন?'),
+      // The two choices speak for themselves (owner, 13 Nov).
+      _Mode.unlock when _bioAvailable && !_usePin && _lockedUntil == null => '',
       _ => tr('PIN দিন'),
     };
     return Scaffold(
@@ -349,7 +355,7 @@ class _LockScreenState extends State<LockScreen> {
                     else
                       Column(
                         children: [
-                          Text(title, style: body(17, color: const Color(0xFFE4EAE7), weight: FontWeight.w500)),
+                          if (title.isNotEmpty) Text(title, style: body(17, color: const Color(0xFFE4EAE7), weight: FontWeight.w500)),
                           const SizedBox(height: 6),
                           SizedBox(
                             height: 44,
@@ -402,15 +408,15 @@ class _LockScreenState extends State<LockScreen> {
                         ),
                       ),
                     const SizedBox(height: 24),
-                    Text(
-                      _mode == _Mode.google
-                          ? tr('ব্যাকআপ তালাবদ্ধ থাকে — Google একা বা আমরা একা খুলতে পারি না।')
-                          : _mode == _Mode.create || _mode == _Mode.confirm
-                          ? tr('PIN শুধু এই ফোনে, এনক্রিপ্ট করে রাখা হয়। ভুলে গেলে আঙুলের ছাপ বা একই Google অ্যাকাউন্ট দিয়ে নতুন PIN দেওয়া যাবে।')
-                          : tr('কিছুক্ষণ ব্যবহার না করলে অ্যাপ নিজে থেকে লক হয়ে যায়'),
-                      style: body(13, color: const Color(0xFFA9B5AF), height: 1.5),
-                      textAlign: TextAlign.center,
-                    ),
+                    // Nothing said under the unlock (owner, 13 Nov): only while setting up.
+                    if (_mode != _Mode.unlock && _mode != _Mode.loading)
+                      Text(
+                        _mode == _Mode.google
+                            ? tr('ব্যাকআপ তালাবদ্ধ থাকে — Google একা বা আমরা একা খুলতে পারি না।')
+                            : tr('PIN শুধু এই ফোনে, এনক্রিপ্ট করে রাখা হয়। ভুলে গেলে আঙুলের ছাপ বা একই Google অ্যাকাউন্ট দিয়ে নতুন PIN দেওয়া যাবে।'),
+                        style: body(13, color: const Color(0xFFA9B5AF), height: 1.5),
+                        textAlign: TextAlign.center,
+                      ),
                     // The company behind the app (owner, 28 Oct).
                     Padding(
                       padding: const EdgeInsets.only(top: 14),

@@ -13,7 +13,8 @@ void main() {
     rig.brain.lockNow();
     await settle(t);
     expect(rig.biometrics.asked, 0);
-    expect(find.text('কীভাবে খুলবেন?'), findsOneWidget);
+    expect(find.byKey(const Key('lock-choose-pin')), findsOneWidget);
+    expect(find.textContaining('নিজে থেকে লক'), findsNothing);
     await t.tap(find.byKey(const Key('lock-choose-pin')));
     await settle(t);
     expect(find.text('PIN দিন'), findsOneWidget);
