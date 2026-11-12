@@ -1435,7 +1435,11 @@ class _ProjectScreenState extends State<ProjectScreen> {
                 if (shown.isEmpty)
                   Panel(padding: const EdgeInsets.all(14), child: Text(tr('এই ফিল্টারে কিছু নেই'), style: body(14, color: C.muted)))
                 else
-                  Panel(child: Rows(children: [for (final e in shown) cashRow(context, e)])),
+                  // Day by day, each day one card (owner, 13 Nov: as the main হিসাব).
+                  for (final MapEntry(key: day, value: list) in {
+                    for (final e in shown) DateTime(e.date.year, e.date.month, e.date.day): [for (final x in shown) if (dayOnly(x.date) == DateTime(e.date.year, e.date.month, e.date.day)) x],
+                  }.entries)
+                    Padding(padding: const EdgeInsets.only(bottom: 8), child: _DayCard(day: day, entries: list, now: brain.services.now())),
               ],
             ]),
           ),
