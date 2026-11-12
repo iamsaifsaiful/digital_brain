@@ -793,7 +793,10 @@ class _Tools extends StatelessWidget {
       ('pro', tr('প্রিমিয়াম'), Icons.workspace_premium_outlined, () => push(const ProScreen())),
     ];
     final saved = brain.orderOf('home_tools');
-    final tools = inOrder(all, (x) => x.$1, saved);
+    final every = inOrder(all, (x) => x.$1, saved);
+    // Two rows, the rest one tap away (owner, 12 Nov: more room on home).
+    final open = brain.flag('home_tools_open');
+    final tools = open ? every : every.take(8).toList();
     return AppCard(
       key: const Key('home-tools'),
       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -803,7 +806,7 @@ class _Tools extends StatelessWidget {
           child: Row(children: [
             Text(tr('সব সুবিধা'), style: body(14, weight: FontWeight.w600)),
             const SizedBox(width: 6),
-            Text(trf('{0}টা', [bnDigits(tools.length)]), style: body(12, color: C.muted)),
+            Text(trf('{0}টা', [bnDigits(every.length)]), style: body(12, color: C.muted)),
             const Spacer(),
             if (saved.isNotEmpty)
               TextButton(
@@ -822,9 +825,16 @@ class _Tools extends StatelessWidget {
             items: tools,
             keyOf: (x) => x.$1,
             tile: (x) => ToolTile(key: Key('tool-${x.$1}'), icon: x.$3, label: x.$2, onTap: x.$4),
-            onReorder: (keys) => brain.setOrder('home_tools', keys),
+            onReorder: (keys) => brain.setOrder('home_tools', [...keys, for (final x in every) if (!keys.contains(x.$1)) x.$1]),
           ),
         ),
+        if (every.length > 8)
+          TextButton(
+            key: const Key('home-tools-toggle'),
+            onPressed: () => brain.setPref('home_tools_open', !open),
+            child: Text(open ? tr('কম দেখুন') : trf('সব দেখুন · {0}টা', [bnDigits(every.length)])),
+          ),
+        const SizedBox(height: 4),
       ]),
     );
   }

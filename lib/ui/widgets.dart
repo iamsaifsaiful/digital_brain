@@ -33,7 +33,8 @@ class Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
         color: color,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius), side: BorderSide(color: borderColor)),
+        // No line round a card unless one is asked for: the ground sets it apart.
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius), side: _borderColor == null ? BorderSide.none : BorderSide(color: borderColor)),
         clipBehavior: Clip.antiAlias,
         child: Padding(padding: padding, child: child),
       );
@@ -340,7 +341,7 @@ class SegTabs<T> extends StatelessWidget {
       widthFactor: 1 / items.length,
       heightFactor: 1,
       child: DecoratedBox(
-        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(9), border: Border.all(color: C.border)),
+        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(9)),
       ),
     );
     return Container(
@@ -758,7 +759,7 @@ class ListRow extends StatelessWidget {
       this.onTap,
       this.onLongPress,
       this.picked = false,
-      this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 10)})
+      this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 13)})
       : _subtitleColor = subtitleColor;
   final Widget leading;
   final String title;

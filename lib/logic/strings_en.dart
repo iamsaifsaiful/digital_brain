@@ -5307,4 +5307,5 @@ const enStrings = <String, String>{
   'চাপ দিয়ে তারিখ দিন — প্রতি মাসে মনে করাবো।': 'Tap one and choose a day — I’ll remind you every month.',
   'লিখুন': 'Enter',
   'হাতে, ব্যাংকে, বিকাশে — সব মিলিয়ে লিখুন': 'Cash, bank, bKash — enter the combined total',
+  'সব দেখুন · {0}টা': 'See all · {0}',
 };

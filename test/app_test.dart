@@ -1767,7 +1767,9 @@ Finder vScroll() => find.byWidgetPredicate((w) => w is Scrollable && w.axisDirec
 Future<void> openTools(WidgetTester t) async {
   final grid = find.byKey(const Key('home-tools'));
   await t.scrollUntilVisible(grid, 300, scrollable: vScroll().first);
-  if (find.descendant(of: grid, matching: find.text('কাজের তালিকা')).evaluate().isEmpty) {
+  if (find.descendant(of: grid, matching: find.text('প্রিমিয়াম')).evaluate().isEmpty && find.byKey(const Key('home-tools-toggle')).evaluate().isNotEmpty) {
+    await t.ensureVisible(find.byKey(const Key('home-tools-toggle')));
+    await settle(t);
     await t.tap(find.byKey(const Key('home-tools-toggle')));
     await settle(t);
   }

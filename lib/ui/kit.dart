@@ -79,7 +79,7 @@ class AppCard extends StatelessWidget {
   Widget build(BuildContext context) => Material(
         color: C.surface,
         clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17), side: BorderSide(color: C.border)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)),
         child: onTap == null ? Padding(padding: padding, child: child) : InkWell(onTap: onTap, child: Padding(padding: padding, child: child)),
       );
 }

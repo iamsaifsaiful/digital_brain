@@ -31,7 +31,7 @@ Future<void> screens(WidgetTester t, String name) async {
 }
 
 void main() {
-  for (final (name, tab, page) in [('home', ShellTab.home, null), ('money', ShellTab.money, null), ('tasks', null, 'tasks')]) {
+  for (final (name, tab, page) in [('home', ShellTab.home, null), ('money', ShellTab.money, null), ('tasks', null, 'tasks'), ('more', ShellTab.more, null), ('health', null, 'health'), ('notes', null, 'notes')]) {
     testWidgets('space: $name', (t) async {
       if (shots) {
         await four.icons();

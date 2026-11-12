@@ -164,7 +164,7 @@ void main() {
     });
   }
 
-  testWidgets('home: আজকের অর্থ-কথা right under the money; সব সুবিধা always open', (t) async {
+  testWidgets('home: আজকের অর্থ-কথা right under the money; সব সুবিধা two rows, the rest one tap away', (t) async {
     await start(t);
     final list = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first;
     await t.scrollUntilVisible(find.byKey(const Key('home-quote')), 300, scrollable: list);
@@ -175,7 +175,9 @@ void main() {
     expect(quote.top - money.bottom, lessThan(30), reason: 'nothing between the money and the quote');
     await t.scrollUntilVisible(find.byKey(const Key('home-tools')), 300, scrollable: list);
     expect(find.descendant(of: find.byKey(const Key('home-tools')), matching: find.text('কাজের তালিকা')), findsOneWidget);
-    expect(find.byKey(const Key('home-tools-toggle')), findsNothing);
+    // Owner, 12 Nov (more room on home): eight shown, the rest behind "সব দেখুন".
+    expect(find.descendant(of: find.byKey(const Key('home-tools')), matching: find.text('প্রিমিয়াম')), findsNothing);
+    expect(find.byKey(const Key('home-tools-toggle')), findsOneWidget);
   });
 
   testWidgets('স্বাস্থ্য: a family member has their own medicines, ringing on this phone with their name', (t) async {
