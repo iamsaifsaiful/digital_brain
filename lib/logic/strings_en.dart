@@ -5384,4 +5384,5 @@ const enStrings = <String, String>{
   'ফিল্টার': 'Filter',
   'আগের দিন': 'Previous day',
   'পরের দিন': 'Next day',
+  'এ মাসে কিছু রাখা নেই': 'Nothing planned this month',
 };

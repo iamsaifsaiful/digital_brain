@@ -36,6 +36,9 @@ List<PlanItem> itemsOn(AppData d, DateTime day, DateTime now) {
 
 /// দিনলিপি: the day, the week or the month — reminders and to-dos, with
 /// the Bangla date beside every day.
+/// The month's look, for the owner to pick: 1 the calendar, 2 a list, 3 a row of dates.
+int diaryMonthStyle = 1;
+
 class DiaryScreen extends StatefulWidget {
   const DiaryScreen({super.key});
 
@@ -385,6 +388,8 @@ class _DiaryScreenState extends State<DiaryScreen> {
       itemsOn(brain.data, d, now).where((x) => x.reminder == null || x.reminder!.repeat == Repeat.none || x.reminder!.repeat == Repeat.monthly || x.reminder!.repeat == Repeat.yearly).toList();
 
   List<Widget> _monthView(Brain brain, DateTime day, DateTime now) {
+    if (diaryMonthStyle == 2) return _monthAgenda(brain, day, now);
+    if (diaryMonthStyle == 3) return _monthStrip(brain, day, now);
     final first = DateTime(day.year, day.month);
     final days = DateTime(day.year, day.month + 1, 0).day;
     // The week starts on Saturday: blanks before the 1st.
@@ -455,6 +460,88 @@ class _DiaryScreenState extends State<DiaryScreen> {
           const SizedBox(height: 2),
           for (var r = 0; r < cells.length ~/ 7; r++) Row(children: [for (var c = 0; c < 7; c++) Expanded(child: cells[r * 7 + c])]),
         ]),
+      ),
+      _label('${_dayTitle(picked, now)}${items.isEmpty ? '' : ' · ${trf('{0}টা', [bnDigits(items.length)])}'}'),
+      if (hol != null) Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(trf('ছুটি: {0}', [hol.label]), style: body(13.5, weight: FontWeight.w600, color: C.rose))),
+      _box(items.isEmpty ? [_empty(tr('কিছু নেই'))] : [for (final x in items) PlanRow(item: x)]),
+      _repeating(brain),
+    ];
+  }
+
+  Widget _monthNav(DateTime day) {
+    final first = DateTime(day.year, day.month);
+    final last = DateTime(day.year, day.month + 1, 0);
+    return _nav(
+      tr('আগের মাস'),
+      tr('পরের মাস'),
+      () => setState(() => _picked = DateTime(day.year, day.month - 1)),
+      () => setState(() => _picked = DateTime(day.year, day.month + 1)),
+      Column(children: [
+        Text('${monthName(day.month)} ${bnDigits(day.year)}', textAlign: TextAlign.center, style: body(15, weight: FontWeight.w700)),
+        Text('${banglaDate(first).monthName} – ${banglaDate(last).monthName} ${bnDigits(banglaDate(first).year)}', textAlign: TextAlign.center, style: body(12, color: C.muted)),
+      ]),
+    );
+  }
+
+  /// The month as a list (option 2): only the days that have something,
+  /// each as the week page's day card.
+  List<Widget> _monthAgenda(Brain brain, DateTime day, DateTime now) {
+    final last = DateTime(day.year, day.month + 1, 0).day;
+    final days = [
+      for (var i = 1; i <= last; i++)
+        if (_monthItems(brain, DateTime(day.year, day.month, i), now).isNotEmpty || holidayOn(DateTime(day.year, day.month, i)) != null) DateTime(day.year, day.month, i)
+    ];
+    return [
+      _monthNav(day),
+      const SizedBox(height: 10),
+      if (days.isEmpty) _box([_empty(tr('এ মাসে কিছু রাখা নেই'))]),
+      for (final d in days) Padding(padding: const EdgeInsets.only(bottom: 8), child: _weekCard(brain, d, now)),
+      _repeating(brain),
+    ];
+  }
+
+  /// The month as one row of dates to slide through (option 3), the day's
+  /// things under it.
+  List<Widget> _monthStrip(Brain brain, DateTime day, DateTime now) {
+    final last = DateTime(day.year, day.month + 1, 0).day;
+    final picked = dayOnly(day);
+    final items = _monthItems(brain, picked, now);
+    final hol = holidayOn(picked);
+    return [
+      _monthNav(day),
+      const SizedBox(height: 10),
+      SizedBox(
+        height: 74,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          controller: ScrollController(initialScrollOffset: ((picked.day - 3).clamp(0, 31)) * 52.0, keepScrollOffset: false),
+          itemCount: last,
+          separatorBuilder: (_, __) => const SizedBox(width: 6),
+          itemBuilder: (_, i) {
+            final d = DateTime(day.year, day.month, i + 1);
+            final on = d == picked;
+            final today = d == dayOnly(now);
+            final red = holidayOn(d) != null || isWeekend(d);
+            final has = _monthItems(brain, d, now).isNotEmpty;
+            return Material(
+              color: on ? C.green : C.surface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: on ? C.green : (today ? C.green : C.border))),
+              child: InkWell(
+                key: Key('month-${d.year}-${d.month}-${d.day}'),
+                borderRadius: BorderRadius.circular(14),
+                onTap: () => setState(() => _picked = d),
+                child: SizedBox(
+                  width: 46,
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Text(weekdayShort(d), style: body(10.5, color: on ? C.onAccent.withValues(alpha: 0.85) : (red ? C.rose : C.muted), height: 1.2)),
+                    Text(bnDigits(d.day), style: body(16, weight: FontWeight.w700, color: on ? C.onAccent : (red ? C.rose : C.ink), height: 1.3)),
+                    Container(width: 4, height: 4, decoration: BoxDecoration(shape: BoxShape.circle, color: has ? (on ? C.onAccent : C.warn) : Colors.transparent)),
+                  ]),
+                ),
+              ),
+            );
+          },
+        ),
       ),
       _label('${_dayTitle(picked, now)}${items.isEmpty ? '' : ' · ${trf('{0}টা', [bnDigits(items.length)])}'}'),
       if (hol != null) Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(trf('ছুটি: {0}', [hol.label]), style: body(13.5, weight: FontWeight.w600, color: C.rose))),
