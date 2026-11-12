@@ -161,8 +161,20 @@ def examples(rows):
             continue
         bound = ['O'] * len(toks)
         n = 0
-        for s in r['segs']:
-            ws = [j for j, i in enumerate(idx) if s['start'] <= i < s['end']]
+        # Spoken breaths (long, multi): the app cuts only where a request
+        # starts, so a run-up ("ও আচ্ছা", "আরেকটা কথা") rides with the first
+        # request and a joiner with the one before it. Teach the same pieces:
+        # before, a run-up was its own O stretch, the tagger learnt to cut
+        # after it, and the run-up alone read as a yes or small talk
+        # (gate of 7 Nov: ~200 crowd rows with an extra smalltalk/confirm_yes).
+        whole = r.get('kind') in ('long', 'multi') and len(r['segs']) > 1
+        cuts = None
+        if whole:
+            firsts = [min((j for j, i in enumerate(idx) if s['start'] <= i < s['end']), default=None) for s in r['segs']]
+            if None not in firsts and firsts == sorted(firsts):
+                cuts = [0] + firsts[1:] + [len(toks)]
+        for k, s in enumerate(r['segs']):
+            ws = list(range(cuts[k], cuts[k + 1])) if cuts else [j for j, i in enumerate(idx) if s['start'] <= i < s['end']]
             if not ws:
                 continue
             n += 1
