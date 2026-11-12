@@ -1377,10 +1377,11 @@ class ChatController extends ChangeNotifier {
 
   /// The answer to "মূল হিসাবেও যোগ হবে?": a plain yes or no, or "যোগ করো" /
   /// "আলাদা রাখো"; anything else is not an answer (null).
+  /// "আলাদা হিসাব" is the page's name (owner, 13 Nov), not "keep it apart".
   static bool? mainAnswer(String said) {
     final f = said.trim().toLowerCase().replaceAll(RegExp(r'[,।!.?]+'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
     if (f.isEmpty || f.split(' ').length > 5) return null;
-    if (RegExp(r'^(?:না|নাহ|জি না|no)(?: |$)').hasMatch(f) || RegExp(r'^(?:আলাদা|যোগ কর(?:ো|বে|বেন|িও)? না|যোগ হবে না)').hasMatch(f)) return false;
+    if (RegExp(r'^(?:না|নাহ|জি না|no)(?: |$)').hasMatch(f) || RegExp(r'^(?:আলাদা(?! হিসাব)|যোগ কর(?:ো|বে|বেন|িও)? না|যোগ হবে না)').hasMatch(f)) return false;
     if (RegExp(r'^(?:হ্যাঁ|হ্যা|হাঁ|হা|জি|জ্বি|ঠিক আছে|আচ্ছা|yes|ok|okay)(?: |$)').hasMatch(f) || RegExp(r'^যোগ (?:করো|কর|করুন|করেন|হবে)$').hasMatch(f)) return true;
     return null;
   }

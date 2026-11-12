@@ -36,11 +36,11 @@ const _short = <ProFeature, (String, IconData)>{
   ProFeature.shops: ('একাধিক দোকান', Icons.storefront_outlined),
   ProFeature.receipts: ('রসিদ', Icons.receipt_long_outlined),
   ProFeature.pdf: ('PDF ডাউনলোড', Icons.picture_as_pdf_outlined),
-  ProFeature.projects: ('অন্যান্য হিসাব', Icons.folder_special_outlined),
+  ProFeature.projects: ('আলাদা হিসাব', Icons.folder_special_outlined),
   ProFeature.vault: ('যত খুশি পাসওয়ার্ড', Icons.lock_outline_rounded),
-  ProFeature.smartNudges: ('স্মার্ট খেয়াল', Icons.tips_and_updates_outlined),
+  ProFeature.smartNudges: ('নিজে থেকে মনে করানো', Icons.tips_and_updates_outlined),
   ProFeature.family: ('উত্তরাধিকার, পুরো অ্যাক্সেস, লোকেশন', Icons.family_restroom_rounded),
-  ProFeature.will: ('ওছিয়তনামা', Icons.history_edu_outlined),
+  ProFeature.will: ('ওসিয়তনামা', Icons.history_edu_outlined),
   ProFeature.familyHealth: ('পরিবারের স্বাস্থ্য', Icons.favorite_border_rounded),
 };
 

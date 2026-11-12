@@ -25,7 +25,7 @@ enum ReportPart {
   reminders('তারিখ ও রিমাইন্ডার', 'reminders'),
   money('আয়-ব্যয়', 'income-expense'),
   ledger('ধার-দেনা', 'loans'),
-  projects('অন্যান্য হিসাব', 'separate-accounts'),
+  projects('আলাদা হিসাব', 'separate-accounts'),
   accounts('অ্যাকাউন্ট, সঞ্চয় ও কিস্তি', 'accounts'),
   shops('দোকান', 'shops'),
   notes('নোট ও অন্যান্য', 'notes'),

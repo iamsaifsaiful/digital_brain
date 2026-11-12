@@ -30,7 +30,7 @@ void main() {
     s = j.newSession();
     j.result(s, 'কাল সকালে বাজারে যাব', isFinal: false, clean: same);
     j.result(s, 'কাল সকালে বাজারে যাবো', isFinal: true, clean: same);
-    expect(j.text, 'কাল সকালে বাজারে যাব');
+    expect(j.text, 'কাল সকালে বাজারে যাবো');
     expect(fuller('রহিমকে পাঁচশো টাকা দিলাম', 'রহিমকে পাঁচশো টাকা'), 'রহিমকে পাঁচশো টাকা দিলাম');
   });
 
