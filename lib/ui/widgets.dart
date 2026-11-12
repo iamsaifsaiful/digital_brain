@@ -113,7 +113,8 @@ class SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         // Space above too, so a heading never sits on the card before it.
-        padding: const EdgeInsets.only(top: 16, bottom: 6),
+        // A little more room between sections (owner, 13 Nov).
+        padding: const EdgeInsets.only(top: 24, bottom: 8),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 32),
           child: Row(

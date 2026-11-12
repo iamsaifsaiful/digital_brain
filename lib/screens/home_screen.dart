@@ -390,7 +390,7 @@ class _HomeAttentionState extends State<HomeAttention> with WidgetsBindingObserv
     final brain = BrainScope.of(context);
     final d = brain.data;
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
-    Widget wrap(Widget w) => Padding(padding: const EdgeInsets.only(top: 12), child: w);
+    Widget wrap(Widget w) => Padding(padding: const EdgeInsets.only(top: 16), child: w);
 
     // 1. Reminders may not ring.
     final h = _h;
