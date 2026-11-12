@@ -146,10 +146,12 @@ class ProPlan {
   final int days;
 }
 
-/// Two plans only: monthly and yearly.
+/// Two plans only: monthly and yearly, in US dollars (owner, 12 Nov: "মাসিক ১
+/// ডলার, বার্ষিক ১০ ডলার"). Google Play's own price, when it answers, is
+/// shown instead — set the same in Play Console.
 const proPlans = [
-  ProPlan('pro_yearly', 'বছরে', '৳৯৯৯', 'মাসে মাত্র ৳৮৩ — ২ মাস ফ্রি', 365),
-  ProPlan('pro_monthly', 'মাসে', '৳৯৯', 'যেকোনো সময় বন্ধ করা যায়', 30),
+  ProPlan('pro_yearly', 'বছরে', '\$১০', 'মাসে মাত্র \$০.৮৩ — ২ মাস ফ্রি', 365),
+  ProPlan('pro_monthly', 'মাসে', '\$১', 'যেকোনো সময় বন্ধ করা যায়', 30),
 ];
 
 /// Where the free Play app shows Google ads (AdMob). Never on the password,
