@@ -36,9 +36,6 @@ List<PlanItem> itemsOn(AppData d, DateTime day, DateTime now) {
 
 /// দিনলিপি: the day, the week or the month — reminders and to-dos, with
 /// the Bangla date beside every day.
-/// The month's look, for the owner to pick: 1 the calendar, 2 a list, 3 a row of dates.
-int diaryMonthStyle = 1;
-
 class DiaryScreen extends StatefulWidget {
   const DiaryScreen({super.key});
 
@@ -164,12 +161,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
         padding: const EdgeInsets.all(14),
         child: Text(text, style: body(14, color: C.muted, height: 1.5)),
       );
-
-  String _dayTitle(DateTime d, DateTime now) {
-    final diff = dayOnly(d).difference(dayOnly(now)).inDays;
-    final rel = switch (diff) { 0 => '${tr('আজ')} · ', 1 => '${tr('কাল')} · ', -1 => '${tr('গতকাল')} · ', _ => '' };
-    return '$rel${weekdayName(d)}, ${bnDigits(d.day)} ${monthName(d.month)} · ${banglaDate(d).dayMonth}';
-  }
 
   /// "৭:০০" on the timeline's left ("7:00 PM" in English).
   String _clock(DateTime at) {
@@ -387,86 +378,9 @@ class _DiaryScreenState extends State<DiaryScreen> {
   List<PlanItem> _monthItems(Brain brain, DateTime d, DateTime now) =>
       itemsOn(brain.data, d, now).where((x) => x.reminder == null || x.reminder!.repeat == Repeat.none || x.reminder!.repeat == Repeat.monthly || x.reminder!.repeat == Repeat.yearly).toList();
 
-  List<Widget> _monthView(Brain brain, DateTime day, DateTime now) {
-    if (diaryMonthStyle == 2) return _monthAgenda(brain, day, now);
-    if (diaryMonthStyle == 3) return _monthStrip(brain, day, now);
-    final first = DateTime(day.year, day.month);
-    final days = DateTime(day.year, day.month + 1, 0).day;
-    // The week starts on Saturday: blanks before the 1st.
-    final lead = (first.weekday - DateTime.saturday) % 7;
-    final heads = [for (var i = 0; i < 7; i++) first.subtract(Duration(days: lead)).add(Duration(days: i))];
-    final picked = dayOnly(day);
-    final items = _monthItems(brain, picked, now);
-    final hol = holidayOn(picked);
-
-    // Small (owner, 13 Nov: the month took half the screen): the day's
-    // number in a 26 circle, a dot under it for a day with things.
-    Widget cell(DateTime d) {
-      final on = dayOnly(d) == picked;
-      final today = dayOnly(d) == dayOnly(now);
-      final red = holidayOn(d) != null || isWeekend(d);
-      final n = _monthItems(brain, d, now).length;
-      return InkWell(
-        key: Key('month-${d.year}-${d.month}-${d.day}'),
-        customBorder: const CircleBorder(),
-        onTap: () => setState(() => _picked = dayOnly(d)),
-        child: SizedBox(
-          height: 28,
-          child: Stack(alignment: Alignment.center, children: [
-            Container(
-              width: 24,
-              height: 24,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: on ? C.green : Colors.transparent,
-                border: today && !on ? Border.all(color: C.green, width: 1.5) : null,
-              ),
-              child: Text(bnDigits(d.day), style: body(12, weight: on || today ? FontWeight.w700 : FontWeight.w500, color: on ? C.onAccent : (red ? C.rose : C.ink), height: 1.1)),
-            ),
-            if (n > 0) Positioned(bottom: 0, child: Container(width: 4, height: 4, decoration: BoxDecoration(shape: BoxShape.circle, color: red ? C.rose : C.warn))),
-          ]),
-        ),
-      );
-    }
-
-    final cells = <Widget>[
-      for (var i = 0; i < lead; i++) const SizedBox(height: 28),
-      for (var i = 0; i < days; i++) cell(first.add(Duration(days: i))),
-    ];
-    while (cells.length % 7 != 0) {
-      cells.add(const SizedBox(height: 28));
-    }
-    return [
-      Container(
-        // Smaller, so the day's list shows too (owner, 13 Nov).
-        padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
-        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(17), border: Border.all(color: C.border)),
-        child: Column(children: [
-          _nav(
-            tr('আগের মাস'),
-            tr('পরের মাস'),
-            () => setState(() => _picked = DateTime(day.year, day.month - 1)),
-            () => setState(() => _picked = DateTime(day.year, day.month + 1)),
-            Column(children: [
-              Text('${monthName(day.month)} ${bnDigits(day.year)}', textAlign: TextAlign.center, style: body(15, weight: FontWeight.w700, height: 1.2)),
-              Text('${banglaDate(first).monthName} – ${banglaDate(DateTime(day.year, day.month, days)).monthName} ${bnDigits(banglaDate(first).year)}', textAlign: TextAlign.center, style: body(11.5, color: C.muted, height: 1.2)),
-            ]),
-          ),
-          const SizedBox(height: 4),
-          Row(children: [
-            for (final h in heads) Expanded(child: Text(weekdayShort(h), textAlign: TextAlign.center, style: body(10.5, color: isWeekend(h) ? C.rose : C.muted, height: 1.2))),
-          ]),
-          const SizedBox(height: 2),
-          for (var r = 0; r < cells.length ~/ 7; r++) Row(children: [for (var c = 0; c < 7; c++) Expanded(child: cells[r * 7 + c])]),
-        ]),
-      ),
-      _label('${_dayTitle(picked, now)}${items.isEmpty ? '' : ' · ${trf('{0}টা', [bnDigits(items.length)])}'}'),
-      if (hol != null) Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(trf('ছুটি: {0}', [hol.label]), style: body(13.5, weight: FontWeight.w600, color: C.rose))),
-      _box(items.isEmpty ? [_empty(tr('কিছু নেই'))] : [for (final x in items) PlanRow(item: x)]),
-      _repeating(brain),
-    ];
-  }
+  /// The month as a list (owner's pick, 13 Nov): the days that have
+  /// something, each as the week page's day card.
+  List<Widget> _monthView(Brain brain, DateTime day, DateTime now) => _monthAgenda(brain, day, now);
 
   Widget _monthNav(DateTime day) {
     final first = DateTime(day.year, day.month);
@@ -483,8 +397,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
     );
   }
 
-  /// The month as a list (option 2): only the days that have something,
-  /// each as the week page's day card.
   List<Widget> _monthAgenda(Brain brain, DateTime day, DateTime now) {
     final last = DateTime(day.year, day.month + 1, 0).day;
     final days = [
@@ -496,56 +408,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
       const SizedBox(height: 10),
       if (days.isEmpty) _box([_empty(tr('এ মাসে কিছু রাখা নেই'))]),
       for (final d in days) Padding(padding: const EdgeInsets.only(bottom: 8), child: _weekCard(brain, d, now)),
-      _repeating(brain),
-    ];
-  }
-
-  /// The month as one row of dates to slide through (option 3), the day's
-  /// things under it.
-  List<Widget> _monthStrip(Brain brain, DateTime day, DateTime now) {
-    final last = DateTime(day.year, day.month + 1, 0).day;
-    final picked = dayOnly(day);
-    final items = _monthItems(brain, picked, now);
-    final hol = holidayOn(picked);
-    return [
-      _monthNav(day),
-      const SizedBox(height: 10),
-      SizedBox(
-        height: 74,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          controller: ScrollController(initialScrollOffset: ((picked.day - 3).clamp(0, 31)) * 52.0, keepScrollOffset: false),
-          itemCount: last,
-          separatorBuilder: (_, __) => const SizedBox(width: 6),
-          itemBuilder: (_, i) {
-            final d = DateTime(day.year, day.month, i + 1);
-            final on = d == picked;
-            final today = d == dayOnly(now);
-            final red = holidayOn(d) != null || isWeekend(d);
-            final has = _monthItems(brain, d, now).isNotEmpty;
-            return Material(
-              color: on ? C.green : C.surface,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: on ? C.green : (today ? C.green : C.border))),
-              child: InkWell(
-                key: Key('month-${d.year}-${d.month}-${d.day}'),
-                borderRadius: BorderRadius.circular(14),
-                onTap: () => setState(() => _picked = d),
-                child: SizedBox(
-                  width: 46,
-                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Text(weekdayShort(d), style: body(10.5, color: on ? C.onAccent.withValues(alpha: 0.85) : (red ? C.rose : C.muted), height: 1.2)),
-                    Text(bnDigits(d.day), style: body(16, weight: FontWeight.w700, color: on ? C.onAccent : (red ? C.rose : C.ink), height: 1.3)),
-                    Container(width: 4, height: 4, decoration: BoxDecoration(shape: BoxShape.circle, color: has ? (on ? C.onAccent : C.warn) : Colors.transparent)),
-                  ]),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-      _label('${_dayTitle(picked, now)}${items.isEmpty ? '' : ' · ${trf('{0}টা', [bnDigits(items.length)])}'}'),
-      if (hol != null) Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(trf('ছুটি: {0}', [hol.label]), style: body(13.5, weight: FontWeight.w600, color: C.rose))),
-      _box(items.isEmpty ? [_empty(tr('কিছু নেই'))] : [for (final x in items) PlanRow(item: x)]),
       _repeating(brain),
     ];
   }
