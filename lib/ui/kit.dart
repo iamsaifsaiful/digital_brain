@@ -22,7 +22,8 @@ class SectionHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: 16, bottom: 6),
+        // Room above each section, so the page reads in blocks (owner, 12 Nov: more negative space).
+        padding: const EdgeInsets.only(top: 28, bottom: 10),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 32),
           child: Row(children: [
@@ -69,7 +70,7 @@ class Counter extends StatelessWidget {
 
 /// The card: surface, 1 px border, radius 17, no shadow.
 class AppCard extends StatelessWidget {
-  const AppCard({super.key, required this.child, this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 13), this.onTap});
+  const AppCard({super.key, required this.child, this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 15), this.onTap});
   final Widget child;
   final EdgeInsetsGeometry padding;
   final VoidCallback? onTap;

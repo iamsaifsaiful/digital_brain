@@ -5300,4 +5300,11 @@ const enStrings = <String, String>{
   'ডাক্তারের কাছে যাওয়া': 'See the doctor',
   'পানি খাওয়া': 'Drink water',
   'ব্যাংকের কাজ': 'Bank errand',
+  'বিল যোগ করুন': 'Add a bill',
+  'আরও বিল যোগ করুন': 'Add more bills',
+  '{0}… — প্রতি মাসে মনে করাবো': '{0}… — I’ll remind you every month',
+  'কোন বিল দেন?': 'Which bills do you pay?',
+  'চাপ দিয়ে তারিখ দিন — প্রতি মাসে মনে করাবো।': 'Tap one and choose a day — I’ll remind you every month.',
+  'লিখুন': 'Enter',
+  'হাতে, ব্যাংকে, বিকাশে — সব মিলিয়ে লিখুন': 'Cash, bank, bKash — enter the combined total',
 };

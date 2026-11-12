@@ -89,7 +89,7 @@ class HomePage extends StatelessWidget {
           const TodaySections(),
           const _MoneyCard(),
           // আজকের অর্থ-কথা right under the money (owner, 24 Oct night).
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           AppCard(
             key: const Key('home-quote'),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -105,13 +105,13 @@ class HomePage extends StatelessWidget {
             ]),
           ),
           const HomeHolidays(),
-          const SizedBox(height: 14),
+          const SizedBox(height: 28),
           const _Tools(),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           // Free Play app only: a quiet ad card under the quote.
           const AdSlot(padding: EdgeInsets.only(top: 12)),
           Padding(
-            padding: const EdgeInsets.only(top: 14),
+            padding: const EdgeInsets.only(top: 24),
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.lock_outline_rounded, size: 14, color: C.muted),
               const SizedBox(width: 5),
@@ -122,8 +122,6 @@ class HomePage extends StatelessWidget {
           ),
         ],
       ),
-      // কিছু যুক্ত করুন: one empty menu at a time, floating over the bottom.
-      const Positioned(left: 16, right: 16, bottom: 12, child: AddNudgeCard()),
       ]),
       ),
     );

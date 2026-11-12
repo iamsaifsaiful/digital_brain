@@ -15,6 +15,7 @@ import 'blood_details.dart';
 import 'google_backup.dart' show restoreFromPhoneFile;
 import 'more_screen.dart' show BackupScreen;
 import 'help_screen.dart';
+import 'home_page.dart' show AddNudgeCard;
 import 'plan_screens.dart';
 import '../logic/lang.dart';
 
@@ -327,6 +328,14 @@ class _TaskRow extends StatelessWidget {
 /// At most one thing that needs a look, the most important first:
 /// reminders may not ring; the Google sign-in offer on a new phone; the
 /// four first steps for a new user.
+/// The "… যুক্ত করুন" card in the attention slot, when nothing else is there.
+class _NudgeSlot extends StatelessWidget {
+  const _NudgeSlot();
+
+  @override
+  Widget build(BuildContext context) => const Padding(padding: EdgeInsets.only(top: 16), child: AddNudgeCard());
+}
+
 class HomeAttention extends StatefulWidget {
   const HomeAttention({super.key});
 
@@ -390,7 +399,7 @@ class _HomeAttentionState extends State<HomeAttention> with WidgetsBindingObserv
     final brain = BrainScope.of(context);
     final d = brain.data;
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
-    Widget wrap(Widget w) => Padding(padding: const EdgeInsets.only(top: 12), child: w);
+    Widget wrap(Widget w) => Padding(padding: const EdgeInsets.only(top: 16), child: w);
 
     // 1. Reminders may not ring.
     final h = _h;
@@ -442,8 +451,10 @@ class _HomeAttentionState extends State<HomeAttention> with WidgetsBindingObserv
         onClose: () => brain.setPref('g_card_off', true),
       ));
     }
-    // 3. The four first steps, until done or hidden.
-    if (_tipsHidden != false) return const SizedBox.shrink();
+    // 3. The four first steps, until done or hidden. Then "… যুক্ত করুন",
+    // one empty menu at a time — in its place on the page, never floating
+    // over today's work (owner, 12 Nov: one thing at a time, more room).
+    if (_tipsHidden != false) return const _NudgeSlot();
     final steps = <(String, String, String, IconData, bool, VoidCallback)>[
       ('contacts', tr('ফোনবুকের সব নম্বর এক ক্লিকে আনুন'), tr('নাম বললেই ফোন, মেসেজ আর হিসাবে নম্বর নিজে থেকে বসে যাবে'), Icons.contacts_outlined,
           d.contacts.isNotEmpty, () => importFromPhone(context)),
@@ -454,7 +465,7 @@ class _HomeAttentionState extends State<HomeAttention> with WidgetsBindingObserv
       ('help', tr('কী কী করা যায়, দেখে নিন'), tr('সব সুবিধা আর কী বললে কী হয়'), Icons.lightbulb_outline_rounded, _seen.contains('help'), () => push(const HelpScreen())),
     ];
     final done = steps.where((x) => x.$5).length;
-    if (done == steps.length) return const SizedBox.shrink();
+    if (done == steps.length) return const _NudgeSlot();
     return wrap(AppCard(
       key: const Key('home-tips'),
       padding: const EdgeInsets.symmetric(horizontal: 14),

@@ -149,7 +149,30 @@ class CashNowLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final now = cashOnHand(brain.data);
-    if (now == null) return const SizedBox.shrink();
+    // Not set yet: one quiet line here instead of a big card on top (owner, 12 Nov: more room, one thing at a time).
+    if (now == null) {
+      return Column(key: const Key('cash-now-ask'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const SizedBox(height: 12),
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Row(children: [
+            Icon(Icons.account_balance_wallet_outlined, size: 18, color: C.muted),
+            const SizedBox(width: 8),
+            Expanded(child: Text(tr('এখন কত টাকা আছে?'), style: body(13.5, color: C.muted2))),
+            TextButton(
+              key: const Key('cash-now-set'),
+              onPressed: () async {
+                final v = await showDialog<String>(context: context, builder: (_) => const _AmountDialog(initial: null));
+                final n = v == null ? null : readInt(v);
+                if (n != null && n >= 0) await brain.setCashOnHand(n);
+              },
+              child: Text(tr('লিখুন')),
+            ),
+          ]),
+        ),
+      ]);
+    }
     return Column(key: const Key('cash-now'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       const SizedBox(height: 10),
       const Divider(height: 1),
@@ -186,14 +209,14 @@ class CashNowLine extends StatelessWidget {
 /// "এখন কত টাকা আছে?" — the box lives as long as the dialog.
 class _AmountDialog extends StatefulWidget {
   const _AmountDialog({required this.initial});
-  final int initial;
+  final int? initial;
 
   @override
   State<_AmountDialog> createState() => _AmountDialogState();
 }
 
 class _AmountDialogState extends State<_AmountDialog> {
-  late final _c = TextEditingController(text: bnDigits('${widget.initial}'));
+  late final _c = TextEditingController(text: widget.initial == null ? '' : bnDigits('${widget.initial}'));
 
   @override
   void dispose() {
@@ -209,7 +232,11 @@ class _AmountDialogState extends State<_AmountDialog> {
           controller: _c,
           autofocus: true,
           keyboardType: TextInputType.number,
-          decoration: InputDecoration(prefixText: '৳ ', helperText: tr('এখন থেকে নতুন করে হিসাব শুরু হবে'), helperMaxLines: 2),
+          decoration: InputDecoration(
+              prefixText: '৳ ',
+              hintText: widget.initial == null ? tr('যেমন ১২,০০০') : null,
+              helperText: widget.initial == null ? tr('হাতে, ব্যাংকে, বিকাশে — সব মিলিয়ে লিখুন') : tr('এখন থেকে নতুন করে হিসাব শুরু হবে'),
+              helperMaxLines: 2),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('বাতিল'))),
@@ -450,18 +477,30 @@ class _CashViewState extends State<CashView> {
     final balance = sums.balance;
     final ratio = sums.income <= 0 ? (sums.expense > 0 ? 1.0 : 0.0) : (sums.expense / sums.income).clamp(0.0, 1.0);
     // The figures roll to a new amount rather than jump (owner, 3 Nov).
-    Widget fig(String label, int value, Color color, {bool first = false, bool signed = false}) => Expanded(
-          child: Container(
-            padding: EdgeInsets.only(left: first ? 0 : 12),
+    // আয় or খরচ tapped: only those below; tapped again, or the balance: all
+    // (owner, 12 Nov: the filter chips folded into the figures).
+    Widget fig(String label, int value, Color color, {bool first = false, bool signed = false, CashKind? kind, Key? key}) => Expanded(
+          child: InkWell(
+            key: key,
+            onTap: () => _go(() {
+              _kind = kind == null || _kind == kind ? null : kind;
+              _cat = null;
+            }),
+            child: Container(
+            padding: EdgeInsets.only(left: first ? 0 : 12, top: 2, bottom: 2),
             decoration: first ? null : BoxDecoration(border: Border(left: BorderSide(color: C.border))),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(label, maxLines: 2, style: body(12, color: C.muted, height: 1.3)),
+              Row(children: [
+                Flexible(child: Text(label, maxLines: 2, style: body(12, color: kind != null && _kind == kind ? color : C.muted, weight: kind != null && _kind == kind ? FontWeight.w700 : FontWeight.w400, height: 1.3))),
+                if (kind != null && _kind == kind) Padding(padding: const EdgeInsets.only(left: 3), child: Icon(Icons.filter_alt_rounded, size: 13, color: color)),
+              ]),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
                 child: RollingAmount(value: value, format: (v) => '${signed && v < 0 ? '−' : ''}${taka(v.abs())}', style: display(17, weight: 700, color: color, height: 1.35)),
               ),
             ]),
+          ),
           ),
         );
 
@@ -478,7 +517,7 @@ class _CashViewState extends State<CashView> {
       },
       child: Panel(
         key: ValueKey('${_span.name}-$from'),
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
             _NavButton(
@@ -523,9 +562,9 @@ class _CashViewState extends State<CashView> {
           const SizedBox(height: 12),
           IntrinsicHeight(
             child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              fig(tr('আয়'), sums.income, C.blue, first: true),
-              fig(tr('খরচ'), sums.expense, C.red),
-              fig(_title(current), balance, balance < 0 ? C.red : C.ink, signed: true),
+              fig(tr('আয়'), sums.income, C.blue, first: true, kind: CashKind.income, key: const Key('cash-kind-income')),
+              fig(tr('খরচ'), sums.expense, C.red, kind: CashKind.expense, key: const Key('cash-kind-expense')),
+              fig(_title(current), balance, balance < 0 ? C.red : C.ink, signed: true, key: const Key('cash-kind-all')),
             ]),
           ),
           const SizedBox(height: 12),
@@ -566,47 +605,42 @@ class _CashViewState extends State<CashView> {
       ]),
     );
 
-    Widget chip(Key key, String label, bool on, VoidCallback onTap) => ChoiceChip(
-          key: key,
-          label: Text(label),
-          selected: on,
-          showCheckmark: false,
-          onSelected: (_) => onTap(),
-        );
-
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (cashOnHand(brain.data) == null) ...[const CashNowCard(), const SizedBox(height: 12)],
       period,
-      const SizedBox(height: 12),
-      // ফিল্টার
-      SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(children: [
-          for (final (k, label) in [(null, tr('সব')), (CashKind.income, tr('শুধু আয়')), (CashKind.expense, tr('শুধু খরচ'))]) ...[
-            chip(Key('cash-kind-${k?.name ?? 'all'}'), label, _kind == k, () => _go(() {
-                  _kind = k;
+      // A filter on (from the figures or a খাত): said in one line, with a way back to all.
+      if (filtered)
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+            if (_kind != null)
+              InputChip(
+                key: Key('cash-kind-on-${_kind!.name}'),
+                label: Text(_kind == CashKind.income ? tr('শুধু আয়') : tr('শুধু খরচ')),
+                selected: true,
+                showCheckmark: false,
+                onDeleted: () => _go(() {
+                  _kind = null;
                   _cat = null;
-                })),
-            const SizedBox(width: 6),
-          ],
-          if (cat != null)
-            InputChip(
-              key: const Key('cash-cat-on'),
-              label: Text(cat),
-              selected: true,
-              showCheckmark: false,
-              onPressed: () => _pickCategory(cats),
-              onDeleted: () => _go(() => _cat = null),
-            )
-          else if (cats.length > 1)
-            ActionChip(
-              key: const Key('cash-cat'),
-              avatar: const Icon(Icons.label_outline_rounded, size: 18),
-              label: Text(tr('খাত')),
-              onPressed: () => _pickCategory(cats),
-            ),
-        ]),
-      ),
+                }),
+              ),
+            if (cat == null && _kind != null && cats.length > 1)
+              ActionChip(
+                key: const Key('cash-cat'),
+                avatar: const Icon(Icons.label_outline_rounded, size: 18),
+                label: Text(tr('খাত')),
+                onPressed: () => _pickCategory(cats),
+              ),
+            if (cat != null)
+              InputChip(
+                key: const Key('cash-cat-on'),
+                label: Text(cat),
+                selected: true,
+                showCheckmark: false,
+                onPressed: () => _pickCategory(cats),
+                onDeleted: () => _go(() => _cat = null),
+              ),
+          ]),
+        ),
       if (filtered && entries.isNotEmpty)
         Padding(
           padding: const EdgeInsets.only(top: 8),
@@ -620,7 +654,7 @@ class _CashViewState extends State<CashView> {
             style: body(13.5, weight: FontWeight.w600, color: C.muted2),
           ),
         ),
-      const SizedBox(height: 10),
+      const SizedBox(height: 20),
       if (top.length > 1 || (top.isNotEmpty && cat == null)) ...[
         _CatStrip(
           title: incomeSide ? tr('খাত অনুযায়ী আয়') : tr('খাত অনুযায়ী খরচ'),
@@ -638,7 +672,7 @@ class _CashViewState extends State<CashView> {
             if (picked != null && mounted) _go(() => _cat = picked);
           },
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 16),
       ],
       if (entries.isEmpty)
         EmptyState(

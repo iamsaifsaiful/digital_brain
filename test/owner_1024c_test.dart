@@ -359,8 +359,18 @@ void main() {
     expect(addNudges(kept, now: at, lastBackup: at.subtract(const Duration(days: 8))).first.id, 'backup');
   });
 
-  testWidgets('home: the floating message opens its menu; ✕ hides all until tomorrow', (t) async {
+  testWidgets('home: the add message opens its menu; ✕ hides all until tomorrow', (t) async {
     final rig = await start(t);
+    // One thing at a time (owner, 12 Nov): while another card asks for a
+    // look, the message waits; it comes in that card's place after.
+    expect(find.byKey(const Key('home-google')), findsOneWidget);
+    expect(find.byKey(const Key('add-nudge')), findsNothing);
+    await rig.brain.setPref('g_card_off', true);
+    await settle(t);
+    if (find.byKey(const Key('home-tips')).evaluate().isNotEmpty) {
+      await t.tap(find.byTooltip('বুঝেছি, লুকিয়ে রাখো'));
+      await settle(t);
+    }
     expect(find.byKey(const Key('add-nudge')), findsOneWidget);
     expect(find.byKey(const Key('add-nudge-tasks')), findsOneWidget, reason: 'the first empty menu');
     expect(find.text('কাজের তালিকায় কিছু যুক্ত করুন'), findsOneWidget);

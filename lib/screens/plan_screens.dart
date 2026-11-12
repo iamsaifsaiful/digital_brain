@@ -649,22 +649,46 @@ class BillList extends StatelessWidget {
         ),
         const SizedBox(height: 10),
       ],
+      // The bills not kept yet: one row that opens them, not ten chips
+      // under the to-dos (owner, 12 Nov: more room, one thing at a time).
       if (unset.isNotEmpty)
         Panel(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(kept.isEmpty ? tr('কোন বিল দেন? চাপ দিয়ে তারিখ দিন — প্রতি মাসে মনে করাবো।') : tr('আরও কোনো বিল? চাপ দিয়ে তারিখ দিন।'), style: body(14, color: C.muted)),
-            const SizedBox(height: 10),
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              for (final (name, day, _) in unset)
-                ActionChip(
-                  key: Key('bill-$name'),
-                  avatar: Icon(Icons.add_rounded, size: 18, color: C.green),
-                  label: Text(tr(name), style: body(14)),
-                  onPressed: () => _set(context, name, day),
+          child: ListRow(
+            key: const Key('bill-add'),
+            leading: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(10)),
+              child: Icon(Icons.add_rounded, size: 22, color: C.green),
+            ),
+            title: kept.isEmpty ? tr('বিল যোগ করুন') : tr('আরও বিল যোগ করুন'),
+            subtitle: trf('{0}… — প্রতি মাসে মনে করাবো', [unset.take(3).map((x) => tr(x.$1)).join(', ')]),
+            trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
+            onTap: () async {
+              final picked = await showAppSheet<(String, int)>(
+                context: context,
+                builder: (ctx) => Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                  child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(tr('কোন বিল দেন?'), style: display(18, weight: 600)),
+                    const SizedBox(height: 4),
+                    Text(tr('চাপ দিয়ে তারিখ দিন — প্রতি মাসে মনে করাবো।'), style: body(13.5, color: C.muted)),
+                    const SizedBox(height: 16),
+                    Wrap(spacing: 8, runSpacing: 8, children: [
+                      for (final (name, day, _) in unset)
+                        ActionChip(
+                          key: Key('bill-$name'),
+                          avatar: Icon(Icons.add_rounded, size: 18, color: C.green),
+                          label: Text(tr(name), style: body(14)),
+                          onPressed: () => Navigator.pop(ctx, (name, day)),
+                        ),
+                    ]),
+                  ]),
                 ),
-            ]),
-          ]),
+              );
+              if (picked != null && context.mounted) await _set(context, picked.$1, picked.$2);
+            },
+          ),
         ),
     ]);
   }

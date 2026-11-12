@@ -115,8 +115,11 @@ void main() {
     final rig = await start(t);
     await tapMenu(t, 'রিমাইন্ডার');
     final list = find.byType(Scrollable).first;
-    await t.scrollUntilVisible(find.byKey(const Key('bill-বিদ্যুৎ বিল')), 200, scrollable: list);
+    await t.scrollUntilVisible(find.byKey(const Key('bill-add')), 200, scrollable: list);
     expect(find.text('এ মাসের বিল মনে করানো'), findsOneWidget);
+    // One row opens the bills (owner, 12 Nov), then one tap and a day.
+    await t.tap(find.byKey(const Key('bill-add')));
+    await settle(t);
     await t.tap(find.byKey(const Key('bill-বিদ্যুৎ বিল')));
     await settle(t);
     await t.tap(find.widgetWithText(ChoiceChip, '১২'));
