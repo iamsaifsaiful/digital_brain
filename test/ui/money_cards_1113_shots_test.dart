@@ -36,6 +36,7 @@ void main() {
     await settle(t);
     goToTab(t.element(find.byType(Scaffold).first), ShellTab.money);
     await settle(t);
+    if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/moneycards/$stage/day.png'));
     await t.tap(find.text('সাপ্তাহিক').first);
     await settle(t);
     final list = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).hitTestable();

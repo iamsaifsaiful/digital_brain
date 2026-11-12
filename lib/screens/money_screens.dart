@@ -627,7 +627,8 @@ class _CashViewState extends State<CashView> {
           text: filtered ? tr('ফিল্টার বদলে বা “সব” বেছে দেখুন।') : tr('বাজার, ভাড়া, বিল, বেতন — নিজের আয় আর খরচ এখানে রাখুন। মাস শেষে কত জমলো, এক নজরে দেখবেন।'),
         )
       else if (_span == CashSpan.day)
-        Panel(child: Rows(children: [for (final e in entries) cashRow(context, e, picks: _picks, withDate: false)]))
+        // The day as one card too (owner, 13 Nov), every লেনদেন in it.
+        _DayCard(day: from, entries: entries, now: now, picks: _picks)
       else
         // Each day as one card, as দিনলিপি's week (owner, 13 Nov): a tap opens that day.
         for (final MapEntry(key: day, value: list) in days.entries)
@@ -727,19 +728,25 @@ class _CatStrip extends StatelessWidget {
 /// One day of a week, month or year (owner, 13 Nov: as দিনলিপি's week):
 /// its date on the left, two of its লেনদেন, the day's আয় and খরচ on the right.
 class _DayCard extends StatelessWidget {
-  const _DayCard({required this.day, required this.entries, required this.now, required this.onTap});
+  const _DayCard({required this.day, required this.entries, required this.now, this.onTap, this.picks});
   final DateTime day;
   final List<CashEntry> entries;
   final DateTime now;
-  final VoidCallback onTap;
+
+  /// Opens the day (a week, month or year). Without it, the day itself:
+  /// every লেনদেন shown, each a tap to change (long press picks).
+  final VoidCallback? onTap;
+  final Picks? picks;
 
   @override
   Widget build(BuildContext context) {
     final s = sumsOf(entries);
     final today = dayOnly(day) == dayOnly(now);
     final red = holidayOn(day) != null || isWeekend(day);
-    final shown = entries.take(2).toList();
+    final whole = onTap == null;
+    final shown = whole ? entries : entries.take(2).toList();
     final more = entries.length - shown.length;
+    final picking = picks != null && picks!.on;
     return Material(
       key: Key('cash-day-${day.year}-${day.month}-${day.day}'),
       color: C.surface,
@@ -762,6 +769,34 @@ class _DayCard extends StatelessWidget {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 for (final e in shown)
+                  if (whole)
+                    InkWell(
+                      key: Key('cash-${e.id}'),
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: picking ? () => picks!.toggle(e.id) : () => cashActions(context, e),
+                      onLongPress: picks == null ? null : () => picks!.toggle(e.id),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(children: [
+                          if (picking) Padding(padding: const EdgeInsets.only(right: 6), child: PickMark(picks!.has(e.id))),
+                          Expanded(
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(tr(e.category), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14.5, weight: FontWeight.w600)),
+                              if (e.note.trim().isNotEmpty) Text(e.note.trim(), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: C.muted)),
+                            ]),
+                          ),
+                          Text('${e.kind == CashKind.income ? '+' : '−'}${taka(e.amount)}', style: body(14.5, weight: FontWeight.w700, color: e.kind == CashKind.income ? C.blue : C.red)),
+                          if (!picking)
+                            IconButton(
+                              tooltip: tr('বদলান বা মুছুন'),
+                              visualDensity: VisualDensity.compact,
+                              icon: Icon(Icons.more_vert_rounded, color: C.muted, size: 20),
+                              onPressed: () => cashActions(context, e),
+                            ),
+                        ]),
+                      ),
+                    )
+                  else
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 1.5),
                     child: Text.rich(
@@ -776,11 +811,13 @@ class _DayCard extends StatelessWidget {
                 if (more > 0) Text(trf('আরও {0}টা', [bnDigits(more)]), style: body(12, color: C.muted)),
               ]),
             ),
-            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              if (s.income > 0) Text('+${taka(s.income)}', style: body(13.5, weight: FontWeight.w700, color: C.blue)),
-              if (s.expense > 0) Text('−${taka(s.expense)}', style: body(13.5, weight: FontWeight.w700, color: C.red)),
-            ]),
-            Icon(Icons.chevron_right_rounded, color: C.muted, size: 20),
+            if (!whole) ...[
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                if (s.income > 0) Text('+${taka(s.income)}', style: body(13.5, weight: FontWeight.w700, color: C.blue)),
+                if (s.expense > 0) Text('−${taka(s.expense)}', style: body(13.5, weight: FontWeight.w700, color: C.red)),
+              ]),
+              Icon(Icons.chevron_right_rounded, color: C.muted, size: 20),
+            ],
           ]),
         ),
       ),
