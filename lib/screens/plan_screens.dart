@@ -121,14 +121,14 @@ class PlanRow extends StatelessWidget {
     return InkWell(
       onTap: () => t != null ? editTask(context, t) : Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewItemScreen(reminder: r))),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 6, 6, 6),
+        padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
         child: Row(children: [
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 9),
+              padding: const EdgeInsets.symmetric(vertical: 7),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(item.title,
-                    style: body(15.5, color: (t?.done ?? false) || passed ? C.muted : C.ink).copyWith(decoration: t?.done ?? false ? TextDecoration.lineThrough : null, decorationColor: C.muted),
+                    style: body(14, color: (t?.done ?? false) || passed ? C.muted : C.ink).copyWith(decoration: t?.done ?? false ? TextDecoration.lineThrough : null, decorationColor: C.muted),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis),
                 if (line.isNotEmpty) WhenLine(line, bell: r != null, color: r != null && !passed ? C.green : C.muted),
@@ -479,26 +479,14 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
     final plan = planOf(brain.data, now);
     final openCount = plan.overdue.length + plan.today.length + plan.ahead.length;
 
-    // Each day-group under a real heading, each item its own card with room
-    // around it (owner, 12 Nov: negative space).
     Widget section(String title, List<PlanItem> items, {Color? color, bool withDay = false}) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(2, 24, 2, 10),
-              child: Row(children: [
-                Flexible(child: Text(title, style: display(19, weight: 700, color: color ?? C.ink))),
-                const SizedBox(width: 8),
-                Text(bnDigits(items.length), style: body(13, weight: FontWeight.w600, color: C.muted)),
-              ]),
+            Padding(padding: const EdgeInsets.fromLTRB(2, 14, 2, 6), child: Text(title, style: body(14, weight: FontWeight.w600, color: color ?? C.muted2))),
+            Panel(
+              borderColor: color == C.orange ? C.orangeTint : C.line,
+              child: Rows(children: [for (final i in items) PlanRow(item: i, withDay: withDay)]),
             ),
-            for (final (n, i) in items.indexed) ...[
-              if (n > 0) const SizedBox(height: 8),
-              Panel(
-                borderColor: color == C.orange ? C.orangeTint : null,
-                child: PlanRow(item: i, withDay: withDay),
-              ),
-            ],
           ],
         );
 
@@ -661,46 +649,22 @@ class BillList extends StatelessWidget {
         ),
         const SizedBox(height: 10),
       ],
-      // The bills not kept yet: one row that opens them, not ten chips
-      // under the to-dos (owner, 12 Nov: more room, one thing at a time).
       if (unset.isNotEmpty)
         Panel(
-          child: ListRow(
-            key: const Key('bill-add'),
-            leading: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(10)),
-              child: Icon(Icons.add_rounded, size: 22, color: C.green),
-            ),
-            title: kept.isEmpty ? tr('বিল যোগ করুন') : tr('আরও বিল যোগ করুন'),
-            subtitle: trf('{0}… — প্রতি মাসে মনে করাবো', [unset.take(3).map((x) => tr(x.$1)).join(', ')]),
-            trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
-            onTap: () async {
-              final picked = await showAppSheet<(String, int)>(
-                context: context,
-                builder: (ctx) => Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                  child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(tr('কোন বিল দেন?'), style: display(18, weight: 600)),
-                    const SizedBox(height: 4),
-                    Text(tr('চাপ দিয়ে তারিখ দিন — প্রতি মাসে মনে করাবো।'), style: body(13.5, color: C.muted)),
-                    const SizedBox(height: 16),
-                    Wrap(spacing: 8, runSpacing: 8, children: [
-                      for (final (name, day, _) in unset)
-                        ActionChip(
-                          key: Key('bill-$name'),
-                          avatar: Icon(Icons.add_rounded, size: 18, color: C.green),
-                          label: Text(tr(name), style: body(14)),
-                          onPressed: () => Navigator.pop(ctx, (name, day)),
-                        ),
-                    ]),
-                  ]),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(kept.isEmpty ? tr('কোন বিল দেন? চাপ দিয়ে তারিখ দিন — প্রতি মাসে মনে করাবো।') : tr('আরও কোনো বিল? চাপ দিয়ে তারিখ দিন।'), style: body(14, color: C.muted)),
+            const SizedBox(height: 10),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final (name, day, _) in unset)
+                ActionChip(
+                  key: Key('bill-$name'),
+                  avatar: Icon(Icons.add_rounded, size: 18, color: C.green),
+                  label: Text(tr(name), style: body(14)),
+                  onPressed: () => _set(context, name, day),
                 ),
-              );
-              if (picked != null && context.mounted) await _set(context, picked.$1, picked.$2);
-            },
-          ),
+            ]),
+          ]),
         ),
     ]);
   }

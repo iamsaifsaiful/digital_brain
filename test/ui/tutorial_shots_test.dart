@@ -66,8 +66,6 @@ Future<Rig> rig0(WidgetTester t, {bool data = true}) async {
   await rig.brain.setLook(Look.light);
   await rig.brain.setUserName('সাইফুল ইসলাম');
   if (data) rig.brain.data = sample(rig.nowAt);
-  // All the tools shown: the steps tap ones past the first eight.
-  await rig.brain.setPref('home_tools_open', true);
   await settle(t);
   return rig;
 }
@@ -261,14 +259,7 @@ void main() {
   testWidgets('tutorial: backup', (t) async {
     await rig0(t);
     final f = Flow(t, 'backup');
-    // The home nudge shows only when nothing else needs attention (owner, 12 Nov): from আরও.
-    await f.step(find.text('আরও').last, scroll: false);
-    for (var i = 0; i < 12 && find.byKey(const Key('more-set-safety')).evaluate().isEmpty; i++) {
-      await t.drag(find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).hitTestable().first, const Offset(0, -200));
-      await settle(t);
-    }
-    await f.step(find.byKey(const Key('more-set-safety')));
-    await f.step(find.text('Google অ্যাকাউন্ট ও ব্যাকআপ'));
+    await f.step(find.text('ব্যাকআপ নিন — ফোন হারালেও সব ফিরে পাবেন'));
     await f.step(find.text('Google দিয়ে লগইন'), press: false);
     await f.step(find.text('ফাইল থেকে ফিরিয়ে আনুন'), press: false);
     debugDisableShadows = true;

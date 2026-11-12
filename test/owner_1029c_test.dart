@@ -36,9 +36,6 @@ void main() {
     await t.scrollUntilVisible(tools, 300, scrollable: find.byType(Scrollable).first);
     await t.pumpAndSettle();
     expect(find.text('চেপে ধরে টেনে সাজান'), findsOneWidget);
-    // যাকাত is past the first eight: open all first (owner, 12 Nov).
-    await t.tap(find.byKey(const Key('home-tools-toggle')));
-    await t.pumpAndSettle();
     await drag(t, find.byKey(const Key('tool-zakat')), find.byKey(const Key('tool-tasks')));
     final order = b.orderOf('home_tools');
     expect(order.first, 'zakat');

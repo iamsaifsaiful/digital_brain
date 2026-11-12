@@ -33,8 +33,7 @@ class Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
         color: color,
-        // No line round a card unless one is asked for: the ground sets it apart.
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius), side: _borderColor == null ? BorderSide.none : BorderSide(color: borderColor)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius), side: BorderSide(color: borderColor)),
         clipBehavior: Clip.antiAlias,
         child: Padding(padding: padding, child: child),
       );
@@ -114,13 +113,13 @@ class SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         // Space above too, so a heading never sits on the card before it.
-        padding: const EdgeInsets.only(top: 24, bottom: 8),
+        padding: const EdgeInsets.only(top: 16, bottom: 6),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 32),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(child: Text(title, style: display(19, weight: 700))),
+              Expanded(child: Text(title, style: display(17, weight: 600))),
               if (action != null)
                 InkWell(
                   borderRadius: BorderRadius.circular(8),
@@ -341,7 +340,7 @@ class SegTabs<T> extends StatelessWidget {
       widthFactor: 1 / items.length,
       heightFactor: 1,
       child: DecoratedBox(
-        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(9)),
+        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(9), border: Border.all(color: C.border)),
       ),
     );
     return Container(
@@ -759,7 +758,7 @@ class ListRow extends StatelessWidget {
       this.onTap,
       this.onLongPress,
       this.picked = false,
-      this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 13)})
+      this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 10)})
       : _subtitleColor = subtitleColor;
   final Widget leading;
   final String title;

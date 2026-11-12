@@ -115,11 +115,8 @@ void main() {
     final rig = await start(t);
     await tapMenu(t, 'রিমাইন্ডার');
     final list = find.byType(Scrollable).first;
-    await t.scrollUntilVisible(find.byKey(const Key('bill-add')), 200, scrollable: list);
+    await t.scrollUntilVisible(find.byKey(const Key('bill-বিদ্যুৎ বিল')), 200, scrollable: list);
     expect(find.text('এ মাসের বিল মনে করানো'), findsOneWidget);
-    // One row opens the bills (owner, 12 Nov), then one tap and a day.
-    await t.tap(find.byKey(const Key('bill-add')));
-    await settle(t);
     await t.tap(find.byKey(const Key('bill-বিদ্যুৎ বিল')));
     await settle(t);
     await t.tap(find.widgetWithText(ChoiceChip, '১২'));
@@ -354,8 +351,6 @@ void main() {
     expect(find.byKey(const Key('more-feedback')), findsOneWidget);
     expect(find.text('রক্তের অনুরোধ'), findsNothing, reason: 'no separate request row in আরও');
     await t.scrollUntilVisible(find.byKey(const Key('more-requests')), -300, scrollable: find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first);
-    await Scrollable.ensureVisible(t.element(find.byKey(const Key('more-requests'))), alignment: 0.4);
-    await settle(t);
     await t.tap(find.byKey(const Key('more-requests')));
     await settle(t);
     expect(find.text('ব্লাড ডোনেশন'), findsOneWidget);
@@ -466,9 +461,9 @@ void main() {
     expect(find.text('টাকার হিসাব'), findsOneWidget);
     expect(find.descendant(of: find.byKey(const Key('home-stat-spent')), matching: find.textContaining('২৫০')), findsWidgets);
     // The floating "কিছু যুক্ত করুন" sits over the bottom: bring the card to the middle first.
-    await Scrollable.ensureVisible(t.element(find.byKey(const Key('home-stat-expense'))), alignment: 0.3);
+    await Scrollable.ensureVisible(t.element(find.byKey(const Key('home-stat-spent'))), alignment: 0.3);
     await settle(t);
-    await t.tap(find.byKey(const Key('home-stat-expense')));
+    await t.tap(find.byKey(const Key('home-stat-spent')));
     await settle(t);
     expect(find.text('অন্যান্য হিসাব'), findsOneWidget);
   });

@@ -30,12 +30,9 @@ void main() {
     final rig = await start(t);
     await t.tap(find.text('হিসাব').last);
     await settle(t);
-    // Asked in one quiet line under the figures (owner, 12 Nov), not a card on top.
     expect(find.byKey(const Key('cash-now-ask')), findsOneWidget);
-    await t.tap(find.byKey(const Key('cash-now-set')));
-    await settle(t);
-    await t.enterText(find.byKey(const Key('cash-now-edit')), '১২০০০');
-    await t.tap(find.text('রাখুন').last);
+    await t.enterText(find.byKey(const Key('cash-now-field')), '১২০০০');
+    await t.tap(find.byKey(const Key('cash-now-save')));
     await settle(t);
     expect(find.byKey(const Key('cash-now')), findsOneWidget);
     expect(find.descendant(of: find.byKey(const Key('cash-now')), matching: find.textContaining('১২,০০০')), findsOneWidget);

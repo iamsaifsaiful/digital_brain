@@ -15,7 +15,6 @@ import 'blood_details.dart';
 import 'google_backup.dart' show restoreFromPhoneFile;
 import 'more_screen.dart' show BackupScreen;
 import 'help_screen.dart';
-import 'home_page.dart' show AddNudgeCard;
 import 'plan_screens.dart';
 import '../logic/lang.dart';
 
@@ -224,9 +223,6 @@ class _NextCard extends StatelessWidget {
     final line = [if (timed) clock, if (meta.isNotEmpty) meta].join(' · ');
     return AppCard(
       key: const Key('home-next'),
-      // The one thing next, given room (owner, 12 Nov).
-      padding: const EdgeInsets.fromLTRB(20, 20, 16, 20),
-      color: C.greenSoft,
       onTap: () => t != null ? editTask(context, t) : null,
       child: Row(children: [
         Expanded(
@@ -236,17 +232,12 @@ class _NextCard extends StatelessWidget {
               const SizedBox(width: 6),
               Flexible(child: Text(soon.isEmpty ? tr('এরপর') : '${tr('এরপর')} · $soon', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, weight: FontWeight.w600, color: C.green))),
             ]),
-            const SizedBox(height: 6),
-            Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: display(19, weight: 700, height: 1.35)),
+            const SizedBox(height: 4),
+            Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(16, weight: FontWeight.w600, height: 1.35)),
             if (line.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 8),
-                // The time in a pill, so it reads at a glance.
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                  decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(20)),
-                  child: Text(line, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, weight: timed ? FontWeight.w600 : FontWeight.w400, color: timed ? C.green : C.muted)),
-                ),
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(line, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, weight: timed ? FontWeight.w600 : FontWeight.w400, color: timed ? C.green : C.muted)),
               ),
           ]),
         ),
@@ -314,12 +305,12 @@ class _TaskRow extends StatelessWidget {
         child: Row(children: [
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 9),
+              padding: const EdgeInsets.symmetric(vertical: 6),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(item.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: body(15.5, color: done ? C.muted : C.ink).copyWith(decoration: t?.done ?? false ? TextDecoration.lineThrough : null, decorationColor: C.muted)),
+                    style: body(14.5, color: done ? C.muted : C.ink).copyWith(decoration: t?.done ?? false ? TextDecoration.lineThrough : null, decorationColor: C.muted)),
                 const SizedBox(height: 1),
                 WhenLine(sub, bell: r != null, color: late ? C.warn : (r != null && !passed ? C.green : C.muted)),
               ]),
@@ -336,14 +327,6 @@ class _TaskRow extends StatelessWidget {
 /// At most one thing that needs a look, the most important first:
 /// reminders may not ring; the Google sign-in offer on a new phone; the
 /// four first steps for a new user.
-/// The "… যুক্ত করুন" card in the attention slot, when nothing else is there.
-class _NudgeSlot extends StatelessWidget {
-  const _NudgeSlot();
-
-  @override
-  Widget build(BuildContext context) => const Padding(padding: EdgeInsets.only(top: 16), child: AddNudgeCard());
-}
-
 class HomeAttention extends StatefulWidget {
   const HomeAttention({super.key});
 
@@ -407,7 +390,7 @@ class _HomeAttentionState extends State<HomeAttention> with WidgetsBindingObserv
     final brain = BrainScope.of(context);
     final d = brain.data;
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
-    Widget wrap(Widget w) => Padding(padding: const EdgeInsets.only(top: 16), child: w);
+    Widget wrap(Widget w) => Padding(padding: const EdgeInsets.only(top: 12), child: w);
 
     // 1. Reminders may not ring.
     final h = _h;
@@ -459,10 +442,8 @@ class _HomeAttentionState extends State<HomeAttention> with WidgetsBindingObserv
         onClose: () => brain.setPref('g_card_off', true),
       ));
     }
-    // 3. The four first steps, until done or hidden. Then "… যুক্ত করুন",
-    // one empty menu at a time — in its place on the page, never floating
-    // over today's work (owner, 12 Nov: one thing at a time, more room).
-    if (_tipsHidden != false) return const _NudgeSlot();
+    // 3. The four first steps, until done or hidden.
+    if (_tipsHidden != false) return const SizedBox.shrink();
     final steps = <(String, String, String, IconData, bool, VoidCallback)>[
       ('contacts', tr('ফোনবুকের সব নম্বর এক ক্লিকে আনুন'), tr('নাম বললেই ফোন, মেসেজ আর হিসাবে নম্বর নিজে থেকে বসে যাবে'), Icons.contacts_outlined,
           d.contacts.isNotEmpty, () => importFromPhone(context)),
@@ -473,7 +454,7 @@ class _HomeAttentionState extends State<HomeAttention> with WidgetsBindingObserv
       ('help', tr('কী কী করা যায়, দেখে নিন'), tr('সব সুবিধা আর কী বললে কী হয়'), Icons.lightbulb_outline_rounded, _seen.contains('help'), () => push(const HelpScreen())),
     ];
     final done = steps.where((x) => x.$5).length;
-    if (done == steps.length) return const _NudgeSlot();
+    if (done == steps.length) return const SizedBox.shrink();
     return wrap(AppCard(
       key: const Key('home-tips'),
       padding: const EdgeInsets.symmetric(horizontal: 14),

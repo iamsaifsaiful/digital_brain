@@ -164,7 +164,7 @@ void main() {
     });
   }
 
-  testWidgets('home: আজকের অর্থ-কথা right under the money; সব সুবিধা two rows, the rest one tap away', (t) async {
+  testWidgets('home: আজকের অর্থ-কথা right under the money; সব সুবিধা always open', (t) async {
     await start(t);
     final list = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first;
     await t.scrollUntilVisible(find.byKey(const Key('home-quote')), 300, scrollable: list);
@@ -175,9 +175,7 @@ void main() {
     expect(quote.top - money.bottom, lessThan(30), reason: 'nothing between the money and the quote');
     await t.scrollUntilVisible(find.byKey(const Key('home-tools')), 300, scrollable: list);
     expect(find.descendant(of: find.byKey(const Key('home-tools')), matching: find.text('কাজের তালিকা')), findsOneWidget);
-    // Owner, 12 Nov (more room on home): eight shown, the rest behind "সব দেখুন".
-    expect(find.descendant(of: find.byKey(const Key('home-tools')), matching: find.text('প্রিমিয়াম')), findsNothing);
-    expect(find.byKey(const Key('home-tools-toggle')), findsOneWidget);
+    expect(find.byKey(const Key('home-tools-toggle')), findsNothing);
   });
 
   testWidgets('স্বাস্থ্য: a family member has their own medicines, ringing on this phone with their name', (t) async {
@@ -361,18 +359,8 @@ void main() {
     expect(addNudges(kept, now: at, lastBackup: at.subtract(const Duration(days: 8))).first.id, 'backup');
   });
 
-  testWidgets('home: the add message opens its menu; ✕ hides all until tomorrow', (t) async {
+  testWidgets('home: the floating message opens its menu; ✕ hides all until tomorrow', (t) async {
     final rig = await start(t);
-    // One thing at a time (owner, 12 Nov): while another card asks for a
-    // look, the message waits; it comes in that card's place after.
-    expect(find.byKey(const Key('home-google')), findsOneWidget);
-    expect(find.byKey(const Key('add-nudge')), findsNothing);
-    await rig.brain.setPref('g_card_off', true);
-    await settle(t);
-    if (find.byKey(const Key('home-tips')).evaluate().isNotEmpty) {
-      await t.tap(find.byTooltip('বুঝেছি, লুকিয়ে রাখো'));
-      await settle(t);
-    }
     expect(find.byKey(const Key('add-nudge')), findsOneWidget);
     expect(find.byKey(const Key('add-nudge-tasks')), findsOneWidget, reason: 'the first empty menu');
     expect(find.text('কাজের তালিকায় কিছু যুক্ত করুন'), findsOneWidget);

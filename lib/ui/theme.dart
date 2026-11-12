@@ -109,12 +109,11 @@ class C {
   static Color _mix(Color light, Color night) => mix <= 0 ? light : (mix >= 1 ? night : Color.lerp(light, night, mix)!);
 
   /// bg: the screen.
-  // A shade deeper than the cards, so a card stands apart with no line round it (owner, 12 Nov: more room).
-  static Color get ground => _pd(0xFFEDF1EF, darkSet.ground);
+  static Color get ground => _pd(0xFFF5F7F6, darkSet.ground);
   static Color get surface => _pd(0xFFFFFFFF, darkSet.surface);
 
   /// surface2: counters, date blocks, quiet chips, the tabs' track.
-  static Color get surface2 => _pd(0xFFE3E9E6, darkSet.surface2);
+  static Color get surface2 => _pd(0xFFEDF2F0, darkSet.surface2);
   static Color get ink => _f(0xFF192E28, 0xFFEEF1F8);
   static Color get muted => _fd(0xFF667871, darkSet.muted);
   static Color get muted2 => _fd(0xFF3E524B, darkSet.muted2);
