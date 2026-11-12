@@ -51,7 +51,7 @@ Future<void> icons() async {
 
 void main() {
   for (final look in [Look.light, Look.dark]) {
-    for (final (name, tab) in [('1-home', null), ('2-day', 'দিনলিপি'), ('3-money', 'হিসাব'), ('4-store', 'সংরক্ষণ')]) {
+    for (final (name, tab) in [('1-home', null), ('2-day', 'দিনলিপি'), ('3-money', 'হিসাব'), ('4-store', 'আমার তথ্য')]) {
       testWidgets('new ui ${look.name}: $name', (t) async {
         if (shots) await icons();
         if (shots) debugDisableShadows = false;

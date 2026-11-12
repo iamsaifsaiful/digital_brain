@@ -113,7 +113,7 @@ void main() {
     final a = await say('কাজের তালিকা থেকে পার্টি বাদ দাও');
     expect(a, isNot(contains('লাইব্রেরী')));
     if (chat.wait != ChatWait.none) await say('হ্যাঁ');
-    expect(data().tasks.map((t) => t.title), ['লাইব্রেরী থেকে বই কেনা', 'ঢাকায় যাবো পার্টি পাবে']);
+    expect(data().tasks.map((t) => t.title), ['লাইব্রেরী থেকে বই কেনা', 'ঢাকায় যাব পার্টি পাবে']);
   });
 
   testWidgets('"২০৪১ সালের মে মাসের কাজের তালিকা" keeps May; "মে মাসে যুক্ত কর" moves them; reminders for each at 11', (t) async {

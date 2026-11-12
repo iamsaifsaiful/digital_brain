@@ -108,9 +108,9 @@ void main() {
     await t.tap(find.byKey(const Key('will-save')));
     await settle(t);
     final w = willOf(rig.brain.data)!;
-    expect(w.body, contains('ওছিয়ত'));
+    expect(w.body, contains('ওসিয়ত'));
     expect(find.byKey(const Key('will-last')), findsOneWidget);
-    expect(find.textContaining('শেষ ওছিয়ত:'), findsWidgets);
+    expect(find.textContaining('শেষ ওসিয়ত:'), findsWidgets);
   });
 
   test('a document must have a folder that fits: no catch-all অন্যান্য', () {
@@ -119,7 +119,7 @@ void main() {
 
   test('কী কী করা যায়: the new parts are listed (will, money now, family, premium by bKash)', () {
     final all = capabilitiesList();
-    expect(all, contains('ওছিয়তনামা'));
+    expect(all, contains('ওসিয়তনামা'));
     expect(all, contains('এখন আছে'));
     expect(all, contains('উত্তরাধিকারী'));
     expect(all, contains('বিকাশে'));

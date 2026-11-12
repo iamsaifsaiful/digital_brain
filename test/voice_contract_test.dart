@@ -268,7 +268,7 @@ void main() {
 
     testWidgets('২০. several requests, part done: each said truly', (t) async {
       final r = await talk(t, ['বাজার করেছি, ওষুধ আনিনি, গাড়ি ধোয়ার কাজটা কাল রাখো'], seeded: true);
-      expect(r.single, contains('“বাজার করা” কাজটি সম্পন্ন'));
+      expect(r.single, contains('“বাজার করা” কাজটা শেষ'));
       expect(r.single, contains('“ওষুধ আনা” কাজটি বাকি'));
       // The car wash was not on the list: kept as a new one, said so.
       expect(r.single, contains('গাড়ি'));

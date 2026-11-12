@@ -67,7 +67,7 @@ void main() {
         await settle(t);
         expect(find.byKey(const Key('loans-net')), findsOneWidget);
         await shot('loans');
-        await t.tap(find.text('অন্যান্য হিসাব'));
+        await t.tap(find.text('আলাদা হিসাব'));
         await settle(t);
         expect(find.byKey(const Key('project-p1')), findsOneWidget);
         await shot('projects');

@@ -116,7 +116,7 @@ void main() {
     await say('মনে করানোর প্রয়োজন নেই। কাজের তালিকা রাখো শুধু');
     expect(data().reminders, isEmpty, reason: 'no ring, as asked');
     final task = data().tasks.single;
-    expect(task.title, 'মাঠে খেলবো');
+    expect(task.title, 'মাঠে খেলব');
     expect(task.due, DateTime(2026, 10, 19));
     expect(task.reminderId, isNull);
   });

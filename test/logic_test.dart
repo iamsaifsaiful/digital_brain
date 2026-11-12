@@ -1531,7 +1531,7 @@ void main() {
       expect(all, isNot(contains('gopon123')));
       expect(all, isNot(contains('4321')));
       expect(all, contains('মিরপুর ১০'));
-      expect(all, contains('১টি নোট এই PDF-এ রাখা হয়নি'));
+      expect(all, contains('১টা নোট এই PDF-এ রাখা হয়নি'));
       expect(all, contains('গ্যাস বিল দেওয়া'));
     });
 

@@ -5593,4 +5593,6 @@ const enStrings = <String, String>{
   'যেমন: নাপা': 'e.g. Napa',
   'কখন কখন খাবেন?': 'When do you take it?',
   'যেমন: খাবারের পরে, ১টা করে': 'e.g. after meals, one at a time',
+  'আলাদা হিসাবের আয়': 'Project income',
+  'আলাদা হিসাবের খরচ': 'Project expenses',
 };

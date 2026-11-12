@@ -338,12 +338,12 @@ List<(String, int)> cashNowParts(AppData d) {
     } else if (cat == mainDueInCategory || cat == 'বকেয়া শোধ') {
       add(cat, v);
     } else if (e.linkId != null) {
-      add(e.kind == CashKind.income ? 'অন্যান্য হিসাবের আয়' : 'অন্যান্য হিসাবের খরচ', v);
+      add(e.kind == CashKind.income ? 'আলাদা হিসাবের আয়' : 'আলাদা হিসাবের খরচ', v);
     } else {
       add(e.kind == CashKind.income ? 'আয়' : 'খরচ', v);
     }
   }
-  const order = ['আয়', 'খরচ', 'ধার নেওয়া', 'ধার দেওয়া', 'ধার ফেরত পাওয়া', 'ধার শোধ', 'বকেয়া থেকে আয়', 'বকেয়া শোধ', 'অন্যান্য হিসাবের আয়', 'অন্যান্য হিসাবের খরচ'];
+  const order = ['আয়', 'খরচ', 'ধার নেওয়া', 'ধার দেওয়া', 'ধার ফেরত পাওয়া', 'ধার শোধ', 'বকেয়া থেকে আয়', 'বকেয়া শোধ', 'আলাদা হিসাবের আয়', 'আলাদা হিসাবের খরচ'];
   return [for (final k in order) if (parts[k] != null) (k, parts[k]!)];
 }
 

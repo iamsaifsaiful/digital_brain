@@ -572,7 +572,7 @@ class _MoreScreenState extends State<MoreScreen> {
                 title: tr('যাকাত'),
                 sub: tr('আপনার হিসাব থেকে নিজে হিসাব'),
                 onTap: () => push(const ZakatScreen())),
-            _Tile(key: const Key('more-requests'), icon: Icons.bloodtype_outlined, fg: C.rose, bg: C.roseTint, title: trm('ব্লাড ডোনেশন'), sub: tr('রক্ত দিন, রক্ত চান — সারা দেশে'), onTap: () => push(const RequestsScreen())),
+            _Tile(key: const Key('more-requests'), icon: Icons.bloodtype_outlined, fg: C.rose, bg: C.roseTint, title: trm('রক্তদান'), sub: tr('রক্ত দিন, রক্ত চান — সারা দেশে'), onTap: () => push(const RequestsScreen())),
           ],
         ]) ...[
           Row(children: [Expanded(child: SizedBox(height: 70, child: row[0])), const SizedBox(width: 10), Expanded(child: SizedBox(height: 70, child: row[1]))]),

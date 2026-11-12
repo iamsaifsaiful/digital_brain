@@ -21,6 +21,7 @@ const _menuEn = {
   'নোট': 'Notes',
   'পাসওয়ার্ড': 'Passwords',
   'ব্লাড ডোনেশন': 'Blood',
+  'রক্তদান': 'Blood',
   'ডকুমেন্ট': 'Documents',
   'অ্যালার্ম': 'Alarms',
   'ওষুধ': 'Medicines',

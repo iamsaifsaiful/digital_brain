@@ -29,7 +29,7 @@ void main() {
       await t.tap(find.textContaining('কতবার'));
       await settle(t);
       await pick();
-      await t.tap(find.text('সেভ করুন').last);
+      await t.tap(find.text('রাখুন').last);
       await settle(t);
       return b.data.reminders.firstWhere((r) => r.title == title);
     }
@@ -71,7 +71,7 @@ void main() {
       await t.tap(find.textContaining('কতবার'));
       await settle(t);
       await pick();
-      await t.tap(find.text('সেভ করুন').last);
+      await t.tap(find.text('রাখুন').last);
       await settle(t);
       return b.data.reminders.firstWhere((r) => r.title == title);
     }

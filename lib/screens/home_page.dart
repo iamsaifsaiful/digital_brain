@@ -791,7 +791,7 @@ class _Tools extends StatelessWidget {
       ('zakat', tr('যাকাত'), Icons.volunteer_activism_outlined, () => push(const ZakatScreen())),
       ('family', tr('পরিবার'), Icons.family_restroom_rounded, () => push(const FamilyScreen())),
       if (!medicalOff) ('medicines', trm('ওষুধ'), Icons.medication_outlined, () => push(const MedicinesScreen())),
-      ('blood', trm('ব্লাড ডোনেশন'), Icons.bloodtype_outlined, () => push(const RequestsScreen())),
+      ('blood', trm('রক্তদান'), Icons.bloodtype_outlined, () => push(const RequestsScreen())),
       ('pro', tr('প্রিমিয়াম'), Icons.workspace_premium_outlined, () => push(const ProScreen())),
     ];
     final saved = brain.orderOf('home_tools');
