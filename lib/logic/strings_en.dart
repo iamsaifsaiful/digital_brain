@@ -5586,4 +5586,11 @@ const enStrings = <String, String>{
   '{0}টা পণ্য · কেনা দামে {1}': '{0} products · {1} at cost',
   'আরও {0}টা পণ্যের মেয়াদ কাছে · কম দামে বিক্রি করতে পারেন': '{0} more expiring soon · consider a discount',
   '{0}টা পণ্য · আনুমানিক': '{0} products · approx.',
+  '{0} খাওয়ার সময়': 'Time to take {0}',
+  '{0} — প্রতিদিন {1} বার মনে করাব': '{0}: I’ll remind you {1} times a day',
+  'ওষুধ খাওয়ার রিমাইন্ডার': 'Medicine reminder',
+  'নাম আর সময় দিন — প্রতিদিন মনে করাব': 'Add the name and times, and I’ll remind you every day',
+  'যেমন: নাপা': 'e.g. Napa',
+  'কখন কখন খাবেন?': 'When do you take it?',
+  'যেমন: খাবারের পরে, ১টা করে': 'e.g. after meals, one at a time',
 };
