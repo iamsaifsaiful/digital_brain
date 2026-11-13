@@ -38,6 +38,7 @@ import 'package:digital_brain/screens/onboarding_screen.dart';
 import 'package:digital_brain/screens/search_screen.dart';
 import 'package:digital_brain/screens/special_days_screen.dart';
 import 'package:digital_brain/screens/store_more_screens.dart';
+import 'package:digital_brain/logic/lang.dart' show tr;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -173,13 +174,13 @@ Future<void> tell(WidgetTester t, Rig rig, String s, {List<String> alternatives 
 }
 
 Future<void> openTyping(WidgetTester t) async {
-  if (find.text('আগের কথা').evaluate().isEmpty) {
+  if (find.text(tr('আগের কথা')).evaluate().isEmpty) {
     if (find.byKey(const ValueKey('box')).evaluate().isEmpty) {
       Navigator.of(t.element(find.byType(Scaffold).last)).popUntil((r) => r.isFirst);
       await settle(t);
     }
-    if (find.text('হোম').evaluate().isNotEmpty) {
-      await t.tap(find.text('হোম').last);
+    if (find.text(tr('হোম')).evaluate().isNotEmpty) {
+      await t.tap(find.text(tr('হোম')).last);
       await settle(t);
     }
     // The one-tap row shows once the box at the bottom is touched (approved design, 24 Oct).
@@ -190,10 +191,10 @@ Future<void> openTyping(WidgetTester t) async {
     await t.tap(find.descendant(of: find.byKey(const ValueKey('box')), matching: find.byType(TextField)));
     await settle(t);
   }
-  await t.tap(find.text('আগের কথা'));
+  await t.tap(find.text(tr('আগের কথা')));
   await settle(t);
-  if (find.byTooltip('লিখে বলুন').evaluate().isNotEmpty) {
-    await t.tap(find.byTooltip('লিখে বলুন'));
+  if (find.byTooltip(tr('লিখে বলুন')).evaluate().isNotEmpty) {
+    await t.tap(find.byTooltip(tr('লিখে বলুন')));
     await settle(t);
   }
 }
@@ -1756,7 +1757,7 @@ void main() {
 /// (Other boxes, like search, still send from the keyboard.)
 Future<void> sendTyped(WidgetTester t) async {
   await t.pump();
-  final button = find.byTooltip('পাঠান');
+  final button = find.byTooltip(tr('পাঠান'));
   if (button.evaluate().isNotEmpty) {
     // Pressed as a finger would (a passing snack bar may cover it on screen).
     t.widget<InkWell>(find.descendant(of: button.first, matching: find.byType(InkWell)).first).onTap!();

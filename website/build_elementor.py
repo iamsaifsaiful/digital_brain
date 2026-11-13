@@ -78,6 +78,7 @@ def webp(name):
     return 'data:image/webp;base64,' + base64.b64encode(b.getvalue()).decode()
 
 for n in ['home_light', 'home_dark', 'report_light', 'report_dark', 'chat_light', 'chat_dark']:
+    body = body.replace(f'data-en-src="img/{n}_en.png"', f'data-en-src="{webp(n + "_en.png")}"')
     body = body.replace(f'src="img/{n}.png"', f'src="{webp(n + ".png")}"')
 
 svg = open(D + 'img/icon.svg', encoding='utf-8').read()
