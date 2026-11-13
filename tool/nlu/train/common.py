@@ -161,20 +161,23 @@ def examples(rows):
             continue
         bound = ['O'] * len(toks)
         n = 0
-        # Spoken breaths (long, multi): the app cuts only where a request
-        # starts, so a run-up ("ও আচ্ছা", "আরেকটা কথা") rides with the first
-        # request and a joiner with the one before it. Teach the same pieces:
-        # before, a run-up was its own O stretch, the tagger learnt to cut
-        # after it, and the run-up alone read as a yes or small talk
-        # (gate of 7 Nov: ~200 crowd rows with an extra smalltalk/confirm_yes).
-        whole = r.get('kind') in ('long', 'multi') and len(r['segs']) > 1
-        cuts = None
-        if whole:
-            firsts = [min((j for j, i in enumerate(idx) if s['start'] <= i < s['end']), default=None) for s in r['segs']]
-            if None not in firsts and firsts == sorted(firsts):
-                cuts = [0] + firsts[1:] + [len(toks)]
+        # Spoken breaths (long, multi): a run-up before the first request
+        # ("ও আচ্ছা", "আরেকটা কথা") rides with it, and an ending after the last
+        # ("ঠিক আছে", "বুঝছো") with that one — the app never cuts there. Before,
+        # a run-up was its own O stretch, the tagger learnt to cut after it,
+        # and the run-up alone read as a yes or small talk (gate of 7 Nov:
+        # 198 crowd rows with an extra smalltalk/confirm_yes; 42 after).
+        # Joiners between requests stay outside both (13 Nov: also folding
+        # them in went with a cut inside "… কাল ৮টায় অ্যালার্ম দাও").
+        spans_ = None
+        if r.get('kind') in ('long', 'multi') and len(r['segs']) > 1:
+            ranges = [[j for j, i in enumerate(idx) if s['start'] <= i < s['end']] for s in r['segs']]
+            if all(ranges) and [x[0] for x in ranges] == sorted(x[0] for x in ranges):
+                ranges[0] = list(range(0, ranges[0][-1] + 1))
+                ranges[-1] = list(range(ranges[-1][0], len(toks)))
+                spans_ = ranges
         for k, s in enumerate(r['segs']):
-            ws = list(range(cuts[k], cuts[k + 1])) if cuts else [j for j, i in enumerate(idx) if s['start'] <= i < s['end']]
+            ws = spans_[k] if spans_ else [j for j, i in enumerate(idx) if s['start'] <= i < s['end']]
             if not ws:
                 continue
             n += 1
