@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:digital_brain/services/notifications.dart' show AlarmHealth;
 import 'package:digital_brain/ui/theme.dart';
+import 'package:digital_brain/state/brain.dart' show BrainMore;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show debugDisableShadows;
 import 'package:flutter/services.dart';
@@ -37,6 +38,8 @@ Future<Rig> _ready(WidgetTester t, Look look) async {
   // Every alarm setting right: no warning card on the home in a picture.
   rig.notifier.state = const AlarmHealth(notificationsOn: true, exactOn: true, batteryFree: true, fullScreenOn: true, brand: '', hasAutostart: false);
   rig.brain.data = sample(rig.nowAt);
+  // Cash in hand given, so the হিসাব picture shows the money, not the question (13 Nov).
+  await rig.brain.setCashOnHand(22550);
   await rig.brain.setPref('home_tools_open', true);
   t.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
   t.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
