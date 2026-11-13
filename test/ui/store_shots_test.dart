@@ -8,6 +8,7 @@ import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/screens/alarm_screens.dart';
 import 'package:digital_brain/screens/app_places.dart';
 import 'package:digital_brain/state/family_state.dart' show FamilyLink;
+import 'package:digital_brain/state/brain.dart' show BrainMore;
 import 'package:digital_brain/services/notifications.dart';
 import 'package:digital_brain/ui/theme.dart';
 import 'package:flutter/material.dart';
@@ -44,7 +45,21 @@ void main() {
       VaultItem(name: 'ব্যাংক অ্যাপ', password: 'w'),
       VaultItem(name: 'অফিসের ল্যাপটপ', password: 'v'),
     ]);
+    // Store pictures (13 Nov): more ধার-দেনা and today's লেনদেন, no first-steps card.
+    d.ledger.addAll([
+      LedgerEntry(person: 'করিম ভাই', kind: LedgerKind.borrowed, amount: 10000, date: now.subtract(const Duration(days: 20)), due: now.add(const Duration(days: 3))),
+      LedgerEntry(person: 'করিম ভাই', kind: LedgerKind.repaid, amount: 4000, date: now.subtract(const Duration(days: 6))),
+      LedgerEntry(person: 'সুমন', kind: LedgerKind.lent, amount: 2500, date: now.subtract(const Duration(days: 2))),
+      LedgerEntry(person: 'সুমন', kind: LedgerKind.received, amount: 1000, date: now.subtract(const Duration(days: 1))),
+    ]);
+    d.cash.addAll([
+      CashEntry(kind: CashKind.expense, amount: 650, category: 'বাজার', date: now.subtract(const Duration(hours: 5))),
+      CashEntry(kind: CashKind.expense, amount: 120, category: 'যাতায়াত', date: now.subtract(const Duration(hours: 2))),
+      CashEntry(kind: CashKind.expense, amount: 1450, category: 'বিদ্যুৎ বিল', date: now.subtract(const Duration(days: 1))),
+      CashEntry(kind: CashKind.income, amount: 4500, category: 'টিউশনি', date: now.subtract(const Duration(days: 1))),
+    ]);
     rig.brain.data = d;
+    await rig.brain.setCashOnHand(18500);
     await settle(t);
     return rig;
   }
@@ -68,6 +83,13 @@ void main() {
 
   testWidgets('store: home', (t) async {
     await rig0(t);
+    // The first-steps and backup cards closed, as on a phone in use.
+    for (var i = 0; i < 3; i++) {
+      final x = find.byIcon(Icons.close_rounded);
+      if (x.evaluate().isEmpty) break;
+      await t.tap(x.first, warnIfMissed: false);
+      await settle(t);
+    }
     await snap(t, '0-home');
   });
 
@@ -90,9 +112,10 @@ void main() {
     await rig0(t);
     await t.tap(find.text('হিসাব').last);
     await settle(t);
+    await snap(t, '2-money');
     await t.tap(find.text('ধার-দেনা').first);
     await settle(t);
-    await snap(t, '2-money');
+    await snap(t, '2b-loans');
   });
 
   // The Play app has no medicines (owner, 30 Oct: pro.dart medicalOff): the
