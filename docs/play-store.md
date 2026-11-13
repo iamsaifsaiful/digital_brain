@@ -179,7 +179,7 @@ variable না বসালে Play release বিল্ডে Google-এর �
 
 **৩০ অক্টোবর:** Google "Medication and treatment management" (Medical) ঘোষণার কারণে প্রত্যাখ্যান করেছে। ব্যক্তিগত অ্যাকাউন্টে Medical অ্যাপ চলে না। তাই Play-র অ্যাপে ওষুধ, প্রেশার, সুগার, টিকা, চেকআপ, ডাক্তারের সারাংশ আর জরুরি কার্ড নেই (`lib/logic/pro.dart` `medicalOff`)। স্টোরের লেখা আর ছবিতেও এগুলো থাকবে না। অর্গানাইজেশন অ্যাকাউন্ট হলে ফেরানো যাবে।
 
-**App name:** My Assistant - বাংলা সহকারী
+**App name:** My Assistant: Daily Organizer (owner, 14 Nov; before: My Assistant - বাংলা সহকারী)
 
 **Short description (৮০ অক্ষরের মধ্যে):**
 - বাংলা: `রিমাইন্ডার, হিসাব, ডকুমেন্ট আর পাসওয়ার্ড: বাংলায় বলুন, তালাবদ্ধ থাকে ফোনেই`
