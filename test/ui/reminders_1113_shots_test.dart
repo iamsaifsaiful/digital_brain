@@ -34,6 +34,9 @@ void main() {
       Reminder(title: 'নাপা খাওয়ার সময়', date: today, hour: 21, repeat: Repeat.daily),
       Reminder(title: 'পাসপোর্টের মেয়াদ শেষ', date: today.add(const Duration(days: 60)), hour: 9),
       Reminder(title: 'গ্যাস বিল', date: today.subtract(const Duration(days: 3)), hour: 10, enabled: false),
+      Reminder(title: 'পানি খাওয়া', date: today, hour: 9, repeat: Repeat.every2h),
+      Reminder(title: 'হাঁটতে যাওয়া', date: today, hour: 6, minute: 30, repeat: Repeat.daily, enabled: false),
+      Reminder(title: 'বাবার জন্মদিন', date: today.add(const Duration(days: 40)), hour: 9, repeat: Repeat.yearly),
       Reminder(title: 'জুম্মার নামাজ', date: today, hour: 13, repeat: Repeat.weekly, weekdays: const [DateTime.friday]),
     ]);
     rig.brain.data = d;

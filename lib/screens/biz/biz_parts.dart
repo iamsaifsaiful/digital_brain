@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../logic/bn.dart';
 import '../../logic/lang.dart';
-import '../../logic/pro.dart' show ProFeature;
+import '../../logic/pro.dart' show ProFeature, freeCustomers, freeProducts;
 import '../../state/brain.dart';
 import '../../ui/kit.dart';
 import '../../ui/pro_gate.dart' show needPro;
@@ -155,16 +155,21 @@ class NumField extends StatelessWidget {
 /// A number typed in either digits ("১.২৫", "1.25").
 double? readNum(String s) => double.tryParse(asciiDigits(s.trim()).replaceAll(',', ''));
 
-/// ব্যবসায়ী মোড is Premium (owner, 6 Nov): anyone can switch it on and look
-/// around; adding or changing anything asks for Premium.
-Future<bool> bizCan(BuildContext context) => needPro(context, ProFeature.business);
+/// ব্যবসায়ী মোড is free (owner, 13 Nov: "২০ জন গ্রাহক, ৩০ টা পণ্য, পিডিএফ
+/// প্রিমিয়ামে দাও। বাকি সব ফ্রি থাকুক"). Premium: more customers or
+/// products than that, and the PDF receipt.
+Future<bool> bizNewCustomer(BuildContext context) => needPro(context, ProFeature.business, allowed: BrainScope.read(context).canAddCustomer);
+Future<bool> bizNewProduct(BuildContext context) => needPro(context, ProFeature.business, allowed: BrainScope.read(context).canAddProduct);
 
 /// The free app's line on the business pages: what Premium adds.
 class BizFreeBanner extends StatelessWidget {
   const BizFreeBanner({super.key});
   @override
   Widget build(BuildContext context) {
-    if (BrainScope.of(context).has(ProFeature.business)) return const SizedBox.shrink();
+    // Only near the free limit (owner, 13 Nov: the rest of the mode is free).
+    final brain = BrainScope.of(context);
+    final b = brain.shop;
+    if (brain.has(ProFeature.business) || (b.customers.length < freeCustomers - 2 && b.products.length < freeProducts - 3)) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Material(
@@ -179,7 +184,7 @@ class BizFreeBanner extends StatelessWidget {
             child: Row(children: [
               Icon(Icons.workspace_premium_outlined, size: 20, color: C.green),
               const SizedBox(width: 10),
-              Expanded(child: Text(tr('ব্যবসায়ী মোড প্রিমিয়াম সুবিধা — সব দেখে নিন; বিক্রি, গ্রাহক, পণ্য যোগ করতে প্রিমিয়াম লাগবে।'), style: body(12.5, height: 1.45, color: C.ink))),
+              Expanded(child: Text(trf('ফ্রিতে {0} জন গ্রাহক আর {1}টা পণ্য রাখা যায় — এখন {2} জন, {3}টা। এর বেশি আর PDF রসিদ প্রিমিয়ামে।', [bnDigits(freeCustomers), bnDigits(freeProducts), bnDigits(b.customers.length), bnDigits(b.products.length)]), style: body(12.5, height: 1.45, color: C.ink))),
               Icon(Icons.chevron_right_rounded, color: C.green),
             ]),
           ),

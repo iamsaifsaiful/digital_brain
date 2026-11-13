@@ -73,7 +73,7 @@ void main() {
     await t.tap(find.textContaining('বারবার').first);
     await settle(t);
     final tabs = t.getRect(find.byWidgetPredicate((w) => w is SegTabs));
-    final card = t.getRect(find.ancestor(of: find.text('বিদ্যুৎ বিল'), matching: find.byType(Panel)).first);
+    final card = t.getRect(find.ancestor(of: find.text('বিদ্যুৎ বিল'), matching: find.byType(RepeatCard)).first);
     expect(card.top - tabs.bottom, greaterThanOrEqualTo(12));
     expect(rig.brain.data.reminders, hasLength(1));
   });

@@ -15,6 +15,7 @@ import 'package:digital_brain/screens/biz/biz_stock.dart';
 import 'package:digital_brain/screens/home_shell.dart';
 import 'package:digital_brain/services/launcher.dart';
 import 'package:digital_brain/state/brain.dart' show BrainShop;
+import 'package:digital_brain/logic/pro.dart' show freeCustomers, freeProducts;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -219,7 +220,7 @@ void main() {
     expect(find.text('পুরোনো গ্রাহক'), findsWidgets);
   });
 
-  testWidgets('free app: everything opens, nothing is added; the Premium sheet says why', (t) async {
+  testWidgets('free app (owner, 13 Nov): selling is free; the 21st customer, the 31st product and the PDF receipt ask for Premium', (t) async {
     final rig = await start(t);
     final b = rig.brain;
     b.gated = true;
@@ -228,7 +229,7 @@ void main() {
     final egg = Product(name: 'ডিম', unit: 'হালি', sell: 52, stock: 30);
     b.shop.products.add(egg);
     await settle(t);
-    expect(find.byKey(const Key('biz-free-banner')), findsOneWidget);
+    expect(find.byKey(const Key('biz-free-banner')), findsNothing, reason: 'far from the limits');
     final nav = Navigator.of(t.element(find.byType(HomeShell)));
     nav.push(MaterialPageRoute(builder: (_) => const SellPage()));
     await settle(t);
@@ -238,8 +239,21 @@ void main() {
     await settle(t);
     await t.tap(find.byKey(const Key('biz-sell-done')));
     await settle(t);
-    expect(find.textContaining('প্রিমিয়াম সুবিধা'), findsOneWidget);
-    expect(b.shop.sales, isEmpty);
+    expect(find.textContaining('প্রিমিয়াম সুবিধা'), findsNothing);
+    expect(b.shop.sales, hasLength(1));
+    expect(b.canAddCustomer, isTrue);
+    expect(b.canAddProduct, isTrue);
+    for (var i = 0; i < freeCustomers; i++) {
+      b.shop.customers.add(Customer(name: 'গ্রাহক $i'));
+    }
+    for (var i = b.shop.products.length; i < freeProducts; i++) {
+      b.shop.products.add(Product(name: 'পণ্য $i', unit: 'পিস'));
+    }
+    expect(b.canAddCustomer, isFalse);
+    expect(b.canAddProduct, isFalse);
+    await b.setProForTest(true);
+    expect(b.canAddCustomer, isTrue);
+    expect(b.canAddProduct, isTrue);
   });
 
   testWidgets('every page renders with data, no overflow', (t) async {

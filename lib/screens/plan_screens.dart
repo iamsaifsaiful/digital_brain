@@ -516,7 +516,17 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
               if (plan.repeating.isEmpty)
                 EmptyState(icon: Icons.repeat_rounded, title: tr('বারবার বাজে এমন কিছু নেই'), text: tr('“প্রতিদিন রাত ১০টায় ওষুধ” বা “প্রতি ৩০ মিনিটে পানি” — এমন রিমাইন্ডার এখানে থাকবে।'))
               else
-                Panel(child: Rows(children: [for (final r in plan.repeating) PlanRow(item: PlanItem.reminder(r, r.notifyAt(now)), withDay: true, next: true)])),
+                // One card a kind — প্রতিদিন, প্রতি সপ্তাহে, প্রতি মাসে… — the time
+                // on the left, as the day cards (owner, 13 Nov: "বারবার সেকশনের
+                // ইউআই সুন্দর কর। অন্যান্য গুলোর ধারা রক্ষা কর").
+                for (final g in [
+                  ('interval', tr('কিছুক্ষণ পরপর'), Icons.timelapse_rounded, plan.repeating.where((r) => r.repeat.isInterval).toList()),
+                  for (final k in [Repeat.daily, Repeat.weekly, Repeat.monthly, Repeat.yearly]) (k.name, tr(k.label), k == Repeat.daily ? Icons.today_rounded : (k == Repeat.weekly ? Icons.date_range_rounded : Icons.event_repeat_rounded), plan.repeating.where((r) => r.repeat == k).toList()),
+                ])
+                  if (g.$4.isNotEmpty) ...[
+                    SectionTitle(trf('{0} · {1}', [g.$2, bnDigits(g.$4.length)])),
+                    RepeatCard(key: Key('repeat-${g.$1}'), reminders: g.$4, now: now),
+                  ],
             ],
           _ListTab.done => [
               if (plan.finished.isEmpty)
@@ -603,6 +613,75 @@ class PlanDayCard extends StatelessWidget {
         ),
       ]),
     );
+  }
+}
+
+/// Repeating reminders of one kind (বারবার, owner 13 Nov): each with its
+/// time on the left, what and when it rings next, and an on/off switch.
+class RepeatCard extends StatelessWidget {
+  const RepeatCard({super.key, required this.reminders, required this.now});
+  final List<Reminder> reminders;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+      decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: C.border)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        for (final (k, r) in reminders.indexed) ...[
+          if (k > 0) Divider(height: 1, color: C.line, indent: 64, endIndent: 8),
+          InkWell(
+            key: Key('repeat-row-${r.id}'),
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewItemScreen(reminder: r))),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(children: [
+                SizedBox(width: 54, child: _clock(r)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(r.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(14.5, weight: FontWeight.w600, color: r.enabled ? C.ink : C.muted)),
+                    Text(r.enabled ? trf('{0} · পরের বার {1}', [repeatText(r), _nextDay(r)]) : trf('{0} · বন্ধ', [repeatText(r)]),
+                        maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: r.enabled ? C.green : C.muted)),
+                  ]),
+                ),
+                Switch(value: r.enabled, onChanged: (v) => brain.saveReminder(r.copyWith(enabled: v))),
+              ]),
+            ),
+          ),
+        ],
+      ]),
+    );
+  }
+
+  /// "৯:০০ / রাত" — or, for every few minutes, how often.
+  Widget _clock(Reminder r) {
+    final c = r.enabled ? C.green : C.muted;
+    if (r.repeat.isInterval) {
+      final m = r.repeat.minutes;
+      return Column(children: [
+        Text(bnDigits(m >= 60 ? m ~/ 60 : m), style: body(18, weight: FontWeight.w700, color: c, height: 1.2)),
+        Text(m >= 60 ? tr('ঘণ্টা পরপর') : tr('মিনিট পরপর'), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(10.5, color: C.muted, height: 1.2)),
+      ]);
+    }
+    final w = bnTime(r.hour, r.minute).split(' ');
+    var top = isEn ? w.first : w.last.replaceAll('টা', '');
+    if (!isEn && !top.contains(':')) top = '$top:০০';
+    final bottom = isEn ? (w.length > 1 ? w.last : '') : (w.length > 1 ? w.first : '');
+    return Column(children: [
+      Text(top, maxLines: 1, style: body(16, weight: FontWeight.w700, color: c, height: 1.2)),
+      if (bottom.isNotEmpty) Text(bottom, maxLines: 1, style: body(11, color: C.muted, height: 1.2)),
+    ]);
+  }
+
+  String _nextDay(Reminder r) {
+    final at = r.notifyAt(now);
+    final near = dayOnly(at).difference(dayOnly(now)).inDays;
+    if (r.repeat.isInterval) return bnTime(at.hour, at.minute);
+    return near == 0 ? tr('আজ') : (near == 1 ? tr('কাল') : '${weekdayShort(at)}, ${shortDate(at)}');
   }
 }
 

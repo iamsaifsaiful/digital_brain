@@ -235,52 +235,146 @@ class MoneyScreenState extends State<MoneyScreen> {
         if (shown.isEmpty)
           Panel(padding: const EdgeInsets.all(14), child: Text(tr('এই ভাগে কেউ নেই'), style: body(14, color: C.muted)))
         else
-          // Each person as one card (owner, 13 Nov: as দিনলিপি and হিসাব):
-          // who, their last two লেনদেন, and what is owed.
+          // Each person as one card (owner, 13 Nov: as দিনলিপি and হিসাব; then
+          // "আরো সুন্দর কর, আরেকটু তথ্য যুক্ত করে"): who and what is owed on
+          // top; how much of it has come back, as a bar; the last লেনদেন and
+          // the pay date; call and reminder at hand.
           for (final p in shown)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Material(
-                key: Key('loan-${p.key}'),
-                color: C.surface,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: C.border)),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () => push(PersonScreen(person: p.name, accountKey: p.key)),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
-                    child: Row(children: [
-                      Avatar(
-                        name: p.name,
-                        fg: p.balance > 0 ? C.blue : (p.balance < 0 ? C.red : C.muted),
-                        bg: p.balance > 0 ? C.blueTint : (p.balance < 0 ? C.roseTint : C.surface2),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15, weight: FontWeight.w700)),
-                          // Two of the same name: their numbers tell them apart.
-                          if (p.phone.isNotEmpty && dupNames.contains(personKey(p.name))) Text(showPhone(p.phone), style: body(12.5, color: C.muted, height: 1.4)),
-                          for (final e in ([for (final e in entries) if (keys[e.id] == p.key) e]..sort((a, b) => b.date.compareTo(a.date))).take(2))
-                            Text('${tr(e.kind.label)} ${taka(e.amount)} · ${shortDate(e.date)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted, height: 1.4)),
-                          if (p.balance != 0 && dueOf[p.key] != null)
-                            Text(dueText(dueOf[p.key]!), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, weight: FontWeight.w600, color: !dayOnly(dueOf[p.key]!).isAfter(today) ? C.warn : C.muted, height: 1.4))
-                          else if (p.phone.isEmpty && dupNames.contains(personKey(p.name)))
-                            Text(tr('নম্বর নেই — যোগ করুন'), style: body(12.5, color: C.warn, height: 1.4)),
-                        ]),
-                      ),
-                      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                        Text(taka(p.balance.abs()), style: display(16, weight: 700, color: p.balance > 0 ? C.blue : (p.balance < 0 ? C.red : C.muted))),
-                        Text(p.balance == 0 ? tr('শোধ') : (p.balance > 0 ? tr('পাব') : tr('দেব')), style: body(12, color: C.muted)),
-                      ]),
-                      if (p.balance != 0) LedgerAlarmButton(lines: [for (final e in entries) if (keys[e.id] == p.key) e], balance: p.balance) else Icon(Icons.chevron_right_rounded, color: C.muted, size: 20),
-                    ]),
-                  ),
-                ),
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _LoanCard(
+                person: p,
+                lines: [for (final e in entries) if (keys[e.id] == p.key) e]..sort((a, b) => b.date.compareTo(a.date)),
+                due: p.balance != 0 ? dueOf[p.key] : null,
+                now: now,
+                dupName: dupNames.contains(personKey(p.name)),
+                dueText: dueText,
+                onOpen: () => push(PersonScreen(person: p.name, accountKey: p.key)),
               ),
             ),
       ],
     ];
+  }
+}
+
+class _LoanCard extends StatelessWidget {
+  const _LoanCard({required this.person, required this.lines, required this.due, required this.now, required this.dupName, required this.dueText, required this.onOpen});
+  final PersonBalance person;
+  final List<LedgerEntry> lines;
+  final DateTime? due;
+  final DateTime now;
+  final bool dupName;
+  final String Function(DateTime) dueText;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final p = person;
+    int sum(LedgerKind k) => lines.where((e) => e.kind == k).fold(0, (a, e) => a + e.amount);
+    final lent = sum(LedgerKind.lent), received = sum(LedgerKind.received), borrowed = sum(LedgerKind.borrowed), repaid = sum(LedgerKind.repaid);
+    final get = p.balance > 0, give = p.balance < 0;
+    final color = get ? C.blue : (give ? C.red : C.green);
+    final tint = get ? C.blueTint : (give ? C.roseTint : C.greenTint);
+    // How much of the loan has been settled: given back to me, or paid by me.
+    final (whole, back) = give || (!get && borrowed > lent) ? (borrowed, repaid) : (lent, received);
+    final share = whole <= 0 ? (p.balance == 0 ? 1.0 : 0.0) : (back / whole).clamp(0.0, 1.0);
+    final last = lines.firstOrNull;
+    final ago = last == null ? 0 : dayOnly(now).difference(dayOnly(last.date)).inDays;
+    final agoText = last == null ? '' : (ago == 0 ? tr('আজ') : (ago == 1 ? tr('গতকাল') : trf('{0} দিন আগে', [bnDigits(ago)])));
+    final late = due != null && !dayOnly(due!).isAfter(dayOnly(now));
+    return Material(
+      key: Key('loan-${p.key}'),
+      color: C.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: late ? C.warnBorder : C.border)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onOpen,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 6, 10),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              Avatar(name: p.name, fg: color, bg: tint),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15.5, weight: FontWeight.w700)),
+                  Text(
+                    [
+                      if (p.phone.isNotEmpty && dupName) showPhone(p.phone),
+                      trf('{0}টা লেনদেন', [bnDigits(lines.length)]),
+                      if (last != null) trf('শেষ {0}', [agoText]),
+                    ].join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: body(12, color: C.muted, height: 1.35),
+                  ),
+                ]),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                    decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(20)),
+                    child: Text(p.balance == 0 ? tr('শোধ হয়েছে') : (get ? tr('পাব') : tr('দেব')), style: body(11.5, weight: FontWeight.w600, color: color)),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(taka(p.balance.abs()), style: display(18, weight: 700, color: p.balance == 0 ? C.muted : color)),
+                ]),
+              ),
+            ]),
+            if (whole > 0) ...[
+              const SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(value: share, minHeight: 6, backgroundColor: C.surface2, color: p.balance == 0 ? C.green : color),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Row(children: [
+                  Expanded(
+                    child: Text(
+                      give || (!get && borrowed > lent) ? trf('নিয়েছি {0} · শোধ {1}', [taka(borrowed), taka(repaid)]) : trf('দিয়েছি {0} · ফেরত {1}', [taka(lent), taka(received)]),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: body(12, color: C.muted),
+                    ),
+                  ),
+                  Text(trf(give || (!get && borrowed > lent) ? '{0}% শোধ' : '{0}% ফেরত', [bnDigits((share * 100).round())]), style: body(12, weight: FontWeight.w600, color: p.balance == 0 ? C.green : C.muted)),
+                ]),
+              ),
+            ],
+            const SizedBox(height: 6),
+            Divider(height: 1, color: C.line, endIndent: 8),
+            Row(children: [
+              Icon(due != null ? Icons.event_outlined : Icons.history_rounded, size: 15, color: late ? C.warn : C.muted),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  due != null ? dueText(due!) : (last == null ? '' : '${tr(last.kind.label)} ${taka(last.amount)} · ${shortDate(last.date)}'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: body(12.5, weight: due != null ? FontWeight.w600 : FontWeight.w400, color: late ? C.warn : C.muted),
+                ),
+              ),
+              if (p.phone.isNotEmpty && p.balance != 0)
+                IconButton(
+                  tooltip: tr('ফোন করুন'),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => brain.services.launcher.open(Via.call, p.phone),
+                  icon: Icon(Icons.call_outlined, size: 20, color: C.green),
+                ),
+              if (p.balance != 0) LedgerAlarmButton(lines: lines, balance: p.balance) else Padding(padding: const EdgeInsets.all(10), child: Icon(Icons.chevron_right_rounded, color: C.muted, size: 20)),
+            ]),
+          ]),
+        ),
+      ),
+    );
   }
 }
 

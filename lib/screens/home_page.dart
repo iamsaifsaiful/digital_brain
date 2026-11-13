@@ -14,6 +14,7 @@ import '../logic/phrases.dart' show possessive;
 import '../logic/sky_light.dart';
 import '../logic/spend_health.dart';
 import '../models/models.dart';
+import 'new_item_screen.dart';
 import '../state/brain.dart';
 import '../logic/home_scene.dart';
 import '../ui/scene_layers.dart';
@@ -791,6 +792,8 @@ class _Tools extends StatelessWidget {
       ('zakat', tr('যাকাত'), Icons.volunteer_activism_outlined, () => push(const ZakatScreen())),
       ('family', tr('পরিবার'), Icons.family_restroom_rounded, () => push(const FamilyScreen())),
       if (!medicalOff) ('medicines', trm('ওষুধ'), Icons.medication_outlined, () => push(const MedicinesScreen())),
+      // The Play app has no medicine pages, but a medicine reminder (owner, 13 Nov).
+      if (medicalOff) ('med_reminder', tr('ওষুধের রিমাইন্ডার'), Icons.medication_outlined, () => push(const NewItemScreen(category: ItemCategory.reminder, medicine: true))),
       ('blood', trm('রক্তদান'), Icons.bloodtype_outlined, () => push(const RequestsScreen())),
       ('pro', tr('প্রিমিয়াম'), Icons.workspace_premium_outlined, () => push(const ProScreen())),
     ];

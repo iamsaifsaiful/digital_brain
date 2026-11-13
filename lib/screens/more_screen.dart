@@ -71,10 +71,13 @@ class _MoreScreenState extends State<MoreScreen> {
     super.dispose();
   }
 
-  bool? _bioOn;
-  bool _bioAvailable = false;
-  int _autoLock = 30;
-  String? _lastBackup;
+  // Static (owner, 13 Nov: "ব্যবসায়ী মোড চালু করলে এখনো কিছুটা গ্লিজ মারে"):
+  // switching the mode builds this page anew; it starts with what was read
+  // last time instead of the defaults, so nothing jumps when they load.
+  static bool? _bioOn;
+  static bool _bioAvailable = false;
+  static int _autoLock = 30;
+  static String? _lastBackup;
 
   @override
   void initState() {
@@ -497,6 +500,8 @@ class _MoreScreenState extends State<MoreScreen> {
         );
 
     return ListView(
+      // Keeps its place when the mode switches (the page is built again).
+      key: const PageStorageKey('more-list'),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       children: [
         TabTitle(tr('আরও'), sub: tr('প্রোফাইল, সেটিংস আর আরও সুবিধা')),
@@ -505,7 +510,8 @@ class _MoreScreenState extends State<MoreScreen> {
         const SizedBox(height: 12),
         // ব্যবসায়ী মোড (owner, 6 Nov): one switch — on, the tabs are the
         // shop's (হোম · বিক্রি · গ্রাহক · হিসাব · স্টক); off, the app as it was.
-        // Premium; a free user may switch it on and look around.
+        // Free (owner, 13 Nov); Premium only for more than 20 customers or
+        // 30 products, and the PDF receipt.
         Panel(
           child: InkWell(
             borderRadius: BorderRadius.circular(17),
@@ -524,7 +530,6 @@ class _MoreScreenState extends State<MoreScreen> {
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Row(children: [
                       Flexible(child: Text(tr('ব্যবসায়ী মোড'), style: body(15, weight: FontWeight.w600))),
-                      if (!brain.has(ProFeature.business)) ...[const SizedBox(width: 6), const ProMark()],
                     ]),
                     Text(brain.businessMode ? tr('চালু — হোম, বিক্রি, গ্রাহক, হিসাব, স্টক দোকানের জন্য। বন্ধ করলে আগের মতো।') : tr('দোকান চালালে চালু করুন — বিক্রি, গ্রাহকের বাকি, ডিলার, স্টক, PDF রসিদ'),
                         style: body(12, color: C.muted, height: 1.4)),

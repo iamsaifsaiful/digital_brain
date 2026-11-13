@@ -31,6 +31,7 @@ import 'screens/lock_screen.dart';
 import 'screens/alarm_screens.dart';
 import 'logic/lang.dart';
 import 'state/brain.dart';
+import 'services/ads.dart' show Ads;
 import 'ui/theme.dart';
 
 class DigitalBrainApp extends StatefulWidget {
@@ -179,6 +180,9 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Our own full-screen ad is Google's screen over the app, not leaving it:
+    // no lock when it closes (owner, 13 Nov — a member could not get back in).
+    if (Ads.onScreen) return;
     if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
       _leftAt ??= brain.services.now();
       if (brain.loaded) brain.usageStop();

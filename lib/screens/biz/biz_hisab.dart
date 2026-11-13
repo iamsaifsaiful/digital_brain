@@ -187,7 +187,6 @@ class BizHisabState extends State<BizHisab> {
 
 /// A shop cost: how much and what for.
 Future<void> addShopCost(BuildContext context) async {
-  if (!await bizCan(context) || !context.mounted) return;
   final brain = BrainScope.read(context);
   final amount = await askText(context, tr('কত টাকা খরচ?'), number: true);
   final n = amount == null ? null : readNum(amount);
@@ -207,7 +206,6 @@ Future<void> addShopCost(BuildContext context) async {
 
 /// Pay a dealer: how much (the whole দেনা offered).
 Future<void> payDealer(BuildContext context, Brain brain, Dealer d) async {
-  if (!await bizCan(context) || !context.mounted) return;
   final due = dealerAccount(brain.shop, d).due;
   final v = await askText(context, trf('{0}-কে কত টাকা দিলেন?', [d.name]), initial: due > 0 ? bnDigits(due) : '', number: true);
   final n = v == null ? null : readNum(v);
@@ -236,7 +234,7 @@ Future<Dealer?> pickDealer(BuildContext context) async {
   final v = await showAppSheet<String>(context: context, isScrollControlled: true, builder: (_) => const _PickDealer());
   if (v == null || v.trim().isEmpty) return null;
   if (v.startsWith('id:')) return dealerById(brain.shop, v.substring(3));
-  if (!context.mounted || !await bizCan(context)) return null;
+  if (!context.mounted) return null;
   return brain.dealerFor(v.trim());
 }
 
@@ -449,7 +447,6 @@ class _DealerFormState extends State<DealerForm> {
                 onPressed: () async {
                   final name = _name.text.trim();
                   if (name.isEmpty) return toast(context, tr('ডিলারের নাম লিখুন'));
-                  if (!await bizCan(context) || !context.mounted) return;
                   final base = _d ?? Dealer(name: name);
                   final kept = await BrainScope.read(context).saveDealer(base.copyWith(
                     name: name,

@@ -13,6 +13,8 @@ import '../../ui/kit.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import 'biz_parts.dart';
+import '../../logic/pro.dart' show ProFeature;
+import '../../ui/pro_gate.dart' show needPro;
 
 /// দোকানের তথ্য (owner, 6 Nov): the name, address, mobile and logo printed on
 /// the PDF receipt, and the line at its foot.
@@ -57,7 +59,6 @@ class _ShopProfilePageState extends State<ShopProfilePage> {
 
   Future<void> _save() async {
     final brain = BrainScope.read(context);
-    if (!await bizCan(context) || !mounted) return;
     await brain.saveShopProfile(brain.shop.profile.copyWith(
       name: _name.text.trim(),
       address: _address.text.trim(),
@@ -234,7 +235,6 @@ class _TagadaPageState extends State<TagadaPage> {
               label: tr('মেসেজ রাখুন'),
               icon: Icons.check_rounded,
               onPressed: () async {
-                if (!await bizCan(context) || !context.mounted) return;
                 final t = _c.text.trim();
                 await brain.saveShopProfile(brain.shop.profile.copyWith(tagada: t == tr(defaultTagada) ? '' : t));
                 if (!context.mounted) return;
@@ -252,7 +252,7 @@ class _TagadaPageState extends State<TagadaPage> {
 /// The PDF receipt (owner, 6 Nov: "পিডিএফ আকারে রসিদ"): made on the phone,
 /// shown with download, share and open-with.
 Future<void> showReceiptPdf(BuildContext context, Sale s) async {
-  if (!await bizCan(context) || !context.mounted) return;
+  if (!await needPro(context, ProFeature.pdf) || !context.mounted) return;
   final brain = BrainScope.read(context);
   final p = brain.shop.profile;
   final c = s.customerId.isEmpty ? null : customerById(brain.shop, s.customerId);

@@ -16,6 +16,7 @@ import 'google_backup.dart' show restoreFromPhoneFile;
 import 'more_screen.dart' show BackupScreen;
 import 'help_screen.dart';
 import 'plan_screens.dart';
+import 'new_item_screen.dart';
 import '../logic/lang.dart';
 
 /// আজকের কাজ on the home: the next thing with its actions, then what is
@@ -96,7 +97,7 @@ class _TodaySectionsState extends State<TodaySections> {
             ...rows(lateShown, late: true),
           ],
           if (restShown.isNotEmpty) ...[
-            if (plan.overdue.isNotEmpty) group(tr('আজ')),
+            if (plan.overdue.isNotEmpty) group(trf('আজ · {0}', [weekdayName(today)])),
             ...rows(restShown),
           ],
           if (hidden > 0 || (_open && total > TodaySections.folded + 1)) ...[
@@ -296,28 +297,63 @@ class _TaskRow extends StatelessWidget {
     final passed = r != null && r.repeat == Repeat.none && !r.notifyAt(now).isAfter(now);
     final done = (t?.done ?? false) || passed;
     final label = whenLabel(item, now, withDay: late);
-    final sub = late && t != null && r == null ? trf('{0} ছিল', [label]) : (passed ? trf('{0} · বেজেছে', [label]) : label);
-    // The title, its time under it, the actions on the right (owner, 3 Nov).
+    // The time on the left, as দিনলিপি's day (owner, 13 Nov: "হোমের আজকের কাজ
+    // সেকশনের ইউআই ফিক্স কর"): a reminder's clock, a late to-do's day, else
+    // "সারাদিন". Under the title only what the time does not say.
+    final timed = item.timed;
+    final at = timed?.notifyAt(now) ?? item.sort;
+    String top, bottom;
+    if (late) {
+      top = t?.due == null ? '' : bnDigits(t!.due!.day);
+      bottom = t?.due == null ? tr('দেরি') : monthShort(t!.due!.month);
+    } else if (timed != null) {
+      final w = bnTime(at.hour, at.minute).split(' ');
+      top = isEn ? w.first : w.last.replaceAll('টা', '');
+      bottom = isEn ? (w.length > 1 ? w.last : '') : (w.length > 1 ? w.first : '');
+      if (!isEn && !top.contains(':')) top = '$top:০০';
+    } else {
+      top = '';
+      bottom = tr('সারাদিন');
+    }
+    final meta = [
+      if (passed) tr('বেজেছে'),
+      if (late && t != null && r == null && t.due == null) trf('{0} ছিল', [label]),
+      if (r != null && r.repeat != Repeat.none) repeatText(r),
+      if (t != null && t.list.isNotEmpty) t.list,
+      if (t?.note.isNotEmpty ?? false) t!.note,
+    ].join(' · ');
+    final tone = late ? C.warn : (done ? C.muted : (timed != null ? C.green : C.muted));
     return InkWell(
-      onTap: () => t != null ? editTask(context, t) : null,
+      onTap: () => t != null ? editTask(context, t) : Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewItemScreen(reminder: r))),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
         child: Row(children: [
+          SizedBox(
+            width: 52,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (top.isNotEmpty) Text(top, maxLines: 1, style: body(15, weight: FontWeight.w700, color: tone, height: 1.2)),
+              if (bottom.isNotEmpty) Text(bottom, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11, color: top.isEmpty ? C.muted : tone, height: 1.25)),
+            ]),
+          ),
+          const SizedBox(width: 6),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.symmetric(vertical: 7),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(item.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: body(14.5, color: done ? C.muted : C.ink).copyWith(decoration: t?.done ?? false ? TextDecoration.lineThrough : null, decorationColor: C.muted)),
-                const SizedBox(height: 1),
-                WhenLine(sub, bell: r != null, color: late ? C.warn : (r != null && !passed ? C.green : C.muted)),
+                if (meta.isNotEmpty) ...[const SizedBox(height: 1), Text(meta, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: late ? C.warn : C.muted))],
               ]),
             ),
           ),
           if (onLater != null) ...[const SizedBox(width: 8), SoftChip(tr('কাল করব'), warn: true, onTap: onLater)] else if (t != null && !t.done) TaskAlarmButton(t),
-          if (t != null) DoneCircle(done: t.done, onTap: () => brain.setTaskDone(t, !t.done)) else const SizedBox(width: 8),
+          if (t != null)
+            DoneCircle(done: t.done, onTap: () => brain.setTaskDone(t, !t.done))
+          else
+            // A reminder: the bell where a to-do has its circle, so the rows line up.
+            SizedBox(width: 44, child: Icon(passed ? Icons.notifications_off_outlined : Icons.notifications_active_outlined, size: 20, color: passed ? C.muted : C.green)),
         ]),
       ),
     );

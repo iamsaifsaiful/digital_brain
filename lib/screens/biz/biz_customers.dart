@@ -180,7 +180,7 @@ Future<Customer?> pickCustomer(BuildContext context) async {
   );
   if (name == null || name.trim().isEmpty) return null;
   if (name.startsWith('id:')) return customerById(brain.shop, name.substring(3));
-  if (!context.mounted || !await bizCan(context)) return null;
+  if (customerNamed(brain.shop, name) == null && (!context.mounted || !await bizNewCustomer(context))) return null;
   return brain.customerFor(name.trim());
 }
 
@@ -347,7 +347,6 @@ class CustomerPage extends StatelessWidget {
                         icon: Icons.check_rounded,
                         primary: true,
                         onTap: () async {
-                          if (!await bizCan(context) || !context.mounted) return;
                           final v = await askText(context, tr('কত টাকা পেলেন?'), initial: due > 0 ? bnDigits(due) : '', number: true);
                           final n = v == null ? null : readNum(v);
                           if (n == null || n <= 0) return;
@@ -400,7 +399,6 @@ class CustomerPage extends StatelessWidget {
                 child: TextButton.icon(
                   key: const Key('biz-customer-old-due'),
                   onPressed: () async {
-                    if (!await bizCan(context) || !context.mounted) return;
                     final v = await askText(context, tr('আগের কত টাকা বাকি আছে?'), number: true);
                     final n = v == null ? null : readNum(v);
                     if (n != null && n > 0) await brain.customerOwes(c.id, n.round());
@@ -483,7 +481,6 @@ class _ReminderCard extends StatelessWidget {
 /// Set (or change) the reminder to collect from [c]: the day, the time,
 /// once or every week.
 Future<void> setCollectReminder(BuildContext context, Customer c) async {
-  if (!await bizCan(context) || !context.mounted) return;
   final brain = BrainScope.read(context);
   final now = brain.services.now();
   final old = c.reminderId == null ? null : brain.reminderById(c.reminderId!);
@@ -604,7 +601,7 @@ class _CustomerFormState extends State<CustomerForm> {
     final brain = BrainScope.read(context);
     final name = _name.text.trim();
     if (name.isEmpty) return toast(context, tr('গ্রাহকের নাম লিখুন'));
-    if (!await bizCan(context) || !mounted) return;
+    if (_c == null && !await bizNewCustomer(context) || !mounted) return;
     final base = _c ?? Customer(name: name);
     final kept = await brain.saveCustomer(base.copyWith(
       name: name,

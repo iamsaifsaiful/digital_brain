@@ -194,7 +194,6 @@ Future<void> showReceipt(BuildContext context, Sale s) => showAppSheet<void>(
             TextButton(
               key: const Key('biz-sale-delete'),
               onPressed: () async {
-                if (!await bizCan(ctx) || !ctx.mounted) return;
                 final ok = await confirmDialog(ctx, title: tr('বিক্রিটা বাতিল করবেন?'), text: tr('পণ্য স্টকে ফিরবে, টাকা বা বাকির হিসাবও মুছে যাবে।'), yes: tr('বাতিল করুন'), danger: true);
                 if (!ok) return;
                 await brain.deleteSale(s.id);
@@ -281,7 +280,6 @@ class _SellPageState extends State<SellPage> {
   Future<void> _done() async {
     final brain = BrainScope.read(context);
     if (_total <= 0) return toast(context, widget.amountOnly ? tr('কত টাকার বিক্রি, লিখুন') : tr('কোনো পণ্য বাছা হয়নি'));
-    if (!await bizCan(context) || !mounted) return;
     if (_pay == SalePay.credit && _customerId.isEmpty) {
       toast(context, tr('বাকিতে বিক্রির জন্য গ্রাহক বাছুন'));
       await _pickCustomer();

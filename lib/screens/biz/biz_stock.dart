@@ -200,7 +200,7 @@ class _ProductFormState extends State<ProductForm> {
       toast(context, tr('পণ্যের নাম লিখুন'));
       return;
     }
-    if (!await bizCan(context) || !mounted) return;
+    if (_p == null && !await bizNewProduct(context) || !mounted) return;
     final p = Product(
       id: _p?.id,
       name: name,
@@ -254,7 +254,6 @@ class _ProductFormState extends State<ProductForm> {
                   key: const Key('biz-product-delete'),
                   tooltip: tr('মুছুন'),
                   onPressed: () async {
-                    if (!await bizCan(context) || !context.mounted) return;
                     final ok = await confirmDialog(context, title: trf('‘{0}’ মুছবেন?', [_p.name]), text: tr('বিক্রির পুরোনো হিসাব থেকে যাবে। মুছে ফেলা থেকে ৩০ দিন ফেরানো যায়।'), yes: tr('মুছুন'), danger: true);
                     if (!ok || !context.mounted) return;
                     await BrainScope.read(context).deleteProduct(_p.id);
@@ -648,7 +647,6 @@ class _GoodsInState extends State<_GoodsIn> {
                 return _pickDealer();
               }
               if (total <= 0 && _lines.isEmpty) return toast(context, tr('কোন পণ্য এল, বা মোট বিল কত, লিখুন'));
-              if (!await bizCan(context) || !context.mounted) return;
               await brain.recordPurchase(dealer.id, [for (final (p, q, a) in _lines) (p, readNum(q.text) ?? 0, (readNum(a.text) ?? 0).round())], paid: paid, total: total);
               if (!context.mounted) return;
               toast(context, paid < total ? trf('রাখা হলো — {0}-এর কাছে দেনা {1}', [dealer.name, taka(total - paid)]) : tr('রাখা হলো — স্টকে তোলা হয়েছে'));

@@ -42,8 +42,11 @@ enum ItemCategory {
 
 /// Add something new, or edit an existing password, contact, note or reminder.
 class NewItemScreen extends StatefulWidget {
-  const NewItemScreen({super.key, this.category, this.presetTitle, this.presetBody, this.presetAt, this.vault, this.contact, this.note, this.reminder, this.noteCategory, this.task});
+  const NewItemScreen({super.key, this.category, this.presetTitle, this.presetBody, this.presetAt, this.vault, this.contact, this.note, this.reminder, this.noteCategory, this.task, this.medicine = false});
   final ItemCategory? category;
+
+  /// Opens with the ওষুধ খাওয়ার রিমাইন্ডার switch on (home › সব সুবিধা, owner 13 Nov).
+  final bool medicine;
 
   /// A new reminder set from a task's ⏰: linked to the task when saved.
   final Task? task;
@@ -109,7 +112,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
 
   /// A medicine reminder (owner, 13 Nov): the medicine's name and the times
   /// of day it is taken, each a daily reminder. No medical record is kept.
-  bool _med = false;
+  late bool _med = widget.medicine;
   final Set<int> _medTimes = {8 * 60, 21 * 60};
 
   /// "প্রতি সপ্তাহে": which days; "প্রতিদিন": which days left out (owner, 28 Oct).

@@ -38,7 +38,7 @@ import '../logic/match.dart' show wordsMatch;
 import '../logic/money_more.dart' show accountBalance, accountLabel, totalBalance, salesCategory;
 import '../ui/theme.dart' show Look;
 import '../logic/proactive.dart';
-import '../logic/pro.dart' show ProFeature, freeVaultItems, freeLedgerPeople, freeReminders, medicalOff, medicalOffText;
+import '../logic/pro.dart' show freeVaultItems, freeLedgerPeople, freeReminders, medicalOff, medicalOffText;
 import '../logic/search.dart';
 import '../logic/talk.dart';
 import '../logic/when.dart';
@@ -4174,9 +4174,9 @@ class ChatController extends ChangeNotifier {
           }
         }
         final cashId = newId();
-        // In ব্যবসায়ী মোড (Premium) money said goes to the business's own
-        // আয়-ব্যয়, never the personal one (owner, 7 Nov).
-        final biz = project == null && brain.businessMode && brain.has(ProFeature.business);
+        // In ব্যবসায়ী মোড (free since 13 Nov) money said goes to the business's
+        // own আয়-ব্যয়, never the personal one (owner, 7 Nov).
+        final biz = project == null && brain.businessMode;
         await brain.saveCash(CashEntry(
           id: cashId,
           kind: c.kind,

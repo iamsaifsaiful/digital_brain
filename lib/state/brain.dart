@@ -309,6 +309,10 @@ class Brain extends ChangeNotifier {
   bool get canAddVault => pro || data.vault.length < freeVaultItems;
   bool get canAddDoc => pro || data.docs.length < freeDocs;
 
+  /// ব্যবসায়ী মোড (owner, 13 Nov): free up to 20 customers and 30 products.
+  bool get canAddCustomer => has(ProFeature.business) || shop.customers.length < freeCustomers;
+  bool get canAddProduct => has(ProFeature.business) || shop.products.length < freeProducts;
+
   /// Reminders that still ring (the app's own ones — bills, papers, habits — count too).
   int get activeReminders => data.reminders.where((r) => r.enabled && r.vaultId == null).length;
   bool get canAddReminder => pro || activeReminders < freeReminders;
