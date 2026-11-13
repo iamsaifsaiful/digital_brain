@@ -161,21 +161,21 @@ def examples(rows):
             continue
         bound = ['O'] * len(toks)
         n = 0
-        # Spoken breaths (long, multi): a run-up before the first request
-        # ("ও আচ্ছা", "আরেকটা কথা") rides with it, and an ending after the last
-        # ("ঠিক আছে", "বুঝছো") with that one — the app never cuts there. Before,
-        # a run-up was its own O stretch, the tagger learnt to cut after it,
-        # and the run-up alone read as a yes or small talk (gate of 7 Nov:
-        # 198 crowd rows with an extra smalltalk/confirm_yes; 42 after).
-        # Joiners between requests stay outside both (13 Nov: also folding
-        # them in went with a cut inside "… কাল ৮টায় অ্যালার্ম দাও").
+        # Spoken breaths (long, multi): the words before a request ride with
+        # it — a run-up ("ও আচ্ছা") with the first, a joiner ("আরেকটা কথা",
+        # "ও হ্যাঁ") with the next — and an ending ("ঠিক আছে") with the last.
+        # So a cut falls before such words, never after them, and a lone
+        # "আরেকটা কথা, …" at the start of one request is not cut off.
+        # Gates: run-up outside every piece → 198 crowd rows with an extra
+        # smalltalk/confirm_yes (7 Nov); joiner with the request before → 42,
+        # joiner outside both → 146 (13 Nov).
         spans_ = None
         if r.get('kind') in ('long', 'multi') and len(r['segs']) > 1:
             ranges = [[j for j, i in enumerate(idx) if s['start'] <= i < s['end']] for s in r['segs']]
             if all(ranges) and [x[0] for x in ranges] == sorted(x[0] for x in ranges):
-                ranges[0] = list(range(0, ranges[0][-1] + 1))
-                ranges[-1] = list(range(ranges[-1][0], len(toks)))
-                spans_ = ranges
+                starts = [0] + [ranges[k - 1][-1] + 1 for k in range(1, len(ranges))]
+                ends = starts[1:] + [len(toks)]
+                spans_ = [list(range(a_, b_)) for a_, b_ in zip(starts, ends)]
         for k, s in enumerate(r['segs']):
             ws = spans_[k] if spans_ else [j for j, i in enumerate(idx) if s['start'] <= i < s['end']]
             if not ws:
