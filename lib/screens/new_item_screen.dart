@@ -368,7 +368,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.editing ? trf('{0} বদলান', [_cat.label]) : tr('নতুন তথ্য');
+    final title = widget.editing ? trf('{0} বদলান', [_cat.label]) : (_cat == ItemCategory.reminder ? tr('নতুন রিমাইন্ডার') : tr('নতুন তথ্য'));
     return Scaffold(
       body: SafeArea(
         child: Form(
@@ -717,7 +717,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
         _gap,
         TextFormField(textCapitalization: TextCapitalization.sentences, controller: _noteText, decoration: InputDecoration(labelText: tr('নোট (ঐচ্ছিক)'), hintText: tr('যেমন: খাবারের পরে, ১টা করে'))),
       ] else ...[
-      TextFormField(textCapitalization: TextCapitalization.sentences, controller: _a, decoration: InputDecoration(labelText: tr('কাজের নাম'), hintText: tr('যেমন: ডোমেইন রিনিউ')), validator: _required),
+      TextFormField(textCapitalization: TextCapitalization.sentences, controller: _a, decoration: InputDecoration(labelText: tr('কী মনে করাব?'), hintText: tr('যেমন: বিদ্যুৎ বিল দেওয়া')), validator: _required),
       _gap,
       Row(children: [
         Expanded(

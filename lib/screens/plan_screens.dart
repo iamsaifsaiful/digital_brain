@@ -5,6 +5,7 @@ import '../logic/pro.dart';
 import '../ui/pro_gate.dart';
 
 import '../logic/bn.dart';
+import '../logic/calendar_bd.dart' show holidayOn, isWeekend;
 import '../logic/when.dart';
 import '../logic/day_plan.dart';
 export '../logic/day_plan.dart';
@@ -97,9 +98,12 @@ class WhenLine extends StatelessWidget {
 /// A task or a reminder: the title, its time under it, the actions on the
 /// right (owner, 3 Nov).
 class PlanRow extends StatelessWidget {
-  const PlanRow({super.key, required this.item, this.withDay = false, this.trailing, this.next = false, this.sub});
+  const PlanRow({super.key, required this.item, this.withDay = false, this.trailing, this.next = false, this.sub, this.dense = false});
   final PlanItem item;
   final bool withDay;
+
+  /// Inside a day card (owner, 13 Nov): the card gives the left margin.
+  final bool dense;
 
   /// A repeating reminder's own row (দিনলিপি › নিয়মিত, owner 28 Oct): how
   /// often, and the day and time it rings next.
@@ -121,11 +125,11 @@ class PlanRow extends StatelessWidget {
     return InkWell(
       onTap: () => t != null ? editTask(context, t) : Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewItemScreen(reminder: r))),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+        padding: EdgeInsets.fromLTRB(dense ? 0 : 14, dense ? 0 : 4, 4, dense ? 0 : 4),
         child: Row(children: [
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 7),
+              padding: EdgeInsets.symmetric(vertical: dense ? 5 : 7),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(item.title,
                     style: body(14, color: (t?.done ?? false) || passed ? C.muted : C.ink).copyWith(decoration: t?.done ?? false ? TextDecoration.lineThrough : null, decorationColor: C.muted),
@@ -137,7 +141,7 @@ class PlanRow extends StatelessWidget {
           ),
           if (trailing != null) trailing! else if (t != null && !t.done) TaskAlarmButton(t),
           if (t != null) DoneCircle(done: t.done, onTap: () => brain.setTaskDone(t, !t.done)),
-          if (t == null && trailing == null) const SizedBox(width: 10),
+          if (t == null && trailing == null) SizedBox(width: dense ? 0 : 10),
         ]),
       ),
     );
@@ -478,11 +482,16 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
     final now = brain.services.now();
     final plan = planOf(brain.data, now);
     final openCount = plan.overdue.length + plan.today.length + plan.ahead.length;
+    final days = <DateTime, List<PlanItem>>{dayOnly(now): plan.today};
+    for (final i in plan.ahead) {
+      days.putIfAbsent(dayOnly(i.sort), () => []).add(i);
+    }
+    final byDay = days.entries.where((e) => e.value.isNotEmpty).toList();
 
     Widget section(String title, List<PlanItem> items, {Color? color, bool withDay = false}) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(padding: const EdgeInsets.fromLTRB(2, 14, 2, 6), child: Text(title, style: body(14, weight: FontWeight.w600, color: color ?? C.muted2))),
+            SectionTitle(title),
             Panel(
               borderColor: color == C.orange ? C.orangeTint : C.line,
               child: Rows(children: [for (final i in items) PlanRow(item: i, withDay: withDay)]),
@@ -494,15 +503,20 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
           _ListTab.open => [
               if (openCount == 0) EmptyState(icon: Icons.check_circle_outline_rounded, title: tr('কিছু বাকি নেই'), text: tr('নতুন কাজ বা রিমাইন্ডার নিচের বোতাম চেপে, বা মাইকে বলে রাখুন।')),
               if (plan.overdue.isNotEmpty) section(tr('দেরি হয়ে গেছে'), plan.overdue, color: C.orange, withDay: true),
-              if (plan.today.isNotEmpty) section(tr('আজ'), plan.today),
-              if (plan.ahead.isNotEmpty) section(tr('সামনে'), plan.ahead, withDay: true),
+              // One card a day, the date on its left (owner, 13 Nov: "রিমাইন্ডার
+              // মেনুর ইউআই ফিক্স কর" — as দিনলিপি and হিসাব).
+              if (plan.today.isNotEmpty || plan.ahead.isNotEmpty) ...[
+                SectionTitle(tr('সামনে কী আছে')),
+                for (final e in byDay)
+                  Padding(padding: const EdgeInsets.only(bottom: 8), child: PlanDayCard(day: e.key, items: e.value, now: now)),
+              ],
               const BillList(),
             ],
           _ListTab.repeating => [
               if (plan.repeating.isEmpty)
                 EmptyState(icon: Icons.repeat_rounded, title: tr('বারবার বাজে এমন কিছু নেই'), text: tr('“প্রতিদিন রাত ১০টায় ওষুধ” বা “প্রতি ৩০ মিনিটে পানি” — এমন রিমাইন্ডার এখানে থাকবে।'))
               else
-                Panel(child: Rows(children: [for (final r in plan.repeating) PlanRow(item: PlanItem.reminder(r, r.notifyAt(now)), withDay: true)])),
+                Panel(child: Rows(children: [for (final r in plan.repeating) PlanRow(item: PlanItem.reminder(r, r.notifyAt(now)), withDay: true, next: true)])),
             ],
           _ListTab.done => [
               if (plan.finished.isEmpty)
@@ -539,6 +553,55 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
           ),
         ]),
       ),
+    );
+  }
+}
+
+/// A day of কাজ ও রিমাইন্ডার as a card (owner, 13 Nov): the date on the
+/// left as in দিনলিপি and হিসাব, every to-do and reminder of the day on the
+/// right with its own actions.
+class PlanDayCard extends StatelessWidget {
+  const PlanDayCard({super.key, required this.day, required this.items, required this.now});
+  final DateTime day;
+  final List<PlanItem> items;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final today = dayOnly(day) == dayOnly(now);
+    final hol = holidayOn(day);
+    final red = hol != null || isWeekend(day);
+    final near = dayOnly(day).difference(dayOnly(now)).inDays;
+    return Container(
+      key: Key('plan-day-${day.year}-${day.month}-${day.day}'),
+      padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
+      decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: today ? C.green : C.border, width: today ? 2 : 1)),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(
+          width: 54,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Column(children: [
+              if (near == 0 || near == 1)
+                Text(near == 0 ? tr('আজ') : tr('কাল'), style: body(11, weight: FontWeight.w600, color: today ? C.green : C.muted, height: 1.2))
+              else if (day.month != now.month || day.year != now.year)
+                Text(monthShort(day.month), style: body(11, weight: FontWeight.w600, color: C.muted, height: 1.2)),
+              Text(bnDigits(day.day), style: body(20, weight: FontWeight.w700, color: today ? C.green : (red ? C.rose : C.ink), height: 1.2)),
+              Text(weekdayShort(day), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11, color: red ? C.rose : C.muted, height: 1.2)),
+            ]),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            for (var k = 0; k < items.length; k++) ...[
+              if (k > 0) Divider(height: 1, color: C.line),
+              PlanRow(item: items[k], dense: true),
+            ],
+            if (hol != null) Padding(padding: const EdgeInsets.only(bottom: 4), child: Text(hol.label, style: body(12, color: C.rose))),
+          ]),
+        ),
+      ]),
     );
   }
 }
