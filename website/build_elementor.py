@@ -10,6 +10,11 @@ from PIL import Image
 
 D = os.path.dirname(os.path.abspath(__file__)) + '/'
 src = open(D + 'index.html', encoding='utf-8').read()
+# English (owner, 14 Nov): website/en.json → the page's English button.
+import json
+_en = json.dumps(json.load(open(D + 'en.json', encoding='utf-8')), ensure_ascii=False, separators=(',', ':'))
+src = re.sub(r'/\*EN\*/.*?/\*/EN\*/', lambda m: '/*EN*/' + _en + '/*/EN*/', src, flags=re.S)
+open(D + 'index.html', 'w', encoding='utf-8').write(src)
 css = src[src.index('<style>') + 7:src.index('</style>')]
 body = src[src.index('<body>') + 6:src.index('</body>')]
 
