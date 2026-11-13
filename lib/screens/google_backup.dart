@@ -190,7 +190,9 @@ class _GoogleBackupPanelState extends State<GoogleBackupPanel> {
                 style: body(13, color: auto ? C.greenDark : C.muted2, height: 1.5)),
             const SizedBox(height: 10),
             Row(children: [
+              // More room for "এখনই ব্যাকআপ" (13 Nov: it was cut to "এখনই ব্যা…").
               Expanded(
+                  flex: 3,
                   child: PrimaryButton(
                       key: const Key('drive-now'),
                       label: tr('এখনই ব্যাকআপ'),
@@ -199,7 +201,7 @@ class _GoogleBackupPanelState extends State<GoogleBackupPanel> {
                       onPressed: busy ? null : () => _run(brain.backupToDrive))),
               if (auto) ...[
                 const SizedBox(width: 8),
-                Expanded(child: SecondaryButton(label: tr('বন্ধ করুন'), onPressed: busy ? null : brain.stopDriveBackup)),
+                Expanded(flex: 2, child: SecondaryButton(label: tr('বন্ধ করুন'), onPressed: busy ? null : brain.stopDriveBackup)),
               ],
             ]),
             if (!auto && brain.gated)

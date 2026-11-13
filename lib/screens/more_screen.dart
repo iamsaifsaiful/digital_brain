@@ -820,7 +820,11 @@ class _BackupScreenState extends State<BackupScreen> {
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final now = brain.services.now();
-    final last = _lastBackup == null ? null : DateTime.tryParse(_lastBackup!);
+    final file = _lastBackup == null ? null : DateTime.tryParse(_lastBackup!);
+    // The newer of the file backup and the Google Drive one (13 Nov: with
+    // Drive backing up, the page still said "no backup taken").
+    final drive = brain.lastDrive;
+    final last = file == null ? drive : (drive != null && drive.isAfter(file) ? drive : file);
     final old = last == null || now.difference(last).inDays > 7;
     return Scaffold(
       body: SafeArea(
