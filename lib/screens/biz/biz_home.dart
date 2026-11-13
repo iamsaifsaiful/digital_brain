@@ -208,9 +208,9 @@ class _ShopMoney extends StatelessWidget {
     final get = owing(brain.shop), give = owedToDealers(brain.shop);
     final (cashPct, qr, credit) = today.split;
     Widget stat(IconData icon, String label, String value, Color color, {Key? key}) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [Icon(icon, size: 14, color: C.muted), const SizedBox(width: 4), Text(label, style: body(11.5, color: C.muted))]),
+          Row(children: [Icon(icon, size: 14, color: C.muted), const SizedBox(width: 4), Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted)))]),
           const SizedBox(height: 4),
-          Text(value, key: key, style: body(14, weight: FontWeight.w600, color: color)),
+          FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(value, key: key, style: body(14.5, weight: FontWeight.w700, color: color))),
         ]);
     Widget half(String label, int amount, Color color, VoidCallback onTap, Key key) => Expanded(
           child: InkWell(
@@ -246,10 +246,14 @@ class _ShopMoney extends StatelessWidget {
             IconButton.filled(key: const Key('biz-home-sell'), tooltip: tr('নতুন বিক্রি'), onPressed: () => pushPage(context, const SellPage()), icon: Icon(Icons.add_shopping_cart_rounded, color: C.onAccent)),
           ]),
           const SizedBox(height: 10),
-          Wrap(spacing: 26, runSpacing: 10, children: [
-            stat(Icons.payments_outlined, tr('আজ হাতে এল'), '${cash.net < 0 ? '− ' : ''}${taka(cash.net.abs())}', cash.net < 0 ? C.warn : C.green, key: const Key('biz-home-cash')),
-            stat(Icons.trending_up_rounded, tr('লাভ (আনুমানিক)'), taka(today.profit), C.ink),
-            stat(Icons.north_rounded, tr('আজ বের হলো'), taka(cash.out), C.ink),
+          // Three side by side (owner, 13 Nov: business UI fixes — they had
+          // wrapped one under another).
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: stat(Icons.payments_outlined, tr('আজ হাতে এল'), '${cash.net < 0 ? '− ' : ''}${taka(cash.net.abs())}', cash.net < 0 ? C.warn : C.green, key: const Key('biz-home-cash'))),
+            const SizedBox(width: 10),
+            Expanded(child: stat(Icons.trending_up_rounded, tr('লাভ (প্রায়)'), taka(today.profit), C.ink)),
+            const SizedBox(width: 10),
+            Expanded(child: stat(Icons.north_rounded, tr('আজ বের হলো'), taka(cash.out), C.ink)),
           ]),
           const SizedBox(height: 12),
           const Hairline(),

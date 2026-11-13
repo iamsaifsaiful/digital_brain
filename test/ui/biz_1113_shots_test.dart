@@ -6,6 +6,7 @@ import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/screens/biz/biz_customers.dart';
 import 'package:digital_brain/screens/biz/biz_sales.dart';
 import 'package:digital_brain/screens/home_shell.dart';
+import 'package:digital_brain/state/brain.dart' show BrainShop;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show debugDisableShadows;
 import 'package:flutter_test/flutter_test.dart';

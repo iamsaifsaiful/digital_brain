@@ -167,7 +167,8 @@ void main() {
     expect(find.byKey(const Key('biz-reminder-on')), findsOneWidget);
 
     // Paid in full: the due is gone, so is the reminder.
-    await t.scrollUntilVisible(find.byKey(const Key('biz-customer-paid')), -200, scrollable: find.descendant(of: find.byType(CustomerPage), matching: find.byType(Scrollable)).first);
+    await t.ensureVisible(find.byKey(const Key('biz-customer-paid')));
+    await settle(t);
     await t.tap(find.byKey(const Key('biz-customer-paid')));
     await settle(t);
     await t.tap(find.text('রাখুন').last);

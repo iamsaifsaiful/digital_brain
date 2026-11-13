@@ -113,12 +113,16 @@ class _BizStockState extends State<BizStock> {
               ),
             ]),
           ),
-          ListCard(
-            rows: [for (final p in ps) _productRow(context, p, now)],
-            foot: shelf == listed.last.$1
-                ? CardFoot(left: tr('+ পণ্য যোগ'), onLeft: () => pushPage(context, ProductForm(category: shelf == otherSection ? '' : shelf)), right: tr('মাল কেনা'), onRight: () => pushPage(context, const PurchasePage()), leftKey: const Key('biz-add-product'), rightKey: const Key('biz-open-purchase'))
-                : null,
-          ),
+          ListCard(rows: [for (final p in ps) _productRow(context, p, now)]),
+        ],
+        // On their own under the list, not stuck to its last section (owner, 13 Nov).
+        if (listed.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: SmallButton(key: const Key('biz-add-product'), label: tr('পণ্য যোগ'), icon: Icons.add_box_outlined, primary: true, onTap: () => pushPage(context, const ProductForm()))),
+            const SizedBox(width: 8),
+            Expanded(child: SmallButton(key: const Key('biz-open-purchase'), label: tr('মাল কেনা'), icon: Icons.local_shipping_outlined, onTap: () => pushPage(context, const PurchasePage()))),
+          ]),
         ],
       ],
     ];

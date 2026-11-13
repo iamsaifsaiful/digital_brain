@@ -5624,4 +5624,10 @@ const enStrings = <String, String>{
   'ঘণ্টা পরপর': 'hours apart',
   'মিনিট পরপর': 'min apart',
   '{0} · {1}': '{0} · {1}',
+  'আমাদের দোকানে': 'at our shop',
+  'আমাদের দোকানের': 'our shop’s',
+  'যোগ হয়েছেন': 'Added on',
+  'আজ বাকিতে নিলেন': 'On credit today',
+  'পণ্য যোগ': 'Add product',
+  'লাভ (প্রায়)': 'Profit (approx.)',
 };

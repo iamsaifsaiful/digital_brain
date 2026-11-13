@@ -115,6 +115,8 @@ class _BizCustomersState extends State<BizCustomers> {
     final sub = [
       if (c.phone.isNotEmpty) bnDigits(c.phone),
       if (a.due > 0 && days > 0) trf('{0} ধরে বাকি', [owedFor(days)]),
+      // Owed since today: say so, not an empty line (owner, 13 Nov).
+      if (a.due > 0 && days <= 0) tr('আজ বাকিতে নিলেন'),
       if (a.due <= 0 && a.last != null) trf('শেষ কেনা {0}', [shortDate(a.last!)]),
     ].join(' · ');
     return ListRow(
@@ -124,7 +126,10 @@ class _BizCustomersState extends State<BizCustomers> {
       subtitle: sub.isEmpty ? null : sub,
       subtitleColor: days > 30 ? C.warn : null,
       trailing: a.due > 0
-          ? Text(taka(a.due), style: body(14.5, weight: FontWeight.w600, color: days > 30 ? C.warn : C.green))
+          ? Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text(taka(a.due), style: body(15, weight: FontWeight.w700, color: days > 30 ? C.warn : C.green)),
+              Text(tr('বাকি'), style: body(11.5, color: C.muted)),
+            ])
           : Icon(Icons.chevron_right_rounded, color: C.muted),
       onTap: () => pushPage(context, CustomerPage(id: c.id)),
     );
@@ -390,7 +395,7 @@ class CustomerPage extends StatelessWidget {
                 (Icons.place_outlined, tr('ঠিকানা'), c.address),
                 (Icons.sticky_note_2_outlined, tr('নোট'), c.note),
                 (Icons.shopping_bag_outlined, tr('মোট কেনা'), sales.isEmpty ? '' : trf('{0} · {1}টা রসিদ', [taka(bought), bnDigits(sales.length)])),
-                (Icons.event_outlined, tr('গ্রাহক যেদিন থেকে'), c.added.year == 2000 ? '' : shortDate(c.added)),
+                (Icons.event_outlined, tr('যোগ হয়েছেন'), c.added.year == 2000 ? '' : shortDate(c.added)),
               ]),
               SectionHeading(tr('কেনাকাটা ও লেনদেন'), counter: trf('{0}টা', [bnDigits(entries.length)])),
               ListCard(rows: [for (final e in entries) e.$2], empty: tr('এখনো কোনো কেনাকাটা নেই।')),
