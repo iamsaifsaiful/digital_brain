@@ -23,6 +23,39 @@ dependencies {
 KTS
 fi
 
+# A permanent release key (from CI secrets, written to android/key.properties)
+# so every new APK installs over the old one. Without it the debug key is
+# used, which differs from build to build.
+if ! grep -q 'myAssistantKeys' "$GRADLE_KTS"; then
+  cat >> "$GRADLE_KTS" <<'KTS'
+
+val myAssistantKeys: Map<String, String> = rootProject.file("key.properties").let { f ->
+    if (f.exists()) {
+        f.readLines().filter { it.contains("=") }.associate { it.substringBefore("=").trim() to it.substringAfter("=").trim() }
+    } else {
+        emptyMap()
+    }
+}
+if (myAssistantKeys["storeFile"] != null) {
+    android {
+        signingConfigs {
+            create("release") {
+                storeFile = file(myAssistantKeys.getValue("storeFile"))
+                storePassword = myAssistantKeys["storePassword"]
+                keyAlias = myAssistantKeys["keyAlias"]
+                keyPassword = myAssistantKeys["keyPassword"]
+            }
+        }
+        buildTypes {
+            getByName("release") {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
+}
+KTS
+fi
+
 # Firebase settings for this package (push off when google-services.json is missing).
 python3 ../tool/firebase_values.py ../tool/google-services.json com.iamsaifsaiful.my_assistant_admin android/app/src/main/res/values/firebase.xml
 echo "Admin app platform folders are ready."
