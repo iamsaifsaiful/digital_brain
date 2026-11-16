@@ -132,6 +132,13 @@ class Device {
 
   Future<bool> fingerprint(String reason) async => await verify(reason) == null;
 
+  /// Clears a prompt that is still open (or hung).
+  Future<void> stop() async {
+    try {
+      await _auth.stopAuthentication();
+    } catch (_) {}
+  }
+
   Future<String?> pushToken() async {
     try {
       return await _push.invokeMethod<String>('token');

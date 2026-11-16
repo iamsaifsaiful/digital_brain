@@ -35,7 +35,8 @@ ThemeData adminTheme(Brightness b) {
   final p = Palette._(b == Brightness.dark);
   return ThemeData(
     brightness: b,
-    fontFamily: 'Hind',
+    fontFamily: 'Noto',
+    fontFamilyFallback: const ['Hind'],
     colorScheme: ColorScheme.fromSeed(seedColor: p.brand, brightness: b, surface: p.card),
     scaffoldBackgroundColor: p.ground,
     navigationBarTheme: NavigationBarThemeData(backgroundColor: p.card, indicatorColor: p.tint),
@@ -44,7 +45,7 @@ ThemeData adminTheme(Brightness b) {
 }
 
 TextStyle text(double size, {FontWeight weight = FontWeight.w400, Color? color, double? height}) =>
-    TextStyle(fontFamily: 'Hind', fontSize: size, fontWeight: weight, color: color, height: height);
+    TextStyle(fontFamily: 'Noto', fontFamilyFallback: const ['Hind'], fontSize: size, fontWeight: weight, color: color, height: height);
 
 /// Seconds as plain words, as on the site: "৪৫ সেকেন্ড", "১২ মিনিট", "১ ঘণ্টা ২০ মিনিট".
 String useWords(int secs) {
@@ -240,14 +241,14 @@ class _DashboardPageState extends State<DashboardPage> {
         Container(
           padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFF0E7A5F), Color(0xFF0A5C47)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            color: const Color(0xFF0C6B53),
             borderRadius: BorderRadius.circular(22),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               const Icon(Icons.admin_panel_settings_outlined, color: Colors.white),
               const SizedBox(width: 8),
-              Text('My Assistant অ্যাডমিন', style: text(17, weight: FontWeight.w700, color: Colors.white)),
+              Text('এডমিন MA', style: text(17, weight: FontWeight.w700, color: Colors.white)),
             ]),
             const SizedBox(height: 14),
             if (s == null)
@@ -701,7 +702,6 @@ class _PaymentsPageState extends State<PaymentsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final c = Palette.of(context);
     final list = _list;
     return Column(children: [
       const PageHead('পেমেন্ট', sub: 'ওয়েবসাইট থেকে জমা'),
@@ -740,58 +740,12 @@ class _PaymentsPageState extends State<PaymentsPage> {
                         if (i == 0) return BkashCard(api: widget.api, guard: widget.guard, info: _bkash, onChanged: _load);
                         if (list.isEmpty) return Empty(Icons.task_alt_rounded, _status == 'pending' ? 'দেখার মতো কিছু নেই' : 'এখানে কিছু নেই', 'নতুন পেমেন্ট এলে পুশ নোটিফিকেশন আসবে।');
                         final p = list[i - 1];
-                        return CardBox(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Row(children: [
-                              Text(taka((p['amount'] as num).toInt()), style: text(22, weight: FontWeight.w700, color: c.ink)),
-                              const SizedBox(width: 8),
-                              Text('${p['plan']}', style: text(14, color: c.muted)),
-                              const Spacer(),
-                              statusPill(context, '${p['status']}'),
-                            ]),
-                            const SizedBox(height: 8),
-                            _kv(context, 'মাধ্যম', '${p['method']} · ${p['sender']}'),
-                            _kv(context, 'TrxID', '${p['trx']}', copy: true),
-                            _kv(context, 'প্রিমিয়াম পাবেন', '${p['email']}'),
-                            if ('${p['name']}'.isNotEmpty) _kv(context, 'নাম', '${p['name']}'),
-                            if ('${p['note']}'.isNotEmpty) _kv(context, 'নোট', '${p['note']}'),
-                            if ('${p['reason']}'.isNotEmpty) _kv(context, 'কারণ', '${p['reason']}'),
-                            _kv(context, 'জমা', ago('${p['created']}')),
-                            if ('${p['reviewed_by']}'.isNotEmpty) _kv(context, 'দেখেছেন', '${p['reviewed_by']}'),
-                            if (p['status'] == 'pending') ...[
-                              const SizedBox(height: 12),
-                              Row(children: [
-                                Expanded(child: OutlinedButton(onPressed: () => _decide(p, false), child: const Text('বাতিল'))),
-                                const SizedBox(width: 10),
-                                Expanded(flex: 2, child: FilledButton(onPressed: () => _decide(p, true), child: const Text('অনুমোদন'))),
-                              ]),
-                            ],
-                          ]),
-                        );
+                        return PayCard(p: p, onDecide: (yes) => _decide(p, yes));
                       },
                     ),
         ),
       ),
     ]);
-  }
-
-  Widget _kv(BuildContext context, String k, String v, {bool copy = false}) {
-    final c = Palette.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        SizedBox(width: 82, child: Text(k, style: text(13.5, color: c.muted))),
-        Expanded(child: SelectableText(v, style: text(14.5, weight: copy ? FontWeight.w700 : FontWeight.w500, color: c.ink))),
-        if (copy)
-          InkWell(
-            onTap: () {
-              Clipboard.setData(ClipboardData(text: v));
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('কপি হয়েছে')));
-            },
-            child: Padding(padding: const EdgeInsets.all(2), child: Icon(Icons.copy_rounded, size: 18, color: c.muted)),
-          ),
-      ]),
-    );
   }
 }
 
@@ -1278,4 +1232,124 @@ class _NoteDialogState extends State<_NoteDialog> {
           FilledButton(key: const Key('claim-confirm'), onPressed: () => Navigator.pop(context, _t.text.trim()), child: Text(widget.approve ? 'মানুন' : 'মানবেন না')),
         ],
       );
+}
+
+
+/// One payment form from the site, as the member filled it in: who, how much,
+/// how it was sent, the TrxID to match, their note. (Owner, 16 Nov: "পেমেন্ট
+/// ফর্ম যেন সুন্দর ভাবে এডমিন এপে আসে".)
+class PayCard extends StatelessWidget {
+  const PayCard({super.key, required this.p, required this.onDecide});
+  final Map<String, dynamic> p;
+  final void Function(bool yes) onDecide;
+
+  static Color methodColor(String m) {
+    final l = m.toLowerCase();
+    if (l.contains('বিকাশ') || l.contains('bkash')) return const Color(0xFFD12053);
+    if (l.contains('নগদ') || l.contains('nagad')) return const Color(0xFFE4572E);
+    if (l.contains('রকেট') || l.contains('rocket')) return const Color(0xFF7B2A8C);
+    if (l.contains('উপায়') || l.contains('upay')) return const Color(0xFF1E5AA8);
+    return const Color(0xFF0C6B53);
+  }
+
+  String _s(String k) => '${p[k] ?? ''}'.trim();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Palette.of(context);
+    final name = _s('name');
+    final email = _s('email');
+    final method = _s('method');
+    final sender = _s('sender');
+    final phone = _s('phone');
+    final note = _s('note');
+    final reason = _s('reason');
+    final by = _s('reviewed_by');
+    final mc = methodColor(method);
+    final who = name.isNotEmpty ? name : email;
+
+    Widget row(IconData ic, String k, String v) => Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(ic, size: 18, color: c.muted),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(k, style: text(12.5, color: c.muted)),
+                SelectableText(v, style: text(15, weight: FontWeight.w500, color: c.ink)),
+              ]),
+            ),
+          ]),
+        );
+
+    return CardBox(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // কে
+        Row(children: [
+          CircleAvatar(
+            radius: 21,
+            backgroundColor: c.tint,
+            child: Text(who.isEmpty ? '?' : who.characters.first.toUpperCase(), style: text(17, weight: FontWeight.w700, color: c.green)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(who, maxLines: 1, overflow: TextOverflow.ellipsis, style: text(16.5, weight: FontWeight.w700, color: c.ink)),
+              Text(ago(_s('created')), style: text(12.5, color: c.muted)),
+            ]),
+          ),
+          statusPill(context, _s('status')),
+        ]),
+        const SizedBox(height: 14),
+        // কত, কীভাবে
+        Container(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          decoration: BoxDecoration(color: c.ground, borderRadius: BorderRadius.circular(14), border: Border.all(color: c.line)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text(taka((p['amount'] as num).toInt()), style: text(26, weight: FontWeight.w700, color: c.ink)),
+              const SizedBox(width: 8),
+              Padding(padding: const EdgeInsets.only(bottom: 4), child: Text(_s('plan'), style: text(14, color: c.muted))),
+              const Spacer(),
+              if (method.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: mc, borderRadius: BorderRadius.circular(8)),
+                  child: Text(method, style: text(13, weight: FontWeight.w700, color: Colors.white)),
+                ),
+            ]),
+            const SizedBox(height: 10),
+            Text('TrxID', style: text(12.5, color: c.muted)),
+            Row(children: [
+              Expanded(child: SelectableText(_s('trx'), style: text(18, weight: FontWeight.w700, color: c.ink).copyWith(letterSpacing: 1.2))),
+              IconButton(
+                key: Key('copy-${p['id']}'),
+                tooltip: 'কপি',
+                visualDensity: VisualDensity.compact,
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: _s('trx')));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('TrxID কপি হয়েছে')));
+                },
+                icon: Icon(Icons.copy_rounded, size: 19, color: c.green),
+              ),
+            ]),
+            if (sender.isNotEmpty) Text('যে নম্বর থেকে পাঠানো: $sender', style: text(14, color: c.ink)),
+          ]),
+        ),
+        row(Icons.workspace_premium_outlined, 'প্রিমিয়াম পাবে এই Google অ্যাকাউন্ট', email),
+        if (phone.isNotEmpty && phone != sender) row(Icons.call_outlined, 'যোগাযোগের নম্বর', phone),
+        if (note.isNotEmpty) row(Icons.chat_bubble_outline_rounded, 'সদস্যের নোট', note),
+        if (reason.isNotEmpty) row(Icons.info_outline_rounded, 'কারণ', reason),
+        if (by.isNotEmpty) row(Icons.verified_user_outlined, 'দেখেছেন', by),
+        if (_s('status') == 'pending') ...[
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: OutlinedButton(onPressed: () => onDecide(false), child: const Text('বাতিল'))),
+            const SizedBox(width: 10),
+            Expanded(flex: 2, child: FilledButton(onPressed: () => onDecide(true), child: const Text('অনুমোদন'))),
+          ]),
+        ],
+      ]),
+    );
+  }
 }

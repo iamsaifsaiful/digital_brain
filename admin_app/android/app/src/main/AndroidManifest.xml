@@ -9,7 +9,7 @@
     <!-- Nothing is kept on the phone but the sign-in (in secure storage), and
          Android's cloud backup is off, so a reinstall starts clean. -->
     <application
-        android:label="MA অ্যাডমিন"
+        android:label="এডমিন MA"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"

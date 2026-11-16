@@ -901,7 +901,7 @@ function ma_ui_styles() {
     .ma-toggle.on{background:var(--g)}
     .ma-toggle.on::after{transform:translateX(17px)}
     .ma-toggle:focus-visible{outline:2px solid var(--g);outline-offset:2px}
-    .ma-drawer{margin:0 0 0 auto;height:100vh;max-height:100vh;width:min(480px,100vw);border:0;padding:0;border-left:1px solid var(--line);font-family:"Hind Siliguri",system-ui,sans-serif;color:var(--ink)}
+    .ma-drawer{margin:0 0 0 auto;height:100vh;max-height:100vh;width:min(480px,100vw);border:0;padding:0;border-left:1px solid var(--line);font-family:"Noto Sans Bengali","Hind Siliguri",system-ui,sans-serif;color:var(--ink)}
     .ma-drawer::backdrop{background:rgba(17,24,39,.35)}
     .ma-drawer form{display:flex;flex-direction:column;height:100%;margin:0}
     .ma-drawer-head{display:flex;gap:12px;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line)}

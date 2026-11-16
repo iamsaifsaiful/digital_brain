@@ -17,7 +17,7 @@ class AdminApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'My Assistant Admin',
+        title: 'এডমিন MA',
         debugShowCheckedModeBanner: false,
         theme: adminTheme(Brightness.light),
         darkTheme: adminTheme(Brightness.dark),
@@ -54,18 +54,37 @@ class _GateState extends State<Gate> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  /// Away for more than a minute: the fingerprint again.
+  /// Away for more than a minute: the fingerprint again. The phone's own
+  /// PIN screen (offered by the prompt) also sends the app to the back —
+  /// that is not "away".
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) _leftAt = DateTime.now();
-    if (state == AppLifecycleState.resumed && _stage == _Stage.open && _leftAt != null && DateTime.now().difference(_leftAt!) > const Duration(minutes: 1)) {
+    if (state == AppLifecycleState.paused && !_asking) _leftAt = DateTime.now();
+    if (state != AppLifecycleState.resumed) return;
+    if (_stage == _Stage.open && _leftAt != null && DateTime.now().difference(_leftAt!) > const Duration(minutes: 1)) {
       widget.api.fingerprintOn().then((on) {
         if (on && mounted) {
           setState(() => _stage = _Stage.locked);
-          WidgetsBinding.instance.addPostFrameCallback((_) => Future.delayed(const Duration(milliseconds: 350), _unlock));
+          _askSoon();
         }
       });
+    } else if (_stage == _Stage.locked && (_waiting || !_asking)) {
+      // Back on screen at the lock page: ask now (a prompt asked while the
+      // app was in the back never shows on some phones).
+      _askSoon();
     }
+  }
+
+  /// Asks once the app is in front and the page is drawn.
+  void _askSoon() {
+    _waiting = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) => Future.delayed(const Duration(milliseconds: 400), () {
+          if (!mounted || _stage != _Stage.locked) return;
+          final st = WidgetsBinding.instance.lifecycleState;
+          if (st != null && st != AppLifecycleState.resumed) return; // asked again on resume
+          _waiting = false;
+          _unlock();
+        }));
   }
 
   Future<void> _start() async {
@@ -77,7 +96,7 @@ class _GateState extends State<Gate> with WidgetsBindingObserver {
       setState(() => _stage = _Stage.locked);
       // Asked only once the page is on screen: a prompt started while the
       // app is still opening can hang and block every later try.
-      WidgetsBinding.instance.addPostFrameCallback((_) => Future.delayed(const Duration(milliseconds: 350), _unlock));
+      _askSoon();
     } else {
       _opened();
     }
@@ -85,11 +104,27 @@ class _GateState extends State<Gate> with WidgetsBindingObserver {
 
   String? _problem;
   bool _asking = false;
+  bool _waiting = false;
+  int _try = 0;
 
+  /// The fingerprint prompt. "মাঝে মাঝে ফিংগার লগইন সমস্যা হয়" (owner,
+  /// 16 Nov): a prompt that never showed kept [_asking] on, so the button did
+  /// nothing. Now a tap always starts afresh (the old prompt is stopped), and
+  /// a prompt with no answer in 40 s is given up.
   Future<void> _unlock() async {
-    if (_asking || !mounted) return;
+    if (!mounted) return;
+    final me = ++_try;
+    if (_asking) {
+      await widget.device.stop();
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      if (me != _try || !mounted) return;
+    }
     _asking = true;
-    final why = await widget.device.verify('My Assistant অ্যাডমিন খুলতে আঙুলের ছাপ দিন');
+    final why = await widget.device.verify('এডমিন MA খুলতে আঙুলের ছাপ দিন').timeout(const Duration(seconds: 40), onTimeout: () async {
+      await widget.device.stop();
+      return 'আঙুলের ছাপের ঘর আসেনি — নিচের বোতাম আবার চাপুন';
+    });
+    if (me != _try) return; // a newer try took over
     _asking = false;
     if (!mounted) return;
     if (why == null) {
@@ -278,7 +313,7 @@ class _SignInState extends State<SignIn> {
       const SizedBox(height: 12),
       _logo(),
       const SizedBox(height: 18),
-      Text('My Assistant\nঅ্যাডমিন', style: text(32, weight: FontWeight.w700, color: Colors.white, height: 1.15)),
+      Text('এডমিন MA', style: text(32, weight: FontWeight.w700, color: Colors.white, height: 1.15)),
       const SizedBox(height: 10),
       Text('পেমেন্ট অনুমোদন, সদস্য আর নোটিফিকেশন — ফোন থেকেই। সব তথ্য সার্ভারে থাকে, ফোনে কিছু জমা থাকে না।', style: text(15, color: const Color(0xFFC9EBDD), height: 1.6)),
       const Spacer(),
@@ -361,7 +396,7 @@ class Locked extends StatelessWidget {
         const Spacer(),
         Center(child: _logo()),
         const SizedBox(height: 18),
-        Center(child: Text('My Assistant অ্যাডমিন', style: text(22, weight: FontWeight.w700, color: Colors.white))),
+        Center(child: Text('এডমিন MA', style: text(22, weight: FontWeight.w700, color: Colors.white))),
         const Spacer(),
         Center(
           child: InkResponse(
@@ -439,25 +474,28 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    // Grouped as on the site's side menu (owner, 16 Nov: "এডমিন এপের ইউআই
+    // ফিক্স করতে হবে, যেন সার্ভারের ইউআই ফিক্স করছিলা"): what is used every
+    // day at the bottom, the rest under আরও in the site's groups.
     final pages = [
       DashboardPage(api: widget.api, guard: guard, refresh: _refresh, onPending: (n) => setState(() => _pending = n), onFeedback: (n) => setState(() => _feedback = n), onOpenPayments: () => setState(() => _tab = 1)),
       PaymentsPage(api: widget.api, guard: guard, refresh: _refresh),
       MembersPage(api: widget.api, guard: guard),
       FeedbackPage(api: widget.api, guard: guard, refresh: _refresh),
-      NoticesPage(api: widget.api, guard: guard, onSignOut: widget.onSignedOut, onFingerprint: widget.onFingerprint),
-      AiPage(api: widget.api, guard: guard, refresh: _refresh),
+      MorePage(api: widget.api, guard: guard, refresh: _refresh, onSignOut: widget.onSignedOut, onFingerprint: widget.onFingerprint),
     ];
     return Scaffold(
       body: SafeArea(bottom: false, child: IndexedStack(index: _tab, children: pages)),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         onDestinationSelected: (i) {
           HapticFeedback.selectionClick();
           setState(() => _tab = i);
           _refresh.value++;
         },
         destinations: [
-          const NavigationDestination(icon: Icon(Icons.space_dashboard_outlined), selectedIcon: Icon(Icons.space_dashboard_rounded), label: 'সারাংশ'),
+          const NavigationDestination(icon: Icon(Icons.space_dashboard_outlined), selectedIcon: Icon(Icons.space_dashboard_rounded), label: 'ড্যাশবোর্ড'),
           NavigationDestination(
             icon: Badge(isLabelVisible: _pending > 0, label: Text(bn(_pending)), child: const Icon(Icons.payments_outlined)),
             selectedIcon: Badge(isLabelVisible: _pending > 0, label: Text(bn(_pending)), child: const Icon(Icons.payments_rounded)),
@@ -469,10 +507,72 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
             selectedIcon: Badge(isLabelVisible: _feedback > 0, label: Text(bn(_feedback)), child: const Icon(Icons.forum_rounded)),
             label: 'মতামত',
           ),
-          const NavigationDestination(icon: Icon(Icons.campaign_outlined), selectedIcon: Icon(Icons.campaign_rounded), label: 'নোটিফিকেশন'),
-          const NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), selectedIcon: Icon(Icons.auto_awesome_rounded), label: 'AI'),
+          const NavigationDestination(icon: Icon(Icons.menu_rounded), selectedIcon: Icon(Icons.menu_open_rounded), label: 'আরও'),
         ],
       ),
     );
+  }
+}
+
+/// আরও: the site's side menu, as a list (অ্যাপ, AI, ব্যবসা, সদস্য, অ্যাকাউন্ট).
+class MorePage extends StatelessWidget {
+  const MorePage({super.key, required this.api, required this.guard, required this.refresh, required this.onSignOut, required this.onFingerprint});
+  final Api api;
+  final Guard guard;
+  final ValueNotifier<int> refresh;
+  final VoidCallback onSignOut;
+  final VoidCallback onFingerprint;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Palette.of(context);
+    void open(Widget page, {bool bare = false}) => Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => bare ? page : Scaffold(body: SafeArea(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Padding(padding: EdgeInsets.fromLTRB(4, 4, 0, 0), child: BackButton()), Expanded(child: page)])))));
+    Widget group(String title, List<(Key, IconData, String, String, VoidCallback)> rows) => Padding(
+          padding: const EdgeInsets.only(top: 22),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(padding: const EdgeInsets.fromLTRB(4, 0, 0, 8), child: Text(title, style: text(13, weight: FontWeight.w600, color: c.muted))),
+            Material(
+              color: c.card,
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: c.line)),
+              child: Column(children: [
+                for (final (i, (k, ic, t, sub, tap)) in rows.indexed) ...[
+                  if (i > 0) Divider(height: 1, indent: 64, color: c.line),
+                  ListTile(
+                    key: k,
+                    onTap: tap,
+                    leading: Container(width: 38, height: 38, decoration: BoxDecoration(color: c.tint, borderRadius: BorderRadius.circular(11)), child: Icon(ic, size: 20, color: c.green)),
+                    title: Text(t, style: text(15.5, weight: FontWeight.w600, color: c.ink)),
+                    subtitle: sub.isEmpty ? null : Text(sub, style: text(12.5, color: c.muted)),
+                    trailing: Icon(Icons.chevron_right_rounded, color: c.muted),
+                  ),
+                ],
+              ]),
+            ),
+          ]),
+        );
+    return ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 28), children: [
+      Text('আরও', style: text(26, weight: FontWeight.w700, color: c.ink)),
+      Text('ওয়েবসাইটের অ্যাডমিনের মতো করে সাজানো', style: text(13.5, color: c.muted)),
+      group('অ্যাপ', [
+        (const Key('more-notices'), Icons.campaign_outlined, 'নোটিফিকেশন', 'সদস্যরা কী কখন পান, চালু-বন্ধ', () => open(NoticesPage(api: api, guard: guard, onSignOut: onSignOut, onFingerprint: onFingerprint))),
+        (const Key('more-errors'), Icons.bug_report_outlined, 'সমস্যার লগ', 'সদস্যদের ফোন থেকে ক্র্যাশ আর সমস্যা', () => open(ErrorsPage(api: api, guard: guard), bare: true)),
+      ]),
+      group('AI', [
+        (const Key('more-ai'), Icons.auto_awesome_outlined, 'ফোনের মডেল ও AI খরচ', 'খরচ, পর্যালোচনা, মডেল চালু, সেটিংস', () => open(AiPage(api: api, guard: guard, refresh: refresh))),
+      ]),
+      group('ব্যবসা', [
+        (const Key('more-finance'), Icons.account_balance_wallet_outlined, 'আয়-ব্যয়ের হিসাব', 'আয়, ব্যয়, লাভ-লস আর বিনিয়োগকারী', () => open(FinancePage(api: api, guard: guard), bare: true)),
+      ]),
+      group('সদস্য', [
+        (const Key('more-blood'), Icons.bloodtype_outlined, 'রক্তের গ্রুপ', 'বিপদে খোঁজার জন্য — গ্রুপ, জেলা, নম্বর', () => open(BloodPage(api: api, guard: guard), bare: true)),
+        (const Key('more-heirs'), Icons.family_restroom_rounded, 'উত্তরাধিকার', 'উত্তরাধিকারীর অনুরোধ', () => open(HeirClaimsPage(api: api, guard: guard), bare: true)),
+      ]),
+      group('অ্যাকাউন্ট', [
+        (const Key('more-fingerprint'), Icons.fingerprint_rounded, 'আঙুলের ছাপে খোলা', 'চালু বা বন্ধ', onFingerprint),
+        (const Key('more-signout'), Icons.logout_rounded, 'লগআউট', '', onSignOut),
+      ]),
+    ]);
   }
 }

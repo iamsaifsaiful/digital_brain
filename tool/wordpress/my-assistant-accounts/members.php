@@ -283,11 +283,11 @@ function ma_acc_print_html($q, $status, $joined, $src) {
     ?><!doctype html>
 <html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?php echo esc_html($file); ?></title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&family=Hind+Siliguri:wght@400;600;700&display=swap">
 <style>
 @page{size:A4 landscape;margin:12mm}
 *{box-sizing:border-box}
-body{font-family:"Hind Siliguri",system-ui,sans-serif;color:#111827;margin:0;padding:20px;font-size:12.5px}
+body{font-family:"Noto Sans Bengali","Hind Siliguri",system-ui,sans-serif;color:#111827;margin:0;padding:20px;font-size:12.5px}
 .bar{display:flex;gap:10px;align-items:center;justify-content:space-between;background:#E7F4EF;border-radius:12px;padding:10px 14px;margin-bottom:16px}
 .bar button{font:inherit;font-weight:700;font-size:15px;border:0;border-radius:10px;background:#0E7A5F;color:#fff;padding:10px 18px}
 .bar span{color:#0A5C47}
