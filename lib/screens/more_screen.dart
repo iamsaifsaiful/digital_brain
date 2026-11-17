@@ -333,7 +333,8 @@ class _MoreScreenState extends State<MoreScreen> {
           ]),
         );
 
-    Widget linkRow(IconData icon, String title, {String? sub, Color? subColor, VoidCallback? onTap, Widget? trailing}) => ListRow(
+    Widget linkRow(IconData icon, String title, {Key? key, String? sub, Color? subColor, VoidCallback? onTap, Widget? trailing}) => ListRow(
+          key: key,
           leading: Icon(icon, color: C.muted2, size: 22),
           title: title,
           subtitle: sub,
@@ -495,80 +496,40 @@ class _MoreScreenState extends State<MoreScreen> {
       key: const PageStorageKey('more-list'),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       children: [
-        TabTitle(tr('আরও'), sub: tr('সব সুবিধা, প্রোফাইল আর সেটিংস')),
-        const SizedBox(height: 14),
-        // Owner, 17 Nov: what the bottom bar does not have comes first, so
-        // every part of the app is in sight; then the profile and the rest.
+        // Owner, 17 Nov (second look): short, nothing left out, in a sensible
+        // order — you, every feature, Premium, the shop switch, settings,
+        // your data, help, and the app itself.
+        TabTitle(tr('আরও')),
+        const SizedBox(height: 12),
+        _ProfileRow(onTap: () => push(_ProfilePage(onName: _setName, onPlace: _setDistrict))),
+        const SizedBox(height: 12),
         const ToolsCard(skip: {'tasks', 'money'}, cardKey: Key('more-tools')),
-        const SizedBox(height: 18),
-        // Owner, 17 Nov: why Premium, one reason after another; a tap opens the details.
-        const WhyPremium(),
-        const SizedBox(height: 18),
-        SectionTitle(tr('প্রোফাইল')),
-        ProfileCard(onName: _setName, onPlace: _setDistrict),
+        const SizedBox(height: 12),
+        const _PremiumRow(),
         const SizedBox(height: 12),
         // ব্যবসায়ী মোড (owner, 6 Nov): one switch — on, the tabs are the
-        // shop's (হোম · বিক্রি · গ্রাহক · হিসাব · স্টক); off, the app as it was.
-        // Free (owner, 13 Nov); Premium only for more than 20 customers or
-        // 30 products, and the PDF receipt.
+        // shop's; off, the app as it was. Free (owner, 13 Nov).
         Panel(
-          child: InkWell(
-            borderRadius: BorderRadius.circular(17),
-            onTap: () => brain.setPref('business_mode', !brain.businessMode),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-              child: Row(children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(color: brain.businessMode ? C.green : C.greenTint, borderRadius: BorderRadius.circular(12)),
-                  child: Icon(Icons.storefront_outlined, color: brain.businessMode ? C.onAccent : C.green, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(children: [
-                      Flexible(child: Text(tr('ব্যবসায়ী মোড'), style: body(15, weight: FontWeight.w600))),
-                    ]),
-                    Text(brain.businessMode ? tr('চালু — হোম, বিক্রি, গ্রাহক, হিসাব, স্টক দোকানের জন্য। বন্ধ করলে আগের মতো।') : tr('দোকান চালালে চালু করুন — বিক্রি, গ্রাহকের বাকি, ডিলার, স্টক, PDF রসিদ'),
-                        style: body(12, color: C.muted, height: 1.4)),
-                  ]),
-                ),
-                Switch(key: const Key('more-business'), value: brain.businessMode, onChanged: (v) => brain.setPref('business_mode', v)),
-              ]),
+          child: ListRow(
+            leading: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(color: brain.businessMode ? C.green : C.greenTint, borderRadius: BorderRadius.circular(11)),
+              child: Icon(Icons.storefront_outlined, color: brain.businessMode ? C.onAccent : C.green, size: 20),
             ),
+            title: tr('ব্যবসায়ী মোড'),
+            subtitle: brain.businessMode ? tr('চালু — নিচের ঘরগুলো দোকানের জন্য') : tr('দোকান চালালে চালু করুন — বিক্রি, বাকি, স্টক'),
+            trailing: Switch(key: const Key('more-business'), value: brain.businessMode, onChanged: (v) => brain.setPref('business_mode', v)),
+            onTap: () => brain.setPref('business_mode', !brain.businessMode),
           ),
         ),
-        const SizedBox(height: 12),
-        const SizedBox(height: 6),
-        SectionTitle(tr('আপনার তথ্য')),
-        Panel(
-          child: Rows(children: [
-            linkRow(Icons.delete_outline_rounded, tr('রিসাইকেল বিন'),
-                sub: brain.data.trash.isEmpty ? tr('যা মুছবেন, ৩০ দিন এখানে থাকবে') : trf('{0}টা — ৩০ দিনের মধ্যে ফিরিয়ে আনা যায়', [bnDigits(brain.data.trash.length)]),
-                onTap: () => push(const TrashScreen())),
-            linkRow(Icons.picture_as_pdf_outlined, tr('সবকিছু PDF আকারে'), sub: tr('কাজ, হিসাব, নোট, স্বাস্থ্য… যা চান বেছে নিয়ে এক PDF-এ'), onTap: () => exportEverything(context),
-                trailing: brain.has(ProFeature.pdf) ? Icon(Icons.download_rounded, color: C.muted) : const ProMark()),
-            linkRow(Icons.table_view_outlined, tr('ধার-দেনার রিপোর্ট (CSV)'), sub: tr('Excel বা Google Sheets-এ খোলা যায়'), onTap: _csv,
-                trailing: Icon(Icons.ios_share_rounded, color: C.muted)),
-          ]),
-        ),
-        // Owner, 3 Nov: the settings as five rows, each opening its own page —
-        // the same switches and choices as before, in the 2 Nov order.
         SectionTitle(tr('সেটিংস')),
         Panel(
           child: Rows(children: [
             setRow(const Key('more-set-look'), Icons.palette_outlined, C.green, C.greenTint, tr('চেহারা ও ভাষা'), tr('আলো-আঁধার, রং, ভাষা, লেখার মাপ'), 'look'),
-            setRow(const Key('more-set-remind'), Icons.notifications_none_rounded, C.ochre, C.ochreTint, tr('রিমাইন্ডার ও নোটিফিকেশন'), tr('নোটিফিকেশন প্যানেল, ঠিকমতো বাজবে কিনা, রিংটোন'), 'remind'),
+            setRow(const Key('more-set-remind'), Icons.notifications_none_rounded, C.ochre, C.ochreTint, tr('রিমাইন্ডার ও নোটিফিকেশন'), tr('ঠিকমতো বাজবে কিনা, রিংটোন'), 'remind'),
             setRow(const Key('more-set-assistant'), Icons.mic_none_rounded, C.blue, C.blueTint, tr('সহকারী ও কণ্ঠ'),
                 brain.speakOn ? tr('কণ্ঠে উত্তর চালু · কণ্ঠ বেছে নিন') : tr('কণ্ঠে উত্তর বন্ধ · কণ্ঠ বেছে নিন'), 'assistant'),
-            setRow(const Key('more-set-model'), Icons.psychology_outlined, C.purple, C.purpleTint, tr('কথা বোঝা'), switch (brain.nluModelState) {
-                    'ready' => trf('নামানো আছে · {0}', [brain.nluModelVersion]),
-                    'wait-wifi' => tr('Wi-Fi পেলে নিজে নামবে (প্রায় ১৪ MB) — মোবাইল ডেটায় নয়'),
-                    'builtin' => tr('এখনো চালু হয়নি — অ্যাপ নিজের নিয়মে বুঝছে'),
-                    '' => tr('কেন, কীভাবে শিখছে, কী উন্নতি হলো'),
-                    _ => tr('নামানো যায়নি — পরে আবার চেষ্টা হবে'),
-                  }, 'model'),
             // Owner, 17 Nov: the backup on its own row (inside "তথ্য নিরাপদ রাখা" it was missed).
             ListRow(
               key: const Key('more-set-backup'),
@@ -586,33 +547,51 @@ class _MoreScreenState extends State<MoreScreen> {
             setRow(const Key('more-set-safety'), Icons.shield_outlined, C.teal, C.tealTint, tr('তালা ও নিরাপত্তা'), tr('PIN, আঙুলের ছাপ, নিজে থেকে লক'), 'safety'),
           ]),
         ),
-        const SizedBox(height: 22),
-        SectionTitle(tr('সাহায্য ও যোগাযোগ')),
-        for (final row in [
-          [
-            _Tile(icon: Icons.lightbulb_outline_rounded, fg: C.green, bg: C.greenTint, title: tr('কী কী করা যায়'), sub: tr('সব সুবিধা, মাইকে কী বলবেন'), onTap: () => push(const HelpScreen())),
-            _Tile(
-                key: const Key('more-feedback'),
-                icon: Icons.forum_outlined,
-                fg: C.blue,
-                bg: C.blueTint,
-                title: tr('সমস্যা বা পরামর্শ দিন'),
-                sub: brain.feedbackUnread > 0 ? trf('{0}টা নতুন উত্তর', [bnDigits(brain.feedbackUnread)]) : tr('লিখুন, উত্তর এখানেই'),
-                badge: brain.feedbackUnread > 0,
-                onTap: () => push(const FeedbackScreen())),
-          ],
-        ]) ...[
-          Row(children: [Expanded(child: SizedBox(height: 70, child: row[0])), const SizedBox(width: 10), Expanded(child: SizedBox(height: 70, child: row[1]))]),
-          const SizedBox(height: 10),
-        ],
-        // Owner, 17 Nov: a WhatsApp button for support. The number is set on
-        // the website (never in the app); no number, no button.
-        if (brain.supportWhatsapp.isNotEmpty) ...[
-          SupportWhatsapp(number: brain.supportWhatsapp),
-          const SizedBox(height: 10),
-        ],
+        SectionTitle(tr('আপনার তথ্য')),
         Panel(
           child: Rows(children: [
+            linkRow(Icons.picture_as_pdf_outlined, tr('সবকিছু PDF আকারে'), sub: tr('যা চান বেছে নিয়ে এক PDF-এ'), onTap: () => exportEverything(context),
+                trailing: brain.has(ProFeature.pdf) ? Icon(Icons.download_rounded, color: C.muted) : const ProMark()),
+            linkRow(Icons.table_view_outlined, tr('ধার-দেনার রিপোর্ট (CSV)'), sub: tr('Excel বা Google Sheets-এ খোলা যায়'), onTap: _csv,
+                trailing: Icon(Icons.ios_share_rounded, color: C.muted)),
+            linkRow(Icons.delete_outline_rounded, tr('রিসাইকেল বিন'),
+                sub: brain.data.trash.isEmpty ? tr('যা মুছবেন, ৩০ দিন এখানে থাকবে') : trf('{0}টা — ৩০ দিনের মধ্যে ফিরিয়ে আনা যায়', [bnDigits(brain.data.trash.length)]),
+                onTap: () => push(const TrashScreen())),
+          ]),
+        ),
+        SectionTitle(tr('সাহায্য ও যোগাযোগ')),
+        Panel(
+          child: Rows(children: [
+            linkRow(Icons.lightbulb_outline_rounded, tr('কী কী করা যায়'), sub: tr('সব সুবিধা, মাইকে কী বলবেন'), onTap: () => push(const HelpScreen())),
+            ListRow(
+              key: const Key('more-feedback'),
+              leading: Badge(isLabelVisible: brain.feedbackUnread > 0, smallSize: 10, child: Icon(Icons.forum_outlined, color: C.muted2, size: 22)),
+              title: tr('সমস্যা বা পরামর্শ দিন'),
+              subtitle: brain.feedbackUnread > 0 ? trf('{0}টা নতুন উত্তর', [bnDigits(brain.feedbackUnread)]) : tr('লিখুন, উত্তর এখানেই'),
+              subtitleColor: brain.feedbackUnread > 0 ? C.greenDark : null,
+              trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
+              onTap: () => push(const FeedbackScreen()),
+            ),
+            // Owner, 17 Nov: WhatsApp support; the number is set on the website (none in the app).
+            if (brain.supportWhatsapp.isNotEmpty) SupportWhatsapp(number: brain.supportWhatsapp),
+          ]),
+        ),
+        SectionTitle(tr('অ্যাপ সম্পর্কে')),
+        Panel(
+          child: Rows(children: [
+            // Owner, 17 Nov: how the app understands speech is not a setting.
+            linkRow(Icons.psychology_outlined, tr('কথা বোঝা'),
+                key: const Key('more-set-model'),
+                sub: switch (brain.nluModelState) {
+                  'ready' => trf('নামানো আছে · {0}', [brain.nluModelVersion]),
+                  'wait-wifi' => tr('Wi-Fi পেলে নিজে নামবে (প্রায় ১৪ MB)'),
+                  'builtin' => tr('এখনো চালু হয়নি — অ্যাপ নিজের নিয়মে বুঝছে'),
+                  '' => tr('কীভাবে শিখছে, কী উন্নতি হলো'),
+                  _ => tr('নামানো যায়নি — পরে আবার চেষ্টা হবে'),
+                },
+                onTap: () => Navigator.of(context)
+                    .push(MaterialPageRoute(builder: (_) => _SettingsPage(key: const Key('settings-model'), title: tr('কথা বোঝা'), changed: _changed, parts: () => _parts['model']!())))
+                    .then((_) => _load())),
             linkRow(Icons.bug_report_outlined, tr('সমস্যা খোঁজার লগ'),
                 sub: Trace.enabled ? tr('চালু — মাইক কী শুনল, কী বুঝল') : tr('বন্ধ — ভয়েসে সমস্যা হলে চালু করুন'), onTap: () => push(const TraceScreen())),
             if (proTestSwitch)
@@ -889,45 +868,6 @@ class _NewPinSheetState extends State<_NewPinSheet> {
 }
 
 /// A big square-ish shortcut at the top of আরও.
-class _Tile extends StatelessWidget {
-  const _Tile({super.key, required this.icon, required this.fg, required this.bg, required this.title, required this.sub, required this.onTap, this.badge = false});
-  final IconData icon;
-  final Color fg;
-  final Color bg;
-  final String title;
-  final String sub;
-  final VoidCallback onTap;
-  final bool badge;
-
-  @override
-  Widget build(BuildContext context) => Material(
-        color: C.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17), side: BorderSide(color: C.border)),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
-            child: Row(children: [
-              Badge(
-                isLabelVisible: badge,
-                smallSize: 10,
-                // One accent for every tool (the approved design's tiles).
-                child: Container(width: 40, height: 40, decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: C.green, size: 22)),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w600)),
-                  // English lines run a little taller in this box than Bangla ones.
-                  Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(11.5, color: badge ? C.greenDark : C.muted, height: isEn ? 1.15 : 1.25)),
-                ]),
-              ),
-            ]),
-          ),
-        ),
-      );
-}
 
 
 /// "হোয়াটসঅ্যাপে কথা বলুন": opens a chat with our support number, with a
@@ -955,45 +895,30 @@ class SupportWhatsapp extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => Material(
+  Widget build(BuildContext context) => ListRow(
         key: const Key('more-whatsapp'),
-        color: C.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17), side: BorderSide(color: C.border)),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => _open(context),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-            child: Row(children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(color: _waGreen.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(13)),
-                child: const Icon(Icons.chat_rounded, color: _waGreen, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(tr('হোয়াটসঅ্যাপে কথা বলুন'), style: body(15, weight: FontWeight.w600)),
-                  Text('${shown(number)} · ${tr('প্রশ্ন, সমস্যা বা পরামর্শ')}', style: body(12.5, color: C.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
-                ]),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                decoration: BoxDecoration(color: _waGreen, borderRadius: BorderRadius.circular(20)),
-                child: Text(tr('মেসেজ'), style: body(13, weight: FontWeight.w700, color: Colors.white)),
-              ),
-            ]),
-          ),
+        leading: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(color: _waGreen.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(11)),
+          child: const Icon(Icons.chat_rounded, color: _waGreen, size: 21),
         ),
+        title: tr('হোয়াটসঅ্যাপে কথা বলুন'),
+        subtitle: shown(number),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(color: _waGreen, borderRadius: BorderRadius.circular(20)),
+          child: Text(tr('মেসেজ'), style: body(13, weight: FontWeight.w700, color: Colors.white)),
+        ),
+        onTap: () => _open(context),
       );
 }
-
 
 /// "কেন প্রিমিয়াম নেবেন": every reason from [proInfo] in the owner's order;
 /// a tap shows what Premium gives and what the free app has instead.
 class WhyPremium extends StatefulWidget {
-  const WhyPremium({super.key});
+  const WhyPremium({super.key, this.showTitle = true});
+  final bool showTitle;
   @override
   State<WhyPremium> createState() => _WhyPremiumState();
 }
@@ -1022,7 +947,7 @@ class _WhyPremiumState extends State<WhyPremium> {
     final has = brain.gated && brain.pro;
     final items = [for (final e in proInfo.entries) if (!e.value.later) e];
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      SectionTitle(has ? tr('প্রিমিয়ামে যা পাচ্ছেন') : tr('কেন প্রিমিয়াম নেবেন')),
+      if (widget.showTitle) SectionTitle(has ? tr('প্রিমিয়ামে যা পাচ্ছেন') : tr('কেন প্রিমিয়াম নেবেন')),
       Panel(
         key: const Key('more-why-pro'),
         child: Column(children: [
@@ -1083,5 +1008,107 @@ class _WhyPremiumState extends State<WhyPremium> {
         ]),
       ),
     ]);
+  }
+}
+
+
+/// You, in one row: photo, name, place and blood group; a tap opens the profile.
+class _ProfileRow extends StatelessWidget {
+  const _ProfileRow({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final blood = brain.data.emergency.blood;
+    return Panel(
+      child: InkWell(
+        key: const Key('more-profile'),
+        borderRadius: BorderRadius.circular(17),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+          child: Row(children: [
+            const UserPhoto(size: 48),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(brain.userName.isEmpty ? tr('আপনার নাম দিন') : brain.userName, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(16.5, weight: FontWeight.w700, color: brain.userName.isEmpty ? C.muted : C.ink)),
+                Text([brain.placeLabel, blood.isEmpty ? tr('রক্তের গ্রুপ দিন') : trf('রক্ত {0}', [blood])].where((x) => x.isNotEmpty).join(' · '),
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted)),
+              ]),
+            ),
+            if (brain.gated) ...[const PlanBadge(), const SizedBox(width: 4)],
+            Icon(Icons.chevron_right_rounded, color: C.muted),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfilePage extends StatelessWidget {
+  const _ProfilePage({required this.onName, required this.onPlace});
+  final VoidCallback onName;
+  final VoidCallback onPlace;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: SafeArea(
+          child: Column(children: [
+            TopBar(title: tr('প্রোফাইল')),
+            Expanded(child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [ProfileCard(onName: onName, onPlace: onPlace)])),
+          ]),
+        ),
+      );
+}
+
+/// Premium in one card: the first reasons in a line; a tap opens all of them.
+class _PremiumRow extends StatelessWidget {
+  const _PremiumRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final has = brain.gated && brain.pro;
+    final titles = [for (final e in proInfo.entries) if (!e.value.later) tr(e.value.title)];
+    return Panel(
+      child: InkWell(
+        key: const Key('more-why-pro'),
+        borderRadius: BorderRadius.circular(17),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _WhyPremiumPage())),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+          child: Row(children: [
+            Container(width: 38, height: 38, decoration: BoxDecoration(color: C.ochreTint, borderRadius: BorderRadius.circular(11)), child: Icon(Icons.workspace_premium_outlined, color: C.ochre, size: 21)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(has ? tr('প্রিমিয়ামে যা পাচ্ছেন') : tr('কেন প্রিমিয়াম নেবেন'), style: body(15, weight: FontWeight.w600)),
+                Text(trf('{0}টা কারণ — {1}…', [bnDigits(titles.length), titles.take(2).join(', ')]), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted)),
+              ]),
+            ),
+            Icon(Icons.chevron_right_rounded, color: C.muted),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _WhyPremiumPage extends StatelessWidget {
+  const _WhyPremiumPage();
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    return Scaffold(
+      body: SafeArea(
+        child: Column(children: [
+          TopBar(title: brain.gated && brain.pro ? tr('প্রিমিয়ামে যা পাচ্ছেন') : tr('কেন প্রিমিয়াম নেবেন')),
+          Expanded(child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: const [WhyPremium(showTitle: false)])),
+        ]),
+      ),
+    );
   }
 }

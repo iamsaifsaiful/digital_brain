@@ -5663,4 +5663,12 @@ const enStrings = <String, String>{
   'এখনো নেওয়া হয়নি — ফোন হারালে সব হারাবে': 'Not taken yet — lose the phone and you lose everything',
   'তালা ও নিরাপত্তা': 'Lock and security',
   'PIN, আঙুলের ছাপ, নিজে থেকে লক': 'PIN, fingerprint, auto-lock',
+  'চালু — নিচের ঘরগুলো দোকানের জন্য': 'On — the bottom tabs are for the shop',
+  'দোকান চালালে চালু করুন — বিক্রি, বাকি, স্টক': 'Run a shop? Turn on — sales, dues, stock',
+  'ঠিকমতো বাজবে কিনা, রিংটোন': 'Will it ring on time, ringtone',
+  'যা চান বেছে নিয়ে এক PDF-এ': 'Pick what you want, in one PDF',
+  'অ্যাপ সম্পর্কে': 'About the app',
+  'Wi-Fi পেলে নিজে নামবে (প্রায় ১৪ MB)': 'Downloads by itself on Wi-Fi (about 14 MB)',
+  'কীভাবে শিখছে, কী উন্নতি হলো': 'How it learns, what got better',
+  '{0}টা কারণ — {1}…': '{0} reasons — {1}…',
 };

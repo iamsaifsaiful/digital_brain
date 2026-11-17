@@ -157,9 +157,8 @@ void main() {
     final rig = await start(t);
     rig.brain.gated = true;
     await openMenu(t, 'সেটিংস');
-    // The profile comes after সব সুবিধা and কেন প্রিমিয়াম (owner, 17 Nov).
-    await t.scrollUntilVisible(find.byKey(const Key('profile-blood')), 300, scrollable: find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first);
-    await t.ensureVisible(find.byKey(const Key('profile-blood')));
+    // The profile is one row at the top of আরও; its page has the rows (owner, 17 Nov).
+    await t.tap(find.byKey(const Key('more-profile')));
     await settle(t);
     for (final k in ['profile-name', 'profile-place', 'profile-blood']) {
       expect(t.getSize(find.byKey(Key(k))).height, greaterThanOrEqualTo(56));
@@ -175,6 +174,8 @@ void main() {
     await t.tap(find.byKey(const Key('blood-save')));
     await settle(t);
     expect(rig.brain.data.emergency.blood, 'B+');
+    await t.tap(find.byTooltip('ফিরে যান').first);
+    await settle(t);
     final list = vScroll().first;
     // Help and contact are last in আরও (owner, 2 Nov).
     await t.scrollUntilVisible(find.byKey(const Key('more-feedback')), 300, scrollable: list);

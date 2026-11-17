@@ -1,5 +1,6 @@
-// আরও (owner, 17 Nov): the features the bottom bar does not have come
-// first, then the profile, business mode, your data, settings and help.
+// আরও (owner, 17 Nov, second look): short but nothing left out — you, every
+// feature the bottom bar lacks, Premium in one row, the shop switch,
+// settings (with backup on its own), your data, help, the app itself.
 // SHOTS=1 --update-goldens writes test/ui/shots/more_1117/*.png.
 import 'dart:io';
 
@@ -14,45 +15,48 @@ import '../app_test.dart' show settle, vScroll;
 final shots = Platform.environment['SHOTS'] == '1';
 
 void main() {
-  testWidgets('আরও: সব সুবিধা first (without the bottom bar\'s), then the profile', (t) async {
+  testWidgets('আরও: the whole page, in order', (t) async {
     final rig = await rig0(t);
     rig.brain.supportWhatsapp = Platform.environment['WA'] ?? '01700000000';
+    // One tall phone shows the whole page in one picture.
+    t.view.physicalSize = const Size(1170, 2532 * 2.15);
     await t.tap(find.text('আরও').last);
     await settle(t);
     final grid = find.byKey(const Key('more-tools'));
-    expect(grid, findsOneWidget);
     for (final k in ['reminders', 'docs', 'vault', 'zakat', 'family', 'pro']) {
       expect(find.descendant(of: grid, matching: find.byKey(Key('tool-$k'))), findsOneWidget, reason: k);
     }
     for (final k in ['tasks', 'money']) {
       expect(find.descendant(of: grid, matching: find.byKey(Key('tool-$k'))), findsNothing, reason: k);
     }
-    if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/more_1117/1-top.png'));
+    double y(String key) => t.getTopLeft(find.byKey(Key(key))).dy;
+    final order = ['more-profile', 'more-tools', 'more-why-pro', 'more-business', 'more-set-look', 'more-set-backup', 'more-set-safety', 'more-feedback', 'more-whatsapp', 'more-set-model'];
+    for (var i = 1; i < order.length; i++) {
+      expect(y(order[i - 1]), lessThan(y(order[i])), reason: '${order[i - 1]} before ${order[i]}');
+    }
     final list = find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first;
-    // Why Premium: one reason after another, a tap opens the details.
-    final why = find.byKey(const Key('why-reminders'), skipOffstage: false);
-    await t.scrollUntilVisible(why, 300, scrollable: list);
-    await t.tap(why);
+    final pos = t.state<ScrollableState>(list).position;
+    debugPrint('more page: viewport ${pos.viewportDimension.round()}, extra ${pos.maxScrollExtent.round()}');
+    if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/more_1117/1-page.png'));
+    t.view.physicalSize = const Size(1170, 2532);
+    await settle(t);
+    // Premium: one row; its page has every reason, a tap opens the details.
+    await t.ensureVisible(find.byKey(const Key('more-why-pro')));
+    await settle(t);
+    await t.tap(find.byKey(const Key('more-why-pro')));
+    await settle(t);
+    await t.tap(find.byKey(const Key('why-reminders')));
     await settle(t);
     expect(find.textContaining('চালু রিমাইন্ডারের কোনো সীমা নেই'), findsOneWidget);
-    expect(find.textContaining('ফ্রিতে: সব মিলিয়ে একসাথে ২০টা'), findsOneWidget);
-    await t.drag(list, const Offset(0, 200));
-    await settle(t);
     if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/more_1117/2-why.png'));
-    await t.drag(list, const Offset(0, -900));
+    await t.tap(find.byTooltip('ফিরে যান').first);
     await settle(t);
+    // The profile: one row, its page has name, place and blood group.
+    await t.scrollUntilVisible(find.byKey(const Key('more-profile')), -300, scrollable: list);
+    await t.tap(find.byKey(const Key('more-profile')));
+    await settle(t);
+    expect(find.byKey(const Key('profile-blood')), findsOneWidget);
     if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/more_1117/3-profile.png'));
-    final wa = find.byKey(const Key('more-whatsapp'), skipOffstage: false);
-    await t.scrollUntilVisible(wa, 300, scrollable: list);
-    await t.drag(list, const Offset(0, -260));
-    await settle(t);
-    if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/more_1117/4-help.png'));
-    // Tapping a tool in আরও opens it.
-    await t.drag(list, const Offset(0, 5000));
-    await settle(t);
-    await t.tap(find.descendant(of: grid, matching: find.byKey(const Key('tool-zakat'))));
-    await settle(t);
-    expect(find.text('যাকাত'), findsWidgets);
     debugDisableShadows = true;
   });
 }
