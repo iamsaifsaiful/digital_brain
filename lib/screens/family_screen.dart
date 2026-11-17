@@ -964,6 +964,7 @@ class _HeirPartPageState extends State<_HeirPartPage> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: TextField(
+                  textCapitalization: TextCapitalization.sentences,
                   key: const Key('heir-search'),
                   onChanged: (v) => setState(() => _q = v),
                   decoration: InputDecoration(hintText: tr('খুঁজুন'), prefixIcon: const Icon(Icons.search_rounded)),
