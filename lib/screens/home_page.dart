@@ -769,19 +769,11 @@ class _DateBox extends StatelessWidget {
 
 /// সব সুবিধা: every tool, always open (owner, 24 Oct night). Held and
 /// dragged, the tiles go in the member's own order (owner, 29 Oct).
-/// সব সুবিধা: on home all of them; on আরও (owner, 17 Nov) those the bottom
-/// bar does not already have, first on the page so nothing is hidden.
-class ToolsCard extends StatelessWidget {
-  const ToolsCard({super.key, this.skip = const {}, this.cardKey = const Key('home-tools')});
-  final Set<String> skip;
-  final Key cardKey;
-
-  @override
-  Widget build(BuildContext context) {
-    final brain = BrainScope.of(context);
+/// Every tool of সব সুবিধা: (key kept with the order, label, icon, open).
+List<(String, String, IconData, VoidCallback)> appTools(BuildContext context) {
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
     // (key kept with the order, label, icon, open)
-    final all = <(String, String, IconData, VoidCallback)>[
+    return <(String, String, IconData, VoidCallback)>[
       ('tasks', tr('কাজের তালিকা'), Icons.checklist_rounded, () => goToTab(context, ShellTab.diary)),
       ('reminders', trm('রিমাইন্ডার'), Icons.notifications_none_rounded, () => push(const AllTasksScreen())),
       ('money', trm('হিসাব'), Icons.account_balance_wallet_outlined, () => goToTab(context, ShellTab.money)),
@@ -801,6 +793,19 @@ class ToolsCard extends StatelessWidget {
       ('blood', trm('রক্তদান'), Icons.bloodtype_outlined, () => push(const RequestsScreen())),
       ('pro', tr('প্রিমিয়াম'), Icons.workspace_premium_outlined, () => push(const ProScreen())),
     ];
+}
+
+/// সব সুবিধা: on home all of them; on আরও (owner, 17 Nov) those the bottom
+/// bar does not already have, first on the page so nothing is hidden.
+class ToolsCard extends StatelessWidget {
+  const ToolsCard({super.key, this.skip = const {}, this.cardKey = const Key('home-tools')});
+  final Set<String> skip;
+  final Key cardKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final all = appTools(context);
     final saved = brain.orderOf('home_tools');
     final tools = [for (final x in inOrder(all, (x) => x.$1, saved)) if (!skip.contains(x.$1)) x];
     return AppCard(

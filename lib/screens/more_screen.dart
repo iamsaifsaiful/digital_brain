@@ -17,9 +17,10 @@ import 'home_picture_screen.dart';
 import '../ui/pin.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import '../ui/kit.dart';
 import 'alarm_screens.dart';
 import 'help_screen.dart';
-import 'home_page.dart' show ToolsCard;
+import 'home_page.dart' show appTools;
 import 'assistant_settings.dart';
 import 'settings_parts.dart';
 import 'sound_screen.dart';
@@ -335,7 +336,7 @@ class _MoreScreenState extends State<MoreScreen> {
 
     Widget linkRow(IconData icon, String title, {Key? key, String? sub, Color? subColor, VoidCallback? onTap, Widget? trailing}) => ListRow(
           key: key,
-          leading: Icon(icon, color: C.muted2, size: 22),
+          leading: Container(width: 38, height: 38, decoration: BoxDecoration(color: C.surface2, borderRadius: BorderRadius.circular(11)), child: Icon(icon, color: C.muted2, size: 20)),
           title: title,
           subtitle: sub,
           subtitleColor: subColor,
@@ -496,33 +497,22 @@ class _MoreScreenState extends State<MoreScreen> {
       key: const PageStorageKey('more-list'),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       children: [
-        // Owner, 17 Nov (second look): short, nothing left out, in a sensible
-        // order — you, every feature, Premium, the shop switch, settings,
-        // your data, help, and the app itself.
+        // Owner, 17 Nov (third look): who you are and what needs doing on
+        // top, Premium as one bright card, the features grouped by what they
+        // are for, then settings, your data, help and the app itself.
         TabTitle(tr('আরও')),
         const SizedBox(height: 12),
-        _ProfileRow(onTap: () => push(_ProfilePage(onName: _setName, onPlace: _setDistrict))),
-        const SizedBox(height: 12),
-        const ToolsCard(skip: {'tasks', 'money'}, cardKey: Key('more-tools')),
-        const SizedBox(height: 12),
-        const _PremiumRow(),
-        const SizedBox(height: 12),
-        // ব্যবসায়ী মোড (owner, 6 Nov): one switch — on, the tabs are the
-        // shop's; off, the app as it was. Free (owner, 13 Nov).
-        Panel(
-          child: ListRow(
-            leading: Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(color: brain.businessMode ? C.green : C.greenTint, borderRadius: BorderRadius.circular(11)),
-              child: Icon(Icons.storefront_outlined, color: brain.businessMode ? C.onAccent : C.green, size: 20),
-            ),
-            title: tr('ব্যবসায়ী মোড'),
-            subtitle: brain.businessMode ? tr('চালু — নিচের ঘরগুলো দোকানের জন্য') : tr('দোকান চালালে চালু করুন — বিক্রি, বাকি, স্টক'),
-            trailing: Switch(key: const Key('more-business'), value: brain.businessMode, onChanged: (v) => brain.setPref('business_mode', v)),
-            onTap: () => brain.setPref('business_mode', !brain.businessMode),
-          ),
+        _MeCard(
+          onProfile: () => push(_ProfilePage(onName: _setName, onPlace: _setDistrict)),
+          backup: brain.driveOn
+              ? (brain.has(ProFeature.autoBackup) ? tr('অটো ব্যাকআপ চালু') : trf('ব্যাকআপ {0}', [brain.lastDrive == null ? tr('হয়নি') : daysLeftLabel(brain.lastDrive!, now)]))
+              : (last == null ? tr('ব্যাকআপ নেই') : trf('ব্যাকআপ {0}', [daysLeftLabel(last, now)])),
+          backupWarn: (last == null || backupOld) && !brain.driveOn,
+          onBackup: () => push(const BackupScreen()),
         ),
+        const SizedBox(height: 12),
+        const _PremiumCard(),
+        const _GroupedTools(),
         SectionTitle(tr('সেটিংস')),
         Panel(
           child: Rows(children: [
@@ -548,32 +538,37 @@ class _MoreScreenState extends State<MoreScreen> {
           ]),
         ),
         SectionTitle(tr('আপনার তথ্য')),
-        Panel(
-          child: Rows(children: [
-            linkRow(Icons.picture_as_pdf_outlined, tr('সবকিছু PDF আকারে'), sub: tr('যা চান বেছে নিয়ে এক PDF-এ'), onTap: () => exportEverything(context),
-                trailing: brain.has(ProFeature.pdf) ? Icon(Icons.download_rounded, color: C.muted) : const ProMark()),
-            linkRow(Icons.table_view_outlined, tr('ধার-দেনার রিপোর্ট (CSV)'), sub: tr('Excel বা Google Sheets-এ খোলা যায়'), onTap: _csv,
-                trailing: Icon(Icons.ios_share_rounded, color: C.muted)),
-            linkRow(Icons.delete_outline_rounded, tr('রিসাইকেল বিন'),
-                sub: brain.data.trash.isEmpty ? tr('যা মুছবেন, ৩০ দিন এখানে থাকবে') : trf('{0}টা — ৩০ দিনের মধ্যে ফিরিয়ে আনা যায়', [bnDigits(brain.data.trash.length)]),
-                onTap: () => push(const TrashScreen())),
-          ]),
-        ),
+        Row(children: [
+          Expanded(child: _MiniTile(key: const Key('more-pdf'), icon: Icons.picture_as_pdf_outlined, label: tr('সব PDF-এ'), badge: brain.has(ProFeature.pdf) ? null : const ProMark(), onTap: () => exportEverything(context))),
+          const SizedBox(width: 10),
+          Expanded(child: _MiniTile(key: const Key('more-csv'), icon: Icons.table_view_outlined, label: tr('ধার-দেনা CSV'), onTap: _csv)),
+          const SizedBox(width: 10),
+          Expanded(
+              child: _MiniTile(
+                  key: const Key('more-trash'),
+                  icon: Icons.delete_outline_rounded,
+                  label: tr('রিসাইকেল বিন'),
+                  count: brain.data.trash.length,
+                  onTap: () => push(const TrashScreen()))),
+        ]),
         SectionTitle(tr('সাহায্য ও যোগাযোগ')),
         Panel(
           child: Rows(children: [
+            // Owner, 17 Nov: WhatsApp support; the number is set on the website (none in the app).
+            if (brain.supportWhatsapp.isNotEmpty) SupportWhatsapp(number: brain.supportWhatsapp),
             linkRow(Icons.lightbulb_outline_rounded, tr('কী কী করা যায়'), sub: tr('সব সুবিধা, মাইকে কী বলবেন'), onTap: () => push(const HelpScreen())),
             ListRow(
               key: const Key('more-feedback'),
-              leading: Badge(isLabelVisible: brain.feedbackUnread > 0, smallSize: 10, child: Icon(Icons.forum_outlined, color: C.muted2, size: 22)),
+              leading: Badge(
+                  isLabelVisible: brain.feedbackUnread > 0,
+                  smallSize: 10,
+                  child: Container(width: 38, height: 38, decoration: BoxDecoration(color: C.surface2, borderRadius: BorderRadius.circular(11)), child: Icon(Icons.forum_outlined, color: C.muted2, size: 20))),
               title: tr('সমস্যা বা পরামর্শ দিন'),
               subtitle: brain.feedbackUnread > 0 ? trf('{0}টা নতুন উত্তর', [bnDigits(brain.feedbackUnread)]) : tr('লিখুন, উত্তর এখানেই'),
               subtitleColor: brain.feedbackUnread > 0 ? C.greenDark : null,
               trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
               onTap: () => push(const FeedbackScreen()),
             ),
-            // Owner, 17 Nov: WhatsApp support; the number is set on the website (none in the app).
-            if (brain.supportWhatsapp.isNotEmpty) SupportWhatsapp(number: brain.supportWhatsapp),
           ]),
         ),
         SectionTitle(tr('অ্যাপ সম্পর্কে')),
@@ -605,10 +600,23 @@ class _MoreScreenState extends State<MoreScreen> {
                     ? linkRow(Icons.ads_click_outlined, tr('বিজ্ঞাপনের গোপনীয়তা'), sub: tr('Google বিজ্ঞাপনের জন্য আপনার সম্মতি বদলান'), onTap: Ads.changePrivacyChoice)
                     : const SizedBox.shrink(),
               ),
-            linkRow(Icons.info_outline_rounded, tr('লাইসেন্স ও সংস্করণ'),
-                sub: 'My Assistant ${bnDigits(shownVersion)}${previewEdition ? ' · ${tr('প্লে স্টোর প্রিভিউ')}' : ''}',
-                onTap: () => showLicensePage(context: context, applicationName: 'My Assistant', applicationVersion: shownVersion)),
           ]),
+        ),
+        const SizedBox(height: 18),
+        // The app's name and version, small, at the very end (tap: licences).
+        Center(
+          child: InkWell(
+            key: const Key('more-version'),
+            borderRadius: BorderRadius.circular(10),
+            onTap: () => showLicensePage(context: context, applicationName: 'My Assistant', applicationVersion: shownVersion),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Column(children: [
+                Text('My Assistant ${bnDigits(shownVersion)}${previewEdition ? ' · ${tr('প্লে স্টোর প্রিভিউ')}' : ''}', style: body(12.5, weight: FontWeight.w600, color: C.muted)),
+                Text(tr('আপনার তথ্য আপনার ফোনেই · লাইসেন্স'), style: body(11.5, color: C.muted)),
+              ]),
+            ),
+          ),
         ),
       ],
     );
@@ -1012,40 +1020,6 @@ class _WhyPremiumState extends State<WhyPremium> {
 }
 
 
-/// You, in one row: photo, name, place and blood group; a tap opens the profile.
-class _ProfileRow extends StatelessWidget {
-  const _ProfileRow({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final brain = BrainScope.of(context);
-    final blood = brain.data.emergency.blood;
-    return Panel(
-      child: InkWell(
-        key: const Key('more-profile'),
-        borderRadius: BorderRadius.circular(17),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-          child: Row(children: [
-            const UserPhoto(size: 48),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(brain.userName.isEmpty ? tr('আপনার নাম দিন') : brain.userName, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(16.5, weight: FontWeight.w700, color: brain.userName.isEmpty ? C.muted : C.ink)),
-                Text([brain.placeLabel, blood.isEmpty ? tr('রক্তের গ্রুপ দিন') : trf('রক্ত {0}', [blood])].where((x) => x.isNotEmpty).join(' · '),
-                    maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted)),
-              ]),
-            ),
-            if (brain.gated) ...[const PlanBadge(), const SizedBox(width: 4)],
-            Icon(Icons.chevron_right_rounded, color: C.muted),
-          ]),
-        ),
-      ),
-    );
-  }
-}
 
 class _ProfilePage extends StatelessWidget {
   const _ProfilePage({required this.onName, required this.onPlace});
@@ -1063,38 +1037,6 @@ class _ProfilePage extends StatelessWidget {
       );
 }
 
-/// Premium in one card: the first reasons in a line; a tap opens all of them.
-class _PremiumRow extends StatelessWidget {
-  const _PremiumRow();
-
-  @override
-  Widget build(BuildContext context) {
-    final brain = BrainScope.of(context);
-    final has = brain.gated && brain.pro;
-    final titles = [for (final e in proInfo.entries) if (!e.value.later) tr(e.value.title)];
-    return Panel(
-      child: InkWell(
-        key: const Key('more-why-pro'),
-        borderRadius: BorderRadius.circular(17),
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _WhyPremiumPage())),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-          child: Row(children: [
-            Container(width: 38, height: 38, decoration: BoxDecoration(color: C.ochreTint, borderRadius: BorderRadius.circular(11)), child: Icon(Icons.workspace_premium_outlined, color: C.ochre, size: 21)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(has ? tr('প্রিমিয়ামে যা পাচ্ছেন') : tr('কেন প্রিমিয়াম নেবেন'), style: body(15, weight: FontWeight.w600)),
-                Text(trf('{0}টা কারণ — {1}…', [bnDigits(titles.length), titles.take(2).join(', ')]), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted)),
-              ]),
-            ),
-            Icon(Icons.chevron_right_rounded, color: C.muted),
-          ]),
-        ),
-      ),
-    );
-  }
-}
 
 class _WhyPremiumPage extends StatelessWidget {
   const _WhyPremiumPage();
@@ -1111,4 +1053,233 @@ class _WhyPremiumPage extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// You and what needs doing: photo, name, place and blood group (a tap
+/// opens the profile), then the backup and the shop switch side by side.
+class _MeCard extends StatelessWidget {
+  const _MeCard({required this.onProfile, required this.backup, required this.backupWarn, required this.onBackup});
+  final VoidCallback onProfile;
+  final String backup;
+  final bool backupWarn;
+  final VoidCallback onBackup;
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final blood = brain.data.emergency.blood;
+    Widget chip({required Key key, required IconData icon, required String text, required Color fg, required Color bg, VoidCallback? onTap, Widget? end, int flex = 5}) => Expanded(
+          flex: flex,
+          child: Material(
+            color: bg,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              key: key,
+              borderRadius: BorderRadius.circular(12),
+              onTap: onTap,
+              child: SizedBox(
+                height: 44,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(10, 0, end == null ? 10 : 0, 0),
+                  child: Row(children: [
+                    Icon(icon, size: 18, color: fg),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, weight: FontWeight.w600, color: fg))),
+                    if (end != null) end,
+                  ]),
+                ),
+              ),
+            ),
+          ),
+        );
+    return Panel(
+      child: Column(children: [
+        InkWell(
+          key: const Key('more-profile'),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(17)),
+          onTap: onProfile,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 10, 10),
+            child: Row(children: [
+              const UserPhoto(size: 52),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(brain.userName.isEmpty ? tr('আপনার নাম দিন') : brain.userName, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(19, weight: 700, color: brain.userName.isEmpty ? C.muted : C.ink)),
+                  Text([brain.placeLabel, blood.isEmpty ? tr('রক্তের গ্রুপ দিন') : trf('রক্ত {0}', [blood])].where((x) => x.isNotEmpty).join(' · '),
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, color: C.muted)),
+                ]),
+              ),
+              if (brain.gated) const PlanBadge(),
+              Icon(Icons.chevron_right_rounded, color: C.muted),
+            ]),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          child: Row(children: [
+            chip(
+                key: const Key('more-backup-chip'),
+                icon: backupWarn ? Icons.cloud_off_outlined : Icons.cloud_done_outlined,
+                text: backup,
+                fg: backupWarn ? C.orange : C.greenDark,
+                bg: backupWarn ? C.orangeTint : C.greenTint,
+                onTap: onBackup),
+            const SizedBox(width: 8),
+            chip(
+              key: const Key('more-business-chip'),
+              icon: Icons.storefront_outlined,
+              text: tr('ব্যবসায়ী মোড'),
+              flex: 6,
+              fg: brain.businessMode ? C.greenDark : C.muted2,
+              bg: C.surface2,
+              onTap: () => brain.setPref('business_mode', !brain.businessMode),
+              end: Transform.scale(
+                scale: 0.72,
+                child: Switch(key: const Key('more-business'), value: brain.businessMode, onChanged: (v) => brain.setPref('business_mode', v)),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+/// Premium as one card that stands out (flat colour, no gradient): three
+/// reasons at a glance, a tap opens all of them.
+class _PremiumCard extends StatelessWidget {
+  const _PremiumCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final has = brain.gated && brain.pro;
+    void open() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _WhyPremiumPage()));
+    if (has) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Panel(
+          child: ListRow(
+            key: const Key('more-why-pro'),
+            leading: Container(width: 38, height: 38, decoration: BoxDecoration(color: C.ochreTint, borderRadius: BorderRadius.circular(11)), child: Icon(Icons.workspace_premium_rounded, color: C.ochre, size: 21)),
+            title: tr('প্রিমিয়াম চালু আছে'),
+            subtitle: tr('যা যা পাচ্ছেন দেখুন'),
+            trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
+            onTap: open,
+          ),
+        ),
+      );
+    }
+    final n = [for (final e in proInfo.values) if (!e.later) e].length;
+    Widget reason(IconData i, String t) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(20)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(i, size: 15, color: C.ochre),
+            const SizedBox(width: 4),
+            Text(t, style: body(12.5, weight: FontWeight.w600, color: C.ink)),
+          ]),
+        );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Material(
+        color: C.ochreTint,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          key: const Key('more-why-pro'),
+          borderRadius: BorderRadius.circular(18),
+          onTap: open,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Icon(Icons.workspace_premium_rounded, color: C.ochre, size: 24),
+                const SizedBox(width: 8),
+                Expanded(child: Text(tr('কেন প্রিমিয়াম নেবেন'), style: display(17, weight: 700))),
+                Text(trf('{0}টা কারণ', [bnDigits(n)]), style: body(13, weight: FontWeight.w600, color: C.ochre)),
+                Icon(Icons.chevron_right_rounded, color: C.ochre),
+              ]),
+              const SizedBox(height: 10),
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                reason(Icons.block_outlined, tr('বিজ্ঞাপন নেই')),
+                reason(Icons.cloud_sync_outlined, tr('অটো ব্যাকআপ')),
+                reason(Icons.notifications_active_outlined, tr('যত খুশি রিমাইন্ডার')),
+                reason(Icons.auto_awesome_outlined, tr('AI উত্তর')),
+              ]),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// সব সুবিধা in groups, by what they are for (the bottom bar's own left out).
+class _GroupedTools extends StatelessWidget {
+  const _GroupedTools();
+
+  static const _groups = <(String, List<String>)>[
+    ('প্রতিদিন', ['reminders', 'alarms', 'calendar', 'notes']),
+    ('নিরাপদে রাখা', ['docs', 'vault', 'contacts']),
+    ('পরিবার ও স্বাস্থ্য', ['family', 'health', 'medicines', 'med_reminder', 'blood']),
+    ('যাকাত ও কিবলা', ['zakat', 'compass']),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final byKey = {for (final x in appTools(context)) x.$1: x};
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      SectionTitle(tr('সব সুবিধা')),
+      AppCard(
+        key: const Key('more-tools'),
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+        child: Column(children: [
+          for (final (i, (title, keys)) in _groups.indexed) ...[
+            if (i > 0) Divider(height: 1, indent: 6, endIndent: 6, color: C.line2),
+            // The group's name on the left, its tools on the right: one row each.
+            Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+              SizedBox(width: 62, child: Padding(padding: const EdgeInsets.only(left: 6), child: Text(tr(title), style: body(12, weight: FontWeight.w600, color: C.muted, height: 1.25)))),
+              for (final k in [...keys.where(byKey.containsKey).take(4)]) Expanded(child: SizedBox(height: 82, child: ToolTile(key: Key('tool-$k'), icon: byKey[k]!.$3, label: byKey[k]!.$2, onTap: byKey[k]!.$4))),
+              for (var j = keys.where(byKey.containsKey).take(4).length; j < 4; j++) const Expanded(child: SizedBox()),
+            ]),
+          ],
+        ]),
+      ),
+    ]);
+  }
+}
+
+/// A small square: icon over a short name (your data).
+class _MiniTile extends StatelessWidget {
+  const _MiniTile({super.key, required this.icon, required this.label, required this.onTap, this.badge, this.count = 0});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Widget? badge;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: C.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: C.border)),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            height: 78,
+            child: Stack(children: [
+              Center(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Badge(isLabelVisible: count > 0, label: Text(bnDigits(count)), child: Icon(icon, color: C.muted2, size: 24)),
+                  const SizedBox(height: 6),
+                  Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, weight: FontWeight.w600)),
+                ]),
+              ),
+              if (badge != null) Positioned(top: 6, right: 6, child: badge!),
+            ]),
+          ),
+        ),
+      );
 }

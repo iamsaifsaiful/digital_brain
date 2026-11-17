@@ -19,18 +19,18 @@ void main() {
     final rig = await rig0(t);
     rig.brain.supportWhatsapp = Platform.environment['WA'] ?? '01700000000';
     // One tall phone shows the whole page in one picture.
-    t.view.physicalSize = const Size(1170, 2532 * 2.15);
+    t.view.physicalSize = const Size(1170, 2532 * 2.5);
     await t.tap(find.text('আরও').last);
     await settle(t);
     final grid = find.byKey(const Key('more-tools'));
-    for (final k in ['reminders', 'docs', 'vault', 'zakat', 'family', 'pro']) {
+    for (final k in ['reminders', 'docs', 'vault', 'zakat', 'family', 'compass', 'blood']) {
       expect(find.descendant(of: grid, matching: find.byKey(Key('tool-$k'))), findsOneWidget, reason: k);
     }
-    for (final k in ['tasks', 'money']) {
+    for (final k in ['tasks', 'money', 'pro']) {
       expect(find.descendant(of: grid, matching: find.byKey(Key('tool-$k'))), findsNothing, reason: k);
     }
     double y(String key) => t.getTopLeft(find.byKey(Key(key))).dy;
-    final order = ['more-profile', 'more-tools', 'more-why-pro', 'more-business', 'more-set-look', 'more-set-backup', 'more-set-safety', 'more-feedback', 'more-whatsapp', 'more-set-model'];
+    final order = ['more-profile', 'more-backup-chip', 'more-why-pro', 'more-tools', 'more-set-look', 'more-set-backup', 'more-set-safety', 'more-pdf', 'more-whatsapp', 'more-feedback', 'more-set-model', 'more-version'];
     for (var i = 1; i < order.length; i++) {
       expect(y(order[i - 1]), lessThan(y(order[i])), reason: '${order[i - 1]} before ${order[i]}');
     }
