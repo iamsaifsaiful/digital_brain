@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../ui/secure.dart';
 
+import '../logic/medicine_catalog.dart';
 import '../logic/bn.dart';
 import '../logic/lang.dart';
 import '../models/models.dart';
@@ -297,16 +298,35 @@ class _MedicineSheetState extends State<_MedicineSheet> {
   late DateTime? _until = widget.old?.until;
   late String _member = widget.member;
   late String _meal = widget.old?.meal ?? '';
+  final _nameFocus = FocusNode();
+  MedInfo? _picked;
+
+  /// Names that match what is typed (hidden once one is picked or the box is left).
+  List<MedInfo> get _hits {
+    if (_picked != null || !_nameFocus.hasFocus) return const [];
+    final h = searchMedicines(_name.text);
+    return h.length == 1 && medicineNamed(_name.text) == h.first ? const [] : h;
+  }
+
+  MedInfo? get _info => _picked ?? medicineNamed(_name.text);
+
+  void _pick(MedInfo m) {
+    _name.text = m.bn;
+    _name.selection = TextSelection.collapsed(offset: m.bn.length);
+    setState(() => _picked = m);
+  }
 
   @override
   void initState() {
     super.initState();
     if (_times.isEmpty) _times = [9 * 60, 21 * 60];
+    _nameFocus.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _name.dispose();
+    _nameFocus.dispose();
     _stock.dispose();
     _note.dispose();
     super.dispose();
@@ -341,8 +361,9 @@ class _MedicineSheetState extends State<_MedicineSheet> {
       child: SingleChildScrollView(
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text(widget.old == null ? tr('নতুন ওষুধ') : tr('ওষুধ বদলান'), style: display(20, weight: 700)),
-          // Owner, 29 Oct: whose first, then the name, then before or after
-          // food, then how many times a day, then the times.
+          // Owner, 17 Nov: for whom, the name (with a live search and what
+          // it is usually for), when, before or after food, special advice;
+          // the rest folded under আরও.
           FieldLabel(tr('কার জন্য')),
           MedicinePersonPicker(
             people: [for (final m in BrainScope.of(context).healthPeople) (m.id, m.isMe ? tr('আমি') : m.name)],
@@ -350,31 +371,54 @@ class _MedicineSheetState extends State<_MedicineSheet> {
             onChanged: (id) => setState(() => _member = id),
           ),
           FieldLabel(tr('ওষুধের নাম')),
-          TextField(textCapitalization: TextCapitalization.sentences, key: const Key('med-name'), controller: _name, autofocus: widget.old == null, decoration: InputDecoration(hintText: tr('যেমন: নাপা, সেকলো'))),
-          FieldLabel(tr('খাবারের আগে না পরে')),
-          MealPicker(meal: _meal, onChanged: (v) => setState(() => _meal = v)),
+          TextField(
+            textCapitalization: TextCapitalization.sentences,
+            key: const Key('med-name'),
+            controller: _name,
+            focusNode: _nameFocus,
+            autofocus: widget.old == null,
+            onChanged: (_) => setState(() => _picked = null),
+            decoration: InputDecoration(hintText: tr('যেমন: নাপা, সেকলো'), prefixIcon: const Icon(Icons.search_rounded)),
+          ),
+          if (_hits.isNotEmpty) _MedHits(hits: _hits, onPick: _pick),
+          if (_info != null) _MedUse(info: _info!),
           const SizedBox(height: 14),
           MedicineTimesPicker(times: _times, onChanged: (t) => setState(() => _times = t)),
-          FieldLabel(trf('প্রতিবার কয়টা: {0}', [bnDigits(_dose)])),
-          Row(children: [
-            IconButton(onPressed: _dose > 1 ? () => setState(() => _dose--) : null, icon: const Icon(Icons.remove_circle_outline_rounded)),
-            Text(bnDigits(_dose), style: display(20)),
-            IconButton(onPressed: () => setState(() => _dose++), icon: const Icon(Icons.add_circle_outline_rounded)),
-          ]),
-          FieldLabel(tr('এখন কয়টা আছে (ঐচ্ছিক)')),
-          TextField(controller: _stock, keyboardType: TextInputType.number, decoration: InputDecoration(hintText: tr('দিলে ফুরানোর আগে মনে করাব'))),
-          FieldLabel(tr('কোর্স কবে শেষ (ঐচ্ছিক)')),
-          OutlinedButton.icon(
-            onPressed: () async {
-              final now = DateTime.now();
-              final d = await showDatePicker(context: context, initialDate: _until ?? now.add(const Duration(days: 7)), firstDate: now, lastDate: DateTime(now.year + 5));
-              setState(() => _until = d);
-            },
-            icon: const Icon(Icons.event_outlined),
-            label: Text(_until == null ? tr('চলতেই থাকবে') : fullDate(_until!)),
+          FieldLabel(tr('খাবারের আগে না পরে')),
+          MealPicker(meal: _meal, onChanged: (v) => setState(() => _meal = v)),
+          FieldLabel(tr('বিশেষ নির্দেশনা (ঐচ্ছিক)')),
+          TextField(textCapitalization: TextCapitalization.sentences, key: const Key('med-note'), controller: _note, minLines: 1, maxLines: 3, decoration: InputDecoration(hintText: tr('যেমন: পানির সাথে, চিবিয়ে খাবেন না'))),
+          const SizedBox(height: 6),
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              key: const Key('med-more'),
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+              title: Text(tr('আরও: প্রতিবার কয়টা, কয়টা আছে, কোর্স'), style: body(14.5, weight: FontWeight.w600, color: C.muted)),
+              children: [
+                FieldLabel(trf('প্রতিবার কয়টা: {0}', [bnDigits(_dose)])),
+                Row(children: [
+                  IconButton(onPressed: _dose > 1 ? () => setState(() => _dose--) : null, icon: const Icon(Icons.remove_circle_outline_rounded)),
+                  Text(bnDigits(_dose), style: display(20)),
+                  IconButton(onPressed: () => setState(() => _dose++), icon: const Icon(Icons.add_circle_outline_rounded)),
+                ]),
+                FieldLabel(tr('এখন কয়টা আছে (ঐচ্ছিক)')),
+                TextField(controller: _stock, keyboardType: TextInputType.number, decoration: InputDecoration(hintText: tr('দিলে ফুরানোর আগে মনে করাব'))),
+                FieldLabel(tr('কোর্স কবে শেষ (ঐচ্ছিক)')),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final now = DateTime.now();
+                    final d = await showDatePicker(context: context, initialDate: _until ?? now.add(const Duration(days: 7)), firstDate: now, lastDate: DateTime(now.year + 5));
+                    setState(() => _until = d);
+                  },
+                  icon: const Icon(Icons.event_outlined),
+                  label: Text(_until == null ? tr('চলতেই থাকবে') : fullDate(_until!)),
+                ),
+              ],
+            ),
           ),
-          FieldLabel(tr('নোট (ঐচ্ছিক)')),
-          TextField(textCapitalization: TextCapitalization.sentences, controller: _note, decoration: InputDecoration(hintText: tr('যেমন: পানির সাথে'))),
           const SizedBox(height: 16),
           PrimaryButton(label: tr('রাখুন'), onPressed: _save),
           if (widget.old != null)
@@ -389,4 +433,64 @@ class _MedicineSheetState extends State<_MedicineSheet> {
       ),
     );
   }
+}
+
+
+/// The live list under the name box.
+class _MedHits extends StatelessWidget {
+  const _MedHits({required this.hits, required this.onPick});
+  final List<MedInfo> hits;
+  final ValueChanged<MedInfo> onPick;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.only(top: 6),
+        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: C.line)),
+        child: Column(children: [
+          for (final (i, m) in hits.indexed) ...[
+            if (i > 0) Divider(height: 1, color: C.line),
+            InkWell(
+              key: Key('med-hit-${m.en}'),
+              onTap: () => onPick(m),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                child: Row(children: [
+                  Icon(Icons.medication_outlined, size: 20, color: C.green),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('${m.bn} · ${m.en}', style: body(15, weight: FontWeight.w600)),
+                      Text('${m.genericBn} — ${tr(m.use)}', style: body(12.5, color: C.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ]),
+                  ),
+                ]),
+              ),
+            ),
+          ],
+        ]),
+      );
+}
+
+/// One line on what the picked medicine is usually taken for.
+class _MedUse extends StatelessWidget {
+  const _MedUse({required this.info});
+  final MedInfo info;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        key: const Key('med-use'),
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(12)),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(Icons.info_outline_rounded, size: 18, color: C.green),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text.rich(TextSpan(children: [
+              TextSpan(text: trf('{0} সাধারণত খাওয়া হয় {1}।', [info.genericBn, tr(info.use)]), style: body(13.5, color: C.ink)),
+              TextSpan(text: ' ${tr('ডাক্তারের পরামর্শ মেনে খাবেন।')}', style: body(12.5, color: C.muted)),
+            ])),
+          ),
+        ]),
+      );
 }
