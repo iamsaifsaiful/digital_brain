@@ -939,7 +939,7 @@ class SupportWhatsapp extends StatelessWidget {
 
   static const _waGreen = Color(0xFF1DA851);
 
-  /// 01997959167 → ০১৯৯৭-৯৫৯১৬৭
+  /// 01712345678 → ০১৭১২-৩৪৫৬৭৮
   static String shown(String n) {
     final d = n.replaceAll(RegExp(r'[^0-9]'), '');
     final local = d.startsWith('880') && d.length == 13 ? '0${d.substring(3)}' : d;
