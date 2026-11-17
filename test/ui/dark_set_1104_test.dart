@@ -2,7 +2,8 @@ import 'package:digital_brain/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../app_test.dart' show settle, start;
+import '../app_test.dart' show settle, start, vScroll;
+import 'package:digital_brain/screens/more_screen.dart' show MoreScreen;
 import 'home_final_shots_test.dart' show icons, shots;
 
 double _contrast(Color a, Color b) {
@@ -48,6 +49,9 @@ void main() {
       await rig.brain.setLook(Look.dark);
       await settle(t);
       await t.tap(find.byTooltip('প্রোফাইল'));
+      await settle(t);
+      await t.scrollUntilVisible(find.byKey(const Key('more-set-look')), 300, scrollable: find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first);
+      await t.ensureVisible(find.byKey(const Key('more-set-look')));
       await settle(t);
       await t.tap(find.byKey(const Key('more-set-look')));
       await settle(t);

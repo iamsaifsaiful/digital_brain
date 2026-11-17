@@ -157,6 +157,10 @@ void main() {
     final rig = await start(t);
     rig.brain.gated = true;
     await openMenu(t, 'সেটিংস');
+    // The profile comes after সব সুবিধা and কেন প্রিমিয়াম (owner, 17 Nov).
+    await t.scrollUntilVisible(find.byKey(const Key('profile-blood')), 300, scrollable: find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first);
+    await t.ensureVisible(find.byKey(const Key('profile-blood')));
+    await settle(t);
     for (final k in ['profile-name', 'profile-place', 'profile-blood']) {
       expect(t.getSize(find.byKey(Key(k))).height, greaterThanOrEqualTo(56));
     }
@@ -175,9 +179,9 @@ void main() {
     // Help and contact are last in আরও (owner, 2 Nov).
     await t.scrollUntilVisible(find.byKey(const Key('more-feedback')), 300, scrollable: list);
     expect(find.byKey(const Key('more-feedback')), findsOneWidget);
-    await t.scrollUntilVisible(find.byKey(const Key('more-pro')), -300, scrollable: list);
+    await t.scrollUntilVisible(find.byKey(const Key('tool-pro')), -300, scrollable: list);
     // Blood donation has its own page now (no donor switch here).
-    await t.scrollUntilVisible(find.text('তথ্য নিরাপদ রাখা'), 200, scrollable: list);
+    await t.scrollUntilVisible(find.text('তালা ও নিরাপত্তা'), 200, scrollable: list);
     expect(find.text('আমি রক্ত দিতে আগ্রহী'), findsNothing);
     expect(find.text('AI সহকারী'), findsNothing);
   });
@@ -342,16 +346,19 @@ void main() {
     expect(find.descendant(of: grid, matching: find.text('প্রিমিয়াম')), findsOneWidget);
     await t.tap(find.text('আরও').last);
     await settle(t);
-    expect(find.byKey(const Key('more-requests')), findsOneWidget);
-    expect(find.byKey(const Key('more-pro')), findsOneWidget);
-    expect(find.byKey(const Key('more-zakat')), findsOneWidget);
-    expect(find.byKey(const Key('more-family')), findsOneWidget);
+    expect(find.byKey(const Key('tool-blood')), findsOneWidget);
+    expect(find.byKey(const Key('tool-pro')), findsOneWidget);
+    expect(find.byKey(const Key('tool-zakat')), findsOneWidget);
+    expect(find.byKey(const Key('tool-family')), findsOneWidget);
     // Help and contact are last in আরও (owner, 2 Nov).
     await t.scrollUntilVisible(find.byKey(const Key('more-feedback')), 300, scrollable: find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first);
     expect(find.byKey(const Key('more-feedback')), findsOneWidget);
     expect(find.text('রক্তের অনুরোধ'), findsNothing, reason: 'no separate request row in আরও');
-    await t.scrollUntilVisible(find.byKey(const Key('more-requests')), -300, scrollable: find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first);
-    await t.tap(find.byKey(const Key('more-requests')));
+    final blood = find.descendant(of: find.byKey(const Key('more-tools')), matching: find.byKey(const Key('tool-blood')));
+    await t.scrollUntilVisible(blood, -300, scrollable: find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first);
+    await t.ensureVisible(blood);
+    await settle(t);
+    await t.tap(blood);
     await settle(t);
     expect(find.text('রক্তদান'), findsOneWidget);
     expect(find.textContaining('Google দিয়ে লগইন করুন'), findsWidgets, reason: 'not signed in yet');
@@ -378,7 +385,7 @@ void main() {
     await t.tap(find.text('আরও').last);
     await settle(t);
     final row = find.text('রিসাইকেল বিন');
-    await t.ensureVisible(row);
+    await t.scrollUntilVisible(row, 300, scrollable: find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first);
     await settle(t);
     await t.tap(row);
     await settle(t);

@@ -1657,7 +1657,7 @@ void main() {
   testWidgets('v2.9: settings switch the app to English and to dark, and back', (t) async {
     final rig = await start(t);
     await openMenu(t, 'সেটিংস');
-    expect(find.byKey(const Key('more-zakat')), findsOneWidget);
+    expect(find.byKey(const Key('tool-zakat')), findsOneWidget);
     // আরও › চেহারা ও ভাষা (owner, 3 Nov: each setting on its own page).
     // Drag and settle a step at a time (scrollUntilVisible loses the list mid-way).
     for (var i = 0; i < 12 && find.byKey(const Key('more-set-look')).evaluate().isEmpty; i++) {

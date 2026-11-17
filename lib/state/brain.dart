@@ -726,8 +726,13 @@ class Brain extends ChangeNotifier {
   /// The admin's rules for the app's own notifications (on/off, time, wording, who).
   NoticeRules noticeRules = NoticeRules.none;
 
+  /// Our support WhatsApp number, set on the website ('' = no button).
+  /// Kept on the phone so the button works offline.
+  String supportWhatsapp = '';
+
   Future<void> _loadServerNotices() async {
     try {
+      supportWhatsapp = await services.lock.keys.read('support_wa') ?? '';
       final rules = await services.lock.keys.read('srv_note_rules');
       if (rules != null) noticeRules = NoticeRules.fromJson(jsonDecode(rules));
       final raw = await services.lock.keys.read('srv_notices');
@@ -745,7 +750,13 @@ class Brain extends ChangeNotifier {
     if (list != null) {
       serverNoticeList = list;
       noticeRules = NoticeRules.fromJson(services.server.lastRules);
+      final wa = services.server.lastSupportWhatsapp;
+      if (wa != null && wa != supportWhatsapp) {
+        supportWhatsapp = wa;
+        notifyListeners();
+      }
       try {
+        if (wa != null) await services.lock.keys.write('support_wa', wa);
         await services.lock.keys.write('srv_notices', jsonEncode([for (final n in list) n.toJson()]));
         await services.lock.keys.write('srv_note_rules', jsonEncode(noticeRules.toJson()));
       } catch (_) {}

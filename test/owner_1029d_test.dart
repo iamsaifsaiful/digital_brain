@@ -119,18 +119,23 @@ void main() {
     });
   });
 
-  testWidgets('medicine form: whose, name, food, times a day, then the times by part of day', (t) async {
+  testWidgets('medicine form: whose, name, times a day and the times by part of day, then food', (t) async {
     final rig = await start(t);
     editMedicine(t.element(find.byTooltip('বলুন').first), null);
     await settle(t);
     double y(String text) => t.getTopLeft(find.text(text).first).dy;
     expect(y('কার জন্য'), lessThan(y('ওষুধের নাম')));
-    expect(y('ওষুধের নাম'), lessThan(y('খাবারের আগে না পরে')));
-    expect(y('খাবারের আগে না পরে'), lessThan(y('দিনে কয়বার')));
+    // Owner, 17 Nov: the times before food, then special instructions.
+    expect(y('ওষুধের নাম'), lessThan(y('দিনে কয়বার')));
+    expect(y('দিনে কয়বার'), lessThan(y('খাবারের আগে না পরে')));
     for (final part in ['সকাল', 'দুপুর', 'বিকাল', 'রাত', 'অন্য সময়']) {
       expect(find.text(part, skipOffstage: false), findsOneWidget, reason: part);
     }
     await t.enterText(find.byKey(const Key('med-name')), 'সেকলো');
+    FocusManager.instance.primaryFocus?.unfocus();
+    await settle(t);
+    await t.dragUntilVisible(find.byKey(const Key('med-meal-before')), find.byType(SingleChildScrollView).last, const Offset(0, -150));
+    await settle(t);
     await t.tap(find.byKey(const Key('med-meal-before')));
     await t.pump();
     await t.ensureVisible(find.text('রাখুন'));

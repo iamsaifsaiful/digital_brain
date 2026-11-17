@@ -302,7 +302,10 @@ function ma_note_list(WP_REST_Request $req) {
             $pushed[] = (int) $r['id'];
         }
     }
-    $res = new WP_REST_Response(['notices' => $out, 'pushed' => $pushed, 'rules' => ma_note_rules_public()], 200);
+    // The support WhatsApp number from the settings (owner, 17 Nov): the app's
+    // "হোয়াটসঅ্যাপে কথা বলুন" button shows only when it is set.
+    $wa = preg_replace('/[^0-9+]/', '', (string) get_option('ma_support_whatsapp', ''));
+    $res = new WP_REST_Response(['notices' => $out, 'pushed' => $pushed, 'rules' => ma_note_rules_public(), 'support_whatsapp' => $wa], 200);
     $res->header('Cache-Control', 'private, no-store');
     return $res;
 }

@@ -773,6 +773,18 @@ function ma_acc_render_settings($v) {
     </section>
     <?php if (function_exists('ma_play_settings_card')) { ma_play_settings_card(); } ?>
     <?php if (function_exists('ma_admob_settings_card')) { ma_admob_settings_card(); } ?>
+    <section class="ma-card pad">
+        <h2>সাপোর্ট হোয়াটসঅ্যাপ</h2>
+        <p class="muted">অ্যাপের “আরও” → “সাহায্য ও যোগাযোগ”-এ “হোয়াটসঅ্যাপে কথা বলুন” বোতাম এই নম্বরে চ্যাট খোলে। খালি রাখলে বোতাম দেখাবে না। অ্যাপ পরের বার খুললেই নতুন নম্বর পাবে।</p>
+        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+            <input type="hidden" name="action" value="ma_support_wa">
+            <?php wp_nonce_field('ma_support_wa'); ?>
+            <label>নম্বর
+                <input type="tel" name="support_whatsapp" value="<?php echo esc_attr((string) get_option('ma_support_whatsapp', '')); ?>" placeholder="01XXXXXXXXX" inputmode="tel">
+            </label>
+            <button class="ma-btn" type="submit">রাখুন</button>
+        </form>
+    </section>
     <div class="ma-grid">
         <section class="ma-card pad">
             <h2>Google লগইন</h2>

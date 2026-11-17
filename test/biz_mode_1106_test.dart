@@ -19,7 +19,8 @@ import 'package:digital_brain/logic/pro.dart' show freeCustomers, freeProducts;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'app_test.dart' show settle, start;
+import 'app_test.dart' show settle, start, vScroll;
+import 'package:digital_brain/screens/more_screen.dart' show MoreScreen;
 
 void main() {
   testWidgets('the switch: six tabs in the day\'s order; off brings the normal app back on the same tab', (t) async {
@@ -46,6 +47,9 @@ void main() {
 
     // Switched off from আরও: still on আরও, the normal tabs back.
     await t.tap(find.text('আরও').last);
+    await settle(t);
+    await t.scrollUntilVisible(find.byKey(const Key('more-business')), 300, scrollable: find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first);
+    await t.ensureVisible(find.byKey(const Key('more-business')));
     await settle(t);
     await t.tap(find.byKey(const Key('more-business')));
     await settle(t);

@@ -360,6 +360,9 @@ class AccountServer {
   /// The admin's rules for the app's own notifications, from the last [notices] call.
   Object? lastRules;
 
+  /// The support WhatsApp number set on the website ('' = none), from the last [notices] call.
+  String? lastSupportWhatsapp;
+
   /// Notifications written on the website for this phone (everyone's, plus
   /// its plan's when signed in). Null when offline.
   Future<List<ServerNotice>?> notices(String session) async {
@@ -372,6 +375,7 @@ class AccountServer {
       if (r.statusCode != 200) return null;
       final body = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
       lastRules = body['rules'];
+      lastSupportWhatsapp = body.containsKey('support_whatsapp') ? '${body['support_whatsapp'] ?? ''}' : null;
       final list = body['notices'] as List? ?? const [];
       final pushed = {for (final x in body['pushed'] as List? ?? const []) if (x is num) x.toInt()};
       return [

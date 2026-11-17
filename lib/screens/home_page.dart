@@ -107,7 +107,7 @@ class HomePage extends StatelessWidget {
           ),
           const HomeHolidays(),
           const SizedBox(height: 20),
-          const _Tools(),
+          const ToolsCard(),
           const SizedBox(height: 16),
           // Free Play app only: a quiet ad card under the quote.
           const AdSlot(padding: EdgeInsets.only(top: 12)),
@@ -769,8 +769,12 @@ class _DateBox extends StatelessWidget {
 
 /// সব সুবিধা: every tool, always open (owner, 24 Oct night). Held and
 /// dragged, the tiles go in the member's own order (owner, 29 Oct).
-class _Tools extends StatelessWidget {
-  const _Tools();
+/// সব সুবিধা: on home all of them; on আরও (owner, 17 Nov) those the bottom
+/// bar does not already have, first on the page so nothing is hidden.
+class ToolsCard extends StatelessWidget {
+  const ToolsCard({super.key, this.skip = const {}, this.cardKey = const Key('home-tools')});
+  final Set<String> skip;
+  final Key cardKey;
 
   @override
   Widget build(BuildContext context) {
@@ -798,9 +802,9 @@ class _Tools extends StatelessWidget {
       ('pro', tr('প্রিমিয়াম'), Icons.workspace_premium_outlined, () => push(const ProScreen())),
     ];
     final saved = brain.orderOf('home_tools');
-    final tools = inOrder(all, (x) => x.$1, saved);
+    final tools = [for (final x in inOrder(all, (x) => x.$1, saved)) if (!skip.contains(x.$1)) x];
     return AppCard(
-      key: const Key('home-tools'),
+      key: cardKey,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Column(children: [
         SizedBox(
@@ -827,7 +831,12 @@ class _Tools extends StatelessWidget {
             items: tools,
             keyOf: (x) => x.$1,
             tile: (x) => ToolTile(key: Key('tool-${x.$1}'), icon: x.$3, label: x.$2, onTap: x.$4),
-            onReorder: (keys) => brain.setOrder('home_tools', keys),
+            // On আরও some are left out: they keep their places, the rest fill the others.
+            onReorder: (keys) {
+              final full = [for (final x in inOrder(all, (x) => x.$1, saved)) x.$1];
+              final it = keys.iterator;
+              brain.setOrder('home_tools', [for (final k in full) skip.contains(k) ? k : (it.moveNext() ? it.current : k)]);
+            },
           ),
         ),
       ]),
