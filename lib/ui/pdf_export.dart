@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../logic/lang.dart';
 import '../logic/report.dart';
+import '../models/models.dart' show AppData;
 import '../state/brain.dart';
 import 'file_view.dart';
 import 'theme.dart';
@@ -14,12 +15,15 @@ import 'pro_gate.dart';
 
 /// Makes the PDF and shows it, with ডাউনলোড, শেয়ার and অন্য অ্যাপে খুলুন
 /// on top (the same viewer as a kept PDF).
-Future<void> exportPdf(BuildContext context, Set<ReportPart> parts, {ReportScope scope = const ReportScope(), String? title, String? fileExtra}) async {
+///
+/// [data]: someone else's copy (an heir's), with its own [title]; [free]: no
+/// Premium needed (an heir's copy, owner 17 Nov).
+Future<void> exportPdf(BuildContext context, Set<ReportPart> parts, {ReportScope scope = const ReportScope(), String? title, String? fileExtra, AppData? data, bool free = false}) async {
   if (parts.isEmpty) return;
-  if (!await needPro(context, ProFeature.pdf) || !context.mounted) return;
+  if (!free && (!await needPro(context, ProFeature.pdf) || !context.mounted)) return;
   final brain = BrainScope.read(context);
   final now = brain.services.now();
-  final spec = reportSpec(brain.data, parts, now, userName: brain.userName, scope: scope, title: title);
+  final spec = reportSpec(data ?? brain.data, parts, now, userName: data == null ? brain.userName : (title ?? ''), scope: scope, title: title);
   final nav = Navigator.of(context);
   showDialog<void>(
     context: context,

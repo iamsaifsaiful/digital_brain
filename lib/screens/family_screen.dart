@@ -20,6 +20,8 @@ import '../ui/medicine_times.dart';
 import '../ui/theme.dart';
 import '../ui/file_view.dart';
 import '../ui/widgets.dart';
+import '../ui/pdf_export.dart';
+import '../ui/pin.dart' show verifyUser;
 import 'google_backup.dart';
 
 class FamilyScreen extends StatefulWidget {
@@ -725,7 +727,30 @@ class _SendSheetState extends State<_SendSheet> {
   }
 }
 
-/// What an heir sees: the parts the member chose, read-only.
+/// One line of an heir's copy.
+class _HeirItem {
+  const _HeirItem(this.title, {this.sub, this.trail, this.files = const []});
+  final String title;
+  final String? sub;
+  final String? trail;
+  final List<DocFile> files;
+}
+
+/// One part of an heir's copy: a tile on top, its own page with the list.
+class _HeirPart {
+  const _HeirPart(this.key, this.title, this.icon, this.summary, this.items, {this.locked = false});
+  final String key;
+  final String title;
+  final IconData icon;
+  final String summary;
+  final List<_HeirItem> items;
+  final bool locked;
+}
+
+/// What an heir sees: the parts the member chose, read-only. Owner, 17 Nov:
+/// a long copy (1,100 numbers, every loan) was one endless page — now a
+/// glance on top, each part on its own page (searchable when long), and the
+/// whole copy as a PDF or a backup file.
 class HeirViewScreen extends StatelessWidget {
   const HeirViewScreen({super.key, required this.title, required this.data, this.link});
   final String title;
@@ -734,10 +759,174 @@ class HeirViewScreen extends StatelessWidget {
   /// Whose copy this is; needed to fetch photos (null in tests without a server).
   final FamilyLink? link;
 
-  /// Photos and files of a note or document, as chips that open on tap.
-  Widget _files(BuildContext context, List<DocFile> files) {
+  static List<_HeirPart> partsOf(AppData d, List<String> parts) {
+    final out = <_HeirPart>[];
+    if (parts.contains('money')) {
+      final bal = [for (final p in balances(d.ledger)) if (p.balance != 0) p]..sort((a, b) => b.balance.abs().compareTo(a.balance.abs()));
+      final get = bal.where((p) => p.balance > 0).fold<int>(0, (s, p) => s + p.balance);
+      final give = bal.where((p) => p.balance < 0).fold<int>(0, (s, p) => s - p.balance);
+      out.add(_HeirPart('ledger', tr('ধার-দেনা'), Icons.handshake_outlined,
+          bal.isEmpty ? tr('কোনো বাকি নেই') : trf('পাবেন {0} · দেবেন {1}', [taka(get), taka(give)]),
+          [for (final p in bal) _HeirItem(p.name, sub: p.balance > 0 ? tr('তাঁর কাছে পাওনা') : tr('তাঁকে দিতে হবে'), trail: taka(p.balance.abs()))]));
+      final acc = [
+        for (final a in d.accounts) _HeirItem(a.name, sub: tr(a.kind.bn)),
+        for (final g in d.goals) _HeirItem(g.name, sub: tr('সঞ্চয়'), trail: taka(g.saved)),
+        for (final i in d.installments) _HeirItem(i.name, sub: tr(i.kind.bn), trail: trf('{0}/{1}', [bnDigits(i.paidCount), bnDigits(i.months)])),
+      ];
+      out.add(_HeirPart('accounts', tr('অ্যাকাউন্ট ও সঞ্চয়'), Icons.account_balance_outlined, trf('{0}টা', [bnDigits(acc.length)]), acc));
+      final cash = (d.cash.toList()..sort((a, b) => b.date.compareTo(a.date)));
+      out.add(_HeirPart('cash', tr('আয়-ব্যয়'), Icons.receipt_long_outlined,
+          cash.isEmpty ? tr('কিছু লেখা নেই') : trf('{0}টা · শেষ {1}', [bnDigits(cash.length), fullDate(cash.first.date)]),
+          [for (final e in cash) _HeirItem(e.category, sub: '${fullDate(e.date)}${e.note.isEmpty ? '' : ' · ${e.note}'}', trail: '${e.kind == CashKind.income ? '+' : '−'}${taka(e.amount)}')]));
+    }
+    if (parts.contains('docs')) {
+      out.add(_HeirPart('docs', tr('ডকুমেন্ট'), Icons.folder_outlined, trf('{0}টা', [bnDigits(d.docs.length)]), [
+        for (final x in d.docs) _HeirItem(x.title, sub: [x.folder, for (final f in x.fields) '${f.label}: ${f.value}'].where((s) => s.isNotEmpty).join(' · '), files: x.files),
+      ]));
+    }
+    if (parts.contains('notes')) {
+      out.add(_HeirPart('notes', tr('নোট'), Icons.description_outlined, trf('{0}টা', [bnDigits(d.notes.length + d.memories.length)]), [
+        for (final n in d.notes) _HeirItem(n.title.isEmpty ? n.body : n.title, sub: n.title.isEmpty ? null : n.body, files: n.files),
+        for (final m in d.memories) _HeirItem(m.text, sub: tr('মনে রাখা কথা')),
+      ]));
+    }
+    if (parts.contains('tasks')) {
+      final items = [
+        for (final t in d.tasks.where((t) => !t.done)) _HeirItem(t.title, sub: t.due == null ? tr('কাজ') : '${tr('কাজ')} · ${fullDate(t.due!)}'),
+        for (final r in d.reminders.where((r) => r.enabled && r.vaultId == null)) _HeirItem(r.title, sub: '${tr('রিমাইন্ডার')} · ${fullDate(r.date)}'),
+        for (final x in d.specialDays) _HeirItem(x.person, sub: tr(x.kind.bn)),
+      ];
+      out.add(_HeirPart('tasks', tr('কাজ ও তারিখ'), Icons.event_note_outlined, trf('{0}টা', [bnDigits(items.length)]), items));
+    }
+    if (parts.contains('contacts')) {
+      final c = d.contacts.toList()..sort((a, b) => a.name.compareTo(b.name));
+      out.add(_HeirPart('contacts', tr('নম্বর'), Icons.contacts_outlined, trf('{0} জন', [bnDigits(c.length)]), [for (final x in c) _HeirItem(x.name, sub: bnDigits(x.phone))]));
+    }
+    if (parts.contains('health')) {
+      out.add(_HeirPart('health', tr('ওষুধ'), Icons.medication_outlined, trf('{0}টা', [bnDigits(d.medicines.length)]), [for (final m in d.medicines) _HeirItem(m.name, sub: m.note.isEmpty ? null : m.note)]));
+    }
+    if (parts.contains('vault')) {
+      out.add(_HeirPart('vault', tr('পাসওয়ার্ড'), Icons.lock_outline_rounded, trf('{0}টা', [bnDigits(d.vault.length)]),
+          [for (final v in d.vault) _HeirItem(v.name, sub: [v.username, v.password].where((s) => s.isNotEmpty).join(' · '))], locked: true));
+    }
+    return out;
+  }
+
+  /// The report's parts for the heir's choice (passwords never go in a PDF).
+  static Set<ReportPart> pdfParts(List<String> parts) => {
+        if (parts.contains('money')) ...{ReportPart.ledger, ReportPart.money, ReportPart.accounts},
+        if (parts.contains('notes')) ReportPart.notes,
+        if (parts.contains('docs')) ReportPart.docs,
+        if (parts.contains('tasks')) ...{ReportPart.tasks, ReportPart.reminders, ReportPart.specialDays},
+        if (parts.contains('contacts')) ReportPart.contacts,
+        if (parts.contains('health')) ReportPart.health,
+      };
+
+  @override
+  Widget build(BuildContext context) => SecureView(child: _secretBuild(context));
+
+  Widget _secretBuild(BuildContext context) {
+    final d = AppData.fromJson(data);
+    final chosen = [for (final p in (data['parts'] as List? ?? const [])) '$p'];
+    final at = DateTime.tryParse('${data['at'] ?? ''}')?.toLocal();
+    final parts = partsOf(d, chosen);
+    final pdf = pdfParts(chosen);
+    return Scaffold(
+      body: SafeArea(
+        child: Column(children: [
+          TopBar(title: title),
+          Expanded(
+            child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 28), children: [
+              if (at != null) Text(trf('{0} পর্যন্ত যা ছিল — শুধু দেখা যায়, বদলানো যায় না', [fullDate(at)]), style: body(13.5, color: C.muted)),
+              const SizedBox(height: 12),
+              Row(children: [
+                if (pdf.isNotEmpty) ...[
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      key: const Key('heir-pdf'),
+                      onPressed: () => exportPdf(context, pdf, data: d, title: title, fileExtra: title, free: true),
+                      icon: const Icon(Icons.picture_as_pdf_outlined),
+                      label: Text(tr('PDF')),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                ],
+                Expanded(
+                  flex: 2,
+                  child: FilledButton.icon(
+                    key: const Key('heir-backup'),
+                    onPressed: () => heirBackup(context, title, data, link),
+                    icon: const Icon(Icons.download_rounded),
+                    label: Text(tr('ব্যাকআপ নিন')),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 16),
+              // At a glance: one tile per part, the list on its own page.
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 1.4,
+                children: [
+                  for (final p in parts)
+                    Material(
+                      color: C.surface,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: C.border)),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        key: Key('heir-part-${p.key}'),
+                        onTap: p.items.isEmpty
+                            ? null
+                            : () async {
+                                if (p.locked && !await verifyUser(context, reason: tr('পাসওয়ার্ড দেখতে যাচাই করুন'))) return;
+                                if (!context.mounted) return;
+                                Navigator.of(context).push(MaterialPageRoute(builder: (_) => _HeirPartPage(part: p, data: data, link: link)));
+                              },
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 12, 10, 10),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Row(children: [
+                              Container(width: 34, height: 34, decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(10)), child: Icon(p.icon, size: 19, color: C.green)),
+                              const Spacer(),
+                              if (p.locked) Icon(Icons.lock_rounded, size: 16, color: C.muted),
+                              if (p.items.isNotEmpty) Icon(Icons.chevron_right_rounded, color: C.muted),
+                            ]),
+                            const Spacer(),
+                            Text(p.title, style: body(14.5, weight: FontWeight.w700)),
+                            Text(p.summary, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted, height: 1.3)),
+                          ]),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+/// One part of an heir's copy: the whole list, searchable when long.
+class _HeirPartPage extends StatefulWidget {
+  const _HeirPartPage({required this.part, required this.data, this.link});
+  final _HeirPart part;
+  final Map<String, dynamic> data;
+  final FamilyLink? link;
+  @override
+  State<_HeirPartPage> createState() => _HeirPartPageState();
+}
+
+class _HeirPartPageState extends State<_HeirPartPage> {
+  String _q = '';
+
+  Widget _files(List<DocFile> files) {
     if (files.isEmpty) return const SizedBox.shrink();
-    final key = '${data['files_key'] ?? ''}';
+    final key = '${widget.data['files_key'] ?? ''}';
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
       child: Wrap(spacing: 6, runSpacing: 6, children: [
@@ -747,9 +936,9 @@ class HeirViewScreen extends StatelessWidget {
             avatar: Icon(f.isImage ? Icons.image_outlined : Icons.insert_drive_file_outlined, size: 18, color: C.green),
             label: Text(f.isImage ? tr('ছবি দেখুন') : f.name, style: body(13)),
             onPressed: () async {
-              final l = link;
+              final l = widget.link;
               final bytes = l == null || key.isEmpty ? null : await BrainScope.read(context).family.openFile(l, f.id, key);
-              if (!context.mounted) return;
+              if (!mounted) return;
               if (bytes == null) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('এখনো আসেনি — তাঁর ফোন Wi-Fi-তে থাকলে পাঠাবে'))));
                 return;
@@ -762,74 +951,42 @@ class HeirViewScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => SecureView(child: _secretBuild(context));
-
-  Widget _secretBuild(BuildContext context) {
-    final d = AppData.fromJson(data);
-    final parts = [for (final p in (data['parts'] as List? ?? const [])) '$p'];
-    final at = DateTime.tryParse('${data['at'] ?? ''}')?.toLocal();
-    Widget section(String head, List<Widget> rows) => rows.isEmpty
-        ? const SizedBox.shrink()
-        : Padding(padding: const EdgeInsets.only(top: 14), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [SectionTitle(head), Panel(child: Rows(children: rows))]));
-    Widget row(String t, [String? sub, String? trail]) =>
-        ListRow(leading: const SizedBox(width: 4), title: t, subtitle: sub, trailing: trail == null ? null : Text(trail, style: body(14.5, weight: FontWeight.w600)));
-    return Scaffold(
-      body: SafeArea(
-        child: Column(children: [
-          TopBar(title: title),
-          Expanded(
-            child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 28), children: [
-              Text(at == null ? '' : trf('{0} পর্যন্ত যা ছিল — শুধু দেখা যায়, বদলানো যায় না', [fullDate(at)]), style: body(13.5, color: C.muted)),
-              // One tap: everything here as a locked backup file (owner, 24 Oct).
-              const SizedBox(height: 10),
-              PrimaryButton(key: const Key('heir-backup'), label: tr('এক চাপে সব ব্যাকআপ নিন'), icon: Icons.download_rounded, onPressed: () => heirBackup(context, title, data, link)),
-              if (parts.contains('money')) ...[
-                section(tr('ধার-দেনা'), [
-                  for (final p in balances(d.ledger))
-                    if (p.balance != 0) row(p.name, p.balance > 0 ? tr('তাঁর কাছে পাওনা') : tr('তাঁকে দিতে হবে'), taka(p.balance.abs())),
-                ]),
-                section(tr('অ্যাকাউন্ট'), [for (final a in d.accounts) row(a.name, tr(a.kind.bn))]),
-                section(tr('সঞ্চয় ও কিস্তি'), [
-                  for (final g in d.goals) row(g.name, tr('সঞ্চয়'), taka(g.saved)),
-                  for (final i in d.installments) row(i.name, tr(i.kind.bn), trf('{0}/{1}', [bnDigits(i.paidCount), bnDigits(i.months)])),
-                ]),
-                section(tr('শেষ আয়-ব্যয়'), [
-                  for (final e in (d.cash.toList()..sort((a, b) => b.date.compareTo(a.date))).take(50))
-                    row(e.category, '${fullDate(e.date)}${e.note.isEmpty ? '' : ' · ${e.note}'}', '${e.kind == CashKind.income ? '+' : '−'}${taka(e.amount)}'),
-                ]),
-              ],
-              if (parts.contains('notes')) ...[
-                section(tr('নোট'), [
-                  for (final n in d.notes)
-                    Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [row(n.title.isEmpty ? n.body : n.title, n.title.isEmpty ? null : n.body), _files(context, n.files)]),
-                ]),
-                section(tr('মনে রাখা কথা'), [for (final m in d.memories) row(m.text)]),
-              ],
-              if (parts.contains('docs'))
-                section(tr('ডকুমেন্ট'), [
-                  for (final x in d.docs)
-                    Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-                      row(x.title, [x.folder, for (final f in x.fields) '${f.label}: ${f.value}'].where((s) => s.isNotEmpty).join(' · ')),
-                      _files(context, x.files),
-                    ]),
-                ]),
-              if (parts.contains('tasks')) ...[
-                section(tr('কাজ'), [for (final t in d.tasks.where((t) => !t.done)) row(t.title, t.due == null ? null : fullDate(t.due!))]),
-                section(tr('রিমাইন্ডার'), [for (final r in d.reminders.where((r) => r.enabled && r.vaultId == null)) row(r.title, fullDate(r.date))]),
-                section(tr('বিশেষ দিন'), [for (final s in d.specialDays) row(s.person, tr(s.kind.bn))]),
-              ],
-              if (parts.contains('contacts')) section(tr('নম্বর'), [for (final c in d.contacts) row(c.name, bnDigits(c.phone))]),
-              if (parts.contains('health')) section(tr('ওষুধ'), [for (final m in d.medicines) row(m.name, m.note)]),
-              if (parts.contains('vault'))
-                section(tr('পাসওয়ার্ড ও ভল্ট'), [
-                  for (final v in d.vault) row(v.name, [v.username, v.password].where((s) => s.isNotEmpty).join(' · '))
-                ]),
-            ]),
-          ),
-        ]),
+  Widget build(BuildContext context) {
+    final p = widget.part;
+    final q = _q.trim().toLowerCase();
+    final shown = q.isEmpty ? p.items : [for (final i in p.items) if ('${i.title} ${i.sub ?? ''}'.toLowerCase().contains(q)) i];
+    return SecureView(
+      child: Scaffold(
+        body: SafeArea(
+          child: Column(children: [
+            TopBar(title: '${p.title} · ${bnDigits(p.items.length)}'),
+            if (p.items.length > 12)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: TextField(
+                  key: const Key('heir-search'),
+                  onChanged: (v) => setState(() => _q = v),
+                  decoration: InputDecoration(hintText: tr('খুঁজুন'), prefixIcon: const Icon(Icons.search_rounded)),
+                ),
+              ),
+            Expanded(
+              child: shown.isEmpty
+                  ? Center(child: Text(tr('কিছু মেলেনি'), style: body(14, color: C.muted)))
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                      itemCount: shown.length,
+                      separatorBuilder: (_, i) => Divider(height: 1, color: C.line2),
+                      itemBuilder: (_, i) {
+                        final it = shown[i];
+                        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+                          ListRow(leading: const SizedBox(width: 2), title: it.title, subtitle: it.sub, trailing: it.trail == null ? null : Text(it.trail!, style: body(14.5, weight: FontWeight.w600))),
+                          _files(it.files),
+                        ]);
+                      },
+                    ),
+            ),
+          ]),
+        ),
       ),
     );
   }
@@ -867,13 +1024,22 @@ class _ClaimDialogState extends State<_ClaimDialog> {
 }
 
 
-/// The heir's copy saved as one locked backup file (.dbrain, opened with
-/// সেটিংস › ব্যাকআপ ফিরিয়ে আনুন and the password chosen here). Photos and
-/// files that have come so far go in it too.
+/// The heir's copy saved as one locked backup file (.dbrain). Owner, 17 Nov:
+/// no password to make up — it is locked with the heir's own Google
+/// account's key (the same as their Drive backup), so signing in with that
+/// account on another phone opens it. Only without that key (not reached
+/// our server yet) is a password asked. Photos and files that have come so
+/// far go in it too. Afterwards: how to open it, step by step.
 Future<void> heirBackup(BuildContext context, String title, Map<String, dynamic> data, FamilyLink? link) async {
   final brain = BrainScope.read(context);
-  final pass = await showDialog<String>(context: context, builder: (_) => const _BackupPassDialog());
-  if (pass == null || !context.mounted) return;
+  final keys = brain.services.lock.keys;
+  final accountKey = (await keys.read('drive_key_server')) == 'true' ? (await keys.read('drive_pw') ?? '') : '';
+  String? pass = accountKey.isEmpty ? null : accountKey;
+  if (pass == null) {
+    if (!context.mounted) return;
+    pass = await showDialog<String>(context: context, builder: (_) => const _BackupPassDialog());
+    if (pass == null || !context.mounted) return;
+  }
   final d = AppData.fromJson(data);
   final key = '${data['files_key'] ?? ''}';
   final files = <String, Uint8List>{};
@@ -888,14 +1054,56 @@ Future<void> heirBackup(BuildContext context, String title, Map<String, dynamic>
       }
     }
   }
-  final bytes = await Backup.export(d, pass, files: files, iterations: Backup.passwordIterations);
+  final bytes = await Backup.export(d, pass, files: files, iterations: accountKey.isEmpty ? Backup.passwordIterations : Backup.defaultIterations);
   final now = brain.services.now();
-  final safe = title.replaceAll(RegExp(r'[^\p{L}\p{N}]+', unicode: true), '-');
+  final safe = title.replaceAll(RegExp(r'[^\p{L}\p{M}\p{N}]+', unicode: true), '-');
   final name = 'my-assistant-$safe-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.dbrain';
   final ok = await brain.services.files.saveFile(bytes, name);
   if (!context.mounted) return;
-  toast(context, !ok ? tr('রাখা হয়নি') : (missing == 0 ? trf('সব ব্যাকআপ সেভ হলো: {0}', [name]) : trf('ব্যাকআপ সেভ হলো: {0} — {1}টা ছবি/ফাইল এখনো আসেনি', [name, bnDigits(missing)])));
+  if (!ok) {
+    toast(context, tr('রাখা হয়নি'));
+    return;
+  }
+  await showHeirBackupHelp(context, name: name, byAccount: accountKey.isNotEmpty, email: brain.googleEmail, missing: missing);
 }
+
+/// How to open an heir's backup: on another phone, never over one's own data.
+Future<void> showHeirBackupHelp(BuildContext context, {required String name, bool byAccount = false, String email = '', int missing = 0}) => showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        Widget step(String n, String t) => Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Container(width: 24, height: 24, alignment: Alignment.center, decoration: BoxDecoration(color: C.greenTint, shape: BoxShape.circle), child: Text(n, style: body(12.5, weight: FontWeight.w700, color: C.green))),
+                const SizedBox(width: 10),
+                Expanded(child: Text(t, style: body(14, height: 1.45))),
+              ]),
+            );
+        return AlertDialog(
+          key: const Key('heir-backup-help'),
+          title: Text(tr('ব্যাকআপ সেভ হলো')),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(trf('ফাইল: {0}', [name]), style: body(12.5, color: C.muted)),
+              if (missing > 0) Padding(padding: const EdgeInsets.only(top: 4), child: Text(trf('{0}টা ছবি/ফাইল এখনো আসেনি — পরে আবার ব্যাকআপ নিন', [bnDigits(missing)]), style: body(12.5, color: C.orange))),
+              const SizedBox(height: 12),
+              Text(tr('কীভাবে খুলবেন'), style: body(15, weight: FontWeight.w700)),
+              step(bnDigits(1), tr('অন্য একটা মোবাইলে My Assistant অ্যাপ ডাউনলোড করুন।')),
+              step(bnDigits(2), !byAccount ? tr('অ্যাপ খুলে এই ফাইলটা সেই মোবাইলে নিন (WhatsApp, Drive বা কেবল দিয়ে)।') : email.isEmpty ? tr('এই ফোনে যে Google অ্যাকাউন্টে লগইন আছেন, সেটা দিয়ে লগইন করুন, আর এই ফাইলটা সেই মোবাইলে নিন।') : trf('{0} দিয়ে Google-এ লগইন করুন, আর এই ফাইলটা সেই মোবাইলে নিন।', [email])),
+              step(bnDigits(3), tr('“আগে ব্যবহার করেছেন?” কার্ড বা আরও › ব্যাকআপ › “ফাইল থেকে ফিরিয়ে আনুন” চেপে ফাইলটা বেছে নিন।')),
+              step(bnDigits(4), !byAccount ? tr('যে পাসওয়ার্ড দিয়েছিলেন, সেটা দিন।') : tr('পাসওয়ার্ড লাগবে না — আপনার অ্যাকাউন্টই চাবি।')),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: C.orangeTint, borderRadius: BorderRadius.circular(10)),
+                child: Text(tr('নিজের ফোনে খুলবেন না — ফিরিয়ে আনলে সেই ফোনের এখনকার সব তথ্যের বদলে এগুলো বসে।'), style: body(13, color: C.ink, height: 1.4)),
+              ),
+            ]),
+          ),
+          actions: [TextButton(key: const Key('heir-backup-help-ok'), onPressed: () => Navigator.pop(ctx), child: Text(tr('বুঝেছি')))],
+        );
+      },
+    );
 
 class _BackupPassDialog extends StatefulWidget {
   const _BackupPassDialog();

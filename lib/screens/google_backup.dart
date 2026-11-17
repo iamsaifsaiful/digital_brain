@@ -432,11 +432,22 @@ Future<void> restoreFromPhoneFile(BuildContext context, {bool fresh = false, voi
   if (!fresh && !await verifyUser(context, reason: tr('ব্যাকআপ ফিরিয়ে আনতে যাচাই করুন'))) return;
   final Uint8List? bytes = await brain.services.files.pickFile();
   if (bytes == null || !context.mounted) return;
-  final pass = await askBackupPassword(context, create: false);
+  // An heir's copy (and the Drive backup) is locked with this Google
+  // account's key: tried first, so no password is asked (owner, 17 Nov).
+  final keys = brain.services.lock.keys;
+  final accountKey = (await keys.read('drive_key_server')) == 'true' ? (await keys.read('drive_pw') ?? '') : '';
+  (AppData, Map<String, Uint8List>)? opened;
+  if (accountKey.isNotEmpty) {
+    try {
+      opened = await Backup.restore(bytes, accountKey);
+    } catch (_) {}
+  }
+  if (!context.mounted) return;
+  final pass = opened != null ? accountKey : await askBackupPassword(context, create: false);
   if (pass == null || !context.mounted) return;
   setBusy(true);
   try {
-    final (restored, files) = await Backup.restore(bytes, pass);
+    final (restored, files) = opened ?? await Backup.restore(bytes, pass);
     if (!context.mounted) return;
     final ok = await confirmDialog(
       context,
