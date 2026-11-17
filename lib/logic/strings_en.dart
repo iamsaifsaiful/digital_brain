@@ -5682,4 +5682,7 @@ const enStrings = <String, String>{
   'নিরাপদে রাখা': 'Kept safe',
   'পরিবার ও স্বাস্থ্য': 'Family and health',
   'যাকাত ও কিবলা': 'Zakat and qibla',
+  'নম্বর দিন': 'Add a number',
+  'শুধু এই ফোনে থাকে। রক্তদানের মতো জায়গায় নিজে বসে যাবে।': 'Kept on this phone only. Filled in for you where it is needed, like blood donation.',
+  'ঠিক মোবাইল নম্বর দিন, যেমন 01712345678': 'Enter a valid mobile number, e.g. 01712345678',
 };

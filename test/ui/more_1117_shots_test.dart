@@ -56,6 +56,18 @@ void main() {
     await t.tap(find.byKey(const Key('more-profile')));
     await settle(t);
     expect(find.byKey(const Key('profile-blood')), findsOneWidget);
+    // The user's own mobile number, kept on the phone (owner, 17 Nov).
+    await t.tap(find.byKey(const Key('profile-phone')));
+    await settle(t);
+    await t.enterText(find.byKey(const Key('profile-phone-field')), '0171234');
+    await t.tap(find.byKey(const Key('profile-phone-save')));
+    await settle(t);
+    expect(find.textContaining('ঠিক মোবাইল নম্বর দিন'), findsOneWidget);
+    await t.enterText(find.byKey(const Key('profile-phone-field')), '০১৭১২-৩৪৫৬৭৮');
+    await t.tap(find.byKey(const Key('profile-phone-save')));
+    await settle(t);
+    expect(rig.brain.userPhone, '01712345678');
+    expect(find.text('০১৭১২-৩৪৫৬৭৮'), findsOneWidget);
     if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/more_1117/3-profile.png'));
     debugDisableShadows = true;
   });

@@ -152,6 +152,9 @@ class ProfileCard extends StatelessWidget {
         Divider(height: 1, color: C.line2),
         row(const Key('profile-name'), Icons.badge_outlined, C.green, tr('নাম'), brain.userName.isEmpty ? tr('নাম দিন') : brain.userName, onName, empty: brain.userName.isEmpty),
         Divider(height: 1, indent: 52, color: C.line2),
+        row(const Key('profile-phone'), Icons.phone_iphone_rounded, C.green, tr('মোবাইল নম্বর'), brain.userPhone.isEmpty ? tr('নম্বর দিন') : bnDigits(brain.userPhone.length == 11 ? '${brain.userPhone.substring(0, 5)}-${brain.userPhone.substring(5)}' : brain.userPhone), () => editUserPhone(context),
+            empty: brain.userPhone.isEmpty),
+        Divider(height: 1, indent: 52, color: C.line2),
         row(const Key('profile-place'), Icons.place_outlined, C.blue, tr('জেলা/শহর'), brain.autoPlace ? trf('{0} · ফোনের লোকেশন অনুযায়ী', [brain.placeLabel]) : brain.placeLabel, onPlace),
         Divider(height: 1, indent: 52, color: C.line2),
         row(const Key('profile-blood'), Icons.bloodtype_outlined, C.rose, tr('রক্তের গ্রুপ'), blood.isEmpty ? tr('রক্তের গ্রুপ দিন') : blood, () => pickBloodGroup(context),
@@ -418,4 +421,49 @@ class PlanBadge extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// The user's own mobile number (owner, 17 Nov): kept on this phone only.
+Future<void> editUserPhone(BuildContext context) async {
+  final brain = BrainScope.read(context);
+  final c = TextEditingController(text: brain.userPhone);
+  String? err;
+  final v = await showDialog<String>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, set) => AlertDialog(
+        title: Text(tr('আপনার মোবাইল নম্বর'), style: body(18, weight: FontWeight.w600)),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          TextField(
+            key: const Key('profile-phone-field'),
+            controller: c,
+            autofocus: true,
+            keyboardType: TextInputType.phone,
+            style: body(16),
+            decoration: InputDecoration(hintText: '01712345678', errorText: err),
+          ),
+          const SizedBox(height: 8),
+          Text(tr('শুধু এই ফোনে থাকে। রক্তদানের মতো জায়গায় নিজে বসে যাবে।'), style: body(12.5, color: C.muted, height: 1.4)),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাদ দিন'))),
+          TextButton(
+            key: const Key('profile-phone-save'),
+            onPressed: () {
+              final d = c.text.trim().replaceAll(RegExp(r'[\s-]'), '').replaceAllMapped(RegExp('[০-৯]'), (m) => '${'০১২৩৪৫৬৭৮৯'.indexOf(m[0]!)}');
+              if (d.isNotEmpty && !RegExp(r'^(\+?880|0)1[3-9]\d{8}$').hasMatch(d)) {
+                set(() => err = tr('ঠিক মোবাইল নম্বর দিন, যেমন 01712345678'));
+                return;
+              }
+              Navigator.pop(ctx, d);
+            },
+            child: Text(tr('রাখুন'), style: body(15, weight: FontWeight.w600, color: C.green)),
+          ),
+        ],
+      ),
+    ),
+  );
+  // Not disposed here: the dialog's closing animation still draws the box.
+  if (v != null) await brain.setUserPhone(v);
 }

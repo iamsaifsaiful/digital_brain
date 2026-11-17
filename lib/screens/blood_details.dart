@@ -24,7 +24,8 @@ class _BloodDetails extends StatefulWidget {
 
 class _BloodDetailsState extends State<_BloodDetails> {
   late final Brain brain = BrainScope.read(context);
-  late final _phone = TextEditingController(text: brain.text('blood_phone'));
+  // The profile's own number fills it in when none was given here (owner, 17 Nov).
+  late final _phone = TextEditingController(text: brain.text('blood_phone').isNotEmpty ? brain.text('blood_phone') : brain.userPhone);
   late DateTime? _last = DateTime.tryParse(brain.text('blood_last'));
   late bool _unknown = _last == null && brain.flag('blood_last_unknown');
   String? _error;

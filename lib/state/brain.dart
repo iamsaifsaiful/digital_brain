@@ -1196,6 +1196,16 @@ class Brain extends ChangeNotifier {
   /// The place for sunrise, sunset and prayer times (see `bdPlaces`).
   String district = 'ঢাকা';
 
+  /// The user's own mobile number (owner, 17 Nov), kept on this phone only;
+  /// filled in for them where a number is asked (blood donation).
+  String userPhone = '';
+
+  Future<void> setUserPhone(String v) async {
+    userPhone = v.replaceAll(RegExp(r'[^0-9+]'), '');
+    await services.lock.keys.write('user_phone', userPhone);
+    notifyListeners();
+  }
+
   Future<void> setUserName(String v) async {
     userName = v.trim();
     askUserName = userName;
@@ -2433,6 +2443,7 @@ class Brain extends ChangeNotifier {
       services.ai.quality = AiQuality.fast;
       aiShareData = (await services.lock.keys.read('ai_share_data')) != 'false';
       userName = await services.lock.keys.read('user_name') ?? '';
+      userPhone = await services.lock.keys.read('user_phone') ?? '';
       askUserName = userName;
       district = await services.lock.keys.read('district') ?? 'ঢাকা';
       askPlace = district;
