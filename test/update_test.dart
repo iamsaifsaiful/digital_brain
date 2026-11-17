@@ -180,7 +180,7 @@ void main() {
     // Help and contact are last in আরও (owner, 2 Nov).
     await t.scrollUntilVisible(find.byKey(const Key('more-feedback')), 300, scrollable: list);
     expect(find.byKey(const Key('more-feedback')), findsOneWidget);
-    await t.scrollUntilVisible(find.byKey(const Key('tool-pro')), -300, scrollable: list);
+    await t.scrollUntilVisible(find.byKey(const Key('more-why-pro')), -300, scrollable: list);
     // Blood donation has its own page now (no donor switch here).
     await t.scrollUntilVisible(find.text('তালা ও নিরাপত্তা'), 200, scrollable: list);
     expect(find.text('আমি রক্ত দিতে আগ্রহী'), findsNothing);
@@ -348,7 +348,7 @@ void main() {
     await t.tap(find.text('আরও').last);
     await settle(t);
     expect(find.byKey(const Key('tool-blood')), findsOneWidget);
-    expect(find.byKey(const Key('tool-pro')), findsOneWidget);
+    expect(find.byKey(const Key('more-why-pro')), findsOneWidget);
     expect(find.byKey(const Key('tool-zakat')), findsOneWidget);
     expect(find.byKey(const Key('tool-family')), findsOneWidget);
     // Help and contact are last in আরও (owner, 2 Nov).
