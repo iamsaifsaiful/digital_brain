@@ -1483,7 +1483,6 @@ class _CashFormScreenState extends State<CashFormScreen> {
 
   /// All the খাত, not only the first eight; or a new one typed.
   bool _allCats = false;
-  bool _typeCat = false;
 
   @override
   void dispose() {
@@ -1527,6 +1526,40 @@ class _CashFormScreenState extends State<CashFormScreen> {
     if (!ok) return;
     await brain.deleteCash(widget.entry!.id);
     if (mounted) Navigator.of(context).pop();
+  }
+
+  /// "+ নতুন খাত" (owner, 18 Nov): a box on top of the form, not a field
+  /// that opens further down where it was missed.
+  Future<void> _newCategory() async {
+    final known = _category.text.trim();
+    final c = TextEditingController(text: known);
+    final v = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        void ok() => Navigator.pop(ctx, c.text.trim());
+        return AlertDialog(
+          key: const Key('cash-cat-dialog'),
+          title: Text(tr('নতুন খাত'), style: display(20)),
+          content: TextField(
+            key: const Key('cash-cat-field'),
+            autofocus: true,
+            controller: c,
+            textCapitalization: TextCapitalization.sentences,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => ok(),
+            decoration: InputDecoration(labelText: tr('খাতের নাম'), hintText: tr('যেমন: বাজার, ভাড়া, বেতন')),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
+            FilledButton(key: const Key('cash-cat-ok'), onPressed: ok, child: Text(tr('রাখুন'))),
+          ],
+        );
+      },
+    );
+    // The box's field is still on screen while the dialog fades out, so the
+    // controller is left to the garbage collector.
+    if (v == null || v.isEmpty || !mounted) return;
+    setState(() => _category.text = v);
   }
 
   @override
@@ -1588,7 +1621,7 @@ class _CashFormScreenState extends State<CashFormScreen> {
                     Expanded(child: Text(tr('খাত'), style: body(14, weight: FontWeight.w700))),
                     TextButton(
                       key: const Key('cash-cat-new'),
-                      onPressed: () => setState(() => _typeCat = !_typeCat),
+                      onPressed: _newCategory,
                       child: Text(tr('+ নতুন খাত')),
                     ),
                   ]),
@@ -1602,10 +1635,7 @@ class _CashFormScreenState extends State<CashFormScreen> {
                         InkWell(
                           key: Key('cash-pick-$c'),
                           borderRadius: BorderRadius.circular(12),
-                          onTap: () => setState(() {
-                            _category.text = c;
-                            _typeCat = false;
-                          }),
+                          onTap: () => setState(() => _category.text = c),
                           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                             CatIcon(c, size: 44, filled: _category.text.trim() == c),
                             const SizedBox(height: 5),
@@ -1630,10 +1660,20 @@ class _CashFormScreenState extends State<CashFormScreen> {
                         ),
                     ],
                   ),
-                  if (_typeCat || (_category.text.trim().isNotEmpty && !cats.take(_allCats ? 16 : 8).contains(_category.text.trim())))
+                  // A খাত of the user's own: shown picked, a tap changes it in the box.
+                  if (_category.text.trim().isNotEmpty && !cats.take(_allCats ? 16 : 8).contains(_category.text.trim()))
                     Padding(
                       padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
-                      child: TextField(textCapitalization: TextCapitalization.sentences, controller: _category, onChanged: (_) => setState(() {}), decoration: InputDecoration(labelText: tr('খাত (যেমন: বাজার, ভাড়া, বেতন)'))),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: InputChip(
+                          key: const Key('cash-cat-own'),
+                          selected: true,
+                          showCheckmark: true,
+                          label: Text(_category.text.trim(), style: body(14, weight: FontWeight.w600)),
+                          onPressed: _newCategory,
+                        ),
+                      ),
                     ),
                 ]),
               ),

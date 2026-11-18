@@ -59,7 +59,8 @@ class NoticeScreen extends StatefulWidget {
 }
 
 class _NoticeScreenState extends State<NoticeScreen> {
-  int _tab = 0;
+  /// Owner, 18 Nov: what already came first, what is coming on the next tab.
+  int _tab = 1;
   List<PushRecord> _pushes = const [];
 
   @override
@@ -199,7 +200,7 @@ class _NoticeScreenState extends State<NoticeScreen> {
           // Swiped like the other pages' tabs.
           Expanded(
             child: TabPages<int>(
-              items: [(0, trf('আসছে ({0})', [bnDigits(coming.length)])), (1, tr('আগে এসেছে'))],
+              items: [(1, tr('আগে এসেছে')), (0, trf('আসছে ({0})', [bnDigits(coming.length)]))],
               value: _tab,
               onChanged: (v) => setState(() => _tab = v),
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),

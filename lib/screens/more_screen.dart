@@ -502,6 +502,15 @@ class _MoreScreenState extends State<MoreScreen> {
         // are for, then settings, your data, help and the app itself.
         TabTitle(tr('আরও')),
         const SizedBox(height: 12),
+        // Owner, 18 Nov: the profile lower down, with the place and the
+        // blood group shown properly; a missing backup still warns on top.
+        if ((last == null || backupOld) && !brain.driveOn) ...[
+          _BackupWarn(text: last == null ? tr('ব্যাকআপ নেই — ফোন হারালে সব হারাবে') : trf('শেষ ব্যাকআপ {0}', [daysLeftLabel(last, now)]), onTap: () => push(const BackupScreen())),
+          const SizedBox(height: 12),
+        ],
+        const _PremiumCard(),
+        const _GroupedTools(),
+        SectionTitle(tr('আপনি')),
         _MeCard(
           onProfile: () => push(_ProfilePage(onName: _setName, onPlace: _setDistrict)),
           backup: brain.driveOn
@@ -510,9 +519,6 @@ class _MoreScreenState extends State<MoreScreen> {
           backupWarn: (last == null || backupOld) && !brain.driveOn,
           onBackup: () => push(const BackupScreen()),
         ),
-        const SizedBox(height: 12),
-        const _PremiumCard(),
-        const _GroupedTools(),
         SectionTitle(tr('সেটিংস')),
         Panel(
           child: Rows(children: [
@@ -537,7 +543,8 @@ class _MoreScreenState extends State<MoreScreen> {
             setRow(const Key('more-set-safety'), Icons.shield_outlined, C.teal, C.tealTint, tr('তালা ও নিরাপত্তা'), tr('PIN, আঙুলের ছাপ, নিজে থেকে লক'), 'safety'),
           ]),
         ),
-        SectionTitle(tr('আপনার তথ্য')),
+        // Owner, 18 Nov: these take the data out (and back from the bin) — not "your data".
+        SectionTitle(tr('তথ্য এক্সপোর্ট ও রিসাইকেল বিন')),
         Row(children: [
           Expanded(child: _MiniTile(key: const Key('more-pdf'), icon: Icons.picture_as_pdf_outlined, label: tr('সব PDF-এ'), badge: brain.has(ProFeature.pdf) ? null : const ProMark(), onTap: () => exportEverything(context))),
           const SizedBox(width: 10),
@@ -556,7 +563,6 @@ class _MoreScreenState extends State<MoreScreen> {
           child: Rows(children: [
             // Owner, 17 Nov: WhatsApp support; the number is set on the website (none in the app).
             if (brain.supportWhatsapp.isNotEmpty) SupportWhatsapp(number: brain.supportWhatsapp),
-            linkRow(Icons.lightbulb_outline_rounded, tr('কী কী করা যায়'), sub: tr('সব সুবিধা, মাইকে কী বলবেন'), onTap: () => push(const HelpScreen())),
             ListRow(
               key: const Key('more-feedback'),
               leading: Badge(
@@ -574,6 +580,8 @@ class _MoreScreenState extends State<MoreScreen> {
         SectionTitle(tr('অ্যাপ সম্পর্কে')),
         Panel(
           child: Rows(children: [
+            // Owner, 18 Nov: what the app has belongs with the app, not with help.
+            linkRow(Icons.lightbulb_outline_rounded, tr('কী কী করা যায়'), key: const Key('more-help'), sub: tr('সব সুবিধা, মাইকে কী বলবেন'), onTap: () => push(const HelpScreen())),
             // Owner, 17 Nov: how the app understands speech is not a setting.
             linkRow(Icons.psychology_outlined, tr('কথা বোঝা'),
                 key: const Key('more-set-model'),
@@ -1100,21 +1108,31 @@ class _MeCard extends StatelessWidget {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(17)),
           onTap: onProfile,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 10, 10),
-            child: Row(children: [
-              const UserPhoto(size: 52),
-              const SizedBox(width: 12),
+            padding: const EdgeInsets.fromLTRB(14, 16, 10, 12),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+              // Owner, 18 Nov: Premium or free under the photo; the date on its own line.
+              Column(mainAxisSize: MainAxisSize.min, children: [
+                const UserPhoto(size: 60),
+                if (brain.gated) ...[const SizedBox(height: 6), const _PlanTag()],
+              ]),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(brain.userName.isEmpty ? tr('আপনার নাম দিন') : brain.userName, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(19, weight: 700, color: brain.userName.isEmpty ? C.muted : C.ink)),
-                  Text([brain.placeLabel, blood.isEmpty ? tr('রক্তের গ্রুপ দিন') : trf('রক্ত {0}', [blood])].where((x) => x.isNotEmpty).join(' · '),
-                      maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, color: C.muted)),
+                  Text(brain.userName.isEmpty ? tr('আপনার নাম দিন') : brain.userName, maxLines: 2, overflow: TextOverflow.ellipsis, style: display(19, weight: 700, color: brain.userName.isEmpty ? C.muted : C.ink)),
+                  if (brain.gated) ...[const SizedBox(height: 4), const _PlanLine()],
                 ]),
               ),
-              if (brain.gated) const PlanBadge(),
               Icon(Icons.chevron_right_rounded, color: C.muted),
             ]),
           ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+          child: Row(children: [
+            _Fact(key: const Key('more-place'), icon: Icons.location_on_outlined, fg: C.blue, bg: C.blueTint, label: tr('লোকেশন'), value: brain.placeLabel.isEmpty ? tr('জেলা দিন') : brain.placeLabel, empty: brain.placeLabel.isEmpty, onTap: onProfile),
+            const SizedBox(width: 8),
+            _Fact(key: const Key('more-blood'), icon: Icons.water_drop_outlined, fg: C.red, bg: C.roseTint, label: tr('রক্তের গ্রুপ'), value: blood.isEmpty ? tr('দিন') : blood, empty: blood.isEmpty, onTap: onProfile),
+          ]),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -1145,6 +1163,134 @@ class _MeCard extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// "প্রিমিয়াম", "ট্রায়াল" or "ফ্রি" under the photo; a tap opens Premium.
+class _PlanTag extends StatelessWidget {
+  const _PlanTag();
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final pro = brain.pro;
+    final label = !pro ? tr('ফ্রি') : (brain.proKind == 'trial' ? tr('ট্রায়াল') : tr('প্রিমিয়াম'));
+    final fg = pro ? C.ochre : C.muted2;
+    return Material(
+      color: pro ? C.ochreTint : C.chip,
+      shape: StadiumBorder(side: BorderSide(color: fg.withValues(alpha: 0.35))),
+      child: InkWell(
+        key: const Key('plan-badge'),
+        customBorder: const StadiumBorder(),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProScreen())),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (pro) ...[Icon(Icons.workspace_premium_rounded, size: 13, color: fg), const SizedBox(width: 3)],
+            Text(label, style: body(11.5, weight: FontWeight.w700, color: fg)),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// Under the name: how long Premium lasts ("মেয়াদ ৬ নভেম্বর ২০২৭ · আর ৩৫৩ দিন"),
+/// or, when free, what Premium adds.
+class _PlanLine extends StatelessWidget {
+  const _PlanLine();
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final until = brain.proUntil;
+    final now = brain.services.now();
+    final String text;
+    String? left;
+    if (!brain.pro) {
+      text = tr('ফ্রি প্ল্যান · বিজ্ঞাপনসহ');
+    } else if (until == null) {
+      text = tr('প্রিমিয়াম চালু');
+    } else {
+      final days = DateTime(until.year, until.month, until.day).difference(DateTime(now.year, now.month, now.day)).inDays;
+      text = trf('মেয়াদ {0} পর্যন্ত', [fullDate(until)]);
+      left = trf('আর {0} দিন বাকি', [bnDigits(days)]);
+    }
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(padding: const EdgeInsets.only(top: 2), child: Icon(brain.pro ? Icons.event_available_outlined : Icons.info_outline_rounded, size: 15, color: C.muted)),
+      const SizedBox(width: 5),
+      Expanded(
+        child: Column(key: const Key('more-plan-line'), crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted)),
+          if (left != null) Text(left, style: body(12, weight: FontWeight.w600, color: C.ochre)),
+        ]),
+      ),
+    ]);
+  }
+}
+
+/// One fact about the user in the profile card: the place or the blood group.
+class _Fact extends StatelessWidget {
+  const _Fact({super.key, required this.icon, required this.fg, required this.bg, required this.label, required this.value, required this.empty, required this.onTap});
+  final IconData icon;
+  final Color fg;
+  final Color bg;
+  final String label;
+  final String value;
+  final bool empty;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+        child: Material(
+          color: C.surface2,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+              child: Row(children: [
+                Container(width: 36, height: 36, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(11)), child: Icon(icon, size: 20, color: fg)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: C.muted)),
+                    Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15.5, weight: FontWeight.w700, color: empty ? C.muted2 : C.ink)),
+                  ]),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      );
+}
+
+/// A missing or old backup, on top of আরও (the profile card is lower down).
+class _BackupWarn extends StatelessWidget {
+  const _BackupWarn({required this.text, required this.onTap});
+  final String text;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: C.orangeTint,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          key: const Key('more-backup-warn'),
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+            child: Row(children: [
+              Icon(Icons.cloud_off_outlined, color: C.orange, size: 20),
+              const SizedBox(width: 10),
+              Expanded(child: Text(text, style: body(13.5, weight: FontWeight.w600, color: C.orange))),
+              Text(tr('এখন নিন'), style: body(13.5, weight: FontWeight.w700, color: C.orange)),
+              Icon(Icons.chevron_right_rounded, color: C.orange),
+            ]),
+          ),
+        ),
+      );
 }
 
 /// Premium as one card that stands out (flat colour, no gradient): three

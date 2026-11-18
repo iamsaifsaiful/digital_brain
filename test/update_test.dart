@@ -157,7 +157,9 @@ void main() {
     final rig = await start(t);
     rig.brain.gated = true;
     await openMenu(t, 'সেটিংস');
-    // The profile is one row at the top of আরও; its page has the rows (owner, 17 Nov).
+    // The profile is one card in আরও (below the features since 18 Nov); its page has the rows.
+    await t.scrollUntilVisible(find.byKey(const Key('more-profile')), 300, scrollable: find.descendant(of: find.byKey(const PageStorageKey('more-list')), matching: find.byType(Scrollable)).first);
+    await settle(t);
     await t.tap(find.byKey(const Key('more-profile')));
     await settle(t);
     for (final k in ['profile-name', 'profile-place', 'profile-blood']) {
