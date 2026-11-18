@@ -475,7 +475,7 @@ echo "\nপূর্বের হিসাব\n";
 $due0 = rh_customer_due('c1');
 $owed0 = rh_agent_owed('ag1');
 $hand0 = rh_cash_in_hand($ownerId);
-$op = fn($id, $kind, $extra) => ['id' => $id, 'at' => '2026-10-30T23:59:00.000', 'kind' => $kind, 'customerId' => '', 'agentId' => '', 'handBy' => 0, 'handByName' => '', 'sar' => 0, 'taka' => 0, 'note' => 'পুরনো খাতা'] + $extra;
+$op = fn($id, $kind, $extra) => $extra + ['id' => $id, 'at' => '2026-10-30T23:59:00.000', 'kind' => $kind, 'customerId' => '', 'agentId' => '', 'handBy' => 0, 'handByName' => '', 'sar' => 0, 'taka' => 0, 'note' => 'পুরনো খাতা'];
 [, $d] = call('POST', '/push', ['records' => [
     ['kind' => 'opening', 'rid' => 'o1', 'data' => $op('o1', 'customer', ['customerId' => 'c1', 'sar' => 450])],
     ['kind' => 'opening', 'rid' => 'o2', 'data' => $op('o2', 'agent', ['agentId' => 'ag1', 'taka' => 12500])],
