@@ -282,6 +282,17 @@ class Brain extends ChangeNotifier {
   bool get trialOver => gated && !paidPro && trialEnds != null && !services.now().isBefore(trialEnds!);
 
   bool get pro => !gated || paidPro || onTrial;
+
+  /// The seven days have not been taken yet on this phone (owner, 18 Nov).
+  bool get canStartTrial => gated && !paidPro && trialStart == null;
+
+  /// "৭ দিন ফ্রি ট্রায়াল নিন": starts the trial now, once.
+  Future<void> startTrial() async {
+    if (!canStartTrial) return;
+    trialStart = services.now();
+    await services.lock.keys.write('trial_start', trialStart!.toIso8601String());
+    notifyListeners();
+  }
   bool get showAds => gated && !pro;
 
   /// The preview draws sample ad spaces (real ads need AdMob).
@@ -553,13 +564,9 @@ class Brain extends ChangeNotifier {
         await keys.delete('pro_until');
         await keys.delete('pro_kind');
       }
-      // The trial starts the first time this version (or a later one) opens —
-      // members from before get their seven days too, once.
+      // Owner, 18 Nov: no trial on its own — the user starts the seven days
+      // from the Premium page when they want, once (startTrial).
       trialStart = DateTime.tryParse(await keys.read('trial_start') ?? '');
-      if (trialStart == null) {
-        trialStart = services.now();
-        await keys.write('trial_start', trialStart!.toIso8601String());
-      }
       firstUse = DateTime.tryParse(await keys.read('first_use') ?? '');
       if (firstUse == null) {
         firstUse = services.now();

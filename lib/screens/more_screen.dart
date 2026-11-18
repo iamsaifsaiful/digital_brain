@@ -502,15 +502,7 @@ class _MoreScreenState extends State<MoreScreen> {
         // are for, then settings, your data, help and the app itself.
         TabTitle(tr('আরও')),
         const SizedBox(height: 12),
-        // Owner, 18 Nov: the profile lower down, with the place and the
-        // blood group shown properly; a missing backup still warns on top.
-        if ((last == null || backupOld) && !brain.driveOn) ...[
-          _BackupWarn(text: last == null ? tr('ব্যাকআপ নেই — ফোন হারালে সব হারাবে') : trf('শেষ ব্যাকআপ {0}', [daysLeftLabel(last, now)]), onTap: () => push(const BackupScreen())),
-          const SizedBox(height: 12),
-        ],
-        const _PremiumCard(),
-        const _GroupedTools(),
-        SectionTitle(tr('আপনি')),
+        // Owner, 18 Nov (after trying it): the profile first again, as before.
         _MeCard(
           onProfile: () => push(_ProfilePage(onName: _setName, onPlace: _setDistrict)),
           backup: brain.driveOn
@@ -519,6 +511,9 @@ class _MoreScreenState extends State<MoreScreen> {
           backupWarn: (last == null || backupOld) && !brain.driveOn,
           onBackup: () => push(const BackupScreen()),
         ),
+        const SizedBox(height: 12),
+        const _PremiumCard(),
+        const _GroupedTools(),
         SectionTitle(tr('সেটিংস')),
         Panel(
           child: Rows(children: [
@@ -1260,34 +1255,6 @@ class _Fact extends StatelessWidget {
                 ),
               ]),
             ),
-          ),
-        ),
-      );
-}
-
-/// A missing or old backup, on top of আরও (the profile card is lower down).
-class _BackupWarn extends StatelessWidget {
-  const _BackupWarn({required this.text, required this.onTap});
-  final String text;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Material(
-        color: C.orangeTint,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          key: const Key('more-backup-warn'),
-          borderRadius: BorderRadius.circular(14),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-            child: Row(children: [
-              Icon(Icons.cloud_off_outlined, color: C.orange, size: 20),
-              const SizedBox(width: 10),
-              Expanded(child: Text(text, style: body(13.5, weight: FontWeight.w600, color: C.orange))),
-              Text(tr('এখন নিন'), style: body(13.5, weight: FontWeight.w700, color: C.orange)),
-              Icon(Icons.chevron_right_rounded, color: C.orange),
-            ]),
           ),
         ),
       );

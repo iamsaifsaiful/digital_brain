@@ -30,7 +30,7 @@ void main() {
       expect(find.descendant(of: grid, matching: find.byKey(Key('tool-$k'))), findsNothing, reason: k);
     }
     double y(String key) => t.getTopLeft(find.byKey(Key(key))).dy;
-    final order = ['more-why-pro', 'more-tools', 'more-profile', 'more-place', 'more-backup-chip', 'more-set-look', 'more-set-backup', 'more-set-safety', 'more-pdf', 'more-whatsapp', 'more-feedback', 'more-help', 'more-set-model', 'more-version'];
+    final order = ['more-profile', 'more-place', 'more-backup-chip', 'more-why-pro', 'more-tools', 'more-set-look', 'more-set-backup', 'more-set-safety', 'more-pdf', 'more-whatsapp', 'more-feedback', 'more-help', 'more-set-model', 'more-version'];
     for (var i = 1; i < order.length; i++) {
       expect(y(order[i - 1]), lessThan(y(order[i])), reason: '${order[i - 1]} before ${order[i]}');
     }
@@ -52,7 +52,7 @@ void main() {
     await t.tap(find.byTooltip('ফিরে যান').first);
     await settle(t);
     // The profile: one row, its page has name, place and blood group.
-    await t.ensureVisible(find.byKey(const Key('more-profile')));
+    await t.scrollUntilVisible(find.byKey(const Key('more-profile')), -300, scrollable: list);
     await settle(t);
     await t.tap(find.byKey(const Key('more-profile')));
     await settle(t);

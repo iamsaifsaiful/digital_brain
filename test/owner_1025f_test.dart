@@ -5,7 +5,6 @@ import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/screens/health_screens.dart' show MedicinesScreen;
 import 'package:digital_brain/screens/home_shell.dart';
 import 'package:digital_brain/state/brain.dart' show BrainMore, BrainHealth;
-import 'package:digital_brain/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -22,14 +21,12 @@ void main() {
     await settle(t);
 
     bool on(Key k) => t.widget<Semantics>(find.descendant(of: find.byKey(k), matching: find.byType(Semantics)).first).properties.selected ?? false;
-    Color fill(Key k) => t.widget<Material>(find.descendant(of: find.byKey(k), matching: find.byType(Material)).first).color!;
 
-    // Default: twice a day, 9 and 21.
+    // Default: twice a day, 9 and 21 — the chosen times only, as a short list (owner, 18 Nov).
     expect(on(const Key('med-per-2')), isTrue);
     expect(on(const Key('med-per-3')), isFalse);
-    expect(on(Key('med-time-${9 * 60}')), isTrue);
-    expect(fill(Key('med-time-${9 * 60}')), C.green);
-    expect(fill(Key('med-time-${8 * 60}')), isNot(C.green));
+    expect(find.byKey(Key('med-time-${9 * 60}')), findsOneWidget);
+    expect(find.byKey(Key('med-time-${8 * 60}')), findsNothing);
     expect(find.byType(InputChip), findsNothing, reason: 'no crosses');
 
     // 3 a day: the pill stays selected and the times change with it.
@@ -38,16 +35,9 @@ void main() {
     expect(on(const Key('med-per-3')), isTrue);
     expect(on(const Key('med-per-2')), isFalse);
     for (final m in [8 * 60, 14 * 60, 22 * 60]) {
-      expect(on(Key('med-time-$m')), isTrue, reason: '$m');
+      expect(find.byKey(Key('med-time-$m')), findsOneWidget, reason: '$m');
     }
-    expect(on(Key('med-time-${9 * 60}')), isFalse);
-
-    // Tapping a time toggles its colour; the count follows.
-    await t.ensureVisible(find.byKey(Key('med-time-${14 * 60}')));
-    await t.tap(find.byKey(Key('med-time-${14 * 60}')));
-    await settle(t);
-    expect(fill(Key('med-time-${14 * 60}')), isNot(C.green));
-    expect(on(const Key('med-per-2')), isTrue);
+    expect(find.byKey(Key('med-time-${9 * 60}')), findsNothing);
 
     // Whose: me by default, আম্মা picked right here.
     expect(on(const Key('med-who-me')), isTrue);
@@ -63,7 +53,7 @@ void main() {
     await settle(t);
     final m = b.data.medicines.single;
     expect(m.member, 'amma');
-    expect(m.times, [8 * 60, 22 * 60]);
+    expect(m.times, [8 * 60, 14 * 60, 22 * 60]);
     expect(b.data.reminders.where((r) => m.reminderIds.contains(r.id)).map((r) => r.title).toSet(), {'আম্মা-এর ওষুধ: মেটফরমিন'});
 
     // Changed back to me when edited.

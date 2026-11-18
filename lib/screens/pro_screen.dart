@@ -113,10 +113,26 @@ class _ProScreenState extends State<ProScreen> {
                   }
                 : brain.trialOver
                     ? tr('৭ দিনের ফ্রি ট্রায়াল শেষ। এই কয়দিনে যা রেখেছেন সব আছে, দেখা যাবে; প্রিমিয়ামের সুবিধাগুলো আবার পেতে প্রিমিয়াম নিন।')
-                    : null;
+                    : brain.canStartTrial
+                        ? tr('চাইলে ৭ দিন বিনা খরচে সব প্রিমিয়াম সুবিধা চালিয়ে দেখুন। কোনো টাকা লাগবে না, পরে নিজে থেকে কিছু কাটবে না।')
+                        : null;
 
     final playSells = playEdition && sell;
     Widget getPro() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          // Owner, 18 Nov: the trial only when the user asks for it, once.
+          if (sell && brain.canStartTrial) ...[
+            OutlinedButton.icon(
+              key: const Key('start-trial'),
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52), side: BorderSide(color: C.green, width: 1.5)),
+              onPressed: () async {
+                await brain.startTrial();
+                if (context.mounted) toast(context, trf('৭ দিনের ফ্রি ট্রায়াল চালু — {0} পর্যন্ত', [fullDate(brain.trialEnds!)]));
+              },
+              icon: Icon(Icons.card_giftcard_rounded, color: C.green),
+              label: Text(tr('৭ দিন ফ্রি ট্রায়াল নিন'), style: body(16, weight: FontWeight.w700, color: C.green)),
+            ),
+            const SizedBox(height: 10),
+          ],
           if (playSells) ...[
             if (!brain.pro || brain.proKind == Brain.playPending || brain.onTrial)
               PrimaryButton(

@@ -8,6 +8,7 @@ import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/state/brain.dart' show BrainMore;
 import 'package:digital_brain/screens/money_screens.dart' show CashFormScreen;
 import 'package:digital_brain/screens/notice_screen.dart';
+import 'package:digital_brain/screens/pro_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -21,7 +22,7 @@ Future<void> shot(WidgetTester t, String name) async {
 }
 
 void main() {
-  testWidgets('আরও: the profile below the features, place and blood group shown', (t) async {
+  testWidgets('আরও: the profile first (as before), plan under the photo, place and blood group shown', (t) async {
     final rig = await rig0(t);
     rig.brain.gated = true;
     await rig.brain.saveEmergency(rig.brain.data.emergency.copyWith(blood: 'B+'));
@@ -29,7 +30,7 @@ void main() {
     await t.tap(find.text('আরও').last);
     await settle(t);
     double y(String k) => t.getTopLeft(find.byKey(Key(k))).dy;
-    expect(y('more-tools'), lessThan(y('more-profile')));
+    expect(y('more-profile'), lessThan(y('more-tools')));
     expect(find.descendant(of: find.byKey(const Key('more-blood')), matching: find.text('B+')), findsOneWidget);
     expect(find.descendant(of: find.byKey(const Key('more-place')), matching: find.text('লোকেশন')), findsOneWidget);
     expect(y('more-feedback'), lessThan(y('more-help')));
@@ -78,6 +79,23 @@ void main() {
     await t.tap(find.text('রাখুন').last);
     await settle(t);
     expect(rig.brain.data.cash.any((e) => e.category == 'গাছের যত্ন' && e.amount == 500), isTrue);
+    debugDisableShadows = true;
+  });
+
+  testWidgets('Premium: no trial on its own, the user starts the seven days (owner, 18 Nov)', (t) async {
+    final rig = await rig0(t);
+    rig.brain.gated = true;
+    rig.brain.trialStart = null;
+    Navigator.of(t.element(find.byTooltip('বলুন'))).push(MaterialPageRoute(builder: (_) => const ProScreen()));
+    await settle(t);
+    expect(rig.brain.pro, isFalse);
+    expect(find.byKey(const Key('start-trial')), findsOneWidget);
+    await shot(t, '5-pro-trial');
+    await t.tap(find.byKey(const Key('start-trial')));
+    await settle(t);
+    expect(rig.brain.onTrial, isTrue);
+    expect(find.byKey(const Key('start-trial')), findsNothing);
+    await shot(t, '6-pro-trial-on');
     debugDisableShadows = true;
   });
 }

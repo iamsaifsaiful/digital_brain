@@ -128,9 +128,9 @@ void main() {
     // Owner, 17 Nov: the times before food, then special instructions.
     expect(y('ওষুধের নাম'), lessThan(y('দিনে কয়বার')));
     expect(y('দিনে কয়বার'), lessThan(y('খাবারের আগে না পরে')));
-    for (final part in ['সকাল', 'দুপুর', 'বিকাল', 'রাত', 'অন্য সময়']) {
-      expect(find.text(part, skipOffstage: false), findsOneWidget, reason: part);
-    }
+    // Owner, 18 Nov: only the chosen times, as a short list, and one more if wanted.
+    expect(find.byKey(Key('med-time-${9 * 60}'), skipOffstage: false), findsOneWidget);
+    expect(find.byKey(const Key('med-time-other'), skipOffstage: false), findsOneWidget);
     await t.enterText(find.byKey(const Key('med-name')), 'সেকলো');
     FocusManager.instance.primaryFocus?.unfocus();
     await settle(t);
