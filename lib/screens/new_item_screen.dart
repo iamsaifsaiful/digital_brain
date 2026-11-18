@@ -12,6 +12,9 @@ import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/early_picker.dart';
 import '../ui/forms.dart';
+import '../ui/med_search.dart';
+import '../ui/medicine_times.dart';
+import '../logic/medicine_catalog.dart';
 import '../ui/note_parts.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
@@ -113,7 +116,32 @@ class _NewItemScreenState extends State<NewItemScreen> {
   /// A medicine reminder (owner, 13 Nov): the medicine's name and the times
   /// of day it is taken, each a daily reminder. No medical record is kept.
   late bool _med = widget.medicine;
-  final Set<int> _medTimes = {8 * 60, 21 * 60};
+  List<int> _medTimes = [9 * 60, 21 * 60];
+
+  /// The new medicine form in the Play app too (owner, 18 Nov: "এটা তো
+  /// চিকিৎসা না, ওষুধের রিমাইন্ডার"): for whom, the name with a live search,
+  /// why — in the user's own words, never the app's — when, before or after
+  /// food, special instructions; how many each time folded under আরও.
+  String _medWho = FamilyMember.meId;
+  String _medMeal = '';
+  int _medDose = 1;
+  final _medWhy = TextEditingController();
+  final _medFocus = FocusNode();
+  MedInfo? _medPicked;
+
+  List<MedInfo> get _medHits {
+    if (_medPicked != null || !_medFocus.hasFocus) return const [];
+    final h = searchMedicines(_a.text);
+    return h.length == 1 && medicineNamed(_a.text) == h.first ? const [] : h;
+  }
+
+  /// What is kept with each reminder: food, how many, the instructions, why.
+  String get _medNote => [
+        mealText(_medMeal),
+        trf('{0}টা করে', [bnDigits(_medDose)]),
+        _noteText.text.trim(),
+        if (_medWhy.text.trim().isNotEmpty) trf('কেন: {0}', [_medWhy.text.trim()]),
+      ].where((p) => p.isNotEmpty).join(' · ');
 
   /// "প্রতি সপ্তাহে": which days; "প্রতিদিন": which days left out (owner, 28 Oct).
   Set<int> _days = {};
@@ -127,6 +155,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
   @override
   void initState() {
     super.initState();
+    _medFocus.addListener(() => setState(() {}));
     final w = widget;
     _cat = w.vault != null
         ? ItemCategory.password
@@ -210,9 +239,10 @@ class _NewItemScreenState extends State<NewItemScreen> {
 
   @override
   void dispose() {
-    for (final c in [_a, _b, _c, _d, _pw, _noteText, _noteCat, _address, _beforeN]) {
+    for (final c in [_a, _b, _c, _d, _pw, _noteText, _noteCat, _address, _beforeN, _medWhy]) {
       c.dispose();
     }
+    _medFocus.dispose();
     // Left without saving: the newly added photos go too.
     final brain = _brain;
     if (!_saved && _added.isNotEmpty && brain != null) {
@@ -297,14 +327,16 @@ class _NewItemScreenState extends State<NewItemScreen> {
           if (!await needPro(context, ProFeature.reminders, allowed: brain.canAddReminder)) return;
           if (!mounted) return;
           final name = _a.text.trim();
+          final who = _medWho == FamilyMember.meId ? null : brain.personById(_medWho).name;
+          final title = who == null ? trf('{0} খাওয়ার সময়', [name]) : trf('{0} খাওয়ার সময় ({1})', [name, who]);
           for (final m in (_medTimes.toList()..sort())) {
             await brain.saveReminder(Reminder(
-              title: trf('{0} খাওয়ার সময়', [name]),
+              title: title,
               date: dayOnly(now),
               hour: m ~/ 60,
               minute: m % 60,
               repeat: Repeat.daily,
-              note: _noteText.text.trim(),
+              note: _medNote,
             ));
           }
           done = trf('{0} — প্রতিদিন {1} বার মনে করাব', [name, bnDigits(_medTimes.length)]);
@@ -662,12 +694,78 @@ class _NewItemScreenState extends State<NewItemScreen> {
   bool get _dayUnits => _repeat == Repeat.none || _repeat == Repeat.monthly || _repeat == Repeat.yearly;
   BeforeUnit get _usableUnit => !_dayUnits && _beforeUnit.days ? BeforeUnit.hour : _beforeUnit;
 
+  List<Widget> _medForm(Brain brain) {
+    final people = brain.healthPeople;
+    return [
+      if (people.length > 1) ...[
+        FieldLabel(tr('কার জন্য')),
+        MedicinePersonPicker(
+          people: [for (final m in people) (m.id, m.isMe ? tr('আমি') : m.name)],
+          selected: _medWho,
+          onChanged: (id) => setState(() => _medWho = id),
+        ),
+      ],
+      FieldLabel(tr('ওষুধের নাম')),
+      TextFormField(
+        key: const Key('med-name'),
+        textCapitalization: TextCapitalization.sentences,
+        controller: _a,
+        focusNode: _medFocus,
+        autofocus: widget.reminder == null,
+        onChanged: (_) => setState(() => _medPicked = null),
+        decoration: InputDecoration(hintText: tr('যেমন: নাপা, সেকলো'), prefixIcon: const Icon(Icons.search_rounded)),
+        validator: _required,
+      ),
+      if (_medHits.isNotEmpty)
+        MedSearchHits(
+          hits: _medHits,
+          showUse: false,
+          onPick: (m) {
+            _a.text = m.bn;
+            _a.selection = TextSelection.collapsed(offset: m.bn.length);
+            setState(() => _medPicked = m);
+          },
+        ),
+      FieldLabel(tr('কেন খাচ্ছেন (ঐচ্ছিক)')),
+      TextField(
+        key: const Key('med-why'),
+        textCapitalization: TextCapitalization.sentences,
+        controller: _medWhy,
+        decoration: InputDecoration(hintText: tr('নিজের ভাষায়, যেমন: ডাক্তার জ্বরের জন্য দিয়েছেন')),
+      ),
+      const SizedBox(height: 14),
+      MedicineTimesPicker(times: _medTimes, onChanged: (t) => setState(() => _medTimes = t)),
+      FieldLabel(tr('খাবারের আগে না পরে')),
+      MealPicker(meal: _medMeal, onChanged: (v) => setState(() => _medMeal = v)),
+      FieldLabel(tr('বিশেষ নির্দেশনা (ঐচ্ছিক)')),
+      TextField(key: const Key('med-note'), textCapitalization: TextCapitalization.sentences, controller: _noteText, minLines: 1, maxLines: 3, decoration: InputDecoration(hintText: tr('যেমন: পানির সাথে, চিবিয়ে খাবেন না'))),
+      const SizedBox(height: 6),
+      Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: const Key('med-more'),
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: EdgeInsets.zero,
+          expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+          title: Text(tr('আরও: প্রতিবার কয়টা'), style: body(14.5, weight: FontWeight.w600, color: C.muted)),
+          children: [
+            FieldLabel(trf('প্রতিবার কয়টা: {0}', [bnDigits(_medDose)])),
+            Row(children: [
+              IconButton(onPressed: _medDose > 1 ? () => setState(() => _medDose--) : null, icon: const Icon(Icons.remove_circle_outline_rounded)),
+              Text(bnDigits(_medDose), style: display(20)),
+              IconButton(onPressed: () => setState(() => _medDose++), icon: const Icon(Icons.add_circle_outline_rounded)),
+            ]),
+          ],
+        ),
+      ),
+    ];
+  }
+
   List<Widget> _reminderForm() {
     final brain = BrainScope.of(context);
     final vault = [...brain.data.vault]..sort((a, b) => a.name.compareTo(b.name));
-    String at(int m) => bnTime(m ~/ 60, m % 60);
     return [
-      // ওষুধ খাওয়ার রিমাইন্ডার: name and times only (owner, 13 Nov).
+      // ওষুধ খাওয়ার রিমাইন্ডার (owner, 13 Nov; the new form 18 Nov).
       if (widget.reminder == null) ...[
         Material(
           color: _med ? C.greenTint : C.surface,
@@ -694,32 +792,8 @@ class _NewItemScreenState extends State<NewItemScreen> {
         ),
         _gap,
       ],
-      if (_med) ...[
-        TextFormField(textCapitalization: TextCapitalization.sentences, controller: _a, decoration: InputDecoration(labelText: tr('ওষুধের নাম'), hintText: tr('যেমন: নাপা')), validator: _required),
-        _gap,
-        Text(tr('কখন কখন খাবেন?'), style: body(14, weight: FontWeight.w600, color: C.muted)),
-        const SizedBox(height: 6),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          for (final m in {8 * 60, 14 * 60, 21 * 60, ..._medTimes}.toList()..sort())
-            FilterChip(
-              key: Key('rem-med-$m'),
-              label: Text(at(m), style: body(14)),
-              selected: _medTimes.contains(m),
-              onSelected: (on) => setState(() => on ? _medTimes.add(m) : _medTimes.remove(m)),
-            ),
-          ActionChip(
-            key: const Key('rem-med-other'),
-            avatar: Icon(Icons.add_rounded, size: 18, color: C.green),
-            label: Text(tr('অন্য সময়'), style: body(14)),
-            onPressed: () async {
-              final t = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 13, minute: 0));
-              if (t != null) setState(() => _medTimes.add(t.hour * 60 + t.minute));
-            },
-          ),
-        ]),
-        _gap,
-        TextFormField(textCapitalization: TextCapitalization.sentences, controller: _noteText, decoration: InputDecoration(labelText: tr('নোট (ঐচ্ছিক)'), hintText: tr('যেমন: খাবারের পরে, ১টা করে'))),
-      ] else ...[
+      if (_med) ..._medForm(brain),
+      if (!_med) ...[
       TextFormField(textCapitalization: TextCapitalization.sentences, controller: _a, decoration: InputDecoration(labelText: tr('কী মনে করাব?'), hintText: tr('যেমন: বিদ্যুৎ বিল দেওয়া')), validator: _required),
       _gap,
       Row(children: [

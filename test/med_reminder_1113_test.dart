@@ -19,9 +19,11 @@ void main() {
     await settle(t);
     await t.tap(find.byKey(const Key('rem-med')));
     await settle(t);
-    await t.enterText(find.byType(TextFormField).first, 'নাপা');
-    // 8:00 and 21:00 are on; 14:00 added.
-    await t.tap(find.byKey(Key('rem-med-${14 * 60}')));
+    await t.enterText(find.byKey(const Key('med-name')), 'নাপা');
+    // 9:00 and 21:00 are on; 14:00 added.
+    await t.ensureVisible(find.byKey(Key('med-time-${14 * 60}')));
+    await settle(t);
+    await t.tap(find.byKey(Key('med-time-${14 * 60}')));
     await settle(t);
     final save = find.text('রাখুন').last;
     await t.ensureVisible(save);
@@ -31,7 +33,8 @@ void main() {
     final rs = rig.brain.data.reminders;
     expect(rs.length, 3);
     expect(rs.every((r) => r.repeat == Repeat.daily && r.title == 'নাপা খাওয়ার সময়'), isTrue);
-    expect({for (final r in rs) r.hour}, {8, 14, 21});
+    expect({for (final r in rs) r.hour}, {9, 14, 21});
+    expect(rs.first.note, '১টা করে');
   });
 
   testWidgets('said aloud in the Play app: a daily reminder, not "not in this app"', (t) async {

@@ -9,6 +9,7 @@ import 'family_screen.dart' show sendMedicineToFamily;
 import '../state/brain.dart';
 import '../ui/forms.dart';
 import '../ui/medicine_times.dart';
+import '../ui/med_search.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import '../ui/pdf_export.dart';
@@ -380,7 +381,7 @@ class _MedicineSheetState extends State<_MedicineSheet> {
             onChanged: (_) => setState(() => _picked = null),
             decoration: InputDecoration(hintText: tr('যেমন: নাপা, সেকলো'), prefixIcon: const Icon(Icons.search_rounded)),
           ),
-          if (_hits.isNotEmpty) _MedHits(hits: _hits, onPick: _pick),
+          if (_hits.isNotEmpty) MedSearchHits(hits: _hits, onPick: _pick),
           if (_info != null) _MedUse(info: _info!),
           const SizedBox(height: 14),
           MedicineTimesPicker(times: _times, onChanged: (t) => setState(() => _times = t)),
@@ -435,41 +436,6 @@ class _MedicineSheetState extends State<_MedicineSheet> {
   }
 }
 
-
-/// The live list under the name box.
-class _MedHits extends StatelessWidget {
-  const _MedHits({required this.hits, required this.onPick});
-  final List<MedInfo> hits;
-  final ValueChanged<MedInfo> onPick;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.only(top: 6),
-        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: C.line)),
-        child: Column(children: [
-          for (final (i, m) in hits.indexed) ...[
-            if (i > 0) Divider(height: 1, color: C.line),
-            InkWell(
-              key: Key('med-hit-${m.en}'),
-              onTap: () => onPick(m),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-                child: Row(children: [
-                  Icon(Icons.medication_outlined, size: 20, color: C.green),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('${m.bn} · ${m.en}', style: body(15, weight: FontWeight.w600)),
-                      Text('${m.genericBn} — ${tr(m.use)}', style: body(12.5, color: C.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ]),
-                  ),
-                ]),
-              ),
-            ),
-          ],
-        ]),
-      );
-}
 
 /// One line on what the picked medicine is usually taken for.
 class _MedUse extends StatelessWidget {
