@@ -34,7 +34,8 @@ function rh_txn_for_agent($t, $agent) {
         'agentReply' => (string) ($t['agentReply'] ?? ''),
         'at' => (string) ($t['at'] ?? ''),
         'sentAt' => $t['sentAt'] ?? null,
-        'paid' => !empty($t['agentPaymentId']),
+        'paid' => !empty($t['agentPaymentId']) || !empty($t['oldPaid']),
+        'old' => !empty($t['old']),
         'fault' => $t['fault'] ?? null,
         'faultNote' => (string) ($t['faultNote'] ?? ''),
         'problem' => rh_has_problem($t) ? (string) $t['problem'] : '',
@@ -70,6 +71,13 @@ function rh_agent_feed(WP_REST_Request $req, $u) {
         }
     }
     usort($pays, fn($a, $b) => strcmp($b['at'], $a['at']));
+    // The old account's lines for this agent ("পূর্বের হিসাব").
+    $openings = [];
+    foreach (rh_openings('agent') as $o) {
+        if (($o['agentId'] ?? '') === $aid) {
+            $openings[] = ['id' => (string) ($o['id'] ?? ''), 'at' => (string) ($o['at'] ?? ''), 'taka' => (float) ($o['taka'] ?? 0), 'note' => (string) ($o['note'] ?? '')];
+        }
+    }
     $unread = (int) $wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM ' . rh_t('notes') . ' WHERE user_id = %d AND read_at IS NULL', (int) $u['id']));
     return rest_ensure_response([
         'agent' => ['name' => $agent['name'] ?? $u['name'], 'commission' => (float) ($agent['commission'] ?? 0)],
@@ -77,6 +85,7 @@ function rh_agent_feed(WP_REST_Request $req, $u) {
         'owner' => rh_owner_name(),
         'txns' => $txns,
         'payments' => $pays,
+        'openings' => $openings,
         'unread' => $unread,
     ]);
 }
@@ -151,7 +160,7 @@ function rh_agent_problem(WP_REST_Request $req, $u) {
         return new WP_Error('rh_state', 'not waiting', ['status' => 409]);
     }
     $note = mb_substr(sanitize_text_field((string) $req->get_param('note')), 0, 300);
-    $bnNo = '#' . rh_bn((string) ($t['no'] ?? ''));
+    $bnNo = rh_txn_no($t);
     // Kept on the send: it waits in "সমস্যা" until the admin asks again.
     $t['problem'] = $note !== '' ? $note : 'কারণ লেখেননি';
     $t['problemAt'] = rh_local_iso();

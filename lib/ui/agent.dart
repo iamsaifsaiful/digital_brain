@@ -134,7 +134,7 @@ class _AgentTabState extends State<AgentTab> {
                     value: _picked.contains(x.id),
                     onChanged: (v) => setState(() => v == true ? _picked.add(x.id) : _picked.remove(x.id)),
                     controlAffinity: ListTileControlAffinity.leading,
-                    title: Tx('#${bn('${x.no}')} · ${bdMasked(x.number)}', style: t(14.5, w: FontWeight.w500)),
+                    title: Tx('${txnNo(x.no)} · ${bdMasked(x.number)}', style: t(14.5, w: FontWeight.w500)),
                     subtitle: Tx('${dateShort(x.at)} · ${x.status == TxnStatus.pending ? 'পাঠানোর অপেক্ষায়' : (proofText(x).isEmpty ? 'পাঠানো' : proofText(x))}',
                         style: t(12.5, c: x.status == TxnStatus.pending ? K.red : K.muted)),
                     secondary: Tx(taka(x.agentTaka), style: t(14.5, w: FontWeight.w600)),

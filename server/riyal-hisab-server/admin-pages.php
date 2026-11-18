@@ -351,7 +351,7 @@ function rh_tab_txns() {
     <table class="rh-table"><thead><tr><th>নং / সময়</th><th>গ্রাহক</th><th>কী / নম্বর</th><th class="r">রিয়াল</th><th class="r">রেট</th><th class="r">টাকা</th><th>রিয়াল পরিশোধ</th><th>এজেন্ট</th><th>এডমিন</th><th>অবস্থা</th></tr></thead><tbody>
     <?php foreach ($page as $t) : [$sl, $sc] = rh_status_label($t); ?>
         <tr class="<?php echo rh_cancelled($t) ? 'dim' : ''; ?>">
-            <td><b>#<?php echo esc_html(rh_bn($t['no'] ?? '')); ?></b><br><small><?php echo esc_html(rh_when($t['at'] ?? '')); ?></small></td>
+            <td><b><?php echo esc_html(rh_txn_no($t)); ?></b><?php if (!empty($t['old'])) : ?> <span class="rh-pill gray">পূর্বের হিসাব</span><?php endif; ?><br><small><?php echo esc_html(rh_when($t['at'] ?? '')); ?></small></td>
             <td><?php echo esc_html($customers[$t['customerId'] ?? '']['name'] ?? ((($t['walkIn'] ?? '') !== '' ? $t['walkIn'] : 'প্রোফাইল ছাড়া') . (($t['walkInPhone'] ?? '') !== '' ? ' · ' . rh_bn($t['walkInPhone']) : ''))); ?><?php if (($t['recipientLabel'] ?? '') !== '') : ?><br><small>প্রাপক: <?php echo esc_html($t['recipientLabel']); ?></small><?php endif; ?></td>
             <td><?php echo esc_html(rh_service($t)); ?><?php if (($t['kind'] ?? '') === 'mb' && ($t['pack'] ?? '') !== '') : ?> <small>(<?php echo esc_html($t['pack']); ?>)</small><?php endif; ?><br><small><?php echo esc_html(rh_phone_show($t['number'] ?? '')); ?></small></td>
             <td class="r"><?php echo esc_html(rh_num($t['sar'] ?? 0, 2)); ?></td>
@@ -541,7 +541,7 @@ function rh_tab_adjusts() {
         $t = $txns[$x['txnId'] ?? ''] ?? null;
         return [
             esc_html(rh_when($x['at'] ?? '')),
-            esc_html($t ? '#' . rh_bn($t['no'] ?? '') : '—'),
+            esc_html($t ? rh_txn_no($t) : '—'),
             esc_html(($customers[$x['customerId'] ?? '']['name'] ?? '—') . ' / ' . ($agents[$x['agentId'] ?? '']['name'] ?? '—')),
             esc_html(rh_adjust_why($x)),
             esc_html(rh_admin_name($x)),
@@ -798,7 +798,7 @@ function rh_customer_view($cid) {
     $rows = [];
     foreach (rh_all('txn') as $t) {
         if (($t['customerId'] ?? '') === $cid && !rh_cancelled($t)) {
-            $rows[] = [(string) $t['at'], '#' . rh_bn($t['no'] ?? '') . ' · ' . rh_service($t) . ' ' . rh_phone_show($t['number'] ?? '') . (($t['recipientLabel'] ?? '') !== '' ? ' (' . $t['recipientLabel'] . ')' : '') . ' · ' . rh_taka($t['taka'] ?? 0), (float) $t['sar'], (float) ($t['sarPaid'] ?? 0)];
+            $rows[] = [(string) $t['at'], rh_txn_no($t) . ' · ' . rh_service($t) . ' ' . rh_phone_show($t['number'] ?? '') . (($t['recipientLabel'] ?? '') !== '' ? ' (' . $t['recipientLabel'] . ')' : '') . ' · ' . rh_taka($t['taka'] ?? 0), (float) $t['sar'], (float) ($t['sarPaid'] ?? 0)];
         }
     }
     foreach (rh_all('deposit') as $d) {

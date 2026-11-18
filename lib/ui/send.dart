@@ -384,7 +384,7 @@ class _EntryScreenState extends State<EntryScreen> {
     final topUp = _svc != 0;
     final sarAuto = _src == 'taka' || (_locked && _src == 'rate');
     return Screen(
-      title: widget.editing == null ? 'কত পাঠাবেন' : 'লেনদেন সংশোধন #${bn('${widget.editing!.no}')}',
+      title: widget.editing == null ? 'কত পাঠাবেন' : 'লেনদেন সংশোধন ${txnNo(widget.editing!.no)}',
       bottom: Pill(
         label: widget.editing == null ? 'পরের ধাপ' : 'পরের ধাপ (মিলিয়ে দেখুন)',
         icon: Icons.arrow_forward_rounded,
@@ -583,7 +583,7 @@ class _EntryScreenState extends State<EntryScreen> {
     final x = dups.first;
     return [
       const SizedBox(height: 10),
-      Note('সাবধান: ${bn('${h.now.difference(x.at).inMinutes}')} মিনিট আগে এই নম্বরে একই টাকা পাঠানো হয়েছে (#${bn('${x.no}')})। দুইবার যাচ্ছে না তো?',
+      Note('সাবধান: ${bn('${h.now.difference(x.at).inMinutes}')} মিনিট আগে এই নম্বরে একই টাকা পাঠানো হয়েছে (${txnNo(x.no)})। দুইবার যাচ্ছে না তো?',
           color: K.amberTint, textColor: K.amberText, icon: Icons.warning_amber_rounded),
     ];
   }

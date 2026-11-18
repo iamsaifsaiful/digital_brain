@@ -7,6 +7,13 @@ import 'models.dart';
 import 'templates.dart';
 export 'templates.dart';
 
+/// "করিম মিয়া · বকেয়া 450 SAR" for one old-account line.
+String openingText(AppData d, Opening o) => switch (o.kind) {
+      'customer' => '${customerById(d, o.customerId)?.name ?? ''} · ${o.sar >= 0 ? 'বকেয়া' : 'অগ্রিম জমা'} ${sar(o.sar.abs())}',
+      'agent' => '${agentById(d, o.agentId)?.name ?? ''} · ${o.taka >= 0 ? 'এজেন্ট পাবেন' : 'এজেন্টের কাছে অগ্রিম'} ${taka(o.taka.abs())}',
+      _ => '${o.handByName.isEmpty ? 'মূল হিসাব' : o.handByName}-এর হাতে ${sar(o.sar)}',
+    };
+
 /// Riyal a customer owes now (negative = riyal paid in advance).
 double customerDue(AppData d, String customerId) {
   var due = 0.0;
@@ -21,6 +28,9 @@ double customerDue(AppData d, String customerId) {
   }
   for (final a in d.adjusts) {
     if (a.applied && a.customerId == customerId) due += a.sarDue;
+  }
+  for (final o in d.liveOpenings) {
+    if (o.kind == 'customer' && o.customerId == customerId) due += o.sar;
   }
   return _round2(due);
 }
@@ -44,8 +54,16 @@ class Open {
 /// The customer's sends that were not fully paid at the time, oldest first,
 /// with what is left of each after the later payments.
 List<Open> openSends(AppData d, String customerId, {double extraPayment = 0}) {
-  final sends = d.txns.where((t) => t.customerId == customerId && t.sarDueAtSend > 0).toList()..sort((a, b) => a.at.compareTo(b.at));
+  final sends = [
+    ...d.txns.where((t) => t.customerId == customerId && t.sarDueAtSend > 0),
+    // The old account's due, as the oldest "send" (never saved).
+    for (final o in d.liveOpenings)
+      if (o.kind == 'customer' && o.customerId == customerId && o.sar > 0) Txn(id: 'opening:${o.id}', no: 0, customerId: customerId, recipientLabel: 'পূর্বের হিসাব', number: '', method: Method.bkash, kind: Kind.send, sarAmount: o.sar, rate: 0, taka: 0, fee: 0, agentId: '', pay: Pay.due, sarPaid: 0, at: o.at, old: true),
+  ]..sort((a, b) => a.at.compareTo(b.at));
   var paid = extraPayment;
+  for (final o in d.liveOpenings) {
+    if (o.kind == 'customer' && o.customerId == customerId && o.sar < 0) paid -= o.sar;
+  }
   for (final p in d.deposits) {
     if (p.customerId == customerId) paid += p.sarAmount;
   }
@@ -112,7 +130,10 @@ double agentOwed(AppData d, String agentId) {
   var owed = 0.0;
   for (final t in d.txns) {
     // Only what the agent has sent: a waiting request is not owed yet.
-    if (t.agentId == agentId && t.status == TxnStatus.sent) owed += t.agentTaka + commissionOf(t, a);
+    if (t.agentId == agentId && t.status == TxnStatus.sent && !t.oldPaid) owed += t.agentTaka + commissionOf(t, a);
+  }
+  for (final o in d.liveOpenings) {
+    if (o.kind == 'agent' && o.agentId == agentId) owed += o.taka;
   }
   for (final p in d.agentPayments) {
     if (p.agentId == agentId) owed -= p.taka;
@@ -124,7 +145,7 @@ double agentOwed(AppData d, String agentId) {
 }
 
 /// Sends the agent has not been paid for yet, oldest first.
-List<Txn> unpaidForAgent(AppData d, String agentId) => d.txns.where((t) => t.agentId == agentId && t.status == TxnStatus.sent && t.agentPaymentId == null).toList()..sort((a, b) => a.at.compareTo(b.at));
+List<Txn> unpaidForAgent(AppData d, String agentId) => d.txns.where((t) => t.agentId == agentId && t.status == TxnStatus.sent && !t.oldPaid && t.agentPaymentId == null).toList()..sort((a, b) => a.at.compareTo(b.at));
 
 Agent? agentById(AppData d, String id) {
   for (final a in d.agents) {
@@ -183,7 +204,7 @@ List<CashLine> cashLines(AppData d, {int? me, bool owner = false}) {
     // The admin's dealing is with the customer: the riyal is in hand as soon
     // as the send is made (the agent's account waits until it is sent).
     if (t.cancelled || t.sarPaid <= 0 || !mine(t.by)) continue;
-    out.add(CashLine(at: t.at, title: '${customerNameOf(d, t)} · #${t.no}', sub: '${t.pay == Pay.partial ? 'আংশিক' : 'নগদে'} · ${serviceName(t)}', inSar: t.sarPaid, kind: 'txn', ref: t.id, by: t.by, byName: who(t.by, t.byName)));
+    out.add(CashLine(at: t.at, title: '${customerNameOf(d, t)} · ${txnNo(t.no)}', sub: '${t.pay == Pay.partial ? 'আংশিক' : 'নগদে'} · ${serviceName(t)}', inSar: t.sarPaid, kind: 'txn', ref: t.id, by: t.by, byName: who(t.by, t.byName)));
   }
   for (final p in d.deposits) {
     if (!mine(p.by)) continue;
@@ -207,7 +228,7 @@ List<CashLine> cashLines(AppData d, {int? me, bool owner = false}) {
     final t = d.txns.where((x) => x.id == a.txnId).firstOrNull;
     out.add(CashLine(
         at: a.appliedAt ?? a.at,
-        title: 'অতিরিক্ত হিসাব${t == null ? '' : ' · #${t.no}'}',
+        title: 'অতিরিক্ত হিসাব${t == null ? '' : ' · ${txnNo(t.no)}'}',
         sub: a.note,
         inSar: a.sarCash > 0 ? a.sarCash : 0,
         outSar: a.sarCash < 0 ? -a.sarCash : 0,
@@ -215,6 +236,19 @@ List<CashLine> cashLines(AppData d, {int? me, bool owner = false}) {
         ref: a.txnId,
         by: a.handOf,
         byName: who(a.handOf, a.handOfName)));
+  }
+  for (final o in d.liveOpenings) {
+    if (o.kind != 'cash' || o.sar.abs() < 0.005 || !mine(o.handBy)) continue;
+    out.add(CashLine(
+        at: o.at,
+        title: 'পূর্বের হিসাব · হাতে ছিল',
+        sub: o.note,
+        inSar: o.sar > 0 ? o.sar : 0,
+        outSar: o.sar < 0 ? -o.sar : 0,
+        kind: 'opening',
+        ref: o.id,
+        by: o.handBy,
+        byName: who(o.handBy, o.handByName)));
   }
   for (final c in d.closes) {
     if (c.difference.abs() < 0.005 || !mine(c.by)) continue;
@@ -256,6 +290,9 @@ Map<int, String> adminsIn(AppData d) {
   }
   for (final x in d.adjusts) {
     add(x.handOf, x.handOfName);
+  }
+  for (final x in d.liveOpenings) {
+    if (x.kind == 'cash') add(x.handBy, x.handByName);
   }
   for (final h in d.handovers) {
     add(h.from, h.fromName);

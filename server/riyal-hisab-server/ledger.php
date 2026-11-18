@@ -36,6 +36,17 @@ function rh_cancelled($t) {
     return ($t['status'] ?? '') === 'cancelled';
 }
 
+/** "#২৬১১০০১০", or "আগের-৩" for a send from the old account. */
+function rh_txn_no($t) {
+    $no = (int) ($t['no'] ?? 0);
+    return $no < 0 ? 'আগের-' . rh_bn((string) -$no) : '#' . rh_bn((string) $no);
+}
+
+/** The old-account lines still counted. */
+function rh_openings($kind) {
+    return array_filter(rh_all('opening'), fn($o) => empty($o['cancelled']) && ($o['kind'] ?? '') === $kind);
+}
+
 /** The agent has sent it: only then it counts in the agent's account. */
 function rh_sent($t) {
     return ($t['status'] ?? '') === 'sent';
@@ -65,6 +76,11 @@ function rh_customer_due($cid) {
             $due += (float) ($x['sarDue'] ?? 0);
         }
     }
+    foreach (rh_openings('customer') as $o) {
+        if (($o['customerId'] ?? '') === $cid) {
+            $due += (float) ($o['sar'] ?? 0);
+        }
+    }
     return round($due, 2);
 }
 
@@ -83,8 +99,13 @@ function rh_agent_owed($aid) {
     $a = rh_all('agent')[$aid] ?? null;
     $owed = 0.0;
     foreach (rh_all('txn') as $t) {
-        if (($t['agentId'] ?? '') === $aid && rh_sent($t)) {
+        if (($t['agentId'] ?? '') === $aid && rh_sent($t) && empty($t['oldPaid'])) {
             $owed += rh_agent_taka($t) + rh_commission($t, $a);
+        }
+    }
+    foreach (rh_openings('agent') as $o) {
+        if (($o['agentId'] ?? '') === $aid) {
+            $owed += (float) ($o['taka'] ?? 0);
         }
     }
     foreach (rh_all('payment') as $p) {
@@ -112,7 +133,7 @@ function rh_cash_lines($by = null) {
     $out = [];
     foreach (rh_all('txn') as $t) {
         if (!rh_cancelled($t) && (float) ($t['sarPaid'] ?? 0) > 0 && $mine($t)) {
-            $out[] = [$t['at'], ($cust[$t['customerId'] ?? '']['name'] ?? (($t['walkIn'] ?? '') !== '' ? $t['walkIn'] : 'প্রোফাইল ছাড়া')) . ' · #' . rh_bn($t['no'] ?? ''), (($t['pay'] ?? '') === 'partial' ? 'আংশিক' : 'নগদে') . ' · ' . rh_service($t), (float) $t['sarPaid'], 0.0, 'txn', (int) ($t['by'] ?? 0), (string) ($t['byName'] ?? '')];
+            $out[] = [$t['at'], ($cust[$t['customerId'] ?? '']['name'] ?? (($t['walkIn'] ?? '') !== '' ? $t['walkIn'] : 'প্রোফাইল ছাড়া')) . ' · ' . rh_txn_no($t), (($t['pay'] ?? '') === 'partial' ? 'আংশিক' : 'নগদে') . ' · ' . rh_service($t), (float) $t['sarPaid'], 0.0, 'txn', (int) ($t['by'] ?? 0), (string) ($t['byName'] ?? '')];
         }
     }
     foreach (rh_all('deposit') as $p) {
@@ -153,6 +174,14 @@ function rh_cash_lines($by = null) {
             $out[] = [$x['appliedAt'] ?? $x['at'], 'অতিরিক্ত হিসাব' . ($no !== '' ? ' · #' . rh_bn($no) : ''), (string) ($x['note'] ?? ''), max(0, $v), max(0, -$v), 'adjust', (int) ($x['by'] ?? 0), (string) ($x['byName'] ?? '')];
         }
     }
+    foreach (rh_openings('cash') as $o) {
+        $v = (float) ($o['sar'] ?? 0);
+        $o['by'] = (int) ($o['handBy'] ?? 0);
+        $o['byName'] = (string) ($o['handByName'] ?? '');
+        if (abs($v) >= 0.005 && $mine($o)) {
+            $out[] = [$o['at'], 'পূর্বের হিসাব · হাতে ছিল', (string) ($o['note'] ?? ''), max(0, $v), max(0, -$v), 'opening', $o['by'], $o['byName']];
+        }
+    }
     foreach (rh_all('close') as $c) {
         $d = (float) ($c['counted'] ?? 0) - (float) ($c['expected'] ?? 0);
         if (abs($d) >= 0.005 && $mine($c)) {
@@ -181,6 +210,9 @@ function rh_admins_in() {
     foreach (rh_all('handover') as $h) {
         $out[(int) $h['from']] = $out[(int) $h['from']] ?? (string) $h['fromName'];
         $out[(int) $h['to']] = $out[(int) $h['to']] ?? (string) $h['toName'];
+    }
+    foreach (rh_openings('cash') as $o) {
+        $out[(int) ($o['handBy'] ?? 0)] = $out[(int) ($o['handBy'] ?? 0)] ?? (string) ($o['handByName'] ?? '');
     }
     return $out;
 }

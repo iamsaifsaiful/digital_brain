@@ -14,6 +14,7 @@ import 'home.dart';
 import 'kit.dart';
 import '../core/lang.dart';
 import 'lock_screen.dart';
+import 'previous.dart';
 import 'reports.dart';
 import 'cash.dart';
 import 'customers.dart';
@@ -305,6 +306,7 @@ class _OthersTabState extends State<OthersTab> {
             tile(Icons.phone_android_rounded, K.blueTint, K.blue, 'রিচার্জ ও এমবি', 'মোবাইল রিচার্জ আর এমবি প্যাক', () => push(context, AllTxnsScreen(h: h, filter: 5, title: 'রিচার্জ ও এমবি'))),
             tile(Icons.report_gmailerrorred_rounded, K.redTint, K.red, 'ভুল নম্বরে যাওয়া', wrong == 0 ? 'নেই' : '${bn('$wrong')}টা লেনদেন', () => push(context, AllTxnsScreen(h: h, filter: 4, title: 'ভুল নম্বরে যাওয়া'))),
             tile(Icons.playlist_add_check_rounded, K.amberTint, K.amberText, 'অতিরিক্ত হিসাব', apart == 0 ? 'পাঠানো লেনদেনের ভুল — আলাদা রাখা কিছু নেই' : '${bn('$apart')}টা আলাদা রাখা আছে', () => push(context, AdjustsScreen(h: h))),
+            if (h.can('edit')) tile(Icons.history_edu_outlined, K.navySoft, K.navy, 'পূর্বের হিসাব', 'অ্যাপ চালুর আগের বকেয়া, পাওনা, হাতের রিয়াল, লেনদেন', () => push(context, PreviousHub(h: h))),
           ]),
 
           // Riyal in hand, day by day.
@@ -1058,7 +1060,7 @@ class AdjustsScreen extends StatelessWidget {
                 onTap: () => push(context, TxnScreen(h: h, id: t.id)),
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 4, left: 4),
-                  child: Tx('#${bn('${t.no}')} · ${customerNameOf(h.d, t)} · ${taka(t.taka)}', style: t2(13, K.blue)),
+                  child: Tx('${txnNo(t.no)} · ${customerNameOf(h.d, t)} · ${taka(t.taka)}', style: t2(13, K.blue)),
                 ),
               ),
             AdjustCard(h: h, x: x),

@@ -93,7 +93,7 @@ class _TxnBody extends StatelessWidget {
     }
     final auto = fromClip && p == r0.tail && id == (r0.trxIds.firstOrNull ?? '').toUpperCase();
     if (auto && r0.no != null && r0.no != x.no) {
-      if (!await confirm(context, 'অন্য লেনদেনের উত্তর?', 'উত্তরে লেনদেন নং #${bn('${r0.no}')}, কিন্তু এটা #${bn('${x.no}')}। তবুও এখানে বসাবেন?', yes: 'বসান')) return;
+      if (!await confirm(context, 'অন্য লেনদেনের উত্তর?', 'উত্তরে লেনদেন নং #${bn('${r0.no}')}, কিন্তু এটা ${txnNo(x.no)}। তবুও এখানে বসাবেন?', yes: 'বসান')) return;
       if (!context.mounted) return;
     }
     final amount = auto ? r0.amount : null;
@@ -104,7 +104,7 @@ class _TxnBody extends StatelessWidget {
     if (id.isNotEmpty && id != x.trxId) {
       final usedBy = h.d.txns.where((o) => o.id != x.id && o.trxId == id).toList();
       if (usedBy.isNotEmpty) {
-        if (!await confirm(context, 'এই TrxID আগে ব্যবহার হয়েছে', '#${bn('${usedBy.first.no}')}-এ এই TrxID আছে। তবুও বসাবেন?', yes: 'বসান')) return;
+        if (!await confirm(context, 'এই TrxID আগে ব্যবহার হয়েছে', '${txnNo(usedBy.first.no)}-এ এই TrxID আছে। তবুও বসাবেন?', yes: 'বসান')) return;
       }
     }
     await h.markSent(x, trxId: id, reply: auto && amount != null ? en(clip.trim()) : '', tail: p, from: auto ? 'auto' : 'manual');
@@ -159,7 +159,7 @@ class _TxnBody extends StatelessWidget {
       TxnStatus.cancelled => ('বাতিল', K.muted, K.chip),
     };
     return Screen(
-      title: 'লেনদেন #${bn('${x.no}')}',
+      title: 'লেনদেন ${txnNo(x.no)}',
       // Only before the agent sends it; after that, অতিরিক্ত হিসাব.
       trailing: x.status != TxnStatus.pending || !h.can('edit')
           ? null
@@ -238,7 +238,7 @@ class _TxnBody extends StatelessWidget {
                   height: 46,
                   color: K.red,
                   onTap: () async {
-                    if (await confirm(context, 'আবার অনুরোধ পাঠাবেন?', '${a?.name ?? 'এজেন্ট'}-এর কাছে #${bn('${x.no}')} (${taka(x.agentTaka)} · ${bdShow(x.number)}) আবার নতুন অনুরোধ হিসেবে যাবে।', yes: 'পাঠান')) {
+                    if (await confirm(context, 'আবার অনুরোধ পাঠাবেন?', '${a?.name ?? 'এজেন্ট'}-এর কাছে ${txnNo(x.no)} (${taka(x.agentTaka)} · ${bdShow(x.number)}) আবার নতুন অনুরোধ হিসেবে যাবে।', yes: 'পাঠান')) {
                       await h.reRequest(x);
                       if (context.mounted) snack(context, 'এজেন্টের কাছে আবার অনুরোধ গেছে');
                     }
@@ -333,7 +333,7 @@ class _TxnBody extends StatelessWidget {
                             final pin = await askPin(context, x);
                             if (pin == null || !context.mounted) return;
                             await h.s.device.whatsapp(x.walkInPhone, customerReceipt(h.d, x, pin: pin));
-                            await h.note('txn', 'গ্রাহককে রসিদ · #${bn('${x.no}')}', customerNameOf(h.d, x));
+                            await h.note('txn', 'গ্রাহককে রসিদ · ${txnNo(x.no)}', customerNameOf(h.d, x));
                           }
                         : () async {
                         final pin = await askPin(context, x);
@@ -345,7 +345,7 @@ class _TxnBody extends StatelessWidget {
                         } else {
                           await h.s.device.shareText(text);
                         }
-                        await h.note('txn', 'গ্রাহককে রসিদ · #${bn('${x.no}')}', c.name);
+                        await h.note('txn', 'গ্রাহককে রসিদ · ${txnNo(x.no)}', c.name);
                       },
               ),
             ),
@@ -869,7 +869,7 @@ class _AdjustScreenState extends State<AdjustScreen> {
       _ => ('এডমিন পূরণ করবেন', 'এডমিন ফেরত পাবেন', '$adminName-এর হাতে রিয়াল যোগ হবে', '$adminName-এর হাত থেকে রিয়াল কমবে'),
     };
     return Screen(
-      title: 'অতিরিক্ত হিসাব · #${bn('${x.no}')}',
+      title: 'অতিরিক্ত হিসাব · ${txnNo(x.no)}',
       bottom: Pill(
         label: 'আলাদা করে রাখুন',
         onTap: !ready

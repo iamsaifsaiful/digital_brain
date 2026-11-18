@@ -113,6 +113,10 @@ class AgentState extends ChangeNotifier {
   double owed = 0;
   List<AgentTxn> txns = [];
   List<AgentPay> payments = [];
+
+  /// The old account ("পূর্বের হিসাব"): what this agent was owed (taka;
+  /// negative = advance) before the app, as of a date.
+  List<(DateTime, double, String)> openings = [];
   List<ServerNote> notes = [];
   int unread = 0;
   bool loading = false;
@@ -139,6 +143,9 @@ class AgentState extends ChangeNotifier {
       owed = (f['owed'] as num?)?.toDouble() ?? 0;
       txns = [for (final t in ((f['txns'] as List?) ?? const []).cast<Map>()) AgentTxn(t.cast<String, Object?>())];
       payments = [for (final p in ((f['payments'] as List?) ?? const []).cast<Map>()) AgentPay(p.cast<String, Object?>())];
+      openings = [
+        for (final o in ((f['openings'] as List?) ?? const []).cast<Map>()) (DateTime.tryParse('${o['at']}') ?? DateTime(2000), (o['taka'] as num?)?.toDouble() ?? 0, '${o['note'] ?? ''}'),
+      ];
       unread = (f['unread'] as num?)?.toInt() ?? 0;
       error = null;
       at = DateTime.now();

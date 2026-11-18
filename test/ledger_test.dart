@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -348,6 +350,61 @@ void main() {
       expect(h.txnById(t.id)!.changeNotice, 'pending');
       await h.changeNoticeSent(h.txnById(t.id)!);
       expect(h.txnById(t.id)!.changeNotice, '');
+    });
+
+    test('পূর্বের হিসাব: old due, agent due, cash in hand, old sends; cancel undoes', () async {
+      final h = makeHisab(() => DateTime(2026, 11, 18, 10));
+      await h.load();
+      await h.setup(owner: 'সাইফুল', agentName: 'এ', agentWhatsapp: '01800000000');
+      final a = h.d.agents.single;
+      final c = await h.addCustomer(name: 'করিম মিয়া', phone: '0551234567');
+      final asOf = DateTime(2026, 10, 30, 23, 59);
+
+      final o1 = await h.addOpening(kind: 'customer', at: asOf, customerId: c.id, sar: 450);
+      expect(customerDue(h.d, c.id), 450);
+      expect(oldestDueDays(h.d, c.id, h.now), 18, reason: 'the old due is the oldest');
+      await h.addOpening(kind: 'agent', at: asOf, agentId: a.id, taka: 12500);
+      expect(agentOwed(h.d, a.id), 12500);
+      await h.addOpening(kind: 'cash', at: asOf, handBy: h.meId, handByName: 'সাইফুল', sar: 1200);
+      expect(h.myCash, 1200);
+      expect(cashLines(h.d).single.kind, 'opening');
+
+      // A deposit pays the old due first.
+      await h.addDeposit(c, 100);
+      expect(customerDue(h.d, c.id), 350);
+
+      // Old sends: numbered আগের-১, আগের-২; paid already = not owed to the agent.
+      final t1 = await h.addOldTxn(draft(customerId: c.id, agentId: a.id, sarAmount: 300, pay: Pay.partial, sarPaid: 200), at: DateTime(2026, 10, 28, 15, 30));
+      final t2 = await h.addOldTxn(draft(customerId: c.id, agentId: a.id, sarAmount: 100, pay: Pay.cash, sarPaid: 100), at: DateTime(2026, 10, 29), agentPaid: false);
+      expect((t1.no, t2.no), (-1, -2));
+      expect((txnNo(t1.no), txnNo(t2.no), txnNo(26110010)), ('আগের-১', 'আগের-২', '#২৬১১০০১০'));
+      expect((t1.status, t1.sentAt, t1.old, t1.oldPaid), (TxnStatus.sent, DateTime(2026, 10, 28, 15, 30), true, true));
+      expect(customerDue(h.d, c.id), 450, reason: '350 + the 100 still owed on আগের-১');
+      expect(agentOwed(h.d, a.id), 12500 + 3250, reason: 'only আগের-২ (not paid yet), no commission set');
+      expect(unpaidForAgent(h.d, a.id).map((x) => x.id), [t2.id]);
+      expect(h.myCash, 1200 + 100 + 200 + 100);
+
+      // Mistakes are cancelled, not deleted.
+      await h.cancelOpening(o1);
+      expect(customerDue(h.d, c.id), 0, reason: '450 - 450');
+      expect(h.d.openings.length, 3);
+      await h.cancelTxn(t1, 'ভুল');
+      expect(t1.cancelled, isTrue);
+      expect(h.d.log.map((e) => e.title), containsAll(['পূর্বের হিসাব তোলা', 'পূর্বের হিসাব বাতিল', 'আগের লেনদেন তোলা · আগের-১']));
+      final back = AppData.fromJson(jsonDecode(jsonEncode(h.d.toJson())) as Map<String, Object?>);
+      expect((back.openings.length, back.openings.first.cancelled, back.txns.firstWhere((x) => x.id == t2.id).old), (3, true, true));
+    });
+
+    test('পূর্বের হিসাব: many customers at once — a name or number that matches goes to them', () async {
+      final h = makeHisab(() => DateTime(2026, 11, 18, 10));
+      await h.load();
+      await h.setup(owner: 'সাইফুল', agentName: 'এ', agentWhatsapp: '01800000000');
+      final c = await h.addCustomer(name: 'করিম মিয়া', phone: '+966 55 123 4567');
+      final made = await h.addOpeningsMany([('করিম মিয়া', '', 300), ('জসিম', '0559876543', 650), ('', '', 99), ('রহমান', '0551234567', 50)], DateTime(2026, 10, 30));
+      expect(made, 1, reason: 'জসিম is new; রহমান matched করিম by number');
+      expect(customerDue(h.d, c.id), 350);
+      final j = h.d.customers.firstWhere((x) => x.name == 'জসিম');
+      expect(customerDue(h.d, j.id), 650);
     });
 
     test('a customer profile deleted: only with nothing owed; gone from lists, sends keep the name', () async {

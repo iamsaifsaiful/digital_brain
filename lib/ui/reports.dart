@@ -124,7 +124,7 @@ String _status(Txn x) => switch (x.status) {
 List<List<String>> _txnRows(Hisab h, Iterable<Txn> list) => [
       for (final x in list)
         [
-          '#${bn('${x.no}')}\n${_when(x.at)}${x.byName.isEmpty ? '' : '\n${x.byName}'}',
+          '${txnNo(x.no)}\n${_when(x.at)}${x.byName.isEmpty ? '' : '\n${x.byName}'}',
           '${customerNameOf(h.d, x)}${x.recipientLabel.isEmpty ? '' : '\nপ্রাপক: ${x.recipientLabel}'}',
           '${serviceName(x)}${x.kind == Kind.mb && x.pack.isNotEmpty ? ' (${x.pack})' : ''}\n${bdShow(x.number)}',
           '${bnNum(x.sarAmount, decimals: 2)}\n× ${rateText(x.rate)}',
@@ -302,7 +302,7 @@ PdfDoc customerPdf(Hisab h, Customer c) {
         x.at,
         [
           _when(x.at),
-          '#${bn('${x.no}')} ${serviceName(x)} ${bdShow(x.number)}${x.recipientLabel.isEmpty ? '' : ' (${x.recipientLabel})'}\n${taka(x.taka)}',
+          '${txnNo(x.no)} ${serviceName(x)} ${bdShow(x.number)}${x.recipientLabel.isEmpty ? '' : ' (${x.recipientLabel})'}\n${taka(x.taka)}',
           bnNum(x.sarAmount, decimals: 2),
           x.sarPaid > 0 ? bnNum(x.sarPaid, decimals: 2) : '',
         ]
@@ -352,7 +352,7 @@ PdfDoc agentPdf(Hisab h, Agent a, Period p) {
   ], [
     for (final x in txns)
       [
-        '#${bn('${x.no}')}\n${_when(x.at)}',
+        '${txnNo(x.no)}\n${_when(x.at)}',
         '${serviceName(x)}\n${bdShow(x.number)}',
         bnNum(x.agentTaka),
         '${_status(x)}${x.fault != null ? '\nভুল নম্বর (${x.fault!.short})' : ''}',

@@ -313,7 +313,7 @@ class HomeTab extends StatelessWidget {
                 for (final (i, x) in problems.indexed)
                   Row2(
                     lead: dotIcon(Icons.report_outlined, Colors.white, K.red),
-                    title: '#${bn('${x.no}')} · ${customerNameOf(d, x)}',
+                    title: '${txnNo(x.no)} · ${customerNameOf(d, x)}',
                     sub: '${x.problem} · ${agentById(d, x.agentId)?.name ?? ''}',
                     value: taka(x.agentTaka),
                     valueSub: 'দেখুন',
@@ -402,7 +402,7 @@ class TxnRow extends StatelessWidget {
     return Row2(
       lead: showCustomer ? Avatar(h: h, name: customerNameOf(h.d, t), photo: c?.photo, size: 42) : dotIcon(t.kind.isTopUp ? Icons.phone_android_rounded : Icons.north_east_rounded, K.blueTint, K.blue),
       title: showCustomer ? customerNameOf(h.d, t) : (t.recipientLabel.isEmpty ? bdShow(t.number) : t.recipientLabel),
-      sub: '#${bn('${t.no}')} · ${dateShort(t.at)}, ${timeText(t.at)} · ${serviceName(t)} ${bdMasked(t.number)}${t.byName.isEmpty ? '' : ' · ${t.byName}'}',
+      sub: '${txnNo(t.no)} · ${dateShort(t.at)}, ${timeText(t.at)} · ${serviceName(t)} ${bdMasked(t.number)}${t.byName.isEmpty ? '' : ' · ${t.byName}'}',
       value: sar(t.sarAmount),
       valueColor: t.cancelled ? K.muted : K.ink,
       valueSub: subLabel,
@@ -424,12 +424,12 @@ class ClipCard extends StatelessWidget {
   Future<void> _use(BuildContext context, Txn w) async {
     final amount = clip.reply.amount;
     if (amount != null && (w.agentTaka - amount).abs() >= 0.5 && (w.taka - amount).abs() >= 0.5) {
-      final ok = await confirm(context, 'টাকা মিলছে না', 'উত্তরে ${bnNum(amount)} টাকা, কিন্তু #${bn('${w.no}')}-এ ${taka(w.agentTaka)}। তবুও এটাতে বসাবেন?', yes: 'বসান');
+      final ok = await confirm(context, 'টাকা মিলছে না', 'উত্তরে ${bnNum(amount)} টাকা, কিন্তু ${txnNo(w.no)}-এ ${taka(w.agentTaka)}। তবুও এটাতে বসাবেন?', yes: 'বসান');
       if (!ok) return;
     }
     await h.markSent(w, trxId: clip.trxId, reply: clip.text.length <= 80 ? clip.text : clip.shown, tail: clip.reply.tail, who: 'me', from: 'auto');
     onDone();
-    if (context.mounted) snack(context, '#${bn('${w.no}')} পৌঁছেছে');
+    if (context.mounted) snack(context, '${txnNo(w.no)} পৌঁছেছে');
   }
 
   @override
@@ -456,7 +456,7 @@ class ClipCard extends StatelessWidget {
           const SizedBox(height: 4),
         ],
         if (one != null) ...[
-          Tx('মিলেছে: #${bn('${one.no}')} · ${customerById(h.d, one.customerId)?.name ?? ''} · ${bdShow(one.number)} · ${taka(one.agentTaka)}', style: t(13.5)),
+          Tx('মিলেছে: ${txnNo(one.no)} · ${customerById(h.d, one.customerId)?.name ?? ''} · ${bdShow(one.number)} · ${taka(one.agentTaka)}', style: t(13.5)),
           if (clip.reply.tail.isNotEmpty) Tx('এজেন্ট যে নম্বর থেকে পাঠালেন তার শেষ ৩ সংখ্যা: ${bn(clip.reply.tail)}', style: t(12.5, c: K.muted)),
           const SizedBox(height: 10),
           Pill(label: 'ঠিক আছে, এই লেনদেনে বসান', color: K.green, height: 46, onTap: () => _use(context, one)),
@@ -466,7 +466,7 @@ class ClipCard extends StatelessWidget {
           for (final w in choices)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Tx('#${bn('${w.no}')} · ${customerById(h.d, w.customerId)?.name ?? ''}', style: t(14.5, w: FontWeight.w500)),
+              title: Tx('${txnNo(w.no)} · ${customerById(h.d, w.customerId)?.name ?? ''}', style: t(14.5, w: FontWeight.w500)),
               subtitle: Tx('${serviceName(w)} ${bdShow(w.number)} · ${taka(w.agentTaka)}', style: t(12.5, c: K.muted)),
               trailing: const Icon(Icons.check_circle_outline_rounded, color: K.green),
               onTap: () => _use(context, w),

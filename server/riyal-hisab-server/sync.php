@@ -11,10 +11,10 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const RH_KINDS = ['customer', 'agent', 'txn', 'deposit', 'payment', 'expense', 'close', 'loss', 'handover', 'adjust', 'log', 'settings'];
+const RH_KINDS = ['customer', 'agent', 'txn', 'deposit', 'payment', 'expense', 'close', 'loss', 'handover', 'adjust', 'opening', 'log', 'settings'];
 
 /** Records that belong to the admin who made them (their hand). */
-const RH_OWNED = ['txn', 'deposit', 'payment', 'expense', 'close', 'loss', 'adjust'];
+const RH_OWNED = ['txn', 'deposit', 'payment', 'expense', 'close', 'loss', 'adjust', 'opening'];
 
 add_action('rest_api_init', function () {
     rh_route('/push', 'POST', 'rh_push', 'admin');
@@ -156,7 +156,11 @@ function rh_may_write($u, $kind, $rid, $data) {
             return true;
         case 'txn':
             if (!$old) {
-                return rh_can($u, 'send');
+                // A send from the old account ("পূর্বের হিসাব"): whoever may edit.
+                return !empty($data['old']) ? rh_can($u, 'edit') : rh_can($u, 'send');
+            }
+            if (!empty($old['old']) !== !empty($data['old']) || !empty($old['oldPaid']) !== !empty($data['oldPaid'])) {
+                return false;
             }
             // Once the agent has sent it, the money side never changes:
             // mistakes are written as "অতিরিক্ত হিসাব" (adjust).
@@ -222,6 +226,16 @@ function rh_may_write($u, $kind, $rid, $data) {
             $b = $data;
             unset($a['applied'], $a['appliedAt'], $a['appliedByName'], $b['applied'], $b['appliedAt'], $b['appliedByName'], $a['by'], $a['byName'], $b['by'], $b['byName']);
             return rh_can($u, 'edit') && empty($old['applied']) && !empty($data['applied']) && wp_json_encode($a) === wp_json_encode($b);
+        case 'opening':
+            // The old account: entered by whoever may edit; afterwards only
+            // cancelled (kept, counting for nothing), never changed.
+            if (!$old) {
+                return rh_can($u, 'edit') && in_array($data['kind'] ?? '', ['customer', 'agent', 'cash'], true);
+            }
+            $a = $old;
+            $b = $data;
+            unset($a['cancelled'], $a['cancelledByName'], $b['cancelled'], $b['cancelledByName'], $a['by'], $a['byName'], $b['by'], $b['byName']);
+            return rh_can($u, 'edit') && empty($old['cancelled']) && !empty($data['cancelled']) && wp_json_encode($a) === wp_json_encode($b);
         case 'handover':
             // Only the one who takes the riyal records it, once.
             return !$old && (int) ($data['to'] ?? 0) === (int) $u['id'] && (int) ($data['from'] ?? 0) !== (int) $u['id'] && (float) ($data['sar'] ?? 0) > 0;
@@ -322,7 +336,7 @@ function rh_txn_line($t) {
 /** Tells the agent what concerns them. Old, already settled records (first upload) are not announced. */
 function rh_tell_agents($kind, $old, $new) {
     if ($kind === 'txn') {
-        $no = '#' . rh_bn((string) ($new['no'] ?? ''));
+        $no = rh_txn_no($new);
         $aid = (string) ($new['agentId'] ?? '');
         $was = $old ? (string) ($old['agentId'] ?? '') : '';
         $status = $new['status'] ?? 'pending';

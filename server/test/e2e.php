@@ -471,6 +471,46 @@ check($f7['problem'] === '' && $f7['status'] === 'pending', 'and it is a request
 check($code === 409, 'no problem on a send already sent (t0)');
 call('POST', '/push', ['records' => [['kind' => 'txn', 'rid' => 't7', 'data' => ['status' => 'cancelled'] + rh_one('txn', 't7')]]], $owner);
 
+echo "\nপূর্বের হিসাব\n";
+$due0 = rh_customer_due('c1');
+$owed0 = rh_agent_owed('ag1');
+$hand0 = rh_cash_in_hand($ownerId);
+$op = fn($id, $kind, $extra) => ['id' => $id, 'at' => '2026-10-30T23:59:00.000', 'kind' => $kind, 'customerId' => '', 'agentId' => '', 'handBy' => 0, 'handByName' => '', 'sar' => 0, 'taka' => 0, 'note' => 'পুরনো খাতা'] + $extra;
+[, $d] = call('POST', '/push', ['records' => [
+    ['kind' => 'opening', 'rid' => 'o1', 'data' => $op('o1', 'customer', ['customerId' => 'c1', 'sar' => 450])],
+    ['kind' => 'opening', 'rid' => 'o2', 'data' => $op('o2', 'agent', ['agentId' => 'ag1', 'taka' => 12500])],
+    ['kind' => 'opening', 'rid' => 'o3', 'data' => $op('o3', 'cash', ['handBy' => (int) $ownerId, 'handByName' => 'সাইফুল', 'sar' => 1200])],
+    ['kind' => 'opening', 'rid' => 'o4', 'data' => $op('o4', 'nonsense', ['sar' => 5])],
+]], $owner);
+check($d['saved'] === 3, 'old account lines saved (an unknown kind refused)');
+check(abs(rh_customer_due('c1') - ($due0 + 450)) < 0.001 && rh_agent_owed('ag1') == $owed0 + 12500 && abs(rh_cash_in_hand($ownerId) - ($hand0 + 1200)) < 0.001, 'they count: customer due, agent due, cash in hand');
+[, $d] = call('POST', '/push', ['records' => [['kind' => 'opening', 'rid' => 'o1', 'data' => ['sar' => 9999] + rh_one('opening', 'o1')]]], $owner);
+check($d['saved'] === 0, 'an old account line is never changed');
+[, $d] = call('POST', '/push', ['records' => [['kind' => 'opening', 'rid' => 'o1', 'data' => ['cancelled' => true, 'cancelledByName' => 'সাইফুল'] + rh_one('opening', 'o1')]]], $owner);
+check($d['saved'] === 1 && abs(rh_customer_due('c1') - $due0) < 0.001, 'only cancelled: then it counts for nothing');
+[, $d] = call('POST', '/push', ['records' => [['kind' => 'opening', 'rid' => 'o1', 'data' => ['cancelled' => false] + rh_one('opening', 'o1')]]], $owner);
+check($d['saved'] === 0, 'and a cancel is not undone');
+$sent['fcm'] = [];
+$old1 = ['id' => 'tOld1', 'no' => -1, 'customerId' => 'c1', 'agentId' => 'ag1', 'number' => '01812345111', 'method' => 'bkash', 'kind' => 'send', 'sar' => 100, 'rate' => 32.5, 'taka' => 3250, 'fee' => 0, 'pay' => 'cash', 'sarPaid' => 100, 'at' => '2026-10-28T15:30:00.000', 'sentAt' => '2026-10-28T15:30:00.000', 'status' => 'sent', 'old' => true, 'oldPaid' => true];
+$old2 = ['id' => 'tOld2', 'no' => -2, 'old' => true, 'oldPaid' => false] + $old1;
+$old2['id'] = 'tOld2';
+call('POST', '/push', ['records' => [['kind' => 'txn', 'rid' => 'tOld1', 'data' => $old1], ['kind' => 'txn', 'rid' => 'tOld2', 'data' => $old2]]], $owner);
+check(count($sent['fcm']) === 0, 'old sends: nothing goes to the agent');
+check(rh_agent_owed('ag1') == $owed0 + 12500 + 3250 + rh_commission($old2, rh_all('agent')['ag1']), 'an old send paid already is not owed; the other is');
+[, $d] = call('POST', '/push', ['records' => [['kind' => 'txn', 'rid' => 'tOld1', 'data' => ['oldPaid' => false] + rh_one('txn', 'tOld1')]]], $owner);
+check($d['saved'] === 0, '"paid already" is not changed later');
+check(rh_txn_no(rh_one('txn', 'tOld1')) === 'আগের-১' && str_contains(page('txns', ['q' => '01812345111']), 'আগের-১'), 'numbered আগের-১');
+[, $f] = call('GET', '/agent/feed', [], $agentTok);
+$fo = array_values(array_filter($f['txns'], fn($t) => $t['id'] === 'tOld1'))[0];
+check(count($f['openings']) === 1 && $f['openings'][0]['taka'] == 12500 && $fo['old'] === true && $fo['paid'] === true, 'the agent sees the old account and old sends');
+call('POST', '/push', ['records' => [
+    ['kind' => 'opening', 'rid' => 'o2', 'data' => ['cancelled' => true] + rh_one('opening', 'o2')],
+    ['kind' => 'opening', 'rid' => 'o3', 'data' => ['cancelled' => true] + rh_one('opening', 'o3')],
+    ['kind' => 'txn', 'rid' => 'tOld1', 'data' => ['status' => 'cancelled'] + rh_one('txn', 'tOld1')],
+    ['kind' => 'txn', 'rid' => 'tOld2', 'data' => ['status' => 'cancelled'] + rh_one('txn', 'tOld2')],
+]], $owner);
+check(rh_agent_owed('ag1') == $owed0 && abs(rh_customer_due('c1') - $due0) < 0.001, 'all cancelled: back as before');
+
 echo "\ncustomer profile deleted\n";
 [, $d] = call('POST', '/push', ['records' => [['kind' => 'customer', 'rid' => 'c1', 'data' => ['deleted' => true] + rh_one('customer', 'c1')]]], $owner);
 check($d['saved'] === 0 && empty(rh_one('customer', 'c1')['deleted']), 'a customer who owes cannot be deleted');

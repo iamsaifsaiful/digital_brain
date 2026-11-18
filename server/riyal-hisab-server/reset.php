@@ -39,7 +39,7 @@ function rh_reset(WP_REST_Request $req, $u) {
     $bytes = rh_backup_bytes($pass);
 
     // 2. Everything as it was, kept on the server.
-    $kinds = ['customer', 'agent', 'txn', 'deposit', 'payment', 'expense', 'close', 'loss', 'handover', 'adjust', 'log', 'settings'];
+    $kinds = ['customer', 'agent', 'txn', 'deposit', 'payment', 'expense', 'close', 'loss', 'handover', 'adjust', 'opening', 'log', 'settings'];
     $data = [];
     $counts = [];
     foreach ($kinds as $k) {
@@ -97,7 +97,7 @@ function rh_reset(WP_REST_Request $req, $u) {
 function rh_tab_resets() {
     global $wpdb;
     $rows = $wpdb->get_results('SELECT id, at, by_name, summary, users FROM ' . rh_t('archives') . ' ORDER BY id DESC', ARRAY_A);
-    $names = ['customer' => 'গ্রাহক', 'txn' => 'লেনদেন', 'agent' => 'এজেন্ট', 'deposit' => 'জমা', 'payment' => 'এজেন্টকে দেওয়া', 'expense' => 'খরচ', 'loss' => 'লস', 'handover' => 'হাতবদল', 'adjust' => 'অতিরিক্ত হিসাব', 'log' => 'লগ'];
+    $names = ['customer' => 'গ্রাহক', 'txn' => 'লেনদেন', 'agent' => 'এজেন্ট', 'deposit' => 'জমা', 'payment' => 'এজেন্টকে দেওয়া', 'expense' => 'খরচ', 'loss' => 'লস', 'handover' => 'হাতবদল', 'adjust' => 'অতিরিক্ত হিসাব', 'opening' => 'পূর্বের হিসাব', 'log' => 'লগ'];
     ?>
     <p class="rh-muted">অ্যাপ থেকে মূল এডমিন "সব হিসাব রিসেট" করলে মোছার আগে পুরো হিসাব এখানে রাখা হয়। ৩০ দিনের আগে কেউ এটা মুছতে পারবে না। ব্যাকআপ ফাইল (.rhb) মূল এডমিনের সেই সময়ের সার্ভার পাসওয়ার্ড দিয়ে খোলে — অ্যাপের "ব্যাকআপ থেকে ফিরিয়ে আনুন" দিয়ে। পুরো রেকর্ড (JSON) পড়ার মতো, তালা ছাড়া।</p>
     <table class="rh-table"><thead><tr><th>#</th><th>সময়</th><th>কে করলেন</th><th>যা ছিল</th><th>মোছা লগইন</th><th>ডাউনলোড</th></tr></thead><tbody>

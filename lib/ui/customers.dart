@@ -298,6 +298,17 @@ class CustomerScreen extends StatelessWidget {
                 valueColor: K.red,
               )
             ),
+          for (final o in d.liveOpenings.where((o) => o.kind == 'customer' && o.customerId == c.id))
+            (
+              o.at,
+              Row2(
+                lead: dotIcon(Icons.history_edu_outlined, K.amberTint, K.amberText),
+                title: o.sar >= 0 ? 'পূর্বের হিসাব · বকেয়া' : 'পূর্বের হিসাব · অগ্রিম জমা',
+                sub: '${dateShort(o.at)} ${bn('${o.at.year}')} পর্যন্ত${o.note.isEmpty ? '' : ' · ${o.note}'}',
+                value: o.sar >= 0 ? sar(o.sar) : '+${sar(-o.sar)}',
+                valueColor: o.sar >= 0 ? K.ink : K.green,
+              )
+            ),
         ]..sort((a, b) => b.$1.compareTo(a.$1));
         final lost = lossOf(d, c.id);
         return Screen(
@@ -770,7 +781,7 @@ class _DepositScreenState extends State<DepositScreen> {
               for (final (i, o) in open.indexed)
                 Row2(
                   lead: dotIcon(o.left <= 0 ? Icons.check_rounded : Icons.more_horiz_rounded, o.left <= 0 ? K.greenTint : K.redTint, o.left <= 0 ? K.green : K.red, size: 36),
-                  title: '#${bn('${o.txn.no}')} · ${dateShort(o.txn.at)}',
+                  title: o.txn.id.startsWith('opening:') ? 'পূর্বের হিসাব · ${dateShort(o.txn.at)}' : '${txnNo(o.txn.no)} · ${dateShort(o.txn.at)}',
                   sub: '${o.txn.recipientLabel.isEmpty ? bdShow(o.txn.number) : o.txn.recipientLabel} · বকেয়া ছিল ${sar(before[o.txn.id] ?? 0)}',
                   value: o.left <= 0 ? 'শোধ' : '${sar(o.left)} বকেয়া',
                   valueColor: o.left <= 0 ? K.green : K.red,

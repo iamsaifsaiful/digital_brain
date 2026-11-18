@@ -9,6 +9,10 @@ const _bnDigits = '০১২৩৪৫৬৭৮৯';
 bool appEnglish = false;
 
 /// "123" → "১২৩". Other characters stay.
+/// A send's number as shown: #২৬১১০০১০, or আগের-৩ for one entered from
+/// the old account (negative numbers).
+String txnNo(int no) => no < 0 ? 'আগের-${bn('${-no}')}' : '#${bn('$no')}';
+
 String bn(String s) => s.replaceAllMapped(RegExp('[0-9]'), (m) => _bnDigits[int.parse(m[0]!)]);
 
 /// "১২৩" → "123". Other characters stay.

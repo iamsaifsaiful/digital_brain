@@ -198,7 +198,7 @@ class _Requests extends StatelessWidget {
               for (final (i, x) in recent.take(8).indexed)
                 Row2(
                   lead: dotIcon(x.cancelled ? Icons.block_rounded : Icons.check_rounded, x.cancelled ? K.chip : K.greenTint, x.cancelled ? K.muted : K.green, size: 38),
-                  title: '#${bn('${x.no}')} · ${bdShow(x.number)}',
+                  title: '${txnNo(x.no)} · ${bdShow(x.number)}',
                   sub: '${_service(x)} · ${dateShort(x.sentAt ?? x.at)}, ${timeText(x.sentAt ?? x.at)}${x.reply.isNotEmpty ? ' · ${bn(x.reply)}' : ''}',
                   value: taka(x.total),
                   valueColor: x.cancelled ? K.muted : K.ink,
@@ -221,7 +221,7 @@ class RequestCard extends StatelessWidget {
 
   Future<void> _sent(BuildContext context) async {
     final ok = await showModalBottomSheet<bool>(context: context, isScrollControlled: true, useSafeArea: true, builder: (_) => _SentSheet(st: st, t: tx));
-    if (ok == true && context.mounted) snack(context, '#${bn('${tx.no}')} — পাঠানো হয়েছে, ${st.owner}-কে জানানো হলো');
+    if (ok == true && context.mounted) snack(context, '${txnNo(tx.no)} — পাঠানো হয়েছে, ${st.owner}-কে জানানো হলো');
   }
 
   Future<void> _problem(BuildContext context) async {
@@ -243,7 +243,7 @@ class RequestCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(color: K.navy, borderRadius: BorderRadius.circular(12)),
-              child: Tx('#${bn('${tx.no}')}', style: t(13, w: FontWeight.w700, c: Colors.white)),
+              child: Tx(txnNo(tx.no), style: t(13, w: FontWeight.w700, c: Colors.white)),
             ),
             const SizedBox(width: 8),
             Expanded(child: Tx(_service(tx), style: t(14, w: FontWeight.w600, c: K.navy))),
@@ -335,7 +335,7 @@ class _SentSheetState extends State<_SentSheet> {
   Widget build(BuildContext context) => Padding(
         padding: EdgeInsets.fromLTRB(18, 18, 18, 18 + MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Tx('#${bn('${widget.t.no}')} পাঠিয়েছেন', style: t(19, w: FontWeight.w600), textAlign: TextAlign.center),
+          Tx('${txnNo(widget.t.no)} পাঠিয়েছেন', style: t(19, w: FontWeight.w600), textAlign: TextAlign.center),
           Tx('${bdShow(widget.t.number)} · ${taka(widget.t.total)}', style: t(14, c: K.muted), textAlign: TextAlign.center),
           const SizedBox(height: 16),
           Field(label: 'যে নম্বর থেকে পাঠালেন, তার শেষ ৩ সংখ্যা', controller: _tail, number: true, big: true, autofocus: true, hint: '৬৬৭'),
@@ -400,7 +400,7 @@ class _AllWorkState extends State<_AllWork> {
                   lead: dotIcon(x.cancelled ? Icons.block_rounded : (x.pending ? Icons.hourglass_top_rounded : Icons.check_rounded), x.cancelled ? K.chip : (x.pending ? K.redTint : K.greenTint),
                       x.cancelled ? K.muted : (x.pending ? K.red : K.green),
                       size: 38),
-                  title: '#${bn('${x.no}')} · ${bdShow(x.number)}',
+                  title: '${txnNo(x.no)} · ${bdShow(x.number)}',
                   sub: '${_service(x)} · ${timeText(x.at)}${x.reply.isNotEmpty ? ' · ${bn(x.reply)}' : ''}${x.trxId.isNotEmpty ? ' · ${x.trxId}' : ''}${x.fault != null ? ' · ভুল নম্বর' : ''}',
                   subColor: x.fault != null ? K.red : K.muted,
                   value: taka(x.total),
@@ -485,6 +485,23 @@ class _MoneyState extends State<_Money> {
           const SizedBox(width: 10),
           tile('কমিশন', taka(comm), ''),
         ]),
+        if (st.openings.isNotEmpty) ...[
+          SectionHead('পূর্বের হিসাব'),
+          CardBox(
+            color: K.amberTint,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Column(children: [
+              for (final (i, o) in st.openings.indexed)
+                Row2(
+                  lead: dotIcon(Icons.history_edu_outlined, Colors.white, K.amberText, size: 38),
+                  title: o.$2 >= 0 ? 'অ্যাপের আগের পাওনা' : 'অ্যাপের আগে অগ্রিম নিয়েছিলেন',
+                  sub: '${dateShort(o.$1)} ${bn('${o.$1.year}')} পর্যন্ত${o.$3.isEmpty ? '' : ' · ${o.$3}'}',
+                  value: taka(o.$2.abs()),
+                  last: i == st.openings.length - 1,
+                ),
+            ]),
+          ),
+        ],
         const SizedBox(height: 12),
         Seg<String>(items: const [('all', 'সব'), ('pay', 'পেয়েছেন'), ('sent', 'পাঠানো'), ('unpaid', 'টাকা পাইনি')], value: _show, onChanged: (v) => setState(() => _show = v)),
         if (_show == 'all' || _show == 'pay') ...[
@@ -520,7 +537,7 @@ class _MoneyState extends State<_Money> {
                 for (final (i, x) in list.take(300).indexed)
                   Row2(
                     lead: dotIcon(Icons.check_rounded, K.greenTint, K.green, size: 36),
-                    title: '#${bn('${x.no}')} · ${bdShow(x.number)}',
+                    title: '${txnNo(x.no)} · ${bdShow(x.number)}',
                     sub: '${_service(x)} · ${dateShort(x.at)}${x.reply.isNotEmpty ? ' · ${bn(x.reply)}' : ''}',
                     value: taka(x.total),
                     valueSub: x.paid ? 'টাকা পেয়েছি' : 'টাকা পাইনি',
@@ -797,7 +814,7 @@ Future<void> openNote(BuildContext context, AgentState st, ServerNote n) async {
           if (txn != null) ...[
             const SizedBox(height: 16),
             Pill(
-              label: 'লেনদেন #${bn('${txn.no}')} দেখুন',
+              label: 'লেনদেন ${txnNo(txn.no)} দেখুন',
               onTap: () {
                 Navigator.pop(ctx);
                 push(context, TxnScreen(h: h, id: txn.id));
@@ -879,11 +896,17 @@ PdfDoc agentOwnPdf(AgentState st, Period p) {
     ('এই সময়ে পেয়েছেন', '${bn('${pays.length}')} বার · ${taka(pays.fold<double>(0, (s, x) => s + x.taka))}'),
     if (waiting.isNotEmpty) ('পাঠানোর অপেক্ষায়', '${bn('${waiting.length}')}টা · ${taka(waiting.fold<double>(0, (s, x) => s + x.total))}'),
   ]);
+  if (st.openings.isNotEmpty) {
+    doc.heading('পূর্বের হিসাব (অ্যাপের আগের)');
+    doc.table(['তারিখ পর্যন্ত', 'কী', 'নোট', 'টাকা'], [
+      for (final o in st.openings) ['${dateShort(o.$1)} ${bn('${o.$1.year}')}', o.$2 >= 0 ? 'আপনার পাওনা' : 'আগাম নিয়েছিলেন', o.$3, bnNum(o.$2.abs())],
+    ], flex: [1.3, 1.6, 2, 1.2], right: {3});
+  }
   doc.heading('যা পাঠালেন');
   doc.table(['নং / সময়', 'কী / নম্বর', 'টাকা', 'উত্তর / TrxID', 'টাকা পেয়েছেন'], [
     for (final x in sent)
       [
-        '#${bn('${x.no}')}\n${dateShort(x.sentAt ?? x.at)}\n${timeText(x.sentAt ?? x.at)}',
+        '${txnNo(x.no)}\n${dateShort(x.sentAt ?? x.at)}\n${timeText(x.sentAt ?? x.at)}',
         '${_service(x)}\n${bdShow(x.number)}',
         bnNum(x.total),
         [if (x.reply.isNotEmpty) bn(x.reply), if (x.trxId.isNotEmpty) x.trxId, if (x.fault != null) 'ভুল নম্বর'].join('\n'),
@@ -904,7 +927,7 @@ PdfDoc agentOwnPdf(AgentState st, Period p) {
     doc.heading('এখনো পাঠানো হয়নি');
     doc.table(['নং / সময়', 'কী / নম্বর', 'টাকা', 'অবস্থা'], [
       for (final x in waiting)
-        ['#${bn('${x.no}')}\n${dateShort(x.at)}', '${_service(x)}\n${bdShow(x.number)}', bnNum(x.total), x.hasProblem ? 'সমস্যা: ${x.problem}' : 'অপেক্ষায়'],
+        ['${txnNo(x.no)}\n${dateShort(x.at)}', '${_service(x)}\n${bdShow(x.number)}', bnNum(x.total), x.hasProblem ? 'সমস্যা: ${x.problem}' : 'অপেক্ষায়'],
     ], flex: [1.3, 2, 1.2, 2], right: {2});
   }
   return doc;

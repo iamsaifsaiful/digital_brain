@@ -304,6 +304,9 @@ class Hisab extends ChangeNotifier {
     for (final x in d.adjusts) {
       yield ('adjust', x.id, x.toJson());
     }
+    for (final x in d.openings) {
+      yield ('opening', x.id, x.toJson());
+    }
     for (final x in d.log) {
       yield ('log', x.id, x.toJson());
     }
@@ -364,6 +367,10 @@ class Hisab extends ChangeNotifier {
       case 'adjust':
         final x = Adjust.fromJson(j);
         put(d.adjusts, x, (e) => e.id);
+        return x.toJson();
+      case 'opening':
+        final x = Opening.fromJson(j);
+        put(d.openings, x, (e) => e.id);
         return x.toJson();
       case 'log':
         final x = LogEntry.fromJson(j);
@@ -763,10 +770,86 @@ class Hisab extends ChangeNotifier {
     final dueAfter = customerDue(d, t.customerId);
     _log(
       'txn',
-      'নতুন লেনদেন · #${bn('${t.no}')}',
+      'নতুন লেনদেন · ${txnNo(t.no)}',
       '${customerNameOf(d, t)} → ${t.recipientLabel.isEmpty ? bdShow(t.number) : t.recipientLabel} · ${serviceName(t)}${t.kind == Kind.mb && t.pack.isNotEmpty ? ' (${t.pack})' : ''} · '
           '${sar(t.sarAmount)} × ${rateText(t.rate)} = ${taka(t.taka)}${t.fee > 0 ? ' + খরচ ${taka(t.fee)}' : ''} · '
           '${t.pay.bnName}${t.pay == Pay.partial ? ' (${sar(t.sarPaid)})' : ''} · বকেয়া দাঁড়াল ${sar(dueAfter > 0 ? dueAfter : 0)}',
+      ref: t.id,
+    );
+    await _save();
+    return t;
+  }
+
+  /// One line of the old account ("পূর্বের হিসাব"): a customer's due
+  /// (riyal, negative = advance), an agent's due (taka, negative = advance)
+  /// or riyal in an admin's hand, as it stood on [at]. Nothing is sent.
+  Future<Opening> addOpening({required String kind, required DateTime at, String customerId = '', String agentId = '', int handBy = 0, String handByName = '', double sar = 0, double taka = 0, String note = ''}) async {
+    if (!can('edit')) throw StateError('no permission');
+    final o = Opening(id: newId(), at: at, kind: kind, customerId: customerId, agentId: agentId, handBy: handBy, handByName: handByName, sar: sar, taka: taka, note: note.trim(), by: meId, byName: meName, created: now);
+    d.openings.add(o);
+    _log('edit', 'পূর্বের হিসাব তোলা', '${openingText(d, o)} · ${dateShort(at)} পর্যন্ত${o.note.isEmpty ? '' : ' · ${o.note}'}', who: meName, ref: o.id);
+    await _save();
+    return o;
+  }
+
+  /// Many customers' old due at once, from the old book: a name (or phone)
+  /// that matches a customer goes to them, otherwise a new customer is made.
+  /// Returns how many new customers were made.
+  Future<int> addOpeningsMany(List<(String, String, double)> rows, DateTime at) async {
+    var made = 0;
+    for (final (name, phone, amount) in rows) {
+      if (name.trim().isEmpty || amount.abs() < 0.005) continue;
+      final ph = en(phone).replaceAll(RegExp(r'[^0-9]'), '');
+      Customer? c;
+      for (final x in d.liveCustomers) {
+        final xp = en(x.phone).replaceAll(RegExp(r'[^0-9]'), '');
+        if ((ph.length >= 6 && xp.endsWith(ph.length > 9 ? ph.substring(ph.length - 9) : ph)) || x.name.trim().toLowerCase() == name.trim().toLowerCase()) {
+          c = x;
+          break;
+        }
+      }
+      if (c == null) {
+        c = await addCustomer(name: name.trim(), phone: phone.trim());
+        made++;
+      }
+      await addOpening(kind: 'customer', at: at, customerId: c.id, sar: amount);
+    }
+    return made;
+  }
+
+  /// An old-account line entered by mistake: kept, counts for nothing.
+  Future<void> cancelOpening(Opening o) async {
+    if (!can('edit') || o.cancelled) return;
+    o
+      ..cancelled = true
+      ..cancelledByName = meName;
+    _log('edit', 'পূর্বের হিসাব বাতিল', openingText(d, o), who: meName, ref: o.id);
+    await _save();
+  }
+
+  /// A send made before the app: already sent, numbered আগের-১, আগের-২…;
+  /// nothing goes to the agent or the customer. [agentPaid]: the agent was
+  /// already paid for it, so it is not in what they are owed.
+  Future<Txn> addOldTxn(Txn draft, {required DateTime at, bool agentPaid = true}) async {
+    if (!can('edit')) throw StateError('no permission');
+    final low = d.txns.fold<int>(0, (m, t) => t.no < m ? t.no : m);
+    final t = Txn.fromJson({
+      ...draft.toJson(),
+      'id': newId(),
+      'no': low - 1,
+      'at': at.toIso8601String(),
+      'sentAt': at.toIso8601String(),
+      'status': 'sent',
+      'old': true,
+      'oldPaid': agentPaid,
+      'by': meId,
+      'byName': meName,
+    });
+    d.txns.add(t);
+    _log(
+      'txn',
+      'আগের লেনদেন তোলা · ${txnNo(t.no)}',
+      '${dateShort(at)} · ${customerNameOf(d, t)} · ${bdShow(t.number)} · ${sar(t.sarAmount)} × ${rateText(t.rate)} = ${taka(t.taka)} · ${t.pay.bnName}${t.pay == Pay.partial ? ' (${sar(t.sarPaid)})' : ''} · ${agentPaid ? 'এজেন্টকে আগেই দেওয়া' : 'এজেন্টের পাওনায়'}',
       ref: t.id,
     );
     await _save();
@@ -810,16 +893,17 @@ class Hisab extends ChangeNotifier {
     d.txns[i] = changed;
     final c = customerById(d, changed.customerId);
     if (c != null) rememberRecipient(c, changed.recipientLabel, changed.number, changed.method);
-    _log('edit', 'লেনদেন সম্পাদনা · #${bn('${old.no}')}', diffs.join(' · '), ref: old.id);
+    _log('edit', 'লেনদেন সম্পাদনা · ${txnNo(old.no)}', diffs.join(' · '), ref: old.id);
     await _save();
     return diffs;
   }
 
   /// Only before the agent has sent it.
   Future<void> cancelTxn(Txn t, String reason) async {
-    if (t.status == TxnStatus.sent) throw StateError('already sent');
+    // An old send (from the old account) can be cancelled if entered by mistake.
+    if (t.status == TxnStatus.sent && !t.old) throw StateError('already sent');
     t.status = TxnStatus.cancelled;
-    _log('edit', 'লেনদেন বাতিল · #${bn('${t.no}')}', '${taka(t.agentTaka)} · ${bdShow(t.number)}${reason.trim().isEmpty ? '' : ' · কারণ: ${reason.trim()}'}', ref: t.id);
+    _log('edit', 'লেনদেন বাতিল · ${txnNo(t.no)}', '${taka(t.agentTaka)} · ${bdShow(t.number)}${reason.trim().isEmpty ? '' : ' · কারণ: ${reason.trim()}'}', ref: t.id);
     await _save();
   }
 
@@ -844,7 +928,7 @@ class Hisab extends ChangeNotifier {
       from == 'auto' ? 'কপি করা উত্তর থেকে অটো বসানো (${session?.name ?? 'আপনি'} নিশ্চিত করলেন)' : 'এডমিন নিজে লিখে বসালেন (${session?.name ?? 'আপনি'})',
       if (!wasSent) 'লেনদেন "পৌঁছেছে"',
     ];
-    _log('agent', wasSent ? 'এজেন্টের উত্তর বদল · #${bn('${t.no}')}' : 'এজেন্ট পাঠিয়েছেন · #${bn('${t.no}')}', parts.join(' · '), who: who, ref: t.id);
+    _log('agent', wasSent ? 'এজেন্টের উত্তর বদল · ${txnNo(t.no)}' : 'এজেন্ট পাঠিয়েছেন · ${txnNo(t.no)}', parts.join(' · '), who: who, ref: t.id);
     await _save();
   }
 
@@ -855,7 +939,7 @@ class Hisab extends ChangeNotifier {
     t.faultNote = fault == null ? '' : note.trim();
     _log(
       'edit',
-      fault == null ? 'ভুল নম্বরের চিহ্ন তোলা · #${bn('${t.no}')}' : 'ভুল নম্বরে গেছে · #${bn('${t.no}')}',
+      fault == null ? 'ভুল নম্বরের চিহ্ন তোলা · ${txnNo(t.no)}' : 'ভুল নম্বরে গেছে · ${txnNo(t.no)}',
       fault == null ? 'আগে: ${old?.bnName ?? ''}' : '${fault.bnName}${t.faultNote.isEmpty ? '' : ' · ${t.faultNote}'} · ${bdShow(t.number)} · ${taka(t.agentTaka)}',
       ref: t.id,
     );
@@ -863,7 +947,7 @@ class Hisab extends ChangeNotifier {
   }
 
   Future<void> logMessage(Txn t, String what) async {
-    _log('agent', '$what · #${bn('${t.no}')}', '${agentById(d, t.agentId)?.name ?? ''} · ${taka(t.agentTaka)} · ${t.method.bnName} ${bdShow(t.number)}', ref: t.id);
+    _log('agent', '$what · ${txnNo(t.no)}', '${agentById(d, t.agentId)?.name ?? ''} · ${taka(t.agentTaka)} · ${t.method.bnName} ${bdShow(t.number)}', ref: t.id);
     await _save();
   }
 
@@ -945,7 +1029,7 @@ class Hisab extends ChangeNotifier {
     );
     d.adjusts.add(x);
     final why = adjustWhy(x);
-    _log('edit', 'অতিরিক্ত হিসাব · #${bn('${t.no}')}', '${why.isEmpty ? '' : '$why · '}${adjustText(x)} · এখনো মূল হিসাবে নেই', who: meName, ref: t.id);
+    _log('edit', 'অতিরিক্ত হিসাব · ${txnNo(t.no)}', '${why.isEmpty ? '' : '$why · '}${adjustText(x)} · এখনো মূল হিসাবে নেই', who: meName, ref: t.id);
     await _save();
     return x;
   }
@@ -960,7 +1044,7 @@ class Hisab extends ChangeNotifier {
       ..appliedAt = now
       ..appliedByName = meName;
     final t = txnById(x.txnId);
-    _log('edit', 'অতিরিক্ত হিসাব মূল হিসাবে যোগ${t == null ? '' : ' · #${bn('${t.no}')}'}', adjustText(x), who: meName, ref: x.txnId);
+    _log('edit', 'অতিরিক্ত হিসাব মূল হিসাবে যোগ${t == null ? '' : ' · ${txnNo(t.no)}'}', adjustText(x), who: meName, ref: x.txnId);
     await _save();
   }
 
@@ -969,7 +1053,7 @@ class Hisab extends ChangeNotifier {
   Future<void> reRequest(Txn t) async {
     if (!t.hasProblem) return;
     t.problemSolved = t.problemAt;
-    _log('agent', 'আবার অনুরোধ · #${bn('${t.no}')}', 'এজেন্টের সমস্যা ছিল: ${t.problem} · সমাধান করে আবার পাঠানো হলো · ${taka(t.agentTaka)}', who: meName, ref: t.id);
+    _log('agent', 'আবার অনুরোধ · ${txnNo(t.no)}', 'এজেন্টের সমস্যা ছিল: ${t.problem} · সমাধান করে আবার পাঠানো হলো · ${taka(t.agentTaka)}', who: meName, ref: t.id);
     await _save();
   }
 
@@ -977,7 +1061,7 @@ class Hisab extends ChangeNotifier {
   Future<void> changeNoticeSent(Txn t) async {
     if (t.changeNotice.isEmpty) return;
     t.changeNotice = '';
-    _log('agent', 'সংশোধনের মেসেজ এজেন্টকে পাঠানো হয়েছে · #${bn('${t.no}')}', '${agentById(d, t.agentId)?.name ?? ''} · ${taka(t.agentTaka)}', who: meName, ref: t.id);
+    _log('agent', 'সংশোধনের মেসেজ এজেন্টকে পাঠানো হয়েছে · ${txnNo(t.no)}', '${agentById(d, t.agentId)?.name ?? ''} · ${taka(t.agentTaka)}', who: meName, ref: t.id);
     await _save();
   }
 

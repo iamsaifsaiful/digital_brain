@@ -224,6 +224,8 @@ class Txn {
     this.changeNotice = '',
     this.walkIn = '',
     this.walkInPhone = '',
+    this.old = false,
+    this.oldPaid = false,
     this.problem = '',
     this.problemAt = '',
     this.problemSolved = '',
@@ -284,6 +286,13 @@ class Txn {
   /// for this send only. Such a send is always paid in cash.
   String walkIn;
   String walkInPhone;
+
+  /// Entered later from the old account ("পূর্বের হিসাব"): numbered
+  /// আগের-১, আগের-২ (negative [no]); nothing went to the agent.
+  bool old;
+
+  /// An old send the agent was already paid for: not in what they are owed.
+  bool oldPaid;
 
   /// 'pending' after a change the agent must be told about (amount,
   /// number…), until the admin confirms the message went.
@@ -350,6 +359,8 @@ class Txn {
         'changeNotice': changeNotice,
         'walkIn': walkIn,
         'walkInPhone': walkInPhone,
+        if (old) 'old': true,
+        if (oldPaid) 'oldPaid': true,
         if (problem.isNotEmpty) 'problem': problem,
         if (problemAt.isNotEmpty) 'problemAt': problemAt,
         if (problemSolved.isNotEmpty) 'problemSolved': problemSolved,
@@ -388,6 +399,8 @@ class Txn {
         changeNotice: _s(j['changeNotice']),
         walkIn: _s(j['walkIn']),
         walkInPhone: _s(j['walkInPhone']),
+        old: j['old'] == true,
+        oldPaid: j['oldPaid'] == true,
         problem: _s(j['problem']),
         problemAt: _s(j['problemAt']),
         problemSolved: _s(j['problemSolved']),
@@ -585,6 +598,83 @@ class Handover {
 /// A correction for a send the agent already sent ("অতিরিক্ত হিসাব"): a sent
 /// send is never edited, so a mistake is written down here instead. It counts
 /// nowhere until an admin adds it to the main account ([applied]).
+/// One line of the old account ("পূর্বের হিসাব"), as it stood on [at]:
+/// a customer's due (riyal; negative = advance), an agent's due (taka;
+/// negative = advance), or riyal in an admin's hand. Never sent to anyone.
+class Opening {
+  Opening({
+    required this.id,
+    required this.at,
+    required this.kind,
+    this.customerId = '',
+    this.agentId = '',
+    this.handBy = 0,
+    this.handByName = '',
+    this.sar = 0,
+    this.taka = 0,
+    this.note = '',
+    this.by = 0,
+    this.byName = '',
+    this.created,
+    this.cancelled = false,
+    this.cancelledByName = '',
+  });
+  final String id;
+  final DateTime at;
+
+  /// customer, agent or cash.
+  final String kind;
+  final String customerId;
+  final String agentId;
+  final int handBy;
+  final String handByName;
+  final double sar;
+  final double taka;
+  final String note;
+  final int by;
+  final String byName;
+  final DateTime? created;
+
+  /// Entered by mistake: kept, but counts for nothing.
+  bool cancelled;
+  String cancelledByName;
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'at': at.toIso8601String(),
+        'kind': kind,
+        'customerId': customerId,
+        'agentId': agentId,
+        'handBy': handBy,
+        'handByName': handByName,
+        'sar': sar,
+        'taka': taka,
+        'note': note,
+        'by': by,
+        'byName': byName,
+        if (created != null) 'created': created!.toIso8601String(),
+        if (cancelled) 'cancelled': true,
+        if (cancelledByName.isNotEmpty) 'cancelledByName': cancelledByName,
+      };
+  factory Opening.fromJson(Map<String, Object?> j) => Opening(
+        id: _s(j['id']),
+        at: _t(j['at']),
+        kind: _s(j['kind']),
+        customerId: _s(j['customerId']),
+        agentId: _s(j['agentId']),
+        handBy: _i(j['handBy']),
+        handByName: _s(j['handByName']),
+        sar: _d(j['sar']),
+        taka: _d(j['taka']),
+        note: _s(j['note']),
+        by: _i(j['by']),
+        byName: _s(j['byName']),
+        created: j['created'] == null ? null : _t(j['created']),
+        cancelled: j['cancelled'] == true,
+        cancelledByName: _s(j['cancelledByName']),
+      );
+}
+
 class Adjust {
   Adjust({
     required this.id,
@@ -801,6 +891,7 @@ class AppData {
     List<Loss>? losses,
     List<Handover>? handovers,
     List<Adjust>? adjusts,
+    List<Opening>? openings,
     List<LogEntry>? log,
   })  : settings = settings ?? Settings(),
         customers = customers ?? [],
@@ -813,6 +904,7 @@ class AppData {
         losses = losses ?? [],
         handovers = handovers ?? [],
         adjusts = adjusts ?? [],
+        openings = openings ?? [],
         log = log ?? [];
 
   Settings settings;
@@ -836,7 +928,11 @@ class AppData {
   List<Loss> losses;
   List<Handover> handovers;
   List<Adjust> adjusts;
+  List<Opening> openings;
   List<LogEntry> log;
+
+  /// The old-account lines still counted (not cancelled).
+  List<Opening> get liveOpenings => openings.where((o) => !o.cancelled).toList();
 
   Map<String, Object?> toJson() => {
         'v': 1,
@@ -852,6 +948,7 @@ class AppData {
         'losses': [for (final x in losses) x.toJson()],
         'handovers': [for (final x in handovers) x.toJson()],
         'adjusts': [for (final x in adjusts) x.toJson()],
+        'openings': [for (final x in openings) x.toJson()],
         'log': [for (final x in log) x.toJson()],
       };
 
@@ -869,6 +966,7 @@ class AppData {
       losses: p.losses,
       handovers: p.handovers,
       adjusts: p.adjusts,
+      openings: p.openings,
       log: p.log,
     )..sync = SyncState.fromJson(((j['sync'] as Map?) ?? const {}).cast<String, Object?>());
   }
@@ -887,6 +985,7 @@ class _AppDataParts {
         losses = [for (final x in _l(j['losses'])) Loss.fromJson(x)],
         handovers = [for (final x in _l(j['handovers'])) Handover.fromJson(x)],
         adjusts = [for (final x in _l(j['adjusts'])) Adjust.fromJson(x)],
+        openings = [for (final x in _l(j['openings'])) Opening.fromJson(x)],
         log = [for (final x in _l(j['log'])) LogEntry.fromJson(x)];
   final Settings settings;
   final List<Customer> customers;
@@ -899,6 +998,7 @@ class _AppDataParts {
   final List<Loss> losses;
   final List<Handover> handovers;
   final List<Adjust> adjusts;
+  final List<Opening> openings;
   final List<LogEntry> log;
 }
 
