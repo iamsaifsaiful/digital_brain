@@ -90,6 +90,13 @@ void main() {
     expect(find.byKey(const Key('wx-chip-চট্টগ্রাম')), findsOneWidget);
     expect(find.descendant(of: find.byKey(const Key('wx-chip-চট্টগ্রাম')), matching: find.text('চট্টগ্রাম ২৮°')), findsOneWidget);
     await shot('1-dhaka');
+    final list = find.descendant(of: find.byType(WeatherScreen), matching: find.byType(ListView)).first;
+    await t.drag(list, const Offset(0, -520));
+    await settle(t);
+    expect(find.byKey(const Key('wx-sun')), findsOneWidget);
+    await shot('5-below');
+    await t.drag(list, const Offset(0, 900));
+    await settle(t, 30);
 
     await t.tap(find.byKey(const Key('wx-chip-চট্টগ্রাম')));
     await settle(t);
