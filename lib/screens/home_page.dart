@@ -378,7 +378,11 @@ class _HomeHeroState extends State<HomeHero> {
             _greeting(context, brain, now, hj),
             const SizedBox(height: 10),
             _weather(brain, sun, now),
-            // No prayer here (owner, 19 Nov): the times are on the মুসলিম টাইম page.
+            // Prayer, sehri, iftar only when pinned from মুসলিম টাইম (owner, 19 Nov).
+            if (pinnedTimes(brain, now, sun).isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _pinned(context, pinnedTimes(brain, now, sun)),
+            ],
             const Spacer(),
             _sunRow(facts.last),
           ]),
@@ -502,6 +506,29 @@ class _HomeHeroState extends State<HomeHero> {
           ]),
         ),
       ]),
+    );
+  }
+
+  /// The times pinned from মুসলিম টাইম, each in a glass pill; a tap opens the page.
+  Widget _pinned(BuildContext context, List<(IconData, String)> items) {
+    Widget pill((IconData, String) x) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.45)),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(x.$1, size: 18, color: _white),
+            const SizedBox(width: 6),
+            Text(x.$2, style: body(14, weight: FontWeight.w600, color: _white)),
+          ]),
+        );
+    return GestureDetector(
+      key: const Key('home-slot'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const IbadahScreen())),
+      child: Wrap(spacing: 8, runSpacing: 8, children: [for (final x in items) pill(x)]),
     );
   }
 

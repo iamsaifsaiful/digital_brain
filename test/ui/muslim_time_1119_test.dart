@@ -93,6 +93,28 @@ void main() {
     await _shot(t, '4-qibla');
   });
 
+  testWidgets('pinned to Home by choice: the next prayer, sehri and iftar', (t) async {
+    final rig = await openPage(t);
+    await t.tap(find.byKey(const Key('ibadah-pin')));
+    await settle(t);
+    await t.tap(find.byKey(const Key('pin-home_waqt')));
+    await settle(t);
+    await t.tap(find.byKey(const Key('pin-home_iftar')));
+    await settle(t);
+    expect(rig.brain.flag('home_waqt'), isTrue);
+    expect(rig.brain.flag('home_sehri'), isFalse);
+    await _shot(t, '6-pin-sheet');
+    if (shots) debugDisableShadows = false;
+    await t.tap(find.byKey(const Key('pin-home_sehri')));
+    await settle(t);
+    Navigator.of(t.element(find.text('হোমে দেখান').first)).popUntil((r) => r.isFirst);
+    await settle(t);
+    expect(find.byKey(const Key('home-slot')), findsOneWidget);
+    expect(find.textContaining('আসর'), findsWidgets);
+    expect(find.textContaining('ইফতার'), findsWidgets);
+    await _shot(t, '7-home-pinned');
+  });
+
   testWidgets('dark look', (t) async {
     await openPage(t, dark: true);
     await _shot(t, '5-prayer-dark');

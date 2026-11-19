@@ -10,6 +10,69 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'compass_screen.dart' show QiblaView;
 
+/// What is pinned to Home from here (owner, 19 Nov: "ইউজার চাইলে ওয়াক্ত,
+/// ইফতার, সেহরির টাইম টেনে হোমে রাখতে পারবে"); nothing unless chosen.
+const homePins = ['home_waqt', 'home_sehri', 'home_iftar'];
+
+/// The pinned times for Home, each the next to come: (icon, "আসর ৩:৩৬").
+List<(IconData, String)> pinnedTimes(Brain brain, DateTime now, SunTimes t) {
+  final out = <(IconData, String)>[];
+  if (!homePins.any((k) => brain.flag(k))) return out;
+  final tomorrow = sunTimes(now.add(const Duration(days: 1)), placeNamed(brain.district));
+  if (brain.flag('home_waqt')) {
+    final friday = now.weekday == DateTime.friday;
+    final all = [(tr('ফজর'), t.fajr), (friday ? tr('জুমা') : tr('জোহর'), t.dhuhr), (tr('আসর'), t.asr), (tr('মাগরিব'), t.maghrib), (tr('এশা'), t.isha)];
+    final next = all.where((p) => p.$2.isAfter(now)).firstOrNull ?? (tr('ফজর'), tomorrow.fajr);
+    out.add((Icons.mosque_outlined, '${next.$1} ${clockOnly(next.$2)}'));
+  }
+  if (brain.flag('home_sehri')) {
+    out.add((Icons.nightlight_outlined, '${tr('সেহরি শেষ')} ${clockOnly(now.isBefore(t.sehriEnd) ? t.sehriEnd : tomorrow.sehriEnd)}'));
+  }
+  if (brain.flag('home_iftar')) {
+    out.add((Icons.wb_twilight_rounded, '${tr('ইফতার')} ${clockOnly(now.isBefore(t.maghrib) ? t.maghrib : tomorrow.maghrib)}'));
+  }
+  return out;
+}
+
+/// "৪:৫৫" without the part of the day.
+String clockOnly(DateTime x) => bnTime(x.hour, x.minute).replaceAll(RegExp(r'^(?:ভোর|সকাল|দুপুর|বিকেল|সন্ধ্যা|রাত)\s*'), '').replaceAll('টা', ':০০');
+
+/// The sheet: which times go on Home.
+Future<void> showHomePins(BuildContext context) => showAppSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        final brain = BrainScope.of(ctx);
+        Widget row(String key, IconData icon, String title, String sub) => SwitchListTile(
+              key: Key('pin-$key'),
+              value: brain.flag(key),
+              onChanged: (v) => brain.setPref(key, v ? 'true' : 'false'),
+              secondary: Icon(icon, color: C.green),
+              title: Text(title, style: body(15, weight: FontWeight.w600)),
+              subtitle: Text(sub, style: body(12.5, color: C.muted)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+            );
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tr('হোমে দেখান'), style: display(20, weight: 700)),
+            const SizedBox(height: 4),
+            Text(tr('যেটা চালু করবেন, সেটা হোমের ওপরের ছবিতে দেখাবে। চাপ দিলে এই পাতা খুলবে।'), style: body(13.5, color: C.muted, height: 1.45)),
+            const SizedBox(height: 14),
+            Panel(
+              child: Column(children: [
+                row('home_waqt', Icons.mosque_outlined, tr('পরের ওয়াক্ত'), tr('যেমন "আসর ৩:৩৬"')),
+                Divider(height: 1, indent: 56, color: C.line),
+                row('home_sehri', Icons.nightlight_outlined, tr('সেহরির শেষ সময়'), tr('পরের সেহরি')),
+                Divider(height: 1, indent: 56, color: C.line),
+                row('home_iftar', Icons.wb_twilight_rounded, tr('ইফতার'), tr('পরের ইফতার')),
+              ]),
+            ),
+          ]),
+        );
+      },
+    );
+
 /// The three parts of মুসলিম টাইম.
 enum IbadahTab { prayer, fasting, qibla }
 
@@ -56,7 +119,15 @@ class _IbadahScreenState extends State<IbadahScreen> {
     return Scaffold(
       body: SafeArea(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          TopBar(title: tr('মুসলিম টাইম')),
+          TopBar(title: tr('মুসলিম টাইম'), trailing: [
+            // Pin times to Home (owner, 19 Nov).
+            TextButton.icon(
+              key: const Key('ibadah-pin'),
+              onPressed: () => showHomePins(context),
+              icon: Icon(homePins.any((k) => brain.flag(k)) ? Icons.push_pin : Icons.push_pin_outlined, size: 18, color: C.green),
+              label: Text(tr('হোমে দেখান'), style: body(13, weight: FontWeight.w600, color: C.green)),
+            ),
+          ]),
           Padding(
             padding: const EdgeInsets.fromLTRB(22, 0, 20, 10),
             child: Row(children: [
