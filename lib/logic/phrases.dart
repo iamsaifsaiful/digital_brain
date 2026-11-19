@@ -41,7 +41,7 @@ String confirmQuestion(LedgerKind kind, String person, int amount) => trf('আ�
 String owesText(String person, int balance) {
   if (balance > 0) return trf('{0} কাছে আপনার {1} পাওনা আছে', [possessive(person), _amt(balance)]);
   if (balance < 0) return trf('{0} আপনার {1} দিতে হবে', [toPerson(person), _amt(-balance)]);
-  return trf('{0} সাথে হিসাব একদম মিটে গেছে', [possessive(person)]);
+  return trf('{0} সাথে হিসাব সম্পূর্ণ মিটে গেছে', [possessive(person)]);
 }
 
 /// "এখন সজীবের কাছে আপনার ২০০ টাকা পাওনা আছে।"

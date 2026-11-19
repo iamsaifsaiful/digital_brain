@@ -716,7 +716,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
       say = await _chat.hear(said);
     } catch (e) {
       debugPrint('chat failed: $e');
-      say = tr('দুঃখিত, একটু সমস্যা হলো। আরেকবার বলবেন?');
+      say = tr('দুঃখিত, একটি সমস্যা হয়েছে। আরেকবার বলবেন?');
       _chat.addInfo(say);
     } finally {
       if (mounted) setState(() => _busy = false);

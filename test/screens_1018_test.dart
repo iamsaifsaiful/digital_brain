@@ -45,7 +45,7 @@ void main() {
   testWidgets('"আমার সব রিমাইন্ডার বাদ দিয়ে দাও" → all of them, one question', (t) async {
     await open(t);
     final r = await say('আমার সব রিমাইন্ডার বাদ দিয়ে দাও');
-    expect(r, contains('৪টা'));
+    expect(r, contains('৪টি'));
     expect(rig.brain.data.reminders, hasLength(4));
     await say('হ্যাঁ');
     expect(rig.brain.data.reminders, isEmpty);
@@ -85,7 +85,7 @@ void main() {
     rig.brain.data.tasks.clear();
     await say('নিজাম মামার রিমাইন্ডার মুছে দাও');
     final q = await say('দুটোই');
-    expect(q, contains('২টা রিমাইন্ডার মুছে দেব?'));
+    expect(q, contains('২টি রিমাইন্ডার মুছে দেব?'));
     await say('হ্যাঁ');
     expect([for (final r in rig.brain.data.reminders) r.id], unorderedEquals(['r2', 'r3', 'r4']));
   });
@@ -96,16 +96,16 @@ void main() {
       rig.brain.data.reminders.add(Reminder(id: 'x$i', title: 'বিল $i', date: DateTime(2026, 11, 20 + i), hour: 9));
     }
     final l = await say('আর কোন রিমাইন্ডার আছে?');
-    expect(l, contains('সামনে ১২টা রিমাইন্ডার আছে — প্রথম ১০টা'));
+    expect(l, contains('সামনে ১২টি রিমাইন্ডার আছে — প্রথম ১০টি'));
     final q = await say('সব গুলো বাদ দিয়ে দাও');
-    expect(q, contains('দেখানো ১০টা, নাকি পাওয়া সব ১২টা?'));
+    expect(q, contains('দেখানো ১০টি, নাকি পাওয়া সব ১২টি?'));
     expect(rig.brain.data.reminders, hasLength(12));
   });
 
   testWidgets('"আমার সব রিমাইন্ডার বাদ দাও" says all', (t) async {
     await open(t);
     final q = await say('আমার সব রিমাইন্ডার বাদ দিয়ে দাও');
-    expect(q, contains('আপনার সব ৪টা রিমাইন্ডার মুছে দেব?'));
+    expect(q, contains('আপনার সব ৪টি রিমাইন্ডার মুছে দেব?'));
     await say('না');
     expect(rig.brain.data.reminders, hasLength(4));
   });

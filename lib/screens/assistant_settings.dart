@@ -50,14 +50,14 @@ class AssistantSection extends StatelessWidget {
             () => push(const NotificationSettingsScreen())),
         sw(Icons.redo_rounded, tr('বাকি কাজ পরের দিনে'), tr('আগের দিনের না-হওয়া কাজ নিজে থেকে আজকের তালিকায় আসবে'), brain.carryOver, (v) => brain.setPref('carry_over', v)),
         link(Icons.psychology_alt_outlined, tr('সহকারীর স্মৃতি'),
-            brain.data.memories.isEmpty ? tr('আপনার সম্পর্কে যা মনে রাখবে') : trf('{0}টা কথা মনে রাখা আছে', [bnDigits(brain.data.memories.length)]), () => push(const MemoryScreen())),
+            brain.data.memories.isEmpty ? tr('আপনার সম্পর্কে যা মনে রাখবে') : trf('{0}টি কথা মনে রাখা আছে', [bnDigits(brain.data.memories.length)]), () => push(const MemoryScreen())),
         // ব্যবসায়ী মোড: its switch is on the আরও page itself now (owner, 6 Nov).
         sw(Icons.mic_none_rounded, tr('নোটিফিকেশনে মাইক'), tr('উপর থেকে টেনে নামিয়ে এক চাপে বলুন'), brain.panelMic, (v) => brain.setPref('panel_mic', v)),
-        link(Icons.touch_app_outlined, tr('ফোনের সহকারী বানান'), tr('হোম বোতাম চেপে ধরলেই My Assistant খুলবে'), () async {
+        link(Icons.touch_app_outlined, tr('ফোনের সহকারী তৈরি করুন'), tr('হোম বোতাম চেপে ধরলেই My Assistant খুলবে'), () async {
           await showDialog<void>(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: Text(tr('ফোনের সহকারী বানান'), style: display(20)),
+              title: Text(tr('ফোনের সহকারী তৈরি করুন'), style: display(20)),
               content: Text(
                 tr('পরের পাতায় “Default digital assistant app” বা “ডিজিটাল সহকারী অ্যাপ”-এ My Assistant বেছে নিন। তারপর হোম বোতাম চেপে ধরলে (বা কোণ থেকে টানলে) সরাসরি শোনা শুরু হবে।'),
                 style: body(15, height: 1.5),

@@ -159,7 +159,7 @@ void main() {
     await settle(t);
     int rows() => find.byWidgetPredicate((w) => w is Text && RegExp(r'^কাজ \d$').hasMatch(w.data ?? ''), skipOffstage: false).evaluate().length;
     final folded = rows();
-    expect(find.text('আরও ৩টা দেখুন', skipOffstage: false), findsOneWidget);
+    expect(find.text('আরও ৩টি দেখুন', skipOffstage: false), findsOneWidget);
     await t.tap(more);
     await settle(t);
     expect(rows(), folded + 3);

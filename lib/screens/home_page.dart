@@ -817,7 +817,7 @@ class ToolsCard extends StatelessWidget {
           child: Row(children: [
             Text(tr('সব সুবিধা'), style: body(14, weight: FontWeight.w600)),
             const SizedBox(width: 6),
-            Text(trf('{0}টা', [bnDigits(tools.length)]), style: body(12, color: C.muted)),
+            Text(trf('{0}টি', [bnDigits(tools.length)]), style: body(12, color: C.muted)),
             const Spacer(),
             if (saved.isNotEmpty)
               TextButton(

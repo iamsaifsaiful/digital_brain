@@ -138,7 +138,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
   /// What is kept with each reminder: food, how many, the instructions, why.
   String get _medNote => [
         mealText(_medMeal),
-        trf('{0}টা করে', [bnDigits(_medDose)]),
+        trf('{0}টি করে', [bnDigits(_medDose)]),
         _noteText.text.trim(),
         if (_medWhy.text.trim().isNotEmpty) trf('কেন: {0}', [_medWhy.text.trim()]),
       ].where((p) => p.isNotEmpty).join(' · ');
@@ -270,7 +270,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
     }
   }
 
-  String? _required(String? v) => (v ?? '').trim().isEmpty ? tr('এটা লিখুন') : null;
+  String? _required(String? v) => (v ?? '').trim().isEmpty ? tr('এটি লিখুন') : null;
 
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
@@ -572,7 +572,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
             _pwVisible = true;
           }),
           icon: const Icon(Icons.auto_awesome_outlined, size: 18),
-          label: Text(tr('শক্ত পাসওয়ার্ড বানান'), style: body(14, weight: FontWeight.w600, color: C.green)),
+          label: Text(tr('শক্ত পাসওয়ার্ড তৈরি করুন'), style: body(14, weight: FontWeight.w600, color: C.green)),
         ),
       ),
       _gap,

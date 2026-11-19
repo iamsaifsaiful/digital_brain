@@ -281,7 +281,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       final ok = await showDialog<bool>(
         context: ctx,
         builder: (c) => AlertDialog(
-          title: Text(trf('আজ {0}টা কাজ বাকি রইল', [bnDigits(left.length)]), style: display(20)),
+          title: Text(trf('আজ {0}টি কাজ বাকি রইল', [bnDigits(left.length)]), style: display(20)),
           content: Text('${left.take(6).map((t) => '• ${t.title}').join('\n')}\n\n${tr('সবগুলো কালকের তালিকায় সরিয়ে দেব?')}', style: body(15, height: 1.5)),
           actions: [
             TextButton(onPressed: () => Navigator.pop(c, false), child: Text(tr('না, থাক'))),
@@ -291,7 +291,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       );
       if (ok == true) {
         final n = await brain.moveLeftToTomorrow();
-        if (ctx.mounted) toast(ctx, trf('{0}টা কাজ কালকের তালিকায় গেল', [bnDigits(n)]));
+        if (ctx.mounted) toast(ctx, trf('{0}টি কাজ কালকের তালিকায় গেল', [bnDigits(n)]));
       }
     } else if (id.startsWith(nudgeDue)) {
       push(PersonScreen(person: id.substring(nudgeDue.length)));

@@ -692,7 +692,7 @@ class ChatController extends ChangeNotifier {
     }
     _pausedDraft = List.of(_collected);
     _collected.clear();
-    _say(out, '$why ${trf('তালিকা লেখা থামালাম। এখন পর্যন্ত {0}টা লেখা হয়েছে, এখনো রাখা হয়নি — রাখতে বলুন “ওগুলো রাখো”, আবার লিখতে “লেখা চালাও”, বাদ দিতে “বাতিল”।', [bnDigits(_pausedDraft.length)])}'.trim(),
+    _say(out, '$why ${trf('তালিকা লেখা থামালাম। এখন পর্যন্ত {0}টি লেখা হয়েছে, এখনো রাখা হয়নি — রাখতে বলুন “ওগুলো রাখো”, আবার লিখতে “লেখা চালাও”, বাদ দিতে “বাতিল”।', [bnDigits(_pausedDraft.length)])}'.trim(),
         facts: [for (final (i, x) in _pausedDraft.indexed) '${bnDigits(i + 1)}. $x'], speak: false);
   }
 
@@ -715,11 +715,11 @@ class ChatController extends ChangeNotifier {
       _pausedDraft = const [];
       topic = Topic.task;
       wait = ChatWait.collect;
-      _say(out, trf('ঠিক আছে, আগের {0}টার পর থেকে লিখছি — বলুন, শেষ হলে “শেষ”।', [bnDigits(_collected.length)]));
+      _say(out, trf('ঠিক আছে, আগের {0}টির পর থেকে লিখছি — বলুন, শেষ হলে “শেষ”।', [bnDigits(_collected.length)]));
       return true;
     }
     if (isCancel(t)) {
-      _say(out, trf('ঠিক আছে, লেখা {0}টা বাদ দিলাম — আগে রাখা কাজগুলো যেমন ছিল আছে।', [bnDigits(_pausedDraft.length)]));
+      _say(out, trf('ঠিক আছে, লেখা {0}টি বাদ দিলাম — আগে রাখা কাজগুলো যেমন ছিল আছে।', [bnDigits(_pausedDraft.length)]));
       _pausedDraft = const [];
       return true;
     }
@@ -749,7 +749,7 @@ class ChatController extends ChangeNotifier {
       ..clear()
       ..addAll(tasks);
     _askingAll = true;
-    _ask(out, trf('{0}টা কাজ পেলাম। সবগুলো তালিকায় রাখি?', [bnDigits(tasks.length)]), ChatWait.yesNo,
+    _ask(out, trf('{0}টি কাজ পেলাম। সবগুলো তালিকায় রাখি?', [bnDigits(tasks.length)]), ChatWait.yesNo,
         choices: _yesNoChoices, facts: [for (final c in tasks) summaryLine(c)]);
     _history.add(AiTurn.app('[কাজের তালিকা নিল, রাখার আগে জিজ্ঞেস করছে]'));
   }
@@ -1396,7 +1396,7 @@ class ChatController extends ChangeNotifier {
 
   Future<bool> _moveCash(CashEntry e, Project p, List<String> out) async {
     if (!brain.canUseProject(p.id)) {
-      _say(out, tr('ফ্রিতে ১টা আলাদা হিসাবে লেখা যায়; এর বেশি প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
+      _say(out, tr('ফ্রি সংস্করণে ১টি আলাদা হিসাবে লেখা যায়; এর বেশি প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
       return true;
     }
     final snap = brain.snapshot();
@@ -1545,10 +1545,10 @@ class ChatController extends ChangeNotifier {
     if (kept.isEmpty) return false;
     final dated = kept.where((x) => x.due != null).length;
     final head = dated == kept.length
-        ? trf('জি, {0}টা কাজই তারিখসহ রেখেছি:', [bnDigits(kept.length)])
+        ? trf('জি, {0}টি কাজই তারিখসহ রেখেছি:', [bnDigits(kept.length)])
         : dated == 0
-            ? trf('এই {0}টা কাজ তারিখ ছাড়া রাখা আছে। তারিখ বলুন — যেমন “প্রথমটা ১২ তারিখে” — বসিয়ে দেব।', [bnDigits(kept.length)])
-            : trf('{0}টার তারিখ আছে, {1}টার নেই:', [bnDigits(dated), bnDigits(kept.length - dated)]);
+            ? trf('এই {0}টি কাজ তারিখ ছাড়া রাখা আছে। তারিখ বলুন — যেমন “প্রথমটা ১২ তারিখে” — বসিয়ে দেব।', [bnDigits(kept.length)])
+            : trf('{0}টির তারিখ আছে, {1}টির নেই:', [bnDigits(dated), bnDigits(kept.length - dated)]);
     _say(out, head, facts: [for (final x in kept) taskLine(x, _now)], links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
     _rememberSet('tasks', '', [for (final x in kept) x.id], source: t);
     return true;
@@ -1596,7 +1596,7 @@ class ChatController extends ChangeNotifier {
     }
     if (titles.isEmpty) return false;
     _actions++;
-    _say(out, trf('ঠিক বলেছেন — ভুল জায়গায় রেখেছিলাম। {0}টা নোট কাজের তালিকায় সরিয়ে দিলাম।', [bnDigits(titles.length)]), facts: titles, links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
+    _say(out, trf('ঠিক বলেছেন — ভুল জায়গায় রেখেছিলাম। {0}টি নোট কাজের তালিকায় সরিয়ে দিলাম।', [bnDigits(titles.length)]), facts: titles, links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
     _offerUndo(snap);
     return true;
   }
@@ -1909,7 +1909,7 @@ class ChatController extends ChangeNotifier {
       // A complaint right after an account was asked for: that offer again.
       final want = _accountWanted;
       if (c is SmallTalk && c.kind == Talk.sorry && want != null && _now.difference(want.$2).inMinutes <= 15 && projectByName(brain.data, want.$1) == null) {
-        _ask(out, trf('আপনি ‘{0}’ নামে আলাদা হিসাব চেয়েছিলেন — আলাদা হিসাবে খুলে দিই?', [want.$1]), ChatWait.newAccount, choices: [ChatChoice(tr('হ্যাঁ, খুলে দাও'), 'হ্যাঁ'), ChatChoice(tr('না'), 'না')]);
+        _ask(out, trf('আপনি ‘{0}’ নামে আলাদা হিসাব চেয়েছিলেন — আলাদা হিসাবে খুলে দিই?', [want.$1]), ChatWait.newAccount, choices: [ChatChoice(tr('হ্যাঁ, খুলুন'), 'হ্যাঁ'), ChatChoice(tr('না'), 'না')]);
       }
       // "আমি কথা বললে তুমি থেমে শুনবা": the setting itself is turned on.
       if (c is SmallTalk && c.kind == Talk.listenOverMe && !brain.bargeIn) await brain.setBargeIn(true);
@@ -1929,7 +1929,7 @@ class ChatController extends ChangeNotifier {
         ..clear()
         ..addAll(saves);
       _askingAll = true;
-      _ask(out, trf('আপনার কথা থেকে {0}টা জিনিস পেলাম। সবগুলো রেখে দিই?', [bnDigits(saves.length)]), ChatWait.yesNo,
+      _ask(out, trf('আপনার কথা থেকে {0}টি জিনিস পেলাম। সবগুলো রেখে দিই?', [bnDigits(saves.length)]), ChatWait.yesNo,
           choices: _yesNoChoices, facts: [for (final c in saves) summaryLine(c)]);
     }
     if (saves.isNotEmpty) tags.add('[রাখার আগে জিজ্ঞেস করছে: ${saves.map(summaryLine).join('; ')}]');
@@ -2157,11 +2157,11 @@ class ChatController extends ChangeNotifier {
           return;
         }
         if (c.doneOnly) {
-          _ask(out, trf('শেষ করা {0}টা কাজ তালিকা থেকে মুছে দেব? ৩০ দিন “রিসাইকেল বিন”-এ থাকবে।', [bnDigits(gone.length)]), ChatWait.yesNo,
+          _ask(out, trf('শেষ করা {0}টি কাজ তালিকা থেকে মুছে দেব? ৩০ দিন “রিসাইকেল বিন”-এ থাকবে।', [bnDigits(gone.length)]), ChatWait.yesNo,
               choices: _yesNoChoices, facts: [for (final t in gone.take(8)) t.title]);
           return;
         }
-        _ask(out, trf('{0} সব — {1}টা কাজ মুছে দেব?', [whose, bnDigits(gone.length)]), ChatWait.yesNo,
+        _ask(out, trf('{0} সব — {1}টি কাজ মুছে দেব?', [whose, bnDigits(gone.length)]), ChatWait.yesNo,
             choices: _yesNoChoices, facts: [for (final t in gone.take(8)) t.title]);
       case TaskAdd():
         if (c.title.trim().isEmpty) {
@@ -2206,7 +2206,7 @@ class ChatController extends ChangeNotifier {
           final when = sayWhen(c.due!, _now, withTime: false);
           _clarifyOptions = [
             (trf('{0} সরাও', [when]), TaskEdit(c.transcript, ref: TaskRef(ids: [moved.id]), due: c.due, span: c.span)),
-            (tr('আরেকটা রাখো'), TaskAdd(c.transcript, title: moved.title, due: c.due, span: c.span)),
+            (tr('আরেকটি রাখুন'), TaskAdd(c.transcript, title: moved.title, due: c.due, span: c.span)),
           ];
           _ask(out, trf('“{0}” তো {1} রাখা আছে — {2} সরাব, নাকি {2} আরেকটা রাখব?', [moved.title, _whenOf(moved), when]), ChatWait.clarify,
               choices: [for (final o in _clarifyOptions) ChatChoice(o.$1, o.$1)]);
@@ -2338,7 +2338,7 @@ class ChatController extends ChangeNotifier {
         // income-expense on its own — asked, and nothing is kept without a yes.
         if (c.project != null && projectByName(brain.data, c.project!) == null && !brain.canAddProject) {
           _current = CashAdd(c.transcript, kind: c.kind, amount: c.amount, category: c.category);
-          _ask(out, trf('নতুন হিসাব “{0}” খোলা প্রিমিয়াম সুবিধা (ফ্রিতে ১টা আলাদা হিসাব), তাই ওখানে লিখতে পারছি না। {1} টাকা সাধারণ আয়-ব্যয়ে লিখব, নাকি এখন রাখব না?', [c.project!, bnNumber(c.amount)]), ChatWait.yesNo,
+          _ask(out, trf('নতুন হিসাব “{0}” খোলা প্রিমিয়াম সুবিধা (ফ্রি সংস্করণে ১টি আলাদা হিসাব), তাই ওখানে লিখতে পারছি না। {1} টাকা সাধারণ আয়-ব্যয়ে লিখব, নাকি এখন রাখব না?', [c.project!, bnNumber(c.amount)]), ChatWait.yesNo,
               choices: [ChatChoice(tr('সাধারণ আয়-ব্যয়ে লিখুন'), 'হ্যাঁ'), ChatChoice(tr('রাখবেন না'), 'না')]);
           return;
         }
@@ -3257,8 +3257,8 @@ class ChatController extends ChangeNotifier {
             _ask(
                 out,
                 keep.length == 1
-                    ? trf('ঠিক আছে, {0}টা বাদ দিলাম। বাকিটা রেখে দিই?', [bnDigits(dropped)])
-                    : trf('ঠিক আছে, {0}টা বাদ দিলাম। বাকি {1}টা রেখে দিই?', [bnDigits(dropped), bnDigits(keep.length)]),
+                    ? trf('ঠিক আছে, {0}টি বাদ দিলাম। বাকিটা রেখে দিই?', [bnDigits(dropped)])
+                    : trf('ঠিক আছে, {0}টি বাদ দিলাম। বাকি {1}টি রেখে দিই?', [bnDigits(dropped), bnDigits(keep.length)]),
                 ChatWait.yesNo,
                 choices: _yesNoChoices,
                 facts: [for (final c in keep) summaryLine(c)]);
@@ -3561,7 +3561,7 @@ class ChatController extends ChangeNotifier {
         if (aboutTheAssistant(t) == AboutMe.complaint) {
           final name = _accountWanted?.$1 ?? '';
           _ask(out, trf('দুঃখিত, আগে ঠিক উত্তর দিইনি। আপনি ‘{0}’ নামে আলাদা হিসাব চেয়েছেন — আলাদা হিসাবে খুলে দিই?', [name]), ChatWait.newAccount,
-              choices: [ChatChoice(tr('হ্যাঁ, খুলে দাও'), 'হ্যাঁ'), ChatChoice(tr('না'), 'না')]);
+              choices: [ChatChoice(tr('হ্যাঁ, খুলুন'), 'হ্যাঁ'), ChatChoice(tr('না'), 'না')]);
           return true;
         }
         final yn = yesNo(t);
@@ -3593,7 +3593,7 @@ class ChatController extends ChangeNotifier {
           final known = projectByName(brain.data, name);
           final p = known != null ? (brain.canUseProject(known.id) ? known : null) : (brain.canAddProject ? await brain.projectNamed(name) : null);
           if (p == null) {
-            _say(out, tr('ফ্রিতে ১টা আলাদা হিসাবে লেখা যায়; এর বেশি প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'));
+            _say(out, tr('ফ্রি সংস্করণে ১টি আলাদা হিসাবে লেখা যায়; এর বেশি প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'));
             return true;
           }
           final moved = await _moveCash(e, p, out);
@@ -3772,7 +3772,7 @@ class ChatController extends ChangeNotifier {
     final p = projectHinted(brain.data, t);
     if (p == null) return false;
     if (!brain.canUseProject(p.id)) {
-      _say(out, tr('ফ্রিতে ১টা আলাদা হিসাবে লেখা যায়; এর বেশি প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
+      _say(out, tr('ফ্রি সংস্করণে ১টি আলাদা হিসাবে লেখা যায়; এর বেশি প্রিমিয়াম সুবিধা — খরচটা যেমন ছিল আছে।'), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
       return true;
     }
     final amount = findAmount(normalize(t));
@@ -3787,7 +3787,7 @@ class ChatController extends ChangeNotifier {
     if (pick == null) {
       _say(out, recent.isEmpty
           ? tr('সাধারণ আয়-ব্যয়ে এমন কোনো এন্ট্রি পেলাম না — কিছু সরাইনি।')
-          : trf('এমন {0}টা এন্ট্রি আছে — কোনটা সরাব? নাম বা অঙ্কসহ বলুন। কিছু সরাইনি।', [bnDigits(recent.length)]),
+          : trf('এমন {0}টি এন্ট্রি আছে — কোনটা সরাব? নাম বা অঙ্কসহ বলুন। কিছু সরাইনি।', [bnDigits(recent.length)]),
           facts: [for (final e in recent.take(5)) '${e.kind == CashKind.income ? tr('আয়') : tr('খরচ')}: ${e.category} — ${bnNumber(e.amount)} টাকা (${sayWhen(e.date, _now, withTime: false)})']);
       return true;
     }
@@ -3862,7 +3862,7 @@ class ChatController extends ChangeNotifier {
     }
     _batchTasks = ([for (final x in targets) x.id], '', _turn);
     _batchPart = null;
-    _ask(out, trf('{0}টা কাজের রিমাইন্ডার — প্রতিটা নিজের দিনে, কয়টায় মনে করাব? যেমন “দুপুর ১২টায়”।', [bnDigits(targets.length)]), ChatWait.batchTime,
+    _ask(out, trf('{0}টি কাজের রিমাইন্ডার — প্রতিটা নিজের দিনে, কয়টায় মনে করাব? যেমন “দুপুর ১২টায়”।', [bnDigits(targets.length)]), ChatWait.batchTime,
         facts: [for (final x in targets) taskLine(x, _now)]);
     return true;
   }
@@ -3908,7 +3908,7 @@ class ChatController extends ChangeNotifier {
         _clarifyTarget = x;
         _clarifyOptions = [
           (tr('ওটাই সরাও'), ManageItem(t, action: 'edit')),
-          (tr('আরেকটা রাখো'), add),
+          (tr('আরেকটি রাখুন'), add),
         ];
         _ask(out, trf('“{0}” — এটার সময় বদলাব, নাকি আরেকটা রিমাইন্ডার রাখব?', [x.label]), ChatWait.clarify, choices: [for (final o in _clarifyOptions) ChatChoice(o.$1, o.$1)]);
         return true;
@@ -4065,7 +4065,7 @@ class ChatController extends ChangeNotifier {
       case HealthAdd() when medicalOff && medicalReading(c.kind):
         _say(out, medicalOffText());
       case LedgerAdd() when !brain.canAddPerson(_person):
-        _say(out, trf('ফ্রিতে {0} জনের ধার-দেনা রাখা যায়, সেটা পূর্ণ হয়ে গেছে। প্রিমিয়াম নিলে যত খুশি মানুষ রাখতে পারবেন — আগের হিসাব যেমন আছে থাকবে।', [bnDigits(freeLedgerPeople)]),
+        _say(out, trf('ফ্রি সংস্করণে {0} জনের ধার-দেনা রাখা যায়, সেটা পূর্ণ হয়ে গেছে। প্রিমিয়াম নিলে যত খুশি মানুষ রাখতে পারবেন — আগের হিসাব যেমন আছে থাকবে।', [bnDigits(freeLedgerPeople)]),
             links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
       case LedgerAdd():
         final kind = _kind!;
@@ -4099,13 +4099,13 @@ class ChatController extends ChangeNotifier {
         for (final t in gone) {
           await brain.deleteTask(t.id);
         }
-        _say(out, trf('মুছে দিলাম — {0}টা কাজ। ৩০ দিন “রিসাইকেল বিন” থেকে ফেরত আনা যাবে।', [bnDigits(gone.length)]),
+        _say(out, trf('মুছে দিলাম — {0}টি কাজ। ৩০ দিন “রিসাইকেল বিন” থেকে ফেরত আনা যাবে।', [bnDigits(gone.length)]),
             links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
         _history.add(AiTurn.app('[${gone.length}টা কাজ মুছে দেওয়া হলো]'));
       case TaskAdd():
         await _saveTaskAdd(c, out, quiet: quiet);
       case ReminderAdd() when !brain.canAddReminder:
-        _say(out, trf('ফ্রিতে একসাথে {0}টা রিমাইন্ডার চালু রাখা যায়, সেটা পূর্ণ। পুরোনো কোনোটা বন্ধ বা মুছে দিন, অথবা প্রিমিয়াম নিলে যত খুশি রাখতে পারবেন।', [bnDigits(freeReminders)]),
+        _say(out, trf('ফ্রি সংস্করণে একসাথে {0}টি রিমাইন্ডার চালু রাখা যায়, সেটা পূর্ণ। পুরোনো কোনোটা বন্ধ বা মুছে দিন, অথবা প্রিমিয়াম নিলে যত খুশি রাখতে পারবেন।', [bnDigits(freeReminders)]),
             links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন')), ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
       case ReminderAdd() when c.ampmOpen:
         // Last guard before the scheduler: an hour still open is never set.
@@ -4166,7 +4166,7 @@ class ChatController extends ChangeNotifier {
         if (c.project != null) {
           if (!brain.canUseProjectNamed(c.project!)) {
             // Past the free one: nothing is written anywhere else unasked.
-            _say(out, trf('ফ্রিতে ১টা আলাদা হিসাব; “{0}”-এ লেখা প্রিমিয়াম সুবিধা, তাই কিছু লিখিনি। সাধারণ আয়-ব্যয়ে চাইলে বলুন।', [c.project!]), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
+            _say(out, trf('ফ্রি সংস্করণে ১টি আলাদা হিসাব; “{0}”-এ লেখা প্রিমিয়াম সুবিধা, তাই কিছু লিখিনি। সাধারণ আয়-ব্যয়ে চাইলে বলুন।', [c.project!]), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
             await _done(out);
             return;
           } else {
@@ -4212,7 +4212,7 @@ class ChatController extends ChangeNotifier {
       case VaultAdd():
         final old = _vaultNamed(c.name);
         if (old == null && !brain.canAddVault) {
-          _say(out, trf('ফ্রিতে {0}টা পাসওয়ার্ড রাখা যায়, সেটা পূর্ণ হয়ে গেছে। প্রিমিয়াম নিলে যত খুশি রাখতে পারবেন — আগেরগুলো যেমন আছে থাকবে।', [bnDigits(freeVaultItems)]),
+          _say(out, trf('ফ্রি সংস্করণে {0}টি পাসওয়ার্ড রাখা যায়, সেটা পূর্ণ হয়ে গেছে। প্রিমিয়াম নিলে যত খুশি রাখতে পারবেন — আগেরগুলো যেমন আছে থাকবে।', [bnDigits(freeVaultItems)]),
               links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
           break;
         }
@@ -4395,7 +4395,7 @@ class ChatController extends ChangeNotifier {
             out,
             same && days.length == _batchTaskTitles.length
                 ? trf('“{0}” — {1}, {2} দিনই কাজের তালিকায় রেখেছি।', [_batchTaskTitles.first, nameList(days, unit: 'দিন'), bnDigits(days.length)])
-                : trf('{0}টা কাজ যোগ করেছি:', [bnDigits(_batchTaskTitles.length)]),
+                : trf('{0}টি কাজ যোগ করেছি:', [bnDigits(_batchTaskTitles.length)]),
             // Each with its day, so what was kept is seen, not guessed.
             facts: same && days.length == _batchTaskTitles.length
                 ? const []

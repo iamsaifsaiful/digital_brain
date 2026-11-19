@@ -53,7 +53,7 @@ class BizHome extends StatelessWidget {
                   child: AttentionCard(
                     key: const Key('biz-home-low'),
                     icon: Icons.inventory_2_outlined,
-                    title: trf('{0}টা পণ্য প্রায় শেষ', [bnDigits(low.length)]),
+                    title: trf('{0}টি পণ্য প্রায় শেষ', [bnDigits(low.length)]),
                     text: low.take(3).map((p) => p.name).join(', '),
                     action: tr('অর্ডার দিন'),
                     onAction: () => pushPage(context, const PurchasePage()),
@@ -239,7 +239,7 @@ class _ShopMoney extends StatelessWidget {
           Row(children: [
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(trf('আজ বিক্রি · {0}টা', [bnDigits(today.count)]), style: body(11.5, color: C.muted)),
+                Text(trf('আজ বিক্রি · {0}টি', [bnDigits(today.count)]), style: body(11.5, color: C.muted)),
                 FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: RollingAmount(value: today.total, format: taka, style: display(27, weight: 600, height: 1.45))),
               ]),
             ),
@@ -320,7 +320,7 @@ class _ShopTools extends StatelessWidget {
           child: Row(children: [
             Text(tr('সব সুবিধা'), style: body(14, weight: FontWeight.w600)),
             const SizedBox(width: 6),
-            Text(trf('{0}টা', [bnDigits(tools.length)]), style: body(12, color: C.muted)),
+            Text(trf('{0}টি', [bnDigits(tools.length)]), style: body(12, color: C.muted)),
           ]),
         ),
         Padding(

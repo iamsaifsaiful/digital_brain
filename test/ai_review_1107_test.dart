@@ -37,7 +37,7 @@ void main() {
     expect(chat.messages.last.text, isNot(contains('কোনো তথ্য নেই')));
     rig.brain.data.contacts.addAll([Contact(name: 'রহিম', phone: '01711000001'), Contact(name: 'করিম', phone: '01711000002')]);
     await chat.hear('নম্বর গুলো দেখাও তোমার কাছে আমার যত নম্বর আছে দেখাও');
-    expect(chat.messages.last.text, contains('২টা নম্বর'));
+    expect(chat.messages.last.text, contains('২টি নম্বর'));
   });
 
   testWidgets('a reminder asked for with "সেটা হল …" is a new reminder, not "no such to-do"', (t) async {

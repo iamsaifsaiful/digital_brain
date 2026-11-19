@@ -239,7 +239,7 @@ void main() {
     final f = Flow(t, 'emergency');
     await f.step(find.text('আমার ফাইল').last);
     await f.step(find.text('জরুরি কার্ড'));
-    await f.step(find.text('এখনই বানাই'));
+    await f.step(find.text('এখনই তৈরি করুন'));
     final name = field('নাম');
     await f.step(name, type: 'সাইফুল ইসলাম', field: name);
     await f.step(find.text('B+'));

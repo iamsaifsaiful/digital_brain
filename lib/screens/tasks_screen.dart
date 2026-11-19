@@ -144,7 +144,7 @@ class _TasksScreenState extends State<TasksScreen> {
       }),
       PickAction(Icons.delete_outline_rounded, tr('মুছুন'), danger: true, () async {
         final messenger = ScaffoldMessenger.of(context);
-        if (!await confirmDialog(context, title: trf('{0}টা কাজ মুছবেন?', [bnDigits(picked.length)]), text: tr('৩০ দিন “রিসাইকেল বিন”-এ থাকবে।'), yes: tr('মুছুন'), danger: true)) return;
+        if (!await confirmDialog(context, title: trf('{0}টি কাজ মুছবেন?', [bnDigits(picked.length)]), text: tr('৩০ দিন “রিসাইকেল বিন”-এ থাকবে।'), yes: tr('মুছুন'), danger: true)) return;
         for (final t in picked) {
           await brain.deleteTask(t.id);
         }
@@ -293,7 +293,7 @@ class _TasksScreenState extends State<TasksScreen> {
                         text: tr('বলুন “কাল ব্যাংকে যেতে হবে” বা “বাজারের লিস্টে ডিম রাখো”, অথবা নিচে লিখে যোগ করুন।'),
                       )
                     else ...[
-                      Text(open.isEmpty ? tr('সব কাজ শেষ!') : trf('{0}টা কাজ বাকি', [bnDigits(open.length)]), style: body(14, color: C.muted)),
+                      Text(open.isEmpty ? tr('সব কাজ শেষ') : trf('{0}টি কাজ বাকি', [bnDigits(open.length)]), style: body(14, color: C.muted)),
                       if (!_picks.on && open.length > 1) Text(tr('চেপে ধরে কয়েকটা বেছে একসাথে শেষ, সরানো বা মুছা যায়'), style: body(12, color: C.muted)),
                       const SizedBox(height: 8),
                       if (open.isNotEmpty) Panel(child: Rows(children: [for (final t in open) row(t)])),

@@ -97,7 +97,7 @@ void main() {
   testWidgets('S8 "২০২৭ সালের রিমাইন্ডার গুলো বাদ দাও": the two of 2027, never all', (t) async {
     await open(t);
     final r = await say('২০২৭ সালের রিমাইন্ডার গুলো বাদ দাও');
-    expect(r, contains('২টা'), reason: r);
+    expect(r, contains('২টি'), reason: r);
     await say('হ্যাঁ');
     expect(rig.brain.data.reminders.map((y) => y.id).toSet(), {'R1', 'R2', 'R3', 'R6', 'R7'});
   });
@@ -106,7 +106,7 @@ void main() {
     await open(t);
     await say('সব রিমাইন্ডার মুছে দাও');
     final r = await say('শুধু ২০২৭ সালের');
-    expect(r, contains('২টা'), reason: r);
+    expect(r, contains('২টি'), reason: r);
     expect(rig.brain.data.reminders, hasLength(7), reason: 'nothing removed before the yes');
     await say('হ্যাঁ');
     expect(rig.brain.data.reminders.map((y) => y.id).toSet(), {'R1', 'R2', 'R3', 'R6', 'R7'});
@@ -116,7 +116,7 @@ void main() {
     await open(t);
     await say('আমার সব রিমাইন্ডার দাও');
     final r = await say('শুধুমাত্র ২০২৭ সালের গুলো মুছে দাও');
-    expect(r, contains('২টা'), reason: r);
+    expect(r, contains('২টি'), reason: r);
     await say('হ্যাঁ');
     expect(rig.brain.data.reminders.map((y) => y.id).toSet(), {'R1', 'R2', 'R3', 'R6', 'R7'});
   });

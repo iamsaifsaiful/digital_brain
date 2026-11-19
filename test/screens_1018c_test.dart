@@ -41,7 +41,7 @@ void main() {
   testWidgets('১. reminders of two dates removed, asked once', (t) async {
     await open(t);
     final q = await say('৩০ ই অক্টোবর এবং ৩১ ডিসেম্বরের রিমাইন্ডার বাদ দাও');
-    expect(q, contains('৩টা রিমাইন্ডার মুছে দেব?'));
+    expect(q, contains('৩টি রিমাইন্ডার মুছে দেব?'));
     await say('হ্যাঁ');
     expect([for (final r in rig.brain.data.reminders) r.id], unorderedEquals(['r1', 'r4']));
   });

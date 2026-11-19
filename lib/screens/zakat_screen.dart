@@ -169,7 +169,7 @@ class _ZakatScreenState extends State<ZakatScreen> {
                 tilePadding: EdgeInsets.zero,
                 initiallyExpanded: i == 0,
                 title: Text('${monthName(m.$1.month)} ${bnDigits(m.$1.year)}', style: body(15, weight: FontWeight.w600)),
-                subtitle: Text(trf('{0}টা লেনদেন', [bnDigits(m.$2.length)]), style: body(12.5, color: C.muted)),
+                subtitle: Text(trf('{0}টি লেনদেন', [bnDigits(m.$2.length)]), style: body(12.5, color: C.muted)),
                 trailing: Text('${m.$3 < 0 ? '−' : '+'}${taka(m.$3.abs())}', style: body(14.5, weight: FontWeight.w700, color: m.$3 < 0 ? C.orange : C.green)),
                 children: [
                   for (final r in m.$2)

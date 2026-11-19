@@ -34,7 +34,7 @@ void main() {
     expect(rs.length, 3);
     expect(rs.every((r) => r.repeat == Repeat.daily && r.title == 'নাপা খাওয়ার সময়'), isTrue);
     expect({for (final r in rs) r.hour}, {8, 14, 22});
-    expect(rs.first.note, '১টা করে');
+    expect(rs.first.note, '১টি করে');
   });
 
   testWidgets('said aloud in the Play app: a daily reminder, not "not in this app"', (t) async {

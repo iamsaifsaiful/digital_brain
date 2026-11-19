@@ -391,7 +391,7 @@ Future<void> restoreFromDrive(BuildContext context, {bool fresh = false, void Fu
         context,
         title: tr('ব্যাকআপ ফিরিয়ে আনবেন?'),
         text: trf(
-            'ব্যাকআপে আছে: {0}টা পাসওয়ার্ড, {1} জন যোগাযোগ, {2}টা ধার-দেনা, {3}টা আয়-ব্যয়, {4}টা নোট, {5}টা রিমাইন্ডার, {6}টা কাজ।\n\nএখনকার সব তথ্য এর বদলে যাবে (মেশানো হবে না)।',
+            'ব্যাকআপে আছে: {0}টি পাসওয়ার্ড, {1} জন যোগাযোগ, {2}টি ধার-দেনা, {3}টি আয়-ব্যয়, {4}টি নোট, {5}টি রিমাইন্ডার, {6}টি কাজ।\n\nএখনকার সব তথ্য এর বদলে যাবে (মেশানো হবে না)।',
             [
               bnDigits(restored.vault.length),
               bnDigits(restored.contacts.length),
@@ -414,7 +414,7 @@ Future<void> restoreFromDrive(BuildContext context, {bool fresh = false, void Fu
   } on NotABackup {
     if (context.mounted) toast(context, tr('ফাইলটি নষ্ট। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
   } on UnsupportedBackup {
-    if (context.mounted) toast(context, tr('এই ব্যাকআপ অ্যাপের নতুন সংস্করণে বানানো। আগে অ্যাপ আপডেট করুন।'));
+    if (context.mounted) toast(context, tr('এই ব্যাকআপ অ্যাপের নতুন সংস্করণে তৈরি। আগে অ্যাপ আপডেট করুন।'));
   } on GoogleError catch (e) {
     if (context.mounted) toast(context, e.message);
   } catch (e) {
@@ -452,7 +452,7 @@ Future<void> restoreFromPhoneFile(BuildContext context, {bool fresh = false, voi
     final ok = await confirmDialog(
       context,
       title: tr('ব্যাকআপ ফিরিয়ে আনবেন?'),
-      text: trf('ব্যাকআপে আছে: {0}টা পাসওয়ার্ড, {1} জন যোগাযোগ, {2}টা ধার-দেনা, {3}টা আয়-ব্যয়, {4}টা নোট, {5}টা রিমাইন্ডার, {6}টা কাজ, {7}টা ছবি/ফাইল।\n\nএখনকার সব তথ্য এর বদলে যাবে (মেশানো হবে না)। কিছু ব্যর্থ হলে এখনকার তথ্য যেমন আছে থাকবে।', [bnDigits(restored.vault.length), bnDigits(restored.contacts.length), bnDigits(restored.ledger.length), bnDigits(restored.cash.length), bnDigits(restored.notes.length), bnDigits(restored.reminders.length), bnDigits(restored.tasks.length), bnDigits(files.length)]),
+      text: trf('ব্যাকআপে আছে: {0}টি পাসওয়ার্ড, {1} জন যোগাযোগ, {2}টি ধার-দেনা, {3}টি আয়-ব্যয়, {4}টি নোট, {5}টি রিমাইন্ডার, {6}টি কাজ, {7}টি ছবি/ফাইল।\n\nএখনকার সব তথ্য এর বদলে যাবে (মেশানো হবে না)। কিছু ব্যর্থ হলে এখনকার তথ্য যেমন আছে থাকবে।', [bnDigits(restored.vault.length), bnDigits(restored.contacts.length), bnDigits(restored.ledger.length), bnDigits(restored.cash.length), bnDigits(restored.notes.length), bnDigits(restored.reminders.length), bnDigits(restored.tasks.length), bnDigits(files.length)]),
       yes: tr('ফিরিয়ে আনুন'),
       danger: !fresh,
     );
@@ -462,7 +462,7 @@ Future<void> restoreFromPhoneFile(BuildContext context, {bool fresh = false, voi
   } on NotABackup {
     if (context.mounted) toast(context, tr('এটা My Assistant-এর ব্যাকআপ ফাইল নয়, অথবা ফাইলটি নষ্ট। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
   } on UnsupportedBackup {
-    if (context.mounted) toast(context, tr('এই ব্যাকআপ অ্যাপের নতুন সংস্করণে বানানো। আগে অ্যাপ আপডেট করুন। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
+    if (context.mounted) toast(context, tr('এই ব্যাকআপ অ্যাপের নতুন সংস্করণে তৈরি। আগে অ্যাপ আপডেট করুন। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
   } on WrongKey {
     if (context.mounted) toast(context, tr('পাসওয়ার্ড মেলেনি, অথবা ফাইলটি নষ্ট। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
   } catch (e) {

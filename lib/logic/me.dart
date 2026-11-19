@@ -208,9 +208,9 @@ String kindAnswer(AppData d, String kind) {
     }
     final parts = <String>[];
     if (inDocs > 0) {
-      parts.add(trf('ডকুমেন্টসে {0}টা ছবি — {1}', [bnDigits(inDocs), docs.take(5).map((x) => '“${x.title}”').join(', ') + (docs.length > 5 ? trf(' আর আরও {0}টা', [bnDigits(docs.length - 5)]) : '')]));
+      parts.add(trf('ডকুমেন্টসে {0}টি ছবি — {1}', [bnDigits(inDocs), docs.take(5).map((x) => '“${x.title}”').join(', ') + (docs.length > 5 ? trf(' আর আরও {0}টি', [bnDigits(docs.length - 5)]) : '')]));
     }
-    if (inNotes > 0) parts.add(trf('নোটে {0}টা ছবি', [bnDigits(inNotes)]));
+    if (inNotes > 0) parts.add(trf('নোটে {0}টি ছবি', [bnDigits(inNotes)]));
     return trf('{0}। নিচে চাপ দিয়ে দেখুন।', [parts.join('; ')]);
   }
   final docs = [...d.docs]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -219,6 +219,6 @@ String kindAnswer(AppData d, String kind) {
   for (final x in docs) {
     folders[x.folder] = (folders[x.folder] ?? 0) + 1;
   }
-  return trf('{0}টা কাগজ রাখা আছে — {1}। নিচে চাপ দিয়ে দেখুন।',
+  return trf('{0}টি কাগজ রাখা আছে — {1}। নিচে চাপ দিয়ে দেখুন।',
       [bnDigits(docs.length), folders.entries.map((e) => '${tr(e.key)} ${bnDigits(e.value)}টা').join(', ')]);
 }

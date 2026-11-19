@@ -581,7 +581,7 @@ void main() {
     await tell(t, rig, 'এবিসির পাসওয়ার্ড দেখাও');
     await settle(t);
     expect(find.text('ABC ওয়েবসাইট'), findsOneWidget);
-    expect(rig.voice.spoken.last, contains('তথ্য পেয়েছি'));
+    expect(rig.voice.spoken.last, contains('তথ্য পাওয়া গেছে'));
     expect(rig.voice.spoken.join(' '), isNot(contains('Kp7')));
     expect(find.textContaining('Kp7'), findsNothing);
   });
@@ -620,7 +620,7 @@ void main() {
     await openChat(t);
     await tell(t, rig, 'সজীবকে ৫০০ টাকা ধার দিলাম আর রহিমের কাছ থেকে ২০০ টাকা ধার নিলাম');
     await settle(t);
-    expect(rig.voice.spoken.last, contains('২টা জিনিস পেলাম'));
+    expect(rig.voice.spoken.last, contains('২টি জিনিস পেলাম'));
     expect(find.textContaining('সজীবকে ৫০০ টাকা ধার দিলেন'), findsOneWidget);
     await tell(t, rig, 'হ্যাঁ');
     await settle(t);
@@ -728,7 +728,7 @@ void main() {
     expect(rig.brain.data.tasks, hasLength(1), reason: 'a "yes" after it adds nothing');
     await tell(t, rig, 'আজ আমার কী কী আছে?');
     await settle(t);
-    expect(rig.voice.spoken.last, contains('কাজ বাকি ১টা'));
+    expect(rig.voice.spoken.last, contains('কাজ বাকি ১টি'));
     await tell(t, rig, 'ব্যাংকের কাজ হয়ে গেছে');
     await settle(t);
     expect(rig.brain.data.tasks.single.done, isTrue);
@@ -921,7 +921,7 @@ void main() {
     for (final p in ['পাঁচশ টাকা ধার', 'সাতশ টাকা খরচ']) {
       expect(sent.single.text, contains(p), reason: p);
     }
-    expect(rig.voice.spoken.last, contains('২টা জিনিস পেলাম'));
+    expect(rig.voice.spoken.last, contains('২টি জিনিস পেলাম'));
     expect(rig.voice.spoken, isNot(contains('আর কিছু বলতে চান?')));
     expect(rig.brain.data.ledger, isEmpty, reason: 'one confirmation first');
   });
@@ -1228,11 +1228,11 @@ void main() {
     final rig = await start(t, data: AppData(reminders: [Reminder(id: 'r1', title: 'ওষুধ খাওয়া', date: DateTime(2026, 10, 9), hour: 16)]));
     rig.notifier.tapped.value = const NoticeTap(NoticeInfo('r1', 'ওষুধ খাওয়া', '', false));
     await settle(t);
-    expect(find.text('হয়ে গেছে, বন্ধ করো'), findsOneWidget);
+    expect(find.text('হয়ে গেছে, বন্ধ করুন'), findsOneWidget);
     await t.tap(find.text('১০ মিনিট'));
     await settle(t);
     expect(rig.notifier.rung, ['ওষুধ খাওয়া']);
-    expect(find.text('হয়ে গেছে, বন্ধ করো'), findsNothing);
+    expect(find.text('হয়ে গেছে, বন্ধ করুন'), findsNothing);
   });
 
   testWidgets('"আর বাজাবে না" on the notification stops a repeating reminder for good; an alarm switched off goes quiet', (t) async {
@@ -1316,7 +1316,7 @@ void main() {
     expect(rig.brain.data.tasks, isEmpty);
     await tell(t, rig, 'শেষ');
     await settle(t);
-    expect(rig.voice.spoken.last, contains('৩টা কাজ পেলাম'));
+    expect(rig.voice.spoken.last, contains('৩টি কাজ পেলাম'));
     await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.tasks, hasLength(3));
@@ -1333,7 +1333,7 @@ void main() {
     await tell(t, rig, 'করিমকে ২০০ টাকা ধার দিলাম');
     await settle(t);
     expect(rig.voice.spoken.length, before + 1);
-    expect(rig.voice.spoken.last, contains('২টা জিনিস পেলাম'));
+    expect(rig.voice.spoken.last, contains('২টি জিনিস পেলাম'));
   });
 
   testWidgets('ringtones can be heard before choosing', (t) async {
@@ -1556,7 +1556,7 @@ void main() {
     await settle(t);
     await t.tap(find.text('গ্যালারি'));
     await settle(t);
-    await t.tap(find.text('সবগুলো এক সাথে, একটা গ্রুপে'));
+    await t.tap(find.text('সবগুলো এক সাথে, একটি গ্রুপে'));
     await settle(t);
     await t.enterText(find.widgetWithText(TextField, 'নাম'), 'ভাইয়ের বিয়ে');
     await t.enterText(find.widgetWithText(TextField, 'কী আছে (বিবরণ)'), 'গায়ে হলুদ আর বিয়ের দিনের ছবি');

@@ -206,7 +206,7 @@ String? infoAnswer(AppData d, String said, DateTime now) {
         return tr('ওষুধের কোনো তথ্য নেই। ওষুধ পাতায় নাম আর খাওয়ার সময় যুক্ত করতে পারেন — সময়মতো মনে করিয়ে দেব।');
       }
       final lines = [for (final m in d.medicines) '• ${m.name} — ${m.times.map((t) => bnTime(t ~/ 60, t % 60)).join(', ')}'];
-      return trf('{0}টা ওষুধ চলছে:\n{1}', [bnDigits(d.medicines.length), lines.join('\n')]);
+      return trf('{0}টি ওষুধ চলছে:\n{1}', [bnDigits(d.medicines.length), lines.join('\n')]);
     case 'habits':
       if (d.habits.isEmpty) return tr('অভ্যাসের কোনো তথ্য নেই। অভ্যাস পাতায় যুক্ত করতে পারেন — প্রতিদিন টিক দিলে কত দিন টানা হলো বলে দেব।');
       final parts = [
@@ -220,7 +220,7 @@ String? infoAnswer(AppData d, String said, DateTime now) {
       for (final n in d.notes) {
         cats[n.category] = (cats[n.category] ?? 0) + 1;
       }
-      return trf('{0}টা নোট আছে — {1}।', [bnDigits(d.notes.length), cats.entries.map((e) => '${e.key} ${bnDigits(e.value)}টা').join(', ')]);
+      return trf('{0}টি নোট আছে — {1}।', [bnDigits(d.notes.length), cats.entries.map((e) => '${e.key} ${bnDigits(e.value)}টা').join(', ')]);
     case 'special':
       final upcoming = [...d.specialDays]..sort((a, b) => a.next(now).compareTo(b.next(now)));
       final soon = upcoming.where((s) => s.next(now).difference(dayOnly(now)).inDays <= 60).take(5).toList();

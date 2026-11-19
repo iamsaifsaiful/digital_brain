@@ -41,9 +41,9 @@ void main() {
     expect(find.byKey(const Key('pick-bar')), findsNothing);
     await pick(t, find.byKey(Key('task-${a.id}')), first: true);
     expect(find.byKey(const Key('pick-bar')), findsOneWidget);
-    expect(find.text('১টা বাছাই'), findsOneWidget);
+    expect(find.text('১টি বাছাই'), findsOneWidget);
     await pick(t, find.byKey(Key('task-${c.id}')));
-    expect(find.text('২টা বাছাই'), findsOneWidget);
+    expect(find.text('২টি বাছাই'), findsOneWidget);
     await t.tap(find.byKey(const Key('pick-শেষ')));
     await settle(t);
     expect(b.data.tasks.where((x) => x.done).map((x) => x.title).toSet(), {'ব্যাংকে যাওয়া', 'বিল দেওয়া'});
@@ -60,7 +60,7 @@ void main() {
     await pick(t, find.byKey(Key('task-${a.id}')), first: true);
     await t.tap(find.byKey(const Key('pick-all')));
     await settle(t);
-    expect(find.text('২টা বাছাই'), findsOneWidget);
+    expect(find.text('২টি বাছাই'), findsOneWidget);
     await t.tap(find.byKey(const Key('pick-মুছুন')));
     await settle(t);
     await t.tap(find.text('মুছুন').last);
@@ -97,7 +97,7 @@ void main() {
     await pick(t, find.byKey(Key('cash-${x.id}')), first: true);
     await t.ensureVisible(find.byKey(Key('cash-${y.id}')));
     await pick(t, find.byKey(Key('cash-${y.id}')));
-    expect(find.text('২টা বাছাই'), findsOneWidget);
+    expect(find.text('২টি বাছাই'), findsOneWidget);
     expect(find.text('খরচ ৳৮০০'), findsOneWidget);
     await t.tap(find.byKey(const Key('pick-পাঠান')));
     await settle(t);
@@ -123,7 +123,7 @@ void main() {
     await open(t, const TransactionsScreen());
     await pick(t, find.text('রহিম'), first: true);
     await pick(t, find.text('করিম'));
-    expect(find.text('২টা বাছাই'), findsOneWidget);
+    expect(find.text('২টি বাছাই'), findsOneWidget);
     await t.tap(find.byKey(const Key('pick-মুছুন')));
     await settle(t);
     await t.tap(find.text('মুছুন').last);

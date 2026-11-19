@@ -53,7 +53,7 @@ void main() {
   testWidgets('01 the 12 turns of the 14:39 screenshots: only the six agreed are removed; nothing else is ever written', (t) async {
     await open(t, seven());
     final a = await say('আমার কাজের তালিকা দাও');
-    expect(a, contains('৭টা'));
+    expect(a, contains('৭টি'));
     await say('১নং ছাড়া বাকি সব গুলো বাদ দাও');
     expect(chat.wait, ChatWait.bulk);
     await say('হ্যাঁ');
@@ -262,7 +262,7 @@ void main() {
     await open(t, [...seven(), Task(id: 'A', title: 'চুল কাটা', due: DateTime(2026, 10, 19))]);
     await say('আজকের কাজ দাও');
     final r = await say('সব কাজের তালিকা দাও');
-    expect(r, contains('৮টা'));
+    expect(r, contains('৮টি'));
   });
 
   // ───────── the same questions × the state they come in ─────────
