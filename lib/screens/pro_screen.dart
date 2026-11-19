@@ -109,7 +109,12 @@ class _ProScreenState extends State<ProScreen> {
             : brain.pro
                 ? switch (brain.proKind) {
                     'test' => tr('প্রিমিয়াম চালু (প্রিভিউ পরীক্ষা)'),
-                    _ => until == null ? tr('প্রিমিয়াম চালু') : trf('প্রিমিয়াম চালু — {0} পর্যন্ত', [fullDate(until)]),
+                    _ => until == null
+                        ? tr('প্রিমিয়াম চালু')
+                        : trf('প্রিমিয়াম চালু — {0} পর্যন্ত, আর {1} দিন বাকি।', [
+                            fullDate(until),
+                            bnDigits(DateTime(until.year, until.month, until.day).difference(DateUtils.dateOnly(brain.services.now())).inDays),
+                          ]),
                   }
                 : brain.trialOver
                     ? tr('৭ দিনের ফ্রি ট্রায়াল শেষ। এই কয়দিনে যা রেখেছেন সব আছে, দেখা যাবে; প্রিমিয়ামের সুবিধাগুলো আবার পেতে প্রিমিয়াম নিন।')

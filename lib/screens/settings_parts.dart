@@ -392,13 +392,13 @@ class PlanBadge extends StatelessWidget {
     final brain = BrainScope.of(context);
     final pro = brain.pro;
     final trial = pro && brain.proKind == 'trial';
-    final until = brain.proUntil;
     final label = !pro
         ? tr('ফ্রি')
         : trial
             ? tr('ট্রায়াল')
             : tr('প্রিমিয়াম');
-    final sub = pro && until != null ? trf('{0} পর্যন্ত', [fullDate(until)]) : (pro ? '' : tr('প্রিমিয়াম নিন'));
+    // Owner, 19 Nov: how long it lasts only on the Premium page.
+    final sub = pro ? '' : tr('প্রিমিয়াম নিন');
     final fg = pro ? C.ochre : C.muted;
     final bg = pro ? C.ochreTint : C.chip;
     return Align(

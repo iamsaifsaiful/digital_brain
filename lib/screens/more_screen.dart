@@ -1,4 +1,5 @@
 import 'notice_screen.dart';
+import 'family_screen.dart' show FamilyScreen;
 import 'place_picker.dart';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -1105,7 +1106,8 @@ class _MeCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 16, 10, 12),
             child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-              // Owner, 18 Nov: Premium or free under the photo; the date on its own line.
+              // Owner, 18 Nov: Premium or free under the photo. Owner, 19 Nov: how
+              // long it lasts only on the Premium page, not here.
               Column(mainAxisSize: MainAxisSize.min, children: [
                 const UserPhoto(size: 60),
                 if (brain.gated) ...[const SizedBox(height: 6), const _PlanTag()],
@@ -1114,7 +1116,9 @@ class _MeCard extends StatelessWidget {
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(brain.userName.isEmpty ? tr('আপনার নাম দিন') : brain.userName, maxLines: 2, overflow: TextOverflow.ellipsis, style: display(19, weight: 700, color: brain.userName.isEmpty ? C.muted : C.ink)),
-                  if (brain.gated) ...[const SizedBox(height: 4), const _PlanLine()],
+                  // Owner, 19 Nov: how full the profile is, in place of the plan's days.
+                  const SizedBox(height: 6),
+                  _Fullness(onProfile: onProfile),
                 ]),
               ),
               Icon(Icons.chevron_right_rounded, color: C.muted),
@@ -1189,36 +1193,69 @@ class _PlanTag extends StatelessWidget {
   }
 }
 
-/// Under the name: how long Premium lasts ("মেয়াদ ৬ নভেম্বর ২০২৭ · আর ৩৫৩ দিন"),
-/// or, when free, what Premium adds.
-class _PlanLine extends StatelessWidget {
-  const _PlanLine();
+/// One part of the profile: its name, whether it is given, and what to tap
+/// to give it (the hint under the name says "এরপর: …").
+typedef _Part = ({String label, String todo, bool done, Future<void> Function(BuildContext) give});
+
+/// The parts counted for "প্রোফাইল ৮০%": photo, name, mobile, place, blood
+/// group, an heir (family), and in the website edition an emergency contact.
+List<_Part> _profileParts(Brain brain, VoidCallback onProfile) {
+  Future<void> profile(BuildContext _) async => onProfile();
+  return [
+    (label: tr('ছবি'), todo: tr('ছবি দিন'), done: brain.photo != null, give: changePhoto),
+    (label: tr('নাম'), todo: tr('নাম দিন'), done: brain.userName.isNotEmpty, give: profile),
+    (label: tr('মোবাইল নম্বর'), todo: tr('মোবাইল নম্বর দিন'), done: brain.userPhone.isNotEmpty, give: editUserPhone),
+    (label: tr('লোকেশন'), todo: tr('জেলা দিন'), done: brain.placeLabel.isNotEmpty, give: profile),
+    (label: tr('রক্তের গ্রুপ'), todo: tr('রক্তের গ্রুপ দিন'), done: brain.data.emergency.blood.isNotEmpty, give: pickBloodGroup),
+    if (!medicalOff) (label: tr('জরুরি যোগাযোগ'), todo: tr('জরুরি যোগাযোগ দিন'), done: brain.data.emergency.contacts.any((c) => c.trim().isNotEmpty), give: profile),
+    (
+      label: tr('উত্তরাধিকারী'),
+      todo: tr('উত্তরাধিকারী বাছুন'),
+      done: brain.family.links.any((l) => l.active && l.theyAreMyHeir),
+      give: (c) => Navigator.of(c).push(MaterialPageRoute<void>(builder: (_) => const FamilyScreen())),
+    ),
+  ];
+}
+
+/// Under the name: a thin bar, "প্রোফাইল ৮০%" and the next part to give
+/// (a tap gives it); "প্রোফাইল সম্পূর্ণ" when all are there.
+class _Fullness extends StatelessWidget {
+  const _Fullness({required this.onProfile});
+  final VoidCallback onProfile;
 
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
-    final until = brain.proUntil;
-    final now = brain.services.now();
-    final String text;
-    String? left;
-    if (!brain.pro) {
-      text = tr('ফ্রি প্ল্যান · বিজ্ঞাপনসহ');
-    } else if (until == null) {
-      text = tr('প্রিমিয়াম চালু');
-    } else {
-      final days = DateTime(until.year, until.month, until.day).difference(DateTime(now.year, now.month, now.day)).inDays;
-      text = trf('মেয়াদ {0} পর্যন্ত', [fullDate(until)]);
-      left = trf('আর {0} দিন বাকি', [bnDigits(days)]);
-    }
-    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Padding(padding: const EdgeInsets.only(top: 2), child: Icon(brain.pro ? Icons.event_available_outlined : Icons.info_outline_rounded, size: 15, color: C.muted)),
-      const SizedBox(width: 5),
-      Expanded(
-        child: Column(key: const Key('more-plan-line'), crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted)),
-          if (left != null) Text(left, style: body(12, weight: FontWeight.w600, color: C.ochre)),
-        ]),
-      ),
+    final parts = _profileParts(brain, onProfile);
+    final done = parts.where((p) => p.done).length;
+    final pct = (done * 100 / parts.length).round();
+    final next = parts.where((p) => !p.done).firstOrNull;
+    return Column(key: const Key('more-fullness'), crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Text(next == null ? tr('প্রোফাইল সম্পূর্ণ') : trf('প্রোফাইল {0}%', [bnDigits(pct)]), style: body(12.5, weight: FontWeight.w600, color: next == null ? C.green : C.muted2)),
+        if (next == null) ...[const SizedBox(width: 4), Icon(Icons.check_circle_outline_rounded, size: 15, color: C.green)],
+        const SizedBox(width: 8),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(value: done / parts.length, minHeight: 5, backgroundColor: C.line2, valueColor: AlwaysStoppedAnimation(C.green)),
+          ),
+        ),
+      ]),
+      if (next != null)
+        InkWell(
+          key: const Key('more-fullness-next'),
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => next.give(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(children: [
+              Text(tr('এরপর: '), style: body(12.5, color: C.muted)),
+              Flexible(child: Text(next.todo, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, weight: FontWeight.w600, color: C.green))),
+              Icon(Icons.chevron_right_rounded, size: 16, color: C.green),
+            ]),
+          ),
+        ),
     ]);
   }
 }
