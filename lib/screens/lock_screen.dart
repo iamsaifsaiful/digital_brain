@@ -328,15 +328,12 @@ class _LockScreenState extends State<LockScreen> {
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: box.maxHeight),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(28, 14, 28, 24),
+                padding: const EdgeInsets.fromLTRB(28, 40, 28, 24),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Column(
                       children: [
-                        // English | বাংলা, English first on a new phone (owner, 19 Nov).
-                        const Align(alignment: Alignment.centerRight, child: LangSwitch()),
-                        const SizedBox(height: 8),
                         // Our own app icon (owner, 28 Oct).
                         ClipRRect(
                           borderRadius: BorderRadius.circular(18),
@@ -349,7 +346,16 @@ class _LockScreenState extends State<LockScreen> {
                             style: body(14, color: const Color(0xFFA9B5AF)), textAlign: TextAlign.center),
                       ],
                     ),
-                    const SizedBox(height: 28),
+                    // English | বাংলা (owner, 19 Nov): the first choice on a
+                    // new phone, right before the first step, where it is
+                    // read before anything else is asked. Not on the unlock:
+                    // the member chose already (সেটিংস › ভাষা changes it).
+                    if (_mode == _Mode.google || (_mode == _Mode.create && _first.isEmpty && _message == null)) ...[
+                      const SizedBox(height: 26),
+                      const LangSwitch(),
+                      const SizedBox(height: 22),
+                    ] else
+                      const SizedBox(height: 28),
                     if (_mode == _Mode.loading)
                       const SizedBox(height: 300, child: Center(child: CircularProgressIndicator(color: C.mint)))
                     else if (_mode == _Mode.google)
@@ -452,8 +458,9 @@ class _LockScreenState extends State<LockScreen> {
   }
 }
 
-/// The language switch on the PIN page: two halves of one pill, the chosen
-/// one filled. Each name is written in its own language, so a member who
+/// The language choice on a new phone's first page: a label in both
+/// languages, then two equal halves of one wide pill, the chosen one filled
+/// and ticked. Each name is written in its own language, so a member who
 /// reads only one of them still finds theirs.
 class LangSwitch extends StatelessWidget {
   const LangSwitch({super.key});
@@ -462,34 +469,46 @@ class LangSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final en = brain.english;
-    Widget half(String label, bool on, bool toEn, Key key) => Semantics(
-          button: true,
-          selected: on,
-          child: GestureDetector(
-            key: key,
-            behavior: HitTestBehavior.opaque,
-            onTap: on ? null : () => brain.setEnglish(toEn),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-              decoration: BoxDecoration(color: on ? C.mint : Colors.transparent, borderRadius: BorderRadius.circular(20)),
-              child: Text(label, style: body(14, weight: on ? FontWeight.w700 : FontWeight.w500, color: on ? C.night : const Color(0xFFC9D3CE))),
+    Widget half(String label, bool on, bool toEn, Key key) => Expanded(
+          child: Semantics(
+            button: true,
+            selected: on,
+            child: GestureDetector(
+              key: key,
+              behavior: HitTestBehavior.opaque,
+              onTap: on ? null : () => brain.setEnglish(toEn),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                height: 46,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: on ? C.mint : Colors.transparent, borderRadius: BorderRadius.circular(23)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (on) ...[const Icon(Icons.check_rounded, size: 18, color: C.night), const SizedBox(width: 6)],
+                  Text(label, style: body(16, weight: on ? FontWeight.w700 : FontWeight.w500, color: on ? C.night : const Color(0xFFC9D3CE))),
+                ]),
+              ),
             ),
           ),
         );
-    return Container(
-      key: const Key('lock-lang'),
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        const Padding(padding: EdgeInsets.only(left: 8, right: 4), child: Icon(Icons.translate_rounded, size: 16, color: Color(0xFFA9B5AF))),
-        half('English', en, true, const Key('lock-lang-en')),
-        half('বাংলা', !en, false, const Key('lock-lang-bn')),
+    return Column(key: const Key('lock-lang'), children: [
+      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        const Icon(Icons.translate_rounded, size: 16, color: Color(0xFFA9B5AF)),
+        const SizedBox(width: 6),
+        Text('Language · ভাষা', style: body(13, color: const Color(0xFFA9B5AF), weight: FontWeight.w500)),
       ]),
-    );
+      const SizedBox(height: 10),
+      Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(27),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        ),
+        child: Row(children: [
+          half('English', en, true, const Key('lock-lang-en')),
+          half('বাংলা', !en, false, const Key('lock-lang-bn')),
+        ]),
+      ),
+    ]);
   }
 }
