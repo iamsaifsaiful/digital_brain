@@ -24,9 +24,6 @@ import '../ui/widgets.dart' show SegTabs;
 import 'calendar_screen.dart' show CalendarPanel;
 import 'place_picker.dart';
 
-/// Which of the three tops (owner, 19 Nov: to choose from); 1, 2 or 3.
-int daySkyHero = 1;
-
 /// The page's name, in one place (the owner picks it).
 String get daySkyName => tr('ঋতুপঞ্জি');
 
@@ -89,9 +86,10 @@ class _DaySkyScreenState extends State<DaySkyScreen> {
         ? skyLight(f.hours.first.at.add(Duration(minutes: now.minute)), f.sunrise!, f.sunset!)
         : skyLight(now, home.sunrise, home.sunset);
     final scene = sceneFor(brain.text('home_scene'), now);
-    final dim = light.dim.clamp(0.0, 0.6);
-    final bd = banglaDate(today);
+    // As on Home: in the dark look the day is a little dimmer, so it sits with the page.
+    final dim = (light.dim + 0.16 * C.mix * (1 - light.night)).clamp(0.0, 0.6);
 
+    // The places, in the weather tab (the user's own first).
     Widget chip(String k) {
       final on = k == key;
       final mine = k == brain.district;
@@ -100,8 +98,8 @@ class _DaySkyScreenState extends State<DaySkyScreen> {
       return Padding(
         padding: const EdgeInsets.only(right: 7),
         child: Material(
-          color: on ? _white : _white.withValues(alpha: 0.16),
-          shape: StadiumBorder(side: BorderSide(color: on ? _white : _white.withValues(alpha: 0.45))),
+          color: on ? C.green : C.surface,
+          shape: StadiumBorder(side: BorderSide(color: on ? C.green : C.border)),
           child: InkWell(
             key: Key('wx-chip-$label'),
             customBorder: const StadiumBorder(),
@@ -109,9 +107,9 @@ class _DaySkyScreenState extends State<DaySkyScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                if (mine) ...[Icon(Icons.place_outlined, size: 15, color: on ? const Color(0xFF13718A) : _white), const SizedBox(width: 3)],
+                if (mine) ...[Icon(Icons.place_outlined, size: 15, color: on ? C.onAccent : C.green), const SizedBox(width: 3)],
                 Text(on || kf == null ? label : '$label ${deg(kf.now.temp)}',
-                    style: body(13, weight: on ? FontWeight.w700 : FontWeight.w500, color: on ? const Color(0xFF192E28) : _white, height: 1.3)),
+                    style: body(13, weight: on ? FontWeight.w600 : FontWeight.w500, color: on ? C.onAccent : C.ink, height: 1.3)),
               ]),
             ),
           ),
@@ -119,215 +117,112 @@ class _DaySkyScreenState extends State<DaySkyScreen> {
       );
     }
 
-    // Owner, 19 Nov: "হিরো সেকশন আরও ক্লিন ও সুন্দর কর" — three ways to lay
-    // out the top ([daySkyHero]); the owner picks one.
-    final soft = body(13.5, weight: FontWeight.w500, color: _soft, height: 1.45).copyWith(shadows: _shade);
-    final small = body(12.5, weight: FontWeight.w500, color: _soft, height: 1.45).copyWith(shadows: _shade);
-    final dateLine = '${weekdayName(today)}, ${bnDigits(today.day)} ${monthName(today.month)} ${bnDigits(today.year)}';
-    final calLines = [
-      for (final id in brain.calendars)
-        if (calDate(id, today, hijriShift: brain.hijriShift) case final c?) id == 'bangla' ? '${c.text} · ${trf('{0}কাল', [bd.season])}' : c.text,
-    ];
-    final waiting = Text(_asking.contains(key) ? tr('আবহাওয়া আনা হচ্ছে…') : tr('এখন আবহাওয়া আনা গেল না — ইন্টারনেট চালু করে আবার খুলুন।'),
-        style: body(15, weight: FontWeight.w600, color: _white).copyWith(shadows: _shade));
-    Widget range(Forecast f, TextStyle s) => Text.rich(
-          TextSpan(children: [
-            WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.arrow_upward_rounded, size: 13, color: s.color)),
-            TextSpan(text: '${deg(f.now.max)}  '),
-            WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.arrow_downward_rounded, size: 13, color: s.color)),
-            TextSpan(text: deg(f.now.min)),
-          ]),
-          style: s,
-        );
-    // The other scale, small.
-    Widget other(Forecast f, TextStyle s) => Text(degOther(f.now.temp), key: const Key('wx-other'), style: s);
-    Widget sky(Forecast f, double size) => Row(mainAxisSize: MainAxisSize.min, children: [
-          WeatherIcon(f.now.code, day: f.hours.isEmpty || f.hours.first.day, size: size + 4),
-          const SizedBox(width: 6),
-          Flexible(child: Text(f.now.sky, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(size, weight: FontWeight.w600, color: _white, height: 1.35).copyWith(shadows: _shade))),
-        ]);
+    // Owner, 19 Nov: the top "Home-এর মতো" — the same picture, veil, letters
+    // and places as the Home's top: today's date large where Home greets,
+    // the calendars under it, the weather row as on Home, sunrise and sunset
+    // along the foot.
+    final soft = body(13.5, color: _soft).copyWith(shadows: _shade);
+    final extra = [for (final id in brain.calendars) calDate(id, today, hijriShift: brain.hijriShift)?.text].whereType<String>().toList();
+    final sunNow = f != null && f.sunrise != null && f.sunset != null ? (f.sunrise!, f.sunset!) : (home.sunrise, home.sunset);
+    final rowStyle = body(12.5, weight: FontWeight.w500, color: _white).copyWith(shadows: _shade);
 
-    final List<Widget> heroBody;
-    Widget? dateCard;
-    switch (daySkyHero) {
-      case 1:
-        // Design 1, "দুই ভাগ": the date on the left, the weather on the right, a thin line between.
-        heroBody = [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 18, 22, 0),
-            child: IntrinsicHeight(
-              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(bnDigits(today.day), key: const Key('ds-date'), style: display(64, weight: 500, height: 1.0, color: _white).copyWith(shadows: _shade)),
-                    const SizedBox(height: 4),
-                    Text('${monthName(today.month)} ${bnDigits(today.year)}', style: display(16, weight: 600, height: 1.3, color: _white).copyWith(shadows: _shade)),
-                    Text(weekdayName(today), style: soft),
-                    const SizedBox(height: 8),
-                    for (final id in brain.calendars)
-                      if (calDate(id, today, hijriShift: brain.hijriShift) case final c?) Text(c.text, maxLines: 1, overflow: TextOverflow.ellipsis, style: small),
-                  ]),
-                ),
-                Container(width: 1, margin: const EdgeInsets.symmetric(horizontal: 16), color: _white.withValues(alpha: 0.4)),
-                Expanded(
-                  child: f == null
-                      ? waiting
-                      : Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                          Text(deg(f.now.temp), key: const Key('wx-temp'), style: display(64, weight: 400, height: 1.0, color: _white).copyWith(shadows: _shade)),
-                          const SizedBox(height: 6),
-                          sky(f, 15),
-                          const SizedBox(height: 2),
-                          range(f, soft),
-                          other(f, small),
-                        ]),
-                ),
-              ]),
-            ),
-          ),
-        ];
-      case 2:
-        // Design 2, "ছবিতে আবহাওয়া, নিচে তারিখ": the picture is the weather alone;
-        // the date in a plain card under it.
-        heroBody = [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 22, 22, 0),
-            child: f == null
-                ? waiting
-                : Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                    Text(deg(f.now.temp), key: const Key('wx-temp'), style: display(88, weight: 400, height: 1.0, color: _white).copyWith(shadows: _shade)),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        sky(f, 18),
-                        range(f, soft),
-                        other(f, small),
-                      ]),
-                    ),
-                  ]),
-          ),
-          const SizedBox(height: 18),
-        ];
-        dateCard = Container(
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-          decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(17), border: Border.all(color: C.border)),
-          child: Row(children: [
-            Container(
-              width: 46,
-              height: 52,
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: C.border)),
-              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Text(monthName(today.month), maxLines: 1, style: body(10.5, weight: FontWeight.w600, color: C.green, height: 1.2)),
-                Text(bnDigits(today.day), style: display(20, weight: 600, height: 1.1)),
-              ]),
-            ),
-            const SizedBox(width: 12),
+    final weatherRow = f == null
+        ? Text(_asking.contains(key) ? tr('আবহাওয়া আনা হচ্ছে…') : tr('এখন আবহাওয়া আনা গেল না — ইন্টারনেট চালু করে আবার খুলুন।'),
+            style: body(15, weight: FontWeight.w600, color: _white).copyWith(shadows: _shade))
+        : Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+            Text(deg(f.now.temp), key: const Key('wx-temp'), style: display(62, weight: 400, height: 1.05, color: _white).copyWith(shadows: _shade)),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(dateLine, key: const Key('ds-date'), style: display(15.5, weight: 600, height: 1.35)),
-                for (final l in calLines) Text(l, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted, height: 1.4)),
+                Text('${f.now.sky} · ${placeNamed(key).label}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(16.5, weight: FontWeight.w600, color: _white).copyWith(shadows: _shade)),
+                Text.rich(
+                  TextSpan(children: [
+                    const WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.arrow_upward_rounded, size: 13, color: _soft, shadows: _shade)),
+                    TextSpan(text: '${deg(f.now.max)}  '),
+                    const WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.arrow_downward_rounded, size: 13, color: _soft, shadows: _shade)),
+                    TextSpan(text: '${deg(f.now.min)} · ${trf('অনুভূত {0}°', [degN(f.now.feels)])}'),
+                  ]),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: body(12.5, color: _soft).copyWith(shadows: _shade),
+                ),
+                // The other scale, small.
+                Text(degOther(f.now.temp), key: const Key('wx-other'), style: body(12.5, color: _soft).copyWith(shadows: _shade)),
               ]),
             ),
-          ]),
-        );
-      default:
-        // Design 3, "আগের মতো, গোছানো": the first layout, tidied — the date, then
-        // the weather, all on the left; no glass pills.
-        heroBody = [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(weekdayName(today), style: soft),
-              Text('${bnDigits(today.day)} ${monthName(today.month)} ${bnDigits(today.year)}', key: const Key('ds-date'), style: display(24, weight: 600, height: 1.3, color: _white).copyWith(shadows: _shade)),
-              for (final l in calLines) Text(l, maxLines: 1, overflow: TextOverflow.ellipsis, style: small),
+          ]);
+
+    final hero = SizedBox(
+      height: top + 340,
+      child: Stack(fit: StackFit.expand, children: [
+        Image.asset(sceneAsset(scene, night: false), fit: BoxFit.cover, alignment: sceneAlign, gaplessPlayback: true, excludeFromSemantics: true),
+        if (light.night > 0)
+          Opacity(
+            opacity: light.night.clamp(0.0, 1.0),
+            child: Image.asset(sceneAsset(scene, night: true), fit: BoxFit.cover, alignment: sceneAlign, gaplessPlayback: true, excludeFromSemantics: true),
+          ),
+        // The sky moves with the weather there: clouds, rain, fog.
+        SceneLayers(
+          scene: scene,
+          night: light.night,
+          phase: light.phase,
+          moon: moonOf(hijriDate(now, adjust: brain.hijriShift)),
+          weather: weatherKind(f?.now.code),
+          special: null,
+          motion: brain.text('scene_motion') != 'off',
+        ),
+        if (dim > 0) ColoredBox(color: Colors.black.withValues(alpha: dim)),
+        // A veil at the top for the words, and the fade into the page (as on Home).
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: const [0, 0.42, 0.8, 1], colors: [
+              Colors.black.withValues(alpha: 0.30),
+              Colors.black.withValues(alpha: 0),
+              C.ground.withValues(alpha: 0),
+              C.ground,
             ]),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 16, 22, 0),
-            child: Container(height: 1, color: _white.withValues(alpha: 0.35)),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 12, 22, 0),
-            child: f == null
-                ? waiting
-                : Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                    Text(deg(f.now.temp), key: const Key('wx-temp'), style: display(72, weight: 400, height: 1.0, color: _white).copyWith(shadows: _shade)),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        sky(f, 17),
-                        Row(children: [range(f, soft), Text('  ·  ', style: soft), other(f, soft)]),
-                      ]),
-                    ),
-                  ]),
-          ),
-        ];
-    }
-
-    final hero = Stack(children: [
-      Positioned.fill(
-        child: Stack(fit: StackFit.expand, children: [
-          Image.asset(sceneAsset(scene, night: false), fit: BoxFit.cover, alignment: sceneAlign, gaplessPlayback: true, excludeFromSemantics: true),
-          if (light.night > 0)
-            Opacity(
-              opacity: light.night.clamp(0.0, 1.0),
-              child: Image.asset(sceneAsset(scene, night: true), fit: BoxFit.cover, alignment: sceneAlign, gaplessPlayback: true, excludeFromSemantics: true),
-            ),
-          // The sky moves with the weather there: clouds, rain, fog.
-          SceneLayers(
-            scene: scene,
-            night: light.night,
-            phase: light.phase,
-            moon: moonOf(hijriDate(now, adjust: brain.hijriShift)),
-            weather: weatherKind(f?.now.code),
-            special: null,
-            motion: brain.text('scene_motion') != 'off',
-          ),
-          if (dim > 0) ColoredBox(color: Colors.black.withValues(alpha: dim)),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: const [
-                0,
-                0.55,
-                0.82,
-                1
-              ], colors: [
-                // A steady shade behind the words, so they read on a bright sky too.
-                Colors.black.withValues(alpha: 0.45),
-                Colors.black.withValues(alpha: 0.24),
-                C.ground.withValues(alpha: 0),
-                C.ground,
-              ]),
-            ),
-          ),
-        ]),
-      ),
-      Padding(
-        padding: EdgeInsets.only(top: top, bottom: 26),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
+        ),
+        Positioned(
+          top: top,
+          left: 8,
+          right: 8,
+          child: Row(children: [
             IconButton(tooltip: tr('ফিরে যান'), onPressed: () => Navigator.of(context).maybePop(), icon: const Icon(Icons.chevron_left_rounded, size: 30, color: _white, shadows: _shade)),
-            Expanded(child: Text(daySkyName, key: const Key('ds-title'), style: display(20, weight: 600, color: _white).copyWith(shadows: _shade))),
+            Expanded(child: Text(daySkyName, key: const Key('ds-title'), style: body(15, weight: FontWeight.w600, color: _white).copyWith(shadows: _shade))),
             _unit(brain),
             IconButton(
               key: const Key('wx-places'),
               tooltip: tr('লোকেশন'),
               onPressed: () => _places(context),
-              icon: const Icon(Icons.add_location_alt_outlined, size: 24, color: _white, shadows: _shade),
+              icon: const Icon(Icons.add_location_alt_outlined, size: 23, color: _white, shadows: _shade),
             ),
           ]),
-          ...heroBody,
-          const SizedBox(height: 20),
-          // The places, at the foot of the picture (the user's own first).
-          SizedBox(
-            height: 34,
-            child: Center(
-              child: ListView(shrinkWrap: true, scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16), children: [for (final k in keys) chip(k)]),
-            ),
-          ),
-        ]),
-      ),
-    ]);
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(20, top + 56, 20, 40),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${weekdayName(today)}, ${bnDigits(today.day)} ${monthName(today.month)}',
+                key: const Key('ds-date'), maxLines: 1, overflow: TextOverflow.ellipsis, style: display(25, weight: 600, height: 1.3, color: _white).copyWith(shadows: _shade)),
+            const SizedBox(height: 2),
+            Text(extra.isEmpty ? bnDigits(today.year) : '${bnDigits(today.year)}  •  ${extra.first}', maxLines: 1, overflow: TextOverflow.ellipsis, style: soft),
+            if (extra.length > 1) Text(extra.sublist(1).join('  •  '), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: _soft).copyWith(shadows: _shade)),
+            const SizedBox(height: 10),
+            weatherRow,
+            const Spacer(),
+            Row(children: [
+              const Icon(Icons.wb_twilight_rounded, size: 17, color: _white, shadows: _shade),
+              const SizedBox(width: 5),
+              Text('${tr('সূর্যোদয়')} ${bnTime(sunNow.$1.hour, sunNow.$1.minute)}', style: rowStyle),
+              const Spacer(),
+              const Icon(Icons.nightlight_outlined, size: 16, color: _white, shadows: _shade),
+              const SizedBox(width: 5),
+              Text('${tr('সূর্যাস্ত')} ${bnTime(sunNow.$2.hour, sunNow.$2.minute)}', style: rowStyle),
+            ]),
+          ]),
+        ),
+      ]),
+    );
 
     return Scaffold(
       backgroundColor: C.ground,
@@ -335,7 +230,6 @@ class _DaySkyScreenState extends State<DaySkyScreen> {
         onRefresh: () => brain.forecastFor(key),
         child: ListView(padding: EdgeInsets.zero, children: [
           hero,
-          if (dateCard != null) dateCard,
           // (No overlap on the picture: a part moved up over it cannot be tapped there.)
           Padding(
             padding: const EdgeInsets.only(bottom: 20),
@@ -351,7 +245,14 @@ class _DaySkyScreenState extends State<DaySkyScreen> {
                 const SizedBox(height: 10),
                 if (_cal)
                   CalendarPanel(forecast: brain.forecastKept(brain.district))
-                else if (f != null) ...[
+                else ...[
+                  SizedBox(
+                    height: 34,
+                    child: ListView(scrollDirection: Axis.horizontal, children: [for (final k in keys) chip(k)]),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                if (!_cal && f != null) ...[
                   // One line worth knowing, in the tab (the picture stays calm).
                   Padding(
                     padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
