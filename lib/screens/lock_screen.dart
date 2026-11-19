@@ -538,12 +538,22 @@ final bodyW = LayoutBuilder(builder: (context, box) {
         child: Column(children: [
           SizedBox(
             height: upper,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(center: const Alignment(0, -0.2), radius: 0.9, colors: [p.accent.withValues(alpha: 0.14), p.bg.withValues(alpha: 0)]),
+            // The home's Cox's Bazar sea at night behind the mark (owner,
+            // 19 Nov), darkened at the top so the name reads.
+            child: Stack(fit: StackFit.expand, children: [
+              Image.asset('assets/sky/cox_night.webp', key: const Key('lock-scene'), fit: BoxFit.cover, alignment: Alignment.bottomCenter, filterQuality: FilterQuality.medium),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [p.bg.withValues(alpha: 0.55), p.bg.withValues(alpha: 0.15), p.bg.withValues(alpha: 0.35)],
+                    stops: const [0, 0.55, 1],
+                  ),
+                ),
               ),
-              child: Padding(padding: EdgeInsets.only(top: top), child: Center(child: brand(p.title, p.soft))),
-            ),
+              Padding(padding: EdgeInsets.only(top: top), child: Center(child: brand(p.title, p.text))),
+            ]),
           ),
           ConstrainedBox(
             constraints: BoxConstraints(minHeight: box.maxHeight - upper),

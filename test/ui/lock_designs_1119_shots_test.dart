@@ -36,6 +36,7 @@ void main() {
       await rig.brain.load();
       await settle(t);
       await t.runAsync(() => precacheImage(const AssetImage('assets/brand/app_mark.png'), t.element(find.byKey(const Key('lock-app-mark')))));
+      await t.runAsync(() => precacheImage(const AssetImage('assets/sky/cox_night.webp'), t.element(find.byKey(const Key('lock-app-mark')))));
       await settle(t);
       Future<void> shot(String n) async {
         if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/designs/$d-$n.png'));
