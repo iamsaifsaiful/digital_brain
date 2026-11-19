@@ -28,7 +28,7 @@ import 'alarm_list_screen.dart';
 import 'app_places.dart' show openPlace;
 import 'calendar_screen.dart';
 import 'calls_screen.dart';
-import 'compass_screen.dart';
+import 'ibadah_screen.dart';
 import 'docs_screen.dart';
 import 'easy_home.dart';
 import 'family_screen.dart';
@@ -379,8 +379,11 @@ class _HomeHeroState extends State<HomeHero> {
             _greeting(context, brain, now, hj),
             const SizedBox(height: 10),
             _weather(brain, sun, now),
-            const SizedBox(height: 14),
-            _prayer(context, facts.first),
+            // Prayer, sehri, iftar only when pinned from মুসলিম টাইম (owner, 19 Nov).
+            if (pinnedTimes(brain, now, sun).isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _pinned(context, pinnedTimes(brain, now, sun)),
+            ],
             const Spacer(),
             _sunRow(facts.last),
           ]),
@@ -510,33 +513,26 @@ class _HomeHeroState extends State<HomeHero> {
     );
   }
 
-  /// The next prayer (iftar / end of sehri in Ramadan) in a glass pill.
-  Widget _prayer(BuildContext context, SlotFact f) {
-    final icon = f.kind == 'prayer' ? Icons.mosque_outlined : Icons.nightlight_outlined;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        key: const Key('home-slot'),
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+  /// The times pinned from মুসলিম টাইম, each in a glass pill; a tap opens the page.
+  Widget _pinned(BuildContext context, List<(IconData, String)> items) {
+    Widget pill((IconData, String) x) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.16),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: Colors.white.withValues(alpha: 0.45)),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(icon, size: 20, color: _white),
-            const SizedBox(width: 8),
-            if (f.ramadanDay != null) ...[
-              Text(trf('রমজান {0}', [bnDigits(f.ramadanDay!)]), style: body(12, weight: FontWeight.w600, color: _soft)),
-              Text('  ·  ', style: body(12, color: _soft)),
-            ],
-            Text('${f.label} ${f.time}', style: body(15, weight: FontWeight.w600, color: _white)),
+            Icon(x.$1, size: 18, color: _white),
+            const SizedBox(width: 6),
+            Text(x.$2, style: body(14, weight: FontWeight.w600, color: _white)),
           ]),
-        ),
-      ),
+        );
+    return GestureDetector(
+      key: const Key('home-slot'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const IbadahScreen())),
+      child: Wrap(spacing: 8, runSpacing: 8, children: [for (final x in items) pill(x)]),
     );
   }
 
@@ -788,7 +784,7 @@ List<(String, String, IconData, VoidCallback)> appTools(BuildContext context) {
       ('alarms', trm('অ্যালার্ম'), Icons.alarm_rounded, () => push(const AlarmsScreen())),
       ('vault', trm('পাসওয়ার্ড'), Icons.lock_outline_rounded, () => push(const VaultPage())),
       ('calendar', tr('ক্যালেন্ডার'), Icons.calendar_month_outlined, () => push(const CalendarScreen())),
-      ('compass', tr('কম্পাস'), Icons.explore_outlined, () => push(const CompassScreen())),
+      ('compass', tr('মুসলিম টাইম'), Icons.mosque_outlined, () => push(const IbadahScreen())),
       ('zakat', tr('যাকাত'), Icons.volunteer_activism_outlined, () => push(const ZakatScreen())),
       ('family', tr('পরিবার'), Icons.family_restroom_rounded, () => push(const FamilyScreen())),
       if (!medicalOff) ('medicines', trm('ওষুধ'), Icons.medication_outlined, () => push(const MedicinesScreen())),

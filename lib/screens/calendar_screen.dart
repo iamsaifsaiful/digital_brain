@@ -14,7 +14,7 @@ import '../logic/lang.dart';
 import '../logic/world_calendars.dart';
 import 'calendar_choice.dart';
 
-/// বাংলা তারিখ, ঋতু, সূর্যোদয়-সূর্যাস্ত, নামাজের সময় আর সরকারি ছুটি। The
+/// বাংলা তারিখ, ঋতু, সূর্যোদয়-সূর্যাস্ত আর সরকারি ছুটি। The
 /// month shows the dates of a chosen calendar (Bangla, Hijri, Chinese …:
 /// owner, 19 Nov) under each day; tapping a day shows what is on it and
 /// adds a to-do or reminder for it.
@@ -155,40 +155,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       style: body(11.5, color: C.muted, height: 1.45)),
                 ]),
               ),
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.fromLTRB(4, 10, 4, 10),
-                decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(17), border: Border.all(color: C.border)),
-                child: Column(children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
-                    child: Text(trf('নামাজের সময় ({0}, আনুমানিক)', [place.label]), style: body(12.5, color: C.muted)),
-                  ),
-                  Row(children: [
-                    for (final (n, d) in [(tr('ফজর'), sun.fajr), (tr('জোহর'), sun.dhuhr), (tr('আসর'), sun.asr), (tr('মাগরিব'), sun.maghrib), (tr('এশা'), sun.isha)])
-                      Expanded(
-                        child: Column(children: [
-                          Text(n, style: body(11.5, color: C.muted)),
-                          Text(bnDigits('${d.hour > 12 ? d.hour - 12 : d.hour}:${d.minute.toString().padLeft(2, '0')}'), style: body(14, weight: FontWeight.w600)),
-                        ]),
-                      ),
-                  ]),
-                ]),
-              ),
-              if (hj.isRamadan) ...[
-                const SizedBox(height: 10),
-                Panel(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                  child: Row(children: [
-                    Icon(Icons.nightlight_round, color: C.green),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(trf('রমজান · সেহরির শেষ সময় {0} · ইফতার {1} (আনুমানিক)', [bnTime(sun.sehriEnd.hour, sun.sehriEnd.minute), bnTime(sun.maghrib.hour, sun.maghrib.minute)]),
-                          style: body(14, weight: FontWeight.w500)),
-                    ),
-                  ]),
-                ),
-              ],
+              // Prayer, sehri and iftar times are on the মুসলিম টাইম page now (owner, 19 Nov).
               // The Hijri date follows the moon seen in Bangladesh: a day either way can be set here.
               if (chosen.contains('hijri')) ...[
               const SizedBox(height: 10),

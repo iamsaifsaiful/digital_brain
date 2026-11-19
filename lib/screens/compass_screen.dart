@@ -12,16 +12,25 @@ import '../services/compass.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import 'ibadah_screen.dart';
 
-/// কম্পাস: north, south, east, west from the phone's sensor, and the qibla
-/// from the user's district.
-class CompassScreen extends StatefulWidget {
+/// The old কম্পাস page: now the কিবলা tab of মুসলিম টাইম (owner, 19 Nov), kept
+/// under this name for the links that open it ("কিবলা কোন দিকে?").
+class CompassScreen extends StatelessWidget {
   const CompassScreen({super.key});
   @override
-  State<CompassScreen> createState() => _CompassScreenState();
+  Widget build(BuildContext context) => const IbadahScreen(tab: IbadahTab.qibla);
 }
 
-class _CompassScreenState extends State<CompassScreen> {
+/// কিবলা: north, south, east, west from the phone's sensor, and the qibla
+/// from where the phone is (else the profile's place).
+class QiblaView extends StatefulWidget {
+  const QiblaView({super.key});
+  @override
+  State<QiblaView> createState() => _QiblaViewState();
+}
+
+class _QiblaViewState extends State<QiblaView> {
   StreamSubscription<Heading?>? _sub;
   Heading? _h;
   bool _none = false;
@@ -88,12 +97,7 @@ class _CompassScreenState extends State<CompassScreen> {
     if (facing && !_facing) HapticFeedback.mediumImpact();
     _facing = facing;
 
-    return Scaffold(
-      body: SafeArea(
-        child: Column(children: [
-          TopBar(title: tr('কম্পাস')),
-          Expanded(
-            child: ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 24), children: [
+    return ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 24), children: [
               if (_none)
                 EmptyState(
                   icon: Icons.explore_off_outlined,
@@ -187,11 +191,7 @@ class _CompassScreenState extends State<CompassScreen> {
                   style: body(13, color: C.muted, height: 1.45),
                 ),
               ],
-            ]),
-          ),
-        ]),
-      ),
-    );
+            ]);
   }
 }
 

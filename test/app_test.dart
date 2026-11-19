@@ -1429,8 +1429,8 @@ void main() {
   testWidgets('home shows both dates, sun times and the next holiday; the calendar opens', (t) async {
     await start(t);
     expect(find.textContaining('২৪ আশ্বিন ১৪৩৩'), findsOneWidget);
-    // Sunrise and sunset take turns with the next prayer in the slot (approved design).
-    expect(find.byKey(const Key('home-slot')), findsOneWidget);
+    // No prayer on Home any more (owner, 19 Nov): it is on the মুসলিম টাইম page.
+    expect(find.byKey(const Key('home-slot')), findsNothing);
     expect(find.textContaining('দুর্গাপূজা'), findsOneWidget);
     await t.scrollUntilVisible(find.text('ক্যালেন্ডার').first, 300, scrollable: find.byType(Scrollable).first);
     await t.ensureVisible(find.text('ক্যালেন্ডার').first);

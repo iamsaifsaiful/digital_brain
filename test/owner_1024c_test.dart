@@ -154,7 +154,8 @@ void main() {
         await settle(t);
         final phase = skyLight(at, sun.sunrise, sun.sunset).phase;
         expect(find.byKey(Key('home-hero-$phase')), findsOneWidget, reason: name);
-        expect(find.byKey(const Key('home-slot')), findsOneWidget);
+        // No prayer on Home (owner, 19 Nov): it is on the মুসলিম টাইম page.
+        expect(find.byKey(const Key('home-slot')), findsNothing);
         expect(find.descendant(of: find.byKey(const Key('home-temp')), matching: find.textContaining('ঢাকা')), findsOneWidget);
         expect(find.text('৩১°'), findsOneWidget);
         expect(find.textContaining('সূর্যোদয়'), findsOneWidget);

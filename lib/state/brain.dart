@@ -1757,6 +1757,8 @@ class Brain extends ChangeNotifier {
     'usage_days', 'home_scene', 'scene_weather', 'scene_motion', 'scene_special',
     // Owner, 6 Nov: the microphone's language.
     'voice_lang',
+    // Owner, 19 Nov: prayer, sehri and iftar pinned to Home (off unless chosen).
+    'home_waqt', 'home_sehri', 'home_iftar',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
