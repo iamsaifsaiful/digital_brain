@@ -5565,7 +5565,7 @@ const enStrings = <String, String>{
   'গ্রাহকের বাকি · {0} জন': 'Customer dues · {0}',
   'মনে করিয়ে দিন': 'Payment reminder',
   'হোয়াটসঅ্যাপে পাঠান': 'Send on WhatsApp',
-  'আমার তথ্য': 'My Data',
+  'আমার ফাইল': 'My Files',
   'পাব · {0} জনের কাছে': 'Owed to me ({0})',
   'দেব · {0} জনকে': 'I owe ({0})',
   'হোয়াটসঅ্যাপ খোলা গেল না': 'Couldn’t open WhatsApp',

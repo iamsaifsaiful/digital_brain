@@ -276,7 +276,7 @@ String howToAnswer(AppPlace p) {
 const placeMenu = {
   'tasks': 'দিনলিপি', 'reminders': 'দিনলিপি', 'alarms': 'দিনলিপি', 'diary': 'দিনলিপি', 'habits': 'দিনলিপি', 'medicines': 'দিনলিপি',
   'money': 'হিসাব', 'ledger': 'হিসাব',
-  'notes': 'আমার তথ্য', 'docs': 'আমার তথ্য', 'vault': 'আমার তথ্য', 'contacts': 'আমার তথ্য', 'special': 'আমার তথ্য', 'health': 'আমার তথ্য', 'tags': 'আমার তথ্য', 'search': 'আমার তথ্য',
+  'notes': 'আমার ফাইল', 'docs': 'আমার ফাইল', 'vault': 'আমার ফাইল', 'contacts': 'আমার ফাইল', 'special': 'আমার ফাইল', 'health': 'আমার ফাইল', 'tags': 'আমার ফাইল', 'search': 'আমার ফাইল',
   'settings': 'আরও', 'backup': 'আরও', 'pro': 'আরও', 'zakat': 'আরও', 'family': 'আরও',
 };
 

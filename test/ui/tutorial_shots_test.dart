@@ -122,7 +122,7 @@ void main() {
     await f.step(find.text('সামনের ছুটি'), press: false, below: 140);
     await f.step(find.byKey(const Key('home-tools')), press: false);
     await f.step(find.byTooltip('বলুন'), press: false);
-    await f.step(find.text('আমার তথ্য').last, press: false);
+    await f.step(find.text('আমার ফাইল').last, press: false);
     debugDisableShadows = true;
   });
 
@@ -237,7 +237,7 @@ void main() {
   testWidgets('tutorial: emergency', (t) async {
     await rig0(t);
     final f = Flow(t, 'emergency');
-    await f.step(find.text('আমার তথ্য').last);
+    await f.step(find.text('আমার ফাইল').last);
     await f.step(find.text('জরুরি কার্ড'));
     await f.step(find.text('এখনই বানাই'));
     final name = field('নাম');

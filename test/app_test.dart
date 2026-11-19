@@ -156,7 +156,7 @@ Future<void> openMenu(WidgetTester t, String item) async {
   } else if (item == 'আমি' || item == 'সেটিংস') {
     await t.tap(find.byTooltip('প্রোফাইল'));
   } else {
-    await t.tap(find.text('আমার তথ্য').last);
+    await t.tap(find.text('আমার ফাইল').last);
     await settle(t);
     await t.tap(find.text(item).last);
   }
@@ -1526,7 +1526,7 @@ void main() {
   testWidgets('a document photo is kept encrypted in a folder', (t) async {
     final rig = await start(t);
     rig.files.photo = PickedDoc(Uint8List.fromList(List.generate(3000, (i) => i % 251)), 'nid.jpg', 'image/jpeg');
-    await t.tap(find.text('আমার তথ্য').last);
+    await t.tap(find.text('আমার ফাইল').last);
     await settle(t);
     await t.tap(find.text('ডকুমেন্টস'));
     await settle(t);
@@ -1550,7 +1550,7 @@ void main() {
     final rig = await start(t);
     PickedDoc photo(String n) => PickedDoc(Uint8List.fromList(List.generate(500, (i) => i % 251)), n, 'image/jpeg');
     rig.files.photos = [photo('1.jpg'), photo('2.jpg'), photo('3.jpg')];
-    await t.tap(find.text('আমার তথ্য').last);
+    await t.tap(find.text('আমার ফাইল').last);
     await settle(t);
     await t.tap(find.text('ডকুমেন্টস'));
     await settle(t);
