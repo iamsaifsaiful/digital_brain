@@ -5803,4 +5803,11 @@ const enStrings = <String, String>{
   'ওষুধের রিমাইন্ডার: {0}': 'Medicine reminder: {0}',
   '{0} আপনার পরিবারে যুক্ত — রিমাইন্ডারটা {1} ফোনে যাবে।': '{0} is linked in your family — the reminder goes to {1}’s phone.',
   '{0} জন্য': 'For {0}',
+  'দেশের কোড বদলান': 'Change country code',
+  '{0} · {1} অঙ্ক, শুরুর ০ ছাড়া': '{0} · {1} digits, without the leading 0',
+  'ঠিক মোবাইল নম্বর দিন, যেমন +880 1712-345678': 'Enter a valid mobile number, e.g. +880 1712-345678',
+  '{0}-এর মোবাইল নম্বর {1} অঙ্কের হয়': 'Mobile numbers in {0} have {1} digits',
+  'দেশের কোড': 'Country code',
+  'দেশের নাম বা কোড': 'Country name or code',
+  'এই নামে কোনো দেশ নেই': 'No country by that name',
 };
