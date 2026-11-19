@@ -5,12 +5,13 @@
 // lib/services/family_crypto.dart).
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart' show Sha256;
 import 'package:flutter/foundation.dart';
 
+import '../logic/bn.dart';
 import '../logic/lang.dart';
+import '../logic/meal.dart';
 import '../logic/pro.dart' show medicalOff;
 import '../models/models.dart';
 import '../services/crypto.dart' show randomBytes, WrongKey, seal, open;
@@ -25,7 +26,59 @@ Future<Uint8List> sealBytes(List<int> clear, List<int> key) => seal(clear, key);
 Future<Uint8List> openBytes(List<int> sealed, List<int> key) => open(sealed, key);
 
 /// What one member may let the other do (the order shown).
-List<String> get familyPerms => medicalOff ? const ['task', 'reminder', 'note', 'location'] : const ['task', 'reminder', 'medicine', 'note', 'location'];
+/// Medicine reminders in the Play app too (owner, 19 Nov: "পরিবার বা
+/// উত্তরাধিকার থেকে ওষুধের রিমাইন্ডার দেওয়ার অপশন থাকা দরকার"): there they
+/// arrive as daily reminders, no medicine record ([medicineReminders]).
+const familyPerms = ['task', 'reminder', 'medicine', 'note', 'location'];
+
+/// The note under a medicine reminder: before/after food, how many, the
+/// sender's instructions, why (in the sender's words), till when.
+String medicineNote(Map<String, Object?> p) {
+  final dose = (p['dose'] as num?)?.toInt() ?? 1;
+  final why = '${p['why'] ?? ''}'.trim();
+  final until = DateTime.tryParse('${p['until'] ?? ''}');
+  return [
+    mealText('${p['meal'] ?? ''}'),
+    trf('{0}টা করে', [bnDigits(dose)]),
+    '${p['note'] ?? ''}'.trim(),
+    if (why.isNotEmpty) trf('কেন: {0}', [why]),
+    if (until != null) trf('{0} পর্যন্ত', [fullDate(until)]),
+  ].where((x) => x.isNotEmpty).join(' · ');
+}
+
+/// A medicine reminder kept as plain daily reminders, one for each time
+/// (the Play app keeps no medicines — pro.dart medicalOff). [who]: whose
+/// medicine, when not this phone's owner ("আম্মা").
+Future<void> medicineReminders(Brain brain, {required String name, required List<int> times, String note = '', String who = ''}) async {
+  final now = brain.services.now();
+  final title = who.isEmpty ? trf('{0} খাওয়ার সময়', [name]) : trf('{0} খাওয়ার সময় ({1})', [name, who]);
+  for (final m in ([...times]..sort())) {
+    await brain.saveReminder(Reminder(title: title, date: DateTime(now.year, now.month, now.day), hour: m ~/ 60, minute: m % 60, repeat: Repeat.daily, note: note));
+  }
+}
+
+/// One medicine reminder this phone sent to a family member (kept on this
+/// phone only, to show on their page).
+class SentMedicine {
+  SentMedicine({required this.name, required this.times, this.meal = '', this.until, required this.at});
+  final String name;
+  final List<int> times;
+  final String meal;
+  final DateTime? until;
+  final DateTime at;
+  Map<String, Object?> toJson() => {'name': name, 'times': times, 'meal': meal, if (until != null) 'until': until!.toIso8601String(), 'at': at.toIso8601String()};
+  static SentMedicine? fromJson(Object? j) {
+    if (j is! Map) return null;
+    final at = DateTime.tryParse('${j['at']}');
+    if (at == null) return null;
+    return SentMedicine(
+        name: '${j['name'] ?? ''}',
+        times: [for (final t in (j['times'] as List? ?? const [])) if (t is num) t.toInt()],
+        meal: '${j['meal'] ?? ''}',
+        until: DateTime.tryParse('${j['until'] ?? ''}'),
+        at: at);
+  }
+}
 
 String familyPermLabel(String p) => switch (p) {
       'task' => tr('আমার জন্য কাজ যোগ করা'),
@@ -263,6 +316,38 @@ class FamilyState extends ChangeNotifier {
     return await _send('POST', '/family/items', {'link': l.id, 'kind': kind, 'sealed': sealed}) != null;
   }
 
+  /// A medicine reminder to [l]'s phone; kept on their page here, and with
+  /// [alsoMine] a reminder on this phone too, to check on them.
+  Future<bool> sendMedicine(FamilyLink l, Map<String, Object?> payload, {bool alsoMine = false}) async {
+    if (!await send(l, 'medicine', payload)) return false;
+    final name = '${payload['title'] ?? ''}';
+    final times = [for (final t in (payload['times'] as List? ?? const [])) if (t is num) t.toInt()];
+    final list = await sentMedicines(l);
+    list.insert(0, SentMedicine(name: name, times: times, meal: '${payload['meal'] ?? ''}', until: DateTime.tryParse('${payload['until'] ?? ''}'), at: brain.services.now()));
+    await _put('fam_med_sent_${l.id}', jsonEncode([for (final m in list.take(30)) m.toJson()]));
+    if (alsoMine) await medicineReminders(brain, name: name, times: times, note: medicineNote(payload), who: l.iCall.isEmpty ? l.name : l.iCall);
+    notifyListeners();
+    return true;
+  }
+
+  /// The medicine reminders this phone sent to [l], newest first.
+  Future<List<SentMedicine>> sentMedicines(FamilyLink l) async {
+    try {
+      final raw = await _get('fam_med_sent_${l.id}');
+      if (raw == null || raw.isEmpty) return [];
+      return [for (final j in jsonDecode(raw) as List) if (SentMedicine.fromJson(j) case final m?) m];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Takes one off this phone's list (their phone keeps it until they stop it).
+  Future<void> forgetSentMedicine(FamilyLink l, SentMedicine m) async {
+    final list = (await sentMedicines(l))..removeWhere((x) => x.at == m.at && x.name == m.name);
+    await _put('fam_med_sent_${l.id}', jsonEncode([for (final x in list) x.toJson()]));
+    notifyListeners();
+  }
+
   /// Takes in what family members sent: each becomes this phone's own to-do,
   /// reminder, medicine or note. Returns how many.
   Future<int> receive() async {
@@ -316,13 +401,22 @@ class FamilyState extends ChangeNotifier {
         if (title.isEmpty || day == null) return null;
         await brain.saveReminder(Reminder(title: title, date: DateTime(day.year, day.month, day.day), hour: (p['hour'] as num?)?.toInt() ?? 9, minute: (p['minute'] as num?)?.toInt() ?? 0, note: note));
         return trf('রিমাইন্ডার: {0}', [title]);
-      case 'medicine' when medicalOff:
-        // The Play app keeps no medicines (pro.dart medicalOff): not kept.
-        return null;
       case 'medicine':
         final times = [for (final t in (p['times'] as List? ?? const [])) if (t is num && t >= 0 && t < 24 * 60) t.toInt()];
         if (title.isEmpty || times.isEmpty) return null;
-        await brain.saveMedicine(Medicine(name: title, dose: (p['dose'] as num?)?.toInt() ?? 1, times: times, until: _day(p['until']), note: note));
+        if (medicalOff) {
+          // The Play app keeps no medicines (pro.dart medicalOff): daily reminders.
+          await medicineReminders(brain, name: title, times: times, note: [medicineNote(p), by].where((x) => x.isNotEmpty).join(' · '));
+          return trf('ওষুধের রিমাইন্ডার: {0}', [title]);
+        }
+        final why = '${p['why'] ?? ''}'.trim();
+        await brain.saveMedicine(Medicine(
+            name: title,
+            dose: (p['dose'] as num?)?.toInt() ?? 1,
+            times: times,
+            until: _day(p['until']),
+            meal: '${p['meal'] ?? ''}',
+            note: [note, if (why.isNotEmpty) trf('কেন: {0}', [why])].where((x) => x.isNotEmpty).join(' · ')));
         return trf('ওষুধ: {0}', [title]);
       case 'note':
         final body = '${p['body'] ?? ''}';
