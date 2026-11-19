@@ -10,6 +10,9 @@ export '../logic/holidays_abroad.dart' show AbroadHoliday;
 abstract class WeatherSource {
   Future<Weather?> now(double lat, double lon, String place, DateTime at);
 
+  /// Now, the next hours and seven days (the weather page); null offline.
+  Future<Forecast?> forecast(double lat, double lon, String place, DateTime at) async => null;
+
   /// Places in the world whose name starts like [q] (owner, 29 Oct: search
   /// in the place picker). Only the typed name is sent; [] offline.
   Future<List<PlaceHit>> search(String q, {String lang = 'bn'}) async => const [];
@@ -53,6 +56,26 @@ class OpenMeteo implements WeatherSource {
       final r = await _http.get(u).timeout(const Duration(seconds: 15));
       if (r.statusCode != 200) return null;
       return Weather.fromOpenMeteo(jsonDecode(r.body) as Map<String, dynamic>, place, at);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<Forecast?> forecast(double lat, double lon, String place, DateTime at) async {
+    try {
+      final u = Uri.https('api.open-meteo.com', '/v1/forecast', {
+        'latitude': '$lat',
+        'longitude': '$lon',
+        'current': 'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m',
+        'hourly': 'temperature_2m,weather_code,is_day',
+        'daily': 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset',
+        'timezone': 'auto',
+        'forecast_days': '7',
+      });
+      final r = await _http.get(u).timeout(const Duration(seconds: 15));
+      if (r.statusCode != 200) return null;
+      return Forecast.fromOpenMeteo(jsonDecode(r.body) as Map<String, dynamic>, place, at);
     } catch (_) {
       return null;
     }
@@ -143,4 +166,10 @@ class FakeWeather implements WeatherSource {
     asked++;
     return answer;
   }
+
+  /// The weather page's answer, by place name (null: none).
+  Map<String, Forecast> casts = {};
+
+  @override
+  Future<Forecast?> forecast(double lat, double lon, String place, DateTime at) async => casts[place];
 }

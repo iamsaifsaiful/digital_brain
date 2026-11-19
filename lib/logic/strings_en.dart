@@ -3,6 +3,16 @@
 // ignore_for_file: lines_longer_than_80_chars
 
 const enStrings = <String, String>{
+  'আবহাওয়া': 'Weather',
+  'আবহাওয়া আনা হচ্ছে…': 'Getting the weather…',
+  'এখন আবহাওয়া আনা গেল না — ইন্টারনেট চালু করে আবার খুলুন।': 'Couldn’t get the weather now — turn on the internet and open again.',
+  'Open-Meteo থেকে · শুধু জায়গার অবস্থান পাঠানো হয়': 'From Open-Meteo · only the place’s position is sent',
+  '{0} দিনের পূর্বাভাস': '{0}-day forecast',
+  'আর্দ্রতা': 'Humidity',
+  'বাতাস': 'Wind',
+  '{0} কিমি/ঘ': '{0} km/h',
+  'বৃষ্টির সম্ভাবনা': 'Chance of rain',
+  'লোকেশন যোগ করুন': 'Add a location',
   'সমস্যা বা পরামর্শ দিন': 'Feedback',
   'লিখুন, উত্তর এখানেই': 'Write here — replies appear in this chat',
   'নোটিফিকেশন প্যানেল': 'Notification panel',
