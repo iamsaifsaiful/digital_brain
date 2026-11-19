@@ -859,5 +859,5 @@ Future<void> showBillPresets(BuildContext context) async {
     if (DateTime(date.year, date.month, date.day, 10).isBefore(now)) date = DateTime(now.year, now.month + 1, e.value);
     await brain.saveReminder(Reminder(title: tr(e.key), date: date, hour: 10, repeat: Repeat.monthly));
   }
-  if (context.mounted) toast(context, trf('{0}টা বিলের রিমাইন্ডার রাখা হলো', [bnDigits(chosen.length)]));
+  if (context.mounted) toast(context, trf('{0}টি বিলের রিমাইন্ডার রাখা হলো', [bnDigits(chosen.length)]));
 }

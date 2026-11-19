@@ -106,7 +106,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
       toast(context, e);
       return;
     }
-    toast(context, tr('ধন্যবাদ! যিনি চেয়েছেন, তাঁকে জানানো হয়েছে।'));
+    toast(context, tr('ধন্যবাদ। যিনি চেয়েছেন, তাঁকে জানানো হয়েছে।'));
     await _reload();
   }
 
@@ -433,7 +433,7 @@ class _DonorSheetState extends State<_DonorSheet> {
             Text(tr('আমি রক্ত দিতে চাই'), style: display(20, weight: 700)),
             const SizedBox(height: 4),
             Text(
-                tr('আপনার জেলায় কারো এই গ্রুপের রক্ত লাগলে নোটিফিকেশন পাবেন (দিনে ৩টার বেশি না; রক্ত দেওয়ার ৩ মাসের মধ্যে একটাও না)। শুধু গ্রুপ, জেলা, শেষ দেওয়ার দিন আর নম্বর সার্ভারে থাকে — নম্বর দেখবেন শুধু যাঁকে আপনি রাজি বলবেন।'),
+                tr('আপনার জেলায় কারো এই গ্রুপের রক্ত লাগলে নোটিফিকেশন পাবেন (দিনে ৩টির বেশি না; রক্ত দেওয়ার ৩ মাসের মধ্যে একটাও না)। শুধু গ্রুপ, জেলা, শেষ দেওয়ার দিন আর নম্বর সার্ভারে থাকে — নম্বর দেখবেন শুধু যাঁকে আপনি রাজি বলবেন।'),
                 style: body(13, color: C.muted, height: 1.5)),
             const SizedBox(height: 14),
             Text(tr('রক্তের গ্রুপ'), style: body(13, weight: FontWeight.w600, color: C.muted2)),
@@ -609,7 +609,7 @@ class _AskBloodScreenState extends State<AskBloodScreen> {
               TextField(textCapitalization: TextCapitalization.sentences, controller: _note, maxLines: 2, decoration: InputDecoration(labelText: tr('আর কিছু বলার থাকলে (ঐচ্ছিক)'), hintText: tr('যেমন: সকাল ১০টার আগে আসুন'))),
               const SizedBox(height: 8),
               Text(
-                  tr('অনুরোধটা সারা দেশের সবাই দেখবেন — কার জন্যে, সমস্যা, হাসপাতাল, তারিখ আর আপনার নম্বরসহ। আপনার জেলার যাঁরা দাতা আর এই গ্রুপে দিতে পারেন, তাঁরা নোটিফিকেশনও পাবেন। একসাথে ৩টা পর্যন্ত অনুরোধ খোলা রাখা যায়।'),
+                  tr('অনুরোধটা সারা দেশের সবাই দেখবেন — কার জন্যে, সমস্যা, হাসপাতাল, তারিখ আর আপনার নম্বরসহ। আপনার জেলার যাঁরা দাতা আর এই গ্রুপে দিতে পারেন, তাঁরা নোটিফিকেশনও পাবেন। একসাথে ৩টি পর্যন্ত অনুরোধ খোলা রাখা যায়।'),
                   style: body(12.5, color: C.muted, height: 1.5)),
               if (_error != null) ...[const SizedBox(height: 10), Text(_error!, style: body(14, color: C.red))],
               const SizedBox(height: 16),

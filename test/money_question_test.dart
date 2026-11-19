@@ -40,7 +40,7 @@ void main() {
     expect(chat.wait, ChatWait.clarify);
 
     final all = await say('সব লেনদেন');
-    expect(all, contains('৪টা লেনদেন'));
+    expect(all, contains('৪টি লেনদেন'));
     expect(all, contains('আয় ২,৫০০ টাকা'));
     expect(all, contains('খরচ ৫৫০ টাকা'));
     expect('$all\n${facts()}', isNot(contains('Messi')));
@@ -56,7 +56,7 @@ void main() {
     chat = ChatController(rig.brain);
     await say('এ মাসে অন্যান্য লেনদেন কী কী?');
     final r = await say('অন্যান্য খাতের');
-    expect(r, contains('১টা লেনদেন'));
+    expect(r, contains('১টি লেনদেন'));
     expect(r, contains('খরচ ১৫০ টাকা'));
     expect(facts(), isNot(contains('বাজার')));
     expect(facts(), isNot(contains('৯,৯৯৯')));
@@ -69,7 +69,7 @@ void main() {
     await say('এ মাসের লেনদেনগুলো দেখাও');
     final last = await say('আর গত মাসে?');
     expect(last, contains('গত মাসে'));
-    expect(last, contains('১টা লেনদেন'));
+    expect(last, contains('১টি লেনদেন'));
     expect(facts(), contains('৯,৯৯৯'));
     final none = await say('গত বছরের লেনদেন দেখাও');
     expect(none, 'গত বছর কোনো লেনদেন পাওয়া যায়নি।');

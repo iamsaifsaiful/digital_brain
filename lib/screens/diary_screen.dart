@@ -257,7 +257,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
       ] else ...[
         ...timeline,
         if (tasks.isNotEmpty) ...[
-          _small(trf('যেকোনো সময় · {0}টার {1}টা শেষ', [bnDigits(tasks.length), bnDigits(tasks.where((x) => x.task!.done).length)])),
+          _small(trf('যেকোনো সময় · {0}টির {1}টি শেষ', [bnDigits(tasks.length), bnDigits(tasks.where((x) => x.task!.done).length)])),
           _box([for (final i in tasks) PlanRow(item: i)]),
         ],
       ],
@@ -302,7 +302,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
         () => setState(() => _picked = day.add(const Duration(days: 7))),
         Column(children: [
           Text('${bnDigits(start.day)} ${monthShort(start.month)} – ${bnDigits(end.day)} ${monthShort(end.month)}', textAlign: TextAlign.center, style: body(15, weight: FontWeight.w700)),
-          Text(trf('{0}টা কাজ · {1}টা রিমাইন্ডার', [bnDigits(nTasks), bnDigits(nRem)]), textAlign: TextAlign.center, style: body(12, color: C.muted)),
+          Text(trf('{0}টি কাজ · {1}টি রিমাইন্ডার', [bnDigits(nTasks), bnDigits(nRem)]), textAlign: TextAlign.center, style: body(12, color: C.muted)),
         ]),
       ),
       const SizedBox(height: 10),
@@ -363,7 +363,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                           ),
                         ),
                       if (more > 0 || hol != null)
-                        Text([if (more > 0) trf('আরও {0}টা', [bnDigits(more)]), if (hol != null) hol.label].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: hol != null ? C.rose : C.muted)),
+                        Text([if (more > 0) trf('আরও {0}টি', [bnDigits(more)]), if (hol != null) hol.label].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: hol != null ? C.rose : C.muted)),
                     ]),
             ),
             Icon(Icons.chevron_right_rounded, color: C.muted, size: 20),

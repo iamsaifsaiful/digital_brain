@@ -407,7 +407,7 @@ class _CardFormScreenState extends State<CardFormScreen> {
     if (digits.isEmpty && _front == null && _back == null) return toast(context, tr('কার্ডের নম্বর লিখুন, অথবা ছবি তুলুন'));
     final company = _company.isNotEmpty ? _company : BankCard.networkOf(digits);
     final need = BankCard.digitsFor(company);
-    if (digits.isNotEmpty && digits.length != need) return toast(context, trf('এই কার্ডের নম্বর {0} অঙ্কের — এখন {1}টা লেখা হয়েছে', [bnDigits(need), bnDigits(digits.length)]));
+    if (digits.isNotEmpty && digits.length != need) return toast(context, trf('এই কার্ডের নম্বর {0} অঙ্কের — এখন {1}টি লেখা হয়েছে', [bnDigits(need), bnDigits(digits.length)]));
     final exp = asciiDigits(_expiry.text.trim());
     if (exp.isNotEmpty && !RegExp(r'^(0[1-9]|1[0-2])/\d{2}$').hasMatch(exp)) return toast(context, tr('মেয়াদ লিখুন মাস/বছর করে, যেমন 08/29'));
     setState(() => _saving = true);

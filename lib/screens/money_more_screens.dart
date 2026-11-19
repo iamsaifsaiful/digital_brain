@@ -125,7 +125,7 @@ class ShopTodayCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          Expanded(child: Figure(label: tr('আজকের বিক্রি'), amount: taka(s.total), color: C.green, size: 22, sub: trf('{0}টা বিক্রি', [bnDigits(s.count)]))),
+          Expanded(child: Figure(label: tr('আজকের বিক্রি'), amount: taka(s.total), color: C.green, size: 22, sub: trf('{0}টি বিক্রি', [bnDigits(s.count)]))),
           Expanded(child: Figure(label: tr('গ্রাহকের বাকি'), amount: taka(due), color: C.orange, size: 22)),
         ]),
         const SizedBox(height: 10),
@@ -358,7 +358,7 @@ class _ReportScreenState extends State<ReportScreen> {
       if (data == null) return;
       await brain.services.files.shareFile(data.buffer.asUint8List(), 'report-${r.month.year}-${r.month.month}.png', 'image/png', trf('{0} মাসের হিসাব — My Assistant', [monthTitle(r.month)]));
     } catch (_) {
-      if (mounted) toast(context, tr('ছবি বানানো গেল না'));
+      if (mounted) toast(context, tr('ছবি তৈরি করা যায়নি'));
     }
   }
 
@@ -867,7 +867,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
                                 if (g.deposits.isNotEmpty)
                                   TextButton(
                                     onPressed: () => _deposits(context, g.id),
-                                    child: Text(trf('জমার হিসাব · {0}টা — বদলান বা মুছুন', [bnDigits(g.deposits.length)])),
+                                    child: Text(trf('জমার হিসাব · {0}টি — বদলান বা মুছুন', [bnDigits(g.deposits.length)])),
                                   ),
                               ]),
                             ),
@@ -896,7 +896,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
                                 const SizedBox(height: 8),
                                 Bar(value: i.months == 0 ? 0 : i.paidCount / i.months, height: 10, color: C.purple),
                                 const SizedBox(height: 6),
-                                Text(trf('{0}/{1} কিস্তি দেওয়া ({2}) · বাকি {3}টা · শেষ {4}', [bnDigits(i.paidCount), bnDigits(i.months), taka(i.paidTotal), bnDigits(i.left), monthTitle(i.end)]),
+                                Text(trf('{0}/{1} কিস্তি দেওয়া ({2}) · বাকি {3}টি · শেষ {4}', [bnDigits(i.paidCount), bnDigits(i.months), taka(i.paidTotal), bnDigits(i.left), monthTitle(i.end)]),
                                     style: body(13, color: C.muted2)),
                                 const SizedBox(height: 8),
                                 Row(children: [
@@ -1087,7 +1087,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
     final brain = BrainScope.read(context);
     final lines = _lines;
     if (lines.isEmpty) {
-      toast(context, tr('অন্তত একটা জিনিস আর দাম লিখুন'));
+      toast(context, tr('অন্তত একটি জিনিস আর দাম লিখুন'));
       return;
     }
     final total = lines.fold(0, (s, l) => s + l.total);
@@ -1166,7 +1166,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                         child: TextField(controller: r.$3, keyboardType: TextInputType.number, onChanged: (_) => setState(() {}), decoration: InputDecoration(hintText: tr('দাম'), isDense: true))),
                   ]),
                 ),
-              TextButton.icon(onPressed: () => setState(_addRow), icon: const Icon(Icons.add_rounded), label: Text(tr('আরেকটা জিনিস'))),
+              TextButton.icon(onPressed: () => setState(_addRow), icon: const Icon(Icons.add_rounded), label: Text(tr('আরেকটি জিনিস'))),
               const SizedBox(height: 6),
               Text(trf('মোট: {0}', [taka(total)]), style: display(22, weight: 700)),
               const SizedBox(height: 10),

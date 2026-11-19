@@ -323,7 +323,7 @@ class LookSection extends StatelessWidget {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(tr('সহজ মোড'), style: body(15, weight: FontWeight.w500)),
-              Text(tr('বড় লেখা, হোমে ৪টা বড় বোতাম, উত্তর কণ্ঠে শোনাবে — বয়স্কদের জন্য সুবিধা'), style: body(12.5, color: C.muted)),
+              Text(tr('বড় লেখা, হোমে ৪টি বড় বোতাম, উত্তর কণ্ঠে শোনাবে — বয়স্কদের জন্য সুবিধা'), style: body(12.5, color: C.muted)),
             ]),
           ),
           Switch(value: brain.easyMode, onChanged: (v) => brain.setEasyMode(v)),

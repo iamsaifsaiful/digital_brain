@@ -61,7 +61,7 @@ void main() {
     await open(t);
     data().projects.add(Project(id: 'p1', name: 'শিক্ষার্থীদের বেতন'));
     final r = await say('আমার শিক্ষার্থীদের মাঝে, মাহি ২০০০ টাকা দিছে, আখি ৫০০ টাকা, ফয়সাল ১০০০ টাকা। আব্দুর রহমানের কাছে ৩০০০ টাকা বেতন বাবদ পাবো');
-    expect(r, contains('৪টা'));
+    expect(r, contains('৪টি'));
     for (final n in ['মাহি', 'আখি', 'ফয়সাল', 'আব্দুর রহমান']) {
       expect(r, contains(n));
     }

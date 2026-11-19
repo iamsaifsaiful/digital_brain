@@ -70,7 +70,7 @@ class _TodaySectionsState extends State<TodaySections> {
     String peek() {
       final first = tomorrowItems.first;
       final firstTimed = tomorrowItems.where((i) => i.reminder != null).firstOrNull;
-      final head = trf('কাল, {0} · {1}টা কাজ', [weekdayName(tomorrow), bnDigits(tomorrowItems.length)]);
+      final head = trf('কাল, {0} · {1}টি কাজ', [weekdayName(tomorrow), bnDigits(tomorrowItems.length)]);
       final at = firstTimed ?? (first.reminder != null ? first : null);
       return at == null ? head : '$head, ${trf('প্রথমটা {0}', [bnTime(at.sort.hour, at.sort.minute)])}';
     }
@@ -108,7 +108,7 @@ class _TodaySectionsState extends State<TodaySections> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(_open ? tr('কম দেখুন') : trf('আরও {0}টা দেখুন', [bnDigits(hidden)]), style: body(13, weight: FontWeight.w600, color: C.green)),
+                  Text(_open ? tr('কম দেখুন') : trf('আরও {0}টি দেখুন', [bnDigits(hidden)]), style: body(13, weight: FontWeight.w600, color: C.green)),
                   const SizedBox(width: 4),
                   Icon(_open ? Icons.expand_less_rounded : Icons.expand_more_rounded, size: 18, color: C.green),
                 ]),
@@ -435,7 +435,7 @@ class _HomeAttentionState extends State<HomeAttention> with WidgetsBindingObserv
         key: const Key('home-alarm-health'),
         icon: Icons.warning_amber_rounded,
         title: tr('রিমাইন্ডার নাও বাজতে পারে'),
-        text: tr('ফোনের একটা সেটিং বন্ধ আছে'),
+        text: tr('ফোনের একটি সেটিং বন্ধ আছে'),
         action: tr('ঠিক করুন'),
         onAction: () async {
           await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReminderCheckScreen()));
@@ -483,7 +483,7 @@ class _HomeAttentionState extends State<HomeAttention> with WidgetsBindingObserv
     final steps = <(String, String, String, IconData, bool, VoidCallback)>[
       ('contacts', tr('ফোনবুকের সব নম্বর এক ক্লিকে আনুন'), tr('নাম বললেই ফোন, মেসেজ আর হিসাবে নম্বর নিজে থেকে বসে যাবে'), Icons.contacts_outlined,
           d.contacts.isNotEmpty, () => importFromPhone(context)),
-      ('alarm', tr('রিমাইন্ডার যেন ঠিক সময়ে বাজে'), tr('ফোনের দুই-একটা সেটিং এক চাপে ঠিক করে নিন'), Icons.notifications_active_outlined, _seen.contains('alarm'),
+      ('alarm', tr('রিমাইন্ডার যেন ঠিক সময়ে বাজে'), tr('ফোনের দুই-একটি সেটিং এক চাপে ঠিক করে নিন'), Icons.notifications_active_outlined, _seen.contains('alarm'),
           () => push(const ReminderCheckScreen())),
       ('say', tr('নিচে বলুন বা লিখুন'), tr('“রবিনকে ৫০০০ টাকা দিলাম”, “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”, “আজকের কাজের তালিকা”'), Icons.mic_none_rounded,
           _seen.contains('say'), () => toast(context, tr('যেমন: “রবিনকে ৫০০০ টাকা দিলাম”, “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”'))),
@@ -502,9 +502,9 @@ class _HomeAttentionState extends State<HomeAttention> with WidgetsBindingObserv
             child: Row(children: [
               const IconTile(Icons.flag_outlined, size: 32),
               const SizedBox(width: 10),
-              Expanded(child: Text(trf('শুরু করার ৪টা ধাপ ({0}/৪)', [bnDigits(done)]), style: body(13.5, weight: FontWeight.w600))),
+              Expanded(child: Text(trf('শুরু করার ৪টি ধাপ ({0}/৪)', [bnDigits(done)]), style: body(13.5, weight: FontWeight.w600))),
               Icon(_tipsOpen ? Icons.expand_less_rounded : Icons.expand_more_rounded, color: C.muted, size: 20),
-              IconButton(tooltip: tr('বুঝেছি, লুকিয়ে রাখো'), visualDensity: VisualDensity.compact, onPressed: _hideTips, icon: Icon(Icons.close_rounded, size: 18, color: C.muted)),
+              IconButton(tooltip: tr('বুঝেছি, লুকিয়ে রাখুন'), visualDensity: VisualDensity.compact, onPressed: _hideTips, icon: Icon(Icons.close_rounded, size: 18, color: C.muted)),
             ]),
           ),
         ),

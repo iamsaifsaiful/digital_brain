@@ -77,7 +77,7 @@ void main() {
     expect(rs.length, 3);
     expect(rs.every((r) => r.repeat == Repeat.daily && r.title == 'নাপা খাওয়ার সময় (আম্মা)'), isTrue);
     expect({for (final r in rs) r.hour}, {8, 14, 22});
-    expect(rs.first.note, 'খাবারের পরে · ২টা করে · পানির সাথে · কেন: জ্বরের জন্য ডাক্তার দিয়েছেন');
+    expect(rs.first.note, 'খাবারের পরে · ২টি করে · পানির সাথে · কেন: জ্বরের জন্য ডাক্তার দিয়েছেন');
     expect(rig.brain.data.medicines.length, medsBefore);
     debugDisableShadows = true;
   });

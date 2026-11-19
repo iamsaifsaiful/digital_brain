@@ -344,7 +344,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
     switch (q.ask) {
       case LedgerAsk.person:
         final p = balanceOf(d.ledger, q.person!);
-        return _Answer(text, items: [if (p != null) row(p, trf('{0}টা লেনদেন', [bnDigits(p.count)]))]);
+        return _Answer(text, items: [if (p != null) row(p, trf('{0}টি লেনদেন', [bnDigits(p.count)]))]);
       case LedgerAsk.receivable:
         return _Answer(text, items: [
           for (final p in all.where((p) => p.balance > 0)) row(p, p.last == null ? '' : trf('শেষ লেনদেন {0}', [shortDate(p.last!)])),
@@ -433,7 +433,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: PrimaryButton(
-                          label: tr('আরেকটা প্রশ্ন'),
+                          label: tr('আরেকটি প্রশ্ন'),
                           icon: Icons.mic_none_rounded,
                           onPressed: () => openVoice(context),
                         ),

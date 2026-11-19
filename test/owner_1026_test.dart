@@ -49,7 +49,7 @@ void main() {
       await t.pump(const Duration(milliseconds: 200));
     }
     expect(rig.notifier.pageRings, ['r1']);
-    await t.tap(find.text('হয়ে গেছে, বন্ধ করো'));
+    await t.tap(find.text('হয়ে গেছে, বন্ধ করুন'));
     for (var i = 0; i < 5; i++) {
       await t.pump(const Duration(milliseconds: 200));
     }
@@ -85,9 +85,9 @@ void main() {
     await t.pumpWidget(DigitalBrainApp(brain: r2.brain));
     await r2.brain.load();
     await settle(t, 20);
-    expect(find.text('হয়ে গেছে, বন্ধ করো'), findsOneWidget);
+    expect(find.text('হয়ে গেছে, বন্ধ করুন'), findsOneWidget);
     expect(r2.biometrics.asked, 0, reason: 'no fingerprint prompt over the alarm page');
-    await t.tap(find.text('হয়ে গেছে, বন্ধ করো'));
+    await t.tap(find.text('হয়ে গেছে, বন্ধ করুন'));
     await settle(t);
     expect(r2.notifier.stopped, contains('r1'));
     expect(r2.brain.alarmOpen, isFalse);
@@ -110,8 +110,8 @@ void main() {
     rig.notifier.tapped.value = const NoticeTap(NoticeInfo('r9', 'আম্মাকে ফোন', '', false));
     await settle(t);
     expect(rig.biometrics.cancelled, 1);
-    expect(find.text('হয়ে গেছে, বন্ধ করো'), findsOneWidget);
-    await t.tap(find.text('হয়ে গেছে, বন্ধ করো'));
+    expect(find.text('হয়ে গেছে, বন্ধ করুন'), findsOneWidget);
+    await t.tap(find.text('হয়ে গেছে, বন্ধ করুন'));
     await settle(t);
     expect(rig.notifier.stopped, contains('r9'));
     expect(find.byKey(const Key('lock-cover')), findsOneWidget);

@@ -60,7 +60,7 @@ void main() {
     await open(t);
     final r = await say('আমার কত গুলো রিমাইন্ডার আছে?');
     expect(r, isNot(contains('এই নামে')));
-    expect(r, contains('২টা'));
+    expect(r, contains('২টি'));
   });
 
   testWidgets('৪. "জন্মদিন ছাড়া সব রিমাইন্ডার মুছে দাও" keeps every birthday', (t) async {
@@ -71,7 +71,7 @@ void main() {
     await say('হ্যাঁ');
     await say('আমার কত গুলো রিমাইন্ডার আছে?');
     final q = await say('জন্মদিন ছাড়া সব রিমাইন্ডার মুছে দাও');
-    expect(q, contains('২টা'));
+    expect(q, contains('২টি'));
     await say('হ্যাঁ');
     expect(rig.brain.data.reminders.where((x) => x.title.contains('জন্মদিন')), hasLength(2));
     expect(rig.brain.data.reminders, hasLength(2));
@@ -85,7 +85,7 @@ void main() {
     await say('হ্যাঁ');
     await say('আমার কত গুলো রিমাইন্ডার আছে?');
     final q = await say('জন্মদিনের গুলো থাকবে, বাকি গুলো বাদ দাও');
-    expect(q, contains('২টা'));
+    expect(q, contains('২টি'));
   });
 
   testWidgets('৫. "আমার আয় ব্যয়ের হিসাব দাও" is a money answer, never a to-do', (t) async {
@@ -105,7 +105,7 @@ void main() {
     final r = await say('সব গুলো বাদ দাও');
     expect(r, isNot(contains('তালিকার এগুলো আর নেই')));
     expect(r, contains('কী করব?'));
-    await say('পুরো হিসাব মুছে দাও');
+    await say('পুরো হিসাব মুছে ফেলুন');
     expect(rig.brain.data.ledger, isEmpty);
   });
 
@@ -172,7 +172,7 @@ void main() {
     await open(t);
     await say('আমার পাওনা টাকা কত?');
     await say('সব গুলো বাদ দাও');
-    await say('শোধ হয়ে গেছে ধরে নাও (হিসাব থাকবে)');
+    await say('পরিশোধিত ধরুন (হিসাব থাকবে)');
     expect(rig.brain.data.ledger, hasLength(4));
     final r = await say('আমার পাওনা টাকা কত?');
     expect(r, contains('পাওনা নেই'));

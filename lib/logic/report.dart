@@ -490,12 +490,12 @@ void _notes(_Doc doc, AppData d) {
       doc.p(
           [
             trf('আপডেট: {0}', [_d(n.updatedAt)]),
-            if (n.files.isNotEmpty) trf('সাথে {0}টা ফাইল (অ্যাপে আছে)', [bnDigits(n.files.length)]),
+            if (n.files.isNotEmpty) trf('সাথে {0}টি ফাইল (অ্যাপে আছে)', [bnDigits(n.files.length)]),
           ].join(' · '),
           muted: true);
     }
   }
-  if (hidden > 0) doc.p(trf('গোপন তথ্য (পাসওয়ার্ড/PIN) থাকা {0}টা নোট এই PDF-এ রাখা হয়নি।', [bnDigits(hidden)]), muted: true);
+  if (hidden > 0) doc.p(trf('গোপন তথ্য (পাসওয়ার্ড/PIN) থাকা {0}টি নোট এই PDF-এ রাখা হয়নি।', [bnDigits(hidden)]), muted: true);
 }
 
 void _contacts(_Doc doc, AppData d) {
@@ -604,7 +604,7 @@ void _health(_Doc doc, AppData d, DateTime now, String userName) {
             [x.name, if (x.note.isNotEmpty) '(${x.note})'].join(' '),
             bnDigits(x.dose),
             x.times.map((t) => bnTime(t ~/ 60, t % 60)).join(', '),
-            x.stock <= 0 ? '—' : (x.daysLeft == null ? bnDigits(x.stock) : trf('{0}টা (~{1} দিন)', [bnDigits(x.stock), bnDigits(x.daysLeft!)])),
+            x.stock <= 0 ? '—' : (x.daysLeft == null ? bnDigits(x.stock) : trf('{0}টি (~{1} দিন)', [bnDigits(x.stock), bnDigits(x.daysLeft!)])),
             x.until == null ? '—' : _d(x.until!),
           ],
       ],

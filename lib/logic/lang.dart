@@ -1,7 +1,7 @@
 /// The app's language: English or Bangla, chosen on the PIN page or in সেটিংস › ভাষা.
 ///
 /// Screens wrap their words in [tr] (plain text) or [trf] (text with
-/// values: `trf('{0}টা কাজ', [n])`). The Bangla text is the key; the English
+/// values: `trf('{0}টি কাজ', [n])`). The Bangla text is the key; the English
 /// comes from strings_en.dart. Anything without an English entry shows in
 /// Bangla, so a missing translation never breaks a screen.
 library;

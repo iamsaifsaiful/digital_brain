@@ -29,7 +29,7 @@ class _TraceScreenState extends State<TraceScreen> {
     setState(() => _sending = false);
     if (r == null) return toast(context, tr('পাঠানো গেল না — ইন্টারনেট দেখে আবার চেষ্টা করুন'));
     if (r.sent == 0) return toast(context, r.left > 0 ? tr('পাঠানোর মতো কিছু নেই — সব কথোপকথনই ব্যক্তিগত বিষয়ের, তাই ফোনেই থাকল') : tr('পাঠানোর মতো কিছু নেই'));
-    toast(context, r.left > 0 ? trf('{0}টা লাইন পাঠানো হয়েছে; ব্যক্তিগত বিষয়ের {1}টা কথোপকথন বাদ রাখা হয়েছে', [bnDigits(r.sent), bnDigits(r.left)]) : trf('{0}টা লাইন পাঠানো হয়েছে — ধন্যবাদ', [bnDigits(r.sent)]));
+    toast(context, r.left > 0 ? trf('{0}টি লাইন পাঠানো হয়েছে; ব্যক্তিগত বিষয়ের {1}টি কথোপকথন বাদ রাখা হয়েছে', [bnDigits(r.sent), bnDigits(r.left)]) : trf('{0}টি লাইন পাঠানো হয়েছে — ধন্যবাদ', [bnDigits(r.sent)]));
   }
 
   @override
@@ -59,7 +59,7 @@ class _TraceScreenState extends State<TraceScreen> {
                 key: const Key('trace-on'),
                 contentPadding: EdgeInsets.zero,
                 title: Text(tr('লগ চালু'), style: body(16, weight: FontWeight.w600)),
-                subtitle: Text(tr('মাইক কী শুনল, কী বুঝল আর উত্তর কোথা থেকে এলো — লিখে রাখে। শুধু এই ফোনে, অ্যাপ বন্ধ করলে মুছে যায়।'), style: body(13, color: C.muted)),
+                subtitle: Text(tr('মাইক কী শুনল, কী বুঝল আর উত্তর কোথা থেকে এল — লিখে রাখে। শুধু এই ফোনে, অ্যাপ বন্ধ করলে মুছে যায়।'), style: body(13, color: C.muted)),
                 value: Trace.enabled,
                 onChanged: (v) async {
                   Trace.enabled = v;

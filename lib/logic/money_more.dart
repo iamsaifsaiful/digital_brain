@@ -103,7 +103,7 @@ List<String> reportInsights(MonthReport r) {
     final diff = r.expense - r.lastExpense;
     out.add(diff > 0
         ? trf('মোট খরচ গত মাসের চেয়ে {0} বেশি।', [taka(diff)])
-        : (diff < 0 ? trf('মোট খরচ গত মাসের চেয়ে {0} কম — ভালো!', [taka(-diff)]) : tr('মোট খরচ গত মাসের সমান।')));
+        : (diff < 0 ? trf('মোট খরচ গত মাসের চেয়ে {0} কম — ভালো অগ্রগতি।', [taka(-diff)]) : tr('মোট খরচ গত মাসের সমান।')));
   }
   if (r.income > 0) {
     final saved = r.income - r.expense;

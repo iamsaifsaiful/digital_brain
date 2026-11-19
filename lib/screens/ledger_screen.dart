@@ -302,7 +302,7 @@ class _LoanCard extends StatelessWidget {
                   Text(
                     [
                       if (p.phone.isNotEmpty && dupName) showPhone(p.phone),
-                      trf('{0}টা লেনদেন', [bnDigits(lines.length)]),
+                      trf('{0}টি লেনদেন', [bnDigits(lines.length)]),
                       if (last != null) trf('শেষ {0}', [agoText]),
                     ].join(' · '),
                     maxLines: 1,

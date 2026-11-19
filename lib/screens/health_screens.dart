@@ -258,7 +258,7 @@ class MedicinesScreen extends StatelessWidget {
                       title: m.name,
                       subtitle: [
                         m.times.map(minutesText).join(', '),
-                        if (m.dose > 1) trf('{0}টা করে', [bnDigits(m.dose)]),
+                        if (m.dose > 1) trf('{0}টি করে', [bnDigits(m.dose)]),
                         if (m.meal.isNotEmpty) mealText(m.meal),
                         if (m.daysLeft != null) m.daysLeft == 0 ? tr('আজই ফুরাবে') : trf('আর {0} দিনের', [bnDigits(m.daysLeft!)]),
                         if (m.until != null) trf('{0} পর্যন্ত', [shortDate(m.until!)]),

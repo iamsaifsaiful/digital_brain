@@ -86,7 +86,7 @@ class _DocsScreenState extends State<DocsScreen> {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
-          FilledButton(key: const Key('doc-folder-save'), onPressed: () => Navigator.pop(ctx, c.text.trim()), child: Text(tr('বানান'))),
+          FilledButton(key: const Key('doc-folder-save'), onPressed: () => Navigator.pop(ctx, c.text.trim()), child: Text(tr('তৈরি করুন'))),
         ],
       ),
     );
@@ -233,7 +233,7 @@ class _DocsScreenState extends State<DocsScreen> {
                 ],
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
-                  child: Text(folder == null ? tr('সম্প্রতি রাখা') : trf('এই ফোল্ডারে · {0}টা', [bnDigits(docs.length)]), style: body(13, weight: FontWeight.w600, color: C.muted)),
+                  child: Text(folder == null ? tr('সম্প্রতি রাখা') : trf('এই ফোল্ডারে · {0}টি', [bnDigits(docs.length)]), style: body(13, weight: FontWeight.w600, color: C.muted)),
                 ),
                 if (folder != null && docs.isEmpty && d.ownDocFolders.contains(folder))
                   Align(
@@ -646,7 +646,7 @@ Widget _folderTile({required Key key, required IconData icon, required Color tin
             ),
             const Spacer(),
             Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w600, height: 1.25)),
-            Text(trf('{0}টা', [bnDigits(count)]), style: body(11.5, color: C.muted)),
+            Text(trf('{0}টি', [bnDigits(count)]), style: body(11.5, color: C.muted)),
           ]),
         ),
       ),

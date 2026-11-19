@@ -155,7 +155,7 @@ void main() {
   testWidgets('৯. a market trip: each thing bought is an expense; the money taken along is not', (t) async {
     await open(t);
     final r = await say('আজ বাজারে গিয়েছি ৫০০০ টাকা নিয়ে। ৬০০ টাকার মুরগি কিনলাম, ১০০০ টাকার গরুর মাংস, ৩৫০ টাকার সবজি, ২২০ টাকার মুদি মালামাল এবং ৮০ টাকা রিক্সা ভাড়া');
-    expect(r, contains('৫টা'));
+    expect(r, contains('৫টি'));
     await say('হ্যাঁ');
     final today = [for (final e in data().cash) if (e.date.day == 18) e];
     expect(today.map((e) => e.amount), unorderedEquals([600, 1000, 350, 220, 80]));

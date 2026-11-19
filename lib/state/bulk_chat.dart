@@ -112,7 +112,7 @@ extension _BulkChat on ChatController {
   (List<String>, String?) _resolve(Selection sel, ResultSet set, {List<String> lastPicked = const []}) {
     final items = set.ids;
     final n = items.length;
-    String? bad(int i) => (i == -1 || (i >= 1 && i <= n)) ? null : trf('তালিকায় {0}টা আছে — {1} নম্বর নেই।', [bnDigits(n), bnDigits(i)]);
+    String? bad(int i) => (i == -1 || (i >= 1 && i <= n)) ? null : trf('তালিকায় {0}টি আছে — {1} নম্বর নেই।', [bnDigits(n), bnDigits(i)]);
     int at(int i) => i == -1 ? n - 1 : i - 1;
     List<String> out;
     switch (sel.kind) {
@@ -125,10 +125,10 @@ extension _BulkChat on ChatController {
         }
         out = [for (final i in sel.indexes) items[at(i)]];
       case SelKind.first:
-        if (sel.n > n) return (const [], trf('তালিকায় {0}টাই আছে — প্রথম {1}টা হয় না।', [bnDigits(n), bnDigits(sel.n)]));
+        if (sel.n > n) return (const [], trf('তালিকায় {0}টাই আছে — প্রথম {1}টি হয় না।', [bnDigits(n), bnDigits(sel.n)]));
         out = items.take(sel.n).toList();
       case SelKind.last:
-        if (sel.n > n) return (const [], trf('তালিকায় {0}টাই আছে — শেষের {1}টা হয় না।', [bnDigits(n), bnDigits(sel.n)]));
+        if (sel.n > n) return (const [], trf('তালিকায় {0}টাই আছে — শেষের {1}টি হয় না।', [bnDigits(n), bnDigits(sel.n)]));
         out = items.skip(n - sel.n).toList();
       case SelKind.range:
         final a = sel.from, b = sel.to;
@@ -141,7 +141,7 @@ extension _BulkChat on ChatController {
         for (final terms in sel.names) {
           final hit = _namedIn(set, terms);
           if (hit.isEmpty) return (const [], trf('এই তালিকায় “{0}” নেই।', [terms.join(' ')]));
-          if (hit.length > 1) return (const [], trf('“{0}” নামে {1}টা আছে — কোনটা, নম্বর দিয়ে বলুন।', [terms.join(' '), bnDigits(hit.length)]));
+          if (hit.length > 1) return (const [], trf('“{0}” নামে {1}টি আছে — কোনটা, নম্বর দিয়ে বলুন।', [terms.join(' '), bnDigits(hit.length)]));
           out.add(hit.single);
         }
       case SelKind.filter:
@@ -163,7 +163,7 @@ extension _BulkChat on ChatController {
       if (hit.isEmpty) return (const [], trf('এই তালিকায় “{0}” নেই — কোনটা থাকবে, আরেকবার বলুন।', [terms.join(' ')]));
       // "ফোনেরটা থাকবে" with two by that name: which one, asked. "জন্মদিন
       // ছাড়া সব": every one by that name stays (keeping more is the safe side).
-      if (one && hit.length > 1) return (const [], trf('“{0}” নামে {1}টা আছে — কোনটা থাকবে, নম্বর দিয়ে বলুন।', [terms.join(' '), bnDigits(hit.length)]));
+      if (one && hit.length > 1) return (const [], trf('“{0}” নামে {1}টি আছে — কোনটা থাকবে, নম্বর দিয়ে বলুন।', [terms.join(' '), bnDigits(hit.length)]));
       out.removeWhere(hit.contains);
     }
     return (out, null);
@@ -372,7 +372,7 @@ extension _BulkChat on ChatController {
     final ops = bulkOps[set.domain] ?? const {};
     for (final c in cmds) {
       if (!ops.contains(c.op)) {
-        _say(out, trf('{0} তালিকায় একসাথে এ কাজটা কথায় করা যায় না — {1}টা {2} যেমন ছিল আছে।', [_possBn(_domainBn[set.domain] ?? set.domain), bnDigits(set.ids.length), _domainBn[set.domain] ?? '']));
+        _say(out, trf('{0} তালিকায় একসাথে এ কাজটা কথায় করা যায় না — {1}টি {2} যেমন ছিল আছে।', [_possBn(_domainBn[set.domain] ?? set.domain), bnDigits(set.ids.length), _domainBn[set.domain] ?? '']));
         return true;
       }
     }
@@ -439,11 +439,11 @@ extension _BulkChat on ChatController {
     if (!set.complete && c.selection.kind == SelKind.all && c.op != 'show') {
       final shownIds = set.ids.take(set.shown).toList();
       _clarifyOptions = [
-        (trf('দেখানো {0}টা', [bnDigits(shownIds.length)]), BulkAction(c.transcript, selection: Selection(SelKind.first, n: shownIds.length), op: c.op, domain: set.domain, due: c.due, time: c.time, day: c.day)),
-        (trf('পাওয়া সব {0}টা', [bnDigits(set.matching)]), BulkAction(c.transcript, selection: const Selection(SelKind.all), op: c.op, domain: set.domain, due: c.due, time: c.time, day: c.day)),
+        (trf('দেখানো {0}টি', [bnDigits(shownIds.length)]), BulkAction(c.transcript, selection: Selection(SelKind.first, n: shownIds.length), op: c.op, domain: set.domain, due: c.due, time: c.time, day: c.day)),
+        (trf('পাওয়া সব {0}টি', [bnDigits(set.matching)]), BulkAction(c.transcript, selection: const Selection(SelKind.all), op: c.op, domain: set.domain, due: c.due, time: c.time, day: c.day)),
       ];
       _clarifySet = set;
-      _ask(out, trf('দেখানো {0}টা, নাকি পাওয়া সব {1}টা?', [bnDigits(shownIds.length), bnDigits(set.matching)]), ChatWait.clarify, choices: [for (final o in _clarifyOptions) ChatChoice(o.$1, o.$1)]);
+      _ask(out, trf('দেখানো {0}টি, নাকি পাওয়া সব {1}টি?', [bnDigits(shownIds.length), bnDigits(set.matching)]), ChatWait.clarify, choices: [for (final o in _clarifyOptions) ChatChoice(o.$1, o.$1)]);
       return;
     }
     if (c.op == 'remind' && c.time == null) {
@@ -452,7 +452,7 @@ extension _BulkChat on ChatController {
       if (set.domain == 'tasks') {
         _batchTasks = (live, '', _turn);
         _batchPart = null;
-        _ask(out, trf('{0}টা কাজের রিমাইন্ডার — প্রতিটা নিজের দিনে, কয়টায় মনে করাব? যেমন “দুপুর ১২টায়”।', [bnDigits(live.length)]), ChatWait.batchTime);
+        _ask(out, trf('{0}টি কাজের রিমাইন্ডার — প্রতিটা নিজের দিনে, কয়টায় মনে করাব? যেমন “দুপুর ১২টায়”।', [bnDigits(live.length)]), ChatWait.batchTime);
         return;
       }
       _say(out, tr('কয়টায় মনে করাব? সময়সহ বলুন — যেমন “এগুলোর রিমাইন্ডার সকাল ১০টায় দাও”।'));
@@ -473,8 +473,8 @@ extension _BulkChat on ChatController {
       final people = [for (final p in balances(brain.data.ledger)) if (live.contains(p.key)) p];
       final sum = people.fold<int>(0, (a, p) => a + p.balance.abs());
       _clarifyOptions = [
-        (tr('শোধ হয়ে গেছে ধরে নাও (হিসাব থাকবে)'), BulkAction(c.transcript, selection: c.selection, op: 'settle', domain: 'ledger')),
-        (tr('পুরো হিসাব মুছে দাও'), BulkAction(c.transcript, selection: c.selection, op: 'erase', domain: 'ledger')),
+        (tr('পরিশোধিত ধরুন (হিসাব থাকবে)'), BulkAction(c.transcript, selection: c.selection, op: 'settle', domain: 'ledger')),
+        (tr('পুরো হিসাব মুছে ফেলুন'), BulkAction(c.transcript, selection: c.selection, op: 'erase', domain: 'ledger')),
       ];
       _clarifySet = set;
       _ask(out, trf('{0} জনের মোট {1} টাকার হিসাব — কী করব? সব শোধ হয়ে গেছে ধরে নেব, নাকি হিসাবগুলোই মুছে দেব?', [bnDigits(people.length), bnNumber(sum)]), ChatWait.clarify,
@@ -487,12 +487,12 @@ extension _BulkChat on ChatController {
       final what = _bulkWhat(set, live);
       final cashSum = set.domain == 'money' ? brain.data.cash.where((e) => live.contains(e.id)).fold<int>(0, (a, e) => a + e.amount) : 0;
       final q = set.domain == 'money'
-          ? trf('{0}-এর {1}টা এন্ট্রি, মোট {2} টাকা — সব মুছে দেব? (রিসাইকেল বিন থেকে ফেরত আনা যাবে)', [set.label, bnDigits(live.length), bnNumber(cashSum)])
+          ? trf('{0}-এর {1}টি এন্ট্রি, মোট {2} টাকা — সব মুছে দেব? (রিসাইকেল বিন থেকে ফেরত আনা যাবে)', [set.label, bnDigits(live.length), bnNumber(cashSum)])
           : set.label == tr('সব') && live.length == set.ids.length
-          ? trf('আপনার সব {0}টা {1} মুছে দেব?', [bnDigits(live.length), _domainBn[set.domain] ?? ''])
-          : trf('{0} এই {1}টা {2} মুছে দেব?', [set.label.isEmpty ? '' : set.label, bnDigits(live.length), _domainBn[set.domain] ?? '']).trim();
+          ? trf('আপনার সব {0}টি {1} মুছে দেব?', [bnDigits(live.length), _domainBn[set.domain] ?? ''])
+          : trf('{0} এই {1}টি {2} মুছে দেব?', [set.label.isEmpty ? '' : set.label, bnDigits(live.length), _domainBn[set.domain] ?? '']).trim();
       _ask(out, q, ChatWait.bulk,
-          choices: [ChatChoice(tr('হ্যাঁ, মুছে দাও'), 'হ্যাঁ'), ChatChoice(tr('না'), 'না')], facts: what);
+          choices: [ChatChoice(tr('হ্যাঁ, মুছে ফেলুন'), 'হ্যাঁ'), ChatChoice(tr('না'), 'না')], facts: what);
       return;
     }
     await _bulkRun(c, set, live, out);
@@ -703,7 +703,7 @@ extension _BulkChat on ChatController {
           _shownAt = _now;
         }
         final numbered = _shownTasks.isNotEmpty ? shownLeft : leftIds;
-        _say(out, _outcome(trf('{0}টা {1} মুছে দিয়েছি', [bnDigits(ok - series), noun]), ok, ids.length, failed, skipped) + (series > 0 ? trf(' {0}টা নিয়মিত কাজের শুধু এবারেরটা বাদ দিয়েছি — পুরো সিরিজ আছে।', [bnDigits(series)]) : '') + (left > 0 ? trf(' তালিকার বাকি {0}টা আছে।', [bnDigits(left)]) : ''),
+        _say(out, _outcome(trf('{0}টি {1} মুছে দিয়েছি', [bnDigits(ok - series), noun]), ok, ids.length, failed, skipped) + (series > 0 ? trf(' {0}টি নিয়মিত কাজের শুধু এবারেরটা বাদ দিয়েছি — পুরো সিরিজ আছে।', [bnDigits(series)]) : '') + (left > 0 ? trf(' তালিকার বাকি {0}টি আছে।', [bnDigits(left)]) : ''),
             facts: left > 0 && numbered.length <= 10 ? [for (final (i, id) in numbered.indexed) '${bnDigits(i + 1)}. ${taskLine(_taskById(id)!, _now)}'] : const [],
             links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
       case ('tasks', 'done' || 'reopen'):
@@ -714,7 +714,7 @@ extension _BulkChat on ChatController {
           await brain.setTaskDone(t, done);
           return true;
         });
-        _say(out, _outcome(done ? trf('{0}টা {1} শেষ হিসেবে টিক দিয়েছি', [bnDigits(ok), noun]) : trf('{0}টা {1} আবার বাকি রেখেছি', [bnDigits(ok), noun]), ok, ids.length, failed, skipped),
+        _say(out, _outcome(done ? trf('{0}টি {1} শেষ হিসেবে টিক দিয়েছি', [bnDigits(ok), noun]) : trf('{0}টি {1} আবার বাকি রেখেছি', [bnDigits(ok), noun]), ok, ids.length, failed, skipped),
             links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
       case ('tasks', 'move'):
         var repeating = 0;
@@ -743,8 +743,8 @@ extension _BulkChat on ChatController {
         });
         _say(
             out,
-            _outcome(trf('{0}টা {1} {2} রেখেছি', [bnDigits(ok), noun, c.span == TaskSpan.month ? trf('{0} {1}-এর যেকোনো সময়', [bnMonths[(movedTo?.$1 ?? c.due!).month - 1], bnDigits((movedTo?.$1 ?? c.due!).year)]) : sayWhen(c.due!, _now, withTime: false)]), ok, ids.length - repeating, failed, skipped) +
-                (repeating > 0 ? trf(' {0}টা নিয়মিত কাজ আগের নিয়মেই থাকল।', [bnDigits(repeating)]) : ''),
+            _outcome(trf('{0}টি {1} {2} রেখেছি', [bnDigits(ok), noun, c.span == TaskSpan.month ? trf('{0} {1}-এর যেকোনো সময়', [bnMonths[(movedTo?.$1 ?? c.due!).month - 1], bnDigits((movedTo?.$1 ?? c.due!).year)]) : sayWhen(c.due!, _now, withTime: false)]), ok, ids.length - repeating, failed, skipped) +
+                (repeating > 0 ? trf(' {0}টি নিয়মিত কাজ আগের নিয়মেই থাকল।', [bnDigits(repeating)]) : ''),
             links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
       case ('tasks', 'remind'):
         var limited = 0;
@@ -771,8 +771,8 @@ extension _BulkChat on ChatController {
         final on = (await brain.services.notifier.health()).notificationsOn;
         _say(
             out,
-            _outcome(trf('{0}টা {1} রিমাইন্ডার {2}-এ দিয়েছি', [bnDigits(ok), _possBn(noun), bnTime(c.time! ~/ 60, c.time! % 60)]), ok, ids.length, failed, skipped) +
-                (limited > 0 ? trf(' {0}টার রিমাইন্ডার চালু হয়নি — ফ্রিতে একসাথে {1}টা রাখা যায়।', [bnDigits(limited), bnDigits(freeReminders)]) : '') +
+            _outcome(trf('{0}টি {1} রিমাইন্ডার {2}-এ দিয়েছি', [bnDigits(ok), _possBn(noun), bnTime(c.time! ~/ 60, c.time! % 60)]), ok, ids.length, failed, skipped) +
+                (limited > 0 ? trf(' {0}টির রিমাইন্ডার চালু হয়নি — ফ্রি সংস্করণে একসাথে {1}টি রাখা যায়।', [bnDigits(limited), bnDigits(freeReminders)]) : '') +
                 (brain.scheduleFailed ? tr(' তবে ফোনে সেট করা যায়নি — এখনো বাজবে না।') : (on ? '' : tr(' তবে ফোনে অ্যাপের নোটিফিকেশন বন্ধ — এখন বাজবে না।'))),
             links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
       case ('tasks', 'reminder_off'):
@@ -783,7 +783,7 @@ extension _BulkChat on ChatController {
           await brain.saveReminder(r.copyWith(enabled: false));
           return true;
         });
-        _say(out, ok == 0 ? tr('এগুলোর কোনোটার চালু রিমাইন্ডার ছিল না। কাজগুলো আছে।') : trf('{0}টা কাজের রিমাইন্ডার বন্ধ করেছি; কাজগুলো তালিকায় আছে।', [bnDigits(ok)]));
+        _say(out, ok == 0 ? tr('এগুলোর কোনোটার চালু রিমাইন্ডার ছিল না। কাজগুলো আছে।') : trf('{0}টি কাজের রিমাইন্ডার বন্ধ করেছি; কাজগুলো তালিকায় আছে।', [bnDigits(ok)]));
       case ('tasks', 'urgent'):
         await each((id) async {
           final t = _taskById(id)!;
@@ -791,13 +791,13 @@ extension _BulkChat on ChatController {
           await brain.saveTask(t.copyWith(urgent: true));
           return true;
         });
-        _say(out, trf('{0}টা কাজ জরুরি করেছি।', [bnDigits(ok)]));
+        _say(out, trf('{0}টি কাজ জরুরি করেছি।', [bnDigits(ok)]));
       case ('reminders', 'delete'):
         await each((id) async {
           await brain.deleteReminder(id);
           return true;
         });
-        _say(out, _outcome(trf('{0}টা রিমাইন্ডার মুছে দিয়েছি', [bnDigits(ok)]), ok, ids.length, failed, skipped), links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
+        _say(out, _outcome(trf('{0}টি রিমাইন্ডার মুছে দিয়েছি', [bnDigits(ok)]), ok, ids.length, failed, skipped), links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
       case ('reminders', 'reminder_off'):
         await each((id) async {
           final r = d.reminders.firstWhere((x) => x.id == id);
@@ -805,13 +805,13 @@ extension _BulkChat on ChatController {
           await brain.saveReminder(r.copyWith(enabled: false));
           return true;
         });
-        _say(out, trf('{0}টা রিমাইন্ডার বন্ধ করেছি — মুছিনি।', [bnDigits(ok)]), links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
+        _say(out, trf('{0}টি রিমাইন্ডার বন্ধ করেছি — মুছিনি।', [bnDigits(ok)]), links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
       case ('notes', 'delete'):
         await each((id) async {
           await brain.deleteNote(id);
           return true;
         });
-        _say(out, _outcome(trf('{0}টা নোট মুছে দিয়েছি', [bnDigits(ok)]), ok, ids.length, failed, skipped), links: [ChatLink(LinkKind.notes, tr('নোট দেখুন'))]);
+        _say(out, _outcome(trf('{0}টি নোট মুছে দিয়েছি', [bnDigits(ok)]), ok, ids.length, failed, skipped), links: [ChatLink(LinkKind.notes, tr('নোট দেখুন'))]);
       case ('medicines', 'reminder_off'):
         await each((id) async {
           final m = d.medicines.firstWhere((x) => x.id == id);
@@ -824,7 +824,7 @@ extension _BulkChat on ChatController {
           }
           return any;
         });
-        _say(out, ok == 0 ? tr('এগুলোর কোনো চালু রিমাইন্ডার ছিল না। ওষুধগুলো তালিকায় আছে।') : trf('{0}টা ওষুধের রিমাইন্ডার বন্ধ করেছি; ওষুধগুলো তালিকায় আছে।', [bnDigits(ok)]), links: [ChatLink(LinkKind.page, tr('ওষুধ'), page: 'medicines')]);
+        _say(out, ok == 0 ? tr('এগুলোর কোনো চালু রিমাইন্ডার ছিল না। ওষুধগুলো তালিকায় আছে।') : trf('{0}টি ওষুধের রিমাইন্ডার বন্ধ করেছি; ওষুধগুলো তালিকায় আছে।', [bnDigits(ok)]), links: [ChatLink(LinkKind.page, tr('ওষুধ'), page: 'medicines')]);
       case ('habits', 'done' || 'not_done'):
         final day = c.day ?? dayOnly(_now);
         final want = c.op == 'done';
@@ -834,7 +834,7 @@ extension _BulkChat on ChatController {
           await brain.toggleHabit(h, day);
           return true;
         });
-        _say(out, want ? trf('{0}টা অভ্যাসে {1}-এর টিক দিয়েছি।', [bnDigits(ok), sayWhen(day, _now, withTime: false)]) : trf('{0}টার টিক তুলেছি; বাকিগুলো টিক ছাড়াই ছিল।', [bnDigits(ok)]),
+        _say(out, want ? trf('{0}টি অভ্যাসে {1}-এর টিক দিয়েছি।', [bnDigits(ok), sayWhen(day, _now, withTime: false)]) : trf('{0}টির টিক তুলেছি; বাকিগুলো টিক ছাড়াই ছিল।', [bnDigits(ok)]),
             links: [ChatLink(LinkKind.page, tr('অভ্যাস'), page: 'habits')]);
       case ('habits', 'reminder_off'):
         await each((id) async {
@@ -843,7 +843,7 @@ extension _BulkChat on ChatController {
           await brain.setHabitAsk(h, null);
           return true;
         });
-        _say(out, trf('{0}টা অভ্যাসের রিমাইন্ডার বন্ধ করেছি; অভ্যাসগুলো আছে।', [bnDigits(ok)]));
+        _say(out, trf('{0}টি অভ্যাসের রিমাইন্ডার বন্ধ করেছি; অভ্যাসগুলো আছে।', [bnDigits(ok)]));
       case ('ledger', 'settle'):
         // One "ফেরত পেলাম"/"শোধ করলাম" per person for exactly what is left.
         await each((key) async {
@@ -870,10 +870,10 @@ extension _BulkChat on ChatController {
           await brain.deleteCash(id);
           return true;
         });
-        _say(out, _outcome(trf('{0}টা {1}-এর এন্ট্রি মুছে দিয়েছি', [bnDigits(ok), set.label]), ok, ids.length, failed, skipped), links: [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন'))]);
+        _say(out, _outcome(trf('{0}টি {1}-এর এন্ট্রি মুছে দিয়েছি', [bnDigits(ok), set.label]), ok, ids.length, failed, skipped), links: [ChatLink(LinkKind.cash, tr('আয়-ব্যয় দেখুন'))]);
       case ('money', 'report'):
         // Read-only: the PDF page with this list's span; nothing changes.
-        _say(out, trf('এই {0}টা লেনদেনের PDF বানাতে PDF পাতা খুলছি — সেখানে সময়সীমা বেছে নিয়ে ডাউনলোড বা শেয়ার করুন।', [bnDigits(ids.length)]), links: [ChatLink(LinkKind.page, tr('PDF'), page: 'pdf')]);
+        _say(out, trf('এই {0}টি লেনদেনের PDF তৈরি করতে PDF পাতা খুলছি — সেখানে সময়সীমা বেছে নিয়ে ডাউনলোড বা শেয়ার করুন।', [bnDigits(ids.length)]), links: [ChatLink(LinkKind.page, tr('PDF'), page: 'pdf')]);
         return;
       case ('health', 'wrong'):
         // "দ্বিতীয়টা ভুল": that reading, of that person — the right value is
@@ -889,7 +889,7 @@ extension _BulkChat on ChatController {
           await brain.deleteHealth(h.id);
           return true;
         });
-        _say(out, _outcome(trf('{0}টা মাপ মুছে দিয়েছি', [bnDigits(ok)]), ok, ids.length, failed, skipped));
+        _say(out, _outcome(trf('{0}টি মাপ মুছে দিয়েছি', [bnDigits(ok)]), ok, ids.length, failed, skipped));
       case (_, 'show' || 'reverse'):
         final ordered = c.op == 'reverse' ? ids.reversed.toList() : ids;
         final narrowed = ResultSet(domain: set.domain, label: set.label, ids: ordered, matching: ordered.length, shown: ordered.length, source: c.transcript, at: _now, turn: _turn);
@@ -899,7 +899,7 @@ extension _BulkChat on ChatController {
           _shownTasks = ordered;
           _shownAt = _now;
         }
-        _say(out, ordered.isEmpty ? tr('এর মধ্যে এমন কিছু নেই।') : trf('{0}টা:', [bnDigits(ordered.length)]), facts: _bulkWhat(set, ordered));
+        _say(out, ordered.isEmpty ? tr('এর মধ্যে এমন কিছু নেই।') : trf('{0}টি:', [bnDigits(ordered.length)]), facts: _bulkWhat(set, ordered));
         return;
       case (_, 'restore'):
         await _bulkRestore(out);
@@ -932,8 +932,8 @@ extension _BulkChat on ChatController {
   /// "৪টা মুছে দিয়েছি; ১টা করা যায়নি" — only what is true.
   String _outcome(String did, int ok, int asked, List<String> failed, List<String> skipped) {
     final bits = <String>[did];
-    if (failed.isNotEmpty) bits.add(trf('{0}টা করা যায়নি', [bnDigits(failed.length)]));
-    if (skipped.isNotEmpty) bits.add(trf('{0}টা আগেই তালিকা থেকে সরে গিয়েছিল', [bnDigits(skipped.length)]));
+    if (failed.isNotEmpty) bits.add(trf('{0}টি করা যায়নি', [bnDigits(failed.length)]));
+    if (skipped.isNotEmpty) bits.add(trf('{0}টি আগেই তালিকা থেকে সরে গিয়েছিল', [bnDigits(skipped.length)]));
     if (ok == 0 && failed.isEmpty && skipped.isEmpty) return tr('এগুলোয় বদলানোর কিছু ছিল না — যেমন ছিল আছে।');
     return '${bits.join('; ')}।';
   }
@@ -954,7 +954,7 @@ extension _BulkChat on ChatController {
     }
     _lastBatch = null;
     _actions++;
-    _say(out, n == b.trashIds.length ? trf('{0}টাই ফেরত এনেছি।', [bnDigits(n)]) : trf('{0}টা ফেরত এনেছি; {1}টা আর রিসাইকেল বিনে ছিল না।', [bnDigits(n), bnDigits(b.trashIds.length - n)]));
+    _say(out, n == b.trashIds.length ? trf('{0}টাই ফেরত এনেছি।', [bnDigits(n)]) : trf('{0}টি ফেরত এনেছি; {1}টি আর রিসাইকেল বিনে ছিল না।', [bnDigits(n), bnDigits(b.trashIds.length - n)]));
   }
 
   /// A reminder answer listed some: those are "এগুলো".
@@ -1127,7 +1127,7 @@ extension _BulkChat on ChatController {
       await brain.saveTask(x.copyWith(due: due, span: span));
     }
     final when = span == TaskSpan.month ? (due.year == _now.year ? trf('{0} মাসে', [monthName(due.month)]) : trf('{0} {1}-এ', [monthName(due.month), bnDigits(due.year)])) : sayWhen(due, _now, withTime: false);
-    _say(out, trf('ঠিক আছে, {0}টা কাজ {1} রাখলাম।', [bnDigits(tasks.length), when]), facts: [for (final x in tasks) x.title], links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
+    _say(out, trf('ঠিক আছে, {0}টি কাজ {1} রাখলাম।', [bnDigits(tasks.length), when]), facts: [for (final x in tasks) x.title], links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
     _offerUndo(snap);
     return true;
   }
@@ -1198,7 +1198,7 @@ extension _BulkChat on ChatController {
       final known = projectByName(brain.data, name) ?? projectMeant(brain.data, name);
       if (known != null) return false; // the account's own answer (its entries) comes from the usual rules
       _accountWanted = (name, _now);
-      _ask(out, trf('‘{0}’ নামে আলাদা কোনো হিসাব এখনো নেই। আলাদা হিসাবে ‘{0}’ খুলে দিই?', [name]), ChatWait.newAccount, choices: [ChatChoice(tr('হ্যাঁ, খুলে দাও'), 'হ্যাঁ'), ChatChoice(tr('না'), 'না')]);
+      _ask(out, trf('‘{0}’ নামে আলাদা কোনো হিসাব এখনো নেই। আলাদা হিসাবে ‘{0}’ খুলে দিই?', [name]), ChatWait.newAccount, choices: [ChatChoice(tr('হ্যাঁ, খুলুন'), 'হ্যাঁ'), ChatChoice(tr('না'), 'না')]);
       return true;
     }
     return false;
@@ -1239,7 +1239,7 @@ extension _BulkChat on ChatController {
       return;
     }
     if (!brain.canAddProject) {
-      _say(out, tr('ফ্রিতে ১টা আলাদা হিসাব খোলা যায়, সেটা খোলা আছে — আরও খুলতে প্রিমিয়াম লাগবে।'), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম ভার্সন'), page: 'pro')]);
+      _say(out, tr('ফ্রি সংস্করণে ১টি আলাদা হিসাব খোলা যায়, সেটা খোলা আছে — আরও খুলতে প্রিমিয়াম লাগবে।'), links: [ChatLink(LinkKind.page, tr('প্রিমিয়াম ভার্সন'), page: 'pro')]);
       return;
     }
     final snap = brain.snapshot();
@@ -1284,7 +1284,7 @@ extension _BulkChat on ChatController {
     if (spans.isNotEmpty && spans.length == pick.length && spans.every((x) => x.span == TaskSpan.month && dayOnly(x.due!) == dayOnly(spans.first.due!))) {
       _spanRemind = ([for (final x in spans) x.id], w.at.hour * 60 + w.at.minute, dayOnly(spans.first.due!));
       final m = spans.first.due!;
-      _ask(out, trf('এই {0}টা কাজ {1} {2}-এর, নির্দিষ্ট দিন নেই। {1} মাসের কত তারিখে {3}-এ মনে করাব?', [bnDigits(spans.length), monthName(m.month), bnDigits(m.year), bnTime(w.at.hour, w.at.minute)]), ChatWait.taskDate);
+      _ask(out, trf('এই {0}টি কাজ {1} {2}-এর, নির্দিষ্ট দিন নেই। {1} মাসের কত তারিখে {3}-এ মনে করাব?', [bnDigits(spans.length), monthName(m.month), bnDigits(m.year), bnTime(w.at.hour, w.at.minute)]), ChatWait.taskDate);
       return true;
     }
     final snap = brain.snapshot();
@@ -1306,10 +1306,10 @@ extension _BulkChat on ChatController {
     final time = bnTime(w.at.hour, w.at.minute);
     final note = [
       if (firstDay) tr('যেগুলোর নির্দিষ্ট দিন নেই, সেগুলো মাস/বছরের প্রথম দিনে রাখলাম।'),
-      if (past > 0) trf('{0}টার সময় পেরিয়ে গেছে, ওগুলোতে দিইনি।', [bnDigits(past)]),
+      if (past > 0) trf('{0}টির সময় পেরিয়ে গেছে, ওগুলোতে দিইনি।', [bnDigits(past)]),
       if (brain.scheduleFailed) tr('তবে ফোনে সেট করা যায়নি — এখনো বাজবে না।'),
     ].join(' ');
-    _say(out, '${trf('ঠিক আছে, {0}টা কাজের রিমাইন্ডার {1}-এ রাখলাম।', [bnDigits(kept.length), time])}${note.isEmpty ? '' : ' $note'}', facts: kept, links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
+    _say(out, '${trf('ঠিক আছে, {0}টি কাজের রিমাইন্ডার {1}-এ রাখলাম।', [bnDigits(kept.length), time])}${note.isEmpty ? '' : ' $note'}', facts: kept, links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
     _offerUndo(snap);
     return true;
   }
@@ -1331,7 +1331,7 @@ extension _BulkChat on ChatController {
       await brain.saveTask(x.copyWith(reminderId: r.id));
       kept.add(x.title);
     }
-    _say(out, '${trf('ঠিক আছে, {0}টা কাজের রিমাইন্ডার {1}-এ রাখলাম।', [bnDigits(kept.length), sayWhen(at, _now)])}${brain.scheduleFailed ? ' ${tr('তবে ফোনে সেট করা যায়নি — এখনো বাজবে না।')}' : ''}',
+    _say(out, '${trf('ঠিক আছে, {0}টি কাজের রিমাইন্ডার {1}-এ রাখলাম।', [bnDigits(kept.length), sayWhen(at, _now)])}${brain.scheduleFailed ? ' ${tr('তবে ফোনে সেট করা যায়নি — এখনো বাজবে না।')}' : ''}',
         facts: kept, links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন'))]);
     _offerUndo(snap);
   }

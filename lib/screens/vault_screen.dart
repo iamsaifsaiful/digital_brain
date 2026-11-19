@@ -70,7 +70,7 @@ class _VaultScreenState extends State<VaultScreen> {
                   Row(children: [
                     Icon(Icons.lock_rounded, size: 14, color: C.greenDark),
                     const SizedBox(width: 4),
-                    Text(trf('এনক্রিপ্ট করা · {0}টা তথ্য', [bnDigits(all.length)]), style: body(13, weight: FontWeight.w600, color: C.greenDark)),
+                    Text(trf('এনক্রিপ্ট করা · {0}টি তথ্য', [bnDigits(all.length)]), style: body(13, weight: FontWeight.w600, color: C.greenDark)),
                   ]),
                 ],
               ),
@@ -100,7 +100,7 @@ class _VaultScreenState extends State<VaultScreen> {
         if (stale.isNotEmpty) ...[
           const SizedBox(height: 8),
           InfoBanner(
-            text: trf('{0}টা পাসওয়ার্ড ৬ মাসের বেশি বদলানো হয়নি — নিচে “পুরোনো” লেখা আছে। সময় করে বদলে নিন।', [bnDigits(stale.length)]),
+            text: trf('{0}টি পাসওয়ার্ড ৬ মাসের বেশি বদলানো হয়নি — নিচে “পুরোনো” লেখা আছে। সময় করে বদলে নিন।', [bnDigits(stale.length)]),
             icon: Icons.update_rounded,
             fg: C.orangeDark,
             iconColor: C.orange,

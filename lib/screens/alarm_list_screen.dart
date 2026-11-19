@@ -346,7 +346,7 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
                 TextField(textCapitalization: TextCapitalization.sentences, 
                   controller: _name,
                   style: body(16),
-                  decoration: InputDecoration(labelText: tr('নাম (বাজলে এটা দেখাবে)'), hintText: tr('যেমন: ঘুম থেকে ওঠা')),
+                  decoration: InputDecoration(labelText: tr('নাম (বাজলে এটি দেখাবে)'), hintText: tr('যেমন: ঘুম থেকে ওঠা')),
                 ),
                 const SizedBox(height: 10),
                 Text(tr('বাজলে পুরো স্ক্রিনে অ্যালার্ম আসবে, ফোন লক থাকলেও। ৫/১০ মিনিট বা ১ ঘণ্টা পরে আবার বাজানো যায়। রিংটোন সেটিংস থেকে বদলানো যায়।'),

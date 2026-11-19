@@ -184,7 +184,7 @@ class BizFreeBanner extends StatelessWidget {
             child: Row(children: [
               Icon(Icons.workspace_premium_outlined, size: 20, color: C.green),
               const SizedBox(width: 10),
-              Expanded(child: Text(trf('ফ্রিতে {0} জন গ্রাহক আর {1}টা পণ্য রাখা যায় — এখন {2} জন, {3}টা। এর বেশি আর PDF রসিদ প্রিমিয়ামে।', [bnDigits(freeCustomers), bnDigits(freeProducts), bnDigits(b.customers.length), bnDigits(b.products.length)]), style: body(12.5, height: 1.45, color: C.ink))),
+              Expanded(child: Text(trf('ফ্রি সংস্করণে {0} জন গ্রাহক আর {1}টি পণ্য রাখা যায় — এখন {2} জন, {3}টি। এর বেশি আর PDF রসিদ প্রিমিয়ামে।', [bnDigits(freeCustomers), bnDigits(freeProducts), bnDigits(b.customers.length), bnDigits(b.products.length)]), style: body(12.5, height: 1.45, color: C.ink))),
               Icon(Icons.chevron_right_rounded, color: C.green),
             ]),
           ),

@@ -214,7 +214,7 @@ class _MoreScreenState extends State<MoreScreen> {
                       try {
                         final r = await brain.services.ai.route(tr('হ্যালো, তুমি কেমন আছো?'), brain.aiContext());
                         final reply = r?['reply'];
-                        status = trf('✓ কাজ করছে! AI বলল: {0}', [reply ?? 'ঠিক আছে']);
+                        status = trf('✓ কাজ করছে। AI বলল: {0}', [reply ?? 'ঠিক আছে']);
                         await brain.setAiKey(key);
                       } catch (e) {
                         brain.services.ai.key = old;
@@ -264,7 +264,7 @@ class _MoreScreenState extends State<MoreScreen> {
                   ),
                   ListTile(
                     leading: Icon(current == null ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded, color: C.green),
-                    title: Text(tr('নিজে থেকে সেরাটা বেছে নাও')),
+                    title: Text(tr('স্বয়ংক্রিয়ভাবে সেরাটি বেছে নিন')),
                     onTap: () async {
                       await brain.setVoice(null);
                       setSheet(() {});
@@ -359,7 +359,7 @@ class _MoreScreenState extends State<MoreScreen> {
       Panel(
         child: Rows(children: [
           linkRow(Icons.notifications_none_rounded, tr('নোটিফিকেশন প্যানেল'),
-              sub: tr('কোনটা কখন আসবে, আগে কী এসেছে'), onTap: () => push(const NoticeScreen())),
+              sub: tr('কোনটি কখন আসবে, আগে কী এসেছে'), onTap: () => push(const NoticeScreen())),
           linkRow(Icons.notifications_active_outlined, tr('রিমাইন্ডার ঠিকমতো বাজবে তো?'), sub: tr('ফোনের সেটিং দেখে নিন, ১ মিনিটে পরীক্ষা করুন'), onTap: () => push(const ReminderCheckScreen())),
           switchRow(Icons.alarm_rounded, tr('অ্যালার্মের মতো বাজবে'), tr('বন্ধ না করা পর্যন্ত, ফোন পকেটে থাকলেও শোনা যায়'), brain.alarmInsistent,
               (v) => brain.setAlarmInsistent(v)),
@@ -412,7 +412,7 @@ class _MoreScreenState extends State<MoreScreen> {
       const SizedBox(height: 10),
       Panel(
         child: Rows(children: [
-          switchRow(Icons.volume_up_outlined, tr('উত্তর কণ্ঠে শোনাও'), tr('পাসওয়ার্ড কখনো জোরে পড়া হয় না'), brain.speakOn, (v) => brain.setSpeakOn(v)),
+          switchRow(Icons.volume_up_outlined, tr('উত্তর পড়ে শোনান'), tr('পাসওয়ার্ড কখনো জোরে পড়া হয় না'), brain.speakOn, (v) => brain.setSpeakOn(v)),
           linkRow(Icons.record_voice_over_outlined, tr('কণ্ঠ বেছে নিন'), sub: tr('ফোনে থাকা বাংলা কণ্ঠগুলো শুনে দেখুন'), onTap: _pickVoice),
           switchRow(Icons.record_voice_over_rounded, tr('উত্তরের মাঝে কথা বলে থামানো'), tr('বন্ধ থাকলে অ্যাপ কথা শেষ করে তারপর শোনে — নিজের কথা ভুল করে ধরে না। চালু করলে লম্বা উত্তরের মাঝেই বলতে পারবেন (কিছু ফোনে ভুল ধরতে পারে)'),
               brain.bargeIn, (v) => brain.setBargeIn(v)),
@@ -565,7 +565,7 @@ class _MoreScreenState extends State<MoreScreen> {
                   smallSize: 10,
                   child: Container(width: 38, height: 38, decoration: BoxDecoration(color: C.surface2, borderRadius: BorderRadius.circular(11)), child: Icon(Icons.forum_outlined, color: C.muted2, size: 20))),
               title: tr('সমস্যা বা পরামর্শ দিন'),
-              subtitle: brain.feedbackUnread > 0 ? trf('{0}টা নতুন উত্তর', [bnDigits(brain.feedbackUnread)]) : tr('লিখুন, উত্তর এখানেই'),
+              subtitle: brain.feedbackUnread > 0 ? trf('{0}টি নতুন উত্তর', [bnDigits(brain.feedbackUnread)]) : tr('লিখুন, উত্তর এখানেই'),
               subtitleColor: brain.feedbackUnread > 0 ? C.greenDark : null,
               trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
               onTap: () => push(const FeedbackScreen()),
@@ -996,7 +996,7 @@ class _WhyPremiumState extends State<WhyPremium> {
                               Text(tr(e.value.what), style: body(13.5, height: 1.45)),
                               if (e.value.free.isNotEmpty) ...[
                                 const SizedBox(height: 6),
-                                Text(trf('ফ্রিতে: {0}', [tr(e.value.free)]), style: body(12.5, color: C.muted, height: 1.4)),
+                                Text(trf('ফ্রি সংস্করণে: {0}', [tr(e.value.free)]), style: body(12.5, color: C.muted, height: 1.4)),
                               ],
                             ]),
                           ),
@@ -1311,7 +1311,7 @@ class _PremiumCard extends StatelessWidget {
                 Icon(Icons.workspace_premium_rounded, color: C.ochre, size: 24),
                 const SizedBox(width: 8),
                 Expanded(child: Text(tr('কেন প্রিমিয়াম নেবেন'), style: display(17, weight: 700))),
-                Text(trf('{0}টা কারণ', [bnDigits(n)]), style: body(13, weight: FontWeight.w600, color: C.ochre)),
+                Text(trf('{0}টি কারণ', [bnDigits(n)]), style: body(13, weight: FontWeight.w600, color: C.ochre)),
                 Icon(Icons.chevron_right_rounded, color: C.ochre),
               ]),
               const SizedBox(height: 10),

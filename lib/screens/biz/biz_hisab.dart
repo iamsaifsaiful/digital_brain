@@ -368,7 +368,7 @@ class DealerPage extends StatelessWidget {
                 (Icons.sticky_note_2_outlined, tr('নোট'), d.note),
                 (Icons.local_shipping_outlined, tr('মোট মাল কেনা'), purchases.isEmpty ? '' : trf('{0} · {1} বার', [taka(bought), bnDigits(purchases.length)])),
               ]),
-              SectionHeading(tr('মাল কেনা ও পরিশোধ'), counter: trf('{0}টা', [bnDigits(entries.length)])),
+              SectionHeading(tr('মাল কেনা ও পরিশোধ'), counter: trf('{0}টি', [bnDigits(entries.length)])),
               ListCard(rows: [for (final e in entries) e.$2], empty: tr('এখনো কোনো লেনদেন নেই।')),
               if (entries.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(tr('কোনোটা ভুল হলে চেপে ধরে মুছুন।'), textAlign: TextAlign.center, style: body(12, color: C.muted))),
             ]),

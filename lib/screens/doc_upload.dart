@@ -54,7 +54,7 @@ Future<void> addDocuments(BuildContext context, {required int source, String? fo
   // More pages for a document that is open.
   if (into != null) {
     await brain.addDocGroup(picked, into);
-    if (context.mounted) toast(context, trf('{0}টা পাতা যোগ হলো', [bnDigits(picked.length)]));
+    if (context.mounted) toast(context, trf('{0}টি পাতা যোগ হলো', [bnDigits(picked.length)]));
     return;
   }
 
@@ -69,17 +69,17 @@ Future<void> addDocuments(BuildContext context, {required int source, String? fo
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-            child: Text(trf('{0}টা বেছে নিয়েছেন — কীভাবে রাখব?', [bnDigits(picked.length)]), style: display(18)),
+            child: Text(trf('{0}টি বেছে নিয়েছেন — কীভাবে রাখব?', [bnDigits(picked.length)]), style: display(18)),
           ),
           ListTile(
             leading: Icon(Icons.collections_outlined, color: C.green),
-            title: Text(tr('সবগুলো এক সাথে, একটা গ্রুপে'), style: body(16, weight: FontWeight.w600)),
+            title: Text(tr('সবগুলো এক সাথে, একটি গ্রুপে'), style: body(16, weight: FontWeight.w600)),
             subtitle: Text(tr('যেমন: বিয়ের ছবি, জমির দলিলের সব পাতা'), style: body(13, color: C.muted)),
             onTap: () => Navigator.pop(ctx, true),
           ),
           ListTile(
             leading: Icon(Icons.grid_view_rounded, color: C.green),
-            title: Text(tr('প্রতিটা আলাদা'), style: body(16, weight: FontWeight.w600)),
+            title: Text(tr('প্রতিটি আলাদা'), style: body(16, weight: FontWeight.w600)),
             subtitle: Text(tr('যেমন: NID, পাসপোর্ট আর লাইসেন্স একসাথে তুলেছেন'), style: body(13, color: C.muted)),
             onTap: () => Navigator.pop(ctx, false),
           ),
@@ -123,7 +123,7 @@ Future<void> addDocuments(BuildContext context, {required int source, String? fo
   }
   if (made.isEmpty || !context.mounted) return;
   final count = made.fold<int>(0, (a, d) => a + d.files.length);
-  toast(context, made.length == 1 ? trf('“{0}” রাখা হলো · {1}টা', [made.first.title, bnDigits(count)]) : trf('{0}টা ডকুমেন্ট রাখা হলো', [bnDigits(made.length)]));
+  toast(context, made.length == 1 ? trf('“{0}” রাখা হলো · {1}টি', [made.first.title, bnDigits(count)]) : trf('{0}টি ডকুমেন্ট রাখা হলো', [bnDigits(made.length)]));
   if (made.length == 1) {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => DocScreen(id: made.first.id, unlocked: true)));
   }
@@ -281,8 +281,8 @@ class _DocInfoSheetState extends State<_DocInfoSheet> {
               widget.edit != null
                   ? tr('বিবরণ বদলান')
                   : widget.of > 1
-                      ? trf('{0}টার {1} নম্বর — কী এটা?', [bnDigits(widget.of), bnDigits(widget.index + 1)])
-                      : (widget.files.length > 1 ? trf('{0}টা একসাথে — কী এগুলো?', [bnDigits(widget.files.length)]) : tr('কী এটা?')),
+                      ? trf('{0}টির {1} নম্বর — কী এটা?', [bnDigits(widget.of), bnDigits(widget.index + 1)])
+                      : (widget.files.length > 1 ? trf('{0}টি একসাথে — কী এগুলো?', [bnDigits(widget.files.length)]) : tr('কী এটা?')),
               style: display(19)),
           const SizedBox(height: 4),
           Text(tr('যত লিখবেন, পরে মুখে জিজ্ঞেস করলে তত সহজে খুঁজে দেবে'), style: body(13, color: C.muted)),
@@ -308,10 +308,10 @@ class _DocInfoSheetState extends State<_DocInfoSheet> {
           field(_title, tr('নাম'), tr('যেমন: রুমার পাসপোর্ট, ভাইয়ের বিয়ের ছবি'), icon: Icons.label_outline_rounded),
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: Text(tr('নাম বা ট্যাগ — অন্তত একটা দিতে হবে'), style: body(12, color: C.muted)),
+            child: Text(tr('নাম বা ট্যাগ — অন্তত একটি দিতে হবে'), style: body(12, color: C.muted)),
           ),
           Text(tr('ফোল্ডার'), style: body(13, weight: FontWeight.w600, color: C.muted2)),
-          Text(tr('যে ফোল্ডারের যে নাম, তাতে শুধু সেই কাগজ। অন্য কিছু হলে নতুন ফোল্ডার বানান।'), style: body(12, color: C.muted)),
+          Text(tr('যে ফোল্ডারের যে নাম, তাতে শুধু সেই কাগজ। অন্য কিছু হলে নতুন ফোল্ডার তৈরি করুন।'), style: body(12, color: C.muted)),
           const SizedBox(height: 6),
           Wrap(spacing: 8, runSpacing: 8, children: [
             for (final x in {...folders, if (_folder.isNotEmpty) _folder})

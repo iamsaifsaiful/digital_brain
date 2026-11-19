@@ -79,7 +79,7 @@ class PickBar extends StatelessWidget {
               IconButton(key: const Key('pick-close'), tooltip: tr('বাছাই বাতিল'), onPressed: picks.clear, icon: Icon(Icons.close_rounded, color: C.ink)),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Text(trf('{0}টা বাছাই', [bnDigits(picks.count)]), style: body(15.5, weight: FontWeight.w700)),
+                  Text(trf('{0}টি বাছাই', [bnDigits(picks.count)]), style: body(15.5, weight: FontWeight.w700)),
                   if (note != null && note!.isNotEmpty) Text(note!, style: body(12.5, color: C.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
                 ]),
               ),
@@ -130,7 +130,7 @@ void deletedSnack(ScaffoldMessengerState messenger, int n, Future<void> Function
   messenger
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(
-      content: Text(trf('{0}টা মুছে দিলাম — ৩০ দিন “রিসাইকেল বিন”-এ থাকবে', [bnDigits(n)])),
+      content: Text(trf('{0}টি মুছে দিলাম — ৩০ দিন “রিসাইকেল বিন”-এ থাকবে', [bnDigits(n)])),
       persist: false,
       duration: const Duration(seconds: 6),
       action: SnackBarAction(label: tr('ফিরিয়ে আনুন'), onPressed: undo),

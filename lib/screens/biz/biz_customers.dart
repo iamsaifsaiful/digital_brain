@@ -394,10 +394,10 @@ class CustomerPage extends StatelessWidget {
                 (Icons.chat_outlined, tr('হোয়াটসঅ্যাপ'), bnDigits(c.whatsapp.isNotEmpty ? c.whatsapp : (c.phone.isNotEmpty ? trf('{0} (মোবাইলই)', [c.phone]) : ''))),
                 (Icons.place_outlined, tr('ঠিকানা'), c.address),
                 (Icons.sticky_note_2_outlined, tr('নোট'), c.note),
-                (Icons.shopping_bag_outlined, tr('মোট কেনা'), sales.isEmpty ? '' : trf('{0} · {1}টা রসিদ', [taka(bought), bnDigits(sales.length)])),
+                (Icons.shopping_bag_outlined, tr('মোট কেনা'), sales.isEmpty ? '' : trf('{0} · {1}টি রসিদ', [taka(bought), bnDigits(sales.length)])),
                 (Icons.event_outlined, tr('যোগ হয়েছেন'), c.added.year == 2000 ? '' : shortDate(c.added)),
               ]),
-              SectionHeading(tr('কেনাকাটা ও লেনদেন'), counter: trf('{0}টা', [bnDigits(entries.length)])),
+              SectionHeading(tr('কেনাকাটা ও লেনদেন'), counter: trf('{0}টি', [bnDigits(entries.length)])),
               ListCard(rows: [for (final e in entries) e.$2], empty: tr('এখনো কোনো কেনাকাটা নেই।')),
               Padding(
                 padding: const EdgeInsets.only(top: 12),
@@ -497,7 +497,7 @@ Future<void> setCollectReminder(BuildContext context, Customer c) async {
   if (picked == null || !context.mounted) return;
   final ok = await brain.setCollectReminder(c.id, picked.$1, repeat: picked.$2);
   if (!context.mounted) return;
-  toast(context, ok ? trf('রিমাইন্ডার রাখা হলো — {0}, {1}', [shortDate(picked.$1), bnTime(picked.$1.hour, picked.$1.minute)]) : tr('ফ্রিতে একসাথে ২০টা রিমাইন্ডার রাখা যায়, সেটা পূর্ণ। পুরোনো কোনোটা বন্ধ করুন, বা প্রিমিয়াম নিন।'));
+  toast(context, ok ? trf('রিমাইন্ডার রাখা হলো — {0}, {1}', [shortDate(picked.$1), bnTime(picked.$1.hour, picked.$1.minute)]) : tr('ফ্রি সংস্করণে একসাথে ২০টি রিমাইন্ডার রাখা যায়, সেটা পূর্ণ। পুরোনো কোনোটা বন্ধ করুন, বা প্রিমিয়াম নিন।'));
 }
 
 class _ReminderSheet extends StatefulWidget {

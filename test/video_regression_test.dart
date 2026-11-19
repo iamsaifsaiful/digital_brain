@@ -77,9 +77,9 @@ void main() {
     final rig = await start(t);
     final chat = ChatController(rig.brain);
     final r = await chat.hear('সজীবকে ৫০০ টাকা ধার দিলাম আর কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও');
-    expect(r, contains('২টা জিনিস পেলাম'));
+    expect(r, contains('২টি জিনিস পেলাম'));
     final again = await chat.hear('মিটিং এর টা রাখার মত কিছু না');
-    expect(again, contains('১টা বাদ দিলাম'));
+    expect(again, contains('১টি বাদ দিলাম'));
     expect(chat.messages.last.facts.single, contains('সজীব'));
     await chat.hear('হ্যাঁ');
     expect(rig.brain.data.ledger.single.person, 'সজীব');
@@ -195,7 +195,7 @@ void main() {
   testWidgets('two real transactions in one breath stay two; one said twice stays one', (t) async {
     final rig = await start(t);
     final chat = ChatController(rig.brain);
-    expect(await chat.hear('রহিমকে ৫০০ টাকা ধার দিলাম আর করিমকে ৫০০ টাকা ধার দিলাম'), contains('২টা জিনিস পেলাম'));
+    expect(await chat.hear('রহিমকে ৫০০ টাকা ধার দিলাম আর করিমকে ৫০০ টাকা ধার দিলাম'), contains('২টি জিনিস পেলাম'));
     await chat.hear('হ্যাঁ');
     expect(rig.brain.data.ledger.map((e) => e.person).toSet(), {'রহিম', 'করিম'});
     final r = await chat.hear('ইসমাইলকে ৫ হাজার টাকা ধার দিলাম ইসমাইলকে আজকে 5000 টাকা ধার দিলাম');
@@ -544,10 +544,10 @@ void main() {
 
     testWidgets('"আজকের যতগুলো কাজ আছে সবগুলো বাদ দিয়ে দাও": today\'s, confirmed once, all removed', (t) async {
       final (chat, r) = await talk(t, ['হ্যাঁ আমি তো বলা শেষ করছি আমার আজকের যতগুলো কাজ আছে সবগুলো বাদ দিয়ে দাও', 'হ্যাঁ'], tasks: some);
-      expect(r[0], contains('আজকের সব — ২টা কাজ মুছে দেব?'));
+      expect(r[0], contains('আজকের সব — ২টি কাজ মুছে দেব?'));
       expect(chat.brain.data.tasks.map((x) => x.title), unorderedEquals(['সোনা মরে যাইতে হবে', 'স্কুলে যেতে হবে']));
       final (chat2, r2) = await talk(t, ['আমার কাজের তালিকার মধ্যে যতগুলো কাজ আছে সবকটা মুছে দাও ডিলিট করে দাও', 'হ্যাঁ'], tasks: some);
-      expect(r2[0], contains('৪টা কাজ'));
+      expect(r2[0], contains('৪টি কাজ'));
       expect(chat2.brain.data.tasks, isEmpty);
     });
 
@@ -581,7 +581,7 @@ void main() {
 
     testWidgets('"৩১ শে জানুয়ারিতে যে কাজটা আছে সেটা মুছে দাও": that day\'s, no list of six', (t) async {
       final (chat, r) = await talk(t, ['তোমাকে বললাম এই যে ৩১ শে জানুয়ারিতে যে কাজটা আছে সেটা মুছে দাও বাদ দিয়ে দাও ডিলিট করে দাও', 'হ্যাঁ'], tasks: some);
-      expect(r[0], contains('১টা কাজ মুছে দেব?'));
+      expect(r[0], contains('১টি কাজ মুছে দেব?'));
       expect(chat.brain.data.tasks.map((x) => x.title), isNot(contains('বাচ্চাকে স্কুলে নিতে হবে')));
       expect(chat.brain.data.tasks, hasLength(2));
     });

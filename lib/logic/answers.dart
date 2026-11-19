@@ -45,9 +45,9 @@ String vaultAnswer(AppData d, VaultQuery q) {
         : tr('কোনো পাসওয়ার্ডের তথ্য নেই। পাসওয়ার্ড ভল্টে তথ্যটি যুক্ত করতে পারেন — পরে জিজ্ঞেস করলে আঙুলের ছাপ নিয়ে দেখাব।');
   }
   if (found.length == 1) {
-    return trf('{0} তথ্য পেয়েছি! তবে পাসওয়ার্ড গোপন জিনিস, তাই জোরে বলব না। আঙুলের ছাপ দিয়ে খুলুন, স্ক্রিনে দেখাব।', [possessive(found.first.name)]);
+    return trf('{0} তথ্য পাওয়া গেছে। তবে পাসওয়ার্ড গোপন জিনিস, তাই জোরে বলব না। আঙুলের ছাপ দিয়ে খুলুন, স্ক্রিনে দেখাব।', [possessive(found.first.name)]);
   }
-  return trf('{0}টা মিলেছে। কোনটা লাগবে ছুঁয়ে খুলুন — আঙুলের ছাপ বা PIN লাগবে।', [bnDigits(found.length)]);
+  return trf('{0}টি মিলেছে। কোনটা লাগবে ছুঁয়ে খুলুন — আঙুলের ছাপ বা PIN লাগবে।', [bnDigits(found.length)]);
 }
 
 /// "• সন্ধ্যা ৬টা ২০ — বাজার" lines for reminders.
@@ -121,12 +121,12 @@ String reminderAnswer(AppData d, ReminderQuery q, DateTime now) {
       for (final r in v.shown)
         '• ${r.repeat == Repeat.none ? sayWhen(r.nextDate(now), now, withTime: false) : (r.weekdays.isNotEmpty ? r.weekdays.map(dayName).join(', ') : tr(r.repeat.label))} ${bnTime(r.hour, r.minute)} — ${r.title}${r.enabled ? '' : tr(' (বন্ধ)')}'
     ].join('\n');
-    return trf('{0}টা অ্যালার্ম আছে:\n{1}', [bnDigits(v.shown.length), lines]);
+    return trf('{0}টি অ্যালার্ম আছে:\n{1}', [bnDigits(v.shown.length), lines]);
   }
   if (v.kind == 'day') {
     final dayText = sayWhen(v.day!, now, withTime: false);
     if (v.shown.isEmpty) return trf('{0} কোনো রিমাইন্ডার নেই। রাখতে চাইলে বলুন — যেমন “সন্ধ্যা ৭টায় মিটিং মনে করিয়ে দিও”।', [dayText]);
-    return trf('{0} {1}টা রিমাইন্ডার আছে:\n{2}', [dayText, bnDigits(v.shown.length), _reminderLines(v.shown, now)]);
+    return trf('{0} {1}টি রিমাইন্ডার আছে:\n{2}', [dayText, bnDigits(v.shown.length), _reminderLines(v.shown, now)]);
   }
   if (v.kind == 'all' || v.kind == 'miss') {
     if (v.shown.isEmpty) return tr('এখনো কোনো রিমাইন্ডার রাখা নেই। রাখতে চাইলে বলুন — যেমন “কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও”।');
@@ -134,8 +134,8 @@ String reminderAnswer(AppData d, ReminderQuery q, DateTime now) {
     final head = v.kind == 'miss'
         ? tr('ঠিক এই নামে কিছু পেলাম না। সামনের রিমাইন্ডারগুলো:')
         : (v.matching > v.shown.length
-            ? trf('সামনে {0}টা রিমাইন্ডার আছে — প্রথম {1}টা:', [bnDigits(v.matching), bnDigits(v.shown.length)])
-            : trf('সামনে {0}টা রিমাইন্ডার আছে:', [bnDigits(v.matching)]));
+            ? trf('সামনে {0}টি রিমাইন্ডার আছে — প্রথম {1}টি:', [bnDigits(v.matching), bnDigits(v.shown.length)])
+            : trf('সামনে {0}টি রিমাইন্ডার আছে:', [bnDigits(v.matching)]));
     return '$head\n$lines';
   }
   final r = v.shown.first;
@@ -158,7 +158,7 @@ String searchAnswer(AppData d, SearchQuery q, DateTime now) {
     final withPhotos = [for (final x in d.docs) if (x.files.any((f) => f.isImage)) x];
     if (withPhotos.isEmpty) return tr('এখনো কোনো ছবি রাখা নেই। ডকুমেন্টস পাতায় ছবি তুলে বা গ্যালারি থেকে রাখতে পারেন।');
     final count = withPhotos.fold<int>(0, (a, x) => a + x.files.where((f) => f.isImage).length);
-    return trf('ডকুমেন্টসে {0}টা ছবি আছে — {1}। নিচে চাপ দিয়ে দেখুন।', [bnDigits(count), withPhotos.take(5).map((x) => '“${x.title}”').join(', ')]);
+    return trf('ডকুমেন্টসে {0}টি ছবি আছে — {1}। নিচে চাপ দিয়ে দেখুন।', [bnDigits(count), withPhotos.take(5).map((x) => '“${x.title}”').join(', ')]);
   }
   final hits = relevantHits(d, q.terms);
   if (hits.isEmpty) {
@@ -189,7 +189,7 @@ String searchAnswer(AppData d, SearchQuery q, DateTime now) {
         where,
         shortDate(e.date),
         e.category,
-        cash.length > 1 ? trf(' আরও {0}টা মিলেছে।', [bnDigits(cash.length - 1)]) : '',
+        cash.length > 1 ? trf(' আরও {0}টি মিলেছে।', [bnDigits(cash.length - 1)]) : '',
       ]);
     }
     final p = placeMentioned(normalize(q.transcript));
@@ -202,7 +202,7 @@ String searchAnswer(AppData d, SearchQuery q, DateTime now) {
       if (many) {
         final c = d.contacts;
         if (c.isEmpty) return tr('এখনো কোনো নম্বর রাখা নেই। যোগাযোগ পাতা থেকে ফোনবুকের নম্বর আনুন, বা বলুন “রহিমের নম্বর ০১৭… রাখো”।');
-        return trf('{0}টা নম্বর রাখা আছে — {1}{2}। সব দেখতে যোগাযোগ পাতা খুলুন।', [bnDigits(c.length), c.take(5).map((x) => x.name).join(', '), c.length > 5 ? tr(' এবং আরও') : '']);
+        return trf('{0}টি নম্বর রাখা আছে — {1}{2}। সব দেখতে যোগাযোগ পাতা খুলুন।', [bnDigits(c.length), c.take(5).map((x) => x.name).join(', '), c.length > 5 ? tr(' এবং আরও') : '']);
       }
       // "তোমার কাছে …": you = the app, never whose number.
       const notWhose = ['আমার', 'তোমার', 'তোর', 'আপনার', 'তোমাদের', 'আমাদের'];
@@ -218,7 +218,7 @@ String searchAnswer(AppData d, SearchQuery q, DateTime now) {
   // Several photos or papers: name them all, the buttons below open them.
   final docs = [for (final h in hits) if (h is DocHit) h.doc];
   if (best is DocHit && docs.length > 1) {
-    return trf('{0}টা মিলেছে: {1}। নিচে চাপ দিয়ে দেখুন।', [bnDigits(docs.length), docs.take(5).map((x) => '“${x.title}”').join(', ')]);
+    return trf('{0}টি মিলেছে: {1}। নিচে চাপ দিয়ে দেখুন।', [bnDigits(docs.length), docs.take(5).map((x) => '“${x.title}”').join(', ')]);
   }
   final tied = hits.where((h) => h.score == best.score).length;
   final lead = tied > 1 ? tr('কয়েকটা মিলেছে। সবচেয়ে কাছেরটা হলো — ') : '';
@@ -256,7 +256,7 @@ String hitAnswer(AppData d, Hit h, DateTime now) {
         '${reminder.title} ${weekdayName(reminder.nextDate(now))}, ${bnDigits(reminder.nextDate(now).day)} ${monthName(reminder.nextDate(now).month)}'),
     PersonHit(:final person) => end(owesText(person, balanceWith(d.ledger, person))),
     VaultHit(:final item) => '${possessive(item.name)} তথ্য পেয়েছি! তবে এটা গোপন জিনিস, তাই জোরে বলব না। আঙুলের ছাপ দিয়ে খুলুন, স্ক্রিনে দেখাব।',
-    DocHit(:final doc) => trf('“{0}” পেয়েছি — {1}টা {2}, {3} ফোল্ডারে। নিচে চাপ দিয়ে দেখুন।',
+    DocHit(:final doc) => trf('“{0}” পেয়েছি — {1}টি {2}, {3} ফোল্ডারে। নিচে চাপ দিয়ে দেখুন।',
         [doc.title, bnDigits(doc.files.length), doc.files.every((f) => f.isImage) ? tr('ছবি') : tr('পাতা'), tr(doc.folder)]),
   };
 }
@@ -308,7 +308,7 @@ String ledgerAnswer(AppData d, LedgerQuery q, [DateTime? now]) {
       return trf('সব মিলিয়ে আপনি {0} টাকা পাবেন — {1}।', [bnNumber(sum), who]);
     case LedgerAsk.payable:
       final iOwe = all.where((p) => p.balance < 0).toList();
-      if (iOwe.isEmpty) return tr('কাউকে কিছু দিতে হবে না, সব শোধ!');
+      if (iOwe.isEmpty) return tr('কাউকে কিছু দিতে হবে না, সব শোধ হয়েছে।');
       final sum = iOwe.fold<int>(0, (s, p) => s - p.balance);
       final who = nameList([for (final p in iOwe) '${toPerson(p.name)} ${bnNumber(-p.balance)}'], max: 10);
       return trf('সব মিলিয়ে আপনাকে {0} টাকা দিতে হবে — {1}।', [bnNumber(sum), who]);
@@ -324,7 +324,7 @@ String ledgerAnswer(AppData d, LedgerQuery q, [DateTime? now]) {
         return [
           trf('আপনি পাবেন {0} টাকা, দিতে হবে {1} টাকা:', [bnNumber(t.receivable), bnNumber(t.payable)]),
           for (final p in rows.take(20)) p.balance > 0 ? trf('• {0} কাছে পাবেন {1} টাকা', [possessive(p.name), bnNumber(p.balance)]) : trf('• {0} দিতে হবে {1} টাকা', [toPerson(p.name), bnNumber(-p.balance)]),
-          if (rows.length > 20) trf('আরও {0}টা', [bnDigits(rows.length - 20)]),
+          if (rows.length > 20) trf('আরও {0}টি', [bnDigits(rows.length - 20)]),
         ].join('\n');
       }
       return trf('আপনি পাবেন {0} টাকা, দিতে হবে {1} টাকা — {2}।', [
@@ -448,7 +448,7 @@ String spanAnswer(AppData d, DateTime now, (DateTime, DateTime, String) span) {
     lines.add('${sayWhen(day, now, withTime: false)}: ${what.join(', ')}');
   }
   if (lines.isEmpty) return trf('{0} কোনো কাজ, রিমাইন্ডার বা বিশেষ দিন রাখা নেই।', [label]);
-  return '${trf('{0} {1}টা আছে —', [label, bnDigits(count)])} ${lines.join('; ')}।';
+  return '${trf('{0} {1}টি আছে —', [label, bnDigits(count)])} ${lines.join('; ')}।';
 }
 
 /// "মেয়ের জন্মদিন কবে?": a kept special day, by whose it is.
@@ -482,7 +482,7 @@ String taskAnswer(AppData d, DateTime now, [String asked = '']) {
     // A week, month or year plan that covers the month counts too.
     final those = [for (final t in open) if (t.touches(DateTime(year, m + 1), DateTime(year, m + 2, 0))) t];
     if (those.isEmpty) return trf('{0} মাসে কোনো কাজ রাখা নেই।', [bnMonths[m]]);
-    return trf('{0} মাসে {1}টা কাজ — {2}।', [bnMonths[m], bnDigits(those.length), nameList([for (final t in those) taskLine(t, now)], unit: 'টা')]);
+    return trf('{0} মাসে {1}টি কাজ — {2}।', [bnMonths[m], bnDigits(those.length), nameList([for (final t in those) taskLine(t, now)], unit: 'টা')]);
   }
   final w = asked.isEmpty ? null : parseWhen(tidySpeech(asked), now);
   if (w != null && w.hasDay) {
@@ -494,12 +494,12 @@ String taskAnswer(AppData d, DateTime now, [String asked = '']) {
     if (part != null) return dayPartAnswer(d, items, part, when);
     if (items.isEmpty) {
       final rest = open.length;
-      return trf('{0} কোনো কাজ বা রিমাইন্ডার নেই।{1}', [when, rest > 0 ? trf(' অন্য দিনের বা তারিখ ছাড়া {0}টা কাজ আছে।', [bnDigits(rest)]) : '']);
+      return trf('{0} কোনো কাজ বা রিমাইন্ডার নেই।{1}', [when, rest > 0 ? trf(' অন্য দিনের বা তারিখ ছাড়া {0}টি কাজ আছে।', [bnDigits(rest)]) : '']);
     }
-    return trf('{0} {1}টা — {2}।', [when, bnDigits(items.length), nameList([for (final i in items) planLine(i)], unit: 'টা')]);
+    return trf('{0} {1}টি — {2}।', [when, bnDigits(items.length), nameList([for (final i in items) planLine(i)], unit: 'টা')]);
   }
   if (open.isEmpty) return tr('এখন কোনো কাজ বাকি নেই। নতুন কাজ বললে তালিকায় তুলে রাখব।');
-  return trf('{0}টা কাজ বাকি — {1}।', [bnDigits(open.length), nameList([for (final t in open) taskLabel(t, now)], unit: 'টা')]);
+  return trf('{0}টি কাজ বাকি — {1}।', [bnDigits(open.length), nameList([for (final t in open) taskLabel(t, now)], unit: 'টা')]);
 }
 
 /// "সন্ধ্যায়", "সকালে", "রাতে" in a question about a day: (name, from hour, to hour).
@@ -537,8 +537,8 @@ String dayPartAnswer(AppData d, List<PlanItem> items, (String, int, int) part, S
   final untimed = [for (final i in items) if (hourOf(i) == null) i];
   final head = inPart.isEmpty
       ? trf('{0} {1} সময় ধরা কোনো কাজ বা রিমাইন্ডার নেই।', [when, part.$1])
-      : trf('{0} {1} {2}টা — {3}।', [when, part.$1, bnDigits(inPart.length), nameList([for (final i in inPart) label(i)], unit: 'টা')]);
-  final rest = untimed.isEmpty ? '' : trf(' সময় ছাড়া {0} আরও {1}টা কাজ আছে — {2}।', [when, bnDigits(untimed.length), nameList([for (final i in untimed) i.title], unit: 'টা')]);
+      : trf('{0} {1} {2}টি — {3}।', [when, part.$1, bnDigits(inPart.length), nameList([for (final i in inPart) label(i)], unit: 'টা')]);
+  final rest = untimed.isEmpty ? '' : trf(' সময় ছাড়া {0} আরও {1}টি কাজ আছে — {2}।', [when, bnDigits(untimed.length), nameList([for (final i in untimed) i.title], unit: 'টা')]);
   return '$head$rest';
 }
 
@@ -670,8 +670,8 @@ DateTime _weekStartOf(DateTime d) => weekStartOf(d);
     final why = t.lateAt(now) || t.windowPassed(now)
         ? tr('এর সময় পেরিয়ে গেছে')
         : t.urgent
-            ? tr('এটা জরুরি হিসেবে রাখা')
-            : (t.due != null && dayOnly(t.due!) == today ? tr('এটা আজকের মধ্যে করার কথা') : tr('তালিকায় এটার তারিখ সবার আগে'));
+            ? tr('এটি জরুরি হিসেবে রাখা')
+            : (t.due != null && dayOnly(t.due!) == today ? tr('এটি আজকের মধ্যে করার কথা') : tr('তালিকায় এটির তারিখ সবার আগে'));
     return (trf('আমার পরামর্শ: “{0}” আগে করতে পারেন — {1}।', [t.title, why]), [t]);
   }
   if (s.soonest) {
@@ -682,7 +682,7 @@ DateTime _weekStartOf(DateTime d) => weekStartOf(d);
   if (s.doneOnly) {
     final when = label.isEmpty ? tr('আজ') : label;
     if (tasks.isEmpty) return (trf('{0} এখনো কোনো কাজ শেষ হিসেবে টিক দেওয়া হয়নি।', [when]), const []);
-    return (trf('{0} {1}টা কাজ শেষ করেছেন — {2}।', [when, bnDigits(tasks.length), nameList([for (final t in tasks) t.title], unit: 'টা')]), tasks);
+    return (trf('{0} {1}টি কাজ শেষ করেছেন — {2}।', [when, bnDigits(tasks.length), nameList([for (final t in tasks) t.title], unit: 'টা')]), tasks);
   }
   // One day: the same list home and the কাজ page show for it (to-dos and reminders).
   if (s.from != null && s.from == s.to && s.about.isEmpty && !s.withOverdue) {
@@ -695,7 +695,7 @@ DateTime _weekStartOf(DateTime d) => weekStartOf(d);
       return (s.free ? trf('{0} এই অ্যাপের তালিকায় কোনো কাজ বা রিমাইন্ডার রাখা নেই।', [when]) : trf('{0} কোনো কাজ বা রিমাইন্ডার রাখা নেই।', [when]), const []);
     }
     String line(PlanItem i) => i.timed != null ? planLine(i) : taskLine(i.task!, now).replaceAll(' (${sayWhen(s.from!, now, withTime: false)})', '');
-    final head = s.free ? trf('{0} তালিকায় {1}টা রাখা আছে', [when, bnDigits(items.length)]) : trf('{0} {1}টা', [when, bnDigits(items.length)]);
+    final head = s.free ? trf('{0} তালিকায় {1}টি রাখা আছে', [when, bnDigits(items.length)]) : trf('{0} {1}টি', [when, bnDigits(items.length)]);
     return (trf('{0} — {1}।', [head, nameList([for (final i in items) line(i)], unit: 'টা')]), shown);
   }
   final what = s.about.isEmpty ? '' : trf('“{0}” নিয়ে ', [s.about.join(' ')]);
@@ -716,7 +716,7 @@ DateTime _weekStartOf(DateTime d) => weekStartOf(d);
     if (label.isEmpty) return (tr('এখন কোনো অসমাপ্ত কাজ নেই। নতুন কাজ বললে তালিকায় তুলে রাখব।'), const []);
     // "এই মাসে কি কি কাজ আছে?" with only to-dos without a date: said, not hidden.
     final loose = [for (final t in openTasksOf(d, now)) if (t.due == null && t.deadline == null) t];
-    final also = loose.isEmpty ? '' : trf(' তবে তারিখ ছাড়া {0}টা কাজ আছে — {1}।', [bnDigits(loose.length), nameList([for (final t in loose.take(8)) t.title], unit: 'টা')]);
+    final also = loose.isEmpty ? '' : trf(' তবে তারিখ ছাড়া {0}টি কাজ আছে — {1}।', [bnDigits(loose.length), nameList([for (final t in loose.take(8)) t.title], unit: 'টা')]);
     return ((s.free ? trf('{0} এই অ্যাপের তালিকায় কোনো কাজ রাখা নেই।', [label]) : trf('{0} কোনো কাজ রাখা নেই।', [label])) + also, loose);
   }
   // "ওষুধ আনার কাজ রেখেছিলাম?": yes, and how it stands.
@@ -726,7 +726,7 @@ DateTime _weekStartOf(DateTime d) => weekStartOf(d);
     return (trf('হ্যাঁ, “{0}” তালিকায় আছে{1} — এখনো বাকি।', [t.title, when.isEmpty ? '' : ' ($when)']), tasks);
   }
   final lead = label.isEmpty ? '' : '$label ';
-  final count = trf('{0}{1}{2}টা কাজ বাকি', [lead, what, bnDigits(tasks.length)]);
+  final count = trf('{0}{1}{2}টি কাজ বাকি', [lead, what, bnDigits(tasks.length)]);
   if (s.count && tasks.length > 4) return (trf('{0}। প্রথমগুলো — {1}।', [count, nameList([for (final t in tasks.take(3)) taskLine(t, now)], unit: 'টা')]), tasks);
   return (trf('{0} — {1}।', [count, nameList([for (final t in tasks) taskLine(t, now)], unit: 'টা')]), tasks);
 }
@@ -753,14 +753,14 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
     final inside = RegExp(fold(r'(?:সব|সকল|ভেত|ভিত|বিস্তারিত|লেনদেন|এন্ট্রি)')).hasMatch(fold(normalize(q.transcript)));
     if (inside) {
       return [
-        trf('আলাদা হিসাব {0}টা:', [bnDigits(d.projects.length)]),
+        trf('আলাদা হিসাব {0}টি:', [bnDigits(d.projects.length)]),
         for (final p in d.projects) ...[
           lines[d.projects.indexOf(p)],
           ...projectEntryLines(d, p.id),
         ],
       ].join('\n');
     }
-    return [trf('আলাদা হিসাব {0}টা:', [bnDigits(d.projects.length)]), ...lines].join('\n');
+    return [trf('আলাদা হিসাব {0}টি:', [bnDigits(d.projects.length)]), ...lines].join('\n');
   }
   if (name != null) {
     final p = projectByName(d, name);
@@ -808,10 +808,10 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
     if (es.isEmpty) return trf('{0} ‘{1}’ খাতে কিছু লেখা নেই।', [tr(per.$3), q.category!]);
     final total = es.fold<int>(0, (s, e) => s + e.amount);
     return [
-      trf('{0} ‘{1}’ খাতে {2}টা লেনদেন, মোট {3} টাকা:', [tr(per.$3), q.category!, bnDigits(es.length), bnNumber(total)]),
+      trf('{0} ‘{1}’ খাতে {2}টি লেনদেন, মোট {3} টাকা:', [tr(per.$3), q.category!, bnDigits(es.length), bnNumber(total)]),
       for (final e in es.take(15))
         trf('• {0} — {1} টাকা ({2})', [cashItem(e.note).isEmpty ? e.category : cashItem(e.note), bnNumber(e.amount), sayWhen(e.date, now, withTime: false)]),
-      if (es.length > 15) trf('আরও {0}টা', [bnDigits(es.length - 15)]),
+      if (es.length > 15) trf('আরও {0}টি', [bnDigits(es.length - 15)]),
     ].join('\n');
   }
   // "আয়ের খাত গুলো কি কি", "কিভাবে ব্যয় হয়েছে?": this month by খাত.
@@ -830,7 +830,7 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
       if (rows.isEmpty) return byCat == CashKind.income ? trf('{0} কোনো আয় লেখা নেই।', [when]) : trf('{0} কোনো খরচ লেখা নেই।', [when]);
       final total = rows.fold<int>(0, (s, r) => s + r.value);
       return [
-        trf(byCat == CashKind.income ? '{0} আয় {1} টাকা, {2}টা খাতে:' : '{0} খরচ {1} টাকা, {2}টা খাতে:', [when, bnNumber(total), bnDigits(rows.length)]),
+        trf(byCat == CashKind.income ? '{0} আয় {1} টাকা, {2}টি খাতে:' : '{0} খরচ {1} টাকা, {2}টি খাতে:', [when, bnNumber(total), bnDigits(rows.length)]),
         for (final r in rows) trf('• {0} — {1} টাকা', [r.key, bnNumber(r.value)]),
       ].join('\n');
     }
@@ -839,7 +839,7 @@ String cashAnswer(AppData d, CashQuery q, DateTime now) {
     final total = byCat == CashKind.income ? m.income : m.expense;
     if (rows.isEmpty) return byCat == CashKind.income ? tr('এই মাসে কোনো আয় লেখা নেই।') : tr('এই মাসে কোনো খরচ লেখা নেই।');
     return [
-      trf(byCat == CashKind.income ? 'এই মাসে আয় {0} টাকা, {1}টা খাতে:' : 'এই মাসে খরচ {0} টাকা, {1}টা খাতে:', [bnNumber(total), bnDigits(rows.length)]),
+      trf(byCat == CashKind.income ? 'এই মাসে আয় {0} টাকা, {1}টি খাতে:' : 'এই মাসে খরচ {0} টাকা, {1}টি খাতে:', [bnNumber(total), bnDigits(rows.length)]),
       for (final r in rows) trf('• {0} — {1} টাকা', [r.key, bnNumber(r.value)]),
     ].join('\n');
   }
@@ -944,7 +944,7 @@ String briefingAnswer(AppData d, DateTime now) {
   final parts = <String>[trf('আজ {0}, {1} {2}।', [weekdayName(now), bnDigits(now.day), monthName(now.month)])];
   final dueNow = openTasksOf(d, now).where((t) => t.due == null || !t.due!.isAfter(today)).toList();
   if (dueNow.isNotEmpty) {
-    parts.add(trf('কাজ বাকি {0}টা — {1}।', [bnDigits(dueNow.length), nameList([for (final t in dueNow) t.title], unit: 'টা')]));
+    parts.add(trf('কাজ বাকি {0}টি — {1}।', [bnDigits(dueNow.length), nameList([for (final t in dueNow) t.title], unit: 'টা')]));
   }
   final rems = [...d.reminders]..sort((a, b) => a.notifyAt(now).compareTo(b.notifyAt(now)));
   final todays = rems.where((r) => dayOnly(r.nextDate(now)) == today).toList();
@@ -1021,9 +1021,9 @@ String moneyListAnswer(AppData d, MoneyListQuery q) {
   final parts = [
     if (income > 0) trf('আয় {0} টাকা', [bnNumber(income)]),
     if (spent > 0) trf('খরচ {0} টাকা', [bnNumber(spent)]),
-    if (r.ledger.isNotEmpty) trf('ধার-দেনার {0}টা লেনদেন', [bnDigits(r.ledger.length)]),
+    if (r.ledger.isNotEmpty) trf('ধার-দেনার {0}টি লেনদেন', [bnDigits(r.ledger.length)]),
   ];
-  return trf('{0} {1} {2}টা লেনদেন — {3}।', [q.label, what, bnDigits(n), parts.join(', ')]).replaceAll('  ', ' ');
+  return trf('{0} {1} {2}টি লেনদেন — {3}।', [q.label, what, bnDigits(n), parts.join(', ')]).replaceAll('  ', ' ');
 }
 
 /// One line per record, for the list under the answer.
@@ -1034,7 +1034,7 @@ List<String> moneyLines(AppData d, MoneyListQuery q, {int max = 8}) {
     for (final e in r.ledger) (e.date, '${shortDate(e.date)} · ${describe(e.kind, e.person, e.amount)}'),
   ]..sort((a, b) => b.$1.compareTo(a.$1));
   final shown = [for (final l in lines.take(max)) l.$2];
-  if (lines.length > max) shown.add(trf('আরও {0}টা…', [bnDigits(lines.length - max)]));
+  if (lines.length > max) shown.add(trf('আরও {0}টি…', [bnDigits(lines.length - max)]));
   return shown;
 }
 
@@ -1191,7 +1191,7 @@ List<String> projectEntryLines(AppData d, String projectId, {int max = 8}) {
         final label = what.isEmpty || normalize(what) == normalize(e.category) ? e.category : '${e.category} ($what)';
         return trf('   – {0}: {1} — {2} টাকা', [e.kind == CashKind.income ? tr('এসেছে') : tr('খরচ'), label, bnNumber(e.amount)]);
       }(),
-    if (es.length > max) trf('   – আরও {0}টা', [bnDigits(es.length - max)]),
+    if (es.length > max) trf('   – আরও {0}টি', [bnDigits(es.length - max)]),
   ];
 }
 

@@ -45,7 +45,7 @@ void main() {
       await open(t);
       await fiveTasks();
       final q = await say(s);
-      expect(q, contains('৩টা কাজ মুছে দেব'));
+      expect(q, contains('৩টি কাজ মুছে দেব'));
       await say('হ্যাঁ');
       expect(data().tasks.map((x) => x.id), unorderedEquals(['t2', 't3']));
     });
@@ -73,7 +73,7 @@ void main() {
   testWidgets('৬, ১০. money taken along (said with a comma) is not spent; a question about the list keeps it', (t) async {
     await open(t);
     final r = await say('আজ সকালে ৯০০০ টাকা নিয়ে বাজারে গেলাম, ২৫০০ টাকার মাছ কিনলাম, ২০০০ টাকার মুদি মালামাল, ৩০০০ টাকার মাংস। ১৫০ টাকা ভাড়া দিছি');
-    expect(r, contains('৪টা'));
+    expect(r, contains('৪টি'));
     final q = await say('খরচ মাত্র ১৫০ টাকা?');
     expect(q, contains('৭,৬৫০'));
     expect(chat.wait, ChatWait.yesNo, reason: 'still waiting for the yes');
@@ -84,7 +84,7 @@ void main() {
   testWidgets('৭. one verb for several people: none lost', (t) async {
     await open(t);
     final r = await say('আজ শফিক ভাইকে দিলাম ২৫০ টাকা, ইসমাঈলকে ৩৭১২ টাকা, রবিনকে ২০০ টাকা, শাকিলকে ৫০০ টাকা।');
-    expect(r, contains('৪টা'));
+    expect(r, contains('৪টি'));
     for (final n in ['শফিক ভাই', 'ইসমাঈল', 'রবিন', 'শাকিল']) {
       expect(r, contains(n));
     }
@@ -94,7 +94,7 @@ void main() {
     await open(t);
     final r = await say('আজ সারাদিনের আয় ব্যয়ের হিসাব-\n\n১. নাহিয়ান ২০০০ টাকা দিয়েছে বেতন হিসেবে\n২. রেমিট্যান্স এসেছে ১৫০০০ টাকা\n৩. শফিক ভাইকে দিলাম ৭০০০ টাকা\n৪. ৪৫০ টাকা বাজার এনেছি\n৫. সাইফুল মিয়াকে দিলাম ১০০ টাকা');
     expect(r, isNot(contains('এই মাসে')), reason: 'the heading is not a question');
-    expect(r, contains('৫টা'));
+    expect(r, contains('৫টি'));
     expect(r, contains('আয়: বেতন (নাহিয়ান) — ২,০০০'));
     expect(r, contains('খরচ: বাজার — ৪৫০'), reason: 'বাজার এনেছি: the item is the খাত itself');
     expect(r, contains('সাইফুল মিয়া'));

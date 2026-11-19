@@ -96,7 +96,7 @@ class EasyHome extends StatelessWidget {
           big(tr('সব কাজ'), Icons.checklist_rounded, C.green, C.greenTint, () => push(const AllTasksScreen())),
         ]),
         const SizedBox(height: 18),
-        Text(today.isEmpty ? tr('আজ কিছু রাখা নেই') : trf('আজ {0}টা জিনিস', [bnDigits(today.length)]), style: display(20, weight: 700)),
+        Text(today.isEmpty ? tr('আজ কিছু রাখা নেই') : trf('আজ {0}টি জিনিস', [bnDigits(today.length)]), style: display(20, weight: 700)),
         const SizedBox(height: 8),
         for (final i in today.take(6))
           Padding(

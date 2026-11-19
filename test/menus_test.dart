@@ -312,7 +312,7 @@ void main() {
       await open(t);
       final r = await say('হাতে নগদ পাঁচ হাজার আছে');
       expect(r, contains('ঠিক করে দিই'));
-      await say('হ্যাঁ, ঠিক করো');
+      await say('হ্যাঁ, ঠিক করুন');
       final cash = rig.brain.data.accounts.firstWhere((a) => a.id == 'a-cash');
       expect(cash.opening, 5000);
       expect(rig.brain.data.cash.where((e) => e.kind == CashKind.income).length, 1, reason: 'only the seeded salary');

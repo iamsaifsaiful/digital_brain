@@ -182,7 +182,7 @@ String doctorSummary(AppData d, FamilyMember m, DateTime now) {
     final r = readings(d, m.id, kind).where((h) => h.at.isAfter(since)).toList();
     if (r.isEmpty) continue;
     lines.add('');
-    lines.add(trf('{0} (গত ৩ মাস, {1}টা মাপ):', [isEn ? kind.en : kind.bn, bnDigits(r.length)]));
+    lines.add(trf('{0} (গত ৩ মাস, {1}টি মাপ):', [isEn ? kind.en : kind.bn, bnDigits(r.length)]));
     for (final h in r.reversed.take(12)) {
       lines.add('• ${shortDate(h.at)} ${bnTime(h.at.hour, h.at.minute)} — ${readingText(h)}');
     }

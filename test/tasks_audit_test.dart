@@ -88,7 +88,7 @@ void main() {
       await yes();
       expect(ids(), {'k3', 'k4'});
       final shown = await say('আমার কাজের তালিকা দাও');
-      expect(shown, contains('২টা'));
+      expect(shown, contains('২টি'));
     });
 
     testWidgets('S04 "৩ এবং ৪ বাদে সব মুছো" (and "3 ar 4 bade sob mucho")', (t) async {

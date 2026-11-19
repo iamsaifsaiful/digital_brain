@@ -773,19 +773,19 @@ class HeirViewScreen extends StatelessWidget {
         for (final g in d.goals) _HeirItem(g.name, sub: tr('সঞ্চয়'), trail: taka(g.saved)),
         for (final i in d.installments) _HeirItem(i.name, sub: tr(i.kind.bn), trail: trf('{0}/{1}', [bnDigits(i.paidCount), bnDigits(i.months)])),
       ];
-      out.add(_HeirPart('accounts', tr('অ্যাকাউন্ট ও সঞ্চয়'), Icons.account_balance_outlined, trf('{0}টা', [bnDigits(acc.length)]), acc));
+      out.add(_HeirPart('accounts', tr('অ্যাকাউন্ট ও সঞ্চয়'), Icons.account_balance_outlined, trf('{0}টি', [bnDigits(acc.length)]), acc));
       final cash = (d.cash.toList()..sort((a, b) => b.date.compareTo(a.date)));
       out.add(_HeirPart('cash', tr('আয়-ব্যয়'), Icons.receipt_long_outlined,
-          cash.isEmpty ? tr('কিছু লেখা নেই') : trf('{0}টা · শেষ {1}', [bnDigits(cash.length), fullDate(cash.first.date)]),
+          cash.isEmpty ? tr('কিছু লেখা নেই') : trf('{0}টি · শেষ {1}', [bnDigits(cash.length), fullDate(cash.first.date)]),
           [for (final e in cash) _HeirItem(e.category, sub: '${fullDate(e.date)}${e.note.isEmpty ? '' : ' · ${e.note}'}', trail: '${e.kind == CashKind.income ? '+' : '−'}${taka(e.amount)}')]));
     }
     if (parts.contains('docs')) {
-      out.add(_HeirPart('docs', tr('ডকুমেন্ট'), Icons.folder_outlined, trf('{0}টা', [bnDigits(d.docs.length)]), [
+      out.add(_HeirPart('docs', tr('ডকুমেন্ট'), Icons.folder_outlined, trf('{0}টি', [bnDigits(d.docs.length)]), [
         for (final x in d.docs) _HeirItem(x.title, sub: [x.folder, for (final f in x.fields) '${f.label}: ${f.value}'].where((s) => s.isNotEmpty).join(' · '), files: x.files),
       ]));
     }
     if (parts.contains('notes')) {
-      out.add(_HeirPart('notes', tr('নোট'), Icons.description_outlined, trf('{0}টা', [bnDigits(d.notes.length + d.memories.length)]), [
+      out.add(_HeirPart('notes', tr('নোট'), Icons.description_outlined, trf('{0}টি', [bnDigits(d.notes.length + d.memories.length)]), [
         for (final n in d.notes) _HeirItem(n.title.isEmpty ? n.body : n.title, sub: n.title.isEmpty ? null : n.body, files: n.files),
         for (final m in d.memories) _HeirItem(m.text, sub: tr('মনে রাখা কথা')),
       ]));
@@ -796,17 +796,17 @@ class HeirViewScreen extends StatelessWidget {
         for (final r in d.reminders.where((r) => r.enabled && r.vaultId == null)) _HeirItem(r.title, sub: '${tr('রিমাইন্ডার')} · ${fullDate(r.date)}'),
         for (final x in d.specialDays) _HeirItem(x.person, sub: tr(x.kind.bn)),
       ];
-      out.add(_HeirPart('tasks', tr('কাজ ও তারিখ'), Icons.event_note_outlined, trf('{0}টা', [bnDigits(items.length)]), items));
+      out.add(_HeirPart('tasks', tr('কাজ ও তারিখ'), Icons.event_note_outlined, trf('{0}টি', [bnDigits(items.length)]), items));
     }
     if (parts.contains('contacts')) {
       final c = d.contacts.toList()..sort((a, b) => a.name.compareTo(b.name));
       out.add(_HeirPart('contacts', tr('নম্বর'), Icons.contacts_outlined, trf('{0} জন', [bnDigits(c.length)]), [for (final x in c) _HeirItem(x.name, sub: bnDigits(x.phone))]));
     }
     if (parts.contains('health')) {
-      out.add(_HeirPart('health', tr('ওষুধ'), Icons.medication_outlined, trf('{0}টা', [bnDigits(d.medicines.length)]), [for (final m in d.medicines) _HeirItem(m.name, sub: m.note.isEmpty ? null : m.note)]));
+      out.add(_HeirPart('health', tr('ওষুধ'), Icons.medication_outlined, trf('{0}টি', [bnDigits(d.medicines.length)]), [for (final m in d.medicines) _HeirItem(m.name, sub: m.note.isEmpty ? null : m.note)]));
     }
     if (parts.contains('vault')) {
-      out.add(_HeirPart('vault', tr('পাসওয়ার্ড'), Icons.lock_outline_rounded, trf('{0}টা', [bnDigits(d.vault.length)]),
+      out.add(_HeirPart('vault', tr('পাসওয়ার্ড'), Icons.lock_outline_rounded, trf('{0}টি', [bnDigits(d.vault.length)]),
           [for (final v in d.vault) _HeirItem(v.name, sub: [v.username, v.password].where((s) => s.isNotEmpty).join(' · '))], locked: true));
     }
     return out;
@@ -1086,7 +1086,7 @@ Future<void> showHeirBackupHelp(BuildContext context, {required String name, boo
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(trf('ফাইল: {0}', [name]), style: body(12.5, color: C.muted)),
-              if (missing > 0) Padding(padding: const EdgeInsets.only(top: 4), child: Text(trf('{0}টা ছবি/ফাইল এখনো আসেনি — পরে আবার ব্যাকআপ নিন', [bnDigits(missing)]), style: body(12.5, color: C.orange))),
+              if (missing > 0) Padding(padding: const EdgeInsets.only(top: 4), child: Text(trf('{0}টি ছবি/ফাইল এখনো আসেনি — পরে আবার ব্যাকআপ নিন', [bnDigits(missing)]), style: body(12.5, color: C.orange))),
               const SizedBox(height: 12),
               Text(tr('কীভাবে খুলবেন'), style: body(15, weight: FontWeight.w700)),
               step(bnDigits(1), tr('অন্য একটা মোবাইলে My Assistant অ্যাপ ডাউনলোড করুন।')),
