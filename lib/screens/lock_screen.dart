@@ -15,11 +15,13 @@ import 'more_screen.dart' show shownVersion;
 /// Off in tests, so they start straight at the PIN.
 bool googleFirst = true;
 
-/// The sign-up and PIN pages' colours (owner, 19 Nov: design 6 of six, a
-/// dark top with the app mark and a light sheet rising from below).
+/// The sign-up and PIN pages' colours (owner, 19 Nov: design 6 of six, the
+/// app mark above and a sheet rising from below, in the home's dark look).
 class LockPal {
   const LockPal({
     required this.bg,
+    required this.sheet,
+    required this.line,
     required this.title,
     required this.text,
     required this.soft,
@@ -27,23 +29,28 @@ class LockPal {
     required this.onAccent,
     required this.track,
     required this.error,
+    required this.pad,
   });
-  final Color bg, title, text, soft, accent, onAccent, track, error;
+  final Color bg, sheet, line, title, text, soft, accent, onAccent, track, error;
 
-  static const brand = Color(0xFF0F6B4F);
+  /// The PIN pad: text, key, dot filled, dot empty.
+  final (Color, Color, Color, Color) pad;
 
-  static const light = LockPal(
-    bg: Color(0xFFF5F7F6),
-    title: Color(0xFF14261F),
-    text: Color(0xFF3E524B),
-    soft: Color(0xFF7A8A84),
-    accent: brand,
-    onAccent: Colors.white,
-    track: Color(0x0F0F2A20),
-    error: Color(0xFFB45309),
+  /// The home screen's dark look (owner, 19 Nov: "হোম স্কিনে ডার্ক মোড
+  /// যেভাবে আছে"): the night-blue ground, its cards, the light teal.
+  static const night = LockPal(
+    bg: Color(0xFF121A33),
+    sheet: Color(0xFF1A2342),
+    line: Color(0xFF2E3859),
+    title: Color(0xFFEEF1F8),
+    text: Color(0xFFC7CEE0),
+    soft: Color(0xFFA3ADC6),
+    accent: Color(0xFF79DCF6),
+    onAccent: Color(0xFF0E2A36),
+    track: Color(0xFF242E50),
+    error: Color(0xFFFDBA74),
+    pad: (Color(0xFFEEF1F8), Color(0xFF242E50), Color(0xFF79DCF6), Color(0xFF3A456A)),
   );
-
-
 }
 
 /// First run: sign in with Google, then choose a PIN. Every other time:
@@ -121,7 +128,7 @@ class _LockScreenState extends State<LockScreen> {
           key: const Key('welcome-google'),
           style: FilledButton.styleFrom(
             backgroundColor: p.accent,
-            foregroundColor: Colors.white,
+            foregroundColor: p.onAccent,
             elevation: 0,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
           ),
@@ -135,7 +142,7 @@ class _LockScreenState extends State<LockScreen> {
                   decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
                   child: const Text('G', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF4285F4))),
                 ),
-          label: Text(tr('Google দিয়ে লগইন'), style: body(16, weight: FontWeight.w700, color: Colors.white)),
+          label: Text(tr('Google দিয়ে লগইন'), style: body(16, weight: FontWeight.w700, color: p.onAccent)),
         ),
       );
 
@@ -389,7 +396,7 @@ class _LockScreenState extends State<LockScreen> {
 
   Widget _secretBuild(BuildContext context) {
     final brain = BrainScope.of(context);
-    const p = LockPal.light;
+    const p = LockPal.night;
     final unlock = _mode == _Mode.unlock;
     final title = switch (_mode) {
       _Mode.create => tr('একটি ৪ অঙ্কের PIN ঠিক করুন'),
@@ -445,7 +452,7 @@ class _LockScreenState extends State<LockScreen> {
       else
         PinPad(
           key: ValueKey(_padKey),
-          dark: false,
+          colors: p.pad,
           onComplete: _entered,
           onBiometric: unlock && _bioAvailable ? _biometric : null,
         ),
@@ -533,16 +540,20 @@ final bodyW = LayoutBuilder(builder: (context, box) {
             height: upper,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                gradient: RadialGradient(center: const Alignment(0, -0.2), radius: 0.9, colors: [C.mint.withValues(alpha: 0.16), C.night.withValues(alpha: 0)]),
+                gradient: RadialGradient(center: const Alignment(0, -0.2), radius: 0.9, colors: [p.accent.withValues(alpha: 0.14), p.bg.withValues(alpha: 0)]),
               ),
-              child: Padding(padding: EdgeInsets.only(top: top), child: Center(child: brand(Colors.white, const Color(0xFFA9B5AF)))),
+              child: Padding(padding: EdgeInsets.only(top: top), child: Center(child: brand(p.title, p.soft))),
             ),
           ),
           ConstrainedBox(
             constraints: BoxConstraints(minHeight: box.maxHeight - upper),
             child: Container(
               width: double.infinity,
-              decoration: const BoxDecoration(color: Color(0xFFF5F7F6), borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+              decoration: BoxDecoration(
+                color: p.sheet,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                border: Border.all(color: p.line),
+              ),
               // The buttons a little lower than right under the top (owner,
               // 19 Nov: "অল্প একটু নিচে", not at the bottom).
               child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -561,7 +572,7 @@ final bodyW = LayoutBuilder(builder: (context, box) {
         ]),
       );
     });
-    return Scaffold(backgroundColor: C.night, body: bodyW);
+    return Scaffold(backgroundColor: p.bg, body: bodyW);
   }
 }
 
@@ -569,7 +580,7 @@ final bodyW = LayoutBuilder(builder: (context, box) {
 /// one pill, the chosen one filled. Small on the PIN pages: two words at the
 /// foot. Each name is in its own language, so anyone finds theirs.
 class LangSwitch extends StatelessWidget {
-  const LangSwitch({super.key, this.compact = false, this.pal = LockPal.light});
+  const LangSwitch({super.key, this.compact = false, this.pal = LockPal.night});
 
   final bool compact;
   final LockPal pal;
