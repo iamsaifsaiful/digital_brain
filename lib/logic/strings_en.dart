@@ -5728,4 +5728,12 @@ const enStrings = <String, String>{
   'নিজের ফোনে খুলবেন না — ফিরিয়ে আনলে সেই ফোনের এখনকার সব তথ্যের বদলে এগুলো বসে।': 'Do not open it on your own phone — restoring replaces everything on that phone.',
   'বুঝেছি': 'Got it',
   'এই ফোনে যে Google অ্যাকাউন্টে লগইন আছেন, সেটা দিয়ে লগইন করুন, আর এই ফাইলটা সেই মোবাইলে নিন।': 'Sign in with the Google account you use on this phone, and move this file to that phone.',
+  'ক্যালেন্ডার বাছাই': 'Choose calendars',
+  'ইংরেজি তারিখ সবসময় থাকে। এর সাথে আরও একটি বা দুটি ক্যালেন্ডার বেছে নিন।': 'The English date is always shown. Add one or two more calendars beside it.',
+  'ইংরেজি (গ্রেগরিয়ান)': 'English (Gregorian)',
+  'আরও যোগ করুন': 'Add more',
+  'সবসময়': 'Always',
+  '{0}/{1} বাছাই': '{0}/{1} chosen',
+  'দুটির বেশি নয়। নতুনটি নিতে আগে একটি বাদ দিন।': 'Two at most. Remove one first to add another.',
+  'প্রথমটি ক্যালেন্ডার পাতায় বড় করে দেখাবে। হিজরি তারিখ চাঁদ দেখার ওপর এক দিন আগে-পরে হতে পারে।': 'The first one is shown large on the calendar page. The Hijri date may differ by a day with the moon sighting.',
 };

@@ -10,6 +10,7 @@ import 'package:flutter/widgets.dart';
 import '../logic/examples.dart' show exampleInBangla;
 import '../logic/shop_logic.dart';
 import '../logic/vault_age.dart';
+import '../logic/world_calendars.dart' show parseCalendars;
 import '../logic/steps.dart' show StepBook, stepDay;
 import '../logic/ai_safe.dart';
 import '../logic/doc_dates.dart';
@@ -1394,6 +1395,9 @@ class Brain extends ChangeNotifier {
 
   /// Days the Hijri date is moved: the user's own choice, else +1 outside
   /// South Asia (the month there usually starts a day before Bangladesh).
+  /// The calendars shown beside the English date (owner, 19 Nov), at most two.
+  List<String> get calendars => parseCalendars(prefs['calendars']);
+
   int get hijriShift => prefs.containsKey('hijri_adjust') ? number('hijri_adjust') : (placeNamed(district).region == 'sa' ? 0 : 1);
 
   /// The place's name in the app's language (a district or a city abroad).

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../logic/bn.dart';
 import '../logic/calendar_bd.dart';
+import '../logic/world_calendars.dart';
 import '../logic/cash.dart';
 import '../logic/lang.dart';
 import '../logic/ledger.dart' show totals;
@@ -390,7 +391,7 @@ class _HomeHeroState extends State<HomeHero> {
 
   /// "শুভ বিকেল, সাইফুল", today in three calendars, the bell and the photo.
   Widget _greeting(BuildContext context, Brain brain, DateTime now, HijriDate hj) {
-    final bd = banglaDate(now);
+    final extra = [for (final id in brain.calendars) calDate(id, now, hijriShift: brain.hijriShift)?.text].whereType<String>().toList();
     final first = brain.userName.trim().isEmpty ? '' : brain.userName.trim().split(' ').first;
     final seen = DateTime.tryParse(brain.text('notices_seen'));
     final unread = brain.noticeHistory.any((e) => !e.at.isAfter(now) && (seen == null || e.at.isAfter(seen)));
@@ -406,8 +407,11 @@ class _HomeHeroState extends State<HomeHero> {
                 maxLines: 1, overflow: TextOverflow.ellipsis, style: display(25, weight: 600, height: 1.3, color: _white).copyWith(shadows: _shade)),
             const SizedBox(height: 2),
             Text('${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)}', style: body(13.5, color: _soft).copyWith(shadows: _shade)),
-            const SizedBox(height: 2),
-            Text('${bd.text}  •  ${hj.dayMonth} ${bnDigits(hj.year)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: _soft).copyWith(shadows: _shade)),
+            // The calendars the user chose beside the English date (owner, 19 Nov).
+            if (extra.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(extra.join('  •  '), key: const Key('home-extra-dates'), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: _soft).copyWith(shadows: _shade)),
+            ],
           ]),
         ),
       ),
