@@ -70,11 +70,17 @@ void main() {
       await t.pump(const Duration(milliseconds: 30));
     }
     await settle(t);
-    // Locked again: the daily unlock page has it too.
+    // Locked again: the daily unlock page has it too, and greets by name.
+    await rig.brain.setUserName('Saiful Islam');
     rig.brain.lockNow();
     await settle(t);
     expect(find.byKey(const Key('lock-lang')), findsOneWidget);
     if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/lang/5-unlock.png'));
+    expect(find.text('Welcome back, Saiful'), findsOneWidget);
+    await t.tap(find.byKey(const Key('lock-lang-bn')));
+    await settle(t);
+    expect(find.text('আবার স্বাগতম, Saiful'), findsOneWidget);
+    if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/lang/6-unlock-bangla.png'));
     debugDisableShadows = true;
   });
 }
