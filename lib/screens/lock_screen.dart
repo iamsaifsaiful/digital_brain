@@ -543,17 +543,18 @@ final bodyW = LayoutBuilder(builder: (context, box) {
             child: Container(
               width: double.infinity,
               decoration: const BoxDecoration(color: Color(0xFFF5F7F6), borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
-              // The buttons low on the sheet, where the thumb is (owner,
-              // 19 Nov); the language choice stays at its top.
+              // The buttons a little lower than right under the top (owner,
+              // 19 Nov: "অল্প একটু নিচে", not at the bottom).
               child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Padding(
-                  padding: EdgeInsets.fromLTRB(24, big ? 30 : 0, 24, 0),
-                  child: big ? LangSwitch(pal: p) : const SizedBox.shrink(),
+                  padding: EdgeInsets.fromLTRB(24, big ? 30 : 24, 24, 0),
+                  child: Column(children: [
+                    if (big) ...[LangSwitch(pal: p), const SizedBox(height: 64)],
+                    if (unlock && _bioAvailable && !_usePin && _lockedUntil == null) const SizedBox(height: 40),
+                    content,
+                  ]),
                 ),
-                Column(children: [
-                  Padding(padding: EdgeInsets.fromLTRB(24, big ? 36 : 24, 24, 0), child: content),
-                  footPad(foot),
-                ]),
+                footPad(foot),
               ]),
             ),
           ),
