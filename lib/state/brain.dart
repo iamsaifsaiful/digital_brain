@@ -3224,6 +3224,20 @@ class Brain extends ChangeNotifier {
     return created;
   }
 
+  /// The data file cannot be opened on this phone and there is no backup to
+  /// bring back (owner, 19 Nov: the page had only "restore"): start with
+  /// empty data. The unreadable file is kept aside, never deleted.
+  Future<void> startFresh() async {
+    if (loadError == null) return;
+    await services.store.startOverKeepingOld();
+    data = AppData();
+    await services.store.save(data);
+    loadError = null;
+    photo = null;
+    notifyListeners();
+    await _reschedule();
+  }
+
   /// Replaces everything with a restored backup.
   /// Puts a backup in place of everything. The attached files are written
   /// first; if anything fails before the new data is saved, the data on the

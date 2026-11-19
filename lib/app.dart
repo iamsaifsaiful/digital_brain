@@ -483,6 +483,30 @@ class _LoadError extends StatelessWidget {
                   icon: const Icon(Icons.restore_rounded),
                   label: Text(tr('ব্যাকআপ থেকে ফিরিয়ে আনুন')),
                 ),
+                const SizedBox(height: 10),
+                // No backup (owner, 19 Nov: a new member had only "restore"):
+                // start empty, the old file kept aside.
+                OutlinedButton.icon(
+                  key: const Key('load-error-fresh'),
+                  onPressed: () async {
+                    final brain = BrainScope.read(context);
+                    final ok = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Text(tr('নতুন করে শুরু করবেন?'), style: display(19)),
+                        content: Text(tr('অ্যাপ খালি অবস্থায় শুরু হবে। পুরনো ফাইলটা মুছে ফেলা হবে না, আলাদা করে রাখা থাকবে। পরে ব্যাকআপ পেলে সেখান থেকে ফিরিয়ে আনা যাবে।'),
+                            style: body(15, color: C.muted, height: 1.5)),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('বাতিল'))),
+                          TextButton(key: const Key('load-error-fresh-ok'), onPressed: () => Navigator.pop(ctx, true), child: Text(tr('নতুন করে শুরু করুন'))),
+                        ],
+                      ),
+                    );
+                    if (ok == true) await brain.startFresh();
+                  },
+                  icon: const Icon(Icons.restart_alt_rounded),
+                  label: Text(tr('ব্যাকআপ নেই — নতুন করে শুরু করুন')),
+                ),
               ],
             ),
           ),
