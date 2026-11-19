@@ -1,0 +1,59 @@
+# Frees GitHub Actions storage: deletes old workflow artifacts and caches.
+# Keeps the newest artifact of every name, and everything made in the last
+# 2 days, so recent builds are never lost. Releases, branches and code are
+# never touched. Runs when this branch is pushed, or by hand.
+name: Storage cleanup
+
+on:
+  push:
+    branches: [claude/project-thread-6kbbv4]
+    paths: ['.github/workflows/storage_cleanup.yml']
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      R: ${{ github.repository }}
+    steps:
+      - name: Delete old artifacts
+        run: |
+          gh api --paginate "repos/$R/actions/artifacts?per_page=100" \
+            --jq '.artifacts[] | [.id, .name, .size_in_bytes, .created_at, .expired, (.workflow_run.head_branch // "")] | @tsv' \
+            | sort -t$'\t' -k4,4r > all.tsv
+          echo "Artifacts found: $(wc -l < all.tsv)"
+          cutoff=$(date -u -d '2 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          declare -A seen
+          freed=0; n=0; kept=0
+          while IFS=$'\t' read -r id name size created expired branch; do
+            if [ "$expired" = "true" ]; then continue; fi
+            if [ -z "${seen[$name]}" ] || [[ "$created" > "$cutoff" ]]; then
+              seen[$name]=1; kept=$((kept+1))
+              echo "KEEP    $created  $name  $((size/1048576)) MB  ($branch)"
+              continue
+            fi
+            if gh api -X DELETE "repos/$R/actions/artifacts/$id" >/dev/null; then
+              freed=$((freed+size)); n=$((n+1))
+              echo "DELETED $created  $name  $((size/1048576)) MB  ($branch)"
+            fi
+          done < all.tsv
+          echo "### Artifacts: deleted $n, kept $kept, freed $((freed/1048576)) MB" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Delete old caches
+        run: |
+          gh api --paginate "repos/$R/actions/caches?per_page=100" \
+            --jq '.actions_caches[] | [.id, .key, .size_in_bytes, .last_accessed_at, .ref] | @tsv' > caches.tsv
+          echo "Caches found: $(wc -l < caches.tsv)"
+          freed=0; n=0
+          while IFS=$'\t' read -r id key size last ref; do
+            if gh api -X DELETE "repos/$R/actions/caches/$id" >/dev/null; then
+              freed=$((freed+size)); n=$((n+1))
+              echo "DELETED $last  $key  $((size/1048576)) MB  ($ref)"
+            fi
+          done < caches.tsv
+          echo "### Caches: deleted $n, freed $((freed/1048576)) MB (they are rebuilt on the next build)" | tee -a "$GITHUB_STEP_SUMMARY"
