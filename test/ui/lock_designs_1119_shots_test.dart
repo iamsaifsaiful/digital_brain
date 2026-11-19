@@ -14,7 +14,7 @@ import 'new_ui_shots_test.dart' as four show icons;
 final shots = Platform.environment['SHOTS'] == '1';
 
 void main() {
-  for (final d in [1, 2, 3]) {
+  for (final d in [1, 2, 3, 4, 5, 6]) {
     testWidgets('lock design $d: sign-up, PIN, unlock', (t) async {
       t.view.physicalSize = const Size(1170, 2532);
       t.view.devicePixelRatio = 3.0;
